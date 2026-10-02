@@ -22947,6 +22947,12 @@ function Request-DomeniaDashboardRefresh {
                 param($sender,$eventArgs)
                 # Stop the timer that ticked, not the script variable: a replaced or cleared variable left it ticking forever.
                 try { $sender.Stop() } catch { }
+                # D020: the page may have been hidden since the request; it is then rebuilt once when shown again.
+                $tickAllowed = $true
+                if ($null -ne (Get-Command -Name Test-DomeniaBackgroundWorkAllowed -CommandType Function -ErrorAction SilentlyContinue)) {
+                    try { $tickAllowed = [bool](Test-DomeniaBackgroundWorkAllowed -Source 'Dashboard') } catch { $tickAllowed = $true }
+                }
+                if (-not $tickAllowed) { $script:DashboardDirty = $true; return }
                 try { Update-Dashboard } catch { }
             })
             # D019: owned timer, stopped by the registry at shutdown.
