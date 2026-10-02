@@ -32,7 +32,7 @@ function Write-AppLog {param($Text,$Level)}
 function Set-Status {param($Text,$Level)}
 function Show-InfoBox {param($Message)}
 function Confirm-Action {param($Message,$Title) $script:ConsentCalls++;return $script:Consent}
-function Show-DomeniaAlternateCredential {param($Scope,$Operation) $script:DialogCalls++;return $script:NextCredential}
+function Show-DomeniaAlternateCredential {param($Scope,$Operation,$Target) $script:DialogCalls++;$script:DialogTarget=[string]$Target;return $script:NextCredential}
 function Start-DomeniaAccountRelogin {$script:ReloginCalls++}
 function Start-LoadComputerSecrets {param($Mode,$RetryAttempt) $script:RetryCalls.Add([pscustomobject]@{Mode=$Mode;RetryAttempt=$RetryAttempt})}
 function Update-DomeniaSecretActionUi {}

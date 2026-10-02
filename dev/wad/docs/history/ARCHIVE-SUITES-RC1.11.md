@@ -74,6 +74,11 @@ Règle appliquée partout : aucun nombre d'opérations, de modules ou de fonctio
 - **NON_DETERMINE** — `Test-Domenia` « CSV : formules, separateurs, textes et nombres » : aucune cause trouvée par lecture.
   Chaque assertion porte maintenant son propre message (valeur, type, culture, CSV brut). La règle de neutralisation
   n'est pas modifiée avant le rapport Windows qui nommera l'assertion fautive.
+- **REAL_DEFECT probable, lot interface (D006)** — lu dans le XAML principal, non exécuté : `LblLiveState`,
+  `LblSuiteResultCount` et `LblBranchCount` passent à la ligne (`TextWrapping="Wrap"`) sans hauteur réservée au-dessus
+  de `DgObjects`. Quand une recherche met ces textes à jour, la grille et ses boutons descendent aux largeurs étroites.
+  La fenêtre principale a `MinHeight="640"` : plus haute que la zone de travail à 1366×768 125 %, 1920×1080 175 % et
+  200 %. `Test-DomeniaGeometry` le mesurera ; la correction relève de D082/D090.
 - **Audits Python périmés hors du périmètre de fichiers du lot** : `wad/tests/audit_accounts.py` (attend encore le
   `WaitOne` synchrone de R1.4 dans le cœur), `wad/tests/audit_lastuser.py`, `wad/tests/audit_remote.py`,
   `wad/tests/audit_streaming.py`. Aucun n'est lancé par `build_packages.py`. À archiver par l'intégrateur de la même façon
@@ -103,11 +108,20 @@ l'historique ; ils ne s'exécutent plus depuis ce dossier (imports relatifs à `
 
 ## 6. Nouvelles suites du lot (écrites, non exécutées)
 
-- `wad/tests/Test-DomeniaRegressions.ps1` (D005) : une reproduction par régression rencontrée, chacune avec sa version
-  fautive (échec reproduit) et la version livrée (réussite).
-- `wad/tests/Test-DomeniaGeometry.ps1` (D006) : clair et sombre, petit écran, RDP, mise à l'échelle 100 à 200 % simulée
-  en unités WPF, positions de la recherche, des résultats et de leurs boutons pendant une opération.
+- `wad/tests/Test-DomeniaRegressions.ps1` (D005) : chaque scénario exécute la même vérification sur la version fautive
+  (fixture historique, ou garde retirée quand la version d'origine n'existe plus que dans les notes) puis sur le code
+  livré : dépendances non chargées (RC1.1), compteur 55/54 (RC1.4), expression invalide après `-or` (RC1.10.x),
+  concaténation PsExec (R1.2), tableau d'octets déroulé, préchargement débranché (RC1.10.6), retour tardif (RC1.3,
+  RC1.10.7), lecture JSON sous 5.1 et masquage de `$name` (harnais). Un catalogue vérifie que les reproductions déjà
+  présentes dans les autres suites et leurs fixtures restent en place.
+- `wad/tests/Test-DomeniaGeometry.ps1` (D006) : neuf configurations (bureau, 125 à 200 %, portable 1366×768, RDP
+  1024×768), thèmes clair et sombre, fenêtre réelle à la taille de la zone de travail en unités WPF. Champs essentiels
+  visibles et atteignables ; positions de la recherche, des résultats et de leurs boutons inchangées pendant une
+  opération, l'arrivée des résultats, la mise à jour des compteurs et le mode écriture. Les fenêtres plus grandes que
+  l'écran sont listées dans `Observations`.
 - `wad/tests/Test-DomeniaFaults.ps1` (D007) : DNS lent, refus AD, déchiffrement LAPS refusé, disque plein, SQLite
-  verrouillé, coupure après envoi.
+  verrouillé (verrou réel winsqlite3), coupure après envoi (enveloppe d'écriture réelle de `New-DomeniaWorkerRunspace`
+  et reçus réels). Corps de worker épinglés vérifiés par leur empreinte avant exécution.
 - `wad/tests/Test-DomeniaWiringSuites.ps1` (D004, D008 et raccordement des suites) avec la bibliothèque
-  `wad/tests/fixtures/Domenia-AdFixtures.ps1` ; règles de courses complémentaires dans `wad/tests/rules/Races.Tests.ps1`.
+  `wad/tests/fixtures/Domenia-AdFixtures.ps1` ; règles de courses générées (graine fixe) dans
+  `wad/tests/rules/Races.Tests.ps1`, chargées par `Test-DomeniaRules.ps1`.
