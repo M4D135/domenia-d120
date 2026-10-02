@@ -1,4 +1,4 @@
-# D021-D030 : chargement, cache et performance. Donnees fictives uniquement.
+﻿# D021-D030 : chargement, cache et performance. Donnees fictives uniquement.
 $script:C0=[datetime]::SpecifyKind([datetime]'2026-01-01T10:00:00',[DateTimeKind]::Utc)
 $script:GA='11111111-1111-1111-1111-111111111111';$script:GB='22222222-2222-2222-2222-222222222222'
 Test-Case 'D021' 'La projection de liste ne demande ni appartenances ni droits' {

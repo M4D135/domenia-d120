@@ -1,4 +1,4 @@
-# D011-D020 : moteur. Donnees fictives uniquement.
+﻿# D011-D020 : moteur. Donnees fictives uniquement.
 function New-TestModule { param([string]$File,[string]$Phase='Modules',[string[]]$Requires=@(),[string[]]$Functions=@()) [pscustomobject]@{File=$File;Phase=$Phase;Requires=$Requires;Functions=$Functions} }
 Test-Case 'D011' 'Plan valide : ordre respectant les dependances' {
     $plan=Test-DomeniaStartupPlan @((New-TestModule 'B.ps1' 'Modules' @('A.ps1') @('Get-B')),(New-TestModule 'A.ps1' 'Resources' @() @('Get-A')))

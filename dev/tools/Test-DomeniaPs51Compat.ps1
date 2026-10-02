@@ -1,4 +1,4 @@
-#requires -Version 5.1
+﻿#requires -Version 5.1
 # Static Windows PowerShell 5.1 compatibility gate. No script is executed, no network, no domain.
 # Under Windows PowerShell 5.1 the native parser itself rejects 6/7-only syntax.
 # Under a newer engine the same constructs are found in the AST, so a preparation host

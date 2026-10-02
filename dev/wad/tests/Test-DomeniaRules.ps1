@@ -1,4 +1,4 @@
-#requires -Version 5.1
+﻿#requires -Version 5.1
 # Pure rule tests for the D001-D120 modules. No WPF, no domain, no network, no user data.
 # The same file runs under Windows PowerShell 5.1 (qualifying) and under another engine
 # (preparation only: the report then states that it is not a Windows PowerShell 5.1 result).

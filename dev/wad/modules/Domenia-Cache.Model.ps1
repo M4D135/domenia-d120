@@ -1,4 +1,4 @@
-# Cache and loading rules: projections, cell updates, paging, freshness per nature of data,
+﻿# Cache and loading rules: projections, cell updates, paging, freshness per nature of data,
 # cache keys, incremental synchronisation, negative cache, single writer, retention, offline policy.
 # Pure decisions: no SQLite, no LDAP and no file is touched here.
 

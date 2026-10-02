@@ -1,0 +1,134 @@
+﻿# D061-D070 : utilisateurs, groupes et domaine. Donnees fictives uniquement.
+$script:D0=[datetime]::SpecifyKind([datetime]'2026-01-01T10:00:00',[DateTimeKind]::Utc)
+$script:UserProps=@{displayName=@('Jean Dupont');sAMAccountName=@('jdupont');userPrincipalName=@('jdupont@example.invalid');department=@('Support');title=@('Technicien');manager=@('CN=Marie Martin,OU=Lyon,DC=example,DC=invalid');mail=@('jdupont@example.invalid');telephoneNumber=@('0100000000');userAccountControl=@(512);'msDS-User-Account-Control-Computed'=@(0);whenCreated=@([datetime]'2024-05-01');pwdLastSet=@($script:D0.AddDays(-10).ToFileTimeUtc());lastLogonTimestamp=@($script:D0.AddDays(-2).ToFileTimeUtc());objectSid=@('S-1-5-21-1-2-3-1104');nTSecurityDescriptor=@('x');memberOf=@('CN=G1')}
+Test-Case 'D061' 'Resume support : identite, service, contact, etat, dates ; pas de grille brute' {
+    $facts=@(Get-DomeniaUserSupportSummary $script:UserProps 'EX\lecteur' 'Lecture AD' $script:D0 $script:D0)
+    $labels=@($facts|ForEach-Object{$_.Fait})
+    foreach($expected in @('Nom affiche','Identifiant','Service','Responsable','Messagerie','Etat du compte','Mot de passe change le')){Assert-True ($labels -contains $expected) ('Absent : '+$expected)}
+    Assert-Equal 'Marie Martin' (@($facts|Where-Object{$_.Fait -eq 'Responsable'})[0].Valeur)
+    Assert-True ($facts.Count -le 16) 'Resume court'
+    Assert-False ($labels -contains 'nTSecurityDescriptor');Assert-False ($labels -contains 'memberOf');Assert-False ($labels -contains 'objectSid')
+    Assert-True (@($facts|Where-Object{$_.Fait -match 'approx'})[0].Limite -match '14 jours')
+}
+Test-Case 'D061' 'Attributs en collection a un element ou scalaires lus de la meme facon' {
+    Assert-Equal 'x' (Get-DomeniaAttr @{name=@('x')} 'NAME');Assert-Equal 'x' (Get-DomeniaAttr @{name='x'} 'name');Assert-Equal 'd' (Get-DomeniaAttr @{name=@()} 'name' 'd')
+    Assert-Equal 'd' (Get-DomeniaAttr @{} 'name' 'd');Assert-Equal 2 @(Get-DomeniaAttrAll @{member=@('a','b')} 'member').Count;Assert-Equal 1 @(Get-DomeniaAttrAll @{member='a'} 'member').Count
+    $bytes=[byte[]](1,2,3);Assert-True ((Get-DomeniaAttr @{objectSid=@(,$bytes)} 'objectSid') -is [byte[]]) 'Un tableau d octets reste entier'
+}
+Test-Case 'D062' 'Strategie non lisible : inconnue, jamais deduite du domaine' {
+    $r=Resolve-DomeniaPasswordPolicy $script:UserProps 'Unreadable' $null @{minPwdLength=@(8);maxPwdAge=@(-36288000000000)} 'EX\l' $script:D0
+    Assert-False $r.PolicyKnown
+    $policy=@($r.Facts|Where-Object{$_.Fait -eq 'Strategie applicable'})[0];Assert-Equal 'Inconnu' $policy.Etat
+    Assert-True (@($r.Facts|Where-Object{$_.Fait -eq 'Longueur minimale'}).Count -eq 0) 'Aucune valeur du domaine n est affichee'
+    Assert-Equal 'Inconnu' (@($r.Facts|Where-Object{$_.Fait -eq 'Expiration du mot de passe'})[0].Etat)
+}
+Test-Case 'D062' 'Strategie fine appliquee et expiration calculee par le controleur' {
+    $user=$script:UserProps.Clone();$user['msDS-UserPasswordExpiryTimeComputed']=@($script:D0.AddDays(20).ToFileTimeUtc())
+    $pso=@{name=@('PSO-Support');'msDS-MinimumPasswordLength'=@(14);'msDS-MaximumPasswordAge'=@(-25920000000000);'msDS-PasswordComplexityEnabled'=@('TRUE');'msDS-LockoutThreshold'=@(5);'msDS-LockoutDuration'=@(-18000000000)}
+    $r=Resolve-DomeniaPasswordPolicy $user 'Applies' $pso $null 'EX\l' $script:D0
+    Assert-True $r.PolicyKnown;Assert-True ($r.PolicySource -match 'PSO-Support')
+    Assert-Equal '14 caracteres' (@($r.Facts|Where-Object{$_.Fait -eq 'Longueur minimale'})[0].Valeur);Assert-Equal '30 jours' (@($r.Facts|Where-Object{$_.Fait -eq 'Duree de validite'})[0].Valeur)
+    Assert-True ((@($r.Facts|Where-Object{$_.Fait -eq 'Verrouillage'})[0].Valeur) -match '5 echecs, duree 30 min')
+    Assert-Equal $script:D0.AddDays(20) $r.ExpiresUtc;Assert-Equal 'Constate' (@($r.Facts|Where-Object{$_.Fait -eq 'Expiration du mot de passe'})[0].Etat)
+}
+Test-Case 'D062' 'Strategie du domaine : expiration estimee et signalee comme telle ; option sans expiration respectee' {
+    $domain=@{minPwdLength=@(8);maxPwdAge=@(-36288000000000);pwdProperties=@(1);lockoutThreshold=@(0);pwdHistoryLength=@(24)}
+    $r=Resolve-DomeniaPasswordPolicy $script:UserProps 'None' $null $domain 'EX\l' $script:D0
+    Assert-Equal 'Estime' (@($r.Facts|Where-Object{$_.Fait -eq 'Expiration du mot de passe'})[0].Etat);Assert-Equal $script:D0.AddDays(32) $r.ExpiresUtc
+    Assert-Equal 'Aucun verrouillage' (@($r.Facts|Where-Object{$_.Fait -eq 'Verrouillage'})[0].Valeur)
+    $never=$script:UserProps.Clone();$never['userAccountControl']=@(66048)
+    Assert-True ((@((Resolve-DomeniaPasswordPolicy $never 'None' $null $domain).Facts|Where-Object{$_.Fait -eq 'Expiration du mot de passe'})[0].Valeur) -match 'jamais')
+    Assert-True ($null -eq (ConvertFrom-DomeniaAdInterval 0));Assert-True ($null -eq (ConvertFrom-DomeniaAdInterval ([long]::MinValue)));Assert-Equal 42 ([int](ConvertFrom-DomeniaAdInterval -36288000000000).TotalDays)
+}
+Test-Case 'D063' 'Un lockoutTime non nul seul ne prouve pas un verrouillage actuel' {
+    $u=@{userAccountControl=@(512);lockoutTime=@($script:D0.AddHours(-3).ToFileTimeUtc());badPwdCount=@(2)}
+    $d=Get-DomeniaLockoutDiagnosis $u 'dc1' $null 'NotRequested' ([TimeSpan]::Zero) $false 'EX\l' $script:D0
+    Assert-Equal 'Inconnu' $d.Verdict
+    $locked=@{userAccountControl=@(512);'msDS-User-Account-Control-Computed'=@(16);lockoutTime=@($script:D0.AddMinutes(-3).ToFileTimeUtc())}
+    Assert-Equal 'Verrouille' (Get-DomeniaLockoutDiagnosis $locked 'dc1').Verdict
+    $free=@{userAccountControl=@(512);'msDS-User-Account-Control-Computed'=@(0);lockoutTime=@($script:D0.AddDays(-3).ToFileTimeUtc())}
+    Assert-Equal 'NonVerrouille' (Get-DomeniaLockoutDiagnosis $free 'dc1').Verdict
+    Assert-True (@($d.Facts|Where-Object{$_.Fait -eq 'Echecs de mot de passe'})[0].Limite -match 'pas replique')
+}
+Test-Case 'D063' 'Aucune lecture de journal sans demande ; refus de lecture sans verdict ; recidive comptee' {
+    $u=@{userAccountControl=@(512);'msDS-User-Account-Control-Computed'=@(0)}
+    Assert-True (@((Get-DomeniaLockoutDiagnosis $u 'dc1').Facts|Where-Object{$_.Fait -eq 'Verrouillages journalises'})[0].Valeur -eq 'Non demandes')
+    $refused=@((Get-DomeniaLockoutDiagnosis $u 'dc1' $null 'Refused').Facts|Where-Object{$_.Fait -eq 'Verrouillages journalises'})[0]
+    Assert-Equal 'Refuse' $refused.Etat;Assert-True ($refused.Limite -match 'ne signifie pas')
+    $events=@([pscustomobject]@{TimeUtc=$script:D0;CallerComputer='PC-1'},[pscustomobject]@{TimeUtc=$script:D0;CallerComputer='PC-1'},[pscustomobject]@{TimeUtc=$script:D0;CallerComputer='SRV-2'})
+    $d=Get-DomeniaLockoutDiagnosis $u 'dc1' $events 'Read';Assert-Equal 3 $d.Recurrence;Assert-Equal 'PC-1 (2)' $d.Origins[0]
+}
+Test-Case 'D064' 'Chemin direct, imbrique, cycle et limites' {
+    $edges=@{'CN=U'=@('CN=G1');'CN=G1'=@('CN=G2','CN=G3');'CN=G2'=@('CN=G1','CN=Cible');'CN=G3'=@()}
+    $p=Find-DomeniaMembershipPath $edges 'CN=U' 'CN=Cible';Assert-True $p.Found;Assert-Equal 4 $p.Path.Count;Assert-Equal 'CN=G2' $p.Path[2];Assert-False $p.Direct
+    Assert-True (Find-DomeniaMembershipPath $edges 'cn=u' 'CN=G1').Direct
+    $none=Find-DomeniaMembershipPath $edges 'CN=U' 'CN=Absent';Assert-False $none.Found;Assert-False $none.Truncated 'Le cycle G1-G2 ne boucle pas'
+    $cut=Find-DomeniaMembershipPath $edges 'CN=U' 'CN=Cible' -MaxDepth 1;Assert-False $cut.Found;Assert-True $cut.Truncated
+}
+Test-Case 'D064' 'Un grand groupe tronque ne conduit pas a annoncer une absence' {
+    $r=Resolve-DomeniaMembershipAnswer $null ([pscustomobject]@{Found=$false;Truncated=$true})
+    Assert-True ($null -eq $r.Member);Assert-False $r.Certain;Assert-True ($r.Text -match 'Indetermine')
+    Assert-True (Resolve-DomeniaMembershipAnswer $true).Certain;Assert-False (Resolve-DomeniaMembershipAnswer $false).Member
+    Assert-True ($null -eq (Resolve-DomeniaMembershipAnswer $null $null $true).Member)
+    Assert-Equal 'S-1-5-21-1-2-3-513' (Get-DomeniaPrimaryGroupSid 'S-1-5-21-1-2-3-1104' '513')
+}
+Test-Case 'D065' 'Comparaison en lecture, groupes a privileges signales, rien d appliquable' {
+    $l=[pscustomobject]@{Attributes=@{department='Support';title='Tech'};Groups=@([pscustomobject]@{Name='GG-Support';Dn='CN=GG-Support'},[pscustomobject]@{Name='Admins du domaine';Dn='CN=DA';Sid='S-1-5-21-1-2-3-512'})}
+    $r=[pscustomobject]@{Attributes=@{department='Support';title='Chef'};Groups=@([pscustomobject]@{Name='GG-Support';Dn='CN=GG-Support'})}
+    $c=Compare-DomeniaUserAccess $l $r
+    Assert-False $c.CanApply;Assert-Equal 1 $c.PrivilegedDifferences
+    $da=@($c.Rows|Where-Object{$_.Element -eq 'Admins du domaine'})[0];Assert-True $da.Privilegie;Assert-True ($da.Alerte.Length -gt 10);Assert-False $da.Identique
+    Assert-True (@($c.Rows|Where-Object{$_.Element -eq 'GG-Support'})[0].Identique);Assert-False (@($c.Rows|Where-Object{$_.Element -eq 'Fonction'})[0].Identique)
+    Assert-True (Test-DomeniaPrivilegedGroup ([pscustomobject]@{Name='x';Sid='S-1-5-32-544'}));Assert-False (Test-DomeniaPrivilegedGroup ([pscustomobject]@{Name='GG-Support';Sid='S-1-5-21-1-2-3-2001'}))
+}
+Test-Case 'D066' 'Seuls les ajouts et retraits choisis ; jamais la liste complete' {
+    $d=New-DomeniaGroupDelta @('CN=G1','CN=G2','CN=G3') @('CN=G4') @('CN=G2') 'CN=U'
+    Assert-Equal 2 $d.Operations.Count;Assert-False $d.WritesFullList
+    Assert-Equal 'Add' $d.Operations[0].Action;Assert-Equal 'CN=G4' $d.Operations[0].GroupDn;Assert-Equal 'Remove' $d.Operations[1].Action
+    Assert-True (@($d.Operations|Where-Object{$_.GroupDn -in @('CN=G1','CN=G3')}).Count -eq 0) 'Les groupes non choisis ne sont pas touches'
+    Assert-Equal 0 (New-DomeniaGroupDelta @('CN=G1') @('CN=G9') @('CN=G9')).Operations.Count
+}
+Test-Case 'D066' 'Postconditions verifiees par relecture, groupe modifie ailleurs non ecrase' {
+    $d=New-DomeniaGroupDelta @('CN=G1','CN=G2') @('CN=G4') @('CN=G2') 'CN=U'
+    Assert-Equal 'Verifie' (Test-DomeniaGroupDeltaPostcondition $d @{'CN=G4'=$true;'cn=g2'=$false}).Overall
+    Assert-Equal 'Partiel' (Test-DomeniaGroupDeltaPostcondition $d @{'CN=G4'=$true;'CN=G2'=$true}).Overall
+    Assert-Equal 'A verifier' (Test-DomeniaGroupDeltaPostcondition $d @{'CN=G4'=$true}).Overall
+}
+Test-Case 'D067' 'ACE observee distincte d une capacite verifiee ; origine et portee visibles' {
+    $rows=@(ConvertTo-DomeniaAceView @([pscustomobject]@{IdentityReference='EX\GG-Support';ActiveDirectoryRights='WriteProperty';AccessControlType='Allow';IsInherited=$true;InheritanceType='Descendents';ObjectType='bf967a0a-0de6-11d0-a285-00aa003049e2'},[pscustomobject]@{IdentityReference='EX\adm';ActiveDirectoryRights='GenericAll';AccessControlType='Deny';IsInherited=$false;InheritanceType='None'}) @{'bf967a0a-0de6-11d0-a285-00aa003049e2'='pwdLastSet'})
+    Assert-Equal 2 $rows.Count;Assert-Equal 'ACE observee' $rows[0].Statut;Assert-True ($rows[0].Origine -match 'Heritee');Assert-Equal 'pwdLastSet' $rows[0].Cible
+    Assert-Equal 'Refus' $rows[1].Type;Assert-True ($rows[1].Origine -match 'Posee');Assert-True ($rows[0].Limite -match 'droit effectif')
+}
+Test-Case 'D068' 'Etapes sensibles confirmees une a une ; ni suppression ni migration' {
+    $p=New-DomeniaLifecyclePlan Suspension ([pscustomobject]@{Name='Jean'}) ([pscustomobject]@{TargetOu='OU=Suspendus,DC=example,DC=invalid';Attributes=@{description='Suspendu'}})
+    Assert-False $p.Deletes;Assert-False $p.Migrates;Assert-Equal 3 $p.Steps.Count
+    Assert-True (@($p.Steps|Where-Object{$_.Sensitive}).Count -eq 3);Assert-True (@($p.Steps|Where-Object{$_.Operation -match 'Delete|Migrate'}).Count -eq 0)
+    Assert-Equal 1 (Get-DomeniaLifecycleNextStep $p).Id
+}
+Test-Case 'D068' 'Une issue incertaine bloque la suite et n est pas rejouee' {
+    $p=New-DomeniaLifecyclePlan ChangementService ([pscustomobject]@{Name='Jean'}) ([pscustomobject]@{AddGroups=@('CN=G1');TargetOu='OU=X'})
+    [void](Set-DomeniaLifecycleStep $p 1 Verified);Assert-Equal 2 (Get-DomeniaLifecycleNextStep $p).Id
+    [void](Set-DomeniaLifecycleStep $p 2 Uncertain);Assert-True $p.Blocked;Assert-True ($null -eq (Get-DomeniaLifecycleNextStep $p))
+    [void](Set-DomeniaLifecycleStep $p 2 Resolved 'verifie a la main');Assert-False $p.Blocked;Assert-Equal 3 (Get-DomeniaLifecycleNextStep $p).Id 'L etape 2 n est pas reproposee'
+}
+Test-Case 'D069' 'Doublons et dates anciennes : a revoir, jamais supprimable' {
+    $objects=@([pscustomobject]@{Name='A';Type='Utilisateur';Mail='x@example.invalid';Upn='a@example.invalid';Description='d';LastLogonUtc=$script:D0.AddDays(-400)},
+               [pscustomobject]@{Name='B';Type='Utilisateur';Mail='X@example.invalid';Upn='b@example.invalid';Description='d';ManagerDn='CN=Parti,DC=example,DC=invalid';LastLogonUtc=$script:D0.AddDays(-2)})
+    $f=@(Find-DomeniaDirectoryInconsistencies $objects @('CN=A,DC=example,DC=invalid') 180 $script:D0)
+    Assert-True (@($f|Where-Object{$_.Categorie -eq 'Valeur en double'}).Count -eq 1);Assert-True (@($f|Where-Object{$_.Categorie -eq 'Objet peu utilise'}).Count -eq 1)
+    Assert-True (@($f|Where-Object{$_.Categorie -eq 'Responsable a verifier'}).Count -eq 1)
+    Assert-True (@($f|Where-Object{$_.Conclusion -ne 'A revoir'}).Count -eq 0);Assert-False (($f|ConvertTo-Json -Depth 3) -match '"Conclusion":\s*"Supprim')
+    Assert-True (@(Find-DomeniaDirectoryInconsistencies $objects @() 180 $script:D0 $true)[0].Limite -match 'partiellement')
+}
+Test-Case 'D070' 'Differences datees par controleur, USN non compares, controleur injoignable non compte comme difference' {
+    $xml='<DS_REPL_ATTR_META_DATA><pszAttributeName>description</pszAttributeName><dwVersion>3</dwVersion><ftimeLastOriginatingChange>2025-12-30T09:00:00Z</ftimeLastOriginatingChange><usnOriginatingChange>500</usnOriginatingChange><usnLocalChange>900</usnLocalChange><pszLastOriginatingDsaDN>CN=NTDS Settings,CN=DC1,CN=Servers,CN=Site,CN=Sites,CN=Configuration,DC=example,DC=invalid</pszLastOriginatingDsaDN></DS_REPL_ATTR_META_DATA>'
+    $meta=@(ConvertFrom-DomeniaReplMetadata @($xml,'pas du xml'));Assert-Equal 1 $meta.Count;Assert-Equal 'DC1' $meta[0].OriginatingDc;Assert-Equal '3' $meta[0].Version
+    $readings=@([pscustomobject]@{Dc='dc1';Reachable=$true;Attributes=@{description=@('Nouveau');title=@('T')};Metadata=$meta},
+                [pscustomobject]@{Dc='dc2';Reachable=$true;Attributes=@{description=@('Ancien');title=@('T')};Metadata=@()},
+                [pscustomobject]@{Dc='dc3';Reachable=$false;Error='injoignable'})
+    $c=Compare-DomeniaDcReadings $readings @('description','title')
+    Assert-Equal 1 $c.Differences;Assert-True $c.Comparable;Assert-Equal 1 $c.NotRead.Count
+    $row=@($c.Rows|Where-Object{$_.Attribut -eq 'description'})[0];Assert-True ($row.ParControleur['dc1'] -match 'origine DC1');Assert-Equal 2 $row.Lus
+    Assert-True ($c.Note -match 'USN sont locaux')
+    Assert-False (Compare-DomeniaDcReadings @($readings[0]) @('description')).Comparable
+}

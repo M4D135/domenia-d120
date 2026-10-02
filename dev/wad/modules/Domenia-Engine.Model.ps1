@@ -1,4 +1,4 @@
-# Engine rules: startup order, selection identity, task scheduling, cancellation states,
+﻿# Engine rules: startup order, selection identity, task scheduling, cancellation states,
 # provider budgets, resource ownership and idle policy. Pure decisions only: no runspace,
 # no timer and no network call is created here.
 

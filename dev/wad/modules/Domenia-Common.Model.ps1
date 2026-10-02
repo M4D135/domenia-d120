@@ -1,4 +1,4 @@
-# Shared pure helpers for the Domenia rule modules. No WPF, no network, no disk access.
+﻿# Shared pure helpers for the Domenia rule modules. No WPF, no network, no disk access.
 # Dot-sourced first by the closed loader: every other *.Model.ps1 may rely on these functions.
 
 function Get-DomeniaMember {

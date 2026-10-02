@@ -1,4 +1,4 @@
-#requires -Version 5.1
+﻿#requires -Version 5.1
 # Development helper: runs the Domenia test suites, each in its own Windows PowerShell 5.1 -STA process,
 # and gathers their reports. No domain access is started by this script; each suite states its own scope.
 [CmdletBinding()]
@@ -22,6 +22,8 @@ foreach($suite in $suites){
     if($extra.ContainsKey($suite.Name)){$arguments+=$extra[$suite.Name]}else{$arguments+='-Quiet'}
     $watch=[Diagnostics.Stopwatch]::StartNew();$timedOut=$false;$code=$null
     $process=Start-Process -FilePath $shell -ArgumentList $arguments -PassThru -NoNewWindow -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+    # Windows PowerShell 5.1 only exposes ExitCode when the process handle was read before the exit.
+    $null=$process.Handle
     if(-not $process.WaitForExit($TimeoutSeconds*1000)){$timedOut=$true;try{$process.Kill()}catch{}}else{$process.WaitForExit();$code=$process.ExitCode}
     $watch.Stop()
     $rows.Add([pscustomobject]@{Suite=$suite.Name;ExitCode=$code;TimedOut=$timedOut;DurationMs=$watch.ElapsedMilliseconds;ReportWritten=[IO.File]::Exists($report)})
