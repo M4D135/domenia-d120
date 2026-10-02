@@ -71,6 +71,18 @@ Ligne de base réelle avant raccordement (Windows PowerShell 5.1.26100.9549) : 1
 Le détail est dans `dev/engineering/d120/lab/baseline-5.1-r1-summary.json`. Toute modification doit être comparée à cette référence :
 aucun test qui passait ne doit échouer sans décision explicite et documentée.
 
+## Environnement de test (décision de l'utilisateur, 2026-10-02)
+
+**Les tests s'exécutent dans les VM, jamais sur l'hôte.** L'hôte `DESKTOP-285EKHU` (192.168.1.173) ne sert qu'à relayer :
+- VM de test : `CNAMTS-W11-01` (Windows 11 joint au domaine `cnamts.local`, 10.77.0.20) avec `CNAMTS-DC01` (10.77.0.10) ;
+  réseau interne VirtualBox `CNAMTS-LAB`. Les deux VM sont démarrées en mode headless.
+- Outil : `dev/engineering/d120/lab/lab.sh` (`sync`, `ps`, `file`, `get`, variable `LAB_DIR` pour isoler les travaux parallèles)
+  → socket SSH du relais `~/Downloads/Domenia-lab/relais.sh` → `vmctl.ps1` sur l'hôte → `VBoxManage guestcontrol` dans la VM
+  (dossier invité `C:\DomeniaLab\<LAB_DIR>`).
+- Le compte invité et le **chemin** du fichier mot de passe sont dans `C:\Users\degun\domenia-lab\vm\vm.conf.json` sur l'hôte
+  (hors dépôt). Aucun outil ni agent ne lit, n'affiche ni ne recopie ce mot de passe.
+- Ne jamais lancer une suite, un script de test ou Domenia lui-même directement sur l'hôte ; ne pas toucher à `PESTO-W11-TEST`.
+
 ## Statuts du suivi
 
 `NON_CLOTURE` → `DEVELOPPE_NON_RACCORDE` (règles écrites et testées, application inchangée) →
