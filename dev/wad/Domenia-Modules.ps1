@@ -5,6 +5,189 @@
 
 function Get-DomeniaRuntimeModulePlan {
     @(
+        # D011: pure rule modules first. Phase and Requires are validated by Test-DomeniaStartupPlan
+        # (Domenia-Engine.Model.ps1) before any module of the Modules phase is imported.
+        [pscustomobject]@{ Phase='Bootstrap'; Requires=@(); File='Domenia-Common.Model.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaMember',
+            'Test-DomeniaGuidText',
+            'ConvertTo-DomeniaGuidText',
+            'ConvertTo-DomeniaSidText',
+            'Get-DomeniaTextHash',
+            'ConvertTo-DomeniaUtcDate',
+            'Get-DomeniaFeatureFlag',
+            'New-DomeniaFact',
+            'ConvertTo-DomeniaFlatText'
+        ) }
+        [pscustomobject]@{ Phase='Bootstrap'; Requires=@('Domenia-Common.Model.ps1'); File='Domenia-Engine.Model.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaStartupPhases',
+            'Get-DomeniaFunctionProviderMap',
+            'Test-DomeniaStartupPlan',
+            'Test-DomeniaPhaseCall',
+            'New-DomeniaSelectionIdentity',
+            'Test-DomeniaIdentityCurrent',
+            'Get-DomeniaTaskClass',
+            'Get-DomeniaTaskPriority',
+            'Get-DomeniaPayloadDigest',
+            'Get-DomeniaTaskDedupKey',
+            'Test-DomeniaTaskAdmission',
+            'Select-DomeniaNextQueuedTask',
+            'Get-DomeniaTaskState',
+            'Get-DomeniaTaskStateSummary',
+            'Get-DomeniaCancelStatusText',
+            'Get-DomeniaOperationProvider',
+            'Get-DomeniaProviderBudget',
+            'New-DomeniaProviderState',
+            'Get-DomeniaProviderStateKey',
+            'Register-DomeniaProviderOutcome',
+            'Reset-DomeniaProviderState',
+            'Test-DomeniaProviderAdmission',
+            'Test-DomeniaAutoRetryAllowed',
+            'New-DomeniaResourceRegistry',
+            'Register-DomeniaResource',
+            'Release-DomeniaResources',
+            'Get-DomeniaResourceSummary',
+            'Get-DomeniaIdlePolicy',
+            'Test-DomeniaIdleAllows'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1'); File='Domenia-Cache.Model.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaProjection',
+            'Test-DomeniaProjectionMinimal',
+            'Get-DomeniaRowUpdatePlan',
+            'New-DomeniaPageBuffer',
+            'Add-DomeniaPageRows',
+            'Get-DomeniaDataNatures',
+            'Get-DomeniaFreshnessPolicy',
+            'Get-DomeniaFreshness',
+            'Set-DomeniaObservationTime',
+            'Get-DomeniaRecordFreshness',
+            'Get-DomeniaCacheKey',
+            'Test-DomeniaCacheEntryValid',
+            'Resolve-DomeniaIncrementalSync',
+            'New-DomeniaNegativeCache',
+            'Get-DomeniaNegativeTtlSeconds',
+            'Register-DomeniaFailure',
+            'Clear-DomeniaFailure',
+            'Test-DomeniaNegativeCache',
+            'New-DomeniaWriteQueue',
+            'Add-DomeniaWriteRequest',
+            'Get-DomeniaWriteBatch',
+            'Resolve-DomeniaWriteConflict',
+            'Get-DomeniaPersistenceLabel',
+            'Get-DomeniaRetentionPolicy',
+            'Format-DomeniaSize',
+            'Get-DomeniaPurgePlan',
+            'Get-DomeniaCacheReadPolicy',
+            'Get-DomeniaCacheCatalogRows'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1'); File='Domenia-Search.Model.ps1'; DotSource=$true; Functions=@(
+            'ConvertTo-DomeniaLdapLiteral',
+            'Split-DomeniaSearchWords',
+            'Get-DomeniaTypeFilter',
+            'ConvertFrom-DomeniaSearchSyntax',
+            'Get-DomeniaWordFilter',
+            'ConvertTo-DomeniaSearchFilter',
+            'New-DomeniaGlobalSearchRequest',
+            'Test-DomeniaGlobalSearchRequest',
+            'New-DomeniaSearchState',
+            'Set-DomeniaBrowseOu',
+            'Get-DomeniaScopeLabel',
+            'Get-DomeniaSearchRank',
+            'Test-DomeniaAdminAccountRow',
+            'Sort-DomeniaSearchResults',
+            'ConvertTo-DomeniaGuidFilterValue',
+            'Get-DomeniaPastedIdentifier',
+            'Get-DomeniaResultCounterText',
+            'New-DomeniaContinuation',
+            'Test-DomeniaContinuationCurrent',
+            'ConvertTo-DomeniaLdapTime',
+            'Get-DomeniaWorkViews',
+            'ConvertTo-DomeniaSavedView',
+            'Split-DomeniaDn',
+            'Get-DomeniaOuDisplayPath',
+            'Resolve-DomeniaOuRestore',
+            'New-DomeniaNavHistory',
+            'Get-DomeniaNavStateKey',
+            'Push-DomeniaNavState',
+            'Step-DomeniaNavHistory'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1'); File='Domenia-Relations.Model.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaRelationDirection',
+            'ConvertTo-DomeniaRelationType',
+            'Test-DomeniaSameSubject',
+            'Test-DomeniaRelationConfirmation',
+            'Resolve-DomeniaRelationSubjectChange',
+            'Get-DomeniaRelationKind',
+            'Get-DomeniaRelationKey',
+            'Resolve-DomeniaRelationUpsert',
+            'Get-DomeniaEvidenceKind',
+            'Get-DomeniaEvidenceBadge',
+            'Step-DomeniaAssociationState',
+            'Merge-DomeniaRelationCandidates',
+            'Get-DomeniaDetectionScopePlan',
+            'Test-DomeniaDetectionMatchesPlan',
+            'Test-DomeniaProbeAllowed',
+            'New-DomeniaDetectionCounters',
+            'Add-DomeniaDetectionOutcome',
+            'Get-DomeniaDetectionCounterText',
+            'ConvertTo-DomeniaAccountIdentity',
+            'Test-DomeniaAccountIdentityMatch',
+            'New-DomeniaLinkHistoryEntry',
+            'Get-DomeniaLinkRestoreCandidate',
+            'Get-DomeniaLinkConflicts'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1'); File='Domenia-Access.Model.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaOperationResource',
+            'Test-DomeniaLocalAccountName',
+            'Get-DomeniaCredentialScope',
+            'Test-DomeniaCredentialContext',
+            'Set-DomeniaScopeAccount',
+            'Get-DomeniaErrorDecision',
+            'New-DomeniaDenialCoalescer',
+            'Add-DomeniaAccessDenial',
+            'Complete-DomeniaAccessPrompt',
+            'Get-DomeniaReauthPlan',
+            'New-DomeniaCredentialLease',
+            'Test-DomeniaCredentialLease',
+            'Use-DomeniaCredentialLease',
+            'Clear-DomeniaCredentialLease',
+            'Get-DomeniaOperationAuthNeed',
+            'Get-DomeniaCapabilityExplanation',
+            'ConvertTo-DomeniaLapsView',
+            'ConvertTo-DomeniaBitLockerKeyList',
+            'Find-DomeniaBitLockerKey',
+            'Test-DomeniaSecretRevealAllowed',
+            'Get-DomeniaSecretExposurePolicy',
+            'Protect-DomeniaSecretText',
+            'Test-DomeniaTextHasSecret',
+            'Select-DomeniaAllowedFields',
+            'Get-DomeniaTransportPolicy',
+            'Test-DomeniaTransportFallbackAllowed',
+            'Test-DomeniaTransportCodeSafety'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1'); File='Domenia-Directory.Model.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaAttr',
+            'Get-DomeniaAttrAll',
+            'ConvertFrom-DomeniaAdInterval',
+            'Get-DomeniaCnFromDn',
+            'Get-DomeniaAccountState',
+            'Get-DomeniaUserSupportSummary',
+            'Resolve-DomeniaPasswordPolicy',
+            'Get-DomeniaLockoutDiagnosis',
+            'Get-DomeniaPrimaryGroupSid',
+            'Find-DomeniaMembershipPath',
+            'Resolve-DomeniaMembershipAnswer',
+            'Test-DomeniaPrivilegedGroup',
+            'Compare-DomeniaUserAccess',
+            'New-DomeniaGroupDelta',
+            'Test-DomeniaGroupDeltaPostcondition',
+            'ConvertTo-DomeniaAceView',
+            'New-DomeniaLifecyclePlan',
+            'Set-DomeniaLifecycleStep',
+            'Get-DomeniaLifecycleNextStep',
+            'Find-DomeniaDirectoryInconsistencies',
+            'ConvertFrom-DomeniaReplMetadata',
+            'Compare-DomeniaDcReadings'
+        ) }
         [pscustomobject]@{ File='Domenia-Selection.UI.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaObjectReadIdentity',
             'Get-DomeniaSelectionContext',
@@ -332,6 +515,21 @@ function Get-DomeniaRuntimeModulePlan {
     )
 }
 
+function Get-DomeniaRuntimeModuleValue {
+    # Optional plan field (Phase, Requires) read without depending on the rule modules.
+    param($Module,[string]$Name,$Default)
+    $property = $Module.PSObject.Properties[$Name]
+    if ($null -eq $property) { return $Default }
+    return $property.Value
+}
+
+function Get-DomeniaRuntimeTypePlan {
+    # Immutable C# 5 types compiled before the rule modules (Add-Type of Windows PowerShell 5.1).
+    @(
+        [pscustomobject]@{ File='Domenia-Identity.Types.cs'; Types=@('Domenia.SelectionIdentity','Domenia.PlanChange','Domenia.InterventionPlan') }
+    )
+}
+
 function Assert-DomeniaRuntimeImports {
     [CmdletBinding()]
     param([string]$ModuleRoot = (Join-Path $PSScriptRoot 'modules'))
@@ -359,9 +557,18 @@ $domeniaImportRoot = Join-Path $PSScriptRoot 'modules'
 $domeniaImportPlan = @(Get-DomeniaRuntimeModulePlan)
 $domeniaImportErrorAction = $ErrorActionPreference
 $script:DomeniaRuntimeImports = @()
+$script:DomeniaStartupPlan = $null
 try {
     $ErrorActionPreference = 'Stop'
     # Check the entire declared set before importing the first module.
+    foreach ($domeniaType in @(Get-DomeniaRuntimeTypePlan)) {
+        $domeniaTypePath = Join-Path $domeniaImportRoot $domeniaType.File
+        if (-not [IO.File]::Exists($domeniaTypePath)) {
+            throw [IO.FileNotFoundException]::new(
+                "DOMENIA_MODULE_MISSING : $($domeniaType.File). Reinstallez le paquet complet.",
+                $domeniaTypePath)
+        }
+    }
     foreach ($domeniaModule in $domeniaImportPlan) {
         $domeniaModulePath = Join-Path $domeniaImportRoot $domeniaModule.File
         if (-not [IO.File]::Exists($domeniaModulePath)) {
@@ -378,10 +585,44 @@ try {
                 "DOMENIA_MODULE_PARSE : $($domeniaModule.File), ligne $($domeniaFirstError.Extent.StartLineNumber) : $($domeniaFirstError.Message)")
         }
     }
+    # Types: compiled once per process; a type already loaded from the same file is kept.
+    foreach ($domeniaType in @(Get-DomeniaRuntimeTypePlan)) {
+        $domeniaMissingTypes = @(@($domeniaType.Types) | Where-Object { $null -eq ($_ -as [type]) })
+        if ($domeniaMissingTypes.Count -eq 0) { continue }
+        try { Add-Type -Path (Join-Path $domeniaImportRoot $domeniaType.File) -ErrorAction Stop }
+        catch {
+            throw [InvalidOperationException]::new(
+                "DOMENIA_MODULE_TYPES : echec de compilation de $($domeniaType.File). $($_.Exception.Message)",
+                $_.Exception)
+        }
+    }
+    # Bootstrap phase: shared helpers and the startup-plan rules themselves.
+    $domeniaImported = @{}
     foreach ($domeniaModule in $domeniaImportPlan) {
+        if (-not $domeniaModule.DotSource) { continue }
+        if ([string](Get-DomeniaRuntimeModuleValue $domeniaModule 'Phase' 'Modules') -ne 'Bootstrap') { continue }
+        $domeniaModulePath = Join-Path $domeniaImportRoot $domeniaModule.File
+        try { . $domeniaModulePath }
+        catch {
+            throw [InvalidOperationException]::new(
+                "DOMENIA_MODULE_IMPORT : echec de $($domeniaModule.File). $($_.Exception.Message)",
+                $_.Exception)
+        }
+        $domeniaImported[[string]$domeniaModule.File] = $true
+    }
+    # D011: phases, dependencies, cycles and duplicate providers are refused before the first business module.
+    $script:DomeniaStartupPlan = Test-DomeniaStartupPlan -Modules $domeniaImportPlan
+    if (-not [bool]$script:DomeniaStartupPlan.Valid) {
+        throw [InvalidOperationException]::new(
+            'DOMENIA_MODULE_PLAN : ' + ((@($script:DomeniaStartupPlan.Errors)) -join ' | '))
+    }
+    $domeniaByFile = @{}
+    foreach ($domeniaModule in $domeniaImportPlan) { $domeniaByFile[[string]$domeniaModule.File] = $domeniaModule }
+    foreach ($domeniaFile in @($script:DomeniaStartupPlan.Order)) {
+        $domeniaModule = $domeniaByFile[[string]$domeniaFile]
         # Experience is already dot-sourced by UX. Validate it without importing
         # it a second time and resetting its state.
-        if (-not $domeniaModule.DotSource) { continue }
+        if ($null -eq $domeniaModule -or -not $domeniaModule.DotSource -or $domeniaImported.ContainsKey([string]$domeniaFile)) { continue }
         $domeniaModulePath=Join-Path $domeniaImportRoot $domeniaModule.File
         try {
             . $domeniaModulePath
@@ -391,6 +632,7 @@ try {
                 "DOMENIA_MODULE_IMPORT : echec de $($domeniaModule.File). $($_.Exception.Message)",
                 $_.Exception)
         }
+        $domeniaImported[[string]$domeniaFile] = $true
     }
     $script:DomeniaRuntimeImports = @(Assert-DomeniaRuntimeImports -ModuleRoot $domeniaImportRoot)
 }

@@ -3,12 +3,14 @@
 from pathlib import Path
 import argparse,hashlib,json,zipfile,subprocess,sys
 ROOT=Path(__file__).resolve().parents[1]
-BUILD='2026.10.01-DOMENIA-1.0-RC1.10.7-SELECTION'
+# D010: the release identity is read from the single contract, never written here.
+CONTRACT=json.loads((ROOT/'tools/release-contract.json').read_text(encoding='utf-8-sig'))
+BUILD=CONTRACT['Build'];RELEASE=CONTRACT['Release'];VERSION=CONTRACT['Version'];STATUS=CONTRACT['ReleaseStatus']
 
 def digest(data):return hashlib.sha256(data).hexdigest().upper()
 def writejson(path,data):path.parent.mkdir(parents=True,exist_ok=True);path.write_text(json.dumps(data,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
 def runtime_paths():
-    paths=['Domenia.exe']+['wad/'+n for n in ['Domenia-Start.ps1','Domenia-Modules.ps1','Domenia-Core.ps1','Domenia.ico','Domenia.config.json','Domenia.login-mode.cfg','Domenia.theme.cfg','Domenia.ui-profile.cfg','Microsoft.ActiveDirectory.Management.dll','ActiveDirectoryPowerShellResources.dll','PsExec.exe']]
+    paths=['Domenia.exe']+['wad/'+n for n in ['Domenia-Start.ps1','Domenia-Modules.ps1','Domenia-Core.ps1','Domenia.ico','Domenia.config.json','Domenia.release.json','Domenia.login-mode.cfg','Domenia.theme.cfg','Domenia.ui-profile.cfg','Microsoft.ActiveDirectory.Management.dll','ActiveDirectoryPowerShellResources.dll','PsExec.exe']]
     paths+=['wad/Support/DEBLOQUER_TOUT.cmd','wad/Support/Debloquer-Paquet.ps1','wad/Support/.lifecycle.lock']
     paths += [p.relative_to(ROOT).as_posix() for p in (ROOT/'wad/modules').iterdir() if p.is_file() and p.suffix in {'.ps1','.json','.cs','.xaml'}]
     return sorted(paths)
@@ -16,7 +18,14 @@ def preserved(rel):return rel in ['wad/Domenia.config.json','wad/Domenia.login-m
 def entry(rel,isruntime):
     p=ROOT/rel;data=p.read_bytes()
     return dict(Path=rel,Sha256=digest(data),Bytes=len(data),Runtime=isruntime,PreserveExisting=preserved(rel))
+def gate(script,label,*args):
+    run=subprocess.run([sys.executable,str(ROOT/script),*args],capture_output=True,text=True)
+    if run.returncode:raise ValueError(label+' failed:\n'+run.stdout+run.stderr)
 def build(out,manifest_only=False):
+    # D010/D117: version sites and pinned components must agree with the release contract.
+    gate('tools/release_contract.py','Release contract','--check')
+    # D011: one definition per function name and a complete closed loader list.
+    gate('tools/audit_function_names.py','Closed loader function names')
     # Mandatory static preflight over every PowerShell source shipped in DEV.
     preflight=subprocess.run([sys.executable,str(ROOT/'tools/validate_powershell_static.py')],capture_output=True,text=True)
     if preflight.returncode: raise ValueError('PowerShell static preflight failed:\n'+preflight.stdout+preflight.stderr)
@@ -47,7 +56,7 @@ def build(out,manifest_only=False):
     for rel in runtime:
         if not (ROOT/rel).is_file():raise ValueError('Missing runtime '+rel)
         if any(x in rel.lower().split('/') for x in ['tests','data','history','backups']):raise ValueError('Private/development runtime path '+rel)
-    prod=dict(Format=1,Version='1.0',Build=BUILD,Edition='prod',ReleaseStatus='CandidateRequiresWindowsValidation',Files=[entry(x,True) for x in runtime])
+    prod=dict(Format=1,Version=VERSION,Build=BUILD,Edition='prod',ReleaseStatus=STATUS,Files=[entry(x,True) for x in runtime])
     writejson(ROOT/'tools/prod-manifest.json',prod)
     members=[]
     for p in sorted(ROOT.rglob('*')):
@@ -55,15 +64,15 @@ def build(out,manifest_only=False):
         rel=p.relative_to(ROOT).as_posix()
         if rel=='wad/package-manifest.json' or any(x in p.parts for x in ['__pycache__','.git','backups']) or rel.startswith('wad/data/') or p.suffix in {'.pyc','.tmp'}:continue
         members.append(rel)
-    dev=dict(Format=1,Version='1.0',Build=BUILD,Edition='dev',ReleaseStatus='CandidateRequiresWindowsValidation',Files=[entry(x,x in runtime) for x in members])
+    dev=dict(Format=1,Version=VERSION,Build=BUILD,Edition='dev',ReleaseStatus=STATUS,Files=[entry(x,x in runtime) for x in members])
     writejson(ROOT/'wad/package-manifest.json',dev)
     if manifest_only:return {'runtime':len(runtime),'dev':len(members)}
     out.mkdir(parents=True,exist_ok=True);result={}
     for edition,paths,manifest in [('prod',runtime,prod),('dev',members,dev)]:
-        target=out/('Domenia_1.0_RC1.10.7_'+edition.upper()+'.zip')
+        target=out/('Domenia_'+VERSION+'_'+RELEASE+'_'+edition.upper()+'.zip')
         with zipfile.ZipFile(target,'w',zipfile.ZIP_DEFLATED,compresslevel=9) as z:
             def put(rel,data):
-                info=zipfile.ZipInfo(edition+'/'+rel,(2026,10,1,0,0,0));info.compress_type=zipfile.ZIP_DEFLATED;info.external_attr=0o100644<<16;z.writestr(info,data)
+                info=zipfile.ZipInfo(edition+'/'+rel,tuple(int(x) for x in CONTRACT['Date'].split('-'))+(0,0,0));info.compress_type=zipfile.ZIP_DEFLATED;info.external_attr=0o100644<<16;z.writestr(info,data)
             for rel in paths:put(rel,(ROOT/rel).read_bytes())
             put('wad/package-manifest.json',(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n').encode())
         with zipfile.ZipFile(target) as z:
@@ -77,6 +86,17 @@ def build(out,manifest_only=False):
     with zipfile.ZipFile(out/result['prod']['Archive']) as a,zipfile.ZipFile(out/result['dev']['Archive']) as b:
         for rel in runtime:assert a.read('prod/'+rel)==b.read('dev/'+rel),rel
     result['IdenticalRuntimeFiles']=len(runtime)
+    # D009: offline integrity gate on the exact archives. Publication still requires the Windows report
+    # linked to the archive hash (release_guard.py --require-windows --windows-report ...).
+    sys.path.insert(0,str(ROOT/'engineering/d120'))
+    import release_guard
+    for edition in ('prod','dev'):
+        info=release_guard.inspect_archive(out/result[edition]['Archive'])
+        if info['SHA256']!=result[edition]['Sha256'].lower():raise ValueError('Release guard hash mismatch '+edition)
+        result[edition]['ReleaseGuard']=info['Integrity'];result[edition]['WindowsQualification']=info['WindowsQualification']
+    result['Build']=BUILD;result['Publishable']=False
+    result['PublicationRule']='Publiable uniquement avec un rapport Windows PowerShell 5.1 lie au SHA-256 du ZIP (release_guard.py --require-windows).'
+    (out/'build-report.json').write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
     return result
 if __name__=='__main__':
     ap=argparse.ArgumentParser(description=__doc__);ap.add_argument('--output',type=Path,required=True);ap.add_argument('--manifest-only',action='store_true');a=ap.parse_args();print(json.dumps(build(a.output,a.manifest_only),indent=2))

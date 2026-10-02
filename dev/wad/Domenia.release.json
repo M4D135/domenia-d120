@@ -1,0 +1,52 @@
+{
+  "Schema": "DomeniaReleaseContract/1",
+  "Product": "Domenia",
+  "Version": "1.0",
+  "Release": "RC1.11.0",
+  "Build": "2026.10.02-DOMENIA-1.0-RC1.11.0-D120",
+  "DisplayName": "Domenia 1.0 RC1.11.0",
+  "Date": "2026-10-02",
+  "Channel": "Candidate",
+  "ReleaseStatus": "CandidateRequiresWindowsValidation",
+  "DataSchemaVersion": 11,
+  "MinimumPowerShell": "5.1",
+  "Components": [
+    {
+      "Path": "Domenia.exe",
+      "Name": "Lanceur natif Domenia",
+      "Version": "launcher-1.0 (RC1.10, conserve a l octet)",
+      "Sha256": "3535a6cbceea3baa0066d9024ea316a8dfa2992a463f8eb17cc8baa40b6be7ac",
+      "Origin": "Construit depuis tools/launcher/launcher.c (sources versionnees) ; non recompile pour RC1.11.0 (decision F8).",
+      "Pinned": true
+    },
+    {
+      "Path": "wad/Microsoft.ActiveDirectory.Management.dll",
+      "Name": "Microsoft Active Directory Management",
+      "Version": "fourni par l archive ADCC R1.13",
+      "Sha256": "1a6af7b8f8bce5b35ff873e2528746480c980526d86e38ca5acd04c2e9037157",
+      "Origin": "Composant tiers Microsoft, non modifie ; revue de licence requise.",
+      "Pinned": true
+    },
+    {
+      "Path": "wad/ActiveDirectoryPowerShellResources.dll",
+      "Name": "Ressources PowerShell Active Directory",
+      "Version": "fourni par l archive ADCC R1.13",
+      "Sha256": "e233d92238aa31ea1b3c60145d8811edb2e517e1b9b53f4bc496883ee5d9973b",
+      "Origin": "Composant tiers Microsoft, non modifie ; revue de licence requise.",
+      "Pinned": true
+    },
+    {
+      "Path": "wad/PsExec.exe",
+      "Name": "Sysinternals PsExec",
+      "Version": "fourni par l archive ADCC R1.13",
+      "Sha256": "edfae1a69522f87b12c6dac3225d930e4848832e3c551ee1e7d31736bf4525ef",
+      "Origin": "Composant tiers Microsoft Sysinternals, non modifie ; revue de licence requise.",
+      "Pinned": true
+    }
+  ],
+  "SystemComponents": [
+    "Windows PowerShell 5.1 (Desktop) et WPF",
+    "winsqlite3.dll (fourni par Windows)",
+    "CIM/WMI, WTS, LDAP (System.DirectoryServices) fournis par Windows"
+  ]
+}

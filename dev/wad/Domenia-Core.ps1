@@ -4039,7 +4039,7 @@ function Get-MainXaml {
               </Button>
             </StackPanel>
             <StackPanel DockPanel.Dock="Bottom" Margin="8,12,0,6" x:Name="UxNavFooter">
-              <TextBlock Text="DOMENIA 1.0 · RC1.10.7" Foreground="{DynamicResource MutedColor}" FontSize="11"/>
+              <TextBlock Text="DOMENIA 1.0 · RC1.11.0" Foreground="{DynamicResource MutedColor}" FontSize="11"/>
               <TextBlock Text="Les actions restent sous votre contrôle." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="11" Margin="0,6,0,0"/>
             </StackPanel>
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
@@ -18864,7 +18864,7 @@ Activer le mode ecriture ?
 # DOMENIA_MASTER_LAST_V1 = TRUE
 $script:Version = "1.0"
 $script:AppName = "Domenia"
-$script:MasterBuild = "2026.10.01-DOMENIA-1.0-RC1.10.7-SELECTION"
+$script:MasterBuild = "2026.10.02-DOMENIA-1.0-RC1.11.0-D120"
 $script:ActiveWriteTaskId = ""
 $script:WriteState = "Idle"
 $script:UnknownWriteTargetDn = ""
@@ -21474,7 +21474,7 @@ function Initialize-DomeniaPresentation {
     Initialize-DomeniaGuard
     Initialize-DomeniaLive
     Initialize-DomeniaReconcile
-    Add-DomeniaUiLog -Area "Application" -Text "Domenia 1.0 RC1.10.7 pret."
+    Add-DomeniaUiLog -Area "Application" -Text "Domenia 1.0 RC1.11.0 pret."
 }
 
 function Assert-DomeniaCapability {
@@ -22604,7 +22604,7 @@ function Initialize-Window {
 # Le login effectue un bind LDAP reel, lit RootDSE et valide la base detectee
 # dans un runspace borne afin que le thread WPF ne soit jamais bloque.
 # =====================================================================
-$script:DomeniaBuild = "Domenia 1.0 RC1.10.7"
+$script:DomeniaBuild = "Domenia 1.0 RC1.11.0"
 $script:FastLoginUi = $null
 $script:FastLoginState = $null
 $script:FastLoginTimer = $null
@@ -23697,7 +23697,7 @@ try {
         return
     }
     $script:StartupCorrelation = [guid]::NewGuid().ToString("N")
-    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage DOMENIA 1.0  V10.22 FULL RESTORE / REMOTE + ACCOUNTS FIX"
+    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 RC1.11.0 (2026.10.02-DOMENIA-1.0-RC1.11.0-D120)"
     Write-DomeniaFastLoginLog -Stage "APPLICATION_START" -Detail "PID=$PID Script=$($script:LaunchPath) Root=$($script:RootDir)"
 
     $preflightWatch = [System.Diagnostics.Stopwatch]::StartNew()
