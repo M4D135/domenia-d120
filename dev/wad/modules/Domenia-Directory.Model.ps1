@@ -39,13 +39,71 @@ function Get-DomeniaAttrAll {
     return @(,$value)
 }
 
+function ConvertTo-DomeniaAdInt64 {
+    # Reads an AD large integer whatever its shape: Int64 or numeric text, a one-value collection, or the
+    # IADsLargeInteger COM object returned by DirectoryEntry (HighPart/LowPart are only reachable through
+    # InvokeMember). Returns $null when the value cannot be read: a value that was not read is never zero.
+    param($Value)
+    if ($null -eq $Value) { return $null }
+    if ($Value -is [long]) { return [long]$Value }
+    if (($Value -is [int]) -or ($Value -is [uint32]) -or ($Value -is [int16]) -or ($Value -is [byte])) { return [long]$Value }
+    if (($Value -is [decimal]) -or ($Value -is [double])) {
+        try { return [long]$Value } catch { return $null }
+    }
+    if ($Value -is [string]) {
+        $number = 0L
+        if ([long]::TryParse($Value.Trim(),[Globalization.NumberStyles]::AllowLeadingSign,[Globalization.CultureInfo]::InvariantCulture,[ref]$number)) { return $number }
+        return $null
+    }
+    if ($Value -is [byte[]]) { return $null }
+    if ($Value.GetType().FullName -eq 'System.__ComObject') {
+        try {
+            $type = $Value.GetType()
+            $flags = [Reflection.BindingFlags]::GetProperty
+            $high = [long]$type.InvokeMember('HighPart',$flags,$null,$Value,$null)
+            $low = [long]$type.InvokeMember('LowPart',$flags,$null,$Value,$null)
+            if ($low -lt 0) { $low += 4294967296L }
+            return (($high -shl 32) -bor $low)
+        } catch { return $null }
+    }
+    if ($Value -is [Collections.IEnumerable]) {
+        # Exactly one value: a collection of several values names no single number.
+        $items = New-Object 'System.Collections.Generic.List[object]'
+        foreach ($item in $Value) { $items.Add($item); if ($items.Count -gt 1) { return $null } }
+        if ($items.Count -ne 1) { return $null }
+        return (ConvertTo-DomeniaAdInt64 $items[0])
+    }
+    return $null
+}
+
+function ConvertTo-DomeniaAdDate {
+    # An AD time value (FILETIME large integer, generalized time or DateTime) as a UTC date, or $null.
+    param($Value)
+    if ($null -eq $Value) { return $null }
+    if ($Value -is [datetime]) { return (ConvertTo-DomeniaUtcDate $Value) }
+    $number = ConvertTo-DomeniaAdInt64 $Value
+    if ($null -ne $number) { return (ConvertTo-DomeniaUtcDate $number) }
+    if ($Value -is [string]) { return (ConvertTo-DomeniaUtcDate $Value) }
+    return $null
+}
+
+function Get-DomeniaAdIntervalState {
+    # AD stores durations as negative 100-nanosecond counts. 0 and Int64.MinValue mean "never" (no limit).
+    # State: Value (Span set), Never (explicit no limit) or Unread (absent or unreadable: nothing is deduced).
+    param($Value)
+    $ticks = ConvertTo-DomeniaAdInt64 $Value
+    if ($null -eq $ticks) { return [pscustomobject]@{State='Unread';Span=$null} }
+    if (($ticks -eq 0) -or ($ticks -eq [long]::MinValue)) { return [pscustomobject]@{State='Never';Span=$null} }
+    return [pscustomobject]@{State='Value';Span=[TimeSpan]::FromTicks([Math]::Abs($ticks))}
+}
+
 function ConvertFrom-DomeniaAdInterval {
     # AD stores durations as negative 100-nanosecond counts. 0 and Int64.MinValue mean "never".
+    # $null for "never" and for a value that could not be read (see Get-DomeniaAdIntervalState to tell them apart).
     param($Value)
-    $ticks = 0L
-    if ($null -eq $Value -or -not [long]::TryParse([string]$Value,[ref]$ticks)) { return $null }
-    if ($ticks -eq 0 -or $ticks -eq [long]::MinValue) { return $null }
-    return [TimeSpan]::FromTicks([Math]::Abs($ticks))
+    $interval = Get-DomeniaAdIntervalState $Value
+    if ($interval.State -ne 'Value') { return $null }
+    return $interval.Span
 }
 
 function Get-DomeniaCnFromDn {
@@ -69,8 +127,8 @@ function Get-DomeniaAccountState {
     if ($disabled) { $label = 'Desactive' }
     if ($locked -eq $true) { $label += ' · verrouille' }
     elseif ($null -eq $locked) {
-        $lock = 0L
-        if ($null -ne $LockoutTime -and [long]::TryParse([string]$LockoutTime,[ref]$lock) -and $lock -gt 0) { $label += ' · verrouillage a verifier' }
+        $lock = ConvertTo-DomeniaAdInt64 $LockoutTime
+        if (($null -ne $lock) -and ($lock -gt 0)) { $label += ' · verrouillage a verifier' }
     }
     if ($expired -eq $true) { $label += ' · mot de passe expire' }
     return [pscustomobject]@{Known=$true;Disabled=$disabled;Locked=$locked;PasswordExpired=$expired;NeverExpires=(($flags -band 65536) -ne 0);SmartcardRequired=(($flags -band 262144) -ne 0);PasswordNotRequired=(($flags -band 32) -ne 0);Label=$label}
@@ -103,18 +161,19 @@ function Get-DomeniaUserSupportSummary {
     $stateLimit = ''
     if ($state.Known -and $null -eq $state.Locked) { $stateLimit = 'Etat calcule du controleur non lu : verrouillage et expiration non confirmes.' }
     & $add 'Compte' 'Etat du compte' $state.Label $stateLimit
-    $expires = ConvertTo-DomeniaUtcDate (Get-DomeniaAttr $Properties 'accountExpires' $null)
+    $expires = ConvertTo-DomeniaAdDate (Get-DomeniaAttr $Properties 'accountExpires' $null)
     if ($null -ne $expires) {
         $text = $expires.ToLocalTime().ToString('dd/MM/yyyy')
         if ($expires -lt $NowUtc) { $text += ' (echu)' }
         & $add 'Compte' 'Expiration du compte' $text
     }
-    $created = ConvertTo-DomeniaUtcDate (Get-DomeniaAttr $Properties 'whenCreated' $null)
+    $created = ConvertTo-DomeniaAdDate (Get-DomeniaAttr $Properties 'whenCreated' $null)
     if ($null -ne $created) { & $add 'Dates' 'Cree le' $created.ToLocalTime().ToString('dd/MM/yyyy') }
-    $pwd = ConvertTo-DomeniaUtcDate (Get-DomeniaAttr $Properties 'pwdLastSet' $null)
+    $pwdRaw = Get-DomeniaAttr $Properties 'pwdLastSet' $null
+    $pwd = ConvertTo-DomeniaAdDate $pwdRaw
     if ($null -ne $pwd) { & $add 'Dates' 'Mot de passe change le' $pwd.ToLocalTime().ToString('dd/MM/yyyy HH:mm') }
-    elseif ([string](Get-DomeniaAttr $Properties 'pwdLastSet' '') -eq '0') { & $add 'Dates' 'Mot de passe' 'A changer a la prochaine ouverture de session' }
-    $logon = ConvertTo-DomeniaUtcDate (Get-DomeniaAttr $Properties 'lastLogonTimestamp' $null)
+    elseif ((ConvertTo-DomeniaAdInt64 $pwdRaw) -eq 0L) { & $add 'Dates' 'Mot de passe' 'A changer a la prochaine ouverture de session' }
+    $logon = ConvertTo-DomeniaAdDate (Get-DomeniaAttr $Properties 'lastLogonTimestamp' $null)
     if ($null -ne $logon) { & $add 'Dates' 'Derniere ouverture de session (approx.)' $logon.ToLocalTime().ToString('dd/MM/yyyy') 'Valeur repliquee avec un retard pouvant atteindre 14 jours.' }
     return $facts.ToArray()
 }
@@ -128,7 +187,7 @@ function Resolve-DomeniaPasswordPolicy {
     $known = $false; $sourceLabel = ''; $bag = $null; $prefix = ''
     if ($ResultantPsoState -eq 'Applies' -and $null -ne $Pso) { $known = $true; $bag = $Pso; $prefix = 'msDS-'; $sourceLabel = 'Strategie fine : ' + [string](Get-DomeniaAttr $Pso 'name' (Get-DomeniaCnFromDn ([string](Get-DomeniaAttr $Pso 'distinguishedName' '')))) }
     elseif ($ResultantPsoState -eq 'None' -and $null -ne $DomainPolicy) { $known = $true; $bag = $DomainPolicy; $sourceLabel = 'Strategie du domaine' }
-    $maxAge = $null
+    $maxAge = $null; $maxAgeState = [pscustomobject]@{State='Unread';Span=$null}
     if (-not $known) {
         $facts.Add((New-DomeniaFact -Fait 'Strategie applicable' -Valeur 'Inconnue' -Etat Inconnu -Source 'msDS-ResultantPSO' -Limite 'Strategie non lisible avec ce compte : aucune valeur n est deduite de la strategie du domaine.' -Lecteur $Reader))
     } else {
@@ -136,44 +195,55 @@ function Resolve-DomeniaPasswordPolicy {
         if ($prefix) {
             $minLength = [string](Get-DomeniaAttr $bag 'msDS-MinimumPasswordLength' ''); $history = [string](Get-DomeniaAttr $bag 'msDS-PasswordHistoryLength' '')
             $complex = [string](Get-DomeniaAttr $bag 'msDS-PasswordComplexityEnabled' ''); $threshold = [string](Get-DomeniaAttr $bag 'msDS-LockoutThreshold' '')
-            $maxAge = ConvertFrom-DomeniaAdInterval (Get-DomeniaAttr $bag 'msDS-MaximumPasswordAge' $null)
-            $lockDuration = ConvertFrom-DomeniaAdInterval (Get-DomeniaAttr $bag 'msDS-LockoutDuration' $null)
+            $maxAgeState = Get-DomeniaAdIntervalState (Get-DomeniaAttr $bag 'msDS-MaximumPasswordAge' $null)
+            $lockState = Get-DomeniaAdIntervalState (Get-DomeniaAttr $bag 'msDS-LockoutDuration' $null)
             $complexText = if ($complex -match '^(?i:true|1)$') { 'Oui' } elseif ($complex) { 'Non' } else { '' }
         } else {
             $minLength = [string](Get-DomeniaAttr $bag 'minPwdLength' ''); $history = [string](Get-DomeniaAttr $bag 'pwdHistoryLength' '')
             $threshold = [string](Get-DomeniaAttr $bag 'lockoutThreshold' '')
-            $maxAge = ConvertFrom-DomeniaAdInterval (Get-DomeniaAttr $bag 'maxPwdAge' $null)
-            $lockDuration = ConvertFrom-DomeniaAdInterval (Get-DomeniaAttr $bag 'lockoutDuration' $null)
+            $maxAgeState = Get-DomeniaAdIntervalState (Get-DomeniaAttr $bag 'maxPwdAge' $null)
+            $lockState = Get-DomeniaAdIntervalState (Get-DomeniaAttr $bag 'lockoutDuration' $null)
             $properties = 0L; $complexText = ''
             if ([long]::TryParse([string](Get-DomeniaAttr $bag 'pwdProperties' ''),[ref]$properties)) { $complexText = if (($properties -band 1) -ne 0) { 'Oui' } else { 'Non' } }
         }
+        $maxAge = $maxAgeState.Span
         if ($minLength) { $facts.Add((New-DomeniaFact -Fait 'Longueur minimale' -Valeur ($minLength + ' caracteres') -Source $sourceLabel -Lecteur $Reader)) }
         if ($complexText) { $facts.Add((New-DomeniaFact -Fait 'Complexite exigee' -Valeur $complexText -Source $sourceLabel -Lecteur $Reader)) }
         if ($history) { $facts.Add((New-DomeniaFact -Fait 'Historique' -Valeur ($history + ' mots de passe') -Source $sourceLabel -Lecteur $Reader)) }
-        $ageText = 'Sans limite'
-        if ($null -ne $maxAge) { $ageText = [string][int]$maxAge.TotalDays + ' jours' }
-        $facts.Add((New-DomeniaFact -Fait 'Duree de validite' -Valeur $ageText -Source $sourceLabel -Lecteur $Reader))
+        # An absent or unreadable duration is not "no limit": only an explicit 0 (or Int64.MinValue) means never.
+        switch ($maxAgeState.State) {
+            'Value' { $facts.Add((New-DomeniaFact -Fait 'Duree de validite' -Valeur ([string][int]$maxAge.TotalDays + ' jours') -Source $sourceLabel -Lecteur $Reader)) }
+            'Never' { $facts.Add((New-DomeniaFact -Fait 'Duree de validite' -Valeur 'Sans limite' -Source $sourceLabel -Lecteur $Reader)) }
+            default { $facts.Add((New-DomeniaFact -Fait 'Duree de validite' -Valeur 'Non lue' -Etat Inconnu -Source $sourceLabel -Limite 'Duree absente de la lecture ou illisible : aucune absence de limite n est deduite.' -Lecteur $Reader)) }
+        }
         if ($threshold) {
             $lockText = if ($threshold -eq '0') { 'Aucun verrouillage' } else { $threshold + ' echecs' }
-            if ($threshold -ne '0' -and $null -ne $lockDuration) { $lockText += ', duree ' + [string][int]$lockDuration.TotalMinutes + ' min' }
-            elseif ($threshold -ne '0') { $lockText += ', deverrouillage par un administrateur' }
-            $facts.Add((New-DomeniaFact -Fait 'Verrouillage' -Valeur $lockText -Source $sourceLabel -Lecteur $Reader))
+            $lockEtat = 'Constate'; $lockLimit = ''
+            if ($threshold -ne '0') {
+                switch ($lockState.State) {
+                    'Value' { $lockText += ', duree ' + [string][int]$lockState.Span.TotalMinutes + ' min' }
+                    'Never' { $lockText += ', deverrouillage par un administrateur' }
+                    default { $lockText += ', duree de verrouillage non lue'; $lockEtat = 'Inconnu'; $lockLimit = 'lockoutDuration absent de la lecture ou illisible.' }
+                }
+            }
+            $facts.Add((New-DomeniaFact -Fait 'Verrouillage' -Valeur $lockText -Etat $lockEtat -Source $sourceLabel -Limite $lockLimit -Lecteur $Reader))
         }
     }
     # Expiration: the controller's computed value first; otherwise only when the policy is known.
     $state = Get-DomeniaAccountState (Get-DomeniaAttr $User 'userAccountControl' $null) (Get-DomeniaAttr $User 'msDS-User-Account-Control-Computed' $null)
     $expiryUtc = $null; $expiryText = ''; $expiryState = 'Constate'; $expiryLimit = ''
-    $computedRaw = [string](Get-DomeniaAttr $User 'msDS-UserPasswordExpiryTimeComputed' '')
-    $pwdLastSetRaw = [string](Get-DomeniaAttr $User 'pwdLastSet' '')
+    $computed = ConvertTo-DomeniaAdInt64 (Get-DomeniaAttr $User 'msDS-UserPasswordExpiryTimeComputed' $null)
+    $pwdLastSetValue = Get-DomeniaAttr $User 'pwdLastSet' $null
+    $pwdLastSetNumber = ConvertTo-DomeniaAdInt64 $pwdLastSetValue
     if ($state.Known -and $state.NeverExpires) { $expiryText = 'N expire jamais (option du compte)' }
-    elseif ($pwdLastSetRaw -eq '0') { $expiryText = 'A changer a la prochaine ouverture de session' }
-    elseif ($computedRaw -and $computedRaw -ne '0') {
-        if ($computedRaw -eq '9223372036854775807') { $expiryText = 'N expire pas' }
-        else { $expiryUtc = ConvertTo-DomeniaUtcDate $computedRaw; if ($null -ne $expiryUtc) { $expiryText = $expiryUtc.ToLocalTime().ToString('dd/MM/yyyy HH:mm') } }
+    elseif (($null -ne $pwdLastSetNumber) -and ($pwdLastSetNumber -eq 0L)) { $expiryText = 'A changer a la prochaine ouverture de session' }
+    elseif (($null -ne $computed) -and ($computed -ne 0L)) {
+        if ($computed -eq [long]::MaxValue) { $expiryText = 'N expire pas' }
+        else { $expiryUtc = ConvertTo-DomeniaUtcDate $computed; if ($null -ne $expiryUtc) { $expiryText = $expiryUtc.ToLocalTime().ToString('dd/MM/yyyy HH:mm') } }
     } elseif ($known) {
-        $pwdLastSet = ConvertTo-DomeniaUtcDate $pwdLastSetRaw
-        if ($null -eq $maxAge) { $expiryText = 'N expire pas (strategie sans limite)' }
-        elseif ($null -ne $pwdLastSet) { $expiryUtc = $pwdLastSet.Add($maxAge); $expiryText = $expiryUtc.ToLocalTime().ToString('dd/MM/yyyy HH:mm'); $expiryState = 'Estime'; $expiryLimit = 'Calcule a partir de la strategie lue ; valeur du controleur non disponible.' }
+        $pwdLastSet = ConvertTo-DomeniaAdDate $pwdLastSetValue
+        if ($maxAgeState.State -eq 'Never') { $expiryText = 'N expire pas (strategie sans limite)' }
+        elseif (($maxAgeState.State -eq 'Value') -and ($null -ne $pwdLastSet)) { $expiryUtc = $pwdLastSet.Add($maxAge); $expiryText = $expiryUtc.ToLocalTime().ToString('dd/MM/yyyy HH:mm'); $expiryState = 'Estime'; $expiryLimit = 'Calcule a partir de la strategie lue ; valeur du controleur non disponible.' }
     }
     if (-not $expiryText) { $expiryText = 'Inconnue'; $expiryState = 'Inconnu'; $expiryLimit = 'Strategie ou date de changement non lisible.' }
     elseif ($null -ne $expiryUtc -and $expiryUtc -lt $NowUtc) { $expiryText += ' (echu)' }
@@ -195,7 +265,7 @@ function Get-DomeniaLockoutDiagnosis {
     $facts = New-Object 'System.Collections.Generic.List[object]'
     $source = 'Controleur ' + $Dc
     $state = Get-DomeniaAccountState (Get-DomeniaAttr $User 'userAccountControl' $null) (Get-DomeniaAttr $User 'msDS-User-Account-Control-Computed' $null) (Get-DomeniaAttr $User 'lockoutTime' $null)
-    $lockoutUtc = ConvertTo-DomeniaUtcDate (Get-DomeniaAttr $User 'lockoutTime' $null)
+    $lockoutUtc = ConvertTo-DomeniaAdDate (Get-DomeniaAttr $User 'lockoutTime' $null)
     $verdict = 'Inconnu'
     if ($state.Locked -eq $true) { $verdict = 'Verrouille' ; $facts.Add((New-DomeniaFact -Fait 'Etat calcule par le controleur' -Valeur 'Verrouille' -Source $source -Date $NowUtc -Lecteur $Reader)) }
     elseif ($state.Locked -eq $false) { $verdict = 'NonVerrouille'; $facts.Add((New-DomeniaFact -Fait 'Etat calcule par le controleur' -Valeur 'Non verrouille' -Source $source -Date $NowUtc -Lecteur $Reader)) }
@@ -208,7 +278,7 @@ function Get-DomeniaLockoutDiagnosis {
     }
     $badCount = [string](Get-DomeniaAttr $User 'badPwdCount' '')
     if ($badCount) { $facts.Add((New-DomeniaFact -Fait 'Echecs de mot de passe' -Valeur $badCount -Source $source -Limite 'Compteur propre a ce controleur : il n est pas replique.' -Lecteur $Reader)) }
-    $badTime = ConvertTo-DomeniaUtcDate (Get-DomeniaAttr $User 'badPasswordTime' $null)
+    $badTime = ConvertTo-DomeniaAdDate (Get-DomeniaAttr $User 'badPasswordTime' $null)
     if ($null -ne $badTime) { $facts.Add((New-DomeniaFact -Fait 'Dernier echec' -Valeur $badTime.ToLocalTime().ToString('dd/MM/yyyy HH:mm:ss') -Source $source -Limite 'Valeur propre a ce controleur.' -Lecteur $Reader)) }
     $recurrence = 0; $origins = @()
     switch ($EventReadState) {
@@ -262,7 +332,14 @@ function Find-DomeniaMembershipPath {
         }
         if ($depth[$node] -ge $MaxDepth) { $truncated = $true; continue }
         if (-not $lookup.ContainsKey($node)) { continue }
-        foreach ($next in @($lookup[$node])) {
+        # Enumerate the parents without @(): under 5.1, @() on a List[object] built by New-Object (wrapped in a
+        # PSObject) throws 'Argument types do not match'. A single DN text is one parent, not a list of characters.
+        $parents = New-Object 'System.Collections.Generic.List[string]'
+        $edgeValue = $lookup[$node]
+        if ($edgeValue -is [string]) { $parents.Add($edgeValue) }
+        elseif ($edgeValue -is [Collections.IEnumerable]) { foreach ($item in $edgeValue) { if ($null -ne $item) { $parents.Add([string]$item) } } }
+        elseif ($null -ne $edgeValue) { $parents.Add([string]$edgeValue) }
+        foreach ($next in $parents) {
             $name = [string]$next
             if (-not $name) { continue }
             if (-not $visited.Add($name)) { $cycle = ($cycle -or $comparer.Equals($name,$Start) -or $parent.ContainsKey($name)); continue }
