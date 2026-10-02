@@ -471,6 +471,8 @@ try {
         }
         Case 'D044 Recherche de cible en cours : un autre utilisateur ne remplace pas le sujet' {
             Reset-Fixture;Set-DomeniaRelationsSelection -Row $script:Alice;$script:Relations.ManualSearchJob='mock-search'
+            # A running search is a job the engine still holds: an id unknown to the engine counts as ended.
+            $script:AsyncJobs['mock-search']=[pscustomobject]@{Id='mock-search';CancelRequested=$false;OperationId='EmbeddedDirectoryLookup'}
             Set-DomeniaRelationsSelection -Row $script:Bob
             Expect ($script:Relations.Subject.Login -eq 'alice') 'Sujet remplace pendant la recherche'
             Reset-Fixture;Set-DomeniaRelationsSelection -Row $script:Alice;Pump $w

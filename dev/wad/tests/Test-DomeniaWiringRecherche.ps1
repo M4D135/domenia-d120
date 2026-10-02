@@ -175,11 +175,11 @@ Case 'D031 Global repaint ignores the local OU text filter' {
     $a=New-ResultRow 'Alex' 'alex';$p=New-ResultRow 'PC-ONLY' 'pc' 'Machine'
     foreach($r in @($a,$p)){Add-Member -InputObject $r -NotePropertyName Association -NotePropertyValue '';Add-Member -InputObject $r -NotePropertyName Presence -NotePropertyValue '';Add-Member -InputObject $r -NotePropertyName SessionDisplay -NotePropertyValue '';Add-Member -InputObject $r -NotePropertyName SessionState -NotePropertyValue ''}
     Set-DomeniaSearchMode Global;[void](Set-DomeniaItemsSource -Name DgObjects -Rows @($a,$p))
-    $names=Get-GridNames
+    $names=@(Get-GridNames)
     Expect ($names -contains 'Alex' -and $names.Count -eq 2) 'Un utilisateur global est masque par le filtre local.'
     Expect ($script:Ctrl.LblSuiteResultCount.Text.Contains('recherche globale sans filtre local'))
     Set-DomeniaSearchMode OU;[void](Set-DomeniaItemsSource -Name DgObjects -Rows @($a,$p))
-    $names=Get-GridNames
+    $names=@(Get-GridNames)
     Expect ($names.Count -eq 1 -and $names[0] -eq 'PC-ONLY') 'Le filtre local doit rester actif en OU.'
 }
 # Unwired if Invoke-DomeniaObjectChanges uses Get-BranchQueryData for a global list: BaseDn becomes the OU.

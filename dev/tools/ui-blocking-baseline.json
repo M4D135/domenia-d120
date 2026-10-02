@@ -384,6 +384,30 @@
       "Owner": "moteur",
       "Reason": "Journal local (ajout court ou rotation locale) : exception retenue par la carte D014, aucun chemin reseau.",
       "Chain": "wad\\Domenia-Core.ps1:2563 Start-UiTask > Apply-DomeniaPresenceFilter > Set-DomeniaGridRows > Queue-DomeniaSelectedObjectOpen > Invoke-DomeniaPendingSelectionOpen > Open-AdObject > Start-UiTask > Initialize-AsyncEngine > Write-StartupTrace"
+    },
+    {
+      "Function": "Add-DomeniaRelationHistory",
+      "Pattern": ".AppendAllText",
+      "Status": "AFaire",
+      "Owner": "relations",
+      "Reason": "Ajout d une ligne au journal local des relations depuis le minuteur de sonde : petit fichier local, mais ecriture sur le Dispatcher. A passer par le worker de stockage (revue adversariale du 2026-10-02).",
+      "Chain": "wad\\Domenia-Core.ps1:7413 $timer.Add_Tick > Complete-LinkProbeJobs > Add-UserMachineLinkIfMissing > Add-DomeniaRelation > Add-DomeniaRelationHistory"
+    },
+    {
+      "Function": "Get-DomeniaRelationsRestorableEntry",
+      "Pattern": ".ReadAllLines",
+      "Status": "AFaire",
+      "Owner": "relations",
+      "Reason": "Lecture des 400 dernieres lignes du journal local des relations a chaque selection (disponibilite de la restauration). A remplacer par un etat en memoire charge une fois hors Dispatcher (revue adversariale du 2026-10-02).",
+      "Chain": "wad\\Domenia-Core.ps1:2602 Start-UiTask > Apply-DomeniaPresenceFilter > Set-DomeniaGridRows > Queue-DomeniaSelectedObjectOpen > Set-DomeniaRelationsGridSelection > Set-DomeniaRelationsSelection > Refresh-DomeniaRelationViews > Update-DomeniaRelationsActions > Test-DomeniaRelationsRestoreAvailable > Get-DomeniaRelationsRestorableEntry"
+    },
+    {
+      "Function": "Initialize-DomeniaInlineUi",
+      "Pattern": ".ReadAllText",
+      "Status": "Justifie",
+      "Owner": "interface",
+      "Reason": "Chargement paresseux, une seule fois par session, du fichier XAML local du paquet (Domenia-Inline.xaml), meme modele que Initialize-DomeniaSupportUi ; jamais un chemin reseau.",
+      "Chain": "wad\\Domenia-Core.ps1:19043 $script:Ctrl[\"BtnRemoveLink\"].Add_Click > Remove-SelectedLink > Request-DomeniaRelationRemoval > Request-DomeniaInlineConfirmation > Initialize-DomeniaInlineUi"
     }
   ]
 }

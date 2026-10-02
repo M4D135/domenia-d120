@@ -644,8 +644,8 @@
     },
     {
       "Path": "tools/ui-blocking-baseline.json",
-      "Sha256": "1659CE86036986AFA84F15AAFDAB565AC54D269113768C1F347DB0C00A1E69A6",
-      "Bytes": 22125,
+      "Sha256": "F3A5404D43B78829D1FA0B9D99A430B55E3DA0BF2C6532D7B439AB677B36F245",
+      "Bytes": 23969,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -2415,8 +2415,8 @@
     },
     {
       "Path": "wad/tests/Test-Domenia.ps1",
-      "Sha256": "24CC6976179DA007058451DC136172099E87E8EE202C4097950AC0AAD49EB8E6",
-      "Bytes": 18385,
+      "Sha256": "0F5DFB95B352A6D3F6BADC5A6A70E24EC282D494C6BDC3A0020CCAAA190F3D63",
+      "Bytes": 18497,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -2632,15 +2632,15 @@
     },
     {
       "Path": "wad/tests/Test-DomeniaWiringRecherche.ps1",
-      "Sha256": "4459A81521DA79A3E9DCE2CA6C3F9470B8BD65CBFBCAA4E8483F6A126A8289A8",
-      "Bytes": 44784,
+      "Sha256": "C3B844A7C8191B5D37DF39B63836A2F4F5D3E9B79D8F1734AFFF1FF371F04935",
+      "Bytes": 44790,
       "Runtime": false,
       "PreserveExisting": false
     },
     {
       "Path": "wad/tests/Test-DomeniaWiringRelations.ps1",
-      "Sha256": "858A30725EC10107940C8DD95CC75788AF0861678888DB0DBC5C4D5FD5CFAFF3",
-      "Bytes": 57955,
+      "Sha256": "91FD4D973B04ADFE73EF96120B74DE9781BF68C7BE79AA2753539FD4A28DDFF2",
+      "Bytes": 58206,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -2723,8 +2723,8 @@
     },
     {
       "Path": "wad/tests/fixtures/Domenia-AdFixtures.ps1",
-      "Sha256": "C668308EECC67B8EBA256E7FB22871DB58745920DA742EED7EB15F0F334F0C38",
-      "Bytes": 32101,
+      "Sha256": "D3E21D3432AD5A22ADE818E47DB9021626CDC847E46687C6F043594B16157754",
+      "Bytes": 35498,
       "Runtime": false,
       "PreserveExisting": false
     },

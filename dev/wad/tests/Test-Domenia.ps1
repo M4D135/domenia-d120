@@ -101,7 +101,8 @@ try {
         foreach($value in @('=1+1','+cmd','-1+2','@SUM(A1)',"`t=3",'  =5','＝2')) {
             Assert-True ((ConvertTo-DomeniaSpreadsheetCell $value).StartsWith("'")) ('Non neutralise : '+$value)
         }
-        $number=ConvertTo-DomeniaSpreadsheetCell -42
+        # (-42): in argument mode a bare -42 is a string token, which the dash rule would rightly neutralise.
+        $number=ConvertTo-DomeniaSpreadsheetCell (-42)
         $numberType=if($null -eq $number){'null'}else{$number.GetType().FullName}
         Assert-True ($number -is [ValueType] -and $number -eq -42) ('Nombre modifie : <'+[string]$number+'> type '+$numberType+' culture '+$culture)
         $text=ConvertTo-DomeniaSpreadsheetCell 'PC-01'
