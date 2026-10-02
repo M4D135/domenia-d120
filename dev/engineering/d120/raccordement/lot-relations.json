@@ -1,0 +1,350 @@
+{
+  "Lot": "relations",
+  "Points": [
+    "D041",
+    "D042",
+    "D043",
+    "D044",
+    "D045",
+    "D046",
+    "D047",
+    "D048",
+    "D049",
+    "D050"
+  ],
+  "Modules": [
+    {
+      "File": "Domenia-Relations.Model.ps1",
+      "Phase": "Modules",
+      "Requires": [
+        "Domenia-Common.Model.ps1",
+        "Domenia-Engine.Model.ps1"
+      ],
+      "DotSource": true,
+      "Functions": [
+        "Get-DomeniaRelationDirection",
+        "ConvertTo-DomeniaRelationType",
+        "Test-DomeniaSameSubject",
+        "Test-DomeniaRelationConfirmation",
+        "Resolve-DomeniaRelationSubjectChange",
+        "Get-DomeniaRelationKind",
+        "ConvertTo-DomeniaRelationLoginKey",
+        "ConvertTo-DomeniaRelationComputerKey",
+        "Get-DomeniaRelationKey",
+        "Test-DomeniaSameRelation",
+        "Resolve-DomeniaRelationUpsert",
+        "Select-DomeniaPrimaryRelation",
+        "Resolve-DomeniaRelationStoragePlacement",
+        "Get-DomeniaRelationStorageKey",
+        "Get-DomeniaEvidenceKind",
+        "Get-DomeniaEvidenceBadge",
+        "Step-DomeniaAssociationState",
+        "Merge-DomeniaRelationCandidates",
+        "Get-DomeniaDetectionScopePlan",
+        "Test-DomeniaDetectionMatchesPlan",
+        "Test-DomeniaDetectionWithinPlan",
+        "Test-DomeniaProbeAllowed",
+        "New-DomeniaDetectionCounters",
+        "Add-DomeniaDetectionOutcome",
+        "ConvertTo-DomeniaDetectionOutcome",
+        "Get-DomeniaDetectionCounterText",
+        "ConvertTo-DomeniaAccountIdentity",
+        "Test-DomeniaAccountIdentityMatch",
+        "New-DomeniaLinkHistoryEntry",
+        "Get-DomeniaLinkRestoreCandidate",
+        "Get-DomeniaLinkConflicts"
+      ],
+      "Change": "8 nouvelles fonctions pures : ConvertTo-DomeniaRelationLoginKey, ConvertTo-DomeniaRelationComputerKey, Test-DomeniaSameRelation, Select-DomeniaPrimaryRelation, Resolve-DomeniaRelationStoragePlacement, Get-DomeniaRelationStorageKey, Test-DomeniaDetectionWithinPlan, ConvertTo-DomeniaDetectionOutcome."
+    },
+    {
+      "File": "Domenia-Relations.UI.ps1",
+      "Phase": "Modules",
+      "Requires": [
+        "Domenia-Common.Model.ps1",
+        "Domenia-Relations.Model.ps1"
+      ],
+      "DotSource": true,
+      "Functions": [
+        "Initialize-DomeniaRelationsState",
+        "Set-DomeniaRelationsSelection",
+        "Set-DomeniaRelationsGridSelection",
+        "Get-DomeniaRelationsSubject",
+        "Get-DomeniaRelationsIdentity",
+        "Get-DomeniaRelationsSubjectIdentity",
+        "Get-DomeniaRelationsTargetIdentity",
+        "Test-DomeniaRelationsCurrent",
+        "Test-DomeniaRelationsListContains",
+        "Get-DomeniaRelationsAllRelations",
+        "Get-DomeniaRelationsSelectedLinks",
+        "Get-DomeniaRelationsActiveGrid",
+        "Step-DomeniaRelationsAssociation",
+        "Update-DomeniaRelationsActions",
+        "Update-DomeniaRelationEvidence",
+        "Update-DomeniaRelationCandidateEvidence",
+        "Refresh-DomeniaRelationViews",
+        "Update-DomeniaRelationDetectionCounters",
+        "Invoke-DomeniaRelationsTick",
+        "Update-DomeniaRelationLinkIndex",
+        "Get-DomeniaRelationsJournalPath",
+        "Add-DomeniaRelationHistory",
+        "Get-DomeniaRelationsRestorableEntry",
+        "Test-DomeniaRelationsRestoreAvailable",
+        "Add-DomeniaRelation",
+        "Set-DomeniaRelationValue",
+        "Remove-DomeniaRelation",
+        "Request-DomeniaRelationRemoval",
+        "Complete-DomeniaRelationRemoval",
+        "Cancel-DomeniaRelationRemoval",
+        "Restore-DomeniaRemovedLink",
+        "Save-DomeniaRelationConfirmations",
+        "Complete-DomeniaRelationsSearch",
+        "Fail-DomeniaRelationsSearch",
+        "Get-DomeniaRelationScopeCandidates",
+        "Show-DomeniaRelationDetectionPlan",
+        "Confirm-DomeniaRelationDetectionPlan",
+        "Cancel-DomeniaRelationDetectionPlan",
+        "Submit-DomeniaRelationsQuery",
+        "Start-DomeniaRelationsComputerDetect",
+        "Complete-DomeniaRelationsComputerProbe",
+        "Fail-DomeniaRelationsComputerProbe",
+        "Start-DomeniaRelationsSearch",
+        "Stop-DomeniaRelationsSearch",
+        "Use-DomeniaRelationCandidate",
+        "Initialize-DomeniaRelationsUi",
+        "Clear-DomeniaRelationManualResults",
+        "Start-DomeniaRelationComputerSearch",
+        "Test-DomeniaRelationManualState",
+        "Complete-DomeniaRelationComputerSearch",
+        "Fail-DomeniaRelationComputerSearch",
+        "Set-DomeniaRelationPendingAssociation",
+        "Request-DomeniaRelationManualAssociation",
+        "Cancel-DomeniaRelationAssociation",
+        "Confirm-DomeniaRelationAssociation",
+        "Complete-DomeniaRelationAssociationVerify",
+        "Fail-DomeniaRelationAssociationVerify",
+        "Get-DomeniaRelationsWorkerCode"
+      ],
+      "Change": "29 nouvelles fonctions (liste complete ci-contre) ; l'entree actuelle du chargeur n'a ni Phase ni Requires."
+    }
+  ],
+  "TypeFiles": [],
+  "Operations": [],
+  "OperationsModified": [
+    "UserComputerProbe (wad/modules/Domenia-Relations.UI.ps1, Get-DomeniaRelationsWorkerCode, LiteralIndex 0) : ancien 0014DBE4C077874A303C94D8A26A76F794E9B6BE164101585533034CC7F931EA, nouveau EB7C36419C1B8B91AFB9ECE6B98D4E3FE663B87E4011F7D264D8AEDE7735E775. LoadedTargets (GUID confirmes) filtre la branche Loaded ; ProbedGuids renvoye.",
+    "ComputerLastUser (wad/Domenia-Core.ps1, Start-ComputerUserLinkProbe, LiteralIndex 0) : ancien 527CE950977287F1846A8C79F3880139F62F0AB09AC1197000B8989E68E3CFE4, nouveau 8F79C42CE673CE98DBE30EB30B9DBF246D8819B08149A4FBA1C5F9BA894395F9. Return-Candidate : compte local / autre autorite ignores (COMPTE LOCAL, HORS DOMAINE) et RawAccount renvoye ; WinRM : trois natures distinctes ; secours local : session courante avant LogonUI et profils."
+  ],
+  "SelfTestRequiredFunctions": [
+    "Get-DomeniaRelationDirection",
+    "Test-DomeniaSameRelation",
+    "Resolve-DomeniaRelationUpsert",
+    "Resolve-DomeniaRelationStoragePlacement",
+    "Get-DomeniaEvidenceBadge",
+    "Step-DomeniaAssociationState",
+    "Merge-DomeniaRelationCandidates",
+    "Get-DomeniaDetectionScopePlan",
+    "Test-DomeniaDetectionWithinPlan",
+    "Test-DomeniaProbeAllowed",
+    "Test-DomeniaAccountIdentityMatch",
+    "New-DomeniaLinkHistoryEntry",
+    "Add-DomeniaRelation",
+    "Remove-DomeniaRelation",
+    "Restore-DomeniaRemovedLink",
+    "Complete-DomeniaRelationsComputerProbe",
+    "Show-DomeniaRelationDetectionPlan"
+  ],
+  "SelfTestChecks": [
+    "Get-DomeniaRelationKind 'CIM dernier utilisateur LogonUI' -eq 'Historique' et Get-DomeniaRelationKind 'Responsable déclaré' -eq 'Indice'",
+    "Resolve-DomeniaRelationStoragePlacement (stockee 'Saisie manuelle', entrante 'Console CIM/DCOM') .Placement -eq 'Session'",
+    "Step-DomeniaAssociationState 'Idle' 'Confirm' : Accepted faux",
+    "Test-DomeniaProbeAllowed 'ListRender' faux et 'ExplicitDetect' vrai",
+    "Test-DomeniaAccountIdentityMatch @{Login='x';NetbiosDomain='D'} 'PC\\x' '' 'PC' : Match faux"
+  ],
+  "HelpEntries": [
+    {
+      "Name": "BtnRestoreLink",
+      "Title": "Restaurer la suppression",
+      "Text": "Remet la dernière association supprimée localement, depuis le journal des relations. Aucun objet Active Directory nʼest lu ni modifié."
+    },
+    {
+      "Name": "RelationPlanPanel",
+      "Title": "Périmètre à confirmer",
+      "Text": "Liste exacte des postes qui seront lus, avec la limite. Aucun poste nʼest contacté avant « Lancer la détection »."
+    },
+    {
+      "Name": "LblRelationPlan",
+      "Title": "Périmètre de détection",
+      "Text": "Nombre de postes, périmètre demandé, limite et troncature. Zéro candidat signifie quʼaucune source nʼen propose, pas que lʼutilisateur nʼa aucun poste."
+    },
+    {
+      "Name": "BtnRelationPlanRun",
+      "Title": "Lancer la détection",
+      "Text": "Lit la console des seuls postes listés, dans la limite affichée. Compteurs interrogés, refusés, injoignables et restants pendant la lecture."
+    },
+    {
+      "Name": "BtnRelationPlanCancel",
+      "Title": "Annuler le périmètre",
+      "Text": "Abandonne ce périmètre. Aucun poste nʼest contacté."
+    },
+    {
+      "Name": "ChkRelationRdp",
+      "Title": "Sessions RDP",
+      "Text": "Option séparée, non disponible : la lecture porte sur la console. Une console vide ne prouve pas lʼabsence de session RDP."
+    },
+    {
+      "Name": "TabLinksAssociate",
+      "Title": "Associer",
+      "Text": "Depuis un utilisateur : détecter ou rechercher ses postes. Depuis un poste : lire sa session ou rechercher un utilisateur. Résultats, choix et confirmation restent dans cette page."
+    },
+    {
+      "Name": "TabRelationDetect",
+      "Title": "Détecter",
+      "Text": "Utilisateur : associations connues et indices AD, puis périmètre à confirmer avant toute lecture de poste. Poste : lecture de sa session (geste explicite)."
+    },
+    {
+      "Name": "TabRelationSearch",
+      "Title": "Rechercher la cible",
+      "Text": "Recherche un poste (depuis un utilisateur) ou un utilisateur (depuis un poste) dans tout le domaine, sans le filtre OU de la page Rechercher."
+    },
+    {
+      "Name": "TxtRelationComputerSearch",
+      "Title": "Cible à rechercher",
+      "Text": "Au moins deux caractères du nom, de lʼidentifiant ou du DNS. Tant que des résultats sont affichés, le sujet de départ est conservé."
+    },
+    {
+      "Name": "BtnRelationComputerSearch",
+      "Title": "Rechercher",
+      "Text": "Recherche la cible dans tout le domaine sans modifier la recherche principale ni lʼOU sélectionnée."
+    },
+    {
+      "Name": "DgRelationComputerSearch",
+      "Title": "Cibles trouvées",
+      "Text": "Résultats Active Directory de la recherche manuelle (postes ou utilisateurs). Sélectionnez une ligne avant de préparer lʼassociation."
+    },
+    {
+      "Name": "BtnRelationAssociateSearchResult",
+      "Title": "Associer la ligne choisie",
+      "Text": "Prépare lʼassociation de la ligne sélectionnée. La cible est revérifiée dans AD à la confirmation, dans cette page."
+    },
+    {
+      "Name": "BtnRemoveLink",
+      "Title": "Supprimer le lien sélectionné",
+      "Text": "Retire seulement le lien choisi, pas lʼobjet AD. La suppression est journalisée (déclarant, source, dates) et peut être restaurée."
+    },
+    {
+      "Name": "DgLinks",
+      "Title": "Associations de la sélection",
+      "Text": "Qualification (Déclaré, Observé, Importé, Indice, Contradictoire) avec sa règle en info-bulle, sans pourcentage. Conservation : enregistrée ou visible pour la session seulement."
+    },
+    {
+      "Name": "DgAllLinks",
+      "Title": "Toutes les associations",
+      "Text": "Liens locaux du domaine courant et relations de la session, chacun avec sa qualification et sa règle. Aucune fusion des sources contradictoires."
+    },
+    {
+      "Name": "DgRelationCandidates",
+      "Title": "Candidats et périmètre",
+      "Text": "Pourquoi chaque poste est proposé (association connue, observation, indice AD). Une adresse IP ou un nom partiel ne suffit pas à associer."
+    },
+    {
+      "Name": "CmbRelationScanScope",
+      "Title": "Périmètre de détection",
+      "Text": "Postes connus et candidats AD (par défaut), machines de la liste chargée ou OU choisie. Le périmètre demandé nʼest jamais remplacé par un autre ; il est affiché avant toute lecture."
+    },
+    {
+      "Name": "BtnDetectUserComputers",
+      "Title": "Détecter",
+      "Text": "Utilisateur : lit les associations connues et les indices AD puis affiche le périmètre à confirmer. Poste : lit la session de ce poste."
+    },
+    {
+      "Name": "BtnRelationAdopt",
+      "Title": "Associer ce poste",
+      "Text": "Prépare lʼassociation du candidat sélectionné, seulement sʼil est identifié par son GUID AD. La confirmation reste dans cette page."
+    }
+  ],
+  "Features": [
+    {
+      "Name": "RelationsSymmetry",
+      "Default": true,
+      "Purpose": "D041-D046, D049, D050 : relations dans les deux sens, sujet stable, parcours d'association a etats, upsert sans remplacement, qualification par badge, journal et restauration. Faux : parcours RC1.10.7 (Update-DomeniaRelationsActions $isUser, Save-DomeniaRelationConfirmations a Confidence=97, Add-UserMachineLinkIfMissing par poste, canonique par poste le plus recent, Remove-SelectedLink sans journal)."
+    },
+    {
+      "Name": "DetectionPreview",
+      "Default": true,
+      "Purpose": "D047/D048 : perimetre affiche et confirme avant toute sonde, lecture AD seule en phase 1 pour Candidates, LoadedTargets, compteurs. Faux : soumission directe RC1.10.7 (avec ses bascules Candidates -> OU -> Loaded)."
+    },
+    {
+      "Name": "InlineConfirm",
+      "Default": true,
+      "Purpose": "Lu seulement (lot interface, C4) : la suppression d'une association passe par Request-DomeniaInlineConfirmation quand elle existe, sinon par Confirm-Action."
+    }
+  ],
+  "StartRequired": [
+    "wad/modules/Domenia-Common.Model.ps1",
+    "wad/modules/Domenia-Relations.Model.ps1",
+    "wad/modules/Domenia-Relations.UI.ps1"
+  ],
+  "CoreFunctionsModified": [
+    "Get-MainXaml",
+    "Start-ComputerUserLinkProbe",
+    "Add-UserMachineLinkIfMissing",
+    "ConvertTo-DomeniaCanonicalLinks",
+    "Remove-SelectedLink"
+  ],
+  "ModuleFunctionsModified": {
+    "Domenia-Live.UI.ps1": [
+      "Merge-DomeniaLiveLinkMemory"
+    ],
+    "Domenia-Embedded.UI.ps1": [
+      "Select-DomeniaRelationsUser"
+    ]
+  },
+  "PayloadsChanged": [
+    "wad/Domenia-Core.ps1",
+    "wad/modules/Domenia-Relations.Model.ps1",
+    "wad/modules/Domenia-Relations.UI.ps1",
+    "wad/modules/Domenia-Live.UI.ps1",
+    "wad/modules/Domenia-Embedded.UI.ps1"
+  ],
+  "WiringTests": [
+    "wad/tests/Test-DomeniaWiringRelations.ps1"
+  ],
+  "TestsModified": [
+    "wad/tests/Test-DomeniaRelationsAlignment.ps1",
+    "wad/tests/rules/Relations.Tests.ps1"
+  ],
+  "CrossLaneRequests": [
+    {
+      "To": "integrateur",
+      "Request": "Domenia-Modules.ps1 : remplacer les listes de Domenia-Relations.Model.ps1 (31 fonctions) et de Domenia-Relations.UI.ps1 (58 fonctions) par celles de ce manifeste ; donner a Relations.UI Phase='Modules' et Requires Common.Model + Relations.Model. audit_function_names.py signale aujourd'hui 37 fonctions hors liste fermee (8 Model + 29 UI), toutes de ce lot."
+    },
+    {
+      "To": "integrateur",
+      "Request": "Reepingler UserComputerProbe et ComputerLastUser (tools/update_worker_contracts.py --apply apres relecture), puis mettre a jour tools/preload-baseline.json (Files : Domenia-Relations.UI.ps1 et Domenia-Live.UI.ps1 ; CoreFunctions : Get-MainXaml, Start-ComputerUserLinkProbe, Add-UserMachineLinkIfMissing, ConvertTo-DomeniaCanonicalLinks, Remove-SelectedLink ; et les fonctions de registre reepinglees). Citer les deux operations dans les notes RC1.11.0."
+    },
+    {
+      "To": "cache-storage",
+      "Request": "D042/D049 (persistance de plusieurs relations par poste) : dans Reset-DomeniaLinkBaseline et Queue-DomeniaLinkChanges (Domenia-Storage.UI.ps1), utiliser la cle [string]$l.StorageKey posee par ConvertTo-DomeniaCanonicalLinks (Get-DomeniaRelationStorageKey : cle poste pour la relation principale, donc compatible avec les lignes computer_key existantes ; cle de relation pour les autres) a la place de (Normalize-LinkComputer ...).ToUpperInvariant(), puis poser $script:DomeniaLinkStoreMultiRelation=$true. Le worker LocalStore n'a pas a changer (computer_key reste une cle texte). LiveCache (Domenia-Live.Model.ps1) ecrit computer_key=poste : compatible avec la relation principale ; a revoir si l'on veut persister une observation secondaire. Sans ce changement, les relations secondaires restent visibles pour la session seulement (comportement sur et explique)."
+    },
+    {
+      "To": "cache-storage",
+      "Request": "D050 : le journal des suppressions et restaurations est ecrit par le lot relations dans <base>.relations-journal.jsonl a cote de la base du domaine (Get-DomeniaRelationsJournalPath). Le prendre en compte dans la retention (D029), la disposition du stockage (D118) et la sauvegarde ; a terme, le deplacer dans user_machine_history (colonnes action, declarant) si le schema evolue."
+    },
+    {
+      "To": "historic-suites",
+      "Request": "Test-DomeniaRemote.ps1 cas 'Empreinte du vrai worker ComputerLastUser' : passera apres le reepinglage. Test-DomeniaLastUser.ps1 : inchange cote comportement (les appels aux regles sont gardes par Get-Command dans Start-ComputerUserLinkProbe) ; pour exercer le nouveau gestionnaire Complete-DomeniaRelationsComputerProbe, dot-sourcer Common.Model, Relations.Model et Relations.UI (voir Test-DomeniaWiringRelations)."
+    },
+    {
+      "To": "integrateur",
+      "Request": "D041 : Add-SelectedLink (coeur, entree de la palette « Associer ») refuse encore un poste (« L association guidee part maintenant de l utilisateur »). Remplacer ce refus par l'ouverture de Relations > Associer > Rechercher, comme pour un utilisateur ; le parcours poste -> utilisateur est raccorde dans Relations.UI."
+    },
+    {
+      "To": "integrateur",
+      "Request": "D043 : pourcentages encore affiches hors du perimetre du lot : Fill-ComputerObject (« confiance N% »), Update-DomeniaSelectedUserPresence, Get-SelectedAssociationSummary, Update-SelectedAssociationFields, Refresh-AssociationContext, Complete-DomeniaComputerUserProbeUi (chemin interrupteur desactive) et TxtCompLinkConfidence (XAML Assistance poste). Les remplacer par (Get-DomeniaEvidenceBadge $link).Badge et .Rule. Les nouvelles relations ecrites par ce lot portent Confidence=0 (non mesure) : tant que Fill-ComputerObject n'est pas modifie, la fiche poste affichera « confiance 0% » pour elles."
+    },
+    {
+      "To": "integrateur",
+      "Request": "Domenia-UX.help.json : ajouter ou remplacer les 20 entrees HelpEntries de ce manifeste (6 nouveaux controles, 14 textes devenus symetriques ou sans pourcentage)."
+    }
+  ],
+  "Notes": "Etat : code ecrit, tests d'integration ecrits, rien n'a ete execute (decision utilisateur : aucune suite avant la fin des modifications). Controles statiques seulement : validate_powershell_static.py (local), Test-NativeParser -RequireWindows51 et Test-DomeniaPs51Compat dans la VM (dossier w-relations). Test-DomeniaRelationsAlignment : correctif du fixture (variable $relationsFixtureMode, cas 31 a 40), assertions anti-vacuite (dont le faux succes 35, qui doit maintenant lire 'alice@example.invalid'), dot-source de Common.Model et Relations.Model ; $expected inchange (65). Decision documentee, cas 19 : il reste valide (la console d'alice sur PC-B, poste declare a bob, est conservee pour la session, rien n'est enregistre, le lien de bob reste intact). Choix de conception D042 : le stockage RC1.10 garde une ligne par poste ; tant que la file de liens ne suit pas StorageKey, la relation principale (affectation declaree, sinon la plus recente) est la seule enregistree et les autres sont visibles avec la mention 'Session uniquement'. Aucune perte silencieuse : la relation non enregistree reste visible et l'operateur est informe. Choix D044 : seule la recherche manuelle de cible (en cours ou resultats listes, etat Searching/Candidate) et l'association en attente verrouillent le sujet ; la detection ne le verrouille pas (cas 09 conserve, recommandation de la carte). D047 : le perimetre Candidates fait une lecture AD seule (phase 1, ScanPark=$false), puis affiche le plan ; Loaded et OU prennent les machines affichees ; la soumission confirmee passe en Loaded avec LoadedTargets. CmbRelationScanScope passe a SelectedIndex=0 (Candidates). D048 : la sonde automatique de la fiche poste (Fill-ComputerObject, origine SelectedMachine) reste autorisee ; la cle UserMachineLink.AutoProbeOnComputerSelect n'est toujours lue nulle part : decision de David a prendre (carte relations). D049 : le SID n'est pas lu par le worker ComputerLastUser ; Test-DomeniaAccountIdentityMatch decide par autorite et identifiant (et UPN). Export-DomeniaLinksCsv (coeur, hors lot) passe par ConvertTo-DomeniaCanonicalLinks : colonnes Kind et StorageKey ajoutees ; en stockage a une ligne par poste, les relations de session ne sont pas exportees."
+}

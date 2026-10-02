@@ -473,6 +473,13 @@ try {
             Reset-Fixture;Set-DomeniaRelationsSelection -Row $script:Alice;$script:Relations.ManualSearchJob='mock-search'
             Set-DomeniaRelationsSelection -Row $script:Bob
             Expect ($script:Relations.Subject.Login -eq 'alice') 'Sujet remplace pendant la recherche'
+            Reset-Fixture;Set-DomeniaRelationsSelection -Row $script:Alice;Pump $w
+            $pc=[pscustomobject]@{Type='Machine';Name='PC-C';Login='PC-C$';Second='';DN=$script:PcC.DN;Guid=$script:PcC.Guid;Description=''}
+            [void](Start-ManualSearchFor 'pc' @($pc))
+            Set-DomeniaRelationsSelection -Row $script:PcC
+            Expect ($script:Relations.Subject.Login -eq 'alice' -and $script:Relations.AssociationState -eq 'Candidate') 'Sujet remplace pendant le choix parmi les resultats'
+            Clear-DomeniaRelationManualResults;Set-DomeniaRelationsSelection -Row $script:PcC
+            Expect ($script:Relations.Subject.Name -eq 'PC-C') 'Sujet bloque apres avoir vide la recherche'
         }
         Case 'D044 Confirmation refusee si le compte de lecture a change' {
             Reset-Fixture;Set-DomeniaRelationsSelection -Row $script:Alice;Pump $w

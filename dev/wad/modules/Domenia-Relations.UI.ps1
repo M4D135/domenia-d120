@@ -42,13 +42,15 @@ function Set-DomeniaRelationsSelection {
     if($null -eq $s -or -not $s.DN){return}
     if($null -ne $script:Relations.Subject -and $script:Relations.Subject.DN -ieq $s.DN -and $script:Relations.Subject.Guid -ieq $s.Guid){$script:Relations.Subject=$s;Refresh-DomeniaRelationViews;return}
     $r=$script:Relations
-    $searching=(-not [string]::IsNullOrWhiteSpace([string]$r.ManualSearchJob))
+    # D044: a target is being searched while the manual search runs or while its results are listed. The detection
+    # query does not lock the subject (a new selection still stops it, as in RC1.10.7).
+    $searching=((-not [string]::IsNullOrWhiteSpace([string]$r.ManualSearchJob)) -or (@($r.ManualSearchRows).Count -gt 0 -and [string]$r.AssociationState -in @('Searching','Candidate')))
     if($model -and $null -ne $r.Subject -and ($null -ne $r.PendingAssociation -or $searching)){
-        # D044: while a target is searched or awaits confirmation, a global selection does not replace the source subject.
+        # While a target is searched or awaits confirmation, a global selection does not replace the source subject.
         $d=Resolve-DomeniaRelationSubjectChange -CurrentSubject $r.Subject -NewSelection $s -TargetSearchActive $searching -PendingAssociation ($null -ne $r.PendingAssociation)
         if(-not $d.Change){
             $label=if($r.Subject.Type -eq 'Utilisateur'){[string]$r.Subject.Login}else{[string]$r.Subject.Name}
-            $r.SubjectNotice=([string]$d.Reason+' Sujet conservé : '+$label+'.')
+            $r.SubjectNotice=([string]$d.Reason+' Sujet conservé : '+$label+'. Annulez lʼassociation ou videz la recherche de cible pour changer de sujet.')
             [void](Set-DomeniaControlText 'LblRelationAssociateHint' $r.SubjectNotice)
             return
         }
