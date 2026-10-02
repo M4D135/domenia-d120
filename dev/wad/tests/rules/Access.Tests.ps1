@@ -124,6 +124,68 @@ Test-Case 'D059' 'Export par liste blanche : un champ non nomme ne sort pas' {
     Assert-False (($o|ConvertTo-Json) -match 'SECRET_SENTINEL_D059')
     $p=Get-DomeniaSecretExposurePolicy;Assert-False ($p.InLogs -or $p.InCache -or $p.InSnapshots -or $p.InProcessArguments -or $p.InAutomaticExports);Assert-True ($p.ClipboardLimit.Length -gt 20)
 }
+Test-Case 'D051' 'Meme poste en nom court et en FQDN ; adresse IP conservee entiere' {
+    Assert-Equal 'Remote:pc-01' (Get-DomeniaCredentialScope 'ComputerInventory' 'pc-01.example.local');Assert-Equal 'Remote:pc-01' (Get-DomeniaCredentialScope 'LiveConsole' 'PC-01')
+    Assert-Equal 'Remote:10.1.2.3' (Get-DomeniaCredentialScope 'ComputerInventory' '10.1.2.3')
+    Assert-True (Test-DomeniaCredentialContext 'Remote:pc-01' 'PC-01\admin' 'pc-01.example.local').Valid
+    Assert-Equal 'BitLocker' (Get-DomeniaOperationResource 'ReadBitLockerList');Assert-Equal 'BitLocker' (Get-DomeniaOperationResource 'ReadBitLockerKey')
+}
+Test-Case 'D051' 'Compte d un autre poste refuse avant tout appel quand le domaine est connu' {
+    Assert-False (Test-DomeniaCredentialContext 'Remote:pc-01' 'PC-02\admin' 'PC-01' @('EX','ex.local')).Valid
+    Assert-True (Test-DomeniaCredentialContext 'Remote:pc-01' 'EX\support' 'PC-01' @('EX','ex.local')).Valid
+    Assert-True (Test-DomeniaCredentialContext 'Remote:pc-01' 'support@ex.local' 'PC-01' @('EX','ex.local')).Valid
+    Assert-True (Test-DomeniaCredentialContext 'Remote:pc-01' 'PC-02\admin' 'PC-01').Valid 'Sans domaine connu, aucune deduction'
+    Assert-True (Test-DomeniaCredentialContext 'Laps' 'EX\laps' 'PC-01' @('EX')).Valid
+}
+Test-Case 'D052' 'Module LAPS absent et delai pendant le dechiffrement ne sont pas des refus de dechiffrement' {
+    $module='Module Windows LAPS absent. Aucun decryptage possible. Le changement de compte ne remplace pas ce module.'
+    $m=Get-DomeniaErrorDecision (Get-DomeniaStructuredError $module) $module;Assert-Equal 'Prerequisite' $m.Category;Assert-False $m.OfferCredential
+    $t=Get-DomeniaErrorDecision (Get-DomeniaStructuredError 'Timeout pendant le dechiffrement') 'Timeout pendant le dechiffrement';Assert-Equal 'Timeout' $t.Category
+    $d='Le compte ne dispose pas du droit de dechiffrement LAPS.'
+    $x=Get-DomeniaErrorDecision (Get-DomeniaStructuredError $d) $d;Assert-Equal 'DecryptionDenied' $x.Category;Assert-True $x.OfferCredential
+}
+Test-Case 'D052' 'Identifiants rejetes par texte seul, en francais et en anglais' {
+    foreach($text in @('The user name or password is incorrect.','Le nom d utilisateur ou le mot de passe est incorrect.')){
+        Assert-Equal 'LogonFailure' (Get-DomeniaStructuredError $text).Kind $text
+        Assert-Equal 'CredentialsRejected' (Get-DomeniaErrorDecision ([pscustomobject]@{Kind='Unknown';NativeCode=0;Code='0x00000000'}) $text).Category $text
+    }
+}
+Test-Case 'D052' 'Code natif transporte meme enveloppe par EndInvoke' {
+    $wrapped='Exception lors de l appel de EndInvoke : "[DOMENIA:AccountLocked;1909;0x80070775] Le compte est verrouille."'
+    $s=Get-DomeniaStructuredError $wrapped;Assert-Equal 'AccountLocked' $s.Kind;Assert-Equal 1909 $s.NativeCode;Assert-False $s.CanOfferCredential
+    $inner=[InvalidOperationException]::new('[DOMENIA:LogonFailure;1326;0x8007052E] refus',[Exception]::new('detail sans code'))
+    Assert-Equal 'LogonFailure' (Get-DomeniaStructuredError $inner).Kind 'Le marqueur reste lu quand une exception interne suit'
+}
+Test-Case 'D053' 'Valeur absente non confirmee propose un compte et une seule relecture' {
+    $p=Get-DomeniaReauthPlan 'Unconfirmed';Assert-True $p.OfferAccount;Assert-True $p.RetryOnce
+    Assert-False (Get-DomeniaReauthPlan 'Unconfirmed' $true).RetryOnce
+    Assert-Equal 'Unconfirmed' (Get-DomeniaErrorDecision ([pscustomobject]@{Kind='Unconfirmed';NativeCode=0;Code='0x00000000'}) 'aucune valeur').Category
+}
+Test-Case 'D055' 'Un compte alternatif rejete ne redevient pas utilisable' {
+    $n=Get-DomeniaOperationAuthNeed 'ReadLaps' $true $true $true $true;Assert-Equal 'AskAccount' $n.Mode;Assert-True $n.Prompt
+    Assert-Equal 'Alternate' (Get-DomeniaOperationAuthNeed 'ReadLaps' $true $false $true $false).Mode
+}
+Test-Case 'D057' 'Rien de lisible : ni verdict ni refus invente' {
+    $v=ConvertTo-DomeniaLapsView ([pscustomobject]@{ReadStatus='Unconfirmed';Reader='EX\lecteur'})
+    Assert-Equal 'Unconfirmed' $v.State;Assert-True $v.OfferOtherAccount;Assert-False $v.HasPassword
+    Assert-True (@($v.Facts|Where-Object{$_.Etat -eq 'Inconnu'}).Count -eq 1);Assert-False ($v.Message -match 'Aucun mot de passe LAPS publie')
+    Assert-Equal 'Unknown' (ConvertTo-DomeniaLapsView ([pscustomobject]@{ReadStatus='Failed'})).State
+}
+Test-Case 'D058' 'Identifiant de recuperation lu sur msFVE-RecoveryGuid et cle enfant direct du poste' {
+    $g=[guid]'a1b2c3d4-1111-2222-3333-444455556666'
+    $keys=@(ConvertTo-DomeniaBitLockerKeyList @([pscustomobject]@{Name='sans-guid';DN='CN=k,CN=PC1,DC=ex';RecoveryGuid=$g.ToByteArray()}))
+    Assert-Equal 1 $keys.Count;Assert-Equal 'A1B2C3D4' $keys[0].RecoveryId
+    Assert-True (Test-DomeniaDirectChildDn 'CN=PC1,OU=P,DC=ex' 'CN=2025-03-01T10:22:33-00:00{A1B2C3D4-1111-2222-3333-444455556666},CN=PC1,OU=P,DC=ex')
+    Assert-False (Test-DomeniaDirectChildDn 'CN=PC1,OU=P,DC=ex' 'CN=k,CN=X,CN=PC1,OU=P,DC=ex') 'Petit-enfant refuse'
+    Assert-False (Test-DomeniaDirectChildDn 'CN=PC1,OU=P,DC=ex' 'CN=k,CN=PC2,OU=P,DC=ex') 'Autre poste refuse'
+    Assert-True (Test-DomeniaDirectChildDn 'CN=PC1,DC=ex' 'CN=a\,b,CN=PC1,DC=ex') 'Virgule echappee acceptee'
+}
+Test-Case 'D059' 'Le masquage des regles couvre toutes les formes du journal' {
+    $m='SECRET_SENTINEL_D059'
+    foreach($text in @(('/p '+$m),('-p:'+$m),('{"password":"'+$m+'"}'),('Bearer '+$m),('client_secret='+$m),('api-key='+$m),('secret='+$m),('motdepasse='+$m),('cmd -pass '+$m),('cmd /password '+$m),('pwd: '+$m),('token='+$m),('/rp '+$m),('-p '+$m))){
+        Assert-False (Test-DomeniaTextHasSecret (Protect-DomeniaSecretText $text) @($m)) ('Fuite dans : '+$text)
+    }
+}
 Test-Case 'D060' 'Politique de transport visible ; intrusif jamais en repli silencieux' {
     $rows=Get-DomeniaTransportPolicy
     Assert-True (@($rows|Where-Object{$_.Transport -eq 'LDAP'}).Count -eq 1);Assert-True ((@($rows|Where-Object{$_.Transport -eq 'CIM / WSMan'})[0].Regle) -match 'jamais')

@@ -1,20 +1,24 @@
 ﻿# Pure, bounded models. No WPF, credentials, remote calls or file writes.
 function Get-DomeniaStructuredError {
     param($ErrorValue,[string]$Phase='Unknown',[string]$Provider='Unknown',[string]$Target='')
-    $ex=$null;$text='';$native=0L;$code=0L
+    # Self-contained on purpose: this definition is copied alone into every worker runspace.
+    $ex=$null;$text='';$native=0L;$code=0L;$allText=''
     if($ErrorValue -is [Management.Automation.ErrorRecord]){$ex=$ErrorValue.Exception}
     elseif($ErrorValue -is [Exception]){$ex=$ErrorValue}
-    else{$text=[string]$ErrorValue}
+    else{$text=[string]$ErrorValue;$allText=$text}
     for($i=0;$null -ne $ex -and $i -lt 8;$i++){
         $code=([long]$ex.HResult -band 0xffffffffL)
         if($ex.PSObject.Properties['NativeErrorCode']){$native=[long]$ex.NativeErrorCode}
         elseif($ex.GetType().FullName -eq 'System.DirectoryServices.Protocols.LdapException'){$native=[long]$ex.ErrorCode}
         $text=[string]$ex.Message
+        $allText=$allText+' '+$text
         if($native -in @(5,49,50,1326,1330,1331,1909) -or $code -in @(2147942405,2147943726,2147950744,2148074252,2148074254)){break}
         $ex=$ex.InnerException
     }
+    # The worker marker may be wrapped by EndInvoke ("Exception calling ...") or by an outer exception:
+    # it is searched anywhere in the whole exception chain, not only at the start of the last message.
     $tagKind=''
-    if($text -match '^\[DOMENIA:([A-Za-z]+);([0-9]+);(0x[0-9A-Fa-f]{8})\]'){$tagKind=$matches[1];$native=[long]$matches[2];$code=[Convert]::ToInt64($matches[3].Substring(2),16)}
+    if($allText -match '\[DOMENIA:([A-Za-z]+);([0-9]+);(0x[0-9A-Fa-f]{8})\]'){$tagKind=$matches[1];$native=[long]$matches[2];$code=[Convert]::ToInt64($matches[3].Substring(2),16)}
     $kind='Unknown';$retry=$false
     if($native -in @(1326,49) -or $code -in @(2147943726,2148074252,2148074254)){$kind='LogonFailure'}
     elseif($native -eq 1909 -or $code -eq 2147944309){$kind='AccountLocked'}
@@ -25,8 +29,8 @@ function Get-DomeniaStructuredError {
     elseif($text -match '(?i)ETAT INCONNU|resultat.*non confirme'){$kind='Uncertain'}
     elseif($text -match '(?i)timeout|timed out|delai.*depasse|délai.*dépassé|RPC.*indisponible'){$kind='Unavailable';$retry=$true}
     elseif($text -match '(?i)ModuleMissing|module.*(?:absent|manquant|missing)'){$kind='ModuleUnavailable'}
-    elseif($text -match '(?i)access.*denied|unauthorized|d[eé]chiffrement.*refus|d[eé]chiffreur.*autoris|acc[eè]s.*refus|insufficient.*access|0x80070005|0x80072098'){$kind='AccessDenied'}
-    elseif($text -match '(?i)invalid credentials|logon failure|0x8007052e|identifiants.*rejet'){$kind='LogonFailure'}
+    elseif($text -match '(?i)access.*denied|unauthorized|d[eé]chiffrement.*refus|droit de d[eé]chiffrement|d[eé]chiffreur.*autoris|acc[eè]s.*refus|insufficient.*access|0x80070005|0x80072098'){$kind='AccessDenied'}
+    elseif($text -match '(?i)invalid credentials|logon failure|0x8007052e|identifiants.*rejet|user name or password is incorrect|nom d.utilisateur ou (?:le )?mot de passe (?:est )?incorrect'){$kind='LogonFailure'}
     if($kind -eq 'Unknown' -and $tagKind -in @('AccessDenied','LogonFailure','AccountLocked','AccountUnavailable','ModuleUnavailable','Unavailable','Uncertain')){$kind=$tagKind}
     [pscustomobject]@{Kind=$kind;Code=('0x{0:X8}' -f $code);NativeCode=$native;Phase=$Phase;Provider=$Provider;Target=$Target;Retryable=$retry;CanOfferCredential=($kind -in @('AccessDenied','LogonFailure'));Uncertain=($kind -eq 'Uncertain')}
 }
