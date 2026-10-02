@@ -71,7 +71,8 @@ function Test-DomeniaCredentialContext {
         $authority = [string]$identity.Authority
         $known = $false
         foreach ($domain in $domains) { if ($authority -ieq $domain -or $authority -ieq $domain.Split('.')[0]) { $known = $true } }
-        if (-not $known) { return [pscustomobject]@{Valid=$false;Reason='Ce compte appartient a un autre poste ou a un domaine inconnu de cette session.'} }
+        # A trusted domain other than the session one is written compte@domaine (UPN form, not checked here).
+        if (-not $known) { return [pscustomobject]@{Valid=$false;Reason='Ce compte appartient a un autre poste ou a un domaine inconnu de cette session. Pour un compte d un autre domaine approuve, saisissez compte@domaine.'} }
     }
     return [pscustomobject]@{Valid=$true;Reason=''}
 }
