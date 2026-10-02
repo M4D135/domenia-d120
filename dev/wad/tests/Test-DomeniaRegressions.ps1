@@ -106,6 +106,7 @@ function Start-UiTask {param($Name,$OperationId,$Code,$Payload,$CallbackState,$R
     $script:Requests.Add($job);$script:AsyncJobs[$job.Id]=$job;return $job.Id
 }
 function Reset-SelectionFixture {
+    if($null -ne $script:SelectionOpenTimer){$script:SelectionOpenTimer.Stop()}
     $script:SelectionOpenTimer=$null;$script:SelectionLoad=$null;$script:PendingObjectSelection=$null
     $script:CurrentObjectRequestId='';$script:CurrentObjectRequestDn='';$script:CurrentObjectRequestState=$null
     $script:SelectedObject=$null;$script:SelectionResetDn='';$script:DraftState=$null;$script:SelectedObjectGeneration=0L

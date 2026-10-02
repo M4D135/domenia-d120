@@ -348,7 +348,7 @@ try {
         $blocked='';try{Assert-DomeniaCapability 'Edit'}catch{$blocked=$_.Exception.Message}
         Assert-True ($blocked.Length -gt 0) 'Nouvelle ecriture autorisee avant verification.'
         Assert-True (@($script:Dialogs|Where-Object{$_ -match 'Aucun rejeu automatique'}).Count -eq 1 -and $script:Dispatched -eq 0) 'Rejeu ou message manquant.'
-        Assert-True (@($script:StatusLog+$script:Dialogs|Where-Object{$_ -match '(?i)\breussi|succes|Operation verifiee'}).Count -eq 0) 'Reussite annoncee sur une issue incertaine.'
+        Assert-True (@(@($script:StatusLog)+@($script:Dialogs)|Where-Object{$_ -match '(?i)\breussi|succes|Operation verifiee'}).Count -eq 0) 'Reussite annoncee sur une issue incertaine.'
     }
     Test-Case 'Resultat d ecriture sans verification positive : jamais annonce reussi' {
         Reset-FaultFixture
