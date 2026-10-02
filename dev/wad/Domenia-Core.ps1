@@ -8887,35 +8887,57 @@ function Update-TaskUi {
     param([switch]$Force)
 
     $count = @($script:AsyncJobs.Keys).Count
+    # D017: exact states. A detached read whose native call still runs keeps the bar visible ("nettoyage"),
+    # a queued entry is shown as waiting, never as running. Without the engine rules: historical display.
+    $summary = $null
+    if ($null -ne (Get-Command -Name Get-DomeniaTaskStateSummary -CommandType Function -ErrorAction SilentlyContinue)) {
+        try { $summary = Get-DomeniaTaskStateSummary -Jobs @($script:AsyncJobs.Values) -Detached @($script:DetachedReadJobs) } catch { $summary = $null }
+    }
+    $total = $count; $active = $count; $signature = [string]$count
+    if ($null -ne $summary) { $total = [int]$summary.Total; $active = [int]$summary.Active; $signature = [string]$summary.Text }
     $now = Get-Date
     $refreshMs = [Math]::Max(200,[int](Get-CfgValue "Async" "UiRefreshIntervalMs" 500))
-    $stateChanged = ($count -ne [int]$script:LastTaskUiCount)
+    $stateChanged = (($count -ne [int]$script:LastTaskUiCount) -or ($signature -cne [string]$script:LastTaskUiSignature))
     if (-not $Force -and -not $stateChanged -and (($now - $script:LastTaskUiRefresh).TotalMilliseconds -lt $refreshMs)) { return }
 
     $script:LastTaskUiRefresh = $now
     $script:LastTaskUiCount = $count
+    $script:LastTaskUiSignature = $signature
 
     try {
         $progress = Get-DomeniaControl -Name "PbTop"
-        if ($null -ne $progress) { $progress.IsIndeterminate = ($count -gt 0); $progress.Visibility = if ($count -gt 0) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Hidden } }
+        if ($null -ne $progress) { $progress.IsIndeterminate = ($active -gt 0); $progress.Visibility = if ($total -gt 0) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Hidden } }
         $cancel = Get-DomeniaControl -Name "BtnCancelTask"
-        if ($null -ne $cancel) { $cancel.Visibility = if ($count -gt 0) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Hidden } }
+        if ($null -ne $cancel) {
+            $cancel.Visibility = if ($total -gt 0) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Hidden }
+            # Only an entry still held by the engine can be stopped; a detached call is waited for, not cancelled.
+            $cancel.IsEnabled = ($count -gt 0)
+        }
         $elapsedLabel = Get-DomeniaControl -Name "LblTaskElapsed"
         if ($null -ne $elapsedLabel) {
-            $elapsedLabel.Visibility = if ($count -gt 0) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Hidden }
+            $elapsedLabel.Visibility = if ($total -gt 0) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Hidden }
             if ($count -gt 0) {
                 $latest = $null
                 if (-not [string]::IsNullOrWhiteSpace([string]$script:LatestTaskId) -and $script:AsyncJobs.Contains($script:LatestTaskId)) { $latest = $script:AsyncJobs[$script:LatestTaskId] }
                 if ($null -eq $latest) { $latest = $script:AsyncJobs[@($script:AsyncJobs.Keys)[-1]] }
-                $elapsed = if ($null -ne $latest) { [int]((Get-Date) - $latest.Started).TotalSeconds } else { 0 }
-                $elapsedLabel.Text = "$count tache(s)  $([string]$latest.Name)  $elapsed s"
+                $since = $null
+                if ($null -ne $latest) { $since = $latest.Started; if ([string]$latest.State -eq 'Queued' -and $null -ne $latest.QueuedAt) { $since = $latest.QueuedAt } }
+                $elapsed = if ($null -ne $since) { [int]((Get-Date) - [datetime]$since).TotalSeconds } else { 0 }
+                if ($null -ne $summary) { $elapsedLabel.Text = "$($summary.Text) · $([string]$latest.Name) · $elapsed s" }
+                else { $elapsedLabel.Text = "$count tache(s)  $([string]$latest.Name)  $elapsed s" }
             }
+            elseif ($total -gt 0 -and $null -ne $summary) { $elapsedLabel.Text = "$($summary.Text) · appel natif encore actif, compte jusqu a sa fin reelle" }
             else { $elapsedLabel.Text = "" }
         }
     }
     catch { }
 
-    try { Update-DomeniaExperienceActivity -Force:$Force } catch { }
+    # D020: the operations page is rebuilt only when it is visible; the badge counter is always refreshed.
+    $experienceForce = $false
+    if ($Force) {
+        try { $experienceTab = Get-DomeniaControl -Name 'TabExperience'; $experienceForce = ($null -ne $experienceTab -and [bool]$experienceTab.IsVisible) } catch { $experienceForce = $false }
+    }
+    try { Update-DomeniaExperienceActivity -Force:$experienceForce } catch { }
     if ($Force -or $stateChanged) { Request-DomeniaDashboardRefresh }
 }
 
@@ -14178,58 +14200,15 @@ function Sync-DomeniaParkShared {
     # Lit le fichier partage, fusionne avec l etat local, reecrit le tout.
     # Un verrou par fichier evite que deux consoles ecrivent en meme temps ;
     # s il n est pas obtenu, la console travaille en local et retentera.
+    # D014: the file access (possibly UNC), the lock retries and the rewrite run in the ParkSharedSync worker
+    # (Start-DomeniaParkSharedSync); the merged state comes back through Complete-DomeniaParkSharedSyncUi.
+    # Nothing waits here, so the caller receives $null and the shared counters are logged when the worker ends.
     param([switch]$WriteBack)
     $path = Get-DomeniaParkSharedPath
     if ([string]::IsNullOrWhiteSpace($path)) { return $null }
-    if ($null -eq $script:ParkState) { [void](Load-DomeniaParkState) }
-
-    $lock = $null
-    $lockPath = $path + ".lock"
-    try {
-        $distant = Read-DomeniaParkFile -Path $path
-        $fusion = Merge-DomeniaParkState -Base $script:ParkState -Incoming $distant
-        $script:ParkState = $fusion.State
-        [void](Save-DomeniaParkState)
-
-        if (-not $WriteBack) {
-            return [pscustomobject]@{ Recus=[int]$fusion.Ajoutes; Actualises=[int]$fusion.Remplaces; Total=[int]$fusion.Total; Ecrit=$false }
-        }
-
-        $attente = 0
-        while ($null -eq $lock -and $attente -lt 12) {
-            try { $lock = [System.IO.File]::Open($lockPath,[System.IO.FileMode]::CreateNew,[System.IO.FileAccess]::Write,[System.IO.FileShare]::None) }
-            catch { Start-Sleep -Milliseconds 250; $attente++ }
-        }
-        if ($null -eq $lock) {
-            Add-DomeniaUiLog -Area "Parc" -Level "WARN" -Text "Releve partage verrouille par une autre console. Ecriture reportee."
-            return [pscustomobject]@{ Recus=[int]$fusion.Ajoutes; Actualises=[int]$fusion.Remplaces; Total=[int]$fusion.Total; Ecrit=$false }
-        }
-
-        $moi = [string]$script:ProcessIdentityDisplay
-        $lines = New-Object System.Collections.Generic.List[string]
-        foreach ($key in @($script:ParkState.Keys)) {
-            $e = $script:ParkState[$key]
-            $by = [string]$e.ProbedBy
-            if ([string]::IsNullOrWhiteSpace($by)) { $by = $moi }
-            $lines.Add(("{0}`t{1}`t{2}`t{3}`t{4}`t{5}" -f `
-                [string]$e.Computer,[string]$e.LastProbe,[string]$e.Status,[string]$e.User,[int]$e.Attempts,$by))
-        }
-        $temporaire = $path + ".tmp"
-        [System.IO.File]::WriteAllLines($temporaire,$lines.ToArray(),(New-Object System.Text.UTF8Encoding($false)))
-        if (Test-Path -LiteralPath $path -PathType Leaf) { Remove-Item -LiteralPath $path -Force }
-        Move-Item -LiteralPath $temporaire -Destination $path -Force
-        return [pscustomobject]@{ Recus=[int]$fusion.Ajoutes; Actualises=[int]$fusion.Remplaces; Total=[int]$fusion.Total; Ecrit=$true }
-    }
-    catch {
-        Add-DomeniaUiLog -Area "Parc" -Level "WARN" -Text ("Releve partage inaccessible, travail en local : " + $_.Exception.Message)
-        return $null
-    }
-    finally {
-        if ($null -ne $lock) {
-            try { $lock.Close(); $lock.Dispose() } catch { }
-            try { Remove-Item -LiteralPath $lockPath -Force -ErrorAction SilentlyContinue } catch { }
-        }
-    }
+    try { [void](Start-DomeniaParkSharedSync -WriteBack:$WriteBack) }
+    catch { Add-DomeniaUiLog -Area "Parc" -Level "WARN" -Text ("Releve partage non synchronise, travail en local : " + $_.Exception.Message) }
+    return $null
 }
 
 # =====================================================================
@@ -14242,7 +14221,8 @@ function Complete-DomeniaLogonHarvestUi {
     param($Result,$State)
     $effective = Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @("Pairs")
     if ($null -eq $effective) { throw "Moisson du journal sans resultat exploitable." }
-    if ($null -eq $script:ParkState) { [void](Load-DomeniaParkState) }
+    # D014: the stored park state is read off the Dispatcher; this result is applied once it is loaded.
+    if ($null -eq $script:ParkState) { Add-DomeniaParkDeferredResult -Handler 'Complete-DomeniaLogonHarvestUi' -Result $Result -State $State; return }
 
     if (-not [bool]$effective.Success) {
         $detail = [string]$effective.Detail
@@ -14281,7 +14261,7 @@ function Complete-DomeniaLogonHarvestUi {
     $summary = "Journal du controleur {0} : {1} evenement(s) lus, {2} couple(s) utilisateur-poste, {3} association(s) creee(s), en {4} ms. Aucun poste contacte." -f `
         ([string]$effective.Server),[int]$effective.Events,$connus,$nouveaux,([long]$effective.DurationMs)
     if ($null -ne $partage) { $summary = $summary + (" Partage : {0} recu(s), {1} actualise(s), {2} au total." -f [int]$partage.Recus,[int]$partage.Actualises,[int]$partage.Total) }
-    [void](Set-DomeniaControlText -Name "LblParkStatus" -Text (Get-DomeniaParkCoverageText))
+    [void](Set-DomeniaControlText -Name "LblParkStatus" -Text (Get-DomeniaParkStatusTextSafe))
     if (-not [bool]$State.Silent) { Set-Status $summary }
     Add-DomeniaUiLog -Area "Parc" -Text $summary
     try{Register-DomeniaOperationSample -Operation "LogonHarvest" -Mode "DC EventLog" -ItemCount ([int]$Result.Events) -DurationMs ([long]$Result.DurationMs) -BytesEstimated ([long]$Result.Events*2200) -AdQueries 1 -SuccessCount @($Result.Pairs).Count} catch{}
@@ -14518,7 +14498,8 @@ function Complete-DomeniaParkSweepUi {
     param($Result,$State)
     $effective = Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @("Results")
     if ($null -eq $effective) { throw "Releve du parc sans resultat exploitable." }
-    if ($null -eq $script:ParkState) { [void](Load-DomeniaParkState) }
+    # D014: the stored park state is read off the Dispatcher; this result is applied once it is loaded.
+    if ($null -eq $script:ParkState) { Add-DomeniaParkDeferredResult -Handler 'Complete-DomeniaParkSweepUi' -Result $Result -State $State; return }
 
     $now = (Get-Date).ToString("s")
     $nouveaux = 0
@@ -14548,7 +14529,7 @@ function Complete-DomeniaParkSweepUi {
     if ($null -ne $partage) { $summary = $summary + (" Partage : {0} recu(s), {1} actualise(s), {2} au total." -f [int]$partage.Recus,[int]$partage.Actualises,[int]$partage.Total) }
     Add-DomeniaUiLog -Area "Parc" -Text $summary
     try{$fb=0;$tb=0;try{$fb=[int]$Result.FallbackTasks}catch{};try{$tb=[long]$Result.TaskBytes}catch{};Register-DomeniaOperationSample -Operation "ParkSweep" -Mode "Classic+TaskFallback" -ItemCount ([int]$Result.Requested) -DurationMs ([long]$Result.DurationMs) -BytesEstimated ([Math]::Max([long]$tb,[long]$Result.Requested*24000)) -RemoteAttempts ([int]$Result.Probed) -FallbackTasks $fb -SuccessCount ([int]$Result.Found) -FailureCount ([Math]::Max(0,[int]$Result.Probed-[int]$Result.Found))}catch{}
-    [void](Set-DomeniaControlText -Name "LblParkStatus" -Text (Get-DomeniaParkCoverageText))
+    [void](Set-DomeniaControlText -Name "LblParkStatus" -Text (Get-DomeniaParkStatusTextSafe))
     if (-not [bool]$State.Silent) { Set-Status $summary }
     try { Refresh-LinkGrid } catch { }
 }
@@ -14830,19 +14811,23 @@ function Search-DomeniaIndexUi {
         $term = ""
         try { $term = ([string](Get-DomeniaControl -Name "TxtIndexSearch").Text).Trim() } catch { }
         if ($term.Length -lt 2) {
+            $script:DomeniaIndexSearchGeneration = [long]$script:DomeniaIndexSearchGeneration + 1
             [void](Set-DomeniaItemsSource -Name "DgIndex" -Rows @())
             [void](Set-DomeniaControlText -Name "LblIndexStatus" -Text "Saisis au moins deux caracteres.")
             return
         }
-        $sw = [System.Diagnostics.Stopwatch]::StartNew()
-        $rows = @(Find-DomeniaIndexMatches -Term $term -Limit 200)
-        $sw.Stop()
-        [void](Set-DomeniaItemsSource -Name "DgIndex" -Rows $rows)
-        $message = "{0} resultat(s) en {1} ms, sans appel reseau." -f @($rows).Count,[int]$sw.ElapsedMilliseconds
-        if (@($rows).Count -eq 0) { $message = "Aucun objet indexe ne correspond a '" + $term + "'." }
-        [void](Set-DomeniaControlText -Name "LblIndexStatus" -Text $message)
+        # D014: the SQLite query (busy timeout up to several seconds on a locked base) no longer runs on the
+        # Dispatcher: the LocalIndexRead worker answers, Complete-DomeniaIndexSearchUi fills the grid.
+        $attempt = 0
+        $retry = $script:DomeniaIndexSearchRetry
+        $script:DomeniaIndexSearchRetry = $null
+        if ($null -ne $retry -and [string]$retry.Term -ceq $term) { $attempt = [int]$retry.Attempt }
+        [void](Start-DomeniaIndexSearch -Term $term -Limit 200 -Attempt $attempt)
     }
-    catch { Add-DomeniaUiLog -Level "ERROR" -Area "Index" -Text $_.Exception.Message }
+    catch {
+        [void](Set-DomeniaControlText -Name "LblIndexStatus" -Text ("Recherche locale non lancee : " + $_.Exception.Message))
+        Add-DomeniaUiLog -Level "ERROR" -Area "Index" -Text $_.Exception.Message
+    }
 }
 
 function Open-DomeniaIndexSelection {
@@ -16143,6 +16128,8 @@ foreach($module in @($modules)){
 }
 
 function Assert-WriteAllowed {
+    # C2: first guard, before receipts or the read-only box: nothing is ever written in demonstration.
+    if ([bool]$script:DemoMode) { throw 'Ecritures desactivees en demonstration - aucune connexion AD. Aucune ecriture tentee.' }
     if(-not $script:ReceiptReady -or $script:ReceiptPending -gt 0){throw 'Ouvrez Operations : verification des recus non terminee ou action precedente a verifier.'}
     $readOnly=$script:ReadOnlyMode
     try { if ($script:Ctrl.ContainsKey("ChkReadOnlyMode")) { $readOnly=[bool]$script:Ctrl["ChkReadOnlyMode"].IsChecked } } catch { }
@@ -16231,6 +16218,7 @@ function Fail-DomeniaComputerToolUi {
 
 function Assert-DomeniaRemoteWriteAllowed {
     param([string]$Operation)
+    if ([bool]$script:DemoMode) { throw "$Operation non disponible en demonstration - aucune connexion au poste. Aucune action tentee." }
     $readOnly = [bool]$script:ReadOnlyMode
     try { if ($script:Ctrl.ContainsKey("ChkReadOnlyMode")) { $readOnly = [bool]$script:Ctrl["ChkReadOnlyMode"].IsChecked } } catch { }
     if ($readOnly) { throw "$Operation est une modification distante et reste bloquee tant que le mode lecture seule est actif." }
@@ -16882,6 +16870,18 @@ function Invoke-DomeniaInProcessAuthProbe {
             Set-AuthProgress -Stage "Auto-test" -Detail "Runspace d authentification interne operationnel."
             $watch.Stop()
             return New-AuthResult -Success $true -AuthMode "SelfTest" -AuthMethod "InProcess.Runspace" -DurationMs $watch.ElapsedMilliseconds
+        }
+        if (Get-AuthOptionalFlag -Object $Request -Name 'DemoOnly') {
+            # D002: demonstration provider. No discovery, no bind, no credential: only the demo identity is checked
+            # (same rule as Test-DomeniaDemoIdentity, repeated here because this runspace has no module).
+            # AuthMode stays Explicit for the existing secondary checks; AuthMethod marks the demonstration.
+            $demoIdentity = ([string]$Request.DemoIdentity).Trim()
+            $watch.Stop()
+            if ($demoIdentity -cnotmatch '^DEMO\\[A-Za-z0-9._-]{1,64}$') {
+                return New-AuthResult -Success $false -AuthMode "Explicit" -AuthMethod "Demo.InMemory" -Error "Identite de demonstration attendue (DEMO\nom)." -ErrorCategory "Input" -DurationMs $watch.ElapsedMilliseconds
+            }
+            Set-AuthProgress -Stage "Demonstration" -Detail "Identite de demonstration acceptee, aucune connexion AD."
+            return New-AuthResult -Success $true -BindUser $demoIdentity -AuthMode "Explicit" -AuthMethod "Demo.InMemory" -BaseDn "DC=demo,DC=invalid" -Domain "demo.invalid" -Netbios "DEMO" -Server "" -RootPath "" -DurationMs $watch.ElapsedMilliseconds
         }
 
         $authStage = 'Preparation.Assemblies'
@@ -18223,6 +18223,17 @@ function New-DomeniaAccountAuthRequest {
     if ([string]::IsNullOrWhiteSpace($user)) { throw 'Identifiant vide.' }
     if ($null -eq $Password -or $Password.Length -eq 0) { throw 'Mot de passe vide.' }
     if ($null -eq $script:Conn) { throw 'Connecte-toi a Active Directory avant de tester un compte secondaire.' }
+    if ([bool]$script:DemoMode) {
+        # D003: alternate account in demonstration. The typed password never leaves this panel: the request
+        # carries no credential and the authentication runspace answers from the demo identity only.
+        if (-not (Test-DomeniaDemoIdentity $user)) { throw 'Identite de demonstration attendue (DEMO\nom).' }
+        return [pscustomobject]@{
+            Login=$user; Credential=$null; UseCurrentCredentials=$false; DemoOnly=$true; DemoIdentity=$user
+            ConfiguredServer=''; ConfiguredBase=([string]$script:Conn.BaseDn).Trim()
+            Domain=[string]$script:Conn.Domain; Netbios=[string]$script:Conn.Netbios
+            MaxServers=1; OverallTimeoutSeconds=$TimeoutSeconds; PerServerTimeoutSeconds=$TimeoutSeconds
+        }
+    }
     $server = ([string]$script:Conn.Server).Trim()
     $baseDn = ([string]$script:Conn.BaseDn).Trim()
     if ([string]::IsNullOrWhiteSpace($server) -or [string]::IsNullOrWhiteSpace($baseDn)) {
@@ -18761,7 +18772,7 @@ function Wire-Events {
             }
         })
     }
-    if ($script:Ctrl.ContainsKey("TxtIndexSearch")) { $script:Ctrl["TxtIndexSearch"].Add_TextChanged({ Search-DomeniaIndexUi }) }
+    if ($script:Ctrl.ContainsKey("TxtIndexSearch")) { $script:Ctrl["TxtIndexSearch"].Add_TextChanged({ Request-DomeniaIndexSearch }) }
     if ($script:Ctrl.ContainsKey("DgIndex")) { $script:Ctrl["DgIndex"].Add_MouseDoubleClick({ Open-DomeniaIndexSelection }) }
     if ($script:Ctrl.ContainsKey("BtnLoadDomain")) { $script:Ctrl["BtnLoadDomain"].Add_Click({ Start-DomeniaDomainOverview }) }
     if ($script:Ctrl.ContainsKey("BtnCountDomain")) { $script:Ctrl["BtnCountDomain"].Add_Click({ Start-DomeniaDomainOverview -WithCounts }) }
@@ -18814,6 +18825,13 @@ function Wire-Events {
     if ($script:Ctrl.ContainsKey("ChkReadOnlyMode")) {
         $script:Ctrl["ChkReadOnlyMode"].Add_Checked({ $script:ReadOnlyMode = $true; Apply-CurrentPermissionUi; Update-DomeniaWriteModeVisual; Set-Status "Mode lecture seule actif : ecritures AD, GPUpdate et redemarrage distant bloques." "WARN" })
         $script:Ctrl["ChkReadOnlyMode"].Add_Unchecked({
+            # C2: in demonstration the read-only lock cannot be lifted (no dialog, no write mode).
+            if ([bool]$script:DemoMode) {
+                $script:ReadOnlyMode = $true
+                $script:Ctrl["ChkReadOnlyMode"].IsChecked = $true
+                Set-Status "Ecritures desactivees en demonstration : le mode lecture seule reste actif." "WARN"
+                return
+            }
             $warningMessage = @"
 Tu vas activer le mode ecriture Active Directory.
 
@@ -18987,6 +19005,10 @@ function New-DefaultConfig {
             MinThreads = 2
             MaxThreads = 6
             MaxOutstandingWorkers = 12
+            # D015 (Features.Scheduler): bounded priority queue and places kept for explicit actions.
+            MaxQueued = 32
+            ReservedForeground = 2
+            MaxQueueWaitSeconds = 120
             PollIntervalMs = 250
             UiRefreshIntervalMs = 500
             MaxCompletionsPerTick = 2
@@ -19177,7 +19199,7 @@ function Get-DomeniaStartupXaml {
     return (Convert-DomeniaXamlToBootTheme -Xaml @"
 <Window Foreground="{DynamicResource DomeniaBootText}" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Domenia 1.0  Initialisation" Width="650" Height="360" ResizeMode="NoResize" WindowStartupLocation="CenterScreen"
-        Background="{DynamicResource DomeniaBootWindow}" ShowInTaskbar="True" Topmost="True">
+        Background="{DynamicResource DomeniaBootWindow}" ShowInTaskbar="True" Topmost="False">
   <Window.Resources>
 
     <Style TargetType="Button" BasedOn="{StaticResource DomeniaBootButtonBase}"><Setter Property="Margin" Value="4"/><Setter Property="Padding" Value="12,7"/><Setter Property="Background" Value="{DynamicResource DomeniaBootSurface}"/><Setter Property="BorderBrush" Value="{DynamicResource DomeniaBootBorder}"/><Setter Property="BorderThickness" Value="1"/></Style>
@@ -19234,7 +19256,13 @@ function New-DomeniaStartupWindow {
             } catch { }
         })
         $script:StartupTimer.Start()
+        try { [void](Register-DomeniaOwnedTimer -Owner 'Timer:StartupMonitor' -Timer $script:StartupTimer) } catch { }
+        # D089: the monitor prolongs the explicit launch. It is never Topmost; one activation request, and a
+        # voluntary Alt-Tab of the operator is remembered for the switch to the main window.
+        try { Register-DomeniaUserSwitchWatch -Window $win } catch { }
+        try { if (Test-DomeniaUserSwitchedAway) { $win.ShowActivated = $false } } catch { }
         $win.Show() | Out-Null
+        try { [void](Request-DomeniaWindowActivation -Window $win -Trigger 'StartupMonitor') } catch { }
         [System.Windows.Forms.Application]::DoEvents()
     }
     catch {
@@ -20213,6 +20241,8 @@ $InformationPreference = "SilentlyContinue"
             $pool.Open()
             $record=[pscustomobject]@{Runspace=$null;Pool=$pool;CommandName=$functionName;OperationId=$OperationId;CodeHash=$verifiedHash}
             $script:LiveWorkerPools[$OperationId]=$record
+            # D019: the pool has an owner and is closed by the registry at shutdown.
+            try { [void](Register-DomeniaWorkerPool -OperationId $OperationId -Pool $pool) } catch { }
             return $record
         } catch { $pool.Dispose(); throw }
     }
@@ -20220,7 +20250,12 @@ $InformationPreference = "SilentlyContinue"
     try {
         $runspace.ApartmentState = [System.Threading.ApartmentState]::MTA
         $runspace.ThreadOptions = [System.Management.Automation.Runspaces.PSThreadOptions]::ReuseThread
+        $openWatch = [System.Diagnostics.Stopwatch]::StartNew()
         $runspace.Open()
+        $openWatch.Stop()
+        # D014: the synchronous Open() on the Dispatcher is measured (series 'Dispatcher' of C7 when available).
+        $openMetric = Get-Command -Name Add-DomeniaRuntimeMetric -CommandType Function -ErrorAction SilentlyContinue
+        if ($null -ne $openMetric) { try { Add-DomeniaRuntimeMetric -Provenance 'Dispatcher' -OperationId ('RunspaceOpen:' + $OperationId) -DurationMs ([double]$openWatch.Elapsed.TotalMilliseconds) } catch { } }
         return [pscustomobject]@{ Runspace=$runspace; CommandName=$functionName; OperationId=$OperationId; CodeHash=$verifiedHash }
     }
     catch {
@@ -20335,7 +20370,11 @@ function Start-UiTask {
         [switch]$IsWrite,
         [switch]$NonCancellable,
         [string]$CorrelationId = "",
-        $CallbackState = $null
+        $CallbackState = $null,
+        # D015: the caller may state the class of its request (automatic work = Background).
+        [ValidateSet('','Explicit','Selection','Background')][string]$TaskClass = "",
+        [string]$ReaderIdentity = "",
+        [long]$Generation = 0
     )
 try {
         $payloadCount = 0
@@ -20356,6 +20395,28 @@ try {
     if (-not [bool](Get-CfgValue "Async" "Enabled" $true)) { throw "Moteur multithread desactive dans la configuration." }
     if ($script:AsyncEngineClosing) { throw "Le moteur multithread est en cours de fermeture." }
     Initialize-AsyncEngine
+    # D011: engine state built lazily from the model modules, never at script level of the core.
+    Initialize-DomeniaEngineState
+    # C2: in demonstration no write is sent: no runspace, no receipt, no queue entry.
+    if ([bool]$script:DemoMode -and $IsWrite) { throw 'DOMENIA_DEMO_WRITE : ecritures desactivees en demonstration. Aucune ecriture tentee.' }
+
+    $scheduler = Test-DomeniaSchedulerEnabled
+    $taskClassValue = ''; $providerValue = ''; $providerTarget = ''; $dedupKey = ''
+    if ($scheduler) {
+        $taskClassValue = Get-DomeniaTaskClass -OperationId $OperationId -IsWrite ([bool]$IsWrite) -ReplaceKey $ReplaceKey -Hint $TaskClass
+        $providerValue = Get-DomeniaOperationProvider $OperationId
+        $providerTarget = [string](Get-DomeniaMember $Payload 'Computer' '')
+        if (-not $IsWrite) {
+            # D015: a strictly identical read joins the one already queued or running (same reader, session, generation).
+            $readerValue = $ReaderIdentity
+            if ([string]::IsNullOrWhiteSpace($readerValue) -and $null -ne $script:Conn) { $readerValue = [string]$script:Conn.BindUser }
+            $dedupKey = Get-DomeniaTaskDedupKey -OperationId $OperationId -ReaderIdentity $readerValue -Epoch ([long]$script:SessionEpoch) -Generation $Generation -Payload $Payload
+            if (-not [string]::IsNullOrWhiteSpace($dedupKey)) {
+                $sharedId = Add-DomeniaTaskSubscriber -DedupKey $dedupKey -ReplaceKey $ReplaceKey -SuccessHandler $SuccessHandler -ErrorHandler $ErrorHandler -OnSuccess $OnSuccess -OnError $OnError -CallbackState $CallbackState -DisableControls $DisableControls
+                if (-not [string]::IsNullOrWhiteSpace($sharedId)) { Update-TaskUi -Force; return $sharedId }
+            }
+        }
+    }
 
     if (-not [string]::IsNullOrWhiteSpace($ReplaceKey)) {
         foreach ($oldId in @($script:AsyncJobs.Keys)) {
@@ -20370,12 +20431,20 @@ try {
     $maxConcurrent = [Math]::Max(1,[Math]::Min(32,[int](Get-CfgValue "Async" "MaxThreads" 6)))
     $physicalCount = @($script:AsyncJobs.Keys).Count + @($script:DetachedReadJobs).Count
     $maxOutstanding = [Math]::Max($maxConcurrent,[Math]::Min(64,[int](Get-CfgValue 'Async' 'MaxOutstandingWorkers' 12)))
-    if ($physicalCount -ge $maxOutstanding) {
-        throw "Limite physique atteinte : $physicalCount workers encore actifs ou en annulation. Attends leur nettoyage ; aucun nouveau thread n'a ete cree."
+    $admission = 'Start'
+    if (-not $scheduler) {
+        # Features.Scheduler=false: historical limits, unchanged.
+        if ($physicalCount -ge $maxOutstanding) {
+            throw "Limite physique atteinte : $physicalCount workers encore actifs ou en annulation. Attends leur nettoyage ; aucun nouveau thread n'a ete cree."
+        }
+        $activeCount = @($script:AsyncJobs.Values | Where-Object { $null -ne $_ -and -not [bool]$_.CancelRequested }).Count
+        if ($activeCount -ge $maxConcurrent) {
+            throw "Le moteur asynchrone execute deja $activeCount tache(s), limite $maxConcurrent. Attends une fin de tache ou annule une lecture en cours."
+        }
     }
-    $activeCount = @($script:AsyncJobs.Values | Where-Object { $null -ne $_ -and -not [bool]$_.CancelRequested }).Count
-    if ($activeCount -ge $maxConcurrent) {
-        throw "Le moteur asynchrone execute deja $activeCount tache(s), limite $maxConcurrent. Attends une fin de tache ou annule une lecture en cours."
+    else {
+        # D015: start, wait in the bounded priority queue, or refuse (a refusal still throws its reason).
+        $admission = [string](Get-DomeniaUiTaskAdmission -Class $taskClassValue).Decision
     }
 
     if ($TimeoutSeconds -le 0) { $TimeoutSeconds = [int](Get-CfgValue "Async" "DefaultTimeoutSeconds" 60) }
@@ -20383,34 +20452,33 @@ try {
     if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = [guid]::NewGuid().ToString("N") }
 
     $id = Get-NewTaskId $Name
-    $worker = $null
-    $ps = $null
-    try {
-        $worker = New-DomeniaWorkerRunspace -OperationId $OperationId -Code $Code -IsWrite:$IsWrite
-        $ps = [System.Management.Automation.PowerShell]::Create()
-        if ($null -ne $worker.PSObject.Properties["Pool"]) { $ps.RunspacePool=$worker.Pool } else { $ps.Runspace = $worker.Runspace }
-        [void]$ps.AddCommand([string]$worker.CommandName)
-        [void]$ps.AddArgument((Set-DomeniaTargetCredentialContext -Context (Get-WorkerContext -OperationId $OperationId) -Payload $Payload))
-        [void]$ps.AddArgument($Payload)
-
-        Set-ControlsBusy -Names $DisableControls -Busy $true
-        if (-not [string]::IsNullOrWhiteSpace($StatusText)) { Set-Status $StatusText }
-        $handle = $ps.BeginInvoke()
-    }
-    catch {
-        Set-ControlsBusy -Names $DisableControls -Busy $false
-        try { if ($null -ne $ps) { $ps.Dispose() } } catch { }
-        try { if ($null -ne $worker -and $null -ne $worker.Runspace) { $worker.Runspace.Dispose() } } catch { }
-        throw
-    }
-
-    $script:AsyncJobs[$id] = [pscustomobject]@{
-        Id=$id; Name=$Name; OperationId=$OperationId; CodeHash=[string]$worker.CodeHash; ReplaceKey=$ReplaceKey; PowerShell=$ps; Runspace=$worker.Runspace; Handle=$handle; StopHandle=$null; Started=Get-Date
+    $now = Get-Date
+    $job = [pscustomobject]@{
+        Id=$id; Name=$Name; OperationId=$OperationId; CodeHash=''; ReplaceKey=$ReplaceKey; PowerShell=$null; Runspace=$null; Handle=$null; StopHandle=$null; Started=$now
         TimeoutSeconds=$TimeoutSeconds; HardTimeoutSeconds=$HardTimeoutSeconds; OnSuccess=$OnSuccess; OnError=$OnError
         SuccessHandler=$SuccessHandler; ErrorHandler=$ErrorHandler; CallbackState=$CallbackState
         DisableControls=@($DisableControls); IsWrite=[bool]$IsWrite; NonCancellable=([bool]$NonCancellable -or [bool]$IsWrite)
         SessionEpoch=[long]$script:SessionEpoch; TimeoutNotified=$false; TimeoutErrorDelivered=$false; CancelRequested=$false; CancelRequestedAt=$null; Superseded=$false; CorrelationId=$CorrelationId
+        State='Starting'; Class=$taskClassValue; Provider=$providerValue; ProviderTarget=$providerTarget; Sequence=(Get-DomeniaNextTaskSequence); QueuedAt=$null
+        Subscribers=(New-Object System.Collections.ArrayList); BusyApplied=$false; Code=$Code; Payload=$Payload; StatusText=$StatusText
+        ExecutedOperationId=''; Demo=$false; Isolated=$false; DedupKey=$dedupKey; SchedulerManaged=[bool]$scheduler; CredentialIdentity=''
     }
+    if ($admission -eq 'Queue') {
+        # Nothing is sent yet: the pinned body is checked now, the worker starts when Complete-UiTasks promotes it.
+        [void](Assert-DomeniaWorkerOperationCode -OperationId $OperationId -Code $Code)
+        $job.State = 'Queued'
+        $job.QueuedAt = $now
+        Set-ControlsBusy -Names $DisableControls -Busy $true
+        $job.BusyApplied = $true
+        $script:AsyncJobs[$id] = $job
+        Set-Status ("En attente : $Name. Aucune lecture envoyee pour l instant.")
+        $script:LatestTaskId = $id
+        Update-TaskUi -Force
+        return $id
+    }
+    # D015/C2/D016/D018/D019: the launch body lives in Invoke-DomeniaUiTaskDispatch (Domenia-Engine.UI.ps1).
+    [void](Invoke-DomeniaUiTaskDispatch -Job $job)
+    $script:AsyncJobs[$id] = $job
     $script:LatestTaskId = $id
     Update-TaskUi -Force
     return $id
@@ -20422,6 +20490,28 @@ function Request-UiTaskStop {
     if (-not $script:AsyncJobs.Contains($Id)) { return }
     $job = $script:AsyncJobs[$Id]
     if ($null -eq $job) { return }
+    if ([string]$job.State -eq 'Queued') {
+        # D017: an entry never sent is withdrawn at once; no call to stop, no cleanup to wait for.
+        if ([bool]$job.NonCancellable -and -not $Force) {
+            if (-not $Silent) { Set-Status "Cette demande protegee reste en file : elle partira des qu une place se libere." "WARN" }
+            return
+        }
+        Stop-DomeniaLiveJob -Job $job
+        try { Stop-DomeniaComputerUserProbeUi -Job $job -Reason $Reason } catch {
+            Write-AppLog ("Nettoyage etat de detection : " + $_.Exception.Message) 'WARN'
+        }
+        if ([string]$job.ReplaceKey -eq "object") {
+            $objectRequestId = ""
+            try { $objectRequestId = [string]$job.CallbackState.RequestId } catch { }
+            if (-not $Superseded -and $objectRequestId -ceq [string]$script:CurrentObjectRequestId -and (Test-DomeniaSelectionLoadCurrent)) {
+                Update-DomeniaSelectionReadUi -Phase Failed -Message 'Lecture interrompue. Aucune relance automatique ; utilisez Reessayer la lecture.'
+            }
+            if (-not [string]::IsNullOrWhiteSpace($objectRequestId)) { Clear-DomeniaCurrentObjectRequest -RequestId $objectRequestId }
+        }
+        Remove-DomeniaQueuedTask -Job $job -Silent:([bool]$Silent -or [bool]$Superseded)
+        Update-TaskUi -Force
+        return
+    }
     if ([bool]$job.NonCancellable -and -not $Force) {
         if (-not $Silent) { Set-Status "Cette ecriture AD ne peut pas etre annulee apres envoi. Attends la relecture de verification." "WARN" }
         return
@@ -20450,7 +20540,12 @@ function Request-UiTaskStop {
     catch {
         Write-AppLog "[$($job.CorrelationId)] Demande d'arret asynchrone impossible pour $($job.Name) : $($_.Exception.Message)" "WARN"
     }
-    if (-not $Silent -and -not $Superseded) { Set-Status "Annulation demandee : $($job.Name). Le thread graphique reste disponible." "WARN" }
+    if (-not $Silent -and -not $Superseded) {
+        # D017: a stop request is never presented as a finished cancellation.
+        $stopText = "Annulation demandee : $($job.Name). Le thread graphique reste disponible."
+        if ($null -ne (Get-Command -Name Get-DomeniaCancelStatusText -CommandType Function -ErrorAction SilentlyContinue)) { $stopText = Get-DomeniaCancelStatusText -Name ([string]$job.Name) -State 'StopRequested' -IsWrite ([bool]$job.IsWrite) }
+        Set-Status $stopText "WARN"
+    }
     Update-TaskUi -Force
 }
 
@@ -20478,6 +20573,8 @@ function Detach-DomeniaReadUiTask {
     if (-not $script:AsyncJobs.Contains($Id)) { return $false }
     $job = $script:AsyncJobs[$Id]
     if ($null -eq $job -or [bool]$job.IsWrite) { return $false }
+    # A queued entry holds no native call: it is withdrawn by Request-UiTaskStop, never detached.
+    if ([string]$job.State -eq 'Queued') { return $false }
 
     # Un appel LDAP/WMI natif peut ignorer l'annulation PowerShell. Dans ce cas
     # il ne doit surtout pas garder l'interface en etat "tache active" pendant
@@ -20495,11 +20592,18 @@ function Detach-DomeniaReadUiTask {
     try {
         Write-AppLog "[$($job.CorrelationId)] Lecture detachee du GUI apres annulation non cooperative : $($job.Name). $Reason" "WARN"
     } catch { }
+    # D017: the native call still runs and stays counted; say so instead of announcing a finished cancellation.
+    if (-not [bool]$job.Superseded -and $null -ne (Get-Command -Name Get-DomeniaCancelStatusText -CommandType Function -ErrorAction SilentlyContinue)) {
+        try { Set-Status (Get-DomeniaCancelStatusText -Name ([string]$job.Name) -State 'Cleanup') "WARN" } catch { }
+    }
+    try { Update-TaskUi -Force } catch { }
     return $true
 }
 
 function Complete-UiTasks {
     Complete-DomeniaDetachedReadJobs
+    # D019: per-job resources are released once their job is neither active nor detached.
+    try { Initialize-DomeniaEngineState; [void](Sync-DomeniaJobResources) } catch { }
     $removed = $false
     $completedThisTick = 0
     $maxCompletions = [Math]::Max(1,[int](Get-CfgValue "Async" "MaxCompletionsPerTick" 2))
@@ -20508,6 +20612,8 @@ function Complete-UiTasks {
     foreach ($id in @($script:AsyncJobs.Keys)) {
         $job = $script:AsyncJobs[$id]
         if ($null -eq $job) { continue }
+        # D015: a queued entry has no worker yet; Invoke-DomeniaQueuedTaskPromotion handles it below.
+        if ([string]$job.State -eq 'Queued') { continue }
         try { Receive-DomeniaComputerUserProbeProgress -Job $job } catch {
             Write-AppLog ("Progression detection : " + $_.Exception.Message) 'WARN'
         }
@@ -20550,6 +20656,9 @@ function Complete-UiTasks {
                 if (-not [bool]$job.TimeoutErrorDelivered) {
                     try { Invoke-DomeniaJobErrorUi -Job $job -Message $message } catch { Set-Status $message "ERROR" }
                     $job.TimeoutErrorDelivered = $true
+                    # D018: repeated outages of one provider pause its background reads, never the explicit ones.
+                    try { [void](Register-DomeniaTaskOutcome -Job $job -TimedOut) } catch { }
+                    try { Invoke-DomeniaTaskSubscribers -Job $job -Output $null -ErrorMessage $message } catch { }
                 }
                 Request-UiTaskStop -Id $id -Silent -Force -Reason 'Delai de lecture depasse'
             }
@@ -20577,18 +20686,26 @@ function Complete-UiTasks {
             catch { $errorMessage = $_.Exception.Message }
         }
 
+        # D019: the registry releases what the job owned; the direct calls stay as an idempotent fallback.
+        try { if ($null -ne $script:DomeniaResources) { [void](Release-DomeniaResources -Registry $script:DomeniaResources -Owner ([string]$id)) } } catch { }
         try { $job.PowerShell.Dispose() } catch { }
         try { $job.Runspace.Dispose() } catch { }
-        Set-ControlsBusy -Names $job.DisableControls -Busy $false
+        if ($null -eq $job.PSObject.Properties['BusyApplied'] -or [bool]$job.BusyApplied) { Set-ControlsBusy -Names $job.DisableControls -Busy $false }
         [void]$script:AsyncJobs.Remove($id)
         $removed = $true
         if ($script:ActiveWriteTaskId -eq $id) {
             $script:ActiveWriteTaskId = ""
             if ($script:WriteState -ne "Unknown") { $script:WriteState = "Idle" }
         }
+        if ([bool]$job.IsWrite) { try { [void](Update-DomeniaIdlePolicy) } catch { } }
+        try { Add-DomeniaTaskRuntimeMetric -Job $job } catch { }
 
         if ([bool]$job.CancelRequested) {
-            if (-not [bool]$job.Superseded -and -not [bool]$job.TimeoutErrorDelivered) { Set-Status "Operation annulee : $($job.Name)." "WARN" }
+            if (-not [bool]$job.Superseded -and -not [bool]$job.TimeoutErrorDelivered) {
+                $endText = "Operation annulee : $($job.Name)."
+                if ($null -ne (Get-Command -Name Get-DomeniaCancelStatusText -CommandType Function -ErrorAction SilentlyContinue)) { $endText = Get-DomeniaCancelStatusText -Name ([string]$job.Name) -State 'Completed' }
+                Set-Status $endText "WARN"
+            }
             continue
         }
 
@@ -20596,6 +20713,7 @@ function Complete-UiTasks {
             $output = $null
             continue
         }
+        try { [void](Register-DomeniaTaskOutcome -Job $job -ErrorMessage $errorMessage) } catch { }
         if ([string]::IsNullOrWhiteSpace($errorMessage)) {
             $callbackWatch = [System.Diagnostics.Stopwatch]::StartNew()
             $modalBefore = [long]$script:ModalBlockedMs
@@ -20615,6 +20733,8 @@ function Complete-UiTasks {
                     Write-AppLog "[$($job.CorrelationId)] Callback UI lent : $($job.Name), $effectiveMs ms (hors $modalMs ms d'attente modale)." "WARN"
                 }
             }
+            # D015: each subscriber of a shared read gets its own callback (access inspection ran once above).
+            if ([string]::IsNullOrWhiteSpace($errorMessage)) { try { Invoke-DomeniaTaskSubscribers -Job $job -Output $output } catch { } }
         }
         if (-not [string]::IsNullOrWhiteSpace($errorMessage)) {
             # Circuit breaker anti-lockout : un seul rejet d'identifiants par un
@@ -20622,10 +20742,13 @@ function Complete-UiTasks {
             # l'identite et on ne retente pas automatiquement avec une variante.
             $credentialRejected = ($errorMessage -match "(?i)(nom d.utilisateur ou le mot de passe est incorrect|user name or password is incorrect|logon failure|identifiant ou mot de passe|credentials?.*(invalid|incorrect)|compte.*verrouill|account.*locked)")
             if ($credentialRejected) {
-                $nonDirectory = @("LiveConsole","LiveSelectedPing","LiveCache","CmdletHelp","CmdletInventory","EngineSelfTest","ComputerDiagnostics","ComputerLastUser","ComputerPing","ComputerGpUpdate","ComputerRestart","ComputerInventory","SoftwareInventory","ParkSweep","BatchNetworkDiag","WmiNamespaces","WmiClasses","WmiQuery","RimotteRun")
+                # C3/D018: only an operation that can carry the AD account trips the AD breaker. A refused
+                # workstation, WTS or local-storage account (SessionsList, LocalStore...) never suspends the directory.
+                $directoryBreaker = $true
+                try { $directoryBreaker = [bool](Get-DomeniaOperationCredentialNeeds ([string]$job.OperationId)).DirectoryBreaker } catch { $directoryBreaker = $true }
                 $separate=($job.OperationId -in @('ReadLaps','ReadBitLocker') -or $null -ne (Get-DomeniaRetryCredential ([string]$job.OperationId)))
                 if($separate -and $null -ne $script:AccessState){$script:AccessState.Faults[(Get-DomeniaAccessScope ([string]$job.OperationId))]=$true}
-                if (-not $separate -and $nonDirectory -notcontains [string]$job.OperationId) {
+                if (-not $separate -and $directoryBreaker) {
                     $script:DirectoryCredentialFaulted = $true
                     $script:DirectoryCredentialFaultMessage = [string]$errorMessage
                     Set-Status "Authentification AD rejetee : canal AD suspendu pour eviter un verrouillage de compte. Reconnecte Domenia." "ERROR"
@@ -20638,10 +20761,14 @@ function Complete-UiTasks {
                     Set-Status "$($job.Name) : $errorMessage" "ERROR"
                     Write-AppLog "[$($job.CorrelationId)] Callback d'erreur UI impossible : $($_.Exception.Message)" "ERROR"
                 }
+                try { Invoke-DomeniaTaskSubscribers -Job $job -Output $null -ErrorMessage $errorMessage } catch { }
             }
             Write-AppLog "[$($job.CorrelationId)] $($job.Name) : $errorMessage" "ERROR"
         }
     }
+    # D015: at most one queued entry starts per tick, explicit actions first; stale or expired entries leave the queue.
+    try { if (Invoke-DomeniaQueuedTaskPromotion) { $removed = $true } }
+    catch { try { Write-AppLog ("Promotion de la file : " + $_.Exception.Message) "ERROR" } catch { } }
     if ($removed) { Update-TaskUi -Force } else { Update-TaskUi }
 }
 
@@ -20656,7 +20783,10 @@ function Dispose-AsyncEngine {
     } catch { }
     try { Stop-DomeniaSelectionOpenTimer } catch { }
     try { Clear-DomeniaTreeRenderJobs } catch { }
-    foreach ($timerName in @('AsyncTimer','TreeRenderTimer','SelectionOpenTimer','SettingsTimer','SecretLifetimeTimer','SecretRevealTimer','SecretClipboardTimer','LinkProbeTimer','LiveSearchTimer','IndexFlushTimer','DashboardRefreshTimer')) {
+    # D019: every timer registered with an owner is stopped by the registry; the historical list stays as a
+    # fallback for timers created outside it. Active jobs are never disposed here (see below).
+    try { Initialize-DomeniaEngineState; [void](Release-DomeniaResources -Registry $script:DomeniaResources -Kind 'Timer') } catch { }
+    foreach ($timerName in @('AsyncTimer','TreeRenderTimer','SelectionOpenTimer','SettingsTimer','SecretLifetimeTimer','SecretRevealTimer','SecretClipboardTimer','LinkProbeTimer','LiveSearchTimer','IndexFlushTimer','DashboardRefreshTimer','DomeniaIndexSearchTimer')) {
         try { $timer = Get-Variable -Name $timerName -Scope Script -ValueOnly -ErrorAction SilentlyContinue; if ($null -ne $timer) { $timer.Stop() } } catch { }
     }
     foreach ($id in @($script:AsyncJobs.Keys)) { Request-UiTaskStop -Id $id -Silent -Force }
@@ -20678,11 +20808,14 @@ function Dispose-AsyncEngine {
         # Pending writes are never declared successful or silently replayed.
     }
     Complete-DomeniaDetachedReadJobs
+    try { [void](Sync-DomeniaJobResources) } catch { }
     $script:PendingObjectSelection = $null
     $script:CurrentObjectRequestId = ''
     $script:CurrentObjectRequestDn = ''
     $script:AsyncEngineReady = $false
     $script:AsyncTimer = $null
+    # D019: the shared read pools are owned by the registry; the historical loop closes any pool left outside it.
+    try { [void](Release-DomeniaResources -Registry $script:DomeniaResources -Kind 'RunspacePool') } catch { }
     if ($null -ne $script:LiveWorkerPools) {
         foreach ($record in @($script:LiveWorkerPools.Values)) {
             try { [void]$record.Pool.BeginClose($null,$null) } catch { }
@@ -20717,21 +20850,22 @@ function Get-WorkerContext {
     $retryScope=Get-DomeniaAccessScope $OperationId
     if($null -ne $script:AccessState -and $script:AccessState.Faults.ContainsKey($retryScope)){throw 'Authentification rejetee pour cette ressource. Utilisez un autre compte avant de recommencer.'}
     $static = $script:WorkerContextStatic
-    $remoteOperations = @("SessionsList","ComputerDiagnostics","ComputerLastUser","LiveConsole","ComputerPing","ComputerGpUpdate","ComputerRestart","ComputerInventory","SoftwareInventory","ParkSweep","BatchNetworkDiag","WmiNamespaces","WmiClasses","WmiQuery","RimotteRun")
-    $machineCredentialOperations = @("SessionsList","ComputerDiagnostics","ComputerInventory","SoftwareInventory","ParkSweep","WmiNamespaces","WmiClasses","WmiQuery","ComputerLastUser","LiveConsole","ComputerGpUpdate","ComputerRestart","UserComputerProbe","RimotteRun")
-    $nonDirectoryOperations = @("CmdletHelp","CmdletInventory","EngineSelfTest","LiveCache","LiveSelectedPing","LocalStore","ReceiptStore","SessionsList","DocumentStore","EmbeddedPathBrowse") + $remoteOperations
+    # C3 (D018): one reviewed table, Get-DomeniaOperationCredentialNeeds (Domenia-Engine.Model.ps1), replaces the
+    # three historical lists; its golden test keeps every registered operation identical to RC1.10.7.
+    # "LiveSelectedPing" stays credential free (local/network list of the table).
     # ComputerLastUser valide les candidats dans LDAP : ce n est pas une
     # operation exclusivement distante, contrairement au ping/inventaire.
-    $needsDirectoryCredential = ($OperationId -in @('ComputerLastUser','LiveConsole') -or $nonDirectoryOperations -notcontains $OperationId)
+    $credentialNeeds = Get-DomeniaOperationCredentialNeeds -OperationId $OperationId
+    $needsDirectoryCredential = [bool]$credentialNeeds.Directory
     $directoryRecovery=($null -ne $retryCredential -and $retryScope -ne 'Remote') -or ($OperationId -in @('ReadLaps','ReadBitLocker') -and $null -ne $script:SecretsCredential)
     if ($needsDirectoryCredential -and [bool]$script:DirectoryCredentialFaulted -and -not $directoryRecovery) {
         $fault = [string]$script:DirectoryCredentialFaultMessage
         if ([string]::IsNullOrWhiteSpace($fault)) { $fault = "authentification AD rejetee" }
         throw "Canal Active Directory suspendu apres un rejet d'authentification ($fault). Reconnecte DOMENIA avant toute nouvelle lecture AD."
     }
-    $useDirectoryCredential = (($needsDirectoryCredential -or $OperationId -eq 'ReceiptStore') -and [bool](Get-CfgValue "Modules" "UseCredential" $true) -and [bool]$script:Conn.UseCredential -and $null -ne $script:Conn.Credential)
-    $useRemoteAdminCredential = (($remoteOperations -contains $OperationId -or $machineCredentialOperations -contains $OperationId) -and ($null -ne $script:RemoteAdminCredential -or ([bool]$script:Conn.UseCredential -and $null -ne $script:Conn.Credential)))
-    $useSecretsCredential = (($OperationId -in @("ReadBitLocker","ReadLaps")) -and ($null -ne $script:SecretsCredential -or ([bool]$script:Conn.UseCredential -and $null -ne $script:Conn.Credential)))
+    $useDirectoryCredential = ([bool]$credentialNeeds.DirectoryCredential -and [bool](Get-CfgValue "Modules" "UseCredential" $true) -and [bool]$script:Conn.UseCredential -and $null -ne $script:Conn.Credential)
+    $useRemoteAdminCredential = ([bool]$credentialNeeds.RemoteAdmin -and ($null -ne $script:RemoteAdminCredential -or ([bool]$script:Conn.UseCredential -and $null -ne $script:Conn.Credential)))
+    $useSecretsCredential = ([bool]$credentialNeeds.Secrets -and ($null -ne $script:SecretsCredential -or ([bool]$script:Conn.UseCredential -and $null -ne $script:Conn.Credential)))
     $workerDirectoryCredential = if ($useSecretsCredential -and $null -ne $script:SecretsCredential) { $script:SecretsCredential } elseif ($useDirectoryCredential) { $script:Conn.Credential } elseif ($useSecretsCredential) { $script:Conn.Credential } else { $null }
     $result=[pscustomobject]@{
         Server = [string]$script:Conn.Server
@@ -20758,7 +20892,7 @@ function Get-WorkerContext {
         AppVersion = [string]$script:Version
         MasterBuild = [string]$script:MasterBuild
         ProcessIdentity = [string]$script:ProcessIdentity
-        MachineCredential = if ($machineCredentialOperations -contains $OperationId) { if ($null -ne $script:MachineCredential) { $script:MachineCredential } elseif ($null -ne $script:RemoteAdminCredential) { $script:RemoteAdminCredential } elseif ([bool]$script:Conn.UseCredential) { $script:Conn.Credential } else { $null } } else { $null }
+        MachineCredential = if ([bool]$credentialNeeds.Machine) { if ($null -ne $script:MachineCredential) { $script:MachineCredential } elseif ($null -ne $script:RemoteAdminCredential) { $script:RemoteAdminCredential } elseif ([bool]$script:Conn.UseCredential) { $script:Conn.Credential } else { $null } } else { $null }
         RemoteAdminUser = if ($useRemoteAdminCredential) { if ($null -ne $script:RemoteAdminCredential) { [string]$script:RemoteAdminCredential.UserName } else { [string]$script:Conn.BindUser } } else { "" }
         RemoteAdminCredential = if ($useRemoteAdminCredential) { if ($null -ne $script:RemoteAdminCredential) { $script:RemoteAdminCredential } elseif ([bool]$script:Conn.UseCredential) { $script:Conn.Credential } else { $null } } else { $null }
         OperationId = $OperationId
@@ -22348,6 +22482,13 @@ function Request-DomeniaDashboardRefresh {
         try { Update-Dashboard } catch { }
         return
     }
+    # D020: a hidden or inactive home page is not rebuilt; it is marked dirty and rebuilt once when shown again.
+    $dashboardAllowed = $true
+    if ($null -ne (Get-Command -Name Test-DomeniaBackgroundWorkAllowed -CommandType Function -ErrorAction SilentlyContinue)) {
+        try { $dashboardAllowed = [bool](Test-DomeniaBackgroundWorkAllowed -Source 'Dashboard') } catch { $dashboardAllowed = $true }
+    }
+    if (-not $dashboardAllowed) { $script:DashboardDirty = $true; return }
+    $script:DashboardDirty = $false
     try {
         if ($null -eq $script:DashboardRefreshTimer) {
             $script:DashboardRefreshTimer = New-Object System.Windows.Threading.DispatcherTimer
@@ -22356,6 +22497,8 @@ function Request-DomeniaDashboardRefresh {
                 try { $script:DashboardRefreshTimer.Stop() } catch { }
                 try { Update-Dashboard } catch { }
             })
+            # D019: owned timer, stopped by the registry at shutdown.
+            try { [void](Register-DomeniaOwnedTimer -Owner 'Timer:DashboardRefresh' -Timer $script:DashboardRefreshTimer) } catch { }
         }
         $script:DashboardRefreshTimer.Stop()
         $script:DashboardRefreshTimer.Start()
@@ -22365,8 +22508,7 @@ function Request-DomeniaDashboardRefresh {
 
 function Update-Dashboard {
     try {
-        $orig = Get-Command -Name Update-Dashboard -CommandType Function -ErrorAction SilentlyContinue
-        # La fonction est redefinie ici; le remplissage est volontairement autonome.
+        # D014: no command lookup in series on each refresh; the AD module state is read once per change of module.
         $rows=@($script:BranchObjects)
         $stats=Get-ObjectsStatsText $rows
         $script:Ctrl["TxtDashDomain"].Text=[string]$script:Conn.Domain
@@ -22376,7 +22518,10 @@ function Update-Dashboard {
         $script:Ctrl["TxtDashBaseDn"].Text=[string]$script:Conn.BaseDn
         $script:Ctrl["TxtDashBranch"].Text=[string]$script:SelectedBranchDn
         $script:Ctrl["TxtDashRows"].Text=[string]$rows.Count
-        $script:Ctrl["TxtDashModule"].Text=if(Test-DomeniaAdCommandsAvailable){"ActiveDirectory charge"}else{"A la demande : RSAT/DLL verifies/LDAP"}
+        $adCheckDue=($null -eq $script:DashboardAdModuleCheckedAt)
+        if(-not $adCheckDue -and -not [bool]$script:DashboardAdModuleLoaded){$adCheckDue=(((Get-Date)-[datetime]$script:DashboardAdModuleCheckedAt).TotalSeconds -ge 30)}
+        if($adCheckDue){$script:DashboardAdModuleLoaded=[bool](Test-DomeniaAdCommandsAvailable);$script:DashboardAdModuleCheckedAt=Get-Date}
+        $script:Ctrl["TxtDashModule"].Text=if([bool]$script:DashboardAdModuleLoaded){"ActiveDirectory charge"}else{"A la demande : RSAT/DLL verifies/LDAP"}
         $script:Ctrl["TxtDashStats"].Text=[string]$stats
         $script:Ctrl["TxtDashSelected"].Text=if($null -ne $script:SelectedObject){"$($script:SelectedObject.Type)  $($script:SelectedObject.Name)"}else{"Aucun"}
         if($script:Ctrl.ContainsKey("TxtDashRights")){$script:Ctrl["TxtDashRights"].Text=if($script:CurrentCapabilities.Count -gt 0){($script:CurrentCapabilities.GetEnumerator()|ForEach-Object{"$($_.Key)=$($_.Value)"}) -join "  "}else{"Analyse a l ouverture de l objet"}}
@@ -22574,9 +22719,16 @@ function Initialize-Window {
             Initialize-DomeniaPresentation
             Set-DomeniaStartupStage -Stage "Etat initial de securite" -Detail "Presentation prete."
         } | Out-Null
+        # D002/C2: after the presentation (which sets the session badge), the demonstration banner and the
+        # write lock are applied; they stay for the whole session.
+        if ([bool]$script:DemoMode) { Invoke-DomeniaStartupStage "Mode demonstration" { Set-DomeniaDemoShellPresentation } | Out-Null }
         Invoke-DomeniaStartupStage "Prechargement cache AD" { Invoke-DomeniaStartupCacheWarmup } | Out-Null
         Invoke-DomeniaStartupStage "Preparation arbre AD" { Load-TreeRoot; Update-Dashboard } | Out-Null
         Invoke-DomeniaStartupStage "Barriere de disponibilite" { Assert-DomeniaStartupReadiness } | Out-Null
+        # D020: Activated, Deactivated, StateChanged and the page selector drive the idle policy (C1).
+        try { Initialize-DomeniaIdlePolicy -Window $script:Window } catch { Write-AppLog ("Politique de repos non initialisee : " + $_.Exception.Message) "WARN" }
+        # D089: a voluntary Alt-Tab during the startup is respected: the main window then opens without taking the foreground.
+        try { if (Test-DomeniaUserSwitchedAway) { $script:Window.ShowActivated = $false } } catch { }
         $script:Window.Add_Closing({param($s,$e)
             $writeJobStillAlive = $false
             try { $writeJobStillAlive = (@($script:AsyncJobs.Values | Where-Object { $null -ne $_ -and [bool]$_.IsWrite }).Count -gt 0) } catch { }
@@ -22599,10 +22751,14 @@ function Initialize-Window {
         })
         $script:Window.Add_ContentRendered({
             try{
-                Set-Status "Pret. Connexion validee, mode lecture seule actif."
-                Write-AppLog "Pret. Base=$($script:Conn.BaseDn) Server=$($script:Conn.Server) AD=$($script:Conn.BindUser) WIN=$script:ProcessIdentity" "INFO"
+                if ([bool]$script:DemoMode) { Set-Status ("Prêt. " + (Get-DomeniaDemoBannerText) + ".") "WARN" }
+                else { Set-Status "Pret. Connexion validee, mode lecture seule actif." }
+                Write-AppLog "Pret. Base=$($script:Conn.BaseDn) Server=$($script:Conn.Server) AD=$($script:Conn.BindUser) WIN=$script:ProcessIdentity Demo=$([bool]$script:DemoMode)" "INFO"
                 Update-Dashboard
             }catch{Write-AppLog "ContentRendered : $($_.Exception.ToString())" "ERROR"}
+            # D089: one activation request at the switch from login to main window, logged, never repeated.
+            try { [void](Request-DomeniaWindowActivation -Window $script:Window -Trigger 'LoginToMain') } catch { }
+            try { [void](Update-DomeniaIdlePolicy) } catch { }
             # Tout ce qui peut ouvrir une fenetre attend que la principale
             # soit peinte et que le fil graphique soit libre. Sinon la boite
             # n a pas de proprietaire et se cache derriere l ecran de
@@ -22692,13 +22848,29 @@ function New-DomeniaFastLoginSession {
         [string]$ConfiguredBase,
         [string]$ConfiguredServer,
         [int]$TimeoutSeconds = 20,
-        [switch]$UseCurrentCredentials
+        [switch]$UseCurrentCredentials,
+        [switch]$Demo
     )
 
     $overallTimeout = [Math]::Max(8,[Math]::Min(45,$TimeoutSeconds))
     $perServerTimeout = [Math]::Max(2,[Math]::Min(10,[int](Get-CfgValue "Auth" "PerServerTimeoutSeconds" 6)))
     $maxServers = [Math]::Max(1,[Math]::Min(8,[int](Get-CfgValue "Auth" "MaxServerCandidates" 4)))
     $credential = $null
+    if ($Demo) {
+        # D002: no SecureString, no PSCredential: the demonstration request carries only the identity.
+        $demoRequest = [pscustomobject]@{
+            Login = [string]$Login; Credential = $null; PasswordLength = 0; UseCurrentCredentials = $false
+            DemoOnly = $true; DemoIdentity = [string]$Login
+            Domain = "demo.invalid"; Netbios = "DEMO"; ConfiguredBase = "DC=demo,DC=invalid"; ConfiguredServer = ""
+            OverallTimeoutSeconds = $overallTimeout; PerServerTimeoutSeconds = $perServerTimeout; MaxServers = 1
+        }
+        return [pscustomobject]@{
+            Id = [guid]::NewGuid().ToString("N"); Request = $demoRequest; Progress = $null; PowerShell = $null; Runspace = $null; AsyncResult = $null
+            StartedAt = Get-Date; Deadline = (Get-Date).AddSeconds($overallTimeout + 3); LastProgressSequence = -1; LastHeartbeat = -1
+            UseCurrentCredentials = $false; EndInvoked = $false; Cleaned = $false; CancelRequested = $false
+            CleanupRetryAt = [datetime]::MinValue; CleanupGiveUpAt = [datetime]::MinValue
+        }
+    }
     if (-not $UseCurrentCredentials) {
         $secure = New-Object System.Security.SecureString
         foreach ($character in ([string]$Password).ToCharArray()) { $secure.AppendChar($character) }
@@ -22779,6 +22951,12 @@ function Set-DomeniaFastLoginBusy {
         $ui.Windows.IsEnabled = ((-not $Busy) -and $allowWindowsSession -and -not [string]::IsNullOrWhiteSpace($windowsIdentity))
     }
     catch { }
+    if ([bool]$script:DemoMode) {
+        # D002: in demonstration no password can be typed and no Windows session is offered, busy or not.
+        foreach ($name in @("Password","PasswordVisible","Reveal","Remember","Windows")) {
+            try { $ui[$name].IsEnabled = $false } catch { }
+        }
+    }
     # Standard view keeps the same outer dimensions throughout a validation attempt.
     # Debug view deliberately keeps its existing diagnostic presentation.
     if ($ui.Window -is [Windows.Window] -and $null -ne $ui.Window.FindName('PanelSplash')) {
@@ -22826,6 +23004,38 @@ function Complete-DomeniaFastLoginSuccess {
     $ui = $script:FastLoginUi
     if ($null -eq $state -or $null -eq $ui) { return }
 
+    # D002/C2: a demonstration result is accepted only in demonstration mode, and the reverse.
+    $isDemo = ($null -ne $Result.PSObject.Properties["AuthMethod"] -and [string]$Result.AuthMethod -ceq 'Demo.InMemory')
+    if ($isDemo -ne [bool]$script:DemoMode) { throw 'Mode demonstration incoherent : connexion refusee.' }
+    if ($isDemo) {
+        $script:Conn.Connected = $true
+        $script:Conn.AuthMode = 'Demo'
+        $script:Conn.UseCredential = $false
+        $script:Conn.Credential = $null
+        $script:Conn.User = [string]$Result.BindUser
+        $script:Conn.BindUser = [string]$Result.BindUser
+        $script:Conn.Domain = [string]$Result.Domain
+        $script:Conn.Netbios = [string]$Result.Netbios
+        $script:Conn.BaseDn = [string]$Result.BaseDn
+        $script:Conn.Server = [string]$Result.Server
+        $script:Conn.RootPath = [string]$Result.RootPath
+        $script:Conn.LastError = ""
+        $script:DirectoryCredentialFaulted = $false
+        $script:DirectoryCredentialFaultMessage = ""
+        $script:ActualDeniedCapabilities = @{}
+        $script:ActualSecretDeniedDn = ""
+        try { if ($null -ne $script:DomeniaProviderState) { Reset-DomeniaProviderState -State $script:DomeniaProviderState } } catch { }
+        # Nothing is remembered in HKCU in demonstration (no Save-AppConfig).
+        $ui.Error.Foreground = (Get-DomeniaBootStatusColor -Kind "Success")
+        $ui.Error.Text = "Identité de démonstration acceptée — aucune connexion AD."
+        $ui.Stage.Text = "Démonstration prête en $([Math]::Round(([long]$Result.DurationMs / 1000),2)) s."
+        Write-DomeniaFastLoginLog -Stage "LOGIN_OK" -Status "OK" -Detail "Compte=$($Result.BindUser) Mode=Demo Base=$($Result.BaseDn)" -DurationMs ([long]$Result.DurationMs)
+        $state.LoginOk = $true
+        $state.Password = ""
+        Set-DomeniaSurfaceResult $ui.Window $true
+        return
+    }
+
     $isWindows = [bool]$state.UseCurrentCredentials
     if ($null -ne $Result.PSObject.Properties["AuthMode"] -and [string]$Result.AuthMode -eq "Windows") { $isWindows = $true }
     $script:Conn.Connected = $true
@@ -22856,6 +23066,8 @@ function Complete-DomeniaFastLoginSuccess {
     # asynchrone etait deja initialise dans ce processus.
     $script:DirectoryCredentialFaulted = $false
     $script:DirectoryCredentialFaultMessage = ""
+    # D018: an explicit reconnection is the change of account that lifts the per-resource refusals.
+    try { if ($null -ne $script:DomeniaProviderState) { Reset-DomeniaProviderState -State $script:DomeniaProviderState } } catch { }
     $script:Conn.Domain = [string]$Result.Domain
     $script:Conn.Netbios = [string]$Result.Netbios
     $script:Conn.BaseDn = [string]$Result.BaseDn
@@ -23089,6 +23301,44 @@ function Start-DomeniaFastLoginAttempt {
     $ui = $script:FastLoginUi
     $state = $script:FastLoginState
     if ($null -eq $ui -or $null -eq $state -or $null -ne $state.Session) { return }
+
+    if ([bool]$script:DemoMode) {
+        # D002/C2: demonstration identity only. No password is read, no domain discovery, no LDAP bind:
+        # the same session, worker, timer and completion as production, with a request marked DemoOnly.
+        if ($UseCurrentCredentials) { return }
+        $demoLogin = ([string]$ui.Login.Text).Trim()
+        Write-DomeniaFastLoginLog -Stage "CLICK" -Detail "Compte=$demoLogin Mode=Demo"
+        if (-not (Test-DomeniaDemoIdentity $demoLogin)) {
+            $ui.Error.Foreground = (Get-DomeniaBootStatusColor -Kind "Error")
+            $ui.Error.Text = "Identité de démonstration attendue (DEMO\nom)."
+            return
+        }
+        $state.Login = $demoLogin
+        $state.Password = ""
+        $state.LoginOk = $false
+        $state.UseCurrentCredentials = $false
+        $ui.Technical.Clear()
+        $ui.Error.Foreground = (Get-DomeniaBootStatusColor -Kind "Muted")
+        $ui.Error.Text = "Vérification de l'identité de démonstration, sans connexion AD."
+        $ui.Stage.Text = "Démonstration : annuaire fictif en mémoire."
+        Set-DomeniaFastLoginBusy $true
+        try {
+            $session = New-DomeniaFastLoginSession -Login $demoLogin -Password "" -TimeoutSeconds 8 -Demo
+            $state.Session = Start-DomeniaFastLoginWorker -Session $session
+            $script:FastLoginTimer = New-Object System.Windows.Threading.DispatcherTimer
+            $script:FastLoginTimer.Interval = [TimeSpan]::FromMilliseconds(200)
+            $script:FastLoginTimer.Add_Tick({ Update-DomeniaFastLoginAttempt })
+            $script:FastLoginTimer.Start()
+            Write-DomeniaFastLoginLog -Stage "TIMER_STARTED" -Detail "Interval=200ms Mode=Demo"
+        }
+        catch {
+            Write-DomeniaFastLoginLog -Stage "START_ERROR" -Status "ERROR" -Detail $_.Exception.ToString()
+            $ui.Error.Foreground = (Get-DomeniaBootStatusColor -Kind "Error")
+            $ui.Error.Text = "Impossible de demarrer la demonstration : $($_.Exception.Message)"
+            Reset-DomeniaFastLoginAttempt -Kill -KeepDiagnostics
+        }
+        return
+    }
 
     $login = if ($UseCurrentCredentials) {
         Get-DomeniaProcessWindowsIdentity
@@ -23479,6 +23729,12 @@ function Show-LoginWindow {
         UseCurrentCredentials = $false
     }
 
+    if ([bool]$script:DemoMode) {
+        # D002/C2: demonstration identity, no password, no Windows session, nothing read from HKCU LastLogin.
+        Initialize-DomeniaDemoLoginPresentation -Ui $ui
+        Write-DomeniaFastLoginLog -Stage "DEMO_MODE" -Status "WARN" -Detail "Fournisseur de demonstration : aucune connexion AD, ecritures desactivees."
+    }
+    else {
     $lastLogin = [string](Get-CfgValue "Auth" "LastLogin" "")
     if ([string]::IsNullOrWhiteSpace($lastLogin)) { $lastLogin = [string](Get-CfgValue "Conf" "ADM" "") }
     $lastLogin = $lastLogin.Trim()
@@ -23499,6 +23755,7 @@ function Show-LoginWindow {
     }
     else {
         $ui.Windows.ToolTip = "Indisponible : DOMENIA nest pas execute sous un compte utilisateur de domaine."
+    }
     }
 
     $ui.Reveal.Add_Click({ Toggle-DomeniaFastLoginPassword })
@@ -23545,12 +23802,16 @@ function Show-LoginWindow {
         if ([string]::IsNullOrWhiteSpace($displayIdentity)) { $displayIdentity = "indisponible (SYSTEM, compte local ou compte ordinateur)" }
         Add-DomeniaFastLoginDetail "Session Windows : $displayIdentity"
         Add-DomeniaFastLoginDetail "Journal : $(Get-DomeniaFastLoginLogPath)"
-        if (-not [string]::IsNullOrWhiteSpace([string]$script:FastLoginUi.Login.Text)) { $script:FastLoginUi.Password.Focus() | Out-Null }
+        # D089: first launch only (stand-alone login window); a relogin panel inside the main window activates nothing.
+        if (-not (Test-DomeniaMainHostAvailable)) { try { [void](Request-DomeniaWindowActivation -Window $script:FastLoginUi.Window -Trigger 'Launch') } catch { } }
+        if ([bool]$script:DemoMode) { $script:FastLoginUi.Connect.Focus() | Out-Null }
+        elseif (-not [string]::IsNullOrWhiteSpace([string]$script:FastLoginUi.Login.Text)) { $script:FastLoginUi.Password.Focus() | Out-Null }
         else { $script:FastLoginUi.Login.Focus() | Out-Null }
     })
     $window.Add_Closing({
         if ($null -ne $script:FastLoginState.Session) { Reset-DomeniaFastLoginAttempt -Kill -KeepDiagnostics }
     })
+    if (-not (Test-DomeniaMainHostAvailable)) { try { Register-DomeniaUserSwitchWatch -Window $window } catch { } }
 
     Write-DomeniaFastLoginLog -Stage "WINDOW_SHOW" -Detail "ShowDialog"
     $null = Invoke-DomeniaHostWindow -Window $window -ManagedCancel -PreserveTheme
@@ -23596,10 +23857,23 @@ function Invoke-DomeniaSelfTest {
         'Invoke-DomeniaInProcessAuthProbe','Start-DomeniaLoginAuthRunspace','Read-DomeniaAuthRunspaceResult',
         'Update-DomeniaSecretActionUi','Assert-DomeniaReadWriteControlClassification',
         'Set-DomeniaActualCapabilityDenied','Test-DomeniaActualCapabilityDenied','Clear-DomeniaActualCapabilityDenials',
-        'Test-DomeniaSensitiveAttributeName','Get-DomeniaAdModuleSources','Assert-DomeniaAdBinarySource'
+        'Test-DomeniaSensitiveAttributeName','Get-DomeniaAdModuleSources','Assert-DomeniaAdBinarySource',
+        # D011, D015, D017, D018, D020, D089 and the demonstration provider (D002, D003).
+        'Test-DomeniaStartupPlan','Test-DomeniaTaskAdmission','Get-DomeniaTaskStateSummary','Get-DomeniaOperationCredentialNeeds',
+        'Initialize-DomeniaEngineState','Invoke-DomeniaUiTaskDispatch','Invoke-DomeniaQueuedTaskPromotion','Test-DomeniaBackgroundWorkAllowed',
+        'Initialize-DomeniaIdlePolicy','Get-DomeniaDemoDirectoryWorkerCode','New-DomeniaDemoDirectory','ConvertTo-DomeniaDemoWorkerContext',
+        'Test-DomeniaDemoProviderEnabled','Request-DomeniaWindowActivation','Get-DomeniaLocalIndexReadWorkerCode','Get-DomeniaParkSharedSyncWorkerCode'
     )
     $missing = @($requiredFunctions | Where-Object { $null -eq (Get-Command -Name $_ -CommandType Function -ErrorAction SilentlyContinue) })
     Add-SelfTestResult -Name 'Fonctions critiques' -Success ($missing.Count -eq 0) -Detail $(if($missing.Count -eq 0){'Toutes presentes.'}else{"Absentes : $($missing -join ', ')"})
+
+    try {
+        # D011: the closed loader validated phases and dependencies before the business modules.
+        $planValid = ($null -ne $script:DomeniaStartupPlan -and [bool]$script:DomeniaStartupPlan.Valid)
+        $engineImported = (@($script:DomeniaRuntimeImports | Where-Object { [string]$_.File -eq 'Domenia-Engine.Model.ps1' -and [bool]$_.Validated }).Count -eq 1)
+        Add-SelfTestResult -Name 'Plan de demarrage' -Success ($planValid -and $engineImported) -Detail ("Plan valide={0} ; moteur importe={1} ; ordre={2}." -f $planValid,$engineImported,(@($script:DomeniaStartupPlan.Order) -join ' > '))
+    }
+    catch { Add-SelfTestResult -Name 'Plan de demarrage' -Success $false -Detail $_.Exception.ToString() }
 
     try {
         Assert-DomeniaReadWriteControlClassification
@@ -23697,6 +23971,75 @@ function Invoke-DomeniaSelfTest {
     catch { Add-SelfTestResult -Name "Authentification interne" -Success $false -Detail $_.Exception.ToString() }
     finally { if ($null -ne $authSelfTestSession) { Complete-DomeniaLoginAuthRunspaceCleanup -Session $authSelfTestSession } }
 
+    # D002/D003: the demonstration provider is checked whatever Auth.DemoProvider says, with the real consumer gates.
+    $demoWorker = $null
+    try {
+        $demoCode = Get-DomeniaDemoDirectoryWorkerCode
+        [void](Assert-DomeniaWorkerOperationCode -OperationId 'DemoDirectory' -Code $demoCode)
+        Add-SelfTestResult -Name 'Registre demonstration' -Success $true -Detail 'Corps DemoDirectory conforme a son empreinte.'
+        $demoDirectory = New-DomeniaDemoDirectory -LatencyMs 0
+        $demoContext = ConvertTo-DomeniaDemoWorkerContext -Context ([pscustomobject]@{BaseDn=[string]$demoDirectory.BaseDn;Domain=[string]$demoDirectory.Domain;Netbios='DEMO';BindUser='DEMO\demo.operateur';PageSize=300}) -RequestedOperationId 'EngineSelfTest'
+        $demoWorker = New-DomeniaWorkerRunspace -OperationId 'DemoDirectory' -Code $demoCode
+        $demoInvoke = {
+            param($Operation,$Request,$Context)
+            $demoPs = [System.Management.Automation.PowerShell]::Create()
+            try {
+                $demoPs.Runspace = $demoWorker.Runspace
+                [void]$demoPs.AddCommand([string]$demoWorker.CommandName)
+                [void]$demoPs.AddArgument($Context)
+                [void]$demoPs.AddArgument([pscustomobject]@{Operation=$Operation;Request=$Request;Directory=$demoDirectory})
+                $demoHandle = $demoPs.BeginInvoke()
+                if (-not $demoHandle.AsyncWaitHandle.WaitOne(10000)) { try { [void]$demoPs.BeginStop($null,$null) } catch { }; throw 'Le worker DemoDirectory n a pas termine en 10 secondes.' }
+                return @($demoPs.EndInvoke($demoHandle))
+            } finally { $demoPs.Dispose() }
+        }
+        $treeRows = & $demoInvoke 'TreeChildren' ([pscustomobject]@{DN=[string]$demoDirectory.BaseDn}) $demoContext
+        $tree = Get-DomeniaEffectiveWorkerResult -Result $treeRows -RequiredProperties @('Rows')
+        $treeOk = ($null -ne $tree -and @($tree.Rows | Where-Object { [string]$_.Name -eq 'Siege' -and [string]$_.Kind -eq 'OU' }).Count -eq 1)
+        $progress = New-Object 'System.Collections.Concurrent.ConcurrentQueue[object]'
+        $stop = New-Object System.Threading.CancellationTokenSource
+        $searchRequest = [pscustomobject]@{BaseDn=[string]$demoDirectory.BaseDn;Scope='Subtree';PrefixFilter='(&(|(&(objectCategory=person)(objectClass=user))(objectCategory=computer))(|(name=Jean*)(sAMAccountName=Jean*)))';FastFilter='';ExactFilter='';AnrFilter='';BroadFilter='';Limit=50;Properties=@('name');Progress=$progress;StopToken=$stop.Token;StreamPageSize=25}
+        $search = Get-DomeniaEffectiveWorkerResult -Result (& $demoInvoke 'GlobalSearch' $searchRequest $demoContext) -RequiredProperties @('Rows','BaseDn','Scope')
+        $events = 0; $demoEvent = $null
+        while ($progress.TryDequeue([ref]$demoEvent)) { if ([string]$demoEvent.Kind -eq 'Row') { $events++ } }
+        $searchOk = ($null -ne $search -and @($search.Rows).Count -ge 1 -and $events -eq @($search.Rows).Count -and [string]$search.BaseDn -ieq [string]$demoDirectory.BaseDn -and [string]$search.Scope -ceq 'Subtree')
+        $jean = @($search.Rows | Where-Object { [string]$_.Name -eq 'Jean Dupont' } | Select-Object -First 1)
+        $openOk = $false
+        if ($jean.Count -eq 1) {
+            $object = Get-DomeniaEffectiveWorkerResult -Result (& $demoInvoke 'OpenAdObject' ([pscustomobject]@{DN=[string]$jean[0].DN;Type='Utilisateur';Properties=@(Get-DomeniaSafeObjectPropertyNames)}) $demoContext) -RequiredProperties @('Properties')
+            $state = [pscustomobject]@{Dn=[string]$jean[0].DN;ExpectedGuid=[string]$jean[0].Guid}
+            Assert-DomeniaObjectResultIdentity -Result $object -State $state
+            $openOk = ([string](Get-DomeniaObjectResultGuid $object) -ieq [string]$jean[0].Guid)
+        }
+        $unavailable = ''
+        try { [void](& $demoInvoke 'ComputerPing' ([pscustomobject]@{Computer='PC-DEMO-01'}) $demoContext) } catch { $unavailable = [string]$_.Exception.Message }
+        $unavailableOk = ($unavailable -match 'non disponible en demonstration' -and -not [bool](Get-DomeniaStructuredError $unavailable).CanOfferCredential)
+        $refused = $false
+        try { [void](& $demoInvoke 'TreeChildren' ([pscustomobject]@{DN=[string]$demoDirectory.BaseDn}) ([pscustomobject]@{OperationId='DemoDirectory';DemoMode=$false;Credential=$null;BindUser='DEMO\demo.operateur'})) } catch { $refused = ([string]$_.Exception.Message -match 'DOMENIA_DEMO_CONTEXT') }
+        Add-SelfTestResult -Name 'Annuaire de demonstration MTA' -Success ($treeOk -and $searchOk -and $openOk -and $unavailableOk -and $refused) -Detail ("Arbre={0} ; recherche={1} ({2} evenement(s)) ; fiche={3} ; non disponible={4} ; contexte reel refuse={5}." -f $treeOk,$searchOk,$events,$openOk,$unavailableOk,$refused)
+    }
+    catch { Add-SelfTestResult -Name 'Annuaire de demonstration MTA' -Success $false -Detail $_.Exception.ToString() }
+    finally { if ($null -ne $demoWorker) { try { $demoWorker.Runspace.Dispose() } catch { } } }
+
+    $demoAuthSession = $null
+    try {
+        $demoAuthRequest = [pscustomobject]@{
+            DemoOnly=$true; DemoIdentity='DEMO\demo.operateur'; Login='DEMO\demo.operateur'; Credential=$null; PasswordLength=0; UseCurrentCredentials=$false
+            Domain='demo.invalid'; Netbios='DEMO'; ConfiguredBase='DC=demo,DC=invalid'; ConfiguredServer=''
+            OverallTimeoutSeconds=8; PerServerTimeoutSeconds=2; MaxServers=1
+        }
+        $demoAuthSession = Start-DomeniaLoginAuthRunspace -Request $demoAuthRequest
+        if (-not $demoAuthSession.AsyncResult.AsyncWaitHandle.WaitOne(10000)) {
+            Stop-DomeniaLoginAuthRunspace -Session $demoAuthSession -Terminate
+            throw "Le runspace d authentification de demonstration n a pas termine en 10 secondes."
+        }
+        $demoAuth = Read-DomeniaAuthRunspaceResult -Session $demoAuthSession
+        $demoAuthOk = ([bool]$demoAuth.Success -and [string]$demoAuth.AuthMethod -ceq 'Demo.InMemory' -and [string]$demoAuth.BaseDn -eq 'DC=demo,DC=invalid' -and [string]$demoAuth.Apartment -eq 'MTA')
+        Add-SelfTestResult -Name 'Authentification demonstration' -Success $demoAuthOk -Detail "Methode=$($demoAuth.AuthMethod), base=$($demoAuth.BaseDn), aucune decouverte de domaine."
+    }
+    catch { Add-SelfTestResult -Name 'Authentification demonstration' -Success $false -Detail $_.Exception.ToString() }
+    finally { if ($null -ne $demoAuthSession) { Complete-DomeniaLoginAuthRunspaceCleanup -Session $demoAuthSession } }
+
     $failed = @($checks | Where-Object { -not $_.Success })
     return [pscustomobject]@{ Success=($failed.Count -eq 0); Checks=[object[]]$checks.ToArray(); Failed=$failed.Count; Version=$script:Version }
 }
@@ -23709,6 +24052,8 @@ try {
     $script:WorkerCommon += "`r`n"+(Get-DomeniaReceiptsCommon)
     $script:ReceiptReady=$false;$script:ReceiptPending=0
     Load-AppConfig | Out-Null
+    # C2 (D002): demonstration mode fixed once for the whole session, right after the configuration is read.
+    [void](Initialize-DomeniaDemoMode)
     Initialize-DomeniaDataStore | Out-Null
     if ($DomeniaSelfTest) {
         $selfTestResult = Invoke-DomeniaSelfTest
@@ -23732,6 +24077,7 @@ try {
     }
     $script:StartupCorrelation = [guid]::NewGuid().ToString("N")
     Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 RC1.11.0 (2026.10.02-DOMENIA-1.0-RC1.11.0-D120)"
+    if ([bool]$script:DemoMode) { Write-StartupTrace -Stage "Demonstration" -Status "WARN" -Detail "Demo=True : annuaire fictif en memoire, aucune connexion AD, ecritures desactivees." }
     Write-DomeniaFastLoginLog -Stage "APPLICATION_START" -Detail "PID=$PID Script=$($script:LaunchPath) Root=$($script:RootDir)"
 
     $preflightWatch = [System.Diagnostics.Stopwatch]::StartNew()

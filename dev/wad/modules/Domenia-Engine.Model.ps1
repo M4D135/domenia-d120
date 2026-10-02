@@ -113,12 +113,16 @@ function Test-DomeniaIdentityCurrent {
 
 # ---------------------------------------------------------------- D015 scheduler
 function Get-DomeniaTaskClass {
+    # Real operation identifiers of the closed worker registry. A caller that knows better passes -Hint
+    # (for example IndexBuild started automatically at startup is Background, the same read started by a
+    # button stays Explicit).
     param([Parameter(Mandatory=$true)][string]$OperationId,[bool]$IsWrite=$false,[string]$ReplaceKey='',[string]$Hint='')
     if ($IsWrite) { return 'Write' }
     if ($Hint -in @('Explicit','Selection','Background')) { return $Hint }
-    $background = @('LiveConsole','LiveCache','LiveDirectoryCheck','PresenceScan','ParkSweep','IndexBuild','IndexRefresh','ReconcileScope','LocalStore','LogonHarvest','StartupWarmup','ReceiptStore','ObjectChanges')
+    $background = @('LiveCache','LiveDirectoryCheck','PresenceScan','ScopeReconcile','StartupWarmCache','LocalStore','ReceiptStore','ParkSharedSync')
     if ($background -contains $OperationId) { return 'Background' }
-    if ($OperationId -in @('SelectedPresence','LiveSelectedPing') -or ($OperationId -eq 'OpenAdObject' -and $ReplaceKey -eq 'object')) { return 'Selection' }
+    # LiveConsole and LiveSelectedPing run the same pinned body, chosen by a check box after a selection.
+    if ($OperationId -in @('SelectedPresence','LiveSelectedPing','LiveConsole') -or ($OperationId -eq 'OpenAdObject' -and $ReplaceKey -eq 'object')) { return 'Selection' }
     return 'Explicit'
 }
 
@@ -224,9 +228,12 @@ function Get-DomeniaTaskState {
     param($Job,[bool]$Detached=$false)
     if ($null -eq $Job) { return 'Completed' }
     if ($Detached) {
-        $done = $false
-        try { $handle = Get-DomeniaMember $Job 'Handle' $null; if ($null -ne $handle) { $done = [bool]$handle.IsCompleted } else { $done = $true } } catch { $done = $false }
-        if ($done) { return 'Completed' }
+        # Same rule as Complete-DomeniaDetachedReadJobs: the invocation AND the stop request must both be
+        # finished. An absent stop handle counts as finished.
+        $invokeDone = $false; $stopDone = $true
+        try { $handle = Get-DomeniaMember $Job 'Handle' $null; if ($null -ne $handle) { $invokeDone = [bool]$handle.IsCompleted } else { $invokeDone = $true } } catch { $invokeDone = $false }
+        try { $stop = Get-DomeniaMember $Job 'StopHandle' $null; if ($null -ne $stop) { $stopDone = [bool]$stop.IsCompleted } } catch { $stopDone = $false }
+        if ($invokeDone -and $stopDone) { return 'Completed' }
         return 'Cleanup'
     }
     if ([string](Get-DomeniaMember $Job 'State' '') -eq 'Queued') { return 'Queued' }
@@ -266,10 +273,12 @@ function Get-DomeniaCancelStatusText {
 # ---------------------------------------------------------------- D018 provider budgets
 function Get-DomeniaOperationProvider {
     param([Parameter(Mandatory=$true)][string]$OperationId)
-    $cim = @('ComputerDiagnostics','ComputerInventory','SoftwareInventory','WmiNamespaces','WmiClasses','WmiQuery','LiveConsole','ComputerLastUser','ComputerQuickDiag','JoinStateRead','UpdateStateRead','GpoAppliedRead','ComputerEventsRead','MachineIdentityRead','ParkSweep','BatchNetworkDiag')
+    # Remote actions on a workstation (GPUpdate, restart, Rimotte, user probe, credential check) are budgeted
+    # per target with the CIM provider: an outage there must never slow the directory.
+    $cim = @('ComputerDiagnostics','ComputerInventory','SoftwareInventory','WmiNamespaces','WmiClasses','WmiQuery','LiveConsole','ComputerLastUser','ComputerQuickDiag','JoinStateRead','UpdateStateRead','GpoAppliedRead','ComputerEventsRead','MachineIdentityRead','ParkSweep','BatchNetworkDiag','ComputerGpUpdate','ComputerRestart','RimotteRun','UserComputerProbe','RemoteCredentialCheck')
     $wts = @('SessionsList')
-    $storage = @('LocalStore','LiveCache','ReceiptStore','DocumentStore','StorageUsage','StoragePurge','LinkHistoryStore')
-    $local = @('CmdletHelp','CmdletInventory','EngineSelfTest','EmbeddedPathBrowse','LocalAssistant','DemoDirectory')
+    $storage = @('LocalStore','LiveCache','ReceiptStore','DocumentStore','StorageUsage','StoragePurge','LinkHistoryStore','LocalIndexRead','ParkSharedSync')
+    $local = @('CmdletHelp','CmdletInventory','EngineSelfTest','EmbeddedPathBrowse','LocalAssistant','DemoDirectory','IsolatedRead')
     $network = @('LiveSelectedPing','ComputerPing','SelectedPresence','PresenceScan','WakeOnLanSend','ConnectorRead')
     if ($cim -contains $OperationId) { return 'Cim' }
     if ($wts -contains $OperationId) { return 'Wts' }
@@ -277,6 +286,77 @@ function Get-DomeniaOperationProvider {
     if ($local -contains $OperationId) { return 'Local' }
     if ($network -contains $OperationId) { return 'Network' }
     return 'Directory'
+}
+
+function Get-DomeniaOperationCredentialNeeds {
+    # C3. Credential semantics of one operation, identical to the historical lists of Get-WorkerContext:
+    # which account the worker receives, and whether a rejected logon may suspend the directory channel.
+    # A provider is not a credential rule: ComputerLastUser and LiveConsole are CIM reads that also query LDAP.
+    param([string]$OperationId)
+    $remote = @('SessionsList','ComputerDiagnostics','ComputerLastUser','LiveConsole','ComputerPing','ComputerGpUpdate','ComputerRestart','ComputerInventory','SoftwareInventory','ParkSweep','BatchNetworkDiag','WmiNamespaces','WmiClasses','WmiQuery','RimotteRun')
+    $machine = @('SessionsList','ComputerDiagnostics','ComputerInventory','SoftwareInventory','ParkSweep','WmiNamespaces','WmiClasses','WmiQuery','ComputerLastUser','LiveConsole','ComputerGpUpdate','ComputerRestart','UserComputerProbe','RimotteRun')
+    # Local or storage operations that never bind to the directory. New D120 operations are classified here.
+    $local = @('CmdletHelp','CmdletInventory','EngineSelfTest','LiveCache','LiveSelectedPing','LocalStore','ReceiptStore','SessionsList','DocumentStore','EmbeddedPathBrowse','DemoDirectory','LocalIndexRead','ParkSharedSync','IsolatedRead')
+    $id = [string]$OperationId
+    $isRemote = ($remote -contains $id)
+    $nonDirectory = (($local -contains $id) -or $isRemote)
+    $directory = (($id -in @('ComputerLastUser','LiveConsole')) -or -not $nonDirectory)
+    $secrets = ($id -in @('ReadBitLocker','ReadLaps'))
+    $resource = 'Directory'
+    if ($id -eq 'ReadLaps') { $resource = 'Laps' }
+    elseif ($id -in @('ReadBitLocker','ReadBitLockerKey')) { $resource = 'BitLocker' }
+    elseif ($isRemote -or ($machine -contains $id) -or $id -eq 'RemoteCredentialCheck') { $resource = 'Remote' }
+    elseif ($id -in @('LiveSelectedPing','ComputerPing','SelectedPresence','PresenceScan','WakeOnLanSend','ConnectorRead')) { $resource = 'Network' }
+    elseif ($nonDirectory) { $resource = 'Local' }
+    return [pscustomobject]@{
+        OperationId=$id
+        # The worker needs the directory channel (circuit breaker and AD account apply).
+        Directory=$directory
+        # The worker receives the AD account (ReceiptStore records the bind identity of a write).
+        DirectoryCredential=($directory -or $id -eq 'ReceiptStore')
+        Remote=$isRemote
+        Machine=($machine -contains $id)
+        RemoteAdmin=($isRemote -or ($machine -contains $id))
+        Secrets=$secrets
+        NonDirectory=$nonDirectory
+        # A rejected logon suspends the AD channel only when the rejected account can be the AD account.
+        DirectoryBreaker=($directory -and -not $isRemote)
+        Provider=(Get-DomeniaOperationProvider $id)
+        Resource=$resource
+    }
+}
+
+function ConvertTo-DomeniaProviderOutcome {
+    # Maps the end of one worker to the outcome recorded for its provider budget (D018).
+    param([string]$ErrorKind='',[bool]$Cancelled=$false,[bool]$TimedOut=$false,[bool]$Failed=$false)
+    if ($Cancelled) { return 'Cancelled' }
+    if ($TimedOut) { return 'Timeout' }
+    if (-not $Failed) { return 'Success' }
+    if ($ErrorKind -in @('LogonFailure','AccountLocked','AccountUnavailable')) { return 'CredentialRejected' }
+    if ($ErrorKind -eq 'AccessDenied') { return 'AccessDenied' }
+    return 'Failure'
+}
+
+function Test-DomeniaQueuedTaskExpired {
+    # A queued read that waited too long is withdrawn before any call: nothing was sent.
+    param($QueuedAt,[int]$MaxWaitSeconds=120,[datetime]$Now=(Get-Date))
+    if ($null -eq $QueuedAt) { return $false }
+    try { return (($Now - [datetime]$QueuedAt).TotalSeconds -gt [Math]::Max(5,$MaxWaitSeconds)) } catch { return $false }
+}
+
+function Get-DomeniaIsolationDecision {
+    # D016. A read may run in a bounded helper process only when the switch is on, it is not a write, its
+    # payload is plain data, no credential object would have to cross the process boundary and the operation
+    # is on the reviewed list. Stopping the helper can therefore never touch a write or the GUI.
+    param([string]$OperationId,[bool]$Enabled=$false,[bool]$IsWrite=$false,[bool]$HasCredential=$false,[string]$PayloadDigest='',[bool]$DemoMode=$false)
+    $eligible = @('ComputerPing','ComputerDiagnostics','ComputerInventory','SoftwareInventory','WmiNamespaces','WmiClasses','WmiQuery','TreeChildren')
+    if (-not $Enabled) { return [pscustomobject]@{Isolate=$false;Reason='Lectures isolees desactivees (Features.IsolatedReads).'} }
+    if ($IsWrite) { return [pscustomobject]@{Isolate=$false;Reason='Une ecriture n est jamais confiee au processus auxiliaire.'} }
+    if ($DemoMode) { return [pscustomobject]@{Isolate=$false;Reason='Demonstration : aucun processus auxiliaire.'} }
+    if ($eligible -notcontains [string]$OperationId) { return [pscustomobject]@{Isolate=$false;Reason='Operation non retenue pour l isolement.'} }
+    if ($HasCredential) { return [pscustomobject]@{Isolate=$false;Reason='Un compte explicite ne traverse jamais la frontiere du processus.'} }
+    if (-not $PayloadDigest) { return [pscustomobject]@{Isolate=$false;Reason='Charge utile vivante : lecture conservee dans le moteur.'} }
+    return [pscustomobject]@{Isolate=$true;Reason='Lecture isolee dans un processus auxiliaire borne.'}
 }
 
 function Get-DomeniaProviderBudget {
@@ -299,20 +379,24 @@ function Get-DomeniaProviderStateKey {
 }
 
 function Register-DomeniaProviderOutcome {
+    # $Identity is the account that was actually used. A credential refusal blocks that account for that
+    # resource; an explicit change of account is a new decision of the operator and is not blocked.
     param($State,[Parameter(Mandatory=$true)][string]$Provider,[string]$Target='',
         [Parameter(Mandatory=$true)][ValidateSet('Success','Failure','Timeout','CredentialRejected','AccessDenied','Cancelled')][string]$Outcome,
-        [datetime]$NowUtc=[datetime]::UtcNow)
+        [datetime]$NowUtc=[datetime]::UtcNow,[string]$Identity='')
     if ($null -eq $State) { return $null }
     $key = Get-DomeniaProviderStateKey $Provider $Target
-    if (-not $State.ContainsKey($key)) { $State[$key] = [pscustomobject]@{Provider=$Provider;Target=$Target;Failures=0;BackoffUntilUtc=[datetime]::MinValue;CredentialBlocked=$false;LastOutcome='';LastUtc=[datetime]::MinValue} }
+    if (-not $State.ContainsKey($key)) { $State[$key] = [pscustomobject]@{Provider=$Provider;Target=$Target;Failures=0;BackoffUntilUtc=[datetime]::MinValue;CredentialBlocked=$false;RejectedIdentity='';LastOutcome='';LastUtc=[datetime]::MinValue} }
     $entry = $State[$key]
     $entry.LastOutcome = $Outcome; $entry.LastUtc = $NowUtc
     switch ($Outcome) {
+        # A success under another account does not unblock the rejected one: only a reconnection resets it.
         'Success' { $entry.Failures = 0; $entry.BackoffUntilUtc = [datetime]::MinValue }
         'Cancelled' { }
         'CredentialRejected' {
             # No timed retry: the same credentials would be rejected again and could lock the account.
             $entry.CredentialBlocked = $true
+            $entry.RejectedIdentity = ([string]$Identity).Trim()
         }
         'AccessDenied' {
             # A refusal is a stable answer, not an outage: no failure escalation, no automatic retry either.
@@ -343,14 +427,19 @@ function Reset-DomeniaProviderState {
 }
 
 function Test-DomeniaProviderAdmission {
-    param($State,[Parameter(Mandatory=$true)][string]$Provider,[string]$Target='',[string]$Class='Explicit',[int]$RunningForProvider=0,[datetime]$NowUtc=[datetime]::UtcNow)
+    param($State,[Parameter(Mandatory=$true)][string]$Provider,[string]$Target='',[string]$Class='Explicit',[int]$RunningForProvider=0,[datetime]$NowUtc=[datetime]::UtcNow,[string]$Identity='')
     $budget = Get-DomeniaProviderBudget $Provider
     $entries = New-Object 'System.Collections.Generic.List[object]'
     if ($null -ne $State) {
         foreach ($key in @((Get-DomeniaProviderStateKey $Provider $Target),(Get-DomeniaProviderStateKey $Provider ''))) { if ($State.ContainsKey($key)) { $entries.Add($State[$key]) } }
     }
     foreach ($entry in $entries) {
-        if ([bool]$entry.CredentialBlocked) { return [pscustomobject]@{Allowed=$false;Reason='Identifiants rejetes pour cette ressource : aucun nouvel essai avant un changement de compte explicite.';RetryAfterUtc=$null;Budget=$budget} }
+        if (-not [bool]$entry.CredentialBlocked) { continue }
+        # Same account (or unknown account): refused. Another account chosen explicitly: allowed once more.
+        $rejected = [string](Get-DomeniaMember $entry 'RejectedIdentity' '')
+        if (-not $rejected -or -not $Identity -or $rejected -ieq ([string]$Identity).Trim()) {
+            return [pscustomobject]@{Allowed=$false;Reason='Identifiants rejetes pour cette ressource : aucun nouvel essai avant un changement de compte explicite.';RetryAfterUtc=$null;Budget=$budget}
+        }
     }
     foreach ($entry in $entries) {
         if ([datetime]$entry.BackoffUntilUtc -gt $NowUtc -and $Class -ne 'Explicit' -and $Class -ne 'Write') {
@@ -385,13 +474,15 @@ function Register-DomeniaResource {
 }
 
 function Release-DomeniaResources {
-    # Releases the resources of one owner (or all). Every release runs even if a previous one failed.
-    param($Registry,[string]$Owner='',[int]$Id=0)
+    # Releases the resources of one owner, one kind, or all. Every release runs even if a previous one failed.
+    # -Kind lets the shutdown release timers and pools without disposing a job still active on its thread.
+    param($Registry,[string]$Owner='',[int]$Id=0,[string]$Kind='')
     $released = 0; $errors = New-Object 'System.Collections.Generic.List[string]'
     if ($null -eq $Registry) { return [pscustomobject]@{Released=0;Failed=0;Errors=@()} }
     foreach ($item in @($Registry.Items.ToArray())) {
         if ($Owner -and $item.Owner -ne $Owner) { continue }
         if ($Id -gt 0 -and $item.Id -ne $Id) { continue }
+        if ($Kind -and $item.Kind -ne $Kind) { continue }
         try {
             if ($null -ne $item.Release) { & $item.Release $item.Resource }
             elseif ($item.Resource -is [IDisposable]) { $item.Resource.Dispose() }
@@ -431,6 +522,22 @@ function Get-DomeniaIdlePolicy {
         # Explicit work, receipts and saves are never abandoned by the idle policy.
         AllowExplicitWork=$true;KeepReceiptTracking=$true;KeepStorageWrites=$true
         PendingSaves=$PendingSaves;WriteInFlight=$WriteInFlight;ExplicitActivity=$ExplicitActivity;Reason=$reason
+    }
+}
+
+function Get-DomeniaIdleActivityForSource {
+    # C1 sources mapped to the idle-policy activities. An unknown source is treated as background work.
+    param([string]$Source)
+    switch ([string]$Source) {
+        'Live' { return [pscustomobject]@{Activity='LiveProbe';Page=''} }
+        'Reconcile' { return [pscustomobject]@{Activity='Reconcile';Page='WsSearch'} }
+        'ObjectChanges' { return [pscustomobject]@{Activity='Reconcile';Page='WsSearch'} }
+        'Dashboard' { return [pscustomobject]@{Activity='ViewRebuild';Page='TabDashboard'} }
+        'Index' { return [pscustomobject]@{Activity='Presence';Page=''} }
+        'Park' { return [pscustomobject]@{Activity='Presence';Page=''} }
+        'Storage' { return [pscustomobject]@{Activity='Storage';Page=''} }
+        'Receipts' { return [pscustomobject]@{Activity='Receipts';Page=''} }
+        default { return [pscustomobject]@{Activity='Presence';Page=''} }
     }
 }
 
