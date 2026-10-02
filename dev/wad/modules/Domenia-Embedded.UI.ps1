@@ -312,8 +312,16 @@ function Show-DomeniaInlinePicker {
     finally{$r.Closed=$true;if($r.Job){Request-UiTaskStop -Id $r.Job -Silent -Force -Superseded -Reason 'Sélecteur fermé'|Out-Null};$grid.ItemsSource=$null;$w.Close()}
 }
 function Select-DomeniaRelationsUser {
-    $row=Show-DomeniaInlinePicker -Kind Utilisateur -Title 'Choisir un utilisateur' -Prompt 'Recherchez un utilisateur dans tout le domaine. Aucune machine n''est sondée.'
-    if($null -ne $row){Set-DomeniaRelationsSelection -Row $row;Refresh-DomeniaRelationViews}
+    # D045: no separate window to associate. The user is searched in Relations > Associer > Rechercher, in the
+    # page, from a selected workstation (or a user is selected in Rechercher). Nothing is probed here.
+    $workspace=Get-DomeniaControl 'WorkspaceTabs';$relations=Get-DomeniaControl 'TabRelations';if($null -ne $workspace -and $null -ne $relations){$workspace.SelectedItem=$relations}
+    $tabs=Get-DomeniaControl 'RelationTabs';$associate=Get-DomeniaControl 'TabLinksAssociate';if($null -ne $tabs -and $null -ne $associate){$tabs.SelectedItem=$associate}
+    $modes=Get-DomeniaControl 'RelationAssociateModeTabs';$search=Get-DomeniaControl 'TabRelationSearch';if($null -ne $modes -and $null -ne $search){$modes.SelectedItem=$search}
+    Refresh-DomeniaRelationViews
+    $s=Get-DomeniaRelationsSubject
+    $text=if($null -ne $s -and [string]$s.Type -eq 'Machine'){'Recherchez dans cette page lʼutilisateur à associer à '+[string]$s.Name+'.'}else{'Sélectionnez un utilisateur dans Rechercher, ou un poste puis recherchez ici lʼutilisateur à lui associer.'}
+    [void](Set-DomeniaControlText 'LblRelationAssociateHint' $text)
+    $box=Get-DomeniaControl 'TxtRelationComputerSearch';if($null -ne $box -and $box.IsEnabled){[void]$box.Focus()}
 }
 function Get-DomeniaEmbeddedContext {
     return [pscustomobject]@{Epoch=[long]$script:SessionEpoch;BaseDn=[string]$script:Conn.BaseDn;Closing=[bool]$script:AsyncEngineClosing}

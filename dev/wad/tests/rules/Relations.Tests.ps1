@@ -123,3 +123,60 @@ Test-Case 'D050' 'Observations contradictoires signalees sans fusion' {
     Assert-Equal 1 $conflicts.Count;Assert-Equal 'mmartin' $conflicts[0].Observed;Assert-Equal 2 $conflicts[0].Relations.Count
     Assert-Equal 0 @(Get-DomeniaLinkConflicts @($owner,$same)).Count
 }
+Test-Case 'D043' 'Sources reelles du dernier utilisateur : historique distinct de la console' {
+    foreach($s in @('CIM dernier utilisateur LogonUI','CIM profil recent','Registre LogonUI','Security 4624','Tache locale LogonUI','Tache locale profil recent','WinRM dernier utilisateur LogonUI')){Assert-Equal 'Historique' (Get-DomeniaRelationKind $s) $s}
+    foreach($s in @('CIM utilisateur courant','WinRM utilisateur courant','WinRM session explorer','Tache locale QUSER','Tache locale ComputerSystem','Console CIM/DCOM')){Assert-Equal 'Console' (Get-DomeniaRelationKind $s) $s}
+    Assert-Equal 'Indice' (Get-DomeniaRelationKind 'Responsable déclaré') 'managedBy n est pas une affectation declaree'
+    Assert-Equal 'Indice' (Get-DomeniaRelationKind 'Événement Kerberos 4768')
+}
+Test-Case 'D049' 'UPN explicite different du login : accepte seulement s il est identique' {
+    $t=[pscustomobject]@{Login='jdupont';NetbiosDomain='EXAMPLE';DnsDomain='example.test';Upn='jean.dupont@example.test'}
+    Assert-True (Test-DomeniaAccountIdentityMatch $t 'jean.dupont@example.test' '' 'PC-1').Match 'UPN explicite avec le suffixe du domaine'
+    Assert-True (Test-DomeniaAccountIdentityMatch $t 'jdupont@example.test' '' 'PC-1').Match 'UPN implicite login@domaine'
+    Assert-False (Test-DomeniaAccountIdentityMatch $t 'jean.dupond@example.test' '' 'PC-1').Match 'Autre prefixe'
+    Assert-False (Test-DomeniaAccountIdentityMatch $t 'jdupont@autre.test' '' 'PC-1').Match 'Autre suffixe'
+}
+Test-Case 'D042' 'Meme relation avec ou sans GUID : rafraichie, pas dupliquee' {
+    $legacy=[pscustomobject]@{UserLogin='jdupont';Computer='PC-1';Source='Console CIM/DCOM'}
+    $known=[pscustomobject]@{UserLogin='EXAMPLE\jdupont';UserGuid=$script:U.Guid;Computer='pc-1.example.test';ComputerGuid=$script:M.Guid;Source='CIM utilisateur courant'}
+    Assert-True (Test-DomeniaSameRelation $legacy $known) 'Ligne historique sans GUID'
+    $r=Resolve-DomeniaRelationUpsert @($legacy) $known;Assert-Equal 'Refresh' $r.Action
+    $recreated=[pscustomobject]@{UserLogin='jdupont';UserGuid='99999999-9999-9999-9999-999999999999';Computer='PC-1';ComputerGuid=$script:M.Guid;Source='Console CIM/DCOM'}
+    Assert-False (Test-DomeniaSameRelation $known $recreated) 'Compte recree : autre relation'
+    Assert-False (Test-DomeniaSameRelation $legacy ([pscustomobject]@{UserLogin='jdupont';Computer='PC-1';Source='Saisie manuelle'})) 'Autre nature'
+}
+Test-Case 'D042' 'Stockage a une relation par poste : l affectation declaree n est jamais remplacee' {
+    $owner=[pscustomobject]@{UserLogin='jdupont';Computer='PC-1';Source='Saisie manuelle';When='2026-01-01 08:00:00'}
+    $admin=[pscustomobject]@{UserLogin='adm-x';Computer='PC-1';Source='Console CIM/DCOM';When='2026-02-01T08:00:00Z'}
+    $p=Resolve-DomeniaRelationStoragePlacement $owner $admin;Assert-Equal 'Session' $p.Placement
+    $p=Resolve-DomeniaRelationStoragePlacement $admin $owner;Assert-Equal 'Replace' $p.Placement;Assert-True ([object]::ReferenceEquals($p.Demoted,$admin))
+    $old=[pscustomobject]@{UserLogin='mmartin';Computer='PC-1';Source='Console CIM/DCOM';When='2026-01-05T08:00:00Z'}
+    Assert-Equal 'Replace' (Resolve-DomeniaRelationStoragePlacement $old $admin).Placement 'Observation plus recente'
+    Assert-Equal 'Session' (Resolve-DomeniaRelationStoragePlacement $admin $old).Placement 'Observation plus ancienne'
+    Assert-Equal 'Stored' (Resolve-DomeniaRelationStoragePlacement $owner $admin $true).Placement 'Stockage par relation'
+    Assert-True ([object]::ReferenceEquals((Select-DomeniaPrimaryRelation @($admin,$owner,$old)),$owner))
+    Assert-True ([object]::ReferenceEquals((Select-DomeniaPrimaryRelation @($old,$admin)),$admin))
+}
+Test-Case 'D049' 'Cle de stockage : poste pour la relation principale, relation pour les autres' {
+    $a=[pscustomobject]@{UserLogin='jdupont';Computer='pc-1.example.test';Source='Saisie manuelle'}
+    Assert-Equal 'PC-1' (Get-DomeniaRelationStorageKey $a $true)
+    $k=Get-DomeniaRelationStorageKey $a $false;Assert-True ($k.StartsWith('PC-1|') -and $k -match 'Affectation')
+}
+Test-Case 'D047' 'Sonde arretee tot : dans le plan ; cible hors plan : refusee' {
+    $t2=[pscustomobject]@{Domain='example.test';Guid='55555555-5555-5555-5555-555555555555'}
+    $plan=Get-DomeniaDetectionScopePlan -RequestedScope Loaded -Candidates @($script:M,$t2)
+    Assert-True (Test-DomeniaDetectionWithinPlan $plan @($script:M.Guid)) 'Arret apres le premier poste'
+    Assert-True (Test-DomeniaDetectionWithinPlan $plan @())
+    Assert-False (Test-DomeniaDetectionWithinPlan $plan @('66666666-6666-6666-6666-666666666666')) 'Hors plan'
+    Assert-False (Test-DomeniaDetectionWithinPlan $null @()) 'Sans plan confirme'
+}
+Test-Case 'D048' 'Statuts de lecture console convertis en compteurs' {
+    Assert-Equal 'Confirmed' (ConvertTo-DomeniaDetectionOutcome 'CONFIRME');Assert-Equal 'NoSession' (ConvertTo-DomeniaDetectionOutcome 'LU')
+    Assert-Equal 'Refused' (ConvertTo-DomeniaDetectionOutcome 'AUTH_REJETEE');Assert-Equal 'Refused' (ConvertTo-DomeniaDetectionOutcome 'REFUSE')
+    Assert-Equal 'Unreachable' (ConvertTo-DomeniaDetectionOutcome 'DELAI');Assert-Equal '' (ConvertTo-DomeniaDetectionOutcome 'NON_DEMANDE')
+}
+Test-Case 'D045' 'Apres enregistrement, une autre ligne de la meme liste peut etre choisie' {
+    Assert-Equal 'Pending' (Step-DomeniaAssociationState 'Saved' 'Pick').State
+    Assert-Equal 'Pending' (Step-DomeniaAssociationState 'Failed' 'Pick').State
+    Assert-False (Step-DomeniaAssociationState 'Searching' 'Pick').Accepted
+}

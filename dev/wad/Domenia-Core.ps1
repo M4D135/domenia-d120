@@ -5082,7 +5082,8 @@ function Get-MainXaml {
                               <TextBlock Text="Les liens manuels restent distincts des observations automatiques." Foreground="{DynamicResource MutedColor}" Margin="0,3,0,0" TextWrapping="Wrap"/>
                             </StackPanel>
                             <WrapPanel Grid.Column="1" HorizontalAlignment="Right">
-                              <Button x:Name="BtnRemoveLink" Content="Supprimer l'association" Style="{StaticResource DangerButton}" Margin="0,0,8,0" ToolTip="Retire uniquement le lien sélectionné, jamais l'objet Active Directory."/>
+                              <Button x:Name="BtnRemoveLink" Content="Supprimer l'association" Style="{StaticResource DangerButton}" Margin="0,0,8,0" ToolTip="Retire uniquement le lien sélectionné, jamais l'objet Active Directory. La suppression est journalisée et restaurable."/>
+                              <Button x:Name="BtnRestoreLink" Content="Restaurer la suppression" IsEnabled="False" Margin="0,0,8,0" ToolTipService.ShowOnDisabled="True" ToolTip="Remet la dernière association supprimée localement, depuis le journal. Aucun objet Active Directory n'est lu ni modifié."/>
                               <Button x:Name="BtnOpenLinksCsv" Content="Exporter" Margin="0,0,8,0" ToolTip="Exporte les associations visibles dans cet onglet."/>
                             </WrapPanel>
                           </Grid>
@@ -5091,8 +5092,9 @@ function Get-MainXaml {
                               <DataGrid.Columns>
                                 <DataGridTextColumn Header="Utilisateur" Binding="{Binding UserLogin}" Width="170"/>
                                 <DataGridTextColumn Header="Machine" Binding="{Binding Computer}" Width="170"/>
-                                <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="190"/>
-                                <DataGridTextColumn Header="Confiance" Binding="{Binding Confidence}" Width="90"/>
+                                <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="170"/>
+                                <DataGridTemplateColumn Header="Qualification" Width="115"><DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding Badge}" ToolTip="{Binding BadgeRule}" Style="{StaticResource WrappedCellText}"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+                                <DataGridTextColumn Header="Conservation" Binding="{Binding Persistence}" Width="125"/>
                                 <DataGridTextColumn Header="Date" Binding="{Binding When}" Width="145"/>
                                 <DataGridTemplateColumn Header="Détails" Width="*"><DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding Details}" Style="{StaticResource WrappedCellText}" ToolTip="{Binding Details}"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
                               </DataGrid.Columns>
@@ -5102,19 +5104,19 @@ function Get-MainXaml {
                         </Grid>
                       </TabItem>
 
-                      <TabItem x:Name="TabLinksAssociate" Header="Associer" ToolTip="Pour un utilisateur sélectionné : détecter des postes ou rechercher explicitement un poste. Aucun popup.">
+                      <TabItem x:Name="TabLinksAssociate" Header="Associer" ToolTipService.ShowOnDisabled="True" ToolTip="Depuis un utilisateur : détecter ou rechercher ses postes. Depuis un poste : lire sa session ou rechercher un utilisateur. Tout reste dans cette page.">
                         <Grid Margin="2,8,2,2">
                           <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                           <Border Grid.Row="0" Background="{DynamicResource InfoBg}" BorderBrush="{DynamicResource InfoBorder}" BorderThickness="1" CornerRadius="10" Padding="12" Margin="0,0,0,10">
-                            <TextBlock x:Name="LblRelationAssociateHint" Text="Sélectionnez d'abord un utilisateur dans Rechercher. Ensuite choisissez Détecter ou Rechercher un poste." Foreground="{DynamicResource InfoFg}" TextWrapping="Wrap"/>
+                            <TextBlock x:Name="LblRelationAssociateHint" Text="Sélectionnez d'abord un utilisateur ou un poste dans Rechercher. Ensuite choisissez Détecter ou Rechercher." Foreground="{DynamicResource InfoFg}" TextWrapping="Wrap"/>
                           </Border>
                           <TabControl x:Name="RelationAssociateModeTabs" Grid.Row="1">
-                            <TabItem x:Name="TabRelationDetect" Header="Détecter" ToolTip="Cherche des indices pour le compte sélectionné. Les consoles ne sont interrogées que si vous l'autorisez.">
+                            <TabItem x:Name="TabRelationDetect" Header="Détecter" ToolTip="Utilisateur : associations connues et indices AD, puis aperçu du périmètre avant toute lecture de poste. Poste : lecture de sa session.">
                               <Grid Margin="2,8,2,2">
                                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                                 <StackPanel Grid.Row="0" Margin="0,0,0,10">
                                   <WrapPanel>
-                                    <Button x:Name="BtnDetectUserComputers" Content="Détecter les postes" Style="{StaticResource RunButton}" Margin="0,0,8,8" ToolTip="Cherche les associations connues et les indices AD de l'utilisateur sélectionné."/>
+                                    <Button x:Name="BtnDetectUserComputers" Content="Détecter les postes" Style="{StaticResource RunButton}" Margin="0,0,8,8" ToolTipService.ShowOnDisabled="True" ToolTip="Utilisateur : associations connues et indices AD, puis périmètre à confirmer avant toute lecture de poste. Poste : lit la session de ce poste."/>
                                     <Button x:Name="BtnRelationsStop" Content="Arrêter" Visibility="Hidden" Margin="0,0,8,8" ToolTip="Demande l'arrêt de la recherche en cours."/>
                                     <Button x:Name="BtnRelationOpenCandidate" Content="Ouvrir le poste" Margin="0,0,8,8" ToolTip="Ouvre la fiche du poste sélectionné dans les résultats."/>
                                     <Button x:Name="BtnRelationAdopt" Content="Associer ce poste" Margin="0,0,8,8" ToolTip="Prépare l'association du poste détecté à l'utilisateur courant. La confirmation reste intégrée ci-dessous."/>
@@ -5124,37 +5126,44 @@ function Get-MainXaml {
                                       <CheckBox x:Name="ChkUserScanPark" Content="Vérifier les consoles" IsChecked="True" Visibility="Collapsed"/>
                                       <TextBlock Text="Détecter vérifie réellement les consoles du périmètre choisi. Lecture CIM/DCOM bornée, sans script distant." Foreground="{DynamicResource TextMuted}" Margin="0,0,0,10" TextWrapping="Wrap"/>
                                       <WrapPanel>
-                                        <StackPanel Margin="0,0,12,8"><TextBlock Text="Périmètre" Margin="0,0,0,4"/><ComboBox x:Name="CmbRelationScanScope" Width="300" SelectedIndex="2"><ComboBoxItem Content="Postes connus et candidats AD" Tag="Candidates"/><ComboBoxItem Content="Machines de la liste chargée" Tag="Loaded"/><ComboBoxItem Content="OU sélectionnée dans Rechercher" Tag="OU"/></ComboBox></StackPanel>
+                                        <StackPanel Margin="0,0,12,8"><TextBlock Text="Périmètre" Margin="0,0,0,4"/><ComboBox x:Name="CmbRelationScanScope" Width="300" SelectedIndex="0"><ComboBoxItem Content="Postes connus et candidats AD" Tag="Candidates"/><ComboBoxItem Content="Machines de la liste chargée" Tag="Loaded"/><ComboBoxItem Content="OU sélectionnée dans Rechercher" Tag="OU"/></ComboBox></StackPanel>
                                         <StackPanel Margin="0,0,12,8"><TextBlock Text="Maximum de postes (1 à 50)" Margin="0,0,0,4"/><TextBox x:Name="TxtRelationScanLimit" Width="170" Text="20"/></StackPanel>
                                       </WrapPanel>
                                       <CheckBox x:Name="ChkRelationEvents" Content="Lire aussi les indices Kerberos du contrôleur (7 jours)" IsChecked="False" Margin="0,4,0,6"/>
+                                      <CheckBox x:Name="ChkRelationRdp" Content="Inclure les sessions RDP (option séparée, non disponible : seule la console est lue)" IsChecked="False" IsEnabled="False" Margin="0,0,0,6" ToolTipService.ShowOnDisabled="True" ToolTip="La lecture actuelle porte sur la console (Win32_ComputerSystem). Une console vide ne prouve pas l'absence de session RDP."/>
                                       <TextBlock Text="Les indices AD et Kerberos restent des indices. Seule une console confirmée peut créer automatiquement un lien." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap"/>
                                     </StackPanel>
                                   </Expander>
+                                  <Border x:Name="RelationPlanPanel" Visibility="Collapsed" Background="{DynamicResource InfoBg}" BorderBrush="{DynamicResource InfoBorder}" BorderThickness="1" CornerRadius="10" Padding="12" Margin="0,0,0,8">
+                                    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                      <StackPanel Grid.Column="0"><TextBlock Text="Périmètre à confirmer avant toute lecture des postes" FontWeight="SemiBold" Foreground="{DynamicResource InfoFg}"/><TextBlock x:Name="LblRelationPlan" Text="" Foreground="{DynamicResource InfoFg}" Margin="0,3,12,0" TextWrapping="Wrap"/></StackPanel>
+                                      <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"><Button x:Name="BtnRelationPlanCancel" Content="Annuler" Margin="0,0,8,0" ToolTip="Abandonne ce périmètre. Aucun poste n'est contacté."/><Button x:Name="BtnRelationPlanRun" Content="Lancer la détection" Style="{StaticResource RunButton}" Margin="0" ToolTipService.ShowOnDisabled="True" ToolTip="Lit la console des seuls postes listés, dans la limite affichée."/></StackPanel>
+                                    </Grid>
+                                  </Border>
                                 </StackPanel>
                                 <DataGrid Grid.Row="1" x:Name="DgRelationCandidates" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" EnableRowVirtualization="True" MinRowHeight="32" ScrollViewer.HorizontalScrollBarVisibility="Auto" ToolTip="Postes trouvés par détection et nature de l'indice.">
-                                  <DataGrid.Columns><DataGridTextColumn Header="Poste / IP indicative" Binding="{Binding Computer}" Width="175"/><DataGridTextColumn Header="État / indice" Binding="{Binding Status}" Width="190"/><DataGridTextColumn Header="Compte console" Binding="{Binding CurrentUser}" Width="190"/><DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="175"/><DataGridTextColumn Header="Date" Binding="{Binding ObservedUtc}" Width="160"/><DataGridTextColumn Header="Détail" Binding="{Binding Detail}" Width="*" MinWidth="220"/></DataGrid.Columns>
+                                  <DataGrid.Columns><DataGridTextColumn Header="Poste / IP indicative" Binding="{Binding Computer}" Width="175"/><DataGridTemplateColumn Header="Qualification" Width="115"><DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding Badge}" ToolTip="{Binding BadgeRule}" Style="{StaticResource WrappedCellText}"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn><DataGridTemplateColumn Header="Pourquoi" Width="260"><DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding Why}" ToolTip="{Binding Blocker}" Style="{StaticResource WrappedCellText}"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn><DataGridTextColumn Header="État / indice" Binding="{Binding Status}" Width="190"/><DataGridTextColumn Header="Compte console" Binding="{Binding CurrentUser}" Width="190"/><DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="175"/><DataGridTextColumn Header="Date" Binding="{Binding ObservedUtc}" Width="160"/><DataGridTextColumn Header="Détail" Binding="{Binding Detail}" Width="*" MinWidth="220"/></DataGrid.Columns>
                                 </DataGrid>
                               </Grid>
                             </TabItem>
 
-                            <TabItem x:Name="TabRelationSearch" Header="Rechercher" ToolTip="Recherche explicitement un poste dans tout le domaine, sans utiliser le filtre OU.">
+                            <TabItem x:Name="TabRelationSearch" Header="Rechercher" ToolTip="Recherche explicitement un poste (depuis un utilisateur) ou un utilisateur (depuis un poste) dans tout le domaine, sans utiliser le filtre OU.">
                               <Grid Margin="2,8,2,2">
                                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                                 <Grid Grid.Row="0" Margin="0,0,0,10">
                                   <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                  <TextBox x:Name="TxtRelationComputerSearch" Grid.Column="0" MaxLength="160" MinHeight="38" Margin="0,0,8,0" ToolTip="Nom, DNS ou partie du nom du poste. Recherche sur tout le domaine."/>
-                                  <Button x:Name="BtnRelationComputerSearch" Grid.Column="1" Content="Rechercher" Style="{StaticResource RunButton}" Width="120" Height="38" Margin="0" ToolTip="Recherche des postes dans tout le domaine, sans filtre OU."/>
+                                  <TextBox x:Name="TxtRelationComputerSearch" Grid.Column="0" MaxLength="160" MinHeight="38" Margin="0,0,8,0" ToolTip="Nom, identifiant ou DNS de la cible. Recherche sur tout le domaine."/>
+                                  <Button x:Name="BtnRelationComputerSearch" Grid.Column="1" Content="Rechercher" Style="{StaticResource RunButton}" Width="120" Height="38" Margin="0" ToolTip="Recherche la cible dans tout le domaine, sans filtre OU."/>
                                 </Grid>
                                 <Grid Grid.Row="1">
                                   <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                                  <DataGrid x:Name="DgRelationComputerSearch" Grid.Row="0" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" EnableRowVirtualization="True" MinRowHeight="32" ScrollViewer.HorizontalScrollBarVisibility="Auto" ToolTip="Postes trouvés dans Active Directory.">
+                                  <DataGrid x:Name="DgRelationComputerSearch" Grid.Row="0" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" EnableRowVirtualization="True" MinRowHeight="32" ScrollViewer.HorizontalScrollBarVisibility="Auto" ToolTip="Objets trouvés dans Active Directory.">
                                     <DataGrid.Columns><DataGridTextColumn Header="Poste" Binding="{Binding Name}" Width="190"/><DataGridTextColumn Header="DNS" Binding="{Binding Second}" Width="240"/><DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*" MinWidth="240"/></DataGrid.Columns>
                                   </DataGrid>
                                   <Grid Grid.Row="1" Margin="0,10,0,0">
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                                     <TextBlock x:Name="LblRelationComputerSearchStatus" Grid.Column="0" Text="Saisissez au moins deux caractères." Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,10,0"/>
-                                    <Button x:Name="BtnRelationAssociateSearchResult" Grid.Column="1" Content="Associer ce poste" IsEnabled="False" Margin="0" ToolTip="Prépare l'association du poste choisi. La confirmation reste dans cette page."/>
+                                    <Button x:Name="BtnRelationAssociateSearchResult" Grid.Column="1" Content="Associer ce poste" IsEnabled="False" Margin="0" ToolTipService.ShowOnDisabled="True" ToolTip="Prépare l'association de la ligne choisie. La confirmation reste dans cette page."/>
                                   </Grid>
                                 </Grid>
                               </Grid>
@@ -5174,7 +5183,7 @@ function Get-MainXaml {
                         <Grid Margin="2,8,2,2"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                           <WrapPanel Grid.Row="0" Margin="0,0,0,10"><Button x:Name="BtnImportLinks" Content="Importer" Margin="0,0,8,0"/><Button x:Name="BtnPruneLinks" Content="Nettoyer" Margin="0,0,8,0"/><Button x:Name="BtnExportAllLinks" Content="Exporter tout" Margin="0"/></WrapPanel>
                           <DataGrid Grid.Row="1" x:Name="DgAllLinks" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" EnableRowVirtualization="True" VirtualizingPanel.VirtualizationMode="Recycling" MinRowHeight="31" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                            <DataGrid.Columns><DataGridTextColumn Header="Utilisateur" Binding="{Binding UserLogin}" Width="170"/><DataGridTextColumn Header="Machine" Binding="{Binding Computer}" Width="170"/><DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="190"/><DataGridTextColumn Header="Confiance" Binding="{Binding Confidence}" Width="90"/><DataGridTextColumn Header="Date" Binding="{Binding When}" Width="145"/><DataGridTemplateColumn Header="Détails" Width="*"><DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding Details}" Style="{StaticResource WrappedCellText}" ToolTip="{Binding Details}"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn></DataGrid.Columns>
+                            <DataGrid.Columns><DataGridTextColumn Header="Utilisateur" Binding="{Binding UserLogin}" Width="170"/><DataGridTextColumn Header="Machine" Binding="{Binding Computer}" Width="170"/><DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="170"/><DataGridTemplateColumn Header="Qualification" Width="115"><DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding Badge}" ToolTip="{Binding BadgeRule}" Style="{StaticResource WrappedCellText}"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn><DataGridTextColumn Header="Conservation" Binding="{Binding Persistence}" Width="125"/><DataGridTextColumn Header="Date" Binding="{Binding When}" Width="145"/><DataGridTemplateColumn Header="Détails" Width="*"><DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding Details}" Style="{StaticResource WrappedCellText}" ToolTip="{Binding Details}"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn></DataGrid.Columns>
                           </DataGrid>
                         </Grid>
                       </TabItem>
@@ -15784,8 +15793,15 @@ function Fail-DomeniaComputerUserProbeUi {
 }
 
 function Start-ComputerUserLinkProbe {
-    param([string]$Computer,[switch]$Force)
+    param([string]$Computer,[switch]$Force,[string]$Origin='',$RelationsSubject=$null)
     $computerNorm = Normalize-LinkComputer $Computer
+    # D048: only an explicit gesture or the selected workstation may start a probe; a list render never does.
+    if ([string]::IsNullOrWhiteSpace($Origin)) { $Origin = if ($Force) { 'ExplicitRecheck' } else { 'SelectedMachine' } }
+    $probeRule = Get-Command -Name 'Test-DomeniaProbeAllowed' -CommandType Function -ErrorAction SilentlyContinue
+    if ($null -ne $probeRule -and -not (Test-DomeniaProbeAllowed $Origin)) {
+        Write-AppLog ("Sonde user-machine refusee pour {0} : origine '{1}' non explicite." -f $computerNorm,$Origin) 'INFO'
+        return
+    }
     if ($null -ne $script:Live -and -not $Force -and (Request-DomeniaLiveSelectedProbe -Computer $Computer)) { return }
     if ($null -ne $script:Live -and $Force -and (Test-DomeniaLiveSearchActive)) {
         foreach ($row in $script:Live.Search.Rows) {
@@ -15827,10 +15843,11 @@ function Start-ComputerUserLinkProbe {
             try { $cacheHours = [Math]::Max(0.25,[double](Get-CfgValue "UserMachineLink" "ObjectRefreshHours" 4)) } catch { }
             $fresh = ($existingAgeHours -lt $cacheHours)
 
-            $cachedMessage = "Utilisateur associe : $($existing.UserLogin) | confiance $existingConfidence% | source $($existing.Source) | age " + ($(if($existingAgeHours -lt 1){"$([Math]::Round($existingAgeHours*60,0)) min"}else{"$([Math]::Round($existingAgeHours,1)) h"}))
+            # D043: the stored source and its age qualify the association; no percentage is shown.
+            $cachedMessage = "Utilisateur associe : $($existing.UserLogin) | source $($existing.Source) | age " + ($(if($existingAgeHours -lt 1){"$([Math]::Round($existingAgeHours*60,0)) min"}else{"$([Math]::Round($existingAgeHours,1)) h"}))
             [void](Set-DomeniaControlText -Name "LblLinkProbeStatus" -Text $cachedMessage)
             Set-Status $cachedMessage
-            Add-DomeniaUiLog -Area "Association" -Text ("LOCAL-FIRST {0} : association {1}, confiance {2}%, age {3} h." -f $computerNorm,[string]$existing.UserLogin,$existingConfidence,[Math]::Round($existingAgeHours,2))
+            Add-DomeniaUiLog -Area "Association" -Text ("LOCAL-FIRST {0} : association {1}, source {2}, age {3} h." -f $computerNorm,[string]$existing.UserLogin,[string]$existing.Source,[Math]::Round($existingAgeHours,2))
 
             # Une association manuelle ou tres recente est une source forte :
             # elle ne doit pas etre remplacée par une sonde automatique.
@@ -15882,6 +15899,16 @@ function Return-Candidate {
     param([string]$Method,[string]$Raw,[int]$Score,[string]$Detail,[int]$Ms)
     $u = Normalize-WUser $Raw
     if ([string]::IsNullOrWhiteSpace($u)) { Add-Attempt $Method "VIDE" "" 0 $Ms $Detail; return $null }
+    # D049: a local account or an account of another authority is not the AD account with the same login.
+    # The next source is tried instead of stopping the pipeline; the UI applies Test-DomeniaAccountIdentityMatch.
+    $rawAccount = ($Raw + "").Trim().Trim('"')
+    if ($rawAccount.Contains([string][char]92)) {
+        $authority = $rawAccount.Substring(0,$rawAccount.IndexOf([char]92))
+        $shortComputer = ([string]$Payload.Computer).Split('.')[0]
+        $knownAuthorities = @(@([string]$Context.Netbios,[string]$Context.Domain) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+        if ($authority -eq '.' -or $authority -ieq $shortComputer) { Add-Attempt $Method 'COMPTE LOCAL' $rawAccount 0 $Ms ('Compte local du poste, pas un compte du domaine. '+$Detail); return $null }
+        if ($knownAuthorities.Count -gt 0 -and @($knownAuthorities | Where-Object { $_ -ieq $authority }).Count -eq 0) { Add-Attempt $Method 'HORS DOMAINE' $rawAccount 0 $Ms ('Compte d une autre autorite ('+$authority+'). '+$Detail); return $null }
+    }
     Set-ProbeStep ('Validation AD du candidat ('+$Method+')')
     $validation = Test-WUserInAd $Context $u -Detailed
     if (-not [bool]$validation.LookupSucceeded) {
@@ -15891,7 +15918,7 @@ function Return-Candidate {
     $verified = [bool]$validation.Verified
     Add-Attempt $Method $(if($verified){"OK"}else{"HORS AD"}) $u $Score $Ms $Detail
     if ($verified) {
-        return [pscustomobject]@{ Computer=[string]$Payload.Computer; UserLogin=$u; Source=$Method; Confidence=$Score; VerifiedInAD=$true; Details=$Detail; Attempts=@($attempts); Success=$true }
+        return [pscustomobject]@{ Computer=[string]$Payload.Computer; UserLogin=$u; RawAccount=$rawAccount; Source=$Method; Confidence=$Score; VerifiedInAD=$true; Details=$Detail; Attempts=@($attempts); Success=$true }
     }
     return $null
 }
@@ -15962,8 +15989,12 @@ try {
         if($null -ne $cred){$params["Credential"]=$cred;$params["Authentication"]="Default"}
         if (-not $open5985 -and $open5986) { $params['UseSSL']=$true }
         $r=Invoke-Command @params;$sw.Stop()
-        foreach($candidate in @([string]$r.Current)+@($r.Explorer)+@([string]$r.Last)){
-            $hit=Return-Candidate "WinRM session" $candidate 100 "ComputerSystem / explorer / LogonUI" ([int]$sw.ElapsedMilliseconds)
+        # Each value keeps its own nature: current session, explorer owner, or LogonUI history (D042/D043).
+        $winrmCandidates=@([pscustomobject]@{Method='WinRM utilisateur courant';Raw=[string]$r.Current;Detail='Win32_ComputerSystem.UserName'})
+        foreach($owner in @($r.Explorer)){$winrmCandidates+=[pscustomobject]@{Method='WinRM session explorer';Raw=[string]$owner;Detail='Proprietaire explorer.exe'}}
+        $winrmCandidates+=[pscustomobject]@{Method='WinRM dernier utilisateur LogonUI';Raw=[string]$r.Last;Detail='LastLoggedOnSAMUser'}
+        foreach($candidate in $winrmCandidates){
+            $hit=Return-Candidate $candidate.Method $candidate.Raw 100 $candidate.Detail ([int]$sw.ElapsedMilliseconds)
             if($null -ne $hit){$hit;return}
         }
     } else { Add-Attempt "WinRM session" "NON DISPONIBLE" "" 0 0 "5985/5986 fermes ou filtres." }
@@ -16013,7 +16044,10 @@ try {
     $fb=Invoke-WRemoteTaskScript $Context $computer $local ([pscustomobject]@{}) ([Math]::Min($taskFallbackTimeoutSeconds,[int]$Context.TaskFallbackTimeoutSeconds)) $classicDetail
     $sw.Stop()
     $fallbackLabel=if([string]$fb.DomeniaTransport -eq 'PsExec'){'PsExec'}else{'Tache planifiee'}
-    foreach($candidate in @($fb.Candidates)) {
+    # Current sessions (ComputerSystem, QUSER) are tried before LogonUI and profiles; stable order for equal ranks.
+    $fallbackOrder=@();$fallbackIndex=0
+    foreach($candidate in @($fb.Candidates)){$fallbackOrder+=[pscustomobject]@{Index=$fallbackIndex;Rank=[int]$candidate.Score;Item=$candidate};$fallbackIndex++}
+    foreach($candidate in @($fallbackOrder|Sort-Object -Property @{Expression='Rank';Descending=$true},@{Expression='Index';Descending=$false}|ForEach-Object{$_.Item})) {
         $hit=Return-Candidate ([string]$candidate.Source) ([string]$candidate.Raw) ([int]$candidate.Score) ([string]$candidate.Detail) ([int]$sw.ElapsedMilliseconds)
         if($null -ne $hit){ Add-Member -InputObject $hit -NotePropertyName FallbackTasks -NotePropertyValue 1 -Force; Add-Member -InputObject $hit -NotePropertyName FallbackTransport -NotePropertyValue $fallbackLabel -Force; try{Add-Member -InputObject $hit -NotePropertyName TaskBytes -NotePropertyValue ([long]$fb.DomeniaBytesSent+[long]$fb.DomeniaBytesReceived) -Force}catch{}; $hit; return }
     }
@@ -16040,6 +16074,14 @@ catch {
 '@
         [void](Set-DomeniaControlText -Name "LblLinkProbeStatus" -Text "Rafraichissement distant de $computerNorm en arriere-plan...")
         Add-DomeniaUiLog -Area "Association" -Text ("Resolver user-machine lance pour {0} : cache conserve, confirmation distante en arriere-plan." -f $computerNorm)
+        # D041/D044/D049: with the relation model, the result is checked by exact identity and by nature, and is
+        # attached to the Relations subject captured here (Features.RelationsSymmetry, RC1.10.7 handlers otherwise).
+        $successHandler = "Complete-DomeniaComputerUserProbeUi"
+        $errorHandler = "Fail-DomeniaComputerUserProbeUi"
+        if ($null -ne (Get-Command -Name 'Complete-DomeniaRelationsComputerProbe' -CommandType Function -ErrorAction SilentlyContinue) -and (Get-DomeniaFeatureFlag 'RelationsSymmetry' $true)) {
+            $successHandler = "Complete-DomeniaRelationsComputerProbe"
+            $errorHandler = "Fail-DomeniaRelationsComputerProbe"
+        }
         $probeTaskId = Start-UiTask -Name "Dernier user $computerNorm" -OperationId "ComputerLastUser" -Code $code -Payload ([pscustomobject]@{
             Computer=$computerNorm
             Progress=$probeProgress
@@ -16050,7 +16092,7 @@ catch {
             UseRemoteRegistry=[bool](Get-CfgValue "Remote" "UseRemoteRegistry" $true)
             UseProfilesShare=[bool](Get-CfgValue "Remote" "UseProfilesShare" $false)
             AllowUnboundedFallbacks=[bool](Get-CfgValue "Remote" "AllowUnboundedFallbacks" $false)
-        }) -CallbackState ([pscustomobject]@{ Computer=$computerNorm; ProbeId=$probeId; Progress=$probeProgress }) -ReplaceKey "lastuser:$computerNorm" -DisableControls @("BtnRefreshMachineLink") -TimeoutSeconds $overallTimeout -StatusText "Rafraichissement utilisateur de $computerNorm en arriere-plan..." -SuccessHandler "Complete-DomeniaComputerUserProbeUi" -ErrorHandler "Fail-DomeniaComputerUserProbeUi"
+        }) -CallbackState ([pscustomobject]@{ Computer=$computerNorm; ProbeId=$probeId; Progress=$probeProgress; Origin=$Origin; RelationsSubject=$RelationsSubject }) -ReplaceKey "lastuser:$computerNorm" -DisableControls @("BtnRefreshMachineLink") -TimeoutSeconds $overallTimeout -StatusText "Rafraichissement utilisateur de $computerNorm en arriere-plan..." -SuccessHandler $successHandler -ErrorHandler $errorHandler
         Write-AppLog ("Association demarree : {0}, probe={1}, tache={2}, budget={3}s, build={4}." -f $computerNorm,$probeId,$probeTaskId,$overallTimeout,$script:MasterBuild) 'INFO' 
     }
     catch {
@@ -18001,17 +18043,33 @@ function Copy-DashboardSummary {
 }
 
 function Add-UserMachineLinkIfMissing {
-    param([string]$UserLogin,[string]$Computer,[string]$Source="Manual",[string]$Details="",[int]$Confidence=100,[bool]$VerifiedInAD=$true)
+    param([string]$UserLogin,[string]$Computer,[string]$Source="Manual",[string]$Details="",[int]$Confidence=100,[bool]$VerifiedInAD=$true,[string]$UserGuid="",[string]$ComputerGuid="",[string]$UserDn="",[string]$ComputerDn="",[string]$Declarant="")
     try {
         $u=Normalize-LinkUser $UserLogin; $c=Normalize-LinkComputer $Computer
         if ([string]::IsNullOrWhiteSpace($u) -or [string]::IsNullOrWhiteSpace($c)) { return $false }
-        $userRow = Find-DomeniaCachedUserRow -Login $u
-        $computerRow = Find-DomeniaCachedComputerRow -Computer $c
-        $userGuid = if ($null -ne $userRow) { [string]$userRow.Guid } else { "" }
-        $computerGuid = if ($null -ne $computerRow) { [string]$computerRow.Guid } else { "" }
-        $userDn = if ($null -ne $userRow) { [string]$userRow.DN } else { "" }
-        $computerDn = if ($null -ne $computerRow) { [string]$computerRow.DN } else { "" }
+        $userRow = Find-DomeniaCachedUserRow -Login $u -Guid $UserGuid
+        $computerRow = Find-DomeniaCachedComputerRow -Computer $c -Guid $ComputerGuid
+        $userGuid = if ($UserGuid) { $UserGuid } elseif ($null -ne $userRow) { [string]$userRow.Guid } else { "" }
+        $computerGuid = if ($ComputerGuid) { $ComputerGuid } elseif ($null -ne $computerRow) { [string]$computerRow.Guid } else { "" }
+        $userDn = if ($UserDn) { $UserDn } elseif ($null -ne $userRow) { [string]$userRow.DN } else { "" }
+        $computerDn = if ($ComputerDn) { $ComputerDn } elseif ($null -ne $computerRow) { [string]$computerRow.DN } else { "" }
         if ($null -ne $userRow -and $null -ne $computerRow) { $VerifiedInAD = $true }
+
+        if (Get-DomeniaFeatureFlag 'RelationsSymmetry' $true) {
+            # D042/D049/D050: one relation per user, workstation and nature (Resolve-DomeniaRelationUpsert in
+            # Add-DomeniaRelation). Another account on the same workstation never overwrites a relation, a declared
+            # assignment is never replaced by an observation, and no fixed score is stored (Confidence=0, unmeasured).
+            $incoming = [pscustomobject]@{ UserLogin=$u; Computer=$c; Source=$Source; Confidence=0; VerifiedInAD=$VerifiedInAD; When=(Get-Date -Format "yyyy-MM-dd HH:mm:ss"); Details=$Details; UserGuid=$userGuid; ComputerGuid=$computerGuid; UserDn=$userDn; ComputerDn=$computerDn; Kind=(Get-DomeniaRelationKind $Source) }
+            $outcome = Add-DomeniaRelation -Relation $incoming -Declarant $Declarant
+            $badge = Get-DomeniaEvidenceBadge $incoming
+            if ($outcome.SaveFailed) { $msg = "Lien non enregistre : $u -> $c. $($outcome.Reason)"; Set-Status $msg "WARN"; Write-AppLog $msg "WARN"; return $false }
+            if ($outcome.Action -eq 'Refresh') { Write-AppLog "Lien actualise : $u -> $c ($Source, $($badge.Badge))." "INFO"; Refresh-AssociationContext; return $false }
+            if ($outcome.Placement -eq 'Session') { $msg = "Relation $u -> $c ($Source, $($badge.Badge)) conservee pour la session. $($outcome.Reason)"; Set-Status $msg; Write-AppLog $msg "INFO"; Refresh-AssociationContext; return $false }
+            $msg = "Lien ajoute : $u -> $c ($Source, $($badge.Badge))."
+            if ($outcome.Placement -eq 'Replace' -and $null -ne $outcome.Demoted) { $msg += " Relation precedente ($([string]$outcome.Demoted.UserLogin)) conservee pour la session." }
+            Set-Status $msg; [void](Set-DomeniaControlText -Name "LblLinkProbeStatus" -Text $msg); Write-AppLog $msg
+            return $true
+        }
 
         $existing=Get-ExistingLinkForComputer $c
         if ($null -ne $existing) {
@@ -18087,6 +18145,12 @@ function Remove-SelectedLink {
         $activeGrid=Get-DomeniaRelationsActiveGrid
         $row=if($null -ne $activeGrid){$activeGrid.SelectedItem}else{$null}
         if ($null -eq $row) { Set-Status "Selectionne un lien a supprimer." "WARN"; return }
+        if (Get-DomeniaFeatureFlag 'RelationsSymmetry' $true) {
+            # D050: the removal is journaled (declarant, source, dates) and can be restored; AD is never touched.
+            # The exact row is removed, not every row sharing its login, workstation and date.
+            Request-DomeniaRelationRemoval -Relation $row
+            return
+        }
         if (-not (Confirm-Action "Supprimer ce lien user-machine ?`n$($row.UserLogin) -> $($row.Computer)")) { return }
         $previousLinks = @($script:UserMachineLinks)
         $script:UserMachineLinks = @($script:UserMachineLinks | Where-Object { -not (($_.UserLogin -eq $row.UserLogin) -and ($_.Computer -eq $row.Computer) -and ($_.When -eq $row.When)) })
@@ -19950,6 +20014,51 @@ function Export-DomeniaLinksCsv {
 
 function ConvertTo-DomeniaCanonicalLinks {
     param($Links)
+    $relationModel = $false
+    if ($null -ne (Get-Command -Name 'Get-DomeniaRelationKind' -CommandType Function -ErrorAction SilentlyContinue)) { $relationModel = [bool](Get-DomeniaFeatureFlag 'RelationsSymmetry' $true) }
+    if ($relationModel) {
+        # D042/D049: deduplicate by relation (user, workstation, nature) instead of keeping the most recent row per
+        # workstation, which let an observed console evict a declared assignment. While the local store keeps one row
+        # per workstation (computer_key), its row is the primary relation (declared first, otherwise the most recent);
+        # with a relation-keyed store ($script:DomeniaLinkStoreMultiRelation) every relation is kept, primary first.
+        # Each row carries Kind and StorageKey (Get-DomeniaRelationStorageKey) for the storage queue.
+        $multi = [bool]$script:DomeniaLinkStoreMultiRelation
+        $groups = [ordered]@{}
+        foreach ($link in @($Links | Where-Object { $null -ne $_ } | Sort-Object When -Descending)) {
+            $user = Normalize-LinkUser ([string]$link.UserLogin)
+            $computer = Normalize-LinkComputer ([string]$link.Computer)
+            if ([string]::IsNullOrWhiteSpace($user) -or [string]::IsNullOrWhiteSpace($computer)) { continue }
+            $verified = $false
+            try { if ($null -ne $link.PSObject.Properties['VerifiedInAD']) { $verified = [bool]$link.VerifiedInAD } } catch { }
+            $confidence = 0
+            try { if ($null -ne $link.PSObject.Properties['Confidence']) { $confidence = [int]$link.Confidence } } catch { }
+            $when = [string]$link.When
+            if ([string]::IsNullOrWhiteSpace($when)) { $when = Get-Date -Format 'yyyy-MM-dd HH:mm:ss' }
+            $row = [pscustomobject]@{
+                UserLogin=$user; Computer=$computer; Source=[string]$link.Source; Confidence=$confidence; VerifiedInAD=$verified; When=$when; Details=[string]$link.Details
+                UserGuid=[string]$link.UserGuid; ComputerGuid=[string]$link.ComputerGuid; UserDn=[string]$link.UserDn; ComputerDn=[string]$link.ComputerDn
+                Kind=(Get-DomeniaRelationKind ([string]$link.Source)); StorageKey=''
+            }
+            $computerKey = $computer.ToUpperInvariant()
+            if (-not $groups.Contains($computerKey)) { $groups[$computerKey] = [System.Collections.ArrayList]::new() }
+            $duplicate = $false
+            foreach ($kept in $groups[$computerKey]) { if (Test-DomeniaSameRelation $kept $row) { $duplicate = $true; break } }
+            if (-not $duplicate) { [void]$groups[$computerKey].Add($row) }
+        }
+        foreach ($computerKey in @($groups.Keys)) {
+            $items = @($groups[$computerKey])
+            $primary = Select-DomeniaPrimaryRelation $items
+            $primary.StorageKey = Get-DomeniaRelationStorageKey $primary $true
+            Write-Output $primary
+            if (-not $multi) { continue }
+            foreach ($item in $items) {
+                if ([object]::ReferenceEquals($item,$primary)) { continue }
+                $item.StorageKey = Get-DomeniaRelationStorageKey $item $false
+                Write-Output $item
+            }
+        }
+        return
+    }
     $valid = [System.Collections.ArrayList]::new()
     $seen = @{}
     foreach ($link in @($Links | Sort-Object When -Descending)) {
