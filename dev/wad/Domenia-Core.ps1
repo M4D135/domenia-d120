@@ -1391,7 +1391,7 @@ function Open-SelectedParentBranch {
         $parentDn = $dn.Substring($idx + 1)
         $script:SelectedBranchDn = $parentDn
         $script:Ctrl["TxtBranchDn"].Text = $parentDn
-        Load-BranchObjects
+        Load-BranchObjects -Browse
         Set-Status "Branche parent chargee : $parentDn"
     }
     catch { Show-ErrorBox "Erreur branche parent : $($_.Exception.Message)" }
@@ -9429,8 +9429,12 @@ function Fail-DomeniaBranchObjectsUi {
 
 function Load-BranchObjects {
     # Anciennes actions de branche : un seul moteur et une seule generation.
+    # -Browse: an OU-side gesture (branch button, OU search box, OU type filter, tree menu) browses the OU even
+    # when the last search was global (D032); without it, a refresh re-runs the current search mode.
+    param([switch]$Browse)
     Update-DomeniaSearchScopeUi
-    Invoke-GlobalSearch -AllowEmpty -SilentError -PreserveSelection -SearchMode (Get-DomeniaSearchMode)
+    $mode = if ($Browse) { 'OU' } else { Get-DomeniaSearchMode }
+    Invoke-GlobalSearch -AllowEmpty -SilentError -PreserveSelection -SearchMode $mode
 }
 
 function Complete-DomeniaGlobalSearchUi {
@@ -12724,7 +12728,7 @@ function Build-DomeniaTreeContextMenu {
     $hasBranch = -not [string]::IsNullOrWhiteSpace($dn)
     $readOnly = [bool]$script:ReadOnlyMode
 
-    [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Afficher le contenu de cette branche" -Enabled $hasBranch -Action { Load-BranchObjects }))
+    [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Afficher le contenu de cette branche" -Enabled $hasBranch -Action { Load-BranchObjects -Browse }))
     [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Actualiser l arborescence" -Action { Load-TreeRoot -ForceRefresh }))
     [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Revenir a la racine du domaine" -Action { Go-RootBranch }))
     Add-DomeniaMenuSeparator -Menu $Menu
@@ -18915,7 +18919,7 @@ function Wire-Events {
     $script:Ctrl["ChkSubtree"].Add_Checked({ Invoke-DomeniaSearchFilterChanged })
     $script:Ctrl["ChkSubtree"].Add_Unchecked({ Invoke-DomeniaSearchFilterChanged })
     $script:Ctrl["CmbGlobalType"].Add_SelectionChanged({ Invoke-DomeniaSearchFilterChanged })
-    $script:Ctrl["BtnLoadBranch"].Add_Click({ Load-BranchObjects })
+    $script:Ctrl["BtnLoadBranch"].Add_Click({ Load-BranchObjects -Browse })
     $script:Ctrl["BtnClearBranch"].Add_Click({ Clear-DomeniaGlobalSearch })
     $script:Ctrl["BtnGlobalSearch"].Add_Click({
         try { Invoke-GlobalSearch -SearchMode Global }
@@ -18938,8 +18942,8 @@ function Wire-Events {
     })
     $script:Ctrl["BtnDashRoot"].Add_Click({ Go-RootBranch })
     $script:Ctrl["BtnDashCopy"].Add_Click({ Copy-DashboardSummary })
-    $script:Ctrl["TxtBranchSearch"].Add_KeyDown({ param($s,$e) if ($e.Key -eq "Enter") { Load-BranchObjects } })
-    $script:Ctrl["CmbObjectFilter"].Add_SelectionChanged({ if ($script:Window -and $script:Conn.Connected -and -not [string]::IsNullOrWhiteSpace($script:SelectedBranchDn)) { Load-BranchObjects } })
+    $script:Ctrl["TxtBranchSearch"].Add_KeyDown({ param($s,$e) if ($e.Key -eq "Enter") { Load-BranchObjects -Browse } })
+    $script:Ctrl["CmbObjectFilter"].Add_SelectionChanged({ if ($script:Window -and $script:Conn.Connected -and -not [string]::IsNullOrWhiteSpace($script:SelectedBranchDn)) { Load-BranchObjects -Browse } })
     Initialize-DomeniaSelectionPreload
     $script:Ctrl["DgObjects"].Add_SelectionChanged({
         param($sender,$e)

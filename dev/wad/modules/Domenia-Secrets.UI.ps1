@@ -6,7 +6,9 @@ $script:RevealedSecretIndex=-1
 
 function Test-DomeniaBitLockerKeySelection {
     # Features.BitLockerKeySelection (default true): metadata first, then ONE chosen key. False = previous read.
-    return [bool](Get-DomeniaFeatureFlag 'BitLockerKeySelection' $true)
+    # The key selection relies on the single exposure (one chosen value revealed): with SecretSingleCopy off,
+    # the previous whole read is kept, otherwise 'Afficher les secrets' would show metadata rows without values.
+    return ([bool](Get-DomeniaFeatureFlag 'BitLockerKeySelection' $true) -and [bool](Get-DomeniaFeatureFlag 'SecretSingleCopy' $true))
 }
 function Test-DomeniaSecretSingleExposure {
     # Features.SecretSingleCopy (default true): one revealed value at a time, no "copy all".
@@ -191,7 +193,9 @@ function Complete-DomeniaBitLockerKeyUi {
         if($kind -eq 'LogonFailure' -and $null -ne $script:AccessState){$script:AccessState.Faults[(Get-DomeniaAccessScope 'ReadBitLockerKey')]=$true}
         if($kind -eq 'AccessDenied'){Set-DomeniaSecretDenied -Mode 'BitLocker' -DN ([string]$State.DN)}
         [void](Set-DomeniaControlText 'LblSecretsStatus' ('Cle non lue : '+$detail))
-        $offered=Request-DomeniaAccessRecovery -Operation 'Lecture BitLocker' -ErrorValue $detail -OperationId 'ReadBitLockerKey' -DN ([string]$State.DN) -Interactive -Possible:($kind -eq 'NoReadableValue')
+        # Same classification as the list path (Core): the worker detail alone is not recognised as a refusal.
+        $offerValue=if($kind -eq 'AccessDenied'){'Acces refuse. '+$detail}else{$detail}
+        $offered=Request-DomeniaAccessRecovery -Operation 'Lecture BitLocker' -ErrorValue $offerValue -OperationId 'ReadBitLockerKey' -DN ([string]$State.DN) -Interactive -Possible:($kind -eq 'NoReadableValue')
         [void](Show-DomeniaOperationError -Operation 'Lecture BitLocker' -ErrorRecordOrException $detail -NoPopup:$offered)
         Update-DomeniaSecretActionUi
         return

@@ -47,6 +47,8 @@ function Complete-DomeniaAccountValidation {
                 # (Get-DomeniaAccessScope of their resources); the directory and workstation accounts are kept.
                 $scopes=if($v.Scope -eq 'Remote'){@('Remote')}else{@((Get-DomeniaAccessScope 'ReadLaps'),(Get-DomeniaAccessScope 'ReadBitLockerKey'))}
                 foreach($k in $scopes){Remove-DomeniaAccessCredential -Key $k;[void]$script:AccessState.Faults.Remove($k)}
+                # Refusals recorded for the previous identity do not apply to the newly activated Secrets account.
+                if($v.Scope -eq 'Secrets'){foreach($d in @($script:AccessState.Denied.Keys)){if(([string]$d).StartsWith('laps|') -or ([string]$d).StartsWith('bitlocker|')){[void]$script:AccessState.Denied.Remove($d)}}}
             }
             $field=Get-DomeniaControl $(if($v.Scope -eq 'Remote'){'PwdAccountRemote'}else{'PwdAccountSecrets'});if($null -ne $field){$field.Clear()}
             Set-Status ('Compte '+$v.Scope+' active : '+$cred.UserName+'. Droits sur la ressource non certifies par ce test AD.')
