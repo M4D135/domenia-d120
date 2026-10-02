@@ -55,8 +55,15 @@ Test-Case 'D012' 'GUID binaire dans une collection a un element accepte' {
 Test-Case 'D015' 'Classes : ecriture, action explicite, selection, fond' {
     Assert-Equal 'Write' (Get-DomeniaTaskClass 'OpenAdObject' $true)
     Assert-Equal 'Selection' (Get-DomeniaTaskClass 'OpenAdObject' $false 'object')
-    Assert-Equal 'Background' (Get-DomeniaTaskClass 'LiveConsole')
+    Assert-Equal 'Selection' (Get-DomeniaTaskClass 'LiveConsole') 'Meme corps que LiveSelectedPing, choisi apres une selection'
+    Assert-Equal 'Selection' (Get-DomeniaTaskClass 'LiveSelectedPing')
     Assert-Equal 'Explicit' (Get-DomeniaTaskClass 'ReadLaps')
+}
+Test-Case 'D015' 'Classes : vrais identifiants du registre, actions par bouton explicites' {
+    foreach($op in @('ScopeReconcile','StartupWarmCache','LiveCache','LiveDirectoryCheck','LocalStore','ReceiptStore','PresenceScan')){Assert-Equal 'Background' (Get-DomeniaTaskClass $op) $op}
+    foreach($op in @('IndexBuild','LogonHarvest','ParkSweep','GlobalSearch','TreeChildren')){Assert-Equal 'Explicit' (Get-DomeniaTaskClass $op) $op}
+    Assert-Equal 'Background' (Get-DomeniaTaskClass 'IndexBuild' $false '' 'Background') 'L appelant automatique le declare'
+    foreach($ghost in @('ReconcileScope','StartupWarmup','IndexRefresh','ObjectChanges')){Assert-Equal 'Explicit' (Get-DomeniaTaskClass $ghost) ('Nom fantome : '+$ghost)}
 }
 Test-Case 'D015' 'Lectures strictement identiques : meme cle de partage' {
     $p1=[pscustomobject]@{DN='CN=A';Guid='g1'};$p2=[pscustomobject]@{Guid='g1';DN='CN=A'}
@@ -110,8 +117,15 @@ Test-Case 'D017' 'Un arret demande n est jamais presente comme termine' {
     Assert-True ((Get-DomeniaCancelStatusText 'Ecriture' 'StopRequested' $true) -match 'non annulable')
 }
 Test-Case 'D017' 'Un worker detache termine n est plus compte' {
-    $done=[pscustomobject]@{State='Running';CancelRequested=$true;Handle=[pscustomobject]@{IsCompleted=$true}}
+    $done=[pscustomobject]@{State='Running';CancelRequested=$true;Handle=[pscustomobject]@{IsCompleted=$true};StopHandle=$null}
     Assert-Equal 0 (Get-DomeniaTaskStateSummary @() @($done)).Active
+    $stopDone=[pscustomobject]@{State='Running';CancelRequested=$true;Handle=[pscustomobject]@{IsCompleted=$true};StopHandle=[pscustomobject]@{IsCompleted=$true}}
+    Assert-Equal 0 (Get-DomeniaTaskStateSummary @() @($stopDone)).Active
+}
+Test-Case 'D017' 'Arret encore en cours : le detache reste en nettoyage' {
+    $stopping=[pscustomobject]@{State='Running';CancelRequested=$true;Handle=[pscustomobject]@{IsCompleted=$true};StopHandle=[pscustomobject]@{IsCompleted=$false}}
+    Assert-Equal 'Cleanup' (Get-DomeniaTaskState $stopping $true)
+    Assert-Equal 1 (Get-DomeniaTaskStateSummary @() @($stopping)).Cleanup
 }
 $script:T0=[datetime]::SpecifyKind([datetime]'2026-01-01T10:00:00',[DateTimeKind]::Utc)
 Test-Case 'D018' 'Refus d identifiants : aucun nouvel essai, meme explicite' {
@@ -146,6 +160,65 @@ Test-Case 'D018' 'Fournisseurs distincts par operation' {
     Assert-Equal 'Cim' (Get-DomeniaOperationProvider 'ComputerInventory');Assert-Equal 'Wts' (Get-DomeniaOperationProvider 'SessionsList')
     Assert-Equal 'Storage' (Get-DomeniaOperationProvider 'LocalStore');Assert-Equal 'Directory' (Get-DomeniaOperationProvider 'GlobalSearch')
 }
+Test-Case 'D018' 'Actions distantes sur un poste : jamais budgetees comme l annuaire' {
+    foreach($op in @('ComputerGpUpdate','ComputerRestart','RimotteRun','UserComputerProbe','RemoteCredentialCheck')){Assert-Equal 'Cim' (Get-DomeniaOperationProvider $op) $op}
+}
+Test-Case 'D018' 'Refus d identifiants : bloque ce compte, pas un autre compte choisi explicitement' {
+    $s=New-DomeniaProviderState
+    [void](Register-DomeniaProviderOutcome -State $s -Provider 'Cim' -Target 'pc1' -Outcome 'CredentialRejected' -NowUtc $script:T0 -Identity 'EXAMPLE\poste')
+    Assert-False (Test-DomeniaProviderAdmission -State $s -Provider 'Cim' -Target 'pc1' -Class 'Explicit' -NowUtc $script:T0 -Identity 'example\POSTE').Allowed
+    Assert-False (Test-DomeniaProviderAdmission -State $s -Provider 'Cim' -Target 'pc1' -Class 'Explicit' -NowUtc $script:T0).Allowed 'Compte inconnu : refuse'
+    Assert-True (Test-DomeniaProviderAdmission -State $s -Provider 'Cim' -Target 'pc1' -Class 'Explicit' -NowUtc $script:T0 -Identity 'EXAMPLE\autre').Allowed
+    [void](Register-DomeniaProviderOutcome -State $s -Provider 'Cim' -Target 'pc1' -Outcome 'Success' -NowUtc $script:T0 -Identity 'EXAMPLE\autre')
+    Assert-False (Test-DomeniaProviderAdmission -State $s -Provider 'Cim' -Target 'pc1' -Class 'Explicit' -NowUtc $script:T0 -Identity 'EXAMPLE\poste').Allowed 'Le compte rejete reste bloque'
+}
+Test-Case 'D018' 'Issue d un worker : refus, identifiants, delai, annulation' {
+    Assert-Equal 'CredentialRejected' (ConvertTo-DomeniaProviderOutcome -ErrorKind 'LogonFailure' -Failed $true)
+    Assert-Equal 'CredentialRejected' (ConvertTo-DomeniaProviderOutcome -ErrorKind 'AccountLocked' -Failed $true)
+    Assert-Equal 'AccessDenied' (ConvertTo-DomeniaProviderOutcome -ErrorKind 'AccessDenied' -Failed $true)
+    Assert-Equal 'Failure' (ConvertTo-DomeniaProviderOutcome -ErrorKind 'Unknown' -Failed $true)
+    Assert-Equal 'Timeout' (ConvertTo-DomeniaProviderOutcome -TimedOut $true)
+    Assert-Equal 'Cancelled' (ConvertTo-DomeniaProviderOutcome -Cancelled $true -Failed $true)
+    Assert-Equal 'Success' (ConvertTo-DomeniaProviderOutcome)
+}
+# Golden copy of the historical lists of Get-WorkerContext (RC1.10.7).
+$script:LegacyRemote=@('SessionsList','ComputerDiagnostics','ComputerLastUser','LiveConsole','ComputerPing','ComputerGpUpdate','ComputerRestart','ComputerInventory','SoftwareInventory','ParkSweep','BatchNetworkDiag','WmiNamespaces','WmiClasses','WmiQuery','RimotteRun')
+$script:LegacyMachine=@('SessionsList','ComputerDiagnostics','ComputerInventory','SoftwareInventory','ParkSweep','WmiNamespaces','WmiClasses','WmiQuery','ComputerLastUser','LiveConsole','ComputerGpUpdate','ComputerRestart','UserComputerProbe','RimotteRun')
+$script:LegacyNonDirectory=@('CmdletHelp','CmdletInventory','EngineSelfTest','LiveCache','LiveSelectedPing','LocalStore','ReceiptStore','SessionsList','DocumentStore','EmbeddedPathBrowse')+$script:LegacyRemote
+$script:RegistryOps=@('CmdletHelp','TreeChildren','GlobalSearch','PermissionAnalysis','SelfCheck','ReadBitLocker','ReadLaps','DomainOverview','BatchNetworkDiag','WmiNamespaces','WmiClasses','WmiQuery','SoftwareInventory','LogonHarvest','ParkSweep','IndexBuild','UserComputerProbe','ComputerInventory','ComputerDiagnostics','ComputerLastUser','CmdletInventory','ComputerPing','ComputerGpUpdate','ComputerRestart','RimotteRun','PruneLinks','OpenLinkedObject','OpenAdObject','WriteAttributes','WriteAccountDisabled','WriteUnlock','WriteResetPassword','WriteAccountOptions','WriteExpiration','WriteExpirePassword','WriteMoveObject','WriteObjectGroup','WriteGroupMember','WriteRenameComputer','WriteCreateOu','WriteDeleteObject','PresenceScan','SelectedPresence','StartupWarmCache','LiveSelectedPing','LiveConsole','LiveCache','LiveDirectoryCheck','SessionsList','RemoteCredentialCheck','ReceiptStore','ScopeReconcile','DocumentStore','LocalStore','EngineSelfTest','EmbeddedDirectoryLookup','EmbeddedPathBrowse')
+Test-Case 'D018' 'C3 : table des besoins identique aux listes historiques (57 operations)' {
+    Assert-Equal 57 $script:RegistryOps.Count
+    foreach($op in $script:RegistryOps){
+        $n=Get-DomeniaOperationCredentialNeeds $op
+        $legacyDirectory=(($op -in @('ComputerLastUser','LiveConsole')) -or $script:LegacyNonDirectory -notcontains $op)
+        Assert-Equal $legacyDirectory ([bool]$n.Directory) ('Directory '+$op)
+        Assert-Equal ($legacyDirectory -or $op -eq 'ReceiptStore') ([bool]$n.DirectoryCredential) ('DirectoryCredential '+$op)
+        Assert-Equal ($script:LegacyMachine -contains $op) ([bool]$n.Machine) ('Machine '+$op)
+        Assert-Equal (($script:LegacyRemote -contains $op) -or ($script:LegacyMachine -contains $op)) ([bool]$n.RemoteAdmin) ('RemoteAdmin '+$op)
+        Assert-Equal ($op -in @('ReadBitLocker','ReadLaps')) ([bool]$n.Secrets) ('Secrets '+$op)
+        Assert-Equal ($script:LegacyNonDirectory -contains $op) ([bool]$n.NonDirectory) ('NonDirectory '+$op)
+    }
+}
+Test-Case 'D018' 'C3 : un refus WTS ou stockage ne suspend jamais le canal AD' {
+    foreach($op in @('SessionsList','LocalStore','ReceiptStore','DocumentStore','EmbeddedPathBrowse','LiveConsole','ComputerLastUser','ComputerGpUpdate')){Assert-False (Get-DomeniaOperationCredentialNeeds $op).DirectoryBreaker $op}
+    foreach($op in @('GlobalSearch','OpenAdObject','TreeChildren','UserComputerProbe')){Assert-True (Get-DomeniaOperationCredentialNeeds $op).DirectoryBreaker $op}
+    foreach($op in @('DemoDirectory','LocalIndexRead','ParkSharedSync','IsolatedRead')){$n=Get-DomeniaOperationCredentialNeeds $op;Assert-False $n.Directory $op;Assert-False $n.DirectoryCredential $op;Assert-False $n.RemoteAdmin $op}
+    Assert-Equal 'Laps' (Get-DomeniaOperationCredentialNeeds 'ReadLaps').Resource;Assert-Equal 'Remote' (Get-DomeniaOperationCredentialNeeds 'SessionsList').Resource
+}
+Test-Case 'D015' 'File : une lecture qui attend trop longtemps est retiree' {
+    Assert-True (Test-DomeniaQueuedTaskExpired -QueuedAt $script:T0 -MaxWaitSeconds 120 -Now $script:T0.AddSeconds(121))
+    Assert-False (Test-DomeniaQueuedTaskExpired -QueuedAt $script:T0 -MaxWaitSeconds 120 -Now $script:T0.AddSeconds(30))
+    Assert-False (Test-DomeniaQueuedTaskExpired -QueuedAt $null)
+}
+Test-Case 'D016' 'Isolement : desactive par defaut, jamais pour une ecriture ni un compte explicite' {
+    Assert-False (Get-DomeniaIsolationDecision -OperationId 'ComputerPing' -PayloadDigest 'x').Isolate
+    Assert-True (Get-DomeniaIsolationDecision -OperationId 'ComputerPing' -Enabled $true -PayloadDigest 'x').Isolate
+    Assert-False (Get-DomeniaIsolationDecision -OperationId 'ComputerPing' -Enabled $true -IsWrite $true -PayloadDigest 'x').Isolate
+    Assert-False (Get-DomeniaIsolationDecision -OperationId 'ComputerPing' -Enabled $true -HasCredential $true -PayloadDigest 'x').Isolate
+    Assert-False (Get-DomeniaIsolationDecision -OperationId 'ComputerPing' -Enabled $true -PayloadDigest '').Isolate 'Charge vivante'
+    Assert-False (Get-DomeniaIsolationDecision -OperationId 'WriteAttributes' -Enabled $true -PayloadDigest 'x').Isolate
+    Assert-False (Get-DomeniaIsolationDecision -OperationId 'ComputerPing' -Enabled $true -PayloadDigest 'x' -DemoMode $true).Isolate
+}
 Test-Case 'D019' 'Chaque ressource a un proprietaire et un nettoyage, meme apres une erreur' {
     $r=New-DomeniaResourceRegistry;$script:Freed=0
     [void](Register-DomeniaResource $r 'Relations' 'Timer' 'x' {param($x)$script:Freed++})
@@ -154,6 +227,14 @@ Test-Case 'D019' 'Chaque ressource a un proprietaire et un nettoyage, meme apres
     $result=Release-DomeniaResources $r 'Relations'
     Assert-Equal 1 $result.Released;Assert-Equal 1 $result.Failed;Assert-Equal 1 (Get-DomeniaResourceSummary $r).Total
     [void](Release-DomeniaResources $r);Assert-Equal 0 (Get-DomeniaResourceSummary $r).Total;Assert-Equal 2 $script:Freed
+}
+Test-Case 'D019' 'Liberation par nature : les minuteurs sans les jobs actifs' {
+    $r=New-DomeniaResourceRegistry;$script:Stopped=0
+    [void](Register-DomeniaResource $r 'Timer:A' 'Timer' 'a' {param($x)$script:Stopped++})
+    [void](Register-DomeniaResource $r 'job-1' 'PowerShell' 'p' {param($x)throw 'ne doit pas etre libere'})
+    $result=Release-DomeniaResources -Registry $r -Kind 'Timer'
+    Assert-Equal 1 $result.Released;Assert-Equal 0 $result.Failed;Assert-Equal 1 $script:Stopped
+    Assert-Equal 1 (Get-DomeniaResourceSummary $r).Total 'Le job actif reste detenu'
 }
 Test-Case 'D019' 'Longue session avec annulations : retour a un niveau stable' {
     $r=New-DomeniaResourceRegistry
@@ -173,4 +254,12 @@ Test-Case 'D020' 'Une page cachee ne se reconstruit pas et ne lance pas son rafr
     $p=Get-DomeniaIdlePolicy -WindowActive $true -VisiblePage 'WsSearch'
     Assert-False (Test-DomeniaIdleAllows $p 'ViewRebuild' 'TabDashboard');Assert-False (Test-DomeniaIdleAllows $p 'Dashboard' 'TabDashboard')
     Assert-True (Test-DomeniaIdleAllows $p 'Presence' 'WsSearch')
+}
+Test-Case 'D020' 'Sources de travail de fond : correspondance avec la politique de repos' {
+    $p=Get-DomeniaIdlePolicy -WindowActive $false -VisiblePage 'WsSearch'
+    foreach($src in @('Live','Reconcile','ObjectChanges','Dashboard','Index','Park')){$a=Get-DomeniaIdleActivityForSource $src;Assert-False (Test-DomeniaIdleAllows $p $a.Activity $a.Page) $src}
+    $active=Get-DomeniaIdlePolicy -WindowActive $true -VisiblePage 'WsSearch'
+    $live=Get-DomeniaIdleActivityForSource 'Live';Assert-True (Test-DomeniaIdleAllows $active $live.Activity $live.Page)
+    $dash=Get-DomeniaIdleActivityForSource 'Dashboard';Assert-False (Test-DomeniaIdleAllows $active $dash.Activity $dash.Page) 'Accueil cache : pas de reconstruction'
+    $st=Get-DomeniaIdleActivityForSource 'Storage';Assert-True (Test-DomeniaIdleAllows $p $st.Activity $st.Page) 'Sauvegardes toujours suivies'
 }

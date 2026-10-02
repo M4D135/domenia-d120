@@ -54,18 +54,19 @@ function Stop-DomeniaExperienceSelectedRead {
 function Update-DomeniaExperienceActivity {
     param([switch]$Force)
     if(-not $script:ExperienceInitialized){return}
-    $active=0;$detached=0
-    if($null -ne $script:AsyncJobs){$active=@($script:AsyncJobs.Keys).Count}
+    $active=0;$detached=0;$queued=0
+    # D017: an entry waiting in the engine queue is counted apart; it holds no call yet.
+    if($null -ne $script:AsyncJobs){foreach($job in @($script:AsyncJobs.Values)){if($null -eq $job){continue};if([string]$job.State -eq 'Queued'){$queued++}else{$active++}}}
     if($null -ne $script:DetachedReadJobs){$detached=@($script:DetachedReadJobs).Count}
     $button=Get-DomeniaControl 'BtnSuiteActivity'
-    $total=[long]$active+[long]$detached
+    $total=[long]$active+[long]$detached+[long]$queued
     $counter=Get-DomeniaControl 'LblSuiteActivityCount';$badge=Get-DomeniaControl 'BadgeSuiteActivity'
     $label=if($total -gt 99){'99+'}else{$total.ToString([Globalization.CultureInfo]::InvariantCulture)}
     $visibility=if($total -gt 0){'Visible'}else{'Hidden'}
     if($null -ne $counter -and $counter.Text -cne $label){$counter.Text=$label}
     if($null -ne $badge -and [string]$badge.Visibility -ne $visibility){$badge.Visibility=$visibility}
     if($null -ne $button){
-        $help=if($total -eq 0){'Aucune opération active. Ouvrir le suivi des opérations.'}else{"$total opération(s) suivie(s) : $active active(s), $detached en nettoyage. Ouvrir le suivi."}
+        $help=if($total -eq 0){'Aucune opération active. Ouvrir le suivi des opérations.'}elseif($queued -gt 0){"$total opération(s) suivie(s) : $active active(s), $queued en attente, $detached en nettoyage. Ouvrir le suivi."}else{"$total opération(s) suivie(s) : $active active(s), $detached en nettoyage. Ouvrir le suivi."}
         if([string]$button.ToolTip -cne $help){$button.ToolTip=$help}
         [Windows.Automation.AutomationProperties]::SetHelpText($button,$help)
     }
@@ -76,6 +77,10 @@ function Update-DomeniaExperienceActivity {
         foreach($job in @($script:AsyncJobs.Values)){
             if($rows.Count -ge 64){break}
             $row=Get-DomeniaExperienceTaskRow $job -Now $now -SessionEpoch ([long]$script:SessionEpoch)
+            if($null -ne $row -and [string]$job.State -eq 'Queued'){
+                # D017: never shown as running before its worker starts.
+                $row.State='En attente';$row.Detail='Demande non envoyée ; aucun appel en cours.'
+            }
             if($null -ne $row){$rows.Add($row)}
         }
     }
@@ -91,7 +96,7 @@ function Update-DomeniaExperienceActivity {
         $script:ExperienceActivitySignature=$signature
     }
     $state=[string]$script:WriteState
-    $message=if($active+$detached -eq 0){'Aucune opération active. Les résultats précédents restent dans le journal.'}else{"$active opération(s) active(s) · $detached lecture(s) en nettoyage."}
+    $message=if($active+$detached+$queued -eq 0){'Aucune opération active. Les résultats précédents restent dans le journal.'}else{"$active opération(s) active(s) · $queued en attente · $detached lecture(s) en nettoyage."}
     if($state -in @('Unknown','UnknownPending')){$message+=' Écriture à vérifier : ne relancez pas l''action avant relecture de l''objet.'}
     [void](Set-DomeniaControlText 'LblSuiteActivityState' $message)
     Update-DomeniaExperienceCancelState
