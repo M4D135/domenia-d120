@@ -109,11 +109,77 @@ function Get-DomeniaPageTitle {
 # ---------------------------------------------------------------- D082 layout that does not move
 function Get-DomeniaCounterText {
     # Badge text: nothing for zero, the number up to 99, then "99+". Same contract as the former isolated module.
+    # -ZeroText '0' keeps the text of a hidden badge at zero (the main window badges are Hidden at zero, so the
+    # rendering is identical); any other zero text is refused.
     [CmdletBinding()]
-    param([ValidateRange(0,2147483647)][int]$Count)
-    if ($Count -eq 0) { return '' }
+    param([ValidateRange(0,2147483647)][int]$Count,[AllowEmptyString()][string]$ZeroText='')
+    if (($ZeroText -cne '') -and ($ZeroText -cne '0')) { throw 'Texte a zero non pris en charge : seul 0 ou vide.' }
+    if ($Count -eq 0) { return $ZeroText }
     if ($Count -gt 99) { return '99+' }
     return $Count.ToString([Globalization.CultureInfo]::InvariantCulture)
+}
+
+function Get-DomeniaActivityStripSlots {
+    # Fixed slots of the main window activity row and header badges (device-independent units), as reserved in
+    # the main XAML. Busy, idle, 0, 1, 10 or 100 tasks and a long message only change texts and visibility inside
+    # these slots: an empty slot is Hidden, never Collapsed, so no neighbour moves.
+    return [pscustomobject]@{
+        RowName='UxActivityRow';RowHeight=44.0;StripName='UxActivityStrip';StripHeight=44.0
+        StripColumns=@('*','252','144','96')
+        Slots=@(
+            [pscustomobject]@{Name='PbTop';Width=130.0;Height=8.0;Role='Activite'}
+            [pscustomobject]@{Name='BtnCancelTask';Width=96.0;Height=32.0;Role='Action'}
+            [pscustomobject]@{Name='LblTaskElapsed';Width=[double]::NaN;Height=24.0;Role='Message'}
+            [pscustomobject]@{Name='WriteModeBanner';Width=240.0;Height=32.0;Role='Etat'}
+            [pscustomobject]@{Name='BtnAccessRecovery';Width=108.0;Height=40.0;Role='Action'}
+            [pscustomobject]@{Name='BtnSuiteActivity';Width=144.0;Height=40.0;Role='Action'}
+            [pscustomobject]@{Name='BadgeAccessRecovery';Width=30.0;Height=22.0;Role='Compteur'}
+            [pscustomobject]@{Name='BadgeSuiteActivity';Width=30.0;Height=22.0;Role='Compteur'}
+        )
+        EmptySlotVisibility='Hidden'
+    }
+}
+
+function Compare-DomeniaReservedSlots {
+    # Differences between the reserved slots and the measured declaration of the real controls.
+    # $Measured: name -> {Width, MinWidth, MaxWidth, Height, MinHeight, MaxHeight} (NaN when not declared).
+    # A slot whose width is NaN only reserves its height (stretching message column).
+    param($Expected,$Measured)
+    $issues = New-Object 'System.Collections.Generic.List[string]'
+    if ($null -eq $Expected) { $issues.Add('Disposition reservee absente.'); return $issues.ToArray() }
+    foreach ($slot in @(Get-DomeniaMember $Expected 'Slots' @())) {
+        $name = [string](Get-DomeniaMember $slot 'Name' '')
+        $actual = Get-DomeniaMember $Measured $name $null
+        if ($null -eq $actual) { $issues.Add($name + ' : controle absent.'); continue }
+        foreach ($axis in @('Width','Height')) {
+            $wanted = [double](Get-DomeniaMember $slot $axis ([double]::NaN))
+            if ([double]::IsNaN($wanted)) { continue }
+            $declared = [double](Get-DomeniaMember $actual $axis ([double]::NaN))
+            if ([double]::IsNaN($declared) -or ([Math]::Abs($declared - $wanted) -gt 0.01)) {
+                $issues.Add($name + ' : ' + $axis + ' declare ' + [string]$declared + ' au lieu de ' + [string]$wanted + '.')
+                continue
+            }
+            # A fixed slot is not allowed to grow: when a maximum is declared it must equal the reserved size.
+            $maximum = [double](Get-DomeniaMember $actual ('Max' + $axis) ([double]::PositiveInfinity))
+            if ((-not [double]::IsInfinity($maximum)) -and ([Math]::Abs($maximum - $wanted) -gt 0.01)) {
+                $issues.Add($name + ' : Max' + $axis + ' ' + [string]$maximum + ' different de ' + [string]$wanted + '.')
+            }
+        }
+    }
+    $columns = @(Get-DomeniaMember $Measured '__StripColumns' @())
+    $wantedColumns = @(Get-DomeniaMember $Expected 'StripColumns' @())
+    if ($columns.Count -ne $wantedColumns.Count) { $issues.Add('Bandeau d activite : ' + [string]$columns.Count + ' colonne(s) au lieu de ' + [string]$wantedColumns.Count + '.') }
+    else {
+        for ($i = 0; $i -lt $columns.Count; $i++) {
+            if ([string]$columns[$i] -cne [string]$wantedColumns[$i]) { $issues.Add('Bandeau d activite : colonne ' + [string]$i + ' = ' + [string]$columns[$i] + ' au lieu de ' + [string]$wantedColumns[$i] + '.') }
+        }
+    }
+    foreach ($pair in @(@('__RowHeight','RowHeight'),@('__StripHeight','StripHeight'))) {
+        $value = [double](Get-DomeniaMember $Measured $pair[0] ([double]::NaN))
+        $wantedValue = [double](Get-DomeniaMember $Expected $pair[1] ([double]::NaN))
+        if ([double]::IsNaN($value) -or ([Math]::Abs($value - $wantedValue) -gt 0.01)) { $issues.Add($pair[1] + ' = ' + [string]$value + ' au lieu de ' + [string]$wantedValue + '.') }
+    }
+    return $issues.ToArray()
 }
 
 function Get-DomeniaReservedLayout {
@@ -316,15 +382,23 @@ function Test-DomeniaInlineCodeSafe {
 
 # ---------------------------------------------------------------- D084 explicit column views
 function Get-DomeniaResultColumns {
-    # Column ids per explicit view. A user list carries no console column (ConsoleUser, Presence, ConsoleStatus).
-    # Same contract as the former isolated module; -Profile stays accepted as an alias.
+    # Column keys per explicit view, as the result grid names them (binding path or sort member of DgObjects).
+    # A user list carries no workstation console column (SessionDisplay, SessionState, Presence) nor the operating
+    # system; a workstation list carries no mail. The mixed view keeps every column. A view never removes a
+    # column from the grid: the others are only hidden, with their width and position kept.
+    # -Profile stays accepted as an alias.
     [CmdletBinding()]
     param([Parameter(Mandatory=$true)][Alias('Profile')][ValidateSet('Utilisateur','Machine','Mixte')][string]$ColumnProfile)
     switch ($ColumnProfile) {
-        'Utilisateur' { return @('Type','Name','Login','Upn','Display','State','Association','Freshness') }
-        'Machine'     { return @('Type','Name','Upn','ConsoleUser','Presence','ConsoleStatus','Association','Freshness') }
-        default       { return @('Type','Name','Login','Upn','State','Association','Freshness') }
+        'Utilisateur' { return @('Type','Name','DirectoryState','Login','UPN','Association','LinkSource','LinkConfidence','State','LastLogon','Mail','Description','Changed','DN') }
+        'Machine'     { return @('Type','Name','SessionDisplay','SessionState','DirectoryState','UPN','Association','LinkSource','LinkConfidence','Presence','State','OS','LastLogon','Description','Changed','DN') }
+        default       { return @('Type','Name','SessionDisplay','SessionState','DirectoryState','Login','UPN','Association','LinkSource','LinkConfidence','Presence','State','OS','LastLogon','Mail','Description','Changed','DN') }
     }
+}
+
+function Get-DomeniaResultProfileLabels {
+    # Display labels of the explicit views, in the order of the selector.
+    return [ordered]@{Mixte='Vue mixte';Utilisateur='Vue utilisateurs';Machine='Vue postes'}
 }
 
 function Resolve-DomeniaColumnPreferences {
@@ -332,7 +406,7 @@ function Resolve-DomeniaColumnPreferences {
     # never rewritten here: a column hidden by one view keeps its width and position for the next view showing it.
     # $Preferences: dictionary id -> {Width, Order}. $Sort: {Column, Direction}.
     param([Parameter(Mandatory=$true)][ValidateSet('Utilisateur','Machine','Mixte')][string]$ColumnProfile,$Preferences=$null,$Sort=$null)
-    $defaults = @{Type=105;Name=260;Login=150;Upn=235;Display=220;State=120;Association=230;Freshness=135;ConsoleUser=230;Presence=175;ConsoleStatus=175}
+    $defaults = @{Type=105;Name=260;SessionDisplay=230;SessionState=175;DirectoryState=135;Login=150;UPN=235;Association=230;LinkSource=155;LinkConfidence=90;Presence=175;State=120;OS=180;LastLogon=145;Mail=220;Description=250;Changed=145;DN=520}
     $ids = @(Get-DomeniaResultColumns -ColumnProfile $ColumnProfile)
     $rows = New-Object 'System.Collections.Generic.List[object]'
     for ($i = 0; $i -lt $ids.Count; $i++) {
@@ -451,6 +525,53 @@ function Get-DomeniaSelectionPreview {
         ShowDetail=($state -eq 'Loaded');Stale=$stale;Lines=$lines.ToArray();Destinations=$destinations.ToArray()
         CanRetry=($state -in @('Error','Refused'))
     }
+}
+
+function ConvertTo-DomeniaPreviewLoadState {
+    # Maps the phase of the selection read (Queued, Loading, Cached, Paused, Ready, Failed) to the preview contract.
+    # A cached display is still a loading state: only the fresh read of THIS selection is "Loaded". A failure whose
+    # message is an access refusal is "Refused" (never presented as an absence).
+    param([AllowEmptyString()][AllowNull()][string]$Phase='',[AllowEmptyString()][AllowNull()][string]$Message='')
+    switch ([string]$Phase) {
+        'Ready'   { return 'Loaded' }
+        'Failed'  {
+            if ([regex]::IsMatch([string]$Message,'(?i)acc(e|è)s\s+refus|access\s+(is\s+)?denied|refus(e|é)e?\s+pour\s+ce\s+compte|unauthori[sz]ed|insufficient\s+access|0x80070005')) { return 'Refused' }
+            return 'Error'
+        }
+        'Queued'  { return 'Idle' }
+        ''        { return 'Idle' }
+        default   { return 'Loading' }
+    }
+}
+
+function ConvertTo-DomeniaSelectionPreviewText {
+    # One line for the fixed 20-unit row under the results (no growth while loading) and the detail for its tool
+    # tip: state, the read lines of THIS selection and the reason of each unavailable destination.
+    param($Preview,[ValidateRange(40,400)][int]$Maximum=160)
+    if ($null -eq $Preview) { return [pscustomobject]@{Line='Aucune selection.';Detail='Aucune selection.'} }
+    $state = [string](Get-DomeniaMember $Preview 'State' 'None')
+    $type = [string](Get-DomeniaMember $Preview 'Type' '')
+    $name = [string](Get-DomeniaMember $Preview 'Name' '')
+    $stateText = [string](Get-DomeniaMember $Preview 'StateText' '')
+    $prefix = ''
+    if ($state -ne 'None') { $prefix = (ConvertTo-DomeniaFlatText (($type + ' : ' + $name).Trim()) 90) + ' | ' }
+    $line = $prefix + $stateText
+    $lines = @(Get-DomeniaMember $Preview 'Lines' @())
+    if ([bool](Get-DomeniaMember $Preview 'ShowDetail' $false) -and ($lines.Count -gt 0)) {
+        $parts = @(foreach ($item in $lines) { [string](Get-DomeniaMember $item 'Label' '') + ' ' + [string](Get-DomeniaMember $item 'Value' '') })
+        $line = $line + ' ' + ($parts -join ' · ')
+    }
+    $detailLines = New-Object 'System.Collections.Generic.List[string]'
+    $detailLines.Add(($prefix + $stateText).Trim())
+    if ([bool](Get-DomeniaMember $Preview 'ShowDetail' $false)) {
+        foreach ($item in $lines) { $detailLines.Add([string](Get-DomeniaMember $item 'Label' '') + ' : ' + [string](Get-DomeniaMember $item 'Value' '')) }
+    }
+    foreach ($destination in @(Get-DomeniaMember $Preview 'Destinations' @())) {
+        $label = [string](Get-DomeniaMember $destination 'Label' '')
+        if ([bool](Get-DomeniaMember $destination 'Enabled' $false)) { $detailLines.Add($label + ' : disponible.') }
+        else { $detailLines.Add($label + ' : ' + [string](Get-DomeniaMember $destination 'Reason' '')) }
+    }
+    return [pscustomobject]@{Line=(ConvertTo-DomeniaFlatText $line $Maximum);Detail=(($detailLines.ToArray()) -join "`r`n")}
 }
 
 # ---------------------------------------------------------------- D086 operation summary before execution
@@ -592,6 +713,29 @@ function Get-DomeniaEmptyState {
     }
 }
 
+function Resolve-DomeniaSearchEmptyKind {
+    # Chooses which empty state the result list shows, from what was really observed. Returns '' when rows are
+    # displayed or while a read is still running (the activity row shows it), never a verdict on a refusal.
+    # $ErrorKind: Kind of ConvertTo-DomeniaErrorInfo for the current search (AccessDenied, LogonFailure, Timeout...).
+    # $Partial: the read stopped before its end (interrupted, partial LDAP answer).
+    param(
+        [ValidateRange(0,2147483647)][int]$Displayed=0,
+        [ValidateRange(0,2147483647)][int]$Loaded=0,
+        [bool]$InFlight=$false,
+        [bool]$Completed=$false,
+        [AllowEmptyString()][AllowNull()][string]$ErrorKind='',
+        [bool]$Partial=$false
+    )
+    if ($Displayed -gt 0) { return '' }
+    if ([string]$ErrorKind -in @('AccessDenied','LogonFailure')) { return 'Refused' }
+    if ($Loaded -gt 0) { return 'LocalFilterEmpty' }
+    if ($InFlight) { return '' }
+    if ($Partial) { return 'Partial' }
+    if (-not [string]::IsNullOrEmpty([string]$ErrorKind)) { return 'NoSource' }
+    if (-not $Completed) { return 'NothingQueried' }
+    return 'NoResult'
+}
+
 # ---------------------------------------------------------------- D088 help for disabled controls
 function Get-DomeniaDisabledHelpDetails {
     # Fixed catalogue of the optional detail of a disabled control. Free text is not accepted: a field value, an
@@ -619,7 +763,7 @@ function Get-DomeniaDisabledHelp {
     # control name is returned apart, never written into the text.
     param(
         [Parameter(Mandatory=$true)][string]$Action,
-        [Parameter(Mandatory=$true)][ValidateSet('ReadOnly','NoSelection','WrongType','Busy','Refused','Stale','Offline','Prerequisite','Pending')][string]$Reason,
+        [Parameter(Mandatory=$true)][ValidateSet('ReadOnly','NoSelection','WrongType','Busy','Refused','Stale','Offline','Prerequisite','Pending','Running')][string]$Reason,
         [AllowEmptyString()][AllowNull()][string]$DetailCode='',
         [AllowEmptyString()][string]$ControlName=''
     )
@@ -646,6 +790,8 @@ function Get-DomeniaDisabledHelp {
             'Offline'      { $label = 'Hors ligne : seules les donnees deja lues sont consultables.'; $route = 'TabGuard' }
             'Prerequisite' { $label = 'Prerequis non rempli sur ce poste ou sur la cible.'; $route = 'TabSelfCheck' }
             'Pending'      { $label = 'Une operation precedente reste a verifier sur cette cible.'; $route = 'TabGuard' }
+            # A read or a remote action started from this control is still running (Busy is an AD write).
+            'Running'      { $label = 'Operation en cours, action de nouveau disponible a sa fin.'; $route = 'TabExperience' }
         }
         $text = $actionText + ' : ' + $label
     }
@@ -810,6 +956,33 @@ function Test-DomeniaPaletteContrast {
     $measured = @($results | Where-Object { $_.Ratio -gt 0 } | ForEach-Object { $_.Ratio } | Sort-Object)
     if ($measured.Count -gt 0) { $minimum = [double]$measured[0] }
     return [pscustomobject]@{Passed=(($results.Count -gt 0) -and ($failures.Count -eq 0));Results=$results;Failures=$failures;Minimum=$minimum}
+}
+
+function Get-DomeniaSuiteContrastPairs {
+    # Text and background pairs that the main window really paints with the shared palette (SupportSuite.UI.json).
+    # Kind Text = 4.5:1, LargeText or Graphic = 3:1 (WCAG 2.x).
+    $pairs = @(
+        @('Texte sur carte','TextColor','BgCard','Text'),@('Texte sur fond','TextColor','WindowBg','Text'),@('Texte saisi','TextColor','BgInput','Text')
+        @('Texte secondaire sur carte','MutedColor','BgCard','Text'),@('Texte secondaire sur fond','MutedColor','WindowBg','Text'),@('Texte secondaire saisi','MutedColor','BgInput','Text')
+        @('Lien et accent','AccentText','BgCard','Text'),@('Accent sur pastille','AccentText','AccentSoft','Text'),@('Information','InfoFg','InfoBg','Text'),@('Information sur pastille','InfoFg','AccentSoft','Text')
+        @('Statut erreur','StatusError','BgCard','Text'),@('Statut attention','StatusWarning','BgCard','Text'),@('Statut confirme','StatusSuccess','BgCard','Text')
+        @('Ligne selectionnee','RowSelFg','RowSelBg','Text'),@('Bouton','BtnFg','BtnBg','Text'),@('Journal','LogFg','LogBg','Text'),@('Privilege','PrivilegeFg','BgCard','Text')
+        @('Ligne alternee','TextColor','DataGridAlt','Text'),@('En-tete de grille','TextColor','HeaderBg','Text'),@('Menu lateral','TextColor','UxSidebar','Text'),@('Menu lateral secondaire','MutedColor','UxSidebar','Text')
+        @('Tuile','TextColor','TileBg','Text'),@('Bordure de saisie','MutedColor','BorderColor','Graphic'),@('Bouton principal','#FFFFFF','AccentColor','Text')
+    )
+    foreach ($pair in $pairs) { [pscustomobject]@{Name=$pair[0];Foreground=$pair[1];Background=$pair[2];Kind=$pair[3]} }
+}
+
+function Get-DomeniaBootContrastPairs {
+    # Pairs painted by the login, startup and fatal-error windows with the boot palette (Get-DomeniaBootThemePalette).
+    # The check box pairs are those of the fixed login template: text, box border and tick on the accent.
+    $pairs = @(
+        @('Texte de connexion','Text','Surface','Text'),@('Texte sur fond','Text','Window','Text'),@('Saisie','Text','Input','Text'),@('Texte secondaire','Muted','Surface','Text')
+        @('Bouton','ButtonText','Button','Text'),@('Bouton principal','OnAccent','Accent','Text'),@('Accent','AccentText','Surface','Text')
+        @('Erreur','Error','Surface','Text'),@('Attention','Warning','Surface','Text'),@('Succes','Success','Surface','Text')
+        @('Case a cocher : texte','Text','Input','Text'),@('Case a cocher : bordure','Muted','Input','Graphic'),@('Case a cocher : coche','OnAccent','Accent','Graphic')
+    )
+    foreach ($pair in $pairs) { [pscustomobject]@{Name=$pair[0];Foreground=$pair[1];Background=$pair[2];Kind=$pair[3]} }
 }
 
 function Get-DomeniaBoundedWindowRect {

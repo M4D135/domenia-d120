@@ -150,29 +150,34 @@ Test-Case 'D083' 'Un gestionnaire metier qui ouvre une fenetre ou un modal est r
     Assert-Equal 'Formulaire WinForms' ((Test-DomeniaInlineCodeSafe '$f=New-Object System.Windows.Forms.Form').Findings -join ',')
 }
 Test-Case 'D084' 'Une liste utilisateur ne porte aucune colonne de console machine' {
-    $console=@('ConsoleUser','Presence','ConsoleStatus')
+    $console=@('SessionDisplay','SessionState','Presence')
     $user=@(Get-DomeniaResultColumns 'Utilisateur');foreach($c in $console){Assert-True ($c -notin $user) $c}
+    Assert-True ('OS' -notin $user) 'Systeme du poste masque pour une liste utilisateur'
     $machine=@(Get-DomeniaResultColumns 'Machine');foreach($c in $console){Assert-True ($c -in $machine) $c}
-    Assert-True ('ConsoleUser' -notin @(Get-DomeniaResultColumns -ColumnProfile 'Mixte'))
-    Assert-Equal 'Type,Name,Login,Upn,Display,State,Association,Freshness' (@(Get-DomeniaResultColumns -Profile 'Utilisateur') -join ',') 'Alias -Profile et contrat de l ancien module'
-    Assert-Equal 'Type,Name,Upn,ConsoleUser,Presence,ConsoleStatus,Association,Freshness' (@(Get-DomeniaResultColumns 'Machine') -join ',')
-    Assert-Equal 'Type,Name,Login,Upn,State,Association,Freshness' (@(Get-DomeniaResultColumns 'Mixte') -join ',')
+    Assert-True ('Mail' -notin $machine) 'Pas de messagerie pour une liste de postes'
+    $all=@(Get-DomeniaResultColumns -ColumnProfile 'Mixte')
+    Assert-Equal 18 $all.Count 'La vue mixte garde les 18 colonnes de la grille'
+    Assert-Equal 'Type,Name,SessionDisplay,SessionState,DirectoryState,Login,UPN,Association,LinkSource,LinkConfidence,Presence,State,OS,LastLogon,Mail,Description,Changed,DN' ($all -join ',') 'Cles reelles de DgObjects'
+    foreach($c in @($user+$machine)){Assert-True ($c -cin $all) ('Cle connue de la grille : '+$c)}
+    Assert-Equal 'Type,Name' ((@(Get-DomeniaResultColumns -Profile 'Utilisateur')|Select-Object -First 2) -join ',') 'Alias -Profile'
     Assert-Throws { Get-DomeniaResultColumns 'Groupe' } 'Vue inconnue refusee'
+    Assert-Equal 'Mixte,Utilisateur,Machine' ((@((Get-DomeniaResultProfileLabels).Keys)) -join ',') 'Ordre du selecteur'
 }
 Test-Case 'D084' 'Largeur, ordre et tri conserves d une vue a l autre' {
-    $prefs=@{ConsoleUser=@{Width=300;Order=0};Name=@{Width=180;Order=1};Type=@{Width=5}}
-    $sort=[pscustomobject]@{Column='ConsoleUser';Direction='Descending'}
+    $prefs=@{SessionDisplay=@{Width=300;Order=0};Name=@{Width=180;Order=1};Type=@{Width=5}}
+    $sort=[pscustomobject]@{Column='SessionDisplay';Direction='Descending'}
     $machine=Resolve-DomeniaColumnPreferences 'Machine' $prefs $sort
-    Assert-Equal 'ConsoleUser' $machine.Columns[0].Id;Assert-Equal 300 $machine.Columns[0].Width;Assert-Equal 'Name' $machine.Columns[1].Id;Assert-Equal 180 $machine.Columns[1].Width
+    Assert-Equal 'SessionDisplay' $machine.Columns[0].Id;Assert-Equal 300 $machine.Columns[0].Width;Assert-Equal 'Name' $machine.Columns[1].Id;Assert-Equal 180 $machine.Columns[1].Width
     Assert-Equal 'Type' $machine.Columns[2].Id 'Les colonnes sans ordre enregistre gardent leur ordre de vue'
     Assert-Equal 105 $machine.Columns[2].Width 'Largeur invalide : largeur par defaut'
-    Assert-Equal 'ConsoleUser' $machine.Sort.Column;Assert-Equal 'Descending' $machine.Sort.Direction
+    Assert-Equal 'SessionDisplay' $machine.Sort.Column;Assert-Equal 'Descending' $machine.Sort.Direction
     $user=Resolve-DomeniaColumnPreferences 'Utilisateur' $prefs $sort
     Assert-Equal 'Name' $user.Columns[0].Id;Assert-Equal 180 $user.Columns[0].Width;Assert-True ($null -eq $user.Sort) 'Tri sur une colonne absente de la vue : non applique'
-    Assert-Equal 0 @($user.Columns|Where-Object{$_.Id -eq 'ConsoleUser'}).Count
-    Assert-Equal 300 $prefs['ConsoleUser'].Width 'La preference d une colonne masquee est conservee'
+    Assert-Equal 0 @($user.Columns|Where-Object{$_.Id -eq 'SessionDisplay'}).Count
+    Assert-Equal 300 $prefs['SessionDisplay'].Width 'La preference d une colonne masquee est conservee'
     $back=Resolve-DomeniaColumnPreferences 'Machine' $prefs $sort
-    Assert-Equal 300 @($back.Columns|Where-Object{$_.Id -eq 'ConsoleUser'})[0].Width;Assert-Equal 'ConsoleUser' $back.Sort.Column
+    Assert-Equal 300 @($back.Columns|Where-Object{$_.Id -eq 'SessionDisplay'})[0].Width;Assert-Equal 'SessionDisplay' $back.Sort.Column
+    Assert-Equal 520 @((Resolve-DomeniaColumnPreferences 'Mixte').Columns|Where-Object{$_.Id -eq 'DN'})[0].Width 'Largeur par defaut de la grille reelle'
 }
 Test-Case 'D084' 'Aucun changement de vue pendant une saisie ou l arrivee d un lot' {
     Assert-True (Test-DomeniaProfileChangeAllowed -Trigger Explicit -CurrentProfile Utilisateur -RequestedProfile Machine).Allowed
