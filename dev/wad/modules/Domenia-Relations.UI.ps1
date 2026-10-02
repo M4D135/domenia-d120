@@ -42,6 +42,8 @@ function Set-DomeniaRelationsSelection {
     if($null -eq $s -or -not $s.DN){return}
     if($null -ne $script:Relations.Subject -and $script:Relations.Subject.DN -ieq $s.DN -and $script:Relations.Subject.Guid -ieq $s.Guid){$script:Relations.Subject=$s;Refresh-DomeniaRelationViews;return}
     $r=$script:Relations
+    # A manual search cancelled from the task panel ends without a callback: it must not keep the subject locked.
+    if($r.ManualSearchJob -and $null -ne $script:AsyncJobs -and ((-not $script:AsyncJobs.Contains([string]$r.ManualSearchJob)) -or [bool]$script:AsyncJobs[[string]$r.ManualSearchJob].CancelRequested)){$r.ManualSearchJob='';if($null -eq $r.PendingAssociation){[void](Step-DomeniaRelationsAssociation 'Cancel' -Quiet)}}
     # D044: a target is being searched while the manual search runs or while its results are listed. The detection
     # query does not lock the subject (a new selection still stops it, as in RC1.10.7).
     $searching=((-not [string]::IsNullOrWhiteSpace([string]$r.ManualSearchJob)) -or (@($r.ManualSearchRows).Count -gt 0 -and [string]$r.AssociationState -in @('Searching','Candidate')))
@@ -159,6 +161,7 @@ function Update-DomeniaRelationsActions {
     $dir=$null;if($model -and $null -ne $s -and $s.Type -in @('Utilisateur','Machine')){$dir=Get-DomeniaRelationDirection $s.Type}
     $hasSubject=if($model){$null -ne $dir}else{$isUser}
     $busyDetect=($null -ne $r.Query -and -not $r.Query.Ended)
+    if($r.ManualSearchJob -and $null -ne $script:AsyncJobs -and ((-not $script:AsyncJobs.Contains([string]$r.ManualSearchJob)) -or [bool]$script:AsyncJobs[[string]$r.ManualSearchJob].CancelRequested)){$r.ManualSearchJob='';if($null -eq $r.PendingAssociation){[void](Step-DomeniaRelationsAssociation 'Cancel' -Quiet)}}
     $busySearch=(-not [string]::IsNullOrWhiteSpace([string]$r.ManualSearchJob))
     $locked=Test-DomeniaAccessBusyWrite
     $planOpen=($model -and $null -ne $r.PendingPlan)
@@ -296,11 +299,12 @@ function Refresh-DomeniaRelationViews {
             [void](Set-DomeniaItemsSource 'DgRelationComputerSearch' @($script:Relations.ManualSearchRows))
         }
         $q=$script:Relations.Query
-        if($null -ne $q){
+        # D047: a plan awaiting confirmation is the list really aimed at; it wins over the previous (ended) query.
+        if($model -and $null -ne $script:Relations.PendingPlan){
+            [void](Set-DomeniaItemsSource 'DgRelationCandidates' @($script:Relations.PendingPlan.Rows));[void](Set-DomeniaItemsSource 'DgLinkAttempts' @())
+        }elseif($null -ne $q){
             if($model){Update-DomeniaRelationCandidateEvidence $q}
             [void](Set-DomeniaItemsSource 'DgRelationCandidates' @(@($q.Candidates.Values|Sort-Object Computer)+@($q.Hints)));[void](Set-DomeniaItemsSource 'DgLinkAttempts' @($q.Attempts))
-        }elseif($model -and $null -ne $script:Relations.PendingPlan){
-            [void](Set-DomeniaItemsSource 'DgRelationCandidates' @($script:Relations.PendingPlan.Rows));[void](Set-DomeniaItemsSource 'DgLinkAttempts' @())
         }else{[void](Set-DomeniaItemsSource 'DgRelationCandidates' @());[void](Set-DomeniaItemsSource 'DgLinkAttempts' @())}
         [void](Set-DomeniaControlText 'LblRelationPlan' $(if($model -and $null -ne $script:Relations.PendingPlan){[string]$script:Relations.PendingPlan.Text}else{''}))
         if($null -ne $script:Relations.PendingAssociation){
@@ -761,7 +765,16 @@ function Submit-DomeniaRelationsQuery {
     $modes=Get-DomeniaControl 'RelationAssociateModeTabs';if($null -ne $modes){$modes.SelectedItem=Get-DomeniaControl 'TabRelationDetect'}
     $status=if($Scan){'Détection de '+$Subject.Login+' : '+(Get-DomeniaDetectionCounterText $counters)+'.'}else{'Lecture des associations connues et des indices AD de '+$Subject.Login+' ; aucun poste contacté…'}
     [void](Set-DomeniaControlText 'LblLinkProbeStatus' $status)
-    $r.Query.Job=Start-UiTask -Name ('Postes de '+$Subject.Login) -OperationId 'UserComputerProbe' -Code (Get-DomeniaRelationsWorkerCode) -Payload $payload -CallbackState $state -ReplaceKey 'userprobe' -DisableControls @('BtnDetectUserComputers','CmbRelationScanScope','TxtRelationScanLimit','ChkRelationEvents') -TimeoutSeconds $(if($Scan){140}else{65}) -SuccessHandler 'Complete-DomeniaUserComputersUi' -ErrorHandler 'Fail-DomeniaUserComputersUi'
+    try{
+        $r.Query.Job=Start-UiTask -Name ('Postes de '+$Subject.Login) -OperationId 'UserComputerProbe' -Code (Get-DomeniaRelationsWorkerCode) -Payload $payload -CallbackState $state -ReplaceKey 'userprobe' -DisableControls @('BtnDetectUserComputers','CmbRelationScanScope','TxtRelationScanLimit','ChkRelationEvents') -TimeoutSeconds $(if($Scan){140}else{65}) -SuccessHandler 'Complete-DomeniaUserComputersUi' -ErrorHandler 'Fail-DomeniaUserComputersUi'
+    }catch{
+        # Refused before any call (admission, worker limit, rejected account): the detection ends, nothing stays busy.
+        $r.Query.Ended=$true;$r.Query.Job=''
+        [void](Step-DomeniaRelationsAssociation 'Cancel' -Quiet)
+        [void](Set-DomeniaControlText 'LblLinkProbeStatus' ('Détection non lancée : '+$_.Exception.Message+' Aucun poste contacté.'))
+        Update-DomeniaRelationsActions;Refresh-DomeniaRelationViews
+        return
+    }
     if($null -ne $r.Timer){$r.Timer.Start()};Refresh-DomeniaRelationViews
 }
 function Start-DomeniaRelationsComputerDetect {
@@ -819,7 +832,7 @@ function Complete-DomeniaRelationsComputerProbe {
         }else{
             $added=Add-UserMachineLinkIfMissing -UserLogin $user -Computer ([string]$effective.Computer) -Source $source -Details ([string]$effective.Details) -Confidence 0 -VerifiedInAD $true
             $outcome=if($null -ne $script:Relations){$script:Relations.LastOutcome}else{$null}
-            $message=if($added){"Session observée sur $computer : $user ($source · "+$badge.Badge+').'}elseif($null -ne $outcome -and [string]$outcome.Placement -eq 'Session'){"Session observée sur $computer : $user. "+[string]$outcome.Reason}else{"Session observée sur $computer : $user. Relation déjà connue : date mise à jour, aucune autre association modifiée."}
+            $message=if($added){"Session observée sur $computer : $user ($source · "+$badge.Badge+').'}elseif($null -ne $outcome -and [bool]$outcome.SaveFailed){"Session observée sur $computer : $user. Relation non enregistrée : "+[string]$outcome.Reason}elseif($null -ne $outcome -and [string]$outcome.Placement -eq 'Session'){"Session observée sur $computer : $user. "+[string]$outcome.Reason}else{"Session observée sur $computer : $user. Relation déjà connue : date mise à jour, aucune autre association modifiée."}
             try{Register-DomeniaOperationSample -Operation 'ComputerLastUser' -Mode $(if([string](Get-DomeniaMember $effective 'FallbackTransport' '') -eq 'PsExec'){'Classic+PsExec'}elseif([string](Get-DomeniaMember $effective 'FallbackTransport' '')){'Classic+TaskScheduler'}else{'Classic'}) -ItemCount 1 -DurationMs 0 -BytesEstimated $(if([long](Get-DomeniaMember $effective 'TaskBytes' 0) -gt 0){[long]$effective.TaskBytes}else{16000}) -RemoteAttempts 1 -FallbackTasks ([int](Get-DomeniaMember $effective 'FallbackTasks' 0)) -SuccessCount 1}catch{}
         }
         [void](Set-DomeniaItemsSource 'DgLinkAttempts' $attempts.ToArray())
@@ -959,6 +972,7 @@ function Start-DomeniaRelationComputerSearch {
     $dir=$null;if($model -and $null -ne $s -and $s.Type -in @('Utilisateur','Machine')){$dir=Get-DomeniaRelationDirection $s.Type}
     if(($model -and $null -eq $dir) -or (-not $model -and ($null -eq $s -or $s.Type -ne 'Utilisateur'))){[void](Set-DomeniaControlText 'LblRelationComputerSearchStatus' $(if($model){'Sélectionnez dʼabord un utilisateur ou un poste dans Rechercher.'}else{'Sélectionnez dʼabord un utilisateur dans Rechercher.'}));return}
     if(Test-DomeniaAccessBusyWrite){[void](Set-DomeniaControlText 'LblRelationComputerSearchStatus' 'Une écriture reste active ou à vérifier.');return}
+    if($r.ManualSearchJob -and $null -ne $script:AsyncJobs -and ((-not $script:AsyncJobs.Contains([string]$r.ManualSearchJob)) -or [bool]$script:AsyncJobs[[string]$r.ManualSearchJob].CancelRequested)){$r.ManualSearchJob='';if($null -eq $r.PendingAssociation){[void](Step-DomeniaRelationsAssociation 'Cancel' -Quiet)}}
     if($r.ManualSearchJob){return}
     $term=([string](Get-DomeniaControl 'TxtRelationComputerSearch').Text).Trim()
     if($term.Length -lt 2){[void](Set-DomeniaControlText 'LblRelationComputerSearchStatus' 'Saisissez au moins deux caractères.');return}

@@ -41,7 +41,8 @@ function Queue-DomeniaLinkChanges {
 }
 function Start-DomeniaStorageWork {
     # Same liveness rule as the receipts: a save that left the engine without a callback frees the slot.
-    if($null -ne $script:Persistence -and $script:Persistence.Job -and $null -ne $script:AsyncJobs -and -not $script:AsyncJobs.Contains([string]$script:Persistence.Job)){$script:Persistence.Job=''}
+    # LinkBusy is released too: the link baseline was not updated, so the next save recomputes those changes.
+    if($null -ne $script:Persistence -and $script:Persistence.Job -and $null -ne $script:AsyncJobs -and -not $script:AsyncJobs.Contains([string]$script:Persistence.Job)){$script:Persistence.Job='';$script:Persistence.LinkBusy=$false}
     if($null -eq $script:Persistence -or $script:AsyncEngineClosing -or $script:Persistence.Job -or $script:Persistence.Failures -ge 3 -or -not $script:Persistence.Pending.Count -or [datetime]::UtcNow -lt $script:Persistence.Next){return}
     if(@($script:AsyncJobs.Values|Where-Object{$_.OperationId -in @('LocalStore','LiveCache','IndexBuild')}).Count -or @($script:DetachedReadJobs|Where-Object{$_.OperationId -in @('LocalStore','LiveCache','IndexBuild')}).Count){return}
     if(@($script:AsyncJobs.Keys).Count -ge 4){return}
