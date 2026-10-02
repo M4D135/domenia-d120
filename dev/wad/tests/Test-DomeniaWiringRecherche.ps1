@@ -140,7 +140,7 @@ function Reset-Fixture {
     $script:BranchObjects=@();$script:BranchCountLabel='';$script:LastObjectOpenError='';$script:OpenFailure=''
     $script:Tasks=[Collections.Generic.List[object]]::new();$script:OperationErrors=[Collections.Generic.List[string]]::new();$script:Stops=0
     $script:LastStatus='';$script:LastStatusLevel='';$script:DirtyFields=@();$script:CfgOverrides=@{};$script:Settings=@{}
-    $script:SearchUiInitialized=$false;$script:NavHistory=$null;$script:NavRestoring=$false
+    $script:SearchUiInitialized=$false;$script:NavHistory=$null;$script:NavRestoring=$false;$script:NavSearchLaunching=$false
     $script:Ctrl=New-TestControls
     $script:Window=[Windows.Window]::new()
     Initialize-DomeniaLive
