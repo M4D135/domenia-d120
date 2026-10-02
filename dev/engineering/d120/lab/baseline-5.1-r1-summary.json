@@ -1,0 +1,497 @@
+{
+ "Kind": "LabBaselineSummary",
+ "Run": "r1",
+ "Scope": "Suites existantes RC1.10.7 + Test-DomeniaRules (54 tests a cette date), avant tout raccordement",
+ "Suites": [
+  {
+   "Suite": "Test-Domenia",
+   "Passed": 94,
+   "Failed": 2,
+   "Failures": [
+    {
+     "Name": "CSV : formules, separateurs, textes et nombres",
+     "Detail": "Assertion fausse"
+    },
+    {
+     "Name": "Registre ferme : 47 corps et rejet d un corps modifie",
+     "Detail": "Assertion fausse"
+    }
+   ]
+  },
+  {
+   "Suite": "Test-DomeniaAccounts",
+   "Passed": 5,
+   "Failed": 20,
+   "Failures": [
+    {
+     "Name": "Contexte incomplet refuse avant tout appel au worker",
+     "Detail": "Exception inattendue : Le terme « Start-DomeniaAccountValidation » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "Mot de passe vide refuse sans authentification",
+     "Detail": "Exception inattendue : Le terme « Start-DomeniaAccountValidation » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "Succes : un seul worker de login, lecture et nettoyage",
+     "Detail": "Le terme « Start-DomeniaAccountValidation » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "Identite canonique du worker retournee telle quelle",
+     "Detail": "Le terme « Start-DomeniaAccountValidation » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "Refus : aucun repli de compte, aucun retry",
+     "Detail": "Exception inattendue : Le terme « Start-DomeniaAccountValidation » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "Timeout : resultat non lu, second essai bloque tant que le natif tourne",
+     "Detail": "Exception inattendue : Le terme « Start-DomeniaAccountValidation » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "Apres timeout termine : nouvel essai volontaire possible",
+     "Detail": "Exception inattendue : Le terme « Start-DomeniaAccountValidation » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "Echec demarrage : aucun faux etat de test actif",
+     "Detail": "Exception inattendue : Le terme « Start-DomeniaAccountValidation » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "Resultat vide refuse et worker nettoye",
+     "Detail": "Exception inattendue : Le terme « Start-DomeniaAccountValidation » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "Resultat sans nom valide refuse",
+     "Detail": "Exception inattendue : Le terme « Start-DomeniaAccountValidation » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "Un resultat sous identite Windows ne valide pas le compte saisi",
+     "Detail": "Exception inattendue : Le terme « Start-DomeniaAccountValidation » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "Activation Remote : nom valide, seul identifiant persiste, AD intact",
+     "Detail": "Le terme « Start-DomeniaAccountValidation » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "Activation Secrets : identite propre, compte distant inchange",
+     "Detail": "Le terme « Start-DomeniaAccountValidation » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "Activation refusee : ancien compte et formulaire conserves",
+     "Detail": "Exception inattendue : Le terme « Start-DomeniaAccountValidation » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "Activation en timeout : aucune modification meme apres retour tardif",
+     "Detail": "Exception inattendue : Le terme « Start-DomeniaAccountValidation » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "Test compte AD : nom court du meme domaine accepte avec identite active exacte",
+     "Detail": "Le terme « Start-DomeniaAccountValidation » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "Worker LAPS : nom et mot de passe du compte Secrets restent ensemble",
+     "Detail": "Le terme « Get-DomeniaRetryCredential » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "Worker BitLocker : compte Secrets explicite et repli AD coherents",
+     "Detail": "Le terme « Get-DomeniaRetryCredential » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "Dernier utilisateur : compte machine distinct du compte annuaire",
+     "Detail": "Le terme « Get-DomeniaRetryCredential » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "Validation de compte : ne promet pas les droits sur les ressources, pas de secret dans les logs",
+     "Detail": "Le terme « Start-DomeniaAccountValidation » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    }
+   ]
+  },
+  {
+   "Suite": "Test-DomeniaAcl",
+   "Passed": 38,
+   "Failed": 0,
+   "Failures": []
+  },
+  {
+   "Suite": "Test-DomeniaActivityLayout",
+   "Passed": 52,
+   "Failed": 0,
+   "Failures": []
+  },
+  {
+   "Suite": "Test-DomeniaCandidate",
+   "Passed": 151,
+   "Failed": 0,
+   "Failures": []
+  },
+  {
+   "Suite": "Test-DomeniaCompactUi",
+   "Passed": 22,
+   "Failed": 0,
+   "Failures": []
+  },
+  {
+   "Suite": "Test-DomeniaEmbeddedUi",
+   "Passed": 72,
+   "Failed": 0,
+   "Failures": []
+  },
+  {
+   "Suite": "Test-DomeniaExperience",
+   "Passed": 48,
+   "Failed": 0,
+   "Failures": []
+  },
+  {
+   "Suite": "Test-DomeniaInterface",
+   "Passed": 46,
+   "Failed": 1,
+   "Failures": [
+    {
+     "Name": "Panneau latéral en grande largeur",
+     "Detail": "Condition non verifiee."
+    }
+   ]
+  },
+  {
+   "Suite": "Test-DomeniaLastUser",
+   "Passed": 19,
+   "Failed": 2,
+   "Failures": [
+    {
+     "Name": "Double clic meme DN : aucune purge de selection",
+     "Detail": "Le terme « Test-DomeniaAccessBusyWrite » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "Nouvelle machine : purge de selection toujours effectuee",
+     "Detail": "Le terme « Test-DomeniaAccessBusyWrite » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    }
+   ]
+  },
+  {
+   "Suite": "Test-DomeniaLogin",
+   "Passed": 47,
+   "Failed": 0,
+   "Failures": []
+  },
+  {
+   "Suite": "Test-DomeniaPreload",
+   "Passed": 86,
+   "Failed": 0,
+   "Failures": []
+  },
+  {
+   "Suite": "Test-DomeniaRelationsAlignment",
+   "Passed": 56,
+   "Failed": 9,
+   "Failures": [
+    {
+     "Name": "31 Compte console autre utilisateur non associe",
+     "Detail": "System.Management.Automation.RuntimeException: Assertion non verifiee"
+    },
+    {
+     "Name": "32 Meme nom autre domaine non associe",
+     "Detail": "System.Management.Automation.RuntimeException: Assertion non verifiee"
+    },
+    {
+     "Name": "33 Compte local homonyme non associe",
+     "Detail": "System.Management.Automation.RuntimeException: Assertion non verifiee"
+    },
+    {
+     "Name": "34 Nom non qualifie non devine",
+     "Detail": "System.Management.Automation.RuntimeException: Assertion non verifiee"
+    },
+    {
+     "Name": "36 Console vide ne conclut pas aux sessions RDP",
+     "Detail": "System.Management.Automation.RuntimeException: Assertion non verifiee"
+    },
+    {
+     "Name": "37 Machine recue differente non attribuee",
+     "Detail": "System.Management.Automation.RuntimeException: Assertion non verifiee"
+    },
+    {
+     "Name": "38 Acces refuse visible dans tentatives",
+     "Detail": "System.Management.Automation.RuntimeException: Assertion non verifiee"
+    },
+    {
+     "Name": "39 Delai conserve observation historique",
+     "Detail": "System.Management.Automation.RuntimeException: Assertion non verifiee"
+    },
+    {
+     "Name": "40 Rejet identifiants arrete les sondes suivantes",
+     "Detail": "System.Management.Automation.RuntimeException: Assertion non verifiee"
+    }
+   ]
+  },
+  {
+   "Suite": "Test-DomeniaRelease",
+   "Passed": 23,
+   "Failed": 20,
+   "Failures": [
+    {
+     "Name": "Registre de 48 operations ferme",
+     "Detail": "Assertion en echec"
+    },
+    {
+     "Name": "Acces refuse reconnu en francais",
+     "Detail": "Le terme « Get-DomeniaStructuredError » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "Acces refuse reconnu en anglais",
+     "Detail": "Le terme « Get-DomeniaStructuredError » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "HRESULT acces refuse sans texte connu",
+     "Detail": "Le terme « Get-DomeniaStructuredError » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "HRESULT mot de passe refuse sans texte connu",
+     "Detail": "Le terme « Get-DomeniaStructuredError » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "Timeout ne signifie pas mauvais compte",
+     "Detail": "Le terme « Get-DomeniaStructuredError » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "Refus de dechiffrement LAPS reconnu",
+     "Detail": "Le terme « Get-DomeniaStructuredError » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "Compte LAPS conserve uniquement pour sa ressource",
+     "Detail": "Impossible d’appeler une méthode dans une expression Null."
+    },
+    {
+     "Name": "Remplacement distant ne remplace pas le compte LDAP",
+     "Detail": "Impossible d’appeler une méthode dans une expression Null."
+    },
+    {
+     "Name": "Compte distant temporaire ne reactive pas un bind AD rejete",
+     "Detail": "Assertion en echec"
+    },
+    {
+     "Name": "Rejet global du canal AD renvoie au login principal",
+     "Detail": "Le terme « Get-DomeniaStructuredError » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "Notification de fond sans fenetre automatique",
+     "Detail": "Le terme « Get-DomeniaStructuredError » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "Un seul avis par ressource et cible",
+     "Detail": "Le terme « Get-DomeniaStructuredError » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "Avis sans erreur brute ni mot de passe dans son modele",
+     "Detail": "Indexation impossible dans un tableau Null."
+    },
+    {
+     "Name": "Avis de droits limite a 16 cibles",
+     "Detail": "Le terme « Get-DomeniaStructuredError » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "Valeur absente distinguee d un refus certain",
+     "Detail": "Le terme « Get-DomeniaStructuredError » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "Annuler le login conserve le precedent credential",
+     "Detail": "Le terme « Get-DomeniaSelectedMachineName » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "Validation LAPS relance seulement la lecture et une fois",
+     "Detail": "Le terme « Get-DomeniaSelectedMachineName » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "Ancienne selection ne relance pas sa lecture",
+     "Detail": "Le terme « Get-DomeniaSelectedMachineName » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "Action ecriture jamais rejouee par le login",
+     "Detail": "Le terme « Get-DomeniaSelectedMachineName » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    }
+   ]
+  },
+  {
+   "Suite": "Test-DomeniaRemote",
+   "Passed": 29,
+   "Failed": 14,
+   "Failures": [
+    {
+     "Name": "Cible unique valide : TESTPC",
+     "Detail": "Nom de poste distant invalide : fournir un nom DNS, NetBIOS ou une adresse IPv4 unique."
+    },
+    {
+     "Name": "Cible unique valide : pc-01.example.test",
+     "Detail": "Nom de poste distant invalide : fournir un nom DNS, NetBIOS ou une adresse IPv4 unique."
+    },
+    {
+     "Name": "Cible unique valide : 192.0.2.10",
+     "Detail": "Nom de poste distant invalide : fournir un nom DNS, NetBIOS ou une adresse IPv4 unique."
+    },
+    {
+     "Name": "PsExec: cible et deux options distinctes, contexte Windows",
+     "Detail": "Le terme « Assert-WRemoteArtifactPermission » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "PsExec: compte poste explicite prioritaire, mot de passe preserve",
+     "Detail": "Le terme « Assert-WRemoteArtifactPermission » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "PsExec: licence interpretee sans recopier son texte",
+     "Detail": "Exception inattendue : Le terme « Assert-WRemoteArtifactPermission » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "PsExec: marqueur valide mais code non nul refuse",
+     "Detail": "Exception inattendue : Le terme « Assert-WRemoteArtifactPermission » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "schtasks: meme compte poste et tableau arguments conserve",
+     "Detail": "Cette demande n’est pas prise en charge. (Exception de HRESULT : 0x80070032)"
+    },
+    {
+     "Name": "Contexte LastUser: conserve le compte AD et le compte distant distincts",
+     "Detail": "Le terme « Get-DomeniaRetryCredential » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "Contexte: ping ne recoit pas le credential LDAP",
+     "Detail": "Le terme « Get-DomeniaRetryCredential » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "Contexte LastUser: compte distant possible avec login Windows",
+     "Detail": "Le terme « Get-DomeniaRetryCredential » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "Contexte LastUser: canal AD suspendu reste bloque",
+     "Detail": "Exception inattendue : Le terme « Get-DomeniaRetryCredential » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "Staging: ecriture lecture et nettoyage par le PSDrive local",
+     "Detail": "Le terme « Assert-WRemoteArtifactPermission » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    },
+    {
+     "Name": "R1.3: refus de lecture LogonUI jamais transforme en resultat",
+     "Detail": "Assertion fausse"
+    }
+   ]
+  },
+  {
+   "Suite": "Test-DomeniaRules",
+   "Passed": 54,
+   "Failed": 0,
+   "Failures": []
+  },
+  {
+   "Suite": "Test-DomeniaSearchPresence",
+   "Passed": 58,
+   "Failed": 1,
+   "Failures": [
+    {
+     "Name": "Actual live filter ignores local controls in Global but applies them in OU",
+     "Detail": "A global user was hidden by a local filter."
+    }
+   ]
+  },
+  {
+   "Suite": "Test-DomeniaSearchScope",
+   "Passed": 41,
+   "Failed": 1,
+   "Failures": [
+    {
+     "Name": "Repli serveur garde la meme OU et profondeur",
+     "Detail": "Le terme « Get-DomeniaStructuredError » n'est pas reconnu comme nom d'applet de commande, fonction, fichier de script ou programme exécutable. Vérifiez l'orthographe du nom, ou si un chemin d'accès existe, vérifiez que le chemin d'accès est correct et réessayez."
+    }
+   ]
+  },
+  {
+   "Suite": "Test-DomeniaSelection",
+   "Passed": 45,
+   "Failed": 1,
+   "Failures": [
+    {
+     "Name": "Native WPF headers remain visible after reorder and narrow layout",
+     "Detail": "Association header was not realized."
+    }
+   ]
+  },
+  {
+   "Suite": "Test-DomeniaStableUi",
+   "Passed": 52,
+   "Failed": 0,
+   "Failures": []
+  },
+  {
+   "Suite": "Test-DomeniaStartupLogin",
+   "Passed": 41,
+   "Failed": 3,
+   "Failures": [
+    {
+     "Name": "La verification du registre complet accepte la livraison",
+     "Detail": "Assertion non verifiee"
+    },
+    {
+     "Name": "L ordre de declaration ne change pas le controle",
+     "Detail": "Assertion non verifiee"
+    },
+    {
+     "Name": "Le corps de chaque operation correspond a son empreinte sans execution",
+     "Detail": "Impossible de convertir « System.Object[] » en type « System.String », requis par le paramètre « ChildPath ». La méthode spécifiée n'est pas prise en charge."
+    }
+   ]
+  },
+  {
+   "Suite": "Test-DomeniaStreaming",
+   "Passed": 58,
+   "Failed": 2,
+   "Failures": [
+    {
+     "Name": "Registre fermé de 48 opérations",
+     "Detail": "System.Management.Automation.RuntimeException: Assertion non satisfaite"
+    },
+    {
+     "Name": "Vérification dédupliquée dans la file",
+     "Detail": "System.Management.Automation.RuntimeException: Assertion non satisfaite"
+    }
+   ]
+  },
+  {
+   "Suite": "Test-DomeniaSupport",
+   "Passed": 53,
+   "Failed": 0,
+   "Failures": []
+  },
+  {
+   "Suite": "Test-DomeniaTheme",
+   "Passed": 25,
+   "Failed": 3,
+   "Failures": [
+    {
+     "Name": "WPF reel : Dark / Get-LoginXamlLegacy",
+     "Detail": "ChkRemember : #EDF4FF/#FFFFFF, contraste 1.10612602824561 inferieur a 4.5:1."
+    },
+    {
+     "Name": "WPF reel : Dark / Get-DomeniaStandardLoginXaml",
+     "Detail": "ChkRemember : #EDF4FF/#FFFFFF, contraste 1.10612602824561 inferieur a 4.5:1."
+    },
+    {
+     "Name": "WPF reel : Dark / Get-DomeniaDebugLoginXaml",
+     "Detail": "ChkRemember : #EDF4FF/#FFFFFF, contraste 1.10612602824561 inferieur a 4.5:1."
+    }
+   ]
+  },
+  {
+   "Suite": "Test-DomeniaModules",
+   "Passed": 0,
+   "Failed": 0,
+   "Note": "Aucun rapport ecrit : la suite s arrete sur une erreur de son runspace d import (ligne 105)."
+  }
+ ],
+ "Host": {
+  "PSEdition": "Desktop",
+  "SessionId": 0,
+  "Is64BitProcess": true,
+  "PSVersion": "5.1.26100.9549",
+  "Interactive": false,
+  "Platform": "Windows",
+  "OS": "Microsoft Windows NT 10.0.26200.0"
+ },
+ "TotalPassed": 1215,
+ "TotalFailed": 79
+}

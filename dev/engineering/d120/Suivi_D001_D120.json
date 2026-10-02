@@ -3,25 +3,62 @@
   "BaseSHA256": "fd495bd3dabf1e87dd22ab1e9711d19894494d763e3eb59a2ff73804fd23f602",
   "RuntimeModified": false,
   "ApplicationFeaturesClaimedComplete": 0,
-  "WindowsExecuted": false,
+  "WindowsExecuted": true,
   "Tests": [
     {
       "Name": "Release guard negative and positive tests",
       "Executed": true,
       "ExitCode": 0,
-      "Status": "PASS"
+      "Status": "PASS",
+      "Host": "Python 3.13 (Linux de preparation)",
+      "Detail": "20 tests"
     },
     {
       "Name": "Native parser",
-      "Executed": false,
-      "Status": "NOT_EXECUTED",
-      "Reason": "Aucun moteur PowerShell executable retrouve"
+      "Executed": true,
+      "ExitCode": 0,
+      "Status": "PASS",
+      "Host": "Windows PowerShell 5.1.26100.9549",
+      "Detail": "86 fichiers, Windows51Qualification=true"
     },
     {
-      "Name": "Pure PowerShell rules",
-      "Executed": false,
-      "Status": "NOT_EXECUTED",
-      "Reason": "Aucun moteur PowerShell executable retrouve"
+      "Name": "PowerShell 5.1 static compatibility gate",
+      "Executed": true,
+      "ExitCode": 0,
+      "Status": "PASS",
+      "Host": "Windows PowerShell 5.1.26100.9549",
+      "Detail": "86 fichiers, 0 erreur"
+    },
+    {
+      "Name": "Pure PowerShell rules (lot initial)",
+      "Executed": true,
+      "ExitCode": 0,
+      "Status": "PASS",
+      "Host": "Windows PowerShell 5.1.26100.9549",
+      "Detail": "28 tests (engineering/d120/Test-ReadRules.ps1)"
+    },
+    {
+      "Name": "Pure rules D011-D070",
+      "Executed": true,
+      "ExitCode": 0,
+      "Status": "PASS",
+      "Host": "Windows PowerShell 5.1.26100.9549",
+      "Detail": "132 tests, 57 points couverts (wad/tests/Test-DomeniaRules.ps1)"
+    },
+    {
+      "Name": "C# 5 compilation of Domenia-Identity.Types.cs",
+      "Executed": true,
+      "ExitCode": 0,
+      "Status": "PASS",
+      "Host": "Windows PowerShell 5.1.26100.9549 (Add-Type)",
+      "Detail": "Domenia.SelectionIdentity charge"
+    },
+    {
+      "Name": "Existing suites baseline (RC1.10.7, before any wiring)",
+      "Executed": true,
+      "Status": "FAIL",
+      "Host": "Windows PowerShell 5.1.26100.9549",
+      "Detail": "1215 reussis, 79 en echec ; detail dans engineering/d120/lab/baseline-5.1-r1-summary.json. Echecs anterieurs au lot : suites historiques desynchronisees et quelques defauts reels a traiter."
     }
   ],
   "Items": [
@@ -245,13 +282,17 @@
       "title": "Démarrage ordonné par dépendances",
       "proposal": "Définir les phases bootstrap, ressources, modules, authentification et interface ; refuser les cycles et dépendances absentes avant usage.",
       "acceptance_criterion": "Une fonction de module ne peut être appelée par le bootstrap avant le chargement déclaré de son fournisseur.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S05"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Engine.Model.ps1",
+        "wad/tests/rules/Engine.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (6 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 6
     },
     {
       "id": "D012",
@@ -262,13 +303,18 @@
       "title": "Contexte de sélection unique",
       "proposal": "Une identité typée et immuable porte domaine, GUID/SID, type, compte de lecture et génération vers Fiche, Relations et Assistance.",
       "acceptance_criterion": "Changer un libellé de contrôle ne change jamais la cible d’une opération.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S05"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Engine.Model.ps1",
+        "wad/modules/Domenia-Identity.Types.cs",
+        "wad/tests/rules/Engine.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (5 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 5
     },
     {
       "id": "D013",
@@ -313,13 +359,17 @@
       "title": "Ordonnanceur prioritaire et dédoublonné",
       "proposal": "Priorité aux actions explicites et à la sélection ; partager les lectures strictement identiques sous le même compte et la même génération.",
       "acceptance_criterion": "Double-clic pendant préchargement ne crée ni deuxième lecture AD ni deuxième sonde machine.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S05"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Engine.Model.ps1",
+        "wad/tests/rules/Engine.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (7 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 7
     },
     {
       "id": "D016",
@@ -347,13 +397,17 @@
       "title": "Annulation avec états exacts",
       "proposal": "Distinguer attente, exécution, arrêt demandé, nettoyage et fin ; compter les ressources jusqu’à leur libération réelle.",
       "acceptance_criterion": "Un appel encore actif reste compté et son annulation n’est pas présentée comme terminée.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S05"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Engine.Model.ps1",
+        "wad/tests/rules/Engine.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (3 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 3
     },
     {
       "id": "D018",
@@ -364,13 +418,17 @@
       "title": "Budgets et temporisation par fournisseur",
       "proposal": "Borner concurrence et délais par DC, CIM, WTS et stockage ; réduire les nouvelles lectures après pannes répétées.",
       "acceptance_criterion": "Un refus d’identifiants ne provoque pas de boucle de réessais ; une écriture n’est jamais rejouée.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S05"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Engine.Model.ps1",
+        "wad/tests/rules/Engine.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (5 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 5
     },
     {
       "id": "D019",
@@ -381,13 +439,17 @@
       "title": "Propriété explicite des ressources",
       "proposal": "Chaque recherche, collection LDAP, session CIM, objet COM, timer et abonnement dispose d’un propriétaire et d’un nettoyage finally.",
       "acceptance_criterion": "Une longue session avec annulations revient à un niveau stable de handles et de workers.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S05"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Engine.Model.ps1",
+        "wad/tests/rules/Engine.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (2 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 2
     },
     {
       "id": "D020",
@@ -398,13 +460,17 @@
       "title": "Repos réel quand le logiciel ne travaille pas",
       "proposal": "Suspendre rafraîchissements inutiles et reconstruction des vues cachées, sans abandonner sauvegardes ou opérations engagées.",
       "acceptance_criterion": "Une page cachée et inactive ne lance aucun nouveau scan ; les reçus et sauvegardes en cours restent suivis.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S05"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Engine.Model.ps1",
+        "wad/tests/rules/Engine.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (3 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 3
     },
     {
       "id": "D021",
@@ -415,15 +481,19 @@
       "title": "Projection AD minimale",
       "proposal": "Lire seulement les attributs de la liste ; demander groupes, permissions et détails lors de la sélection ou de la visite de leur onglet.",
       "acceptance_criterion": "Afficher 100 utilisateurs ne déclenche pas 100 lectures complètes ni 100 analyses de droits.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S06",
         "S07",
         "S08"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Cache.Model.ps1",
+        "wad/tests/rules/Cache.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (1 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 1
     },
     {
       "id": "D022",
@@ -434,15 +504,19 @@
       "title": "Mettre à jour les cellules sans rebâtir la grille",
       "proposal": "Conserver une collection stable, appliquer des lots courts et préserver tri, position et sélection pendant l’arrivée des résultats.",
       "acceptance_criterion": "Une mise à jour de présence ne remet ni la liste en haut ni sa sélection à zéro.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S06",
         "S07",
         "S08"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Cache.Model.ps1",
+        "wad/tests/rules/Cache.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (2 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 2
     },
     {
       "id": "D023",
@@ -453,15 +527,19 @@
       "title": "Virtualisation visuelle et chargement des données",
       "proposal": "Vérifier le recyclage WPF, puis ajouter une stratégie distincte de pages de données pour les grandes listes.",
       "acceptance_criterion": "Le nombre de contrôles réalisés ne croît pas avec tous les objets ; la mémoire reste bornée par une politique explicite.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S06",
         "S07",
         "S08"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Cache.Model.ps1",
+        "wad/tests/rules/Cache.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (2 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 2
     },
     {
       "id": "D024",
@@ -472,15 +550,19 @@
       "title": "Durées de validité par nature de donnée",
       "proposal": "Séparer identité AD, attributs, présence, console et historique, chacun avec observation et dernière tentative.",
       "acceptance_criterion": "Un ping réussi ne rajeunit ni l’utilisateur historique ni les attributs AD.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S06",
         "S07",
         "S08"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Cache.Model.ps1",
+        "wad/tests/rules/Cache.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (3 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 3
     },
     {
       "id": "D025",
@@ -498,10 +580,12 @@
         "S08"
       ],
       "implementation_files": [
-        "engineering/d120/rules/Domenia.ReadRules.psm1"
+        "wad/modules/Domenia-Cache.Model.ps1",
+        "wad/tests/rules/Cache.Tests.ps1"
       ],
       "acceptance_passed": false,
-      "remaining": "Integration dans le parcours applicatif et validation de tous les criteres; le code ajoute reste isole du runtime."
+      "remaining": "Regles pures ecrites et testees (4 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 4
     },
     {
       "id": "D026",
@@ -512,15 +596,19 @@
       "title": "Synchronisation incrémentale prudente",
       "proposal": "Enregistrer checkpoint et données ensemble ; réconcilier le périmètre choisi pour nouveaux objets et déplacements, sans sondes machine.",
       "acceptance_criterion": "Changement de DC, réponse partielle ou visibilité réduite ne produit aucune suppression affirmée à tort.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S06",
         "S07",
         "S08"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Cache.Model.ps1",
+        "wad/tests/rules/Cache.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (3 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 3
     },
     {
       "id": "D027",
@@ -531,15 +619,19 @@
       "title": "Cache temporaire des échecs",
       "proposal": "Temporiser les refus et pannes identiques tout en conservant la dernière donnée valide et un bouton de nouvelle tentative volontaire.",
       "acceptance_criterion": "Un poste arrêté n’est pas sollicité en boucle lors de simples rafraîchissements visuels.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S06",
         "S07",
         "S08"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Cache.Model.ps1",
+        "wad/tests/rules/Cache.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (2 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 2
     },
     {
       "id": "D028",
@@ -550,15 +642,19 @@
       "title": "Écrivain SQLite unique pour les parcours courants",
       "proposal": "Regrouper les écritures ciblées dans une file bornée ; gérer verrous, transactions et état En mémoire/Enregistré.",
       "acceptance_criterion": "Deux mises à jour indépendantes ne s’écrasent pas et un verrou SQLite ne bloque pas WPF.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S06",
         "S07",
         "S08"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Cache.Model.ps1",
+        "wad/tests/rules/Cache.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (2 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 2
     },
     {
       "id": "D029",
@@ -569,15 +665,19 @@
       "title": "Rétention et quotas pilotables",
       "proposal": "Borner observations, snapshots, journaux et historique ; afficher l’espace consommé et proposer une purge sélective.",
       "acceptance_criterion": "La purge du cache ne supprime jamais configurations, associations manuelles ou reçus non résolus.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S06",
         "S07",
         "S08"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Cache.Model.ps1",
+        "wad/tests/rules/Cache.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (1 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 1
     },
     {
       "id": "D030",
@@ -595,10 +695,12 @@
         "S08"
       ],
       "implementation_files": [
-        "engineering/d120/rules/Domenia.ReadRules.psm1"
+        "wad/modules/Domenia-Cache.Model.ps1",
+        "wad/tests/rules/Cache.Tests.ps1"
       ],
       "acceptance_passed": false,
-      "remaining": "Integration dans le parcours applicatif et validation de tous les criteres; le code ajoute reste isole du runtime."
+      "remaining": "Regles pures ecrites et testees (3 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 3
     },
     {
       "id": "D031",
@@ -609,14 +711,18 @@
       "title": "Contrat strict de recherche globale",
       "proposal": "La barre supérieure vise toujours le domaine connecté et n’hérite jamais d’une OU, présence ou filtre local.",
       "acceptance_criterion": "La même saisie retourne le même périmètre logique depuis toutes les pages, pour une même identité de lecture.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S14",
         "S07"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Search.Model.ps1",
+        "wad/tests/rules/Search.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (2 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 2
     },
     {
       "id": "D032",
@@ -627,14 +733,18 @@
       "title": "Séparer visiblement rechercher et parcourir",
       "proposal": "Afficher Domaine entier pour le bandeau et Dans cette OU pour l’explorateur ; conserver séparément les textes et filtres.",
       "acceptance_criterion": "Cliquer une OU après une recherche utilisateur ne continue pas de filtrer cette OU par le nom de l’utilisateur.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S14",
         "S07"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Search.Model.ps1",
+        "wad/tests/rules/Search.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (1 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 1
     },
     {
       "id": "D033",
@@ -645,14 +755,18 @@
       "title": "Syntaxe facultative explicite",
       "proposal": "Proposer utilisateur:, poste:, groupe: ou mail: avec jetons visibles ; seuls ces filtres volontairement saisis affinent le global.",
       "acceptance_criterion": "Aucun filtre caché n’est ajouté ; une expression non reconnue reste un texte explicable.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S14",
         "S07"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Search.Model.ps1",
+        "wad/tests/rules/Search.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (2 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 2
     },
     {
       "id": "D034",
@@ -663,14 +777,18 @@
       "title": "Classement pertinent des résultats",
       "proposal": "Favoriser correspondance exacte, login/UPN puis préfixe et nom affiché ; dédupliquer par identité, pas par libellé.",
       "acceptance_criterion": "Un compte exact arrive avant les correspondances larges ; les comptes administrateur restent identifiables.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S14",
         "S07"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Search.Model.ps1",
+        "wad/tests/rules/Search.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (3 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 3
     },
     {
       "id": "D035",
@@ -681,14 +799,18 @@
       "title": "Noms composés et caractères particuliers",
       "proposal": "Traiter espaces, tirets, apostrophes, accents et plusieurs mots ; échapper les valeurs LDAP et éviter la recherche floue coûteuse sur tout le domaine.",
       "acceptance_criterion": "Les caractères spéciaux ne cassent pas le filtre et ne deviennent pas du code ou des jokers implicites.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S14",
         "S07"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Search.Model.ps1",
+        "wad/tests/rules/Search.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (4 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 4
     },
     {
       "id": "D036",
@@ -699,14 +821,18 @@
       "title": "Reconnaissance des identifiants collés",
       "proposal": "Reconnaître DN, GUID, SID, UPN ou FQDN et proposer la recherche exacte adaptée, avec explication.",
       "acceptance_criterion": "Une saisie ambiguë ne sélectionne ni n’exécute automatiquement une action sur le premier résultat.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S14",
         "S07"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Search.Model.ps1",
+        "wad/tests/rules/Search.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (2 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 2
     },
     {
       "id": "D037",
@@ -717,14 +843,18 @@
       "title": "Charger la suite explicitement",
       "proposal": "Remplacer l’impression de liste complète à 100/500 lignes par un état limité et une continuation/pagination bornée.",
       "acceptance_criterion": "Le compteur précise chargé, limité ou complet ; les pages ne réintroduisent pas de doublons ni d’anciens contextes.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S14",
         "S07"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Search.Model.ps1",
+        "wad/tests/rules/Search.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (2 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 2
     },
     {
       "id": "D038",
@@ -735,14 +865,18 @@
       "title": "Favoris et vues de travail",
       "proposal": "Consolider les recherches enregistrées et ajouter vues par besoin : comptes expirants, postes d’une OU ou objets modifiés récemment.",
       "acceptance_criterion": "Une vue enregistrée ne restaure ni compte privilégié ni permission d’écriture.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S14",
         "S07"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Search.Model.ps1",
+        "wad/tests/rules/Search.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (2 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 2
     },
     {
       "id": "D039",
@@ -753,14 +887,18 @@
       "title": "Explorateur OU lisible et restaurable",
       "proposal": "Chemin lisible, DN exact à la demande, favoris, recherche de branche à la demande et restauration unique suivie d’une lecture.",
       "acceptance_criterion": "OU supprimée ou déplacée : avertissement et choix explicite, jamais substitution silencieuse du domaine entier.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S14",
         "S07"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Search.Model.ps1",
+        "wad/tests/rules/Search.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (2 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 2
     },
     {
       "id": "D040",
@@ -771,14 +909,18 @@
       "title": "Précédent/suivant dans le contexte",
       "proposal": "Historique local de navigation qui restitue recherche, OU, défilement, sélection et onglet sans abandonner un brouillon.",
       "acceptance_criterion": "Revenir à une liste ne relance pas un balayage de machines et conserve l’indication de fraîcheur.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S14",
         "S07"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Search.Model.ps1",
+        "wad/tests/rules/Search.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (2 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 2
     },
     {
       "id": "D041",
@@ -799,10 +941,12 @@
         "S21"
       ],
       "implementation_files": [
-        "engineering/d120/rules/Domenia.ReadRules.psm1"
+        "wad/modules/Domenia-Relations.Model.ps1",
+        "wad/tests/rules/Relations.Tests.ps1"
       ],
       "acceptance_passed": false,
-      "remaining": "Integration dans le parcours applicatif et validation de tous les criteres; le code ajoute reste isole du runtime."
+      "remaining": "Regles pures ecrites et testees (2 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 2
     },
     {
       "id": "D042",
@@ -813,7 +957,7 @@
       "title": "Séparer affectation et observation",
       "proposal": "Distinguer poste affecté, console observée, session RDP, historique et simple indice AD dans le stockage comme à l’écran.",
       "acceptance_criterion": "Une connexion temporaire d’un administrateur ne remplace pas le propriétaire ou l’affectation déclarée.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S09",
         "S10",
@@ -822,9 +966,13 @@
         "S16",
         "S21"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Relations.Model.ps1",
+        "wad/tests/rules/Relations.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (2 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 2
     },
     {
       "id": "D043",
@@ -845,10 +993,12 @@
         "S21"
       ],
       "implementation_files": [
-        "engineering/d120/rules/Domenia.ReadRules.psm1"
+        "wad/modules/Domenia-Relations.Model.ps1",
+        "wad/tests/rules/Relations.Tests.ps1"
       ],
       "acceptance_passed": false,
-      "remaining": "Integration dans le parcours applicatif et validation de tous les criteres; le code ajoute reste isole du runtime."
+      "remaining": "Regles pures ecrites et testees (1 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 1
     },
     {
       "id": "D044",
@@ -869,10 +1019,12 @@
         "S21"
       ],
       "implementation_files": [
-        "engineering/d120/rules/Domenia.ReadRules.psm1"
+        "wad/modules/Domenia-Relations.Model.ps1",
+        "wad/tests/rules/Relations.Tests.ps1"
       ],
       "acceptance_passed": false,
-      "remaining": "Integration dans le parcours applicatif et validation de tous les criteres; le code ajoute reste isole du runtime."
+      "remaining": "Regles pures ecrites et testees (2 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 2
     },
     {
       "id": "D045",
@@ -883,7 +1035,7 @@
       "title": "Association réellement dans la page",
       "proposal": "Deux modes Détecter/Rechercher, résultats, choix et confirmation dans les onglets Relations, sans fenêtre ni faux dialogue modal.",
       "acceptance_criterion": "Les composants sont ceux de la page ; aucun ShowDialog ni transfert d’une Window ne sert à associer.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S09",
         "S10",
@@ -892,9 +1044,13 @@
         "S16",
         "S21"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Relations.Model.ps1",
+        "wad/tests/rules/Relations.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (1 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 1
     },
     {
       "id": "D046",
@@ -905,7 +1061,7 @@
       "title": "Candidats issus de plusieurs preuves",
       "proposal": "Réunir liens connus, observations et indices AD autorisés ; joindre les sources d’inventaire approuvées lorsqu’elles existent, en gardant leurs identités.",
       "acceptance_criterion": "Un candidat indique pourquoi il est proposé ; aucune IP ou nom partiel ne suffit à l’associer.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S09",
         "S10",
@@ -914,9 +1070,13 @@
         "S16",
         "S21"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Relations.Model.ps1",
+        "wad/tests/rules/Relations.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (1 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 1
     },
     {
       "id": "D047",
@@ -937,10 +1097,12 @@
         "S21"
       ],
       "implementation_files": [
-        "engineering/d120/rules/Domenia.ReadRules.psm1"
+        "wad/modules/Domenia-Relations.Model.ps1",
+        "wad/tests/rules/Relations.Tests.ps1"
       ],
       "acceptance_passed": false,
-      "remaining": "Integration dans le parcours applicatif et validation de tous les criteres; le code ajoute reste isole du runtime."
+      "remaining": "Regles pures ecrites et testees (2 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 2
     },
     {
       "id": "D048",
@@ -951,7 +1113,7 @@
       "title": "Détection progressive et bornée",
       "proposal": "Consoles dans le périmètre volontaire, priorité aux candidats pertinents, compteur interrogés/refusés/confirmés ; sessions RDP en option séparée.",
       "acceptance_criterion": "La liste générale ne déclenche aucune sonde ; le bouton Détecter affiche ses limites et résultats partiels.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S09",
         "S10",
@@ -960,9 +1122,13 @@
         "S16",
         "S21"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Relations.Model.ps1",
+        "wad/tests/rules/Relations.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (2 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 2
     },
     {
       "id": "D049",
@@ -973,7 +1139,7 @@
       "title": "Identité exacte et cas partagés",
       "proposal": "Comparer domaine/login qualifié et SID lorsqu’il est disponible ; gérer homonymes, renommages, postes partagés et plusieurs postes par utilisateur.",
       "acceptance_criterion": "Un compte local ou homonyme d’un autre domaine ne devient pas le compte AD recherché.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S09",
         "S10",
@@ -982,9 +1148,13 @@
         "S16",
         "S21"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Relations.Model.ps1",
+        "wad/tests/rules/Relations.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (3 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 3
     },
     {
       "id": "D050",
@@ -995,7 +1165,7 @@
       "title": "Historique des liens et conflits",
       "proposal": "Conserver déclarant, source et dates ; préserver affectations manuelles et signaler observations contradictoires sans les fusionner silencieusement.",
       "acceptance_criterion": "Une suppression de lien local est traçable et restaurable sans toucher aux objets AD.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S09",
         "S10",
@@ -1004,9 +1174,13 @@
         "S16",
         "S21"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Relations.Model.ps1",
+        "wad/tests/rules/Relations.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (2 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 2
     },
     {
       "id": "D051",
@@ -1017,14 +1191,18 @@
       "title": "Compte par ressource et cible",
       "proposal": "Un contexte distinct pour annuaire, postes, LAPS et BitLocker ; cible obligatoire pour un compte local.",
       "acceptance_criterion": "Changer le compte LAPS ne modifie pas les credentials AD ou du poste sans demande explicite.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S12",
         "S18"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Access.Model.ps1",
+        "wad/tests/rules/Access.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (3 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 3
     },
     {
       "id": "D052",
@@ -1035,14 +1213,18 @@
       "title": "Erreur structurée et explicable",
       "proposal": "Conserver code natif, fournisseur, étape et cible ; distinguer credentials rejetés, droit refusé, déchiffrement, réseau et prérequis.",
       "acceptance_criterion": "Les mêmes codes français/anglais conduisent aux mêmes décisions, sans transformer timeout en mauvais mot de passe.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S12",
         "S18"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Access.Model.ps1",
+        "wad/tests/rules/Access.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (4 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 4
     },
     {
       "id": "D053",
@@ -1053,14 +1235,18 @@
       "title": "Réauthentification intégrée sans tempête",
       "proposal": "Proposer un autre compte dans la page après accord ; une validation, une relance de lecture autorisée, regroupement des refus en arrière-plan.",
       "acceptance_criterion": "Annuler conserve le compte précédent ; 20 refus simultanés ne créent pas 20 demandes.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S12",
         "S18"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Access.Model.ps1",
+        "wad/tests/rules/Access.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (2 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 2
     },
     {
       "id": "D054",
@@ -1071,14 +1257,18 @@
       "title": "Durée de vie claire des identités",
       "proposal": "Usage ponctuel, expiration d’inactivité configurable et Oublier ; empêcher la réutilisation par un worker d’une ancienne session.",
       "acceptance_criterion": "L’expiration ne tue pas une écriture envoyée mais interdit une nouvelle utilisation non autorisée.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S12",
         "S18"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Access.Model.ps1",
+        "wad/tests/rules/Access.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (2 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 2
     },
     {
       "id": "D055",
@@ -1089,14 +1279,18 @@
       "title": "Connexion Windows sans surélévation",
       "proposal": "Réutiliser le jeton courant pour les fonctions qu’il autorise ; demander un autre compte uniquement au bon moment.",
       "acceptance_criterion": "Lire AD ne requiert pas artificiellement un compte Domain Admin ; aucune double saisie imposée sans nécessité.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S12",
         "S18"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Access.Model.ps1",
+        "wad/tests/rules/Access.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (1 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 1
     },
     {
       "id": "D056",
@@ -1107,14 +1301,18 @@
       "title": "Explication des capacités disponibles",
       "proposal": "Afficher ce qui est testé, estimé, inconnu ou refusé pour une action, sans prétendre que toute ACL est un droit effectif définitif.",
       "acceptance_criterion": "Un bouton grisé dispose d’un motif et d’une route sûre vers le prérequis concerné.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S12",
         "S18"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Access.Model.ps1",
+        "wad/tests/rules/Access.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (1 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 1
     },
     {
       "id": "D057",
@@ -1125,14 +1323,18 @@
       "title": "LAPS : lecture et déchiffrement distincts",
       "proposal": "Montrer source, publication, expiration et identité de déchiffrement lorsqu’elles sont disponibles, sans bloquer BitLocker.",
       "acceptance_criterion": "Un retour Unauthorized du déchiffrement ne devient pas un mot de passe vide ni une panne globale du compte.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S12",
         "S18"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Access.Model.ps1",
+        "wad/tests/rules/Access.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (2 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 2
     },
     {
       "id": "D058",
@@ -1143,14 +1345,18 @@
       "title": "BitLocker : sélectionner la bonne clé",
       "proposal": "Rechercher par identifiant de récupération, afficher métadonnées et date, puis révéler/copier seulement la clé choisie.",
       "acceptance_criterion": "Aucune révélation de toutes les clés à la simple ouverture de l’onglet.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S12",
         "S18"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Access.Model.ps1",
+        "wad/tests/rules/Access.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (2 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 2
     },
     {
       "id": "D059",
@@ -1161,14 +1367,18 @@
       "title": "Limiter la surface d’exposition des secrets",
       "proposal": "Pas de secrets dans les arguments, logs, cache, snapshots ou exports automatiques ; révélation temporaire et copie individuelle.",
       "acceptance_criterion": "Des marqueurs secrets factices sont absents des traces et exports ; les limites de l’historique tiers du presse-papiers restent explicites.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S12",
         "S18"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Access.Model.ps1",
+        "wad/tests/rules/Access.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (2 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 2
     },
     {
       "id": "D060",
@@ -1179,14 +1389,18 @@
       "title": "Politique de transport visible",
       "proposal": "Déclarer LDAP/CIM/WTS/SMB nécessaires, validation certificats et modes autorisés ; expliquer les mécanismes indisponibles au lieu d’affaiblir Windows.",
       "acceptance_criterion": "Aucun certificat accepté aveuglément, aucun WinRM/GPO/antivirus modifié et aucun transport intrusif lancé en repli silencieux.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S12",
         "S18"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Access.Model.ps1",
+        "wad/tests/rules/Access.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (2 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 2
     },
     {
       "id": "D061",
@@ -1197,15 +1411,19 @@
       "title": "Fiche utilisateur orientée support",
       "proposal": "Résumé identité, service, contact, état du compte et dates utiles ; garder attributs techniques dans une vue avancée.",
       "acceptance_criterion": "Un technicien retrouve le contexte essentiel sans parcourir une grille brute de dizaines d’attributs.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S19",
         "S20",
         "S07"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Directory.Model.ps1",
+        "wad/tests/rules/Directory.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (2 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 2
     },
     {
       "id": "D062",
@@ -1216,15 +1434,19 @@
       "title": "Politique de mot de passe effective",
       "proposal": "Afficher politique fine applicable, expiration et raisons des restrictions, sous réserve des droits et données disponibles.",
       "acceptance_criterion": "Une politique non lisible reste inconnue, pas remplacée par une supposition issue du domaine.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S19",
         "S20",
         "S07"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Directory.Model.ps1",
+        "wad/tests/rules/Directory.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (3 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 3
     },
     {
       "id": "D063",
@@ -1235,15 +1457,19 @@
       "title": "Diagnostic de verrouillage à la demande",
       "proposal": "Expliquer état calculé, dernière observation et événements accessibles sur le contrôleur pertinent ; aider à rechercher une récidive.",
       "acceptance_criterion": "Aucune recherche massive de journaux n’est lancée au simple affichage du compte.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S19",
         "S20",
         "S07"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Directory.Model.ps1",
+        "wad/tests/rules/Directory.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (2 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 2
     },
     {
       "id": "D064",
@@ -1254,15 +1480,19 @@
       "title": "Groupes avec chemin d’appartenance",
       "proposal": "Montrer direct, imbriqué et principal ; parcourir plages et cycles avec limites, et expliquer le chemin vers un groupe choisi.",
       "acceptance_criterion": "Un grand groupe tronqué ne conduit pas à annoncer qu’un membre est absent.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S19",
         "S20",
         "S07"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Directory.Model.ps1",
+        "wad/tests/rules/Directory.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (2 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 2
     },
     {
       "id": "D065",
@@ -1273,15 +1503,19 @@
       "title": "Comparaison de deux utilisateurs",
       "proposal": "Comparer attributs et groupes par catégorie de besoin, sans bouton Copier tous les droits par défaut.",
       "acceptance_criterion": "Les groupes privilégiés sont explicitement signalés et aucune différence n’est appliquée automatiquement.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S19",
         "S20",
         "S07"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Directory.Model.ps1",
+        "wad/tests/rules/Directory.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (1 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 1
     },
     {
       "id": "D066",
@@ -1292,15 +1526,19 @@
       "title": "Modification des groupes sous forme de delta",
       "proposal": "Préparer uniquement ajouts/retraits choisis, montrer les effets directs et vérifier les postconditions.",
       "acceptance_criterion": "Un groupe modifié ailleurs n’est pas remplacé par une ancienne liste en mémoire.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S19",
         "S20",
         "S07"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Directory.Model.ps1",
+        "wad/tests/rules/Directory.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (2 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 2
     },
     {
       "id": "D067",
@@ -1311,15 +1549,19 @@
       "title": "Lecture de délégations et héritage OU",
       "proposal": "Rendre visibles origine des permissions, héritage et limites de l’analyse pour la cible choisie.",
       "acceptance_criterion": "L’écran distingue ACE observée et capacité réellement vérifiée ; aucune délégation n’est ajoutée automatiquement.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S19",
         "S20",
         "S07"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Directory.Model.ps1",
+        "wad/tests/rules/Directory.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (1 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 1
     },
     {
       "id": "D068",
@@ -1330,15 +1572,19 @@
       "title": "Parcours de cycle de vie de compte",
       "proposal": "Préparer arrivée, changement de service ou suspension avec modèle et récapitulatif, sans suppression ou migration implicite.",
       "acceptance_criterion": "Chaque étape sensible exige sa confirmation et la procédure reprend une issue incertaine sans répétition.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S19",
         "S20",
         "S07"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Directory.Model.ps1",
+        "wad/tests/rules/Directory.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (2 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 2
     },
     {
       "id": "D069",
@@ -1349,15 +1595,19 @@
       "title": "Détection d’incohérences AD sur périmètre choisi",
       "proposal": "Signaler doublons de valeurs, responsable introuvable, descriptions manquantes ou objets suspects à revoir, sans purge automatique.",
       "acceptance_criterion": "Un doublon visible ou une date ancienne ne suffit pas à déclarer un objet supprimable.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S19",
         "S20",
         "S07"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Directory.Model.ps1",
+        "wad/tests/rules/Directory.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (1 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 1
     },
     {
       "id": "D070",
@@ -1368,15 +1618,19 @@
       "title": "Comparer une cible entre contrôleurs",
       "proposal": "Lire quelques attributs et métadonnées de réplication d’un même GUID sur des DC explicitement choisis.",
       "acceptance_criterion": "Les différences sont datées par DC, sans assimiler leurs USN à une horloge globale.",
-      "status": "NON_CLOTURE",
+      "status": "DEVELOPPE_NON_RACCORDE",
       "reference_ids": [
         "S19",
         "S20",
         "S07"
       ],
-      "implementation_files": [],
+      "implementation_files": [
+        "wad/modules/Domenia-Directory.Model.ps1",
+        "wad/tests/rules/Directory.Tests.ps1"
+      ],
       "acceptance_passed": false,
-      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+      "remaining": "Regles pures ecrites et testees (1 test(s) ; executes sous Windows PowerShell 5.1.26100.9549 reel et PowerShell 7.4). Reste : raccordement au moteur et a l interface, puis validation du critere d acceptation. Le module n est pas encore charge par l application.",
+      "rule_tests": 1
     },
     {
       "id": "D071",
@@ -2276,5 +2530,7 @@
       "acceptance_passed": false,
       "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
     }
-  ]
+  ],
+  "RuntimeNote": "Les nouveaux fichiers de wad/modules ne sont pas declares dans le chargeur Domenia-Modules.ps1 : le comportement de l application RC1.10.7 est inchange.",
+  "WindowsExecutionNote": "Executions reelles sous Windows PowerShell 5.1.26100.9549 (Windows 11, poste de labo hors domaine) le 2026-10-02 : suites existantes et regles pures. Ces executions ne sont liees a aucun ZIP de livraison : ce n est pas une qualification de publication."
 }

@@ -35,6 +35,17 @@ Bac a sable de preparation (jamais une preuve) : PowerShell 7.4 Linux pour le pa
 PowerShell 7.4 et WPF .NET 8 sous Wine pour charger le vrai XAML. Ligne de base des 23 suites existantes
 dans ce bac a sable avant modification : 1069 tests reussis, 89 en echec (ecarts d'environnement ou suites historiques).
 
-## Avancement
+## Avancement au 2026-10-02
 
-Voir `Suivi_D001_D120.json` pour le detail par point.
+- Fait : garde-fou 5.1, lanceur de tests de regles, six modules de regles pures (D011-D070, 57 points, 132 tests),
+  types immuables C# 5, outil de labo, ligne de base reelle des suites existantes.
+- Verifie sous Windows PowerShell 5.1.26100.9549 reel : 132 regles reussies, parseur natif sur 86 fichiers,
+  garde-fou a 0 erreur, compilation C# 5. Ligne de base des 24 suites existantes : 1215 reussis, 79 en echec
+  (anterieurs au lot, detail dans `lab/baseline-5.1-r1-summary.json`).
+- Non fait : cinq modules de regles (poste, interface, securite des interventions, diagnostic, distribution),
+  mode demonstration, tout le raccordement, campagne de qualification, contrat de release, reconstruction des archives.
+- Le runtime RC1.10.7 est inchange : aucun fichier existant de `wad/` n'a ete modifie et les nouveaux modules
+  ne sont pas declares dans le chargeur.
+
+Le detail du reste a faire, avec les fonctions prevues et les points de raccordement, est dans `REPRISE-D120.md`
+a la racine du depot. Le detail par point est dans `Suivi_D001_D120.json`.

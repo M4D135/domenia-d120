@@ -29,3 +29,11 @@ Depuis PowerShell, avec les chemins adaptes :
 Le rapport doit couvrir parser.ps51, runtime.modules, worker.contracts, startup.exe_login_main, ui.actual_events, ui.layout_profiles, data.sqlite, security.secret_markers, race.selection et prod.standalone. Aucun de ces scenarios n'est remplace par un CRC de ZIP. Ne pas produire une fausse preuve pour forcer le passage.
 
 Ce lot n'ajoute aucune authentification, aucun scan, aucune mutation, aucune popup et aucun partage de credentials. Il ne touche ni aux archives originales, ni aux donnees ADCC/Domenia. Le pointage D001-D120 garde visibles les raccordements et validations restant a faire.
+
+## Etat au 2026-10-02 (suite du lot)
+
+Le lot a ete complete par des regles pures placees dans `wad/modules` (`Domenia-*.Model.ps1`) et testees par
+`wad/tests/Test-DomeniaRules.ps1`. Elles ne sont toujours PAS chargees par l'application : le chargeur ferme
+`Domenia-Modules.ps1` et le coeur sont inchanges. Les premieres executions reelles sous Windows PowerShell 5.1 ont eu lieu
+sur un poste de labo ; elles ne sont liees a aucun ZIP de livraison et ne constituent pas une qualification.
+Voir `PLAN-EXECUTION-D120.md`, `lab/baseline-5.1-r1-summary.json` et `REPRISE-D120.md` a la racine du depot.
