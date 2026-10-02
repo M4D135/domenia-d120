@@ -369,6 +369,13 @@ function Merge-DomeniaLiveLinkMemory {
     if($Observation.Outcome -ne 'Observed' -or -not $Observation.LinkUser -or -not $Observation.UserDn){return}
     $computer=Normalize-LinkComputer ([string]$Observation.Computer);$user=Normalize-LinkUser ([string]$Observation.LinkUser)
     if(-not $computer -or -not $user){return}
+    if(Get-DomeniaFeatureFlag 'RelationsSymmetry' $true){
+        # D042: the observed console joins the relations of the workstation through the upsert rule (memory only,
+        # LiveCache persists). It never overwrites another account, never replaces a declared assignment, no fixed score.
+        $observed=[pscustomobject]@{UserLogin=$user;Computer=$computer;Source='Console CIM/DCOM';Confidence=0;VerifiedInAD=$true;When=([datetime]::Parse([string]$Observation.ObservedUtc)).ToLocalTime().ToString('s');Details='Compte console observé ; sessions RDP non recensées.';UserGuid=[string]$Observation.UserGuid;ComputerGuid=[string]$Observation.Guid;UserDn=[string]$Observation.UserDn;ComputerDn=[string]$Observation.Key;Kind='Console'}
+        [void](Add-DomeniaRelation -Relation $observed -NoSave -Quiet)
+        return
+    }
     $existing=Get-ExistingLinkForComputer $computer
     if($null -ne $existing -and [string]$existing.Source -match '^(?i:Manual|Saisie manuelle)'){return}
     $oldUser=if($null -ne $existing){Normalize-LinkUser ([string]$existing.UserLogin)}else{''}

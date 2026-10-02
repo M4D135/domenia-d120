@@ -7,9 +7,9 @@
 function Get-DomeniaRelationDirection {
     param([Parameter(Mandatory=$true)][ValidateSet('Utilisateur','Machine','User','Computer')][string]$SubjectType)
     if ($SubjectType -in @('Utilisateur','User')) {
-        return [pscustomobject]@{SourceType='Utilisateur';TargetType='Machine';Action='Associer ce poste';SearchLabel='Rechercher un poste';DetectLabel='Detecter les postes';EmptyHint='Aucun poste associe a cet utilisateur.'}
+        return [pscustomobject]@{SourceType='Utilisateur';TargetType='Machine';Action='Associer ce poste';SearchLabel='Rechercher un poste';DetectLabel='Détecter les postes';EmptyHint='Aucun poste associé à cet utilisateur.'}
     }
-    return [pscustomobject]@{SourceType='Machine';TargetType='Utilisateur';Action='Associer cet utilisateur';SearchLabel='Rechercher un utilisateur';DetectLabel='Lire la session de ce poste';EmptyHint='Aucun utilisateur associe a ce poste.'}
+    return [pscustomobject]@{SourceType='Machine';TargetType='Utilisateur';Action='Associer cet utilisateur';SearchLabel='Rechercher un utilisateur';DetectLabel='Lire la session de ce poste';EmptyHint='Aucun utilisateur associé à ce poste.'}
 }
 
 function ConvertTo-DomeniaRelationType {
@@ -64,28 +64,83 @@ function Resolve-DomeniaRelationSubjectChange {
 
 # ---------------------------------------------------------------- D042 assignment versus observation
 function Get-DomeniaRelationKind {
-    # Closed vocabulary derived from the stored source text of a relation.
+    # Closed vocabulary derived from the stored source text of a relation. The order matters:
+    # an AD owner attribute is a clue, a LogonUI value or a profile is history, the current console is an observation.
     param([AllowEmptyString()][AllowNull()][string]$Source)
     $text = [string]$Source
+    if ($text -match '(?i)responsable|managedby') { return 'Indice' }
     if ($text -match '(?i)saisie manuelle|manual|manuel|declar|affect') { return 'Affectation' }
     if ($text -match '(?i)import|csv') { return 'Importe' }
     if ($text -match '(?i)rdp|wts|session distante|terminal') { return 'SessionRdp' }
-    if ($text -match '(?i)console|cim|dcom|explorer|interactive') { return 'Console' }
-    if ($text -match '(?i)historique|journal|event|4624|harvest|logon') { return 'Historique' }
-    if ($text -match '(?i)description|managedBy|kerberos|indice|attribut|inventaire|wapt|glpi') { return 'Indice' }
+    if ($text -match '(?i)historique|journal|event|4624|harvest|logonui|logon|profil|registre') { return 'Historique' }
+    if ($text -match '(?i)console|cim|dcom|explorer|interactive|computersystem|quser|utilisateur courant|winrm') { return 'Console' }
+    if ($text -match '(?i)description|kerberos|indice|attribut|inventaire|wapt|glpi|mention') { return 'Indice' }
     return 'Inconnu'
+}
+
+function ConvertTo-DomeniaRelationLoginKey {
+    # Comparable login: authority and UPN suffix removed, lower case. Empty when unusable.
+    param([AllowEmptyString()][AllowNull()][string]$Login)
+    $value = ([string]$Login).Trim()
+    if ($value.Contains([string][char]92)) { $value = $value.Substring($value.LastIndexOf([char]92) + 1) }
+    if ($value.Contains('@')) { $value = $value.Substring(0,$value.IndexOf('@')) }
+    return $value.Trim().ToLowerInvariant()
+}
+
+function ConvertTo-DomeniaRelationComputerKey {
+    # Comparable workstation name: first DNS label, no trailing $, lower case. Empty when unusable.
+    param([AllowEmptyString()][AllowNull()][string]$Computer)
+    $value = ([string]$Computer).Trim()
+    if ($value.EndsWith('$')) { $value = $value.Substring(0,$value.Length - 1) }
+    if ($value.Contains('.')) { $value = $value.Substring(0,$value.IndexOf('.')) }
+    return $value.Trim().ToLowerInvariant()
 }
 
 function Get-DomeniaRelationKey {
     # One relation = one user, one workstation and one nature of proof. Several users per workstation are allowed.
+    # The key is an identifier for journals and storage; equality decisions use Test-DomeniaSameRelation,
+    # because a legacy row without GUID and the same row with GUID must not become two relations.
     param($Relation)
     $user = ConvertTo-DomeniaGuidText (Get-DomeniaMember $Relation 'UserGuid' '')
-    if (-not $user) { $user = 'login:' + ([string](Get-DomeniaMember $Relation 'UserLogin' '')).ToLowerInvariant() }
+    if (-not $user) { $user = 'login:' + (ConvertTo-DomeniaRelationLoginKey ([string](Get-DomeniaMember $Relation 'UserLogin' ''))) }
     $computer = ConvertTo-DomeniaGuidText (Get-DomeniaMember $Relation 'ComputerGuid' '')
-    if (-not $computer) { $computer = 'name:' + ([string](Get-DomeniaMember $Relation 'Computer' '')).ToLowerInvariant() }
+    if (-not $computer) { $computer = 'name:' + (ConvertTo-DomeniaRelationComputerKey ([string](Get-DomeniaMember $Relation 'Computer' ''))) }
     $kind = [string](Get-DomeniaMember $Relation 'Kind' '')
     if (-not $kind) { $kind = Get-DomeniaRelationKind ([string](Get-DomeniaMember $Relation 'Source' '')) }
     return ($user + '|' + $computer + '|' + $kind)
+}
+
+function Test-DomeniaSameRelation {
+    # Same user, same workstation, same nature of proof. A GUID known on both sides decides (a renamed
+    # account stays the same relation, a recreated object does not); otherwise normalized names decide.
+    param($Left,$Right)
+    if ($null -eq $Left -or $null -eq $Right) { return $false }
+    $leftKind = [string](Get-DomeniaMember $Left 'Kind' '')
+    if (-not $leftKind) { $leftKind = Get-DomeniaRelationKind ([string](Get-DomeniaMember $Left 'Source' '')) }
+    $rightKind = [string](Get-DomeniaMember $Right 'Kind' '')
+    if (-not $rightKind) { $rightKind = Get-DomeniaRelationKind ([string](Get-DomeniaMember $Right 'Source' '')) }
+    if ($leftKind -ne $rightKind) { return $false }
+    $pairs = @(
+        @('UserGuid','UserLogin','Login'),
+        @('ComputerGuid','Computer','Computer')
+    )
+    foreach ($pair in $pairs) {
+        $leftGuid = ConvertTo-DomeniaGuidText (Get-DomeniaMember $Left $pair[0] '')
+        $rightGuid = ConvertTo-DomeniaGuidText (Get-DomeniaMember $Right $pair[0] '')
+        if ($leftGuid -and $rightGuid) {
+            if ($leftGuid -ne $rightGuid) { return $false }
+            continue
+        }
+        if ($pair[2] -eq 'Login') {
+            $leftName = ConvertTo-DomeniaRelationLoginKey ([string](Get-DomeniaMember $Left $pair[1] ''))
+            $rightName = ConvertTo-DomeniaRelationLoginKey ([string](Get-DomeniaMember $Right $pair[1] ''))
+        } else {
+            $leftName = ConvertTo-DomeniaRelationComputerKey ([string](Get-DomeniaMember $Left $pair[1] ''))
+            $rightName = ConvertTo-DomeniaRelationComputerKey ([string](Get-DomeniaMember $Right $pair[1] ''))
+        }
+        if (-not $leftName -or $leftName -ne $rightName) { return $false }
+    }
+    return $true
 }
 
 function Resolve-DomeniaRelationUpsert {
@@ -93,12 +148,69 @@ function Resolve-DomeniaRelationUpsert {
     # observation, and a temporary console session of another account does not remove the owner.
     param([object[]]$Existing=@(),$Incoming)
     if ($null -eq $Incoming) { return [pscustomobject]@{Action='Ignore';Replace=$null;Reason='Relation absente.'} }
-    $incomingKey = Get-DomeniaRelationKey $Incoming
     foreach ($relation in @($Existing)) {
         if ($null -eq $relation) { continue }
-        if ((Get-DomeniaRelationKey $relation) -ceq $incomingKey) { return [pscustomobject]@{Action='Refresh';Replace=$relation;Reason='Meme relation, meme nature : date et detail mis a jour.'} }
+        if (Test-DomeniaSameRelation $relation $Incoming) { return [pscustomobject]@{Action='Refresh';Replace=$relation;Reason='Meme relation, meme nature : date et detail mis a jour.'} }
     }
     return [pscustomobject]@{Action='Add';Replace=$null;Reason='Nouvelle relation ajoutee sans retirer les relations existantes.'}
+}
+
+function Select-DomeniaPrimaryRelation {
+    # The relation shown first for a workstation: a declared assignment, otherwise the most recent relation.
+    param([object[]]$Relations=@())
+    $best = $null; $bestDeclared = $false; $bestWhen = $null
+    foreach ($relation in @($Relations)) {
+        if ($null -eq $relation) { continue }
+        $kind = [string](Get-DomeniaMember $relation 'Kind' '')
+        if (-not $kind) { $kind = Get-DomeniaRelationKind ([string](Get-DomeniaMember $relation 'Source' '')) }
+        $declared = ($kind -eq 'Affectation')
+        $when = ConvertTo-DomeniaUtcDate (Get-DomeniaMember $relation 'When' $null)
+        if ($null -eq $best) { $best = $relation; $bestDeclared = $declared; $bestWhen = $when; continue }
+        if ($declared -and -not $bestDeclared) { $best = $relation; $bestDeclared = $true; $bestWhen = $when; continue }
+        if ($declared -ne $bestDeclared) { continue }
+        if ($null -ne $when -and ($null -eq $bestWhen -or $when -gt $bestWhen)) { $best = $relation; $bestWhen = $when }
+    }
+    return $best
+}
+
+function Resolve-DomeniaRelationStoragePlacement {
+    # The RC1.10 local store keeps one row per workstation (computer_key). Until it keeps one row per relation,
+    # the stored row of a workstation is chosen without ever replacing a declared assignment; among the other
+    # natures the most recent relation is stored. The relation that is not stored stays visible for the session,
+    # marked as such, and is never silently dropped.
+    param($Stored,$Incoming,[bool]$MultiRelationStorage=$false)
+    if ($null -eq $Incoming) { return [pscustomobject]@{Placement='Ignore';Demoted=$null;Reason='Relation absente.'} }
+    if ($MultiRelationStorage) { return [pscustomobject]@{Placement='Stored';Demoted=$null;Reason='Relation enregistree a cote des relations existantes.'} }
+    if ($null -eq $Stored) { return [pscustomobject]@{Placement='Stored';Demoted=$null;Reason='Premiere relation enregistree pour ce poste.'} }
+    $storedKind = [string](Get-DomeniaMember $Stored 'Kind' '')
+    if (-not $storedKind) { $storedKind = Get-DomeniaRelationKind ([string](Get-DomeniaMember $Stored 'Source' '')) }
+    $incomingKind = [string](Get-DomeniaMember $Incoming 'Kind' '')
+    if (-not $incomingKind) { $incomingKind = Get-DomeniaRelationKind ([string](Get-DomeniaMember $Incoming 'Source' '')) }
+    if ($storedKind -eq 'Affectation') {
+        return [pscustomobject]@{Placement='Session';Demoted=$null;Reason='Affectation declaree conservee : le stockage local ne garde qu une relation par poste ; cette relation reste visible pour la session.'}
+    }
+    if ($incomingKind -eq 'Affectation') {
+        return [pscustomobject]@{Placement='Replace';Demoted=$Stored;Reason='Affectation declaree enregistree ; la relation observee precedente reste visible pour la session.'}
+    }
+    $storedWhen = ConvertTo-DomeniaUtcDate (Get-DomeniaMember $Stored 'When' $null)
+    $incomingWhen = ConvertTo-DomeniaUtcDate (Get-DomeniaMember $Incoming 'When' $null)
+    if ($null -ne $incomingWhen -and ($null -eq $storedWhen -or $incomingWhen -gt $storedWhen)) {
+        return [pscustomobject]@{Placement='Replace';Demoted=$Stored;Reason='Observation plus recente enregistree ; la precedente reste visible pour la session.'}
+    }
+    return [pscustomobject]@{Placement='Session';Demoted=$null;Reason='Relation plus ancienne que celle enregistree : visible pour la session seulement.'}
+}
+
+function Get-DomeniaRelationStorageKey {
+    # Storage key of one relation: the workstation key for the relation stored first (compatible with the
+    # existing computer_key rows), and a relation-specific key for any other relation of the same workstation.
+    param($Relation,[bool]$Primary=$true)
+    $computer = ([string](Get-DomeniaMember $Relation 'Computer' '')).Trim()
+    if ($computer.EndsWith('$')) { $computer = $computer.Substring(0,$computer.Length - 1) }
+    if ($computer.Contains('.')) { $computer = $computer.Substring(0,$computer.IndexOf('.')) }
+    $computer = $computer.ToUpperInvariant()
+    if (-not $computer) { return '' }
+    if ($Primary) { return $computer }
+    return ($computer + '|' + (Get-DomeniaRelationKey $Relation))
 }
 
 # ---------------------------------------------------------------- D043 explainable qualification
@@ -148,7 +260,8 @@ function Step-DomeniaAssociationState {
         'Cancel'         { if ($State -in @('Searching','Candidate','Pending','Verifying','Failed')) { $next = 'Idle' } }
         'Search'         { if ($State -in @('Idle','Candidate','Failed','Saved')) { $next = 'Searching' } }
         'Results'        { if ($State -eq 'Searching') { $next = 'Candidate' } }
-        'Pick'           { if ($State -eq 'Candidate') { $next = 'Pending' } }
+        # Results stay listed after a save or a failed verification: another row of the same list may be picked.
+        'Pick'           { if ($State -in @('Candidate','Saved','Failed')) { $next = 'Pending' } }
         'Confirm'        { if ($State -eq 'Pending') { $next = 'Verifying' } }
         'Verified'       { if ($State -eq 'Verifying') { $next = 'Saved' } }
         'VerifyFailed'   { if ($State -eq 'Verifying') { $next = 'Failed' } }
@@ -238,6 +351,23 @@ function Test-DomeniaDetectionMatchesPlan {
     return $true
 }
 
+function Test-DomeniaDetectionWithinPlan {
+    # A probe may stop early (limit, budget, rejected credentials), but never reach a target outside the plan.
+    param($Plan,[object[]]$Targets=@())
+    if ($null -eq $Plan -or -not [bool](Get-DomeniaMember $Plan 'Allowed' $false)) { return $false }
+    $allowed = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+    foreach ($candidate in @(Get-DomeniaMember $Plan 'Candidates' @())) {
+        $guid = ConvertTo-DomeniaGuidText (Get-DomeniaMember $candidate 'Guid' '')
+        if ($guid) { [void]$allowed.Add($guid) }
+    }
+    foreach ($target in @($Targets)) {
+        if ($null -eq $target) { continue }
+        $guid = ConvertTo-DomeniaGuidText (Get-DomeniaMember $target 'Guid' $target)
+        if (-not $guid -or -not $allowed.Contains($guid)) { return $false }
+    }
+    return $true
+}
+
 # ---------------------------------------------------------------- D048 bounded progressive detection
 function Test-DomeniaProbeAllowed {
     # Only an explicit gesture starts a network probe. Rendering or scrolling a list never does.
@@ -262,6 +392,18 @@ function Add-DomeniaDetectionOutcome {
         'Unreachable' { $Counters.Unreachable = [int]$Counters.Unreachable + 1 }
     }
     return $Counters
+}
+
+function ConvertTo-DomeniaDetectionOutcome {
+    # Maps the status of one console read to a counter. Unknown statuses are not counted as a result.
+    param([AllowEmptyString()][AllowNull()][string]$Status)
+    switch -Regex ([string]$Status) {
+        '^(?i:CONFIRME)$'              { return 'Confirmed' }
+        '^(?i:LU)$'                    { return 'NoSession' }
+        '^(?i:REFUSE|AUTH_REJETEE)$'   { return 'Refused' }
+        '^(?i:DELAI|ERREUR)$'          { return 'Unreachable' }
+    }
+    return ''
 }
 
 function Get-DomeniaDetectionCounterText {
@@ -305,10 +447,10 @@ function Test-DomeniaAccountIdentityMatch {
     if ($authority -eq '.' -or ($machine -and $authority -ieq $machine)) { return [pscustomobject]@{Match=$false;Certain=$true;Reason='Compte local du poste, pas un compte du domaine.'} }
     $netbios = [string](Get-DomeniaMember $Target 'NetbiosDomain' ''); $dns = [string](Get-DomeniaMember $Target 'DnsDomain' '')
     $sameDomain = (($netbios -and $authority -ieq $netbios) -or ($dns -and $authority -ieq $dns))
-    if ($identity.Form -eq 'Upn' -and -not $sameDomain) {
-        $upn = [string](Get-DomeniaMember $Target 'Upn' '')
-        if ($upn -and $upn -ieq $ObservedAccount.Trim()) { return [pscustomobject]@{Match=$true;Certain=$false;Reason='UPN identique (suffixe different du domaine DNS) : a confirmer par le SID.'} }
-    }
+    $upn = [string](Get-DomeniaMember $Target 'Upn' '')
+    # The explicit UPN names the account, whatever its prefix or suffix. It is tested before the login,
+    # otherwise a UPN with the DNS suffix and a prefix different from sAMAccountName was refused.
+    if ($identity.Form -eq 'Upn' -and $upn -and $upn -ieq $ObservedAccount.Trim()) { return [pscustomobject]@{Match=$true;Certain=$false;Reason='UPN identique : a confirmer par le SID.'} }
     if (-not $sameDomain) { return [pscustomobject]@{Match=$false;Certain=$true;Reason='Compte d un autre domaine ou d une autre autorite : ' + $authority + '.'} }
     if ($identity.Login -ine $login) { return [pscustomobject]@{Match=$false;Certain=$true;Reason='Identifiant different.'} }
     return [pscustomobject]@{Match=$true;Certain=$false;Reason='Domaine et identifiant identiques ; SID non compare.'}
@@ -328,8 +470,11 @@ function New-DomeniaLinkHistoryEntry {
 function Get-DomeniaLinkRestoreCandidate {
     # A removed local link can be put back from its journal entry. Active Directory is not involved.
     param($Entry,[object[]]$Current=@())
-    if ($null -eq $Entry -or [string]$Entry.Action -ne 'Removed') { return [pscustomobject]@{Restorable=$false;Relation=$null;Reason='Seule une suppression locale peut etre restauree.'} }
-    foreach ($relation in @($Current)) { if ($null -ne $relation -and (Get-DomeniaRelationKey $relation) -ceq [string]$Entry.Key) { return [pscustomobject]@{Restorable=$false;Relation=$null;Reason='Cette association existe deja.'} } }
+    if ($null -eq $Entry -or [string](Get-DomeniaMember $Entry 'Action' '') -ne 'Removed') { return [pscustomobject]@{Restorable=$false;Relation=$null;Reason='Seule une suppression locale peut etre restauree.'} }
+    foreach ($relation in @($Current)) {
+        if ($null -eq $relation) { continue }
+        if (((Get-DomeniaRelationKey $relation) -ceq [string]$Entry.Key) -or (Test-DomeniaSameRelation $relation $Entry.Relation)) { return [pscustomobject]@{Restorable=$false;Relation=$null;Reason='Cette association existe deja.'} }
+    }
     return [pscustomobject]@{Restorable=$true;Relation=$Entry.Relation;Reason=''}
 }
 

@@ -78,6 +78,10 @@ namespace Domenia.RelationsFixture {
 '@
 function Invoke-WorkerFixture {
     param([string]$Mode='Match',[bool]$Scan=$false,[string]$Scope='Candidates',[int]$Limit=20,[bool]$Events=$false,[bool]$Known=$true)
+    # The doubles below run while the worker is executing. PowerShell resolves variables dynamically and is
+    # case-insensitive: the worker assigns its own $mode (= ScanScope), which used to shadow -Mode inside the
+    # doubles. A name the worker never uses keeps each case on its own fixture mode (cases 31 to 40).
+    $relationsFixtureMode=$Mode
     $trace=[pscustomobject]@{Probes=[Collections.ArrayList]::new();Ldap=[Collections.ArrayList]::new();Resources=[Collections.ArrayList]::new();Closed=0;Events=$null}
     $password=ConvertTo-SecureString 'FAUX-SECRET-TEST-SEULEMENT' -AsPlainText -Force
     $ad=[Management.Automation.PSCredential]::new('EXAMPLE\reader',$password)
@@ -99,11 +103,11 @@ function Invoke-WorkerFixture {
     function New-WSearcher {
         param($Context,$Root,$Filter,$Properties,$SearchScope,$Maximum)
         [void]$trace.Ldap.Add([pscustomobject]@{Root=$Root;Filter=$Filter;Scope=$SearchScope;User=$Context.Credential.UserName})
-        if($Mode -eq 'DirectoryDenied'){throw [UnauthorizedAccessException]::new('Access denied (fixture)')}
+        if($relationsFixtureMode -eq 'DirectoryDenied'){throw [UnauthorizedAccessException]::new('Access denied (fixture)')}
         $rows=@()
         if($SearchScope -eq 'Base'){$rows=@($user)}
-        elseif($Mode -eq 'NoCandidates'){$rows=@()}
-        elseif($Mode -eq 'RecreatedPc' -and ($Filter.Contains('managedBy=') -or $Filter.Contains('description='))){$rows=@()}
+        elseif($relationsFixtureMode -eq 'NoCandidates'){$rows=@()}
+        elseif($relationsFixtureMode -eq 'RecreatedPc' -and ($Filter.Contains('managedBy=') -or $Filter.Contains('description='))){$rows=@()}
         elseif($Filter.Contains('managedBy=')){$rows=@($pcA,$pcB)}
         elseif($Filter.Contains('description=')){$rows=@()}
         elseif($Filter -eq '(objectCategory=computer)'){$rows=@($pcA,$pcB)}
@@ -118,15 +122,15 @@ function Invoke-WorkerFixture {
     function New-CimSession {
         param($ComputerName,$SessionOption,$OperationTimeoutSec,$ErrorAction,$Credential)
         [void]$trace.Probes.Add([pscustomobject]@{Computer=$ComputerName;User=$Credential.UserName;Timeout=$OperationTimeoutSec})
-        if($Mode -eq 'AuthRejected'){throw [Runtime.InteropServices.COMException]::new('Logon failure fixture',-2147023570)}
-        if($Mode -eq 'RemoteDenied'){throw [UnauthorizedAccessException]::new('Access denied fixture')}
-        if($Mode -eq 'Timeout'){throw [TimeoutException]::new('Timeout fixture')}
+        if($relationsFixtureMode -eq 'AuthRejected'){throw [Runtime.InteropServices.COMException]::new('Logon failure fixture',-2147023570)}
+        if($relationsFixtureMode -eq 'RemoteDenied'){throw [UnauthorizedAccessException]::new('Access denied fixture')}
+        if($relationsFixtureMode -eq 'Timeout'){throw [TimeoutException]::new('Timeout fixture')}
         return [pscustomobject]@{Name=$ComputerName}
     }
     function Get-CimInstance {
         param($CimSession,$ClassName,$Property,$OperationTimeoutSec,$ErrorAction)
-        $current=switch($Mode){'Other'{'EXAMPLE\bob'}'Foreign'{'OTHER\alice'}'Local'{'PC-A\alice'}'Bare'{'alice'}'Empty'{''}'Upn'{'alice@example.invalid'}default{'EXAMPLE\alice'}}
-        return [pscustomobject]@{Name=$(if($Mode -eq 'WrongTarget'){'PC-WRONG'}else{($CimSession.Name -split '\.')[0]});UserName=$current}
+        $current=switch($relationsFixtureMode){'Other'{'EXAMPLE\bob'}'Foreign'{'OTHER\alice'}'Local'{'PC-A\alice'}'Bare'{'alice'}'Empty'{''}'Upn'{'alice@example.invalid'}default{'EXAMPLE\alice'}}
+        return [pscustomobject]@{Name=$(if($relationsFixtureMode -eq 'WrongTarget'){'PC-WRONG'}else{($CimSession.Name -split '\.')[0]});UserName=$current}
     }
     function Remove-CimSession {param($CimSession,$ErrorAction);$trace.Closed++}
     function Get-WinEvent {
@@ -161,6 +165,8 @@ try {
     $core=Parse-Source (Join-Path $wad 'Domenia-Core.ps1')
     $module=Parse-Source (Join-Path $wad 'modules\Domenia-Relations.UI.ps1')
     Import-SourceFunction $core 'Get-MainXaml'
+    . (Join-Path $wad 'modules\Domenia-Common.Model.ps1')
+    . (Join-Path $wad 'modules\Domenia-Relations.Model.ps1')
     . (Join-Path $wad 'modules\Domenia-Embedded.UI.ps1')
     . (Join-Path $wad 'modules\Domenia-Relations.UI.ps1')
     $coreText=[IO.File]::ReadAllText((Join-Path $wad 'Domenia-Core.ps1'))
@@ -170,7 +176,7 @@ try {
     Expect (@($ce).Count -eq 0) ($ce|Out-String)
     $script:GuidHelpers=(@($ca.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -in @('Get-WPropFirst','Convert-WGuid')},$true))|ForEach-Object{$_.Extent.Text}) -join "`r`n"
     $script:WorkerCode=Get-DomeniaRelationsWorkerCode
-    Case '01 Parseur du corps du worker inverse' {$t=$null;$e=$null;[void][Management.Automation.Language.Parser]::ParseInput($script:WorkerCode,[ref]$t,[ref]$e);Expect (@($e).Count -eq 0) ($e|Out-String)}
+    Case '01 Parseur du corps du worker inverse' {$t=$null;$e=$null;[void][Management.Automation.Language.Parser]::ParseInput($script:WorkerCode,[ref]$t,[ref]$e);Expect (@($e).Count -eq 0) ($e|Out-String);Expect (-not ($script:WorkerCode -match '(?i)\$relationsFixtureMode\b')) 'Le worker ne doit pas utiliser la variable du fixture.'}
     Case '02 Selection seule : aucun travail soumis' {Reset-Fixture;Set-DomeniaRelationsSelection -Row $script:Alice;Expect ($null -eq $script:Submission -and $script:Relations.Subject.Login -eq 'alice')}
     Case '03 Filtre utilisateur connu, sans toutes les relations' {Reset-Fixture;Set-DomeniaRelationsSelection -Row $script:Alice;$l=@(Get-DomeniaRelationsSelectedLinks);Expect ($l.Count -eq 1 -and $l[0].Computer -eq 'PC-A')}
     Case '04 Changer utilisateur change le filtre' {Set-DomeniaRelationsSelection -Row $script:Bob;$l=@(Get-DomeniaRelationsSelectedLinks);Expect ($l.Count -eq 1 -and $l[0].UserLogin -eq 'bob')}
@@ -200,16 +206,16 @@ try {
     Case '28 Console utilise le compte poste distinct' {$script:FixtureOutput=Invoke-WorkerFixture -Scan $true;Expect ($script:FixtureOutput.Trace.Probes.Count -eq 2 -and @($script:FixtureOutput.Trace.Probes|Where-Object{$_.User -ne 'EXAMPLE\postes'}).Count -eq 0)}
     Case '29 Console du bon domaine confirmee' {Expect ($script:FixtureOutput.Result.ScanStats.Matched -eq 2)}
     Case '30 Toutes les sessions CIM creees fermees' {Expect ($script:FixtureOutput.Trace.Closed -eq $script:FixtureOutput.Trace.Probes.Count)}
-    Case '31 Compte console autre utilisateur non associe' {$script:FixtureOutput=Invoke-WorkerFixture -Mode Other -Scan $true;Expect ($script:FixtureOutput.Result.ScanStats.Matched -eq 0)}
-    Case '32 Meme nom autre domaine non associe' {$script:FixtureOutput=Invoke-WorkerFixture -Mode Foreign -Scan $true;Expect ($script:FixtureOutput.Result.ScanStats.Matched -eq 0)}
-    Case '33 Compte local homonyme non associe' {$script:FixtureOutput=Invoke-WorkerFixture -Mode Local -Scan $true;Expect ($script:FixtureOutput.Result.ScanStats.Matched -eq 0)}
-    Case '34 Nom non qualifie non devine' {$script:FixtureOutput=Invoke-WorkerFixture -Mode Bare -Scan $true;Expect ($script:FixtureOutput.Result.ScanStats.Matched -eq 0)}
-    Case '35 UPN exact accepte' {$script:FixtureOutput=Invoke-WorkerFixture -Mode Upn -Scan $true;Expect ($script:FixtureOutput.Result.ScanStats.Matched -eq 2)}
-    Case '36 Console vide ne conclut pas aux sessions RDP' {$script:FixtureOutput=Invoke-WorkerFixture -Mode Empty -Scan $true;Expect ($script:FixtureOutput.Result.ScanStats.Matched -eq 0 -and $script:FixtureOutput.Result.Candidates[0].Detail -match 'RDP non recens')}
-    Case '37 Machine recue differente non attribuee' {$script:FixtureOutput=Invoke-WorkerFixture -Mode WrongTarget -Scan $true;Expect ($script:FixtureOutput.Result.ScanStats.Matched -eq 0 -and $script:FixtureOutput.Result.Partial)}
+    Case '31 Compte console autre utilisateur non associe' {$script:FixtureOutput=Invoke-WorkerFixture -Mode Other -Scan $true;Expect ($script:FixtureOutput.Result.ScanStats.Matched -eq 0);Expect (@($script:FixtureOutput.Result.Candidates|Where-Object{$_.CurrentUser -eq 'EXAMPLE\bob'}).Count -eq 2) 'Console EXAMPLE\bob non lue'}
+    Case '32 Meme nom autre domaine non associe' {$script:FixtureOutput=Invoke-WorkerFixture -Mode Foreign -Scan $true;Expect ($script:FixtureOutput.Result.ScanStats.Matched -eq 0);Expect (@($script:FixtureOutput.Result.Candidates|Where-Object{$_.CurrentUser -eq 'OTHER\alice'}).Count -eq 2) 'Console OTHER\alice non lue'}
+    Case '33 Compte local homonyme non associe' {$script:FixtureOutput=Invoke-WorkerFixture -Mode Local -Scan $true;Expect ($script:FixtureOutput.Result.ScanStats.Matched -eq 0);Expect (@($script:FixtureOutput.Result.Candidates|Where-Object{$_.CurrentUser -eq 'PC-A\alice'}).Count -eq 2) 'Console PC-A\alice non lue'}
+    Case '34 Nom non qualifie non devine' {$script:FixtureOutput=Invoke-WorkerFixture -Mode Bare -Scan $true;Expect ($script:FixtureOutput.Result.ScanStats.Matched -eq 0);Expect (@($script:FixtureOutput.Result.Candidates|Where-Object{$_.CurrentUser -eq 'alice'}).Count -eq 2) 'Console alice non qualifiee non lue'}
+    Case '35 UPN exact accepte' {$script:FixtureOutput=Invoke-WorkerFixture -Mode Upn -Scan $true;Expect ($script:FixtureOutput.Result.ScanStats.Matched -eq 2);Expect (@($script:FixtureOutput.Result.Candidates|Where-Object{$_.CurrentUser -eq 'alice@example.invalid'}).Count -eq 2) 'Chemin UPN non parcouru'}
+    Case '36 Console vide ne conclut pas aux sessions RDP' {$script:FixtureOutput=Invoke-WorkerFixture -Mode Empty -Scan $true;Expect ($script:FixtureOutput.Result.ScanStats.Matched -eq 0 -and $script:FixtureOutput.Result.Candidates[0].Detail -match 'RDP non recens');Expect ($script:FixtureOutput.Result.Candidates[0].Status -eq 'Aucun compte console') 'Console vide non lue'}
+    Case '37 Machine recue differente non attribuee' {$script:FixtureOutput=Invoke-WorkerFixture -Mode WrongTarget -Scan $true;Expect ($script:FixtureOutput.Result.ScanStats.Matched -eq 0 -and $script:FixtureOutput.Result.Partial);Expect (@($script:FixtureOutput.Result.Attempts|Where-Object{$_.Detail -match 'Nom du poste re'}).Count -eq 2) 'Nom de poste different non detecte'}
     Case '38 Acces refuse visible dans tentatives' {$script:FixtureOutput=Invoke-WorkerFixture -Mode RemoteDenied -Scan $true;Expect (@($script:FixtureOutput.Result.Attempts|Where-Object{$_.Status -eq 'REFUSE' -and $_.Resource -eq 'Remote'}).Count -eq 2)}
-    Case '39 Delai conserve observation historique' {$script:FixtureOutput=Invoke-WorkerFixture -Mode Timeout -Scan $true;Expect (@($script:FixtureOutput.Result.Candidates|Where-Object{$_.Known -and $_.ObservedUtc -eq '2020-01-01'}).Count -eq 1 -and $script:FixtureOutput.Result.Partial)}
-    Case '40 Rejet identifiants arrete les sondes suivantes' {$script:FixtureOutput=Invoke-WorkerFixture -Mode AuthRejected -Scan $true;Expect ($script:FixtureOutput.Trace.Probes.Count -eq 1 -and $script:FixtureOutput.Result.Partial)}
+    Case '39 Delai conserve observation historique' {$script:FixtureOutput=Invoke-WorkerFixture -Mode Timeout -Scan $true;Expect (@($script:FixtureOutput.Result.Candidates|Where-Object{$_.Known -and $_.ObservedUtc -eq '2020-01-01'}).Count -eq 1 -and $script:FixtureOutput.Result.Partial);Expect (@($script:FixtureOutput.Result.Attempts|Where-Object{$_.Status -eq 'DELAI'}).Count -ge 1) 'Delai non classe'}
+    Case '40 Rejet identifiants arrete les sondes suivantes' {$script:FixtureOutput=Invoke-WorkerFixture -Mode AuthRejected -Scan $true;Expect ($script:FixtureOutput.Trace.Probes.Count -eq 1 -and $script:FixtureOutput.Result.Partial);Expect (@($script:FixtureOutput.Result.Attempts|Where-Object{$_.Status -eq 'AUTH_REJETEE'}).Count -eq 1) 'Rejet des identifiants non classe'}
     Case '41 Canal deja bloque : aucun nouvel essai' {$script:FixtureOutput=Invoke-WorkerFixture -Mode RemoteBlocked -Scan $true;Expect ($script:FixtureOutput.Trace.Probes.Count -eq 0 -and $script:FixtureOutput.Result.Partial)}
     Case '42 Configuration CIM desactivee respectee' {$script:FixtureOutput=Invoke-WorkerFixture -Mode CimDisabled -Scan $true;Expect ($script:FixtureOutput.Trace.Probes.Count -eq 0)}
     Case '43 Limite de sondes respectee' {$script:FixtureOutput=Invoke-WorkerFixture -Scan $true -Limit 1;Expect ($script:FixtureOutput.Trace.Probes.Count -eq 1 -and $script:FixtureOutput.Result.Partial)}
