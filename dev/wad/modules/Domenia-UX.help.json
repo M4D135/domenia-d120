@@ -3318,5 +3318,75 @@
     "Text": "Option séparée, non disponible : la lecture porte sur la console. Une console vide ne prouve pas lʼabsence de session RDP.",
     "Kind": "Control",
     "Source": "d120-relations"
+  },
+  {
+    "Name": "LblSearchHint",
+    "Title": "Lecture de la saisie",
+    "Text": "Explique comment le texte du bandeau est compris : jetons explicites (utilisateur:, poste:, groupe:, mail:), identifiant collé reconnu ou préfixe inconnu cherché comme texte. Aucun filtre caché, aucune requête.",
+    "Kind": "TextBlock",
+    "Source": "d120-recherche"
+  },
+  {
+    "Name": "BtnSearchMore",
+    "Title": "Charger la suite",
+    "Text": "Disponible quand la liste est limitée : relit la même recherche avec une limite doublée, jusquʼà 500 lignes, sans doublon ni ancien contexte. La limite saisie nʼest pas modifiée.",
+    "Kind": "Button",
+    "Source": "d120-recherche"
+  },
+  {
+    "Name": "CmbWorkView",
+    "Title": "Vue de travail",
+    "Text": "Vues prêtes à lʼemploi en lecture seule : comptes expirants ou désactivés, objets modifiés récemment, postes dʼune OU ou sans connexion depuis 90 jours. Le choix seul ne lance rien.",
+    "Kind": "ComboBox",
+    "Source": "d120-recherche"
+  },
+  {
+    "Name": "BtnWorkView",
+    "Title": "Afficher la vue de travail",
+    "Text": "Lance la vue choisie : un filtre et un type, sans compte, droit ni mode écriture. Le texte de recherche de ce mode est vidé.",
+    "Kind": "Button",
+    "Source": "d120-recherche"
+  },
+  {
+    "Name": "BtnNavBack",
+    "Title": "Précédent",
+    "Text": "Revient à lʼétape précédente : page, recherche, OU, sélection et défilement restitués depuis la mémoire, avec leur fraîcheur, sans nouvelle lecture ni sonde. Refusé tant quʼune saisie non enregistrée attend une décision.",
+    "Kind": "Button",
+    "Source": "d120-recherche"
+  },
+  {
+    "Name": "BtnNavForward",
+    "Title": "Suivant",
+    "Text": "Revient à lʼétape suivante, sans nouvelle lecture ni sonde des postes.",
+    "Kind": "Button",
+    "Source": "d120-recherche"
+  },
+  {
+    "Name": "OuRestoreBanner",
+    "Title": "OU mémorisée",
+    "Text": "Avertissement quand lʼOU mémorisée nʼest pas retrouvée : aucun autre périmètre nʼest appliqué à sa place.",
+    "Kind": "Border",
+    "Source": "d120-recherche"
+  },
+  {
+    "Name": "LblOuRestoreMessage",
+    "Title": "OU mémorisée",
+    "Text": "Distingue une OU absente sous son parent relu dʼune lecture non aboutie ; un délai nʼest jamais présenté comme une absence.",
+    "Kind": "TextBlock",
+    "Source": "d120-recherche"
+  },
+  {
+    "Name": "BtnOuRestoreRetry",
+    "Title": "Relire lʼOU mémorisée",
+    "Text": "Relance une seule fois la restauration de lʼOU mémorisée dans lʼarbre. Aucun autre périmètre nʼest appliqué.",
+    "Kind": "Button",
+    "Source": "d120-recherche"
+  },
+  {
+    "Name": "BtnOuRestoreDismiss",
+    "Title": "Choisir une autre OU",
+    "Text": "Ferme lʼavertissement : choisissez une OU dans lʼarbre. Le périmètre actuel nʼest pas modifié.",
+    "Kind": "Button",
+    "Source": "d120-recherche"
   }
 ]

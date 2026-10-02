@@ -63,7 +63,7 @@ function Reset-Fixture {
     $script:SelectedBranchDn='OU=Test,DC=example,DC=invalid'
     $script:Ctrl=@{
         DgObjects=[pscustomobject]@{IsEnabled=$true;SelectedItem=$null;SelectedItems=@();SelectedIndex=-1}
-        TxtGlobalSearch=[pscustomobject]@{Text=''};ChkSubtree=[pscustomobject]@{IsChecked=$true}
+        TxtGlobalSearch=[pscustomobject]@{Text=''};TxtBranchSearch=[pscustomobject]@{Text=''};ChkSubtree=[pscustomobject]@{IsChecked=$true}
         LblLinkProbeStatus=[pscustomobject]@{Text=''}
     }
     $state=[pscustomobject]@{Limit=500;PreserveSelectionDn='';Generation=11}
@@ -136,7 +136,9 @@ Case 'Restoration is deferred while settings are applied' {Restore-Request;$scri
 Case 'Restoration is deferred during a write' {Restore-Request;$script:WriteState='Unknown';Invoke-DomeniaRestoredOuSearch;Expect ($script:SearchCalls.Count -eq 0 -and $null -ne $script:Continuity.RestoreSearch)}
 Case 'Restoration waits for live infrastructure' {Restore-Request;$script:Live=$null;Invoke-DomeniaRestoredOuSearch;Expect ($script:SearchCalls.Count -eq 0 -and $null -ne $script:Continuity.RestoreSearch)}
 Case 'Changed OU wins over a pending restoration' {Restore-Request;$script:SelectedBranchDn='OU=Other,DC=example,DC=invalid';Invoke-DomeniaRestoredOuSearch;Expect ($script:SearchCalls.Count -eq 0 -and $null -eq $script:Continuity.RestoreSearch)}
-Case 'Changed text wins over a pending restoration' {Restore-Request;$script:Ctrl.TxtGlobalSearch.Text='new';Invoke-DomeniaRestoredOuSearch;Expect ($script:SearchCalls.Count -eq 0 -and $null -eq $script:Continuity.RestoreSearch)}
+# D032 (lot recherche): the OU restoration is guarded by the OU search text, not by the global bar.
+Case 'Changed text wins over a pending restoration' {Restore-Request;$script:Ctrl.TxtBranchSearch.Text='new';Invoke-DomeniaRestoredOuSearch;Expect ($script:SearchCalls.Count -eq 0 -and $null -eq $script:Continuity.RestoreSearch)}
+Case 'Global text does not cancel an OU restoration' {Restore-Request;$script:Ctrl.TxtGlobalSearch.Text='new';Invoke-DomeniaRestoredOuSearch;Expect ($script:SearchCalls.Count -eq 1 -and $null -eq $script:Continuity.RestoreSearch)}
 Case 'Changed subtree wins over a pending restoration' {Restore-Request;$script:Ctrl.ChkSubtree.IsChecked=$false;Invoke-DomeniaRestoredOuSearch;Expect ($script:SearchCalls.Count -eq 0)}
 Case 'Changed type wins over a pending restoration' {Restore-Request;$script:FixtureType='(objectClass=user)';Invoke-DomeniaRestoredOuSearch;Expect ($script:SearchCalls.Count -eq 0)}
 Case 'Changed generation cancels the pending restore' {Restore-Request;$script:GlobalSearchGeneration++;Invoke-DomeniaRestoredOuSearch;Expect ($script:SearchCalls.Count -eq 0)}

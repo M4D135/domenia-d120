@@ -100,18 +100,23 @@ function Get-DomeniaRuntimeModulePlan {
             'New-DomeniaSearchState',
             'Set-DomeniaBrowseOu',
             'Get-DomeniaScopeLabel',
+            'Get-DomeniaGlobalSearchPlan',
+            'Get-DomeniaFavouriteName',
             'Get-DomeniaSearchRank',
             'Test-DomeniaAdminAccountRow',
             'Sort-DomeniaSearchResults',
             'ConvertTo-DomeniaGuidFilterValue',
             'Get-DomeniaPastedIdentifier',
             'Get-DomeniaResultCounterText',
+            'Get-DomeniaContinuationDecision',
             'New-DomeniaContinuation',
             'Test-DomeniaContinuationCurrent',
             'ConvertTo-DomeniaLdapTime',
             'Get-DomeniaWorkViews',
             'ConvertTo-DomeniaSavedView',
             'Split-DomeniaDn',
+            'ConvertFrom-DomeniaDnValue',
+            'Get-DomeniaDnParent',
             'Get-DomeniaOuDisplayPath',
             'Resolve-DomeniaOuRestore',
             'New-DomeniaNavHistory',
@@ -426,10 +431,12 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaSourceReadPlan',
             'ConvertFrom-DomeniaWaptHost'
         ) }
-        [pscustomobject]@{ File='Domenia-Selection.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1'); File='Domenia-Selection.UI.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaObjectReadIdentity',
+            'Get-DomeniaRowSelectionIdentity',
             'Get-DomeniaSelectionContext',
             'Test-DomeniaSameSelectionContext',
+            'Get-DomeniaCurrentSelectionIdentity',
             'Test-DomeniaSelectionLoadCurrent',
             'Get-DomeniaObjectResultGuid',
             'Assert-DomeniaObjectResultIdentity',
@@ -630,7 +637,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaLiveProbeCode',
             'Get-DomeniaLiveCacheCode'
         ) }
-        [pscustomobject]@{ File='Domenia-Live.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Search.Model.ps1','Domenia-Live.Model.ps1'); File='Domenia-Live.UI.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaLiveIdentitySignal',
             'Initialize-DomeniaLive',
             'Reset-DomeniaLiveIdentity',
@@ -660,7 +667,10 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaLiveWorkerCount',
             'Get-DomeniaLiveDatabasePath',
             'Start-DomeniaLiveBackgroundWork',
-            'Invoke-DomeniaLiveTick'
+            'Invoke-DomeniaLiveTick',
+            'Test-DomeniaLiveBackgroundAllowed',
+            'Update-DomeniaSearchMoreButton',
+            'Invoke-DomeniaSearchMore'
         ) }
         [pscustomobject]@{ File='Domenia-Access.UI.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaAccessFailureKind',
@@ -684,7 +694,7 @@ function Get-DomeniaRuntimeModulePlan {
             'ConvertTo-DomeniaTreeBookmark',
             'Get-DomeniaChangeWorkerCode'
         ) }
-        [pscustomobject]@{ File='Domenia-Continuity.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Search.Model.ps1','Domenia-Continuity.Model.ps1','Domenia-Live.UI.ps1'); File='Domenia-Continuity.UI.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaGridColumnKey',
             'Register-DomeniaGridLayout',
             'Save-DomeniaGridLayout',
@@ -697,6 +707,10 @@ function Get-DomeniaRuntimeModulePlan {
             'Complete-DomeniaObjectChanges',
             'Fail-DomeniaObjectChanges',
             'Invoke-DomeniaObjectChanges',
+            'Get-DomeniaOuRestoreDecision',
+            'Show-DomeniaOuRestoreNotice',
+            'Hide-DomeniaOuRestoreNotice',
+            'Invoke-DomeniaOuRestoreRetry',
             'Initialize-DomeniaContinuity'
         ) }
         [pscustomobject]@{ File='Domenia-Guard.Model.ps1'; DotSource=$true; Functions=@(
@@ -855,6 +869,21 @@ function Get-DomeniaRuntimeModulePlan {
             'Request-DomeniaWindowActivation',
             'Test-DomeniaUserSwitchedAway'
         ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Search.Model.ps1','Domenia-Live.UI.ps1'); File='Domenia-Search.UI.ps1'; DotSource=$true; Functions=@(
+            'Update-DomeniaSearchHint',
+            'Update-DomeniaWorkViewList',
+            'Invoke-DomeniaWorkView',
+            'Get-DomeniaGridScrollViewer',
+            'Get-DomeniaNavSnapshot',
+            'Get-DomeniaVisiblePageName',
+            'Enter-DomeniaNavSearch',
+            'Exit-DomeniaNavSearch',
+            'Update-DomeniaNavButtons',
+            'Register-DomeniaNavLocation',
+            'Restore-DomeniaNavState',
+            'Invoke-DomeniaNavStep',
+            'Initialize-DomeniaSearchUi'
+        ) }
     )
 }
 
@@ -869,6 +898,7 @@ function Get-DomeniaRuntimeModuleValue {
 function Get-DomeniaRuntimeTypePlan {
     # Immutable C# 5 types compiled before the rule modules (Add-Type of Windows PowerShell 5.1).
     @(
+        [pscustomobject]@{ File='Domenia-Live.Types.cs'; Types=@('Domenia.Live.ResultRow') }
         [pscustomobject]@{ File='Domenia-Identity.Types.cs'; Types=@('Domenia.SelectionIdentity','Domenia.PlanChange','Domenia.InterventionPlan') }
     )
 }

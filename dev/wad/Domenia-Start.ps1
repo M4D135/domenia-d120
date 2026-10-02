@@ -87,6 +87,8 @@ try {
         'wad/modules/Domenia-Demo.UI.ps1',
         'wad/modules/Domenia-Startup.UI.ps1',
         'wad/modules/Domenia-Isolation.Worker.ps1',
+        'wad/modules/Domenia-Search.UI.ps1',
+        'wad/modules/Domenia-Live.Types.cs',
         'wad/modules/Domenia-Guard.UI.ps1'
     )){
         if(-not $seen.ContainsKey($required)){throw ('Manifeste incomplet : '+$required)}

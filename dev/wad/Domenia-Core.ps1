@@ -19121,6 +19121,7 @@ function New-DefaultConfig {
             RelationsSymmetry = $true
             DetectionPreview = $true
             SearchSyntax = $true
+            SearchRanking = $true
             ColumnProfiles = $true
             InlineConfirm = $true
             IsolatedReads = $false
@@ -20278,7 +20279,7 @@ function Get-DomeniaWorkerOperationHashes {
         IsolatedRead          = "4074D6ECAA620A9C80A5B6B535BB657E02DCE06A9DF97E35CA1EA47572D1060C"
         CmdletHelp            = "12505D0654AB0E97BD803A70B953BB0BBE2152836AAA1889744C1312EB215D62"
         TreeChildren          = "64E2C2F8DCE64FBF68A3079937B7671039CA4E71EC00805A7E9195CC9C483141"
-        GlobalSearch          = "BC118AD7E1E2F1B5C78C77E5375DC36CB8955ECB41E81611F3FDE74FB4B05510"
+        GlobalSearch          = "DFCA576AEC76E948F20D4E51AC47F657C4482BACD992D4A384E8E9FEC65A2819"
         PermissionAnalysis    = "664513B3CF363C35CA895100374950039EAE9B69DD288AD5AE53F862EC10A340"
         SelfCheck             = "C73BA6DA41221073BF1B56DA687BC8CF2A3250B5151F3D996C37EAFAA8E572B3"
         ReadBitLocker         = "55F469517F1AD169F93E772DADFDAED51DDCCF12BCE2313194D667A8A69EA485"
@@ -20341,7 +20342,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "3FB430C0DCAD1FC1376398A66CF3ED8FF4AE2807CD2A868C1F7620C86C71E7B8"
+    $expectedFingerprint = "A0A100D36221C618F0446EEDC7059CC3878DD767A97E00FDE83834C481A9B8FA"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -24089,7 +24090,8 @@ function Invoke-DomeniaSelfTest {
         'Test-DomeniaStartupPlan','Test-DomeniaTaskAdmission','Get-DomeniaTaskStateSummary','Get-DomeniaOperationCredentialNeeds',
         'Initialize-DomeniaEngineState','Invoke-DomeniaUiTaskDispatch','Invoke-DomeniaQueuedTaskPromotion','Test-DomeniaBackgroundWorkAllowed',
         'Initialize-DomeniaIdlePolicy','Get-DomeniaDemoDirectoryWorkerCode','New-DomeniaDemoDirectory','ConvertTo-DomeniaDemoWorkerContext',
-        'Test-DomeniaDemoProviderEnabled','Request-DomeniaWindowActivation','Get-DomeniaLocalIndexReadWorkerCode','Get-DomeniaParkSharedSyncWorkerCode'
+        'Test-DomeniaDemoProviderEnabled','Request-DomeniaWindowActivation','Get-DomeniaLocalIndexReadWorkerCode','Get-DomeniaParkSharedSyncWorkerCode',
+        'Get-DomeniaGlobalSearchPlan','Get-DomeniaContinuationDecision','Get-DomeniaCurrentSelectionIdentity','Initialize-DomeniaSearchUi','Invoke-DomeniaNavStep','Invoke-DomeniaSearchMore','Get-DomeniaOuRestoreDecision'
     )
     $missing = @($requiredFunctions | Where-Object { $null -eq (Get-Command -Name $_ -CommandType Function -ErrorAction SilentlyContinue) })
     Add-SelfTestResult -Name 'Fonctions critiques' -Success ($missing.Count -eq 0) -Detail $(if($missing.Count -eq 0){'Toutes presentes.'}else{"Absentes : $($missing -join ', ')"})
