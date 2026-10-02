@@ -1,5 +1,11 @@
 # Reprise du lot D001-D120 de Domenia — prompt de passation
 
+> **Mise à jour du 2026-10-02 (session cloud, branche `claude/epic-newton-j5ir1w`)** : les neuf branches `lot/*` sont
+> fusionnées et raccordées sur cette branche ; `master` est inchangé. L'état exact, les défauts trouvés et la reprise
+> dans la VM sont dans `dev/engineering/d120/ETAT-2026-10-02.md` (dernière section) ; le suivi point par point est à
+> jour (`RACCORDE_NON_EXECUTE` = branché, tests écrits, rien exécuté sous 5.1). Les sections 4 et 7 ci-dessous décrivent
+> l'état antérieur à cette intégration.
+
 Tu reprends un chantier en cours. Lis ce fichier en entier, puis `CLAUDE.md`, puis
 `dev/engineering/d120/Suivi_D001_D120.json`. Tout ce qui est décrit ici comme « fait » est dans le dépôt et vérifiable ;
 tout ce qui est décrit comme « à faire » ne l'est pas.
