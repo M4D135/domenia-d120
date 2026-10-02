@@ -15,6 +15,7 @@ Test-Case 'D032' 'Cliquer une OU ne filtre pas cette OU par le texte de la reche
     [void](Set-DomeniaBrowseOu $s 'OU=Lyon,DC=example,DC=invalid')
     Assert-Equal '' $s.Browse.Filter;Assert-Equal 'dupont' $s.Global.Text;Assert-Equal 'Browse' $s.Mode
     Assert-Equal 'Domaine entier' (Get-DomeniaScopeLabel Global);Assert-True ((Get-DomeniaScopeLabel Browse 'Lyon' $false) -match 'Dans cette OU : Lyon')
+    Assert-True ((Get-DomeniaScopeLabel Browse 'Lyon' $false).Contains('Enfants directs'));Assert-True ((Get-DomeniaScopeLabel Browse 'Lyon' $true).Contains('Sous-OU incluses'))
 }
 Test-Case 'D033' 'Jetons explicites reconnus et visibles' {
     $s=ConvertFrom-DomeniaSearchSyntax 'poste:PC-01 dupont mail:"jean dupont"'
@@ -32,6 +33,7 @@ Test-Case 'D034' 'Un compte exact arrive avant les correspondances larges' {
             [pscustomobject]@{Guid='33333333-3333-3333-3333-333333333333';Name='Dupont';Login='dupont';UPN='dupont@example.invalid'})
     $sorted=Sort-DomeniaSearchResults $rows 'dupont'
     Assert-Equal 'dupont' $sorted[0].Login;Assert-Equal 3 $sorted.Count
+    Assert-Equal 'jdupont' $sorted[1].Login 'Un mot entier du nom passe avant un mot plus long qui commence par la saisie'
 }
 Test-Case 'D034' 'Deduplication par identite, pas par libelle' {
     $rows=@([pscustomobject]@{Guid='11111111-1111-1111-1111-111111111111';Name='Jean Dupont';Login='jdupont'},
@@ -84,9 +86,13 @@ Test-Case 'D036' 'Une saisie reconnue ou ambigue n ouvre jamais automatiquement 
     foreach($text in @('jdupont@example.invalid','EXAMPLE\jdupont','S-1-5-21-1-2-3-1104','pc-01.example.invalid','jean')){Assert-False (Get-DomeniaPastedIdentifier $text).AutoOpen}
     Assert-True (Get-DomeniaPastedIdentifier 'jdupont@example.invalid').Ambiguous
     $r=New-DomeniaGlobalSearchRequest 'S-1-5-21-1-2-3-1104' $script:DomainDn;Assert-Equal '(objectSid=S-1-5-21-1-2-3-1104)' $r.Filter
+    Assert-True (Get-DomeniaPastedIdentifier 'jean.marc.dupont').Ambiguous 'Un identifiant a points peut etre un compte'
+    Assert-False ((New-DomeniaGlobalSearchRequest 'jean.marc.dupont' $script:DomainDn).Filter -match '^\(dNSHostName=') 'Un identifiant a points ne doit pas etre reduit au nom DNS'
+    Assert-False ((New-DomeniaGlobalSearchRequest 'alex@example.invalid' $script:DomainDn).Filter -match '^\(\|\(userPrincipalName=alex@example\.invalid\)') 'Une adresse reste une recherche par prefixe'
 }
 Test-Case 'D037' 'Le compteur precise charge, limite ou complet' {
-    Assert-True ((Get-DomeniaResultCounterText 100 100 $false) -match 'limitee a 100');Assert-True ((Get-DomeniaResultCounterText 42 100 $true) -match 'liste complete')
+    Assert-True ((Get-DomeniaResultCounterText 100 100 $false) -match 'limitée à 100');Assert-True ((Get-DomeniaResultCounterText 42 100 $true) -match 'liste complète')
+    Assert-True ((Get-DomeniaResultCounterText 500 500 $false) -match 'affinez la recherche');Assert-False ((Get-DomeniaResultCounterText 500 500 $false) -match 'chargez la suite')
     Assert-True ((Get-DomeniaResultCounterText 10 100 $false $true) -match 'lecture en cours');Assert-True ((Get-DomeniaResultCounterText 42 100 $true $false 7) -match '7 visible')
 }
 Test-Case 'D037' 'La suite reprend apres le dernier nom et refuse un ancien contexte' {
@@ -98,7 +104,7 @@ Test-Case 'D037' 'La suite reprend apres le dernier nom et refuse un ancien cont
 Test-Case 'D038' 'Une vue enregistree ne restaure ni compte privilegie ni permission d ecriture' {
     $v=ConvertTo-DomeniaSavedView ([pscustomobject]@{Name='Ma vue';Text='dupont';Type='Utilisateur';OuDn='OU=X';Limit=5000;Credential='secret';ReadOnlyMode=$false;AdminAccount='adm'})
     $names=@($v.PSObject.Properties|ForEach-Object{$_.Name})
-    Assert-False ($names -contains 'Credential');Assert-False ($names -contains 'ReadOnlyMode');Assert-False ($names -contains 'AdminAccount');Assert-Equal 1000 $v.Limit
+    Assert-False ($names -contains 'Credential');Assert-False ($names -contains 'ReadOnlyMode');Assert-False ($names -contains 'AdminAccount');Assert-Equal 500 $v.Limit
 }
 Test-Case 'D038' 'Vues de travail : filtres bornes et lecture seule' {
     $views=@(Get-DomeniaWorkViews ([datetime]::SpecifyKind([datetime]'2026-01-01',[DateTimeKind]::Utc)))
@@ -107,8 +113,17 @@ Test-Case 'D038' 'Vues de travail : filtres bornes et lecture seule' {
     Assert-True (@($views|Where-Object{$_.Id -eq 'stalecomputers'})[0].Note -match 'supprimable')
 }
 Test-Case 'D039' 'Chemin d OU lisible, DN exact conserve' {
-    Assert-Equal ('example.invalid '+[char]0x203A+' Marseille '+[char]0x203A+' Support') (Get-DomeniaOuDisplayPath 'OU=Support,OU=Marseille,DC=example,DC=invalid')
+    Assert-Equal 'example.invalid / Marseille / Support' (Get-DomeniaOuDisplayPath 'OU=Support,OU=Marseille,DC=example,DC=invalid')
     Assert-Equal 3 (Split-DomeniaDn 'OU=A\, B,DC=example,DC=invalid').Count
+}
+Test-Case 'D039' 'Separateurs echappes et octets UTF-8 decodes comme dans l explorateur' {
+    Assert-Equal 4 (Split-DomeniaDn 'OU=Back\\,OU=Sites,DC=example,DC=invalid').Count 'Un antislash echappe termine le RDN'
+    Assert-True ((Get-DomeniaOuDisplayPath 'OU=\C3\89quipe,DC=example,DC=invalid').EndsWith(([string][char]0x00C9)+'quipe'))
+    Assert-True ((Get-DomeniaOuDisplayPath 'OU=Help\2CDesk,DC=example,DC=invalid').EndsWith('Help,Desk'))
+    Assert-True ((Get-DomeniaOuDisplayPath 'OU=Back\\,OU=Sites,DC=example,DC=invalid').EndsWith('Sites / Back\'))
+    Assert-Equal 'A\41' (ConvertFrom-DomeniaDnValue 'A\\41') 'Un antislash echappe n est pas le debut d un octet'
+    Assert-Equal 'OU=Sites,DC=example,DC=invalid' (Get-DomeniaDnParent 'OU=Paris\, Est,OU=Sites,DC=example,DC=invalid')
+    Assert-Equal '' (Get-DomeniaDnParent 'DC=invalid')
 }
 Test-Case 'D039' 'OU supprimee ou deplacee : choix explicite, jamais le domaine entier en silence' {
     $missing=Resolve-DomeniaOuRestore 'OU=X,DC=example,DC=invalid' $false
@@ -134,4 +149,38 @@ Test-Case 'D040' 'Un brouillon n est pas abandonne par la navigation' {
     $blocked=Step-DomeniaNavHistory $h Back $true
     Assert-False $blocked.Moved;Assert-True $blocked.Blocked;Assert-Equal 'WsObject' $h.Current.Page
     Assert-True (Step-DomeniaNavHistory $h Back $true $true).Moved
+}
+Test-Case 'D037' 'Charger la suite : seulement pour une liste limitee, terminee et sous le plafond' {
+    $d=Get-DomeniaContinuationDecision $true $false $true 100;Assert-True $d.Allowed;Assert-Equal 200 $d.NextLimit
+    Assert-Equal 500 (Get-DomeniaContinuationDecision $true $false $true 300).NextLimit
+    Assert-False (Get-DomeniaContinuationDecision $true $false $true 500).Allowed
+    Assert-False (Get-DomeniaContinuationDecision $true $false $false 100).Allowed
+    Assert-False (Get-DomeniaContinuationDecision $false $false $true 100).Allowed
+    Assert-False (Get-DomeniaContinuationDecision $true $true $true 100).Allowed
+}
+Test-Case 'D033' 'Plan global : jetons explicites seulement, texte inconnu explique sans filtre cache' {
+    $type='(objectCategory=computer)'
+    $p=Get-DomeniaGlobalSearchPlan 'poste:PC-01' $type 2 $true
+    Assert-Equal 'Syntax' $p.Kind;Assert-True ($p.Filter.StartsWith('(&'+$type));Assert-True ($p.Filter.Contains('PC-01*'));Assert-True ($p.Hint -match 'Machine : PC-01')
+    $u=Get-DomeniaGlobalSearchPlan 'service:compta dupont' $type 2 $true
+    Assert-Equal 'Default' $u.Kind;Assert-Equal '' $u.Filter;Assert-True ($u.Hint -match 'pas un jeton reconnu')
+    $off=Get-DomeniaGlobalSearchPlan 'poste:PC-01' $type 2 $false;Assert-Equal 'Default' $off.Kind;Assert-Equal '' $off.Filter
+    $empty=Get-DomeniaGlobalSearchPlan 'utilisateur: dupont' $type 2 $true;Assert-Equal 'Default' $empty.Kind;Assert-True ($empty.Hint -match 'sans valeur')
+}
+Test-Case 'D035' 'Plan global : plusieurs mots exigent chacun une correspondance, sans joker initial' {
+    $p=Get-DomeniaGlobalSearchPlan "Jean-Marc O'Neil" '(objectClass=user)' 2 $true
+    Assert-True ($p.MultiWordFilter.StartsWith('(&(objectClass=user)(|(cn=Jean-Marc*)'));Assert-True ($p.MultiWordFilter.Contains("(sn=O'Neil*)"))
+    Assert-False ($p.MultiWordFilter -match '=\*');Assert-Equal '' (Get-DomeniaGlobalSearchPlan 'dupont' '(objectClass=user)').MultiWordFilter
+    Assert-Equal '' (Get-DomeniaGlobalSearchPlan 'jean *pont' '(objectClass=user)').MultiWordFilter
+}
+Test-Case 'D036' 'Plan global : GUID, SID et DN deviennent une recherche exacte, jamais une ouverture automatique' {
+    $type='(objectClass=user)'
+    $sid=Get-DomeniaGlobalSearchPlan 'S-1-5-21-1-2-3-1104' $type;Assert-Equal 'Identifier' $sid.Kind;Assert-Equal ('(&'+$type+'(objectSid=S-1-5-21-1-2-3-1104))') $sid.Filter;Assert-False $sid.AutoOpen
+    $dn=Get-DomeniaGlobalSearchPlan 'CN=Jean Dupont,OU=Lyon,DC=example,DC=invalid' $type;Assert-Equal 'Identifier' $dn.Kind
+    $upn=Get-DomeniaGlobalSearchPlan 'jdupont@example.invalid' $type;Assert-Equal 'Default' $upn.Kind;Assert-True ($upn.Hint.Length -gt 10)
+    Assert-Equal 'Default' (Get-DomeniaGlobalSearchPlan 'S-1-5-21-1-2-3-1104' $type 2 $false).Kind
+}
+Test-Case 'D038' 'Nom de favori construit sans fenetre ni compte' {
+    Assert-Equal 'Domaine entier : dupont' (Get-DomeniaFavouriteName Global 'dupont');Assert-Equal 'Vue : Comptes desactives' (Get-DomeniaFavouriteName Global '' '' 'Comptes desactives')
+    Assert-Equal 'Postes : PC' (Get-DomeniaFavouriteName OU 'PC' 'Postes');Assert-True ((Get-DomeniaFavouriteName Global ('x'*200)).Length -le 80)
 }
