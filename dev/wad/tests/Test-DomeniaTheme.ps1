@@ -96,7 +96,8 @@ function Assert-TestContrast {
     param($Control,$FallbackBackground,[string]$Name)
     $fg=Get-TestBrushHex $Control.Foreground
     $brush=$null
-    if ($null -ne $Control.PSObject.Properties['Background']) { $brush=$Control.Background }
+    # A CheckBox or RadioButton Background fills the small glyph box; its label is drawn on the surface behind it.
+    if ($null -ne $Control.PSObject.Properties['Background'] -and -not ($Control -is [Windows.Controls.CheckBox] -or $Control -is [Windows.Controls.RadioButton])) { $brush=$Control.Background }
     if ($brush -isnot [Windows.Media.SolidColorBrush] -or $brush.Color.A -ne 255) { $brush=$FallbackBackground }
     $bg=Get-TestBrushHex $brush
     $a=Get-TestLuminance $fg;$b=Get-TestLuminance $bg

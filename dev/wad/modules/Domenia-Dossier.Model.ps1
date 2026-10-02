@@ -33,7 +33,7 @@ try{
     $data=[Text.UTF8Encoding]::new($false).GetBytes([string]$Payload.Text)
     $f=[IO.File]::Open($tmp,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
     try{$f.Write($data,0,$data.Length);$f.Flush($true)}finally{$f.Dispose()}
-    if([IO.File]::Exists($path)){[IO.File]::Replace($tmp,$path,$null,$true)}else{[IO.File]::Move($tmp,$path)}
+    if([IO.File]::Exists($path)){[IO.File]::Replace($tmp,$path,[NullString]::Value,$true)}else{[IO.File]::Move($tmp,$path)}
     [pscustomobject]@{Saved=$true;Path=$path;Content=''}
 }finally{if([IO.File]::Exists($tmp)){[IO.File]::Delete($tmp)}}
 '@

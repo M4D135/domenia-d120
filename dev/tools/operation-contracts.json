@@ -375,7 +375,7 @@
     "File": "wad/modules/Domenia-Dossier.Model.ps1",
     "Function": "Get-DomeniaDocumentWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "1C3586124D76C145FB35E933C5962DAB37DA447F3AE17093D7D301202A7E99EE"
+    "Sha256": "BFD83587CB1BA62BC141E5F0742C6C6453A561617ED157045F3B4E7AB11A14E7"
   },
   {
     "Operation": "LiveSelectedPing",

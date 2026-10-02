@@ -444,7 +444,9 @@ function Request-DomeniaIndexSearch {
         $timer = New-Object System.Windows.Threading.DispatcherTimer
         $timer.Interval = [TimeSpan]::FromMilliseconds(250)
         $timer.Add_Tick({
-            try { $script:DomeniaIndexSearchTimer.Stop() } catch { }
+            param($sender,$eventArgs)
+            # Stop the timer that ticked, not the script variable (see Request-DomeniaDashboardRefresh).
+            try { $sender.Stop() } catch { }
             try { Search-DomeniaIndexUi } catch { }
         })
         $script:DomeniaIndexSearchTimer = $timer

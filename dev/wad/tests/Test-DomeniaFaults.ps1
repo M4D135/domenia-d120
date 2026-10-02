@@ -300,6 +300,8 @@ try {
         $firstUtc=[datetime]::UtcNow.AddHours(-1).ToString('o')
         $first=[pscustomobject]@{QueryKey=(Get-DomeniaLiveHash 'q1');ObservedUtc=$firstUtc;Rows=@([pscustomobject]@{DN='CN=A,DC=example,DC=invalid';Name='A'})}
         $Payload=[pscustomobject]@{Mode='Write';Path=$dbPath;Scope=$scope;Observations=@();Query=$first}
+        # As Initialize-DomeniaLive does before any cache worker: the pinned body only resolves the native type.
+        [void](Initialize-DomeniaWinSqliteNative)
         [void](& ([scriptblock]::Create($cacheCode)))
         $holder=Open-DomeniaDatabase -Path $dbPath
         $failure=''

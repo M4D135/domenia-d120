@@ -166,9 +166,10 @@ function Write-DomeniaAtomicText {
         $stream.Flush($true)
         $stream.Dispose(); $stream = $null
         if ([IO.File]::Exists($full)) {
-            $backup = if ($KeepBackup) { $full + '.bak' } else { $null }
             # Same-directory replacement. Never delete the valid destination first.
-            [IO.File]::Replace($temp,$full,$backup,$true)
+            # [NullString]::Value: under 5.1 a plain $null becomes "" for a .NET string parameter and Replace throws.
+            if ($KeepBackup) { [IO.File]::Replace($temp,$full,($full + '.bak'),$true) }
+            else { [IO.File]::Replace($temp,$full,[NullString]::Value,$true) }
         } else { [IO.File]::Move($temp,$full) }
     }
     finally {
@@ -1416,12 +1417,13 @@ function Escape-LdapValue {
     param([string]$Value, [switch]$KeepWildcard)
     $sb = New-Object System.Text.StringBuilder
     foreach ($ch in ($Value + "").ToCharArray()) {
-        switch ($ch) {
-            ([char]92) { [void]$sb.Append("\5c") }
-            "(" { [void]$sb.Append("\28") }
-            ")" { [void]$sb.Append("\29") }
-            "`0" { [void]$sb.Append("\00") }
-            "*" { if ($KeepWildcard) { [void]$sb.Append("*") } else { [void]$sb.Append("\2a") } }
+        # Numeric cases: under 5.1 a string case compares with the culture and U+00AD (soft hyphen) equals "`0".
+        switch ([int]$ch) {
+            92 { [void]$sb.Append("\5c") }
+            40 { [void]$sb.Append("\28") }
+            41 { [void]$sb.Append("\29") }
+            0 { [void]$sb.Append("\00") }
+            42 { if ($KeepWildcard) { [void]$sb.Append("*") } else { [void]$sb.Append("\2a") } }
             default { [void]$sb.Append($ch) }
         }
     }
@@ -1447,8 +1449,16 @@ function Convert-ADLargeIntegerToInt64 {
     if ($Value -is [int64]) { return [int64]$Value }
     if ($Value -is [int]) { return [int64]$Value }
     try {
-        $high = [int64]$Value.HighPart
-        $low = [int64]$Value.LowPart
+        # A genuine ADSI IADsLargeInteger exposes no member to PowerShell 5.1: read it through IDispatch first.
+        $type = $Value.GetType()
+        try {
+            $high = $type.InvokeMember('HighPart',[Reflection.BindingFlags]::GetProperty,$null,$Value,$null)
+            $low = $type.InvokeMember('LowPart',[Reflection.BindingFlags]::GetProperty,$null,$Value,$null)
+        }
+        catch { $high = $Value.HighPart; $low = $Value.LowPart }
+        if ($null -eq $high -or $null -eq $low) { return 0 }
+        $high = [int64]$high
+        $low = [int64]$low
         if ($low -lt 0) { $low = $low + 4294967296 }
         return (($high -shl 32) -bor $low)
     }
@@ -8132,8 +8142,15 @@ function Convert-WLargeInteger {
     if ($null -eq $Value) { return 0L }
     if ($Value -is [int64] -or $Value -is [int]) { return [int64]$Value }
     try {
-        $high = [int64]$Value.HighPart
-        $low = [int64]$Value.LowPart
+        # A genuine ADSI IADsLargeInteger exposes no member to PowerShell 5.1: read it through IDispatch first.
+        $type = $Value.GetType()
+        try {
+            $high = $type.InvokeMember('HighPart',[Reflection.BindingFlags]::GetProperty,$null,$Value,$null)
+            $low = $type.InvokeMember('LowPart',[Reflection.BindingFlags]::GetProperty,$null,$Value,$null)
+        } catch { $high = $Value.HighPart; $low = $Value.LowPart }
+        if ($null -eq $high -or $null -eq $low) { return 0L }
+        $high = [int64]$high
+        $low = [int64]$low
         if ($low -lt 0) { $low += 4294967296 }
         return (($high -shl 32) -bor $low)
     } catch { return 0L }
@@ -8174,12 +8191,13 @@ function Escape-WLdap {
     param([string]$Value, [switch]$KeepWildcard)
     $sb = New-Object System.Text.StringBuilder
     foreach ($ch in ($Value + "").ToCharArray()) {
-        switch ($ch) {
-            ([char]92) { [void]$sb.Append("\5c") }
-            "(" { [void]$sb.Append("\28") }
-            ")" { [void]$sb.Append("\29") }
-            "`0" { [void]$sb.Append("\00") }
-            "*" { if ($KeepWildcard) { [void]$sb.Append("*") } else { [void]$sb.Append("\2a") } }
+        # Numeric cases: under 5.1 a string case compares with the culture and U+00AD (soft hyphen) equals "`0".
+        switch ([int]$ch) {
+            92 { [void]$sb.Append("\5c") }
+            40 { [void]$sb.Append("\28") }
+            41 { [void]$sb.Append("\29") }
+            0 { [void]$sb.Append("\00") }
+            42 { if ($KeepWildcard) { [void]$sb.Append("*") } else { [void]$sb.Append("\2a") } }
             default { [void]$sb.Append($ch) }
         }
     }
@@ -17148,12 +17166,13 @@ function Invoke-DomeniaInProcessAuthProbe {
         param([string]$Value)
         $builder = New-Object System.Text.StringBuilder
         foreach ($character in ([string]$Value).ToCharArray()) {
-            switch ($character) {
-                ([char]92) { [void]$builder.Append("\5c") }
-                "(" { [void]$builder.Append("\28") }
-                ")" { [void]$builder.Append("\29") }
-                "`0" { [void]$builder.Append("\00") }
-                "*" { [void]$builder.Append("\2a") }
+            # Numeric cases: under 5.1 a string case compares with the culture and U+00AD (soft hyphen) equals "`0".
+            switch ([int]$character) {
+                92 { [void]$builder.Append("\5c") }
+                40 { [void]$builder.Append("\28") }
+                41 { [void]$builder.Append("\29") }
+                0 { [void]$builder.Append("\00") }
+                42 { [void]$builder.Append("\2a") }
                 default { [void]$builder.Append($character) }
             }
         }
@@ -20527,7 +20546,7 @@ function Get-DomeniaWorkerOperationHashes {
         RemoteCredentialCheck = "9070C7A5D9460D0FD129FD67CD5070595DE4DED7CA7EE7573C65AF102B0E515B"
         ReceiptStore         = "20AB6477733849833861CCCBEBAD3ABE7915C3326F4A01F837121DA3A059AE3D"
         ScopeReconcile       = "538B302B29BE4EB5AF3335821260ACFAEDBDD8D2E490B4E816405CEE976AE831"
-        DocumentStore        = "1C3586124D76C145FB35E933C5962DAB37DA447F3AE17093D7D301202A7E99EE"
+        DocumentStore        = "BFD83587CB1BA62BC141E5F0742C6C6453A561617ED157045F3B4E7AB11A14E7"
         LocalStore           = "C3AC442159F01B268243A881383EF193BEA3F53322950318C61983E2D78F6054"
         EngineSelfTest        = "40E2C89F858E22E1D221AC48DC04DD5BF627F1ACBC836AB48036C43DB9F7E1D1"
             EmbeddedDirectoryLookup = "2B3A888C7E1A97B4D523B0B3A408EF03AA5C0D0F95D534984B8EB3D581CDDD17"
@@ -20540,7 +20559,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "703C62D280AAD25DD17E49A7681600FF6F83C995B7D1545ACD9514FCCC4CC437"
+    $expectedFingerprint = "0F16F7ADFD9B0E4F435CD0FF5DBF6B97110A8763357DB36050E7F982EE4F8873"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -22883,7 +22902,7 @@ function Export-SelfCheckReport {
             $zipTemp = $dlg.FileName + '.' + [guid]::NewGuid().ToString('N') + '.partial'
             try {
                 [System.IO.Compression.ZipFile]::CreateFromDirectory($work,$zipTemp,[System.IO.Compression.CompressionLevel]::Optimal,$false)
-                if ([IO.File]::Exists($dlg.FileName)) { [IO.File]::Replace($zipTemp,$dlg.FileName,$null,$true) }
+                if ([IO.File]::Exists($dlg.FileName)) { [IO.File]::Replace($zipTemp,$dlg.FileName,[NullString]::Value,$true) }
                 else { [IO.File]::Move($zipTemp,$dlg.FileName) }
             } finally { Remove-Item -LiteralPath $zipTemp -Force -ErrorAction SilentlyContinue }
             Set-Status "ZIP diagnostic exporte : $($dlg.FileName)"
@@ -22925,7 +22944,9 @@ function Request-DomeniaDashboardRefresh {
             $script:DashboardRefreshTimer = New-Object System.Windows.Threading.DispatcherTimer
             $script:DashboardRefreshTimer.Interval = [TimeSpan]::FromMilliseconds(160)
             $script:DashboardRefreshTimer.Add_Tick({
-                try { $script:DashboardRefreshTimer.Stop() } catch { }
+                param($sender,$eventArgs)
+                # Stop the timer that ticked, not the script variable: a replaced or cleared variable left it ticking forever.
+                try { $sender.Stop() } catch { }
                 try { Update-Dashboard } catch { }
             })
             # D019: owned timer, stopped by the registry at shutdown.

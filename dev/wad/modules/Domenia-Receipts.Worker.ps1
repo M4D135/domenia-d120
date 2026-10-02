@@ -42,7 +42,7 @@ function Write-WReceipt {
     try {
         $f=[IO.File]::Open($tmp,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
         try{$f.Write($bytes,0,$bytes.Length);$f.Flush($true)}finally{$f.Dispose()}
-        if([IO.File]::Exists($path)){[IO.File]::Replace($tmp,$path,$null,$true)}else{[IO.File]::Move($tmp,$path)}
+        if([IO.File]::Exists($path)){[IO.File]::Replace($tmp,$path,[NullString]::Value,$true)}else{[IO.File]::Move($tmp,$path)}
     }finally{if([IO.File]::Exists($tmp)){[IO.File]::Delete($tmp)}}
 }
 function Set-WReceiptStage {
