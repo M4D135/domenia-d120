@@ -3,20 +3,39 @@
 
 function Get-DomeniaMember {
     # Safe member read for PSCustomObject, hashtable and .NET objects. Never throws on a missing member.
+    # Calling convention (relied on by every rule module): the value is written to the pipeline, so a collection is
+    # enumerated; wrap the call in @() to read a collection, cast to read a scalar. Get-DomeniaMemberValue returns the
+    # value itself (one-element collection, byte[] GUID or SID) when the exact object is needed.
     param($InputObject,[string]$Name,$Default=$null)
     if ($null -eq $InputObject -or [string]::IsNullOrEmpty($Name)) { return $Default }
     if ($InputObject -is [Collections.IDictionary]) {
-        # IDictionary.Contains is explicit on generic dictionaries: it throws under Windows PowerShell 5.1.
-        $found = $false
-        try { $found = $InputObject.Contains($Name) }
-        catch { try { $found = [bool]$InputObject.ContainsKey($Name) } catch { $found = $false } }
-        # Unary comma: a one-element collection (DN list, byte[] SID, AD value collection) must not be unrolled.
-        if ($found) { return ,$InputObject[$Name] }
+        if (Test-DomeniaDictionaryKey $InputObject $Name) { return $InputObject[$Name] }
+        return $Default
+    }
+    $property = $InputObject.PSObject.Properties[$Name]
+    if ($null -eq $property) { return $Default }
+    return $property.Value
+}
+
+function Get-DomeniaMemberValue {
+    # Same lookup as Get-DomeniaMember, but the value is returned as one object: a one-element collection,
+    # an AD value collection or a byte[] (GUID, SID) is not unrolled. Do not wrap the call in @().
+    param($InputObject,[string]$Name,$Default=$null)
+    if ($null -eq $InputObject -or [string]::IsNullOrEmpty($Name)) { return ,$Default }
+    if ($InputObject -is [Collections.IDictionary]) {
+        if (Test-DomeniaDictionaryKey $InputObject $Name) { return ,$InputObject[$Name] }
         return ,$Default
     }
     $property = $InputObject.PSObject.Properties[$Name]
     if ($null -eq $property) { return ,$Default }
     return ,$property.Value
+}
+
+function Test-DomeniaDictionaryKey {
+    # IDictionary.Contains is explicit on generic dictionaries: it throws under Windows PowerShell 5.1.
+    param([Collections.IDictionary]$Dictionary,[string]$Name)
+    try { return [bool]$Dictionary.Contains($Name) }
+    catch { try { return [bool]$Dictionary.ContainsKey($Name) } catch { return $false } }
 }
 
 function Get-DomeniaCollectionItems {

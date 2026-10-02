@@ -456,25 +456,25 @@ Test-Case 'D004' 'Strategie de mot de passe : compteurs absents, aucune valeur i
 # que l execution complete reste verte ; DOMENIA_D004_KNOWN_DEFECTS=1 les execute : ils echouent tant que le module
 # n est pas corrige (constate sous Windows PowerShell 5.1.26100 dans la VM de test). Une fois le module corrige,
 # retirer la garde.
-# D004 : causes 1, 2, 3 et 5 (partie Domenia-Common.Model.ps1) corrigees le 2026-10-02 : Get-DomeniaMember conserve les
-# collections a un element, ConvertTo-DomeniaSidText accepte un SID deroule, les conversions deballent les collections AD,
+# D004 : causes 1, 2, 3 et 5 (partie Domenia-Common.Model.ps1) corrigees le 2026-10-02 : Get-DomeniaMemberValue conserve les
+# collections a un element (Get-DomeniaMember garde la convention @() de tous les modules : voir le test ci-dessus), ConvertTo-DomeniaSidText accepte un SID deroule, les conversions deballent les collections AD,
 # ConvertTo-DomeniaUtcDate lit un IADsLargeInteger. Ces tests sont donc actifs.
-Test-Case 'D004' 'TODO-D004 Get-DomeniaMember rend un tableau d un octet entier' {
-    $value = Get-DomeniaMember ([pscustomobject]@{Flag=[byte[]]@(42)}) 'Flag'
+Test-Case 'D004' 'Get-DomeniaMemberValue rend un tableau d un octet entier' {
+    $value = Get-DomeniaMemberValue ([pscustomobject]@{Flag=[byte[]]@(42)}) 'Flag'
     Assert-True ($value -is [byte[]]) 'Un octet seul est rendu comme un scalaire [byte]'
 }
-Test-Case 'D004' 'TODO-D004 Get-DomeniaMember rend un SID binaire entier' {
-    $value = Get-DomeniaMember ([pscustomobject]@{Sid=(New-DomeniaFixtureSidBytes $script:FxSid)}) 'Sid'
+Test-Case 'D004' 'Get-DomeniaMemberValue rend un SID binaire entier' {
+    $value = Get-DomeniaMemberValue ([pscustomobject]@{Sid=(New-DomeniaFixtureSidBytes $script:FxSid)}) 'Sid'
     Assert-True ($value -is [byte[]]) 'Le SID binaire est deroule en octets isoles'
 }
-Test-Case 'D004' 'TODO-D004 Get-DomeniaMember rend une collection a un element sans la deballer' {
+Test-Case 'D004' 'Get-DomeniaMemberValue rend une collection a un element sans la deballer' {
     $row = [pscustomobject]@{Une=@($script:FxGroupDn);UneAd=(New-DomeniaFixtureResultValues $script:FxGroupDn);GuidAd=(New-DomeniaFixtureResultValues (New-DomeniaFixtureGuidBytes $script:FxGuid))}
-    $une = Get-DomeniaMember $row 'Une'
+    $une = Get-DomeniaMemberValue $row 'Une'
     Assert-True ($une -is [array]) 'Un tableau d un DN est rendu comme une chaine : son [0] est le premier caractere'
     Assert-Equal $script:FxGroupDn ([string]$une[0]) 'Premier element : le DN entier'
-    $uneAd = Get-DomeniaMember $row 'UneAd'
+    $uneAd = Get-DomeniaMemberValue $row 'UneAd'
     Assert-True (($uneAd -is [Collections.ICollection]) -and ($uneAd -isnot [string])) 'Une ResultPropertyValueCollection d un DN est rendue comme une chaine'
-    $guidAd = Get-DomeniaMember $row 'GuidAd'
+    $guidAd = Get-DomeniaMemberValue $row 'GuidAd'
     Assert-True ($guidAd -isnot [byte[]]) 'La collection d un GUID binaire est rendue comme le tableau d octets lui-meme'
 }
 Test-Case 'D004' 'TODO-D004 ConvertTo-DomeniaSidText accepte un SID deroule par le pipeline' {
