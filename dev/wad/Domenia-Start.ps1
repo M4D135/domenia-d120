@@ -80,6 +80,13 @@ try {
         'wad/modules/Domenia-Dossier.Model.ps1',
         'wad/modules/Domenia-Dossier.UI.ps1',
         'wad/modules/Domenia-Reconcile.UI.ps1',
+        'wad/modules/Domenia-Engine.UI.ps1',
+        'wad/modules/Domenia-Engine.Worker.ps1',
+        'wad/modules/Domenia-Demo.Model.ps1',
+        'wad/modules/Domenia-Demo.Worker.ps1',
+        'wad/modules/Domenia-Demo.UI.ps1',
+        'wad/modules/Domenia-Startup.UI.ps1',
+        'wad/modules/Domenia-Isolation.Worker.ps1',
         'wad/modules/Domenia-Guard.UI.ps1'
     )){
         if(-not $seen.ContainsKey($required)){throw ('Manifeste incomplet : '+$required)}

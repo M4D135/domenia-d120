@@ -19009,6 +19009,7 @@ function New-DefaultConfig {
         # D120 (F5): switches for behaviours that replace an existing path. Read by Get-DomeniaFeatureFlag.
         Features = [ordered]@{
             Scheduler = $true
+            IdlePolicy = $true
             ScopedLocks = $true
             RelationsSymmetry = $true
             DetectionPreview = $true
@@ -20164,6 +20165,10 @@ function Get-DomeniaWorkerCodeHash {
 function Get-DomeniaWorkerOperationHashes {
     # Registre ferme : seules ces operations internes, avec leur corps exact, peuvent entrer dans un runspace.
     return [ordered]@{
+        DemoDirectory         = "336D852653033819F52E427F5CF5DED8199FCE33D6D7FE5F25B1339F9AAF438E"
+        LocalIndexRead        = "2974178D600D640E53834C8C63257EAEB4930BBA88D66CD68E0752FD1206E54A"
+        ParkSharedSync        = "B3A64051813F12A24BD5E791D59CF7E2330FA84E965C9F44BD62366D4A81415E"
+        IsolatedRead          = "4074D6ECAA620A9C80A5B6B535BB657E02DCE06A9DF97E35CA1EA47572D1060C"
         CmdletHelp            = "12505D0654AB0E97BD803A70B953BB0BBE2152836AAA1889744C1312EB215D62"
         TreeChildren          = "64E2C2F8DCE64FBF68A3079937B7671039CA4E71EC00805A7E9195CC9C483141"
         GlobalSearch          = "BC118AD7E1E2F1B5C78C77E5375DC36CB8955ECB41E81611F3FDE74FB4B05510"
@@ -20229,7 +20234,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "CF5261C06466B7D376A1563DE9EC5B090FCBF66C3BECA282ACF17C4A4C4C7F7B"
+    $expectedFingerprint = "3FB430C0DCAD1FC1376398A66CF3ED8FF4AE2807CD2A868C1F7620C86C71E7B8"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }

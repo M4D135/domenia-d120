@@ -397,5 +397,33 @@
     "Function": "Get-DomeniaEmbeddedPathCode",
     "LiteralIndex": 0,
     "Sha256": "B643D707E242EC4416AD63622847DD7C39E5B53ED47CF64FECD56E22B5A82271"
+  },
+  {
+    "Operation": "DemoDirectory",
+    "File": "wad/modules/Domenia-Demo.Worker.ps1",
+    "Function": "Get-DomeniaDemoDirectoryWorkerCode",
+    "LiteralIndex": 0,
+    "Sha256": "336D852653033819F52E427F5CF5DED8199FCE33D6D7FE5F25B1339F9AAF438E"
+  },
+  {
+    "Operation": "LocalIndexRead",
+    "File": "wad/modules/Domenia-Engine.Worker.ps1",
+    "Function": "Get-DomeniaLocalIndexReadWorkerCode",
+    "LiteralIndex": 0,
+    "Sha256": "2974178D600D640E53834C8C63257EAEB4930BBA88D66CD68E0752FD1206E54A"
+  },
+  {
+    "Operation": "ParkSharedSync",
+    "File": "wad/modules/Domenia-Engine.Worker.ps1",
+    "Function": "Get-DomeniaParkSharedSyncWorkerCode",
+    "LiteralIndex": 0,
+    "Sha256": "B3A64051813F12A24BD5E791D59CF7E2330FA84E965C9F44BD62366D4A81415E"
+  },
+  {
+    "Operation": "IsolatedRead",
+    "File": "wad/modules/Domenia-Isolation.Worker.ps1",
+    "Function": "Get-DomeniaIsolatedReadWorkerCode",
+    "LiteralIndex": 0,
+    "Sha256": "4074D6ECAA620A9C80A5B6B535BB657E02DCE06A9DF97E35CA1EA47572D1060C"
   }
 ]

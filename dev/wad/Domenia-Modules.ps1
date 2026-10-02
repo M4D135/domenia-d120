@@ -39,6 +39,10 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaTaskStateSummary',
             'Get-DomeniaCancelStatusText',
             'Get-DomeniaOperationProvider',
+            'Get-DomeniaOperationCredentialNeeds',
+            'ConvertTo-DomeniaProviderOutcome',
+            'Test-DomeniaQueuedTaskExpired',
+            'Get-DomeniaIsolationDecision',
             'Get-DomeniaProviderBudget',
             'New-DomeniaProviderState',
             'Get-DomeniaProviderStateKey',
@@ -51,6 +55,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Release-DomeniaResources',
             'Get-DomeniaResourceSummary',
             'Get-DomeniaIdlePolicy',
+            'Get-DomeniaIdleActivityForSource',
             'Test-DomeniaIdleAllows'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1'); File='Domenia-Cache.Model.ps1'; DotSource=$true; Functions=@(
@@ -773,6 +778,82 @@ function Get-DomeniaRuntimeModulePlan {
             'Remove-DomeniaFavouriteSearch',
             'Resume-DomeniaStorage',
             'Show-DomeniaUnavailableReasons'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1'); File='Domenia-Demo.Model.ps1'; DotSource=$true; Functions=@(
+            'Test-DomeniaDemoProviderEnabled',
+            'Test-DomeniaDemoIdentity',
+            'Get-DomeniaDemoBannerText',
+            'Get-DomeniaDemoPassThroughOperations',
+            'ConvertTo-DomeniaDemoWorkerContext',
+            'Get-DomeniaDemoUnavailableText',
+            'New-DomeniaDemoGuidBytes',
+            'New-DomeniaDemoSidBytes',
+            'New-DomeniaDemoDirectory'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Demo.Worker.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaDemoDirectoryWorkerCode'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Engine.Worker.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaLocalIndexReadWorkerCode',
+            'Get-DomeniaParkSharedSyncWorkerCode'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Isolation.Worker.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaIsolatedReadWorkerCode'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Guard.Model.ps1','Domenia-Demo.Model.ps1','Domenia-Demo.Worker.ps1','Domenia-Engine.Worker.ps1','Domenia-Isolation.Worker.ps1'); File='Domenia-Engine.UI.ps1'; DotSource=$true; Functions=@(
+            'Initialize-DomeniaEngineState',
+            'Test-DomeniaSchedulerEnabled',
+            'Get-DomeniaEngineLimits',
+            'Get-DomeniaEngineLoad',
+            'Get-DomeniaUiTaskAdmission',
+            'Get-DomeniaNextTaskSequence',
+            'Get-DomeniaContextCredentialIdentity',
+            'Invoke-DomeniaUiTaskDispatch',
+            'Get-DomeniaDispatchIsolation',
+            'New-DomeniaIsolatedReadPayload',
+            'Register-DomeniaJobResources',
+            'Sync-DomeniaJobResources',
+            'Register-DomeniaOwnedTimer',
+            'Register-DomeniaWorkerPool',
+            'Add-DomeniaTaskSubscriber',
+            'Invoke-DomeniaTaskSubscribers',
+            'Remove-DomeniaQueuedTask',
+            'Invoke-DomeniaQueuedTaskPromotion',
+            'Register-DomeniaTaskOutcome',
+            'Add-DomeniaTaskRuntimeMetric',
+            'Test-DomeniaIdlePolicyEnabled',
+            'Test-DomeniaBackgroundWorkAllowed',
+            'Update-DomeniaIdlePolicy',
+            'Initialize-DomeniaIdlePolicy',
+            'Request-DomeniaIndexSearch',
+            'Get-DomeniaLocalDatabasePathForRead',
+            'Start-DomeniaIndexSearch',
+            'Complete-DomeniaIndexSearchUi',
+            'Fail-DomeniaIndexSearchUi',
+            'Request-DomeniaParkStateReload',
+            'Add-DomeniaParkDeferredResult',
+            'Invoke-DomeniaParkDeferredResults',
+            'Complete-DomeniaParkStateReloadUi',
+            'Fail-DomeniaParkStateReloadUi',
+            'Get-DomeniaParkStatusTextSafe',
+            'Start-DomeniaParkSharedSync',
+            'Complete-DomeniaParkSharedSyncUi',
+            'Fail-DomeniaParkSharedSyncUi'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Demo.Model.ps1'); File='Domenia-Demo.UI.ps1'; DotSource=$true; Functions=@(
+            'Initialize-DomeniaDemoMode',
+            'Get-DomeniaDemoConfiguredIdentity',
+            'Initialize-DomeniaDemoLoginPresentation',
+            'Set-DomeniaDemoShellPresentation'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Shell.Model.ps1'); File='Domenia-Startup.UI.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaActivationState',
+            'ConvertTo-DomeniaActivationTrigger',
+            'Register-DomeniaUserSwitchWatch',
+            'Test-DomeniaOwnWindowActive',
+            'Write-DomeniaActivationLog',
+            'Request-DomeniaWindowActivation',
+            'Test-DomeniaUserSwitchedAway'
         ) }
     )
 }

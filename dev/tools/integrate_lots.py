@@ -173,9 +173,11 @@ def main():
     ap.add_argument('lots', nargs='*')
     a = ap.parse_args()
     files = sorted(LOTS.glob('lot-*.json'))
-    lots = [json.loads(f.read_text(encoding='utf-8-sig')) for f in files]
+    pairs = [(f, json.loads(f.read_text(encoding='utf-8-sig'))) for f in files]
     if a.lots:
-        lots = [l for l in lots if l.get('Lot') in a.lots or any(f.stem == 'lot-' + x for x in a.lots for f in files)]
+        # A lot is selected by its name or by its file name (lot-<id>.json), never because another file matched.
+        pairs = [(f, l) for f, l in pairs if l.get('Lot') in a.lots or f.stem in ['lot-' + x for x in a.lots]]
+    lots = [l for _f, l in pairs]
     problems = []
     summary = {'Lots': [l.get('Lot') for l in lots]}
     if not a.apply:
