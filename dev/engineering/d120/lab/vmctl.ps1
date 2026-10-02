@@ -101,6 +101,7 @@ switch($Action){
     'pull' {
         if(-not $Path -or $Path -match '\.\.' -or -not $Dest){throw 'Chemin invalide.'}
         $auth=Get-GuestAuth
+        [void][IO.Directory]::CreateDirectory($Dest)
         exit (Invoke-Guest (@('copyfrom')+$auth+@('--recursive',($guestDir+'\'+$Path),$Dest)))
     }
 }
