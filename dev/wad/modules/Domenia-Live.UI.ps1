@@ -709,7 +709,8 @@ function Update-DomeniaSearchMoreButton {
     $button=Get-DomeniaControl 'BtnSearchMore'
     if($null -eq $button){return}
     $decision=$null
-    if($null -ne $Search -and $null -ne (Get-Command Get-DomeniaContinuationDecision -CommandType Function -ErrorAction SilentlyContinue)){
+    # SearchRules is resolved once per search by Begin-DomeniaLiveSearch: no command lookup on each tick.
+    if($null -ne $Search -and [bool]$Search.SearchRules){
         $decision=Get-DomeniaContinuationDecision -Finalized ([bool]$Search.Finalized) -HasError (-not [string]::IsNullOrEmpty([string]$Search.Error)) -LimitReached ($null -ne $Search.Final -and [bool]$Search.Final.LimitReached) -Limit ([int]$Search.State.Limit)
     }
     $enabled=($null -ne $decision -and [bool]$decision.Allowed -and -not (Test-DomeniaAccessBusyWrite))

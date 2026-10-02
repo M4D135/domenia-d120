@@ -260,7 +260,7 @@ function Show-DomeniaOuRestoreNotice {
     [void](Set-DomeniaControlText 'LblOuRestoreMessage' ([string]$Decision.Message))
     $banner=Get-DomeniaControl 'OuRestoreBanner'
     if($null -ne $banner){$banner.Visibility='Visible'}
-    if($null -ne $script:Continuity){$script:Continuity.RestoreNotice=$Decision}
+    if($null -ne $script:Continuity){Add-Member -InputObject $script:Continuity -NotePropertyName RestoreNotice -NotePropertyValue $Decision -Force}
 }
 function Hide-DomeniaOuRestoreNotice {
     $banner=Get-DomeniaControl 'OuRestoreBanner'

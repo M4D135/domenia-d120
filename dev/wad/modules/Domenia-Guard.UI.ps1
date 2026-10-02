@@ -115,7 +115,8 @@ function Get-DomeniaFavouriteSearches {
 function Save-DomeniaFavouriteSearch {
     # D038: no dialog window. The name comes from an in-page field when one exists, otherwise from what is
     # visible (mode, OU, text). Only the perimeter and filters are kept: no result, account, right or write mode.
-    if([string]$script:ActiveSearchViewId){Set-Status 'Une vue de travail se relance depuis la liste des vues : elle nʼest pas mémorisée comme favori.' 'WARN';return}
+    $viewShown=([string]$script:ActiveSearchViewId -and $null -ne $script:Live -and $null -ne $script:Live.Search -and $null -ne $script:Live.Search.State.PSObject.Properties['ViewId'] -and [string]$script:Live.Search.State.ViewId -ceq [string]$script:ActiveSearchViewId)
+    if($viewShown){Set-Status 'Une vue de travail se relance depuis la liste des vues : elle nʼest pas mémorisée comme favori.' 'WARN';return}
     $scope=Get-DomeniaSearchScope
     $mode=Get-DomeniaSearchMode
     $nameBox=Get-DomeniaControl 'TxtGuardSearchName'

@@ -1,0 +1,145 @@
+{
+  "Lot": "recherche",
+  "Points": ["D012", "D031", "D032", "D033", "D034", "D035", "D036", "D037", "D038", "D039", "D040"],
+  "Modules": [
+    {
+      "File": "Domenia-Search.Model.ps1",
+      "Phase": "Modules",
+      "Requires": ["Domenia-Common.Model.ps1", "Domenia-Engine.Model.ps1"],
+      "DotSource": true,
+      "Functions": [
+        "ConvertTo-DomeniaLdapLiteral", "Split-DomeniaSearchWords", "Get-DomeniaTypeFilter", "ConvertFrom-DomeniaSearchSyntax",
+        "Get-DomeniaWordFilter", "ConvertTo-DomeniaSearchFilter", "New-DomeniaGlobalSearchRequest", "Test-DomeniaGlobalSearchRequest",
+        "New-DomeniaSearchState", "Set-DomeniaBrowseOu", "Get-DomeniaScopeLabel", "Get-DomeniaGlobalSearchPlan", "Get-DomeniaFavouriteName",
+        "Get-DomeniaSearchRank", "Test-DomeniaAdminAccountRow", "Sort-DomeniaSearchResults", "ConvertTo-DomeniaGuidFilterValue",
+        "Get-DomeniaPastedIdentifier", "Get-DomeniaResultCounterText", "Get-DomeniaContinuationDecision", "New-DomeniaContinuation",
+        "Test-DomeniaContinuationCurrent", "ConvertTo-DomeniaLdapTime", "Get-DomeniaWorkViews", "ConvertTo-DomeniaSavedView",
+        "Split-DomeniaDn", "ConvertFrom-DomeniaDnValue", "Get-DomeniaDnParent", "Get-DomeniaOuDisplayPath", "Resolve-DomeniaOuRestore",
+        "New-DomeniaNavHistory", "Get-DomeniaNavStateKey", "Push-DomeniaNavState", "Step-DomeniaNavHistory"
+      ],
+      "NewFunctions": ["Get-DomeniaGlobalSearchPlan", "Get-DomeniaFavouriteName", "Get-DomeniaContinuationDecision", "ConvertFrom-DomeniaDnValue", "Get-DomeniaDnParent"]
+    },
+    {
+      "File": "Domenia-Selection.UI.ps1",
+      "Phase": "Modules",
+      "Requires": ["Domenia-Common.Model.ps1", "Domenia-Engine.Model.ps1"],
+      "DotSource": true,
+      "Functions": [
+        "Get-DomeniaObjectReadIdentity", "Get-DomeniaRowSelectionIdentity", "Get-DomeniaSelectionContext", "Test-DomeniaSameSelectionContext",
+        "Get-DomeniaCurrentSelectionIdentity", "Test-DomeniaSelectionLoadCurrent", "Get-DomeniaObjectResultGuid", "Assert-DomeniaObjectResultIdentity",
+        "Get-DomeniaObjectCacheKey", "Update-DomeniaSelectionReadUi", "Clear-DomeniaPreloadSelection", "Enter-DomeniaSelectionContext",
+        "Restore-DomeniaRefusedSelection", "Retry-DomeniaSelectedObjectRead", "Initialize-DomeniaSelectionPreload"
+      ],
+      "NewFunctions": ["Get-DomeniaRowSelectionIdentity", "Get-DomeniaCurrentSelectionIdentity"]
+    },
+    {
+      "File": "Domenia-Live.UI.ps1",
+      "Phase": "Modules",
+      "Requires": ["Domenia-Common.Model.ps1", "Domenia-Search.Model.ps1", "Domenia-Live.Model.ps1"],
+      "DotSource": true,
+      "Functions": [
+        "Get-DomeniaLiveIdentitySignal", "Initialize-DomeniaLive", "Reset-DomeniaLiveIdentity", "Stop-DomeniaLiveSearch", "Stop-DomeniaLiveProbes",
+        "Stop-DomeniaLive", "Test-DomeniaLiveSearchActive", "Begin-DomeniaLiveSearch", "Complete-DomeniaLiveSearch", "Fail-DomeniaLiveSearch",
+        "Stop-DomeniaLiveJob", "Update-DomeniaLiveFilter", "Set-DomeniaLiveObservationOnRow", "Add-DomeniaLiveRow", "Clear-DomeniaLiveProbeIntent",
+        "Test-DomeniaLiveProbeIntent", "Select-DomeniaLiveResult", "Request-DomeniaLiveProbe", "Request-DomeniaLiveSelectedProbe",
+        "Request-DomeniaLiveRecheck", "Merge-DomeniaLiveLinkMemory", "Complete-DomeniaLivePresence", "Complete-DomeniaLiveProbe",
+        "Fail-DomeniaLiveProbe", "Complete-DomeniaLiveCache", "Fail-DomeniaLiveCache", "Get-DomeniaLiveWorkerCount", "Get-DomeniaLiveDatabasePath",
+        "Start-DomeniaLiveBackgroundWork", "Invoke-DomeniaLiveTick", "Test-DomeniaLiveBackgroundAllowed", "Update-DomeniaSearchMoreButton",
+        "Invoke-DomeniaSearchMore"
+      ],
+      "NewFunctions": ["Test-DomeniaLiveBackgroundAllowed", "Update-DomeniaSearchMoreButton", "Invoke-DomeniaSearchMore"]
+    },
+    {
+      "File": "Domenia-Continuity.UI.ps1",
+      "Phase": "Modules",
+      "Requires": ["Domenia-Common.Model.ps1", "Domenia-Search.Model.ps1", "Domenia-Continuity.Model.ps1", "Domenia-Live.UI.ps1"],
+      "DotSource": true,
+      "Functions": [
+        "Get-DomeniaGridColumnKey", "Register-DomeniaGridLayout", "Save-DomeniaGridLayout", "Get-DomeniaTreeContextKey", "Get-DomeniaRealizedTreeNodes",
+        "Save-DomeniaTreeBookmark", "Start-DomeniaTreeBookmarkRestore", "Invoke-DomeniaTreeBookmarkRestore", "Invoke-DomeniaRestoredOuSearch",
+        "Complete-DomeniaObjectChanges", "Fail-DomeniaObjectChanges", "Invoke-DomeniaObjectChanges", "Get-DomeniaOuRestoreDecision",
+        "Show-DomeniaOuRestoreNotice", "Hide-DomeniaOuRestoreNotice", "Invoke-DomeniaOuRestoreRetry", "Initialize-DomeniaContinuity"
+      ],
+      "NewFunctions": ["Get-DomeniaOuRestoreDecision", "Show-DomeniaOuRestoreNotice", "Hide-DomeniaOuRestoreNotice", "Invoke-DomeniaOuRestoreRetry"]
+    },
+    {
+      "File": "Domenia-Search.UI.ps1",
+      "Phase": "Modules",
+      "Requires": ["Domenia-Common.Model.ps1", "Domenia-Search.Model.ps1", "Domenia-Live.UI.ps1"],
+      "DotSource": true,
+      "Functions": [
+        "Update-DomeniaSearchHint", "Update-DomeniaWorkViewList", "Invoke-DomeniaWorkView", "Get-DomeniaGridScrollViewer", "Get-DomeniaNavSnapshot",
+        "Get-DomeniaVisiblePageName", "Enter-DomeniaNavSearch", "Exit-DomeniaNavSearch", "Update-DomeniaNavButtons", "Register-DomeniaNavLocation",
+        "Restore-DomeniaNavState", "Invoke-DomeniaNavStep", "Initialize-DomeniaSearchUi"
+      ],
+      "NewFunctions": [
+        "Update-DomeniaSearchHint", "Update-DomeniaWorkViewList", "Invoke-DomeniaWorkView", "Get-DomeniaGridScrollViewer", "Get-DomeniaNavSnapshot",
+        "Get-DomeniaVisiblePageName", "Enter-DomeniaNavSearch", "Exit-DomeniaNavSearch", "Update-DomeniaNavButtons", "Register-DomeniaNavLocation",
+        "Restore-DomeniaNavState", "Invoke-DomeniaNavStep", "Initialize-DomeniaSearchUi"
+      ]
+    }
+  ],
+  "UnchangedFunctionListsButModifiedBodies": [
+    {"File": "Domenia-Live.Model.ps1", "Detail": "New-DomeniaLiveResultRow : liste de repli completee par Rank et Admin."},
+    {"File": "Domenia-Guard.UI.ps1", "Detail": "Save-DomeniaFavouriteSearch sans fenetre modale ; Load-DomeniaFavouriteSearch revalide le favori pour le domaine courant."},
+    {"File": "Domenia-UX.UI.ps1", "Detail": "Update-DomeniaUxOuScope : libelle Get-DomeniaScopeLabel (Dans cette OU) si le modele est charge."}
+  ],
+  "TypeFiles": [
+    {
+      "File": "Domenia-Live.Types.cs",
+      "Types": ["Domenia.Live.ResultRow"],
+      "Detail": "Champs Rank et Admin ajoutes a la liste blanche et aux proprietes (C# 5). Compile aujourd'hui par Initialize-DomeniaLive (Add-Type paresseux, repli PSCustomObject) ; peut rejoindre Get-DomeniaRuntimeTypePlan si l'integrateur le decide."
+    }
+  ],
+  "Operations": [],
+  "OperationsModified": [],
+  "OperationsNote": "Aucun corps de worker modifie. GlobalSearch (here-string epinglee, LiteralIndex 0) est inchangee : aucune here-string ajoutee avant $code. LiveDirectoryCheck inchange : seule sa charge utile (BaseDn, Scope, Filter) change en recherche globale. La vraie continuation par cle (re-epinglage de GlobalSearch) n'a PAS ete faite : voir Notes.",
+  "SelfTestRequiredFunctions": [
+    "Get-DomeniaGlobalSearchPlan", "Get-DomeniaContinuationDecision", "Get-DomeniaCurrentSelectionIdentity", "Initialize-DomeniaSearchUi",
+    "Invoke-DomeniaNavStep", "Invoke-DomeniaSearchMore", "Get-DomeniaOuRestoreDecision"
+  ],
+  "SelfTestChecks": [
+    "Get-DomeniaGlobalSearchPlan 'poste:PC-01' renvoie Kind=Syntax et un filtre commencant par le filtre de type global (aucun filtre cache).",
+    "Get-DomeniaGlobalSearchPlan 'S-1-5-21-1-2-3-1104' renvoie Kind=Identifier et AutoOpen=False.",
+    "[Domenia.Live.ResultRow] accepte Set('Rank','0') et Set('Admin','Compte admin') sans exception.",
+    "Get-MainXaml contient LblSearchHint, BtnSearchMore, CmbWorkView, BtnWorkView, BtnNavBack, BtnNavForward, OuRestoreBanner, LblOuRestoreMessage, BtnOuRestoreRetry, BtnOuRestoreDismiss et DgObjects garde 18 colonnes."
+  ],
+  "HelpEntries": [
+    {"Name": "LblSearchHint", "Title": "Lecture de la saisie", "Text": "Explique comment le texte du bandeau est compris : jetons explicites (utilisateur:, poste:, groupe:, mail:), identifiant collé reconnu ou préfixe inconnu cherché comme texte. Aucun filtre caché, aucune requête.", "Kind": "TextBlock", "Source": "D120-recherche", "Shortcut": ""},
+    {"Name": "BtnSearchMore", "Title": "Charger la suite", "Text": "Disponible quand la liste est limitée : relit la même recherche avec une limite doublée, jusquʼà 500 lignes, sans doublon ni ancien contexte. La limite saisie nʼest pas modifiée.", "Kind": "Button", "Source": "D120-recherche", "Shortcut": ""},
+    {"Name": "CmbWorkView", "Title": "Vue de travail", "Text": "Vues prêtes à lʼemploi en lecture seule : comptes expirants ou désactivés, objets modifiés récemment, postes dʼune OU ou sans connexion depuis 90 jours. Le choix seul ne lance rien.", "Kind": "ComboBox", "Source": "D120-recherche", "Shortcut": ""},
+    {"Name": "BtnWorkView", "Title": "Afficher la vue de travail", "Text": "Lance la vue choisie : un filtre et un type, sans compte, droit ni mode écriture. Le texte de recherche de ce mode est vidé.", "Kind": "Button", "Source": "D120-recherche", "Shortcut": ""},
+    {"Name": "BtnNavBack", "Title": "Précédent", "Text": "Revient à lʼétape précédente : page, recherche, OU, sélection et défilement restitués depuis la mémoire, avec leur fraîcheur, sans nouvelle lecture ni sonde. Refusé tant quʼune saisie non enregistrée attend une décision.", "Kind": "Button", "Source": "D120-recherche", "Shortcut": "Alt+Gauche"},
+    {"Name": "BtnNavForward", "Title": "Suivant", "Text": "Revient à lʼétape suivante, sans nouvelle lecture ni sonde des postes.", "Kind": "Button", "Source": "D120-recherche", "Shortcut": "Alt+Droite"},
+    {"Name": "OuRestoreBanner", "Title": "OU mémorisée", "Text": "Avertissement quand lʼOU mémorisée nʼest pas retrouvée : aucun autre périmètre nʼest appliqué à sa place.", "Kind": "Border", "Source": "D120-recherche", "Shortcut": ""},
+    {"Name": "LblOuRestoreMessage", "Title": "OU mémorisée", "Text": "Distingue une OU absente sous son parent relu dʼune lecture non aboutie ; un délai nʼest jamais présenté comme une absence.", "Kind": "TextBlock", "Source": "D120-recherche", "Shortcut": ""},
+    {"Name": "BtnOuRestoreRetry", "Title": "Relire lʼOU mémorisée", "Text": "Relance une seule fois la restauration de lʼOU mémorisée dans lʼarbre. Aucun autre périmètre nʼest appliqué.", "Kind": "Button", "Source": "D120-recherche", "Shortcut": ""},
+    {"Name": "BtnOuRestoreDismiss", "Title": "Choisir une autre OU", "Text": "Ferme lʼavertissement : choisissez une OU dans lʼarbre. Le périmètre actuel nʼest pas modifié.", "Kind": "Button", "Source": "D120-recherche", "Shortcut": ""}
+  ],
+  "Features": [
+    {"Name": "SearchSyntax", "Default": true, "Purpose": "D033/D036 : jetons explicites et identifiants colles (GUID, SID, DN) dans la recherche globale. Faux = filtres historiques inchanges. Deja present dans New-DefaultConfig."},
+    {"Name": "SearchRanking", "Default": true, "Purpose": "D034 : tri par pertinence (compte exact, mot entier du nom, prefixe) de la liste globale progressive. Faux = ordre d'arrivee LDAP. NOUVEAU : a ajouter a New-DefaultConfig ; Get-DomeniaFeatureFlag renvoie deja le defaut vrai si la cle est absente."}
+  ],
+  "StartRequired": ["wad/modules/Domenia-Search.UI.ps1"],
+  "CoreFunctionsModified": ["Invoke-GlobalSearch", "Test-DomeniaSearchStateCurrent", "Set-DomeniaItemsSource", "Start-DomeniaSearchFor", "Get-MainXaml"],
+  "CoreFunctionsCriticalForAuditPreload": ["Invoke-GlobalSearch", "Test-DomeniaSearchStateCurrent"],
+  "PayloadFilesPinnedByAuditPreload": ["wad/modules/Domenia-Live.UI.ps1"],
+  "XamlControlsAdded": ["BtnNavBack", "BtnNavForward", "OuRestoreBanner", "LblOuRestoreMessage", "BtnOuRestoreRetry", "BtnOuRestoreDismiss", "LblSearchHint", "CmbWorkView", "BtnWorkView", "BtnSearchMore", "DgObjects.RowStyle (DataTrigger Admin)"],
+  "WiringTests": ["wad/tests/Test-DomeniaWiringRecherche.ps1"],
+  "SuitesUpdated": [
+    {"File": "wad/tests/Test-DomeniaSearchPresence.ps1", "Detail": "Banc WPF corrige (DataGrid IsReadOnly, CanUserAddRows=False : le NewItemPlaceholder gonflait Items.Count) et attentes nominatives ; chargement de Common.Model et Search.Model ; double New-Object accepte List[string] ; deux cas D031 ajoutes (repeinture globale, contrat refuse)."},
+    {"File": "wad/tests/Test-DomeniaSearchScope.ps1", "Detail": "Get-DomeniaStructuredError extraite par AST de Guard.Model comme en production (repli serveur atteignable) ; cas 'Echec serveur' durci (message attendu) ; chargement de Common.Model et Search.Model."},
+    {"File": "wad/tests/rules/Search.Tests.ps1", "Detail": "Cas ajoutes : DN echappes et octets UTF-8, parent de DN, plan global (jetons, multi-mots, identifiants), decision de suite, nom de favori, rang mot entier, identifiant a points ambigu. Libelles accentues et plafond 500."}
+  ],
+  "CrossLaneRequests": [
+    {"To": "historique (suites)", "Request": "Test-DomeniaSelection.ps1, cas 'Changed text wins over a pending restoration' (ligne ~139) : decision D032, la restauration d'OU est gardee par TxtBranchSearch et plus par TxtGlobalSearch. Reecrire le cas avec $script:Ctrl.TxtBranchSearch=[pscustomobject]@{Text='new'} (attendu : 0 appel) et ajouter 'Global text does not cancel an OU restoration' (TxtGlobalSearch modifie : 1 appel). Sans cela ce cas, qui passait, echoue."},
+    {"To": "integrateur", "Request": "Declarer dans Domenia-Modules.ps1 les plans ci-dessus (Search.Model complete, Selection.UI, Live.UI, Continuity.UI, nouveau Search.UI avec Phase/Requires) ; ajouter wad/modules/Domenia-Search.UI.ps1 a Domenia-Start (required) et aux manifestes ; ajouter les HelpEntries a Domenia-UX.help.json ; ajouter Features.SearchRanking=true a New-DefaultConfig ; regenerer preload-baseline.json (Invoke-GlobalSearch et Test-DomeniaSearchStateCurrent sont 'critical', payload Live.UI change) avec decision ecrite. Ordre de chargement : Search.UI apres Live.UI ; Continuity.UI appelle Initialize-DomeniaSearchUi par Get-Command (repli sans erreur si absent)."},
+    {"To": "moteur", "Request": "C1 est appele avec les sources 'Live' (Start-DomeniaLiveBackgroundWork) et 'ObjectChanges' (Invoke-DomeniaObjectChanges). La garde IsActive de Continuity.UI l.202 est deja remplacee par C1 dans ce lot (repli : fenetre active si C1 absent) : ne pas reediter Invoke-DomeniaObjectChanges. Les deux fonctions lisent aussi [bool]$script:DemoMode (C2)."},
+    {"To": "relations", "Request": "Consommer C5 Get-DomeniaCurrentSelectionIdentity -Workspace 'TabRelations' (ou '') pour la cible des operations Relations : c'est la part restante du critere D012 hors de ce lot."},
+    {"To": "poste", "Request": "Consommer C5 Get-DomeniaCurrentSelectionIdentity -Workspace 'WsComputer' pour la cible des lectures et actions de l'Assistance poste (part restante de D012)."},
+    {"To": "interface", "Request": "D083 : un champ de nom dans la page (TxtGuardSearchName, onglet Fiabilite) serait lu par Save-DomeniaFavouriteSearch ; sans lui, le favori est nomme automatiquement depuis le mode, l'OU et le texte (plus aucune fenetre modale dans ce parcours)."},
+    {"To": "annuaire", "Request": "Get-DomeniaCnFromDn (Directory.Model) peut utiliser ConvertFrom-DomeniaDnValue (Search.Model) pour decoder les octets UTF-8 echappes (\\C3\\89) au lieu de -replace '\\\\(.)'. Split-DomeniaDn gere maintenant '\\\\,' et les guillemets."},
+    {"To": "proprietaire de Register-DomeniaShortcuts / Wire-Events", "Request": "Mineur, hors acceptation : le raccourci Echap vide TxtGlobalSearch et DgObjects sans Invalidate-DomeniaSearchResults ; la recherche en vol continue jusqu'au bout. Alt+Gauche / Alt+Droite sont poses par Initialize-DomeniaSearchUi (CommandBinding sur la fenetre), pas dans la table $map."}
+  ],
+  "Notes": "Rien n'a ete execute hormis les controles statiques autorises : validate_powershell_static.py (PASS, 88 fichiers), audit_function_names.py (echec attendu tant que le plan n'est pas integre : uniquement des fonctions hors liste fermee et des modules non declares, aucun doublon), et dans la VM CNAMTS-W11-01 (dossier w-recherche) Test-NativeParser -RequireWindows51 (PASS, Windows51Qualification=True) et Test-DomeniaPs51Compat (89 fichiers, 0 erreur). Les suites (dont Test-DomeniaWiringRecherche.ps1, 31 cas) sont ecrites mais NON executees, conformement a la decision 'finis tous les points de modifs avant les tests'. D037 : 'Charger la suite' relance la meme requete avec une limite doublee (plafond 500) ; la vraie continuation par cle name>= n'a pas ete faite car elle exigerait que la premiere page soit deja triee par name (sinon des objets de nom inferieur seraient sautes) et donc un tri serveur sur toutes les recherches, non qualifie en labo ; GlobalSearch n'est pas re-epinglee. D039 : la detection 'OU deplacee' (lecture par objectGUID, nouvelle operation epinglee) n'est pas faite ; une OU absente sous son parent relu donne AskMissing, un parent non relu donne AskRetry. D012 : C5 et la Fiche sont raccordes ; Relations et Assistance doivent consommer C5 (demandes croisees). Get-SearchLdapFilter et Get-BranchQueryData ne sont pas modifiees (Get-BranchQueryData est 'critical') : elles ne servent plus qu'a la revalidation d'une liste d'OU. Les fonctions qui dependent des regles de recherche dans Live.UI, Continuity.UI, Selection.UI et UX.UI testent leur presence par Get-Command : les anciens bancs qui chargent ces modules sans Search.Model gardent le comportement precedent ; en production le chargeur ferme garantit leur presence."
+}
