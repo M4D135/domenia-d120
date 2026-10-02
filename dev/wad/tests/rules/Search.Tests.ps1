@@ -76,6 +76,8 @@ Test-Case 'D036' 'GUID, SID, DN, UPN, DOMAINE\compte et FQDN reconnus avec expli
     Assert-True ((Get-DomeniaPastedIdentifier 'f4dc5a91-c11b-46b5-893d-9a2cbbad31ad').Filter -match '^\(objectGUID=(\\[0-9a-f]{2}){16}\)$')
     Assert-Equal 'Sid' (Get-DomeniaPastedIdentifier 'S-1-5-21-1-2-3-1104').Kind
     Assert-Equal 'DN' (Get-DomeniaPastedIdentifier 'CN=Jean Dupont,OU=Lyon,DC=example,DC=invalid').Kind
+    Assert-Equal 'DN' (Get-DomeniaPastedIdentifier 'CN=Dupont\, Jean,OU=Lyon,DC=example,DC=invalid').Kind 'Une virgule echappee reste dans son RDN'
+    Assert-Equal 'None' (Get-DomeniaPastedIdentifier 'CN=Jean Dupont').Kind 'Un seul RDN ne suffit pas'
     Assert-Equal 'Upn' (Get-DomeniaPastedIdentifier 'jdupont@example.invalid').Kind
     Assert-Equal 'DownLevel' (Get-DomeniaPastedIdentifier 'EXAMPLE\jdupont').Kind
     Assert-Equal 'Fqdn' (Get-DomeniaPastedIdentifier 'pc-01.example.invalid').Kind

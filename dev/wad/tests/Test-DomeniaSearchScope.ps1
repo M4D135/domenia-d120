@@ -18,6 +18,18 @@ foreach($name in $names){
     if($nodes.Count -ne 1){throw ('Fonction absente/ambigue : '+$name)}
     Invoke-Expression $nodes[0].Extent.Text
 }
+# Production injects exactly this function into every worker (New-DomeniaWorkerRunspace): the pinned
+# GlobalSearch body calls it in its catch block before falling back to the next context.
+$guardModel=Join-Path (Split-Path -Parent $PSScriptRoot) 'modules\Domenia-Guard.Model.ps1'
+$guardTokens=$null;$guardErrors=$null
+$guardAst=[Management.Automation.Language.Parser]::ParseFile($guardModel,[ref]$guardTokens,[ref]$guardErrors)
+if(@($guardErrors).Count -gt 0){throw ('Syntaxe de Guard.Model : '+$guardErrors[0].Message)}
+$structured=@($guardAst.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Get-DomeniaStructuredError'},$true))
+if($structured.Count -ne 1){throw 'Fonction absente/ambigue : Get-DomeniaStructuredError'}
+Invoke-Expression $structured[0].Extent.Text
+# D120: the global search uses the pure search rules, as the closed loader provides them.
+. (Join-Path (Split-Path -Parent $PSScriptRoot) 'modules\Domenia-Common.Model.ps1')
+. (Join-Path (Split-Path -Parent $PSScriptRoot) 'modules\Domenia-Search.Model.ps1')
 function Test-DomeniaAccessBusyWrite {return $false}
 function Test-DomeniaDraftNavigation {param($DN);return $true}
 function Get-CfgValue {param($Section,$Name,$Default) return $Default}
@@ -135,7 +147,7 @@ Test-Case 'Worker transmet la racine OU et OneLevel' { $script:Ctrl.ChkSubtree.I
 Test-Case 'Repli serveur garde la meme OU et profondeur' { $script:FailBoundServer=$true;$script:Ctrl.ChkSubtree.IsChecked=$false;Invoke-GlobalSearch -SearchMode OU;$out=Invoke-TestWorker;Assert-Test ($script:WorkerCalls.Count -eq 2);foreach($c in $script:WorkerCalls){Assert-Test ($c.BaseDn -eq $script:SelectedBranchDn -and $c.Scope -eq 'OneLevel')} }
 Test-Case 'Worker refuse une base vide' { Invoke-GlobalSearch -SearchMode OU;$script:LastTask.Payload.BaseDn='';$failed=$false;try{Invoke-TestWorker}catch{$failed=$true};Assert-Test ($failed -and $script:WorkerCalls.Count -eq 0) }
 Test-Case 'Worker refuse une portee inconnue' { Invoke-GlobalSearch -SearchMode OU;$script:LastTask.Payload.Scope='Unknown';$failed=$false;try{Invoke-TestWorker}catch{$failed=$true};Assert-Test ($failed -and $script:WorkerCalls.Count -eq 0) }
-Test-Case 'Echec serveur reste une erreur, pas un resultat vide valide' { $script:FailEveryCall=$true;Invoke-GlobalSearch -SearchMode OU;$failed=$false;try{Invoke-TestWorker}catch{$failed=$true};Assert-Test $failed }
+Test-Case 'Echec serveur reste une erreur, pas un resultat vide valide' { $script:FailEveryCall=$true;Invoke-GlobalSearch -SearchMode OU;$failed=$false;try{Invoke-TestWorker}catch{$failed=($_.Exception.Message -match 'a echoue sur tous les contextes')};Assert-Test $failed 'Echec attendu : tous les contextes essayes, pas une fonction absente' }
 Test-Case 'Worker conserve les groupes et les conteneurs' { Invoke-GlobalSearch -SearchMode OU;$script:FakeRows=@([pscustomobject]@{Type='Groupe';Name='G';DN='CN=G,OU=Site,DC=example,DC=invalid'},[pscustomobject]@{Type='OU';Name='Sous';DN='OU=Sous,OU=Site,DC=example,DC=invalid'});$out=Invoke-TestWorker;Assert-Test ($out.Rows.Count -eq 2) }
 Test-Case 'Limite atteinte signalee dans le resultat worker' { $script:Ctrl.TxtGlobalLimit.Text='1';Invoke-GlobalSearch -SearchMode OU;$script:FakeRows=@([pscustomobject]@{Type='Machine';Name='PC';DN='CN=PC,OU=Site,DC=example,DC=invalid'});$out=Invoke-TestWorker;Assert-Test ([bool]$out.LimitReached -and $out.Rows.Count -eq 1) }
 Test-Case 'Racine inattendue dans le resultat refusee' { Invoke-GlobalSearch -SearchMode OU;$out=[pscustomobject]@{Rows=@();BaseDn=$script:Conn.BaseDn;Scope='Subtree'};$failed=$false;try{Complete-DomeniaGlobalSearchUi $out $script:LastTask.State}catch{$failed=$true};Assert-Test $failed }

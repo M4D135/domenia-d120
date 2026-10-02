@@ -6,7 +6,7 @@
 function ConvertTo-DomeniaLdapLiteral {
     # RFC 4515 escaping. With -KeepWildcard an asterisk typed by the operator stays a wildcard.
     param([AllowEmptyString()][AllowNull()][string]$Value,[switch]$KeepWildcard)
-    $builder = New-Object Text.StringBuilder
+    $builder = [Text.StringBuilder]::new()
     foreach ($character in ([string]$Value).ToCharArray()) {
         switch ([int]$character) {
             0  { [void]$builder.Append('\00') }
@@ -48,9 +48,9 @@ function ConvertFrom-DomeniaSearchSyntax {
         'groupe'='Groupe';'group'='Groupe';'g'='Groupe'
         'mail'='Mail';'email'='Mail';'courriel'='Mail'
     }
-    $tokens = New-Object 'System.Collections.Generic.List[object]'
-    $notes = New-Object 'System.Collections.Generic.List[string]'
-    $free = New-Object 'System.Collections.Generic.List[string]'
+    $tokens = [Collections.Generic.List[object]]::new()
+    $notes = [Collections.Generic.List[string]]::new()
+    $free = [Collections.Generic.List[string]]::new()
     $pattern = '(?<prefix>[\p{L}]+):(?:"(?<quoted>[^"]*)"|(?<bare>\S*))|"(?<phrase>[^"]*)"|(?<word>\S+)'
     foreach ($match in [regex]::Matches(([string]$Text).Trim(),$pattern)) {
         if ($match.Groups['prefix'].Success) {
@@ -90,8 +90,8 @@ function ConvertTo-DomeniaSearchFilter {
     # Returns {Filter, Valid, Reason, Costly}. Several words must all match (in any attribute).
     param([AllowEmptyString()][AllowNull()][string]$Text,[string]$Type='',[object[]]$Tokens=@(),[int]$MinimumLength=2)
     $words = @(Split-DomeniaSearchWords $Text)
-    $blocks = New-Object 'System.Collections.Generic.List[string]'
-    $tokenTypes = New-Object 'System.Collections.Generic.List[string]'
+    $blocks = [Collections.Generic.List[string]]::new()
+    $tokenTypes = [Collections.Generic.List[string]]::new()
     foreach ($token in @($Tokens)) {
         $value = [string](Get-DomeniaMember $token 'Value' '')
         if (-not $value) { continue }
@@ -177,7 +177,7 @@ function Get-DomeniaGlobalSearchPlan {
     $value = ([string]$Text).Trim()
     $plan = [pscustomobject]@{Kind='Default';Filter='';MultiWordFilter='';Hint='';Valid=$true;Reason='';Identifier=$null;Tokens=@();AutoOpen=$false}
     if (-not $value -or $value -eq '*') { return $plan }
-    $notes = New-Object 'System.Collections.Generic.List[string]'
+    $notes = [Collections.Generic.List[string]]::new()
     if ($SyntaxEnabled) {
         $identifier = Get-DomeniaPastedIdentifier $value
         if ($identifier.Kind -in @('Guid','Sid','DN')) {
@@ -265,8 +265,8 @@ function Test-DomeniaAdminAccountRow {
 function Sort-DomeniaSearchResults {
     # Deduplicates by identity (GUID, else DN), never by label, then orders by relevance and name.
     param([object[]]$Rows=@(),[AllowEmptyString()][string]$Query='')
-    $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
-    $ranked = New-Object 'System.Collections.Generic.List[object]'
+    $seen = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    $ranked = [Collections.Generic.List[object]]::new()
     $position = 0
     foreach ($row in @($Rows)) {
         if ($null -eq $row) { continue }
@@ -302,7 +302,12 @@ function Get-DomeniaPastedIdentifier {
     if ($value -match '^(?i)S-1-\d+(-\d+){1,14}$') {
         return [pscustomobject]@{Kind='Sid';Value=$value.ToUpperInvariant();Filter='(objectSid=' + $value.ToUpperInvariant() + ')';Explanation='SID reconnu : recherche exacte de ce compte.';Ambiguous=$false;AutoOpen=$false}
     }
-    if ($value -match '^(?i)(CN|OU|DC)=[^,]+(,\s*(CN|OU|DC)=[^,]+)+$') {
+    # A DN is recognised RDN by RDN, so an escaped comma ('CN=Dupont\, Jean') stays inside its RDN.
+    $rdns = @()
+    if ($value -match '^(?i)(CN|OU|DC)=') { $rdns = @(Split-DomeniaDn $value) }
+    $wellFormed = ($rdns.Count -ge 2)
+    foreach ($rdn in $rdns) { if ($rdn -notmatch '^(?i)(CN|OU|DC)=\S') { $wellFormed = $false } }
+    if ($wellFormed) {
         return [pscustomobject]@{Kind='DN';Value=$value;Filter='(distinguishedName=' + (ConvertTo-DomeniaLdapLiteral $value) + ')';Explanation='Nom distingué reconnu : recherche exacte de cet objet.';Ambiguous=$false;AutoOpen=$false}
     }
     if ($value -match '^[^\\/\s@]+\\[^\\/\s@]+$') {
@@ -406,7 +411,7 @@ function Split-DomeniaDn {
     # ('\C3\89') never contain a comma and are kept for ConvertFrom-DomeniaDnValue.
     param([AllowEmptyString()][AllowNull()][string]$Dn)
     $text = [string]$Dn
-    $parts = New-Object 'System.Collections.Generic.List[string]'
+    $parts = [Collections.Generic.List[string]]::new()
     $start = 0; $escaped = $false; $quoted = $false
     for ($i = 0; $i -lt $text.Length; $i++) {
         $c = $text[$i]
@@ -425,8 +430,8 @@ function ConvertFrom-DomeniaDnValue {
     $text = [string]$Value
     if ($text.Length -ge 2 -and $text[0] -eq [char]34 -and $text[$text.Length - 1] -eq [char]34) { $text = $text.Substring(1,$text.Length - 2) }
     $hex = '0123456789abcdefABCDEF'
-    $out = New-Object Text.StringBuilder
-    $bytes = New-Object 'System.Collections.Generic.List[byte]'
+    $out = [Text.StringBuilder]::new()
+    $bytes = [Collections.Generic.List[byte]]::new()
     $i = 0
     while ($i -lt $text.Length) {
         $c = $text[$i]
@@ -464,15 +469,15 @@ function Get-DomeniaOuDisplayPath {
     param([AllowEmptyString()][string]$Dn)
     $parts = @(Split-DomeniaDn $Dn)
     if (-not $parts.Count) { return '' }
-    $domain = New-Object 'System.Collections.Generic.List[string]'
-    $path = New-Object 'System.Collections.Generic.List[string]'
+    $domain = [Collections.Generic.List[string]]::new()
+    $path = [Collections.Generic.List[string]]::new()
     foreach ($part in $parts) {
         $equals = $part.IndexOf('=')
         if ($equals -lt 1) { continue }
         $kind = $part.Substring(0,$equals).Trim(); $value = ConvertFrom-DomeniaDnValue ($part.Substring($equals + 1))
         if ($kind -ieq 'DC') { $domain.Add($value) } else { $path.Insert(0,$value) }
     }
-    $items = New-Object 'System.Collections.Generic.List[string]'
+    $items = [Collections.Generic.List[string]]::new()
     if ($domain.Count) { $items.Add(($domain.ToArray() -join '.')) }
     foreach ($item in $path) { if ($item) { $items.Add($item) } }
     return ($items.ToArray() -join ' / ')
@@ -491,7 +496,7 @@ function Resolve-DomeniaOuRestore {
 # ---------------------------------------------------------------- D040 back / forward
 function New-DomeniaNavHistory {
     param([ValidateRange(2,200)][int]$Capacity=40)
-    return [pscustomobject]@{Capacity=$Capacity;Back=(New-Object System.Collections.ArrayList);Forward=(New-Object System.Collections.ArrayList);Current=$null}
+    return [pscustomobject]@{Capacity=$Capacity;Back=([Collections.ArrayList]::new());Forward=([Collections.ArrayList]::new());Current=$null}
 }
 
 function Get-DomeniaNavStateKey {

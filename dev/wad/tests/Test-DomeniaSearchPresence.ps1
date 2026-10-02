@@ -7,11 +7,14 @@ $wad=Split-Path -Parent $PSScriptRoot
 $tokens=$null;$errors=$null
 $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'Domenia-Core.ps1'),[ref]$tokens,[ref]$errors)
 if(@($errors).Count){throw $errors[0].Message}
-foreach($name in @('Get-MainXaml','Get-DomeniaControl','Set-DomeniaControlText','Get-DomeniaSearchMode','Set-DomeniaSearchMode','Get-DomeniaSearchText','Get-DomeniaSearchScope','Get-GlobalSelectedTypeFilter','Get-TypeLdapFilter','Test-DomeniaSearchStateCurrent','Invoke-GlobalSearch','Escape-LdapValue','Normalize-LinkComputer','Get-DomeniaEffectiveWorkerResult')){
+foreach($name in @('Get-MainXaml','Get-DomeniaControl','Set-DomeniaControlText','Get-DomeniaSearchMode','Set-DomeniaSearchMode','Get-DomeniaSearchText','Get-DomeniaSearchScope','Get-GlobalSelectedTypeFilter','Get-TypeLdapFilter','Test-DomeniaSearchStateCurrent','Invoke-GlobalSearch','Escape-LdapValue','Normalize-LinkComputer','Get-DomeniaEffectiveWorkerResult','Set-DomeniaItemsSource')){
     $nodes=@($ast.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true))
     if($nodes.Count -ne 1){throw ('Definition ambiguous: '+$name)}
     Invoke-Expression $nodes[0].Extent.Text
 }
+# D120: the global search uses the pure search rules (plan, contract check), as the closed loader provides them.
+. (Join-Path $wad 'modules\Domenia-Common.Model.ps1')
+. (Join-Path $wad 'modules\Domenia-Search.Model.ps1')
 . (Join-Path $wad 'modules\Domenia-Live.Model.ps1')
 . (Join-Path $wad 'modules\Domenia-Experience.Model.ps1')
 . (Join-Path $wad 'modules\Domenia-Live.UI.ps1')
@@ -38,6 +41,7 @@ function New-Object {
     param([Parameter(Position=0)][string]$TypeName)
     if($TypeName -eq 'System.Collections.ArrayList'){return ,([Collections.ArrayList]::new())}
     if($TypeName -eq 'System.Text.StringBuilder'){return [Text.StringBuilder]::new()}
+    if($TypeName -eq 'System.Collections.Generic.List[string]'){return ,([Collections.Generic.List[string]]::new())}
     if($TypeName -ne 'Net.NetworkInformation.Ping'){throw ('Unexpected native object: '+$TypeName)}
     $obj=[pscustomobject]@{}
     $obj|Add-Member -MemberType ScriptMethod -Name Send -Value {
@@ -159,6 +163,25 @@ Case 'CIM timeout retains early positive ping' {$o=ConvertTo-DomeniaLiveObservat
 Case 'Older network packet cannot overwrite newer status' {$o=ConvertTo-DomeniaLiveObservation (Ping-Observation 'En ligne') $null;$v=ConvertTo-DomeniaLiveObservation (Ping-Observation 'Sans réponse au ping' '2026-09-01T10:00:00Z') $o;Expect ($v.Presence -eq 'En ligne')}
 Case 'Fractional UTC seconds are compared as dates, not strings' {$o=ConvertTo-DomeniaLiveObservation (Ping-Observation 'En ligne' '2026-10-01T10:00:00Z') $null;$v=ConvertTo-DomeniaLiveObservation (Ping-Observation 'Sans réponse au ping' '2026-10-01T10:00:00.5000000Z') $o;Expect ($v.Presence -eq 'Sans réponse au ping')}
 Case 'Recreated object cannot inherit old user' {$p=Ping-Observation;$p.Guid='new-guid';$v=ConvertTo-DomeniaLiveObservation $p (Previous-Observation);Expect (-not $v.LastUser -and -not $v.UserDn)}
+# D031: a non-progressive repaint (presence ping fallback, Show-ObjectRows) must not apply the local OU text in Global.
+Case 'Global repaint ignores local text filter' {
+    $script:Ctrl.DgObjects=[pscustomobject]@{ItemsSource=$null};$script:Ctrl.LblSuiteResultCount=[pscustomobject]@{Text=''}
+    $a=[pscustomobject]@{Type='Utilisateur';Name='Alex';Login='alex';UPN='';Association='';Presence='Sans objet';SessionDisplay='';SessionState=''}
+    $p=[pscustomobject]@{Type='Machine';Name='PC-ONLY';Login='pc';UPN='';Association='';Presence='';SessionDisplay='';SessionState=''}
+    Set-DomeniaSearchMode Global;[void](Set-DomeniaItemsSource -Name DgObjects -Rows @($a,$p))
+    Expect (@($script:Ctrl.DgObjects.ItemsSource).Count -eq 2) 'Global user hidden on repaint'
+    Expect ($script:Ctrl.LblSuiteResultCount.Text.Contains('sans filtre local')) 'Global repaint label'
+    Set-DomeniaSearchMode OU;[void](Set-DomeniaItemsSource -Name DgObjects -Rows @($a,$p))
+    Expect (@($script:Ctrl.DgObjects.ItemsSource).Count -eq 1 -and @($script:Ctrl.DgObjects.ItemsSource)[0].Name -eq 'PC-ONLY') 'OU local filter must still apply'
+}
+Case 'Global contract refuses an inherited OU perimeter' {
+    $real=${function:Get-DomeniaSearchScope}
+    try{
+        ${function:Get-DomeniaSearchScope}={param($Mode) [pscustomobject]@{BaseDn=$script:SelectedBranchDn;Scope='OneLevel';IsDomain=$false;Mode=$Mode}}
+        $thrown=$false;try{Invoke-GlobalSearch}catch{$thrown=($_.Exception.Message -match 'Contrat de recherche globale')}
+        Expect ($thrown -and $script:Tasks -eq 0 -and $script:StreamStarts -eq 0)
+    }finally{${function:Get-DomeniaSearchScope}=$real}
+}
 Case 'Persistent observation round-trip retains separate times' {$v=ConvertTo-DomeniaLiveObservation (Ping-Observation) (Previous-Observation);$copy=$v|ConvertTo-Json -Depth 5|ConvertFrom-Json;Expect ($copy.UserCheckedUtc -eq $v.UserCheckedUtc -and $copy.PresenceCheckedUtc -eq $v.PresenceCheckedUtc)}
 
 if($env:OS -eq 'Windows_NT' -and -not $SkipWpf){
@@ -181,13 +204,17 @@ if($env:OS -eq 'Windows_NT' -and -not $SkipWpf){
         Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
         $rows=[Collections.ObjectModel.ObservableCollection[object]]::new()
         foreach($d in @(@{Type='Utilisateur';Name='Alex';DN='CN=Alex';Presence='Sans objet';SessionDisplay='';SessionState='';Login='alex';UPN='alex@example.invalid';Association=''},@{Type='Machine';Name='PC-ONLY';DN='CN=PC';Presence='Sans réponse au ping (cache)';SessionDisplay='';SessionState='';Login='pc';UPN='pc.example.invalid';Association=''})){[void]$rows.Add([pscustomobject]$d)}
-        $grid=[Windows.Controls.DataGrid]::new();$grid.ItemsSource=$rows;$script:Ctrl.DgObjects=$grid
+        # Fixture as the real DgObjects (IsReadOnly): a default DataGrid adds a NewItemPlaceholder to Items.Count.
+        $grid=[Windows.Controls.DataGrid]::new();$grid.IsReadOnly=$true;$grid.CanUserAddRows=$false;$grid.ItemsSource=$rows;$script:Ctrl.DgObjects=$grid
         $state=[pscustomobject]@{Generation=9;BaseDn=$script:Conn.BaseDn;Scope='Subtree';TypeFilter=(Get-TypeLdapFilter 'Tous');Search='alex';SearchMode='Global';Limit=100}
         $script:Live=[pscustomobject]@{Identity='r';LastFilter=[datetime]::MinValue;Search=[pscustomobject]@{Identity='r';Stopped=$false;State=$state;Rows=$rows;View=[Windows.Data.CollectionViewSource]::GetDefaultView($rows);LdapDone=$true;Finalized=$true;RefreshNeeded=$false;Fresh=@{};Map=@{}}}
         Set-DomeniaSearchMode Global;Update-DomeniaLiveFilter
-        Expect ($grid.Items.Count -eq 2) 'A global user was hidden by a local filter.'
+        $names=@($grid.Items|Where-Object{$_ -ne [Windows.Data.CollectionView]::NewItemPlaceholder}|ForEach-Object{[string]$_.Name})
+        Expect ($names -contains 'Alex' -and $names -contains 'PC-ONLY' -and $names.Count -eq 2) 'A global user was hidden by a local filter.'
         $state.SearchMode='OU';$state.BaseDn=$script:SelectedBranchDn;$state.Scope='OneLevel';$state.Search='';$state.TypeFilter=Get-TypeLdapFilter 'Machines';Set-DomeniaSearchMode OU
-        Update-DomeniaLiveFilter;Expect ($grid.Items.Count -eq 1 -and $grid.Items[0].Type -eq 'Machine')
+        Update-DomeniaLiveFilter
+        $names=@($grid.Items|Where-Object{$_ -ne [Windows.Data.CollectionView]::NewItemPlaceholder}|ForEach-Object{[string]$_.Name})
+        Expect ($names.Count -eq 1 -and $names[0] -eq 'PC-ONLY')
     }
 }else{$script:Checks.Add([pscustomobject]@{Name='WPF search modes and live filter';Status='Skipped';Error='Windows WPF required.'})}
 $passed=@($script:Checks|Where-Object{$_.Status -eq 'Passed'}).Count

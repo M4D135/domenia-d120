@@ -9497,6 +9497,7 @@ function Invoke-GlobalSearch {
 
     if(Test-DomeniaAccessBusyWrite){Set-Status 'Recherche différée : écriture active ou à vérifier.' 'WARN';return}
     if(-not (Test-DomeniaDraftNavigation -DN "")){return}
+    $navHook = $null
     try {
         $searchBox = Get-DomeniaControl -Name "TxtGlobalSearch"
         if ($null -eq $searchBox) { throw "Champ de recherche introuvable." }
@@ -9542,6 +9543,9 @@ function Invoke-GlobalSearch {
             $selectedGrid = Get-DomeniaControl -Name 'DgObjects'
             if ($null -ne $selectedGrid -and $null -ne $selectedGrid.SelectedItem) { $preserveDn = [string]$selectedGrid.SelectedItem.DN }
         }
+        # D040: the place being left is saved before this search changes the list (no request involved).
+        $navHook = Get-Command Enter-DomeniaNavSearch -CommandType Function -ErrorAction SilentlyContinue
+        if ($null -ne $navHook) { Enter-DomeniaNavSearch }
         Set-DomeniaSearchMode -Mode $SearchMode
         Invalidate-DomeniaSearchResults
         $generation = [int]$script:GlobalSearchGeneration
@@ -9897,6 +9901,9 @@ $watch.Stop()
     catch {
         if ($null -ne $callbackState -and $null -ne $callbackState.PSObject.Properties['LiveState']) { Fail-DomeniaLiveSearch -Message $_.Exception.Message -State $callbackState }
         [void](Show-DomeniaOperationError -Operation "Preparation de la recherche Active Directory" -ErrorRecordOrException $_ -NoPopup:$SilentError)
+    }
+    finally {
+        if ($null -ne $navHook) { Exit-DomeniaNavSearch }
     }
 }
 

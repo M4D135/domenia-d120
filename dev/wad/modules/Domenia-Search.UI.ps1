@@ -4,6 +4,7 @@
 $script:SearchUiInitialized = $false
 $script:NavHistory = $null
 $script:NavRestoring = $false
+$script:NavSearchLaunching = $false
 
 function Update-DomeniaSearchHint {
     # D033/D036: explains what the upper bar will search (explicit tokens, pasted identifier, unknown prefix).
@@ -77,12 +78,29 @@ function Get-DomeniaNavSnapshot {
         try { $selected = $grid.SelectedItem; $rows = $grid.ItemsSource } catch { }
         try { $viewer = Get-DomeniaGridScrollViewer $grid; if ($null -ne $viewer) { $scroll = [double]$viewer.VerticalOffset } } catch { }
     }
+    # The list is described by the search that produced it, not by a text typed afterwards and not yet sent.
+    $mode = Get-DomeniaSearchMode
+    $text = Get-DomeniaSearchText -Mode Global
+    $branchText = Get-DomeniaSearchText -Mode OU
+    $ouDn = [string]$script:SelectedBranchDn
+    $subtreeBox = Get-DomeniaControl 'ChkSubtree'
+    $subtree = $true
+    if ($null -ne $subtreeBox) { $subtree = [bool]$subtreeBox.IsChecked }
+    $viewId = [string]$script:ActiveSearchViewId
+    $listState = $null
+    if ($null -ne $script:Live -and $null -ne $script:Live.Search -and $null -ne $rows -and [object]::ReferenceEquals($rows,$script:Live.Search.Rows)) { $listState = $script:Live.Search.State }
+    if ($null -ne $listState) {
+        $mode = $(if ([string]$listState.SearchMode -eq 'Global') { 'Global' } else { 'OU' })
+        if ($mode -eq 'Global') { $text = [string]$listState.Search }
+        else { $branchText = [string]$listState.Search; $ouDn = [string]$listState.BaseDn; $subtree = ([string]$listState.Scope -eq 'Subtree') }
+        $viewId = ''
+        if ($null -ne $listState.PSObject.Properties['ViewId']) { $viewId = [string]$listState.ViewId }
+    }
     $inner = ''
     if ($Page -eq 'WsObject') {
         $detail = Get-DomeniaControl 'DetailTabs'
         try { if ($null -ne $detail -and $null -ne $detail.SelectedItem) { $inner = [string]$detail.SelectedItem.Name } } catch { }
     }
-    $subtree = Get-DomeniaControl 'ChkSubtree'
     $count = Get-DomeniaControl 'LblBranchCount'
     $selectionGuid = ''; $selectionDn = ''
     if ($null -ne $selected) {
@@ -92,14 +110,37 @@ function Get-DomeniaNavSnapshot {
     $objectDn = ''
     if ($null -ne $script:SelectedObject) { $objectDn = [string]$script:SelectedObject.DN }
     return [pscustomobject]@{
-        Page=$Page;Tab=$inner;Mode=(Get-DomeniaSearchMode)
-        Text=(Get-DomeniaSearchText -Mode Global);BranchText=(Get-DomeniaSearchText -Mode OU)
-        OuDn=[string]$script:SelectedBranchDn;Subtree=$(if ($null -ne $subtree) { [bool]$subtree.IsChecked } else { $true })
+        Page=$Page;Tab=$inner;Mode=$mode;Text=$text;BranchText=$branchText;OuDn=$ouDn;Subtree=$subtree
         SelectionGuid=$selectionGuid;SelectionDn=$selectionDn;Rows=$rows;Scroll=$scroll
         CountLabel=$(if ($null -ne $count) { [string]$count.Text } else { '' })
-        Generation=[int]$script:GlobalSearchGeneration;ViewId=[string]$script:ActiveSearchViewId
+        Generation=[int]$script:GlobalSearchGeneration;ViewId=$viewId
         ObjectDn=$objectDn;At=[datetime]::UtcNow
     }
+}
+
+function Get-DomeniaVisiblePageName {
+    $tabs = Get-DomeniaControl 'WorkspaceTabs'
+    try { if ($null -ne $tabs -and $null -ne $tabs.SelectedItem) { return [string]$tabs.SelectedItem.Name } } catch { }
+    return ''
+}
+
+function Enter-DomeniaNavSearch {
+    # Called by Invoke-GlobalSearch before it changes the list: the place being left is saved as it is now,
+    # and the page switch made by the search does not overwrite it with a half-updated state.
+    if ($script:NavRestoring -or $null -eq $script:NavHistory) { return }
+    $h = $script:NavHistory
+    $page = Get-DomeniaVisiblePageName
+    if ($null -ne $h.Current -and $page -and [string]$h.Current.Page -eq $page) { $h.Current = Get-DomeniaNavSnapshot -Page $page }
+    $script:NavSearchLaunching = $true
+}
+
+function Exit-DomeniaNavSearch {
+    # Called once the search has replaced the list: the new list becomes a place of the history.
+    if (-not [bool]$script:NavSearchLaunching) { return }
+    $script:NavSearchLaunching = $false
+    if ($script:NavRestoring -or $null -eq $script:NavHistory) { return }
+    [void](Push-DomeniaNavState $script:NavHistory (Get-DomeniaNavSnapshot))
+    Update-DomeniaNavButtons
 }
 
 function Update-DomeniaNavButtons {
@@ -115,7 +156,8 @@ function Register-DomeniaNavLocation {
     param([string]$From='',[string]$To='')
     if ($script:NavRestoring -or $null -eq $script:NavHistory -or -not $To) { return }
     $h = $script:NavHistory
-    if ($From -and $null -ne $h.Current -and [string]$h.Current.Page -eq $From) { $h.Current = Get-DomeniaNavSnapshot -Page $From }
+    # During a search launch the place being left was already saved by Enter-DomeniaNavSearch.
+    if ($From -and -not [bool]$script:NavSearchLaunching -and $null -ne $h.Current -and [string]$h.Current.Page -eq $From) { $h.Current = Get-DomeniaNavSnapshot -Page $From }
     [void](Push-DomeniaNavState $h (Get-DomeniaNavSnapshot -Page $To))
     Update-DomeniaNavButtons
 }
@@ -162,7 +204,9 @@ function Restore-DomeniaNavState {
             }
             finally { $script:SuppressGridSelectionEvents = $suppressed }
             # The freshness of the remembered list is kept and stated as history.
-            $script:BranchCountLabel = ([string]$State.CountLabel) + ' · historique, non relu'
+            $label = [string]$State.CountLabel
+            if (-not $label.Contains('historique, non relu')) { $label += ' · historique, non relu' }
+            $script:BranchCountLabel = $label
             [void](Set-DomeniaControlText -Name 'LblBranchCount' -Text $script:BranchCountLabel)
         }
         $inner = ''
@@ -191,7 +235,7 @@ function Invoke-DomeniaNavStep {
     $step = Step-DomeniaNavHistory -History $h -Direction $Direction -HasDraft ($dirty.Count -gt 0) -DraftDecisionTaken $false
     if ([bool]$step.Blocked) { Set-Status ([string]$step.Reason) 'WARN'; Update-DomeniaNavButtons; return $step }
     if (-not [bool]$step.Moved) { if ([string]$step.Reason) { Set-Status ([string]$step.Reason) }; Update-DomeniaNavButtons; return $step }
-    Restore-DomeniaNavState -State $step.State
+    [void](Restore-DomeniaNavState -State $step.State)
     Update-DomeniaNavButtons
     return $step
 }
@@ -201,6 +245,7 @@ function Initialize-DomeniaSearchUi {
     $script:SearchUiInitialized = $true
     $script:NavHistory = New-DomeniaNavHistory -Capacity 40
     $script:NavRestoring = $false
+    $script:NavSearchLaunching = $false
     if ((Get-DomeniaControl 'CmbWorkView') -is [Windows.Controls.ComboBox]) { Update-DomeniaWorkViewList }
     $more = Get-DomeniaControl 'BtnSearchMore'
     if ($more -is [Windows.Controls.Primitives.ButtonBase]) { $more.Add_Click({ try { Invoke-DomeniaSearchMore } catch { Write-AppLog ('Charger la suite : '+$_.Exception.Message) 'ERROR'; Set-Status ('Suite non chargée : '+$_.Exception.Message) 'ERROR' } }) }
