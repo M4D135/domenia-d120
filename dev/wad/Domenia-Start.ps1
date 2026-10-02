@@ -58,6 +58,8 @@ try {
         'wad/modules/Domenia-Safety.Model.ps1',
         'wad/modules/Domenia-Insight.Model.ps1',
         'wad/modules/Domenia-Release.Model.ps1',
+        'wad/modules/Domenia-Selection.UI.ps1',
+        'wad/modules/Domenia-Relations.UI.ps1',
         'wad/modules/Domenia-Embedded.UI.ps1',
         'wad/modules/Domenia-UX.UI.ps1',
         'wad/modules/Domenia-Experience.Model.ps1',
