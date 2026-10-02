@@ -541,6 +541,8 @@ function Get-DomeniaRuntimeModulePlan {
             'Confirm-DomeniaRelationAssociation',
             'Complete-DomeniaRelationAssociationVerify',
             'Fail-DomeniaRelationAssociationVerify',
+            'Get-DomeniaLinkQualification',
+            'Select-DomeniaBestLink',
             'Get-DomeniaRelationsWorkerCode'
         ) }
         [pscustomobject]@{ File='Domenia-UX.UI.ps1'; DotSource=$true; Functions=@(

@@ -230,7 +230,7 @@ function Invoke-DomeniaObjectChanges {
     else{$q=Get-BranchQueryData}
     $state=[pscustomobject]@{Search=$s;Identity=$script:Live.Identity;Epoch=[long]$script:SessionEpoch;Mutation=$c.Mutation}
     try{
-        $c.ChangeJob=Start-UiTask -Name 'Reverification objets listes' -OperationId 'LiveDirectoryCheck' -Code (Get-DomeniaChangeWorkerCode) -Payload ([pscustomobject]@{Items=$items.ToArray();BaseDn=$q.BaseDn;Scope=$q.Scope;Filter=$q.Filter}) -CallbackState $state -ReplaceKey 'listed-changes' -TimeoutSeconds 20 -SuccessHandler 'Complete-DomeniaObjectChanges' -ErrorHandler 'Fail-DomeniaObjectChanges'
+        $c.ChangeJob=Start-UiTask -Name 'Reverification objets listes' -OperationId 'LiveDirectoryCheck' -Code (Get-DomeniaChangeWorkerCode) -Payload ([pscustomobject]@{Items=$items.ToArray();BaseDn=$q.BaseDn;Scope=$q.Scope;Filter=$q.Filter}) -CallbackState $state -ReplaceKey 'listed-changes' -TimeoutSeconds 20 -SuccessHandler 'Complete-DomeniaObjectChanges' -ErrorHandler 'Fail-DomeniaObjectChanges' -TaskClass 'Background'
         $interval=if($c.ChangeQueue.Count){2}else{[Math]::Max(30,[Math]::Min(600,[int](Get-CfgValue 'Streaming' 'RevalidateIntervalSeconds' 60)))}
         $c.ChangeNext=[datetime]::UtcNow.AddSeconds($interval)
     }catch{$c.ChangeJob='';$c.ChangeNext=[datetime]::UtcNow.AddSeconds(60);Write-AppLog ('Reverification differee : '+$_.Exception.Message) 'WARN'}
@@ -308,6 +308,7 @@ function Initialize-DomeniaContinuity {
             Invoke-DomeniaObjectChanges
         }catch{Write-AppLog ('Disposition ou revalidation : '+$_.Exception.Message) 'WARN'}
     });$script:Continuity.Timer=$timer;$timer.Start()
+    if($null -ne (Get-Command Register-DomeniaOwnedTimer -CommandType Function -ErrorAction SilentlyContinue)){try{[void](Register-DomeniaOwnedTimer -Owner 'Timer:Continuity' -Timer $timer)}catch{}}
     $script:Window.Add_ContentRendered({Start-DomeniaTreeBookmarkRestore})
     $script:Window.Add_Closed({
         if($null -ne $script:Continuity){$script:Continuity.Timer.Stop();foreach($g in $script:Continuity.Grids.Values){Save-DomeniaGridLayout $g.Grid};Save-DomeniaTreeBookmark;Save-DomeniaSettings -Immediate}

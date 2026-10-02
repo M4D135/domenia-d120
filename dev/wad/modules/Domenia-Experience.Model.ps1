@@ -108,6 +108,8 @@ function Get-DomeniaExperienceTaskRow {
     if($null -eq $Job){return $null}
     $state='En cours';$detail='Traitement actif. Aucun résultat final annoncé.'
     if($Detached){$state='Nettoyage';$detail='Lecture détachée, appel natif encore en cours de nettoyage.'}
+    # D015/D017: an entry of the engine queue has sent nothing yet.
+    elseif($null -ne $Job.PSObject.Properties['State'] -and [string]$Job.State -eq 'Queued'){$state='En attente';$detail='Demande en file : aucune lecture envoyée pour l''instant.'}
     elseif([bool]$Job.IsWrite -and ([bool]$Job.CancelRequested -or [bool]$Job.TimeoutNotified -or [bool]$Job.TimeoutErrorDelivered)){$state='À vérifier';$detail='Écriture envoyée : son résultat reste à vérifier. Aucun rejeu automatique.'}
     elseif([bool]$Job.CancelRequested){$state='Arrêt demandé';$detail='La demande est envoyée ; la fin du worker n''est pas confirmée.'}
     elseif([bool]$Job.TimeoutNotified -or [bool]$Job.TimeoutErrorDelivered){$state='À vérifier';$detail='Délai dépassé. Ne pas déduire une réussite ou relancer une écriture.'}

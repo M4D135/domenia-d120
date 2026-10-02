@@ -2700,11 +2700,15 @@ function Update-DomeniaSelectedUserPresence {
     $confidence = 0
     try {
         $links = @(Get-LinksForUser -UserLogin $Login)
-        $best = $links |
-            Sort-Object `
-                @{ Expression = { try { [int]$_.Confidence } catch { 0 } }; Descending = $true },
-                @{ Expression = { [string]$_.When }; Descending = $true } |
-            Select-Object -First 1
+        # D042/D043: a declared assignment first, then the most recent relation (relation model); RC1.10.7 order otherwise.
+        if ($null -ne (Get-Command -Name Select-DomeniaBestLink -CommandType Function -ErrorAction SilentlyContinue)) { $best = Select-DomeniaBestLink $links }
+        else {
+            $best = $links |
+                Sort-Object `
+                    @{ Expression = { try { [int]$_.Confidence } catch { 0 } }; Descending = $true },
+                    @{ Expression = { [string]$_.When }; Descending = $true } |
+                Select-Object -First 1
+        }
         if ($null -ne $best) {
             $target = [string]$best.Computer
             try { $confidence = [int]$best.Confidence } catch { }
@@ -2724,6 +2728,8 @@ function Update-DomeniaSelectedUserPresence {
     Update-DomeniaObjectPresence -State "Test en cours..." -Target $target
 
     $suffix = if ($confidence -gt 0) { "  confiance $confidence%" } else { "" }
+    # D043: the badge of the link, never a percentage, with the relation model.
+    if ($null -ne $best -and $null -ne (Get-Command -Name Get-DomeniaLinkQualification -CommandType Function -ErrorAction SilentlyContinue)) { $suffix = (Get-DomeniaLinkQualification $best).Suffix }
     Start-UiTask `
         -Name "Presence du poste de $Login" `
         -OperationId "SelectedPresence" `
@@ -4574,19 +4580,19 @@ function Get-MainXaml {
                         </Grid.RowDefinitions>
                         <StackPanel Margin="0,0,0,10"><DockPanel Margin="0,0,0,8">
                           <Button x:Name="BtnSearchMore" Content="Charger la suite" DockPanel.Dock="Right" IsEnabled="False" MinHeight="30" Padding="10,2" Margin="8,0,0,0" ToolTip="Disponible quand la liste est limitée : relit la même recherche avec une limite doublée, jusquʼà 500 lignes, sans doublon ni ancien contexte." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Charger la suite" AutomationProperties.HelpText="Disponible quand la liste est limitée : relit la même recherche avec une limite doublée, jusquʼà 500 lignes, sans doublon ni ancien contexte."/>
-                          <TextBlock x:Name="LblBranchCount" Text="0 objet" Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" Margin="12,0,0,0" DockPanel.Dock="Right" TextWrapping="Wrap" MaxWidth="320" FontSize="12"/>
+                          <TextBlock x:Name="LblBranchCount" Text="0 objet" Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" Margin="12,0,0,0" DockPanel.Dock="Right" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" MaxWidth="320" FontSize="12" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
                           <TextBlock Text="Résultats" FontSize="16" FontWeight="SemiBold"/>
                         </DockPanel>
                         <Grid><Grid.Style><Style TargetType="Grid"><Style.Triggers><DataTrigger Binding="{Binding Tag, ElementName=SearchBrowserLayout}" Value="Global"><Setter Property="IsEnabled" Value="False"/></DataTrigger></Style.Triggers></Style></Grid.Style><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
 <TextBlock Text="Dans les résultats" VerticalAlignment="Center" Margin="0,0,10,0" Foreground="{DynamicResource MutedColor}"/>
 <TextBox x:Name="TxtSuiteResultFilter" Grid.Column="1" MaxLength="120" MinHeight="32" ToolTip="Filtre local littéral dans le nom, login, type, présence et association. Plusieurs mots se combinent. Aucun appel AD. La limite LDAP reste inchangée." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Filtrer les lignes chargées" AutomationProperties.HelpText="Filtre local littéral dans le nom, login, type, présence et association. Plusieurs mots se combinent. Aucun appel AD. La limite LDAP reste inchangée." IsEnabled="{Binding IsEnabled, ElementName=DgObjects}"/>
 <Button x:Name="BtnSuiteResultClear" Grid.Column="2" Content="Effacer le filtre" Margin="8,0,0,0" MinHeight="32" ToolTip="Réaffiche les lignes déjà chargées, en conservant le filtre OU, la présence et le texte de recherche AD." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Effacer le filtre local" AutomationProperties.HelpText="Réaffiche les lignes déjà chargées, en conservant le filtre OU, la présence et le texte de recherche AD." IsEnabled="{Binding IsEnabled, ElementName=DgObjects}"/>
-</Grid><TextBlock x:Name="LblSuiteResultCount" Text="Filtre local : affine seulement les lignes déjà chargées." FontSize="11" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,5,0,0"/><StackPanel Margin="0,10,0,0">
+</Grid><TextBlock x:Name="LblSuiteResultCount" Text="Filtre local : affine seulement les lignes déjà chargées." FontSize="11" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Height="18" Margin="0,5,0,0" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/><StackPanel Margin="0,10,0,0">
                             <WrapPanel>
                               <CheckBox x:Name="ChkLiveUsers" IsEnabled="{Binding IsEnabled, ElementName=DgObjects}" Content="Utilisateur à la sélection" IsChecked="True" VerticalAlignment="Center" Margin="0,0,14,4" ToolTip="Un clic lance un ping unique sur le poste. Cochée : lit aussi son utilisateur console. Décochée : ping seulement. Jamais de sondage collectif." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vérification sur sélection" AutomationProperties.HelpText="Vérifie uniquement la machine sélectionnée. Les autres lignes conservent leurs observations en cache, sans nouvel appel distant."/>
                               <Button x:Name="BtnLiveRecheck" IsEnabled="{Binding IsEnabled, ElementName=DgObjects}" Content="Revérifier ce poste" Margin="0,0,0,4" MinHeight="30" Padding="10,4" ToolTip="Relance un ping unique et la lecture utilisateur sur le poste sélectionné. Si le compte est refusé ou CIM désactivé, seul le ping reste disponible. Aucun balayage." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Revérifier ce poste" AutomationProperties.HelpText="Relance la vérification du compte console d’une seule machine sélectionnée."/>
                             </WrapPanel>
-                            <TextBlock Text="Selectionnez une ligne pour precharger sa fiche. Double-clic : ouvrir." Foreground="{DynamicResource MutedColor}" FontSize="11" Height="20" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" x:Name="LblSelectionReadState"/><TextBlock x:Name="LblLiveState" Text="Un clic : vérifier ce poste · Double-clic : ouvrir la fiche · Aucune sonde de liste" FontSize="11" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap"/>
+                            <TextBlock Text="Selectionnez une ligne pour precharger sa fiche. Double-clic : ouvrir." Foreground="{DynamicResource MutedColor}" FontSize="11" Height="20" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" x:Name="LblSelectionReadState"/><TextBlock x:Name="LblLiveState" Text="Un clic : vérifier ce poste · Double-clic : ouvrir la fiche · Aucune sonde de liste" FontSize="11" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Height="18" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
                           </StackPanel></StackPanel><Grid Grid.Row="1">
                           
                           <DataGrid x:Name="DgObjects" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Extended" SelectionUnit="FullRow" CanUserSortColumns="True" CanUserResizeColumns="True" EnableRowVirtualization="True" EnableColumnVirtualization="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.CanContentScroll="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" HeadersVisibility="Column" ToolTip="Un clic precharge la fiche AD sans changer de page. Pour un poste : un ping et la lecture utilisateur si activee. Double-clic ou Entree ouvre la fiche en reutilisant sa lecture. Aucun scan collectif." RowHeight="34" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Résultats : sélection et ouverture explicite" AutomationProperties.HelpText="Un clic precharge la fiche AD sans changer de page. Pour un poste : un ping et la lecture utilisateur si activee. Double-clic ou Entree ouvre la fiche en reutilisant sa lecture. Aucun scan collectif.">
@@ -4618,8 +4624,8 @@ function Get-MainXaml {
                               <DataGridTextColumn Header="Source lien" SortMemberPath="LinkSource" Binding="{Binding LinkSource}" Width="155">
                                 <DataGridTextColumn.HeaderStyle><Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}"><Setter Property="ToolTip" Value="Origine de l’association mémorisée : console observée, import ou saisie manuelle."/></Style></DataGridTextColumn.HeaderStyle>
                               </DataGridTextColumn>
-                              <DataGridTextColumn Header="Confiance" SortMemberPath="LinkConfidence" Binding="{Binding LinkConfidence}" Width="90">
-                                <DataGridTextColumn.HeaderStyle><Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}"><Setter Property="ToolTip" Value="Indicateur historique de la source du lien ; ce n’est pas une probabilité de connexion actuelle."/></Style></DataGridTextColumn.HeaderStyle>
+                              <DataGridTextColumn Header="Qualification" SortMemberPath="LinkConfidence" Binding="{Binding LinkConfidence}" Width="90">
+                                <DataGridTextColumn.HeaderStyle><Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}"><Setter Property="ToolTip" Value="Badge de la source du lien (Declare, Observe, Importe, Indice, Contradictoire) ; ce nʼest jamais une probabilité de connexion actuelle."/></Style></DataGridTextColumn.HeaderStyle>
                               </DataGridTextColumn>
                               <DataGridTemplateColumn Header="Présence réseau" SortMemberPath="Presence" Width="175">
                                 <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding Presence}" ToolTip="{Binding PresenceDetail}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/></DataTemplate></DataGridTemplateColumn.CellTemplate>
@@ -5347,8 +5353,8 @@ function Get-MainXaml {
                           <TextBox Grid.Row="7" Grid.Column="1" x:Name="TxtCompLinkedUser" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,14,8" ToolTip="Dernier utilisateur associe a ce poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Utilisateur associe" AutomationProperties.HelpText="Dernier utilisateur associe a ce poste."/>
                           <Label Grid.Row="7" Grid.Column="2" Content="Source"/>
                           <TextBox Grid.Row="7" Grid.Column="3" x:Name="TxtCompLinkSource" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,0,8" ToolTip="Source ayant fourni le lien utilisateur-poste : détection, import ou saisie, selon les données disponibles." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Origine de l’association" AutomationProperties.HelpText="Source ayant fourni le lien utilisateur-poste : détection, import ou saisie, selon les données disponibles."/>
-                          <Label Grid.Row="8" Grid.Column="0" Content="Confiance"/>
-                          <TextBox Grid.Row="8" Grid.Column="1" x:Name="TxtCompLinkConfidence" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,14,8" ToolTip="Niveau indicatif attribué à l’association par DOMENIA, pas une probabilité certifiée de session active." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Confiance de l’association" AutomationProperties.HelpText="Niveau indicatif attribué à l’association par DOMENIA, pas une probabilité certifiée de session active."/>
+                          <Label Grid.Row="8" Grid.Column="0" Content="Qualification"/>
+                          <TextBox Grid.Row="8" Grid.Column="1" x:Name="TxtCompLinkConfidence" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,14,8" ToolTip="Badge de lʼassociation (Declare, Observe, Importe, Indice) et règle qui le produit ; jamais un pourcentage ni une probabilité de session active." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Qualification de lʼassociation" AutomationProperties.HelpText="Badge de lʼassociation (Declare, Observe, Importe, Indice) et règle qui le produit ; jamais un pourcentage ni une probabilité de session active."/>
                           <Label Grid.Row="8" Grid.Column="2" Content="Detecte le"/>
                           <TextBox Grid.Row="8" Grid.Column="3" x:Name="TxtCompLinkWhen" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,0,8" ToolTip="Horodatage connu pour la détection ou l’enregistrement de cette association." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Date de l’association" AutomationProperties.HelpText="Horodatage connu pour la détection ou l’enregistrement de cette association."/>
                           <Border Grid.Row="9" Grid.RowSpan="2" Grid.ColumnSpan="4" Margin="0,10,0,0" Padding="12" CornerRadius="10" Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1">
@@ -7221,7 +7227,8 @@ function Fill-ComputerObject {
         $link = Get-ExistingLinkForComputer -Computer $computerForLink
         if ($null -ne $link) {
             $script:Ctrl["TxtCompLinkedUser"].Text = [string]$link.UserLogin
-            $confidenceText = if ($null -ne $link.PSObject.Properties["Confidence"] -and -not [string]::IsNullOrWhiteSpace([string]$link.Confidence)) { "  confiance $($link.Confidence)%" } else { "" }
+            # D043: badge of the link (relation model), never a percentage.
+            $confidenceText = $(if($null -ne (Get-Command Get-DomeniaLinkQualification -CommandType Function -ErrorAction SilentlyContinue)){(Get-DomeniaLinkQualification $link).Suffix}elseif($null -ne $link.PSObject.Properties['Confidence'] -and -not [string]::IsNullOrWhiteSpace([string]$link.Confidence)){'  confiance '+[string]$link.Confidence+'%'}else{''})
             $script:Ctrl["TxtCompLinkSource"].Text = "$($link.Source)$confidenceText  $($link.When)"
         } else {
             $script:Ctrl["TxtCompLinkedUser"].Text = "Non detecte"
@@ -7620,13 +7627,16 @@ function Add-SelectedLink {
         if(Test-DomeniaAccessBusyWrite){return}
         $s=Get-DomeniaRelationsSubject
         if($null -eq $s -and $null -ne $script:SelectedObject){Set-DomeniaRelationsSelection -Object $script:SelectedObject;$s=Get-DomeniaRelationsSubject}
-        if($null -eq $s){Set-Status 'Sélectionnez un utilisateur dans Rechercher avant d associer un poste.' 'WARN';return}
-        if($s.Type -ne 'Utilisateur'){Set-Status 'L association guidée part maintenant de l utilisateur : sélectionnez un utilisateur puis ouvrez Relations > Associer.' 'INFO';return}
+        if($null -eq $s){Set-Status 'Sélectionnez un utilisateur ou un poste dans Rechercher avant d associer.' 'WARN';return}
+        # D041: with the relation model a workstation is a subject too (search for the user in the page).
+        $symmetric=[bool](Get-DomeniaFeatureFlag 'RelationsSymmetry' $true)
+        if($s.Type -ne 'Utilisateur' -and -not ($symmetric -and $s.Type -eq 'Machine')){Set-Status 'L association guidée part de l utilisateur : sélectionnez un utilisateur puis ouvrez Relations > Associer.' 'INFO';return}
         $workspace=Get-DomeniaControl 'WorkspaceTabs';$relations=Get-DomeniaControl 'TabRelations';if($null -ne $workspace -and $null -ne $relations){$workspace.SelectedItem=$relations}
         $tabs=Get-DomeniaControl 'RelationTabs';$associate=Get-DomeniaControl 'TabLinksAssociate';if($null -ne $tabs -and $null -ne $associate){$tabs.SelectedItem=$associate}
         $modes=Get-DomeniaControl 'RelationAssociateModeTabs';$search=Get-DomeniaControl 'TabRelationSearch';if($null -ne $modes -and $null -ne $search){$modes.SelectedItem=$search}
         $box=Get-DomeniaControl 'TxtRelationComputerSearch';if($null -ne $box){[void]$box.Focus()}
-        Set-Status ('Association de poste pour '+$s.Login+' : détectez un poste ou recherchez-le dans l onglet Associer.')
+        if($s.Type -eq 'Machine'){Set-Status ('Association pour le poste '+$s.Name+' : lisez sa session ou recherchez l utilisateur dans l onglet Associer.')}
+        else{Set-Status ('Association de poste pour '+$s.Login+' : détectez un poste ou recherchez-le dans l onglet Associer.')}
     }
     catch { Set-Status ('Association : '+$_.Exception.Message) 'ERROR' }
 }
@@ -16685,6 +16695,8 @@ function Invoke-ComputerTool {
     param([string]$Tool)
     try {
         $name=Assert-DomeniaComputerTarget -Computer (Get-CurrentSelectedComputerName)
+        # D002: the demonstration directory has no real workstation; external tools are never started.
+        if([bool]$script:DemoMode -and $Tool -in @('RDP','C','Manage','Events','Services','PSRemote')){throw "Outil poste $Tool non disponible en demonstration - aucune connexion au poste."}
         switch($Tool){
             "Ping" {
                 $code=@'
@@ -17776,7 +17788,7 @@ function Get-SelectedAssociationSummary {
             $links = @(Get-LinksForComputer -Computer $computer)
             if ($links.Count -eq 0) { return "Aucun utilisateur lie" }
             $l = $links[0]
-            $confidence = if ($null -ne $l.PSObject.Properties["Confidence"] -and -not [string]::IsNullOrWhiteSpace([string]$l.Confidence)) { "  confiance $($l.Confidence)%" } else { "" }
+            $confidence = $(if($null -ne (Get-Command Get-DomeniaLinkQualification -CommandType Function -ErrorAction SilentlyContinue)){(Get-DomeniaLinkQualification $l).Suffix}elseif($null -ne $l.PSObject.Properties['Confidence'] -and -not [string]::IsNullOrWhiteSpace([string]$l.Confidence)){'  confiance '+[string]$l.Confidence+'%'}else{''})
             return "$($l.UserLogin)  $($l.Source)$confidence  $($l.When)"
         }
         if ($script:SelectedObject.Type -eq "Utilisateur") {
@@ -17801,7 +17813,7 @@ function Update-SelectedAssociationFields {
             if ($links.Count -gt 0) {
                 $l = $links[0]
                 $script:Ctrl["TxtCompLinkedUser"].Text = [string]$l.UserLogin
-                $confidence = if ($null -ne $l.PSObject.Properties["Confidence"] -and -not [string]::IsNullOrWhiteSpace([string]$l.Confidence)) { "  confiance $($l.Confidence)%" } else { "" }
+                $confidence = $(if($null -ne (Get-Command Get-DomeniaLinkQualification -CommandType Function -ErrorAction SilentlyContinue)){(Get-DomeniaLinkQualification $l).Suffix}elseif($null -ne $l.PSObject.Properties['Confidence'] -and -not [string]::IsNullOrWhiteSpace([string]$l.Confidence)){'  confiance '+[string]$l.Confidence+'%'}else{''})
                 $script:Ctrl["TxtCompLinkSource"].Text = "$($l.Source)$confidence  $($l.When)"
             }
             else {
@@ -17961,6 +17973,11 @@ function Get-AssociationSummaryForObject {
         $links = @(Get-LinksForComputer $candidate)
         if ($links.Count -eq 0) { return "Aucun utilisateur associe." }
         $l = $links[0]
+        if ($null -ne (Get-Command -Name Get-DomeniaLinkQualification -CommandType Function -ErrorAction SilentlyContinue)) {
+            # D043: badge and rule of the link, never a percentage (relation model).
+            $qualification = Get-DomeniaLinkQualification $l
+            if ($qualification.Label -eq 'Qualification') { return "Utilisateur : $($l.UserLogin)`r`nSource : $($l.Source)`r`nQualification : $($qualification.Value) ($($qualification.Rule))`r`nDate : $($l.When)" }
+        }
         return "Utilisateur : $($l.UserLogin)`r`nSource : $($l.Source)`r`nConfiance : $($l.Confidence)`r`nDate : $($l.When)"
     }
     if ($Type -eq "Utilisateur") {
@@ -17980,6 +17997,10 @@ function Set-RowAssociationMetadata {
     # Elle ne doit jamais empecher l'affichage d'un resultat AD.
     $result = New-Object System.Collections.ArrayList
     $enrichmentErrors = 0
+    # D043: the LinkConfidence column carries the badge of the link with the relation model (read once per call).
+    $qualify = ($null -ne (Get-Command -Name Get-DomeniaLinkQualification -CommandType Function -ErrorAction SilentlyContinue))
+    $symmetric = $false
+    if ($qualify) { $symmetric = [bool](Get-DomeniaFeatureFlag 'RelationsSymmetry' $true) }
 
     foreach ($row in @($Rows)) {
         if ($null -eq $row) { continue }
@@ -17997,7 +18018,7 @@ function Set-RowAssociationMetadata {
                 if ($links.Count -gt 0) {
                     $association = [string]$links[0].UserLogin
                     $source = [string]$links[0].Source
-                    $confidence = [string]$links[0].Confidence
+                    $confidence = if ($qualify) { [string](Get-DomeniaLinkQualification $links[0] $symmetric).Value } else { [string]$links[0].Confidence }
                 }
             }
             elseif ([string]$row.Type -eq "Utilisateur") {
@@ -18008,10 +18029,16 @@ function Set-RowAssociationMetadata {
                 if ($links.Count -gt 0) {
                     $association = (@($links | ForEach-Object { [string]$_.Computer } | Where-Object { $_ } | Sort-Object -Unique) -join ", ")
                     $source = (@($links | ForEach-Object { [string]$_.Source } | Where-Object { $_ } | Sort-Object -Unique) -join ", ")
-                    $bestLink = $links | Sort-Object `
-                        @{ Expression = { try { [int]$_.Confidence } catch { 0 } }; Descending = $true }, `
-                        @{ Expression = { [string]$_.When }; Descending = $true } | Select-Object -First 1
-                    if ($null -ne $bestLink) { $confidence = [string]$bestLink.Confidence }
+                    if ($qualify) {
+                        $bestLink = Select-DomeniaBestLink $links $symmetric
+                        if ($null -ne $bestLink) { $confidence = [string](Get-DomeniaLinkQualification $bestLink $symmetric).Value }
+                    }
+                    else {
+                        $bestLink = $links | Sort-Object `
+                            @{ Expression = { try { [int]$_.Confidence } catch { 0 } }; Descending = $true }, `
+                            @{ Expression = { [string]$_.When }; Descending = $true } | Select-Object -First 1
+                        if ($null -ne $bestLink) { $confidence = [string]$bestLink.Confidence }
+                    }
                 }
             }
         }
@@ -18199,7 +18226,7 @@ function Refresh-AssociationContext {
                 $link = $links[0]
                 $script:Ctrl["TxtCompLinkedUser"].Text = [string]$link.UserLogin
                 $script:Ctrl["TxtCompLinkSource"].Text = [string]$link.Source
-                $script:Ctrl["TxtCompLinkConfidence"].Text = [string]$link.Confidence
+                $script:Ctrl["TxtCompLinkConfidence"].Text = if ($null -ne (Get-Command -Name Get-DomeniaLinkQualification -CommandType Function -ErrorAction SilentlyContinue)) { [string](Get-DomeniaLinkQualification $link).Value } else { [string]$link.Confidence }
                 $script:Ctrl["TxtCompLinkWhen"].Text = [string]$link.When
             }
             else {
@@ -21134,6 +21161,11 @@ function Complete-UiTasks {
             # worker AD suspend tout nouveau bind explicite. On ne transforme pas
             # l'identite et on ne retente pas automatiquement avec une variante.
             $credentialRejected = ($errorMessage -match "(?i)(nom d.utilisateur ou le mot de passe est incorrect|user name or password is incorrect|logon failure|identifiant ou mot de passe|credentials?.*(invalid|incorrect)|compte.*verrouill|account.*locked)")
+            # D052: the structured decision (native code or worker marker, French and English alike) joins the text rule;
+            # a delay or a refused right never trips the anti-lockout breaker.
+            if (-not $credentialRejected -and $null -ne (Get-Command -Name Get-DomeniaErrorDecision -CommandType Function -ErrorAction SilentlyContinue)) {
+                try { $credentialRejected = ([string](Get-DomeniaErrorDecision -Structured (Get-DomeniaStructuredError $errorMessage -Phase ([string]$job.OperationId)) -Text $errorMessage).Category -in @('CredentialsRejected','AccountState')) } catch { }
+            }
             if ($credentialRejected) {
                 # C3/D018: only an operation that can carry the AD account trips the AD breaker. A refused
                 # workstation, WTS or local-storage account (SessionsList, LocalStore...) never suspends the directory.

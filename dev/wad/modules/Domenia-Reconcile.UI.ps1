@@ -45,6 +45,8 @@ function Invoke-DomeniaReconcileTick {
     if($null -eq $script:Reconcile -or $script:AsyncEngineClosing -or -not (Test-DomeniaLiveSearchActive) -or (Test-DomeniaAccessBusyWrite)){return}
     $s=$script:Live.Search;$r=$script:Reconcile;$grid=Get-DomeniaControl 'DgObjects'
     if(-not [object]::ReferenceEquals($r.Search,$s)){$r.Search=$s;$r.Events.Clear();$r.Next=[datetime]::UtcNow.AddSeconds(180)}
+    # A job withdrawn from the queue, cancelled or superseded calls no handler: forget it so the next pass can run.
+    if($r.Job -and -not $script:AsyncJobs.Contains([string]$r.Job) -and @(@($script:DetachedReadJobs)|Where-Object{$null -ne $_ -and [string]$_.Id -eq [string]$r.Job}).Count -eq 0){$r.Job='';$r.Next=[datetime]::UtcNow.AddMinutes(5)}
     if(-not $grid.IsEnabled){return}
     $watch=[Diagnostics.Stopwatch]::StartNew();$n=0
     while($r.Events.Count -and $n -lt 8 -and $watch.ElapsedMilliseconds -lt 5){
@@ -57,10 +59,12 @@ function Invoke-DomeniaReconcileTick {
     if($r.Job -or $r.Events.Count -or -not $s.Finalized -or $s.Error -or [datetime]::UtcNow -lt $r.Next -or -not $grid.IsVisible -or -not $script:Window.IsActive){return}
     $enabled=Get-DomeniaControl 'ChkGuardReconcile';if($null -ne $enabled -and -not $enabled.IsChecked){return}
     if($script:DirectoryCredentialFaulted -or @($script:AsyncJobs.Keys).Count -ge 4){return}
+    # D020 (C1): the idle policy may also hold the pass (write in flight, other page). Never more permissive than the window check above.
+    if($null -ne (Get-Command Test-DomeniaBackgroundWorkAllowed -CommandType Function -ErrorAction SilentlyContinue)){try{if(-not (Test-DomeniaBackgroundWorkAllowed -Source 'Reconcile')){return}}catch{}}
     $filter=[string]$s.Final.FilterUsed;if(-not $filter){return}
     $state=[pscustomobject]@{Search=$s;Epoch=[long]$script:SessionEpoch;Identity=$script:Live.Identity;Filter=$filter;Mutation=$script:Continuity.Mutation}
     try{
-        $r.Job=Start-UiTask -Name 'Reconciliation du perimetre' -OperationId 'ScopeReconcile' -Code (Get-DomeniaReconcileWorkerCode) -Payload ([pscustomobject]@{BaseDn=$s.State.BaseDn;Scope=$s.State.Scope;Limit=$s.State.Limit;Filter=$filter}) -CallbackState $state -SuccessHandler 'Complete-DomeniaReconcile' -ErrorHandler 'Fail-DomeniaReconcile' -TimeoutSeconds 20 -ReplaceKey 'scope-reconcile'
+        $r.Job=Start-UiTask -Name 'Reconciliation du perimetre' -OperationId 'ScopeReconcile' -Code (Get-DomeniaReconcileWorkerCode) -Payload ([pscustomobject]@{BaseDn=$s.State.BaseDn;Scope=$s.State.Scope;Limit=$s.State.Limit;Filter=$filter}) -CallbackState $state -SuccessHandler 'Complete-DomeniaReconcile' -ErrorHandler 'Fail-DomeniaReconcile' -TimeoutSeconds 20 -ReplaceKey 'scope-reconcile' -TaskClass 'Background'
         $r.Next=[datetime]::UtcNow.AddSeconds([Math]::Max(120,[Math]::Min(900,[int](Get-CfgValue 'Streaming' 'ReconcileSeconds' 180))))
     }catch{$r.Job='';$r.Next=[datetime]::UtcNow.AddMinutes(5);Write-AppLog ('Reconciliation differee : '+$_.Exception.Message) 'WARN'}
 }
@@ -69,5 +73,7 @@ function Initialize-DomeniaReconcile {
     $script:Reconcile=[pscustomobject]@{Search=$null;Job='';Events=[Collections.Generic.Queue[object]]::new();Next=[datetime]::UtcNow.AddMinutes(3);Timer=$null}
     $timer=[Windows.Threading.DispatcherTimer]::new([Windows.Threading.DispatcherPriority]::Background);$timer.Interval=[timespan]::FromMilliseconds(250)
     $timer.Add_Tick({try{Invoke-DomeniaReconcileTick}catch{Write-AppLog ('Reconciliation : '+$_.Exception.Message) 'WARN'}});$timer.Start();$script:Reconcile.Timer=$timer
+    # D019: owned timer, stopped by the resource registry at shutdown.
+    if($null -ne (Get-Command Register-DomeniaOwnedTimer -CommandType Function -ErrorAction SilentlyContinue)){try{[void](Register-DomeniaOwnedTimer -Owner 'Timer:Reconcile' -Timer $timer)}catch{}}
     $script:Window.Add_Closed({if($null -ne $script:Reconcile){$script:Reconcile.Timer.Stop();$script:Reconcile.Events.Clear()}})
 }

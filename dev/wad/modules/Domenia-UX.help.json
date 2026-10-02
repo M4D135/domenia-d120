@@ -1575,8 +1575,8 @@
   },
   {
     "Name": "TxtCompLinkConfidence",
-    "Title": "Confiance de l’association",
-    "Text": "Niveau indicatif attribué à l’association par DOMENIA, pas une probabilité certifiée de session active.",
+    "Title": "Qualification de lʼassociation",
+    "Text": "Badge de lʼassociation (Declare, Observe, Importe, Indice) et règle qui le produit ; jamais un pourcentage ni une probabilité de session active.",
     "Kind": "TextBox",
     "Source": "specific"
   },

@@ -125,3 +125,18 @@ l'historique ; ils ne s'exécutent plus depuis ce dossier (imports relatifs à `
 - `wad/tests/Test-DomeniaWiringSuites.ps1` (D004, D008 et raccordement des suites) avec la bibliothèque
   `wad/tests/fixtures/Domenia-AdFixtures.ps1` ; règles de courses générées (graine fixe) dans
   `wad/tests/rules/Races.Tests.ps1`, chargées par `Test-DomeniaRules.ps1`.
+
+## 7. Intégration du 2026-10-02 (branche `claude/epic-newton-j5ir1w`)
+
+Suites des « Restes connus » (§4) après la fusion des lots :
+
+- `Request-DomeniaAccessRecovery` classe désormais « Canal Active Directory suspendu » en `LogonFailure` et
+  `Get-DomeniaStructuredError` reconnaît « droit de déchiffrement » (lot accès). Les deux cas de `Test-DomeniaRelease`
+  restent à confirmer sous Windows PowerShell 5.1.
+- `LblLiveState`, `LblSuiteResultCount` et `LblBranchCount` ne passent plus à la ligne : hauteur réservée (18 unités),
+  texte tronqué avec infobulle complète (D082). `MinHeight="640"` de la fenêtre principale n'est pas modifié : décision
+  d'interface à prendre avec la mesure de `Test-DomeniaGeometry`.
+- Archivés dans `legacy-audits/` comme ceux de `tools/` : `audit_accounts.py`, `audit_lastuser.py`, `audit_remote.py`,
+  `audit_streaming.py` (motifs du §4) et `audit_experience.py` (exige l'ancien littéral
+  `Update-DomeniaExperienceActivity -Force:$Force` du lot moteur et une référence `experience-baseline-r110.json` absente
+  du dépôt : il ne s'exécutait déjà plus). Aucun n'était lancé par `build_packages.py`.

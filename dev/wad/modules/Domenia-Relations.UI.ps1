@@ -1103,6 +1103,33 @@ function Fail-DomeniaRelationAssociationVerify {
     [void](Set-DomeniaControlText 'LblRelationConfirm' ('Vérification impossible : '+[string]$Message+'. Aucune association enregistrée.'));Update-DomeniaRelationsActions
 }
 
+function Get-DomeniaLinkQualification {
+    # D043: how a stored user/workstation link is qualified wherever it is shown outside Relations (fiche, lists,
+    # summaries): its badge and the rule behind it, never a percentage (no reliability rate was ever measured).
+    # With Features.RelationsSymmetry off, the RC1.10.7 confidence is returned unchanged. -Symmetric lets a caller
+    # that walks many rows read the switch once.
+    param($Link,$Symmetric=$null)
+    if($null -eq $Link){return [pscustomobject]@{Value='';Suffix='';Rule='';Label='Qualification'}}
+    $model=if($null -ne $Symmetric){[bool]$Symmetric}else{[bool](Get-DomeniaFeatureFlag 'RelationsSymmetry' $true)}
+    if(-not $model){
+        $confidence=[string](Get-DomeniaMember $Link 'Confidence' '')
+        $suffix=if([string]::IsNullOrWhiteSpace($confidence)){''}else{'  confiance '+$confidence+'%'}
+        return [pscustomobject]@{Value=$confidence;Suffix=$suffix;Rule='';Label='Confiance'}
+    }
+    $badge=Get-DomeniaEvidenceBadge $Link
+    return [pscustomobject]@{Value=[string]$badge.Badge;Suffix=('  '+[string]$badge.Badge);Rule=[string]$badge.Rule;Label='Qualification'}
+}
+function Select-DomeniaBestLink {
+    # The link shown first for a user: a declared assignment, otherwise the most recent relation (D042/D043).
+    # Without the relation model, the RC1.10.7 order (confidence, then date) is kept.
+    param([object[]]$Links=@(),$Symmetric=$null)
+    $items=@($Links|Where-Object{$null -ne $_})
+    if(-not $items.Count){return $null}
+    $model=if($null -ne $Symmetric){[bool]$Symmetric}else{[bool](Get-DomeniaFeatureFlag 'RelationsSymmetry' $true)}
+    if($model){return (Select-DomeniaPrimaryRelation $items)}
+    return ($items|Sort-Object @{Expression={try{[int]$_.Confidence}catch{0}};Descending=$true},@{Expression={[string]$_.When};Descending=$true}|Select-Object -First 1)
+}
+
 function Get-DomeniaRelationsWorkerCode {
 return @'
 # Read-only inverse lookup. The exact user and the two credential channels stay separate.

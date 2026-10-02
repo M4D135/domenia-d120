@@ -165,7 +165,9 @@ function Sync-DomeniaUxNavigation {
     if ($null -ne $pageTitle -and $titles.ContainsKey($current)) { $pageTitle.Text = [string]$titles[$current] }
     $domainText = '';try { $domainText = [string](Get-DomeniaControl 'TxtDashDomain').Text } catch { }
     $domainLabel = Get-DomeniaControl 'LblUxDomain'
-    if ($null -ne $domainLabel -and -not [string]::IsNullOrWhiteSpace($domainText)) { $domainLabel.Text = 'Session AD · ' + $domainText }
+    # D002: in demonstration the session badge keeps the demonstration banner on every navigation.
+    if ($null -ne $domainLabel -and [bool]$script:DemoMode -and $null -ne (Get-Command -Name Get-DomeniaDemoBannerText -CommandType Function -ErrorAction SilentlyContinue)) { $domainLabel.Text = Get-DomeniaDemoBannerText }
+    elseif ($null -ne $domainLabel -and -not [string]::IsNullOrWhiteSpace($domainText)) { $domainLabel.Text = 'Session AD · ' + $domainText }
     $selectionLabel = Get-DomeniaControl 'LblUxSelected'
     if ($null -ne $selectionLabel) {
         $selectionLabel.Text = 'Aucune selection'

@@ -47,6 +47,8 @@ function Initialize-DomeniaLive {
         $timer.Interval=[TimeSpan]::FromMilliseconds(80)
         $timer.Add_Tick({try{Invoke-DomeniaLiveTick}catch{Write-AppLog ('Chargement progressif : '+$_.Exception.Message) 'ERROR'}})
         $script:Live.Timer=$timer;$timer.Start()
+        # D019: owned timer, stopped by the resource registry at shutdown.
+        if($null -ne (Get-Command Register-DomeniaOwnedTimer -CommandType Function -ErrorAction SilentlyContinue)){try{[void](Register-DomeniaOwnedTimer -Owner 'Timer:Live' -Timer $timer)}catch{}}
         $script:Window.Add_Closed({Stop-DomeniaLive -Closing})
     }catch{Write-AppLog ('Initialisation progressive impossible : '+$_.Exception.Message) 'ERROR';$script:Live=$null}
 }
@@ -563,14 +565,14 @@ function Start-DomeniaLiveBackgroundWork {
             $observations=@($script:Live.SaveQueue.Values);$query=$script:Live.QueryToSave
             $state=[pscustomobject]@{Mode='Write';Identity=$script:Live.Identity;Epoch=[long]$script:SessionEpoch;Observations=$observations;Query=$query}
             $payload=[pscustomobject]@{Mode='Write';Path=Get-DomeniaLiveDatabasePath;Scope=$script:Live.Scope;Observations=$observations;Query=$query}
-            $id=Start-UiTask -Name 'Mémorisation des observations' -OperationId 'LiveCache' -Code (Get-DomeniaLiveCacheCode) -Payload $payload -CallbackState $state -TimeoutSeconds 15 -SuccessHandler 'Complete-DomeniaLiveCache' -ErrorHandler 'Fail-DomeniaLiveCache' -NonCancellable
+            $id=Start-UiTask -Name 'Mémorisation des observations' -OperationId 'LiveCache' -Code (Get-DomeniaLiveCacheCode) -Payload $payload -CallbackState $state -TimeoutSeconds 15 -SuccessHandler 'Complete-DomeniaLiveCache' -ErrorHandler 'Fail-DomeniaLiveCache' -NonCancellable -TaskClass 'Background'
             $script:Live.SaveQueue=@{};$script:Live.QueryToSave=$null;$script:Live.SaveJob=$id
             return
         }
         if((Test-DomeniaLiveSearchActive) -and -not $s.CacheRequested){
             $state=[pscustomobject]@{Mode='Read';Identity=$s.Identity;Epoch=$s.Epoch}
             $payload=[pscustomobject]@{Mode='Read';Path=Get-DomeniaLiveDatabasePath;Scope=$script:Live.Scope;QueryKey=$s.QueryKey;Limit=$s.State.Limit;Progress=$s.CacheProgress;ObservationStore=$script:Live.Observations;LoadObservations=(-not $script:Live.ObservationsLoaded)}
-            [void](Start-UiTask -Name 'Lecture du cache de recherche' -OperationId 'LiveCache' -Code (Get-DomeniaLiveCacheCode) -Payload $payload -CallbackState $state -TimeoutSeconds 12 -SuccessHandler 'Complete-DomeniaLiveCache' -ErrorHandler 'Fail-DomeniaLiveCache')
+            [void](Start-UiTask -Name 'Lecture du cache de recherche' -OperationId 'LiveCache' -Code (Get-DomeniaLiveCacheCode) -Payload $payload -CallbackState $state -TimeoutSeconds 12 -SuccessHandler 'Complete-DomeniaLiveCache' -ErrorHandler 'Fail-DomeniaLiveCache' -TaskClass 'Background')
             $s.CacheRequested=$true
             return
         }

@@ -539,6 +539,7 @@ function Initialize-DomeniaAccess {
             if($next.Count){Invoke-DomeniaAccessRecovery $next[0]}
         }
     });$script:AccessState.Timer=$timer;$timer.Start()
+    if($null -ne (Get-Command Register-DomeniaOwnedTimer -CommandType Function -ErrorAction SilentlyContinue)){try{[void](Register-DomeniaOwnedTimer -Owner 'Timer:Access' -Timer $timer)}catch{}}
     $script:Window.Add_Closed({
         if($null -ne $script:AccessState){$script:AccessState.Timer.Stop();if($null -ne $script:AccessState.AuthSession){Stop-DomeniaLoginAuthRunspace -Session $script:AccessState.AuthSession -Terminate};Clear-DomeniaAccessAccounts}
     })
