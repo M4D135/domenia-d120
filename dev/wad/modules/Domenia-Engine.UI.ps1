@@ -186,7 +186,7 @@ function New-DomeniaIsolatedReadPayload {
     # process command line never carries the request (it travels on the private pipe of the runspace).
     param([string]$OperationId,[string]$Code,$Context,$Payload,[int]$TimeoutSeconds=60)
     $contract = 'function Get-DomeniaStructuredError {' + "`r`n" + (Get-Command Get-DomeniaStructuredError -CommandType Function).Definition + "`r`n}"
-    $script = 'param($ContextJson,$RequestJson)' + "`r`n" +
+    $childScript = 'param($ContextJson,$RequestJson)' + "`r`n" +
         '$ErrorActionPreference = "Stop"' + "`r`n" + '$ProgressPreference = "SilentlyContinue"' + "`r`n" +
         '$Context = ConvertFrom-Json $ContextJson' + "`r`n" + '$Payload = ConvertFrom-Json $RequestJson' + "`r`n" +
         $contract + "`r`n" + [string]$script:WorkerCommon + "`r`n" +
@@ -197,7 +197,7 @@ function New-DomeniaIsolatedReadPayload {
         'ConvertTo-Json -InputObject $DomeniaIsolatedResult -Depth 8 -Compress'
     return [pscustomobject]@{
         Operation=$OperationId
-        Script=$script
+        Script=$childScript
         ContextJson=($Context | ConvertTo-Json -Depth 6 -Compress)
         RequestJson=(ConvertTo-Json -InputObject $Payload -Depth 8 -Compress)
         TimeoutSeconds=[Math]::Max(5,[Math]::Min(300,$TimeoutSeconds))
@@ -352,6 +352,8 @@ function Register-DomeniaTaskOutcome {
     # does not exist for a write, a refusal or a rejected account (Test-DomeniaAutoRetryAllowed).
     param($Job,[string]$ErrorMessage='',[switch]$TimedOut,[switch]$Cancelled)
     if ($null -eq $Job -or -not [bool]$Job.SchedulerManaged -or $null -eq $script:DomeniaProviderState) { return $null }
+    # The demonstration directory is not a provider: its answers never feed a budget.
+    if ([bool]$Job.Demo) { return $null }
     $kind = ''
     if (-not [string]::IsNullOrWhiteSpace($ErrorMessage)) {
         try { $kind = [string](Get-DomeniaStructuredError $ErrorMessage -Phase ([string]$Job.OperationId) -Provider ([string]$Job.Provider)).Kind } catch { $kind = 'Unknown' }
@@ -510,8 +512,12 @@ function Request-DomeniaParkStateReload {
     # The stored park state is read in the LocalIndexRead worker; the in-memory state stays usable meanwhile.
     if ($null -ne $script:DomeniaParkStateReloadJob -and $script:AsyncJobs.Contains([string]$script:DomeniaParkStateReloadJob)) { return }
     try {
-        $script:DomeniaParkStateReloadJob = Start-UiTask -Name 'Lecture du releve local du parc' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload ([pscustomobject]@{Action='ParkState';Path=(Get-DomeniaLocalDatabasePathForRead);BusyTimeoutMs=250}) -CallbackState ([pscustomobject]@{Epoch=[long]$script:SessionEpoch}) -TimeoutSeconds 30 -SuccessHandler 'Complete-DomeniaParkStateReloadUi' -ErrorHandler 'Fail-DomeniaParkStateReloadUi' -TaskClass 'Background'
-    } catch { $script:DomeniaParkStateReloadJob = $null; try { Add-DomeniaUiLog -Level 'WARN' -Area 'Parc' -Text ('Releve local non relu : ' + $_.Exception.Message) } catch { } }
+        # Continuation of an explicit park result: never refused as background work, at worst queued.
+        $script:DomeniaParkStateReloadJob = Start-UiTask -Name 'Lecture du releve local du parc' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload ([pscustomobject]@{Action='ParkState';Path=(Get-DomeniaLocalDatabasePathForRead);BusyTimeoutMs=250}) -CallbackState ([pscustomobject]@{Epoch=[long]$script:SessionEpoch}) -TimeoutSeconds 30 -SuccessHandler 'Complete-DomeniaParkStateReloadUi' -ErrorHandler 'Fail-DomeniaParkStateReloadUi' -TaskClass 'Explicit'
+    } catch {
+        # A refused start must not strand the deferred results: they are applied without the stored counters.
+        Fail-DomeniaParkStateReloadUi -Message $_.Exception.Message -State $null
+    }
 }
 
 function Add-DomeniaParkDeferredResult {

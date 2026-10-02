@@ -20406,6 +20406,11 @@ try {
         $taskClassValue = Get-DomeniaTaskClass -OperationId $OperationId -IsWrite ([bool]$IsWrite) -ReplaceKey $ReplaceKey -Hint $TaskClass
         $providerValue = Get-DomeniaOperationProvider $OperationId
         $providerTarget = [string](Get-DomeniaMember $Payload 'Computer' '')
+        # D018: a LAPS or BitLocker refusal is kept on its own resource, never on the whole directory.
+        if ([string]::IsNullOrWhiteSpace($providerTarget)) {
+            $secretResource = [string](Get-DomeniaOperationCredentialNeeds -OperationId $OperationId).Resource
+            if ($secretResource -in @('Laps','BitLocker')) { $providerTarget = $secretResource }
+        }
         if (-not $IsWrite) {
             # D015: a strictly identical read joins the one already queued or running (same reader, session, generation).
             $readerValue = $ReaderIdentity
@@ -20673,7 +20678,7 @@ function Complete-UiTasks {
         $output = $null
         if ([bool]$job.CancelRequested) {
             try { if ($stopCompleted) { $job.PowerShell.EndStop($job.StopHandle) } } catch { }
-            try { if ($invokeCompleted) { $null = $job.PowerShell.EndInvoke($job.Handle) } } catch { }
+            try { if ($invokeCompleted) { [void]($job.PowerShell.EndInvoke($job.Handle)) } } catch { }
         }
         else {
             try {
@@ -20798,7 +20803,7 @@ function Dispose-AsyncEngine {
         try { if ($null -ne $job.StopHandle) { $stopDone = [bool]$job.StopHandle.IsCompleted } } catch { $stopDone = $false }
         if ($done -and $stopDone) {
             try { if ($null -ne $job.StopHandle) { $job.PowerShell.EndStop($job.StopHandle) } } catch { }
-            try { $null = $job.PowerShell.EndInvoke($job.Handle) } catch { }
+            try { [void]($job.PowerShell.EndInvoke($job.Handle)) } catch { }
             try { $job.PowerShell.Dispose() } catch { }
             try { $job.Runspace.Dispose() } catch { }
             [void]$script:AsyncJobs.Remove($id)
@@ -23814,7 +23819,7 @@ function Show-LoginWindow {
     if (-not (Test-DomeniaMainHostAvailable)) { try { Register-DomeniaUserSwitchWatch -Window $window } catch { } }
 
     Write-DomeniaFastLoginLog -Stage "WINDOW_SHOW" -Detail "ShowDialog"
-    $null = Invoke-DomeniaHostWindow -Window $window -ManagedCancel -PreserveTheme
+    [void](Invoke-DomeniaHostWindow -Window $window -ManagedCancel -PreserveTheme)
     $ok = [bool]$script:FastLoginState.LoginOk
     if ($null -ne $script:FastLoginState.Session) { Reset-DomeniaFastLoginAttempt -Kill -KeepDiagnostics }
     $script:FastLoginState.Password = ""
@@ -23918,7 +23923,7 @@ function Invoke-DomeniaSelfTest {
                 $alteredWorkerCode = [string](Get-DomeniaWorkerEngineSelfTestCode)
                 $alteredWorkerCode += [Environment]::NewLine
                 $alteredWorkerCode += '# worker-integrity-negative-test'
-                $null = Assert-DomeniaWorkerOperationCode -OperationId 'EngineSelfTest' -Code $alteredWorkerCode
+                [void](Assert-DomeniaWorkerOperationCode -OperationId 'EngineSelfTest' -Code $alteredWorkerCode)
             }
             catch { $tamperRejected = ($_.Exception.Message -like 'Integrite worker refusee*') }
             Add-SelfTestResult -Name 'Refus code worker altere' -Success $tamperRejected -Detail $(if($tamperRejected){'Une variation non enregistree est refusee avant creation du runspace.'}else{'Le controle negatif n a pas ete refuse.'})

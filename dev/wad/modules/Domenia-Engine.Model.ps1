@@ -277,9 +277,10 @@ function Get-DomeniaOperationProvider {
     # per target with the CIM provider: an outage there must never slow the directory.
     $cim = @('ComputerDiagnostics','ComputerInventory','SoftwareInventory','WmiNamespaces','WmiClasses','WmiQuery','LiveConsole','ComputerLastUser','ComputerQuickDiag','JoinStateRead','UpdateStateRead','GpoAppliedRead','ComputerEventsRead','MachineIdentityRead','ParkSweep','BatchNetworkDiag','ComputerGpUpdate','ComputerRestart','RimotteRun','UserComputerProbe','RemoteCredentialCheck')
     $wts = @('SessionsList')
-    $storage = @('LocalStore','LiveCache','ReceiptStore','DocumentStore','StorageUsage','StoragePurge','LinkHistoryStore','LocalIndexRead','ParkSharedSync')
+    $storage = @('LocalStore','LiveCache','ReceiptStore','DocumentStore','StorageUsage','StoragePurge','LinkHistoryStore','LocalIndexRead')
     $local = @('CmdletHelp','CmdletInventory','EngineSelfTest','EmbeddedPathBrowse','LocalAssistant','DemoDirectory','IsolatedRead')
-    $network = @('LiveSelectedPing','ComputerPing','SelectedPresence','PresenceScan','WakeOnLanSend','ConnectorRead')
+    # ParkSharedSync reads and writes a shared file, possibly on a UNC path: network I/O, not the local base.
+    $network = @('LiveSelectedPing','ComputerPing','SelectedPresence','PresenceScan','WakeOnLanSend','ConnectorRead','ParkSharedSync')
     if ($cim -contains $OperationId) { return 'Cim' }
     if ($wts -contains $OperationId) { return 'Wts' }
     if ($storage -contains $OperationId) { return 'Storage' }
@@ -306,7 +307,7 @@ function Get-DomeniaOperationCredentialNeeds {
     if ($id -eq 'ReadLaps') { $resource = 'Laps' }
     elseif ($id -in @('ReadBitLocker','ReadBitLockerKey')) { $resource = 'BitLocker' }
     elseif ($isRemote -or ($machine -contains $id) -or $id -eq 'RemoteCredentialCheck') { $resource = 'Remote' }
-    elseif ($id -in @('LiveSelectedPing','ComputerPing','SelectedPresence','PresenceScan','WakeOnLanSend','ConnectorRead')) { $resource = 'Network' }
+    elseif ($id -in @('LiveSelectedPing','ComputerPing','SelectedPresence','PresenceScan','WakeOnLanSend','ConnectorRead','ParkSharedSync')) { $resource = 'Network' }
     elseif ($nonDirectory) { $resource = 'Local' }
     return [pscustomobject]@{
         OperationId=$id
