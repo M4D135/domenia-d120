@@ -21,22 +21,22 @@
     },
     {
       "Path": "wad/Domenia-Core.ps1",
-      "Sha256": "CC1C6A872D9B2346F9FA701039A0E9A8DB1143B4A5A6B4D60B0415AB2D8454BF",
-      "Bytes": 1644470,
+      "Sha256": "D9DD4571084CB72C4F82B55BF9F4F722CD90C85C7597DECEF135532624F547F8",
+      "Bytes": 1644574,
       "Runtime": true,
       "PreserveExisting": false
     },
     {
       "Path": "wad/Domenia-Modules.ps1",
-      "Sha256": "7BB29E9E05B6D941ABF70B54775D80E56B1C7FE81F7635C541F8CEAA5FF95340",
-      "Bytes": 50623,
+      "Sha256": "B741E17F9FADBC99FC1B3E51BC7AA1723652DEB9F75422B49C305DB004D12ABA",
+      "Bytes": 51027,
       "Runtime": true,
       "PreserveExisting": false
     },
     {
       "Path": "wad/Domenia-Start.ps1",
-      "Sha256": "27FCE2C4DE23772F64FC241A96AF2B027F5711C8F41840B2981FC1EE00E1A413",
-      "Bytes": 7149,
+      "Sha256": "0303C16017691CDC38B9E637A3833447B4DD04EF070F633E3BDD8656CB026932",
+      "Bytes": 7194,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -279,6 +279,20 @@
       "PreserveExisting": false
     },
     {
+      "Path": "wad/modules/Domenia-Inline.UI.ps1",
+      "Sha256": "E95B1E51C0393E00987D2D4EECC4E28831F9CC11776A69E50A053A93CFE546BF",
+      "Bytes": 7118,
+      "Runtime": true,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "wad/modules/Domenia-Inline.xaml",
+      "Sha256": "2920CFD8F1F37F59404605882FF70ED3781C744310FFF013D35CF1A723DD509D",
+      "Bytes": 1962,
+      "Runtime": true,
+      "PreserveExisting": false
+    },
+    {
       "Path": "wad/modules/Domenia-Insight.Model.ps1",
       "Sha256": "8F62B42A97C880E40082B5767DA4B868876623EEE66D33F1461914A3659B25A8",
       "Bytes": 92019,
@@ -462,8 +476,8 @@
     },
     {
       "Path": "wad/modules/Domenia-UX.help.json",
-      "Sha256": "6ED6B02ECA572037F6959039D15A2A51E7EA07FCB5A5ED2608CAAECC3EE2F024",
-      "Bytes": 109446,
+      "Sha256": "5DE28FE83C21AA00ED04B79F67FE0C7E34B5D0161B46520E81207941EE858D55",
+      "Bytes": 110191,
       "Runtime": true,
       "PreserveExisting": false
     },

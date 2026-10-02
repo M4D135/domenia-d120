@@ -24287,7 +24287,8 @@ function Invoke-DomeniaSelfTest {
         'Initialize-DomeniaIdlePolicy','Get-DomeniaDemoDirectoryWorkerCode','New-DomeniaDemoDirectory','ConvertTo-DomeniaDemoWorkerContext',
         'Test-DomeniaDemoProviderEnabled','Request-DomeniaWindowActivation','Get-DomeniaLocalIndexReadWorkerCode','Get-DomeniaParkSharedSyncWorkerCode',
         'Get-DomeniaGlobalSearchPlan','Get-DomeniaContinuationDecision','Get-DomeniaCurrentSelectionIdentity','Initialize-DomeniaSearchUi','Invoke-DomeniaNavStep','Invoke-DomeniaSearchMore','Get-DomeniaOuRestoreDecision',
-        'Get-DomeniaErrorDecision','Get-DomeniaCredentialScope','Test-DomeniaCredentialContext','ConvertTo-DomeniaMachineKey','Protect-DomeniaSecretText','Get-DomeniaBitLockerListWorkerCode','Get-DomeniaBitLockerKeyWorkerCode','Request-DomeniaBitLockerKey','Complete-DomeniaBitLockerListUi','Resolve-DomeniaCapabilityRoute','Update-DomeniaTransportPolicyView','Get-DomeniaRetryCredential','Set-DomeniaTargetCredentialContext'
+        'Get-DomeniaErrorDecision','Get-DomeniaCredentialScope','Test-DomeniaCredentialContext','ConvertTo-DomeniaMachineKey','Protect-DomeniaSecretText','Get-DomeniaBitLockerListWorkerCode','Get-DomeniaBitLockerKeyWorkerCode','Request-DomeniaBitLockerKey','Complete-DomeniaBitLockerListUi','Resolve-DomeniaCapabilityRoute','Update-DomeniaTransportPolicyView','Get-DomeniaRetryCredential','Set-DomeniaTargetCredentialContext',
+        'Request-DomeniaInlineConfirmation','Complete-DomeniaInlineRequest','Test-DomeniaInlineBlocks'
     )
     $missing = @($requiredFunctions | Where-Object { $null -eq (Get-Command -Name $_ -CommandType Function -ErrorAction SilentlyContinue) })
     Add-SelfTestResult -Name 'Fonctions critiques' -Success ($missing.Count -eq 0) -Detail $(if($missing.Count -eq 0){'Toutes presentes.'}else{"Absentes : $($missing -join ', ')"})

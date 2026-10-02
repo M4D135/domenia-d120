@@ -2677,22 +2677,26 @@
       "title": "Composants intégrés, pas fenêtres déguisées",
       "proposal": "Construire les formulaires métier comme composants de page avec continuations asynchrones, sans Window transposée ni boucle modale imbriquée.",
       "acceptance_criterion": "Associer, confirmer ou changer de compte ne crée ni HWND métier supplémentaire ni blocage modal de toute la navigation non concernée.",
-      "status": "DEVELOPPE_NON_RACCORDE",
+      "status": "RACCORDE_NON_EXECUTE",
       "reference_ids": [
         "S05",
         "S06",
         "S13"
       ],
       "implementation_files": [
+        "wad/modules/Domenia-Inline.UI.ps1",
+        "wad/modules/Domenia-Inline.xaml",
         "wad/modules/Domenia-Shell.Model.ps1"
       ],
       "acceptance_passed": false,
-      "remaining": "Raccordement du lot interface a faire (titres, disposition reservee, confirmation dans la page, profils de colonnes, apercu, resume, etats vides, aide des controles grises, contraste). Campagne Windows PowerShell 5.1 dans la VM CNAMTS-W11-01 (Invoke-LabRun, suite d integration du lot) puis preuve liee au ZIP final.",
+      "remaining": "Contrat C4 fourni (demande dans la page, superposee a la grille de contenu, une suite au plus, reponse sure au focus et sur Echap) ; raccorde a la suppression d une association. Restent en boite modale : reprise d acces (Invoke-DomeniaAccessRecovery), copie de secret, bilan des indisponibilites, confirmations d ecriture du coeur (Confirm-Action). Campagne Windows PowerShell 5.1 dans la VM CNAMTS-W11-01 (Invoke-LabRun, suite d integration du lot) puis preuve liee au ZIP final.",
       "tests": [
+        "wad/tests/Test-DomeniaWiringInline.ps1",
         "wad/tests/rules/Shell.Tests.ps1"
       ],
-      "wiring": "Aucun",
-      "evidence": "Regles executees sous Windows PowerShell 5.1.26100.6584 (VM W11-01) par branche avant fusion (commit 1b2dedb). 5 test(s) de regles ; sous PowerShell 7.4 Linux (non qualifiant) le 2026-10-02 : execution de controle seulement."
+      "wiring": "Partiel",
+      "evidence": "Controles statiques du conteneur (parseur PowerShell 7, compatibilite 5.1, plan de demarrage, build d essai) ; suite Test-DomeniaWiringInline ecrite (10 cas), non executee.",
+      "lot": "interface-c4"
     },
     {
       "id": "D084",

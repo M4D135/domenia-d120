@@ -1,0 +1,60 @@
+{
+  "Lot": "interface-c4",
+  "Points": [
+    "D083"
+  ],
+  "Modules": [
+    {
+      "File": "Domenia-Inline.UI.ps1",
+      "Phase": "Modules",
+      "Requires": [
+        "Domenia-Common.Model.ps1",
+        "Domenia-Shell.Model.ps1"
+      ],
+      "DotSource": true
+    }
+  ],
+  "TypeFiles": [],
+  "Operations": [],
+  "OperationsModified": [],
+  "SelfTestRequiredFunctions": [
+    "Request-DomeniaInlineConfirmation",
+    "Complete-DomeniaInlineRequest",
+    "Test-DomeniaInlineBlocks"
+  ],
+  "HelpEntries": [
+    {
+      "Name": "InlineRequestPanel",
+      "Title": "Demande dans la page",
+      "Text": "Confirmation intégrée à la page : aucune fenêtre, la navigation et les lectures restent disponibles. Échap choisit la réponse sûre.",
+      "Kind": "Border"
+    },
+    {
+      "Name": "BtnInlineRequestCancel",
+      "Title": "Réponse sûre",
+      "Text": "Retire la demande sans rien modifier (Échap).",
+      "Kind": "Button"
+    },
+    {
+      "Name": "BtnInlineRequestConfirm",
+      "Title": "Confirmer la demande",
+      "Text": "Exécute lʼaction décrite, une seule fois. Une demande dʼune session précédente nʼexécute rien.",
+      "Kind": "Button"
+    }
+  ],
+  "Features": [
+    {
+      "Name": "InlineConfirm",
+      "Default": true,
+      "Purpose": "Deja dans New-DefaultConfig. Les appelants (relations) choisissent la demande dans la page quand l interrupteur est vrai et que Request-DomeniaInlineConfirmation existe."
+    }
+  ],
+  "StartRequired": [
+    "wad/modules/Domenia-Inline.UI.ps1"
+  ],
+  "WiringTests": [
+    "wad/tests/Test-DomeniaWiringInline.ps1"
+  ],
+  "CoreFunctionsModified": [],
+  "Notes": "Contrat C4 fourni : Request-DomeniaInlineConfirmation (Title, Message, Target, ConfirmText, CancelText, OnConfirm, OnCancel, Risk). Panneau charge depuis Domenia-Inline.xaml dans UxContentGrid, en superposition (aucun deplacement de la page). Regles : New-DomeniaInlineRequest, Resolve-DomeniaInlineRequest, Test-DomeniaInlineRequestBlocks (Domenia-Shell.Model.ps1). Raccordes : suppression d une association (Relations). Restent en boite modale : Invoke-DomeniaAccessRecovery, Copy-SelectedSecret, Show-DomeniaUnavailableReasons, confirmations d ecriture du coeur (Confirm-Action). Ecrit le 2026-10-02 dans la session cloud, non execute."
+}

@@ -3409,5 +3409,26 @@
     "Text": "Transports utilises par Domenia, leur etat et leur regle. Aucun certificat accepte a l aveugle, aucun reglage WinRM, pare-feu, antivirus ou strategie modifie, aucun transport intrusif sans autorisation explicite et ciblee.",
     "Kind": "DataGrid",
     "Source": "d120-acces"
+  },
+  {
+    "Name": "InlineRequestPanel",
+    "Title": "Demande dans la page",
+    "Text": "Confirmation intégrée à la page : aucune fenêtre, la navigation et les lectures restent disponibles. Échap choisit la réponse sûre.",
+    "Kind": "Border",
+    "Source": "d120-interface-c4"
+  },
+  {
+    "Name": "BtnInlineRequestCancel",
+    "Title": "Réponse sûre",
+    "Text": "Retire la demande sans rien modifier (Échap).",
+    "Kind": "Button",
+    "Source": "d120-interface-c4"
+  },
+  {
+    "Name": "BtnInlineRequestConfirm",
+    "Title": "Confirmer la demande",
+    "Text": "Exécute lʼaction décrite, une seule fois. Une demande dʼune session précédente nʼexécute rien.",
+    "Kind": "Button",
+    "Source": "d120-interface-c4"
   }
 ]

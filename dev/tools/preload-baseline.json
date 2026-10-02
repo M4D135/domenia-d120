@@ -1,5 +1,5 @@
 {
-  "Archive": "branche claude/epic-newton-j5ir1w, demandes inter-lots (2026-10-02)",
+  "Archive": "branche claude/epic-newton-j5ir1w, lot interface-c4 (2026-10-02)",
   "ArchiveSHA256": "655ED21F90345B3C7667D4E777814C6A0595A5D5BE628AD587FB46CCA5241922",
   "CoreFunctions": {
     "Write-DomeniaAtomicText": "2C492BA87F3143432F20F3C45909BC6DFB39D990E93E5E8990BCD8F588C1D8B9",
@@ -580,7 +580,7 @@
     "Get-DomeniaStandardLoginXaml": "943F338242C5B7CBE9D0384128DCD1369C8FAB3468F433F09D21461E294575FD",
     "Get-DomeniaDebugLoginXaml": "20D4A0D101217FBAA6CCAD1D0C72B28A67ED3C9DF060430F70170754BCA5D137",
     "Show-LoginWindow": "2DE31969C7AA42AA39ACB0329CD42097EBF54AD734CC74D21E7864A04D080C3A",
-    "Invoke-DomeniaSelfTest": "A15CD1C061D0F08A40A096D8843547A1766A60116EA57F9DB53361EA15DBB3D5"
+    "Invoke-DomeniaSelfTest": "91525E0C0E0CD20C912487B105520076394837680B43647C6D9697437F92646D"
   },
   "Files": {
     ".github/workflows/windows.yml": "7926C8DFD11FE9105D34E454E9D0168B94DCE27479C952DE8DA0379746F4D30A",
@@ -642,7 +642,7 @@
     "wad/ActiveDirectoryPowerShellResources.dll": "E233D92238AA31EA1B3C60145D8811EDB2E517E1B9B53F4BC496883EE5D9973B",
     "wad/Domenia-Core.ps1": "33FFA39D156F3142BE32E6F1BDF52038740F45A22D3BC9E83573E2EE29F35530",
     "wad/Domenia-Modules.ps1": "8D694641BEB0DC3E0DF4F95BC72AD048C6AB299D813520BE7E9798241DF0EFA0",
-    "wad/Domenia-Start.ps1": "27FCE2C4DE23772F64FC241A96AF2B027F5711C8F41840B2981FC1EE00E1A413",
+    "wad/Domenia-Start.ps1": "0303C16017691CDC38B9E637A3833447B4DD04EF070F633E3BDD8656CB026932",
     "wad/Domenia.config.json": "5F051A082799F9E39C54D78256E72FA37E1A797E6374BBEC0CEB7DDB932AE871",
     "wad/Domenia.ico": "EC032BF6A14EAC2CC80073B376FE0364DDA62F25D452C8C783C926B0C28E837F",
     "wad/Domenia.login-mode.cfg": "EF6691545D2C5523EFED00424407CB261AEB0037D165CA5792F7F8BAC3381362",
@@ -989,6 +989,19 @@
       "ChangedPayloads": [
         "wad/modules/Domenia-Live.UI.ps1",
         "wad/modules/Domenia-Relations.UI.ps1"
+      ]
+    },
+    {
+      "Previous": "branche claude/epic-newton-j5ir1w, demandes inter-lots (2026-10-02)",
+      "Source": "branche claude/epic-newton-j5ir1w, lot interface-c4 (2026-10-02)",
+      "Decision": "D083 contrat C4 : Domenia-Start.ps1 exige wad/modules/Domenia-Inline.UI.ps1 (module de demande dans la page, declare dans le chargeur ferme). Relu ; non execute sous Windows PowerShell 5.1.",
+      "ChangedCoreFunctions": [
+        "Invoke-DomeniaSelfTest"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": [
+        "wad/Domenia-Start.ps1"
       ]
     }
   ]

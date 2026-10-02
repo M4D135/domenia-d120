@@ -1,0 +1,22 @@
+<Border xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Name="InlineRequestPanel" Visibility="Collapsed" VerticalAlignment="Top" HorizontalAlignment="Stretch" Margin="12,8,24,0" Padding="14,12"
+        CornerRadius="10" BorderThickness="1" Background="{DynamicResource InfoBg}" BorderBrush="{DynamicResource InfoBorder}" Panel.ZIndex="50"
+        KeyboardNavigation.TabNavigation="Cycle" AutomationProperties.Name="Demande dans la page"
+        AutomationProperties.HelpText="Confirmation intégrée à la page : aucune fenêtre, la navigation et les lectures restent disponibles. Échap choisit la réponse sûre.">
+  <Grid>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="*"/>
+      <ColumnDefinition Width="Auto"/>
+    </Grid.ColumnDefinitions>
+    <StackPanel Grid.Column="0" Margin="0,0,12,0">
+      <TextBlock x:Name="LblInlineRequestTitle" Text="" FontWeight="SemiBold" Foreground="{DynamicResource InfoFg}" TextWrapping="Wrap"/>
+      <TextBlock x:Name="LblInlineRequestMessage" Text="" Foreground="{DynamicResource InfoFg}" Margin="0,4,0,0" TextWrapping="Wrap" MaxHeight="120" TextTrimming="CharacterEllipsis"/>
+    </StackPanel>
+    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+      <Button x:Name="BtnInlineRequestCancel" Content="Annuler" MinWidth="96" MinHeight="34" Margin="0,0,8,0" ToolTip="Réponse sûre (Échap) : rien nʼest modifié."
+              AutomationProperties.Name="Annuler la demande" AutomationProperties.HelpText="Réponse sûre (Échap) : rien nʼest modifié."/>
+      <Button x:Name="BtnInlineRequestConfirm" Content="Confirmer" MinWidth="110" MinHeight="34" ToolTip="Exécute lʼaction décrite, une seule fois."
+              AutomationProperties.Name="Confirmer la demande" AutomationProperties.HelpText="Exécute lʼaction décrite, une seule fois."/>
+    </StackPanel>
+  </Grid>
+</Border>

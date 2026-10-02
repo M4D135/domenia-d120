@@ -940,6 +940,13 @@ function Get-DomeniaRuntimeModulePlan {
             'Invoke-DomeniaSecretsPrerequisite',
             'Initialize-DomeniaSecretsUi'
         ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Shell.Model.ps1'); File='Domenia-Inline.UI.ps1'; DotSource=$true; Functions=@(
+            'Initialize-DomeniaInlineUi',
+            'Get-DomeniaInlinePendingRequest',
+            'Test-DomeniaInlineBlocks',
+            'Request-DomeniaInlineConfirmation',
+            'Complete-DomeniaInlineRequest'
+        ) }
     )
 }
 
