@@ -9,12 +9,15 @@ function Show-DomeniaGuard {
 }
 function Start-DomeniaReceiptRefresh {
     param([ValidateSet('List','Verify','Review')][string]$Action='List',[string]$Id='',[string]$Reason='')
+    # A job that left the engine without a callback (withdrawn from the queue, or ended after a session change)
+    # must not keep the receipts, hence every write, blocked for the rest of the session.
+    if($null -ne $script:Guard -and $script:Guard.ReceiptJob -and $null -ne $script:AsyncJobs -and -not $script:AsyncJobs.Contains([string]$script:Guard.ReceiptJob)){$script:Guard.ReceiptJob=''}
     if($null -eq $script:Guard -or $script:Guard.ReceiptJob -or $script:AsyncEngineClosing){return}
     if(@($script:AsyncJobs.Values|Where-Object{$_.IsWrite -or $_.OperationId -eq 'ReceiptStore'}).Count){return}
     if($Action -ne 'List' -and [string]$Id -notmatch '^[a-f0-9]{32}$'){throw 'Selectionnez un recu valide.'}
     $script:ReceiptReady=$false
     try{
-        $script:Guard.ReceiptJob=Start-UiTask -Name 'Verifier les recus locaux' -OperationId 'ReceiptStore' -Code (Get-DomeniaReceiptWorkerCode) -Payload ([pscustomobject]@{Action=$Action;Id=$Id;Reason=$Reason}) -CallbackState ([pscustomobject]@{Epoch=[long]$script:SessionEpoch;Action=$Action}) -SuccessHandler 'Complete-DomeniaReceiptRefresh' -ErrorHandler 'Fail-DomeniaReceiptRefresh' -NonCancellable -TimeoutSeconds 25
+        $script:Guard.ReceiptJob=Start-UiTask -Name 'Verifier les recus locaux' -OperationId 'ReceiptStore' -Code (Get-DomeniaReceiptWorkerCode) -Payload ([pscustomobject]@{Action=$Action;Id=$Id;Reason=$Reason}) -CallbackState ([pscustomobject]@{Epoch=[long]$script:SessionEpoch;Action=$Action}) -SuccessHandler 'Complete-DomeniaReceiptRefresh' -ErrorHandler 'Fail-DomeniaReceiptRefresh' -NonCancellable -TimeoutSeconds 25 -TaskClass 'Explicit'
         $script:ReceiptRefreshNeeded=$false;$script:Guard.NextReceipt=[datetime]::UtcNow.AddSeconds(15)
     }catch{$script:Guard.ReceiptJob='';$script:Guard.NextReceipt=[datetime]::UtcNow.AddSeconds(15);[void](Set-DomeniaControlText 'LblGuardReceipts' 'Recus non lus. Les ecritures restent protegees. Actualisez cette vue.');Write-AppLog ('Lecture des recus : '+$_.Exception.Message) 'WARN'}
 }

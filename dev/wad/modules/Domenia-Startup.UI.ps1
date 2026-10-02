@@ -80,7 +80,8 @@ function Request-DomeniaWindowActivation {
         Write-DomeniaActivationLog -Trigger $Trigger -Result 'NonDemande' -Reason 'Regle d activation absente.'
         return [pscustomobject]@{Trigger=$Trigger;Requested=$false;Activated=$false;Reason='Regle d activation absente.'}
     }
-    $decision = Get-DomeniaActivationDecision -Trigger (ConvertTo-DomeniaActivationTrigger $Trigger) -PreviousAttempts $previous -UserSwitchedAway ([bool]$state.UserSwitchedAway) -PreviousRefused $refused
+    $mapped = ConvertTo-DomeniaActivationTrigger $Trigger
+    $decision = Get-DomeniaActivationDecision -Trigger $mapped -AttemptsByTrigger @{ $mapped = $previous } -UserSwitchedAway ([bool]$state.UserSwitchedAway) -PreviousRefused $refused
     if ($null -eq $Window -or -not [bool]$decision.Activate) {
         Write-DomeniaActivationLog -Trigger $Trigger -Result 'NonDemande' -Reason ([string]$decision.Reason)
         return [pscustomobject]@{Trigger=$Trigger;Requested=$false;Activated=$false;Reason=[string]$decision.Reason}

@@ -145,6 +145,13 @@ Test-Case 'D018' 'Pannes repetees : le fond est suspendu, l action explicite res
     Assert-True (Test-DomeniaProviderAdmission $s 'Cim' 'pc2' 'Background' 0 $script:T0.AddSeconds(10)).Allowed 'Une autre cible n est pas penalisee'
     Assert-True (Test-DomeniaProviderAdmission $s 'Cim' 'pc1' 'Background' 0 $script:T0.AddHours(1)).Allowed 'La temporisation expire'
 }
+Test-Case 'D018' 'Pannes repetees : une lecture causee par une selection reste envoyee' {
+    $s=New-DomeniaProviderState
+    foreach($i in 1..3){[void](Register-DomeniaProviderOutcome $s 'Directory' '' 'Failure' $script:T0)}
+    Assert-False (Test-DomeniaProviderAdmission $s 'Directory' '' 'Background' 0 $script:T0.AddSeconds(5)).Allowed 'Fond non suspendu'
+    Assert-True (Test-DomeniaProviderAdmission $s 'Directory' '' 'Selection' 0 $script:T0.AddSeconds(5)).Allowed 'Ouverture d objet refusee pendant la temporisation'
+    Assert-True (Test-DomeniaProviderAdmission $s 'Directory' '' 'Write' 0 $script:T0.AddSeconds(5)).Allowed
+}
 Test-Case 'D018' 'Temporisation croissante et bornee' {
     $s=New-DomeniaProviderState
     $prev=[datetime]::MinValue

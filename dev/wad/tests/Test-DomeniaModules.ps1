@@ -91,10 +91,12 @@ try {
     }}
     $hash=[Security.Cryptography.SHA256]::Create()
     try {
-        $reconcile=Get-DomeniaReconcileWorkerCode
-        $document=Get-DomeniaDocumentWorkerCode
-        $rh=([BitConverter]::ToString($hash.ComputeHash([Text.Encoding]::UTF8.GetBytes(($reconcile -replace "`r`n","`n").Trim())))).Replace('-','')
-        $dh=([BitConverter]::ToString($hash.ComputeHash([Text.Encoding]::UTF8.GetBytes(($document -replace "`r`n","`n").Trim())))).Replace('-','')
+        # The probe runs at global scope, where $reconcile would be $script:Reconcile: distinct names keep the
+        # purity check below about the modules, not about this probe.
+        $reconcileCode=Get-DomeniaReconcileWorkerCode
+        $documentCode=Get-DomeniaDocumentWorkerCode
+        $rh=([BitConverter]::ToString($hash.ComputeHash([Text.Encoding]::UTF8.GetBytes(($reconcileCode -replace "`r`n","`n").Trim())))).Replace('-','')
+        $dh=([BitConverter]::ToString($hash.ComputeHash([Text.Encoding]::UTF8.GetBytes(($documentCode -replace "`r`n","`n").Trim())))).Replace('-','')
     } finally {$hash.Dispose()}
     $pure=($null -eq $script:Reconcile -and $null -eq $script:Guard -and $null -eq $script:Persistence -and $null -eq $script:AccountValidation -and $null -eq $script:SupportTimer)
     $wpf=$null
@@ -176,7 +178,8 @@ try {
         Case ('Plan ferme egal aux definitions : '+$planFile) {
             # Invariant required by the D011 wiring: every top-level function of a declared module is declared,
             # and every declared function is defined at top level of that very file.
-            $defined=@(Get-TopLevelFunctionNames (Join-Path (Join-Path $wad 'modules') $planFile))
+            # The helper returns the array as one object (unary comma): no @() here, or it nests.
+            $defined=Get-TopLevelFunctionNames (Join-Path (Join-Path $wad 'modules') $planFile)
             $missing=@($planNames|Where-Object{$defined -notcontains $_})
             $undeclared=@($defined|Where-Object{$planNames -notcontains $_})
             Expect ($missing.Count -eq 0 -and $undeclared.Count -eq 0) ('Declarees non definies : '+($missing -join ', ')+' ; definies non declarees : '+($undeclared -join ', '))

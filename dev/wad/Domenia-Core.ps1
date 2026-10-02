@@ -20821,6 +20821,10 @@ try {
         $taskClassValue = Get-DomeniaTaskClass -OperationId $OperationId -IsWrite ([bool]$IsWrite) -ReplaceKey $ReplaceKey -Hint $TaskClass
         $providerValue = Get-DomeniaOperationProvider $OperationId
         $providerTarget = [string](Get-DomeniaMember $Payload 'Computer' '')
+        # Presence checks name their machine Target; the shared park file is its own resource. Without this,
+        # their outcomes land on the provider-wide entry that every target of the provider checks.
+        if ([string]::IsNullOrWhiteSpace($providerTarget)) { $providerTarget = [string](Get-DomeniaMember $Payload 'Target' '') }
+        if ([string]::IsNullOrWhiteSpace($providerTarget) -and $OperationId -eq 'ParkSharedSync') { $providerTarget = 'park:' + [string](Get-DomeniaMember $Payload 'Path' '') }
         # D018: a LAPS or BitLocker refusal is kept on its own resource, never on the whole directory.
         if ([string]::IsNullOrWhiteSpace($providerTarget)) {
             $secretResource = [string](Get-DomeniaOperationCredentialNeeds -OperationId $OperationId).Resource

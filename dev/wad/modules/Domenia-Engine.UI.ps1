@@ -66,14 +66,17 @@ function Get-DomeniaNextTaskSequence {
 
 function Get-DomeniaContextCredentialIdentity {
     # Account that a worker context actually carries for its provider. The implicit Windows session is
-    # named too, so an explicit account chosen later is distinguishable from the rejected one.
+    # named too, so an explicit account chosen later is distinguishable from the rejected one. An explicit
+    # credential is also identified by its object: contexts hand the stored object over by reference, so an
+    # automatic retry keeps the identity (still blocked), while the same user name typed again with a
+    # corrected password is a new object, hence an explicit change of account (D018).
     param($Context,[string]$Provider)
     $remote = ($Provider -in @('Cim','Wts','Network'))
     $names = @('Credential')
     if ($remote) { $names = @('MachineCredential','RemoteAdminCredential','Credential') }
     foreach ($name in $names) {
         $credential = Get-DomeniaMember $Context $name $null
-        if ($null -ne $credential) { try { return ([string]$credential.UserName).Trim() } catch { } }
+        if ($null -ne $credential) { try { return (([string]$credential.UserName).Trim() + '#' + [string][Runtime.CompilerServices.RuntimeHelpers]::GetHashCode($credential)) } catch { } }
     }
     if ($remote) {
         $user = [string](Get-DomeniaMember $Context 'RemoteAdminUser' '')

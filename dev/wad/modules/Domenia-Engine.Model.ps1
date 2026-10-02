@@ -444,7 +444,9 @@ function Test-DomeniaProviderAdmission {
         }
     }
     foreach ($entry in $entries) {
-        if ([datetime]$entry.BackoffUntilUtc -gt $NowUtc -and $Class -ne 'Explicit' -and $Class -ne 'Write') {
+        # Only background reads pause: a read the operator asked for (Explicit) or caused by a selection
+        # (an object opened, a presence check) is still sent, and its outcome keeps feeding the budget.
+        if (([datetime]$entry.BackoffUntilUtc -gt $NowUtc) -and ($Class -eq 'Background')) {
             return [pscustomobject]@{Allowed=$false;Reason='Pannes repetees : nouvelles lectures de fond suspendues temporairement.';RetryAfterUtc=[datetime]$entry.BackoffUntilUtc;Budget=$budget}
         }
     }
