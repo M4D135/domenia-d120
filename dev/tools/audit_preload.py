@@ -111,10 +111,45 @@ def audit():
         result=subprocess.run([sys.executable,str(ROOT/'tools'/tool)],capture_output=True,text=True)
         ck('Executed: '+tool,result.returncode==0,(result.stdout+result.stderr).strip())
     failed=[c for c in checks if not c['Passed']]
-    return dict(Build='2026.10.01-DOMENIA-1.0-RC1.10.7-SELECTION',SourceBase=baseline['Archive'],Passed=len(checks)-len(failed),Failed=len(failed),CoreFunctions=len(spans),ChangedCoreFunctions=changed,UnchangedCoreFunctions=len(spans)-len(changed),ModuleFiles=len(plans),ModuleExports=len(exports),WindowsPowerShellExecuted=False,WpfExecuted=False,LiveADExecuted=False,Kind='Source/XML and archive-level contract verification only',Checks=checks)
+    build=json.loads((ROOT/'tools/release-contract.json').read_text(encoding='utf-8-sig')).get('Build','')
+    return dict(Build=build,SourceBase=baseline['Archive'],Passed=len(checks)-len(failed),Failed=len(failed),CoreFunctions=len(spans),ChangedCoreFunctions=changed,UnchangedCoreFunctions=len(spans)-len(changed),ModuleFiles=len(plans),ModuleExports=len(exports),WindowsPowerShellExecuted=False,WpfExecuted=False,LiveADExecuted=False,Kind='Source/XML and archive-level contract verification only',Checks=checks)
+
+PAYLOADS=['Domenia.exe','wad/Microsoft.ActiveDirectory.Management.dll','wad/ActiveDirectoryPowerShellResources.dll','wad/PsExec.exe','wad/Domenia.config.json','wad/Domenia.theme.cfg','wad/Domenia.login-mode.cfg','wad/Domenia.ui-profile.cfg','wad/Domenia-Start.ps1','wad/Support/DEBLOQUER_TOUT.cmd','wad/Support/Debloquer-Paquet.ps1','wad/modules/Domenia-Live.UI.ps1','wad/modules/Domenia-Relations.UI.ps1']
+
+def rebaseline(decision,source_label):
+    """Re-pins the reviewed state after a written decision. Every core function and every checked payload is
+    re-hashed; the decision (what changed and why it was accepted) is appended to the baseline history."""
+    if not decision or len(decision.strip())<20: raise SystemExit('Decision ecrite requise (--decision, 20 caracteres au moins).')
+    path=ROOT/'tools/preload-baseline.json'
+    baseline=json.loads(path.read_text())
+    source=(ROOT/'wad/Domenia-Core.ps1').read_text('utf-8-sig').replace('\r\n','\n')
+    spans=functions(source)
+    dup=[k for k,v in spans.items() if len(v)!=1]
+    if dup: raise SystemExit('Fonctions du coeur ambigues : '+', '.join(dup))
+    core={k:SHA(source[v[0][0]:v[0][1]]) for k,v in spans.items()}
+    changed=sorted(k for k,v in core.items() if baseline['CoreFunctions'].get(k)!=v)
+    added=sorted(set(core)-set(baseline['CoreFunctions']));removed=sorted(set(baseline['CoreFunctions'])-set(core))
+    files=dict(baseline['Files'])
+    payloads=[]
+    for name in PAYLOADS:
+        digest=hashlib.sha256((ROOT/name).read_bytes()).hexdigest().upper()
+        if files.get(name)!=digest: payloads.append(name)
+        files[name]=digest
+    history=list(baseline.get('Decisions',[]))
+    history.append(dict(Previous=baseline['Archive'],Source=source_label,Decision=decision.strip(),ChangedCoreFunctions=changed,AddedCoreFunctions=added,RemovedCoreFunctions=removed,ChangedPayloads=payloads))
+    out=dict(Archive=source_label,ArchiveSHA256=baseline.get('ArchiveSHA256',''),CoreFunctions=core,Files=files,Decisions=history)
+    with open(path,'w',encoding='utf-8',newline='\n') as handle: handle.write(json.dumps(out,ensure_ascii=False,indent=2)+'\n')
+    return history[-1]
 
 if __name__=='__main__':
-    ap=argparse.ArgumentParser(description=__doc__);ap.add_argument('--report',type=Path);args=ap.parse_args()
+    ap=argparse.ArgumentParser(description=__doc__);ap.add_argument('--report',type=Path)
+    ap.add_argument('--rebaseline',action='store_true',help='Re-pin the reviewed core functions and payloads (requires --decision).')
+    ap.add_argument('--decision',default='',help='Written decision recorded in tools/preload-baseline.json.')
+    ap.add_argument('--source',default='',help='Label of the reviewed source (commit, lot).')
+    args=ap.parse_args()
+    if args.rebaseline:
+        entry=rebaseline(args.decision,args.source or 'source tree')
+        print(json.dumps(entry,ensure_ascii=False,indent=2))
     report=audit()
     if args.report: args.report.parent.mkdir(parents=True,exist_ok=True);args.report.write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n')
     print(json.dumps({k:v for k,v in report.items() if k!='Checks'},ensure_ascii=False,indent=2))
