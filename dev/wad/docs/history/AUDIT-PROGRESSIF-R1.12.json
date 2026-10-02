@@ -1,0 +1,563 @@
+{
+  "Build": "2026.09.30-R1.12-PROGRESSIVE",
+  "Environment": "Linux/Python, source/XML checks + Python SQLite in memory",
+  "Passed": 130,
+  "Failed": 0,
+  "Checks": [
+    {
+      "Name": "All original core function names retained once",
+      "Passed": true
+    },
+    {
+      "Name": "Only reviewed core functions changed",
+      "Passed": true
+    },
+    {
+      "Name": "Existing common remote worker preserved",
+      "Passed": true
+    },
+    {
+      "Name": "Sensitive existing function preserved: Invoke-AdccInProcessAuthProbe",
+      "Passed": true
+    },
+    {
+      "Name": "Sensitive existing function preserved: Start-AdccFastLoginAttempt",
+      "Passed": true
+    },
+    {
+      "Name": "Sensitive existing function preserved: Update-AdccFastLoginAttempt",
+      "Passed": true
+    },
+    {
+      "Name": "Sensitive existing function preserved: Complete-AdccFastLoginSuccess",
+      "Passed": true
+    },
+    {
+      "Name": "Sensitive existing function preserved: Start-AdccLoginAuthRunspace",
+      "Passed": true
+    },
+    {
+      "Name": "Sensitive existing function preserved: Assert-AdccCapability",
+      "Passed": true
+    },
+    {
+      "Name": "Sensitive existing function preserved: Wire-Events",
+      "Passed": true
+    },
+    {
+      "Name": "Sensitive existing function preserved: Get-AdccSearchScope",
+      "Passed": true
+    },
+    {
+      "Name": "Sensitive existing function preserved: Test-AdccSearchStateCurrent",
+      "Passed": true
+    },
+    {
+      "Name": "Sensitive existing function preserved: Get-AdccStandardLoginXaml",
+      "Passed": true
+    },
+    {
+      "Name": "Sensitive existing function preserved: Export-CurrentResults",
+      "Passed": true
+    },
+    {
+      "Name": "Closed registry of 47 literal worker bodies",
+      "Passed": true
+    },
+    {
+      "Name": "44 pre-existing worker bodies preserved exactly",
+      "Passed": true
+    },
+    {
+      "Name": "GlobalSearch is intentionally replaced",
+      "Passed": true
+    },
+    {
+      "Name": "New literal code registry matches its factories",
+      "Passed": true
+    },
+    {
+      "Name": "All pinned worker bodies pass approximate delimiter checks",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate lexical balance, not native parse: ADCC.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate lexical balance, not native parse: INSTALLER-MISE-A-JOUR.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate lexical balance, not native parse: wad/ADCC-Core.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate lexical balance, not native parse: wad/maintenance/Debloquer-Paquet.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate lexical balance, not native parse: wad/maintenance/Preview-AdccLogin.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate lexical balance, not native parse: wad/maintenance/Preview-AdccProgress.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate lexical balance, not native parse: wad/maintenance/Preview-AdccUi.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate lexical balance, not native parse: wad/maintenance/Sauvegarder-Cache.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate lexical balance, not native parse: wad/maintenance/Verifier-Paquet.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate lexical balance, not native parse: wad/modules/ADCC-Experience.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate lexical balance, not native parse: wad/modules/ADCC-Experience.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate lexical balance, not native parse: wad/modules/ADCC-Live.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate lexical balance, not native parse: wad/modules/ADCC-Live.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate lexical balance, not native parse: wad/modules/ADCC-Support.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate lexical balance, not native parse: wad/modules/ADCC-Support.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate lexical balance, not native parse: wad/modules/ADCC-UX.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate lexical balance, not native parse: wad/tests/Test-ADCC.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate lexical balance, not native parse: wad/tests/Test-ADCCAccounts.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate lexical balance, not native parse: wad/tests/Test-ADCCCompactUi.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate lexical balance, not native parse: wad/tests/Test-ADCCExperience.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate lexical balance, not native parse: wad/tests/Test-ADCCInterface.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate lexical balance, not native parse: wad/tests/Test-ADCCLastUser.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate lexical balance, not native parse: wad/tests/Test-ADCCLogin.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate lexical balance, not native parse: wad/tests/Test-ADCCRemote.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate lexical balance, not native parse: wad/tests/Test-ADCCSearchScope.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate lexical balance, not native parse: wad/tests/Test-ADCCStreaming.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate lexical balance, not native parse: wad/tests/Test-ADCCSupport.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate lexical balance, not native parse: wad/tests/Test-ADCCTheme.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate lexical balance, not native parse: wad/tests/fixtures/AuthProbe-R1.7.1.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate lexical balance, not native parse: wad/tests/fixtures/AuthProbe-R1.7.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved dependency: ADCC.ico",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved dependency: ADCC.exe",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved dependency: wad/ADCC.theme.cfg",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved dependency: wad/Microsoft.ActiveDirectory.Management.dll",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved dependency: wad/ADCC.ico",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved dependency: wad/ADCC.login-mode.cfg",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved dependency: wad/ActiveDirectoryPowerShellResources.dll",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved dependency: wad/PsExec.exe",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved dependency: wad/ADCC.ui-profile.cfg",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved dependency: wad/ADCC.config.json",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved dependency: wad/modules/ADCC-Support.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved dependency: wad/modules/SupportSuite.UI.json",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved dependency: wad/modules/ADCC-Support.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved dependency: wad/modules/ADCC-UX.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved dependency: wad/modules/ADCC-Support.xaml",
+      "Passed": true
+    },
+    {
+      "Name": "Main build matches R1.12",
+      "Passed": true
+    },
+    {
+      "Name": "Original named main controls retained",
+      "Passed": true
+    },
+    {
+      "Name": "New controls all present",
+      "Passed": true
+    },
+    {
+      "Name": "Results remain virtualized",
+      "Passed": true
+    },
+    {
+      "Name": "Toolbar is outside result grid (no overlapping rows)",
+      "Passed": true
+    },
+    {
+      "Name": "Stream controls have static help and accessibility names",
+      "Passed": true
+    },
+    {
+      "Name": "Help catalog contains both new commands",
+      "Passed": true
+    },
+    {
+      "Name": "New columns distinguish console user, attempt and directory freshness",
+      "Passed": true
+    },
+    {
+      "Name": "XML module parses: ADCC-Support.xaml",
+      "Passed": true
+    },
+    {
+      "Name": "Module functions do not collide with core or each other",
+      "Passed": true
+    },
+    {
+      "Name": "New data type implements change notifications",
+      "Passed": true
+    },
+    {
+      "Name": "Restricted host fallback without disabling protections",
+      "Passed": true
+    },
+    {
+      "Name": "Stable ObservableCollection and bounded dispatcher drainage",
+      "Passed": true
+    },
+    {
+      "Name": "Probe completion never rebinds whole ItemsSource",
+      "Passed": true
+    },
+    {
+      "Name": "Native unfinished reads count toward physical concurrency",
+      "Passed": true
+    },
+    {
+      "Name": "Automatic user lookup defaults to two simultaneous jobs",
+      "Passed": true
+    },
+    {
+      "Name": "Interactive jobs retain spare concurrency slots",
+      "Passed": true
+    },
+    {
+      "Name": "LDAP and cache queues are separate",
+      "Passed": true
+    },
+    {
+      "Name": "Search callbacks verify identity, generation and OU scope",
+      "Passed": true
+    },
+    {
+      "Name": "Old identity resets caches and visibly invalidates former session rows",
+      "Passed": true
+    },
+    {
+      "Name": "Recreated AD object rejected by GUID",
+      "Passed": true
+    },
+    {
+      "Name": "Failure keeps last observed user and old observation time",
+      "Passed": true
+    },
+    {
+      "Name": "Partial LDAP results never replace complete persistent query snapshot",
+      "Passed": true
+    },
+    {
+      "Name": "Fresh AD rows evict cached rows when quota full",
+      "Passed": true
+    },
+    {
+      "Name": "Empty valid list prunes stale cache only after full response",
+      "Passed": true
+    },
+    {
+      "Name": "Local filter includes console user literally",
+      "Passed": true
+    },
+    {
+      "Name": "Writes and unknown write states suspend progressive changes",
+      "Passed": true
+    },
+    {
+      "Name": "No full links-table rewrite on automatic observation",
+      "Passed": true
+    },
+    {
+      "Name": "Duplicate automatic probes are gated",
+      "Passed": true
+    },
+    {
+      "Name": "Manual and automatic probes are not launched together",
+      "Passed": true
+    },
+    {
+      "Name": "Disk path resolved at most once per consultation identity",
+      "Passed": true
+    },
+    {
+      "Name": "Closing never flushes cache by waiting on worker",
+      "Passed": true
+    },
+    {
+      "Name": "LDAP actually streams to progress queue",
+      "Passed": true
+    },
+    {
+      "Name": "LDAP keeps selected root and depth",
+      "Passed": true
+    },
+    {
+      "Name": "LDAP honors cooperative cancellation and disposes resources",
+      "Passed": true
+    },
+    {
+      "Name": "Exactly one CIM session and one UserName request",
+      "Passed": true
+    },
+    {
+      "Name": "CIM-off policy respected and no credential fallback",
+      "Passed": true
+    },
+    {
+      "Name": "Automatic worker has no remote process/task/registry mutation",
+      "Passed": true
+    },
+    {
+      "Name": "Console empty does not claim no RDP",
+      "Passed": true
+    },
+    {
+      "Name": "AD validation keeps qualified domain; never guesses local/bare user",
+      "Passed": true
+    },
+    {
+      "Name": "Auth rejection breaks automatic scheduling",
+      "Passed": true
+    },
+    {
+      "Name": "CIM cleanup always attempted",
+      "Passed": true
+    },
+    {
+      "Name": "Snapshot whitelist cannot persist arbitrary properties",
+      "Passed": true
+    },
+    {
+      "Name": "Cache opened only within pinned background operation",
+      "Passed": true
+    },
+    {
+      "Name": "Persistent data isolated by account scope and query key",
+      "Passed": true
+    },
+    {
+      "Name": "Record retention bounded independently from old AD database",
+      "Passed": true
+    },
+    {
+      "Name": "Cache read cannot overwrite newer in-memory observation",
+      "Passed": true
+    },
+    {
+      "Name": "Transactional persistence and bounded SQLite lock wait",
+      "Passed": true
+    },
+    {
+      "Name": "Manual associations preserved in targeted writes",
+      "Passed": true
+    },
+    {
+      "Name": "Native progressive tests gate code replacement",
+      "Passed": true
+    },
+    {
+      "Name": "Install preserves existing configuration flags",
+      "Passed": true
+    },
+    {
+      "Name": "Preview bypasses network scheduler and disk cache",
+      "Passed": true
+    },
+    {
+      "Name": "Preview feeds actual production queues and callbacks",
+      "Passed": true
+    },
+    {
+      "Name": "SQL: first targeted observed link inserted",
+      "Passed": true
+    },
+    {
+      "Name": "SQL: apostrophe preserved as literal",
+      "Passed": true
+    },
+    {
+      "Name": "SQL: older observation cannot replace newer one",
+      "Passed": true
+    },
+    {
+      "Name": "SQL: manual link never replaced",
+      "Passed": true
+    },
+    {
+      "Name": "SQL: English manual source also protected",
+      "Passed": true
+    },
+    {
+      "Name": "SQL: same query key in two scopes remains separate",
+      "Passed": true
+    },
+    {
+      "Name": "SQL: rollback restores prior cache exactly",
+      "Passed": true
+    },
+    {
+      "Name": "SQL: retains 20 query snapshots in a scope",
+      "Passed": true
+    },
+    {
+      "Name": "SQL: retention of one scope leaves another untouched",
+      "Passed": true
+    },
+    {
+      "Name": "SQL: keeps 5000 recent observations per scope",
+      "Passed": true
+    },
+    {
+      "Name": "SQL: retention never clears legacy associations",
+      "Passed": true
+    },
+    {
+      "Name": "SQL: records beyond 30 days are removed from new cache",
+      "Passed": true
+    },
+    {
+      "Name": "SQL: database remains internally consistent",
+      "Passed": true
+    }
+  ],
+  "OriginalCoreFunctions": 573,
+  "ChangedCoreFunctions": [
+    "Set-AdccResultRowPresence",
+    "Sync-AdccResultRowFromEntry",
+    "Apply-AdccPresenceFilter",
+    "Get-MainXaml",
+    "Invalidate-AdccSearchResults",
+    "Complete-AdccGlobalSearchUi",
+    "Fail-AdccGlobalSearchUi",
+    "Clear-AdccGlobalSearch",
+    "Invoke-GlobalSearch",
+    "Start-ComputerUserLinkProbe",
+    "Set-RowAssociationMetadata",
+    "Get-AdccWorkerOperationHashes",
+    "New-AdccWorkerRunspace",
+    "Initialize-AsyncEngine",
+    "Start-UiTask",
+    "Request-UiTaskStop",
+    "Complete-UiTasks",
+    "Dispose-AsyncEngine",
+    "Get-WorkerContext",
+    "Initialize-AdccPresentation",
+    "Start-AdccWriteTask"
+  ],
+  "UnchangedCoreFunctions": 552,
+  "PinnedWorkers": 47,
+  "WindowsScenariosProvided": 60,
+  "NotExecuted": [
+    "PowerShell native parser",
+    "Windows PowerShell 5.1 tests",
+    "WPF render",
+    "AD LDAP",
+    "CIM/DCOM",
+    "Performance benchmark"
+  ]
+}

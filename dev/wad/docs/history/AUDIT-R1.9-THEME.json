@@ -1,0 +1,85 @@
+{
+  "Build": "2026.09.30-R1.9-OUSEARCH",
+  "Environment": "Linux/Python, analyse source et XML uniquement",
+  "NativePowerShellExecuted": false,
+  "WpfExecuted": false,
+  "ActiveDirectoryExecuted": false,
+  "Passed": 14,
+  "Failed": 0,
+  "Observations": {
+    "DarkMinimumSemanticContrast": 6.702,
+    "LightMinimumSemanticContrast": 5.939
+  },
+  "Results": [
+    {
+      "Name": "Core : lexique et delimiteurs (pas un parseur natif)",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Source : priorite JSON, choix commun, sauvegarde immediate et restauration sans ecriture",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Source : messages dynamiques du login sans ancienne police foncee",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Source : moniteur et autotest utilisent le meme XAML",
+      "Status": "PASS",
+      "Detail": ""
+    },
+    {
+      "Name": "Dark : contraste des 20 couples de texte de la palette",
+      "Status": "PASS",
+      "Detail": "minimum 6.70:1 (OnAccent/Accent)"
+    },
+    {
+      "Name": "Dark : Get-LoginXamlLegacy (XML, ressources, styles, contraste)",
+      "Status": "PASS",
+      "Detail": "17 textes/champs/boutons ; minimum 6.70:1 ; ressources resolues statiquement"
+    },
+    {
+      "Name": "Dark : Get-AdccStandardLoginXaml (XML, ressources, styles, contraste)",
+      "Status": "PASS",
+      "Detail": "21 textes/champs/boutons ; minimum 6.70:1 ; ressources resolues statiquement"
+    },
+    {
+      "Name": "Dark : Get-AdccDebugLoginXaml (XML, ressources, styles, contraste)",
+      "Status": "PASS",
+      "Detail": "21 textes/champs/boutons ; minimum 6.70:1 ; ressources resolues statiquement"
+    },
+    {
+      "Name": "Dark : Get-AdccStartupXaml (XML, ressources, styles, contraste)",
+      "Status": "PASS",
+      "Detail": "9 textes/champs/boutons ; minimum 9.84:1 ; ressources resolues statiquement"
+    },
+    {
+      "Name": "Light : contraste des 20 couples de texte de la palette",
+      "Status": "PASS",
+      "Detail": "minimum 5.94:1 (Error/Window)"
+    },
+    {
+      "Name": "Light : Get-LoginXamlLegacy (XML, ressources, styles, contraste)",
+      "Status": "PASS",
+      "Detail": "17 textes/champs/boutons ; minimum 6.47:1 ; ressources resolues statiquement"
+    },
+    {
+      "Name": "Light : Get-AdccStandardLoginXaml (XML, ressources, styles, contraste)",
+      "Status": "PASS",
+      "Detail": "21 textes/champs/boutons ; minimum 6.70:1 ; ressources resolues statiquement"
+    },
+    {
+      "Name": "Light : Get-AdccDebugLoginXaml (XML, ressources, styles, contraste)",
+      "Status": "PASS",
+      "Detail": "21 textes/champs/boutons ; minimum 6.70:1 ; ressources resolues statiquement"
+    },
+    {
+      "Name": "Light : Get-AdccStartupXaml (XML, ressources, styles, contraste)",
+      "Status": "PASS",
+      "Detail": "9 textes/champs/boutons ; minimum 6.70:1 ; ressources resolues statiquement"
+    }
+  ]
+}

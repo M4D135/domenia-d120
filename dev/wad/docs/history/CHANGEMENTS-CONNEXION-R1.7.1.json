@@ -1,0 +1,27 @@
+{
+  "Build": "2026.09.22-R1.7.1-LOGIN",
+  "ChangedFunctions": [
+    "Invoke-AdccInProcessAuthProbe",
+    "Convert-AdccLoginFailureMessage",
+    "Update-AdccFastLoginAttempt",
+    "Get-AdccStandardLoginXaml"
+  ],
+  "AddedFunctions": [
+    "Get-AdccLoginFailureHint"
+  ],
+  "RemovedFunctions": [],
+  "PreviousCoreSha256": "25963cf7254f09876c87e26382860c4b028a4adc3d9320ce54d5648a5d147a1f",
+  "PreservedFiles": {
+    "ADCC.ico": "931af92eb1778934b22acb4d9dcc3f97234ee5daba8147e6cf7d7842db0ad923",
+    "ADCC.exe": "1ec0fb8663c2907d8de467172b4de391791f7a9496c0b22bdf1e1b7212cb5f15",
+    "wad/ActiveDirectoryPowerShellResources.dll": "e233d92238aa31ea1b3c60145d8811edb2e517e1b9b53f4bc496883ee5d9973b",
+    "wad/ADCC.ico": "931af92eb1778934b22acb4d9dcc3f97234ee5daba8147e6cf7d7842db0ad923",
+    "wad/PsExec.exe": "edfae1a69522f87b12c6dac3225d930e4848832e3c551ee1e7d31736bf4525ef",
+    "wad/Microsoft.ActiveDirectory.Management.dll": "1a6af7b8f8bce5b35ff873e2528746480c980526d86e38ca5acd04c2e9037157",
+    "wad/modules/ADCC-UX.help.json": "dcad52fdf63dcd85d98e0ad271baca6632ad18101e7f69c7d9e918eb2b03f853",
+    "wad/modules/ADCC-Support.UI.ps1": "4d8100dfdb3aca2146d2c706df44820366cfe91361bc4cd84af45fe1fee8eaf6",
+    "wad/modules/ADCC-Support.xaml": "18b4cb8f942220dc49c35ba7c945431df8c185f7969945f168cc77a9c4eaf5db",
+    "wad/modules/ADCC-UX.UI.ps1": "130ca2d5f448ec7866073f57a21f8d04aab2a2466ae5c8bf1f217ed713834177",
+    "wad/modules/ADCC-Support.Model.ps1": "ed5f212635c43779b2357ba1d2eab837eff6268c913f9733da9f440e0cca2a39"
+  }
+}

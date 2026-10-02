@@ -1,0 +1,523 @@
+{
+  "Build": "2026.09.22-R1.7.2-NATIVE",
+  "PowerShellExecuted": false,
+  "WpfExecuted": false,
+  "LiveDirectoryExecuted": false,
+  "NativeScenariosProvidedNotExecuted": 47,
+  "LiteralWindowXmlChecked": [
+    "Get-LoginXamlLegacy",
+    "Get-MainXaml",
+    "Get-AdccStartupXaml",
+    "Get-AdccStandardLoginXaml",
+    "Get-AdccDebugLoginXaml"
+  ],
+  "CoreSha256": "351f12cc055ea3da3b7c67a15aad68b876e19f6644461162212ac5779bd0d69c",
+  "Passed": 84,
+  "Failed": 0,
+  "Checks": [
+    {
+      "Name": "Expected build markers",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Unique top-level definitions",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "All original functions retained",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Precisely four top-level functions intended to change",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters, not native parsing: ADCC.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters, not native parsing: INSTALLER-MISE-A-JOUR.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters, not native parsing: wad/ADCC-Core.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters, not native parsing: wad/maintenance/Debloquer-Paquet.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters, not native parsing: wad/maintenance/Preview-AdccUi.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters, not native parsing: wad/maintenance/Sauvegarder-Cache.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters, not native parsing: wad/modules/ADCC-Support.Model.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters, not native parsing: wad/modules/ADCC-Support.UI.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters, not native parsing: wad/modules/ADCC-UX.UI.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters, not native parsing: wad/tests/Test-ADCC.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters, not native parsing: wad/tests/Test-ADCCAccounts.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters, not native parsing: wad/tests/Test-ADCCInterface.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters, not native parsing: wad/tests/Test-ADCCLastUser.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters, not native parsing: wad/tests/Test-ADCCLogin.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters, not native parsing: wad/tests/Test-ADCCRemote.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters, not native parsing: wad/tests/Test-ADCCSupport.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters, not native parsing: wad/tests/Test-ADCCTheme.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters, not native parsing: wad/tests/fixtures/AuthProbe-R1.7.1.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Lexical delimiters, not native parsing: wad/tests/fixtures/AuthProbe-R1.7.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Explicit bind uses getter method exactly once",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Discovery uses getter method",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "No swallowing property syntax for NativeObject",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Properties getter called as method",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Indexer called as method",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Null entry, collection, native and missing-DN guards retained",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Success requires a subsequent base read",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "No second property read in RefreshCache error handler",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Only one explicit DirectoryEntry factory",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "One-attempt guard retained",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Success after explicit path returns canonical identity",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "No identity or password transformation added",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "DirectoryEntry Secure and Windows Negotiate retained",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Windows signing and sealing retained",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Cleanup preserved",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Unknown explicit-bind error has no fabricated network verdict",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Native HRESULT categories independent of message wording",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "A real LDAP code is preserved only from LdapException",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Extended native error scalars kept",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Canonical bind identity and selected DC both reported",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "New diagnostics scrub the exact submitted secret",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "New diagnostic helper does not serialize objects",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Monitor keeps native error fields",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Unknown bind hint requests diagnostics, not credential cycling",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "No erroneous password-only verdict for LDAP 52e",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "No assurance that locked account password is valid",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Unbounded numeric UI matches removed",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "47 provided runtime cases present, NOT executed",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Native tests include R1.7.1 differential fixture",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Runtime tests compare property and method access",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Runtime tests include no-secret result and selected DC case",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Tests block OS domain discovery",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Tests block all other DS New-Object constructors",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Installer requires all 47 cases before any code copy",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Installer still protects data paths",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Installer still enforces preserve-existing policy",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "563 unmodified functions still match original source",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved file bytes: ADCC.exe",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved file bytes: ADCC.ico",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved file bytes: ADCC.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved file bytes: wad/ADCC.config.json",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved file bytes: wad/ADCC.ico",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved file bytes: wad/ADCC.login-mode.cfg",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved file bytes: wad/ADCC.theme.cfg",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved file bytes: wad/ADCC.ui-profile.cfg",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved file bytes: wad/ActiveDirectoryPowerShellResources.dll",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved file bytes: wad/Microsoft.ActiveDirectory.Management.dll",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved file bytes: wad/PsExec.exe",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved file bytes: wad/maintenance/Preview-AdccUi.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved file bytes: wad/modules/ADCC-Support.Model.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved file bytes: wad/modules/ADCC-Support.UI.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved file bytes: wad/modules/ADCC-Support.xaml",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved file bytes: wad/modules/ADCC-UX.UI.ps1",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Preserved file bytes: wad/modules/ADCC-UX.help.json",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "R1.7.1 baseline fixture exact normalized source",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Literal Window XML only: Get-LoginXamlLegacy",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Literal Window XML only: Get-MainXaml",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Literal Window XML only: Get-AdccStartupXaml",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Literal Window XML only: Get-AdccStandardLoginXaml",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Literal Window XML only: Get-AdccDebugLoginXaml",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    },
+    {
+      "Name": "Module XML only: ADCC-Support.xaml",
+      "Status": "PASS",
+      "Kind": "StaticSourceXmlOrHash",
+      "Detail": ""
+    }
+  ]
+}

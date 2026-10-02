@@ -1,0 +1,490 @@
+--- R1.11/wad/ADCC-Core.ps1
++++ R1.12/wad/ADCC-Core.ps1
+@@ -2305,7 +2305,7 @@
+         foreach ($row in @($script:BranchObjects)) {
+             try {
+                 if ([string]$row.DN -ieq $dnValue) {
+-                    Add-Member -InputObject $row -NotePropertyName Presence -NotePropertyValue $shortState -Force
++                    Set-AdccLiveRowValue $row "Presence" $shortState
+                     $changed = $true
+                 }
+             }
+@@ -2347,28 +2347,28 @@
+ 
+         $uac = Get-DeProp $Entry "userAccountControl" 0
+         $lockout = if ($Type -eq "Utilisateur") { Get-DeProp $Entry "lockoutTime" 0 } else { 0 }
+-        Add-Member -InputObject $row -NotePropertyName Name -NotePropertyValue ([string](Get-DeProp $Entry "name" "")) -Force
+-        Add-Member -InputObject $row -NotePropertyName Description -NotePropertyValue ([string](Get-DeProp $Entry "description" "")) -Force
+-        Add-Member -InputObject $row -NotePropertyName Changed -NotePropertyValue (Convert-DateLabel (Get-DeProp $Entry "whenChanged" "")) -Force
+-        Add-Member -InputObject $row -NotePropertyName LastLogon -NotePropertyValue (Convert-FileTimeLabel (Get-DeProp $Entry "lastLogonTimestamp" 0)) -Force
+-        Add-Member -InputObject $row -NotePropertyName State -NotePropertyValue (Get-UacStatusLabel $uac $lockout) -Force
++        Set-AdccLiveRowValue $row "Name" ([string](Get-DeProp $Entry "name" ""))
++        Set-AdccLiveRowValue $row "Description" ([string](Get-DeProp $Entry "description" ""))
++        Set-AdccLiveRowValue $row "Changed" (Convert-DateLabel (Get-DeProp $Entry "whenChanged" ""))
++        Set-AdccLiveRowValue $row "LastLogon" (Convert-FileTimeLabel (Get-DeProp $Entry "lastLogonTimestamp" 0))
++        Set-AdccLiveRowValue $row "State" (Get-UacStatusLabel $uac $lockout)
+ 
+         if ($Type -eq "Utilisateur") {
+-            Add-Member -InputObject $row -NotePropertyName Login -NotePropertyValue ([string](Get-DeProp $Entry "sAMAccountName" "")) -Force
+-            Add-Member -InputObject $row -NotePropertyName UPN -NotePropertyValue ([string](Get-DeProp $Entry "userPrincipalName" "")) -Force
+-            Add-Member -InputObject $row -NotePropertyName Mail -NotePropertyValue ([string](Get-DeProp $Entry "mail" "")) -Force
++            Set-AdccLiveRowValue $row "Login" ([string](Get-DeProp $Entry "sAMAccountName" ""))
++            Set-AdccLiveRowValue $row "UPN" ([string](Get-DeProp $Entry "userPrincipalName" ""))
++            Set-AdccLiveRowValue $row "Mail" ([string](Get-DeProp $Entry "mail" ""))
+         }
+         else {
+             $sam = [string](Get-DeProp $Entry "sAMAccountName" "")
+-            Add-Member -InputObject $row -NotePropertyName Login -NotePropertyValue ($sam.TrimEnd([char]36)) -Force
+-            Add-Member -InputObject $row -NotePropertyName UPN -NotePropertyValue ([string](Get-DeProp $Entry "dNSHostName" "")) -Force
+-            Add-Member -InputObject $row -NotePropertyName OS -NotePropertyValue ([string](Get-DeProp $Entry "operatingSystem" "")) -Force
++            Set-AdccLiveRowValue $row "Login" ($sam.TrimEnd([char]36))
++            Set-AdccLiveRowValue $row "UPN" ([string](Get-DeProp $Entry "dNSHostName" ""))
++            Set-AdccLiveRowValue $row "OS" ([string](Get-DeProp $Entry "operatingSystem" ""))
+         }
+ 
+         # Recalcule aussi Association / Source / Confiance a partir des liens locaux.
+         [void](Set-RowAssociationMetadata -Rows @($row))
+         $grid = Get-AdccControl -Name "DgObjects"
+-        if ($null -ne $grid) { try { $grid.Items.Refresh() } catch { } }
++        if ($null -ne $grid -and -not (Test-AdccLiveSearchActive)) { try { $grid.Items.Refresh() } catch { } }
+     }
+     catch {
+         Write-AppLog "Synchronisation fiche vers grille impossible : $($_.Exception.Message)" "WARN"
+@@ -2396,6 +2396,7 @@
+ }
+ 
+ function Apply-AdccPresenceFilter {
++    if (Test-AdccLiveSearchActive) { Update-AdccLiveFilter; return }
+     try {
+         $rows = @($script:BranchObjects)
+         if ($script:CurrentPresenceFilter -ne "Tous") {
+@@ -3960,7 +3961,7 @@
+               </Button>
+             </StackPanel>
+             <StackPanel DockPanel.Dock="Bottom" Margin="8,12,0,6" x:Name="UxNavFooter">
+-              <TextBlock Text="ADCC 1.0 · R1.11" Foreground="{DynamicResource MutedColor}" FontSize="11"/>
++              <TextBlock Text="ADCC 1.0 · R1.12" Foreground="{DynamicResource MutedColor}" FontSize="11"/>
+               <TextBlock Text="Les actions restent sous votre contrôle." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="11" Margin="0,6,0,0"/>
+             </StackPanel>
+             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+@@ -4415,11 +4416,23 @@
+ <TextBlock Text="Dans les résultats" VerticalAlignment="Center" Margin="0,0,10,0" Foreground="{DynamicResource MutedColor}"/>
+ <TextBox x:Name="TxtSuiteResultFilter" Grid.Column="1" MaxLength="120" MinHeight="32" ToolTip="Filtre local littéral dans le nom, login, type, présence et association. Plusieurs mots se combinent. Aucun appel AD. La limite LDAP reste inchangée." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Filtrer les lignes chargées" AutomationProperties.HelpText="Filtre local littéral dans le nom, login, type, présence et association. Plusieurs mots se combinent. Aucun appel AD. La limite LDAP reste inchangée." IsEnabled="{Binding IsEnabled, ElementName=DgObjects}"/>
+ <Button x:Name="BtnSuiteResultClear" Grid.Column="2" Content="Effacer le filtre" Margin="8,0,0,0" MinHeight="32" ToolTip="Réaffiche les lignes déjà chargées, en conservant le filtre OU, la présence et le texte de recherche AD." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Effacer le filtre local" AutomationProperties.HelpText="Réaffiche les lignes déjà chargées, en conservant le filtre OU, la présence et le texte de recherche AD." IsEnabled="{Binding IsEnabled, ElementName=DgObjects}"/>
+-</Grid><TextBlock x:Name="LblSuiteResultCount" Text="Filtre local : affine seulement les lignes déjà chargées." FontSize="11" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,5,0,0"/></StackPanel><Grid Grid.Row="1">
++</Grid><TextBlock x:Name="LblSuiteResultCount" Text="Filtre local : affine seulement les lignes déjà chargées." FontSize="11" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,5,0,0"/><StackPanel Margin="0,10,0,0">
++                            <WrapPanel>
++                              <CheckBox x:Name="ChkLiveUsers" IsEnabled="{Binding IsEnabled, ElementName=DgObjects}" Content="Vérifier les utilisateurs des postes" IsChecked="True" VerticalAlignment="Center" Margin="0,0,14,4" ToolTip="Après chaque chargement AD, vérifie le compte console en arrière-plan. Deux postes simultanés par défaut. Aucun déploiement PsExec automatique." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Détection automatique des utilisateurs" AutomationProperties.HelpText="Vérifie en arrière-plan le compte console et conserve le dernier utilisateur connu en cas d’échec."/>
++                              <Button x:Name="BtnLiveRecheck" IsEnabled="{Binding IsEnabled, ElementName=DgObjects}" Content="Revérifier les postes" Margin="0,0,0,4" MinHeight="30" Padding="10,4" ToolTip="Relance les lectures des machines déjà confirmées dans la liste AD. Ne relance pas LDAP et ne duplique pas une sonde active." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Revérifier les postes" AutomationProperties.HelpText="Vérifie de nouveau les utilisateurs et la présence, en arrière-plan."/>
++                            </WrapPanel>
++                            <TextBlock x:Name="LblLiveState" Text="Résultats progressifs · utilisateurs vérifiés en arrière-plan" FontSize="11" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap"/>
++                          </StackPanel></StackPanel><Grid Grid.Row="1">
++                          
+                           <DataGrid x:Name="DgObjects" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Extended" SelectionUnit="FullRow" CanUserSortColumns="True" CanUserResizeColumns="True" EnableRowVirtualization="True" EnableColumnVirtualization="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.CanContentScroll="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" HeadersVisibility="Column" ToolTip="Clic : ouvre la fiche. Entree ou double-clic : relit l objet depuis Active Directory. Clic droit : actions." RowHeight="34" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Clic : ouvre la fiche" AutomationProperties.HelpText="Clic : ouvre la fiche. Entree ou double-clic : relit l objet depuis Active Directory. Clic droit : actions.">
+                             <DataGrid.Columns>
+                               <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="105"/>
+                               <DataGridTextColumn Header="Nom" Binding="{Binding Name}" Width="260"/>
++                              <DataGridTemplateColumn Header="Utilisateur (console)" Width="230" SortMemberPath="SessionDisplay">
++                                <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding SessionDisplay}" ToolTip="{Binding SessionDetail}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/></DataTemplate></DataGridTemplateColumn.CellTemplate>
++                              </DataGridTemplateColumn>
++                              <DataGridTextColumn Header="Vérification utilisateur" Binding="{Binding SessionState}" Width="175"/>
++                              <DataGridTextColumn Header="Fraîcheur AD" Binding="{Binding DirectoryState}" Width="135"/>
+                               <DataGridTextColumn Header="Login" Binding="{Binding Login}" Width="150"/>
+                               <DataGridTextColumn Header="UPN / DNS" Binding="{Binding UPN}" Width="235"/>
+                               <DataGridTextColumn Binding="{Binding Association}" Width="230">
+@@ -6428,6 +6441,7 @@
+ }
+ 
+ function Invalidate-AdccSearchResults {
++    Stop-AdccLiveSearch
+     # Toute modification de perimetre invalide aussi les retours deja en vol.
+     $script:GlobalSearchGeneration = [int]$script:GlobalSearchGeneration + 1
+     try { if ($null -ne $script:LiveSearchTimer) { $script:LiveSearchTimer.Stop() } } catch { }
+@@ -9198,6 +9212,7 @@
+ 
+ function Complete-AdccGlobalSearchUi {
+     param($Result,$State)
++    if ($null -ne $State -and $null -ne $State.PSObject.Properties["LiveState"]) { Complete-AdccLiveSearch -Result $Result -State $State; return }
+ 
+     # Une ancienne recherche peut finir apres avoir ete remplacee. Elle ne doit
+     # jamais repeupler la grille ni modifier le statut d'une recherche plus recente.
+@@ -9304,6 +9319,7 @@
+ 
+ function Fail-AdccGlobalSearchUi {
+     param($Message,$State)
++    if ($null -ne $State -and $null -ne $State.PSObject.Properties["LiveState"]) { Fail-AdccLiveSearch -Message $Message -State $State; return }
+ 
+     $generation = 0
+     try { $generation = [int]$State.Generation } catch { }
+@@ -9325,6 +9341,7 @@
+ }
+ 
+ function Clear-AdccGlobalSearch {
++    Stop-AdccLiveSearch
+     try {
+         $localFilter=Get-AdccControl 'TxtSuiteResultFilter'
+         if($null -ne $localFilter){$localFilter.Clear()}
+@@ -9509,47 +9526,15 @@
+             $broadFilter = "(&$typeFilter(|(name=$prefix)(displayName=$prefix)(sAMAccountName=$prefix)(dNSHostName=$prefix)))"
+         }
+ 
+-        # ADCC.db est un ACCELERATEUR, jamais l'autorite finale d'une recherche
+-        # globale. La base peut etre partielle (premiere construction, limite
+-        # atteinte, delta pas encore applique). On affiche donc ses lignes tout
+-        # de suite comme apercu, puis LDAP verifie systematiquement et remplace
+-        # l'affichage. Cela garantit qu'un cache incomplet ne masque pas l'AD.
+-        if (-not $isBrowse -and $scope.IsDomain -and $scope.Scope -eq "Subtree" -and $textValue -ne "*" -and -not $textValue.Contains("*") -and (Get-AdccDatabaseObjectCount) -gt 0) {
+-            try {
+-                $localRows = @(Find-AdccIndexMatches -Term $textValue -Limit $limit)
+-                $typeLabel = "Tous"
+-                try { $typeLabel = [string](Get-AdccControl -Name "CmbGlobalType").SelectedItem.Content } catch { }
+-                if ($typeLabel -eq "Utilisateurs") { $localRows = @($localRows | Where-Object { [string]$_.Type -eq "Utilisateur" }) }
+-                elseif ($typeLabel -eq "Machines") { $localRows = @($localRows | Where-Object { [string]$_.Type -eq "Machine" }) }
+-                elseif ($typeLabel -eq "Groupes") { $localRows = @($localRows | Where-Object { [string]$_.Type -eq "Groupe" }) }
+-                elseif ($typeLabel -eq "OU et conteneurs") { $localRows = @($localRows | Where-Object { [string]$_.Type -in @("OU","Conteneur") }) }
+-                if ($localRows.Count -gt 0) {
+-                    Show-ObjectRows -Rows $localRows -Label "$($localRows.Count) resultat(s)  ADCC.db · verification AD..." -SkipPresenceScan -NoAutoOpen -PreserveSelectionDn $preserveDn
+-                    $fresh = ""
+-                    try { $fresh = [string]$script:IndexInfo.Date } catch { }
+-                    Set-Status "Apercu local : $($localRows.Count) resultat(s). Verification Active Directory en arriere-plan..."
+-                    Add-AdccUiLog -Area "Recherche" -Text ("LOCAL-HINT : " + $localRows.Count + " resultat(s) provisoire(s) depuis ADCC.db. Derniere synchro=" + $fresh + ". Verification LDAP obligatoire.")
+-                }
+-                else {
+-                    Add-AdccUiLog -Area "Recherche" -Text "LOCAL-HINT : aucun resultat local. Recherche LDAP maintenue."
+-                }
+-            }
+-            catch { Add-AdccUiLog -Area "Base autonome" -Level "WARN" -Text ("Recherche locale ignoree : " + $_.Exception.Message) }
+-        }
+-
+         $serverKey = ([string]$script:Conn.Server).ToLowerInvariant()
+         $baseKey = ([string]$scope.BaseDn).ToLowerInvariant()
+         $cacheKey = "scoped-v19|$serverKey|$baseKey|$($scope.Scope)|$typeFilter|$textValue|$limit"
+-        $cached = Get-VisitCacheValue $cacheKey
+-        if ($null -ne $cached -and @($cached).Count -gt 0) {
+-            Show-ObjectRows -Rows $cached -Label "$(@($cached).Count) resultat(s)  cache" -SkipPresenceScan -NoAutoOpen -PreserveSelectionDn $preserveDn
+-            Set-Status "Resultats du cache affiches. Verification Active Directory en arriere-plan..."
+-        }
++        # Cache previews are read in a worker; the WPF thread performs no SQLite query here.
+ 
+         $props = @(
+             "name","distinguishedName","objectClass","objectCategory",
+             "sAMAccountName","userPrincipalName","mail","dNSHostName","description",
+-            "displayName","whenChanged","userAccountControl","lockoutTime",
++            "displayName","whenChanged","objectGUID","userAccountControl","lockoutTime",
+             "operatingSystem","lastLogonTimestamp"
+         )
+ 
+@@ -9592,6 +9577,8 @@
+ $successfulQuery = $false
+ $serverUsed = ""
+ $limitReached = $false
++$partial = $false
++$failure = ""
+ 
+ foreach ($ctx in @($contexts)) {
+     $serverLabel = if ([string]::IsNullOrWhiteSpace([string]$ctx.Server)) { "auto" } else { [string]$ctx.Server }
+@@ -9599,6 +9586,7 @@
+     foreach ($filterText in @($filters)) {
+         $searcher = $null
+         $collection = $null
++        $rootEntry = $null
+         $queryWatch = [System.Diagnostics.Stopwatch]::StartNew()
+         $filterRaw = 0
+         $filterAdded = 0
+@@ -9606,14 +9594,21 @@
+             $searcher = New-WSearcher $ctx ([string]$Payload.BaseDn) $filterText @($Payload.Properties) ([string]$Payload.Scope) ([int]$Payload.Limit)
+             $searcher.ServerTimeLimit = [TimeSpan]::FromSeconds([Math]::Max(3,[int]$Payload.ServerTimeLimitSeconds))
+             $searcher.ClientTimeout = [TimeSpan]::FromSeconds([Math]::Max(5,[int]$Payload.ClientTimeoutSeconds))
++            $searcher.PageSize = [Math]::Max(1,[Math]::Min(100,[int]$Payload.StreamPageSize))
++            $searcher.CacheResults = $false
++            $searcher.Asynchronous = $true
++            $rootEntry = $searcher.SearchRoot
+             $collection = $searcher.FindAll()
+-            $successfulQuery = $true
+             $serverUsed = $serverLabel
+ 
+             foreach ($result in $collection) {
++                if ($null -ne $Payload.StopToken -and $Payload.StopToken.IsCancellationRequested) { throw "Lecture remplacée ou arrêtée." }
+                 $rawCount++
+                 $filterRaw++
+                 $row = New-WBranchRow $result
++                $g=Get-WPropFirst $result.Properties 'objectguid' $null
++                $guidText=if($g -is [array] -and $g.Count -eq 16){([guid]([byte[]]$g)).ToString('D')}else{Convert-WGuid $g}
++                Add-Member -InputObject $row -NotePropertyName Guid -NotePropertyValue $guidText
+                 if ([string]$row.Type -notin @("Utilisateur","Machine","Groupe","OU","Conteneur")) { continue }
+ 
+                 $dn = ([string]$row.DN).Trim()
+@@ -9626,6 +9621,9 @@
+                 $seenDn[$key] = $true
+                 [void]$rows.Add($row)
+                 $filterAdded++
++                if ($null -ne $Payload.Progress) {
++                    $Payload.Progress.Enqueue([pscustomobject]@{ Kind='Row'; Row=$row; ObservedUtc=[datetime]::UtcNow.ToString('o') })
++                }
+ 
+                 if ($rows.Count -ge [int]$Payload.Limit) {
+                     $limitReached = $true
+@@ -9633,6 +9631,7 @@
+                 }
+             }
+ 
++            $successfulQuery = $true
+             [void]$diagnostics.Add("$serverLabel : $filterText => bruts=$filterRaw, ajoutes=$filterAdded, $($queryWatch.ElapsedMilliseconds) ms")
+ 
+             # Des qu'un filtre prioritaire a trouve quelque chose, il est inutile
+@@ -9641,24 +9640,29 @@
+         }
+         catch {
+             [void]$diagnostics.Add("$serverLabel : $filterText => ERREUR : $($_.Exception.Message)")
++            if ($null -ne $Payload.StopToken -and $Payload.StopToken.IsCancellationRequested) { throw }
++            if ($rows.Count -gt 0) { $partial=$true; $failure=$_.Exception.Message; break }
+         }
+         finally {
+             $queryWatch.Stop()
+             try { if ($null -ne $collection) { $collection.Dispose() } } catch { }
+             try { if ($null -ne $searcher) { $searcher.Dispose() } } catch { }
++            try { if ($null -ne $rootEntry) { $rootEntry.Dispose() } } catch { }
+         }
+     }
+ 
+     if ($rows.Count -gt 0 -or $successfulQuery) { break }
+ }
+ 
+-if (-not $successfulQuery) {
++if (-not $successfulQuery -and -not $partial) {
+     throw "La recherche LDAP a echoue sur tous les contextes essayes. $(@($diagnostics) -join ' | ')"
+ }
+ 
+ $watch.Stop()
+ [pscustomobject]@{
+     Rows=@($rows)
++    Partial=[bool]$partial
++    Failure=[string]$failure
+     RawCount=[int]$rawCount
+     DurationMs=[long]$watch.ElapsedMilliseconds
+     Server=[string]$serverUsed
+@@ -9695,6 +9699,8 @@
+             Generation = $generation
+         }
+ 
++        [void](Begin-AdccLiveSearch -State $callbackState -Payload $payload)
++
+         Add-AdccUiLog -Area "Recherche" -Level "INFO" -Text "Recherche '$textValue' demandee, base=$($scope.BaseDn), portee=$($scope.Scope), limite=$limit."
+         if ($generation -ne [int]$script:GlobalSearchGeneration) { return }
+         if (-not $PreserveSelection) { Select-AdccWorkspace -Workspace 'WsSearch' }
+@@ -9702,6 +9708,7 @@
+         Start-UiTask -Name "Recherche dans l annuaire" -OperationId "GlobalSearch" -Code $code -Payload $payload -CallbackState $callbackState -ReplaceKey "global" -DisableControls @("BtnGlobalSearch") -TimeoutSeconds ([Math]::Max(15,[int](Get-CfgValue "Async" "SearchTimeoutSeconds" 45))) -StatusText "Recherche Active Directory en arriere-plan..." -SuccessHandler "Complete-AdccGlobalSearchUi" -ErrorHandler "Fail-AdccGlobalSearchUi" | Out-Null
+     }
+     catch {
++        if ($null -ne $callbackState -and $null -ne $callbackState.PSObject.Properties['LiveState']) { Fail-AdccLiveSearch -Message $_.Exception.Message -State $callbackState }
+         [void](Show-AdccOperationError -Operation "Preparation de la recherche Active Directory" -ErrorRecordOrException $_ -NoPopup:$SilentError)
+     }
+ }
+@@ -16602,6 +16609,16 @@
+ function Start-ComputerUserLinkProbe {
+     param([string]$Computer,[switch]$Force)
+     $computerNorm = Normalize-LinkComputer $Computer
++    if ($null -ne $script:Live -and -not $Force -and (Request-AdccLiveSelectedProbe -Computer $Computer)) { return }
++    if ($null -ne $script:Live -and $Force -and (Test-AdccLiveSearchActive)) {
++        foreach ($row in $script:Live.Search.Rows) {
++            if ($row.Type -eq 'Machine' -and (Normalize-LinkComputer $row.Name) -eq $computerNorm -and $script:Live.Busy.ContainsKey((Get-AdccLiveObjectKey $row))) {
++                Set-Status 'Une détection est déjà en cours pour ce poste. Aucune sonde en double.'
++                return
++            }
++        }
++    }
++
+     try {
+         if ([string]::IsNullOrWhiteSpace($computerNorm)) { return }
+ 
+@@ -18516,9 +18533,9 @@
+             }
+         }
+ 
+-        try { $row | Add-Member -NotePropertyName Association -NotePropertyValue $association -Force } catch { }
+-        try { $row | Add-Member -NotePropertyName LinkSource -NotePropertyValue $source -Force } catch { }
+-        try { $row | Add-Member -NotePropertyName LinkConfidence -NotePropertyValue $confidence -Force } catch { }
++        try { Set-AdccLiveRowValue $row "Association" $association } catch { }
++        try { Set-AdccLiveRowValue $row "LinkSource" $source } catch { }
++        try { Set-AdccLiveRowValue $row "LinkConfidence" $confidence } catch { }
+         [void]$result.Add($row)
+     }
+ 
+@@ -19859,7 +19876,7 @@
+ # ADCC_MASTER_LAST_V1 = TRUE
+ $script:Version = "1.0"
+ $script:AppName = "Active Directory Control Center"
+-$script:MasterBuild = "2026.09.30-R1.11-SUITE"
++$script:MasterBuild = "2026.09.30-R1.12-PROGRESSIVE"
+ $script:ActiveWriteTaskId = ""
+ $script:WriteState = "Idle"
+ $script:UnknownWriteTargetDn = ""
+@@ -20978,7 +20995,7 @@
+     return [ordered]@{
+         CmdletHelp            = "12505D0654AB0E97BD803A70B953BB0BBE2152836AAA1889744C1312EB215D62"
+         TreeChildren          = "64E2C2F8DCE64FBF68A3079937B7671039CA4E71EC00805A7E9195CC9C483141"
+-        GlobalSearch          = "4D6EFFC55E44BBE6944A21E26CC9FE82FBEF946FD164F1D976D9B0A280F69401"
++        GlobalSearch          = "14C800F71892EBFD6D433A94F8AB377D09292F3BAEC92EEF2850C77A4D989C33"
+         PermissionAnalysis    = "664513B3CF363C35CA895100374950039EAE9B69DD288AD5AE53F862EC10A340"
+         SelfCheck             = "65D11DDC4A935412B4341BE401FE6739C7D65F3E72DDF8A33ACE2FBBB27A71C4"
+         ReadBitLocker         = "55F469517F1AD169F93E772DADFDAED51DDCCF12BCE2313194D667A8A69EA485"
+@@ -21020,6 +21037,8 @@
+         PresenceScan          = "E7F81414C29C1C8F1E91453D9EC4BA48B6F92F0AA0E2674C9EBF5C88437F4486"
+         SelectedPresence      = "4ECADF4F231390182A3BF091EF8636B3536D7B3F8A28EF3984DE1E2D524D5BFA"
+         StartupWarmCache      = "864735012ED29EBAF1B094DA12C1D44266933DC9D3D2046BD1E5D68AE58CA1A3"
++        LiveConsole          = "0697568899BC479AA64868526F6A673C8E10CD380872560C31C98849BF780C45"
++        LiveCache            = "3109F0209D21D5F33C06129DB5526F71BDE49A4FB4875084CCC5750C818C3CF7"
+         EngineSelfTest        = "40E2C89F858E22E1D221AC48DC04DD5BF627F1ACBC836AB48036C43DB9F7E1D1"
+     }
+ }
+@@ -21052,6 +21071,15 @@
+         [switch]$IsWrite
+     )
+     $verifiedHash = Assert-AdccWorkerOperationCode -OperationId $OperationId -Code $Code
++    $pooled = ($OperationId -in @('GlobalSearch','LiveConsole','LiveCache')) -and -not $IsWrite
++    if ($pooled) {
++        if ($null -eq $script:LiveWorkerPools) { $script:LiveWorkerPools=@{} }
++        if ($script:LiveWorkerPools.ContainsKey($OperationId)) {
++            $existing=$script:LiveWorkerPools[$OperationId]
++            if ($existing.CodeHash -cne $verifiedHash) { throw 'Empreinte de pool incohérente.' }
++            return $existing
++        }
++    }
+     $businessCode = [string]$Code
+     if ($IsWrite) {
+         # L'enveloppe Unknown est fixe et n'est appliquee qu'apres validation du corps metier original.
+@@ -21070,6 +21098,17 @@
+     $iss = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault2()
+     $entry = New-Object System.Management.Automation.Runspaces.SessionStateFunctionEntry -ArgumentList @($functionName,$definition)
+     [void]$iss.Commands.Add($entry)
++    if ($pooled) {
++        $pool=[Management.Automation.Runspaces.RunspaceFactory]::CreateRunspacePool(1,3,$iss,$Host)
++        try {
++            $pool.ApartmentState=[Threading.ApartmentState]::MTA
++            $pool.ThreadOptions=[Management.Automation.Runspaces.PSThreadOptions]::ReuseThread
++            $pool.Open()
++            $record=[pscustomobject]@{Runspace=$null;Pool=$pool;CommandName=$functionName;OperationId=$OperationId;CodeHash=$verifiedHash}
++            $script:LiveWorkerPools[$OperationId]=$record
++            return $record
++        } catch { $pool.Dispose(); throw }
++    }
+     $runspace = [System.Management.Automation.Runspaces.RunspaceFactory]::CreateRunspace($Host,$iss)
+     try {
+         $runspace.ApartmentState = [System.Threading.ApartmentState]::MTA
+@@ -21092,7 +21131,7 @@
+     Write-StartupTrace -Stage "Moteur multithread" -Status "START"
+     try {
+         $registry = Get-AdccWorkerOperationHashes
+-        if ($registry.Count -ne 45) { throw "Registre worker incomplet : $($registry.Count)/45 operation(s)." }
++        if ($registry.Count -ne 47) { throw "Registre worker incomplet : $($registry.Count)/47 operation(s)." }
+         foreach ($operationId in $registry.Keys) {
+             if ([string]$registry[$operationId] -notmatch '^[A-F0-9]{64}$') { throw "Hash worker invalide pour $operationId." }
+         }
+@@ -21112,7 +21151,7 @@
+         $script:AsyncTimer = $timer
+         $script:AsyncTimer.Start()
+         $sw.Stop()
+-        Write-StartupTrace -Stage "Moteur multithread" -Status "OK" -DurationMs $sw.ElapsedMilliseconds -Detail "Moteur ferme pret ; 45 operations hash-pinnees, un runspace MTA dedie par tache."
++        Write-StartupTrace -Stage "Moteur multithread" -Status "OK" -DurationMs $sw.ElapsedMilliseconds -Detail "Moteur ferme pret ; 47 operations hash-pinnees, un runspace MTA dedie par tache."
+     }
+     catch {
+         $sw.Stop()
+@@ -21235,7 +21274,7 @@
+     try {
+         $worker = New-AdccWorkerRunspace -OperationId $OperationId -Code $Code -IsWrite:$IsWrite
+         $ps = [System.Management.Automation.PowerShell]::Create()
+-        $ps.Runspace = $worker.Runspace
++        if ($null -ne $worker.PSObject.Properties["Pool"]) { $ps.RunspacePool=$worker.Pool } else { $ps.Runspace = $worker.Runspace }
+         [void]$ps.AddCommand([string]$worker.CommandName)
+         [void]$ps.AddArgument((Get-WorkerContext -OperationId $OperationId))
+         [void]$ps.AddArgument($Payload)
+@@ -21281,6 +21320,7 @@
+     $job.CancelRequested = $true
+     $job.CancelRequestedAt = Get-Date
+     $job.Superseded = [bool]$Superseded
++    Stop-AdccLiveJob -Job $job
+     try { Stop-AdccComputerUserProbeUi -Job $job -Reason $Reason } catch {
+         Write-AppLog ("Nettoyage etat de detection : " + $_.Exception.Message) 'WARN'
+     }
+@@ -21465,7 +21505,7 @@
+             # l'identite et on ne retente pas automatiquement avec une variante.
+             $credentialRejected = ($errorMessage -match "(?i)(nom d.utilisateur ou le mot de passe est incorrect|user name or password is incorrect|logon failure|identifiant ou mot de passe|credentials?.*(invalid|incorrect)|compte.*verrouill|account.*locked)")
+             if ($credentialRejected) {
+-                $nonDirectory = @("CmdletHelp","CmdletInventory","EngineSelfTest","ComputerDiagnostics","ComputerLastUser","ComputerPing","ComputerGpUpdate","ComputerRestart","ComputerInventory","SoftwareInventory","ParkSweep","BatchNetworkDiag","WmiNamespaces","WmiClasses","WmiQuery","RimotteRun")
++                $nonDirectory = @("LiveConsole","LiveCache","CmdletHelp","CmdletInventory","EngineSelfTest","ComputerDiagnostics","ComputerLastUser","ComputerPing","ComputerGpUpdate","ComputerRestart","ComputerInventory","SoftwareInventory","ParkSweep","BatchNetworkDiag","WmiNamespaces","WmiClasses","WmiQuery","RimotteRun")
+                 if ($nonDirectory -notcontains [string]$job.OperationId) {
+                     $script:DirectoryCredentialFaulted = $true
+                     $script:DirectoryCredentialFaultMessage = [string]$errorMessage
+@@ -21487,6 +21527,7 @@
+ }
+ 
+ function Dispose-AsyncEngine {
++    Stop-AdccLive -Closing
+     $script:AsyncEngineClosing = $true
+     try {
+         if ($null -ne $script:AccountCredentialTestSession) {
+@@ -21523,6 +21564,12 @@
+     $script:CurrentObjectRequestDn = ''
+     $script:AsyncEngineReady = $false
+     $script:AsyncTimer = $null
++    if ($null -ne $script:LiveWorkerPools) {
++        foreach ($record in @($script:LiveWorkerPools.Values)) {
++            try { [void]$record.Pool.BeginClose($null,$null) } catch { }
++        }
++        $script:LiveWorkerPools=@{}
++    }
+ }
+ 
+ function Initialize-AdccWorkerContextCache {
+@@ -21548,12 +21595,12 @@
+     param([string]$OperationId = "")
+     Initialize-AdccWorkerContextCache
+     $static = $script:WorkerContextStatic
+-    $remoteOperations = @("ComputerDiagnostics","ComputerLastUser","ComputerPing","ComputerGpUpdate","ComputerRestart","ComputerInventory","SoftwareInventory","ParkSweep","BatchNetworkDiag","WmiNamespaces","WmiClasses","WmiQuery","RimotteRun")
+-    $machineCredentialOperations = @("ComputerDiagnostics","ComputerInventory","SoftwareInventory","ParkSweep","WmiNamespaces","WmiClasses","WmiQuery","ComputerLastUser","ComputerGpUpdate","ComputerRestart","UserComputerProbe","RimotteRun")
+-    $nonDirectoryOperations = @("CmdletHelp","CmdletInventory","EngineSelfTest") + $remoteOperations
++    $remoteOperations = @("ComputerDiagnostics","ComputerLastUser","LiveConsole","ComputerPing","ComputerGpUpdate","ComputerRestart","ComputerInventory","SoftwareInventory","ParkSweep","BatchNetworkDiag","WmiNamespaces","WmiClasses","WmiQuery","RimotteRun")
++    $machineCredentialOperations = @("ComputerDiagnostics","ComputerInventory","SoftwareInventory","ParkSweep","WmiNamespaces","WmiClasses","WmiQuery","ComputerLastUser","LiveConsole","ComputerGpUpdate","ComputerRestart","UserComputerProbe","RimotteRun")
++    $nonDirectoryOperations = @("CmdletHelp","CmdletInventory","EngineSelfTest","LiveCache") + $remoteOperations
+     # ComputerLastUser valide les candidats dans LDAP : ce n est pas une
+     # operation exclusivement distante, contrairement au ping/inventaire.
+-    $needsDirectoryCredential = ($OperationId -eq 'ComputerLastUser' -or $nonDirectoryOperations -notcontains $OperationId)
++    $needsDirectoryCredential = ($OperationId -in @('ComputerLastUser','LiveConsole') -or $nonDirectoryOperations -notcontains $OperationId)
+     if ($needsDirectoryCredential -and [bool]$script:DirectoryCredentialFaulted) {
+         $fault = [string]$script:DirectoryCredentialFaultMessage
+         if ([string]::IsNullOrWhiteSpace($fault)) { $fault = "authentification AD rejetee" }
+@@ -22281,6 +22328,7 @@
+     # qu il vient d ouvrir, et sans objet selectionne.
+     try { Select-AdccWorkspace -Workspace "TabDashboard" } catch { }
+ 
++    Initialize-AdccLive
+     Add-AdccUiLog -Area "Application" -Text "Active Directory Control Center 1.0 pret."
+ }
+ 
+@@ -22485,7 +22533,7 @@
+     if ($null -eq $Payload) { $Payload = [pscustomobject]@{} }
+     $correlation = [guid]::NewGuid().ToString("N")
+     if ($null -eq $Payload.PSObject.Properties["CorrelationId"]) { $Payload | Add-Member -NotePropertyName CorrelationId -NotePropertyValue $correlation }
+-    $allControls = @((Get-AllWriteControlNames) + @($DisableControls) + @("TvDirectory","DgObjects","TxtGlobalSearch","BtnGlobalSearch","BtnGlobalClear","BtnTreeRefresh","BtnDashRoot","BtnSearchAllDomain","ChkSubtree","CmbGlobalType","BtnLoadBranch") | Select-Object -Unique)
++    $allControls = @((Get-AllWriteControlNames) + @($DisableControls) + @("ChkLiveUsers","BtnLiveRecheck","TvDirectory","DgObjects","TxtGlobalSearch","BtnGlobalSearch","BtnGlobalClear","BtnTreeRefresh","BtnDashRoot","BtnSearchAllDomain","ChkSubtree","CmbGlobalType","BtnLoadBranch") | Select-Object -Unique)
+     if ($TimeoutSeconds -le 0) { $TimeoutSeconds = [int](Get-CfgValue "Async" "WriteSoftTimeoutSeconds" 90) }
+     $hard = [int](Get-CfgValue "Async" "WriteHardTimeoutSeconds" 300)
+     Write-AppLog "[$correlation] DEBUT $Name sur $([string]$Payload.DN)" "INFO"
+@@ -23406,7 +23454,7 @@
+ # Le login effectue un bind LDAP reel, lit RootDSE et valide la base detectee
+ # dans un runspace borne afin que le thread WPF ne soit jamais bloque.
+ # =====================================================================
+-$script:AdccBuild = "ADCC 1.0 R1.11 INTERFACE"
++$script:AdccBuild = "ADCC 1.0 R1.12 PROGRESSIF"
+ $script:FastLoginUi = $null
+ $script:FastLoginState = $null
+ $script:FastLoginTimer = $null
+@@ -24435,6 +24483,8 @@
+     . (Join-Path $PSScriptRoot 'modules\ADCC-UX.UI.ps1')
+     . (Join-Path $PSScriptRoot 'modules\ADCC-Support.Model.ps1')
+     . (Join-Path $PSScriptRoot 'modules\ADCC-Support.UI.ps1')
++    . (Join-Path $PSScriptRoot 'modules\ADCC-Live.Model.ps1')
++    . (Join-Path $PSScriptRoot 'modules\ADCC-Live.UI.ps1')
+     Load-AppConfig | Out-Null
+     Initialize-AdccDataStore | Out-Null
+     if ($AdccSelfTest) {

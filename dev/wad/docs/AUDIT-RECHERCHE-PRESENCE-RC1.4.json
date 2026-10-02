@@ -1,0 +1,755 @@
+{
+  "Build": "2026.10.01-DOMENIA-1.0-RC1.4-SEARCH",
+  "Environment": "Linux/Python source, XML and contract inspection",
+  "Passed": 176,
+  "Failed": 0,
+  "Checks": [
+    {
+      "Name": "All original core functions retained",
+      "Passed": true
+    },
+    {
+      "Name": "Unchanged critical core Invoke-DomeniaInProcessAuthProbe",
+      "Passed": true
+    },
+    {
+      "Name": "Unchanged critical core Start-DomeniaFastLoginAttempt",
+      "Passed": true
+    },
+    {
+      "Name": "Unchanged critical core Update-DomeniaFastLoginAttempt",
+      "Passed": true
+    },
+    {
+      "Name": "Unchanged critical core Complete-DomeniaFastLoginSuccess",
+      "Passed": true
+    },
+    {
+      "Name": "Unchanged critical core Start-DomeniaLoginAuthRunspace",
+      "Passed": true
+    },
+    {
+      "Name": "Unchanged critical core Assert-DomeniaCapability",
+      "Passed": true
+    },
+    {
+      "Name": "Unchanged binary/config Domenia.ico",
+      "Passed": true
+    },
+    {
+      "Name": "Unchanged binary/config Domenia.exe",
+      "Passed": true
+    },
+    {
+      "Name": "Unchanged binary/config wad/Domenia.ico",
+      "Passed": true
+    },
+    {
+      "Name": "Unchanged binary/config wad/Domenia.theme.cfg",
+      "Passed": true
+    },
+    {
+      "Name": "Unchanged binary/config wad/Domenia.ui-profile.cfg",
+      "Passed": true
+    },
+    {
+      "Name": "Unchanged binary/config wad/Domenia.login-mode.cfg",
+      "Passed": true
+    },
+    {
+      "Name": "Unchanged binary/config wad/Domenia.config.json",
+      "Passed": true
+    },
+    {
+      "Name": "Unchanged binary/config wad/PsExec.exe",
+      "Passed": true
+    },
+    {
+      "Name": "Unchanged binary/config wad/ActiveDirectoryPowerShellResources.dll",
+      "Passed": true
+    },
+    {
+      "Name": "Unchanged binary/config wad/Microsoft.ActiveDirectory.Management.dll",
+      "Passed": true
+    },
+    {
+      "Name": "Header entry defaults to Global",
+      "Passed": true
+    },
+    {
+      "Name": "Domain root and subtree global branch",
+      "Passed": true
+    },
+    {
+      "Name": "OU scope still uses branch and checkbox",
+      "Passed": true
+    },
+    {
+      "Name": "Global text separated from branch text",
+      "Passed": true
+    },
+    {
+      "Name": "Global type ignores combo",
+      "Passed": true
+    },
+    {
+      "Name": "Header click/key request explicit global mode",
+      "Passed": true
+    },
+    {
+      "Name": "OU changes explicitly request scoped search",
+      "Passed": true
+    },
+    {
+      "Name": "Manual OU clears only scoped term",
+      "Passed": true
+    },
+    {
+      "Name": "Restored OU explicitly requests scoped search",
+      "Passed": true
+    },
+    {
+      "Name": "Restored OU checks state before launch",
+      "Passed": true
+    },
+    {
+      "Name": "Refresh retains active search mode",
+      "Passed": true
+    },
+    {
+      "Name": "Late return guard includes SearchMode",
+      "Passed": true
+    },
+    {
+      "Name": "Late return guard includes Generation",
+      "Passed": true
+    },
+    {
+      "Name": "Late return guard includes BaseDn",
+      "Passed": true
+    },
+    {
+      "Name": "Late return guard includes Scope",
+      "Passed": true
+    },
+    {
+      "Name": "Late return guard includes TypeFilter",
+      "Passed": true
+    },
+    {
+      "Name": "Late return guard includes Get-DomeniaSearchText",
+      "Passed": true
+    },
+    {
+      "Name": "Cache key includes mode and new namespace",
+      "Passed": true
+    },
+    {
+      "Name": "Actual global LDAP first pass includes all human-name fields",
+      "Passed": true
+    },
+    {
+      "Name": "Safe limit remains 500",
+      "Passed": true
+    },
+    {
+      "Name": "Writes and draft decision still guard searches",
+      "Passed": true
+    },
+    {
+      "Name": "Live local filters are ignored in Global mode",
+      "Passed": true
+    },
+    {
+      "Name": "No native code in selection UI",
+      "Passed": true
+    },
+    {
+      "Name": "No collective ping call sites",
+      "Passed": true
+    },
+    {
+      "Name": "Single intent only from selection",
+      "Passed": true
+    },
+    {
+      "Name": "Row arrival requires preexisting intent",
+      "Passed": true
+    },
+    {
+      "Name": "Multiple selections cannot enqueue",
+      "Passed": true
+    },
+    {
+      "Name": "One request marked before dispatch",
+      "Passed": true
+    },
+    {
+      "Name": "Common physical bound includes ping-only",
+      "Passed": true
+    },
+    {
+      "Name": "Double click shares selected row presence",
+      "Passed": true
+    },
+    {
+      "Name": "Exactly one ICMP send",
+      "Passed": true
+    },
+    {
+      "Name": "Ping precedes CIM",
+      "Passed": true
+    },
+    {
+      "Name": "Ping published before user lookup",
+      "Passed": true
+    },
+    {
+      "Name": "ICMP disposed in finally",
+      "Passed": true
+    },
+    {
+      "Name": "Ping-only exits before accessing credentials",
+      "Passed": true
+    },
+    {
+      "Name": "CIM-disabled case still performs ping",
+      "Passed": true
+    },
+    {
+      "Name": "Probe does not deploy task or service",
+      "Passed": true
+    },
+    {
+      "Name": "No ping success required for requested CIM",
+      "Passed": true
+    },
+    {
+      "Name": "CIM response can confirm network presence",
+      "Passed": true
+    },
+    {
+      "Name": "No ICMP return labelled without shutdown assumption",
+      "Passed": true
+    },
+    {
+      "Name": "Error status distinguished",
+      "Passed": true
+    },
+    {
+      "Name": "New machine initially non verified",
+      "Passed": true
+    },
+    {
+      "Name": "Dates and sources separated in persistent record",
+      "Passed": true
+    },
+    {
+      "Name": "Ping-only keeps user observation date",
+      "Passed": true
+    },
+    {
+      "Name": "Ping-only keeps attempted-user date",
+      "Passed": true
+    },
+    {
+      "Name": "Older network result cannot replace newer timestamp",
+      "Passed": true
+    },
+    {
+      "Name": "Cache tooltip includes date and explicit historic marker",
+      "Passed": true
+    },
+    {
+      "Name": "Filtering recognizes old cache labels",
+      "Passed": true
+    },
+    {
+      "Name": "Ping-only does not present previous user as fresh",
+      "Passed": true
+    },
+    {
+      "Name": "Association time is user observation, not ping",
+      "Passed": true
+    },
+    {
+      "Name": "Only new ping date marks the result fresh",
+      "Passed": true
+    },
+    {
+      "Name": "Early presence respects context and GUID",
+      "Passed": true
+    },
+    {
+      "Name": "Early presence UI work bounded to 4 packets",
+      "Passed": true
+    },
+    {
+      "Name": "Ping-only is credential free in worker context",
+      "Passed": true
+    },
+    {
+      "Name": "Ping access scope is separate",
+      "Passed": true
+    },
+    {
+      "Name": "Global favorite leaves OU intact",
+      "Passed": true
+    },
+    {
+      "Name": "Global disables filter ancestor CmbGlobalType",
+      "Passed": true
+    },
+    {
+      "Name": "Global disables filter ancestor CmbPresenceFilter",
+      "Passed": true
+    },
+    {
+      "Name": "Global disables filter ancestor TxtSuiteResultFilter",
+      "Passed": true
+    },
+    {
+      "Name": "Control and help retained BtnSearchInOu",
+      "Passed": true
+    },
+    {
+      "Name": "Control and help retained TxtGlobalSearch",
+      "Passed": true
+    },
+    {
+      "Name": "Control and help retained DgObjects",
+      "Passed": true
+    },
+    {
+      "Name": "Control and help retained BtnLiveRecheck",
+      "Passed": true
+    },
+    {
+      "Name": "Control and help retained ChkLiveUsers",
+      "Passed": true
+    },
+    {
+      "Name": "Control and help retained TvDirectory",
+      "Passed": true
+    },
+    {
+      "Name": "18 named columns retained",
+      "Passed": true
+    },
+    {
+      "Name": "Presence keeps stable layout key",
+      "Passed": true
+    },
+    {
+      "Name": "Presence tooltip binds only network detail",
+      "Passed": true
+    },
+    {
+      "Name": "New scoped button is in help catalog",
+      "Passed": true
+    },
+    {
+      "Name": "55 registered workers and contracts",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash SelectedPresence",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash PresenceScan",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash CmdletHelp",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash TreeChildren",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash GlobalSearch",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash PermissionAnalysis",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash SelfCheck",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash ReadBitLocker",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash ReadLaps",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash ComputerInventory",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash DomainOverview",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash BatchNetworkDiag",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash SoftwareInventory",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash WmiNamespaces",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash WmiClasses",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash WmiQuery",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash UserComputerProbe",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash LogonHarvest",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash ParkSweep",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash IndexBuild",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash ComputerDiagnostics",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash ComputerLastUser",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash CmdletInventory",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash RimotteRun",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash ComputerPing",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash ComputerGpUpdate",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash ComputerRestart",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash PruneLinks",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash OpenLinkedObject",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash EngineSelfTest",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash OpenAdObject",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash WriteAttributes",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash WriteAccountDisabled",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash WriteUnlock",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash WriteResetPassword",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash WriteAccountOptions",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash WriteExpiration",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash WriteExpirePassword",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash WriteMoveObject",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash WriteObjectGroup",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash WriteGroupMember",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash WriteRenameComputer",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash WriteCreateOu",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash WriteDeleteObject",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash StartupWarmCache",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash LiveConsole",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash LiveCache",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash LiveDirectoryCheck",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash SessionsList",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash RemoteCredentialCheck",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash ReceiptStore",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash LocalStore",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash ScopeReconcile",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash DocumentStore",
+      "Passed": true
+    },
+    {
+      "Name": "Exact worker hash LiveSelectedPing",
+      "Passed": true
+    },
+    {
+      "Name": "20 explicit module plans",
+      "Passed": true
+    },
+    {
+      "Name": "Module exports exact Domenia-UX.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Module exports exact Domenia-Experience.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Module exports exact Domenia-Experience.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Module exports exact Domenia-Support.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Module exports exact Domenia-Support.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Module exports exact Domenia-Live.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Module exports exact Domenia-Live.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Module exports exact Domenia-Access.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Module exports exact Domenia-Continuity.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Module exports exact Domenia-Continuity.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Module exports exact Domenia-Guard.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Module exports exact Domenia-Accounts.Async.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Module exports exact Domenia-Storage.Worker.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Module exports exact Domenia-Storage.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Module exports exact Domenia-Receipts.Worker.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Module exports exact Domenia-Sessions.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Module exports exact Domenia-Dossier.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Module exports exact Domenia-Dossier.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Module exports exact Domenia-Reconcile.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Module exports exact Domenia-Guard.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Native tests use AST only",
+      "Passed": true
+    },
+    {
+      "Name": "Network doubles explicit",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical delimiters wad/tests/Test-DomeniaSearchPresence.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical delimiters wad/tests/Test-DomeniaSelection.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical delimiters wad/tests/Test-DomeniaSearchScope.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical delimiters wad/tests/Test-DomeniaStreaming.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical delimiters wad/maintenance/Preview-DomeniaUi.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical delimiters wad/maintenance/Preview-DomeniaProgress.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Lexical delimiters INSTALLER-MISE-A-JOUR.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Native test gated before install",
+      "Passed": true
+    },
+    {
+      "Name": "PROD required runtime excludes tests",
+      "Passed": true
+    },
+    {
+      "Name": "Build label core RC1.4",
+      "Passed": true
+    },
+    {
+      "Name": "Historical source base unchanged",
+      "Passed": true
+    }
+  ],
+  "OriginalCoreFunctions": 573,
+  "PreservedCoreFunctions": 551,
+  "ChangedCoreFunctions": [
+    "Get-DomeniaPresenceColor",
+    "ConvertTo-DomeniaGridPresenceState",
+    "Apply-DomeniaPresenceFilter",
+    "Start-DomeniaSelectedMachinePresence",
+    "Get-MainXaml",
+    "Set-SelectedBranch",
+    "Get-DomeniaSearchScope",
+    "Update-DomeniaSearchScopeUi",
+    "Test-DomeniaSearchStateCurrent",
+    "Invoke-DomeniaSearchFilterChanged",
+    "Get-GlobalSelectedTypeFilter",
+    "Get-BranchQueryData",
+    "Load-BranchObjects",
+    "Clear-DomeniaGlobalSearch",
+    "Invoke-GlobalSearch",
+    "Wire-Events",
+    "Get-DomeniaWorkerOperationHashes",
+    "New-DomeniaWorkerRunspace",
+    "Complete-UiTasks",
+    "Get-WorkerContext",
+    "Initialize-DomeniaPresentation",
+    "Start-DomeniaWriteTask"
+  ],
+  "AddedCoreFunctions": [
+    "Get-DomeniaSearchMode",
+    "Get-DomeniaSearchText",
+    "Set-DomeniaSearchMode"
+  ],
+  "ChangedExistingWorkers": [
+    "LiveConsole",
+    "LiveCache"
+  ],
+  "NewWorkers": [
+    "LiveSelectedPing"
+  ],
+  "NativeTestScenariosWritten": 59,
+  "WindowsPowerShellExecuted": false,
+  "WpfExecuted": false,
+  "LiveADExecuted": false,
+  "LivePingExecuted": false
+}

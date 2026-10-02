@@ -1,0 +1,606 @@
+--- RC1.2/wad/Domenia-Core.ps1
++++ RC1.3/wad/Domenia-Core.ps1
+@@ -4440,37 +4440,31 @@
+ <Button x:Name="BtnSuiteResultClear" Grid.Column="2" Content="Effacer le filtre" Margin="8,0,0,0" MinHeight="32" ToolTip="Réaffiche les lignes déjà chargées, en conservant le filtre OU, la présence et le texte de recherche AD." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Effacer le filtre local" AutomationProperties.HelpText="Réaffiche les lignes déjà chargées, en conservant le filtre OU, la présence et le texte de recherche AD." IsEnabled="{Binding IsEnabled, ElementName=DgObjects}"/>
+ </Grid><TextBlock x:Name="LblSuiteResultCount" Text="Filtre local : affine seulement les lignes déjà chargées." FontSize="11" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,5,0,0"/><StackPanel Margin="0,10,0,0">
+                             <WrapPanel>
+-                              <CheckBox x:Name="ChkLiveUsers" IsEnabled="{Binding IsEnabled, ElementName=DgObjects}" Content="Vérifier les utilisateurs des postes" IsChecked="True" VerticalAlignment="Center" Margin="0,0,14,4" ToolTip="Après chaque chargement AD, vérifie le compte console en arrière-plan. Deux postes simultanés par défaut. Aucun déploiement PsExec automatique." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Détection automatique des utilisateurs" AutomationProperties.HelpText="Vérifie en arrière-plan le compte console et conserve le dernier utilisateur connu en cas d’échec."/>
+-                              <Button x:Name="BtnLiveRecheck" IsEnabled="{Binding IsEnabled, ElementName=DgObjects}" Content="Revérifier les postes" Margin="0,0,0,4" MinHeight="30" Padding="10,4" ToolTip="Relance les lectures des machines déjà confirmées dans la liste AD. Ne relance pas LDAP et ne duplique pas une sonde active." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Revérifier les postes" AutomationProperties.HelpText="Vérifie de nouveau les utilisateurs et la présence, en arrière-plan."/>
++                              <CheckBox x:Name="ChkLiveUsers" IsEnabled="{Binding IsEnabled, ElementName=DgObjects}" Content="Vérifier le poste sélectionné" IsChecked="True" VerticalAlignment="Center" Margin="0,0,14,4" ToolTip="Un clic sur une seule machine vérifie son compte console en arrière-plan. Charger, filtrer ou faire défiler la liste ne sonde aucun poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vérification sur sélection" AutomationProperties.HelpText="Vérifie uniquement la machine sélectionnée. Les autres lignes conservent leurs observations en cache, sans nouvel appel distant."/>
++                              <Button x:Name="BtnLiveRecheck" IsEnabled="{Binding IsEnabled, ElementName=DgObjects}" Content="Revérifier ce poste" Margin="0,0,0,4" MinHeight="30" Padding="10,4" ToolTip="Vérifie uniquement le poste sélectionné, même si la vérification automatique sur sélection est désactivée. Un seul essai ; aucune sonde en double." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Revérifier ce poste" AutomationProperties.HelpText="Relance la vérification du compte console d’une seule machine sélectionnée."/>
+                             </WrapPanel>
+-                            <TextBlock x:Name="LblLiveState" Text="Résultats progressifs · utilisateurs vérifiés en arrière-plan" FontSize="11" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap"/>
++                            <TextBlock x:Name="LblLiveState" Text="Un clic : vérifier ce poste · Double-clic : ouvrir la fiche · Aucune sonde de liste" FontSize="11" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap"/>
+                           </StackPanel></StackPanel><Grid Grid.Row="1">
+                           
+-                          <DataGrid x:Name="DgObjects" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Extended" SelectionUnit="FullRow" CanUserSortColumns="True" CanUserResizeColumns="True" EnableRowVirtualization="True" EnableColumnVirtualization="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.CanContentScroll="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" HeadersVisibility="Column" ToolTip="Clic : ouvre la fiche. Entree ou double-clic : relit l objet depuis Active Directory. Clic droit : actions." RowHeight="34" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Clic : ouvre la fiche" AutomationProperties.HelpText="Clic : ouvre la fiche. Entree ou double-clic : relit l objet depuis Active Directory. Clic droit : actions.">
++                          <DataGrid x:Name="DgObjects" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Extended" SelectionUnit="FullRow" CanUserSortColumns="True" CanUserResizeColumns="True" EnableRowVirtualization="True" EnableColumnVirtualization="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.CanContentScroll="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" HeadersVisibility="Column" ToolTip="Un clic sélectionne la ligne et vérifie le compte console si c’est une machine. Double-clic ou Entrée ouvre la fiche. Aucun scan de la liste. Clic droit : actions." RowHeight="34" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Résultats : sélection et ouverture explicite" AutomationProperties.HelpText="Un clic sélectionne la ligne et vérifie le compte console si c’est une machine. Double-clic ou Entrée ouvre la fiche. Aucun scan de la liste. Clic droit : actions.">
+                             <DataGrid.Columns>
+                               <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="105"/>
+                               <DataGridTextColumn Header="Nom" Binding="{Binding Name}" Width="260"/>
+-                              <DataGridTemplateColumn Header="Utilisateur (console)" Width="230" SortMemberPath="SessionDisplay">
++                              <DataGridTemplateColumn Header="Utilisateur connecté (console)" Width="230" SortMemberPath="SessionDisplay">
+                                 <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding SessionDisplay}" ToolTip="{Binding SessionDetail}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/></DataTemplate></DataGridTemplateColumn.CellTemplate>
+                               </DataGridTemplateColumn>
+                               <DataGridTextColumn Header="Vérification utilisateur" Binding="{Binding SessionState}" Width="175"/>
+                               <DataGridTextColumn Header="Fraîcheur AD" Binding="{Binding DirectoryState}" Width="135"/>
+                               <DataGridTextColumn Header="Login" Binding="{Binding Login}" Width="150"/>
+                               <DataGridTextColumn Header="UPN / DNS" Binding="{Binding UPN}" Width="235"/>
+-                              <DataGridTextColumn Binding="{Binding Association}" Width="230">
+-                                <DataGridTextColumn.Header>
+-                                  <TextBlock Text="Association" ToolTip="Poste : utilisateur associe. Utilisateur : postes associes."/>
+-                                </DataGridTextColumn.Header>
++                              <DataGridTextColumn Header="Association mémorisée" SortMemberPath="Association" Binding="{Binding Association}" Width="230">
++                                <DataGridTextColumn.HeaderStyle><Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}"><Setter Property="ToolTip" Value="Utilisateur associé au poste ou postes associés au compte. Cette information mémorisée ne prouve pas une session actuelle."/></Style></DataGridTextColumn.HeaderStyle>
+                               </DataGridTextColumn>
+-                              <DataGridTextColumn Binding="{Binding LinkSource}" Width="155">
+-                                <DataGridTextColumn.Header>
+-                                  <TextBlock Text="Source lien" ToolTip="Origine de l association : detection a distance, import CSV ou saisie manuelle."/>
+-                                </DataGridTextColumn.Header>
++                              <DataGridTextColumn Header="Source lien" SortMemberPath="LinkSource" Binding="{Binding LinkSource}" Width="155">
++                                <DataGridTextColumn.HeaderStyle><Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}"><Setter Property="ToolTip" Value="Origine de l’association mémorisée : console observée, import ou saisie manuelle."/></Style></DataGridTextColumn.HeaderStyle>
+                               </DataGridTextColumn>
+-                              <DataGridTextColumn Binding="{Binding LinkConfidence}" Width="90">
+-                                <DataGridTextColumn.Header>
+-                                  <TextBlock Text="Confiance" ToolTip="Fiabilite de l association, de 0 a 100."/>
+-                                </DataGridTextColumn.Header>
++                              <DataGridTextColumn Header="Confiance" SortMemberPath="LinkConfidence" Binding="{Binding LinkConfidence}" Width="90">
++                                <DataGridTextColumn.HeaderStyle><Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}"><Setter Property="ToolTip" Value="Indicateur historique de la source du lien ; ce n’est pas une probabilité de connexion actuelle."/></Style></DataGridTextColumn.HeaderStyle>
+                               </DataGridTextColumn>
+                               <DataGridTextColumn Header="Presence" Binding="{Binding Presence}" Width="105"/>
+                               <DataGridTextColumn Header="Etat" Binding="{Binding State}" Width="120"/>
+@@ -9917,18 +9911,7 @@
+     param([AllowNull()][string]$Dn)
+     if ([string]::IsNullOrWhiteSpace([string]$Dn)) { return $false }
+     $selectedRows = @(Get-DomeniaSelectedGridRows)
+-    if ($selectedRows.Count -gt 1) {
+-        [void]$Menu.Items.Add((New-DomeniaMenuItem -Header ("Selection : {0} objets" -f $selectedRows.Count) -Enabled $false))
+-        Add-DomeniaMenuSeparator -Menu $Menu
+-        $machines = @(Get-DomeniaSelectedMachineRows)
+-        [void]$Menu.Items.Add((New-DomeniaMenuItem -Header ("Tester le reseau de {0} poste(s)" -f $machines.Count) -Enabled ($machines.Count -gt 0) -Action { Show-DomeniaBatchNetworkReport -Rows (Get-DomeniaSelectedMachineRows) }))
+-        [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Copier les noms" -Action { Copy-DomeniaSelectedObjectNames }))
+-        [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Copier les DN" -Action { Copy-DomeniaSelectedObjectDns }))
+-        [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Exporter la selection en CSV" -Action { Export-CurrentResults }))
+-        Add-DomeniaMenuSeparator -Menu $Menu
+-        [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Ouvrir un seul objet a la fois" -Enabled $false))
+-        return
+-    }
++    if ($selectedRows.Count -ne 1) { return $false }
+ 
+     $row = Get-DomeniaSelectedGridRow
+     if ($null -eq $row) { return $false }
+@@ -9979,6 +9962,7 @@
+     [CmdletBinding()]
+     param([switch]$Immediate,[switch]$Force)
+ 
++    if(-not $Immediate -and -not $Force){Select-DomeniaLiveResult;return}
+     # Rafraichissement programme de la grille : les SelectionChanged
+     # intermediaires ne doivent rien purger.
+     if ($script:SuppressGridSelectionEvents) { return }
+@@ -18541,12 +18525,6 @@
+                 try { $grid.ScrollIntoView($preservedRow) } catch { }
+                 $selectionPreserved = $true
+             }
+-            elseif (-not $NoAutoOpen -and $script:BranchObjects.Count -eq 1) {
+-                $onlyRow = $script:BranchObjects[0]
+-                $grid.SelectedItem = $onlyRow
+-                try { $grid.ScrollIntoView($onlyRow) } catch { }
+-                $autoOpen = $true
+-            }
+             else {
+                 $grid.SelectedItem = $null
+             }
+@@ -18585,9 +18563,7 @@
+     }
+     Request-DomeniaDashboardRefresh
+ 
+-    if (-not $SkipPresenceScan) {
+-        Start-DomeniaResultPresenceScan
+-    }
++    # Rendering a result list never initiates a network scan. Explicit diagnostics remain available.
+ }
+ 
+ 
+@@ -19347,12 +19323,7 @@
+                 $script:CurrentPresenceFilter = if ($null -ne $item) { [string]$item.Content } else { "Tous" }
+                 if (-not $script:RestoringSettings) { Set-DomeniaSetting -Name "PresenceFilter" -Value $script:CurrentPresenceFilter }
+                 Apply-DomeniaPresenceFilter
+-                if ($script:CurrentPresenceFilter -ne "Tous") {
+-                    $needsPresence = @($script:BranchObjects | Where-Object {
+-                        [string]$_.Type -eq "Machine" -and [string]$_.Presence -in @("","Inconnu","Test en cours...")
+-                    }).Count -gt 0
+-                    if ($needsPresence) { Start-DomeniaResultPresenceScan }
+-                }
++                # Presence is only filtered from known data; no implicit scan on a filter change.
+                 Add-DomeniaUiLog -Area "Filtre" -Text "Presence : $($script:CurrentPresenceFilter)"
+             }
+             catch { }
+@@ -19399,7 +19370,10 @@
+     $script:Ctrl["BtnDashCopy"].Add_Click({ Copy-DashboardSummary })
+     $script:Ctrl["TxtBranchSearch"].Add_KeyDown({ param($s,$e) if ($e.Key -eq "Enter") { Load-BranchObjects } })
+     $script:Ctrl["CmbObjectFilter"].Add_SelectionChanged({ if ($script:Window -and $script:Conn.Connected -and -not [string]::IsNullOrWhiteSpace($script:SelectedBranchDn)) { Load-BranchObjects } })
+-    $script:Ctrl["DgObjects"].Add_SelectionChanged({ Queue-DomeniaSelectedObjectOpen })
++    $script:Ctrl["DgObjects"].Add_SelectionChanged({
++        param($sender,$e)
++        if($e.OriginalSource -eq $sender){Select-DomeniaLiveResult}
++    })
+     $script:Ctrl["DgObjects"].Add_PreviewMouseRightButtonDown({
+         param($sender,$e)
+         try {
+@@ -19416,11 +19390,24 @@
+         }
+         catch { }
+     })
+-    $script:Ctrl["DgObjects"].Add_PreviewMouseLeftButtonUp({ if ($null -ne (Get-DomeniaSelectedGridRow)) { Queue-DomeniaSelectedObjectOpen } })
+-    $script:Ctrl["DgObjects"].Add_MouseDoubleClick({ Open-SelectedObject -Force })
++    $script:Ctrl["DgObjects"].Add_PreviewMouseLeftButtonUp({
++        param($sender,$e)
++        $container=[Windows.Controls.ItemsControl]::ContainerFromElement($sender,$e.OriginalSource)
++        if($container -is [Windows.Controls.DataGridRow]){Select-DomeniaLiveResult}
++    })
++    $script:Ctrl["DgObjects"].Add_MouseDoubleClick({
++        param($sender,$e)
++        $container=[Windows.Controls.ItemsControl]::ContainerFromElement($sender,$e.OriginalSource)
++        if($container -is [Windows.Controls.DataGridRow] -and @($sender.SelectedItems).Count -eq 1){
++            Select-DomeniaLiveResult
++            Open-SelectedObject -Force
++            $e.Handled=$true
++        }
++    })
+     $script:Ctrl["DgObjects"].Add_KeyDown({
+         param($s,$e)
+-        if ($e.Key -eq "Enter") {
++        if ($e.Key -eq "Enter" -and @($s.SelectedItems).Count -eq 1) {
++            Select-DomeniaLiveResult
+             Open-SelectedObject -Force
+             $e.Handled = $true
+         }
+@@ -19685,7 +19672,7 @@
+ # DOMENIA_MASTER_LAST_V1 = TRUE
+ $script:Version = "1.0"
+ $script:AppName = "Domenia"
+-$script:MasterBuild = "2026.10.01-DOMENIA-1.0-RC1.2-MODULES"
++$script:MasterBuild = "2026.10.01-DOMENIA-1.0-RC1.3-SELECTION"
+ $script:ActiveWriteTaskId = ""
+ $script:WriteState = "Idle"
+ $script:UnknownWriteTargetDn = ""
+@@ -22233,7 +22220,7 @@
+     Initialize-DomeniaGuard
+     Initialize-DomeniaLive
+     Initialize-DomeniaReconcile
+-    Add-DomeniaUiLog -Area "Application" -Text "Domenia 1.0 RC1.2 pret."
++    Add-DomeniaUiLog -Area "Application" -Text "Domenia 1.0 RC1.3 pret."
+ }
+ 
+ function Assert-DomeniaCapability {
+@@ -23363,7 +23350,7 @@
+ # Le login effectue un bind LDAP reel, lit RootDSE et valide la base detectee
+ # dans un runspace borne afin que le thread WPF ne soit jamais bloque.
+ # =====================================================================
+-$script:DomeniaBuild = "Domenia 1.0 RC1.2"
++$script:DomeniaBuild = "Domenia 1.0 RC1.3"
+ $script:FastLoginUi = $null
+ $script:FastLoginState = $null
+ $script:FastLoginTimer = $null
+--- RC1.2/wad/Domenia-Modules.ps1
++++ RC1.3/wad/Domenia-Modules.ps1
+@@ -125,6 +125,9 @@
+             'Update-DomeniaLiveFilter',
+             'Set-DomeniaLiveObservationOnRow',
+             'Add-DomeniaLiveRow',
++            'Clear-DomeniaLiveProbeIntent',
++            'Test-DomeniaLiveProbeIntent',
++            'Select-DomeniaLiveResult',
+             'Request-DomeniaLiveProbe',
+             'Request-DomeniaLiveSelectedProbe',
+             'Request-DomeniaLiveRecheck',
+@@ -169,6 +172,7 @@
+             'Save-DomeniaTreeBookmark',
+             'Start-DomeniaTreeBookmarkRestore',
+             'Invoke-DomeniaTreeBookmarkRestore',
++            'Invoke-DomeniaRestoredOuSearch',
+             'Complete-DomeniaObjectChanges',
+             'Fail-DomeniaObjectChanges',
+             'Invoke-DomeniaObjectChanges',
+--- RC1.2/wad/modules/Domenia-Live.UI.ps1
++++ RC1.3/wad/modules/Domenia-Live.UI.ps1
+@@ -31,14 +31,14 @@
+             Pending=[Collections.Generic.Queue[object]]::new();PendingKeys=@{};Busy=@{};Done=@{}
+             ObservationsLoaded=$false;Refresh=[Collections.Generic.Queue[object]]::new()
+             SaveQueue=@{};QueryToSave=$null;SaveJob='';SaveAfter=[datetime]::MinValue;SaveFault=''
+-            RemoteFaulted=$false;NextStart=[datetime]::MinValue;Timer=$null;InTick=$false;AutoDetect=$true;LastFilter=[datetime]::MinValue
++            RemoteFaulted=$false;NextStart=[datetime]::MinValue;Timer=$null;InTick=$false;AutoDetect=$true;ProbeSelection=$null;LastFilter=[datetime]::MinValue
+         }
+         Reset-DomeniaLiveIdentity
+         $check=Get-DomeniaControl 'ChkLiveUsers'
+         if($null -ne $check){
+-            $check.IsChecked=[bool](Get-CfgValue 'Streaming' 'AutoDetectLoggedUser' $true)
++            $check.IsChecked=ConvertTo-SuiteFlag (Get-CfgValue 'Streaming' 'VerifyUserOnSelection' $true) -Default $true
+             $script:Live.AutoDetect=[bool]$check.IsChecked
+-            $check.Add_Checked({if($null -ne $script:Live){$script:Live.AutoDetect=$true;Request-DomeniaLiveRecheck}})
++            $check.Add_Checked({if($null -ne $script:Live){$script:Live.AutoDetect=$true;Select-DomeniaLiveResult}})
+             $check.Add_Unchecked({if($null -ne $script:Live){$script:Live.AutoDetect=$false;Stop-DomeniaLiveProbes}})
+         }
+         $button=Get-DomeniaControl 'BtnLiveRecheck'
+@@ -72,13 +72,14 @@
+     $s=$script:Live.Search;$s.Stopped=$true
+     try{$s.Stop.Cancel()}catch{}
+     $script:Live.Search=$null
+-    $script:Live.Pending.Clear();$script:Live.PendingKeys=@{};$script:Live.Done=@{}
++    Clear-DomeniaLiveProbeIntent
++    $script:Live.Done=@{}
+ }
+ function Stop-DomeniaLiveProbes {
+     if($null -eq $script:Live){return}
+-    $script:Live.Pending.Clear();$script:Live.PendingKeys=@{}
++    Clear-DomeniaLiveProbeIntent
+     foreach($id in @($script:Live.Busy.Values)){
+-        if($script:AsyncJobs.Contains($id)){Request-UiTaskStop -Id $id -Silent -Reason 'Détection automatique suspendue'}
++        if($script:AsyncJobs.Contains($id)){Request-UiTaskStop -Id $id -Silent -Reason 'Vérification sur sélection suspendue'}
+     }
+ }
+ function Stop-DomeniaLive {
+@@ -255,43 +256,101 @@
+         if($null -ne $observation -and $row.Guid -and $observation.Guid -and $row.Guid -ine $observation.Guid){[void]$script:Live.Done.Remove($key)}
+         if(-not $script:Live.Done.ContainsKey($key)){Set-DomeniaLiveObservationOnRow $row $observation -Cached}
+     }
+-    if($fresh -and $row.Type -eq 'Machine' -and -not $script:Live.Done.ContainsKey($key)){
++    if($fresh -and (Test-DomeniaLiveProbeIntent -Row $row)){
+         Request-DomeniaLiveProbe -Row $row
+     }
+     $s.RefreshNeeded=$true
++}
++function Clear-DomeniaLiveProbeIntent {
++    if($null -eq $script:Live){return}
++    # Only an unsent request is discarded. Never pretend a native in-flight call stopped.
++    foreach($item in @($script:Live.PendingKeys.Values)){
++        if($null -eq $item.Row -or $script:Live.Busy.ContainsKey([string]$item.Key)){continue}
++        if([string]$item.Row.SessionState -eq 'En attente de vérification'){
++            $known=$null;[void]$script:Live.Observations.TryGetValue([string]$item.Key,[ref]$known)
++            Set-DomeniaLiveObservationOnRow $item.Row $known -Cached
++        }
++    }
++    $script:Live.Pending.Clear();$script:Live.PendingKeys=@{};$script:Live.ProbeSelection=$null
++}
++function Test-DomeniaLiveProbeIntent {
++    param($Row)
++    if($null -eq $script:Live -or $null -eq $script:Live.ProbeSelection -or $null -eq $Row){return $false}
++    $intent=$script:Live.ProbeSelection
++    if($intent.Requested -or [string]$Row.Type -ne 'Machine'){return $false}
++    if(-not (Test-DomeniaLiveIdentity $intent ([long]$script:SessionEpoch) $script:Live.Identity) -or $intent.Generation -ne $script:GlobalSearchGeneration){return $false}
++    if([string]$intent.Key -cne (Get-DomeniaLiveObjectKey $Row)){return $false}
++    if($intent.Guid -and $Row.Guid -and [string]$intent.Guid -ine [string]$Row.Guid){return $false}
++    return $true
++}
++function Select-DomeniaLiveResult {
++    [CmdletBinding()]
++    param([switch]$Force,[switch]$Manual)
++    if($script:SuppressGridSelectionEvents -or -not (Test-DomeniaLiveSearchActive) -or (Test-DomeniaAccessBusyWrite)){return}
++    $grid=Get-DomeniaControl 'DgObjects'
++    if($null -eq $grid -or -not $grid.IsEnabled){return}
++    $row=Get-DomeniaSelectedGridRow
++    if($null -eq $row -or @($grid.SelectedItems).Count -ne 1 -or [string]$row.Type -ne 'Machine'){
++        Clear-DomeniaLiveProbeIntent
++        return
++    }
++    $key=Get-DomeniaLiveObjectKey $row
++    if(-not $key -or -not $script:Live.Search.Map.ContainsKey($key)){Clear-DomeniaLiveProbeIntent;return}
++    $previous=$script:Live.ProbeSelection
++    $same=($null -ne $previous -and [string]$previous.Key -ceq $key -and [string]$previous.Guid -ieq [string]$row.Guid -and $previous.Generation -eq $script:GlobalSearchGeneration -and (Test-DomeniaLiveIdentity $previous ([long]$script:SessionEpoch) $script:Live.Identity))
++    if($same -and -not $Force){Request-DomeniaLiveProbe -Row $row;return}
++    Clear-DomeniaLiveProbeIntent
++    # A mouse/keyboard selection is the only source of an automatic intent.
++    # Fresh AD must confirm the target before the CIM probe is allowed to start.
++    $script:Live.ProbeSelection=[pscustomobject]@{
++        Key=$key;Guid=[string]$row.Guid;Identity=$script:Live.Identity;Epoch=[long]$script:SessionEpoch
++        Generation=[int]$script:GlobalSearchGeneration;RequestId=[guid]::NewGuid().ToString('N')
++        Requested=$false;Manual=[bool]$Manual;ReadyAfter=[datetime]::UtcNow.AddMilliseconds(180)
++    }
++    Request-DomeniaLiveProbe -Row $row
+ }
+ function Request-DomeniaLiveProbe {
+     param($Row,[switch]$Priority)
+-    if($null -eq $script:Live -or -not $script:Live.AutoDetect -or $script:Live.RemoteFaulted -or $script:DirectoryCredentialFaulted){return}
+-    if($null -eq $Row -or [string]$Row.Type -ne 'Machine'){return}
++    if(-not (Test-DomeniaLiveSearchActive) -or -not (Test-DomeniaLiveProbeIntent -Row $Row)){return}
++    $intent=$script:Live.ProbeSelection
++    if((-not $script:Live.AutoDetect -and -not $intent.Manual) -or $script:Live.RemoteFaulted -or $script:DirectoryCredentialFaulted){return}
+     $key=Get-DomeniaLiveObjectKey $Row
+-    if(-not $key -or $script:Live.Busy.ContainsKey($key) -or $script:Live.PendingKeys.ContainsKey($key)){return}
+-    if(-not $Priority -and $script:Live.Done.ContainsKey($key)){return}
+-    if($script:Live.PendingKeys.Count -ge 500){return}
++    if(-not $script:Live.Search.Fresh.ContainsKey($key)){return}
++    $current=$script:Live.Search.Map[$key]
++    if(-not [object]::ReferenceEquals($current,$Row)){return}
++    if($script:Live.Busy.ContainsKey($key)){
++        $busyId=[string]$script:Live.Busy[$key];$job=$null
++        if($script:AsyncJobs.Contains($busyId)){$job=$script:AsyncJobs[$busyId]}
++        if($null -eq $job){$job=@($script:DetachedReadJobs|Where-Object{[string]$_.Id -ceq $busyId}|Select-Object -First 1)}
++        if($null -ne $job -and $null -ne $job.CallbackState -and [string]$job.CallbackState.Guid -ieq [string]$Row.Guid -and (Test-DomeniaLiveIdentity $job.CallbackState ([long]$script:SessionEpoch) $script:Live.Identity)){$intent.Requested=$true}
++        return
++    }
++    if($script:Live.PendingKeys.ContainsKey($key)){return}
++    # Exactly one unsent intent. Cycling selection never creates a park-wide backlog.
+     $computer=Get-DomeniaLiveField $Row 'UPN'
+     if(-not $computer){$computer=Get-DomeniaLiveField $Row 'Name'}
+-    $item=[pscustomobject]@{Key=$key;Computer=$computer;Guid=Get-DomeniaLiveField $Row 'Guid';Identity=$script:Live.Identity;Epoch=[long]$script:SessionEpoch;Generation=[int]$script:GlobalSearchGeneration;ReadyAfter=[datetime]::MinValue;Row=$Row}
++    $item=[pscustomobject]@{
++        Key=$key;Computer=$computer;Guid=Get-DomeniaLiveField $Row 'Guid';Identity=$script:Live.Identity
++        Epoch=[long]$script:SessionEpoch;Generation=[int]$script:GlobalSearchGeneration
++        ReadyAfter=$intent.ReadyAfter;Row=$Row;RequestId=$intent.RequestId
++    }
+     $script:Live.PendingKeys[$key]=$item;$script:Live.Pending.Enqueue($item)
+     $Row.SessionState='En attente de vérification'
+ }
+ function Request-DomeniaLiveSelectedProbe {
+     param([string]$Computer)
+     if(-not (Test-DomeniaLiveSearchActive)){return $false}
+-    foreach($row in $script:Live.Search.Rows){
+-        if($row.Type -eq 'Machine' -and (Normalize-LinkComputer $row.Name) -eq (Normalize-LinkComputer $Computer)){
+-            if($script:Live.Search.Fresh.ContainsKey((Get-DomeniaLiveObjectKey $row))){Request-DomeniaLiveProbe -Row $row -Priority}
+-            [void](Set-DomeniaControlText 'LblLinkProbeStatus' -Text 'Compte console : vérification en arrière-plan ; le résultat connu reste conservé.')
+-            return $true
+-        }
+-    }
+-    return $false
++    $row=Get-DomeniaSelectedGridRow
++    if($null -eq $row -or $row.Type -ne 'Machine' -or (Normalize-LinkComputer $row.Name) -ne (Normalize-LinkComputer $Computer)){return $false}
++    Select-DomeniaLiveResult
++    [void](Set-DomeniaControlText 'LblLinkProbeStatus' -Text 'Vérification du poste sélectionné ; les observations précédentes restent datées en cache.')
++    # The selection path owns this machine even while disabled or waiting for AD.
++    # Do not fall back to a second, heavier probe when opening the same fiche.
++    return $true
+ }
+ function Request-DomeniaLiveRecheck {
+-    if(-not (Test-DomeniaLiveSearchActive) -or -not $script:Live.AutoDetect -or $script:ActiveWriteTaskId -or $script:WriteState -in @('Unknown','UnknownPending')){return}
+-    $script:Live.Done=@{}
+-    foreach($row in $script:Live.Search.Rows){
+-        if($script:Live.Search.Fresh.ContainsKey((Get-DomeniaLiveObjectKey $row))){Request-DomeniaLiveProbe -Row $row}
+-    }
++    # Explicit recheck concerns one selected machine, never every returned row.
++    Select-DomeniaLiveResult -Force -Manual
+ }
+ function Merge-DomeniaLiveLinkMemory {
+     param($Observation)
+@@ -337,7 +396,7 @@
+     $script:Live.SaveQueue[[string]$State.Key]=$observation
+     if($observation.Outcome -eq 'AuthRejected'){
+         $script:Live.RemoteFaulted=$true;$script:Live.Pending.Clear();$script:Live.PendingKeys=@{}
+-        Write-AppLog 'Compte distant rejeté : nouvelles détections automatiques suspendues. Corriger le compte dans Comptes avant de réessayer.' 'ERROR'
++        Write-AppLog 'Compte distant rejeté : vérifications sur sélection suspendues. Corriger le compte dans Comptes avant de réessayer.' 'ERROR'
+     }
+     if($observation.DirectoryAuthRejected){$script:DirectoryCredentialFaulted=$true;$script:DirectoryCredentialFaultMessage='Identifiants AD refusés lors de la validation du compte console.'}
+     Merge-DomeniaLiveLinkMemory $observation
+@@ -439,40 +498,36 @@
+             return
+         }
+     }
+-    if(-not (Test-DomeniaLiveSearchActive) -or -not $script:Live.AutoDetect -or $script:Live.RemoteFaulted -or $script:DirectoryCredentialFaulted){return}
++    if(-not (Test-DomeniaLiveSearchActive) -or $script:Live.RemoteFaulted -or $script:DirectoryCredentialFaulted){return}
++    if($null -eq $grid -or -not $grid.IsEnabled){return}
++    $intent=$script:Live.ProbeSelection
++    if($null -eq $intent -or $intent.Requested -or (-not $script:Live.AutoDetect -and -not $intent.Manual)){return}
++    $selected=Get-DomeniaSelectedGridRow
++    if(@($grid.SelectedItems).Count -ne 1 -or -not (Test-DomeniaLiveProbeIntent -Row $selected)){Clear-DomeniaLiveProbeIntent;return}
++    if(-not $s.Fresh.ContainsKey([string]$intent.Key)){return}
++    Request-DomeniaLiveProbe -Row $selected
+     $parallel=[Math]::Max(1,[Math]::Min(3,[int](Get-CfgValue 'Streaming' 'MaxUserProbes' 2)))
+     if((Get-DomeniaLiveWorkerCount 'LiveConsole') -ge $parallel){return}
+-    $item=$null
+-    # Prefer the explicitly selected machine, otherwise retain first-result order.
+-    $selected=Get-DomeniaSelectedGridRow
+-    if($null -ne $selected){$key=Get-DomeniaLiveObjectKey $selected;if($script:Live.PendingKeys.ContainsKey($key) -and $script:Live.PendingKeys[$key].ReadyAfter -le [datetime]::UtcNow){$item=$script:Live.PendingKeys[$key]}}
+-    if($null -eq $item -and $null -ne $grid){
+-        $viewed=0
+-        foreach($candidateRow in $grid.Items){
+-            if($viewed++ -ge 500){break}
+-            $container=$grid.ItemContainerGenerator.ContainerFromItem($candidateRow)
+-            if($null -eq $container -or -not $container.IsVisible){continue}
+-            $key=Get-DomeniaLiveObjectKey $candidateRow
+-            if($script:Live.PendingKeys.ContainsKey($key) -and $script:Live.PendingKeys[$key].ReadyAfter -le [datetime]::UtcNow){$item=$script:Live.PendingKeys[$key];break}
+-        }
+-    }
+-    $inspected=0
+-    while($null -eq $item -and $script:Live.Pending.Count -gt 0 -and $inspected -lt 24){
+-        $inspected++
+-        $candidate=$script:Live.Pending.Dequeue()
+-        if($script:Live.PendingKeys.ContainsKey([string]$candidate.Key)){if($candidate.ReadyAfter -le [datetime]::UtcNow){$item=$candidate}else{$script:Live.Pending.Enqueue($candidate)}}
+-    }
+-    if($null -eq $item){return}
+-    [void]$script:Live.PendingKeys.Remove([string]$item.Key)
+-    if(-not (Test-DomeniaLiveIdentity $item ([long]$script:SessionEpoch) $script:Live.Identity) -or $item.Generation -ne $script:GlobalSearchGeneration){return}
++    $item=$script:Live.PendingKeys[[string]$intent.Key]
++    if($null -eq $item -or $item.RequestId -cne $intent.RequestId -or $item.ReadyAfter -gt [datetime]::UtcNow){return}
++    if(-not (Test-DomeniaLiveIdentity $item ([long]$script:SessionEpoch) $script:Live.Identity) -or $item.Generation -ne $script:GlobalSearchGeneration){Clear-DomeniaLiveProbeIntent;return}
++    if(-not [object]::ReferenceEquals($item.Row,$s.Map[[string]$item.Key])){Clear-DomeniaLiveProbeIntent;return}
+     if($script:Live.Busy.ContainsKey([string]$item.Key)){return}
+     if($null -ne (Get-DomeniaRunningComputerUserProbe -Computer ([string]$item.Computer))){
+         $item.ReadyAfter=[datetime]::UtcNow.AddSeconds(2)
+-        $script:Live.PendingKeys[[string]$item.Key]=$item;$script:Live.Pending.Enqueue($item);return
+-    }
++        return
++    }
++    [void]$script:Live.PendingKeys.Remove([string]$item.Key);$script:Live.Pending.Clear()
++    # One attempt per explicit intent; a timeout does not silently replay it.
++    $intent.Requested=$true
+     $payload=[pscustomobject]@{Key=$item.Key;Computer=$item.Computer;Guid=$item.Guid;MethodSeconds=4}
+-    $id=Start-UiTask -Name ('Utilisateur console '+$item.Computer) -OperationId 'LiveConsole' -Code (Get-DomeniaLiveProbeCode) -Payload $payload -CallbackState $item -TimeoutSeconds 14 -SuccessHandler 'Complete-DomeniaLiveProbe' -ErrorHandler 'Fail-DomeniaLiveProbe'
+-    $script:Live.Busy[[string]$item.Key]=$id;$item.Row.SessionState='Vérification en cours'
++    try{
++        $id=Start-UiTask -Name ('Utilisateur console '+$item.Computer) -OperationId 'LiveConsole' -Code (Get-DomeniaLiveProbeCode) -Payload $payload -CallbackState $item -TimeoutSeconds 14 -SuccessHandler 'Complete-DomeniaLiveProbe' -ErrorHandler 'Fail-DomeniaLiveProbe'
++        $script:Live.Busy[[string]$item.Key]=$id;$item.Row.SessionState='Vérification en cours'
++    }catch{
++        $item.Row.SessionState='Vérification non démarrée · réessayer'
++        throw
++    }
+ }
+ function Invoke-DomeniaLiveTick {
+     if($null -eq $script:Live -or $script:Live.InTick -or $script:AsyncEngineClosing){return}
+@@ -489,10 +544,6 @@
+                 if((Test-DomeniaLiveSearchActive) -and -not $script:Live.Done.ContainsKey($key) -and $script:Live.Search.Map.ContainsKey($key)){
+                     $row=$script:Live.Search.Map[$key]
+                     $row.SessionState='Non confirmé · lecture arrêtée'
+-                    if($script:Live.AutoDetect -and $script:Live.Search.Fresh.ContainsKey($key)){
+-                        # A new generation may share an old in-flight probe. It is queued only after that probe really ended.
+-                        if(-not $script:Live.Search.Stopped){Request-DomeniaLiveProbe -Row $row}
+-                    }
+                 }
+             }
+         }
+@@ -556,7 +607,7 @@
+         }
+         try{Start-DomeniaLiveBackgroundWork}catch{$script:Live.NextStart=[datetime]::UtcNow.AddSeconds(2);Write-AppLog ('Travail différé : '+$_.Exception.Message) 'WARN'}
+         $save=if(-not $script:Live.CacheReady){'cache uniquement en mémoire'}elseif($script:Live.SaveFault){'mémoire locale non enregistrée'}elseif($script:Live.SaveJob -or $script:Live.SaveQueue.Count -or $null -ne $script:Live.QueryToSave){'enregistrement en cours'}else{'aucun enregistrement en attente'}
+-        $probe=if($script:DirectoryCredentialFaulted){'validation AD suspendue · revoir la connexion'}elseif($script:Live.RemoteFaulted){'compte distant refusé · détection suspendue'}elseif(-not $script:Live.AutoDetect){'détection automatique suspendue'}else{"utilisateurs : $($script:Live.PendingKeys.Count) en attente, $($script:Live.Busy.Count) en cours"}
++        $probe=if($script:DirectoryCredentialFaulted){'validation AD suspendue · revoir la connexion'}elseif($script:Live.RemoteFaulted){'compte distant refusé · détection suspendue'}elseif(-not $script:Live.AutoDetect){'vérification sur sélection désactivée'}elseif($script:Live.PendingKeys.Count -or $script:Live.Busy.Count){"poste sélectionné : $($script:Live.PendingKeys.Count) en attente, $($script:Live.Busy.Count) en cours"}else{'Sélectionnez un poste pour vérifier son utilisateur · double-clic pour ouvrir la fiche'}
+         [void](Set-DomeniaControlText 'LblLiveState' ($probe+' · '+$save))
+     }finally{$script:Live.InTick=$false}
+ }
+--- RC1.2/wad/modules/Domenia-Live.Model.ps1
++++ RC1.3/wad/modules/Domenia-Live.Model.ps1
+@@ -75,7 +75,7 @@
+     $outcome=Get-DomeniaLiveField $Observation 'Outcome'
+     $last=Get-DomeniaLiveField $Observation 'LastUser'
+     $current=Get-DomeniaLiveField $Observation 'CurrentUser'
+-    $state='À vérifier';$display=if($last){$last+' (cache)'}else{'Non déterminé'}
++    $state=if($null -eq $Observation){'Non vérifié · sélectionner le poste'}else{'À vérifier'};$display=if($last){$last+' (cache)'}else{'Non déterminé'}
+     if(-not $Cached){
+         switch($outcome){
+             'Observed' {$display=$current;$state='Console observée'}
+--- RC1.2/wad/modules/Domenia-Continuity.UI.ps1
++++ RC1.3/wad/modules/Domenia-Continuity.UI.ps1
+@@ -82,16 +82,28 @@
+ }
+ function Start-DomeniaTreeBookmarkRestore {
+     if($null -eq $script:Continuity){return}
+-    $key=Get-DomeniaTreeContextKey;$script:Continuity.Context=$key
++    $key=Get-DomeniaTreeContextKey
++    $token=([string]$script:SessionEpoch+'|'+$key)
++    if($script:Continuity.RestoreToken -ceq $token){return}
++    $script:Continuity.Context=$key;$script:Continuity.RestoreToken=$token
++    $script:Continuity.Restoring=$false;$script:Continuity.RestoreSearch=$null
+     if(-not $key -or -not $script:Continuity.Bookmarks.ContainsKey($key)){return}
+     $r=ConvertTo-DomeniaTreeBookmark $script:Continuity.Bookmarks[$key] ([string]$script:Conn.BaseDn)
+     if($null -eq $r){return}
+-    $script:Continuity.Restoring=$true;$script:Continuity.Restore=$r;$script:Continuity.RestoreDeadline=[datetime]::UtcNow.AddSeconds(60);$script:Continuity.SelectedRestored=$false
++    $script:Continuity.Restoring=$true;$script:Continuity.Restore=$r
++    $script:Continuity.RestoreDeadline=[datetime]::UtcNow.AddSeconds(60);$script:Continuity.SelectedRestored=$false
++    $script:Continuity.RestoreGeneration=[int]$script:GlobalSearchGeneration
+ }
+ function Invoke-DomeniaTreeBookmarkRestore {
+     $s=$script:Continuity
+     if(-not $s.Restoring){return}
+-    if($s.Context -cne (Get-DomeniaTreeContextKey) -or [datetime]::UtcNow -gt $s.RestoreDeadline){$s.Restoring=$false;return}
++    if($s.Context -cne (Get-DomeniaTreeContextKey)){$s.Restoring=$false;$s.RestoreSearch=$null;return}
++    if(-not $s.SelectedRestored -and $s.RestoreGeneration -ne [int]$script:GlobalSearchGeneration){$s.Restoring=$false;$s.RestoreSearch=$null;return}
++    if([datetime]::UtcNow -gt $s.RestoreDeadline){
++        $s.Restoring=$false
++        if(-not $s.SelectedRestored){Set-Status 'OU mémorisée non retrouvée dans le délai. Choisissez une branche ; aucune recherche globale de remplacement.' 'WARN'}
++        return
++    }
+     if(Test-DomeniaAccessBusyWrite){return}
+     $pending=$false;$expandedThisTick=0
+     foreach($n in (Get-DomeniaRealizedTreeNodes)){
+@@ -108,9 +120,34 @@
+                 $check=Get-DomeniaControl 'ChkSubtree';if($null -ne $check){$check.IsChecked=[bool]$s.Restore.Subtree}
+                 Update-DomeniaSearchScopeUi;$n.BringIntoView();$s.SelectedRestored=$true
+             }finally{$script:SuppressBranchAutoLoad=$old}
++            # Restore the filter under suppression, then queue one fresh search.
++            # Unrelated expanded branches must not delay this content load.
++            $scope=Get-DomeniaSearchScope
++            $s.RestoreSearch=[pscustomobject]@{
++                DN=$dn;Scope=[string]$scope.Scope;Context=$s.Context;Epoch=[long]$script:SessionEpoch
++                Generation=[int]$script:GlobalSearchGeneration
++                Text=([string](Get-DomeniaControl 'TxtGlobalSearch').Text).Trim()
++                TypeFilter=[string](Get-GlobalSelectedTypeFilter)
++            }
+         }
+     }
+-    if($s.SelectedRestored -and -not $pending){$s.Restoring=$false;Set-Status 'Position OU restauree. Rechercher relit le perimetre ; aucun ancien resultat n est annonce comme verifie.'}
++    if($s.SelectedRestored -and -not $pending){$s.Restoring=$false}
++}
++function Invoke-DomeniaRestoredOuSearch {
++    if($null -eq $script:Continuity -or $null -eq $script:Continuity.RestoreSearch){return}
++    $c=$script:Continuity;$request=$c.RestoreSearch
++    if($script:AsyncEngineClosing -or $request.Epoch -ne [long]$script:SessionEpoch -or $request.Context -cne (Get-DomeniaTreeContextKey) -or $request.Generation -ne [int]$script:GlobalSearchGeneration){$c.RestoreSearch=$null;return}
++    $scope=Get-DomeniaSearchScope
++    $text=([string](Get-DomeniaControl 'TxtGlobalSearch').Text).Trim()
++    if([string]$scope.BaseDn -ine $request.DN -or [string]$scope.Scope -ne $request.Scope -or $text -cne $request.Text -or [string](Get-GlobalSelectedTypeFilter) -cne $request.TypeFilter){$c.RestoreSearch=$null;return}
++    if($script:RestoringSettings -or $script:SuppressBranchAutoLoad -or -not $script:Conn.Connected -or (Test-DomeniaAccessBusyWrite)){return}
++    $grid=Get-DomeniaControl 'DgObjects'
++    if($null -eq $grid -or -not $grid.IsEnabled -or $null -eq $script:Live){return}
++    # Consume before scheduling: a timer tick, callback or duplicate ContentRendered
++    # event cannot launch a second search. Keep the current workspace and drafts.
++    $c.RestoreSearch=$null
++    Write-AppLog ('OU restaurée : chargement unique du périmètre '+$request.DN+' ; portée='+$request.Scope+'. Sans sonde des postes.') 'INFO'
++    Invoke-GlobalSearch -AllowEmpty -SilentError -PreserveSelection
+ }
+ function Complete-DomeniaObjectChanges {
+     param($Result,$State)
+@@ -179,13 +216,13 @@
+ }
+ function Initialize-DomeniaContinuity {
+     if($null -ne $script:Continuity){return}
+-    $script:Continuity=[pscustomobject]@{Mutation=0L;Grids=@{};Layouts=(ConvertTo-DomeniaStateMap ([string](Get-DomeniaSetting 'GridLayoutsJson' '{}')));Bookmarks=(ConvertTo-DomeniaStateMap ([string](Get-DomeniaSetting 'OuBookmarksJson' '{}')));Applying=$false;Restoring=$false;Restore=$null;Context='';RestoreDeadline=[datetime]::MinValue;SelectedRestored=$false;Dirty=$false;Timer=$null;ChangeQueue=[Collections.Generic.Queue[object]]::new();ChangeEvents=[Collections.Generic.Queue[object]]::new();ChangeSearch=$null;ChangeJob='';ChangeNext=[datetime]::MinValue;Stamps=@{};CacheDirty=$false}
++    $script:Continuity=[pscustomobject]@{Mutation=0L;Grids=@{};Layouts=(ConvertTo-DomeniaStateMap ([string](Get-DomeniaSetting 'GridLayoutsJson' '{}')));Bookmarks=(ConvertTo-DomeniaStateMap ([string](Get-DomeniaSetting 'OuBookmarksJson' '{}')));Applying=$false;Restoring=$false;Restore=$null;RestoreSearch=$null;RestoreToken='';RestoreGeneration=0;Context='';RestoreDeadline=[datetime]::MinValue;SelectedRestored=$false;Dirty=$false;Timer=$null;ChangeQueue=[Collections.Generic.Queue[object]]::new();ChangeEvents=[Collections.Generic.Queue[object]]::new();ChangeSearch=$null;ChangeJob='';ChangeNext=[datetime]::MinValue;Stamps=@{};CacheDirty=$false}
+     foreach($control in @($script:Ctrl.Values)){if($control -is [Windows.Controls.DataGrid]){Register-DomeniaGridLayout $control}}
+     $tree=Get-DomeniaControl 'TvDirectory'
+     if($null -ne $tree){
+         $tree.Add_SelectedItemChanged({if($null -ne $script:Continuity -and -not $script:Continuity.Restoring){$script:Continuity.Dirty=$true}})
+-        $tree.Add_PreviewMouseDown({if($null -ne $script:Continuity){$script:Continuity.Restoring=$false;$script:Continuity.Dirty=$true}})
+-        $tree.Add_PreviewKeyDown({if($null -ne $script:Continuity){$script:Continuity.Restoring=$false;$script:Continuity.Dirty=$true}})
++        $tree.Add_PreviewMouseDown({if($null -ne $script:Continuity){$script:Continuity.Restoring=$false;$script:Continuity.RestoreSearch=$null;$script:Continuity.Dirty=$true}})
++        $tree.Add_PreviewKeyDown({if($null -ne $script:Continuity){$script:Continuity.Restoring=$false;$script:Continuity.RestoreSearch=$null;$script:Continuity.Dirty=$true}})
+         $tree.AddHandler([Windows.Controls.TreeViewItem]::ExpandedEvent,[Windows.RoutedEventHandler]{if($null -ne $script:Continuity -and -not $script:Continuity.Restoring){$script:Continuity.Dirty=$true}})
+         $tree.AddHandler([Windows.Controls.TreeViewItem]::CollapsedEvent,[Windows.RoutedEventHandler]{if($null -ne $script:Continuity -and -not $script:Continuity.Restoring){$script:Continuity.Dirty=$true}})
+     }
+@@ -193,8 +230,9 @@
+     $timer.Add_Tick({
+         try{
+             if($script:AsyncEngineClosing){return}
+-            if($script:Continuity.Context -cne (Get-DomeniaTreeContextKey)){Start-DomeniaTreeBookmarkRestore}
++            if($script:Continuity.RestoreToken -cne ([string]$script:SessionEpoch+'|'+(Get-DomeniaTreeContextKey))){Start-DomeniaTreeBookmarkRestore}
+             Invoke-DomeniaTreeBookmarkRestore
++            Invoke-DomeniaRestoredOuSearch
+             if($script:Continuity.Dirty -and -not $script:Continuity.Restoring){Save-DomeniaTreeBookmark;$script:Continuity.Dirty=$false}
+             if($script:Continuity.ChangeJob -and -not $script:AsyncJobs.Contains($script:Continuity.ChangeJob)){
+                 $pending=@($script:DetachedReadJobs|Where-Object{$_.Id -eq $script:Continuity.ChangeJob});if(-not $pending.Count){$script:Continuity.ChangeJob=''}
+--- RC1.2/wad/modules/Domenia-Access.UI.ps1
++++ RC1.3/wad/modules/Domenia-Access.UI.ps1
+@@ -65,14 +65,22 @@
+     if($null -ne $job -and $job.OperationId -eq 'LiveConsole' -and $null -ne $script:Live){
+         if($null -ne $job.CallbackState -and [string]$job.CallbackState.Identity -cne [string]$script:Live.Identity){return $false}
+     }
++    $resourceTarget=''
++    if($null -ne $job -and $OperationId -eq 'LiveConsole'){
++        # The selected result may differ from the last opened fiche.
++        # Attribute a probe failure to its captured target, never to that fiche.
++        if(-not $DN){$DN=[string]$job.CallbackState.Key}
++        $candidateTarget=[string]$job.CallbackState.Computer
++        if($candidateTarget.Length -le 253 -and $candidateTarget -match '^[A-Za-z0-9][A-Za-z0-9._-]*$'){$resourceTarget=$candidateTarget}
++    }
+     if(-not $DN -and $null -ne $job){
+         try{$DN=[string]$job.CallbackState.DN;if(-not $DN){$DN=[string]$job.CallbackState.TargetDn}}catch{}
+     }
+-    if(-not $DN -and $null -ne $script:SelectedObject){$DN=[string]$script:SelectedObject.DN}
++    if(-not $DN -and $OperationId -ne 'LiveConsole' -and $null -ne $script:SelectedObject){$DN=[string]$script:SelectedObject.DN}
+     if($OperationId -in @('LiveConsole','LiveCache','LiveDirectoryCheck','ScopeReconcile','TreeChildren','PresenceScan','SelectedPresence','ParkSweep','IndexBuild')){$Interactive=$false}
+     $scope=if([string]$ErrorValue -match '(?i)Canal Active Directory suspendu'){'Directory'}else{Get-DomeniaAccessScope $OperationId}
+     $key=$scope+'|'+$DN
+-    $record=[pscustomobject]@{Key=$key;Scope=$scope;OperationId=$OperationId;Operation=$Operation;DN=$DN;Kind=$kind;Epoch=[long]$script:SessionEpoch;Generation=[long]$script:SelectedObjectGeneration;IsWrite=([bool]$IsWrite -or ($null -ne $job -and [bool]$job.IsWrite));Interactive=[bool]$Interactive;At=[datetime]::UtcNow}
++    $record=[pscustomobject]@{Key=$key;Scope=$scope;OperationId=$OperationId;Operation=$Operation;DN=$DN;Target=$resourceTarget;Kind=$kind;Epoch=[long]$script:SessionEpoch;Generation=[long]$script:SelectedObjectGeneration;IsWrite=([bool]$IsWrite -or ($null -ne $job -and [bool]$job.IsWrite));Interactive=[bool]$Interactive;At=[datetime]::UtcNow}
+     # One item per resource/target; no stored raw error, payload or credential.
+     if($script:AccessState.Pending.Count -ge 16 -and -not $script:AccessState.Pending.ContainsKey($key)){$script:AccessState.Pending.Remove(@($script:AccessState.Pending.Keys)[0])}
+     if(-not $Force -and $script:AccessState.Prompted.ContainsKey($key)){$record.Interactive=$false}
+@@ -193,7 +201,10 @@
+             return
+         }
+         $target=''
+-        if($Record.DN -ieq [string]$script:SelectedObject.DN){$target=Get-DomeniaSelectedMachineName}
++        if($Record.OperationId -eq 'LiveConsole'){
++            $candidateTarget=[string]$Record.Target
++            if($candidateTarget.Length -le 253 -and $candidateTarget -match '^[A-Za-z0-9][A-Za-z0-9._-]*$'){$target=$candidateTarget}
++        }elseif($Record.DN -ieq [string]$script:SelectedObject.DN){$target=Get-DomeniaSelectedMachineName}
+         $credential=Show-DomeniaAlternateCredential -Scope $Record.Scope -Operation $Record.Operation -Target $target
+         if($null -eq $credential){return}
+         if($Record.Epoch -ne [long]$script:SessionEpoch -or (Test-DomeniaAccessBusyWrite)){return}

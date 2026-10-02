@@ -1,0 +1,69 @@
+{
+  "Build": "2026.09.21-R1.2-REMOTE",
+  "BasedOn": "2026.09.21-R1.1-THEME",
+  "OriginalComparison": {
+    "Invoke-WRemotePsExecScript": {
+      "UnchangedBetweenOriginalAndR1_1": true
+    },
+    "Invoke-WRemoteScheduledTaskScript": {
+      "UnchangedBetweenOriginalAndR1_1": true
+    },
+    "New-WAdminShareDrive": {
+      "UnchangedBetweenOriginalAndR1_1": true
+    },
+    "Start-ComputerUserLinkProbe": {
+      "UnchangedBetweenOriginalAndR1_1": true
+    }
+  },
+  "ChangedWorkerCommonFunctions": [
+    "Get-WRemoteAdminCredential",
+    "Get-WMachineCredential",
+    "New-WAdccCimSession",
+    "Invoke-WRemotePsExecScript",
+    "Invoke-WSchtasksRemote",
+    "New-WAdminShareDrive",
+    "Invoke-WRemoteScheduledTaskScript",
+    "Test-WUserInAd"
+  ],
+  "AddedWorkerCommonFunctions": [
+    "Get-WRemoteComputerName",
+    "Format-WRemoteFailureDetail",
+    "Get-WProbeAttemptSummary"
+  ],
+  "ChangedMainFunctions": [
+    "Complete-AdccComputerUserProbeUi",
+    "Start-ComputerUserLinkProbe",
+    "Get-AdccWorkerOperationHashes",
+    "Get-WorkerContext"
+  ],
+  "WorkerHash": {
+    "Operation": "ComputerLastUser",
+    "Before": "AE844EDDAFF4769096A79452786BBD2BC69E6875F00553FE51D59336365F4411",
+    "After": "F96046909357C9DB9804DA24DA78A049B26ABBEA159B7D1A40FB7FC5BFA960B4"
+  },
+  "RuntimeValidationHere": "NOT RUN: PowerShell/Windows unavailable",
+  "ThemeAndXamlFunctionsUnchangedFromR1_1": [
+    "Get-LoginXamlLegacy",
+    "Get-AdccStoredTheme",
+    "Get-AdccBootThemeMap",
+    "Get-AdccBootThemePalette",
+    "Get-AdccBootThemeResources",
+    "Convert-AdccXamlToBootTheme",
+    "Get-AdccThemePath",
+    "Load-AdccTheme",
+    "Save-AdccTheme",
+    "Apply-AdccTheme",
+    "Toggle-AdccTheme",
+    "Get-MainXaml",
+    "Assert-AdccXamlPreflight",
+    "Save-AdccXamlDiagnostic",
+    "ConvertFrom-AdccXaml",
+    "Test-AdccXamlRuntimeCompatibility",
+    "Get-AdccXamlControlNames",
+    "Load-XamlWindow",
+    "Get-AdccStartupXaml",
+    "Get-AdccStandardLoginXaml",
+    "Get-AdccDebugLoginXaml"
+  ],
+  "NativePowerShellTestsRunOnBuildHost": false
+}

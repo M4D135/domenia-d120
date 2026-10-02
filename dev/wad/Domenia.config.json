@@ -1,0 +1,9 @@
+﻿{
+  "Auth": {
+    "LoginWindowMode": "Standard"
+  },
+  "Streaming": {
+    "VerifyUserOnSelection": true,
+    "AutoDetectLoggedUser": false
+  }
+}

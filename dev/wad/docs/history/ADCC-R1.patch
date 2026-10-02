@@ -1,0 +1,996 @@
+--- original/wad/ADCC-Core.ps1
++++ R1/wad/ADCC-Core.ps1
+@@ -150,6 +150,201 @@
+ # Aucun processus PowerShell enfant n est cree par ADCC.
+ # ---------------------------------------------------------------------
++# ADCC Reliability R1 - helpers loaded before bootstrap; Windows PowerShell 5.1.
++# These functions do not start network requests, background scans or services.
++function Write-AdccAtomicText {
++    [CmdletBinding()]
++    param([Parameter(Mandatory)][string]$LiteralPath,[Parameter(Mandatory)][AllowEmptyString()][string]$Value,[switch]$KeepBackup)
++    $full = [IO.Path]::GetFullPath($LiteralPath)
++    $dir = [IO.Path]::GetDirectoryName($full)
++    if (-not [IO.Directory]::Exists($dir)) { [void][IO.Directory]::CreateDirectory($dir) }
++    $temp = Join-Path $dir ('.adcc-' + [guid]::NewGuid().ToString('N') + '.tmp')
++    $stream = $null
++    try {
++        $bytes = [Text.UTF8Encoding]::new($false).GetBytes($Value)
++        $stream = [IO.FileStream]::new($temp,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
++        $stream.Write($bytes,0,$bytes.Length)
++        $stream.Flush($true)
++        $stream.Dispose(); $stream = $null
++        if ([IO.File]::Exists($full)) {
++            $backup = if ($KeepBackup) { $full + '.bak' } else { $null }
++            # Same-directory replacement. Never delete the valid destination first.
++            [IO.File]::Replace($temp,$full,$backup,$true)
++        } else { [IO.File]::Move($temp,$full) }
++    }
++    finally {
++        if ($null -ne $stream) { $stream.Dispose() }
++        if ([IO.File]::Exists($temp)) { [IO.File]::Delete($temp) }
++    }
++}
++
++function Protect-AdccLogText {
++    param([AllowNull()][AllowEmptyString()][string]$Text)
++    $value = [string]$Text
++    # Defence in depth, not a promise to recognise every possible secret.
++    $value = [regex]::Replace($value,'(?i)\b(Bearer|Basic)\s+[A-Za-z0-9_.~+/=-]+','$1 [MASQUE]')
++    $value = [regex]::Replace($value,'(?i)\b(password|passwd|pwd|mot\s+de\s+passe|token|authorization|api[_-]?key|client[_-]?secret)\s*[:=]\s*(?:"[^"]*"|''[^'']*''|[^\s;,]+)','$1=[MASQUE]')
++    $value = [regex]::Replace($value,'(?i)("(?:password|passwd|pwd|p|token|api[_-]?key|client[_-]?secret)"\s*:\s*)("(?:\\.|[^"\\])*"|[^,}\s]+)','$1"[MASQUE]"')
++    $value = [regex]::Replace($value,'(?i)(^|\s)(-p|-password)\s+(?:"[^"]*"|''[^'']*''|\S+)','$1$2 [MASQUE]')
++    $value = [regex]::Replace($value,'(?<!\d)(?:\d{6}-){7}\d{6}(?!\d)','[CLE BITLOCKER MASQUEE]')
++    try {
++        foreach ($row in @($script:SecretRows)) {
++            $secret = [string]$row.Value
++            if ($secret.Length -ge 4) { $value = $value.Replace($secret,'[SECRET MASQUE]') }
++        }
++        $clipboard = [string]$script:SecretClipboardValue
++        if ($clipboard.Length -ge 4) { $value = $value.Replace($clipboard,'[SECRET MASQUE]') }
++    } catch { }
++    return $value
++}
++
++function ConvertTo-AdccSpreadsheetCell {
++    param($Value)
++    if ($null -eq $Value) { return $null }
++    # Preserve numeric values, booleans and dates. Only untrusted text is escaped.
++    if ($Value -isnot [string]) { return $Value }
++    if ($Value -match '^[\s\p{Cf}]*[=+@\-\uFF1D\uFF0B\uFF0D\uFF20]' -or $Value -match '^[\t\r\n]') {
++        return "'" + $Value
++    }
++    return $Value
++}
++
++function ConvertTo-AdccSpreadsheetSafeRow {
++    [CmdletBinding()]
++    param([Parameter(ValueFromPipeline=$true)]$InputObject)
++    process {
++        if ($null -ne $InputObject) {
++            $safe = [ordered]@{}
++            foreach ($property in $InputObject.PSObject.Properties) {
++                if ($property.MemberType -notin @('NoteProperty','Property','AliasProperty','ScriptProperty')) { continue }
++                $name = [string](ConvertTo-AdccSpreadsheetCell ([string]$property.Name))
++                $safe[$name] = ConvertTo-AdccSpreadsheetCell $property.Value
++            }
++            [pscustomobject]$safe
++        }
++    }
++}
++
++function ConvertTo-AdccSqlLikeText {
++    param([AllowEmptyString()][string]$Value)
++    # SQL quoting and LIKE escaping are independent operations.
++    return $Value.Replace('!','!!').Replace('%','!%').Replace('_','!_')
++}
++
++function Get-AdccScopeKey {
++    param([Parameter(Mandatory)][string]$BaseDn)
++    $sha = [Security.Cryptography.SHA256]::Create()
++    try {
++        $bytes = [Text.Encoding]::UTF8.GetBytes($BaseDn.Trim().ToLowerInvariant())
++        return ([BitConverter]::ToString($sha.ComputeHash($bytes))).Replace('-','').Substring(0,32).ToLowerInvariant()
++    } finally { $sha.Dispose() }
++}
++
++function Get-AdccStoreBackupDirectory {
++    $path = Join-Path ([IO.Path]::GetDirectoryName((Get-AdccDatabasePath))) 'Backups'
++    if (-not [IO.Directory]::Exists($path)) { [void][IO.Directory]::CreateDirectory($path) }
++    return $path
++}
++
++function Complete-AdccDetachedReadJobs {
++    # Never call Dispose/EndInvoke on a running native operation on the UI thread.
++    if ($null -eq $script:DetachedReadJobs) { return }
++    for ($i = $script:DetachedReadJobs.Count - 1; $i -ge 0; $i--) {
++        $job = $script:DetachedReadJobs[$i]
++        if ($null -eq $job) { $script:DetachedReadJobs.RemoveAt($i); continue }
++        $invokeDone = $false; $stopDone = $true
++        try { $invokeDone = [bool]$job.Handle.IsCompleted } catch { }
++        try { if ($null -ne $job.StopHandle) { $stopDone = [bool]$job.StopHandle.IsCompleted } } catch { $stopDone = $false }
++        if (-not $invokeDone -or -not $stopDone) { continue }
++        try { if ($null -ne $job.StopHandle) { $job.PowerShell.EndStop($job.StopHandle) } } catch { }
++        try { $discarded = $job.PowerShell.EndInvoke($job.Handle); $discarded = $null } catch { }
++        try { $job.PowerShell.Dispose() } catch { }
++        try { $job.Runspace.Dispose() } catch { }
++        $job.OnSuccess = $null; $job.OnError = $null; $job.CallbackState = $null
++        $script:DetachedReadJobs.RemoveAt($i)
++    }
++}
++
++function Get-AdccRuntimeHealthText {
++    $lines = New-Object 'System.Collections.Generic.List[string]'
++    $process = [Diagnostics.Process]::GetCurrentProcess()
++    try {
++        $lines.Add("ADCC $script:Version / $script:MasterBuild")
++        $lines.Add('Genere le ' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'))
++        $lines.Add('PowerShell : ' + [string]$PSVersionTable.PSVersion + ' ; 64 bits : ' + [Environment]::Is64BitProcess)
++        $lines.Add('Memoire privee : ' + [Math]::Round($process.PrivateMemorySize64 / 1MB,1) + ' Mo')
++        $lines.Add('Lecture seule : ' + [string]$script:ReadOnlyMode + ' ; etat ecriture : ' + [string]$script:WriteState)
++        $lines.Add('Cache actif : ' + (Get-AdccDatabasePath))
++        $lines.Add('Taches actives : ' + @($script:AsyncJobs.Keys).Count)
++        $lines.Add('Lectures en attente de nettoyage : ' + @($script:DetachedReadJobs).Count)
++        $lines.Add('')
++        foreach ($job in @($script:AsyncJobs.Values) + @($script:DetachedReadJobs)) {
++            if ($null -eq $job) { continue }
++            $age = [int]((Get-Date) - [datetime]$job.Started).TotalSeconds
++            $lines.Add(('{0} | {1}s | ecriture={2} | annulation={3} | {4}' -f $job.OperationId,$age,$job.IsWrite,$job.CancelRequested,$job.CorrelationId))
++        }
++        $lines.Add('')
++        $lines.Add('Une lecture detachee ne renvoie plus de resultat dans le GUI, mais son appel natif peut encore etre actif.')
++        $lines.Add('Les taches natives encore actives comptent dans la limite physique de concurrence.')
++        return Protect-AdccLogText ([string]::Join([Environment]::NewLine,$lines.ToArray()))
++    } finally { $process.Dispose() }
++}
++
++function Register-AdccReliabilityUi {
++    $copy = Get-AdccControl -Name 'BtnCopyUiLog'
++    if ($null -ne $copy) { $copy.Add_Click({
++        try {
++            $box = Get-AdccControl -Name 'TxtUiLog'
++            if ($null -ne $box -and -not [string]::IsNullOrWhiteSpace([string]$box.Text)) {
++                Set-ClipboardSafe (Protect-AdccLogText ([string]$box.Text))
++                Set-Status 'Journal copie. Les noms de comptes et de machines ne sont pas anonymises.'
++            }
++        } catch { Show-ErrorBox $_.Exception.Message }
++    }) }
++    $health = Get-AdccControl -Name 'BtnRuntimeHealth'
++    if ($null -ne $health) { $health.Add_Click({
++        try { Show-InfoBox -Message 'Etat du moteur ADCC' -Details (Get-AdccRuntimeHealthText) }
++        catch { Show-ErrorBox $_.Exception.Message }
++    }) }
++    if ($null -ne $script:Window) { $script:Window.Add_Deactivated({
++        if ([bool]$script:SecretsVisible) { $script:SecretsVisible = $false; Update-SecretsGrid }
++    }) }
++}
++
++function Restart-AdccSecretLifetime {
++    try { if ($null -ne $script:SecretLifetimeTimer) { $script:SecretLifetimeTimer.Stop() } } catch { }
++    $seconds = [Math]::Max(30,[Math]::Min(1800,[int](Get-CfgValue 'Security' 'SecretMemorySeconds' 300)))
++    $timer = New-Object System.Windows.Threading.DispatcherTimer
++    $timer.Interval = [TimeSpan]::FromSeconds($seconds)
++    $timer.Add_Tick({
++        try { Clear-Secrets; Set-Status 'Secrets retires de la vue et references effacees apres expiration.' }
++        catch { Write-AppLog 'Expiration des secrets : echec du nettoyage.' 'WARN' }
++    })
++    $script:SecretLifetimeTimer = $timer
++    $timer.Start()
++}
++
++function Get-AdccSelectedSecretSource {
++    $grid = Get-AdccControl -Name 'DgSecrets'
++    if ($null -eq $grid -or $null -eq $grid.SelectedItem) { return $null }
++    $row = $grid.SelectedItem
++    if ($null -eq $row.PSObject.Properties['SecretIndex']) { return $null }
++    $index = [int]$row.SecretIndex
++    if ($index -lt 0 -or $index -ge @($script:SecretRows).Count) { return $null }
++    return $script:SecretRows[$index]
++}
++
++function Assert-AdccWmiReadQuery {
++    param([string]$ClassName,[string]$Namespace,[string]$Where,[int]$Limit)
++    if ($ClassName -notmatch '^[A-Za-z_][A-Za-z0-9_]{0,127}$') { throw 'Nom de classe WMI invalide.' }
++    if ($Namespace -notmatch '^root(?:\\[A-Za-z_][A-Za-z0-9_]*)*$') { throw 'Espace de noms WMI invalide.' }
++    if ($ClassName -ieq 'Win32_Product') { throw 'Win32_Product est bloque : sa lecture peut declencher des verifications/reparations MSI. Utilise le panneau Logiciels.' }
++    if (([string]$Where).Length -gt 2048 -or ([string]$Where).IndexOf([char]0) -ge 0) { throw 'Filtre WMI trop long ou contenant un caractere nul.' }
++    if ($Limit -lt 1 -or $Limit -gt 500) { throw 'La limite WMI doit etre comprise entre 1 et 500.' }
++}
++
++
+ function Write-AdccBootstrapTrace {
+     param([string]$Stage,[string]$Status,[string]$Detail="")
++    $Detail = Protect-AdccLogText $Detail
+     try {
+         $base = if ([string]::IsNullOrWhiteSpace([string]$env:LOCALAPPDATA)) { [string]$env:TEMP } else { [string]$env:LOCALAPPDATA }
+@@ -185,5 +380,5 @@
+ Add-Type -AssemblyName System.Windows.Forms
+ 
+-$script:Version = "1.1"
++$script:Version = "1.0"
+ $script:AppName = "Active Directory Control Center"
+ 
+@@ -1800,4 +1995,5 @@
+     )
+ 
++    $Text = Protect-AdccLogText $Text
+     try {
+         if ($null -eq $script:UiLogLines) {
+@@ -1819,6 +2015,7 @@
+         # etre reconstruite. Sinon on se contente d une concatenation.
+         $trimmed = $false
+-        while ($script:UiLogLines.Count -gt $script:UiLogMaxLines) {
+-            $script:UiLogLines.RemoveAt(0)
++        if ($script:UiLogLines.Count -gt $script:UiLogMaxLines) {
++            $removeCount = [Math]::Max(100,$script:UiLogLines.Count - $script:UiLogMaxLines)
++            $script:UiLogLines.RemoveRange(0,[Math]::Min($removeCount,$script:UiLogLines.Count))
+             $trimmed = $true
+         }
+@@ -1846,5 +2043,6 @@
+             elseif ($box.Text.Length -eq 0) { $box.AppendText($value) }
+             else { $box.AppendText([Environment]::NewLine + $value) }
+-            $box.ScrollToEnd()
++            $follow = Get-AdccControl -Name 'ChkUiLogFollow'
++            if ($null -eq $follow -or [bool]$follow.IsChecked) { $box.ScrollToEnd() }
+         }
+ 
+@@ -2474,9 +2672,11 @@
+     param([Parameter(Mandatory=$true)][string]$FileName)
+     $paths = Get-AdccPreferencePath -FileName $FileName
+-    foreach ($candidate in @($paths.User,$paths.Legacy)) {
++    foreach ($candidate in @($paths.User,$paths.Legacy | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) } | ForEach-Object { $_; ([string]$_ + ".bak") })) {
+         if ([string]::IsNullOrWhiteSpace($candidate)) { continue }
+         try {
+             if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+-                return ([System.IO.File]::ReadAllText($candidate)).Trim()
++                $text = ([System.IO.File]::ReadAllText($candidate)).Trim()
++                if ($FileName.EndsWith('.json',[StringComparison]::OrdinalIgnoreCase)) { $null = $text | ConvertFrom-Json -ErrorAction Stop }
++                return $text
+             }
+         }
+@@ -2493,5 +2693,5 @@
+         if ([string]::IsNullOrWhiteSpace($candidate)) { continue }
+         try {
+-            [System.IO.File]::WriteAllText($candidate,$Value,$encoding)
++            Write-AdccAtomicText -LiteralPath $candidate -Value $Value -KeepBackup
+             return $true
+         }
+@@ -4384,13 +4584,10 @@
+                      Margin="10,0"/>
+ 
+-          <Button x:Name="BtnClearUiLog" ToolTip="Efface le journal affiche."
+-                  Grid.Column="1"
+-                  Content="Effacer"
+-                  Height="28"
+-                  MinHeight="28"
+-                  Margin="10,4,10,4"
+-                  Padding="14,2"
+-                  HorizontalAlignment="Right"
+-                  VerticalAlignment="Center"/>
++          <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="4,0,8,0">
++            <CheckBox x:Name="ChkUiLogFollow" Content="Suivre" IsChecked="True" VerticalAlignment="Center" Margin="4,0,10,0" ToolTip="Desactiver pour lire le journal sans defilement automatique."/>
++            <Button x:Name="BtnRuntimeHealth" Content="Etat moteur" MinHeight="28" Height="28" Padding="10,2" Margin="2,0" ToolTip="Memoire, workers actifs, annulations et cache utilise. Aucune sonde reseau."/>
++            <Button x:Name="BtnCopyUiLog" Content="Copier" MinHeight="28" Height="28" Padding="10,2" Margin="2,0" ToolTip="Copie le journal visible, sans anonymiser les noms du parc."/>
++            <Button x:Name="BtnClearUiLog" Content="Effacer" MinHeight="28" Height="28" Padding="10,2" Margin="2,0" ToolTip="Efface seulement le journal affiche."/>
++          </StackPanel>
+         </Grid>
+ 
+@@ -6305,4 +6502,5 @@
+ $script:AsyncEngineReady = $false
+ $script:AsyncJobs = [ordered]@{}
++$script:SessionEpoch = [long]0
+ $script:DetachedReadJobs = New-Object System.Collections.ArrayList
+ $script:AsyncTimer = $null
+@@ -6720,13 +6918,12 @@
+         if(-not$p.WaitForExit([Math]::Max(1,$TimeoutSeconds)*1000)){
+             try{$p.Kill()}catch{}
+-            try{$p.WaitForExit()}catch{}
++            try{[void]$p.WaitForExit(1500)}catch{}
+             return [pscustomobject]@{ExitCode=1460;Output="Timeout $TimeoutSeconds s"}
+         }
+-        $p.WaitForExit()
+         $o='';$e=''
+-        try{$o=[string]$outTask.Result}catch{}
+-        try{$e=[string]$errTask.Result}catch{}
++        try{if($outTask.Wait(1500)){$o=[string]$outTask.Result}else{$o='[Sortie standard non fermee dans le delai]'}}catch{}
++        try{if($errTask.Wait(1500)){$e=[string]$errTask.Result}else{$e='[Sortie erreur non fermee dans le delai]'}}catch{}
+         return [pscustomobject]@{ExitCode=$p.ExitCode;Output=(($o+$e).Trim())}
+-    }finally{try{$p.Dispose()}catch{}}
++    }finally{$psi.Arguments="";$Arguments=$null;try{$p.Dispose()}catch{}}
+ }
+ function Get-WPsExecPath {
+@@ -6741,4 +6938,8 @@
+         if(-not[string]::IsNullOrWhiteSpace($sp)){[void]$roots.Add((Split-Path -Parent $sp))}
+     }catch{}
++    # Portable layout: accept PsExec next to the launcher as well as in wad.
++    foreach($rootCandidate in @($roots.ToArray())) {
++        try { if ((Split-Path -Leaf $rootCandidate) -ieq 'wad') { [void]$roots.Add((Split-Path -Parent $rootCandidate)) } } catch { }
++    }
+     foreach($root in @($roots|Select-Object -Unique)){
+         foreach($name in @('PsExec.exe','PsExec64.exe','psexec.exe','psexec64.exe')){
+@@ -7184,11 +7385,14 @@
+ }
+ function Test-WUserInAd {
+-    param($Context, [string]$User)
++    param($Context,[string]$User)
+     if ([string]::IsNullOrWhiteSpace($User)) { return $false }
+-    try {
+-        $e = Escape-WLdap $User
+-        $s = New-WSearcher $Context ([string]$Context.BaseDn) "(&(objectCategory=person)(objectClass=user)(sAMAccountName=$e))" @("distinguishedName") "Subtree" 1
+-        return ($null -ne $s.FindOne())
++    $searcher = $null; $root = $null
++    try {
++        $escaped = Escape-WLdap $User
++        $searcher = New-WSearcher $Context ([string]$Context.BaseDn) "(&(objectCategory=person)(objectClass=user)(sAMAccountName=$escaped))" @('distinguishedName') 'Subtree' 1
++        $root = $searcher.SearchRoot
++        return ($null -ne $searcher.FindOne())
+     } catch { return $false }
++    finally { if ($null -ne $searcher) { $searcher.Dispose() }; if ($null -ne $root) { $root.Dispose() } }
+ }
+ '@
+@@ -8608,5 +8812,5 @@
+         $dlg.Filter = "CSV UTF-8 (*.csv)|*.csv"
+         $dlg.FileName = "ADCC-AD-$((Get-Date).ToString("yyyyMMdd-HHmmss")).csv"
+-        if ($dlg.ShowDialog()) { $rows | Export-Csv -LiteralPath $dlg.FileName -NoTypeInformation -Encoding UTF8; Set-Status "$($rows.Count) ligne(s) exportee(s)." }
++        if ($dlg.ShowDialog()) { $rows | ConvertTo-AdccSpreadsheetSafeRow | Export-Csv -LiteralPath $dlg.FileName -NoTypeInformation -Encoding UTF8; Set-Status "$($rows.Count) ligne(s) exportee(s)." }
+     } catch { Show-ErrorBox "Erreur export : $($_.Exception.Message)" }
+ }
+@@ -8629,4 +8833,8 @@
+ function Clear-Secrets {
+     Clear-AdccSecretClipboard -Silent
++    $script:ActiveSecretRequestId = ''
++    try { if ($null -ne $script:SecretLifetimeTimer) { $script:SecretLifetimeTimer.Stop() } } catch { }
++    try { if ($null -ne $script:SecretRevealTimer) { $script:SecretRevealTimer.Stop() } } catch { }
++    foreach ($row in @($script:SecretRows)) { try { $row.Value = '' } catch { } }
+     $script:SecretRows = @()
+     $script:SecretsVisible = $false
+@@ -8636,13 +8844,15 @@
+ 
+ function Update-SecretsGrid {
+-    $rows = foreach ($r in @($script:SecretRows)) {
+-        $display = if ($script:SecretsVisible) { [string]$r.Value } else {
+-            $v = [string]$r.Value
+-            if ([string]::IsNullOrWhiteSpace($v)) { "" } elseif ($v.Length -le 8) { "" } else { ($v.Substring(0,[Math]::Min(4,$v.Length)) + "" + $v.Substring([Math]::Max(0,$v.Length-4))) }
+-        }
+-        [pscustomobject]@{ Kind=$r.Kind; Account=$r.Account; DisplayValue=$display; Timestamp=$r.Timestamp; Source=$r.Source; Detail=$r.Detail; Value=$r.Value }
+-    }
+-    [void](Set-AdccItemsSource -Name "DgSecrets" -Rows @($rows))
+-    $script:Ctrl["BtnToggleSecrets"].Content = if ($script:SecretsVisible) { "Masquer les secrets" } else { "Afficher les secrets" }
++    $rows = New-Object 'System.Collections.Generic.List[object]'
++    $index = 0
++    foreach ($r in @($script:SecretRows)) {
++        $hasValue = -not [string]::IsNullOrWhiteSpace([string]$r.Value)
++        $display = if (-not $hasValue) { '' } elseif ($script:SecretsVisible) { [string]$r.Value } else { '********' }
++        $rows.Add([pscustomobject]@{ Kind=$r.Kind; Account=$r.Account; DisplayValue=$display; Timestamp=$r.Timestamp; Source=$r.Source; Detail=$r.Detail; SecretIndex=$index; HasValue=$hasValue })
++        $index++
++    }
++    [void](Set-AdccItemsSource -Name 'DgSecrets' -Rows $rows.ToArray())
++    $toggle = Get-AdccControl -Name 'BtnToggleSecrets'
++    if ($null -ne $toggle) { $toggle.Content = if ($script:SecretsVisible) { 'Masquer les secrets' } else { 'Afficher les secrets' } }
+     try { Update-AdccSecretActionUi } catch { }
+ }
+@@ -8703,4 +8913,5 @@
+     $script:SecretRows = @($effective.Rows | Where-Object { $null -ne $_ })
+     $script:SecretsVisible = $false
++    Restart-AdccSecretLifetime
+     Update-SecretsGrid
+     $count = @($script:SecretRows | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_.Value) }).Count
+@@ -8725,5 +8936,5 @@
+         if ($null -ne $secretGrid -and $secretGrid.Items.Count -gt 0) {
+             $firstReadable = $secretGrid.Items | Where-Object {
+-                $null -ne $_ -and -not [string]::IsNullOrWhiteSpace([string]$_.Value)
++                $null -ne $_ -and [bool]$_.HasValue
+             } | Select-Object -First 1
+             if ($null -ne $firstReadable) {
+@@ -9096,4 +9307,16 @@
+     if (@($script:SecretRows).Count -eq 0) { return }
+     $script:SecretsVisible = -not $script:SecretsVisible
++    try { if ($null -ne $script:SecretRevealTimer) { $script:SecretRevealTimer.Stop() } } catch { }
++    if ($script:SecretsVisible) {
++        $timer = New-Object System.Windows.Threading.DispatcherTimer
++        $timer.Interval = [TimeSpan]::FromSeconds(60)
++        $timer.Add_Tick({
++            $script:SecretRevealTimer.Stop()
++            $script:SecretsVisible = $false
++            Update-SecretsGrid
++        })
++        $script:SecretRevealTimer = $timer
++        $timer.Start()
++    }
+     Update-SecretsGrid
+ }
+@@ -9122,5 +9345,5 @@
+ function Copy-SelectedSecret {
+     try {
+-        $row = $script:Ctrl["DgSecrets"].SelectedItem
++        $row = Get-AdccSelectedSecretSource
+         if ($null -eq $row -or [string]::IsNullOrWhiteSpace([string]$row.Value)) { Set-Status "Aucun secret selectionne." "WARN"; return }
+         if (-not (Confirm-Action "Copier temporairement ce secret dans le presse-papiers ?")) { return }
+@@ -10191,7 +10414,7 @@
+         try { $computer = [string]$script:InventoryRows[0].Value } catch { }
+         $path = Join-Path $dir ("ADCC-inventaire-" + $stamp + ".csv")
+-        @($script:InventoryRows) | Export-Csv -LiteralPath $path -NoTypeInformation -Encoding UTF8
++        @($script:InventoryRows) | ConvertTo-AdccSpreadsheetSafeRow | Export-Csv -LiteralPath $path -NoTypeInformation -Encoding UTF8
+         $accessPath = Join-Path $dir ("ADCC-inventaire-acces-" + $stamp + ".csv")
+-        @($script:InventoryAccess) | Export-Csv -LiteralPath $accessPath -NoTypeInformation -Encoding UTF8
++        @($script:InventoryAccess) | ConvertTo-AdccSpreadsheetSafeRow | Export-Csv -LiteralPath $accessPath -NoTypeInformation -Encoding UTF8
+         Set-Status ("Inventaire exporte : " + $path)
+         Add-AdccUiLog -Area "Inventaire" -Text ("Export CSV : " + $path + " et " + $accessPath)
+@@ -11632,5 +11855,5 @@
+         $stamp = (Get-Date).ToString("yyyyMMdd-HHmmss")
+         $path = Join-Path $dir ("ADCC-logiciels-" + $stamp + ".csv")
+-        @($script:SoftwareRows) | Export-Csv -LiteralPath $path -NoTypeInformation -Encoding UTF8
++        @($script:SoftwareRows) | ConvertTo-AdccSpreadsheetSafeRow | Export-Csv -LiteralPath $path -NoTypeInformation -Encoding UTF8
+         Set-Status ("Logiciels exportes : " + $path)
+         Add-AdccUiLog -Area "Logiciels" -Text ("Export CSV : " + $path)
+@@ -11669,5 +11892,8 @@
+ function Get-AdccWmiQueryWorkerCode {
+     return @'
+-$computer=[string]$Payload.Computer;$namespace=[string]$Payload.Namespace;$className=[string]$Payload.ClassName;$where=([string]$Payload.Where).Trim();$limit=[Math]::Max(1,[Math]::Min(200,[int]$Payload.Limit));if($className-notmatch'^[A-Za-z0-9_]{2,128}$'){throw 'Nom de classe invalide.'};if($where-match'(?i)\b(insert|update|delete|drop|exec|call)\b'){throw 'Condition interdite.'};$query='SELECT * FROM '+$className;if($where){$query+=' WHERE '+$where}
++if ([string]$Payload.ClassName -ieq 'Win32_Product') { throw 'Win32_Product bloque : utiliser le panneau Logiciels.' }
++if ([string]$Payload.ClassName -notmatch '^[A-Za-z_][A-Za-z0-9_]{0,127}$' -or [string]$Payload.Namespace -notmatch '^root(?:\\[A-Za-z_][A-Za-z0-9_]*)*$') { throw 'Classe ou namespace WMI invalide.' }
++if ([int]$Payload.Limit -lt 1 -or [int]$Payload.Limit -gt 500 -or ([string]$Payload.Where).Length -gt 2048 -or ([string]$Payload.Where).IndexOf([char]0) -ge 0) { throw 'Limite ou filtre WMI invalide.' }
++$computer=[string]$Payload.Computer;$namespace=[string]$Payload.Namespace;$className=[string]$Payload.ClassName;$where=([string]$Payload.Where).Trim();$limit=[Math]::Max(1,[Math]::Min(500,[int]$Payload.Limit));if($className-notmatch'^[A-Za-z_][A-Za-z0-9_]{0,127}$'){throw 'Nom de classe invalide.'};if($where-match'(?i)\b(insert|update|delete|drop|exec|call)\b'){throw 'Condition interdite.'};$query='SELECT * FROM '+$className;if($where){$query+=' WHERE '+$where}
+ $watch=[Diagnostics.Stopwatch]::StartNew();$cred=Get-WMachineCredential $Context;$classicError='';$session=$null
+ function Flatten($class,$instances){$schema=New-Object Collections.ArrayList;$values=New-Object Collections.ArrayList;try{foreach($p in @($class.CimClassProperties)){[void]$schema.Add([pscustomobject]@{Property=[string]$p.Name;Type=[string]$p.CimType;IsKey='';Qualifiers=''})}}catch{};$ix=0;foreach($instance in @($instances)){$ix++;foreach($p in $instance.PSObject.Properties){$n=[string]$p.Name;if($n.StartsWith('Cim')-or$n.StartsWith('PS')){continue};$v='';try{if($null-ne$p.Value){if($p.Value-is[Array]){$v=@($p.Value)-join', '}else{$v=[string]$p.Value}}}catch{$v='(illisible)'};if($v.Length-gt600){$v=$v.Substring(0,600)+'...'};[void]$values.Add([pscustomobject]@{Instance=$ix;Property=$n;Value=$v})}};[pscustomobject]@{Schema=@($schema|Sort-Object Property);Instances=@($values);InstanceCount=$ix}}
+@@ -11845,4 +12071,6 @@
+         try { $limit = [int]([string](Get-AdccControl -Name "TxtWmiLimit").Text) } catch { $limit = 25 }
+         if ($limit -le 0) { $limit = 25 }
++        $limit = [Math]::Min(500,$limit)
++        Assert-AdccWmiReadQuery -ClassName $className -Namespace $namespace -Where $where -Limit $limit
+         [void](Set-AdccControlText -Name "LblWmiStatus" -Text ("Lecture des instances de " + $className + "..."))
+         Start-UiTask `
+@@ -11880,5 +12108,5 @@
+         $stamp = (Get-Date).ToString("yyyyMMdd-HHmmss")
+         $path = Join-Path $dir ("ADCC-wmi-" + $stamp + ".csv")
+-        @($script:WmiInstances) | Export-Csv -LiteralPath $path -NoTypeInformation -Encoding UTF8
++        @($script:WmiInstances) | ConvertTo-AdccSpreadsheetSafeRow | Export-Csv -LiteralPath $path -NoTypeInformation -Encoding UTF8
+         Set-Status ("Instances exportees : " + $path)
+         [void](Show-InfoBox ("Instances exportees." + [Environment]::NewLine + [Environment]::NewLine + $path))
+@@ -12766,5 +12994,4 @@
+         $clean = ([string]$Term).Trim()
+         if ($clean.Contains([string][char]92)) { $clean = $clean.Split([char]92)[-1] }
+-        if ($clean.Contains("@")) { $clean = $clean.Split("@")[0] }
+         $clean = $clean.Trim().TrimEnd([char]36)
+         if ($clean.Length -lt 2) { return $results }
+@@ -12772,11 +12999,11 @@
+ 
+         $termSql = ConvertTo-AdccSqlLiteral $clean
+-        $prefixSql = ConvertTo-AdccSqlLiteral ($clean + "%")
+-        $containsSql = ConvertTo-AdccSqlLiteral ("%" + $clean.ToLowerInvariant() + "%")
++        $prefixSql = ConvertTo-AdccSqlLiteral ((ConvertTo-AdccSqlLikeText $clean) + "%")
++        $containsSql = ConvertTo-AdccSqlLiteral ("%" + (ConvertTo-AdccSqlLikeText $clean.ToLowerInvariant()) + "%")
+         $sql = @"
+ SELECT object_type,name,login,upn,display_name,description,extra,state,distinguished_name,when_changed,usn_changed,last_logon,object_guid,
+        CASE
+          WHEN name=$termSql COLLATE NOCASE OR login=$termSql COLLATE NOCASE OR upn=$termSql COLLATE NOCASE THEN 100
+-         WHEN name LIKE $prefixSql COLLATE NOCASE OR login LIKE $prefixSql COLLATE NOCASE OR upn LIKE $prefixSql COLLATE NOCASE THEN 90
++         WHEN name LIKE $prefixSql ESCAPE '!' COLLATE NOCASE OR login LIKE $prefixSql ESCAPE '!' COLLATE NOCASE OR upn LIKE $prefixSql ESCAPE '!' COLLATE NOCASE THEN 90
+          ELSE 70
+        END AS match_score
+@@ -12785,8 +13012,8 @@
+    OR login=$termSql COLLATE NOCASE
+    OR upn=$termSql COLLATE NOCASE
+-   OR name LIKE $prefixSql COLLATE NOCASE
+-   OR login LIKE $prefixSql COLLATE NOCASE
+-   OR upn LIKE $prefixSql COLLATE NOCASE
+-   OR search_key LIKE $containsSql
++   OR name LIKE $prefixSql ESCAPE '!' COLLATE NOCASE
++   OR login LIKE $prefixSql ESCAPE '!' COLLATE NOCASE
++   OR upn LIKE $prefixSql ESCAPE '!' COLLATE NOCASE
++   OR search_key LIKE $containsSql ESCAPE '!'
+ ORDER BY match_score DESC,name COLLATE NOCASE
+ LIMIT $Limit;
+@@ -15479,4 +15706,5 @@
+     param([string]$Text, [string]$Level = "INFO")
+     $now = Get-Date
++    $Text = Protect-AdccLogText $Text
+     try { Add-AdccUiLog -Text $Text -Level $Level -Area "Journal" } catch { }
+     try {
+@@ -17258,27 +17486,74 @@
+ function Start-AdccAccountRelogin {
+     try {
+-        $user = ([string](Get-AdccControl -Name "TxtAccountAdUser").Text).Trim()
+-        if (-not [string]::IsNullOrWhiteSpace($user)) {
+-            Set-AdccSetting -Name "LastLogin" -Value $user
+-        }
+-        Add-AdccUiLog -Area "Comptes" -Text "Relogin AD demande. Les comptes secondaires restent inchanges."
+-        $ok = Show-LoginWindow
+-        if ($ok) {
+-            $script:DirectoryCredentialFaulted = $false
+-            $script:DirectoryCredentialFaultMessage = ""
+-            try {
+-                $adUser = Get-AdccControl -Name "TxtAccountAdUser"
+-                if ($null -ne $adUser) { $adUser.Text = [string]$script:Conn.BindUser }
+-            } catch { }
+-            Update-AdccAccountUi
+-            Request-AdccDashboardRefresh
+-            Set-Status "Connexion AD changee : $($script:Conn.BindUser). Les comptes secondaires sont conserves."
+-            Add-AdccUiLog -Area "Comptes" -Text "Nouvelle session AD validee : $($script:Conn.BindUser)."
+-        } else {
+-            Set-Status "Relogin AD annule. La session courante est conservee." "WARN"
+-            Add-AdccUiLog -Area "Comptes" -Level "WARN" -Text "Relogin AD annule."
+-        }
+-    }
+-    catch { [void](Show-AdccOperationError -Operation "Relogin AD" -ErrorRecordOrException $_) }
++        Complete-AdccDetachedReadJobs
++        if (@($script:AsyncJobs.Keys).Count -gt 0 -or @($script:DetachedReadJobs).Count -gt 0) {
++            Show-InfoBox 'Changement de compte refuse pendant une operation. Termine ou annule les lectures, puis attends leur nettoyage. Une ecriture envoyee au DC ne doit pas etre interrompue.'
++            return
++        }
++        if ([string]$script:WriteState -in @('Running','Unknown','UnknownPending')) {
++            Show-InfoBox 'Une ecriture reste a verifier. Recontrole son resultat avant de changer de session.'
++            return
++        }
++        # Persist dirty data using the previous connection scope, before opening the login.
++        if ([bool]$script:IndexDirty -and -not (Flush-AdccIndex)) {
++            throw 'Le cache modifie ne peut pas etre enregistre. Changement de session interrompu pour conserver les donnees en memoire.'
++        }
++        $previousBase = [string]$script:Conn.BaseDn
++        $user = ([string](Get-AdccControl -Name 'TxtAccountAdUser').Text).Trim()
++        if (-not [string]::IsNullOrWhiteSpace($user)) { Set-AdccSetting -Name 'LastLogin' -Value $user }
++        try { if ($null -ne $script:LiveSearchTimer) { $script:LiveSearchTimer.Stop() } } catch { }
++        Stop-AdccSelectionOpenTimer
++        if (-not (Show-LoginWindow)) { Set-Status 'Relogin annule. La session courante est conservee.' 'WARN'; return }
++
++        $script:SessionEpoch = [long]$script:SessionEpoch + 1
++        $script:GlobalSearchGeneration++
++        $script:PresenceScanGeneration++
++        $script:SelectedObjectGeneration++
++        Clear-AdccTreeRenderJobs
++        Clear-Secrets
++        Clear-ObjectDetails
++        $script:SelectedObject = $null
++        $script:LastLoadedEntry = $null
++        $script:PendingObjectSelection = $null
++        $script:CurrentObjectRequestId = ''
++        $script:CurrentObjectRequestDn = ''
++        $script:DeferredRawDn = ''; $script:DeferredPermissionsDn = ''; $script:DeferredTargetDn = ''
++        $script:VisitCache = @{}; $script:PresenceCache = @{}
++        $script:StartupWarmCache = $null; $script:ShowingCachedObject = $false
++        $script:ActualSecretDeniedDn = ''; $script:ComputerDiagRows = @()
++        $script:LinkIndexGeneration++
++        $script:CurrentCapabilities = @{}; $script:ActualDeniedCapabilities = @{}
++        $script:PermissionRows = @(); $script:SelfCheckRows = @()
++        $script:IndexRows = @(); $script:IndexInfo = $null; $script:IndexDirty = $false
++        $script:IndexUsersByLogin = @{}; $script:IndexUsersByGuid = @{}
++        $script:IndexComputersByName = @{}; $script:IndexComputersByGuid = @{}
++        $script:UserMachineLinks = @(); $script:LinkByComputer = @{}; $script:LinksByUser = @{}; $script:LinkIndexCount = -1
++        $script:ParkState = @{}
++        $script:InventoryRows = @(); $script:InventoryAccess = @()
++        $script:SoftwareRows = @(); $script:SoftwareAccess = @()
++        $script:DomainRows = @(); $script:WmiNamespaces = @(); $script:WmiClasses = @(); $script:WmiSchema = @(); $script:WmiInstances = @()
++        $script:WorkerContextStatic = $null
++        $script:DirectoryCredentialFaulted = $false; $script:DirectoryCredentialFaultMessage = ''
++        $script:DatabaseScopeIdentity = ''; $script:DatabaseScopedPath = ''; $script:AdccDatabaseReady = $false
++        $script:ReadOnlyMode = $true
++        $readOnly = Get-AdccControl -Name 'ChkReadOnlyMode'
++        if ($null -ne $readOnly) { $readOnly.IsChecked = $true }
++        # Clear all previously bound result grids, including cached permission reports.
++        foreach ($control in @($script:Ctrl.Values)) {
++            if ($control -is [System.Windows.Controls.DataGrid]) { $control.ItemsSource = $null }
++        }
++        if ($previousBase -ine [string]$script:Conn.BaseDn) {
++            $script:RemoteAdminCredential = $null; $script:SecretsCredential = $null; $script:MachineCredential = $null
++            Add-AdccUiLog -Area 'Comptes' -Level 'WARN' -Text 'Perimetre AD change : comptes secondaires retires pour eviter leur envoi dans un autre domaine.'
++        }
++        [void](Load-AdccIndexMetadata)
++        Load-UserMachineLinks
++        Load-TreeRoot
++        Update-AdccAccountUi
++        Apply-CurrentPermissionUi
++        Request-AdccDashboardRefresh
++        Set-Status ('Nouvelle session AD : ' + [string]$script:Conn.BindUser + '. Vues rechargees, lecture seule active.')
++    }
++    catch { [void](Show-AdccOperationError -Operation 'Relogin AD' -ErrorRecordOrException $_) }
+ }
+ 
+@@ -17302,4 +17577,5 @@
+ 
+ function Wire-Events {
++    Register-AdccReliabilityUi
+     Add-AdccUiLog -Area "Interface" -Level "INFO" -Text "Branchement des evenements de l'interface."
+ 
+@@ -17600,5 +17876,5 @@
+                 if (-not (Test-Path -LiteralPath $dir -PathType Container)) { [void](New-Item -ItemType Directory -Path $dir -Force) }
+                 $path = Join-Path $dir ("ADCC-index-" + (Get-Date).ToString("yyyyMMdd-HHmmss") + ".csv")
+-                @($grid.ItemsSource) | Export-Csv -LiteralPath $path -NoTypeInformation -Encoding UTF8
++                @($grid.ItemsSource) | ConvertTo-AdccSpreadsheetSafeRow | Export-Csv -LiteralPath $path -NoTypeInformation -Encoding UTF8
+                 Set-Status ("Resultats exportes : " + $path)
+             }
+@@ -17733,5 +18009,5 @@
+ $script:Version = "1.0"
+ $script:AppName = "Active Directory Control Center"
+-$script:MasterBuild = "V10.22-FULL-RESTORE-REMOTE-ACCOUNTS-FIX"
++$script:MasterBuild = "2026.09.21-R1-RELIABILITY"
+ $script:ActiveWriteTaskId = ""
+ $script:WriteState = "Idle"
+@@ -17821,4 +18097,5 @@
+             MinThreads = 2
+             MaxThreads = 6
++            MaxOutstandingWorkers = 12
+             PollIntervalMs = 250
+             UiRefreshIntervalMs = 500
+@@ -17856,4 +18133,5 @@
+             AutoClearSecretClipboardSeconds = 30
+             MaskSecretsByDefault = $true
++            SecretMemorySeconds = 300
+             RequireFreshObject = $true
+             MaxObjectAgeMinutes = 15
+@@ -17892,4 +18170,5 @@
+             AllowUnboundedFallbacks = $false
+             UseTaskFallback = $true
++            UsePsExecFallback = $true
+             TaskFallbackTimeoutSeconds = 75
+             TaskFallbackKeepFailedArtifacts = $false
+@@ -17942,4 +18221,5 @@
+             MutexTimeoutMilliseconds = 350
+             DatabaseFile = "ADCC.db"
++            BackupTimeoutSeconds = 30
+             DatabaseBusyTimeoutMs = 2500
+             KeepLegacyFiles = $true
+@@ -17980,4 +18260,5 @@
+         [long]$DurationMs = 0
+     )
++    $Detail = Protect-AdccLogText $Detail
+     try {
+         Initialize-AdccDataStore | Out-Null
+@@ -18126,7 +18407,36 @@
+ function Get-AdccDatabasePath {
+     Initialize-AdccDataStore | Out-Null
+-    $name = [string](Get-CfgValue "LocalStore" "DatabaseFile" "ADCC.db")
+-    if ([string]::IsNullOrWhiteSpace($name)) { $name = "ADCC.db" }
+-    return (Join-Path ([string]$script:DataDir) $name)
++    $name = [string](Get-CfgValue 'LocalStore' 'DatabaseFile' 'ADCC.db')
++    if ([string]::IsNullOrWhiteSpace($name)) { $name = 'ADCC.db' }
++    if ($name -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*\.db$' -or $name.Contains('..')) {
++        throw 'LocalStore.DatabaseFile doit etre un nom de fichier .db, sans chemin.'
++    }
++    $legacy = Join-Path ([string]$script:DataDir) $name
++    $baseDn = ([string]$script:Conn.BaseDn).Trim().ToLowerInvariant()
++    if ([string]::IsNullOrWhiteSpace($baseDn)) { return $legacy }
++    if ([string]$script:DatabaseScopeIdentity -ceq $baseDn -and -not [string]::IsNullOrWhiteSpace([string]$script:DatabaseScopedPath)) {
++        return [string]$script:DatabaseScopedPath
++    }
++    # Adopt the previous database only when its AD scope is positively identified.
++    # Never move/delete the user's legacy database or merge two domains by short name.
++    $chosen = $null
++    if ([IO.File]::Exists($legacy)) {
++        $probeDb = [IntPtr]::Zero
++        try {
++            $probeDb = Open-AdccDatabase -Path $legacy -ReadOnly
++            $metadata = @(Invoke-AdccDbQuery -Sql "SELECT base_dn FROM sync_state WHERE scope='directory' LIMIT 1;" -DatabaseHandle $probeDb)
++            if ($metadata.Count -eq 1 -and ([string]$metadata[0].base_dn).Trim().ToLowerInvariant() -ceq $baseDn) { $chosen = $legacy }
++        } catch { } finally { Close-AdccDatabase $probeDb }
++    }
++    if ([string]::IsNullOrWhiteSpace([string]$chosen)) {
++        $scopeDirectory = Join-Path (Join-Path ([string]$script:DataDir) 'Domains') (Get-AdccScopeKey $baseDn)
++        if (-not [IO.Directory]::Exists($scopeDirectory)) { [void][IO.Directory]::CreateDirectory($scopeDirectory) }
++        $chosen = Join-Path $scopeDirectory $name
++    }
++    $script:AdccDatabaseReady = $false
++    $script:AdccDatabaseRecoveryAttempted = $false
++    $script:DatabaseScopeIdentity = $baseDn
++    $script:DatabaseScopedPath = $chosen
++    return $chosen
+ }
+ 
+@@ -18148,4 +18458,7 @@
+         @{N="sqlite3_open_v2"; R=[int]; P=[Type[]]@([IntPtr],[IntPtr].MakeByRefType(),[int],[IntPtr])},
+         @{N="sqlite3_close"; R=[int]; P=[Type[]]@([IntPtr])},
++        @{N="sqlite3_backup_init"; R=[IntPtr]; P=[Type[]]@([IntPtr],[IntPtr],[IntPtr],[IntPtr])},
++        @{N="sqlite3_backup_step"; R=[int]; P=[Type[]]@([IntPtr],[int])},
++        @{N="sqlite3_backup_finish"; R=[int]; P=[Type[]]@([IntPtr])},
+         @{N="sqlite3_exec"; R=[int]; P=[Type[]]@([IntPtr],[IntPtr],[IntPtr],[IntPtr],[IntPtr].MakeByRefType())},
+         @{N="sqlite3_free"; R=[void]; P=[Type[]]@([IntPtr])},
+@@ -18193,16 +18506,23 @@
+ 
+ function Open-AdccDatabase {
++    param([string]$Path = '',[switch]$ReadOnly)
+     $native = Initialize-AdccWinSqliteNative
+     $db = [IntPtr]::Zero
+     $pathPtr = [IntPtr]::Zero
+     try {
+-        $pathPtr = New-AdccUtf8Ptr (Get-AdccDatabasePath)
+-        $flags = 2 -bor 4 -bor 65536 # READWRITE | CREATE | FULLMUTEX
++        if ([string]::IsNullOrWhiteSpace($Path)) { $Path = Get-AdccDatabasePath }
++        $pathPtr = New-AdccUtf8Ptr $Path
++        $flags = if ($ReadOnly) { 1 -bor 65536 } else { 2 -bor 4 -bor 65536 }
+         $rc = [ADCC.WinSqliteNative]::sqlite3_open_v2($pathPtr,[ref]$db,$flags,[IntPtr]::Zero)
+         if ($rc -ne 0 -or $db -eq [IntPtr]::Zero) { throw "Ouverture SQLite impossible (code $rc)." }
+-        [void][ADCC.WinSqliteNative]::sqlite3_busy_timeout($db,[Math]::Max(250,[int](Get-CfgValue "LocalStore" "DatabaseBusyTimeoutMs" 2500)))
++        [void][ADCC.WinSqliteNative]::sqlite3_busy_timeout($db,[Math]::Max(100,[Math]::Min(5000,[int](Get-CfgValue 'LocalStore' 'DatabaseBusyTimeoutMs' 1000))))
+         return $db
+     }
+-    finally { if ($pathPtr -ne [IntPtr]::Zero) { [System.Runtime.InteropServices.Marshal]::FreeHGlobal($pathPtr) } }
++    catch {
++        # sqlite3_open_v2 can return a non-null handle even on failure.
++        if ($db -ne [IntPtr]::Zero) { [void][ADCC.WinSqliteNative]::sqlite3_close($db) }
++        throw
++    }
++    finally { if ($pathPtr -ne [IntPtr]::Zero) { [Runtime.InteropServices.Marshal]::FreeHGlobal($pathPtr) } }
+ }
+ 
+@@ -18286,49 +18606,63 @@
+ function Backup-AdccDatabase {
+     param([switch]$IfNeeded)
+-    Initialize-AdccDataStore | Out-Null
+     $dbPath = Get-AdccDatabasePath
+-    if (-not (Test-Path -LiteralPath $dbPath -PathType Leaf)) { return $null }
+-    $backupDir = Join-Path ([string]$script:DataDir) "Backups"
+-    if (-not (Test-Path -LiteralPath $backupDir -PathType Container)) { [void](New-Item -ItemType Directory -Path $backupDir -Force) }
++    if (-not [IO.File]::Exists($dbPath)) { return $null }
++    $backupDir = Get-AdccStoreBackupDirectory
+     if ($IfNeeded) {
+-        $latest = Get-ChildItem -LiteralPath $backupDir -Filter "ADCC-*.db" -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
++        $latest = Get-ChildItem -LiteralPath $backupDir -Filter 'ADCC-*.db' -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+         if ($null -ne $latest -and ((Get-Date) - $latest.LastWriteTime).TotalHours -lt 20) { return [string]$latest.FullName }
+     }
+-    try { [void](Invoke-AdccDbExec "PRAGMA wal_checkpoint(FULL);") } catch { }
+-    $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+-    $dest = Join-Path $backupDir ("ADCC-" + $stamp + ".db")
+-    Copy-Item -LiteralPath $dbPath -Destination $dest -Force -ErrorAction Stop
+-    $keep = [Math]::Max(2,[int](Get-CfgValue "LocalStore" "DatabaseBackupCount" 7))
+-    $all = @(Get-ChildItem -LiteralPath $backupDir -Filter "ADCC-*.db" -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending)
+-    if ($all.Count -gt $keep) { foreach($old in @($all | Select-Object -Skip $keep)){ try { Remove-Item -LiteralPath $old.FullName -Force -ErrorAction SilentlyContinue } catch { } } }
+-    return $dest
++    $stamp = (Get-Date -Format 'yyyyMMdd-HHmmss-fff') + '-' + [guid]::NewGuid().ToString('N').Substring(0,8)
++    $dest = Join-Path $backupDir ('ADCC-' + $stamp + '.db')
++    $temporary = $dest + '.partial'
++    $sourceDb = [IntPtr]::Zero; $targetDb = [IntPtr]::Zero; $backup = [IntPtr]::Zero; $mainPtr = [IntPtr]::Zero
++    $complete = $false
++    try {
++        $sourceDb = Open-AdccDatabase -Path $dbPath -ReadOnly
++        $targetDb = Open-AdccDatabase -Path $temporary
++        $mainPtr = New-AdccUtf8Ptr 'main'
++        $backup = [ADCC.WinSqliteNative]::sqlite3_backup_init($targetDb,$mainPtr,$sourceDb,$mainPtr)
++        if ($backup -eq [IntPtr]::Zero) { throw 'Initialisation de la sauvegarde SQLite impossible.' }
++        $watch = [Diagnostics.Stopwatch]::StartNew()
++        $budget = [Math]::Max(5,[Math]::Min(120,[int](Get-CfgValue 'LocalStore' 'BackupTimeoutSeconds' 30)))
++        do {
++            $rc = [ADCC.WinSqliteNative]::sqlite3_backup_step($backup,256)
++            if ($rc -eq 101) { break }
++            if ($rc -notin @(0,5,6)) { throw "Sauvegarde SQLite : code $rc." }
++            if ($watch.Elapsed.TotalSeconds -ge $budget) { throw "Sauvegarde SQLite interrompue apres $budget secondes. L'original est intact." }
++            if ($rc -in @(5,6)) { Start-Sleep -Milliseconds 25 }
++        } while ($true)
++        $finish = [ADCC.WinSqliteNative]::sqlite3_backup_finish($backup); $backup = [IntPtr]::Zero
++        if ($finish -ne 0) { throw "Finalisation de sauvegarde SQLite : code $finish." }
++        $check = @(Invoke-AdccDbQuery -Sql 'PRAGMA quick_check;' -DatabaseHandle $targetDb)
++        if ($check.Count -ne 1 -or [string]$check[0].quick_check -cne 'ok') { throw 'La sauvegarde ne passe pas le controle SQLite.' }
++        Close-AdccDatabase $targetDb; $targetDb = [IntPtr]::Zero
++        Close-AdccDatabase $sourceDb; $sourceDb = [IntPtr]::Zero
++        [IO.File]::Move($temporary,$dest)
++        $complete = $true
++        $keep = [Math]::Max(2,[Math]::Min(30,[int](Get-CfgValue 'LocalStore' 'DatabaseBackupCount' 7)))
++        Get-ChildItem -LiteralPath $backupDir -Filter 'ADCC-*.db' -File | Sort-Object LastWriteTime -Descending | Select-Object -Skip $keep | ForEach-Object {
++            Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue
++        }
++        return $dest
++    }
++    finally {
++        if ($backup -ne [IntPtr]::Zero) { [void][ADCC.WinSqliteNative]::sqlite3_backup_finish($backup) }
++        Close-AdccDatabase $targetDb; Close-AdccDatabase $sourceDb
++        if ($mainPtr -ne [IntPtr]::Zero) { [Runtime.InteropServices.Marshal]::FreeHGlobal($mainPtr) }
++        if (-not $complete) {
++            foreach ($suffix in @('','-wal','-shm','-journal')) { Remove-Item -LiteralPath ($temporary + $suffix) -Force -ErrorAction SilentlyContinue }
++        }
++    }
+ }
+ 
+ function Recover-AdccDatabase {
+     param([string]$Reason)
+-    Initialize-AdccDataStore | Out-Null
+-    $dbPath = Get-AdccDatabasePath
+-    $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+-    $legacyDir = Join-Path ([string]$script:DataDir) "Legacy"
+-    if (-not (Test-Path -LiteralPath $legacyDir -PathType Container)) { [void](New-Item -ItemType Directory -Path $legacyDir -Force) }
+-    foreach($suffix in @("","-wal","-shm")) {
+-        $p = $dbPath + $suffix
+-        if (Test-Path -LiteralPath $p -PathType Leaf) {
+-            try { Move-Item -LiteralPath $p -Destination (Join-Path $legacyDir ((Split-Path $dbPath -Leaf)+".corrupt-"+$stamp+$suffix)) -Force -ErrorAction Stop } catch { }
+-        }
+-    }
+-    $backupDir = Join-Path ([string]$script:DataDir) "Backups"
+-    $latest = $null
+-    if (Test-Path -LiteralPath $backupDir -PathType Container) { $latest = Get-ChildItem -LiteralPath $backupDir -Filter "ADCC-*.db" -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1 }
+-    if ($null -ne $latest) {
+-        Copy-Item -LiteralPath $latest.FullName -Destination $dbPath -Force -ErrorAction Stop
+-        Write-AppLog ("ADCC.db restauree depuis " + $latest.Name + ". Cause : " + $Reason) "WARN"
+-        return "Backup"
+-    }
+-    Write-AppLog ("ADCC.db corrompue isolee. Une base vide sera reconstruite depuis Active Directory. Cause : " + $Reason) "WARN"
+-    return "Empty"
++    # Recovery requires an explicit operator decision, never an automatic data move.
++    throw ('Le cache SQLite est illisible. Aucune base ni sauvegarde n''a ete deplacee ou ecrasee. Ferme ADCC, conserve le fichier .db ET ses fichiers -wal/-shm, puis restaure une sauvegarde verifiee. Detail : ' + $Reason)
+ }
+ 
+ function Initialize-AdccDatabase {
++    $null = Get-AdccDatabasePath
+     if ($script:AdccDatabaseReady) { return $true }
+     Initialize-AdccDataStore | Out-Null
+@@ -18585,5 +18919,5 @@
+         Initialize-AdccDataStore | Out-Null
+         $path=Join-Path (Join-Path ([string]$script:DataDir) "Exports") ("ADCC-operation-stats-"+(Get-Date -Format "yyyyMMdd-HHmmss")+".csv")
+-        @($grid.ItemsSource) | Export-Csv -LiteralPath $path -NoTypeInformation -Encoding UTF8
++        @($grid.ItemsSource) | ConvertTo-AdccSpreadsheetSafeRow | Export-Csv -LiteralPath $path -NoTypeInformation -Encoding UTF8
+         Set-Status ("Statistiques exportees : "+$path)
+     } catch { [void](Show-AdccOperationError -Operation "Export statistiques" -ErrorRecordOrException $_) }
+@@ -18676,5 +19010,5 @@
+     try {
+         $path=Get-LinkCsvPath
+-        @(ConvertTo-AdccCanonicalLinks -Links $script:UserMachineLinks) | Export-Csv -LiteralPath $path -NoTypeInformation -Encoding UTF8
++        @(ConvertTo-AdccCanonicalLinks -Links $script:UserMachineLinks) | ConvertTo-AdccSpreadsheetSafeRow | Export-Csv -LiteralPath $path -NoTypeInformation -Encoding UTF8
+         Start-Process notepad.exe -ArgumentList @($path)
+         Set-Status "Associations exportees : $path"
+@@ -18798,5 +19132,5 @@
+         WmiNamespaces         = "A699B359557C6C7622BE18FEED2DE774EE3EC31F0E920603D2001BEEEEAF7437"
+         WmiClasses            = "0B0150595140E77A48467CD8FCC2B070A533197F9281178D800316C9E779EFD2"
+-        WmiQuery              = "39D27695B400F2450375DD400C0C45E4575809B615E283B7A71A427DEACCEC29"
++        WmiQuery              = "578B2F93146618E3C1B5FFC4A48B726CFD32B54CDB87455BD3544AA756530085"
+         SoftwareInventory     = "1FD3855414692D8EE0839FAC568572ABCC44E9F074502D19CE10ED390921A5ED"
+         LogonHarvest          = "ED7FFF55506C7BCE5567D65F683E10E9F28EA9771947F12A8DEEE1435994119A"
+@@ -19024,5 +19358,11 @@
+     }
+ 
+-    $maxConcurrent = [Math]::Max(1,[int](Get-CfgValue "Async" "MaxThreads" 6))
++    Complete-AdccDetachedReadJobs
++    $maxConcurrent = [Math]::Max(1,[Math]::Min(32,[int](Get-CfgValue "Async" "MaxThreads" 6)))
++    $physicalCount = @($script:AsyncJobs.Keys).Count + @($script:DetachedReadJobs).Count
++    $maxOutstanding = [Math]::Max($maxConcurrent,[Math]::Min(64,[int](Get-CfgValue 'Async' 'MaxOutstandingWorkers' 12)))
++    if ($physicalCount -ge $maxOutstanding) {
++        throw "Limite physique atteinte : $physicalCount workers encore actifs ou en annulation. Attends leur nettoyage ; aucun nouveau thread n'a ete cree."
++    }
+     $activeCount = @($script:AsyncJobs.Values | Where-Object { $null -ne $_ -and -not [bool]$_.CancelRequested }).Count
+     if ($activeCount -ge $maxConcurrent) {
+@@ -19061,5 +19401,5 @@
+         SuccessHandler=$SuccessHandler; ErrorHandler=$ErrorHandler; CallbackState=$CallbackState
+         DisableControls=@($DisableControls); IsWrite=[bool]$IsWrite; NonCancellable=([bool]$NonCancellable -or [bool]$IsWrite)
+-        TimeoutNotified=$false; TimeoutErrorDelivered=$false; CancelRequested=$false; CancelRequestedAt=$null; Superseded=$false; CorrelationId=$CorrelationId
++        SessionEpoch=[long]$script:SessionEpoch; TimeoutNotified=$false; TimeoutErrorDelivered=$false; CancelRequested=$false; CancelRequestedAt=$null; Superseded=$false; CorrelationId=$CorrelationId
+     }
+     $script:LatestTaskId = $id
+@@ -19132,4 +19472,5 @@
+     if ([string]$script:LatestTaskId -eq $Id) { $script:LatestTaskId = "" }
+     if ($null -eq $script:DetachedReadJobs) { $script:DetachedReadJobs = New-Object System.Collections.ArrayList }
++    $job.OnSuccess = $null; $job.OnError = $null; $job.CallbackState = $null
+     try { [void]$script:DetachedReadJobs.Add($job) } catch { }
+     try {
+@@ -19140,4 +19481,5 @@
+ 
+ function Complete-UiTasks {
++    Complete-AdccDetachedReadJobs
+     $removed = $false
+     $completedThisTick = 0
+@@ -19154,5 +19496,5 @@
+         try { if ($null -ne $job.StopHandle) { $stopCompleted = [bool]$job.StopHandle.IsCompleted } } catch { }
+ 
+-        if (-not $invokeCompleted -and -not $stopCompleted) {
++        if (-not $invokeCompleted -or ($null -ne $job.StopHandle -and -not $stopCompleted)) {
+             if ([bool]$job.CancelRequested -and -not [bool]$job.IsWrite) {
+                 $cancelAge = 0.0
+@@ -19229,4 +19571,8 @@
+         }
+ 
++        if ([bool]$script:AsyncEngineClosing -or [long]$job.SessionEpoch -ne [long]$script:SessionEpoch) {
++            $output = $null
++            continue
++        }
+         if ([string]::IsNullOrWhiteSpace($errorMessage)) {
+             $callbackWatch = [System.Diagnostics.Stopwatch]::StartNew()
+@@ -19279,31 +19625,32 @@
+     $script:AsyncEngineClosing = $true
+     try { Stop-AdccSelectionOpenTimer } catch { }
+-    $script:PendingObjectSelection = $null
+-    $script:SelectionOpenTimer = $null
+     try { Clear-AdccTreeRenderJobs } catch { }
+-    try { if ($null -ne $script:TreeRenderTimer) { $script:TreeRenderTimer.Stop() } } catch { }
+-    $script:TreeRenderTimer = $null
+-    try { if ($null -ne $script:AsyncTimer) { $script:AsyncTimer.Stop() } } catch { }
++    foreach ($timerName in @('AsyncTimer','TreeRenderTimer','SelectionOpenTimer','SettingsTimer','SecretLifetimeTimer','SecretRevealTimer','SecretClipboardTimer','LinkProbeTimer','LiveSearchTimer','IndexFlushTimer','DashboardRefreshTimer')) {
++        try { $timer = Get-Variable -Name $timerName -Scope Script -ValueOnly -ErrorAction SilentlyContinue; if ($null -ne $timer) { $timer.Stop() } } catch { }
++    }
+     foreach ($id in @($script:AsyncJobs.Keys)) { Request-UiTaskStop -Id $id -Silent -Force }
+-
+-    $deadline = (Get-Date).AddMilliseconds(1500)
+-    while (@($script:AsyncJobs.Keys).Count -gt 0 -and (Get-Date) -lt $deadline) {
+-        try { Complete-UiTasks } catch { }
+-        Invoke-AdccUiPump
+-        Start-Sleep -Milliseconds 25
+-    }
+     foreach ($id in @($script:AsyncJobs.Keys)) {
+         $job = $script:AsyncJobs[$id]
+-        try { $job.PowerShell.Dispose() } catch { }
+-        try { $job.Runspace.Dispose() } catch { }
+-        try { Set-ControlsBusy -Names $job.DisableControls -Busy $false } catch { }
+-        [void]$script:AsyncJobs.Remove($id)
+-    }
++        if ($null -eq $job) { [void]$script:AsyncJobs.Remove($id); continue }
++        $done = $false; $stopDone = $true
++        try { $done = [bool]$job.Handle.IsCompleted } catch { }
++        try { if ($null -ne $job.StopHandle) { $stopDone = [bool]$job.StopHandle.IsCompleted } } catch { $stopDone = $false }
++        if ($done -and $stopDone) {
++            try { if ($null -ne $job.StopHandle) { $job.PowerShell.EndStop($job.StopHandle) } } catch { }
++            try { $null = $job.PowerShell.EndInvoke($job.Handle) } catch { }
++            try { $job.PowerShell.Dispose() } catch { }
++            try { $job.Runspace.Dispose() } catch { }
++            [void]$script:AsyncJobs.Remove($id)
++        } elseif (-not [bool]$job.IsWrite) {
++            [void](Detach-AdccReadUiTask -Id $id -Reason 'Fermeture de la fenetre')
++        }
++        # Pending writes are never declared successful or silently replayed.
++    }
++    Complete-AdccDetachedReadJobs
++    $script:PendingObjectSelection = $null
++    $script:CurrentObjectRequestId = ''
++    $script:CurrentObjectRequestDn = ''
+     $script:AsyncEngineReady = $false
+     $script:AsyncTimer = $null
+-    $script:CurrentObjectRequestId = ""
+-    $script:CurrentObjectRequestDn = ""
+-    $script:ActiveWriteTaskId = ""
+-    $script:WriteState = "Idle"
+ }
+ 
+@@ -19341,6 +19688,6 @@
+     }
+     $useDirectoryCredential = ($needsDirectoryCredential -and [bool](Get-CfgValue "Modules" "UseCredential" $true) -and [bool]$script:Conn.UseCredential -and $null -ne $script:Conn.Credential)
+-    $useRemoteAdminCredential = (($remoteOperations -contains $OperationId -or $machineCredentialOperations -contains $OperationId) -and [bool]$script:Conn.UseCredential -and ($null -ne $script:RemoteAdminCredential -or $null -ne $script:Conn.Credential))
+-    $useSecretsCredential = (($OperationId -in @("ReadBitLocker","ReadLaps")) -and ($null -ne $script:SecretsCredential -or $null -ne $script:Conn.Credential))
++    $useRemoteAdminCredential = (($remoteOperations -contains $OperationId -or $machineCredentialOperations -contains $OperationId) -and ($null -ne $script:RemoteAdminCredential -or ([bool]$script:Conn.UseCredential -and $null -ne $script:Conn.Credential)))
++    $useSecretsCredential = (($OperationId -in @("ReadBitLocker","ReadLaps")) -and ($null -ne $script:SecretsCredential -or ([bool]$script:Conn.UseCredential -and $null -ne $script:Conn.Credential)))
+     $workerDirectoryCredential = if ($useSecretsCredential -and $null -ne $script:SecretsCredential) { $script:SecretsCredential } elseif ($useDirectoryCredential) { $script:Conn.Credential } elseif ($useSecretsCredential) { $script:Conn.Credential } else { $null }
+     [pscustomobject]@{
+@@ -19367,7 +19714,7 @@
+         MasterBuild = [string]$script:MasterBuild
+         ProcessIdentity = [string]$script:ProcessIdentity
+-        MachineCredential = if ($machineCredentialOperations -contains $OperationId) { if ($null -ne $script:MachineCredential) { $script:MachineCredential } elseif ($null -ne $script:RemoteAdminCredential) { $script:RemoteAdminCredential } else { $script:Conn.Credential } } else { $null }
++        MachineCredential = if ($machineCredentialOperations -contains $OperationId) { if ($null -ne $script:MachineCredential) { $script:MachineCredential } elseif ($null -ne $script:RemoteAdminCredential) { $script:RemoteAdminCredential } elseif ([bool]$script:Conn.UseCredential) { $script:Conn.Credential } else { $null } } else { $null }
+         RemoteAdminUser = if ($useRemoteAdminCredential) { if ($null -ne $script:RemoteAdminCredential) { [string]$script:RemoteAdminCredential.UserName } else { [string]$script:Conn.BindUser } } else { "" }
+-        RemoteAdminCredential = if ($useRemoteAdminCredential) { if ($null -ne $script:RemoteAdminCredential) { $script:RemoteAdminCredential } else { $script:Conn.Credential } } else { $null }
++        RemoteAdminCredential = if ($useRemoteAdminCredential) { if ($null -ne $script:RemoteAdminCredential) { $script:RemoteAdminCredential } elseif ([bool]$script:Conn.UseCredential) { $script:Conn.Credential } else { $null } } else { $null }
+         OperationId = $OperationId
+         PortTimeoutMs = [int](Get-CfgValue "Remote" "PortTimeoutMs" 1200)
+@@ -19375,6 +19722,6 @@
+         UseCim = [bool](Get-CfgValue "Remote" "UseCim" $true)
+         UseWinRM = [bool](Get-CfgValue "Remote" "UseWinRM" $true)
+-        UsePsExecFallback = $true
+-        UseTaskFallback = $true
++        UsePsExecFallback = [bool](Get-CfgValue "Remote" "UsePsExecFallback" $true)
++        UseTaskFallback = [bool](Get-CfgValue "Remote" "UseTaskFallback" $true)
+         TaskFallbackTimeoutSeconds = [Math]::Max(15,[int](Get-CfgValue "Remote" "TaskFallbackTimeoutSeconds" 75))
+         ExpectedControls = if ($null -ne $script:Ctrl) { [int]$script:Ctrl.Count } else { 0 }
+@@ -19854,5 +20201,5 @@
+ 
+         $selectedSecret = $null
+-        try { $selectedSecret = (Get-AdccControl -Name "DgSecrets").SelectedItem } catch { }
++        try { $selectedSecret = Get-AdccSelectedSecretSource } catch { }
+         $canCopySelected = ($null -ne $selectedSecret -and -not [string]::IsNullOrWhiteSpace([string]$selectedSecret.Value))
+         $copySelected = Get-AdccControl -Name "BtnCopySecret"
+@@ -20854,11 +21201,15 @@
+             (ConvertTo-AdccSafeValue $runtime | ConvertTo-Json -Depth 12) | Set-Content -LiteralPath (Join-Path $work "runtime.json") -Encoding UTF8
+             (ConvertTo-AdccSafeValue $script:Config | ConvertTo-Json -Depth 12) | Set-Content -LiteralPath (Join-Path $work "configuration-sanitized.json") -Encoding UTF8
+-            if(@($script:SelfCheckRows).Count -gt 0){$script:SelfCheckRows | Export-Csv -LiteralPath (Join-Path $work "self-check.csv") -NoTypeInformation -Encoding UTF8}
+-            if(Test-Path -LiteralPath $script:AuditPath){Copy-Item -LiteralPath $script:AuditPath -Destination (Join-Path $work "ADCC.log") -Force}
+-            if(Test-Path -LiteralPath $script:StartupTracePath){Copy-Item -LiteralPath $script:StartupTracePath -Destination (Join-Path $work "ADCC-startup.log") -Force}
+-            @("ADCC diagnostic en lecture seule","Aucun mot de passe, token, cle BitLocker ou secret LAPS n est volontairement exporte.","Build: $($script:MasterBuild)","Version: $($script:Version)") | Set-Content -LiteralPath (Join-Path $work "README.txt") -Encoding UTF8
++            if(@($script:SelfCheckRows).Count -gt 0){$script:SelfCheckRows | ConvertTo-AdccSpreadsheetSafeRow | Export-Csv -LiteralPath (Join-Path $work "self-check.csv") -NoTypeInformation -Encoding UTF8}
++
++
++            @("ADCC diagnostic en lecture seule","Journaux bruts exclus. Les identites, noms de machines, domaines et chemins ne sont pas anonymises. Relire avant partage.","Build: $($script:MasterBuild)","Version: $($script:Version)") | Set-Content -LiteralPath (Join-Path $work "README.txt") -Encoding UTF8
+             Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction SilentlyContinue
+-            if(Test-Path -LiteralPath $dlg.FileName){Remove-Item -LiteralPath $dlg.FileName -Force}
+-            [System.IO.Compression.ZipFile]::CreateFromDirectory($work,$dlg.FileName,[System.IO.Compression.CompressionLevel]::Optimal,$false)
++            $zipTemp = $dlg.FileName + '.' + [guid]::NewGuid().ToString('N') + '.partial'
++            try {
++                [System.IO.Compression.ZipFile]::CreateFromDirectory($work,$zipTemp,[System.IO.Compression.CompressionLevel]::Optimal,$false)
++                if ([IO.File]::Exists($dlg.FileName)) { [IO.File]::Replace($zipTemp,$dlg.FileName,$null,$true) }
++                else { [IO.File]::Move($zipTemp,$dlg.FileName) }
++            } finally { Remove-Item -LiteralPath $zipTemp -Force -ErrorAction SilentlyContinue }
+             Set-Status "ZIP diagnostic exporte : $($dlg.FileName)"
+             Write-AppLog "ZIP diagnostic exporte : $($dlg.FileName)" "INFO"
+@@ -21196,4 +21547,5 @@
+         [long]$DurationMs = 0
+     )
++    $Detail = Protect-AdccLogText $Detail
+     try {
+         $path = Get-AdccFastLoginLogPath

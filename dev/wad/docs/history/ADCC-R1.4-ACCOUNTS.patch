@@ -1,0 +1,307 @@
+--- R1.3/wad/ADCC-Core.ps1
++++ R1.4/wad/ADCC-Core.ps1
+@@ -6605,6 +6605,7 @@
+ # Les identifiants seuls peuvent etre memorises dans les preferences.
+ $script:RemoteAdminCredential = $null
+ $script:SecretsCredential = $null
++$script:AccountCredentialTestSession = $null
+ $script:__MachineCredentialReveal = $false
+ $script:VisitCache = @{}
+ $script:CacheStats = [ordered]@{ Hits = 0; Misses = 0; Writes = 0; Evictions = 0; Errors = 0 }
+@@ -17617,49 +17618,122 @@
+     return ""
+ }
+ 
+-function Test-AdccCredentialBind {
++function New-AdccAccountAuthRequest {
++    [CmdletBinding()]
+     param(
+         [Parameter(Mandatory=$true)][string]$UserName,
+         [Parameter(Mandatory=$true)][System.Security.SecureString]$Password,
+-        [string]$Operation = "Test du compte",
+-        [int]$TimeoutSeconds = 8
++        [ValidateRange(2,45)][int]$TimeoutSeconds = 8
+     )
+     $user = ([string]$UserName).Trim()
+-    if ([string]::IsNullOrWhiteSpace($user)) { throw "Identifiant vide." }
+-    if ($null -eq $Password -or $Password.Length -eq 0) { throw "Mot de passe vide." }
+-
++    if ([string]::IsNullOrWhiteSpace($user)) { throw 'Identifiant vide.' }
++    if ($null -eq $Password -or $Password.Length -eq 0) { throw 'Mot de passe vide.' }
++    if ($null -eq $script:Conn) { throw 'Connecte-toi a Active Directory avant de tester un compte secondaire.' }
+     $server = ([string]$script:Conn.Server).Trim()
+-    if ([string]::IsNullOrWhiteSpace($server)) { $server = ([string](Get-CfgValue "Conf" "Server" "")).Trim() }
+-    if ([string]::IsNullOrWhiteSpace($server)) { $server = ([string](Get-CfgValue "Conf" "SERVEUR" "")).Trim() }
+-    if ([string]::IsNullOrWhiteSpace($server)) { throw "Aucun controleur de domaine connu pour tester ce compte." }
+-
+-    $plain = ""
+-    $connection = $null
+-    try {
+-        $plain = [System.Net.NetworkCredential]::new("",$Password).Password
+-        Add-Type -AssemblyName System.DirectoryServices.Protocols -ErrorAction Stop | Out-Null
+-        $connection = [System.DirectoryServices.Protocols.LdapConnection]::new($server)
+-        $connection.AuthType = [System.DirectoryServices.Protocols.AuthType]::Negotiate
+-        $connection.SessionOptions.ProtocolVersion = 3
+-        $connection.Timeout = [TimeSpan]::FromSeconds([Math]::Max(2,$TimeoutSeconds))
+-        $connection.Credential = [System.Net.NetworkCredential]::new($user,$plain)
+-        $watch = [Diagnostics.Stopwatch]::StartNew()
+-        $connection.Bind()
+-        $watch.Stop()
+-        $message = "$Operation : compte valide ($user) via $server en $($watch.ElapsedMilliseconds) ms."
+-        Add-AdccUiLog -Area "Comptes" -Level "INFO" -Text $message
++    $baseDn = ([string]$script:Conn.BaseDn).Trim()
++    if ([string]::IsNullOrWhiteSpace($server) -or [string]::IsNullOrWhiteSpace($baseDn)) {
++        throw 'Contexte AD incomplet : reconnecte ADCC pour obtenir le controleur et la base AD.'
++    }
++    # Reutiliser exactement le moteur du login et son contexte deja decouvert.
++    # Aucun mot de passe utilise pour essayer une succession de domaines/identites.
++    # Copie privee : la fermeture du champ WPF ne peut pas invalider le worker.
++    $passwordCopy = $Password.Copy()
++    try {
++        $passwordCopy.MakeReadOnly()
++        $credential = [System.Management.Automation.PSCredential]::new($user,$passwordCopy)
++        return [pscustomobject]@{
++            Login=$user; Credential=$credential; UseCurrentCredentials=$false
++            ConfiguredServer=$server; ConfiguredBase=$baseDn
++            Domain=[string]$script:Conn.Domain; Netbios=[string]$script:Conn.Netbios
++            MaxServers=1; OverallTimeoutSeconds=$TimeoutSeconds; PerServerTimeoutSeconds=$TimeoutSeconds
++        }
++    }
++    catch { $passwordCopy.Dispose(); throw }
++}
++
++function Test-AdccCredentialBind {
++    [CmdletBinding()]
++    param(
++        [Parameter(Mandatory=$true)][string]$UserName,
++        [Parameter(Mandatory=$true)][System.Security.SecureString]$Password,
++        [string]$Operation = 'Test du compte',
++        [ValidateRange(2,45)][int]$TimeoutSeconds = 8
++    )
++    # R1.4 : plus de LdapConnection + NetworkCredential(user,password) distinct
++    # du login ADSI. Le meme worker, la meme identite et le meme DC sont utilises.
++    # Une attente bornee remplace le bind natif synchrone sans limite ADSI propre.
++    if ($null -ne $script:AccountCredentialTestSession) {
++        $pending = $script:AccountCredentialTestSession
++        if (-not [bool]$pending.Cleaned -and $null -ne $pending.AsyncResult -and -not [bool]$pending.AsyncResult.IsCompleted) {
++            throw 'Le test precedent termine encore son appel Windows. Aucun nouvel essai envoye. Attends son nettoyage avant de retester.'
++        }
++        Stop-AdccLoginAuthRunspace -Session $pending -Terminate
++        $script:AccountCredentialTestSession = $null
++    }
++    $request = New-AdccAccountAuthRequest -UserName $UserName -Password $Password -TimeoutSeconds $TimeoutSeconds
++    $session = $null
++    $user = [string]$request.Login
++    $server = [string]$request.ConfiguredServer
++    try {
++        Add-AdccUiLog -Area 'Comptes' -Level 'INFO' -Text "$Operation : validation de $user sur $server avec le moteur du login ADSI. Un seul controleur, aucune variante automatique."
++        $session = Start-AdccLoginAuthRunspace -Request $request
++        $script:AccountCredentialTestSession = $session
++        if (-not $session.AsyncResult.AsyncWaitHandle.WaitOne([TimeSpan]::FromSeconds($TimeoutSeconds))) {
++            throw [System.TimeoutException]::new("Delai de validation AD depasse (${TimeoutSeconds}s) sur $server. Aucun compte modifie ; ce delai ne prouve pas que le mot de passe est incorrect.")
++        }
++        $result = Read-AdccAuthRunspaceResult -Session $session
++        if ($null -eq $result -or -not [bool]$result.Success) {
++            $detail = if ($null -ne $result) { [string]$result.Error } else { 'Aucun resultat retourne.' }
++            if ([string]::IsNullOrWhiteSpace($detail)) { $detail = 'Validation AD non confirmee.' }
++            throw [System.InvalidOperationException]::new("Validation ADSI refusee sur $server : $detail")
++        }
++        $bindUser = ([string]$result.BindUser).Trim()
++        if ([string]::IsNullOrWhiteSpace($bindUser)) { throw 'Le moteur du login n a pas retourne l identite validee. Aucun compte modifie.' }
++        if ([string]$result.AuthMode -ne 'Explicit' -or [string]$result.AuthMethod -ne 'ADSI.DirectoryEntry+ContextDiscovery') {
++            throw 'Le moteur n a pas confirme une authentification ADSI explicite. Aucun compte modifie.'
++        }
++        $message = "$Operation : identite AD validee ($bindUser) via $($result.Server) en $($result.DurationMs) ms. Droits WMI/SMB et droits de lecture des secrets non testes."
++        Add-AdccUiLog -Area 'Comptes' -Level 'INFO' -Text $message
+         Set-Status $message
+-        return [pscustomobject]@{ Success=$true; User=$user; Server=$server; DurationMs=$watch.ElapsedMilliseconds; Detail=$message }
++        return [pscustomobject]@{
++            Success=$true; User=$bindUser; BindUser=$bindUser; Server=[string]$result.Server
++            BaseDn=[string]$result.BaseDn; AuthMethod=[string]$result.AuthMethod
++            DurationMs=[long]$result.DurationMs; Detail=$message
++        }
+     }
+     catch {
+-        $info = ConvertTo-AdccErrorInfo -ErrorRecordOrException $_ -Operation $Operation
+-        Add-AdccUiLog -Area "Comptes" -Level "ERROR" -Text "$Operation : $($info.Technical)"
+-        throw $info.Friendly
++        # Ne jamais journaliser la requete/PSCredential ni le mot de passe.
++        Add-AdccUiLog -Area 'Comptes' -Level 'ERROR' -Text "$Operation : $($_.Exception.Message)"
++        throw
+     }
+     finally {
+-        $plain = ""
+-        try { if ($null -ne $connection) { $connection.Dispose() } } catch { }
+-    }
++        if ($null -ne $session) {
++            # Un resultat tardif apres timeout n est jamais applique a un compte.
++            $completed = [bool]$session.AsyncResult.IsCompleted
++            Stop-AdccLoginAuthRunspace -Session $session -Terminate
++            if ($completed -or [bool]$session.Cleaned) { $script:AccountCredentialTestSession = $null }
++        }
++        $request = $null
++    }
++}
++
++function Test-AdccActiveDirectoryCredential {
++    [CmdletBinding()]
++    param([string]$UserName)
++    $credential = $script:Conn.Credential
++    if ($null -eq $credential) { throw 'Aucun compte AD explicite actif. Utilise Relogger...' }
++    $activeUser = ([string]$credential.UserName).Trim()
++    $requestedUser = ([string]$UserName).Trim()
++    if ([string]::IsNullOrWhiteSpace($requestedUser)) { throw 'Identifiant AD vide.' }
++    $sameIdentity = ($requestedUser -ieq $activeUser)
++    if (-not $sameIdentity -and -not $requestedUser.Contains('\') -and -not $requestedUser.Contains('@')) {
++        $netbios = ([string]$script:Conn.Netbios).Trim()
++        $sameIdentity = (-not [string]::IsNullOrWhiteSpace($netbios) -and ("$netbios\$requestedUser" -ieq $activeUser))
++    }
++    if (-not $sameIdentity) {
++        throw 'Le champ identifiant AD a ete modifie. Utilise Utiliser / relogger pour ce nouveau compte. Le mot de passe de la session active ne sera jamais teste sous un autre nom.'
++    }
++    return Test-AdccCredentialBind -UserName $activeUser -Password $credential.Password -Operation 'Test compte AD'
+ }
+ 
+ function Update-AdccAccountUi {
+@@ -17701,37 +17775,46 @@
+ }
+ 
+ function Save-AdccSecondaryCredential {
++    [CmdletBinding()]
+     param(
+-        [ValidateSet("Remote","Secrets")][string]$Scope,
++        [ValidateSet('Remote','Secrets')][string]$Scope,
+         [string]$UserName,
+-        [string]$Password
++        [System.Security.SecureString]$Password
+     )
+     $user = ([string]$UserName).Trim()
+-    if ([string]::IsNullOrWhiteSpace($user)) { throw "Identifiant vide." }
+-    if ([string]::IsNullOrWhiteSpace($Password)) { throw "Mot de passe vide." }
+-    $secure = ConvertTo-AdccSecureString -Text $Password
+-    try {
+-        $test = Test-AdccCredentialBind -UserName $user -Password $secure -Operation ("Test compte " + $Scope)
+-        $cred = New-Object System.Management.Automation.PSCredential -ArgumentList @($user,$secure)
+-        if ($Scope -eq "Remote") {
++    if ([string]::IsNullOrWhiteSpace($user)) { throw 'Identifiant vide.' }
++    if ($null -eq $Password -or $Password.Length -eq 0) { throw 'Mot de passe vide.' }
++    $secure = $Password.Copy()
++    $committed = $false
++    try {
++        $secure.MakeReadOnly()
++        $test = Test-AdccCredentialBind -UserName $user -Password $secure -Operation ('Test compte ' + $Scope)
++        if ($null -eq $test -or -not [bool]$test.Success -or [string]::IsNullOrWhiteSpace([string]$test.User)) {
++            throw 'Activation refusee : aucune identite AD validee.'
++        }
++        # Conserver le nom EXACT retourne par le login, pas le nom court saisi.
++        $user = [string]$test.User
++        $cred = [System.Management.Automation.PSCredential]::new($user,$secure)
++        if ($Scope -eq 'Remote') {
++            Set-AdccSetting -Name 'RemoteCredentialUser' -Value $user
+             $script:RemoteAdminCredential = $cred
+-            Set-AdccSetting -Name "RemoteCredentialUser" -Value $user
+         } else {
++            Set-AdccSetting -Name 'SecretsCredentialUser' -Value $user
+             $script:SecretsCredential = $cred
+-            Set-AdccSetting -Name "SecretsCredentialUser" -Value $user
+-        }
+-        if ($Scope -eq "Remote") {
+-            $pwd = Get-AdccControl -Name "PwdAccountRemote"
+-            if ($null -ne $pwd) { $pwd.Password = "" }
+-        } else {
+-            $pwd = Get-AdccControl -Name "PwdAccountSecrets"
+-            if ($null -ne $pwd) { $pwd.Password = "" }
+-        }
+-        Add-AdccUiLog -Area "Comptes" -Level "INFO" -Text ("Compte $Scope active : $user. Mot de passe conserve uniquement en memoire.")
+-        Set-Status "Compte $Scope actif : $user."
++        }
++        $committed = $true
++        $passwordControl = if ($Scope -eq 'Remote') { 'PwdAccountRemote' } else { 'PwdAccountSecrets' }
++        $pwd = Get-AdccControl -Name $passwordControl
++        if ($null -ne $pwd) { $pwd.Password = '' }
++        Add-AdccUiLog -Area 'Comptes' -Level 'INFO' -Text "Compte $Scope active : $user. Identite validee par le moteur du login ; droits sur la ressource a verifier. Mot de passe uniquement en memoire."
++        Set-Status "Compte $Scope actif : $user. Les prochaines operations utiliseront ce compte."
+         Update-AdccAccountUi
+     }
+-    catch { throw }
++    finally {
++        # En cas de refus, l'ancien compte actif est conserve. La copie privee du
++        # worker est distincte : ce Dispose ne touche jamais un bind en cours.
++        if (-not $committed) { $secure.Dispose() }
++    }
+ }
+ 
+ function Clear-AdccSecondaryCredential {
+@@ -17867,12 +17950,7 @@
+         $script:Ctrl["BtnAccountAdTest"].Add_Click({
+             try {
+                 $u = ([string]$script:Ctrl["TxtAccountAdUser"].Text).Trim()
+-                if ([string]::IsNullOrWhiteSpace($u)) { throw "Identifiant AD vide." }
+-                # Le bouton Tester ne doit pas demander un second mot de passe :
+-                # il teste uniquement le compte deja actif dans la session.
+-                if ($null -eq $script:Conn.Credential) { throw "Aucun credential AD explicite actif. Utilise Relogger..." }
+-                $p = $script:Conn.Credential.Password
+-                [void](Test-AdccCredentialBind -UserName $u -Password $p -Operation "Test compte AD")
++                [void](Test-AdccActiveDirectoryCredential -UserName $u)
+             } catch { [void](Show-AdccOperationError -Operation "Test compte AD" -ErrorRecordOrException $_) }
+         })
+     }
+@@ -17895,7 +17973,7 @@
+     if ($script:Ctrl.ContainsKey("BtnAccountRemoteSave")) {
+         $script:Ctrl["BtnAccountRemoteSave"].Add_Click({
+             try {
+-                Save-AdccSecondaryCredential -Scope Remote -UserName ([string]$script:Ctrl["TxtAccountRemoteUser"].Text) -Password ([string]$script:Ctrl["PwdAccountRemote"].Password)
++                Save-AdccSecondaryCredential -Scope Remote -UserName ([string]$script:Ctrl["TxtAccountRemoteUser"].Text) -Password ($script:Ctrl["PwdAccountRemote"].SecurePassword)
+             } catch { [void](Show-AdccOperationError -Operation "Activation compte Remote" -ErrorRecordOrException $_) }
+         })
+     }
+@@ -17914,7 +17992,7 @@
+     if ($script:Ctrl.ContainsKey("BtnAccountSecretsSave")) {
+         $script:Ctrl["BtnAccountSecretsSave"].Add_Click({
+             try {
+-                Save-AdccSecondaryCredential -Scope Secrets -UserName ([string]$script:Ctrl["TxtAccountSecretsUser"].Text) -Password ([string]$script:Ctrl["PwdAccountSecrets"].Password)
++                Save-AdccSecondaryCredential -Scope Secrets -UserName ([string]$script:Ctrl["TxtAccountSecretsUser"].Text) -Password ($script:Ctrl["PwdAccountSecrets"].SecurePassword)
+             } catch { [void](Show-AdccOperationError -Operation "Activation compte Secrets" -ErrorRecordOrException $_) }
+         })
+     }
+@@ -18276,7 +18354,7 @@
+ # ADCC_MASTER_LAST_V1 = TRUE
+ $script:Version = "1.0"
+ $script:AppName = "Active Directory Control Center"
+-$script:MasterBuild = "2026.09.21-R1.3-LASTUSER"
++$script:MasterBuild = "2026.09.21-R1.4-ACCOUNTS"
+ $script:ActiveWriteTaskId = ""
+ $script:WriteState = "Idle"
+ $script:UnknownWriteTargetDn = ""
+@@ -19906,6 +19984,12 @@
+ 
+ function Dispose-AsyncEngine {
+     $script:AsyncEngineClosing = $true
++    try {
++        if ($null -ne $script:AccountCredentialTestSession) {
++            Stop-AdccLoginAuthRunspace -Session $script:AccountCredentialTestSession -Terminate
++            $script:AccountCredentialTestSession = $null
++        }
++    } catch { }
+     try { Stop-AdccSelectionOpenTimer } catch { }
+     try { Clear-AdccTreeRenderJobs } catch { }
+     foreach ($timerName in @('AsyncTimer','TreeRenderTimer','SelectionOpenTimer','SettingsTimer','SecretLifetimeTimer','SecretRevealTimer','SecretClipboardTimer','LinkProbeTimer','LiveSearchTimer','IndexFlushTimer','DashboardRefreshTimer')) {
+@@ -19980,7 +20064,8 @@
+         BaseDn = [string]$script:Conn.BaseDn
+         Domain = [string]$script:Conn.Domain
+         Netbios = [string]$script:Conn.Netbios
+-        BindUser = [string]$script:Conn.BindUser
++        # Un compte Secrets dedie ne doit jamais recevoir le nom du compte AD.
++        BindUser = if ($null -ne $workerDirectoryCredential) { [string]$workerDirectoryCredential.UserName } else { [string]$script:Conn.BindUser }
+         Credential = $workerDirectoryCredential
+         PageSize = [int](Get-CfgValue "Browser" "MaxPageSize" 300)
+         AdModuleSources = @($static.AdModuleSources)
+@@ -21806,7 +21891,7 @@
+ # Le login effectue un bind LDAP reel, lit RootDSE et valide la base detectee
+ # dans un runspace borne afin que le thread WPF ne soit jamais bloque.
+ # =====================================================================
+-$script:AdccBuild = "ADCC 1.0 R1.1 THEME"
++$script:AdccBuild = "ADCC 1.0 R1.4 ACCOUNTS"
+ $script:FastLoginUi = $null
+ $script:FastLoginState = $null
+ $script:FastLoginTimer = $null

@@ -1,0 +1,443 @@
+--- R1.7/ADCC-Core.ps1
++++ R1.7.1/ADCC-Core.ps1
+@@ -15933,6 +15933,95 @@
+         }
+     }
+ 
++
++    function Get-AuthOptionalFlag {
++        param($Object,[string]$Name)
++        if ($null -eq $Object) { return $false }
++        if ($Object -is [System.Collections.IDictionary]) {
++            if (-not $Object.Contains($Name)) { return $false }
++            return ($Object[$Name] -eq $true)
++        }
++        # Do not index a possibly absent PSObject.Properties collection.
++        foreach ($property in $Object.PSObject.Properties) {
++            if ($null -ne $property -and $property.Name -eq $Name) {
++                return ($property.Value -eq $true)
++            }
++        }
++        return $false
++    }
++
++    function Get-AuthAdsiAttributeFirst {
++        param([AllowNull()]$Entry,[Parameter(Mandatory=$true)][string]$Name)
++        if ($null -eq $Entry) {
++            throw [System.InvalidOperationException]::new('ADCC_AUTH_ENTRY_NULL : objet ADSI absent.')
++        }
++        # PSBase selects the CLR members, not an adapted directory attribute.
++        $properties = $Entry.psbase.Properties
++        if ($null -eq $properties) {
++            throw [System.InvalidOperationException]::new('ADCC_AUTH_PROPERTIES_NULL : collection ADSI absente.')
++        }
++        $values = $properties[$Name]
++        if ($null -eq $values -or $values.Count -eq 0) { return '' }
++        $value = $values[0]
++        if ($null -eq $value) { return '' }
++        return [string]$value
++    }
++
++    function Read-AuthAdsiBase {
++        param([AllowNull()]$Entry)
++        if ($null -eq $Entry) {
++            throw [System.InvalidOperationException]::new('ADCC_AUTH_ENTRY_NULL : base ADSI absente.')
++        }
++        # A refresh failure must remain the original failure. Never replace it
++        # with a second, unguarded Properties[...] read in a catch block.
++        $Entry.psbase.RefreshCache([string[]]@('distinguishedName'))
++        $dn = Get-AuthAdsiAttributeFirst -Entry $Entry -Name 'distinguishedName'
++        if ([string]::IsNullOrWhiteSpace($dn)) {
++            throw [System.InvalidOperationException]::new('ADCC_AUTH_METADATA_MISSING : distinguishedName absent apres lecture de la base AD.')
++        }
++        return $dn
++    }
++
++    function Get-AuthFailureDiagnostic {
++        param($Record,[string]$Stage,[string]$ServerName,[bool]$CredentialAttempted=$false)
++        $errorId=''; $line=0; $stack=''; $exceptionType=''; $hresult=''
++        try { $errorId=[string]$Record.FullyQualifiedErrorId } catch { }
++        try { $line=[int]$Record.InvocationInfo.ScriptLineNumber } catch { }
++        try { $stack=[string]$Record.ScriptStackTrace } catch { }
++        try {
++            $deep=Get-DeepestException -ErrorRecord $Record
++            if ($null -ne $deep) {
++                $exceptionType=$deep.GetType().FullName
++                $hresult=('0x{0:X8}' -f $deep.HResult)
++            }
++        } catch { }
++        # Fixed whitelist: no Request, Credential, invocation source or fields.
++        return [pscustomobject]@{
++            Stage=$Stage; Server=$ServerName; CredentialAttempted=$CredentialAttempted
++            ErrorId=$errorId; ExceptionType=$exceptionType; HResult=$hresult
++            WorkerLine=$line; Stack=$stack
++        }
++    }
++
++    function Get-AuthFailureCategory {
++        param($Record,[string]$Detail,[string]$Stage)
++        $id=''; try { $id=[string]$Record.FullyQualifiedErrorId } catch { }
++        $deep=Get-DeepestException -ErrorRecord $Record
++        if ($id -match '(?i)NullArray|NullReference|IndexOutOfRange|PropertyNotFound|MethodNotFound' -or
++            $Detail -match '(?i)ADCC_AUTH_(ENTRY|PROPERTIES|NATIVE)_NULL|Cannot index into a null array|Indexation impossible dans un tableau Null' -or
++            $deep -is [System.NullReferenceException] -or $deep -is [System.IndexOutOfRangeException]) {
++            return 'Internal'
++        }
++        if ($Detail -match '(?i)ADCC_AUTH_METADATA_MISSING|defaultNamingContext absent') { return 'Metadata' }
++        $nativeCode=''; try { $nativeCode=('0x{0:X8}' -f $deep.HResult) } catch { }
++        if ($deep -is [System.UnauthorizedAccessException] -or $nativeCode -eq '0x80070005' -or
++            $Detail -match '(?i)access[ _-]?denied|acc[eè]s.*refus[eé]|insufficient access rights') { return 'AccessDenied' }
++        if ($Detail -match '(?i)identifiant|mot de passe|compte.*verrouill|compte.*desactiv|compte.*expir|ouvrir une session') { return 'Credentials' }
++        if ($deep -is [System.TimeoutException] -or $Detail -match '(?i)timeout|delai depasse') { return 'Timeout' }
++        if ($Stage -like 'Preparation*') { return 'Internal' }
++        return 'DomainUnavailable'
++    }
++
+     function Get-LdapAttributeFirst {
+         param($Entry,[string]$Name)
+         try {
+@@ -16014,6 +16103,7 @@
+         if ($code -eq 81 -or $messageText -match "(?i)server.*not operational|cannot contact|unavailable|connexion.*impossible|nom de serveur.*introuvable|no such host") { return "Controleur $ServerName injoignable." }
+         if ($code -eq 85 -or $messageText -match "(?i)time.?out|delai|delai|operation.*expir") { return "Timeout LDAP sur $ServerName." }
+         if ([string]::IsNullOrWhiteSpace($messageText) -or $messageText -eq "0") { return "Echec LDAP sans detail sur $ServerName (code $code)." }
++        if ($code -lt 0) { return "$messageText (ADSI/PowerShell, serveur=$ServerName)" }
+         return "$messageText (LDAP=$code, serveur=$ServerName)"
+     }
+ 
+@@ -16031,12 +16121,14 @@
+             [string]$Error="",
+             [string]$ErrorCategory="",
+             [int]$Attempts=0,
+-            [long]$DurationMs=0
++            [long]$DurationMs=0,
++            $Diagnostic=$null
+         )
+         [pscustomobject]@{
+             Success=$Success; BindUser=$BindUser; AuthMode=$AuthMode; AuthMethod=$AuthMethod
+             BaseDn=$BaseDn; Server=$Server; Domain=$Domain; Netbios=$Netbios; RootPath=$RootPath
+             Error=$Error; ErrorCategory=$ErrorCategory; Attempts=$Attempts; DurationMs=$DurationMs
++            Diagnostic=$(if ($Success) { $null } elseif ($null -ne $Diagnostic) { $Diagnostic } else { $lastFailure })
+             InProcess=$true; WorkerThreadId=[System.Threading.Thread]::CurrentThread.ManagedThreadId
+             Apartment=[System.Threading.Thread]::CurrentThread.GetApartmentState().ToString()
+         }
+@@ -16089,13 +16181,17 @@
+     }
+ 
+     $watch = [System.Diagnostics.Stopwatch]::StartNew()
+-    try {
+-        if ($null -ne $Request.PSObject.Properties["SelfTestOnly"] -and [bool]$Request.SelfTestOnly) {
++    $authStage = 'Preparation.Request'
++    $lastFailure = $null
++    $lastCategory = 'DomainUnavailable'
++    try {
++        if (Get-AuthOptionalFlag -Object $Request -Name 'SelfTestOnly') {
+             Set-AuthProgress -Stage "Auto-test" -Detail "Runspace d authentification interne operationnel."
+             $watch.Stop()
+             return New-AuthResult -Success $true -AuthMode "SelfTest" -AuthMethod "InProcess.Runspace" -DurationMs $watch.ElapsedMilliseconds
+         }
+ 
++        $authStage = 'Preparation.Assemblies'
+         Add-Type -AssemblyName System.DirectoryServices.Protocols -ErrorAction Stop | Out-Null
+         $useCurrentCredentials = [bool]$Request.UseCurrentCredentials
+         $rawLogin = ([string]$Request.Login).Trim()
+@@ -16114,6 +16210,7 @@
+             catch { }
+         }
+ 
++        $authStage = 'Discovery.Candidates'
+         $configuredBase = ([string]$Request.ConfiguredBase).Trim()
+         $configuredServer = ([string]$Request.ConfiguredServer).Trim().TrimStart([char]92).TrimEnd(".")
+         $domainHint = ([string]$Request.Domain).Trim()
+@@ -16182,15 +16279,19 @@
+                         # la session Windows courante suffit pour lire ces metadonnees, meme si le
+                         # compte administratif saisi est different.
+                         $rootPath = "LDAP://$serverName/RootDSE"
++                        $authStage = 'Discovery.NativeBind'
+                         $discoveryRoot = New-Object System.DirectoryServices.DirectoryEntry -ArgumentList @($rootPath)
+-                        $null = $discoveryRoot.NativeObject
++                        $nativeRoot = $discoveryRoot.psbase.NativeObject
++                        if ($null -eq $nativeRoot) { throw [System.InvalidOperationException]::new('ADCC_AUTH_NATIVE_NULL : RootDSE non valide.') }
++                        $nativeRoot = $null
++                        $authStage = 'Discovery.RootDSE' 
+ 
+                         $detectedBase = ""
+                         $configurationNc = ""
+                         $detectedDc = ""
+-                        try { $detectedBase = [string]$discoveryRoot.Properties["defaultNamingContext"][0] } catch { }
+-                        try { $configurationNc = [string]$discoveryRoot.Properties["configurationNamingContext"][0] } catch { }
+-                        try { $detectedDc = [string]$discoveryRoot.Properties["dnsHostName"][0] } catch { }
++                        $detectedBase = Get-AuthAdsiAttributeFirst -Entry $discoveryRoot -Name 'defaultNamingContext'
++                        $configurationNc = Get-AuthAdsiAttributeFirst -Entry $discoveryRoot -Name 'configurationNamingContext'
++                        $detectedDc = Get-AuthAdsiAttributeFirst -Entry $discoveryRoot -Name 'dnsHostName'
+ 
+                         # Si un serveur logique (ex. CNAMTS.LOCAL) ne renvoie pas RootDSE, on peut
+                         # essayer le candidat suivant SANS utiliser le mot de passe explicite.
+@@ -16205,6 +16306,7 @@
+                         # Resoudre UNE identite canonique avant le bind. Un sAMAccountName court
+                         # est qualifie une seule fois avec le NETBIOS connu du domaine. On ne tente
+                         # aucune succession raw / DOMAIN\\user / user@domain.
++                        $authStage = 'Identity.Resolve'
+                         $detectedNetbios = $netbiosHint
+                         try {
+                             if ([string]::IsNullOrWhiteSpace($detectedNetbios) -and
+@@ -16228,6 +16330,7 @@
+                         $basePath = "LDAP://$selectedServer/$effectiveBase"
+                         Set-AuthProgress -Stage "Authentification Active Directory" -Detail "Validation unique du compte sur $selectedServer"
+ 
++                        $authStage = 'Explicit.NativeBind'
+                         $explicitBindAttempted = $true
+                         $baseAdsi = New-Object System.DirectoryServices.DirectoryEntry -ArgumentList @(
+                             $basePath,
+@@ -16237,8 +16340,12 @@
+                         )
+                         # NativeObject force reellement le bind. RefreshCache force ensuite une
+                         # lecture minimale sur la base pour eviter un faux positif paresseux ADSI.
+-                        $null = $baseAdsi.NativeObject
+-                        try { $baseAdsi.RefreshCache([string[]]@("distinguishedName")) } catch { $null = $baseAdsi.Properties["distinguishedName"].Value }
++                        $nativeBase = $baseAdsi.psbase.NativeObject
++                        if ($null -eq $nativeBase) { throw [System.InvalidOperationException]::new('ADCC_AUTH_NATIVE_NULL : authentification ADSI non confirmee.') }
++                        $nativeBase = $null
++                        $authStage = 'Explicit.ReadBase'
++                        Set-AuthProgress -Stage "Lecture de la base AD" -Detail "Verification de la lecture apres authentification sur $selectedServer"
++                        [void](Read-AuthAdsiBase -Entry $baseAdsi)
+ 
+                         Set-AuthProgress -Stage "Termine" -Detail "Contexte AD valide sur $selectedServer"
+                         $watch.Stop()
+@@ -16248,16 +16355,20 @@
+                         return New-AuthResult -Success $true -BindUser $bindLogin -AuthMode "Explicit" -AuthMethod "ADSI.DirectoryEntry+ContextDiscovery" -BaseDn $effectiveBase -Server $selectedServer -Domain $detectedDomain -Netbios $detectedNetbios -RootPath "LDAP://$selectedServer/$effectiveBase" -Attempts 1 -DurationMs $watch.ElapsedMilliseconds
+                     }
+                     catch {
+-                        $detail = Format-LdapError -ErrorRecord $_ -ServerName ([string]$serverName)
+-
+-                        if ($explicitBindAttempted) {
++                        $failure = $_
++                        $failureServer = if ($explicitBindAttempted) { [string]$selectedServer } else { [string]$serverName }
++                        $lastFailure = Get-AuthFailureDiagnostic -Record $failure -Stage $authStage -ServerName $failureServer -CredentialAttempted $explicitBindAttempted
++                        $detail = Format-LdapError -ErrorRecord $failure -ServerName $failureServer
++                        $category = Get-AuthFailureCategory -Record $failure -Detail $detail -Stage $authStage
++                        $lastCategory = $category
++
++                        if ($explicitBindAttempted -or $category -eq 'Internal') {
+                             # Une fois le mot de passe envoye UNE fois, ne jamais essayer un autre DC.
+                             # Qu'il s'agisse d'un refus d'identite ou d'une panne reseau apres bind,
+                             # l'utilisateur pourra relancer volontairement. ADCC ne multiplie pas les essais.
+                             $watch.Stop()
+-                            $category = if ($detail -match "(?i)identifiant|mot de passe|compte.*verrouill|compte.*desactiv|compte.*desactiv|compte.*expir|changer de mot de passe|ouvrir une session") { "Credentials" } else { "DomainUnavailable" }
+                             Set-AuthProgress -Stage "Termine" -Detail $detail
+-                            return New-AuthResult -Success $false -AuthMode "Explicit" -AuthMethod "ADSI.DirectoryEntry+ContextDiscovery" -Error $detail -ErrorCategory $category -Server ([string]$serverName) -Attempts 1 -DurationMs $watch.ElapsedMilliseconds
++                            return New-AuthResult -Success $false -AuthMode "Explicit" -AuthMethod "ADSI.DirectoryEntry+ContextDiscovery" -Error $detail -ErrorCategory $category -Server ([string]$serverName) -Attempts ([int]$explicitBindAttempted) -DurationMs $watch.ElapsedMilliseconds
+                         }
+ 
+                         # Ici aucun mot de passe explicite n'a encore ete utilise. On peut donc
+@@ -16267,13 +16378,14 @@
+                     }
+                     finally {
+                         $plainPassword = ""
+-                        try { if ($null -ne $baseAdsi) { $baseAdsi.Dispose() } } catch { }
+-                        try { if ($null -ne $discoveryRoot) { $discoveryRoot.Dispose() } } catch { }
++                        try { if ($null -ne $baseAdsi) { $baseAdsi.psbase.Dispose() } } catch { }
++                        try { if ($null -ne $discoveryRoot) { $discoveryRoot.psbase.Dispose() } } catch { }
+                     }
+                 }
+ 
+                 # La session Windows continue d'utiliser LDAP.Protocols avec
+                 # Negotiate, puisqu'aucun mot de passe explicite n'est fourni.
++                $authStage = 'Windows.NativeBind'
+                 $isFullyQualified = ([string]$serverName).Contains(".")
+                 $identifier = New-Object System.DirectoryServices.Protocols.LdapDirectoryIdentifier -ArgumentList @([string]$serverName,389,$isFullyQualified,$false)
+                 $connection = New-Object System.DirectoryServices.Protocols.LdapConnection -ArgumentList @($identifier)
+@@ -16306,6 +16418,9 @@
+                 )
+                 $rootResponse = [System.DirectoryServices.Protocols.SearchResponse]$connection.SendRequest($rootRequest)
+                 if ($rootResponse.Entries.Count -lt 1) { throw "RootDSE ne retourne aucune entree." }
++                if ($null -eq $rootResponse -or $null -eq $rootResponse.Entries -or $rootResponse.Entries.Count -eq 0) {
++                    throw [System.InvalidOperationException]::new('ADCC_AUTH_METADATA_MISSING : reponse RootDSE vide.')
++                }
+                 $rootEntry = $rootResponse.Entries[0]
+                 $detectedBase = Get-LdapAttributeFirst -Entry $rootEntry -Name "defaultNamingContext"
+                 if ([string]::IsNullOrWhiteSpace($detectedBase)) { throw "RootDSE ne retourne aucun defaultNamingContext." }
+@@ -16336,20 +16451,28 @@
+                 $watch.Stop()
+                 return New-AuthResult -Success $true -BindUser $bindIdentity -AuthMode $(if($useCurrentCredentials){"Windows"}else{"Explicit"}) -AuthMethod "LDAP.Protocols.Negotiate+RootDSE" -BaseDn $effectiveBase -Server $selectedServer -Domain $detectedDomain -Netbios $detectedNetbios -RootPath "LDAP://$selectedServer/$effectiveBase" -Attempts $attempt -DurationMs $watch.ElapsedMilliseconds
+             }
+-            catch { $lastError = Format-LdapError -ErrorRecord $_ -ServerName ([string]$serverName) }
++            catch {
++                $failure = $_
++                $lastFailure = Get-AuthFailureDiagnostic -Record $failure -Stage $authStage -ServerName ([string]$serverName)
++                $lastError = Format-LdapError -ErrorRecord $failure -ServerName ([string]$serverName)
++                $lastCategory = Get-AuthFailureCategory -Record $failure -Detail $lastError -Stage $authStage
++                if ($lastCategory -eq 'Internal') { break }
++            }
+             finally { try { if ($null -ne $connection) { $connection.Dispose() } } catch { } }
+         }
+ 
+         $watch.Stop()
+-        return New-AuthResult -Success $false -AuthMode $(if($useCurrentCredentials){"Windows"}else{"Explicit"}) -AuthMethod "LDAP.Protocols.Negotiate+RootDSE" -Domain $domainHint -Netbios $netbiosHint -Error $lastError -ErrorCategory "DomainUnavailable" -Attempts $attempt -DurationMs $watch.ElapsedMilliseconds
++        return New-AuthResult -Success $false -AuthMode $(if($useCurrentCredentials){"Windows"}else{"Explicit"}) -AuthMethod "LDAP.Protocols.Negotiate+RootDSE" -Domain $domainHint -Netbios $netbiosHint -Error $lastError -ErrorCategory $lastCategory -Attempts $attempt -DurationMs $watch.ElapsedMilliseconds
+     }
+     catch {
+         $watch.Stop()
+         $serverForError = ""
+         try { $serverForError = [string]$Request.ConfiguredServer } catch { }
+         if([string]::IsNullOrWhiteSpace($serverForError)){ $serverForError = "Active Directory" }
+-        $friendly = Format-LdapError -ErrorRecord $_ -ServerName $serverForError
+-        $cat = if($friendly -match "(?i)identifiant|mot de passe|verrouill|desactiv|desactiv|expir"){"Credentials"}else{"Unhandled"}
++        $failure = $_
++        $lastFailure = Get-AuthFailureDiagnostic -Record $failure -Stage $authStage -ServerName $serverForError
++        $friendly = Format-LdapError -ErrorRecord $failure -ServerName $serverForError
++        $cat = Get-AuthFailureCategory -Record $failure -Detail $friendly -Stage $authStage
+         return New-AuthResult -Success $false -AuthMode $(if([bool]$Request.UseCurrentCredentials){"Windows"}else{"Explicit"}) -AuthMethod "LDAP.Protocols.Negotiate+RootDSE" -Error $friendly -ErrorCategory $cat -DurationMs $watch.ElapsedMilliseconds
+     }
+ 
+@@ -18226,7 +18349,7 @@
+ # ADCC_MASTER_LAST_V1 = TRUE
+ $script:Version = "1.0"
+ $script:AppName = "Active Directory Control Center"
+-$script:MasterBuild = "2026.09.21-R1.7-SIDEBAR"
++$script:MasterBuild = "2026.09.22-R1.7.1-LOGIN"
+ $script:ActiveWriteTaskId = ""
+ $script:WriteState = "Idle"
+ $script:UnknownWriteTargetDn = ""
+@@ -21774,7 +21897,7 @@
+ # Le login effectue un bind LDAP reel, lit RootDSE et valide la base detectee
+ # dans un runspace borne afin que le thread WPF ne soit jamais bloque.
+ # =====================================================================
+-$script:AdccBuild = "ADCC 1.0 R1.7 INTERFACE GUIDEE"
++$script:AdccBuild = "ADCC 1.0 R1.7.1 CONNEXION"
+ $script:FastLoginUi = $null
+ $script:FastLoginState = $null
+ $script:FastLoginTimer = $null
+@@ -22016,6 +22139,11 @@
+     param([AllowNull()][string]$Message,[AllowNull()][string]$Category="")
+     $m=([string]$Message).Trim()
+     $c=([string]$Category).Trim()
++    if ($c -eq 'Internal' -or $m -match '(?i)NullArray|Indexation impossible dans un tableau Null|Cannot index into a null array|ADCC_AUTH_(ENTRY|PROPERTIES|NATIVE)_NULL') {
++        return 'Erreur interne pendant la connexion. Consulte le diagnostic.'
++    }
++    if ($c -eq 'Metadata') { return 'Lecture des informations AD incomplete. Consulte le diagnostic.' }
++    if ($c -eq 'AccessDenied') { return 'Acces refuse par AD. Consulte le diagnostic.' }
+     if($m -match "(?i)(52e|8007052e|0x8007052e|logon failure|unknown user name or bad password|user name or password is incorrect|username or password is incorrect|nom d.?utilisateur.*mot de passe.*incorrect|identifiant.*mot de passe.*incorrect|mot de passe.*incorrect|invalid credentials|credentials.*invalid)") {
+         return "Identifiant ou mot de passe incorrect."
+     }
+@@ -22033,6 +22161,20 @@
+     }
+     if([string]::IsNullOrWhiteSpace($m)){ return "Echec de validation du compte." }
+     return $m
++}
++
++function Get-AdccLoginFailureHint {
++    param([AllowNull()][string]$Category='', [AllowNull()][string]$Message='')
++    if ($Category -eq 'Internal' -or $Message -match '(?i)Erreur interne|NullArray|tableau Null|null array') {
++        return 'Ce defaut ne prouve pas un mauvais mot de passe. Ouvre le journal.'
++    }
++    if ($Category -eq 'Metadata') { return 'La lecture du domaine ou de la base a echoue. Ouvre le journal.' }
++    if ($Category -eq 'AccessDenied') { return 'Verifie les droits du compte sur la base AD. Details dans le journal.' }
++    if ($Message -eq 'Identifiant ou mot de passe incorrect.') { return 'Verifie les identifiants avant tout nouvel essai.' }
++    if ($Category -eq 'Credentials') { return 'Compte refuse : lis le motif avant de refaire un essai.' }
++    if ($Category -eq 'Input') { return 'Complete les informations demandees.' }
++    if ($Category -eq 'Timeout' -or $Category -eq 'DomainUnavailable') { return 'Verifie le reseau, le DNS ou le VPN. Details dans le journal.' }
++    return 'Ouvre le journal de connexion pour identifier l etape en echec.'
+ }
+ 
+ function Update-AdccFastLoginAttempt {
+@@ -22092,7 +22234,7 @@
+             Add-AdccFastLoginDetail $detail
+             $ui.Error.Foreground = (Get-AdccBootStatusColor -Kind "Error")
+             $ui.Error.Text = $friendly
+-            $ui.Stage.Text = if($friendly -eq "Identifiant ou mot de passe incorrect."){"Corrige l identifiant ou le mot de passe."}else{"Consulte ADCC-login.log."}
++            $ui.Stage.Text = Get-AdccLoginFailureHint -Message $friendly
+             $state.Session = $null
+             Complete-AdccLoginAuthRunspaceCleanup -Session $session
+             Set-AdccFastLoginBusy $false
+@@ -22110,9 +22252,19 @@
+             $message = Convert-AdccLoginFailureMessage -Message $rawMessage -Category $errorCategory
+             $ui.Error.Foreground = (Get-AdccBootStatusColor -Kind "Error")
+             $ui.Error.Text = $message
+-            $ui.Stage.Text = if($message -eq "Identifiant ou mot de passe incorrect."){"Corrige l identifiant ou le mot de passe."}else{"Corrige les informations ou utilise l autre mode de connexion."}
+-            Add-AdccFastLoginDetail $message
+-            Write-AdccFastLoginLog -Stage "LOGIN_ERROR" -Status "ERROR" -Detail $message -DurationMs $(if($null -ne $result){[long]$result.DurationMs}else{0})
++            $ui.Stage.Text = Get-AdccLoginFailureHint -Category $errorCategory -Message $message
++            # Keep the technical cause in the log, not only the shortened UI message.
++            Add-AdccFastLoginDetail $rawMessage
++            if ($null -ne $result) {
++                $diagnosticProperty = $result.PSObject.Properties['Diagnostic']
++                if ($null -ne $diagnosticProperty -and $null -ne $diagnosticProperty.Value) {
++                    $d = $diagnosticProperty.Value
++                    $diagnosticText = 'Category={0}; Stage={1}; ErrorId={2}; Type={3}; HResult={4}; WorkerLine={5}; CredentialAttempted={6}; Stack={7}' -f $errorCategory,$d.Stage,$d.ErrorId,$d.ExceptionType,$d.HResult,$d.WorkerLine,$d.CredentialAttempted,$d.Stack
++                    Add-AdccFastLoginDetail $diagnosticText
++                    Write-AdccFastLoginLog -Stage "LOGIN_DIAGNOSTIC" -Status "ERROR" -Detail $diagnosticText
++                }
++            }
++            Write-AdccFastLoginLog -Stage "LOGIN_ERROR" -Status "ERROR" -Detail $rawMessage -DurationMs $(if($null -ne $result){[long]$result.DurationMs}else{0})
+             Set-AdccFastLoginBusy $false
+             return
+         }
+@@ -22340,7 +22492,7 @@
+     return (Convert-AdccXamlToBootTheme -Xaml @"
+ <Window Foreground="{DynamicResource AdccBootText}" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+-        Title="Active Directory Control Center 1.0  Connexion" Width="480" MinWidth="480" Height="536" MinHeight="536" ResizeMode="NoResize"
++        Title="Active Directory Control Center 1.0  Connexion" Width="480" MinWidth="480" Height="612" MinHeight="612" ResizeMode="NoResize"
+         WindowStartupLocation="CenterScreen" Background="{DynamicResource AdccBootWindow}" FontFamily="Segoe UI" FontSize="12"
+         ShowInTaskbar="True" UseLayoutRounding="True" SnapsToDevicePixels="True">
+   <Window.Resources>
+@@ -22409,9 +22561,9 @@
+           <RowDefinition Height="31"/>
+           <RowDefinition Height="39"/>
+           <RowDefinition Height="31"/>
+-          <RowDefinition Height="62"/>
++          <RowDefinition Height="96"/>
+           <RowDefinition Height="50"/>
+-          <RowDefinition Height="0"/>
++          <RowDefinition Height="42"/>
+         </Grid.RowDefinitions>
+ 
+         <TextBlock Foreground="{DynamicResource AdccBootText}" Grid.Row="0" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="26" FontWeight="Bold">
+@@ -22438,18 +22590,18 @@
+                   Margin="2,9,0,0" Foreground="{DynamicResource AdccBootMuted}" VerticalAlignment="Top"/>
+ 
+         <!-- Zone reservee : les messages peuvent changer sans deplacer les boutons. -->
+-        <Border Grid.Row="8" Height="58" VerticalAlignment="Top" Margin="0,3,0,0" ClipToBounds="True">
++        <Border Grid.Row="8" Height="92" VerticalAlignment="Top" Margin="0,3,0,0" ClipToBounds="True">
+           <Grid>
+             <Grid.RowDefinitions>
+-              <RowDefinition Height="24"/>
+-              <RowDefinition Height="26"/>
++              <RowDefinition Height="42"/>
++              <RowDefinition Height="44"/>
+               <RowDefinition Height="6"/>
+             </Grid.RowDefinitions>
+             <TextBlock Grid.Row="0" x:Name="LblLoginError" Text="" Foreground="{DynamicResource AdccBootMuted}"
+-                       TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
++                       TextWrapping="Wrap" VerticalAlignment="Center"
+                        ToolTip="{Binding RelativeSource={RelativeSource Self}, Path=Text}"/>
+             <TextBlock Grid.Row="1" x:Name="LblLoginStage" Text="Pret." Foreground="{DynamicResource AdccBootAccentText}"
+-                       TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
++                       TextWrapping="Wrap" VerticalAlignment="Center"
+                        ToolTip="{Binding RelativeSource={RelativeSource Self}, Path=Text}"/>
+             <ProgressBar Grid.Row="2" x:Name="PbLogin" Height="4" IsIndeterminate="True"
+                          Visibility="Collapsed" VerticalAlignment="Center"/>
+@@ -22473,13 +22625,16 @@
+                   FontWeight="SemiBold" IsDefault="True"/>
+         </Grid>
+ 
+-        <!-- Controles techniques partages avec le mode Debug, totalement invisibles en mode Standard. -->
+-        <Grid Grid.Row="10" Height="0" Visibility="Collapsed">
+-          <TextBox x:Name="TxtLoginPasswordVisible"/>
+-          <Button x:Name="BtnRevealLogin" Content="👁" FontFamily="Segoe UI Emoji" FontSize="17" Width="52" ToolTip="Afficher le mot de passe."/>
+-          <TextBox x:Name="TxtLoginTechnical" IsReadOnly="True" AcceptsReturn="True"/>
+-          <Button x:Name="BtnLoginLog" Content="Ouvrir le journal"/>
+-          <Button x:Name="BtnCopyLoginDiag" Content="Copier le diagnostic"/>
++        <!-- Diagnostics accessibles sans mode Debug ; les secrets restent hors de ce panneau. -->
++        <Grid Grid.Row="10" Margin="0,8,0,0">
++          <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
++          <Button Grid.Column="0" x:Name="BtnLoginLog" Content="Ouvrir le journal" MinHeight="30" ToolTip="Ouvre ADCC-login.log : etapes et erreur technique de connexion."/>
++          <Button Grid.Column="2" x:Name="BtnCopyLoginDiag" Content="Copier le diagnostic" MinHeight="30" ToolTip="Copie le diagnostic technique sans reprendre les champs de mot de passe."/>
++          <Grid Visibility="Collapsed">
++            <TextBox x:Name="TxtLoginPasswordVisible"/>
++            <Button x:Name="BtnRevealLogin" Content="👁" FontFamily="Segoe UI Emoji" FontSize="17" Width="52" ToolTip="Afficher le mot de passe."/>
++            <TextBox x:Name="TxtLoginTechnical" IsReadOnly="True" AcceptsReturn="True"/>
++          </Grid>
+         </Grid>
+       </Grid>
+     </Border>

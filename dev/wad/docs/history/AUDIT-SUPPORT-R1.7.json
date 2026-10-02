@@ -1,0 +1,433 @@
+{
+  "Build": "2026.09.21-R1.7-SIDEBAR",
+  "SuiteOrigin": "R1.5 support model, R1.7 UI guard",
+  "Passed": 60,
+  "Failed": 0,
+  "NativePowerShellExecuted": false,
+  "WpfExecuted": false,
+  "ActiveDirectoryExecuted": false,
+  "NativeScenariosProvidedNotExecuted": 52,
+  "OptionalWpfScenarioProvidedNotExecuted": 1,
+  "Results": [
+    {
+      "Name": "Approximate lexical balance: model",
+      "Kind": "static-not-native",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 7.39
+    },
+    {
+      "Name": "Approximate lexical balance: adapter",
+      "Kind": "static-not-native",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 5.36
+    },
+    {
+      "Name": "Approximate lexical balance: native tests",
+      "Kind": "static-not-native",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 7.42
+    },
+    {
+      "Name": "No original core functions removed",
+      "Kind": "source-regression",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.09
+    },
+    {
+      "Name": "R1.7 core changes limited to 13 explicit UI integration functions",
+      "Kind": "source-regression",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 3.02
+    },
+    {
+      "Name": "Authentication probe, worker context and remote common text unchanged",
+      "Kind": "source-regression",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 3.26
+    },
+    {
+      "Name": "All new function names unique across modules and core",
+      "Kind": "source-regression",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.04
+    },
+    {
+      "Name": "Fixed module imports before application config load",
+      "Kind": "integration",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.66
+    },
+    {
+      "Name": "Atelier init cannot abort an otherwise healthy application init",
+      "Kind": "integration",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.01
+    },
+    {
+      "Name": "Relogin clears local atelier data",
+      "Kind": "integration",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.0
+    },
+    {
+      "Name": "Source hook accounts for cache and actual result Live flag",
+      "Kind": "integration",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.0
+    },
+    {
+      "Name": "Selected object metadata read without new LDAP or WMI operations",
+      "Kind": "privacy-boundary",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 1.05
+    },
+    {
+      "Name": "Only manual pin opener delegates to existing object read",
+      "Kind": "privacy-boundary",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.48
+    },
+    {
+      "Name": "Model has no disk, clipboard, WPF or network calls",
+      "Kind": "privacy-boundary",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.53
+    },
+    {
+      "Name": "29 positive fields, no dedicated secrets or arbitrary descriptions",
+      "Kind": "privacy-boundary",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.01
+    },
+    {
+      "Name": "Snapshots deep-copy primitive values and track coverage",
+      "Kind": "source-contract",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.01
+    },
+    {
+      "Name": "Comparisons reject unknown/partial coverage before computing removed groups",
+      "Kind": "source-contract",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.0
+    },
+    {
+      "Name": "No cross-scope or cross-type comparison",
+      "Kind": "source-contract",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.0
+    },
+    {
+      "Name": "Cache freshness never inferred from new capture time",
+      "Kind": "source-contract",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.0
+    },
+    {
+      "Name": "Lockout history not used as computed current lock",
+      "Kind": "source-contract",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.01
+    },
+    {
+      "Name": "No pseudo health score or automatic remediation API",
+      "Kind": "source-contract",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.96
+    },
+    {
+      "Name": "Text bounded before regular expressions",
+      "Kind": "source-contract",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.01
+    },
+    {
+      "Name": "Explicit internal-export confirmation and atomic write",
+      "Kind": "integration",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.0
+    },
+    {
+      "Name": "Report builder never references raw incident details",
+      "Kind": "privacy-boundary",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.01
+    },
+    {
+      "Name": "Exported HTML escapes all report content and has restrictive CSP",
+      "Kind": "privacy-boundary",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.07
+    },
+    {
+      "Name": "Incidents collected only after mount on UI thread with bounded memory",
+      "Kind": "integration",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.0
+    },
+    {
+      "Name": "Background local view defers captures during another target load",
+      "Kind": "integration",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.0
+    },
+    {
+      "Name": "Pin storage bounded, exact DN retained, no persistence",
+      "Kind": "integration",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.0
+    },
+    {
+      "Name": "Session has explicit epoch and identity isolation",
+      "Kind": "integration",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.0
+    },
+    {
+      "Name": "Optional timer stopped and control references removed on exit",
+      "Kind": "integration",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.0
+    },
+    {
+      "Name": "Installer runs support tests before backup/copy",
+      "Kind": "integration",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.01
+    },
+    {
+      "Name": "52 functional tests and one optional WPF test supplied, not executed here",
+      "Kind": "test-presence",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.42
+    },
+    {
+      "Name": "Actual Atelier XAML parses; every resource reference resolves statically",
+      "Kind": "xml-not-wpf",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.23
+    },
+    {
+      "Name": "New control names unique and absent from host namescope",
+      "Kind": "xml-not-wpf",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.01
+    },
+    {
+      "Name": "Adapter control names exist in actual host or view",
+      "Kind": "xml-not-wpf",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.12
+    },
+    {
+      "Name": "All new buttons have a wired click handler",
+      "Kind": "xml-not-wpf",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.08
+    },
+    {
+      "Name": "Every new grid is read-only and virtualized by its real shared style",
+      "Kind": "xml-not-wpf",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 1.68
+    },
+    {
+      "Name": "No hard-coded black foreground in new view",
+      "Kind": "xml-not-wpf",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.44
+    },
+    {
+      "Name": "Python execution of source regex: SMB_SESSION_CONFLICT",
+      "Kind": "python-regex-not-dotnet",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.07
+    },
+    {
+      "Name": "Python execution of source regex: CANCELLED",
+      "Kind": "python-regex-not-dotnet",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.06
+    },
+    {
+      "Name": "Python execution of source regex: AUTH_CONTEXT",
+      "Kind": "python-regex-not-dotnet",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.12
+    },
+    {
+      "Name": "Python execution of source regex: ACCESS_DENIED",
+      "Kind": "python-regex-not-dotnet",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.08
+    },
+    {
+      "Name": "Python execution of source regex: RPC_UNAVAILABLE",
+      "Kind": "python-regex-not-dotnet",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.06
+    },
+    {
+      "Name": "Python execution of source regex: TIMEOUT",
+      "Kind": "python-regex-not-dotnet",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.08
+    },
+    {
+      "Name": "Python execution of source regex: DNS_NETWORK",
+      "Kind": "python-regex-not-dotnet",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.13
+    },
+    {
+      "Name": "Python execution of source regex: ENGINE_BUSY",
+      "Kind": "python-regex-not-dotnet",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.08
+    },
+    {
+      "Name": "Python execution of source regex: PSEXEC_LICENSE",
+      "Kind": "python-regex-not-dotnet",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.05
+    },
+    {
+      "Name": "Combined incident retains multiple labels",
+      "Kind": "python-regex-not-dotnet",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.02
+    },
+    {
+      "Name": "Unrecognized incident matches no confident rule",
+      "Kind": "python-regex-not-dotnet",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.01
+    },
+    {
+      "Name": "Palette contrast Dark: TextColor/BgCard",
+      "Kind": "calculation-not-render",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.02
+    },
+    {
+      "Name": "Palette contrast Dark: TextColor/BgReadonly",
+      "Kind": "calculation-not-render",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.01
+    },
+    {
+      "Name": "Palette contrast Dark: TextColor/BgInput",
+      "Kind": "calculation-not-render",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.01
+    },
+    {
+      "Name": "Palette contrast Dark: MutedColor/BgCard",
+      "Kind": "calculation-not-render",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.0
+    },
+    {
+      "Name": "Palette contrast Dark: InfoFg/InfoBg",
+      "Kind": "calculation-not-render",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.0
+    },
+    {
+      "Name": "Palette contrast Light: TextColor/BgCard",
+      "Kind": "calculation-not-render",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.0
+    },
+    {
+      "Name": "Palette contrast Light: TextColor/BgReadonly",
+      "Kind": "calculation-not-render",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.0
+    },
+    {
+      "Name": "Palette contrast Light: TextColor/BgInput",
+      "Kind": "calculation-not-render",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.0
+    },
+    {
+      "Name": "Palette contrast Light: MutedColor/BgCard",
+      "Kind": "calculation-not-render",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.0
+    },
+    {
+      "Name": "Palette contrast Light: InfoFg/InfoBg",
+      "Kind": "calculation-not-render",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.0
+    },
+    {
+      "Name": "New PowerShell files UTF-8 BOM for Windows PowerShell 5.1",
+      "Kind": "source-contract",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.14
+    }
+  ]
+}

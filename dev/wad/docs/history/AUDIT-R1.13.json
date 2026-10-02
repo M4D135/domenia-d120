@@ -1,0 +1,522 @@
+{
+  "Build": "2026.09.30-R1.13-DISTRIBUTION",
+  "Environment": "Linux/Python/native C helpers, not Windows",
+  "Passed": 122,
+  "Failed": 0,
+  "CoreFunctions": 573,
+  "ChangedCoreFunctions": [
+    "Set-Status",
+    "Show-ErrorBox",
+    "Get-AdccDefaultSettings",
+    "Get-MainXaml",
+    "Complete-AdccSecretLoadUi",
+    "Fail-AdccSecretLoadUi",
+    "Start-LoadComputerSecrets",
+    "Save-AdccSecondaryCredential",
+    "Clear-AdccSecondaryCredential",
+    "Get-AdccWorkerOperationHashes",
+    "New-AdccWorkerRunspace",
+    "Initialize-AsyncEngine",
+    "Invoke-AdccJobSuccessUi",
+    "Invoke-AdccJobErrorUi",
+    "Complete-UiTasks",
+    "Get-WorkerContext",
+    "Update-AdccSecretActionUi",
+    "Initialize-AdccPresentation",
+    "Start-AdccWriteTask"
+  ],
+  "WorkerOperations": 48,
+  "WindowsPowerShellExecuted": false,
+  "WpfExecuted": false,
+  "ADExecuted": false,
+  "Checks": [
+    {
+      "Name": "All baseline core functions retained",
+      "Passed": true
+    },
+    {
+      "Name": "No duplicate core definitions",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved core function: Invoke-AdccInProcessAuthProbe",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved core function: Start-AdccFastLoginAttempt",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved core function: Update-AdccFastLoginAttempt",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved core function: Complete-AdccFastLoginSuccess",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved core function: Start-AdccLoginAuthRunspace",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved core function: Get-AdccStandardLoginXaml",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved core function: Get-AdccSearchScope",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved core function: Test-AdccSearchStateCurrent",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved core function: Invoke-GlobalSearch",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved core function: Get-BranchQueryData",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved core function: Assert-AdccCapability",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved core function: Wire-Events",
+      "Passed": true
+    },
+    {
+      "Name": "Common remote worker unchanged",
+      "Passed": true
+    },
+    {
+      "Name": "48 pinned operations with present exact bodies",
+      "Passed": true
+    },
+    {
+      "Name": "Only LAPS replaced among 47 old operations",
+      "Passed": true
+    },
+    {
+      "Name": "New watcher is pinned",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate delimiters, not native parser: ADCC.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate delimiters, not native parser: INSTALLER-MISE-A-JOUR.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate delimiters, not native parser: wad/ADCC-Core.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate delimiters, not native parser: wad/ADCC-Start.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate delimiters, not native parser: wad/maintenance/Debloquer-Paquet.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate delimiters, not native parser: wad/maintenance/Preview-AdccLogin.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate delimiters, not native parser: wad/maintenance/Preview-AdccProgress.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate delimiters, not native parser: wad/maintenance/Preview-AdccUi.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate delimiters, not native parser: wad/maintenance/Sauvegarder-Cache.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate delimiters, not native parser: wad/maintenance/Verifier-Paquet.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate delimiters, not native parser: wad/modules/ADCC-Access.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate delimiters, not native parser: wad/modules/ADCC-Continuity.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate delimiters, not native parser: wad/modules/ADCC-Continuity.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate delimiters, not native parser: wad/modules/ADCC-Experience.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate delimiters, not native parser: wad/modules/ADCC-Experience.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate delimiters, not native parser: wad/modules/ADCC-Live.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate delimiters, not native parser: wad/modules/ADCC-Live.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate delimiters, not native parser: wad/modules/ADCC-Support.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate delimiters, not native parser: wad/modules/ADCC-Support.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate delimiters, not native parser: wad/modules/ADCC-UX.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate delimiters, not native parser: wad/tests/Test-ADCC.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate delimiters, not native parser: wad/tests/Test-ADCCAccounts.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate delimiters, not native parser: wad/tests/Test-ADCCCompactUi.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate delimiters, not native parser: wad/tests/Test-ADCCExperience.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate delimiters, not native parser: wad/tests/Test-ADCCInterface.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate delimiters, not native parser: wad/tests/Test-ADCCLastUser.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate delimiters, not native parser: wad/tests/Test-ADCCLogin.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate delimiters, not native parser: wad/tests/Test-ADCCRelease.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate delimiters, not native parser: wad/tests/Test-ADCCRemote.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate delimiters, not native parser: wad/tests/Test-ADCCSearchScope.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate delimiters, not native parser: wad/tests/Test-ADCCStreaming.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate delimiters, not native parser: wad/tests/Test-ADCCSupport.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate delimiters, not native parser: wad/tests/Test-ADCCTheme.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate delimiters, not native parser: wad/tests/fixtures/AuthProbe-R1.7.1.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Approximate delimiters, not native parser: wad/tests/fixtures/AuthProbe-R1.7.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Worker approximate delimiters: ReadLaps",
+      "Passed": true
+    },
+    {
+      "Name": "Worker approximate delimiters: ReadBitLocker",
+      "Passed": true
+    },
+    {
+      "Name": "Worker approximate delimiters: LiveDirectoryCheck",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved runtime component: wad/PsExec.exe",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved runtime component: wad/Microsoft.ActiveDirectory.Management.dll",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved runtime component: wad/ADCC.config.json",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved runtime component: wad/ActiveDirectoryPowerShellResources.dll",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved runtime component: wad/ADCC.theme.cfg",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved runtime component: wad/ADCC.login-mode.cfg",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved runtime component: wad/ADCC.ui-profile.cfg",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved runtime component: wad/modules/ADCC-Live.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved runtime component: wad/modules/SupportSuite.UI.json",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved runtime component: wad/modules/ADCC-Live.Types.cs",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved runtime component: wad/modules/ADCC-Experience.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved runtime component: wad/modules/ADCC-Support.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved runtime component: wad/modules/ADCC-Support.xaml",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved runtime component: wad/modules/ADCC-Support.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved runtime component: wad/modules/ADCC-UX.UI.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Preserved runtime component: wad/modules/ADCC-Experience.Model.ps1",
+      "Passed": true
+    },
+    {
+      "Name": "Access helper names do not collide with core",
+      "Passed": true
+    },
+    {
+      "Name": "Continuity helper names do not collide",
+      "Passed": true
+    },
+    {
+      "Name": "Main XML parses",
+      "Passed": true
+    },
+    {
+      "Name": "Secret buttons and OU browser retained",
+      "Passed": true
+    },
+    {
+      "Name": "New access command has static help",
+      "Passed": true
+    },
+    {
+      "Name": "Help catalogue registers access command",
+      "Passed": true
+    },
+    {
+      "Name": "Main static resource names resolved",
+      "Passed": true
+    },
+    {
+      "Name": "XML parses: ADCC-Support.xaml",
+      "Passed": true
+    },
+    {
+      "Name": "Alternate credential XML parses",
+      "Passed": true
+    },
+    {
+      "Name": "New credential window non-maximizable",
+      "Passed": true
+    },
+    {
+      "Name": "No synchronous auth wait in alternate login",
+      "Passed": true
+    },
+    {
+      "Name": "Explicit confirmation before login",
+      "Passed": true
+    },
+    {
+      "Name": "Cancel preserves previous credential",
+      "Passed": true
+    },
+    {
+      "Name": "Only secret reads auto-retry with one attempt",
+      "Passed": true
+    },
+    {
+      "Name": "Unknown writes block recovery",
+      "Passed": true
+    },
+    {
+      "Name": "Per-resource denied state replaces shared disable",
+      "Passed": true
+    },
+    {
+      "Name": "Alternate credentials never saved to settings",
+      "Passed": true
+    },
+    {
+      "Name": "Background permission failures deduplicated and silent",
+      "Passed": true
+    },
+    {
+      "Name": "Old identity cannot reuse credentials",
+      "Passed": true
+    },
+    {
+      "Name": "Remote overrides preserve AD identity",
+      "Passed": true
+    },
+    {
+      "Name": "Remote credential cannot bypass directory authentication breaker",
+      "Passed": true
+    },
+    {
+      "Name": "Search cache sees changed temporary identity",
+      "Passed": true
+    },
+    {
+      "Name": "LAPS is one command call with same chosen decrypt identity",
+      "Passed": true
+    },
+    {
+      "Name": "Missing LAPS module is not replaced by fake auth",
+      "Passed": true
+    },
+    {
+      "Name": "Layout keys loaded via known settings",
+      "Passed": true
+    },
+    {
+      "Name": "Layouts contain descriptors, not row values",
+      "Passed": true
+    },
+    {
+      "Name": "Layout numeric values are finite and bounded",
+      "Passed": true
+    },
+    {
+      "Name": "OU saved per directory/account",
+      "Passed": true
+    },
+    {
+      "Name": "OU restore preserves exact DN without a content query",
+      "Passed": true
+    },
+    {
+      "Name": "OU restoration bounded and user-interruptible",
+      "Passed": true
+    },
+    {
+      "Name": "Watcher checks GUID and DC-specific change number",
+      "Passed": true
+    },
+    {
+      "Name": "Second read rechecks object identity",
+      "Passed": true
+    },
+    {
+      "Name": "Invisible objects are not silently deleted",
+      "Passed": true
+    },
+    {
+      "Name": "Watcher processes bounded UI batches",
+      "Passed": true
+    },
+    {
+      "Name": "Watcher suspends hidden and active-write views",
+      "Passed": true
+    },
+    {
+      "Name": "Responses older than a dispatched write are ignored",
+      "Passed": true
+    },
+    {
+      "Name": "No synchronous worker wait added to continuity",
+      "Passed": true
+    },
+    {
+      "Name": "Changed details invalidate cached forms without overwriting editor",
+      "Passed": true
+    },
+    {
+      "Name": "Only presentation metadata persisted to settings",
+      "Passed": true
+    },
+    {
+      "Name": "Launcher is a native x64 PE image",
+      "Passed": true
+    },
+    {
+      "Name": "Launcher has no CLR header",
+      "Passed": true
+    },
+    {
+      "Name": "Launcher is Windows GUI subsystem",
+      "Passed": true
+    },
+    {
+      "Name": "Embedded manifest uses normal user rights",
+      "Passed": true
+    },
+    {
+      "Name": "Launcher points directly to wad bootstrap",
+      "Passed": true
+    },
+    {
+      "Name": "Startup verifies runtime only, not demos/tests",
+      "Passed": true
+    },
+    {
+      "Name": "Unblock validates only runtime files",
+      "Passed": true
+    },
+    {
+      "Name": "Updater deploys runtime production manifest",
+      "Passed": true
+    },
+    {
+      "Name": "Updater supplies code rollback",
+      "Passed": true
+    },
+    {
+      "Name": "New native suite has 43 declared cases",
+      "Passed": true
+    },
+    {
+      "Name": "Portable launcher helper test passed",
+      "Passed": true
+    }
+  ]
+}

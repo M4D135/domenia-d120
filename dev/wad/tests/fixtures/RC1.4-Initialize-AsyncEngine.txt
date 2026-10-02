@@ -1,0 +1,38 @@
+function Initialize-AsyncEngine {
+    if ($script:AsyncEngineReady) { return }
+    # Une nouvelle initialisation apres authentification reussie rearme le canal AD.
+    $script:DirectoryCredentialFaulted = $false
+    $script:DirectoryCredentialFaultMessage = ""
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    Write-StartupTrace -Stage "Moteur multithread" -Status "START"
+    try {
+        $registry = Get-DomeniaWorkerOperationHashes
+        if ($registry.Count -ne 54) { throw "Registre worker incomplet : $($registry.Count)/54 operation(s)." }
+        foreach ($operationId in $registry.Keys) {
+            if ([string]$registry[$operationId] -notmatch '^[A-F0-9]{64}$') { throw "Hash worker invalide pour $operationId." }
+        }
+        [void](Assert-DomeniaWorkerOperationCode -OperationId "EngineSelfTest" -Code (Get-DomeniaWorkerEngineSelfTestCode))
+        $script:AsyncEngineReady = $true
+        $script:AsyncEngineClosing = $false
+
+        $timer = New-Object System.Windows.Threading.DispatcherTimer
+        $timer.Interval = [System.TimeSpan]::FromMilliseconds([Math]::Max(100,[int](Get-CfgValue "Async" "PollIntervalMs" 250)))
+        $timer.Add_Tick({
+            try { Complete-UiTasks }
+            catch {
+                try { Write-AppLog "Moteur asynchrone : $($_.Exception.ToString())" "ERROR" } catch { }
+                try { Set-Status "Erreur interne du moteur asynchrone : $($_.Exception.Message)" "ERROR" } catch { }
+            }
+        })
+        $script:AsyncTimer = $timer
+        $script:AsyncTimer.Start()
+        $sw.Stop()
+        Write-StartupTrace -Stage "Moteur multithread" -Status "OK" -DurationMs $sw.ElapsedMilliseconds -Detail "Moteur ferme pret ; 54 operations hash-pinnees, un runspace MTA dedie par tache."
+    }
+    catch {
+        $sw.Stop()
+        Write-StartupTrace -Stage "Moteur multithread" -Status "ERROR" -Detail $_.Exception.ToString() -DurationMs $sw.ElapsedMilliseconds
+        $script:AsyncEngineReady = $false
+        throw
+    }
+}

@@ -1,0 +1,315 @@
+{
+  "Environment": "Linux / Python 3.13.5 / SQLite 3.46.1",
+  "NativePowerShellExecuted": false,
+  "WpfExecuted": false,
+  "ActiveDirectoryExecuted": false,
+  "Passed": 42,
+  "Failed": 0,
+  "Observations": {
+    "MainFunctionCount": 556,
+    "OriginalFunctionCount": 539,
+    "Get-LoginXamlLegacyControls": 11,
+    "Get-MainXamlControls": 367,
+    "Get-AdccStandardLoginXamlControls": 15,
+    "Get-AdccDebugLoginXamlControls": 14,
+    "Get-AdccStartupXamlControls": 5,
+    "PinnedWorkersMatched": 46,
+    "ManifestFileCount": 37
+  },
+  "Results": [
+    {
+      "Name": "Lexique et delimitateurs : ADCC.ps1",
+      "Kind": "StaticLexical",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.67
+    },
+    {
+      "Name": "Lexique et delimitateurs : INSTALLER-MISE-A-JOUR.ps1",
+      "Kind": "StaticLexical",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 3.76
+    },
+    {
+      "Name": "Lexique et delimitateurs : wad/ADCC-Core.ps1",
+      "Kind": "StaticLexical",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 16020.64
+    },
+    {
+      "Name": "Lexique et delimitateurs : wad/maintenance/Debloquer-Paquet.ps1",
+      "Kind": "StaticLexical",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.79
+    },
+    {
+      "Name": "Lexique et delimitateurs : wad/maintenance/Sauvegarder-Cache.ps1",
+      "Kind": "StaticLexical",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.66
+    },
+    {
+      "Name": "Lexique et delimitateurs : wad/tests/Test-ADCC.ps1",
+      "Kind": "StaticLexical",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 6.17
+    },
+    {
+      "Name": "Lexique et delimitateurs : wad/tests/Test-ADCCTheme.ps1",
+      "Kind": "StaticLexical",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 4.41
+    },
+    {
+      "Name": "539 fonctions originales conservees",
+      "Kind": "StaticStructure",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.07
+    },
+    {
+      "Name": "Pas de definition principale en double",
+      "Kind": "StaticStructure",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.04
+    },
+    {
+      "Name": "XML bien forme et noms uniques : Get-LoginXamlLegacy",
+      "Kind": "XmlParser",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 436.63
+    },
+    {
+      "Name": "XML bien forme et noms uniques : Get-MainXaml",
+      "Kind": "XmlParser",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 4.51
+    },
+    {
+      "Name": "XML bien forme et noms uniques : Get-AdccStandardLoginXaml",
+      "Kind": "XmlParser",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.31
+    },
+    {
+      "Name": "XML bien forme et noms uniques : Get-AdccDebugLoginXaml",
+      "Kind": "XmlParser",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.22
+    },
+    {
+      "Name": "XML bien forme et noms uniques : Get-AdccStartupXaml",
+      "Kind": "XmlParser",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.14
+    },
+    {
+      "Name": "46 empreintes workers exactes, corps equilibres et modification detectee",
+      "Kind": "StaticIntegrity",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 86.77
+    },
+    {
+      "Name": "Lexique du code commun execute dans les workers",
+      "Kind": "StaticLexical",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 18.46
+    },
+    {
+      "Name": "Binaire original inchange : ADCC.exe",
+      "Kind": "Sha256",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.19
+    },
+    {
+      "Name": "Binaire original inchange : ADCC.ico",
+      "Kind": "Sha256",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.08
+    },
+    {
+      "Name": "Binaire original inchange : wad/ADCC.ico",
+      "Kind": "Sha256",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.04
+    },
+    {
+      "Name": "Binaire original inchange : wad/Microsoft.ActiveDirectory.Management.dll",
+      "Kind": "Sha256",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.76
+    },
+    {
+      "Name": "Binaire original inchange : wad/ActiveDirectoryPowerShellResources.dll",
+      "Kind": "Sha256",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.04
+    },
+    {
+      "Name": "Binaire original inchange : wad/PsExec.exe",
+      "Kind": "Sha256",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.57
+    },
+    {
+      "Name": "Gardes statiques : concurrence, generation et arret non bloquant",
+      "Kind": "StaticGuards",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 11.96
+    },
+    {
+      "Name": "Gardes statiques : secret masque, index opaque, expiration et invalidation",
+      "Kind": "StaticGuards",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.2
+    },
+    {
+      "Name": "Gardes statiques : sauvegarde coherente, ecriture atomique, pas de restauration implicite",
+      "Kind": "StaticGuards",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.02
+    },
+    {
+      "Name": "Gardes statiques : exports CSV filtres et journaux bruts exclus",
+      "Kind": "StaticGuards",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 13.73
+    },
+    {
+      "Name": "SQL reel sur donnees synthetiques : 'sam@a.test'",
+      "Kind": "SqliteActualQuery",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.11
+    },
+    {
+      "Name": "SQL reel sur donnees synthetiques : 'sam@b.test'",
+      "Kind": "SqliteActualQuery",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.07
+    },
+    {
+      "Name": "SQL reel sur donnees synthetiques : 'pc_01'",
+      "Kind": "SqliteActualQuery",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.06
+    },
+    {
+      "Name": "SQL reel sur donnees synthetiques : 'pc%02'",
+      "Kind": "SqliteActualQuery",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.13
+    },
+    {
+      "Name": "SQL reel sur donnees synthetiques : \"O'Neil\"",
+      "Kind": "SqliteActualQuery",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.1
+    },
+    {
+      "Name": "SQL reel sur donnees synthetiques : 'pc!03'",
+      "Kind": "SqliteActualQuery",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.06
+    },
+    {
+      "Name": "SQL reel sur donnees synthetiques : 'été'",
+      "Kind": "SqliteActualQuery",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.07
+    },
+    {
+      "Name": "SQL reel sur donnees synthetiques : \"zz' OR 1=1 --\"",
+      "Kind": "SqliteActualQuery",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.06
+    },
+    {
+      "Name": "SQL reel sur donnees synthetiques : 'DOM\\\\sam'",
+      "Kind": "SqliteActualQuery",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.06
+    },
+    {
+      "Name": "SQL reel sur donnees synthetiques : 'sam'",
+      "Kind": "SqliteActualQuery",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.02
+    },
+    {
+      "Name": "SQL reel sur donnees synthetiques : 'x'",
+      "Kind": "SqliteActualQuery",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.0
+    },
+    {
+      "Name": "SQL reel : limite et score exact prioritaire",
+      "Kind": "SqliteActualQuery",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.07
+    },
+    {
+      "Name": "API SQLite via Python : instantane incluant WAL, copie independante",
+      "Kind": "SqliteBackupApiNotPowerShell",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 6.35
+    },
+    {
+      "Name": "API SQLite via Python : verrouillage BUSY et interruption bornee",
+      "Kind": "SqliteBackupApiNotPowerShell",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 152.72
+    },
+    {
+      "Name": "Paquet neuf : aucun cache, identifiant enregistre ou journal personnel",
+      "Kind": "PackagePrivacy",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 0.98
+    },
+    {
+      "Name": "Manifeste SHA-256 du paquet final",
+      "Kind": "Sha256",
+      "Status": "PASS",
+      "Detail": "",
+      "Milliseconds": 6.55
+    }
+  ]
+}

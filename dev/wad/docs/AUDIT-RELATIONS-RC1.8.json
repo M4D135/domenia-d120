@@ -1,0 +1,1152 @@
+{
+  "Build": "2026.10.01-DOMENIA-1.0-RC1.8-RELATIONS",
+  "Environment": "Linux/Python source/XML checks",
+  "Passed": 219,
+  "Failed": 0,
+  "CoreFunctions": 577,
+  "ChangedCoreFunctions": [
+    "Get-MainXaml",
+    "Add-SelectedLink",
+    "Queue-DomeniaSelectedObjectOpen",
+    "Get-DomeniaUserComputersWorkerCode",
+    "Complete-DomeniaUserComputersUi",
+    "Fail-DomeniaUserComputersUi",
+    "Start-DomeniaUserComputerProbe",
+    "Update-DomeniaLinkActionUi",
+    "Refresh-LinkGrid",
+    "Add-UserMachineLinkIfMissing",
+    "Remove-SelectedLink",
+    "Show-DomeniaCommandPalette",
+    "Wire-Events",
+    "Export-DomeniaLinksCsv",
+    "Get-DomeniaWorkerOperationHashes",
+    "Assert-DomeniaWorkerRegistry",
+    "Get-WorkerContext",
+    "Show-AdObjectResult",
+    "Initialize-DomeniaPresentation"
+  ],
+  "PreservedCoreFunctions": 558,
+  "NewRuntimeFunctions": [
+    "Initialize-DomeniaRelationsState",
+    "Set-DomeniaRelationsSelection",
+    "Set-DomeniaRelationsGridSelection",
+    "Get-DomeniaRelationsSubject",
+    "Get-DomeniaRelationsIdentity",
+    "Test-DomeniaRelationsCurrent",
+    "Get-DomeniaRelationsSelectedLinks",
+    "Get-DomeniaRelationsActiveGrid",
+    "Update-DomeniaRelationsActions",
+    "Refresh-DomeniaRelationViews",
+    "Invoke-DomeniaRelationsTick",
+    "Save-DomeniaRelationConfirmations",
+    "Complete-DomeniaRelationsSearch",
+    "Fail-DomeniaRelationsSearch",
+    "Start-DomeniaRelationsSearch",
+    "Stop-DomeniaRelationsSearch",
+    "Use-DomeniaRelationCandidate",
+    "Initialize-DomeniaRelationsUi",
+    "Get-DomeniaRelationsWorkerCode"
+  ],
+  "PinnedOperations": 55,
+  "WindowsPowerShellExecuted": false,
+  "WpfExecuted": false,
+  "LiveADExecuted": false,
+  "NativeTestsProvided": 65,
+  "Checks": [
+    {
+      "Name": "All original core functions retained",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Only reviewed core functions modified",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged behavior: Invoke-DomeniaInProcessAuthProbe",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged behavior: Get-DomeniaStandardLoginXaml",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged behavior: Set-DomeniaFastLoginBusy",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged behavior: Update-TaskUi",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged behavior: Invoke-GlobalSearch",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged behavior: Get-DomeniaSearchScope",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged behavior: Test-DomeniaSearchStateCurrent",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged behavior: Assert-DomeniaCapability",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged behavior: Start-DomeniaWriteTask",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged behavior: Set-Status",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged runtime bytes: Domenia.exe",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged runtime bytes: wad/ActiveDirectoryPowerShellResources.dll",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged runtime bytes: wad/Domenia-Start.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged runtime bytes: wad/Domenia.config.json",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged runtime bytes: wad/Domenia.ico",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged runtime bytes: wad/Domenia.login-mode.cfg",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged runtime bytes: wad/Domenia.theme.cfg",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged runtime bytes: wad/Domenia.ui-profile.cfg",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged runtime bytes: wad/Microsoft.ActiveDirectory.Management.dll",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged runtime bytes: wad/PsExec.exe",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged runtime bytes: wad/Support/.lifecycle.lock",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged runtime bytes: wad/Support/DEBLOQUER_TOUT.cmd",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged runtime bytes: wad/Support/Debloquer-Paquet.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged runtime bytes: wad/modules/Domenia-Accounts.Async.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged runtime bytes: wad/modules/Domenia-Clipboard.Native.cs",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged runtime bytes: wad/modules/Domenia-Continuity.Model.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged runtime bytes: wad/modules/Domenia-Continuity.UI.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged runtime bytes: wad/modules/Domenia-Dossier.Model.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged runtime bytes: wad/modules/Domenia-Dossier.UI.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged runtime bytes: wad/modules/Domenia-Experience.Model.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged runtime bytes: wad/modules/Domenia-Experience.UI.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged runtime bytes: wad/modules/Domenia-Guard.Model.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged runtime bytes: wad/modules/Domenia-Guard.UI.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged runtime bytes: wad/modules/Domenia-Live.Model.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged runtime bytes: wad/modules/Domenia-Live.Types.cs",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged runtime bytes: wad/modules/Domenia-Live.UI.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged runtime bytes: wad/modules/Domenia-Receipts.Worker.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged runtime bytes: wad/modules/Domenia-Reconcile.UI.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged runtime bytes: wad/modules/Domenia-Sessions.Native.cs",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged runtime bytes: wad/modules/Domenia-Sessions.UI.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged runtime bytes: wad/modules/Domenia-Storage.UI.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged runtime bytes: wad/modules/Domenia-Storage.Worker.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged runtime bytes: wad/modules/Domenia-Support.Model.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged runtime bytes: wad/modules/Domenia-Support.UI.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged runtime bytes: wad/modules/Domenia-Support.xaml",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged runtime bytes: wad/modules/Domenia-UX.UI.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged runtime bytes: wad/modules/SupportSuite.UI.json",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Approximate lexical delimiters: wad/Domenia-Core.ps1",
+      "Passed": true,
+      "Kind": "Lexical"
+    },
+    {
+      "Name": "Windows PowerShell BOM: wad/Domenia-Core.ps1",
+      "Passed": true,
+      "Kind": "Encoding"
+    },
+    {
+      "Name": "Approximate lexical delimiters: wad/Domenia-Modules.ps1",
+      "Passed": true,
+      "Kind": "Lexical"
+    },
+    {
+      "Name": "Windows PowerShell BOM: wad/Domenia-Modules.ps1",
+      "Passed": true,
+      "Kind": "Encoding"
+    },
+    {
+      "Name": "Approximate lexical delimiters: wad/modules/Domenia-Relations.UI.ps1",
+      "Passed": true,
+      "Kind": "Lexical"
+    },
+    {
+      "Name": "Windows PowerShell BOM: wad/modules/Domenia-Relations.UI.ps1",
+      "Passed": true,
+      "Kind": "Encoding"
+    },
+    {
+      "Name": "Approximate lexical delimiters: wad/modules/Domenia-Access.UI.ps1",
+      "Passed": true,
+      "Kind": "Lexical"
+    },
+    {
+      "Name": "Windows PowerShell BOM: wad/modules/Domenia-Access.UI.ps1",
+      "Passed": true,
+      "Kind": "Encoding"
+    },
+    {
+      "Name": "Approximate lexical delimiters: wad/tests/Test-DomeniaRelationsAlignment.ps1",
+      "Passed": true,
+      "Kind": "Lexical"
+    },
+    {
+      "Name": "Windows PowerShell BOM: wad/tests/Test-DomeniaRelationsAlignment.ps1",
+      "Passed": true,
+      "Kind": "Encoding"
+    },
+    {
+      "Name": "Approximate lexical delimiters: wad/tests/Test-DomeniaModules.ps1",
+      "Passed": true,
+      "Kind": "Lexical"
+    },
+    {
+      "Name": "Windows PowerShell BOM: wad/tests/Test-DomeniaModules.ps1",
+      "Passed": true,
+      "Kind": "Encoding"
+    },
+    {
+      "Name": "Approximate lexical delimiters: INSTALLER-MISE-A-JOUR.ps1",
+      "Passed": true,
+      "Kind": "Lexical"
+    },
+    {
+      "Name": "Windows PowerShell BOM: INSTALLER-MISE-A-JOUR.ps1",
+      "Passed": true,
+      "Kind": "Encoding"
+    },
+    {
+      "Name": "Activity dimensions remain 44 fixed",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Activity label occupies first flexible cell",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Activity text explicitly left aligned",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Write warning retains independent fixed slot",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Progress and cancel reserve positions",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Counter button widths retained",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Search TextBox has dedicated template",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Scroll host padding is not doubled by margin",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Placeholder shares textbox padding",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Placeholder shares TextBoxView caret margin",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Placeholder cannot intercept clicks",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Placeholder inherits FontFamily",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Placeholder inherits FontSize",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Placeholder inherits FontWeight",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Placeholder inherits FontStretch",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Placeholder inherits TextAlignment",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Four distinct relationship tabs",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Selected link grid belongs to first tab",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "All link grid belongs only to all tab",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "No automatic scan default",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Security event query opt-in",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Explicit bounded scan default 20",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Scope choices explicit",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "New control help/accessibility: TabLinksSelected",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "New control help/accessibility: TabLinksAll",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "New control help/accessibility: TabLinksDiscovery",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "New control help/accessibility: TabLinksAttempts",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "New control help/accessibility: DgAllLinks",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "New control help/accessibility: DgRelationCandidates",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "New control help/accessibility: BtnRelationsStop",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "New control help/accessibility: BtnRelationAdopt",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "New control help/accessibility: BtnRelationOpenCandidate",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "New control help/accessibility: CmbRelationScanScope",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "New control help/accessibility: TxtRelationScanLimit",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "New control help/accessibility: ChkRelationEvents",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Explicit static resources resolved",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "No child GotFocus handler resets links to All",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Legacy all flag cannot override selected tab",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Single-click captures relation selection without fiche",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Loaded fiche passes immutable original entry",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Selected links use login or machine match",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "GUID of recreated user does not match old link",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Late result guard includes SessionEpoch",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Late result guard includes BaseDn",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Late result guard includes Generation",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Late result guard includes RequestId",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Late result guard includes Guid",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Late result guard includes Login",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Late result guard includes AcceptResults",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Late result guard includes Identity",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "No network job started by UI initialization",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Timer released with window",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Explicit scan asks consent",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Scan count input limited 1..50",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "User DN/GUID immutable payload",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Known associations seed worker",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Progress delivered through concurrent queue",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Progress work per tick bounded",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Progress skips full association grids",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Canceled job results disallowed",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Only confirmed exact AD computer saved",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Manual link wins over observation",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Writer busy defers save",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Failed queue keeps old array",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "One batched save not one transaction per host",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Refusal details separate per source",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Does not assert universal empty mapping",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Remote error has actual target parameter",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Inverse directory operation independent from remote fault",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Worker lexical delimiters",
+      "Passed": true,
+      "Kind": "Lexical"
+    },
+    {
+      "Name": "Worker does not import alternate-credential guessing",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Credential explicitly obtained",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "DCOM only without WSMan alternative",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "No ping or TCP gate",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "No script/task/service fallback",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "One console method with known limit",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Names checked before remote assignment",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Exact domain qualification required",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Resource budget and progress queue bounded",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Auth rejection stops further remote submissions",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Auth rejection stops further LDAP submission",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "All CIM sessions are disposed in finally",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "AD collections/searchers/roots disposed",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "AD page bound and timeout explicit",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "ManagedBy/description are not session assertions",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "No historical timestamp rejuvenation on failure",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "IP from security event preserved, not split",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "DC event selection by exact SID",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Security events use AD not machine credential",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "No ConcurrentQueue.Clear unavailable on desktop framework",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Loaded and OU scans use only the approved GUID subset",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "No whole-domain machine sweep unless OU explicitly chosen",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Closed loader includes exactly all new functions",
+      "Passed": true,
+      "Kind": "Contract"
+    },
+    {
+      "Name": "Loader imports new module in caller scope",
+      "Passed": true,
+      "Kind": "Contract"
+    },
+    {
+      "Name": "Registry remains 55 operations",
+      "Passed": true,
+      "Kind": "Contract"
+    },
+    {
+      "Name": "Pinned operation body: SelectedPresence",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: PresenceScan",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: CmdletHelp",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: TreeChildren",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: GlobalSearch",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: PermissionAnalysis",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: SelfCheck",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: ReadBitLocker",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: ReadLaps",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: ComputerInventory",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: DomainOverview",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: BatchNetworkDiag",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: SoftwareInventory",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: WmiNamespaces",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: WmiClasses",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: WmiQuery",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: UserComputerProbe",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: LogonHarvest",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: ParkSweep",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: IndexBuild",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: ComputerDiagnostics",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: ComputerLastUser",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: CmdletInventory",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: RimotteRun",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: ComputerPing",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: ComputerGpUpdate",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: ComputerRestart",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: PruneLinks",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: OpenLinkedObject",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: EngineSelfTest",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: OpenAdObject",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: WriteAttributes",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: WriteAccountDisabled",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: WriteUnlock",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: WriteResetPassword",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: WriteAccountOptions",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: WriteExpiration",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: WriteExpirePassword",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: WriteMoveObject",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: WriteObjectGroup",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: WriteGroupMember",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: WriteRenameComputer",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: WriteCreateOu",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: WriteDeleteObject",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: StartupWarmCache",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: LiveConsole",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: LiveCache",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: LiveDirectoryCheck",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: SessionsList",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: RemoteCredentialCheck",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: ReceiptStore",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: LocalStore",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: ScopeReconcile",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: DocumentStore",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Pinned operation body: LiveSelectedPing",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "New native suite wired before install",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Native tests explicit 65 scenarios",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Native tests use real AST without app bootstrap",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Native fixtures intercept remote operations",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Native WPF tests measure character geometry",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Native suite fails on skipped/incomplete count",
+      "Passed": true,
+      "Kind": "Source"
+    }
+  ]
+}

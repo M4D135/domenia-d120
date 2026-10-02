@@ -1,0 +1,28 @@
+{
+  "Build": "2026.09.21-R1.7-SIDEBAR",
+  "OriginalWindowControlsPreserved": 363,
+  "NamedMainInteractiveHelpCount": 345,
+  "HelpCatalogueCount": 403,
+  "UnchangedCoreFunctions": 553,
+  "ChangedCoreFunctions": [
+    "Get-AdccFriendlyControlLabel",
+    "Get-AdccDefaultToolTip",
+    "Set-AdccContextHint",
+    "Enable-AdccUxHints",
+    "Apply-AdccUiProfile",
+    "Apply-AdccTheme",
+    "Get-MainXaml",
+    "Assert-AdccXamlPreflight",
+    "ConvertFrom-AdccXaml",
+    "Apply-AutoTooltips",
+    "Select-AdccWorkspace",
+    "Set-VisibleTabsForType",
+    "Apply-CurrentPermissionUi"
+  ],
+  "NewUiFunctions": 16,
+  "NativeScenariosProvidedNotExecuted": 25,
+  "Reference": "User provided GP screenshot; layout adapted to existing ADCC functions, not GP operations.",
+  "NativePowerShellExecuted": false,
+  "WpfExecuted": false,
+  "ActiveDirectoryExecuted": false
+}

@@ -1,0 +1,87 @@
+--- RC1/wad/Domenia-Core.ps1
++++ RC1.1/wad/Domenia-Core.ps1
+@@ -8691,7 +8691,11 @@
+         $directory=New-Item -ItemType Directory -Path $privateFolder -ErrorAction Stop
+         if($directory.Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Repertoire operation redirige.'}
+         $acl=[Security.AccessControl.DirectorySecurity]::new()
+-        $acl.SetSecurityDescriptorSddlForm('O:BAG:BAD:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)')
++        # Changer seulement les permissions du depot, jamais ses regles d'audit.
++        $acl.SetSecurityDescriptorSddlForm(
++            'D:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)',
++            [Security.AccessControl.AccessControlSections]::Access
++        )
+         Set-Acl -LiteralPath $privateFolder -AclObject $acl -ErrorAction Stop
+         $drivePrefix=$privateFolder+'\run'
+         $inJson=$InputObject|ConvertTo-Json -Depth 8 -Compress
+@@ -19681,7 +19685,7 @@
+ # DOMENIA_MASTER_LAST_V1 = TRUE
+ $script:Version = "1.0"
+ $script:AppName = "Domenia"
+-$script:MasterBuild = "2026.09.30-DOMENIA-1.0-RC1"
++$script:MasterBuild = "2026.10.01-DOMENIA-1.0-RC1.1-ACL"
+ $script:ActiveWriteTaskId = ""
+ $script:WriteState = "Idle"
+ $script:UnknownWriteTargetDn = ""
+@@ -19917,8 +19921,19 @@
+     [void][IO.Directory]::CreateDirectory($dir)
+     if(-not $usePortable){
+         $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value;$acl=[Security.AccessControl.DirectorySecurity]::new()
+-        $acl.SetSecurityDescriptorSddlForm('O:'+ $sid +'G:'+ $sid +'D:P(A;OICI;FA;;;'+$sid+')(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)')
+-        [IO.Directory]::SetAccessControl($dir,$acl)
++        # DACL uniquement : ne pas marquer la SACL, le proprietaire ou le groupe modifies.
++        # La surcharge SDDL a un argument cible All et demande SeSecurityPrivilege.
++        $acl.SetSecurityDescriptorSddlForm(
++            ('D:P(A;OICI;FA;;;'+$sid+')(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)'),
++            [Security.AccessControl.AccessControlSections]::Access
++        )
++        try { [IO.Directory]::SetAccessControl($dir,$acl) }
++        catch {
++            throw [InvalidOperationException]::new(
++                ('DOMENIA_STORE_DACL : impossible de proteger le dossier des donnees locales "' + $dir + '". ' + $_.Exception.Message),
++                $_.Exception
++            )
++        }
+     }
+     $test=Join-Path $dir ('.write-'+[guid]::NewGuid().ToString('N'))
+     try{$stream=[IO.File]::Open($test,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None);$stream.Dispose()}catch{throw ('Stockage non inscriptible : '+$dir+'. Aucun repli silencieux. Configurez UserLocal.')}finally{if([IO.File]::Exists($test)){[IO.File]::Delete($test)}}
+@@ -22218,7 +22233,7 @@
+     Initialize-DomeniaGuard
+     Initialize-DomeniaReconcile
+     Initialize-DomeniaLive
+-    Add-DomeniaUiLog -Area "Application" -Text "Domenia 1.0 RC1 pret."
++    Add-DomeniaUiLog -Area "Application" -Text "Domenia 1.0 RC1.1 pret."
+ }
+ 
+ function Assert-DomeniaCapability {
+@@ -23348,7 +23363,7 @@
+ # Le login effectue un bind LDAP reel, lit RootDSE et valide la base detectee
+ # dans un runspace borne afin que le thread WPF ne soit jamais bloque.
+ # =====================================================================
+-$script:DomeniaBuild = "Domenia 1.0 RC1"
++$script:DomeniaBuild = "Domenia 1.0 RC1.1"
+ $script:FastLoginUi = $null
+ $script:FastLoginState = $null
+ $script:FastLoginTimer = $null
+--- RC1/wad/modules/Domenia-Receipts.Worker.ps1
++++ RC1.1/wad/modules/Domenia-Receipts.Worker.ps1
+@@ -10,8 +10,18 @@
+     [void][IO.Directory]::CreateDirectory($root)
+     $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+     $acl=[Security.AccessControl.DirectorySecurity]::new()
+-    $acl.SetSecurityDescriptorSddlForm('O:'+ $sid +'G:'+ $sid +'D:P(A;OICI;FA;;;'+$sid+')(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)')
+-    [IO.Directory]::SetAccessControl($root,$acl)
++    # Ne modifier que la DACL : audit, proprietaire et groupe restent inchanges.
++    $acl.SetSecurityDescriptorSddlForm(
++        ('D:P(A;OICI;FA;;;'+$sid+')(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)'),
++        [Security.AccessControl.AccessControlSections]::Access
++    )
++    try { [IO.Directory]::SetAccessControl($root,$acl) }
++    catch {
++        throw [InvalidOperationException]::new(
++            ('DOMENIA_RECEIPT_DACL : impossible de proteger le dossier des recus "' + $root + '". ' + $_.Exception.Message),
++            $_.Exception
++        )
++    }
+     return $root
+ }
+ function Get-WReceiptHash {

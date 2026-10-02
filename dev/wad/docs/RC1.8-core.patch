@@ -1,0 +1,1081 @@
+--- RC1.7/wad/Domenia-Core.ps1
++++ RC1.8/wad/Domenia-Core.ps1
+@@ -4070,19 +4070,31 @@
+                 <ColumnDefinition Width="Auto"/>
+               </Grid.ColumnDefinitions>
+               <Grid>
+-                <TextBox x:Name="TxtGlobalSearch" ToolTip="Recherche globale dans tout le domaine : personne, compte, mail ou poste. L’OU et les filtres de la liste sont ignorés. La limite de résultats reste appliquée." Margin="0" MinHeight="42" Padding="12,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher" AutomationProperties.HelpText="Recherche globale dans tout le domaine : personne, compte, mail ou poste. L’OU et les filtres de la liste sont ignorés. La limite de résultats reste appliquée."/>
+-                <TextBlock Text="Rechercher dans tout le domaine…" Margin="13,0,4,0" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}" IsHitTestVisible="False" x:Name="UxSearchPlaceholder">
+-                  <TextBlock.Style>
+-                    <Style TargetType="TextBlock">
+-                      <Setter Property="Visibility" Value="Collapsed"/>
+-                      <Style.Triggers>
+-                        <DataTrigger Binding="{Binding Text, ElementName=TxtGlobalSearch}" Value="">
+-                          <Setter Property="Visibility" Value="Visible"/>
+-                        </DataTrigger>
+-                      </Style.Triggers>
+-                    </Style>
+-                  </TextBlock.Style>
+-                </TextBlock>
++                <TextBox x:Name="TxtGlobalSearch" ToolTip="Recherche globale dans tout le domaine : personne, compte, mail ou poste. L’OU et les filtres de la liste sont ignorés. La limite de résultats reste appliquée." Margin="0" MinHeight="42" Padding="12,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher" AutomationProperties.HelpText="Recherche globale dans tout le domaine : personne, compte, mail ou poste. L’OU et les filtres de la liste sont ignorés. La limite de résultats reste appliquée.">
++                  <TextBox.Template>
++                    <ControlTemplate TargetType="TextBox">
++                      <Border x:Name="UxSearchBorder" CornerRadius="7" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
++                        <Grid ClipToBounds="True">
++                          <ScrollViewer x:Name="PART_ContentHost" Margin="0"/>
++                          <Border Margin="{TemplateBinding Padding}" IsHitTestVisible="False">
++                            <TextBlock x:Name="UxSearchPlaceholder" Text="Rechercher dans tout le domaine…" Visibility="Collapsed"
++                                       Margin="{Binding Content.Margin, ElementName=PART_ContentHost}"
++                                       VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
++                                       FontFamily="{TemplateBinding FontFamily}" FontSize="{TemplateBinding FontSize}"
++                                       FontWeight="{TemplateBinding FontWeight}" FontStyle="{TemplateBinding FontStyle}"
++                                       FontStretch="{TemplateBinding FontStretch}" TextAlignment="{TemplateBinding TextAlignment}"
++                                       Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" IsHitTestVisible="False"/>
++                          </Border>
++                        </Grid>
++                      </Border>
++                      <ControlTemplate.Triggers>
++                        <Trigger Property="Text" Value=""><Setter TargetName="UxSearchPlaceholder" Property="Visibility" Value="Visible"/></Trigger>
++                        <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="UxSearchBorder" Property="BorderBrush" Value="{DynamicResource AccentColor}"/></Trigger>
++                        <Trigger Property="IsEnabled" Value="False"><Setter TargetName="UxSearchBorder" Property="Opacity" Value="0.6"/></Trigger>
++                      </ControlTemplate.Triggers>
++                    </ControlTemplate>
++                  </TextBox.Template>
++                </TextBox>
+               </Grid>
+               <Button x:Name="BtnGlobalSearch" Content="Rechercher" Style="{StaticResource RunButton}" Margin="8,0,0,0" ToolTip="Recherche dans tout le domaine, tous types, sans filtre OU, de présence ou de liste. Aucun poste sondé avant sélection." Grid.Column="1" Height="42" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher dans tout le domaine" AutomationProperties.HelpText="Recherche dans tout le domaine, tous types, sans filtre OU, de présence ou de liste. Aucun poste sondé avant sélection."/>
+             </Grid>
+@@ -4140,20 +4152,20 @@
+             <!-- The activity row always exists. Busy/idle only changes visibility inside its fixed slots. -->
+             <Grid x:Name="UxActivityStrip" Grid.Row="1" Height="44" MinHeight="44" MaxHeight="44" Margin="0" ClipToBounds="True">
+               <Grid.ColumnDefinitions>
++                <ColumnDefinition Width="*" MinWidth="0"/>
+                 <ColumnDefinition Width="252"/>
+-                <ColumnDefinition Width="*" MinWidth="0"/>
+                 <ColumnDefinition Width="144"/>
+                 <ColumnDefinition Width="96"/>
+               </Grid.ColumnDefinitions>
+               <TextBlock x:Name="LblStatus" Text="" Visibility="Collapsed" Foreground="{DynamicResource MutedColor}" TextTrimming="CharacterEllipsis"/>
+               <TextBlock x:Name="LblPrivilegeTop" Text="" Visibility="Collapsed" Foreground="{DynamicResource PrivilegeFg}" FontSize="11" TextTrimming="CharacterEllipsis"/>
+-              <Border x:Name="WriteModeBanner" Grid.Column="0" Width="240" Height="32" Background="#B91C1C" BorderBrush="#7F1D1D" BorderThickness="1" CornerRadius="10" Padding="8,4" Margin="0,0,12,0" Visibility="Collapsed" VerticalAlignment="Center">
++              <Border x:Name="WriteModeBanner" Grid.Column="1" Width="240" Height="32" Background="#B91C1C" BorderBrush="#7F1D1D" BorderThickness="1" CornerRadius="10" Padding="8,4" Margin="0,0,12,0" Visibility="Collapsed" VerticalAlignment="Center">
+                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                   <TextBlock Text="🔴" FontFamily="Segoe UI Emoji" Foreground="White" FontSize="13" FontWeight="Bold" Margin="0,0,7,0"/>
+                   <TextBlock x:Name="LblWriteMode" Text="MODE ECRITURE AD ACTIF" Foreground="White" FontSize="11" FontWeight="Bold" VerticalAlignment="Center"/>
+                 </StackPanel>
+               </Border>
+-              <TextBlock x:Name="LblTaskElapsed" Grid.Column="1" Text="" Visibility="Hidden" Height="24" MaxHeight="24" MinWidth="0" Foreground="{DynamicResource MutedColor}" FontSize="11" VerticalAlignment="Center" Margin="0,0,12,0" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
++              <TextBlock x:Name="LblTaskElapsed" Grid.Column="0" Text="" Visibility="Hidden" Height="24" MaxHeight="24" MinWidth="0" Foreground="{DynamicResource MutedColor}" FontSize="12" VerticalAlignment="Center" HorizontalAlignment="Stretch" TextAlignment="Left" Margin="0,0,12,0" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+               <ProgressBar x:Name="PbTop" Grid.Column="2" Width="130" MinWidth="130" MaxWidth="130" Height="8" MinHeight="8" MaxHeight="8" Visibility="Hidden" IsIndeterminate="False" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="0,0,14,0" ToolTip="Indicateur d’activité. Une animation sans pourcentage ne mesure pas la progression exacte." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Indicateur d’activité" AutomationProperties.HelpText="Indicateur d’activité. Une animation sans pourcentage ne mesure pas la progression exacte."/>
+               <Button x:Name="BtnCancelTask" Grid.Column="3" Width="96" MinWidth="96" MaxWidth="96" Height="32" MinHeight="32" MaxHeight="32" Padding="10,4" ToolTip="Demande l’arrêt d’une lecture annulable. Une écriture ou un appel natif ne sont pas interrompus de force." Content="Annuler" Visibility="Hidden" Margin="0" VerticalAlignment="Center" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Annuler la lecture" AutomationProperties.HelpText="Demande l’arrêt d’une lecture annulable. Une écriture ou un appel natif ne sont pas interrompus de force."/>
+               <Button x:Name="BtnAccountsHeader" Content="Identites" Width="92" Height="42" MinWidth="82" Margin="0,0,6,0" ToolTip="Choisit les identites utilisees par l application pour l annuaire, les postes et les secrets." VerticalAlignment="Center" Visibility="Collapsed" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Identites" AutomationProperties.HelpText="Choisit les identites utilisees par l application pour l annuaire, les postes et les secrets."/>
+@@ -5002,51 +5014,41 @@
+                   </ScrollViewer>
+                 </Border>
+               </TabItem>
+-              <TabItem x:Name="TabRelations" ToolTip="Relations entre utilisateurs et postes, detections et historique." Header="Relations" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Relations" AutomationProperties.HelpText="Relations entre utilisateurs et postes, detections et historique.">
++              <TabItem x:Name="TabRelations" ToolTip="Associations de la sélection, ensemble des liens, candidats et détail des lectures." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Relations utilisateur et poste" AutomationProperties.HelpText="Associations de la sélection, ensemble des liens, candidats et détail des lectures." Header="Relations">
+                 <Border Style="{StaticResource Card}" Margin="4">
+-                  <Grid>
+-                    <Grid.RowDefinitions>
+-                      <RowDefinition Height="Auto"/>
+-                      <RowDefinition Height="Auto"/>
+-                      <RowDefinition Height="*"/>
+-                    </Grid.RowDefinitions>
+-                    <StackPanel Grid.Row="0">
++                  <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
++                    <StackPanel Grid.Row="0" Margin="0,0,0,12">
+                       <TextBlock Text="Relations utilisateur / poste" FontSize="18" FontWeight="SemiBold"/>
+-                      <TextBlock Text="Vue commune des relations utilisateur / poste. Une relation existante n est jamais ecrasee automatiquement." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,10" TextWrapping="Wrap"/>
++                      <TextBlock x:Name="LblRelationsSelection" Text="Sélectionnez un utilisateur ou un poste." FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource AccentText}" Margin="0,6,0,4" TextWrapping="Wrap"/>
++                      <TextBlock Text="Les associations mémorisées et les indices AD ne prouvent pas une session actuellement ouverte." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap"/>
+                     </StackPanel>
+-                    <Border Grid.Row="1" Padding="10" Margin="0,0,0,10" CornerRadius="10" Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1">
+-                      <Grid>
+-                        <Grid.RowDefinitions>
+-                          <RowDefinition Height="Auto"/>
+-                          <RowDefinition Height="Auto"/>
+-                          <RowDefinition Height="36"/>
+-                        </Grid.RowDefinitions>
+-                        <WrapPanel Grid.Row="0">
+-                          <CheckBox x:Name="ChkUserScanPark" Content="Balayer les postes" VerticalAlignment="Center" Margin="0,0,14,8" Visibility="Collapsed" ToolTip="Interroge les postes joignables pour trouver une session ouverte au nom de ce compte. Plus long, et ce sont les seules requetes qui touchent les machines." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Balayer les postes" AutomationProperties.HelpText="Interroge les postes joignables pour trouver une session ouverte au nom de ce compte. Plus long, et ce sont les seules requetes qui touchent les machines."/>
+-                          <Button x:Name="BtnDetectUserComputers" Content="Rechercher les postes" Style="{StaticResource RunButton}" Height="38" MinWidth="190" Margin="0,0,8,8" Visibility="Collapsed" ToolTip="Cherche les postes de ce compte : responsable declare, description du poste et journal de securite. Aucun poste n est contacte sans cocher Balayer les postes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher les postes" AutomationProperties.HelpText="Cherche les postes de ce compte : responsable declare, description du poste et journal de securite. Aucun poste n est contacte sans cocher Balayer les postes."/>
+-                          <TextBlock Text="La detection utilisateur se lance depuis la fiche du poste." Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" Margin="0,0,12,8"/>
+-                          <Button x:Name="BtnLinkSelected" ToolTip="Choisis l objet a associer dans l annuaire. Aucun nom a taper de memoire." Content="Associer" Height="38" MinWidth="170" Margin="0,0,8,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Associer" AutomationProperties.HelpText="Choisis l objet a associer dans l annuaire. Aucun nom a taper de memoire."/>
+-                          <Button x:Name="BtnRemoveLink" ToolTip="Supprime l association selectionnee." Content="Supprimer l association" Style="{StaticResource DangerButton}" Height="38" MinWidth="190" Margin="0,0,8,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Supprimer l association" AutomationProperties.HelpText="Supprime l association selectionnee."/>
+-                        </WrapPanel>
+-                        <WrapPanel Grid.Row="1" Margin="0,4,0,0">
+-                          <Button x:Name="BtnImportLinks" ToolTip="Importe des associations depuis un fichier CSV." Content="Importer" Height="34" MinWidth="130" Margin="0,0,8,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Importer" AutomationProperties.HelpText="Importe des associations depuis un fichier CSV."/>
+-                          <Button x:Name="BtnOpenLinksCsv" ToolTip="Exporte les associations de la base DOMENIA au format CSV." Content="Exporter CSV" Height="34" MinWidth="150" Margin="0,0,8,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Exporter CSV" AutomationProperties.HelpText="Exporte les associations de la base DOMENIA au format CSV."/>
+-                          <Button x:Name="BtnPruneLinks" ToolTip="Supprime les associations dont l utilisateur ou le poste n existe plus." Content="Nettoyer" Height="34" MinWidth="130" Margin="0,0,0,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Nettoyer" AutomationProperties.HelpText="Supprime les associations dont l utilisateur ou le poste n existe plus."/>
+-                        </WrapPanel>
+-                        <Grid Grid.Row="2" Margin="0,8,0,0">
+-                          <Grid.ColumnDefinitions>
+-                            <ColumnDefinition Width="*"/>
+-                            <ColumnDefinition Width="*"/>
+-                          </Grid.ColumnDefinitions>
+-                          <TextBlock Grid.Column="0" x:Name="LblLinkContext" Text="Tous les liens locaux." Foreground="{DynamicResource AccentText}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip="{Binding RelativeSource={RelativeSource Self}, Path=Text}"/>
+-                          <TextBlock Grid.Column="1" x:Name="LblLinkProbeStatus" Text="Pret." Foreground="{DynamicResource MutedColor}" TextTrimming="CharacterEllipsis" TextAlignment="Right" VerticalAlignment="Center" ToolTip="{Binding RelativeSource={RelativeSource Self}, Path=Text}"/>
+-                        </Grid>
+-                      </Grid>
+-                    </Border>
+-                    <TabControl Grid.Row="2" Margin="0">
+-                      <TabItem Header="Associations">
+-                        <Grid>
+-                          <DataGrid x:Name="DgLinks" ToolTip="Associations enregistrees. Clic droit pour copier ou ouvrir." AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" EnableRowVirtualization="True" VirtualizingPanel.VirtualizationMode="Recycling" MinRowHeight="31" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Associations enregistrees" AutomationProperties.HelpText="Associations enregistrees. Clic droit pour copier ou ouvrir.">
++                    <StackPanel Grid.Row="1" Margin="0,0,0,12">
++                      <WrapPanel>
++                        <Button x:Name="BtnDetectUserComputers" ToolTip="Cherche les postes connus et les indices AD du compte sélectionné. Aucune console n’est interrogée sans choix et confirmation explicites." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher les postes" AutomationProperties.HelpText="Cherche les postes connus et les indices AD du compte sélectionné. Aucune console n’est interrogée sans choix et confirmation explicites." Content="Rechercher les postes" Style="{StaticResource RunButton}" Margin="0,0,8,8"/>
++                        <Button x:Name="BtnLinkSelected" ToolTip="Choisit un objet dans l’annuaire et demande une confirmation. Déclaration locale, pas preuve de session." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Associer manuellement" AutomationProperties.HelpText="Choisit un objet dans l’annuaire et demande une confirmation. Déclaration locale, pas preuve de session." Content="Associer un poste" Margin="0,0,8,8"/>
++                        <Button x:Name="BtnRemoveLink" ToolTip="Retire seulement le lien choisi dans l’onglet actif après confirmation, pas l’objet AD." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Supprimer le lien sélectionné" AutomationProperties.HelpText="Retire seulement le lien choisi dans l’onglet actif après confirmation, pas l’objet AD." Content="Supprimer l’association" Style="{StaticResource DangerButton}" Margin="0,0,8,8"/>
++                        <Button x:Name="BtnImportLinks" ToolTip="Importe des associations locales depuis un CSV choisi." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Importer des liens" AutomationProperties.HelpText="Importe des associations locales depuis un CSV choisi." Content="Importer" Margin="0,0,8,8"/>
++                        <Button x:Name="BtnOpenLinksCsv" ToolTip="Exporte uniquement les liens de l’onglet Sélection ou Toutes les associations actuellement ouvert." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Exporter les liens visibles" AutomationProperties.HelpText="Exporte uniquement les liens de l’onglet Sélection ou Toutes les associations actuellement ouvert." Content="Exporter les liens visibles" Margin="0,0,8,8"/>
++                        <Button x:Name="BtnPruneLinks" ToolTip="Lance le contrôle existant des liens orphelins. Ne supprime pas un objet AD." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Nettoyer les liens" AutomationProperties.HelpText="Lance le contrôle existant des liens orphelins. Ne supprime pas un objet AD." Content="Nettoyer" Margin="0,0,8,8"/>
++                        <Button x:Name="BtnRelationsStop" ToolTip="Demande l’arrêt de cette lecture. Une requête native déjà envoyée peut encore se terminer ; ses résultats ne sont pas appliqués après annulation." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Arrêter la recherche inverse" AutomationProperties.HelpText="Demande l’arrêt de cette lecture. Une requête native déjà envoyée peut encore se terminer ; ses résultats ne sont pas appliqués après annulation." Content="Arrêter la recherche" Visibility="Hidden" Margin="0,0,8,8"/>
++                      </WrapPanel>
++                      <Expander x:Name="ExpRelationOptions" ToolTip="Révèle les choix de vérification des postes et des événements. Aucun accès n’est lancé à l’ouverture de cette section." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Options de la recherche inverse" AutomationProperties.HelpText="Révèle les choix de vérification des postes et des événements. Aucun accès n’est lancé à l’ouverture de cette section." Header="Vérification réseau et indices complémentaires (facultatif)" IsExpanded="False" Margin="0,2,0,8">
++                        <StackPanel Margin="4,10,4,6">
++                          <CheckBox x:Name="ChkUserScanPark" ToolTip="Autorise, après confirmation au clic Rechercher, une lecture CIM/DCOM des consoles dans le périmètre choisi. Aucun script ou tâche n’est déposé." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vérification réseau volontaire" AutomationProperties.HelpText="Autorise, après confirmation au clic Rechercher, une lecture CIM/DCOM des consoles dans le périmètre choisi. Aucun script ou tâche n’est déposé." Content="Vérifier les consoles des postes, après confirmation" IsChecked="False" Margin="0,0,0,10"/>
++                          <WrapPanel>
++                            <StackPanel Margin="0,0,12,8"><TextBlock Text="Périmètre des consoles" Margin="0,0,0,4"/><ComboBox x:Name="CmbRelationScanScope" ToolTip="Choisissez les candidats connus, les machines des résultats chargés, ou l’OU choisie dans Rechercher. Le nombre et le temps restent bornés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Périmètre des consoles" AutomationProperties.HelpText="Choisissez les candidats connus, les machines des résultats chargés, ou l’OU choisie dans Rechercher. Le nombre et le temps restent bornés." Width="270" SelectedIndex="0"><ComboBoxItem Content="Postes connus et candidats AD" Tag="Candidates"/><ComboBoxItem Content="Machines de la liste chargée" Tag="Loaded"/><ComboBoxItem Content="OU choisie dans Rechercher (limité)" Tag="OU"/></ComboBox></StackPanel>
++                            <StackPanel Margin="0,0,12,8"><TextBlock Text="Maximum de postes (1 à 50)" Margin="0,0,0,4"/><TextBox x:Name="TxtRelationScanLimit" ToolTip="Limite volontaire de 1 à 50 postes, par défaut 20. Atteindre la limite produit un résultat partiel." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Maximum de postes" AutomationProperties.HelpText="Limite volontaire de 1 à 50 postes, par défaut 20. Atteindre la limite produit un résultat partiel." Width="170" Text="20"/></StackPanel>
++                          </WrapPanel>
++                          <CheckBox x:Name="ChkRelationEvents" ToolTip="Lit au plus 100 événements 4768 ciblés sur le SID du compte, sur le contrôleur courant. Les IP restent des indices non associés automatiquement." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Indices d’authentification du contrôleur" AutomationProperties.HelpText="Lit au plus 100 événements 4768 ciblés sur le SID du compte, sur le contrôleur courant. Les IP restent des indices non associés automatiquement." Content="Lire aussi les indices Kerberos du contrôleur (7 jours)" IsChecked="False" Margin="0,4,0,6"/>
++                          <TextBlock Text="Aucun balayage au simple affichage. Une IP d’authentification reste un indice ; seules les consoles confirmées créent un lien automatique. Pour les connexions RDP : vue Sessions du poste." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap"/>
++                        </StackPanel>
++                      </Expander>
++                      <TextBlock x:Name="LblLinkContext" Text="Aucune sélection." Foreground="{DynamicResource AccentText}" TextWrapping="Wrap"/>
++                      <TextBlock x:Name="LblLinkProbeStatus" Text="Recherche complémentaire à la demande." Foreground="{DynamicResource MutedColor}" Margin="0,4,0,0" TextWrapping="Wrap"/>
++                    </StackPanel>
++                    <TabControl x:Name="RelationTabs" ToolTip="Sépare la sélection des autres associations, des candidats et du diagnostic de recherche." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vues des relations" AutomationProperties.HelpText="Sépare la sélection des autres associations, des candidats et du diagnostic de recherche." Grid.Row="2">
++                      <TabItem x:Name="TabLinksSelected" ToolTip="N’affiche que les liens de l’utilisateur ou du poste sélectionné, avec protection du GUID lorsqu’il est connu." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Associations de la sélection" AutomationProperties.HelpText="N’affiche que les liens de l’utilisateur ou du poste sélectionné, avec protection du GUID lorsqu’il est connu." Header="Utilisateur sélectionné"><Grid>
++                        <DataGrid x:Name="DgLinks" ToolTip="Associations enregistrees. Clic droit pour copier ou ouvrir." AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" EnableRowVirtualization="True" VirtualizingPanel.VirtualizationMode="Recycling" MinRowHeight="31" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Associations enregistrees" AutomationProperties.HelpText="Associations enregistrees. Clic droit pour copier ou ouvrir.">
+                             <DataGrid.Columns>
+                               <DataGridTextColumn Header="Utilisateur" Binding="{Binding UserLogin}" Width="170"/>
+                               <DataGridTextColumn Header="Machine" Binding="{Binding Computer}" Width="170"/>
+@@ -5062,18 +5064,36 @@
+                               </DataGridTemplateColumn>
+                             </DataGrid.Columns>
+                           </DataGrid>
+-                          <Border x:Name="LinkEmptyPanel" Background="{DynamicResource BgCard}" Margin="1,32,1,1" Visibility="Collapsed" IsHitTestVisible="False">
+-                            <TextBlock x:Name="LblLinkEmpty" Text="" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" TextAlignment="Center" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="520" Margin="24"/>
+-                          </Border>
+-                        </Grid>
++                        <Border x:Name="LinkEmptyPanel" Background="{DynamicResource BgCard}" Margin="1,32,1,1" Visibility="Collapsed" IsHitTestVisible="False"><TextBlock x:Name="LblLinkEmpty" Text="" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" TextAlignment="Center" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="520" Margin="24"/></Border>
++                      </Grid></TabItem>
++                      <TabItem x:Name="TabLinksAll" ToolTip="Vue distincte de tous les liens en mémoire du domaine courant. Ne change ni le compte sélectionné ni les filtres de recherche." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Toutes les associations" AutomationProperties.HelpText="Vue distincte de tous les liens en mémoire du domaine courant. Ne change ni le compte sélectionné ni les filtres de recherche." Header="Toutes les associations"><DataGrid x:Name="DgAllLinks" ToolTip="Associations enregistrees. Clic droit pour copier ou ouvrir." AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" EnableRowVirtualization="True" VirtualizingPanel.VirtualizationMode="Recycling" MinRowHeight="31" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Toutes les associations locales" AutomationProperties.HelpText="Associations enregistrees. Clic droit pour copier ou ouvrir.">
++                            <DataGrid.Columns>
++                              <DataGridTextColumn Header="Utilisateur" Binding="{Binding UserLogin}" Width="170"/>
++                              <DataGridTextColumn Header="Machine" Binding="{Binding Computer}" Width="170"/>
++                              <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="190"/>
++                              <DataGridTextColumn Header="Confiance" Binding="{Binding Confidence}" Width="90"/>
++                              <DataGridTextColumn Header="Date" Binding="{Binding When}" Width="145"/>
++                              <DataGridTemplateColumn Header="Details" Width="*">
++                                <DataGridTemplateColumn.CellTemplate>
++                                  <DataTemplate>
++                                    <TextBlock Text="{Binding Details}" Style="{StaticResource WrappedCellText}" ToolTip="{Binding Details}"/>
++                                  </DataTemplate>
++                                </DataGridTemplateColumn.CellTemplate>
++                              </DataGridTemplateColumn>
++                            </DataGrid.Columns>
++                          </DataGrid></TabItem>
++                      <TabItem x:Name="TabLinksDiscovery" ToolTip="Distingue historiques, indices AD et consoles vérifiées. Un indice textuel n’est pas ajouté automatiquement aux liens." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Postes trouvés et indices" AutomationProperties.HelpText="Distingue historiques, indices AD et consoles vérifiées. Un indice textuel n’est pas ajouté automatiquement aux liens." Header="Postes trouvés / indices">
++                        <DockPanel><WrapPanel DockPanel.Dock="Top" Margin="0,0,0,8"><Button x:Name="BtnRelationOpenCandidate" ToolTip="Ouvre la fiche du poste AD identifié. Une simple adresse IP ne suffit pas." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ouvrir le poste candidat" AutomationProperties.HelpText="Ouvre la fiche du poste AD identifié. Une simple adresse IP ne suffit pas." Content="Ouvrir la fiche du poste"/><Button x:Name="BtnRelationAdopt" ToolTip="Déclare volontairement un lien local après confirmation. Cela ne prouve pas une session active." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Déclarer l’association" AutomationProperties.HelpText="Déclare volontairement un lien local après confirmation. Cela ne prouve pas une session active." Content="Déclarer l’association"/></WrapPanel>
++                        <DataGrid x:Name="DgRelationCandidates" ToolTip="Liste progressive des indices et consoles de cette recherche. Les résultats partiels gardent leur nature et leur source." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Candidats de la recherche inverse" AutomationProperties.HelpText="Liste progressive des indices et consoles de cette recherche. Les résultats partiels gardent leur nature et leur source." AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" EnableRowVirtualization="True" MinRowHeight="32" ScrollViewer.HorizontalScrollBarVisibility="Auto">
++                          <DataGrid.Columns><DataGridTextColumn Header="Poste / IP indicative" Binding="{Binding Computer}" Width="175"/><DataGridTextColumn Header="État / nature de l’indice" Binding="{Binding Status}" Width="190"/><DataGridTextColumn Header="Compte console observé" Binding="{Binding CurrentUser}" Width="190"/><DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="175"/><DataGridTextColumn Header="Date d’observation" Binding="{Binding ObservedUtc}" Width="160"/><DataGridTextColumn Header="Détail" Binding="{Binding Detail}" Width="*" MinWidth="220"/></DataGrid.Columns>
++                        </DataGrid></DockPanel>
+                       </TabItem>
+-                      <TabItem Header="Derniere detection">
+-                        <DataGrid x:Name="DgLinkAttempts" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" EnableRowVirtualization="True" VirtualizingPanel.VirtualizationMode="Recycling" ToolTip="Methodes essayees lors de la derniere recherche d utilisateur, et leur resultat." MinRowHeight="31" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Methodes essayees lors de la derniere recherche d utilisateur, et leur resul" AutomationProperties.HelpText="Methodes essayees lors de la derniere recherche d utilisateur, et leur resultat.">
++                      <TabItem x:Name="TabLinksAttempts" ToolTip="Pour le compte sélectionné : cibles lues, refus, limites et interruptions, sans confondre erreur et absence de poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Détail de la recherche" AutomationProperties.HelpText="Pour le compte sélectionné : cibles lues, refus, limites et interruptions, sans confondre erreur et absence de poste." Header="Détail de la recherche"><DataGrid x:Name="DgLinkAttempts" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" EnableRowVirtualization="True" VirtualizingPanel.VirtualizationMode="Recycling" ToolTip="Methodes essayees lors de la derniere recherche d utilisateur, et leur resultat." MinRowHeight="31" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Methodes essayees lors de la derniere recherche d utilisateur, et leur resul" AutomationProperties.HelpText="Methodes essayees lors de la derniere recherche d utilisateur, et leur resultat.">
+                           <DataGrid.Columns>
+                             <DataGridTextColumn Header="Methode" Binding="{Binding Method}" Width="210"/>
+                             <DataGridTextColumn Header="Etat" Binding="{Binding Status}" Width="90"/>
+-                            <DataGridTextColumn Header="Utilisateur" Binding="{Binding User}" Width="150"/>
+-                            <DataGridTextColumn Header="Score" Binding="{Binding Score}" Width="70"/>
++                            <DataGridTextColumn Header="Cible" Binding="{Binding User}" Width="150"/>
++                            <DataGridTextColumn Header="Indice" Binding="{Binding Score}" Width="70"/>
+                             <DataGridTextColumn Header="Duree ms" Binding="{Binding DurationMs}" Width="85"/>
+                             <DataGridTemplateColumn Header="Detail" Width="*">
+                               <DataGridTemplateColumn.CellTemplate>
+@@ -5083,8 +5103,7 @@
+                               </DataGridTemplateColumn.CellTemplate>
+                             </DataGridTemplateColumn>
+                           </DataGrid.Columns>
+-                        </DataGrid>
+-                      </TabItem>
++                        </DataGrid></TabItem>
+                     </TabControl>
+                   </Grid>
+                 </Border>
+@@ -7654,12 +7673,15 @@
+     # on choisit un poste, depuis un poste on choisit un compte. Le nom n est
+     # plus saisi de memoire, il est choisi dans l annuaire.
+     try {
++        if(Test-DomeniaAccessBusyWrite){return}
++        $epoch=$script:SessionEpoch
+         $user = ""
+         $comp = ""
+-        $type = ""
+-        if ($null -ne $script:SelectedObject) { $type = [string]$script:SelectedObject.Type }
+-        if ($type -eq "Utilisateur") { try { $user = ([string]$script:Ctrl["TxtUserSam"].Text).Trim() } catch { } }
+-        if ($type -eq "Machine") { try { $comp = ([string]$script:Ctrl["TxtCompName"].Text).Trim() } catch { } }
++        $subject=Get-DomeniaRelationsSubject
++        $type=if($null -ne $subject){[string]$subject.Type}else{''}
++        $generation=$script:Relations.Generation
++        if($type -eq 'Utilisateur'){$user=$subject.Login}
++        if($type -eq 'Machine'){$comp=$subject.Name}
+ 
+         if ($type -eq "Utilisateur") {
+             if ([string]::IsNullOrWhiteSpace($user)) { Set-Status "Identifiant du compte introuvable." "WARN"; return }
+@@ -7688,8 +7710,10 @@
+             $comp = [string]$pickedComputer.Name
+         }
+ 
++        if($generation -ne $script:Relations.Generation){Set-Status 'Sélection modifiée : association annulée.' 'WARN';return}
+         if ([string]::IsNullOrWhiteSpace($user) -or [string]::IsNullOrWhiteSpace($comp)) { Set-Status "Association incomplete." "WARN"; return }
+         if (-not (Confirm-Action -Message "Associer le compte $user au poste $comp ?`r`n`r`nL association est enregistree sur ce poste, pas dans Active Directory." -Title "Confirmer l association")) { return }
++        if($epoch -ne $script:SessionEpoch -or $generation -ne $script:Relations.Generation -or (Test-DomeniaAccessBusyWrite)){Set-Status 'Contexte modifié : association annulée.' 'WARN';return}
+         [void](Add-UserMachineLinkIfMissing -UserLogin $user -Computer $comp -Source "Saisie manuelle" -Details "Choisi dans l annuaire depuis la fiche $type." -Confidence 100)
+     }
+     catch { [void](Show-DomeniaOperationError -Operation "Creation de l association" -ErrorRecordOrException $_) }
+@@ -10032,7 +10056,7 @@
+     [CmdletBinding()]
+     param([switch]$Immediate,[switch]$Force)
+ 
+-    if(-not $Immediate -and -not $Force){Select-DomeniaLiveResult;return}
++    if(-not $Immediate -and -not $Force){Set-DomeniaRelationsGridSelection;Select-DomeniaLiveResult;return}
+     # Rafraichissement programme de la grille : les SelectionChanged
+     # intermediaires ne doivent rien purger.
+     if ($script:SuppressGridSelectionEvents) { return }
+@@ -13609,578 +13633,21 @@
+ }
+ 
+ function Get-DomeniaUserComputersWorkerCode {
+-    return @'
+-$attempts = New-Object Collections.ArrayList
+-$candidates = @{}
+-$scanStats = $null
+-$watch = [System.Diagnostics.Stopwatch]::StartNew()
+-$script:UserProbeFallbackTasks=0
+-$script:UserProbeTaskBytes=0
+-$login = ([string]$Payload.Login).Trim()
+-$userDn = ([string]$Payload.UserDn).Trim()
+-$surname = ([string]$Payload.Surname).Trim()
+-$displayName = ([string]$Payload.DisplayName).Trim()
+-$baseDn = [string]$Context.BaseDn
+-$eventDays = [Math]::Max(1,[Math]::Min(30,[int]$Payload.EventDays))
+-$budgetMs = [Math]::Max(10000,[int]$Payload.BudgetMs)
+-if ([string]::IsNullOrWhiteSpace($login)) { throw 'Aucun identifiant de compte fourni.' }
+-if ([string]::IsNullOrWhiteSpace($baseDn)) { throw 'Base DN vide.' }
+-$bound = $null
+-
+-function Resolve-WBoundContext {
+-    param($Base)
+-    $candidates = New-Object Collections.ArrayList
+-    $raw = ''
+-    try { $raw = ([string]$Base.BindUser).Trim() } catch { }
+-    if (-not [string]::IsNullOrWhiteSpace($raw)) {
+-        [void]$candidates.Add($raw)
+-        $short = $raw
+-        if ($short.Contains([string][char]92)) { $short = $short.Split([char]92,2)[1] }
+-        if ($short.Contains('@')) { $short = $short.Split('@',2)[0] }
+-        $short = $short.Trim()
+-        $netbios = ''
+-        $domain = ''
+-        try { $netbios = ([string]$Base.Netbios).Trim() } catch { }
+-        try { $domain = ([string]$Base.Domain).Trim() } catch { }
+-        if (-not [string]::IsNullOrWhiteSpace($netbios)) { [void]$candidates.Add($netbios + [string][char]92 + $short) }
+-        if (-not [string]::IsNullOrWhiteSpace($domain)) { [void]$candidates.Add($short + '@' + $domain) }
+-    }
+-    # Dernier recours : la session Windows du poste, sans identite explicite.
+-    [void]$candidates.Add('')
+-    $errors = New-Object Collections.ArrayList
+-    foreach ($candidate in @($candidates)) {
+-        $useCredential = -not [string]::IsNullOrWhiteSpace([string]$candidate)
+-        $context = [pscustomobject]@{
+-            Server = [string]$Base.Server
+-            BaseDn = [string]$Base.BaseDn
+-            BindUser = [string]$candidate
+-            Credential = $(if ($useCredential) { $Base.Credential } else { $null })
+-            UseCredential = $useCredential
+-            PageSize = [int]$Base.PageSize
+-        }
+-        $probe = $null
+-        try {
+-            $probe = New-WSearcher $context ([string]$Base.BaseDn) '(objectClass=*)' @('distinguishedName') 'Base' 1
+-            [void]$probe.FindOne()
+-            return $context
+-        }
+-        catch {
+-            $label = $(if ($useCredential) { [string]$candidate } else { 'session Windows' })
+-            [void]$errors.Add($label + ' : ' + [string]$_.Exception.Message)
+-        }
+-        finally { if ($null -ne $probe) { try { $probe.Dispose() } catch { } } }
+-    }
+-    throw ('Aucune identite ne permet de lire l annuaire. ' + ((@($errors)) -join ' | '))
+-}
+-
+-function Add-Attempt {
+-    param([string]$Method,[string]$Status,[string]$Computer,[int]$Score,[int]$Ms,[string]$Detail)
+-    [void]$attempts.Add([pscustomobject]@{
+-        Method = $Method
+-        Status = $Status
+-        User = $Computer
+-        Score = $Score
+-        DurationMs = $Ms
+-        Detail = $Detail
+-    })
+-}
+-function Add-Candidate {
+-    param([string]$Computer,[int]$Score,[string]$Source,[string]$Detail)
+-    $name = ([string]$Computer).Trim().TrimEnd([char]36)
+-    if ([string]::IsNullOrWhiteSpace($name)) { return }
+-    if ($name.Contains('.')) { $name = $name.Split('.')[0] }
+-    if ($name.Contains([string][char]92)) { $name = $name.Split([char]92)[-1] }
+-    $name = $name.Trim()
+-    if ($name.Length -lt 3) { return }
+-    $key = $name.ToUpperInvariant()
+-    if ($candidates.ContainsKey($key)) {
+-        $existing = $candidates[$key]
+-        $bestScore = [Math]::Max([int]$existing.Score,$Score)
+-        $sources = @(([string]$existing.Source).Split('+') + @($Source) | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ } | Select-Object -Unique)
+-        $details = @(([string]$existing.Detail).Split('|') + @($Detail) | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ } | Select-Object -Unique)
+-        $candidates[$key] = [pscustomobject]@{ Computer=$name; Score=$bestScore; Source=($sources -join ' + '); Detail=($details -join ' | ') }
+-        return
+-    }
+-    $candidates[$key] = [pscustomobject]@{ Computer=$name; Score=$Score; Source=$Source; Detail=$Detail }
+-}
+-function Test-Budget { return ($watch.ElapsedMilliseconds -lt $budgetMs) }
+-function Get-FailureStatus {
+-    param([string]$Message)
+-    if ($Message -match '(?i)access is denied|acces refuse|refus|denied|0x80070005|privil') { return 'REFUSE' }
+-    if ($Message -match '(?i)not found|introuvable|no events|aucun') { return 'VIDE' }
+-    if ($Message -match '(?i)timeout|delai|RPC server') { return 'INJOIGNABLE' }
+-    return 'ERREUR'
+-}
+-
+-# ---------------------------------------------------------------------
+-# 0. Validation du bind. Sans cela, un identifiant court fait echouer
+-#    toutes les lectures avec un message de mot de passe incorrect.
+-# ---------------------------------------------------------------------
+-$sw = [System.Diagnostics.Stopwatch]::StartNew()
+-try {
+-    $bound = Resolve-WBoundContext $Context
+-    $sw.Stop()
+-    $identity = [string]$bound.BindUser
+-    if ([string]::IsNullOrWhiteSpace($identity)) { $identity = 'session Windows' }
+-    Add-Attempt 'Connexion annuaire' 'OK' '' 0 ([int]$sw.ElapsedMilliseconds) ('Lecture validee avec l identite ' + $identity + '.')
+-}
+-catch {
+-    $sw.Stop()
+-    $m = [string]$_.Exception.Message
+-    Add-Attempt 'Connexion annuaire' 'REFUSE' '' 0 ([int]$sw.ElapsedMilliseconds) $m
+-    $watch.Stop()
+-    return [pscustomobject]@{ Login=$login; Candidates=@(); Attempts=@($attempts); Scanned=$false; ScanStats=[pscustomobject]@{Candidates=0;Reachable=0;Probed=0}; DurationMs=[long]$watch.ElapsedMilliseconds; Success=$false }
+-}
+-
+-# ---------------------------------------------------------------------
+-# 1. Postes dont le compte est declare responsable. Attribut indexe,
+-#    donc immediat.
+-# ---------------------------------------------------------------------
+-$sw = [System.Diagnostics.Stopwatch]::StartNew()
+-try {
+-    if ([string]::IsNullOrWhiteSpace($userDn)) { throw 'Chemin du compte inconnu.' }
+-    $escaped = Escape-WLdap -Value $userDn
+-    $searcher = New-WSearcher $bound $baseDn ('(&(objectCategory=computer)(managedBy=' + $escaped + '))') @('name','description') 'Subtree' 50
+-    $found = 0
+-    foreach ($r in @($searcher.FindAll())) {
+-        $found++
+-        $name = [string](Get-WPropFirst $r.Properties 'name' '')
+-        Add-Candidate $name 85 'Responsable declare' ('Le compte figure dans le champ Responsable du poste ' + $name + '.')
+-    }
+-    $sw.Stop()
+-    $status = 'OK'
+-    if ($found -eq 0) { $status = 'VIDE' }
+-    Add-Attempt 'Responsable du poste' $status '' 85 ([int]$sw.ElapsedMilliseconds) ('' + $found + ' poste(s) dont ce compte est responsable.')
+-}
+-catch {
+-    $sw.Stop()
+-    $m = [string]$_.Exception.Message
+-    Add-Attempt 'Responsable du poste' (Get-FailureStatus $m) '' 0 ([int]$sw.ElapsedMilliseconds) $m
+-}
+-
+-# ---------------------------------------------------------------------
+-# 2. Postes dont la description ou l emplacement mentionne le compte.
+-#    Beaucoup de parcs renseignent ce champ a la pose du master.
+-# ---------------------------------------------------------------------
+-if (Test-Budget) {
+-    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+-    try {
+-        $terms = New-Object Collections.ArrayList
+-        foreach ($t in @($login,$surname,$displayName)) {
+-            $clean = ([string]$t).Trim()
+-            if ($clean.Length -lt 4) { continue }
+-            $key = $clean.ToLowerInvariant()
+-            if (@($terms) -notcontains $key) { [void]$terms.Add($key) }
+-        }
+-        if (@($terms).Count -eq 0) { throw 'Aucun terme exploitable pour la recherche textuelle.' }
+-        $clauses = New-Object Collections.ArrayList
+-        foreach ($t in @($terms)) {
+-            $e = Escape-WLdap -Value $t
+-            [void]$clauses.Add('(description=*' + $e + '*)')
+-            [void]$clauses.Add('(location=*' + $e + '*)')
+-        }
+-        $filter = '(&(objectCategory=computer)(|' + ((@($clauses)) -join '') + '))'
+-        $searcher = New-WSearcher $bound $baseDn $filter @('name','description','location') 'Subtree' 50
+-        $searcher.ServerTimeLimit = [TimeSpan]::FromSeconds(12)
+-        $searcher.ClientTimeout = [TimeSpan]::FromSeconds(15)
+-        $found = 0
+-        foreach ($r in @($searcher.FindAll())) {
+-            $found++
+-            $name = [string](Get-WPropFirst $r.Properties 'name' '')
+-            $desc = [string](Get-WPropFirst $r.Properties 'description' '')
+-            Add-Candidate $name 60 'Description du poste' ('La fiche du poste ' + $name + ' mentionne ce compte : ' + $desc)
+-        }
+-        $sw.Stop()
+-        $status = 'OK'
+-        if ($found -eq 0) { $status = 'VIDE' }
+-        Add-Attempt 'Description du poste' $status '' 60 ([int]$sw.ElapsedMilliseconds) ('' + $found + ' poste(s) mentionnant ce compte.')
+-    }
+-    catch {
+-        $sw.Stop()
+-        $m = [string]$_.Exception.Message
+-        Add-Attempt 'Description du poste' (Get-FailureStatus $m) '' 0 ([int]$sw.ElapsedMilliseconds) $m
+-    }
+-}
+-else { Add-Attempt 'Description du poste' 'IGNORE' '' 0 0 'Budget de temps epuise.' }
+-
+-# ---------------------------------------------------------------------
+-# 3. Journal de securite du controleur de domaine. C est la source la
+-#    plus fiable, mais elle exige des droits de lecture sur ce journal.
+-# ---------------------------------------------------------------------
+-if (Test-Budget -and [bool]$Payload.UseSecurityLog) {
+-    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+-    try {
+-        $server = ([string]$Context.Server).Trim()
+-        if ([string]::IsNullOrWhiteSpace($server)) { throw 'Aucun controleur de domaine connu.' }
+-        $since = (Get-Date).AddDays(-$eventDays)
+-        $filterHash = @{ LogName='Security'; Id=@(4768,4624); StartTime=$since }
+-        $maxSecurityEvents = [Math]::Max(400,[Math]::Min(20000,[int]$Payload.MaxSecurityEvents))
+-        $params = @{ ComputerName=$server; FilterHashtable=$filterHash; MaxEvents=$maxSecurityEvents; ErrorAction='Stop' }
+-        if ([bool]$Context.UseCredential -and $null -ne $Context.Credential) { $params['Credential'] = Get-WAdCredential $Context }
+-        $events = @(Get-WinEvent @params)
+-        $found = 0
+-        foreach ($ev in $events) {
+-            $xml = $null
+-            try { $xml = [xml]$ev.ToXml() } catch { continue }
+-            $target = ''
+-            $workstation = ''
+-            foreach ($d in @($xml.Event.EventData.Data)) {
+-                $n = [string]$d.Name
+-                if ($n -eq 'TargetUserName') { $target = [string]$d.'#text' }
+-                elseif ($n -eq 'WorkstationName' -or $n -eq 'IpAddress') { if ([string]::IsNullOrWhiteSpace($workstation)) { $workstation = [string]$d.'#text' } }
+-            }
+-            if ([string]::IsNullOrWhiteSpace($target)) { continue }
+-            if (($target.TrimEnd([char]36)) -ine $login) { continue }
+-            if ([string]::IsNullOrWhiteSpace($workstation)) { continue }
+-            if ($workstation -match '^(-|::1|127\.0\.0\.1)$') { continue }
+-            $found++
+-            Add-Candidate $workstation 90 'Journal de securite' ('Ouverture de session enregistree sur ' + $workstation + ' le ' + $ev.TimeCreated.ToString('dd/MM/yyyy HH:mm') + '.')
+-        }
+-        $sw.Stop()
+-        $status = 'OK'
+-        if ($found -eq 0) { $status = 'VIDE' }
+-        Add-Attempt 'Journal de securite' $status '' 90 ([int]$sw.ElapsedMilliseconds) ('' + @($events).Count + ' evenement(s) lus sur ' + $eventDays + ' jour(s), ' + $found + ' concernant ce compte.')
+-    }
+-    catch {
+-        $sw.Stop()
+-        $m = [string]$_.Exception.Message
+-        $status = Get-FailureStatus $m
+-        $hint = $m
+-        if ($status -eq 'REFUSE') { $hint = 'Lecture du journal de securite du controleur refusee. ' + $m }
+-        Add-Attempt 'Journal de securite' $status '' 0 ([int]$sw.ElapsedMilliseconds) $hint
+-    }
+-}
+-elseif (-not [bool]$Payload.UseSecurityLog) {
+-    Add-Attempt 'Journal de securite' 'IGNORE' '' 0 0 'Source desactivee dans la configuration.'
+-}
+-else { Add-Attempt 'Journal de securite' 'IGNORE' '' 0 0 'Budget de temps epuise.' }
+-
+-# ---------------------------------------------------------------------
+-# 4. Balayage des postes joignables. Contrairement aux trois sources
+-#    precedentes, celle-ci contacte reellement les machines. Elle n est
+-#    donc tentee que sur demande explicite, et elle est bornee a trois
+-#    niveaux : nombre de candidats, nombre de postes interroges, et
+-#    budget de temps.
+-# ---------------------------------------------------------------------
+-function Get-ReachableComputers {
+-    param([string[]]$Names,[int]$TimeoutMs = 800,[int]$Batch = 64)
+-    $reachable = New-Object Collections.ArrayList
+-    $index = 0
+-    $total = @($Names).Count
+-    while ($index -lt $total) {
+-        if (-not (Test-Budget)) { break }
+-        $last = [Math]::Min($index + $Batch - 1,$total - 1)
+-        $pending = New-Object Collections.ArrayList
+-        for ($i = $index; $i -le $last; $i++) {
+-            $name = [string]$Names[$i]
+-            if ([string]::IsNullOrWhiteSpace($name)) { continue }
+-            try {
+-                $ping = New-Object Net.NetworkInformation.Ping
+-                [void]$pending.Add([pscustomobject]@{ Name=$name; Ping=$ping; Task=$ping.SendPingAsync($name,$TimeoutMs) })
+-            }
+-            catch { }
+-        }
+-        if ($pending.Count -gt 0) {
+-            $tasks = @(@($pending) | ForEach-Object { $_.Task })
+-            try { [void][System.Threading.Tasks.Task]::WaitAll($tasks,($TimeoutMs + 1500)) } catch { }
+-            foreach ($entry in @($pending)) {
+-                try {
+-                    if ($entry.Task.IsCompleted -and $null -ne $entry.Task.Result -and $entry.Task.Result.Status -eq 'Success') {
+-                        [void]$reachable.Add([string]$entry.Name)
+-                    }
+-                }
+-                catch { }
+-                try { $entry.Ping.Dispose() } catch { }
+-            }
+-        }
+-        $index = $last + 1
+-    }
+-    return @($reachable)
+-}
+-
+-if ((Test-Budget) -and [bool]$Payload.ScanPark) {
+-    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+-    $scanned = 0
+-    $reachableCount = 0
+-    $candidateCount = 0
+-    $probedNames = @{}
+-    
+-    function Test-SessionOn {
+-        # Lit la session ouverte sur un poste. Rend vrai si elle porte le
+-        # compte recherche.
+-        param([string]$Computer,[int]$Score,[string]$Source)
+-        $name = ([string]$Computer).Trim()
+-        if ([string]::IsNullOrWhiteSpace($name)) { return $false }
+-        $key = $name.ToUpperInvariant()
+-        if ($probedNames.ContainsKey($key)) { return $false }
+-        $probedNames[$key] = $true
+-        $session = $null
+-        try {
+-            $session = New-WDomeniaCimSession $Context $name $cred 6
+-            $cs = Get-CimInstance -CimSession $session -ClassName 'Win32_ComputerSystem' -Property 'UserName' -ErrorAction Stop
+-            $current = [string]$cs.UserName
+-            if ([string]::IsNullOrWhiteSpace($current)) { return $false }
+-            $short = $current
+-            if ($short.Contains([string][char]92)) { $short = $short.Split([char]92)[-1] }
+-            if ($short.Contains('@')) { $short = $short.Split('@')[0] }
+-            if ($short.Trim() -ieq $login) {
+-                Add-Candidate $name $Score $Source ('Session de ' + $current + ' ouverte sur ' + $name + '.')
+-                return $true
+-            }
+-        }
+-        catch {
+-            $classicError=[string]$_.Exception.Message
+-            try {
+-                $local=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String("JHU9JycKdHJ5eyRjcz1HZXQtQ2ltSW5zdGFuY2UgV2luMzJfQ29tcHV0ZXJTeXN0ZW0gLUVycm9yQWN0aW9uIFN0b3A7JHU9W3N0cmluZ10kY3MuVXNlck5hbWV9Y2F0Y2h7fQppZihbc3RyaW5nXTo6SXNOdWxsT3JXaGl0ZVNwYWNlKCR1KSl7dHJ5eyR1PVtzdHJpbmddKEdldC1JdGVtUHJvcGVydHkgJ0hLTE06XFNPRlRXQVJFXE1pY3Jvc29mdFxXaW5kb3dzXEN1cnJlbnRWZXJzaW9uXEF1dGhlbnRpY2F0aW9uXExvZ29uVUknIC1FcnJvckFjdGlvbiBTdG9wKS5MYXN0TG9nZ2VkT25TQU1Vc2VyfWNhdGNoe319Cltwc2N1c3RvbW9iamVjdF1Ae1VzZXJOYW1lPSR1fQ=="))
+-                $fb=Invoke-WRemoteTaskScript $Context $name $local ([pscustomobject]@{}) ([Math]::Min(45,[int]$Context.TaskFallbackTimeoutSeconds)) $classicError
+-                $current=[string]$fb.UserName
+-                if(-not[string]::IsNullOrWhiteSpace($current)){
+-                    $short=$current;if($short.Contains([string][char]92)){$short=$short.Split([char]92)[-1]};if($short.Contains('@')){$short=$short.Split('@')[0]}
+-                    if($short.Trim() -ieq $login){ Add-Candidate $name $Score ($Source+' via tache planifiee') ('Session de '+$current+' ouverte sur '+$name+'.'); $script:UserProbeFallbackTasks++;try{$script:UserProbeTaskBytes += [long]$fb.DomeniaBytesSent+[long]$fb.DomeniaBytesReceived}catch{}; return $true }
+-                }
+-                $script:UserProbeFallbackTasks++
+-            } catch { }
+-        }
+-        finally { try { Remove-WDomeniaCimSession $session } catch { } }
+-        return $false
+-    }
+-
+-    # Les postes deja connus du compte sont verifies avant tout balayage.
+-    # Dans le cas courant, cela suffit et coute une seule seconde.
+-    $priorityHit = 0
+-    try {
+-        foreach ($known in @($Payload.PriorityComputers)) {
+-            if (-not (Test-Budget)) { break }
+-            $n = ([string]$known).Trim()
+-            if ([string]::IsNullOrWhiteSpace($n)) { continue }
+-            $up = $false
+-            try { $up = Test-WTcpPort $n 135 700 } catch { }
+-            if (-not $up) { continue }
+-            if (Test-SessionOn $n 97 'Poste connu confirme') { $priorityHit++ }
+-        }
+-    }
+-    catch { }
+-    if ($priorityHit -gt 0) {
+-        Add-Attempt 'Postes deja connus' 'OK' '' 97 0 ('' + $priorityHit + ' poste(s) confirme(s) sans balayage.')
+-    }
+-    elseif (@($Payload.PriorityComputers).Count -gt 0) {
+-        Add-Attempt 'Postes deja connus' 'VIDE' '' 0 0 ('' + @($Payload.PriorityComputers).Count + ' poste(s) connus verifies, aucune session correspondante.')
+-    }
+-
+-    try {
+-        $maxCandidates = [Math]::Max(20,[Math]::Min(3000,[int]$Payload.ScanCandidates))
+-        $maxProbes = [Math]::Max(5,[Math]::Min(400,[int]$Payload.ScanProbes))
+-
+-        # Les postes les plus recemment actifs d abord : la session
+-        # recherchee a beaucoup plus de chances d y etre ouverte.
+-        $searcher = New-WSearcher $bound $baseDn '(&(objectCategory=computer)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))' @('name','lastLogonTimestamp') 'Subtree' $maxCandidates
+-        $searcher.ServerTimeLimit = [TimeSpan]::FromSeconds(20)
+-        $pool = New-Object Collections.ArrayList
+-        foreach ($r in @($searcher.FindAll())) {
+-            $n = [string](Get-WPropFirst $r.Properties 'name' '')
+-            if ([string]::IsNullOrWhiteSpace($n)) { continue }
+-            $stamp = 0
+-            try { $stamp = Convert-WLargeInteger (Get-WPropFirst $r.Properties 'lastlogontimestamp' 0) } catch { }
+-            [void]$pool.Add([pscustomobject]@{ Name=$n; Stamp=$stamp })
+-        }
+-        $candidateCount = $pool.Count
+-        $ordered = @($pool.ToArray() | Sort-Object -Property Stamp -Descending | ForEach-Object { [string]$_.Name })
+-
+-        $reachable = Get-ReachableComputers $ordered 800 64
+-        $reachableCount = @($reachable).Count
+-
+-        foreach ($computer in @($reachable)) {
+-            if ($scanned -ge $maxProbes) { break }
+-            if (-not (Test-Budget)) { break }
+-            if ($probedNames.ContainsKey(([string]$computer).ToUpperInvariant())) { continue }
+-            $scanned++
+-            [void](Test-SessionOn $computer 95 'Session ouverte')
+-        }
+-        $sw.Stop()
+-        $status = 'OK'
+-        if ($scanned -eq 0) { $status = 'VIDE' }
+-        Add-Attempt 'Balayage du parc' $status '' 95 ([int]$sw.ElapsedMilliseconds) ('' + $candidateCount + ' poste(s) retenus, ' + $reachableCount + ' joignable(s), ' + $scanned + ' interroge(s).')
+-    }
+-    catch {
+-        $sw.Stop()
+-        $m = [string]$_.Exception.Message
+-        Add-Attempt 'Balayage du parc' (Get-FailureStatus $m) '' 0 ([int]$sw.ElapsedMilliseconds) $m
+-    }
+-    $scanStats = [pscustomobject]@{ Candidates=$candidateCount; Reachable=$reachableCount; Probed=$scanned }
+-}
+-elseif (-not [bool]$Payload.ScanPark) {
+-    Add-Attempt 'Balayage du parc' 'IGNORE' '' 0 0 'Non demande. Cette source contacte les postes un par un.'
+-}
+-else { Add-Attempt 'Balayage du parc' 'IGNORE' '' 0 0 'Budget de temps epuise.' }
+-
+-# ---------------------------------------------------------------------
+-# Verification : chaque candidat doit exister comme compte d ordinateur.
+-# ---------------------------------------------------------------------
+-$verified = New-Object Collections.ArrayList
+-foreach ($key in @($candidates.Keys)) {
+-    $c = $candidates[$key]
+-    $exists = $false
+-    $dn = ''
+-    try {
+-        $e = Escape-WLdap -Value ([string]$c.Computer)
+-        $s = New-WSearcher $bound $baseDn ('(&(objectCategory=computer)(|(name=' + $e + ')(sAMAccountName=' + $e + '$)))') @('name','distinguishedName') 'Subtree' 2
+-        $r = $s.FindOne()
+-        if ($null -ne $r) { $exists = $true; $dn = [string](Get-WPropFirst $r.Properties 'distinguishedname' '') }
+-    }
+-    catch { }
+-    if (-not $exists) { continue }
+-    [void]$verified.Add([pscustomobject]@{
+-        Computer = [string]$c.Computer
+-        Score = [int]$c.Score
+-        Source = [string]$c.Source
+-        Detail = [string]$c.Detail
+-        DN = $dn
+-    })
+-}
+-
+-$watch.Stop()
+-if ($null -eq $scanStats) { $scanStats = [pscustomobject]@{ Candidates=0; Reachable=0; Probed=0 } }
+-[pscustomobject]@{
+-    Login = $login
+-    Candidates = @($verified.ToArray() | Sort-Object -Property Score -Descending)
+-    Attempts = @($attempts)
+-    Scanned = [bool]$Payload.ScanPark
+-    ScanStats = $scanStats
+-    DurationMs = [long]$watch.ElapsedMilliseconds
+-    Success = $true
+-}
+-
+-'@
++    return (Get-DomeniaRelationsWorkerCode)
+ }
+ 
+ function Complete-DomeniaUserComputersUi {
+     param($Result,$State)
+-    $effective = Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @("Attempts")
+-    if ($null -eq $effective) { throw "Aucun resultat de recherche exploitable." }
+-
+-    $login = [string]$State.Login
+-    if ($null -eq $script:SelectedObject -or [string]$script:SelectedObject.Type -ne "Utilisateur") {
+-        Write-AppLog "Resultat de recherche de postes ignore : la selection a change." "INFO"
+-        return
+-    }
+-
+-    [void](Set-DomeniaItemsSource -Name "DgLinkAttempts" -Rows @($effective.Attempts))
+-    $candidates = @($effective.Candidates)
+-
+-    $minimum = 60
+-    try { $minimum = [Math]::Max(0,[Math]::Min(100,[int](Get-CfgValue "UserMachineLink" "MinimumConfidence" 60))) } catch { }
+-
+-    $added = 0
+-    foreach ($c in $candidates) {
+-        if ([int]$c.Score -lt $minimum) { continue }
+-        $result = Add-UserMachineLinkIfMissing -UserLogin $login -Computer ([string]$c.Computer) -Source ([string]$c.Source) -Details ([string]$c.Detail) -Confidence ([int]$c.Score)
+-        if ([bool]$result) { $added++ }
+-    }
+-
+-    $found = @($candidates | ForEach-Object { [string]$_.Computer })
+-    $stats = $effective.ScanStats
+-    [void](Save-DomeniaUserScanRecord -Login $login -Scanned ([bool]$effective.Scanned) `
+-        -Candidates ([int]$stats.Candidates) -Reachable ([int]$stats.Reachable) -Probed ([int]$stats.Probed) -Found $found)
+-
+-    $refused = @($effective.Attempts | Where-Object { [string]$_.Status -eq "REFUSE" }).Count
+-    if (@($candidates).Count -eq 0) {
+-        $message = "Aucun poste trouve pour {0}. {1} source(s) interrogee(s)." -f $login,@($effective.Attempts).Count
+-        if ($refused -gt 0) { $message = $message + " " + $refused + " source(s) refusee(s) faute de droits : voir Derniere detection." }
+-        else { $message = $message + " Voir Derniere detection pour le detail de chaque source." }
+-    }
+-    else {
+-        $message = "{0} poste(s) trouve(s) pour {1}, {2} association(s) creee(s), en {3} ms." -f `
+-            @($candidates).Count,$login,$added,([long]$effective.DurationMs)
+-    }
+-    [void](Set-DomeniaControlText -Name "LblLinkProbeStatus" -Text $message)
+-    Set-Status $message
+-    Add-DomeniaUiLog -Area "Association" -Text $message
+-    try { Register-DomeniaOperationSample -Operation "UserComputerProbe" -Mode $(if([int]$effective.FallbackTasks -gt 0){"Classic+TaskFallback"}else{"Classic"}) -ItemCount $(if($null-ne$effective.ScanStats){[Math]::Max(1,[int]$effective.ScanStats.Probed)}else{1}) -DurationMs ([long]$effective.DurationMs) -BytesEstimated $(if([long]$effective.TaskBytes -gt 0){[long]$effective.TaskBytes}else{24000}) -AdQueries 3 -RemoteAttempts $(if($null-ne$effective.ScanStats){[int]$effective.ScanStats.Probed}else{0}) -FallbackTasks ([int]$effective.FallbackTasks) -SuccessCount @($candidates).Count } catch { }
+-    try { Refresh-AssociationContext } catch { }
+-    try { Update-DomeniaSelectedUserPresence -Login $login } catch { }
++    Complete-DomeniaRelationsSearch -Result $Result -State $State
+ }
+ 
+ function Fail-DomeniaUserComputersUi {
+     param($Message,$State)
+-    $detail = ([string]$Message).Trim()
+-    if ([string]::IsNullOrWhiteSpace($detail)) { $detail = "Erreur inconnue." }
+-    [void](Set-DomeniaControlText -Name "LblLinkProbeStatus" -Text ("Recherche impossible : " + $detail))
+-    Set-Status ("Recherche des postes impossible : " + $detail) "ERROR"
+-    Add-DomeniaUiLog -Area "Association" -Level "ERROR" -Text $detail
++    Fail-DomeniaRelationsSearch -Message $Message -State $State
+ }
+ 
+ function Start-DomeniaUserComputerProbe {
+-    try {
+-        if ($null -eq $script:SelectedObject -or [string]$script:SelectedObject.Type -ne "Utilisateur") {
+-            Set-Status "Selectionne un compte utilisateur." "WARN"
+-            return
+-        }
+-        $login = ""
+-        try { $login = ([string](Get-DomeniaControl -Name "TxtUserSam").Text).Trim() } catch { }
+-        if ([string]::IsNullOrWhiteSpace($login)) { Set-Status "Identifiant du compte introuvable." "WARN"; return }
+-
+-        $surname = ""
+-        $displayName = ""
+-        try { $surname = ([string](Get-DomeniaControl -Name "TxtUserSurname").Text).Trim() } catch { }
+-        try { $displayName = ([string](Get-DomeniaControl -Name "TxtUserDisplayName").Text).Trim() } catch { }
+-
+-        $scanPark = $false
+-        try { $scanPark = [bool](Get-DomeniaControl -Name "ChkUserScanPark").IsChecked } catch { }
+-
+-        # Ce que l on sait deja du compte sert a raccourcir la recherche.
+-        $priority = New-Object System.Collections.Generic.List[string]
+-        try {
+-            foreach ($l in @(Get-LinksForUser $login)) {
+-                $c = ([string]$l.Computer).Trim()
+-                if (-not [string]::IsNullOrWhiteSpace($c) -and -not $priority.Contains($c)) { $priority.Add($c) }
+-            }
+-        }
+-        catch { }
+-        try {
+-            foreach ($m in @(Find-DomeniaIndexMatches -Term $login -Limit 20)) {
+-                if ([string]$m.Type -ne "Machine") { continue }
+-                $c = ([string]$m.Name).Trim()
+-                if (-not [string]::IsNullOrWhiteSpace($c) -and -not $priority.Contains($c)) { $priority.Add($c) }
+-            }
+-        }
+-        catch { }
+-        $budget = [int](Get-CfgValue "UserMachineLink" "ProbeBudgetMs" 120000)
+-        $timeout = 150
+-        if ($scanPark) {
+-            $budget = [int](Get-CfgValue "UserMachineLink" "ScanBudgetMs" 300000)
+-            $timeout = 360
+-            $impact = Get-DomeniaOperationImpactEstimate -Operation "UserComputerProbe" -ItemCount ([int](Get-CfgValue "UserMachineLink" "ScanProbes" 250)) -BudgetMs $budget
+-            if (-not (Confirm-DomeniaOperationImpact -Estimate $impact -Title ("Balayer les postes pour " + $login))) { return }
+-        }
+-        [void](Set-DomeniaControlText -Name "LblLinkProbeStatus" -Text ("Recherche des postes de " + $login + "..."))
+-
+-        Start-UiTask `
+-            -Name ("Postes de " + $login) `
+-            -OperationId "UserComputerProbe" `
+-            -Code (Get-DomeniaUserComputersWorkerCode) `
+-            -Payload ([pscustomobject]@{
+-                Login = $login
+-                UserDn = [string]$script:SelectedObject.DN
+-                Surname = $surname
+-                DisplayName = $displayName
+-                EventDays = [int](Get-CfgValue "UserMachineLink" "SecurityLogDays" 7)
+-                UseSecurityLog = [bool](Get-CfgValue "UserMachineLink" "UseSecurityLog" $true)
+-                MaxSecurityEvents = [int](Get-CfgValue "UserMachineLink" "SecurityLogMaxEvents" 5000)
+-                PriorityComputers = $priority.ToArray()
+-                ScanPark = $scanPark
+-                ScanCandidates = [int](Get-CfgValue "UserMachineLink" "ScanCandidates" 1200)
+-                ScanProbes = [int](Get-CfgValue "UserMachineLink" "ScanProbes" 250)
+-                BudgetMs = $budget
+-            }) `
+-            -CallbackState ([pscustomobject]@{ Login=$login; DN=[string]$script:SelectedObject.DN }) `
+-            -ReplaceKey "userprobe" `
+-            -DisableControls @("BtnDetectUserComputers") `
+-            -TimeoutSeconds $timeout `
+-            -StatusText ("Recherche des postes de " + $login + " en arriere-plan...") `
+-            -SuccessHandler "Complete-DomeniaUserComputersUi" `
+-            -ErrorHandler "Fail-DomeniaUserComputersUi" | Out-Null
+-    }
+-    catch { [void](Show-DomeniaOperationError -Operation "Recherche des postes" -ErrorRecordOrException $_) }
++    Start-DomeniaRelationsSearch
+ }
+ 
+ 
+@@ -18638,112 +18105,14 @@
+ 
+ 
+ function Update-DomeniaLinkActionUi {
+-    # Le panneau d association sert deux objets differents. Detecter
+-    # l utilisateur interroge un poste : cette action n a aucun sens sur un
+-    # compte, elle est donc retiree plutot que laissee inerte. La grille vide
+-    # explique quoi faire au lieu de rester muette.
+-    param([int]$RowCount = 0)
+-    try {
+-        $type = ""
+-        if ($null -ne $script:SelectedObject) { $type = [string]$script:SelectedObject.Type }
+-        $isMachine = ($type -eq "Machine")
+-        $isUser = ($type -eq "Utilisateur")
+-
+-        $detect = Get-DomeniaControl -Name "BtnRefreshMachineLink"
+-        if ($null -ne $detect) {
+-            if ($isMachine) { $detect.Visibility = [System.Windows.Visibility]::Visible }
+-            else { $detect.Visibility = [System.Windows.Visibility]::Collapsed }
+-        }
+-        foreach ($n in @("BtnDetectUserComputers","ChkUserScanPark")) {
+-            $reverse = Get-DomeniaControl -Name $n
+-            if ($null -eq $reverse) { continue }
+-            if ($isUser) { $reverse.Visibility = [System.Windows.Visibility]::Visible }
+-            else { $reverse.Visibility = [System.Windows.Visibility]::Collapsed }
+-        }
+-        $associate = Get-DomeniaControl -Name "BtnLinkSelected"
+-        if ($null -ne $associate) {
+-            if ($isMachine) { $associate.Content = "Associer un utilisateur" }
+-            elseif ($isUser) { $associate.Content = "Associer un poste" }
+-            else { $associate.Content = "Associer" }
+-            $associate.IsEnabled = ($isMachine -or $isUser)
+-        }
+-        $remove = Get-DomeniaControl -Name "BtnRemoveLink"
+-        if ($null -ne $remove) { $remove.IsEnabled = ($RowCount -gt 0) }
+-
+-        $empty = ""
+-        if (-not $isMachine -and -not $isUser) {
+-            $empty = "Selectionne un utilisateur ou un poste pour voir ses associations."
+-        }
+-        elseif ($RowCount -le 0) {
+-            if ($isUser) {
+-                $empty = "Aucun poste associe a ce compte." + [Environment]::NewLine + [Environment]::NewLine +
+-                         "Rechercher les postes interroge le responsable declare, la description des postes et le journal de securite. Coche Balayer les postes pour interroger en plus les machines joignables. Associer un poste permet de le declarer a la main."
+-            }
+-            else {
+-                $empty = "Aucun utilisateur associe a ce poste." + [Environment]::NewLine + [Environment]::NewLine +
+-                         "Lance Detecter l utilisateur pour interroger le poste, ou declare l association a la main."
+-            }
+-        }
+-
+-        [void](Set-DomeniaControlText -Name "LblLinkEmpty" -Text $empty)
+-        $panel = Get-DomeniaControl -Name "LinkEmptyPanel"
+-        if ($null -ne $panel) {
+-            if ([string]::IsNullOrWhiteSpace($empty)) { $panel.Visibility = [System.Windows.Visibility]::Collapsed }
+-            else { $panel.Visibility = [System.Windows.Visibility]::Visible }
+-        }
+-
+-        $probe = Get-DomeniaControl -Name "LblLinkProbeStatus"
+-        if ($null -ne $probe) {
+-            $current = [string]$probe.Text
+-            if ($current -eq "En attente du chargement complet de l'objet." -or [string]::IsNullOrWhiteSpace($current)) {
+-                if ($isUser) {
+-                    $login = ""
+-                    try { $login = ([string](Get-DomeniaControl -Name "TxtUserSam").Text).Trim() } catch { }
+-                    $summary = ""
+-                    if (-not [string]::IsNullOrWhiteSpace($login)) { $summary = Get-DomeniaUserScanSummary -Login $login }
+-                    if ([string]::IsNullOrWhiteSpace($summary)) { $probe.Text = "Pret." } else { $probe.Text = $summary }
+-                }
+-                elseif ($isMachine) { $probe.Text = "Pret." }
+-                else { $probe.Text = "" }
+-            }
+-        }
+-    }
+-    catch { Write-AppLog "Mise a jour du panneau d association impossible : $($_.Exception.Message)" "WARN" }
++    param([int]$RowCount=0)
++    Update-DomeniaRelationsActions
+ }
+ 
+ function Refresh-LinkGrid {
+     param([switch]$All)
+-    try {
+-        $rows = @($script:UserMachineLinks)
+-        $context = "Toutes les relations locales : $($rows.Count)."
+-        if (-not $All -and $null -ne $script:SelectedObject) {
+-            if ([string]$script:SelectedObject.Type -eq "Machine") {
+-                $computer = Get-CurrentSelectedComputerName
+-                $rows = @(Get-LinksForComputer $computer)
+-                $context = "Machine $computer : $($rows.Count) lien(s)."
+-            }
+-            elseif ([string]$script:SelectedObject.Type -eq "Utilisateur") {
+-                $user = ""
+-                try { $user = [string]$script:Ctrl["TxtUserSam"].Text } catch { }
+-                $rows = @(Get-LinksForUser $user)
+-                $context = "Utilisateur $user : $($rows.Count) poste(s) associe(s)."
+-            }
+-        }
+-        [void](Set-DomeniaItemsSource -Name "DgLinks" -Rows $rows)
+-        [void](Set-DomeniaControlText -Name "LblLinkContext" -Text $context)
+-        $empty = Get-DomeniaControl -Name "LinkEmptyPanel"
+-        $emptyLabel = Get-DomeniaControl -Name "LblLinkEmpty"
+-        if ($null -ne $empty) { $empty.Visibility = if (@($rows).Count -eq 0) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed } }
+-        if ($null -ne $emptyLabel) {
+-            $emptyLabel.Text = if ($null -eq $script:SelectedObject) {
+-                "Aucune relation locale a afficher.`r`nLes associations apparaitront ici apres une detection ou une association manuelle."
+-            } else {
+-                "Aucune relation pour l objet selectionne.`r`nUtilise Detecter l utilisateur depuis la fiche du poste ou ouvre la vue Relations pour les relations globales."
+-            }
+-        }
+-        Update-DomeniaLinkActionUi -RowCount (@($rows).Count)
+-    }
+-    catch { Write-AppLog "Actualisation des liens impossible : $($_.Exception.Message)" "WARN" }
++    # Compatibility switch: never changes the chosen tab or leaks all links into the selection.
++    Refresh-DomeniaRelationViews
+ }
+ 
+ function Refresh-AssociationContext {
+@@ -18900,6 +18269,10 @@
+             $staleHours = [double](Get-CfgValue "UserMachineLink" "LinkStaleHours" 24)
+             $mayReplace = $isManualNew -or ((-not $isManualExisting) -and ($Confidence -ge $existingConfidence -or $ageHours -ge $staleHours))
+ 
++            if($isManualExisting -and -not $isManualNew){
++                Write-AppLog ("Association manuelle conservée pour "+$c+" ; observation distincte non substituée.") 'INFO'
++                return $false
++            }
+             if ($sameUser) {
+                 if ($Confidence -ge $existingConfidence -or $ageHours -ge $staleHours -or $isManualNew) {
+                     $existing.Source=$Source; $existing.Confidence=$Confidence; $existing.VerifiedInAD=$VerifiedInAD; $existing.When=(Get-Date -Format "yyyy-MM-dd HH:mm:ss"); $existing.Details=$Details
+@@ -18953,7 +18326,9 @@
+ 
+ function Remove-SelectedLink {
+     try {
+-        $row = $script:Ctrl["DgLinks"].SelectedItem
++        if(Test-DomeniaAccessBusyWrite){return}
++        $activeGrid=Get-DomeniaRelationsActiveGrid
++        $row=if($null -ne $activeGrid){$activeGrid.SelectedItem}else{$null}
+         if ($null -eq $row) { Set-Status "Selectionne un lien a supprimer." "WARN"; return }
+         if (-not (Confirm-Action "Supprimer ce lien user-machine ?`n$($row.UserLogin) -> $($row.Computer)")) { return }
+         $previousLinks = @($script:UserMachineLinks)
+@@ -19047,7 +18422,7 @@
+             "batch" { Show-DomeniaBatchNetworkReport -Rows (Get-DomeniaSelectedMachineRows) }
+             "selfcheck" { Start-SelfCheck }
+             "accounts" { Select-DomeniaWorkspace -Workspace "TabAccounts"; Update-DomeniaAccountUi }
+-            "relations" { Select-DomeniaWorkspace -Workspace "TabRelations"; Refresh-LinkGrid -All }
++            "relations" { Select-DomeniaWorkspace -Workspace "TabRelations"; Refresh-LinkGrid }
+             "log" { Select-DomeniaWorkspace -Workspace "TabApplicationTools" -Inner "ApplicationToolTabs" -Tab "TabLog" }
+             "support" { Invoke-DomeniaSafeUiAction -Operation "Atelier" -Action { Select-DomeniaWorkspace -Workspace "TabSupport" -Inner "SupportTabs" -Tab "SupportAnalysisTab"; Update-DomeniaSupportView -Force } }
+             "supportdiff" { Select-DomeniaWorkspace -Workspace "TabSupport" -Inner "SupportTabs" -Tab "SupportCompareTab" }
+@@ -19372,9 +18747,7 @@
+     if ($script:Ctrl.ContainsKey("BtnAccountSecretsClear")) {
+         $script:Ctrl["BtnAccountSecretsClear"].Add_Click({ Clear-DomeniaSecondaryCredential -Scope Secrets })
+     }
+-    if ($script:Ctrl.ContainsKey("TabRelations")) {
+-        $script:Ctrl["TabRelations"].Add_GotFocus({ try { Refresh-LinkGrid -All } catch { } })
+-    }
++    Initialize-DomeniaRelationsUi
+     if ($script:Ctrl.ContainsKey("TabAccounts")) {
+         $script:Ctrl["TabAccounts"].Add_GotFocus({ try { Update-DomeniaAccountUi } catch { } })
+     }
+@@ -19544,7 +18917,7 @@
+             try {
+                 $grid = Get-DomeniaControl -Name "DgLinks"
+                 $remove = Get-DomeniaControl -Name "BtnRemoveLink"
+-                if ($null -ne $grid -and $null -ne $remove) { $remove.IsEnabled = ($null -ne $grid.SelectedItem) }
++                Update-DomeniaRelationsActions
+             }
+             catch { }
+         })
+@@ -19743,7 +19116,7 @@
+ # DOMENIA_MASTER_LAST_V1 = TRUE
+ $script:Version = "1.0"
+ $script:AppName = "Domenia"
+-$script:MasterBuild = "2026.10.01-DOMENIA-1.0-RC1.7-FIXEDACTIVITY"
++$script:MasterBuild = "2026.10.01-DOMENIA-1.0-RC1.8-RELATIONS"
+ $script:ActiveWriteTaskId = ""
+ $script:WriteState = "Idle"
+ $script:UnknownWriteTargetDn = ""
+@@ -20782,8 +20155,12 @@
+ 
+ function Export-DomeniaLinksCsv {
+     try {
++        $grid=Get-DomeniaRelationsActiveGrid
++        if($null -eq $grid){Show-InfoBox 'Ouvrez Utilisateur sélectionné ou Toutes les associations pour exporter les liens visibles.';return}
++        $rows=@($grid.Items)
++        if(-not $rows.Count){Set-Status 'Aucune association visible à exporter.' 'INFO';return}
+         $path=Get-LinkCsvPath
+-        @(ConvertTo-DomeniaCanonicalLinks -Links $script:UserMachineLinks) | ConvertTo-DomeniaSpreadsheetSafeRow | Export-Csv -LiteralPath $path -NoTypeInformation -Encoding UTF8
++        @(ConvertTo-DomeniaCanonicalLinks -Links $rows) | ConvertTo-DomeniaSpreadsheetSafeRow | Export-Csv -LiteralPath $path -NoTypeInformation -Encoding UTF8
+         Start-Process notepad.exe -ArgumentList @($path)
+         Set-Status "Associations exportees : $path"
+     } catch { Show-ErrorBox "Export des associations impossible : $($_.Exception.Message)" }
+@@ -20884,7 +20261,7 @@
+         LogonHarvest          = "ED7FFF55506C7BCE5567D65F683E10E9F28EA9771947F12A8DEEE1435994119A"
+         ParkSweep             = "134ED776E45640FA67B7F51659711C33B37834105375CC4B083342469F2C26A9"
+         IndexBuild            = "BEA2AF0C2A8BED824F4E2CD70B6E41A1F1AEF592960D7CFE67609C1E981A4951"
+-        UserComputerProbe     = "D822973D950B15C190035A79A0436A612483B31810272FC02B3971C7ADE79E3E"
++        UserComputerProbe     = "CCCE3BFB69A7934A76740E0E1C2EB9A66D2A93EC3DC59ED2CC759B983F5224FF"
+         ComputerInventory     = "87D68E504BC8311DB952A143475CF7676C6223246AE00DF715432E85DDE0323C"
+         ComputerDiagnostics   = "CD844877946FB2D144846A098E7E33A3856337613F5AA9C8633D8E1B378BB785"
+         ComputerLastUser      = "527CE950977287F1846A8C79F3880139F62F0AB09AC1197000B8989E68E3CFE4"
+@@ -20931,7 +20308,7 @@
+     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
+     # Pin the entire reviewed map, not a separately maintained operation counter.
+     # This digest is updated only by the DEV release tool after contract review.
+-    $expectedFingerprint = "925DC83121296F7C47AE08EA0F2BD23C578CCCFA066BB18613A4ED3B0236A209"
++    $expectedFingerprint = "35CCA8C65234C05E1630CBD1FF2383F2D5916288DC387CE3DAB79F4F3A0897A2"
+     if ($null -eq $Registry -or $Registry.Count -eq 0) {
+         throw 'Registre worker absent ou vide.'
+     }
+@@ -21630,6 +21007,12 @@
+         ReadOnlyMode = [bool]$script:ReadOnlyMode
+         WriteState = [string]$script:WriteState
+     }
++    if($OperationId -eq 'UserComputerProbe'){
++        $remoteRetry=Get-DomeniaRetryCredential 'LiveConsole'
++        if($null -ne $remoteRetry){$result.MachineCredential=$remoteRetry;$result.RemoteAdminCredential=$remoteRetry;$result.RemoteAdminUser=$remoteRetry.UserName}
++        $blocked=($null -ne $script:AccessState -and $script:AccessState.Faults.ContainsKey('Remote'))
++        $result|Add-Member -NotePropertyName RelationRemoteBlocked -NotePropertyValue $blocked
++    }
+     return Set-DomeniaRetryWorkerContext -Context $result -OperationId $OperationId
+ }
+ 
+@@ -21957,6 +21340,7 @@
+         }
+     }
+     $script:SelectedObjectGeneration = [int64]$script:SelectedObjectGeneration + 1
++    Set-DomeniaRelationsSelection -Object $script:SelectedObject
+     if (-not [bool]$script:ShowingCachedObject -and $isLiveRead -and $Type -in @("Utilisateur","Machine")) {
+         try { [void](Sync-DomeniaIndexEntry -Entry $entry -Type $Type) } catch { Add-DomeniaUiLog -Area "Index" -Level "WARN" -Text ("Rafraichissement cible de " + $Dn + " impossible : " + $_.Exception.Message) }
+     }
+@@ -22315,7 +21699,7 @@
+     Initialize-DomeniaGuard
+     Initialize-DomeniaLive
+     Initialize-DomeniaReconcile
+-    Add-DomeniaUiLog -Area "Application" -Text "Domenia 1.0 RC1.7 pret."
++    Add-DomeniaUiLog -Area "Application" -Text "Domenia 1.0 RC1.8 pret."
+ }
+ 
+ function Assert-DomeniaCapability {
+@@ -23445,7 +22829,7 @@
+ # Le login effectue un bind LDAP reel, lit RootDSE et valide la base detectee
+ # dans un runspace borne afin que le thread WPF ne soit jamais bloque.
+ # =====================================================================
+-$script:DomeniaBuild = "Domenia 1.0 RC1.7"
++$script:DomeniaBuild = "Domenia 1.0 RC1.8"
+ $script:FastLoginUi = $null
+ $script:FastLoginState = $null
+ $script:FastLoginTimer = $null

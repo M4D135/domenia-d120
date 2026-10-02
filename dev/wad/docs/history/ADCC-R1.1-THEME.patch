@@ -1,0 +1,733 @@
+--- R1/wad/ADCC-Core.ps1
++++ R1.1/wad/ADCC-Core.ps1
+@@ -1936,46 +1936,46 @@
+ 
+ function Get-LoginXamlLegacy {
+     return (Convert-AdccXamlToBootTheme -Xaml @"
+-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
++<Window Foreground="{DynamicResource AdccBootText}" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+         Title="Active Directory Control Center 1.0  Connexion" Width="520" Height="590" ResizeMode="NoResize"
+-        WindowStartupLocation="CenterScreen" FontFamily="Segoe UI" FontSize="12" Background="#F5F5F7">
++        WindowStartupLocation="CenterScreen" FontFamily="Segoe UI" FontSize="12" Background="{DynamicResource AdccBootWindow}">
+   <Window.Resources>
+-    <SolidColorBrush x:Key="AccentColor" Color="#1769E0"/>
+-    <SolidColorBrush x:Key="BorderColor" Color="#D8E0EA"/>
+-    <Style TargetType="TextBox"><Setter Property="MinHeight" Value="38"/><Setter Property="Padding" Value="8,6"/><Setter Property="BorderBrush" Value="{StaticResource BorderColor}"/></Style>
+-    <Style TargetType="PasswordBox"><Setter Property="MinHeight" Value="38"/><Setter Property="Padding" Value="8,6"/><Setter Property="BorderBrush" Value="{StaticResource BorderColor}"/></Style>
+-    <Style TargetType="Button"><Setter Property="MinHeight" Value="36"/><Setter Property="Cursor" Value="Hand"/></Style>
++
++
++    <Style TargetType="TextBox" BasedOn="{StaticResource AdccBootTextBoxBase}"><Setter Property="MinHeight" Value="38"/><Setter Property="Padding" Value="8,6"/><Setter Property="BorderBrush" Value="{DynamicResource AdccBootBorder}"/></Style>
++    <Style TargetType="PasswordBox" BasedOn="{StaticResource AdccBootPasswordBoxBase}"><Setter Property="MinHeight" Value="38"/><Setter Property="Padding" Value="8,6"/><Setter Property="BorderBrush" Value="{DynamicResource AdccBootBorder}"/></Style>
++    <Style TargetType="Button" BasedOn="{StaticResource AdccBootButtonBase}"><Setter Property="MinHeight" Value="36"/><Setter Property="Cursor" Value="Hand"/></Style>
+   </Window.Resources>
+   <Grid Margin="24">
+-    <Border Background="White" BorderBrush="{StaticResource BorderColor}" BorderThickness="1" CornerRadius="22" Padding="25">
++    <Border Background="{DynamicResource AdccBootSurface}" BorderBrush="{DynamicResource AdccBootBorder}" BorderThickness="1" CornerRadius="22" Padding="25">
+       <Border.Effect><DropShadowEffect BlurRadius="34" ShadowDepth="0" Opacity="0.15" Color="#94A3B8"/></Border.Effect>
+       <Grid>
+         <Grid.RowDefinitions>
+           <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+           <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/>
+         </Grid.RowDefinitions>
+-        <TextBlock Grid.Row="0" HorizontalAlignment="Center" FontFamily="Impact" FontSize="24" FontWeight="Bold" Margin="0,0,0,4"><Run Text="AD" Foreground="#0F172A"/><Run Text="⚡" FontFamily="Segoe UI Symbol" Foreground="#1769E0"/><Run Text="CC" Foreground="#1769E0"/></TextBlock>
+-        <TextBlock Grid.Row="1" Text="Compte AD utilise pour piloter l annuaire" HorizontalAlignment="Center" Foreground="#516078" Margin="0,0,0,20"/>
+-        <TextBlock Grid.Row="2" Text="IDENTIFIANT" Foreground="#516078" FontSize="11" Margin="0,0,0,5"/>
++        <TextBlock Foreground="{DynamicResource AdccBootText}" Grid.Row="0" HorizontalAlignment="Center" FontFamily="Impact" FontSize="24" FontWeight="Bold" Margin="0,0,0,4"><Run Text="AD" Foreground="{DynamicResource AdccBootText}"/><Run Text="⚡" FontFamily="Segoe UI Symbol" Foreground="{DynamicResource AdccBootAccentText}"/><Run Text="CC" Foreground="{DynamicResource AdccBootAccentText}"/></TextBlock>
++        <TextBlock Grid.Row="1" Text="Compte AD utilise pour piloter l annuaire" HorizontalAlignment="Center" Foreground="{DynamicResource AdccBootMuted}" Margin="0,0,0,20"/>
++        <TextBlock Grid.Row="2" Text="IDENTIFIANT" Foreground="{DynamicResource AdccBootMuted}" FontSize="11" Margin="0,0,0,5"/>
+         <TextBox Grid.Row="3" x:Name="TxtLogin" Margin="0,0,0,14" ToolTip="Compte AD utilise pour lire et modifier l annuaire. Formats acceptes : utilisateur@domaine.tld, DOMAINE\utilisateur ou utilisateur sur un poste joint au domaine."/>
+-        <TextBlock Grid.Row="4" Text="MOT DE PASSE" Foreground="#516078" FontSize="11" Margin="0,0,0,5"/>
++        <TextBlock Grid.Row="4" Text="MOT DE PASSE" Foreground="{DynamicResource AdccBootMuted}" FontSize="11" Margin="0,0,0,5"/>
+         <Grid Grid.Row="5" Margin="0,0,0,8">
+           <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="94"/></Grid.ColumnDefinitions>
+           <PasswordBox Grid.Column="0" x:Name="PwdLogin" ToolTip="Mot de passe du compte AD. Il n est jamais enregistre."/>
+           <TextBox Grid.Column="0" x:Name="TxtLoginPasswordVisible" Visibility="Collapsed" ToolTip="Mot de passe visible temporairement."/>
+           <Button Grid.Column="1" x:Name="BtnRevealLogin" Content="👁" ToolTip="Afficher le mot de passe." Margin="8,0,0,0" Width="52" Height="39" MinWidth="52" MinHeight="39" Padding="0" FontFamily="Segoe UI Emoji" FontSize="17" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
+         </Grid>
+-        <TextBlock Grid.Row="6" x:Name="LblLoginError" Foreground="#DC2626" TextWrapping="Wrap" MinHeight="48"/>
++        <TextBlock Grid.Row="6" x:Name="LblLoginError" Foreground="{DynamicResource AdccBootError}" TextWrapping="Wrap" MinHeight="48"/>
+         <StackPanel Grid.Row="7">
+-          <TextBlock x:Name="LblLoginStage" Text="Pret a verifier le compte." Foreground="#516078" TextWrapping="Wrap" MinHeight="38" Margin="0,0,0,8"/>
++          <TextBlock x:Name="LblLoginStage" Text="Pret a verifier le compte." Foreground="{DynamicResource AdccBootMuted}" TextWrapping="Wrap" MinHeight="38" Margin="0,0,0,8"/>
+           <ProgressBar x:Name="PbLogin" Height="5" IsIndeterminate="True" Visibility="Collapsed" Margin="0,0,0,12"/>
+           <CheckBox x:Name="ChkRemember" Content="Se souvenir de l identifiant" Margin="0,0,0,10"/>
+           <Button x:Name="BtnLoginLog" Content="Ouvrir le journal de connexion" MinHeight="30" Margin="0,0,0,10" ToolTip="Ouvre le journal detaille mis a jour pendant la connexion."/>
+           <Grid>
+             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="10"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+             <Button Grid.Column="0" x:Name="BtnCancel" Content="Annuler"/>
+-            <Button Grid.Column="2" x:Name="BtnLogin" Content="Se connecter" Background="{StaticResource AccentColor}" BorderBrush="{StaticResource AccentColor}" Foreground="White" FontWeight="SemiBold"/>
++            <Button Grid.Column="2" x:Name="BtnLogin" Content="Se connecter" Background="{DynamicResource AdccBootAccent}" BorderBrush="{DynamicResource AdccBootAccent}" Foreground="{DynamicResource AdccBootOnAccent}" FontWeight="SemiBold"/>
+           </Grid>
+         </StackPanel>
+       </Grid>
+@@ -2754,10 +2754,11 @@
+     }
+     catch { try { Write-AppLog "Reglages illisibles, valeurs par defaut appliquees : $($_.Exception.Message)" "WARN" } catch { } }
+ 
+-    # Reprise des anciens fichiers de preference, une seule fois.
+-    try {
+-        $legacyTheme = Read-AdccPreference -FileName "ADCC.theme.cfg"
+-        if ($legacyTheme -in @("Light","Dark")) { $settings["Theme"] = $legacyTheme }
++    # Meme resolution que le login : le JSON valide prime sur ADCC.theme.cfg.
++    # Ne jamais remplacer le choix de l utilisateur par le Light livre dans le ZIP.
++    $settings["Theme"] = Get-AdccStoredTheme
++    # Compatibilite avec l ancien fichier de profil d interface.
++    try {
+         $legacyProfile = Read-AdccPreference -FileName "ADCC.ui-profile.cfg"
+         if ($legacyProfile -in @("Tech","Admin")) { $settings["UiProfile"] = $legacyProfile }
+     }
+@@ -2947,39 +2948,33 @@
+ 
+ 
+ # =====================================================================
+-# Theme des fenetres d amorcage.
+-#
+-# La preference de theme n etait lue qu au moment de construire la fenetre
+-# principale. La fenetre de connexion et l ecran d initialisation, qui
+-# arrivent avant, restaient donc toujours clairs : sur un poste regle en
+-# sombre, l application s ouvrait en blanc puis basculait.
+-#
+-# La preference est desormais lue directement sur le disque, sans
+-# dependre d aucune fenetre, et les couleurs figees de ces trois blocs
+-# sont transposees avant analyse du XAML.
++# Theme des fenetres d amorcage (R1.1).
++# Le choix JSON valide prime sur l ancien .cfg, meme lorsque le choix est Light.
++# Login, moniteur et fenetre principale partagent ce choix pour toute la session.
++# Les fenetres d amorcage ont des ressources explicites pour les fonds, les
++# textes, les champs, les boutons et les messages actualises apres creation.
+ # =====================================================================
+ function Get-AdccStoredTheme {
+-    if (-not [string]::IsNullOrWhiteSpace([string]$script:BootTheme)) { return [string]$script:BootTheme }
+-    $theme = "Light"
++    # Une source par session pour le login, le chargement et la principale.
++    # Un theme Light explicite est un choix valide, pas un signal de migration.
++    if ($script:BootTheme -in @("Light","Dark")) { return [string]$script:BootTheme }
++    $theme = ""
+     try {
+         $text = Read-AdccPreference -FileName "ADCC.settings.json"
+         if (-not [string]::IsNullOrWhiteSpace($text)) {
+-            $stored = $text | ConvertFrom-Json
+-            $value = ""
+-            try { $value = [string]$stored.Theme } catch { }
+-            if ($value -in @("Light","Dark")) { $theme = $value }
++            $stored = $text | ConvertFrom-Json -ErrorAction Stop
++            $property = $stored.PSObject.Properties["Theme"]
++            if ($null -ne $property) { $theme = ([string]$property.Value).Trim() }
+         }
+     }
+     catch { }
+-    if ($theme -eq "Light") {
+-        try {
+-            $legacy = Read-AdccPreference -FileName "ADCC.theme.cfg"
+-            if ($legacy -in @("Light","Dark")) { $theme = $legacy }
+-        }
+-        catch { }
+-    }
+-    $script:BootTheme = $theme
+-    return $theme
++    # ADCC.theme.cfg est consulte uniquement en l absence d un choix JSON valide.
++    if ($theme -notin @("Light","Dark")) {
++        try { $theme = ([string](Read-AdccPreference -FileName "ADCC.theme.cfg")).Trim() }
++        catch { $theme = "" }
++    }
++    $script:BootTheme = if ($theme -eq "Dark") { "Dark" } else { "Light" }
++    return [string]$script:BootTheme
+ }
+ 
+ function Get-AdccBootThemeMap {
+@@ -3036,33 +3031,111 @@
+         "#D6DEEA" = "#334155"
+     }
+ }
++function Get-AdccBootThemePalette {
++    param([ValidateSet("Light","Dark")][string]$Theme = (Get-AdccStoredTheme))
++    if ($Theme -eq "Dark") {
++        return [ordered]@{
++            Window = "#0F172A"; Surface = "#111827"; Input = "#1E293B"
++            Text = "#F8FAFC"; Muted = "#CBD5E1"; Border = "#475569"
++            Button = "#1E293B"; ButtonText = "#F8FAFC"
++            Accent = "#1D4ED8"; AccentText = "#93C5FD"; OnAccent = "#FFFFFF"
++            Error = "#FCA5A5"; Warning = "#FCD34D"; Success = "#86EFAC"
++        }
++    }
++    return [ordered]@{
++        Window = "#F4F5F9"; Surface = "#FFFFFF"; Input = "#F8FAFC"
++        Text = "#111827"; Muted = "#475569"; Border = "#CBD5E1"
++        Button = "#ECECF2"; ButtonText = "#20232A"
++        Accent = "#1D4ED8"; AccentText = "#1D4ED8"; OnAccent = "#FFFFFF"
++        Error = "#B91C1C"; Warning = "#92400E"; Success = "#166534"
++    }
++}
++
++function Get-AdccBootStatusColor {
++    param([ValidateSet("Text","Muted","AccentText","Error","Warning","Success")][string]$Kind = "Text")
++    $palette = Get-AdccBootThemePalette
++    return [string]$palette[$Kind]
++}
++
++function Get-AdccBootThemeResources {
++    param([ValidateSet("Light","Dark")][string]$Theme = (Get-AdccStoredTheme))
++    $palette = Get-AdccBootThemePalette -Theme $Theme
++    $brushes = foreach ($entry in $palette.GetEnumerator()) {
++        '    <SolidColorBrush x:Key="AdccBoot{0}" Color="{1}"/>' -f $entry.Key,$entry.Value
++    }
++    # Styles explicites : les styles systeme Windows ne doivent pas reinjecter
++    # une police noire ou un bouton blanc au survol sur une surface sombre.
++    $styles = @'
++    <Style x:Key="AdccBootTextBoxBase" TargetType="TextBox">
++      <Setter Property="Foreground" Value="{DynamicResource AdccBootText}"/>
++      <Setter Property="Background" Value="{DynamicResource AdccBootInput}"/>
++      <Setter Property="BorderBrush" Value="{DynamicResource AdccBootBorder}"/>
++      <Setter Property="CaretBrush" Value="{DynamicResource AdccBootText}"/>
++      <Setter Property="SelectionBrush" Value="{DynamicResource AdccBootAccent}"/>
++    </Style>
++    <Style x:Key="AdccBootPasswordBoxBase" TargetType="PasswordBox">
++      <Setter Property="Foreground" Value="{DynamicResource AdccBootText}"/>
++      <Setter Property="Background" Value="{DynamicResource AdccBootInput}"/>
++      <Setter Property="BorderBrush" Value="{DynamicResource AdccBootBorder}"/>
++      <Setter Property="CaretBrush" Value="{DynamicResource AdccBootText}"/>
++      <Setter Property="SelectionBrush" Value="{DynamicResource AdccBootAccent}"/>
++    </Style>
++    <Style x:Key="AdccBootButtonBase" TargetType="Button">
++      <Setter Property="Foreground" Value="{DynamicResource AdccBootButtonText}"/>
++      <Setter Property="Background" Value="{DynamicResource AdccBootButton}"/>
++      <Setter Property="BorderBrush" Value="{DynamicResource AdccBootBorder}"/>
++      <Setter Property="BorderThickness" Value="1"/>
++      <Setter Property="Cursor" Value="Hand"/>
++      <Setter Property="HorizontalContentAlignment" Value="Center"/>
++      <Setter Property="VerticalContentAlignment" Value="Center"/>
++      <Setter Property="Template">
++        <Setter.Value>
++          <ControlTemplate TargetType="Button">
++            <Border x:Name="BootButtonBorder" Background="{TemplateBinding Background}"
++                    BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
++                    CornerRadius="8" SnapsToDevicePixels="True">
++              <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
++                                VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
++                                Margin="{TemplateBinding Padding}" RecognizesAccessKey="True"
++                                TextElement.Foreground="{TemplateBinding Foreground}"/>
++            </Border>
++            <ControlTemplate.Triggers>
++              <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="BootButtonBorder" Property="Opacity" Value="0.92"/></Trigger>
++              <Trigger Property="IsPressed" Value="True"><Setter TargetName="BootButtonBorder" Property="Opacity" Value="0.80"/></Trigger>
++              <Trigger Property="IsEnabled" Value="False"><Setter TargetName="BootButtonBorder" Property="Opacity" Value="0.55"/></Trigger>
++            </ControlTemplate.Triggers>
++          </ControlTemplate>
++        </Setter.Value>
++      </Setter>
++    </Style>
++    <Style TargetType="CheckBox">
++      <Setter Property="Foreground" Value="{DynamicResource AdccBootText}"/>
++    </Style>
++    <Style TargetType="ToolTip">
++      <Setter Property="Foreground" Value="{DynamicResource AdccBootText}"/>
++      <Setter Property="Background" Value="{DynamicResource AdccBootSurface}"/>
++      <Setter Property="BorderBrush" Value="{DynamicResource AdccBootBorder}"/>
++      <Setter Property="Padding" Value="8"/>
++    </Style>
++'@
++    return (($brushes -join "`r`n") + "`r`n" + $styles)
++}
++
+ function Convert-AdccXamlToBootTheme {
+-    # Transposition attribut par attribut : chaque couleur n est lue et
+-    # remplacee qu une fois, ce qui exclut toute retransposition.
+-    param([Parameter(Mandatory=$true)][AllowEmptyString()][string]$Xaml)
+-    if ((Get-AdccStoredTheme) -ne "Dark") { return $Xaml }
+-    $maps = @{
+-        "Background"  = (Get-AdccBootThemeMap -Kind "Background")
+-        "Foreground"  = (Get-AdccBootThemeMap -Kind "Foreground")
+-        "BorderBrush" = (Get-AdccBootThemeMap -Kind "Border")
+-        "Fill"        = (Get-AdccBootThemeMap -Kind "Foreground")
+-        "Stroke"      = (Get-AdccBootThemeMap -Kind "Border")
+-    }
+-    $evaluator = {
+-        param($m)
+-        $attribute = $m.Groups[1].Value
+-        $colour = $m.Groups[2].Value.ToUpperInvariant()
+-        $table = $maps[$attribute]
+-        if ($null -ne $table -and $table.Contains($colour)) {
+-            return ($attribute + '="' + [string]$table[$colour] + '"')
+-        }
+-        return $m.Value
+-    }
+-    # Les couleurs nommees, White en tete, sont d abord ramenees a leur
+-    # code hexadecimal : sans cela elles traversaient la transposition.
+-    $normalised = [regex]::Replace($Xaml,'\b(Background|Foreground|BorderBrush|Fill|Stroke)="White"','$1="#FFFFFF"')
+-    $normalised = [regex]::Replace($normalised,'\b(Background|Foreground|BorderBrush|Fill|Stroke)="Black"','$1="#000000"')
+-    return [regex]::Replace($normalised,'\b(Background|Foreground|BorderBrush|Fill|Stroke)="(#[0-9A-Fa-f]{6})"',$evaluator)
++    param(
++        [Parameter(Mandatory=$true)][AllowEmptyString()][string]$Xaml,
++        [ValidateSet("Light","Dark")][string]$Theme = (Get-AdccStoredTheme)
++    )
++    # Les quatre fenetres d amorcage utilisent les memes ressources nommees.
++    # Aucun remplacement approximatif de couleur : Setter, champs et messages
++    # partagent une palette explicite, y compris lorsque le theme est Light.
++    $marker = "<Window.Resources>"
++    if ([regex]::Matches($Xaml,[regex]::Escape($marker)).Count -ne 1) {
++        throw "Fenetre d amorcage : un bloc Window.Resources unique est requis."
++    }
++    if ($Xaml.Contains('x:Key="AdccBootText"')) { return $Xaml }
++    $resources = Get-AdccBootThemeResources -Theme $Theme
++    return $Xaml.Replace($marker,($marker + "`r`n" + $resources))
+ }
+ function Get-AdccThemePath {
+     try { return ([string](Get-AdccPreferencePath -FileName "ADCC.theme.cfg").User) }
+@@ -3078,7 +3151,12 @@
+ function Save-AdccTheme {
+     param([ValidateSet("Light","Dark")][string]$Theme)
+     $script:CurrentTheme = $Theme
++    $script:BootTheme = $Theme
++    # Charger les autres preferences avant une premiere sauvegarde isolee.
++    if ($null -eq $script:Settings) { [void](Load-AdccSettings) }
+     Set-AdccSetting -Name "Theme" -Value $Theme
++    # Le choix doit survivre a une fermeture rapide, sans attendre le timer 1,5 s.
++    Save-AdccSettings -Immediate
+ }
+ 
+ function Set-AdccResourceColor {
+@@ -3111,10 +3189,13 @@
+ 
+ 
+ function Apply-AdccTheme {
+-    param([ValidateSet("Light","Dark")][string]$Theme = $script:CurrentTheme)
++    param(
++        [ValidateSet("Light","Dark")][string]$Theme = $script:CurrentTheme,
++        [switch]$Persist
++    )
+ 
+     $script:CurrentTheme = $Theme
+-    Save-AdccTheme -Theme $Theme
++    $script:BootTheme = $Theme
+ 
+     try {
+         [System.Windows.Window]$window = $script:Window
+@@ -3231,6 +3312,9 @@
+             try { Set-AdccControlForeground $current (Get-AdccPresenceColor -State ([string]$current.Text)) } catch { }
+         }
+ 
++        # Restaurer l apparence au demarrage ne reecrit pas les preferences.
++        if ($Persist) { Save-AdccTheme -Theme $Theme }
++
+         Add-AdccUiLog -Area "Theme" -Level "INFO" -Text (
+             "Theme applique : {0}" -f $Theme
+         )
+@@ -3246,10 +3330,10 @@
+ 
+ function Toggle-AdccTheme {
+     if ($script:CurrentTheme -eq "Dark") {
+-        Apply-AdccTheme -Theme "Light"
++        Apply-AdccTheme -Theme "Light" -Persist
+     }
+     else {
+-        Apply-AdccTheme -Theme "Dark"
++        Apply-AdccTheme -Theme "Dark" -Persist
+     }
+ }
+ 
+@@ -4873,6 +4957,8 @@
+     if ($missingCriticalControls.Count -gt 0) {
+         throw "Interface principale : controle(s) WPF critique(s) introuvable(s) : $($missingCriticalControls -join ', ')."
+     }
++    # Appliquer le choix du login avant le premier affichage de la principale.
++    Apply-AdccTheme -Theme (Get-AdccStoredTheme)
+     try { Update-AdccWriteModeVisual } catch { }
+     Apply-AdccGuiElementPolicy
+ }
+@@ -18008,7 +18094,7 @@
+ # ADCC_MASTER_LAST_V1 = TRUE
+ $script:Version = "1.0"
+ $script:AppName = "Active Directory Control Center"
+-$script:MasterBuild = "2026.09.21-R1-RELIABILITY"
++$script:MasterBuild = "2026.09.21-R1.1-THEME"
+ $script:ActiveWriteTaskId = ""
+ $script:WriteState = "Idle"
+ $script:UnknownWriteTargetDn = ""
+@@ -18270,34 +18356,40 @@
+     catch { }
+ }
+ 
+-function New-AdccStartupWindow {
+-    if (-not [bool](Get-CfgValue "Startup" "ShowMonitor" $true)) { return }
+-    try {
+-        $xamlText = @"
+-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
++function Get-AdccStartupXaml {
++    return (Convert-AdccXamlToBootTheme -Xaml @"
++<Window Foreground="{DynamicResource AdccBootText}" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+         Title="Active Directory Control Center 1.0  Initialisation" Width="650" Height="360" ResizeMode="NoResize" WindowStartupLocation="CenterScreen"
+-        Background="#F3F6FB" ShowInTaskbar="True" Topmost="True">
++        Background="{DynamicResource AdccBootWindow}" ShowInTaskbar="True" Topmost="True">
+   <Window.Resources>
+-    <SolidColorBrush x:Key="Accent" Color="#2F6FED"/>
+-    <Style TargetType="Button"><Setter Property="Margin" Value="4"/><Setter Property="Padding" Value="12,7"/><Setter Property="Background" Value="White"/><Setter Property="BorderBrush" Value="#D7DFEA"/><Setter Property="BorderThickness" Value="1"/></Style>
++
++    <Style TargetType="Button" BasedOn="{StaticResource AdccBootButtonBase}"><Setter Property="Margin" Value="4"/><Setter Property="Padding" Value="12,7"/><Setter Property="Background" Value="{DynamicResource AdccBootSurface}"/><Setter Property="BorderBrush" Value="{DynamicResource AdccBootBorder}"/><Setter Property="BorderThickness" Value="1"/></Style>
++    <Style TargetType="TextBox" BasedOn="{StaticResource AdccBootTextBoxBase}"/>
++    <Style TargetType="PasswordBox" BasedOn="{StaticResource AdccBootPasswordBoxBase}"/>
+   </Window.Resources>
+-  <Border Margin="18" Padding="20" CornerRadius="20" Background="White" BorderBrush="#D7DFEA" BorderThickness="1">
++  <Border Margin="18" Padding="20" CornerRadius="20" Background="{DynamicResource AdccBootSurface}" BorderBrush="{DynamicResource AdccBootBorder}" BorderThickness="1">
+     <Grid>
+       <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+-      <TextBlock Grid.Row="0" FontSize="27" FontWeight="Bold"><Run Text="AD" Foreground="#111827"/><Run Text="⚡" FontFamily="Segoe UI Symbol" Foreground="#1769E0"/><Run Text="CC" Foreground="#1769E0"/></TextBlock>
+-      <TextBlock Grid.Row="1" x:Name="LblStartupStage" Text="Preparation..." FontSize="16" FontWeight="SemiBold" Margin="0,8,0,6"/>
+-      <ProgressBar Grid.Row="2" Height="8" IsIndeterminate="True" Foreground="{StaticResource Accent}" Margin="0,0,0,10"/>
+-      <TextBox Grid.Row="3" x:Name="TxtStartupDetail" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Background="#F8FAFC" BorderBrush="#E2E8F0" Padding="10"/>
++      <TextBlock Foreground="{DynamicResource AdccBootText}" Grid.Row="0" FontSize="27" FontWeight="Bold"><Run Text="AD" Foreground="{DynamicResource AdccBootText}"/><Run Text="⚡" FontFamily="Segoe UI Symbol" Foreground="{DynamicResource AdccBootAccentText}"/><Run Text="CC" Foreground="{DynamicResource AdccBootAccentText}"/></TextBlock>
++      <TextBlock Foreground="{DynamicResource AdccBootText}" Grid.Row="1" x:Name="LblStartupStage" Text="Preparation..." FontSize="16" FontWeight="SemiBold" Margin="0,8,0,6"/>
++      <ProgressBar Grid.Row="2" Height="8" IsIndeterminate="True" Foreground="{DynamicResource AdccBootAccentText}" Margin="0,0,0,10"/>
++      <TextBox Grid.Row="3" x:Name="TxtStartupDetail" Foreground="{DynamicResource AdccBootText}" CaretBrush="{DynamicResource AdccBootText}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Background="{DynamicResource AdccBootInput}" BorderBrush="{DynamicResource AdccBootBorder}" Padding="10"/>
+       <Grid Grid.Row="4" Margin="0,10,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+-        <TextBlock Grid.Column="0" x:Name="LblStartupElapsed" Text="0 s" Foreground="#64748B" VerticalAlignment="Center"/>
++        <TextBlock Grid.Column="0" x:Name="LblStartupElapsed" Text="0 s" Foreground="{DynamicResource AdccBootMuted}" VerticalAlignment="Center"/>
+         <Button Grid.Column="1" x:Name="BtnStartupLog" Content="Ouvrir le journal"/>
+         <Button Grid.Column="2" x:Name="BtnStartupCancel" Content="Annuler"/>
+       </Grid>
+     </Grid>
+   </Border>
+ </Window>
+-"@
+-        $win = ConvertFrom-AdccXaml -XamlText (Convert-AdccXamlToBootTheme -Xaml $xamlText) -Context "Moniteur de demarrage"
++"@)
++}
++
++function New-AdccStartupWindow {
++    if (-not [bool](Get-CfgValue "Startup" "ShowMonitor" $true)) { return }
++    try {
++        $xamlText = Get-AdccStartupXaml
++        $win = ConvertFrom-AdccXaml -XamlText $xamlText -Context "Moniteur de demarrage"
+         Set-AppWindowIcon $win
+         $script:StartupWindow = $win
+         $script:StartupCtrl = @{
+@@ -21521,7 +21613,7 @@
+ # Le login effectue un bind LDAP reel, lit RootDSE et valide la base detectee
+ # dans un runspace borne afin que le thread WPF ne soit jamais bloque.
+ # =====================================================================
+-$script:AdccBuild = "ADCC 1.0 V10.22 FULL RESTORE"
++$script:AdccBuild = "ADCC 1.0 R1.1 THEME"
+ $script:FastLoginUi = $null
+ $script:FastLoginState = $null
+ $script:FastLoginTimer = $null
+@@ -21741,7 +21833,7 @@
+         Save-AppConfig
+     }
+ 
+-    $ui.Error.Foreground = "#15803D"
++    $ui.Error.Foreground = (Get-AdccBootStatusColor -Kind "Success")
+     $ui.Error.Text = if ($isWindows) { "Session Windows validee." } else { "Compte valide." }
+     $ui.Stage.Text = "Connexion terminee en $([Math]::Round(([long]$Result.DurationMs / 1000),2)) s."
+     $authMethod = if ($null -ne $Result.PSObject.Properties["AuthMethod"]) { [string]$Result.AuthMethod } else { "LDAP" }
+@@ -21818,7 +21910,7 @@
+         try { $completed = [bool]$session.AsyncResult.IsCompleted } catch { $completed = $true }
+         if (-not $completed -and (Get-Date) -lt $session.Deadline) { return }
+         if (-not $completed) {
+-            $ui.Error.Foreground = "#DC2626"
++            $ui.Error.Foreground = (Get-AdccBootStatusColor -Kind "Error")
+             $ui.Error.Text = "Delai depasse. La validation a ete arretee sans bloquer l interface."
+             $ui.Stage.Text = "Verifie le reseau, le VPN, le DNS ou le journal de connexion."
+             Write-AdccFastLoginLog -Stage "TIMEOUT" -Status "ERROR" -Detail "Runspace MTA interne ; delai depasse."
+@@ -21837,7 +21929,7 @@
+             $friendly = Convert-AdccLoginFailureMessage -Message $detail
+             Write-AdccFastLoginLog -Stage "NO_RESULT" -Status "ERROR" -Detail $detail
+             Add-AdccFastLoginDetail $detail
+-            $ui.Error.Foreground = "#DC2626"
++            $ui.Error.Foreground = (Get-AdccBootStatusColor -Kind "Error")
+             $ui.Error.Text = $friendly
+             $ui.Stage.Text = if($friendly -eq "Identifiant ou mot de passe incorrect."){"Corrige l identifiant ou le mot de passe."}else{"Consulte ADCC-login.log."}
+             $state.Session = $null
+@@ -21855,7 +21947,7 @@
+             $errorCategory = ""
+             try { $errorCategory = [string]$result.ErrorCategory } catch { }
+             $message = Convert-AdccLoginFailureMessage -Message $rawMessage -Category $errorCategory
+-            $ui.Error.Foreground = "#DC2626"
++            $ui.Error.Foreground = (Get-AdccBootStatusColor -Kind "Error")
+             $ui.Error.Text = $message
+             $ui.Stage.Text = if($message -eq "Identifiant ou mot de passe incorrect."){"Corrige l identifiant ou le mot de passe."}else{"Corrige les informations ou utilise l autre mode de connexion."}
+             Add-AdccFastLoginDetail $message
+@@ -21873,7 +21965,7 @@
+         Write-AdccFastLoginLog -Stage "MONITOR_ERROR" -Status "ERROR" -Detail $detail
+         Add-AdccFastLoginDetail $detail
+         try {
+-            $ui.Error.Foreground = "#DC2626"
++            $ui.Error.Foreground = (Get-AdccBootStatusColor -Kind "Error")
+             if($friendly -eq "Identifiant ou mot de passe incorrect.") {
+                 $ui.Error.Text = $friendly
+                 $ui.Stage.Text = "Corrige l identifiant ou le mot de passe."
+@@ -21941,23 +22033,23 @@
+     Add-AdccFastLoginDetail "Demande de connexion. Mode=$modeLabel Build=$($script:AdccBuild)."
+ 
+     if (-not $UseCurrentCredentials -and [string]::IsNullOrWhiteSpace($login)) {
+-        $ui.Error.Foreground = "#DC2626"
++        $ui.Error.Foreground = (Get-AdccBootStatusColor -Kind "Error")
+         $ui.Error.Text = "Identifiant manquant."
+         return
+     }
+     if (-not $UseCurrentCredentials -and [string]::IsNullOrWhiteSpace($password)) {
+-        $ui.Error.Foreground = "#DC2626"
++        $ui.Error.Foreground = (Get-AdccBootStatusColor -Kind "Error")
+         $ui.Error.Text = "Mot de passe manquant."
+         return
+     }
+     if (-not $UseCurrentCredentials -and (Test-AdccComputerAccountIdentity -Identity $login)) {
+-        $ui.Error.Foreground = "#DC2626"
++        $ui.Error.Foreground = (Get-AdccBootStatusColor -Kind "Error")
+         $ui.Error.Text = "Ce compte correspond a un objet ordinateur Active Directory et ne peut pas servir de login interactif."
+         $ui.Stage.Text = "Saisis un compte utilisateur administrateur."
+         return
+     }
+     if ($UseCurrentCredentials -and [string]::IsNullOrWhiteSpace($login)) {
+-        $ui.Error.Foreground = "#DC2626"
++        $ui.Error.Foreground = (Get-AdccBootStatusColor -Kind "Error")
+         $ui.Error.Text = "La session Windows courante nest pas un compte utilisateur de domaine."
+         $ui.Stage.Text = "Lapplication semble etre lancee sous SYSTEM, un compte local ou un compte ordinateur."
+         return
+@@ -21978,7 +22070,7 @@
+     $state.LoginOk = $false
+     $state.UseCurrentCredentials = [bool]$UseCurrentCredentials
+     $ui.Technical.Clear()
+-    $ui.Error.Foreground = "#475569"
++    $ui.Error.Foreground = (Get-AdccBootStatusColor -Kind "Muted")
+     $ui.Error.Text = if ($UseCurrentCredentials) { "Verification de la session Windows courante." } else { "Verification du compte administrateur." }
+     $ui.Stage.Text = "Demarrage du controle Active Directory..."
+     Set-AdccFastLoginBusy $true
+@@ -22002,7 +22094,7 @@
+         $detail = $_.Exception.ToString()
+         Write-AdccFastLoginLog -Stage "START_ERROR" -Status "ERROR" -Detail $detail
+         Add-AdccFastLoginDetail $detail
+-        $ui.Error.Foreground = "#DC2626"
++        $ui.Error.Foreground = (Get-AdccBootStatusColor -Kind "Error")
+         $ui.Error.Text = "Impossible de demarrer la validation : $($_.Exception.Message)"
+         $ui.Stage.Text = "Consulte ADCC-login.log."
+         Reset-AdccFastLoginAttempt -Kill -KeepDiagnostics
+@@ -22085,39 +22177,39 @@
+ 
+ function Get-AdccStandardLoginXaml {
+     return (Convert-AdccXamlToBootTheme -Xaml @"
+-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
++<Window Foreground="{DynamicResource AdccBootText}" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+         Title="Active Directory Control Center 1.0  Connexion" Width="480" MinWidth="480" Height="536" MinHeight="536" ResizeMode="NoResize"
+-        WindowStartupLocation="CenterScreen" Background="#F4F5F9" FontFamily="Segoe UI" FontSize="12"
++        WindowStartupLocation="CenterScreen" Background="{DynamicResource AdccBootWindow}" FontFamily="Segoe UI" FontSize="12"
+         ShowInTaskbar="True" UseLayoutRounding="True" SnapsToDevicePixels="True">
+   <Window.Resources>
+-    <SolidColorBrush x:Key="Accent" Color="#1687F8"/>
+-    <SolidColorBrush x:Key="BorderADCC" Color="#D9DDE7"/>
+-    <SolidColorBrush x:Key="Muted" Color="#7A8190"/>
+-
+-    <Style x:Key="LoginTextBox" TargetType="TextBox">
++
++
++
++
++    <Style x:Key="LoginTextBox" TargetType="TextBox" BasedOn="{StaticResource AdccBootTextBoxBase}">
+       <Setter Property="Height" Value="39"/>
+       <Setter Property="Padding" Value="10,7"/>
+-      <Setter Property="BorderBrush" Value="{StaticResource BorderADCC}"/>
++      <Setter Property="BorderBrush" Value="{DynamicResource AdccBootBorder}"/>
+       <Setter Property="BorderThickness" Value="1"/>
+-      <Setter Property="Background" Value="White"/>
++      <Setter Property="Background" Value="{DynamicResource AdccBootSurface}"/>
+       <Setter Property="VerticalContentAlignment" Value="Center"/>
+     </Style>
+-    <Style x:Key="LoginPasswordBox" TargetType="PasswordBox">
++    <Style x:Key="LoginPasswordBox" TargetType="PasswordBox" BasedOn="{StaticResource AdccBootPasswordBoxBase}">
+       <Setter Property="Height" Value="39"/>
+       <Setter Property="Padding" Value="10,7"/>
+-      <Setter Property="BorderBrush" Value="{StaticResource BorderADCC}"/>
++      <Setter Property="BorderBrush" Value="{DynamicResource AdccBootBorder}"/>
+       <Setter Property="BorderThickness" Value="1"/>
+-      <Setter Property="Background" Value="White"/>
++      <Setter Property="Background" Value="{DynamicResource AdccBootSurface}"/>
+       <Setter Property="VerticalContentAlignment" Value="Center"/>
+     </Style>
+-    <Style x:Key="LoginButton" TargetType="Button">
++    <Style x:Key="LoginButton" TargetType="Button" BasedOn="{StaticResource AdccBootButtonBase}">
+       <Setter Property="MinHeight" Value="38"/>
+       <Setter Property="MinWidth" Value="90"/>
+       <Setter Property="Padding" Value="10,5"/>
+-      <Setter Property="Background" Value="#ECECF2"/>
+-      <Setter Property="BorderBrush" Value="#ECECF2"/>
+-      <Setter Property="Foreground" Value="#20232A"/>
++      <Setter Property="Background" Value="{DynamicResource AdccBootButton}"/>
++      <Setter Property="BorderBrush" Value="{DynamicResource AdccBootBorder}"/>
++      <Setter Property="Foreground" Value="{DynamicResource AdccBootButtonText}"/>
+       <Setter Property="BorderThickness" Value="1"/>
+       <Setter Property="Cursor" Value="Hand"/>
+       <Setter Property="HorizontalContentAlignment" Value="Center"/>
+@@ -22138,10 +22230,13 @@
+         </Setter.Value>
+       </Setter>
+     </Style>
++    <Style TargetType="TextBox" BasedOn="{StaticResource AdccBootTextBoxBase}"/>
++    <Style TargetType="PasswordBox" BasedOn="{StaticResource AdccBootPasswordBoxBase}"/>
++    <Style TargetType="Button" BasedOn="{StaticResource AdccBootButtonBase}"/>
+   </Window.Resources>
+ 
+   <Grid Margin="21">
+-    <Border Background="White" BorderBrush="{StaticResource BorderADCC}" BorderThickness="1" CornerRadius="15" Padding="24,20,24,20">
++    <Border Background="{DynamicResource AdccBootSurface}" BorderBrush="{DynamicResource AdccBootBorder}" BorderThickness="1" CornerRadius="15" Padding="24,20,24,20">
+       <Border.Effect><DropShadowEffect BlurRadius="22" ShadowDepth="0" Opacity="0.08" Color="#64748B"/></Border.Effect>
+       <Grid ClipToBounds="False">
+         <Grid.RowDefinitions>
+@@ -22158,28 +22253,28 @@
+           <RowDefinition Height="0"/>
+         </Grid.RowDefinitions>
+ 
+-        <TextBlock Grid.Row="0" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="26" FontWeight="Bold">
+-          <Run Text="AD" Foreground="#161922"/><Run Text="⚡" FontFamily="Segoe UI Symbol" Foreground="{StaticResource Accent}"/><Run Text="CC" Foreground="{StaticResource Accent}"/>
++        <TextBlock Foreground="{DynamicResource AdccBootText}" Grid.Row="0" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="26" FontWeight="Bold">
++          <Run Text="AD" Foreground="{DynamicResource AdccBootText}"/><Run Text="⚡" FontFamily="Segoe UI Symbol" Foreground="{DynamicResource AdccBootAccentText}"/><Run Text="CC" Foreground="{DynamicResource AdccBootAccentText}"/>
+         </TextBlock>
+-        <TextBlock Grid.Row="1" Text="Authentification" HorizontalAlignment="Center" VerticalAlignment="Top" Foreground="#9499A5"/>
++        <TextBlock Grid.Row="1" Text="Authentification" HorizontalAlignment="Center" VerticalAlignment="Top" Foreground="{DynamicResource AdccBootMuted}"/>
+ 
+         <Border Grid.Row="2" Height="52" VerticalAlignment="Top"
+-                Background="{StaticResource Accent}" CornerRadius="9" Padding="12,8"
++                Background="{DynamicResource AdccBootAccent}" CornerRadius="9" Padding="12,8"
+                 ToolTip="Saisis un compte administrateur Active Directory. Le bouton Compte Windows utilise lidentite de la session Windows actuellement ouverte.">
+           <TextBlock Text="Compte administrateur Active Directory requis."
+-                     Foreground="White" FontSize="11.5" FontWeight="SemiBold"
++                     Foreground="{DynamicResource AdccBootOnAccent}" FontSize="11.5" FontWeight="SemiBold"
+                      TextAlignment="Center" TextWrapping="NoWrap"
+                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+         </Border>
+ 
+-        <TextBlock Grid.Row="3" Text="IDENTIFIANT" FontSize="10.5" Foreground="{StaticResource Muted}" Margin="1,0,0,5" VerticalAlignment="Bottom"/>
++        <TextBlock Grid.Row="3" Text="IDENTIFIANT" FontSize="10.5" Foreground="{DynamicResource AdccBootMuted}" Margin="1,0,0,5" VerticalAlignment="Bottom"/>
+         <TextBox Grid.Row="4" x:Name="TxtLogin" Style="{StaticResource LoginTextBox}" ToolTip="Compte Active Directory utilise par ADCC."/>
+ 
+-        <TextBlock Grid.Row="5" Text="MOT DE PASSE" FontSize="10.5" Foreground="{StaticResource Muted}" Margin="1,12,0,5" VerticalAlignment="Bottom"/>
++        <TextBlock Grid.Row="5" Text="MOT DE PASSE" FontSize="10.5" Foreground="{DynamicResource AdccBootMuted}" Margin="1,12,0,5" VerticalAlignment="Bottom"/>
+         <PasswordBox Grid.Row="6" x:Name="PwdLogin" Style="{StaticResource LoginPasswordBox}" ToolTip="Mot de passe conserve uniquement en memoire pendant la session."/>
+ 
+         <CheckBox Grid.Row="7" x:Name="ChkRemember" Content="Se souvenir uniquement de lidentifiant"
+-                  Margin="2,9,0,0" Foreground="#666C78" VerticalAlignment="Top"/>
++                  Margin="2,9,0,0" Foreground="{DynamicResource AdccBootMuted}" VerticalAlignment="Top"/>
+ 
+         <!-- Zone reservee : les messages peuvent changer sans deplacer les boutons. -->
+         <Border Grid.Row="8" Height="58" VerticalAlignment="Top" Margin="0,3,0,0" ClipToBounds="True">
+@@ -22189,10 +22284,10 @@
+               <RowDefinition Height="26"/>
+               <RowDefinition Height="6"/>
+             </Grid.RowDefinitions>
+-            <TextBlock Grid.Row="0" x:Name="LblLoginError" Text="" Foreground="#475569"
++            <TextBlock Grid.Row="0" x:Name="LblLoginError" Text="" Foreground="{DynamicResource AdccBootMuted}"
+                        TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                        ToolTip="{Binding RelativeSource={RelativeSource Self}, Path=Text}"/>
+-            <TextBlock Grid.Row="1" x:Name="LblLoginStage" Text="Pret." Foreground="#1687F8"
++            <TextBlock Grid.Row="1" x:Name="LblLoginStage" Text="Pret." Foreground="{DynamicResource AdccBootAccentText}"
+                        TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                        ToolTip="{Binding RelativeSource={RelativeSource Self}, Path=Text}"/>
+             <ProgressBar Grid.Row="2" x:Name="PbLogin" Height="4" IsIndeterminate="True"
+@@ -22210,10 +22305,10 @@
+           </Grid.ColumnDefinitions>
+           <Button Grid.Column="0" x:Name="BtnCancel" Content="Annuler" Style="{StaticResource LoginButton}" IsCancel="True"/>
+           <Button Grid.Column="2" x:Name="BtnWindowsLogin" Content="Compte Windows" Style="{StaticResource LoginButton}"
+-                  Background="White" BorderBrush="{StaticResource Accent}" Foreground="{StaticResource Accent}"
++                  Background="{DynamicResource AdccBootSurface}" BorderBrush="{DynamicResource AdccBootAccent}" Foreground="{DynamicResource AdccBootAccentText}"
+                   ToolTip="Utilise lidentite de la session Windows ouverte. Cette session doit deja disposer des droits Active Directory necessaires."/>
+           <Button Grid.Column="4" x:Name="BtnLogin" Content="Se connecter" Style="{StaticResource LoginButton}"
+-                  Background="{StaticResource Accent}" BorderBrush="{StaticResource Accent}" Foreground="White"
++                  Background="{DynamicResource AdccBootAccent}" BorderBrush="{DynamicResource AdccBootAccent}" Foreground="{DynamicResource AdccBootOnAccent}"
+                   FontWeight="SemiBold" IsDefault="True"/>
+         </Grid>
+ 
+@@ -22234,29 +22329,29 @@
+ 
+ function Get-AdccDebugLoginXaml {
+     return (Convert-AdccXamlToBootTheme -Xaml @"
+-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
++<Window Foreground="{DynamicResource AdccBootText}" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+         Title="Active Directory Control Center 1.0  Connexion" Width="590" Height="760" ResizeMode="NoResize"
+-        WindowStartupLocation="CenterScreen" Background="#F2F5FA" FontFamily="Segoe UI" FontSize="12" ShowInTaskbar="True">
++        WindowStartupLocation="CenterScreen" Background="{DynamicResource AdccBootWindow}" FontFamily="Segoe UI" FontSize="12" ShowInTaskbar="True">
+   <Window.Resources>
+-    <SolidColorBrush x:Key="Accent" Color="#1687F8"/>
+-    <SolidColorBrush x:Key="BorderADCC" Color="#D6DEEA"/>
+-    <Style TargetType="TextBox"><Setter Property="MinHeight" Value="39"/><Setter Property="Padding" Value="10,6"/><Setter Property="BorderBrush" Value="{StaticResource BorderADCC}"/><Setter Property="BorderThickness" Value="1"/></Style>
+-    <Style TargetType="PasswordBox"><Setter Property="MinHeight" Value="39"/><Setter Property="Padding" Value="10,6"/><Setter Property="BorderBrush" Value="{StaticResource BorderADCC}"/><Setter Property="BorderThickness" Value="1"/></Style>
+-    <Style TargetType="Button"><Setter Property="MinHeight" Value="38"/><Setter Property="Padding" Value="12,7"/><Setter Property="BorderBrush" Value="{StaticResource BorderADCC}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="Background" Value="White"/><Setter Property="Cursor" Value="Hand"/></Style>
++
++
++    <Style TargetType="TextBox" BasedOn="{StaticResource AdccBootTextBoxBase}"><Setter Property="MinHeight" Value="39"/><Setter Property="Padding" Value="10,6"/><Setter Property="BorderBrush" Value="{DynamicResource AdccBootBorder}"/><Setter Property="BorderThickness" Value="1"/></Style>
++    <Style TargetType="PasswordBox" BasedOn="{StaticResource AdccBootPasswordBoxBase}"><Setter Property="MinHeight" Value="39"/><Setter Property="Padding" Value="10,6"/><Setter Property="BorderBrush" Value="{DynamicResource AdccBootBorder}"/><Setter Property="BorderThickness" Value="1"/></Style>
++    <Style TargetType="Button" BasedOn="{StaticResource AdccBootButtonBase}"><Setter Property="MinHeight" Value="38"/><Setter Property="Padding" Value="12,7"/><Setter Property="BorderBrush" Value="{DynamicResource AdccBootBorder}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="Background" Value="{DynamicResource AdccBootSurface}"/><Setter Property="Cursor" Value="Hand"/></Style>
+   </Window.Resources>
+-  <Border Margin="24" Padding="25" CornerRadius="18" Background="White" BorderBrush="{StaticResource BorderADCC}" BorderThickness="1">
++  <Border Margin="24" Padding="25" CornerRadius="18" Background="{DynamicResource AdccBootSurface}" BorderBrush="{DynamicResource AdccBootBorder}" BorderThickness="1">
+     <Grid>
+       <Grid.RowDefinitions>
+         <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="92"/>
+         <RowDefinition Height="Auto"/><RowDefinition Height="155"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+       </Grid.RowDefinitions>
+-      <TextBlock Grid.Row="0" HorizontalAlignment="Center" FontSize="29" FontWeight="Bold"><Run Text="AD" Foreground="#111827"/><Run Text="⚡" FontFamily="Segoe UI Symbol" Foreground="{StaticResource Accent}"/><Run Text="CC" Foreground="{StaticResource Accent}"/></TextBlock>
+-      <TextBlock Grid.Row="1" Text="MODE DEBUG  diagnostic de connexion en direct" HorizontalAlignment="Center" Foreground="#64748B" Margin="0,2,0,20"/>
+-      <TextBlock Grid.Row="2" Text="IDENTIFIANT" FontSize="11" Foreground="#475569" Margin="0,0,0,5"/>
++      <TextBlock Foreground="{DynamicResource AdccBootText}" Grid.Row="0" HorizontalAlignment="Center" FontSize="29" FontWeight="Bold"><Run Text="AD" Foreground="{DynamicResource AdccBootText}"/><Run Text="⚡" FontFamily="Segoe UI Symbol" Foreground="{DynamicResource AdccBootAccentText}"/><Run Text="CC" Foreground="{DynamicResource AdccBootAccentText}"/></TextBlock>
++      <TextBlock Grid.Row="1" Text="MODE DEBUG  diagnostic de connexion en direct" HorizontalAlignment="Center" Foreground="{DynamicResource AdccBootMuted}" Margin="0,2,0,20"/>
++      <TextBlock Grid.Row="2" Text="IDENTIFIANT" FontSize="11" Foreground="{DynamicResource AdccBootMuted}" Margin="0,0,0,5"/>
+       <TextBox Grid.Row="3" x:Name="TxtLogin" ToolTip="Compte Active Directory utilise par ADCC."/>
+-      <TextBlock Grid.Row="4" Text="MOT DE PASSE" FontSize="11" Foreground="#475569" Margin="0,14,0,5"/>
++      <TextBlock Grid.Row="4" Text="MOT DE PASSE" FontSize="11" Foreground="{DynamicResource AdccBootMuted}" Margin="0,14,0,5"/>
+       <Grid Grid.Row="5">
+         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto" MinWidth="96"/></Grid.ColumnDefinitions>
+         <PasswordBox Grid.Column="0" x:Name="PwdLogin"/>
+@@ -22269,18 +22364,18 @@
+       <Border Grid.Row="7" Height="82" Margin="0,10,0,0" ClipToBounds="True">
+         <Grid>
+           <Grid.RowDefinitions><RowDefinition Height="34"/><RowDefinition Height="40"/><RowDefinition Height="8"/></Grid.RowDefinitions>
+-          <TextBlock Grid.Row="0" x:Name="LblLoginError" Foreground="#475569" TextWrapping="Wrap"
++          <TextBlock Grid.Row="0" x:Name="LblLoginError" Foreground="{DynamicResource AdccBootMuted}" TextWrapping="Wrap"
+                      TextTrimming="CharacterEllipsis" MaxHeight="34" Text="Pret."
+                      ToolTip="{Binding RelativeSource={RelativeSource Self}, Path=Text}"/>
+-          <TextBlock Grid.Row="1" x:Name="LblLoginStage" Foreground="#1D4ED8" FontWeight="SemiBold"
++          <TextBlock Grid.Row="1" x:Name="LblLoginStage" Foreground="{DynamicResource AdccBootAccentText}" FontWeight="SemiBold"
+                      TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="40" Text="Aucune operation en cours."
+                      ToolTip="{Binding RelativeSource={RelativeSource Self}, Path=Text}"/>
+           <ProgressBar Grid.Row="2" x:Name="PbLogin" Height="6" IsIndeterminate="True" Visibility="Collapsed"/>
+         </Grid>
+       </Border>
+-      <TextBlock Grid.Row="8" Text="TRACE TECHNIQUE" FontSize="11" Foreground="#475569" Margin="0,13,0,5"/>
++      <TextBlock Grid.Row="8" Text="TRACE TECHNIQUE" FontSize="11" Foreground="{DynamicResource AdccBootMuted}" Margin="0,13,0,5"/>
+       <TextBox Grid.Row="9" x:Name="TxtLoginTechnical" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap"
+-               VerticalScrollBarVisibility="Auto" Background="#F8FAFC" FontFamily="Consolas" FontSize="11"/>
++               VerticalScrollBarVisibility="Auto" Background="{DynamicResource AdccBootInput}" FontFamily="Consolas" FontSize="11"/>
+       <Grid Grid.Row="10" Margin="0,10,0,0">
+         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+         <Button Grid.Column="0" x:Name="BtnLoginLog" Content="Ouvrir le journal" Margin="0,0,5,0"/>
+@@ -22289,8 +22384,8 @@
+       <Grid Grid.Row="11" Margin="0,12,0,0">
+         <Grid.ColumnDefinitions><ColumnDefinition Width="0.85*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="1.15*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="1.05*"/></Grid.ColumnDefinitions>
+         <Button Grid.Column="0" x:Name="BtnCancel" Content="Annuler"/>
+-        <Button Grid.Column="2" x:Name="BtnWindowsLogin" Content="Compte Windows" BorderBrush="{StaticResource Accent}" Foreground="{StaticResource Accent}"/>
+-        <Button Grid.Column="4" x:Name="BtnLogin" Content="Se connecter" Background="{StaticResource Accent}" BorderBrush="{StaticResource Accent}" Foreground="White" FontWeight="SemiBold"/>
++        <Button Grid.Column="2" x:Name="BtnWindowsLogin" Content="Compte Windows" BorderBrush="{DynamicResource AdccBootAccent}" Foreground="{DynamicResource AdccBootAccentText}"/>
++        <Button Grid.Column="4" x:Name="BtnLogin" Content="Se connecter" Background="{DynamicResource AdccBootAccent}" BorderBrush="{DynamicResource AdccBootAccent}" Foreground="{DynamicResource AdccBootOnAccent}" FontWeight="SemiBold"/>
+       </Grid>
+     </Grid>
+   </Border>
+@@ -22372,7 +22467,7 @@
+             Add-AdccFastLoginDetail "Annulation demandee."
+             Write-AdccFastLoginLog -Stage "CANCEL" -Status "WARN" -Detail "Annulation de la validation en memoire par l utilisateur"
+             Reset-AdccFastLoginAttempt -Kill -KeepDiagnostics
+-            $script:FastLoginUi.Error.Foreground = "#B45309"
++            $script:FastLoginUi.Error.Foreground = (Get-AdccBootStatusColor -Kind "Warning")
+             $script:FastLoginUi.Error.Text = "Verification annulee."
+             $script:FastLoginUi.Stage.Text = "Vous pouvez corriger les informations puis reessayer."
+             return
+@@ -22438,7 +22533,8 @@
+     foreach ($item in @(
+         @{ Name='XAML principal'; Factory='Get-MainXaml' },
+         @{ Name='Login standard'; Factory='Get-AdccStandardLoginXaml' },
+-        @{ Name='Login debug'; Factory='Get-AdccDebugLoginXaml' }
++        @{ Name='Login debug'; Factory='Get-AdccDebugLoginXaml' },
++        @{ Name='Chargement'; Factory='Get-AdccStartupXaml' }
+     )) {
+         try {
+             $factoryName = [string]$item.Factory

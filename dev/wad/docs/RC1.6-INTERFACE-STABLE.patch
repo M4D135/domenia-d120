@@ -1,0 +1,203 @@
+--- RC1.5/wad/Domenia-Core.ps1
++++ RC1.6/wad/Domenia-Core.ps1
+@@ -4087,7 +4087,23 @@
+               <Button x:Name="BtnGlobalSearch" Content="Rechercher" Style="{StaticResource RunButton}" Margin="8,0,0,0" ToolTip="Recherche dans tout le domaine, tous types, sans filtre OU, de présence ou de liste. Aucun poste sondé avant sélection." Grid.Column="1" Height="42" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher dans tout le domaine" AutomationProperties.HelpText="Recherche dans tout le domaine, tous types, sans filtre OU, de présence ou de liste. Aucun poste sondé avant sélection."/>
+             </Grid>
+             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+-              <Button x:Name="BtnAccessRecovery" Content="Accès" MaxWidth="150" MinHeight="34" Margin="0,0,6,0" ToolTip="Changer de compte après un refus de droits. Les identités temporaires restent en mémoire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Résoudre un refus d’accès" AutomationProperties.HelpText="Propose un autre compte pour la ressource en échec, sans relancer les écritures."/><Button x:Name="BtnSuiteActivity" Content="Opérations" Margin="0,0,6,0" MinHeight="34" ToolTip="Ouvre le suivi des lectures, écritures et nettoyages en cours. Aucune opération AD n’est lancée." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Suivi des opérations" AutomationProperties.HelpText="Ouvre le suivi des lectures, écritures et nettoyages en cours. Aucune opération AD n’est lancée."/><Button x:Name="BtnCommandPalette" Content="Ctrl + K" Width="78" Height="40" MinWidth="78" Margin="0,0,6,0" ToolTip="Ouvre la palette des actions disponibles. Raccourci Windows : Ctrl+K." VerticalAlignment="Center" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Palette de commandes" AutomationProperties.HelpText="Ouvre la palette des actions disponibles. Raccourci Windows : Ctrl+K."/>
++              <Button x:Name="BtnAccessRecovery" Width="108" MinWidth="108" MaxWidth="108" Height="40" MinHeight="40" MaxHeight="40" Padding="10,6" Margin="0,0,6,0" ToolTip="Comptes temporaires et accès à revoir. Aucun changement de compte sans votre accord." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Accès" AutomationProperties.HelpText="Comptes temporaires et accès à revoir. Aucun changement de compte sans votre accord.">
++                <Grid Width="82" Height="24" IsHitTestVisible="False">
++                  <Grid.ColumnDefinitions><ColumnDefinition Width="44"/><ColumnDefinition Width="8"/><ColumnDefinition Width="30"/></Grid.ColumnDefinitions>
++                  <TextBlock Text="Accès" VerticalAlignment="Center" FontSize="12"/>
++                  <Border x:Name="BadgeAccessRecovery" Grid.Column="2" Width="30" Height="22" CornerRadius="8" Background="{DynamicResource AccentSoft}" VerticalAlignment="Center" Visibility="Hidden">
++                    <TextBlock x:Name="LblAccessRecoveryCount" Text="0" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource AccentText}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
++                  </Border>
++                </Grid>
++              </Button><Button x:Name="BtnSuiteActivity" Width="144" MinWidth="144" MaxWidth="144" Height="40" MinHeight="40" MaxHeight="40" Padding="10,6" Margin="0,0,6,0" ToolTip="Ouvre le suivi des opérations. Le compteur inclut les lectures en nettoyage. Aucun accès AD supplémentaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Opérations" AutomationProperties.HelpText="Ouvre le suivi des opérations. Le compteur inclut les lectures en nettoyage. Aucun accès AD supplémentaire.">
++                <Grid Width="118" Height="24" IsHitTestVisible="False">
++                  <Grid.ColumnDefinitions><ColumnDefinition Width="80"/><ColumnDefinition Width="8"/><ColumnDefinition Width="30"/></Grid.ColumnDefinitions>
++                  <TextBlock Text="Opérations" VerticalAlignment="Center" FontSize="12"/>
++                  <Border x:Name="BadgeSuiteActivity" Grid.Column="2" Width="30" Height="22" CornerRadius="8" Background="{DynamicResource AccentSoft}" VerticalAlignment="Center" Visibility="Hidden">
++                    <TextBlock x:Name="LblSuiteActivityCount" Text="0" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource AccentText}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
++                  </Border>
++                </Grid>
++              </Button><Button x:Name="BtnCommandPalette" Content="Ctrl + K" Width="78" Height="40" MinWidth="78" Margin="0,0,6,0" ToolTip="Ouvre la palette des actions disponibles. Raccourci Windows : Ctrl+K." VerticalAlignment="Center" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Palette de commandes" AutomationProperties.HelpText="Ouvre la palette des actions disponibles. Raccourci Windows : Ctrl+K."/>
+               <Button x:Name="BtnThemeToggle" Width="42" Height="40" MinWidth="42" Padding="0" Margin="0,0,6,0" IsEnabled="True" IsHitTestVisible="True" Focusable="True" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTip="Bascule entre le thème clair et le thème sombre. Le choix est enregistré par le mécanisme existant." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Apparence" AutomationProperties.HelpText="Bascule entre le thème clair et le thème sombre. Le choix est enregistré par le mécanisme existant.">
+                 <Grid Width="32" Height="30" Background="Transparent">
+                   <Ellipse x:Name="ThemeIconCircle" Fill="Transparent" Stroke="Transparent" StrokeThickness="0"/>
+@@ -19729,7 +19745,7 @@
+ # DOMENIA_MASTER_LAST_V1 = TRUE
+ $script:Version = "1.0"
+ $script:AppName = "Domenia"
+-$script:MasterBuild = "2026.10.01-DOMENIA-1.0-RC1.5-BOOTLOGIN"
++$script:MasterBuild = "2026.10.01-DOMENIA-1.0-RC1.6-STABLEUI"
+ $script:ActiveWriteTaskId = ""
+ $script:WriteState = "Idle"
+ $script:UnknownWriteTargetDn = ""
+@@ -22301,7 +22317,7 @@
+     Initialize-DomeniaGuard
+     Initialize-DomeniaLive
+     Initialize-DomeniaReconcile
+-    Add-DomeniaUiLog -Area "Application" -Text "Domenia 1.0 RC1.5 pret."
++    Add-DomeniaUiLog -Area "Application" -Text "Domenia 1.0 RC1.6 pret."
+ }
+ 
+ function Assert-DomeniaCapability {
+@@ -23431,7 +23447,7 @@
+ # Le login effectue un bind LDAP reel, lit RootDSE et valide la base detectee
+ # dans un runspace borne afin que le thread WPF ne soit jamais bloque.
+ # =====================================================================
+-$script:DomeniaBuild = "Domenia 1.0 RC1.5"
++$script:DomeniaBuild = "Domenia 1.0 RC1.6"
+ $script:FastLoginUi = $null
+ $script:FastLoginState = $null
+ $script:FastLoginTimer = $null
+@@ -23572,6 +23588,19 @@
+         $ui.Windows.IsEnabled = ((-not $Busy) -and $allowWindowsSession -and -not [string]::IsNullOrWhiteSpace($windowsIdentity))
+     }
+     catch { }
++    # Standard view keeps the same outer dimensions throughout a validation attempt.
++    # Debug view deliberately keeps its existing diagnostic presentation.
++    if ($ui.Window -is [Windows.Window] -and $null -ne $ui.Window.FindName('PanelSplash')) {
++        if ($Busy -and $ui.Window.IsLoaded) {
++            $height = $ui.Window.ActualHeight
++            $ui.Window.SizeToContent = [Windows.SizeToContent]::Manual
++            $ui.Window.Height = [Math]::Min($height,$ui.Window.MaxHeight)
++        }
++        elseif (-not $Busy) {
++            $ui.Window.SizeToContent = [Windows.SizeToContent]::Height
++            $ui.Window.Height = [double]::NaN
++        }
++    }
+     try { $ui.Cancel.Content = if ($Busy) { "Arreter" } else { "Annuler" } } catch { }
+     try { $ui.Progress.Visibility = if ($Busy) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed } } catch { }
+ }
+@@ -24083,8 +24112,8 @@
+   </Style>
+   <Style TargetType="ProgressBar"><Setter Property="Foreground" Value="{DynamicResource DomeniaBootAccentText}"/><Setter Property="Background" Value="{DynamicResource DomeniaBootBorder}"/><Setter Property="BorderThickness" Value="0"/></Style>
+   </Grid.Resources><!-- Only the input area can scroll on a very small desktop. Actions remain outside it. -->
+-    <Border x:Name="PanelLogin" Style="{StaticResource Card}" Margin="16" Padding="20">
+-      <Grid>
++    <Border x:Name="PanelLogin" Margin="16" Padding="20">
++      <Border.Style><Style TargetType="Border" BasedOn="{StaticResource Card}"><Style.Triggers><DataTrigger Binding="{Binding Visibility, ElementName=PbLogin}" Value="Visible"><Setter Property="Visibility" Value="Hidden"/></DataTrigger></Style.Triggers></Style></Border.Style><Grid>
+         <Grid.RowDefinitions>
+           <RowDefinition Height="Auto"/>
+           <RowDefinition Height="*"/>
+@@ -24117,32 +24146,16 @@
+             <CheckBox x:Name="ChkRemember" FontSize="12" MinHeight="28" Margin="0" KeyboardNavigation.TabIndex="2" ToolTip="Conserve uniquement l’identifiant pour la prochaine connexion. Le mot de passe n’est jamais mémorisé." ToolTipService.ShowOnDisabled="True" ToolTipService.InitialShowDelay="400" ToolTipService.ShowDuration="30000" AutomationProperties.HelpText="Conserve uniquement l’identifiant pour la prochaine connexion. Le mot de passe n’est jamais mémorisé." AutomationProperties.Name="Mémoriser uniquement l’identifiant">
+               <TextBlock Text="Mémoriser uniquement l’identifiant" TextWrapping="Wrap" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" ToolTipService.ShowOnDisabled="True"/>
+             </CheckBox>
+-          <Expander x:Name="UxLoginDiagnostics" Header="Aide à la connexion" IsExpanded="False" Foreground="{DynamicResource DomeniaBootMuted}" FontSize="11" Margin="0,8,0,0" ToolTip="Ouvre les détails et les commandes pour consulter ou copier le diagnostic de connexion. Aucun nouvel essai n’est lancé." AutomationProperties.Name="Aide à la connexion" AutomationProperties.HelpText="Ouvre les détails et les commandes pour consulter ou copier le diagnostic de connexion. Aucun nouvel essai n’est lancé." ToolTipService.ShowOnDisabled="True" KeyboardNavigation.TabIndex="7">
+-          <Expander.Style><Style TargetType="Expander"><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding Text, ElementName=LblLoginError}" Value=""/><Condition Binding="{Binding Visibility, ElementName=PbLogin}" Value="Collapsed"/></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Collapsed"/></MultiDataTrigger></Style.Triggers></Style></Expander.Style><StackPanel Margin="0,10,0,0"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+-            <Button x:Name="BtnLoginLog" Content="Ouvrir le journal" MinHeight="32" FontSize="11.5" ToolTip="Ouvre le journal technique de connexion pour comprendre une erreur. Aucun nouvel essai d’authentification n’est lancé." AutomationProperties.Name="Journal de connexion" AutomationProperties.HelpText="Ouvre le journal technique de connexion pour comprendre une erreur. Aucun nouvel essai d’authentification n’est lancé." ToolTipService.ShowOnDisabled="True" Margin="0"/>
+-            <Button x:Name="BtnCopyLoginDiag" Grid.Column="2" Content="Copier le diagnostic" MinHeight="32" FontSize="11.5" ToolTip="Copie les informations de diagnostic de connexion. Relisez-les avant de les transmettre hors de votre organisation." AutomationProperties.Name="Copier le diagnostic" AutomationProperties.HelpText="Copie les informations de diagnostic de connexion. Relisez-les avant de les transmettre hors de votre organisation." ToolTipService.ShowOnDisabled="True" Margin="0"/>
+-          </Grid>
+-          <TextBox x:Name="TxtLoginTechnical" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" MaxHeight="128" MinHeight="60" Margin="0,10,0,0" FontFamily="Consolas" FontSize="10.5" Padding="8" ToolTip="Détails techniques de la connexion. Aucun contenu de mot de passe n’est ajouté par cette interface. Relisez les noms et chemins internes avant partage." AutomationProperties.Name="Diagnostic de connexion" AutomationProperties.HelpText="Détails techniques de la connexion. Aucun contenu de mot de passe n’est ajouté par cette interface. Relisez les noms et chemins internes avant partage." ToolTipService.ShowOnDisabled="True"/>
+-          </StackPanel>
+-        </Expander>
+-        <Grid Visibility="Collapsed"><TextBox x:Name="TxtLoginPasswordVisible" ToolTip="Saisie protégée : l’aide contextuelle ne lit jamais la valeur de ce champ." AutomationProperties.Name="Mot de passe" AutomationProperties.HelpText="Saisie protégée : l’aide contextuelle ne lit jamais la valeur de ce champ." ToolTipService.ShowOnDisabled="True"/><Button x:Name="BtnRevealLogin" Content="Afficher" ToolTip="Afficher ou masquer temporairement le mot de passe." AutomationProperties.Name="Afficher ou masquer temporairement le mot de passe" AutomationProperties.HelpText="Afficher ou masquer temporairement le mot de passe." ToolTipService.ShowOnDisabled="True"/></Grid>
++          <Grid Visibility="Collapsed"><TextBox x:Name="TxtLoginPasswordVisible" ToolTip="Saisie protégée : l’aide contextuelle ne lit jamais la valeur de ce champ." AutomationProperties.Name="Mot de passe" AutomationProperties.HelpText="Saisie protégée : l’aide contextuelle ne lit jamais la valeur de ce champ." ToolTipService.ShowOnDisabled="True"/><Button x:Name="BtnRevealLogin" Content="Afficher" ToolTip="Afficher ou masquer temporairement le mot de passe." AutomationProperties.Name="Afficher ou masquer temporairement le mot de passe" AutomationProperties.HelpText="Afficher ou masquer temporairement le mot de passe." ToolTipService.ShowOnDisabled="True"/></Grid>
+       </StackPanel>
+         </ScrollViewer>
+ 
+         <StackPanel x:Name="LoginActions" Grid.Row="2" Margin="0,16,0,0">
+           <!-- A long Windows error never pushes the buttons out of the window. -->
+-          <StackPanel x:Name="UxLoginFeedback" Margin="0,0,0,10">
+-          <StackPanel.Style><Style TargetType="StackPanel"><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions>
+-            <Condition Binding="{Binding Text, ElementName=LblLoginError}" Value=""/>
+-            <Condition Binding="{Binding Visibility, ElementName=PbLogin}" Value="Collapsed"/>
+-          </MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Collapsed"/></MultiDataTrigger></Style.Triggers></Style></StackPanel.Style>
+-          <ScrollViewer MaxHeight="60" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+-            <StackPanel><TextBlock x:Name="LblLoginError" Text="" Foreground="{DynamicResource DomeniaBootMuted}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,4"/>
+-              <TextBlock x:Name="LblLoginStage" Text="" Foreground="{DynamicResource DomeniaBootAccentText}" FontSize="11.5" TextWrapping="Wrap"/></StackPanel>
+-          </ScrollViewer>
+-          <ProgressBar x:Name="PbLogin" IsIndeterminate="True" Height="4" Visibility="Collapsed" Margin="0,8,0,0" ToolTip="Indique une activité de connexion. Une animation sans pourcentage ne signifie pas qu’une proportion précise du travail est terminée." AutomationProperties.Name="Connexion en cours" AutomationProperties.HelpText="Indique une activité de connexion. Une animation sans pourcentage ne signifie pas qu’une proportion précise du travail est terminée." ToolTipService.ShowOnDisabled="True"/>
+-        </StackPanel>
+-        <Grid>
++          <StackPanel x:Name="UxLoginFeedback" Margin="0,0,0,10"><StackPanel.Style><Style TargetType="StackPanel"><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=LblLoginError}" Value=""><Setter Property="Visibility" Value="Collapsed"/></DataTrigger><DataTrigger Binding="{Binding Visibility, ElementName=PbLogin}" Value="Visible"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></StackPanel.Style><Border Background="{DynamicResource DomeniaBootSurface}" BorderBrush="{DynamicResource DomeniaBootError}" BorderThickness="1" CornerRadius="9" Padding="10,8"><ScrollViewer MaxHeight="60" Focusable="False" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><TextBlock x:Name="LblLoginError" Text="" Foreground="{DynamicResource DomeniaBootError}" FontSize="12" TextWrapping="Wrap" Margin="0" LineHeight="17"/>
++              </ScrollViewer></Border><Grid x:Name="UxLoginDiagnostics" Margin="0,8,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Button x:Name="BtnLoginLog" Content="Ouvrir le journal" MinHeight="32" FontSize="11.5" ToolTip="Ouvre le journal technique de connexion pour comprendre une erreur. Aucun nouvel essai d’authentification n’est lancé." AutomationProperties.Name="Journal de connexion" AutomationProperties.HelpText="Ouvre le journal technique de connexion pour comprendre une erreur. Aucun nouvel essai d’authentification n’est lancé." ToolTipService.ShowOnDisabled="True" Margin="0"/>
++            <Button x:Name="BtnCopyLoginDiag" Grid.Column="2" Content="Copier le diagnostic" MinHeight="32" FontSize="11.5" ToolTip="Copie les informations de diagnostic de connexion. Relisez-les avant de les transmettre hors de votre organisation." AutomationProperties.Name="Copier le diagnostic" AutomationProperties.HelpText="Copie les informations de diagnostic de connexion. Relisez-les avant de les transmettre hors de votre organisation." ToolTipService.ShowOnDisabled="True" Margin="0"/>
++          </Grid></StackPanel><Grid>
+             <Grid.ColumnDefinitions>
+               <ColumnDefinition Width="Auto"/>
+               <ColumnDefinition Width="*"/>
+@@ -24156,7 +24169,9 @@
+       </Grid>
+     </Border>
+ 
+-    </Grid>
++    <Grid x:Name="LoginDiagnosticBuffer" Visibility="Collapsed" IsHitTestVisible="False" Focusable="False"><TextBox x:Name="TxtLoginTechnical" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" MaxHeight="128" MinHeight="60" Margin="0,10,0,0" FontFamily="Consolas" FontSize="10.5" Padding="8" ToolTip="Détails techniques de la connexion. Aucun contenu de mot de passe n’est ajouté par cette interface. Relisez les noms et chemins internes avant partage." AutomationProperties.Name="Diagnostic de connexion" AutomationProperties.HelpText="Détails techniques de la connexion. Aucun contenu de mot de passe n’est ajouté par cette interface. Relisez les noms et chemins internes avant partage." ToolTipService.ShowOnDisabled="True" Visibility="Collapsed" Focusable="False"/>
++          <TextBlock x:Name="LblLoginStage" Text="" Foreground="{DynamicResource DomeniaBootAccentText}" FontSize="11.5" TextWrapping="Wrap" Visibility="Collapsed" Focusable="False"/></Grid><Border x:Name="PanelSplash" Margin="16" Padding="24" VerticalAlignment="Center"><Border.Style><Style TargetType="Border" BasedOn="{StaticResource Card}"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Visibility, ElementName=PbLogin}" Value="Visible"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></Border.Style><StackPanel><TextBlock Text="Connexion à Domenia" FontSize="22" FontWeight="SemiBold"/><TextBlock x:Name="LblLoginWait" Text="Vérification du compte…" Style="{StaticResource Muted}" Margin="0,10,0,18" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/><ProgressBar x:Name="PbLogin" IsIndeterminate="True" Height="6" Visibility="Collapsed" Margin="0" ToolTip="Connexion en cours. Cette animation ne représente pas un pourcentage ni un délai garanti." AutomationProperties.Name="Vérification du compte" AutomationProperties.HelpText="Connexion en cours. Cette animation ne représente pas un pourcentage ni un délai garanti." ToolTipService.ShowOnDisabled="True" Background="{DynamicResource DomeniaBootBorder}" Foreground="{DynamicResource DomeniaBootAccentText}"/>
++        <Button x:Name="BtnLoginWaitCancel" Content="Annuler la connexion" Margin="0,16,0,0" MinHeight="36" Padding="14,8" KeyboardNavigation.TabIndex="0" ToolTip="Demande l’arrêt de la validation et revient au formulaire. Aucun appel Windows n’est arrêté de force." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Annuler la connexion" AutomationProperties.HelpText="Demande l’arrêt de la validation et revient au formulaire. Aucun appel Windows n’est arrêté de force."/></StackPanel></Border></Grid>
+ </Window>
+ "@)
+ }
+--- RC1.5/wad/modules/Domenia-UX.UI.ps1
++++ RC1.6/wad/modules/Domenia-UX.UI.ps1
+@@ -464,5 +464,26 @@
+     $Window.MaxHeight=[Math]::Max(280.0,[Math]::Min(800.0,$work.Height-24.0))
+     $Window.MaxWidth=[Math]::Max(340.0,$work.Width-24.0)
+     if($Window.Width -gt $Window.MaxWidth){$Window.Width=$Window.MaxWidth}
++    if (-not $Window.Resources.Contains('DomeniaLoginWaitWired')) {
++        $waitCancel = $Window.FindName('BtnLoginWaitCancel')
++        if ($null -ne $waitCancel) {
++            $waitCancel.Add_Click({
++                param($sender,$eventArgs)
++                $owner = [Windows.Window]::GetWindow($sender)
++                $cancel = $owner.FindName('BtnCancel')
++                if ($null -ne $cancel) { $cancel.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent)) }
++            })
++            $Window.Add_PreviewKeyDown({
++                param($sender,$eventArgs)
++                $wait = $sender.FindName('PanelSplash')
++                if ($eventArgs.Key -eq [Windows.Input.Key]::Escape -and $null -ne $wait -and $wait.IsVisible) {
++                    $eventArgs.Handled = $true
++                    $cancel = $sender.FindName('BtnCancel')
++                    if ($null -ne $cancel) { $cancel.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent)) }
++                }
++            })
++        }
++        $Window.Resources['DomeniaLoginWaitWired'] = $true
++    }
+     Initialize-DomeniaExperienceLogin -Window $Window
+ }
+--- RC1.5/wad/modules/Domenia-Experience.UI.ps1
++++ RC1.6/wad/modules/Domenia-Experience.UI.ps1
+@@ -58,7 +58,17 @@
+     if($null -ne $script:AsyncJobs){$active=@($script:AsyncJobs.Keys).Count}
+     if($null -ne $script:DetachedReadJobs){$detached=@($script:DetachedReadJobs).Count}
+     $button=Get-DomeniaControl 'BtnSuiteActivity'
+-    if($null -ne $button){$button.Content=if(($active+$detached) -gt 0){'Opérations ('+($active+$detached)+')'}else{'Opérations'}}
++    $total=[long]$active+[long]$detached
++    $counter=Get-DomeniaControl 'LblSuiteActivityCount';$badge=Get-DomeniaControl 'BadgeSuiteActivity'
++    $label=if($total -gt 99){'99+'}else{$total.ToString([Globalization.CultureInfo]::InvariantCulture)}
++    $visibility=if($total -gt 0){'Visible'}else{'Hidden'}
++    if($null -ne $counter -and $counter.Text -cne $label){$counter.Text=$label}
++    if($null -ne $badge -and [string]$badge.Visibility -ne $visibility){$badge.Visibility=$visibility}
++    if($null -ne $button){
++        $help=if($total -eq 0){'Aucune opération active. Ouvrir le suivi des opérations.'}else{"$total opération(s) suivie(s) : $active active(s), $detached en nettoyage. Ouvrir le suivi."}
++        if([string]$button.ToolTip -cne $help){$button.ToolTip=$help}
++        [Windows.Automation.AutomationProperties]::SetHelpText($button,$help)
++    }
+     $tab=Get-DomeniaControl 'TabExperience'
+     if($null -eq $tab -or (-not $Force -and (-not $tab.IsVisible -or -not $tab.IsSelected))){return}
+     $now=Get-Date;$rows=New-Object 'System.Collections.Generic.List[object]'
+--- RC1.5/wad/modules/Domenia-Access.UI.ps1
++++ RC1.6/wad/modules/Domenia-Access.UI.ps1
+@@ -95,8 +95,14 @@
+     $b=Get-DomeniaControl 'BtnAccessRecovery'
+     if($null -eq $b -or $null -eq $script:AccessState){return}
+     $n=$script:AccessState.Pending.Count
+-    $b.Content=if($n){"Acces a revoir ($n)"}else{'Comptes temporaires'}
+-    $b.ToolTip='Proposer un autre compte apres un refus. Les mots de passe restent en memoire, separes par ressource. Aucune ecriture n est rejouee automatiquement.'
++    $counter=Get-DomeniaControl 'LblAccessRecoveryCount';$badge=Get-DomeniaControl 'BadgeAccessRecovery'
++    $label=if($n -gt 99){'99+'}else{([long]$n).ToString([Globalization.CultureInfo]::InvariantCulture)}
++    $visibility=if($n -gt 0){'Visible'}else{'Hidden'}
++    if($null -ne $counter -and $counter.Text -cne $label){$counter.Text=$label}
++    if($null -ne $badge -and [string]$badge.Visibility -ne $visibility){$badge.Visibility=$visibility}
++    $help=if($n){"$n accès à revoir. Proposer un autre compte après un refus, sans rejouer une écriture."}else{'Comptes temporaires : consulter ou oublier les comptes en mémoire. Aucun accès en attente.'}
++    if([string]$b.ToolTip -cne $help){$b.ToolTip=$help}
++    [Windows.Automation.AutomationProperties]::SetHelpText($b,$help)
+ }
+ function Test-DomeniaAccessSessionCurrent {
+     param([long]$Epoch,[string]$BaseDn)

@@ -1,0 +1,153 @@
+{
+  "Build": "2026.09.21-R1.4-ACCOUNTS",
+  "Environment": "Linux/Python, source assertions only",
+  "PowerShellExecuted": false,
+  "WpfExecuted": false,
+  "LiveDirectoryExecuted": false,
+  "CoreSha256": "CCEE072862BE377D98ADB3611BE96309E3E66D635654B33E15AB202AA4A32548",
+  "NativeScenariosProvidedNotExecuted": 25,
+  "Passed": 28,
+  "Failed": 0,
+  "Checks": [
+    {
+      "Name": "Moteur de login strictement identique a R1.3 (empreinte du texte normalise)",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Login explicite conserve ADSI et AuthenticationTypes.Secure",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Test de compte utilise le meme demarrage et lecteur que le login",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Ancien LdapConnection/NetworkCredential direct absent du code executable du test",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Requete fige le controleur et la base de la session active",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Aucune variante de compte ni repli Windows implicite",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Mot de passe conserve en SecureString, copie privee en lecture seule",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Nom UPN ou qualifie transmis tel quel au moteur du login",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Un appel precedent non termine bloque avant une nouvelle requete",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Attente bornee et pas de resultat lu apres depassement du delai",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Nettoyage sur toutes les sorties et arret a la fermeture du logiciel",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Resultat explicite ADSI obligatoire, succes et identite non vide",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Aucun compte modifie par la seule fonction de test",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Activation memorise exactement l identite validee",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Activation n ecrase pas un ancien compte avant validation",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Seuls les noms sont envoyes aux preferences",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Champs WPF activation utilisent SecurePassword pour les deux comptes",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Test AD refuse un nom different avant reutilisation du mot de passe actif",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Nom court accepte seulement si meme compte et meme Netbios",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Workers Secrets conservent le nom associe a leur propre credential",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Validation AD et autorisations WMI/SMB sont explicitement distinguees",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Pas de journalisation brute de requete ou de mot de passe dans les nouveaux chemins",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Suite native importe seulement les fonctions reellement testees",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Demarrage, lecture et nettoyage du worker sont mocks dans la suite native",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "25 scenarios Windows declares, uniquement fixtures synthetiques",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Tests comptes obligatoires avant toute sauvegarde/copie du code",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Anciennes suites distantes et detection toujours executees par installateur",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    },
+    {
+      "Name": "Aucune fonction supprimee, modification limitee aux comptes/contexte/nettoyage",
+      "Kind": "StaticSourceAssertion",
+      "Status": "PASS"
+    }
+  ]
+}

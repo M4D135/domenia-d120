@@ -1,0 +1,1019 @@
+{
+  "Build": "2026.10.01-DOMENIA-1.0-RC1.5-BOOTLOGIN",
+  "Passed": 200,
+  "Failed": 0,
+  "Environment": "Linux Python source/XML/hash checks",
+  "PowerShellExecuted": false,
+  "WpfExecuted": false,
+  "LiveADExecuted": false,
+  "Checks": [
+    {
+      "Name": "Same registry as RC1.4, including LiveSelectedPing",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Exactly 55 reviewed operations for this release",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Pinned complete-map digest matches actual registry",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Initialization calls whole registry check",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "No duplicated numeric operation counter in initializer",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Runtime log reports verified count",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Legacy 54 message no longer emitted by core",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Case sensitive ID and hash shape validation",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Registry empty/null rejected",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Registry digest sorted ordinally",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Registry remains pinned, not relearned from runtime input",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Per-operation hash enforcement retained",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Fingerprint detects missing LiveSelectedPing",
+      "Passed": true,
+      "Kind": "Python recipe"
+    },
+    {
+      "Name": "Fingerprint detects missing ReadLaps",
+      "Passed": true,
+      "Kind": "Python recipe"
+    },
+    {
+      "Name": "Fingerprint detects missing EngineSelfTest",
+      "Passed": true,
+      "Kind": "Python recipe"
+    },
+    {
+      "Name": "Fingerprint detects same-sized wrong name set",
+      "Passed": true,
+      "Kind": "Python recipe"
+    },
+    {
+      "Name": "Fingerprint detects changed valid-looking hash",
+      "Passed": true,
+      "Kind": "Python recipe"
+    },
+    {
+      "Name": "Fingerprint independent of declaration order",
+      "Passed": true,
+      "Kind": "Python recipe"
+    },
+    {
+      "Name": "Original 54 check explains observed 55/54",
+      "Passed": true,
+      "Kind": "Source reproduction"
+    },
+    {
+      "Name": "Operation unchanged and pinned: SelectedPresence",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: PresenceScan",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: CmdletHelp",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: TreeChildren",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: GlobalSearch",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: PermissionAnalysis",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: SelfCheck",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: ReadBitLocker",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: ReadLaps",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: ComputerInventory",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: DomainOverview",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: BatchNetworkDiag",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: SoftwareInventory",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: WmiNamespaces",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: WmiClasses",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: WmiQuery",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: UserComputerProbe",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: LogonHarvest",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: ParkSweep",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: IndexBuild",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: ComputerDiagnostics",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: ComputerLastUser",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: CmdletInventory",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: RimotteRun",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: ComputerPing",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: ComputerGpUpdate",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: ComputerRestart",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: PruneLinks",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: OpenLinkedObject",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: EngineSelfTest",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: OpenAdObject",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: WriteAttributes",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: WriteAccountDisabled",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: WriteUnlock",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: WriteResetPassword",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: WriteAccountOptions",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: WriteExpiration",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: WriteExpirePassword",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: WriteMoveObject",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: WriteObjectGroup",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: WriteGroupMember",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: WriteRenameComputer",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: WriteCreateOu",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: WriteDeleteObject",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: StartupWarmCache",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: LiveConsole",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: LiveCache",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: LiveDirectoryCheck",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: SessionsList",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: RemoteCredentialCheck",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: ReceiptStore",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: LocalStore",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: ScopeReconcile",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: DocumentStore",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Operation unchanged and pinned: LiveSelectedPing",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved: Invoke-DomeniaInProcessAuthProbe",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved: Start-DomeniaFastLoginAttempt",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved: Update-DomeniaFastLoginAttempt",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved: Complete-DomeniaFastLoginSuccess",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved: Start-DomeniaLoginAuthRunspace",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved: Show-LoginWindow",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved: Invoke-GlobalSearch",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved: Get-DomeniaSearchScope",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved: Assert-DomeniaCapability",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved: New-DomeniaWorkerRunspace",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved: Wire-Events",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Only intended existing core functions changed",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Only one new core function",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Runtime preserved: Domenia.exe",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Runtime preserved: wad/ActiveDirectoryPowerShellResources.dll",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Runtime preserved: wad/Domenia-Modules.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Runtime preserved: wad/Domenia-Start.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Runtime preserved: wad/Domenia.config.json",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Runtime preserved: wad/Domenia.ico",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Runtime preserved: wad/Domenia.login-mode.cfg",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Runtime preserved: wad/Domenia.theme.cfg",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Runtime preserved: wad/Domenia.ui-profile.cfg",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Runtime preserved: wad/Microsoft.ActiveDirectory.Management.dll",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Runtime preserved: wad/PsExec.exe",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Runtime preserved: wad/Support/.lifecycle.lock",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Runtime preserved: wad/Support/DEBLOQUER_TOUT.cmd",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Runtime preserved: wad/Support/Debloquer-Paquet.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Runtime preserved: wad/modules/Domenia-Access.UI.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Runtime preserved: wad/modules/Domenia-Accounts.Async.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Runtime preserved: wad/modules/Domenia-Clipboard.Native.cs",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Runtime preserved: wad/modules/Domenia-Continuity.Model.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Runtime preserved: wad/modules/Domenia-Continuity.UI.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Runtime preserved: wad/modules/Domenia-Dossier.Model.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Runtime preserved: wad/modules/Domenia-Dossier.UI.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Runtime preserved: wad/modules/Domenia-Experience.Model.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Runtime preserved: wad/modules/Domenia-Experience.UI.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Runtime preserved: wad/modules/Domenia-Guard.Model.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Runtime preserved: wad/modules/Domenia-Guard.UI.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Runtime preserved: wad/modules/Domenia-Live.Model.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Runtime preserved: wad/modules/Domenia-Live.Types.cs",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Runtime preserved: wad/modules/Domenia-Live.UI.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Runtime preserved: wad/modules/Domenia-Receipts.Worker.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Runtime preserved: wad/modules/Domenia-Reconcile.UI.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Runtime preserved: wad/modules/Domenia-Sessions.Native.cs",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Runtime preserved: wad/modules/Domenia-Sessions.UI.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Runtime preserved: wad/modules/Domenia-Storage.UI.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Runtime preserved: wad/modules/Domenia-Storage.Worker.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Runtime preserved: wad/modules/Domenia-Support.Model.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Runtime preserved: wad/modules/Domenia-Support.UI.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Runtime preserved: wad/modules/Domenia-Support.xaml",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Runtime preserved: wad/modules/Domenia-UX.help.json",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Runtime preserved: wad/modules/SupportSuite.UI.json",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Root geometry from FILPRO",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Domenia branding, no Filpro runtime/window text",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Existing login control retained: PART_ContentHost",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Existing login control retained: PART_ContentHost",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Existing login control retained: BtnSuiteLoginTheme",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Existing login control retained: LblSuiteThemeSave",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Existing login control retained: TxtLogin",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Existing login control retained: PwdLogin",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Existing login control retained: LblSuiteCapsLock",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Existing login control retained: ChkRemember",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Existing login control retained: UxLoginFeedback",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Existing login control retained: LblLoginError",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Existing login control retained: LblLoginStage",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Existing login control retained: PbLogin",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Existing login control retained: BtnCancel",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Existing login control retained: BtnLogin",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Existing login control retained: BtnWindowsLogin",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Existing login control retained: UxLoginDiagnostics",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Existing login control retained: BtnLoginLog",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Existing login control retained: BtnCopyLoginDiag",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Existing login control retained: TxtLoginTechnical",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Existing login control retained: TxtLoginPasswordVisible",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Existing login control retained: BtnRevealLogin",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Separate header/form/actions grid rows",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Only form scrolls, not authentication buttons",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "FILPRO card geometry",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "FILPRO 40-unit field: TxtLogin",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "FILPRO 40-unit field: PwdLogin",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Actual FILPRO templates reused",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Exact reference style: ToolTip",
+      "Passed": true,
+      "Kind": "XML reference"
+    },
+    {
+      "Name": "Exact reference style: FocusRing",
+      "Passed": true,
+      "Kind": "XML reference"
+    },
+    {
+      "Name": "Exact reference style: TextBlock",
+      "Passed": true,
+      "Kind": "XML reference"
+    },
+    {
+      "Name": "Exact reference style: Label",
+      "Passed": true,
+      "Kind": "XML reference"
+    },
+    {
+      "Name": "Exact reference style: Muted",
+      "Passed": true,
+      "Kind": "XML reference"
+    },
+    {
+      "Name": "Exact reference style: Card",
+      "Passed": true,
+      "Kind": "XML reference"
+    },
+    {
+      "Name": "Exact reference style: Button",
+      "Passed": true,
+      "Kind": "XML reference"
+    },
+    {
+      "Name": "Exact reference style: Run",
+      "Passed": true,
+      "Kind": "XML reference"
+    },
+    {
+      "Name": "Exact reference style: TextBox",
+      "Passed": true,
+      "Kind": "XML reference"
+    },
+    {
+      "Name": "Exact reference style: PasswordBox",
+      "Passed": true,
+      "Kind": "XML reference"
+    },
+    {
+      "Name": "Exact reference style: CheckBox",
+      "Passed": true,
+      "Kind": "XML reference"
+    },
+    {
+      "Name": "Exact reference style: ProgressBar",
+      "Passed": true,
+      "Kind": "XML reference"
+    },
+    {
+      "Name": "Password helper controls remain hidden",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Password not read into tooltip",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "SSO and cancel semantics retained",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Theme and CAPS retained",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Idle diagnostics not expanded",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Feedback scroll height bounded to 60",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "No unresolved dynamic theme reference",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "No unresolved named static reference",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "No duplicate resource keys in {http://schemas.microsoft.com/winfx/2006/xaml/presentation}Window.Resources",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "No duplicate resource keys in {http://schemas.microsoft.com/winfx/2006/xaml/presentation}Grid.Resources",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Accessible help: BtnSuiteLoginTheme",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Accessible help: TxtLogin",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Accessible help: PwdLogin",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Accessible help: ChkRemember",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Accessible help: UxLoginDiagnostics",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Accessible help: BtnLoginLog",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Accessible help: BtnCopyLoginDiag",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Accessible help: TxtLoginTechnical",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Accessible help: TxtLoginPasswordVisible",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Accessible help: BtnRevealLogin",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Accessible help: PbLogin",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Accessible help: BtnCancel",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Accessible help: BtnLogin",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Accessible help: BtnWindowsLogin",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Lexical delimiters: Domenia-Core.ps1",
+      "Passed": true,
+      "Kind": "Lexical, not native parser"
+    },
+    {
+      "Name": "Lexical delimiters: Domenia-UX.UI.ps1",
+      "Passed": true,
+      "Kind": "Lexical, not native parser"
+    },
+    {
+      "Name": "Lexical delimiters: Test-DomeniaStartupLogin.ps1",
+      "Passed": true,
+      "Kind": "Lexical, not native parser"
+    },
+    {
+      "Name": "44 substantive Windows scenarios declared",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Native tests call exact initializer, not a copy of its rule",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Native tests reject partial completion",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Installer gates on new tests before copying",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Package builder verifies workers/fingerprint before assembly",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Release tool tracks whole-map fingerprint",
+      "Passed": true,
+      "Kind": "Source"
+    }
+  ],
+  "ChangedCoreFunctions": [
+    "Initialize-AsyncEngine",
+    "Initialize-DomeniaPresentation",
+    "Get-DomeniaStandardLoginXaml",
+    "Invoke-DomeniaSelfTest"
+  ],
+  "NewFunction": "Assert-DomeniaWorkerRegistry",
+  "RegistryFingerprint": "925DC83121296F7C47AE08EA0F2BD23C578CCCFA066BB18613A4ED3B0236A209"
+}

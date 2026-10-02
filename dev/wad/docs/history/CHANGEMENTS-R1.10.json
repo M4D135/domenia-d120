@@ -1,0 +1,75 @@
+{
+  "Build": "2026.09.30-R1.10-COMPACT",
+  "Files": [
+    {
+      "Path": "APERCU-CONNEXION.cmd",
+      "Change": "added",
+      "Sha256": "23bd451284d0136e12d00079284902755a25b630c9353ac0c08641b3927ac58d"
+    },
+    {
+      "Path": "INSTALLER-MISE-A-JOUR.ps1",
+      "Change": "modified",
+      "Sha256": "7b7e60e36b6a2b973c59c9f59bff19defe20b066c064a00b126024b1055926db"
+    },
+    {
+      "Path": "INTERFACE-COMPACTE-R1.10.md",
+      "Change": "added",
+      "Sha256": "2d8ffe48c6d3d508573fa6c7778e25e9fa34d33d07a8c5659d11e0e8fb78c829"
+    },
+    {
+      "Path": "LIRE-MOI.md",
+      "Change": "modified",
+      "Sha256": "77b6db7f24c94dc9d64b5f66485e3014505f8740772deee614904d476fce7b56"
+    },
+    {
+      "Path": "TESTER-ERGONOMIE.cmd",
+      "Change": "added",
+      "Sha256": "4ff2fb9b448ea9cd9167052dd1b2a2ba7a27b7edd804237f63e28a5933087a5f"
+    },
+    {
+      "Path": "wad/ADCC-Core.ps1",
+      "Change": "modified",
+      "Sha256": "9143b341a1f4ee9a1d154f3d3354be308144f451cfe91a0503bb5fcf59367336"
+    },
+    {
+      "Path": "wad/docs/ADCC-R1.10-UI.patch",
+      "Change": "added",
+      "Sha256": "3f115e71e5da5375929c1c55754d44f7f85078424aa396c2fce6244ae5902815"
+    },
+    {
+      "Path": "wad/docs/AUDIT-ERGONOMIE-R1.10.json",
+      "Change": "added",
+      "Sha256": "8552ba7e074c28c50b4cea6c24507b4e22a4299241884a1d7a027c9dd0f4baee"
+    },
+    {
+      "Path": "wad/maintenance/Preview-AdccLogin.ps1",
+      "Change": "added",
+      "Sha256": "03ba2042b05d38b068a50f7305c0b8e37a0fe78460eb7eb96c73df87c0814640"
+    },
+    {
+      "Path": "wad/maintenance/Preview-AdccUi.ps1",
+      "Change": "modified",
+      "Sha256": "f521c6cd57281b4be4625ea31cd9bddb3b03289b03d0dfd2b0a9bc6a01ba01ed"
+    },
+    {
+      "Path": "wad/modules/ADCC-UX.UI.ps1",
+      "Change": "modified",
+      "Sha256": "1f3fb0a7b99bd2efbb410843f709ba7841793689503ebed126a931005304d527"
+    },
+    {
+      "Path": "wad/modules/ADCC-UX.help.json",
+      "Change": "modified",
+      "Sha256": "155febc74543a819f60fd5c4e09a7a59731e5ab58783ad2e9dcedd290f3c8f7c"
+    },
+    {
+      "Path": "wad/tests/Test-ADCCCompactUi.ps1",
+      "Change": "added",
+      "Sha256": "87761b00a40811e9e4b7bf0c7addcb0907a620a319575671a5872fc3fc22fc6b"
+    },
+    {
+      "Path": "wad/tests/audit_compact_ui.py",
+      "Change": "added",
+      "Sha256": "c3e534b2361d19ceaedb67b64d5f051df4cc4956aa3b5af2d59d3bdb46005dab"
+    }
+  ]
+}

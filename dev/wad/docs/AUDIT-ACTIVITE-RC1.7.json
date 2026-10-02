@@ -1,0 +1,726 @@
+{
+  "Build": "2026.10.01-DOMENIA-1.0-RC1.7-FIXEDACTIVITY",
+  "Environment": "Linux/Python source, XML and hash checks",
+  "Passed": 142,
+  "Failed": 0,
+  "ChangedCoreFunctions": [
+    "Get-MainXaml",
+    "Initialize-DomeniaPresentation",
+    "Update-TaskUi"
+  ],
+  "PowerShellExecuted": false,
+  "WpfExecuted": false,
+  "NativeNewScenariosProvided": 52,
+  "Checks": [
+    {
+      "Name": "Exactly the 577 existing core functions, none added or removed",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Only main XAML, task UI and presentation version modified",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "574 original function bodies unchanged",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved runtime bytes: Domenia.exe",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved runtime bytes: wad/ActiveDirectoryPowerShellResources.dll",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved runtime bytes: wad/Domenia-Modules.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved runtime bytes: wad/Domenia-Start.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved runtime bytes: wad/Domenia.config.json",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved runtime bytes: wad/Domenia.ico",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved runtime bytes: wad/Domenia.login-mode.cfg",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved runtime bytes: wad/Domenia.theme.cfg",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved runtime bytes: wad/Domenia.ui-profile.cfg",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved runtime bytes: wad/Microsoft.ActiveDirectory.Management.dll",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved runtime bytes: wad/PsExec.exe",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved runtime bytes: wad/Support/.lifecycle.lock",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved runtime bytes: wad/Support/DEBLOQUER_TOUT.cmd",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved runtime bytes: wad/Support/Debloquer-Paquet.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved runtime bytes: wad/modules/Domenia-Access.UI.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved runtime bytes: wad/modules/Domenia-Accounts.Async.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved runtime bytes: wad/modules/Domenia-Clipboard.Native.cs",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved runtime bytes: wad/modules/Domenia-Continuity.Model.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved runtime bytes: wad/modules/Domenia-Continuity.UI.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved runtime bytes: wad/modules/Domenia-Dossier.Model.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved runtime bytes: wad/modules/Domenia-Dossier.UI.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved runtime bytes: wad/modules/Domenia-Experience.Model.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved runtime bytes: wad/modules/Domenia-Experience.UI.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved runtime bytes: wad/modules/Domenia-Guard.Model.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved runtime bytes: wad/modules/Domenia-Guard.UI.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved runtime bytes: wad/modules/Domenia-Live.Model.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved runtime bytes: wad/modules/Domenia-Live.Types.cs",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved runtime bytes: wad/modules/Domenia-Live.UI.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved runtime bytes: wad/modules/Domenia-Receipts.Worker.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved runtime bytes: wad/modules/Domenia-Reconcile.UI.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved runtime bytes: wad/modules/Domenia-Sessions.Native.cs",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved runtime bytes: wad/modules/Domenia-Sessions.UI.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved runtime bytes: wad/modules/Domenia-Storage.UI.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved runtime bytes: wad/modules/Domenia-Storage.Worker.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved runtime bytes: wad/modules/Domenia-Support.Model.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved runtime bytes: wad/modules/Domenia-Support.UI.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved runtime bytes: wad/modules/Domenia-Support.xaml",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved runtime bytes: wad/modules/Domenia-UX.UI.ps1",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Preserved runtime bytes: wad/modules/SupportSuite.UI.json",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Core keeps UTF-8 BOM for Windows PowerShell",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Lexical delimiters only, not native parser: wad/Domenia-Core.ps1",
+      "Passed": true,
+      "Kind": "Lexical"
+    },
+    {
+      "Name": "Lexical delimiters only, not native parser: INSTALLER-MISE-A-JOUR.ps1",
+      "Passed": true,
+      "Kind": "Lexical"
+    },
+    {
+      "Name": "Lexical delimiters only, not native parser: wad/tests/Test-DomeniaActivityLayout.ps1",
+      "Passed": true,
+      "Kind": "Lexical"
+    },
+    {
+      "Name": "Activity row always reserves 44 WPF units",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Activity strip always visible, fixed height and no wrapping parent",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "No visibility trigger can remove strip",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Single fixed strip row index",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Columns do not depend on content",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Progress, text and cancel are direct children of reserved grid",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Progress slot is fixed in both directions",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Cancel slot is fixed in both directions",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "All activity controls reserve space at rest",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "No animation at rest",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Long task names cannot grow or wrap the row",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Full task text available by hover",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Warning kept in its own reserved column",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Inherited placeholder controls retained",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Existing stable counter widths remain 144 and 108",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Activity controls have specific help and accessibility names",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Main XAML explicit-key static resources are defined",
+      "Passed": true,
+      "Kind": "XML"
+    },
+    {
+      "Name": "Controller hides instead of collapsing all three indicators",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Controller starts/stops indeterminate animation with tasks",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Busy remains a presentation update, no new wait/network/pump",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Existing refresh throttling and callbacks preserved",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Cancellation handler still wired exactly once",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "55 unchanged operations",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: SelectedPresence",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: PresenceScan",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: CmdletHelp",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: TreeChildren",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: GlobalSearch",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: PermissionAnalysis",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: SelfCheck",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: ReadBitLocker",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: ReadLaps",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: ComputerInventory",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: DomainOverview",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: BatchNetworkDiag",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: SoftwareInventory",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: WmiNamespaces",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: WmiClasses",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: WmiQuery",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: UserComputerProbe",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: LogonHarvest",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: ParkSweep",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: IndexBuild",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: ComputerDiagnostics",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: ComputerLastUser",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: CmdletInventory",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: RimotteRun",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: ComputerPing",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: ComputerGpUpdate",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: ComputerRestart",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: PruneLinks",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: OpenLinkedObject",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: EngineSelfTest",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: OpenAdObject",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: WriteAttributes",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: WriteAccountDisabled",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: WriteUnlock",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: WriteResetPassword",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: WriteAccountOptions",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: WriteExpiration",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: WriteExpirePassword",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: WriteMoveObject",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: WriteObjectGroup",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: WriteGroupMember",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: WriteRenameComputer",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: WriteCreateOu",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: WriteDeleteObject",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: StartupWarmCache",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: LiveConsole",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: LiveCache",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: LiveDirectoryCheck",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: SessionsList",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: RemoteCredentialCheck",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: ReceiptStore",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: LocalStore",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: ScopeReconcile",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: DocumentStore",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged worker: LiveSelectedPing",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Registry pin unchanged and valid",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged boundary: Get-DomeniaStandardLoginXaml",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged boundary: Set-DomeniaFastLoginBusy",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged boundary: Get-DomeniaStartupXaml",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged boundary: Initialize-AsyncEngine",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged boundary: Wire-Events",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged boundary: Show-LoginWindow",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged boundary: Stop-LatestUiTask",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Unchanged boundary: Update-DomeniaWriteModeVisual",
+      "Passed": true,
+      "Kind": "Hash"
+    },
+    {
+      "Name": "Windows tests compare old fixture and real new XAML",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Windows tests measure neighboring controls and actual slots",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Windows tests cover 3 widths and both themes",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Windows tests cover busy, long names, elapsed time, write state, selection and returning idle",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Windows fixture is old Auto plus WrapPanel",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "New Windows suite gates installer before copies",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Incomplete/skipped Windows suite is rejected",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Preview has only local synthetic jobs, never bootstrap",
+      "Passed": true,
+      "Kind": "Source"
+    },
+    {
+      "Name": "Preview removes its timer",
+      "Passed": true,
+      "Kind": "Source"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "BaseBuild": "2026.09.21-R1.3-LASTUSER",
+  "Build": "2026.09.21-R1.4-ACCOUNTS",
+  "ChangedFunctions": [
+    "Test-AdccCredentialBind",
+    "Save-AdccSecondaryCredential",
+    "Wire-Events",
+    "Dispose-AsyncEngine",
+    "Get-WorkerContext"
+  ],
+  "AddedFunctions": [
+    "New-AdccAccountAuthRequest",
+    "Test-AdccActiveDirectoryCredential"
+  ],
+  "RemovedFunctions": [],
+  "UnchangedLoginProbeSha256": "FA6702EB6F60DB2593779A423E0F7DA030781FEC27787888182E40BEDDC05398",
+  "PowerShellExecutedHere": false
+}

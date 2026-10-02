@@ -1,0 +1,773 @@
+{
+  "Product": "Domenia",
+  "Version": "1.0 RC1",
+  "Build": "2026.09.30-DOMENIA-1.0-RC1",
+  "Base": "ADCC R1.13 DEV",
+  "ReleaseStatus": "CandidateRequiresWindowsValidation",
+  "All42FullyClosed": false,
+  "Counts": {
+    "integre_candidat": 15,
+    "partiel": 25,
+    "execution_externe_requise": 2
+  },
+  "StatusMeaning": {
+    "integre_candidat": "Fonction ou correction raccordée en source, non validée sur Windows.",
+    "partiel": "Une partie utile est raccordée ; le complément précis figure dans remaining_or_limits.",
+    "execution_externe_requise": "Outillage/recette livrés ; clôture impossible sans exécution Windows réelle."
+  },
+  "Changes": [
+    {
+      "id": "M01",
+      "lot": "A · Sécurité, comptes et secrets",
+      "priority": "P0",
+      "title": "Retirer les mots de passe des lignes de commande",
+      "modification": "Remplacer les transports explicites -p, /p, /rp par des mécanismes compatibles avec la politique retenue ; mode historique exposant les arguments désactivé par défaut.",
+      "related_findings": [
+        "F03"
+      ],
+      "status": "integre_candidat",
+      "implemented": "PsExec refuse les credentials explicites avant lancement ; Planificateur distant utilise COM, sans /p ni /rp. Aucun secret ajouté aux arguments de processus.",
+      "remaining_or_limits": "Tester les transports sur Windows avec marqueurs secrets factices. Les API ont toujours besoin des identifiants en mémoire.",
+      "source_files": [
+        "wad/Domenia-Core.ps1"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M02",
+      "lot": "A · Sécurité, comptes et secrets",
+      "priority": "P0",
+      "title": "Distinguer sonde et intervention distante",
+      "modification": "Classer les effets de chaque méthode ; consentement avant dépôt/service/tâche, répertoire temporaire protégé, SystemRoot réel, limites de sortie et nettoyage traçable.",
+      "related_findings": [
+        "F04",
+        "F05"
+      ],
+      "status": "integre_candidat",
+      "implemented": "Consentement temporaire de cinq minutes lié à la cible et à la session avant service/tâche/script ; dossier privé sous le vrai WindowsDirectory, ACL et limites de sortie.",
+      "remaining_or_limits": "Une autorisation vaut pour la cible et la fenêtre de temps, pas un droit supplémentaire. Vérifier ACL, résidus et annulation sur VM.",
+      "source_files": [
+        "wad/Domenia-Core.ps1",
+        "wad/modules/Domenia-Guard.UI.ps1"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M03",
+      "lot": "A · Sécurité, comptes et secrets",
+      "priority": "P0",
+      "title": "Unifier les erreurs d’accès",
+      "modification": "Objet d’erreur structuré (code natif, phase, fournisseur, cible, issue certaine/incertaine), priorité aux codes et pas de nouvelle tentative automatique avec des identifiants rejetés.",
+      "related_findings": [
+        "F19"
+      ],
+      "status": "partiel",
+      "implemented": "Contrat Kind/Code/NativeCode/Phase/Provider/Target/Uncertain ajouté aux workers et au parcours de récupération.",
+      "remaining_or_limits": "Certains anciens helpers retournent encore une chaîne ; le repli textuel reste nécessaire. Toutes les erreurs historiques ne conservent pas encore leur code natif.",
+      "source_files": [
+        "wad/modules/Domenia-Guard.Model.ps1",
+        "wad/Domenia-Core.ps1"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M04",
+      "lot": "A · Sécurité, comptes et secrets",
+      "priority": "P1",
+      "title": "Gérer les identités par vraie ressource",
+      "modification": "AD, LAPS, BitLocker, poste et SAM local distingués ; identité visible, expiration d’inactivité, oubli volontaire, un essai par accord et aucune propagation silencieuse.",
+      "related_findings": [
+        "F18",
+        "F19"
+      ],
+      "status": "partiel",
+      "implemented": "Scopes indépendants LAPS/BitLocker/AD ; compte local ciblé validé sur le poste via CIM/DCOM ; expiration de trente minutes des comptes alternatifs.",
+      "remaining_or_limits": "Expiration absolue, pas délai glissant d’inactivité. Les comptes Remote/Secrets permanents du panneau gardent leur durée de session ; pas de compte à usage unique générique.",
+      "source_files": [
+        "wad/modules/Domenia-Access.UI.ps1",
+        "wad/modules/Domenia-Sessions.UI.ps1"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M05",
+      "lot": "A · Sécurité, comptes et secrets",
+      "priority": "P1",
+      "title": "Rendre LAPS et BitLocker explicables",
+      "modification": "Distinguer publication absente, lecture refusée, déchiffrement non autorisé, module absent et panne réseau ; accès indépendant, récupération choisie, IDs des clés/dates et une seule relance de lecture.",
+      "related_findings": [
+        "F19"
+      ],
+      "status": "partiel",
+      "implemented": "Blocages et relances de lecture séparés ; motifs module absent/refus/indisponibilité mieux classés, compte explicite transmis aux cmdlets LAPS.",
+      "remaining_or_limits": "La séparation exacte lecture/déchiffrement dépend des informations exposées par le fournisseur. Pas de verdict détaillé inventé si le retour reste générique.",
+      "source_files": [
+        "wad/modules/Domenia-Access.UI.ps1",
+        "wad/modules/Domenia-Guard.Model.ps1"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M06",
+      "lot": "A · Sécurité, comptes et secrets",
+      "priority": "P1",
+      "title": "Durcir révélation, copie et logs",
+      "modification": "Secret révélé uniquement à la demande, remasquage, copie individuelle, mécanismes d’exclusion de l’historique lorsqu’applicables ; logs par liste blanche, marqueurs secrets de test, aucune promesse de purge hors application.",
+      "related_findings": [
+        "F20"
+      ],
+      "status": "integre_candidat",
+      "implemented": "Copie de secret par API native avec formats d’exclusion historique/cloud ; copie multiple confirmée ; masquage /p et /rp ajouté.",
+      "remaining_or_limits": "Les copies externes et gestionnaires tiers ne peuvent pas être purgés ni garantis. La journalisation historique n’est pas intégralement remplacée par une liste blanche.",
+      "source_files": [
+        "wad/modules/Domenia-Clipboard.Native.cs",
+        "wad/Domenia-Core.ps1"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M07",
+      "lot": "A · Sécurité, comptes et secrets",
+      "priority": "P1",
+      "title": "Définir la protection du cache",
+      "modification": "Mode local utilisateur ou portable explicitement choisi, ACL contrôlées, données historiques identifiées, rétention et purge guidées ; aucun mot de passe ou clé en cache persistant.",
+      "related_findings": [
+        "F14",
+        "F16"
+      ],
+      "status": "partiel",
+      "implemented": "Mode Compatible conserve les données existantes ; nouvelles données locales utilisateur ; Portable/UserLocal explicites, refus UNC/lecteur réseau/redirection.",
+      "remaining_or_limits": "Les ACL d’un ancien cache portable ne sont pas réécrites automatiquement. Pas de chiffrement général ni de purge guidée universelle.",
+      "source_files": [
+        "wad/Domenia-Core.ps1"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M08",
+      "lot": "B · Exactitude et opérations AD",
+      "priority": "P0",
+      "title": "Conserver les mutations en vol après incident",
+      "modification": "Reçu durable avant envoi, corrélation, identité/GUID/opération, reprise À vérifier ; aucune réexécution automatique et aucune levée d’incertitude par simple rechargement.",
+      "related_findings": [
+        "F10"
+      ],
+      "status": "partiel",
+      "implemented": "Reçus durables avant les écritures AD du canal IsWrite, stade Sent avant mutation, Unknown après résultat incertain, blocage après relance tant que non résolu.",
+      "remaining_or_limits": "Les mutations distantes GPUpdate/redémarrage/programme n’utilisent pas toutes ce reçu. Vérification automatique de reprise limitée aux écritures d’attributs ; les autres demandent une revue externe explicite.",
+      "source_files": [
+        "wad/modules/Domenia-Receipts.Worker.ps1",
+        "wad/modules/Domenia-Guard.UI.ps1"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M09",
+      "lot": "B · Exactitude et opérations AD",
+      "priority": "P0",
+      "title": "Planifier puis vérifier chaque écriture",
+      "modification": "Même cible GUID et serveur, résumé avant/après et contrôle propre à l’opération ; conditions atomiques là où elles sont disponibles, limites explicites dans les autres cas.",
+      "related_findings": [
+        "F11"
+      ],
+      "status": "partiel",
+      "implemented": "Préconditions et postconditions existantes conservées ; cible, GUID, serveur et intention consignés pour les écritures AD ; aucun rejeu automatique.",
+      "remaining_or_limits": "Pas d’assertion LDAP atomique généralisée. La fenêtre de concurrence entre relecture et mutation demeure.",
+      "source_files": [
+        "wad/Domenia-Core.ps1",
+        "wad/modules/Domenia-Receipts.Worker.ps1"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M10",
+      "lot": "B · Exactitude et opérations AD",
+      "priority": "P1",
+      "title": "Comparer les attributs selon leur type",
+      "modification": "Conserver les corrections de casse, traiter dates/multivaleurs/demandes d’effacement explicitement, contrôler les noms d’attributs et ne jamais utiliser un collage comme commande.",
+      "related_findings": [
+        "F08"
+      ],
+      "status": "partiel",
+      "implemented": "Comparaison ordinale des champs texte, corrections de casse respectées, blancs distincts d’effacement et validation syntaxique du nom d’attribut.",
+      "remaining_or_limits": "Pas de moteur de comparaison complet fondé sur le schéma AD pour dates et tous les attributs multivalués.",
+      "source_files": [
+        "wad/Domenia-Core.ps1"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M11",
+      "lot": "B · Exactitude et opérations AD",
+      "priority": "P0",
+      "title": "Corriger grands groupes et appartenances",
+      "modification": "Lecture member par plages, test serveur du membre exact ; direct/imbriqué/principal distincts, cycles et volume bornés, indication des données partielles.",
+      "related_findings": [
+        "F07"
+      ],
+      "status": "partiel",
+      "implemented": "Test d’appartenance directe par filtre LDAP serveur ; lecture member/memberOf par plages et libération ; liste de groupe plafonnée à 2000 à l’écran avec avertissement.",
+      "remaining_or_limits": "Pas de nouveau graphe exhaustif d’appartenances imbriquées/principales avec gestion complète des cycles. Une limite ou restriction de visibilité reste à interpréter avec le compte utilisé.",
+      "source_files": [
+        "wad/Domenia-Core.ps1"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M12",
+      "lot": "B · Exactitude et opérations AD",
+      "priority": "P0",
+      "title": "Corriger les états utilisateurs",
+      "modification": "Verrouillage courant calculé correctement, statut désactivé distinct, compte incomplet marqué inconnu ; ne pas assimiler lastLogonTimestamp à une session ouverte.",
+      "related_findings": [
+        "F06"
+      ],
+      "status": "integre_candidat",
+      "implemented": "Etat calculé msDS-User-Account-Control-Computed utilisé pour le verrouillage ; lockoutTime non nul seul ne vaut plus verrouillage courant ; UAC manquant inconnu.",
+      "remaining_or_limits": "Recette AD avec verrouillage expiré, compte désactivé et politique effective encore requise.",
+      "source_files": [
+        "wad/Domenia-Core.ps1"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M13",
+      "lot": "B · Exactitude et opérations AD",
+      "priority": "P1",
+      "title": "Sauvegarder les liens par modification réelle",
+      "modification": "UPSERT ciblé, suppression explicite, révision pour conflit concurrent, historique seulement si valeur/source change ; conserver la priorité des liens manuels.",
+      "related_findings": [
+        "F13"
+      ],
+      "status": "partiel",
+      "implemented": "Enregistrement ciblé des différences de liens, comparaison d’empreinte sous transaction, conflits conservés et absence de DELETE global de la table.",
+      "remaining_or_limits": "Lot manuel limité à 64 changements ; historique des suppressions et rétention générale non finalisés. Les observations automatiques gardent leur voie ciblée existante.",
+      "source_files": [
+        "wad/modules/Domenia-Storage.UI.ps1",
+        "wad/modules/Domenia-Storage.Worker.ps1"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M14",
+      "lot": "B · Exactitude et opérations AD",
+      "priority": "P0",
+      "title": "Installer de vraies migrations SQLite",
+      "modification": "Lecture de version avant migration, sauvegarde cohérente, étapes transactionnelles, refus des versions futures et gestion WAL locale ; retour arrière du code distinct de celui des données.",
+      "related_findings": [
+        "F15",
+        "F16"
+      ],
+      "status": "integre_candidat",
+      "implemented": "Schéma legacy 11 préservé, version Domenia 1 ajoutée après sauvegarde cohérente et transaction ; rejet des versions incompatibles/futures.",
+      "remaining_or_limits": "Migration prise en charge depuis le schéma de la base fournie, pas depuis des versions arbitraires. Migration interrompue à valider sur Windows.",
+      "source_files": [
+        "wad/Domenia-Core.ps1"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M15",
+      "lot": "C · Réactivité et cache",
+      "priority": "P0",
+      "title": "Supprimer les attentes bloquantes WPF",
+      "modification": "Convertir tests/activation de comptes et autres lectures interactives en parcours asynchrones ; aucun WaitOne, attente native ou calcul lourd depuis un clic.",
+      "related_findings": [
+        "F01"
+      ],
+      "status": "partiel",
+      "implemented": "Validation et activation des comptes remplacées par timer/callback ; aucune attente WaitOne du chemin de test de compte ; annulation et résultats tardifs protégés.",
+      "remaining_or_limits": "Ce n’est pas la suppression de toutes les attentes historiques : certaines fonctions de maintenance/stockage de démarrage et le hachage d’un outil externe restent synchrones.",
+      "source_files": [
+        "wad/modules/Domenia-Accounts.Async.ps1"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M16",
+      "lot": "C · Réactivité et cache",
+      "priority": "P0",
+      "title": "Sortir toutes les écritures de cache du rendu",
+      "modification": "Écrivain unique en arrière-plan pour index, associations et métadonnées ; lots, file bornée, signal de sauvegarde en attente et gestion du disque plein/verrouillé.",
+      "related_findings": [
+        "F02",
+        "F13"
+      ],
+      "status": "partiel",
+      "implemented": "File bornée d’index, liens et métadonnées en arrière-plan ; admission coordonnée avec LiveCache/IndexBuild, transactions, trois échecs puis reprise manuelle.",
+      "remaining_or_limits": "Ce n’est pas un écrivain unique pour chaque accès historique de l’application ; initialisation, migration et certaines lectures restent synchrones.",
+      "source_files": [
+        "wad/modules/Domenia-Storage.UI.ps1",
+        "wad/modules/Domenia-Storage.Worker.ps1"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M17",
+      "lot": "C · Réactivité et cache",
+      "priority": "P1",
+      "title": "Prioriser ce que l’opérateur voit",
+      "modification": "Préserver le flux de lignes existant, prioriser la fiche sélectionnée puis les lignes visibles, ne modifier que les propriétés changées et éviter les reconstructions de la grille.",
+      "related_findings": [
+        "F02"
+      ],
+      "status": "integre_candidat",
+      "implemented": "Chargement progressif conservé, priorité à la sélection et aux lignes réalisées par la grille ; modifications par cellules et lots.",
+      "remaining_or_limits": "Lignes réalisées ne signifie pas exactement pixels actuellement visibles. Aucun gain mesuré sur un vrai parc n’est annoncé.",
+      "source_files": [
+        "wad/modules/Domenia-Live.UI.ps1"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M18",
+      "lot": "C · Réactivité et cache",
+      "priority": "P1",
+      "title": "Borner et adapter l’ordonnancement",
+      "modification": "Budgets par canal/serveur, temporisation après pannes répétées, annulations comptées jusqu’à fin physique, générations de requête et ressources de file bornées ; pas de sondes périodiques cachées illimitées.",
+      "related_findings": [
+        "F01",
+        "F17",
+        "F19"
+      ],
+      "status": "partiel",
+      "implemented": "Bornes de files et concurrence, temporisation après erreur de réconciliation, arrêt des retries stockage après trois échecs, anciens retours exclus.",
+      "remaining_or_limits": "Pas de budgets adaptatifs complets distincts pour chaque contrôleur/protocole. Annulation native toujours coopérative.",
+      "source_files": [
+        "wad/modules/Domenia-Reconcile.UI.ps1",
+        "wad/modules/Domenia-Storage.UI.ps1"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M19",
+      "lot": "C · Réactivité et cache",
+      "priority": "P1",
+      "title": "Unifier les clés et preuves de fraîcheur",
+      "modification": "GUID, contexte de lecture, domaine, DC, invocationID et version ; cache connu distinct de donnée confirmée, pas de collision au nom/DN ni de rajeunissement sur un refus.",
+      "related_findings": [
+        "F12",
+        "F14"
+      ],
+      "status": "partiel",
+      "implemented": "Suivi récent lié au DC et invocationID ; ancien court-circuit USN seul supprimé ; GUID/recréation et contexte conservés dans les modules récents.",
+      "remaining_or_limits": "L’index historique n’est pas entièrement migré vers une clé composite lecteur/DC/invocationID. La table de provenance prépare cette transition, elle n’est pas présentée comme entièrement alimentée.",
+      "source_files": [
+        "wad/Domenia-Core.ps1",
+        "wad/modules/Domenia-Continuity.Model.ps1"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M20",
+      "lot": "C · Réactivité et cache",
+      "priority": "P1",
+      "title": "Réconcilier le périmètre, pas seulement les lignes connues",
+      "modification": "Ajouter sur périmètre autorisé une détection incrémentale et une réconciliation complète bornée pour nouveaux objets/déplacements ; aucune suppression sur lecture partielle ou refus de visibilité.",
+      "related_findings": [
+        "F12"
+      ],
+      "status": "integre_candidat",
+      "implemented": "Réconciliation périodique du dernier périmètre explicite, bornée à 500, en arrière-plan et désactivable ; nouvelles lignes intégrées, absences signalées sans suppression.",
+      "remaining_or_limits": "Pas de synchronisation exhaustive du domaine. Quand la limite est atteinte, une nouvelle recherche reste nécessaire pour une vue complète du périmètre.",
+      "source_files": [
+        "wad/modules/Domenia-Reconcile.UI.ps1"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M21",
+      "lot": "C · Réactivité et cache",
+      "priority": "P1",
+      "title": "Mesurer la réactivité réellement",
+      "modification": "Distinguer première ligne cache/LDAP, affichage complet, retard du Dispatcher, taille des files, temps des sondes et écritures ; mesures locales p50/p95 et compteurs techniques sans export automatique de données métier.",
+      "related_findings": [
+        "F01",
+        "F02",
+        "F23"
+      ],
+      "status": "partiel",
+      "implemented": "Indicateurs locaux du retard Dispatcher p50/p95 et des files, délais du premier affichage hérités conservés.",
+      "remaining_or_limits": "Pas de campagne de performance Windows ni de percentiles détaillés de chaque transport.",
+      "source_files": [
+        "wad/modules/Domenia-Guard.UI.ps1"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M22",
+      "lot": "D · Expérience utilisateur et aide utile",
+      "priority": "P0",
+      "title": "Protéger les modifications de formulaire",
+      "modification": "Modèle lu séparé du brouillon, indicateur de champs modifiés, avertissement de conflit ; un retour réseau ou un changement de sélection ne doit pas effacer silencieusement la saisie.",
+      "related_findings": [
+        "F09"
+      ],
+      "status": "partiel",
+      "implemented": "Brouillon textuel et indicateurs séparés ; une relecture fraîche ne remplace plus les saisies ; confirmation avant changement/rechargement et comparaison lisible.",
+      "remaining_or_limits": "La résolution champ par champ n’est pas automatisée ; réapplication volontaire après comparaison. Les mots de passe ne sont pas mémorisés dans le brouillon.",
+      "source_files": [
+        "wad/modules/Domenia-Guard.UI.ps1",
+        "wad/Domenia-Core.ps1"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M23",
+      "lot": "D · Expérience utilisateur et aide utile",
+      "priority": "P1",
+      "title": "Afficher la provenance de chaque constat",
+      "modification": "Séparer source, date d’observation, tentative et validité ; compte console, session RDP, profil local et lien manuel restent des notions distinctes. Pas de note opaque présentée comme une probabilité.",
+      "related_findings": [
+        "F06",
+        "F12"
+      ],
+      "status": "integre_candidat",
+      "implemented": "Sources et dates console/cache/tentative conservées ; sessions WTS présentées dans une vue distincte ; capture importée toujours historique.",
+      "remaining_or_limits": "Les colonnes de confiance historiques ne sont pas une probabilité de fiabilité mesurée.",
+      "source_files": [
+        "wad/modules/Domenia-Sessions.UI.ps1",
+        "wad/modules/Domenia-Dossier.Model.ps1"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M24",
+      "lot": "D · Expérience utilisateur et aide utile",
+      "priority": "P2",
+      "title": "Ajouter une vue Sessions à la demande",
+      "modification": "Interroger les sessions Windows/RDP par API adaptée lorsque les droits le permettent ; afficher utilisateur, type et état, sans ajouter par défaut de fermeture de session ou de scan global.",
+      "related_findings": [
+        "F18"
+      ],
+      "status": "integre_candidat",
+      "implemented": "Vue Sessions WTS à la demande, utilisateur/domaine/protocole/état, API mémoire libérée, compte cible possible ; aucune fermeture de session.",
+      "remaining_or_limits": "Permissions WTS, impersonation et réactivité à éprouver sous Windows.",
+      "source_files": [
+        "wad/modules/Domenia-Sessions.Native.cs",
+        "wad/modules/Domenia-Sessions.UI.ps1"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M25",
+      "lot": "D · Expérience utilisateur et aide utile",
+      "priority": "P1",
+      "title": "Assistant « Pourquoi cette action est indisponible ? »",
+      "modification": "À partir de faits et codes structurés : identité utilisée, prérequis manquant, droit refusé, verrou de mutation ou chargement ; une proposition d’action sûre, jamais une modification de sécurité silencieuse.",
+      "related_findings": [
+        "F19"
+      ],
+      "status": "partiel",
+      "implemented": "Vue Fiabilité : explication des protections actives, refus connus, compte et prérequis ; routes sûres vers reçus et changement de compte.",
+      "remaining_or_limits": "Pas d’inventaire en temps réel de tous les droits effectifs de chaque bouton. Certains anciens motifs sont textuels.",
+      "source_files": [
+        "wad/modules/Domenia-Guard.UI.ps1"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M26",
+      "lot": "D · Expérience utilisateur et aide utile",
+      "priority": "P2",
+      "title": "Favoris et recherches réutilisables",
+      "modification": "OU favorites et recherches enregistrées par domaine, filtres visibles et effaçables, pagination explicite ; préserver colonnes/tailles et proposer Réinitialiser la présentation sans effacer les données.",
+      "related_findings": [
+        "F12"
+      ],
+      "status": "partiel",
+      "implemented": "50 recherches/périmètres favoris, vérification du domaine, sauvegarde des filtres et lancement explicite ; positions de colonnes/OU conservées.",
+      "remaining_or_limits": "Pas de pagination AD complète au-delà du plafond ; pas de réinitialisation universelle de toutes les préférences de présentation.",
+      "source_files": [
+        "wad/modules/Domenia-Guard.UI.ps1",
+        "wad/modules/Domenia-Guard.Model.ps1"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M27",
+      "lot": "D · Expérience utilisateur et aide utile",
+      "priority": "P2",
+      "title": "Renforcer l’Atelier déjà présent",
+      "modification": "Captures volontairement conservées et bornées, comparaison GUID/source/date, différences de groupes sans copie automatique de privilèges ; dossier d’intervention et référence ticket, historique clair du périmètre.",
+      "related_findings": [
+        "F07",
+        "F09"
+      ],
+      "status": "integre_candidat",
+      "implemented": "Enregistrement et chargement explicites des captures A/B filtrées, source historique et dates vérifiées, référence ticket, export dossier asynchrone.",
+      "remaining_or_limits": "Pas d’application automatique des différences de groupes ; dossier limité à 1 Mo ; ce n’est pas un journal d’audit infalsifiable.",
+      "source_files": [
+        "wad/modules/Domenia-Dossier.Model.ps1",
+        "wad/modules/Domenia-Dossier.UI.ps1"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M28",
+      "lot": "D · Expérience utilisateur et aide utile",
+      "priority": "P1",
+      "title": "Finaliser les comportements du GUI",
+      "modification": "Navigation/clavier cohérents, listes longues, écrans vides utiles, aide des boutons grisés, thème et échelle 100/125/150/200 %, panneaux rétractables et position de l’arbre respectées.",
+      "related_findings": [
+        "F09",
+        "F23"
+      ],
+      "status": "partiel",
+      "implemented": "Navigation/panneaux repliables/aides conservés ; nouveaux contrôles aidés ; dialogues génériques adaptés au thème et à la zone de travail.",
+      "remaining_or_limits": "Recette 100/125/150/200 %, clavier et rendu réel non exécutée. Aucun audit complet d’accessibilité revendiqué.",
+      "source_files": [
+        "wad/Domenia-Core.ps1",
+        "wad/modules/Domenia-UX.help.json"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M29",
+      "lot": "E · Domenia, architecture et distribution",
+      "priority": "P1",
+      "title": "Renommer l’identité du produit en Domenia",
+      "modification": "Exécutable recompilé, ressources PE, icône/texte, titres, scripts et modules propres, namespaces, journalisation, rapports et commandes DEV. Ne pas remplacer aveuglément les termes du schéma Active Directory.",
+      "related_findings": [
+        "F22"
+      ],
+      "status": "integre_candidat",
+      "implemented": "Domenia.exe natif recompilé, ressources PE et icône D, titres, fonctions, modules, scripts, logs et outillage renommés.",
+      "remaining_or_limits": "ADCC reste volontairement dans les chemins de migration et documents historiques. Les composants Microsoft ne sont pas renommés.",
+      "source_files": [
+        "wad/Domenia-Core.ps1"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M30",
+      "lot": "E · Domenia, architecture et distribution",
+      "priority": "P0",
+      "title": "Préserver les installations ADCC existantes",
+      "modification": "Migration explicite des réglages/cache/colonnes/OU avec sauvegarde et contrôle ; priorité à une donnée Domenia déjà présente, aucune fusion de domaines ni suppression de la source historique.",
+      "related_findings": [
+        "F14",
+        "F15"
+      ],
+      "status": "integre_candidat",
+      "implemented": "Installateur reprend les configurations ADCC seulement si celles Domenia manquent ; lecture de secours des préférences, adoption contrôlée de l’ancienne base et sauvegardes.",
+      "remaining_or_limits": "Ne pas lancer l’ancien ADCC après migration ; la première migration exige fermeture manuelle de toutes les anciennes instances. L’ancien lanceur ignore le nouveau protocole de verrou.",
+      "source_files": [
+        "wad/Domenia-Core.ps1"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M31",
+      "lot": "E · Domenia, architecture et distribution",
+      "priority": "P1",
+      "title": "Livrer une production minimale",
+      "modification": "prod/Domenia.exe et prod/wad ; DEBLOQUER_TOUT.cmd dans wad/Support avec racine résolue depuis son emplacement, sans démos/tests obligatoires ni modification de GPO/antivirus.",
+      "related_findings": [
+        "F22"
+      ],
+      "status": "integre_candidat",
+      "implemented": "Racine prod strictement Domenia.exe et wad ; déblocage dans wad/Support ; runtime indépendant de DEV, tests, aperçus et documentation.",
+      "remaining_or_limits": "Ce pack PROD est une édition de distribution d’une RC, pas une certification production.",
+      "source_files": [
+        "wad/Domenia-Start.ps1",
+        "wad/Support/DEBLOQUER_TOUT.cmd"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M32",
+      "lot": "E · Domenia, architecture et distribution",
+      "priority": "P1",
+      "title": "Construire DEV et PROD depuis la même source",
+      "modification": "Liste runtime explicite, scripts reproductibles, inventaire versions/dépendances/empreintes, mêmes octets runtime dans les deux packs ; aucun cache personnel, ticket, clé ou journal de test livré.",
+      "related_findings": [],
+      "status": "integre_candidat",
+      "implemented": "Construction déterministe, inventaire runtime fermé, manifestes, contrôle byte-à-byte entre DEV/PROD, absence de base ou log utilisateur.",
+      "remaining_or_limits": "La détermination de tous les outils dépend du même environnement de compilation ; binaires tiers repris à l’identique.",
+      "source_files": [
+        "wad/Domenia-Start.ps1"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M33",
+      "lot": "E · Domenia, architecture et distribution",
+      "priority": "P0",
+      "title": "Coordonner lancement, instances et mise à jour",
+      "modification": "Verrou commun de cycle de vie, interdiction de lancer un mélange de versions, transaction d’installation et restauration vérifiée ; ne pas supprimer les états d’interventions pour débloquer une mise à jour.",
+      "related_findings": [
+        "F21"
+      ],
+      "status": "integre_candidat",
+      "implemented": "Verrou commun détenu par le lanceur et le bootstrap ; installateur exclusif, marqueur d’installation interrompue, sauvegarde/restauration avec empreintes.",
+      "remaining_or_limits": "Le tout premier passage depuis le lanceur ADCC ancien ne peut pas lui imposer rétroactivement le verrou. Fermer toutes les anciennes instances.",
+      "source_files": [
+        "wad/Domenia-Start.ps1"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M34",
+      "lot": "E · Domenia, architecture et distribution",
+      "priority": "P0",
+      "title": "Établir une politique de confiance du paquet",
+      "modification": "Intégrité distincte de provenance, signatures lorsque le certificat organisationnel est fourni, vérification des modules/chemins/liens, permissions en écriture minimales ; contrôle PROD indépendant de DEV.",
+      "related_findings": [
+        "F22"
+      ],
+      "status": "partiel",
+      "implemented": "Vérification de tous les hashes runtime à chaque lancement, chemins/reparse contrôlés ; outil de signature organisationnelle fourni.",
+      "remaining_or_limits": "Pas de certificat fourni ni de signature réalisée. Un manifeste livré avec le code n’en garantit pas à lui seul l’authenticité.",
+      "source_files": [
+        "wad/Domenia-Start.ps1"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M35",
+      "lot": "E · Domenia, architecture et distribution",
+      "priority": "P1",
+      "title": "Découper progressivement le cœur",
+      "modification": "Extraire accès annuaire, transports distants, stockage, orchestration, présentation et modèles sans réécriture totale en C# ; contrats typés et propriété des ressources documentés.",
+      "related_findings": [
+        "F01",
+        "F02",
+        "F17"
+      ],
+      "status": "partiel",
+      "implemented": "Nouveaux composants séparés Accounts.Async, Storage, Receipts, Guard, Sessions, Reconcile, Dossier ; contrats d’opérations explicites.",
+      "remaining_or_limits": "Le cœur historique reste volumineux ; son extraction complète par domaines n’est pas terminée.",
+      "source_files": [
+        "wad/modules/Domenia-Accounts.Async.ps1",
+        "wad/modules/Domenia-Storage.Worker.ps1",
+        "wad/modules/Domenia-Guard.UI.ps1"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M36",
+      "lot": "F · Validation, support et cohérence de la suite",
+      "priority": "P0",
+      "title": "Exécuter de vrais tests Windows",
+      "modification": "Parseur Windows PowerShell 5.1, WPF STA, scénarios fonctionnels indépendants des assertions de chaîne ; CI/VM de recette, distinction unitaire simulé/intégration AD/exécution non réalisée.",
+      "related_findings": [
+        "F23"
+      ],
+      "status": "execution_externe_requise",
+      "implemented": "Suite native Windows PowerShell/WPF et workflow CI fournis ; rapport explicite du système et des tests exécutés.",
+      "remaining_or_limits": "Non exécutés sur cet hôte Linux. Il faut un Windows de recette pour fermer ce point.",
+      "source_files": [
+        "wad/tests/Test-DomeniaCandidate.ps1"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M37",
+      "lot": "F · Validation, support et cohérence de la suite",
+      "priority": "P1",
+      "title": "Fournir un mode DEMO isolé et complet",
+      "modification": "Grandes listes fictives, refus/délais/pannes injectables, thèmes et densités ; aucune découverte de domaine, aucun credential et aucun accès au cache de production.",
+      "related_findings": [],
+      "status": "partiel",
+      "implemented": "Aperçus réels XAML principal/login/progressif adaptés au renommage, données fictives, sans accès AD ni cache de production.",
+      "remaining_or_limits": "Les nouveaux comportements de reçus/transport ne disposent pas tous de scénarios interactifs de démonstration ; certains anciens tests restent historiques.",
+      "source_files": [
+        "wad/maintenance/Preview-DomeniaUi.ps1",
+        "wad/maintenance/Preview-DomeniaLogin.ps1"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M38",
+      "lot": "F · Validation, support et cohérence de la suite",
+      "priority": "P1",
+      "title": "Libérer et éprouver les ressources natives",
+      "modification": "Dispose/finally pour chercheurs, résultats, racines, sessions, timers et abonnements ; test longue durée et annulations répétées, suivi handles/mémoire/runspaces avant et après repos.",
+      "related_findings": [
+        "F17"
+      ],
+      "status": "partiel",
+      "implemented": "Dispose/finally ajoutés sur les helpers AD critiques, WTS, CIM de validation, COM et écrivains ; timers nouveaux arrêtés à la fermeture.",
+      "remaining_or_limits": "Pas de mesure longue durée handles/mémoire Windows. Tous les helpers historiques ne sont pas encore uniformisés.",
+      "source_files": [
+        "wad/Domenia-Core.ps1",
+        "wad/modules/Domenia-Sessions.Native.cs"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M39",
+      "lot": "F · Validation, support et cohérence de la suite",
+      "priority": "P0",
+      "title": "Couvrir les pannes qui comptent",
+      "modification": "Coupure réseau pendant mutation, mauvais compte, accès refusé, déchiffrement impossible, SQL verrouillé, sortie volumineuse, DNS lent, ancien résultat et fermeture pendant flush ; aucun succès fabriqué.",
+      "related_findings": [
+        "F01",
+        "F03",
+        "F10",
+        "F23"
+      ],
+      "status": "partiel",
+      "implemented": "Tests de modèles/contrats et scénarios de panne documentés ; assertions Python SQLite réelles et refus de worker altéré natif fourni.",
+      "remaining_or_limits": "Coupures en vol, DNS lent, UI/AD/CIM, défauts ACL, arrêt des processus et disque plein non testés sur Windows.",
+      "source_files": [
+        "wad/tests/Test-DomeniaCandidate.ps1"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M40",
+      "lot": "F · Validation, support et cohérence de la suite",
+      "priority": "P0",
+      "title": "Tester installation et compatibilité des données",
+      "modification": "Installation neuve et mise à jour ADCC, fichiers anciens, données futures, reprise après échec, compte standard, dossier protégé, chemins longs et partage réseau ; paquet PROD testé seul.",
+      "related_findings": [
+        "F14",
+        "F15",
+        "F16",
+        "F21"
+      ],
+      "status": "execution_externe_requise",
+      "implemented": "Contrôles réels CRC, manifestes, build reproductible et schéma SQLite ; recette migration/installation/rollback fournie.",
+      "remaining_or_limits": "La campagne d’installation Windows et de restauration de données reste à exécuter.",
+      "source_files": [
+        "wad/tests/Test-DomeniaCandidate.ps1"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M41",
+      "lot": "F · Validation, support et cohérence de la suite",
+      "priority": "P1",
+      "title": "Exporter un dossier support maîtrisé",
+      "modification": "Build, composants, phase en échec, compteurs et traces filtrées ; aperçu des données exportées, retrait/pseudonymisation optionnelle, fichier local uniquement, aucun secret ni envoi automatique.",
+      "related_findings": [
+        "F19",
+        "F20"
+      ],
+      "status": "partiel",
+      "implemented": "Export local d’un dossier technique minimal : compteurs/version/état, aperçu avant sauvegarde, sans cible, compte ni logs bruts.",
+      "remaining_or_limits": "Pas de pseudonymisation générale des anciens rapports ni d’agrégation automatique de toutes les traces.",
+      "source_files": [
+        "wad/modules/Domenia-Dossier.UI.ps1"
+      ],
+      "windows_validated": false
+    },
+    {
+      "id": "M42",
+      "lot": "F · Validation, support et cohérence de la suite",
+      "priority": "P2",
+      "title": "Relier Pesto / FilPro sans mélanger leurs pouvoirs",
+      "modification": "Raccourcis vers exécutables configurés et vérifiés, passage d’un contexte non secret documenté, consentement ; aucun mot de passe, aucune commande shell générée ni intervention déclenchée par simple navigation.",
+      "related_findings": [],
+      "status": "partiel",
+      "implemented": "Raccourcis Pesto et FilPro avec chemin EXE absolu, empreinte SHA-256, absence de redirection et consentement ; aucun argument ou credential envoyé.",
+      "remaining_or_limits": "Pas de transfert automatique de contexte : leurs contrats CLI exacts ne sont pas supposés.",
+      "source_files": [
+        "wad/modules/Domenia-Guard.UI.ps1"
+      ],
+      "windows_validated": false
+    }
+  ]
+}

@@ -1,0 +1,2280 @@
+{
+  "BaseArchive": "Domenia_1.0_RC1.10.7_DEV.zip",
+  "BaseSHA256": "fd495bd3dabf1e87dd22ab1e9711d19894494d763e3eb59a2ff73804fd23f602",
+  "RuntimeModified": false,
+  "ApplicationFeaturesClaimedComplete": 0,
+  "WindowsExecuted": false,
+  "Tests": [
+    {
+      "Name": "Release guard negative and positive tests",
+      "Executed": true,
+      "ExitCode": 0,
+      "Status": "PASS"
+    },
+    {
+      "Name": "Native parser",
+      "Executed": false,
+      "Status": "NOT_EXECUTED",
+      "Reason": "Aucun moteur PowerShell executable retrouve"
+    },
+    {
+      "Name": "Pure PowerShell rules",
+      "Executed": false,
+      "Status": "NOT_EXECUTED",
+      "Reason": "Aucun moteur PowerShell executable retrouve"
+    }
+  ],
+  "Items": [
+    {
+      "id": "D001",
+      "category": "A",
+      "category_title": "Fiabilité et validation des livraisons",
+      "priority": "P0",
+      "nature": "Consolider",
+      "title": "Vrai parseur Windows avant livraison",
+      "proposal": "Analyser tous les PS1 et corps de workers avec Windows PowerShell 5.1, puis compiler les primitives C# requises. Une erreur interdit la publication.",
+      "acceptance_criterion": "Une erreur de syntaxe injectée empêche la création du livrable publiable, et pas seulement son installation.",
+      "status": "DEVELOPPE_NON_RACCORDE",
+      "reference_ids": [
+        "S01",
+        "S02",
+        "S03",
+        "S04"
+      ],
+      "implementation_files": [
+        "engineering/d120/Test-NativeParser.ps1"
+      ],
+      "acceptance_passed": false,
+      "remaining": "Integration dans le parcours applicatif et validation de tous les criteres; le code ajoute reste isole du runtime."
+    },
+    {
+      "id": "D002",
+      "category": "A",
+      "category_title": "Fiabilité et validation des livraisons",
+      "priority": "P0",
+      "nature": "Consolider",
+      "title": "Tester le démarrage réel",
+      "proposal": "Ouvrir le vrai EXE dans une session Windows propre, jusqu’au login puis au principal avec un fournisseur AD simulé.",
+      "acceptance_criterion": "Le test part du ZIP final extrait, sans fonctions préchargées ni outils DEV requis par PROD.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S01",
+        "S02",
+        "S03",
+        "S04"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D003",
+      "category": "A",
+      "category_title": "Fiabilité et validation des livraisons",
+      "priority": "P0",
+      "nature": "Consolider",
+      "title": "Tester les vrais clics",
+      "proposal": "Automatiser sélection, double-clic, Entrée, Relations, compte alternatif et changement de page sur les vrais contrôles.",
+      "acceptance_criterion": "Débrancher volontairement un événement provoque un échec de test.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S01",
+        "S02",
+        "S03",
+        "S04"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D004",
+      "category": "A",
+      "category_title": "Fiabilité et validation des livraisons",
+      "priority": "P0",
+      "nature": "Consolider",
+      "title": "Fixtures fidèles aux types AD",
+      "proposal": "Couvrir GUID binaires, SID, dates FILETIME, collections à zéro/un/plusieurs éléments, valeurs absentes et multivaleurs.",
+      "acceptance_criterion": "Une collection d’un seul octet, objet ou résultat n’est pas confondue avec un scalaire.",
+      "status": "DEVELOPPE_NON_RACCORDE",
+      "reference_ids": [
+        "S01",
+        "S02",
+        "S03",
+        "S04"
+      ],
+      "implementation_files": [
+        "engineering/d120/Test-ReadRules.ps1"
+      ],
+      "acceptance_passed": false,
+      "remaining": "Integration dans le parcours applicatif et validation de tous les criteres; le code ajoute reste isole du runtime."
+    },
+    {
+      "id": "D005",
+      "category": "A",
+      "category_title": "Fiabilité et validation des livraisons",
+      "priority": "P0",
+      "nature": "Consolider",
+      "title": "Un test par régression rencontrée",
+      "proposal": "Conserver les reproductions des dépendances non chargées, compteurs 55/54, expressions invalides, préchargement débranché et retours tardifs.",
+      "acceptance_criterion": "Chaque scénario échoue avec sa version fautive et réussit avec son correctif.",
+      "status": "DEVELOPPE_NON_RACCORDE",
+      "reference_ids": [
+        "S01",
+        "S02",
+        "S03",
+        "S04"
+      ],
+      "implementation_files": [
+        "engineering/d120/Test-NativeParser.ps1",
+        "engineering/d120/test_release_guard.py"
+      ],
+      "acceptance_passed": false,
+      "remaining": "Integration dans le parcours applicatif et validation de tous les criteres; le code ajoute reste isole du runtime."
+    },
+    {
+      "id": "D006",
+      "category": "A",
+      "category_title": "Fiabilité et validation des livraisons",
+      "priority": "P0",
+      "nature": "Étendre",
+      "title": "Tests visuels et géométriques",
+      "proposal": "Mesurer positions et tailles en clair/sombre, petit écran, RDP et mise à l’échelle 100 à 200 %.",
+      "acceptance_criterion": "Une opération ne déplace pas la recherche, les résultats ni leurs boutons ; aucun champ essentiel n’est inaccessible.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S01",
+        "S02",
+        "S03",
+        "S04"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D007",
+      "category": "A",
+      "category_title": "Fiabilité et validation des livraisons",
+      "priority": "P0",
+      "nature": "Étendre",
+      "title": "Injecter les vraies classes de panne",
+      "proposal": "Simuler DNS lent, refus AD, déchiffrement LAPS refusé, disque plein, SQLite verrouillé et coupure après envoi.",
+      "acceptance_criterion": "Chaque panne conserve sa catégorie et n’aboutit pas à une réussite ou une suppression inventée.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S01",
+        "S02",
+        "S03",
+        "S04"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D008",
+      "category": "A",
+      "category_title": "Fiabilité et validation des livraisons",
+      "priority": "P0",
+      "nature": "Étendre",
+      "title": "Tests de courses et sélections rapides",
+      "proposal": "Générer des séquences A/B/C, changement de compte, annulation et navigation pendant les lectures.",
+      "acceptance_criterion": "Une réponse d’un ancien contexte ne change aucune donnée du contexte courant.",
+      "status": "DEVELOPPE_NON_RACCORDE",
+      "reference_ids": [
+        "S01",
+        "S02",
+        "S03",
+        "S04"
+      ],
+      "implementation_files": [
+        "engineering/d120/Test-ReadRules.ps1"
+      ],
+      "acceptance_passed": false,
+      "remaining": "Integration dans le parcours applicatif et validation de tous les criteres; le code ajoute reste isole du runtime."
+    },
+    {
+      "id": "D009",
+      "category": "A",
+      "category_title": "Fiabilité et validation des livraisons",
+      "priority": "P0",
+      "nature": "Consolider",
+      "title": "Publication liée à une preuve de test",
+      "proposal": "Associer le hash du ZIP final au rapport de tests Windows ; distinguer PASS, FAIL, SKIP et non exécuté.",
+      "acceptance_criterion": "Changer un fichier après test invalide le statut publiable et requiert un nouveau rapport.",
+      "status": "DEVELOPPE_NON_RACCORDE",
+      "reference_ids": [
+        "S01",
+        "S02",
+        "S03",
+        "S04"
+      ],
+      "implementation_files": [
+        "engineering/d120/release_guard.py"
+      ],
+      "acceptance_passed": false,
+      "remaining": "Integration dans le parcours applicatif et validation de tous les criteres; le code ajoute reste isole du runtime."
+    },
+    {
+      "id": "D010",
+      "category": "A",
+      "category_title": "Fiabilité et validation des livraisons",
+      "priority": "P0",
+      "nature": "Consolider",
+      "title": "Version et contrats depuis une source unique",
+      "proposal": "Générer version du moteur, métadonnées EXE, libellés, manifeste et registre de workers depuis un contrat de release unique.",
+      "acceptance_criterion": "Le journal, le GUI, l’EXE et le rapport identifient la même livraison, ou explicitent une version de composant distincte.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S01",
+        "S02",
+        "S03",
+        "S04"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D011",
+      "category": "B",
+      "category_title": "Architecture et orchestration du moteur",
+      "priority": "P0",
+      "nature": "Consolider",
+      "title": "Démarrage ordonné par dépendances",
+      "proposal": "Définir les phases bootstrap, ressources, modules, authentification et interface ; refuser les cycles et dépendances absentes avant usage.",
+      "acceptance_criterion": "Une fonction de module ne peut être appelée par le bootstrap avant le chargement déclaré de son fournisseur.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S05"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D012",
+      "category": "B",
+      "category_title": "Architecture et orchestration du moteur",
+      "priority": "P0",
+      "nature": "Étendre",
+      "title": "Contexte de sélection unique",
+      "proposal": "Une identité typée et immuable porte domaine, GUID/SID, type, compte de lecture et génération vers Fiche, Relations et Assistance.",
+      "acceptance_criterion": "Changer un libellé de contrôle ne change jamais la cible d’une opération.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S05"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D013",
+      "category": "B",
+      "category_title": "Architecture et orchestration du moteur",
+      "priority": "P1",
+      "nature": "Consolider",
+      "title": "Découper le cœur progressivement",
+      "proposal": "Extraire annuaire, transport, stockage, orchestration et présentation ; sortir le XAML des très grandes chaînes PowerShell.",
+      "acceptance_criterion": "Chaque extraction conserve le contrat et les tests métier avant suppression de l’ancien chemin.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S05"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D014",
+      "category": "B",
+      "category_title": "Architecture et orchestration du moteur",
+      "priority": "P0",
+      "nature": "Consolider",
+      "title": "Aucune attente réseau ou disque dans le rendu",
+      "proposal": "Auditer les chemins interactifs et déplacer lectures lentes, écritures SQLite, hachages volumineux et exports hors du Dispatcher.",
+      "acceptance_criterion": "Un stockage verrouillé ou une lecture lente laisse fonctionner clavier, navigation et annulation.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S05"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D015",
+      "category": "B",
+      "category_title": "Architecture et orchestration du moteur",
+      "priority": "P1",
+      "nature": "Consolider",
+      "title": "Ordonnanceur prioritaire et dédoublonné",
+      "proposal": "Priorité aux actions explicites et à la sélection ; partager les lectures strictement identiques sous le même compte et la même génération.",
+      "acceptance_criterion": "Double-clic pendant préchargement ne crée ni deuxième lecture AD ni deuxième sonde machine.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S05"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D016",
+      "category": "B",
+      "category_title": "Architecture et orchestration du moteur",
+      "priority": "P1",
+      "nature": "Nouveau",
+      "title": "Isoler les appels natifs qui se bloquent",
+      "proposal": "Pour les fournisseurs réellement non coopératifs, évaluer un processus auxiliaire borné, avec canal local protégé et sans secret en arguments.",
+      "acceptance_criterion": "Arrêter cet auxiliaire ne tue ni le GUI ni une écriture dont l’issue pourrait être inconnue.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S05"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D017",
+      "category": "B",
+      "category_title": "Architecture et orchestration du moteur",
+      "priority": "P0",
+      "nature": "Consolider",
+      "title": "Annulation avec états exacts",
+      "proposal": "Distinguer attente, exécution, arrêt demandé, nettoyage et fin ; compter les ressources jusqu’à leur libération réelle.",
+      "acceptance_criterion": "Un appel encore actif reste compté et son annulation n’est pas présentée comme terminée.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S05"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D018",
+      "category": "B",
+      "category_title": "Architecture et orchestration du moteur",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "Budgets et temporisation par fournisseur",
+      "proposal": "Borner concurrence et délais par DC, CIM, WTS et stockage ; réduire les nouvelles lectures après pannes répétées.",
+      "acceptance_criterion": "Un refus d’identifiants ne provoque pas de boucle de réessais ; une écriture n’est jamais rejouée.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S05"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D019",
+      "category": "B",
+      "category_title": "Architecture et orchestration du moteur",
+      "priority": "P1",
+      "nature": "Consolider",
+      "title": "Propriété explicite des ressources",
+      "proposal": "Chaque recherche, collection LDAP, session CIM, objet COM, timer et abonnement dispose d’un propriétaire et d’un nettoyage finally.",
+      "acceptance_criterion": "Une longue session avec annulations revient à un niveau stable de handles et de workers.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S05"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D020",
+      "category": "B",
+      "category_title": "Architecture et orchestration du moteur",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "Repos réel quand le logiciel ne travaille pas",
+      "proposal": "Suspendre rafraîchissements inutiles et reconstruction des vues cachées, sans abandonner sauvegardes ou opérations engagées.",
+      "acceptance_criterion": "Une page cachée et inactive ne lance aucun nouveau scan ; les reçus et sauvegardes en cours restent suivis.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S05"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D021",
+      "category": "C",
+      "category_title": "Chargement, cache et performance",
+      "priority": "P1",
+      "nature": "Consolider",
+      "title": "Projection AD minimale",
+      "proposal": "Lire seulement les attributs de la liste ; demander groupes, permissions et détails lors de la sélection ou de la visite de leur onglet.",
+      "acceptance_criterion": "Afficher 100 utilisateurs ne déclenche pas 100 lectures complètes ni 100 analyses de droits.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S06",
+        "S07",
+        "S08"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D022",
+      "category": "C",
+      "category_title": "Chargement, cache et performance",
+      "priority": "P1",
+      "nature": "Consolider",
+      "title": "Mettre à jour les cellules sans rebâtir la grille",
+      "proposal": "Conserver une collection stable, appliquer des lots courts et préserver tri, position et sélection pendant l’arrivée des résultats.",
+      "acceptance_criterion": "Une mise à jour de présence ne remet ni la liste en haut ni sa sélection à zéro.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S06",
+        "S07",
+        "S08"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D023",
+      "category": "C",
+      "category_title": "Chargement, cache et performance",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "Virtualisation visuelle et chargement des données",
+      "proposal": "Vérifier le recyclage WPF, puis ajouter une stratégie distincte de pages de données pour les grandes listes.",
+      "acceptance_criterion": "Le nombre de contrôles réalisés ne croît pas avec tous les objets ; la mémoire reste bornée par une politique explicite.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S06",
+        "S07",
+        "S08"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D024",
+      "category": "C",
+      "category_title": "Chargement, cache et performance",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "Durées de validité par nature de donnée",
+      "proposal": "Séparer identité AD, attributs, présence, console et historique, chacun avec observation et dernière tentative.",
+      "acceptance_criterion": "Un ping réussi ne rajeunit ni l’utilisateur historique ni les attributs AD.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S06",
+        "S07",
+        "S08"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D025",
+      "category": "C",
+      "category_title": "Chargement, cache et performance",
+      "priority": "P0",
+      "nature": "Consolider",
+      "title": "Identité et provenance dans toutes les clés",
+      "proposal": "Unifier le cache autour des GUID/SID, du domaine, du lecteur, du DC, de son invocationID et de la version pertinente.",
+      "acceptance_criterion": "Même DN réutilisé, même USN sur deux DC ou changement de compte ne valide pas un ancien cache.",
+      "status": "DEVELOPPE_NON_RACCORDE",
+      "reference_ids": [
+        "S06",
+        "S07",
+        "S08"
+      ],
+      "implementation_files": [
+        "engineering/d120/rules/Domenia.ReadRules.psm1"
+      ],
+      "acceptance_passed": false,
+      "remaining": "Integration dans le parcours applicatif et validation de tous les criteres; le code ajoute reste isole du runtime."
+    },
+    {
+      "id": "D026",
+      "category": "C",
+      "category_title": "Chargement, cache et performance",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "Synchronisation incrémentale prudente",
+      "proposal": "Enregistrer checkpoint et données ensemble ; réconcilier le périmètre choisi pour nouveaux objets et déplacements, sans sondes machine.",
+      "acceptance_criterion": "Changement de DC, réponse partielle ou visibilité réduite ne produit aucune suppression affirmée à tort.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S06",
+        "S07",
+        "S08"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D027",
+      "category": "C",
+      "category_title": "Chargement, cache et performance",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "Cache temporaire des échecs",
+      "proposal": "Temporiser les refus et pannes identiques tout en conservant la dernière donnée valide et un bouton de nouvelle tentative volontaire.",
+      "acceptance_criterion": "Un poste arrêté n’est pas sollicité en boucle lors de simples rafraîchissements visuels.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S06",
+        "S07",
+        "S08"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D028",
+      "category": "C",
+      "category_title": "Chargement, cache et performance",
+      "priority": "P0",
+      "nature": "Consolider",
+      "title": "Écrivain SQLite unique pour les parcours courants",
+      "proposal": "Regrouper les écritures ciblées dans une file bornée ; gérer verrous, transactions et état En mémoire/Enregistré.",
+      "acceptance_criterion": "Deux mises à jour indépendantes ne s’écrasent pas et un verrou SQLite ne bloque pas WPF.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S06",
+        "S07",
+        "S08"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D029",
+      "category": "C",
+      "category_title": "Chargement, cache et performance",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "Rétention et quotas pilotables",
+      "proposal": "Borner observations, snapshots, journaux et historique ; afficher l’espace consommé et proposer une purge sélective.",
+      "acceptance_criterion": "La purge du cache ne supprime jamais configurations, associations manuelles ou reçus non résolus.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S06",
+        "S07",
+        "S08"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D030",
+      "category": "C",
+      "category_title": "Chargement, cache et performance",
+      "priority": "P1",
+      "nature": "Nouveau",
+      "title": "Explorateur de cache et consultation hors ligne",
+      "proposal": "Montrer sources, dates et périmètres disponibles ; autoriser la consultation historique sans déclarer les objets actuels ni permettre les mutations hors ligne.",
+      "acceptance_criterion": "Une panne réseau garde les données consultables mais ne réactive aucune commande exigeant une vérification fraîche.",
+      "status": "DEVELOPPE_NON_RACCORDE",
+      "reference_ids": [
+        "S06",
+        "S07",
+        "S08"
+      ],
+      "implementation_files": [
+        "engineering/d120/rules/Domenia.ReadRules.psm1"
+      ],
+      "acceptance_passed": false,
+      "remaining": "Integration dans le parcours applicatif et validation de tous les criteres; le code ajoute reste isole du runtime."
+    },
+    {
+      "id": "D031",
+      "category": "D",
+      "category_title": "Recherche et navigation dans l’annuaire",
+      "priority": "P0",
+      "nature": "Consolider",
+      "title": "Contrat strict de recherche globale",
+      "proposal": "La barre supérieure vise toujours le domaine connecté et n’hérite jamais d’une OU, présence ou filtre local.",
+      "acceptance_criterion": "La même saisie retourne le même périmètre logique depuis toutes les pages, pour une même identité de lecture.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S14",
+        "S07"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D032",
+      "category": "D",
+      "category_title": "Recherche et navigation dans l’annuaire",
+      "priority": "P1",
+      "nature": "Consolider",
+      "title": "Séparer visiblement rechercher et parcourir",
+      "proposal": "Afficher Domaine entier pour le bandeau et Dans cette OU pour l’explorateur ; conserver séparément les textes et filtres.",
+      "acceptance_criterion": "Cliquer une OU après une recherche utilisateur ne continue pas de filtrer cette OU par le nom de l’utilisateur.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S14",
+        "S07"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D033",
+      "category": "D",
+      "category_title": "Recherche et navigation dans l’annuaire",
+      "priority": "P2",
+      "nature": "Nouveau",
+      "title": "Syntaxe facultative explicite",
+      "proposal": "Proposer utilisateur:, poste:, groupe: ou mail: avec jetons visibles ; seuls ces filtres volontairement saisis affinent le global.",
+      "acceptance_criterion": "Aucun filtre caché n’est ajouté ; une expression non reconnue reste un texte explicable.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S14",
+        "S07"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D034",
+      "category": "D",
+      "category_title": "Recherche et navigation dans l’annuaire",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "Classement pertinent des résultats",
+      "proposal": "Favoriser correspondance exacte, login/UPN puis préfixe et nom affiché ; dédupliquer par identité, pas par libellé.",
+      "acceptance_criterion": "Un compte exact arrive avant les correspondances larges ; les comptes administrateur restent identifiables.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S14",
+        "S07"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D035",
+      "category": "D",
+      "category_title": "Recherche et navigation dans l’annuaire",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "Noms composés et caractères particuliers",
+      "proposal": "Traiter espaces, tirets, apostrophes, accents et plusieurs mots ; échapper les valeurs LDAP et éviter la recherche floue coûteuse sur tout le domaine.",
+      "acceptance_criterion": "Les caractères spéciaux ne cassent pas le filtre et ne deviennent pas du code ou des jokers implicites.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S14",
+        "S07"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D036",
+      "category": "D",
+      "category_title": "Recherche et navigation dans l’annuaire",
+      "priority": "P2",
+      "nature": "Nouveau",
+      "title": "Reconnaissance des identifiants collés",
+      "proposal": "Reconnaître DN, GUID, SID, UPN ou FQDN et proposer la recherche exacte adaptée, avec explication.",
+      "acceptance_criterion": "Une saisie ambiguë ne sélectionne ni n’exécute automatiquement une action sur le premier résultat.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S14",
+        "S07"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D037",
+      "category": "D",
+      "category_title": "Recherche et navigation dans l’annuaire",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "Charger la suite explicitement",
+      "proposal": "Remplacer l’impression de liste complète à 100/500 lignes par un état limité et une continuation/pagination bornée.",
+      "acceptance_criterion": "Le compteur précise chargé, limité ou complet ; les pages ne réintroduisent pas de doublons ni d’anciens contextes.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S14",
+        "S07"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D038",
+      "category": "D",
+      "category_title": "Recherche et navigation dans l’annuaire",
+      "priority": "P2",
+      "nature": "Étendre",
+      "title": "Favoris et vues de travail",
+      "proposal": "Consolider les recherches enregistrées et ajouter vues par besoin : comptes expirants, postes d’une OU ou objets modifiés récemment.",
+      "acceptance_criterion": "Une vue enregistrée ne restaure ni compte privilégié ni permission d’écriture.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S14",
+        "S07"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D039",
+      "category": "D",
+      "category_title": "Recherche et navigation dans l’annuaire",
+      "priority": "P1",
+      "nature": "Consolider",
+      "title": "Explorateur OU lisible et restaurable",
+      "proposal": "Chemin lisible, DN exact à la demande, favoris, recherche de branche à la demande et restauration unique suivie d’une lecture.",
+      "acceptance_criterion": "OU supprimée ou déplacée : avertissement et choix explicite, jamais substitution silencieuse du domaine entier.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S14",
+        "S07"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D040",
+      "category": "D",
+      "category_title": "Recherche et navigation dans l’annuaire",
+      "priority": "P1",
+      "nature": "Nouveau",
+      "title": "Précédent/suivant dans le contexte",
+      "proposal": "Historique local de navigation qui restitue recherche, OU, défilement, sélection et onglet sans abandonner un brouillon.",
+      "acceptance_criterion": "Revenir à une liste ne relance pas un balayage de machines et conserve l’indication de fraîcheur.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S14",
+        "S07"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D041",
+      "category": "E",
+      "category_title": "Relations utilisateur et poste",
+      "priority": "P0",
+      "nature": "Étendre",
+      "title": "Vraie symétrie utilisateur/poste",
+      "proposal": "Depuis un utilisateur rechercher ses postes ; depuis un poste rechercher ou déclarer ses utilisateurs, avec le même modèle de relation.",
+      "acceptance_criterion": "L’onglet Associer est utilisable depuis les deux types, sans recherche utilisateur obligatoire pour un poste.",
+      "status": "DEVELOPPE_NON_RACCORDE",
+      "reference_ids": [
+        "S09",
+        "S10",
+        "S11",
+        "S15",
+        "S16",
+        "S21"
+      ],
+      "implementation_files": [
+        "engineering/d120/rules/Domenia.ReadRules.psm1"
+      ],
+      "acceptance_passed": false,
+      "remaining": "Integration dans le parcours applicatif et validation de tous les criteres; le code ajoute reste isole du runtime."
+    },
+    {
+      "id": "D042",
+      "category": "E",
+      "category_title": "Relations utilisateur et poste",
+      "priority": "P0",
+      "nature": "Étendre",
+      "title": "Séparer affectation et observation",
+      "proposal": "Distinguer poste affecté, console observée, session RDP, historique et simple indice AD dans le stockage comme à l’écran.",
+      "acceptance_criterion": "Une connexion temporaire d’un administrateur ne remplace pas le propriétaire ou l’affectation déclarée.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S09",
+        "S10",
+        "S11",
+        "S15",
+        "S16",
+        "S21"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D043",
+      "category": "E",
+      "category_title": "Relations utilisateur et poste",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "Remplacer la fausse précision des scores",
+      "proposal": "Privilégier badges Déclaré, Observé, Importé, Indice et Contradictoire avec provenance plutôt qu’un 97 assimilable à une probabilité.",
+      "acceptance_criterion": "Chaque qualification explique la règle utilisée et n’affiche aucun taux de fiabilité non mesuré.",
+      "status": "DEVELOPPE_NON_RACCORDE",
+      "reference_ids": [
+        "S09",
+        "S10",
+        "S11",
+        "S15",
+        "S16",
+        "S21"
+      ],
+      "implementation_files": [
+        "engineering/d120/rules/Domenia.ReadRules.psm1"
+      ],
+      "acceptance_passed": false,
+      "remaining": "Integration dans le parcours applicatif et validation de tous les criteres; le code ajoute reste isole du runtime."
+    },
+    {
+      "id": "D044",
+      "category": "E",
+      "category_title": "Relations utilisateur et poste",
+      "priority": "P0",
+      "nature": "Consolider",
+      "title": "Contexte de relation stable",
+      "proposal": "Réutiliser la sélection globale ; conserver l’utilisateur source pendant la recherche d’un poste cible sans bouton redondant.",
+      "acceptance_criterion": "Chercher un poste à associer ne transforme pas le sujet utilisateur en machine avant confirmation.",
+      "status": "DEVELOPPE_NON_RACCORDE",
+      "reference_ids": [
+        "S09",
+        "S10",
+        "S11",
+        "S15",
+        "S16",
+        "S21"
+      ],
+      "implementation_files": [
+        "engineering/d120/rules/Domenia.ReadRules.psm1"
+      ],
+      "acceptance_passed": false,
+      "remaining": "Integration dans le parcours applicatif et validation de tous les criteres; le code ajoute reste isole du runtime."
+    },
+    {
+      "id": "D045",
+      "category": "E",
+      "category_title": "Relations utilisateur et poste",
+      "priority": "P0",
+      "nature": "Consolider",
+      "title": "Association réellement dans la page",
+      "proposal": "Deux modes Détecter/Rechercher, résultats, choix et confirmation dans les onglets Relations, sans fenêtre ni faux dialogue modal.",
+      "acceptance_criterion": "Les composants sont ceux de la page ; aucun ShowDialog ni transfert d’une Window ne sert à associer.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S09",
+        "S10",
+        "S11",
+        "S15",
+        "S16",
+        "S21"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D046",
+      "category": "E",
+      "category_title": "Relations utilisateur et poste",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "Candidats issus de plusieurs preuves",
+      "proposal": "Réunir liens connus, observations et indices AD autorisés ; joindre les sources d’inventaire approuvées lorsqu’elles existent, en gardant leurs identités.",
+      "acceptance_criterion": "Un candidat indique pourquoi il est proposé ; aucune IP ou nom partiel ne suffit à l’associer.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S09",
+        "S10",
+        "S11",
+        "S15",
+        "S16",
+        "S21"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D047",
+      "category": "E",
+      "category_title": "Relations utilisateur et poste",
+      "priority": "P0",
+      "nature": "Nouveau",
+      "title": "Aperçu du périmètre avant détection",
+      "proposal": "Afficher l’OU ou la liste réellement visée et les candidats avant envoi ; aucun changement silencieux de périmètre faute de résultat.",
+      "acceptance_criterion": "La liste interrogée correspond à celle confirmée ; zéro candidat explique une absence de source, pas une absence de poste.",
+      "status": "DEVELOPPE_NON_RACCORDE",
+      "reference_ids": [
+        "S09",
+        "S10",
+        "S11",
+        "S15",
+        "S16",
+        "S21"
+      ],
+      "implementation_files": [
+        "engineering/d120/rules/Domenia.ReadRules.psm1"
+      ],
+      "acceptance_passed": false,
+      "remaining": "Integration dans le parcours applicatif et validation de tous les criteres; le code ajoute reste isole du runtime."
+    },
+    {
+      "id": "D048",
+      "category": "E",
+      "category_title": "Relations utilisateur et poste",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "Détection progressive et bornée",
+      "proposal": "Consoles dans le périmètre volontaire, priorité aux candidats pertinents, compteur interrogés/refusés/confirmés ; sessions RDP en option séparée.",
+      "acceptance_criterion": "La liste générale ne déclenche aucune sonde ; le bouton Détecter affiche ses limites et résultats partiels.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S09",
+        "S10",
+        "S11",
+        "S15",
+        "S16",
+        "S21"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D049",
+      "category": "E",
+      "category_title": "Relations utilisateur et poste",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "Identité exacte et cas partagés",
+      "proposal": "Comparer domaine/login qualifié et SID lorsqu’il est disponible ; gérer homonymes, renommages, postes partagés et plusieurs postes par utilisateur.",
+      "acceptance_criterion": "Un compte local ou homonyme d’un autre domaine ne devient pas le compte AD recherché.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S09",
+        "S10",
+        "S11",
+        "S15",
+        "S16",
+        "S21"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D050",
+      "category": "E",
+      "category_title": "Relations utilisateur et poste",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "Historique des liens et conflits",
+      "proposal": "Conserver déclarant, source et dates ; préserver affectations manuelles et signaler observations contradictoires sans les fusionner silencieusement.",
+      "acceptance_criterion": "Une suppression de lien local est traçable et restaurable sans toucher aux objets AD.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S09",
+        "S10",
+        "S11",
+        "S15",
+        "S16",
+        "S21"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D051",
+      "category": "F",
+      "category_title": "Comptes, droits et secrets",
+      "priority": "P0",
+      "nature": "Consolider",
+      "title": "Compte par ressource et cible",
+      "proposal": "Un contexte distinct pour annuaire, postes, LAPS et BitLocker ; cible obligatoire pour un compte local.",
+      "acceptance_criterion": "Changer le compte LAPS ne modifie pas les credentials AD ou du poste sans demande explicite.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S12",
+        "S18"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D052",
+      "category": "F",
+      "category_title": "Comptes, droits et secrets",
+      "priority": "P0",
+      "nature": "Consolider",
+      "title": "Erreur structurée et explicable",
+      "proposal": "Conserver code natif, fournisseur, étape et cible ; distinguer credentials rejetés, droit refusé, déchiffrement, réseau et prérequis.",
+      "acceptance_criterion": "Les mêmes codes français/anglais conduisent aux mêmes décisions, sans transformer timeout en mauvais mot de passe.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S12",
+        "S18"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D053",
+      "category": "F",
+      "category_title": "Comptes, droits et secrets",
+      "priority": "P0",
+      "nature": "Consolider",
+      "title": "Réauthentification intégrée sans tempête",
+      "proposal": "Proposer un autre compte dans la page après accord ; une validation, une relance de lecture autorisée, regroupement des refus en arrière-plan.",
+      "acceptance_criterion": "Annuler conserve le compte précédent ; 20 refus simultanés ne créent pas 20 demandes.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S12",
+        "S18"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D054",
+      "category": "F",
+      "category_title": "Comptes, droits et secrets",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "Durée de vie claire des identités",
+      "proposal": "Usage ponctuel, expiration d’inactivité configurable et Oublier ; empêcher la réutilisation par un worker d’une ancienne session.",
+      "acceptance_criterion": "L’expiration ne tue pas une écriture envoyée mais interdit une nouvelle utilisation non autorisée.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S12",
+        "S18"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D055",
+      "category": "F",
+      "category_title": "Comptes, droits et secrets",
+      "priority": "P1",
+      "nature": "Consolider",
+      "title": "Connexion Windows sans surélévation",
+      "proposal": "Réutiliser le jeton courant pour les fonctions qu’il autorise ; demander un autre compte uniquement au bon moment.",
+      "acceptance_criterion": "Lire AD ne requiert pas artificiellement un compte Domain Admin ; aucune double saisie imposée sans nécessité.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S12",
+        "S18"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D056",
+      "category": "F",
+      "category_title": "Comptes, droits et secrets",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "Explication des capacités disponibles",
+      "proposal": "Afficher ce qui est testé, estimé, inconnu ou refusé pour une action, sans prétendre que toute ACL est un droit effectif définitif.",
+      "acceptance_criterion": "Un bouton grisé dispose d’un motif et d’une route sûre vers le prérequis concerné.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S12",
+        "S18"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D057",
+      "category": "F",
+      "category_title": "Comptes, droits et secrets",
+      "priority": "P0",
+      "nature": "Consolider",
+      "title": "LAPS : lecture et déchiffrement distincts",
+      "proposal": "Montrer source, publication, expiration et identité de déchiffrement lorsqu’elles sont disponibles, sans bloquer BitLocker.",
+      "acceptance_criterion": "Un retour Unauthorized du déchiffrement ne devient pas un mot de passe vide ni une panne globale du compte.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S12",
+        "S18"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D058",
+      "category": "F",
+      "category_title": "Comptes, droits et secrets",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "BitLocker : sélectionner la bonne clé",
+      "proposal": "Rechercher par identifiant de récupération, afficher métadonnées et date, puis révéler/copier seulement la clé choisie.",
+      "acceptance_criterion": "Aucune révélation de toutes les clés à la simple ouverture de l’onglet.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S12",
+        "S18"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D059",
+      "category": "F",
+      "category_title": "Comptes, droits et secrets",
+      "priority": "P0",
+      "nature": "Consolider",
+      "title": "Limiter la surface d’exposition des secrets",
+      "proposal": "Pas de secrets dans les arguments, logs, cache, snapshots ou exports automatiques ; révélation temporaire et copie individuelle.",
+      "acceptance_criterion": "Des marqueurs secrets factices sont absents des traces et exports ; les limites de l’historique tiers du presse-papiers restent explicites.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S12",
+        "S18"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D060",
+      "category": "F",
+      "category_title": "Comptes, droits et secrets",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "Politique de transport visible",
+      "proposal": "Déclarer LDAP/CIM/WTS/SMB nécessaires, validation certificats et modes autorisés ; expliquer les mécanismes indisponibles au lieu d’affaiblir Windows.",
+      "acceptance_criterion": "Aucun certificat accepté aveuglément, aucun WinRM/GPO/antivirus modifié et aucun transport intrusif lancé en repli silencieux.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S12",
+        "S18"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D061",
+      "category": "G",
+      "category_title": "Fonctions utilisateurs, groupes et domaine",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "Fiche utilisateur orientée support",
+      "proposal": "Résumé identité, service, contact, état du compte et dates utiles ; garder attributs techniques dans une vue avancée.",
+      "acceptance_criterion": "Un technicien retrouve le contexte essentiel sans parcourir une grille brute de dizaines d’attributs.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S19",
+        "S20",
+        "S07"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D062",
+      "category": "G",
+      "category_title": "Fonctions utilisateurs, groupes et domaine",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "Politique de mot de passe effective",
+      "proposal": "Afficher politique fine applicable, expiration et raisons des restrictions, sous réserve des droits et données disponibles.",
+      "acceptance_criterion": "Une politique non lisible reste inconnue, pas remplacée par une supposition issue du domaine.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S19",
+        "S20",
+        "S07"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D063",
+      "category": "G",
+      "category_title": "Fonctions utilisateurs, groupes et domaine",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "Diagnostic de verrouillage à la demande",
+      "proposal": "Expliquer état calculé, dernière observation et événements accessibles sur le contrôleur pertinent ; aider à rechercher une récidive.",
+      "acceptance_criterion": "Aucune recherche massive de journaux n’est lancée au simple affichage du compte.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S19",
+        "S20",
+        "S07"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D064",
+      "category": "G",
+      "category_title": "Fonctions utilisateurs, groupes et domaine",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "Groupes avec chemin d’appartenance",
+      "proposal": "Montrer direct, imbriqué et principal ; parcourir plages et cycles avec limites, et expliquer le chemin vers un groupe choisi.",
+      "acceptance_criterion": "Un grand groupe tronqué ne conduit pas à annoncer qu’un membre est absent.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S19",
+        "S20",
+        "S07"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D065",
+      "category": "G",
+      "category_title": "Fonctions utilisateurs, groupes et domaine",
+      "priority": "P2",
+      "nature": "Étendre",
+      "title": "Comparaison de deux utilisateurs",
+      "proposal": "Comparer attributs et groupes par catégorie de besoin, sans bouton Copier tous les droits par défaut.",
+      "acceptance_criterion": "Les groupes privilégiés sont explicitement signalés et aucune différence n’est appliquée automatiquement.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S19",
+        "S20",
+        "S07"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D066",
+      "category": "G",
+      "category_title": "Fonctions utilisateurs, groupes et domaine",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "Modification des groupes sous forme de delta",
+      "proposal": "Préparer uniquement ajouts/retraits choisis, montrer les effets directs et vérifier les postconditions.",
+      "acceptance_criterion": "Un groupe modifié ailleurs n’est pas remplacé par une ancienne liste en mémoire.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S19",
+        "S20",
+        "S07"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D067",
+      "category": "G",
+      "category_title": "Fonctions utilisateurs, groupes et domaine",
+      "priority": "P2",
+      "nature": "Nouveau",
+      "title": "Lecture de délégations et héritage OU",
+      "proposal": "Rendre visibles origine des permissions, héritage et limites de l’analyse pour la cible choisie.",
+      "acceptance_criterion": "L’écran distingue ACE observée et capacité réellement vérifiée ; aucune délégation n’est ajoutée automatiquement.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S19",
+        "S20",
+        "S07"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D068",
+      "category": "G",
+      "category_title": "Fonctions utilisateurs, groupes et domaine",
+      "priority": "P2",
+      "nature": "Nouveau",
+      "title": "Parcours de cycle de vie de compte",
+      "proposal": "Préparer arrivée, changement de service ou suspension avec modèle et récapitulatif, sans suppression ou migration implicite.",
+      "acceptance_criterion": "Chaque étape sensible exige sa confirmation et la procédure reprend une issue incertaine sans répétition.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S19",
+        "S20",
+        "S07"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D069",
+      "category": "G",
+      "category_title": "Fonctions utilisateurs, groupes et domaine",
+      "priority": "P2",
+      "nature": "Nouveau",
+      "title": "Détection d’incohérences AD sur périmètre choisi",
+      "proposal": "Signaler doublons de valeurs, responsable introuvable, descriptions manquantes ou objets suspects à revoir, sans purge automatique.",
+      "acceptance_criterion": "Un doublon visible ou une date ancienne ne suffit pas à déclarer un objet supprimable.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S19",
+        "S20",
+        "S07"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D070",
+      "category": "G",
+      "category_title": "Fonctions utilisateurs, groupes et domaine",
+      "priority": "P2",
+      "nature": "Nouveau",
+      "title": "Comparer une cible entre contrôleurs",
+      "proposal": "Lire quelques attributs et métadonnées de réplication d’un même GUID sur des DC explicitement choisis.",
+      "acceptance_criterion": "Les différences sont datées par DC, sans assimiler leurs USN à une horloge globale.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S19",
+        "S20",
+        "S07"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D071",
+      "category": "H",
+      "category_title": "Assistance des postes",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "Diagnostic rapide à coût annoncé",
+      "proposal": "Proposer un résumé OS, démarrage, disque, connectivité et services de gestion après action volontaire.",
+      "acceptance_criterion": "La durée et le nombre de contrôles sont bornés ; ouvrir une liste ne lance pas ce diagnostic.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S09",
+        "S10",
+        "S17"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D072",
+      "category": "H",
+      "category_title": "Assistance des postes",
+      "priority": "P1",
+      "nature": "Consolider",
+      "title": "Sessions console et RDP utilisables",
+      "proposal": "Dans la vue Sessions existante, afficher session, utilisateur, état et source ; expliquer refus et limites de la lecture WTS.",
+      "acceptance_criterion": "Console vide ne signifie pas absence de session RDP ; aucune déconnexion n’est ajoutée à la consultation.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S09",
+        "S10",
+        "S17"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D073",
+      "category": "H",
+      "category_title": "Assistance des postes",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "Inventaire logiciel sans réparation involontaire",
+      "proposal": "Réutiliser l’inventaire existant ou les sources de désinstallation autorisées ; proscrire Win32_Product pour un simple inventaire.",
+      "acceptance_criterion": "L’inventaire ne provoque pas de vérification/réparation MSI et indique les catégories non couvertes.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S09",
+        "S10",
+        "S17"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D074",
+      "category": "H",
+      "category_title": "Assistance des postes",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "Événements de dépannage ciblés",
+      "proposal": "Filtrer fournisseur, période et IDs utiles, avec volume borné et corrélation explicite à la cible.",
+      "acceptance_criterion": "Les événements non attribuables restent généraux ; leur absence après refus n’est pas un constat sain.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S09",
+        "S10",
+        "S17"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D075",
+      "category": "H",
+      "category_title": "Assistance des postes",
+      "priority": "P2",
+      "nature": "Nouveau",
+      "title": "Stratégies appliquées avec leurs limites",
+      "proposal": "Distinguer liens GPO dans AD et résultat réellement appliqué, via un rapport autorisé demandé pour ce poste.",
+      "acceptance_criterion": "Une GPO liée à l’OU n’est pas annoncée comme appliquée sans preuve du résultat.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S09",
+        "S10",
+        "S17"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D076",
+      "category": "H",
+      "category_title": "Assistance des postes",
+      "priority": "P2",
+      "nature": "Nouveau",
+      "title": "Vue AD / Entra / SSO de diagnostic",
+      "proposal": "Afficher les états lisibles de jonction et d’authentification avec le contexte utilisateur/machine, sans réparation automatique.",
+      "acceptance_criterion": "Une lecture sous un compte administrateur ne devient pas un verdict sur le jeton SSO de l’utilisateur final.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S09",
+        "S10",
+        "S17"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D077",
+      "category": "H",
+      "category_title": "Assistance des postes",
+      "priority": "P2",
+      "nature": "Étendre",
+      "title": "Mises à jour et agent de gestion",
+      "proposal": "Afficher date, source et résultat des dernières informations disponibles de mise à jour ou de WAPT, sans relancer une installation.",
+      "acceptance_criterion": "Une donnée d’inventaire ancienne est marquée comme telle ; aucun fournisseur absent n’est considéré en panne.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S09",
+        "S10",
+        "S17"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D078",
+      "category": "H",
+      "category_title": "Assistance des postes",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "Cohérence identité AD / DNS / machine",
+      "proposal": "Comparer nom AD, résolution et identité retournée avant attribution des observations, y compris machine renommée ou DNS périmé.",
+      "acceptance_criterion": "Une IP réattribuée ne reçoit pas automatiquement les relations de son ancien poste.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S09",
+        "S10",
+        "S17"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D079",
+      "category": "H",
+      "category_title": "Assistance des postes",
+      "priority": "P2",
+      "nature": "Nouveau",
+      "title": "Réveil d’un poste, strictement volontaire",
+      "proposal": "Option Wake-on-LAN seulement avec MAC et réseau connus, périmètre autorisé et action explicite ; aucun réveil collectif automatique.",
+      "acceptance_criterion": "Un paquet envoyé est indiqué Demande envoyée, pas Poste allumé avant vérification.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S09",
+        "S10",
+        "S17"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D080",
+      "category": "H",
+      "category_title": "Assistance des postes",
+      "priority": "P2",
+      "nature": "Étendre",
+      "title": "Passage vers Pesto et FILPRO",
+      "proposal": "Ouvrir l’outil configuré et vérifié avec contexte non secret uniquement si son contrat d’entrée est réellement pris en charge.",
+      "acceptance_criterion": "Aucune commande shell arbitraire, aucun credential transmis et aucune intervention déclenchée par une navigation.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S09",
+        "S10",
+        "S17"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D081",
+      "category": "I",
+      "category_title": "Interface, lisibilité et accessibilité",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "Navigation orientée objet et tâche",
+      "proposal": "Réduire les destinations qui se chevauchent et regrouper les actions propres à l’objet sans perdre Recherche, Relations et Atelier.",
+      "acceptance_criterion": "Le titre montre toujours la cible et la page active ; aucun deuxième sélecteur utilisateur inutile.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S05",
+        "S06",
+        "S13"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D082",
+      "category": "I",
+      "category_title": "Interface, lisibilité et accessibilité",
+      "priority": "P0",
+      "nature": "Consolider",
+      "title": "Disposition qui ne bouge pas",
+      "proposal": "Réserver les dimensions de l’activité, compteurs et actions ; aligner recherche, texte indicatif et contenu saisi.",
+      "acceptance_criterion": "Transitions 0/1/10/100 tâches et messages longs ne déplacent aucun voisin.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S05",
+        "S06",
+        "S13"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D083",
+      "category": "I",
+      "category_title": "Interface, lisibilité et accessibilité",
+      "priority": "P0",
+      "nature": "Consolider",
+      "title": "Composants intégrés, pas fenêtres déguisées",
+      "proposal": "Construire les formulaires métier comme composants de page avec continuations asynchrones, sans Window transposée ni boucle modale imbriquée.",
+      "acceptance_criterion": "Associer, confirmer ou changer de compte ne crée ni HWND métier supplémentaire ni blocage modal de toute la navigation non concernée.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S05",
+        "S06",
+        "S13"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D084",
+      "category": "I",
+      "category_title": "Interface, lisibilité et accessibilité",
+      "priority": "P1",
+      "nature": "Nouveau",
+      "title": "Profils de colonnes selon les objets",
+      "proposal": "Vues Utilisateurs, Postes et Mixte choisies explicitement : retirer les colonnes sans sens, conserver largeur, ordre, tri et préférences.",
+      "acceptance_criterion": "Une liste utilisateur ne gaspille pas trois colonnes de console machine ; aucun profil ne change pendant une saisie ou arrivée de lot.",
+      "status": "DEVELOPPE_NON_RACCORDE",
+      "reference_ids": [
+        "S05",
+        "S06",
+        "S13"
+      ],
+      "implementation_files": [
+        "engineering/d120/rules/Domenia.ReadRules.psm1"
+      ],
+      "acceptance_passed": false,
+      "remaining": "Integration dans le parcours applicatif et validation de tous les criteres; le code ajoute reste isole du runtime."
+    },
+    {
+      "id": "D085",
+      "category": "I",
+      "category_title": "Interface, lisibilité et accessibilité",
+      "priority": "P0",
+      "nature": "Consolider",
+      "title": "Prévisualisation de la sélection sans navigation",
+      "proposal": "Afficher le résumé et préparer la fiche en restant dans Recherche ; activer les destinations utiles avec Chargement/Erreur explicites.",
+      "acceptance_criterion": "Utilisateur et poste suivent le même contrat ; l’ancienne fiche ne reste pas visible sous une nouvelle sélection.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S05",
+        "S06",
+        "S13"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D086",
+      "category": "I",
+      "category_title": "Interface, lisibilité et accessibilité",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "Options utiles visibles, technique à la demande",
+      "proposal": "Action principale claire, options avancées repliées, mêmes cartes et boutons que FILPRO/Pesto ; pas de mini-log dans le login normal.",
+      "acceptance_criterion": "Les valeurs qui influencent une opération apparaissent dans le résumé avant exécution, même si leurs options sont repliées.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S05",
+        "S06",
+        "S13"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D087",
+      "category": "I",
+      "category_title": "Interface, lisibilité et accessibilité",
+      "priority": "P1",
+      "nature": "Nouveau",
+      "title": "États vides réellement informatifs",
+      "proposal": "Distinguer aucun résultat, filtre local vide, aucune source, aucun poste interrogé, refus et résultats partiels.",
+      "acceptance_criterion": "Chaque état propose une prochaine action pertinente sans prétendre qu’un objet ou une session n’existe pas.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S05",
+        "S06",
+        "S13"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D088",
+      "category": "I",
+      "category_title": "Interface, lisibilité et accessibilité",
+      "priority": "P1",
+      "nature": "Consolider",
+      "title": "Aides utiles aux contrôles grisés",
+      "proposal": "Infobulle concise, F1 et raison visible quand nécessaire ; pas de copie du contenu sensible d’un champ dans l’aide.",
+      "acceptance_criterion": "Clavier et souris permettent de comprendre un prérequis, sans ouvrir une popup technique.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S05",
+        "S06",
+        "S13"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D089",
+      "category": "I",
+      "category_title": "Interface, lisibilité et accessibilité",
+      "priority": "P0",
+      "nature": "Consolider",
+      "title": "Focus et premier plan maîtrisés",
+      "proposal": "Demander l’activation lors du lancement explicite et du passage login/principal, sans Topmost permanent ni vol de focus après une tâche.",
+      "acceptance_criterion": "Un Alt-Tab volontaire est respecté ; un refus Windows d’activation reste géré sans boucle de forçage.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S05",
+        "S06",
+        "S13"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D090",
+      "category": "I",
+      "category_title": "Interface, lisibilité et accessibilité",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "Accessibilité et échelles cohérentes",
+      "proposal": "Contrastes, focus visibles, libellés accessibles, thèmes, police lisible, petites fenêtres et restauration multi-écrans bornée.",
+      "acceptance_criterion": "Les actions restent atteignables à 200 % et les statuts ne reposent pas seulement sur une couleur.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S05",
+        "S06",
+        "S13"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D091",
+      "category": "J",
+      "category_title": "Sécurité des interventions et continuité",
+      "priority": "P0",
+      "nature": "Consolider",
+      "title": "Plan d’intervention immuable",
+      "proposal": "Capturer cible, GUID, compte, contrôleur, changements et effets avant la confirmation.",
+      "acceptance_criterion": "Modifier un champ ou changer de cible invalide le plan présenté au lieu de l’exécuter sur une autre cible.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S07"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D092",
+      "category": "J",
+      "category_title": "Sécurité des interventions et continuité",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "Vérifier sans appliquer",
+      "proposal": "Mode de préparation qui produit les lectures préalables et le plan mais n’appelle aucun fournisseur d’écriture.",
+      "acceptance_criterion": "Une simulation ne crée ni tâche, ni service, ni modification AD ou registre réelle.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S07"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D093",
+      "category": "J",
+      "category_title": "Sécurité des interventions et continuité",
+      "priority": "P0",
+      "nature": "Étendre",
+      "title": "Postcondition propre à chaque opération",
+      "proposal": "Vérifier appartenance, déplacement, attribut ou état avec leur règle dédiée ; ne pas confondre retour du processus et résultat vérifié.",
+      "acceptance_criterion": "Chaque opération indique Vérifié, Partiel ou À vérifier avec la preuve précise disponible.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S07"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D094",
+      "category": "J",
+      "category_title": "Sécurité des interventions et continuité",
+      "priority": "P0",
+      "nature": "Étendre",
+      "title": "Reçus pour toutes les mutations importantes",
+      "proposal": "Compléter les reçus AD existants pour les actions distantes pertinentes, écrits durablement avant l’envoi et retrouvés à la reprise.",
+      "acceptance_criterion": "Une fermeture après envoi n’efface pas l’incertitude et ne déclenche pas une répétition automatique.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S07"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D095",
+      "category": "J",
+      "category_title": "Sécurité des interventions et continuité",
+      "priority": "P0",
+      "nature": "Consolider",
+      "title": "Idempotence et non-rejeu explicites",
+      "proposal": "Identifier doublons et demandes déjà envoyées ; rendre les lectures réessayables sans rejouer les écritures incertaines.",
+      "acceptance_criterion": "Double-clic sur Exécuter ne lance qu’une demande et le redémarrage n’en lance aucune.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S07"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D096",
+      "category": "J",
+      "category_title": "Sécurité des interventions et continuité",
+      "priority": "P0",
+      "nature": "Étendre",
+      "title": "Concurrence avec les autres administrateurs",
+      "proposal": "Relire les préconditions sur le DC prévu ; appliquer une condition atomique lorsqu’elle est supportée et vérifier après, sinon exposer la limite.",
+      "acceptance_criterion": "Une modification externe n’est pas écrasée silencieusement ; aucune promesse de transaction universelle.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S07"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D097",
+      "category": "J",
+      "category_title": "Sécurité des interventions et continuité",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "Verrous au bon périmètre",
+      "proposal": "Conserver les protections par cible et type d’action ; laisser les consultations sans conflit disponibles au lieu de bloquer tout le logiciel.",
+      "acceptance_criterion": "Une écriture incertaine bloque les opérations incompatibles, pas les lectures indépendantes autorisées.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S07"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D098",
+      "category": "J",
+      "category_title": "Sécurité des interventions et continuité",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "Fin de session sans abandon d’opération",
+      "proposal": "Expirer ou oublier les comptes pour les nouveaux appels, conserver le suivi des opérations parties et avertir des sauvegardes en attente.",
+      "acceptance_criterion": "Aucune fermeture ou expiration n’annonce une annulation distante non confirmée.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S07"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D099",
+      "category": "J",
+      "category_title": "Sécurité des interventions et continuité",
+      "priority": "P2",
+      "nature": "Nouveau",
+      "title": "Lots administratifs préparés et revus",
+      "proposal": "Sélection explicite, aperçu par objet, exécution bornée avec arrêt selon politique et compte rendu ; jamais dans une recherche ou une sélection simple.",
+      "acceptance_criterion": "Un échec intermédiaire ne transforme pas le lot entier en succès et ne rejoue pas les éléments incertains.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S07"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D100",
+      "category": "J",
+      "category_title": "Sécurité des interventions et continuité",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "Retour arrière limité et honnête",
+      "proposal": "Proposer seulement les compensations dont les préconditions restent vérifiables ; distinguer rollback du code, du cache et d’une modification AD.",
+      "acceptance_criterion": "Aucun bouton universel Annuler toutes les actions ; un mot de passe changé n’est pas prétendument restaurable.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S07"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D101",
+      "category": "K",
+      "category_title": "Intelligence utile et diagnostic du logiciel",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "Constats explicables plutôt que scores opaques",
+      "proposal": "Pour chaque diagnostic, présenter fait, source, limite et hypothèse éventuelle, avec date et compte de lecture.",
+      "acceptance_criterion": "Un refus de lecture ou une absence de source ne produit pas un verdict de santé ou d’absence.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D102",
+      "category": "K",
+      "category_title": "Intelligence utile et diagnostic du logiciel",
+      "priority": "P1",
+      "nature": "Nouveau",
+      "title": "Prochaine action pertinente",
+      "proposal": "Proposer une seule étape sûre selon le blocage : fournir un périmètre, sélectionner une source, changer un compte ou relire une donnée.",
+      "acceptance_criterion": "La suggestion n’exécute jamais l’action ni ne modifie les droits automatiquement.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D103",
+      "category": "K",
+      "category_title": "Intelligence utile et diagnostic du logiciel",
+      "priority": "P2",
+      "nature": "Étendre",
+      "title": "Chronologie utile par objet",
+      "proposal": "Regrouper observations et changements réellement constatés pour le même GUID, avec rétention et sans contenu secret.",
+      "acceptance_criterion": "La chronologie ne reconstruit pas un passé absent et garde distincts événements du poste et actions de Domenia.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D104",
+      "category": "K",
+      "category_title": "Intelligence utile et diagnostic du logiciel",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "Compte rendu de ticket relisible",
+      "proposal": "Résumé de ce qui a été tenté, confirmé, refusé et non testé ; sélection des rubriques et aperçu avant export local.",
+      "acceptance_criterion": "Le ticket n’inclut ni secrets ni objets hors contexte, et une pseudonymisation reste contrôlable.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D105",
+      "category": "K",
+      "category_title": "Intelligence utile et diagnostic du logiciel",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "Regrouper les incidents similaires",
+      "proposal": "Une vue classe les erreurs par fournisseur, code et contexte pour éviter répétitions et avalanche de messages.",
+      "acceptance_criterion": "Les détails individuels restent consultables ; deux cibles différentes ne sont pas fusionnées en faux succès commun.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D106",
+      "category": "K",
+      "category_title": "Intelligence utile et diagnostic du logiciel",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "Mesurer ce qui ralentit vraiment",
+      "proposal": "Première ligne LDAP/cache, attente de file, temps AD/CIM/SQLite, retard Dispatcher et consommation mémoire avec percentiles locaux.",
+      "acceptance_criterion": "Chaque mesure porte sa provenance ; un temps de cache ne sert pas de benchmark LDAP.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D107",
+      "category": "K",
+      "category_title": "Intelligence utile et diagnostic du logiciel",
+      "priority": "P1",
+      "nature": "Nouveau",
+      "title": "Trace circulaire de diagnostic",
+      "proposal": "Conserver un tampon borné d’événements techniques structurés et de corrélations, activable sans recopier les payloads secrets.",
+      "acceptance_criterion": "L’export ne contient que les champs autorisés et reste local après vérification visuelle.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D108",
+      "category": "K",
+      "category_title": "Intelligence utile et diagnostic du logiciel",
+      "priority": "P1",
+      "nature": "Nouveau",
+      "title": "Reproduction exportable des anomalies",
+      "proposal": "Créer une fixture anonymisée de séquence UI et de résultats typés pour rejouer un bug hors domaine.",
+      "acceptance_criterion": "Le scénario ne contient ni mot de passe, ni commande exécutable issue d’un log, ni accès réseau réel.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D109",
+      "category": "K",
+      "category_title": "Intelligence utile et diagnostic du logiciel",
+      "priority": "P2",
+      "nature": "Optionnel",
+      "title": "Assistant local de synthèse, pas administrateur autonome",
+      "proposal": "Un modèle local peut résumer un dossier nettoyé, relier des règles et rédiger un ticket ; descriptions AD et logs restent des entrées non fiables.",
+      "acceptance_criterion": "Aucun outil d’écriture, aucun secret transmis au modèle, aucune instruction provenant des données ne devient une action.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D110",
+      "category": "K",
+      "category_title": "Intelligence utile et diagnostic du logiciel",
+      "priority": "P2",
+      "nature": "Nouveau",
+      "title": "Parcours de dépannage validés",
+      "proposal": "Petites procédures Compte inaccessible, Poste non joignable ou LAPS refusé, composées de lectures explicites avec coût et arrêt visibles.",
+      "acceptance_criterion": "Aucune réparation autonome ni collecte étendue n’est déclenchée par le choix du parcours.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D111",
+      "category": "L",
+      "category_title": "Distribution et cohérence Pesto / FILPRO / Domenia",
+      "priority": "P0",
+      "nature": "Consolider",
+      "title": "PROD minimal vraiment autonome",
+      "proposal": "Conserver prod/Domenia.exe et prod/wad, déblocage dans wad/Support, sans test, démo ou script de lancement obligatoire à la racine.",
+      "acceptance_criterion": "Le ZIP PROD extrait seul passe le lancement de recette sur un poste sans fichiers DEV.",
+      "status": "DEVELOPPE_NON_RACCORDE",
+      "reference_ids": [
+        "S02",
+        "S03",
+        "S04"
+      ],
+      "implementation_files": [
+        "engineering/d120/release_guard.py"
+      ],
+      "acceptance_passed": false,
+      "remaining": "Integration dans le parcours applicatif et validation de tous les criteres; le code ajoute reste isole du runtime."
+    },
+    {
+      "id": "D112",
+      "category": "L",
+      "category_title": "Distribution et cohérence Pesto / FILPRO / Domenia",
+      "priority": "P1",
+      "nature": "Consolider",
+      "title": "DEV reproductible et dépendances épinglées",
+      "proposal": "Même runtime que PROD, outils de construction et tests versionnés, dépendances récupérées dans un environnement de préparation contrôlé.",
+      "acceptance_criterion": "Une reconstruction depuis le commit et l’environnement documentés identifie clairement tous ses composants.",
+      "status": "DEVELOPPE_NON_RACCORDE",
+      "reference_ids": [
+        "S02",
+        "S03",
+        "S04"
+      ],
+      "implementation_files": [
+        "engineering/d120/release_guard.py"
+      ],
+      "acceptance_passed": false,
+      "remaining": "Integration dans le parcours applicatif et validation de tous les criteres; le code ajoute reste isole du runtime."
+    },
+    {
+      "id": "D113",
+      "category": "L",
+      "category_title": "Distribution et cohérence Pesto / FILPRO / Domenia",
+      "priority": "P0",
+      "nature": "Consolider",
+      "title": "Migration explicite ADCC vers Domenia",
+      "proposal": "Conserver données et préférences existantes, vérifier versions et domaines, tracer les reprises de noms historiques.",
+      "acceptance_criterion": "Une migration répétée ne duplique pas les liens et n’écrase pas une configuration Domenia déjà créée.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S02",
+        "S03",
+        "S04"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D114",
+      "category": "L",
+      "category_title": "Distribution et cohérence Pesto / FILPRO / Domenia",
+      "priority": "P0",
+      "nature": "Consolider",
+      "title": "Installation atomique au niveau de la version",
+      "proposal": "Préparer la livraison complète, coordonner les lanceurs avec le verrou, activer la version vérifiée et garder une reprise après interruption.",
+      "acceptance_criterion": "Aucun lancement concurrent ne lit un mélange de modules anciens et nouveaux.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S02",
+        "S03",
+        "S04"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D115",
+      "category": "L",
+      "category_title": "Distribution et cohérence Pesto / FILPRO / Domenia",
+      "priority": "P0",
+      "nature": "Étendre",
+      "title": "Compatibilité des données et retour de version",
+      "proposal": "Tester bases anciennes/futures, sauvegardes cohérentes et interruption de migration ; interdire le downgrade incompatible.",
+      "acceptance_criterion": "Restaurer un ancien EXE ne rétrograde pas silencieusement le schéma ni n’efface les reçus.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S02",
+        "S03",
+        "S04"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D116",
+      "category": "L",
+      "category_title": "Distribution et cohérence Pesto / FILPRO / Domenia",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "Signature et identité d’éditeur",
+      "proposal": "Prévoir signature organisationnelle et contrôles de provenance ; distinguer hash d’intégrité et confiance de l’éditeur.",
+      "acceptance_criterion": "Une distribution modifiée ne peut pas conserver un statut de signature valide ; aucune protection Windows n’est désactivée.",
+      "status": "DEVELOPPE_NON_RACCORDE",
+      "reference_ids": [
+        "S02",
+        "S03",
+        "S04"
+      ],
+      "implementation_files": [
+        "engineering/d120/release_guard.py"
+      ],
+      "acceptance_passed": false,
+      "remaining": "Integration dans le parcours applicatif et validation de tous les criteres; le code ajoute reste isole du runtime."
+    },
+    {
+      "id": "D117",
+      "category": "L",
+      "category_title": "Distribution et cohérence Pesto / FILPRO / Domenia",
+      "priority": "P1",
+      "nature": "Nouveau",
+      "title": "Inventaire des composants livrés",
+      "proposal": "Documenter bibliothèques, versions, licences, provenance et vulnérabilités pertinentes pour la version exacte distribuée.",
+      "acceptance_criterion": "Une version de composant affichée est reliée au fichier livré, pas seulement à un nom de paquet.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S02",
+        "S03",
+        "S04"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D118",
+      "category": "L",
+      "category_title": "Distribution et cohérence Pesto / FILPRO / Domenia",
+      "priority": "P1",
+      "nature": "Étendre",
+      "title": "Séparer configuration, préférence, cache et reçu",
+      "proposal": "Chemins et permissions propres à chaque catégorie, mode local/portable explicite et base active locale.",
+      "acceptance_criterion": "Un compte standard ou un dossier non inscriptible ne provoque pas une bascule silencieuse de données.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S02",
+        "S03",
+        "S04"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D119",
+      "category": "L",
+      "category_title": "Distribution et cohérence Pesto / FILPRO / Domenia",
+      "priority": "P1",
+      "nature": "Consolider",
+      "title": "Vrai kit d’interface de la suite",
+      "proposal": "Partager ressources de thème, composants de login, tailles, aides, messages et vocabulaire entre les trois logiciels, sans fusionner les moteurs.",
+      "acceptance_criterion": "Une modification du composant commun est testée dans Domenia, Pesto et FILPRO avant diffusion.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S02",
+        "S03",
+        "S04"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    },
+    {
+      "id": "D120",
+      "category": "L",
+      "category_title": "Distribution et cohérence Pesto / FILPRO / Domenia",
+      "priority": "P2",
+      "nature": "Optionnel",
+      "title": "Connecteurs de lecture facultatifs",
+      "proposal": "Brancher seulement les sources réellement déployées : GLPI, WAPT, Configuration Manager ou Intune ; versionner mapping, authentification et provenance.",
+      "acceptance_criterion": "Un connecteur absent ou refusé reste masqué/indisponible, ne bloque pas AD et ne déclenche pas de collecte ou d’écriture automatique.",
+      "status": "NON_CLOTURE",
+      "reference_ids": [
+        "S02",
+        "S03",
+        "S04"
+      ],
+      "implementation_files": [],
+      "acceptance_passed": false,
+      "remaining": "A reprendre dans le code existant; aucun avancement non prouve ajoute a ce point."
+    }
+  ]
+}
