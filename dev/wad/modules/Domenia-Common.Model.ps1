@@ -6,12 +6,44 @@ function Get-DomeniaMember {
     param($InputObject,[string]$Name,$Default=$null)
     if ($null -eq $InputObject -or [string]::IsNullOrEmpty($Name)) { return $Default }
     if ($InputObject -is [Collections.IDictionary]) {
-        if ($InputObject.Contains($Name)) { return $InputObject[$Name] }
-        return $Default
+        # IDictionary.Contains is explicit on generic dictionaries: it throws under Windows PowerShell 5.1.
+        $found = $false
+        try { $found = $InputObject.Contains($Name) }
+        catch { try { $found = [bool]$InputObject.ContainsKey($Name) } catch { $found = $false } }
+        # Unary comma: a one-element collection (DN list, byte[] SID, AD value collection) must not be unrolled.
+        if ($found) { return ,$InputObject[$Name] }
+        return ,$Default
     }
     $property = $InputObject.PSObject.Properties[$Name]
-    if ($null -eq $property) { return $Default }
-    return $property.Value
+    if ($null -eq $property) { return ,$Default }
+    return ,$property.Value
+}
+
+function Get-DomeniaCollectionItems {
+    # Materialises any non-text collection (array, AD value collection, list) as object[]; a scalar gives one item.
+    # byte[] is a single AD value (GUID, SID), never a collection of values.
+    param($Value)
+    if ($null -eq $Value) { return ,([object[]]@()) }
+    if (($Value -is [string]) -or ($Value -is [byte[]])) { return ,([object[]]@(,$Value)) }
+    if ($Value -is [Collections.IEnumerable]) {
+        $items = New-Object 'System.Collections.Generic.List[object]'
+        foreach ($item in $Value) { $items.Add($item) }
+        return ,($items.ToArray())
+    }
+    return ,([object[]]@(,$Value))
+}
+
+function ConvertFrom-DomeniaLargeInteger {
+    # Reads an ADSI IADsLargeInteger (DirectoryEntry large-integer attribute) as Int64. $null when not one.
+    param($Value)
+    if ($null -eq $Value -or $Value -is [ValueType] -or $Value -is [string] -or $Value -is [Collections.IEnumerable]) { return $null }
+    try {
+        $type = $Value.GetType()
+        $high = $type.InvokeMember('HighPart',[Reflection.BindingFlags]::GetProperty,$null,$Value,$null)
+        $low = $type.InvokeMember('LowPart',[Reflection.BindingFlags]::GetProperty,$null,$Value,$null)
+        if ($null -eq $high -or $null -eq $low) { return $null }
+        return (([long][int]$high) * 4294967296L) + (([long][int]$low) -band 0xFFFFFFFFL)
+    } catch { return $null }
 }
 
 function Test-DomeniaGuidText {
@@ -28,6 +60,10 @@ function ConvertTo-DomeniaGuidText {
     try {
         if ($Value -is [guid]) { if ($Value -eq [guid]::Empty) { return '' }; return $Value.ToString('D') }
         if ($Value -is [byte[]]) { if ($Value.Length -ne 16) { return '' }; return ([guid]::new($Value)).ToString('D') }
+        if (($Value -isnot [string]) -and ($Value -is [Collections.IEnumerable]) -and ($Value -isnot [array])) {
+            # AD value collection or list: same rules as an array (one element, or sixteen boxed bytes).
+            return (ConvertTo-DomeniaGuidText (Get-DomeniaCollectionItems $Value))
+        }
         if ($Value -is [array]) {
             # A one-element collection holding the byte array, or sixteen boxed bytes.
             if ($Value.Count -eq 1) { return (ConvertTo-DomeniaGuidText $Value[0]) }
@@ -52,7 +88,22 @@ function ConvertTo-DomeniaSidText {
     try {
         if ($Value -is [Security.Principal.SecurityIdentifier]) { return $Value.Value }
         if ($Value -is [byte[]]) { return (New-Object Security.Principal.SecurityIdentifier -ArgumentList @($Value,0)).Value }
-        if ($Value -is [array] -and $Value.Count -eq 1) { return (ConvertTo-DomeniaSidText $Value[0]) }
+        if (($Value -isnot [string]) -and ($Value -is [Collections.IEnumerable])) {
+            $items = Get-DomeniaCollectionItems $Value
+            if ($items.Count -eq 1) { return (ConvertTo-DomeniaSidText $items[0]) }
+            # A binary SID unrolled by the pipeline: 8 to 68 boxed bytes, revision 1.
+            if ($items.Count -ge 8 -and $items.Count -le 68) {
+                $bytes = New-Object byte[] $items.Count
+                for ($i = 0; $i -lt $items.Count; $i++) {
+                    $number = 0L
+                    if (-not [long]::TryParse([string]$items[$i],[ref]$number) -or $number -lt 0 -or $number -gt 255) { return '' }
+                    $bytes[$i] = [byte]$number
+                }
+                if ($bytes[0] -ne 1 -or (8 + 4 * [int]$bytes[1]) -ne $bytes.Length) { return '' }
+                return (New-Object Security.Principal.SecurityIdentifier -ArgumentList @($bytes,0)).Value
+            }
+            return ''
+        }
         $text = ([string]$Value).Trim()
         if ($text -match '^S-1-\d+(-\d+){1,14}$') { return $text.ToUpperInvariant() }
     } catch { }
@@ -71,6 +122,15 @@ function ConvertTo-DomeniaUtcDate {
     param($Value)
     if ($null -eq $Value) { return $null }
     try {
+        if ($Value -is [byte[]]) { return $null }
+        if (($Value -isnot [string]) -and ($Value -is [Collections.IEnumerable])) {
+            # One AD value in a collection is read; several values never pick one silently.
+            $items = Get-DomeniaCollectionItems $Value
+            if ($items.Count -ne 1) { return $null }
+            return (ConvertTo-DomeniaUtcDate $items[0])
+        }
+        $large = ConvertFrom-DomeniaLargeInteger $Value
+        if ($null -ne $large) { $Value = [long]$large }
         if ($Value -is [datetime]) {
             if ($Value.Kind -eq [DateTimeKind]::Unspecified) { return [datetime]::SpecifyKind($Value,[DateTimeKind]::Utc) }
             return $Value.ToUniversalTime()
