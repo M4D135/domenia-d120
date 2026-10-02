@@ -5,14 +5,16 @@
 # ---------------------------------------------------------------- D021 minimal projection
 function Get-DomeniaProjection {
     # Attributes requested for one purpose. A list never asks for memberships or security descriptors.
-    param([Parameter(Mandatory=$true)][ValidateSet('List','Detail','Groups','Security','Presence','Identity')][string]$Kind)
+    # The detail of one object is read by the fiche with its own explicit list; it is not a projection here,
+    # so no kind silently returns an empty list (an empty list would make Get-WAllProperties refuse the read).
+    # uSNChanged is part of the list: incremental synchronisation and cache versions need it (D025, D026).
+    param([Parameter(Mandatory=$true)][ValidateSet('List','Groups','Security','Presence','Identity')][string]$Kind)
     switch ($Kind) {
         'Identity' { return @('objectGUID','objectSid','distinguishedName','objectClass','name','sAMAccountName') }
-        'List'     { return @('objectGUID','objectSid','distinguishedName','objectClass','name','sAMAccountName','userPrincipalName','dNSHostName','displayName','userAccountControl','msDS-User-Account-Control-Computed','lockoutTime','operatingSystem','lastLogonTimestamp','mail','description','whenChanged','adminCount') }
+        'List'     { return @('objectGUID','objectSid','distinguishedName','objectClass','name','sAMAccountName','userPrincipalName','dNSHostName','displayName','userAccountControl','msDS-User-Account-Control-Computed','lockoutTime','operatingSystem','lastLogonTimestamp','mail','description','whenChanged','uSNChanged','adminCount') }
         'Groups'   { return @('objectGUID','distinguishedName','memberOf','primaryGroupID') }
         'Security' { return @('objectGUID','distinguishedName','nTSecurityDescriptor') }
-        'Presence' { return @('objectGUID','distinguishedName','dNSHostName','name') }
-        default    { return @() }
+        default    { return @('objectGUID','distinguishedName','dNSHostName','name') }
     }
 }
 
@@ -214,9 +216,15 @@ function Resolve-DomeniaIncrementalSync {
     }
     $next = $null
     # The checkpoint only moves forward with the data it describes, and never after a partial answer.
-    if (-not $partial) { $next = [pscustomobject]@{Dc=[string](Get-DomeniaMember $Response 'Dc' '');InvocationId=[string](Get-DomeniaMember $Response 'InvocationId' '');Usn=[string](Get-DomeniaMember $Response 'HighestUsn' '');ScopeDn=[string](Get-DomeniaMember $Response 'ScopeDn' '')} }
+    # A response whose instance is unknown (no invocationId) cannot become a checkpoint either: a later pass
+    # could not prove it reads the same instance.
+    $responseInvocation = [string](Get-DomeniaMember $Response 'InvocationId' '')
+    $advance = (-not $partial -and -not $reduced -and [bool]$responseInvocation)
+    if ($advance) { $next = [pscustomobject]@{Dc=[string](Get-DomeniaMember $Response 'Dc' '');InvocationId=$responseInvocation;Usn=[string](Get-DomeniaMember $Response 'HighestUsn' '');ScopeDn=[string](Get-DomeniaMember $Response 'ScopeDn' '')} }
     else { $next = $Checkpoint }
-    return [pscustomobject]@{Mode=$mode;Upserts=$rows;Moves=$moves.ToArray();NotSeen=$deletions;DeletionsAsserted=@();CheckpointNext=$next;SaveTogether=$true;Notes=$notes.ToArray()}
+    # ScopeVerified: the whole scope was read on the instance of the checkpoint, so the local copy may mirror it
+    # (rows absent from the answer may leave a local cache). It is never an AD deletion.
+    return [pscustomobject]@{Mode=$mode;Upserts=$rows;Moves=$moves.ToArray();NotSeen=$deletions;DeletionsAsserted=@();CheckpointNext=$next;CheckpointAdvanced=$advance;ScopeVerified=$canAssertAbsence;Partial=$partial;SaveTogether=$true;Notes=$notes.ToArray()}
 }
 
 # ---------------------------------------------------------------- D027 temporary failure cache
