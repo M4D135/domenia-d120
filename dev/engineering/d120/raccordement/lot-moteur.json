@@ -1,0 +1,117 @@
+{
+  "Lot": "moteur",
+  "Points": ["D002", "D003", "D011", "D014", "D015", "D016", "D017", "D018", "D019", "D020", "D089"],
+  "Modules": [
+    {
+      "File": "Domenia-Engine.Model.ps1",
+      "Phase": "Bootstrap",
+      "Requires": ["Domenia-Common.Model.ps1"],
+      "DotSource": true,
+      "ExistingEntry": true,
+      "Functions": ["Get-DomeniaStartupPhases", "Get-DomeniaFunctionProviderMap", "Test-DomeniaStartupPlan", "Test-DomeniaPhaseCall", "New-DomeniaSelectionIdentity", "Test-DomeniaIdentityCurrent", "Get-DomeniaTaskClass", "Get-DomeniaTaskPriority", "Get-DomeniaPayloadDigest", "Get-DomeniaTaskDedupKey", "Test-DomeniaTaskAdmission", "Select-DomeniaNextQueuedTask", "Get-DomeniaTaskState", "Get-DomeniaTaskStateSummary", "Get-DomeniaCancelStatusText", "Get-DomeniaOperationProvider", "Get-DomeniaOperationCredentialNeeds", "ConvertTo-DomeniaProviderOutcome", "Test-DomeniaQueuedTaskExpired", "Get-DomeniaIsolationDecision", "Get-DomeniaProviderBudget", "New-DomeniaProviderState", "Get-DomeniaProviderStateKey", "Register-DomeniaProviderOutcome", "Reset-DomeniaProviderState", "Test-DomeniaProviderAdmission", "Test-DomeniaAutoRetryAllowed", "New-DomeniaResourceRegistry", "Register-DomeniaResource", "Release-DomeniaResources", "Get-DomeniaResourceSummary", "Get-DomeniaIdlePolicy", "Get-DomeniaIdleActivityForSource", "Test-DomeniaIdleAllows"],
+      "NewFunctions": ["Get-DomeniaOperationCredentialNeeds", "ConvertTo-DomeniaProviderOutcome", "Test-DomeniaQueuedTaskExpired", "Get-DomeniaIsolationDecision", "Get-DomeniaIdleActivityForSource"]
+    },
+    {
+      "File": "Domenia-Demo.Model.ps1",
+      "Phase": "Modules",
+      "Requires": ["Domenia-Common.Model.ps1"],
+      "DotSource": true,
+      "Functions": ["Test-DomeniaDemoProviderEnabled", "Test-DomeniaDemoIdentity", "Get-DomeniaDemoBannerText", "Get-DomeniaDemoPassThroughOperations", "ConvertTo-DomeniaDemoWorkerContext", "Get-DomeniaDemoUnavailableText", "New-DomeniaDemoGuidBytes", "New-DomeniaDemoSidBytes", "New-DomeniaDemoDirectory"]
+    },
+    {
+      "File": "Domenia-Demo.Worker.ps1",
+      "Phase": "Modules",
+      "Requires": [],
+      "DotSource": true,
+      "Functions": ["Get-DomeniaDemoDirectoryWorkerCode"]
+    },
+    {
+      "File": "Domenia-Engine.Worker.ps1",
+      "Phase": "Modules",
+      "Requires": [],
+      "DotSource": true,
+      "Functions": ["Get-DomeniaLocalIndexReadWorkerCode", "Get-DomeniaParkSharedSyncWorkerCode"]
+    },
+    {
+      "File": "Domenia-Isolation.Worker.ps1",
+      "Phase": "Modules",
+      "Requires": [],
+      "DotSource": true,
+      "Functions": ["Get-DomeniaIsolatedReadWorkerCode"]
+    },
+    {
+      "File": "Domenia-Engine.UI.ps1",
+      "Phase": "Modules",
+      "Requires": ["Domenia-Common.Model.ps1", "Domenia-Engine.Model.ps1", "Domenia-Guard.Model.ps1", "Domenia-Demo.Model.ps1", "Domenia-Demo.Worker.ps1", "Domenia-Engine.Worker.ps1", "Domenia-Isolation.Worker.ps1"],
+      "DotSource": true,
+      "Functions": ["Initialize-DomeniaEngineState", "Test-DomeniaSchedulerEnabled", "Get-DomeniaEngineLimits", "Get-DomeniaEngineLoad", "Get-DomeniaUiTaskAdmission", "Get-DomeniaNextTaskSequence", "Get-DomeniaContextCredentialIdentity", "Invoke-DomeniaUiTaskDispatch", "Get-DomeniaDispatchIsolation", "New-DomeniaIsolatedReadPayload", "Register-DomeniaJobResources", "Sync-DomeniaJobResources", "Register-DomeniaOwnedTimer", "Register-DomeniaWorkerPool", "Add-DomeniaTaskSubscriber", "Invoke-DomeniaTaskSubscribers", "Remove-DomeniaQueuedTask", "Invoke-DomeniaQueuedTaskPromotion", "Register-DomeniaTaskOutcome", "Add-DomeniaTaskRuntimeMetric", "Test-DomeniaIdlePolicyEnabled", "Test-DomeniaBackgroundWorkAllowed", "Update-DomeniaIdlePolicy", "Initialize-DomeniaIdlePolicy", "Request-DomeniaIndexSearch", "Get-DomeniaLocalDatabasePathForRead", "Start-DomeniaIndexSearch", "Complete-DomeniaIndexSearchUi", "Fail-DomeniaIndexSearchUi", "Request-DomeniaParkStateReload", "Add-DomeniaParkDeferredResult", "Invoke-DomeniaParkDeferredResults", "Complete-DomeniaParkStateReloadUi", "Fail-DomeniaParkStateReloadUi", "Get-DomeniaParkStatusTextSafe", "Start-DomeniaParkSharedSync", "Complete-DomeniaParkSharedSyncUi", "Fail-DomeniaParkSharedSyncUi"]
+    },
+    {
+      "File": "Domenia-Demo.UI.ps1",
+      "Phase": "Modules",
+      "Requires": ["Domenia-Common.Model.ps1", "Domenia-Demo.Model.ps1"],
+      "DotSource": true,
+      "Functions": ["Initialize-DomeniaDemoMode", "Get-DomeniaDemoConfiguredIdentity", "Initialize-DomeniaDemoLoginPresentation", "Set-DomeniaDemoShellPresentation"]
+    },
+    {
+      "File": "Domenia-Startup.UI.ps1",
+      "Phase": "Modules",
+      "Requires": ["Domenia-Shell.Model.ps1"],
+      "DotSource": true,
+      "Functions": ["Get-DomeniaActivationState", "ConvertTo-DomeniaActivationTrigger", "Register-DomeniaUserSwitchWatch", "Test-DomeniaOwnWindowActive", "Write-DomeniaActivationLog", "Request-DomeniaWindowActivation", "Test-DomeniaUserSwitchedAway"]
+    }
+  ],
+  "ModifiedModulesWithoutNewFunctions": ["Domenia-Experience.UI.ps1 (Update-DomeniaExperienceActivity : entree en file comptee a part et affichee En attente)"],
+  "TypeFiles": [],
+  "Operations": [
+    {"Operation": "DemoDirectory", "File": "wad/modules/Domenia-Demo.Worker.ps1", "Function": "Get-DomeniaDemoDirectoryWorkerCode", "LiteralIndex": 0, "Provider": "Local", "Resource": "Local", "NeedsDirectoryCredential": false, "NeedsMachineCredential": false, "NonDirectory": true, "IsWrite": false, "Class": "Interactive"},
+    {"Operation": "LocalIndexRead", "File": "wad/modules/Domenia-Engine.Worker.ps1", "Function": "Get-DomeniaLocalIndexReadWorkerCode", "LiteralIndex": 0, "Provider": "Storage", "Resource": "Local", "NeedsDirectoryCredential": false, "NeedsMachineCredential": false, "NonDirectory": true, "IsWrite": false, "Class": "Interactive"},
+    {"Operation": "ParkSharedSync", "File": "wad/modules/Domenia-Engine.Worker.ps1", "Function": "Get-DomeniaParkSharedSyncWorkerCode", "LiteralIndex": 0, "Provider": "Storage", "Resource": "Network", "NeedsDirectoryCredential": false, "NeedsMachineCredential": false, "NonDirectory": true, "IsWrite": false, "Class": "Background"},
+    {"Operation": "IsolatedRead", "File": "wad/modules/Domenia-Isolation.Worker.ps1", "Function": "Get-DomeniaIsolatedReadWorkerCode", "LiteralIndex": 0, "Provider": "Process", "Resource": "Local", "NeedsDirectoryCredential": false, "NeedsMachineCredential": false, "NonDirectory": true, "IsWrite": false, "Class": "Interactive"}
+  ],
+  "OperationsModified": [],
+  "OperationsNote": "Aucun corps d operation existant n est modifie. Les quatre operations ajoutees sont deja classees dans Get-DomeniaOperationCredentialNeeds (aucun identifiant AD, poste ni secret) et dans Get-DomeniaOperationProvider (DemoDirectory et IsolatedRead : Local ; LocalIndexRead et ParkSharedSync : Storage). Corps ASCII : l empreinte ne depend pas de l encodage du fichier. Apres ajout au registre et a operation-contracts.json : python tools/update_worker_contracts.py --apply, puis relecture.",
+  "SelfTestRequiredFunctions": ["Test-DomeniaStartupPlan", "Test-DomeniaTaskAdmission", "Get-DomeniaTaskStateSummary", "Get-DomeniaOperationCredentialNeeds", "Initialize-DomeniaEngineState", "Invoke-DomeniaUiTaskDispatch", "Invoke-DomeniaQueuedTaskPromotion", "Test-DomeniaBackgroundWorkAllowed", "Initialize-DomeniaIdlePolicy", "Get-DomeniaDemoDirectoryWorkerCode", "New-DomeniaDemoDirectory", "ConvertTo-DomeniaDemoWorkerContext", "Test-DomeniaDemoProviderEnabled", "Request-DomeniaWindowActivation", "Get-DomeniaLocalIndexReadWorkerCode", "Get-DomeniaParkSharedSyncWorkerCode"],
+  "SelfTestChecks": [
+    "Plan de demarrage : $script:DomeniaStartupPlan.Valid et Domenia-Engine.Model.ps1 dans $script:DomeniaRuntimeImports (D011)",
+    "Registre demonstration : corps DemoDirectory conforme a son empreinte",
+    "Annuaire de demonstration MTA : TreeChildren, GlobalSearch (evenements Row = lignes), OpenAdObject (Assert-DomeniaObjectResultIdentity, GUID texte), operation non disponible sans proposition de compte, contexte non demonstration refuse",
+    "Authentification demonstration : runspace d authentification interne, DemoOnly, AuthMethod Demo.InMemory, aucune decouverte de domaine"
+  ],
+  "HelpEntries": [],
+  "Features": [
+    {"Name": "Scheduler", "Default": true, "Purpose": "D015/D018 : file prioritaire bornee, partage des lectures identiques, budgets et temporisation par fournisseur. Faux : limites historiques de Start-UiTask a l identique (deja dans New-DefaultConfig)."},
+    {"Name": "IsolatedReads", "Default": false, "Purpose": "D016 : lectures eligibles (ping, inventaires CIM, WMI, arborescence) dans un processus PowerShell auxiliaire borne, seulement sans compte explicite et avec une charge utile simple (deja dans New-DefaultConfig)."},
+    {"Name": "IdlePolicy", "Default": true, "Purpose": "D020 : politique de repos (fenetre inactive ou reduite, page cachee) consultee par Test-DomeniaBackgroundWorkAllowed (C1) et le tableau de bord. NOUVELLE CLE, absente de New-DefaultConfig (cle Features hors perimetre du lot moteur) : lue avec le defaut vrai par Get-DomeniaFeatureFlag ; faux = politique nulle, repli ouvert identique a l existant."}
+  ],
+  "AsyncConfigKeys": [
+    {"Name": "Async.MaxQueued", "Default": 32},
+    {"Name": "Async.ReservedForeground", "Default": 2},
+    {"Name": "Async.MaxQueueWaitSeconds", "Default": 120}
+  ],
+  "StartRequired": ["wad/modules/Domenia-Engine.UI.ps1", "wad/modules/Domenia-Engine.Worker.ps1", "wad/modules/Domenia-Demo.Model.ps1", "wad/modules/Domenia-Demo.Worker.ps1", "wad/modules/Domenia-Demo.UI.ps1", "wad/modules/Domenia-Startup.UI.ps1", "wad/modules/Domenia-Isolation.Worker.ps1"],
+  "DevOnlyFiles": ["tools/Test-DomeniaUiBlocking.ps1", "tools/ui-blocking-baseline.json", "wad/tests/Test-DomeniaWiringMoteur.ps1"],
+  "CoreFunctionsModified": ["Start-UiTask", "Complete-UiTasks", "Request-UiTaskStop", "Detach-DomeniaReadUiTask", "Update-TaskUi", "Dispose-AsyncEngine", "New-DomeniaWorkerRunspace", "Get-WorkerContext", "Invoke-DomeniaInProcessAuthProbe", "Start-DomeniaFastLoginAttempt", "New-DomeniaFastLoginSession", "Complete-DomeniaFastLoginSuccess", "Set-DomeniaFastLoginBusy", "Show-LoginWindow", "New-DomeniaAccountAuthRequest", "Assert-WriteAllowed", "Assert-DomeniaRemoteWriteAllowed", "Wire-Events (gestionnaires ChkReadOnlyMode.Add_Unchecked et TxtIndexSearch.Add_TextChanged uniquement)", "Get-DomeniaStartupXaml", "New-DomeniaStartupWindow", "Initialize-Window", "Invoke-DomeniaSelfTest", "Request-DomeniaDashboardRefresh", "Update-Dashboard", "Search-DomeniaIndexUi", "Sync-DomeniaParkShared", "Complete-DomeniaParkSweepUi", "Complete-DomeniaLogonHarvestUi", "New-DefaultConfig (cles Async.MaxQueued, ReservedForeground, MaxQueueWaitSeconds)", "bloc # Main autoritaire (Initialize-DomeniaDemoMode apres Load-AppConfig, trace Demonstration)"],
+  "CoreFunctionsModifiedCriticalForAuditPreload": ["Invoke-DomeniaInProcessAuthProbe", "Start-DomeniaFastLoginAttempt", "Complete-DomeniaFastLoginSuccess"],
+  "CoreFunctionsUnchanged": ["Initialize-AsyncEngine", "Stop-LatestUiTask", "Load-AppConfig", "Get-DomeniaWorkerOperationHashes", "Assert-DomeniaWorkerRegistry"],
+  "WiringTests": ["wad/tests/Test-DomeniaWiringMoteur.ps1"],
+  "StaticTools": ["tools/Test-DomeniaUiBlocking.ps1 (audit D014 par AST, compare a tools/ui-blocking-baseline.json ; ligne de base produite dans la VM CNAMTS-W11-01)"],
+  "CrossLaneRequests": [
+    {"To": "interface", "Request": "Sync-DomeniaUxNavigation (Domenia-UX.UI.ps1) : quand [bool]$script:DemoMode, ecrire Get-DomeniaDemoBannerText dans LblUxDomain a chaque navigation au lieu de 'Session AD · ' + domaine (sinon le bandeau pose par Set-DomeniaDemoShellPresentation disparait a la premiere navigation)."},
+    {"To": "interface", "Request": "Get-DomeniaExperienceTaskRow (Domenia-Experience.Model.ps1) : etat natif 'En attente' quand [string]$Job.State -eq 'Queued' (aujourd hui force par Update-DomeniaExperienceActivity)."},
+    {"To": "poste", "Request": "Invoke-ComputerTool : apres Assert-DomeniaComputerTarget, lever 'Outil poste <outil> non disponible en demonstration - aucune connexion au poste.' quand [bool]$script:DemoMode (RDP, C$, gestion, journaux, services, PSRemote)."},
+    {"To": "recherche", "Request": "Domenia-Live.UI.ps1 (Start-DomeniaLiveBackgroundWork / Invoke-DomeniaLiveTick) : lecture du cache et sondes LiveConsole/LiveSelectedPing seulement si Test-DomeniaBackgroundWorkAllowed -Source 'Live' ; l ecriture du cache (LiveCache en ecriture) reste libre. Passer -TaskClass 'Background' pour LiveCache. Enregistrer le minuteur par Register-DomeniaOwnedTimer -Owner 'Timer:Live'."},
+    {"To": "recherche", "Request": "Domenia-Continuity.UI.ps1 (Invoke-DomeniaObjectChanges) : remplacer -not $script:Window.IsActive par -not (Test-DomeniaBackgroundWorkAllowed -Source 'ObjectChanges') ; -TaskClass 'Background' pour LiveDirectoryCheck ; minuteur via Register-DomeniaOwnedTimer -Owner 'Timer:Continuity'."},
+    {"To": "cache", "Request": "Domenia-Reconcile.UI.ps1 (Invoke-DomeniaReconcileTick) : garde Test-DomeniaBackgroundWorkAllowed -Source 'Reconcile' ; controle de vivacite de $r.Job (absent d AsyncJobs et de DetachedReadJobs => Job='' et Next=+5 min), indispensable car une entree retiree de la file ou annulee ne rappelle personne ; -TaskClass 'Background' ; minuteur via Register-DomeniaOwnedTimer -Owner 'Timer:Reconcile'."},
+    {"To": "cache", "Request": "Lectures SQLite encore synchrones sur le Dispatcher (statut AFaire de tools/ui-blocking-baseline.json) : Refresh-DomeniaOperationStatsUi, Get-DomeniaOperationHistoryModel, Load-DomeniaParkState (via Start-DomeniaParkSweep), Get-DomeniaParkCoverage, Load-DomeniaIndexMetadata et Load-UserMachineLinks (via Start-DomeniaAccountRelogin), Get-DomeniaSecretIndexEntry, Get-DomeniaDatabasePath : passer par l operation LocalIndexRead (actions Search, ParkState extensibles) ou par l ecrivain unique D028, puis retirer les entrees de la ligne de base."},
+    {"To": "cache", "Request": "Domenia-Storage.UI.ps1 : minuteur Persistence via Register-DomeniaOwnedTimer -Owner 'Timer:Storage' ; noter qu une demande LocalStore peut desormais attendre en file (etat Queued) au lieu de lever une exception."},
+    {"To": "acces", "Request": "Domenia-Access.UI.ps1 : apres le choix explicite d un autre compte pour une ressource, appeler Reset-DomeniaProviderState -State $script:DomeniaProviderState -Provider <fournisseur> -Target <cible> (facultatif : l admission compare deja le compte refuse au compte courant) ; minuteurs Access via Register-DomeniaOwnedTimer."},
+    {"To": "diagnostic", "Request": "C7 Add-DomeniaRuntimeMetric : provenances utilisees par le moteur = 'Ldap', 'Cim', 'Sqlite', 'Queue', 'Cache' (demonstration) et 'Dispatcher' (Open() synchrone d un runspace, OperationId 'RunspaceOpen:<operation>'). Get-DomeniaRuntimeHealthText (coeur, hors lot moteur) : afficher Get-DomeniaTaskStateSummary et Get-DomeniaResourceSummary (carte D019, site 6)."},
+    {"To": "annuaire", "Request": "Move-DomeniaSelectedComputerWithOuPicker / Invoke-DomeniaUiPump (attente active avec pompe imbriquee, carte D014 B2) : remplacer par une continuation sur le rappel de lecture ; entree AFaire de tools/ui-blocking-baseline.json."},
+    {"To": "poste", "Request": "Exports apres boite d enregistrement (Export-CurrentResults, Export-DomeniaInventory, Export-DomeniaSoftware, Export-DomeniaWmi, Export-DomeniaLinksCsv, Export-DomeniaOperationStatsCsv, Export-SelfCheckReport, BtnIndexExport) : ecriture dans un worker (carte D014 B4) ; entrees AFaire de la ligne de base."},
+    {"To": "suites-historiques", "Request": "tools/audit_activity_layout.py et wad/tests/audit_experience.py exigent le litteral 'Update-DomeniaExperienceActivity -Force:$Force' dans Update-TaskUi : il devient -Force:$experienceForce (D020 : page Operations reconstruite seulement si visible). Test-DomeniaStartupLogin (57 operations) et les suites qui comptent le registre : 61 operations apres integration. Test-DomeniaActivityLayout, StableUi et LastUser restent sur le comportement historique (repli si Engine.Model absent)."},
+    {"To": "release", "Request": "D002/D003 : le pilote de qualification (Invoke-DomeniaQualification.ps1, QUALIFIER-WINDOWS.cmd) ecrit Auth.DemoProvider=true dans la copie extraite et s appuie sur les points d accroche livres (bandeau, identite DEMO\\demo.operateur, AutomationId = x:Name, journal 'CLICK ... Mode=Demo', 'LOGIN_OK ... Mode=Demo', 'ACTIVATION Trigger=...'). exit 3 sur echec fatal NON applique (decision F8 : double boite du lanceur) : detecter l echec par 'Fatal' dans Domenia-startup.log. release_guard.py : decider l autorisation explicite des wad/modules/Domenia-Demo.*.ps1 dans PROD (decision (a) de la carte demarrage)."},
+    {"To": "integrateur", "Request": "Registre worker (Get-DomeniaWorkerOperationHashes, empreinte d Assert-DomeniaWorkerRegistry, operation-contracts.json) : DemoDirectory, LocalIndexRead, ParkSharedSync, IsolatedRead. Domenia-Modules.ps1 : entrees ci-dessus (Startup.UI requiert Domenia-Shell.Model.ps1, qui doit etre declare avec Get-DomeniaActivationDecision de la branche d120-shell-r2). Domenia-Start.ps1 : StartRequired. preload-baseline.json : trois fonctions critiques modifiees et ensemble des fonctions du coeur inchange (aucune fonction ajoutee au coeur). New-DefaultConfig : ajouter Features.IdlePolicy = $true si l interrupteur est retenu."}
+  ],
+  "Notes": "Etat livre et non execute : aucune suite n a ete lancee (decision de l utilisateur : tous les points de modification avant les tests). Seuls les controles statiques ont tourne (validate_powershell_static.py, audit_function_names.py, Test-NativeParser -RequireWindows51 et Test-DomeniaPs51Compat dans la VM, audit D014 par AST dans la VM). Le test d integration Test-DomeniaWiringMoteur.ps1 depend du registre integre : avant ajout des quatre operations, les cas demonstration, index local, releve partage et isolement echouent volontairement sur 'Operation worker non autorisee'. Ordre du dispatch : le contexte (Get-WorkerContext) est desormais calcule avant la creation du runspace (une seule difference : plus de runspace cree puis detruit quand le disjoncteur AD refuse). D016 repose sur PowerShellProcessInstance et RunspaceFactory.CreateOutOfProcessRunspace (API de Windows PowerShell 3.0 et plus, a confirmer par le test sous 5.1 ; desactive par defaut). D089 : sans Get-DomeniaActivationDecision, Request-DomeniaWindowActivation n active rien (repli ferme, journalise). Alt-Tab reel et premier plan : verifiables seulement sur un bureau interactif, pas en session 0."
+}

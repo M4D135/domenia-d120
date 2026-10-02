@@ -1,0 +1,389 @@
+{
+  "Schema": "DomeniaUiBlockingBaseline/1",
+  "Source": "tools/Test-DomeniaUiBlocking.ps1 execute dans la VM CNAMTS-W11-01 (analyse AST, aucune execution du produit), 2026-10-02, apres les correctifs du lot moteur.",
+  "Rule": "Un constat absent de cette liste fait echouer l audit. Statut Justifie = exception motivee ; AFaire = attente encore reelle, attribuee a un lot.",
+  "FixedByMoteur": [
+    "TxtIndexSearch.Add_TextChanged > Search-DomeniaIndexUi > Search-DomeniaDatabaseRows (SQLite) : anti-rebond 250 ms puis operation LocalIndexRead",
+    "Complete-DomeniaParkSweepUi / Complete-DomeniaLogonHarvestUi > Sync-DomeniaParkShared (12 x Start-Sleep 250, E/S UNC) : operation ParkSharedSync",
+    "Complete-DomeniaParkSweepUi / Complete-DomeniaLogonHarvestUi > Load-DomeniaParkState (SQLite) : relecture LocalIndexRead puis integration differee",
+    "Update-Dashboard > Get-Command inutilise et Test-DomeniaAdCommandsAvailable a chaque rafraichissement : supprime ou mis en cache"
+  ],
+  "Entries": [
+    {
+      "Function": "<Add_Click@wad/Domenia-Core.ps1>",
+      "Pattern": ".WriteAllText",
+      "Status": "Justifie",
+      "Owner": "interface",
+      "Reason": "Ecriture locale ponctuelle (icone, diagnostic sur erreur ou creation d un journal vide) avant ouverture par l operateur.",
+      "Chain": "wad\\Domenia-Core.ps1:23777 $ui.OpenLog.Add_Click"
+    },
+    {
+      "Function": "<Add_Click@wad/Domenia-Core.ps1>",
+      "Pattern": "Export-Csv",
+      "Status": "AFaire",
+      "Owner": "poste/interface",
+      "Reason": "Export ou ecriture choisis par l operateur apres la boite d enregistrement : a deplacer dans un worker (carte D014, priorite 5).",
+      "Chain": "wad\\Domenia-Core.ps1:18745 $script:Ctrl[\"BtnIndexExport\"].Add_Click"
+    },
+    {
+      "Function": "Complete-DomeniaDetachedReadJobs",
+      "Pattern": ".EndInvoke",
+      "Status": "Justifie",
+      "Owner": "moteur",
+      "Reason": "EndInvoke appele seulement apres IsCompleted : aucune attente reelle sur le Dispatcher.",
+      "Chain": "wad\\Domenia-Core.ps1:2563 Start-UiTask > Apply-DomeniaPresenceFilter > Set-DomeniaGridRows > Queue-DomeniaSelectedObjectOpen > Invoke-DomeniaPendingSelectionOpen > Open-AdObject > Start-UiTask > Complete-DomeniaDetachedReadJobs"
+    },
+    {
+      "Function": "Complete-DomeniaLoginAuthRunspaceCleanup",
+      "Pattern": ".EndInvoke",
+      "Status": "Justifie",
+      "Owner": "moteur",
+      "Reason": "EndInvoke appele seulement apres IsCompleted : aucune attente reelle sur le Dispatcher.",
+      "Chain": "wad\\Domenia-Core.ps1:17205 $script:AuthCleanupTimer.Add_Tick > Complete-DomeniaLoginAuthRunspaceCleanup"
+    },
+    {
+      "Function": "Complete-LinkProbeJobs",
+      "Pattern": "Receive-Job",
+      "Status": "AFaire",
+      "Owner": "relations",
+      "Reason": "Receive-Job sur les sondes de liens : non bloquant pour un job termine, a confirmer par le lot proprietaire.",
+      "Chain": "wad\\Domenia-Core.ps1:7292 $timer.Add_Tick > Complete-LinkProbeJobs"
+    },
+    {
+      "Function": "Complete-UiTasks",
+      "Pattern": ".EndInvoke",
+      "Status": "Justifie",
+      "Owner": "moteur",
+      "Reason": "EndInvoke appele seulement apres IsCompleted : aucune attente reelle sur le Dispatcher.",
+      "Chain": "wad\\Domenia-Core.ps1:20283 $timer.Add_Tick > Complete-UiTasks"
+    },
+    {
+      "Function": "Dispose-AsyncEngine",
+      "Pattern": ".EndInvoke",
+      "Status": "Justifie",
+      "Owner": "moteur",
+      "Reason": "EndInvoke appele seulement apres IsCompleted : aucune attente reelle sur le Dispatcher.",
+      "Chain": "wad\\Domenia-Core.ps1:22740 $script:Window.Add_Closed > Dispose-AsyncEngine"
+    },
+    {
+      "Function": "Ensure-AppIconFile",
+      "Pattern": ".WriteAllBytes",
+      "Status": "Justifie",
+      "Owner": "interface",
+      "Reason": "Ecriture locale ponctuelle (icone, diagnostic sur erreur ou creation d un journal vide) avant ouverture par l operateur.",
+      "Chain": "wad\\Domenia-Core.ps1:294 $copy.Add_Click > Show-ErrorBox > Show-DomeniaDialog > Set-AppWindowIcon > Ensure-AppIconFile"
+    },
+    {
+      "Function": "Export-CurrentResults",
+      "Pattern": "Export-Csv",
+      "Status": "AFaire",
+      "Owner": "poste/interface",
+      "Reason": "Export ou ecriture choisis par l operateur apres la boite d enregistrement : a deplacer dans un worker (carte D014, priorite 5).",
+      "Chain": "wad\\Domenia-Core.ps1:12190 $menu.Add_Opened > Build-DomeniaObjectsContextMenu > Export-CurrentResults"
+    },
+    {
+      "Function": "Export-DomeniaInventory",
+      "Pattern": "Export-Csv",
+      "Status": "AFaire",
+      "Owner": "poste/interface",
+      "Reason": "Export ou ecriture choisis par l operateur apres la boite d enregistrement : a deplacer dans un worker (carte D014, priorite 5).",
+      "Chain": "wad\\Domenia-Core.ps1:18806 $script:Ctrl[\"BtnExportInventory\"].Add_Click > Export-DomeniaInventory"
+    },
+    {
+      "Function": "Export-DomeniaLinksCsv",
+      "Pattern": "Export-Csv",
+      "Status": "AFaire",
+      "Owner": "poste/interface",
+      "Reason": "Export ou ecriture choisis par l operateur apres la boite d enregistrement : a deplacer dans un worker (carte D014, priorite 5).",
+      "Chain": "wad\\Domenia-Core.ps1:18692 $script:Ctrl[\"BtnOpenLinksCsv\"].Add_Click > Export-DomeniaLinksCsv"
+    },
+    {
+      "Function": "Export-DomeniaOperationStatsCsv",
+      "Pattern": "Export-Csv",
+      "Status": "AFaire",
+      "Owner": "poste/interface",
+      "Reason": "Export ou ecriture choisis par l operateur apres la boite d enregistrement : a deplacer dans un worker (carte D014, priorite 5).",
+      "Chain": "wad\\Domenia-Core.ps1:18759 $script:Ctrl[\"BtnOperationStatsExport\"].Add_Click > Export-DomeniaOperationStatsCsv"
+    },
+    {
+      "Function": "Export-DomeniaSoftware",
+      "Pattern": "Export-Csv",
+      "Status": "AFaire",
+      "Owner": "poste/interface",
+      "Reason": "Export ou ecriture choisis par l operateur apres la boite d enregistrement : a deplacer dans un worker (carte D014, priorite 5).",
+      "Chain": "wad\\Domenia-Core.ps1:18790 $script:Ctrl[\"BtnExportSoftware\"].Add_Click > Export-DomeniaSoftware"
+    },
+    {
+      "Function": "Export-DomeniaWmi",
+      "Pattern": "Export-Csv",
+      "Status": "AFaire",
+      "Owner": "poste/interface",
+      "Reason": "Export ou ecriture choisis par l operateur apres la boite d enregistrement : a deplacer dans un worker (carte D014, priorite 5).",
+      "Chain": "wad\\Domenia-Core.ps1:18784 $script:Ctrl[\"BtnWmiExport\"].Add_Click > Export-DomeniaWmi"
+    },
+    {
+      "Function": "Export-SelfCheckReport",
+      "Pattern": ".CreateFromDirectory",
+      "Status": "AFaire",
+      "Owner": "poste/interface",
+      "Reason": "Export ou ecriture choisis par l operateur apres la boite d enregistrement : a deplacer dans un worker (carte D014, priorite 5).",
+      "Chain": "wad\\Domenia-Core.ps1:18824 $script:Ctrl[\"BtnSelfCheckExport\"].Add_Click > Export-SelfCheckReport"
+    },
+    {
+      "Function": "Export-SelfCheckReport",
+      "Pattern": "Export-Csv",
+      "Status": "AFaire",
+      "Owner": "poste/interface",
+      "Reason": "Export ou ecriture choisis par l operateur apres la boite d enregistrement : a deplacer dans un worker (carte D014, priorite 5).",
+      "Chain": "wad\\Domenia-Core.ps1:18824 $script:Ctrl[\"BtnSelfCheckExport\"].Add_Click > Export-SelfCheckReport"
+    },
+    {
+      "Function": "Export-SelfCheckReport",
+      "Pattern": "Set-Content",
+      "Status": "AFaire",
+      "Owner": "poste/interface",
+      "Reason": "Export ou ecriture choisis par l operateur apres la boite d enregistrement : a deplacer dans un worker (carte D014, priorite 5).",
+      "Chain": "wad\\Domenia-Core.ps1:18824 $script:Ctrl[\"BtnSelfCheckExport\"].Add_Click > Export-SelfCheckReport"
+    },
+    {
+      "Function": "Get-DomeniaDatabasePath",
+      "Pattern": "Invoke-DomeniaDbQuery",
+      "Status": "AFaire",
+      "Owner": "cache (D028)",
+      "Reason": "Lecture SQLite synchrone sur le Dispatcher (carte D014 A2, A3, A5 ou A6) dans une fonction hors du lot moteur : a passer par l operation LocalIndexRead ou l ecrivain unique.",
+      "Chain": "wad\\Domenia-Core.ps1:304 $health.Add_Click > Get-DomeniaRuntimeHealthText > Get-DomeniaDatabasePath"
+    },
+    {
+      "Function": "Get-DomeniaOperationHistoryModel",
+      "Pattern": "Initialize-DomeniaDatabase",
+      "Status": "AFaire",
+      "Owner": "cache (D028)",
+      "Reason": "Lecture SQLite synchrone sur le Dispatcher (carte D014 A2, A3, A5 ou A6) dans une fonction hors du lot moteur : a passer par l operation LocalIndexRead ou l ecrivain unique.",
+      "Chain": "wad\\Domenia-Core.ps1:18718 $script:Ctrl[\"BtnIndexBuild\"].Add_Click > Start-DomeniaIndexBuild > Get-DomeniaOperationImpactEstimate > Get-DomeniaOperationHistoryModel"
+    },
+    {
+      "Function": "Get-DomeniaOperationHistoryModel",
+      "Pattern": "Invoke-DomeniaDbQuery",
+      "Status": "AFaire",
+      "Owner": "cache (D028)",
+      "Reason": "Lecture SQLite synchrone sur le Dispatcher (carte D014 A2, A3, A5 ou A6) dans une fonction hors du lot moteur : a passer par l operation LocalIndexRead ou l ecrivain unique.",
+      "Chain": "wad\\Domenia-Core.ps1:18718 $script:Ctrl[\"BtnIndexBuild\"].Add_Click > Start-DomeniaIndexBuild > Get-DomeniaOperationImpactEstimate > Get-DomeniaOperationHistoryModel"
+    },
+    {
+      "Function": "Get-DomeniaParkCoverage",
+      "Pattern": "Invoke-DomeniaDbQuery",
+      "Status": "AFaire",
+      "Owner": "cache (D028)",
+      "Reason": "Lecture SQLite synchrone sur le Dispatcher (carte D014 A2, A3, A5 ou A6) dans une fonction hors du lot moteur : a passer par l operation LocalIndexRead ou l ecrivain unique.",
+      "Chain": "wad\\Domenia-Core.ps1:18720 $script:Ctrl[\"BtnParkSweep\"].Add_Click > Start-DomeniaParkSweep > Get-DomeniaParkCoverageText > Get-DomeniaParkCoverage"
+    },
+    {
+      "Function": "Get-DomeniaSecretIndexEntry",
+      "Pattern": "Initialize-DomeniaDatabase",
+      "Status": "AFaire",
+      "Owner": "cache (D028)",
+      "Reason": "Lecture SQLite synchrone sur le Dispatcher (carte D014 A2, A3, A5 ou A6) dans une fonction hors du lot moteur : a passer par l operation LocalIndexRead ou l ecrivain unique.",
+      "Chain": "wad\\Domenia-Core.ps1:6389 $item.Add_Selected > Set-SelectedBranch > Invoke-DomeniaSearchFilterChanged > Invoke-GlobalSearch > Reset-DomeniaSelectionBoundViews > Get-DomeniaSecretIndexSummary > Get-DomeniaSecretIndexEntry"
+    },
+    {
+      "Function": "Get-DomeniaSecretIndexEntry",
+      "Pattern": "Invoke-DomeniaDbQuery",
+      "Status": "AFaire",
+      "Owner": "cache (D028)",
+      "Reason": "Lecture SQLite synchrone sur le Dispatcher (carte D014 A2, A3, A5 ou A6) dans une fonction hors du lot moteur : a passer par l operation LocalIndexRead ou l ecrivain unique.",
+      "Chain": "wad\\Domenia-Core.ps1:6389 $item.Add_Selected > Set-SelectedBranch > Invoke-DomeniaSearchFilterChanged > Invoke-GlobalSearch > Reset-DomeniaSelectionBoundViews > Get-DomeniaSecretIndexSummary > Get-DomeniaSecretIndexEntry"
+    },
+    {
+      "Function": "Get-SuiteDesign",
+      "Pattern": ".ReadAllText",
+      "Status": "Justifie",
+      "Owner": "interface",
+      "Reason": "Lecture courte d un petit fichier local (preferences ou fichier du paquet), jamais un chemin reseau.",
+      "Chain": "wad\\Domenia-Core.ps1:18459 $script:Ctrl[\"BtnThemeToggle\"].Add_Click > Toggle-DomeniaTheme > Apply-DomeniaTheme > Set-DomeniaUxPalette > Get-SuitePalette > Get-SuiteDesign"
+    },
+    {
+      "Function": "Import-DomeniaUxHelpCatalogue",
+      "Pattern": ".ReadAllText",
+      "Status": "Justifie",
+      "Owner": "interface",
+      "Reason": "Lecture courte d un petit fichier local (preferences ou fichier du paquet), jamais un chemin reseau.",
+      "Chain": "wad\\Domenia-Core.ps1:2563 Start-UiTask > Apply-DomeniaPresenceFilter > Set-DomeniaGridRows > Queue-DomeniaSelectedObjectOpen > Select-DomeniaWorkspace > Sync-DomeniaUxNavigation > Get-DomeniaUxHelpEntry > Import-DomeniaUxHelpCatalogue"
+    },
+    {
+      "Function": "Invoke-DomeniaUiPump",
+      "Pattern": ".DoEvents",
+      "Status": "AFaire",
+      "Owner": "annuaire",
+      "Reason": "Attente active avec pompe imbriquee dans le deplacement de poste (carte D014 B2) : remplacer par une continuation sur le rappel de lecture.",
+      "Chain": "wad\\Domenia-Core.ps1:12190 $menu.Add_Opened > Build-DomeniaObjectsContextMenu > Move-DomeniaSelectedComputerWithOuPicker > Invoke-DomeniaUiPump"
+    },
+    {
+      "Function": "Invoke-DomeniaUiPump",
+      "Pattern": ".PushFrame",
+      "Status": "AFaire",
+      "Owner": "annuaire",
+      "Reason": "Attente active avec pompe imbriquee dans le deplacement de poste (carte D014 B2) : remplacer par une continuation sur le rappel de lecture.",
+      "Chain": "wad\\Domenia-Core.ps1:12190 $menu.Add_Opened > Build-DomeniaObjectsContextMenu > Move-DomeniaSelectedComputerWithOuPicker > Invoke-DomeniaUiPump"
+    },
+    {
+      "Function": "Load-DomeniaIndexMetadata",
+      "Pattern": "Initialize-DomeniaDatabase",
+      "Status": "AFaire",
+      "Owner": "cache (D028)",
+      "Reason": "Lecture SQLite synchrone sur le Dispatcher (carte D014 A2, A3, A5 ou A6) dans une fonction hors du lot moteur : a passer par l operation LocalIndexRead ou l ecrivain unique.",
+      "Chain": "wad\\Domenia-Core.ps1:18462 $script:Ctrl[\"BtnAccountAdRelogin\"].Add_Click > Start-DomeniaAccountRelogin > Load-DomeniaIndexMetadata"
+    },
+    {
+      "Function": "Load-DomeniaIndexMetadata",
+      "Pattern": "Invoke-DomeniaDbQuery",
+      "Status": "AFaire",
+      "Owner": "cache (D028)",
+      "Reason": "Lecture SQLite synchrone sur le Dispatcher (carte D014 A2, A3, A5 ou A6) dans une fonction hors du lot moteur : a passer par l operation LocalIndexRead ou l ecrivain unique.",
+      "Chain": "wad\\Domenia-Core.ps1:18462 $script:Ctrl[\"BtnAccountAdRelogin\"].Add_Click > Start-DomeniaAccountRelogin > Load-DomeniaIndexMetadata"
+    },
+    {
+      "Function": "Load-DomeniaParkState",
+      "Pattern": "Initialize-DomeniaDatabase",
+      "Status": "AFaire",
+      "Owner": "cache (D028)",
+      "Reason": "Lecture SQLite synchrone sur le Dispatcher (carte D014 A2, A3, A5 ou A6) dans une fonction hors du lot moteur : a passer par l operation LocalIndexRead ou l ecrivain unique.",
+      "Chain": "wad\\Domenia-Core.ps1:18720 $script:Ctrl[\"BtnParkSweep\"].Add_Click > Start-DomeniaParkSweep > Get-DomeniaParkPriority > Load-DomeniaParkState"
+    },
+    {
+      "Function": "Load-DomeniaParkState",
+      "Pattern": "Invoke-DomeniaDbQuery",
+      "Status": "AFaire",
+      "Owner": "cache (D028)",
+      "Reason": "Lecture SQLite synchrone sur le Dispatcher (carte D014 A2, A3, A5 ou A6) dans une fonction hors du lot moteur : a passer par l operation LocalIndexRead ou l ecrivain unique.",
+      "Chain": "wad\\Domenia-Core.ps1:18720 $script:Ctrl[\"BtnParkSweep\"].Add_Click > Start-DomeniaParkSweep > Get-DomeniaParkPriority > Load-DomeniaParkState"
+    },
+    {
+      "Function": "Load-UserMachineLinks",
+      "Pattern": "Initialize-DomeniaDatabase",
+      "Status": "AFaire",
+      "Owner": "cache (D028)",
+      "Reason": "Lecture SQLite synchrone sur le Dispatcher (carte D014 A2, A3, A5 ou A6) dans une fonction hors du lot moteur : a passer par l operation LocalIndexRead ou l ecrivain unique.",
+      "Chain": "wad\\Domenia-Core.ps1:18462 $script:Ctrl[\"BtnAccountAdRelogin\"].Add_Click > Start-DomeniaAccountRelogin > Load-UserMachineLinks"
+    },
+    {
+      "Function": "Load-UserMachineLinks",
+      "Pattern": "Invoke-DomeniaDbQuery",
+      "Status": "AFaire",
+      "Owner": "cache (D028)",
+      "Reason": "Lecture SQLite synchrone sur le Dispatcher (carte D014 A2, A3, A5 ou A6) dans une fonction hors du lot moteur : a passer par l operation LocalIndexRead ou l ecrivain unique.",
+      "Chain": "wad\\Domenia-Core.ps1:18462 $script:Ctrl[\"BtnAccountAdRelogin\"].Add_Click > Start-DomeniaAccountRelogin > Load-UserMachineLinks"
+    },
+    {
+      "Function": "Move-DomeniaSelectedComputerWithOuPicker",
+      "Pattern": "Start-Sleep",
+      "Status": "AFaire",
+      "Owner": "annuaire",
+      "Reason": "Attente active avec pompe imbriquee dans le deplacement de poste (carte D014 B2) : remplacer par une continuation sur le rappel de lecture.",
+      "Chain": "wad\\Domenia-Core.ps1:12190 $menu.Add_Opened > Build-DomeniaObjectsContextMenu > Move-DomeniaSelectedComputerWithOuPicker"
+    },
+    {
+      "Function": "Open-DomeniaAuditLog",
+      "Pattern": ".WriteAllText",
+      "Status": "AFaire",
+      "Owner": "poste/interface",
+      "Reason": "Export ou ecriture choisis par l operateur apres la boite d enregistrement : a deplacer dans un worker (carte D014, priorite 5).",
+      "Chain": "wad\\Domenia-Core.ps1:18863 $script:Ctrl[\"BtnDashOpenLog\"].Add_Click > Open-DomeniaAuditLog"
+    },
+    {
+      "Function": "Read-DomeniaAuthRunspaceResult",
+      "Pattern": ".EndInvoke",
+      "Status": "Justifie",
+      "Owner": "moteur",
+      "Reason": "EndInvoke appele seulement apres IsCompleted : aucune attente reelle sur le Dispatcher.",
+      "Chain": "wad\\Domenia-Core.ps1:23330 $script:FastLoginTimer.Add_Tick > Update-DomeniaFastLoginAttempt > Read-DomeniaAuthRunspaceResult"
+    },
+    {
+      "Function": "Read-DomeniaPreference",
+      "Pattern": ".ReadAllText",
+      "Status": "Justifie",
+      "Owner": "interface",
+      "Reason": "Lecture courte d un petit fichier local (preferences ou fichier du paquet), jamais un chemin reseau.",
+      "Chain": "wad\\Domenia-Core.ps1:294 $copy.Add_Click > Show-ErrorBox > Show-DomeniaDialog > Get-DomeniaStoredTheme > Read-DomeniaPreference"
+    },
+    {
+      "Function": "Refresh-DomeniaOperationStatsUi",
+      "Pattern": "Initialize-DomeniaDatabase",
+      "Status": "AFaire",
+      "Owner": "cache (D028)",
+      "Reason": "Lecture SQLite synchrone sur le Dispatcher (carte D014 A2, A3, A5 ou A6) dans une fonction hors du lot moteur : a passer par l operation LocalIndexRead ou l ecrivain unique.",
+      "Chain": "wad\\Domenia-Core.ps1:18758 $script:Ctrl[\"BtnOperationStatsRefresh\"].Add_Click > Refresh-DomeniaOperationStatsUi"
+    },
+    {
+      "Function": "Refresh-DomeniaOperationStatsUi",
+      "Pattern": "Invoke-DomeniaDbQuery",
+      "Status": "AFaire",
+      "Owner": "cache (D028)",
+      "Reason": "Lecture SQLite synchrone sur le Dispatcher (carte D014 A2, A3, A5 ou A6) dans une fonction hors du lot moteur : a passer par l operation LocalIndexRead ou l ecrivain unique.",
+      "Chain": "wad\\Domenia-Core.ps1:18758 $script:Ctrl[\"BtnOperationStatsRefresh\"].Add_Click > Refresh-DomeniaOperationStatsUi"
+    },
+    {
+      "Function": "Save-DomeniaXamlDiagnostic",
+      "Pattern": ".WriteAllText",
+      "Status": "Justifie",
+      "Owner": "interface",
+      "Reason": "Ecriture locale ponctuelle (icone, diagnostic sur erreur ou creation d un journal vide) avant ouverture par l operateur.",
+      "Chain": "wad\\Domenia-Core.ps1:18462 $script:Ctrl[\"BtnAccountAdRelogin\"].Add_Click > Start-DomeniaAccountRelogin > Show-LoginWindow > ConvertFrom-DomeniaXaml > Save-DomeniaXamlDiagnostic"
+    },
+    {
+      "Function": "Set-DomeniaStartupStage",
+      "Pattern": ".DoEvents",
+      "Status": "Justifie",
+      "Owner": "moteur",
+      "Reason": "Moniteur de demarrage uniquement (avant la fenetre principale) : exception de demarrage de la carte D014.",
+      "Chain": "wad\\Domenia-Core.ps1:19243 $script:StartupCtrl.Cancel.Add_Click > Set-DomeniaStartupStage"
+    },
+    {
+      "Function": "Show-DomeniaEmbeddedWindow",
+      "Pattern": ".PushFrame",
+      "Status": "Justifie",
+      "Owner": "interface",
+      "Reason": "Pompe imbriquee de l hote integre : le Dispatcher continue de traiter les messages pendant le panneau.",
+      "Chain": "wad\\Domenia-Core.ps1:294 $copy.Add_Click > Show-ErrorBox > Show-DomeniaDialog > Invoke-DomeniaHostWindow > Show-DomeniaEmbeddedWindow"
+    },
+    {
+      "Function": "Write-AppLog",
+      "Pattern": ".AppendAllText",
+      "Status": "Justifie",
+      "Owner": "moteur",
+      "Reason": "Journal local (ajout court ou rotation locale) : exception retenue par la carte D014, aucun chemin reseau.",
+      "Chain": "wad\\Domenia-Core.ps1:294 $copy.Add_Click > Show-ErrorBox > Show-DomeniaDialog > Write-AppLog"
+    },
+    {
+      "Function": "Write-AppLog",
+      "Pattern": "Move-Item",
+      "Status": "Justifie",
+      "Owner": "moteur",
+      "Reason": "Journal local (ajout court ou rotation locale) : exception retenue par la carte D014, aucun chemin reseau.",
+      "Chain": "wad\\Domenia-Core.ps1:294 $copy.Add_Click > Show-ErrorBox > Show-DomeniaDialog > Write-AppLog"
+    },
+    {
+      "Function": "Write-DomeniaBootstrapTrace",
+      "Pattern": ".AppendAllText",
+      "Status": "Justifie",
+      "Owner": "moteur",
+      "Reason": "Journal local (ajout court ou rotation locale) : exception retenue par la carte D014, aucun chemin reseau.",
+      "Chain": "wad\\Domenia-Core.ps1:294 $copy.Add_Click > Show-ErrorBox > Show-DomeniaDialog > Set-AppWindowIcon > Ensure-AppIconFile > Write-DomeniaBootstrapTrace"
+    },
+    {
+      "Function": "Write-DomeniaFastLoginLog",
+      "Pattern": ".AppendAllText",
+      "Status": "Justifie",
+      "Owner": "moteur",
+      "Reason": "Journal local (ajout court ou rotation locale) : exception retenue par la carte D014, aucun chemin reseau.",
+      "Chain": "wad\\Domenia-Core.ps1:18462 $script:Ctrl[\"BtnAccountAdRelogin\"].Add_Click > Start-DomeniaAccountRelogin > Show-LoginWindow > Write-DomeniaFastLoginLog"
+    },
+    {
+      "Function": "Write-StartupTrace",
+      "Pattern": ".AppendAllText",
+      "Status": "Justifie",
+      "Owner": "moteur",
+      "Reason": "Journal local (ajout court ou rotation locale) : exception retenue par la carte D014, aucun chemin reseau.",
+      "Chain": "wad\\Domenia-Core.ps1:2563 Start-UiTask > Apply-DomeniaPresenceFilter > Set-DomeniaGridRows > Queue-DomeniaSelectedObjectOpen > Invoke-DomeniaPendingSelectionOpen > Open-AdObject > Start-UiTask > Initialize-AsyncEngine > Write-StartupTrace"
+    }
+  ]
+}
