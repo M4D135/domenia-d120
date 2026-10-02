@@ -4561,7 +4561,7 @@ function Get-MainXaml {
                                     <Setter Property="FontWeight" Value="SemiBold"/>
                                     <Setter Property="BorderBrush" Value="{DynamicResource AccentColor}"/>
                                     <Setter Property="BorderThickness" Value="3,0,0,0"/>
-                                    <Setter Property="ToolTip" Value="Compte dʼadministration repéré par sa règle de nommage : vérifiez la cible avant toute action."/>
+                                    <Setter Property="ToolTip" Value="Compte dʼadministration repéré par adminCount=1 ou par sa règle de nommage : vérifiez la cible avant toute action. Ce repère nʼindique pas les droits actuels."/>
                                   </DataTrigger>
                                 </Style.Triggers>
                               </Style>
@@ -9711,7 +9711,7 @@ function Invoke-GlobalSearch {
             "name","distinguishedName","objectClass","objectCategory",
             "sAMAccountName","userPrincipalName","mail","dNSHostName","description",
             "displayName","whenChanged","objectGUID","userAccountControl","lockoutTime","msDS-User-Account-Control-Computed",
-            "operatingSystem","lastLogonTimestamp"
+            "operatingSystem","lastLogonTimestamp","adminCount"
         )
 
         $code = @'
@@ -9787,6 +9787,8 @@ foreach ($ctx in @($contexts)) {
                 $g=Get-WPropFirst $result.Properties 'objectguid' $null
                 $guidText=if($g -is [array] -and $g.Count -eq 16){([guid]([byte[]]$g)).ToString('D')}else{Convert-WGuid $g}
                 Add-Member -InputObject $row -NotePropertyName Guid -NotePropertyValue $guidText
+                # D034: protection marker, display only (the list marks administration accounts; no right is inferred).
+                Add-Member -InputObject $row -NotePropertyName AdminCount -NotePropertyValue ([string](Get-WPropFirst $result.Properties 'admincount' '')) -Force
                 if ([string]$row.Type -notin @("Utilisateur","Machine","Groupe","OU","Conteneur")) { continue }
 
                 $dn = ([string]$row.DN).Trim()

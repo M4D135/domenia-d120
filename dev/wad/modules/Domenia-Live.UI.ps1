@@ -256,7 +256,11 @@ function Add-DomeniaLiveRow {
     }else{$row=$s.Map[$key]}
     foreach($p in $snapshot.PSObject.Properties){Set-DomeniaLiveRowValue $row $p.Name ([string]$p.Value)}
     if($s.Ranking){Set-DomeniaLiveRowValue $row 'Rank' ([string](Get-DomeniaSearchRank $row ([string]$s.State.Search)))}
-    if($s.SearchRules -and (Test-DomeniaAdminAccountRow $row)){Set-DomeniaLiveRowValue $row 'Admin' 'Compte admin'}
+    # D034: adminCount comes with the fresh LDAP row only (never cached); the naming rule applies to every row.
+    if($s.SearchRules){
+        $adminRow=((Test-DomeniaAdminAccountRow $source) -or (Test-DomeniaAdminAccountRow $row))
+        if($adminRow){Set-DomeniaLiveRowValue $row 'Admin' 'Compte admin'}
+    }
     $row.DirectoryState=if($fresh){'AD vérifié'}else{'Cache · à vérifier'}
     $row.DirectoryChecked=[string]$Event.ObservedUtc
     if($fresh){if(-not $s.Fresh.ContainsKey($key)){[void]$s.FreshOrder.Add($snapshot)};$s.Fresh[$key]=$snapshot}

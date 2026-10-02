@@ -93,7 +93,7 @@ function Fail-DomeniaOpenObjectUi {param($Message,$Dn) $script:OpenFailure=[stri
 function Start-UiTask {
     param($Name,$OperationId,$Code,$Payload,$CallbackState,$ReplaceKey,$DisableControls,$TimeoutSeconds,$StatusText,$SuccessHandler,$ErrorHandler,[switch]$NonCancellable)
     $id='task-'+[guid]::NewGuid().ToString('N')
-    $job=[pscustomobject]@{Id=$id;OperationId=[string]$OperationId;Payload=$Payload;CallbackState=$CallbackState;ReplaceKey=[string]$ReplaceKey;IsWrite=$false}
+    $job=[pscustomobject]@{Id=$id;OperationId=[string]$OperationId;Payload=$Payload;CallbackState=$CallbackState;ReplaceKey=[string]$ReplaceKey;IsWrite=$false;Code=[string]$Code}
     $script:Tasks.Add($job);$script:AsyncJobs[$id]=$job
     return $id
 }
@@ -300,12 +300,18 @@ Case 'D034 Exact account first, then whole name; administration account identifi
     Feed-Live (New-ResultRow 'Jean Dupont' 'jdupont')
     Feed-Live (New-ResultRow 'Dupont' 'dupont')
     Feed-Live (New-ResultRow 'Zed Admin' 'adm-zed')
+    # A protected account (adminCount=1, projected by the GlobalSearch worker) without an administration name.
+    $protected=New-ResultRow 'Paul Dupontier' 'pdupontier';Add-Member -InputObject $protected -NotePropertyName AdminCount -NotePropertyValue '1'
+    Feed-Live $protected
     Pump-Live
     $items=@($script:Ctrl.DgObjects.Items)
-    Expect ($items.Count -eq 4) ('Lignes : '+$items.Count)
+    Expect ($items.Count -eq 5) ('Lignes : '+$items.Count)
     Expect ($items[0].Login -eq 'dupont' -and $items[1].Login -eq 'jdupont' -and $items[2].Login -eq 'mdupontel') ('Ordre : '+(($items|ForEach-Object{$_.Login}) -join ','))
     $admin=@($items|Where-Object{$_.Login -eq 'adm-zed'})[0]
     Expect ($admin.Admin -eq 'Compte admin' -and $items[0].Admin -eq '') 'Compte dʼadministration non signale.'
+    $marked=@($items|Where-Object{$_.Login -eq 'pdupontier'})[0]
+    Expect ($marked.Admin -eq 'Compte admin') 'Compte protege (adminCount=1) non signale.'
+    Expect (@((Get-LastTask 'GlobalSearch').Payload.Properties) -contains 'adminCount') 'adminCount nʼest pas demande a lʼannuaire.'
 }
 
 # ---------------------------------------------------------------- D035 compound names and special characters
