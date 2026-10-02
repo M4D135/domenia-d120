@@ -3,6 +3,8 @@
    Aucun lancement d DOMENIA, aucune connexion AD/SMB, aucun PsExec/schtasks reel.
    Les executables factices sont vides ; le lanceur de processus est remplace
    par un mock avant tout appel. Tous les fichiers vivent dans TEMP.
+   D120 : le Planificateur passe par l API COM depuis RC1.9 ; aucun cas n instancie
+   Schedule.Service (les gardes testees refusent avant toute connexion).
 #>
 [CmdletBinding()]
 param([string]$ReportPath='', [switch]$Quiet)
@@ -23,7 +25,7 @@ $commonTokens=$null;$commonErrors=$null
 $commonAst=[Management.Automation.Language.Parser]::ParseInput([string]$commonLiteral.Value,[ref]$commonTokens,[ref]$commonErrors)
 if (@($commonErrors).Count -gt 0) { throw ('Syntaxe du code commun : '+$commonErrors[0].Message) }
 $commonNames=@('Get-WAdCredential','Get-WDirectoryBindUser','Get-WRemoteAdminCredential','Get-WMachineCredential',
-    'Get-WRemoteComputerName','ConvertTo-WProcessQuotedArg','Get-WPsExecPath','Invoke-WRemotePsExecScript',
+    'Get-WRemoteComputerName','Assert-WRemoteArtifactPermission','ConvertTo-WProcessQuotedArg','Get-WPsExecPath','Invoke-WRemotePsExecScript',
     'Invoke-WSchtasksRemote','New-WAdminShareDrive','Remove-WAdminShareDrive','New-WRunOnceTaskXml',
     'Get-WSchtasksHint','Invoke-WRemoteScheduledTaskScript','Format-WRemoteFailureDetail','Get-WProbeAttemptSummary',
     'Test-WUserInAd','Escape-WLdap','Normalize-WUser')
@@ -42,6 +44,9 @@ foreach ($name in @('Get-WorkerContext','Get-DomeniaWorkerOperationHashes','Get-
 }
 # Definitions seules : aucune initialisation WPF ou reseau du projet.
 . ([scriptblock]::Create(($definitions.ToArray() -join "`n")))
+# D120 resync: Get-WorkerContext relies on the access functions of the closed module plan
+# (Get-DomeniaRetryCredential, Get-DomeniaAccessScope, Set-DomeniaRetryWorkerContext). Import the real plan.
+. (Join-Path $packageRoot 'wad\Domenia-Modules.ps1')
 $lastUserFunction=@($mainNodes | Where-Object {$_.Name -eq 'Start-ComputerUserLinkProbe'})[0]
 $workerStrings=@($lastUserFunction.FindAll({param($n)
     $n -is [Management.Automation.Language.StringConstantExpressionAst] -and $n.Value.StartsWith('$attempts = New-Object')
@@ -66,11 +71,14 @@ function Assert-Throws {
     Assert-Test ($caught -match $Pattern) ('Exception inattendue : '+$caught)
 }
 function Test-Case {
-    param([string]$Name,[scriptblock]$Action)
+    # The label parameter must not be called $Name: PowerShell variable names ignore case, so a
+    # $Name parameter masked the loop variable $name of the target cases and the real function
+    # received the case label instead of the target (baseline 'Cible unique valide' failures).
+    param([string]$CaseLabel,[scriptblock]$Action)
     try { & $Action | Out-Null; $status='PASS'; $detail='' }
     catch { $status='FAIL'; $detail=$_.Exception.Message }
-    $script:Results.Add([pscustomobject]@{Name=$Name;Status=$status;Detail=$detail})
-    if (-not $Quiet -or $status -eq 'FAIL') { Write-Host ("$status | $Name | $detail") }
+    $script:Results.Add([pscustomobject]@{Name=$CaseLabel;Status=$status;Detail=$detail})
+    if (-not $Quiet -or $status -eq 'FAIL') { Write-Host ("$status | $CaseLabel | $detail") }
 }
 function New-TestCredential {
     param([string]$User)
@@ -84,6 +92,8 @@ $context=[pscustomobject]@{
     MachineCredential=$null;RemoteAdminCredential=$null;RemoteAdminUser='';Credential=$null;UseCredential=$false
     BindUser='';ProcessIdentity='EXAMPLE\windows-user';BaseDn='DC=example,DC=test'
     UseWinRM=$false;UseCim=$true;UseTaskFallback=$true;UsePsExecFallback=$true;TaskFallbackTimeoutSeconds=30
+    # Explicit operator consent for remote artifacts, as built by Get-WorkerContext from $script:ArtifactConsent.
+    AllowRemoteArtifacts=$true;ArtifactTarget='TESTPC';ArtifactAliases=@()
 }
 $script:RemoteAdminCredential=$null
 $script:NativeCalls=0;$script:NativeExitCode=0;$script:NativeMode='Success';$script:SentArguments=@()
@@ -142,11 +152,11 @@ try {
         $Computer='TESTPC';$bad=@('\\'+$Computer,'-accepteula','-nobanner')
         Assert-Test ($bad.Count -eq 1 -and $bad[0] -match 'TESTPC.+accepteula') 'La reproduction du defaut a change.'
     }
-    foreach ($name in @('TESTPC','pc-01.example.test','192.0.2.10')) {
-        Test-Case ('Cible unique valide : '+$name) { Assert-Test ((Get-WRemoteComputerName $name) -ceq $name) }
+    foreach ($remoteTarget in @('TESTPC','pc-01.example.test','192.0.2.10')) {
+        Test-Case ('Cible unique valide : '+$remoteTarget) { Assert-Test ((Get-WRemoteComputerName $remoteTarget) -ceq $remoteTarget) ('Cible modifiee ou refusee : '+$remoteTarget) }
     }
-    foreach ($name in @('','*','PC1,PC2','PC1 -s','\\PC1','-accepteula','PC1;cmd')) {
-        Test-Case ('Cible invalide rejetee : '+$name) { Assert-Throws {Get-WRemoteComputerName $name} 'invalide' }
+    foreach ($remoteTarget in @('','*','PC1,PC2','PC1 -s','\\PC1','-accepteula','PC1;cmd')) {
+        Test-Case ('Cible invalide rejetee : '+$remoteTarget) { Assert-Throws {Get-WRemoteComputerName $remoteTarget} 'invalide' }
     }
     foreach ($case in @(
         @{Value='';Expected='""'},@{Value='plain';Expected='plain'},@{Value='EXAMPLE\user';Expected='EXAMPLE\user'},
@@ -162,12 +172,24 @@ try {
         Assert-Test ($script:SentArguments -notcontains '-u' -and $r.DomeniaTransport -eq 'PsExec')
         Assert-Test ($script:SentArguments -contains '-EncodedCommand')
     }
-    Test-Case 'PsExec: compte poste explicite prioritaire, mot de passe preserve' {
-        $context.MachineCredential=$machineCred;$context.RemoteAdminCredential=$remoteCred
-        [void](Invoke-WRemotePsExecScript $context 'TESTPC' '1' @{} 10)
-        $u=[array]::IndexOf($script:SentArguments,'-u');$p=[array]::IndexOf($script:SentArguments,'-p')
-        Assert-Test ($u -ge 0 -and $script:SentArguments[$u+1] -ceq $machineCred.UserName)
-        Assert-Test ($p -ge 0 -and $script:SentArguments[$p+1] -ceq $machineCred.GetNetworkCredential().Password)
+    # ARCHIVE (docs/history/ARCHIVE-SUITES-RC1.11.md): 'compte poste explicite prioritaire, mot de passe preserve'
+    # asserted '-p <password>' in the PsExec arguments; that transport was removed on purpose (no secret in a
+    # process argument). The replacement proves the refusal instead.
+    Test-Case 'PsExec: compte explicite refuse, aucun mot de passe en ligne de commande' {
+        $before=$script:NativeCalls
+        try {
+            $context.MachineCredential=$machineCred;$context.RemoteAdminCredential=$remoteCred
+            Assert-Throws {Invoke-WRemotePsExecScript $context 'TESTPC' '1' @{} 10} 'ne prend pas de mot de passe'
+            Assert-Test ($script:NativeCalls -eq $before) 'Un processus a ete lance avec un compte explicite.'
+        } finally { $context.MachineCredential=$null;$context.RemoteAdminCredential=$null }
+    }
+    Test-Case 'Depot distant refuse sans consentement explicite' {
+        $before=$script:NativeCalls
+        $noConsent=$context.PSObject.Copy();$noConsent.AllowRemoteArtifacts=$false
+        Assert-Throws {Invoke-WRemotePsExecScript $noConsent 'TESTPC' '1' @{} 10} 'non autorise'
+        $otherTarget=$context.PSObject.Copy();$otherTarget.ArtifactTarget='AUTREPC'
+        Assert-Throws {Invoke-WRemotePsExecScript $otherTarget 'TESTPC' '1' @{} 10} 'non autorise'
+        Assert-Test ($script:NativeCalls -eq $before) 'Un processus a ete lance sans consentement pour cette cible.'
     }
     Test-Case 'PsExec: cible invalide ne lance aucun processus' {
         $before=$script:NativeCalls
@@ -186,14 +208,22 @@ try {
         Assert-Throws {Invoke-WRemotePsExecScript $context 'TESTPC' '1' @{} 10} 'non nul'
         $script:NativeExitCode=0
     }
-    Test-Case 'schtasks: meme compte poste et tableau arguments conserve' {
-        [void](Invoke-WSchtasksRemote $context 'TESTPC' @('/query','/fo','LIST') 5)
-        Assert-Test ($script:SentArguments[0] -ceq '/s' -and $script:SentArguments[1] -ceq 'TESTPC')
-        $u=[array]::IndexOf($script:SentArguments,'/u')
-        Assert-Test ($script:SentArguments[$u+1] -ceq $machineCred.UserName)
-        Assert-Test ($script:SentArguments[-3] -eq '/query' -and $script:SentArguments[-1] -eq 'LIST')
+    # ARCHIVE (docs/history/ARCHIVE-SUITES-RC1.11.md): 'schtasks: meme compte poste et tableau arguments conserve'
+    # tested schtasks.exe /u /p arguments; Invoke-WSchtasksRemote now uses the Task Scheduler COM API and the old
+    # case opened a real Schedule.Service connection. Both replacements stop before any COM object is created.
+    Test-Case 'Planificateur: identifiants en argument refuses' {
+        $before=$script:NativeCalls
+        Assert-Throws {Invoke-WSchtasksRemote $context 'TESTPC' @('/query','/u','x') 5} 'interdit'
+        Assert-Throws {Invoke-WSchtasksRemote $context 'TESTPC' @('/query','/p','x') 5} 'interdit'
+        Assert-Test ($script:NativeCalls -eq $before)
+    }
+    Test-Case 'Planificateur: seules les taches propres a l operation' {
+        Assert-Throws {Invoke-WSchtasksRemote $context 'TESTPC' @('/create','/tn','\Autre','/xml','absent.xml','/f') 5} 'propres a cette operation'
+        Assert-Throws {Invoke-WSchtasksRemote $context 'TESTPC' @('/delete','/tn','\Microsoft\Windows\Defrag\ScheduledDefrag','/f') 5} 'propres a cette operation'
     }
     Test-Case 'ADMIN$: meme credential que PsExec/schtasks' {
+        # State formerly left by the archived PsExec case: explicit machine and remote accounts.
+        $context.MachineCredential=$machineCred;$context.RemoteAdminCredential=$remoteCred
         [void](New-WAdminShareDrive $context 'TESTPC')
         Assert-Test ($script:ShareCredential.UserName -ceq $machineCred.UserName -and $script:ShareRoot -ceq '\\TESTPC\ADMIN$')
     }
@@ -248,24 +278,29 @@ try {
         Assert-Test ($r -match 'Dcom : access denied' -and $r -match 'WinRM.+timeout')
     }
     # Staging reel dans un PSDrive LOCAL. Le nom/racine distante n est qu une fixture.
+    # Layout since RC1.9: a private folder Temp\DOMENIA_<id> holding run.ps1, run.json and run.out.json.
     function Invoke-WSchtasksRemote {
         param($Context,[string]$Computer,[string[]]$Arguments,[int]$TimeoutSeconds)
         $script:TaskCalls.Add([string]$Arguments[0])
         if ($Arguments[0] -eq '/run') {
-            $scriptFile=@(Get-ChildItem -LiteralPath ($script:ShareDriveName+':\Temp') -Filter 'DOMENIA_*.ps1')[0]
-            $script:StagedText=Get-Content -LiteralPath $scriptFile.FullName -Raw -Encoding UTF8
-            $resultPath=$script:ShareDriveName+':\Temp\'+$scriptFile.BaseName+'.out.json'
-            Set-Content -LiteralPath $resultPath -Value '{"Candidates":[],"TestOnly":true}' -Encoding UTF8
+            $folder=@(Get-ChildItem -LiteralPath ($script:ShareDriveName+':\Temp') -Directory -Filter 'DOMENIA_*')[0]
+            $script:StagedText=Get-Content -LiteralPath (Join-Path $folder.FullName 'run.ps1') -Raw -Encoding UTF8
+            Set-Content -LiteralPath (Join-Path $folder.FullName 'run.out.json') -Value '{"Candidates":[],"TestOnly":true}' -Encoding UTF8
         }
         return [pscustomobject]@{ExitCode=0;Output='TEST ONLY'}
     }
+    # The remote Windows directory is read by CIM/DCOM in production: replaced by a fixed answer here.
+    function Get-WRemoteWindowsDirectory { param($Context,[string]$Computer) return 'C:\Windows' }
+    # Record the private DACL instead of applying it, so the result does not depend on token elevation.
+    function Set-Acl { [CmdletBinding()] param([string]$LiteralPath,$AclObject) $script:StagedSddl=$AclObject.GetSecurityDescriptorSddlForm([Security.AccessControl.AccessControlSections]::Access) }
     Test-Case 'Staging: ecriture lecture et nettoyage par le PSDrive local' {
-        $script:ShareMode='Local';$script:TaskCalls=New-Object 'System.Collections.Generic.List[string]'
+        $script:ShareMode='Local';$script:TaskCalls=New-Object 'System.Collections.Generic.List[string]';$script:StagedSddl=''
         $r=Invoke-WRemoteScheduledTaskScript $context 'TESTPC' '[pscustomobject]@{TestOnly=$true}' @{} 15
         Assert-Test ($r.TestOnly -and $r.DomeniaTransport -eq 'ScheduledTask')
         Assert-Test ($script:TaskCalls.Contains('/create') -and $script:TaskCalls.Contains('/run') -and $script:TaskCalls.Contains('/delete'))
         Assert-Test (@(Get-ChildItem -LiteralPath (Join-Path $testRoot 'share\Temp') -Filter 'DOMENIA_*').Count -eq 0) 'Fichier de staging non nettoye.'
         Assert-Test ($script:StagedText -match 'Move-Item -LiteralPath') 'Publication atomique absente.'
+        Assert-Test ($script:StagedSddl -eq 'D:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)') ('DACL privee inattendue : '+$script:StagedSddl)
     }
     # Resolver reel, transports et annuaire remplaces. Les API reseau ne tournent pas.
     $script:ResolverMode='Found';$script:FallbackCalls=0;$script:PortCalls=0
@@ -335,7 +370,9 @@ try {
         $Payload.UseRemoteRegistry=$true;$script:ResolverMode='RegistryDenied'
         $r=& ([scriptblock]::Create($workerText))
         Assert-Test (-not $r.Success)
-        Assert-Test (@($r.Attempts | Where-Object {$_.Detail -match 'StdRegProv.+code 5'}).Count -eq 2)
+        # The fallback is always attempted since RC1.10 and its detail repeats the attempt summary:
+        # count only the two LogonUI registry reads that were refused.
+        Assert-Test (@($r.Attempts | Where-Object {$_.Method -eq 'CIM dernier utilisateur LogonUI' -and $_.Status -eq 'KO' -and $_.Detail -match 'StdRegProv.+code 5'}).Count -eq 2) ('Tentatives LogonUI refusees : '+@($r.Attempts | Where-Object {$_.Method -eq 'CIM dernier utilisateur LogonUI'}).Count)
     }
     Test-Case 'R1.3: progression disponible avant le callback final' {
         $script:ResolverMode='Found';$script:LdapMode='Found'

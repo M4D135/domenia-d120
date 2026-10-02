@@ -10,19 +10,19 @@ $root=Split-Path -Parent $wad
 $t=$null;$e=$null
 $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'Domenia-Core.ps1'),[ref]$t,[ref]$e)
 if(@($e).Count){throw $e[0].Message}
+# D120 resync: the access, guard, sessions and continuity functions live in modules of the closed plan.
+# Import that real plan (definitions only, verified origin) instead of a hand-picked file list:
+# a function removed from the plan now fails the suite with DOMENIA_MODULE_EXPORT.
+. (Join-Path $wad 'Domenia-Modules.ps1')
 $sourceFunctions=@{}
-foreach($n in @('Get-WorkerContext','Get-MainXaml','Get-DomeniaBootThemePalette','Get-DomeniaBootThemeResources','Convert-DomeniaXamlToBootTheme','Get-DomeniaWorkerOperationHashes','ConvertTo-DomeniaCanonicalWorkerCode','Get-DomeniaWorkerCodeHash','Assert-DomeniaWorkerOperationCode','Get-DomeniaDefaultSettings')){
+foreach($n in @('Get-WorkerContext','Get-MainXaml','Get-DomeniaBootThemePalette','Get-DomeniaBootThemeResources','Convert-DomeniaXamlToBootTheme','Get-DomeniaWorkerOperationHashes','Assert-DomeniaWorkerRegistry','ConvertTo-DomeniaCanonicalWorkerCode','Get-DomeniaWorkerCodeHash','Assert-DomeniaWorkerOperationCode','Get-DomeniaDefaultSettings','Get-DomeniaEntryFirstString','Get-DeProp')){
     $fn=@($ast.FindAll({param($a)$a -is [Management.Automation.Language.FunctionDefinitionAst] -and $a.Name -eq $n},$true))
     if($fn.Count -ne 1){throw ('Fonction absente : '+$n)}
     $sourceFunctions[$n]=$fn[0].Extent.Text
     . ([scriptblock]::Create($fn[0].Extent.Text))
 }
-. (Join-Path $wad 'modules\Domenia-Experience.Model.ps1')
-. (Join-Path $wad 'modules\Domenia-Live.Model.ps1')
-. (Join-Path $wad 'modules\Domenia-Access.UI.ps1')
-. (Join-Path $wad 'modules\Domenia-Continuity.Model.ps1')
-. (Join-Path $wad 'modules\Domenia-Continuity.UI.ps1')
 # Explicit doubles for UI and mutation boundaries, not alternative implementations of the models.
+# They are declared after the module import, so they replace only these boundaries.
 function Get-DomeniaControl {param($Name) if($script:Ctrl.ContainsKey($Name)){return $script:Ctrl[$Name]};return $null}
 function Set-DomeniaSetting {param($Name,$Value) $script:SettingsFixture[$Name]=$Value}
 function Get-DomeniaSetting {param($Name,$Default) return $Default}
@@ -32,12 +32,25 @@ function Write-AppLog {param($Text,$Level)}
 function Set-Status {param($Text,$Level)}
 function Show-InfoBox {param($Message)}
 function Confirm-Action {param($Message,$Title) $script:ConsentCalls++;return $script:Consent}
-function Show-DomeniaAlternateCredential {param($Scope,$Operation) $script:DialogCalls++;return $script:NextCredential}
+function Show-DomeniaAlternateCredential {param($Scope,$Operation,$Target) $script:DialogCalls++;$script:DialogTarget=[string]$Target;return $script:NextCredential}
 function Start-DomeniaAccountRelogin {$script:ReloginCalls++}
 function Start-LoadComputerSecrets {param($Mode,$RetryAttempt) $script:RetryCalls.Add([pscustomobject]@{Mode=$Mode;RetryAttempt=$RetryAttempt})}
 function Update-DomeniaSecretActionUi {}
 function Apply-CurrentPermissionUi {}
 function Clear-DomeniaActualCapabilityDenials {param($Dn)}
+# Contract C4 (in-page confirmation): same consent counter as Confirm-Action. The operator answer is immediate here.
+function Request-DomeniaInlineConfirmation {
+    param([string]$Title,[string]$Message,[string]$Target,[string]$ConfirmText='Confirmer',[string]$CancelText='Annuler',[scriptblock]$OnConfirm,[scriptblock]$OnCancel,[string]$Risk='Normal')
+    $script:ConsentCalls++
+    if($script:Consent){if($null -ne $OnConfirm){& $OnConfirm}}elseif($null -ne $OnCancel){& $OnCancel}
+    return [pscustomobject]@{Title=$Title;Target=$Target;Answered=$true;Confirmed=[bool]$script:Consent}
+}
+# Minimal main-window stand-in for the real Initialize-DomeniaAccess (no WPF window, never active).
+function New-FixtureWindowStub {
+    $w=[pscustomobject]@{IsActive=$false}
+    Add-Member -InputObject $w -MemberType ScriptMethod -Name Add_Closed -Value {param($Handler)}
+    return $w
+}
 $script:Tests=[Collections.Generic.List[object]]::new()
 function Assert-Release {param([bool]$Condition,[string]$Message='Assertion en echec') if(-not $Condition){throw $Message}}
 function Case {param([string]$Name,[scriptblock]$Body)
@@ -48,8 +61,14 @@ function Case {param([string]$Name,[scriptblock]$Body)
 function Reset-Fixture {
     $script:SessionEpoch=1L;$script:SelectedObjectGeneration=3L;$script:ActiveWriteTaskId='';$script:WriteState='Idle';$script:AsyncEngineClosing=$false
     $script:Conn=[pscustomobject]@{BaseDn='DC=example,DC=invalid';BindUser='EXAMPLE\user'}
-    $script:AccessState=[pscustomobject]@{Credentials=@{};Faults=@{};Denied=@{};Pending=@{};Prompted=@{};Showing=$false;Epoch=1L;BaseDn=$script:Conn.BaseDn;AuthSession=$null}
     $script:AccessCurrentJob=$null;$script:DirectoryCredentialFaulted=$false;$script:SecretsCredential=$null;$script:Live=$null;$script:Ctrl=@{};$script:SettingsFixture=@{}
+    # The access state is built by the REAL Initialize-DomeniaAccess (same shape as the application:
+    # Expires, Timer and any later field), then its DispatcherTimer is stopped: nothing ticks in this suite.
+    if($null -ne $script:AccessState -and $null -ne $script:AccessState.PSObject.Properties['Timer'] -and $null -ne $script:AccessState.Timer){$script:AccessState.Timer.Stop()}
+    $script:Window=New-FixtureWindowStub;$script:AccessState=$null
+    Initialize-DomeniaAccess
+    if($null -eq $script:AccessState){throw 'Etat des acces non initialise par Initialize-DomeniaAccess.'}
+    if($null -ne $script:AccessState.PSObject.Properties['Timer'] -and $null -ne $script:AccessState.Timer){$script:AccessState.Timer.Stop()}
     $script:SelectedObject=[pscustomobject]@{Type='Machine';DN='CN=PC,OU=Test,DC=example,DC=invalid'}
     $script:Consent=$true;$script:ConsentCalls=0;$script:DialogCalls=0;$script:ReloginCalls=0;$script:NextCredential=$null
     $script:RetryCalls=[Collections.Generic.List[object]]::new()
@@ -64,7 +83,14 @@ Case 'Parseur natif : scripts runtime et nouvelle suite' {
     $paths=@($man.Files|Where-Object{$_.Runtime -and $_.Path -like '*.ps1'}|ForEach-Object{Join-Path $root $_.Path}) + @($PSCommandPath)
     foreach($p in $paths){$t=$null;$e=$null;[void][Management.Automation.Language.Parser]::ParseFile($p,[ref]$t,[ref]$e);Assert-Release (@($e).Count -eq 0) ($p+': '+(@($e)|Out-String))}
 }
-Case 'Registre de 48 operations ferme' {Assert-Release ((Get-DomeniaWorkerOperationHashes).Count -eq 48)}
+Case 'Registre ferme conforme au contrat DEV' {
+    # Count and names come from tools/operation-contracts.json (parsed in two steps for 5.1), never from a constant.
+    $c=[IO.File]::ReadAllText((Join-Path $root 'tools\operation-contracts.json'))|ConvertFrom-Json
+    $contracts=@($c)
+    $names=@((Get-DomeniaWorkerOperationHashes).Keys|ForEach-Object{[string]$_}|Sort-Object)
+    Assert-Release ((Assert-DomeniaWorkerRegistry) -eq $contracts.Count) ('Registre / contrat : '+$names.Count+' / '+$contracts.Count)
+    Assert-Release (@(Compare-Object $names @($contracts|ForEach-Object{[string]$_.Operation}|Sort-Object)).Count -eq 0) 'Noms du registre differents du contrat DEV.'
+}
 Case 'Empreinte et syntaxe du worker de revalidation' {
     $code=Get-DomeniaChangeWorkerCode
     [void](Assert-DomeniaWorkerOperationCode 'LiveDirectoryCheck' $code)

@@ -1,7 +1,11 @@
 ﻿#requires -Version 5.1
-<# R1.4. Tests isoles des vraies fonctions de l'application, extraites par AST.
-   AUCUN lancement du coeur, AUCUN bind LDAP, AUCUN acces distant, AUCUN WPF.
-   Le demarrage, la lecture et le nettoyage du worker sont obligatoirement mocks.
+<# R1.4, remis a niveau D120 (contrat asynchrone M15). Tests isoles des vraies fonctions de l'application.
+   Les fonctions du coeur sont extraites par AST ; les modules viennent du plan ferme reel
+   (wad\Domenia-Modules.ps1), dont Domenia-Accounts.Async.ps1 et Domenia-Access.UI.ps1.
+   AUCUN lancement du coeur, AUCUN bind LDAP, AUCUN acces distant, AUCUNE fenetre WPF.
+   Le demarrage, la lecture et le nettoyage du worker sont obligatoirement des doublures.
+   La validation est asynchrone : un DispatcherTimer (WindowsBase) est cree mais jamais pompe ;
+   chaque cas declenche lui-meme Complete-DomeniaAccountValidation, comme le ferait le tick.
    Les identites, domaines et mots de passe sont uniquement des donnees synthetiques.
 #>
 [CmdletBinding()]
@@ -9,12 +13,16 @@ param([string]$ReportPath='', [switch]$Quiet)
 $ErrorActionPreference='Stop'
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
 $corePath=Join-Path $root 'wad\Domenia-Core.ps1'
+Add-Type -AssemblyName WindowsBase
 $source=[IO.File]::ReadAllText($corePath)
 $tokens=$null; $errors=$null
 $ast=[Management.Automation.Language.Parser]::ParseInput($source,[ref]$tokens,[ref]$errors)
 if (@($errors).Count -gt 0) { throw ('Syntaxe du coeur : '+$errors[0].Message) }
+# Closed module plan first (definitions only, verified origin). If Accounts.Async or Access.UI were
+# removed from the plan, the import fails with DOMENIA_MODULE_EXPORT and every case below fails.
+. (Join-Path $root 'wad\Domenia-Modules.ps1')
 $functionNodes=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst]},$true))
-$names=@('New-DomeniaAccountAuthRequest','Test-DomeniaCredentialBind','Test-DomeniaActiveDirectoryCredential','Save-DomeniaSecondaryCredential','Get-WorkerContext')
+$names=@('New-DomeniaAccountAuthRequest','Test-DomeniaCredentialBind','Test-DomeniaActiveDirectoryCredential','Save-DomeniaSecondaryCredential','Get-WorkerContext','Set-ControlsBusy')
 $definitions=New-Object 'System.Collections.Generic.List[string]'
 foreach ($name in $names) {
     $found=@($functionNodes | Where-Object {$_.Name -eq $name})
@@ -49,13 +57,28 @@ function Assert-Throws {
 }
 function New-TestPassword { return (ConvertTo-SecureString ' Test-Only ! & " / \ euro  ' -AsPlainText -Force) }
 function New-TestCredential { param([string]$User); return [Management.Automation.PSCredential]::new($User,(New-TestPassword)) }
+function New-TestPasswordField {
+    # Stand-in for a WPF PasswordBox: Password, IsEnabled and the Clear() method used after activation.
+    $field=[pscustomobject]@{Password='form-not-cleared';IsEnabled=$true}
+    Add-Member -InputObject $field -MemberType ScriptMethod -Name Clear -Value { $this.Password='' }
+    return $field
+}
+function Stop-FixtureValidation {
+    # A validation left pending by a previous case keeps its timer: stop it, never pump it.
+    if ($null -ne $script:AccountValidation) {
+        try { if ($null -ne $script:AccountValidation.Timer) { $script:AccountValidation.Timer.Stop() } } catch { }
+    }
+    $script:AccountValidation=$null
+}
 function Reset-Fixture {
-    $script:AccountCredentialTestSession=$null
-    $script:StartCalls=0; $script:ReadCalls=0; $script:StopCalls=0
-    $script:Mode='Success'; $script:WaitResult=$true; $script:WorkerBindUser=''
-    $script:LastRequest=$null; $script:LastCredential=$null
+    Stop-FixtureValidation
+    $script:StartCalls=0; $script:ReadCalls=0; $script:StopCalls=0; $script:WaitCalls=0
+    $script:Mode='Success'; $script:WorkerBindUser=''
+    $script:LastRequest=$null; $script:LastCredential=$null; $script:LastSession=$null; $script:LastError=''
     $script:Log=New-Object 'System.Collections.Generic.List[string]'
-    $script:Settings=@{}; $script:UiUpdates=0
+    $script:Settings=@{}; $script:UiUpdates=0; $script:SecretUiUpdates=0
+    $script:SessionEpoch=1L; $script:AsyncEngineClosing=$false; $script:ActiveWriteTaskId=''; $script:WriteState='Idle'
+    $script:ControlBusyRef=@{}; $script:AccessState=$null
     $script:Conn=[pscustomobject]@{
         Server='dc.example.test'; BaseDn='DC=example,DC=test'; Domain='example.test'; Netbios='EXAMPLE'
         BindUser='EXAMPLE\ad-reader'; User='EXAMPLE\ad-reader'; Credential=(New-TestCredential 'EXAMPLE\ad-reader')
@@ -65,13 +88,14 @@ function Reset-Fixture {
     $script:SecretsCredential=New-TestCredential 'EXAMPLE\old-secrets'
     $script:MachineCredential=$null
     $script:Ctrl=@{
-        PwdAccountRemote=[pscustomobject]@{Password='form-not-cleared'}
-        PwdAccountSecrets=[pscustomobject]@{Password='form-not-cleared'}
+        PwdAccountRemote=(New-TestPasswordField)
+        PwdAccountSecrets=(New-TestPasswordField)
     }
     $script:DirectoryCredentialFaulted=$false; $script:DirectoryCredentialFaultMessage=''
     $script:RootDir=''; $script:DataDir=''; $script:AuditPath=''; $script:LaunchPath=''
     $script:Version='1.0'; $script:MasterBuild='TEST-ONLY'; $script:ProcessIdentity='EXAMPLE\windows-user'
-    $script:AsyncEngineReady=$false; $script:RawAttributeBlockList=@(); $script:ReadOnlyMode=$true; $script:WriteState='Idle'
+    $script:AsyncEngineReady=$false; $script:RawAttributeBlockList=@(); $script:ReadOnlyMode=$true
+    $script:ArtifactConsent=$null
     $script:WorkerContextStatic=[pscustomobject]@{
         AdModuleSources=@(); AdRequiredCommands=@(); AdTypeNames=@(); AdManagementHash=''; AdResourceHash=''
         MissingCriticalFunctions=@(); MissingCriticalControls=@(); CriticalFunctionCount=0; CriticalControlCount=0
@@ -83,6 +107,7 @@ function Test-Case {
     Reset-Fixture
     try { & $Action | Out-Null; $status='PASS'; $detail='' }
     catch { $status='FAIL'; $detail=[string]$_.Exception.Message }
+    finally { Stop-FixtureValidation }
     $script:Results.Add([pscustomobject]@{Name=$Name;Status=$status;Detail=$detail})
     if (-not $Quiet -or $status -eq 'FAIL') { Write-Host ("$status | $Name | $detail") }
 }
@@ -94,19 +119,21 @@ function Start-DomeniaLoginAuthRunspace {
     $script:LastRequest=$Request
     $script:LastCredential=$Request.Credential
     $wait=[pscustomobject]@{}
-    $wait | Add-Member -MemberType ScriptMethod -Name WaitOne -Value {
-        param([TimeSpan]$Timeout)
-        Assert-Test ($Timeout.TotalSeconds -ge 2 -and $Timeout.TotalSeconds -le 45) 'Attente non bornee.'
-        return $script:WaitResult
+    # M15: the account path must never wait on the Dispatcher thread. Any WaitOne call fails the case.
+    $wait | Add-Member -MemberType ScriptMethod -Name WaitOne -Value { $script:WaitCalls++; throw 'WaitOne interdit (M15) : la validation de compte doit rester asynchrone.' }
+    # The native call is always still running when Start returns; Complete-Fixture marks it completed.
+    $session=[pscustomobject]@{
+        Request=$Request; Cleaned=$false; EndInvoked=$false; CancelRequested=$false
+        AsyncResult=[pscustomobject]@{IsCompleted=$false;AsyncWaitHandle=$wait}
     }
-    return [pscustomobject]@{
-        Request=$Request; Cleaned=$false; EndInvoked=$false
-        AsyncResult=[pscustomobject]@{IsCompleted=$script:WaitResult;AsyncWaitHandle=$wait}
-    }
+    $script:LastSession=$session
+    return $session
 }
 function Read-DomeniaAuthRunspaceResult {
     param($Session)
-    $script:ReadCalls++; $Session.EndInvoked=$true
+    $script:ReadCalls++
+    if (-not [bool]$Session.AsyncResult.IsCompleted) { throw 'TEST ONLY: lecture d une validation non terminee.' }
+    $Session.EndInvoked=$true
     if ($script:Mode -eq 'ReadFailure') { throw 'TEST ONLY worker result failed' }
     if ($script:Mode -eq 'NoResult') { return $null }
     $login=[string]$Session.Request.Login
@@ -122,19 +149,35 @@ function Read-DomeniaAuthRunspaceResult {
     }
 }
 function Stop-DomeniaLoginAuthRunspace {
+    # Same observable contract as the core function: cancel once while running, clean up once completed.
     param($Session,[switch]$Terminate)
     $script:StopCalls++
-    if ($null -ne $Session -and [bool]$Session.AsyncResult.IsCompleted) {
-        $Session.Cleaned=$true; $Session.Request.Credential=$null
-    }
+    if ($null -eq $Session -or [bool]$Session.Cleaned) { return }
+    if (-not [bool]$Session.AsyncResult.IsCompleted -and $Terminate) { $Session.CancelRequested=$true }
+    if ([bool]$Session.AsyncResult.IsCompleted) { $Session.Cleaned=$true; $Session.Request.Credential=$null }
+}
+function Show-DomeniaOperationError {
+    param([string]$Operation,$ErrorRecordOrException,[string]$CorrelationId='',[switch]$NoPopup)
+    $script:LastError=[string]$ErrorRecordOrException
+    $script:Log.Add('ERREUR '+$Operation+' : '+$script:LastError)
 }
 function Add-DomeniaUiLog { param($Area,$Level,$Text); $script:Log.Add([string]$Text) }
 function Set-Status { param($Text,$Level); $script:Log.Add([string]$Text) }
 function Set-DomeniaSetting { param($Name,$Value); $script:Settings[$Name]=$Value }
 function Get-DomeniaControl { param($Name); return $script:Ctrl[$Name] }
 function Update-DomeniaAccountUi { $script:UiUpdates++ }
+function Update-DomeniaSecretActionUi { $script:SecretUiUpdates++ }
+function Apply-CurrentPermissionUi { }
 function Initialize-DomeniaWorkerContextCache {}
 function Get-CfgValue { param($Section,$Name,$Default); return $Default }
+function Complete-Fixture {
+    # What the 100 ms DispatcherTimer tick does once the native validation has returned.
+    param([switch]$StillRunning)
+    if ($null -eq $script:AccountValidation) { throw 'Aucune validation en cours.' }
+    if (-not $StillRunning) { $script:AccountValidation.Session.AsyncResult.IsCompleted=$true }
+    Complete-DomeniaAccountValidation
+}
+function Get-FixtureLog { return ($script:Log.ToArray() -join "`n") }
 
 Test-Case 'Requete : meme identite qualifiee et meme contexte que le login' {
     $p=New-TestPassword
@@ -160,68 +203,100 @@ Test-Case 'SecureString : copie distincte, lecture seule, espaces et caracteres 
 Test-Case 'Contexte incomplet refuse avant tout appel au worker' {
     $script:Conn.BaseDn=''
     Assert-Throws {Test-DomeniaCredentialBind -UserName 'EXAMPLE\operator' -Password (New-TestPassword)} 'Contexte AD incomplet'
-    Assert-Test ($script:StartCalls -eq 0)
+    Assert-Test ($script:StartCalls -eq 0 -and $null -eq $script:AccountValidation)
 }
 Test-Case 'Mot de passe vide refuse sans authentification' {
     $empty=New-Object Security.SecureString
-    Assert-Throws {Test-DomeniaCredentialBind -UserName 'EXAMPLE\operator' -Password $empty} 'Mot de passe vide'
-    Assert-Test ($script:StartCalls -eq 0)
+    Assert-Throws {Test-DomeniaCredentialBind -UserName 'EXAMPLE\operator' -Password $empty} 'mot de passe requis'
+    Assert-Test ($script:StartCalls -eq 0 -and $null -eq $script:AccountValidation)
 }
 Test-Case 'Succes : un seul worker de login, lecture et nettoyage' {
     $r=Test-DomeniaCredentialBind -UserName 'EXAMPLE\operator' -Password (New-TestPassword)
-    Assert-Test ($r.Success -and $r.AuthMethod -eq 'ADSI.DirectoryEntry+ContextDiscovery')
+    # The call returns immediately; the result is read later by the tick, never awaited.
+    Assert-Test ($r.Started -and $r.Pending -and -not $r.Success) 'La validation doit rester en attente sans bloquer.'
+    Assert-Test ($script:StartCalls -eq 1 -and $script:ReadCalls -eq 0 -and $null -ne $script:AccountValidation)
+    Assert-Test (-not $script:Ctrl['PwdAccountRemote'].IsEnabled) 'Formulaire non verrouille pendant la validation.'
+    Complete-Fixture
     Assert-Test ($script:StartCalls -eq 1 -and $script:ReadCalls -eq 1 -and $script:StopCalls -eq 1)
-    Assert-Test ($null -eq $script:AccountCredentialTestSession)
+    Assert-Test ($null -eq $script:AccountValidation -and $script:LastSession.Cleaned)
+    Assert-Test ((Get-FixtureLog) -match 'Identite AD validee : EXAMPLE\\operator') (Get-FixtureLog)
+    Assert-Test ($script:Ctrl['PwdAccountRemote'].IsEnabled -and -not $script:LastError) 'Formulaire non rendu ou erreur inattendue.'
+}
+Test-Case 'Aucune attente bloquante (M15)' {
+    [void](Test-DomeniaCredentialBind -UserName 'EXAMPLE\operator' -Password (New-TestPassword))
+    Complete-Fixture -StillRunning
+    Complete-Fixture
+    Assert-Test ($script:WaitCalls -eq 0 -and -not $script:LastError) ('WaitOne appele '+$script:WaitCalls+' fois ; '+$script:LastError)
 }
 Test-Case 'Identite canonique du worker retournee telle quelle' {
     $script:WorkerBindUser='EXAMPLE\operator'
-    $r=Test-DomeniaCredentialBind -UserName 'operator' -Password (New-TestPassword)
-    Assert-Test ($r.User -ceq 'EXAMPLE\operator' -and $script:LastCredential.UserName -ceq 'operator')
+    [void](Test-DomeniaCredentialBind -UserName 'operator' -Password (New-TestPassword))
+    Assert-Test ($script:LastCredential.UserName -ceq 'operator') 'Le nom saisi a ete transforme avant envoi.'
+    Complete-Fixture
+    Assert-Test ((Get-FixtureLog) -match 'Identite AD validee : EXAMPLE\\operator') (Get-FixtureLog)
 }
 Test-Case 'Refus : aucun repli de compte, aucun retry' {
     $script:Mode='Rejected'
-    Assert-Throws {Test-DomeniaCredentialBind -UserName 'EXAMPLE\operator' -Password (New-TestPassword)} 'authentication rejected'
-    Assert-Test ($script:StartCalls -eq 1 -and $script:StopCalls -eq 1)
+    [void](Test-DomeniaCredentialBind -UserName 'EXAMPLE\operator' -Password (New-TestPassword))
+    Complete-Fixture
+    Assert-Test ($script:LastError -match 'Validation non confirmee' -and $script:LastError -match 'authentication rejected') $script:LastError
+    Assert-Test ($script:StartCalls -eq 1 -and $script:StopCalls -eq 1 -and $null -eq $script:AccountValidation)
     Assert-Test ($script:Conn.BindUser -eq 'EXAMPLE\ad-reader')
 }
 Test-Case 'Timeout : resultat non lu, second essai bloque tant que le natif tourne' {
-    $script:WaitResult=$false
-    Assert-Throws {Test-DomeniaCredentialBind -UserName 'EXAMPLE\operator' -Password (New-TestPassword)} 'Delai de validation AD'
-    Assert-Test ($script:ReadCalls -eq 0 -and $null -ne $script:AccountCredentialTestSession)
-    Assert-Throws {Test-DomeniaCredentialBind -UserName 'EXAMPLE\operator' -Password (New-TestPassword)} 'test precedent'
+    [void](Test-DomeniaCredentialBind -UserName 'EXAMPLE\operator' -Password (New-TestPassword))
+    $script:AccountValidation.Started=[datetime]::UtcNow.AddSeconds(-13)
+    Complete-Fixture -StillRunning
+    Assert-Test ($script:AccountValidation.Abandoned -and $script:LastSession.CancelRequested) 'Validation trop longue non abandonnee.'
+    Assert-Test ($script:ReadCalls -eq 0 -and $null -ne $script:AccountValidation)
+    Assert-Test ((Get-FixtureLog) -match 'Validation trop longue') (Get-FixtureLog)
+    Assert-Throws {Test-DomeniaCredentialBind -UserName 'EXAMPLE\operator' -Password (New-TestPassword)} 'deja active'
     Assert-Test ($script:StartCalls -eq 1)
 }
 Test-Case 'Apres timeout termine : nouvel essai volontaire possible' {
-    $script:WaitResult=$false
-    Assert-Throws {Test-DomeniaCredentialBind -UserName 'EXAMPLE\operator' -Password (New-TestPassword)} 'Delai de validation AD'
-    $script:AccountCredentialTestSession.AsyncResult.IsCompleted=$true
-    $script:WaitResult=$true
-    $r=Test-DomeniaCredentialBind -UserName 'EXAMPLE\operator' -Password (New-TestPassword)
-    Assert-Test ($r.Success -and $script:StartCalls -eq 2 -and $script:ReadCalls -eq 1)
+    [void](Test-DomeniaCredentialBind -UserName 'EXAMPLE\operator' -Password (New-TestPassword))
+    $script:AccountValidation.Started=[datetime]::UtcNow.AddSeconds(-13)
+    Complete-Fixture -StillRunning
+    # The abandoned native call ends: cleaned up, its late result is never read.
+    Complete-Fixture
+    Assert-Test ($null -eq $script:AccountValidation -and $script:ReadCalls -eq 0) 'Resultat tardif lu ou nettoyage absent.'
+    [void](Test-DomeniaCredentialBind -UserName 'EXAMPLE\operator' -Password (New-TestPassword))
+    Complete-Fixture
+    Assert-Test ($script:StartCalls -eq 2 -and $script:ReadCalls -eq 1 -and (Get-FixtureLog) -match 'Identite AD validee')
 }
 Test-Case 'Echec demarrage : aucun faux etat de test actif' {
     $script:Mode='StartFailure'
     Assert-Throws {Test-DomeniaCredentialBind -UserName 'EXAMPLE\operator' -Password (New-TestPassword)} 'startup failed'
-    Assert-Test ($null -eq $script:AccountCredentialTestSession)
+    Assert-Test ($null -eq $script:AccountValidation -and $script:Ctrl['PwdAccountRemote'].IsEnabled)
 }
 Test-Case 'Resultat vide refuse et worker nettoye' {
     $script:Mode='NoResult'
-    Assert-Throws {Test-DomeniaCredentialBind -UserName 'EXAMPLE\operator' -Password (New-TestPassword)} 'Aucun resultat'
-    Assert-Test ($script:StopCalls -eq 1)
+    [void](Test-DomeniaCredentialBind -UserName 'EXAMPLE\operator' -Password (New-TestPassword))
+    Complete-Fixture
+    Assert-Test ($script:LastError -match 'Validation non confirmee') $script:LastError
+    Assert-Test ($script:StopCalls -eq 1 -and $null -eq $script:AccountValidation)
 }
 Test-Case 'Resultat sans nom valide refuse' {
     $script:Mode='NoBindUser'
-    Assert-Throws {Test-DomeniaCredentialBind -UserName 'EXAMPLE\operator' -Password (New-TestPassword)} 'identite validee'
+    [void](Test-DomeniaCredentialBind -UserName 'EXAMPLE\operator' -Password (New-TestPassword))
+    Complete-Fixture
+    Assert-Test ($script:LastError -match 'Identite AD non confirmee') $script:LastError
+    Assert-Test (-not ((Get-FixtureLog) -match 'Identite AD validee'))
 }
 Test-Case 'Un resultat sous identite Windows ne valide pas le compte saisi' {
     $script:Mode='WindowsResult'
-    Assert-Throws {Test-DomeniaCredentialBind -UserName 'EXAMPLE\operator' -Password (New-TestPassword)} 'authentification ADSI explicite'
+    [void](Test-DomeniaCredentialBind -UserName 'EXAMPLE\operator' -Password (New-TestPassword))
+    Complete-Fixture
+    Assert-Test ($script:LastError -match 'Identite AD non confirmee') $script:LastError
+    Assert-Test (-not ((Get-FixtureLog) -match 'Identite AD validee'))
 }
 Test-Case 'Activation Remote : nom valide, seul identifiant persiste, AD intact' {
     $originalAd=$script:Conn.Credential
     $script:WorkerBindUser='EXAMPLE\operator'
     $p=New-TestPassword
     Save-DomeniaSecondaryCredential -Scope Remote -UserName 'operator' -Password $p
+    Assert-Test ($script:RemoteAdminCredential.UserName -ceq 'EXAMPLE\old-remote') 'Compte remplace avant la fin de la validation.'
+    Complete-Fixture
     Assert-Test ($script:RemoteAdminCredential.UserName -ceq 'EXAMPLE\operator')
     Assert-Test ($script:Settings.Count -eq 1 -and $script:Settings['RemoteCredentialUser'] -ceq 'EXAMPLE\operator')
     Assert-Test ([object]::ReferenceEquals($originalAd,$script:Conn.Credential))
@@ -233,22 +308,29 @@ Test-Case 'Activation Secrets : identite propre, compte distant inchange' {
     $oldRemote=$script:RemoteAdminCredential
     $script:WorkerBindUser='EXAMPLE\secrets-reader'
     Save-DomeniaSecondaryCredential -Scope Secrets -UserName 'secrets-reader' -Password (New-TestPassword)
+    Complete-Fixture
     Assert-Test ($script:SecretsCredential.UserName -ceq 'EXAMPLE\secrets-reader')
     Assert-Test ([object]::ReferenceEquals($oldRemote,$script:RemoteAdminCredential))
     Assert-Test ($script:Settings['SecretsCredentialUser'] -ceq 'EXAMPLE\secrets-reader')
+    Assert-Test ($script:Ctrl['PwdAccountSecrets'].Password -eq '' -and $script:Ctrl['PwdAccountRemote'].Password -eq 'form-not-cleared')
 }
 Test-Case 'Activation refusee : ancien compte et formulaire conserves' {
     $oldRemote=$script:RemoteAdminCredential; $p=New-TestPassword; $script:Mode='Rejected'
-    Assert-Throws {Save-DomeniaSecondaryCredential -Scope Remote -UserName 'EXAMPLE\operator' -Password $p} 'authentication rejected'
+    Save-DomeniaSecondaryCredential -Scope Remote -UserName 'EXAMPLE\operator' -Password $p
+    Complete-Fixture
+    Assert-Test ($script:LastError -match 'Validation non confirmee') $script:LastError
     Assert-Test ([object]::ReferenceEquals($oldRemote,$script:RemoteAdminCredential))
     Assert-Test ($script:Settings.Count -eq 0 -and $script:Ctrl['PwdAccountRemote'].Password -eq 'form-not-cleared')
-    Assert-Test ($p.Length -gt 0 -and $script:LastCredential.Password.Length -gt 0)
+    Assert-Test ($p.Length -gt 0 -and $null -ne $script:LastCredential)
 }
 Test-Case 'Activation en timeout : aucune modification meme apres retour tardif' {
-    $oldRemote=$script:RemoteAdminCredential; $script:WaitResult=$false
-    Assert-Throws {Save-DomeniaSecondaryCredential -Scope Remote -UserName 'EXAMPLE\operator' -Password (New-TestPassword)} 'Delai de validation AD'
-    $script:AccountCredentialTestSession.AsyncResult.IsCompleted=$true
+    $oldRemote=$script:RemoteAdminCredential
+    Save-DomeniaSecondaryCredential -Scope Remote -UserName 'EXAMPLE\operator' -Password (New-TestPassword)
+    $script:AccountValidation.Started=[datetime]::UtcNow.AddSeconds(-13)
+    Complete-Fixture -StillRunning
+    Complete-Fixture
     Assert-Test ([object]::ReferenceEquals($oldRemote,$script:RemoteAdminCredential) -and $script:Settings.Count -eq 0)
+    Assert-Test ($script:ReadCalls -eq 0 -and $script:Ctrl['PwdAccountRemote'].Password -eq 'form-not-cleared')
 }
 Test-Case 'Test compte AD : nom modifie refuse sans envoyer le mot de passe actif' {
     Assert-Throws {Test-DomeniaActiveDirectoryCredential -UserName 'EXAMPLE\another-user'} 'champ identifiant AD a ete modifie'
@@ -256,7 +338,9 @@ Test-Case 'Test compte AD : nom modifie refuse sans envoyer le mot de passe acti
 }
 Test-Case 'Test compte AD : nom court du meme domaine accepte avec identite active exacte' {
     $r=Test-DomeniaActiveDirectoryCredential -UserName 'AD-READER'
-    Assert-Test ($r.Success -and $script:LastCredential.UserName -ceq 'EXAMPLE\ad-reader')
+    Assert-Test ($r.Pending -and $script:LastCredential.UserName -ceq 'EXAMPLE\ad-reader')
+    Complete-Fixture
+    Assert-Test ((Get-FixtureLog) -match 'Identite AD validee : EXAMPLE\\ad-reader') (Get-FixtureLog)
 }
 Test-Case 'Test compte AD : session Windows seule ne remplace pas le compte saisi' {
     $script:Conn.Credential=$null
@@ -284,16 +368,23 @@ Test-Case 'Dernier utilisateur : compte machine distinct du compte annuaire' {
 Test-Case 'Validation de compte : ne promet pas les droits sur les ressources, pas de secret dans les logs' {
     $p=New-TestPassword
     Save-DomeniaSecondaryCredential -Scope Remote -UserName 'EXAMPLE\operator' -Password $p
-    $log=$script:Log.ToArray() -join "`n"
+    Complete-Fixture
+    $log=Get-FixtureLog
     $syntheticSecret=[Net.NetworkCredential]::new('',$p).Password
     Assert-Test (-not $log.Contains($syntheticSecret)) 'Mot de passe synthetique present dans les logs.'
-    Assert-Test ($log.Contains('Droits WMI/SMB et droits de lecture des secrets non testes.'))
+    # Since M15 the status names what is NOT certified instead of the R1.4 sentence about WMI/SMB rights.
+    Assert-Test ($log.Contains('Droits sur la ressource non certifies par ce test AD.')) $log
+}
+Test-Case 'Ecriture en cours : aucun compte ne peut etre change' {
+    $script:ActiveWriteTaskId='write-1'
+    Assert-Throws {Save-DomeniaSecondaryCredential -Scope Remote -UserName 'EXAMPLE\operator' -Password (New-TestPassword)} 'ecriture'
+    Assert-Test ($script:StartCalls -eq 0 -and $null -eq $script:AccountValidation)
 }
 
 $failed=@($script:Results | Where-Object {$_.Status -ne 'PASS'}).Count
 $report=[ordered]@{
-    Build='2026.09.21-R1.4-ACCOUNTS'; Mode='NativePowerShellWithMocks'; PowerShell=$PSVersionTable.PSVersion.ToString()
-    RunAt=(Get-Date).ToString('o'); LiveAdExecuted=$false; WpfExecuted=$false
+    Build='2026.10.02-DOMENIA-1.0-RC1.11.0-D120-ACCOUNTS'; Mode='NativePowerShellWithMocks'; PowerShell=$PSVersionTable.PSVersion.ToString()
+    RunAt=(Get-Date).ToString('o'); LiveAdExecuted=$false; WpfExecuted=$false; DispatcherPumped=$false
     Passed=($script:Results.Count-$failed); Failed=$failed; Tests=$script:Results.ToArray()
 }
 if ([string]::IsNullOrWhiteSpace($ReportPath)) { $ReportPath=Join-Path ([IO.Path]::GetTempPath()) ('Domenia-accounts-report-'+[guid]::NewGuid().ToString('N')+'.json') }

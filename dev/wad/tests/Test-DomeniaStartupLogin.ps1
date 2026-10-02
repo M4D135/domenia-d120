@@ -58,13 +58,17 @@ try{
     $script:TestTheme='Light';$script:Traces=[Collections.Generic.List[object]]::new();$script:PollTicks=0
     $registry=Get-DomeniaWorkerOperationHashes
     $script:BaselineRegistry=$registry
-    $expected=@(Get-Content -LiteralPath (Join-Path $wad '..\tools\operation-contracts.json') -Raw|ConvertFrom-Json)
+    # Windows PowerShell 5.1: ConvertFrom-Json emits a JSON array as ONE pipeline object.
+    # Assign first, then enumerate with @(); @(... | ConvertFrom-Json) would give a single element.
+    $parsedContracts=Get-Content -LiteralPath (Join-Path $wad '..\tools\operation-contracts.json') -Raw|ConvertFrom-Json
+    $expected=@($parsedContracts)
     $registryFunction=(Find-FunctionAst $core 'Get-DomeniaWorkerOperationHashes').Extent.Text
     function Clone-Registry {$r=[ordered]@{};foreach($k in $script:BaselineRegistry.Keys){$r.Add([string]$k,[string]$script:BaselineRegistry[$k])};return ,$r}
     Case 'Le registre et le contrat DEV declarent les memes operations' {
         $left=@($registry.Keys|Sort-Object);$right=@($expected|ForEach-Object{$_.Operation}|Sort-Object)
         Expect ($left.Count -eq $right.Count -and (@(Compare-Object $left $right).Count -eq 0))
-        Expect ($registry.Contains('LiveSelectedPing') -and $registry.Count -eq 57)
+        # The count is the reviewed DEV contract, never a constant (57 before the D120 additions).
+        Expect ($registry.Contains('LiveSelectedPing') -and $registry.Count -eq $expected.Count) ('Registre '+$registry.Count+' / contrat '+$expected.Count)
     }
     Case 'La verification du registre complet accepte la livraison' {Expect ((Assert-DomeniaWorkerRegistry) -eq $expected.Count)}
     Case 'L ordre de declaration ne change pas le controle' {$r=[ordered]@{};foreach($k in @($registry.Keys|Sort-Object -Descending)){$r.Add($k,$registry[$k])};Expect ((Assert-DomeniaWorkerRegistry $r) -eq $expected.Count)}
@@ -72,7 +76,7 @@ try{
     Case 'Un registre vide est refuse' {Expect-Failure {Assert-DomeniaWorkerRegistry -Registry ([ordered]@{})} 'absent|vide'}
     Case 'Retirer LiveSelectedPing est refuse' {$r=Clone-Registry;$r.Remove('LiveSelectedPing');Expect-Failure {Assert-DomeniaWorkerRegistry $r} 'non conforme'}
     Case 'Ajouter une operation non autorisee est refuse' {$r=Clone-Registry;$r.Add('UnexpectedOperation',('A'*64));Expect-Failure {Assert-DomeniaWorkerRegistry $r} 'non conforme'}
-    Case 'Remplacer une operation en conservant 57 entrees est refuse' {$r=Clone-Registry;$r.Remove('LiveSelectedPing');$r.Add('UnexpectedOperation',('A'*64));Expect-Failure {Assert-DomeniaWorkerRegistry $r} 'non conforme'}
+    Case 'Remplacer une operation en conservant le nombre d entrees est refuse' {$r=Clone-Registry;$r.Remove('LiveSelectedPing');$r.Add('UnexpectedOperation',('A'*64));Expect-Failure {Assert-DomeniaWorkerRegistry $r} 'non conforme'}
     Case 'Modifier une empreinte valide est refuse' {$r=Clone-Registry;$r['LiveSelectedPing']='A'*64;Expect-Failure {Assert-DomeniaWorkerRegistry $r} 'non conforme'}
     Case 'Une empreinte de mauvaise longueur est refusee' {$r=Clone-Registry;$r['ReadLaps']='A';Expect-Failure {Assert-DomeniaWorkerRegistry $r} 'Empreinte'}
     Case 'Une empreinte en minuscules est refusee' {$r=Clone-Registry;$r['ReadLaps']=$r['ReadLaps'].ToLowerInvariant();Expect-Failure {Assert-DomeniaWorkerRegistry $r} 'Empreinte'}
@@ -98,14 +102,20 @@ try{
         $old=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'fixtures\RC1.4-Initialize-AsyncEngine.txt'))
         $old=$old -replace '^function Initialize-AsyncEngine','function Initialize-LegacyAsyncEngine'
         . ([scriptblock]::Create($old))
-        function Get-DomeniaWorkerOperationHashes {$r=Clone-Registry;$r.Remove('EmbeddedDirectoryLookup');$r.Remove('EmbeddedPathBrowse');return ,$r}
+        # Reproduce the RC1.4 situation exactly: 55 registered operations against the old literal 54.
+        # The removal count is derived from the real registry, so new pinned operations keep this regression valid.
+        function Get-DomeniaWorkerOperationHashes {
+            $r=Clone-Registry
+            foreach($k in @(@($r.Keys)|Where-Object{$_ -ne 'EngineSelfTest'}|Sort-Object -Descending)){if($r.Count -le 55){break};$r.Remove($k)}
+            return ,$r
+        }
         try { Expect-Failure {Initialize-LegacyAsyncEngine} '55/54' } finally { Remove-Item Function:\Get-DomeniaWorkerOperationHashes }
         Expect (-not $script:AsyncEngineReady -and $null -eq $script:AsyncTimer)
     }
     Case 'Le vrai initialiseur corrige demarre son DispatcherTimer' {
         Stop-FixtureEngine;Initialize-AsyncEngine
         Expect ($script:AsyncEngineReady -and $script:AsyncTimer.IsEnabled)
-        Expect ($script:Traces[$script:Traces.Count-1].Detail -match '57 operations')
+        Expect ($script:Traces[$script:Traces.Count-1].Detail -match ('\b'+[string]$expected.Count+' operations')) ('Trace : '+$script:Traces[$script:Traces.Count-1].Detail)
     }
     Case 'Les ticks continuent sur le Dispatcher sans operation reseau' {
         $script:PollTicks=0;Pump-FixtureDispatcher 500;Expect ($script:PollTicks -gt 0)
