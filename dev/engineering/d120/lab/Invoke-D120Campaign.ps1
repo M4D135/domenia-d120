@@ -16,11 +16,13 @@ param(
     [ValidateRange(30,3600)][int]$StepTimeoutSeconds=900
 )
 $ErrorActionPreference='Stop'
+# Relative paths follow the PowerShell location (Set-Location by vmctl), not the process directory that
+# [IO.Path]::GetFullPath would use: the two differ for a process started by VBoxManage guestcontrol.
 if(-not $DevRoot){$DevRoot=(Get-Location).ProviderPath}
-$dev=[IO.Path]::GetFullPath($DevRoot).TrimEnd('\')
+$dev=$ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($DevRoot).TrimEnd('\')
 if(-not [IO.File]::Exists((Join-Path $dev 'wad\Domenia-Modules.ps1'))){throw ('Racine dev introuvable : '+$dev)}
 if(-not $OutDir){$OutDir=Join-Path (Split-Path -Parent $dev) 'out\campaign'}
-$out=[IO.Path]::GetFullPath($OutDir).TrimEnd('\')
+$out=$ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutDir).TrimEnd('\')
 # Reports written under dev\ would change the tree that the fingerprint binds.
 if(($out+'\').StartsWith($dev+'\',[StringComparison]::OrdinalIgnoreCase)){throw 'Le dossier de sortie doit etre hors de dev\.'}
 if($env:COMPUTERNAME -ieq 'DESKTOP-285EKHU'){throw 'Campagne refusee sur l hote du labo : les tests s executent dans la VM.'}

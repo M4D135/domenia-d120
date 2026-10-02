@@ -32,7 +32,8 @@ case "${1:-}" in
     LAB="$wt/dev/engineering/d120/lab/lab.sh"
     "$LAB" sync; rc=$?
     if [ $rc -eq 0 ]; then
-      "$LAB" ps '& .\engineering\d120\lab\Invoke-LabRun.ps1 -DevRoot . -OutDir ..\out\base'; rc=$?
+      # Absolute paths: Invoke-LabRun resolves with [IO.Path]::GetFullPath (process directory, not Set-Location).
+      "$LAB" ps '$d=(Get-Location).ProviderPath; & .\engineering\d120\lab\Invoke-LabRun.ps1 -DevRoot $d -OutDir ((Split-Path -Parent $d)+"\out\base")'; rc=$?
       "$LAB" get out/base "$DEST" || rc=94
     fi
     git -C "$ROOT" worktree remove --force "$wt"; rm -rf "$tmp"

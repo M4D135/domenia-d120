@@ -9,7 +9,8 @@ param(
     [ValidateRange(30,3600)][int]$TimeoutSeconds=600
 )
 $ErrorActionPreference='Stop'
-$dev=[IO.Path]::GetFullPath($DevRoot);$out=[IO.Path]::GetFullPath($OutDir)
+# Relative paths follow the PowerShell location, not the process directory (they differ under VBoxManage guestcontrol).
+$dev=$ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($DevRoot);$out=$ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutDir)
 if(-not [IO.Directory]::Exists($out)){[void][IO.Directory]::CreateDirectory($out)}
 $shell=Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
 $extra=@{'Test-Domenia.ps1'=@('-WpfSmoke');'Test-DomeniaCandidate.ps1'=@('-Wpf','-Quiet');'Test-DomeniaSupport.ps1'=@('-Wpf','-Quiet');'Test-DomeniaTheme.ps1'=@('-Wpf')}

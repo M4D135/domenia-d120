@@ -301,15 +301,15 @@
     },
     {
       "Path": "engineering/d120/lab/Invoke-D120Campaign.ps1",
-      "Sha256": "0F1F7F8E295793BCAD75C6D3068591DB99E9F25A4BD98509B503ADD2E12D4C91",
-      "Bytes": 9328,
+      "Sha256": "6B26BC52A6CB1A25E94242D22DEAA87B7034DB123DD4F0CDEC593A7C49FC71C7",
+      "Bytes": 9631,
       "Runtime": false,
       "PreserveExisting": false
     },
     {
       "Path": "engineering/d120/lab/Invoke-LabRun.ps1",
-      "Sha256": "D226FE0553B1313325FB80431C8EDFB21712450CA9BFEC56929B1DED29E9C1D7",
-      "Bytes": 2939,
+      "Sha256": "2992ECE190F036316F992C8F5A68FDFDBED3B9BA10E449A426D73E6E80090F82",
+      "Bytes": 3157,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -336,8 +336,8 @@
     },
     {
       "Path": "engineering/d120/lab/campaign.sh",
-      "Sha256": "DDAFE61CC13A7594392419BB749C0C84095C8762683957A122207FA2F6C13F69",
-      "Bytes": 2655,
+      "Sha256": "9E1AA63C0F0C6C0A6073FABC79316589028189C7944F43AAEF3110B8012A45D0",
+      "Bytes": 2828,
       "Runtime": false,
       "PreserveExisting": false
     },
