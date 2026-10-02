@@ -92,6 +92,31 @@ def apply_modules(lots, problems):
     write(path, text)
 
 
+def refresh_functions(problems):
+    """Recomputes the closed Functions list of every plan entry from its file (top-level functions, file order).
+    Phase, Requires, DotSource and the order of the entries are kept. Used for rule changes made without a lane manifest."""
+    path = WAD / 'Domenia-Modules.ps1'
+    text = read(path)
+    head, rest = text.split('function Get-DomeniaRuntimeModulePlan {\n    @(\n', 1)
+    body, tail = rest.split('\n    )\n}\n', 1)
+    changed = []
+    def repl(match):
+        block = match.group(0)
+        file = re.search(r"File='([^']+)'", block).group(1)
+        if not (WAD / 'modules' / file).is_file():
+            problems.append('module absent ' + file)
+            return block
+        funcs = top_functions(file) if file.endswith('.ps1') else []
+        inner = ('\n' + ',\n'.join("            '%s'" % f for f in funcs) + '\n        ') if funcs else ''
+        updated = re.sub(r"Functions=@\(.*\)\s*\}$", lambda _m: "Functions=@(" + inner + ") }", block, flags=re.S)
+        if updated != block:
+            changed.append(file)
+        return updated
+    body = re.sub(r"        \[pscustomobject\]@\{[^\n]*?File='[^']+'[^\n]*?Functions=@\((?:.*?)\) \}", repl, body, flags=re.S)
+    write(path, head + 'function Get-DomeniaRuntimeModulePlan {\n    @(\n' + body + '\n    )\n}\n' + tail)
+    return changed
+
+
 def apply_start(lots):
     path = WAD / 'Domenia-Start.ps1'
     text = read(path)
@@ -170,8 +195,14 @@ def apply_selftest(lots):
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--apply', action='store_true')
+    ap.add_argument('--refresh-functions', action='store_true', help='Recompute the closed function list of every module from its file.')
     ap.add_argument('lots', nargs='*')
     a = ap.parse_args()
+    if a.refresh_functions:
+        problems = []
+        changed = refresh_functions(problems)
+        print(json.dumps({'Refreshed': changed, 'Problems': problems}, ensure_ascii=False, indent=2))
+        return 1 if problems else 0
     files = sorted(LOTS.glob('lot-*.json'))
     pairs = [(f, json.loads(f.read_text(encoding='utf-8-sig'))) for f in files]
     if a.lots:
