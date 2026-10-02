@@ -19278,6 +19278,8 @@ function New-DefaultConfig {
         Features = [ordered]@{
             Scheduler = $true
             IdlePolicy = $true
+            BitLockerKeySelection = $true
+            SecretSingleCopy = $true
             ScopedLocks = $true
             RelationsSymmetry = $true
             DetectionPreview = $true
@@ -19377,6 +19379,7 @@ function New-DefaultConfig {
             BlockOnAclEstimate = $false
             DisableIndeterminateControls = $false
             AutoClearSecretClipboardSeconds = 30
+            AlternateCredentialIdleMinutes = 30
             MaskSecretsByDefault = $true
             SecretMemorySeconds = 300
             RequireFreshObject = $true
@@ -20434,6 +20437,8 @@ function Get-DomeniaWorkerCodeHash {
 function Get-DomeniaWorkerOperationHashes {
     # Registre ferme : seules ces operations internes, avec leur corps exact, peuvent entrer dans un runspace.
     return [ordered]@{
+        ReadBitLockerList     = "B1456CEA5805D83C6BF48E9A4040206F18F3C3773ED250610D6890E8D1F4EEC9"
+        ReadBitLockerKey      = "8A98EBCDC48AD572404E1566826035C84F34ACB87564330A7AA511FAAC01EE6F"
         DemoDirectory         = "336D852653033819F52E427F5CF5DED8199FCE33D6D7FE5F25B1339F9AAF438E"
         LocalIndexRead        = "2974178D600D640E53834C8C63257EAEB4930BBA88D66CD68E0752FD1206E54A"
         ParkSharedSync        = "B3A64051813F12A24BD5E791D59CF7E2330FA84E965C9F44BD62366D4A81415E"
@@ -20444,7 +20449,7 @@ function Get-DomeniaWorkerOperationHashes {
         PermissionAnalysis    = "664513B3CF363C35CA895100374950039EAE9B69DD288AD5AE53F862EC10A340"
         SelfCheck             = "C73BA6DA41221073BF1B56DA687BC8CF2A3250B5151F3D996C37EAFAA8E572B3"
         ReadBitLocker         = "55F469517F1AD169F93E772DADFDAED51DDCCF12BCE2313194D667A8A69EA485"
-        ReadLaps              = "705B42C684111F274861176986BAE0F8F7AAC370258453B97E3E2A0BE45385DD"
+        ReadLaps              = "51B8A2DA023D46E85199FEF76EFBEC0C14E820322B7DF67B672E2556341C851A"
         DomainOverview        = "F91B644222F2EAFFB9D4FFAAF0349CA9E570C0FBC10D3965B528EA7F0E2F2220"
         BatchNetworkDiag      = "C3043A5234A626DD8E83E9DE0791D55005C81C5716C7BA5FD559204C1BC87815"
         WmiNamespaces         = "3F54C07FC76AABC9511861F7B13A2A97394B366C7C8702EAF0BB67D30E886E25"
@@ -20503,7 +20508,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "A0A100D36221C618F0446EEDC7059CC3878DD767A97E00FDE83834C481A9B8FA"
+    $expectedFingerprint = "F80182002A4CE403BB80BDD24C8E9EA5C94252E2D94F379B1C4046ADE0BFA322"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -21134,7 +21139,8 @@ function Complete-UiTasks {
                 # workstation, WTS or local-storage account (SessionsList, LocalStore...) never suspends the directory.
                 $directoryBreaker = $true
                 try { $directoryBreaker = [bool](Get-DomeniaOperationCredentialNeeds ([string]$job.OperationId)).DirectoryBreaker } catch { $directoryBreaker = $true }
-                $separate=($job.OperationId -in @('ReadLaps','ReadBitLocker') -or $null -ne (Get-DomeniaRetryCredential ([string]$job.OperationId)))
+                # LAPS and BitLocker keep their own account and refusals (ReadBitLockerList and ReadBitLockerKey included).
+                $separate=([string](Get-DomeniaOperationCredentialNeeds ([string]$job.OperationId)).Resource -in @('Laps','BitLocker') -or $null -ne (Get-DomeniaRetryCredential ([string]$job.OperationId)))
                 if($separate -and $null -ne $script:AccessState){$script:AccessState.Faults[(Get-DomeniaAccessScope ([string]$job.OperationId))]=$true}
                 if (-not $separate -and $directoryBreaker) {
                     $script:DirectoryCredentialFaulted = $true
@@ -21245,7 +21251,7 @@ function Get-WorkerContext {
     # operation exclusivement distante, contrairement au ping/inventaire.
     $credentialNeeds = Get-DomeniaOperationCredentialNeeds -OperationId $OperationId
     $needsDirectoryCredential = [bool]$credentialNeeds.Directory
-    $directoryRecovery=($null -ne $retryCredential -and $retryScope -ne 'Remote') -or ($OperationId -in @('ReadLaps','ReadBitLocker') -and $null -ne $script:SecretsCredential)
+    $directoryRecovery=($null -ne $retryCredential -and $retryScope -ne 'Remote') -or ([bool]$credentialNeeds.Secrets -and $null -ne $script:SecretsCredential)
     if ($needsDirectoryCredential -and [bool]$script:DirectoryCredentialFaulted -and -not $directoryRecovery) {
         $fault = [string]$script:DirectoryCredentialFaultMessage
         if ([string]::IsNullOrWhiteSpace($fault)) { $fault = "authentification AD rejetee" }
@@ -24248,7 +24254,8 @@ function Invoke-DomeniaSelfTest {
         'Initialize-DomeniaEngineState','Invoke-DomeniaUiTaskDispatch','Invoke-DomeniaQueuedTaskPromotion','Test-DomeniaBackgroundWorkAllowed',
         'Initialize-DomeniaIdlePolicy','Get-DomeniaDemoDirectoryWorkerCode','New-DomeniaDemoDirectory','ConvertTo-DomeniaDemoWorkerContext',
         'Test-DomeniaDemoProviderEnabled','Request-DomeniaWindowActivation','Get-DomeniaLocalIndexReadWorkerCode','Get-DomeniaParkSharedSyncWorkerCode',
-        'Get-DomeniaGlobalSearchPlan','Get-DomeniaContinuationDecision','Get-DomeniaCurrentSelectionIdentity','Initialize-DomeniaSearchUi','Invoke-DomeniaNavStep','Invoke-DomeniaSearchMore','Get-DomeniaOuRestoreDecision'
+        'Get-DomeniaGlobalSearchPlan','Get-DomeniaContinuationDecision','Get-DomeniaCurrentSelectionIdentity','Initialize-DomeniaSearchUi','Invoke-DomeniaNavStep','Invoke-DomeniaSearchMore','Get-DomeniaOuRestoreDecision',
+        'Get-DomeniaErrorDecision','Get-DomeniaCredentialScope','Test-DomeniaCredentialContext','ConvertTo-DomeniaMachineKey','Protect-DomeniaSecretText','Get-DomeniaBitLockerListWorkerCode','Get-DomeniaBitLockerKeyWorkerCode','Request-DomeniaBitLockerKey','Complete-DomeniaBitLockerListUi','Resolve-DomeniaCapabilityRoute','Update-DomeniaTransportPolicyView','Get-DomeniaRetryCredential','Set-DomeniaTargetCredentialContext'
     )
     $missing = @($requiredFunctions | Where-Object { $null -eq (Get-Command -Name $_ -CommandType Function -ErrorAction SilentlyContinue) })
     Add-SelfTestResult -Name 'Fonctions critiques' -Success ($missing.Count -eq 0) -Detail $(if($missing.Count -eq 0){'Toutes presentes.'}else{"Absentes : $($missing -join ', ')"})

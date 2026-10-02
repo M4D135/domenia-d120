@@ -205,6 +205,13 @@ Test-Case 'D018' 'C3 : un refus WTS ou stockage ne suspend jamais le canal AD' {
     foreach($op in @('DemoDirectory','LocalIndexRead','ParkSharedSync','IsolatedRead')){$n=Get-DomeniaOperationCredentialNeeds $op;Assert-False $n.Directory $op;Assert-False $n.DirectoryCredential $op;Assert-False $n.RemoteAdmin $op}
     Assert-Equal 'Laps' (Get-DomeniaOperationCredentialNeeds 'ReadLaps').Resource;Assert-Equal 'Remote' (Get-DomeniaOperationCredentialNeeds 'SessionsList').Resource
 }
+Test-Case 'D051' 'C3 : liste et cle BitLocker classees comme ReadBitLocker (compte Secrets, ressource BitLocker)' {
+    $ref=Get-DomeniaOperationCredentialNeeds 'ReadBitLocker'
+    foreach($op in @('ReadBitLockerList','ReadBitLockerKey')){
+        $n=Get-DomeniaOperationCredentialNeeds $op
+        foreach($field in @('Directory','DirectoryCredential','Machine','RemoteAdmin','Secrets','NonDirectory','Resource')){Assert-Equal ([string]$ref.$field) ([string]$n.$field) ($field+' '+$op)}
+    }
+}
 Test-Case 'D015' 'File : une lecture qui attend trop longtemps est retiree' {
     Assert-True (Test-DomeniaQueuedTaskExpired -QueuedAt $script:T0 -MaxWaitSeconds 120 -Now $script:T0.AddSeconds(121))
     Assert-False (Test-DomeniaQueuedTaskExpired -QueuedAt $script:T0 -MaxWaitSeconds 120 -Now $script:T0.AddSeconds(30))

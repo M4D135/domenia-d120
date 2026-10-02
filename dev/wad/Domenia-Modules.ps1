@@ -159,6 +159,7 @@ function Get-DomeniaRuntimeModulePlan {
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Relations.Model.ps1'); File='Domenia-Access.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaOperationResource',
+            'ConvertTo-DomeniaMachineKey',
             'Test-DomeniaLocalAccountName',
             'Get-DomeniaCredentialScope',
             'Test-DomeniaCredentialContext',
@@ -177,6 +178,7 @@ function Get-DomeniaRuntimeModulePlan {
             'ConvertTo-DomeniaLapsView',
             'ConvertTo-DomeniaBitLockerKeyList',
             'Find-DomeniaBitLockerKey',
+            'Test-DomeniaDirectChildDn',
             'Test-DomeniaSecretRevealAllowed',
             'Get-DomeniaSecretExposurePolicy',
             'Protect-DomeniaSecretText',
@@ -672,19 +674,39 @@ function Get-DomeniaRuntimeModulePlan {
             'Update-DomeniaSearchMoreButton',
             'Invoke-DomeniaSearchMore'
         ) }
-        [pscustomobject]@{ File='Domenia-Access.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Access.Model.ps1','Domenia-Guard.Model.ps1'); File='Domenia-Access.UI.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaAccessFailureKind',
             'Get-DomeniaAccessScope',
+            'Get-DomeniaAccessNow',
+            'Get-DomeniaAccessIdleMinutes',
+            'Get-DomeniaRetryScopeKey',
+            'Test-DomeniaAccessLeaseUsable',
+            'Use-DomeniaAccessLease',
+            'Remove-DomeniaAccessCredential',
             'Get-DomeniaRetryCredential',
             'Set-DomeniaRetryWorkerContext',
             'Test-DomeniaSecretDenied',
             'Set-DomeniaSecretDenied',
             'Test-DomeniaAccessBusyWrite',
+            'Test-DomeniaSecretOperation',
+            'ConvertTo-DomeniaAccessCategory',
+            'Get-DomeniaAccessCoalescer',
+            'Add-DomeniaAccessDenialUi',
+            'Complete-DomeniaAccessPromptUi',
             'Request-DomeniaAccessRecovery',
             'Update-DomeniaAccessButton',
             'Test-DomeniaAccessSessionCurrent',
             'Show-DomeniaAlternateCredential',
             'Invoke-DomeniaAccessRecovery',
+            'Resolve-DomeniaCapabilityRoute',
+            'Invoke-DomeniaCapabilityRoute',
+            'Get-DomeniaControlCapabilityExplanation',
+            'Get-DomeniaUnavailableReasonLines',
+            'New-DomeniaAccessState',
+            'Clear-DomeniaAccessAccounts',
+            'Invoke-DomeniaAccessLeaseSweep',
+            'Get-DomeniaTransportPolicyRows',
+            'Update-DomeniaTransportPolicyView',
             'Initialize-DomeniaAccess',
             'Inspect-DomeniaAccessResult'
         ) }
@@ -883,6 +905,27 @@ function Get-DomeniaRuntimeModulePlan {
             'Restore-DomeniaNavState',
             'Invoke-DomeniaNavStep',
             'Initialize-DomeniaSearchUi'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Secrets.Worker.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaBitLockerListWorkerCode',
+            'Get-DomeniaBitLockerKeyWorkerCode'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Access.Model.ps1','Domenia-Access.UI.ps1','Domenia-Secrets.Worker.ps1'); File='Domenia-Secrets.UI.ps1'; DotSource=$true; Functions=@(
+            'Test-DomeniaBitLockerKeySelection',
+            'Test-DomeniaSecretSingleExposure',
+            'Get-DomeniaSecretIdentityReason',
+            'Get-DomeniaSecretButtonExplanation',
+            'Update-DomeniaSecretsPrerequisite',
+            'Select-DomeniaSecretRow',
+            'Start-DomeniaSecretReveal',
+            'Get-DomeniaSelectedSecretIndex',
+            'Complete-DomeniaBitLockerListUi',
+            'Invoke-DomeniaBitLockerRecoveryIdFilter',
+            'Request-DomeniaBitLockerKey',
+            'Complete-DomeniaBitLockerKeyUi',
+            'Fail-DomeniaBitLockerKeyUi',
+            'Invoke-DomeniaSecretsPrerequisite',
+            'Initialize-DomeniaSecretsUi'
         ) }
     )
 }

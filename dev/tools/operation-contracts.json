@@ -60,7 +60,7 @@
     "File": "wad/Domenia-Core.ps1",
     "Function": "Start-LoadComputerSecrets",
     "LiteralIndex": 1,
-    "Sha256": "705B42C684111F274861176986BAE0F8F7AAC370258453B97E3E2A0BE45385DD"
+    "Sha256": "51B8A2DA023D46E85199FEF76EFBEC0C14E820322B7DF67B672E2556341C851A"
   },
   {
     "Operation": "ComputerInventory",
@@ -425,5 +425,19 @@
     "Function": "Get-DomeniaIsolatedReadWorkerCode",
     "LiteralIndex": 0,
     "Sha256": "4074D6ECAA620A9C80A5B6B535BB657E02DCE06A9DF97E35CA1EA47572D1060C"
+  },
+  {
+    "Operation": "ReadBitLockerList",
+    "File": "wad/modules/Domenia-Secrets.Worker.ps1",
+    "Function": "Get-DomeniaBitLockerListWorkerCode",
+    "LiteralIndex": 0,
+    "Sha256": "B1456CEA5805D83C6BF48E9A4040206F18F3C3773ED250610D6890E8D1F4EEC9"
+  },
+  {
+    "Operation": "ReadBitLockerKey",
+    "File": "wad/modules/Domenia-Secrets.Worker.ps1",
+    "Function": "Get-DomeniaBitLockerKeyWorkerCode",
+    "LiteralIndex": 0,
+    "Sha256": "8A98EBCDC48AD572404E1566826035C84F34ACB87564330A7AA511FAAC01EE6F"
   }
 ]

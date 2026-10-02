@@ -3388,5 +3388,26 @@
     "Text": "Ferme lʼavertissement : choisissez une OU dans lʼarbre. Le périmètre actuel nʼest pas modifié.",
     "Kind": "Button",
     "Source": "d120-recherche"
+  },
+  {
+    "Name": "BtnSecretsPrerequisite",
+    "Title": "Ouvrir le prerequis",
+    "Text": "Ouvre la page du prerequis manquant d une lecture de secrets indisponible (Rechercher, Comptes, Fiabilite). Navigation seule : aucun droit ni reglage n est modifie.",
+    "Kind": "Button",
+    "Source": "d120-acces"
+  },
+  {
+    "Name": "TxtBitLockerRecoveryId",
+    "Title": "Identifiant de recuperation BitLocker",
+    "Text": "Saisissez les premiers caracteres de l identifiant affiche par le poste. Filtre local sur les metadonnees deja lues : aucune cle n est lue ni revelee.",
+    "Kind": "TextBox",
+    "Source": "d120-acces"
+  },
+  {
+    "Name": "DgTransportPolicy",
+    "Title": "Transports utilises",
+    "Text": "Transports utilises par Domenia, leur etat et leur regle. Aucun certificat accepte a l aveugle, aucun reglage WinRM, pare-feu, antivirus ou strategie modifie, aucun transport intrusif sans autorisation explicite et ciblee.",
+    "Kind": "DataGrid",
+    "Source": "d120-acces"
   }
 ]
