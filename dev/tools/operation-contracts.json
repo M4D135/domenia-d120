@@ -403,7 +403,7 @@
     "File": "wad/modules/Domenia-Demo.Worker.ps1",
     "Function": "Get-DomeniaDemoDirectoryWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "336D852653033819F52E427F5CF5DED8199FCE33D6D7FE5F25B1339F9AAF438E"
+    "Sha256": "F12481F3B254D64F9C5D870A98EA33BE6C69A67D4C99D28601CF292A1150EAE0"
   },
   {
     "Operation": "LocalIndexRead",

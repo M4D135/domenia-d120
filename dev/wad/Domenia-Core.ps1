@@ -20466,7 +20466,7 @@ function Get-DomeniaWorkerOperationHashes {
     return [ordered]@{
         ReadBitLockerList     = "B1456CEA5805D83C6BF48E9A4040206F18F3C3773ED250610D6890E8D1F4EEC9"
         ReadBitLockerKey      = "8A98EBCDC48AD572404E1566826035C84F34ACB87564330A7AA511FAAC01EE6F"
-        DemoDirectory         = "336D852653033819F52E427F5CF5DED8199FCE33D6D7FE5F25B1339F9AAF438E"
+        DemoDirectory         = "F12481F3B254D64F9C5D870A98EA33BE6C69A67D4C99D28601CF292A1150EAE0"
         LocalIndexRead        = "2974178D600D640E53834C8C63257EAEB4930BBA88D66CD68E0752FD1206E54A"
         ParkSharedSync        = "B3A64051813F12A24BD5E791D59CF7E2330FA84E965C9F44BD62366D4A81415E"
         IsolatedRead          = "4074D6ECAA620A9C80A5B6B535BB657E02DCE06A9DF97E35CA1EA47572D1060C"
@@ -20535,7 +20535,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "F80182002A4CE403BB80BDD24C8E9EA5C94252E2D94F379B1C4046ADE0BFA322"
+    $expectedFingerprint = "703C62D280AAD25DD17E49A7681600FF6F83C995B7D1545ACD9514FCCC4CC437"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -22946,6 +22946,8 @@ function Update-Dashboard {
         $script:Ctrl["TxtDashRows"].Text=[string]$rows.Count
         $adCheckDue=($null -eq $script:DashboardAdModuleCheckedAt)
         if(-not $adCheckDue -and -not [bool]$script:DashboardAdModuleLoaded){$adCheckDue=(((Get-Date)-[datetime]$script:DashboardAdModuleCheckedAt).TotalSeconds -ge 30)}
+        # Demonstration: Get-Command on an AD cmdlet auto-imports ActiveDirectory, whose AD: drive binds to a domain controller.
+        if($adCheckDue -and [bool]$script:DemoMode){$script:DashboardAdModuleLoaded=$false;$script:DashboardAdModuleCheckedAt=Get-Date;$adCheckDue=$false}
         if($adCheckDue){$script:DashboardAdModuleLoaded=[bool](Test-DomeniaAdCommandsAvailable);$script:DashboardAdModuleCheckedAt=Get-Date}
         $script:Ctrl["TxtDashModule"].Text=if([bool]$script:DashboardAdModuleLoaded){"ActiveDirectory charge"}else{"A la demande : RSAT/DLL verifies/LDAP"}
         $script:Ctrl["TxtDashStats"].Text=[string]$stats

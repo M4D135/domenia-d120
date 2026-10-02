@@ -81,9 +81,24 @@ function Read-DemoFilter {
     $eq = $item.IndexOf('=')
     if ($eq -le 0) { throw ('Filtre LDAP non reconnu en demonstration : ' + $item) }
     $attr = $item.Substring(0,$eq)
-    if ($attr.EndsWith('>') -or $attr.EndsWith('<') -or $attr.EndsWith('~') -or $attr.Contains(':')) { throw ('Operateur LDAP non pris en charge en demonstration : ' + $item) }
     $raw = $item.Substring($eq + 1)
-    return [pscustomobject]@{ Op='='; Attr=$attr.ToLowerInvariant(); Presence=($raw -eq '*'); Segments=(ConvertFrom-DemoLdapValue $raw) }
+    # Ordered comparisons and the AD bitwise matching rules are used by the work views; ~= and other
+    # extensible rules stay refused rather than answered approximately.
+    $op = '='
+    if ($attr.EndsWith('>') -or $attr.EndsWith('<')) { $op = $attr.Substring($attr.Length - 1) + '='; $attr = $attr.Substring(0,$attr.Length - 1) }
+    elseif ($attr.Contains(':')) {
+        $parts = $attr.Split(':')
+        if ($parts.Count -ne 3 -or $parts[2] -ne '' -or $parts[1] -notin @('1.2.840.113556.1.4.803','1.2.840.113556.1.4.804')) { throw ('Operateur LDAP non pris en charge en demonstration : ' + $item) }
+        $op = 'BitAnd'
+        if ($parts[1] -eq '1.2.840.113556.1.4.804') { $op = 'BitOr' }
+        $attr = $parts[0]
+    }
+    if ($attr.EndsWith('~') -or -not $attr) { throw ('Operateur LDAP non pris en charge en demonstration : ' + $item) }
+    if ($op -ne '=') {
+        if ($raw.Contains('*')) { throw ('Filtre LDAP non reconnu en demonstration : ' + $item) }
+        return [pscustomobject]@{ Op=$op; Attr=$attr.ToLowerInvariant(); Presence=$false; Value=$raw; Segments=@($raw) }
+    }
+    return [pscustomobject]@{ Op='='; Attr=$attr.ToLowerInvariant(); Presence=($raw -eq '*'); Value=$raw; Segments=(ConvertFrom-DemoLdapValue $raw) }
 }
 function ConvertFrom-DemoFilter {
     param([string]$Text)
@@ -110,9 +125,62 @@ function Test-DemoText {
     if ($v.Length - $last.Length -lt $position) { return $false }
     return $v.EndsWith($last)
 }
+function ConvertFrom-DemoLdapBytes {
+    # Exact binary value of an LDAP assertion (\XX escapes, other characters as UTF-8); $null with a wildcard.
+    param([string]$Value)
+    $bytes = New-Object Collections.Generic.List[byte]
+    for ($i = 0; $i -lt $Value.Length; $i++) {
+        $c = $Value[$i]
+        if ($c -eq [char]42) { return $null }
+        if ($c -eq [char]92) {
+            $number = 0
+            if (($i + 2 -le $Value.Length - 1) -and [int]::TryParse($Value.Substring($i + 1,2),[Globalization.NumberStyles]::HexNumber,[Globalization.CultureInfo]::InvariantCulture,[ref]$number)) { $bytes.Add([byte]$number); $i += 2; continue }
+            return $null
+        }
+        foreach ($b in [Text.Encoding]::UTF8.GetBytes([string]$c)) { $bytes.Add($b) }
+    }
+    return ,($bytes.ToArray())
+}
+function Compare-DemoOrdered {
+    # Returns -1, 0 or 1 (stored value against the filter value), or $null when they cannot be compared.
+    # Dates are compared with the LDAP generalized time, numbers as Int64, other values as text.
+    param($Value,[string]$Wanted)
+    if ($Value -is [datetime]) {
+        $text = $Wanted
+        $dot = $text.IndexOf('.')
+        if ($dot -gt 0) { $text = $text.Substring(0,$dot) }
+        $text = $text.TrimEnd('Z')
+        $parsed = [datetime]::MinValue
+        if (-not [datetime]::TryParseExact($text,'yyyyMMddHHmmss',[Globalization.CultureInfo]::InvariantCulture,([Globalization.DateTimeStyles]::AssumeUniversal -bor [Globalization.DateTimeStyles]::AdjustToUniversal),[ref]$parsed)) { return $null }
+        return ([datetime]$Value).ToUniversalTime().CompareTo($parsed)
+    }
+    $left = [long]0; $right = [long]0
+    if ([long]::TryParse([string]$Value,[ref]$left) -and [long]::TryParse($Wanted,[ref]$right)) { return $left.CompareTo($right) }
+    return [Math]::Sign([string]::Compare([string]$Value,$Wanted,[StringComparison]::OrdinalIgnoreCase))
+}
 function Test-DemoItem {
     param($Node,$Item)
     $attrs = $Item.Attrs
+    if ($Node.Op -in @('>=','<=','BitAnd','BitOr')) {
+        if (-not $attrs.ContainsKey($Node.Attr)) { return $false }
+        $mask = [long]0
+        if ($Node.Op -in @('BitAnd','BitOr') -and -not [long]::TryParse([string]$Node.Value,[ref]$mask)) { return $false }
+        foreach ($value in @($attrs[$Node.Attr])) {
+            if ($null -eq $value -or $value -is [byte[]]) { continue }
+            if ($Node.Op -in @('BitAnd','BitOr')) {
+                $number = [long]0
+                if (-not [long]::TryParse([string]$value,[ref]$number)) { continue }
+                if (($Node.Op -eq 'BitAnd') -and (($number -band $mask) -eq $mask)) { return $true }
+                if (($Node.Op -eq 'BitOr') -and (($number -band $mask) -ne 0)) { return $true }
+                continue
+            }
+            $order = Compare-DemoOrdered $value ([string]$Node.Value)
+            if ($null -eq $order) { continue }
+            if (($Node.Op -eq '>=') -and ($order -ge 0)) { return $true }
+            if (($Node.Op -eq '<=') -and ($order -le 0)) { return $true }
+        }
+        return $false
+    }
     if ($Node.Attr -eq 'anr') {
         $prefix = ([string]$Node.Segments[0]).ToLowerInvariant()
         foreach ($name in @('name','displayname','givenname','sn','samaccountname','mail','userprincipalname')) {
@@ -124,7 +192,17 @@ function Test-DemoItem {
     $values = @($attrs[$Node.Attr])
     if ($Node.Presence) { return ($values.Count -gt 0) }
     foreach ($value in $values) {
-        if ($null -eq $value -or $value -is [byte[]]) { continue }
+        if ($null -eq $value) { continue }
+        if ($value -is [byte[]]) {
+            # A pasted GUID or SID is searched by its exact binary value, or by the S-1-... text for a SID.
+            if ($Node.Attr -notin @('objectguid','objectsid')) { continue }
+            $wanted = ConvertFrom-DemoLdapBytes ([string]$Node.Value)
+            if ($null -ne $wanted -and [Convert]::ToBase64String([byte[]]$value) -ceq [Convert]::ToBase64String([byte[]]$wanted)) { return $true }
+            if ($Node.Attr -eq 'objectsid' -and ([string]$Node.Value).StartsWith('S-')) {
+                try { if ((New-Object Security.Principal.SecurityIdentifier -ArgumentList @([byte[]]$value,0)).Value -ieq [string]$Node.Value) { return $true } } catch { }
+            }
+            continue
+        }
         $text = [string]$value
         if ($Node.Attr -eq 'objectcategory') {
             $rdn = $text
@@ -220,6 +298,7 @@ if ($op -eq 'GlobalSearch') {
             $g = Get-WPropFirst $result.Properties 'objectguid' $null
             $guidText = if ($g -is [array] -and $g.Count -eq 16) { ([guid]([byte[]]$g)).ToString('D') } else { Convert-WGuid $g }
             Add-Member -InputObject $row -NotePropertyName Guid -NotePropertyValue $guidText
+            Add-Member -InputObject $row -NotePropertyName AdminCount -NotePropertyValue ([string](Get-WPropFirst $result.Properties 'admincount' '')) -Force
             if ([string]$row.Type -notin @('Utilisateur','Machine','Groupe','OU','Conteneur')) { continue }
             $rowKey = ([string]$row.DN).Trim().ToLowerInvariant()
             if ($seen.ContainsKey($rowKey)) { continue }
@@ -270,13 +349,16 @@ if ($op -eq 'ReceiptStore' -and [string]$req.Action -eq 'List') {
 }
 
 if ($op -eq 'StartupWarmCache') {
+    # Same shape as the real read: one level under the base, objects bounded by ObjectLimit.
     $treeRows = New-Object Collections.ArrayList
     $objectRows = New-Object Collections.ArrayList
+    $objectLimit = [Math]::Max(1,[int]$req.ObjectLimit)
     foreach ($item in $ordered) {
+        if ($item.Parent -ne $baseKey) { continue }
         $result = New-DemoResult $item
         $type = Get-WObjectType $item.Attrs
-        if ($item.Parent -eq $baseKey -and $type -in @('OU','Conteneur')) { [void]$treeRows.Add([pscustomobject]@{ Name=[string](Get-WPropFirst $item.Attrs 'name' ''); DN=$item.DN; Kind=$type }) }
-        if ($type -in @('Utilisateur','Machine','Groupe','OU','Conteneur')) { [void]$objectRows.Add((New-WBranchRow $result)) }
+        if ([bool]$req.WarmTree -and $type -in @('OU','Conteneur')) { [void]$treeRows.Add([pscustomobject]@{ Name=[string](Get-WPropFirst $item.Attrs 'name' ''); DN=$item.DN; Kind=$type }) }
+        if ([bool]$req.WarmObjects -and $objectRows.Count -lt $objectLimit -and $type -in @('Utilisateur','Machine','Groupe','OU','Conteneur')) { [void]$objectRows.Add((New-WBranchRow $result)) }
     }
     [pscustomobject]@{ BaseDn=$baseDn; TreeReady=$true; ObjectsReady=$true; TreeRows=@($treeRows | Sort-Object Name); ObjectRows=@($objectRows); WorkerThreadId=[Threading.Thread]::CurrentThread.ManagedThreadId }
     return
