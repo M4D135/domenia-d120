@@ -116,7 +116,7 @@
     "File": "wad/modules/Domenia-Relations.UI.ps1",
     "Function": "Get-DomeniaRelationsWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "0014DBE4C077874A303C94D8A26A76F794E9B6BE164101585533034CC7F931EA"
+    "Sha256": "EB7C36419C1B8B91AFB9ECE6B98D4E3FE663B87E4011F7D264D8AEDE7735E775"
   },
   {
     "Operation": "LogonHarvest",
@@ -151,7 +151,7 @@
     "File": "wad/Domenia-Core.ps1",
     "Function": "Start-ComputerUserLinkProbe",
     "LiteralIndex": 0,
-    "Sha256": "527CE950977287F1846A8C79F3880139F62F0AB09AC1197000B8989E68E3CFE4"
+    "Sha256": "8F79C42CE673CE98DBE30EB30B9DBF246D8819B08149A4FBA1C5F9BA894395F9"
   },
   {
     "Operation": "CmdletInventory",

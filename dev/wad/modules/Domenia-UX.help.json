@@ -3276,5 +3276,47 @@
     "Title": "Reessayer la lecture AD",
     "Text": "Relit uniquement cette fiche AD, sans ping, sonde ni ecriture.",
     "Kind": "Button"
+  },
+  {
+    "Name": "BtnRestoreLink",
+    "Title": "Restaurer la suppression",
+    "Text": "Remet la dernière association supprimée localement, depuis le journal des relations. Aucun objet Active Directory nʼest lu ni modifié.",
+    "Kind": "Control",
+    "Source": "d120-relations"
+  },
+  {
+    "Name": "RelationPlanPanel",
+    "Title": "Périmètre à confirmer",
+    "Text": "Liste exacte des postes qui seront lus, avec la limite. Aucun poste nʼest contacté avant « Lancer la détection ».",
+    "Kind": "Control",
+    "Source": "d120-relations"
+  },
+  {
+    "Name": "LblRelationPlan",
+    "Title": "Périmètre de détection",
+    "Text": "Nombre de postes, périmètre demandé, limite et troncature. Zéro candidat signifie quʼaucune source nʼen propose, pas que lʼutilisateur nʼa aucun poste.",
+    "Kind": "Control",
+    "Source": "d120-relations"
+  },
+  {
+    "Name": "BtnRelationPlanRun",
+    "Title": "Lancer la détection",
+    "Text": "Lit la console des seuls postes listés, dans la limite affichée. Compteurs interrogés, refusés, injoignables et restants pendant la lecture.",
+    "Kind": "Control",
+    "Source": "d120-relations"
+  },
+  {
+    "Name": "BtnRelationPlanCancel",
+    "Title": "Annuler le périmètre",
+    "Text": "Abandonne ce périmètre. Aucun poste nʼest contacté.",
+    "Kind": "Control",
+    "Source": "d120-relations"
+  },
+  {
+    "Name": "ChkRelationRdp",
+    "Title": "Sessions RDP",
+    "Text": "Option séparée, non disponible : la lecture porte sur la console. Une console vide ne prouve pas lʼabsence de session RDP.",
+    "Kind": "Control",
+    "Source": "d120-relations"
   }
 ]

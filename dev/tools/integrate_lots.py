@@ -50,7 +50,7 @@ def apply_modules(lots, problems):
     head, rest = text.split('function Get-DomeniaRuntimeModulePlan {\n    @(\n', 1)
     body, tail = rest.split('\n    )\n}\n', 1)
     entries = re.split(r'\n(?=        \[pscustomobject\]@\{)', '\n' + body.strip('\n'))
-    entries = [e for e in entries if e.strip()]
+    entries = [e.strip('\n') for e in entries if e.strip()]
     comments = [e for e in entries if not e.lstrip().startswith('[pscustomobject]')]
     blocks = [e for e in entries if e.lstrip().startswith('[pscustomobject]')]
     by_file = {}
@@ -66,8 +66,12 @@ def apply_modules(lots, problems):
                 problems.append(f"{lot['Lot']}: module absent {file}")
                 continue
             if file in by_file and 'Phase=' not in by_file[file] and not module.get('Replace', False):
-                # Existing legacy entry: keep it, only refresh its function list.
                 old = by_file[file]
+                if 'Phase' in module or 'Requires' in module:
+                    # Legacy entry upgraded with the declared Phase/Requires; its DotSource is preserved.
+                    by_file[file] = plan_entry(dict(module, DotSource=('DotSource=$false' not in old)))
+                    continue
+                # Existing legacy entry without plan metadata: keep it, only refresh its function list.
                 funcs = top_functions(file)
                 inner = ',\n'.join("            '%s'" % f for f in funcs)
                 by_file[file] = re.sub(r"Functions=@\(.*\)\s*\}$", "Functions=@(\n" + inner + "\n        ) }", old, flags=re.S)
