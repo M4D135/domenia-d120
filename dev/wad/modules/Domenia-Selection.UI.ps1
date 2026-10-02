@@ -16,6 +16,17 @@ function Get-DomeniaObjectReadIdentity {
     return ('{0}|{1}|{2}|{3}|{4}' -f [long]$script:SessionEpoch,[string]$script:Conn.BaseDn,[string]$script:Conn.Server,[string]$script:Conn.BindUser,$reference)
 }
 
+function Get-DomeniaRowSelectionIdentity {
+    # D012: immutable identity of one result row: domain, GUID/SID, type, read account, session and generation.
+    # $null when the row has no usable GUID or when the identity rules are not loaded.
+    param($Row,[long]$Generation=[long]$script:GlobalSearchGeneration)
+    if ($null -eq $Row -or $null -eq (Get-Command New-DomeniaSelectionIdentity -CommandType Function -ErrorAction SilentlyContinue)) { return $null }
+    $domain = [string]$script:Conn.BaseDn
+    if ([string]::IsNullOrWhiteSpace($domain)) { $domain = [string]$script:Conn.Domain }
+    try { return (New-DomeniaSelectionIdentity -Row $Row -Domain $domain -Reader (Get-DomeniaObjectReadIdentity) -Epoch ([long]$script:SessionEpoch) -Generation $Generation) }
+    catch { return $null }
+}
+
 function Get-DomeniaSelectionContext {
     $grid = Get-DomeniaControl 'DgObjects'
     if ($null -eq $grid -or -not $grid.IsEnabled -or @($grid.SelectedItems).Count -ne 1) { return $null }
@@ -24,18 +35,64 @@ function Get-DomeniaSelectionContext {
     if ([string]$row.Type -notin @('Utilisateur','Machine','Groupe','OU','Conteneur','Objet')) { return $null }
     $guid = ''
     if ($null -ne $row.PSObject.Properties['Guid']) { $guid = [string]$row.Guid }
+    # The typed identity is captured once: the target of an operation never follows a later label change.
+    $selectionIdentity = Get-DomeniaRowSelectionIdentity -Row $row
+    if ($null -ne $selectionIdentity) { $guid = [string]$selectionIdentity.Guid }
     return [pscustomobject]@{
         DN=[string]$row.DN;Type=[string]$row.Type;Name=[string]$row.Name;Guid=$guid
         Epoch=[long]$script:SessionEpoch;Generation=[int]$script:GlobalSearchGeneration
-        Identity=(Get-DomeniaObjectReadIdentity)
+        Identity=(Get-DomeniaObjectReadIdentity);SelectionIdentity=$selectionIdentity
     }
 }
 
 function Test-DomeniaSameSelectionContext {
     param($Left,$Right)
     if ($null -eq $Left -or $null -eq $Right) { return $false }
+    $leftIdentity = $null; $rightIdentity = $null
+    if ($null -ne $Left.PSObject.Properties['SelectionIdentity']) { $leftIdentity = $Left.SelectionIdentity }
+    if ($null -ne $Right.PSObject.Properties['SelectionIdentity']) { $rightIdentity = $Right.SelectionIdentity }
+    if ($null -ne $leftIdentity -and $null -ne $rightIdentity) {
+        # D012: same object (domain and GUID), same type, read account, session and generation; labels do not count.
+        return ($Left.DN -ieq $Right.DN -and (Test-DomeniaIdentityCurrent $leftIdentity $rightIdentity))
+    }
     return ($Left.DN -ieq $Right.DN -and $Left.Guid -ieq $Right.Guid -and $Left.Type -ceq $Right.Type -and
         $Left.Epoch -eq $Right.Epoch -and $Left.Generation -eq $Right.Generation -and $Left.Identity -ceq $Right.Identity)
+}
+
+function Get-DomeniaCurrentSelectionIdentity {
+    # C5: Domenia.SelectionIdentity of the current selection, or $null.
+    # '' follows the visible page; 'WsSearch' = the single selected result row; any other workspace
+    # (Fiche, Assistance poste, Relations) = the object actually loaded in the fiche, never a control label.
+    param([string]$Workspace='')
+    $page = $Workspace
+    if (-not $page) {
+        $tabs = Get-DomeniaControl 'WorkspaceTabs'
+        try { if ($null -ne $tabs -and $null -ne $tabs.SelectedItem) { $page = [string]$tabs.SelectedItem.Name } } catch { }
+    }
+    if (-not $page -or $page -eq 'WsSearch') {
+        $context = Get-DomeniaSelectionContext
+        if ($null -eq $context) { return $null }
+        return $context.SelectionIdentity
+    }
+    $loaded = $script:SelectedObject
+    if ($null -eq $loaded -or [string]::IsNullOrWhiteSpace([string]$loaded.DN)) { return $null }
+    $load = $script:SelectionLoad
+    if ($null -ne $load -and $null -ne $load.PSObject.Properties['SelectionIdentity'] -and $null -ne $load.SelectionIdentity) {
+        $captured = $load.SelectionIdentity
+        if ([string]$captured.DN -ieq [string]$loaded.DN -and $load.Phase -in @('Ready','Cached')) {
+            $loadedGuid = ''
+            try { $loadedGuid = ConvertTo-DomeniaGuidText $loaded.Safety.Guid } catch { }
+            if ($loadedGuid -and $loadedGuid -ine [string]$captured.Guid) { return $null }
+            return $captured
+        }
+    }
+    # Fiche opened outside the result grid: identity of the object as read, never of an edited field.
+    $row = [pscustomobject]@{Guid='';Type=[string]$loaded.Type;DN=[string]$loaded.DN;Name=[string]$loaded.Name;Login='';Sid=''}
+    try { $row.Guid = [string]$loaded.Safety.Guid } catch { }
+    if ($null -ne (Get-Command Get-DomeniaEntryFirstString -CommandType Function -ErrorAction SilentlyContinue)) {
+        try { $row.Login = [string](Get-DomeniaEntryFirstString $loaded.Entry 'sAMAccountName'); $row.Sid = [string](Get-DomeniaEntryFirstString $loaded.Entry 'objectSid') } catch { }
+    }
+    return (Get-DomeniaRowSelectionIdentity -Row $row -Generation ([long]$script:SelectedObjectGeneration))
 }
 
 function Test-DomeniaSelectionLoadCurrent {
@@ -68,6 +125,14 @@ function Assert-DomeniaObjectResultIdentity {
     $guid = Get-DomeniaObjectResultGuid $Result
     if (-not $guid) { throw 'GUID absent ou invalide dans la lecture AD. La fiche reste indisponible.' }
     if ($State.ExpectedGuid -and [string]$State.ExpectedGuid -ine $guid) { throw 'Cet objet a ete remplace depuis la recherche (GUID different). Actualisez la liste avant de continuer.' }
+    # D012: a read bound to the current selection must match the identity captured at selection time,
+    # whatever a request field or a label says afterwards.
+    $load = $script:SelectionLoad
+    if ($State.SelectionBound -and $null -ne $load -and $null -ne $load.PSObject.Properties['SelectionIdentity'] -and $null -ne $load.SelectionIdentity -and [string]$State.SelectionToken -ceq [string]$load.Token) {
+        $pinned = [string]$load.SelectionIdentity.Guid
+        if ($State.ExpectedGuid -and [string]$State.ExpectedGuid -ine $pinned) { throw 'La cible de la lecture ne correspond plus a la selection capturee. Actualisez la liste avant de continuer.' }
+        if ($guid -ine $pinned) { throw 'Cet objet a ete remplace depuis la recherche (GUID different). Actualisez la liste avant de continuer.' }
+    }
 }
 
 function Get-DomeniaObjectCacheKey {
@@ -88,6 +153,8 @@ function Update-DomeniaSelectionReadUi {
     $hasData = ($null -ne $script:SelectedObject -and $script:SelectedObject.DN -ieq $context.DN)
     $ready = ($hasData -and $load.Phase -eq 'Ready')
     $prefix = $context.Type + ' : ' + $context.Name
+    # The label is derived from the captured identity, never the reverse.
+    if ($null -ne $load.PSObject.Properties['SelectionIdentity'] -and $null -ne $load.SelectionIdentity) { $prefix = [string]$load.SelectionIdentity.Type + ' : ' + [string]$load.SelectionIdentity.Name }
     $text = switch ($load.Phase) {
         'Queued' { $prefix + ' | Preparation de la fiche...' }
         'Loading' { $prefix + ' | Lecture AD en arriere-plan...' }
@@ -164,7 +231,10 @@ function Enter-DomeniaSelectionContext {
         }
     }
     Clear-Secrets
-    $script:SelectionLoad = [pscustomobject]@{Context=$Context;Token=[guid]::NewGuid().ToString('N');Phase='Queued';Message='';VisibleType=''}
+    # D012: the fiche keeps the immutable identity captured at selection time.
+    $captured = $null
+    if ($null -ne $Context.PSObject.Properties['SelectionIdentity']) { $captured = $Context.SelectionIdentity }
+    $script:SelectionLoad = [pscustomobject]@{Context=$Context;Token=[guid]::NewGuid().ToString('N');Phase='Queued';Message='';VisibleType='';SelectionIdentity=$captured}
     # Old form data stay hidden. Full clearing/rendering is done only for the final debounced read.
     Update-DomeniaSelectionReadUi
 }

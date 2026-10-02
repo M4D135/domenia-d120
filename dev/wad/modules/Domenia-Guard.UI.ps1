@@ -113,19 +113,32 @@ function Get-DomeniaFavouriteSearches {
     return $list.ToArray()
 }
 function Save-DomeniaFavouriteSearch {
+    # D038: no dialog window. The name comes from an in-page field when one exists, otherwise from what is
+    # visible (mode, OU, text). Only the perimeter and filters are kept: no result, account, right or write mode.
+    $viewShown=([string]$script:ActiveSearchViewId -and $null -ne $script:Live -and $null -ne $script:Live.Search -and $null -ne $script:Live.Search.State.PSObject.Properties['ViewId'] -and [string]$script:Live.Search.State.ViewId -ceq [string]$script:ActiveSearchViewId)
+    if($viewShown){Set-Status 'Une vue de travail se relance depuis la liste des vues : elle nʼest pas mémorisée comme favori.' 'WARN';return}
     $scope=Get-DomeniaSearchScope
-    $form=Show-DomeniaFormDialog -Title 'Memoriser une recherche' -Message 'Enregistre ce perimetre et les filtres, pas les resultats ni les identifiants.' -Fields @(@{Name='Name';Label='Nom de la recherche';Value='Ma recherche'}) -AcceptText 'Enregistrer'
-    if($null -eq $form){return}
-    $item=[pscustomobject]@{SearchMode=(Get-DomeniaSearchMode);Name=[string]$form.Name;DN=$scope.BaseDn;Subtree=($scope.Scope -eq 'Subtree');Query=(Get-DomeniaSearchText);Type=$(if((Get-DomeniaSearchMode) -eq 'Global'){'Tous'}else{[string](Get-DomeniaControl 'CmbGlobalType').SelectedItem.Content});Limit=[string](Get-DomeniaControl 'TxtGlobalLimit').Text}
+    $mode=Get-DomeniaSearchMode
+    $nameBox=Get-DomeniaControl 'TxtGuardSearchName'
+    $name=if($null -ne $nameBox){([string]$nameBox.Text).Trim()}else{''}
+    if(-not $name){
+        $ouName='';try{$ouName=[string](Get-DomeniaUxOuDisplay -DistinguishedName ([string]$scope.BaseDn) -IsDomain ([bool]$scope.IsDomain)).Name}catch{}
+        $name=Get-DomeniaFavouriteName -Mode $mode -Text (Get-DomeniaSearchText) -OuName $ouName
+    }
+    $item=[pscustomobject]@{SearchMode=$mode;Name=$name;DN=$scope.BaseDn;Subtree=($scope.Scope -eq 'Subtree');Query=(Get-DomeniaSearchText);Type=$(if($mode -eq 'Global'){'Tous'}else{[string](Get-DomeniaControl 'CmbGlobalType').SelectedItem.Content});Limit=[string](Get-DomeniaControl 'TxtGlobalLimit').Text}
     $valid=ConvertTo-DomeniaSavedSearch $item ([string]$script:Conn.BaseDn)
-    if($null -eq $valid){Show-InfoBox 'Nom ou perimetre invalide.';return}
+    if($null -eq $valid){Set-Status 'Recherche non mémorisée : nom ou périmètre invalide.' 'WARN';return}
     $all=@(Get-DomeniaSetting 'SavedSearches' @()|Where-Object{[string]$_.Name -ine $valid.Name -or [string]$_.DN -ine $valid.DN})
-    if($all.Count -ge 50){Show-InfoBox '50 favoris maximum. Retirez un favori avant d en ajouter un.';return}
+    if($all.Count -ge 50){Set-Status '50 favoris au maximum : retirez un favori avant dʼen ajouter un.' 'WARN';return}
     Set-DomeniaSetting 'SavedSearches' @($all+$valid);Save-DomeniaSettings -Immediate
     [void](Set-DomeniaItemsSource 'LstGuardSearches' (Get-DomeniaFavouriteSearches))
+    Set-Status ('Recherche mémorisée : '+[string]$valid.Name+'. Périmètre et filtres seulement, sans compte ni droit.')
 }
 function Load-DomeniaFavouriteSearch {
     $v=(Get-DomeniaControl 'LstGuardSearches').SelectedItem;if($null -eq $v){return}
+    # D038: only the whitelisted perimeter and filters are applied, for the current domain; never an account or a right.
+    $v=ConvertTo-DomeniaSavedSearch $v ([string]$script:Conn.BaseDn)
+    if($null -eq $v){Set-Status 'Favori ignoré : il ne correspond pas au domaine de cette session.' 'WARN';return}
     if(-not (Test-DomeniaDraftNavigation '')){return}
     if(Test-DomeniaAccessBusyWrite){Show-InfoBox 'Une ecriture est active ou a verifier.';return}
     $oldRestore=$script:RestoringSettings;$oldSuppress=$script:SuppressBranchAutoLoad

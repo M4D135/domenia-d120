@@ -6,7 +6,7 @@
 function ConvertTo-DomeniaLdapLiteral {
     # RFC 4515 escaping. With -KeepWildcard an asterisk typed by the operator stays a wildcard.
     param([AllowEmptyString()][AllowNull()][string]$Value,[switch]$KeepWildcard)
-    $builder = New-Object Text.StringBuilder
+    $builder = [Text.StringBuilder]::new()
     foreach ($character in ([string]$Value).ToCharArray()) {
         switch ([int]$character) {
             0  { [void]$builder.Append('\00') }
@@ -48,9 +48,9 @@ function ConvertFrom-DomeniaSearchSyntax {
         'groupe'='Groupe';'group'='Groupe';'g'='Groupe'
         'mail'='Mail';'email'='Mail';'courriel'='Mail'
     }
-    $tokens = New-Object 'System.Collections.Generic.List[object]'
-    $notes = New-Object 'System.Collections.Generic.List[string]'
-    $free = New-Object 'System.Collections.Generic.List[string]'
+    $tokens = [Collections.Generic.List[object]]::new()
+    $notes = [Collections.Generic.List[string]]::new()
+    $free = [Collections.Generic.List[string]]::new()
     $pattern = '(?<prefix>[\p{L}]+):(?:"(?<quoted>[^"]*)"|(?<bare>\S*))|"(?<phrase>[^"]*)"|(?<word>\S+)'
     foreach ($match in [regex]::Matches(([string]$Text).Trim(),$pattern)) {
         if ($match.Groups['prefix'].Success) {
@@ -90,8 +90,8 @@ function ConvertTo-DomeniaSearchFilter {
     # Returns {Filter, Valid, Reason, Costly}. Several words must all match (in any attribute).
     param([AllowEmptyString()][AllowNull()][string]$Text,[string]$Type='',[object[]]$Tokens=@(),[int]$MinimumLength=2)
     $words = @(Split-DomeniaSearchWords $Text)
-    $blocks = New-Object 'System.Collections.Generic.List[string]'
-    $tokenTypes = New-Object 'System.Collections.Generic.List[string]'
+    $blocks = [Collections.Generic.List[string]]::new()
+    $tokenTypes = [Collections.Generic.List[string]]::new()
     foreach ($token in @($Tokens)) {
         $value = [string](Get-DomeniaMember $token 'Value' '')
         if (-not $value) { continue }
@@ -125,15 +125,16 @@ function ConvertTo-DomeniaSearchFilter {
 # ---------------------------------------------------------------- D031 / D032 global search and browsing
 function New-DomeniaGlobalSearchRequest {
     # The top bar always targets the connected domain. It never inherits an OU, a presence filter or a local filter.
+    # Only an unambiguous identifier (GUID, SID, DN) replaces the filter; UPN, DOMAINE\compte and FQDN stay explained only.
     param([AllowEmptyString()][string]$Text,[Parameter(Mandatory=$true)][string]$DomainDn,[int]$Limit=100,[string]$Reader='',[long]$Generation=0)
     $syntax = ConvertFrom-DomeniaSearchSyntax $Text
     $identifier = Get-DomeniaPastedIdentifier $Text
     $filter = $null
-    if ($identifier.Kind -ne 'None') { $filter = [pscustomobject]@{Filter=$identifier.Filter;Valid=$true;Reason='';Costly=$false} }
+    if ($identifier.Kind -in @('Guid','Sid','DN')) { $filter = [pscustomobject]@{Filter=$identifier.Filter;Valid=$true;Reason='';Costly=$false} }
     else { $filter = ConvertTo-DomeniaSearchFilter -Text $syntax.FreeText -Type $syntax.Type -Tokens $syntax.Tokens }
     return [pscustomobject]@{
         Mode='Global';BaseDn=$DomainDn;Scope='Subtree';PresenceFilter='';LocalFilter='';OuDn=''
-        Text=([string]$Text).Trim();Limit=[Math]::Max(1,[Math]::Min(1000,$Limit))
+        Text=([string]$Text).Trim();Limit=[Math]::Max(1,[Math]::Min(500,$Limit))
         Filter=$filter.Filter;Valid=$filter.Valid;Reason=$filter.Reason
         Tokens=$syntax.Tokens;Notes=$syntax.Notes;Identifier=$identifier;Reader=$Reader;Generation=$Generation
         ScopeLabel='Domaine entier'
@@ -163,13 +164,78 @@ function Get-DomeniaScopeLabel {
     if ($Mode -eq 'Global') { return 'Domaine entier' }
     $name = $OuName
     if (-not $name) { $name = 'OU non choisie' }
-    if ($Subtree) { return ('Dans cette OU : ' + $name + ' · sous-OU incluses') }
-    return ('Dans cette OU : ' + $name + ' · enfants directs')
+    if ($Subtree) { return ('Dans cette OU : ' + $name + ' · Sous-OU incluses') }
+    return ('Dans cette OU : ' + $name + ' · Enfants directs')
+}
+
+function Get-DomeniaGlobalSearchPlan {
+    # Decides, without any LDAP call, how the text of the upper bar refines the global search.
+    # Kind: Default (runtime filters unchanged), Identifier (exact GUID/SID/DN only), Syntax (explicit tokens only),
+    # Invalid (nothing is sent). MultiWordFilter replaces the broad fallback for several words (each word must match).
+    # The upper bar never inherits an OU, a presence filter or a local filter: $TypeFilter is the global type filter.
+    param([AllowEmptyString()][AllowNull()][string]$Text,[Parameter(Mandatory=$true)][string]$TypeFilter,[int]$MinimumLength=2,[bool]$SyntaxEnabled=$true)
+    $value = ([string]$Text).Trim()
+    $plan = [pscustomobject]@{Kind='Default';Filter='';MultiWordFilter='';Hint='';Valid=$true;Reason='';Identifier=$null;Tokens=@();AutoOpen=$false}
+    if (-not $value -or $value -eq '*') { return $plan }
+    $notes = [Collections.Generic.List[string]]::new()
+    if ($SyntaxEnabled) {
+        $identifier = Get-DomeniaPastedIdentifier $value
+        if ($identifier.Kind -in @('Guid','Sid','DN')) {
+            $plan.Kind = 'Identifier'; $plan.Identifier = $identifier
+            $plan.Filter = '(&' + $TypeFilter + $identifier.Filter + ')'
+            $plan.Hint = $identifier.Explanation + ' Aucun résultat nʼest ouvert automatiquement.'
+            return $plan
+        }
+        if ($identifier.Kind -ne 'None') { $plan.Identifier = $identifier; $notes.Add($identifier.Explanation) }
+        $syntax = ConvertFrom-DomeniaSearchSyntax $value
+        if ($syntax.HasSyntax) {
+            $built = ConvertTo-DomeniaSearchFilter -Text $syntax.FreeText -Type $syntax.Type -Tokens $syntax.Tokens -MinimumLength $MinimumLength
+            $labels = @($syntax.Tokens | ForEach-Object { [string]$_.Label })
+            $plan.Tokens = $syntax.Tokens
+            if (-not $built.Valid) {
+                $plan.Kind = 'Invalid'; $plan.Valid = $false; $plan.Reason = $built.Reason
+                $plan.Hint = 'Jetons : ' + ($labels -join ' · ') + ' · ' + $built.Reason
+                return $plan
+            }
+            $plan.Kind = 'Syntax'
+            $plan.Filter = '(&' + $TypeFilter + $built.Filter + ')'
+            $text = 'Jetons : ' + ($labels -join ' · ')
+            if ($syntax.FreeText) { $text += ' · texte : ' + $syntax.FreeText }
+            foreach ($note in @($syntax.Notes)) { $text += ' · ' + $note }
+            $plan.Hint = $text
+            return $plan
+        }
+        foreach ($note in @($syntax.Notes)) { $notes.Add($note) }
+    }
+    $plan.Hint = ($notes.ToArray() -join ' ')
+    # An explicit wildcard keeps its own explicit filter in the runtime.
+    if ($value.Contains('*')) { return $plan }
+    $words = @(Split-DomeniaSearchWords $value)
+    if ($words.Count -ge 2) {
+        $plan.MultiWordFilter = '(&' + $TypeFilter + (($words | ForEach-Object { Get-DomeniaWordFilter $_ }) -join '') + ')'
+    }
+    return $plan
+}
+
+function Get-DomeniaFavouriteName {
+    # Name of a saved search, built from what is visible. No dialog window, no account, no right.
+    param([ValidateSet('Global','OU')][string]$Mode='Global',[AllowEmptyString()][string]$Text='',[AllowEmptyString()][string]$OuName='',[AllowEmptyString()][string]$ViewName='')
+    $query = ([string]$Text).Trim()
+    if ($ViewName) { $name = 'Vue : ' + $ViewName }
+    elseif ($Mode -eq 'Global') { $name = 'Domaine entier : ' + $(if ($query) { $query } else { 'tout' }) }
+    else {
+        $ou = $OuName
+        if (-not $ou) { $ou = 'OU' }
+        $name = $ou + $(if ($query) { ' : ' + $query } else { '' })
+    }
+    return (ConvertTo-DomeniaFlatText $name 80)
 }
 
 # ---------------------------------------------------------------- D034 ranking
 function Get-DomeniaSearchRank {
-    # Lower is better: exact identifier, exact name, identifier prefix, name prefix, word prefix, the rest.
+    # Lower is better: exact identifier, exact name, identifier prefix, whole word of the name,
+    # name prefix, word prefix, substring, the rest. A whole word ('Jean Dupont' for 'dupont') ranks
+    # before a longer word that only starts with the query ('Dupontel').
     param($Row,[AllowEmptyString()][string]$Query)
     $q = ([string]$Query).Trim().TrimEnd('*')
     if (-not $q) { return 9 }
@@ -179,10 +245,12 @@ function Get-DomeniaSearchRank {
     if ($login.Equals($q,$ordinal) -or $upn.Equals($q,$ordinal) -or $mail.Equals($q,$ordinal) -or ($upn -and ($upn -split '@')[0].Equals($q,$ordinal))) { return 0 }
     if ($name.Equals($q,$ordinal) -or $display.Equals($q,$ordinal)) { return 1 }
     if ($login.StartsWith($q,$ordinal) -or $upn.StartsWith($q,$ordinal)) { return 2 }
-    if ($name.StartsWith($q,$ordinal) -or $display.StartsWith($q,$ordinal)) { return 3 }
-    foreach ($word in @(($name + ' ' + $display) -split '[\s\-]+' | Where-Object { $_ })) { if ($word.StartsWith($q,$ordinal)) { return 4 } }
-    if ($login.IndexOf($q,$ordinal) -ge 0 -or $name.IndexOf($q,$ordinal) -ge 0 -or $display.IndexOf($q,$ordinal) -ge 0 -or $upn.IndexOf($q,$ordinal) -ge 0) { return 5 }
-    return 6
+    $words = @(($name + ' ' + $display) -split '[\s\-]+' | Where-Object { $_ })
+    foreach ($word in $words) { if ($word.Equals($q,$ordinal)) { return 3 } }
+    if ($name.StartsWith($q,$ordinal) -or $display.StartsWith($q,$ordinal)) { return 4 }
+    foreach ($word in $words) { if ($word.StartsWith($q,$ordinal)) { return 5 } }
+    if ($login.IndexOf($q,$ordinal) -ge 0 -or $name.IndexOf($q,$ordinal) -ge 0 -or $display.IndexOf($q,$ordinal) -ge 0 -or $upn.IndexOf($q,$ordinal) -ge 0) { return 6 }
+    return 7
 }
 
 function Test-DomeniaAdminAccountRow {
@@ -197,8 +265,8 @@ function Test-DomeniaAdminAccountRow {
 function Sort-DomeniaSearchResults {
     # Deduplicates by identity (GUID, else DN), never by label, then orders by relevance and name.
     param([object[]]$Rows=@(),[AllowEmptyString()][string]$Query='')
-    $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
-    $ranked = New-Object 'System.Collections.Generic.List[object]'
+    $seen = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    $ranked = [Collections.Generic.List[object]]::new()
     $position = 0
     foreach ($row in @($Rows)) {
         if ($null -eq $row) { continue }
@@ -234,20 +302,25 @@ function Get-DomeniaPastedIdentifier {
     if ($value -match '^(?i)S-1-\d+(-\d+){1,14}$') {
         return [pscustomobject]@{Kind='Sid';Value=$value.ToUpperInvariant();Filter='(objectSid=' + $value.ToUpperInvariant() + ')';Explanation='SID reconnu : recherche exacte de ce compte.';Ambiguous=$false;AutoOpen=$false}
     }
-    if ($value -match '^(?i)(CN|OU|DC)=[^,]+(,\s*(CN|OU|DC)=[^,]+)+$') {
-        return [pscustomobject]@{Kind='DN';Value=$value;Filter='(distinguishedName=' + (ConvertTo-DomeniaLdapLiteral $value) + ')';Explanation='Nom distingue reconnu : recherche exacte de cet objet.';Ambiguous=$false;AutoOpen=$false}
+    # A DN is recognised RDN by RDN, so an escaped comma ('CN=Dupont\, Jean') stays inside its RDN.
+    $rdns = @()
+    if ($value -match '^(?i)(CN|OU|DC)=') { $rdns = @(Split-DomeniaDn $value) }
+    $wellFormed = ($rdns.Count -ge 2)
+    foreach ($rdn in $rdns) { if ($rdn -notmatch '^(?i)(CN|OU|DC)=\S') { $wellFormed = $false } }
+    if ($wellFormed) {
+        return [pscustomobject]@{Kind='DN';Value=$value;Filter='(distinguishedName=' + (ConvertTo-DomeniaLdapLiteral $value) + ')';Explanation='Nom distingué reconnu : recherche exacte de cet objet.';Ambiguous=$false;AutoOpen=$false}
     }
     if ($value -match '^[^\\/\s@]+\\[^\\/\s@]+$') {
         $account = ($value -split '\\')[1]
-        return [pscustomobject]@{Kind='DownLevel';Value=$value;Filter='(sAMAccountName=' + (ConvertTo-DomeniaLdapLiteral $account) + ')';Explanation='Nom DOMAINE\compte reconnu : recherche exacte de l identifiant dans le domaine connecte.';Ambiguous=$true;AutoOpen=$false}
+        return [pscustomobject]@{Kind='DownLevel';Value=$value;Filter='(sAMAccountName=' + (ConvertTo-DomeniaLdapLiteral $account) + ')';Explanation='Nom DOMAINE\compte reconnu : lʼidentifiant est cherché dans le domaine connecté, avec les autres correspondances.';Ambiguous=$true;AutoOpen=$false}
     }
     if ($value -match '^[^@\s]+@[^@\s]+\.[^@\s.]+$') {
         $literal = ConvertTo-DomeniaLdapLiteral $value
-        return [pscustomobject]@{Kind='Upn';Value=$value;Filter='(|(userPrincipalName=' + $literal + ')(mail=' + $literal + '))';Explanation='Adresse reconnue : recherche exacte du nom de connexion ou de la messagerie.';Ambiguous=$true;AutoOpen=$false}
+        return [pscustomobject]@{Kind='Upn';Value=$value;Filter='(|(userPrincipalName=' + $literal + ')(mail=' + $literal + '))';Explanation='Adresse reconnue : nom de connexion et messagerie cherchés, avec les autres correspondances.';Ambiguous=$true;AutoOpen=$false}
     }
     if ($value -match '^(?i)[a-z0-9]([a-z0-9-]{0,62})(\.[a-z0-9]([a-z0-9-]{0,62})){2,}$') {
         $literal = ConvertTo-DomeniaLdapLiteral $value
-        return [pscustomobject]@{Kind='Fqdn';Value=$value;Filter='(dNSHostName=' + $literal + ')';Explanation='Nom DNS complet reconnu : recherche exacte du poste.';Ambiguous=$false;AutoOpen=$false}
+        return [pscustomobject]@{Kind='Fqdn';Value=$value;Filter='(dNSHostName=' + $literal + ')';Explanation='Nom DNS complet reconnu : le poste est cherché avec les autres correspondances (un identifiant à points peut aussi être un compte).';Ambiguous=$true;AutoOpen=$false}
     }
     return $none
 }
@@ -255,13 +328,28 @@ function Get-DomeniaPastedIdentifier {
 # ---------------------------------------------------------------- D037 explicit continuation
 function Get-DomeniaResultCounterText {
     # States plainly whether the list is complete, limited or still loading.
-    param([int]$Loaded=0,[int]$Limit=100,[bool]$Complete=$false,[bool]$Loading=$false,[int]$Visible=-1)
-    $text = [string]$Loaded + ' charge(s)'
+    # At the safety maximum the next step is to refine: no further page is offered.
+    param([int]$Loaded=0,[int]$Limit=100,[bool]$Complete=$false,[bool]$Loading=$false,[int]$Visible=-1,[int]$Maximum=500)
+    $text = [string]$Loaded + ' chargé(s)'
     if ($Loading) { $text += ' · lecture en cours' }
-    elseif ($Complete) { $text = [string]$Loaded + ' resultat(s) · liste complete' }
-    else { $text += ' · liste limitee a ' + $Limit + ' : affinez ou chargez la suite' }
-    if ($Visible -ge 0 -and $Visible -ne $Loaded) { $text += ' · ' + $Visible + ' visible(s) apres filtre local' }
+    elseif ($Complete) { $text = [string]$Loaded + ' résultat(s) · liste complète' }
+    elseif ($Limit -ge $Maximum) { $text += ' · liste limitée à ' + $Limit + ' : affinez la recherche' }
+    else { $text += ' · liste limitée à ' + $Limit + ' : affinez ou chargez la suite' }
+    if ($Visible -ge 0 -and $Visible -ne $Loaded) { $text += ' · ' + $Visible + ' visible(s) après filtre local' }
     return $text
+}
+
+function Get-DomeniaContinuationDecision {
+    # 'Charger la suite' is offered only for a finished, complete-but-limited list below the safety maximum.
+    # The next load relaunches the same query with a larger bound: rows are deduplicated by identity and an
+    # older generation is discarded by the caller.
+    param([bool]$Finalized=$false,[bool]$HasError=$false,[bool]$LimitReached=$false,[int]$Limit=100,[int]$Maximum=500)
+    if (-not $Finalized) { return [pscustomobject]@{Allowed=$false;NextLimit=$Limit;Reason='Lecture en cours : attendez la fin du chargement.'} }
+    if ($HasError) { return [pscustomobject]@{Allowed=$false;NextLimit=$Limit;Reason='Liste partielle après une erreur : relancez la recherche.'} }
+    if (-not $LimitReached) { return [pscustomobject]@{Allowed=$false;NextLimit=$Limit;Reason='Liste complète : aucune suite à charger.'} }
+    if ($Limit -ge $Maximum) { return [pscustomobject]@{Allowed=$false;NextLimit=$Limit;Reason=('Limite de sécurité de ' + $Maximum + ' lignes atteinte : affinez la recherche.')} }
+    $next = [Math]::Max($Limit + 1,[Math]::Min($Maximum,$Limit * 2))
+    return [pscustomobject]@{Allowed=$true;NextLimit=$next;Reason=('Relit la même recherche jusquʼà ' + $next + ' lignes, sans doublon.')}
 }
 
 function New-DomeniaContinuation {
@@ -311,43 +399,104 @@ function ConvertTo-DomeniaSavedView {
         Type=[string](Get-DomeniaMember $View 'Type' '')
         OuDn=[string](Get-DomeniaMember $View 'OuDn' '')
         Subtree=[bool](Get-DomeniaMember $View 'Subtree' $true)
-        Limit=[Math]::Max(1,[Math]::Min(1000,$limit))
+        Limit=[Math]::Max(1,[Math]::Min(500,$limit))
         ViewId=[string](Get-DomeniaMember $View 'ViewId' '')
     }
 }
 
 # ---------------------------------------------------------------- D039 readable OU paths
 function Split-DomeniaDn {
-    # Splits on commas that are not escaped with a backslash.
-    param([AllowEmptyString()][string]$Dn)
-    return @([regex]::Split([string]$Dn,'(?<!\\),') | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+    # Splits a DN into RDNs on commas that are not escaped and not quoted. A backslash escapes exactly
+    # one character, so 'OU=Back\\,OU=Sites' ends the first RDN after the escaped backslash. Hex pairs
+    # ('\C3\89') never contain a comma and are kept for ConvertFrom-DomeniaDnValue.
+    param([AllowEmptyString()][AllowNull()][string]$Dn)
+    $text = [string]$Dn
+    $parts = [Collections.Generic.List[string]]::new()
+    $start = 0; $escaped = $false; $quoted = $false
+    for ($i = 0; $i -lt $text.Length; $i++) {
+        $c = $text[$i]
+        if ($escaped) { $escaped = $false; continue }
+        if ($c -eq [char]92) { $escaped = $true; continue }
+        if ($c -eq [char]34) { $quoted = -not $quoted; continue }
+        if ($c -eq [char]44 -and -not $quoted) { $parts.Add($text.Substring($start,$i - $start).Trim()); $start = $i + 1 }
+    }
+    if ($start -lt $text.Length) { $parts.Add($text.Substring($start).Trim()) }
+    return @($parts.ToArray() | Where-Object { $_ })
+}
+
+function ConvertFrom-DomeniaDnValue {
+    # Display value of one RDN: UTF-8 hex pairs and escaped characters decoded in a single pass.
+    param([AllowEmptyString()][AllowNull()][string]$Value)
+    $text = [string]$Value
+    if ($text.Length -ge 2 -and $text[0] -eq [char]34 -and $text[$text.Length - 1] -eq [char]34) { $text = $text.Substring(1,$text.Length - 2) }
+    $hex = '0123456789abcdefABCDEF'
+    $out = [Text.StringBuilder]::new()
+    $bytes = [Collections.Generic.List[byte]]::new()
+    $i = 0
+    while ($i -lt $text.Length) {
+        $c = $text[$i]
+        if ($c -eq [char]92 -and ($i + 1) -lt $text.Length) {
+            if (($i + 2) -lt $text.Length -and $hex.IndexOf($text[$i + 1]) -ge 0 -and $hex.IndexOf($text[$i + 2]) -ge 0) {
+                $bytes.Add([Convert]::ToByte($text.Substring($i + 1,2),16)); $i += 3; continue
+            }
+            if ($bytes.Count) { [void]$out.Append([Text.Encoding]::UTF8.GetString($bytes.ToArray())); $bytes.Clear() }
+            [void]$out.Append($text[$i + 1]); $i += 2; continue
+        }
+        if ($bytes.Count) { [void]$out.Append([Text.Encoding]::UTF8.GetString($bytes.ToArray())); $bytes.Clear() }
+        [void]$out.Append($c); $i++
+    }
+    if ($bytes.Count) { [void]$out.Append([Text.Encoding]::UTF8.GetString($bytes.ToArray())) }
+    return $out.ToString()
+}
+
+function Get-DomeniaDnParent {
+    # Parent DN: everything after the first unescaped, unquoted comma. '' for a single RDN.
+    param([AllowEmptyString()][AllowNull()][string]$Dn)
+    $text = [string]$Dn
+    $escaped = $false; $quoted = $false
+    for ($i = 0; $i -lt $text.Length; $i++) {
+        $c = $text[$i]
+        if ($escaped) { $escaped = $false; continue }
+        if ($c -eq [char]92) { $escaped = $true; continue }
+        if ($c -eq [char]34) { $quoted = -not $quoted; continue }
+        if ($c -eq [char]44 -and -not $quoted) { return $text.Substring($i + 1).Trim() }
+    }
+    return ''
 }
 
 function Get-DomeniaOuDisplayPath {
+    # Readable path 'domaine / OU / sous-OU', same separator as the OU explorer. The exact DN stays the search root.
     param([AllowEmptyString()][string]$Dn)
     $parts = @(Split-DomeniaDn $Dn)
     if (-not $parts.Count) { return '' }
-    $domain = @($parts | Where-Object { $_ -match '^(?i)DC=' } | ForEach-Object { $_.Substring(3) }) -join '.'
-    $path = @($parts | Where-Object { $_ -notmatch '^(?i)DC=' } | ForEach-Object { ($_ -replace '^(?i)(OU|CN)=','') -replace '\\(.)','$1' })
-    [array]::Reverse($path)
-    $separator = ' ' + [string][char]0x203A + ' '
-    return (@($domain) + $path | Where-Object { $_ }) -join $separator
+    $domain = [Collections.Generic.List[string]]::new()
+    $path = [Collections.Generic.List[string]]::new()
+    foreach ($part in $parts) {
+        $equals = $part.IndexOf('=')
+        if ($equals -lt 1) { continue }
+        $kind = $part.Substring(0,$equals).Trim(); $value = ConvertFrom-DomeniaDnValue ($part.Substring($equals + 1))
+        if ($kind -ieq 'DC') { $domain.Add($value) } else { $path.Insert(0,$value) }
+    }
+    $items = [Collections.Generic.List[string]]::new()
+    if ($domain.Count) { $items.Add(($domain.ToArray() -join '.')) }
+    foreach ($item in $path) { if ($item) { $items.Add($item) } }
+    return ($items.ToArray() -join ' / ')
 }
 
 function Resolve-DomeniaOuRestore {
     # A saved OU that no longer exists is never replaced silently by the whole domain.
     param([AllowEmptyString()][string]$SavedDn,[bool]$Exists,[AllowEmptyString()][string]$MovedToDn='',[bool]$ReadFailed=$false)
     if (-not $SavedDn) { return [pscustomobject]@{Action='None';TargetDn='';Message='';RequiresChoice=$false} }
-    if ($ReadFailed) { return [pscustomobject]@{Action='AskRetry';TargetDn='';Message='Le perimetre memorise n a pas pu etre relu. Choisissez une OU ou relancez la lecture.';RequiresChoice=$true} }
+    if ($ReadFailed) { return [pscustomobject]@{Action='AskRetry';TargetDn='';Message='LʼOU mémorisée nʼa pas pu être relue dans le délai : aucune absence nʼest déduite. Relancez la lecture ou choisissez une OU ; aucun autre périmètre nʼest appliqué.';RequiresChoice=$true} }
     if ($Exists) { return [pscustomobject]@{Action='Restore';TargetDn=$SavedDn;Message='';RequiresChoice=$false} }
-    if ($MovedToDn) { return [pscustomobject]@{Action='AskMoved';TargetDn=$MovedToDn;Message=('L OU memorisee a ete deplacee vers ' + (Get-DomeniaOuDisplayPath $MovedToDn) + '. Confirmez ce nouveau perimetre ou choisissez-en un autre.');RequiresChoice=$true} }
-    return [pscustomobject]@{Action='AskMissing';TargetDn='';Message=('L OU memorisee (' + (Get-DomeniaOuDisplayPath $SavedDn) + ') est introuvable. Aucun perimetre n est applique : choisissez une OU.');RequiresChoice=$true}
+    if ($MovedToDn) { return [pscustomobject]@{Action='AskMoved';TargetDn=$MovedToDn;Message=('LʼOU mémorisée a été déplacée vers ' + (Get-DomeniaOuDisplayPath $MovedToDn) + '. Confirmez ce nouveau périmètre ou choisissez-en un autre.');RequiresChoice=$true} }
+    return [pscustomobject]@{Action='AskMissing';TargetDn='';Message=('LʼOU mémorisée (' + (Get-DomeniaOuDisplayPath $SavedDn) + ') nʼapparaît plus sous son parent relu. Aucun périmètre nʼest appliqué : choisissez une OU ou relancez la lecture.');RequiresChoice=$true}
 }
 
 # ---------------------------------------------------------------- D040 back / forward
 function New-DomeniaNavHistory {
     param([ValidateRange(2,200)][int]$Capacity=40)
-    return [pscustomobject]@{Capacity=$Capacity;Back=(New-Object System.Collections.ArrayList);Forward=(New-Object System.Collections.ArrayList);Current=$null}
+    return [pscustomobject]@{Capacity=$Capacity;Back=([Collections.ArrayList]::new());Forward=([Collections.ArrayList]::new());Current=$null}
 }
 
 function Get-DomeniaNavStateKey {

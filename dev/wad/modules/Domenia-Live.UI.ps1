@@ -106,18 +106,35 @@ function Begin-DomeniaLiveSearch {
     Reset-DomeniaLiveIdentity;Stop-DomeniaLiveSearch
     $queue=[Collections.Concurrent.ConcurrentQueue[object]]::new();$cacheQueue=[Collections.Concurrent.ConcurrentQueue[object]]::new()
     $stop=[Threading.CancellationTokenSource]::new()
-    $key=Get-DomeniaLiveHash ('search-v214|'+[string]$State.SearchMode+'|'+$script:Live.Scope+'|'+[string]$State.BaseDn+'|'+[string]$State.Scope+'|'+[string]$State.TypeFilter+'|'+[string]$State.Search+'|'+[string]$State.Limit)
+    $keyText='search-v214|'+[string]$State.SearchMode+'|'+$script:Live.Scope+'|'+[string]$State.BaseDn+'|'+[string]$State.Scope+'|'+[string]$State.TypeFilter+'|'+[string]$State.Search+'|'+[string]$State.Limit
+    $viewId='';if($null -ne $State.PSObject.Properties['ViewId']){$viewId=[string]$State.ViewId}
+    if($viewId){$keyText+='|view:'+$viewId}
+    $key=Get-DomeniaLiveHash $keyText
     $rows=[Collections.ObjectModel.ObservableCollection[object]]::new()
+    # D034/D037: the search rules are resolved once per search; without them the arrival order and the former counter remain.
+    $rules=($null -ne (Get-Command Get-DomeniaSearchRank -CommandType Function -ErrorAction SilentlyContinue))
+    $ranking=($rules -and [string]$State.SearchMode -eq 'Global' -and -not [string]::IsNullOrWhiteSpace([string]$State.Search) -and -not $viewId)
+    if($ranking -and $null -ne (Get-Command Get-DomeniaFeatureFlag -CommandType Function -ErrorAction SilentlyContinue)){$ranking=[bool](Get-DomeniaFeatureFlag -Name 'SearchRanking' -Default $true)}
     $s=[pscustomobject]@{
         Identity=$script:Live.Identity;Epoch=[long]$script:SessionEpoch;State=$State;QueryKey=$key
         Rows=$rows;Map=@{};Fresh=@{};FreshOrder=[Collections.Generic.List[object]]::new();CacheKeys=[Collections.Generic.Queue[string]]::new();Progress=$queue;CacheProgress=$cacheQueue;Stop=$stop
         Stopped=$false;SelectionRestored=$false;Ended=$false;Final=$null;Error='';Finalized=$false;Prune=$null;CacheRequested=$false
         Started=[Diagnostics.Stopwatch]::StartNew();FirstMs=-1L;CacheUtc='';RefreshNeeded=$false
+        Ranking=[bool]$ranking;SearchRules=[bool]$rules
     }
     $script:Live.Search=$s;$script:BranchObjects=$rows;$script:BranchCountLabel='Chargement progressif…'
     $grid=Get-DomeniaControl 'DgObjects'
     $suppressed=$script:SuppressGridSelectionEvents;$script:SuppressGridSelectionEvents=$true
     try{$grid.ItemsSource=$rows;$grid.SelectedIndex=-1}finally{$script:SuppressGridSelectionEvents=$suppressed}
+    if($ranking){
+        # Exact account first, then name matches. A column chosen by the operator replaces this order.
+        try{
+            $sortView=[Windows.Data.CollectionViewSource]::GetDefaultView($rows)
+            $sortView.SortDescriptions.Clear()
+            $sortView.SortDescriptions.Add([ComponentModel.SortDescription]::new('Rank',[ComponentModel.ListSortDirection]::Ascending))
+            $sortView.SortDescriptions.Add([ComponentModel.SortDescription]::new('Name',[ComponentModel.ListSortDirection]::Ascending))
+        }catch{$s.Ranking=$false;Write-AppLog ('Classement des résultats indisponible : '+$_.Exception.Message) 'WARN'}
+    }
     Update-DomeniaLiveFilter
     Add-Member -InputObject $State -NotePropertyName LiveState -NotePropertyValue $s -Force
     Add-Member -InputObject $Payload -NotePropertyName Progress -NotePropertyValue $queue -Force
@@ -238,6 +255,12 @@ function Add-DomeniaLiveRow {
         $row=New-DomeniaLiveResultRow;$s.Map[$key]=$row
     }else{$row=$s.Map[$key]}
     foreach($p in $snapshot.PSObject.Properties){Set-DomeniaLiveRowValue $row $p.Name ([string]$p.Value)}
+    if($s.Ranking){Set-DomeniaLiveRowValue $row 'Rank' ([string](Get-DomeniaSearchRank $row ([string]$s.State.Search)))}
+    # D034: adminCount comes with the fresh LDAP row only (never cached); the naming rule applies to every row.
+    if($s.SearchRules){
+        $adminRow=((Test-DomeniaAdminAccountRow $source) -or (Test-DomeniaAdminAccountRow $row))
+        if($adminRow){Set-DomeniaLiveRowValue $row 'Admin' 'Compte admin'}
+    }
     $row.DirectoryState=if($fresh){'AD vérifié'}else{'Cache · à vérifier'}
     $row.DirectoryChecked=[string]$Event.ObservedUtc
     if($fresh){if(-not $s.Fresh.ContainsKey($key)){[void]$s.FreshOrder.Add($snapshot)};$s.Fresh[$key]=$snapshot}
@@ -526,6 +549,9 @@ function Get-DomeniaLiveDatabasePath {
 }
 function Start-DomeniaLiveBackgroundWork {
     if([datetime]::UtcNow -lt $script:Live.NextStart){return}
+    # C2: no probe, cache read or cache write in demonstration. C1: the rest policy decides before any background work.
+    if([bool]$script:DemoMode){return}
+    if(-not (Test-DomeniaLiveBackgroundAllowed -Source 'Live')){return}
     if($script:AsyncEngineClosing -or $script:ActiveWriteTaskId -or $script:WriteState -in @('Unknown','UnknownPending')){return}
     $max=[Math]::Max(1,[Math]::Min(32,[int](Get-CfgValue 'Async' 'MaxThreads' 6)))
     $physical=Get-DomeniaLiveWorkerCount
@@ -621,7 +647,8 @@ function Invoke-DomeniaLiveTick {
                 $stale.SessionDetail='Observation de la précédente identité de consultation. Relancez la recherche pour vérifier avec les comptes actuels.'
             }
         }
-        if(Test-DomeniaLiveSearchActive){
+        $activeSearch=Test-DomeniaLiveSearchActive
+        if($activeSearch){
             $s=$script:Live.Search
             if($null -ne $grid -and $grid.IsEnabled -and -not $script:ActiveWriteTaskId -and $script:WriteState -notin @('Unknown','UnknownPending')){
                 $watch=[Diagnostics.Stopwatch]::StartNew();$done=0
@@ -654,13 +681,19 @@ function Invoke-DomeniaLiveTick {
                     }else{$s.Finalized=$true}
                     if($s.Finalized){
                         $label=if($s.Error){'Liste partielle · '+$s.Fresh.Count+' résultat(s) AD · vérification incomplète'}else{"$($s.Fresh.Count) résultat(s) AD vérifiés"}
-                        if($null -ne $s.Final -and $s.Final.LimitReached){$label+=' · limite atteinte, affiner'}
+                        $limited=($null -ne $s.Final -and [bool]$s.Final.LimitReached)
+                        if($limited){$label+=' · limite atteinte, affiner'}
+                        # D037: the counter states complete or limited; the former wording stays only without the search rules.
+                        if($s.SearchRules -and -not $s.Error){$label=Get-DomeniaResultCounterText -Loaded $s.Fresh.Count -Limit ([int]$s.State.Limit) -Complete (-not $limited) -Visible ([int]$grid.Items.Count)}
                         $script:BranchCountLabel=$label
                         Set-Status $label $(if($s.Error){'WARN'}else{'INFO'})
                         Write-AppLog ("Chargement progressif : premier affichage=$($s.FirstMs) ms ; AD=$($s.Fresh.Count) ; total=$($s.Started.ElapsedMilliseconds) ms ; complet=$(-not [bool]$s.Error).") 'INFO'
                     }
                 }
-                if(-not $s.Finalized){$script:BranchCountLabel="$($s.Rows.Count) ligne(s) affichée(s) · $($s.Fresh.Count) vérifiée(s) AD · chargement…"}
+                if(-not $s.Finalized){
+                    $script:BranchCountLabel="$($s.Rows.Count) ligne(s) affichée(s) · $($s.Fresh.Count) vérifiée(s) AD · chargement…"
+                    if($s.SearchRules){$script:BranchCountLabel=(Get-DomeniaResultCounterText -Loaded $s.Fresh.Count -Limit ([int]$s.State.Limit) -Loading $true)+" · $($s.Rows.Count) ligne(s) affichée(s)"}
+                }
                 [void](Set-DomeniaControlText 'LblBranchCount' $script:BranchCountLabel)
                 $filterBox=Get-DomeniaControl 'TxtSuiteResultFilter'
                 $hasFilter=((Get-DomeniaSearchMode) -ne 'Global' -and ($script:CurrentPresenceFilter -ne 'Tous' -or ($null -ne $filterBox -and -not [string]::IsNullOrWhiteSpace([string]$filterBox.Text))))
@@ -668,9 +701,42 @@ function Invoke-DomeniaLiveTick {
                 [void](Set-DomeniaControlText 'LblSuiteResultCount' ("$($grid.Items.Count) / $($s.Rows.Count) lignes visibles"+$(if((Get-DomeniaSearchMode) -eq 'Global'){' · recherche globale sans filtre local'}else{' · filtre local'})))
             }
         }
+        Update-DomeniaSearchMoreButton -Search $(if($activeSearch){$script:Live.Search}else{$null})
         try{Start-DomeniaLiveBackgroundWork}catch{$script:Live.NextStart=[datetime]::UtcNow.AddSeconds(2);Write-AppLog ('Travail différé : '+$_.Exception.Message) 'WARN'}
         $save=if(-not $script:Live.CacheReady){'cache uniquement en mémoire'}elseif($script:Live.SaveFault){'mémoire locale non enregistrée'}elseif($script:Live.SaveJob -or $script:Live.SaveQueue.Count -or $null -ne $script:Live.QueryToSave){'enregistrement en cours'}else{'aucun enregistrement en attente'}
         $probe=if($script:DirectoryCredentialFaulted){'validation AD suspendue · revoir la connexion'}elseif($script:Live.RemoteFaulted){'compte distant refusé · détection suspendue'}elseif(-not $script:Live.AutoDetect){'ping à la sélection · utilisateur désactivé'}elseif($script:Live.PendingKeys.Count -or $script:Live.Busy.Count){"poste sélectionné : $($script:Live.PendingKeys.Count) en attente, $($script:Live.Busy.Count) en cours"}else{'Sélection : un ping + utilisateur si activé · double-clic : fiche · aucun contrôle collectif'}
         [void](Set-DomeniaControlText 'LblLiveState' ($probe+' · '+$save))
     }finally{$script:Live.InTick=$false}
+}
+function Test-DomeniaLiveBackgroundAllowed {
+    # C1 belongs to the engine lane. An absent or failing policy means allowed (open fallback of the same contract).
+    param([string]$Source='Live')
+    if($null -eq (Get-Command Test-DomeniaBackgroundWorkAllowed -CommandType Function -ErrorAction SilentlyContinue)){return $true}
+    try{return [bool](Test-DomeniaBackgroundWorkAllowed -Source $Source)}catch{return $true}
+}
+function Update-DomeniaSearchMoreButton {
+    # D037: 'Charger la suite' is enabled only for the current, finished and limited list, below 500 lines.
+    param($Search)
+    $button=Get-DomeniaControl 'BtnSearchMore'
+    if($null -eq $button){return}
+    $decision=$null
+    # SearchRules is resolved once per search by Begin-DomeniaLiveSearch: no command lookup on each tick.
+    if($null -ne $Search -and [bool]$Search.SearchRules){
+        $decision=Get-DomeniaContinuationDecision -Finalized ([bool]$Search.Finalized) -HasError (-not [string]::IsNullOrEmpty([string]$Search.Error)) -LimitReached ($null -ne $Search.Final -and [bool]$Search.Final.LimitReached) -Limit ([int]$Search.State.Limit)
+    }
+    $enabled=($null -ne $decision -and [bool]$decision.Allowed -and -not (Test-DomeniaAccessBusyWrite))
+    $tip=if($null -ne $decision){[string]$decision.Reason}else{'Aucune liste courante à prolonger : lancez une recherche.'}
+    if([bool]$button.IsEnabled -ne $enabled){$button.IsEnabled=$enabled}
+    if([string]$button.ToolTip -cne $tip){$button.ToolTip=$tip}
+}
+function Invoke-DomeniaSearchMore {
+    # D037: explicit continuation. The same query, mode and view are read again with a doubled bound (500 at most).
+    # Rows are deduplicated by directory identity and the older generation is discarded; nothing is replayed automatically.
+    if(-not (Test-DomeniaLiveSearchActive)){Set-Status 'La liste affichée nʼest plus la recherche courante : relancez la recherche.' 'WARN';Update-DomeniaSearchMoreButton -Search $null;return}
+    $s=$script:Live.Search
+    $decision=Get-DomeniaContinuationDecision -Finalized ([bool]$s.Finalized) -HasError (-not [string]::IsNullOrEmpty([string]$s.Error)) -LimitReached ($null -ne $s.Final -and [bool]$s.Final.LimitReached) -Limit ([int]$s.State.Limit)
+    if(-not [bool]$decision.Allowed){Set-Status ([string]$decision.Reason) 'WARN';Update-DomeniaSearchMoreButton -Search $s;return}
+    $mode=if([string]$s.State.SearchMode -eq 'Global'){'Global'}else{'OU'}
+    $viewId='';if($null -ne $s.State.PSObject.Properties['ViewId']){$viewId=[string]$s.State.ViewId}
+    Invoke-GlobalSearch -SearchMode $mode -PreserveSelection -SilentError -ViewId $viewId -LimitOverride ([int]$decision.NextLimit)
 }

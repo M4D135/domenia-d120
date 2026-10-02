@@ -101,7 +101,15 @@ function Invoke-DomeniaTreeBookmarkRestore {
     if(-not $s.SelectedRestored -and $s.RestoreGeneration -ne [int]$script:GlobalSearchGeneration){$s.Restoring=$false;$s.RestoreSearch=$null;return}
     if([datetime]::UtcNow -gt $s.RestoreDeadline){
         $s.Restoring=$false
-        if(-not $s.SelectedRestored){Set-Status 'OU mémorisée non retrouvée dans le délai. Choisissez une branche ; aucune recherche globale de remplacement.' 'WARN'}
+        if(-not $s.SelectedRestored){
+            # D039: warn in the page and wait for an explicit choice. A timeout is never read as an absence,
+            # and neither the domain nor any other scope is substituted.
+            $decision=Get-DomeniaOuRestoreDecision
+            if($null -ne $decision -and $decision.Message){
+                Set-Status ([string]$decision.Message) 'WARN'
+                Show-DomeniaOuRestoreNotice -Decision $decision
+            }else{Set-Status 'OU mémorisée non retrouvée dans le délai. Choisissez une branche ; aucune recherche globale de remplacement.' 'WARN'}
+        }
         return
     }
     if(Test-DomeniaAccessBusyWrite){return}
@@ -120,13 +128,15 @@ function Invoke-DomeniaTreeBookmarkRestore {
                 $check=Get-DomeniaControl 'ChkSubtree';if($null -ne $check){$check.IsChecked=[bool]$s.Restore.Subtree}
                 Update-DomeniaSearchScopeUi;$n.BringIntoView();$s.SelectedRestored=$true
             }finally{$script:SuppressBranchAutoLoad=$old}
+            Hide-DomeniaOuRestoreNotice
             # Restore the filter under suppression, then queue one fresh search.
             # Unrelated expanded branches must not delay this content load.
+            # D032: an OU search is guarded by the OU text, never by the text of the upper bar.
             $scope=Get-DomeniaSearchScope -Mode OU
             $s.RestoreSearch=[pscustomobject]@{
                 DN=$dn;Scope=[string]$scope.Scope;Context=$s.Context;Epoch=[long]$script:SessionEpoch
                 Generation=[int]$script:GlobalSearchGeneration
-                Text=([string](Get-DomeniaControl 'TxtGlobalSearch').Text).Trim()
+                Text=(Get-DomeniaSearchText -Mode OU)
                 TypeFilter=[string](Get-GlobalSelectedTypeFilter -Mode OU)
             }
         }
@@ -138,7 +148,7 @@ function Invoke-DomeniaRestoredOuSearch {
     $c=$script:Continuity;$request=$c.RestoreSearch
     if($script:AsyncEngineClosing -or $request.Epoch -ne [long]$script:SessionEpoch -or $request.Context -cne (Get-DomeniaTreeContextKey) -or $request.Generation -ne [int]$script:GlobalSearchGeneration){$c.RestoreSearch=$null;return}
     $scope=Get-DomeniaSearchScope -Mode OU
-    $text=([string](Get-DomeniaControl 'TxtGlobalSearch').Text).Trim()
+    $text=Get-DomeniaSearchText -Mode OU
     if([string]$scope.BaseDn -ine $request.DN -or [string]$scope.Scope -ne $request.Scope -or $text -cne $request.Text -or [string](Get-GlobalSelectedTypeFilter -Mode OU) -cne $request.TypeFilter){$c.RestoreSearch=$null;return}
     if($script:RestoringSettings -or $script:SuppressBranchAutoLoad -or -not $script:Conn.Connected -or (Test-DomeniaAccessBusyWrite)){return}
     $grid=Get-DomeniaControl 'DgObjects'
@@ -199,14 +209,25 @@ function Invoke-DomeniaObjectChanges {
         $query=[pscustomobject]@{QueryKey=$s.QueryKey;ObservedUtc=[string]$previousQuery.ObservedUtc;Rows=$rows.ToArray()}
         $script:Live.MemoryQueries[$s.QueryKey]=$query;$script:Live.QueryToSave=$query;$c.CacheDirty=$false
     }
-    if(-not $grid.IsVisible -or -not $script:Window.IsActive -or $c.ChangeJob -or [datetime]::UtcNow -lt $c.ChangeNext){return}
+    if(-not $grid.IsVisible -or $c.ChangeJob -or [datetime]::UtcNow -lt $c.ChangeNext){return}
+    # C2: no directory read in demonstration. C1: the rest policy decides; without it, only an active window revalidates.
+    if([bool]$script:DemoMode){return}
+    if($null -ne (Get-Command Test-DomeniaBackgroundWorkAllowed -CommandType Function -ErrorAction SilentlyContinue)){
+        if(-not (Test-DomeniaLiveBackgroundAllowed -Source 'ObjectChanges')){return}
+    }elseif(-not $script:Window.IsActive){return}
     if([bool]$script:DirectoryCredentialFaulted -and $null -eq (Get-DomeniaRetryCredential 'GlobalSearch')){return}
     if(@($script:AsyncJobs.Keys).Count -ge [Math]::Max(1,([int](Get-CfgValue 'Async' 'MaxThreads' 6)-2))){return}
     if(-not (ConvertTo-SuiteFlag (Get-CfgValue 'Streaming' 'RevalidateListedObjects' $true) -Default $true)){return}
     if($c.ChangeQueue.Count -eq 0){foreach($r in $s.Rows){if($r.Guid){$c.ChangeQueue.Enqueue([pscustomobject]@{Guid=[string]$r.Guid;DN=[string]$r.DN;Stamp=[string]$c.Stamps[[string]$r.Guid]})}}}
     $items=[Collections.Generic.List[object]]::new();while($items.Count -lt 24 -and $c.ChangeQueue.Count){$items.Add($c.ChangeQueue.Dequeue())}
     if(-not $items.Count){$c.ChangeNext=[datetime]::UtcNow.AddSeconds(60);return}
-    $q=Get-BranchQueryData
+    # D031: a global list is revalidated in the whole domain with the global type only. It never inherits
+    # the selected OU, its depth, its type or its text; an OU list keeps its own perimeter.
+    # A work view (D038) is revalidated in its own perimeter with the allowed classes only.
+    $viewId='';if($null -ne $s.State.PSObject.Properties['ViewId']){$viewId=[string]$s.State.ViewId}
+    if([string]$s.State.SearchMode -eq 'Global'){$q=[pscustomobject]@{BaseDn=[string]$s.State.BaseDn;Scope=[string]$s.State.Scope;Filter=[string]$s.State.TypeFilter}}
+    elseif($viewId){$q=[pscustomobject]@{BaseDn=[string]$s.State.BaseDn;Scope=[string]$s.State.Scope;Filter=(Get-TypeLdapFilter -Type 'Tous')}}
+    else{$q=Get-BranchQueryData}
     $state=[pscustomobject]@{Search=$s;Identity=$script:Live.Identity;Epoch=[long]$script:SessionEpoch;Mutation=$c.Mutation}
     try{
         $c.ChangeJob=Start-UiTask -Name 'Reverification objets listes' -OperationId 'LiveDirectoryCheck' -Code (Get-DomeniaChangeWorkerCode) -Payload ([pscustomobject]@{Items=$items.ToArray();BaseDn=$q.BaseDn;Scope=$q.Scope;Filter=$q.Filter}) -CallbackState $state -ReplaceKey 'listed-changes' -TimeoutSeconds 20 -SuccessHandler 'Complete-DomeniaObjectChanges' -ErrorHandler 'Fail-DomeniaObjectChanges'
@@ -214,10 +235,57 @@ function Invoke-DomeniaObjectChanges {
         $c.ChangeNext=[datetime]::UtcNow.AddSeconds($interval)
     }catch{$c.ChangeJob='';$c.ChangeNext=[datetime]::UtcNow.AddSeconds(60);Write-AppLog ('Reverification differee : '+$_.Exception.Message) 'WARN'}
 }
+function Get-DomeniaOuRestoreDecision {
+    # D039: decides from what the tree actually read. The parent loaded without the saved OU means it is absent
+    # under that parent (deleted or moved); anything else (timeout, refusal, branch not read) is a read to retry.
+    $s=$script:Continuity
+    if($null -eq $s -or $null -eq $s.Restore -or $null -eq (Get-Command Resolve-DomeniaOuRestore -CommandType Function -ErrorAction SilentlyContinue)){return $null}
+    $saved=[string]$s.Restore.Selected
+    if(-not $saved){return $null}
+    $parentDn=Get-DomeniaDnParent $saved
+    $parentRead=$false;$found=$false
+    foreach($n in (Get-DomeniaRealizedTreeNodes)){
+        $dn=[string]$n.Tag.DN
+        if($dn -ieq $saved){$found=$true}
+        if($parentDn -and $dn -ieq $parentDn -and [bool]$n.Tag.Loaded){$parentRead=$true}
+    }
+    $decision=Resolve-DomeniaOuRestore -SavedDn $saved -Exists $found -MovedToDn '' -ReadFailed (-not $parentRead -and -not $found)
+    Add-Member -InputObject $decision -NotePropertyName SavedDn -NotePropertyValue $saved -Force
+    return $decision
+}
+function Show-DomeniaOuRestoreNotice {
+    # In-page warning with an explicit choice. The selected branch and the results stay unchanged.
+    param($Decision)
+    if($null -eq $Decision){return}
+    [void](Set-DomeniaControlText 'LblOuRestoreMessage' ([string]$Decision.Message))
+    $banner=Get-DomeniaControl 'OuRestoreBanner'
+    if($null -ne $banner){$banner.Visibility='Visible'}
+    if($null -ne $script:Continuity){Add-Member -InputObject $script:Continuity -NotePropertyName RestoreNotice -NotePropertyValue $Decision -Force}
+}
+function Hide-DomeniaOuRestoreNotice {
+    $banner=Get-DomeniaControl 'OuRestoreBanner'
+    if($null -ne $banner){$banner.Visibility='Collapsed'}
+    if($null -ne $script:Continuity -and $null -ne $script:Continuity.PSObject.Properties['RestoreNotice']){$script:Continuity.RestoreNotice=$null}
+}
+function Invoke-DomeniaOuRestoreRetry {
+    # Explicit operator gesture: one more restoration attempt of the same bookmark, nothing else.
+    if($null -eq $script:Continuity -or (Test-DomeniaAccessBusyWrite)){return}
+    Hide-DomeniaOuRestoreNotice
+    $script:Continuity.RestoreToken=''
+    Start-DomeniaTreeBookmarkRestore
+    if(-not $script:Continuity.Restoring){Set-Status 'Aucune OU mémorisée à relire pour ce compte et ce domaine.' 'WARN'}
+}
 function Initialize-DomeniaContinuity {
+    # Search and navigation surfaces (hint, work views, back and forward) belong to the search module;
+    # it keeps its own once-per-window guard.
+    if($null -ne (Get-Command Initialize-DomeniaSearchUi -CommandType Function -ErrorAction SilentlyContinue)){
+        try{Initialize-DomeniaSearchUi}catch{Write-AppLog ('Initialisation de la recherche : '+$_.Exception.Message) 'ERROR'}
+    }
     if($null -ne $script:Continuity){return}
-    $script:Continuity=[pscustomobject]@{Mutation=0L;Grids=@{};Layouts=(ConvertTo-DomeniaStateMap ([string](Get-DomeniaSetting 'GridLayoutsJson' '{}')));Bookmarks=(ConvertTo-DomeniaStateMap ([string](Get-DomeniaSetting 'OuBookmarksJson' '{}')));Applying=$false;Restoring=$false;Restore=$null;RestoreSearch=$null;RestoreToken='';RestoreGeneration=0;Context='';RestoreDeadline=[datetime]::MinValue;SelectedRestored=$false;Dirty=$false;Timer=$null;ChangeQueue=[Collections.Generic.Queue[object]]::new();ChangeEvents=[Collections.Generic.Queue[object]]::new();ChangeSearch=$null;ChangeJob='';ChangeNext=[datetime]::MinValue;Stamps=@{};CacheDirty=$false}
+    $script:Continuity=[pscustomobject]@{Mutation=0L;Grids=@{};Layouts=(ConvertTo-DomeniaStateMap ([string](Get-DomeniaSetting 'GridLayoutsJson' '{}')));Bookmarks=(ConvertTo-DomeniaStateMap ([string](Get-DomeniaSetting 'OuBookmarksJson' '{}')));Applying=$false;Restoring=$false;Restore=$null;RestoreSearch=$null;RestoreToken='';RestoreGeneration=0;Context='';RestoreDeadline=[datetime]::MinValue;SelectedRestored=$false;Dirty=$false;Timer=$null;ChangeQueue=[Collections.Generic.Queue[object]]::new();ChangeEvents=[Collections.Generic.Queue[object]]::new();ChangeSearch=$null;ChangeJob='';ChangeNext=[datetime]::MinValue;Stamps=@{};CacheDirty=$false;RestoreNotice=$null}
     foreach($control in @($script:Ctrl.Values)){if($control -is [Windows.Controls.DataGrid]){Register-DomeniaGridLayout $control}}
+    $retry=Get-DomeniaControl 'BtnOuRestoreRetry';if($null -ne $retry){$retry.Add_Click({try{Invoke-DomeniaOuRestoreRetry}catch{Write-AppLog ('Relecture de lʼOU mémorisée : '+$_.Exception.Message) 'WARN'}})}
+    $dismiss=Get-DomeniaControl 'BtnOuRestoreDismiss';if($null -ne $dismiss){$dismiss.Add_Click({Hide-DomeniaOuRestoreNotice;$tree=Get-DomeniaControl 'TvDirectory';if($null -ne $tree){[void]$tree.Focus()}})}
     $tree=Get-DomeniaControl 'TvDirectory'
     if($null -ne $tree){
         $tree.Add_SelectedItemChanged({if($null -ne $script:Continuity -and -not $script:Continuity.Restoring){$script:Continuity.Dirty=$true}})

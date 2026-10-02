@@ -443,8 +443,13 @@ function Update-DomeniaUxOuScope {
     if($null -ne $path){$path.Text=$display.Breadcrumb;$path.ToolTip=$display.FullPath}
     if($null -ne $summary){
         $depth=if($Scope.Scope -eq 'Subtree'){'Sous-OU incluses'}else{'Enfants directs'}
-        $summary.Text='Dans : '+$display.Name+'  ·  '+$depth
-        $summary.ToolTip='Racine LDAP : '+[string]$Scope.BaseDn+"`r`n"+$depth
+        # D032: browsing always reads 'Dans cette OU', the upper bar always 'Domaine entier'.
+        $label='Dans : '+$display.Name+'  ·  '+$depth
+        if($null -ne (Get-Command Get-DomeniaScopeLabel -CommandType Function -ErrorAction SilentlyContinue)){
+            $label=Get-DomeniaScopeLabel -Mode Browse -OuName ([string]$display.Name) -Subtree ($Scope.Scope -eq 'Subtree')
+        }
+        $summary.Text=$label
+        $summary.ToolTip='Racine LDAP : '+[string]$Scope.BaseDn+"`r`n"+$depth+"`r`nLe texte de la barre du haut ne filtre pas cette OU."
     }
 }
 
