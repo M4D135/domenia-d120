@@ -86,4 +86,17 @@ aucun test qui passait ne doit échouer sans décision explicite et documentée.
 ## Statuts du suivi
 
 `NON_CLOTURE` → `DEVELOPPE_NON_RACCORDE` (règles écrites et testées, application inchangée) →
+`RACCORDE_NON_EXECUTE` (branché dans l'application, tests d'intégration écrits, aucun exécuté sous 5.1) →
 `RACCORDE_A_VALIDER_WINDOWS` (branché, tests d'intégration réussis) → clôture uniquement avec la preuve Windows liée au ZIP.
+Le champ `wiring` (`Aucun`, `Partiel`, `Complet`) dit ce qui est branché ; `remaining` dit ce qui manque.
+
+## Contrôles possibles hors Windows (session cloud)
+
+Sans VM ni Windows, seuls des contrôles **non qualifiants** sont possibles : contrôles Python de la liste ci-dessus,
+`Test-DomeniaPs51Compat.ps1`, parseur et règles pures sous PowerShell 7 Linux (archive officielle
+`powershell-7.x-linux-x64.tar.gz` extraite dans le dossier temporaire de la session). Les règles qui touchent COM, ACL ou
+`SecurityIdentifier` y échouent par construction. Rien de cela n'est une preuve 5.1.
+Après toute modification d'un fichier runtime : `python tools/integrate_lots.py --refresh-functions` si des fonctions de
+module changent, `python tools/build_packages.py --output <dossier hors arbre>` pour régénérer les manifestes (sinon
+`Domenia-Start.ps1` refuse le démarrage), et `python tools/audit_preload.py --rebaseline --decision "..."` seulement
+après relecture d'une fonction critique ou d'une charge épinglée.

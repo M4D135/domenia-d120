@@ -177,8 +177,18 @@ Test-Case 'D010' 'Les emplacements du coeur, le script de build, les archives et
         'Source.Pret'=[regex]::Match($coreText,'-Text "(Domenia [^"]+ pret\.)"')
         'Source.BuildScript'=[regex]::Match($buildText,"(?m)^BUILD='([^']+)'")
     }
-    foreach($key in @($found.Keys)){Assert-True $found[$key].Success ('Emplacement introuvable : '+$key)}
     $archivePrefix=[regex]::Match($buildText,"out/\('([^']+_)'\+edition\.upper\(\)\+'\.zip'\)")
+    # D010: the build script may read the single contract instead of carrying a literal; it then designates the build
+    # of tools/release-contract.json and names its archives from the contract Version and Release.
+    if (-not $found['Source.BuildScript'].Success -and $buildText -match "(?m)^BUILD=CONTRACT\['Build'\]") {
+        $contractText=[IO.File]::ReadAllText((Join-Path $script:RelDev 'tools\release-contract.json'),[Text.Encoding]::UTF8)
+        $found['Source.BuildScript']=[regex]::Match($contractText,'"Build"\s*:\s*"([^"]+)"')
+        if (-not $archivePrefix.Success -and $buildText.Contains("'Domenia_'+VERSION+'_'+RELEASE+'_'+edition.upper()+'.zip'")) {
+            $releaseContract=& $script:RelReadJson 'tools\release-contract.json'
+            $archivePrefix=[regex]::Match(('Domenia_'+[string]$releaseContract.Version+'_'+[string]$releaseContract.Release+'_'),'^(.+_)$')
+        }
+    }
+    foreach($key in @($found.Keys)){Assert-True $found[$key].Success ('Emplacement introuvable : '+$key)}
     Assert-True $archivePrefix.Success 'Nom des archives introuvable dans build_packages.py'
     $parts=ConvertFrom-DomeniaBuildLabel $found['Source.MasterBuild'].Groups[1].Value
     Assert-True ($null -ne $parts) 'Build du coeur illisible'
