@@ -9,14 +9,15 @@ namespace Domenia.Live {
         public event PropertyChangedEventHandler PropertyChanged;
         private string Read(string name) { string v; return values.TryGetValue(name, out v) ? v : String.Empty; }
         public void Set(string name, string value) {
-            if (!Allowed.Contains(name)) throw new ArgumentException("Unknown row field.", "name");
+            if (!Allowed.ContainsKey(name)) throw new ArgumentException("Unknown row field.", "name");
             value = value ?? String.Empty;
             if (String.Equals(Read(name), value, StringComparison.Ordinal)) return;
             values[name] = value;
             var handler = PropertyChanged;
             if (handler != null) handler(this, new PropertyChangedEventArgs(name));
         }
-        private static readonly HashSet<string> Allowed = new HashSet<string>(StringComparer.Ordinal) {"Type","Name","Login","UPN","Mail","Description","Changed","DN","State","OS","LastLogon","Guid","Association","LinkSource","LinkConfidence","Presence","PresenceDetail","SessionDisplay","SessionState","SessionSource","SessionChecked","SessionObserved","SessionDetail","DirectoryState","DirectoryChecked","Rank","Admin"};
+        // Dictionary (mscorlib), not HashSet (System.Core): Add-Type of Windows PowerShell 5.1 does not reference System.Core.
+        private static readonly Dictionary<string,bool> Allowed = new Dictionary<string,bool>(StringComparer.Ordinal) {{"Type",true},{"Name",true},{"Login",true},{"UPN",true},{"Mail",true},{"Description",true},{"Changed",true},{"DN",true},{"State",true},{"OS",true},{"LastLogon",true},{"Guid",true},{"Association",true},{"LinkSource",true},{"LinkConfidence",true},{"Presence",true},{"PresenceDetail",true},{"SessionDisplay",true},{"SessionState",true},{"SessionSource",true},{"SessionChecked",true},{"SessionObserved",true},{"SessionDetail",true},{"DirectoryState",true},{"DirectoryChecked",true},{"Rank",true},{"Admin",true}};
         public string Type { get { return Read("Type"); } set { Set("Type", value); } }
         public string Name { get { return Read("Name"); } set { Set("Name", value); } }
         public string Login { get { return Read("Login"); } set { Set("Login", value); } }
