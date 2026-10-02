@@ -260,6 +260,15 @@ function Show-DomeniaAlternateCredential {
     $credentialScope='';if($OperationId){$credentialScope=Get-DomeniaCredentialScope -OperationId $OperationId -Target $Target}
     $credentialCheck=${function:Test-DomeniaCredentialContext}
     $knownDomains=@(@([string]$script:Conn.Netbios,[string]$script:Conn.Domain)|Where-Object{$_})
+    # GetNewClosure binds the handlers to a module linked to the global scope only: the application functions
+    # they call are captured here, so that the click and the timer never depend on a name lookup.
+    $fnStartRemote=${function:Start-DomeniaRemoteCredentialSession}
+    $fnNewRequest=${function:New-DomeniaAccountAuthRequest}
+    $fnStartAuth=${function:Start-DomeniaLoginAuthRunspace}
+    $fnReadAuth=${function:Read-DomeniaAuthRunspaceResult}
+    $fnStopAuth=${function:Stop-DomeniaLoginAuthRunspace}
+    $fnSessionCurrent=${function:Test-DomeniaAccessSessionCurrent}
+    $fnSurfaceResult=${function:Set-DomeniaSurfaceResult}
     $connect={
         if($null -ne $state.Session){return}
         try{
@@ -268,10 +277,10 @@ function Show-DomeniaAlternateCredential {
                 $contextCheck=& $credentialCheck -Scope $credentialScope -UserName $ui.User.Text.Trim() -Target $Target -KnownDomains $knownDomains
                 if(-not [bool]$contextCheck.Valid){$ui.Status.Text=[string]$contextCheck.Reason+' Aucun essai envoye.';return}
             }
-            if($remoteValidation){$state.Session=Start-DomeniaRemoteCredentialSession -User $ui.User.Text.Trim() -Password $ui.Password.SecurePassword -Computer $Target}
+            if($remoteValidation){$state.Session=& $fnStartRemote -User $ui.User.Text.Trim() -Password $ui.Password.SecurePassword -Computer $Target}
             else {
-            $request=New-DomeniaAccountAuthRequest -UserName $ui.User.Text.Trim() -Password $ui.Password.SecurePassword -TimeoutSeconds 12
-            $state.Session=Start-DomeniaLoginAuthRunspace -Request $request
+            $request=& $fnNewRequest -UserName $ui.User.Text.Trim() -Password $ui.Password.SecurePassword -TimeoutSeconds 12
+            $state.Session=& $fnStartAuth -Request $request
             }
             $state.Started=[datetime]::UtcNow
             $access.AuthSession=$state.Session
@@ -284,19 +293,19 @@ function Show-DomeniaAlternateCredential {
         try{
             if(-not $state.Session.AsyncResult.IsCompleted){
                 if(([datetime]::UtcNow-$state.Started).TotalSeconds -lt 14){return}
-                $timer.Stop();Stop-DomeniaLoginAuthRunspace -Session $state.Session -Terminate
+                $timer.Stop();& $fnStopAuth -Session $state.Session -Terminate
                 $ui.Progress.Visibility='Hidden';$ui.Status.Text='Delai depasse. Aucun compte remplace. Fermez ce panneau et attendez le nettoyage avant un nouvel essai.';return
             }
-            $timer.Stop();$r=Read-DomeniaAuthRunspaceResult -Session $state.Session
-            if(-not (Test-DomeniaAccessSessionCurrent -Epoch $state.Epoch -BaseDn $state.BaseDn)){throw 'La session a change. Aucun compte remplace.'}
+            $timer.Stop();$r=& $fnReadAuth -Session $state.Session
+            if(-not (& $fnSessionCurrent -Epoch $state.Epoch -BaseDn $state.BaseDn)){throw 'La session a change. Aucun compte remplace.'}
             if($null -eq $r -or -not $r.Success){throw ('Validation refusee : '+[string]$r.Error)}
             if(($r.AuthMode -ne $(if($remoteValidation){'Remote'}else{'Explicit'})) -or -not [string]$r.BindUser -or [string]$r.BaseDn -ine $state.BaseDn){throw 'Contexte AD non confirme. Aucun compte remplace.'}
             $secure=$ui.Password.SecurePassword.Copy();$secure.MakeReadOnly()
             $state.Credential=[Management.Automation.PSCredential]::new([string]$r.BindUser,$secure)
-            $state.Done=$true;Set-DomeniaSurfaceResult $w $true
+            $state.Done=$true;& $fnSurfaceResult $w $true
         }catch{$ui.Status.Text=$_.Exception.Message;$ui.Connect.IsEnabled=$true;$ui.User.IsEnabled=$true;$ui.Password.IsEnabled=$true}
         finally{
-            if($null -ne $state.Session -and $state.Session.AsyncResult.IsCompleted){Stop-DomeniaLoginAuthRunspace -Session $state.Session -Terminate;$access.AuthSession=$null;$state.Session=$null}
+            if($null -ne $state.Session -and $state.Session.AsyncResult.IsCompleted){& $fnStopAuth -Session $state.Session -Terminate;$access.AuthSession=$null;$state.Session=$null}
             if($null -eq $state.Session -or $state.Session.AsyncResult.IsCompleted){$ui.Progress.Visibility='Hidden'}
         }
     }.GetNewClosure()
