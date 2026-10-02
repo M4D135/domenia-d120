@@ -16,7 +16,7 @@ namespace Domenia.Live {
             var handler = PropertyChanged;
             if (handler != null) handler(this, new PropertyChangedEventArgs(name));
         }
-        private static readonly HashSet<string> Allowed = new HashSet<string>(StringComparer.Ordinal) {"Type","Name","Login","UPN","Mail","Description","Changed","DN","State","OS","LastLogon","Guid","Association","LinkSource","LinkConfidence","Presence","PresenceDetail","SessionDisplay","SessionState","SessionSource","SessionChecked","SessionObserved","SessionDetail","DirectoryState","DirectoryChecked"};
+        private static readonly HashSet<string> Allowed = new HashSet<string>(StringComparer.Ordinal) {"Type","Name","Login","UPN","Mail","Description","Changed","DN","State","OS","LastLogon","Guid","Association","LinkSource","LinkConfidence","Presence","PresenceDetail","SessionDisplay","SessionState","SessionSource","SessionChecked","SessionObserved","SessionDetail","DirectoryState","DirectoryChecked","Rank","Admin"};
         public string Type { get { return Read("Type"); } set { Set("Type", value); } }
         public string Name { get { return Read("Name"); } set { Set("Name", value); } }
         public string Login { get { return Read("Login"); } set { Set("Login", value); } }
@@ -42,5 +42,8 @@ namespace Domenia.Live {
         public string SessionDetail { get { return Read("SessionDetail"); } set { Set("SessionDetail", value); } }
         public string DirectoryState { get { return Read("DirectoryState"); } set { Set("DirectoryState", value); } }
         public string DirectoryChecked { get { return Read("DirectoryChecked"); } set { Set("DirectoryChecked", value); } }
+        // D034: relevance rank (0 = exact identifier) and administration-account marker; display only.
+        public string Rank { get { return Read("Rank"); } set { Set("Rank", value); } }
+        public string Admin { get { return Read("Admin"); } set { Set("Admin", value); } }
     }
 }

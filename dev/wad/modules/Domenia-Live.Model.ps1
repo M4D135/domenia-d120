@@ -25,7 +25,7 @@ function New-DomeniaLiveResultRow {
     if($null -ne $rowType){return [Activator]::CreateInstance($rowType)}
     # In a restricted desktop, lack of runtime compilation must not prevent searching.
     $values=[ordered]@{}
-    foreach($name in @('Type','Name','Login','UPN','Mail','Description','Changed','DN','State','OS','LastLogon','Guid','Association','LinkSource','LinkConfidence','Presence','PresenceDetail','SessionDisplay','SessionState','SessionSource','SessionChecked','SessionObserved','SessionDetail','DirectoryState','DirectoryChecked')){$values[$name]=''}
+    foreach($name in @('Type','Name','Login','UPN','Mail','Description','Changed','DN','State','OS','LastLogon','Guid','Association','LinkSource','LinkConfidence','Presence','PresenceDetail','SessionDisplay','SessionState','SessionSource','SessionChecked','SessionObserved','SessionDetail','DirectoryState','DirectoryChecked','Rank','Admin')){$values[$name]=''}
     return [pscustomobject]$values
 }
 function ConvertTo-DomeniaLiveSnapshot {
