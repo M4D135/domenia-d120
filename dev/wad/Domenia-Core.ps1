@@ -990,6 +990,13 @@ function Load-AppConfig {
                     if ($default.Contains($section.Name)) {
                         foreach ($kv in $section.Value.PSObject.Properties) { $default[$section.Name][$kv.Name] = $kv.Value }
                     }
+                    elseif ($section.Value -is [System.Management.Automation.PSCustomObject]) {
+                        # D120 (F5): an unknown section becomes an ordered table, otherwise Get-CfgValue
+                        # cannot read it and silently returns its default.
+                        $extra = [ordered]@{}
+                        foreach ($kv in $section.Value.PSObject.Properties) { $extra[$kv.Name] = $kv.Value }
+                        $default[$section.Name] = $extra
+                    }
                     else { $default[$section.Name] = $section.Value }
                 }
             }
@@ -18914,6 +18921,33 @@ function New-DefaultConfig {
             PerServerTimeoutSeconds = 6
             MaxServerCandidates = 4
             DetailedLoginTrace = $true
+            # D120: in-memory demonstration directory. Only the JSON value true enables it.
+            DemoProvider = $false
+        }
+        # D120 (F5): switches for behaviours that replace an existing path. Read by Get-DomeniaFeatureFlag.
+        Features = [ordered]@{
+            Scheduler = $true
+            ScopedLocks = $true
+            RelationsSymmetry = $true
+            DetectionPreview = $true
+            SearchSyntax = $true
+            ColumnProfiles = $true
+            InlineConfirm = $true
+            IsolatedReads = $false
+            WakeOnLan = $false
+            LocalAssistant = $false
+            ReadTrace = $false
+        }
+        Demo = [ordered]@{
+            Identity = "DEMO\demo.operateur"
+            LatencyMs = 0
+        }
+        Streaming = [ordered]@{
+            VerifyUserOnSelection = $true
+            RevalidateListedObjects = $true
+            RevalidateIntervalSeconds = 60
+            ReconcileSeconds = 180
+            MaxUserProbes = 2
         }
         Browser = [ordered]@{
             FastBoot = $false
