@@ -516,7 +516,9 @@ function Request-DomeniaParkStateReload {
     if ($null -ne $script:DomeniaParkStateReloadJob -and $script:AsyncJobs.Contains([string]$script:DomeniaParkStateReloadJob)) { return }
     try {
         # Continuation of an explicit park result: never refused as background work, at worst queued.
-        $script:DomeniaParkStateReloadJob = Start-UiTask -Name 'Lecture du releve local du parc' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload ([pscustomobject]@{Action='ParkState';Path=(Get-DomeniaLocalDatabasePathForRead);BusyTimeoutMs=250}) -CallbackState ([pscustomobject]@{Epoch=[long]$script:SessionEpoch}) -TimeoutSeconds 30 -SuccessHandler 'Complete-DomeniaParkStateReloadUi' -ErrorHandler 'Fail-DomeniaParkStateReloadUi' -TaskClass 'Explicit'
+        # Short local read (250 ms busy, 30 s cap): not offered to Annuler, whose cancel path calls no handler and
+        # would strand the deferred park results (revue adversariale du 2026-10-02).
+        $script:DomeniaParkStateReloadJob = Start-UiTask -Name 'Lecture du releve local du parc' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload ([pscustomobject]@{Action='ParkState';Path=(Get-DomeniaLocalDatabasePathForRead);BusyTimeoutMs=250}) -CallbackState ([pscustomobject]@{Epoch=[long]$script:SessionEpoch}) -TimeoutSeconds 30 -SuccessHandler 'Complete-DomeniaParkStateReloadUi' -ErrorHandler 'Fail-DomeniaParkStateReloadUi' -TaskClass 'Explicit' -NonCancellable
     } catch {
         # A refused start must not strand the deferred results: they are applied without the stored counters.
         Fail-DomeniaParkStateReloadUi -Message $_.Exception.Message -State $null

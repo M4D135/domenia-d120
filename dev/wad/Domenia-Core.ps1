@@ -12781,7 +12781,8 @@ function Register-DomeniaContextMenus {
         @{ N="DgLinks"; P=@("UserLogin","Computer","Source","Details") },
         @{ N="DgLinkAttempts"; P=@("Method","User","Detail") },
         @{ N="DgRawAttrs"; P=@("Attribute","Value") },
-        @{ N="DgSecrets"; P=@("Account","DisplayValue","Detail") },
+        # DgSecrets has no generic copy menu: a revealed value is copied only by Copy-SelectedSecret (protected
+        # clipboard, one value at a time, automatic clearing - D059).
         @{ N="DgComputerDiag"; P=@("Check","Detail") },
         @{ N="DgPermissions"; P=@("Capability","State","Detail") },
         @{ N="DgSelfCheck"; P=@("Test","Detail") },
