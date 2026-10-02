@@ -10,6 +10,7 @@
 #   lab.sh ps  'PS command'     run a Windows PowerShell 5.1 command (STA) in the guest from <LAB_DIR>\dev
 #   lab.sh file local.ps1       run a local script in the guest from <LAB_DIR>\dev
 #   lab.sh get remote localdir  copy a guest path (relative to <LAB_DIR>) back to the Mac
+#   LAB_TIMEOUT=seconds         guest process cap for ps/file (vmctl default 3600, max 14400)
 set -u
 HOST="${DOMENIA_LAB_HOST:-degun@192.168.1.173}"
 SOCK="${DOMENIA_LAB_SOCK:-$(ls -t /tmp/domenia-lab-*.sock 2>/dev/null | head -1)}"
@@ -21,6 +22,7 @@ CTL='C:\Users\degun\domenia-lab\vm\vmctl.ps1'
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../../../.." && pwd)"
 case "$LAB_DIR" in *[!A-Za-z0-9_-]*|"") echo "lab.sh: LAB_DIR invalide" >&2; exit 2;; esac
+case "${LAB_TIMEOUT:-}" in *[!0-9]*) echo "lab.sh: LAB_TIMEOUT invalide" >&2; exit 2;; esac
 [ -S "$SOCK" ] || { echo "lab.sh: no relay socket (start ~/Downloads/Domenia-lab/relais.sh)" >&2; exit 90; }
 SSH=(ssh -o ControlPath="$SOCK" -o BatchMode=yes "$HOST")
 SCP=(scp -q -o ControlPath="$SOCK" -o BatchMode=yes)
@@ -43,12 +45,12 @@ case "${1:-}" in
     shift; tmp="$(mktemp -d)"; f="$tmp/_cmd-$tag.ps1"
     printf '\xef\xbb\xbf$ErrorActionPreference = "Continue"\n%s\n' "$*" > "$f"
     "${SCP[@]}" "$f" "$HOST:$STAGE_FWD/_cmd-$tag.ps1" || exit 93
-    ctl run -Sta -Script "$STAGE\\_cmd-$tag.ps1"; rc=$?
+    ctl run -Sta -Script "$STAGE\\_cmd-$tag.ps1" ${LAB_TIMEOUT:+-TimeoutSeconds $LAB_TIMEOUT}; rc=$?
     "${SSH[@]}" "del $STAGE\\_cmd-$tag.ps1" >/dev/null 2>&1; rm -rf "$tmp"; exit $rc ;;
   file)
     shift; src="$1"; base="_$(basename "$src" .ps1)-$tag.ps1"
     "${SCP[@]}" "$src" "$HOST:$STAGE_FWD/$base" || exit 93
-    ctl run -Sta -Script "$STAGE\\$base"; rc=$?
+    ctl run -Sta -Script "$STAGE\\$base" ${LAB_TIMEOUT:+-TimeoutSeconds $LAB_TIMEOUT}; rc=$?
     "${SSH[@]}" "del $STAGE\\$base" >/dev/null 2>&1; exit $rc ;;
   get)
     shift; rel="$1"; dst="$2"; case "$rel" in *..*|/*) echo "chemin refuse" >&2; exit 98;; esac
@@ -56,5 +58,5 @@ case "${1:-}" in
     ctl pull -Path "$(printf '%s' "$rel" | tr '/' '\\')" -Dest "$hostdir\\" || exit 94
     mkdir -p "$dst" && "${SCP[@]}" -r "$HOST:$STAGE_FWD/get-$tag/." "$dst/"; rc=$?
     "${SSH[@]}" "rmdir /s /q $hostdir" >/dev/null 2>&1; exit $rc ;;
-  *) sed -n '2,13p' "$0"; exit 2 ;;
+  *) sed -n '2,14p' "$0"; exit 2 ;;
 esac

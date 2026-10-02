@@ -266,8 +266,8 @@
     },
     {
       "Path": "engineering/d120/ETAT-2026-10-02.md",
-      "Sha256": "4F1FFB470B1F8A206A4FFD9D1F15FE7883AE7D197A66DCAA492CD6FD53F43F87",
-      "Bytes": 7468,
+      "Sha256": "9C395D5550F59FA3C3E66F5D786F3CCD7327AA9574E458388C14156782EF75BD",
+      "Bytes": 9675,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -287,8 +287,8 @@
     },
     {
       "Path": "engineering/d120/Suivi_D001_D120.json",
-      "Sha256": "A76B21302EBDF35445AFB1151CB764C25820F3381AFCB646FEA5EFE8360BC92B",
-      "Bytes": 190364,
+      "Sha256": "06DE04EEF80C473E09AC48B1E802FD276B4CDEC4F37D2678087DE650ABA42023",
+      "Bytes": 190643,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -296,6 +296,13 @@
       "Path": "engineering/d120/Test-NativeParser.ps1",
       "Sha256": "4AD70C8E04AF888D398064452D859279D2BF3E7929A2F360500B13226DDB304C",
       "Bytes": 15965,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "engineering/d120/lab/Invoke-D120Campaign.ps1",
+      "Sha256": "0F1F7F8E295793BCAD75C6D3068591DB99E9F25A4BD98509B503ADD2E12D4C91",
+      "Bytes": 9328,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -328,16 +335,30 @@
       "PreserveExisting": false
     },
     {
+      "Path": "engineering/d120/lab/campaign.sh",
+      "Sha256": "DDAFE61CC13A7594392419BB749C0C84095C8762683957A122207FA2F6C13F69",
+      "Bytes": 2655,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "engineering/d120/lab/campaign_report.py",
+      "Sha256": "8DF2E527311A85BD2FC7D7291123821C46E27A80B3AFC6554753EDBCAC18C6F3",
+      "Bytes": 7415,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
       "Path": "engineering/d120/lab/compare_runs.py",
-      "Sha256": "C7217DA6947F277A03FE84633E15264C78BC1657754778E28F88F3180CD7A130",
-      "Bytes": 2314,
+      "Sha256": "CB1F0F23E2C318DEE0CAB1DAA52BC303D14D11777CFF54308D4D09F72CECC6A7",
+      "Bytes": 2339,
       "Runtime": false,
       "PreserveExisting": false
     },
     {
       "Path": "engineering/d120/lab/lab.sh",
-      "Sha256": "9EE4CDF843779C224E237891790220A3C96BC946F04BBFB1036FB64C3A31D8F2",
-      "Bytes": 3690,
+      "Sha256": "FB53239E56CA6F683967B501A91DBEDAE295AF4FA44CA79B56FF2B2967AA2ABF",
+      "Bytes": 3966,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -602,7 +623,7 @@
     },
     {
       "Path": "tools/prod-manifest.json",
-      "Sha256": "F2242DEB95C043563ED3B99452B88CF61148E48EDBA45541D27F8CCFCA19E0C0",
+      "Sha256": "3F770F916094659199E06540DC2E8BBCD38F154795132C5141D2D7504D07C8D6",
       "Bytes": 15901,
       "Runtime": false,
       "PreserveExisting": false
@@ -658,8 +679,8 @@
     },
     {
       "Path": "wad/Domenia-Core.ps1",
-      "Sha256": "D9DD4571084CB72C4F82B55BF9F4F722CD90C85C7597DECEF135532624F547F8",
-      "Bytes": 1644574,
+      "Sha256": "1AC01D89B19EEBE8D18F4276B1B943F57A82522EDB88F2EFBDF2C75A4ABEA8DC",
+      "Bytes": 1644582,
       "Runtime": true,
       "PreserveExisting": false
     },

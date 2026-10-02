@@ -45,4 +45,4 @@ def main():
                 if y!='PASS': print(f'NEW-FAIL {s} :: {n}')
     print(f'regressions={regress} fixed={fixed} new_tests={new}')
     sys.exit(1 if regress else 0)
-main()
+if __name__=='__main__': main()

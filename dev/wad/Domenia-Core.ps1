@@ -16652,7 +16652,7 @@ function Show-DomeniaRimotteDialog {
     try {
         Assert-DomeniaRemoteWriteAllowed -Operation "Rimotte / execution distante"
         $computer=Assert-DomeniaComputerTarget -Computer (Get-CurrentSelectedComputerName)
-        $linked="";try{$linked=Normalize-LinkUser ([string](Get-LinkForComputer $computer).UserLogin)}catch{}
+        $linked="";try{$linked=Normalize-LinkUser ([string](Get-ExistingLinkForComputer $computer).UserLogin)}catch{}
         $xaml=@"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Rimotte integre - $computer" Width="720" Height="510" MinWidth="650" MinHeight="470" WindowStartupLocation="CenterOwner" Background="#F3F6FB" FontFamily="Segoe UI" FontSize="13">
   <Grid Margin="18"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
