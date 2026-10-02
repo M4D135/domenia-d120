@@ -456,36 +456,53 @@ Test-Case 'D004' 'Strategie de mot de passe : compteurs absents, aucune valeur i
 # que l execution complete reste verte ; DOMENIA_D004_KNOWN_DEFECTS=1 les execute : ils echouent tant que le module
 # n est pas corrige (constate sous Windows PowerShell 5.1.26100 dans la VM de test). Une fois le module corrige,
 # retirer la garde.
+# D004 : causes 1, 2, 3 et 5 (partie Domenia-Common.Model.ps1) corrigees le 2026-10-02 : Get-DomeniaMember conserve les
+# collections a un element, ConvertTo-DomeniaSidText accepte un SID deroule, les conversions deballent les collections AD,
+# ConvertTo-DomeniaUtcDate lit un IADsLargeInteger. Ces tests sont donc actifs.
+Test-Case 'D004' 'TODO-D004 Get-DomeniaMember rend un tableau d un octet entier' {
+    $value = Get-DomeniaMember ([pscustomobject]@{Flag=[byte[]]@(42)}) 'Flag'
+    Assert-True ($value -is [byte[]]) 'Un octet seul est rendu comme un scalaire [byte]'
+}
+Test-Case 'D004' 'TODO-D004 Get-DomeniaMember rend un SID binaire entier' {
+    $value = Get-DomeniaMember ([pscustomobject]@{Sid=(New-DomeniaFixtureSidBytes $script:FxSid)}) 'Sid'
+    Assert-True ($value -is [byte[]]) 'Le SID binaire est deroule en octets isoles'
+}
+Test-Case 'D004' 'TODO-D004 Get-DomeniaMember rend une collection a un element sans la deballer' {
+    $row = [pscustomobject]@{Une=@($script:FxGroupDn);UneAd=(New-DomeniaFixtureResultValues $script:FxGroupDn);GuidAd=(New-DomeniaFixtureResultValues (New-DomeniaFixtureGuidBytes $script:FxGuid))}
+    $une = Get-DomeniaMember $row 'Une'
+    Assert-True ($une -is [array]) 'Un tableau d un DN est rendu comme une chaine : son [0] est le premier caractere'
+    Assert-Equal $script:FxGroupDn ([string]$une[0]) 'Premier element : le DN entier'
+    $uneAd = Get-DomeniaMember $row 'UneAd'
+    Assert-True (($uneAd -is [Collections.ICollection]) -and ($uneAd -isnot [string])) 'Une ResultPropertyValueCollection d un DN est rendue comme une chaine'
+    $guidAd = Get-DomeniaMember $row 'GuidAd'
+    Assert-True ($guidAd -isnot [byte[]]) 'La collection d un GUID binaire est rendue comme le tableau d octets lui-meme'
+}
+Test-Case 'D004' 'TODO-D004 ConvertTo-DomeniaSidText accepte un SID deroule par le pipeline' {
+    Assert-Equal $script:FxSid (ConvertTo-DomeniaSidText (New-DomeniaFixtureUnrolledBytes (New-DomeniaFixtureSidBytes $script:FxSid)))
+}
+Test-Case 'D004' 'TODO-D004 Identite de selection : SID binaire direct conserve' {
+    $identity = New-DomeniaSelectionIdentity (New-DomeniaFixtureRow -Guid $script:FxGuid -Sid (New-DomeniaFixtureSidBytes $script:FxSid)) 'example.invalid' 'r' 1 1
+    Assert-Equal $script:FxSid $identity.Sid
+}
+Test-Case 'D004' 'TODO-D004 GUID d une ResultPropertyValueCollection a un element' {
+    Assert-Equal $script:FxGuid (ConvertTo-DomeniaGuidText (New-DomeniaFixtureResultValues (New-DomeniaFixtureGuidBytes $script:FxGuid)))
+}
+Test-Case 'D004' 'TODO-D004 GUID d une ArrayList a un element' {
+    Assert-Equal $script:FxGuid (ConvertTo-DomeniaGuidText (New-DomeniaFixtureCollection 'ArrayList' @(,(New-DomeniaFixtureGuidBytes $script:FxGuid))))
+}
+Test-Case 'D004' 'TODO-D004 SID d une ResultPropertyValueCollection a un element' {
+    Assert-Equal $script:FxSid (ConvertTo-DomeniaSidText (New-DomeniaFixtureResultValues (New-DomeniaFixtureSidBytes $script:FxSid)))
+}
+Test-Case 'D004' 'TODO-D004 ConvertTo-DomeniaUtcDate lit un IADsLargeInteger' {
+    $date = $script:FxNow.AddDays(-2)
+    Assert-Equal $date (ConvertTo-DomeniaUtcDate (New-DomeniaFixtureLargeInteger (New-DomeniaFixtureFileTime -Utc $date))) 'Date perdue'
+}
+
 if ($env:DOMENIA_D004_KNOWN_DEFECTS -eq '1') {
     # TODO-D004 cause 1 : Get-DomeniaMember renvoie la valeur sans virgule unaire (Domenia-Common.Model.ps1, return
     # $InputObject[$Name] et return $property.Value) : PowerShell deroule la collection a la sortie.
-    Test-Case 'D004' 'TODO-D004 Get-DomeniaMember rend un tableau d un octet entier' {
-        $value = Get-DomeniaMember ([pscustomobject]@{Flag=[byte[]]@(42)}) 'Flag'
-        Assert-True ($value -is [byte[]]) 'Un octet seul est rendu comme un scalaire [byte]'
-    }
-    Test-Case 'D004' 'TODO-D004 Get-DomeniaMember rend un SID binaire entier' {
-        $value = Get-DomeniaMember ([pscustomobject]@{Sid=(New-DomeniaFixtureSidBytes $script:FxSid)}) 'Sid'
-        Assert-True ($value -is [byte[]]) 'Le SID binaire est deroule en octets isoles'
-    }
-    Test-Case 'D004' 'TODO-D004 Get-DomeniaMember rend une collection a un element sans la deballer' {
-        $row = [pscustomobject]@{Une=@($script:FxGroupDn);UneAd=(New-DomeniaFixtureResultValues $script:FxGroupDn);GuidAd=(New-DomeniaFixtureResultValues (New-DomeniaFixtureGuidBytes $script:FxGuid))}
-        $une = Get-DomeniaMember $row 'Une'
-        Assert-True ($une -is [array]) 'Un tableau d un DN est rendu comme une chaine : son [0] est le premier caractere'
-        Assert-Equal $script:FxGroupDn ([string]$une[0]) 'Premier element : le DN entier'
-        $uneAd = Get-DomeniaMember $row 'UneAd'
-        Assert-True (($uneAd -is [Collections.ICollection]) -and ($uneAd -isnot [string])) 'Une ResultPropertyValueCollection d un DN est rendue comme une chaine'
-        $guidAd = Get-DomeniaMember $row 'GuidAd'
-        Assert-True ($guidAd -isnot [byte[]]) 'La collection d un GUID binaire est rendue comme le tableau d octets lui-meme'
-    }
     # TODO-D004 cause 2 : ConvertTo-DomeniaSidText refuse un SID deroule (octets en object[]), contrairement au GUID.
-    Test-Case 'D004' 'TODO-D004 ConvertTo-DomeniaSidText accepte un SID deroule par le pipeline' {
-        Assert-Equal $script:FxSid (ConvertTo-DomeniaSidText (New-DomeniaFixtureUnrolledBytes (New-DomeniaFixtureSidBytes $script:FxSid)))
-    }
     # TODO-D004 causes 1 et 2 reunies : un SID binaire porte par une ligne est perdu.
-    Test-Case 'D004' 'TODO-D004 Identite de selection : SID binaire direct conserve' {
-        $identity = New-DomeniaSelectionIdentity (New-DomeniaFixtureRow -Guid $script:FxGuid -Sid (New-DomeniaFixtureSidBytes $script:FxSid)) 'example.invalid' 'r' 1 1
-        Assert-Equal $script:FxSid $identity.Sid
-    }
     Test-Case 'D004' 'TODO-D004 Correspondance de compte : SID binaire de la cible compare' {
         $target = [pscustomobject]@{Login='jdemo';NetbiosDomain='EXAMPLE';DnsDomain='example.invalid';Sid=(New-DomeniaFixtureSidBytes $script:FxSid);Upn='jdemo@example.invalid'}
         $match = Test-DomeniaAccountIdentityMatch $target 'EXAMPLE\jdemo' 'S-1-5-21-1-2-3-1104' 'PC01'
@@ -494,15 +511,6 @@ if ($env:DOMENIA_D004_KNOWN_DEFECTS -eq '1') {
     }
     # TODO-D004 cause 3 : les conversions ne deballent que [array] ; une collection AD ou une liste a un element est
     # convertie comme un scalaire texte.
-    Test-Case 'D004' 'TODO-D004 GUID d une ResultPropertyValueCollection a un element' {
-        Assert-Equal $script:FxGuid (ConvertTo-DomeniaGuidText (New-DomeniaFixtureResultValues (New-DomeniaFixtureGuidBytes $script:FxGuid)))
-    }
-    Test-Case 'D004' 'TODO-D004 GUID d une ArrayList a un element' {
-        Assert-Equal $script:FxGuid (ConvertTo-DomeniaGuidText (New-DomeniaFixtureCollection 'ArrayList' @(,(New-DomeniaFixtureGuidBytes $script:FxGuid))))
-    }
-    Test-Case 'D004' 'TODO-D004 SID d une ResultPropertyValueCollection a un element' {
-        Assert-Equal $script:FxSid (ConvertTo-DomeniaSidText (New-DomeniaFixtureResultValues (New-DomeniaFixtureSidBytes $script:FxSid)))
-    }
     # TODO-D004 cause 4 : un parametre [object[]] lie PAR POSITION a une collection non IList la recoit comme UN element.
     Test-Case 'D004' 'TODO-D004 ConvertTo-DomeniaAceView par position avec une AuthorizationRuleCollection' {
         $view = @(ConvertTo-DomeniaAceView (New-DomeniaFixtureAccessRules -Sids @($script:FxSid)))
@@ -516,10 +524,6 @@ if ($env:DOMENIA_D004_KNOWN_DEFECTS -eq '1') {
     # TODO-D004 cause 5 : ConvertTo-DomeniaUtcDate et ConvertFrom-DomeniaAdInterval ne lisent que Int64 et texte ;
     # l IADsLargeInteger de DirectoryEntry (objet COM, lisible seulement par InvokeMember HighPart/LowPart) devient
     # $null : dates et durees perdues (Domenia-Common.Model.ps1, Domenia-Directory.Model.ps1).
-    Test-Case 'D004' 'TODO-D004 ConvertTo-DomeniaUtcDate lit un IADsLargeInteger' {
-        $date = $script:FxNow.AddDays(-2)
-        Assert-Equal $date (ConvertTo-DomeniaUtcDate (New-DomeniaFixtureLargeInteger (New-DomeniaFixtureFileTime -Utc $date))) 'Date perdue'
-    }
     Test-Case 'D004' 'TODO-D004 ConvertFrom-DomeniaAdInterval lit un IADsLargeInteger' {
         $span = ConvertFrom-DomeniaAdInterval (New-DomeniaFixtureLargeInteger ([long]-36288000000000))
         Assert-True ($null -ne $span) 'Duree perdue'

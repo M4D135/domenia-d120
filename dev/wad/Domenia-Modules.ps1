@@ -9,6 +9,8 @@ function Get-DomeniaRuntimeModulePlan {
         # (Domenia-Engine.Model.ps1) before any module of the Modules phase is imported.
         [pscustomobject]@{ Phase='Bootstrap'; Requires=@(); File='Domenia-Common.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaMember',
+            'Get-DomeniaCollectionItems',
+            'ConvertFrom-DomeniaLargeInteger',
             'Test-DomeniaGuidText',
             'ConvertTo-DomeniaGuidText',
             'ConvertTo-DomeniaSidText',
