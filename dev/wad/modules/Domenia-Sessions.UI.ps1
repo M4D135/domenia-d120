@@ -62,15 +62,32 @@ function Start-DomeniaRemoteCredentialSession {
     return [pscustomobject]@{Id=[guid]::NewGuid().ToString('N');Request=$null;Progress=$null;PowerShell=$ps;Runspace=$w.Runspace;AsyncResult=$handle;StartedAt=Get-Date;EndInvoked=$false;Cleaned=$false;CancelRequested=$false;CleanupRetryAt=[datetime]::MinValue;CleanupGiveUpAt=[datetime]::MinValue}
 }
 function Set-DomeniaTargetCredentialContext {
+    # Last step before a worker leaves (Start-UiTask). D051: the account is chosen per resource AND target
+    # (Get-DomeniaCredentialScope). A local account bound to one workstation is only handed to an operation
+    # whose resource is that workstation, never to LDAP, LAPS or BitLocker, and never to another workstation.
     param($Context,$Payload)
-    if($null -eq $script:AccessState -or $null -eq $Payload){return $Context}
-    $target=[string]$Payload.Computer
-    if($target){
-        $key='RemoteLocal|'+$target.Split('.')[0].ToUpperInvariant()
-        if($script:AccessState.Credentials.ContainsKey($key)){
-            $cred=$script:AccessState.Credentials[$key]
-            if($script:AccessState.Expires.ContainsKey($key) -and $script:AccessState.Expires[$key] -gt [datetime]::UtcNow){$Context.MachineCredential=$cred;$Context.RemoteAdminCredential=$cred;$Context.RemoteAdminUser=$cred.UserName}
-        }
+    if($null -eq $Context){return $Context}
+    $operationId=[string](Get-DomeniaMember $Context 'OperationId' '')
+    $resource='';if($operationId){$resource=Get-DomeniaOperationResource $operationId}
+    if($resource -in @('Laps','BitLocker') -and $null -ne $script:SecretsCredential -and $null -eq (Get-DomeniaRetryCredential $operationId)){
+        # Every LAPS or BitLocker read (ReadBitLockerList and ReadBitLockerKey included) uses the Secrets account
+        # of the Accounts tab when one is active; a temporary account accepted for that resource still wins.
+        $Context.Credential=$script:SecretsCredential;$Context.BindUser=[string]$script:SecretsCredential.UserName;$Context.UseCredential=$true
     }
+    if($null -eq $script:AccessState -or $null -eq $Payload){return $Context}
+    $target=[string](Get-DomeniaMember $Payload 'Computer' '')
+    if(-not $target -or -not $operationId){return $Context}
+    $scope=Get-DomeniaCredentialScope -OperationId $operationId -Target $target
+    if(-not $scope.StartsWith('Remote:',[StringComparison]::Ordinal)){return $Context}
+    $key='RemoteLocal|'+(ConvertTo-DomeniaMachineKey $target).ToUpperInvariant()
+    if(-not $script:AccessState.Credentials.ContainsKey($key)){return $Context}
+    $cred=$script:AccessState.Credentials[$key]
+    if($null -eq $cred){return $Context}
+    # D054: a new use needs a live lease; D051: the local account must belong to this very workstation.
+    if(-not (Test-DomeniaAccessLeaseUsable -Key $key)){Remove-DomeniaAccessCredential -Key $key;return $Context}
+    $check=Test-DomeniaCredentialContext -Scope $scope -UserName ([string]$cred.UserName) -Target $target
+    if(-not [bool]$check.Valid){return $Context}
+    $Context.MachineCredential=$cred;$Context.RemoteAdminCredential=$cred;$Context.RemoteAdminUser=$cred.UserName
+    Use-DomeniaAccessLease -Key $key
     return $Context
 }

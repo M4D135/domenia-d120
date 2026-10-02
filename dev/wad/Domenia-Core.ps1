@@ -180,11 +180,18 @@ function Write-DomeniaAtomicText {
 function Protect-DomeniaLogText {
     param([AllowNull()][AllowEmptyString()][string]$Text)
     $value = [string]$Text
+    # D059: once the closed loader has run, the rule of Access.Model (Protect-DomeniaSecretText) masks first.
+    # This function is also called before the modules exist (bootstrap trace): it stays self-sufficient and
+    # never fails when the rule is absent.
+    if (-not [bool]$script:DomeniaSecretTextRuleReady) {
+        $script:DomeniaSecretTextRuleReady = ($null -ne (Get-Command -Name 'Protect-DomeniaSecretText' -CommandType Function -ErrorAction SilentlyContinue))
+    }
+    if ([bool]$script:DomeniaSecretTextRuleReady) { try { $value = [string](Protect-DomeniaSecretText $value) } catch { } }
     # Defence in depth, not a promise to recognise every possible secret.
     $value = [regex]::Replace($value,'(?i)\b(Bearer|Basic)\s+[A-Za-z0-9_.~+/=-]+','$1 [MASQUE]')
-    $value = [regex]::Replace($value,'(?i)\b(password|passwd|pwd|mot\s+de\s+passe|token|authorization|api[_-]?key|client[_-]?secret)\s*[:=]\s*(?:"[^"]*"|''[^'']*''|[^\s;,]+)','$1=[MASQUE]')
-    $value = [regex]::Replace($value,'(?i)("(?:password|passwd|pwd|p|token|api[_-]?key|client[_-]?secret)"\s*:\s*)("(?:\\.|[^"\\])*"|[^,}\s]+)','$1"[MASQUE]"')
-    $value = [regex]::Replace($value,'(?i)(^|\s)(-p|-password|/p|/rp)(?:\s+|[:=])(?:"[^"]*"|''[^'']*''|\S+)','$1$2 [MASQUE]')
+    $value = [regex]::Replace($value,'(?i)\b(password|passwd|pwd|pass|motdepasse|mot\s+de\s+passe|secret|token|authorization|api[_-]?key|apikey|client[_-]?secret)\s*[:=]\s*(?:"[^"]*"|''[^'']*''|[^\s;,]+)','$1=[MASQUE]')
+    $value = [regex]::Replace($value,'(?i)("(?:password|passwd|pwd|pass|p|motdepasse|secret|token|api[_-]?key|apikey|client[_-]?secret)"\s*:\s*)("(?:\\.|[^"\\])*"|[^,}\s]+)','$1"[MASQUE]"')
+    $value = [regex]::Replace($value,'(?i)(^|\s)(-p|-rp|-pass|-password|-pwd|/p|/rp|/pass|/password|/pwd)(?:\s+|[:=])(?:"[^"]*"|''[^'']*''|\S+)','$1$2 [MASQUE]')
     $value = [regex]::Replace($value,'(?<!\d)(?:\d{6}-){7}\d{6}(?!\d)','[CLE BITLOCKER MASQUEE]')
     try {
         foreach ($row in @($script:SecretRows)) {
@@ -1983,28 +1990,57 @@ function ConvertTo-DomeniaErrorInfo {
     try { if ($null -ne $exception) { $hresult = [int]$exception.HResult } } catch { }
     $kind = "Unexpected"
     $friendly = "$Operation a echoue."
-    if ($hresult -eq -2147024891 -or $message -match "(?i)access.*denied|acc[ee]s.*refus|unauthori[sz]ed|insufficient.*access") {
-        $kind = "AccessDenied"; $friendly = "$Operation : le compte utilise ne possede pas les droits necessaires."
+    # D052: one structured decision (native code first, French and English alike). A delay is never a
+    # rejected password; an uncertain outcome is never presented as a failure or a success.
+    $decision = $null
+    if ($null -ne (Get-Command -Name 'Get-DomeniaErrorDecision' -CommandType Function -ErrorAction SilentlyContinue)) {
+        try {
+            $structuredSource = if ($null -ne $exception) { $exception } else { $message }
+            $decision = Get-DomeniaErrorDecision -Structured (Get-DomeniaStructuredError $structuredSource -Phase $Operation) -Text $message
+        } catch { $decision = $null }
     }
-    elseif ($hresult -eq -2147023570 -or $message -match "(?i)logon failure|unknown user|bad password|echec.*ouverture.*session|identifiant") {
-        $kind = "LogonFailure"; $friendly = "$Operation : les identifiants ont ete refuses."
+    $decided = $false
+    if ($null -ne $decision -and [string]$decision.Category -ne 'Unknown') {
+        $decided = $true
+        $kind = switch ([string]$decision.Category) {
+            'AccessDenied'        { 'AccessDenied' }
+            'DecryptionDenied'    { 'AccessDenied' }
+            'CredentialsRejected' { 'LogonFailure' }
+            'AccountState'        { 'AccountState' }
+            'Timeout'             { 'Timeout' }
+            'Network'             { 'ServerUnavailable' }
+            'Prerequisite'        { 'Prerequisite' }
+            'Uncertain'           { 'Uncertain' }
+            'Unconfirmed'         { 'Unconfirmed' }
+            default               { 'Unexpected' }
+        }
+        $friendly = "$Operation : " + [string]$decision.Explanation + ' ' + [string]$decision.NextAction
     }
-    elseif ($message -match "(?i)server.*not operational|serveur.*indisponible|0x8007203a|LDAP server.*unavailable") {
-        $kind = "ServerUnavailable"; $friendly = "$Operation : le controleur de domaine ou le poste distant est indisponible."
+    if (-not $decided) {
+        # Legacy text classification, kept for messages the structured decision does not classify.
+        if ($hresult -eq -2147024891 -or $message -match "(?i)access.*denied|acc[eè]s.*refus|unauthori[sz]ed|insufficient.*access") {
+            $kind = "AccessDenied"; $friendly = "$Operation : le compte utilise ne possede pas les droits necessaires."
+        }
+        elseif ($hresult -eq -2147023570 -or $message -match "(?i)logon failure|unknown user|bad password|echec.*ouverture.*session|identifiant") {
+            $kind = "LogonFailure"; $friendly = "$Operation : les identifiants ont ete refuses."
+        }
+        elseif ($message -match "(?i)server.*not operational|serveur.*indisponible|0x8007203a|LDAP server.*unavailable") {
+            $kind = "ServerUnavailable"; $friendly = "$Operation : le controleur de domaine ou le poste distant est indisponible."
+        }
+        elseif ($message -match "(?i)no such object|objet.*introuvable|0x80072030") {
+            $kind = "ObjectNotFound"; $friendly = "$Operation : l'objet n'existe plus ou a ete deplace. Recharge les donnees."
+        }
+        elseif ($message -match "(?i)constraint.*violation|contrainte|password.*policy|politique.*mot de passe|0x8007202f") {
+            $kind = "ConstraintViolation"; $friendly = "$Operation : Active Directory a refuse la valeur ou la politique demandee."
+        }
+        elseif ($message -match "(?i)already exists|existe deja|0x80071392") {
+            $kind = "AlreadyExists"; $friendly = "$Operation : un objet portant deja ce nom existe."
+        }
+        elseif ($message -match "(?i)timed?\s*out|timeout|delai.*depass") {
+            $kind = "Timeout"; $friendly = "$Operation : le delai d'attente a ete depasse. L'etat distant doit etre verifie avant de recommencer."
+        }
+        elseif (-not [string]::IsNullOrWhiteSpace($message)) { $friendly = "$Operation : $message" }
     }
-    elseif ($message -match "(?i)no such object|objet.*introuvable|0x80072030") {
-        $kind = "ObjectNotFound"; $friendly = "$Operation : l'objet n'existe plus ou a ete deplace. Recharge les donnees."
-    }
-    elseif ($message -match "(?i)constraint.*violation|contrainte|password.*policy|politique.*mot de passe|0x8007202f") {
-        $kind = "ConstraintViolation"; $friendly = "$Operation : Active Directory a refuse la valeur ou la politique demandee."
-    }
-    elseif ($message -match "(?i)already exists|existe deja|0x80071392") {
-        $kind = "AlreadyExists"; $friendly = "$Operation : un objet portant deja ce nom existe."
-    }
-    elseif ($message -match "(?i)timed?\s*out|timeout|delai.*depass") {
-        $kind = "Timeout"; $friendly = "$Operation : le delai d'attente a ete depasse. L'etat distant doit etre verifie avant de recommencer."
-    }
-    elseif (-not [string]::IsNullOrWhiteSpace($message)) { $friendly = "$Operation : $message" }
     [pscustomobject]@{ Kind=$kind; Friendly=$friendly; Technical=$technical; HResult=$hresult }
 }
 
@@ -5089,6 +5125,29 @@ function Get-MainXaml {
                         <StackPanel>
                           <TextBlock Text="Regle d execution" FontWeight="SemiBold"/>
                           <TextBlock x:Name="LblAccountRule" Text="Annuaire : compte AD courant. Postes : compte distant s il existe, sinon compte AD. Secrets : compte secrets s il existe, sinon compte AD. Les trois scopes sont independants." Foreground="{DynamicResource InfoFg}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                          <TextBlock Text="Un compte temporaire accepte apres un refus ne sert qu a sa ressource et a son poste ; il est oublie apres une periode sans utilisation, a la fin de la session ou sur demande." Foreground="{DynamicResource InfoFg}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                        </StackPanel>
+                      </Border>
+                      <Border Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="14" Padding="18" Margin="0,14,0,0">
+                        <StackPanel>
+                          <TextBlock Text="TRANSPORTS UTILISES" FontWeight="SemiBold"/>
+                          <TextBlock Text="Ce que Domenia utilise, ce qui reste inactif et pourquoi. Domenia ne modifie aucun reglage Windows : ni certificat, ni WinRM, ni pare-feu, ni antivirus, ni strategie." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,2,0,8"/>
+                          <DataGrid x:Name="DgTransportPolicy" AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column" SelectionMode="Single" MinRowHeight="28" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ToolTip="Transports utilises par Domenia et leur etat. Lecture seule : rien n est teste ni modifie." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Transports utilises" AutomationProperties.HelpText="Transports utilises par Domenia et leur etat. Lecture seule : rien n est teste ni modifie.">
+                            <DataGrid.Columns>
+                              <DataGridTextColumn Header="Transport" Binding="{Binding Transport}" Width="150"/>
+                              <DataGridTextColumn Header="Usage" Binding="{Binding Usage}" Width="220"/>
+                              <DataGridTextColumn Header="Ports" Binding="{Binding Ports}" Width="190"/>
+                              <DataGridTextColumn Header="Etat" Binding="{Binding Etat}" Width="230"/>
+                              <DataGridTemplateColumn Header="Regle" Width="*">
+                                <DataGridTemplateColumn.CellTemplate>
+                                  <DataTemplate>
+                                    <TextBlock Text="{Binding Regle}" Style="{StaticResource WrappedCellText}"/>
+                                  </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                              </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                          </DataGrid>
+                          <TextBlock x:Name="LblTransportPolicy" Text="Aucun transport intrusif sans autorisation explicite et ciblee." Foreground="{DynamicResource MutedColor}" Margin="0,8,0,0" TextWrapping="Wrap"/>
                         </StackPanel>
                       </Border>
                     </StackPanel>
@@ -5688,6 +5747,15 @@ function Get-MainXaml {
                             <Button x:Name="BtnClearSecrets" ToolTip="Efface les valeurs affichees." Content="Vider" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vider" AutomationProperties.HelpText="Efface les valeurs affichees."/>
                           </WrapPanel>
                           <TextBlock x:Name="LblSecretsStatus" Text="Selectionne un poste, puis charge BitLocker ou LAPS." Foreground="{DynamicResource MutedColor}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                          <Button x:Name="BtnSecretsPrerequisite" Content="Ouvrir le prerequis" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,8,0,0" Visibility="Collapsed" ToolTip="Ouvre la page du prerequis manquant. Navigation seule : aucun droit ni reglage modifie." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ouvrir le prerequis" AutomationProperties.HelpText="Ouvre la page du prerequis manquant. Navigation seule : aucun droit ni reglage modifie."/>
+                          <WrapPanel Margin="0,10,0,0">
+                            <StackPanel Width="300" Margin="0,0,12,0">
+                              <TextBlock Text="Identifiant de recuperation BitLocker" Margin="0,0,0,4" FontSize="12" FontWeight="SemiBold"/>
+                              <TextBox x:Name="TxtBitLockerRecoveryId" MaxLength="40" IsEnabled="False" ToolTip="Saisissez les premiers caracteres de l identifiant affiche par le poste. Filtre local : aucune cle n est lue ni revelee." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Identifiant de recuperation BitLocker" AutomationProperties.HelpText="Saisissez les premiers caracteres de l identifiant affiche par le poste. Filtre local : aucune cle n est lue ni revelee."/>
+                            </StackPanel>
+                            <TextBlock x:Name="LblBitLockerRecoveryHint" Text="Chargez BitLocker : les metadonnees sont listees sans aucune cle. Une seule cle est lue, a votre demande." Foreground="{DynamicResource MutedColor}" VerticalAlignment="Bottom" MaxWidth="520" TextWrapping="Wrap"/>
+                          </WrapPanel>
+                          <TextBlock x:Name="LblSecretsExposure" Text="Une valeur a la fois, affichee brievement, jamais journalisee ni mise en cache." Foreground="{DynamicResource MutedColor}" Margin="0,8,0,0" TextWrapping="Wrap"/>
                         </StackPanel>
                         <DataGrid x:Name="DgSecrets" ToolTip="Cles et mots de passe recuperes. Clic droit pour copier." AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" MinRowHeight="31" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Cles et mots de passe recuperes" AutomationProperties.HelpText="Cles et mots de passe recuperes. Clic droit pour copier.">
                           <DataGrid.Columns>
@@ -10415,6 +10483,9 @@ function Clear-Secrets {
     foreach ($row in @($script:SecretRows)) { try { $row.Value = '' } catch { } }
     $script:SecretRows = @()
     $script:SecretsVisible = $false
+    $script:RevealedSecretIndex = -1
+    $script:BitLockerKeyList = @()
+    $script:BitLockerKeyContext = $null
     try { $script:Ctrl["DgSecrets"].ItemsSource = $null; $script:Ctrl["BtnToggleSecrets"].Content = "Afficher les secrets"; $script:Ctrl["LblSecretsStatus"].Text = "Aucun secret conserve en memoire." } catch { }
     try { Update-DomeniaSecretActionUi } catch { }
 }
@@ -10422,9 +10493,14 @@ function Clear-Secrets {
 function Update-SecretsGrid {
     $rows = New-Object 'System.Collections.Generic.List[object]'
     $index = 0
+    # D059: with a single reveal, only the row chosen by an explicit gesture is shown ($script:RevealedSecretIndex);
+    # -1 keeps the previous whole-grid reveal (Features.SecretSingleCopy = false).
+    $revealedIndex = -1
+    if ($null -ne $script:RevealedSecretIndex) { $revealedIndex = [int]$script:RevealedSecretIndex }
     foreach ($r in @($script:SecretRows)) {
         $hasValue = -not [string]::IsNullOrWhiteSpace([string]$r.Value)
-        $display = if (-not $hasValue) { '' } elseif ($script:SecretsVisible) { [string]$r.Value } else { '********' }
+        $shown = ($script:SecretsVisible -and ($revealedIndex -lt 0 -or $revealedIndex -eq $index))
+        $display = if (-not $hasValue) { '' } elseif ($shown) { [string]$r.Value } else { '********' }
         $rows.Add([pscustomobject]@{ Kind=$r.Kind; Account=$r.Account; DisplayValue=$display; Timestamp=$r.Timestamp; Source=$r.Source; Detail=$r.Detail; SecretIndex=$index; HasValue=$hasValue })
         $index++
     }
@@ -10471,20 +10547,39 @@ function Complete-DomeniaSecretLoadUi {
         return
     }
     $script:ActiveSecretRequestId = ""
+    # D057: LAPS read and LAPS decryption are distinct. The worker returns metadata (Meta) without any password;
+    # ConvertTo-DomeniaLapsView turns it into an explained state and facts (source, publication, expiration, decryptor).
+    $lapsView = $null
+    if ($effective.Mode -eq "LAPS" -and $null -ne $effective.PSObject.Properties["Meta"] -and $null -ne $effective.Meta) {
+        try { $lapsView = ConvertTo-DomeniaLapsView -Result $effective.Meta } catch { $lapsView = $null }
+    }
+    $lapsFacts = ""
+    if ($null -ne $lapsView) { $lapsFacts = ((@($lapsView.Facts) | ForEach-Object { [string]$_.Fait + " : " + [string]$_.Valeur }) -join " ; ") }
     if (-not [bool]$effective.Success) {
         Clear-DomeniaSecretResultValues -Result $effective
         $detail = if (-not [string]::IsNullOrWhiteSpace([string]$effective.ErrorMessage)) { [string]$effective.ErrorMessage } else { "Aucune valeur secrete lisible n'a ete retournee." }
         $errorKind = ""
         try { $errorKind = [string]$effective.ErrorKind } catch { }
         if($errorKind -eq 'LogonFailure' -and $null -ne $script:AccessState){$scope=if($State.Mode -eq 'LAPS'){'ReadLaps'}else{'ReadBitLocker'};$script:AccessState.Faults[$scope]=$true}
-        if ($errorKind -eq "AccessDenied") {
+        # A decryption refusal is not a read refusal: the resource is not marked denied, no fault is recorded and
+        # BitLocker is untouched. Only a refused READ marks this resource for this computer.
+        $readDenied = ($errorKind -eq "AccessDenied" -and ($null -eq $lapsView -or [string]$lapsView.State -eq 'ReadDenied'))
+        if ($readDenied) {
             Set-DomeniaSecretDenied -Mode ([string]$State.Mode) -DN ([string]$State.DN)
-            Write-AppLog "Lecture $($State.Mode) refusee. L autre ressource reste disponible." 'WARN' 
+            Write-AppLog "Lecture $($State.Mode) refusee. L autre ressource reste disponible." 'WARN'
         }
         Update-SecretsGrid
-        $script:Ctrl["LblSecretsStatus"].Text = "Lecture impossible : $detail"
+        if ($null -ne $lapsView) {
+            $script:Ctrl["LblSecretsStatus"].Text = ("Lecture LAPS : " + [string]$lapsView.Message + $(if ($lapsFacts) { " " + $lapsFacts + "." } else { "" }))
+        }
+        else { $script:Ctrl["LblSecretsStatus"].Text = "Lecture impossible : $detail" }
         $op=if($State.Mode -eq 'LAPS'){'ReadLaps'}else{'ReadBitLocker'}
-        $offered=Request-DomeniaAccessRecovery -Operation "Lecture $($State.Mode)" -ErrorValue $(if($errorKind -eq 'AccessDenied'){'Acces refuse. '+$detail}else{$detail}) -OperationId $op -DN ([string]$State.DN) -Interactive:([int]$State.RetryAttempt -eq 0) -Possible:($errorKind -eq 'NoReadableValue')
+        $offerValue = if ($errorKind -eq 'AccessDenied') { 'Acces refuse. '+$detail } else { $detail }
+        $offerPossible = ($errorKind -eq 'NoReadableValue' -or ($null -ne $lapsView -and [string]$lapsView.State -eq 'Unconfirmed'))
+        $offered = $false
+        if ($null -eq $lapsView -or [bool]$lapsView.OfferOtherAccount -or $errorKind -eq 'LogonFailure') {
+            $offered=Request-DomeniaAccessRecovery -Operation "Lecture $($State.Mode)" -ErrorValue $offerValue -OperationId $op -DN ([string]$State.DN) -Interactive:([int]$State.RetryAttempt -eq 0) -Possible:$offerPossible
+        }
         [void](Show-DomeniaOperationError -Operation "Lecture $($State.Mode)" -ErrorRecordOrException $detail -NoPopup:$offered)
         return
     }
@@ -10504,7 +10599,8 @@ function Complete-DomeniaSecretLoadUi {
         try { [void](Save-DomeniaSecretIndexEntry -Computer (Get-CurrentSelectedComputerName) -BitLockerKeys 0 -Verdict "aucune cle visible avec ce compte") } catch { }
         return
     }
-    $script:Ctrl["LblSecretsStatus"].Text = "$count valeur(s) $($effective.Mode) chargee(s). Valeurs masquees et uniquement en memoire.$extra"
+    $lapsSuffix = if ($lapsFacts) { " " + $lapsFacts + "." } else { "" }
+    $script:Ctrl["LblSecretsStatus"].Text = "$count valeur(s) $($effective.Mode) chargee(s). Valeurs masquees et uniquement en memoire.$extra$lapsSuffix"
     try {
         $verdict = "lisible par ton compte"
         if ($count -eq 0) { $verdict = "present mais non lisible par ton compte" }
@@ -10536,7 +10632,10 @@ function Fail-DomeniaSecretLoadUi {
     $script:ActiveSecretRequestId = ''
     $mode=if($null -ne $State){[string]$State.Mode}else{'LAPS'}
     $kind=Get-DomeniaAccessFailureKind $Message
-    if($kind -eq 'AccessDenied' -and $null -ne $State){Set-DomeniaSecretDenied -Mode $mode -DN ([string]$State.DN)}
+    # D057: an explicit decryption refusal does not mark the LAPS read as denied for this computer.
+    $decryptOnly=$false
+    try{$decryptOnly=([string](Get-DomeniaErrorDecision -Structured (Get-DomeniaStructuredError $Message) -Text ([string]$Message)).Category -eq 'DecryptionDenied')}catch{}
+    if($kind -eq 'AccessDenied' -and -not $decryptOnly -and $null -ne $State){Set-DomeniaSecretDenied -Mode $mode -DN ([string]$State.DN)}
     Update-SecretsGrid
     [void](Set-DomeniaControlText 'LblSecretsStatus' ("Lecture $mode non confirmee : "+$Message))
     $op=if($mode -eq 'LAPS'){'ReadLaps'}else{'ReadBitLocker'}
@@ -10549,9 +10648,11 @@ function Start-LoadComputerSecrets {
     try {
         if ($null -eq $script:SelectedObject -or $script:SelectedObject.Type -ne "Machine") { Set-Status "Selectionne une machine." "WARN"; return }
         $opScope=if($Mode -eq 'LAPS'){'ReadLaps'}else{'ReadBitLocker'}
-        if ((Test-DomeniaSecretDenied -Mode $Mode -DN ([string]$script:SelectedObject.DN)) -or ($null -ne $script:AccessState -and $script:AccessState.Faults.ContainsKey($opScope))) {
-            $op=if($Mode -eq 'LAPS'){'ReadLaps'}else{'ReadBitLocker'}
-            [void](Request-DomeniaAccessRecovery -Operation "Lecture $Mode" -ErrorValue 'Acces refuse avec ce compte.' -OperationId $op -DN ([string]$script:SelectedObject.DN) -Interactive -Force)
+        # D055: the current Windows token, or the account already chosen for this resource, is used without any
+        # prompt. Another account is asked only after a refusal for this resource (Get-DomeniaOperationAuthNeed).
+        $authNeed = Get-DomeniaSecretIdentityReason -Mode $Mode
+        if ([bool]$authNeed.Prompt) {
+            [void](Request-DomeniaAccessRecovery -Operation "Lecture $Mode" -ErrorValue 'Acces refuse avec ce compte.' -OperationId $opScope -DN ([string]$script:SelectedObject.DN) -Interactive -Force)
             return
         }
         if ($script:CurrentCapabilities.ContainsKey("Secrets") -and $script:CurrentCapabilities["Secrets"] -eq "Refuse") {
@@ -10560,7 +10661,16 @@ function Start-LoadComputerSecrets {
         }
         $dn = [string]$script:SelectedObject.DN
         $name = [string]$script:Ctrl["TxtCompName"].Text
-        if ($Mode -eq "BitLocker") {
+        $secretOperationId = if ($Mode -eq "BitLocker") { "ReadBitLocker" } else { "ReadLaps" }
+        $successHandler = "Complete-DomeniaSecretLoadUi"
+        if ($Mode -eq "BitLocker" -and (Test-DomeniaBitLockerKeySelection)) {
+            # D058 (Features.BitLockerKeySelection): metadata first. No recovery password is requested here;
+            # one key is read later, on an explicit reveal or copy of the chosen line (ReadBitLockerKey).
+            $code = Get-DomeniaBitLockerListWorkerCode
+            $secretOperationId = "ReadBitLockerList"
+            $successHandler = "Complete-DomeniaBitLockerListUi"
+        }
+        elseif ($Mode -eq "BitLocker") {
             $code = @'
 $s = New-WSearcher $Context ([string]$Payload.DN) "(objectClass=msFVE-RecoveryInformation)" @("name","distinguishedName","msFVE-RecoveryPassword","msFVE-RecoveryGuid","whenCreated","whenChanged") "OneLevel" 0
 $rows = New-Object Collections.ArrayList
@@ -10584,15 +10694,23 @@ $errorMessage = if ($objectCount -gt 0 -and $readableCount -eq 0) { "Des objets 
 $de=$null
 $rows=[Collections.Generic.List[object]]::new()
 $errorKind='';$errorMessage='';$moduleState='Non requis';$moduleDetail=''
+$lapsSource='';$lapsPublished=$false;$lapsExpiration='';$lapsAccount='';$lapsDecryptor='';$decryptStatus='NotAttempted'
 try{
     $de=New-WEntry $Context ([string]$Payload.DN)
     $p=Get-WAllProperties -Entry $de -PropertyNames @('ms-Mcs-AdmPwd','ms-Mcs-AdmPwdExpirationTime','msLAPS-Password','msLAPS-PasswordExpirationTime','msLAPS-EncryptedPassword')
     function FirstValue([string]$name){foreach($key in @($p.Keys)){if([string]$key -ieq $name){$v=@($p[$key]);if($v.Count){return $v[0]}}};return ''}
+    function ExpirationUtc($value){$i=Convert-WLargeInteger $value;if($i -le 0 -or $i -eq 9223372036854775807){return ''};try{return [DateTime]::FromFileTimeUtc($i).ToString('o')}catch{return ''}}
+    # Metadata only (D057): source, publication and expiration. No password value ever goes into Meta.
+    $legacyExpiry=FirstValue 'ms-Mcs-AdmPwdExpirationTime'
+    if($legacyExpiry){$lapsSource='LegacyLaps';$lapsPublished=$true;$lapsExpiration=ExpirationUtc $legacyExpiry}
+    $modernExpiry=FirstValue 'msLAPS-PasswordExpirationTime'
+    if($modernExpiry){$lapsSource='WindowsLaps';$lapsPublished=$true;$lapsExpiration=ExpirationUtc $modernExpiry}
+    if(FirstValue 'msLAPS-EncryptedPassword'){$lapsSource='WindowsLaps';$lapsPublished=$true}
     $legacy=FirstValue 'ms-Mcs-AdmPwd'
-    if($legacy){$rows.Add([pscustomobject]@{Kind='LAPS historique';Account='Administrateur local';Value=$legacy;Timestamp=(Convert-WFileTime (FirstValue 'ms-Mcs-AdmPwdExpirationTime'));Source='ms-Mcs-AdmPwd';Detail='Lecture attribut LAPS historique'})}
+    if($legacy){$lapsSource='LegacyLaps';$lapsPublished=$true;$decryptStatus='NotEncrypted';$lapsAccount='Administrateur local';$rows.Add([pscustomobject]@{Kind='LAPS historique';Account='Administrateur local';Value=$legacy;Timestamp=(Convert-WFileTime (FirstValue 'ms-Mcs-AdmPwdExpirationTime'));Source='ms-Mcs-AdmPwd';Detail='Lecture attribut LAPS historique'})}
     $modern=FirstValue 'msLAPS-Password'
     if($modern){
-        try{$o=$modern|ConvertFrom-Json -ErrorAction Stop;if([string]$o.p){$rows.Add([pscustomobject]@{Kind='Windows LAPS';Account=[string]$o.n;Value=[string]$o.p;Timestamp=(Convert-WFileTime (FirstValue 'msLAPS-PasswordExpirationTime'));Source='msLAPS-Password';Detail='Lecture attribut Windows LAPS'})}}
+        try{$o=$modern|ConvertFrom-Json -ErrorAction Stop;if([string]$o.p){$lapsSource='WindowsLaps';$lapsPublished=$true;$decryptStatus='NotEncrypted';$lapsAccount=[string]$o.n;$rows.Add([pscustomobject]@{Kind='Windows LAPS';Account=[string]$o.n;Value=[string]$o.p;Timestamp=(Convert-WFileTime (FirstValue 'msLAPS-PasswordExpirationTime'));Source='msLAPS-Password';Detail='Lecture attribut Windows LAPS'})}}
         catch{throw 'Attribut LAPS JSON invalide. Son contenu brut n est pas journalise.'}
     }
     if(-not $rows.Count){
@@ -10613,10 +10731,18 @@ try{
         # One call with the chosen identity; no fallback to Windows or another principal.
         $values=@(Get-LapsADPassword @params)
         foreach($v in $values){
+            $lapsSource='WindowsLaps'
+            if([string]$v.Account){$lapsAccount=[string]$v.Account}
+            if($null -ne $v.PSObject.Properties['AuthorizedDecryptor']){$lapsDecryptor=[string]$v.AuthorizedDecryptor}
+            if($null -ne $v.PSObject.Properties['ExpirationTimestamp'] -and $null -ne $v.ExpirationTimestamp){try{$lapsExpiration=([datetime]$v.ExpirationTimestamp).ToUniversalTime().ToString('o')}catch{}}
             $plain=''
             if($v.Password -is [Security.SecureString]){$plain=([Management.Automation.PSCredential]::new('value',$v.Password)).GetNetworkCredential().Password}else{$plain=[string]$v.Password}
-            if($plain){$rows.Add([pscustomobject]@{Kind='Windows LAPS';Account=[string]$v.Account;Value=$plain;Timestamp=[string]$v.ExpirationTimestamp;Source='Get-LapsADPassword';Detail='Lecture et decryptage avec le compte explicitement choisi'})}
-            elseif([string]$v.DecryptionStatus -match '(?i)Unauthorized|AccessDenied'){$errorKind='AccessDenied';$errorMessage='Le compte ne dispose pas du droit de dechiffrement LAPS.'}
+            if($plain){$lapsPublished=$true;$decryptStatus='OK';$rows.Add([pscustomobject]@{Kind='Windows LAPS';Account=[string]$v.Account;Value=$plain;Timestamp=[string]$v.ExpirationTimestamp;Source='Get-LapsADPassword';Detail='Lecture et decryptage avec le compte explicitement choisi'})}
+            elseif([string]$v.DecryptionStatus -match '(?i)Unauthorized|AccessDenied'){
+                # Published and read, decryption refused: neither an empty password nor a refusal of the whole account.
+                $lapsPublished=$true;$decryptStatus='Unauthorized';$errorKind='DecryptionDenied';$errorMessage='Le compte ne dispose pas du droit de dechiffrement LAPS.'
+            }
+            $plain=''
         }
         $moduleState='Disponible';$moduleDetail='Une demande Windows LAPS, aucune variante automatique.'
     }
@@ -10627,7 +10753,14 @@ try{
     $errorMessage=$_.Exception.Message;$moduleDetail=$errorMessage
 }finally{if($null -ne $de){try{$de.Dispose()}catch{}}}
 if(-not $rows.Count -and -not $errorMessage){$errorKind='NoReadableValue';$errorMessage='Aucune valeur LAPS visible avec ce compte : publication ou droits a verifier.'}
-[pscustomobject]@{Rows=$rows.ToArray();Mode='LAPS';Success=($rows.Count -gt 0);ErrorKind=$errorKind;ErrorMessage=$errorMessage;ModuleState=$moduleState;ModuleDetail=$moduleDetail}
+$readStatus='OK'
+if($errorKind -eq 'ModuleMissing'){$readStatus='ModuleMissing'}
+elseif($errorKind -eq 'AccessDenied'){$readStatus='AccessDenied'}
+elseif($errorKind -in @('LogonFailure','ReadFailed')){$readStatus='Failed'}
+elseif($errorKind -eq 'NoReadableValue'){$readStatus='Unconfirmed'}
+$reader=[string]$Context.BindUser;if(-not $reader){$reader=[string]$Context.ProcessIdentity}
+$meta=[pscustomobject]@{Source=$lapsSource;Published=$lapsPublished;ExpirationUtc=$lapsExpiration;Account=$lapsAccount;Decryptor=$lapsDecryptor;PasswordPresent=($rows.Count -gt 0);ReadStatus=$readStatus;DecryptStatus=$decryptStatus;Reader=$reader}
+[pscustomobject]@{Rows=$rows.ToArray();Mode='LAPS';Success=($rows.Count -gt 0);ErrorKind=$errorKind;ErrorMessage=$errorMessage;ModuleState=$moduleState;ModuleDetail=$moduleDetail;Meta=$meta}
 '@
         }
         $requestId = [guid]::NewGuid().ToString("N")
@@ -10638,8 +10771,7 @@ if(-not $rows.Count -and -not $errorMessage){$errorKind='NoReadableValue';$error
             RequestId=$requestId; DN=$dn; ObjectGuid=$objectGuid
             Generation=[int64]$script:SelectedObjectGeneration; Mode=$Mode; RetryAttempt=$RetryAttempt
         }
-        $secretOperationId = if ($Mode -eq "BitLocker") { "ReadBitLocker" } else { "ReadLaps" }
-        Start-UiTask -Name "Lecture $Mode" -OperationId $secretOperationId -Code $code -Payload ([pscustomobject]@{ DN=$dn; Name=$name }) -CallbackState $callbackState -ReplaceKey "secrets" -DisableControls @("BtnLoadBitLocker","BtnLoadLaps") -TimeoutSeconds 40 -StatusText "Lecture $Mode en arriere-plan..." -SuccessHandler "Complete-DomeniaSecretLoadUi" -ErrorHandler "Fail-DomeniaSecretLoadUi" | Out-Null
+        Start-UiTask -Name "Lecture $Mode" -OperationId $secretOperationId -Code $code -Payload ([pscustomobject]@{ DN=$dn; Name=$name }) -CallbackState $callbackState -ReplaceKey "secrets" -DisableControls @("BtnLoadBitLocker","BtnLoadLaps") -TimeoutSeconds 40 -StatusText ("Lecture $Mode en arriere-plan... Identite : " + [string]$authNeed.Reason) -SuccessHandler $successHandler -ErrorHandler "Fail-DomeniaSecretLoadUi" | Out-Null
     }
     catch {
         $script:ActiveSecretRequestId = ""
@@ -10649,6 +10781,25 @@ if(-not $rows.Count -and -not $errorMessage){$errorKind='NoReadableValue';$error
 
 function Toggle-SecretsVisibility {
     if (@($script:SecretRows).Count -eq 0) { return }
+    if (Test-DomeniaSecretSingleExposure) {
+        # D058/D059 (Features.SecretSingleCopy): only the selected value is revealed, after this explicit gesture,
+        # for the exposure policy duration. A BitLocker line holding metadata only triggers the read of that ONE key.
+        try { if ($null -ne $script:SecretRevealTimer) { $script:SecretRevealTimer.Stop() } } catch { }
+        if ($script:SecretsVisible) { $script:SecretsVisible = $false; $script:RevealedSecretIndex = -1; Update-SecretsGrid; return }
+        $grid = Get-DomeniaControl -Name 'DgSecrets'
+        $selectedCount = 0
+        if ($null -ne $grid -and $null -ne $grid.SelectedItem) { $selectedCount = 1 }
+        if (-not (Test-DomeniaSecretRevealAllowed -Trigger 'ExplicitReveal' -SelectedCount $selectedCount)) { Set-Status "Selectionnez la valeur a afficher. Une seule valeur est revelee a la fois."; return }
+        $source = Get-DomeniaSelectedSecretSource
+        if ($null -eq $source) { return }
+        if ([string]::IsNullOrWhiteSpace([string]$source.Value)) {
+            if ([bool](Get-DomeniaMember $source 'Metadata' $false)) { [void](Request-DomeniaBitLockerKey -Trigger 'ExplicitReveal') }
+            return
+        }
+        [void](Start-DomeniaSecretReveal -Index (Get-DomeniaSelectedSecretIndex))
+        return
+    }
+    $script:RevealedSecretIndex = -1
     $script:SecretsVisible = -not $script:SecretsVisible
     try { if ($null -ne $script:SecretRevealTimer) { $script:SecretRevealTimer.Stop() } } catch { }
     if ($script:SecretsVisible) {
@@ -10689,16 +10840,26 @@ function Start-SecretClipboardAutoClear {
 function Copy-SelectedSecret {
     try {
         $row = Get-DomeniaSelectedSecretSource
+        # D059: the limits of third-party clipboard history stay explicit at every copy.
+        $clipboardLimit = [string](Get-DomeniaSecretExposurePolicy).ClipboardLimit
+        if ($null -ne $row -and [string]::IsNullOrWhiteSpace([string]$row.Value) -and [bool](Get-DomeniaMember $row 'Metadata' $false)) {
+            # D058: a BitLocker line holding metadata only. The chosen key is read, then copied, after this confirmation.
+            if (-not (Confirm-Action ("Lire puis copier temporairement la cle BitLocker " + [string]$row.Account + " ? Seule cette cle est lue. " + $clipboardLimit))) { return }
+            [void](Request-DomeniaBitLockerKey -Trigger 'ExplicitCopy')
+            return
+        }
         if ($null -eq $row -or [string]::IsNullOrWhiteSpace([string]$row.Value)) { Set-Status "Aucun secret selectionne." "WARN"; return }
-        if (-not (Confirm-Action "Copier temporairement ce secret dans le presse-papiers ?")) { return }
-        Set-DomeniaProtectedClipboard -Value ([string]$row.Value)
+        if (-not (Confirm-Action ("Copier temporairement ce secret dans le presse-papiers ? " + $clipboardLimit))) { return }
+        Set-DomeniaProtectedClipboard -Value ([string]$row.Value) -MaxLength 1024
         Start-SecretClipboardAutoClear ([string]$row.Value)
         Write-AppLog "Secret copie temporairement : $($row.Kind) / $($row.Account)" "WARN"
-        Set-Status "Secret copie. Effacement automatique programme."
+        Set-Status ("Secret copie. Effacement automatique programme. " + $clipboardLimit)
     } catch { Show-ErrorBox "Erreur copie secret : $($_.Exception.Message)" }
 }
 
 function Copy-AllSecrets {
+    # D059 (Features.SecretSingleCopy): one value at a time. The previous "copy all" stays available only when the switch is off.
+    if (Test-DomeniaSecretSingleExposure) { Set-Status "Copie groupee desactivee : copiez la seule valeur necessaire." "WARN"; return }
     if(-not (Confirm-Action -Title 'Copie de plusieurs secrets' -Message 'Copier toutes les valeurs augmente leur exposition. Preferez la copie de la seule valeur necessaire. Continuer ?')){return}
     try {
         $usable = @($script:SecretRows | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_.Value) })
@@ -21587,68 +21748,64 @@ function Update-DomeniaSecretActionUi {
         seule des qu'une machine est reellement selectionnee. Le DC et la
         cmdlet LAPS restent les autorites finales : l'estimation ACL locale ne
         bloque jamais preventivement une tentative de lecture.
+        D056 : chaque bouton grise porte un motif (Get-DomeniaCapabilityExplanation)
+        et une route sure vers le prerequis (BtnSecretsPrerequisite, dans la page).
     #>
     try {
-        $isMachine = $false
         $machineDn = ""
-        try {
-            $isMachine = ($null -ne $script:SelectedObject -and [string]$script:SelectedObject.Type -eq "Machine")
-            if ($isMachine) { $machineDn = [string]$script:SelectedObject.DN }
-        }
-        catch { $isMachine = $false; $machineDn = "" }
-        $hasMachine = ($isMachine -and -not [string]::IsNullOrWhiteSpace($machineDn))
-        $writeActive = (-not [string]::IsNullOrWhiteSpace([string]$script:ActiveWriteTaskId)) -or ($script:WriteState -in @("Unknown","UnknownPending"))
-
-        $estimatedState = "Indetermine"
-        try {
-            if ($script:CurrentCapabilities.ContainsKey("Secrets")) {
-                $estimatedState = [string]$script:CurrentCapabilities["Secrets"]
-            }
-        }
-        catch { }
-
+        try { if ($null -ne $script:SelectedObject -and [string]$script:SelectedObject.Type -eq "Machine") { $machineDn = [string]$script:SelectedObject.DN } } catch { $machineDn = "" }
+        $prerequisiteRoute = ""
+        $prerequisiteReason = ""
         foreach ($name in @("BtnLoadBitLocker","BtnLoadLaps")) {
             $control = Get-DomeniaControl -Name $name
             if ($null -eq $control) { continue }
             $busy = Test-DomeniaControlIsBusy -Name $name
             $mode=if($name -eq 'BtnLoadLaps'){'LAPS'}else{'BitLocker'}
+            # Per-resource refusal: a LAPS refusal never disables BitLocker, and the reverse.
             $actualDenied=Test-DomeniaSecretDenied -Mode $mode -DN $machineDn
-            $control.IsEnabled = ($hasMachine -and -not $busy -and -not $writeActive)
-
-            if (-not $hasMachine) {
-                $control.ToolTip = "Selectionne d'abord une machine. Cette action lit AD sans rien modifier."
-            }
-            elseif ($busy) {
-                $control.ToolTip = "Lecture en cours dans un runspace separe."
-            }
-            elseif ($writeActive) {
-                $control.ToolTip = "Lecture temporairement suspendue pendant la confirmation d'une ecriture AD en cours."
-            }
-            elseif ($actualDenied) {
-                $control.ToolTip = "Lecture refusee avec ce compte. Cliquez pour proposer un autre compte pour cette ressource uniquement."
-            }
-            elseif ($estimatedState -eq "Refuse") {
-                $control.ToolTip = "L'estimation ACL locale indique un refus, mais le bouton reste disponible : le controleur de domaine ou Windows LAPS decidera lors de la lecture reelle."
-            }
-            else {
-                $control.ToolTip = "Lecture AD uniquement. Disponible meme en mode lecture seule ; aucune ecriture n'est effectuee."
-            }
+            $explanation = Get-DomeniaSecretButtonExplanation -Name $name -Busy $busy
+            $control.IsEnabled = [bool]$explanation.Enabled
+            $tip = [string]$explanation.ToolTip
+            if ($actualDenied -and $tip -notmatch 'autre compte') { $tip += ' Lecture refusee avec ce compte : cliquez pour proposer un autre compte.' }
+            $control.ToolTip = $tip
+            try { [Windows.Automation.AutomationProperties]::SetHelpText($control,$tip) } catch { }
+            if (-not [bool]$explanation.Enabled -and [string]$explanation.Route -and -not $prerequisiteRoute) { $prerequisiteRoute = [string]$explanation.Route; $prerequisiteReason = $tip }
         }
+        Update-DomeniaSecretsPrerequisite -Route $prerequisiteRoute -Reason $prerequisiteReason
 
         $rows = @($script:SecretRows)
         $hasRows = ($rows.Count -gt 0)
         $hasReadableValue = (@($rows | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_.Value) }).Count -gt 0)
+        $single = Test-DomeniaSecretSingleExposure
+        $selectedSecret = $null
+        try { $selectedSecret = Get-DomeniaSelectedSecretSource } catch { }
+        $selectedMetadata = ($null -ne $selectedSecret -and [bool](Get-DomeniaMember $selectedSecret 'Metadata' $false) -and [string]::IsNullOrWhiteSpace([string]$selectedSecret.Value))
+        $canCopySelected = ($null -ne $selectedSecret -and (-not [string]::IsNullOrWhiteSpace([string]$selectedSecret.Value) -or $selectedMetadata))
+        $exposure = Get-DomeniaSecretExposurePolicy
 
         $toggle = Get-DomeniaControl -Name "BtnToggleSecrets"
         if ($null -ne $toggle) {
-            $toggle.IsEnabled = $hasRows
-            $toggle.ToolTip = if ($hasRows) { "Affiche ou masque temporairement les valeurs gardees uniquement en memoire." } else { "Charge d'abord BitLocker ou LAPS." }
+            if ($single) {
+                $toggle.IsEnabled = ([bool]$script:SecretsVisible -or $canCopySelected)
+                if ([bool]$script:SecretsVisible) { $toggle.Content = 'Masquer' } elseif ($selectedMetadata) { $toggle.Content = 'Lire et afficher cette cle' } else { $toggle.Content = 'Afficher la valeur choisie' }
+                $toggle.ToolTip = if ($toggle.IsEnabled) { "Affiche uniquement la valeur selectionnee pendant " + [string]$exposure.RevealSeconds + " s. Les autres restent masquees." } elseif ($hasRows) { "Selectionnez d abord une ligne : une seule valeur est revelee a la fois." } else { "Charge d'abord BitLocker ou LAPS." }
+            }
+            else {
+                $toggle.IsEnabled = $hasRows
+                $toggle.ToolTip = if ($hasRows) { "Affiche ou masque temporairement les valeurs gardees uniquement en memoire." } else { "Charge d'abord BitLocker ou LAPS." }
+            }
         }
 
         $copyAll = Get-DomeniaControl -Name "BtnCopyAllSecrets"
         if ($null -ne $copyAll) {
-            $copyAll.IsEnabled = $hasReadableValue
-            $copyAll.ToolTip = if ($hasReadableValue) { "Copie les valeurs chargees puis programme l'effacement automatique du presse-papiers." } else { "Aucune valeur dechiffree a copier." }
+            if ($single) {
+                $copyAll.IsEnabled = $false
+                $copyAll.ToolTip = "Copie groupee desactivee (une valeur a la fois). " + [string]$exposure.ClipboardLimit
+            }
+            else {
+                $copyAll.IsEnabled = $hasReadableValue
+                $copyAll.ToolTip = if ($hasReadableValue) { "Copie les valeurs chargees puis programme l'effacement automatique du presse-papiers." } else { "Aucune valeur dechiffree a copier." }
+            }
         }
 
         $clear = Get-DomeniaControl -Name "BtnClearSecrets"
@@ -21657,9 +21814,6 @@ function Update-DomeniaSecretActionUi {
             $clear.ToolTip = if ($hasRows) { "Efface immediatement les secrets conserves en memoire par Domenia." } else { "Aucun secret n'est conserve en memoire." }
         }
 
-        $selectedSecret = $null
-        try { $selectedSecret = Get-DomeniaSelectedSecretSource } catch { }
-        $canCopySelected = ($null -ne $selectedSecret -and -not [string]::IsNullOrWhiteSpace([string]$selectedSecret.Value))
         $copySelected = Get-DomeniaControl -Name "BtnCopySecret"
         if ($null -ne $copySelected) {
             $copySelected.IsEnabled = $canCopySelected
@@ -21677,12 +21831,15 @@ function Update-DomeniaSecretActionUi {
             }
 
             $copySelected.ToolTip = if ($canCopySelected) {
-                "Copie uniquement la valeur selectionnee puis programme l'effacement automatique du presse-papiers."
+                "Copie uniquement la valeur selectionnee puis programme l'effacement automatique du presse-papiers. " + [string]$exposure.ClipboardLimit
             }
             else {
                 "Selectionne une ligne contenant une cle BitLocker ou un mot de passe LAPS lisible."
             }
         }
+
+        $recoveryBox = Get-DomeniaControl -Name "TxtBitLockerRecoveryId"
+        if ($null -ne $recoveryBox) { $recoveryBox.IsEnabled = (@($script:BitLockerKeyList).Count -gt 0) }
     }
     catch {
         try { Write-AppLog "Etat des actions LAPS/BitLocker : $($_.Exception.Message)" "WARN" } catch { }

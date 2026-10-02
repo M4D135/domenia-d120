@@ -43,8 +43,10 @@ function Complete-DomeniaAccountValidation {
             if($v.Scope -eq 'Remote'){$script:RemoteAdminCredential=$cred;Set-DomeniaSetting 'RemoteCredentialUser' $cred.UserName}
             else{$script:SecretsCredential=$cred;Set-DomeniaSetting 'SecretsCredentialUser' $cred.UserName}
             if($null -ne $script:AccessState){
-                $scopes=if($v.Scope -eq 'Remote'){@('Remote')}else{@('ReadLaps','ReadBitLocker')}
-                foreach($k in $scopes){[void]$script:AccessState.Credentials.Remove($k);[void]$script:AccessState.Faults.Remove($k)}
+                # D051: activating the Secrets account replaces only the LAPS and BitLocker temporary accounts
+                # (Get-DomeniaAccessScope of their resources); the directory and workstation accounts are kept.
+                $scopes=if($v.Scope -eq 'Remote'){@('Remote')}else{@((Get-DomeniaAccessScope 'ReadLaps'),(Get-DomeniaAccessScope 'ReadBitLockerKey'))}
+                foreach($k in $scopes){Remove-DomeniaAccessCredential -Key $k;[void]$script:AccessState.Faults.Remove($k)}
             }
             $field=Get-DomeniaControl $(if($v.Scope -eq 'Remote'){'PwdAccountRemote'}else{'PwdAccountSecrets'});if($null -ne $field){$field.Clear()}
             Set-Status ('Compte '+$v.Scope+' active : '+$cred.UserName+'. Droits sur la ressource non certifies par ce test AD.')

@@ -199,7 +199,11 @@ function Initialize-DomeniaGuard {
     $script:ReceiptRefreshNeeded=$true;Start-DomeniaReceiptRefresh
 }
 function Set-DomeniaProtectedClipboard {
-    param([string]$Value)
+    # D059: one bounded value. The native writer excludes it from the Windows clipboard history and cloud sync;
+    # third-party clipboard managers remain outside Domenia's control (Get-DomeniaSecretExposurePolicy).
+    param([string]$Value,[int]$MaxLength=8192)
+    $limit=[Math]::Max(1,[Math]::Min(8192,$MaxLength))
+    if([string]::IsNullOrEmpty($Value) -or $Value.Length -gt $limit){throw 'Valeur de copie absente ou hors limite.'}
     if($null -eq ('Domenia.Secrets.ClipboardWriter' -as [type])){Add-Type -Path (Join-Path $script:RootDir 'modules\Domenia-Clipboard.Native.cs') -ErrorAction Stop}
     $owner=[Windows.Interop.WindowInteropHelper]::new($script:Window).Handle
     [Domenia.Secrets.ClipboardWriter]::Set($owner,$Value)
@@ -219,15 +223,14 @@ function Resume-DomeniaStorage {
     Set-Status 'Reprise demandee pour les lots de cache en memoire. Aucune ecriture AD.'
 }
 function Show-DomeniaUnavailableReasons {
-    $lines=[Collections.Generic.List[string]]::new()
-    if($script:ReadOnlyMode){$lines.Add('Protection lecture seule active : les modifications sont volontairement interdites.')}
-    if(-not $script:ReceiptReady){$lines.Add('Les recus locaux ne sont pas encore confirmes. Les nouvelles ecritures sont bloquees.')}
-    if($script:ReceiptPending -gt 0){$lines.Add('Une operation precedente reste a verifier. Consultez les recus, pas une relance automatique.')}
-    if($script:ActiveWriteTaskId){$lines.Add('Une ecriture est deja active ; les changements de contexte attendent sa fin.')}
-    if($null -eq $script:SelectedObject){$lines.Add('Aucune fiche selectionnee. Choisissez un objet dans Rechercher.')}
-    foreach($n in @('BtnLoadLaps','BtnLoadBitLocker','BtnUserSave','BtnCompRestart','BtnRawSet')){
-        $c=Get-DomeniaControl $n;if($null -ne $c -and -not $c.IsEnabled){$tip=[string]$c.ToolTip;if($tip){$lines.Add($n+' : '+$tip)}}
+    $reasons=Get-DomeniaUnavailableReasonLines
+    $first=@($reasons.Routes|Where-Object{$_}|Select-Object -First 1)
+    $details=(@($reasons.Lines) -join "`r`n")
+    if($first.Count){
+        $target=Resolve-DomeniaCapabilityRoute -Route ([string]$first[0])
+        $answer=Show-DomeniaDialog -Title 'Pourquoi une action est indisponible ?' -Message ('Ce bilan lit uniquement les etats de la session. Il ne teste ni ne modifie les droits. Ouvrir le premier prerequis : '+[string]$target.Label+' ?') -Details $details -Kind Question -Buttons YesNo
+        if($answer -eq [Windows.MessageBoxResult]::Yes){[void](Invoke-DomeniaCapabilityRoute -Route ([string]$first[0]))}
+        return
     }
-    if(-not $lines.Count){$lines.Add('Aucun blocage commun observe. Un droit specifique reste verifie par la ressource lors de l action ; consultez son infobulle ou son erreur native.')}
-    Show-DomeniaDialog -Title 'Pourquoi une action est indisponible ?' -Message 'Ce bilan lit uniquement les etats de la session. Il ne teste ni ne modifie les droits.' -Details ($lines -join "`r`n") -Kind Info | Out-Null
+    Show-DomeniaDialog -Title 'Pourquoi une action est indisponible ?' -Message 'Ce bilan lit uniquement les etats de la session. Il ne teste ni ne modifie les droits.' -Details $details -Kind Info | Out-Null
 }
