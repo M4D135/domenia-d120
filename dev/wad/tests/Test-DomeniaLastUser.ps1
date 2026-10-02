@@ -24,6 +24,10 @@ foreach($name in $names) {
  $definitions.Add($found[0].Extent.Text)
 }
 . ([scriptblock]::Create(($definitions.ToArray() -join "`n")))
+# D120 resync: since RC1.10.7 Queue-DomeniaSelectedObjectOpen delegates the selection identity and its purge
+# to Domenia-Selection.UI.ps1 (Enter-DomeniaSelectionContext) and checks Test-DomeniaAccessBusyWrite
+# (Domenia-Access.UI.ps1). Import the real closed plan; the UI boundaries are replaced below.
+. (Join-Path $root 'wad\Domenia-Modules.ps1')
 $script:Results=New-Object 'System.Collections.Generic.List[object]'
 function Assert-Test {param([bool]$Value,[string]$Message='Assertion fausse'); if(-not $Value){throw $Message}}
 function Test-Case {
@@ -41,8 +45,16 @@ function Reset-TestState {
  $script:Row=[pscustomobject]@{Type='Machine';DN=$script:SelectedObject.DN;Name='PC-A'}
  $script:SelectionResetDn=$script:SelectedObject.DN;$script:SuppressGridSelectionEvents=$false
  $script:CurrentObjectRequestId='';$script:CurrentObjectRequestDn='';$script:PendingObjectSelection=$null
- $script:Grid=[pscustomobject]@{SelectedItems=@($script:Row)};$script:CacheLink=$null;$script:RecordedPayload=$null
+ $script:Grid=[pscustomobject]@{IsEnabled=$true;SelectedItem=$script:Row;SelectedItems=@($script:Row)};$script:CacheLink=$null;$script:RecordedPayload=$null
  $script:AddedLinks=0
+ # Selection identity state read by Domenia-Selection.UI.ps1. No credential: identity from epoch, base and reader.
+ $script:SelectionLoad=$null;$script:SelectedObjectGeneration=0L;$script:GlobalSearchGeneration=1;$script:SelectionOpenTimer=$null
+ $script:ActiveWriteTaskId='';$script:WriteState='Idle';$script:AsyncEngineClosing=$false;$script:DraftState=$null;$script:AccessState=$null
+ $script:Conn=[pscustomobject]@{BaseDn='DC=example,DC=test';Server='dc.example.test';BindUser='EXAMPLE\reader';Credential=$null}
+}
+function Select-FixtureRow {
+ param($Row)
+ $script:Row=$Row;$script:Grid.SelectedItem=$Row;$script:Grid.SelectedItems=@($Row)
 }
 function Get-CfgValue {param($Section,$Key,$Default);return $Default}
 function Write-AppLog {param($Message,$Level);$script:Messages.Add([string]$Message)}
@@ -61,6 +73,15 @@ function Stop-DomeniaSelectionOpenTimer {}
 function Clear-DomeniaCurrentObjectRequest {param($RequestId)}
 function Reset-DomeniaSelectionBoundViews {param($Dn,$Type,$Name);$script:Clears++}
 function Invoke-DomeniaPendingSelectionOpen {$script:PendingInvokes++}
+# UI boundaries of the selection path: no draft, no relations grid, no live probe, no navigation.
+function Test-DomeniaDraftNavigation {param($DN,[switch]$Refresh);return $true}
+function Restore-DomeniaRefusedSelection {param($DN)}
+function Set-DomeniaRelationsGridSelection {}
+function Select-DomeniaLiveResult {param([switch]$Force,[switch]$Manual)}
+function Clear-DomeniaLiveProbeIntent {}
+function Select-DomeniaWorkspace {param($Workspace,$Inner,$Tab)}
+function Clear-Secrets {}
+function Set-VisibleTabsForType {param($Type,[switch]$PreserveWorkspace)}
 function Get-DomeniaEffectiveWorkerResult {param($Result,$RequiredProperties);return $Result}
 function Set-DomeniaItemsSource {param($Name,$Rows);return $true}
 function Add-UserMachineLinkIfMissing {param($UserLogin,$Computer,$Source,$Details,$Confidence,$VerifiedInAD);$script:AddedLinks++;return $true}
@@ -126,19 +147,26 @@ Test-Case 'Nettoyage tardif ancien worker : nouveau marqueur conserve' {
  Clear-DomeniaComputerUserProbeState -ProbeId 'ancien' -Computer 'PC-A'
  Assert-Test ($script:ActiveLinkProbeId -eq 'nouveau')
 }
+# The purge of a selection is Enter-DomeniaSelectionContext (Selection.UI): it increments
+# SelectedObjectGeneration and hides the previous object. A loaded fiche for the same DN must survive.
 Test-Case 'Double clic meme DN : aucune purge de selection' {
+ $script:SelectionLoad=[pscustomobject]@{Context=(Get-DomeniaSelectionContext);Token='t';Phase='Ready';Message='';VisibleType='Machine'}
+ Assert-Test ($null -ne $script:SelectionLoad.Context) 'Contexte de selection de la fixture introuvable.'
  Queue-DomeniaSelectedObjectOpen -Immediate -Force
- Assert-Test ($script:Clears -eq 0 -and $script:PendingInvokes -eq 1 -and $script:PendingObjectSelection.Force)
+ Assert-Test ($script:SelectedObjectGeneration -eq 0 -and $null -ne $script:SelectedObject) ('Purge inattendue : generation '+$script:SelectedObjectGeneration)
+ Assert-Test ($script:PendingInvokes -eq 1 -and $script:PendingObjectSelection.Force)
 }
 Test-Case 'Nouvelle machine : purge de selection toujours effectuee' {
- $script:Row=[pscustomobject]@{Type='Machine';DN='CN=PC-B,DC=example,DC=test';Name='PC-B'}
+ $script:SelectionLoad=[pscustomobject]@{Context=(Get-DomeniaSelectionContext);Token='t';Phase='Ready';Message='';VisibleType='Machine'}
+ Select-FixtureRow ([pscustomobject]@{Type='Machine';DN='CN=PC-B,DC=example,DC=test';Name='PC-B'})
  Queue-DomeniaSelectedObjectOpen -Immediate -Force
- Assert-Test ($script:Clears -eq 1 -and $script:PendingInvokes -eq 1)
+ Assert-Test ($script:SelectedObjectGeneration -eq 1 -and $null -eq $script:SelectedObject) ('Purge absente : generation '+$script:SelectedObjectGeneration)
+ Assert-Test ($script:PendingInvokes -eq 1 -and $script:PendingObjectSelection.Dn -eq 'CN=PC-B,DC=example,DC=test')
 }
 Test-Case 'Evenement de grille programme : aucune nouvelle lecture' {
  $script:SuppressGridSelectionEvents=$true
  Queue-DomeniaSelectedObjectOpen -Immediate -Force
- Assert-Test ($script:Clears -eq 0 -and $script:PendingInvokes -eq 0)
+ Assert-Test ($script:SelectedObjectGeneration -eq 0 -and $script:PendingInvokes -eq 0)
 }
 Test-Case 'Progression drainee une seule fois et trace persistante' {
  $job=New-TestJob;$script:ActiveLinkProbeId='probe-1';$script:ActiveLinkProbeComputer='PC-A'

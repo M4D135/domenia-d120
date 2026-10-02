@@ -11,14 +11,15 @@ $tokens=$null;$errors=$null
 $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'Domenia-Core.ps1'),[ref]$tokens,[ref]$errors)
 if(@($errors).Count){throw $errors[0].Message}
 $defs=[Collections.Generic.List[string]]::new()
-foreach($name in @('Get-DomeniaControl','Set-DomeniaControlText','Get-DomeniaSearchMode','Get-DomeniaSearchText','Set-DomeniaSearchMode','Get-DomeniaSearchScope','Test-DomeniaSearchStateCurrent','Get-GlobalSelectedTypeFilter','Get-TypeLdapFilter','Get-DomeniaEffectiveWorkerResult','Normalize-LinkComputer','Normalize-LinkUser','Get-DomeniaWorkerCodeHash','ConvertTo-DomeniaCanonicalWorkerCode','Get-DomeniaWorkerOperationHashes','Assert-DomeniaWorkerOperationCode','Initialize-DomeniaWinSqliteNative','Open-DomeniaDatabase','Close-DomeniaDatabase','Invoke-DomeniaDbExec','Invoke-DomeniaDbQuery','New-DomeniaUtf8Ptr','ConvertFrom-DomeniaUtf8Ptr','ConvertTo-DomeniaSqlLiteral')){
+foreach($name in @('Get-DomeniaControl','Set-DomeniaControlText','Get-DomeniaSearchMode','Get-DomeniaSearchText','Set-DomeniaSearchMode','Get-DomeniaSearchScope','Test-DomeniaSearchStateCurrent','Get-GlobalSelectedTypeFilter','Get-TypeLdapFilter','Get-DomeniaEffectiveWorkerResult','Normalize-LinkComputer','Normalize-LinkUser','Get-DomeniaWorkerCodeHash','ConvertTo-DomeniaCanonicalWorkerCode','Get-DomeniaWorkerOperationHashes','Assert-DomeniaWorkerRegistry','Assert-DomeniaWorkerOperationCode','Initialize-DomeniaWinSqliteNative','Open-DomeniaDatabase','Close-DomeniaDatabase','Invoke-DomeniaDbExec','Invoke-DomeniaDbQuery','New-DomeniaUtf8Ptr','ConvertFrom-DomeniaUtf8Ptr','ConvertTo-DomeniaSqlLiteral')){
     $found=@($ast.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true))
     if($found.Count -ne 1){throw ('Fonction absente ou ambiguë : '+$name)}
     [void]$defs.Add($found[0].Extent.Text)
 }
 . ([scriptblock]::Create(($defs.ToArray() -join "`n")))
-. (Join-Path $wad 'modules\Domenia-Live.Model.ps1')
-. (Join-Path $wad 'modules\Domenia-Live.UI.ps1')
+# D120 resync: Live.UI now relies on Test-DomeniaAccessBusyWrite (Access.UI) and on other modules of the
+# closed plan. Import the real plan (definitions only, verified origin) rather than two isolated files.
+. (Join-Path $wad 'Domenia-Modules.ps1')
 # The scheduler body is loaded but not allowed to contact anything in these tests.
 function Start-DomeniaLiveBackgroundWork { }
 function Write-AppLog {param($Text,$Level)}
@@ -78,7 +79,11 @@ Case 'Parseur natif de tous les scripts du paquet' {
 Case 'Parseur natif des deux opérations nouvelles' {
     foreach($body in @((Get-DomeniaLiveProbeCode),(Get-DomeniaLiveCacheCode))){$t=$null;$e=$null;[void][Management.Automation.Language.Parser]::ParseInput($body,[ref]$t,[ref]$e);Assert-Live (@($e).Count -eq 0) (@($e)|Out-String)}
 }
-Case 'Registre fermé de 48 opérations' {Assert-Live ((Get-DomeniaWorkerOperationHashes).Count -eq 48)}
+Case 'Registre fermé conforme au contrat DEV' {
+    # Count derived from tools/operation-contracts.json (two-step parse for 5.1), never a constant (48 at R1.12).
+    $c=[IO.File]::ReadAllText((Join-Path $root 'tools\operation-contracts.json'))|ConvertFrom-Json
+    Assert-Live ((Assert-DomeniaWorkerRegistry) -eq @($c).Count) ('Registre non conforme au contrat : '+@($c).Count)
+}
 Case 'Empreinte du worker console réelle' {[void](Assert-DomeniaWorkerOperationCode 'LiveConsole' (Get-DomeniaLiveProbeCode))}
 Case 'Empreinte du worker cache réelle' {[void](Assert-DomeniaWorkerOperationCode 'LiveCache' (Get-DomeniaLiveCacheCode))}
 Case 'Worker console altéré refusé' {$failed=$false;try{Assert-DomeniaWorkerOperationCode 'LiveConsole' ((Get-DomeniaLiveProbeCode)+'#change')}catch{$failed=$true};Assert-Live $failed}
@@ -115,7 +120,18 @@ Case 'Erreur conserve une ligne connue et son origine cache' {Reset-LiveFixture;
 Case 'Changer de génération invalide le flux précédent' {Reset-LiveFixture;$oldPayload=$script:Payload;$oldState=$script:State;$script:GlobalSearchGeneration++;$script:State.Generation=$script:GlobalSearchGeneration;$script:Payload=[pscustomobject]@{};[void](Begin-DomeniaLiveSearch $script:State $script:Payload);$oldPayload.Progress.Enqueue([pscustomobject]@{Kind='Row';Row=New-FixtureRow});Invoke-DomeniaLiveTick;Assert-Live ($script:Live.Search.Rows.Count -eq 0 -and $oldPayload.StopToken.IsCancellationRequested)}
 Case 'Filtre local recherche le compte observé sans changer OU' {Reset-LiveFixture;Feed-Live (New-FixtureRow);Invoke-DomeniaLiveTick;$script:Live.Search.Rows[0].SessionDisplay='EXAMPLE\alice';$script:Ctrl.TxtSuiteResultFilter.Text='alice';Update-DomeniaLiveFilter;Assert-Live ($script:Ctrl.DgObjects.Items.Count -eq 1 -and $script:SelectedBranchDn -like 'OU=Test,*')}
 Case 'Filtre littéral ne traite pas les crochets en regex' {$script:Ctrl.TxtSuiteResultFilter.Text='[alice]';Update-DomeniaLiveFilter;Assert-Live ($script:Ctrl.DgObjects.Items.Count -eq 0)}
-Case 'Vérification dédupliquée dans la file' {Reset-LiveFixture;Feed-Live (New-FixtureRow);Invoke-DomeniaLiveTick;$row=$script:Live.Search.Rows[0];Request-DomeniaLiveProbe $row;Request-DomeniaLiveProbe $row;Assert-Live ($script:Live.PendingKeys.Count -eq 1)}
+Case 'Vérification dédupliquée dans la file' {
+    # Since RC1.10.7 a probe needs the selection intent of the single selected machine (no collective ping):
+    # select the row through the real Select-DomeniaLiveResult, then ask twice more for the same row.
+    Reset-LiveFixture;Feed-Live (New-FixtureRow);Invoke-DomeniaLiveTick;$row=$script:Live.Search.Rows[0]
+    $script:Ctrl.DgObjects.SelectedItem=$row
+    Assert-Live (@($script:Ctrl.DgObjects.SelectedItems).Count -eq 1) 'Selection de la ligne de fixture non prise en compte par la grille.'
+    Select-DomeniaLiveResult
+    Assert-Live ($null -ne $script:Live.ProbeSelection) 'Aucune intention de sondage pour la machine selectionnee.'
+    Request-DomeniaLiveProbe $row;Request-DomeniaLiveProbe $row
+    Assert-Live ($script:Live.PendingKeys.Count -eq 1 -and $script:Live.Pending.Count -eq 1) ('File : '+$script:Live.PendingKeys.Count+' cle(s), '+$script:Live.Pending.Count+' entree(s)')
+}
+Case 'Sans intention de sélection, aucune vérification n est mise en file' {Reset-LiveFixture;Feed-Live (New-FixtureRow);Invoke-DomeniaLiveTick;$row=$script:Live.Search.Rows[0];Request-DomeniaLiveProbe $row;Assert-Live ($script:Live.PendingKeys.Count -eq 0 -and $script:Live.Pending.Count -eq 0)}
 Case 'Désactiver la détection n empêche pas le chargement AD' {Reset-LiveFixture;$script:Live.AutoDetect=$false;Feed-Live (New-FixtureRow);Invoke-DomeniaLiveTick;Assert-Live ($script:Live.Search.Rows.Count -eq 1 -and $script:Live.PendingKeys.Count -eq 0)}
 Case 'Appel annulé compte toujours dans les ressources occupées' {Reset-LiveFixture;$script:AsyncJobs['a']=[pscustomobject]@{OperationId='LiveConsole';CancelRequested=$true};$script:DetachedReadJobs=@([pscustomobject]@{OperationId='LiveConsole'});Assert-Live ((Get-DomeniaLiveWorkerCount 'LiveConsole') -eq 2)}
 Case 'Ecriture en cours suspend le rendu des lignes reçues' {Reset-LiveFixture;Feed-Live (New-FixtureRow);$script:ActiveWriteTaskId='write';Invoke-DomeniaLiveTick;Assert-Live ($script:Live.Search.Rows.Count -eq 0);$script:ActiveWriteTaskId='';Invoke-DomeniaLiveTick;Assert-Live ($script:Live.Search.Rows.Count -eq 1)}

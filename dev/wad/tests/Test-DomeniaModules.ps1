@@ -19,16 +19,53 @@ function New-Fixture {
     $path=Join-Path $temp $Name
     [void][IO.Directory]::CreateDirectory((Join-Path $path 'modules'))
     [IO.File]::Copy((Join-Path $wad 'Domenia-Modules.ps1'),(Join-Path $path 'Domenia-Modules.ps1'))
-    foreach($file in Get-ChildItem -LiteralPath (Join-Path $wad 'modules') -Filter '*.ps1' -File){
+    # D011 phased loader: the type plan (*.cs), separate views (*.xaml) and catalogues (*.json)
+    # belong to the same closed set. Copy every module file, not only *.ps1.
+    foreach($file in Get-ChildItem -LiteralPath (Join-Path $wad 'modules') -File){
         [IO.File]::Copy($file.FullName,(Join-Path (Join-Path $path 'modules') $file.Name))
     }
     return $path
 }
 function Replace-FixtureText {
-    param([string]$Path,[string]$Old,[string]$New)
+    param([string]$Path,[string]$Old,[string]$New,[ValidateSet('All','First','Last')][string]$Occurrence='All')
     $text=[IO.File]::ReadAllText($Path)
     if(-not $text.Contains($Old)){throw ('Fixture non applicable : '+$Path)}
-    [IO.File]::WriteAllText($Path,$text.Replace($Old,$New),[Text.UTF8Encoding]::new($true))
+    if($Occurrence -eq 'All'){$text=$text.Replace($Old,$New)}
+    else{
+        $at=if($Occurrence -eq 'First'){$text.IndexOf($Old,[StringComparison]::Ordinal)}else{$text.LastIndexOf($Old,[StringComparison]::Ordinal)}
+        $text=$text.Substring(0,$at)+$New+$text.Substring($at+$Old.Length)
+    }
+    [IO.File]::WriteAllText($Path,$text,[Text.UTF8Encoding]::new($true))
+}
+function Replace-FixturePattern {
+    param([string]$Path,[string]$Pattern,[string]$Replacement)
+    $text=[IO.File]::ReadAllText($Path)
+    if(-not [regex]::IsMatch($text,$Pattern)){throw ('Fixture non applicable : '+$Path+' ('+$Pattern+')')}
+    [IO.File]::WriteAllText($Path,[regex]::Replace($text,$Pattern,$Replacement),[Text.UTF8Encoding]::new($true))
+}
+function Get-DeclaredModulePlan {
+    # Read the closed plan from the real loader by AST. Only the data function is evaluated:
+    # no module is imported by this helper.
+    $t=$null;$e=$null
+    $loaderAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'Domenia-Modules.ps1'),[ref]$t,[ref]$e)
+    if(@($e).Count){throw ('Domenia-Modules.ps1 : '+$e[0].Message)}
+    $node=@($loaderAst.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Get-DomeniaRuntimeModulePlan'},$false))
+    if($node.Count -ne 1){throw 'Get-DomeniaRuntimeModulePlan absent ou ambigu.'}
+    . ([scriptblock]::Create($node[0].Extent.Text))
+    return ,@(Get-DomeniaRuntimeModulePlan)
+}
+function Get-TopLevelFunctionNames {
+    param([string]$Path)
+    $t=$null;$e=$null
+    $fileAst=[Management.Automation.Language.Parser]::ParseFile($Path,[ref]$t,[ref]$e)
+    if(@($e).Count){throw ($Path+' : '+$e[0].Message)}
+    $names=[Collections.Generic.List[string]]::new()
+    if($null -ne $fileAst.EndBlock){
+        foreach($statement in $fileAst.EndBlock.Statements){
+            if($statement -is [Management.Automation.Language.FunctionDefinitionAst]){$names.Add($statement.Name)}
+        }
+    }
+    return ,$names.ToArray()
 }
 
 # Each probe gets a fresh PowerShell session. Functions previously imported by a
@@ -89,7 +126,8 @@ try {
             if($null -ne $script:Window){$script:Window.Close()}
         }
     }
-    [pscustomobject]@{Success=$true;Modules=$script:DomeniaRuntimeImports;Exports=$exports.ToArray();Pure=$pure;ReconcileHash=$rh;DocumentHash=$dh;Wpf=$wpf;Message='';ErrorId='';Imported=$true}
+    $types=@(@(Get-DomeniaRuntimeTypePlan)|ForEach-Object{@($_.Types)}|Where-Object{$null -eq ($_ -as [type])})
+    [pscustomobject]@{Success=$true;Modules=$script:DomeniaRuntimeImports;Exports=$exports.ToArray();Pure=$pure;ReconcileHash=$rh;DocumentHash=$dh;Wpf=$wpf;Message='';ErrorId='';Imported=$true;MissingTypes=$types;PlanValid=[bool]$script:DomeniaStartupPlan.Valid;PlanOrder=@($script:DomeniaStartupPlan.Order)}
 } catch {
     [pscustomobject]@{Success=$false;Message=$_.Exception.Message;ErrorId=$_.FullyQualifiedErrorId;Imported=($null -ne (Get-Item -LiteralPath Function:\Initialize-DomeniaUxShell -ErrorAction SilentlyContinue))}
 }
@@ -102,7 +140,12 @@ function Probe {
     try {
         [void]$ps.AddScript($script:ProbeCode).AddArgument($Path).AddArgument($Scenario)
         $items=@($ps.Invoke())
-        if($ps.HadErrors){throw ($ps.Streams.Error|Out-String)}
+        # Windows PowerShell 5.1 sets HadErrors for an error that the probe itself caught (the negative
+        # scenarios report it through Success/Message/ErrorId). Only an uncaught error record counts.
+        if($ps.Streams.Error.Count -gt 0){
+            $records=@($ps.Streams.Error|ForEach-Object{$_.ToString()+' @ '+[string]$_.InvocationInfo.PositionMessage+' '+[string]$_.ScriptStackTrace})
+            throw ('Erreur non interceptee dans la sonde : '+($records -join ' | '))
+        }
         if($items.Count -ne 1){throw ('Une reponse unique etait attendue ; recu : '+$items.Count)}
         return $items[0]
     } finally {$ps.Dispose();$rs.Dispose()}
@@ -116,9 +159,31 @@ try {
         }
     }
     $normal=Probe $wad
+    # Expected totals come from the closed plan itself (AST of Domenia-Modules.ps1), never from constants:
+    # 22/255 (RC1.4) then 23/278 (RC1.10.7) went stale each time a module was declared.
+    $declaredPlan=Get-DeclaredModulePlan
+    $declaredFunctions=@($declaredPlan|ForEach-Object{@($_.Functions)})
     Case 'Import reel a froid, depuis un autre repertoire courant' {Expect $normal.Success $normal.Message}
-    Case '22 modules verifies, sans scanner les scripts supplementaires' {Expect (@($normal.Modules).Count -eq 22) 'Modules incomplets.'}
-    Case '255 fonctions disponibles dans la portee appelante' {Expect (@($normal.Exports).Count -eq 255) 'Fonctions incompletes.'}
+    Case 'Modules du plan ferme verifies, sans scanner les scripts supplementaires' {Expect (@($normal.Modules).Count -eq $declaredPlan.Count -and $declaredPlan.Count -gt 0) ('Modules verifies : '+@($normal.Modules).Count+' / declares : '+$declaredPlan.Count)}
+    Case 'Fonctions du plan ferme disponibles dans la portee appelante' {Expect (@($normal.Exports).Count -eq $declaredFunctions.Count -and $declaredFunctions.Count -gt 0) ('Fonctions : '+@($normal.Exports).Count+' / declarees : '+$declaredFunctions.Count)}
+    Case 'Aucune fonction declaree deux fois dans le plan ferme' {
+        $dup=@($declaredFunctions|Group-Object|Where-Object{$_.Count -gt 1}|ForEach-Object{$_.Name})
+        Expect ($dup.Count -eq 0) ('Doublons : '+($dup -join ', '))
+    }
+    foreach($planEntry in $declaredPlan){
+        $planFile=[string]$planEntry.File
+        $planNames=@($planEntry.Functions|ForEach-Object{[string]$_})
+        Case ('Plan ferme egal aux definitions : '+$planFile) {
+            # Invariant required by the D011 wiring: every top-level function of a declared module is declared,
+            # and every declared function is defined at top level of that very file.
+            $defined=@(Get-TopLevelFunctionNames (Join-Path (Join-Path $wad 'modules') $planFile))
+            $missing=@($planNames|Where-Object{$defined -notcontains $_})
+            $undeclared=@($defined|Where-Object{$planNames -notcontains $_})
+            Expect ($missing.Count -eq 0 -and $undeclared.Count -eq 0) ('Declarees non definies : '+($missing -join ', ')+' ; definies non declarees : '+($undeclared -join ', '))
+        }
+    }
+    Case 'Types C# du plan compiles et resolus a l import' {Expect ($normal.Success -and @($normal.MissingTypes).Count -eq 0) ('Types absents : '+(@($normal.MissingTypes) -join ', '))}
+    Case 'Plan de demarrage valide avant le premier module metier' {Expect ($normal.PlanValid -and @($normal.PlanOrder).Count -eq $declaredPlan.Count) ('Plan de demarrage invalide ou incomplet : '+@($normal.PlanOrder).Count+' / '+$declaredPlan.Count)}
     Case 'Import sans initialisation WPF, authentification, cache ou timers' {Expect $normal.Pure 'Un composant actif a ete initialise par l import.'}
     foreach($name in @('Initialize-DomeniaReconcile','Get-DomeniaReconcileWorkerCode','Complete-DomeniaReconcile','Fail-DomeniaReconcile','Invoke-DomeniaReconcileTick',
         'ConvertTo-DomeniaStoredCapture','Get-DomeniaDocumentWorkerCode','Start-DomeniaDocumentTask','Complete-DomeniaDocumentTask','Fail-DomeniaDocumentTask',
@@ -163,10 +228,31 @@ try {
     $bad=Probe $fixture 'ForeignOrigin'
     Case 'Fonction homonyme externe ne masque pas un import absent' {Expect (-not $bad.Success -and $bad.Message -match 'DOMENIA_MODULE_ORIGIN') $bad.Message}
 
+    # The phased loader dot-sources twice: Bootstrap modules first, then the business modules.
+    # Each site is reverted separately so that each refusal is attributed to its own guard.
     $fixture=New-Fixture 'portee'
-    Replace-FixtureText (Join-Path $fixture 'Domenia-Modules.ps1') '. $domeniaModulePath' '& $domeniaModulePath'
+    Replace-FixtureText (Join-Path $fixture 'Domenia-Modules.ps1') '. $domeniaModulePath' '& $domeniaModulePath' -Occurrence Last
     $bad=Probe $fixture
     Case 'Invocation en portee enfant refusee : dot-sourcing obligatoire' {Expect (-not $bad.Success -and $bad.Message -match 'DOMENIA_MODULE_EXPORT') $bad.Message}
+    $fixture=New-Fixture 'portee amorcage'
+    Replace-FixtureText (Join-Path $fixture 'Domenia-Modules.ps1') '. $domeniaModulePath' '& $domeniaModulePath' -Occurrence First
+    $bad=Probe $fixture
+    Case 'Amorcage en portee enfant refuse avant tout module metier' {Expect (-not $bad.Success -and -not $bad.Imported -and $bad.Message -match 'Test-DomeniaStartupPlan|DOMENIA_MODULE') $bad.Message}
+
+    # D011: dependencies are validated by Test-DomeniaStartupPlan before the first business module.
+    $fixture=New-Fixture 'dependance absente'
+    Replace-FixturePattern (Join-Path $fixture 'Domenia-Modules.ps1') "Requires=@\([^)]*\);(\s*)File='Domenia-Directory\.Model\.ps1'" "Requires=@('Domenia-Absent.Model.ps1');`$1File='Domenia-Directory.Model.ps1'"
+    $bad=Probe $fixture
+    Case 'Dependance declaree absente refusee avant tout import metier' {Expect (-not $bad.Success -and -not $bad.Imported -and $bad.Message -match 'DOMENIA_MODULE_PLAN' -and $bad.Message -match 'Domenia-Absent\.Model\.ps1') $bad.Message}
+    $fixture=New-Fixture 'cycle'
+    Replace-FixturePattern (Join-Path $fixture 'Domenia-Modules.ps1') "Requires=@\([^)]*\);(\s*)File='Domenia-Search\.Model\.ps1'" "Requires=@('Domenia-Common.Model.ps1','Domenia-Directory.Model.ps1');`$1File='Domenia-Search.Model.ps1'"
+    Replace-FixturePattern (Join-Path $fixture 'Domenia-Modules.ps1') "Requires=@\([^)]*\);(\s*)File='Domenia-Directory\.Model\.ps1'" "Requires=@('Domenia-Common.Model.ps1','Domenia-Search.Model.ps1');`$1File='Domenia-Directory.Model.ps1'"
+    $bad=Probe $fixture
+    Case 'Cycle de dependances refuse avant tout import metier' {Expect (-not $bad.Success -and -not $bad.Imported -and $bad.Message -match 'DOMENIA_MODULE_PLAN' -and $bad.Message -match 'Cycle') $bad.Message}
+    $fixture=New-Fixture 'type absent'
+    [IO.File]::Delete((Join-Path (Join-Path $fixture 'modules') 'Domenia-Identity.Types.cs'))
+    $bad=Probe $fixture
+    Case 'Fichier de types absent detecte avant imports' {Expect (-not $bad.Success -and -not $bad.Imported -and $bad.Message -match 'DOMENIA_MODULE_MISSING' -and $bad.Message.Contains('Domenia-Identity.Types.cs')) $bad.Message}
 
     $fixture=New-Fixture 'extra'
     [IO.File]::WriteAllText((Join-Path $fixture 'modules\Extra.ps1'),"throw 'Ne doit jamais etre importe.'",[Text.UTF8Encoding]::new($true))

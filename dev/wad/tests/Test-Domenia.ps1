@@ -43,7 +43,7 @@ $wanted=@('Write-DomeniaAtomicText','Read-DomeniaPreference','Get-DomeniaPrefere
     'Complete-DomeniaDetachedReadJobs','Initialize-DomeniaWinSqliteNative','New-DomeniaUtf8Ptr','ConvertFrom-DomeniaUtf8Ptr',
     'Open-DomeniaDatabase','Close-DomeniaDatabase','Invoke-DomeniaDbExec','Invoke-DomeniaDbQuery','ConvertTo-DomeniaSqlLiteral',
     'Get-DomeniaDatabasePath','Get-DomeniaStoreBackupDirectory','Backup-DomeniaDatabase','Search-DomeniaDatabaseRows',
-    'Get-DomeniaWorkerOperationHashes','Get-DomeniaWorkerCodeHash','ConvertTo-DomeniaCanonicalWorkerCode','Assert-DomeniaWorkerOperationCode')
+    'Get-DomeniaWorkerOperationHashes','Assert-DomeniaWorkerRegistry','Get-DomeniaWorkerCodeHash','ConvertTo-DomeniaCanonicalWorkerCode','Assert-DomeniaWorkerOperationCode')
 $definitions=New-Object 'System.Collections.Generic.List[string]'
 $nodes=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst]},$true))
 foreach($name in $wanted) {
@@ -94,16 +94,26 @@ try {
         $script:SecretRows=@()
     }
     Test-Case 'CSV : formules, separateurs, textes et nombres' {
+        # Baseline 5.1 (r1, r3, VM) failed here with the bare 'Assertion fausse' and no static cause was found
+        # (carte-historic-suites, NON_DETERMINE). Every assertion now names itself with value, type and culture,
+        # so the next Windows run classifies the failure (code defect or environment) without changing the rule.
+        $culture=[Threading.Thread]::CurrentThread.CurrentCulture.Name
         foreach($value in @('=1+1','+cmd','-1+2','@SUM(A1)',"`t=3",'  =5','＝2')) {
             Assert-True ((ConvertTo-DomeniaSpreadsheetCell $value).StartsWith("'")) ('Non neutralise : '+$value)
         }
-        Assert-True ((ConvertTo-DomeniaSpreadsheetCell -42) -eq -42)
-        Assert-True ((ConvertTo-DomeniaSpreadsheetCell 'PC-01') -ceq 'PC-01')
+        $number=ConvertTo-DomeniaSpreadsheetCell -42
+        $numberType=if($null -eq $number){'null'}else{$number.GetType().FullName}
+        Assert-True ($number -is [ValueType] -and $number -eq -42) ('Nombre modifie : <'+[string]$number+'> type '+$numberType+' culture '+$culture)
+        $text=ConvertTo-DomeniaSpreadsheetCell 'PC-01'
+        Assert-True ($text -ceq 'PC-01') ('Texte modifie : <'+[string]$text+'> culture '+$culture)
         $csv=Join-Path $testDirectory 'safe.csv'
         [pscustomobject]@{Name='=2+2';Description='a,"b"';Count=42} | ConvertTo-DomeniaSpreadsheetSafeRow | Export-Csv $csv -NoTypeInformation -Encoding UTF8
-        $round=Import-Csv $csv
-        Assert-True ($round.Name -ceq "'=2+2")
-        Assert-True ($round.Description -ceq 'a,"b"')
+        $raw=[IO.File]::ReadAllText($csv)
+        $round=@(Import-Csv $csv)
+        $roundText=($round|ConvertTo-Json -Compress)
+        Assert-True ($round.Count -eq 1) ('Aller-retour CSV : '+$round.Count+' ligne(s) ; brut <'+$raw+'> ; culture '+$culture)
+        Assert-True ($round[0].Name -ceq "'=2+2") ('Aller-retour CSV, Name : '+$roundText+' ; brut <'+$raw+'> ; culture '+$culture)
+        Assert-True ($round[0].Description -ceq 'a,"b"') ('Aller-retour CSV, Description : '+$roundText+' ; brut <'+$raw+'> ; culture '+$culture)
     }
     Test-Case 'LIKE : echappement independant du SQL' {
         Assert-True ((ConvertTo-DomeniaSqlLikeText 'pc_20%!') -ceq 'pc!_20!%!!')
@@ -133,16 +143,20 @@ try {
         Assert-True ($null -eq (Get-DomeniaSelectedSecretSource))
         $script:SecretRows=@()
     }
-    Test-Case 'Registre ferme : 47 corps et rejet d un corps modifie' {
+    Test-Case 'Registre ferme : corps du contrat DEV et rejet d un corps modifie' {
         $hashes=Get-DomeniaWorkerOperationHashes
-        Assert-True ($hashes.Count -eq 47)
-        $literalNodes=@($ast.FindAll({param($n)$n -is [Management.Automation.Language.StringConstantExpressionAst] -and $n.StringConstantType -eq [Management.Automation.Language.StringConstantType]::SingleQuotedHereString},$true))
-        # Two read-only operation literals are now in the live model module.
-        $liveTokens=$null;$liveErrors=$null
-        $livePath=Join-Path (Split-Path -Parent $PSScriptRoot) 'modules\Domenia-Live.Model.ps1'
-        $liveAst=[Management.Automation.Language.Parser]::ParseFile($livePath,[ref]$liveTokens,[ref]$liveErrors)
-        Assert-True (@($liveErrors).Count -eq 0)
-        $literalNodes+=@($liveAst.FindAll({param($n)$n -is [Management.Automation.Language.StringConstantExpressionAst] -and $n.StringConstantType -eq [Management.Automation.Language.StringConstantType]::SingleQuotedHereString},$true))
+        # Count and files come from tools/operation-contracts.json (two-step parse for 5.1), never a constant (47 at RC1).
+        $c=[IO.File]::ReadAllText((Join-Path $root 'tools\operation-contracts.json'))|ConvertFrom-Json
+        $contracts=@($c)
+        Assert-True ((Assert-DomeniaWorkerRegistry) -eq $contracts.Count) ('Registre / contrat : '+$hashes.Count+' / '+$contracts.Count)
+        # Search the operation bodies in every file the contract names (core and modules), not only core + Live.Model.
+        $literalNodes=@()
+        foreach($contractFile in @($contracts|ForEach-Object{[string]$_.File}|Sort-Object -Unique)) {
+            $fileTokens=$null;$fileErrors=$null
+            $fileAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $root $contractFile),[ref]$fileTokens,[ref]$fileErrors)
+            Assert-True (@($fileErrors).Count -eq 0) ('Analyse impossible : '+$contractFile)
+            $literalNodes+=@($fileAst.FindAll({param($n)$n -is [Management.Automation.Language.StringConstantExpressionAst] -and $n.StringConstantType -eq [Management.Automation.Language.StringConstantType]::SingleQuotedHereString},$true))
+        }
         $sha=[Security.Cryptography.SHA256]::Create()
         try {
             foreach($id in $hashes.Keys) {
