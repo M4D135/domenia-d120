@@ -2827,18 +2827,27 @@ function Read-DomeniaPreference {
 
 function Write-DomeniaPreference {
     param([Parameter(Mandatory=$true)][string]$FileName,[Parameter(Mandatory=$true)][string]$Value)
-    $paths = Get-DomeniaPreferencePath -FileName $FileName
-    $encoding = New-Object System.Text.UTF8Encoding($false)
-    foreach ($candidate in @($paths.User,$paths.Legacy)) {
-        if ([string]::IsNullOrWhiteSpace($candidate)) { continue }
-        try {
-            Write-DomeniaAtomicText -LiteralPath $candidate -Value $Value -KeepBackup
-            return $true
-        }
-        catch { }
+
+    $target = ''
+    try {
+        $paths = Get-DomeniaPreferencePath -FileName $FileName
+        $target = [string]$paths.User
     }
-    try { Write-AppLog "Preference '$FileName' non persistee (aucun emplacement inscriptible)." "WARN" } catch { }
-    return $false
+    catch { $target = '' }
+
+    if ([string]::IsNullOrWhiteSpace($target)) {
+        try { Write-AppLog "Preference '$FileName' non persistee : aucun emplacement utilisateur disponible." "WARN" } catch { }
+        return $false
+    }
+
+    try {
+        Write-DomeniaAtomicText -LiteralPath $target -Value $Value -KeepBackup
+        return $true
+    }
+    catch {
+        try { Write-AppLog "Preference '$FileName' non persistee : $($_.Exception.Message)" "WARN" } catch { }
+        return $false
+    }
 }
 
 
@@ -19594,6 +19603,9 @@ function New-DefaultConfig {
 
 function Initialize-DomeniaDataStore {
     if($script:DataStoreValidated -and $script:DataDir){return [string]$script:DataDir}
+
+    $script:StorageLayout = $null
+
     $mode=[string](Get-CfgValue 'LocalStore' 'Mode' 'Compatible')
     if($mode -notin @('Compatible','UserLocal','Portable')){throw 'LocalStore.Mode doit valoir Compatible, UserLocal ou Portable.'}
     $portable=Join-Path ([string]$script:RootDir) 'data'
@@ -19624,6 +19636,38 @@ function Initialize-DomeniaDataStore {
     $test=Join-Path $dir ('.write-'+[guid]::NewGuid().ToString('N'))
     try{$stream=[IO.File]::Open($test,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None);$stream.Dispose()}catch{throw ('Stockage non inscriptible : '+$dir+'. Aucun repli silencieux. Configurez UserLocal.')}finally{if([IO.File]::Exists($test)){[IO.File]::Delete($test)}}
     foreach($name in @('Logs','Backups','Diagnostics','Exports','Legacy')){[void][IO.Directory]::CreateDirectory((Join-Path $dir $name))}
+
+    # D118: expose the reviewed layout only after the historical data root has been validated.
+    # The layout must not move the data root; a contradiction is an explicit refusal.
+    try {
+        $installRoot = [IO.Path]::GetDirectoryName(([string]$script:RootDir).TrimEnd('\'))
+        $userLocalRoot = [string]([Environment]::GetFolderPath('LocalApplicationData'))
+
+        if (Get-Command Get-DomeniaStorageLayout -ErrorAction SilentlyContinue) {
+            $layout = Get-DomeniaStorageLayout -Mode $mode -InstallRoot $installRoot -UserLocalRoot $userLocalRoot -PortableHasData $hasLegacy -Writable @{Cache=$true;Preference=$true;Receipt=$true}
+
+            if ($null -ne $layout -and -not [string]::IsNullOrWhiteSpace([string]$layout.DataRoot)) {
+                if ($usePortable -or -not [string]::IsNullOrWhiteSpace($userLocalRoot)) {
+                    $layoutRoot = [IO.Path]::GetFullPath([string]$layout.DataRoot).TrimEnd('\')
+                    $expectedRoot = [IO.Path]::GetFullPath($dir).TrimEnd('\')
+
+                    if ($layoutRoot -ine $expectedRoot) {
+                        throw ('DOMENIA_STORE_LAYOUT : dossier de donnees inattendu (' + [string]$layout.DataRoot + ' au lieu de ' + $dir + '). Aucune relocalisation silencieuse.')
+                    }
+                }
+            }
+
+            $script:StorageLayout = $layout
+        }
+        else {
+            $script:StorageLayout = $null
+        }
+    }
+    catch {
+        if ($_.Exception.Message -like 'DOMENIA_STORE_LAYOUT*') { throw }
+        $script:StorageLayout = $null
+    }
+
     $script:DataDir=$dir;$script:AuditPath=Join-Path $dir 'Logs\Domenia.log';$script:StartupTracePath=Join-Path $dir 'Logs\Domenia-startup.log'
     $script:DataStoreValidated=$true;return $dir
 }
@@ -23374,12 +23418,44 @@ $script:FastLoginMode = "Standard"
 
 function Get-DomeniaFastLoginLogPath {
     try { Initialize-DomeniaDataStore | Out-Null } catch { }
+
     if ([string]::IsNullOrWhiteSpace([string]$script:FastLoginLogPath)) {
-        $base = if (-not [string]::IsNullOrWhiteSpace([string]$script:DataDir)) { [string]$script:DataDir } elseif (-not [string]::IsNullOrWhiteSpace([string]$env:LOCALAPPDATA)) { Join-Path $env:LOCALAPPDATA "DOMENIA" } else { [string]$script:RootDir }
-        $logs = Join-Path $base "Logs"
-        try { if (-not (Test-Path -LiteralPath $logs -PathType Container)) { [void](New-Item -ItemType Directory -Path $logs -Force) } } catch { }
-        $script:FastLoginLogPath = Join-Path $logs "Domenia-login.log"
+        $logs = ''
+
+        try {
+            if ($null -ne $script:StorageLayout -and $null -ne $script:StorageLayout.Categories) {
+                foreach ($category in @($script:StorageLayout.Categories)) {
+                    if ([string]$category.Category -eq 'Logs' -and -not [string]::IsNullOrWhiteSpace([string]$category.Path)) {
+                        $logs = [string]$category.Path
+                        break
+                    }
+                }
+            }
+        }
+        catch { }
+
+        if ([string]::IsNullOrWhiteSpace($logs)) {
+            if (-not [string]::IsNullOrWhiteSpace([string]$script:DataDir)) {
+                $logs = Join-Path ([string]$script:DataDir) 'Logs'
+            }
+            elseif (-not [string]::IsNullOrWhiteSpace([string]$env:LOCALAPPDATA)) {
+                $logs = Join-Path ([string]$env:LOCALAPPDATA) 'DOMENIA\Logs'
+            }
+            else {
+                $logs = Join-Path ([System.IO.Path]::GetTempPath()) 'DOMENIA\Logs'
+            }
+        }
+
+        try {
+            if (-not [IO.Directory]::Exists($logs)) {
+                [void][IO.Directory]::CreateDirectory($logs)
+            }
+        }
+        catch { }
+
+        $script:FastLoginLogPath = Join-Path $logs 'Domenia-login.log'
     }
+
     return [string]$script:FastLoginLogPath
 }
 

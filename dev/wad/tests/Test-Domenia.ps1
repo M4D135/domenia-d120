@@ -37,7 +37,7 @@ foreach($file in @(Get-ChildItem -LiteralPath $root -Recurse -File -Filter '*.ps
         Assert-True (@($e).Count -eq 0) (($e | ForEach-Object {$_.Message}) -join '; ')
     }
 }
-$wanted=@('Write-DomeniaAtomicText','Read-DomeniaPreference','Get-DomeniaPreferencePath','Protect-DomeniaLogText',
+$wanted=@('Write-DomeniaAtomicText','Read-DomeniaPreference','Write-DomeniaPreference','Get-DomeniaPreferencePath','Protect-DomeniaLogText',
     'ConvertTo-DomeniaSpreadsheetCell','ConvertTo-DomeniaSpreadsheetSafeRow','ConvertTo-DomeniaSqlLikeText',
     'Get-DomeniaScopeKey','Assert-DomeniaWmiReadQuery','Update-SecretsGrid','Get-DomeniaSelectedSecretSource',
     'Complete-DomeniaDetachedReadJobs','Initialize-DomeniaWinSqliteNative','New-DomeniaUtf8Ptr','ConvertFrom-DomeniaUtf8Ptr',
@@ -77,6 +77,19 @@ try {
         Assert-True (([IO.File]::ReadAllText($p) | ConvertFrom-Json).etat -ceq 'nouveau')
         Assert-True (([IO.File]::ReadAllText($p+'.bak') | ConvertFrom-Json).etat -ceq 'été')
         Assert-True (@(Get-ChildItem -LiteralPath $script:DataDir -Filter '.domenia-*.tmp').Count -eq 0)
+    }
+    Test-Case 'D118 : une preference non inscriptible ne se replie pas dans le dossier de l application' {
+        $savedRoot=$script:RootDir;$savedDataDir=$script:DataDir;$root=''
+        try {
+            $root=Join-Path ([IO.Path]::GetTempPath()) ('domenia-root-'+[guid]::NewGuid().ToString('N'))
+            [void][IO.Directory]::CreateDirectory($root);$script:RootDir=$root
+            $blocker=Join-Path $root 'blocker';[IO.File]::WriteAllText($blocker,'x');$script:DataDir=$blocker
+            Assert-True (-not (Write-DomeniaPreference 'no-root-fallback.json' '{}')) 'Ecriture annoncee alors que le dossier utilisateur est inutilisable.'
+            Assert-True (-not (Test-Path -LiteralPath (Join-Path $root 'no-root-fallback.json'))) 'Repli silencieux dans le dossier de l application.'
+        } finally {
+            $script:RootDir=$savedRoot;$script:DataDir=$savedDataDir
+            if($root){try{[IO.Directory]::Delete($root,$true)}catch{}}
+        }
     }
     Test-Case 'Preferences : repli sur JSON .bak valide' {
         $p=Join-Path $script:DataDir 'prefs.json'
