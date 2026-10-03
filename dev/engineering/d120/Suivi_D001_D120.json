@@ -319,7 +319,7 @@
         "wad/tests/fixtures/Domenia-AdFixtures.ps1"
       ],
       "acceptance_passed": false,
-      "remaining": "Campagne Windows PowerShell 5.1 dans la VM CNAMTS-W11-01 (Invoke-LabRun, suite d integration du lot) puis preuve liee au ZIP final.",
+      "remaining": "Campagne Windows PowerShell 5.1 dans la VM CNAMTS-W11-01 (Invoke-LabRun, suite d integration du lot) puis preuve liee au ZIP final. Risque accepte (decision du 2026-10-03) : 1920x1080 a 200 % (zone 960x516) reste en echec dans Test-DomeniaGeometry, non masque.",
       "tests": [
         "wad/tests/rules/Fixtures.Tests.ps1",
         "wad/tests/rules/Races.Tests.ps1",
