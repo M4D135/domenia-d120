@@ -120,11 +120,11 @@ function Get-DomeniaCounterText {
 }
 
 function Get-DomeniaActivityStripSlots {
-    # Fixed slots of the main window activity row and header badges (device-independent units), as reserved in
+    # Fixed slots of the main window activity strip (in the page header bar) and header badges (device-independent units), as reserved in
     # the main XAML. Busy, idle, 0, 1, 10 or 100 tasks and a long message only change texts and visibility inside
     # these slots: an empty slot is Hidden, never Collapsed, so no neighbour moves.
     return [pscustomobject]@{
-        RowName='UxActivityRow';RowHeight=44.0;StripName='UxActivityStrip';StripHeight=44.0
+        HostName='UxPageHeaderBar';HostMinHeight=44.0;StripName='UxActivityStrip';StripHeight=44.0
         StripColumns=@('*','252','144','96')
         Slots=@(
             [pscustomobject]@{Name='PbTop';Width=130.0;Height=8.0;Role='Activite'}

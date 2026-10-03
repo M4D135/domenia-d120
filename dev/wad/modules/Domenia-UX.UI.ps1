@@ -227,6 +227,7 @@ function Get-DomeniaUxHeightPlan {
     return [pscustomobject]@{
         Short=$short;FoldJournal=$short;InlineDomainBadge=$short;CloseHelp=$short;HideFilterCaptions=$short
         FoldNavigation=($short -and ($Width -gt 0) -and ($Width -lt 1200))
+        WorkViewWidth=$(if ($short) { 230.0 } else { 250.0 })
         FilterCardPadding=$(if ($short) { 12.0 } else { 16.0 });FilterCardBottom=$(if ($short) { 8.0 } else { 12.0 })
         ResultBarBottom=$(if ($short) { 6.0 } else { 10.0 });ResultLiveTop=$(if ($short) { 4.0 } else { 10.0 });ResultCountTop=$(if ($short) { 2.0 } else { 5.0 })
     }
@@ -249,6 +250,9 @@ function Set-DomeniaUxShortLayout {
             }
         }
     }
+    # A slightly narrower work view selector keeps the filters on one line from about 1090 units wide.
+    $workView = Get-DomeniaControl 'CmbWorkView'
+    if ($null -ne $workView -and $workView.Parent -is [Windows.Controls.DockPanel] -and $workView.Parent.Parent -is [Windows.Controls.StackPanel]) { $workView.Parent.Parent.Width = [double]$Plan.WorkViewWidth }
     $card = Get-DomeniaControl 'UxSearchFilterCard'
     if ($null -ne $card) { $card.Padding = [Windows.Thickness]::new([double]$Plan.FilterCardPadding);$card.Margin = [Windows.Thickness]::new(0,0,0,[double]$Plan.FilterCardBottom) }
     $bar = Get-DomeniaControl 'UxResultBar';if ($null -ne $bar) { $bar.Margin = [Windows.Thickness]::new(0,0,0,[double]$Plan.ResultBarBottom) }

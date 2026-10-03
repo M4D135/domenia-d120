@@ -4229,13 +4229,11 @@ function Get-MainXaml {
             </StackPanel>
           </Grid>
           <Grid x:Name="UxPageHeader" Grid.Row="1" Margin="2,0,0,12">
-            <Grid.RowDefinitions>
-              <RowDefinition Height="Auto"/>
-              <RowDefinition x:Name="UxActivityRow" Height="44" MinHeight="44" MaxHeight="44"/>
-            </Grid.RowDefinitions>
-            <Grid>
+            <Grid x:Name="UxPageHeaderBar">
               <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*" MinWidth="80"/>
+                <!-- 504 = 12 margin + the 252, 144 and 96 fixed slots: BtnCancelTask is never clipped. -->
+                <ColumnDefinition Width="2*" MinWidth="504"/>
                 <ColumnDefinition Width="Auto"/>
               </Grid.ColumnDefinitions>
               <StackPanel x:Name="UxPageTitleStack">
@@ -4244,34 +4242,34 @@ function Get-MainXaml {
                   <TextBlock Text="Session AD en préparation" FontSize="11" Foreground="{DynamicResource InfoFg}" x:Name="LblUxDomain"/>
                 </Border>
               </StackPanel>
-              <WrapPanel Grid.Column="1" VerticalAlignment="Center" Margin="12,0,0,0">
+              <!-- The activity strip always exists. Busy/idle only changes visibility inside its fixed slots (Hidden, never Collapsed). -->
+              <Grid x:Name="UxActivityStrip" Grid.Column="1" Height="44" MinHeight="44" MaxHeight="44" Margin="12,0,0,0" VerticalAlignment="Center" ClipToBounds="True">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" MinWidth="0"/>
+                  <ColumnDefinition Width="252"/>
+                  <ColumnDefinition Width="144"/>
+                  <ColumnDefinition Width="96"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="LblStatus" Text="" Visibility="Collapsed" Foreground="{DynamicResource MutedColor}" TextTrimming="CharacterEllipsis"/>
+                <TextBlock x:Name="LblPrivilegeTop" Text="" Visibility="Collapsed" Foreground="{DynamicResource PrivilegeFg}" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                <Border x:Name="WriteModeBanner" Grid.Column="1" Width="240" Height="32" Background="#B91C1C" BorderBrush="#7F1D1D" BorderThickness="1" CornerRadius="10" Padding="8,4" Margin="0,0,12,0" Visibility="Collapsed" VerticalAlignment="Center">
+                  <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="🔴" FontFamily="Segoe UI Emoji" Foreground="White" FontSize="13" FontWeight="Bold" Margin="0,0,7,0"/>
+                    <TextBlock x:Name="LblWriteMode" Text="MODE ECRITURE AD ACTIF" Foreground="White" FontSize="11" FontWeight="Bold" VerticalAlignment="Center"/>
+                  </StackPanel>
+                </Border>
+                <TextBlock x:Name="LblTaskElapsed" Grid.Column="0" Text="" Visibility="Hidden" Height="24" MaxHeight="24" MinWidth="0" Foreground="{DynamicResource MutedColor}" FontSize="12" VerticalAlignment="Center" HorizontalAlignment="Stretch" TextAlignment="Left" Margin="0,0,12,0" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                <ProgressBar x:Name="PbTop" Grid.Column="2" Width="130" MinWidth="130" MaxWidth="130" Height="8" MinHeight="8" MaxHeight="8" Visibility="Hidden" IsIndeterminate="False" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="0,0,14,0" ToolTip="Indicateur d’activité. Une animation sans pourcentage ne mesure pas la progression exacte." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Indicateur d’activité" AutomationProperties.HelpText="Indicateur d’activité. Une animation sans pourcentage ne mesure pas la progression exacte."/>
+                <Button x:Name="BtnCancelTask" Grid.Column="3" Width="96" MinWidth="96" MaxWidth="96" Height="32" MinHeight="32" MaxHeight="32" Padding="10,4" ToolTip="Demande l’arrêt d’une lecture annulable. Une écriture ou un appel natif ne sont pas interrompus de force." Content="Annuler" Visibility="Hidden" Margin="0" VerticalAlignment="Center" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Annuler la lecture" AutomationProperties.HelpText="Demande l’arrêt d’une lecture annulable. Une écriture ou un appel natif ne sont pas interrompus de force."/>
+                <Button x:Name="BtnAccountsHeader" Content="Identites" Width="92" Height="42" MinWidth="82" Margin="0,0,6,0" ToolTip="Choisit les identites utilisees par l application pour l annuaire, les postes et les secrets." VerticalAlignment="Center" Visibility="Collapsed" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Identites" AutomationProperties.HelpText="Choisit les identites utilisees par l application pour l annuaire, les postes et les secrets."/>
+              </Grid>
+              <WrapPanel Grid.Column="2" VerticalAlignment="Center" Margin="12,0,0,0">
                 <CheckBox x:Name="ChkReadOnlyMode" ToolTip="Coché : les écritures AD et les actions distantes classées comme modificatrices sont bloquées. Décocher ne donne pas de droits supplémentaires ; les confirmations restent nécessaires." Content="Lecture seule" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource AccentText}" VerticalAlignment="Center" Margin="0,6,14,6" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Protection des modifications" AutomationProperties.HelpText="Coché : les écritures AD et les actions distantes classées comme modificatrices sont bloquées. Décocher ne donne pas de droits supplémentaires ; les confirmations restent nécessaires."/>
                 <ComboBox x:Name="CmbUiProfile" ToolTip="Essentiel affiche les vues du quotidien. Expert ajoute les attributs, les permissions et WMI. Ce choix ne donne aucun droit supplémentaire." Width="116" SelectedIndex="0" IsEnabled="True" IsHitTestVisible="True" VerticalContentAlignment="Center" Margin="0" Height="34" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Niveau de détail" AutomationProperties.HelpText="Essentiel affiche les vues du quotidien. Expert ajoute les attributs, les permissions et WMI. Ce choix ne donne aucun droit supplémentaire.">
                   <ComboBoxItem Content="Essentiel" Tag="Tech"/>
                   <ComboBoxItem Content="Expert" Tag="Admin"/>
                 </ComboBox>
               </WrapPanel>
-            </Grid>
-            <!-- The activity row always exists. Busy/idle only changes visibility inside its fixed slots. -->
-            <Grid x:Name="UxActivityStrip" Grid.Row="1" Height="44" MinHeight="44" MaxHeight="44" Margin="0" ClipToBounds="True">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" MinWidth="0"/>
-                <ColumnDefinition Width="252"/>
-                <ColumnDefinition Width="144"/>
-                <ColumnDefinition Width="96"/>
-              </Grid.ColumnDefinitions>
-              <TextBlock x:Name="LblStatus" Text="" Visibility="Collapsed" Foreground="{DynamicResource MutedColor}" TextTrimming="CharacterEllipsis"/>
-              <TextBlock x:Name="LblPrivilegeTop" Text="" Visibility="Collapsed" Foreground="{DynamicResource PrivilegeFg}" FontSize="11" TextTrimming="CharacterEllipsis"/>
-              <Border x:Name="WriteModeBanner" Grid.Column="1" Width="240" Height="32" Background="#B91C1C" BorderBrush="#7F1D1D" BorderThickness="1" CornerRadius="10" Padding="8,4" Margin="0,0,12,0" Visibility="Collapsed" VerticalAlignment="Center">
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                  <TextBlock Text="🔴" FontFamily="Segoe UI Emoji" Foreground="White" FontSize="13" FontWeight="Bold" Margin="0,0,7,0"/>
-                  <TextBlock x:Name="LblWriteMode" Text="MODE ECRITURE AD ACTIF" Foreground="White" FontSize="11" FontWeight="Bold" VerticalAlignment="Center"/>
-                </StackPanel>
-              </Border>
-              <TextBlock x:Name="LblTaskElapsed" Grid.Column="0" Text="" Visibility="Hidden" Height="24" MaxHeight="24" MinWidth="0" Foreground="{DynamicResource MutedColor}" FontSize="12" VerticalAlignment="Center" HorizontalAlignment="Stretch" TextAlignment="Left" Margin="0,0,12,0" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
-              <ProgressBar x:Name="PbTop" Grid.Column="2" Width="130" MinWidth="130" MaxWidth="130" Height="8" MinHeight="8" MaxHeight="8" Visibility="Hidden" IsIndeterminate="False" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="0,0,14,0" ToolTip="Indicateur d’activité. Une animation sans pourcentage ne mesure pas la progression exacte." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Indicateur d’activité" AutomationProperties.HelpText="Indicateur d’activité. Une animation sans pourcentage ne mesure pas la progression exacte."/>
-              <Button x:Name="BtnCancelTask" Grid.Column="3" Width="96" MinWidth="96" MaxWidth="96" Height="32" MinHeight="32" MaxHeight="32" Padding="10,4" ToolTip="Demande l’arrêt d’une lecture annulable. Une écriture ou un appel natif ne sont pas interrompus de force." Content="Annuler" Visibility="Hidden" Margin="0" VerticalAlignment="Center" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Annuler la lecture" AutomationProperties.HelpText="Demande l’arrêt d’une lecture annulable. Une écriture ou un appel natif ne sont pas interrompus de force."/>
-              <Button x:Name="BtnAccountsHeader" Content="Identites" Width="92" Height="42" MinWidth="82" Margin="0,0,6,0" ToolTip="Choisit les identites utilisees par l application pour l annuaire, les postes et les secrets." VerticalAlignment="Center" Visibility="Collapsed" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Identites" AutomationProperties.HelpText="Choisit les identites utilisees par l application pour l annuaire, les postes et les secrets."/>
             </Grid>
           </Grid>
           <Grid x:Name="UxContentGrid" Grid.Row="2">
