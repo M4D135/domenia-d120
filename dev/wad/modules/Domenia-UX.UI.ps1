@@ -13,6 +13,13 @@ $script:UxLayoutSignature = ''
 $script:UxLogCollapsed = $false
 $script:UxLogHeight = 142.0
 $script:UxProfileUpdating = $false
+# D006 short screen: display state only, never saved.
+$script:UxShortScreen = $false
+$script:UxShortHelpOpen = $false
+$script:UxShortLogHeld = $false
+$script:UxShortLogReleased = $false
+$script:UxShortNavFold = $false
+$script:UxShortNavReleased = $false
 
 function Import-DomeniaUxHelpCatalogue {
     if ($script:UxHelpCatalogue.Count -gt 0) { return }
@@ -212,15 +219,66 @@ function Update-DomeniaUxProfileVisibility {
     } finally { $script:UxProfileUpdating = $false }
 }
 
+function Get-DomeniaUxHeightPlan {
+    # D006: under 940 WPF units of window height the search page folds secondary chrome so that the results grid
+    # keeps its room. Pure plan; display state only: the saved journal, help and menu preferences never change.
+    param([double]$Height=0,[double]$Width=0)
+    $short = (($Height -gt 0) -and ($Height -lt 940))
+    return [pscustomobject]@{
+        Short=$short;FoldJournal=$short;InlineDomainBadge=$short;CloseHelp=$short;HideFilterCaptions=$short
+        FoldNavigation=($short -and ($Width -gt 0) -and ($Width -lt 1200))
+        FilterCardPadding=$(if ($short) { 12.0 } else { 16.0 });FilterCardBottom=$(if ($short) { 8.0 } else { 12.0 })
+        ResultBarBottom=$(if ($short) { 6.0 } else { 10.0 });ResultLiveTop=$(if ($short) { 4.0 } else { 10.0 });ResultCountTop=$(if ($short) { 2.0 } else { 5.0 })
+    }
+}
+
+function Set-DomeniaUxShortLayout {
+    param($Plan)
+    if ($null -eq $Plan) { return }
+    $title = Get-DomeniaControl 'UxPageTitleStack';$badge = Get-DomeniaControl 'UxDomainBadge'
+    # The session badge stays visible (demo, domain): it moves beside the title instead of disappearing.
+    if ($null -ne $title) { $title.Orientation = if ([bool]$Plan.InlineDomainBadge) { [Windows.Controls.Orientation]::Horizontal } else { [Windows.Controls.Orientation]::Vertical } }
+    if ($null -ne $badge) { $badge.Margin = if ([bool]$Plan.InlineDomainBadge) { [Windows.Thickness]::new(12,0,0,0) } else { [Windows.Thickness]::new(0,5,0,0) } }
+    # Filter captions fold away; every filter keeps its tooltip and automation name.
+    $filters = Get-DomeniaControl 'UxSearchFilters'
+    if ($null -ne $filters) {
+        foreach ($field in @($filters.Children)) {
+            if ($field -isnot [Windows.Controls.Panel]) { continue }
+            foreach ($caption in @($field.Children)) {
+                if ($caption -is [Windows.Controls.TextBlock]) { $caption.Visibility = if ([bool]$Plan.HideFilterCaptions) { [Windows.Visibility]::Collapsed } else { [Windows.Visibility]::Visible } }
+            }
+        }
+    }
+    $card = Get-DomeniaControl 'UxSearchFilterCard'
+    if ($null -ne $card) { $card.Padding = [Windows.Thickness]::new([double]$Plan.FilterCardPadding);$card.Margin = [Windows.Thickness]::new(0,0,0,[double]$Plan.FilterCardBottom) }
+    $bar = Get-DomeniaControl 'UxResultBar';if ($null -ne $bar) { $bar.Margin = [Windows.Thickness]::new(0,0,0,[double]$Plan.ResultBarBottom) }
+    $live = Get-DomeniaControl 'UxResultLive';if ($null -ne $live) { $live.Margin = [Windows.Thickness]::new(0,[double]$Plan.ResultLiveTop,0,0) }
+    $count = Get-DomeniaControl 'LblSuiteResultCount';if ($null -ne $count) { $count.Margin = [Windows.Thickness]::new(0,[double]$Plan.ResultCountTop,0,0) }
+    # Journal shown folded while the screen is short, unless the operator unfolds it; the saved state is untouched.
+    $hold = ([bool]$Plan.FoldJournal -and (-not [bool]$script:UxLogCollapsed) -and (-not [bool]$script:UxShortLogReleased))
+    # Applied every time (idempotent): the held flag alone must not decide what the journal row shows.
+    if ($hold) { $script:UxShortLogHeld = $true;Set-DomeniaExperienceJournalLayout -Collapsed $true -Transient }
+    elseif ([bool]$script:UxShortLogHeld) { $script:UxShortLogHeld = $false;Set-DomeniaExperienceJournalLayout -Collapsed ([bool]$script:UxLogCollapsed) -Transient }
+}
+
 function Update-DomeniaUxLayout {
     if ($null -eq $script:Window) { return }
+    $width = [double]$script:Window.ActualWidth
+    if ($width -le 0) { $width = [double]$script:Window.Width }
+    $height = [double]$script:Window.ActualHeight
+    if ($height -le 0) { $height = [double]$script:Window.Height }
+    $heightPlan = Get-DomeniaUxHeightPlan -Height $height -Width $width
+    if ([bool]$heightPlan.Short -ne [bool]$script:UxShortScreen) {
+        $script:UxShortScreen = [bool]$heightPlan.Short;$script:UxShortHelpOpen = $false;$script:UxShortLogReleased = $false;$script:UxShortNavReleased = $false
+    }
+    $script:UxShortNavFold = [bool]$heightPlan.FoldNavigation
     Update-DomeniaUxSidebar
     $panel = Get-DomeniaControl 'UxHelpPanel';$column = Get-DomeniaControl 'UxHelpColumn'
     if ($null -eq $panel -or $null -eq $column) { return }
-    $width = [double]$script:Window.ActualWidth
-    if ($width -le 0) { $width = [double]$script:Window.Width }
-    $plan = Get-DomeniaUxLayoutPlan -Width $width -NavCollapsed $script:UxNavCollapsed -HelpVisible $script:UxHelpVisible -CompactHelpOpen $script:UxHelpCompactOpen
-    $signature = '{0}:{1}:{2}' -f $plan.Compact,$plan.HelpShown,$plan.NavWidth
+    $helpVisible = $script:UxHelpVisible;$compactOpen = $script:UxHelpCompactOpen
+    if ([bool]$script:UxShortScreen) { $helpVisible = [bool]$script:UxShortHelpOpen;$compactOpen = [bool]$script:UxShortHelpOpen }
+    $plan = Get-DomeniaUxLayoutPlan -Width $width -NavCollapsed (Test-DomeniaUxNavFolded) -HelpVisible $helpVisible -CompactHelpOpen $compactOpen
+    $signature = '{0}:{1}:{2}:{3}' -f $plan.Compact,$plan.HelpShown,$plan.NavWidth,$script:UxShortScreen
     if ($signature -eq $script:UxLayoutSignature) { return }
     $script:UxLayoutSignature=$signature
     $button = Get-DomeniaControl 'BtnUxHelpToggle'
@@ -242,10 +300,17 @@ function Update-DomeniaUxLayout {
         $button.ToolTip = if ($plan.HelpShown) { 'Réduire le panneau d''aide. Les infobulles restent disponibles.' } else { 'Afficher le panneau d''aide contextuelle.' }
         [Windows.Automation.AutomationProperties]::SetName($button,$button.ToolTip)
     }
+    Set-DomeniaUxShortLayout -Plan $heightPlan
 }
 
 function Switch-DomeniaUxHelp {
     if ($null -eq $script:Window) { return }
+    if ([bool]$script:UxShortScreen) {
+        # Short screen: the help opens for this session only; the saved choice is untouched.
+        $script:UxShortHelpOpen = -not [bool]$script:UxShortHelpOpen
+        Update-DomeniaUxLayout
+        return
+    }
     $width=[double]$script:Window.ActualWidth
     if($width -le 0){$width=[double]$script:Window.Width}
     $plan=Get-DomeniaUxLayoutPlan -Width $width -NavCollapsed $script:UxNavCollapsed -HelpVisible $script:UxHelpVisible -CompactHelpOpen $script:UxHelpCompactOpen
@@ -259,6 +324,12 @@ function Switch-DomeniaUxHelp {
 function Switch-DomeniaUxLog {
     $row=Get-DomeniaControl 'UxLogRow'
     if($null -eq $row){return}
+    if([bool]$script:UxShortLogHeld){
+        # Short screen: the operator unfolds the journal for this session; the saved state stays as it was.
+        $script:UxShortLogReleased=$true;$script:UxShortLogHeld=$false
+        Set-DomeniaExperienceJournalLayout -Collapsed $false -Transient
+        return
+    }
     if(-not $script:UxLogCollapsed){$script:UxLogHeight=ConvertTo-SuiteNumber $row.ActualHeight -Default 180 -Minimum 100 -Maximum 600}
     Set-DomeniaExperienceJournalLayout -Collapsed (-not $script:UxLogCollapsed)
     Save-DomeniaExperiencePreferences
@@ -291,7 +362,7 @@ function Initialize-DomeniaUxShell {
     try { Update-DomeniaSearchScopeUi } catch { }
     $script:Window.Add_SizeChanged({Update-DomeniaUxLayout})
     $script:Window.Add_ContentRendered({Sync-DomeniaUxNavigation;Update-DomeniaUxLayout})
-    $script:Window.Add_Closed({$script:UxShellInitialized=$false;$script:UxLayoutSignature='';$script:UxHelpCompactOpen=$false;$script:UxNavLayoutSignature=''})
+    $script:Window.Add_Closed({$script:UxShellInitialized=$false;$script:UxLayoutSignature='';$script:UxHelpCompactOpen=$false;$script:UxNavLayoutSignature='';$script:UxShortScreen=$false;$script:UxShortHelpOpen=$false;$script:UxShortLogHeld=$false;$script:UxShortLogReleased=$false;$script:UxShortNavFold=$false;$script:UxShortNavReleased=$false})
     $script:UxShellInitialized=$true
     Initialize-DomeniaExperience
     Update-DomeniaUxProfileVisibility
@@ -352,14 +423,25 @@ function Save-DomeniaUxLayoutSettings {
     }
 }
 
+function Test-DomeniaUxNavFolded {
+    # Saved choice, or a temporary fold on a short and narrow screen (D006) that the operator can undo.
+    return ([bool]$script:UxNavCollapsed -or ([bool]$script:UxShortNavFold -and (-not [bool]$script:UxShortNavReleased)))
+}
+
 function Switch-DomeniaUxSidebar {
+    if ((-not [bool]$script:UxNavCollapsed) -and [bool]$script:UxShortNavFold -and (-not [bool]$script:UxShortNavReleased)) {
+        # Short screen: the operator unfolds the menu for this session; the saved choice is untouched.
+        $script:UxShortNavReleased = $true
+        Update-DomeniaUxLayout
+        return
+    }
     $script:UxNavCollapsed = -not $script:UxNavCollapsed
     Update-DomeniaUxLayout
     Save-DomeniaUxLayoutSettings
 }
 
 function Update-DomeniaUxSidebar {
-    $collapsed = [bool]$script:UxNavCollapsed
+    $collapsed = [bool](Test-DomeniaUxNavFolded)
     if ($script:UxNavLayoutSignature -ceq [string]$collapsed) { return }
     $column = Get-DomeniaControl 'UxNavColumn'; $sidebar=Get-DomeniaControl 'UxSidebar'
     if ($null -eq $column -or $null -eq $sidebar) { return }

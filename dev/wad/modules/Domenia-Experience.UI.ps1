@@ -160,10 +160,11 @@ function Find-DomeniaExperienceLog {
 }
 
 function Set-DomeniaExperienceJournalLayout {
-    param([bool]$Collapsed)
+    # -Transient: display only (short screen, D006), the operator's saved journal state is kept.
+    param([bool]$Collapsed,[switch]$Transient)
     $row=Get-DomeniaControl 'UxLogRow';$split=Get-DomeniaControl 'LogGridSplitter';$button=Get-DomeniaControl 'BtnUxLogToggle'
     if($null -eq $row){return}
-    $script:UxLogCollapsed=$Collapsed
+    if(-not $Transient){$script:UxLogCollapsed=$Collapsed}
     $height=ConvertTo-SuiteNumber $script:UxLogHeight -Default 180 -Minimum 100 -Maximum 600
     $row.Height=[Windows.GridLength]::new($(if($Collapsed){42.0}else{$height}))
     foreach($name in @('UxSuiteLogTools','TxtUiLog')){
@@ -177,7 +178,8 @@ function Set-DomeniaExperienceJournalLayout {
 function Save-DomeniaExperiencePreferences {
     if(-not $script:ExperienceInitialized -or $script:ExperienceRestoring){return}
     $row=Get-DomeniaControl 'UxLogRow'
-    if($null -ne $row -and -not $script:UxLogCollapsed){$script:UxLogHeight=ConvertTo-SuiteNumber $row.ActualHeight -Default 180 -Minimum 100 -Maximum 600}
+    # A journal folded only for a short screen keeps the operator's expanded height.
+    if($null -ne $row -and -not $script:UxLogCollapsed -and -not [bool]$script:UxShortLogHeld){$script:UxLogHeight=ConvertTo-SuiteNumber $row.ActualHeight -Default 180 -Minimum 100 -Maximum 600}
     Set-DomeniaSetting 'UxLogCollapsed' ([bool]$script:UxLogCollapsed)
     Set-DomeniaSetting 'UxLogExpandedHeight' ([double]$script:UxLogHeight)
     Save-DomeniaSettings -Immediate

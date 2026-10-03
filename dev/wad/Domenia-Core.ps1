@@ -4238,9 +4238,9 @@ function Get-MainXaml {
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
               </Grid.ColumnDefinitions>
-              <StackPanel>
+              <StackPanel x:Name="UxPageTitleStack">
                 <TextBlock Text="Accueil" FontSize="22" FontWeight="SemiBold" x:Name="LblUxPageTitle" TextTrimming="CharacterEllipsis"/>
-                <Border Background="{DynamicResource AccentSoft}" CornerRadius="12" Padding="8,3" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,5,0,0">
+                <Border x:Name="UxDomainBadge" Background="{DynamicResource AccentSoft}" CornerRadius="12" Padding="8,3" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,5,0,0">
                   <TextBlock Text="Session AD en préparation" FontSize="11" Foreground="{DynamicResource InfoFg}" x:Name="LblUxDomain"/>
                 </Border>
               </StackPanel>
@@ -4522,12 +4522,12 @@ function Get-MainXaml {
                       <RowDefinition Height="Auto"/>
                       <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <Border Style="{StaticResource Card}" Grid.Row="0" Margin="0,0,0,12" Padding="16">
+                    <Border x:Name="UxSearchFilterCard" Style="{StaticResource Card}" Grid.Row="0" Margin="0,0,0,12" Padding="16">
                       <StackPanel>
                         <TextBlock Text="Périmètre des résultats" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
                         <TextBlock Text="Dans : tout le domaine | Sous-OU incluses" TextWrapping="NoWrap" Margin="0,0,0,4" Foreground="{DynamicResource AccentText}" FontSize="12" x:Name="LblSearchScope" TextTrimming="CharacterEllipsis"/>
                         <TextBlock x:Name="LblSearchHint" Text="" Height="18" Margin="0,0,0,8" FontSize="11.5" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
-                        <WrapPanel>
+                        <WrapPanel x:Name="UxSearchFilters">
                           <StackPanel Width="148" Margin="0,0,12,8"><StackPanel.Style><Style TargetType="StackPanel"><Style.Triggers><DataTrigger Binding="{Binding Tag, ElementName=SearchBrowserLayout}" Value="Global"><Setter Property="IsEnabled" Value="False"/></DataTrigger></Style.Triggers></Style></StackPanel.Style>
                             <TextBlock Text="Type d’objet" Margin="0,0,0,6" FontSize="12" FontWeight="SemiBold"/>
                             <ComboBox x:Name="CmbGlobalType" Margin="0" SelectedIndex="0" ToolTip="Filtre la requête AD dans l’OU sélectionnée : tous, utilisateurs, machines, groupes, ou OU et conteneurs." MinWidth="0" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Type d’objet" AutomationProperties.HelpText="Filtre la requête AD dans l’OU sélectionnée : tous, utilisateurs, machines, groupes, ou OU et conteneurs." MinHeight="36">
@@ -4588,7 +4588,7 @@ function Get-MainXaml {
                           <RowDefinition Height="Auto"/>
                           <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
-                        <StackPanel Margin="0,0,0,10"><DockPanel Margin="0,0,0,8">
+                        <StackPanel x:Name="UxResultBar" Margin="0,0,0,10"><DockPanel Margin="0,0,0,8">
                           <Button x:Name="BtnSearchMore" Content="Charger la suite" DockPanel.Dock="Right" IsEnabled="False" MinHeight="30" Padding="10,2" Margin="8,0,0,0" ToolTip="Disponible quand la liste est limitée : relit la même recherche avec une limite doublée, jusquʼà 500 lignes, sans doublon ni ancien contexte." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Charger la suite" AutomationProperties.HelpText="Disponible quand la liste est limitée : relit la même recherche avec une limite doublée, jusquʼà 500 lignes, sans doublon ni ancien contexte."/>
                           <TextBlock x:Name="LblBranchCount" Text="0 objet" Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" Margin="12,0,0,0" DockPanel.Dock="Right" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" MaxWidth="320" FontSize="12" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
                           <TextBlock Text="Résultats" FontSize="16" FontWeight="SemiBold"/>
@@ -4597,7 +4597,7 @@ function Get-MainXaml {
 <TextBlock Text="Dans les résultats" VerticalAlignment="Center" Margin="0,0,10,0" Foreground="{DynamicResource MutedColor}"/>
 <TextBox x:Name="TxtSuiteResultFilter" Grid.Column="1" MaxLength="120" MinHeight="32" ToolTip="Filtre local littéral dans le nom, login, type, présence et association. Plusieurs mots se combinent. Aucun appel AD. La limite LDAP reste inchangée." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Filtrer les lignes chargées" AutomationProperties.HelpText="Filtre local littéral dans le nom, login, type, présence et association. Plusieurs mots se combinent. Aucun appel AD. La limite LDAP reste inchangée." IsEnabled="{Binding IsEnabled, ElementName=DgObjects}"/>
 <Button x:Name="BtnSuiteResultClear" Grid.Column="2" Content="Effacer le filtre" Margin="8,0,0,0" MinHeight="32" ToolTip="Réaffiche les lignes déjà chargées, en conservant le filtre OU, la présence et le texte de recherche AD." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Effacer le filtre local" AutomationProperties.HelpText="Réaffiche les lignes déjà chargées, en conservant le filtre OU, la présence et le texte de recherche AD." IsEnabled="{Binding IsEnabled, ElementName=DgObjects}"/>
-</Grid><TextBlock x:Name="LblSuiteResultCount" Text="Filtre local : affine seulement les lignes déjà chargées." FontSize="11" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Height="18" Margin="0,5,0,0" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/><StackPanel Margin="0,10,0,0">
+</Grid><TextBlock x:Name="LblSuiteResultCount" Text="Filtre local : affine seulement les lignes déjà chargées." FontSize="11" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Height="18" Margin="0,5,0,0" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/><StackPanel x:Name="UxResultLive" Margin="0,10,0,0">
                             <WrapPanel>
                               <CheckBox x:Name="ChkLiveUsers" IsEnabled="{Binding IsEnabled, ElementName=DgObjects}" Content="Utilisateur à la sélection" IsChecked="True" VerticalAlignment="Center" Margin="0,0,14,4" ToolTip="Un clic lance un ping unique sur le poste. Cochée : lit aussi son utilisateur console. Décochée : ping seulement. Jamais de sondage collectif." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vérification sur sélection" AutomationProperties.HelpText="Vérifie uniquement la machine sélectionnée. Les autres lignes conservent leurs observations en cache, sans nouvel appel distant."/>
                               <Button x:Name="BtnLiveRecheck" IsEnabled="{Binding IsEnabled, ElementName=DgObjects}" Content="Revérifier ce poste" Margin="0,0,0,4" MinHeight="30" Padding="10,4" ToolTip="Relance un ping unique et la lecture utilisateur sur le poste sélectionné. Si le compte est refusé ou CIM désactivé, seul le ping reste disponible. Aucun balayage." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Revérifier ce poste" AutomationProperties.HelpText="Relance la vérification du compte console d’une seule machine sélectionnée."/>
