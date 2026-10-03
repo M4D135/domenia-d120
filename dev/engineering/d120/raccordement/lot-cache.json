@@ -2,7 +2,9 @@
   "Lot": "cache",
   "Points": [
     "D028",
-    "D025"
+    "D025",
+    "D115",
+    "D113"
   ],
   "Modules": [
     {
@@ -40,7 +42,9 @@
     "Domenia-Continuity.UI.ps1 (Invoke-DomeniaObjectChanges : invalidation par GUID puis repli DN)",
     "wad/Domenia-Modules.ps1 (declaration de Request-DomeniaLinkPersistence)",
     "tools/audit_preload.py (Get-DomeniaCacheKey exige dans Selection.UI ; hachage du lecteur verifie dans la regle cache-v3)",
-    "Domenia-Core.ps1 (Get-VisitCacheValue et Set-VisitCacheValue : une cle vide n est ni lue ni ecrite)"
+    "Domenia-Core.ps1 (Get-VisitCacheValue et Set-VisitCacheValue : une cle vide n est ni lue ni ecrite)",
+    "Domenia-Core.ps1 (Initialize-DomeniaDatabase : schema decide par Test-DomeniaSchemaCompatibility ; Backup-DomeniaDatabase -Migration hors rotation)",
+    "Domenia-Live.Model.ps1 (Get-DomeniaLiveCacheCode : garde de version 11/1 avant lecture ou ecriture)"
   ],
   "TypeFiles": [],
   "Operations": [],
@@ -57,7 +61,7 @@
       "NonDirectory": true,
       "IsWrite": true,
       "Class": "Background",
-      "Change": "Suppression de l ecriture directe user_machine_links ; les observations restent ecrites dans adcc_live_observations."
+      "Change": "Suppression de l ecriture directe user_machine_links ; les observations restent ecrites dans adcc_live_observations. ; garde de version de schema (11/1) avant toute lecture ou ecriture (D115)."
     }
   ],
   "OperationsNote": "LiveCache est une operation worker epinglee. Apres relecture : python tools/update_worker_contracts.py --apply, mise a jour de Get-DomeniaWorkerOperationHashes, de la liste $nonDirectoryOperations (LiveCache doit deja y figurer) et des notes de version. Aucun autre corps worker modifie.",
@@ -79,7 +83,10 @@
     "Test-DomeniaWiringCache.ps1 : invalidation GUID puis repli DN",
     "Test-DomeniaWiringCache.ps1 : audit_preload exige Get-DomeniaCacheKey au lieu de object-v2",
     "Test-DomeniaWiringCache.ps1 : Request-DomeniaLinkPersistence est declaree dans le chargeur",
-    "Test-DomeniaWiringCache.ps1 : une cle vide ne lit ni n ecrit le cache de visite ; sans domaine, pas de cle"
+    "Test-DomeniaWiringCache.ps1 : une cle vide ne lit ni n ecrit le cache de visite ; sans domaine, pas de cle",
+    "Test-DomeniaWiringCache.ps1 : base plus recente refusee intacte sans sauvegarde ni restauration",
+    "Test-DomeniaWiringCache.ps1 : base ADCC sauvegardee hors rotation puis migree, sauvegarde de migration jamais elaguee",
+    "Test-DomeniaWiringCache.ps1 : LiveCache n ecrit pas dans une base plus recente"
   ],
   "HelpEntries": [],
   "Features": [],
@@ -101,5 +108,5 @@
       "Request": "Re-epingler LiveCache via tools/update_worker_contracts.py --apply apres relecture ; verifier Get-DomeniaWorkerOperationHashes, operation-contracts.json et $nonDirectoryOperations."
     }
   ],
-  "Notes": "Premier jet Spark revise (persistance differee par lots de 64, garde centrale de cle vide, audit mis a jour), relu et ajuste ; a valider dans la VM."
+  "Notes": "Premier jet Spark revise (persistance differee par lots de 64, garde centrale de cle vide, audit mis a jour), relu et ajuste ; a valider dans la VM. Etape B : D115 et la partie schema de D113 raccordees ; import TSV/CSV historique non transactionnel reporte (chemin de maintenance -ImportLegacy)."
 }

@@ -293,7 +293,8 @@ Test-Case 'D113' 'Le modele suit les sources reelles du coeur : base adoptee sur
     $path=[regex]::Match($core,'(?s)function Get-DomeniaDatabasePath \{.*?\n\}\n')
     Assert-True ($path.Success -and ($path.Value -match "'ADCC\.db'")) 'Adoption de ADCC.db par Get-DomeniaDatabasePath'
     $init=[regex]::Match($core,'(?s)function Initialize-DomeniaDatabase \{.*?\n\}\n')
-    Assert-True ($init.Success -and ($init.Value -match 'Backup-DomeniaDatabase') -and ($init.Value -match "domenia_schema','1'") -and ($init.Value -match "-ne '11'")) 'Sauvegarde puis revision domenia_schema sur une base 11'
+    # D115: the core delegates the version decision to this rule, then backs up outside the rotation before migrating.
+    Assert-True ($init.Success -and ($init.Value -match 'Test-DomeniaSchemaCompatibility') -and ($init.Value -match 'Backup-DomeniaDatabase -Migration') -and ($init.Value -match "domenia_schema','1'")) 'Sauvegarde puis revision domenia_schema sur une base 11'
 }
 Test-Case 'D113' 'Migration repetee : aucun doublon de lien, aucune ecriture au second passage' {
     $l1=[pscustomobject]@{UserLogin='jdupont';Computer='PC-001';Source='Saisie manuelle';When='2026-09-01 08:00:00'}

@@ -19936,15 +19936,21 @@ function ConvertTo-DomeniaSqlLiteral {
 
 
 function Backup-DomeniaDatabase {
-    param([switch]$IfNeeded)
+    param([switch]$IfNeeded,[switch]$Migration)
     $dbPath = Get-DomeniaDatabasePath
     if (-not [IO.File]::Exists($dbPath)) { return $null }
     $backupDir = Get-DomeniaStoreBackupDirectory
-    if ($IfNeeded) {
+    # D115: a backup taken before a schema migration lives outside the normal rotation and is never pruned here.
+    if ($Migration) {
+        $backupDir = Join-Path $backupDir 'migrations'
+        [void][IO.Directory]::CreateDirectory($backupDir)
+    }
+    if ($IfNeeded -and (-not $Migration)) {
         $latest = Get-ChildItem -LiteralPath $backupDir -Filter 'Domenia-*.db' -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
         if ($null -ne $latest -and ((Get-Date) - $latest.LastWriteTime).TotalHours -lt 20) { return [string]$latest.FullName }
     }
     $stamp = (Get-Date -Format 'yyyyMMdd-HHmmss-fff') + '-' + [guid]::NewGuid().ToString('N').Substring(0,8)
+    if ($Migration) { $stamp = 'migration-' + $stamp }
     $dest = Join-Path $backupDir ('Domenia-' + $stamp + '.db')
     $temporary = $dest + '.partial'
     $sourceDb = [IntPtr]::Zero; $targetDb = [IntPtr]::Zero; $backup = [IntPtr]::Zero; $mainPtr = [IntPtr]::Zero
@@ -19972,9 +19978,11 @@ function Backup-DomeniaDatabase {
         Close-DomeniaDatabase $sourceDb; $sourceDb = [IntPtr]::Zero
         [IO.File]::Move($temporary,$dest)
         $complete = $true
-        $keep = [Math]::Max(2,[Math]::Min(30,[int](Get-CfgValue 'LocalStore' 'DatabaseBackupCount' 7)))
-        Get-ChildItem -LiteralPath $backupDir -Filter 'Domenia-*.db' -File | Sort-Object LastWriteTime -Descending | Select-Object -Skip $keep | ForEach-Object {
-            Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue
+        if (-not $Migration) {
+            $keep = [Math]::Max(2,[Math]::Min(30,[int](Get-CfgValue 'LocalStore' 'DatabaseBackupCount' 7)))
+            Get-ChildItem -LiteralPath $backupDir -Filter 'Domenia-*.db' -File | Sort-Object LastWriteTime -Descending | Select-Object -Skip $keep | ForEach-Object {
+                Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue
+            }
         }
         return $dest
     }
@@ -19995,20 +20003,29 @@ function Recover-DomeniaDatabase {
 }
 
 function Initialize-DomeniaDatabase {
-    $null = Get-DomeniaDatabasePath
+    [void](Get-DomeniaDatabasePath)
     if ($script:DomeniaDatabaseReady) { return $true }
     Initialize-DomeniaDataStore | Out-Null
     try {
-        $existingVersion=@(Invoke-DomeniaDbQuery "SELECT name FROM sqlite_master WHERE type='table' AND name='schema_info';")
-        if($existingVersion.Count){
-            $version=@(Invoke-DomeniaDbQuery "SELECT value FROM schema_info WHERE key='schema_version';")
-            if($version.Count -ne 1 -or [string]$version[0].value -ne '11'){throw 'Version de base incompatible. Source conservee ; migration explicite requise.'}
+        # D115/D113: forward-only schema decided by the pure rule (Release.Model). A newer, unreadable, too old or
+        # interrupted base is refused untouched, with the rule's message; an older base is migrated only after a
+        # migration backup kept outside the rotation.
+        $schemaExists=(@(Invoke-DomeniaDbQuery "SELECT name FROM sqlite_master WHERE type='table' AND name='schema_info';").Count -gt 0)
+        $dbVersion='';$dbRevision=''
+        if($schemaExists){
+            $versionRows=@(Invoke-DomeniaDbQuery "SELECT value FROM schema_info WHERE key='schema_version';")
+            $revisionRows=@(Invoke-DomeniaDbQuery "SELECT value FROM schema_info WHERE key='domenia_schema';")
+            if($versionRows.Count -gt 1 -or $revisionRows.Count -gt 1){throw 'Schema de base ambigu (cle schema_info en double). La base reste intacte.'}
+            if($versionRows.Count -eq 1){$dbVersion=[string]$versionRows[0].value}
+            if($revisionRows.Count -eq 1){$dbRevision=[string]$revisionRows[0].value}
         }
-        $domeniaVersion=@()
-        if($existingVersion.Count){$domeniaVersion=@(Invoke-DomeniaDbQuery "SELECT value FROM schema_info WHERE key='domenia_schema';")}
-        if($domeniaVersion.Count -gt 1 -or ($domeniaVersion.Count -eq 1 -and [string]$domeniaVersion[0].value -ne '1')){throw 'Schema Domenia incompatible. La base reste intacte.'}
-        $needsMigration=($existingVersion.Count -gt 0 -and $domeniaVersion.Count -eq 0)
-        if($needsMigration){[void](Backup-DomeniaDatabase)}
+        $schemaPlan=Test-DomeniaSchemaCompatibility -DatabaseVersion $dbVersion -DatabaseRevision $dbRevision -DatabaseExists $schemaExists -BackupVerified $false
+        if((-not [bool]$schemaPlan.CanOpen) -and (-not [bool]$schemaPlan.RequiresBackup)){throw ([string]$schemaPlan.Message)}
+        if([bool]$schemaPlan.RequiresBackup){
+            $migrationBackup=Backup-DomeniaDatabase -Migration
+            if([string]::IsNullOrWhiteSpace([string]$migrationBackup)){throw 'Sauvegarde de migration impossible : la base reste intacte, aucune migration.'}
+            Write-AppLog ('Sauvegarde avant migration du schema : '+[string]$migrationBackup) 'INFO'
+        }
         $schema = @"
 PRAGMA journal_mode=WAL;
 PRAGMA synchronous=NORMAL;
@@ -20539,7 +20556,7 @@ function Get-DomeniaWorkerOperationHashes {
         StartupWarmCache      = "864735012ED29EBAF1B094DA12C1D44266933DC9D3D2046BD1E5D68AE58CA1A3"
         LiveSelectedPing     = "2D26C899D61097F0395FA2745A1133FA32CCB6870256882DFAB56DF6B4931E2E"
         LiveConsole          = "2D26C899D61097F0395FA2745A1133FA32CCB6870256882DFAB56DF6B4931E2E"
-        LiveCache            = "0D8A7D55F496F56EEA7B90B7629FA7240D2BDA6A05F868F78317229AAF43BE0F"
+        LiveCache            = "F42242E9D530B2C005DC37C23A6791F2E04916CA22DFE17540CD7B47F0CF2E04"
         LiveDirectoryCheck    = "49F6D4249F6465D6E461D3B04DD090F00477ABBD871683ECF3622714A2AB53CD"
         SessionsList         = "DD09187778C09CF31B0BDA41EAC88FF898D9484756AFDF2F3EE643E6B5318BF6"
         RemoteCredentialCheck = "9070C7A5D9460D0FD129FD67CD5070595DE4DED7CA7EE7573C65AF102B0E515B"
@@ -20558,7 +20575,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "0500AB0182971AD414281C3646AD01E8D33BC57AB58A2DACD89569BC188BE5A0"
+    $expectedFingerprint = "1C2599A79E7B9D5FEB89448B8C329882D1DE66DDBD635FEEA34DA59257FA984E"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }

@@ -1,5 +1,5 @@
 {
-  "Archive": "branche claude/epic-newton-j5ir1w, lot cache etape A (D028, D025), 2026-10-03",
+  "Archive": "branche claude/epic-newton-j5ir1w, lot cache etape B (D115, D113 schema), 2026-10-03",
   "ArchiveSHA256": "655ED21F90345B3C7667D4E777814C6A0595A5D5BE628AD587FB46CCA5241922",
   "CoreFunctions": {
     "Write-DomeniaAtomicText": "1C9A1583F52EB7BE80BE420662653E4AF886FE11DC4FDB3B1C4CDF19FD1C0EDA",
@@ -468,9 +468,9 @@
     "Invoke-DomeniaDbExec": "D8DC8F126A3CBBE86E48852DE3690A2238182D0E56F43F45DC9D5DDDFB5123AA",
     "Invoke-DomeniaDbQuery": "56C9222BBF9941F9931EE17145B2F9A6D45B29D91B3E56F9383553C43BFFF844",
     "ConvertTo-DomeniaSqlLiteral": "D83D9BFC77CDB91498820C8179FAB807D4B37CC115C1E2950D686FAE79FC3421",
-    "Backup-DomeniaDatabase": "AD6E414939BCF3E256F882B6DF4005ED5C4D6D15F44AFDE4AC703D4BDAE5509F",
+    "Backup-DomeniaDatabase": "2AF049A4E909C951FB3189B21D685F9C51B337D81105B8F645E13A880EB1C35B",
     "Recover-DomeniaDatabase": "5266400B0366C10C3DB714598CF109A18FECD34AAC1913F4ADD62119193A2AB6",
-    "Initialize-DomeniaDatabase": "E74BEA1E77E5DCAE3DD97B58ABB682BBB7383BD964DA72C5036B05CB254E0E1B",
+    "Initialize-DomeniaDatabase": "9A3CD3AA497BE4DE3EEE61C25F79B88C28108D3F2E755CF271BCAB31F1F745B9",
     "Import-DomeniaLegacyStoreIfNeeded": "63B2C2388DA9892BA38BA46922544210A12FF9B3BB42560064ECC652ABA1B869",
     "Invoke-DomeniaDatabaseMaintenance": "7708274BF94E7800ABD7A1100B401CCEBBDE2E0E9A8EC95AAB1E49EA8F30D90D",
     "Register-DomeniaOperationSample": "39FBC80C5C24794E8590745DE39D7BF1F444628A3C4CE1469A2357C8C36743B8",
@@ -487,8 +487,8 @@
     "Load-UserMachineLinks": "D588E9FAB3DB852FD760624C2A463CDEA8A5B97BAF550C273F8C7C1B2CB7776D",
     "ConvertTo-DomeniaCanonicalWorkerCode": "48A6A851309CF03C8AA4802B160FC0C9D3234B795C63D0BAED6923BF42FE2FAF",
     "Get-DomeniaWorkerCodeHash": "6B81660F207AAEB37BA076144EDD12F5A926F9F64858B03755C2567E335C0D16",
-    "Get-DomeniaWorkerOperationHashes": "3ECB902EB5C01EBDE566B72A533361524AAC95DABA20FF3FE280D08F77907416",
-    "Assert-DomeniaWorkerRegistry": "C26B3A1DE244A130A9FC4210AB2080ADF286F00C760717FB324470449CDFCC4A",
+    "Get-DomeniaWorkerOperationHashes": "215E32E31B829140A5DCD1372B8B9827CA50576480EB85B90EC885876F9628E8",
+    "Assert-DomeniaWorkerRegistry": "2F5FA99E1E7C21CE0229FA52CDBC717607A55DD2813407792DFD00661C11A62E",
     "Assert-DomeniaWorkerOperationCode": "41D63871EDC11F5765938E6DAF8004A01471CD63E9666E2569D6E43008032526",
     "Get-DomeniaWorkerEngineSelfTestCode": "7FB07491846A78A89C13351DC07ABCA7B150642EE02AA25FF430A19942001AF0",
     "New-DomeniaWorkerRunspace": "CD2462ECA8A4852E51E993DE9FFE7A7FAD0547C660277B3E67ECFC06736F7B9F",
@@ -1071,6 +1071,20 @@
       "ChangedPayloads": [
         "wad/modules/Domenia-Live.UI.ps1"
       ]
+    },
+    {
+      "Previous": "branche claude/epic-newton-j5ir1w, lot cache etape A (D028, D025), 2026-10-03",
+      "Source": "branche claude/epic-newton-j5ir1w, lot cache etape B (D115, D113 schema), 2026-10-03",
+      "Decision": "Lot cache etape B relu : Get-DomeniaWorkerOperationHashes et Assert-DomeniaWorkerRegistry ne changent que par le re-epinglage de LiveCache (garde de version 11/1 avant toute lecture ou ecriture, D115). Initialize-DomeniaDatabase decide le schema par la regle pure Test-DomeniaSchemaCompatibility (base plus recente, illisible, trop ancienne ou migration interrompue refusee intacte ; base plus ancienne migree apres une sauvegarde de migration hors rotation) ; equivalence verifiee cas par cas avec l ancien controle. Backup-DomeniaDatabase -Migration : sous-dossier migrations jamais elague.",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Backup-DomeniaDatabase",
+        "Get-DomeniaWorkerOperationHashes",
+        "Initialize-DomeniaDatabase"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
     }
   ]
 }

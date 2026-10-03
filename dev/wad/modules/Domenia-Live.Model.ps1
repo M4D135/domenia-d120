@@ -347,6 +347,16 @@ function Invoke-DomeniaDbQuery {
     }
 }
 
+function Assert-DomeniaLiveCacheSchema {
+    # D115: the worker never writes (nor reads) a base whose schema_info is not exactly this version (11/1).
+    param([IntPtr]$Db)
+    if (@(Invoke-DomeniaDbQuery "SELECT name FROM sqlite_master WHERE type='table' AND name='schema_info';" $Db).Count -eq 0) { return }
+    $versionRows = @(Invoke-DomeniaDbQuery "SELECT value FROM schema_info WHERE key='schema_version';" $Db)
+    $revisionRows = @(Invoke-DomeniaDbQuery "SELECT value FROM schema_info WHERE key='domenia_schema';" $Db)
+    if (($versionRows.Count -ne 1) -or ($revisionRows.Count -ne 1) -or ([string]$versionRows[0].value -cne '11') -or ([string]$revisionRows[0].value -cne '1')) {
+        throw 'Cache refuse : schema de base different de cette version (11/1), aucune ecriture.'
+    }
+}
 $path=[string]$Payload.Path
 if([string]::IsNullOrWhiteSpace($path) -or -not [IO.Path]::IsPathRooted($path)){throw 'Chemin de cache invalide.'}
 $scope=[string]$Payload.Scope
@@ -358,6 +368,7 @@ try{
     if($Payload.Mode -eq 'Read'){
         if(-not [IO.File]::Exists($path)){[pscustomobject]@{Mode='Read';CacheHit=$false};return}
         $db=Open-DomeniaDatabase -Path $path -ReadOnly
+        Assert-DomeniaLiveCacheSchema $db
         $tables=@(Invoke-DomeniaDbQuery "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('adcc_live_queries','adcc_live_observations');" $db)
         $queryHit=$false
         if(@($tables|Where-Object {$_.name -eq 'adcc_live_queries'}).Count -gt 0){
@@ -391,6 +402,7 @@ try{
     }
     if($Payload.Mode -ne 'Write'){throw 'Mode de cache inconnu.'}
     $db=Open-DomeniaDatabase -Path $path
+    Assert-DomeniaLiveCacheSchema $db
     [void](Invoke-DomeniaDbExec @"
 CREATE TABLE IF NOT EXISTS adcc_live_queries(scope_key TEXT NOT NULL,query_key TEXT NOT NULL,observed_utc TEXT NOT NULL,payload TEXT NOT NULL,PRIMARY KEY(scope_key,query_key));
 CREATE TABLE IF NOT EXISTS adcc_live_observations(scope_key TEXT NOT NULL,object_key TEXT NOT NULL,checked_utc TEXT NOT NULL,payload TEXT NOT NULL,PRIMARY KEY(scope_key,object_key));

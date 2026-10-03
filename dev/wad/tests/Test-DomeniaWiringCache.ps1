@@ -366,6 +366,82 @@ Test-Case 'D028 : Request-DomeniaLinkPersistence est declaree dans le chargeur' 
     Assert-True ($loaderText.IndexOf("'Request-DomeniaLinkPersistence'",[StringComparison]::Ordinal) -ge 0)
 }
 
+
+# ---------------------------------------------------------------- D115 / D113: schema of the local base (real SQLite)
+. (Join-Path $modules 'Domenia-Release.Model.ps1')
+foreach ($name in @('Initialize-DomeniaWinSqliteNative','New-DomeniaUtf8Ptr','ConvertFrom-DomeniaUtf8Ptr','Open-DomeniaDatabase','Close-DomeniaDatabase','Invoke-DomeniaDbExec','Invoke-DomeniaDbQuery','ConvertTo-DomeniaSqlLiteral','Initialize-DomeniaDatabase','Backup-DomeniaDatabase','Get-DomeniaStoreBackupDirectory')) {
+    . ([scriptblock]::Create((Get-FunctionTextFromFile $core $name)))
+}
+function Get-CfgValue { param($Section,$Key,$Default) return $Default }
+function Get-DomeniaDatabasePath { return $script:TestDbPath }
+function Initialize-DomeniaDataStore { return $true }
+function Recover-DomeniaDatabase { param($Reason) $script:RecoverCalls++; throw 'Restauration interdite dans ce test.' }
+[void](Initialize-DomeniaWinSqliteNative)
+function New-SchemaSandbox {
+    param([string]$Version,[string]$Revision,[switch]$NoRevision)
+    $root = Join-Path ([IO.Path]::GetTempPath()) ('domenia-cache-schema-' + [guid]::NewGuid().ToString('N'))
+    [void][IO.Directory]::CreateDirectory($root)
+    $script:TestDbPath = Join-Path $root 'Domenia.db'
+    $script:DomeniaDatabaseReady = $false; $script:DomeniaDatabaseRecoveryAttempted = $false; $script:RecoverCalls = 0
+    if ($Version) {
+        $db = Open-DomeniaDatabase -Path $script:TestDbPath
+        try {
+            [void](Invoke-DomeniaDbExec 'CREATE TABLE IF NOT EXISTS schema_info(key TEXT PRIMARY KEY,value TEXT NOT NULL);' $db)
+            [void](Invoke-DomeniaDbExec ("INSERT OR REPLACE INTO schema_info(key,value) VALUES('schema_version'," + (ConvertTo-DomeniaSqlLiteral $Version) + ');') $db)
+            if (-not $NoRevision) { [void](Invoke-DomeniaDbExec ("INSERT OR REPLACE INTO schema_info(key,value) VALUES('domenia_schema'," + (ConvertTo-DomeniaSqlLiteral $Revision) + ');') $db) }
+        } finally { Close-DomeniaDatabase $db }
+    }
+    return $root
+}
+function Get-SchemaValue {
+    param([string]$Key)
+    $db = Open-DomeniaDatabase -Path $script:TestDbPath -ReadOnly
+    try { $rows = @(Invoke-DomeniaDbQuery ("SELECT value FROM schema_info WHERE key=" + (ConvertTo-DomeniaSqlLiteral $Key) + ';') $db) } finally { Close-DomeniaDatabase $db }
+    if ($rows.Count -eq 0) { return $null }
+    return [string]$rows[0].value
+}
+function Get-TableCount {
+    $db = Open-DomeniaDatabase -Path $script:TestDbPath -ReadOnly
+    try { return @(Invoke-DomeniaDbQuery "SELECT name FROM sqlite_master WHERE type='table';" $db).Count } finally { Close-DomeniaDatabase $db }
+}
+
+Test-Case 'D115 : une base plus recente est refusee intacte, sans sauvegarde ni restauration' {
+    $root = New-SchemaSandbox -Version '12' -Revision '1'
+    $before = Get-TableCount
+    $message = ''
+    try { [void](Initialize-DomeniaDatabase) } catch { $message = $_.Exception.Message }
+    Assert-True ($message -match 'plus recente') ('Refus non explicite : ' + $message)
+    Assert-Equal '12' (Get-SchemaValue 'schema_version') 'La version de la base a ete modifiee.'
+    Assert-Equal $before (Get-TableCount) 'Des tables ont ete creees dans une base plus recente.'
+    Assert-False ([IO.Directory]::Exists((Join-Path $root 'Backups'))) 'Une sauvegarde a ete faite pour une base refusee.'
+    Assert-Equal 0 $script:RecoverCalls 'Une restauration a ete tentee.'
+}
+
+Test-Case 'D115 : base ADCC (sans revision) sauvegardee hors rotation puis migree' {
+    $root = New-SchemaSandbox -Version '11' -NoRevision
+    Assert-True (Initialize-DomeniaDatabase) 'Migration refusee.'
+    Assert-Equal '1' (Get-SchemaValue 'domenia_schema') 'Revision Domenia non ecrite.'
+    $migrations = Join-Path $root 'Backups\migrations'
+    Assert-Equal 1 @(Get-ChildItem -LiteralPath $migrations -Filter 'Domenia-migration-*.db' -File -ErrorAction SilentlyContinue).Count 'Sauvegarde de migration absente.'
+    for ($i = 0; $i -lt 4; $i++) { [void](Backup-DomeniaDatabase) }
+    $script:DomeniaDatabaseReady = $false
+    Assert-True (Initialize-DomeniaDatabase) 'Deuxieme ouverture refusee.'
+    Assert-Equal 1 @(Get-ChildItem -LiteralPath $migrations -Filter 'Domenia-migration-*.db' -File).Count 'La rotation ou une deuxieme ouverture a touche aux sauvegardes de migration.'
+    Assert-True (@(Get-ChildItem -LiteralPath (Join-Path $root 'Backups') -Filter 'Domenia-*.db' -File).Count -ge 1) 'La sauvegarde ordinaire ne fonctionne plus.'
+}
+
+Test-Case 'D115 : le worker LiveCache n ecrit pas dans une base plus recente' {
+    [void](New-SchemaSandbox -Version '12' -Revision '1')
+    $code = Get-DomeniaLiveCacheCode
+    $Payload = [pscustomobject]@{Mode='Write';Path=$script:TestDbPath;Scope=('a' * 64);Observations=@();Query=$null}
+    $message = ''
+    try { [void](& ([scriptblock]::Create($code))) } catch { $message = $_.Exception.Message }
+    Assert-True ($message -match 'Cache refuse') ('Refus du worker absent : ' + $message)
+    $db = Open-DomeniaDatabase -Path $script:TestDbPath -ReadOnly
+    try { $tables = @(Invoke-DomeniaDbQuery "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'adcc_live_%';" $db) } finally { Close-DomeniaDatabase $db }
+    Assert-Equal 0 $tables.Count 'Le worker a cree ses tables dans une base plus recente.'
+}
+
 try { Stop-TestTimers } catch { }
 $passed = @($checks | Where-Object { $_.Status -eq 'Passed' }).Count
 $failed = @($checks | Where-Object { $_.Status -eq 'Failed' }).Count
@@ -378,7 +454,7 @@ $report = [ordered]@{
     Wpf=$true
     MockedNetwork=$true
     LiveAD=$false
-    Points=@('D025','D028')
+    Points=@('D025','D028','D115','D113')
     Passed=$passed
     Failed=$failed
     Complete=($failed -eq 0 -and $passed -gt 0)
