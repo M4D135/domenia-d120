@@ -30,11 +30,35 @@ function Complete-DomeniaReconcile {
     if(-not (Test-DomeniaLiveSearchActive) -or $State.Epoch -ne $script:SessionEpoch -or $State.Identity -cne $script:Live.Identity -or -not [object]::ReferenceEquals($script:Live.Search,$State.Search) -or $State.Mutation -ne $script:Continuity.Mutation){return}
     $r=Get-DomeniaEffectiveWorkerResult $Result @('Rows','Capped','Filter')
     if($null -eq $r -or [string]$r.Filter -cne $State.Filter){return}
-    $s=$script:Live.Search;$seen=@{}
-    foreach($row in @($r.Rows)){
-        $key=Get-DomeniaLiveObjectKey $row;$seen[$key]=$true
-        $script:Reconcile.Events.Enqueue([pscustomobject]@{Kind='Row';Row=$row;ObservedUtc=$r.ObservedUtc;Search=$s;Identity=$State.Identity;Mutation=$State.Mutation})
+    $s=$script:Live.Search
+    $incoming=@($r.Rows)
+    # D022: only changed or new rows enter the reconcile queue; unchanged rows do not ask for a refresh.
+    $plan=Get-DomeniaRowUpdatePlan -Existing @($s.Rows) -Incoming $incoming -KeyProperty 'Guid' -Properties @('Name','Login','UPN','State','OS','LastLogon','Description','Changed','DN')
+    $filteredChanged=$false
+    foreach($update in @($plan.Updates)){
+        foreach($name in @($update.Changes.Keys)){
+            if($name -in @('Name','Login','UPN')){ $filteredChanged=$true }
+        }
     }
+    $rowByKey=@{}
+    foreach($row in $incoming){
+        $key=([string](ConvertTo-DomeniaGuidText (Get-DomeniaMember $row 'Guid' ''))).ToLowerInvariant()
+        if($key){
+            if(-not $rowByKey.ContainsKey($key)){ $rowByKey[$key]=$row }
+        }
+    }
+    foreach($update in @($plan.Updates)){
+        $keyText=[string]$update.Key
+        $source=$rowByKey[$keyText]
+        if($null -ne $source){
+            $script:Reconcile.Events.Enqueue([pscustomobject]@{Kind='Row';Row=$source;ObservedUtc=$r.ObservedUtc;Search=$s;Identity=$State.Identity;Mutation=$State.Mutation})
+        }
+    }
+    foreach($insert in @($plan.Inserts)){
+        $script:Reconcile.Events.Enqueue([pscustomobject]@{Kind='Row';Row=$insert;ObservedUtc=$r.ObservedUtc;Search=$s;Identity=$State.Identity;Mutation=$State.Mutation})
+    }
+    # Only raise the flag: a refresh already requested elsewhere is never cancelled here.
+    if($filteredChanged){$s.RefreshNeeded=$true}
 
     $knownGuids=New-Object 'System.Collections.Generic.List[string]'
     $knownDnByGuid=@{}

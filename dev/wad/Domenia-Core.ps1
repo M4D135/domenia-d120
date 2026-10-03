@@ -9853,12 +9853,10 @@ function Invoke-GlobalSearch {
         if ($null -ne $view) { $cacheKey += '|view:' + [string]$view.Id }
         # Cache previews are read in a worker; the WPF thread performs no SQLite query here.
 
-        $props = @(
-            "name","distinguishedName","objectClass","objectCategory",
-            "sAMAccountName","userPrincipalName","mail","dNSHostName","description",
-            "displayName","whenChanged","objectGUID","userAccountControl","lockoutTime","msDS-User-Account-Control-Computed",
-            "operatingSystem","lastLogonTimestamp","adminCount"
-        )
+        # D021: the list projection is the single source of truth; heavy attributes are refused before the worker.
+        $props = @(Get-DomeniaProjection -Kind List)
+        $projectionCheck = Test-DomeniaProjectionMinimal $props
+        if (-not [bool]$projectionCheck.Minimal) { throw 'Projection de liste trop lourde.' }
 
         $code = @'
 $watch = [System.Diagnostics.Stopwatch]::StartNew()

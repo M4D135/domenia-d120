@@ -1018,6 +1018,229 @@ Test-Case 'D024/D026/D027 : aucune garde Get-Command autour des regles Cache.Mod
     }
 }
 
+# ---------------------------------------------------------------- Step E : D021, D022
+$reconcileUi = Join-Path $modules 'Domenia-Reconcile.UI.ps1'
+if (-not [IO.File]::Exists($reconcileUi)) { throw ('Fichier absent : ' + $reconcileUi) }
+
+$liveTypes = Join-Path $wad 'modules\Domenia-Live.Types.cs'
+if (-not [IO.File]::Exists($liveTypes)) { throw ('Fichier absent : ' + $liveTypes) }
+Add-Type -Path $liveTypes -ErrorAction SilentlyContinue
+
+. ([scriptblock]::Create((Get-FunctionTextFromFile $core 'Invoke-GlobalSearch')))
+. ([scriptblock]::Create((Get-FunctionTextFromFile $reconcileUi 'Complete-DomeniaReconcile')))
+
+$script:SavedFunctions=@{}
+function Set-TestFunction {
+    param([string]$Name,[scriptblock]$Body)
+    $path = "function:script:$Name"
+    if (Test-Path $path) { $script:SavedFunctions[$Name] = (Get-Item $path).ScriptBlock }
+    else { $script:SavedFunctions[$Name] = $null }
+    Set-Item $path $Body
+}
+function Restore-TestFunctions {
+    foreach ($name in @($script:SavedFunctions.Keys)) {
+        $saved = $script:SavedFunctions[$name]
+        if ($null -eq $saved) { Remove-Item "function:script:$name" -ErrorAction SilentlyContinue }
+        else { Set-Item "function:script:$name" $saved }
+    }
+    $script:SavedFunctions=@{}
+}
+
+Test-Case 'D021 : Invoke-GlobalSearch passe par Get-DomeniaProjection List' {
+    $script:SavedFunctions=@{}
+    try {
+        $script:ProjectionCalls=0
+        $script:ProjectionCheckCalls=0
+        $script:SentinelProps=@('objectGUID','name','uSNChanged')
+        $script:CapturedPayload=$null
+
+        Set-TestFunction 'Get-DomeniaProjection' {
+            param($Kind)
+            $script:ProjectionCalls++
+            return $script:SentinelProps
+        }
+        Set-TestFunction 'Test-DomeniaProjectionMinimal' {
+            param($Requested)
+            $script:ProjectionCheckCalls++
+            return [pscustomobject]@{Minimal=$true;Heavy=@()}
+        }
+        Set-TestFunction 'Start-UiTask' {
+            param($Name,$OperationId,$Code,$Payload,$CallbackState,$ReplaceKey,$DisableControls,$TimeoutSeconds,$StatusText,$SuccessHandler,$ErrorHandler)
+            $script:CapturedPayload=$Payload
+            return 'test-task'
+        }
+        Set-TestFunction 'Begin-DomeniaLiveSearch' {
+            param($State,$Payload)
+            Add-Member -InputObject $State -NotePropertyName LiveState -NotePropertyValue ([pscustomobject]@{Rows=@()}) -Force
+            return [pscustomobject]@{LiveState=$null}
+        }
+        Set-TestFunction 'Get-DomeniaControl' {
+            param($Name)
+            return [pscustomobject]@{Text='100';Items=@();SelectedIndex=-1;SelectedItem=$null;IsEnabled=$true}
+        }
+        Set-TestFunction 'Set-DomeniaControlText' { param($Name,$Text) }
+        Set-TestFunction 'Get-DomeniaSearchText' { param($Mode) return '*' }
+        Set-TestFunction 'Get-DomeniaSearchScope' {
+            param($Mode)
+            return [pscustomobject]@{BaseDn='DC=example,DC=invalid';Scope='Subtree'}
+        }
+        Set-TestFunction 'Get-CfgValue' { param($Section,$Name,$Default) return $Default }
+        Set-TestFunction 'Get-GlobalSelectedTypeFilter' { param($Mode) return '(objectClass=*)' }
+        Set-TestFunction 'Get-TypeLdapFilter' { param($Type) return '(objectClass=*)' }
+        Set-TestFunction 'Escape-LdapValue' { param($Value,[switch]$KeepWildcard) return [string]$Value }
+        Set-TestFunction 'Set-DomeniaSearchMode' { param($Mode) }
+        Set-TestFunction 'Invalidate-DomeniaSearchResults' { }
+        Set-TestFunction 'Update-DomeniaSearchScopeUi' { }
+        Set-TestFunction 'Select-DomeniaWorkspace' { param($Workspace) }
+        Set-TestFunction 'Stop-DomeniaSelectionOpenTimer' { }
+        Set-TestFunction 'Clear-DomeniaCurrentObjectRequest' { param($RequestId) }
+        Set-TestFunction 'Reset-DomeniaSelectionBoundViews' { }
+        Set-TestFunction 'Show-DomeniaOperationError' { param($Operation,$ErrorRecordOrException,[switch]$NoPopup) }
+        Set-TestFunction 'Test-DomeniaAccessBusyWrite' { return $false }
+        Set-TestFunction 'Test-DomeniaDraftNavigation' { param($DN,[switch]$Refresh) return $true }
+        Set-TestFunction 'Get-DomeniaWorkViews' { return @() }
+        Set-TestFunction 'Get-DomeniaGlobalSearchPlan' {
+            param($Text,$TypeFilter,$MinimumLength,$SyntaxEnabled)
+            return [pscustomobject]@{Valid=$true;Kind='Browse';Filter='';Hint='';Reason='';MultiWordFilter=''}
+        }
+        Set-TestFunction 'Get-DomeniaFeatureFlag' { param($Name,$Default=$true) return $true }
+
+        $script:GlobalSearchGeneration=1
+        $script:ActiveSearchViewId=''
+        $script:SelectedBranchDn=''
+        $script:Conn=[pscustomobject]@{Domain='example.invalid';Server='dc1';BaseDn='DC=example,DC=invalid';BindUser='svc'}
+        $script:DemoMode=$false
+        $script:AsyncEngineClosing=$false
+        $script:ActiveWriteTaskId=''
+        $script:WriteState='Known'
+        $script:AccessState=$null
+        $script:DirectoryCredentialFaulted=$false
+        $script:ShowingCachedObject=$false
+        $script:CurrentObjectRequestId=''
+        $script:CurrentObjectRequestState=$null
+        $script:SelectedObject=$null
+        $script:SelectionLoad=$null
+
+        [void](Invoke-GlobalSearch -SearchMode 'OU' -SilentError)
+
+        Assert-True ($script:ProjectionCalls -gt 0) 'Get-DomeniaProjection non appele.'
+        Assert-True ($script:ProjectionCheckCalls -gt 0) 'Test-DomeniaProjectionMinimal non appele.'
+        Assert-True ($null -ne $script:CapturedPayload) 'Start-UiTask n a pas recu de payload.'
+        Assert-Equal ($script:SentinelProps -join '|') (@($script:CapturedPayload.Properties) -join '|') 'La charge utile ne vient pas de la projection.'
+        Assert-True (@($script:CapturedPayload.Properties) -notcontains 'memberOf') 'La projection liste contient memberOf.'
+    } finally {
+        Restore-TestFunctions
+    }
+}
+
+Test-Case 'D022 : Complete-DomeniaReconcile n met en file que les lignes modifiees' {
+    $script:SavedFunctions=@{}
+    try {
+        $script:Continuity=@{Mutation=0}
+        $script:Reconcile=[pscustomobject]@{Job='';Events=[Collections.Generic.Queue[object]]::new();Checkpoint=$null}
+        $script:Live=@{Identity='test';Search=$null}
+
+        $rows=[Collections.ObjectModel.ObservableCollection[object]]::new()
+        $guids=@()
+        for($i=0;$i -lt 100;$i++){
+            $row=New-Object Domenia.Live.ResultRow
+            $g=[guid]::NewGuid().ToString()
+            $row.Set('Guid',$g)
+            $row.Set('DN','CN=obj'+$i+',DC=example,DC=invalid')
+            $row.Set('Name','obj'+$i)
+            $row.Set('Login','obj'+$i)
+            $row.Set('UPN','obj'+$i+'@example.invalid')
+            $row.Set('State','Actif')
+            $row.Set('OS','')
+            $row.Set('LastLogon','')
+            $row.Set('Description','')
+            $row.Set('Changed','')
+            [void]$rows.Add($row)
+            $guids+=$g
+        }
+
+        $grid=New-Object System.Windows.Controls.DataGrid
+        $grid.AutoGenerateColumns=$false
+        $grid.CanUserAddRows=$false
+        $grid.EnableRowVirtualization=$true
+        $grid.ItemsSource=$rows
+        $grid.SelectedIndex=49
+        $grid.UpdateLayout()
+        $grid.ScrollIntoView($grid.SelectedItem)
+
+        $selected=$grid.SelectedItem
+        $selectedIndex=$grid.SelectedIndex
+
+        $s=[pscustomobject]@{
+            Rows=$rows
+            Map=@{}
+            Fresh=@{}
+            FreshOrder=[Collections.Generic.List[object]]::new()
+            CacheKeys=[Collections.Generic.Queue[string]]::new()
+            State=[pscustomobject]@{SearchMode='OU';Search='';Limit=500;PreserveSelectionDn=''}
+            Identity='test'
+            Epoch=[long]1
+            RefreshNeeded=$false
+        }
+        $script:Live.Search=$s
+
+        $incoming=@()
+        for($i=0;$i -lt 100;$i++){
+            $state='Actif'
+            if($i -eq 49){$state='Inactif'}
+            $incoming += [pscustomobject]@{
+                Guid=$guids[$i]
+                DN='CN=obj'+$i+',DC=example,DC=invalid'
+                Name='obj'+$i
+                Login='obj'+$i
+                UPN='obj'+$i+'@example.invalid'
+                State=$state
+                OS=''
+                LastLogon=''
+                Description=''
+                Changed=''
+            }
+        }
+
+        $result=[pscustomobject]@{
+            Rows=$incoming
+            Capped=$false
+            Filter='test'
+            ObservedUtc=[datetime]::UtcNow.ToString('o')
+            Dc='dc1'
+            InvocationId='inv1'
+            HighestUsn='1'
+            BaseDn='DC=example,DC=invalid'
+            Scope='Subtree'
+        }
+        $state=[pscustomobject]@{
+            Epoch=[long]1
+            Identity='test'
+            Filter='test'
+            Search=$s
+            Mutation=0
+        }
+
+        Set-TestFunction 'Test-DomeniaLiveSearchActive' { return $true }
+        Set-TestFunction 'Get-DomeniaEffectiveWorkerResult' { param($Result,$RequiredProperties) return $Result }
+        Set-TestFunction 'Get-DomeniaLiveObjectKey' {
+            param($Row)
+            return ([string](Get-DomeniaMember $Row 'Guid' '')).ToLowerInvariant()
+        }
+        Set-TestFunction 'Set-Status' { param($Text,$Level) $script:Statuses.Add([string]$Text) }
+
+        [void](Complete-DomeniaReconcile -Result $result -State $state)
+
+        Assert-Equal 1 $script:Reconcile.Events.Count 'Un seul evenement de ligne attendu.'
+        Assert-False $s.RefreshNeeded 'RefreshNeeded pose pour une colonne non filtree.'
+        Assert-True ([object]::ReferenceEquals($selected,$grid.SelectedItem)) 'La selection a change.'
+        Assert-Equal $selectedIndex $grid.SelectedIndex 'L index selectionne a change.'
+        Assert-True ([object]::ReferenceEquals($rows,$grid.ItemsSource)) 'La collection a ete remplacee.'
+    } finally {
+        Restore-TestFunctions
+    }
+}
+
 try { Stop-TestTimers } catch { }
 $passed = @($checks | Where-Object { $_.Status -eq 'Passed' }).Count
 $failed = @($checks | Where-Object { $_.Status -eq 'Failed' }).Count
@@ -1030,7 +1253,7 @@ $report = [ordered]@{
     Wpf=$true
     MockedNetwork=$true
     LiveAD=$false
-    Points=@('D025','D028','D115','D113','D024','D026','D027')
+    Points=@('D025','D028','D115','D113','D024','D026','D027','D021','D022')
     Passed=$passed
     Failed=$failed
     Complete=($failed -eq 0 -and $passed -gt 0)

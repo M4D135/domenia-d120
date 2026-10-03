@@ -30,6 +30,8 @@ Invoke-Expression $structured[0].Extent.Text
 # D120: the global search uses the pure search rules, as the closed loader provides them.
 . (Join-Path (Split-Path -Parent $PSScriptRoot) 'modules\Domenia-Common.Model.ps1')
 . (Join-Path (Split-Path -Parent $PSScriptRoot) 'modules\Domenia-Search.Model.ps1')
+# D021: the global search asks the list projection of the cache rules.
+. (Join-Path (Split-Path -Parent $PSScriptRoot) 'modules\Domenia-Cache.Model.ps1')
 function Test-DomeniaAccessBusyWrite {return $false}
 function Test-DomeniaDraftNavigation {param($DN);return $true}
 function Get-CfgValue {param($Section,$Name,$Default) return $Default}
