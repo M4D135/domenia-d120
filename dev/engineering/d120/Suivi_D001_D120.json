@@ -108,6 +108,13 @@
       "Status": "FAIL",
       "Host": "Windows PowerShell 5.1.26100.6584 Desktop x64 (VM CNAMTS-W11-01, session 1)",
       "Detail": "env, compat, parser (-RequireWindows51), startcheck reussis ; 34 suites : 2064 reussis, 6 en echec (Test-DomeniaGeometry : zones 1097x589, 960x516, 1092x576 plus basses que la hauteur minimale de fenetre 640). Doublures, aucun AD reel ; non qualifiant pour la livraison."
+    },
+    {
+      "Name": "Integration 2026-10-03 : campagne VM CNAMTS-W11-01 (commit 7d4b5d5)",
+      "Executed": true,
+      "Status": "FAIL",
+      "Host": "Windows PowerShell 5.1.26100.6584 Desktop x64 (VM CNAMTS-W11-01, session 1)",
+      "Detail": "env, compat, parser (-RequireWindows51), startcheck reussis ; 34 suites : 2068 reussis, 2 en echec (Test-DomeniaGeometry, 1920x1080 a 200 % : zone 960x516). Doublures, aucun AD reel ; non qualifiant pour la livraison."
     }
   ],
   "Items": [
@@ -255,7 +262,7 @@
       ],
       "lot": "suites",
       "wiring": "Complet",
-      "evidence": "37 test(s) de regles ; sous PowerShell 7.4 Linux (non qualifiant) le 2026-10-02 : execution de controle seulement. Integration relue et controles statiques (parseur, compatibilite 5.1, plan de demarrage, contrats workers, XAML, build d essai) dans le conteneur de la session. Campagne d integration Windows PowerShell 5.1.26100.6584 x64 dans la VM CNAMTS-W11-01 le 2026-10-03, commit e526809 lie (407/407) : Test-DomeniaFaults, Test-DomeniaRegressions et Test-DomeniaWiringSuites reussies ; Test-DomeniaGeometry 30/36 apres le mode ecran court (restent les 3 zones de travail plus basses que la hauteur minimale de la fenetre : 1097x589, 960x516, 1092x576, clair et sombre). Statut inchange tant que Test-DomeniaGeometry, commune au lot, n est pas entierement reussie ; doublures, aucun AD reel."
+      "evidence": "37 test(s) de regles ; sous PowerShell 7.4 Linux (non qualifiant) le 2026-10-02 : execution de controle seulement. Integration relue et controles statiques (parseur, compatibilite 5.1, plan de demarrage, contrats workers, XAML, build d essai) dans le conteneur de la session. Campagne d integration Windows PowerShell 5.1.26100.6584 x64 dans la VM CNAMTS-W11-01 le 2026-10-03, commit e526809 lie (407/407) : Test-DomeniaFaults, Test-DomeniaRegressions et Test-DomeniaWiringSuites reussies ; Test-DomeniaGeometry 30/36 apres le mode ecran court (restent les 3 zones de travail plus basses que la hauteur minimale de la fenetre : 1097x589, 960x516, 1092x576, clair et sombre). Statut inchange tant que Test-DomeniaGeometry, commune au lot, n est pas entierement reussie ; doublures, aucun AD reel. Mise a jour 2026-10-03, commit 7d4b5d5 lie (407/407) : actions de resultats dans la barre de resultats, bande d activite fondue dans la barre de titre, mode ecran court ; Test-DomeniaGeometry 34/36 (reste 1920x1080 a 200 %, zone 960x516, clair et sombre)."
     },
     {
       "id": "D005",
@@ -289,7 +296,7 @@
       ],
       "lot": "suites",
       "wiring": "Complet",
-      "evidence": " Integration relue et controles statiques (parseur, compatibilite 5.1, plan de demarrage, contrats workers, XAML, build d essai) dans le conteneur de la session. Campagne d integration Windows PowerShell 5.1.26100.6584 x64 dans la VM CNAMTS-W11-01 le 2026-10-03, commit e526809 lie (407/407) : Test-DomeniaFaults, Test-DomeniaRegressions et Test-DomeniaWiringSuites reussies ; Test-DomeniaGeometry 30/36 apres le mode ecran court (restent les 3 zones de travail plus basses que la hauteur minimale de la fenetre : 1097x589, 960x516, 1092x576, clair et sombre). Statut inchange tant que Test-DomeniaGeometry, commune au lot, n est pas entierement reussie ; doublures, aucun AD reel."
+      "evidence": " Integration relue et controles statiques (parseur, compatibilite 5.1, plan de demarrage, contrats workers, XAML, build d essai) dans le conteneur de la session. Campagne d integration Windows PowerShell 5.1.26100.6584 x64 dans la VM CNAMTS-W11-01 le 2026-10-03, commit e526809 lie (407/407) : Test-DomeniaFaults, Test-DomeniaRegressions et Test-DomeniaWiringSuites reussies ; Test-DomeniaGeometry 30/36 apres le mode ecran court (restent les 3 zones de travail plus basses que la hauteur minimale de la fenetre : 1097x589, 960x516, 1092x576, clair et sombre). Statut inchange tant que Test-DomeniaGeometry, commune au lot, n est pas entierement reussie ; doublures, aucun AD reel. Mise a jour 2026-10-03, commit 7d4b5d5 lie (407/407) : actions de resultats dans la barre de resultats, bande d activite fondue dans la barre de titre, mode ecran court ; Test-DomeniaGeometry 34/36 (reste 1920x1080 a 200 %, zone 960x516, clair et sombre)."
     },
     {
       "id": "D006",
@@ -323,7 +330,7 @@
       ],
       "lot": "suites",
       "wiring": "Complet",
-      "evidence": " Integration relue et controles statiques (parseur, compatibilite 5.1, plan de demarrage, contrats workers, XAML, build d essai) dans le conteneur de la session. Campagne d integration Windows PowerShell 5.1.26100.6584 x64 dans la VM CNAMTS-W11-01 le 2026-10-03, commit e526809 lie (407/407) : Test-DomeniaFaults, Test-DomeniaRegressions et Test-DomeniaWiringSuites reussies ; Test-DomeniaGeometry 30/36 apres le mode ecran court (restent les 3 zones de travail plus basses que la hauteur minimale de la fenetre : 1097x589, 960x516, 1092x576, clair et sombre). Statut inchange tant que Test-DomeniaGeometry, commune au lot, n est pas entierement reussie ; doublures, aucun AD reel."
+      "evidence": " Integration relue et controles statiques (parseur, compatibilite 5.1, plan de demarrage, contrats workers, XAML, build d essai) dans le conteneur de la session. Campagne d integration Windows PowerShell 5.1.26100.6584 x64 dans la VM CNAMTS-W11-01 le 2026-10-03, commit e526809 lie (407/407) : Test-DomeniaFaults, Test-DomeniaRegressions et Test-DomeniaWiringSuites reussies ; Test-DomeniaGeometry 30/36 apres le mode ecran court (restent les 3 zones de travail plus basses que la hauteur minimale de la fenetre : 1097x589, 960x516, 1092x576, clair et sombre). Statut inchange tant que Test-DomeniaGeometry, commune au lot, n est pas entierement reussie ; doublures, aucun AD reel. Mise a jour 2026-10-03, commit 7d4b5d5 lie (407/407) : actions de resultats dans la barre de resultats, bande d activite fondue dans la barre de titre, mode ecran court ; Test-DomeniaGeometry 34/36 (reste 1920x1080 a 200 %, zone 960x516, clair et sombre)."
     },
     {
       "id": "D007",
@@ -357,7 +364,7 @@
       ],
       "lot": "suites",
       "wiring": "Complet",
-      "evidence": " Integration relue et controles statiques (parseur, compatibilite 5.1, plan de demarrage, contrats workers, XAML, build d essai) dans le conteneur de la session. Campagne d integration Windows PowerShell 5.1.26100.6584 x64 dans la VM CNAMTS-W11-01 le 2026-10-03, commit e526809 lie (407/407) : Test-DomeniaFaults, Test-DomeniaRegressions et Test-DomeniaWiringSuites reussies ; Test-DomeniaGeometry 30/36 apres le mode ecran court (restent les 3 zones de travail plus basses que la hauteur minimale de la fenetre : 1097x589, 960x516, 1092x576, clair et sombre). Statut inchange tant que Test-DomeniaGeometry, commune au lot, n est pas entierement reussie ; doublures, aucun AD reel."
+      "evidence": " Integration relue et controles statiques (parseur, compatibilite 5.1, plan de demarrage, contrats workers, XAML, build d essai) dans le conteneur de la session. Campagne d integration Windows PowerShell 5.1.26100.6584 x64 dans la VM CNAMTS-W11-01 le 2026-10-03, commit e526809 lie (407/407) : Test-DomeniaFaults, Test-DomeniaRegressions et Test-DomeniaWiringSuites reussies ; Test-DomeniaGeometry 30/36 apres le mode ecran court (restent les 3 zones de travail plus basses que la hauteur minimale de la fenetre : 1097x589, 960x516, 1092x576, clair et sombre). Statut inchange tant que Test-DomeniaGeometry, commune au lot, n est pas entierement reussie ; doublures, aucun AD reel. Mise a jour 2026-10-03, commit 7d4b5d5 lie (407/407) : actions de resultats dans la barre de resultats, bande d activite fondue dans la barre de titre, mode ecran court ; Test-DomeniaGeometry 34/36 (reste 1920x1080 a 200 %, zone 960x516, clair et sombre)."
     },
     {
       "id": "D008",
@@ -391,7 +398,7 @@
       ],
       "lot": "suites",
       "wiring": "Complet",
-      "evidence": "14 test(s) de regles ; sous PowerShell 7.4 Linux (non qualifiant) le 2026-10-02 : execution de controle seulement. Integration relue et controles statiques (parseur, compatibilite 5.1, plan de demarrage, contrats workers, XAML, build d essai) dans le conteneur de la session. Campagne d integration Windows PowerShell 5.1.26100.6584 x64 dans la VM CNAMTS-W11-01 le 2026-10-03, commit e526809 lie (407/407) : Test-DomeniaFaults, Test-DomeniaRegressions et Test-DomeniaWiringSuites reussies ; Test-DomeniaGeometry 30/36 apres le mode ecran court (restent les 3 zones de travail plus basses que la hauteur minimale de la fenetre : 1097x589, 960x516, 1092x576, clair et sombre). Statut inchange tant que Test-DomeniaGeometry, commune au lot, n est pas entierement reussie ; doublures, aucun AD reel."
+      "evidence": "14 test(s) de regles ; sous PowerShell 7.4 Linux (non qualifiant) le 2026-10-02 : execution de controle seulement. Integration relue et controles statiques (parseur, compatibilite 5.1, plan de demarrage, contrats workers, XAML, build d essai) dans le conteneur de la session. Campagne d integration Windows PowerShell 5.1.26100.6584 x64 dans la VM CNAMTS-W11-01 le 2026-10-03, commit e526809 lie (407/407) : Test-DomeniaFaults, Test-DomeniaRegressions et Test-DomeniaWiringSuites reussies ; Test-DomeniaGeometry 30/36 apres le mode ecran court (restent les 3 zones de travail plus basses que la hauteur minimale de la fenetre : 1097x589, 960x516, 1092x576, clair et sombre). Statut inchange tant que Test-DomeniaGeometry, commune au lot, n est pas entierement reussie ; doublures, aucun AD reel. Mise a jour 2026-10-03, commit 7d4b5d5 lie (407/407) : actions de resultats dans la barre de resultats, bande d activite fondue dans la barre de titre, mode ecran court ; Test-DomeniaGeometry 34/36 (reste 1920x1080 a 200 %, zone 960x516, clair et sombre)."
     },
     {
       "id": "D009",
