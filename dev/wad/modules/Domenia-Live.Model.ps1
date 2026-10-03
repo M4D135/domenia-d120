@@ -418,9 +418,11 @@ BEGIN IMMEDIATE;
     }
     foreach($observation in @($Payload.Observations)){
         if($null -eq $observation -or [string]::IsNullOrWhiteSpace([string]$observation.Key)){continue}
+        $checkedForRetention=[string]$observation.UserCheckedUtc
+        if([string]::IsNullOrWhiteSpace($checkedForRetention)){$checkedForRetention=[string]$observation.CheckedUtc}
         $json=$observation|ConvertTo-Json -Depth 3 -Compress
         if($json.Length -gt 16384){throw 'Observation trop volumineuse.'}
-        $sql='INSERT OR REPLACE INTO adcc_live_observations(scope_key,object_key,checked_utc,payload) VALUES('+((@($scope,[string]$observation.Key,[string]$observation.CheckedUtc,$json)|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ',')+');'
+        $sql='INSERT OR REPLACE INTO adcc_live_observations(scope_key,object_key,checked_utc,payload) VALUES('+((@($scope,[string]$observation.Key,$checkedForRetention,$json)|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ',')+');'
         [void](Invoke-DomeniaDbExec $sql $db)
         # D028: user_machine_links is written only by the single LocalStore writer.
     }

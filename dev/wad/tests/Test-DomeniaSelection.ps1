@@ -20,6 +20,9 @@ foreach($name in @('Get-MainXaml','Get-DomeniaControl','Get-DomeniaSelectedGridR
 }
 . (Join-Path $wad 'modules\Domenia-Experience.Model.ps1')
 . (Join-Path $wad 'modules\Domenia-Live.Model.ps1')
+. (Join-Path $wad 'modules\Domenia-Common.Model.ps1')
+# D027: Live.UI builds its negative cache with the cache rules.
+. (Join-Path $wad 'modules\Domenia-Cache.Model.ps1')
 . (Join-Path $wad 'modules\Domenia-Live.UI.ps1')
 . (Join-Path $wad 'modules\Domenia-Continuity.Model.ps1')
 . (Join-Path $wad 'modules\Domenia-Continuity.UI.ps1')

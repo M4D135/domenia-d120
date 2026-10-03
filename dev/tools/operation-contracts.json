@@ -137,7 +137,7 @@
     "File": "wad/Domenia-Core.ps1",
     "Function": "Get-DomeniaIndexWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "BEA2AF0C2A8BED824F4E2CD70B6E41A1F1AEF592960D7CFE67609C1E981A4951"
+    "Sha256": "4FC47EF863C2EE3F31D7D868F947D35905DCE9FC1BDDEEB0DBEFD4A179C3E7E0"
   },
   {
     "Operation": "ComputerDiagnostics",
@@ -326,7 +326,7 @@
     "File": "wad/modules/Domenia-Live.Model.ps1",
     "Function": "Get-DomeniaLiveCacheCode",
     "LiteralIndex": 0,
-    "Sha256": "F42242E9D530B2C005DC37C23A6791F2E04916CA22DFE17540CD7B47F0CF2E04"
+    "Sha256": "C4C1A3C6D502680012CB92465FF70FB70713D577731A6894D03C24CB56972289"
   },
   {
     "Operation": "LiveDirectoryCheck",
@@ -361,14 +361,14 @@
     "File": "wad/modules/Domenia-Storage.Worker.ps1",
     "Function": "Get-DomeniaStorageWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "C3AC442159F01B268243A881383EF193BEA3F53322950318C61983E2D78F6054"
+    "Sha256": "478EF92963F01B4102F14E56348E00D18442AE5D5640D71ED511EEB0F63F6D81"
   },
   {
     "Operation": "ScopeReconcile",
     "File": "wad/modules/Domenia-Reconcile.UI.ps1",
     "Function": "Get-DomeniaReconcileWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "538B302B29BE4EB5AF3335821260ACFAEDBDD8D2E490B4E816405CEE976AE831"
+    "Sha256": "5917B0E2AB92BA626EF3621CCCE7B9A4988B318E62834EFD02FD6AFEF5C0B650"
   },
   {
     "Operation": "DocumentStore",

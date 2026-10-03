@@ -2373,8 +2373,15 @@ function Get-DomeniaCachedPresenceState {
         if ($script:PresenceCache.ContainsKey($key)) {
             $entry = $script:PresenceCache[$key]
             if ($null -ne $entry) {
-                $age = ((Get-Date) - [datetime]$entry.Updated).TotalSeconds
-                if ($age -le [double]$script:PresenceCacheSeconds) { return [string]$entry.State }
+                $observedUtc = $null
+                if ($null -ne $entry.PSObject.Properties["UpdatedUtc"]) {
+                    $observedUtc = ConvertTo-DomeniaUtcDate $entry.UpdatedUtc
+                }
+                elseif ($null -ne $entry.PSObject.Properties["Updated"]) {
+                    $observedUtc = ConvertTo-DomeniaUtcDate $entry.Updated
+                }
+                $fresh = Get-DomeniaFreshness -Nature 'Presence' -ObservedUtc $observedUtc
+                if ([string]$fresh.State -eq 'Fresh') { return [string]$entry.State }
                 [void]$script:PresenceCache.Remove($key)
             }
         }
@@ -2397,13 +2404,13 @@ function Set-DomeniaResultRowPresence {
         if ([string]::IsNullOrWhiteSpace($dnValue)) { return }
         $shortState = ConvertTo-DomeniaGridPresenceState -State $State
         $key = $dnValue.ToLowerInvariant()
-        $now = Get-Date
+        $nowUtc = [datetime]::UtcNow
         $script:PresenceCache[$key] = [pscustomobject]@{
             State   = $shortState
             Target  = [string]$Target
-            Updated = $now
+            UpdatedUtc = $nowUtc
         }
-        [void](Queue-DomeniaMetadata -Kind Presence -Key $key -Row ([pscustomobject]@{Key=$key;State=$shortState;Target=$Target;At=$now.ToString('o')}))
+        [void](Queue-DomeniaMetadata -Kind Presence -Key $key -Row ([pscustomobject]@{Key=$key;State=$shortState;Target=$Target;At=$nowUtc.ToString('o')}))
 
         $changed = $false
         foreach ($row in @($script:BranchObjects)) {
@@ -13848,17 +13855,17 @@ function Update-DomeniaIndexLookupEntry {
 function Get-DomeniaIndexPath { return (Get-DomeniaDatabasePath) }
 
 function Save-DomeniaIndex {
-    param([Parameter(Mandatory=$true)]$Rows,[string]$Server='', [string]$BaseDn='', [long]$HighestUsn=0,[int]$TotalCount=0)
+    param([Parameter(Mandatory=$true)]$Rows,[string]$Server='', [string]$BaseDn='', [long]$HighestUsn=0,[int]$TotalCount=0,[string]$InvocationId='')
     if(@($Rows).Count -gt 250000){throw 'Index trop volumineux (250000 objets maximum par reconstruction).'}
     $copy=[object[]]@($Rows)
-    return Queue-DomeniaMetadata -Kind IndexBulk -Key 'directory' -Row ([pscustomobject]@{Rows=$copy;Server=$Server;BaseDn=$BaseDn;HighestUsn=$HighestUsn;TotalCount=$TotalCount;ReplaceAll=$true;At=[datetime]::UtcNow.ToString('o')})
+    return Queue-DomeniaMetadata -Kind IndexBulk -Key 'directory' -Row ([pscustomobject]@{Rows=$copy;Server=$Server;BaseDn=$BaseDn;HighestUsn=$HighestUsn;TotalCount=$TotalCount;ReplaceAll=$true;InvocationId=$InvocationId;At=[datetime]::UtcNow.ToString('o')})
 }
 
 function Update-DomeniaIndexDatabaseRows {
-    param([Parameter(Mandatory=$true)]$Rows,[string]$Server='', [string]$BaseDn='', [long]$HighestUsn=0,[int]$TotalCount=0)
+    param([Parameter(Mandatory=$true)]$Rows,[string]$Server='', [string]$BaseDn='', [long]$HighestUsn=0,[int]$TotalCount=0,[string]$InvocationId='')
     if(@($Rows).Count -gt 250000){throw 'Index trop volumineux (250000 objets maximum par reconstruction).'}
     $copy=[object[]]@($Rows)
-    return Queue-DomeniaMetadata -Kind IndexBulk -Key 'directory' -Row ([pscustomobject]@{Rows=$copy;Server=$Server;BaseDn=$BaseDn;HighestUsn=$HighestUsn;TotalCount=$TotalCount;ReplaceAll=$false;At=[datetime]::UtcNow.ToString('o')})
+    return Queue-DomeniaMetadata -Kind IndexBulk -Key 'directory' -Row ([pscustomobject]@{Rows=$copy;Server=$Server;BaseDn=$BaseDn;HighestUsn=$HighestUsn;TotalCount=$TotalCount;ReplaceAll=$false;InvocationId=$InvocationId;At=[datetime]::UtcNow.ToString('o')})
 }
 
 function Load-DomeniaIndex {
@@ -13884,14 +13891,18 @@ function Load-DomeniaIndexMetadata {
     # Seules les metadonnees et les compteurs necessaires a l'interface sont lus.
     try {
         Initialize-DomeniaDatabase | Out-Null
-        $s = @(Invoke-DomeniaDbQuery "SELECT server,base_dn,highest_usn,last_sync,item_count FROM sync_state WHERE scope='directory' LIMIT 1;")
+        $s = @(Invoke-DomeniaDbQuery "SELECT server,base_dn,highest_usn,last_sync,item_count,details FROM sync_state WHERE scope='directory' LIMIT 1;")
         if ($s.Count -gt 0) {
+            $inv = ''
+            $details = [string]$s[0].details
+            if ($details -match '(?i)inv=([0-9a-fA-F-]{36})') { $inv = $matches[1] }
             $script:IndexInfo = [pscustomobject]@{
                 Server=[string]$s[0].server
                 BaseDn=[string]$s[0].base_dn
                 Date=[string]$s[0].last_sync
                 Count=[int]$s[0].item_count
                 Usn=[long]$s[0].highest_usn
+                InvocationId=$inv
             }
         } else { $script:IndexInfo = $null }
 
@@ -14168,10 +14179,36 @@ function Complete-DomeniaIndexRefreshUi {
     if ($null -eq $effective) { throw "Actualisation sans resultat exploitable." }
     $changed = @($effective.Rows)
 
-    if (-not [bool]$effective.Incremental) {
+    $checkpoint = $null
+    try {
+        $checkpoint = [pscustomobject]@{
+            Dc=[string]$script:IndexInfo.Server
+            InvocationId=[string]$script:IndexInfo.InvocationId
+            Usn=[string]$script:IndexInfo.Usn
+            ScopeDn=[string]$script:IndexInfo.BaseDn
+        }
+    } catch { $checkpoint = $null }
+
+    $scopeDn = [string]$effective.BaseDn
+    $response = [pscustomobject]@{
+        Dc=[string]$effective.Server
+        InvocationId=[string]$effective.InvocationId
+        HighestUsn=[string]$effective.HighestUsn
+        Partial=[bool]$effective.Truncated
+        VisibilityReduced=$false
+        ScopeDn=$scopeDn
+        Rows=$changed
+        KnownGuids=@()
+        KnownDnByGuid=$null
+        ScopeComplete=(-not [bool]$effective.Truncated)
+    }
+    $sync = Resolve-DomeniaIncrementalSync $checkpoint $response
+
+    $canReplace = ((-not [bool]$effective.Incremental) -and (-not [bool]$effective.Truncated))
+    if ($canReplace) {
         # Le controleur a change ou l index n avait pas de repere : la passe
-        # a tout relu, on repart d un index neuf.
-        [void](Save-DomeniaIndex -Rows $changed -Server ([string]$effective.Server) -BaseDn ([string]$effective.BaseDn) -HighestUsn ([long]$effective.HighestUsn))
+        # a tout relu sans troncature, on repart d un index neuf.
+        [void](Save-DomeniaIndex -Rows $changed -Server ([string]$effective.Server) -BaseDn ([string]$effective.BaseDn) -HighestUsn ([long]$effective.HighestUsn) -InvocationId ([string]$effective.InvocationId))
         $script:IndexRows = @()
         [void](Load-DomeniaIndexMetadata)
         $summary = "Base autonome reconstruite : {0} objet(s), en {1} ms. Le repere de la passe precedente n etait pas utilisable." -f `
@@ -14180,12 +14217,12 @@ function Complete-DomeniaIndexRefreshUi {
     else {
         if (@($script:IndexRows).Count -gt 0) {
             $merge = Merge-DomeniaIndexRows -Existing @($script:IndexRows) -Changed $changed
-            [void](Update-DomeniaIndexDatabaseRows -Rows $changed -Server ([string]$effective.Server) -BaseDn ([string]$effective.BaseDn) -HighestUsn ([long]$effective.HighestUsn) -TotalCount ([int]$merge.Total))
+            [void](Update-DomeniaIndexDatabaseRows -Rows $changed -Server ([string]$effective.Server) -BaseDn ([string]$effective.BaseDn) -HighestUsn ([long]$effective.HighestUsn) -TotalCount ([int]$merge.Total) -InvocationId ([string]$effective.InvocationId))
             $totalAfter = [int]$merge.Total
             $updated = [int]$merge.Updated
             $added = [int]$merge.Added
         } else {
-            [void](Update-DomeniaIndexDatabaseRows -Rows $changed -Server ([string]$effective.Server) -BaseDn ([string]$effective.BaseDn) -HighestUsn ([long]$effective.HighestUsn) -TotalCount 0)
+            [void](Update-DomeniaIndexDatabaseRows -Rows $changed -Server ([string]$effective.Server) -BaseDn ([string]$effective.BaseDn) -HighestUsn ([long]$effective.HighestUsn) -TotalCount 0 -InvocationId ([string]$effective.InvocationId))
             [void](Load-DomeniaIndexMetadata)
             $totalAfter = [int]$script:IndexDbCount
             $updated = @($changed).Count
@@ -14194,15 +14231,31 @@ function Complete-DomeniaIndexRefreshUi {
         if (@($changed).Count -eq 0) {
             $summary = "Base autonome deja a jour : aucun objet modifie depuis la derniere passe, verifie en {0} ms." -f ([long]$effective.DurationMs)
         }
+        elseif ([bool]$effective.Truncated) {
+            $summary = "Base autonome actualisee partiellement : {0} fiche(s) modifiee(s)/ajoutee(s), {1} objet(s) au total, en {2} ms. Aucune suppression n a ete faite." -f `
+                @($changed).Count,$totalAfter,([long]$effective.DurationMs)
+        }
         else {
             $summary = "Base autonome actualisee : {0} fiche(s) modifiee(s)/ajoutee(s), {1} objet(s) au total, en {2} ms." -f `
                 @($changed).Count,$totalAfter,([long]$effective.DurationMs)
         }
     }
+
+    if ($sync.CheckpointAdvanced) {
+        try { $script:IndexInfo.InvocationId = [string]$sync.CheckpointNext.InvocationId } catch { }
+    }
+    if (@($sync.Moves).Count -gt 0) {
+        Add-DomeniaUiLog -Area "Index" -Text ('Deplacements detectes : ' + @($sync.Moves).Count)
+    }
+
     [void](Set-DomeniaControlText -Name "LblIndexStatus" -Text $summary)
     Set-Status $summary
-    Add-DomeniaUiLog -Area "Index" -Text ($summary + " Filtre : " + [string]$effective.DeltaClause)
-    try { Register-DomeniaOperationSample -Operation "IndexBuild" -Mode $(if([bool]$effective.Incremental){"AD delta"}else{"AD full fallback"}) -ItemCount ([Math]::Max(1,@($changed).Count)) -DurationMs ([long]$effective.DurationMs) -BytesEstimated ([long]([Math]::Max(1,@($changed).Count)*1800)) -AdQueries ([Math]::Max(1,[int][Math]::Ceiling([Math]::Max(1,@($changed).Count)/1000.0))) -SuccessCount @($changed).Count } catch { }
+    $logText = $summary + " Filtre : " + [string]$effective.DeltaClause
+    if (@($sync.Notes).Count -gt 0) { $logText += ' ' + [string]::Join(' ',$sync.Notes) }
+    Add-DomeniaUiLog -Area "Index" -Text $logText
+    $mode = "AD full fallback"
+    if ([bool]$effective.Incremental) { $mode = "AD delta" }
+    try { Register-DomeniaOperationSample -Operation "IndexBuild" -Mode $mode -ItemCount ([Math]::Max(1,@($changed).Count)) -DurationMs ([long]$effective.DurationMs) -BytesEstimated ([long]([Math]::Max(1,@($changed).Count)*1800)) -AdQueries ([Math]::Max(1,[int][Math]::Ceiling([Math]::Max(1,@($changed).Count)/1000.0))) -SuccessCount @($changed).Count } catch { }
     Update-DomeniaIndexStats
 }
 
@@ -14212,9 +14265,11 @@ function Start-DomeniaIndexRefresh {
         $lastUsn = [long]0
         $lastServer = ""
         $since = ""
+        $lastInvocationId = ""
         try { $lastUsn = [long]$script:IndexInfo.Usn } catch { }
         try { $lastServer = [string]$script:IndexInfo.Server } catch { }
         try { $since = [string]$script:IndexInfo.Date } catch { }
+        try { $lastInvocationId = [string]$script:IndexInfo.InvocationId } catch { $lastInvocationId = "" }
         $dbCount = Get-DomeniaDatabaseObjectCount
         if ($dbCount -eq 0) {
             if (-not $Silent) { Set-Status "Aucune base autonome : utilise  Mettre a jour tout  d abord." "WARN" }
@@ -14235,6 +14290,7 @@ function Start-DomeniaIndexRefresh {
                 LastUsn = $lastUsn
                 LastServer = $lastServer
                 Since = $since
+                LastInvocationId = $lastInvocationId
                 ComputerFirst = [bool](Get-CfgValue "Index" "ComputerFirst" $true)
             }) `
             -CallbackState ([pscustomobject]@{ Started=(Get-Date) }) `
@@ -15171,15 +15227,22 @@ $budgetMs = [Math]::Max(30000,[int]$Payload.BudgetMs)
 # sinon on retombe sur la date de modification, qui est repliquee.
 $lastUsn = 0
 try { $lastUsn = [int64]$Payload.LastUsn } catch { $lastUsn = 0 }
+$lastInvocationId = ''
+try { $lastInvocationId = [string]$Payload.LastInvocationId } catch { $lastInvocationId = '' }
 $sameServer = ([string]$Payload.LastServer -ieq [string]$Context.Server)
+$versionSource = ''
+try { $versionSource = [string](Get-WDirectoryVersionSource $Context) } catch { $versionSource = '' }
+$invocationId = ''
+if ($versionSource -match '^(?<dc>[^|]+)\|(?<id>[^|]+)$') { $invocationId = $matches['id'] }
+$sameInstance = (($sameServer) -and ($lastInvocationId) -and ($invocationId) -and ($lastInvocationId -ieq $invocationId))
 $since = ([string]$Payload.Since).Trim()
 $incremental = $false
 $deltaClause = ''
-if ($lastUsn -gt 0 -and $sameServer) {
+if (($lastUsn -gt 0) -and $sameInstance) {
     $incremental = $true
     $deltaClause = '(uSNChanged>=' + ($lastUsn + 1) + ')'
 }
-elseif (-not [string]::IsNullOrWhiteSpace($since)) {
+elseif ((-not [string]::IsNullOrWhiteSpace($since)) -and $sameInstance) {
     try {
         # On recule de cinq minutes : la date de modification a une seconde
         # de granularite et la replication n est pas instantanee.
@@ -15312,6 +15375,7 @@ $watch.Stop()
     BaseDn = $baseDn
     DurationMs = [long]$watch.ElapsedMilliseconds
     Success = $true
+    InvocationId = $invocationId
 }
 
 '@
@@ -20525,7 +20589,7 @@ function Get-DomeniaWorkerOperationHashes {
         SoftwareInventory     = "9F522EDE22ECD0644118E8295ABCB3CE41692FD243771A8BEFF39A0FD3106D76"
         LogonHarvest          = "ED7FFF55506C7BCE5567D65F683E10E9F28EA9771947F12A8DEEE1435994119A"
         ParkSweep             = "134ED776E45640FA67B7F51659711C33B37834105375CC4B083342469F2C26A9"
-        IndexBuild            = "BEA2AF0C2A8BED824F4E2CD70B6E41A1F1AEF592960D7CFE67609C1E981A4951"
+        IndexBuild            = "4FC47EF863C2EE3F31D7D868F947D35905DCE9FC1BDDEEB0DBEFD4A179C3E7E0"
         UserComputerProbe     = "EB7C36419C1B8B91AFB9ECE6B98D4E3FE663B87E4011F7D264D8AEDE7735E775"
         ComputerInventory     = "87D68E504BC8311DB952A143475CF7676C6223246AE00DF715432E85DDE0323C"
         ComputerDiagnostics   = "CD844877946FB2D144846A098E7E33A3856337613F5AA9C8633D8E1B378BB785"
@@ -20556,14 +20620,14 @@ function Get-DomeniaWorkerOperationHashes {
         StartupWarmCache      = "864735012ED29EBAF1B094DA12C1D44266933DC9D3D2046BD1E5D68AE58CA1A3"
         LiveSelectedPing     = "2D26C899D61097F0395FA2745A1133FA32CCB6870256882DFAB56DF6B4931E2E"
         LiveConsole          = "2D26C899D61097F0395FA2745A1133FA32CCB6870256882DFAB56DF6B4931E2E"
-        LiveCache            = "F42242E9D530B2C005DC37C23A6791F2E04916CA22DFE17540CD7B47F0CF2E04"
+        LiveCache            = "C4C1A3C6D502680012CB92465FF70FB70713D577731A6894D03C24CB56972289"
         LiveDirectoryCheck    = "49F6D4249F6465D6E461D3B04DD090F00477ABBD871683ECF3622714A2AB53CD"
         SessionsList         = "DD09187778C09CF31B0BDA41EAC88FF898D9484756AFDF2F3EE643E6B5318BF6"
         RemoteCredentialCheck = "9070C7A5D9460D0FD129FD67CD5070595DE4DED7CA7EE7573C65AF102B0E515B"
         ReceiptStore         = "20AB6477733849833861CCCBEBAD3ABE7915C3326F4A01F837121DA3A059AE3D"
-        ScopeReconcile       = "538B302B29BE4EB5AF3335821260ACFAEDBDD8D2E490B4E816405CEE976AE831"
+        ScopeReconcile       = "5917B0E2AB92BA626EF3621CCCE7B9A4988B318E62834EFD02FD6AFEF5C0B650"
         DocumentStore        = "BFD83587CB1BA62BC141E5F0742C6C6453A561617ED157045F3B4E7AB11A14E7"
-        LocalStore           = "C3AC442159F01B268243A881383EF193BEA3F53322950318C61983E2D78F6054"
+        LocalStore           = "478EF92963F01B4102F14E56348E00D18442AE5D5640D71ED511EEB0F63F6D81"
         EngineSelfTest        = "40E2C89F858E22E1D221AC48DC04DD5BF627F1ACBC836AB48036C43DB9F7E1D1"
             EmbeddedDirectoryLookup = "2B3A888C7E1A97B4D523B0B3A408EF03AA5C0D0F95D534984B8EB3D581CDDD17"
         EmbeddedPathBrowse = "B643D707E242EC4416AD63622847DD7C39E5B53ED47CF64FECD56E22B5A82271"
@@ -20575,7 +20639,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "1C2599A79E7B9D5FEB89448B8C329882D1DE66DDBD635FEEA34DA59257FA984E"
+    $expectedFingerprint = "532EBA2EAB569442F3035B20002C71D8299AE1A28A41CA3B839CCD7112BFCFCF"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -21673,8 +21737,14 @@ function Open-AdObject {
         $script:CurrentObjectRequestDn = $Dn
         $script:CurrentObjectRequestState = $state
         if ($SelectionBound) { Update-DomeniaSelectionReadUi -Phase Loading }
+        $cacheItem = $null
+        if (-not $Force) {
+            try { if ($script:VisitCache.ContainsKey($cacheKey)) { $cacheItem = $script:VisitCache[$cacheKey] } } catch { $cacheItem = $null }
+        }
         $cached = if (-not $Force) { Get-VisitCacheValue $cacheKey } else { $null }
         if ($null -ne $cached) {
+            $cacheCreated = $null
+            if ($null -ne $cacheItem) { $cacheCreated = $cacheItem.Created }
             $effective = Get-DomeniaEffectiveWorkerResult -Result $cached -RequiredProperties @('Properties')
             if ($null -ne $effective) {
                 try { Assert-DomeniaObjectResultIdentity -Result $effective -State $state }
@@ -21684,8 +21754,9 @@ function Open-AdObject {
                 }
                 if ($null -ne $effective -and (Test-DomeniaObjectCallbackIsCurrent $state)) {
                     $script:ShowingCachedObject = $true
+                    $script:ShowingCachedObjectCreated = $cacheCreated
                     try { Show-AdObjectResult -Result $effective -Dn $Dn -Type $Type -NoNavigate:$NoNavigate -SuppressRemoteProbes }
-                    finally { $script:ShowingCachedObject = $false }
+                    finally { $script:ShowingCachedObject = $false; $script:ShowingCachedObjectCreated = $null }
                     if ($SelectionBound) { Update-DomeniaSelectionReadUi -Phase Cached }
                 }
             }
@@ -21728,8 +21799,29 @@ function Show-AdObjectResult {
     $safeProperties = Remove-DomeniaSensitiveProperties -Properties $Result.Properties
     $entry = [pscustomobject]@{ Properties = $safeProperties }
     $name = Get-DomeniaEntryFirstString $entry "name"
+    $loadedAt = Get-Date
+    $attributesObservedUtc = [datetime]::UtcNow
+    $isLiveRead = -not [bool]$script:ShowingCachedObject
+    if ([bool]$script:ShowingCachedObject -and ($null -ne $script:ShowingCachedObjectCreated)) {
+        try {
+            $cacheCreated = [datetime]$script:ShowingCachedObjectCreated
+            if ($cacheCreated.Kind -eq [DateTimeKind]::Utc) {
+                $loadedAt = $cacheCreated.ToLocalTime()
+                $attributesObservedUtc = $cacheCreated
+            }
+            elseif ($cacheCreated.Kind -eq [DateTimeKind]::Local) {
+                $loadedAt = $cacheCreated
+                $attributesObservedUtc = $cacheCreated.ToUniversalTime()
+            }
+            else {
+                $cacheCreatedLocal = [datetime]::SpecifyKind($cacheCreated, [DateTimeKind]::Local)
+                $loadedAt = $cacheCreatedLocal
+                $attributesObservedUtc = $cacheCreatedLocal.ToUniversalTime()
+            }
+        } catch { }
+    }
     $script:SelectedObject = [pscustomobject]@{
-        DN=$Dn; Type=$Type; Name=$name; Entry=$entry; LoadedAt=Get-Date
+        DN=$Dn; Type=$Type; Name=$name; Entry=$entry; LoadedAt=$loadedAt
         Safety=[pscustomobject]@{
             Guid=Get-DomeniaEntryFirstString $entry "objectGUID"
             Usn=Get-DomeniaEntryFirstString $entry "uSNChanged"
@@ -21739,6 +21831,9 @@ function Show-AdObjectResult {
         }
     }
     $script:SelectedObjectGeneration = [int64]$script:SelectedObjectGeneration + 1
+    [void](Set-DomeniaObservationTime $script:SelectedObject 'Attributes' $attributesObservedUtc -Succeeded:$isLiveRead)
+    $attributesFreshness = Get-DomeniaRecordFreshness $script:SelectedObject 'Attributes'
+    $script:SelectedObject | Add-Member -NotePropertyName AttributesFreshness -NotePropertyValue $attributesFreshness -Force
     Set-DomeniaRelationsSelection -Object $script:SelectedObject
     if (-not [bool]$script:ShowingCachedObject -and $isLiveRead -and $Type -in @("Utilisateur","Machine")) {
         try { [void](Sync-DomeniaIndexEntry -Entry $entry -Type $Type) } catch { Add-DomeniaUiLog -Area "Index" -Level "WARN" -Text ("Rafraichissement cible de " + $Dn + " impossible : " + $_.Exception.Message) }

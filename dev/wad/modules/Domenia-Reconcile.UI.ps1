@@ -16,7 +16,11 @@ try{
         $row=New-WBranchRow $item;$row|Add-Member -NotePropertyName Guid -NotePropertyValue (Convert-WGuid (Get-WPropFirst $item.Properties 'objectguid' ''))
         $rows.Add($row)
     }
-    [pscustomobject]@{Rows=$rows.ToArray();Capped=$capped;BaseDn=[string]$Payload.BaseDn;Scope=[string]$Payload.Scope;Filter=[string]$Payload.Filter;ObservedUtc=[datetime]::UtcNow.ToString('o')}
+    $source=''
+    try { $source=[string](Get-WDirectoryVersionSource $Context) } catch { $source='' }
+    $dc='';$inv=''
+    if($source -match '^(?<dc>[^|]+)\|(?<id>[^|]+)$') { $dc=$matches['dc']; $inv=$matches['id'] }
+    [pscustomobject]@{Rows=$rows.ToArray();Capped=$capped;BaseDn=[string]$Payload.BaseDn;Scope=[string]$Payload.Scope;Filter=[string]$Payload.Filter;ObservedUtc=[datetime]::UtcNow.ToString('o');Source=$source;Dc=$dc;InvocationId=$inv}
 }finally{if($null -ne $all){$all.Dispose()};if($null -ne $s){$s.Dispose()};if($null -ne $root){$root.Dispose()}}
 '@
 }
@@ -31,10 +35,58 @@ function Complete-DomeniaReconcile {
         $key=Get-DomeniaLiveObjectKey $row;$seen[$key]=$true
         $script:Reconcile.Events.Enqueue([pscustomobject]@{Kind='Row';Row=$row;ObservedUtc=$r.ObservedUtc;Search=$s;Identity=$State.Identity;Mutation=$State.Mutation})
     }
-    if(-not $r.Capped){
-        foreach($row in $s.Rows){$key=Get-DomeniaLiveObjectKey $row;if(-not $seen.ContainsKey($key)){$script:Reconcile.Events.Enqueue([pscustomobject]@{Kind='Missing';Row=$row;ObservedUtc=$r.ObservedUtc;Search=$s;Identity=$State.Identity;Mutation=$State.Mutation})}}
+
+    $knownGuids=New-Object 'System.Collections.Generic.List[string]'
+    $knownDnByGuid=@{}
+    $rowByGuid=@{}
+    foreach($row in @($s.Rows)){
+        $guid=ConvertTo-DomeniaGuidText ([string](Get-DomeniaMember $row 'Guid' ''))
+        if($guid){
+            [void]$knownGuids.Add($guid)
+            $knownDnByGuid[$guid]=[string](Get-DomeniaMember $row 'DN' '')
+            $rowByGuid[$guid]=$row
+        }
     }
-    Set-Status ('Perimetre relu en arriere-plan : '+@($r.Rows).Count+' lignes'+$(if($r.Capped){' ; limite atteinte, liste non exhaustive.'}else{'. Les absences restent a verifier, sans suppression automatique.'}))
+
+    $scopeDn=([string]$r.BaseDn)+'|'+([string]$r.Scope)+'|'+([string]$State.Filter)
+    $checkpoint=$null
+    try { $checkpoint=$script:Reconcile.Checkpoint } catch { $checkpoint=$null }
+
+    $response=[pscustomobject]@{
+        Dc=[string]$r.Dc
+        InvocationId=[string]$r.InvocationId
+        HighestUsn=''
+        Partial=[bool]$r.Capped
+        VisibilityReduced=$false
+        ScopeDn=$scopeDn
+        Rows=@($r.Rows)
+        KnownGuids=$knownGuids.ToArray()
+        KnownDnByGuid=$knownDnByGuid
+        ScopeComplete=(-not [bool]$r.Capped)
+    }
+
+    $sync=Resolve-DomeniaIncrementalSync $checkpoint $response
+
+    foreach($guid in @($sync.NotSeen)){
+        if($rowByGuid.ContainsKey($guid)){
+            $script:Reconcile.Events.Enqueue([pscustomobject]@{Kind='Missing';Row=$rowByGuid[$guid];ObservedUtc=$r.ObservedUtc;Search=$s;Identity=$State.Identity;Mutation=$State.Mutation})
+        }
+    }
+
+    foreach($move in @($sync.Moves)){
+        $moveRow=$null
+        if($rowByGuid.ContainsKey([string]$move.Guid)) { $moveRow=$rowByGuid[[string]$move.Guid] }
+        $script:Reconcile.Events.Enqueue([pscustomobject]@{Kind='Move';Row=$moveRow;Guid=[string]$move.Guid;From=[string]$move.From;To=[string]$move.To;ObservedUtc=$r.ObservedUtc;Search=$s;Identity=$State.Identity;Mutation=$State.Mutation})
+    }
+
+    if($sync.CheckpointAdvanced){$script:Reconcile.Checkpoint=$sync.CheckpointNext}
+
+    $status='Perimetre relu en arriere-plan : '+@($r.Rows).Count+' lignes'
+    if([bool]$r.Capped){$status+=' ; limite atteinte, liste non exhaustive.'}
+    if(@($sync.Moves).Count -gt 0){$status+=' ; '+@($sync.Moves).Count+' deplacement(s) signale(s).'}
+    if(@($sync.NotSeen).Count -gt 0){$status+=' ; '+@($sync.NotSeen).Count+' absence(s) a verifier, sans suppression automatique.'}
+    if(@($sync.Notes).Count -gt 0){$status+=' '+([string]::Join(' ',$sync.Notes))}
+    Set-Status $status
 }
 function Fail-DomeniaReconcile {
     param($Message,$State)

@@ -655,7 +655,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaLiveProbeCode',
             'Get-DomeniaLiveCacheCode'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Search.Model.ps1','Domenia-Live.Model.ps1'); File='Domenia-Live.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Search.Model.ps1','Domenia-Live.Model.ps1','Domenia-Cache.Model.ps1'); File='Domenia-Live.UI.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaLiveIdentitySignal',
             'Initialize-DomeniaLive',
             'Reset-DomeniaLiveIdentity',
@@ -803,7 +803,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Use-DomeniaCaptureFile',
             'Export-DomeniaTechnicalDossier'
         ) }
-        [pscustomobject]@{ File='Domenia-Reconcile.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Cache.Model.ps1','Domenia-Common.Model.ps1','Domenia-Live.UI.ps1'); File='Domenia-Reconcile.UI.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaReconcileWorkerCode',
             'Complete-DomeniaReconcile',
             'Fail-DomeniaReconcile',

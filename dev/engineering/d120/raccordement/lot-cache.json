@@ -1,10 +1,13 @@
 {
   "Lot": "cache",
   "Points": [
-    "D028",
+    "D024",
     "D025",
-    "D115",
-    "D113"
+    "D026",
+    "D027",
+    "D028",
+    "D113",
+    "D115"
   ],
   "Modules": [
     {
@@ -27,6 +30,33 @@
         "Domenia-Common.Model.ps1",
         "Domenia-Engine.Model.ps1",
         "Domenia-Cache.Model.ps1"
+      ],
+      "DotSource": true,
+      "ExistingEntry": true,
+      "Functions": [],
+      "NewFunctions": []
+    },
+    {
+      "File": "Domenia-Live.UI.ps1",
+      "Phase": "Modules",
+      "Requires": [
+        "Domenia-Common.Model.ps1",
+        "Domenia-Search.Model.ps1",
+        "Domenia-Live.Model.ps1",
+        "Domenia-Cache.Model.ps1"
+      ],
+      "DotSource": true,
+      "ExistingEntry": true,
+      "Functions": [],
+      "NewFunctions": []
+    },
+    {
+      "File": "Domenia-Reconcile.UI.ps1",
+      "Phase": "Modules",
+      "Requires": [
+        "Domenia-Cache.Model.ps1",
+        "Domenia-Common.Model.ps1",
+        "Domenia-Live.UI.ps1"
       ],
       "DotSource": true,
       "ExistingEntry": true,

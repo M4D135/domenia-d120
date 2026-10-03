@@ -151,6 +151,35 @@ function Reset-TestState {
     $script:QueueSpyBusy = $false
     Set-Item function:script:Queue-DomeniaLinkChanges $script:QueueOriginal
     Set-Item function:script:Request-DomeniaLinkPersistence $script:RequestOriginal
+    # Step C (D024, D026, D027)
+    $script:PresenceCache=@{}
+    $script:CacheStats=[pscustomobject]@{Hits=0;Misses=0;Writes=0;Evictions=0;Errors=0}
+    $script:AsyncJobs=@{}
+    $script:SelectedObjectGeneration=0
+    $script:IndexRows=@()
+    $script:IndexInfo=$null
+    $script:IndexDbCount=0
+    $script:SaveIndexCalls=0
+    $script:UpdateIndexCalls=0
+    $script:Reconcile=[pscustomobject]@{Job='';Events=[Collections.Generic.Queue[object]]::new();Checkpoint=$null}
+    $script:Live=$null
+    $script:StartUiCalls=0
+    $script:StartUiOperations=[Collections.Generic.List[string]]::new()
+    $script:QueueSpyRow=$null
+    $script:TestGrid=$null
+    $script:TestRow=$null
+    $script:GlobalSearchGeneration=1
+    $script:DemoMode=$false
+    $script:AsyncEngineClosing=$false
+    $script:ActiveWriteTaskId=''
+    $script:WriteState='Known'
+    $script:AccessState=$null
+    $script:DirectoryCredentialFaulted=$false
+    $script:ShowingCachedObject=$false
+    $script:ShowingCachedObjectCreated=$null
+    $script:RegisteredFailure=''
+    $script:ObservedTimeCalls=0
+    $script:FreshnessCalls=0
 }
 function Test-Case {
     param([string]$Name,[scriptblock]$Body)
@@ -442,6 +471,553 @@ Test-Case 'D115 : le worker LiveCache n ecrit pas dans une base plus recente' {
     Assert-Equal 0 $tables.Count 'Le worker a cree ses tables dans une base plus recente.'
 }
 
+# ---------------------------------------------------------------- Step C : D024, D026, D027
+$cacheModel = Join-Path $modules 'Domenia-Cache.Model.ps1'
+# Step C cases run inside an active Live search unless a case says otherwise (the probe path returns early otherwise).
+function Test-DomeniaLiveSearchActive { return $true }
+$reconcileUi = Join-Path $modules 'Domenia-Reconcile.UI.ps1'
+if (-not [IO.File]::Exists($reconcileUi)) { throw ('Fichier absent : ' + $reconcileUi) }
+
+. ([scriptblock]::Create((Get-FunctionTextFromFile $core 'Get-DomeniaCachedPresenceState')))
+. ([scriptblock]::Create((Get-FunctionTextFromFile $core 'Set-DomeniaResultRowPresence')))
+. ([scriptblock]::Create((Get-FunctionTextFromFile $core 'Open-AdObject')))
+. ([scriptblock]::Create((Get-FunctionTextFromFile $core 'Show-AdObjectResult')))
+. ([scriptblock]::Create((Get-FunctionTextFromFile $core 'Complete-DomeniaIndexRefreshUi')))
+. ([scriptblock]::Create((Get-FunctionTextFromFile $liveUi 'Initialize-DomeniaLive')))
+. ([scriptblock]::Create((Get-FunctionTextFromFile $liveUi 'Reset-DomeniaLiveIdentity')))
+. ([scriptblock]::Create((Get-FunctionTextFromFile $liveUi 'Start-DomeniaLiveBackgroundWork')))
+. ([scriptblock]::Create((Get-FunctionTextFromFile $liveUi 'Complete-DomeniaLiveProbe')))
+. ([scriptblock]::Create((Get-FunctionTextFromFile $reconcileUi 'Complete-DomeniaReconcile')))
+. ([scriptblock]::Create((Get-FunctionTextFromFile $liveModel 'Get-DomeniaLiveCacheCode')))
+
+Test-Case 'D024 : presence cache utilise Get-DomeniaFreshness et pas 120s en dur' {
+    . ([scriptblock]::Create((Get-Content -Raw $cacheModel)))
+
+    function ConvertTo-DomeniaUtcDate {
+        param($Value)
+        if ($null -eq $Value) { return $null }
+        if ($Value -is [datetime]) {
+            if ($Value.Kind -eq [DateTimeKind]::Utc) { return $Value }
+            return $Value.ToUniversalTime()
+        }
+        $parsed = [datetime]::MinValue
+        if ([datetime]::TryParse([string]$Value, [ref]$parsed)) {
+            if ($parsed.Kind -eq [DateTimeKind]::Utc) { return $parsed }
+            return $parsed.ToUniversalTime()
+        }
+        return $null
+    }
+
+    function Get-DomeniaFreshnessPolicy {
+        param([string]$Nature)
+        return [pscustomobject]@{Nature=$Nature;FreshSeconds=10;Label='Presence reseau'}
+    }
+
+    $script:PresenceCache=@{}
+    $key='cn=pc1,dc=example,dc=invalid'
+    $script:PresenceCache[$key]=[pscustomobject]@{State='En ligne';Target='PC1';UpdatedUtc=[datetime]::UtcNow.AddSeconds(-30)}
+    Assert-Equal '' (Get-DomeniaCachedPresenceState -Dn 'CN=PC1,DC=example,DC=invalid')
+
+    $script:PresenceCache[$key]=[pscustomobject]@{State='En ligne';Target='PC1';UpdatedUtc=[datetime]::UtcNow.AddSeconds(-5)}
+    Assert-Equal 'En ligne' (Get-DomeniaCachedPresenceState -Dn 'CN=PC1,DC=example,DC=invalid')
+}
+
+Test-Case 'D024 : Set-DomeniaResultRowPresence stocke UpdatedUtc et file UTC' {
+    function Queue-DomeniaMetadata { param($Kind,$Row,$Key='') $script:QueueSpyRow=$Row; return $true }
+    function ConvertTo-DomeniaGridPresenceState { param($State) return 'En ligne' }
+    function Apply-DomeniaPresenceFilter { }
+    function Get-DomeniaControl { return $null }
+    function Set-DomeniaLiveRowValue { param($Row,$Name,$Value) }
+
+    $script:BranchObjects=@([pscustomobject]@{DN='CN=PC1,DC=example,DC=invalid';Presence='Inconnu'})
+    $script:CurrentPresenceFilter='Tous'
+    $script:PresenceCache=@{}
+    Set-DomeniaResultRowPresence -Dn 'CN=PC1,DC=example,DC=invalid' -State 'En ligne' -Target 'PC1'
+    $entry=$script:PresenceCache['cn=pc1,dc=example,dc=invalid']
+    Assert-True ($null -ne $entry.PSObject.Properties['UpdatedUtc'])
+    Assert-True ($entry.UpdatedUtc.Kind -eq [DateTimeKind]::Utc)
+    Assert-True ($script:QueueSpyRow.At -match 'Z$')
+}
+
+Test-Case 'D024 : Show-AdObjectResult depuis cache utilise Created comme LoadedAt' {
+    function Keep-DomeniaDraftOnResult { param($Result,$DN,$Type) return $false }
+    function Clear-ObjectDetails { }
+    function Remove-DomeniaSensitiveProperties { param($Properties) return $Properties }
+    function Get-DomeniaEntryFirstString { param($Entry,$Name) return 'PC1' }
+    function Set-DomeniaRelationsSelection { param($Object) }
+    function Sync-DomeniaIndexEntry { param($Entry,$Type) return '' }
+    function Stop-DomeniaSecretReadTasks { }
+    function Request-UiTaskStop { param($Id,[switch]$Silent,[switch]$Force,[switch]$Superseded,[string]$Reason='') }
+    function Fill-GenericObject { param($Entry,$Type) }
+    function Fill-UserObject { param($Entry) }
+    function Fill-ComputerObject { param($Entry) }
+    function Fill-GroupObject { param($Entry) }
+    function Fill-ContainerObject { param($Entry) }
+    function Refresh-AssociationContext { param([switch]$SkipResultRefresh) }
+    function Set-DomeniaSupportObjectSource { param($Dn,[switch]$IsLive) }
+    function Reset-DomeniaDeferredViews { param($Dn) }
+    function Clear-Secrets { }
+    function Set-VisibleTabsForType { param($Type,[switch]$PreserveWorkspace) }
+    function Apply-CurrentPermissionUi { }
+    function Set-Status { param($Text,$Level='') }
+    function Get-DomeniaControl { return $null }
+    function Set-DomeniaControlText { param($Name,$Text) return $true }
+    function Update-Dashboard { }
+    function Save-DomeniaDraftBaseline { param($DN) }
+    function Set-DomeniaPresenceText { param($Name,$Text) }
+    function Update-DomeniaObjectPresence { param($State,$Target) }
+    function Get-DomeniaLiveObservationView { param($Observation) return [pscustomobject]@{State='';Display=''} }
+    function Get-CurrentSelectedComputerName { return '' }
+    function Normalize-LinkComputer { param($Computer) return $Computer }
+    function Get-ExistingLinkForComputer { param($Computer) return $null }
+    function Set-DomeniaObservationTime { param($Object,$Nature,$ObservedUtc,[switch]$Succeeded) $script:ObservedTimeCalls++ }
+    function Get-DomeniaRecordFreshness { param($Object,$Nature) $script:FreshnessCalls++; return [pscustomobject]@{Nature=$Nature;State='Fresh';AgeSeconds=0;Label=''} }
+
+    $createdUtc=[datetime]::UtcNow.AddMinutes(-10)
+    $script:ShowingCachedObject=$true
+    $script:ShowingCachedObjectCreated=$createdUtc.ToLocalTime()
+    $script:SelectedObject=$null
+    $script:SelectedObjectGeneration=0
+    $script:RenderingObjectWithoutProbes=$false
+    $script:AsyncJobs=@{}
+    $script:ObservedTimeCalls=0
+    $script:FreshnessCalls=0
+    $result=[pscustomobject]@{Properties=@{name='PC1'};Live=$false}
+    Show-AdObjectResult -Result $result -Dn 'CN=PC1,DC=x' -Type 'Machine' -NoNavigate
+    Assert-True ($null -ne $script:SelectedObject)
+    Assert-True ($script:ObservedTimeCalls -gt 0)
+    Assert-True ($script:FreshnessCalls -gt 0)
+    $delta=[Math]::Abs((([datetime]$script:SelectedObject.LoadedAt) - $createdUtc.ToLocalTime()).TotalMinutes)
+    Assert-True ($delta -lt 1) ('LoadedAt=' + [string]$script:SelectedObject.LoadedAt)
+}
+
+Test-Case 'D024 : LiveCache ecrit checked_utc depuis UserCheckedUtc' {
+    $code = Get-DomeniaLiveCacheCode
+    Assert-True ($code -match '\$checkedForRetention=\[string\]\$observation\.UserCheckedUtc')
+    Assert-True ($code -match '\$checkedForRetention,\$json')
+}
+
+Test-Case 'D024 : Complete-DomeniaLiveProbe appelle Set-DomeniaObservationTime et Get-DomeniaRecordFreshness' {
+    . ([scriptblock]::Create((Get-Content -Raw $cacheModel)))
+
+    function Reset-DomeniaLiveIdentity { }
+    function Test-DomeniaLiveIdentity { param($State,$Epoch,$Identity) return $true }
+    function Get-DomeniaEffectiveWorkerResult { param($Result,$RequiredProperties) return $Result }
+    function ConvertTo-DomeniaLiveObservation {
+        param($Result,$Previous)
+        return [pscustomobject]@{
+            Outcome=[string]$Result.Outcome
+            Computer=[string]$Result.Computer
+            Guid=[string]$Result.Guid
+            DirectoryAuthRejected=$false
+        }
+    }
+    function Get-DomeniaLiveField { param($Object,$Name,$Default='') return $Default }
+    function Merge-DomeniaLiveLinkMemory { param($Observation) }
+    function Test-DomeniaLiveSearchActive { return $false }
+    function Get-CurrentSelectedComputerName { return '' }
+    function Normalize-LinkComputer { param($Computer) return $Computer }
+    function Get-ExistingLinkForComputer { param($Computer) return $null }
+    function Set-DomeniaLiveObservationOnRow { param($Row,$Observation,[switch]$Cached) }
+    function Set-DomeniaPresenceText { param($Name,$Text) }
+    function Update-DomeniaObjectPresence { param($State,$Target) }
+    function Set-RowAssociationMetadata { param($Rows) }
+    function Set-DomeniaControlText { param($Name,$Text) return $true }
+    function Get-DomeniaLiveObservationView { param($Observation) return [pscustomobject]@{State='';Display=''} }
+    function Set-DomeniaObservationTime { param($Object,$Nature,$ObservedUtc,[switch]$Succeeded) $script:ObservedTimeCalls++ }
+    function Get-DomeniaRecordFreshness { param($Object,$Nature) $script:FreshnessCalls++; return [pscustomobject]@{Nature=$Nature;State='Fresh';AgeSeconds=0;Label=''} }
+
+    $script:ObservedTimeCalls=0
+    $script:FreshnessCalls=0
+    $script:Live=[pscustomobject]@{
+        NegativeCache=(New-DomeniaNegativeCache)
+        Observations=[Collections.Concurrent.ConcurrentDictionary[string,object]]::new()
+        SaveQueue=@{}
+        PresenceSeen=@{}
+        Done=@{}
+        RemoteFaulted=$false
+        Search=$null
+        Identity='id'
+    }
+    $script:SessionEpoch=[long]1
+    $script:ActiveWriteTaskId=''
+    $script:WriteState='Known'
+    $script:DirectoryCredentialFaulted=$false
+    $result=[pscustomobject]@{Outcome='Observed';Key='k';Computer='PC1';Guid='g'}
+    $state=[pscustomobject]@{Key='k';Computer='PC1';Guid='g';Identity='id';Epoch=[long]1;Generation=1;RequestId='r'}
+    Complete-DomeniaLiveProbe -Result $result -State $state
+    Assert-True ($script:ObservedTimeCalls -ge 2)
+    Assert-True ($script:FreshnessCalls -ge 2)
+}
+
+Test-Case 'D026 : changement de DC sans instance identique ne marque pas Missing' {
+    . ([scriptblock]::Create((Get-Content -Raw $cacheModel)))
+
+    function Get-DomeniaMember {
+        param($Object,$Name,$Default='')
+        if ($null -eq $Object) { return $Default }
+        if ($Object -is [Collections.IDictionary] -and $Object.ContainsKey($Name)) { return $Object[$Name] }
+        $prop = $Object.PSObject.Properties[$Name]
+        if ($null -ne $prop) { return $prop.Value }
+        return $Default
+    }
+
+    function ConvertTo-DomeniaGuidText {
+        param($Value)
+        $s=[string]$Value
+        if ($s -match '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$') { return $s.ToLowerInvariant() }
+        return ''
+    }
+
+    function Get-DomeniaEffectiveWorkerResult { param($Result,$RequiredProperties) return $Result }
+    function Get-DomeniaLiveObjectKey { param($Row) return ([string]$Row.DN).ToLowerInvariant() }
+    function Test-DomeniaLiveSearchActive { return $true }
+    function Set-Status { param($Text) $script:TestStatus=$Text }
+
+    $guidA='11111111-1111-1111-1111-111111111111'
+    $guidB='22222222-2222-2222-2222-222222222222'
+    $rowA=[pscustomobject]@{DN='CN=A,DC=x';Guid=$guidA}
+    $rowB=[pscustomobject]@{DN='CN=B,DC=x';Guid=$guidB}
+    $s=[pscustomobject]@{Rows=@($rowA,$rowB);Map=@{}}
+    $script:Live=[pscustomobject]@{Search=$s;Identity='id'}
+    $script:SessionEpoch=[long]1
+    $script:Continuity=[pscustomobject]@{Mutation=1}
+    $script:Reconcile=[pscustomobject]@{
+        Job=''
+        Events=[Collections.Generic.Queue[object]]::new()
+        Checkpoint=[pscustomobject]@{Dc='dc1';InvocationId='i1';ScopeDn='DC=x|Subtree|(objectClass=computer)'}
+    }
+    $state=[pscustomobject]@{
+        Epoch=[long]1
+        Identity='id'
+        Search=$s
+        Mutation=1
+        Filter='(objectClass=computer)'
+    }
+    $r=[pscustomobject]@{
+        Rows=@($rowA)
+        Capped=$false
+        Filter='(objectClass=computer)'
+        ObservedUtc=[datetime]::UtcNow
+        Source='dc2|i2'
+        Dc='dc2'
+        InvocationId='i2'
+        BaseDn='DC=x'
+        Scope='Subtree'
+    }
+    Complete-DomeniaReconcile -Result $r -State $state
+    $missing=@($script:Reconcile.Events | Where-Object { $_.Kind -eq 'Missing' })
+    Assert-Equal 0 $missing.Count
+    Assert-Equal 'i2' $script:Reconcile.Checkpoint.InvocationId
+}
+
+Test-Case 'D026 : meme instance complete marque Missing et Move' {
+    . ([scriptblock]::Create((Get-Content -Raw $cacheModel)))
+
+    function Get-DomeniaMember {
+        param($Object,$Name,$Default='')
+        if ($null -eq $Object) { return $Default }
+        if ($Object -is [Collections.IDictionary] -and $Object.ContainsKey($Name)) { return $Object[$Name] }
+        $prop = $Object.PSObject.Properties[$Name]
+        if ($null -ne $prop) { return $prop.Value }
+        return $Default
+    }
+
+    function ConvertTo-DomeniaGuidText {
+        param($Value)
+        $s=[string]$Value
+        if ($s -match '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$') { return $s.ToLowerInvariant() }
+        return ''
+    }
+
+    function Get-DomeniaEffectiveWorkerResult { param($Result,$RequiredProperties) return $Result }
+    function Get-DomeniaLiveObjectKey { param($Row) return ([string]$Row.DN).ToLowerInvariant() }
+    function Test-DomeniaLiveSearchActive { return $true }
+    function Set-Status { param($Text) $script:TestStatus=$Text }
+
+    $guidA='11111111-1111-1111-1111-111111111111'
+    $guidB='22222222-2222-2222-2222-222222222222'
+    $rowA=[pscustomobject]@{DN='CN=A,DC=x';Guid=$guidA}
+    $rowB=[pscustomobject]@{DN='CN=B,DC=x';Guid=$guidB}
+    $rowAMoved=[pscustomobject]@{DN='CN=A,OU=Moved,DC=x';Guid=$guidA}
+    $s=[pscustomobject]@{Rows=@($rowA,$rowB);Map=@{}}
+    $script:Live=[pscustomobject]@{Search=$s;Identity='id'}
+    $script:SessionEpoch=[long]1
+    $script:Continuity=[pscustomobject]@{Mutation=1}
+    $script:Reconcile=[pscustomobject]@{
+        Job=''
+        Events=[Collections.Generic.Queue[object]]::new()
+        Checkpoint=[pscustomobject]@{Dc='dc1';InvocationId='i1';ScopeDn='DC=x|Subtree|(objectClass=computer)'}
+    }
+    $state=[pscustomobject]@{
+        Epoch=[long]1
+        Identity='id'
+        Search=$s
+        Mutation=1
+        Filter='(objectClass=computer)'
+    }
+    $r=[pscustomobject]@{
+        Rows=@($rowAMoved)
+        Capped=$false
+        Filter='(objectClass=computer)'
+        ObservedUtc=[datetime]::UtcNow
+        Source='dc1|i1'
+        Dc='dc1'
+        InvocationId='i1'
+        BaseDn='DC=x'
+        Scope='Subtree'
+    }
+    Complete-DomeniaReconcile -Result $r -State $state
+    $missing=@($script:Reconcile.Events | Where-Object { $_.Kind -eq 'Missing' })
+    $moves=@($script:Reconcile.Events | Where-Object { $_.Kind -eq 'Move' })
+    Assert-Equal 1 $missing.Count
+    Assert-Equal 1 $moves.Count
+    Assert-Equal $guidB ([string]$missing[0].Row.Guid)
+    Assert-Equal $guidA ([string]$moves[0].Guid)
+}
+
+Test-Case 'D026 : IndexBuild tronque ne remplace pas l index' {
+    function Get-DomeniaEffectiveWorkerResult { param($Result,$RequiredProperties) return $Result }
+    function Save-DomeniaIndex { param($Rows,$Server,$BaseDn,$HighestUsn,$TotalCount,$InvocationId) $script:SaveIndexCalls++; return $true }
+    function Update-DomeniaIndexDatabaseRows { param($Rows,$Server,$BaseDn,$HighestUsn,$TotalCount,$InvocationId) $script:UpdateIndexCalls++; return $true }
+    function Load-DomeniaIndexMetadata { $script:IndexDbCount=1; return 1 }
+    function Merge-DomeniaIndexRows { param($Existing,$Changed) return [pscustomobject]@{Total=1;Updated=1;Added=0} }
+    function Set-DomeniaControlText { param($Name,$Text) return $true }
+    function Set-Status { param($Text) }
+    function Add-DomeniaUiLog { param($Area,$Text) }
+    function Register-DomeniaOperationSample { param($Operation,$Mode,$ItemCount,$DurationMs,$BytesEstimated,$AdQueries,$SuccessCount) }
+    function Update-DomeniaIndexStats { }
+
+    $script:SaveIndexCalls=0
+    $script:UpdateIndexCalls=0
+    $script:IndexRows=@([pscustomobject]@{DN='CN=old';Guid='11111111-1111-1111-1111-111111111111'})
+    $script:IndexInfo=[pscustomobject]@{Server='dc1';BaseDn='DC=x';Usn=100;InvocationId='i1'}
+    $effective=[pscustomobject]@{
+        Rows=@([pscustomobject]@{DN='CN=new';Guid='22222222-2222-2222-2222-222222222222'})
+        Incremental=$false
+        Truncated=$true
+        Server='dc1'
+        BaseDn='DC=x'
+        HighestUsn=200
+        DurationMs=10
+        DeltaClause=''
+        InvocationId='i2'
+    }
+    Complete-DomeniaIndexRefreshUi -Result $effective -State $null
+    Assert-Equal 0 $script:SaveIndexCalls
+    Assert-Equal 1 $script:UpdateIndexCalls
+}
+
+Test-Case 'D027 : echec recent bloque sonde automatique mais pas manuelle' {
+    . ([scriptblock]::Create((Get-Content -Raw $cacheModel)))
+
+    function Test-DomeniaLiveBackgroundAllowed { param($Source) return $true }
+    function Get-DomeniaLiveWorkerCount { param($OperationId='') return 0 }
+    function Get-DomeniaControl {
+        param($Name)
+        if ($Name -eq 'DgObjects') { return $script:TestGrid }
+        return $null
+    }
+    function Get-DomeniaSelectedGridRow { return $script:TestRow }
+    function Test-DomeniaLiveProbeIntent { param($Row) return $true }
+    function Clear-DomeniaLiveProbeIntent { }
+    function Request-DomeniaLiveProbe { param($Row) }
+    function Test-DomeniaLiveIdentity { param($Item,$Epoch,$Identity) return $true }
+    function Get-DomeniaRunningComputerUserProbe { param($Computer) return $null }
+    function Start-UiTask {
+        param($Name,$OperationId,$Code,$Payload,$CallbackState,$TimeoutSeconds,$SuccessHandler,$ErrorHandler,[switch]$NonCancellable,[string]$TaskClass)
+        $script:StartUiCalls++
+        [void]$script:StartUiOperations.Add($OperationId)
+        return 'test-task'
+    }
+    function Set-DomeniaLiveRowValue { param($Row,$Name,$Value) $Row.SessionState=$Value }
+    function Get-CfgValue { param($Section,$Key,$Default) return $Default }
+    function Get-DomeniaLiveProbeCode { return '' }
+
+    $guid='11111111-1111-1111-1111-111111111111'
+    $script:SessionEpoch=[long]1
+    $script:GlobalSearchGeneration=1
+    $script:DemoMode=$false
+    $script:AsyncEngineClosing=$false
+    $script:ActiveWriteTaskId=''
+    $script:WriteState='Known'
+    $script:AccessState=$null
+    $script:DirectoryCredentialFaulted=$false
+    $script:StartUiCalls=0
+    $script:StartUiOperations.Clear()
+
+    $row=[pscustomobject]@{DN='CN=PC1,DC=x';Guid=$guid;Computer='PC1';Presence='Inconnu';SessionState=''}
+    $key=$row.DN.ToLowerInvariant()
+    $s=[pscustomobject]@{
+        Fresh=@{}
+        Map=@{}
+        Rows=@($row)
+        Identity='id'
+        Epoch=[long]1
+        QueryKey='q1'
+        State=[pscustomobject]@{Limit=10}
+        CacheRequested=$true
+    }
+    $s.Fresh[$key]=$true
+    $s.Map[$key]=$row
+
+    $script:Live=[pscustomobject]@{
+        Enabled=$true
+        DatabasePath=''
+        IdentityRows=[Collections.Generic.Queue[object]]::new()
+        CacheReady=$false
+        Notifying=$false
+        Deferred=[Collections.Generic.Queue[object]]::new()
+        Identity='id'
+        Scope='scope'
+        Epoch=[long]1
+        Search=$s
+        MemoryQueries=@{}
+        Observations=[Collections.Concurrent.ConcurrentDictionary[string,object]]::new()
+        Pending=[Collections.Generic.Queue[object]]::new()
+        PendingKeys=@{}
+        Busy=@{}
+        Done=@{}
+        ObservationsLoaded=$false
+        Refresh=[Collections.Generic.Queue[object]]::new()
+        SaveQueue=@{}
+        QueryToSave=$null
+        SaveJob=''
+        SaveAfter=[datetime]::MinValue
+        SaveFault=''
+        PresenceEvents=[Collections.Concurrent.ConcurrentQueue[object]]::new()
+        PresenceSeen=@{}
+        RemoteFaulted=$false
+        NextStart=[datetime]::MinValue
+        Timer=$null
+        InTick=$false
+        AutoDetect=$false
+        ProbeSelection=$null
+        LastFilter=[datetime]::MinValue
+        NegativeCache=(New-DomeniaNegativeCache)
+    }
+
+    [void](Register-DomeniaFailure $script:Live.NegativeCache 'PC1' 'Cim' 'Unreachable')
+
+    $script:TestGrid=[pscustomobject]@{IsEnabled=$true;SelectedItems=@($row)}
+    $script:TestRow=$row
+
+    $item=[pscustomobject]@{
+        Key=$key
+        Computer='PC1'
+        Guid=$guid
+        Identity='id'
+        Epoch=[long]1
+        Generation=1
+        RequestId='r1'
+        Row=$row
+        ReadyAfter=[datetime]::UtcNow.AddSeconds(-1)
+    }
+    $script:Live.PendingKeys[$key]=$item
+    $intent=[pscustomobject]@{Key=$key;RequestId='r1';Requested=$false;Manual=$false}
+    $script:Live.ProbeSelection=$intent
+
+    Start-DomeniaLiveBackgroundWork
+    Assert-Equal 0 $script:StartUiCalls
+    Assert-True (-not [string]::IsNullOrWhiteSpace([string]$row.SessionState)) 'La raison de la suspension n est pas affichee.'
+
+    $intent2=[pscustomobject]@{Key=$key;RequestId='r2';Requested=$false;Manual=$true}
+    $script:Live.ProbeSelection=$intent2
+    $item2=[pscustomobject]@{
+        Key=$key
+        Computer='PC1'
+        Guid=$guid
+        Identity='id'
+        Epoch=[long]1
+        Generation=1
+        RequestId='r2'
+        Row=$row
+        ReadyAfter=[datetime]::UtcNow.AddSeconds(-1)
+    }
+    $script:Live.PendingKeys[$key]=$item2
+    $script:StartUiCalls=0
+    $script:StartUiOperations.Clear()
+    Start-DomeniaLiveBackgroundWork
+    Assert-Equal 1 $script:StartUiCalls
+    Assert-True ($script:StartUiOperations -contains 'LiveConsole')
+    # After a credential refusal even a manual probe is held back: same account again would be a replay (D018).
+    [void](Register-DomeniaFailure $script:Live.NegativeCache 'PC1' 'Cim' 'CredentialRejected')
+    $script:Live.Busy=@{}
+    $intent3=[pscustomobject]@{Key=$key;RequestId='r3';Requested=$false;Manual=$true}
+    $script:Live.ProbeSelection=$intent3
+    $script:Live.PendingKeys[$key]=[pscustomobject]@{Key=$key;Computer='PC1';Guid=$guid;Identity='id';Epoch=[long]1;Generation=1;RequestId='r3';Row=$row;ReadyAfter=[datetime]::UtcNow.AddSeconds(-1)}
+    $script:StartUiCalls=0
+    Start-DomeniaLiveBackgroundWork
+    Assert-Equal 0 $script:StartUiCalls 'Une sonde manuelle a rejoue un compte refuse.'
+}
+
+Test-Case 'D027 : Complete-DomeniaLiveProbe enregistre Timeout' {
+    . ([scriptblock]::Create((Get-Content -Raw $cacheModel)))
+
+    function Reset-DomeniaLiveIdentity { }
+    function Test-DomeniaLiveIdentity { param($State,$Epoch,$Identity) return $true }
+    function Get-DomeniaEffectiveWorkerResult { param($Result,$RequiredProperties) return $Result }
+    function ConvertTo-DomeniaLiveObservation {
+        param($Result,$Previous)
+        return [pscustomobject]@{
+            Outcome=[string]$Result.Outcome
+            Computer=[string]$Result.Computer
+            Guid=[string]$Result.Guid
+            DirectoryAuthRejected=$false
+        }
+    }
+    function Get-DomeniaLiveField { param($Object,$Name,$Default='') return $Default }
+    function Merge-DomeniaLiveLinkMemory { param($Observation) }
+    function Test-DomeniaLiveSearchActive { return $false }
+    function Get-CurrentSelectedComputerName { return '' }
+    function Normalize-LinkComputer { param($Computer) return $Computer }
+    function Get-ExistingLinkForComputer { param($Computer) return $null }
+    function Set-DomeniaLiveObservationOnRow { param($Row,$Observation,[switch]$Cached) }
+    function Set-DomeniaPresenceText { param($Name,$Text) }
+    function Update-DomeniaObjectPresence { param($State,$Target) }
+    function Set-RowAssociationMetadata { param($Rows) }
+    function Set-DomeniaControlText { param($Name,$Text) return $true }
+    function Get-DomeniaLiveObservationView { param($Observation) return [pscustomobject]@{State='';Display=''} }
+    function Set-DomeniaObservationTime { param($Object,$Nature,$ObservedUtc,[switch]$Succeeded) }
+    function Get-DomeniaRecordFreshness { param($Object,$Nature) return [pscustomobject]@{Nature=$Nature;State='Unknown';AgeSeconds=-1;Label=''} }
+
+    $script:RegisteredFailure=''
+    $script:Live=[pscustomobject]@{
+        NegativeCache=(New-DomeniaNegativeCache)
+        Observations=[Collections.Concurrent.ConcurrentDictionary[string,object]]::new()
+        SaveQueue=@{}
+        PresenceSeen=@{}
+        Done=@{}
+        RemoteFaulted=$false
+        Search=$null
+        Identity='id'
+    }
+    $script:SessionEpoch=[long]1
+    $script:ActiveWriteTaskId=''
+    $script:WriteState='Known'
+    $script:DirectoryCredentialFaulted=$false
+    $result=[pscustomobject]@{Outcome='Timeout';Key='k';Computer='PC1';Guid='g'}
+    $state=[pscustomobject]@{Key='k';Computer='PC1';Guid='g';Identity='id';Epoch=[long]1;Generation=1;RequestId='r'}
+    Complete-DomeniaLiveProbe -Result $result -State $state
+    $entry=$script:Live.NegativeCache['cim|pc1']
+    Assert-True ($null -ne $entry)
+    Assert-Equal 'Timeout' ([string]$entry.Kind)
+}
+
+Test-Case 'D024/D026/D027 : aucune garde Get-Command autour des regles Cache.Model' {
+    $texts = @(
+        (Get-FunctionTextFromFile $core 'Get-DomeniaCachedPresenceState'),
+        (Get-FunctionTextFromFile $core 'Show-AdObjectResult'),
+        (Get-FunctionTextFromFile $core 'Complete-DomeniaIndexRefreshUi'),
+        (Get-FunctionTextFromFile $liveUi 'Start-DomeniaLiveBackgroundWork'),
+        (Get-FunctionTextFromFile $liveUi 'Complete-DomeniaLiveProbe'),
+        (Get-FunctionTextFromFile $reconcileUi 'Complete-DomeniaReconcile')
+    )
+    foreach ($text in $texts) {
+        Assert-True ($text -notmatch 'Get-Command')
+    }
+}
+
 try { Stop-TestTimers } catch { }
 $passed = @($checks | Where-Object { $_.Status -eq 'Passed' }).Count
 $failed = @($checks | Where-Object { $_.Status -eq 'Failed' }).Count
@@ -454,7 +1030,7 @@ $report = [ordered]@{
     Wpf=$true
     MockedNetwork=$true
     LiveAD=$false
-    Points=@('D025','D028','D115','D113')
+    Points=@('D025','D028','D115','D113','D024','D026','D027')
     Passed=$passed
     Failed=$failed
     Complete=($failed -eq 0 -and $passed -gt 0)

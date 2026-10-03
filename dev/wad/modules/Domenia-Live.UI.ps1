@@ -31,7 +31,7 @@ function Initialize-DomeniaLive {
             Pending=[Collections.Generic.Queue[object]]::new();PendingKeys=@{};Busy=@{};Done=@{}
             ObservationsLoaded=$false;Refresh=[Collections.Generic.Queue[object]]::new()
             SaveQueue=@{};QueryToSave=$null;SaveJob='';SaveAfter=[datetime]::MinValue;SaveFault=''
-            PresenceEvents=[Collections.Concurrent.ConcurrentQueue[object]]::new();PresenceSeen=@{};RemoteFaulted=$false;NextStart=[datetime]::MinValue;Timer=$null;InTick=$false;AutoDetect=$true;ProbeSelection=$null;LastFilter=[datetime]::MinValue
+            PresenceEvents=[Collections.Concurrent.ConcurrentQueue[object]]::new();PresenceSeen=@{};RemoteFaulted=$false;NextStart=[datetime]::MinValue;Timer=$null;InTick=$false;AutoDetect=$true;ProbeSelection=$null;LastFilter=[datetime]::MinValue;NegativeCache=(New-DomeniaNegativeCache)
         }
         Reset-DomeniaLiveIdentity
         $check=Get-DomeniaControl 'ChkLiveUsers'
@@ -67,6 +67,7 @@ function Reset-DomeniaLiveIdentity {
     $script:Live.ObservationsLoaded=$false;$script:Live.MemoryQueries=@{};$script:Live.Done=@{}
     $script:Live.SaveQueue=@{};$script:Live.QueryToSave=$null;$script:Live.SaveFault='';$script:Live.RemoteFaulted=$false
     $script:Live.Refresh.Clear();$script:Live.Deferred.Clear();$script:Live.SaveJob='';$script:Live.SaveAfter=[datetime]::MinValue
+    $script:Live.NegativeCache=(New-DomeniaNegativeCache)
     # Old callbacks carry the old identity and can never repopulate this scope.
 }
 function Stop-DomeniaLiveSearch {
@@ -460,10 +461,39 @@ function Complete-DomeniaLiveProbe {
         if($null -ne $current -and $current.Guid -and $State.Guid -and $current.Guid -ine $State.Guid){return}
     }
     $previous=$null;[void]$script:Live.Observations.TryGetValue([string]$State.Key,[ref]$previous)
+    $presenceChecked=[bool](Get-DomeniaLiveField $result 'PresenceCheckedUtc')
     $observation=ConvertTo-DomeniaLiveObservation $result $previous
+    if($null -ne $observation){
+        $probeUtc=[datetime]::UtcNow
+        $outcome=[string]$observation.Outcome
+        if([string]::IsNullOrWhiteSpace($outcome)){$outcome=[string]$result.Outcome}
+        $presenceSucceeded=($presenceChecked -or ($outcome -eq 'PresenceOnly'))
+        [void](Set-DomeniaObservationTime $observation 'Presence' $probeUtc -Succeeded:$presenceSucceeded)
+        if($outcome -ne 'PresenceOnly'){
+            $consoleSucceeded=($outcome -eq 'Observed' -or $outcome -eq 'NoConsole')
+            [void](Set-DomeniaObservationTime $observation 'Console' $probeUtc -Succeeded:$consoleSucceeded)
+        }
+        $consoleFreshness=Get-DomeniaRecordFreshness $observation 'Console'
+        $presenceFreshness=Get-DomeniaRecordFreshness $observation 'Presence'
+        $observation | Add-Member -NotePropertyName ConsoleFreshness -NotePropertyValue $consoleFreshness -Force
+        $observation | Add-Member -NotePropertyName PresenceFreshness -NotePropertyValue $presenceFreshness -Force
+    }
     $script:Live.Observations[[string]$State.Key]=$observation;if($State.Generation -eq $script:GlobalSearchGeneration -or ((Test-DomeniaLiveSearchActive) -and $script:Live.Search.Fresh.ContainsKey([string]$State.Key))){$script:Live.Done[[string]$State.Key]=$true}
     $script:Live.SaveQueue[[string]$State.Key]=$observation
-    if (Get-DomeniaLiveField $result 'PresenceCheckedUtc') { $script:Live.PresenceSeen[[string]$State.Key]=$true }
+    if($presenceChecked){$script:Live.PresenceSeen[[string]$State.Key]=$true}
+    if($null -ne $script:Live.NegativeCache){
+        $target=[string]$State.Computer
+        if([string]::IsNullOrWhiteSpace($target)){$target=[string]$result.Computer}
+        if(-not [string]::IsNullOrWhiteSpace($target)){
+            $failureKind=''
+            if([string]$result.Outcome -ieq 'Timeout'){$failureKind='Timeout'}
+            elseif([string]$result.Outcome -ieq 'Unavailable'){$failureKind='Unreachable'}
+            elseif([string]$result.Outcome -ieq 'Denied'){$failureKind='AccessDenied'}
+            elseif([string]$result.Outcome -ieq 'AuthRejected'){$failureKind='CredentialRejected'}
+            if($failureKind){[void](Register-DomeniaFailure $script:Live.NegativeCache $target 'Cim' $failureKind)}
+            elseif(([string]$result.Outcome -ieq 'Observed') -or ([string]$result.Outcome -ieq 'NoConsole')){Clear-DomeniaFailure $script:Live.NegativeCache $target 'Cim'}
+        }
+    }
     if($observation.Outcome -eq 'AuthRejected'){
         $script:Live.RemoteFaulted=$true;$script:Live.Pending.Clear();$script:Live.PendingKeys=@{}
         Write-AppLog 'Compte distant rejeté : vérifications sur sélection suspendues. Corriger le compte dans Comptes avant de réessayer.' 'ERROR'
@@ -597,6 +627,17 @@ function Start-DomeniaLiveBackgroundWork {
     if($script:Live.Busy.ContainsKey([string]$item.Key)){return}
     if($null -ne (Get-DomeniaRunningComputerUserProbe -Computer ([string]$item.Computer))){
         $item.ReadyAfter=[datetime]::UtcNow.AddSeconds(2)
+        return
+    }
+    $neg = Test-DomeniaNegativeCache $script:Live.NegativeCache ([string]$item.Computer) 'Cim' -Explicit:([bool]$intent.Manual)
+    # D027: the rule already lets a manual attempt through, except after a credential refusal (no replay, D018).
+    if (($null -ne $neg) -and [bool]$neg.Suppressed) {
+        $reason = [string]$neg.Reason
+        if ([string]::IsNullOrWhiteSpace($reason)) { $reason = 'Echec recent' }
+        if ($null -ne $item.Row) { Set-DomeniaLiveRowValue $item.Row 'SessionState' $reason }
+        $intent.Requested=$true
+        [void]$script:Live.PendingKeys.Remove([string]$item.Key)
+        $script:Live.Pending.Clear()
         return
     }
     [void]$script:Live.PendingKeys.Remove([string]$item.Key);$script:Live.Pending.Clear()
