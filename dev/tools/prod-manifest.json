@@ -469,7 +469,7 @@
     },
     {
       "Path": "wad/modules/Domenia-UX.UI.ps1",
-      "Sha256": "5E19DC10AEC68CE99262FC9B56814A7B034CFA7444258B3676770CE1346B3C65",
+      "Sha256": "FB2A111BD70ACA084A82D2BE4AC18186C987838B810BC2FF052542C76F0F952F",
       "Bytes": 33625,
       "Runtime": true,
       "PreserveExisting": false

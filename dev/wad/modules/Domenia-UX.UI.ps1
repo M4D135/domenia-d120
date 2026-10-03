@@ -258,7 +258,7 @@ function Set-DomeniaUxShortLayout {
     $hold = ([bool]$Plan.FoldJournal -and (-not [bool]$script:UxLogCollapsed) -and (-not [bool]$script:UxShortLogReleased))
     # Applied every time (idempotent): the held flag alone must not decide what the journal row shows.
     if ($hold) { $script:UxShortLogHeld = $true;Set-DomeniaExperienceJournalLayout -Collapsed $true -Transient }
-    elseif ([bool]$script:UxShortLogHeld) { $script:UxShortLogHeld = $false;Set-DomeniaExperienceJournalLayout -Collapsed ([bool]$script:UxLogCollapsed) -Transient }
+    elseif ([bool]$script:UxShortLogHeld) { Set-DomeniaExperienceJournalLayout -Collapsed ([bool]$script:UxLogCollapsed) -Transient;$script:UxShortLogHeld = $false }
 }
 
 function Update-DomeniaUxLayout {
