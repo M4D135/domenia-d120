@@ -195,9 +195,22 @@ function Invoke-DomeniaObjectChanges {
             $snapshot=ConvertTo-DomeniaLiveSnapshot $r.Row
             foreach($p in $snapshot.PSObject.Properties){Set-DomeniaLiveRowValue $row $p.Name $p.Value}
             $s.Fresh[$key]=$snapshot;$s.RefreshNeeded=$true;$c.CacheDirty=$true
-            # Invalidate detail caches only. Never overwrite a form the operator may be editing.
-            foreach($cacheKey in @($script:VisitCache.Keys)){
-                if(([string]$cacheKey).IndexOf([string]$row.DN,[StringComparison]::OrdinalIgnoreCase) -ge 0){[void]$script:VisitCache.Remove($cacheKey)}
+            # D025: invalidate detail caches by object GUID when known; otherwise fall back to the old DN match.
+            $invalidateGuid = ConvertTo-DomeniaGuidText ([string]$row.Guid)
+            if ($invalidateGuid) {
+                $needle = $invalidateGuid.ToLowerInvariant()
+                $needleNoHyphen = $needle.Replace('-','')
+                foreach ($cacheKey in @($script:VisitCache.Keys)) {
+                    $keyText = [string]$cacheKey
+                    $keyNoHyphen = $keyText.Replace('-','')
+                    if (($keyText.IndexOf($needle,[StringComparison]::OrdinalIgnoreCase) -ge 0) -or ($keyNoHyphen.IndexOf($needleNoHyphen,[StringComparison]::OrdinalIgnoreCase) -ge 0)) {
+                        [void]$script:VisitCache.Remove($cacheKey)
+                    }
+                }
+            } else {
+                foreach($cacheKey in @($script:VisitCache.Keys)){
+                    if(([string]$cacheKey).IndexOf([string]$row.DN,[StringComparison]::OrdinalIgnoreCase) -ge 0){[void]$script:VisitCache.Remove($cacheKey)}
+                }
             }
             $row.DirectoryState='AD mis a jour'
         }else{$row.DirectoryState='AD revalide'}

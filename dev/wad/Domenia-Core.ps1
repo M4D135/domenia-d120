@@ -9082,6 +9082,7 @@ function Update-TaskUi {
 
 function Get-VisitCacheValue {
     param([string]$Key)
+    if ([string]::IsNullOrWhiteSpace($Key)) { return $null }
     if (-not [bool](Get-CfgValue "Cache" "Enabled" $true)) { return $null }
     try {
         if ($script:VisitCache.ContainsKey($Key)) {
@@ -9096,6 +9097,8 @@ function Get-VisitCacheValue {
 
 function Set-VisitCacheValue {
     param([string]$Key,$Value,[int]$TtlSeconds = 0)
+    # D025: an empty key means "not cacheable" (no object GUID): nothing is stored.
+    if ([string]::IsNullOrWhiteSpace($Key)) { return }
     if (-not [bool](Get-CfgValue "Cache" "Enabled" $true)) { return }
     try {
         if ($TtlSeconds -le 0) { $TtlSeconds = [int](Get-CfgValue "Cache" "TtlSeconds" 90) }
@@ -20536,7 +20539,7 @@ function Get-DomeniaWorkerOperationHashes {
         StartupWarmCache      = "864735012ED29EBAF1B094DA12C1D44266933DC9D3D2046BD1E5D68AE58CA1A3"
         LiveSelectedPing     = "2D26C899D61097F0395FA2745A1133FA32CCB6870256882DFAB56DF6B4931E2E"
         LiveConsole          = "2D26C899D61097F0395FA2745A1133FA32CCB6870256882DFAB56DF6B4931E2E"
-        LiveCache            = "F1F7240E83C381B5D92684BECF81C27344AD8FA1425BB0FB485F802DF11185D1"
+        LiveCache            = "0D8A7D55F496F56EEA7B90B7629FA7240D2BDA6A05F868F78317229AAF43BE0F"
         LiveDirectoryCheck    = "49F6D4249F6465D6E461D3B04DD090F00477ABBD871683ECF3622714A2AB53CD"
         SessionsList         = "DD09187778C09CF31B0BDA41EAC88FF898D9484756AFDF2F3EE643E6B5318BF6"
         RemoteCredentialCheck = "9070C7A5D9460D0FD129FD67CD5070595DE4DED7CA7EE7573C65AF102B0E515B"
@@ -20555,7 +20558,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "0F16F7ADFD9B0E4F435CD0FF5DBF6B97110A8763357DB36050E7F982EE4F8873"
+    $expectedFingerprint = "0500AB0182971AD414281C3646AD01E8D33BC57AB58A2DACD89569BC188BE5A0"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -24322,7 +24325,8 @@ function Invoke-DomeniaSelfTest {
         'Test-DomeniaDemoProviderEnabled','Request-DomeniaWindowActivation','Get-DomeniaLocalIndexReadWorkerCode','Get-DomeniaParkSharedSyncWorkerCode',
         'Get-DomeniaGlobalSearchPlan','Get-DomeniaContinuationDecision','Get-DomeniaCurrentSelectionIdentity','Initialize-DomeniaSearchUi','Invoke-DomeniaNavStep','Invoke-DomeniaSearchMore','Get-DomeniaOuRestoreDecision',
         'Get-DomeniaErrorDecision','Get-DomeniaCredentialScope','Test-DomeniaCredentialContext','ConvertTo-DomeniaMachineKey','Protect-DomeniaSecretText','Get-DomeniaBitLockerListWorkerCode','Get-DomeniaBitLockerKeyWorkerCode','Request-DomeniaBitLockerKey','Complete-DomeniaBitLockerListUi','Resolve-DomeniaCapabilityRoute','Update-DomeniaTransportPolicyView','Get-DomeniaRetryCredential','Set-DomeniaTargetCredentialContext',
-        'Request-DomeniaInlineConfirmation','Complete-DomeniaInlineRequest','Test-DomeniaInlineBlocks'
+        'Request-DomeniaInlineConfirmation','Complete-DomeniaInlineRequest','Test-DomeniaInlineBlocks',
+        'Request-DomeniaLinkPersistence','Queue-DomeniaLinkChanges','Merge-DomeniaLiveLinkMemory','Get-DomeniaObjectCacheKey','Get-DomeniaCacheKey','Invoke-DomeniaObjectChanges'
     )
     $missing = @($requiredFunctions | Where-Object { $null -eq (Get-Command -Name $_ -CommandType Function -ErrorAction SilentlyContinue) })
     Add-SelfTestResult -Name 'Fonctions critiques' -Success ($missing.Count -eq 0) -Detail $(if($missing.Count -eq 0){'Toutes presentes.'}else{"Absentes : $($missing -join ', ')"})

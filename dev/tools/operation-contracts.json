@@ -326,7 +326,7 @@
     "File": "wad/modules/Domenia-Live.Model.ps1",
     "Function": "Get-DomeniaLiveCacheCode",
     "LiteralIndex": 0,
-    "Sha256": "F1F7240E83C381B5D92684BECF81C27344AD8FA1425BB0FB485F802DF11185D1"
+    "Sha256": "0D8A7D55F496F56EEA7B90B7629FA7240D2BDA6A05F868F78317229AAF43BE0F"
   },
   {
     "Operation": "LiveDirectoryCheck",

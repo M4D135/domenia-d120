@@ -137,10 +137,17 @@ function Assert-DomeniaObjectResultIdentity {
 
 function Get-DomeniaObjectCacheKey {
     param([string]$DN,[string]$Guid,[string]$Identity)
-    $sha = [Security.Cryptography.SHA256]::Create()
-    try { $hash = [BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($Identity))).Replace('-','') }
-    finally { $sha.Dispose() }
-    return ('object-v2|{0}|{1}|{2}' -f $hash,$Guid.ToLowerInvariant(),$DN.ToLowerInvariant())
+    # D025: cache-v3 key from the rule (domain, object GUID, hashed reader). The DN is not part of the key; without a
+    # real GUID the rule returns an empty key and the object is simply not cached.
+    $domain = ''
+    if ($null -ne $script:Conn) {
+        $domain = [string]$script:Conn.Domain
+        if ([string]::IsNullOrWhiteSpace($domain) -and $script:Conn.BaseDn) {
+            $domain = @(([string]$script:Conn.BaseDn -split ',') | Where-Object { $_ -match '^\s*DC=' } | ForEach-Object { ($_ -split '=',2)[1].Trim() }) -join '.'
+        }
+    }
+    if ([string]::IsNullOrWhiteSpace($domain)) { $domain = 'unknown' }
+    return (Get-DomeniaCacheKey -Domain $domain -Guid $Guid -Reader $Identity -Nature 'Object' -Version 'object')
 }
 
 function Update-DomeniaSelectionReadUi {

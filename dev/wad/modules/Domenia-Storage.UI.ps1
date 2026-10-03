@@ -3,11 +3,16 @@ $script:Persistence=$null
 $script:LinkBaseline=@{}
 function Initialize-DomeniaPersistence {
     if($null -ne $script:Persistence){return}
-    $script:Persistence=[pscustomobject]@{Pending=@{};Job='';Next=[datetime]::MinValue;Fault='';Failures=0;LinkBusy=$false;Timer=$null}
+    $script:Persistence=[pscustomobject]@{Pending=@{};Job='';Next=[datetime]::MinValue;Fault='';Failures=0;LinkBusy=$false;Timer=$null;LinkRequestTimer=$null;LinkPersistenceMore=$false}
     $timer=[Windows.Threading.DispatcherTimer]::new([Windows.Threading.DispatcherPriority]::Background)
     $timer.Interval=[timespan]::FromMilliseconds(350);$timer.Add_Tick({Start-DomeniaStorageWork});$script:Persistence.Timer=$timer;$timer.Start()
     if($null -ne (Get-Command Register-DomeniaOwnedTimer -CommandType Function -ErrorAction SilentlyContinue)){try{[void](Register-DomeniaOwnedTimer -Owner 'Timer:Storage' -Timer $timer)}catch{}}
-    $script:Window.Add_Closed({if($null -ne $script:Persistence){$script:Persistence.Timer.Stop()}})
+    $script:Window.Add_Closed({
+        if($null -ne $script:Persistence){
+            try{$script:Persistence.Timer.Stop()}catch{}
+            if($null -ne $script:Persistence.LinkRequestTimer){try{$script:Persistence.LinkRequestTimer.Stop()}catch{}}
+        }
+    })
 }
 function Add-DomeniaIndexPersistence {
     param($Row)
@@ -22,8 +27,14 @@ function Reset-DomeniaLinkBaseline {
     foreach($l in @($script:UserMachineLinks)){$key=(Normalize-LinkComputer ([string]$l.Computer)).ToUpperInvariant();if($key){$script:LinkBaseline[$key]=ConvertTo-DomeniaLinkRecord $l}}
 }
 function Queue-DomeniaLinkChanges {
+    param([switch]$Quiet,[int]$MaxItems=0)
+    if($MaxItems -lt 0){$MaxItems=0}
     if($null -eq $script:Persistence){Initialize-DomeniaPersistence}
-    if($script:Persistence.LinkBusy){Set-Status 'Enregistrement des liens encore actif. Attendez son resultat avant une nouvelle modification.' 'WARN';return $false}
+    $script:Persistence.LinkPersistenceMore=$false
+    if($script:Persistence.LinkBusy){
+        if(-not $Quiet){Set-Status 'Enregistrement des liens encore actif. Attendez son resultat avant une nouvelle modification.' 'WARN'}
+        return $false
+    }
     $valid=@(ConvertTo-DomeniaCanonicalLinks -Links $script:UserMachineLinks);$current=@{};$items=[Collections.Generic.List[object]]::new()
     foreach($l in $valid){$key=(Normalize-LinkComputer ([string]$l.Computer)).ToUpperInvariant();if($key){$current[$key]=ConvertTo-DomeniaLinkRecord $l}}
     foreach($key in @(@($script:LinkBaseline.Keys)+@($current.Keys)|Select-Object -Unique)){
@@ -32,13 +43,51 @@ function Queue-DomeniaLinkChanges {
         if($old -ceq $new){continue}
         $items.Add([pscustomobject]@{QueueKey=('Link|'+[string]$script:DatabaseScopedPath+'|'+$key);Kind='Link';Key=$key;Path=[string]$script:DatabaseScopedPath;Expected=$old;Row=$after;Remove=($null -eq $after);Epoch=[long]$script:SessionEpoch})
     }
-    if($items.Count -gt 64 -or $script:Persistence.Pending.Count+$items.Count -gt 256){Set-Status 'Trop de modifications de liens pour ce lot (64 maximum). Aucune sauvegarde globale effectuee.' 'WARN';return $false}
-    foreach($i in $items){$script:Persistence.Pending[$i.QueueKey]=$i}
-    $script:Persistence.LinkBusy=($items.Count -gt 0)
+    # A quiet request without any change leaves the grids and the index alone.
+    if($Quiet -and ($items.Count -eq 0)){return $true}
+    $queuedCount=$items.Count
+    if($MaxItems -gt 0){$queuedCount=[Math]::Min($MaxItems,$items.Count)}
+    if(((($MaxItems -eq 0) -and ($items.Count -gt 64)) -or (($script:Persistence.Pending.Count + $queuedCount) -gt 256))){
+        if(-not $Quiet){Set-Status 'Trop de modifications de liens pour ce lot (64 maximum). Aucune sauvegarde globale effectuee.' 'WARN'}
+        return $false
+    }
+    $queued=0
+    foreach($i in $items){
+        if(($MaxItems -gt 0) -and ($queued -ge $MaxItems)){break}
+        $script:Persistence.Pending[$i.QueueKey]=$i
+        $queued++
+    }
+    if(($MaxItems -gt 0) -and ($items.Count -gt $queued)){$script:Persistence.LinkPersistenceMore=$true}
+    $script:Persistence.LinkBusy=($queued -gt 0)
     $script:UserMachineLinks=[object[]]$valid;Rebuild-UserMachineLinkIndex;Refresh-LinkGrid;Refresh-AssociationContext -SkipResultRefresh
-    if($items.Count){Set-Status ($items.Count.ToString()+' lien(s) en memoire, enregistrement en arriere-plan en attente.')}
+    if((-not $Quiet) -and $queued){Set-Status ($queued.ToString()+' lien(s) en memoire, enregistrement en arriere-plan en attente.')}
     return $true
 }
+function Request-DomeniaLinkPersistence {
+    # D028: coalesces link persistence requested by background observations; the single writer runs after a quiet
+    # period, in batches of 64 at most. One owned timer, created once and reused.
+    if ($null -eq $script:Persistence) { Initialize-DomeniaPersistence }
+    $timer = $script:Persistence.LinkRequestTimer
+    if ($null -eq $timer) {
+        $timer = [Windows.Threading.DispatcherTimer]::new([Windows.Threading.DispatcherPriority]::Background)
+        $timer.Interval = [TimeSpan]::FromMilliseconds(1500)
+        $timer.Add_Tick({
+            param($sender,$eventArgs)
+            $sender.Stop()
+            if ($null -eq $script:Persistence) { return }
+            # Busy writer or refused batch: try again later, silently. A partial batch re-arms for the rest.
+            if ($script:Persistence.LinkBusy) { $sender.Start(); return }
+            $ok = Queue-DomeniaLinkChanges -Quiet -MaxItems 64
+            if ((-not $ok) -or [bool]$script:Persistence.LinkPersistenceMore) { $sender.Start() }
+        })
+        $script:Persistence.LinkRequestTimer = $timer
+        if ($null -ne (Get-Command Register-DomeniaOwnedTimer -CommandType Function -ErrorAction SilentlyContinue)) {
+            try { [void](Register-DomeniaOwnedTimer -Owner 'Timer:LinkPersistence' -Timer $timer) } catch { }
+        }
+    }
+    if (-not $timer.IsEnabled) { $timer.Start() }
+}
+
 function Start-DomeniaStorageWork {
     # Same liveness rule as the receipts: a save that left the engine without a callback frees the slot.
     # LinkBusy is released too: the link baseline was not updated, so the next save recomputes those changes.

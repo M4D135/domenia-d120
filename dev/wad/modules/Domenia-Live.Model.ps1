@@ -410,19 +410,7 @@ BEGIN IMMEDIATE;
         if($json.Length -gt 16384){throw 'Observation trop volumineuse.'}
         $sql='INSERT OR REPLACE INTO adcc_live_observations(scope_key,object_key,checked_utc,payload) VALUES('+((@($scope,[string]$observation.Key,[string]$observation.CheckedUtc,$json)|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ',')+');'
         [void](Invoke-DomeniaDbExec $sql $db)
-        # Update only the observed machine, preserving any manual association.
-        if([string]$observation.Outcome -eq 'Observed' -and $observation.LinkUser -and $observation.UserDn){
-            $computer=([string]$observation.Computer).Split('.')[0].ToUpperInvariant()
-            $key=ConvertTo-DomeniaSqlLiteral $computer
-            $when=([datetime]::Parse([string]$observation.ObservedUtc)).ToLocalTime().ToString('s')
-            $exists=@(Invoke-DomeniaDbQuery "SELECT name FROM sqlite_master WHERE name='user_machine_links' AND type='table';" $db)
-            if($exists.Count -gt 0){
-                $vals=@($computer,[string]$observation.LinkUser,$computer,'Console CIM/DCOM',97,1,$when,'Compte console observé ; sessions RDP non recensées.',[string]$observation.UserGuid,[string]$observation.Guid,[string]$observation.UserDn,[string]$observation.Key)
-                $values=($vals|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ','
-                $timestamp=ConvertTo-DomeniaSqlLiteral $when
-                [void](Invoke-DomeniaDbExec ("INSERT OR REPLACE INTO user_machine_links(computer_key,user_login,computer,source,confidence,verified_in_ad,observed_at,details,user_guid,computer_guid,user_dn,computer_dn) SELECT $values WHERE NOT EXISTS(SELECT 1 FROM user_machine_links WHERE computer_key=$key AND (source LIKE 'Manual%' OR source LIKE 'Saisie manuelle%' OR julianday(observed_at)>julianday($timestamp)));" ) $db)
-            }
-        }
+        # D028: user_machine_links is written only by the single LocalStore writer.
     }
     # Retention affects only these new cache tables, never the existing AD index/history.
     [void](Invoke-DomeniaDbExec ("DELETE FROM adcc_live_queries WHERE scope_key=$qScope AND query_key IN (SELECT query_key FROM adcc_live_queries WHERE scope_key=$qScope ORDER BY observed_utc DESC LIMIT -1 OFFSET 20); DELETE FROM adcc_live_queries WHERE observed_utc<strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days'); DELETE FROM adcc_live_observations WHERE scope_key=$qScope AND object_key IN (SELECT object_key FROM adcc_live_observations WHERE scope_key=$qScope ORDER BY checked_utc DESC LIMIT -1 OFFSET 5000); DELETE FROM adcc_live_observations WHERE checked_utc<strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days'); COMMIT;") $db)

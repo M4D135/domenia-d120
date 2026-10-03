@@ -62,8 +62,10 @@ def audit():
     ck('One index synchronization per fresh render',show.count('Sync-DomeniaIndexEntry')==1 and 'Sync-DomeniaIndexEntry' not in fn('Fill-ComputerObject'))
     ck('Direct open releases view wrappers','if (-not $NoNavigate)' in show and "ReadContent" in show)
     m=(ROOT/'wad/modules/Domenia-Selection.UI.ps1').read_text('utf-8-sig')
-    for g in ['SHA256','object-v2|','GlobalSearchGeneration','GetHashCode','ExpectedGuid','ToString(\'D\')','DN -ieq','Phase -eq \'Ready\'','SameSelectionContext']:
+    for g in ['Get-DomeniaCacheKey','GlobalSearchGeneration','GetHashCode','ExpectedGuid','ToString(\'D\')','DN -ieq','Phase -eq \'Ready\'','SameSelectionContext']:
         ck('Selection/cache identity rule: '+g,g in m)
+    cache_rule=(ROOT/'wad/modules/Domenia-Cache.Model.ps1').read_text('utf-8-sig')
+    ck('Selection/cache identity rule: reader hashed by the cache-v3 rule',"'cache-v3|" in cache_rule and 'Get-DomeniaTextHash' in cache_rule)
     ck('One type update per selection type','if ($load.VisibleType -cne $context.Type)' in m)
     ck('Read retry does not reprobe','-Immediate -Force -ReadOnlyRetry' in m)
     ck('Old object hidden before request','SelectedObject = $null' in m and "Visibility = 'Collapsed'" in m)

@@ -1,0 +1,105 @@
+{
+  "Lot": "cache",
+  "Points": [
+    "D028",
+    "D025"
+  ],
+  "Modules": [
+    {
+      "File": "Domenia-Storage.UI.ps1",
+      "Phase": "Modules",
+      "Requires": [],
+      "DotSource": true,
+      "ExistingEntry": true,
+      "Functions": [
+        "Request-DomeniaLinkPersistence"
+      ],
+      "NewFunctions": [
+        "Request-DomeniaLinkPersistence"
+      ]
+    },
+    {
+      "File": "Domenia-Selection.UI.ps1",
+      "Phase": "Modules",
+      "Requires": [
+        "Domenia-Common.Model.ps1",
+        "Domenia-Engine.Model.ps1",
+        "Domenia-Cache.Model.ps1"
+      ],
+      "DotSource": true,
+      "ExistingEntry": true,
+      "Functions": [],
+      "NewFunctions": []
+    }
+  ],
+  "ModifiedModulesWithoutNewFunctions": [
+    "Domenia-Storage.UI.ps1 (Initialize-DomeniaPersistence : etat LinkRequestTimer/LinkPersistenceMore ; Queue-DomeniaLinkChanges : -Quiet et -MaxItems)",
+    "Domenia-Live.UI.ps1 (Merge-DomeniaLiveLinkMemory : garde le return RelationsSymmetry et appelle Request-DomeniaLinkPersistence avant return et en fin)",
+    "Domenia-Live.Model.ps1 (Get-DomeniaLiveCacheCode : suppression du second ecrivain user_machine_links)",
+    "Domenia-Selection.UI.ps1 (Get-DomeniaObjectCacheKey : delegation a Get-DomeniaCacheKey cache-v3)",
+    "Domenia-Continuity.UI.ps1 (Invoke-DomeniaObjectChanges : invalidation par GUID puis repli DN)",
+    "wad/Domenia-Modules.ps1 (declaration de Request-DomeniaLinkPersistence)",
+    "tools/audit_preload.py (Get-DomeniaCacheKey exige dans Selection.UI ; hachage du lecteur verifie dans la regle cache-v3)",
+    "Domenia-Core.ps1 (Get-VisitCacheValue et Set-VisitCacheValue : une cle vide n est ni lue ni ecrite)"
+  ],
+  "TypeFiles": [],
+  "Operations": [],
+  "OperationsModified": [
+    {
+      "Operation": "LiveCache",
+      "File": "wad/modules/Domenia-Live.Model.ps1",
+      "Function": "Get-DomeniaLiveCacheCode",
+      "LiteralIndex": 0,
+      "Provider": "Storage",
+      "Resource": "Local",
+      "NeedsDirectoryCredential": false,
+      "NeedsMachineCredential": false,
+      "NonDirectory": true,
+      "IsWrite": true,
+      "Class": "Background",
+      "Change": "Suppression de l ecriture directe user_machine_links ; les observations restent ecrites dans adcc_live_observations."
+    }
+  ],
+  "OperationsNote": "LiveCache est une operation worker epinglee. Apres relecture : python tools/update_worker_contracts.py --apply, mise a jour de Get-DomeniaWorkerOperationHashes, de la liste $nonDirectoryOperations (LiveCache doit deja y figurer) et des notes de version. Aucun autre corps worker modifie.",
+  "SelfTestRequiredFunctions": [
+    "Request-DomeniaLinkPersistence",
+    "Queue-DomeniaLinkChanges",
+    "Merge-DomeniaLiveLinkMemory",
+    "Get-DomeniaObjectCacheKey",
+    "Get-DomeniaCacheKey",
+    "Invoke-DomeniaObjectChanges"
+  ],
+  "SelfTestChecks": [
+    "Test-DomeniaWiringCache.ps1 : LiveCache ne contient plus INSERT OR REPLACE INTO user_machine_links",
+    "Test-DomeniaWiringCache.ps1 : Merge-DomeniaLiveLinkMemory appelle Request-DomeniaLinkPersistence dans les deux branches et garde le return RelationsSymmetry",
+    "Test-DomeniaWiringCache.ps1 : N observations produisent une seule mise en file apres l echeance",
+    "Test-DomeniaWiringCache.ps1 : LinkBusy rearment le minuteur sans statut",
+    "Test-DomeniaWiringCache.ps1 : 70 ecarts sont mis en file par lots de 64 puis 6",
+    "Test-DomeniaWiringCache.ps1 : parcours explicite sans parametre refuse toujours plus de 64 ecarts",
+    "Test-DomeniaWiringCache.ps1 : invalidation GUID puis repli DN",
+    "Test-DomeniaWiringCache.ps1 : audit_preload exige Get-DomeniaCacheKey au lieu de object-v2",
+    "Test-DomeniaWiringCache.ps1 : Request-DomeniaLinkPersistence est declaree dans le chargeur",
+    "Test-DomeniaWiringCache.ps1 : une cle vide ne lit ni n ecrit le cache de visite ; sans domaine, pas de cle"
+  ],
+  "HelpEntries": [],
+  "Features": [],
+  "AsyncConfigKeys": [],
+  "StartRequired": [],
+  "DevOnlyFiles": [
+    "wad/tests/Test-DomeniaWiringCache.ps1"
+  ],
+  "StaticTools": [
+    "tools/audit_preload.py"
+  ],
+  "CrossLaneRequests": [
+    {
+      "To": "integrateur",
+      "Request": "preload-baseline.json : re-epinglage motive requis pour les fichiers modifies et pour le changement de litteral dans tools/audit_preload.py. Conserver le controle SHA256 dans Selection.UI ; remplacer object-v2| par Get-DomeniaCacheKey."
+    },
+    {
+      "To": "worker",
+      "Request": "Re-epingler LiveCache via tools/update_worker_contracts.py --apply apres relecture ; verifier Get-DomeniaWorkerOperationHashes, operation-contracts.json et $nonDirectoryOperations."
+    }
+  ],
+  "Notes": "Premier jet Spark revise (persistance differee par lots de 64, garde centrale de cle vide, audit mis a jour), relu et ajuste ; a valider dans la VM."
+}

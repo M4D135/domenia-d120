@@ -37,6 +37,9 @@ foreach($name in @('Get-MainXaml','Get-DomeniaControl','Set-DomeniaControlText',
     Import-Function $name
     . ([scriptblock]::Create($script:ImportBody))
 }
+. (Join-Path $wad 'modules\Domenia-Common.Model.ps1')
+# D025: the object cache key is built by the cache-v3 rule.
+. (Join-Path $wad 'modules\Domenia-Cache.Model.ps1')
 . (Join-Path $wad 'modules\Domenia-Selection.UI.ps1')
 . (Join-Path $wad 'modules\Domenia-Experience.Model.ps1')
 # The fixture never imports the bootstrap, loads a user cache or invokes a real worker.
@@ -164,8 +167,9 @@ Test-Case 'A pending read pauses during a write' {Pick (Row);$script:BusyWrite=$
 Test-Case 'Pending preload survives the disabled-grid phase of a write' {Pick (Row);$script:BusyWrite=$true;$script:Ctrl.DgObjects.IsEnabled=$false;Send-Pending;Assert-True ($null -ne $script:PendingObjectSelection -and $script:Requests.Count -eq 0);$script:BusyWrite=$false;$script:Ctrl.DgObjects.IsEnabled=$true;Send-Pending;Assert-True ($script:Requests.Count -eq 1)}
 Test-Case 'Invalid cache is ignored, fresh AD request is still sent' {$r=Row;Pick $r;$key=Get-DomeniaObjectCacheKey $r.DN $r.Guid (Get-DomeniaObjectReadIdentity);$bad=Result-For $r;$bad.Properties.Remove('objectGUID');$script:Cache[$key]=$bad;Send-Pending;Assert-True ($script:Renders.Count -eq 0 -and $script:Requests.Count -eq 1)}
 Test-Case 'Draft refusal precedes context and probe changes' {$script:DraftState=[pscustomobject]@{DN='keep'};$script:DraftApproved=$false;Pick (Row);Assert-True ($script:RestoredDN -eq 'keep' -and -not $script:RemoteIntent -and -not $script:RelationDN -and $null -eq $script:SelectionLoad)}
-Test-Case 'Cache keys distinguish AD identities' {Assert-True ((Get-DomeniaObjectCacheKey 'dn' 'g' 'reader1') -cne (Get-DomeniaObjectCacheKey 'dn' 'g' 'reader2'))}
-Test-Case 'Cache keys distinguish GUIDs' {Assert-True ((Get-DomeniaObjectCacheKey 'dn' 'a' 'reader') -cne (Get-DomeniaObjectCacheKey 'dn' 'b' 'reader'))}
+Test-Case 'Cache keys distinguish AD identities' {$g='11111111-1111-1111-1111-111111111111';Assert-True ((Get-DomeniaObjectCacheKey 'dn' $g 'reader1') -cne (Get-DomeniaObjectCacheKey 'dn' $g 'reader2'))}
+Test-Case 'Cache keys distinguish GUIDs' {Assert-True ((Get-DomeniaObjectCacheKey 'dn' '11111111-1111-1111-1111-111111111111' 'reader') -cne (Get-DomeniaObjectCacheKey 'dn' '22222222-2222-2222-2222-222222222222' 'reader'))}
+Test-Case 'D025 : without a real GUID the object is not cached (empty key)' {Assert-True ((Get-DomeniaObjectCacheKey 'dn' 'not-a-guid' 'reader') -ceq '')}
 Test-Case 'A matching cache is shown while a fresh read still starts' {$r=Row;Pick $r;$id=Get-DomeniaObjectReadIdentity;$key=Get-DomeniaObjectCacheKey $r.DN $r.Guid $id;$script:Cache[$key]=Result-For $r;Send-Pending;Assert-True ($script:Renders.Count -eq 1 -and $script:Requests.Count -eq 1 -and $script:SelectionLoad.Phase -eq 'Cached' -and -not $script:Ctrl.ObjectReadContent.IsEnabled)}
 Test-Case 'Bootstrap registry verifies all entries without a hardcoded count' {$registry=Get-DomeniaWorkerOperationHashes;Assert-True ((Assert-DomeniaWorkerRegistry -Registry $registry) -eq $registry.Count)}
 Test-Case 'All runtime modules import in a clean runspace and export their real functions' {

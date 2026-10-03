@@ -35,6 +35,8 @@ function Show-ErrorBox {param($Text);$script:Messages['Error']=[string]$Text}
 function Add-DomeniaUiLog {param($Area,$Text,$Level)}
 function Refresh-AssociationContext {param([switch]$SkipResultRefresh)}
 function Refresh-LinkGrid {param([switch]$All)}
+# D028: background observations ask the single writer through a deferred request (counted here, no real timer).
+function Request-DomeniaLinkPersistence {$script:LinkPersistenceRequests++}
 function Save-UserMachineLinks {$script:SaveCount++;if($script:UseRealQueue){return (Queue-DomeniaLinkChanges)};return [bool]$script:SaveAccepted}
 function Request-DomeniaAccessRecovery {param($Operation,$OperationId,$ErrorValue,$DN,$Target);return $true}
 function Get-DomeniaEffectiveWorkerResult {param($Result,$RequiredProperties);return @($Result)[-1]}
@@ -242,7 +244,7 @@ try {
     }
     Case 'D042 File de stockage reelle : l affectation declaree devient la ligne enregistree du poste' {
         Reset-Fixture;$script:UseRealQueue=$true
-        $script:Persistence=[pscustomobject]@{Pending=@{};Job='';Next=[datetime]::MinValue;Fault='';Failures=0;LinkBusy=$false;Timer=$null}
+        $script:Persistence=[pscustomobject]@{Pending=@{};Job='';Next=[datetime]::MinValue;Fault='';Failures=0;LinkBusy=$false;Timer=$null;LinkRequestTimer=$null;LinkPersistenceMore=$false}
         $script:UserMachineLinks=@([pscustomobject]@{UserLogin='adm-x';Computer='PC-1';Source='Console CIM/DCOM';Confidence=0;VerifiedInAD=$true;When='2026-01-01 08:00:00';Details='';UserGuid='';ComputerGuid='';UserDn='';ComputerDn=''})
         Reset-DomeniaLinkBaseline
         $added=Add-UserMachineLinkIfMissing -UserLogin 'alice' -Computer 'PC-1' -Source 'Saisie manuelle' -Details 'Declaration' -Declarant 'EXAMPLE\reader'

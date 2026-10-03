@@ -444,7 +444,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaSourceReadPlan',
             'ConvertFrom-DomeniaWaptHost'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1'); File='Domenia-Selection.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Cache.Model.ps1'); File='Domenia-Selection.UI.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaObjectReadIdentity',
             'Get-DomeniaRowSelectionIdentity',
             'Get-DomeniaSelectionContext',
@@ -767,11 +767,12 @@ function Get-DomeniaRuntimeModulePlan {
         [pscustomobject]@{ File='Domenia-Storage.Worker.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaStorageWorkerCode'
         ) }
-        [pscustomobject]@{ File='Domenia-Storage.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Storage.UI.ps1'; DotSource=$true; Functions=@(
             'Initialize-DomeniaPersistence',
             'Add-DomeniaIndexPersistence',
             'Reset-DomeniaLinkBaseline',
             'Queue-DomeniaLinkChanges',
+            'Request-DomeniaLinkPersistence',
             'Start-DomeniaStorageWork',
             'Complete-DomeniaStorageWork',
             'Fail-DomeniaStorageWork',

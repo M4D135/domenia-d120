@@ -395,10 +395,11 @@ function Merge-DomeniaLiveLinkMemory {
     $computer=Normalize-LinkComputer ([string]$Observation.Computer);$user=Normalize-LinkUser ([string]$Observation.LinkUser)
     if(-not $computer -or -not $user){return}
     if(Get-DomeniaFeatureFlag 'RelationsSymmetry' $true){
-        # D042: the observed console joins the relations of the workstation through the upsert rule (memory only,
-        # LiveCache persists). It never overwrites another account, never replaces a declared assignment, no fixed score.
+        # D042: the observed console joins the relations of the workstation through the upsert rule (memory only).
+        # D028: persistence is requested once; LiveCache must not write user_machine_links.
         $observed=[pscustomobject]@{UserLogin=$user;Computer=$computer;Source='Console CIM/DCOM';Confidence=0;VerifiedInAD=$true;When=([datetime]::Parse([string]$Observation.ObservedUtc)).ToLocalTime().ToString('s');Details='Compte console observé ; sessions RDP non recensées.';UserGuid=[string]$Observation.UserGuid;ComputerGuid=[string]$Observation.Guid;UserDn=[string]$Observation.UserDn;ComputerDn=[string]$Observation.Key;Kind='Console'}
         [void](Add-DomeniaRelation -Relation $observed -NoSave -Quiet)
+        Request-DomeniaLinkPersistence
         return
     }
     $existing=Get-ExistingLinkForComputer $computer
@@ -418,6 +419,8 @@ function Merge-DomeniaLiveLinkMemory {
     if(-not $script:LinksByUser.ContainsKey($u)){$script:LinksByUser[$u]=[Collections.ArrayList]::new()}
     if(-not $script:LinksByUser[$u].Contains($link)){[void]$script:LinksByUser[$u].Add($link)}
     $script:LinkIndexCount=@($script:UserMachineLinks).Count;$script:LinkIndexGeneration++
+    # D028: persistence is requested once; LiveCache must not write user_machine_links.
+    Request-DomeniaLinkPersistence
 }
 function Complete-DomeniaLivePresence {
     param($Result,$State)
