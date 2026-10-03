@@ -115,6 +115,13 @@
       "Status": "FAIL",
       "Host": "Windows PowerShell 5.1.26100.6584 Desktop x64 (VM CNAMTS-W11-01, session 1)",
       "Detail": "env, compat, parser (-RequireWindows51), startcheck reussis ; 34 suites : 2068 reussis, 2 en echec (Test-DomeniaGeometry, 1920x1080 a 200 % : zone 960x516). Doublures, aucun AD reel ; non qualifiant pour la livraison."
+    },
+    {
+      "Name": "Integration 2026-10-03 : campagne VM CNAMTS-W11-01 (commit 57eefd9, lot cache etape A)",
+      "Executed": true,
+      "Status": "FAIL",
+      "Host": "Windows PowerShell 5.1.26100.6584 Desktop x64 (VM CNAMTS-W11-01, session 1)",
+      "Detail": "env, compat, parser, startcheck reussis ; 35 suites : 2086 reussis, 2 en echec (Test-DomeniaGeometry 1920x1080 a 200 %, risque accepte). Doublures, aucun AD reel ; non qualifiant pour la livraison."
     }
   ],
   "Items": [
@@ -931,7 +938,7 @@
       "title": "Identité et provenance dans toutes les clés",
       "proposal": "Unifier le cache autour des GUID/SID, du domaine, du lecteur, du DC, de son invocationID et de la version pertinente.",
       "acceptance_criterion": "Même DN réutilisé, même USN sur deux DC ou changement de compte ne valide pas un ancien cache.",
-      "status": "DEVELOPPE_NON_RACCORDE",
+      "status": "RACCORDE_A_VALIDER_WINDOWS",
       "reference_ids": [
         "S06",
         "S07",
@@ -941,13 +948,16 @@
         "wad/modules/Domenia-Cache.Model.ps1"
       ],
       "acceptance_passed": false,
-      "remaining": "Raccordement du lot cache a faire : cle de visite, presence, file d ecriture unique (Domenia-Storage), reconciliation, base (schema 11). Campagne Windows PowerShell 5.1 dans la VM CNAMTS-W11-01 (Invoke-LabRun, suite d integration du lot) puis preuve liee au ZIP final.",
+      "remaining": "Preuve Windows PowerShell 5.1 liee au ZIP final (release_guard.py --require-windows).",
       "rule_tests": 4,
       "tests": [
+        "wad/tests/Test-DomeniaPreload.ps1",
+        "wad/tests/Test-DomeniaWiringCache.ps1",
         "wad/tests/rules/Cache.Tests.ps1"
       ],
-      "wiring": "Aucun",
-      "evidence": "Regles executees sous Windows PowerShell 5.1.26100.6584 (VM W11-01) par branche avant fusion (commit 1b2dedb). 4 test(s) de regles ; sous PowerShell 7.4 Linux (non qualifiant) le 2026-10-02 : execution de controle seulement."
+      "wiring": "Complet",
+      "evidence": "Raccorde (lot cache, etape A) : Get-DomeniaObjectCacheKey delegue a la regle Get-DomeniaCacheKey (cache-v3 : domaine, GUID, lecteur hache), sans vrai GUID pas de cache (garde centrale Get/Set-VisitCacheValue), invalidation par GUID avec repli DN. Campagne d integration Windows PowerShell 5.1.26100.6584 x64 dans la VM CNAMTS-W11-01 le 2026-10-03, commit 57eefd9 lie (409/409) : startcheck reussi, Test-DomeniaWiringCache 16/16, Test-DomeniaPreload 98/98, Test-DomeniaWiringRelations 34/34, Test-DomeniaWiringRecherche 31/31, Test-DomeniaSelection 47/47 ; doublures, aucun AD reel ; non qualifiant pour la livraison.",
+      "lot": "cache"
     },
     {
       "id": "D026",
@@ -1012,7 +1022,7 @@
       "title": "Écrivain SQLite unique pour les parcours courants",
       "proposal": "Regrouper les écritures ciblées dans une file bornée ; gérer verrous, transactions et état En mémoire/Enregistré.",
       "acceptance_criterion": "Deux mises à jour indépendantes ne s’écrasent pas et un verrou SQLite ne bloque pas WPF.",
-      "status": "DEVELOPPE_NON_RACCORDE",
+      "status": "RACCORDE_NON_EXECUTE",
       "reference_ids": [
         "S06",
         "S07",
@@ -1022,13 +1032,16 @@
         "wad/modules/Domenia-Cache.Model.ps1"
       ],
       "acceptance_passed": false,
-      "remaining": "Raccordement du lot cache a faire : cle de visite, presence, file d ecriture unique (Domenia-Storage), reconciliation, base (schema 11). Campagne Windows PowerShell 5.1 dans la VM CNAMTS-W11-01 (Invoke-LabRun, suite d integration du lot) puis preuve liee au ZIP final.",
+      "remaining": "Libelles d etat d enregistrement (Get-DomeniaPersistenceLabel dans Guard.UI et Live.UI, carte cache-storage) ; puis preuve Windows liee au ZIP final.",
       "rule_tests": 2,
       "tests": [
+        "wad/tests/Test-DomeniaWiringCache.ps1",
+        "wad/tests/Test-DomeniaWiringRelations.ps1",
         "wad/tests/rules/Cache.Tests.ps1"
       ],
-      "wiring": "Aucun",
-      "evidence": "Regles executees sous Windows PowerShell 5.1.26100.6584 (VM W11-01) par branche avant fusion (commit 1b2dedb). 2 test(s) de regles ; sous PowerShell 7.4 Linux (non qualifiant) le 2026-10-02 : execution de controle seulement."
+      "wiring": "Partiel",
+      "evidence": "Raccorde en partie (lot cache, etape A) : le worker LiveCache n ecrit plus user_machine_links ; les observations Live demandent une persistance differee par l ecrivain unique (Request-DomeniaLinkPersistence, lots de 64, reessai silencieux). Campagne d integration Windows PowerShell 5.1.26100.6584 x64 dans la VM CNAMTS-W11-01 le 2026-10-03, commit 57eefd9 lie (409/409) : startcheck reussi, Test-DomeniaWiringCache 16/16, Test-DomeniaPreload 98/98, Test-DomeniaWiringRelations 34/34, Test-DomeniaWiringRecherche 31/31, Test-DomeniaSelection 47/47 ; doublures, aucun AD reel ; non qualifiant pour la livraison.",
+      "lot": "cache"
     },
     {
       "id": "D029",
