@@ -143,6 +143,13 @@
       "Status": "FAIL",
       "Host": "Windows PowerShell 5.1.26100.6584 Desktop x64 (VM CNAMTS-W11-01, session 1)",
       "Detail": "env, compat, parser, startcheck reussis ; 35 suites : 2101 reussis, 2 en echec (Test-DomeniaGeometry 1920x1080 a 200 %, risque accepte). Non qualifiant pour la livraison."
+    },
+    {
+      "Name": "Integration 2026-10-03 : campagne VM CNAMTS-W11-01 (commit 65e05d1, lot cache etape E)",
+      "Executed": true,
+      "Status": "FAIL",
+      "Host": "Windows PowerShell 5.1.26100.6584 Desktop x64 (VM CNAMTS-W11-01, session 1)",
+      "Detail": "env, compat, parser, startcheck reussis ; 35 suites : 2103 reussis, 2 en echec (Test-DomeniaGeometry 1920x1080 a 200 %, risque accepte). Non qualifiant pour la livraison."
     }
   ],
   "Items": [
@@ -851,7 +858,7 @@
       "title": "Projection AD minimale",
       "proposal": "Lire seulement les attributs de la liste ; demander groupes, permissions et détails lors de la sélection ou de la visite de leur onglet.",
       "acceptance_criterion": "Afficher 100 utilisateurs ne déclenche pas 100 lectures complètes ni 100 analyses de droits.",
-      "status": "DEVELOPPE_NON_RACCORDE",
+      "status": "RACCORDE_A_VALIDER_WINDOWS",
       "reference_ids": [
         "S06",
         "S07",
@@ -861,13 +868,16 @@
         "wad/modules/Domenia-Cache.Model.ps1"
       ],
       "acceptance_passed": false,
-      "remaining": "Raccordement du lot cache a faire : cle de visite, presence, file d ecriture unique (Domenia-Storage), reconciliation, base (schema 11). Campagne Windows PowerShell 5.1 dans la VM CNAMTS-W11-01 (Invoke-LabRun, suite d integration du lot) puis preuve liee au ZIP final.",
+      "remaining": "Preuve Windows PowerShell 5.1 liee au ZIP final (release_guard.py --require-windows).",
       "rule_tests": 1,
       "tests": [
+        "wad/tests/Test-DomeniaSearchScope.ps1",
+        "wad/tests/Test-DomeniaWiringCache.ps1",
         "wad/tests/rules/Cache.Tests.ps1"
       ],
-      "wiring": "Aucun",
-      "evidence": "Regles executees sous Windows PowerShell 5.1.26100.6584 (VM W11-01) par branche avant fusion (commit 1b2dedb). 1 test(s) de regles ; sous PowerShell 7.4 Linux (non qualifiant) le 2026-10-02 : execution de controle seulement."
+      "wiring": "Complet",
+      "evidence": "Raccorde (lot cache, etape E) : Invoke-GlobalSearch demande Get-DomeniaProjection -Kind List et refuse une projection lourde (Test-DomeniaProjectionMinimal) avant le worker GlobalSearch. Campagne d integration Windows PowerShell 5.1.26100.6584 x64 dans la VM CNAMTS-W11-01 le 2026-10-03, commit 65e05d1 lie (409/409) : startcheck reussi, Test-DomeniaWiringCache 32/32, SearchScope 42/42, WiringRecherche 31/31, SearchPresence 61/61 ; doublures, aucun AD reel ; non qualifiant pour la livraison.",
+      "lot": "cache"
     },
     {
       "id": "D022",
@@ -878,7 +888,7 @@
       "title": "Mettre à jour les cellules sans rebâtir la grille",
       "proposal": "Conserver une collection stable, appliquer des lots courts et préserver tri, position et sélection pendant l’arrivée des résultats.",
       "acceptance_criterion": "Une mise à jour de présence ne remet ni la liste en haut ni sa sélection à zéro.",
-      "status": "DEVELOPPE_NON_RACCORDE",
+      "status": "RACCORDE_A_VALIDER_WINDOWS",
       "reference_ids": [
         "S06",
         "S07",
@@ -888,13 +898,15 @@
         "wad/modules/Domenia-Cache.Model.ps1"
       ],
       "acceptance_passed": false,
-      "remaining": "Raccordement du lot cache a faire : cle de visite, presence, file d ecriture unique (Domenia-Storage), reconciliation, base (schema 11). Campagne Windows PowerShell 5.1 dans la VM CNAMTS-W11-01 (Invoke-LabRun, suite d integration du lot) puis preuve liee au ZIP final.",
+      "remaining": "Preuve Windows PowerShell 5.1 liee au ZIP final (release_guard.py --require-windows).",
       "rule_tests": 2,
       "tests": [
+        "wad/tests/Test-DomeniaWiringCache.ps1",
         "wad/tests/rules/Cache.Tests.ps1"
       ],
-      "wiring": "Aucun",
-      "evidence": "Regles executees sous Windows PowerShell 5.1.26100.6584 (VM W11-01) par branche avant fusion (commit 1b2dedb). 2 test(s) de regles ; sous PowerShell 7.4 Linux (non qualifiant) le 2026-10-02 : execution de controle seulement."
+      "wiring": "Complet",
+      "evidence": "Raccorde (lot cache, etape E) : Complete-DomeniaReconcile ne met en file que les lignes changees ou nouvelles (Get-DomeniaRowUpdatePlan) ; le rafraichissement filtre n est demande que si un champ visible change. Campagne d integration Windows PowerShell 5.1.26100.6584 x64 dans la VM CNAMTS-W11-01 le 2026-10-03, commit 65e05d1 lie (409/409) : startcheck reussi, Test-DomeniaWiringCache 32/32, SearchScope 42/42, WiringRecherche 31/31, SearchPresence 61/61 ; doublures, aucun AD reel ; non qualifiant pour la livraison.",
+      "lot": "cache"
     },
     {
       "id": "D023",
@@ -915,13 +927,14 @@
         "wad/modules/Domenia-Cache.Model.ps1"
       ],
       "acceptance_passed": false,
-      "remaining": "Raccordement du lot cache a faire : cle de visite, presence, file d ecriture unique (Domenia-Storage), reconciliation, base (schema 11). Campagne Windows PowerShell 5.1 dans la VM CNAMTS-W11-01 (Invoke-LabRun, suite d integration du lot) puis preuve liee au ZIP final.",
+      "remaining": "Decider si le comportement existant suffit (alors raccorder par un test d integration qui le prouve) ou brancher New-DomeniaPageBuffer ; puis preuve Windows liee au ZIP final.",
       "rule_tests": 2,
       "tests": [
         "wad/tests/rules/Cache.Tests.ps1"
       ],
       "wiring": "Aucun",
-      "evidence": "Regles executees sous Windows PowerShell 5.1.26100.6584 (VM W11-01) par branche avant fusion (commit 1b2dedb). 2 test(s) de regles ; sous PowerShell 7.4 Linux (non qualifiant) le 2026-10-02 : execution de controle seulement."
+      "evidence": "Regles executees sous Windows PowerShell 5.1.26100.6584 (VM W11-01) par branche avant fusion (commit 1b2dedb). 2 test(s) de regles ; sous PowerShell 7.4 Linux (non qualifiant) le 2026-10-02 : execution de controle seulement. Relecture du lot cache (etape E, premier jet Spark) : limite par recherche, eviction des lignes de cache et virtualisation de DgObjects deja presentes dans Domenia-Live.UI.ps1 ; la regle New-DomeniaPageBuffer n est pas branchee (doublon de quota). Non verifie independamment.",
+      "lot": "cache"
     },
     {
       "id": "D024",
