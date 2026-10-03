@@ -122,6 +122,13 @@
       "Status": "FAIL",
       "Host": "Windows PowerShell 5.1.26100.6584 Desktop x64 (VM CNAMTS-W11-01, session 1)",
       "Detail": "env, compat, parser, startcheck reussis ; 35 suites : 2086 reussis, 2 en echec (Test-DomeniaGeometry 1920x1080 a 200 %, risque accepte). Doublures, aucun AD reel ; non qualifiant pour la livraison."
+    },
+    {
+      "Name": "Integration 2026-10-03 : campagne VM CNAMTS-W11-01 (commit ff2ece2, lot cache etape B)",
+      "Executed": true,
+      "Status": "FAIL",
+      "Host": "Windows PowerShell 5.1.26100.6584 Desktop x64 (VM CNAMTS-W11-01, session 1)",
+      "Detail": "env, compat, parser, startcheck reussis ; 35 suites : 2089 reussis, 2 en echec (Test-DomeniaGeometry 1920x1080 a 200 %, risque accepte). Non qualifiant pour la livraison."
     }
   ],
   "Items": [
@@ -3478,7 +3485,7 @@
       "title": "Migration explicite ADCC vers Domenia",
       "proposal": "Conserver données et préférences existantes, vérifier versions et domaines, tracer les reprises de noms historiques.",
       "acceptance_criterion": "Une migration répétée ne duplique pas les liens et n’écrase pas une configuration Domenia déjà créée.",
-      "status": "DEVELOPPE_NON_RACCORDE",
+      "status": "RACCORDE_NON_EXECUTE",
       "reference_ids": [
         "S02",
         "S03",
@@ -3488,12 +3495,14 @@
         "wad/modules/Domenia-Release.Model.ps1"
       ],
       "acceptance_passed": false,
-      "remaining": "Raccordement cote runtime et installation a faire (INSTALLER-MISE-A-JOUR.ps1, migration, stockage, connecteurs). Campagne Windows PowerShell 5.1 dans la VM CNAMTS-W11-01 (Invoke-LabRun, suite d integration du lot) puis preuve liee au ZIP final.",
+      "remaining": "Import TSV/CSV historique (Import-DomeniaLegacyStoreIfNeeded, chemin de maintenance -ImportLegacy) a rendre transactionnel sans contourner les files d ecriture (IndexBulk, ecrivain unique des liens, ligne de base des liens) ; puis preuve Windows liee au ZIP final.",
       "tests": [
+        "wad/tests/Test-DomeniaWiringCache.ps1",
         "wad/tests/rules/Release.Tests.ps1"
       ],
-      "wiring": "Aucun",
-      "evidence": "Regles executees sous Windows PowerShell 5.1.26100.6584 (VM W11-01) par branche avant fusion (commit 1b2dedb). 6 test(s) de regles ; sous PowerShell 7.4 Linux (non qualifiant) le 2026-10-02 : execution de controle seulement."
+      "wiring": "Partiel",
+      "evidence": "Raccorde en partie (lot cache, etape B) : la migration de schema est atteignable par la regle Test-DomeniaSchemaCompatibility, transactionnelle (BEGIN IMMEDIATE/COMMIT) et idempotente (CREATE IF NOT EXISTS, INSERT OR IGNORE), apres sauvegarde de migration. Campagne d integration Windows PowerShell 5.1.26100.6584 x64 dans la VM CNAMTS-W11-01 le 2026-10-03, commit ff2ece2 lie (409/409) : startcheck reussi, Test-DomeniaWiringCache 19/19 (base plus recente refusee intacte, sauvegarde de migration hors rotation, garde du worker LiveCache), Test-DomeniaRules 438/438 ; doublures et SQLite local, aucun AD reel ; non qualifiant pour la livraison.",
+      "lot": "cache"
     },
     {
       "id": "D114",
@@ -3530,7 +3539,7 @@
       "title": "Compatibilité des données et retour de version",
       "proposal": "Tester bases anciennes/futures, sauvegardes cohérentes et interruption de migration ; interdire le downgrade incompatible.",
       "acceptance_criterion": "Restaurer un ancien EXE ne rétrograde pas silencieusement le schéma ni n’efface les reçus.",
-      "status": "DEVELOPPE_NON_RACCORDE",
+      "status": "RACCORDE_A_VALIDER_WINDOWS",
       "reference_ids": [
         "S02",
         "S03",
@@ -3540,12 +3549,14 @@
         "wad/modules/Domenia-Release.Model.ps1"
       ],
       "acceptance_passed": false,
-      "remaining": "Raccordement cote runtime et installation a faire (INSTALLER-MISE-A-JOUR.ps1, migration, stockage, connecteurs). Campagne Windows PowerShell 5.1 dans la VM CNAMTS-W11-01 (Invoke-LabRun, suite d integration du lot) puis preuve liee au ZIP final.",
+      "remaining": "Preuve Windows PowerShell 5.1 liee au ZIP final (release_guard.py --require-windows).",
       "tests": [
+        "wad/tests/Test-DomeniaWiringCache.ps1",
         "wad/tests/rules/Release.Tests.ps1"
       ],
-      "wiring": "Aucun",
-      "evidence": "Regles executees sous Windows PowerShell 5.1.26100.6584 (VM W11-01) par branche avant fusion (commit 1b2dedb). 6 test(s) de regles ; sous PowerShell 7.4 Linux (non qualifiant) le 2026-10-02 : execution de controle seulement."
+      "wiring": "Complet",
+      "evidence": "Raccorde (lot cache, etape B) : Initialize-DomeniaDatabase decide par Test-DomeniaSchemaCompatibility (base plus recente, illisible, trop ancienne ou migration interrompue refusee intacte avec message lisible) ; Backup-DomeniaDatabase -Migration hors rotation avant toute migration ; garde 11/1 dans les workers LiveCache (ajoutee) et LocalStore (existante). Campagne d integration Windows PowerShell 5.1.26100.6584 x64 dans la VM CNAMTS-W11-01 le 2026-10-03, commit ff2ece2 lie (409/409) : startcheck reussi, Test-DomeniaWiringCache 19/19 (base plus recente refusee intacte, sauvegarde de migration hors rotation, garde du worker LiveCache), Test-DomeniaRules 438/438 ; doublures et SQLite local, aucun AD reel ; non qualifiant pour la livraison.",
+      "lot": "cache"
     },
     {
       "id": "D116",
