@@ -136,6 +136,13 @@
       "Status": "FAIL",
       "Host": "Windows PowerShell 5.1.26100.6584 Desktop x64 (VM CNAMTS-W11-01, session 1)",
       "Detail": "env, compat, parser, startcheck reussis ; 35 suites : 2100 reussis, 2 en echec (Test-DomeniaGeometry 1920x1080 a 200 %, risque accepte). Non qualifiant pour la livraison."
+    },
+    {
+      "Name": "Integration 2026-10-03 : campagne VM CNAMTS-W11-01 (commit 337cdbc, lot cache etape D)",
+      "Executed": true,
+      "Status": "FAIL",
+      "Host": "Windows PowerShell 5.1.26100.6584 Desktop x64 (VM CNAMTS-W11-01, session 1)",
+      "Detail": "env, compat, parser, startcheck reussis ; 35 suites : 2101 reussis, 2 en echec (Test-DomeniaGeometry 1920x1080 a 200 %, risque accepte). Non qualifiant pour la livraison."
     }
   ],
   "Items": [
@@ -3639,7 +3646,7 @@
       "title": "Séparer configuration, préférence, cache et reçu",
       "proposal": "Chemins et permissions propres à chaque catégorie, mode local/portable explicite et base active locale.",
       "acceptance_criterion": "Un compte standard ou un dossier non inscriptible ne provoque pas une bascule silencieuse de données.",
-      "status": "DEVELOPPE_NON_RACCORDE",
+      "status": "RACCORDE_NON_EXECUTE",
       "reference_ids": [
         "S02",
         "S03",
@@ -3649,12 +3656,14 @@
         "wad/modules/Domenia-Release.Model.ps1"
       ],
       "acceptance_passed": false,
-      "remaining": "Raccordement cote runtime et installation a faire (INSTALLER-MISE-A-JOUR.ps1, migration, stockage, connecteurs). Campagne Windows PowerShell 5.1 dans la VM CNAMTS-W11-01 (Invoke-LabRun, suite d integration du lot) puis preuve liee au ZIP final.",
+      "remaining": "Separation physique par categorie (preferences, journaux, sauvegardes) selon la disposition, avec migration des fichiers existants et mise a jour des tests de regle ; consultation hors ligne et explorateur de cache (D030) et retention pilotable (D029) restent a part ; puis preuve Windows liee au ZIP final.",
       "tests": [
+        "wad/tests/Test-Domenia.ps1",
         "wad/tests/rules/Release.Tests.ps1"
       ],
-      "wiring": "Aucun",
-      "evidence": "Regles executees sous Windows PowerShell 5.1.26100.6584 (VM W11-01) par branche avant fusion (commit 1b2dedb). 5 test(s) de regles ; sous PowerShell 7.4 Linux (non qualifiant) le 2026-10-02 : execution de controle seulement."
+      "wiring": "Partiel",
+      "evidence": "Raccorde en partie (lot cache, etape D) : Write-DomeniaPreference et le journal de connexion n ecrivent plus jamais en repli dans le dossier de l application ; Initialize-DomeniaDataStore expose Get-DomeniaStorageLayout sans changer le dossier de donnees ni la DACL (refus explicite en cas de contradiction). Campagne d integration Windows PowerShell 5.1.26100.6584 x64 dans la VM CNAMTS-W11-01 le 2026-10-03, commit 337cdbc lie (409/409) : startcheck reussi, Test-Domenia 132/132 dont le cas D118 ; non qualifiant pour la livraison.",
+      "lot": "cache"
     },
     {
       "id": "D119",
