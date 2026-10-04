@@ -1143,23 +1143,31 @@
       "title": "Explorateur de cache et consultation hors ligne",
       "proposal": "Montrer sources, dates et périmètres disponibles ; autoriser la consultation historique sans déclarer les objets actuels ni permettre les mutations hors ligne.",
       "acceptance_criterion": "Une panne réseau garde les données consultables mais ne réactive aucune commande exigeant une vérification fraîche.",
-      "status": "DEVELOPPE_NON_RACCORDE",
+      "status": "RACCORDE_A_VALIDER_WINDOWS",
       "reference_ids": [
         "S06",
         "S07",
         "S08"
       ],
       "implementation_files": [
-        "wad/modules/Domenia-Cache.Model.ps1"
+        "wad/Domenia-Core.ps1",
+        "wad/modules/Domenia-Cache.Model.ps1",
+        "wad/modules/Domenia-Engine.UI.ps1",
+        "wad/modules/Domenia-Selection.UI.ps1",
+        "wad/modules/Domenia-Access.UI.ps1"
       ],
       "acceptance_passed": false,
-      "remaining": "Raccordement du lot cache a faire : cle de visite, presence, file d ecriture unique (Domenia-Storage), reconciliation, base (schema 11). Campagne Windows PowerShell 5.1 dans la VM CNAMTS-W11-01 (Invoke-LabRun, suite d integration du lot) puis preuve liee au ZIP final.",
+      "remaining": "Critere raccorde et teste dans la VM ; reste la qualification Windows liee au ZIP final.",
       "rule_tests": 3,
       "tests": [
+        "wad/tests/Test-DomeniaWiringCache.ps1",
+        "wad/tests/Test-DomeniaPreload.ps1",
+        "wad/tests/Test-DomeniaWiringInterface.ps1",
         "wad/tests/rules/Cache.Tests.ps1"
       ],
-      "wiring": "Aucun",
-      "evidence": "Regles executees sous Windows PowerShell 5.1.26100.6584 (VM W11-01) par branche avant fusion (commit 1b2dedb). 3 test(s) de regles ; sous PowerShell 7.4 Linux (non qualifiant) le 2026-10-02 : execution de controle seulement."
+      "wiring": "Complet",
+      "evidence": "Regles executees sous Windows PowerShell 5.1.26100.6584 (VM W11-01) par branche avant fusion (commit 1b2dedb). 3 test(s) de regles ; sous PowerShell 7.4 Linux (non qualifiant) le 2026-10-02 : execution de controle seulement. J1 : seules les erreurs reseau/delai du fournisseur Directory de la session courante etablissent le mode hors ligne, meme sans ordonnanceur. Les fiches deja chargees restent consultables, toutes les modifications AD et distantes sont bloquees dans les boutons et les gardes d action. Le retour du reseau exige une vraie relecture plus recente que la panne ; LoadedAt du cache ne suffit pas. Reessayer reste manuel, aucun worker ou acces SQLite ajoute par la transition. Campagne Windows PS 5.1.26100.6584 x64 dans CNAMTS-W11-01, commit f56fea5 propre et lie 419/419 : 2239 reussis, deux echecs Geometry connus ; cache 93/93, regles 445/445, prechargement 101/101, interface 10/10, compatibilite/parseur/demarrage reussis. Aucun AD reel, aucune regression depuis H/I1/I2. Integration non qualifiante pour les ZIP. Rapport local : /Users/david/Documents/Projets/Domenia-lab/runs/d120-cache-j-f56fea5/_verdict.json.",
+      "lot": "cache"
     },
     {
       "id": "D031",
