@@ -75,7 +75,8 @@ function Get-DomeniaSafeObjectPropertyNames {return @('name','objectGUID','disti
 function Get-VisitCacheValue {param($Key);return $script:Cache[$Key]}
 function Get-DomeniaEffectiveWorkerResult {param($Result,$RequiredProperties);return $Result}
 function Show-AdObjectResult {param($Result,$Dn,$Type,[switch]$NoNavigate,[switch]$SuppressRemoteProbes)
-    $script:SelectedObject=[pscustomobject]@{DN=$Dn;Type=$Type;Name=$Result.Properties.name[0];Entry=$Result}
+    $script:SelectedObject=[pscustomobject]@{DN=$Dn;Type=$Type;Name=$Result.Properties.name[0];Guid=(Get-DomeniaObjectResultGuid $Result);Entry=$Result}
+    [void](Set-DomeniaObservationTime $script:SelectedObject 'Attributes' ([datetime]::UtcNow) -Succeeded:(-not [bool]$script:ShowingCachedObject))
     $script:Renders.Add([pscustomobject]@{DN=$Dn;NoNavigate=[bool]$NoNavigate;NoProbes=[bool]$SuppressRemoteProbes})
     if(-not $NoNavigate){$script:Page='WsObject'}
 }
@@ -94,6 +95,7 @@ function Reset-Fixture {
     if($null -ne $script:SelectionOpenTimer){$script:SelectionOpenTimer.Stop()}
     $script:SelectionOpenTimer=$null;$script:SelectionLoad=$null;$script:PendingObjectSelection=$null
     $script:CurrentObjectRequestId='';$script:CurrentObjectRequestDn='';$script:CurrentObjectRequestState=$null
+    $script:DirectoryReachability=$null;$script:WriteState='Idle';$script:ShowingCachedObject=$false
     $script:SelectedObject=$null;$script:LastLoadedEntry=$null;$script:SelectionResetDn='';$script:DraftState=$null
     $script:SessionEpoch=12L;$script:GlobalSearchGeneration=21;$script:SelectedObjectGeneration=0L
     $script:Conn=[pscustomobject]@{Connected=$true;BaseDn='DC=example,DC=invalid';Server='dc1.example.invalid';BindUser='EXAMPLE\reader';Credential=$null}
@@ -177,6 +179,21 @@ Test-Case 'Cache keys distinguish AD identities' {$g='11111111-1111-1111-1111-11
 Test-Case 'Cache keys distinguish GUIDs' {Assert-True ((Get-DomeniaObjectCacheKey 'dn' '11111111-1111-1111-1111-111111111111' 'reader') -cne (Get-DomeniaObjectCacheKey 'dn' '22222222-2222-2222-2222-222222222222' 'reader'))}
 Test-Case 'D025 : without a real GUID the object is not cached (empty key)' {Assert-True ((Get-DomeniaObjectCacheKey 'dn' 'not-a-guid' 'reader') -ceq '')}
 Test-Case 'A matching cache is shown while a fresh read still starts' {$r=Row;Pick $r;$id=Get-DomeniaObjectReadIdentity;$key=Get-DomeniaObjectCacheKey $r.DN $r.Guid $id;$script:Cache[$key]=Result-For $r;Send-Pending;Assert-True ($script:Renders.Count -eq 1 -and $script:Requests.Count -eq 1 -and $script:SelectionLoad.Phase -eq 'Cached' -and -not $script:Ctrl.ObjectReadContent.IsEnabled)}
+Test-Case 'D030 : cache hors ligne grise, reessai explicite puis fiche relue modifiable' {
+    $r=Row;Pick $r
+    $key=Get-DomeniaObjectCacheKey $r.DN $r.Guid (Get-DomeniaObjectReadIdentity)
+    $script:Cache[$key]=Result-For $r
+    $script:DirectoryReachability=[pscustomobject]@{Epoch=$script:SessionEpoch;Offline=$true;LastOutageUtc=[datetime]::UtcNow.AddMinutes(-1).ToString('o')}
+    Send-Pending
+    Fail-DomeniaOpenObjectTaskUi 'Serveur indisponible' $script:Requests[0].State
+    Assert-True ($script:Ctrl.ObjectReadContent.Visibility -eq 'Visible' -and -not $script:Ctrl.ObjectReadContent.IsEnabled)
+    Assert-True ($script:Ctrl.BtnObjectReadRetry.IsEnabled -and -not (Get-DomeniaSelectionCachePolicy).CanEdit)
+    $script:DirectoryReachability.Offline=$false
+    Retry-DomeniaSelectedObjectRead
+    Assert-True ($script:Requests.Count -eq 2)
+    Complete-DomeniaOpenObjectTaskUi (Result-For $r) $script:Requests[1].State
+    Assert-True ($script:Ctrl.ObjectReadContent.IsEnabled -and (Get-DomeniaSelectionCachePolicy).CanEdit)
+}
 Test-Case 'Bootstrap registry verifies all entries without a hardcoded count' {$registry=Get-DomeniaWorkerOperationHashes;Assert-True ((Assert-DomeniaWorkerRegistry -Registry $registry) -eq $registry.Count)}
 Test-Case 'All runtime modules import in a clean runspace and export their real functions' {
     $ps=[PowerShell]::Create()

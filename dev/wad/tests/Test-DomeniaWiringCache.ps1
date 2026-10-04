@@ -2314,6 +2314,136 @@ Test-Case 'D113 G3 : lecteur reel en runspace, Dispatcher vivant et base intacte
 $env:LOCALAPPDATA=$script:G23LocalAppData
 
 
+# Extract the unchanged production bodies once; each case still imports them in its own scope.
+$script:OfflineCoreDefinitions=@(foreach($name in @('Apply-CurrentPermissionUi','Get-WriteControlMap','Get-DomeniaSafetyDescriptor','Get-DomeniaEntryFirstString','Get-DeProp','Assert-DomeniaCapability','Assert-DomeniaRemoteWriteAllowed')){Get-FunctionTextFromFile $core $name}) -join "`n"
+$script:OfflineExplanationDefinition=Get-FunctionTextFromFile (Join-Path $modules 'Domenia-Access.UI.ps1') 'Get-DomeniaControlCapabilityExplanation'
+$script:OfflineFixture=@'
+foreach($file in @('Domenia-Common.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Access.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Guard.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Experience.Model.ps1','Domenia-Selection.UI.ps1','Domenia-Engine.UI.ps1')){. (Join-Path $modules $file)}
+. ([scriptblock]::Create($script:OfflineCoreDefinitions))
+. ([scriptblock]::Create($script:OfflineExplanationDefinition))
+function Get-DomeniaControl {param($Name) return $script:Ctrl[$Name]}
+function Set-DomeniaControlText {param($Name,$Text) if($null -ne $script:Ctrl[$Name]){$script:Ctrl[$Name].Text=$Text};return $true}
+function Get-CfgValue {param($Section,$Name,$Default) if($Name -eq 'AllowRawAttributeWrite'){return $true};return $Default}
+function Test-DomeniaActualCapabilityDenied {param($Dn,$Capability) return $false}
+function Restore-DomeniaUxBaseToolTip {param($Name)}
+function Update-DomeniaWriteModeVisual {}
+function Update-DomeniaSecretActionUi {}
+function Update-Dashboard {throw 'Aucune actualisation de tableau de bord pendant une transition reseau'}
+function Apply-DomeniaGuiElementPolicy {throw 'Aucun parcours global pendant une transition reseau'}
+function Set-VisibleTabsForType {param($Type,[switch]$PreserveWorkspace)}
+function Test-DomeniaSelectionLoadCurrent {return ($null -ne $script:SelectionLoad -and $script:SelectionLoad.Context.Epoch -eq $script:SessionEpoch)}
+function Test-DomeniaAccessBusyWrite {return ($script:WriteState -in @('Unknown','UnknownPending') -or [bool]$script:ActiveWriteTaskId)}
+function Assert-WriteAllowed {}
+function Start-UiTask {throw 'Aucun worker lance pendant une transition reseau'}
+function Invoke-DomeniaDbQuery {throw 'Aucune lecture SQLite pendant une transition reseau'}
+$script:SessionEpoch=5L;$script:SelectedObjectGeneration=1L;$script:AsyncTimer=$null
+$script:DirectoryReachability=$null;$script:DomeniaSchedulerEnabled=$false;$script:DomeniaProviderState=$null
+$script:Ctrl=@{};$script:CurrentCapabilities=@{};$script:ControlBusyRef=@{}
+$script:WriteState='Idle';$script:ActiveWriteTaskId='';$script:ReadOnlyMode=$false;$script:DemoMode=$false;$script:ShowingCachedObject=$false
+$guid='11111111-1111-1111-1111-111111111111';$dn='CN=PC,DC=example,DC=invalid'
+$script:SelectedObject=[pscustomobject]@{DN=$dn;Type='Machine';Name='PC';LoadedAt=(Get-Date);Safety=[pscustomobject]@{Guid=$guid;AdminCount='0';Critical=$false};Entry=[pscustomobject]@{Properties=@{objectGUID=@($guid);uSNChanged=@('20');whenChanged=@('20260101000000.0Z');name=@('PC')}}}
+[void](Set-DomeniaObservationTime $script:SelectedObject 'Attributes' ([datetime]::UtcNow.AddMinutes(-1)))
+$script:SelectionLoad=[pscustomobject]@{Phase='Ready';Message='';VisibleType='Machine';Context=[pscustomobject]@{DN=$dn;Guid=$guid;Type='Machine';Name='PC';Epoch=5L}}
+$map=Get-WriteControlMap
+foreach($cap in $map.Keys){$script:CurrentCapabilities[$cap]='Autorise';foreach($name in $map[$cap]){$script:Ctrl[$name]=[Windows.Controls.Button]::new()}}
+foreach($name in @('BtnCompGpUpdate','BtnCompRestart','BtnObjectReadRetry','BtnComputerReadRetry')){$script:Ctrl[$name]=[Windows.Controls.Button]::new()}
+foreach($name in @('LblSelectionReadState','LblObjectReadStatus','LblComputerReadStatus','LblPrivilegeTop')){$script:Ctrl[$name]=[Windows.Controls.TextBlock]::new()}
+foreach($name in @('ObjectReadContent','ComputerReadContent','ObjectReadPlaceholder','ComputerReadPlaceholder')){$script:Ctrl[$name]=[Windows.Controls.Border]::new()}
+$script:Ctrl.ChkReadOnlyMode=[Windows.Controls.CheckBox]::new();$script:Ctrl.ChkReadOnlyMode.IsChecked=$false
+$job=[pscustomobject]@{Provider='Directory';Demo=$false;SessionEpoch=5L;SchedulerManaged=$false;OperationId='GlobalSearch';ProviderTarget='dc.example.invalid'}
+Initialize-DomeniaEngineState
+Apply-CurrentPermissionUi -StartupFastPath
+'@
+Test-Case 'D030 : panne AD sur une fiche prete garde la lecture visible et verrouille toutes les ecritures' {
+    . ([scriptblock]::Create($script:OfflineFixture))
+    Assert-True $script:Ctrl.BtnUserSave.IsEnabled
+    [void](Register-DomeniaTaskOutcome $job -ErrorMessage '[DOMENIA:Unavailable;0;0x8007203A] Serveur indisponible')
+    Assert-True $script:DirectoryReachability.Offline
+    Assert-True $script:Ctrl.ObjectReadContent.IsEnabled 'Une fiche deja prete reste consultable'
+    foreach($name in @(@($map.Values | ForEach-Object {$_})+@('BtnCompGpUpdate','BtnCompRestart'))){
+        Assert-False $script:Ctrl[$name].IsEnabled $name
+        Assert-True ($script:Ctrl[$name].ToolTip -match 'Hors ligne') $name
+    }
+    $thrown=$false;try{Get-DomeniaSafetyDescriptor}catch{$thrown=$_.Exception.Message -match 'hors ligne'};Assert-True $thrown
+    Assert-True ((Get-DomeniaControlCapabilityExplanation 'BtnUserSave').Text -match 'Hors ligne')
+    Assert-Equal 0 $script:Logs.Count 'Le raccordement ne masque aucune erreur'
+}
+Test-Case 'D030 : retour du reseau sans relecture ne rend pas la fiche modifiable' {
+    . ([scriptblock]::Create($script:OfflineFixture))
+    [void](Register-DomeniaTaskOutcome $job -TimedOut)
+    $outage=$script:DirectoryReachability.LastOutageUtc
+    [void](Register-DomeniaTaskOutcome $job)
+    Assert-False $script:DirectoryReachability.Offline
+    Assert-Equal $outage $script:DirectoryReachability.LastOutageUtc
+    Assert-False $script:Ctrl.BtnUserSave.IsEnabled
+    Assert-False (Get-DomeniaSelectionCachePolicy).CanEdit
+    # A newly validated attribute read, after the outage, permits edits again.
+    [void](Set-DomeniaObservationTime $script:SelectedObject 'Attributes' (ConvertTo-DomeniaUtcDate $outage).AddMilliseconds(1))
+    Apply-CurrentPermissionUi -StartupFastPath
+    Assert-True (Get-DomeniaSelectionCachePolicy).CanEdit
+    Assert-True $script:Ctrl.BtnUserSave.IsEnabled
+    Assert-Equal $dn (Get-DomeniaSafetyDescriptor).ExpectedDn
+}
+Test-Case 'D030 : ouverture directe depuis un cache recent reste historique' {
+    . ([scriptblock]::Create($script:OfflineFixture))
+    $script:SelectionLoad=$null;$script:SelectedObject.Times=@{}
+    $policy=Get-DomeniaSelectionCachePolicy
+    Assert-True $policy.CanView;Assert-True $policy.CanCopy;Assert-False $policy.CanEdit
+    Assert-True ($script:SelectedObject.LoadedAt -gt (Get-Date).AddMinutes(-1))
+    $thrown=$false;try{Get-DomeniaSafetyDescriptor}catch{$thrown=$_.Exception.Message -match 'relecture'};Assert-True $thrown
+}
+Test-Case 'D030 : cache ou echec hors ligne reste visible grise et peut etre relu explicitement' {
+    . ([scriptblock]::Create($script:OfflineFixture))
+    $script:SelectionLoad.Phase='Cached';$script:SelectedObject.Times=@{}
+    [void](Register-DomeniaTaskOutcome $job -TimedOut)
+    Update-DomeniaSelectionReadUi -Phase Failed -Message 'Serveur indisponible'
+    Assert-Equal 'Visible' $script:Ctrl.ObjectReadContent.Visibility
+    Assert-False $script:Ctrl.ObjectReadContent.IsEnabled
+    Assert-True $script:Ctrl.BtnObjectReadRetry.IsEnabled
+    Assert-True ($script:Ctrl.LblObjectReadStatus.ToolTip -match 'hors ligne')
+    Assert-False (Get-DomeniaSelectionCachePolicy).CanRetry 'CanRetry concerne le rejeu automatique'
+    $script:WriteState='Unknown'
+    Assert-Equal 'Operation a verifier' (Get-DomeniaSelectionCachePolicy).Reason
+    Update-DomeniaSelectionReadUi
+    Assert-False $script:Ctrl.BtnObjectReadRetry.IsEnabled
+}
+Test-Case 'D030 : delai CIM annulation demonstration et ancienne session ne declarent pas AD hors ligne' {
+    . ([scriptblock]::Create($script:OfflineFixture))
+    $job.Provider='Cim';[void](Register-DomeniaTaskOutcome $job -TimedOut);Assert-False $script:DirectoryReachability.Offline
+    $job.Provider='Directory';[void](Register-DomeniaTaskOutcome $job -TimedOut -Cancelled);Assert-False $script:DirectoryReachability.Offline
+    $job.Demo=$true;[void](Register-DomeniaTaskOutcome $job -TimedOut);Assert-False $script:DirectoryReachability.Offline
+    $job.Demo=$false;$job.SessionEpoch=4L;[void](Register-DomeniaTaskOutcome $job -TimedOut);Assert-False $script:DirectoryReachability.Offline
+    $job.SessionEpoch=5L;[void](Register-DomeniaTaskOutcome $job -TimedOut);Assert-True $script:DirectoryReachability.Offline 'Le garde doit agir meme sans ordonnanceur'
+}
+Test-Case 'D030 : les points entree AD et poste refusent hors ligne sans lancer de travail' {
+    . ([scriptblock]::Create($script:OfflineFixture))
+    [void](Register-DomeniaTaskOutcome $job -TimedOut)
+    foreach($action in @({Assert-DomeniaCapability Edit},{Assert-DomeniaRemoteWriteAllowed 'GPUpdate'})){
+        $thrown=$false;try{& $action}catch{$thrown=$_.Exception.Message -match 'Hors ligne'};Assert-True $thrown
+    }
+    $script:SessionEpoch=6L;Initialize-DomeniaEngineState
+    Assert-False $script:DirectoryReachability.Offline 'L ancien compte ne decide pas du nouveau contexte'
+}
+Test-Case 'D030 : ancienne identite ou attributs expires bloquent les modifications' {
+    . ([scriptblock]::Create($script:OfflineFixture))
+    $script:SelectedObject.Times.Attributes.ObservedUtc=[datetime]::UtcNow.AddHours(-1).ToString('o')
+    Assert-False (Get-DomeniaSelectionCachePolicy).CanEdit
+    [void](Set-DomeniaObservationTime $script:SelectedObject 'Attributes' ([datetime]::UtcNow))
+    $script:SelectionLoad.Context.Guid='22222222-2222-2222-2222-222222222222'
+    Assert-False (Get-DomeniaSelectionCachePolicy).CanEdit
+    Assert-False (Get-DomeniaSelectionCachePolicy).CanView
+}
+Test-Case 'D030 : transition sans lecture disque ni worker et erreurs du raccordement tracees' {
+    . ([scriptblock]::Create($script:OfflineFixture))
+    function Apply-CurrentPermissionUi {param([switch]$StartupFastPath) throw 'erreur UI fictive'}
+    [void](Register-DomeniaTaskOutcome $job -TimedOut)
+    Assert-True $script:DirectoryReachability.Offline
+    Assert-True (@($script:Logs | Where-Object{$_ -match 'Etat de connexion AD non applique.*erreur UI fictive'}).Count -eq 1)
+    $text=Get-FunctionTextFromFile (Join-Path $modules 'Domenia-Engine.UI.ps1') 'Register-DomeniaTaskOutcome'
+    Assert-False ($text -match 'Get-Command|Start-UiTask|Invoke-DomeniaDbQuery')
+}
+
+
 Stop-TestTimers
 $passed = @($checks | Where-Object { $_.Status -eq 'Passed' }).Count
 $failed = @($checks | Where-Object { $_.Status -eq 'Failed' }).Count
@@ -2326,7 +2456,7 @@ $report = [ordered]@{
     Wpf=$true
     MockedNetwork=$true
     LiveAD=$false
-    Points=@('D023','D025','D028','D115','D113','D024','D026','D027','D021','D022')
+    Points=@('D030','D023','D025','D028','D115','D113','D024','D026','D027','D021','D022')
     Passed=$passed
     Failed=$failed
     Complete=($failed -eq 0 -and $passed -gt 0)

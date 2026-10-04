@@ -111,6 +111,7 @@ try{
     # Pure rules are dot-sourced at script scope.
     . (Join-Path $wad 'modules\Domenia-Common.Model.ps1')
     . (Join-Path $wad 'modules\Domenia-Engine.Model.ps1')
+    . (Join-Path $wad 'modules\Domenia-Cache.Model.ps1')
     . (Join-Path $wad 'modules\Domenia-Relations.Model.ps1')
     . (Join-Path $wad 'modules\Domenia-Access.Model.ps1')
     . (Join-Path $wad 'modules\Domenia-Shell.Model.ps1')
@@ -145,6 +146,7 @@ try{
         'Update-DomeniaAccessButton',
         'Update-DomeniaExperienceActivity',
         'Update-DomeniaSelectionReadUi',
+        'Get-DomeniaSelectionCachePolicy',
         'Reset-DomeniaSelectionBoundViews',
         'Enter-DomeniaSelectionContext',
         'Complete-DomeniaInventoryUi',
@@ -335,7 +337,8 @@ try{
             Expect ($script:Spy.Preview -gt 0) 'Get-DomeniaSelectionPreview non appelee'
             $expected=ConvertTo-DomeniaSelectionPreviewText -Preview $script:Spy.LastPreview -Maximum 160
             Expect ($lbl.Text -ceq [string]$expected.Line) ('Texte : '+$lbl.Text)
-            Expect ([string]$lbl.ToolTip -ceq [string]$expected.Detail) 'ToolTip non aligne'
+            # D030: the fixture has an uncertain write; the policy reason supplements the preview.
+            Expect ([string]$lbl.ToolTip -ceq ([string]$expected.Detail+"`r`nOperation a verifier")) 'ToolTip non aligne avec le contexte et le motif de protection'
             Expect ($lbl.Height -eq 20) ('Height : '+$lbl.Height)
         }
 

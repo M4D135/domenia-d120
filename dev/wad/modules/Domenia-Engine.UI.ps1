@@ -6,6 +6,9 @@
 # ---------------------------------------------------------------- state (D011, D015, D018, D019)
 function Initialize-DomeniaEngineState {
     # Idempotent. Called by Start-UiTask, Complete-UiTasks, Dispose-AsyncEngine and the window handlers.
+    if($null -eq $script:DirectoryReachability -or [long]$script:DirectoryReachability.Epoch -ne [long]$script:SessionEpoch){
+        $script:DirectoryReachability=[pscustomobject]@{Epoch=[long]$script:SessionEpoch;Offline=$false;LastOutageUtc=$null;LastSuccessUtc=$null}
+    }
     if ($null -eq $script:DomeniaProviderState) { $script:DomeniaProviderState = New-DomeniaProviderState }
     if ($null -eq $script:DomeniaResources) { $script:DomeniaResources = New-DomeniaResourceRegistry }
     if ($null -eq $script:DomeniaTaskSequence) { $script:DomeniaTaskSequence = [long]0 }
@@ -354,6 +357,28 @@ function Register-DomeniaTaskOutcome {
     # Records the end of one worker for its provider and target. Never decides a retry: an automatic retry
     # does not exist for a write, a refusal or a rejected account (Test-DomeniaAutoRetryAllowed).
     param($Job,[string]$ErrorMessage='',[switch]$TimedOut,[switch]$Cancelled)
+    if($null -eq $Job){return $null}
+    # This guard also runs when the scheduler is disabled. Ignore other providers, demos,
+    # cancelled reads and a previous account/session. No retry or worker is started here.
+    if([string]$Job.Provider -eq 'Directory' -and -not [bool]$Job.Demo -and -not [bool]$Cancelled -and
+       ($null -eq $Job.PSObject.Properties['SessionEpoch'] -or [long]$Job.SessionEpoch -eq [long]$script:SessionEpoch)){
+        try {
+            Initialize-DomeniaEngineState
+            $category='Success'
+            if($TimedOut){$category='Timeout'}
+            elseif(-not [string]::IsNullOrWhiteSpace($ErrorMessage)){
+                $errorInfo=Get-DomeniaStructuredError $ErrorMessage -Phase ([string]$Job.OperationId) -Provider 'Directory'
+                $category=[string](Get-DomeniaErrorDecision -Structured $errorInfo -Text $ErrorMessage -Step ([string]$Job.OperationId)).Category
+            }
+            $next=Resolve-DomeniaDirectoryReachability $script:DirectoryReachability 'Directory' $category
+            $next | Add-Member -NotePropertyName Epoch -NotePropertyValue ([long]$script:SessionEpoch)
+            $script:DirectoryReachability=$next
+            if($next.Changed -and $null -ne $script:Ctrl){
+                Apply-CurrentPermissionUi -StartupFastPath
+                if(Test-DomeniaSelectionLoadCurrent){Update-DomeniaSelectionReadUi}
+            }
+        } catch { Write-AppLog ('Etat de connexion AD non applique : '+$_.Exception.Message) 'ERROR' }
+    }
     if ($null -eq $Job -or -not [bool]$Job.SchedulerManaged -or $null -eq $script:DomeniaProviderState) { return $null }
     # The demonstration directory is not a provider: its answers never feed a budget.
     if ([bool]$Job.Demo) { return $null }

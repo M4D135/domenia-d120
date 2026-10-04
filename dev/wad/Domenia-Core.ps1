@@ -16674,6 +16674,7 @@ function Assert-DomeniaRemoteWriteAllowed {
     $readOnly = [bool]$script:ReadOnlyMode
     try { if ($script:Ctrl.ContainsKey("ChkReadOnlyMode")) { $readOnly = [bool]$script:Ctrl["ChkReadOnlyMode"].IsChecked } } catch { }
     if ($readOnly) { throw "$Operation est une modification distante et reste bloquee tant que le mode lecture seule est actif." }
+    if((Get-DomeniaSelectionCachePolicy).Offline){throw 'Hors ligne : relisez Active Directory avant toute modification.'}
 }
 
 # DOMENIA_COMPUTER_TOOL_CALLBACKS_NAMED
@@ -21635,6 +21636,8 @@ function Get-DomeniaSafetyDescriptor {
         throw "Aucun objet AD selectionne."
     }
     if ($null -ne $script:SelectionLoad -and $script:SelectionLoad.Context.DN -ieq $script:SelectedObject.DN -and $script:SelectionLoad.Phase -ne 'Ready') { throw 'Fiche AD non confirmee. Attendez la lecture ou utilisez Reessayer avant de modifier cet objet.' }
+    $cachePolicy=Get-DomeniaSelectionCachePolicy
+    if(-not $cachePolicy.CanEdit){throw $cachePolicy.Reason}
     $maxAge = [Math]::Max(1,[int](Get-CfgValue "Security" "MaxObjectAgeMinutes" 15))
     if ([bool](Get-CfgValue "Security" "RequireFreshObject" $true)) {
         $age = ((Get-Date) - [datetime]$script:SelectedObject.LoadedAt).TotalMinutes
@@ -21738,6 +21741,12 @@ function Fail-DomeniaOpenObjectTaskUi {
     if ($null -eq $State -or -not (Test-DomeniaObjectCallbackIsCurrent $State)) { return }
     $script:LastObjectOpenError = [string]$Message
     if ($State.SelectionBound -and (Test-DomeniaSelectionLoadCurrent)) { Update-DomeniaSelectionReadUi -Phase Failed -Message ([string]$Message) }
+    if(-not [bool]$State.SelectionBound -and $null -ne $script:SelectedObject -and [string]$script:SelectedObject.DN -ieq [string]$State.Dn){
+        $cachePolicy=Get-DomeniaSelectionCachePolicy
+        foreach($kind in @('Object','Computer')){
+            [void](Set-DomeniaControlText ('Lbl'+$kind+'ReadStatus') ('Lecture non confirmee. '+$cachePolicy.Reason))
+        }
+    }
     Clear-DomeniaCurrentObjectRequest ([string]$State.RequestId)
     Fail-DomeniaOpenObjectUi -Message ([string]$Message) -Dn ([string]$State.Dn)
     # Selection errors stay inside the fiche. No surprise dialog and no automatic retry.
@@ -22125,6 +22134,7 @@ function Clear-DomeniaActualCapabilityDenials {
 function Apply-CurrentPermissionUi {
     param([switch]$StartupFastPath)
     $map = Get-WriteControlMap
+    $cachePolicy=Get-DomeniaSelectionCachePolicy
     $readOnly = $script:ReadOnlyMode
     try { if ($script:Ctrl.ContainsKey("ChkReadOnlyMode")) { $readOnly = [bool]$script:Ctrl["ChkReadOnlyMode"].IsChecked } } catch { }
     $script:ReadOnlyMode = $readOnly
@@ -22148,11 +22158,12 @@ function Apply-CurrentPermissionUi {
             $denied = $actualDenied -or ($blockEstimatedDenied -and $state -eq "Refuse") -or ($disableIndeterminate -and $state -eq "Indetermine")
             $rawBlocked = ($cap -eq "Raw" -and -not [bool](Get-CfgValue "Security" "AllowRawAttributeWrite" $false))
             $dangerProtected = $blockProtected -and ($cap -in @("Edit","Raw","Account","Password","Group","Move","Delete"))
-            $enabled = -not ($readOnly -or $denied -or $busy -or $writeActive -or $rawBlocked -or $dangerProtected)
+            $enabled = -not ($readOnly -or $denied -or $busy -or $writeActive -or $rawBlocked -or $dangerProtected -or -not $cachePolicy.CanEdit)
             $script:Ctrl[$name].IsEnabled = $enabled
             Restore-DomeniaUxBaseToolTip -Name $name
             if ($readOnly) { $script:Ctrl[$name].ToolTip = "Desactive : mode lecture seule actif." }
             elseif ($writeActive) { $script:Ctrl[$name].ToolTip = "Desactive : une ecriture AD est deja en cours de verification." }
+            elseif (-not $cachePolicy.CanEdit) { $script:Ctrl[$name].ToolTip=(Get-DomeniaDisabledHelp -Action 'Modifier cet objet' -Reason $(if($cachePolicy.Offline){'Offline'}else{'Stale'})).ToolTip }
             elseif ($dangerProtected) { $script:Ctrl[$name].ToolTip = "Desactive : objet protege adminCount/isCriticalSystemObject." }
             elseif ($rawBlocked) { $script:Ctrl[$name].ToolTip = "Ecriture brute desactivee dans la configuration de securite." }
             elseif ($actualDenied) { $script:Ctrl[$name].ToolTip = "Desactive apres un refus d'acces reel du controleur de domaine pour l'identite connectee. Recharge l'objet apres correction des droits." }
@@ -22164,9 +22175,10 @@ function Apply-CurrentPermissionUi {
     foreach ($name in @("BtnCompGpUpdate","BtnCompRestart")) {
         if (-not $script:Ctrl.ContainsKey($name)) { continue }
         $busy = ($script:ControlBusyRef.ContainsKey($name) -and [int]$script:ControlBusyRef[$name] -gt 0)
-        $script:Ctrl[$name].IsEnabled = (-not $readOnly -and -not $busy -and -not $writeActive)
+        $script:Ctrl[$name].IsEnabled = (-not $readOnly -and -not $busy -and -not $writeActive -and -not $cachePolicy.Offline)
         Restore-DomeniaUxBaseToolTip -Name $name
         if ($readOnly) { $script:Ctrl[$name].ToolTip = "Desactive : cette action modifie le poste distant et le mode lecture seule est actif." }
+        elseif ($cachePolicy.Offline) { $script:Ctrl[$name].ToolTip=(Get-DomeniaDisabledHelp -Action 'Modifier le poste distant' -Reason Offline).ToolTip }
         elseif ($busy) { $script:Ctrl[$name].ToolTip = "Action distante en cours." }
         elseif ($writeActive) { $script:Ctrl[$name].ToolTip = "Desactive pendant la verification d'une ecriture AD." }
     }
@@ -22252,6 +22264,7 @@ function Assert-DomeniaCapability {
     Assert-WriteAllowed
     if (-not [string]::IsNullOrWhiteSpace($script:ActiveWriteTaskId)) { throw "Une ecriture est deja en cours. Les ecritures sont traitees une par une." }
     if ($script:WriteState -in @("Unknown","UnknownPending")) { throw "Une ecriture precedente est dans un etat inconnu. Ouvrez Operations et verifiez le recu concerne avant toute nouvelle ecriture." }
+    if((Get-DomeniaSelectionCachePolicy).Offline){throw 'Hors ligne : relisez Active Directory avant toute modification.'}
     $currentDn = ""
     try { $currentDn = [string]$script:SelectedObject.DN } catch { }
     if (Test-DomeniaActualCapabilityDenied -Dn $currentDn -Capability $Capability) {

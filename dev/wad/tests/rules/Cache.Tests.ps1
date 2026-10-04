@@ -193,3 +193,28 @@ Test-Case 'D030' 'Le catalogue du cache donne source, date, lecteur et usage' {
     $rows=@(Get-DomeniaCacheCatalogRows @([pscustomobject]@{Scope='OU=X';Source='LDAP';Dc='dc1';Reader='r';Rows=12;ObservedUtc=$script:C0.AddHours(-3)}) $script:C0)
     Assert-Equal 1 $rows.Count;Assert-Equal '3 h' $rows[0].Age;Assert-True ($rows[0].Usage -match 'historique')
 }
+
+Test-Case 'D030' 'Seul Directory declare une panne et le retour garde le repere de coupure' {
+    $s=Resolve-DomeniaDirectoryReachability $null 'Cim' 'Timeout' $false $script:C0
+    Assert-False $s.Offline;Assert-False $s.Changed
+    $s=Resolve-DomeniaDirectoryReachability $s 'Directory' 'Network' $false $script:C0
+    Assert-True $s.Offline;Assert-True $s.Changed
+    $back=Resolve-DomeniaDirectoryReachability $s 'Directory' 'Success' $false $script:C0.AddSeconds(10)
+    Assert-False $back.Offline;Assert-True $back.Changed
+    Assert-Equal $script:C0.ToString('o') $back.LastOutageUtc
+}
+Test-Case 'D030' 'Annulation et refus de droits ne sont pas une nouvelle panne reseau' {
+    $s=Resolve-DomeniaDirectoryReachability $null 'Directory' 'Timeout' $true $script:C0
+    Assert-False $s.Offline
+    $s=Resolve-DomeniaDirectoryReachability $s 'Directory' 'AccessDenied' $false $script:C0
+    Assert-False $s.Offline
+    $s=Resolve-DomeniaDirectoryReachability $s 'Directory' 'Timeout' $false $script:C0
+    Assert-True $s.Offline
+    $s=Resolve-DomeniaDirectoryReachability $s 'Directory' 'CredentialsRejected' $false $script:C0.AddSeconds(1)
+    Assert-True $s.Offline;Assert-False $s.Changed
+}
+Test-Case 'D030' 'Une nouvelle panne avance le repere exigeant une relecture' {
+    $s=Resolve-DomeniaDirectoryReachability $null 'Directory' 'Network' $false $script:C0
+    $s=Resolve-DomeniaDirectoryReachability $s 'Directory' 'Timeout' $false $script:C0.AddSeconds(10)
+    Assert-True $s.Changed;Assert-Equal $script:C0.AddSeconds(10).ToString('o') $s.LastOutageUtc
+}

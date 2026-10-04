@@ -409,6 +409,24 @@ function Get-DomeniaPurgePlan {
 }
 
 # ---------------------------------------------------------------- D030 offline consultation
+function Resolve-DomeniaDirectoryReachability {
+    # Only a completed Directory request is evidence about directory reachability.
+    # A network comeback does not erase the outage: cached fiches still require a new read.
+    param($State,[string]$Provider,[string]$Category='Unknown',[bool]$Cancelled=$false,[datetime]$NowUtc=[datetime]::UtcNow)
+    $offline=[bool](Get-DomeniaMember $State 'Offline' $false)
+    $outage=Get-DomeniaMember $State 'LastOutageUtc' $null
+    $success=Get-DomeniaMember $State 'LastSuccessUtc' $null
+    $changed=$false
+    if($Provider -eq 'Directory' -and -not $Cancelled){
+        if($Category -in @('Network','Timeout')){
+            $offline=$true;$outage=$NowUtc.ToUniversalTime().ToString('o');$changed=$true
+        } elseif($Category -eq 'Success'){
+            $changed=$offline;$offline=$false;$success=$NowUtc.ToUniversalTime().ToString('o')
+        }
+    }
+    return [pscustomobject]@{Offline=$offline;LastOutageUtc=$outage;LastSuccessUtc=$success;Changed=$changed}
+}
+
 function Get-DomeniaCacheReadPolicy {
     # What may be done with a cached record. Reading and copying are possible offline; editing never is.
     param([bool]$HasSnapshot,[bool]$IdentityMatches,[bool]$FreshReadConfirmed,[bool]$Offline,[bool]$WriteUncertain)
@@ -423,6 +441,7 @@ function Get-DomeniaCacheReadPolicy {
         CanView=$view;CanCopy=$view
         CanEdit=($view -and $FreshReadConfirmed -and -not $Offline -and -not $WriteUncertain)
         Historical=($view -and -not $FreshReadConfirmed)
+        # Automatic retry policy only; an explicit read remains available offline.
         CanRetry=(-not $WriteUncertain -and -not $Offline)
         Reason=$reason
     }

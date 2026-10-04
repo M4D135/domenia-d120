@@ -8,7 +8,8 @@
     "D027",
     "D028",
     "D113",
-    "D115"
+    "D115",
+    "D030"
   ],
   "Modules": [
     {
@@ -89,8 +90,12 @@
       ],
       "DotSource": true,
       "ExistingEntry": true,
-      "Functions": [],
-      "NewFunctions": []
+      "Functions": [
+        "Get-DomeniaSelectionCachePolicy"
+      ],
+      "NewFunctions": [
+        "Get-DomeniaSelectionCachePolicy"
+      ]
     },
     {
       "File": "Domenia-Live.UI.ps1",
@@ -137,11 +142,13 @@
       "ExistingEntry": true,
       "Functions": [
         "Get-DomeniaObservationTimes",
-        "Copy-DomeniaObservationTimes"
+        "Copy-DomeniaObservationTimes",
+        "Resolve-DomeniaDirectoryReachability"
       ],
       "NewFunctions": [
         "Get-DomeniaObservationTimes",
-        "Copy-DomeniaObservationTimes"
+        "Copy-DomeniaObservationTimes",
+        "Resolve-DomeniaDirectoryReachability"
       ],
       "Phase": "Modules",
       "Requires": [
@@ -149,6 +156,63 @@
         "Domenia-Engine.Model.ps1"
       ],
       "DotSource": true
+    },
+    {
+      "File": "Domenia-Engine.UI.ps1",
+      "Phase": "Modules",
+      "Requires": [
+        "Domenia-Common.Model.ps1",
+        "Domenia-Engine.Model.ps1",
+        "Domenia-Guard.Model.ps1",
+        "Domenia-Demo.Model.ps1",
+        "Domenia-Demo.Worker.ps1",
+        "Domenia-Engine.Worker.ps1",
+        "Domenia-Isolation.Worker.ps1",
+        "Domenia-Access.Model.ps1",
+        "Domenia-Cache.Model.ps1"
+      ],
+      "DotSource": true,
+      "Functions": [
+        "Initialize-DomeniaEngineState",
+        "Test-DomeniaSchedulerEnabled",
+        "Get-DomeniaEngineLimits",
+        "Get-DomeniaEngineLoad",
+        "Get-DomeniaUiTaskAdmission",
+        "Get-DomeniaNextTaskSequence",
+        "Get-DomeniaContextCredentialIdentity",
+        "Invoke-DomeniaUiTaskDispatch",
+        "Get-DomeniaDispatchIsolation",
+        "New-DomeniaIsolatedReadPayload",
+        "Register-DomeniaJobResources",
+        "Sync-DomeniaJobResources",
+        "Register-DomeniaOwnedTimer",
+        "Register-DomeniaWorkerPool",
+        "Add-DomeniaTaskSubscriber",
+        "Invoke-DomeniaTaskSubscribers",
+        "Remove-DomeniaQueuedTask",
+        "Invoke-DomeniaQueuedTaskPromotion",
+        "Register-DomeniaTaskOutcome",
+        "Add-DomeniaTaskRuntimeMetric",
+        "Test-DomeniaIdlePolicyEnabled",
+        "Test-DomeniaBackgroundWorkAllowed",
+        "Update-DomeniaIdlePolicy",
+        "Initialize-DomeniaIdlePolicy",
+        "Request-DomeniaIndexSearch",
+        "Get-DomeniaLocalDatabasePathForRead",
+        "Start-DomeniaIndexSearch",
+        "Complete-DomeniaIndexSearchUi",
+        "Fail-DomeniaIndexSearchUi",
+        "Request-DomeniaParkStateReload",
+        "Add-DomeniaParkDeferredResult",
+        "Invoke-DomeniaParkDeferredResults",
+        "Complete-DomeniaParkStateReloadUi",
+        "Fail-DomeniaParkStateReloadUi",
+        "Get-DomeniaParkStatusTextSafe",
+        "Start-DomeniaParkSharedSync",
+        "Complete-DomeniaParkSharedSyncUi",
+        "Fail-DomeniaParkSharedSyncUi"
+      ],
+      "ExistingEntry": true
     }
   ],
   "ModifiedModulesWithoutNewFunctions": [
@@ -173,7 +237,9 @@
     "Domenia-Core.ps1 (G2/G3 : maintenance sans ecriture en simulation, bouton et apercu dans Fiabilite)",
     "Domenia-Live.UI.ps1 (I1/I2 : conserve Times, presence datee par le worker, console renouvelee uniquement par une lecture, details recalcules au rendu)",
     "Domenia-Live.Model.ps1 (I1 : aucune date de presence inventee quand le resultat ne contient pas de date valide)",
-    "Domenia-Core.ps1 (I1 : suppression de PresenceCacheSeconds inutilise)"
+    "Domenia-Core.ps1 (I1 : suppression de PresenceCacheSeconds inutilise)",
+    "Engine.UI Register-DomeniaTaskOutcome : etat Directory par session meme sans ordonnanceur, erreurs tracees, mise a jour UI sans worker.",
+    "Core et Access.UI : politique historique appliquee aux controles et gardes de modification, libelles hors ligne ou relecture."
   ],
   "TypeFiles": [],
   "Operations": [
@@ -274,7 +340,8 @@
     "Test-DomeniaWiringCache.ps1 : D029 historique protege hors plafond 20000 ; les lignes protegees precedent les lignes elaguables",
     "Test-DomeniaWiringCache.ps1 : G2/G3 sources reelles, simulation sans ecriture, empreinte de confirmation, import et idempotence de bout en bout",
     "D023 : vrai XAML virtualise 100/500/2000 lignes, controle negatif sans borne et recyclage au defilement ; plafond 500 et vingt caches de requete.",
-    "D024 : dates conservees apres JSON, ping distinct de la console, echecs sans rajeunissement et fraicheur recalculee dans les details."
+    "D024 : dates conservees apres JSON, ping distinct de la console, echecs sans rajeunissement et fraicheur recalculee dans les details.",
+    "D030 : panne Directory, retour reseau sans relecture, cache recent, droits et boutons hors ligne, reessai explicite et contexte de session."
   ],
   "HelpEntries": [
     {

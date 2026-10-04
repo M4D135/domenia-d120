@@ -87,6 +87,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaRetentionPolicy',
             'Format-DomeniaSize',
             'Get-DomeniaPurgePlan',
+            'Resolve-DomeniaDirectoryReachability',
             'Get-DomeniaCacheReadPolicy',
             'Get-DomeniaCacheCatalogRows'
         ) }
@@ -456,6 +457,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaObjectResultGuid',
             'Assert-DomeniaObjectResultIdentity',
             'Get-DomeniaObjectCacheKey',
+            'Get-DomeniaSelectionCachePolicy',
             'Update-DomeniaSelectionReadUi',
             'Clear-DomeniaPreloadSelection',
             'Enter-DomeniaSelectionContext',
@@ -856,7 +858,7 @@ function Get-DomeniaRuntimeModulePlan {
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Isolation.Worker.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaIsolatedReadWorkerCode'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Guard.Model.ps1','Domenia-Demo.Model.ps1','Domenia-Demo.Worker.ps1','Domenia-Engine.Worker.ps1','Domenia-Isolation.Worker.ps1'); File='Domenia-Engine.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Guard.Model.ps1','Domenia-Demo.Model.ps1','Domenia-Demo.Worker.ps1','Domenia-Engine.Worker.ps1','Domenia-Isolation.Worker.ps1','Domenia-Access.Model.ps1','Domenia-Cache.Model.ps1'); File='Domenia-Engine.UI.ps1'; DotSource=$true; Functions=@(
             'Initialize-DomeniaEngineState',
             'Test-DomeniaSchedulerEnabled',
             'Get-DomeniaEngineLimits',

@@ -424,7 +424,12 @@ function Get-DomeniaControlCapabilityExplanation {
     if($readOnly){return (Get-DomeniaCapabilityExplanation -Action $label -State ReadOnly)}
     if($writeActive){return (Get-DomeniaCapabilityExplanation -Action $label -State Busy)}
     if($busy){return [pscustomobject]@{Action=$label;State='Busy';Text=($label+' : action en cours.');Definitive=$false;Route=''}}
-    if([bool]$script:ShowingCachedObject){return (Get-DomeniaCapabilityExplanation -Action $label -State Stale)}
+    $cachePolicy=Get-DomeniaSelectionCachePolicy
+    if(-not $cachePolicy.CanEdit){
+        $reason=if($cachePolicy.Offline){'Offline'}else{'Stale'}
+        $help=Get-DomeniaDisabledHelp -Action $label -Reason $reason
+        return [pscustomobject]@{Action=$label;State=$reason;Text=$help.ToolTip;Definitive=$false;Route=$help.Route}
+    }
     if($protected -and $capability -in @('Edit','Raw','Account','Password','Group','Move','Delete')){return [pscustomobject]@{Action=$label;State='Refused';Text=($label+' : objet protege (adminCount ou objet critique), ecriture bloquee par la configuration de securite. Protection voulue : aucune route.');Definitive=$true;Route=''}}
     if($capability -eq 'Raw' -and -not [bool](Get-CfgValue 'Security' 'AllowRawAttributeWrite' $false)){return [pscustomobject]@{Action=$label;State='Refused';Text=($label+' : ecriture brute desactivee par la configuration de securite. Protection voulue : aucune route.');Definitive=$true;Route=''}}
     if($actualDenied){return (Get-DomeniaCapabilityExplanation -Action $label -State Refused -Detail 'Refus reel du controleur de domaine pour l identite connectee.')}

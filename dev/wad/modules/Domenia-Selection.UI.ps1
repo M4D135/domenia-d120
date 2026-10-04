@@ -150,6 +150,31 @@ function Get-DomeniaObjectCacheKey {
     return (Get-DomeniaCacheKey -Domain $domain -Guid $Guid -Reader $Identity -Nature 'Object' -Version 'object')
 }
 
+function Get-DomeniaSelectionCachePolicy {
+    # Read session facts only; no network request, disk read or cached LoadedAt fallback.
+    $record=$script:SelectedObject;$load=$script:SelectionLoad
+    $hasSnapshot=($null -ne $record -and -not [string]::IsNullOrWhiteSpace([string]$record.DN))
+    $guid=[string](Get-DomeniaMember (Get-DomeniaMember $record 'Safety' $null) 'Guid' (Get-DomeniaMember $record 'Guid' ''))
+    $identityMatches=($hasSnapshot -and -not [string]::IsNullOrWhiteSpace($guid))
+    if($identityMatches -and $null -ne $load){
+        $context=$load.Context
+        $identityMatches=([string]$record.DN -ieq [string]$context.DN -and $guid -ieq [string]$context.Guid)
+        if($null -ne $context -and $null -ne $context.PSObject.Properties['Epoch']){$identityMatches=($identityMatches -and [long]$context.Epoch -eq [long]$script:SessionEpoch)}
+    }
+    $freshness=Get-DomeniaRecordFreshness $record 'Attributes'
+    $fresh=($freshness.State -eq 'Fresh' -and -not [bool]$script:ShowingCachedObject)
+    if($null -ne $load -and [string]$load.Phase -ne 'Ready'){$fresh=$false}
+    $reachability=$script:DirectoryReachability
+    if($null -ne $reachability -and [long]$reachability.Epoch -ne [long]$script:SessionEpoch){$reachability=$null}
+    $offline=[bool](Get-DomeniaMember $reachability 'Offline' $false)
+    $outage=ConvertTo-DomeniaUtcDate (Get-DomeniaMember $reachability 'LastOutageUtc' $null)
+    if($null -ne $outage -and ($null -eq $freshness.ObservedUtc -or $freshness.ObservedUtc -le $outage)){$fresh=$false}
+    $uncertain=($script:WriteState -in @('Unknown','UnknownPending'))
+    $policy=Get-DomeniaCacheReadPolicy -HasSnapshot ([bool]$hasSnapshot) -IdentityMatches ([bool]$identityMatches) -FreshReadConfirmed ([bool]$fresh) -Offline ([bool]$offline) -WriteUncertain ([bool]$uncertain)
+    $policy | Add-Member -NotePropertyName Offline -NotePropertyValue $offline
+    return $policy
+}
+
 function Update-DomeniaSelectionReadUi {
     param([string]$Phase='', [string]$Message='')
     $load = $script:SelectionLoad
@@ -159,6 +184,7 @@ function Update-DomeniaSelectionReadUi {
     $context = $load.Context
     $hasData = ($null -ne $script:SelectedObject -and $script:SelectedObject.DN -ieq $context.DN)
     $ready = ($hasData -and $load.Phase -eq 'Ready')
+    $cachePolicy=Get-DomeniaSelectionCachePolicy
     $prefixType = [string]$context.Type
     $prefixName = [string]$context.Name
     # The label is derived from the captured identity, never the reverse.
@@ -185,7 +211,7 @@ function Update-DomeniaSelectionReadUi {
     $text = [string]$previewText.Line
     [void](Set-DomeniaControlText 'LblSelectionReadState' $text)
     $readState = Get-DomeniaControl 'LblSelectionReadState'
-    if ($null -ne $readState) { $readState.ToolTip = [string]$previewText.Detail }
+    if ($null -ne $readState) { $readState.ToolTip = [string]$previewText.Detail+"`r`n"+$cachePolicy.Reason }
     foreach ($kind in @('Object','Computer')) {
         $contentHost = Get-DomeniaControl ($kind + 'ReadContent')
         $empty = Get-DomeniaControl ($kind + 'ReadPlaceholder')
@@ -193,7 +219,7 @@ function Update-DomeniaSelectionReadUi {
         $retry = Get-DomeniaControl ('Btn' + $kind + 'ReadRetry')
         if ($null -ne $contentHost) { $contentHost.Visibility = if ($hasData) { 'Visible' } else { 'Collapsed' }; $contentHost.IsEnabled = $ready }
         if ($null -ne $empty) { $empty.Visibility = if ($hasData) { 'Collapsed' } else { 'Visible' } }
-        if ($null -ne $title) { $title.Text = $text; $title.ToolTip = if ($load.Message) { $load.Message } else { $text } }
+        if ($null -ne $title) { $title.Text = $text; $title.ToolTip = $(if ($load.Message) { $load.Message } else { $text })+"`r`n"+$cachePolicy.Reason }
         if ($null -ne $retry) { $retry.Visibility = if ($load.Phase -eq 'Failed') { 'Visible' } else { 'Hidden' }; $retry.IsEnabled = ($load.Phase -eq 'Failed' -and -not (Test-DomeniaAccessBusyWrite)) }
     }
     # Avoid toggling child tabs on each phase update or repeated click.
