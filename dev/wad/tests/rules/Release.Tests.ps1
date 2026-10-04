@@ -759,6 +759,80 @@ Test-Case 'D118' 'Base active sur un emplacement reseau refusee' {
     Assert-False $mapped.Ready;Assert-Equal 3 @($mapped.Categories|Where-Object{$_.State -eq 'Distant refuse'}).Count
 }
 
+Test-Case 'D118' 'Six zones sous Cache, toujours quatre categories' {
+    foreach($mode in @('UserLocal','Portable')){
+        $l=Get-DomeniaStorageLayout -Mode $mode -InstallRoot $script:RelInstall -UserLocalRoot $script:RelProfile -Writable @{Preference=$true;Cache=$true}
+        Assert-Equal 4 @($l.Categories).Count
+        $cache=@($l.Categories | Where-Object {$_.Category -eq 'Cache'})[0]
+        Assert-Equal 'Logs,Backups,Diagnostics,Exports,Legacy,Domains' (($cache.Areas | ForEach-Object {$_.Name}) -join ',')
+        foreach($area in $cache.Areas){Assert-Equal ($l.DataRoot+'\'+$area.Name) $area.Path}
+        foreach($category in @($l.Categories | Where-Object {$_.Category -ne 'Cache'})){Assert-False ($null -ne $category.PSObject.Properties['Areas'])}
+        Assert-True (@($cache.Areas | Where-Object {$_.Name -eq 'Backups'})[0].Note -match '<dossier de la base>')
+        Assert-Equal 'Non verifie' @($l.Categories | Where-Object {$_.Category -eq 'Receipt'})[0].State
+    }
+    $none=Get-DomeniaStorageLayout -UserLocalRoot '' -InstallRoot $script:RelInstall
+    foreach($area in @($none.Categories | Where-Object {$_.Category -eq 'Cache'})[0].Areas){Assert-Equal '' $area.Path}
+}
+function New-PreferencePlanFixture {
+    $l=Get-DomeniaStorageLayout -Mode Portable -InstallRoot $script:RelInstall -UserLocalRoot $script:RelProfile -Writable @{Preference=$true;Cache=$true}
+    $old=[pscustomobject]@{Path=($l.DataRoot+'\Domenia.settings.json');Exists=$true;Bytes=24L;IsReparse=$false;ValidJson=$true}
+    $new=[pscustomobject]@{Path=($l.DataRoot+'\Preferences\Domenia.settings.json');Exists=$false;Bytes=0L;IsReparse=$false;ValidJson=$false}
+    return [pscustomobject]@{Layout=$l;Old=$old;New=$new}
+}
+Test-Case 'D118' 'Copie unique des preferences et idempotence sans effacer l original' {
+    $f=New-PreferencePlanFixture
+    $p=Get-DomeniaPreferenceMigrationPlan $f.Layout @($f.Old,$f.New)
+    Assert-Equal 0 @($p.Errors).Count;Assert-Equal 1 @($p.Steps).Count;Assert-Equal 'Copier' $p.Steps[0].Action
+    Assert-Equal $f.Old.Path $p.Steps[0].Source;Assert-Equal $f.New.Path $p.Steps[0].Target
+    $f.New.Exists=$true
+    $again=Get-DomeniaPreferenceMigrationPlan $f.Layout @($f.Old,$f.New)
+    Assert-Equal 'Conserver' $again.Steps[0].Action
+    Assert-Equal 0 @($again.Steps | Where-Object {$_.Action -in @('Copier','Supprimer','Deplacer')}).Count
+    Assert-True $f.Old.Exists 'Aucune mutation des observations'
+}
+Test-Case 'D118' 'JSON invalide, taille excessive ou lien : source ignoree' {
+    foreach($case in @('Invalid','Oversized','Reparse','UnknownSize')){
+        $f=New-PreferencePlanFixture
+        switch($case){'Invalid'{$f.Old.ValidJson=$false};'Oversized'{$f.Old.Bytes=1MB+1};'Reparse'{$f.Old.IsReparse=$true};'UnknownSize'{$f.Old.Bytes=-1L}}
+        $p=Get-DomeniaPreferenceMigrationPlan $f.Layout @($f.Old,$f.New)
+        Assert-Equal 'Ignorer' $p.Steps[0].Action $case
+    }
+    $f=New-PreferencePlanFixture;$f.Old.Bytes=1MB
+    Assert-Equal 'Copier' (Get-DomeniaPreferenceMigrationPlan $f.Layout @($f.Old,$f.New)).Steps[0].Action 'Borne exacte autorisee'
+}
+Test-Case 'D118' 'Fichiers livres et autre mode ignores, aucun nom arbitraire migre' {
+    $f=New-PreferencePlanFixture
+    $files=@($f.New)
+    foreach($path in @(($script:RelInstall+'\wad\Domenia.theme.cfg'),($script:RelInstall+'\wad\Domenia.ui-profile.cfg'),($script:RelInstall+'\wad\Domenia.settings.json'),($script:RelProfile+'\Domenia\Data\Domenia.settings.json'),($f.Layout.DataRoot+'\Domenia.config.json'))){
+        $files+=@([pscustomobject]@{Path=$path;Exists=$true;Bytes=24L;IsReparse=$false;ValidJson=$true})
+    }
+    $p=Get-DomeniaPreferenceMigrationPlan $f.Layout $files
+    Assert-Equal 5 @($p.Steps).Count
+    foreach($step in $p.Steps){Assert-Equal 'Ignorer' $step.Action;Assert-Equal '' $step.Target}
+}
+Test-Case 'D118' 'Droits refuses ou inconnus : aucun autre emplacement propose' {
+    foreach($state in @('Non inscriptible','Non verifie','Distant refuse')){
+        $f=New-PreferencePlanFixture
+        $preference=@($f.Layout.Categories | Where-Object {$_.Category -eq 'Preference'})[0];$preference.State=$state
+        $p=Get-DomeniaPreferenceMigrationPlan $f.Layout @($f.Old,$f.New)
+        Assert-Equal 'Refuser' $p.Steps[0].Action;Assert-Equal $f.New.Path $p.Steps[0].Target
+        Assert-True ($p.Errors[0] -match [regex]::Escape($preference.Path))
+        Assert-Equal 0 @($p.Steps | Where-Object {$_.Action -in @('Copier','Supprimer','Deplacer')}).Count
+    }
+}
+Test-Case 'D118' 'Destination existante preservee meme si la source est invalide' {
+    $f=New-PreferencePlanFixture;$f.New.Exists=$true;$f.Old.ValidJson=$false
+    Assert-Equal 'Conserver' (Get-DomeniaPreferenceMigrationPlan $f.Layout @($f.Old,$f.New)).Steps[0].Action
+}
+Test-Case 'D118' 'Observations incompletes, dupliquees ou disposition incoherente refusent la copie' {
+    $f=New-PreferencePlanFixture
+    Assert-Equal 'Refuser' (Get-DomeniaPreferenceMigrationPlan $f.Layout @($f.Old)).Steps[0].Action
+    Assert-Equal 'Refuser' (Get-DomeniaPreferenceMigrationPlan $f.Layout @($f.Old,$f.Old,$f.New)).Steps[0].Action
+    @($f.Layout.Categories | Where-Object {$_.Category -eq 'Preference'})[0].Path='C:\Autre\Preferences'
+    Assert-Equal 'Refuser' (Get-DomeniaPreferenceMigrationPlan $f.Layout @($f.Old,$f.New)).Steps[0].Action
+}
+
+
 # ---------------------------------------------------------------- D119
 Test-Case 'D119' 'Kit reel : jetons, vocabulaire et version, conformes au lecteur du runtime' {
     $design=& $script:RelReadJson 'wad\modules\SupportSuite.UI.json'

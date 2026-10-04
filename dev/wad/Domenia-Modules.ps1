@@ -439,6 +439,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaSignatureVerdict',
             'Get-DomeniaComponentInventory',
             'Get-DomeniaStorageLayout',
+            'Get-DomeniaPreferenceMigrationPlan',
             'Get-DomeniaSuiteKitManifest',
             'Test-DomeniaSuiteKitDiffusion',
             'ConvertTo-DomeniaConnectorEndpoint',

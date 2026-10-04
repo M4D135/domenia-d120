@@ -1412,6 +1412,15 @@
       "AddedCoreFunctions": [],
       "RemovedCoreFunctions": [],
       "ChangedPayloads": []
+    },
+    {
+      "Previous": "source tree",
+      "Source": "source tree",
+      "Decision": "D118 K1 : ajout pur des zones de cache et du plan de copie unique des preferences, export du chargeur ; aucun corps worker ni fonction du coeur modifies.",
+      "ChangedCoreFunctions": [],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
     }
   ]
 }

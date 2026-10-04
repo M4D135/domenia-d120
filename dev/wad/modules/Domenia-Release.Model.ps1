@@ -1434,9 +1434,69 @@ function Get-DomeniaStorageLayout {
         elseif ($null -eq $canWrite) { $state = 'Non verifie'; $message = $spec.Label + ' : ecriture non verifiee dans ' + $path + '. Verifier avant usage ; aucune bascule automatique.' }
         elseif (-not $canWrite) { $state = 'Non inscriptible'; $message = $spec.Label + ' : dossier non inscriptible pour ce compte (' + $path + '). Aucune bascule silencieuse : corriger les droits ou choisir explicitement un autre mode ou dossier.' }
         if ($message) { $errors.Add($message) }
-        $rows.Add([pscustomobject]@{Category=$spec.Category;Label=$spec.Label;Path=$path;ReadAlsoFrom=$spec.ReadAlsoFrom;Rights=$spec.Rights;WriteRequired=$spec.WriteRequired;MustBeLocal=$spec.MustBeLocal;Writable=$canWrite;State=$state;Error=$message;Fallback=''})
+        $row=[pscustomobject]@{Category=$spec.Category;Label=$spec.Label;Path=$path;ReadAlsoFrom=$spec.ReadAlsoFrom;Rights=$spec.Rights;WriteRequired=$spec.WriteRequired;MustBeLocal=$spec.MustBeLocal;Writable=$canWrite;State=$state;Error=$message;Fallback=''}
+        if($spec.Category -eq 'Cache'){
+            $areas=@(foreach($name in @('Logs','Backups','Diagnostics','Exports','Legacy','Domains')){
+                $note=''
+                if($name -eq 'Backups'){$note='Les bases par domaine conservent <dossier de la base>\Backups.'}
+                [pscustomobject]@{Name=$name;Path=(Join-DomeniaReleasePath $dataRoot $name);Note=$note}
+            })
+            $row | Add-Member -NotePropertyName Areas -NotePropertyValue $areas
+        }
+        $rows.Add($row)
     }
     return [pscustomobject]@{Ready=($errors.Count -eq 0);Mode=$resolved;ModeSource=$modeSource;DataRoot=$dataRoot;Errors=$errors.ToArray();Notices=$notices.ToArray();Categories=$rows.ToArray()}
+}
+
+function Get-DomeniaPreferenceMigrationPlan {
+    # Pure plan over observations made by the caller. Only the old settings file in this
+    # mode's DataRoot can be copied. Shipped configuration and other modes stay untouched.
+    param($Layout,[object[]]$Files=@())
+    $steps=New-Object 'System.Collections.Generic.List[object]'
+    $errors=New-Object 'System.Collections.Generic.List[string]'
+    $root=[string](Get-DomeniaMember $Layout 'DataRoot' '')
+    $preferences=@((Get-DomeniaMember $Layout 'Categories' @()) | Where-Object {$_.Category -eq 'Preference'})
+    $expected=Join-DomeniaReleasePath $root 'Preferences'
+    $source=Join-DomeniaReleasePath $root 'Domenia.settings.json'
+    $target=Join-DomeniaReleasePath $expected 'Domenia.settings.json'
+    $reason=''
+    if(-not $root -or $preferences.Count -ne 1){$reason='Disposition des preferences invalide. Aucun autre emplacement choisi.'}
+    elseif([string]$preferences[0].Path -ine $expected){$reason='Emplacement des preferences incoherent : '+$preferences[0].Path+'. Aucun autre emplacement choisi.'}
+    elseif([string]$preferences[0].State -ne 'Pret'){$reason='Preferences non inscriptibles ou non verifiees : '+$expected+'. Aucun autre emplacement choisi.'}
+    if($reason){
+        $errors.Add($reason)
+        $steps.Add([pscustomobject]@{Action='Refuser';Source=$source;Target=$target;Reason=$reason})
+        return [pscustomobject]@{Steps=$steps.ToArray();Errors=$errors.ToArray()}
+    }
+    $old=@($Files | Where-Object {[string](Get-DomeniaMember $_ 'Path' '') -ieq $source})
+    $new=@($Files | Where-Object {[string](Get-DomeniaMember $_ 'Path' '') -ieq $target})
+    if(@($new | Where-Object {[bool](Get-DomeniaMember $_ 'Exists' $false)}).Count -gt 0){
+        $steps.Add([pscustomobject]@{Action='Conserver';Source=$source;Target=$target;Reason='Preferences deja presentes : aucun ecrasement.'})
+    } elseif($new.Count -ne 1 -or $null -eq (Get-DomeniaMember $new[0] 'Exists' $null)){
+        $reason='Absence de la destination non confirmee : '+$target+'. Copie refusee.'
+        $errors.Add($reason)
+        $steps.Add([pscustomobject]@{Action='Refuser';Source=$source;Target=$target;Reason=$reason})
+    } elseif($old.Count -gt 1){
+        $reason='Observations ambigues pour '+$source+'. Copie refusee.'
+        $errors.Add($reason)
+        $steps.Add([pscustomobject]@{Action='Refuser';Source=$source;Target=$target;Reason=$reason})
+    } elseif($old.Count -eq 1 -and [bool](Get-DomeniaMember $old[0] 'Exists' $false)){
+        $file=$old[0];$reason='';$bytes=[long]-1
+        if(-not [long]::TryParse([string](Get-DomeniaMember $file 'Bytes' '-1'),[ref]$bytes)){$bytes=-1L}
+        if([bool](Get-DomeniaMember $file 'IsReparse' $true)){$reason='Lien de fichier refuse.'}
+        elseif($bytes -lt 0 -or $bytes -gt 1MB){$reason='Taille inconnue ou superieure a 1 Mio.'}
+        elseif(-not [bool](Get-DomeniaMember $file 'ValidJson' $false)){$reason='Preferences JSON invalides.'}
+        $action='Copier'
+        if($reason){$action='Ignorer'}else{$reason='Copie unique dans Preferences ; original conserve.'}
+        $steps.Add([pscustomobject]@{Action=$action;Source=$source;Target=$target;Reason=$reason})
+    }
+    foreach($file in $Files){
+        $path=[string](Get-DomeniaMember $file 'Path' '')
+        if($path -and $path -ine $source -and $path -ine $target -and [bool](Get-DomeniaMember $file 'Exists' $false)){
+            $steps.Add([pscustomobject]@{Action='Ignorer';Source=$path;Target='';Reason='Fichier livre ou emplacement hors du DataRoot courant : lecture historique seulement.'})
+        }
+    }
+    return [pscustomobject]@{Steps=$steps.ToArray();Errors=$errors.ToArray()}
 }
 
 # ---------------------------------------------------------------- D119 suite UI kit

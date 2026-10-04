@@ -9,7 +9,8 @@
     "D028",
     "D113",
     "D115",
-    "D030"
+    "D030",
+    "D118"
   ],
   "Modules": [
     {
@@ -213,6 +214,22 @@
         "Fail-DomeniaParkSharedSyncUi"
       ],
       "ExistingEntry": true
+    },
+    {
+      "File": "Domenia-Release.Model.ps1",
+      "Phase": "Modules",
+      "Requires": [
+        "Domenia-Common.Model.ps1"
+      ],
+      "DotSource": true,
+      "ExistingEntry": true,
+      "Functions": [
+        "Get-DomeniaStorageLayout",
+        "Get-DomeniaPreferenceMigrationPlan"
+      ],
+      "NewFunctions": [
+        "Get-DomeniaPreferenceMigrationPlan"
+      ]
     }
   ],
   "ModifiedModulesWithoutNewFunctions": [
@@ -239,7 +256,8 @@
     "Domenia-Live.Model.ps1 (I1 : aucune date de presence inventee quand le resultat ne contient pas de date valide)",
     "Domenia-Core.ps1 (I1 : suppression de PresenceCacheSeconds inutilise)",
     "Engine.UI Register-DomeniaTaskOutcome : etat Directory par session meme sans ordonnanceur, erreurs tracees, mise a jour UI sans worker.",
-    "Core et Access.UI : politique historique appliquee aux controles et gardes de modification, libelles hors ligne ou relecture."
+    "Core et Access.UI : politique historique appliquee aux controles et gardes de modification, libelles hors ligne ou relecture.",
+    "Domenia-Release.Model.ps1 (K1/D118 : six zones sous Cache, copie unique des preferences sans ecrasement ni changement de mode)"
   ],
   "TypeFiles": [],
   "Operations": [
