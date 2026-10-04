@@ -218,3 +218,56 @@ Test-Case 'D030' 'Une nouvelle panne avance le repere exigeant une relecture' {
     $s=Resolve-DomeniaDirectoryReachability $s 'Directory' 'Timeout' $false $script:C0.AddSeconds(10)
     Assert-True $s.Changed;Assert-Equal $script:C0.AddSeconds(10).ToString('o') $s.LastOutageUtc
 }
+
+Test-Case 'D029' 'Categories canoniques dedupliquees sans tenir compte de la casse' {
+    $plan=Get-DomeniaPurgePlan -Selection @('observations','Observations',' OBSERVATIONS ','snapSHOTS') -NowUtc $script:C0
+    Assert-Equal 2 $plan.Actions.Count
+    Assert-Equal 'Observations' $plan.Actions[0].Category;Assert-Equal 'Snapshots' $plan.Actions[1].Category
+    Assert-Equal 0 $plan.Refused.Count
+}
+Test-Case 'D029' 'Reconstructible vide a la demande, historique borne avec date ISO' {
+    $plan=Get-DomeniaPurgePlan -Selection @('Observations','Snapshots','Index','History') -NowUtc $script:C0 -HistoryAgeDays 30
+    foreach($action in @($plan.Actions | Where-Object {$_.Category -ne 'History'})){
+        Assert-Equal 'All' $action.Mode;Assert-Equal $null $action.OlderThanUtc
+    }
+    $history=@($plan.Actions | Where-Object {$_.Category -eq 'History'})[0]
+    Assert-Equal 'Bounded' $history.Mode
+    Assert-Equal ($script:C0.ToUniversalTime().AddDays(-30).ToString('o')) $history.OlderThanUtc
+    Assert-True ($history.OlderThanUtc -is [string])
+    Assert-Throws {Get-DomeniaPurgePlan -Selection History -HistoryAgeDays 0}
+    Assert-Throws {Get-DomeniaPurgePlan -Selection History -HistoryAgeDays 36501}
+    foreach($p in @(Get-DomeniaRetentionPolicy)){
+        Assert-False ($null -ne $p.PSObject.Properties['MaxRows']) 'Aucun quota automatique invente'
+        Assert-False ($null -ne $p.PSObject.Properties['MaxAgeDays']) 'Age manuel separe de la politique automatique'
+    }
+}
+Test-Case 'D029' 'Liste de tables fermee et historique des associations declarees protege' {
+    $targets=@(foreach($category in @('Observations','Snapshots','History','Index')){Get-DomeniaPurgeTargets $category})
+    Assert-Equal 10 $targets.Count
+    foreach($target in $targets){
+        Assert-False ($target.Table -in @('user_machine_links','schema_info','secret_state','receipts','configuration','preferences'))
+        Assert-False ($target.Table -match '[\\/.]') 'Aucun fichier'
+    }
+    $history=@($targets | Where-Object {$_.Table -eq 'user_machine_history'})[0]
+    Assert-Equal 'PreserveDeclaredAssociations' $history.Filter
+    Assert-Equal 'observed_at' $history.TimeColumn
+    $plan=Get-DomeniaPurgePlan -Selection @('Observations','Snapshots','History','Index')
+    Assert-True $plan.KeepsManualLinks;Assert-True $plan.KeepsConfiguration;Assert-True $plan.KeepsUnresolvedReceipts
+}
+Test-Case 'D029' 'Index reinitialise seulement le suivi annuaire, marqueur import conserve' {
+    $sync=@(Get-DomeniaPurgeTargets Index | Where-Object {$_.Table -eq 'sync_state'})[0]
+    Assert-Equal 'Reset' $sync.Action;Assert-Equal 'DirectoryScope' $sync.Filter
+    Assert-Equal '' $sync.TimeColumn
+}
+Test-Case 'D029' 'Journal audit, configuration, associations et recus ne sont jamais purgeables' {
+    foreach($name in @('Logs','Configuration','ManualLinks','Receipts','user_machine_links','schema_info','secret_state','inconnu')){
+        Assert-Throws {Get-DomeniaPurgeTargets $name} $name
+        $plan=Get-DomeniaPurgePlan -Selection @($name)
+        Assert-Equal 0 $plan.Actions.Count;Assert-Equal 1 $plan.Refused.Count
+    }
+}
+Test-Case 'D029' 'Taille absente inconnue, mesure conservee sans estimation' {
+    $plan=Get-DomeniaPurgePlan -Usage @([pscustomobject]@{Category='Observations';Bytes=4096L;Rows=12L}) -Selection @('Observations','Snapshots')
+    Assert-Equal 4096L $plan.Actions[0].CurrentBytes;Assert-Equal 12L $plan.Actions[0].CurrentRows
+    Assert-Equal (-1L) $plan.Actions[1].CurrentBytes;Assert-Equal 'inconnu' (Format-DomeniaSize $plan.Actions[1].CurrentBytes)
+}

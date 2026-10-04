@@ -86,6 +86,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaPersistenceLabel',
             'Get-DomeniaRetentionPolicy',
             'Format-DomeniaSize',
+            'Get-DomeniaPurgeTargets',
             'Get-DomeniaPurgePlan',
             'Resolve-DomeniaDirectoryReachability',
             'Get-DomeniaCacheReadPolicy',

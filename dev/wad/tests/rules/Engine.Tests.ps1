@@ -277,3 +277,13 @@ Test-Case 'D020' 'Sources de travail de fond : correspondance avec la politique 
     $dash=Get-DomeniaIdleActivityForSource 'Dashboard';Assert-False (Test-DomeniaIdleAllows $active $dash.Activity $dash.Page) 'Accueil cache : pas de reconstruction'
     $st=Get-DomeniaIdleActivityForSource 'Storage';Assert-True (Test-DomeniaIdleAllows $p $st.Activity $st.Page) 'Sauvegardes toujours suivies'
 }
+
+Test-Case 'D029' 'Mesure et purge locales ne recoivent aucun compte annuaire' {
+    foreach($operation in @('StorageUsage','StoragePurge')){
+        $needs=Get-DomeniaOperationCredentialNeeds $operation
+        Assert-False $needs.Directory;Assert-False $needs.DirectoryCredential
+        Assert-False $needs.RemoteAdmin;Assert-False $needs.Machine;Assert-False $needs.Secrets
+        Assert-True $needs.NonDirectory;Assert-Equal 'Local' $needs.Resource
+        Assert-Equal 'Storage' (Get-DomeniaOperationProvider $operation)
+    }
+}

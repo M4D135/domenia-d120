@@ -366,16 +366,17 @@ function Get-DomeniaPersistenceLabel {
 
 # ---------------------------------------------------------------- D029 retention and quotas
 function Get-DomeniaRetentionPolicy {
-    # Purgeable=$false categories are never offered to the purge, whatever the operator selects.
+    # Manual cleanup policy, not the automatic writer's quotas. Reconstructible data is
+    # emptied on request; only History uses an operator-selected age. No invented quotas.
     return @(
-        [pscustomobject]@{Category='Observations';Label='Observations de presence et de console';MaxAgeDays=90;MaxRows=200000;Purgeable=$true}
-        [pscustomobject]@{Category='Snapshots';Label='Captures et instantanes';MaxAgeDays=180;MaxRows=5000;Purgeable=$true}
-        [pscustomobject]@{Category='Logs';Label='Journaux';MaxAgeDays=60;MaxRows=0;Purgeable=$true}
-        [pscustomobject]@{Category='History';Label='Historique des relations';MaxAgeDays=730;MaxRows=100000;Purgeable=$true}
-        [pscustomobject]@{Category='Index';Label='Index des objets';MaxAgeDays=0;MaxRows=0;Purgeable=$true}
-        [pscustomobject]@{Category='Configuration';Label='Configuration et preferences';MaxAgeDays=0;MaxRows=0;Purgeable=$false}
-        [pscustomobject]@{Category='ManualLinks';Label='Associations declarees';MaxAgeDays=0;MaxRows=0;Purgeable=$false}
-        [pscustomobject]@{Category='Receipts';Label='Recus d operations';MaxAgeDays=0;MaxRows=0;Purgeable=$false}
+        [pscustomobject]@{Category='Observations';Label='Observations de presence et de console';Mode='All';Purgeable=$true}
+        [pscustomobject]@{Category='Snapshots';Label='Captures et instantanes';Mode='All';Purgeable=$true}
+        [pscustomobject]@{Category='History';Label='Historique ancien hors associations declarees';Mode='Bounded';Purgeable=$true}
+        [pscustomobject]@{Category='Index';Label='Index des objets';Mode='All';Purgeable=$true}
+        [pscustomobject]@{Category='Logs';Label='Journal d audit';Mode='Never';Purgeable=$false}
+        [pscustomobject]@{Category='Configuration';Label='Configuration et preferences';Mode='Never';Purgeable=$false}
+        [pscustomobject]@{Category='ManualLinks';Label='Associations declarees et leur historique';Mode='Never';Purgeable=$false}
+        [pscustomobject]@{Category='Receipts';Label='Recus d operations';Mode='Never';Purgeable=$false}
     )
 }
 
@@ -388,24 +389,61 @@ function Format-DomeniaSize {
     return ($value.ToString('0.#',[Globalization.CultureInfo]::GetCultureInfo('fr-FR')) + ' ' + $unit)
 }
 
-function Get-DomeniaPurgePlan {
-    # $Usage: rows {Category, Bytes, Rows, OldestUtc}. $Selection: categories ticked by the operator.
-    param([object[]]$Usage=@(),[string[]]$Selection=@(),[datetime]$NowUtc=[datetime]::UtcNow)
-    $policy = @{}
-    foreach ($entry in @(Get-DomeniaRetentionPolicy)) { $policy[$entry.Category] = $entry }
-    $actions = New-Object 'System.Collections.Generic.List[object]'
-    $refused = New-Object 'System.Collections.Generic.List[string]'
-    foreach ($category in @($Selection | Select-Object -Unique)) {
-        if (-not $policy.ContainsKey($category)) { $refused.Add($category + ' : categorie inconnue.'); continue }
-        if (-not $policy[$category].Purgeable) { $refused.Add($policy[$category].Label + ' : jamais purge.'); continue }
-        $row = @(@($Usage) | Where-Object { [string](Get-DomeniaMember $_ 'Category' '') -eq $category } | Select-Object -First 1)
-        $bytes = 0L; $rows = 0L
-        if ($row.Count) { $bytes = [long](Get-DomeniaMember $row[0] 'Bytes' 0); $rows = [long](Get-DomeniaMember $row[0] 'Rows' 0) }
-        $cutoff = $null
-        if ($policy[$category].MaxAgeDays -gt 0) { $cutoff = $NowUtc.AddDays(-1 * $policy[$category].MaxAgeDays) }
-        $actions.Add([pscustomobject]@{Category=$category;Label=$policy[$category].Label;OlderThanUtc=$cutoff;MaxRows=$policy[$category].MaxRows;CurrentBytes=$bytes;CurrentRows=$rows})
+function Get-DomeniaPurgeTargets {
+    # Closed identifiers, never SQL supplied by the UI. The pinned worker has its own
+    # identical allowlist. PreserveDeclaredAssociations protects a historical source AND
+    # the full history of a computer whose current association is declared.
+    param([Parameter(Mandatory=$true)][string]$Category)
+    switch($Category){
+        'Observations' {
+            [pscustomobject]@{Table='adcc_live_observations';TimeColumn='checked_utc';Filter='All';Action='Delete'}
+            [pscustomobject]@{Table='presence_cache';TimeColumn='checked_at';Filter='All';Action='Delete'}
+            [pscustomobject]@{Table='park_state';TimeColumn='last_probe';Filter='All';Action='Delete'}
+        }
+        'Snapshots' {[pscustomobject]@{Table='adcc_live_queries';TimeColumn='observed_utc';Filter='All';Action='Delete'}}
+        'History' {
+            [pscustomobject]@{Table='user_machine_history';TimeColumn='observed_at';Filter='PreserveDeclaredAssociations';Action='Delete'}
+            [pscustomobject]@{Table='user_scan_history';TimeColumn='scanned_at';Filter='All';Action='Delete'}
+            [pscustomobject]@{Table='operation_runs';TimeColumn='finished_at';Filter='All';Action='Delete'}
+        }
+        'Index' {
+            [pscustomobject]@{Table='ad_objects';TimeColumn='';Filter='All';Action='Delete'}
+            [pscustomobject]@{Table='domenia_provenance';TimeColumn='';Filter='All';Action='Delete'}
+            # Preserve other scopes, including the idempotence marker of an old-data import.
+            [pscustomobject]@{Table='sync_state';TimeColumn='';Filter='DirectoryScope';Action='Reset'}
+        }
+        default {throw ('Categorie non purgeable : '+$Category)}
     }
-    return [pscustomobject]@{Actions=$actions.ToArray();Refused=$refused.ToArray();KeepsUnresolvedReceipts=$true;KeepsConfiguration=$true;KeepsManualLinks=$true}
+}
+
+
+function Get-DomeniaPurgePlan {
+    param([object[]]$Usage=@(),[string[]]$Selection=@(),[datetime]$NowUtc=[datetime]::UtcNow,[ValidateRange(1,36500)][int]$HistoryAgeDays=730)
+    $policy=@{};foreach($entry in @(Get-DomeniaRetentionPolicy)){$policy[$entry.Category]=$entry}
+    $seen=@{};$actions=New-Object 'System.Collections.Generic.List[object]';$refused=New-Object 'System.Collections.Generic.List[string]'
+    foreach($selected in $Selection){
+        $key=([string]$selected).Trim()
+        if($seen.ContainsKey($key)){continue};$seen[$key]=$true
+        if(-not $policy.ContainsKey($key)){$refused.Add($key+' : categorie inconnue.');continue}
+        $entry=$policy[$key]
+        if(-not $entry.Purgeable){$refused.Add($entry.Label+' : jamais purge.');continue}
+        $category=[string]$entry.Category
+        $row=@($Usage | Where-Object {[string](Get-DomeniaMember $_ 'Category' '') -ieq $category} | Select-Object -First 1)
+        $bytes=-1L;$rows=0L
+        if($row.Count){$bytes=[long](Get-DomeniaMember $row[0] 'Bytes' -1);$rows=[long](Get-DomeniaMember $row[0] 'Rows' 0)}
+        $cutoff=$null
+        if($entry.Mode -eq 'Bounded'){$cutoff=$NowUtc.ToUniversalTime().AddDays(-$HistoryAgeDays).ToString('o')}
+        $actions.Add([pscustomobject]@{Category=$category;Label=$entry.Label;Mode=$entry.Mode;OlderThanUtc=$cutoff;CurrentBytes=$bytes;CurrentRows=$rows;Targets=@(Get-DomeniaPurgeTargets $category)})
+    }
+    $targets=@($actions | ForEach-Object {$_.Targets})
+    $tables=@($targets | ForEach-Object {$_.Table})
+    $history=@($targets | Where-Object {$_.Table -eq 'user_machine_history'})
+    return [pscustomobject]@{
+        Actions=$actions.ToArray();Refused=$refused.ToArray()
+        KeepsUnresolvedReceipts=($tables -notcontains 'receipts')
+        KeepsConfiguration=($tables -notcontains 'configuration' -and $tables -notcontains 'preferences')
+        KeepsManualLinks=($tables -notcontains 'user_machine_links' -and @($history | Where-Object {$_.Filter -ne 'PreserveDeclaredAssociations'}).Count -eq 0)
+    }
 }
 
 # ---------------------------------------------------------------- D030 offline consultation

@@ -10,7 +10,8 @@
     "D113",
     "D115",
     "D030",
-    "D118"
+    "D118",
+    "D029"
   ],
   "Modules": [
     {
@@ -150,12 +151,14 @@
       "Functions": [
         "Get-DomeniaObservationTimes",
         "Copy-DomeniaObservationTimes",
-        "Resolve-DomeniaDirectoryReachability"
+        "Resolve-DomeniaDirectoryReachability",
+        "Get-DomeniaPurgeTargets"
       ],
       "NewFunctions": [
         "Get-DomeniaObservationTimes",
         "Copy-DomeniaObservationTimes",
-        "Resolve-DomeniaDirectoryReachability"
+        "Resolve-DomeniaDirectoryReachability",
+        "Get-DomeniaPurgeTargets"
       ],
       "Phase": "Modules",
       "Requires": [
@@ -263,7 +266,8 @@
     "Domenia-Core.ps1 (I1 : suppression de PresenceCacheSeconds inutilise)",
     "Engine.UI Register-DomeniaTaskOutcome : etat Directory par session meme sans ordonnanceur, erreurs tracees, mise a jour UI sans worker.",
     "Core et Access.UI : politique historique appliquee aux controles et gardes de modification, libelles hors ligne ou relecture.",
-    "Domenia-Release.Model.ps1 (K1/D118 : six zones sous Cache, copie unique des preferences sans ecrasement ni changement de mode)"
+    "Domenia-Release.Model.ps1 (K1/D118 : six zones sous Cache, copie unique des preferences sans ecrasement ni changement de mode)",
+    "Domenia-Engine.Model.ps1 (L1/D029 : StorageUsage et StoragePurge sans compte annuaire)"
   ],
   "TypeFiles": [],
   "Operations": [
