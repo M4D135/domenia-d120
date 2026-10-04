@@ -349,7 +349,7 @@
       "title": "Tests visuels et géométriques",
       "proposal": "Mesurer positions et tailles en clair/sombre, petit écran, RDP et mise à l’échelle 100 à 200 %.",
       "acceptance_criterion": "Une opération ne déplace pas la recherche, les résultats ni leurs boutons ; aucun champ essentiel n’est inaccessible.",
-      "status": "RACCORDE_NON_EXECUTE",
+      "status": "RACCORDE_A_VALIDER_WINDOWS",
       "reference_ids": [
         "S01",
         "S02",
@@ -358,10 +358,12 @@
       ],
       "implementation_files": [
         "wad/modules/Domenia-Common.Model.ps1",
-        "wad/tests/fixtures/Domenia-AdFixtures.ps1"
+        "wad/tests/fixtures/Domenia-AdFixtures.ps1",
+        "wad/Domenia-Core.ps1",
+        "wad/modules/Domenia-UX.UI.ps1"
       ],
       "acceptance_passed": false,
-      "remaining": "Campagne Windows PowerShell 5.1 dans la VM CNAMTS-W11-01 (Invoke-LabRun, suite d integration du lot) puis preuve liee au ZIP final. Risque accepte (decision du 2026-10-03) : 1920x1080 a 200 % (zone 960x516) reste en echec dans Test-DomeniaGeometry, non masque.",
+      "remaining": "Qualification Windows liee aux ZIP finaux. Les defauts Geometry a 960x516 clair/sombre sont corriges et couverts par la campagne d integration ; ancien risque accepte clos.",
       "tests": [
         "wad/tests/rules/Fixtures.Tests.ps1",
         "wad/tests/rules/Races.Tests.ps1",
@@ -372,7 +374,7 @@
       ],
       "lot": "suites",
       "wiring": "Complet",
-      "evidence": " Integration relue et controles statiques (parseur, compatibilite 5.1, plan de demarrage, contrats workers, XAML, build d essai) dans le conteneur de la session. Campagne d integration Windows PowerShell 5.1.26100.6584 x64 dans la VM CNAMTS-W11-01 le 2026-10-03, commit e526809 lie (407/407) : Test-DomeniaFaults, Test-DomeniaRegressions et Test-DomeniaWiringSuites reussies ; Test-DomeniaGeometry 30/36 apres le mode ecran court (restent les 3 zones de travail plus basses que la hauteur minimale de la fenetre : 1097x589, 960x516, 1092x576, clair et sombre). Statut inchange tant que Test-DomeniaGeometry, commune au lot, n est pas entierement reussie ; doublures, aucun AD reel. Mise a jour 2026-10-03, commit 7d4b5d5 lie (407/407) : actions de resultats dans la barre de resultats, bande d activite fondue dans la barre de titre, mode ecran court ; Test-DomeniaGeometry 34/36 (reste 1920x1080 a 200 %, zone 960x516, clair et sombre)."
+      "evidence": " Integration relue et controles statiques (parseur, compatibilite 5.1, plan de demarrage, contrats workers, XAML, build d essai) dans le conteneur de la session. Campagne d integration Windows PowerShell 5.1.26100.6584 x64 dans la VM CNAMTS-W11-01 le 2026-10-03, commit e526809 lie (407/407) : Test-DomeniaFaults, Test-DomeniaRegressions et Test-DomeniaWiringSuites reussies ; Test-DomeniaGeometry 30/36 apres le mode ecran court (restent les 3 zones de travail plus basses que la hauteur minimale de la fenetre : 1097x589, 960x516, 1092x576, clair et sombre). Statut inchange tant que Test-DomeniaGeometry, commune au lot, n est pas entierement reussie ; doublures, aucun AD reel. Mise a jour 2026-10-03, commit 7d4b5d5 lie (407/407) : actions de resultats dans la barre de resultats, bande d activite fondue dans la barre de titre, mode ecran court ; Test-DomeniaGeometry 34/36 (reste 1920x1080 a 200 %, zone 960x516, clair et sombre). Correction 9e579f7 : hauteur minimale adaptee, filtres compacts, arbre OU utilisable, recherche/aide visibles, largeur OU et preferences restaurees ; cycles 800->516->800->516 clair/sombre et rendu WPF synthetique inspecte. Campagne Windows PS 5.1.26100.6584 x64 dans CNAMTS-W11-01, commit f2b9beb propre et lie 419/419 : 2272 reussis, aucun echec ; Geometry 38/38, regles 459/459, cache 108/108 et moteur 37/37. Compatibilite, parseur et demarrage reussis. Aucune regression depuis K2. Les deux noms de tests absents de la reference e0cb72a sont historiques (parseur Test-ReadRules retire et nombre des operations devenu dynamique). Aucun AD reel. Integration non qualifiante pour les ZIP. Rapport local : /Users/david/Documents/Projets/Domenia-lab/runs/d120-geometry-l1-f2b9beb/_verdict.json."
     },
     {
       "id": "D007",
@@ -1124,14 +1126,15 @@
         "wad/modules/Domenia-Storage.Worker.ps1"
       ],
       "acceptance_passed": false,
-      "remaining": "Garde du plafond automatique LocalStore raccordee et testee : historique Manual, Saisie manuelle et Import CSV protege, ainsi que tout historique des associations actuellement protegees ; plafond de 20000 applique seulement au reste. Restent L1-L3 : purge selective explicite, interface et stockage, protection de Start-PruneOrphanLinks, puis preuve Windows liee au ZIP final. Domenia.log et recus restent hors purge.",
-      "rule_tests": 1,
+      "remaining": "L1 raccorde : categories et cibles fermees, purge des donnees reconstructibles sans quota arbitraire, historique borne avec associations declarees protegees. Restent L2 mesure et L3 purge explicite avec confirmation, protection de Start-PruneOrphanLinks, puis preuve Windows liee aux ZIP. Journaux, configurations, associations, secrets, recus et marqueur de reprise restent hors purge.",
+      "rule_tests": 8,
       "tests": [
         "wad/tests/rules/Cache.Tests.ps1",
-        "wad/tests/Test-DomeniaWiringCache.ps1"
+        "wad/tests/Test-DomeniaWiringCache.ps1",
+        "wad/tests/rules/Engine.Tests.ps1"
       ],
       "wiring": "Partiel",
-      "evidence": "Regles executees sous Windows PowerShell 5.1.26100.6584 (VM W11-01) par branche avant fusion (commit 1b2dedb). 1 test(s) de regles ; sous PowerShell 7.4 Linux (non qualifiant) le 2026-10-02 : execution de controle seulement. Etape G1 : Campagne Windows PowerShell 5.1.26100.6584 x64 dans CNAMTS-W11-01 le 2026-10-04, commit bdaf57a propre et lie (416/416) : 2192 reussis, 2 echecs Geometry deja connus ; compatibilite, parseur et startcheck reussis. Test-DomeniaWiringCache 65/65, Test-DomeniaWiringMoteur 37/37. SQLite reel temporaire et doublures reseau, aucun AD reel ; campagne d integration non qualifiante pour la livraison. Rapport local : /Users/david/Documents/Projets/Domenia-lab/runs/d120-cache-g1-bdaf57a/_verdict.json.",
+      "evidence": "Regles executees sous Windows PowerShell 5.1.26100.6584 (VM W11-01) par branche avant fusion (commit 1b2dedb). 1 test(s) de regles ; sous PowerShell 7.4 Linux (non qualifiant) le 2026-10-02 : execution de controle seulement. Etape G1 : Campagne Windows PowerShell 5.1.26100.6584 x64 dans CNAMTS-W11-01 le 2026-10-04, commit bdaf57a propre et lie (416/416) : 2192 reussis, 2 echecs Geometry deja connus ; compatibilite, parseur et startcheck reussis. Test-DomeniaWiringCache 65/65, Test-DomeniaWiringMoteur 37/37. SQLite reel temporaire et doublures reseau, aucun AD reel ; campagne d integration non qualifiante pour la livraison. Rapport local : /Users/david/Documents/Projets/Domenia-lab/runs/d120-cache-g1-bdaf57a/_verdict.json. L1, f2b9beb : categories normalisees/dedoublonnees, dates ISO, tailles inconnues explicites, cibles SQL constantes et comptes exclus des operations StorageUsage/StoragePurge. Campagne Windows PS 5.1.26100.6584 x64 dans CNAMTS-W11-01, commit f2b9beb propre et lie 419/419 : 2272 reussis, aucun echec ; Geometry 38/38, regles 459/459, cache 108/108 et moteur 37/37. Compatibilite, parseur et demarrage reussis. Aucune regression depuis K2. Les deux noms de tests absents de la reference e0cb72a sont historiques (parseur Test-ReadRules retire et nombre des operations devenu dynamique). Aucun AD reel. Integration non qualifiante pour les ZIP. Rapport local : /Users/david/Documents/Projets/Domenia-lab/runs/d120-geometry-l1-f2b9beb/_verdict.json.",
       "lot": "cache"
     },
     {
