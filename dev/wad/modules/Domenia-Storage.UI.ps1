@@ -384,3 +384,70 @@ function Invoke-DomeniaPreferenceMigration {
         if($temporary -and [IO.File]::Exists($temporary)){[IO.File]::Delete($temporary)}
     }
 }
+
+function Format-DomeniaStorageUsage {
+    param($Usage)
+    if($null -eq $Usage -or $Usage.Kind -cne 'StorageUsage' -or $Usage.ReadOnly -isnot [bool] -or -not $Usage.ReadOnly){throw 'Mesure locale non confirmee.'}
+    $labels=@{Observations='Observations';Snapshots='Instantanes';History='Historique';Index='Index';ManualLinks='Associations conservees';Secrets='Metadonnees de secrets conservees'}
+    if($Usage.DbstatAvailable -isnot [bool]){throw 'Disponibilite des tailles locales non confirmee.'}
+    $seen=@{};$lines=New-Object 'System.Collections.Generic.List[string]'
+    $at=[datetime]::MinValue
+    if(-not [datetime]::TryParse([string]$Usage.MeasuredUtc,[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::RoundtripKind,[ref]$at)){throw 'Date de mesure locale invalide.'}
+    foreach($name in @('DatabaseBytes','WalBytes','ReusableBytes')){
+        $value=0L
+        if(-not [long]::TryParse([string](Get-DomeniaMember $Usage $name ''),[ref]$value) -or $value -lt -1){throw 'Taille locale non confirmee.'}
+    }
+    $lines.Add('Mesure du '+$at.ToLocalTime().ToString('dd/MM/yyyy HH:mm:ss')+' : '+[string]$Usage.Path)
+    $lines.Add('Base : '+(Format-DomeniaSize $Usage.DatabaseBytes)+' ; journal SQLite : '+(Format-DomeniaSize $Usage.WalBytes))
+    $lines.Add('Espace deja reutilisable dans la base : '+(Format-DomeniaSize $Usage.ReusableBytes))
+    foreach($category in @($Usage.Categories)){
+        $name=[string]$category.Category
+        if(-not $labels.ContainsKey($name) -or $seen.ContainsKey($name)){throw 'Categories de mesure locales incoherentes.'}
+        $seen[$name]=$true;$rows=0L;$bytes=0L
+        if(-not [long]::TryParse([string]$category.Rows,[ref]$rows) -or $rows -lt -1 -or -not [long]::TryParse([string]$category.Bytes,[ref]$bytes) -or $bytes -lt -1){throw 'Compteurs locaux non confirmes.'}
+        $rowText=if($rows -lt 0){'nombre de lignes inconnu'}else{$rows.ToString()+' ligne(s)'}
+        $lines.Add($labels[$name]+' : '+$rowText+' ; '+(Format-DomeniaSize $bytes))
+    }
+    if($seen.Count -ne $labels.Count){throw 'Categories de mesure locales incompletes.'}
+    if(-not [bool]$Usage.DbstatAvailable){$lines.Add('Taille par categorie indisponible sur ce systeme ; aucune estimation appliquee.')}
+    return $lines -join [Environment]::NewLine
+}
+
+function Start-DomeniaStorageUsage {
+    try {
+        if([bool]$script:DemoMode){throw 'Mesure de la base locale indisponible en demonstration.'}
+        $path=[string]$script:DatabaseScopedPath
+        if([string]::IsNullOrWhiteSpace($path)){throw 'Aucune base locale active dans ce contexte.'}
+        if(@($script:AsyncJobs.Values|Where-Object{$_.OperationId -in @('StorageUsage','StoragePurge')}).Count -or @($script:DetachedReadJobs|Where-Object{$_.OperationId -in @('StorageUsage','StoragePurge')}).Count){throw 'Une mesure ou une purge locale est encore active.'}
+        [void](Initialize-DomeniaWinSqliteNative)
+        $state=[pscustomobject]@{Path=$path;Epoch=[long]$script:SessionEpoch}
+        $id=Start-UiTask -Name 'Mesurer le stockage local' -OperationId 'StorageUsage' -Code (Get-DomeniaStorageUsageWorkerCode) -Payload ([pscustomobject]@{Path=$path}) -CallbackState $state -SuccessHandler 'Complete-DomeniaStorageUsage' -ErrorHandler 'Fail-DomeniaStorageUsage' -DisableControls @('BtnStorageUsage') -TimeoutSeconds 60 -TaskClass 'Explicit'
+        if(-not $id){throw 'Mesure locale non admise dans le moteur.'}
+        [void](Set-DomeniaControlText 'LblStorageUsage' 'Mesure en cours dans la base locale...')
+        Set-Status 'Mesure du stockage local en cours.'
+    } catch {
+        $text='Mesure du stockage impossible : '+$_.Exception.Message
+        [void](Set-DomeniaControlText 'LblStorageUsage' $text)
+        Set-Status $text 'WARN'
+    }
+}
+
+function Complete-DomeniaStorageUsage {
+    param($Result,$State)
+    if($null -eq $State -or $State.Epoch -ne [long]$script:SessionEpoch -or $State.Path -cne [string]$script:DatabaseScopedPath){return}
+    try {
+        $usage=Get-DomeniaEffectiveWorkerResult $Result @('Kind','Path','Categories','ReadOnly')
+        if($null -eq $usage -or [string]$usage.Path -ine [string]$State.Path){throw 'Contexte de mesure locale non confirme.'}
+        $text=Format-DomeniaStorageUsage $usage
+        [void](Set-DomeniaControlText 'LblStorageUsage' $text)
+        Set-Status 'Stockage local mesure en lecture seule.'
+    } catch {Fail-DomeniaStorageUsage $_.Exception.Message $State}
+}
+
+function Fail-DomeniaStorageUsage {
+    param($Message,$State)
+    if($null -eq $State -or $State.Epoch -ne [long]$script:SessionEpoch -or $State.Path -cne [string]$script:DatabaseScopedPath){return}
+    $text='Mesure du stockage impossible : '+[string]$Message
+    [void](Set-DomeniaControlText 'LblStorageUsage' $text)
+    Set-Status $text 'WARN';Write-AppLog $text 'WARN'
+}

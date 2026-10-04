@@ -446,5 +446,12 @@
     "Function": "Get-DomeniaMigrationWorkerCode",
     "LiteralIndex": 0,
     "Sha256": "9F9E86E2BD40130C8E8726DC065112CB0F770D04063ADB1EB890AFBB45C303F3"
+  },
+  {
+    "Operation": "StorageUsage",
+    "File": "wad/modules/Domenia-Storage.Worker.ps1",
+    "Function": "Get-DomeniaStorageUsageWorkerCode",
+    "LiteralIndex": 0,
+    "Sha256": "1017F972CC267E57601B38D0798982BC13BFE6E4D8615298E5DB302DAA762B23"
   }
 ]

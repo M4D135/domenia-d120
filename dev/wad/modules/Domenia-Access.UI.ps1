@@ -154,7 +154,10 @@ function Request-DomeniaAccessRecovery {
     $job=$script:AccessCurrentJob
     if($null -ne $job -and $null -ne $job.PSObject.Properties['SessionEpoch'] -and [long]$job.SessionEpoch -ne [long]$script:SessionEpoch){return $false}
     if(-not $OperationId -and $null -ne $job){$OperationId=[string]$job.OperationId}
-    if($OperationId -in @('LiveSelectedPing','EmbeddedPathBrowse')){return $false}
+    if($OperationId){
+        $needs=Get-DomeniaOperationCredentialNeeds $OperationId
+        if(-not ([bool]$needs.DirectoryCredential -or [bool]$needs.Machine -or [bool]$needs.RemoteAdmin -or [bool]$needs.Secrets)){return $false}
+    }
     if($null -ne $job -and (Test-DomeniaSecretOperation ([string]$job.OperationId))){
         if($null -ne $job.CallbackState -and [long]$job.CallbackState.Generation -ne [long]$script:SelectedObjectGeneration){return $false}
     }

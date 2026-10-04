@@ -3458,5 +3458,12 @@
     "Text": "Simule la reprise dans Domenia. Les quatre tables de cache doivent être vides. Les associations existantes sont conservées ; celles importées sont protégées. Une sauvegarde précède la reprise confirmée. Aucun import au démarrage.",
     "Kind": "Button",
     "Source": "d120-cache"
+  },
+  {
+    "Name": "BtnStorageUsage",
+    "Title": "Mesurer le stockage local",
+    "Text": "Compte les lignes et mesure la base active en lecture seule. Les tailles indisponibles restent inconnues. Aucune suppression, aucun contact avec les postes ou l’annuaire.",
+    "Kind": "Button",
+    "Source": "d120-cache"
   }
 ]

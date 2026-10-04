@@ -107,6 +107,30 @@ Case 'Acces refuse reconnu en francais' {Assert-Release ((Get-DomeniaAccessFailu
 Case 'Acces refuse reconnu en anglais' {Assert-Release ((Get-DomeniaAccessFailureKind 'Access is denied') -eq 'AccessDenied')}
 Case 'HRESULT acces refuse sans texte connu' {Assert-Release ((Get-DomeniaAccessFailureKind ([Runtime.InteropServices.COMException]::new('test',-2147024891))) -eq 'AccessDenied')}
 Case 'HRESULT mot de passe refuse sans texte connu' {Assert-Release ((Get-DomeniaAccessFailureKind ([Runtime.InteropServices.COMException]::new('test',-2147023570))) -eq 'LogonFailure')}
+Case 'D029 : mesure et purge locales ne recoivent aucun compte, meme de remplacement' {
+    foreach($operation in @('StorageUsage','StoragePurge')){
+        Reset-Fixture
+        $credential=Fixture-Credential
+        $script:Conn|Add-Member NoteProperty UseCredential $true -Force
+        $script:Conn|Add-Member NoteProperty Credential $credential -Force
+        $script:RemoteAdminCredential=$credential;$script:MachineCredential=$credential;$script:SecretsCredential=$credential
+        $script:DirectoryCredentialFaulted=$true
+        $scope=Get-DomeniaRetryScopeKey $operation
+        $script:AccessState.Credentials[$scope]=$credential
+        $script:AccessState.Leases[$scope]=New-DomeniaCredentialLease -Scope $scope -Account $credential.UserName -Mode Inactivity -InactivityMinutes 5 -Epoch $script:SessionEpoch -NowUtc (Get-DomeniaAccessNow)
+        $script:AccessState.Faults[(Get-DomeniaAccessScope $operation)]='Refus precedent sans rapport avec la base locale'
+        $context=Get-WorkerContext $operation
+        Assert-Release ($null -eq $context.Credential -and $null -eq $context.MachineCredential -and $null -eq $context.RemoteAdminCredential -and -not $context.UseCredential) 'Un compte a ete transmis a une operation locale.'
+    }
+}
+Case 'D029 : erreur locale ne propose pas un compte AD' {
+    foreach($operation in @('StorageUsage','StoragePurge')){
+        Reset-Fixture
+        $offered=Request-DomeniaAccessRecovery -Operation 'Stockage local' -OperationId $operation -ErrorValue 'Access is denied' -Interactive
+        Assert-Release (-not $offered -and $script:AccessState.Pending.Count -eq 0 -and $script:DialogCalls -eq 0)
+    }
+}
+
 Case 'Timeout ne signifie pas mauvais compte' {Assert-Release (-not (Get-DomeniaAccessFailureKind 'RPC timeout serveur injoignable'))}
 Case 'Refus de dechiffrement LAPS reconnu' {Assert-Release ((Get-DomeniaAccessFailureKind 'Le compte ne dispose pas du droit de dechiffrement LAPS.') -eq 'AccessDenied')}
 Case 'LAPS et BitLocker ont des portees distinctes' {Assert-Release ((Get-DomeniaAccessScope 'ReadLaps') -ne (Get-DomeniaAccessScope 'ReadBitLocker'))}

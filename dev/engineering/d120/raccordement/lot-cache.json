@@ -78,13 +78,21 @@
         "Request-DomeniaLinkPersistence",
         "Get-DomeniaPersistenceState",
         "Get-DomeniaUserLocalRoot",
-        "Invoke-DomeniaPreferenceMigration"
+        "Invoke-DomeniaPreferenceMigration",
+        "Format-DomeniaStorageUsage",
+        "Start-DomeniaStorageUsage",
+        "Complete-DomeniaStorageUsage",
+        "Fail-DomeniaStorageUsage"
       ],
       "NewFunctions": [
         "Request-DomeniaLinkPersistence",
         "Get-DomeniaPersistenceState",
         "Get-DomeniaUserLocalRoot",
-        "Invoke-DomeniaPreferenceMigration"
+        "Invoke-DomeniaPreferenceMigration",
+        "Format-DomeniaStorageUsage",
+        "Start-DomeniaStorageUsage",
+        "Complete-DomeniaStorageUsage",
+        "Fail-DomeniaStorageUsage"
       ]
     },
     {
@@ -239,6 +247,19 @@
       "NewFunctions": [
         "Get-DomeniaPreferenceMigrationPlan"
       ]
+    },
+    {
+      "File": "Domenia-Storage.Worker.ps1",
+      "Phase": "Modules",
+      "Requires": [],
+      "DotSource": true,
+      "ExistingEntry": true,
+      "Functions": [
+        "Get-DomeniaStorageUsageWorkerCode"
+      ],
+      "NewFunctions": [
+        "Get-DomeniaStorageUsageWorkerCode"
+      ]
     }
   ],
   "ModifiedModulesWithoutNewFunctions": [
@@ -267,7 +288,9 @@
     "Engine.UI Register-DomeniaTaskOutcome : etat Directory par session meme sans ordonnanceur, erreurs tracees, mise a jour UI sans worker.",
     "Core et Access.UI : politique historique appliquee aux controles et gardes de modification, libelles hors ligne ou relecture.",
     "Domenia-Release.Model.ps1 (K1/D118 : six zones sous Cache, copie unique des preferences sans ecrasement ni changement de mode)",
-    "Domenia-Engine.Model.ps1 (L1/D029 : StorageUsage et StoragePurge sans compte annuaire)"
+    "Domenia-Engine.Model.ps1 (L1/D029 : StorageUsage et StoragePurge sans compte annuaire)",
+    "Domenia-Access.UI.ps1 (L2 : aucune reconnexion AD pour une operation sans compte)",
+    "Domenia-Demo.UI.ps1 (L2 : bouton Mesurer indisponible en demonstration)"
   ],
   "TypeFiles": [],
   "Operations": [
@@ -275,6 +298,19 @@
       "Operation": "LegacyMigration",
       "File": "wad/modules/Domenia-Migration.Worker.ps1",
       "Function": "Get-DomeniaMigrationWorkerCode",
+      "LiteralIndex": 0,
+      "Provider": "Storage",
+      "Resource": "Local",
+      "NeedsDirectoryCredential": false,
+      "NeedsMachineCredential": false,
+      "NonDirectory": true,
+      "IsWrite": false,
+      "Class": "Explicit"
+    },
+    {
+      "Operation": "StorageUsage",
+      "File": "wad/modules/Domenia-Storage.Worker.ps1",
+      "Function": "Get-DomeniaStorageUsageWorkerCode",
       "LiteralIndex": 0,
       "Provider": "Storage",
       "Resource": "Local",
@@ -376,6 +412,12 @@
       "Name": "BtnGuardLegacyImport",
       "Title": "Reprendre les anciennes données",
       "Text": "Simule la reprise dans Domenia. Les quatre tables de cache doivent être vides. Les associations existantes sont conservées ; celles importées sont protégées. Une sauvegarde précède la reprise confirmée. Aucun import au démarrage.",
+      "Kind": "Button"
+    },
+    {
+      "Name": "BtnStorageUsage",
+      "Title": "Mesurer le stockage local",
+      "Text": "Compte les lignes et mesure la base active en lecture seule. Les tailles indisponibles restent inconnues. Aucune suppression, aucun contact avec les postes ou l’annuaire.",
       "Kind": "Button"
     }
   ],

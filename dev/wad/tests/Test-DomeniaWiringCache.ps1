@@ -2673,6 +2673,222 @@ Test-Case 'D118 : source verrouillee, erreur tracee et aucune copie annoncee' {
     }
 }
 
+# D029 L2: the pinned read-only worker runs against native SQLite, and the UI uses real WPF controls.
+. ([scriptblock]::Create((Get-FunctionTextFromFile $storageWorker 'Get-DomeniaStorageUsageWorkerCode')))
+$script:UsageControlDefinitions=@(foreach($name in @('Get-DomeniaControl','Set-DomeniaControlText')){Get-FunctionTextFromFile $core $name}) -join "`n"
+$script:UsageUiDefinitions=@(foreach($name in @('Format-DomeniaStorageUsage','Start-DomeniaStorageUsage','Complete-DomeniaStorageUsage','Fail-DomeniaStorageUsage')){Get-FunctionTextFromFile $storageUi $name}) -join "`n"
+function Invoke-UsageWorker {
+    param([string]$Path=$script:TestDbPath)
+    $Payload=[pscustomobject]@{Path=$Path}
+    return & ([scriptblock]::Create((Get-DomeniaStorageUsageWorkerCode)))
+}
+function Add-UsageFixtureRows {
+    $db=Open-DomeniaDatabase -Path $script:TestDbPath
+    try {
+        [void](Invoke-DomeniaDbExec @'
+BEGIN IMMEDIATE;
+CREATE TABLE adcc_live_queries(scope_key TEXT NOT NULL,query_key TEXT NOT NULL,observed_utc TEXT NOT NULL,payload TEXT NOT NULL,PRIMARY KEY(scope_key,query_key));
+CREATE TABLE adcc_live_observations(scope_key TEXT NOT NULL,object_key TEXT NOT NULL,checked_utc TEXT NOT NULL,payload TEXT NOT NULL,PRIMARY KEY(scope_key,object_key));
+INSERT INTO adcc_live_queries VALUES('scope','query','2026-01-01','{}');
+INSERT INTO adcc_live_observations VALUES('scope','pc1','2026-01-01','{}');
+INSERT INTO presence_cache(object_key,state) VALUES('pc1','Inconnu');
+INSERT INTO park_state(computer_key,computer) VALUES('pc1','PC1');
+INSERT INTO user_machine_history(computer_key,source) VALUES('pc1','Import CSV');
+INSERT INTO user_scan_history(login_key,login) VALUES('alice','alice');
+INSERT INTO operation_runs(operation) VALUES('Synthetic');
+INSERT INTO ad_objects(object_key,object_type) VALUES('pc1','Computer');
+INSERT INTO domenia_provenance(object_guid) VALUES('guid-pc1');
+INSERT OR REPLACE INTO sync_state(scope,server) VALUES('legacy_import','legacy_import');
+INSERT INTO user_machine_links(computer_key,user_login,source) VALUES('pc1','alice','Import CSV');
+INSERT INTO secret_state(computer_key,verdict) VALUES('pc1','Synthetic');
+COMMIT;
+'@ $db)
+        [void](Invoke-DomeniaDbExec 'PRAGMA wal_checkpoint(TRUNCATE);' $db)
+    } finally {Close-DomeniaDatabase $db}
+}
+function Initialize-UsageUiFixture {
+    $script:Ctrl=@{BtnStorageUsage=(New-Object Windows.Controls.Button);LblStorageUsage=(New-Object Windows.Controls.TextBlock)}
+    $script:Ctrl.LblStorageUsage.Text='Avant mesure';$script:DetachedReadJobs=@();$script:AsyncJobs=@{}
+    $script:UsageRequest=$null;$script:DatabaseScopedPath='C:\DomeniaLab\synthetic.db'
+}
+function New-UsagePacket {
+    return [pscustomobject]@{Kind='StorageUsage';Path=$script:DatabaseScopedPath;ReadOnly=$true;MeasuredUtc='2026-01-01T12:00:00Z';DatabaseBytes=4096L;WalBytes=0L;ReusableBytes=0L;DbstatAvailable=$false;Categories=@(foreach($name in @('Observations','Snapshots','History','Index','ManualLinks','Secrets')){[pscustomobject]@{Category=$name;Rows=1L;Bytes=-1L}})}
+}
+Test-Case 'D029 : mesure native compte les six categories sans modifier la base' {
+    $root=New-LegacySandbox
+    try {
+        Add-UsageFixtureRows
+        $hash=(Get-FileHash $script:TestDbPath -Algorithm SHA256).Hash
+        $result=Invoke-UsageWorker
+        Assert-Equal 'StorageUsage' $result.Kind;Assert-True $result.ReadOnly
+        Assert-Equal 6 @($result.Categories).Count
+        $expected=@{Observations=3;Snapshots=1;History=3;Index=3;ManualLinks=1;Secrets=1}
+        foreach($c in $result.Categories){Assert-Equal $expected[$c.Category] $c.Rows $c.Category}
+        Assert-Equal $hash (Get-FileHash $script:TestDbPath -Algorithm SHA256).Hash
+        Assert-Equal ([IO.FileInfo]::new($script:TestDbPath).Length) $result.DatabaseBytes
+        Assert-Equal ($result.FreePages*$result.PageSize) $result.ReusableBytes
+        Assert-True ($result.WalBytes -ge 0)
+        if(-not $result.DbstatAvailable){foreach($c in $result.Categories){Assert-Equal (-1L) $c.Bytes}}else{foreach($c in $result.Categories){Assert-True ($c.Bytes -gt 0)}}
+        $script:CaseDetail='SQLite natif ; dbstat='+$result.DbstatAvailable+' ; base='+$result.DatabaseBytes+' octets ; six categories ; SHA256 inchange.'
+    } finally {Remove-Item $root -Recurse -Force}
+}
+Test-Case 'D029 : dbstat optionnel absent donne inconnu mais une erreur SQLite reste une erreur' {
+    $root=New-LegacySandbox
+    try {
+        Add-UsageFixtureRows
+        $base=(Get-DomeniaStorageUsageWorkerCode).Replace('function Invoke-DomeniaDbQuery {','function Invoke-NativeUsageDbQuery {')
+        $wrapper=@'
+function Invoke-DomeniaDbQuery {
+    param([string]$Sql,[IntPtr]$DatabaseHandle)
+    if($Sql -like '*FROM dbstat*'){throw $Payload.OptionalError}
+    return Invoke-NativeUsageDbQuery $Sql $DatabaseHandle
+}
+'@
+        $base=$base.Replace('$path=Test-DomeniaStorageMeasurePath',($wrapper+"`n"+'$path=Test-DomeniaStorageMeasurePath'))
+        $Payload=[pscustomobject]@{Path=$script:TestDbPath;OptionalError='SQLite prepare code 1 : no such table: dbstat'}
+        $result=& ([scriptblock]::Create($base))
+        Assert-False $result.DbstatAvailable
+        foreach($category in $result.Categories){Assert-Equal (-1L) $category.Bytes}
+        . ([scriptblock]::Create($script:UsageUiDefinitions))
+        Assert-True ((Format-DomeniaStorageUsage $result) -match 'aucune estimation')
+        $Payload.OptionalError='SQLite prepare code 11 : database disk image is malformed';$message=''
+        try{[void](& ([scriptblock]::Create($base)))}catch{$message=$_.Exception.Message}
+        Assert-True ($message -match 'malformed') $message
+    } finally {Remove-Item $root -Recurse -Force}
+}
+Test-Case 'D029 : tables Live absentes restent inconnues et ne sont pas creees' {
+    $root=New-LegacySandbox
+    try {
+        $hash=(Get-FileHash $script:TestDbPath).Hash;$result=Invoke-UsageWorker
+        foreach($name in @('Observations','Snapshots')){Assert-Equal (-1L) @($result.Categories|Where-Object{$_.Category -eq $name})[0].Rows}
+        Assert-Equal 0 @($result.Categories|Where-Object{$_.Category -eq 'ManualLinks'})[0].Rows
+        Assert-Equal $hash (Get-FileHash $script:TestDbPath).Hash
+        $db=Open-DomeniaDatabase -Path $script:TestDbPath -ReadOnly
+        try {Assert-Equal 0 @(Invoke-DomeniaDbQuery "SELECT name FROM sqlite_master WHERE name LIKE 'adcc_live_%';" $db).Count}finally{Close-DomeniaDatabase $db}
+    } finally {Remove-Item $root -Recurse -Force}
+}
+Test-Case 'D029 : chemin absent et chemin reseau refuses avant ouverture' {
+    $root=New-LegacySandbox
+    try {
+        $absent=Join-Path $root 'absent.db'
+        foreach($path in @($absent,'relative.db','\\invalid.example\share\database.db')){
+            $message='';try{[void](Invoke-UsageWorker $path)}catch{$message=$_.Exception.Message}
+            Assert-True ([bool]$message) ('Ouverture acceptee : '+$path)
+        }
+        Assert-False ([IO.File]::Exists($absent))
+    } finally {Remove-Item $root -Recurse -Force}
+}
+Test-Case 'D029 : mesure refuse une base derriere une jonction' {
+    $root=New-LegacySandbox;$junction=$root+'-link'
+    try {
+        [void](New-Item -ItemType Junction -Path $junction -Target $root)
+        $message='';try{[void](Invoke-UsageWorker (Join-Path $junction 'Domenia.db'))}catch{$message=$_.Exception.Message}
+        Assert-True ($message -match 'redirige') $message
+    } finally {if([IO.Directory]::Exists($junction)){[IO.Directory]::Delete($junction)};Remove-Item $root -Recurse -Force}
+}
+Test-Case 'D029 : schema futur refuse intact sans migration' {
+    $root=New-LegacySandbox
+    try {
+        $db=Open-DomeniaDatabase -Path $script:TestDbPath
+        try{[void](Invoke-DomeniaDbExec "UPDATE schema_info SET value='12' WHERE key='schema_version';" $db)}finally{Close-DomeniaDatabase $db}
+        $hash=(Get-FileHash $script:TestDbPath).Hash;$message=''
+        try{[void](Invoke-UsageWorker)}catch{$message=$_.Exception.Message}
+        Assert-True ($message -match 'Schema local non pris en charge') $message
+        Assert-Equal $hash (Get-FileHash $script:TestDbPath).Hash
+    } finally {Remove-Item $root -Recurse -Force}
+}
+Test-Case 'D029 : mesure native en runspace et progression du Dispatcher WPF' {
+    $root=New-LegacySandbox;$ps=$null
+    try {
+        Add-UsageFixtureRows
+        $db=Open-DomeniaDatabase -Path $script:TestDbPath
+        try{[void](Invoke-DomeniaDbExec "WITH RECURSIVE n(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM n WHERE x<10000) INSERT INTO user_machine_history(computer_key,source) SELECT 'PC'||x,'Synthetic' FROM n;" $db)}finally{Close-DomeniaDatabase $db}
+        $ps=[PowerShell]::Create()
+        [void]$ps.AddScript(('param($Payload)'+[Environment]::NewLine+(Get-DomeniaStorageUsageWorkerCode))).AddArgument([pscustomobject]@{Path=$script:TestDbPath})
+        $async=$ps.BeginInvoke();$turns=0;$watch=[Diagnostics.Stopwatch]::StartNew()
+        do {Invoke-WiringPump 10;$turns++;if(-not $async.IsCompleted -and $watch.ElapsedMilliseconds -gt 10000){throw 'Mesure runspace trop longue'}}while(-not $async.IsCompleted)
+        $out=@($ps.EndInvoke($async));Assert-Equal 0 $ps.Streams.Error.Count ($ps.Streams.Error|Out-String)
+        $result=@($out|Where-Object{$_.Kind -eq 'StorageUsage'})[0]
+        Assert-Equal 10003 @($result.Categories|Where-Object{$_.Category -eq 'History'})[0].Rows
+        Assert-True ($turns -gt 0);$script:CaseDetail='Runspace natif ; tours Dispatcher='+$turns+' ; '+$watch.ElapsedMilliseconds+' ms.'
+    } finally {if($ps){$ps.Dispose()};Remove-Item $root -Recurse -Force}
+}
+Test-Case 'D029 : mesure UI transmet seulement le chemin et le contexte courant' {
+    . ([scriptblock]::Create($script:UsageControlDefinitions));. ([scriptblock]::Create($script:UsageUiDefinitions));Initialize-UsageUiFixture
+    function Start-UiTask {
+        param($Name,$OperationId,$Code,$Payload,$CallbackState,$SuccessHandler,$ErrorHandler,$DisableControls,$TimeoutSeconds,$TaskClass)
+        $script:UsageRequest=$PSBoundParameters;return 'usage-1'
+    }
+    Start-DomeniaStorageUsage
+    Assert-Equal 'StorageUsage' $script:UsageRequest.OperationId
+    Assert-Equal (Get-DomeniaStorageUsageWorkerCode) $script:UsageRequest.Code
+    Assert-Equal 'Path' (@($script:UsageRequest.Payload.PSObject.Properties.Name) -join ',')
+    Assert-Equal $script:DatabaseScopedPath $script:UsageRequest.Payload.Path
+    Assert-Equal $script:SessionEpoch $script:UsageRequest.CallbackState.Epoch
+    Assert-Equal 'BtnStorageUsage' ($script:UsageRequest.DisableControls -join ',')
+    Assert-Equal 'Explicit' $script:UsageRequest.TaskClass
+    Assert-True ($script:Ctrl.LblStorageUsage.Text -match 'en cours')
+}
+Test-Case 'D029 : mesure UI refuse demonstration, base absente et travail encore actif' {
+    . ([scriptblock]::Create($script:UsageControlDefinitions));. ([scriptblock]::Create($script:UsageUiDefinitions))
+    function Start-UiTask {throw 'Admission interdite dans ce scenario'}
+    foreach($scenario in @('Demo','Absent','Active','Detached')){
+        Initialize-UsageUiFixture;$script:DemoMode=$false
+        switch($scenario){
+            Demo {$script:DemoMode=$true}
+            Absent {$script:DatabaseScopedPath=''}
+            Active {$script:AsyncJobs=@{x=[pscustomobject]@{OperationId='StorageUsage'}}}
+            Detached {$script:DetachedReadJobs=@([pscustomobject]@{OperationId='StoragePurge'})}
+        }
+        Start-DomeniaStorageUsage
+        Assert-True ($script:Ctrl.LblStorageUsage.Text -match 'impossible')
+        Assert-False ($script:Ctrl.LblStorageUsage.Text -match 'Admission interdite') 'Le refus doit preceder Start-UiTask'
+    }
+}
+Test-Case 'D029 : resultat mesure affiche les inconnus et conserve les associations' {
+    . ([scriptblock]::Create($script:UsageControlDefinitions));. ([scriptblock]::Create($script:UsageUiDefinitions));Initialize-UsageUiFixture
+    $state=[pscustomobject]@{Path=$script:DatabaseScopedPath;Epoch=$script:SessionEpoch}
+    Complete-DomeniaStorageUsage (New-UsagePacket) $state
+    $text=$script:Ctrl.LblStorageUsage.Text
+    Assert-True ($text -match 'Associations conservees : 1 ligne\(s\) ; inconnu') $text
+    Assert-True ($text -match 'aucune estimation') $text
+    Assert-Equal 'Stockage local mesure en lecture seule.' $script:Statuses[$script:Statuses.Count-1]
+}
+Test-Case 'D029 : resultat et erreur tardifs ne remplacent pas le nouveau contexte' {
+    . ([scriptblock]::Create($script:UsageControlDefinitions));. ([scriptblock]::Create($script:UsageUiDefinitions));Initialize-UsageUiFixture
+    foreach($state in @([pscustomobject]@{Path=$script:DatabaseScopedPath;Epoch=0L},[pscustomobject]@{Path='C:\ancienne.db';Epoch=$script:SessionEpoch})){
+        Complete-DomeniaStorageUsage (New-UsagePacket) $state;Fail-DomeniaStorageUsage 'Erreur ancienne' $state
+        Assert-Equal 'Avant mesure' $script:Ctrl.LblStorageUsage.Text
+    }
+}
+Test-Case 'D029 : paquet incomplet ou contexte incorrect ne confirme aucune mesure' {
+    . ([scriptblock]::Create($script:UsageControlDefinitions));. ([scriptblock]::Create($script:UsageUiDefinitions));Initialize-UsageUiFixture
+    $state=[pscustomobject]@{Path=$script:DatabaseScopedPath;Epoch=$script:SessionEpoch}
+    foreach($scenario in @('Date','Categories','Duplicate','Negative','Path','ReadOnly')){
+        $packet=New-UsagePacket
+        switch($scenario){
+            Date {$packet.MeasuredUtc='invalid'}
+            Categories {$packet.Categories=@($packet.Categories|Select-Object -First 5)}
+            Duplicate {$packet.Categories[5].Category='History'}
+            Negative {$packet.DatabaseBytes=-2L}
+            Path {$packet.Path='C:\wrong.db'}
+            ReadOnly {$packet.ReadOnly=$false}
+        }
+        Complete-DomeniaStorageUsage $packet $state
+        Assert-True ($script:Ctrl.LblStorageUsage.Text -match 'impossible') $scenario
+        Assert-False ($script:Statuses[$script:Statuses.Count-1] -eq 'Stockage local mesure en lecture seule.')
+    }
+}
+Test-Case 'D029 : presentation de demonstration desactive le vrai bouton WPF' {
+    . ([scriptblock]::Create($script:UsageControlDefinitions))
+    Initialize-UsageUiFixture
+    . ([scriptblock]::Create((Get-FunctionTextFromFile (Join-Path $modules 'Domenia-Demo.UI.ps1') 'Set-DomeniaDemoShellPresentation')))
+    function Get-DomeniaDemoBannerText {return 'DEMONSTRATION'}
+    Set-DomeniaDemoShellPresentation
+    Assert-False $script:Ctrl.BtnStorageUsage.IsEnabled
+    Assert-True ($script:Ctrl.BtnStorageUsage.ToolTip -match 'demonstration')
+}
+
 Stop-TestTimers
 $passed = @($checks | Where-Object { $_.Status -eq 'Passed' }).Count
 $failed = @($checks | Where-Object { $_.Status -eq 'Failed' }).Count
@@ -2685,7 +2901,7 @@ $report = [ordered]@{
     Wpf=$true
     MockedNetwork=$true
     LiveAD=$false
-    Points=@('D118','D030','D023','D025','D028','D115','D113','D024','D026','D027','D021','D022')
+    Points=@('D029','D118','D030','D023','D025','D028','D115','D113','D024','D026','D027','D021','D022')
     Passed=$passed
     Failed=$failed
     Complete=($failed -eq 0 -and $passed -gt 0)

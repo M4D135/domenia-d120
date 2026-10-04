@@ -666,6 +666,7 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnIndexRefresh" = "Default"
     "BtnIndexOpen" = "Default"
     "BtnIndexExport" = "Default"
+    "BtnStorageUsage" = "Default"
     "TabOperationStats" = "Default"
     "BtnOperationStatsRefresh" = "Default"
     "BtnOperationStatsExport" = "Default"
@@ -5920,6 +5921,12 @@ function Get-MainXaml {
                                 <TextBlock x:Name="LblParkStatus" Text="Aucun releve." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap"/>
                               </StackPanel>
                             </Border>
+                            <Expander Header="Stockage local" Margin="0,10,0,0" IsExpanded="False">
+                              <StackPanel Margin="0,8,0,0">
+                                <Button x:Name="BtnStorageUsage" Content="Mesurer" HorizontalAlignment="Left" MinHeight="32" Margin="0,0,0,6" ToolTip="Compte les lignes et mesure la base locale en lecture seule, sans contacter lʼannuaire ni les postes." AutomationProperties.Name="Mesurer le stockage local" AutomationProperties.HelpText="Mesure volontaire en arrière-plan ; aucune suppression."/>
+                                <ScrollViewer MaxHeight="150" VerticalScrollBarVisibility="Auto"><TextBlock x:Name="LblStorageUsage" Text="Aucune mesure pour cette session." TextWrapping="Wrap" AutomationProperties.Name="Mesure du stockage local"/></ScrollViewer>
+                              </StackPanel>
+                            </Expander>
                             <TextBlock x:Name="LblIndexStats" Text="Aucune base autonome." Foreground="{DynamicResource MutedColor}" Margin="0,8,0,0" TextWrapping="Wrap"/>
                             <Grid Margin="0,8,0,0">
                               <Grid.ColumnDefinitions>
@@ -19228,6 +19235,7 @@ function Wire-Events {
     $script:Ctrl["BtnRunComputerDiag"].Add_Click({ Start-ComputerDiagnostics })
     if ($script:Ctrl.ContainsKey("BtnUserSaveContact")) { $script:Ctrl["BtnUserSaveContact"].Add_Click({ Save-DomeniaUserContact }) }
     if ($script:Ctrl.ContainsKey("BtnIndexBuild")) { $script:Ctrl["BtnIndexBuild"].Add_Click({ Start-DomeniaIndexBuild -UpdateLinks }) }
+    if ($script:Ctrl.ContainsKey("BtnStorageUsage")) { $script:Ctrl["BtnStorageUsage"].Add_Click({ Start-DomeniaStorageUsage }) }
     if ($script:Ctrl.ContainsKey("BtnParkHarvest")) { $script:Ctrl["BtnParkHarvest"].Add_Click({ Start-DomeniaLogonHarvest }) }
     if ($script:Ctrl.ContainsKey("BtnParkSweep")) { $script:Ctrl["BtnParkSweep"].Add_Click({ Start-DomeniaParkSweep }) }
     if ($script:Ctrl.ContainsKey("BtnParkReset")) {
@@ -20609,6 +20617,7 @@ function Get-DomeniaWorkerCodeHash {
 function Get-DomeniaWorkerOperationHashes {
     # Registre ferme : seules ces operations internes, avec leur corps exact, peuvent entrer dans un runspace.
     return [ordered]@{
+        StorageUsage          = "1017F972CC267E57601B38D0798982BC13BFE6E4D8615298E5DB302DAA762B23"
         LegacyMigration       = "9F9E86E2BD40130C8E8726DC065112CB0F770D04063ADB1EB890AFBB45C303F3"
         ReadBitLockerList     = "B1456CEA5805D83C6BF48E9A4040206F18F3C3773ED250610D6890E8D1F4EEC9"
         ReadBitLockerKey      = "8A98EBCDC48AD572404E1566826035C84F34ACB87564330A7AA511FAAC01EE6F"
@@ -20681,7 +20690,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "A8D70730F426B599E4F3FB936A19CC9E8E8F6C00172BD772764D5B9AEEBE7395"
+    $expectedFingerprint = "300F75E3ED82C0A1A5C6ED2163F074DDE4A2F2B5B19CAC435A4EBCCC9EF0EE5D"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -21436,16 +21445,20 @@ function Initialize-DomeniaWorkerContextCache {
 function Get-WorkerContext {
     param([string]$OperationId = "")
     Initialize-DomeniaWorkerContextCache
-    $retryCredential=Get-DomeniaRetryCredential $OperationId
-    $retryScope=Get-DomeniaAccessScope $OperationId
-    if($null -ne $script:AccessState -and $script:AccessState.Faults.ContainsKey($retryScope)){throw 'Authentification rejetee pour cette ressource. Utilisez un autre compte avant de recommencer.'}
+    $credentialNeeds = Get-DomeniaOperationCredentialNeeds -OperationId $OperationId
+    $acceptsCredential=([bool]$credentialNeeds.DirectoryCredential -or [bool]$credentialNeeds.Machine -or [bool]$credentialNeeds.RemoteAdmin -or [bool]$credentialNeeds.Secrets)
+    $retryCredential=$null;$retryScope=''
+    if($acceptsCredential){
+        $retryCredential=Get-DomeniaRetryCredential $OperationId
+        $retryScope=Get-DomeniaAccessScope $OperationId
+        if($null -ne $script:AccessState -and $script:AccessState.Faults.ContainsKey($retryScope)){throw 'Authentification rejetee pour cette ressource. Utilisez un autre compte avant de recommencer.'}
+    }
     $static = $script:WorkerContextStatic
     # C3 (D018): one reviewed table, Get-DomeniaOperationCredentialNeeds (Domenia-Engine.Model.ps1), replaces the
     # three historical lists; its golden test keeps every registered operation identical to RC1.10.7.
     # "LiveSelectedPing" stays credential free (local/network list of the table).
     # ComputerLastUser valide les candidats dans LDAP : ce n est pas une
     # operation exclusivement distante, contrairement au ping/inventaire.
-    $credentialNeeds = Get-DomeniaOperationCredentialNeeds -OperationId $OperationId
     $needsDirectoryCredential = [bool]$credentialNeeds.Directory
     $directoryRecovery=($null -ne $retryCredential -and $retryScope -ne 'Remote') -or ([bool]$credentialNeeds.Secrets -and $null -ne $script:SecretsCredential)
     if ($needsDirectoryCredential -and [bool]$script:DirectoryCredentialFaulted -and -not $directoryRecovery) {
@@ -21524,6 +21537,7 @@ function Get-WorkerContext {
         $blocked=($null -ne $script:AccessState -and $script:AccessState.Faults.ContainsKey('Remote'))
         $result|Add-Member -NotePropertyName RelationRemoteBlocked -NotePropertyValue $blocked
     }
+    if(-not $acceptsCredential){return $result}
     return Set-DomeniaRetryWorkerContext -Context $result -OperationId $OperationId
 }
 

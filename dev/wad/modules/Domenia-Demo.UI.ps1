@@ -60,5 +60,6 @@ function Set-DomeniaDemoShellPresentation {
         $readOnly.IsEnabled = $false
         $readOnly.ToolTip = 'Écritures désactivées en démonstration.'
     }
+    $measure=Get-DomeniaControl 'BtnStorageUsage';if($measure){$measure.IsEnabled=$false;$measure.ToolTip='Mesure du stockage indisponible en demonstration.'}
     Set-Status ($banner + ' : données fictives en mémoire ; écritures et outils poste désactivés.') 'WARN'
 }
