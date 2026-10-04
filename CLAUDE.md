@@ -5,10 +5,12 @@ Ce fichier donne les règles qui valent pour toute session. L'état du lot en co
 
 ## Moteur de travail — décision de David du 2026-10-04
 
-**Codex uniquement pour ce projet. Aucun nouvel appel au Spark**, y compris pour
-les premiers jets, les analyses et les relectures. Cette décision remplace pour
-Domenia les anciennes consignes de délégation au Spark dans les relais et le
-contexte KBZA. Les tests restent exécutés dans la VM Windows prévue ci-dessous.
+**Spark pour économiser les tokens ; Codex pour intégrer et vérifier.** La dernière
+décision explicite de David (« utilise le spark pour economiser tes tokens »)
+remplace sa consigne Codex-only antérieure. Confier au Spark les brouillons et
+relectures volumineuses avec leur contexte complet, puis vérifier indépendamment.
+Les tests restent exécutés dans la VM Windows prévue ci-dessous. Cette décision
+n'autorise aucun changement de profil ni lancement de service ou workflow multi-agents.
 
 ## Règles non négociables
 
