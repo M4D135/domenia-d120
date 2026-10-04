@@ -508,3 +508,8 @@ function Get-DomeniaCacheCatalogRows {
         }
     }
 }
+
+function Test-DomeniaProtectedAssociationSource {
+    param([AllowNull()][string]$Source)
+    return (([string]$Source).Trim() -in @('Manual','Saisie manuelle','Import CSV'))
+}

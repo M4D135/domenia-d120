@@ -1851,8 +1851,8 @@ Test-Case 'D029 : cap historique protege Manual Saisie manuelle Import CSV et as
     [void](New-LegacySandbox)
     $db=Open-DomeniaDatabase -Path $script:TestDbPath
     try {
-        [void](Invoke-DomeniaDbExec "INSERT INTO user_machine_history(user_login,computer_key,computer,source,confidence,verified_in_ad,observed_at,details,user_guid,computer_guid) VALUES('u-manual','PC-MANUAL','PC-MANUAL','Manual',0,0,'2026-01-01','',NULL,NULL);" $db)
-        [void](Invoke-DomeniaDbExec "INSERT INTO user_machine_links(computer_key,user_login,computer,source,confidence,verified_in_ad,observed_at,details,user_guid,computer_guid,user_dn,computer_dn) VALUES('PC-PROT','prot','PC-PROT','Manual',0,0,'2026-01-01','',NULL,NULL,NULL,NULL);" $db)
+        [void](Invoke-DomeniaDbExec "INSERT INTO user_machine_history(user_login,computer_key,computer,source,confidence,verified_in_ad,observed_at,details,user_guid,computer_guid) VALUES('u-manual','PC-MANUAL','PC-MANUAL',' mAnUaL ',0,0,'2026-01-01','',NULL,NULL);" $db)
+        [void](Invoke-DomeniaDbExec "INSERT INTO user_machine_links(computer_key,user_login,computer,source,confidence,verified_in_ad,observed_at,details,user_guid,computer_guid,user_dn,computer_dn) VALUES('PC-PROT','prot','PC-PROT',' mAnUaL ',0,0,'2026-01-01','',NULL,NULL,NULL,NULL);" $db)
         [void](Invoke-DomeniaDbExec "INSERT INTO user_machine_history(user_login,computer_key,computer,source,confidence,verified_in_ad,observed_at,details,user_guid,computer_guid) VALUES('u-prot','PC-PROT','PC-PROT','Console',0,0,'2026-01-01','',NULL,NULL);" $db)
         foreach($source in @('Saisie manuelle','Import CSV')) {
             $lit=ConvertTo-DomeniaSqlLiteral $source
@@ -1861,7 +1861,7 @@ Test-Case 'D029 : cap historique protege Manual Saisie manuelle Import CSV et as
         [void](Invoke-DomeniaDbExec "WITH RECURSIVE c(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM c WHERE n<20001) INSERT INTO user_machine_history(user_login,computer_key,computer,source,confidence,verified_in_ad,observed_at,details,user_guid,computer_guid) SELECT 'u'||n,'PC-UNPROT','PC-UNPROT','Console',0,0,'2026-01-01','',NULL,NULL FROM c;" $db)
     } finally { Close-DomeniaDatabase $db }
     [void](Invoke-LegacyWorker (New-PresencePayload))
-    Assert-Equal 1 (Get-LegacyCount "user_machine_history WHERE lower(COALESCE(source,''))='manual'")
+    Assert-Equal 1 (Get-LegacyCount "user_machine_history WHERE lower(trim(COALESCE(source,'')))='manual'")
     Assert-Equal 1 (Get-LegacyCount "user_machine_history WHERE computer_key='PC-PROT'")
     Assert-Equal 2 (Get-LegacyCount "user_machine_history WHERE source IN ('Saisie manuelle','Import CSV')")
     Assert-Equal 20000 (Get-LegacyCount "user_machine_history WHERE lower(COALESCE(source,''))='console' AND computer_key='PC-UNPROT'")
@@ -2887,6 +2887,314 @@ Test-Case 'D029 : presentation de demonstration desactive le vrai bouton WPF' {
     Set-DomeniaDemoShellPresentation
     Assert-False $script:Ctrl.BtnStorageUsage.IsEnabled
     Assert-True ($script:Ctrl.BtnStorageUsage.ToolTip -match 'demonstration')
+}
+
+# D029 L3: disposable native SQLite fixtures, protected bytes, transaction rollback and real UI handlers.
+. ([scriptblock]::Create((Get-FunctionTextFromFile $storageWorker 'Get-DomeniaStoragePurgeWorkerCode')))
+$script:PurgeUiDefinitions=@(foreach($name in @('Get-DomeniaStoragePurgeChoice','Reset-DomeniaStoragePurgePreview','Assert-DomeniaStoragePurgeReady','Format-DomeniaStoragePurge','Start-DomeniaStoragePurge','Request-DomeniaStoragePurge','Complete-DomeniaStoragePurge','Fail-DomeniaStoragePurge')){Get-FunctionTextFromFile $storageUi $name}) -join "`n"
+$script:PurgeAdmissionDefinition=Get-FunctionTextFromFile $core 'Start-UiTask'
+$script:OrphanPruneDefinition=Get-FunctionTextFromFile $core 'Start-PruneOrphanLinks'
+function Invoke-PurgeWorker {
+    param([string[]]$Selection=@('Observations'),[bool]$DryRun=$true,[string]$Fingerprint='',[string]$Cutoff='2025-01-01T00:00:00.0000000Z',[string]$Path=$script:TestDbPath)
+    $Payload=[pscustomobject]@{Path=$Path;Selection=$Selection;DryRun=$DryRun;HistoryCutoffUtc=$Cutoff;ExpectedFingerprint=$Fingerprint}
+    return & ([scriptblock]::Create((Get-DomeniaStoragePurgeWorkerCode)))
+}
+function Get-PurgeTableDigest {
+    param([string]$Table)
+    $db=Open-DomeniaDatabase -Path $script:TestDbPath -ReadOnly
+    try{$rows=@(Invoke-DomeniaDbQuery ('SELECT * FROM '+$Table+' ORDER BY rowid;') $db)}finally{Close-DomeniaDatabase $db}
+    $hash=[Security.Cryptography.SHA256]::Create()
+    try{return [BitConverter]::ToString($hash.ComputeHash([Text.Encoding]::UTF8.GetBytes(($rows|ConvertTo-Json -Depth 6 -Compress))))}finally{$hash.Dispose()}
+}
+function Add-PurgeFixtureRows {
+    Add-UsageFixtureRows
+    $db=Open-DomeniaDatabase -Path $script:TestDbPath
+    try {
+        [void](Invoke-DomeniaDbExec @'
+BEGIN IMMEDIATE;
+INSERT INTO user_machine_links(computer_key,user_login,source) VALUES('MANUAL-PC','bob','Manual'),('SAISIE-PC','sue','Saisie manuelle'),('IMPORT-PC','ivy','Import CSV'),('AUTO-PC','amy','Journal du controleur');
+INSERT INTO user_machine_history(computer_key,source,observed_at) VALUES('AUTO-PC','Journal du controleur','2020-01-01'),('pc1','Journal du controleur','2020-01-01'),('x',' manual ','2020-01-01'),('y','Saisie manuelle','2020-01-01'),('z','Import CSV','2020-01-01'),('recent','Journal du controleur','2026-01-01'),('invalid','Journal du controleur','non-date');
+UPDATE user_scan_history SET scanned_at='2020-01-01';
+UPDATE operation_runs SET finished_at='2020-01-01';
+INSERT OR REPLACE INTO sync_state(scope,server,base_dn,highest_usn,last_sync,item_count,details) VALUES('directory','dc.example.invalid','DC=example,DC=invalid',123,'2026-01-01',1,'old state');
+COMMIT;
+'@ $db)
+    } finally {Close-DomeniaDatabase $db}
+}
+Test-Case 'D029 : simulation puis purge atomique, associations et fichiers proteges intacts' {
+    $root=New-LegacySandbox
+    try {
+        Add-PurgeFixtureRows
+        $protected=@{};foreach($table in @('user_machine_links','secret_state','schema_info')){$protected[$table]=Get-PurgeTableDigest $table}
+        $files=@('Domenia.config.ini','Domenia.config.ini.bak','Preferences\Domenia.settings.json','Preferences\Domenia.settings.json.bak','Logs\Domenia.log','Logs\relations.journal','Receipts\Prepared.json','Receipts\Sent.json','Receipts\Unknown.json','Receipts\Verified.json')
+        $hashes=@{}
+        foreach($relative in $files){$file=Join-Path $root $relative;[void][IO.Directory]::CreateDirectory((Split-Path $file));[IO.File]::WriteAllText($file,'Synthetic protected bytes '+$relative);$hashes[$relative]=(Get-FileHash $file).Hash}
+        $before=(Get-FileHash $script:TestDbPath).Hash
+        $preview=Invoke-PurgeWorker @('Observations','Snapshots','History','Index')
+        Assert-True $preview.DryRun;Assert-False $preview.Committed
+        Assert-Equal $before (Get-FileHash $script:TestDbPath).Hash
+        Assert-Equal 9 (($preview.Counts|Where-Object Action -eq 'Delete'|Measure-Object Rows -Sum).Sum)
+        $result=Invoke-PurgeWorker @('Observations','Snapshots','History','Index') $false $preview.Fingerprint
+        Assert-True $result.Committed;Assert-False $result.DryRun;Assert-Equal 9 $result.DeletedRows;Assert-Equal 1 $result.ResetRows
+        Assert-Equal ($preview.Counts|ConvertTo-Json -Compress) ($result.Counts|ConvertTo-Json -Compress)
+        foreach($table in $protected.Keys){Assert-Equal $protected[$table] (Get-PurgeTableDigest $table) $table}
+        foreach($relative in $files){Assert-Equal $hashes[$relative] (Get-FileHash (Join-Path $root $relative)).Hash $relative}
+        foreach($table in @('ad_objects','domenia_provenance','adcc_live_queries','adcc_live_observations','presence_cache','park_state','user_scan_history','operation_runs')){Assert-Equal 0 (Get-LegacyCount $table) $table}
+        Assert-Equal 7 (Get-LegacyCount 'user_machine_history')
+        Assert-Equal 'legacy_import' (Get-LegacySyncState 'legacy_import').server
+        $directory=Get-LegacySyncState 'directory';Assert-Equal 'DC=example,DC=invalid' $directory.base_dn;Assert-Equal 'dc.example.invalid' $directory.server
+        Assert-Equal 0 $directory.highest_usn;Assert-Equal 0 $directory.item_count;Assert-True ($null -eq $directory.last_sync)
+        # The actual adoption code must still choose this same database after the index is empty.
+        . ([scriptblock]::Create((Get-FunctionTextFromFile $core 'Get-DomeniaDatabasePath')))
+        $script:DataDir=$root;$script:Conn=[pscustomobject]@{BaseDn='DC=example,DC=invalid'};$script:DatabaseScopeIdentity='';$script:DatabaseScopedPath=''
+        Assert-Equal $script:TestDbPath (Get-DomeniaDatabasePath)
+    } finally {Remove-Item $root -Recurse -Force}
+}
+Test-Case 'D029 : categories protegees ou inconnues refusees avant toute suppression' {
+    $root=New-LegacySandbox
+    try {
+        Add-PurgeFixtureRows;$hash=(Get-FileHash $script:TestDbPath).Hash
+        foreach($category in @('Configuration','Preferences','ManualLinks','Secrets','Logs','Receipts','user_machine_links','Unknowable',"Index;DELETE FROM user_machine_links")){
+            $message='';try{[void](Invoke-PurgeWorker @('Observations',$category) $false ('A'*64))}catch{$message=$_.Exception.Message}
+            Assert-True ($message -match 'Categorie non purgeable') $category
+            Assert-Equal $hash (Get-FileHash $script:TestDbPath).Hash
+        }
+    } finally {Remove-Item $root -Recurse -Force}
+}
+Test-Case 'D029 : modification du comptage apres simulation refuse la purge sans effacer' {
+    $root=New-LegacySandbox
+    try {
+        Add-PurgeFixtureRows;$preview=Invoke-PurgeWorker
+        $db=Open-DomeniaDatabase -Path $script:TestDbPath
+        try{[void](Invoke-DomeniaDbExec "INSERT INTO presence_cache(object_key,state) VALUES('new','Inconnu');" $db)}finally{Close-DomeniaDatabase $db}
+        $hash=(Get-FileHash $script:TestDbPath).Hash;$message=''
+        try{[void](Invoke-PurgeWorker -DryRun $false -Fingerprint $preview.Fingerprint)}catch{$message=$_.Exception.Message}
+        Assert-True ($message -match 'Refaites la simulation') $message
+        Assert-Equal 2 (Get-LegacyCount 'presence_cache');Assert-Equal $hash (Get-FileHash $script:TestDbPath).Hash
+    } finally {Remove-Item $root -Recurse -Force}
+}
+Test-Case 'D029 : erreur apres une premiere suppression annule toute la transaction' {
+    $root=New-LegacySandbox
+    try {
+        Add-PurgeFixtureRows;$preview=Invoke-PurgeWorker
+        $before=@{};foreach($table in @('adcc_live_observations','presence_cache','park_state','user_machine_links')){$before[$table]=Get-PurgeTableDigest $table}
+        $code=(Get-DomeniaStoragePurgeWorkerCode).Replace('function Invoke-DomeniaDbExec {','function Invoke-NativePurgeDbExec {')
+        $wrapper=@'
+function Invoke-DomeniaDbExec {
+    param([string]$Sql,[IntPtr]$DatabaseHandle)
+    if($Sql -like 'DELETE FROM presence_cache*'){throw 'Synthetic second delete failure'}
+    return Invoke-NativePurgeDbExec $Sql $DatabaseHandle
+}
+'@
+        $code=$code.Replace('# Validate all input',($wrapper+"`n"+'# Validate all input'))
+        $Payload=[pscustomobject]@{Path=$script:TestDbPath;Selection=@('Observations');DryRun=$false;ExpectedFingerprint=$preview.Fingerprint}
+        $message='';try{[void](& ([scriptblock]::Create($code)))}catch{$message=$_.Exception.Message}
+        Assert-True ($message -match 'Synthetic second delete failure') $message
+        foreach($table in $before.Keys){Assert-Equal $before[$table] (Get-PurgeTableDigest $table) $table}
+    } finally {Remove-Item $root -Recurse -Force}
+}
+Test-Case 'D029 : schema futur et declencheur SQLite refusent la purge intacts' {
+    $root=New-LegacySandbox
+    try {
+        Add-PurgeFixtureRows
+        foreach($scenario in @('Schema','Trigger')){
+            $db=Open-DomeniaDatabase -Path $script:TestDbPath
+            try{
+                if($scenario -eq 'Schema'){[void](Invoke-DomeniaDbExec "UPDATE schema_info SET value='12' WHERE key='schema_version';" $db)}
+                else{[void](Invoke-DomeniaDbExec "UPDATE schema_info SET value='11' WHERE key='schema_version'; CREATE TRIGGER unreviewed AFTER DELETE ON presence_cache BEGIN DELETE FROM user_machine_links; END;" $db)}
+            }finally{Close-DomeniaDatabase $db}
+            $hash=(Get-FileHash $script:TestDbPath).Hash;$message=''
+            try{[void](Invoke-PurgeWorker)}catch{$message=$_.Exception.Message}
+            Assert-True ([bool]$message) $scenario
+            Assert-Equal $hash (Get-FileHash $script:TestDbPath).Hash;Assert-Equal 5 (Get-LegacyCount 'user_machine_links')
+        }
+    } finally {Remove-Item $root -Recurse -Force}
+}
+Test-Case 'D029 : confirmation, date et chemin controles sans creation implicite' {
+    $root=New-LegacySandbox
+    try {
+        Add-PurgeFixtureRows
+        $absent=Join-Path $root 'absent.db';$message=''
+        try{[void](Invoke-PurgeWorker -Path $absent)}catch{$message=$_.Exception.Message};Assert-True ([bool]$message);Assert-False ([IO.File]::Exists($absent))
+        foreach($cutoff in @('invalid','2999-01-01T00:00:00.0000000Z','2025-01-01T00:00:00.0000000')){
+            $message='';try{[void](Invoke-PurgeWorker -Selection History -Cutoff $cutoff)}catch{$message=$_.Exception.Message};Assert-True ($message -match 'Date limite') $cutoff
+        }
+        $message='';try{[void](Invoke-PurgeWorker -DryRun $false)}catch{$message=$_.Exception.Message};Assert-True ($message -match 'Simulation confirmee')
+    } finally {Remove-Item $root -Recurse -Force}
+}
+function Initialize-PurgeUiFixture {
+    Initialize-UsageUiFixture
+    foreach($name in @('Observations','Snapshots','History','Index')){$script:Ctrl['ChkStoragePurge'+$name]=New-Object Windows.Controls.CheckBox}
+    $script:Ctrl.ChkStoragePurgeObservations.IsChecked=$true
+    $script:Ctrl.TxtStorageHistoryDays=New-Object Windows.Controls.TextBox;$script:Ctrl.TxtStorageHistoryDays.Text='730'
+    $script:Ctrl.BtnStoragePurgePreview=New-Object Windows.Controls.Button
+    $script:Ctrl.BtnStoragePurge=New-Object Windows.Controls.Button;$script:Ctrl.BtnStoragePurge.IsEnabled=$false
+    $script:Ctrl.LblStoragePurge=New-Object Windows.Controls.TextBlock
+    $script:StoragePurgePreview=$null;$script:PurgeDispatches=[Collections.Generic.List[object]]::new();$script:Persistence=$null;$script:Live=$null
+    $script:VisitCache=@{old='cached'};$script:InlineConfirm=$null;$script:InlineCancel=$null;$script:InlineCalls=0
+    $script:PurgeIndexReloads=0;$script:PurgeSearchStops=0
+}
+function New-PurgePacket {
+    param($State)
+    $counts=@(foreach($category in $State.Selection){foreach($t in @(Get-DomeniaPurgeTargets $category)){[pscustomobject]@{Category=$category;Table=$t.Table;Action=$t.Action;Rows=2L;Exists=$true}}})
+    return [pscustomobject]@{Kind='StoragePurge';Path=$State.Path;DryRun=[bool]$State.DryRun;Committed=(-not $State.DryRun);Selection=$State.Selection;HistoryCutoffUtc=$State.HistoryCutoffUtc;Fingerprint=('A'*64);Counts=$counts;DeletedRows=$(if($State.DryRun){0L}else{[long](($counts|Where-Object Action -eq 'Delete'|Measure-Object Rows -Sum).Sum)});ResetRows=$(if($State.DryRun){0L}else{[long](($counts|Where-Object Action -eq 'Reset'|Measure-Object Rows -Sum).Sum)})}
+}
+$script:PurgeFixtureDefinitions=@'
+. ([scriptblock]::Create($script:UsageControlDefinitions))
+. ([scriptblock]::Create($script:PurgeUiDefinitions))
+Initialize-PurgeUiFixture
+function Start-UiTask {
+    param($Name,$OperationId,$Code,$Payload,$CallbackState,$SuccessHandler,$ErrorHandler,$DisableControls,[switch]$NonCancellable,$TimeoutSeconds,$TaskClass)
+    $script:PurgeDispatches.Add([pscustomobject]@{OperationId=$OperationId;Code=$Code;Payload=$Payload;State=$CallbackState;NonCancellable=[bool]$NonCancellable})
+    return 'purge-'+$script:PurgeDispatches.Count
+}
+function Request-DomeniaInlineConfirmation {param($Title,$Target,$Message,$ConfirmText,$CancelText,$OnConfirm,$OnCancel) $script:InlineCalls++;$script:InlineConfirm=$OnConfirm;$script:InlineCancel=$OnCancel}
+function Load-DomeniaIndexMetadata {throw 'Aucune lecture SQLite sur le Dispatcher'}
+function Load-DomeniaIndex {throw 'Aucune lecture SQLite sur le Dispatcher'}
+function Rebuild-DomeniaIndexLookup {$script:PurgeIndexReloads++}
+function Stop-DomeniaLiveSearch {$script:PurgeSearchStops++}
+function Clear-VisitCache {throw 'Aucun rafraichissement indirect du dashboard pendant la purge'}
+'@
+Test-Case 'D029 : simulation requise et annulation ne lance aucune purge' {
+    . ([scriptblock]::Create($script:PurgeFixtureDefinitions))
+    Request-DomeniaStoragePurge;Assert-Equal 0 $script:PurgeDispatches.Count;Assert-Equal 0 $script:InlineCalls
+    Start-DomeniaStoragePurge
+    Assert-Equal 1 $script:PurgeDispatches.Count;Assert-True $script:PurgeDispatches[0].Payload.DryRun
+    $state=$script:PurgeDispatches[0].State
+    Complete-DomeniaStoragePurge (New-PurgePacket $state) $state
+    Assert-True $script:Ctrl.BtnStoragePurge.IsEnabled
+    Request-DomeniaStoragePurge;Assert-Equal 1 $script:InlineCalls
+    & $script:InlineCancel
+    Assert-Equal 1 $script:PurgeDispatches.Count
+    Assert-True ($script:Statuses[$script:Statuses.Count-1] -match 'aucune suppression')
+}
+Test-Case 'D029 : confirmation reutilise exactement categories, date et empreinte simulees' {
+    . ([scriptblock]::Create($script:PurgeFixtureDefinitions))
+    $script:Ctrl.ChkStoragePurgeHistory.IsChecked=$true;$script:Ctrl.TxtStorageHistoryDays.Text='30'
+    Start-DomeniaStoragePurge;$state=$script:PurgeDispatches[0].State
+    Complete-DomeniaStoragePurge (New-PurgePacket $state) $state
+    Request-DomeniaStoragePurge;& $script:InlineConfirm
+    Assert-Equal 2 $script:PurgeDispatches.Count
+    $apply=$script:PurgeDispatches[1]
+    Assert-Equal 'StoragePurge' $apply.OperationId;Assert-True $apply.NonCancellable;Assert-False $apply.Payload.DryRun
+    Assert-Equal $state.HistoryCutoffUtc $apply.Payload.HistoryCutoffUtc
+    Assert-Equal ('A'*64) $apply.Payload.ExpectedFingerprint
+    Assert-Equal ($state.Selection -join ',') ($apply.Payload.Selection -join ',')
+    Assert-True ($null -eq $script:StoragePurgePreview);Assert-False $script:Ctrl.BtnStoragePurge.IsEnabled
+}
+Test-Case 'D029 : selection ou session changee invalide une ancienne confirmation' {
+    . ([scriptblock]::Create($script:PurgeFixtureDefinitions))
+    foreach($scenario in @('Selection','Age','Epoch','Path','Reset')){
+        Initialize-PurgeUiFixture
+        $script:Ctrl.ChkStoragePurgeHistory.IsChecked=$true
+        Start-DomeniaStoragePurge;$state=$script:PurgeDispatches[0].State
+        Complete-DomeniaStoragePurge (New-PurgePacket $state) $state
+        Request-DomeniaStoragePurge
+        switch($scenario){Selection{$script:Ctrl.ChkStoragePurgeIndex.IsChecked=$true}Age{$script:Ctrl.TxtStorageHistoryDays.Text='7'}Epoch{$script:SessionEpoch++}Path{$script:DatabaseScopedPath='C:\other.db'}Reset{Reset-DomeniaStoragePurgePreview}}
+        & $script:InlineConfirm
+        Assert-Equal 1 $script:PurgeDispatches.Count $scenario
+        Assert-False $script:Ctrl.BtnStoragePurge.IsEnabled
+    }
+}
+Test-Case 'D029 : purge refuse travaux actifs, detaches, attente de sauvegarde et demo' {
+    . ([scriptblock]::Create($script:PurgeFixtureDefinitions))
+    foreach($scenario in @('Active','Detached','Pending','PersistenceJob','Demo','Unknown','LiveSave')){
+        Initialize-PurgeUiFixture;$script:DemoMode=$false;$script:WriteState='Known'
+        switch($scenario){
+            Active{$script:AsyncJobs=@{x=[pscustomobject]@{OperationId='GlobalSearch'}}}
+            Detached{$script:DetachedReadJobs=@([pscustomobject]@{OperationId='StoragePurge'})}
+            Pending{$script:Persistence=[pscustomobject]@{Job='';LinkBusy=$false;Pending=@{x=[pscustomobject]@{Kind='LegacyImport'}};LinkRequestTimer=$null}}
+            PersistenceJob{$script:Persistence=[pscustomobject]@{Job='writer';LinkBusy=$false;Pending=@{};LinkRequestTimer=$null}}
+            Demo{$script:DemoMode=$true}
+            Unknown{$script:WriteState='Unknown'}
+            LiveSave{$script:Live=[pscustomobject]@{SaveJob='live';SaveInFlight=1}}
+        }
+        Start-DomeniaStoragePurge;Assert-Equal 0 $script:PurgeDispatches.Count $scenario
+        Assert-True ($script:Ctrl.LblStoragePurge.Text -match 'impossible') $scenario
+    }
+}
+Test-Case 'D029 : resultat tardif et echec ne suppriment rien et ne rejouent pas' {
+    . ([scriptblock]::Create($script:PurgeFixtureDefinitions))
+    Start-DomeniaStoragePurge;$state=$script:PurgeDispatches[0].State;$old=$script:Ctrl.LblStoragePurge.Text
+    $script:SessionEpoch++
+    Complete-DomeniaStoragePurge (New-PurgePacket $state) $state;Fail-DomeniaStoragePurge 'old' $state
+    Assert-Equal $old $script:Ctrl.LblStoragePurge.Text;Assert-True ($null -eq $script:StoragePurgePreview)
+    $script:SessionEpoch=$state.Epoch
+    Fail-DomeniaStoragePurge 'refus SQLite synthetique' $state
+    Assert-Equal 1 $script:PurgeDispatches.Count;Assert-True ($script:Ctrl.LblStoragePurge.Text -match 'Aucun rejeu automatique')
+    Assert-False $script:Ctrl.BtnStoragePurge.IsEnabled
+}
+Test-Case 'D029 : succes invalide seulement les caches choisis et aucune relecture AD' {
+    . ([scriptblock]::Create($script:PurgeFixtureDefinitions))
+    $script:Ctrl.ChkStoragePurgeSnapshots.IsChecked=$true;$script:Ctrl.ChkStoragePurgeIndex.IsChecked=$true
+    Start-DomeniaStoragePurge;$state=$script:PurgeDispatches[0].State
+    Complete-DomeniaStoragePurge (New-PurgePacket $state) $state;Request-DomeniaStoragePurge;& $script:InlineConfirm
+    $state=$script:PurgeDispatches[1].State
+    $script:Live=[pscustomobject]@{Observations=[Collections.Concurrent.ConcurrentDictionary[string,object]]::new();ObservationsLoaded=$true;SaveQueue=@{old='observation'};Done=@{x=$true};PresenceSeen=@{x=$true};MemoryQueries=@{q='result'};QueryToSave='old query';Refresh=[Collections.Generic.Queue[object]]::new();Deferred=[Collections.Generic.Queue[object]]::new()}
+    $script:PresenceCache=@{x='cached'};$script:ParkState=@{x='old'}
+    Complete-DomeniaStoragePurge (New-PurgePacket $state) $state
+    Assert-Equal 0 $script:Live.SaveQueue.Count;Assert-Equal 0 $script:Live.MemoryQueries.Count;Assert-True ($null -eq $script:Live.QueryToSave)
+    Assert-Equal 0 $script:PresenceCache.Count;Assert-Equal 0 $script:ParkState.Count;Assert-Equal 0 $script:VisitCache.Count
+    Assert-Equal 1 $script:PurgeIndexReloads;Assert-Equal 1 $script:PurgeSearchStops
+    Assert-Equal 0 $script:IndexRows.Count;Assert-Equal 0 $script:IndexDbCount;Assert-True ($null -eq $script:IndexInfo)
+    Assert-True ($script:Ctrl.LblStorageUsage.Text -match 'perimee')
+    Assert-True ($script:Statuses[$script:Statuses.Count-1] -match 'Purge locale confirmee')
+    Assert-Equal 2 $script:PurgeDispatches.Count
+}
+Test-Case 'D029 : admission centrale bloque les nouveaux producteurs pendant purge detachee' {
+    . ([scriptblock]::Create($script:PurgeUiDefinitions))
+    . ([scriptblock]::Create($script:PurgeAdmissionDefinition))
+    $script:DetachedReadJobs=@([pscustomobject]@{OperationId='StoragePurge'})
+    foreach($operation in @('LocalStore','LiveCache','IndexBuild','ScopeReconcile','GlobalSearch','LegacyMigration','StorageUsage')){
+        $message='';try{[void](Start-UiTask -Name 'Test' -OperationId $operation -Code 'unreachable')}catch{$message=$_.Exception.Message}
+        Assert-True ($message -match 'purge locale est encore active') ($operation+': '+$message)
+    }
+}
+Test-Case 'D029 : nettoyage des orphelins conserve les sources declarees et une promotion tardive' {
+    . ([scriptblock]::Create($script:OrphanPruneDefinition))
+    function Start-UiTask {param($Name,$OperationId,$Code,$Payload,$ReplaceKey,$DisableControls,$TimeoutSeconds,$StatusText,$OnSuccess,$OnError) $script:OrphanPayload=$Payload;$script:OrphanComplete=$OnSuccess}
+    function Confirm-Action {param($Message) return $true}
+    function Save-UserMachineLinks {$script:OrphanSaves++;return $true}
+    function Show-ErrorBox {param($Message) throw $Message}
+    $script:OrphanSaves=0
+    $script:UserMachineLinks=@(foreach($source in @('Manual',' Saisie manuelle ','import csv','Journal du controleur')){[pscustomobject]@{UserLogin='user';Computer=$source;Source=$source;When='old'}})
+    Start-PruneOrphanLinks
+    Assert-Equal 1 @($script:OrphanPayload.Links).Count
+    $auto=$script:OrphanPayload.Links[0]
+    $result=[pscustomobject]@{Checked=1;Rows=@([pscustomobject]@{UserLogin=$auto.UserLogin;Computer=$auto.Computer;When=$auto.When;UserExists=$false;ComputerExists=$false})}
+    $auto.Source='Import CSV'
+    & $script:OrphanComplete $result
+    Assert-Equal 4 $script:UserMachineLinks.Count;Assert-Equal 0 $script:OrphanSaves
+    $auto.Source='Journal du controleur'
+    & $script:OrphanComplete $result
+    Assert-Equal 3 $script:UserMachineLinks.Count;Assert-Equal 1 $script:OrphanSaves
+}
+Test-Case 'D029 : vrais evenements WPF de simulation et confirmation raccordes au coeur' {
+    . ([scriptblock]::Create($script:PurgeFixtureDefinitions))
+    $tokens=$null;$errors=$null
+    $ast=[Management.Automation.Language.Parser]::ParseInput((Get-FunctionTextFromFile $core 'Wire-Events'),[ref]$tokens,[ref]$errors)
+    foreach($name in @('BtnStoragePurgePreview','BtnStoragePurge')){
+        $expression='$script:Ctrl["'+$name+'"]'
+        $nodes=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.InvokeMemberExpressionAst] -and $n.Member.Value -eq 'Add_Click' -and $n.Expression.Extent.Text -ceq $expression},$true))
+        Assert-Equal 1 $nodes.Count ('Evenement manquant : '+$name)
+        . ([scriptblock]::Create($nodes[0].Extent.Text))
+    }
+    $script:Ctrl.BtnStoragePurgePreview.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Primitives.ButtonBase]::ClickEvent))
+    Assert-Equal 1 $script:PurgeDispatches.Count;Assert-True $script:PurgeDispatches[0].Payload.DryRun
+    $state=$script:PurgeDispatches[0].State
+    Complete-DomeniaStoragePurge (New-PurgePacket $state) $state
+    $script:Ctrl.BtnStoragePurge.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Primitives.ButtonBase]::ClickEvent))
+    Assert-Equal 1 $script:InlineCalls;Assert-Equal 1 $script:PurgeDispatches.Count
+}
+Test-Case 'D029 : un paquet de purge mal forme ne devient jamais une confirmation' {
+    . ([scriptblock]::Create($script:PurgeFixtureDefinitions))
+    foreach($scenario in @('Counts','Rows','Date','Mode','Fingerprint')){
+        Initialize-PurgeUiFixture;Start-DomeniaStoragePurge;$state=$script:PurgeDispatches[0].State;$packet=New-PurgePacket $state
+        switch($scenario){Counts{$packet.Counts=@($packet.Counts|Select-Object -First 1)}Rows{$packet.Counts[0].Rows=-1}Date{$packet.HistoryCutoffUtc='unexpected'}Mode{$packet.Committed=$true}Fingerprint{$packet.Fingerprint='bad'}}
+        Complete-DomeniaStoragePurge $packet $state
+        Assert-True ($null -eq $script:StoragePurgePreview) $scenario;Assert-False $script:Ctrl.BtnStoragePurge.IsEnabled $scenario
+        Assert-True ($script:Ctrl.LblStoragePurge.Text -match 'non confirmee') $scenario
+    }
 }
 
 Stop-TestTimers

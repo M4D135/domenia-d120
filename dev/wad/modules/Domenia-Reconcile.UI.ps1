@@ -118,6 +118,7 @@ function Fail-DomeniaReconcile {
     if($State.Epoch -eq $script:SessionEpoch){Write-AppLog ('Reconciliation non confirmee, cache conserve : '+$Message) 'WARN';[void](Request-DomeniaAccessRecovery -Operation 'Reconciliation du perimetre' -OperationId 'GlobalSearch' -ErrorValue $Message)}
 }
 function Invoke-DomeniaReconcileTick {
+    if(@($script:AsyncJobs.Values|Where-Object{$_.OperationId -eq 'StoragePurge'}).Count -or @($script:DetachedReadJobs|Where-Object{$_.OperationId -eq 'StoragePurge'}).Count){return}
     if($null -eq $script:Reconcile -or $script:AsyncEngineClosing -or -not (Test-DomeniaLiveSearchActive) -or (Test-DomeniaAccessBusyWrite)){return}
     $s=$script:Live.Search;$r=$script:Reconcile;$grid=Get-DomeniaControl 'DgObjects'
     if(-not [object]::ReferenceEquals($r.Search,$s)){$r.Search=$s;$r.Events.Clear();$r.Next=[datetime]::UtcNow.AddSeconds(180)}

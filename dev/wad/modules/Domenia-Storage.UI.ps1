@@ -121,7 +121,7 @@ function Start-DomeniaStorageWork {
     if(-not $canStartImport){
         if($script:Persistence.Failures -ge 3 -or [datetime]::UtcNow -lt $script:Persistence.Next){return}
     }
-    if(@($script:AsyncJobs.Values|Where-Object{$_.OperationId -in @('LocalStore','LiveCache','IndexBuild','LegacyMigration')}).Count -or @($script:DetachedReadJobs|Where-Object{$_.OperationId -in @('LocalStore','LiveCache','IndexBuild','LegacyMigration')}).Count){return}
+    if(@($script:AsyncJobs.Values|Where-Object{$_.OperationId -in @('LocalStore','LiveCache','IndexBuild','LegacyMigration','StoragePurge')}).Count -or @($script:DetachedReadJobs|Where-Object{$_.OperationId -in @('LocalStore','LiveCache','IndexBuild','LegacyMigration','StoragePurge')}).Count){return}
     if(@($script:AsyncJobs.Keys).Count -ge 4){return}
     if($canStartImport){
         $item=$import[0]
@@ -450,4 +450,144 @@ function Fail-DomeniaStorageUsage {
     $text='Mesure du stockage impossible : '+[string]$Message
     [void](Set-DomeniaControlText 'LblStorageUsage' $text)
     Set-Status $text 'WARN';Write-AppLog $text 'WARN'
+}
+
+function Get-DomeniaStoragePurgeChoice {
+    $selection=@(foreach($name in @('Observations','Snapshots','History','Index')){$control=Get-DomeniaControl ('ChkStoragePurge'+$name);if($null -ne $control -and [bool]$control.IsChecked){$name}})
+    $days=730
+    if($selection -contains 'History'){
+        $age=Get-DomeniaControl 'TxtStorageHistoryDays'
+        if($null -eq $age -or -not [int]::TryParse([string]$age.Text,[ref]$days) -or $days -lt 1 -or $days -gt 36500){throw 'Age de l historique : indiquez un nombre entier de 1 a 36500 jours.'}
+    }
+    return [pscustomobject]@{Selection=$selection;HistoryAgeDays=$days;Key=((@($selection|Sort-Object) -join '|')+':'+$days)}
+}
+function Reset-DomeniaStoragePurgePreview {
+    $hadPreview=($null -ne $script:StoragePurgePreview)
+    $script:StoragePurgePreview=$null
+    $button=Get-DomeniaControl 'BtnStoragePurge';if($button){$button.IsEnabled=$false}
+    if($hadPreview){[void](Set-DomeniaControlText 'LblStoragePurge' 'Selection modifiee : refaites la simulation.')}
+}
+function Assert-DomeniaStoragePurgeReady {
+    if([bool]$script:DemoMode){throw 'Purge locale indisponible en demonstration.'}
+    if([string]::IsNullOrWhiteSpace([string]$script:DatabaseScopedPath)){throw 'Aucune base locale active.'}
+    if($script:AsyncEngineClosing){throw 'Fermeture en cours.'}
+    # Every outstanding producer must finish; a late AD or workstation result can also refill the cache.
+    if(@($script:AsyncJobs.Values|Where-Object{$null -ne $_}).Count -or @($script:DetachedReadJobs|Where-Object{$null -ne $_}).Count -or $script:ActiveWriteTaskId -or $script:WriteState -in @('Unknown','UnknownPending')){throw 'Une operation est encore active ou a verifier. Attendez sa fin puis refaites la simulation.'}
+    if($null -ne $script:Live -and ($script:Live.SaveJob -or [int]$script:Live.SaveInFlight -gt 0)){throw 'Un enregistrement des observations est encore en cours.'}
+    if($null -ne $script:Persistence){
+        if($script:Persistence.Job -or $script:Persistence.LinkBusy -or $script:Persistence.Pending.Count -or ($null -ne $script:Persistence.LinkRequestTimer -and $script:Persistence.LinkRequestTimer.IsEnabled)){throw 'Des modifications locales attendent leur enregistrement. Refaites la simulation apres cet enregistrement.'}
+    }
+}
+function Format-DomeniaStoragePurge {
+    param($Result,$State)
+    if($null -eq $Result -or $Result.Kind -cne 'StoragePurge' -or $Result.DryRun -isnot [bool] -or $Result.Committed -isnot [bool] -or $Result.DryRun -ne [bool]$State.DryRun -or $Result.Committed -eq $Result.DryRun -or [string]$Result.Path -ine [string]$State.Path -or [string]$Result.Fingerprint -cnotmatch '^[A-F0-9]{64}$'){throw 'Resultat de purge locale non confirme.'}
+    if((@($Result.Selection|Sort-Object) -join '|') -cne (@($State.Selection|Sort-Object) -join '|') -or [string]$Result.HistoryCutoffUtc -cne [string]$State.HistoryCutoffUtc){throw 'Selection de purge non confirmee.'}
+    $expected=@{};foreach($category in $State.Selection){foreach($t in @(Get-DomeniaPurgeTargets $category)){$expected[$category+'|'+$t.Table]=$t.Action}}
+    $seen=@{};$deleted=0L;$reset=0L;$lines=New-Object 'System.Collections.Generic.List[string]'
+    $labels=@{};foreach($entry in @(Get-DomeniaRetentionPolicy)){$labels[$entry.Category]=$entry.Label}
+    $categoryCounts=@{}
+    foreach($row in @($Result.Counts)){
+        $key=[string]$row.Category+'|'+[string]$row.Table;$n=0L
+        if(-not $expected.ContainsKey($key) -or $seen.ContainsKey($key) -or [string]$row.Action -cne $expected[$key] -or -not [long]::TryParse([string]$row.Rows,[ref]$n) -or $n -lt 0 -or $row.Exists -isnot [bool]){throw 'Comptage de purge incomplet ou incoherent.'}
+        $seen[$key]=$true
+        if($row.Action -eq 'Reset'){$reset+=$n}else{$deleted+=$n}
+        if(-not $categoryCounts.ContainsKey([string]$row.Category)){$categoryCounts[[string]$row.Category]=0L}
+        if($row.Action -eq 'Delete'){$categoryCounts[[string]$row.Category]+=$n}
+    }
+    if($seen.Count -ne $expected.Count){throw 'Comptage de purge incomplet.'}
+    foreach($name in @('DeletedRows','ResetRows')){$n=0L;if(-not [long]::TryParse([string](Get-DomeniaMember $Result $name ''),[ref]$n) -or $n -lt 0){throw 'Compte final de purge non confirme.'}}
+    if(-not $Result.DryRun -and ([string]$Result.Fingerprint -cne [string]$State.ExpectedFingerprint -or [long]$Result.DeletedRows -ne $deleted -or [long]$Result.ResetRows -ne $reset)){throw 'Purge non confirmee : compte final incoherent.'}
+    foreach($category in @($State.Selection|Sort-Object)){$lines.Add($labels[$category]+' : '+$categoryCounts[$category]+' ligne(s) '+$(if($Result.DryRun){'a supprimer'}else{'supprimee(s)'}))}
+    if($State.Selection -contains 'History'){$lines.Add('Historique anterieur au '+([datetime]$State.HistoryCutoffUtc).ToLocalTime().ToString('dd/MM/yyyy HH:mm:ss')+' ; dates illisibles conservees.')}
+    if($State.Selection -contains 'Index'){$lines.Add('Reperes de synchronisation : '+$reset+' ligne(s) '+$(if($Result.DryRun){'a reinitialiser'}else{'reinitialisee(s)'})+'. Domaine et marqueur de reprise conserves.')}
+    $lines.Add('Conserves : toutes les associations, leur historique protege, les secrets, la configuration, les preferences, les journaux et tous les recus.')
+    $lines.Add('La purge libere de la place reutilisable dans la base ; elle ne compacte pas le fichier.')
+    return ($lines -join [Environment]::NewLine)
+}
+function Start-DomeniaStoragePurge {
+    param([switch]$Apply,$Preview=$null)
+    try {
+        Assert-DomeniaStoragePurgeReady
+        $choice=Get-DomeniaStoragePurgeChoice
+        if($Apply){
+            if($null -eq $Preview -or $null -eq $script:StoragePurgePreview -or $Preview.Id -cne $script:StoragePurgePreview.Id -or $Preview.State.Epoch -ne [long]$script:SessionEpoch -or [string]$Preview.State.Path -cne [string]$script:DatabaseScopedPath -or $Preview.State.ChoiceKey -cne $choice.Key){throw 'Simulation absente ou contexte modifie. Refaites la simulation.'}
+            $selection=@($Preview.State.Selection);$cutoff=[string]$Preview.State.HistoryCutoffUtc;$expected=[string]$Preview.Result.Fingerprint
+        }else{
+            $plan=Get-DomeniaPurgePlan -Selection $choice.Selection -HistoryAgeDays $choice.HistoryAgeDays
+            if(@($plan.Refused).Count){throw ($plan.Refused -join ' ')}
+            if(-not @($plan.Actions).Count){throw 'Choisissez au moins une categorie puis simulez.'}
+            $selection=@($plan.Actions|ForEach-Object{$_.Category});$cutoff='';$expected=''
+            foreach($action in $plan.Actions){if($action.Category -eq 'History'){$cutoff=[string]$action.OlderThanUtc}}
+        }
+        Reset-DomeniaStoragePurgePreview
+        [void](Initialize-DomeniaWinSqliteNative)
+        $state=[pscustomobject]@{Id=[guid]::NewGuid().ToString('N');Path=[string]$script:DatabaseScopedPath;Epoch=[long]$script:SessionEpoch;Selection=$selection;HistoryCutoffUtc=$cutoff;DryRun=(-not [bool]$Apply);ChoiceKey=$choice.Key;ExpectedFingerprint=$expected}
+        $payload=[pscustomobject]@{Path=$state.Path;Selection=$selection;HistoryCutoffUtc=$cutoff;DryRun=$state.DryRun;ExpectedFingerprint=$expected}
+        $name=if($Apply){'Purge du stockage local'}else{'Simulation de purge locale'}
+        $id=Start-UiTask -Name $name -OperationId 'StoragePurge' -Code (Get-DomeniaStoragePurgeWorkerCode) -Payload $payload -CallbackState $state -SuccessHandler 'Complete-DomeniaStoragePurge' -ErrorHandler 'Fail-DomeniaStoragePurge' -DisableControls @('BtnStorageUsage','BtnStoragePurgePreview') -NonCancellable -TimeoutSeconds 120 -TaskClass 'Explicit'
+        if(-not $id){throw 'Operation locale non admise.'}
+        [void](Set-DomeniaControlText 'LblStoragePurge' ($name+' en cours...'))
+        Set-Status ($name+' en cours.')
+    }catch{
+        Reset-DomeniaStoragePurgePreview
+        $text='Purge locale impossible : '+$_.Exception.Message
+        [void](Set-DomeniaControlText 'LblStoragePurge' $text);Set-Status $text 'WARN'
+    }
+}
+function Request-DomeniaStoragePurge {
+    try {
+        Assert-DomeniaStoragePurgeReady
+        $preview=$script:StoragePurgePreview
+        $choice=Get-DomeniaStoragePurgeChoice
+        if($null -eq $preview -or $preview.State.Epoch -ne [long]$script:SessionEpoch -or [string]$preview.State.Path -cne [string]$script:DatabaseScopedPath -or $preview.State.ChoiceKey -cne $choice.Key){throw 'Refaites la simulation avant de purger.'}
+        $description=Format-DomeniaStoragePurge $preview.Result $preview.State
+        $startPurge=${function:Start-DomeniaStoragePurge}
+        Request-DomeniaInlineConfirmation -Title 'Confirmer la purge locale' -Target $preview.State.Path -Message $description -ConfirmText 'Purger ces donnees locales' -CancelText 'Conserver' -OnConfirm ({& $startPurge -Apply -Preview $preview}.GetNewClosure()) -OnCancel {Set-Status 'Purge annulee ; aucune suppression.'}
+    }catch{Reset-DomeniaStoragePurgePreview;Set-Status ('Purge locale impossible : '+$_.Exception.Message) 'WARN'}
+}
+function Complete-DomeniaStoragePurge {
+    param($Result,$State)
+    if($null -eq $State -or $State.Epoch -ne [long]$script:SessionEpoch -or [string]$State.Path -cne [string]$script:DatabaseScopedPath){return}
+    try {
+        $result=Get-DomeniaEffectiveWorkerResult $Result @('Kind','Path','DryRun','Committed','Counts','Fingerprint')
+        $text=Format-DomeniaStoragePurge $result $State
+        if($State.DryRun){
+            $choice=Get-DomeniaStoragePurgeChoice
+            if($State.ChoiceKey -cne $choice.Key){Reset-DomeniaStoragePurgePreview;[void](Set-DomeniaControlText 'LblStoragePurge' 'Selection modifiee pendant la simulation. Refaites la simulation.');return}
+            $script:StoragePurgePreview=[pscustomobject]@{Id=$State.Id;State=$State;Result=$result}
+            $button=Get-DomeniaControl 'BtnStoragePurge';if($button){$button.IsEnabled=$true}
+            [void](Set-DomeniaControlText 'LblStoragePurge' ('Simulation ; aucune suppression.'+[Environment]::NewLine+$text))
+            Set-Status 'Simulation terminee. Verifiez les nombres avant de confirmer.'
+        }else{
+            Reset-DomeniaStoragePurgePreview
+            if($State.Selection -contains 'Index'){
+                # The committed transaction already confirms an empty index; no synchronous disk reread.
+                $script:IndexRows=@();$script:IndexInfo=$null
+                $script:IndexDbCount=0;$script:IndexDbUsers=0;$script:IndexDbComputers=0
+                Rebuild-DomeniaIndexLookup
+            }
+            if($State.Selection -contains 'Observations'){
+                $script:PresenceCache=@{};$script:ParkState=@{}
+                if($null -ne $script:Live){$script:Live.Observations.Clear();$script:Live.ObservationsLoaded=$false;$script:Live.SaveQueue=@{};$script:Live.Done=@{};$script:Live.PresenceSeen=@{}}
+            }
+            if($State.Selection -contains 'Snapshots' -and $null -ne $script:Live){$script:Live.MemoryQueries=@{};$script:Live.QueryToSave=$null}
+            if(@($State.Selection|Where-Object{$_ -in @('Snapshots','Observations','Index')}).Count){
+                # Invalidate the displayed search producer too: no old stream may repopulate the purged cache.
+                Stop-DomeniaLiveSearch
+                if($null -ne $script:Live){$script:Live.Refresh.Clear();$script:Live.Deferred.Clear()}
+                $script:VisitCache=@{};$script:CacheStats=[ordered]@{Hits=0;Misses=0;Writes=0;Evictions=0;Errors=0}
+            }
+            [void](Set-DomeniaControlText 'LblStorageUsage' 'Mesure precedente perimee apres la purge. Cliquez sur Mesurer.')
+            [void](Set-DomeniaControlText 'LblStoragePurge' $text)
+            Set-Status ('Purge locale confirmee : '+$result.DeletedRows+' ligne(s) supprimee(s).')
+            Add-DomeniaUiLog -Area 'Stockage' -Text ('Purge locale confirmee : '+$result.DeletedRows+' ligne(s), categories '+($State.Selection -join ', ')+'. Associations, journaux et recus conserves.')
+        }
+    }catch{Fail-DomeniaStoragePurge $_.Exception.Message $State}
+}
+function Fail-DomeniaStoragePurge {
+    param($Message,$State)
+    if($null -eq $State -or $State.Epoch -ne [long]$script:SessionEpoch -or [string]$State.Path -cne [string]$script:DatabaseScopedPath){return}
+    Reset-DomeniaStoragePurgePreview
+    $text='Operation locale non confirmee : '+[string]$Message+'. Verifiez avec Mesurer puis refaites la simulation. Aucun rejeu automatique.'
+    [void](Set-DomeniaControlText 'LblStoragePurge' $text);Set-Status $text 'WARN';Write-AppLog $text 'WARN'
 }

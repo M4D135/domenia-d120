@@ -70,7 +70,8 @@
       "Requires": [
         "Domenia-Cache.Model.ps1",
         "Domenia-Common.Model.ps1",
-        "Domenia-Release.Model.ps1"
+        "Domenia-Release.Model.ps1",
+        "Domenia-Storage.Worker.ps1"
       ],
       "DotSource": true,
       "ExistingEntry": true,
@@ -82,7 +83,15 @@
         "Format-DomeniaStorageUsage",
         "Start-DomeniaStorageUsage",
         "Complete-DomeniaStorageUsage",
-        "Fail-DomeniaStorageUsage"
+        "Fail-DomeniaStorageUsage",
+        "Get-DomeniaStoragePurgeChoice",
+        "Reset-DomeniaStoragePurgePreview",
+        "Assert-DomeniaStoragePurgeReady",
+        "Format-DomeniaStoragePurge",
+        "Start-DomeniaStoragePurge",
+        "Request-DomeniaStoragePurge",
+        "Complete-DomeniaStoragePurge",
+        "Fail-DomeniaStoragePurge"
       ],
       "NewFunctions": [
         "Request-DomeniaLinkPersistence",
@@ -92,7 +101,15 @@
         "Format-DomeniaStorageUsage",
         "Start-DomeniaStorageUsage",
         "Complete-DomeniaStorageUsage",
-        "Fail-DomeniaStorageUsage"
+        "Fail-DomeniaStorageUsage",
+        "Get-DomeniaStoragePurgeChoice",
+        "Reset-DomeniaStoragePurgePreview",
+        "Assert-DomeniaStoragePurgeReady",
+        "Format-DomeniaStoragePurge",
+        "Start-DomeniaStoragePurge",
+        "Request-DomeniaStoragePurge",
+        "Complete-DomeniaStoragePurge",
+        "Fail-DomeniaStoragePurge"
       ]
     },
     {
@@ -160,13 +177,15 @@
         "Get-DomeniaObservationTimes",
         "Copy-DomeniaObservationTimes",
         "Resolve-DomeniaDirectoryReachability",
-        "Get-DomeniaPurgeTargets"
+        "Get-DomeniaPurgeTargets",
+        "Test-DomeniaProtectedAssociationSource"
       ],
       "NewFunctions": [
         "Get-DomeniaObservationTimes",
         "Copy-DomeniaObservationTimes",
         "Resolve-DomeniaDirectoryReachability",
-        "Get-DomeniaPurgeTargets"
+        "Get-DomeniaPurgeTargets",
+        "Test-DomeniaProtectedAssociationSource"
       ],
       "Phase": "Modules",
       "Requires": [
@@ -255,10 +274,12 @@
       "DotSource": true,
       "ExistingEntry": true,
       "Functions": [
-        "Get-DomeniaStorageUsageWorkerCode"
+        "Get-DomeniaStorageUsageWorkerCode",
+        "Get-DomeniaStoragePurgeWorkerCode"
       ],
       "NewFunctions": [
-        "Get-DomeniaStorageUsageWorkerCode"
+        "Get-DomeniaStorageUsageWorkerCode",
+        "Get-DomeniaStoragePurgeWorkerCode"
       ]
     }
   ],
@@ -290,7 +311,9 @@
     "Domenia-Release.Model.ps1 (K1/D118 : six zones sous Cache, copie unique des preferences sans ecrasement ni changement de mode)",
     "Domenia-Engine.Model.ps1 (L1/D029 : StorageUsage et StoragePurge sans compte annuaire)",
     "Domenia-Access.UI.ps1 (L2 : aucune reconnexion AD pour une operation sans compte)",
-    "Domenia-Demo.UI.ps1 (L2 : bouton Mesurer indisponible en demonstration)"
+    "Domenia-Demo.UI.ps1 (L2 : bouton Mesurer indisponible en demonstration)",
+    "Domenia-Reconcile.UI.ps1 (L3 : suspendre la reconciliation pendant la purge)",
+    "Domenia-Live.UI.ps1 (L3 : suspendre les producteurs pendant la purge)"
   ],
   "TypeFiles": [],
   "Operations": [
@@ -311,6 +334,19 @@
       "Operation": "StorageUsage",
       "File": "wad/modules/Domenia-Storage.Worker.ps1",
       "Function": "Get-DomeniaStorageUsageWorkerCode",
+      "LiteralIndex": 0,
+      "Provider": "Storage",
+      "Resource": "Local",
+      "NeedsDirectoryCredential": false,
+      "NeedsMachineCredential": false,
+      "NonDirectory": true,
+      "IsWrite": false,
+      "Class": "Explicit"
+    },
+    {
+      "Operation": "StoragePurge",
+      "File": "wad/modules/Domenia-Storage.Worker.ps1",
+      "Function": "Get-DomeniaStoragePurgeWorkerCode",
       "LiteralIndex": 0,
       "Provider": "Storage",
       "Resource": "Local",
@@ -418,6 +454,18 @@
       "Name": "BtnStorageUsage",
       "Title": "Mesurer le stockage local",
       "Text": "Compte les lignes et mesure la base active en lecture seule. Les tailles indisponibles restent inconnues. Aucune suppression, aucun contact avec les postes ou l’annuaire.",
+      "Kind": "Button"
+    },
+    {
+      "Name": "BtnStoragePurgePreview",
+      "Title": "Simuler la purge",
+      "Text": "Compte les lignes choisies dans la base locale. Aucune suppression ; attend la fin des opérations en cours.",
+      "Kind": "Button"
+    },
+    {
+      "Name": "BtnStoragePurge",
+      "Title": "Purger les données locales",
+      "Text": "Demande confirmation après simulation. Associations, historique protégé, secrets, configuration, journaux et reçus sont conservés. Aucun rejeu automatique.",
       "Kind": "Button"
     }
   ],

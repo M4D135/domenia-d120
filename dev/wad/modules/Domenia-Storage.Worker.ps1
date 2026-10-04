@@ -317,7 +317,7 @@ try {
  }
  [void](Invoke-DomeniaDbExec 'DELETE FROM operation_runs WHERE id NOT IN (SELECT id FROM operation_runs ORDER BY id DESC LIMIT 10000);' $db)
  $protectedSources="('manual','saisie manuelle','import csv')"
- $pruneSql="DELETE FROM user_machine_history WHERE lower(COALESCE(source,'')) NOT IN $protectedSources AND lower(COALESCE(computer_key,'')) NOT IN (SELECT lower(COALESCE(computer_key,'')) FROM user_machine_links WHERE lower(COALESCE(source,'')) IN $protectedSources) AND id NOT IN (SELECT id FROM user_machine_history WHERE lower(COALESCE(source,'')) NOT IN $protectedSources AND lower(COALESCE(computer_key,'')) NOT IN (SELECT lower(COALESCE(computer_key,'')) FROM user_machine_links WHERE lower(COALESCE(source,'')) IN $protectedSources) ORDER BY id DESC LIMIT 20000);"
+ $pruneSql="DELETE FROM user_machine_history WHERE lower(trim(COALESCE(source,''))) NOT IN $protectedSources AND lower(trim(COALESCE(computer_key,''))) NOT IN (SELECT lower(trim(COALESCE(computer_key,''))) FROM user_machine_links WHERE lower(trim(COALESCE(source,''))) IN $protectedSources) AND id NOT IN (SELECT id FROM user_machine_history WHERE lower(trim(COALESCE(source,''))) NOT IN $protectedSources AND lower(trim(COALESCE(computer_key,''))) NOT IN (SELECT lower(trim(COALESCE(computer_key,''))) FROM user_machine_links WHERE lower(trim(COALESCE(source,''))) IN $protectedSources) ORDER BY id DESC LIMIT 20000);"
  [void](Invoke-DomeniaDbExec $pruneSql $db)
  [void](Invoke-DomeniaDbExec 'COMMIT;' $db);$transaction=$false
  [pscustomobject]@{Saved=$true;Conflicts=$conflicts.ToArray();Count=@($Payload.Items).Count;Already=0;Imported=0;ImportedLinks=@()}
@@ -526,6 +526,225 @@ try {
         DbstatAvailable=$dbstat;Categories=$usage.ToArray();ReadOnly=$true
     }
 } finally {if($db -ne [IntPtr]::Zero){Close-DomeniaDatabase $db};$watch.Stop()}
+
+'@
+}
+
+function Get-DomeniaStoragePurgeWorkerCode {
+return @'
+function Initialize-DomeniaWinSqliteNative { return [Domenia.WinSqliteNative] }
+function New-DomeniaUtf8Ptr {
+    param([AllowEmptyString()][string]$Text)
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes(([string]$Text) + [char]0)
+    $ptr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($bytes.Length)
+    [System.Runtime.InteropServices.Marshal]::Copy($bytes,0,$ptr,$bytes.Length)
+    return $ptr
+}
+function ConvertFrom-DomeniaUtf8Ptr {
+    param([IntPtr]$Pointer,[int]$Length = -1)
+    if ($Pointer -eq [IntPtr]::Zero) { return "" }
+    if ($Length -lt 0) {
+        $Length = 0
+        while ([System.Runtime.InteropServices.Marshal]::ReadByte($Pointer,$Length) -ne 0) { $Length++ }
+    }
+    if ($Length -le 0) { return "" }
+    $bytes = New-Object byte[] $Length
+    [System.Runtime.InteropServices.Marshal]::Copy($Pointer,$bytes,0,$Length)
+    return [System.Text.Encoding]::UTF8.GetString($bytes)
+}
+function Close-DomeniaDatabase {
+    param([IntPtr]$DatabaseHandle)
+    if ($DatabaseHandle -ne [IntPtr]::Zero) { try { Initialize-DomeniaWinSqliteNative | Out-Null; [void][Domenia.WinSqliteNative]::sqlite3_close($DatabaseHandle) } catch { } }
+}
+function ConvertTo-DomeniaSqlLiteral {
+    param($Value)
+    if ($null -eq $Value) { return "NULL" }
+    if ($Value -is [bool]) { return $(if ($Value) { "1" } else { "0" }) }
+    if ($Value -is [byte] -or $Value -is [int16] -or $Value -is [int32] -or $Value -is [int64] -or $Value -is [double] -or $Value -is [decimal]) { return ([Convert]::ToString($Value,[Globalization.CultureInfo]::InvariantCulture)) }
+    return "'" + (([string]$Value) -replace "'","''") + "'"
+}
+function Open-DomeniaDatabase {
+    param([string]$Path = '',[switch]$ReadOnly)
+    $native = Initialize-DomeniaWinSqliteNative
+    $db = [IntPtr]::Zero
+    $pathPtr = [IntPtr]::Zero
+    try {
+        if ([string]::IsNullOrWhiteSpace($Path)) { $Path = Get-DomeniaDatabasePath }
+        $pathPtr = New-DomeniaUtf8Ptr $Path
+        $flags = if ($ReadOnly) { 1 -bor 65536 } else { 2 -bor 65536 }
+        $rc = [Domenia.WinSqliteNative]::sqlite3_open_v2($pathPtr,[ref]$db,$flags,[IntPtr]::Zero)
+        if ($rc -ne 0 -or $db -eq [IntPtr]::Zero) { throw "Ouverture SQLite impossible (code $rc)." }
+        [void][Domenia.WinSqliteNative]::sqlite3_busy_timeout($db,300)
+        return $db
+    }
+    catch {
+        # sqlite3_open_v2 can return a non-null handle even on failure.
+        if ($db -ne [IntPtr]::Zero) { [void][Domenia.WinSqliteNative]::sqlite3_close($db) }
+        throw
+    }
+    finally { if ($pathPtr -ne [IntPtr]::Zero) { [Runtime.InteropServices.Marshal]::FreeHGlobal($pathPtr) } }
+}
+function Invoke-DomeniaDbExec {
+    param([Parameter(Mandatory=$true)][AllowEmptyString()][string]$Sql,[IntPtr]$DatabaseHandle = [IntPtr]::Zero)
+    $own = ($DatabaseHandle -eq [IntPtr]::Zero)
+    $sqlPtr = [IntPtr]::Zero
+    $errPtr = [IntPtr]::Zero
+    try {
+        if ($own) { $DatabaseHandle = Open-DomeniaDatabase }
+        $native = Initialize-DomeniaWinSqliteNative
+        $sqlPtr = New-DomeniaUtf8Ptr $Sql
+        $rc = [Domenia.WinSqliteNative]::sqlite3_exec($DatabaseHandle,$sqlPtr,[IntPtr]::Zero,[IntPtr]::Zero,[ref]$errPtr)
+        if ($rc -ne 0) {
+            $msg = if ($errPtr -ne [IntPtr]::Zero) { ConvertFrom-DomeniaUtf8Ptr $errPtr } else { ConvertFrom-DomeniaUtf8Ptr ([Domenia.WinSqliteNative]::sqlite3_errmsg($DatabaseHandle)) }
+            throw "SQLite code $rc : $msg"
+        }
+        return $true
+    }
+    finally {
+        if ($errPtr -ne [IntPtr]::Zero) { try { Initialize-DomeniaWinSqliteNative | Out-Null; [Domenia.WinSqliteNative]::sqlite3_free($errPtr) } catch { } }
+        if ($sqlPtr -ne [IntPtr]::Zero) { [System.Runtime.InteropServices.Marshal]::FreeHGlobal($sqlPtr) }
+        if ($own) { Close-DomeniaDatabase $DatabaseHandle }
+    }
+}
+function Invoke-DomeniaDbQuery {
+    param([Parameter(Mandatory=$true)][AllowEmptyString()][string]$Sql,[IntPtr]$DatabaseHandle = [IntPtr]::Zero)
+    $own = ($DatabaseHandle -eq [IntPtr]::Zero)
+    $sqlPtr = [IntPtr]::Zero
+    $stmt = [IntPtr]::Zero
+    $rows = New-Object System.Collections.Generic.List[object]
+    try {
+        if ($own) { $DatabaseHandle = Open-DomeniaDatabase }
+        $native = Initialize-DomeniaWinSqliteNative
+        $sqlPtr = New-DomeniaUtf8Ptr $Sql
+        $rc = [Domenia.WinSqliteNative]::sqlite3_prepare_v2($DatabaseHandle,$sqlPtr,-1,[ref]$stmt,[IntPtr]::Zero)
+        if ($rc -ne 0) { throw "SQLite prepare code $rc : $(ConvertFrom-DomeniaUtf8Ptr ([Domenia.WinSqliteNative]::sqlite3_errmsg($DatabaseHandle)))" }
+        $count = [Domenia.WinSqliteNative]::sqlite3_column_count($stmt)
+        while (($step = [Domenia.WinSqliteNative]::sqlite3_step($stmt)) -eq 100) {
+            $o = [ordered]@{}
+            for ($i=0;$i -lt $count;$i++) {
+                $name = ConvertFrom-DomeniaUtf8Ptr ([Domenia.WinSqliteNative]::sqlite3_column_name($stmt,$i))
+                $type = [Domenia.WinSqliteNative]::sqlite3_column_type($stmt,$i)
+                $value = $null
+                switch ($type) {
+                    1 { $value = [long][Domenia.WinSqliteNative]::sqlite3_column_int64($stmt,$i) }
+                    2 { $value = [double][Domenia.WinSqliteNative]::sqlite3_column_double($stmt,$i) }
+                    3 { $p=[Domenia.WinSqliteNative]::sqlite3_column_text($stmt,$i); $n=[Domenia.WinSqliteNative]::sqlite3_column_bytes($stmt,$i); $value=ConvertFrom-DomeniaUtf8Ptr $p $n }
+                    5 { $value = $null }
+                    default { $p=[Domenia.WinSqliteNative]::sqlite3_column_text($stmt,$i); $n=[Domenia.WinSqliteNative]::sqlite3_column_bytes($stmt,$i); $value=ConvertFrom-DomeniaUtf8Ptr $p $n }
+                }
+                $o[$name] = $value
+            }
+            $rows.Add([pscustomobject]$o)
+        }
+        if ($step -ne 101) { throw "SQLite step code $step : $(ConvertFrom-DomeniaUtf8Ptr ([Domenia.WinSqliteNative]::sqlite3_errmsg($DatabaseHandle)))" }
+        return $rows.ToArray()
+    }
+    finally {
+        if ($stmt -ne [IntPtr]::Zero) { try { Initialize-DomeniaWinSqliteNative | Out-Null; [void][Domenia.WinSqliteNative]::sqlite3_finalize($stmt) } catch { } }
+        if ($sqlPtr -ne [IntPtr]::Zero) { [System.Runtime.InteropServices.Marshal]::FreeHGlobal($sqlPtr) }
+        if ($own) { Close-DomeniaDatabase $DatabaseHandle }
+    }
+}
+
+function Get-DomeniaDatabasePath {throw 'Chemin de base explicite requis pour la purge.'}
+function Test-DomeniaStoragePurgePath {
+    param([string]$Path)
+    if([string]::IsNullOrWhiteSpace($Path) -or -not [IO.Path]::IsPathRooted($Path)){throw 'Chemin de base local absolu requis.'}
+    $full=[IO.Path]::GetFullPath($Path)
+    if($full.StartsWith('\\') -or ([IO.DriveInfo]::new([IO.Path]::GetPathRoot($full))).DriveType -eq [IO.DriveType]::Network){throw 'Purge refusee sur une base reseau.'}
+    $file=[IO.FileInfo]::new($full)
+    if(-not $file.Exists){throw 'Base locale absente ; aucune base ne sera creee.'}
+    if($file.Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Lien de base refuse.'}
+    $dir=$file.Directory
+    while($null -ne $dir){if($dir.Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Dossier de base redirige refuse.'};$dir=$dir.Parent}
+    foreach($suffix in @('-wal','-shm')){
+        $sidecar=[IO.FileInfo]::new($full+$suffix)
+        if($sidecar.Exists -and ($sidecar.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'Annexe SQLite redirigee refusee.'}
+    }
+    return $full
+}
+
+# Validate all input before opening the existing database. No payload identifier becomes SQL.
+if($Payload.DryRun -isnot [bool]){throw 'Mode de simulation explicite requis.'}
+$dryRun=[bool]$Payload.DryRun
+$selection=New-Object 'System.Collections.Generic.List[string]';$seen=@{}
+foreach($value in @($Payload.Selection)){
+    $value=([string]$value).Trim()
+    $canonical=switch($value){Observations{'Observations'}Snapshots{'Snapshots'}History{'History'}Index{'Index'}default{throw ('Categorie non purgeable : '+$value)}}
+    if(-not $seen.ContainsKey($canonical)){$selection.Add($canonical);$seen[$canonical]=$true}
+}
+if($selection.Count -eq 0){throw 'Choisissez au moins une categorie purgeable.'}
+$cutoff=''
+if($seen.ContainsKey('History')){
+    $date=[datetime]::MinValue
+    if(-not [datetime]::TryParseExact([string]$Payload.HistoryCutoffUtc,'o',[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::RoundtripKind,[ref]$date) -or $date.Kind -ne [DateTimeKind]::Utc -or $date -ge [datetime]::UtcNow){throw 'Date limite UTC de l historique invalide.'}
+    $cutoff=$date.ToString('o')
+}
+if(-not $dryRun -and [string]$Payload.ExpectedFingerprint -notmatch '^[A-F0-9]{64}$'){throw 'Simulation confirmee requise avant purge.'}
+$path=Test-DomeniaStoragePurgePath ([string]$Payload.Path)
+$db=[IntPtr]::Zero;$transaction=$false
+$watch=[Diagnostics.Stopwatch]::StartNew()
+try {
+    $db=Open-DomeniaDatabase -Path $path
+    [void](Invoke-DomeniaDbExec 'BEGIN IMMEDIATE;' $db);$transaction=$true
+    $schema=@(Invoke-DomeniaDbQuery "SELECT key,value FROM schema_info WHERE key IN ('schema_version','domenia_schema');" $db)
+    $base=@($schema|Where-Object{$_.key -eq 'schema_version'});$revision=@($schema|Where-Object{$_.key -eq 'domenia_schema'})
+    if($base.Count -ne 1 -or [string]$base[0].value -cne '11' -or $revision.Count -ne 1 -or [string]$revision[0].value -cne '1'){throw 'Schema local non pris en charge pour la purge (11/1 requis).'}
+    if(@(Invoke-DomeniaDbQuery "SELECT name FROM sqlite_master WHERE type='trigger';" $db).Count){throw 'Purge refusee : declencheur SQLite non pris en charge.'}
+    $tables=@{};foreach($row in @(Invoke-DomeniaDbQuery "SELECT name FROM sqlite_master WHERE type='table';" $db)){$tables[[string]$row.name]=$true}
+    $targets=New-Object 'System.Collections.Generic.List[object]'
+    foreach($category in @($selection|Sort-Object)){
+        switch($category){
+            Observations {
+                foreach($table in @('adcc_live_observations','presence_cache','park_state')){$targets.Add([pscustomobject]@{Category=$category;Table=$table;Action='Delete';Where='1=1'})}
+            }
+            Snapshots {$targets.Add([pscustomobject]@{Category=$category;Table='adcc_live_queries';Action='Delete';Where='1=1'})}
+            History {
+                $literal=ConvertTo-DomeniaSqlLiteral $cutoff
+                $sources="('manual','saisie manuelle','import csv')"
+                $protect="lower(trim(COALESCE(source,''))) NOT IN $sources AND lower(trim(COALESCE(computer_key,''))) NOT IN (SELECT lower(trim(COALESCE(computer_key,''))) FROM user_machine_links WHERE lower(trim(COALESCE(source,''))) IN $sources)"
+                $targets.Add([pscustomobject]@{Category=$category;Table='user_machine_history';Action='Delete';Where=("julianday(observed_at) IS NOT NULL AND julianday(observed_at)<julianday($literal) AND $protect")})
+                $targets.Add([pscustomobject]@{Category=$category;Table='user_scan_history';Action='Delete';Where=("julianday(scanned_at) IS NOT NULL AND julianday(scanned_at)<julianday($literal)")})
+                $targets.Add([pscustomobject]@{Category=$category;Table='operation_runs';Action='Delete';Where=("julianday(finished_at) IS NOT NULL AND julianday(finished_at)<julianday($literal)")})
+            }
+            Index {
+                foreach($table in @('ad_objects','domenia_provenance')){$targets.Add([pscustomobject]@{Category=$category;Table=$table;Action='Delete';Where='1=1'})}
+                $targets.Add([pscustomobject]@{Category=$category;Table='sync_state';Action='Reset';Where="scope='directory'"})
+            }
+        }
+    }
+    $counts=New-Object 'System.Collections.Generic.List[object]'
+    foreach($target in $targets){
+        $n=0L;$exists=$tables.ContainsKey($target.Table)
+        if($exists){$n=[long](@(Invoke-DomeniaDbQuery ('SELECT count(*) AS n FROM '+$target.Table+' WHERE '+$target.Where+';') $db)[0].n)}
+        elseif($target.Table -notin @('adcc_live_observations','adcc_live_queries')){throw ('Table locale requise absente : '+$target.Table)}
+        $counts.Add([pscustomobject]@{Category=$target.Category;Table=$target.Table;Action=$target.Action;Rows=$n;Exists=$exists})
+    }
+    # Bind confirmation to the categories, fixed cutoff, path and freshly recounted rows.
+    $basis=[ordered]@{Path=$path.ToUpperInvariant();Selection=@($selection|Sort-Object);HistoryCutoffUtc=$cutoff;Counts=$counts.ToArray()}
+    $sha=[Security.Cryptography.SHA256]::Create()
+    try{$fingerprint=[BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes(($basis|ConvertTo-Json -Depth 5 -Compress)))).Replace('-','')}finally{$sha.Dispose()}
+    if(-not $dryRun -and $fingerprint -cne [string]$Payload.ExpectedFingerprint){throw 'Le nombre de lignes ou le contexte a change. Refaites la simulation avant toute purge.'}
+    $deleted=0L;$reset=0L
+    if(-not $dryRun){
+        foreach($target in $targets){
+            if(-not $tables.ContainsKey($target.Table)){continue}
+            if($target.Action -eq 'Reset'){
+                [void](Invoke-DomeniaDbExec ("UPDATE sync_state SET highest_usn=0,last_sync=NULL,item_count=0,details=NULL WHERE "+$target.Where+';') $db)
+                $reset+=[long](@(Invoke-DomeniaDbQuery 'SELECT changes() AS n;' $db)[0].n)
+            }else{
+                [void](Invoke-DomeniaDbExec ('DELETE FROM '+$target.Table+' WHERE '+$target.Where+';') $db)
+                $deleted+=[long](@(Invoke-DomeniaDbQuery 'SELECT changes() AS n;' $db)[0].n)
+            }
+        }
+        [void](Invoke-DomeniaDbExec 'COMMIT;' $db)
+    }else{[void](Invoke-DomeniaDbExec 'ROLLBACK;' $db)}
+    $transaction=$false
+    return [pscustomobject]@{Kind='StoragePurge';Path=$path;DryRun=$dryRun;Committed=(-not $dryRun);Selection=@($selection|Sort-Object);HistoryCutoffUtc=$cutoff;Fingerprint=$fingerprint;Counts=$counts.ToArray();DeletedRows=$deleted;ResetRows=$reset;DurationMs=$watch.ElapsedMilliseconds}
+}finally{
+    if($db -ne [IntPtr]::Zero){if($transaction){try{[void](Invoke-DomeniaDbExec 'ROLLBACK;' $db)}catch{}};Close-DomeniaDatabase $db}
+    $watch.Stop()
+}
 
 '@
 }

@@ -3465,5 +3465,19 @@
     "Text": "Compte les lignes et mesure la base active en lecture seule. Les tailles indisponibles restent inconnues. Aucune suppression, aucun contact avec les postes ou l’annuaire.",
     "Kind": "Button",
     "Source": "d120-cache"
+  },
+  {
+    "Name": "BtnStoragePurgePreview",
+    "Title": "Simuler la purge",
+    "Text": "Compte les lignes choisies dans la base locale. Aucune suppression ; attend la fin des opérations en cours.",
+    "Kind": "Button",
+    "Source": "d120-cache"
+  },
+  {
+    "Name": "BtnStoragePurge",
+    "Title": "Purger les données locales",
+    "Text": "Demande confirmation après simulation. Associations, historique protégé, secrets, configuration, journaux et reçus sont conservés. Aucun rejeu automatique.",
+    "Kind": "Button",
+    "Source": "d120-cache"
   }
 ]

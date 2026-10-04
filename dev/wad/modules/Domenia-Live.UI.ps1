@@ -591,6 +591,7 @@ function Get-DomeniaLiveDatabasePath {
     return [string]$script:Live.DatabasePath
 }
 function Start-DomeniaLiveBackgroundWork {
+    if((Get-DomeniaLiveWorkerCount 'StoragePurge') -gt 0){return}
     if([datetime]::UtcNow -lt $script:Live.NextStart){return}
     # C2: no probe, cache read or cache write in demonstration. C1: the rest policy decides before any background work.
     if([bool]$script:DemoMode){return}

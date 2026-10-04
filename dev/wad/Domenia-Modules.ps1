@@ -90,7 +90,8 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaPurgePlan',
             'Resolve-DomeniaDirectoryReachability',
             'Get-DomeniaCacheReadPolicy',
-            'Get-DomeniaCacheCatalogRows'
+            'Get-DomeniaCacheCatalogRows',
+            'Test-DomeniaProtectedAssociationSource'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1'); File='Domenia-Search.Model.ps1'; DotSource=$true; Functions=@(
             'ConvertTo-DomeniaLdapLiteral',
@@ -772,9 +773,10 @@ function Get-DomeniaRuntimeModulePlan {
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Storage.Worker.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaStorageWorkerCode',
-            'Get-DomeniaStorageUsageWorkerCode'
+            'Get-DomeniaStorageUsageWorkerCode',
+            'Get-DomeniaStoragePurgeWorkerCode'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Cache.Model.ps1','Domenia-Common.Model.ps1','Domenia-Release.Model.ps1'); File='Domenia-Storage.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Cache.Model.ps1','Domenia-Common.Model.ps1','Domenia-Release.Model.ps1','Domenia-Storage.Worker.ps1'); File='Domenia-Storage.UI.ps1'; DotSource=$true; Functions=@(
             'Initialize-DomeniaPersistence',
             'Add-DomeniaIndexPersistence',
             'Reset-DomeniaLinkBaseline',
@@ -790,7 +792,15 @@ function Get-DomeniaRuntimeModulePlan {
             'Format-DomeniaStorageUsage',
             'Start-DomeniaStorageUsage',
             'Complete-DomeniaStorageUsage',
-            'Fail-DomeniaStorageUsage'
+            'Fail-DomeniaStorageUsage',
+            'Get-DomeniaStoragePurgeChoice',
+            'Reset-DomeniaStoragePurgePreview',
+            'Assert-DomeniaStoragePurgeReady',
+            'Format-DomeniaStoragePurge',
+            'Start-DomeniaStoragePurge',
+            'Request-DomeniaStoragePurge',
+            'Complete-DomeniaStoragePurge',
+            'Fail-DomeniaStoragePurge'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Receipts.Worker.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaReceiptsCommon',

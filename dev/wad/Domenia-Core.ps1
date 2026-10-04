@@ -667,6 +667,13 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnIndexOpen" = "Default"
     "BtnIndexExport" = "Default"
     "BtnStorageUsage" = "Default"
+    "BtnStoragePurgePreview" = "Default"
+    "BtnStoragePurge" = "Default"
+    "ChkStoragePurgeObservations" = "Default"
+    "ChkStoragePurgeSnapshots" = "Default"
+    "ChkStoragePurgeHistory" = "Default"
+    "ChkStoragePurgeIndex" = "Default"
+    "TxtStorageHistoryDays" = "Default"
     "TabOperationStats" = "Default"
     "BtnOperationStatsRefresh" = "Default"
     "BtnOperationStatsExport" = "Default"
@@ -5827,6 +5834,20 @@ function Get-MainXaml {
                     </StackPanel>
                     <TabControl x:Name="ApplicationToolTabs" ToolTip="Choisissez un outil de vérification ou de gestion locale. Certaines vues sont disponibles en mode Expert." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Outils de l’application" AutomationProperties.HelpText="Choisissez un outil de vérification ou de gestion locale. Certaines vues sont disponibles en mode Expert.">
                       <TabItem x:Name="TabGuard" Header="Fiabilité" ToolTip="Recus durables, saisies, autorisations temporaires et mesures locales." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Fiabilité" AutomationProperties.HelpText="Recus durables, saisies, autorisations temporaires et mesures locales."><ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel Margin="4">
+                            <Expander x:Name="ExpStorageMaintenance" Header="Stockage local" Margin="0,0,0,12" IsExpanded="False">
+                              <StackPanel Margin="0,8,0,0">
+                                <Button x:Name="BtnStorageUsage" Content="Mesurer" HorizontalAlignment="Left" MinHeight="32" Margin="0,0,0,6" ToolTip="Compte les lignes et mesure la base locale en lecture seule, sans contacter lʼannuaire ni les postes." AutomationProperties.Name="Mesurer le stockage local" AutomationProperties.HelpText="Mesure volontaire en arrière-plan ; aucune suppression."/>
+                                <TextBlock x:Name="LblStorageUsage" Text="Aucune mesure pour cette session." TextWrapping="Wrap" AutomationProperties.Name="Mesure du stockage local"/>
+                                <TextBlock Text="Purge volontaire" FontWeight="SemiBold" Margin="0,16,0,8"/>
+                                <CheckBox x:Name="ChkStoragePurgeObservations" Content="Toutes les observations et les relevés du parc" Margin="0,0,0,8" ToolTip="Données reconstructibles ; associations conservées." AutomationProperties.Name="Purger les observations"/>
+                                <CheckBox x:Name="ChkStoragePurgeSnapshots" Content="Tous les instantanés de recherche" Margin="0,0,0,8" ToolTip="Résultats déjà lus ; aucune suppression dans AD." AutomationProperties.Name="Purger les instantanés"/>
+                                <CheckBox x:Name="ChkStoragePurgeIndex" Content="Tout lʼindex local de lʼannuaire" Margin="0,0,0,8" ToolTip="La prochaine mise à jour explicite reconstruira lʼindex. Le domaine reste identifié." AutomationProperties.Name="Purger lʼindex local"/>
+                                <WrapPanel Margin="0,0,0,8"><CheckBox x:Name="ChkStoragePurgeHistory" Content="Historique de plus de" VerticalAlignment="Center" Margin="0,0,8,0" ToolTip="Conserve les associations déclarées et leur historique, ainsi que les dates illisibles." AutomationProperties.Name="Purger lʼhistorique ancien"/><TextBox x:Name="TxtStorageHistoryDays" Text="730" Width="70" VerticalContentAlignment="Center" ToolTip="De 1 à 36500 jours." AutomationProperties.Name="Âge minimal en jours"/><TextBlock Text="jours" VerticalAlignment="Center" Margin="8,0,0,0"/></WrapPanel>
+                                <TextBlock Text="Toujours conservés : associations et historique protégé, secrets, configuration, préférences, journaux et reçus." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,4,0,10"/>
+                                <WrapPanel><Button x:Name="BtnStoragePurgePreview" Content="Simuler la purge" MinHeight="32" Margin="0,0,8,8" ToolTip="Compte les lignes concernées sans suppression." AutomationProperties.Name="Simuler la purge"/><Button x:Name="BtnStoragePurge" Content="Purger…" IsEnabled="False" MinHeight="32" Margin="0,0,0,8" ToolTip="Demande confirmation de la simulation avant de supprimer les données locales choisies." AutomationProperties.Name="Confirmer la purge locale"/></WrapPanel>
+                                <TextBlock x:Name="LblStoragePurge" Text="Choisissez les données à oublier puis simulez." TextWrapping="Wrap" AutomationProperties.Name="Résultat de simulation ou de purge"/>
+                              </StackPanel>
+                            </Expander>
 <Border Style="{StaticResource Card}" Margin="0,0,0,12"><StackPanel>
 <TextBlock Text="Opérations à vérifier" FontSize="18" FontWeight="SemiBold"/>
 <TextBlock x:Name="LblGuardReceipts" Text="Lecture des reçus locaux en attente. Les écritures restent protégées." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,8,0,12"/>
@@ -5921,12 +5942,7 @@ function Get-MainXaml {
                                 <TextBlock x:Name="LblParkStatus" Text="Aucun releve." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap"/>
                               </StackPanel>
                             </Border>
-                            <Expander Header="Stockage local" Margin="0,10,0,0" IsExpanded="False">
-                              <StackPanel Margin="0,8,0,0">
-                                <Button x:Name="BtnStorageUsage" Content="Mesurer" HorizontalAlignment="Left" MinHeight="32" Margin="0,0,0,6" ToolTip="Compte les lignes et mesure la base locale en lecture seule, sans contacter lʼannuaire ni les postes." AutomationProperties.Name="Mesurer le stockage local" AutomationProperties.HelpText="Mesure volontaire en arrière-plan ; aucune suppression."/>
-                                <ScrollViewer MaxHeight="150" VerticalScrollBarVisibility="Auto"><TextBlock x:Name="LblStorageUsage" Text="Aucune mesure pour cette session." TextWrapping="Wrap" AutomationProperties.Name="Mesure du stockage local"/></ScrollViewer>
-                              </StackPanel>
-                            </Expander>
+
                             <TextBlock x:Name="LblIndexStats" Text="Aucune base autonome." Foreground="{DynamicResource MutedColor}" Margin="0,8,0,0" TextWrapping="Wrap"/>
                             <Grid Margin="0,8,0,0">
                               <Grid.ColumnDefinitions>
@@ -17845,8 +17861,8 @@ function Stop-DomeniaLoginAuth {
 
 function Start-PruneOrphanLinks {
     try {
-        $links = @($script:UserMachineLinks)
-        if ($links.Count -eq 0) { Set-Status "Aucun lien user-machine a verifier." "WARN"; return }
+        $links = @($script:UserMachineLinks | Where-Object {-not (Test-DomeniaProtectedAssociationSource ([string]$_.Source))})
+        if ($links.Count -eq 0) { Set-Status "Aucun lien automatique a verifier ; associations declarees conservees." "WARN"; return }
         $payload = [pscustomobject]@{ Links=$links }
         $code = @'
 $foundUsers = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
@@ -17874,14 +17890,18 @@ $rows=foreach($l in @($Payload.Links)) {
 '@
         Start-UiTask -Name "Controle liens user-machine" -OperationId "PruneLinks" -Code $code -Payload $payload -ReplaceKey "prunelinks" -DisableControls @("BtnPruneLinks") -TimeoutSeconds 90 -StatusText "Verification des liens user-machine en lecture seule..." -OnSuccess {
             param($result)
-            $orphans = @($result.Rows | Where-Object { -not $_.UserExists -or -not $_.ComputerExists })
+            $protected=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+            foreach($link in @($script:UserMachineLinks)){if(Test-DomeniaProtectedAssociationSource ([string]$link.Source)){[void]$protected.Add((Normalize-LinkComputer ([string]$link.Computer)))}}
+            $orphans = @($result.Rows | Where-Object {(-not $_.UserExists -or -not $_.ComputerExists) -and -not $protected.Contains((Normalize-LinkComputer ([string]$_.Computer)))})
             if ($orphans.Count -eq 0) { Set-Status "$($result.Checked) lien(s) verifie(s), aucun orphelin."; return }
             $preview = ($orphans | Select-Object -First 15 | ForEach-Object { "$($_.UserLogin) -> $($_.Computer) (user=$($_.UserExists), pc=$($_.ComputerExists))" }) -join "`n"
             if (-not (Confirm-Action "$($orphans.Count) lien(s) local(aux) orphelin(s) detecte(s) :`n`n$preview`n`nSupprimer uniquement ces liens du stockage local ?")) { Set-Status "Nettoyage des liens annule." "WARN"; return }
             $keys = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
             foreach($o in $orphans) { [void]$keys.Add("$($o.UserLogin)|$($o.Computer)|$($o.When)") }
             $previousLinks = @($script:UserMachineLinks)
-            $script:UserMachineLinks = @($script:UserMachineLinks | Where-Object { -not $keys.Contains("$($_.UserLogin)|$($_.Computer)|$($_.When)") })
+            $script:UserMachineLinks = @($script:UserMachineLinks | Where-Object { (Test-DomeniaProtectedAssociationSource ([string]$_.Source)) -or -not $keys.Contains("$($_.UserLogin)|$($_.Computer)|$($_.When)") })
+            $removedCount=$previousLinks.Count-$script:UserMachineLinks.Count
+            if($removedCount -eq 0){Set-Status "Aucun lien supprime ; associations declarees conservees.";return}
             if (-not (Save-UserMachineLinks)) {
                 $script:UserMachineLinks = $previousLinks
                 Rebuild-UserMachineLinkIndex
@@ -17889,8 +17909,8 @@ $rows=foreach($l in @($Payload.Links)) {
                 return
             }
             Refresh-LinkGrid
-            Write-AppLog "$($orphans.Count) lien(s) user-machine orphelin(s) supprime(s) du stockage local."
-            Set-Status "$($orphans.Count) lien(s) orphelin(s) supprime(s)."
+            Write-AppLog "$removedCount lien(s) user-machine orphelin(s) supprime(s) du stockage local."
+            Set-Status "$removedCount lien(s) orphelin(s) supprime(s)."
         } -OnError { param($message) Set-Status "Controle des liens : $message" "ERROR" } | Out-Null
     }
     catch { Show-ErrorBox "Erreur controle des liens : $($_.Exception.Message)" }
@@ -19236,6 +19256,13 @@ function Wire-Events {
     if ($script:Ctrl.ContainsKey("BtnUserSaveContact")) { $script:Ctrl["BtnUserSaveContact"].Add_Click({ Save-DomeniaUserContact }) }
     if ($script:Ctrl.ContainsKey("BtnIndexBuild")) { $script:Ctrl["BtnIndexBuild"].Add_Click({ Start-DomeniaIndexBuild -UpdateLinks }) }
     if ($script:Ctrl.ContainsKey("BtnStorageUsage")) { $script:Ctrl["BtnStorageUsage"].Add_Click({ Start-DomeniaStorageUsage }) }
+    if ($script:Ctrl.ContainsKey("BtnStoragePurgePreview")) { $script:Ctrl["BtnStoragePurgePreview"].Add_Click({ Start-DomeniaStoragePurge }) }
+    if ($script:Ctrl.ContainsKey("BtnStoragePurge")) { $script:Ctrl["BtnStoragePurge"].Add_Click({ Request-DomeniaStoragePurge }) }
+    foreach($name in @('Observations','Snapshots','History','Index')){
+        $control=Get-DomeniaControl ('ChkStoragePurge'+$name)
+        if($control){$control.Add_Checked({Reset-DomeniaStoragePurgePreview});$control.Add_Unchecked({Reset-DomeniaStoragePurgePreview})}
+    }
+    $age=Get-DomeniaControl 'TxtStorageHistoryDays';if($age){$age.Add_TextChanged({Reset-DomeniaStoragePurgePreview})}
     if ($script:Ctrl.ContainsKey("BtnParkHarvest")) { $script:Ctrl["BtnParkHarvest"].Add_Click({ Start-DomeniaLogonHarvest }) }
     if ($script:Ctrl.ContainsKey("BtnParkSweep")) { $script:Ctrl["BtnParkSweep"].Add_Click({ Start-DomeniaParkSweep }) }
     if ($script:Ctrl.ContainsKey("BtnParkReset")) {
@@ -20617,6 +20644,7 @@ function Get-DomeniaWorkerCodeHash {
 function Get-DomeniaWorkerOperationHashes {
     # Registre ferme : seules ces operations internes, avec leur corps exact, peuvent entrer dans un runspace.
     return [ordered]@{
+        StoragePurge          = "0061F6EA5AD47641252F0BE0D98E17ADA6F779603498E15661A6EA91B09B4095"
         StorageUsage          = "1017F972CC267E57601B38D0798982BC13BFE6E4D8615298E5DB302DAA762B23"
         LegacyMigration       = "9F9E86E2BD40130C8E8726DC065112CB0F770D04063ADB1EB890AFBB45C303F3"
         ReadBitLockerList     = "B1456CEA5805D83C6BF48E9A4040206F18F3C3773ED250610D6890E8D1F4EEC9"
@@ -20678,7 +20706,7 @@ function Get-DomeniaWorkerOperationHashes {
         ReceiptStore         = "45FE35D694782ECB8B13D14C5B3CD637FD5CA1C4B0E6CD278EEE3AC5804121D1"
         ScopeReconcile       = "5917B0E2AB92BA626EF3621CCCE7B9A4988B318E62834EFD02FD6AFEF5C0B650"
         DocumentStore        = "BFD83587CB1BA62BC141E5F0742C6C6453A561617ED157045F3B4E7AB11A14E7"
-        LocalStore           = "C09716E029F8D59BAB819B69D2CAA542DD63505C386BC0877D25F8D8A94A5138"
+        LocalStore           = "BE7D51F58DA64DEEA6D2A448367812E0DC4481EF0FE0F225048830FE74C7E339"
         EngineSelfTest        = "40E2C89F858E22E1D221AC48DC04DD5BF627F1ACBC836AB48036C43DB9F7E1D1"
             EmbeddedDirectoryLookup = "2B3A888C7E1A97B4D523B0B3A408EF03AA5C0D0F95D534984B8EB3D581CDDD17"
         EmbeddedPathBrowse = "B643D707E242EC4416AD63622847DD7C39E5B53ED47CF64FECD56E22B5A82271"
@@ -20690,7 +20718,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "300F75E3ED82C0A1A5C6ED2163F074DDE4A2F2B5B19CAC435A4EBCCC9EF0EE5D"
+    $expectedFingerprint = "6612DA5438FA047306CF0625D85E26F163BB89A409F6616C41335B152396B789"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -20972,6 +21000,8 @@ try {
 
     if (-not [bool](Get-CfgValue "Async" "Enabled" $true)) { throw "Moteur multithread desactive dans la configuration." }
     if ($script:AsyncEngineClosing) { throw "Le moteur multithread est en cours de fermeture." }
+    if($OperationId -eq 'StoragePurge'){Assert-DomeniaStoragePurgeReady}
+    if($OperationId -ne 'ReceiptStore' -and (@($script:AsyncJobs.Values|Where-Object{$_.OperationId -eq 'StoragePurge'}).Count -or @($script:DetachedReadJobs|Where-Object{$_.OperationId -eq 'StoragePurge'}).Count)){throw 'Une simulation ou purge locale est encore active. Attendez sa fin.'}
     # D094: durable receipt required before dispatch for known mutations only.
     # Unknown operations must not break Start-UiTask; they remain to be classified.
     $receiptRequirement = Get-DomeniaReceiptRequirement -OperationId $OperationId

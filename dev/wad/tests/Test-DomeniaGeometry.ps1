@@ -216,6 +216,32 @@ if($infrastructure){
 }
 
 
+if($infrastructure){
+    foreach($theme in @('Light','Dark')){
+        $window=$null
+        try {
+            $window=New-GeometryWindow -Theme $theme -Width 960 -Height 516
+            $window.FindName('WorkspaceTabs').SelectedItem=$window.FindName('TabApplicationTools')
+            $window.FindName('ApplicationToolTabs').SelectedItem=$window.FindName('TabGuard')
+            $window.FindName('ExpStorageMaintenance').IsExpanded=$true
+            $window.FindName('LblStorageUsage').Text=('Categorie mesuree : 123456 lignes ; taille inconnue.'+[Environment]::NewLine)*9
+            $window.FindName('LblStoragePurge').Text=('Simulation : associations et recus conserves.'+[Environment]::NewLine)*8
+            Invoke-GeometryPump $window
+            Test-Case ($theme+' : stockage local deploye accessible par defilement a 960x516') {
+                foreach($name in @('BtnStorageUsage','ChkStoragePurgeObservations','ChkStoragePurgeSnapshots','ChkStoragePurgeHistory','TxtStorageHistoryDays','ChkStoragePurgeIndex','BtnStoragePurgePreview','BtnStoragePurge')){
+                    $control=$window.FindName($name);$control.BringIntoView();Invoke-GeometryPump $window
+                    $r=Get-ClientRect $window $name
+                    Assert-True ($r.Visible -and $r.W -ge 20 -and $r.H -ge 15 -and $r.X -ge 0 -and $r.Y -ge 0 -and $r.X+$r.W -le $window.Content.ActualWidth+0.5 -and $r.Y+$r.H -le $window.Content.ActualHeight+0.5) ($name+' inaccessible dans le stockage deploye')
+                    $node=$control;$hasScroll=$false
+                    while($null -ne $node -and $node -isnot [Windows.Window]){if($node -is [Windows.Controls.ScrollViewer] -and $node.ScrollableHeight -gt 0){$hasScroll=$true};$node=[Windows.Media.VisualTreeHelper]::GetParent($node)}
+                    Assert-True $hasScroll ('Defilement borne absent pour '+$name)
+                }
+            }
+        }catch{$script:Checks.Add([pscustomobject]@{Name=($theme+' : preparation stockage local');Status='Failed';Detail=$_.Exception.ToString()})}
+        finally {if($window){$window.Close()};$script:Window=$null;$script:Ctrl=@{}}
+    }
+}
+
 $failed=@($script:Checks|Where-Object{$_.Status -eq 'Failed'}).Count
 $passed=@($script:Checks|Where-Object{$_.Status -eq 'Passed'}).Count
 $report=[ordered]@{
