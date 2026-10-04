@@ -1069,25 +1069,30 @@
       "title": "Écrivain SQLite unique pour les parcours courants",
       "proposal": "Regrouper les écritures ciblées dans une file bornée ; gérer verrous, transactions et état En mémoire/Enregistré.",
       "acceptance_criterion": "Deux mises à jour indépendantes ne s’écrasent pas et un verrou SQLite ne bloque pas WPF.",
-      "status": "RACCORDE_NON_EXECUTE",
+      "status": "RACCORDE_A_VALIDER_WINDOWS",
       "reference_ids": [
         "S06",
         "S07",
         "S08"
       ],
       "implementation_files": [
-        "wad/modules/Domenia-Cache.Model.ps1"
+        "wad/modules/Domenia-Cache.Model.ps1",
+        "wad/modules/Domenia-Storage.UI.ps1",
+        "wad/modules/Domenia-Guard.UI.ps1",
+        "wad/modules/Domenia-Live.UI.ps1"
       ],
       "acceptance_passed": false,
-      "remaining": "Libelles d etat d enregistrement (Get-DomeniaPersistenceLabel dans Guard.UI et Live.UI, carte cache-storage) ; puis preuve Windows liee au ZIP final.",
+      "remaining": "Questions ouvertes pour David : bouton dedie Recharger les associations ; apres trois echecs, Reprendre remet le compteur a zero mais le disjoncteur D018 du moteur bloque encore le travail de fond LocalStore (raison non affichee). Preuve Windows liee au ZIP final (release_guard.py --require-windows).",
       "rule_tests": 2,
       "tests": [
         "wad/tests/Test-DomeniaWiringCache.ps1",
         "wad/tests/Test-DomeniaWiringRelations.ps1",
-        "wad/tests/rules/Cache.Tests.ps1"
+        "wad/tests/rules/Cache.Tests.ps1",
+        "wad/tests/Test-DomeniaWiringMoteur.ps1",
+        "wad/tests/Test-DomeniaWiringRecherche.ps1"
       ],
-      "wiring": "Partiel",
-      "evidence": "Raccorde en partie (lot cache, etape A) : le worker LiveCache n ecrit plus user_machine_links ; les observations Live demandent une persistance differee par l ecrivain unique (Request-DomeniaLinkPersistence, lots de 64, reessai silencieux). Campagne d integration Windows PowerShell 5.1.26100.6584 x64 dans la VM CNAMTS-W11-01 le 2026-10-03, commit 57eefd9 lie (409/409) : startcheck reussi, Test-DomeniaWiringCache 16/16, Test-DomeniaPreload 98/98, Test-DomeniaWiringRelations 34/34, Test-DomeniaWiringRecherche 31/31, Test-DomeniaSelection 47/47 ; doublures, aucun AD reel ; non qualifiant pour la livraison.",
+      "wiring": "Complet",
+      "evidence": "Raccorde en partie (lot cache, etape A) : le worker LiveCache n ecrit plus user_machine_links ; les observations Live demandent une persistance differee par l ecrivain unique (Request-DomeniaLinkPersistence, lots de 64, reessai silencieux). Campagne d integration Windows PowerShell 5.1.26100.6584 x64 dans la VM CNAMTS-W11-01 le 2026-10-03, commit 57eefd9 lie (409/409) : startcheck reussi, Test-DomeniaWiringCache 16/16, Test-DomeniaPreload 98/98, Test-DomeniaWiringRelations 34/34, Test-DomeniaWiringRecherche 31/31, Test-DomeniaSelection 47/47 ; doublures, aucun AD reel ; non qualifiant pour la livraison. Lot cache etape F (commit d0e8461, decision a de David du 2026-10-04) : preuves avec le vrai moteur, le vrai corps LocalStore et une vraie base SQLite (Test-DomeniaWiringMoteur) : deux mises a jour independantes ne s ecrasent pas, y compris en simultane ; un verrou SQLite ne bloque pas WPF (ecart maximal du repartiteur mesure) ; tests prouves par mutation. Libelle d enregistrement unique par la regle (Get-DomeniaPersistenceState, Get-DomeniaPersistenceLabel : indisponible > suspendu > conflit > echec > en attente > enregistre) dans Fiabilite et Live ; conflit entre consoles signale jusqu au rechargement. Campagne d integration Windows PowerShell 5.1 x64 dans la VM CNAMTS-W11-01 le 2026-10-04, commit d0e8461 lie (416/416 ; marque dirty due au seul plan JSON de documentation non suivi) : 2166 reussis, 2 echecs Geometry (risque accepte) ; non qualifiant pour la livraison.",
       "lot": "cache"
     },
     {

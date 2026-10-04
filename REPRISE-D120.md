@@ -1,5 +1,8 @@
 # Reprise du lot D001-D120 de Domenia — prompt de passation
 
+> **Relais du 2026-10-04** : l'état courant, la procédure exacte par étape, le labo et le reste à faire sont dans
+> `RELAIS-D120-2026-10-04.md` (prompt de prise de relais complet). Lis-le en premier.
+
 > **Mise à jour du 2026-10-02 (session cloud, branche `claude/epic-newton-j5ir1w`)** : les neuf branches `lot/*` sont
 > fusionnées et raccordées sur cette branche ; `master` est inchangé. L'état exact, les défauts trouvés et la reprise
 > dans la VM sont dans `dev/engineering/d120/ETAT-2026-10-02.md` (dernière section) ; le suivi point par point est à
