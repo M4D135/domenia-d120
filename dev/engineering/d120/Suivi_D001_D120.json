@@ -3711,23 +3711,29 @@
       "title": "Séparer configuration, préférence, cache et reçu",
       "proposal": "Chemins et permissions propres à chaque catégorie, mode local/portable explicite et base active locale.",
       "acceptance_criterion": "Un compte standard ou un dossier non inscriptible ne provoque pas une bascule silencieuse de données.",
-      "status": "RACCORDE_NON_EXECUTE",
+      "status": "RACCORDE_A_VALIDER_WINDOWS",
       "reference_ids": [
         "S02",
         "S03",
         "S04"
       ],
       "implementation_files": [
-        "wad/modules/Domenia-Release.Model.ps1"
+        "wad/modules/Domenia-Release.Model.ps1",
+        "wad/Domenia-Core.ps1",
+        "wad/modules/Domenia-Storage.UI.ps1"
       ],
       "acceptance_passed": false,
-      "remaining": "K2 : appliquer le plan de copie unique et les chemins Preferences/Logs dans le coeur, observer les droits, afficher les refus ; puis qualification Windows liee au ZIP final.",
+      "remaining": "Qualification Windows liee aux ZIP finaux ; D029 (purge et mesure) reste distinct.",
       "tests": [
         "wad/tests/Test-Domenia.ps1",
-        "wad/tests/rules/Release.Tests.ps1"
+        "wad/tests/rules/Release.Tests.ps1",
+        "wad/tests/Test-DomeniaWiringCache.ps1",
+        "wad/tests/Test-DomeniaTheme.ps1",
+        "wad/tests/Test-DomeniaAcl.ps1",
+        "wad/tests/Test-DomeniaPreload.ps1"
       ],
-      "wiring": "Partiel",
-      "evidence": "Raccorde en partie (lot cache, etape D) : Write-DomeniaPreference et le journal de connexion n ecrivent plus jamais en repli dans le dossier de l application ; Initialize-DomeniaDataStore expose Get-DomeniaStorageLayout sans changer le dossier de donnees ni la DACL (refus explicite en cas de contradiction). Campagne d integration Windows PowerShell 5.1.26100.6584 x64 dans la VM CNAMTS-W11-01 le 2026-10-03, commit 337cdbc lie (409/409) : startcheck reussi, Test-Domenia 132/132 dont le cas D118 ; non qualifiant pour la livraison. K1 : quatre categories conservees ; six zones sous Cache, plan pur de copie unique Domenia.settings.json dans Preferences, cible existante conservee, sources invalides/trop grandes/redirigees/hors mode ignorees, destination non observee refusee, aucun deplacement ou effacement. Campagne Windows PS 5.1.26100.6584 x64 dans CNAMTS-W11-01, commit fb2bed5 propre et lie 419/419 : 2245 reussis, trois echecs initiaux (deux Geometry connus, un depassement Dispatcher de 237 ms sur seuil 150 ms) ; cache 93/93, regles 452/452, prechargement 101/101, interface 10/10, compatibilite/parseur/demarrage reussis. Aucun AD reel. Le seul autre ecart depuis J1 est ce depassement de latence : recontrole moteur sur les memes fichiers propres, 37/37, pauses 83.7/65.2/42.7 ms, sans modification de code ni du seuil. Echec initial conserve, latence a surveiller dans les campagnes suivantes. Integration non qualifiante pour les ZIP. Rapport local : /Users/david/Documents/Projets/Domenia-lab/runs/d120-cache-k1-fb2bed5/_verdict.json.",
+      "wiring": "Complet",
+      "evidence": "Raccorde en partie (lot cache, etape D) : Write-DomeniaPreference et le journal de connexion n ecrivent plus jamais en repli dans le dossier de l application ; Initialize-DomeniaDataStore expose Get-DomeniaStorageLayout sans changer le dossier de donnees ni la DACL (refus explicite en cas de contradiction). Campagne d integration Windows PowerShell 5.1.26100.6584 x64 dans la VM CNAMTS-W11-01 le 2026-10-03, commit 337cdbc lie (409/409) : startcheck reussi, Test-Domenia 132/132 dont le cas D118 ; non qualifiant pour la livraison. K1 : quatre categories conservees ; six zones sous Cache, plan pur de copie unique Domenia.settings.json dans Preferences, cible existante conservee, sources invalides/trop grandes/redirigees/hors mode ignorees, destination non observee refusee, aucun deplacement ou effacement. Campagne Windows PS 5.1.26100.6584 x64 dans CNAMTS-W11-01, commit fb2bed5 propre et lie 419/419 : 2245 reussis, trois echecs initiaux (deux Geometry connus, un depassement Dispatcher de 237 ms sur seuil 150 ms) ; cache 93/93, regles 452/452, prechargement 101/101, interface 10/10, compatibilite/parseur/demarrage reussis. Aucun AD reel. Le seul autre ecart depuis J1 est ce depassement de latence : recontrole moteur sur les memes fichiers propres, 37/37, pauses 83.7/65.2/42.7 ms, sans modification de code ni du seuil. Echec initial conserve, latence a surveiller dans les campagnes suivantes. Integration non qualifiante pour les ZIP. Rapport local : /Users/david/Documents/Projets/Domenia-lab/runs/d120-cache-k1-fb2bed5/_verdict.json. K2 : disposition appliquee aux preferences et journaux ; copie unique a octets verifies, original conserve, cible existante protegee, droits reellement observes, refus explicites sans repli de donnees. Jonctions, fichiers invalides/excessifs/verrouilles et journal de secours couverts. Campagne Windows PS 5.1.26100.6584 x64 dans CNAMTS-W11-01, commit 35b3d18 propre et lie 419/419 : 2261 reussis, deux echecs Geometry connus ; cache 108/108, regles 452/452, moteur 37/37, themes WPF 28/28, ACL 38/38 et prechargement 101/101. Compatibilite, parseur et demarrage reussis. Aucun AD reel, aucune regression depuis K1 ; depassement Dispatcher K1 non reproduit dans cette campagne. Integration non qualifiante pour les ZIP. Rapport local : /Users/david/Documents/Projets/Domenia-lab/runs/d120-cache-k2-35b3d18/_verdict.json.",
       "lot": "cache",
       "rule_tests": 12
     },
