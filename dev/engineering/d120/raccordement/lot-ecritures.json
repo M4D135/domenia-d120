@@ -1,6 +1,7 @@
 {
   "Lot": "ecritures",
   "Points": [
+    "D091",
     "D094",
     "D095"
   ],
@@ -44,7 +45,13 @@
     "Invoke-ComputerTool",
     "Start-DomeniaRimotteRun",
     "Get-DomeniaRimotteWorkerCode",
-    "Initialize-DomeniaGuard"
+    "Initialize-DomeniaGuard",
+    "Get-DomeniaWriteRoute",
+    "New-DomeniaSelectionWritePlan",
+    "Format-DomeniaPlanConfirmation",
+    "Test-DomeniaPlanDispatch",
+    "New-DomeniaInterventionPlan",
+    "Test-DomeniaPlanStillValid"
   ],
   "HelpEntries": [],
   "Features": [
@@ -57,6 +64,11 @@
       "Name": "WriteAdmissionByFingerprint",
       "Default": true,
       "Purpose": "Comportement actif par défaut. Start-DomeniaWriteTask refuse une empreinte deja envoyee ou incertaine."
+    },
+    {
+      "Name": "WritePlanRequired",
+      "Default": true,
+      "Purpose": "Comportement actif par defaut (D091). Start-DomeniaWriteTask refuse une operation Write* sans plan confirme et revalide le plan a l envoi (cible, session, DN, destinataire, compte, valeurs, age). Seule exception : WriteCreateOu sous une branche de l arbre, dont le DN fige avant la confirmation est reverifie."
     }
   ],
   "StartRequired": [],
@@ -68,10 +80,29 @@
     "Start-DomeniaWriteTask",
     "New-DomeniaWorkerRunspace",
     "Invoke-ComputerTool",
-    "Start-DomeniaRimotteRun"
+    "Start-DomeniaRimotteRun",
+    "Start-DomeniaAttributeWrite",
+    "Set-AccountDisabled",
+    "Unlock-UserAccount",
+    "Reset-UserPassword",
+    "Apply-UserAccountOptions",
+    "Set-UserExpiration",
+    "Expire-UserPasswordNow",
+    "Move-SelectedObject",
+    "AddOrRemoveObjectGroup",
+    "AddOrRemoveGroupMember",
+    "Rename-ComputerObject",
+    "Create-OuUnderSelected",
+    "Delete-SelectedObject"
   ],
-  "Notes": "Revision D094/D095. Aucune etape Rejected. Delivered est terminal non bloquant. Unknown ne casse plus Start-UiTask. Les actions distantes passent par Start-UiTask -IsWrite avec CorrelationId 32 hex et cible nom de poste. Le mode lecture seule bloque les actions distantes converties. Les corps ComputerGpUpdate, ComputerRestart, RimotteRun et ReceiptStore sont modifies et devront etre re-epingles apres relecture. Integration : contrat de Get-DomeniaReceiptRequirement conserve (operation inconnue = recu exige, Start-UiTask ne bloque que DirectoryWrite et RemoteMutation sans -IsWrite) ; Test-DomeniaWriteAdmission garde son corps d origine pour le jeu Plan (positions 0,1,2) et gagne la branche Fingerprint.",
+  "Notes": "Revision D094/D095. Aucune etape Rejected. Delivered est terminal non bloquant. Unknown ne casse plus Start-UiTask. Les actions distantes passent par Start-UiTask -IsWrite avec CorrelationId 32 hex et cible nom de poste. Le mode lecture seule bloque les actions distantes converties. Les corps ComputerGpUpdate, ComputerRestart, RimotteRun et ReceiptStore sont modifies et devront etre re-epingles apres relecture. Integration : contrat de Get-DomeniaReceiptRequirement conserve (operation inconnue = recu exige, Start-UiTask ne bloque que DirectoryWrite et RemoteMutation sans -IsWrite) ; Test-DomeniaWriteAdmission garde son corps d origine pour le jeu Plan (positions 0,1,2) et gagne la branche Fingerprint. Etape B1 (D091) : plan construit avant chaque confirmation par New-DomeniaSelectionWritePlan, affiche par Format-DomeniaPlanConfirmation, revalide par Test-DomeniaPlanDispatch ; payload construit depuis le DN du plan ; blocs workers inchanges a l octet pres (aucun re-epinglage).",
   "DevOnlyFiles": [
     "wad/tests/Test-DomeniaWiringEcritures.ps1"
+  ],
+  "CoreFunctionsAdded": [
+    "Get-DomeniaWriteRoute",
+    "New-DomeniaSelectionWritePlan",
+    "Format-DomeniaPlanConfirmation",
+    "Test-DomeniaPlanDispatch"
   ]
 }

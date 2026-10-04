@@ -1,5 +1,5 @@
 ﻿#requires -Version 5.1
-<# D094/D095 wiring tests.
+<# D091/D094/D095 wiring tests.
    Real write envelope, real pinned body, real AST-imported UI functions, pure rules dot-sourced.
    No AD write, no network, no real remote mutation. Boundaries are doubled.
 #>
@@ -49,13 +49,19 @@ try {
     if (Test-Path -LiteralPath $modulesPath) { . $modulesPath }
     $modulesDir=Join-Path $wad 'modules'
     if (Test-Path -LiteralPath $modulesDir) {
+        if (-not ('Domenia.InterventionPlan' -as [type])) {
+            $identityTypes=Join-Path $modulesDir 'Domenia-Identity.Types.cs'
+            if (Test-Path -LiteralPath $identityTypes) { Add-Type -Path $identityTypes }
+        }
         foreach($m in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Access.Model.ps1','Domenia-Safety.Model.ps1')) { $p=Join-Path $modulesDir $m; if(Test-Path -LiteralPath $p){ . $p } }
         if (-not (Get-Command Get-DomeniaReceiptRequirement -ErrorAction SilentlyContinue)) { foreach($p in @(Get-ChildItem -LiteralPath $modulesDir -Filter '*.Model.ps1' -File | ForEach-Object{$_.FullName})) { . $p } }
     }
+    if (-not (Get-Command Protect-DomeniaSecretText -ErrorAction SilentlyContinue)) { function Protect-DomeniaSecretText {param($Text); return [string]$Text} }
     foreach($rule in @('Get-DomeniaMember','Get-DomeniaOperationEffect','Get-DomeniaReceiptRequirement','Get-DomeniaReceiptResumeState','New-DomeniaWriteRegistry','Test-DomeniaWriteAdmission')) { if (-not (Get-Command $rule -ErrorAction SilentlyContinue)) { throw ('Regles absente : '+$rule) } }
+    foreach($fn in @('New-DomeniaInterventionPlan','Test-DomeniaPlanStillValid','ConvertTo-DomeniaPlanChanges','Test-DomeniaPlanHasSecret','New-DomeniaSelectionIdentity')) { if (-not (Get-Command $fn -ErrorAction SilentlyContinue)) { throw ('Fonction de regle absente : '+$fn) } }
     $script:CoreAst=Read-SourceAst (Join-Path $wad 'Domenia-Core.ps1')
-    foreach($name in @('Get-WorkerContext','ConvertTo-DomeniaErrorInfo','Get-DomeniaStructuredError','Get-DomeniaWorkerOperationHashes','ConvertTo-DomeniaCanonicalWorkerCode','Get-DomeniaWorkerCodeHash','Assert-DomeniaWorkerOperationCode','Assert-DomeniaWorkerRegistry','Start-UiTask','Start-DomeniaWriteTask','Set-ControlsBusy','Get-DomeniaControl','Set-DomeniaControlText','Write-DomeniaAtomicText','Assert-WriteAllowed','Assert-DomeniaRemoteWriteAllowed')) { [void](Import-AstFunction $script:CoreAst $name -Optional) }
-    foreach($fn in @('Start-UiTask','Start-DomeniaWriteTask','Set-ControlsBusy','Get-DomeniaControl','Get-DomeniaStructuredError','Assert-DomeniaWorkerOperationCode','ConvertTo-DomeniaCanonicalWorkerCode','Get-DomeniaWorkerCodeHash','Get-DomeniaWorkerOperationHashes','Assert-WriteAllowed')) { if (-not (Get-Command $fn -ErrorAction SilentlyContinue)) { throw ('Fonction absente : '+$fn) } }
+    foreach($name in @('Get-WorkerContext','ConvertTo-DomeniaErrorInfo','Get-DomeniaStructuredError','Get-DomeniaWorkerOperationHashes','ConvertTo-DomeniaCanonicalWorkerCode','Get-DomeniaWorkerCodeHash','Assert-DomeniaWorkerOperationCode','Assert-DomeniaWorkerRegistry','Start-UiTask','Start-DomeniaWriteTask','Set-ControlsBusy','Get-DomeniaControl','Set-DomeniaControlText','Write-DomeniaAtomicText','Assert-WriteAllowed','Assert-DomeniaRemoteWriteAllowed','Get-DomeniaWriteRoute','New-DomeniaSelectionWritePlan','Format-DomeniaPlanConfirmation','Test-DomeniaPlanDispatch','Set-AccountDisabled')) { [void](Import-AstFunction $script:CoreAst $name -Optional) }
+    foreach($fn in @('Start-UiTask','Start-DomeniaWriteTask','Set-ControlsBusy','Get-DomeniaControl','Get-DomeniaStructuredError','Assert-DomeniaWorkerOperationCode','ConvertTo-DomeniaCanonicalWorkerCode','Get-DomeniaWorkerCodeHash','Get-DomeniaWorkerOperationHashes','Assert-WriteAllowed','Get-DomeniaWriteRoute','New-DomeniaSelectionWritePlan','Format-DomeniaPlanConfirmation','Test-DomeniaPlanDispatch','Set-AccountDisabled')) { if (-not (Get-Command $fn -ErrorAction SilentlyContinue)) { throw ('Fonction absente : '+$fn) } }
     $assignment=@($script:CoreAst.FindAll({param($n)((($n -is [Management.Automation.Language.AssignmentStatementAst])) -and ((($n.Left.Extent.Text -eq '$script:WorkerCommon')) -and (($n.Operator -eq [Management.Automation.Language.TokenKind]::Equals))))},$true))
     if($assignment.Count -ne 1){throw 'Code commun des workers introuvable.'}
     $literal=$assignment[0].Right.Find({param($n)$n -is [Management.Automation.Language.StringConstantExpressionAst]},$true)
@@ -109,7 +115,7 @@ if ($infrastructure) {
     Spy-Function 'Assert-DomeniaWorkerOperationCode'
     $realAssertCode=$script:Spy['Assert-DomeniaWorkerOperationCode']
     function Assert-DomeniaWorkerOperationCode { [CmdletBinding()] param($OperationId,$Code)
-        if ((($Code -eq 'x')) -or ((@('UnknownRead','LocalIndexRead','ParkSharedSync') -contains $OperationId))) { return 'test-hash' }
+        if ((($Code -eq 'x')) -or ((@('UnknownRead','LocalIndexRead','ParkSharedSync','WriteAccountDisabled','WriteCreateOu') -contains $OperationId))) { return 'test-hash' }
         return & $realAssertCode -OperationId $OperationId -Code $Code
     }
 }
@@ -128,6 +134,7 @@ function Assert-DomeniaWorkerRegistry {param($Registry) }
 function Assert-DomeniaCapability {param($Capability) }
 function Get-AllWriteControlNames {return @()}
 function Confirm-Action {param($Message,$Title='') if ($null -eq $script:ConfirmCalls) { $script:ConfirmCalls=0 }; $script:ConfirmCalls++; return $true }
+$script:DefaultConfirmAction = (Get-Command Confirm-Action -CommandType Function).ScriptBlock
 function Complete-DomeniaWriteTaskUi {param($Output,$State) if ($null -eq $script:CompletedWrites) { $script:CompletedWrites=0 }; $script:CompletedWrites++ }
 function Fail-DomeniaWriteTaskUi {param($Message,$State) if ($null -eq $script:FailedWrites) { $script:FailedWrites=0 }; $script:FailedWrites++ }
 function Test-DomeniaActualCapabilityDenied {param($Dn,$Capability); return $false}
@@ -169,6 +176,38 @@ function Set-WReceiptStage { [CmdletBinding()] param([string]$Stage)
         $json=$script:ReceiptRecord|ConvertTo-Json -Depth 5 -Compress
         [IO.File]::WriteAllText($path,$json,[Text.Encoding]::Unicode)
     }
+}
+function Get-DomeniaCurrentSelectionIdentity { return $script:FakeIdentity }
+function Get-DomeniaOriginalValue { param($Name); return '512' }
+function Get-DomeniaSafetyDescriptor { return [pscustomobject]@{Guid='00000000-0000-0000-0000-000000000000';Dn='CN=Demo User,OU=Users,DC=example,DC=invalid'} }
+function Get-DomeniaDirectoryBindUser { return 'EXAMPLE\opdemo' }
+function New-TestIdentity {
+    param(
+        [string]$Dn='CN=Demo User,OU=Users,DC=example,DC=invalid',
+        [string]$Name='Demo User',
+        [string]$Type='Utilisateur'
+    )
+    return New-DomeniaSelectionIdentity -Row ([pscustomobject]@{Guid=[guid]::NewGuid().ToString();Type=$Type;DN=$Dn;Name=$Name}) -Domain 'example.invalid' -Reader 'r' -Epoch 1 -Generation 1
+}
+function New-TestChange {
+    param(
+        [string]$Attribute='description',
+        [string]$Kind='Replace',
+        [string]$Before='',
+        [string]$After='x'
+    )
+    return [pscustomobject]@{Attribute=$Attribute;Kind=$Kind;Before=$Before;After=$After}
+}
+function New-TestPlan {
+    param(
+        [string]$OperationId='WriteTest',
+        $Target=$null,
+        [object[]]$Changes=@(),
+        [string]$Server='dc01.example.invalid',
+        [string]$Account='EXAMPLE\opdemo'
+    )
+    if ($null -eq $Target) { $Target = $script:FakeIdentity }
+    return New-DomeniaInterventionPlan -OperationId $OperationId -Target $Target -Server $Server -Account $Account -Changes $Changes -Effects @() -Simulation $false
 }
 function New-FixtureWindowStub {
     $w=[pscustomobject]@{IsActive=$false}
@@ -245,9 +284,26 @@ function Reset-WiringFixture {
     $script:AccessCurrentJob=$null
     $script:DemoMode=$false
     $script:Window=New-FixtureWindowStub
-    $script:Conn=[pscustomobject]@{Server='dc1.example.invalid';BaseDn='DC=example,DC=invalid';Domain='example.invalid';Netbios='EXAMPLE';BindUser='EXAMPLE\lecteur';Credential=$null;UseCredential=$false;AuthMode='Windows'}
+    $script:Conn = [ordered]@{
+        Server='dc01.example.invalid'
+        BaseDn='DC=example,DC=invalid'
+        Domain='example.invalid'
+        Netbios='EXAMPLE'
+        BindUser='EXAMPLE\opdemo'
+        Credential=$null
+        UseCredential=$false
+        AuthMode='Windows'
+    }
     $script:SelectedObject=[pscustomobject]@{Type='Machine';DN='CN=PC-DEMO-01,OU=Postes,DC=example,DC=invalid';Safety=[pscustomobject]@{Guid=''}}
     $script:WorkerContextStatic=[pscustomobject]@{AdModuleSources=@();AdRequiredCommands=@();AdTypeNames=@();AdManagementHash='';AdResourceHash='';MissingCriticalFunctions=@();MissingCriticalControls=@();CriticalFunctionCount=0;CriticalControlCount=0;PowerShellVersion='test';IsSta=$true}
+    $script:FakeIdentity = New-TestIdentity
+    $script:OtherFakeIdentity = New-TestIdentity -Name 'Other User' -Dn 'CN=Other User,OU=Users,DC=example,DC=invalid'
+    $script:SelectedBranchDn = ''
+    $script:LastStartWritePlan = $null
+    $script:LastStartWritePlanChanges = $null
+    $script:LastStartWriteBranchDn = ''
+    $script:StartUiTaskPayloads = [Collections.Generic.List[object]]::new()
+    Set-Item function:script:Confirm-Action -Value $script:DefaultConfirmAction
 }
 function New-WriteEnvelopeScript {
     param([string]$Business)
@@ -301,14 +357,51 @@ function Start-UiTask {
     if ($script:UseDoubleStartUiTask) {
         if ($null -eq $script:StartUiTaskCalls) { $script:StartUiTaskCalls=0 }
         if ($null -eq $script:WriteStartUiTaskCalls) { $script:WriteStartUiTaskCalls=0 }
+        if ($null -eq $script:StartUiTaskPayloads) { $script:StartUiTaskPayloads=[Collections.Generic.List[object]]::new() }
         $script:StartUiTaskCalls++
         if ([bool]$IsWrite) { $script:WriteStartUiTaskCalls++ }
+        if ($null -ne $Payload) {
+            $copy=[pscustomobject]@{}
+            foreach($p in @($Payload.PSObject.Properties)) {
+                $copy | Add-Member -MemberType NoteProperty -Name ([string]$p.Name) -Value $p.Value -Force | Out-Null
+            }
+            $script:StartUiTaskPayloads.Add($copy)
+        } else {
+            $script:StartUiTaskPayloads.Add($null)
+        }
         Set-ControlsBusy -Names $DisableControls -Busy $true
         $id='w'+[string]$script:StartUiTaskCalls
         $script:LatestTaskId=$id
         return $id
     }
     Invoke-RealStartUiTask -Name $Name -OperationId $OperationId -Code $Code -Payload $Payload -OnSuccess $OnSuccess -OnError $OnError -SuccessHandler $SuccessHandler -ErrorHandler $ErrorHandler -DisableControls $DisableControls -ReplaceKey $ReplaceKey -TimeoutSeconds $TimeoutSeconds -HardTimeoutSeconds $HardTimeoutSeconds -StatusText $StatusText -IsWrite:$IsWrite -NonCancellable:$NonCancellable -CorrelationId $CorrelationId -CallbackState $CallbackState -TaskClass $TaskClass -ReaderIdentity $ReaderIdentity -Generation $Generation
+}
+Spy-Function 'Start-DomeniaWriteTask'
+$realStartWriteTask = $script:Spy['Start-DomeniaWriteTask']
+function Start-DomeniaWriteTask {
+    [CmdletBinding()]
+    param(
+        $Name,
+        $OperationId,
+        $Code,
+        $Payload,
+        $PlanFingerprint,
+        $Capability,
+        $DisableControls,
+        $AfterSuccessAction,
+        $AfterSuccessState,
+        $TimeoutSeconds,
+        $Plan,
+        $PlanChanges,
+        $BranchDn
+    )
+    if ($null -eq $realStartWriteTask) { throw 'Start-DomeniaWriteTask reel absent.' }
+    $script:LastStartWritePlan = $Plan
+    $script:LastStartWritePlanChanges = $PlanChanges
+    $script:LastStartWriteBranchDn = [string]$BranchDn
+    $bound = @{}
+    foreach($key in $PSBoundParameters.Keys) { $bound[$key] = $PSBoundParameters[$key] }
+    return & $realStartWriteTask @bound
 }
 if ($infrastructure) {
     Test-Case 'D094 Restart : recu ecrit avant l envoi' {
@@ -349,12 +442,15 @@ if ($infrastructure) {
     Test-Case 'D095 double clic = une seule demande' {
         Reset-WiringFixture
         $script:UseDoubleStartUiTask=$true
-        $fp=[guid]::NewGuid().ToString('N')
-        $payload=[pscustomobject]@{DN='CN=PC-DEMO-01,OU=Postes,DC=example,DC=invalid';PlanFingerprint=$fp;CorrelationId=[guid]::NewGuid().ToString('N')}
-        [void](Start-DomeniaWriteTask -Name 'Test' -OperationId 'WriteTest' -Code 'x' -Payload $payload -DisableControls @('BtnTestWrite'))
-        [void](Start-DomeniaWriteTask -Name 'Test' -OperationId 'WriteTest' -Code 'x' -Payload $payload -DisableControls @('BtnTestWrite'))
+        $identity = $script:FakeIdentity
+        $changes = @(New-TestChange)
+        $plan = New-TestPlan -OperationId 'WriteTest' -Target $identity -Changes $changes
+        $payload=[pscustomobject]@{DN=$identity.DN}
+        [void](Start-DomeniaWriteTask -Name 'Test' -OperationId 'WriteTest' -Code 'x' -Payload $payload -Plan $plan -PlanChanges $changes -DisableControls @('BtnTestWrite'))
+        [void](Start-DomeniaWriteTask -Name 'Test' -OperationId 'WriteTest' -Code 'x' -Payload $payload -Plan $plan -PlanChanges $changes -DisableControls @('BtnTestWrite'))
         Assert-True ($script:StartUiTaskCalls -eq 1) ('Appels Start-UiTask : '+$script:StartUiTaskCalls)
-        Assert-True (@($script:Dialogs | Where-Object { $_ -match 'un seul envoi' }).Count -ge 1) 'Refus d admission absent.'
+        Assert-True ($script:StartUiTaskPayloads.Count -eq 1) ('Payloads Start-UiTask : '+$script:StartUiTaskPayloads.Count)
+        Assert-True (@($script:Dialogs | Where-Object { $_.Contains('un seul envoi') }).Count -ge 1) 'Refus d admission absent.'
     }
     Test-Case 'D095 demande identique incertaine refusee' {
         Reset-WiringFixture
@@ -384,6 +480,142 @@ if ($infrastructure) {
         Assert-True ($registry.Entries[$fp].State -eq 'Delivered') ('Etat registre : '+$registry.Entries[$fp].State)
         $admission=Test-DomeniaWriteAdmission -Fingerprint $fp -Submitted ([hashtable]@{}) -Receipts @($receipt) -Origin Operator -CheckOnly
         Assert-True (-not [bool]$admission.Admit) 'Delivered doit refuser le renvoi de la meme empreinte.'
+    }
+    Test-Case 'D091 ecriture annuaire sans plan refusee' {
+        Reset-WiringFixture
+        $script:UseDoubleStartUiTask=$true
+        $payload=[pscustomobject]@{DN='CN=Demo User,OU=Users,DC=example,DC=invalid'}
+        [void](Start-DomeniaWriteTask -Name 'Test' -OperationId 'WriteTest' -Code 'x' -Payload $payload -DisableControls @('BtnTestWrite'))
+        Assert-True ($script:StartUiTaskCalls -eq 0) ('Appels Start-UiTask : '+$script:StartUiTaskCalls)
+        Assert-True (@($script:Dialogs | Where-Object { $_.Contains('Aucun plan confirme') }).Count -ge 1) 'Refus sans plan absent.'
+    }
+    Test-Case 'D091 plan valide envoye une fois avec son empreinte' {
+        Reset-WiringFixture
+        $script:UseDoubleStartUiTask=$true
+        $identity = $script:FakeIdentity
+        $changes = @(New-TestChange)
+        $plan = New-TestPlan -OperationId 'WriteTest' -Target $identity -Changes $changes
+        $payload=[pscustomobject]@{DN=$identity.DN}
+        [void](Start-DomeniaWriteTask -Name 'Test' -OperationId 'WriteTest' -Code 'x' -Payload $payload -Plan $plan -PlanChanges $changes -DisableControls @('BtnTestWrite'))
+        Assert-True ($script:StartUiTaskCalls -eq 1) ('Appels Start-UiTask : '+$script:StartUiTaskCalls)
+        Assert-True ($script:StartUiTaskPayloads.Count -eq 1) ('Payloads Start-UiTask : '+$script:StartUiTaskPayloads.Count)
+        Assert-True ($script:LastStartWritePlan -is [Domenia.InterventionPlan]) '-Plan absent.'
+        $payloadSent = $script:StartUiTaskPayloads[0]
+        Assert-True ($null -ne $payloadSent.PSObject.Properties['PlanFingerprint']) 'PlanFingerprint absent du payload.'
+        Assert-True ([string]$payloadSent.PlanFingerprint -ceq $plan.Fingerprint.ToUpperInvariant()) ('Empreinte payload : '+[string]$payloadSent.PlanFingerprint)
+    }
+    Test-Case 'D091 cible changee pendant la confirmation refusee' {
+        Reset-WiringFixture
+        $script:UseDoubleStartUiTask=$true
+        $identity = $script:FakeIdentity
+        $other = $script:OtherFakeIdentity
+        $changes = @(New-TestChange)
+        $plan = New-TestPlan -OperationId 'WriteTest' -Target $identity -Changes $changes
+        $script:FakeIdentity = $other
+        $payload=[pscustomobject]@{DN=$identity.DN}
+        [void](Start-DomeniaWriteTask -Name 'Test' -OperationId 'WriteTest' -Code 'x' -Payload $payload -Plan $plan -PlanChanges $changes -DisableControls @('BtnTestWrite'))
+        Assert-True ($script:StartUiTaskCalls -eq 0) ('Appels Start-UiTask : '+$script:StartUiTaskCalls)
+        Assert-True (@($script:Dialogs | Where-Object { $_.Contains('La cible a chang') }).Count -ge 1) 'Refus cible changee absent.'
+    }
+    Test-Case 'D091 valeurs modifiees refusees' {
+        Reset-WiringFixture
+        $script:UseDoubleStartUiTask=$true
+        $identity = $script:FakeIdentity
+        $planChanges = @(New-TestChange -After 'x')
+        $plan = New-TestPlan -OperationId 'WriteTest' -Target $identity -Changes $planChanges
+        $otherChanges = @(New-TestChange -After 'y')
+        $payload=[pscustomobject]@{DN=$identity.DN}
+        [void](Start-DomeniaWriteTask -Name 'Test' -OperationId 'WriteTest' -Code 'x' -Payload $payload -Plan $plan -PlanChanges $otherChanges -DisableControls @('BtnTestWrite'))
+        Assert-True ($script:StartUiTaskCalls -eq 0) ('Appels Start-UiTask : '+$script:StartUiTaskCalls)
+        Assert-True (@($script:Dialogs).Count -ge 1) 'Refus valeurs modifiees absent.'
+    }
+    Test-Case 'D091 payload sur un autre DN refuse' {
+        Reset-WiringFixture
+        $script:UseDoubleStartUiTask=$true
+        $identity = $script:FakeIdentity
+        $changes = @(New-TestChange)
+        $plan = New-TestPlan -OperationId 'WriteTest' -Target $identity -Changes $changes
+        $payload=[pscustomobject]@{DN='CN=Other User,OU=Users,DC=example,DC=invalid'}
+        [void](Start-DomeniaWriteTask -Name 'Test' -OperationId 'WriteTest' -Code 'x' -Payload $payload -Plan $plan -PlanChanges $changes -DisableControls @('BtnTestWrite'))
+        Assert-True ($script:StartUiTaskCalls -eq 0) ('Appels Start-UiTask : '+$script:StartUiTaskCalls)
+        Assert-True (@($script:Dialogs | Where-Object { $_.Contains('ne designe pas la cible confirmee') }).Count -ge 1) 'Refus payload DN absent.'
+    }
+    Test-Case 'D091 destinataire change refuse' {
+        Reset-WiringFixture
+        $script:UseDoubleStartUiTask=$true
+        $identity = $script:FakeIdentity
+        $changes = @(New-TestChange)
+        $plan = New-TestPlan -OperationId 'WriteTest' -Target $identity -Changes $changes
+        $script:Conn['Server'] = 'dc02.example.invalid'
+        $payload=[pscustomobject]@{DN=$identity.DN}
+        [void](Start-DomeniaWriteTask -Name 'Test' -OperationId 'WriteTest' -Code 'x' -Payload $payload -Plan $plan -PlanChanges $changes -DisableControls @('BtnTestWrite'))
+        Assert-True ($script:StartUiTaskCalls -eq 0) ('Appels Start-UiTask : '+$script:StartUiTaskCalls)
+        Assert-True (@($script:Dialogs).Count -ge 1) 'Refus destinataire absent.'
+    }
+    Test-Case 'D091 site complet : selection changee pendant Confirm-Action' {
+        Reset-WiringFixture
+        $script:UseDoubleStartUiTask=$true
+        $identity = $script:FakeIdentity
+        $script:OtherFakeIdentity = New-TestIdentity -Name 'Other User' -Dn 'CN=Other User,OU=Users,DC=example,DC=invalid'
+        $script:SelectedObject = [pscustomobject]@{Type='Utilisateur';DN=$identity.DN}
+        $script:FakeIdentity = $identity
+        $toggle = {
+            param($Message,$Title='')
+            $script:ConfirmCalls++
+            $script:FakeIdentity = $script:OtherFakeIdentity
+            return $true
+        }
+        Set-Item function:script:Confirm-Action -Value $toggle
+        [void](Set-AccountDisabled -Disabled $true)
+        Assert-True ($script:StartUiTaskCalls -eq 0) ('Appels Start-UiTask : '+$script:StartUiTaskCalls)
+        Assert-True ($script:StartUiTaskPayloads.Count -eq 0) ('Payloads emis : '+$script:StartUiTaskPayloads.Count)
+        Assert-True (@($script:Dialogs | Where-Object { $_.Contains('La cible a chang') }).Count -ge 1) 'Refus cible changee absent.'
+    }
+    Test-Case 'D091 site complet : selection stable envoyee sur le DN du plan' {
+        Reset-WiringFixture
+        $script:UseDoubleStartUiTask=$true
+        $identity = $script:FakeIdentity
+        $script:SelectedObject = [pscustomobject]@{Type='Utilisateur';DN=$identity.DN}
+        $script:FakeIdentity = $identity
+        [void](Set-AccountDisabled -Disabled $true)
+        Assert-True ($script:StartUiTaskCalls -eq 1) ('Appels Start-UiTask : '+$script:StartUiTaskCalls)
+        Assert-True ($script:StartUiTaskPayloads.Count -eq 1) ('Payloads emis : '+$script:StartUiTaskPayloads.Count)
+        Assert-True ($script:LastStartWritePlan -is [Domenia.InterventionPlan]) '-Plan absent.'
+        Assert-True ($script:LastStartWritePlan.Target.DN -ceq $identity.DN) ('DN plan : '+[string]$script:LastStartWritePlan.Target.DN)
+        Assert-True ([string]$script:StartUiTaskPayloads[0].DN -ceq $identity.DN) ('DN payload : '+[string]$script:StartUiTaskPayloads[0].DN)
+    }
+    Test-Case 'D091 creation d OU : branche changee refusee, branche stable acceptee' {
+        Reset-WiringFixture
+        $script:UseDoubleStartUiTask=$true
+        $branch='OU=Target,DC=example,DC=invalid'
+        $script:SelectedBranchDn='OU=Other,DC=example,DC=invalid'
+        $payload=[pscustomobject]@{ParentDn=$branch;Name='TestOu';DN=$branch}
+        [void](Start-DomeniaWriteTask -Name 'Creation OU' -OperationId 'WriteCreateOu' -Code 'x' -Payload $payload -BranchDn $branch -Capability 'Create' -DisableControls @('BtnCreateOu') -AfterSuccessAction 'CreateOu')
+        Assert-True ($script:StartUiTaskCalls -eq 0) ('Appels branche changee : '+$script:StartUiTaskCalls)
+        Assert-True (@($script:Dialogs | Where-Object { $_.Contains('La branche cible a change') }).Count -ge 1) 'Refus branche changee absent.'
+        Reset-WiringFixture
+        $script:UseDoubleStartUiTask=$true
+        $script:SelectedBranchDn=$branch
+        $payload=[pscustomobject]@{ParentDn=$branch;Name='TestOu';DN=$branch}
+        [void](Start-DomeniaWriteTask -Name 'Creation OU' -OperationId 'WriteCreateOu' -Code 'x' -Payload $payload -BranchDn $branch -Capability 'Create' -DisableControls @('BtnCreateOu') -AfterSuccessAction 'CreateOu')
+        Assert-True ($script:StartUiTaskCalls -eq 1) ('Appels branche stable : '+$script:StartUiTaskCalls)
+        Assert-True ($script:StartUiTaskPayloads.Count -eq 1) ('Payloads branche stable : '+$script:StartUiTaskPayloads.Count)
+        Assert-True ($script:LastStartWritePlan -eq $null) 'Un plan etait passe pour WriteCreateOu.'
+        Assert-True ($script:LastStartWriteBranchDn -ceq $branch) ('BranchDn : '+$script:LastStartWriteBranchDn)
+        Assert-True ([string]$script:StartUiTaskPayloads[0].ParentDn -ceq $branch) ('ParentDn payload : '+[string]$script:StartUiTaskPayloads[0].ParentDn)
+    }
+    Test-Case 'D091 confirmation affiche cible, destinataire, compte et empreinte, sans secret' {
+        Reset-WiringFixture
+        $identity = New-TestIdentity
+        $change = [pscustomobject]@{Attribute='unicodePwd';Kind='Reset';Before='';After='MotDePasse!123'}
+        $plan = New-TestPlan -OperationId 'WriteResetPassword' -Target $identity -Changes @($change)
+        $text = Format-DomeniaPlanConfirmation -Plan $plan
+        Assert-True ($text.Contains($identity.DN)) 'DN absent de la confirmation.'
+        Assert-True ($text.Contains('dc01.example.invalid')) 'Destinataire absent de la confirmation.'
+        Assert-True ($text.Contains('EXAMPLE\opdemo')) 'Compte absent de la confirmation.'
+        $fp12 = $plan.Fingerprint.Substring(0,12)
+        Assert-True ($text.Contains('Empreinte du plan : ' + $fp12)) 'Empreinte absente de la confirmation.'
+        Assert-True (-not $text.Contains('MotDePasse!123')) 'Secret present dans la confirmation.'
     }
     Test-Case 'Lecture seule bloque Restart' {
         Reset-WiringFixture
