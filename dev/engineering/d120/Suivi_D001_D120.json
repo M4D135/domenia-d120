@@ -150,6 +150,13 @@
       "Status": "FAIL",
       "Host": "Windows PowerShell 5.1.26100.6584 Desktop x64 (VM CNAMTS-W11-01, session 1)",
       "Detail": "env, compat, parser, startcheck reussis ; 35 suites : 2103 reussis, 2 en echec (Test-DomeniaGeometry 1920x1080 a 200 %, risque accepte). Non qualifiant pour la livraison."
+    },
+    {
+      "Name": "Integration 2026-10-04 : campagne VM CNAMTS-W11-01 (commit 8a0a9f5, lot interface etape A)",
+      "Executed": true,
+      "Status": "FAIL",
+      "Host": "Windows PowerShell 5.1.26100.6584 Desktop x64 (VM CNAMTS-W11-01, session 1)",
+      "Detail": "env, compat, parser, startcheck reussis ; 36 suites : 2114 reussis, 2 en echec (Test-DomeniaGeometry 1920x1080 a 200 %, risque accepte). Non qualifiant pour la livraison."
     }
   ],
   "Items": [
@@ -2732,7 +2739,7 @@
       "title": "Disposition qui ne bouge pas",
       "proposal": "Réserver les dimensions de l’activité, compteurs et actions ; aligner recherche, texte indicatif et contenu saisi.",
       "acceptance_criterion": "Transitions 0/1/10/100 tâches et messages longs ne déplacent aucun voisin.",
-      "status": "DEVELOPPE_NON_RACCORDE",
+      "status": "RACCORDE_A_VALIDER_WINDOWS",
       "reference_ids": [
         "S05",
         "S06",
@@ -2742,12 +2749,16 @@
         "wad/modules/Domenia-Shell.Model.ps1"
       ],
       "acceptance_passed": false,
-      "remaining": "Raccordement du lot interface a faire (titres, disposition reservee, confirmation dans la page, profils de colonnes, apercu, resume, etats vides, aide des controles grises, contraste). Hauteur reservee des libelles de resultats (LblLiveState, LblSuiteResultCount, LblBranchCount) appliquee ; MinHeight 640 de la fenetre a decider. Campagne Windows PowerShell 5.1 dans la VM CNAMTS-W11-01 (Invoke-LabRun, suite d integration du lot) puis preuve liee au ZIP final.",
+      "remaining": "Preuve Windows PowerShell 5.1 liee au ZIP final (release_guard.py --require-windows).",
       "tests": [
+        "wad/tests/Test-DomeniaActivityLayout.ps1",
+        "wad/tests/Test-DomeniaStableUi.ps1",
+        "wad/tests/Test-DomeniaWiringInterface.ps1",
         "wad/tests/rules/Shell.Tests.ps1"
       ],
-      "wiring": "Aucun",
-      "evidence": "Regles executees sous Windows PowerShell 5.1.26100.6584 (VM W11-01) par branche avant fusion (commit 1b2dedb). 4 test(s) de regles ; sous PowerShell 7.4 Linux (non qualifiant) le 2026-10-02 : execution de controle seulement."
+      "wiring": "Complet",
+      "evidence": "Raccorde (lot interface, etape A) : emplacements reserves de la bande d activite (fondue dans la barre de titre, D006) et compteurs formates par la regle Get-DomeniaCounterText (Update-DomeniaAccessButton, Update-DomeniaExperienceActivity) ; transitions 0/1/10/100 sans deplacement verifiees. Campagne d integration Windows PowerShell 5.1.26100.6584 x64 dans la VM CNAMTS-W11-01 le 2026-10-04, commit 8a0a9f5 lie (411/411) : startcheck reussi, Test-DomeniaWiringInterface 10/10, StableUi 52/52, ActivityLayout 52/52, Preload 98/98, Regressions 19/19, WiringSuites 19/19 ; doublures, aucun AD reel ; non qualifiant pour la livraison.",
+      "lot": "interface"
     },
     {
       "id": "D083",
@@ -2814,7 +2825,7 @@
       "title": "Prévisualisation de la sélection sans navigation",
       "proposal": "Afficher le résumé et préparer la fiche en restant dans Recherche ; activer les destinations utiles avec Chargement/Erreur explicites.",
       "acceptance_criterion": "Utilisateur et poste suivent le même contrat ; l’ancienne fiche ne reste pas visible sous une nouvelle sélection.",
-      "status": "DEVELOPPE_NON_RACCORDE",
+      "status": "RACCORDE_A_VALIDER_WINDOWS",
       "reference_ids": [
         "S05",
         "S06",
@@ -2824,12 +2835,15 @@
         "wad/modules/Domenia-Shell.Model.ps1"
       ],
       "acceptance_passed": false,
-      "remaining": "Raccordement du lot interface a faire (titres, disposition reservee, confirmation dans la page, profils de colonnes, apercu, resume, etats vides, aide des controles grises, contraste). Campagne Windows PowerShell 5.1 dans la VM CNAMTS-W11-01 (Invoke-LabRun, suite d integration du lot) puis preuve liee au ZIP final.",
+      "remaining": "Preuve Windows PowerShell 5.1 liee au ZIP final (release_guard.py --require-windows).",
       "tests": [
+        "wad/tests/Test-DomeniaPreload.ps1",
+        "wad/tests/Test-DomeniaWiringInterface.ps1",
         "wad/tests/rules/Shell.Tests.ps1"
       ],
-      "wiring": "Aucun",
-      "evidence": "Regles executees sous Windows PowerShell 5.1.26100.6584 (VM W11-01) par branche avant fusion (commit 1b2dedb). 3 test(s) de regles ; sous PowerShell 7.4 Linux (non qualifiant) le 2026-10-02 : execution de controle seulement."
+      "wiring": "Complet",
+      "evidence": "Raccorde (lot interface, etape A) : apercu par la regle Get-DomeniaSelectionPreview (ligne et infobulle) dans Recherche ; une nouvelle selection arrete les lectures inventaire, logiciels et WMI de l objet precedent et purge ses vues (Reset-DomeniaSelectionBoundViews) ; un resultat tardif d inventaire ou de logiciels d un autre DN est ignore (les tardifs WMI sont ecartes par l arret de leurs taches). Campagne d integration Windows PowerShell 5.1.26100.6584 x64 dans la VM CNAMTS-W11-01 le 2026-10-04, commit 8a0a9f5 lie (411/411) : startcheck reussi, Test-DomeniaWiringInterface 10/10, StableUi 52/52, ActivityLayout 52/52, Preload 98/98, Regressions 19/19, WiringSuites 19/19 ; doublures, aucun AD reel ; non qualifiant pour la livraison.",
+      "lot": "interface"
     },
     {
       "id": "D086",
