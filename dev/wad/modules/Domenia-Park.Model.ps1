@@ -7,7 +7,8 @@ function ConvertTo-DomeniaParkSession {
     if([string]$Result.Outcome -eq 'Observed'){
         $record.RawAccount=[string]$Result.User
         foreach($name in @('LinkUser','UserDn','UserGuid','UserUsn')){$record[$name]=[string]$Result.$name}
-        if(-not [bool]$Result.CacheReused){$record.ObservedUtc=$NowUtc}
+        # CIM observed the same account now; LDAP reuse does not make that observation older.
+        $record.ObservedUtc=$NowUtc
     }
     return [pscustomobject]$record
 }

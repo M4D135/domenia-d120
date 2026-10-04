@@ -1,5 +1,5 @@
 {
-  "Archive": "source tree",
+  "Archive": "detection parc - relecture",
   "ArchiveSHA256": "655ED21F90345B3C7667D4E777814C6A0595A5D5BE628AD587FB46CCA5241922",
   "CoreFunctions": {
     "Write-DomeniaAtomicText": "1C9A1583F52EB7BE80BE420662653E4AF886FE11DC4FDB3B1C4CDF19FD1C0EDA",
@@ -837,7 +837,7 @@
     "wad/modules/Domenia-Live.UI.ps1": "3794E5FD911C5BE770FF3DAB783C71D6AF5C72E7402DB2911E405BB460F15F1B",
     "wad/modules/Domenia-Receipts.Worker.ps1": "72D43A96BABB55F6EB5C008018EB1C4AA1C0A1265402FBAD7294C1113735B68E",
     "wad/modules/Domenia-Reconcile.UI.ps1": "845F7531CCD8FB82BB4CECB5210E47E9C86E5E2C0913074D8BE460E814F52288",
-    "wad/modules/Domenia-Relations.UI.ps1": "D967C24EFAC00BCDE69901B614960D69232C4062C302CEB0874744980449E64C",
+    "wad/modules/Domenia-Relations.UI.ps1": "9505C78F939899D782ACBE0C09D5E0897B7913B0179CEEA4ACDDFB753C442750",
     "wad/modules/Domenia-Sessions.Native.cs": "2A51A8E0B777055758789BAB3A8464DFA6BBA617CB2A98FC3B99DACD46B1B28A",
     "wad/modules/Domenia-Sessions.UI.ps1": "6E1B56E6EC5CB915F0DFC5FF9A5D1DA53957B70BF67B4CEA56377F1B69D61CF9",
     "wad/modules/Domenia-Storage.UI.ps1": "FA4F2115504EBC83B4F4A0591C9D109B9B1D1C646E2C8963C67356A21DD6BEDF",
@@ -1564,6 +1564,17 @@
       "RemovedCoreFunctions": [],
       "ChangedPayloads": [
         "wad/modules/Domenia-Live.UI.ps1"
+      ]
+    },
+    {
+      "Previous": "source tree",
+      "Source": "detection parc - relecture",
+      "Decision": "Retour console A B A, attente de sauvegarde differee et date de console reobservee",
+      "ChangedCoreFunctions": [],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": [
+        "wad/modules/Domenia-Relations.UI.ps1"
       ]
     }
   ]

@@ -1561,6 +1561,16 @@ Test-Case 'D028 : anciens libelles retires de Fiabilite et de la ligne Live' {
     }
 }
 
+Test-Case 'D028 : demande differee de liens annoncee avant sa mise en file' {
+    Reset-TestState;$script:Live=$null
+    $script:Persistence=[pscustomobject]@{Pending=@{};InFlight=0;Failures=0;Conflicts=@{};LinkRequestTimer=[pscustomobject]@{IsEnabled=$true};LinkPersistenceMore=$false}
+    Assert-Equal 1 (Get-DomeniaPersistenceState).Pending
+    $script:Persistence.LinkRequestTimer.IsEnabled=$false;$script:Persistence.LinkPersistenceMore=$true
+    Assert-Equal 1 (Get-DomeniaPersistenceState).Pending
+    $script:Persistence.LinkPersistenceMore=$false
+    Assert-Equal 0 (Get-DomeniaPersistenceState).Pending
+}
+
 Test-Case 'D028 : le chargeur declare l etat d enregistrement et ses dependances' {
     $lt = $null; $le = $null
     $loaderAst = [Management.Automation.Language.Parser]::ParseFile($loader,[ref]$lt,[ref]$le)

@@ -231,6 +231,29 @@ try {
         Expect (@($script:Relations.History|Where-Object{$_.Action -eq 'Added' -and $_.Relation.UserLogin -eq 'alice'}).Count -eq 1) 'Ajout non journalise'
         Expect ($script:Messages['Status'] -match 'Contradictoire') 'Conflit non signale'
     }
+    Case 'D042 Retour A B A : la console revenue redevient la relation stockee sans doublon' {
+        Reset-Fixture
+        for($i=0;$i -lt 4;$i++){
+            $login=if($i % 2 -eq 0){'bob'}else{'alice'}
+            $guid=if($login -eq 'alice'){$script:Alice.Guid}else{$script:Bob.Guid}
+            $incoming=[pscustomobject]@{Computer='PC-A';UserLogin=$login;UserGuid=$guid;ComputerGuid=$script:PcA.Guid;Source='Console CIM/DCOM';Kind='Console';Confidence=0;VerifiedInAD=$true;When=('2026-10-0'+($i+1)+'T08:00:00Z');Details='Console reconfirmee'}
+            $outcome=Add-DomeniaRelation $incoming -NoSave -Quiet
+            $stored=@(Get-LinksForComputer 'PC-A')
+            Expect ($outcome.StoredChanged -and $stored.Count -eq 1 -and $stored[0].UserLogin -eq $login) ('Retour non promu : '+$login)
+            Expect (@(Find-Relations 'PC-A').Count -eq 2) 'Doublon pendant les retours successifs'
+        }
+    }
+    Case 'D042 Console reconfirmee : une affectation declaree reste prioritaire' {
+        Reset-Fixture
+        foreach($day in @('01','02')){
+            $incoming=[pscustomobject]@{Computer='PC-B';UserLogin='alice';UserGuid=$script:Alice.Guid;ComputerGuid='bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';Source='Console CIM/DCOM';Kind='Console';When=('2026-10-'+$day+'T08:00:00Z');Details='Reconfirmation'}
+            $outcome=Add-DomeniaRelation $incoming -NoSave -Quiet
+            Expect (-not $outcome.StoredChanged) 'La console reconfirmee remplace une affectation'
+            Expect ((Get-ExistingLinkForComputer 'PC-B').UserLogin -eq 'bob')
+            Expect (@(Find-Relations 'PC-B').Count -eq 2)
+        }
+    }
+
     Case 'D042 Canonique : l affectation declaree n est pas evincee par une observation plus recente' {
         Reset-Fixture
         $links=@([pscustomobject]@{UserLogin='alice';Computer='PC-1';Source='Saisie manuelle';When='2026-01-01 08:00:00'},[pscustomobject]@{UserLogin='adm-x';Computer='PC-1';Source='Console CIM/DCOM';When='2026-02-01 08:00:00'})
@@ -551,7 +574,7 @@ finally{
     if($null -ne $script:Window){$script:Window.Close()}
     if($script:TempRoot -and [IO.Directory]::Exists($script:TempRoot)){Remove-Item -LiteralPath $script:TempRoot -Recurse -Force -ErrorAction SilentlyContinue}
 }
-$expected=34
+$expected=36
 $passed=@($script:Tests|Where-Object{$_.Status -eq 'Passed'}).Count;$failed=@($script:Tests|Where-Object{$_.Status -eq 'Failed'}).Count
 $report=[ordered]@{Build='RC1.11.0-D120-relations';Suite='Raccordement relations D041-D050';Host=$PSVersionTable.PSVersion.ToString();NativeWindowsPowerShell=$script:WindowsExecuted;Wpf=$true;MockedNetwork=$true;LiveAD=$false;LiveCIM=$false;Expected=$expected;Passed=$passed;Failed=$failed;Skipped=0;Complete=($script:WindowsExecuted -and $failed -eq 0 -and $script:Tests.Count -eq $expected);Tests=$script:Tests.ToArray()}
 if(-not $ReportPath){$ReportPath=Join-Path ([IO.Path]::GetTempPath()) ('Domenia-wiring-relations-'+[guid]::NewGuid().ToString('N')+'.json')}

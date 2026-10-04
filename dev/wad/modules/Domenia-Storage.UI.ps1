@@ -301,6 +301,8 @@ function Get-DomeniaPersistenceState {
     if($null -ne $p){
         if($null -ne $p.Pending){$pending+=[int]$p.Pending.Count}
         $pending+=[int]$p.InFlight
+        # A requested link save also exists before its coalescing timer queues the first batch.
+        if(($null -ne $p.LinkRequestTimer -and $p.LinkRequestTimer.IsEnabled) -or [bool]$p.LinkPersistenceMore){$pending++}
         $failed=[int]$p.Failures
         # Same threshold as Start-DomeniaStorageWork and Fail-DomeniaStorageWork: three failures suspend the writer.
         $suspended=([int]$p.Failures -ge 3)

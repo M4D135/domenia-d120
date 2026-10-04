@@ -456,6 +456,24 @@ function Add-DomeniaRelation {
         if([bool](Get-DomeniaMember $Relation 'VerifiedInAD' $false)){Set-DomeniaRelationValue $target 'VerifiedInAD' $true}
         foreach($name in @('UserGuid','ComputerGuid','UserDn','ComputerDn')){$value=[string](Get-DomeniaMember $Relation $name '');if($value -and -not [string](Get-DomeniaMember $target $name '')){Set-DomeniaRelationValue $target $name $value}}
         $isStored=Test-DomeniaRelationsListContains $stored $target
+        if(-not $isStored){
+            # A -> B -> A: refreshing the former session observation must make A current again,
+            # while a declared assignment still has priority over every console observation.
+            $primary=Select-DomeniaPrimaryRelation $stored
+            $placement=Resolve-DomeniaRelationStoragePlacement -Stored $primary -Incoming $target -MultiRelationStorage ([bool]$script:DomeniaLinkStoreMultiRelation)
+            if($placement.Placement -in @('Stored','Replace')){
+                $old=$placement.Demoted
+                if($null -ne $old){
+                    $script:UserMachineLinks=@($script:UserMachineLinks|Where-Object{-not [object]::ReferenceEquals($_,$old)})
+                    Update-DomeniaRelationLinkIndex -Link $old -Remove
+                    $r.Observations.Add($old)
+                }
+                [void]$r.Observations.Remove($target)
+                $script:UserMachineLinks=@($script:UserMachineLinks)+$target
+                Update-DomeniaRelationLinkIndex -Link $target
+                $isStored=$true;$result.Demoted=$old
+            }
+        }
         $result.Action='Refresh';$result.Placement=$(if($isStored){'Stored'}else{'Session'});$result.StoredChanged=$isStored;$result.Relation=$target;$result.Reason=[string]$decision.Reason
         Add-DomeniaRelationHistory (New-DomeniaLinkHistoryEntry -Action Refreshed -Relation $target -Declarant $Declarant) -Quiet
     }else{

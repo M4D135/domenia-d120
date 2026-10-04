@@ -22,7 +22,7 @@ function Start-DomeniaOnlinePark {
         if($script:DemoMode){throw 'Releve distant indisponible en demonstration.'}
         if($null -ne $script:ParkRun -and -not $script:ParkRun.Completed){throw 'Un releve est deja en cours.'}
         if(@($script:AsyncJobs.Values|Where-Object{$_.OperationId -in @('StoragePurge','IndexBuild','LegacyMigration')}).Count){throw 'Attendez la fin de la maintenance locale.'}
-        if($null -ne $script:Persistence -and ($script:Persistence.Pending.Count -gt 0 -or $script:Persistence.InFlight -gt 0 -or $script:Persistence.LinkBusy)){throw 'Attendez la confirmation des enregistrements locaux avant un nouveau releve.'}
+        if((Get-DomeniaPersistenceState).Pending -gt 0 -or ($null -ne $script:Persistence -and $script:Persistence.LinkBusy)){throw 'Attendez la confirmation des enregistrements locaux avant un nouveau releve.'}
         if(-not $script:DatabaseScopedPath){throw 'Aucune base autonome active.'}
         [void](Initialize-DomeniaWinSqliteNative)
         $targets=@()
@@ -74,7 +74,10 @@ function Stop-DomeniaOnlinePark {
     param([string]$RunId='')
     $r=$script:ParkRun;if($RunId -and $null -ne $r -and $r.Id -cne $RunId){return};if($null -eq $r){return}
     $r.Stopping=$true
-    if(-not $r.Pending.Count -and -not $r.Loading){$r.Completed=$true;if($null -ne $r.Timer){$r.Timer.Stop()}}
+    if(-not $r.Pending.Count -and -not $r.Loading){
+        $save=Get-DomeniaPersistenceState
+        if(-not $r.Approved -or $save.Pending -eq 0 -or $save.Suspended){$r.Completed=$true;if($null -ne $r.Timer){$r.Timer.Stop()}}
+    }
     Update-DomeniaParkRunStatus
 }
 function Invoke-DomeniaParkRunTick {

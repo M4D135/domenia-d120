@@ -78,6 +78,29 @@ Case 'Parc : poste inaccessible conserve le dernier utilisateur et son instant' 
 Case 'Parc : compte refuse arrete les nouvelles lectures sans rejeu' {Reset-Fixture;Ready-Run;Invoke-DomeniaParkRunTick;$state=$script:Calls[1].State;$p=New-Result $state.Target;$p.Outcome='AuthRejected';Complete-DomeniaParkSession $p $state;Invoke-DomeniaParkRunTick;Assert ($script:ParkRun.Stopping -and $script:Calls.Count -eq 2 -and $script:RelationsAdded.Count -eq 0)}
 Case 'Parc : annulation centrale ou disparition du worker arrete la suite' {Reset-Fixture;Ready-Run;Invoke-DomeniaParkRunTick;$script:AsyncJobs.Clear();Invoke-DomeniaParkRunTick;Assert ($script:ParkRun.Stopping -and $script:Calls.Count -eq 2)}
 Case 'Parc : pression du stockage suspend les nouvelles lectures' {Reset-Fixture;Ready-Run;$script:Persistence=[pscustomobject]@{Pending=@{};LinkBusy=$true;Failures=0;Conflicts=@{}};Invoke-DomeniaParkRunTick;Assert ($script:Calls.Count -eq 1)}
+Case 'Parc : console reconfirmee maintenant meme si identite LDAP reutilisee' {
+ Reset-Fixture;$target=New-Target;$packet=New-Result $target
+ $previous=ConvertTo-DomeniaParkSession $packet $null '2026-01-01T00:00:00Z';$packet.CacheReused=$true
+ $next=ConvertTo-DomeniaParkSession $packet $previous '2026-10-05T00:00:00Z'
+ Assert ($next.ObservedUtc -eq '2026-10-05T00:00:00Z' -and $previous.ObservedUtc -eq '2026-01-01T00:00:00Z')
+}
+Case 'Parc : fin attend aussi le timer de sauvegarde des associations' {
+ Reset-Fixture;Ready-Run 1;$script:ParkRun.Next=1
+ $script:Persistence=[pscustomobject]@{Pending=@{};InFlight=0;Failures=0;Conflicts=@{};LinkBusy=$false;LinkRequestTimer=[pscustomobject]@{IsEnabled=$true};LinkPersistenceMore=$false}
+ Invoke-DomeniaParkRunTick;Assert (-not $script:ParkRun.Completed) 'Releve termine avant la file des associations.'
+ $script:Persistence.LinkRequestTimer.IsEnabled=$false;Invoke-DomeniaParkRunTick;Assert $script:ParkRun.Completed
+}
+Case 'Parc : arret attend la sauvegarde deja demandee' {
+ Reset-Fixture;Ready-Run 1;$script:ParkRun.Next=1
+ $script:Persistence=[pscustomobject]@{Pending=@{};InFlight=0;Failures=0;Conflicts=@{};LinkBusy=$false;LinkRequestTimer=[pscustomobject]@{IsEnabled=$true};LinkPersistenceMore=$false}
+ Stop-DomeniaOnlinePark;Assert (-not $script:ParkRun.Completed -and $script:ParkRun.Stopping)
+ $script:Persistence.LinkRequestTimer.IsEnabled=$false;Invoke-DomeniaParkRunTick;Assert $script:ParkRun.Completed
+}
+Case 'Parc : nouveau releve attend une association encore dans le timer de sauvegarde' {
+ Reset-Fixture;$script:Persistence=[pscustomobject]@{Pending=@{};InFlight=0;Failures=0;Conflicts=@{};LinkBusy=$false;LinkRequestTimer=[pscustomobject]@{IsEnabled=$true};LinkPersistenceMore=$false}
+ Start-DomeniaOnlinePark;Assert ($script:Calls.Count -eq 0)
+}
+
 Case 'Interface : les deux actions et leurs arrets sont cables aux bons perimetres' {
  $reader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml));try{$window=[Windows.Markup.XamlReader]::Load($reader)}finally{$reader.Close()}
  try{
@@ -89,8 +112,8 @@ Case 'Interface : les deux actions et leurs arrets sont cables aux bons perimetr
 }
 if($null -ne $script:ParkRun -and $null -ne $script:ParkRun.Timer){$script:ParkRun.Timer.Stop()}
 $failed=@($checks|Where-Object Status -eq 'Failed').Count
-$report=[ordered]@{Kind='ParkDetection';NativeWindowsPowerShell51=$true;LiveAD=$false;MockedNetwork=$true;Passed=$checks.Count-$failed;Failed=$failed;Tests=$checks.ToArray()}
+$report=[ordered]@{Kind='ParkDetection';Expected=21;Complete=($checks.Count -eq 21 -and $failed -eq 0);NativeWindowsPowerShell51=$true;LiveAD=$false;MockedNetwork=$true;Passed=$checks.Count-$failed;Failed=$failed;Tests=$checks.ToArray()}
 if(-not $ReportPath){$ReportPath=Join-Path $env:TEMP 'domenia-park-tests.json'}
 [IO.File]::WriteAllText([IO.Path]::GetFullPath($ReportPath),($report|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
 Write-Host ($report.Passed.ToString()+' reussis, '+$failed+' echecs. '+$ReportPath)
-if($failed){exit 1}
+if($failed -or -not $report.Complete){exit 1};exit 0
