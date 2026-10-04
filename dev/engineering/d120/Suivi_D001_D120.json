@@ -3126,21 +3126,23 @@
       "title": "Concurrence avec les autres administrateurs",
       "proposal": "Relire les préconditions sur le DC prévu ; appliquer une condition atomique lorsqu’elle est supportée et vérifier après, sinon exposer la limite.",
       "acceptance_criterion": "Une modification externe n’est pas écrasée silencieusement ; aucune promesse de transaction universelle.",
-      "status": "DEVELOPPE_NON_RACCORDE",
+      "status": "RACCORDE_A_VALIDER_WINDOWS",
       "reference_ids": [
         "S07"
       ],
       "implementation_files": [
-        "wad/modules/Domenia-Safety.Model.ps1",
-        "wad/modules/Domenia-Identity.Types.cs"
+        "wad/Domenia-Core.ps1",
+        "wad/modules/Domenia-Identity.Types.cs",
+        "wad/modules/Domenia-Safety.Model.ps1"
       ],
       "acceptance_passed": false,
-      "remaining": "Raccordement des ecritures a faire (Start-DomeniaWriteTask, recus, postconditions, verrous par cible). Campagne Windows PowerShell 5.1 dans la VM CNAMTS-W11-01 (Invoke-LabRun, suite d integration du lot) puis preuve liee au ZIP final.",
+      "remaining": "Validation sur un vrai controleur (labo CNAMTS-DC01, compte de test, attribut description : modification acceptee, ancienne valeur fausse refusee, ajout sur valeur presente refuse), accordee par David le 2026-10-04, a faire. Limites : comparaison insensible a la casse (un changement de casse ailleurs n est pas detecte) ; hors attributs texte a valeur unique, une ecriture concurrente entre la relecture de l objet et l envoi n est ni empechee ni detectee. Puis preuve Windows liee au ZIP final.",
       "tests": [
+        "wad/tests/Test-DomeniaWiringEcritures.ps1",
         "wad/tests/rules/Safety.Tests.ps1"
       ],
-      "wiring": "Aucun",
-      "evidence": "Regles executees sous Windows PowerShell 5.1.26100.6584 (VM W11-01) par branche avant fusion (commit 1b2dedb). 4 test(s) de regles ; sous PowerShell 7.4 Linux (non qualifiant) le 2026-10-02 : execution de controle seulement."
+      "wiring": "Complet",
+      "evidence": "Raccorde (lot ecritures, etape C) : pour un attribut texte a valeur unique d un utilisateur, d une machine ou d un groupe, le worker WriteAttributes retire l ancienne valeur et ajoute la nouvelle dans une seule requete LDAP (Invoke-WConditionalModify, System.DirectoryServices.Protocols) : une valeur modifiee ailleurs fait refuser la requete (16/19/20), rien n est ecrase, recu NotSent ; refus classes (50 acces refuse type), echec avant envoi classable (49, 81), absence de reponse = ETAT INCONNU sans rejeu. Autres ecritures : objet relu sur le controleur prevu avant l envoi (version de l objet) et apres ; limites exactes affichees dans la confirmation. Revue adverse multi-angles (6 defauts corriges) et verification independante. Campagne d integration Windows PowerShell 5.1.26100.6584 x64 dans la VM CNAMTS-W11-01 le 2026-10-04, commit 8e564bd lie (413/413) : startcheck reussi, Test-DomeniaWiringEcritures 38/38 dont la construction reelle des types LDAP sous 5.1 sans serveur ; non qualifiant pour la livraison."
     },
     {
       "id": "D097",
