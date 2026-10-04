@@ -130,7 +130,7 @@ try {
     Test-ThemeCase 'Sauvegarde immediate Dark, cache de session et relecture a froid' {
         Reset-TestPreferences '{"Theme":"Light","LogHeight":260}' 'Light'
         [void](Load-DomeniaSettings);Save-DomeniaTheme -Theme Dark
-        $stored=Get-Content -LiteralPath (Join-Path $script:DataDir 'Domenia.settings.json') -Raw | ConvertFrom-Json
+        $stored=Get-Content -LiteralPath (Join-Path $script:DataDir 'Preferences\Domenia.settings.json') -Raw | ConvertFrom-Json
         Assert-Theme ($stored.Theme -eq 'Dark' -and $stored.LogHeight -eq 260) 'Sauvegarde immediate incorrecte.'
         Assert-Theme ((Get-DomeniaStoredTheme) -eq 'Dark') 'Cache de theme obsolete.'
         $script:BootTheme='';$script:Settings=$null;$script:CurrentTheme='Light'
@@ -147,7 +147,7 @@ try {
     Test-ThemeCase 'Sauvegarde isolee conserve les autres reglages' {
         Reset-TestPreferences '{"Theme":"Light","LogHeight":275,"WindowWidth":1500}' 'Light'
         Save-DomeniaTheme -Theme Dark
-        $stored=Get-Content -LiteralPath (Join-Path $script:DataDir 'Domenia.settings.json') -Raw | ConvertFrom-Json
+        $stored=Get-Content -LiteralPath (Join-Path $script:DataDir 'Preferences\Domenia.settings.json') -Raw | ConvertFrom-Json
         Assert-Theme ($stored.Theme -eq 'Dark' -and $stored.LogHeight -eq 275 -and $stored.WindowWidth -eq 1500)
     }
     foreach($theme in @('Light','Dark')) {
@@ -190,7 +190,9 @@ try {
     if ($Wpf) {
         Test-ThemeCase 'Principale : Dark restaure sans modifier le fichier de preferences' {
             Reset-TestPreferences '{"Theme":"Dark"}' 'Light'
-            $path=Join-Path $script:DataDir 'Domenia.settings.json'
+            [void][IO.Directory]::CreateDirectory((Join-Path $script:DataDir 'Preferences'))
+            $path=Join-Path $script:DataDir 'Preferences\Domenia.settings.json'
+            [IO.File]::Copy((Join-Path $script:DataDir 'Domenia.settings.json'),$path)
             $before=[IO.File]::ReadAllText($path)
             try {
                 $script:Window=ConvertFrom-DomeniaXaml -XamlText (Get-MainXaml) -Context 'Principale themes'

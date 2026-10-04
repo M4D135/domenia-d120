@@ -2444,6 +2444,235 @@ Test-Case 'D030 : transition sans lecture disque ni worker et erreurs du raccord
 }
 
 
+# K2: only disposable folders in the VM. Deny ACEs never touch the profile or installation.
+$script:StorageCoreDefinitions=@(foreach($name in @('Get-DomeniaPreferencePath','Read-DomeniaPreference','Write-DomeniaPreference','Write-DomeniaAtomicText','Protect-DomeniaLogText','Initialize-DomeniaDataStore','Get-DomeniaFastLoginLogPath','Add-DomeniaUiLog')){Get-FunctionTextFromFile $core $name}) -join "`n"
+$script:StorageUiDefinitions=@(foreach($name in @('Invoke-DomeniaPreferenceMigration')){Get-FunctionTextFromFile $storageUi $name}) -join "`n"
+function Invoke-PreferenceSandbox {
+    param([scriptblock]$Body)
+    $sandbox=Join-Path ([IO.Path]::GetTempPath()) ('domenia-preferences-'+[guid]::NewGuid().ToString('N'))
+    $savedEnvironment=@{LOCALAPPDATA=$env:LOCALAPPDATA;TEMP=$env:TEMP;TMP=$env:TMP}
+    $savedState=@{}
+    foreach($name in @('RootDir','DataDir','DataStoreValidated','StorageLayout','StoragePreferenceWarning','FastLoginLogPath','AuditPath','StartupTracePath','PreferenceLegacyReads')){
+        $value=Get-Variable -Name $name -Scope Script -ErrorAction SilentlyContinue
+        $savedState[$name]=if($null -ne $value){$value.Value}else{$null}
+    }
+    $denied=New-Object 'System.Collections.Generic.List[object]'
+    $script:RootDir=Join-Path $sandbox 'app\wad';$script:DataDir='';$script:DataStoreValidated=$false
+    $script:StorageLayout=$null;$script:StoragePreferenceWarning='';$script:FastLoginLogPath='';$script:PreferenceLegacyReads=@{}
+    $script:StorageMode='Portable';$script:StorageTrace=New-Object 'System.Collections.Generic.List[string]'
+    $script:StorageUserRoot=Join-Path $sandbox 'profile'
+    $env:LOCALAPPDATA=$script:StorageUserRoot;$env:TEMP=Join-Path $sandbox 'temp';$env:TMP=$env:TEMP
+    foreach($dir in @($script:RootDir,$script:StorageUserRoot,$env:TEMP)){[void][IO.Directory]::CreateDirectory($dir)}
+    . ([scriptblock]::Create($script:StorageCoreDefinitions))
+    . ([scriptblock]::Create($script:StorageUiDefinitions))
+    function Get-CfgValue {param($Section,$Name,$Default) if($Section -eq 'LocalStore' -and $Name -eq 'Mode'){return $script:StorageMode};return $Default}
+    function Get-DomeniaUserLocalRoot {return $script:StorageUserRoot}
+    function Write-StartupTrace {param($Stage,$Status,$Detail,$DurationMs) $script:StorageTrace.Add($Stage+' '+$Status+' '+$Detail)}
+    function Set-StorageSandboxDeny {
+        param([string]$Path)
+        Assert-True ($Path.StartsWith($sandbox+'\',[StringComparison]::OrdinalIgnoreCase)) 'ACE hors du bac a sable refusee'
+        [void][IO.Directory]::CreateDirectory($Path)
+        $acl=[IO.Directory]::GetAccessControl($Path)
+        $denied.Add([pscustomobject]@{Path=$Path;Acl=$acl})
+        $denyAcl=[IO.Directory]::GetAccessControl($Path)
+        $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User
+        $rule=[Security.AccessControl.FileSystemAccessRule]::new($sid,[Security.AccessControl.FileSystemRights]::Write,([Security.AccessControl.InheritanceFlags]::ContainerInherit -bor [Security.AccessControl.InheritanceFlags]::ObjectInherit),[Security.AccessControl.PropagationFlags]::None,[Security.AccessControl.AccessControlType]::Deny)
+        $denyAcl.AddAccessRule($rule);[IO.Directory]::SetAccessControl($Path,$denyAcl)
+    }
+    try {& $Body}
+    finally {
+        foreach($entry in $denied){[IO.Directory]::SetAccessControl($entry.Path,$entry.Acl)}
+        foreach($name in $savedState.Keys){Set-Variable -Name $name -Scope Script -Value $savedState[$name]}
+        foreach($name in $savedEnvironment.Keys){[Environment]::SetEnvironmentVariable($name,$savedEnvironment[$name],'Process')}
+        if([IO.Directory]::Exists($sandbox)){[IO.Directory]::Delete($sandbox,$true)}
+    }
+}
+Test-Case 'D118 : copie reelle une fois, original intact et second passage sans ecriture' {
+    Invoke-PreferenceSandbox {
+        [void](Initialize-DomeniaDataStore)
+        $source=Join-Path $script:DataDir 'Domenia.settings.json';$target=(Get-DomeniaPreferencePath 'Domenia.settings.json').User
+        [IO.File]::WriteAllText($source,'{"Theme":"Dark","LogHeight":270}')
+        $hash=(Get-FileHash $source -Algorithm SHA256).Hash
+        $first=Invoke-DomeniaPreferenceMigration
+        Assert-Equal 1 $first.Copied;Assert-Equal 0 @($first.Errors).Count
+        Assert-Equal $hash (Get-FileHash $target -Algorithm SHA256).Hash;Assert-Equal $hash (Get-FileHash $source -Algorithm SHA256).Hash
+        $stamp=(Get-Item $target).LastWriteTimeUtc
+        $second=Invoke-DomeniaPreferenceMigration
+        Assert-Equal 0 $second.Copied;Assert-Equal $stamp (Get-Item $target).LastWriteTimeUtc
+        Assert-Equal 0 @(Get-ChildItem (Split-Path $target) -Filter '*.tmp' -Force).Count
+    }
+}
+Test-Case 'D118 : preference existante jamais ecrasee par une migration' {
+    Invoke-PreferenceSandbox {
+        [void](Initialize-DomeniaDataStore)
+        $target=(Get-DomeniaPreferencePath 'Domenia.settings.json').User
+        [IO.File]::WriteAllText($target,'{"Theme":"Light"}')
+        [IO.File]::WriteAllText((Join-Path $script:DataDir 'Domenia.settings.json'),'{"Theme":"Dark"}')
+        $hash=(Get-FileHash $target -Algorithm SHA256).Hash
+        Assert-Equal 0 (Invoke-DomeniaPreferenceMigration).Copied
+        Assert-Equal $hash (Get-FileHash $target -Algorithm SHA256).Hash
+    }
+}
+Test-Case 'D118 : DataDir refuse par ACE, aucun repli de preferences' {
+    Invoke-PreferenceSandbox {
+        Set-StorageSandboxDeny (Join-Path $script:RootDir 'data')
+        $errorText='';try{[void](Initialize-DomeniaDataStore)}catch{$errorText=$_.Exception.Message}
+        Assert-True ($errorText -match 'Aucun repli silencieux') $errorText
+        Assert-False $script:DataStoreValidated
+        Assert-False (Write-DomeniaPreference 'Domenia.settings.json' '{}')
+        Assert-Equal 0 @(Get-ChildItem $sandbox -Filter 'Domenia.settings.json' -Recurse -Force).Count
+        $log=Get-DomeniaFastLoginLogPath
+        Assert-Equal (Join-Path $env:LOCALAPPDATA 'DOMENIA\Logs\Domenia-login.log') $log
+    }
+}
+Test-Case 'D118 : Preferences refuse par ACE, avertissement et aucune ecriture ailleurs' {
+    Invoke-PreferenceSandbox {
+        Set-StorageSandboxDeny (Join-Path $script:RootDir 'data\Preferences')
+        [void](Initialize-DomeniaDataStore)
+        Assert-True $script:DataStoreValidated
+        Assert-True ($script:StoragePreferenceWarning -match [regex]::Escape((Join-Path $script:DataDir 'Preferences')))
+        Assert-False (Write-DomeniaPreference 'Domenia.settings.json' '{}')
+        Assert-Equal 0 @(Get-ChildItem $sandbox -Filter 'Domenia.settings.json' -Recurse -Force).Count
+        Assert-Equal 0 (Invoke-DomeniaPreferenceMigration).Copied
+    }
+}
+Test-Case 'D118 : DataDir vide donne un chemin vide et aucune sauvegarde alternative' {
+    Invoke-PreferenceSandbox {
+        $paths=Get-DomeniaPreferencePath 'Domenia.settings.json'
+        Assert-Equal '' $paths.User;Assert-Equal '' $paths.Previous;Assert-True ($paths.Legacy -is [string])
+        Assert-False (Write-DomeniaPreference 'Domenia.settings.json' '{}')
+        Assert-Equal 0 @(Get-ChildItem $sandbox -Filter 'Domenia.settings.json' -Recurse -Force).Count
+    }
+}
+Test-Case 'D118 : Preferences en jonction refuse a la lecture et a l ecriture' {
+    Invoke-PreferenceSandbox {
+        $external=Join-Path $sandbox 'junction-target';[void][IO.Directory]::CreateDirectory($external)
+        [IO.File]::WriteAllText((Join-Path $external 'Domenia.settings.json'),'{"Theme":"Dark"}')
+        [void][IO.Directory]::CreateDirectory((Join-Path $script:RootDir 'data'))
+        $junction=Join-Path $script:RootDir 'data\Preferences'
+        [void](New-Item -ItemType Junction -Path $junction -Target $external)
+        try {
+            [void](Initialize-DomeniaDataStore)
+            Assert-True ($script:StoragePreferenceWarning -match 'Lien')
+            Assert-Equal '' (Read-DomeniaPreference 'Domenia.settings.json')
+            Assert-False (Write-DomeniaPreference 'Domenia.settings.json' '{}')
+            Assert-Equal '{"Theme":"Dark"}' ([IO.File]::ReadAllText((Join-Path $external 'Domenia.settings.json')))
+        } finally {[IO.Directory]::Delete($junction)}
+    }
+}
+Test-Case 'D118 : droits observes transmis a la regle, recus non observes' {
+    Invoke-PreferenceSandbox {
+        $rule=(Get-Item function:Get-DomeniaStorageLayout).ScriptBlock
+        $script:StorageRightsCalls=New-Object 'System.Collections.Generic.List[object]'
+        function Get-DomeniaStorageLayout {
+            param($Mode,$InstallRoot,$UserLocalRoot,$PortableHasData,$Writable)
+            $script:StorageRightsCalls.Add($Writable)
+            & $rule -Mode $Mode -InstallRoot $InstallRoot -UserLocalRoot $UserLocalRoot -PortableHasData $PortableHasData -Writable $Writable
+        }
+        Set-StorageSandboxDeny (Join-Path $script:RootDir 'data\Preferences')
+        [void](Initialize-DomeniaDataStore)
+        $observed=$script:StorageRightsCalls[$script:StorageRightsCalls.Count-1]
+        Assert-True $observed.Cache;Assert-False $observed.Preference
+        Assert-False $observed[(Join-Path $script:DataDir 'Preferences')]
+        Assert-False $observed.ContainsKey('Receipt')
+        Assert-Equal 'Non verifie' @($script:StorageLayout.Categories | Where-Object {$_.Category -eq 'Receipt'})[0].State
+    }
+}
+Test-Case 'D118 : fichiers livres non copies et lecture historique tracee une fois' {
+    Invoke-PreferenceSandbox {
+        [void](Initialize-DomeniaDataStore)
+        foreach($name in @('Domenia.settings.json','Domenia.theme.cfg','Domenia.ui-profile.cfg')){[IO.File]::WriteAllText((Join-Path $script:RootDir $name),'{}')}
+        Assert-Equal 0 (Invoke-DomeniaPreferenceMigration).Copied
+        Assert-Equal 0 @(Get-ChildItem (Join-Path $script:DataDir 'Preferences') -File).Count
+        Assert-Equal '{}' (Read-DomeniaPreference 'Domenia.settings.json')
+        Assert-Equal '{}' (Read-DomeniaPreference 'Domenia.settings.json')
+        Assert-Equal 1 @($script:StorageTrace | Where-Object {$_ -like 'Preferences/LectureHistorique*'}).Count
+    }
+}
+Test-Case 'D118 : journaux suivent la zone Logs du mode portable' {
+    Invoke-PreferenceSandbox {
+        [void](Initialize-DomeniaDataStore)
+        $logs=[string](@(@($script:StorageLayout.Categories | Where-Object {$_.Category -eq 'Cache'})[0].Areas | Where-Object {$_.Name -eq 'Logs'})[0].Path)
+        Assert-Equal (Join-Path $logs 'Domenia.log') $script:AuditPath
+        Assert-Equal (Join-Path $logs 'Domenia-startup.log') $script:StartupTracePath
+        Assert-Equal (Join-Path $logs 'Domenia-login.log') (Get-DomeniaFastLoginLogPath)
+        Assert-Equal 0 @(Get-ChildItem $script:StorageUserRoot -File -Recurse).Count
+    }
+}
+Test-Case 'D118 : erreur du journal UI enregistree dans DataDir Logs' {
+    Invoke-PreferenceSandbox {
+        [void](Initialize-DomeniaDataStore)
+        function Get-DomeniaControl {param($Name) throw 'erreur UI fictive'}
+        Add-DomeniaUiLog -Area 'Test' -Text 'message'
+        $path=Join-Path $script:DataDir 'Logs\Domenia-ui-log-errors.log'
+        Assert-True ([IO.File]::Exists($path))
+        Assert-True ([IO.File]::ReadAllText($path) -match 'erreur UI fictive')
+        Assert-Equal 0 @(Get-ChildItem $script:StorageUserRoot -File -Recurse).Count
+    }
+}
+Test-Case 'D118 : UserLocal isole, chemins du coeur alignes avec la regle' {
+    Invoke-PreferenceSandbox {
+        $script:StorageMode='UserLocal';[void](Initialize-DomeniaDataStore)
+        Assert-Equal (Join-Path $script:StorageUserRoot 'Domenia\Data') $script:DataDir
+        $paths=Get-DomeniaPreferencePath 'Domenia.settings.json'
+        Assert-Equal (Join-Path $script:DataDir 'Preferences\Domenia.settings.json') $paths.User
+        Assert-Equal (Join-Path $script:DataDir 'Domenia.settings.json') $paths.Previous
+        Assert-True (Write-DomeniaPreference 'Domenia.settings.json' '{}')
+        Assert-True ([IO.File]::Exists($paths.User));Assert-False ([IO.File]::Exists($paths.Previous))
+        Assert-False ([IO.Directory]::Exists((Join-Path $script:RootDir 'data')))
+        $worker=Get-FunctionTextFromFile $core 'Get-WorkerContext'
+        Assert-True ($worker -match "ReceiptRoot\s*=.*LocalApplicationData.*Domenia\\Receipts")
+    }
+}
+Test-Case 'D118 : disposition absente ou incoherente refusee explicitement' {
+    Invoke-PreferenceSandbox {
+        function Get-DomeniaStorageLayout {param($Mode,$InstallRoot,$UserLocalRoot,$PortableHasData,$Writable) return $null}
+        $errorText='';try{[void](Initialize-DomeniaDataStore)}catch{$errorText=$_.Exception.Message}
+        Assert-True ($errorText -match 'DOMENIA_STORE_LAYOUT') $errorText
+        Assert-False $script:DataStoreValidated
+    }
+}
+Test-Case 'D118 : journal de secours TEMP si le profil refuse aussi les ecritures' {
+    Invoke-PreferenceSandbox {
+        Set-StorageSandboxDeny (Join-Path $script:RootDir 'data')
+        Set-StorageSandboxDeny (Join-Path $env:LOCALAPPDATA 'DOMENIA\Logs')
+        $log=Get-DomeniaFastLoginLogPath
+        Assert-Equal (Join-Path ([IO.Path]::GetTempPath()) 'DOMENIA\Logs\Domenia-login.log') $log
+        Assert-False (Write-DomeniaPreference 'Domenia.settings.json' '{}')
+        Assert-Equal 0 @(Get-ChildItem $sandbox -Filter 'Domenia.settings.json' -Recurse -Force).Count
+    }
+}
+Test-Case 'D118 : migration reelle ignore JSON invalide et source trop grande' {
+    Invoke-PreferenceSandbox {
+        [void](Initialize-DomeniaDataStore)
+        $source=Join-Path $script:DataDir 'Domenia.settings.json';$target=(Get-DomeniaPreferencePath 'Domenia.settings.json').User
+        foreach($text in @('{"Password":"PREFERENCE-PRIVATE-MARKER"',('x'*(1MB+1)))){
+            [IO.File]::WriteAllText($source,$text)
+            $hash=(Get-FileHash $source -Algorithm SHA256).Hash
+            $result=Invoke-DomeniaPreferenceMigration
+            Assert-Equal 0 $result.Copied;Assert-False ([IO.File]::Exists($target))
+            Assert-Equal 'Ignorer' $result.Plan.Steps[0].Action
+            Assert-Equal $hash (Get-FileHash $source -Algorithm SHA256).Hash
+            Assert-False (($script:StorageTrace -join ' ') -match 'PREFERENCE-PRIVATE-MARKER') 'Le diagnostic ne reproduit pas les valeurs du JSON invalide'
+        }
+    }
+}
+Test-Case 'D118 : source verrouillee, erreur tracee et aucune copie annoncee' {
+    Invoke-PreferenceSandbox {
+        [void](Initialize-DomeniaDataStore)
+        $source=Join-Path $script:DataDir 'Domenia.settings.json';$target=(Get-DomeniaPreferencePath 'Domenia.settings.json').User
+        [IO.File]::WriteAllText($source,'{"Theme":"Dark"}')
+        $lock=[IO.File]::Open($source,[IO.FileMode]::Open,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
+        try {
+            $result=Invoke-DomeniaPreferenceMigration
+            Assert-Equal 0 $result.Copied;Assert-True (@($result.Errors).Count -gt 0)
+            Assert-False ([IO.File]::Exists($target))
+            Assert-True (@($script:StorageTrace | Where-Object {$_ -like '*Lecture des anciennes preferences impossible*'}).Count -gt 0)
+            Assert-Equal 0 @($script:StorageTrace | Where-Object {$_ -like '*Copie confirmee*'}).Count
+        } finally {$lock.Dispose()}
+    }
+}
+
 Stop-TestTimers
 $passed = @($checks | Where-Object { $_.Status -eq 'Passed' }).Count
 $failed = @($checks | Where-Object { $_.Status -eq 'Failed' }).Count
@@ -2456,7 +2685,7 @@ $report = [ordered]@{
     Wpf=$true
     MockedNetwork=$true
     LiveAD=$false
-    Points=@('D030','D023','D025','D028','D115','D113','D024','D026','D027','D021','D022')
+    Points=@('D118','D030','D023','D025','D028','D115','D113','D024','D026','D027','D021','D022')
     Passed=$passed
     Failed=$failed
     Complete=($failed -eq 0 -and $passed -gt 0)

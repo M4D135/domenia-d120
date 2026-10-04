@@ -67,17 +67,23 @@
       "File": "Domenia-Storage.UI.ps1",
       "Phase": "Modules",
       "Requires": [
-        "Domenia-Cache.Model.ps1"
+        "Domenia-Cache.Model.ps1",
+        "Domenia-Common.Model.ps1",
+        "Domenia-Release.Model.ps1"
       ],
       "DotSource": true,
       "ExistingEntry": true,
       "Functions": [
         "Request-DomeniaLinkPersistence",
-        "Get-DomeniaPersistenceState"
+        "Get-DomeniaPersistenceState",
+        "Get-DomeniaUserLocalRoot",
+        "Invoke-DomeniaPreferenceMigration"
       ],
       "NewFunctions": [
         "Request-DomeniaLinkPersistence",
-        "Get-DomeniaPersistenceState"
+        "Get-DomeniaPersistenceState",
+        "Get-DomeniaUserLocalRoot",
+        "Invoke-DomeniaPreferenceMigration"
       ]
     },
     {

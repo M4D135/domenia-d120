@@ -319,3 +319,68 @@ function Get-DomeniaPersistenceState {
     $label=Get-DomeniaPersistenceLabel -Pending $pending -Failed $failed -Suspended ([bool]$suspended) -Unavailable ([bool]$unavailable) -Conflicts $conflicts
     return [pscustomobject]@{Pending=$pending;Failed=$failed;Suspended=[bool]$suspended;Unavailable=[bool]$unavailable;Conflicts=$conflicts;Label=[string]$label}
 }
+
+function Get-DomeniaUserLocalRoot {
+    return [string]([Environment]::GetFolderPath('LocalApplicationData'))
+}
+
+function Invoke-DomeniaPreferenceMigration {
+    # Startup only, after validation; copy bytes once and retain the original. No overwrite,
+    # configuration migration, deletion, cross-mode search or alternate write destination.
+    $layout=$script:StorageLayout
+    if(-not $script:DataStoreValidated -or $null -eq $layout -or [string]$layout.DataRoot -ine [string]$script:DataDir){
+        throw 'DOMENIA_STORE_LAYOUT : migration des preferences sans stockage valide.'
+    }
+    $source=Join-Path ([string]$layout.DataRoot) 'Domenia.settings.json'
+    $target=Join-Path (Join-Path ([string]$layout.DataRoot) 'Preferences') 'Domenia.settings.json'
+    $sourceStream=$null;$temporary='';$copied=0;$failures=New-Object 'System.Collections.Generic.List[string]'
+    try {
+        $old=[pscustomobject]@{Path=$source;Exists=([IO.File]::Exists($source));Bytes=-1L;IsReparse=$true;ValidJson=$false}
+        $new=[pscustomobject]@{Path=$target;Exists=(Test-Path -LiteralPath $target);Bytes=0L;IsReparse=$false;ValidJson=$false}
+        $bytes=$null
+        if($old.Exists -and -not $new.Exists){
+            try {
+                $info=Get-Item -LiteralPath $source -Force -ErrorAction Stop
+                $old.Bytes=[long]$info.Length;$old.IsReparse=[bool]($info.Attributes -band [IO.FileAttributes]::ReparsePoint)
+                $parent=$info.Directory
+                while($null -ne $parent){if($parent.Attributes -band [IO.FileAttributes]::ReparsePoint){$old.IsReparse=$true;break};$parent=$parent.Parent}
+                if(-not $old.IsReparse -and $old.Bytes -le 1MB){
+                    $sourceStream=[IO.File]::Open($source,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
+                    $old.Bytes=$sourceStream.Length
+                    if($old.Bytes -le 1MB){
+                        $bytes=New-Object byte[] ([int]$old.Bytes);$offset=0
+                        while($offset -lt $bytes.Length){$read=$sourceStream.Read($bytes,$offset,$bytes.Length-$offset);if($read -eq 0){throw 'Source raccourcie pendant la lecture.'};$offset+=$read}
+                        $reader=[IO.StreamReader]::new([IO.MemoryStream]::new($bytes),[Text.Encoding]::UTF8,$true)
+                        try {
+                            # A parser diagnostic can contain preference values; only the validity leaves this block.
+                            try {$json=$reader.ReadToEnd() | ConvertFrom-Json -ErrorAction Stop;$old.ValidJson=($null -ne $json -and $json -is [pscustomobject])}catch{$old.ValidJson=$false}
+                        } finally {$reader.Dispose()}
+                    }
+                }
+            } catch {$failures.Add('Lecture des anciennes preferences impossible : '+$source+' : '+$_.Exception.Message)}
+        }
+        $plan=Get-DomeniaPreferenceMigrationPlan -Layout $layout -Files @($old,$new)
+        foreach($step in $plan.Steps){
+            $traceAction=[string]$step.Action
+            if($step.Action -eq 'Copier'){
+                try {
+                    $parent=[IO.DirectoryInfo]::new([IO.Path]::GetDirectoryName($target))
+                    while($null -ne $parent){if(-not $parent.Exists -or ($parent.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw ('Destination de preferences non valide : '+$parent.FullName)};$parent=$parent.Parent}
+                    $temporary=Join-Path ([IO.Path]::GetDirectoryName($target)) ('.domenia-migration-'+[guid]::NewGuid().ToString('N')+'.tmp')
+                    $output=[IO.File]::Open($temporary,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+                    try {$output.Write($bytes,0,$bytes.Length);$output.Flush($true)}finally{$output.Dispose()}
+                    $sha=[Security.Cryptography.SHA256]::Create()
+                    try {$expected=[Convert]::ToBase64String($sha.ComputeHash($bytes));$actual=[Convert]::ToBase64String($sha.ComputeHash([IO.File]::ReadAllBytes($temporary)))}finally{$sha.Dispose()}
+                    if($expected -cne $actual){throw 'La copie des preferences ne correspond pas a la source.'}
+                    [IO.File]::Move($temporary,$target);$temporary='';$copied++;$traceAction='Copie confirmee'
+                } catch {$traceAction='Copie non effectuee';$failures.Add('Copie des preferences refusee : '+$target+' : '+$_.Exception.Message)}
+            }
+            Write-StartupTrace -Stage 'Preferences/Migration' -Status $(if($step.Action -in @('Refuser','Ignorer') -or $traceAction -eq 'Copie non effectuee'){'WARN'}else{'INFO'}) -Detail ($traceAction+' : '+$step.Source+' -> '+$step.Target+' ; '+$step.Reason)
+        }
+        foreach($errorText in @($plan.Errors)+@($failures.ToArray())){Write-StartupTrace -Stage 'Preferences/Migration' -Status 'WARN' -Detail $errorText}
+        return [pscustomobject]@{Copied=$copied;Plan=$plan;Errors=@($plan.Errors)+@($failures.ToArray())}
+    } finally {
+        if($null -ne $sourceStream){$sourceStream.Dispose()}
+        if($temporary -and [IO.File]::Exists($temporary)){[IO.File]::Delete($temporary)}
+    }
+}

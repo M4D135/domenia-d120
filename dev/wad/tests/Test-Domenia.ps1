@@ -79,15 +79,17 @@ try {
         Assert-True (@(Get-ChildItem -LiteralPath $script:DataDir -Filter '.domenia-*.tmp').Count -eq 0)
     }
     Test-Case 'D118 : une preference non inscriptible ne se replie pas dans le dossier de l application' {
-        $savedRoot=$script:RootDir;$savedDataDir=$script:DataDir;$root=''
+        $savedRoot=$script:RootDir;$savedDataDir=$script:DataDir;$savedLocalAppData=$env:LOCALAPPDATA;$root=''
         try {
             $root=Join-Path ([IO.Path]::GetTempPath()) ('domenia-root-'+[guid]::NewGuid().ToString('N'))
             [void][IO.Directory]::CreateDirectory($root);$script:RootDir=$root
+            $env:LOCALAPPDATA=Join-Path $root 'profile';[void][IO.Directory]::CreateDirectory($env:LOCALAPPDATA)
             $blocker=Join-Path $root 'blocker';[IO.File]::WriteAllText($blocker,'x');$script:DataDir=$blocker
             Assert-True (-not (Write-DomeniaPreference 'no-root-fallback.json' '{}')) 'Ecriture annoncee alors que le dossier utilisateur est inutilisable.'
             Assert-True (-not (Test-Path -LiteralPath (Join-Path $root 'no-root-fallback.json'))) 'Repli silencieux dans le dossier de l application.'
+            Assert-True (@(Get-ChildItem $env:LOCALAPPDATA -Filter 'no-root-fallback.json' -Recurse).Count -eq 0) 'Repli silencieux dans LOCALAPPDATA.'
         } finally {
-            $script:RootDir=$savedRoot;$script:DataDir=$savedDataDir
+            $script:RootDir=$savedRoot;$script:DataDir=$savedDataDir;$env:LOCALAPPDATA=$savedLocalAppData
             if($root){try{[IO.Directory]::Delete($root,$true)}catch{}}
         }
     }

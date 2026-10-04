@@ -2225,9 +2225,14 @@ function Add-DomeniaUiLog {
     }
     catch {
         try {
-            $fallbackPath = Join-Path `
-                $env:LOCALAPPDATA `
-                "DOMENIA\Logs\Domenia-ui-log-errors.log"
+            if(-not $script:DataStoreValidated -or [string]::IsNullOrWhiteSpace([string]$script:DataDir)){throw 'Stockage non valide pour le journal UI.'}
+            $logs=Join-Path ([string]$script:DataDir) 'Logs'
+            foreach($category in @($script:StorageLayout.Categories)){
+                if([string]$category.Category -eq 'Cache'){
+                    foreach($area in @($category.Areas)){if([string]$area.Name -eq 'Logs'){$logs=[string]$area.Path}}
+                }
+            }
+            $fallbackPath=Join-Path $logs 'Domenia-ui-log-errors.log'
 
             $fallbackDirectory = Split-Path -Parent $fallbackPath
             if (-not (Test-Path -LiteralPath $fallbackDirectory)) {
@@ -2779,78 +2784,82 @@ function Update-DomeniaSelectedUserPresence {
 
 
 function Get-DomeniaPreferencePath {
-    # Les preferences doivent survivre a un deploiement en lecture seule
-    # (Program Files, partage reseau, EXE PS2EXE signe). On ecrit donc dans
-    # le profil utilisateur et on ne lit le dossier d installation que pour
-    # recuperer une valeur heritee des versions precedentes.
+    # One write destination in the selected mode. Historical locations are read-only.
     param([Parameter(Mandatory=$true)][string]$FileName)
-    $userPath = ""
-    try {
-        $base = [string]$script:DataDir
-        if ([string]::IsNullOrWhiteSpace($base)) { $base = [string]$env:LOCALAPPDATA }
-        if (-not [string]::IsNullOrWhiteSpace($base)) {
-            $userPath = Join-Path $base $FileName
-        }
+    if([IO.Path]::GetFileName($FileName) -cne $FileName -or $FileName -in @('.','..')){throw 'Nom de preference invalide.'}
+    $userPath='';$previousPath='';$legacyPath=''
+    if(-not [string]::IsNullOrWhiteSpace([string]$script:DataDir)){
+        $previousPath=Join-Path ([string]$script:DataDir) $FileName
+        $userPath=Join-Path (Join-Path ([string]$script:DataDir) 'Preferences') $FileName
     }
-    catch { $userPath = "" }
-
-    $legacyPath = ""
-    try { $legacyPath = Join-Path $script:RootDir $FileName } catch { }
-
-    return [pscustomobject]@{ User = $userPath; Legacy = $legacyPath }
+    if(-not [string]::IsNullOrWhiteSpace([string]$script:RootDir)){$legacyPath=Join-Path ([string]$script:RootDir) $FileName}
+    return [pscustomobject]@{User=$userPath;Previous=$previousPath;Legacy=$legacyPath}
 }
+
 
 function Read-DomeniaPreference {
     param([Parameter(Mandatory=$true)][string]$FileName)
-    $paths = Get-DomeniaPreferencePath -FileName $FileName
-    $locations=@($paths.User,$paths.Legacy)
-    # Read compatibility only: new Domenia values always win. No old file is deleted.
+    $paths=Get-DomeniaPreferencePath -FileName $FileName
+    $locations=@($paths.User,$paths.Previous,$paths.Legacy)
+    # Original names remain compatibility-only; no historical file is rewritten or deleted.
     if($FileName.StartsWith('Domenia.',[StringComparison]::OrdinalIgnoreCase)){
         $legacyName='ADCC.'+$FileName.Substring(8)
         foreach($dir in @([string]$script:DataDir,(Join-Path $script:RootDir 'data'),[string]$script:RootDir,[string]$env:LOCALAPPDATA)){
             if($dir){$locations+=@(Join-Path $dir $legacyName)}
         }
     }
-    foreach ($candidate in @($locations | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) } | ForEach-Object { $_; ([string]$_ + ".bak") })) {
-        if ([string]::IsNullOrWhiteSpace($candidate)) { continue }
+    foreach($candidate in @($locations | Where-Object {-not [string]::IsNullOrWhiteSpace([string]$_)} | ForEach-Object {$_;([string]$_+'.bak')})){
         try {
-            if (Test-Path -LiteralPath $candidate -PathType Leaf) {
-                $info=Get-Item -LiteralPath $candidate -Force
-                if($info.Length -gt 1048576 -or ($info.Attributes -band [IO.FileAttributes]::ReparsePoint)){continue}
-                $text = ([System.IO.File]::ReadAllText($candidate)).Trim()
-                if ($FileName.EndsWith('.json',[StringComparison]::OrdinalIgnoreCase)) { $null = $text | ConvertFrom-Json -ErrorAction Stop }
-                return $text
+            if(-not (Test-Path -LiteralPath $candidate -PathType Leaf)){continue}
+            $info=Get-Item -LiteralPath $candidate -Force
+            if($info.Length -gt 1MB -or ($info.Attributes -band [IO.FileAttributes]::ReparsePoint)){continue}
+            $parent=$info.Directory;$redirected=$false
+            while($null -ne $parent){if($parent.Attributes -band [IO.FileAttributes]::ReparsePoint){$redirected=$true;break};$parent=$parent.Parent}
+            if($redirected){continue}
+            $text=([IO.File]::ReadAllText($candidate)).Trim()
+            if($FileName.EndsWith('.json',[StringComparison]::OrdinalIgnoreCase)){$null=$text | ConvertFrom-Json -ErrorAction Stop}
+            if($candidate -ine $paths.User -and $candidate -ine ($paths.User+'.bak')){
+                if($null -eq $script:PreferenceLegacyReads){$script:PreferenceLegacyReads=@{}}
+                if(-not $script:PreferenceLegacyReads.ContainsKey($candidate)){$script:PreferenceLegacyReads[$candidate]=$false}
+                # Before startup validation, defer the trace: logging would initialize storage recursively.
+                if($script:DataStoreValidated -and -not $script:PreferenceLegacyReads[$candidate]){
+                    try {
+                        Write-StartupTrace -Stage 'Preferences/LectureHistorique' -Detail $candidate
+                        $script:PreferenceLegacyReads[$candidate]=$true
+                    } catch { }
+                }
             }
-        }
-        catch { }
+            return $text
+        } catch { }
     }
-    return ""
+    return ''
 }
+
 
 function Write-DomeniaPreference {
     param([Parameter(Mandatory=$true)][string]$FileName,[Parameter(Mandatory=$true)][string]$Value)
-
-    $target = ''
+    $target=''
     try {
-        $paths = Get-DomeniaPreferencePath -FileName $FileName
-        $target = [string]$paths.User
-    }
-    catch { $target = '' }
-
-    if ([string]::IsNullOrWhiteSpace($target)) {
-        try { Write-AppLog "Preference '$FileName' non persistee : aucun emplacement utilisateur disponible." "WARN" } catch { }
-        return $false
-    }
-
-    try {
+        $target=[string](Get-DomeniaPreferencePath -FileName $FileName).User
+        if([string]::IsNullOrWhiteSpace($target)){throw 'Aucun dossier de donnees valide. Aucun autre emplacement choisi.'}
+        $parent=[IO.DirectoryInfo]::new([IO.Path]::GetDirectoryName([IO.Path]::GetFullPath($target)))
+        while($null -ne $parent){
+            if($parent.Exists -and ($parent.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw ('Dossier de preferences redirige refuse : '+$parent.FullName)}
+            $parent=$parent.Parent
+        }
+        foreach($path in @($target,($target+'.bak'))){
+            if(Test-Path -LiteralPath $path){
+                if((Get-Item -LiteralPath $path -Force).Attributes -band [IO.FileAttributes]::ReparsePoint){throw ('Lien de preference refuse : '+$path)}
+            }
+        }
         Write-DomeniaAtomicText -LiteralPath $target -Value $Value -KeepBackup
         return $true
-    }
-    catch {
-        try { Write-AppLog "Preference '$FileName' non persistee : $($_.Exception.Message)" "WARN" } catch { }
+    } catch {
+        try {Write-AppLog ("Preference '"+$FileName+"' non persistee dans '"+$target+"' : "+$_.Exception.Message) 'WARN'} catch { }
         return $false
     }
 }
+
 
 
 # =====================================================================
@@ -19651,74 +19660,79 @@ function New-DefaultConfig {
 
 function Initialize-DomeniaDataStore {
     if($script:DataStoreValidated -and $script:DataDir){return [string]$script:DataDir}
-
-    $script:StorageLayout = $null
-
+    $script:StorageLayout=$null;$script:StoragePreferenceWarning=''
     $mode=[string](Get-CfgValue 'LocalStore' 'Mode' 'Compatible')
     if($mode -notin @('Compatible','UserLocal','Portable')){throw 'LocalStore.Mode doit valoir Compatible, UserLocal ou Portable.'}
     $portable=Join-Path ([string]$script:RootDir) 'data'
-    $hasLegacy=[IO.Directory]::Exists($portable) -and (@([IO.Directory]::EnumerateFileSystemEntries($portable)|Select-Object -First 1).Count -gt 0)
+    try {$hasLegacy=[IO.Directory]::Exists($portable) -and (@([IO.Directory]::EnumerateFileSystemEntries($portable)|Select-Object -First 1).Count -gt 0)}
+    catch {throw ('Stockage portable illisible : '+$portable+'. Aucun repli silencieux. '+$_.Exception.Message)}
     $usePortable=($mode -eq 'Portable' -or ($mode -eq 'Compatible' -and $hasLegacy))
-    $dir=if($usePortable){$portable}else{Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Domenia\Data'}
+    $userLocalRoot=Get-DomeniaUserLocalRoot
+    if(-not $usePortable -and [string]::IsNullOrWhiteSpace($userLocalRoot)){throw 'DOMENIA_STORE_LAYOUT : profil local absent. Aucun repli silencieux.'}
+    $dir=if($usePortable){$portable}else{Join-Path $userLocalRoot 'Domenia\Data'}
     $dir=[IO.Path]::GetFullPath($dir)
     if($dir.StartsWith('\\') -or ([IO.DriveInfo]::new([IO.Path]::GetPathRoot($dir))).DriveType -eq [IO.DriveType]::Network){throw 'Une base active SQLite doit etre locale. Choisissez UserLocal ; les sources existantes seront conservees.'}
     $probe=[IO.DirectoryInfo]::new($dir)
     while($null -ne $probe){if($probe.Exists -and ($probe.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'Stockage redirige par un lien : choisissez un dossier local non redirige.'};$probe=$probe.Parent}
-    [void][IO.Directory]::CreateDirectory($dir)
+    try {[void][IO.Directory]::CreateDirectory($dir)}catch{throw ('Stockage non inscriptible : '+$dir+'. Aucun repli silencieux. Configurez UserLocal.')}
     if(-not $usePortable){
         $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value;$acl=[Security.AccessControl.DirectorySecurity]::new()
-        # DACL uniquement : ne pas marquer la SACL, le proprietaire ou le groupe modifies.
-        # La surcharge SDDL a un argument cible All et demande SeSecurityPrivilege.
+        # DACL only. Never request access to the SACL, owner or group.
         $acl.SetSecurityDescriptorSddlForm(
             ('D:P(A;OICI;FA;;;'+$sid+')(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)'),
             [Security.AccessControl.AccessControlSections]::Access
         )
-        try { [IO.Directory]::SetAccessControl($dir,$acl) }
+        try {[IO.Directory]::SetAccessControl($dir,$acl)}
         catch {
             throw [InvalidOperationException]::new(
-                ('DOMENIA_STORE_DACL : impossible de proteger le dossier des donnees locales "' + $dir + '". ' + $_.Exception.Message),
+                ('DOMENIA_STORE_DACL : impossible de proteger le dossier des donnees locales "'+$dir+'". '+$_.Exception.Message),
                 $_.Exception
             )
         }
     }
     $test=Join-Path $dir ('.write-'+[guid]::NewGuid().ToString('N'))
     try{$stream=[IO.File]::Open($test,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None);$stream.Dispose()}catch{throw ('Stockage non inscriptible : '+$dir+'. Aucun repli silencieux. Configurez UserLocal.')}finally{if([IO.File]::Exists($test)){[IO.File]::Delete($test)}}
-    foreach($name in @('Logs','Backups','Diagnostics','Exports','Legacy')){[void][IO.Directory]::CreateDirectory((Join-Path $dir $name))}
 
-    # D118: expose the reviewed layout only after the historical data root has been validated.
-    # The layout must not move the data root; a contradiction is an explicit refusal.
+    # The rule must exist and agree with the selected mode. No fallback or logging here:
+    # both loggers can enter this function until DataStoreValidated becomes true.
+    $installRoot=[IO.Path]::GetDirectoryName([IO.Path]::GetFullPath(([string]$script:RootDir).TrimEnd('\')))
     try {
-        $installRoot = [IO.Path]::GetDirectoryName(([string]$script:RootDir).TrimEnd('\'))
-        $userLocalRoot = [string]([Environment]::GetFolderPath('LocalApplicationData'))
-
-        if (Get-Command Get-DomeniaStorageLayout -ErrorAction SilentlyContinue) {
-            $layout = Get-DomeniaStorageLayout -Mode $mode -InstallRoot $installRoot -UserLocalRoot $userLocalRoot -PortableHasData $hasLegacy -Writable @{Cache=$true;Preference=$true;Receipt=$true}
-
-            if ($null -ne $layout -and -not [string]::IsNullOrWhiteSpace([string]$layout.DataRoot)) {
-                if ($usePortable -or -not [string]::IsNullOrWhiteSpace($userLocalRoot)) {
-                    $layoutRoot = [IO.Path]::GetFullPath([string]$layout.DataRoot).TrimEnd('\')
-                    $expectedRoot = [IO.Path]::GetFullPath($dir).TrimEnd('\')
-
-                    if ($layoutRoot -ine $expectedRoot) {
-                        throw ('DOMENIA_STORE_LAYOUT : dossier de donnees inattendu (' + [string]$layout.DataRoot + ' au lieu de ' + $dir + '). Aucune relocalisation silencieuse.')
-                    }
-                }
-            }
-
-            $script:StorageLayout = $layout
-        }
-        else {
-            $script:StorageLayout = $null
-        }
+        $layout=Get-DomeniaStorageLayout -Mode $mode -InstallRoot $installRoot -UserLocalRoot $userLocalRoot -PortableHasData $hasLegacy -Writable @{Cache=$true}
+        if($null -eq $layout -or [string]::IsNullOrWhiteSpace([string]$layout.DataRoot) -or [IO.Path]::GetFullPath([string]$layout.DataRoot).TrimEnd('\') -ine $dir.TrimEnd('\')){throw 'Dossier de donnees incoherent.'}
+        $cache=@($layout.Categories | Where-Object {$_.Category -eq 'Cache'})
+        $preference=@($layout.Categories | Where-Object {$_.Category -eq 'Preference'})
+        if($cache.Count -ne 1 -or $cache[0].State -ne 'Pret' -or $preference.Count -ne 1 -or [string]$preference[0].Path -ine (Join-Path $dir 'Preferences')){throw 'Categories de stockage incoherentes.'}
+        $areas=@($cache[0].Areas)
+        if(($areas.Name -join ',') -cne 'Logs,Backups,Diagnostics,Exports,Legacy,Domains'){throw 'Zones de cache absentes ou incoherentes.'}
+        foreach($area in $areas){if([string]$area.Path -ine (Join-Path $dir ([string]$area.Name))){throw ('Zone incoherente : '+$area.Name)}}
+    } catch {throw ('DOMENIA_STORE_LAYOUT : '+$_.Exception.Message+' Aucun repli silencieux.')}
+    foreach($area in $areas){
+        $folder=[IO.DirectoryInfo]::new([string]$area.Path)
+        if($folder.Exists -and ($folder.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw ('Stockage redirige refuse : '+$area.Path)}
+        [void][IO.Directory]::CreateDirectory([string]$area.Path)
     }
-    catch {
-        if ($_.Exception.Message -like 'DOMENIA_STORE_LAYOUT*') { throw }
-        $script:StorageLayout = $null
-    }
-
-    $script:DataDir=$dir;$script:AuditPath=Join-Path $dir 'Logs\Domenia.log';$script:StartupTracePath=Join-Path $dir 'Logs\Domenia-startup.log'
+    $preferencePath=[string]$preference[0].Path;$preferenceWritable=$false;$preferenceFailure=''
+    $preferenceProbe=Join-Path $preferencePath ('.write-'+[guid]::NewGuid().ToString('N'))
+    try {
+        $folder=[IO.DirectoryInfo]::new($preferencePath)
+        if($folder.Exists -and ($folder.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'Lien de dossier refuse.'}
+        [void][IO.Directory]::CreateDirectory($preferencePath)
+        $stream=[IO.File]::Open($preferenceProbe,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+        $stream.Dispose();$preferenceWritable=$true
+    } catch {$preferenceFailure=$_.Exception.Message}
+    finally {if([IO.File]::Exists($preferenceProbe)){[IO.File]::Delete($preferenceProbe)}}
+    $observed=@{Cache=$true;Preference=$preferenceWritable};$observed[$preferencePath]=$preferenceWritable
+    try {
+        $layout=Get-DomeniaStorageLayout -Mode $mode -InstallRoot $installRoot -UserLocalRoot $userLocalRoot -PortableHasData $hasLegacy -Writable $observed
+        if($null -eq $layout -or [string]$layout.DataRoot -ine $dir){throw 'Disposition finale incoherente.'}
+    } catch {throw ('DOMENIA_STORE_LAYOUT : '+$_.Exception.Message+' Aucun repli silencieux.')}
+    if(-not $preferenceWritable){$script:StoragePreferenceWarning='Les preferences ne pourront pas etre enregistrees dans '+$preferencePath+'. '+$preferenceFailure+' Aucun autre emplacement ne sera utilise.'}
+    $logs=[string](@($areas | Where-Object {$_.Name -eq 'Logs'})[0].Path)
+    $script:StorageLayout=$layout
+    $script:DataDir=$dir;$script:AuditPath=Join-Path $logs 'Domenia.log';$script:StartupTracePath=Join-Path $logs 'Domenia-startup.log'
     $script:DataStoreValidated=$true;return $dir
 }
+
 
 function Write-StartupTrace {
     param(
@@ -24174,47 +24188,37 @@ $script:FastLoginLogPath = ""
 $script:FastLoginMode = "Standard"
 
 function Get-DomeniaFastLoginLogPath {
-    try { Initialize-DomeniaDataStore | Out-Null } catch { }
-
-    if ([string]::IsNullOrWhiteSpace([string]$script:FastLoginLogPath)) {
-        $logs = ''
-
-        try {
-            if ($null -ne $script:StorageLayout -and $null -ne $script:StorageLayout.Categories) {
-                foreach ($category in @($script:StorageLayout.Categories)) {
-                    if ([string]$category.Category -eq 'Logs' -and -not [string]::IsNullOrWhiteSpace([string]$category.Path)) {
-                        $logs = [string]$category.Path
-                        break
-                    }
-                }
+    $validated=$false
+    try {Initialize-DomeniaDataStore | Out-Null;$validated=[bool]$script:DataStoreValidated}catch { }
+    if(-not [string]::IsNullOrWhiteSpace([string]$script:FastLoginLogPath)){return [string]$script:FastLoginLogPath}
+    $candidates=New-Object 'System.Collections.Generic.List[string]'
+    if($validated){
+        foreach($category in @($script:StorageLayout.Categories)){
+            if([string]$category.Category -eq 'Cache'){
+                foreach($area in @($category.Areas)){if([string]$area.Name -eq 'Logs' -and [string]$area.Path){$candidates.Add([string]$area.Path)}}
             }
         }
-        catch { }
-
-        if ([string]::IsNullOrWhiteSpace($logs)) {
-            if (-not [string]::IsNullOrWhiteSpace([string]$script:DataDir)) {
-                $logs = Join-Path ([string]$script:DataDir) 'Logs'
-            }
-            elseif (-not [string]::IsNullOrWhiteSpace([string]$env:LOCALAPPDATA)) {
-                $logs = Join-Path ([string]$env:LOCALAPPDATA) 'DOMENIA\Logs'
-            }
-            else {
-                $logs = Join-Path ([System.IO.Path]::GetTempPath()) 'DOMENIA\Logs'
-            }
-        }
-
-        try {
-            if (-not [IO.Directory]::Exists($logs)) {
-                [void][IO.Directory]::CreateDirectory($logs)
-            }
-        }
-        catch { }
-
-        $script:FastLoginLogPath = Join-Path $logs 'Domenia-login.log'
+    } else {
+        # Explicit emergency trace when data storage is refused; preferences never follow it.
+        if(-not [string]::IsNullOrWhiteSpace([string]$env:LOCALAPPDATA)){$candidates.Add((Join-Path $env:LOCALAPPDATA 'DOMENIA\Logs'))}
+        $candidates.Add((Join-Path ([IO.Path]::GetTempPath()) 'DOMENIA\Logs'))
     }
-
-    return [string]$script:FastLoginLogPath
+    foreach($logs in $candidates){
+        $probe=''
+        try {
+            $folder=[IO.DirectoryInfo]::new($logs)
+            while($null -ne $folder){if($folder.Exists -and ($folder.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'Journal redirige refuse.'};$folder=$folder.Parent}
+            [void][IO.Directory]::CreateDirectory($logs)
+            $probe=Join-Path $logs ('.write-'+[guid]::NewGuid().ToString('N'))
+            $stream=[IO.File]::Open($probe,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None);$stream.Dispose()
+            $script:FastLoginLogPath=Join-Path $logs 'Domenia-login.log'
+            return [string]$script:FastLoginLogPath
+        } catch { }
+        finally {if($probe -and [IO.File]::Exists($probe)){[IO.File]::Delete($probe)}}
+    }
+    return ''
 }
+
 
 function Write-DomeniaFastLoginLog {
     param(
@@ -25494,6 +25498,19 @@ try {
         return
     }
     $script:StartupCorrelation = [guid]::NewGuid().ToString("N")
+    [void](Invoke-DomeniaPreferenceMigration)
+    Write-StartupTrace -Stage 'Stockage/Mode' -Detail ($script:StorageLayout.Mode+' ; '+$script:StorageLayout.ModeSource+' ; '+$script:StorageLayout.DataRoot)
+    foreach($notice in @($script:StorageLayout.Notices)){Write-StartupTrace -Stage 'Stockage/Mode' -Status 'WARN' -Detail $notice}
+    foreach($category in @($script:StorageLayout.Categories)){Write-StartupTrace -Stage 'Stockage/Categorie' -Detail ($category.Category+' ; '+$category.State+' ; '+$category.Path)}
+    if($null -ne $script:PreferenceLegacyReads){
+        foreach($path in @($script:PreferenceLegacyReads.Keys)){
+            if(-not $script:PreferenceLegacyReads[$path]){Write-StartupTrace -Stage 'Preferences/LectureHistorique' -Detail $path;$script:PreferenceLegacyReads[$path]=$true}
+        }
+    }
+    if($script:StoragePreferenceWarning){
+        Write-StartupTrace -Stage 'Stockage/Preferences' -Status 'WARN' -Detail $script:StoragePreferenceWarning
+        Show-WarningBox -Message $script:StoragePreferenceWarning
+    }
     Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 RC1.11.0 (2026.10.02-DOMENIA-1.0-RC1.11.0-D120)"
     if ([bool]$script:DemoMode) { Write-StartupTrace -Stage "Demonstration" -Status "WARN" -Detail "Demo=True : annuaire fictif en memoire, aucune connexion AD, ecritures desactivees." }
     Write-DomeniaFastLoginLog -Stage "APPLICATION_START" -Detail "PID=$PID Script=$($script:LaunchPath) Root=$($script:RootDir)"
@@ -25555,7 +25572,9 @@ catch {
     $message = "DOMENIA na pas pu terminer son initialisation.`r`n`r`n$summary"
     if (-not [string]::IsNullOrWhiteSpace($startupLog)) { $message += "`r`n`r`nJournal demarrage :`r`n$startupLog" }
     if (-not [string]::IsNullOrWhiteSpace($loginLog)) { $message += "`r`n`r`nJournal connexion :`r`n$loginLog" }
-    $message += "`r`n`r`nLa trace complete a ete conservee dans les journaux."
+    if(($startupLog -and [IO.File]::Exists($startupLog)) -or ($loginLog -and [IO.File]::Exists($loginLog))){
+        $message += "`r`n`r`nConsultez les journaux indiques pour le detail disponible."
+    } else {$message += "`r`n`r`nAucun journal n a pu etre ecrit ; conservez ce message."}
     Show-ErrorBox -Message $message
 }
 finally {
