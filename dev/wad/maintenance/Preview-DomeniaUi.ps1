@@ -35,6 +35,11 @@ foreach ($name in $presentationNames) {
     if ($nodes.Count -ne 1) { throw ('Fonction UI introuvable ou ambigue : ' + $name) }
     Invoke-Expression $nodes[0].Extent.Text
 }
+# D082/D085: counters and selection preview come from the shell rules (and their dependencies).
+. (Join-Path $wad 'modules\Domenia-Common.Model.ps1')
+. (Join-Path $wad 'modules\Domenia-Relations.Model.ps1')
+. (Join-Path $wad 'modules\Domenia-Access.Model.ps1')
+. (Join-Path $wad 'modules\Domenia-Shell.Model.ps1')
 . (Join-Path $wad 'modules\Domenia-Embedded.UI.ps1')
     . (Join-Path $wad 'modules\Domenia-UX.UI.ps1')
 

@@ -3430,5 +3430,26 @@
     "Text": "Exécute lʼaction décrite, une seule fois. Une demande dʼune session précédente nʼexécute rien.",
     "Kind": "Button",
     "Source": "d120-interface-c4"
+  },
+  {
+    "Name": "LblSelectionReadState",
+    "Title": "Aperçu de lecture",
+    "Text": "Une ligne de 20 unités : type, nom, état de lecture. La souris donne le détail.",
+    "Kind": "TextBlock",
+    "Source": "d120-interface"
+  },
+  {
+    "Name": "BadgeAccessRecovery",
+    "Title": "Compteurs d'activité",
+    "Text": "Le badge reste Hidden à zéro ; sa taille réservée ne bouge pas.",
+    "Kind": "Border",
+    "Source": "d120-interface"
+  },
+  {
+    "Name": "BadgeSuiteActivity",
+    "Title": "Compteurs d'activité",
+    "Text": "Le badge reste Hidden à zéro ; sa taille réservée ne bouge pas.",
+    "Kind": "Border",
+    "Source": "d120-interface"
   }
 ]

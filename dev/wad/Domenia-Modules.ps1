@@ -444,7 +444,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaSourceReadPlan',
             'ConvertFrom-DomeniaWaptHost'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Cache.Model.ps1'); File='Domenia-Selection.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Shell.Model.ps1'); File='Domenia-Selection.UI.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaObjectReadIdentity',
             'Get-DomeniaRowSelectionIdentity',
             'Get-DomeniaSelectionContext',
@@ -586,7 +586,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaExperienceTaskRow',
             'Find-SuiteLiteralText'
         ) }
-        [pscustomobject]@{ File='Domenia-Experience.UI.ps1'; DotSource=$false; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Shell.Model.ps1'); File='Domenia-Experience.UI.ps1'; DotSource=$false; Functions=@(
             'Get-DomeniaExperienceVisibleRows',
             'Get-DomeniaExperienceExportRows',
             'Open-DomeniaExperienceActivity',
@@ -690,7 +690,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Update-DomeniaSearchMoreButton',
             'Invoke-DomeniaSearchMore'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Access.Model.ps1','Domenia-Guard.Model.ps1'); File='Domenia-Access.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Access.Model.ps1','Domenia-Guard.Model.ps1','Domenia-Shell.Model.ps1'); File='Domenia-Access.UI.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaAccessFailureKind',
             'Get-DomeniaAccessScope',
             'Get-DomeniaAccessNow',

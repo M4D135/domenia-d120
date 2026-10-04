@@ -61,7 +61,7 @@ function Update-DomeniaExperienceActivity {
     $button=Get-DomeniaControl 'BtnSuiteActivity'
     $total=[long]$active+[long]$detached+[long]$queued
     $counter=Get-DomeniaControl 'LblSuiteActivityCount';$badge=Get-DomeniaControl 'BadgeSuiteActivity'
-    $label=if($total -gt 99){'99+'}else{$total.ToString([Globalization.CultureInfo]::InvariantCulture)}
+    $label=Get-DomeniaCounterText -Count ([int]$total) -ZeroText '0'
     $visibility=if($total -gt 0){'Visible'}else{'Hidden'}
     if($null -ne $counter -and $counter.Text -cne $label){$counter.Text=$label}
     if($null -ne $badge -and [string]$badge.Visibility -ne $visibility){$badge.Visibility=$visibility}

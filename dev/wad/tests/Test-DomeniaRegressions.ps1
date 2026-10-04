@@ -87,6 +87,8 @@ function Get-DomeniaSelectedGridRows {return @($script:Ctrl.DgObjects.SelectedIt
 function Test-DomeniaDraftNavigation {param($DN,[switch]$Refresh);return $true}
 function Restore-DomeniaRefusedSelection {param($DN)}
 function Clear-Secrets {}
+# D085: a new selection purges the views bound to the previous object (core function, inert here).
+function Reset-DomeniaSelectionBoundViews {param($Dn,$Type,$Name)}
 function Clear-DomeniaLiveProbeIntent {}
 function Select-DomeniaLiveResult {param([switch]$Force,[switch]$Manual) $script:ConsoleCalls++}
 function Set-DomeniaRelationsGridSelection {}
@@ -114,7 +116,7 @@ function Reset-SelectionFixture {
     $script:Conn=[pscustomobject]@{Connected=$true;BaseDn='DC=example,DC=invalid';Server='dc1.example.invalid';BindUser='EXAMPLE\lecteur';Credential=$null}
     $script:AsyncJobs=@{};$script:ConsoleCalls=0;$script:QueueCalls=0
     $script:Requests=[Collections.Generic.List[object]]::new();$script:Renders=[Collections.Generic.List[string]]::new()
-    $script:Ctrl=@{DgObjects=[pscustomobject]@{IsEnabled=$true;SelectedItem=$null;SelectedItems=@();Items=@()};LblSelectionReadState=[pscustomobject]@{Text=''}}
+    $script:Ctrl=@{DgObjects=[pscustomobject]@{IsEnabled=$true;SelectedItem=$null;SelectedItems=@();Items=@()};LblSelectionReadState=[pscustomobject]@{Text='';ToolTip=$null}}
 }
 function Get-RegressionRow {param([string]$Letter)
     $guids=@{A='aaaaaaaa-0000-4000-8000-00000000000a';B='bbbbbbbb-0000-4000-8000-00000000000b'}

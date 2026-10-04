@@ -66,6 +66,8 @@ function Get-DomeniaSelectedGridRows {return @($script:Ctrl.DgObjects.SelectedIt
 function Test-DomeniaDraftNavigation {param($DN,[switch]$Refresh);return $true}
 function Restore-DomeniaRefusedSelection {param($DN)}
 function Clear-Secrets {}
+# D085: a new selection purges the views bound to the previous object (core function, inert here).
+function Reset-DomeniaSelectionBoundViews {param($Dn,$Type,$Name)}
 function Clear-DomeniaLiveProbeIntent {}
 function Select-DomeniaLiveResult {param([switch]$Force,[switch]$Manual)}
 function Set-DomeniaRelationsGridSelection {}
@@ -102,7 +104,7 @@ function Reset-SelectionFixture {
     $script:Ctrl=@{
         DgObjects=[pscustomobject]@{IsEnabled=$true;SelectedItem=$null;SelectedItems=@();Items=@()}
         WsObject=[pscustomobject]@{Visibility='Collapsed'};WsComputer=[pscustomobject]@{Visibility='Collapsed'}
-        LblSelectionReadState=[pscustomobject]@{Text=''}
+        LblSelectionReadState=[pscustomobject]@{Text='';ToolTip=$null}
     }
     foreach($kind in @('Object','Computer')){
         $script:Ctrl[$kind+'ReadContent']=[pscustomobject]@{Visibility='Collapsed';IsEnabled=$false}

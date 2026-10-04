@@ -159,19 +159,33 @@ function Update-DomeniaSelectionReadUi {
     $context = $load.Context
     $hasData = ($null -ne $script:SelectedObject -and $script:SelectedObject.DN -ieq $context.DN)
     $ready = ($hasData -and $load.Phase -eq 'Ready')
-    $prefix = $context.Type + ' : ' + $context.Name
+    $prefixType = [string]$context.Type
+    $prefixName = [string]$context.Name
     # The label is derived from the captured identity, never the reverse.
-    if ($null -ne $load.PSObject.Properties['SelectionIdentity'] -and $null -ne $load.SelectionIdentity) { $prefix = [string]$load.SelectionIdentity.Type + ' : ' + [string]$load.SelectionIdentity.Name }
-    $text = switch ($load.Phase) {
-        'Queued' { $prefix + ' | Preparation de la fiche...' }
-        'Loading' { $prefix + ' | Lecture AD en arriere-plan...' }
-        'Cached' { $prefix + ' | Cache affiche, validation AD en cours.' }
-        'Ready' { $prefix + ' | Fiche AD chargee.' }
-        'Paused' { $prefix + ' | Lecture suspendue pendant une ecriture.' }
-        'Failed' { $prefix + ' | Lecture non confirmee. Reessayer la lecture.' }
-        default { $prefix }
+    if (($null -ne $load.PSObject.Properties['SelectionIdentity']) -and ($null -ne $load.SelectionIdentity)) {
+        $prefixType = [string]$load.SelectionIdentity.Type
+        $prefixName = [string]$load.SelectionIdentity.Name
     }
+    $previewSelection = [pscustomobject]@{Type=$prefixType;Name=$prefixName;Guid=[string]$context.Guid;Generation=[string]$script:SelectedObjectGeneration}
+    $previewDetail = $null
+    if ($hasData) {
+        $previewDetail = $script:SelectedObject
+        if ($null -ne $previewDetail) {
+            if ($null -eq $previewDetail.PSObject.Properties['Guid']) {
+                $previewDetail = Add-Member -InputObject $previewDetail -NotePropertyName Guid -NotePropertyValue ([string]$context.Guid) -Force -PassThru
+            }
+            if ($null -eq $previewDetail.PSObject.Properties['Generation']) {
+                $previewDetail = Add-Member -InputObject $previewDetail -NotePropertyName Generation -NotePropertyValue ([string]$script:SelectedObjectGeneration) -Force -PassThru
+            }
+        }
+    }
+    $previewLoadState = ConvertTo-DomeniaPreviewLoadState -Phase $load.Phase -Message $load.Message
+    $preview = Get-DomeniaSelectionPreview -Selection $previewSelection -LoadState $previewLoadState -Detail $previewDetail -ErrorText $load.Message
+    $previewText = ConvertTo-DomeniaSelectionPreviewText -Preview $preview -Maximum 160
+    $text = [string]$previewText.Line
     [void](Set-DomeniaControlText 'LblSelectionReadState' $text)
+    $readState = Get-DomeniaControl 'LblSelectionReadState'
+    if ($null -ne $readState) { $readState.ToolTip = [string]$previewText.Detail }
     foreach ($kind in @('Object','Computer')) {
         $contentHost = Get-DomeniaControl ($kind + 'ReadContent')
         $empty = Get-DomeniaControl ($kind + 'ReadPlaceholder')
@@ -233,11 +247,12 @@ function Enter-DomeniaSelectionContext {
     foreach ($id in @($script:AsyncJobs.Keys)) {
         $job = $script:AsyncJobs[$id]
         if ($null -eq $job -or $job.IsWrite) { continue }
-        if ([string]$job.ReplaceKey -in @('object','secrets','computerdiag','permissions','presence-selected') -or [string]$job.ReplaceKey -like 'lastuser:*') {
+        if ((([string]$job.ReplaceKey) -in @('object','secrets','computerdiag','permissions','presence-selected','inventory','software','wmi')) -or (([string]$job.ReplaceKey) -like 'lastuser:*')) {
             Request-UiTaskStop -Id ([string]$id) -Silent -Force -Superseded -Reason 'Nouvelle selection'
         }
     }
     Clear-Secrets
+    Reset-DomeniaSelectionBoundViews -Dn ([string]$Context.DN) -Type ([string]$Context.Type) -Name ([string]$Context.Name)
     # D012: the fiche keeps the immutable identity captured at selection time.
     $captured = $null
     if ($null -ne $Context.PSObject.Properties['SelectionIdentity']) { $captured = $Context.SelectionIdentity }

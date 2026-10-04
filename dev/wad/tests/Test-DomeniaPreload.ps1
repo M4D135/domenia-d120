@@ -40,6 +40,10 @@ foreach($name in @('Get-MainXaml','Get-DomeniaControl','Set-DomeniaControlText',
 . (Join-Path $wad 'modules\Domenia-Common.Model.ps1')
 # D025: the object cache key is built by the cache-v3 rule.
 . (Join-Path $wad 'modules\Domenia-Cache.Model.ps1')
+# D082/D085: counters and selection preview come from the shell rules (and their dependencies).
+. (Join-Path $wad 'modules\Domenia-Relations.Model.ps1')
+. (Join-Path $wad 'modules\Domenia-Access.Model.ps1')
+. (Join-Path $wad 'modules\Domenia-Shell.Model.ps1')
 . (Join-Path $wad 'modules\Domenia-Selection.UI.ps1')
 . (Join-Path $wad 'modules\Domenia-Experience.Model.ps1')
 # The fixture never imports the bootstrap, loads a user cache or invokes a real worker.
@@ -50,6 +54,8 @@ function Get-DomeniaSelectedGridRows {return @($script:Ctrl.DgObjects.SelectedIt
 function Test-DomeniaDraftNavigation {param($DN,[switch]$Refresh);return $script:DraftApproved}
 function Restore-DomeniaRefusedSelection {param($DN);$script:RestoredDN=$DN}
 function Clear-Secrets {$script:SecretsCleared++}
+# D085: the views bound to the previous object are purged on a new selection (core function, counted here).
+function Reset-DomeniaSelectionBoundViews {param($Dn,$Type,$Name) $script:BoundViewsReset++}
 function Clear-DomeniaLiveProbeIntent {$script:RemoteIntent=''}
 function Select-DomeniaLiveResult {param([switch]$Force,[switch]$Manual)
     $r=Get-DomeniaSelectedGridRow
@@ -99,7 +105,7 @@ function Reset-Fixture {
     $script:Ctrl=@{
         DgObjects=[pscustomobject]@{IsEnabled=$true;SelectedItem=$null;SelectedItems=@();Items=@()}
         WsObject=[pscustomobject]@{Visibility='Collapsed'};WsComputer=[pscustomobject]@{Visibility='Collapsed'}
-        LblSelectionReadState=[pscustomobject]@{Text=''}
+        LblSelectionReadState=[pscustomobject]@{Text='';ToolTip=$null}
     }
     foreach($kind in @('Object','Computer')){
         $script:Ctrl[$kind+'ReadContent']=[pscustomobject]@{Visibility='Collapsed';IsEnabled=$false}

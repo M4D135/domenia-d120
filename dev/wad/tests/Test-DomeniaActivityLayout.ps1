@@ -3,6 +3,8 @@
 param([string]$ReportPath='', [switch]$Quiet, [switch]$Preview)
 $ErrorActionPreference='Stop'
 $wad=Split-Path -Parent $PSScriptRoot
+# D082: the activity counters are formatted by the shell rule.
+. (Join-Path $wad 'modules\Domenia-Shell.Model.ps1')
 $script:Cases=[Collections.Generic.List[object]]::new()
 $script:Ctrl=@{};$script:Window=$null
 function Expect {param([bool]$Value,[string]$Message='Condition non verifiee');if(-not $Value){throw $Message}}

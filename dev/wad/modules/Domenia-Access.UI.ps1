@@ -202,7 +202,7 @@ function Update-DomeniaAccessButton {
     if($null -eq $b -or $null -eq $script:AccessState){return}
     $n=$script:AccessState.Pending.Count
     $counter=Get-DomeniaControl 'LblAccessRecoveryCount';$badge=Get-DomeniaControl 'BadgeAccessRecovery'
-    $label=if($n -gt 99){'99+'}else{([long]$n).ToString([Globalization.CultureInfo]::InvariantCulture)}
+    $label=Get-DomeniaCounterText -Count ([int]$n) -ZeroText '0'
     $visibility=if($n -gt 0){'Visible'}else{'Hidden'}
     if($null -ne $counter -and $counter.Text -cne $label){$counter.Text=$label}
     if($null -ne $badge -and [string]$badge.Visibility -ne $visibility){$badge.Visibility=$visibility}

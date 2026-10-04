@@ -7000,11 +7000,11 @@ function Reset-DomeniaSelectionBoundViews {
         foreach ($taskId in @($script:AsyncJobs.Keys)) {
             try {
                 $job = $script:AsyncJobs[$taskId]
-                if ($null -eq $job) { continue }
+                if (($null -eq $job) -or ($job.IsWrite)) { continue }
                 $replaceKey = [string]$job.ReplaceKey
                 if (
-                    $replaceKey -in @("secrets","computerdiag","permissions") -or
-                    $replaceKey -like "lastuser:*"
+                    (([string]$replaceKey) -in @("secrets","computerdiag","permissions","inventory","software","wmi")) -or
+                    (([string]$replaceKey) -like "lastuser:*")
                 ) {
                     Request-UiTaskStop -Id ([string]$taskId) -Silent -Force -Superseded -Reason 'Changement de selection'
                 }
@@ -7017,13 +7017,23 @@ function Reset-DomeniaSelectionBoundViews {
 
         $script:ComputerDiagRows = @()
         $script:PermissionRows = @()
+        $script:InventoryRows = @()
+        $script:InventoryAccess = @()
+        $script:SoftwareRows = @()
+        $script:SoftwareAccess = @()
 
         foreach ($gridName in @(
             "DgLinks",
             "DgLinkAttempts",
             "DgComputerDiag",
             "DgPermissions",
-            "DgRawAttrs"
+            "DgRawAttrs",
+            "DgInventory",
+            "DgInventoryAccess",
+            "DgSoftware",
+            "DgSoftwareAccess",
+            "DgWmiSchema",
+            "DgWmiInstances"
         )) {
             try { [void](Set-DomeniaItemsSource -Name $gridName -Rows @()) } catch {
                 try { $script:Ctrl[$gridName].ItemsSource = $null } catch { }
@@ -7032,6 +7042,11 @@ function Reset-DomeniaSelectionBoundViews {
 
         foreach ($listName in @("LstMemberOf","LstGroupMembers")) {
             try { $script:Ctrl[$listName].Items.Clear() } catch { }
+        }
+        foreach ($listName in @($script:Ctrl.Keys)) {
+            if ($listName -like "LstWmi*") {
+                try { $script:Ctrl[$listName].Items.Clear() } catch { }
+            }
         }
 
         foreach ($checkName in @(
@@ -7067,6 +7082,9 @@ function Reset-DomeniaSelectionBoundViews {
         [void](Set-DomeniaControlText -Name "LblSecretsStatus" -Text $secretHint)
         [void](Set-DomeniaControlText -Name "LblComputerDiag" -Text "Aucun diagnostic lance pour cette selection.")
         [void](Set-DomeniaControlText -Name "LblPermissionSummary" -Text "Droits non evalues pour cette selection.")
+        [void](Set-DomeniaControlText -Name "LblInventoryStatus" -Text "Aucun inventaire charge pour cette selection.")
+        [void](Set-DomeniaControlText -Name "LblSoftwareStatus" -Text "Aucun logiciel charge pour cette selection.")
+        [void](Set-DomeniaControlText -Name "LblWmiStatus" -Text "Aucune lecture WMI chargee pour cette selection.")
 
         try { Update-DomeniaSecretActionUi } catch { }
         try { Apply-CurrentPermissionUi } catch { }
@@ -11849,6 +11867,7 @@ function Update-DomeniaInventoryCategories {
 
 function Complete-DomeniaInventoryUi {
     param($Result,$State)
+    if (([string]::IsNullOrWhiteSpace([string]$State.DN)) -or (([string]$State.DN) -ine ([string]$script:SelectedObject.DN))) { return }
     $effective = Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @("Access")
     if ($null -eq $effective) { throw "Resultat d inventaire vide ou invalide." }
 
@@ -13298,6 +13317,7 @@ function Apply-DomeniaSoftwareFilter {
 
 function Complete-DomeniaSoftwareUi {
     param($Result,$State)
+    if (([string]::IsNullOrWhiteSpace([string]$State.DN)) -or (([string]$State.DN) -ine ([string]$script:SelectedObject.DN))) { return }
     $effective = Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @("Access")
     if ($null -eq $effective) { throw "Resultat logiciels vide ou invalide." }
     $script:SoftwareRows = @($effective.Rows)
@@ -24512,7 +24532,8 @@ function Invoke-DomeniaSelfTest {
         'Get-DomeniaGlobalSearchPlan','Get-DomeniaContinuationDecision','Get-DomeniaCurrentSelectionIdentity','Initialize-DomeniaSearchUi','Invoke-DomeniaNavStep','Invoke-DomeniaSearchMore','Get-DomeniaOuRestoreDecision',
         'Get-DomeniaErrorDecision','Get-DomeniaCredentialScope','Test-DomeniaCredentialContext','ConvertTo-DomeniaMachineKey','Protect-DomeniaSecretText','Get-DomeniaBitLockerListWorkerCode','Get-DomeniaBitLockerKeyWorkerCode','Request-DomeniaBitLockerKey','Complete-DomeniaBitLockerListUi','Resolve-DomeniaCapabilityRoute','Update-DomeniaTransportPolicyView','Get-DomeniaRetryCredential','Set-DomeniaTargetCredentialContext',
         'Request-DomeniaInlineConfirmation','Complete-DomeniaInlineRequest','Test-DomeniaInlineBlocks',
-        'Request-DomeniaLinkPersistence','Queue-DomeniaLinkChanges','Merge-DomeniaLiveLinkMemory','Get-DomeniaObjectCacheKey','Get-DomeniaCacheKey','Invoke-DomeniaObjectChanges'
+        'Request-DomeniaLinkPersistence','Queue-DomeniaLinkChanges','Merge-DomeniaLiveLinkMemory','Get-DomeniaObjectCacheKey','Get-DomeniaCacheKey','Invoke-DomeniaObjectChanges',
+        'Update-DomeniaAccessButton','Update-DomeniaExperienceActivity','Update-DomeniaSelectionReadUi','Enter-DomeniaSelectionContext','Reset-DomeniaSelectionBoundViews','Complete-DomeniaInventoryUi','Complete-DomeniaSoftwareUi'
     )
     $missing = @($requiredFunctions | Where-Object { $null -eq (Get-Command -Name $_ -CommandType Function -ErrorAction SilentlyContinue) })
     Add-SelfTestResult -Name 'Fonctions critiques' -Success ($missing.Count -eq 0) -Detail $(if($missing.Count -eq 0){'Toutes presentes.'}else{"Absentes : $($missing -join ', ')"})

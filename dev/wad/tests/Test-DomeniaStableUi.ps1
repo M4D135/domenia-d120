@@ -3,6 +3,11 @@
 param([string]$ReportPath='', [switch]$Quiet)
 $ErrorActionPreference='Stop'
 $wad=Split-Path -Parent $PSScriptRoot
+# D082/D085: counters and selection preview come from the shell rules (and their dependencies).
+. (Join-Path $wad 'modules\Domenia-Common.Model.ps1')
+. (Join-Path $wad 'modules\Domenia-Relations.Model.ps1')
+. (Join-Path $wad 'modules\Domenia-Access.Model.ps1')
+. (Join-Path $wad 'modules\Domenia-Shell.Model.ps1')
 . (Join-Path $wad 'modules\Domenia-Embedded.UI.ps1')
 $script:Checks=[Collections.Generic.List[object]]::new()
 $script:Traces=[Collections.Generic.List[object]]::new()
