@@ -3547,7 +3547,7 @@
       "title": "Migration explicite ADCC vers Domenia",
       "proposal": "Conserver données et préférences existantes, vérifier versions et domaines, tracer les reprises de noms historiques.",
       "acceptance_criterion": "Une migration répétée ne duplique pas les liens et n’écrase pas une configuration Domenia déjà créée.",
-      "status": "RACCORDE_NON_EXECUTE",
+      "status": "RACCORDE_A_VALIDER_WINDOWS",
       "reference_ids": [
         "S02",
         "S03",
@@ -3557,16 +3557,19 @@
         "wad/modules/Domenia-Release.Model.ps1",
         "wad/modules/Domenia-Storage.Worker.ps1",
         "wad/modules/Domenia-Storage.UI.ps1",
-        "wad/Domenia-Core.ps1"
+        "wad/Domenia-Core.ps1",
+        "wad/modules/Domenia-Migration.UI.ps1",
+        "wad/modules/Domenia-Migration.Worker.ps1",
+        "wad/modules/Domenia-Guard.UI.ps1"
       ],
       "acceptance_passed": false,
-      "remaining": "G1 raccorde et teste : import atomique LegacyImport par LocalStore, quatre tables vides exigees, associations existantes preservees, marqueur idempotent et ligne de base des liens mise a jour apres commit. Restent G2 (lecteur TSV/CSV historique, canonisation et plan de simulation) et G3 (geste explicite dans Fiabilite et remplacement du chemin de maintenance -ImportLegacy), puis campagne Windows et preuve liee au ZIP final. La migration utilisateur reste partielle.",
+      "remaining": "Parcours Domenia de simulation et reprise explicite raccorde et teste. Reste la qualification Windows liee au ZIP final (aucune qualification declaree par la campagne d integration).",
       "tests": [
         "wad/tests/Test-DomeniaWiringCache.ps1",
         "wad/tests/rules/Release.Tests.ps1"
       ],
-      "wiring": "Partiel",
-      "evidence": "Raccorde en partie (lot cache, etape B) : la migration de schema est atteignable par la regle Test-DomeniaSchemaCompatibility, transactionnelle (BEGIN IMMEDIATE/COMMIT) et idempotente (CREATE IF NOT EXISTS, INSERT OR IGNORE), apres sauvegarde de migration. Campagne d integration Windows PowerShell 5.1.26100.6584 x64 dans la VM CNAMTS-W11-01 le 2026-10-03, commit ff2ece2 lie (409/409) : startcheck reussi, Test-DomeniaWiringCache 19/19 (base plus recente refusee intacte, sauvegarde de migration hors rotation, garde du worker LiveCache), Test-DomeniaRules 438/438 ; doublures et SQLite local, aucun AD reel ; non qualifiant pour la livraison. Etape G1 : Campagne Windows PowerShell 5.1.26100.6584 x64 dans CNAMTS-W11-01 le 2026-10-04, commit bdaf57a propre et lie (416/416) : 2192 reussis, 2 echecs Geometry deja connus ; compatibilite, parseur et startcheck reussis. Test-DomeniaWiringCache 65/65, Test-DomeniaWiringMoteur 37/37. SQLite reel temporaire et doublures reseau, aucun AD reel ; campagne d integration non qualifiante pour la livraison. Rapport local : /Users/david/Documents/Projets/Domenia-lab/runs/d120-cache-g1-bdaf57a/_verdict.json.",
+      "wiring": "Complet",
+      "evidence": "Raccorde en partie (lot cache, etape B) : la migration de schema est atteignable par la regle Test-DomeniaSchemaCompatibility, transactionnelle (BEGIN IMMEDIATE/COMMIT) et idempotente (CREATE IF NOT EXISTS, INSERT OR IGNORE), apres sauvegarde de migration. Campagne d integration Windows PowerShell 5.1.26100.6584 x64 dans la VM CNAMTS-W11-01 le 2026-10-03, commit ff2ece2 lie (409/409) : startcheck reussi, Test-DomeniaWiringCache 19/19 (base plus recente refusee intacte, sauvegarde de migration hors rotation, garde du worker LiveCache), Test-DomeniaRules 438/438 ; doublures et SQLite local, aucun AD reel ; non qualifiant pour la livraison. Etape G1 : Campagne Windows PowerShell 5.1.26100.6584 x64 dans CNAMTS-W11-01 le 2026-10-04, commit bdaf57a propre et lie (416/416) : 2192 reussis, 2 echecs Geometry deja connus ; compatibilite, parseur et startcheck reussis. Test-DomeniaWiringCache 65/65, Test-DomeniaWiringMoteur 37/37. SQLite reel temporaire et doublures reseau, aucun AD reel ; campagne d integration non qualifiante pour la livraison. Rapport local : /Users/david/Documents/Projets/Domenia-lab/runs/d120-cache-g1-bdaf57a/_verdict.json. G2/G3 : Campagne Windows PowerShell 5.1.26100.6584 x64 dans CNAMTS-W11-01 le 2026-10-04, commit 02b6185 propre et lie (419/419) : 2214 reussis, deux echecs Geometry deja connus ; aucune regression depuis G1. Cache 78/78, regles 439/439, moteur 37/37 ; compatibilite, parseur et demarrage reussis. Simulation et sauvegarde executees dans un vrai runspace avec WPF reactif, reprise SQLite atomique testee sur fixtures sans AD reel. Integration non qualifiante pour les ZIP. Rapport local : /Users/david/Documents/Projets/Domenia-lab/runs/d120-cache-g23-02b6185/_verdict.json.",
       "lot": "cache"
     },
     {
