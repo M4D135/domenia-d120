@@ -221,7 +221,7 @@
     "File": "wad/Domenia-Core.ps1",
     "Function": "Start-DomeniaAttributeWrite",
     "LiteralIndex": 0,
-    "Sha256": "9D42588D82D290A3709CF1E68FF079C7CF030A47DF159E0703F74A1FB1BEE6B6"
+    "Sha256": "F992885228C597A1396F2709B4D84487C25E9B9B268D1730B4AB002EDB13A54C"
   },
   {
     "Operation": "WriteAccountDisabled",

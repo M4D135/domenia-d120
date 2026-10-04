@@ -1,5 +1,5 @@
 ﻿#requires -Version 5.1
-<# D091/D094/D095 wiring tests.
+<# D091/D094/D095/D096 wiring tests.
    Real write envelope, real pinned body, real AST-imported UI functions, pure rules dot-sourced.
    No AD write, no network, no real remote mutation. Boundaries are doubled.
 #>
@@ -57,10 +57,11 @@ try {
         if (-not (Get-Command Get-DomeniaReceiptRequirement -ErrorAction SilentlyContinue)) { foreach($p in @(Get-ChildItem -LiteralPath $modulesDir -Filter '*.Model.ps1' -File | ForEach-Object{$_.FullName})) { . $p } }
     }
     if (-not (Get-Command Protect-DomeniaSecretText -ErrorAction SilentlyContinue)) { function Protect-DomeniaSecretText {param($Text); return [string]$Text} }
+    if (-not (Get-Command Test-DomeniaSecretAttribute -ErrorAction SilentlyContinue)) { function Test-DomeniaSecretAttribute {param($Attribute); return $false} }
     foreach($rule in @('Get-DomeniaMember','Get-DomeniaOperationEffect','Get-DomeniaReceiptRequirement','Get-DomeniaReceiptResumeState','New-DomeniaWriteRegistry','Test-DomeniaWriteAdmission','Get-DomeniaPostconditionRule','Resolve-DomeniaPostcondition')) { if (-not (Get-Command $rule -ErrorAction SilentlyContinue)) { throw ('Regles absente : '+$rule) } }
     foreach($fn in @('New-DomeniaInterventionPlan','Test-DomeniaPlanStillValid','ConvertTo-DomeniaPlanChanges','Test-DomeniaPlanHasSecret','New-DomeniaSelectionIdentity')) { if (-not (Get-Command $fn -ErrorAction SilentlyContinue)) { throw ('Fonction de regle absente : '+$fn) } }
     $script:CoreAst=Read-SourceAst (Join-Path $wad 'Domenia-Core.ps1')
-    foreach($name in @('Get-WorkerContext','ConvertTo-DomeniaErrorInfo','Get-DomeniaStructuredError','Get-DomeniaWorkerOperationHashes','ConvertTo-DomeniaCanonicalWorkerCode','Get-DomeniaWorkerCodeHash','Assert-DomeniaWorkerOperationCode','Assert-DomeniaWorkerRegistry','Start-UiTask','Start-DomeniaWriteTask','Set-ControlsBusy','Get-DomeniaControl','Set-DomeniaControlText','Write-DomeniaAtomicText','Assert-WriteAllowed','Assert-DomeniaRemoteWriteAllowed','Get-DomeniaWriteRoute','New-DomeniaSelectionWritePlan','Format-DomeniaPlanConfirmation','Test-DomeniaPlanDispatch','Set-AccountDisabled','Get-DomeniaWritePostcondition','Complete-DomeniaWriteTaskUi','Fail-DomeniaWriteTaskUi','Get-DomeniaEffectiveWorkerResult')) { [void](Import-AstFunction $script:CoreAst $name -Optional) }
+    foreach($name in @('Get-WorkerContext','ConvertTo-DomeniaErrorInfo','Get-DomeniaStructuredError','Get-DomeniaWorkerOperationHashes','ConvertTo-DomeniaCanonicalWorkerCode','Get-DomeniaWorkerCodeHash','Assert-DomeniaWorkerOperationCode','Assert-DomeniaWorkerRegistry','Start-UiTask','Start-DomeniaWriteTask','Set-ControlsBusy','Get-DomeniaControl','Set-DomeniaControlText','Write-DomeniaAtomicText','Assert-WriteAllowed','Assert-DomeniaRemoteWriteAllowed','Get-DomeniaWriteRoute','New-DomeniaSelectionWritePlan','Format-DomeniaPlanConfirmation','Test-DomeniaPlanDispatch','Set-AccountDisabled','Get-DomeniaWritePostcondition','Complete-DomeniaWriteTaskUi','Fail-DomeniaWriteTaskUi','Get-DomeniaEffectiveWorkerResult','Get-DomeniaAttributeWriteStrategy')) { [void](Import-AstFunction $script:CoreAst $name -Optional) }
     foreach($fn in @('Start-UiTask','Start-DomeniaWriteTask','Set-ControlsBusy','Get-DomeniaControl','Get-DomeniaStructuredError','Assert-DomeniaWorkerOperationCode','ConvertTo-DomeniaCanonicalWorkerCode','Get-DomeniaWorkerCodeHash','Get-DomeniaWorkerOperationHashes','Assert-WriteAllowed','Get-DomeniaWriteRoute','New-DomeniaSelectionWritePlan','Format-DomeniaPlanConfirmation','Test-DomeniaPlanDispatch','Set-AccountDisabled')) { if (-not (Get-Command $fn -ErrorAction SilentlyContinue)) { throw ('Fonction absente : '+$fn) } }
     $assignment=@($script:CoreAst.FindAll({param($n)((($n -is [Management.Automation.Language.AssignmentStatementAst])) -and ((($n.Left.Extent.Text -eq '$script:WorkerCommon')) -and (($n.Operator -eq [Management.Automation.Language.TokenKind]::Equals))))},$true))
     if($assignment.Count -ne 1){throw 'Code commun des workers introuvable.'}
@@ -70,6 +71,10 @@ try {
     if(@($ce).Count){throw 'Code commun des workers non analysable.'}
     $script:WorkerCommon=[string]$literal.Value
     foreach($fn in @($commonAst.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst]},$true))) { . ([scriptblock]::Create($fn.Extent.Text)) }
+    if (-not (Get-Command Invoke-WConditionalModify -ErrorAction SilentlyContinue)) {
+        $fnAst=@($commonAst.FindAll({param($n)((($n -is [Management.Automation.Language.FunctionDefinitionAst])) -and (($n.Name -eq 'Invoke-WConditionalModify')))},$true))
+        if ($fnAst.Count -eq 1) { . ([scriptblock]::Create($fnAst[0].Extent.Text)) }
+    }
     $receiptAst=Read-SourceAst (Join-Path $wad 'modules\Domenia-Receipts.Worker.ps1')
     $receiptLiterals=@(Get-SingleQuotedLiterals $receiptAst | Where-Object { $_.Value.Contains('function New-WReceipt') })
     if ($receiptLiterals.Count -lt 1) { throw 'Code worker recus introuvable.' }
@@ -298,6 +303,21 @@ function Invoke-D093WorkerBody {
     $sb=[scriptblock]::Create($body)
     & $sb
 }
+function Invoke-D096WorkerBody {
+    param([string]$FunctionName,$Context,$Payload)
+    $body=Get-D093WorkerBody -FunctionName $FunctionName
+    $wrapper = {
+        param($Context,$Payload)
+        $DomeniaWriteDispatched=$false
+        $err=''
+        $errType=''
+        $errHResult=0
+        $out=$null
+        try { $out = . ([scriptblock]::Create($body)) } catch { $err=$_.Exception.Message; $errType=$_.Exception.GetType().FullName; $errHResult=[int]$_.Exception.HResult }
+        [pscustomobject]@{Output=$out;Error=$err;ErrorType=$errType;ErrorHResult=$errHResult;Dispatched=$DomeniaWriteDispatched}
+    }
+    & $wrapper $Context $Payload
+}
 function New-D093Context {
     param([string]$Server='dc01.example.invalid')
     return [pscustomobject]@{Server=$Server;BaseDn='DC=example,DC=invalid';Domain='example.invalid';Credential=$null;MachineCredential=$null;UseCredential=$false;BindUser='EXAMPLE\lecteur';AllowContainerDelete=$false;ReceiptRoot=''}
@@ -415,6 +435,9 @@ function Reset-WiringFixture {
     $script:D093GuidReadThrows=$false
     $script:D093GuidReadException=$null
     $script:D093PropertyNames=@()
+    $script:D096Mods=$null
+    $script:D096Answer=$null
+    $script:D096Called=0
     $script:StatusLines=[Collections.Generic.List[string]]::new()
     $script:InfoBoxes=[Collections.Generic.List[string]]::new()
     $script:LastWritePostcondition=$null
@@ -925,6 +948,213 @@ if ($infrastructure) {
             $script:StatusLines=[Collections.Generic.List[string]]::new()
             Complete-DomeniaComputerToolUi -Result ([pscustomobject]@{Message='Reponse en 3 ms.'}) -State ([pscustomobject]@{Tool='Ping';Computer='PC-DEMO-01'})
             Assert-True (-not $script:StatusLines[0].Contains('Verification a faire')) ('Ping : '+$script:StatusLines[0])
+        } finally { End-D093FunctionOverrides }
+    }
+    Test-Case 'D096 conditionnel accepte : une requete Delete+Add, backend Conditional' {
+        Reset-WiringFixture
+        try {
+            Install-D093WHelpers
+            $script:D096Mods=$null
+            $script:D096Answer=[pscustomobject]@{ResultCode=0;Message='';Sent=$true}
+            Set-D093Function 'Invoke-WConditionalModify' { param($Context,[string]$Dn,[object[]]$Modifications) $script:D096Mods=@($Modifications | Where-Object { $null -ne $_ }); return $script:D096Answer }
+            $script:D093PropertyNames=@('description')
+            $script:D093AttributeFirstValue='nouveau'
+            $context=New-D093Context
+            $payload=[pscustomobject]@{DN='CN=Demo User,OU=Users,DC=example,DC=invalid';Changes=@([pscustomobject]@{Name='description';Old='ancien';New='nouveau';Clear=$false;Conditional=$true});Safety=[pscustomobject]@{Guid='00000000-0000-0000-0000-000000000000'}}
+            $r=Invoke-D096WorkerBody -FunctionName 'Start-DomeniaAttributeWrite' -Context $context -Payload $payload
+            Assert-True ($null -ne $r) 'Resultat nul.'
+            Assert-True (([string]$r.Error) -eq '') ('Erreur : '+[string]$r.Error)
+            $out=$r.Output
+            Assert-True ($null -ne $out) 'Output nul.'
+            $mods=@($script:D096Mods)
+            Assert-True ($mods.Count -eq 2) ('Modifications recues : '+$mods.Count)
+            Assert-True ($mods[0].Op -eq 'Delete') ('Op 0 : '+[string]$mods[0].Op)
+            Assert-True ($mods[0].Value -eq 'ancien') ('Value 0 : '+[string]$mods[0].Value)
+            Assert-True ($mods[1].Op -eq 'Add') ('Op 1 : '+[string]$mods[1].Op)
+            Assert-True ($mods[1].Value -eq 'nouveau') ('Value 1 : '+[string]$mods[1].Value)
+            Assert-True ($out.Backend -eq 'Conditional') ('Backend : '+[string]$out.Backend)
+            Assert-True ($r.Dispatched -eq $true) ('Dispatched : '+[string]$r.Dispatched)
+            $pc=Get-DomeniaWritePostcondition -OperationId 'WriteAttributes' -Result $out
+            Assert-True ($null -ne $pc) 'Postcondition resolu nulle.'
+            Assert-True ($pc.Status -eq 'Verifie') ('Statut : '+[string]$pc.Status)
+        } finally { End-D093FunctionOverrides }
+    }
+    Test-Case 'D096 conflit 16 : rien d ecrase, envoi annule' {
+        Reset-WiringFixture
+        try {
+            Install-D093WHelpers
+            $script:D096Mods=$null
+            $script:D096Answer=[pscustomobject]@{ResultCode=16;Message='';Sent=$true}
+            Set-D093Function 'Invoke-WConditionalModify' { param($Context,[string]$Dn,[object[]]$Modifications) $script:D096Mods=@($Modifications | Where-Object { $null -ne $_ }); return $script:D096Answer }
+            $script:D093PropertyNames=@('description')
+            $script:D093AttributeFirstValue='nouveau'
+            $context=New-D093Context
+            $payload=[pscustomobject]@{DN='CN=Demo User,OU=Users,DC=example,DC=invalid';Changes=@([pscustomobject]@{Name='description';Old='ancien';New='nouveau';Clear=$false;Conditional=$true});Safety=[pscustomobject]@{Guid='00000000-0000-0000-0000-000000000000'}}
+            $r=Invoke-D096WorkerBody -FunctionName 'Start-DomeniaAttributeWrite' -Context $context -Payload $payload
+            Assert-True (([string]$r.Error).Contains('Conflit')) ('Erreur : '+[string]$r.Error)
+            Assert-True (([string]$r.Error).Contains('Rien n a ete ecrase')) ('Erreur : '+[string]$r.Error)
+            Assert-True ($r.Dispatched -eq $false) ('Dispatched : '+[string]$r.Dispatched)
+        } finally { End-D093FunctionOverrides }
+    }
+    Test-Case 'D096 refus 53 : rien applique, envoi annule' {
+        Reset-WiringFixture
+        try {
+            Install-D093WHelpers
+            $script:D096Mods=$null
+            $script:D096Answer=[pscustomobject]@{ResultCode=53;Message='unwilling';Sent=$true}
+            Set-D093Function 'Invoke-WConditionalModify' { param($Context,[string]$Dn,[object[]]$Modifications) $script:D096Mods=@($Modifications | Where-Object { $null -ne $_ }); return $script:D096Answer }
+            $script:D093PropertyNames=@('description')
+            $script:D093AttributeFirstValue='nouveau'
+            $context=New-D093Context
+            $payload=[pscustomobject]@{DN='CN=Demo User,OU=Users,DC=example,DC=invalid';Changes=@([pscustomobject]@{Name='description';Old='ancien';New='nouveau';Clear=$false;Conditional=$true});Safety=[pscustomobject]@{Guid='00000000-0000-0000-0000-000000000000'}}
+            $r=Invoke-D096WorkerBody -FunctionName 'Start-DomeniaAttributeWrite' -Context $context -Payload $payload
+            Assert-True (([string]$r.Error).Contains('Requete refusee')) ('Erreur : '+[string]$r.Error)
+            Assert-True (([string]$r.Error).Contains('unwilling')) ('Diagnostic du controleur perdu : '+[string]$r.Error)
+            Assert-True ($r.Dispatched -eq $false) ('Dispatched : '+[string]$r.Dispatched)
+        } finally { End-D093FunctionOverrides }
+    }
+    Test-Case 'D096 refus 50 : acces refuse reconnu, envoi annule' {
+        Reset-WiringFixture
+        try {
+            Install-D093WHelpers
+            $script:D096Mods=$null
+            $script:D096Answer=[pscustomobject]@{ResultCode=50;Message='INSUFF_ACCESS_RIGHTS';Sent=$true}
+            Set-D093Function 'Invoke-WConditionalModify' { param($Context,[string]$Dn,[object[]]$Modifications) $script:D096Mods=@($Modifications | Where-Object { $null -ne $_ }); return $script:D096Answer }
+            $script:D093PropertyNames=@('description')
+            $script:D093AttributeFirstValue='nouveau'
+            $context=New-D093Context
+            $payload=[pscustomobject]@{DN='CN=Demo User,OU=Users,DC=example,DC=invalid';Changes=@([pscustomobject]@{Name='description';Old='ancien';New='nouveau';Clear=$false;Conditional=$true});Safety=[pscustomobject]@{Guid='00000000-0000-0000-0000-000000000000'}}
+            $r=Invoke-D096WorkerBody -FunctionName 'Start-DomeniaAttributeWrite' -Context $context -Payload $payload
+            Assert-True (([string]$r.Error) -match '(?i)acc[eè]s.*refus') ('Erreur : '+[string]$r.Error)
+            Assert-True (([string]$r.Error).Contains('INSUFF_ACCESS_RIGHTS')) ('Diagnostic du controleur perdu : '+[string]$r.Error)
+            Assert-True ($r.ErrorType -eq 'System.UnauthorizedAccessException') ('Type : '+[string]$r.ErrorType)
+            Assert-True ($r.ErrorHResult -eq -2147024891) ('HResult : '+[string]$r.ErrorHResult)
+            Assert-True ($r.Dispatched -eq $false) ('Dispatched : '+[string]$r.Dispatched)
+        } finally { End-D093FunctionOverrides }
+    }
+    Test-Case 'D096 pas de reponse 81 : etat inconnu' {
+        Reset-WiringFixture
+        try {
+            Install-D093WHelpers
+            $script:D096Mods=$null
+            $script:D096Answer=[pscustomobject]@{ResultCode=81;Message='';Sent=$true}
+            Set-D093Function 'Invoke-WConditionalModify' { param($Context,[string]$Dn,[object[]]$Modifications) $script:D096Mods=@($Modifications | Where-Object { $null -ne $_ }); return $script:D096Answer }
+            $script:D093PropertyNames=@('description')
+            $script:D093AttributeFirstValue='nouveau'
+            $context=New-D093Context
+            $payload=[pscustomobject]@{DN='CN=Demo User,OU=Users,DC=example,DC=invalid';Changes=@([pscustomobject]@{Name='description';Old='ancien';New='nouveau';Clear=$false;Conditional=$true});Safety=[pscustomobject]@{Guid='00000000-0000-0000-0000-000000000000'}}
+            $r=Invoke-D096WorkerBody -FunctionName 'Start-DomeniaAttributeWrite' -Context $context -Payload $payload
+            Assert-True (([string]$r.Error).Contains('Pas de reponse')) ('Erreur : '+[string]$r.Error)
+            Assert-True ($r.Dispatched -eq $true) ('Dispatched : '+[string]$r.Dispatched)
+        } finally { End-D093FunctionOverrides }
+    }
+    Test-Case 'D096 echec avant envoi : non envoye' {
+        Reset-WiringFixture
+        try {
+            Install-D093WHelpers
+            $script:D096Mods=$null
+            $script:D096Answer=[pscustomobject]@{ResultCode=-1;Message='bind';Sent=$false}
+            Set-D093Function 'Invoke-WConditionalModify' { param($Context,[string]$Dn,[object[]]$Modifications) $script:D096Mods=@($Modifications | Where-Object { $null -ne $_ }); return $script:D096Answer }
+            $script:D093PropertyNames=@('description')
+            $script:D093AttributeFirstValue='nouveau'
+            $context=New-D093Context
+            $payload=[pscustomobject]@{DN='CN=Demo User,OU=Users,DC=example,DC=invalid';Changes=@([pscustomobject]@{Name='description';Old='ancien';New='nouveau';Clear=$false;Conditional=$true});Safety=[pscustomobject]@{Guid='00000000-0000-0000-0000-000000000000'}}
+            $r=Invoke-D096WorkerBody -FunctionName 'Start-DomeniaAttributeWrite' -Context $context -Payload $payload
+            Assert-True (([string]$r.Error).Contains('non envoyee')) ('Erreur : '+[string]$r.Error)
+            Assert-True ($r.Dispatched -eq $false) ('Dispatched : '+[string]$r.Dispatched)
+        } finally { End-D093FunctionOverrides }
+    }
+    Test-Case 'D096 bind refuse 49 : non envoye, identifiants classables' {
+        Reset-WiringFixture
+        try {
+            Install-D093WHelpers
+            $script:D096Mods=$null
+            $script:D096Answer=[pscustomobject]@{ResultCode=49;Message='invalid credentials';Sent=$false}
+            Set-D093Function 'Invoke-WConditionalModify' { param($Context,[string]$Dn,[object[]]$Modifications) $script:D096Mods=@($Modifications | Where-Object { $null -ne $_ }); return $script:D096Answer }
+            $script:D093PropertyNames=@('description')
+            $script:D093AttributeFirstValue='nouveau'
+            $context=New-D093Context
+            $payload=[pscustomobject]@{DN='CN=Demo User,OU=Users,DC=example,DC=invalid';Changes=@([pscustomobject]@{Name='description';Old='ancien';New='nouveau';Clear=$false;Conditional=$true});Safety=[pscustomobject]@{Guid='00000000-0000-0000-0000-000000000000'}}
+            $r=Invoke-D096WorkerBody -FunctionName 'Start-DomeniaAttributeWrite' -Context $context -Payload $payload
+            Assert-True (([string]$r.Error).Contains('non envoyee')) ('Erreur : '+[string]$r.Error)
+            Assert-True ($r.Dispatched -eq $false) ('Dispatched : '+[string]$r.Dispatched)
+            Assert-True ($r.ErrorHResult -eq -2147023570) ('HResult : '+[string]$r.ErrorHResult)
+            Assert-True (([string]$r.Error).Contains('code LDAP 49')) ('Erreur : '+[string]$r.Error)
+        } finally { End-D093FunctionOverrides }
+    }
+    Test-Case 'D096 sans changement conditionnel : chemin d origine' {
+        Reset-WiringFixture
+        try {
+            Install-D093WHelpers
+            $script:D096Mods=$null
+            $script:D096Answer=[pscustomobject]@{ResultCode=0;Message='';Sent=$true}
+            Set-D093Function 'Invoke-WConditionalModify' { param($Context,[string]$Dn,[object[]]$Modifications) $script:D096Mods=@($Modifications | Where-Object { $null -ne $_ }); return $script:D096Answer }
+            $script:D093PropertyNames=@('description')
+            $script:D093AttributeFirstValue='abc'
+            $context=New-D093Context
+            $payload=[pscustomobject]@{DN='CN=Demo User,OU=Users,DC=example,DC=invalid';Changes=@([pscustomobject]@{Name='description';Old='ancien';New='abc';Clear=$false;Conditional=$false});Safety=[pscustomobject]@{Guid='00000000-0000-0000-0000-000000000000'}}
+            $r=Invoke-D096WorkerBody -FunctionName 'Start-DomeniaAttributeWrite' -Context $context -Payload $payload
+            Assert-True ($null -ne $r) 'Resultat nul.'
+            Assert-True (([string]$r.Error) -eq '') ('Erreur : '+[string]$r.Error)
+            $modsEmpty = (($null -eq $script:D096Mods) -or (@($script:D096Mods).Count -eq 0))
+            Assert-True $modsEmpty 'La doublure Invoke-WConditionalModify a ete appelee.'
+            Assert-True ($null -ne $r.Output) 'Output nul.'
+            Assert-True ($r.Output.Backend -eq 'ADSI') ('Backend : '+[string]$r.Output.Backend)
+            Assert-True ($r.Dispatched -eq $true) ('Dispatched : '+[string]$r.Dispatched)
+        } finally { End-D093FunctionOverrides }
+    }
+    Test-Case 'D096 strategie : texte connu conditionnel, DN et brut en relecture' {
+        Reset-WiringFixture
+        try {
+            if (-not (Get-Command Get-DomeniaAttributeWriteStrategy -ErrorAction SilentlyContinue)) { throw 'Get-DomeniaAttributeWriteStrategy absente.' }
+            if (-not (Get-Command Get-DomeniaAtomicStrategy -ErrorAction SilentlyContinue)) { throw 'Get-DomeniaAtomicStrategy absente.' }
+            $s1=Get-DomeniaAttributeWriteStrategy -Change ([pscustomobject]@{Name='description';Old='a';New='b';Clear=$false})
+            Assert-True ($null -ne $s1) 'Strategie description nulle.'
+            Assert-True ($s1.Strategy -eq 'ConditionalReplace') ('Strategy 1 : '+[string]$s1.Strategy)
+            $s2=Get-DomeniaAttributeWriteStrategy -Change ([pscustomobject]@{Name='description';Old='a';New='';Clear=$true})
+            Assert-True ($null -ne $s2) 'Strategie description effacee nulle.'
+            Assert-True ($s2.Strategy -eq 'ConditionalDelete') ('Strategy 2 : '+[string]$s2.Strategy)
+            $s3=Get-DomeniaAttributeWriteStrategy -Change ([pscustomobject]@{Name='manager';Old='a';New='b';Clear=$false})
+            Assert-True ($null -ne $s3) 'Strategie manager nulle.'
+            Assert-True ($s3.Strategy -eq 'ReadBeforeAfter') ('Strategy 3 : '+[string]$s3.Strategy)
+            $s4=Get-DomeniaAttributeWriteStrategy -Change ([pscustomobject]@{Name='extensionAttribute1';Old='a';New='b';Clear=$false})
+            Assert-True ($null -ne $s4) 'Strategie extensionAttribute1 nulle.'
+            Assert-True ($s4.Strategy -eq 'ReadBeforeAfter') ('Strategy 4 : '+[string]$s4.Strategy)
+        } finally { End-D093FunctionOverrides }
+    }
+    Test-Case 'D096 plan : limites affichees' {
+        Reset-WiringFixture
+        try {
+            $change=New-TestChange -Attribute 'description' -Kind 'Replace' -Before 'a' -After 'b'
+            $planUnlock=New-DomeniaSelectionWritePlan -OperationId 'WriteUnlock' -Changes @($change) -Effects @()
+            $textUnlock=Format-DomeniaPlanConfirmation -Plan $planUnlock
+            Assert-True ($null -ne $textUnlock) 'Confirmation WriteUnlock nulle.'
+            Assert-True ($textUnlock.Contains('Pas de condition atomique')) 'Limite fixe absente du plan WriteUnlock.'
+            $planAttrs=New-DomeniaSelectionWritePlan -OperationId 'WriteAttributes' -Changes @($change) -Effects @('X')
+            $textAttrs=Format-DomeniaPlanConfirmation -Plan $planAttrs
+            Assert-True ($null -ne $textAttrs) 'Confirmation WriteAttributes nulle.'
+            Assert-True (-not $textAttrs.Contains('Pas de condition atomique')) 'Limite fixe presente sur WriteAttributes.'
+        } finally { End-D093FunctionOverrides }
+    }
+    Test-Case 'D096 bibliotheque LDAP : construction reelle sans serveur' {
+        Reset-WiringFixture
+        try {
+            # The real function lives in its own WorkerCommon += block: load exactly that source, not a stand-in.
+            $lit=@(Get-SingleQuotedLiterals $script:CoreAst | Where-Object { $_.Value.Contains('function Invoke-WConditionalModify') })
+            if ($lit.Count -ne 1) { throw ('Bloc commun Invoke-WConditionalModify introuvable : '+$lit.Count) }
+            $lt=$null;$le=$null;$litAst=[Management.Automation.Language.Parser]::ParseInput([string]$lit[0].Value,[ref]$lt,[ref]$le)
+            if (@($le).Count) { throw 'Bloc commun Invoke-WConditionalModify non analysable.' }
+            $fnAst=@($litAst.FindAll({param($n)((($n -is [Management.Automation.Language.FunctionDefinitionAst])) -and (($n.Name -eq 'Invoke-WConditionalModify')))},$true))
+            if ($fnAst.Count -ne 1) { throw 'Invoke-WConditionalModify absente du bloc commun.' }
+            Set-D093Function 'Invoke-WConditionalModify' ($fnAst[0].Body.GetScriptBlock())
+            $context=[pscustomobject]@{Server='127.0.0.1';Domain='';UseCredential=$false;Credential=$null}
+            $mods=@([pscustomobject]@{Name='description';Op='Replace';Value='x'})
+            $res=Invoke-WConditionalModify $context 'CN=x,DC=example,DC=invalid' $mods
+            Assert-True ($null -ne $res) 'Reponse LDAP nulle.'
+            Assert-True ($res.Sent -eq $false) ('Sent : '+[string]$res.Sent)
+            Assert-True ($res.ResultCode -ne 0) ('ResultCode : '+[string]$res.ResultCode)
+            Assert-True (-not ([string]$res.Message).Contains('Cannot find type')) ('Type introuvable : '+[string]$res.Message)
+            Assert-True (-not ([string]$res.Message -match '(?i)constructor|overload|argument')) ('Construction invalide : '+[string]$res.Message)
         } finally { End-D093FunctionOverrides }
     }
 }

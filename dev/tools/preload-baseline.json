@@ -1,5 +1,5 @@
 {
-  "Archive": "lot ecritures etape B2 complement",
+  "Archive": "lot ecritures etape C",
   "ArchiveSHA256": "655ED21F90345B3C7667D4E777814C6A0595A5D5BE628AD587FB46CCA5241922",
   "CoreFunctions": {
     "Write-DomeniaAtomicText": "1C9A1583F52EB7BE80BE420662653E4AF886FE11DC4FDB3B1C4CDF19FD1C0EDA",
@@ -488,8 +488,8 @@
     "Load-UserMachineLinks": "D588E9FAB3DB852FD760624C2A463CDEA8A5B97BAF550C273F8C7C1B2CB7776D",
     "ConvertTo-DomeniaCanonicalWorkerCode": "48A6A851309CF03C8AA4802B160FC0C9D3234B795C63D0BAED6923BF42FE2FAF",
     "Get-DomeniaWorkerCodeHash": "6B81660F207AAEB37BA076144EDD12F5A926F9F64858B03755C2567E335C0D16",
-    "Get-DomeniaWorkerOperationHashes": "FBFF039C8C075ECDFCC50D016CCB6B29543A94207DFDF45882803C04B62BC05A",
-    "Assert-DomeniaWorkerRegistry": "1133F47F9B05442B5004C57D1A5C8250C7B1A278250A6409B25FDB69268D1642",
+    "Get-DomeniaWorkerOperationHashes": "81746F7D5103A67D1DAA90E9C7002AC32DC80062BC36BAAFB17212080D1BB56C",
+    "Assert-DomeniaWorkerRegistry": "8B0E4201293DE8BF8F9A78EEAAAC83D9B9866C8E03EB0E69E2C9C46CA7ACD5A3",
     "Assert-DomeniaWorkerOperationCode": "41D63871EDC11F5765938E6DAF8004A01471CD63E9666E2569D6E43008032526",
     "Get-DomeniaWorkerEngineSelfTestCode": "7FB07491846A78A89C13351DC07ABCA7B150642EE02AA25FF430A19942001AF0",
     "New-DomeniaWorkerRunspace": "8D2FB4E8786E147F555EC5860E76F8EB0D606D66BF9A610F43A0CC2836197A0D",
@@ -535,11 +535,12 @@
     "Complete-DomeniaWriteTaskUi": "53E3A1BE01A06B6FDF7E0D0BBA0AC3A3C4C73BA1A29D111F9465F4736C9D6D3A",
     "Fail-DomeniaWriteTaskUi": "9FFFE79CD69B24DD6C6A73A1D6710BCC1BD49365499311C1C9CBB76AE7914780",
     "Get-DomeniaWriteRoute": "5CA1820164C5A7F27B32EB219FC08EA32EA893B5885F33BF8E7B0002B59BB2EC",
-    "New-DomeniaSelectionWritePlan": "65618E23EF2B95535702F02BA5E76D7E1752BFEE8C7705740BB67A5F8600DAD2",
+    "New-DomeniaSelectionWritePlan": "89CA6A7586A8FFDABD3492B3A353D91BED2DEA41BE5E81E61285EEAB81AE6C85",
     "Format-DomeniaPlanConfirmation": "E7DF79D9E1D37BDB0AFAECB3BEFBA8836D65B3E68533017D8F001C45F975133E",
     "Test-DomeniaPlanDispatch": "163CBD3253F9EF80EFEC52D578D69DAAFBD0F5DFA921B385703E4CC45501A3EC",
     "Start-DomeniaWriteTask": "8343A0371FD97A00156CB96CF3A99C5FB8175768A945EA54DF487FE97F5546D5",
-    "Start-DomeniaAttributeWrite": "B69BB8B783D9C462DCE66DDDA4884C35B7783932E8F8D136D11A3080511A48C3",
+    "Get-DomeniaAttributeWriteStrategy": "3631C297178979D9FFA127A0255E53482ACF01025D7939B5A7F2F439054E12ED",
+    "Start-DomeniaAttributeWrite": "FFCBC7E838BD0D72CDB46D1EE7A7108A06F524F8C2524670740979413CFFD8FF",
     "Save-UserProfile": "4541FE489084819B377EDC19D4195C463814EB5E5DD5A399ADD97B0235E6149E",
     "Save-ComputerProfile": "814403AD45C3E33ED84245B11A4F9633FA417C00838916822F19E14D1E8B7A9D",
     "Save-GroupProfile": "7FBA43377AD95071A7FF5C104DB3786D966ADE005848438D4683C157144F3049",
@@ -586,7 +587,7 @@
     "Get-DomeniaStandardLoginXaml": "943F338242C5B7CBE9D0384128DCD1369C8FAB3468F433F09D21461E294575FD",
     "Get-DomeniaDebugLoginXaml": "20D4A0D101217FBAA6CCAD1D0C72B28A67ED3C9DF060430F70170754BCA5D137",
     "Show-LoginWindow": "2DE31969C7AA42AA39ACB0329CD42097EBF54AD734CC74D21E7864A04D080C3A",
-    "Invoke-DomeniaSelfTest": "207C16976B873FADC832E2ACE3C23750A0D030E5AF1F9E393DDDDAA40D76B19D"
+    "Invoke-DomeniaSelfTest": "52B29DCE6993E71CD1ED4492BB376C8374C3D72434D38DAAC0A2A9A1E70982A1"
   },
   "Files": {
     ".github/workflows/windows.yml": "7926C8DFD11FE9105D34E454E9D0168B94DCE27479C952DE8DA0379746F4D30A",
@@ -1230,6 +1231,24 @@
       ],
       "AddedCoreFunctions": [
         "Get-DomeniaRemotePostconditionText"
+      ],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "lot ecritures etape B2 complement",
+      "Source": "lot ecritures etape C",
+      "Decision": "Lot ecritures etape C (D096) : Invoke-WConditionalModify (code commun worker, System.DirectoryServices.Protocols : une seule ModifyRequest, bind explicite, Sent indique si la requete a pu partir, reponse lue pour les renvois) ; worker WriteAttributes : pour un attribut texte a valeur unique d un objet SAM, Delete de l ancienne valeur + Add de la nouvelle dans la meme requete ; refus du controleur 1-80 = rien applique (recu NotSent, 50 = acces refuse type, 16/20 conflit, 19 contrainte), non envoye = NotSent avec code classable (49, 81), sans reponse = ETAT INCONNU ; chemin Module/ADSI inchange sans changement conditionnel. Get-DomeniaAttributeWriteStrategy ajoute ; Start-DomeniaAttributeWrite et New-DomeniaSelectionWritePlan affichent les limites exactes. Revue adverse (5 angles, 16 constats confirmes, 6 defauts distincts corriges) puis verification independante. Prouve par Test-DomeniaWiringEcritures 38/38 dans la VM, dont la construction reelle des types LDAP sous 5.1 sans serveur.",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Get-DomeniaAttributeWriteStrategy",
+        "Get-DomeniaWorkerOperationHashes",
+        "Invoke-DomeniaSelfTest",
+        "New-DomeniaSelectionWritePlan",
+        "Start-DomeniaAttributeWrite"
+      ],
+      "AddedCoreFunctions": [
+        "Get-DomeniaAttributeWriteStrategy"
       ],
       "RemovedCoreFunctions": [],
       "ChangedPayloads": []

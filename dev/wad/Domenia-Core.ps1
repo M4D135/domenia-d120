@@ -20692,7 +20692,7 @@ function Get-DomeniaWorkerOperationHashes {
         PruneLinks            = "0CDDB662FA027ED979FC9A44A7A66662DB540D5B562F9D33CCDD3BA86FF0819F"
         OpenLinkedObject      = "24863184FC8441FCE8F270A75B30736954AC066DBBC5A2DE99CDF1C5D7CAA6C2"
         OpenAdObject          = "28BA398A2209576CAA79A637C0BE2CF05AF51013D553F0155F87C99A29CBB284"
-        WriteAttributes       = "9D42588D82D290A3709CF1E68FF079C7CF030A47DF159E0703F74A1FB1BEE6B6"
+        WriteAttributes       = "F992885228C597A1396F2709B4D84487C25E9B9B268D1730B4AB002EDB13A54C"
         WriteAccountDisabled  = "F95D9F066EBD52859A8FED47FB42F3981DF80903D8543818B2633A233C41E321"
         WriteUnlock           = "0C77C5EBCA4A4F4D2F5F99709D03DC86965747604D97CFB67FCA49988BE76FE5"
         WriteResetPassword    = "D74B0E6923B37ACFF9E576EE4DF580410436DD7A77821A16CA188E7175ACDCCE"
@@ -20729,7 +20729,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "80D69C0B27F6F0EFE04954F7DC92538CF8BD8B6AD0364320255960418A6BC16C"
+    $expectedFingerprint = "059D8DDEC588B90CF136D2B5C16388401165ACA8308751DCE101645AEE109BE9"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -22586,11 +22586,24 @@ function New-DomeniaSelectionWritePlan {
     $identity = Get-DomeniaCurrentSelectionIdentity
     if ($null -eq $identity) { throw 'Selection sans identite exacte (domaine et GUID) : relire l objet avant toute ecriture.' }
     $route = Get-DomeniaWriteRoute
-    $effectList = @($Effects)
-    if ($null -ne $route.PSObject.Properties['Limit'] -and -not [string]::IsNullOrWhiteSpace([string]$route.Limit)) {
-        $effectList = @($effectList + [string]$route.Limit)
+    $effectList = New-Object Collections.ArrayList
+    foreach ($e in @($Effects)) {
+        if (-not [string]::IsNullOrWhiteSpace([string]$e)) { [void]$effectList.Add([string]$e) }
     }
-    return New-DomeniaInterventionPlan -OperationId $OperationId -Target $identity -Server ([string]$route.Server) -Account ([string]$route.Account) -Changes $Changes -Effects $effectList -Simulation $false
+    if ($null -ne $route.PSObject.Properties['Limit'] -and -not [string]::IsNullOrWhiteSpace([string]$route.Limit)) {
+        $routeLimit = [string]$route.Limit
+        $exists = $false
+        foreach ($e in $effectList) { if ([string]$e -ceq $routeLimit) { $exists = $true; break } }
+        if (-not $exists) { [void]$effectList.Add($routeLimit) }
+    }
+    $attributeOperation = ('Write' + 'Attributes')
+    if ($OperationId -ne $attributeOperation) {
+        $fixedLimit = 'Pas de condition atomique : objet relu sur le controleur prevu juste avant l envoi (version de l objet), puis relu apres. Aucune transaction entre plusieurs requetes.'
+        $exists = $false
+        foreach ($e in $effectList) { if ([string]$e -ceq $fixedLimit) { $exists = $true; break } }
+        if (-not $exists) { [void]$effectList.Add($fixedLimit) }
+    }
+    return New-DomeniaInterventionPlan -OperationId $OperationId -Target $identity -Server ([string]$route.Server) -Account ([string]$route.Account) -Changes $Changes -Effects @($effectList.ToArray()) -Simulation $false
 }
 
 function Format-DomeniaPlanConfirmation {
@@ -22805,6 +22818,170 @@ function Escape-WRdn {
 }
 '@
 
+$script:WorkerCommon += @'
+function Invoke-WConditionalModify {
+    param($Context,[string]$Dn,[object[]]$Modifications)
+    try { Add-Type -AssemblyName System.DirectoryServices.Protocols -ErrorAction Stop } catch { return [pscustomobject]@{ResultCode=-1;Message=[string]$_.Exception.Message;Sent=$false} }
+    $conn = $null
+    $netCred = $null
+    $secure = $null
+    $pass = ''
+    $net = $null
+    $mods = $null
+    $identifier = $null
+    $request = $null
+    $so = $null
+    $sent = $false
+    try {
+        $mods = New-Object 'System.Collections.Generic.List[System.DirectoryServices.Protocols.DirectoryAttributeModification]'
+        foreach ($m in @($Modifications)) {
+            if ($null -eq $m) { continue }
+            $name = [string]$m.Name
+            if ([string]::IsNullOrWhiteSpace($name)) { continue }
+            $op = [string]$m.Op
+            $val = [string]$m.Value
+            $mod = New-Object System.DirectoryServices.Protocols.DirectoryAttributeModification
+            $mod.Name = $name
+            if ($op -ieq 'Delete') {
+                $mod.Operation = [System.DirectoryServices.Protocols.DirectoryAttributeOperation]::Delete
+                if (-not [string]::IsNullOrEmpty($val)) { [void]$mod.Add($val) }
+            } elseif ($op -ieq 'Add') {
+                if ([string]::IsNullOrEmpty($val)) { continue }
+                $mod.Operation = [System.DirectoryServices.Protocols.DirectoryAttributeOperation]::Add
+                [void]$mod.Add($val)
+            } elseif ($op -ieq 'Replace') {
+                $mod.Operation = [System.DirectoryServices.Protocols.DirectoryAttributeOperation]::Replace
+                [void]$mod.Add($val)
+            } elseif ($op -ieq 'Clear') {
+                $mod.Operation = [System.DirectoryServices.Protocols.DirectoryAttributeOperation]::Delete
+            } else { continue }
+            [void]$mods.Add($mod)
+        }
+        if ($mods.Count -eq 0) { return [pscustomobject]@{ResultCode=0;Message='Aucune modification.';Sent=$false} }
+        if ([string]::IsNullOrWhiteSpace($Dn)) { return [pscustomobject]@{ResultCode=-1;Message='DN absent : aucune ecriture envoyee.';Sent=$false} }
+        $server = ([string]$Context.Server).Trim().Trim('/').Trim()
+        if ($server -match '(?i)^LDAP://(.*)$') { $server = $matches[1].Trim().Trim('/').Trim() }
+        if ([string]::IsNullOrWhiteSpace($server)) {
+            $server = ([string]$Context.Domain).Trim().Trim('/').Trim()
+            if ($server -match '(?i)^LDAP://(.*)$') { $server = $matches[1].Trim().Trim('/').Trim() }
+        }
+        if ($server -match '^([^:]+):(\d+)$') { $server = $matches[1].Trim() }
+        if ([string]::IsNullOrWhiteSpace($server)) { return [pscustomobject]@{ResultCode=-1;Message='Serveur ou domaine absent du contexte.';Sent=$false} }
+        $identifier = New-Object System.DirectoryServices.Protocols.LdapDirectoryIdentifier -ArgumentList @($server, 389)
+        if ([bool]$Context.UseCredential -and ($null -ne $Context.Credential)) {
+            $net = $Context.Credential.GetNetworkCredential()
+            if ($null -eq $net) { throw 'Credential sans GetNetworkCredential.' }
+            $bindUser = Get-WDirectoryBindUser $Context
+            if ([string]::IsNullOrWhiteSpace($bindUser)) { $bindUser = [string]$Context.Credential.UserName }
+            # Same identity as the login and the other write paths: only DOMAIN\user is split, a UPN stays whole.
+            if ([string]::IsNullOrWhiteSpace($bindUser)) { $bindUser = [string]$net.UserName }
+            $user = $bindUser
+            $domain = ''
+            if ($bindUser -match '^([^\\@]+)\\(.+)$') { $domain = $matches[1]; $user = $matches[2] }
+            if ($Context.Credential.PSObject.Properties['Password']) { $secure = $Context.Credential.Password }
+            if ($secure -is [Security.SecureString]) {
+                $netCred = New-Object System.Net.NetworkCredential -ArgumentList @($user, $secure, $domain)
+            } else {
+                $pass = [string]$net.Password
+                $netCred = New-Object System.Net.NetworkCredential -ArgumentList @($user, $pass, $domain)
+                $pass = ''
+            }
+            $net = $null
+            $secure = $null
+            $conn = New-Object System.DirectoryServices.Protocols.LdapConnection -ArgumentList @($identifier, $netCred, [System.DirectoryServices.Protocols.AuthType]::Negotiate)
+        } else {
+            $conn = New-Object System.DirectoryServices.Protocols.LdapConnection -ArgumentList @($identifier)
+            $conn.AuthType = [System.DirectoryServices.Protocols.AuthType]::Negotiate
+        }
+        $so = $conn.SessionOptions
+        $so.ProtocolVersion = 3
+        $so.Signing = $true
+        $so.Sealing = $true
+        $conn.Timeout = [TimeSpan]::FromSeconds(30)
+        $request = New-Object System.DirectoryServices.Protocols.ModifyRequest -ArgumentList @([string]$Dn, $mods.ToArray())
+        # Bind first: a failed bind sends nothing. From here on the request may reach the controller.
+        $conn.Bind()
+        $sent = $true
+        $response = $conn.SendRequest($request)
+        if ($null -eq $response) { return [pscustomobject]@{ResultCode=-1;Message='Reponse du controleur absente.';Sent=$true} }
+        $responseCode = [int]$response.ResultCode
+        if ($responseCode -ne 0) {
+            # Referral (10) and the other non-throwing answers: the request was not applied by this controller.
+            $responseText = [string]$response.ErrorMessage
+            if ($null -ne $response.Referral -and @($response.Referral).Count -gt 0) { $responseText = ($responseText + ' Renvoi : ' + ((@($response.Referral) | ForEach-Object { [string]$_ }) -join ', ')).Trim() }
+            return [pscustomobject]@{ResultCode=$responseCode;Message=$responseText;Sent=$true}
+        }
+        return [pscustomobject]@{ResultCode=0;Message='';Sent=$true}
+    } catch [System.DirectoryServices.Protocols.DirectoryOperationException] {
+        $code = -1
+        $msg = [string]$_.Exception.Message
+        if ($null -ne $_.Exception.Response) {
+            $code = [int]$_.Exception.Response.ResultCode
+            if (-not [string]::IsNullOrWhiteSpace([string]$_.Exception.Response.ErrorMessage)) { $msg = [string]$_.Exception.Response.ErrorMessage }
+        }
+        return [pscustomobject]@{ResultCode=$code;Message=$msg;Sent=$sent}
+    } catch [System.DirectoryServices.Protocols.LdapException] {
+        return [pscustomobject]@{ResultCode=[int]$_.Exception.ErrorCode;Message=[string]$_.Exception.Message;Sent=$sent}
+    } catch {
+        return [pscustomobject]@{ResultCode=-1;Message=[string]$_.Exception.Message;Sent=$sent}
+    } finally {
+        if ($null -ne $conn) { try { $conn.Dispose() } catch {} }
+        $conn = $null
+        $netCred = $null
+        $net = $null
+        $secure = $null
+        $pass = ''
+        $mods = $null
+        $identifier = $null
+        $request = $null
+        $so = $null
+    }
+}
+'@
+
+function Get-DomeniaAttributeWriteStrategy {
+    param([Parameter(Mandatory=$true)][object]$Change)
+    $name = [string]$Change.Name
+    $lower = $name.ToLowerInvariant()
+    $clear = [bool]$Change.Clear
+    $new = [string]$Change.New
+    $after = ''
+    if (-not $clear) { $after = $new }
+    $before = [string]$Change.Old
+    $syntax = 'Other'
+    $singleValued = $true
+    $singleText = @{
+        'givenname'=$true
+        'sn'=$true
+        'displayname'=$true
+        'userprincipalname'=$true
+        'mail'=$true
+        'telephonenumber'=$true
+        'physicaldeliveryofficename'=$true
+        'description'=$true
+        'title'=$true
+        'department'=$true
+        'company'=$true
+        'location'=$true
+    }
+    $dnAttrs = @{
+        'manager'=$true
+        'managedby'=$true
+    }
+    if ($dnAttrs.ContainsKey($lower)) {
+        $syntax = 'DN'
+    } elseif ($singleText.ContainsKey($lower)) {
+        $syntax = 'Text'
+    }
+    # description is multi-valued in the schema; only SAM objects (user, computer, group) hold a single value.
+    if ($lower -eq 'description') {
+        $type = ''
+        try { $type = [string]$script:SelectedObject.Type } catch { $type = '' }
+        if ($type -notin @('Utilisateur','Machine','Groupe')) { $singleValued = $false }
+    }
+    return Get-DomeniaAtomicStrategy -Attribute $name -Syntax $syntax -SingleValued $singleValued -Before $before -After $after
+}
+
 function Start-DomeniaAttributeWrite {
     param(
         [string]$OperationName,
@@ -22814,9 +22991,37 @@ function Start-DomeniaAttributeWrite {
         [string]$AfterSuccessAction = "RefreshObjectBranch",
         $AfterSuccessState = $null
     )
-    $clean = @($Changes | Where-Object { $null -ne $_ })
-    if ($clean.Count -eq 0) { Set-Status "Aucune modification detectee. Aucun appel d ecriture AD."; return }
-    try { $plan = New-DomeniaSelectionWritePlan -OperationId 'WriteAttributes' -Changes $clean -Effects @() } catch { Show-ErrorBox $_.Exception.Message; return }
+    $raw = @($Changes | Where-Object { $null -ne $_ })
+    if ($raw.Count -eq 0) { Set-Status "Aucune modification detectee. Aucun appel d ecriture AD."; return }
+    $cleanList = New-Object Collections.ArrayList
+    $conditionalNames = New-Object Collections.ArrayList
+    $checkedNames = New-Object Collections.ArrayList
+    $transactionLimit = ''
+    foreach ($c in $raw) {
+        $strategy = Get-DomeniaAttributeWriteStrategy -Change $c
+        $conditional = $false
+        $strategyName = ''
+        if ($null -ne $strategy) {
+            if ($strategy.PSObject.Properties['Strategy']) { $strategyName = [string]$strategy.Strategy }
+            if ($strategy.PSObject.Properties['TransactionLimit'] -and -not $transactionLimit) { $transactionLimit = [string]$strategy.TransactionLimit }
+        }
+        if ($strategyName -like 'Conditional*') { $conditional = $true }
+        $copy = [pscustomobject]@{ Name=[string]$c.Name; Old=[string]$c.Old; New=[string]$c.New; Clear=[bool]$c.Clear; Conditional=$conditional }
+        [void]$cleanList.Add($copy)
+        if ($conditional) { [void]$conditionalNames.Add([string]$c.Name) }
+        elseif ($strategyName -ne 'NoChange' -and $strategyName -ne 'NotApplicable') { [void]$checkedNames.Add([string]$c.Name) }
+    }
+    $effectList = New-Object Collections.ArrayList
+    if ($conditionalNames.Count -gt 0) {
+        [void]$effectList.Add((($conditionalNames.ToArray()) -join ', ') + ' : condition verifiee par le controleur dans la meme requete ; une valeur modifiee ailleurs fait refuser la requete sans rien ecraser. La comparaison suit la regle de l attribut (insensible a la casse pour ces textes) : une modification ailleurs qui ne change que la casse n est pas detectee.')
+    }
+    if ($checkedNames.Count -gt 0) {
+        [void]$effectList.Add((($checkedNames.ToArray()) -join ', ') + ' : pas de condition atomique ; objet relu sur le controleur prevu juste avant l envoi (version de l objet), puis valeurs relues apres. Une ecriture concurrente entre ces deux lectures n est ni empechee ni detectee.')
+    }
+    if ($transactionLimit) { [void]$effectList.Add($transactionLimit) }
+    $clean = @($cleanList.ToArray())
+    $effects = @($effectList.ToArray() | ForEach-Object { [string]$_ })
+    try { $plan = New-DomeniaSelectionWritePlan -OperationId 'WriteAttributes' -Changes $clean -Effects $effects } catch { Show-ErrorBox $_.Exception.Message; return }
     try { $safety = Get-DomeniaSafetyDescriptor } catch { Show-ErrorBox $_.Exception.Message; return }
     $summary = ($clean | ForEach-Object { "$($_.Name) : [$($_.Old)] -> [$($_.New)]" }) -join "`r`n"
     $confirmMessage = "$OperationName ?`r`n`r`n$summary"
@@ -22826,6 +23031,67 @@ function Start-DomeniaAttributeWrite {
     $payload = [pscustomobject]@{ DN=[string]$plan.Target.DN; Changes=$clean; Safety=$safety }
     $code = @'
 $before=Assert-WObjectFresh $Context $Payload.Safety
+$hasConditional=$false
+foreach($c in @($Payload.Changes)){if([bool]$c.Conditional){$hasConditional=$true;break}}
+if($hasConditional){
+    $mods=New-Object Collections.ArrayList
+    foreach($c in @($Payload.Changes)){
+        if($null -eq $c){continue}
+        $name=[string]$c.Name
+        if([string]::IsNullOrWhiteSpace($name)){continue}
+        if([bool]$c.Conditional){
+            $old=[string]$c.Old
+            $new=''
+            if(-not [bool]$c.Clear){$new=[string]$c.New}
+            if(-not [string]::IsNullOrEmpty($old)){[void]$mods.Add([pscustomobject]@{Name=$name;Op='Delete';Value=$old})}
+            if(-not [string]::IsNullOrEmpty($new)){[void]$mods.Add([pscustomobject]@{Name=$name;Op='Add';Value=$new})}
+        }else{
+            if([bool]$c.Clear){[void]$mods.Add([pscustomobject]@{Name=$name;Op='Clear';Value=''})}
+            else{[void]$mods.Add([pscustomobject]@{Name=$name;Op='Replace';Value=[string]$c.New})}
+        }
+    }
+    if($mods.Count -eq 0){
+        $backend="Conditional"
+        $SentUtc=""
+    }else{
+        $SentUtc=[DateTime]::UtcNow.ToString('o')
+        $DomeniaWriteDispatched=$true
+        $res=Invoke-WConditionalModify $Context ([string]$Payload.DN) @($mods.ToArray())
+        $ldapCode=-1
+        if($null -ne $res){
+            $ldapCodeText=[string]$res.ResultCode
+            if(-not [int]::TryParse($ldapCodeText,[ref]$ldapCode)){$ldapCode=-1}
+        }
+        if(($null -ne $res) -and (-not [bool]$res.Sent) -and ($ldapCode -ne 0)){
+            $DomeniaWriteDispatched=$false
+            $notSentText="Requete non envoyee au controleur (code LDAP $ldapCode) : rien n a ete applique. $([string]$res.Message)"
+            # Keep the bind failure classifiable like the ADSI path: 49 = logon failure, 81 = directory server down.
+            if($ldapCode -eq 49){throw [Runtime.InteropServices.COMException]::new($notSentText,-2147023570)}
+            if($ldapCode -eq 81){throw [Runtime.InteropServices.COMException]::new($notSentText,-2147016646)}
+            throw $notSentText
+        }
+        if($ldapCode -eq -1){
+            throw "Pas de reponse du controleur (code -1) : l ecriture a pu s appliquer. $([string]$res.Message)"
+        }
+        if($ldapCode -eq 0){
+            $backend="Conditional"
+        }elseif($ldapCode -ge 1 -and $ldapCode -le 80){
+            $DomeniaWriteDispatched=$false
+            $controllerText=[string]$res.Message
+            if($ldapCode -eq 50){
+                throw [UnauthorizedAccessException]::new("Acces refuse par le controleur (code LDAP 50) : rien n a ete applique. $controllerText")
+            }elseif($ldapCode -in @(16,20)){
+                throw "Conflit : valeur modifiee ailleurs sur le controleur depuis l apercu (code LDAP $ldapCode). Rien n a ete ecrase. Relisez puis preparez un nouveau plan. $controllerText"
+            }elseif($ldapCode -eq 19){
+                throw "Refus du controleur (contrainte, code LDAP 19) : la valeur a peut-etre ete modifiee ailleurs ou ne respecte pas une contrainte. Rien n a ete applique. $controllerText"
+            }else{
+                throw "Requete refusee par le controleur (code LDAP $ldapCode) : rien n a ete applique. $controllerText"
+            }
+        }else{
+            throw "Pas de reponse du controleur (code $ldapCode) : l ecriture a pu s appliquer. $([string]$res.Message)"
+        }
+    }
+}else{
 $backend=Get-WWriteBackend $Context @("Set-ADObject")
 $replace=@{};$clear=New-Object Collections.ArrayList
 foreach($c in @($Payload.Changes)){if([bool]$c.Clear){[void]$clear.Add([string]$c.Name)}else{$replace[[string]$c.Name]=[string]$c.New}}
@@ -22845,6 +23111,7 @@ if($backend -eq "Module"){
     $SentUtc=[DateTime]::UtcNow.ToString('o')
     $DomeniaWriteDispatched=$true
     $de.CommitChanges()
+}
 }
 $failed=New-Object Collections.ArrayList
 $expectedValues=@{}
@@ -25059,7 +25326,8 @@ function Invoke-DomeniaSelfTest {
         'Get-DomeniaReceiptRequirement','Get-DomeniaReceiptResumeState','New-DomeniaWriteRegistry','Test-DomeniaWriteAdmission','Set-DomeniaWriteOutcome','Start-DomeniaWriteTask','Invoke-ComputerTool','Start-DomeniaRimotteRun','Get-DomeniaRimotteWorkerCode','Initialize-DomeniaGuard',
         'Get-DomeniaWriteRoute','New-DomeniaSelectionWritePlan','Format-DomeniaPlanConfirmation','Test-DomeniaPlanDispatch','New-DomeniaInterventionPlan','Test-DomeniaPlanStillValid',
         'Get-DomeniaWritePostcondition','Get-DomeniaPostconditionRule','Resolve-DomeniaPostcondition',
-        'Get-DomeniaRemotePostconditionText'
+        'Get-DomeniaRemotePostconditionText',
+        'Get-DomeniaAttributeWriteStrategy','Get-DomeniaAtomicStrategy'
     )
     $missing = @($requiredFunctions | Where-Object { $null -eq (Get-Command -Name $_ -CommandType Function -ErrorAction SilentlyContinue) })
     Add-SelfTestResult -Name 'Fonctions critiques' -Success ($missing.Count -eq 0) -Detail $(if($missing.Count -eq 0){'Toutes presentes.'}else{"Absentes : $($missing -join ', ')"})

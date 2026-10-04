@@ -4,7 +4,8 @@
     "D091",
     "D093",
     "D094",
-    "D095"
+    "D095",
+    "D096"
   ],
   "Modules": [
     {
@@ -69,7 +70,9 @@
     "Get-DomeniaWritePostcondition",
     "Get-DomeniaPostconditionRule",
     "Resolve-DomeniaPostcondition",
-    "Get-DomeniaRemotePostconditionText"
+    "Get-DomeniaRemotePostconditionText",
+    "Get-DomeniaAttributeWriteStrategy",
+    "Get-DomeniaAtomicStrategy"
   ],
   "HelpEntries": [],
   "Features": [
@@ -92,6 +95,11 @@
       "Name": "WritePostconditionStatus",
       "Default": true,
       "Purpose": "Comportement actif par defaut (D093). Chaque worker d ecriture annuaire renvoie ce qu il attendait et ce qu il a relu ; l interface affiche Verifie, Partiel ou A verifier avec la preuve (Resolve-DomeniaPostcondition) et la verification a faire."
+    },
+    {
+      "Name": "ConditionalAttributeWrite",
+      "Default": true,
+      "Purpose": "Comportement actif par defaut (D096). Pour un attribut texte a valeur unique des formulaires, l ancienne valeur est retiree et la nouvelle ajoutee dans une seule requete LDAP (System.DirectoryServices.Protocols) : une valeur modifiee ailleurs fait refuser la requete (16/19/20), rien n est ecrase, le recu passe NotSent. Autres ecritures : objet relu avant (version) et apres, limite affichee dans la confirmation."
     }
   ],
   "StartRequired": [],
@@ -120,9 +128,10 @@
     "Complete-DomeniaWriteTaskUi",
     "Fail-DomeniaWriteTaskUi",
     "Complete-DomeniaComputerToolUi",
-    "Complete-DomeniaRimotteUi"
+    "Complete-DomeniaRimotteUi",
+    "New-DomeniaSelectionWritePlan"
   ],
-  "Notes": "Revision D094/D095. Aucune etape Rejected. Delivered est terminal non bloquant. Unknown ne casse plus Start-UiTask. Les actions distantes passent par Start-UiTask -IsWrite avec CorrelationId 32 hex et cible nom de poste. Le mode lecture seule bloque les actions distantes converties. Les corps ComputerGpUpdate, ComputerRestart, RimotteRun et ReceiptStore sont modifies et devront etre re-epingles apres relecture. Integration : contrat de Get-DomeniaReceiptRequirement conserve (operation inconnue = recu exige, Start-UiTask ne bloque que DirectoryWrite et RemoteMutation sans -IsWrite) ; Test-DomeniaWriteAdmission garde son corps d origine pour le jeu Plan (positions 0,1,2) et gagne la branche Fingerprint. Etape B1 (D091) : plan construit avant chaque confirmation par New-DomeniaSelectionWritePlan, affiche par Format-DomeniaPlanConfirmation, revalide par Test-DomeniaPlanDispatch ; payload construit depuis le DN du plan ; blocs workers inchanges a l octet pres (aucun re-epinglage). Etape B2 (D093) : treize workers d ecriture re-epingles apres revue (Postcondition ajoutee, gardes et ordre d envoi conserves) ; un echec de relecture apres envoi leve toujours (ETAT INCONNU). Complement D093 : GPUpdate, redemarrage et Rimotte affichent A verifier avec la verification a faire (aucune relecture du poste a ce stade).",
+  "Notes": "Revision D094/D095. Aucune etape Rejected. Delivered est terminal non bloquant. Unknown ne casse plus Start-UiTask. Les actions distantes passent par Start-UiTask -IsWrite avec CorrelationId 32 hex et cible nom de poste. Le mode lecture seule bloque les actions distantes converties. Les corps ComputerGpUpdate, ComputerRestart, RimotteRun et ReceiptStore sont modifies et devront etre re-epingles apres relecture. Integration : contrat de Get-DomeniaReceiptRequirement conserve (operation inconnue = recu exige, Start-UiTask ne bloque que DirectoryWrite et RemoteMutation sans -IsWrite) ; Test-DomeniaWriteAdmission garde son corps d origine pour le jeu Plan (positions 0,1,2) et gagne la branche Fingerprint. Etape B1 (D091) : plan construit avant chaque confirmation par New-DomeniaSelectionWritePlan, affiche par Format-DomeniaPlanConfirmation, revalide par Test-DomeniaPlanDispatch ; payload construit depuis le DN du plan ; blocs workers inchanges a l octet pres (aucun re-epinglage). Etape B2 (D093) : treize workers d ecriture re-epingles apres revue (Postcondition ajoutee, gardes et ordre d envoi conserves) ; un echec de relecture apres envoi leve toujours (ETAT INCONNU). Complement D093 : GPUpdate, redemarrage et Rimotte affichent A verifier avec la verification a faire (aucune relecture du poste a ce stade). Etape C (D096) : Invoke-WConditionalModify (bind explicite, Sent indique si la requete a pu partir) ; worker WriteAttributes re-epingle ; chemin Module/ADSI inchange sans changement conditionnel.",
   "DevOnlyFiles": [
     "wad/tests/Test-DomeniaWiringEcritures.ps1"
   ],
@@ -132,6 +141,10 @@
     "Format-DomeniaPlanConfirmation",
     "Test-DomeniaPlanDispatch",
     "Get-DomeniaWritePostcondition",
-    "Get-DomeniaRemotePostconditionText"
+    "Get-DomeniaRemotePostconditionText",
+    "Get-DomeniaAttributeWriteStrategy"
+  ],
+  "WorkerCommonAdded": [
+    "Invoke-WConditionalModify"
   ]
 }
