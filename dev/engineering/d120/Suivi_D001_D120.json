@@ -558,7 +558,7 @@
       "title": "Contexte de sélection unique",
       "proposal": "Une identité typée et immuable porte domaine, GUID/SID, type, compte de lecture et génération vers Fiche, Relations et Assistance.",
       "acceptance_criterion": "Changer un libellé de contrôle ne change jamais la cible d’une opération.",
-      "status": "RACCORDE_NON_EXECUTE",
+      "status": "RACCORDE_A_VALIDER_WINDOWS",
       "reference_ids": [
         "S05"
       ],
@@ -572,7 +572,7 @@
         "wad/modules/Domenia-Selection.UI.ps1"
       ],
       "acceptance_passed": false,
-      "remaining": "Recherche, Fiche, Relations et cible Assistance raccordees a SelectionIdentity ; nouvelles preuves Windows ciblees, campagne complete et qualification du ZIP final restent a consigner.",
+      "remaining": "Qualification Windows liee aux ZIP finaux. Recherche, Fiche, Relations et Assistance raccordees a une identite commune et validees dans la VM.",
       "rule_tests": 5,
       "tests": [
         "wad/tests/Test-DomeniaRelationsAlignment.ps1",
@@ -584,8 +584,8 @@
         "wad/tests/rules/Search.Tests.ps1"
       ],
       "lot": "recherche",
-      "wiring": "Partiel",
-      "evidence": "5 test(s) de regles ; sous PowerShell 7.4 Linux (non qualifiant) le 2026-10-02 : execution de controle seulement. Integration relue et controles statiques (parseur, compatibilite 5.1, plan de demarrage, contrats workers, XAML, build d essai) dans le conteneur de la session. Campagne d integration Windows PowerShell 5.1.26100.6584 x64 dans la VM CNAMTS-W11-01 le 2026-10-03 (campaign.sh run), commit 57aa526 lie (407/407 fichiers) : demarrage reel startcheck reussi, Test-DomeniaRules 438/438, Test-DomeniaWiringRecherche 31/31, Test-DomeniaSearchPresence 61/61, Test-DomeniaSearchScope 42/42 ; doublures, aucun AD reel ; non qualifiant pour la livraison. D012 : 13/14 nouveaux cas reproduisent les anciens defauts avant correction (runs/d012-red-r1). Apres raccordement, SelectionIdentity 14/14, recherche 32/32, Relations 36/36, alignements 65/65, selection 47/47 et streaming 67/67 reussis dans la VM. Attente du moteur et de la campagne complete."
+      "wiring": "Complet",
+      "evidence": "5 test(s) de regles ; sous PowerShell 7.4 Linux (non qualifiant) le 2026-10-02 : execution de controle seulement. Integration relue et controles statiques (parseur, compatibilite 5.1, plan de demarrage, contrats workers, XAML, build d essai) dans le conteneur de la session. Campagne d integration Windows PowerShell 5.1.26100.6584 x64 dans la VM CNAMTS-W11-01 le 2026-10-03 (campaign.sh run), commit 57aa526 lie (407/407 fichiers) : demarrage reel startcheck reussi, Test-DomeniaRules 438/438, Test-DomeniaWiringRecherche 31/31, Test-DomeniaSearchPresence 61/61, Test-DomeniaSearchScope 42/42 ; doublures, aucun AD reel ; non qualifiant pour la livraison. D012 : 13/14 nouveaux cas reproduisent les anciens defauts avant correction (runs/d012-red-r1). Apres raccordement, SelectionIdentity 14/14, recherche 32/32, Relations 36/36, alignements 65/65, selection 47/47 et streaming 67/67 reussis dans la VM. Attente du moteur et de la campagne complete. Campagne Windows PS 5.1 x64 dans W11-01 sur 64e6b69777188f2c7297b8334ab63d6f7f24197e, source propre liee 423/423 fichiers : 2365 reussis, aucun echec, aucune regression depuis 776731c ; 39 suites completes. SelectionIdentity 14/14, cache 143/143, Relations 36/36. Aucun AD reel. Integration, qualification ZIP encore absente."
     },
     {
       "id": "D013",
