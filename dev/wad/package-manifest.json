@@ -266,8 +266,8 @@
     },
     {
       "Path": "engineering/d120/ETAT-2026-10-02.md",
-      "Sha256": "B1967860AC9C81040BF75B63BBB86BD94ECFD815F45AD79E5F7508D230525C4D",
-      "Bytes": 33780,
+      "Sha256": "94E6D64CB320568E770C9FFCC4146D6DBB1A97D871E771D4A0DF5B8F79ECA2C6",
+      "Bytes": 35345,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -287,8 +287,8 @@
     },
     {
       "Path": "engineering/d120/Suivi_D001_D120.json",
-      "Sha256": "AEC9A958B5982F24DA3C07A4EF6362C8BE744907907F4A0E6E6CCE319543D2CF",
-      "Bytes": 217848,
+      "Sha256": "B25C1A55551DCE855A9C644ED5591F92CEADFD64F193171DF7224304C6AC7F8F",
+      "Bytes": 219373,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -310,6 +310,13 @@
       "Path": "engineering/d120/lab/Invoke-LabRun.ps1",
       "Sha256": "2992ECE190F036316F992C8F5A68FDFDBED3B9BA10E449A426D73E6E80090F82",
       "Bytes": 3157,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "engineering/d120/lab/Validate-D096-Controller.ps1",
+      "Sha256": "9FAE5BF26E4756418D901515DEC6762B1DFE1D5F30DB7E72480D9F9FE114C979",
+      "Bytes": 6142,
       "Runtime": false,
       "PreserveExisting": false
     },
