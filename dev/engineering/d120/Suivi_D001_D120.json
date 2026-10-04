@@ -1104,23 +1104,26 @@
       "title": "Rétention et quotas pilotables",
       "proposal": "Borner observations, snapshots, journaux et historique ; afficher l’espace consommé et proposer une purge sélective.",
       "acceptance_criterion": "La purge du cache ne supprime jamais configurations, associations manuelles ou reçus non résolus.",
-      "status": "DEVELOPPE_NON_RACCORDE",
+      "status": "RACCORDE_NON_EXECUTE",
       "reference_ids": [
         "S06",
         "S07",
         "S08"
       ],
       "implementation_files": [
-        "wad/modules/Domenia-Cache.Model.ps1"
+        "wad/modules/Domenia-Cache.Model.ps1",
+        "wad/modules/Domenia-Storage.Worker.ps1"
       ],
       "acceptance_passed": false,
-      "remaining": "Raccordement du lot cache a faire : cle de visite, presence, file d ecriture unique (Domenia-Storage), reconciliation, base (schema 11). Campagne Windows PowerShell 5.1 dans la VM CNAMTS-W11-01 (Invoke-LabRun, suite d integration du lot) puis preuve liee au ZIP final.",
+      "remaining": "Garde du plafond automatique LocalStore raccordee et testee : historique Manual, Saisie manuelle et Import CSV protege, ainsi que tout historique des associations actuellement protegees ; plafond de 20000 applique seulement au reste. Restent L1-L3 : purge selective explicite, interface et stockage, protection de Start-PruneOrphanLinks, puis preuve Windows liee au ZIP final. Domenia.log et recus restent hors purge.",
       "rule_tests": 1,
       "tests": [
-        "wad/tests/rules/Cache.Tests.ps1"
+        "wad/tests/rules/Cache.Tests.ps1",
+        "wad/tests/Test-DomeniaWiringCache.ps1"
       ],
-      "wiring": "Aucun",
-      "evidence": "Regles executees sous Windows PowerShell 5.1.26100.6584 (VM W11-01) par branche avant fusion (commit 1b2dedb). 1 test(s) de regles ; sous PowerShell 7.4 Linux (non qualifiant) le 2026-10-02 : execution de controle seulement."
+      "wiring": "Partiel",
+      "evidence": "Regles executees sous Windows PowerShell 5.1.26100.6584 (VM W11-01) par branche avant fusion (commit 1b2dedb). 1 test(s) de regles ; sous PowerShell 7.4 Linux (non qualifiant) le 2026-10-02 : execution de controle seulement. Etape G1 : Campagne Windows PowerShell 5.1.26100.6584 x64 dans CNAMTS-W11-01 le 2026-10-04, commit bdaf57a propre et lie (416/416) : 2192 reussis, 2 echecs Geometry deja connus ; compatibilite, parseur et startcheck reussis. Test-DomeniaWiringCache 65/65, Test-DomeniaWiringMoteur 37/37. SQLite reel temporaire et doublures reseau, aucun AD reel ; campagne d integration non qualifiante pour la livraison. Rapport local : /Users/david/Documents/Projets/Domenia-lab/runs/d120-cache-g1-bdaf57a/_verdict.json.",
+      "lot": "cache"
     },
     {
       "id": "D030",
@@ -3551,16 +3554,19 @@
         "S04"
       ],
       "implementation_files": [
-        "wad/modules/Domenia-Release.Model.ps1"
+        "wad/modules/Domenia-Release.Model.ps1",
+        "wad/modules/Domenia-Storage.Worker.ps1",
+        "wad/modules/Domenia-Storage.UI.ps1",
+        "wad/Domenia-Core.ps1"
       ],
       "acceptance_passed": false,
-      "remaining": "Import TSV/CSV historique (Import-DomeniaLegacyStoreIfNeeded, chemin de maintenance -ImportLegacy) a rendre transactionnel sans contourner les files d ecriture (IndexBulk, ecrivain unique des liens, ligne de base des liens) ; puis preuve Windows liee au ZIP final.",
+      "remaining": "G1 raccorde et teste : import atomique LegacyImport par LocalStore, quatre tables vides exigees, associations existantes preservees, marqueur idempotent et ligne de base des liens mise a jour apres commit. Restent G2 (lecteur TSV/CSV historique, canonisation et plan de simulation) et G3 (geste explicite dans Fiabilite et remplacement du chemin de maintenance -ImportLegacy), puis campagne Windows et preuve liee au ZIP final. La migration utilisateur reste partielle.",
       "tests": [
         "wad/tests/Test-DomeniaWiringCache.ps1",
         "wad/tests/rules/Release.Tests.ps1"
       ],
       "wiring": "Partiel",
-      "evidence": "Raccorde en partie (lot cache, etape B) : la migration de schema est atteignable par la regle Test-DomeniaSchemaCompatibility, transactionnelle (BEGIN IMMEDIATE/COMMIT) et idempotente (CREATE IF NOT EXISTS, INSERT OR IGNORE), apres sauvegarde de migration. Campagne d integration Windows PowerShell 5.1.26100.6584 x64 dans la VM CNAMTS-W11-01 le 2026-10-03, commit ff2ece2 lie (409/409) : startcheck reussi, Test-DomeniaWiringCache 19/19 (base plus recente refusee intacte, sauvegarde de migration hors rotation, garde du worker LiveCache), Test-DomeniaRules 438/438 ; doublures et SQLite local, aucun AD reel ; non qualifiant pour la livraison.",
+      "evidence": "Raccorde en partie (lot cache, etape B) : la migration de schema est atteignable par la regle Test-DomeniaSchemaCompatibility, transactionnelle (BEGIN IMMEDIATE/COMMIT) et idempotente (CREATE IF NOT EXISTS, INSERT OR IGNORE), apres sauvegarde de migration. Campagne d integration Windows PowerShell 5.1.26100.6584 x64 dans la VM CNAMTS-W11-01 le 2026-10-03, commit ff2ece2 lie (409/409) : startcheck reussi, Test-DomeniaWiringCache 19/19 (base plus recente refusee intacte, sauvegarde de migration hors rotation, garde du worker LiveCache), Test-DomeniaRules 438/438 ; doublures et SQLite local, aucun AD reel ; non qualifiant pour la livraison. Etape G1 : Campagne Windows PowerShell 5.1.26100.6584 x64 dans CNAMTS-W11-01 le 2026-10-04, commit bdaf57a propre et lie (416/416) : 2192 reussis, 2 echecs Geometry deja connus ; compatibilite, parseur et startcheck reussis. Test-DomeniaWiringCache 65/65, Test-DomeniaWiringMoteur 37/37. SQLite reel temporaire et doublures reseau, aucun AD reel ; campagne d integration non qualifiante pour la livraison. Rapport local : /Users/david/Documents/Projets/Domenia-lab/runs/d120-cache-g1-bdaf57a/_verdict.json.",
       "lot": "cache"
     },
     {
