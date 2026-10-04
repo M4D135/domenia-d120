@@ -96,7 +96,9 @@
     "Domenia-Storage.UI.ps1 (Initialize-DomeniaPersistence : InFlight et Conflicts ; Start/Complete/Fail-DomeniaStorageWork : lot en cours compte jusqu au rappel, cle en conflit gardee ; Queue-DomeniaLinkChanges -Quiet : cles en conflit non renvoyees ; Reset-DomeniaLinkBaseline : fin de l etat de conflit ; D028 etape F)",
     "Domenia-Live.UI.ps1 (Invoke-DomeniaLiveTick : $save=(Get-DomeniaPersistenceState).Label ; SaveInFlight dans l etat, Reset-DomeniaLiveIdentity, Start-DomeniaLiveBackgroundWork, Complete/Fail-DomeniaLiveCache ; D028 etape F)",
     "Domenia-Guard.UI.ps1 (Initialize-DomeniaGuard : LblGuardMetrics porte 'Enregistrement local : '+(Get-DomeniaPersistenceState).Label au lieu de 'Cache en attente' ; D028 etape F)",
-    "wad/maintenance/Preview-DomeniaProgress.ps1 (apercu -Progressive : charge Domenia-Cache.Model.ps1 et Domenia-Storage.UI.ps1 avant Domenia-Live.UI.ps1, dont la ligne d etat lit Get-DomeniaPersistenceState ; D028 etape F)"
+    "wad/maintenance/Preview-DomeniaProgress.ps1 (apercu -Progressive : charge Domenia-Cache.Model.ps1 et Domenia-Storage.UI.ps1 avant Domenia-Live.UI.ps1, dont la ligne d etat lit Get-DomeniaPersistenceState ; D028 etape F)",
+    "Domenia-Storage.Worker.ps1 (D113 G1 : import LegacyImport transactionnel ; D029 : historique protege)",
+    "Domenia-Storage.UI.ps1 (D113 G1 : item import isole, LinkBusy pendant attente/execution, sans rejeu automatique, fusion et baseline apres resultat confirme)"
   ],
   "TypeFiles": [],
   "Operations": [],
@@ -114,9 +116,23 @@
       "IsWrite": true,
       "Class": "Background",
       "Change": "Suppression de l ecriture directe user_machine_links ; les observations restent ecrites dans adcc_live_observations. ; garde de version de schema (11/1) avant toute lecture ou ecriture (D115)."
+    },
+    {
+      "Operation": "LocalStore",
+      "File": "wad/modules/Domenia-Storage.Worker.ps1",
+      "Function": "Get-DomeniaStorageWorkerCode",
+      "LiteralIndex": 0,
+      "Provider": "Storage",
+      "Resource": "Local",
+      "NeedsDirectoryCredential": false,
+      "NeedsMachineCredential": false,
+      "NonDirectory": true,
+      "IsWrite": true,
+      "Class": "Background",
+      "Change": "D113 G1 : LegacyImport isole, garde des quatre tables vides, insertions atomiques, marqueur idempotent et liens absents seulement. D029 : historique manuel et Import CSV exclu de la retention automatique."
     }
   ],
-  "OperationsNote": "LiveCache est une operation worker epinglee. Apres relecture : python tools/update_worker_contracts.py --apply, mise a jour de Get-DomeniaWorkerOperationHashes, de la liste $nonDirectoryOperations (LiveCache doit deja y figurer) et des notes de version. Aucun autre corps worker modifie.",
+  "OperationsNote": "LiveCache et LocalStore sont des operations epinglees modifiees dans ce lot. Etape G1 : seul LocalStore change ; corps relu avant mise a jour des empreintes et du registre.",
   "SelfTestRequiredFunctions": [
     "Request-DomeniaLinkPersistence",
     "Queue-DomeniaLinkChanges",
@@ -152,7 +168,9 @@
     "Test-DomeniaWiringCache.ps1 : D028 : anciens libelles retires de Fiabilite et de la ligne Live",
     "Test-DomeniaWiringCache.ps1 : D028 : le chargeur declare l etat d enregistrement et ses dependances",
     "Test-DomeniaWiringRecherche.ps1 : D028 LblLiveState porte le libelle de la regle",
-    "rules/Cache.Tests.ps1 : D028 Libelle d enregistrement : indisponible > suspendu > conflits > echecs > attente > enregistre"
+    "rules/Cache.Tests.ps1 : D028 Libelle d enregistrement : indisponible > suspendu > conflits > echecs > attente > enregistre",
+    "Test-DomeniaWiringCache.ps1 : D113 G1 SQLite reel, rollback, quatre tables vides, idempotence octets, conflits, domaine, plafond, plus de 64 liens, file isolee et erreur sans rejeu",
+    "Test-DomeniaWiringCache.ps1 : D029 historique protege hors plafond 20000 ; les lignes protegees precedent les lignes elaguables"
   ],
   "HelpEntries": [],
   "Features": [],

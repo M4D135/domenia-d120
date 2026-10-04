@@ -24,3 +24,11 @@ lecture, 7 points + synthèse vérifiée sur la source à `9455a78`).
 Défaut relevé par la cartographie et à corriger (D024, étape I1) : `Complete-DomeniaLiveProbe` teste
 `$observation.Outcome`, jamais `PresenceOnly`, si bien qu'un simple ping rajeunit la session console quand le résultat
 précédent était Observed ou NoConsole ; le test existant le masque en doublant `ConvertTo-DomeniaLiveObservation`.
+
+## Precision D113, reprise Codex du 2026-10-04
+
+David confirme dans cette session : refuser l import si une des quatre tables
+`ad_objects`, `park_state`, `user_scan_history` ou `secret_state` contient deja
+des donnees. Les associations existantes restent protegees ; seuls les postes
+absents de `user_machine_links` sont ajoutes. Le controle a lieu dans la
+transaction du worker, apres le controle du marqueur d idempotence.

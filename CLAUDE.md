@@ -3,6 +3,13 @@
 Domenia (ex-ADCC) est un outil interne d'administration Active Directory en **Windows PowerShell 5.1 + WPF**.
 Ce fichier donne les règles qui valent pour toute session. L'état du lot en cours et le reste à faire sont dans `REPRISE-D120.md`.
 
+## Moteur de travail — décision de David du 2026-10-04
+
+**Codex uniquement pour ce projet. Aucun nouvel appel au Spark**, y compris pour
+les premiers jets, les analyses et les relectures. Cette décision remplace pour
+Domenia les anciennes consignes de délégation au Spark dans les relais et le
+contexte KBZA. Les tests restent exécutés dans la VM Windows prévue ci-dessous.
+
 ## Règles non négociables
 
 1. **Cible unique : Windows PowerShell 5.1 x64 STA.** Aucune syntaxe ni API propre à PowerShell 6/7 ou à .NET moderne

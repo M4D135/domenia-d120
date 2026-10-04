@@ -20717,7 +20717,7 @@ function Get-DomeniaWorkerOperationHashes {
         ReceiptStore         = "45FE35D694782ECB8B13D14C5B3CD637FD5CA1C4B0E6CD278EEE3AC5804121D1"
         ScopeReconcile       = "5917B0E2AB92BA626EF3621CCCE7B9A4988B318E62834EFD02FD6AFEF5C0B650"
         DocumentStore        = "BFD83587CB1BA62BC141E5F0742C6C6453A561617ED157045F3B4E7AB11A14E7"
-        LocalStore           = "478EF92963F01B4102F14E56348E00D18442AE5D5640D71ED511EEB0F63F6D81"
+        LocalStore           = "C09716E029F8D59BAB819B69D2CAA542DD63505C386BC0877D25F8D8A94A5138"
         EngineSelfTest        = "40E2C89F858E22E1D221AC48DC04DD5BF627F1ACBC836AB48036C43DB9F7E1D1"
             EmbeddedDirectoryLookup = "2B3A888C7E1A97B4D523B0B3A408EF03AA5C0D0F95D534984B8EB3D581CDDD17"
         EmbeddedPathBrowse = "B643D707E242EC4416AD63622847DD7C39E5B53ED47CF64FECD56E22B5A82271"
@@ -20729,7 +20729,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "059D8DDEC588B90CF136D2B5C16388401165ACA8308751DCE101645AEE109BE9"
+    $expectedFingerprint = "529101EF5FFE54B0AD249E23AA1E8EFA59D96F65ACBD0D6285C1AA1EEC6A6CFB"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }

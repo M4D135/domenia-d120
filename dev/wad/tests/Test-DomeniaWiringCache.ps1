@@ -1467,6 +1467,506 @@ Test-Case 'D028 : le chargeur declare l etat d enregistrement et ses dependances
 }
 
 try { Stop-TestTimers } catch { }
+# ---------------------------------------------------------------- D113 : LegacyImport (G1)
+$storageWorker = Join-Path $modules 'Domenia-Storage.Worker.ps1'
+if (-not [IO.File]::Exists($storageWorker)) { throw ('Fichier absent : ' + $storageWorker) }
+. ([scriptblock]::Create((Get-FunctionTextFromFile $storageWorker 'Get-DomeniaStorageWorkerCode')))
+foreach ($name in @('Initialize-DomeniaPersistence','Queue-DomeniaMetadata','Start-DomeniaStorageWork','Complete-DomeniaStorageWork','Fail-DomeniaStorageWork')) {
+    . ([scriptblock]::Create((Get-FunctionTextFromFile $storageUi $name)))
+}
+$script:StartStorageReal = (Get-Item function:Start-DomeniaStorageWork).ScriptBlock
+function Start-DomeniaStorageWork { }
+
+function Set-Status { param($Text,$Level) $script:Statuses.Add([string]$Text); if($Level){$script:StatusLevels.Add([string]$Level)} }
+function Add-DomeniaUiLog { param($Area,$Text,$Level) $script:Logs.Add([string]$Text); if($Level){$script:LogLevels.Add([string]$Level)} }
+function Rebuild-UserMachineLinkIndex { $script:RebuildCalls++ }
+function Refresh-LinkGrid { $script:RefreshGridCalls++ }
+function Refresh-AssociationContext { param([switch]$SkipResultRefresh) $script:RefreshAssocCalls++ }
+function Load-DomeniaIndexMetadata { $script:LoadIndexCalls++; return 0 }
+. ([scriptblock]::Create((Get-FunctionTextFromFile $core 'Normalize-LinkComputer')))
+. ([scriptblock]::Create((Get-FunctionTextFromFile $guardModel 'ConvertTo-DomeniaLinkRecord')))
+. ([scriptblock]::Create((Get-FunctionTextFromFile $guardModel 'Get-DomeniaLinkFingerprint')))
+. ([scriptblock]::Create((Get-FunctionTextFromFile $liveModel 'Get-DomeniaLiveHash')))
+function Start-UiTask {
+    param($Name,$OperationId,$Code,$Payload,$CallbackState,$SuccessHandler,$ErrorHandler,[switch]$NonCancellable,$TimeoutSeconds,$TaskClass)
+    $script:StartUiCalls++
+    $script:StartUiOperations.Add([string]$OperationId)
+    $id = 'ui-' + $script:StartUiCalls
+    $script:AsyncJobs[$id] = [pscustomobject]@{Id=$id;OperationId=[string]$OperationId}
+    $script:LastStorageState = $CallbackState
+    $script:LastStoragePayload = $Payload
+    return $id
+}
+$script:StartUiTaskOriginal = (Get-Item function:Start-UiTask).ScriptBlock
+$script:ResetTestOriginal = (Get-Item function:Reset-TestState).ScriptBlock
+function Reset-TestState {
+    & $script:ResetTestOriginal
+    $script:LogLevels = New-Object 'System.Collections.Generic.List[string]'
+    $script:StatusLevels = New-Object 'System.Collections.Generic.List[string]'
+    $script:RebuildCalls = 0
+    $script:RefreshGridCalls = 0
+    $script:RefreshAssocCalls = 0
+    $script:LoadIndexCalls = 0
+    $script:DetachedReadJobs = @()
+    Set-Item function:script:Start-DomeniaStorageWork { }
+    Set-Item function:script:Start-UiTask $script:StartUiTaskOriginal
+}
+function Use-RealStorageWork { Set-Item function:script:Start-DomeniaStorageWork $script:StartStorageReal }
+
+function New-LegacySandbox {
+    $root = Join-Path ([IO.Path]::GetTempPath()) ('domenia-legacy-' + [guid]::NewGuid().ToString('N'))
+    [void][IO.Directory]::CreateDirectory($root)
+    $script:TestDbPath = Join-Path $root 'Domenia.db'
+    $script:DomeniaDatabaseReady = $false
+    $script:DomeniaDatabaseRecoveryAttempted = $false
+    $script:RecoverCalls = 0
+    [void](Initialize-DomeniaDatabase)
+    return $root
+}
+function Get-LegacyCount {
+    param([string]$Table)
+    $db = Open-DomeniaDatabase -Path $script:TestDbPath -ReadOnly
+    try { return [int](@(Invoke-DomeniaDbQuery ("SELECT count(*) AS n FROM $Table;") $db)[0].n) } finally { Close-DomeniaDatabase $db }
+}
+function Get-LegacySyncState {
+    param([string]$Scope)
+    $db = Open-DomeniaDatabase -Path $script:TestDbPath -ReadOnly
+    try { $rows=@(Invoke-DomeniaDbQuery ('SELECT * FROM sync_state WHERE scope=' + (ConvertTo-DomeniaSqlLiteral $Scope) + ';') $db) } finally { Close-DomeniaDatabase $db }
+    if($rows.Count -gt 0){return $rows[0]}
+    return $null
+}
+function Invoke-LegacyWorker {
+    param($Payload)
+    $code = Get-DomeniaStorageWorkerCode
+    return & ([scriptblock]::Create($code))
+}
+function New-LegacyPayload {
+    param([string]$Marker='m1',[string]$BaseDn='DC=example,DC=invalid',[object[]]$Objects=@(),[object[]]$Park=@(),[object[]]$UserScans=@(),[object[]]$Secrets=@(),[object[]]$Links=@())
+    $row=[pscustomobject]@{Marker=$Marker;BaseDn=$BaseDn;At='2026-01-01T00:00:00Z';Objects=$Objects;Park=$Park;UserScans=$UserScans;Secrets=$Secrets;Links=$Links}
+    $item=[pscustomobject]@{QueueKey='LegacyImport|test';Kind='LegacyImport';Path=$script:TestDbPath;Row=$row;Epoch=[long]1}
+    return [pscustomobject]@{Path=$script:TestDbPath;Items=@($item)}
+}
+function New-PresencePayload {
+    param([string]$Key='pc1')
+    $row=[pscustomobject]@{Key=$Key;State='En ligne';Target='PC1';At='2026-01-01T00:00:00Z'}
+    $item=[pscustomobject]@{QueueKey='Presence|test';Kind='Presence';Path=$script:TestDbPath;Row=$row;Epoch=[long]1}
+    return [pscustomobject]@{Path=$script:TestDbPath;Items=@($item)}
+}
+
+Test-Case 'D113 : LegacyImport succes complet' {
+    [void](New-LegacySandbox)
+    $objects=@([pscustomobject]@{Guid='11111111-1111-1111-1111-111111111111';Type='Utilisateur';Name='User1';Login='user1';Upn='user1@example.invalid';Display='User One';Description='';Extra='';State='Actif';DN='CN=User1,DC=example,DC=invalid';WhenChanged='2026-01-01';Usn=10;LastLogon=''})
+    $park=@([pscustomobject]@{Key='PC1';Computer='PC1';LastProbe='';Status='Inconnu';User='';Attempts=0})
+    $userScans=@([pscustomobject]@{Login='user1';At='2026-01-01';Scanned=$true;Candidates=1;Reachable=1;Probed=1;Found='PC1'})
+    $secrets=@([pscustomobject]@{Computer='PC1';At='2026-01-01';BitLockerKeys=1;BitLockerLast='2026-01-01';LapsScheme='';LapsExpiry='';Verdict='OK'})
+    $links=@([pscustomobject]@{UserLogin='user1';Computer='PC1';Source='Import CSV';Confidence=100;VerifiedInAD=$true;When='2026-01-01';Details='';UserGuid='';ComputerGuid='';UserDn='';ComputerDn=''})
+    $payload=New-LegacyPayload -Objects $objects -Park $park -UserScans $userScans -Secrets $secrets -Links $links
+    $r=Invoke-LegacyWorker $payload
+    Assert-True $r.Saved
+    Assert-Equal 0 ([int]$r.Already)
+    Assert-Equal 1 ([int]$r.Imported.Objects)
+    Assert-Equal 1 ([int]$r.Imported.Park)
+    Assert-Equal 1 ([int]$r.Imported.UserScans)
+    Assert-Equal 1 ([int]$r.Imported.Secrets)
+    Assert-Equal 1 ([int]$r.Imported.Links)
+    Assert-Equal 0 @($r.Conflicts).Count
+    Assert-Equal 1 @($r.ImportedLinks).Count
+    Assert-Equal 1 (Get-LegacyCount 'ad_objects')
+    Assert-Equal 1 (Get-LegacyCount 'park_state')
+    Assert-Equal 1 (Get-LegacyCount 'user_scan_history')
+    Assert-Equal 1 (Get-LegacyCount 'secret_state')
+    Assert-Equal 1 (Get-LegacyCount 'user_machine_history')
+    $legacy=Get-LegacySyncState 'legacy_import'
+    Assert-True ($null -ne $legacy)
+    Assert-True ([string]$legacy.details -match 'marker=m1')
+    $dir=Get-LegacySyncState 'directory'
+    Assert-True ($null -ne $dir)
+    Assert-Equal 'DC=example,DC=invalid' ([string]$dir.base_dn)
+    Assert-Equal 0 ([long]$dir.highest_usn)
+    Assert-Equal 1 ([int]$dir.item_count)
+    $db=Open-DomeniaDatabase -Path $script:TestDbPath -ReadOnly
+    try { $secretRow=@(Invoke-DomeniaDbQuery 'SELECT checked_at FROM secret_state;' $db)[0] } finally { Close-DomeniaDatabase $db }
+    Assert-Equal '2026-01-01' ([string]$secretRow.checked_at) 'La migration ne rajeunit pas les metadonnees.'
+}
+
+Test-Case 'D113 : trigger ABORT secret_state provoque rollback entier' {
+    [void](New-LegacySandbox)
+    $db=Open-DomeniaDatabase -Path $script:TestDbPath
+    try { [void](Invoke-DomeniaDbExec 'CREATE TRIGGER abort_secret BEFORE INSERT ON secret_state BEGIN SELECT RAISE(ABORT,''abort secret''); END;' $db) } finally { Close-DomeniaDatabase $db }
+    $secrets=@([pscustomobject]@{Computer='PC1';At='2026-01-01';BitLockerKeys=1;BitLockerLast='';LapsScheme='';LapsExpiry='';Verdict='OK'})
+    $payload=New-LegacyPayload -Secrets $secrets -Objects @([pscustomobject]@{Guid='rollback-object';DN='CN=Test,DC=example,DC=invalid';Usn=0}) -Park @([pscustomobject]@{Computer='PC1';Attempts=0}) -UserScans @([pscustomobject]@{Login='test';Candidates=0;Reachable=0;Probed=0})
+    $message=''
+    try { [void](Invoke-LegacyWorker $payload) } catch { $message=$_.Exception.Message }
+    Assert-True ($message -match 'abort secret') ('Rollback non declenche : '+$message)
+    Assert-Equal 0 (Get-LegacyCount 'secret_state')
+    Assert-Equal 0 (Get-LegacyCount 'ad_objects')
+    Assert-Equal 0 (Get-LegacyCount 'park_state')
+    Assert-Equal 0 (Get-LegacyCount 'user_scan_history')
+    Assert-Equal 0 (Get-LegacyCount 'user_machine_history')
+    Assert-True ($null -eq (Get-LegacySyncState 'legacy_import'))
+    Assert-True ($null -eq (Get-LegacySyncState 'directory'))
+}
+
+Test-Case 'D113 : chacune des 4 tables non vide est refusee' {
+    $tables=@('ad_objects','park_state','user_scan_history','secret_state')
+    foreach($table in $tables){
+        [void](New-LegacySandbox)
+        $db=Open-DomeniaDatabase -Path $script:TestDbPath
+        try {
+            switch($table){
+                'ad_objects' { [void](Invoke-DomeniaDbExec "INSERT INTO ad_objects(object_key,object_type) VALUES('x','Utilisateur');" $db) }
+                'park_state' { [void](Invoke-DomeniaDbExec "INSERT INTO park_state(computer_key) VALUES('PC1');" $db) }
+                'user_scan_history' { [void](Invoke-DomeniaDbExec "INSERT INTO user_scan_history(login_key) VALUES('u1');" $db) }
+                'secret_state' { [void](Invoke-DomeniaDbExec "INSERT INTO secret_state(computer_key) VALUES('PC1');" $db) }
+            }
+        } finally { Close-DomeniaDatabase $db }
+        $message=''
+        try { [void](Invoke-LegacyWorker (New-LegacyPayload -Marker ('m-'+$table))) } catch { $message=$_.Exception.Message }
+        Assert-True ($message -match 'Tables legacy non vides') ('Refus absent pour '+$table+' : '+$message)
+        Assert-True ($null -eq (Get-LegacySyncState 'legacy_import'))
+    }
+}
+
+Test-Case 'D113 : idempotence marqueur identique sans ecriture ni retention' {
+    [void](New-LegacySandbox)
+    $links=@([pscustomobject]@{UserLogin='user1';Computer='PC1';Source='Import CSV';Confidence=100;VerifiedInAD=$true;When='2026-01-01';Details='';UserGuid='';ComputerGuid='';UserDn='';ComputerDn=''})
+    $r1=Invoke-LegacyWorker (New-LegacyPayload -Marker 'm1' -Links $links)
+    Assert-True $r1.Saved
+    $db=Open-DomeniaDatabase -Path $script:TestDbPath
+    try { [void](Invoke-DomeniaDbExec "INSERT INTO user_machine_history(user_login,computer_key,computer,source,confidence,verified_in_ad,observed_at,details,user_guid,computer_guid) VALUES('u','PC2','PC2','Console',0,0,'2026-01-01','',NULL,NULL);" $db) } finally { Close-DomeniaDatabase $db }
+    $before=Get-LegacyCount 'user_machine_history'
+    $beforeHash=(Get-FileHash -LiteralPath $script:TestDbPath -Algorithm SHA256).Hash
+    $dirBefore=Get-LegacySyncState 'directory'
+    $r2=Invoke-LegacyWorker (New-LegacyPayload -Marker 'm1' -Links @([pscustomobject]@{UserLogin='other';Computer='PC9';Source='Console';Confidence=0;VerifiedInAD=$false;When='';Details='';UserGuid='';ComputerGuid='';UserDn='';ComputerDn=''}))
+    Assert-True $r2.Saved
+    Assert-Equal 1 ([int]$r2.Already)
+    Assert-Equal 0 @($r2.ImportedLinks).Count
+    Assert-Equal $before (Get-LegacyCount 'user_machine_history')
+    Assert-Equal $beforeHash (Get-FileHash -LiteralPath $script:TestDbPath -Algorithm SHA256).Hash 'Le rejeu a modifie les octets de la base.'
+    $dirAfter=Get-LegacySyncState 'directory'
+    Assert-Equal ([string]$dirBefore.last_sync) ([string]$dirAfter.last_sync)
+}
+
+Test-Case 'D113 : marqueur different refuse explicitement' {
+    [void](New-LegacySandbox)
+    [void](Invoke-LegacyWorker (New-LegacyPayload -Marker 'm1'))
+    $message=''
+    try { [void](Invoke-LegacyWorker (New-LegacyPayload -Marker 'm2')) } catch { $message=$_.Exception.Message }
+    Assert-True ($message -match 'autre marqueur') ('Refus absent : '+$message)
+    Assert-True ($null -ne (Get-LegacySyncState 'legacy_import'))
+}
+
+Test-Case 'D113 : marqueur identique est idempotent avant garde tables vides' {
+    [void](New-LegacySandbox)
+    [void](Invoke-LegacyWorker (New-LegacyPayload -Marker 'm1'))
+    $db=Open-DomeniaDatabase -Path $script:TestDbPath
+    try { [void](Invoke-DomeniaDbExec "INSERT INTO ad_objects(object_key,object_type) VALUES('x','Utilisateur');" $db) } finally { Close-DomeniaDatabase $db }
+    $r=Invoke-LegacyWorker (New-LegacyPayload -Marker 'm1')
+    Assert-True $r.Saved
+    Assert-Equal 1 ([int]$r.Already)
+}
+
+Test-Case 'D113 : sync_state directory existant preserve et refuse domaine different' {
+    [void](New-LegacySandbox)
+    $db=Open-DomeniaDatabase -Path $script:TestDbPath
+    try { [void](Invoke-DomeniaDbExec "INSERT INTO sync_state(scope,server,base_dn,highest_usn,last_sync,item_count,details) VALUES('directory','dc-old','DC=example,DC=invalid',99,'old',5,'keep');" $db) } finally { Close-DomeniaDatabase $db }
+    [void](Invoke-LegacyWorker (New-LegacyPayload -Marker 'm1'))
+    $dir=Get-LegacySyncState 'directory'
+    Assert-Equal 'dc-old' ([string]$dir.server)
+    Assert-Equal 99 ([long]$dir.highest_usn)
+    Assert-Equal 'keep' ([string]$dir.details)
+    [void](New-LegacySandbox)
+    $db=Open-DomeniaDatabase -Path $script:TestDbPath
+    try { [void](Invoke-DomeniaDbExec "INSERT INTO sync_state(scope,server,base_dn,highest_usn,last_sync,item_count,details) VALUES('directory','dc-old','DC=other,DC=invalid',99,'old',5,'keep');" $db) } finally { Close-DomeniaDatabase $db }
+    $message=''
+    try { [void](Invoke-LegacyWorker (New-LegacyPayload -Marker 'm1')) } catch { $message=$_.Exception.Message }
+    Assert-True ($message -match 'Domaine different') ('Refus domaine absent : '+$message)
+}
+
+Test-Case 'D113 : conflit lien conserve et ImportedLinks uniquement ajoutes' {
+    [void](New-LegacySandbox)
+    $db=Open-DomeniaDatabase -Path $script:TestDbPath
+    try { [void](Invoke-DomeniaDbExec "INSERT INTO user_machine_links(computer_key,user_login,computer,source,confidence,verified_in_ad,observed_at,details,user_guid,computer_guid,user_dn,computer_dn) VALUES('PC1','old','PC1','Console',0,0,'2026-01-01','',NULL,NULL,NULL,NULL);" $db) } finally { Close-DomeniaDatabase $db }
+    $links=@(
+        [pscustomobject]@{UserLogin='new';Computer='PC1';Source='Import CSV';Confidence=100;VerifiedInAD=$true;When='2026-01-01';Details='';UserGuid='';ComputerGuid='';UserDn='';ComputerDn=''},
+        [pscustomobject]@{UserLogin='new';Computer='PC2';Source='Import CSV';Confidence=100;VerifiedInAD=$true;When='2026-01-01';Details='';UserGuid='';ComputerGuid='';UserDn='';ComputerDn=''}
+    )
+    $r=Invoke-LegacyWorker (New-LegacyPayload -Marker 'm1' -Links $links)
+    Assert-True $r.Saved
+    Assert-Equal 1 @($r.Conflicts).Count
+    Assert-Equal 'PC1' ([string]@($r.Conflicts)[0])
+    Assert-Equal 1 @($r.ImportedLinks).Count
+    Assert-Equal 'PC2' ([string]@($r.ImportedLinks)[0].Computer)
+    $db=Open-DomeniaDatabase -Path $script:TestDbPath -ReadOnly
+    try { $old=@(Invoke-DomeniaDbQuery "SELECT user_login FROM user_machine_links WHERE computer_key='PC1';" $db); $new=@(Invoke-DomeniaDbQuery "SELECT user_login FROM user_machine_links WHERE computer_key='PC2';" $db) } finally { Close-DomeniaDatabase $db }
+    Assert-Equal 'old' ([string]$old[0].user_login)
+    Assert-Equal 'new' ([string]$new[0].user_login)
+}
+
+Test-Case 'D113 : payload LegacyImport melange refuse' {
+    [void](New-LegacySandbox)
+    $legacyItem=(New-LegacyPayload -Marker 'm1').Items[0]
+    $presenceItem=(New-PresencePayload).Items[0]
+    $payload=[pscustomobject]@{Path=$script:TestDbPath;Items=@($legacyItem,$presenceItem)}
+    $message=''
+    try { [void](Invoke-LegacyWorker $payload) } catch { $message=$_.Exception.Message }
+    Assert-True ($message -match 'seul') ('Refus melange absent : '+$message)
+    Assert-True ($null -eq (Get-LegacySyncState 'legacy_import'))
+}
+
+Test-Case 'D113 : gardes Marker BaseDn et plafond tableau' {
+    [void](New-LegacySandbox)
+    $message=''
+    try { [void](Invoke-LegacyWorker (New-LegacyPayload -Marker '')) } catch { $message=$_.Exception.Message }
+    Assert-True ($message -match 'Marqueur') ('Garde Marker absente : '+$message)
+    try { [void](Invoke-LegacyWorker (New-LegacyPayload -BaseDn 'DC=')) } catch { $message=$_.Exception.Message }
+    Assert-True ($message -match 'BaseDn') ('Garde BaseDn absente : '+$message)
+    try { [void](Invoke-LegacyWorker (New-LegacyPayload -Marker 'm1' -Objects @(1..250001))) } catch { $message=$_.Exception.Message }
+    Assert-True ($message -match 'trop grand') ('Garde plafond absente : '+$message)
+    Assert-True ($null -eq (Get-LegacySyncState 'legacy_import'))
+}
+
+Test-Case 'D113 : import legacy ne borne pas user_machine_history' {
+    [void](New-LegacySandbox)
+    $db=Open-DomeniaDatabase -Path $script:TestDbPath
+    try { [void](Invoke-DomeniaDbExec "WITH RECURSIVE c(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM c WHERE n<20001) INSERT INTO user_machine_history(user_login,computer_key,computer,source,confidence,verified_in_ad,observed_at,details,user_guid,computer_guid) SELECT 'u'||n,'PC-UNPROT','PC-UNPROT','Console',0,0,'2026-01-01','',NULL,NULL FROM c;" $db) } finally { Close-DomeniaDatabase $db }
+    [void](Invoke-LegacyWorker (New-LegacyPayload -Marker 'm1'))
+    Assert-Equal 20001 (Get-LegacyCount 'user_machine_history')
+}
+
+Test-Case 'D029 : cap historique protege Manual Saisie manuelle Import CSV et association protegee' {
+    [void](New-LegacySandbox)
+    $db=Open-DomeniaDatabase -Path $script:TestDbPath
+    try {
+        [void](Invoke-DomeniaDbExec "INSERT INTO user_machine_history(user_login,computer_key,computer,source,confidence,verified_in_ad,observed_at,details,user_guid,computer_guid) VALUES('u-manual','PC-MANUAL','PC-MANUAL','Manual',0,0,'2026-01-01','',NULL,NULL);" $db)
+        [void](Invoke-DomeniaDbExec "INSERT INTO user_machine_links(computer_key,user_login,computer,source,confidence,verified_in_ad,observed_at,details,user_guid,computer_guid,user_dn,computer_dn) VALUES('PC-PROT','prot','PC-PROT','Manual',0,0,'2026-01-01','',NULL,NULL,NULL,NULL);" $db)
+        [void](Invoke-DomeniaDbExec "INSERT INTO user_machine_history(user_login,computer_key,computer,source,confidence,verified_in_ad,observed_at,details,user_guid,computer_guid) VALUES('u-prot','PC-PROT','PC-PROT','Console',0,0,'2026-01-01','',NULL,NULL);" $db)
+        foreach($source in @('Saisie manuelle','Import CSV')) {
+            $lit=ConvertTo-DomeniaSqlLiteral $source
+            [void](Invoke-DomeniaDbExec ("INSERT INTO user_machine_history(user_login,computer_key,source) VALUES('protege','PC-CSV',"+$lit+");") $db)
+        }
+        [void](Invoke-DomeniaDbExec "WITH RECURSIVE c(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM c WHERE n<20001) INSERT INTO user_machine_history(user_login,computer_key,computer,source,confidence,verified_in_ad,observed_at,details,user_guid,computer_guid) SELECT 'u'||n,'PC-UNPROT','PC-UNPROT','Console',0,0,'2026-01-01','',NULL,NULL FROM c;" $db)
+    } finally { Close-DomeniaDatabase $db }
+    [void](Invoke-LegacyWorker (New-PresencePayload))
+    Assert-Equal 1 (Get-LegacyCount "user_machine_history WHERE lower(COALESCE(source,''))='manual'")
+    Assert-Equal 1 (Get-LegacyCount "user_machine_history WHERE computer_key='PC-PROT'")
+    Assert-Equal 2 (Get-LegacyCount "user_machine_history WHERE source IN ('Saisie manuelle','Import CSV')")
+    Assert-Equal 20000 (Get-LegacyCount "user_machine_history WHERE lower(COALESCE(source,''))='console' AND computer_key='PC-UNPROT'")
+}
+
+
+Test-Case 'D113 : Queue LegacyImport refuse Marker ou BaseDn invalide' {
+    Initialize-DomeniaPersistence
+    $script:DatabaseScopedPath='test-scope.db'
+    Assert-False (Queue-DomeniaMetadata -Kind 'LegacyImport' -Row ([pscustomobject]@{Marker='';BaseDn='DC=example,DC=invalid'}))
+    Assert-False (Queue-DomeniaMetadata -Kind 'LegacyImport' -Row ([pscustomobject]@{Marker='m1';BaseDn='example.invalid'}))
+    Assert-Equal 0 $script:Persistence.Pending.Count
+}
+
+Test-Case 'D113 : Queue LegacyImport refuse si lien en attente' {
+    Initialize-DomeniaPersistence
+    $script:DatabaseScopedPath='test-scope.db'
+    $script:Persistence.Pending['link']=[pscustomobject]@{QueueKey='link';Kind='Link';Path='test-scope.db'}
+    $row=[pscustomobject]@{Marker='m1';BaseDn='DC=example,DC=invalid';At='2026-01-01';Objects=@();Park=@();UserScans=@();Secrets=@();Links=@()}
+    Assert-False (Queue-DomeniaMetadata -Kind 'LegacyImport' -Row $row)
+    Assert-False $script:Persistence.LinkBusy
+}
+
+Test-Case 'D113 : Queue LegacyImport refuse si LinkBusy' {
+    Initialize-DomeniaPersistence
+    $script:DatabaseScopedPath='test-scope.db'
+    $script:Persistence.LinkBusy=$true
+    $row=[pscustomobject]@{Marker='m1';BaseDn='DC=example,DC=invalid';At='2026-01-01';Objects=@();Park=@();UserScans=@();Secrets=@();Links=@()}
+    Assert-False (Queue-DomeniaMetadata -Kind 'LegacyImport' -Row $row)
+    Assert-True $script:Persistence.LinkBusy
+}
+
+Test-Case 'D113 : Queue LegacyImport met LinkBusy et bloque liens' {
+    Initialize-DomeniaPersistence
+    $script:DatabaseScopedPath='test-scope.db'
+    $script:SessionEpoch=[long]1
+    $row=[pscustomobject]@{Marker='m1';BaseDn='DC=example,DC=invalid';At='2026-01-01';Objects=@();Park=@();UserScans=@();Secrets=@();Links=@()}
+    Assert-True (Queue-DomeniaMetadata -Kind 'LegacyImport' -Row $row)
+    Assert-True $script:Persistence.LinkBusy
+    Assert-False (Queue-DomeniaMetadata -Kind 'LegacyImport' -Row $row)
+    Assert-False (Queue-DomeniaLinkChanges)
+}
+
+Test-Case 'D113 : Start isole LegacyImport et exclut les lots ordinaires' {
+    Initialize-DomeniaPersistence
+    $script:DatabaseScopedPath='test-scope.db'
+    $script:SessionEpoch=[long]1
+    $row=[pscustomobject]@{Marker='m1';BaseDn='DC=example,DC=invalid';At='2026-01-01';Objects=@();Park=@();UserScans=@();Secrets=@();Links=@()}
+    Assert-True (Queue-DomeniaMetadata -Kind 'LegacyImport' -Row $row)
+    Assert-True (Queue-DomeniaMetadata -Kind 'Presence' -Row ([pscustomobject]@{Key='pc1';State='En ligne';Target='PC1';At='2026-01-01'}))
+    Use-RealStorageWork
+    Start-DomeniaStorageWork
+    Assert-Equal 1 $script:StartUiCalls
+    Assert-Equal 1 @($script:LastStoragePayload.Items).Count
+    Assert-Equal 'LegacyImport' ([string]@($script:LastStoragePayload.Items)[0].Kind)
+    Assert-Equal 1 $script:Persistence.Pending.Count
+    Assert-Equal 'Presence' ([string]@($script:Persistence.Pending.Values)[0].Kind)
+    Assert-True $script:Persistence.LinkBusy
+}
+
+Test-Case 'D113 : liveness attend un worker detache puis libere sans rejeu' {
+    Initialize-DomeniaPersistence
+    $script:DatabaseScopedPath='test-scope.db'
+    $script:SessionEpoch=[long]1
+    $row=[pscustomobject]@{Marker='m1';BaseDn='DC=example,DC=invalid';At='2026-01-01';Objects=@();Park=@();UserScans=@();Secrets=@();Links=@()}
+    [void](Queue-DomeniaMetadata -Kind 'LegacyImport' -Row $row)
+    Use-RealStorageWork
+    Start-DomeniaStorageWork
+    Assert-Equal 1 $script:StartUiCalls
+    $id=$script:Persistence.Job
+    $script:DetachedReadJobs=@($script:AsyncJobs[$id])
+    [void]$script:AsyncJobs.Remove($id)
+    Start-DomeniaStorageWork
+    Assert-True $script:Persistence.LinkBusy
+    Assert-Equal $id $script:Persistence.Job
+    $script:DetachedReadJobs=@()
+    Start-DomeniaStorageWork
+    Assert-False $script:Persistence.LinkBusy
+    Assert-Equal '' $script:Persistence.Job
+    Assert-Equal '' $script:Persistence.LegacyImportJob
+    Assert-Equal 0 $script:Persistence.Pending.Count
+    Assert-Equal 1 $script:StartUiCalls
+}
+
+Test-Case 'D113 : echec import ne requeue pas et ne suspend pas le stockage normal' {
+    Initialize-DomeniaPersistence
+    $script:DatabaseScopedPath='test-scope.db'
+    $script:SessionEpoch=[long]1
+    $row=[pscustomobject]@{Marker='m1';BaseDn='DC=example,DC=invalid';At='2026-01-01';Objects=@();Park=@();UserScans=@();Secrets=@();Links=@()}
+    [void](Queue-DomeniaMetadata -Kind 'LegacyImport' -Row $row)
+    [void](Queue-DomeniaMetadata -Kind 'Presence' -Row ([pscustomobject]@{Key='pc1';State='En ligne';Target='PC1';At='2026-01-01'}))
+    Use-RealStorageWork
+    Start-DomeniaStorageWork
+    Assert-Equal 1 $script:StartUiCalls
+    [void]$script:AsyncJobs.Remove([string]$script:Persistence.Job)
+    Fail-DomeniaStorageWork 'SQLite code 5 : database is locked' $script:LastStorageState
+    Assert-Equal 0 $script:Persistence.Failures
+    Assert-Equal '' $script:Persistence.Job
+    Assert-Equal 0 $script:Persistence.InFlight
+    Assert-Equal 1 $script:Persistence.Pending.Count
+    Assert-Equal 'Presence' ([string]@($script:Persistence.Pending.Values)[0].Kind)
+    Assert-False $script:Persistence.LinkBusy
+    Assert-True (@($script:StatusLevels) -contains 'ERROR')
+    Assert-True (@($script:LogLevels) -contains 'ERROR')
+    Start-DomeniaStorageWork
+    Assert-Equal 2 $script:StartUiCalls
+    Assert-Equal 'Presence' ([string]@($script:LastStoragePayload.Items)[0].Kind)
+}
+
+Test-Case 'D113 : Start-UiTask qui leve avant depart ne reessaie pas import' {
+    Initialize-DomeniaPersistence
+    $script:DatabaseScopedPath='test-scope.db'
+    $script:SessionEpoch=[long]1
+    $row=[pscustomobject]@{Marker='m1';BaseDn='DC=example,DC=invalid';At='2026-01-01';Objects=@();Park=@();UserScans=@();Secrets=@();Links=@()}
+    [void](Queue-DomeniaMetadata -Kind 'LegacyImport' -Row $row)
+    [void](Queue-DomeniaMetadata -Kind 'Presence' -Row ([pscustomobject]@{Key='pc1';State='En ligne';Target='PC1';At='2026-01-01'}))
+    Set-Item function:script:Start-UiTask { throw 'boom' }
+    Use-RealStorageWork
+    Start-DomeniaStorageWork
+    Assert-Equal 0 $script:Persistence.Failures
+    Assert-Equal '' $script:Persistence.Job
+    Assert-Equal 0 $script:Persistence.InFlight
+    Assert-Equal 1 $script:Persistence.Pending.Count
+    Assert-Equal 'Presence' ([string]@($script:Persistence.Pending.Values)[0].Kind)
+    Assert-False $script:Persistence.LinkBusy
+    Assert-True (@($script:StatusLevels) -contains 'ERROR')
+}
+
+Test-Case 'D113 : import peut demarrer malgre Failures ou Next ordinaire' {
+    Initialize-DomeniaPersistence
+    $script:DatabaseScopedPath='test-scope.db'
+    $script:SessionEpoch=[long]1
+    $script:Persistence.Failures=3
+    $script:Persistence.Next=[datetime]::UtcNow.AddSeconds(30)
+    $row=[pscustomobject]@{Marker='m1';BaseDn='DC=example,DC=invalid';At='2026-01-01';Objects=@();Park=@();UserScans=@();Secrets=@();Links=@()}
+    [void](Queue-DomeniaMetadata -Kind 'LegacyImport' -Row $row)
+    Use-RealStorageWork
+    Start-DomeniaStorageWork
+    Assert-Equal 1 $script:StartUiCalls
+}
+
+Test-Case 'D113 : Complete ignore epoch ou chemin obsolette pour la memoire' {
+    Initialize-DomeniaPersistence
+    $script:DatabaseScopedPath='test-scope.db'
+    $script:SessionEpoch=[long]1
+    $script:UserMachineLinks=@()
+    $script:LinkBaseline=@{}
+    $links=@([pscustomobject]@{UserLogin='u1';Computer='PC1';Source='Import CSV';Confidence=100;VerifiedInAD=$true;When='2026-01-01';Details='';UserGuid='';ComputerGuid='';UserDn='';ComputerDn=''})
+    $item=[pscustomobject]@{QueueKey='LegacyImport|test';Kind='LegacyImport';Path='other.db';Row=$null;Epoch=[long]1}
+    $state=[pscustomobject]@{Items=@($item);Epoch=[long]2}
+    $result=[pscustomobject]@{Saved=$true;Conflicts=@();Count=1;Already=0;Imported=0;ImportedLinks=$links}
+    Complete-DomeniaStorageWork $result $state
+    Assert-Equal 0 @($script:UserMachineLinks).Count
+    Assert-Equal 0 $script:LinkBaseline.Count
+    Assert-False $script:Persistence.LinkBusy
+}
+
+Test-Case 'D113 : plus de 64 liens importes ne produisent aucun ecart apres Complete' {
+    Initialize-DomeniaPersistence
+    [void](New-LegacySandbox)
+    $script:DatabaseScopedPath=$script:TestDbPath
+    $script:SessionEpoch=[long]1
+    $script:UserMachineLinks=@()
+    $script:LinkBaseline=@{}
+    $links=@()
+    for($i=1;$i -le 70;$i++){$links += [pscustomobject]@{UserLogin=('user{0:d2}' -f $i);Computer=('PC{0:d2}' -f $i);Source='Import CSV';Confidence=100;VerifiedInAD=$true;When='2026-01-01';Details='';UserGuid='';ComputerGuid='';UserDn='';ComputerDn=''}}
+    $payload=New-LegacyPayload -Links $links
+    $state=[pscustomobject]@{Items=$payload.Items;Epoch=[long]1}
+    $result=Invoke-LegacyWorker $payload
+    Complete-DomeniaStorageWork $result $state
+    Assert-Equal 70 @($script:UserMachineLinks).Count
+    Assert-Equal 70 $script:LinkBaseline.Count
+    Assert-False $script:Persistence.LinkBusy
+    Assert-True (Queue-DomeniaLinkChanges)
+    Assert-Equal 0 $script:Persistence.Pending.Count
+    $rec=ConvertTo-DomeniaLinkRecord $links[0]
+    Assert-Equal (Get-DomeniaLinkFingerprint $rec) (Get-DomeniaLinkFingerprint $script:LinkBaseline['PC01'])
+}
+
+Test-Case 'D113 : succes import ne remet pas a zero Failures ordinaire' {
+    Initialize-DomeniaPersistence
+    $script:DatabaseScopedPath='test-scope.db'
+    $script:SessionEpoch=[long]1
+    $script:Persistence.Failures=2
+    $item=[pscustomobject]@{QueueKey='LegacyImport|test';Kind='LegacyImport';Path='test-scope.db';Row=$null;Epoch=[long]1}
+    $state=[pscustomobject]@{Items=@($item);Epoch=[long]1}
+    Complete-DomeniaStorageWork ([pscustomobject]@{Saved=$true;Conflicts=@();Count=0;Already=0;Imported=0;ImportedLinks=@()}) $state
+    Assert-Equal 2 $script:Persistence.Failures
+}
+
+Test-Case 'D113 : un rappel ordinaire conserve le verrou d un import en attente' {
+    Initialize-DomeniaPersistence; Stop-TestTimers
+    $row=[pscustomobject]@{Marker='pending';BaseDn='DC=example,DC=invalid'}
+    Assert-True (Queue-DomeniaMetadata -Kind LegacyImport -Row $row)
+    Complete-DomeniaStorageWork ([pscustomobject]@{Saved=$true;Conflicts=@();Count=1}) ([pscustomobject]@{Items=@([pscustomobject]@{Kind='Presence'});Epoch=[long]1})
+    Assert-True $script:Persistence.LinkBusy
+    Assert-Equal 1 $script:Persistence.Pending.Count
+    $script:Persistence.Job='lost-ordinary'
+    Use-RealStorageWork
+    Start-DomeniaStorageWork
+    Assert-True $script:Persistence.LinkBusy
+    Assert-Equal 'LegacyImport' $script:LastStoragePayload.Items[0].Kind
+}
+
+Test-Case 'D113 : rappel Already ne fusionne rien dans la session' {
+    Initialize-DomeniaPersistence; Stop-TestTimers
+    $script:UserMachineLinks=@([pscustomobject]@{Computer='PC-LOCAL';UserLogin='local'})
+    $state=[pscustomobject]@{Items=@([pscustomobject]@{Kind='LegacyImport';Epoch=[long]1;Path=$script:DatabaseScopedPath})}
+    $result=[pscustomobject]@{Saved=$true;Conflicts=@();Already=$true;ImportedLinks=@([pscustomobject]@{Computer='PC-OTHER';UserLogin='other'})}
+    Complete-DomeniaStorageWork $result $state
+    Assert-Equal 1 @($script:UserMachineLinks).Count
+    Assert-Equal 'PC-LOCAL' $script:UserMachineLinks[0].Computer
+    Assert-Equal 0 $script:LinkBaseline.Count
+    Assert-Equal 0 $script:LoadIndexCalls
+    Assert-False $script:Persistence.LinkBusy
+}
+
+Stop-TestTimers
 $passed = @($checks | Where-Object { $_.Status -eq 'Passed' }).Count
 $failed = @($checks | Where-Object { $_.Status -eq 'Failed' }).Count
 if (-not $ReportPath) { $ReportPath = Join-Path ([IO.Path]::GetTempPath()) ('Domenia-wiring-cache-' + [guid]::NewGuid().ToString('N') + '.json') }

@@ -1,5 +1,5 @@
 {
-  "Archive": "lot cache etape F",
+  "Archive": "lot cache etape G1",
   "ArchiveSHA256": "655ED21F90345B3C7667D4E777814C6A0595A5D5BE628AD587FB46CCA5241922",
   "CoreFunctions": {
     "Write-DomeniaAtomicText": "1C9A1583F52EB7BE80BE420662653E4AF886FE11DC4FDB3B1C4CDF19FD1C0EDA",
@@ -488,8 +488,8 @@
     "Load-UserMachineLinks": "D588E9FAB3DB852FD760624C2A463CDEA8A5B97BAF550C273F8C7C1B2CB7776D",
     "ConvertTo-DomeniaCanonicalWorkerCode": "48A6A851309CF03C8AA4802B160FC0C9D3234B795C63D0BAED6923BF42FE2FAF",
     "Get-DomeniaWorkerCodeHash": "6B81660F207AAEB37BA076144EDD12F5A926F9F64858B03755C2567E335C0D16",
-    "Get-DomeniaWorkerOperationHashes": "81746F7D5103A67D1DAA90E9C7002AC32DC80062BC36BAAFB17212080D1BB56C",
-    "Assert-DomeniaWorkerRegistry": "8B0E4201293DE8BF8F9A78EEAAAC83D9B9866C8E03EB0E69E2C9C46CA7ACD5A3",
+    "Get-DomeniaWorkerOperationHashes": "B5C800B463AD17D85F29489CBF4C867142CF162E9928DE1D6479AA6561BD25B2",
+    "Assert-DomeniaWorkerRegistry": "6992CE1675CFCF3DF7317C4A6D2CC71807E69A645FDB4B48518FFFC71F08CDC0",
     "Assert-DomeniaWorkerOperationCode": "41D63871EDC11F5765938E6DAF8004A01471CD63E9666E2569D6E43008032526",
     "Get-DomeniaWorkerEngineSelfTestCode": "7FB07491846A78A89C13351DC07ABCA7B150642EE02AA25FF430A19942001AF0",
     "New-DomeniaWorkerRunspace": "8D2FB4E8786E147F555EC5860E76F8EB0D606D66BF9A610F43A0CC2836197A0D",
@@ -1265,6 +1265,18 @@
       "ChangedPayloads": [
         "wad/modules/Domenia-Live.UI.ps1"
       ]
+    },
+    {
+      "Previous": "lot cache etape F",
+      "Source": "lot cache etape G1",
+      "Decision": "D113 LegacyImport transactionnel et D029 historique protege : seul le corps LocalStore relu change ; mise a jour des empreintes LocalStore et du registre, autres workers inchanges.",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Get-DomeniaWorkerOperationHashes"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
     }
   ]
 }
