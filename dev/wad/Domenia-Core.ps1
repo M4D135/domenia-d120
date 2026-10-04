@@ -16719,6 +16719,7 @@ $created=$false;$watch=[Diagnostics.Stopwatch]::StartNew()
 try{
     [IO.File]::WriteAllText($xmlPath,$xml,[Text.Encoding]::Unicode)
     $createArgs=@('/create','/tn',$task,'/xml',$xmlPath,'/f')+$createExtra
+    $DomeniaWriteDispatched=$true
     $r=Invoke-WSchtasksRemote $Context $computer $createArgs 35
     if($r.ExitCode-ne0){throw "creation KO code $($r.ExitCode), $(Get-WSchtasksHint $r.ExitCode) : $($r.Output)"};$created=$true
     $runArgs=@('/run','/tn',$task);if($interactive){$runArgs+='/i'}
@@ -16727,8 +16728,8 @@ try{
     Start-Sleep -Milliseconds 900
     $q=Invoke-WSchtasksRemote $Context $computer @('/query','/tn',$task,'/v','/fo','LIST') 20
     $watch.Stop()
-    $detail='Tache declenchee.';if($q.ExitCode -eq 0 -and -not [string]::IsNullOrWhiteSpace([string]$q.Output)){$detail=(([string]$q.Output)-replace '[\r\n]+',' ');if($detail.Length-gt500){$detail=$detail.Substring(0,500)}}
-    [pscustomobject]@{Computer=$computer;Command=$command;Arguments=$arguments;Mode=$mode;RunUser=$taskUser;TaskName=$task;Message=("Rimotte : demande de lancement acceptee sur "+$computer+" via tache unique. Execution du programme non verifiee.");Detail=$detail;DurationMs=[long]$watch.ElapsedMilliseconds;Transport='ScheduledTask';Success=$true}
+    $detail='Tache declenchee.';if ((($q.ExitCode -eq 0)) -and ((-not [string]::IsNullOrWhiteSpace([string]$q.Output)))) {$detail=(([string]$q.Output)-replace '[\r\n]+',' ');if($detail.Length-gt500){$detail=$detail.Substring(0,500)}}
+    [pscustomobject]@{Computer=$computer;Command=$command;Arguments=$arguments;Mode=$mode;RunUser=$taskUser;TaskName=$task;Message=("Rimotte : demande de lancement acceptee sur "+$computer+" via tache unique. Execution du programme non verifiee.");Detail=$detail;DurationMs=[long]$watch.ElapsedMilliseconds;Transport='ScheduledTask';Success=$true;Delivered=$true}
 }
 catch{throw ("Acces distant impossible sur "+$computer+" via Rimotte : "+$_.Exception.Message)}
 finally{
@@ -16756,9 +16757,11 @@ function Fail-DomeniaRimotteUi {
 
 function Start-DomeniaRimotteRun {
     param($Settings)
+    Assert-WriteAllowed
     $computer=Assert-DomeniaComputerTarget -Computer ([string]$Settings.Computer)
-    $payload=[pscustomobject]@{Computer=$computer;Command=[string]$Settings.Command;Arguments=[string]$Settings.Arguments;Mode=[string]$Settings.Mode;RunUser=[string]$Settings.RunUser;Elevated=[bool]$Settings.Elevated}
-    Start-UiTask -Name ("Rimotte "+$computer) -OperationId "RimotteRun" -Code (Get-DomeniaRimotteWorkerCode) -Payload $payload -CallbackState ([pscustomobject]@{Computer=$computer}) -ReplaceKey ("rimotte:"+$computer) -DisableControls @("BtnCompRimotte") -TimeoutSeconds 95 -NonCancellable -StatusText ("Rimotte : lancement sur "+$computer+"...") -SuccessHandler "Complete-DomeniaRimotteUi" -ErrorHandler "Fail-DomeniaRimotteUi" | Out-Null
+    $correlation=[guid]::NewGuid().ToString('N')
+    $payload=[pscustomobject]@{Computer=$computer;Command=[string]$Settings.Command;Arguments=[string]$Settings.Arguments;Mode=[string]$Settings.Mode;RunUser=[string]$Settings.RunUser;Elevated=[bool]$Settings.Elevated;Target=$computer;DN=$computer;CorrelationId=$correlation;SingleRequest=$true}
+    Start-UiTask -Name ("Rimotte "+$computer) -OperationId "RimotteRun" -Code (Get-DomeniaRimotteWorkerCode) -Payload $payload -CallbackState ([pscustomobject]@{Computer=$computer}) -ReplaceKey ("rimotte:"+$computer) -DisableControls @("BtnCompRimotte") -TimeoutSeconds 95 -NonCancellable -StatusText ("Rimotte : lancement sur "+$computer+"...") -SuccessHandler "Complete-DomeniaRimotteUi" -ErrorHandler "Fail-DomeniaRimotteUi" -IsWrite -CorrelationId $correlation | Out-Null
 }
 
 function Show-DomeniaRimotteDialog {
@@ -16831,19 +16834,25 @@ $sw.Stop();[pscustomobject]@{Rows=@($rows);Message=(($rows|ForEach-Object{"#$($_
             }
             "GpUpdate" {
                 Assert-DomeniaRemoteWriteAllowed -Operation "GPUpdate distant"
+                Assert-WriteAllowed
                 if(-not (Confirm-Action "Forcer immediatement la mise a jour des strategies sur $name ?")){return}
                 $code=@'
-$computer=[string]$Payload.Computer;$cred=Get-WMachineCredential $Context;$err='';try{$p=@{ComputerName=$computer;ScriptBlock={gpupdate.exe /force /wait:0 | Out-String};ErrorAction="Stop"};if($cred){$p.Credential=$cred};$o=Invoke-Command @p;[pscustomobject]@{Message="GPUpdate lance sur $computer via WinRM : $($o -join ' ')";Transport="WinRM"};return}catch{$err=$_.Exception.Message};$local='& "$env:SystemRoot\System32\gpupdate.exe" /force /wait:0 | Out-String | ForEach-Object { [pscustomobject]@{Message=("GPUpdate lance localement : "+$_);Transport="TaskFallback"} }';Invoke-WRemoteTaskScript $Context $computer $local ([pscustomobject]@{}) ([int]$Context.TaskFallbackTimeoutSeconds) $err
+$computer=[string]$Payload.Computer;$cred=Get-WMachineCredential $Context;$err='';try{$p=@{ComputerName=$computer;ScriptBlock={gpupdate.exe /force /wait:0 | Out-String};ErrorAction="Stop"};if($cred){$p.Credential=$cred};$DomeniaWriteDispatched=$true;$o=Invoke-Command @p;[pscustomobject]@{Message="GPUpdate lance sur $computer via WinRM : $($o -join ' ')";Transport="WinRM";Delivered=$true};return}catch{$err=$_.Exception.Message};if(-not $DomeniaWriteDispatched){$local='& "$env:SystemRoot\System32\gpupdate.exe" /force /wait:0 | Out-String | ForEach-Object { [pscustomobject]@{Message=("GPUpdate lance localement : "+$_);Transport="TaskFallback"} }';$DomeniaWriteDispatched=$true;$r=Invoke-WRemoteTaskScript $Context $computer $local ([pscustomobject]@{}) ([int]$Context.TaskFallbackTimeoutSeconds) $err;[pscustomobject]@{Message="GPUpdate via tache planifiée.";Transport="TaskFallback";Delivered=$true}}else{throw}
 '@
-                Start-UiTask -Name "GPUpdate $name" -OperationId "ComputerGpUpdate" -Code $code -Payload ([pscustomobject]@{Computer=$name}) -CallbackState ([pscustomobject]@{ Tool="GPUpdate"; Computer=$name }) -ReplaceKey "gpupdate:$name" -DisableControls @("BtnCompGpUpdate") -TimeoutSeconds 35 -StatusText "GPUpdate distant sur $name..." -SuccessHandler "Complete-DomeniaComputerToolUi" -ErrorHandler "Fail-DomeniaComputerToolUi" | Out-Null
+                $correlation = [guid]::NewGuid().ToString("N")
+                $payload = [pscustomobject]@{Computer=$name;Target=$name;DN=$name;CorrelationId=$correlation;SingleRequest=$true}
+                Start-UiTask -Name "GPUpdate $name" -OperationId "ComputerGpUpdate" -Code $code -Payload $payload -CallbackState ([pscustomobject]@{ Tool="GPUpdate"; Computer=$name }) -ReplaceKey "gpupdate:$name" -DisableControls @("BtnCompGpUpdate") -TimeoutSeconds 35 -StatusText "GPUpdate distant sur $name..." -SuccessHandler "Complete-DomeniaComputerToolUi" -ErrorHandler "Fail-DomeniaComputerToolUi" -IsWrite -CorrelationId $correlation | Out-Null
             }
             "Restart" {
                 Assert-DomeniaRemoteWriteAllowed -Operation "Redemarrage distant"
+                Assert-WriteAllowed
                 if(-not (Confirm-Action "Redemarrer immediatement $name ?")){return}
                 $code=@'
-$computer=[string]$Payload.Computer;$cred=Get-WMachineCredential $Context;$err='';try{$p=@{ComputerName=$computer;Force=$true;ErrorAction="Stop"};if($cred){$p.Credential=$cred};Restart-Computer @p;[pscustomobject]@{Message="Ordre de redemarrage envoye a $computer via methode classique.";Transport="Classic"};return}catch{$err=$_.Exception.Message};$local='Start-Process -FilePath (Join-Path $env:SystemRoot "System32\shutdown.exe") -ArgumentList @("/r","/t","10","/f","/c","DOMENIA") -WindowStyle Hidden; [pscustomobject]@{Message="Redemarrage programme localement dans 10 secondes.";Transport="TaskFallback"}';Invoke-WRemoteTaskScript $Context $computer $local ([pscustomobject]@{}) ([int]$Context.TaskFallbackTimeoutSeconds) $err
+$computer=[string]$Payload.Computer;$cred=Get-WMachineCredential $Context;$err='';try{$p=@{ComputerName=$computer;Force=$true;ErrorAction="Stop"};if($cred){$p.Credential=$cred};$DomeniaWriteDispatched=$true;Restart-Computer @p;[pscustomobject]@{Message="Demande de redemarrage envoyee a $computer.";Transport="Classic";Delivered=$true};return}catch{$err=$_.Exception.Message};if(-not $DomeniaWriteDispatched){$local='Start-Process -FilePath (Join-Path $env:SystemRoot "System32\shutdown.exe") -ArgumentList @("/r","/t","10","/f","/c","DOMENIA") -WindowStyle Hidden; [pscustomobject]@{Message="Redemarrage programme localement dans 10 secondes.";Transport="TaskFallback";Delivered=$true}';$DomeniaWriteDispatched=$true;$r=Invoke-WRemoteTaskScript $Context $computer $local ([pscustomobject]@{}) ([int]$Context.TaskFallbackTimeoutSeconds) $err;[pscustomobject]@{Message="Redemarrage via tache planifiée.";Transport="TaskFallback";Delivered=$true}}else{throw}
 '@
-                Start-UiTask -Name "Redemarrage $name" -OperationId "ComputerRestart" -Code $code -Payload ([pscustomobject]@{Computer=$name}) -CallbackState ([pscustomobject]@{ Tool="Redemarrage"; Computer=$name }) -ReplaceKey "restart:$name" -DisableControls @("BtnCompRestart") -TimeoutSeconds 35 -StatusText "Redemarrage distant de $name..." -SuccessHandler "Complete-DomeniaComputerToolUi" -ErrorHandler "Fail-DomeniaComputerToolUi" | Out-Null
+                $correlation = [guid]::NewGuid().ToString("N")
+                $payload = [pscustomobject]@{Computer=$name;Target=$name;DN=$name;CorrelationId=$correlation;SingleRequest=$true}
+                Start-UiTask -Name "Redemarrage $name" -OperationId "ComputerRestart" -Code $code -Payload $payload -CallbackState ([pscustomobject]@{ Tool="Redemarrage"; Computer=$name }) -ReplaceKey "restart:$name" -DisableControls @("BtnCompRestart") -TimeoutSeconds 35 -StatusText "Redemarrage distant de $name..." -SuccessHandler "Complete-DomeniaComputerToolUi" -ErrorHandler "Fail-DomeniaComputerToolUi" -IsWrite -CorrelationId $correlation | Out-Null
             }
         }
     } catch { [void](Show-DomeniaOperationError -Operation "Outil machine $Tool" -ErrorRecordOrException $_) }
@@ -20658,9 +20667,9 @@ function Get-DomeniaWorkerOperationHashes {
         ComputerLastUser      = "8F79C42CE673CE98DBE30EB30B9DBF246D8819B08149A4FBA1C5F9BA894395F9"
         CmdletInventory       = "FA1105E9540BBC2AB373FC45037CC54FA11EB8BD9B058194CE44C422E812DF75"
         ComputerPing          = "BE1A5B70CCA9477571D839A85A1330334210DA891C53DBA257814486369F5887"
-        ComputerGpUpdate      = "95A3CCDFB28C9CF810848E79126A936655B82216971653E45B8CD0E6065301F8"
-        ComputerRestart       = "DE999A34FD657618F6A13DACDFE6A13F04F458D43C3A3C27B545931D9A7B8A39"
-        RimotteRun            = "436735636B65AC30EA77B59906D7553887EADE1B487503A0D71A1A9E7252EF7C"
+        ComputerGpUpdate      = "834EF3F6318DFE7917FBA4926B53F0013987B258C6395012ECD03BEE874CFA17"
+        ComputerRestart       = "CF11D2F7B15DC33E3C92BE72E496F12B80BBA2C76AFAFA21B7E1F3469C861B50"
+        RimotteRun            = "2834E90E1C51D9D4A16C98CBCA905DE6A9886E87875115DC0A44ADF3E75F665B"
         PruneLinks            = "0CDDB662FA027ED979FC9A44A7A66662DB540D5B562F9D33CCDD3BA86FF0819F"
         OpenLinkedObject      = "24863184FC8441FCE8F270A75B30736954AC066DBBC5A2DE99CDF1C5D7CAA6C2"
         OpenAdObject          = "28BA398A2209576CAA79A637C0BE2CF05AF51013D553F0155F87C99A29CBB284"
@@ -20686,7 +20695,7 @@ function Get-DomeniaWorkerOperationHashes {
         LiveDirectoryCheck    = "49F6D4249F6465D6E461D3B04DD090F00477ABBD871683ECF3622714A2AB53CD"
         SessionsList         = "DD09187778C09CF31B0BDA41EAC88FF898D9484756AFDF2F3EE643E6B5318BF6"
         RemoteCredentialCheck = "9070C7A5D9460D0FD129FD67CD5070595DE4DED7CA7EE7573C65AF102B0E515B"
-        ReceiptStore         = "20AB6477733849833861CCCBEBAD3ABE7915C3326F4A01F837121DA3A059AE3D"
+        ReceiptStore         = "45FE35D694782ECB8B13D14C5B3CD637FD5CA1C4B0E6CD278EEE3AC5804121D1"
         ScopeReconcile       = "5917B0E2AB92BA626EF3621CCCE7B9A4988B318E62834EFD02FD6AFEF5C0B650"
         DocumentStore        = "BFD83587CB1BA62BC141E5F0742C6C6453A561617ED157045F3B4E7AB11A14E7"
         LocalStore           = "478EF92963F01B4102F14E56348E00D18442AE5D5640D71ED511EEB0F63F6D81"
@@ -20701,7 +20710,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "532EBA2EAB569442F3035B20002C71D8299AE1A28A41CA3B839CCD7112BFCFCF"
+    $expectedFingerprint = "32C6915075942848506776D4525ECF88327D873CF3080DB299F9A9B3F32C4ED3"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -20775,20 +20784,28 @@ try {
         if(([IO.FileInfo]::new($pendingFile)).Length -gt 65536){throw 'Recu invalide a verifier.'}
         $pending=[IO.File]::ReadAllText($pendingFile)|ConvertFrom-Json
         if($pending.Format -ne 1){throw 'Recu non reconnu.'}
-        if($pending.Domain -ieq $Context.BaseDn -and $pending.Stage -notin @('Verified','NotSent','Reviewed')){throw 'Une operation precedente reste a verifier. Aucun envoi.'}
+        if ((($pending.Domain -ieq $Context.BaseDn)) -and (($pending.Stage -notin @('Verified','NotSent','Reviewed','Delivered')))) {throw 'Une operation precedente reste a verifier. Aucun envoi.'}
+        $pendingFingerprint=''
+        if ($null -ne $pending.PSObject.Properties['PlanFingerprint']) { $pendingFingerprint=[string]$pending.PlanFingerprint }
+        $payloadFingerprint=''
+        if ((($null -ne $Payload)) -and ((($null -ne $Payload.PSObject.Properties['PlanFingerprint'])))) { $payloadFingerprint=[string]$Payload.PlanFingerprint }
+        if ((($pending.Domain -ieq $Context.BaseDn)) -and ($payloadFingerprint) -and (((($pendingFingerprint -ceq $payloadFingerprint)) -or ((([string]$pending.Id) -ceq $payloadFingerprint)))) -and (($pending.Stage -ne 'NotSent'))) {throw 'Demande identique deja envoyee ou a verifier.'}
     }
     New-WReceipt $Context $Payload
     $businessResult=. {
 '@ + "`r`n"+$body+"`r`n"+@'
     }
     $proof=@($businessResult|Where-Object{$null -ne $_.PSObject.Properties['Verified']}|Select-Object -Last 1)
-    if($proof.Count -eq 1 -and $proof[0].Verified -and -not $proof[0].Partial){Set-WReceiptStage 'Verified'}else{Set-WReceiptStage 'Unknown'}
+    $delivered=@($businessResult|Where-Object{$null -ne $_.PSObject.Properties['Delivered']}|Select-Object -Last 1)
+    if ((($proof.Count -eq 1)) -and (($proof[0].Verified)) -and ((-not $proof[0].Partial))) {Set-WReceiptStage 'Verified'}
+    elseif ((($delivered.Count -eq 1)) -and ([bool]$delivered[0].Delivered)) {Set-WReceiptStage 'Delivered'}
+    else {Set-WReceiptStage 'Unknown'}
     $businessResult
 } catch {
     if($null -ne $script:ReceiptRecord){
         try{if($DomeniaWriteDispatched){Set-WReceiptStage 'Unknown'}else{Set-WReceiptStage 'NotSent'}}catch{}
     }
-    if($DomeniaWriteDispatched){throw ('ETAT INCONNU apres envoi au DC. Recu conserve ; aucun rejeu automatique. '+$_.Exception.Message)}
+    if($DomeniaWriteDispatched){throw ('ETAT INCONNU apres envoi. Recu conserve ; aucun rejeu automatique. '+$_.Exception.Message)}
     throw
 } finally {if($null -ne $receiptLock){$receiptLock.Dispose()};$script:ReceiptRecord=$null}
 '@
@@ -20975,6 +20992,12 @@ try {
 
     if (-not [bool](Get-CfgValue "Async" "Enabled" $true)) { throw "Moteur multithread desactive dans la configuration." }
     if ($script:AsyncEngineClosing) { throw "Le moteur multithread est en cours de fermeture." }
+    # D094: durable receipt required before dispatch for known mutations only.
+    # Unknown operations must not break Start-UiTask; they remain to be classified.
+    $receiptRequirement = Get-DomeniaReceiptRequirement -OperationId $OperationId
+    if (([bool]$receiptRequirement.Required) -and (($receiptRequirement.Effect -in @('DirectoryWrite','RemoteMutation'))) -and ((-not [bool]$IsWrite))) {
+        throw 'Reçu durable requis : cette operation doit partir par le canal ecriture.'
+    }
     Initialize-AsyncEngine
     # D011: engine state built lazily from the model modules, never at script level of the core.
     Initialize-DomeniaEngineState
@@ -22461,16 +22484,33 @@ function Start-DomeniaWriteTask {
         [Parameter(Mandatory)][ValidatePattern('^Write[A-Za-z0-9]{2,59}$')][string]$OperationId,
         [Parameter(Mandatory)][string]$Code,
         $Payload,
+        [AllowEmptyString()][string]$PlanFingerprint = "",
         [string]$Capability = "Edit",
         [string[]]$DisableControls = @(),
         [string]$AfterSuccessAction = "RefreshObjectBranch",
         $AfterSuccessState = $null,
         [int]$TimeoutSeconds = 0
     )
+    if ($null -eq $Payload) { $Payload = [pscustomobject]@{} }
+    $planFingerprint = [string]$PlanFingerprint
+    if ([string]::IsNullOrWhiteSpace($planFingerprint)) { $planFingerprint = [string](Get-DomeniaMember $Payload 'PlanFingerprint' '') }
+    $planKey = ''
+    $receipts = @()
+    if ($null -ne $script:ReceiptRows) { $receipts = @($script:ReceiptRows) }
+    if (-not [string]::IsNullOrWhiteSpace($planFingerprint)) {
+        $planKey = ([string]$planFingerprint).Trim().ToUpperInvariant()
+        if ($null -eq $script:SubmittedWritePlans) { $script:SubmittedWritePlans = @{} }
+        $admissionCheck = Test-DomeniaWriteAdmission -Fingerprint $planKey -Submitted $script:SubmittedWritePlans -Receipts $receipts -Active $script:AsyncJobs -Origin Operator -CheckOnly
+        if (-not [bool]$admissionCheck.Admit) { Show-ErrorBox ([string]$admissionCheck.Reason); return }
+    }
     try { Assert-DomeniaCapability $Capability }
     catch { Show-ErrorBox $_.Exception.Message; return }
     if($null -ne $script:Continuity){$script:Continuity.Mutation++}
-    if ($null -eq $Payload) { $Payload = [pscustomobject]@{} }
+    if (-not [string]::IsNullOrWhiteSpace($planKey)) {
+        $admission = Test-DomeniaWriteAdmission -Fingerprint $planKey -Submitted $script:SubmittedWritePlans -Receipts $receipts -Active $script:AsyncJobs -Origin Operator
+        if (-not [bool]$admission.Admit) { Show-ErrorBox ([string]$admission.Reason); return }
+        if ($null -eq $Payload.PSObject.Properties['PlanFingerprint']) { $Payload | Add-Member -NotePropertyName PlanFingerprint -NotePropertyValue $planKey } else { $Payload.PlanFingerprint = $planKey }
+    }
     $correlation = [guid]::NewGuid().ToString("N")
     if ($null -eq $Payload.PSObject.Properties["CorrelationId"]) { $Payload | Add-Member -NotePropertyName CorrelationId -NotePropertyValue $correlation }
     $allControls = @((Get-AllWriteControlNames) + @($DisableControls) + @("ChkLiveUsers","BtnLiveRecheck","TvDirectory","DgObjects","TxtGlobalSearch","BtnGlobalSearch","BtnGlobalClear","BtnTreeRefresh","BtnDashRoot","BtnSearchAllDomain","BtnSearchInOu","ChkSubtree","CmbGlobalType","BtnLoadBranch") | Select-Object -Unique)
@@ -22493,7 +22533,14 @@ function Start-DomeniaWriteTask {
         AfterSuccessAction = $AfterSuccessAction
         AfterSuccessState = $AfterSuccessState
     }
-    $id = Start-UiTask -Name $Name -OperationId $OperationId -Code $Code -Payload $Payload -ReplaceKey "domenia-write-channel" -DisableControls $allControls -TimeoutSeconds $TimeoutSeconds -HardTimeoutSeconds $hard -StatusText "$Name en cours, GUI disponible..." -SuccessHandler "Complete-DomeniaWriteTaskUi" -ErrorHandler "Fail-DomeniaWriteTaskUi" -CallbackState $callbackState -IsWrite -NonCancellable -CorrelationId $correlation
+    try {
+        $id = Start-UiTask -Name $Name -OperationId $OperationId -Code $Code -Payload $Payload -ReplaceKey "domenia-write-channel" -DisableControls $allControls -TimeoutSeconds $TimeoutSeconds -HardTimeoutSeconds $hard -StatusText "$Name en cours, GUI disponible..." -SuccessHandler "Complete-DomeniaWriteTaskUi" -ErrorHandler "Fail-DomeniaWriteTaskUi" -CallbackState $callbackState -IsWrite -NonCancellable -CorrelationId $correlation
+    } catch {
+        if ((-not [string]::IsNullOrWhiteSpace($planKey)) -and (($null -ne $script:SubmittedWritePlans)) -and ($script:SubmittedWritePlans.ContainsKey($planKey))) {
+            $script:SubmittedWritePlans.Remove($planKey)
+        }
+        throw
+    }
     $script:ActiveWriteTaskId = [string]$id
     $script:WriteState = "Running"
     Apply-CurrentPermissionUi
@@ -24533,7 +24580,8 @@ function Invoke-DomeniaSelfTest {
         'Get-DomeniaErrorDecision','Get-DomeniaCredentialScope','Test-DomeniaCredentialContext','ConvertTo-DomeniaMachineKey','Protect-DomeniaSecretText','Get-DomeniaBitLockerListWorkerCode','Get-DomeniaBitLockerKeyWorkerCode','Request-DomeniaBitLockerKey','Complete-DomeniaBitLockerListUi','Resolve-DomeniaCapabilityRoute','Update-DomeniaTransportPolicyView','Get-DomeniaRetryCredential','Set-DomeniaTargetCredentialContext',
         'Request-DomeniaInlineConfirmation','Complete-DomeniaInlineRequest','Test-DomeniaInlineBlocks',
         'Request-DomeniaLinkPersistence','Queue-DomeniaLinkChanges','Merge-DomeniaLiveLinkMemory','Get-DomeniaObjectCacheKey','Get-DomeniaCacheKey','Invoke-DomeniaObjectChanges',
-        'Update-DomeniaAccessButton','Update-DomeniaExperienceActivity','Update-DomeniaSelectionReadUi','Enter-DomeniaSelectionContext','Reset-DomeniaSelectionBoundViews','Complete-DomeniaInventoryUi','Complete-DomeniaSoftwareUi'
+        'Update-DomeniaAccessButton','Update-DomeniaExperienceActivity','Update-DomeniaSelectionReadUi','Enter-DomeniaSelectionContext','Reset-DomeniaSelectionBoundViews','Complete-DomeniaInventoryUi','Complete-DomeniaSoftwareUi',
+        'Get-DomeniaReceiptRequirement','Get-DomeniaReceiptResumeState','New-DomeniaWriteRegistry','Test-DomeniaWriteAdmission','Set-DomeniaWriteOutcome','Start-DomeniaWriteTask','Invoke-ComputerTool','Start-DomeniaRimotteRun','Get-DomeniaRimotteWorkerCode','Initialize-DomeniaGuard'
     )
     $missing = @($requiredFunctions | Where-Object { $null -eq (Get-Command -Name $_ -CommandType Function -ErrorAction SilentlyContinue) })
     Add-SelfTestResult -Name 'Fonctions critiques' -Success ($missing.Count -eq 0) -Detail $(if($missing.Count -eq 0){'Toutes presentes.'}else{"Absentes : $($missing -join ', ')"})

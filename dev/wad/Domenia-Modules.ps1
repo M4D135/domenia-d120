@@ -778,7 +778,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Fail-DomeniaStorageWork',
             'Queue-DomeniaMetadata'
         ) }
-        [pscustomobject]@{ File='Domenia-Receipts.Worker.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Receipts.Worker.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaReceiptsCommon',
             'Get-DomeniaReceiptWorkerCode'
         ) }

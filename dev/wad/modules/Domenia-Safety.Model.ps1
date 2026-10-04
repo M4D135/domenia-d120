@@ -578,7 +578,7 @@ function Get-DomeniaReceiptRequirement {
         # Prepared then Sent are both written durably; the request leaves only once "Sent" is on disk.
         # ReplayOnResume and StoresSecretValues describe what Test-DomeniaWriteAdmission (origins) and
         # ConvertTo-DomeniaReceiptRecord (hashes only, no secret) enforce.
-        DispatchAfterStage=$after;Stages=@('Prepared','Sent','Verified','Unknown','NotSent','Reviewed')
+        DispatchAfterStage=$after;Stages=@('Prepared','Sent','Verified','Unknown','NotSent','Reviewed','Delivered')
         ReplayOnResume=$false;StoresSecretValues=$false;Reason=$reason
     }
 }
@@ -587,14 +587,29 @@ function Get-DomeniaReceiptResumeState {
     # What a receipt found after a restart means. Nothing found here is ever sent again automatically.
     param($Receipt)
     $stage = [string](Get-DomeniaMember $Receipt 'Stage' '')
-    $state = 'Uncertain'; $text = 'Reçu illisible ou étape inconnue : issue à vérifier. Aucun nouvel envoi automatique.'
-    switch ($stage) {
-        'Prepared' { $state = 'NotSent'; $text = 'Interrompu avant lʼenvoi dʼaprès le reçu (étape préparée) : rien nʼa été transmis. Rien nʼest relancé automatiquement.' }
-        'NotSent' { $state = 'NotSent'; $text = 'Non envoyé : aucune modification transmise.' }
-        'Verified' { $state = 'Verified'; $text = 'Vérifié par relecture.' }
-        'Reviewed' { $state = 'Reviewed'; $text = 'Contrôlé manuellement et consigné.' }
-        'Sent' { $state = 'Uncertain'; $text = 'Envoyé sans confirmation avant la fermeture : issue à vérifier. Aucun nouvel envoi automatique.' }
-        'Unknown' { $state = 'Uncertain'; $text = 'Issue inconnue après envoi : à vérifier. Aucun nouvel envoi automatique.' }
+    $state = 'Uncertain'
+    $text = 'Reçu illisible ou étape inconnue : issue à vérifier. Aucun nouvel envoi automatique.'
+    if ($stage -eq 'Prepared') {
+        $state = 'NotSent'
+        $text = 'Interrompu avant lʼenvoi dʼaprès le reçu (étape préparée) : rien nʼa été transmis. Rien nʼest relancé automatiquement.'
+    } elseif ($stage -eq 'NotSent') {
+        $state = 'NotSent'
+        $text = 'Non envoyé : aucune modification transmise.'
+    } elseif ($stage -eq 'Verified') {
+        $state = 'Verified'
+        $text = 'Vérifié par relecture.'
+    } elseif ($stage -eq 'Reviewed') {
+        $state = 'Reviewed'
+        $text = 'Contrôlé manuellement et consigné.'
+    } elseif ($stage -eq 'Sent') {
+        $state = 'Uncertain'
+        $text = 'Envoyé sans confirmation avant la fermeture : issue à vérifier. Aucun nouvel envoi automatique.'
+    } elseif ($stage -eq 'Unknown') {
+        $state = 'Uncertain'
+        $text = 'Issue inconnue après envoi : à vérifier. Aucun nouvel envoi automatique.'
+    } elseif ($stage -eq 'Delivered') {
+        $state = 'Delivered'
+        $text = "Demande envoyée sans preuve d'effet : étape terminale non bloquante. Aucun rejeu automatique."
     }
     return [pscustomobject]@{Stage=$stage;State=$state;Uncertain=($state -eq 'Uncertain');Replay=$false;BlocksTarget=($state -eq 'Uncertain');Text=$text}
 }
@@ -634,11 +649,12 @@ function New-DomeniaWriteRegistry {
     $registry = [pscustomobject]@{Entries=@{};Plans=@{};Sequence=0}
     foreach ($receipt in @($Receipts)) {
         if ($null -eq $receipt) { continue }
-        $key = ([string](Get-DomeniaMember $receipt 'Fingerprint' '')).Trim().ToUpperInvariant()
+        $key = ([string](Get-DomeniaMember $receipt 'PlanFingerprint' '')).Trim().ToUpperInvariant()
+        if (-not $key) { $key = ([string](Get-DomeniaMember $receipt 'Fingerprint' '')).Trim().ToUpperInvariant() }
         if (-not $key) { continue }
         $resume = Get-DomeniaReceiptResumeState $receipt
         $state = 'NotSent'
-        if ($resume.State -eq 'Uncertain') { $state = 'Uncertain' } elseif ($resume.State -in @('Verified','Reviewed')) { $state = $resume.State }
+        if ($resume.State -eq 'Uncertain') { $state = 'Uncertain' } elseif ($resume.State -in @('Verified','Reviewed','Delivered')) { $state = $resume.State }
         # Several receipts with the same fingerprint: an uncertain one always wins.
         if ($registry.Entries.ContainsKey($key) -and [string]$registry.Entries[$key].State -eq 'Uncertain') { continue }
         $registry.Sequence = [int]$registry.Sequence + 1
@@ -648,13 +664,70 @@ function New-DomeniaWriteRegistry {
 }
 
 function Test-DomeniaWriteAdmission {
+    [CmdletBinding(DefaultParameterSetName='Plan')]
     # Idempotence key = plan fingerprint. One confirmed plan is sent at most once, and no identical request
     # starts while another one is reserved, sent or uncertain. An admitted request is recorded (reserved) at
     # once, by default, so the second click of a double-click is refused whatever the caller remembers.
     # -CheckOnly answers without recording anything: to grey out a button, never to send.
     # Start-up, resume, timers, reconnections and automatic retries never send a modification. Reads stay retryable.
-    param($Registry,$Plan,[ValidateSet('Operator','Batch','Startup','Resume','AutoRetry','Timer','Reconnect')][string]$Origin='Operator',[switch]$CheckOnly)
+    param(
+        [Parameter(ParameterSetName='Plan',Position=0)][AllowNull()]$Registry,
+        [Parameter(ParameterSetName='Plan',Position=1)][AllowNull()]$Plan,
+        [Parameter(ParameterSetName='Fingerprint',Mandatory=$true)][AllowEmptyString()][string]$Fingerprint,
+        [Parameter(ParameterSetName='Fingerprint')][AllowNull()][hashtable]$Submitted,
+        [Parameter(ParameterSetName='Fingerprint')][AllowNull()][object[]]$Receipts=@(),
+        [Parameter(ParameterSetName='Fingerprint')][AllowNull()]$Active=$null,
+        [Parameter(ParameterSetName='Plan',Position=2)][Parameter(ParameterSetName='Fingerprint')][ValidateSet('Operator','Batch','Startup','Resume','AutoRetry','Timer','Reconnect')][string]$Origin='Operator',
+        [Parameter(ParameterSetName='Plan')][Parameter(ParameterSetName='Fingerprint')][switch]$CheckOnly
+    )
     $answer = { param([bool]$admit,[bool]$duplicate,[string]$key,[string]$why,[bool]$retryable,[bool]$reserved=$false) [pscustomobject]@{Admit=$admit;Duplicate=$duplicate;Key=$key;Reason=$why;Retryable=$retryable;Reserved=$reserved} }
+    if ($PSCmdlet.ParameterSetName -eq 'Fingerprint') {
+        $key = ([string]$Fingerprint).Trim().ToUpperInvariant()
+        if (-not $key) { return (& $answer $false $false '' "Empreinte absente : rien n'est envoyé." $false) }
+        if ($Origin -notin @('Operator','Batch')) { return (& $answer $false $false $key "Aucune modification n'est envoyée automatiquement (démarrage, reprise ou nouvel essai) : geste explicite requis." $false) }
+        $state = ''
+        if ((($null -ne $Submitted)) -and ($Submitted.ContainsKey($key))) {
+            $state = [string](Get-DomeniaMember $Submitted[$key] 'State' '')
+        }
+        if ([string]::IsNullOrWhiteSpace($state)) {
+            if ($null -ne $Receipts) {
+                foreach ($receipt in @($Receipts)) {
+                    if ($null -eq $receipt) { continue }
+                    $receiptKey = ([string](Get-DomeniaMember $receipt 'PlanFingerprint' '')).Trim().ToUpperInvariant()
+                    if (-not $receiptKey) { $receiptKey = ([string](Get-DomeniaMember $receipt 'Fingerprint' '')).Trim().ToUpperInvariant() }
+                    if (-not $receiptKey) { $receiptKey = ([string](Get-DomeniaMember $receipt 'Id' '')).Trim().ToUpperInvariant() }
+                    if ($receiptKey -ceq $key) {
+                        $resume = Get-DomeniaReceiptResumeState $receipt
+                        if ($resume.Uncertain) { $state = 'Uncertain' }
+                        elseif ($resume.State -in @('Verified','Reviewed','Delivered')) { $state = [string]$resume.State }
+                        else { $state = 'NotSent' }
+                        break
+                    }
+                }
+            }
+        }
+        if ([string]::IsNullOrWhiteSpace($state)) {
+            if ($null -ne $Active) {
+                $activeJobs = @()
+                if ($Active -is [System.Collections.IDictionary]) { $activeJobs = @($Active.Values) } else { $activeJobs = @($Active) }
+                foreach ($job in $activeJobs) {
+                    if ($null -eq $job) { continue }
+                    $jobKey = ([string](Get-DomeniaMember $job.Payload 'PlanFingerprint' '')).Trim().ToUpperInvariant()
+                    if ($jobKey -ceq $key) {
+                        $jobState = [string](Get-DomeniaMember $job 'State' '')
+                        if ($jobState -notin @('Completed','Failed','Cancelled','Superseded')) { $state = 'Sent'; break }
+                    }
+                }
+            }
+        }
+        if ((-not [string]::IsNullOrWhiteSpace($state)) -and (($state -notin @('NotSent','Failed')))) {
+            if ($state -eq 'Uncertain') { return (& $answer $false $true $key 'Demande identique à vérifier : aucun nouvel envoi avant la vérification du reçu.' $false) }
+            return (& $answer $false $true $key 'Demande identique déjà envoyée : un seul envoi.' $false)
+        }
+        if ($CheckOnly) { return (& $answer $true $false $key '' $false $false) }
+        if ($null -ne $Submitted) { $Submitted[$key] = [pscustomobject]@{Key=$key;State='Reserved';Origin=$Origin} }
+        return (& $answer $true $false $key '' $false $true)
+    }
     if ($Plan -isnot [Domenia.InterventionPlan]) { return (& $answer $false $false '' 'Aucun plan confirmé : rien nʼest envoyé.' $false) }
     if ((Get-DomeniaOperationEffect $Plan.Operation) -eq 'Read') { return (& $answer $true $false '' 'Lecture : relance possible, aucun effet à protéger.' $true) }
     $key = $Plan.Fingerprint.ToUpperInvariant()
@@ -688,7 +761,7 @@ function Set-DomeniaWriteOutcome {
     param(
         $Registry,
         [Parameter(Mandatory=$true)][string]$Key,
-        [Parameter(Mandatory=$true)][ValidateSet('Sent','Verified','Uncertain','NotSent','Failed','Reviewed')][string]$Outcome,
+        [Parameter(Mandatory=$true)][ValidateSet('Sent','Verified','Uncertain','NotSent','Failed','Reviewed','Delivered')][string]$Outcome,
         [int]$ControllerResultCode=0
     )
     $normalized = $Key.Trim().ToUpperInvariant()
@@ -696,8 +769,8 @@ function Set-DomeniaWriteOutcome {
     $entry = $Registry.Entries[$normalized]
     $current = [string]$entry.State
     $allowed = @{
-        'Reserved'=@('Sent','NotSent','Failed','Uncertain','Verified')
-        'Sent'=@('Verified','Uncertain','Failed','Reviewed')
+        'Reserved'=@('Sent','NotSent','Failed','Uncertain','Verified','Delivered')
+        'Sent'=@('Verified','Uncertain','Failed','Reviewed','Delivered')
         'Uncertain'=@('Verified','Reviewed')
     }
     $reason = ''

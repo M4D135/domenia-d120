@@ -165,7 +165,7 @@
     "File": "wad/Domenia-Core.ps1",
     "Function": "Get-DomeniaRimotteWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "436735636B65AC30EA77B59906D7553887EADE1B487503A0D71A1A9E7252EF7C"
+    "Sha256": "2834E90E1C51D9D4A16C98CBCA905DE6A9886E87875115DC0A44ADF3E75F665B"
   },
   {
     "Operation": "ComputerPing",
@@ -179,14 +179,14 @@
     "File": "wad/Domenia-Core.ps1",
     "Function": "Invoke-ComputerTool",
     "LiteralIndex": 1,
-    "Sha256": "95A3CCDFB28C9CF810848E79126A936655B82216971653E45B8CD0E6065301F8"
+    "Sha256": "834EF3F6318DFE7917FBA4926B53F0013987B258C6395012ECD03BEE874CFA17"
   },
   {
     "Operation": "ComputerRestart",
     "File": "wad/Domenia-Core.ps1",
     "Function": "Invoke-ComputerTool",
     "LiteralIndex": 2,
-    "Sha256": "DE999A34FD657618F6A13DACDFE6A13F04F458D43C3A3C27B545931D9A7B8A39"
+    "Sha256": "CF11D2F7B15DC33E3C92BE72E496F12B80BBA2C76AFAFA21B7E1F3469C861B50"
   },
   {
     "Operation": "PruneLinks",
@@ -354,7 +354,7 @@
     "File": "wad/modules/Domenia-Receipts.Worker.ps1",
     "Function": "Get-DomeniaReceiptWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "20AB6477733849833861CCCBEBAD3ABE7915C3326F4A01F837121DA3A059AE3D"
+    "Sha256": "45FE35D694782ECB8B13D14C5B3CD637FD5CA1C4B0E6CD278EEE3AC5804121D1"
   },
   {
     "Operation": "LocalStore",

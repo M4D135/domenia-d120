@@ -1,0 +1,77 @@
+{
+  "Lot": "ecritures",
+  "Points": [
+    "D094",
+    "D095"
+  ],
+  "Modules": [
+    {
+      "File": "Domenia-Safety.Model.ps1",
+      "Phase": "Modules",
+      "Requires": [
+        "Domenia-Common.Model.ps1",
+        "Domenia-Engine.Model.ps1",
+        "Domenia-Search.Model.ps1",
+        "Domenia-Access.Model.ps1",
+        "Domenia-Directory.Model.ps1"
+      ],
+      "DotSource": true
+    },
+    {
+      "File": "Domenia-Receipts.Worker.ps1",
+      "Phase": "Modules",
+      "Requires": [],
+      "DotSource": true
+    }
+  ],
+  "TypeFiles": [],
+  "Operations": [],
+  "OperationsModified": [
+    "ComputerGpUpdate",
+    "ComputerRestart",
+    "RimotteRun",
+    "ReceiptStore"
+  ],
+  "SelfTestRequiredFunctions": [
+    "Get-DomeniaReceiptRequirement",
+    "Get-DomeniaReceiptResumeState",
+    "New-DomeniaWriteRegistry",
+    "Test-DomeniaWriteAdmission",
+    "Set-DomeniaWriteOutcome",
+    "Start-UiTask",
+    "Start-DomeniaWriteTask",
+    "New-DomeniaWorkerRunspace",
+    "Invoke-ComputerTool",
+    "Start-DomeniaRimotteRun",
+    "Get-DomeniaRimotteWorkerCode",
+    "Initialize-DomeniaGuard"
+  ],
+  "HelpEntries": [],
+  "Features": [
+    {
+      "Name": "ReceiptRequiredForRemoteMutation",
+      "Default": true,
+      "Purpose": "Comportement actif par défaut. Start-UiTask refuse ComputerGpUpdate, ComputerRestart et RimotteRun sans canal ecriture."
+    },
+    {
+      "Name": "WriteAdmissionByFingerprint",
+      "Default": true,
+      "Purpose": "Comportement actif par défaut. Start-DomeniaWriteTask refuse une empreinte deja envoyee ou incertaine."
+    }
+  ],
+  "StartRequired": [],
+  "WiringTests": [
+    "wad/tests/Test-DomeniaWiringEcritures.ps1"
+  ],
+  "CoreFunctionsModified": [
+    "Start-UiTask",
+    "Start-DomeniaWriteTask",
+    "New-DomeniaWorkerRunspace",
+    "Invoke-ComputerTool",
+    "Start-DomeniaRimotteRun"
+  ],
+  "Notes": "Revision D094/D095. Aucune etape Rejected. Delivered est terminal non bloquant. Unknown ne casse plus Start-UiTask. Les actions distantes passent par Start-UiTask -IsWrite avec CorrelationId 32 hex et cible nom de poste. Le mode lecture seule bloque les actions distantes converties. Les corps ComputerGpUpdate, ComputerRestart, RimotteRun et ReceiptStore sont modifies et devront etre re-epingles apres relecture. Integration : contrat de Get-DomeniaReceiptRequirement conserve (operation inconnue = recu exige, Start-UiTask ne bloque que DirectoryWrite et RemoteMutation sans -IsWrite) ; Test-DomeniaWriteAdmission garde son corps d origine pour le jeu Plan (positions 0,1,2) et gagne la branche Fingerprint.",
+  "DevOnlyFiles": [
+    "wad/tests/Test-DomeniaWiringEcritures.ps1"
+  ]
+}
