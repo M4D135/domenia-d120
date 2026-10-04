@@ -924,23 +924,27 @@
       "title": "Virtualisation visuelle et chargement des données",
       "proposal": "Vérifier le recyclage WPF, puis ajouter une stratégie distincte de pages de données pour les grandes listes.",
       "acceptance_criterion": "Le nombre de contrôles réalisés ne croît pas avec tous les objets ; la mémoire reste bornée par une politique explicite.",
-      "status": "DEVELOPPE_NON_RACCORDE",
+      "status": "RACCORDE_A_VALIDER_WINDOWS",
       "reference_ids": [
         "S06",
         "S07",
         "S08"
       ],
       "implementation_files": [
-        "wad/modules/Domenia-Cache.Model.ps1"
+        "wad/Domenia-Core.ps1",
+        "wad/modules/Domenia-Live.UI.ps1"
       ],
       "acceptance_passed": false,
-      "remaining": "Decider si le comportement existant suffit (alors raccorder par un test d integration qui le prouve) ou brancher New-DomeniaPageBuffer ; puis preuve Windows liee au ZIP final.",
+      "remaining": "Critere raccorde et teste dans la VM ; reste la qualification Windows liee au ZIP final.",
       "rule_tests": 2,
       "tests": [
+        "wad/tests/Test-DomeniaWiringCache.ps1",
+        "wad/tests/Test-DomeniaStreaming.ps1",
+        "wad/tests/Test-DomeniaSearchPresence.ps1",
         "wad/tests/rules/Cache.Tests.ps1"
       ],
-      "wiring": "Aucun",
-      "evidence": "Regles executees sous Windows PowerShell 5.1.26100.6584 (VM W11-01) par branche avant fusion (commit 1b2dedb). 2 test(s) de regles ; sous PowerShell 7.4 Linux (non qualifiant) le 2026-10-02 : execution de controle seulement. Relecture du lot cache (etape E, premier jet Spark) : limite par recherche, eviction des lignes de cache et virtualisation de DgObjects deja presentes dans Domenia-Live.UI.ps1 ; la regle New-DomeniaPageBuffer n est pas branchee (doublon de quota). Non verifie independamment.",
+      "wiring": "Complet",
+      "evidence": "Regles executees sous Windows PowerShell 5.1.26100.6584 (VM W11-01) par branche avant fusion (commit 1b2dedb). 2 test(s) de regles ; sous PowerShell 7.4 Linux (non qualifiant) le 2026-10-02 : execution de controle seulement. Relecture du lot cache (etape E, premier jet Spark) : limite par recherche, eviction des lignes de cache et virtualisation de DgObjects deja presentes dans Domenia-Live.UI.ps1 ; la regle New-DomeniaPageBuffer n est pas branchee (doublon de quota). Non verifie independamment. H : politique acceptee de 500 lignes et 20 caches de requete, controles dynamiques sur vrai XAML et disposition adaptative avec 100/500/2000 lignes, defilement et controle negatif (borne retiree, 300 lignes realisees). New-DomeniaPageBuffer reste inutilisee et conservee. Campagne Windows PS 5.1.26100.6584 x64 dans CNAMTS-W11-01, commit 7690012 propre et lie 419/419 : 2227 reussis, deux echecs Geometry connus ; cache 85/85, regles 442/442, streaming 64/64, presence 61/61, compatibilite/parseur/demarrage reussis. Aucun AD reel, aucune nouvelle regression comportementale depuis G2/G3 ; ancien test D024 de comptage d appels remplace par sept scenarios avec les vrais convertisseurs. Integration non qualifiante pour les ZIP. Rapport local : /Users/david/Documents/Projets/Domenia-lab/runs/d120-cache-hi-7690012/_verdict.json.",
       "lot": "cache"
     },
     {
@@ -952,24 +956,29 @@
       "title": "Durées de validité par nature de donnée",
       "proposal": "Séparer identité AD, attributs, présence, console et historique, chacun avec observation et dernière tentative.",
       "acceptance_criterion": "Un ping réussi ne rajeunit ni l’utilisateur historique ni les attributs AD.",
-      "status": "RACCORDE_NON_EXECUTE",
+      "status": "RACCORDE_A_VALIDER_WINDOWS",
       "reference_ids": [
         "S06",
         "S07",
         "S08"
       ],
       "implementation_files": [
-        "wad/modules/Domenia-Cache.Model.ps1"
+        "wad/Domenia-Core.ps1",
+        "wad/modules/Domenia-Live.UI.ps1",
+        "wad/modules/Domenia-Cache.Model.ps1",
+        "wad/modules/Domenia-Live.Model.ps1"
       ],
       "acceptance_passed": false,
-      "remaining": "Affichage de la fraicheur par nature dans les vues (ConsoleFreshness, PresenceFreshness) ; retrait de $script:PresenceCacheSeconds devenu inutile ; puis preuve Windows liee au ZIP final.",
-      "rule_tests": 3,
+      "remaining": "Critere raccorde et teste dans la VM ; reste la qualification Windows liee au ZIP final.",
+      "rule_tests": 6,
       "tests": [
         "wad/tests/Test-DomeniaWiringCache.ps1",
+        "wad/tests/Test-DomeniaStreaming.ps1",
+        "wad/tests/Test-DomeniaSearchPresence.ps1",
         "wad/tests/rules/Cache.Tests.ps1"
       ],
-      "wiring": "Partiel",
-      "evidence": "Raccorde en partie (lot cache, etape C) : presence pilotee par Get-DomeniaFreshness, ecriture UTC, rendu depuis le cache avec sa date reelle, sondes horodatees par nature (Set-DomeniaObservationTime, Get-DomeniaRecordFreshness), LiveCache ne rajeunit plus la retention console par un ping. Campagne d integration Windows PowerShell 5.1.26100.6584 x64 dans la VM CNAMTS-W11-01 le 2026-10-03, commit 9c44b51 lie (409/409) : startcheck reussi, Test-DomeniaWiringCache 30/30, Selection 47/47, SearchPresence 61/61, WiringRecherche 31/31, WiringRelations 34/34, WiringMoteur 34/34 ; doublures et SQLite local, aucun AD reel ; non qualifiant pour la livraison.",
+      "wiring": "Complet",
+      "evidence": "Raccorde en partie (lot cache, etape C) : presence pilotee par Get-DomeniaFreshness, ecriture UTC, rendu depuis le cache avec sa date reelle, sondes horodatees par nature (Set-DomeniaObservationTime, Get-DomeniaRecordFreshness), LiveCache ne rajeunit plus la retention console par un ping. Campagne d integration Windows PowerShell 5.1.26100.6584 x64 dans la VM CNAMTS-W11-01 le 2026-10-03, commit 9c44b51 lie (409/409) : startcheck reussi, Test-DomeniaWiringCache 30/30, Selection 47/47, SearchPresence 61/61, WiringRecherche 31/31, WiringRelations 34/34, WiringMoteur 34/34 ; doublures et SQLite local, aucun AD reel ; non qualifiant pour la livraison. I1/I2 : dates UTC ISO par nature conservees apres JSON et copie sans partage ; ping PresenceOnly ne renouvelle jamais Console, erreur ne renouvelle que la tentative, paquet tardif ne recule pas les dates. Reprise prudente des dates historiques et infobulles recalculees au rendu. Campagne Windows PS 5.1.26100.6584 x64 dans CNAMTS-W11-01, commit 7690012 propre et lie 419/419 : 2227 reussis, deux echecs Geometry connus ; cache 85/85, regles 442/442, streaming 64/64, presence 61/61, compatibilite/parseur/demarrage reussis. Aucun AD reel, aucune nouvelle regression comportementale depuis G2/G3 ; ancien test D024 de comptage d appels remplace par sept scenarios avec les vrais convertisseurs. Integration non qualifiante pour les ZIP. Rapport local : /Users/david/Documents/Projets/Domenia-lab/runs/d120-cache-hi-7690012/_verdict.json.",
       "lot": "cache"
     },
     {
