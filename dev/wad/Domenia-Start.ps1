@@ -122,8 +122,10 @@ try {
     try{
         $log=Join-Path ([IO.Path]::GetTempPath()) 'Domenia-startup-error.log'
         [IO.File]::AppendAllText($log,([datetime]::Now.ToString('o')+' '+$message+[Environment]::NewLine))
-        Add-Type -AssemblyName PresentationFramework
-        [void][Windows.MessageBox]::Show($message+"`r`n`r`nDiagnostic : "+$log,'Domenia | Demarrage','OK','Error')
+        if(-not $CheckOnly){
+            Add-Type -AssemblyName PresentationFramework
+            [void][Windows.MessageBox]::Show($message+"`r`n`r`nDiagnostic : "+$log,'Domenia | Demarrage','OK','Error')
+        }
     }catch{}
     exit 1
 }finally{if($null -ne $lifecycle){$lifecycle.Dispose()}}

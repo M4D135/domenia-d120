@@ -1,5 +1,5 @@
 {
-  "Archive": "D012 identite commune et cache des utilisateurs recrees",
+  "Archive": "Livraison RC1.11.0 du 2026-10-05",
   "ArchiveSHA256": "655ED21F90345B3C7667D4E777814C6A0595A5D5BE628AD587FB46CCA5241922",
   "CoreFunctions": {
     "Write-DomeniaAtomicText": "1C9A1583F52EB7BE80BE420662653E4AF886FE11DC4FDB3B1C4CDF19FD1C0EDA",
@@ -649,7 +649,7 @@
     "wad/ActiveDirectoryPowerShellResources.dll": "E233D92238AA31EA1B3C60145D8811EDB2E517E1B9B53F4BC496883EE5D9973B",
     "wad/Domenia-Core.ps1": "33FFA39D156F3142BE32E6F1BDF52038740F45A22D3BC9E83573E2EE29F35530",
     "wad/Domenia-Modules.ps1": "8D694641BEB0DC3E0DF4F95BC72AD048C6AB299D813520BE7E9798241DF0EFA0",
-    "wad/Domenia-Start.ps1": "C99E906FFC48BA00D1DD0F2DBCE06787557A29BE16D6CFA37DA6798585EC5190",
+    "wad/Domenia-Start.ps1": "95C5E80045C2E3823819D2DCEB2B086BA2B27A59C17CC10BBAD9B9043D2CC09B",
     "wad/Domenia.config.json": "5F051A082799F9E39C54D78256E72FA37E1A797E6374BBEC0CEB7DDB932AE871",
     "wad/Domenia.ico": "EC032BF6A14EAC2CC80073B376FE0364DDA62F25D452C8C783C926B0C28E837F",
     "wad/Domenia.login-mode.cfg": "EF6691545D2C5523EFED00424407CB261AEB0037D165CA5792F7F8BAC3381362",
@@ -1592,6 +1592,26 @@
       "ChangedPayloads": [
         "wad/modules/Domenia-Relations.UI.ps1"
       ]
+    },
+    {
+      "Previous": "D012 identite commune et cache des utilisateurs recrees",
+      "Source": "D114 installation preparee et controle final",
+      "Decision": "Domenia-Start.ps1 relu : CheckOnly journalise et retourne une erreur sans fenetre modale ; lancement operateur inchange. Installer prepare tous les fichiers puis valide sous verrou et protege la restauration.",
+      "ChangedCoreFunctions": [],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": [
+        "wad/Domenia-Start.ps1"
+      ]
+    },
+    {
+      "Previous": "D114 installation preparee et controle final",
+      "Source": "Livraison RC1.11.0 du 2026-10-05",
+      "Decision": "Build final distinct des candidats du 2 octobre pour permettre une mise a jour identifiee. Seuls MasterBuild et trace de demarrage changes dans le coeur ; fonctionnalites inchangees.",
+      "ChangedCoreFunctions": [],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
     }
   ]
 }

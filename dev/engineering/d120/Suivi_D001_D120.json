@@ -3623,22 +3623,25 @@
       "title": "Installation atomique au niveau de la version",
       "proposal": "Préparer la livraison complète, coordonner les lanceurs avec le verrou, activer la version vérifiée et garder une reprise après interruption.",
       "acceptance_criterion": "Aucun lancement concurrent ne lit un mélange de modules anciens et nouveaux.",
-      "status": "DEVELOPPE_NON_RACCORDE",
+      "status": "RACCORDE_A_VALIDER_WINDOWS",
       "reference_ids": [
         "S02",
         "S03",
         "S04"
       ],
       "implementation_files": [
+        "INSTALLER-MISE-A-JOUR.ps1",
+        "wad/Domenia-Start.ps1",
         "wad/modules/Domenia-Release.Model.ps1"
       ],
       "acceptance_passed": false,
-      "remaining": "Raccordement cote runtime et installation a faire (INSTALLER-MISE-A-JOUR.ps1, migration, stockage, connecteurs). Campagne Windows PowerShell 5.1 dans la VM CNAMTS-W11-01 (Invoke-LabRun, suite d integration du lot) puis preuve liee au ZIP final.",
+      "remaining": "Qualification formelle Windows liee aux deux ZIP finaux. Les anciennes sauvegardes et les donnees restent conservees ; aucun nettoyage automatique des anciens fichiers.",
       "tests": [
+        "wad/tests/Test-DomeniaInstaller.ps1",
         "wad/tests/rules/Release.Tests.ps1"
       ],
-      "wiring": "Aucun",
-      "evidence": "Regles executees sous Windows PowerShell 5.1.26100.6584 (VM W11-01) par branche avant fusion (commit 1b2dedb). 6 test(s) de regles ; sous PowerShell 7.4 Linux (non qualifiant) le 2026-10-02 : execution de controle seulement."
+      "wiring": "Complet",
+      "evidence": "Regles executees sous Windows PowerShell 5.1.26100.6584 (VM W11-01) par branche avant fusion (commit 1b2dedb). 6 test(s) de regles ; sous PowerShell 7.4 Linux (non qualifiant) le 2026-10-02 : execution de controle seulement. Windows PowerShell 5.1 x64 dans W11-01 : six scenarios installation/restauration reussis sur le meme installateur (quatre dans d114-targeted-r3, deux restaurations dans d114-targeted-r4). Empreintes installateur, lanceur PS et manifeste PROD recalculees identiques aux sources testees. Preparation complete, cache/preferences/donnees conserves, verrou concurrent, corruption, interruption, retour arriere et source modifiee apres preparation couverts. Le controle final detecte aussi un fichier inchange altere et conserve le blocage. Prechargement utilise comme doublure explicite dans ces scenarios, deja execute reellement dans la campagne et les premiers passages ; verifications de demarrage prepare/installe reellement executees. Aucun AD reel, aucun installateur execute sur une installation utilisateur."
     },
     {
       "id": "D115",

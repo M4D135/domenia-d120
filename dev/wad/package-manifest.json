@@ -1,7 +1,7 @@
 {
   "Format": 1,
   "Version": "1.0",
-  "Build": "2026.10.02-DOMENIA-1.0-RC1.11.0-D120",
+  "Build": "2026.10.05-DOMENIA-1.0-RC1.11.0-D120",
   "Edition": "dev",
   "ReleaseStatus": "CandidateRequiresWindowsValidation",
   "Files": [
@@ -126,8 +126,8 @@
     },
     {
       "Path": "INSTALLER-MISE-A-JOUR.ps1",
-      "Sha256": "24D5882ABCB3534E15FE8267E95B939B61ACB321D718066E3D32DD5894180E9D",
-      "Bytes": 16228,
+      "Sha256": "33F13652903F8C22438778D7CA03850AF8A7BA3527F1F000294ABCB7A8797959",
+      "Bytes": 23774,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -147,8 +147,8 @@
     },
     {
       "Path": "LIRE-MOI.md",
-      "Sha256": "D76B09CD720119EDCE34C69BE2699D72F1644CC731CA47D755ED3975A8940560",
-      "Bytes": 1252,
+      "Sha256": "6833E1394BF7B118E8F71B59961503704C30597E55EE2F75B97F3CF438D61925",
+      "Bytes": 3833,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -266,8 +266,8 @@
     },
     {
       "Path": "engineering/d120/ETAT-2026-10-02.md",
-      "Sha256": "C762007ECA010CE55E4993E2B1FA165063DA560C1C848C1CEEB580973D001CD4",
-      "Bytes": 57254,
+      "Sha256": "FA4344A275E9DDCA92AADBC454810160B51258F200DBA03E41C45812690676FE",
+      "Bytes": 59697,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -287,8 +287,8 @@
     },
     {
       "Path": "engineering/d120/Suivi_D001_D120.json",
-      "Sha256": "F9EAF637B436DE30DEEE4A8AD93788BA5A9F3CB15B7CB4BB3504CF7A3CD41D87",
-      "Bytes": 235526,
+      "Sha256": "589B2B2ADCC277D226350F3BFF018260E4A78E8B5E82C83D7B5844B863D6C512",
+      "Bytes": 236675,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -658,21 +658,21 @@
     },
     {
       "Path": "tools/preload-baseline.json",
-      "Sha256": "B8EA92CFF192C65E4D2E2F61483F7CDECDC0EDBD8C1B094AF1B82119FA578853",
-      "Bytes": 126477,
+      "Sha256": "97090520C4239895F9B4D70F1586ED2AA2125A29D362E307B89D9B921D9200CB",
+      "Bytes": 127468,
       "Runtime": false,
       "PreserveExisting": false
     },
     {
       "Path": "tools/prod-manifest.json",
-      "Sha256": "8FBD97E05E4EACD0E8F38DECE416C2B592D073111C6B66677E17739202D0935A",
+      "Sha256": "32AB55C317D3E3C4894B5E21ECDB86B0330049E81DE5777FCB36C7F241528A17",
       "Bytes": 16811,
       "Runtime": false,
       "PreserveExisting": false
     },
     {
       "Path": "tools/release-contract.json",
-      "Sha256": "A2944D712B14D135316E9A3E5255EAB73C34E0DCE3934118B94F6CD32D6A70F2",
+      "Sha256": "39D83969F3CDBC58E9E74C6E5CF62959D07F6E8F5B5D83BA755C3183804AFA6D",
       "Bytes": 2041,
       "Runtime": false,
       "PreserveExisting": false
@@ -728,7 +728,7 @@
     },
     {
       "Path": "wad/Domenia-Core.ps1",
-      "Sha256": "6465BCD6A227801692142DDCBE2DB6B455F661FCF26F1370CB1341C59897FF35",
+      "Sha256": "70D8E5B1EE239025853BC60613D01715DAAE7D3D6E6EADC565C74656C5239003",
       "Bytes": 1720332,
       "Runtime": true,
       "PreserveExisting": false
@@ -742,8 +742,8 @@
     },
     {
       "Path": "wad/Domenia-Start.ps1",
-      "Sha256": "C99E906FFC48BA00D1DD0F2DBCE06787557A29BE16D6CFA37DA6798585EC5190",
-      "Bytes": 7431,
+      "Sha256": "95C5E80045C2E3823819D2DCEB2B086BA2B27A59C17CC10BBAD9B9043D2CC09B",
+      "Bytes": 7478,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -770,7 +770,7 @@
     },
     {
       "Path": "wad/Domenia.release.json",
-      "Sha256": "A2944D712B14D135316E9A3E5255EAB73C34E0DCE3934118B94F6CD32D6A70F2",
+      "Sha256": "39D83969F3CDBC58E9E74C6E5CF62959D07F6E8F5B5D83BA755C3183804AFA6D",
       "Bytes": 2041,
       "Runtime": true,
       "PreserveExisting": false
@@ -2557,6 +2557,13 @@
       "Path": "wad/tests/Test-DomeniaGeometry.ps1",
       "Sha256": "1923D33FAEB39415AEB7B0AAE10CB28DB0AF1881A2ECC6430750074A212C1D3C",
       "Bytes": 21397,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "wad/tests/Test-DomeniaInstaller.ps1",
+      "Sha256": "2292888A2082A07B0D272BFD3F2CCAC02A4CE7ACA05D3E04C2E6A9E048071A24",
+      "Bytes": 9999,
       "Runtime": false,
       "PreserveExisting": false
     },
