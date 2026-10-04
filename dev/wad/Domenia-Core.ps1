@@ -25327,7 +25327,8 @@ function Invoke-DomeniaSelfTest {
         'Get-DomeniaWriteRoute','New-DomeniaSelectionWritePlan','Format-DomeniaPlanConfirmation','Test-DomeniaPlanDispatch','New-DomeniaInterventionPlan','Test-DomeniaPlanStillValid',
         'Get-DomeniaWritePostcondition','Get-DomeniaPostconditionRule','Resolve-DomeniaPostcondition',
         'Get-DomeniaRemotePostconditionText',
-        'Get-DomeniaAttributeWriteStrategy','Get-DomeniaAtomicStrategy'
+        'Get-DomeniaAttributeWriteStrategy','Get-DomeniaAtomicStrategy',
+        'Get-DomeniaPersistenceState','Get-DomeniaPersistenceLabel'
     )
     $missing = @($requiredFunctions | Where-Object { $null -eq (Get-Command -Name $_ -CommandType Function -ErrorAction SilentlyContinue) })
     Add-SelfTestResult -Name 'Fonctions critiques' -Success ($missing.Count -eq 0) -Detail $(if($missing.Count -eq 0){'Toutes presentes.'}else{"Absentes : $($missing -join ', ')"})

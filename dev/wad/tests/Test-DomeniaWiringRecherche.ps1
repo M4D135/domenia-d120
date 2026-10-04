@@ -48,7 +48,7 @@ $coreNames=@('Get-MainXaml','Get-DomeniaControl','Set-DomeniaControlText','Get-D
 . ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-UX.UI.ps1') @('Get-DomeniaUxOuDisplay','Update-DomeniaUxOuScope'))))
 . ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Guard.UI.ps1') @('Get-DomeniaFavouriteSearches','Save-DomeniaFavouriteSearch','Load-DomeniaFavouriteSearch'))))
 . ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Guard.Model.ps1') @('ConvertTo-DomeniaSavedSearch'))))
-foreach($file in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Access.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Search.Model.ps1','Domenia-Experience.Model.ps1','Domenia-Live.Model.ps1','Domenia-Live.UI.ps1','Domenia-Continuity.Model.ps1','Domenia-Continuity.UI.ps1','Domenia-Selection.UI.ps1','Domenia-Search.UI.ps1')){
+foreach($file in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Access.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Search.Model.ps1','Domenia-Experience.Model.ps1','Domenia-Live.Model.ps1','Domenia-Storage.UI.ps1','Domenia-Live.UI.ps1','Domenia-Continuity.Model.ps1','Domenia-Continuity.UI.ps1','Domenia-Selection.UI.ps1','Domenia-Search.UI.ps1')){
     . (Join-Path $modules $file)
 }
 
@@ -520,6 +520,49 @@ Case 'Rest policy (C1) and demonstration (C2) gate the live background work' {
     $script:DemoMode=$false
     Start-DomeniaLiveBackgroundWork
     Expect ((Get-TaskCount 'LiveCache') -eq 1) 'Le travail autorise nʼa pas ete lance.'
+}
+
+# ---------------------------------------------------------------- D028 save state from the rule (lot cache F2)
+# Unwired if Invoke-DomeniaLiveTick keeps its own texts or the write in flight is not counted: the label differs from the rule.
+Case 'D028 LblLiveState porte le libelle de la regle' {
+    $script:Persistence=$null
+    $texts=[Collections.Generic.List[string]]::new()
+    $read={param([string]$Expected,[string]$Why)
+        Invoke-DomeniaLiveTick
+        $text=[string]$script:Ctrl.LblLiveState.Text;$texts.Add($text)
+        $state=(Get-DomeniaPersistenceState).Label
+        Expect ($text.EndsWith(' · '+$state)) ($Why+' : la ligne ne finit pas par le libelle de la regle : '+$text)
+        Expect ($state -ceq $Expected) ($Why+' : attendu '+$Expected+', obtenu '+$state)
+    }
+    $script:Live.CacheReady=$true
+    & $read 'Enregistre.' 'Rien en attente'
+    # Two observations wait while the writer is held back.
+    $script:Live.SaveAfter=[datetime]::UtcNow.AddHours(1)
+    $script:Live.SaveQueue['a']=[pscustomobject]@{Key='a'};$script:Live.SaveQueue['b']=[pscustomobject]@{Key='b'}
+    & $read 'En memoire : 2 modification(s) a enregistrer.' 'Deux observations en file'
+    # The real tick starts the write: SaveQueue empties, the two observations are still counted (SaveInFlight).
+    $script:Live.SaveAfter=[datetime]::MinValue
+    & $read 'En memoire : 2 modification(s) a enregistrer.' 'Ecriture en cours'
+    $write=Get-LastTask 'LiveCache'
+    Expect ($null -ne $write -and $script:Live.SaveQueue.Count -eq 0 -and [int]$script:Live.SaveInFlight -eq 2) 'Ecriture non lancee ou non comptee.'
+    # The write fails: requeued, SaveFault with work waiting.
+    [void]$script:AsyncJobs.Remove([string]$write.Id)
+    Fail-DomeniaLiveCache 'SQLite code 5 : database is locked' $write.CallbackState
+    & $read 'En memoire : 1 enregistrement(s) en echec, nouvel essai prevu.' 'Echec d ecriture'
+    # The next write succeeds.
+    $script:Live.SaveAfter=[datetime]::MinValue
+    Invoke-DomeniaLiveTick
+    $retry=Get-LastTask 'LiveCache'
+    Expect ($null -ne $retry -and -not [object]::ReferenceEquals($retry,$write)) 'Nouvel essai non lance.'
+    [void]$script:AsyncJobs.Remove([string]$retry.Id)
+    Complete-DomeniaLiveCache $null $retry.CallbackState
+    & $read 'Enregistre.' 'Apres ecriture confirmee'
+    # A failed read with nothing waiting is not a save failure.
+    $script:Live.SaveFault='Lecture du cache impossible'
+    & $read 'Enregistre.' 'Echec de lecture sans attente'
+    $script:Live.CacheReady=$false
+    & $read 'En memoire uniquement : stockage local indisponible, rien n est enregistre.' 'Stockage indisponible'
+    foreach($text in $texts){foreach($old in @('cache uniquement en mémoire','mémoire locale non enregistrée','aucun enregistrement en attente')){Expect (-not $text.Contains($old)) ('Ancien libelle : '+$text)}}
 }
 
 # ---------------------------------------------------------------- real main XAML

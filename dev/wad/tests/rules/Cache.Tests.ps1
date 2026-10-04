@@ -123,6 +123,24 @@ Test-Case 'D028' 'File bornee, regroupement par cle et etat En memoire / Enregis
     Assert-True ((Get-DomeniaPersistenceLabel 5) -match 'En memoire');Assert-Equal 'Enregistre.' (Get-DomeniaPersistenceLabel 0)
     Assert-True ((Get-DomeniaPersistenceLabel 0 0 $true) -match 'suspendu')
 }
+Test-Case 'D028' 'Libelle d enregistrement : indisponible > suspendu > conflits > echecs > attente > enregistre' {
+    $unavailable=Get-DomeniaPersistenceLabel -Pending 4 -Failed 2 -Suspended $true -Unavailable $true -Conflicts 1
+    Assert-Equal 'En memoire uniquement : stockage local indisponible, rien n est enregistre.' $unavailable
+    Assert-False ($unavailable -match 'Fiabilite') 'Un stockage indisponible ne renvoie pas vers la reprise des sauvegardes'
+    Assert-Equal 'En memoire uniquement : enregistrement suspendu apres des echecs. Reprise dans Fiabilite.' (Get-DomeniaPersistenceLabel -Pending 4 -Failed 2 -Suspended $true -Conflicts 1)
+    Assert-Equal 'En memoire : 3 association(s) modifiee(s) ailleurs, non enregistree(s). Rechargez les associations : Comptes > Changer de compte, ou redemarrage.' (Get-DomeniaPersistenceLabel -Pending 4 -Failed 2 -Conflicts 3)
+    Assert-Equal 'En memoire : 2 enregistrement(s) en echec, nouvel essai prevu.' (Get-DomeniaPersistenceLabel -Pending 4 -Failed 2)
+    Assert-Equal 'En memoire : 4 modification(s) a enregistrer.' (Get-DomeniaPersistenceLabel -Pending 4)
+    Assert-Equal 'Enregistre.' (Get-DomeniaPersistenceLabel)
+    # The historical positional calls keep their outputs.
+    Assert-Equal 'En memoire : 5 modification(s) a enregistrer.' (Get-DomeniaPersistenceLabel 5)
+    Assert-Equal 'En memoire : 1 enregistrement(s) en echec, nouvel essai prevu.' (Get-DomeniaPersistenceLabel 5 1)
+    Assert-Equal 'Enregistre.' (Get-DomeniaPersistenceLabel 0 0 $false $false 0)
+    foreach($label in @($unavailable,(Get-DomeniaPersistenceLabel 0 0 $true),(Get-DomeniaPersistenceLabel 0 0 $false $false 7),(Get-DomeniaPersistenceLabel 0 3),(Get-DomeniaPersistenceLabel 9))){
+        Assert-True ($label -cmatch '^[\x20-\x7E]+$') ('Libelle non ASCII : '+$label)
+        Assert-True ($label.StartsWith('En memoire')) ('Un etat non enregistre doit le dire : '+$label)
+    }
+}
 Test-Case 'D029' 'La purge ne touche jamais configuration, associations declarees ni recus' {
     $plan=Get-DomeniaPurgePlan @([pscustomobject]@{Category='Observations';Bytes=2048;Rows=10}) @('Observations','Configuration','ManualLinks','Receipts','Inconnue') $script:C0
     Assert-Equal 1 $plan.Actions.Count;Assert-Equal 'Observations' $plan.Actions[0].Category;Assert-Equal 4 $plan.Refused.Count

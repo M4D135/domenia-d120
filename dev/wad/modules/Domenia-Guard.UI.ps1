@@ -194,8 +194,8 @@ function Initialize-DomeniaGuard {
         $tab=Get-DomeniaControl 'TabGuard'
         if($null -ne $tab -and $tab.IsSelected){
             $p95=Get-DomeniaPercentile $script:Guard.Samples.ToArray() 95;$p50=Get-DomeniaPercentile $script:Guard.Samples.ToArray() 50
-            $queue=0;if($null -ne $script:Persistence){$queue=$script:Persistence.Pending.Count}
-            [void](Set-DomeniaControlText 'LblGuardMetrics' ('Retard du Dispatcher (local) p50/p95 : '+$p50+' / '+$p95+' ms. Taches : '+$script:AsyncJobs.Count+'. Cache en attente : '+$queue+'. Mesure indicative, pas un benchmark reseau.'))
+            # D028: the local save state comes from the rule, through the same reader as the Live state line.
+            [void](Set-DomeniaControlText 'LblGuardMetrics' ('Retard du Dispatcher (local) p50/p95 : '+$p50+' / '+$p95+' ms. Taches : '+$script:AsyncJobs.Count+'. Enregistrement local : '+(Get-DomeniaPersistenceState).Label+' Mesure indicative, pas un benchmark reseau.'))
         }
     });$script:Guard.Timer=$timer;$timer.Start()
     $script:Window.Add_Closed({if($null -ne $script:Guard){$script:Guard.Timer.Stop()};$script:DraftState=$null;$script:ArtifactConsent=$null})

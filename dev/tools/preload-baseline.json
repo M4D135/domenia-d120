@@ -1,5 +1,5 @@
 {
-  "Archive": "lot ecritures etape C",
+  "Archive": "lot cache etape F",
   "ArchiveSHA256": "655ED21F90345B3C7667D4E777814C6A0595A5D5BE628AD587FB46CCA5241922",
   "CoreFunctions": {
     "Write-DomeniaAtomicText": "1C9A1583F52EB7BE80BE420662653E4AF886FE11DC4FDB3B1C4CDF19FD1C0EDA",
@@ -587,7 +587,7 @@
     "Get-DomeniaStandardLoginXaml": "943F338242C5B7CBE9D0384128DCD1369C8FAB3468F433F09D21461E294575FD",
     "Get-DomeniaDebugLoginXaml": "20D4A0D101217FBAA6CCAD1D0C72B28A67ED3C9DF060430F70170754BCA5D137",
     "Show-LoginWindow": "2DE31969C7AA42AA39ACB0329CD42097EBF54AD734CC74D21E7864A04D080C3A",
-    "Invoke-DomeniaSelfTest": "52B29DCE6993E71CD1ED4492BB376C8374C3D72434D38DAAC0A2A9A1E70982A1"
+    "Invoke-DomeniaSelfTest": "F58514405B5C9899DA5DF7110F3716FDA2FA33B44B754CFE5390B4B1D4331D68"
   },
   "Files": {
     ".github/workflows/windows.yml": "7926C8DFD11FE9105D34E454E9D0168B94DCE27479C952DE8DA0379746F4D30A",
@@ -834,7 +834,7 @@
     "wad/modules/Domenia-Guard.UI.ps1": "11ED5549BE999C0A7DC039386ECBFB0B424668AE8CF117C0F0AE03783F12917A",
     "wad/modules/Domenia-Live.Model.ps1": "6B2C5C145D2354DED32577F45D59945B397D6AFBA91A5BACBB61B0BF8221BE19",
     "wad/modules/Domenia-Live.Types.cs": "EA90657459EDAB05A25440C2EDDAB6D15577CB437FAEF95DA939767885F05F0E",
-    "wad/modules/Domenia-Live.UI.ps1": "F407D45015523301FBBBC1BCE2C9E0988D995A5CA01C923DF8D4161F0BA16783",
+    "wad/modules/Domenia-Live.UI.ps1": "807E8FC66FE197640A227EFFDC641AB7E416FCBDDC3A590262B74F86AEC055F9",
     "wad/modules/Domenia-Receipts.Worker.ps1": "72D43A96BABB55F6EB5C008018EB1C4AA1C0A1265402FBAD7294C1113735B68E",
     "wad/modules/Domenia-Reconcile.UI.ps1": "845F7531CCD8FB82BB4CECB5210E47E9C86E5E2C0913074D8BE460E814F52288",
     "wad/modules/Domenia-Relations.UI.ps1": "D967C24EFAC00BCDE69901B614960D69232C4062C302CEB0874744980449E64C",
@@ -1252,6 +1252,19 @@
       ],
       "RemovedCoreFunctions": [],
       "ChangedPayloads": []
+    },
+    {
+      "Previous": "lot ecritures etape C",
+      "Source": "lot cache etape F",
+      "Decision": "Lot cache etape F (D028, decision a de David du 2026-10-04) : Live.UI (charge epinglee) lit l etat d enregistrement par Get-DomeniaPersistenceState et tient SaveInFlight ; Storage.UI gagne InFlight, Conflicts et Get-DomeniaPersistenceState (lecture pure, seul constructeur du libelle) ; Get-DomeniaPersistenceLabel ajoute Unavailable et Conflicts (priorite Unavailable > Suspended > Conflicts > Failed > Pending > Enregistre) ; Guard.UI affiche le libelle de la regle ; chargeur et auto-controle synchronises par integrate_lots. Aucun worker modifie. Revue par trois relecteurs independants, six constats corriges, tests prouves par mutation (garde de suspension, transaction de l ecrivain).",
+      "ChangedCoreFunctions": [
+        "Invoke-DomeniaSelfTest"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": [
+        "wad/modules/Domenia-Live.UI.ps1"
+      ]
     }
   ]
 }

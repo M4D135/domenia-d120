@@ -1,5 +1,9 @@
 ﻿# Loaded only by Preview-DomeniaUi -Progressive. No network, disk cache or credential.
 . (Join-Path $wad 'modules\Domenia-Live.Model.ps1')
+# Live.UI needs the cache rules (New-DomeniaNegativeCache) and the shared save state (Get-DomeniaPersistenceState, D028):
+# both files only declare functions; with the disk cache disabled below, the Live line shows the storage as unavailable.
+. (Join-Path $wad 'modules\Domenia-Cache.Model.ps1')
+. (Join-Path $wad 'modules\Domenia-Storage.UI.ps1')
 . (Join-Path $wad 'modules\Domenia-Live.UI.ps1')
 function Initialize-DomeniaWinSqliteNative {throw 'Cache disque désactivé dans cet aperçu.'}
 function Start-DomeniaLiveBackgroundWork { }

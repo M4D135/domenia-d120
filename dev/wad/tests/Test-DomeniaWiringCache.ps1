@@ -1241,6 +1241,231 @@ Test-Case 'D022 : Complete-DomeniaReconcile n met en file que les lignes modifie
     }
 }
 
+# ---------------------------------------------------------------- Lot cache F2 : D028 save-state labels from the rule
+# Real Get-DomeniaPersistenceState, Start/Complete/Fail-DomeniaStorageWork, Reset-DomeniaLinkBaseline (Storage.UI),
+# real Initialize-DomeniaGuard tick (Guard.UI) and real rule Get-DomeniaPersistenceLabel (Cache.Model). Doubles only at
+# the boundary (controls, engine). Removing the call to the rule, the in-flight count or the conflict state fails a case.
+$guardUi = Join-Path $modules 'Domenia-Guard.UI.ps1'
+$guardModel = Join-Path $modules 'Domenia-Guard.Model.ps1'
+foreach ($path in @($guardUi,$guardModel)) { if (-not [IO.File]::Exists($path)) { throw ('Fichier absent : ' + $path) } }
+foreach ($name in @('Get-DomeniaPersistenceState','Start-DomeniaStorageWork','Complete-DomeniaStorageWork','Fail-DomeniaStorageWork','Reset-DomeniaLinkBaseline')) {
+    . ([scriptblock]::Create((Get-FunctionTextFromFile $storageUi $name)))
+}
+# The persistence timer of other cases must keep calling the empty double: the real writer is enabled per case only.
+$script:StartStorageReal = (Get-Item function:Start-DomeniaStorageWork).ScriptBlock
+function Start-DomeniaStorageWork { }
+. ([scriptblock]::Create((Get-FunctionTextFromFile $guardUi 'Initialize-DomeniaGuard')))
+. ([scriptblock]::Create((Get-FunctionTextFromFile $guardModel 'Get-DomeniaPercentile')))
+. ([scriptblock]::Create((Get-FunctionTextFromFile $core 'Get-DomeniaEffectiveWorkerResult')))
+function New-TestLinkItem {
+    param([string]$Key,[string]$User)
+    return [pscustomobject]@{QueueKey=('Link|test-scope.db|' + $Key);Kind='Link';Key=$Key;Path='test-scope.db';Expected='';Row=[pscustomobject]@{Computer=$Key;UserLogin=$User;Source='Console'};Remove=$false;Epoch=[long]1}
+}
+
+Test-Case 'D028 : Fiabilite affiche le libelle de la regle' {
+    $script:SavedFunctions=@{}
+    try {
+        $script:GuardTexts = New-Object 'System.Collections.Generic.List[string]'
+        $script:LabelCalls = 0
+        $script:LabelReal = (Get-Command Get-DomeniaPersistenceLabel -CommandType Function).ScriptBlock
+        # Doubles seen by the Guard timer: script scope.
+        Set-TestFunction 'Get-DomeniaPersistenceLabel' { param([int]$Pending=0,[int]$Failed=0,[bool]$Suspended=$false,[bool]$Unavailable=$false,[int]$Conflicts=0) $script:LabelCalls++; & $script:LabelReal -Pending $Pending -Failed $Failed -Suspended $Suspended -Unavailable $Unavailable -Conflicts $Conflicts }
+        Set-TestFunction 'Get-DomeniaControl' { param($Name) if ([string]$Name -eq 'TabGuard') { return [pscustomobject]@{IsSelected=$true} }; return $null }
+        Set-TestFunction 'Set-DomeniaControlText' { param($Name,$Text) if ([string]$Name -eq 'LblGuardMetrics') { $script:GuardTexts.Add([string]$Text) }; return $true }
+        Set-TestFunction 'Set-DomeniaItemsSource' { param($Name,$Rows) return $true }
+        Set-TestFunction 'Get-DomeniaFavouriteSearches' { return @() }
+        Set-TestFunction 'Start-DomeniaReceiptRefresh' { }
+        $script:Guard = $null; $script:ReceiptReady = $true; $script:ReceiptRefreshNeeded = $false
+        Initialize-DomeniaPersistence; Stop-TestTimers
+        Initialize-DomeniaGuard
+        $read = {
+            param([string]$Why)
+            $script:GuardTexts.Clear()
+            Assert-True (Wait-WiringCondition { $script:GuardTexts.Count -gt 0 } 3000) ('Aucun tick Fiabilite : ' + $Why)
+            return $script:GuardTexts[$script:GuardTexts.Count - 1]
+        }
+        $script:Persistence.Pending['a'] = [pscustomobject]@{QueueKey='a'}; $script:Persistence.Pending['b'] = [pscustomobject]@{QueueKey='b'}
+        $pending = & $read 'attente'
+        Assert-True ($pending -match 'Enregistrement local : En memoire : 2 modification\(s\) a enregistrer\.') ('Attente : ' + $pending)
+        $script:Persistence.Pending.Clear(); $script:Persistence.Failures = 1
+        $failed = & $read 'echec'
+        Assert-True ($failed -match 'Enregistrement local : En memoire : 1 enregistrement\(s\) en echec, nouvel essai prevu\.') ('Echec : ' + $failed)
+        $script:Persistence.Failures = 3
+        $suspended = & $read 'suspendu'
+        Assert-True ($suspended -match 'suspendu') ('Trois echecs : ' + $suspended)
+        $script:Persistence.Failures = 0
+        $saved = & $read 'enregistre'
+        Assert-True ($saved -match 'Enregistrement local : Enregistre\. Mesure indicative') ('Enregistre : ' + $saved)
+        foreach ($text in @($pending,$failed,$suspended,$saved)) {
+            Assert-False ($text -match 'Cache en attente') ('Ancien libelle Fiabilite : ' + $text)
+            Assert-True ($text -match '^Retard du Dispatcher \(local\) p50/p95 : ') ('Debut de phrase modifie : ' + $text)
+        }
+        Assert-True ($script:LabelCalls -ge 4) ('La regle Get-DomeniaPersistenceLabel n est pas appelee par le tick : ' + $script:LabelCalls)
+    } finally {
+        if ($null -ne $script:Guard -and $null -ne $script:Guard.Timer) { try { $script:Guard.Timer.Stop() } catch { } }
+        $script:Guard = $null
+        Restore-TestFunctions
+    }
+}
+
+Test-Case 'D028 : un lot en cours d ecriture reste En memoire jusqu au rappel' {
+    $script:SavedFunctions=@{}
+    try {
+        Set-TestFunction 'Start-DomeniaStorageWork' $script:StartStorageReal
+        Set-TestFunction 'Get-DomeniaStorageWorkerCode' { return '' }
+        Set-TestFunction 'Start-UiTask' {
+            param($Name,$OperationId,$Code,$Payload,$CallbackState,$SuccessHandler,$ErrorHandler,[switch]$NonCancellable,$TimeoutSeconds)
+            $script:StartUiCalls++; $script:StartUiOperations.Add([string]$OperationId)
+            $id = 'store-' + $script:StartUiCalls
+            $script:AsyncJobs[$id] = [pscustomobject]@{Id=$id;OperationId=[string]$OperationId}
+            $script:LastStorageState = $CallbackState
+            return $id
+        }
+        Initialize-DomeniaPersistence; Stop-TestTimers
+        foreach ($k in @('PC1','PC2','PC3')) { $i = New-TestLinkItem $k ('u' + $k); $script:Persistence.Pending[$i.QueueKey] = $i }
+        Start-DomeniaStorageWork
+        Assert-Equal 1 $script:StartUiCalls 'Un seul lot attendu.'
+        Assert-Equal 'LocalStore' $script:StartUiOperations[0]
+        Assert-Equal 0 $script:Persistence.Pending.Count 'Les elements quittent la file au depart du lot.'
+        Assert-Equal 3 $script:Persistence.InFlight 'Lot en cours non compte.'
+        Assert-Equal 'En memoire : 3 modification(s) a enregistrer.' (Get-DomeniaPersistenceState).Label 'Libelle pendant l ecriture :'
+        [void]$script:AsyncJobs.Remove([string]$script:Persistence.Job)
+        Complete-DomeniaStorageWork ([pscustomobject]@{Saved=$true;Conflicts=@();Count=3}) $script:LastStorageState
+        Assert-Equal 0 $script:Persistence.InFlight 'InFlight apres le rappel.'
+        Assert-Equal 'Enregistre.' (Get-DomeniaPersistenceState).Label 'Libelle apres le rappel :'
+        Assert-Equal 'uPC1' $script:LinkBaseline['PC1'].UserLogin 'Reference non mise a jour.'
+        # Failure: the batch is requeued, a newer request for the same key is never overwritten.
+        foreach ($k in @('PC1','PC2')) { $i = New-TestLinkItem $k ('v' + $k); $script:Persistence.Pending[$i.QueueKey] = $i }
+        Start-DomeniaStorageWork
+        Assert-Equal 2 $script:Persistence.InFlight 'Second lot non compte.'
+        $newer = New-TestLinkItem 'PC1' 'plus-recent'
+        $script:Persistence.Pending[$newer.QueueKey] = $newer
+        [void]$script:AsyncJobs.Remove([string]$script:Persistence.Job)
+        Fail-DomeniaStorageWork 'SQLite code 5 : database is locked' $script:LastStorageState
+        Assert-Equal 0 $script:Persistence.InFlight 'InFlight apres l echec.'
+        Assert-Equal 2 $script:Persistence.Pending.Count 'Remise en file.'
+        Assert-True ([object]::ReferenceEquals($script:Persistence.Pending[$newer.QueueKey],$newer)) 'La demande plus recente a ete ecrasee par la remise en file.'
+        Assert-Equal 'En memoire : 1 enregistrement(s) en echec, nouvel essai prevu.' (Get-DomeniaPersistenceState).Label 'Libelle apres echec :'
+    } finally { Restore-TestFunctions }
+}
+
+Test-Case 'D028 : Live et Fiabilite affichent le meme etat' {
+    Initialize-DomeniaPersistence; Stop-TestTimers
+    $script:Persistence.Pending['x'] = [pscustomobject]@{QueueKey='x'}
+    $script:Live = [pscustomobject]@{CacheReady=$true;SaveQueue=@{a=1;b=2};QueryToSave=$null;SaveInFlight=0;SaveFault=''}
+    $s = Get-DomeniaPersistenceState
+    Assert-Equal 3 $s.Pending 'Live.SaveQueue et Persistence additionnes.'
+    Assert-Equal 'En memoire : 3 modification(s) a enregistrer.' $s.Label
+    # A failed read with nothing waiting is not a save failure.
+    $script:Persistence.Pending.Clear(); $script:Live.SaveQueue = @{}; $script:Live.SaveFault = 'Lecture du cache impossible'
+    Assert-Equal 'Enregistre.' (Get-DomeniaPersistenceState).Label 'Echec de lecture presente comme echec d enregistrement :'
+    # The same fault while Live work waits is one.
+    $script:Live.QueryToSave = [pscustomobject]@{QueryKey='q'}
+    Assert-True ((Get-DomeniaPersistenceState).Label -match 'en echec, nouvel essai prevu') 'Echec d ecriture Live non signale.'
+    $script:Live.QueryToSave = $null; $script:Live.SaveFault = ''
+    $script:Live.SaveInFlight = 2
+    Assert-Equal 'En memoire : 2 modification(s) a enregistrer.' (Get-DomeniaPersistenceState).Label 'Ecriture Live en cours :'
+    $script:Live.SaveInFlight = 0; $script:Live.CacheReady = $false
+    $u = (Get-DomeniaPersistenceState).Label
+    Assert-True ($u -match 'indisponible' -and $u -notmatch 'Fiabilite') ('Stockage indisponible : ' + $u)
+    $script:Live.CacheReady = $true; $script:Persistence.Failures = 3
+    Assert-True ((Get-DomeniaPersistenceState).Label -match 'suspendu') 'Suspension non signalee.'
+    # Both views read the same function.
+    Assert-True ((Get-FunctionTextFromFile $guardUi 'Initialize-DomeniaGuard').Contains("Enregistrement local : '+(Get-DomeniaPersistenceState).Label+")) 'Fiabilite ne lit pas Get-DomeniaPersistenceState.'
+    Assert-True ((Get-FunctionTextFromFile $liveUi 'Invoke-DomeniaLiveTick').Contains('$save=(Get-DomeniaPersistenceState).Label')) 'La ligne Live ne lit pas Get-DomeniaPersistenceState.'
+    # Pure read: nothing is initialized when the states are absent.
+    $script:Persistence = $null; $script:Live = $null
+    Assert-Equal 'Enregistre.' (Get-DomeniaPersistenceState).Label
+    Assert-True ($null -eq $script:Persistence) 'La lecture a initialise la persistance.'
+}
+
+Test-Case 'D028 : conflit visible jusqu au rechargement' {
+    Initialize-DomeniaPersistence; Stop-TestTimers
+    $script:UserMachineLinks = @([pscustomobject]@{Computer='PC1';UserLogin='dave';Source='Console'},[pscustomobject]@{Computer='PC2';UserLogin='erin';Source='Console'})
+    $script:LinkBaseline = @{PC1=[pscustomobject]@{Computer='PC1';UserLogin='alice';Source='Console'};PC2=[pscustomobject]@{Computer='PC2';UserLogin='bob';Source='Console'}}
+    Assert-True (Queue-DomeniaLinkChanges) 'Mise en file refusee.'
+    $items = @($script:Persistence.Pending.Values)
+    Assert-Equal 2 $items.Count
+    $script:Persistence.Pending.Clear()
+    Complete-DomeniaStorageWork ([pscustomobject]@{Saved=$true;Conflicts=@('PC1');Count=2}) ([pscustomobject]@{Items=$items;Epoch=[long]1})
+    Assert-True ($script:Persistence.Conflicts.ContainsKey('PC1') -and $script:Persistence.Conflicts.Count -eq 1) 'Conflit non garde.'
+    Assert-Equal 'alice' $script:LinkBaseline['PC1'].UserLogin 'La reference PC1 a change malgre le conflit.'
+    Assert-Equal 'erin' $script:LinkBaseline['PC2'].UserLogin 'La reference PC2 n a pas suivi l ecriture.'
+    Assert-True (@($script:Statuses | Where-Object { $_ -match 'Association modifiee ailleurs : PC1' }).Count -eq 1) 'Avertissement absent.'
+    $label = (Get-DomeniaPersistenceState).Label
+    Assert-Equal 'En memoire : 1 association(s) modifiee(s) ailleurs, non enregistree(s). Rechargez les associations : Comptes > Changer de compte, ou redemarrage.' $label 'Libelle de conflit :'
+    # Quiet path: PC1 is not resubmitted and stays silent.
+    $script:Statuses.Clear()
+    Assert-True (Queue-DomeniaLinkChanges -Quiet -MaxItems 64) 'Chemin silencieux en erreur.'
+    Assert-Equal 0 $script:Persistence.Pending.Count 'Le chemin silencieux renvoie PC1.'
+    Assert-False $script:Persistence.LinkBusy
+    Assert-Equal 0 $script:Statuses.Count
+    # Another key still goes through the quiet path.
+    $script:UserMachineLinks = @($script:UserMachineLinks) + @([pscustomobject]@{Computer='PC3';UserLogin='fred';Source='Console'})
+    Assert-True (Queue-DomeniaLinkChanges -Quiet -MaxItems 64)
+    Assert-Equal 'PC3' ((@($script:Persistence.Pending.Values) | ForEach-Object { [string]$_.Key }) -join ',') 'Chemin silencieux :'
+    $script:Persistence.Pending.Clear(); $script:Persistence.LinkBusy = $false
+    # The explicit path still submits PC1 (the writer will warn again).
+    Assert-True (Queue-DomeniaLinkChanges) 'Chemin explicite refuse.'
+    Assert-True (@($script:Persistence.Pending.Values | Where-Object { $_.Key -eq 'PC1' }).Count -eq 1) 'Le chemin explicite ne soumet plus PC1.'
+    # A reload of the associations ends the conflict state.
+    $script:Persistence.Pending.Clear(); $script:Persistence.LinkBusy = $false
+    Reset-DomeniaLinkBaseline
+    Assert-Equal 0 $script:Persistence.Conflicts.Count 'Conflit garde apres rechargement.'
+    Assert-Equal 'Enregistre.' (Get-DomeniaPersistenceState).Label
+}
+
+Test-Case 'D028 : le geste nomme par le libelle de conflit recharge les associations' {
+    # The label and the warning name Comptes > Changer de compte: that button must reach Reset-DomeniaLinkBaseline, the
+    # only place that ends the conflict state (the real reload is executed by Test-DomeniaWiringMoteur, D028 case 1).
+    $gesture = 'Comptes > Changer de compte'
+    Assert-True ((Get-DomeniaPersistenceLabel -Conflicts 1).Contains($gesture)) 'Le libelle de conflit ne nomme pas le geste de rechargement.'
+    Assert-True ((Get-FunctionTextFromFile $storageUi 'Complete-DomeniaStorageWork').Contains($gesture)) 'L avertissement de conflit ne nomme pas le geste de rechargement.'
+    $coreText = [IO.File]::ReadAllText($core)
+    Assert-True ([regex]::IsMatch($coreText,'x:Name="TabAccounts" Header="Comptes"')) 'Onglet Comptes absent.'
+    Assert-True ([regex]::IsMatch($coreText,'x:Name="BtnAccountAdRelogin" Content="Changer de compte"')) 'Bouton Changer de compte absent.'
+    $ct = $null; $ce = $null
+    $coreAst = [Management.Automation.Language.Parser]::ParseFile($core,[ref]$ct,[ref]$ce)
+    $findCalls = {
+        param([string]$FunctionName,[string]$Command)
+        $fn = @($coreAst.FindAll({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $FunctionName },$true))
+        if ($fn.Count -ne 1) { throw ('Fonction du coeur absente ou ambigue : ' + $FunctionName) }
+        return @($fn[0].FindAll({ param($n) $n -is [Management.Automation.Language.CommandAst] -and $n.GetCommandName() -eq $Command },$true)).Count
+    }
+    $wire = Get-FunctionTextFromFile $core 'Wire-Events'
+    Assert-True ([regex]::IsMatch($wire,'\$script:Ctrl\["BtnAccountAdRelogin"\]\.Add_Click\(\{\s*Start-DomeniaAccountRelogin\s*\}\)')) 'Changer de compte ne lance pas Start-DomeniaAccountRelogin.'
+    Assert-True ((& $findCalls 'Start-DomeniaAccountRelogin' 'Load-UserMachineLinks') -ge 1) 'Start-DomeniaAccountRelogin ne recharge pas les associations.'
+    Assert-True ((& $findCalls 'Load-UserMachineLinks' 'Reset-DomeniaLinkBaseline') -ge 1) 'Load-UserMachineLinks ne termine pas l etat de conflit.'
+}
+
+Test-Case 'D028 : anciens libelles retires de Fiabilite et de la ligne Live' {
+    $guardText = [IO.File]::ReadAllText($guardUi)
+    $liveText = [IO.File]::ReadAllText($liveUi)
+    Assert-False ($guardText.Contains('Cache en attente')) 'Fiabilite garde Cache en attente.'
+    $e = [string][char]0x00E9
+    foreach ($old in @(('cache uniquement en m' + $e + 'moire'),('m' + $e + 'moire locale non enregistr' + $e + 'e'),'aucun enregistrement en attente',"'enregistrement en cours'")) {
+        Assert-False ($liveText.Contains($old)) ('Ancien libelle Live : ' + $old)
+    }
+}
+
+Test-Case 'D028 : le chargeur declare l etat d enregistrement et ses dependances' {
+    $lt = $null; $le = $null
+    $loaderAst = [Management.Automation.Language.Parser]::ParseFile($loader,[ref]$lt,[ref]$le)
+    $planFn = @($loaderAst.FindAll({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Get-DomeniaRuntimeModulePlan' },$true))[0]
+    $plan = @(& ([scriptblock]::Create($planFn.Body.Extent.Text.Trim().TrimStart('{').TrimEnd('}'))))
+    $byFile = @{}
+    foreach ($m in $plan) { $byFile[[string]$m.File] = $m }
+    $storage = $byFile['Domenia-Storage.UI.ps1']
+    Assert-True (@($storage.Functions) -contains 'Get-DomeniaPersistenceState') 'Get-DomeniaPersistenceState non declaree pour Storage.UI.'
+    Assert-True (@($storage.Requires) -contains 'Domenia-Cache.Model.ps1') 'Storage.UI ne requiert pas Cache.Model.'
+    Assert-True (@($byFile['Domenia-Live.UI.ps1'].Requires) -contains 'Domenia-Storage.UI.ps1') 'Live.UI ne requiert pas Storage.UI.'
+    $guard = $byFile['Domenia-Guard.UI.ps1']
+    Assert-True ([string]$guard.Phase -eq 'Modules' -and @($guard.Requires) -contains 'Domenia-Storage.UI.ps1') 'Guard.UI sans Phase Modules ni Requires Storage.UI.'
+    # The integration of this lot rebuilds the Selection.UI entry from lot-cache.json: its Shell.Model requirement
+    # (lot interface, Get-DomeniaSelectionPreview) must survive it.
+    Assert-True (@($byFile['Domenia-Selection.UI.ps1'].Requires) -contains 'Domenia-Shell.Model.ps1') 'Selection.UI a perdu Requires Shell.Model.'
+}
+
 try { Stop-TestTimers } catch { }
 $passed = @($checks | Where-Object { $_.Status -eq 'Passed' }).Count
 $failed = @($checks | Where-Object { $_.Status -eq 'Failed' }).Count

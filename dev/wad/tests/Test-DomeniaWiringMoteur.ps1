@@ -1,5 +1,6 @@
 ﻿#requires -Version 5.1
-# Wiring tests of the engine lot (D002, D003, D011, D014, D015, D016, D017, D018, D019, D020, D089).
+# Wiring tests of the engine lot (D002, D003, D011, D014, D015, D016, D017, D018, D019, D020, D089), plus the single
+# local writer of the cache lot (D028: real queue, real LocalStore body, real schema in a temporary file).
 # Method of Test-DomeniaPreload: the real core functions are extracted by AST, the real rule and engine modules
 # are dot-sourced, WPF controls are real (main XAML, login XAML). The network is replaced by registered test
 # operations whose bodies run in real worker runspaces. No domain, no credential, no write to AD.
@@ -39,7 +40,8 @@ function Get-CoreFunctionAst {
 if ($null -eq ('Domenia.SelectionIdentity' -as [type])) { Add-Type -Path (Join-Path $modules 'Domenia-Identity.Types.cs') -ErrorAction Stop }
 foreach ($file in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Guard.Model.ps1','Domenia-Access.Model.ps1','Domenia-Safety.Model.ps1','Domenia-Experience.Model.ps1','Domenia-Demo.Model.ps1','Domenia-Shell.Model.ps1',
     'Domenia-Selection.UI.ps1','Domenia-Experience.UI.ps1','Domenia-Engine.UI.ps1','Domenia-Engine.Worker.ps1','Domenia-Demo.Worker.ps1','Domenia-Demo.UI.ps1',
-    'Domenia-Startup.UI.ps1','Domenia-Isolation.Worker.ps1','Domenia-Receipts.Worker.ps1')) {
+    'Domenia-Startup.UI.ps1','Domenia-Isolation.Worker.ps1','Domenia-Receipts.Worker.ps1',
+    'Domenia-Cache.Model.ps1','Domenia-Live.Model.ps1','Domenia-Release.Model.ps1','Domenia-Storage.Worker.ps1','Domenia-Storage.UI.ps1')) {
     $path = Join-Path $modules $file
     if (-not [IO.File]::Exists($path)) { throw ('Module absent : ' + $file) }
     . $path
@@ -57,7 +59,9 @@ $script:CoreFunctions = @('Start-UiTask','Complete-UiTasks','Request-UiTaskStop'
     'Stop-DomeniaTreeRenderForNode','New-TreeItem','Get-DomeniaParkSharedPath','Merge-DomeniaParkState','Complete-DomeniaParkSweepUi','Sync-DomeniaParkShared',
     'Get-DomeniaSafeObjectPropertyNames','Initialize-DomeniaWinSqliteNative','New-DomeniaUtf8Ptr','ConvertFrom-DomeniaUtf8Ptr','Open-DomeniaDatabase',
     'Close-DomeniaDatabase','Invoke-DomeniaDbExec','Get-DomeniaStartupXaml','Convert-DomeniaXamlToBootTheme','Get-DomeniaBootThemeResources',
-    'Get-DomeniaBootThemePalette','Get-DomeniaStandardLoginXaml','Get-DomeniaBootStatusColor','Test-DomeniaMainHostAvailable')
+    'Get-DomeniaBootThemePalette','Get-DomeniaStandardLoginXaml','Get-DomeniaBootStatusColor','Test-DomeniaMainHostAvailable',
+    'Invoke-DomeniaDbQuery','ConvertTo-DomeniaSqlLiteral','Initialize-DomeniaDatabase','Backup-DomeniaDatabase','Get-DomeniaStoreBackupDirectory',
+    'Normalize-LinkComputer','Normalize-LinkUser','ConvertTo-DomeniaCanonicalLinks','Load-UserMachineLinks')
 $coreSource = New-Object 'System.Collections.Generic.List[string]'
 foreach ($name in $script:CoreFunctions) { $coreSource.Add((Get-CoreFunctionAst $name).Extent.Text) }
 . ([scriptblock]::Create(($coreSource.ToArray() -join "`n")))
@@ -759,14 +763,311 @@ Test-Case 'D089 : une seule demande par moment, refus respecte, Alt-Tab respecte
     } finally { $window.Close() }
 }
 
+# ---------------------------------------------------------------- D028 (lot cache F1/F2): single local writer
+# Real queue (Queue-DomeniaLinkChanges), real admission and callbacks (Start/Complete/Fail-DomeniaStorageWork), real
+# Resume-DomeniaStorage, real pinned LocalStore body in a real worker runspace (real Start-UiTask/Complete-UiTasks),
+# real schema (Initialize-DomeniaDatabase) in a temporary local file, real Get-DomeniaLinkFingerprint and real loader
+# Load-UserMachineLinks. No directory, no share, no AD write. Removing the optimistic check of the worker, its single
+# transaction (BEGIN IMMEDIATE), the conflict state, the writer's own suspension or the off-Dispatcher writer makes a
+# case fail.
+function Get-WiringModuleFunctionText {
+    param([string]$File,[string]$Name)
+    $mt = $null; $me = $null
+    $ast = [Management.Automation.Language.Parser]::ParseFile((Join-Path $modules $File),[ref]$mt,[ref]$me)
+    if (@($me).Count) { throw ('Syntaxe ' + $File + ' : ' + $me[0].Message) }
+    $nodes = @($ast.FindAll({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $Name },$true))
+    if ($nodes.Count -ne 1) { throw ('Fonction absente ou ambigue : ' + $Name + ' dans ' + $File) }
+    return $nodes[0].Extent.Text
+}
+. ([scriptblock]::Create((Get-WiringModuleFunctionText 'Domenia-Guard.UI.ps1' 'Resume-DomeniaStorage')))
+function Rebuild-UserMachineLinkIndex { }
+function Refresh-AssociationContext { param([switch]$SkipResultRefresh) }
+function Recover-DomeniaDatabase { param($Reason) throw 'Restauration interdite dans ce test.' }
+# Spy: the real callback runs unchanged; the effective worker result is kept for the assertions.
+$script:StorageCompleteReal = (Get-Command Complete-DomeniaStorageWork -CommandType Function).ScriptBlock
+function Complete-DomeniaStorageWork {
+    param($Result,$State)
+    $script:StorageResults.Add((Get-DomeniaEffectiveWorkerResult $Result @('Saved','Conflicts')))
+    & $script:StorageCompleteReal $Result $State
+}
+$script:StoreRoots = New-Object 'System.Collections.Generic.List[string]'
+function Reset-WiringStore {
+    $script:Persistence = $null; $script:LinkBaseline = @{}; $script:UserMachineLinks = @(); $script:Live = $null
+    $script:StorageResults = New-Object 'System.Collections.Generic.List[object]'
+    $script:DomeniaDatabaseReady = $false; $script:DomeniaDatabaseRecoveryAttempted = $false
+}
+function New-WiringStoreDatabase {
+    [void](Initialize-DomeniaWinSqliteNative)
+    $root = Join-Path ([IO.Path]::GetTempPath()) ('domenia-store-' + [guid]::NewGuid().ToString('N'))
+    [void][IO.Directory]::CreateDirectory($root)
+    $script:StoreRoots.Add($root)
+    $script:DatabaseScopedPath = Join-Path $root 'Domenia.db'
+    $script:DomeniaDatabaseReady = $false; $script:DomeniaDatabaseRecoveryAttempted = $false
+    Assert-True (Initialize-DomeniaDatabase) 'Schema reel non cree'
+    return [string]$script:DatabaseScopedPath
+}
+function New-WiringLink {
+    param([string]$User,[string]$Computer,[string]$When = '2026-10-04 09:00:00')
+    return [pscustomobject]@{UserLogin=$User;Computer=$Computer;Source='Saisie manuelle';Confidence=100;VerifiedInAD=$true;When=$When;Details='Lot cache F1';UserGuid='';ComputerGuid='';UserDn='';ComputerDn=''}
+}
+function Get-WiringStoredLinks {
+    $db = Open-DomeniaDatabase -Path $script:DatabaseScopedPath -ReadOnly
+    try { $rows = @(Invoke-DomeniaDbQuery 'SELECT computer_key,user_login FROM user_machine_links;' $db) } finally { Close-DomeniaDatabase $db }
+    $map = @{}
+    foreach ($r in $rows) { $map[[string]$r.computer_key] = [string]$r.user_login }
+    return $map
+}
+function Start-WiringStorage {
+    # Real persistence state; its own 350 ms timer is stopped so that the case decides when the writer is admitted.
+    $script:Persistence = $null
+    Initialize-DomeniaPersistence
+    $script:Persistence.Timer.Stop()
+}
+function Stop-WiringStorage {
+    if ($null -eq $script:Persistence) { return }
+    try { $script:Persistence.Timer.Stop() } catch { }
+    if ($null -ne $script:Persistence.LinkRequestTimer) { try { $script:Persistence.LinkRequestTimer.Stop() } catch { } }
+}
+function Wait-WiringStoreIdle {
+    return (Wait-WiringCondition -Complete -TimeoutMs 15000 { @($script:AsyncJobs.Values | Where-Object { $null -ne $_ -and $_.OperationId -eq 'LocalStore' }).Count -eq 0 })
+}
+function Invoke-WiringStorageBatch {
+    param([string]$Why = 'Lot')
+    Assert-True (Wait-WiringStoreIdle) ($Why + ' : ecrivain precedent encore actif')
+    $script:Persistence.Next = [datetime]::MinValue
+    Start-DomeniaStorageWork
+    Assert-True ([string]$script:Persistence.Job) ($Why + ' : aucun lot demarre. ' + [string]$script:Persistence.Fault)
+    Assert-True (Wait-WiringCondition -Complete -TimeoutMs 30000 { -not [string]$script:Persistence.Job }) ($Why + ' : aucun rappel du stockage')
+}
+
+Test-Case 'D028 : deux mises a jour independantes ne s ecrasent pas' {
+    try {
+        Reset-WiringStore
+        $path = New-WiringStoreDatabase
+        Start-WiringStorage
+        # Console A saves PC1=alice and PC2=bob (nothing on disk yet, Expected is empty).
+        $script:UserMachineLinks = @((New-WiringLink 'alice' 'PC1'),(New-WiringLink 'bob' 'PC2'))
+        Assert-True (Queue-DomeniaLinkChanges) 'Console A : mise en file refusee'
+        Assert-True ($script:Persistence.Pending.Count -eq 2) ('Console A : ' + $script:Persistence.Pending.Count + ' element(s) en file')
+        Invoke-WiringStorageBatch 'Console A, premier lot'
+        $first = $script:StorageResults[$script:StorageResults.Count - 1]
+        Assert-True ([bool]$first.Saved -and @($first.Conflicts).Count -eq 0) ('Premier lot : conflits ' + (@($first.Conflicts) -join ','))
+        $disk = Get-WiringStoredLinks
+        Assert-True ($disk['PC1'] -eq 'alice' -and $disk['PC2'] -eq 'bob') 'Premier lot absent du disque'
+        Assert-True ([string]$script:LinkBaseline['PC1'].UserLogin -eq 'alice' -and [string]$script:LinkBaseline['PC2'].UserLogin -eq 'bob') 'Reference de A non mise a jour'
+        # Console B reads the same base with the real loader, then changes PC1 to carol in its own LocalStore run.
+        $consoleA = [pscustomobject]@{Links=$script:UserMachineLinks;Baseline=$script:LinkBaseline}
+        Load-UserMachineLinks
+        $readByB = $script:LinkBaseline['PC1']
+        $script:UserMachineLinks = $consoleA.Links; $script:LinkBaseline = $consoleA.Baseline
+        Assert-True ($null -ne $readByB -and [string]$readByB.UserLogin -eq 'alice') 'Console B : PC1 non relu sur le disque'
+        $expectedB = Get-DomeniaLinkFingerprint $readByB
+        Assert-True ($expectedB -ceq (Get-DomeniaLinkFingerprint $script:LinkBaseline['PC1'])) 'Empreinte relue sur disque differente de la reference de A'
+        $itemB = [pscustomobject]@{QueueKey=('Link|' + $path + '|PC1');Kind='Link';Key='PC1';Path=$path;Expected=$expectedB;Row=(ConvertTo-DomeniaLinkRecord (New-WiringLink 'carol' 'PC1' '2026-10-04 09:05:00'));Remove=$false;Epoch=[long]$script:SessionEpoch}
+        Assert-True (Wait-WiringStoreIdle) 'Console B : ecrivain de A encore actif'
+        [void](Start-UiTask -Name 'Console B' -OperationId 'LocalStore' -Code (Get-DomeniaStorageWorkerCode) -Payload ([pscustomobject]@{Path=$path;Items=@($itemB)}) -CallbackState ([pscustomobject]@{Tag='B'}) -SuccessHandler 'Complete-WiringTestUi' -ErrorHandler 'Fail-WiringTestUi' -NonCancellable -TimeoutSeconds 120)
+        Assert-True (Wait-WiringCondition -Complete -TimeoutMs 30000 { @($script:Callbacks | Where-Object { $_.Tag -eq 'B' }).Count -eq 1 }) 'Console B : aucun rappel'
+        $b = @($script:Callbacks | Where-Object { $_.Tag -eq 'B' })[0]
+        Assert-True ($b.Kind -eq 'Success') ('Console B en echec : ' + [string]$b.Result)
+        $rb = Get-DomeniaEffectiveWorkerResult $b.Result @('Saved','Conflicts')
+        Assert-True ($null -ne $rb -and [bool]$rb.Saved -and @($rb.Conflicts).Count -eq 0) ('Console B : faux conflit, parite Get-DomeniaLinkFingerprint / LinkHash rompue : ' + (@($rb.Conflicts) -join ','))
+        Assert-True ((Get-WiringStoredLinks)['PC1'] -eq 'carol') 'Console B : PC1 non ecrit'
+        # Console A, unaware of B, saves PC1=dave and PC2=erin in one batch.
+        $script:UserMachineLinks = @((New-WiringLink 'dave' 'PC1' '2026-10-04 09:10:00'),(New-WiringLink 'erin' 'PC2' '2026-10-04 09:10:00'))
+        Assert-True (Queue-DomeniaLinkChanges) 'Console A : deuxieme mise en file refusee'
+        Assert-True ($script:Persistence.Pending.Count -eq 2) 'Console A : un lot de deux liens attendu'
+        $script:Statuses.Clear()
+        Invoke-WiringStorageBatch 'Console A, second lot'
+        $second = $script:StorageResults[$script:StorageResults.Count - 1]
+        Assert-True ((@($second.Conflicts) -join ',') -ceq 'PC1') ('Conflits attendus PC1, obtenus : ' + (@($second.Conflicts) -join ','))
+        $disk = Get-WiringStoredLinks
+        Assert-True ($disk['PC1'] -eq 'carol' -and $disk['PC2'] -eq 'erin') ('Disque : PC1=' + $disk['PC1'] + ' PC2=' + $disk['PC2'])
+        Assert-True (@($script:Statuses | Where-Object { $_ -match 'Association modifiee ailleurs : PC1' }).Count -eq 1) 'Avertissement de conflit absent'
+        Assert-True ([string]$script:LinkBaseline['PC1'].UserLogin -eq 'alice') ('Reference PC1 : ' + [string]$script:LinkBaseline['PC1'].UserLogin)
+        Assert-True ([string]$script:LinkBaseline['PC2'].UserLogin -eq 'erin') ('Reference PC2 : ' + [string]$script:LinkBaseline['PC2'].UserLogin)
+        # Decision D028 (a): visible conflict state, quiet path silent on PC1, explicit path resubmits and warns, reload ends it.
+        Assert-True ($script:Persistence.Conflicts.Count -eq 1 -and $script:Persistence.Conflicts.ContainsKey('PC1')) 'Etat de conflit non garde'
+        $label = (Get-DomeniaPersistenceState).Label
+        Assert-True ($label -match '1 association\(s\) modifiee\(s\) ailleurs' -and $label -cne 'Enregistre.') ('Libelle apres conflit : ' + $label)
+        Assert-True (Queue-DomeniaLinkChanges -Quiet -MaxItems 64) 'Chemin silencieux en erreur'
+        Assert-True ($script:Persistence.Pending.Count -eq 0 -and -not $script:Persistence.LinkBusy) 'Le chemin silencieux renvoie la cle en conflit'
+        $script:Statuses.Clear()
+        Assert-True (Queue-DomeniaLinkChanges) 'Chemin explicite refuse'
+        Assert-True ($script:Persistence.Pending.Count -eq 1) 'Le chemin explicite ne soumet pas la cle en conflit'
+        Invoke-WiringStorageBatch 'Console A, nouvel essai explicite'
+        Assert-True ((Get-WiringStoredLinks)['PC1'] -eq 'carol') 'Le nouvel essai explicite a ecrase la version de B'
+        Assert-True (@($script:Statuses | Where-Object { $_ -match 'Association modifiee ailleurs : PC1' }).Count -eq 1) 'Le chemin explicite n avertit pas'
+        Load-UserMachineLinks
+        Assert-True ($script:Persistence.Conflicts.Count -eq 0) 'Le rechargement ne termine pas l etat de conflit'
+        Assert-True (@($script:UserMachineLinks | Where-Object { [string]$_.Computer -eq 'PC1' -and [string]$_.UserLogin -eq 'carol' }).Count -eq 1) 'Rechargement : version du disque absente'
+        $after = (Get-DomeniaPersistenceState).Label
+        Assert-True ($after -ceq 'Enregistre.') ('Libelle apres rechargement : ' + $after)
+    } finally { Stop-WiringStorage }
+}
+Test-Case 'D028 : un verrou SQLite ne bloque pas WPF' {
+    $lock = [IntPtr]::Zero; $heart = $null
+    try {
+        Reset-WiringStore
+        $path = New-WiringStoreDatabase
+        Start-WiringStorage
+        $script:UserMachineLinks = @(New-WiringLink 'alice' 'PC1')
+        Assert-True (Queue-DomeniaLinkChanges) 'Mise en file refusee'
+        # A second connection holds the write lock, as another console in the middle of its own transaction.
+        $lock = Open-DomeniaDatabase -Path $path
+        [void](Invoke-DomeniaDbExec 'BEGIN IMMEDIATE;' $lock)
+        $script:HeartClock = [Diagnostics.Stopwatch]::StartNew()
+        $script:HeartTicks = New-Object 'System.Collections.Generic.List[double]'
+        $heart = New-Object System.Windows.Threading.DispatcherTimer
+        $heart.Interval = [TimeSpan]::FromMilliseconds(20)
+        $heart.Add_Tick({ $script:HeartTicks.Add($script:HeartClock.Elapsed.TotalMilliseconds) })
+        $heart.Start()
+        $starts = New-Object 'System.Collections.Generic.List[double]'; $gaps = New-Object 'System.Collections.Generic.List[double]'; $waits = New-Object 'System.Collections.Generic.List[double]'
+        foreach ($attempt in 1..3) {
+            Assert-True (Wait-WiringStoreIdle) ('Essai ' + $attempt + ' : ecrivain precedent encore actif')
+            $script:Persistence.Next = [datetime]::MinValue
+            $watch = [Diagnostics.Stopwatch]::StartNew(); Start-DomeniaStorageWork; $watch.Stop()
+            $starts.Add([Math]::Round($watch.Elapsed.TotalMilliseconds,1))
+            Assert-True ([string]$script:Persistence.Job) ('Essai ' + $attempt + ' : aucun lot demarre. ' + [string]$script:Persistence.Fault)
+            # Start-UiTask opens the worker runspace synchronously (accepted engine cost, measured by D014); the SQLite
+            # wait itself (busy_timeout 300 ms) must never happen here.
+            Assert-True ($watch.Elapsed.TotalMilliseconds -lt 250) ('Essai ' + $attempt + ' : Start-DomeniaStorageWork a tenu le Dispatcher ' + [Math]::Round($watch.Elapsed.TotalMilliseconds) + ' ms')
+            Assert-True ($script:Persistence.Pending.Count -eq 0 -and [int]$script:Persistence.InFlight -eq 1) 'Lot en cours non compte'
+            # While the batch waits on the lock the label never says saved: pending first, then the previous failure.
+            $during = (Get-DomeniaPersistenceState).Label
+            if ($attempt -eq 1) { Assert-True ($during -ceq 'En memoire : 1 modification(s) a enregistrer.') ('Libelle pendant l attente du verrou : ' + $during) }
+            else { Assert-True ($during -match 'en echec, nouvel essai prevu') ('Libelle pendant le nouvel essai : ' + $during) }
+            $from = $script:HeartClock.Elapsed.TotalMilliseconds
+            Assert-True (Wait-WiringCondition -Complete -TimeoutMs 30000 { -not [string]$script:Persistence.Job }) ('Essai ' + $attempt + ' : aucun rappel')
+            $to = $script:HeartClock.Elapsed.TotalMilliseconds
+            $window = @($script:HeartTicks | Where-Object { $_ -ge $from -and $_ -le $to })
+            $largest = 0.0; $previous = $from
+            foreach ($tick in $window) { $largest = [Math]::Max($largest,$tick - $previous); $previous = $tick }
+            $largest = [Math]::Max($largest,$to - $previous)
+            $gaps.Add([Math]::Round($largest,1)); $waits.Add([Math]::Round($to - $from,1))
+            # The worker waits on busy_timeout (300 ms) after Start-DomeniaStorageWork has returned, and the Dispatcher keeps ticking.
+            Assert-True (($to - $from) -ge 250) ('Essai ' + $attempt + ' : rappel en ' + [Math]::Round($to - $from) + ' ms, attente du verrou absente')
+            Assert-True ($window.Count -ge 5) ('Essai ' + $attempt + ' : ' + $window.Count + ' tick(s) seulement pendant l attente')
+            Assert-True ($largest -lt 150) ('Essai ' + $attempt + ' : Dispatcher bloque ' + [Math]::Round($largest) + ' ms pendant l attente du verrou')
+            Assert-True ([int]$script:Persistence.Failures -eq $attempt) ('Echecs : ' + $script:Persistence.Failures)
+            Assert-True ([string]$script:Persistence.Fault -match '(?i)code 5|locked|busy') ('Erreur SQLite perdue : ' + $script:Persistence.Fault)
+            Assert-True ($script:Persistence.Pending.Count -eq 1 -and [int]$script:Persistence.InFlight -eq 0) 'Lien non remis en file apres l echec'
+            $label = (Get-DomeniaPersistenceState).Label
+            if ($attempt -lt 3) { Assert-True ($label -match 'en echec, nouvel essai prevu') ('Libelle apres echec : ' + $label) }
+            else { Assert-True ($label -match 'suspendu') ('Libelle apres trois echecs : ' + $label) }
+        }
+        # Kept for the next case: (wait - 300 ms) bounds the time the worker needs to reach BEGIN IMMEDIATE.
+        $script:D028LockWaits = $waits.ToArray()
+        # Three failures suspend the writer: no job even when the delay has passed. The engine D018 breaker would also
+        # refuse this Storage work inside Start-UiTask, so the case proves that Start-DomeniaStorageWork returns before
+        # reaching the engine: the refusal branch (Next pushed 5 s later, Fault replaced) must not run, and the engine
+        # does not record a refused admission.
+        $script:Persistence.Next = [datetime]::MinValue
+        $faultBefore = [string]$script:Persistence.Fault
+        $script:StartUiTaskCalls = 0
+        $startUiTaskReal = (Get-Command Start-UiTask -CommandType Function).ScriptBlock
+        Set-Item function:script:Start-UiTask -Value { $script:StartUiTaskCalls++; throw 'Start-UiTask atteint malgre la suspension.' }
+        try { Start-DomeniaStorageWork } finally { Set-Item function:script:Start-UiTask -Value $startUiTaskReal }
+        Assert-True ($script:StartUiTaskCalls -eq 0) 'La suspension de l ecrivain laisse Start-DomeniaStorageWork atteindre le moteur'
+        Assert-True ($script:Persistence.Next -eq [datetime]::MinValue -and [string]$script:Persistence.Fault -ceq $faultBefore) ('Suspension contournee : Next=' + $script:Persistence.Next.ToString('o') + ' Fault=' + [string]$script:Persistence.Fault)
+        Assert-True (-not [string]$script:Persistence.Job) 'Un lot demarre malgre la suspension'
+        Assert-True ($script:Persistence.Pending.Count -eq 1 -and [int]$script:Persistence.InFlight -eq 0) 'Suspension : lien perdu ou compte en cours'
+        Assert-True ((Get-WiringStoredLinks).Count -eq 0) 'Ecriture malgre le verrou'
+        $heart.Stop()
+        [void](Invoke-DomeniaDbExec 'ROLLBACK;' $lock); Close-DomeniaDatabase $lock; $lock = [IntPtr]::Zero
+        # Lock released: explicit resume (real Resume-DomeniaStorage of Fiabilite), then the same link reaches the disk.
+        Resume-DomeniaStorage
+        Assert-True ([int]$script:Persistence.Failures -eq 0) 'Reprise sans remise a zero'
+        # The engine keeps its own D018 breaker: after three Storage failures, background Storage work waits for the
+        # provider backoff (15 s at the first level). The writer is then refused by Start-UiTask, keeps its item and says so.
+        Assert-True (Wait-WiringStoreIdle) 'Apres reprise : ecrivain precedent encore actif'
+        $script:Persistence.Next = [datetime]::MinValue
+        Start-DomeniaStorageWork
+        $deferred = ''
+        if (-not [string]$script:Persistence.Job) {
+            $deferred = [string]$script:Persistence.Fault
+            Assert-True ($deferred -match 'Pannes repetees') ('Apres reprise : refus inattendu : ' + $deferred)
+            Assert-True ($script:Persistence.Pending.Count -eq 1) 'Apres reprise : lien perdu pendant le refus du moteur'
+            $waiting = (Get-DomeniaPersistenceState).Label
+            Assert-True ($waiting -ceq 'En memoire : 1 modification(s) a enregistrer.') ('Libelle pendant le delai du moteur : ' + $waiting)
+            # The real persistence timer (350 ms, Next gate of 5 s after a refusal) retries on its own.
+            $script:Persistence.Timer.Start()
+        }
+        Assert-True (Wait-WiringCondition -Complete -TimeoutMs 60000 { $script:StorageResults.Count -gt 0 -and -not [string]$script:Persistence.Job }) ('Apres reprise : aucun lot enregistre. ' + [string]$script:Persistence.Fault)
+        $script:Persistence.Timer.Stop()
+        Assert-True ((Get-WiringStoredLinks)['PC1'] -eq 'alice') 'Lien absent du disque apres la reprise'
+        Assert-True ([int]$script:Persistence.Failures -eq 0 -and $script:Persistence.Pending.Count -eq 0 -and [int]$script:Persistence.InFlight -eq 0) 'Etat apres reprise'
+        $final = (Get-DomeniaPersistenceState).Label
+        Assert-True ($final -ceq 'Enregistre.') ('Libelle apres reprise : ' + $final)
+        $script:CaseDetail = 'Start-DomeniaStorageWork (ouverture du runspace incluse) : ' + ($starts -join ' / ') + ' ms ; attente du verrou : ' + ($waits -join ' / ') + ' ms ; plus grand ecart du Dispatcher pendant cette attente : ' + ($gaps -join ' / ') + ' ms' + $(if ($deferred) { ' ; apres reprise, premier essai differe par le moteur : ' + $deferred } else { '' })
+    } finally {
+        if ($null -ne $heart) { $heart.Stop() }
+        if ($lock -ne [IntPtr]::Zero) { try { [void](Invoke-DomeniaDbExec 'ROLLBACK;' $lock) } catch { }; Close-DomeniaDatabase $lock }
+        Stop-WiringStorage
+    }
+}
+
+Test-Case 'D028 : consoles simultanees : verification et ecriture dans une seule transaction' {
+    # Interleaved variant of the first case. Console B holds the write lock with PC1=carol written but not committed;
+    # console A starts its batch (PC1=dave, Expected=alice), its worker reaches BEGIN IMMEDIATE and waits; B commits well
+    # inside busy_timeout (300 ms). The check must then read carol and refuse: a worker whose read and write were
+    # separate autocommit statements would read alice before B's commit and overwrite carol after it.
+    $holder = [IntPtr]::Zero
+    try {
+        Reset-WiringStore
+        $path = New-WiringStoreDatabase
+        Start-WiringStorage
+        $script:UserMachineLinks = @(New-WiringLink 'alice' 'PC1')
+        Assert-True (Queue-DomeniaLinkChanges) 'Console A : mise en file refusee'
+        Invoke-WiringStorageBatch 'Console A, premier lot'
+        Assert-True ((Get-WiringStoredLinks)['PC1'] -eq 'alice') 'Premier lot absent du disque'
+        $script:UserMachineLinks = @(New-WiringLink 'dave' 'PC1' '2026-10-04 09:10:00')
+        Assert-True (Queue-DomeniaLinkChanges) 'Console A : deuxieme mise en file refusee'
+        Assert-True ($script:Persistence.Pending.Count -eq 1) 'Console A : un lien en file attendu'
+        Assert-True (Wait-WiringStoreIdle) 'Console A : ecrivain precedent encore actif'
+        # Commit delay: after the worker of A reaches BEGIN IMMEDIATE (bounded by the lock case: wait - 300 ms), and
+        # never more than 180 ms after Start returns, so that the worker (busy_timeout 300 ms) never gives up before B
+        # commits even with the pump overshoot (a few ms, short pumps below).
+        $bound = -1.0
+        if (@($script:D028LockWaits).Count) { $bound = [double](@($script:D028LockWaits) | Measure-Object -Maximum).Maximum - 300 }
+        $commitAfter = 120.0
+        if ($bound -ge 0) { $commitAfter = [Math]::Min(180.0,[Math]::Max(80.0,$bound + 30)) }
+        $holder = Open-DomeniaDatabase -Path $path
+        [void](Invoke-DomeniaDbExec 'BEGIN IMMEDIATE;' $holder)
+        [void](Invoke-DomeniaDbExec "UPDATE user_machine_links SET user_login='carol',observed_at='2026-10-04 09:05:00' WHERE computer_key='PC1';" $holder)
+        $script:Persistence.Next = [datetime]::MinValue
+        $clock = [Diagnostics.Stopwatch]::StartNew()
+        Start-DomeniaStorageWork
+        $started = $clock.Elapsed.TotalMilliseconds
+        Assert-True ([string]$script:Persistence.Job) ('Console A : aucun lot demarre. ' + [string]$script:Persistence.Fault)
+        while ($clock.Elapsed.TotalMilliseconds -lt ($started + $commitAfter)) { Invoke-WiringPump ([int][Math]::Max(1,[Math]::Min(10,($started + $commitAfter) - $clock.Elapsed.TotalMilliseconds))) }
+        [void](Invoke-DomeniaDbExec 'COMMIT;' $holder)
+        $committed = $clock.Elapsed.TotalMilliseconds - $started
+        Close-DomeniaDatabase $holder; $holder = [IntPtr]::Zero
+        Assert-True (Wait-WiringCondition -Complete -TimeoutMs 30000 { -not [string]$script:Persistence.Job }) 'Console A : aucun rappel'
+        $called = $clock.Elapsed.TotalMilliseconds - $started
+        Assert-True ([int]$script:Persistence.Failures -eq 0) ('Console A en echec, verrou leve trop tard (' + [Math]::Round($committed) + ' ms) : ' + [string]$script:Persistence.Fault)
+        $r = $script:StorageResults[$script:StorageResults.Count - 1]
+        Assert-True ([bool]$r.Saved -and (@($r.Conflicts) -join ',') -ceq 'PC1') ('Conflits attendus PC1, obtenus : ' + (@($r.Conflicts) -join ','))
+        Assert-True ((Get-WiringStoredLinks)['PC1'] -eq 'carol') 'La version de B, validee pendant l attente de A, a ete ecrasee'
+        Assert-True ($script:Persistence.Conflicts.ContainsKey('PC1') -and [string]$script:LinkBaseline['PC1'].UserLogin -eq 'alice') 'Etat de conflit ou reference de A incorrects'
+        $established = ($bound -ge 0 -and $bound -lt $committed)
+        $script:CaseDetail = 'Verrou de B leve a ' + [Math]::Round($committed) + ' ms apres le depart du lot de A ; rappel a ' + [Math]::Round($called) + ' ms ; arrivee du worker sur BEGIN IMMEDIATE bornee a ' + $(if ($bound -ge 0) { [string][Math]::Round($bound) + ' ms (cas verrou)' } else { 'inconnue (cas verrou absent)' }) + ' ; entrelacement etabli : ' + $(if ($established) { 'oui' } else { 'non garanti' })
+    } finally {
+        if ($holder -ne [IntPtr]::Zero) { try { [void](Invoke-DomeniaDbExec 'ROLLBACK;' $holder) } catch { }; Close-DomeniaDatabase $holder }
+        Stop-WiringStorage
+    }
+}
+
 # ---------------------------------------------------------------- report
 try { Stop-WiringJobs } catch { }
+try { Stop-WiringStorage } catch { }
+foreach ($root in @($script:StoreRoots)) { Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue }
 $passed = @($checks | Where-Object { $_.Status -eq 'Passed' }).Count
 $failed = @($checks | Where-Object { $_.Status -eq 'Failed' }).Count
 if (-not $ReportPath) { $ReportPath = Join-Path ([IO.Path]::GetTempPath()) ('Domenia-wiring-moteur-' + [guid]::NewGuid().ToString('N') + '.json') }
 $report = [ordered]@{
     Kind='WiringMoteur';Host=$PSVersionTable.PSVersion.ToString();NativeWindowsPowerShell51=$native;Wpf=$true;MockedNetwork=$true;LiveAD=$false
-    Points=@('D002','D003','D011','D014','D015','D016','D017','D018','D019','D020','D089')
+    Points=@('D002','D003','D011','D014','D015','D016','D017','D018','D019','D020','D028','D089')
     Passed=$passed;Failed=$failed;Complete=($failed -eq 0 -and $passed -gt 0);Tests=$checks.ToArray()
 }
 [IO.File]::WriteAllText([IO.Path]::GetFullPath($ReportPath),($report | ConvertTo-Json -Depth 6),(New-Object Text.UTF8Encoding($false)))

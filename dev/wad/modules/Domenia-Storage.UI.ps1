@@ -3,7 +3,9 @@ $script:Persistence=$null
 $script:LinkBaseline=@{}
 function Initialize-DomeniaPersistence {
     if($null -ne $script:Persistence){return}
-    $script:Persistence=[pscustomobject]@{Pending=@{};Job='';Next=[datetime]::MinValue;Fault='';Failures=0;LinkBusy=$false;Timer=$null;LinkRequestTimer=$null;LinkPersistenceMore=$false}
+    # D028: InFlight counts the items of the batch being written (they have left Pending); Conflicts holds the link keys
+    # refused by the writer because another console changed them, until the associations are reloaded.
+    $script:Persistence=[pscustomobject]@{Pending=@{};Job='';Next=[datetime]::MinValue;Fault='';Failures=0;LinkBusy=$false;Timer=$null;LinkRequestTimer=$null;LinkPersistenceMore=$false;InFlight=0;Conflicts=@{}}
     $timer=[Windows.Threading.DispatcherTimer]::new([Windows.Threading.DispatcherPriority]::Background)
     $timer.Interval=[timespan]::FromMilliseconds(350);$timer.Add_Tick({Start-DomeniaStorageWork});$script:Persistence.Timer=$timer;$timer.Start()
     if($null -ne (Get-Command Register-DomeniaOwnedTimer -CommandType Function -ErrorAction SilentlyContinue)){try{[void](Register-DomeniaOwnedTimer -Owner 'Timer:Storage' -Timer $timer)}catch{}}
@@ -24,6 +26,9 @@ function Add-DomeniaIndexPersistence {
 }
 function Reset-DomeniaLinkBaseline {
     $script:LinkBaseline=@{}
+    # D028: the associations were reloaded from disk (Load-UserMachineLinks, at startup or through Comptes > Changer de
+    # compte): the conflict state ends here.
+    if($null -ne $script:Persistence -and $null -ne $script:Persistence.PSObject.Properties['Conflicts']){$script:Persistence.Conflicts=@{}}
     foreach($l in @($script:UserMachineLinks)){$key=(Normalize-LinkComputer ([string]$l.Computer)).ToUpperInvariant();if($key){$script:LinkBaseline[$key]=ConvertTo-DomeniaLinkRecord $l}}
 }
 function Queue-DomeniaLinkChanges {
@@ -36,8 +41,12 @@ function Queue-DomeniaLinkChanges {
         return $false
     }
     $valid=@(ConvertTo-DomeniaCanonicalLinks -Links $script:UserMachineLinks);$current=@{};$items=[Collections.Generic.List[object]]::new()
+    # D028: the quiet (background) path never resubmits a key refused as modified elsewhere; the explicit path still
+    # submits it and the writer warns again. Reset-DomeniaLinkBaseline (reload) ends the conflict state.
+    $conflicted=$null;if($Quiet -and $null -ne $script:Persistence.PSObject.Properties['Conflicts']){$conflicted=$script:Persistence.Conflicts}
     foreach($l in $valid){$key=(Normalize-LinkComputer ([string]$l.Computer)).ToUpperInvariant();if($key){$current[$key]=ConvertTo-DomeniaLinkRecord $l}}
     foreach($key in @(@($script:LinkBaseline.Keys)+@($current.Keys)|Select-Object -Unique)){
+        if($null -ne $conflicted -and $conflicted.ContainsKey($key)){continue}
         $before=$script:LinkBaseline[$key];$after=$current[$key]
         $old=Get-DomeniaLinkFingerprint $before;$new=Get-DomeniaLinkFingerprint $after
         if($old -ceq $new){continue}
@@ -91,7 +100,7 @@ function Request-DomeniaLinkPersistence {
 function Start-DomeniaStorageWork {
     # Same liveness rule as the receipts: a save that left the engine without a callback frees the slot.
     # LinkBusy is released too: the link baseline was not updated, so the next save recomputes those changes.
-    if($null -ne $script:Persistence -and $script:Persistence.Job -and $null -ne $script:AsyncJobs -and -not $script:AsyncJobs.Contains([string]$script:Persistence.Job)){$script:Persistence.Job='';$script:Persistence.LinkBusy=$false}
+    if($null -ne $script:Persistence -and $script:Persistence.Job -and $null -ne $script:AsyncJobs -and -not $script:AsyncJobs.Contains([string]$script:Persistence.Job)){$script:Persistence.Job='';$script:Persistence.LinkBusy=$false;$script:Persistence.InFlight=0}
     if($null -eq $script:Persistence -or $script:AsyncEngineClosing -or $script:Persistence.Job -or $script:Persistence.Failures -ge 3 -or -not $script:Persistence.Pending.Count -or [datetime]::UtcNow -lt $script:Persistence.Next){return}
     if(@($script:AsyncJobs.Values|Where-Object{$_.OperationId -in @('LocalStore','LiveCache','IndexBuild')}).Count -or @($script:DetachedReadJobs|Where-Object{$_.OperationId -in @('LocalStore','LiveCache','IndexBuild')}).Count){return}
     if(@($script:AsyncJobs.Keys).Count -ge 4){return}
@@ -102,25 +111,28 @@ function Start-DomeniaStorageWork {
     try {
         $script:Persistence.Job=Start-UiTask -Name 'Enregistrement cache et liens' -OperationId 'LocalStore' -Code (Get-DomeniaStorageWorkerCode) -Payload ([pscustomobject]@{Path=$path;Items=$items}) -CallbackState $state -SuccessHandler 'Complete-DomeniaStorageWork' -ErrorHandler 'Fail-DomeniaStorageWork' -NonCancellable -TimeoutSeconds 120
         foreach($i in $items){[void]$script:Persistence.Pending.Remove($i.QueueKey)}
+        # D028: the batch left Pending but is not on disk yet; the label keeps counting it until the callback.
+        $script:Persistence.InFlight=@($items).Count
     }catch{$script:Persistence.Next=[datetime]::UtcNow.AddSeconds(5);$script:Persistence.Fault=$_.Exception.Message}
 }
 function Complete-DomeniaStorageWork {
     param($Result,$State)
-    $script:Persistence.Job=''
+    $script:Persistence.Job='';$script:Persistence.InFlight=0
     $r=Get-DomeniaEffectiveWorkerResult $Result @('Saved','Conflicts')
     if($null -eq $r -or -not $r.Saved){Fail-DomeniaStorageWork 'Resultat stockage non confirme.' $State;return}
     $script:Persistence.Fault='';$script:Persistence.Failures=0
     foreach($i in @($State.Items)){
         if($i.Kind -ne 'Link'){continue};$script:Persistence.LinkBusy=$false
         if($i.Epoch -ne [long]$script:SessionEpoch){continue}
-        if(@($r.Conflicts) -contains $i.Key){Set-Status ('Association modifiee ailleurs : '+$i.Key+'. Votre version n a pas ecrase celle du disque. Rechargez les associations.') 'WARN';continue}
+        if(@($r.Conflicts) -contains $i.Key){$script:Persistence.Conflicts[[string]$i.Key]=$true;Set-Status ('Association modifiee ailleurs : '+$i.Key+'. Votre version n a pas ecrase celle du disque. Rechargez les associations : Comptes > Changer de compte, ou redemarrage.') 'WARN';continue}
+        [void]$script:Persistence.Conflicts.Remove([string]$i.Key)
         if($i.Remove){[void]$script:LinkBaseline.Remove($i.Key)}else{$script:LinkBaseline[$i.Key]=$i.Row}
     }
     Add-DomeniaUiLog -Area 'Cache' -Text ('Lot enregistre : '+$r.Count+' element(s), conflits : '+@($r.Conflicts).Count)
 }
 function Fail-DomeniaStorageWork {
     param($Message,$State)
-    $script:Persistence.Failures++;$script:Persistence.Job='';$script:Persistence.Fault=[string]$Message;$script:Persistence.Next=[datetime]::UtcNow.AddSeconds(15)
+    $script:Persistence.Failures++;$script:Persistence.Job='';$script:Persistence.InFlight=0;$script:Persistence.Fault=[string]$Message;$script:Persistence.Next=[datetime]::UtcNow.AddSeconds(15)
     foreach($i in @($State.Items)){if(-not $script:Persistence.Pending.ContainsKey($i.QueueKey)){$script:Persistence.Pending[$i.QueueKey]=$i}}
     if($script:Persistence.Failures -ge 3){Set-Status 'Cache non enregistre : trois echecs. Les donnees restent en memoire ; corrigez le stockage puis Reprendre les sauvegardes dans Fiabilite.' 'WARN';return}
     Set-Status 'Cache non enregistre sur disque. Les observations sont encore en memoire ; une nouvelle tentative bornee sera faite.' 'WARN'
@@ -135,4 +147,31 @@ function Queue-DomeniaMetadata {
     if($script:Persistence.Pending.Count -ge 256 -and -not $script:Persistence.Pending.ContainsKey($queueKey)){Set-Status 'File locale pleine : les dernieres informations sont en memoire, pas encore enregistrees.' 'WARN';return $false}
     $script:Persistence.Pending[$queueKey]=[pscustomobject]@{QueueKey=$queueKey;Kind=$Kind;Path=[string]$script:DatabaseScopedPath;Row=$Row;Epoch=[long]$script:SessionEpoch}
     return $true
+}
+function Get-DomeniaPersistenceState {
+    # D028: the single place that builds the local save label, read by Fiabilite (Guard.UI) and the Live state line.
+    # Pure read: never calls Initialize-DomeniaPersistence (timer, Closed handler); $script:Persistence and
+    # $script:Live may be $null. Counts include the batches already sent and not yet confirmed (InFlight, SaveInFlight).
+    $pending=0;$failed=0;$suspended=$false;$unavailable=$false;$conflicts=0
+    $p=$script:Persistence
+    if($null -ne $p){
+        if($null -ne $p.Pending){$pending+=[int]$p.Pending.Count}
+        $pending+=[int]$p.InFlight
+        $failed=[int]$p.Failures
+        # Same threshold as Start-DomeniaStorageWork and Fail-DomeniaStorageWork: three failures suspend the writer.
+        $suspended=([int]$p.Failures -ge 3)
+        if($null -ne $p.Conflicts){$conflicts=[int]$p.Conflicts.Count}
+    }
+    $live=$script:Live
+    if($null -ne $live){
+        $livePending=[int]$live.SaveInFlight
+        if($null -ne $live.SaveQueue){$livePending+=[int]$live.SaveQueue.Count}
+        if($null -ne $live.QueryToSave){$livePending++}
+        $pending+=$livePending
+        # A failed read also sets SaveFault: it is a save failure only while Live work is still waiting.
+        if((-not [string]::IsNullOrEmpty([string]$live.SaveFault)) -and ($livePending -gt 0)){$failed++}
+        $unavailable=(-not [bool]$live.CacheReady)
+    }
+    $label=Get-DomeniaPersistenceLabel -Pending $pending -Failed $failed -Suspended ([bool]$suspended) -Unavailable ([bool]$unavailable) -Conflicts $conflicts
+    return [pscustomobject]@{Pending=$pending;Failed=$failed;Suspended=[bool]$suspended;Unavailable=[bool]$unavailable;Conflicts=$conflicts;Label=[string]$label}
 }

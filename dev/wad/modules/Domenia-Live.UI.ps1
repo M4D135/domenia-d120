@@ -30,7 +30,7 @@ function Initialize-DomeniaLive {
             MemoryQueries=@{};Observations=[Collections.Concurrent.ConcurrentDictionary[string,object]]::new()
             Pending=[Collections.Generic.Queue[object]]::new();PendingKeys=@{};Busy=@{};Done=@{}
             ObservationsLoaded=$false;Refresh=[Collections.Generic.Queue[object]]::new()
-            SaveQueue=@{};QueryToSave=$null;SaveJob='';SaveAfter=[datetime]::MinValue;SaveFault=''
+            SaveQueue=@{};QueryToSave=$null;SaveJob='';SaveAfter=[datetime]::MinValue;SaveFault='';SaveInFlight=0
             PresenceEvents=[Collections.Concurrent.ConcurrentQueue[object]]::new();PresenceSeen=@{};RemoteFaulted=$false;NextStart=[datetime]::MinValue;Timer=$null;InTick=$false;AutoDetect=$true;ProbeSelection=$null;LastFilter=[datetime]::MinValue;NegativeCache=(New-DomeniaNegativeCache)
         }
         Reset-DomeniaLiveIdentity
@@ -66,7 +66,7 @@ function Reset-DomeniaLiveIdentity {
     $script:Live.Observations=[Collections.Concurrent.ConcurrentDictionary[string,object]]::new()
     $script:Live.ObservationsLoaded=$false;$script:Live.MemoryQueries=@{};$script:Live.Done=@{}
     $script:Live.SaveQueue=@{};$script:Live.QueryToSave=$null;$script:Live.SaveFault='';$script:Live.RemoteFaulted=$false
-    $script:Live.Refresh.Clear();$script:Live.Deferred.Clear();$script:Live.SaveJob='';$script:Live.SaveAfter=[datetime]::MinValue
+    $script:Live.Refresh.Clear();$script:Live.Deferred.Clear();$script:Live.SaveJob='';$script:Live.SaveAfter=[datetime]::MinValue;$script:Live.SaveInFlight=0
     $script:Live.NegativeCache=(New-DomeniaNegativeCache)
     # Old callbacks carry the old identity and can never repopulate this scope.
 }
@@ -541,6 +541,8 @@ function Fail-DomeniaLiveProbe {
 function Complete-DomeniaLiveCache {
     param($Result,$State)
     Reset-DomeniaLiveIdentity
+    # D028: one LiveCache worker at a time, so a write callback always ends the write in flight, whatever its identity.
+    if($null -ne $script:Live -and $State.Mode -eq 'Write'){$script:Live.SaveInFlight=0}
     if($null -eq $script:Live -or -not (Test-DomeniaLiveIdentity $State ([long]$script:SessionEpoch) $script:Live.Identity)){return}
     if($State.Mode -eq 'Read'){
         $script:Live.ObservationsLoaded=$true
@@ -553,6 +555,7 @@ function Complete-DomeniaLiveCache {
 function Fail-DomeniaLiveCache {
     param([string]$Message,$State)
     Reset-DomeniaLiveIdentity
+    if($null -ne $script:Live -and $State.Mode -eq 'Write'){$script:Live.SaveInFlight=0}
     if($null -eq $script:Live -or -not (Test-DomeniaLiveIdentity $State ([long]$script:SessionEpoch) $script:Live.Identity)){return}
     if($State.Mode -eq 'Write'){
         $script:Live.SaveJob='';$script:Live.SaveFault=$Message;$script:Live.SaveAfter=[datetime]::UtcNow.AddSeconds(10)
@@ -600,6 +603,8 @@ function Start-DomeniaLiveBackgroundWork {
             $payload=[pscustomobject]@{Mode='Write';Path=Get-DomeniaLiveDatabasePath;Scope=$script:Live.Scope;Observations=$observations;Query=$query}
             $id=Start-UiTask -Name 'Mémorisation des observations' -OperationId 'LiveCache' -Code (Get-DomeniaLiveCacheCode) -Payload $payload -CallbackState $state -TimeoutSeconds 15 -SuccessHandler 'Complete-DomeniaLiveCache' -ErrorHandler 'Fail-DomeniaLiveCache' -NonCancellable -TaskClass 'Background'
             $script:Live.SaveQueue=@{};$script:Live.QueryToSave=$null;$script:Live.SaveJob=$id
+            # D028: the observations left SaveQueue but are not on disk yet; the save state keeps counting them.
+            $script:Live.SaveInFlight=@($observations).Count+$(if($null -ne $query){1}else{0})
             return
         }
         if((Test-DomeniaLiveSearchActive) -and -not $s.CacheRequested){
@@ -749,7 +754,8 @@ function Invoke-DomeniaLiveTick {
         }
         Update-DomeniaSearchMoreButton -Search $(if($activeSearch){$script:Live.Search}else{$null})
         try{Start-DomeniaLiveBackgroundWork}catch{$script:Live.NextStart=[datetime]::UtcNow.AddSeconds(2);Write-AppLog ('Travail différé : '+$_.Exception.Message) 'WARN'}
-        $save=if(-not $script:Live.CacheReady){'cache uniquement en mémoire'}elseif($script:Live.SaveFault){'mémoire locale non enregistrée'}elseif($script:Live.SaveJob -or $script:Live.SaveQueue.Count -or $null -ne $script:Live.QueryToSave){'enregistrement en cours'}else{'aucun enregistrement en attente'}
+        # D028: the save state is the rule label shared with Fiabilite (Get-DomeniaPersistenceState, Storage.UI).
+        $save=(Get-DomeniaPersistenceState).Label
         $probe=if($script:DirectoryCredentialFaulted){'validation AD suspendue · revoir la connexion'}elseif($script:Live.RemoteFaulted){'compte distant refusé · détection suspendue'}elseif(-not $script:Live.AutoDetect){'ping à la sélection · utilisateur désactivé'}elseif($script:Live.PendingKeys.Count -or $script:Live.Busy.Count){"poste sélectionné : $($script:Live.PendingKeys.Count) en attente, $($script:Live.Busy.Count) en cours"}else{'Sélection : un ping + utilisateur si activé · double-clic : fiche · aucun contrôle collectif'}
         [void](Set-DomeniaControlText 'LblLiveState' ($probe+' · '+$save))
     }finally{$script:Live.InTick=$false}
