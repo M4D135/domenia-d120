@@ -105,8 +105,8 @@ function Start-DomeniaStorageWork {
         if(@($script:DetachedReadJobs | Where-Object { $_.Id -eq $script:Persistence.Job }).Count){return}
         if($script:Persistence.LegacyImportJob){
             $script:Persistence.LegacyImportJob=''
-            Set-Status 'Resultat import ADCC non recu. Verifiez le stockage puis refaites la simulation avant toute nouvelle demande.' 'WARN'
-            Add-DomeniaUiLog -Area 'Import' -Text 'Resultat import ADCC non recu ; aucun rejeu automatique.' -Level 'WARN'
+            Set-Status 'Resultat reprise des anciennes donnees non recu. Verifiez le stockage puis refaites la simulation avant toute nouvelle demande.' 'WARN'
+            Add-DomeniaUiLog -Area 'Import' -Text 'Resultat reprise des anciennes donnees non recu ; aucun rejeu automatique.' -Level 'WARN'
         }
         $script:Persistence.Job=''
         $script:Persistence.InFlight=0
@@ -121,7 +121,7 @@ function Start-DomeniaStorageWork {
     if(-not $canStartImport){
         if($script:Persistence.Failures -ge 3 -or [datetime]::UtcNow -lt $script:Persistence.Next){return}
     }
-    if(@($script:AsyncJobs.Values|Where-Object{$_.OperationId -in @('LocalStore','LiveCache','IndexBuild')}).Count -or @($script:DetachedReadJobs|Where-Object{$_.OperationId -in @('LocalStore','LiveCache','IndexBuild')}).Count){return}
+    if(@($script:AsyncJobs.Values|Where-Object{$_.OperationId -in @('LocalStore','LiveCache','IndexBuild','LegacyMigration')}).Count -or @($script:DetachedReadJobs|Where-Object{$_.OperationId -in @('LocalStore','LiveCache','IndexBuild','LegacyMigration')}).Count){return}
     if(@($script:AsyncJobs.Keys).Count -ge 4){return}
     if($canStartImport){
         $item=$import[0]
@@ -129,8 +129,8 @@ function Start-DomeniaStorageWork {
         if(-not $path){
             [void]$script:Persistence.Pending.Remove($item.QueueKey)
             $script:Persistence.Fault='Base du contexte non disponible.'
-            Set-Status 'Import ADCC impossible : base du contexte non disponible.' 'ERROR'
-            Add-DomeniaUiLog -Area 'Import' -Text 'Import ADCC impossible : base du contexte non disponible.' -Level 'ERROR'
+            Set-Status 'Reprise des anciennes donnees impossible : base du contexte non disponible.' 'ERROR'
+            Add-DomeniaUiLog -Area 'Import' -Text 'Reprise des anciennes donnees impossible : base du contexte non disponible.' -Level 'ERROR'
             $hasLinkWork=$false
             if($script:Persistence.LegacyImportJob){$hasLinkWork=$true}
             foreach($v in @($script:Persistence.Pending.Values)){if($v.Kind -eq 'Link' -or $v.Kind -eq 'LegacyImport'){$hasLinkWork=$true;break}}
@@ -139,7 +139,7 @@ function Start-DomeniaStorageWork {
         }
         $state=[pscustomobject]@{Items=@($item);Epoch=[long]$script:SessionEpoch}
         try {
-            $id=Start-UiTask -Name 'Import ADCC' -OperationId 'LocalStore' -Code (Get-DomeniaStorageWorkerCode) -Payload ([pscustomobject]@{Path=$path;Items=@($item)}) -CallbackState $state -SuccessHandler 'Complete-DomeniaStorageWork' -ErrorHandler 'Fail-DomeniaStorageWork' -NonCancellable -TimeoutSeconds 600 -TaskClass 'Explicit'
+            $id=Start-UiTask -Name 'Reprise des anciennes donnees' -OperationId 'LocalStore' -Code (Get-DomeniaStorageWorkerCode) -Payload ([pscustomobject]@{Path=$path;Items=@($item)}) -CallbackState $state -SuccessHandler 'Complete-DomeniaStorageWork' -ErrorHandler 'Fail-DomeniaStorageWork' -NonCancellable -TimeoutSeconds 600 -TaskClass 'Explicit'
             if([string]::IsNullOrWhiteSpace([string]$id)){throw 'Admission import non confirmee.'}
             $script:Persistence.Job=$id
             $script:Persistence.LegacyImportJob=$id
@@ -149,8 +149,8 @@ function Start-DomeniaStorageWork {
             [void]$script:Persistence.Pending.Remove($item.QueueKey)
             $script:Persistence.LegacyImportJob=''
             $script:Persistence.Fault=$_.Exception.Message
-            Set-Status ('Import ADCC impossible au depart : '+$_.Exception.Message) 'ERROR'
-            Add-DomeniaUiLog -Area 'Import' -Text ('Depart import ADCC impossible : '+$_.Exception.Message) -Level 'ERROR'
+            Set-Status ('Reprise des anciennes donnees impossible au depart : '+$_.Exception.Message) 'ERROR'
+            Add-DomeniaUiLog -Area 'Import' -Text ('Depart reprise des anciennes donnees impossible : '+$_.Exception.Message) -Level 'ERROR'
             $hasLinkWork=$false
             if($script:Persistence.LegacyImportJob){$hasLinkWork=$true}
             foreach($v in @($script:Persistence.Pending.Values)){if($v.Kind -eq 'Link' -or $v.Kind -eq 'LegacyImport'){$hasLinkWork=$true;break}}
@@ -184,12 +184,12 @@ function Complete-DomeniaStorageWork {
     foreach($i in $items){
         if($i.Kind -eq 'LegacyImport'){
             if($i.Epoch -ne [long]$script:SessionEpoch -or [string]$i.Path -cne [string]$script:DatabaseScopedPath){
-                Add-DomeniaUiLog -Area 'Import' -Text 'Import ADCC ignore : epoch ou chemin obsolette.'
+                Add-DomeniaUiLog -Area 'Import' -Text 'Reprise des anciennes donnees ignore : epoch ou chemin obsolette.'
                 continue
             }
             if([bool]$r.Already){
-                Set-Status 'Import ADCC deja applique : rien a reprendre.'
-                Add-DomeniaUiLog -Area 'Import' -Text 'Import ADCC deja applique (marqueur identique).'
+                Set-Status 'Reprise des anciennes donnees deja applique : rien a reprendre.'
+                Add-DomeniaUiLog -Area 'Import' -Text 'Reprise des anciennes donnees deja applique (marqueur identique).'
                 continue
             }
             $links=@()
@@ -225,7 +225,7 @@ function Complete-DomeniaStorageWork {
             Refresh-LinkGrid
             Refresh-AssociationContext -SkipResultRefresh
             [void](Load-DomeniaIndexMetadata)
-            $summary='Import ADCC applique : '+[int]$r.Imported.Objects+' objet(s), '+[int]$r.Imported.Park+' poste(s), '+[int]$r.Imported.UserScans+' recherche(s), '+[int]$r.Imported.Secrets+' metadonnee(s), '+$links.Count+' lien(s), '+$conflicts.Count+' conflit(s).'
+            $summary='Reprise des anciennes donnees applique : '+[int]$r.Imported.Objects+' objet(s), '+[int]$r.Imported.Park+' poste(s), '+[int]$r.Imported.UserScans+' recherche(s), '+[int]$r.Imported.Secrets+' metadonnee(s), '+$links.Count+' lien(s), '+$conflicts.Count+' association(s) existante(s) conservee(s).'
             Set-Status $summary $(if($conflicts.Count){'WARN'}else{'INFO'})
             Add-DomeniaUiLog -Area 'Import' -Text $summary
             continue
@@ -252,8 +252,8 @@ function Fail-DomeniaStorageWork {
         $script:Persistence.LegacyImportJob=''
         foreach($i in $items){if($script:Persistence.Pending.ContainsKey($i.QueueKey)){[void]$script:Persistence.Pending.Remove($i.QueueKey)}}
         $script:Persistence.Fault=[string]$Message
-        Set-Status ('Import ADCC echoue, sans rejeu automatique. Refaites la simulation avant une nouvelle demande : '+[string]$Message) 'ERROR'
-        Add-DomeniaUiLog -Area 'Import' -Text ('Import ADCC echoue : '+[string]$Message) -Level 'ERROR'
+        Set-Status ('Reprise des anciennes donnees echoue, sans rejeu automatique. Refaites la simulation avant une nouvelle demande : '+[string]$Message) 'ERROR'
+        Add-DomeniaUiLog -Area 'Import' -Text ('Reprise des anciennes donnees echoue : '+[string]$Message) -Level 'ERROR'
         $hasLinkWork=$false
         if($script:Persistence.LegacyImportJob){$hasLinkWork=$true}
         foreach($v in @($script:Persistence.Pending.Values)){if($v.Kind -eq 'Link' -or $v.Kind -eq 'LegacyImport'){$hasLinkWork=$true;break}}
@@ -270,17 +270,17 @@ function Queue-DomeniaMetadata {
     if($null -eq $script:Persistence){Initialize-DomeniaPersistence}
     if(-not $script:DatabaseScopedPath){return $false}
     if($Kind -eq 'LegacyImport'){
-        if($null -eq $Row){Set-Status 'Import ADCC impossible : donnees absentes.' 'WARN';return $false}
+        if($null -eq $Row){Set-Status 'Reprise des anciennes donnees impossible : donnees absentes.' 'WARN';return $false}
         $marker=[string]$Row.Marker
         $baseDn=[string]$Row.BaseDn
-        if([string]::IsNullOrWhiteSpace($marker)){Set-Status 'Import ADCC impossible : marqueur absent.' 'WARN';return $false}
-        if([string]::IsNullOrWhiteSpace($baseDn) -or $baseDn -notmatch '(?i)DC='){Set-Status 'Import ADCC impossible : domaine absent.' 'WARN';return $false}
-        if($script:Persistence.LinkBusy){Set-Status 'Import ADCC impossible : enregistrement des liens en cours.' 'WARN';return $false}
-        if($script:Persistence.LegacyImportJob){Set-Status 'Import ADCC deja en cours.' 'WARN';return $false}
-        foreach($v in @($script:Persistence.Pending.Values)){if($v.Kind -eq 'Link' -or $v.Kind -eq 'LegacyImport'){Set-Status 'Import ADCC impossible : modifications de liens en attente.' 'WARN';return $false}}
+        if([string]::IsNullOrWhiteSpace($marker)){Set-Status 'Reprise des anciennes donnees impossible : marqueur absent.' 'WARN';return $false}
+        if([string]::IsNullOrWhiteSpace($baseDn) -or $baseDn -notmatch '(?i)DC='){Set-Status 'Reprise des anciennes donnees impossible : domaine absent.' 'WARN';return $false}
+        if($script:Persistence.LinkBusy){Set-Status 'Reprise des anciennes donnees impossible : enregistrement des liens en cours.' 'WARN';return $false}
+        if($script:Persistence.LegacyImportJob){Set-Status 'Reprise des anciennes donnees deja en cours.' 'WARN';return $false}
+        foreach($v in @($script:Persistence.Pending.Values)){if($v.Kind -eq 'Link' -or $v.Kind -eq 'LegacyImport'){Set-Status 'Reprise des anciennes donnees impossible : modifications de liens en attente.' 'WARN';return $false}}
         if(-not $Key){$Key=$marker}
         $queueKey='LegacyImport|'+[string]$script:DatabaseScopedPath+'|'+$Key
-        if($script:Persistence.Pending.Count -ge 256 -and -not $script:Persistence.Pending.ContainsKey($queueKey)){Set-Status 'File locale pleine : import ADCC non enregistre.' 'WARN';return $false}
+        if($script:Persistence.Pending.Count -ge 256 -and -not $script:Persistence.Pending.ContainsKey($queueKey)){Set-Status 'File locale pleine : reprise des anciennes donnees non enregistre.' 'WARN';return $false}
         $script:Persistence.Pending[$queueKey]=[pscustomobject]@{QueueKey=$queueKey;Kind=$Kind;Path=[string]$script:DatabaseScopedPath;Row=$Row;Epoch=[long]$script:SessionEpoch}
         $script:Persistence.LinkBusy=$true
         return $true

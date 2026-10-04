@@ -3451,5 +3451,12 @@
     "Text": "Le badge reste Hidden à zéro ; sa taille réservée ne bouge pas.",
     "Kind": "Border",
     "Source": "d120-interface"
+  },
+  {
+    "Name": "BtnGuardLegacyImport",
+    "Title": "Reprendre les anciennes données",
+    "Text": "Simule la reprise dans Domenia. Les quatre tables de cache doivent être vides. Les associations existantes sont conservées ; celles importées sont protégées. Une sauvegarde précède la reprise confirmée. Aucun import au démarrage.",
+    "Kind": "Button",
+    "Source": "d120-cache"
   }
 ]

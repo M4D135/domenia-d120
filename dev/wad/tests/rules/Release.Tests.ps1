@@ -286,10 +286,10 @@ Test-Case 'D113' 'Le modele suit les sources reelles du coeur : base adoptee sur
     $core=[IO.File]::ReadAllText((Join-Path $wad 'Domenia-Core.ps1'),[Text.Encoding]::UTF8)
     $import=[regex]::Match($core,'(?s)function Import-DomeniaLegacyStoreIfNeeded \{.*?\n\}\n')
     Assert-True $import.Success 'Import-DomeniaLegacyStoreIfNeeded introuvable'
-    foreach($pair in @(@('objets.tsv','ad_objects'),@('parc.tsv','park_state'),@('recherches.tsv','user_scan_history'),@('secrets-etat.tsv','secret_state'),@('Domenia-user-machine-links.csv','user_machine_links'))){
-        Assert-True ($import.Value -match [regex]::Escape($pair[0])) ('Source historique absente du coeur : '+$pair[0])
-        Assert-True ($import.Value -match ('count\(\*\) AS n FROM '+$pair[1])) ('Table vide non testee par le coeur : '+$pair[1])
-    }
+    $reader=[IO.File]::ReadAllText((Join-Path $wad 'modules/Domenia-Migration.UI.ps1'),[Text.Encoding]::UTF8)
+    foreach($name in @('objets.tsv','parc.tsv','recherches.tsv','secrets-etat.tsv','Domenia-user-machine-links.csv','Get-DomeniaMigrationPlan','Test-DomeniaMigrationIdempotent','LegacyImport')) { Assert-True ($reader.Contains($name)) ('Element absent : '+$name) }
+    Assert-False ($reader -match 'Invoke-DomeniaDbExec|Save-DomeniaIndex|Save-UserMachineLinks') 'Pas d ecriture directe du lecteur'
+    Assert-True ($import.Value -match 'Invoke-DomeniaLegacyImport') 'Le coeur delegue au lecteur et a la file'
     $path=[regex]::Match($core,'(?s)function Get-DomeniaDatabasePath \{.*?\n\}\n')
     Assert-True ($path.Success -and ($path.Value -match "'ADCC\.db'")) 'Adoption de ADCC.db par Get-DomeniaDatabasePath'
     $init=[regex]::Match($core,'(?s)function Initialize-DomeniaDatabase \{.*?\n\}\n')
@@ -324,9 +324,9 @@ Test-Case 'D113' 'Table Domenia deja alimentee : aucune fusion, aucun doublon, a
     $legacy=[pscustomobject]@{ConfigFiles=@();Domain='example.test';Stores=@([pscustomobject]@{Kind='Liens';Path='Domenia-user-machine-links.csv';Links=@([pscustomobject]@{UserLogin='mmartin';Computer='PC-002';Source='Saisie manuelle';When='2026-01-01'},[pscustomobject]@{UserLogin='jdupont';Computer='PC-001';When='2026-01-02'})})}
     $current=[pscustomobject]@{ConfigFiles=@();Domain='example.test';Database=[pscustomobject]@{Name='Domenia.db';SchemaVersion='11';DomeniaSchema='1';BaseDn='DC=example,DC=test'};Tables=(& $script:RelTables 1);Links=@($mine)}
     $r=Test-DomeniaMigrationIdempotent $legacy $current
-    Assert-True $r.Idempotent;Assert-Equal 0 $r.FirstWrites 'Table deja alimentee : rien n est fusionne';Assert-Equal 0 $r.LostLinks
-    Assert-Equal 1 @($r.State.Links).Count;Assert-Equal 'Console CIM/DCOM' $r.State.Links[0].Source 'Le lien Domenia n est pas remplace'
-    Assert-Equal 'Ignorer' @($r.First.Steps|Where-Object{$_.Kind -eq 'Source'})[0].Action
+    Assert-True $r.Idempotent;Assert-Equal 1 $r.FirstWrites 'Seule la nouvelle association est ajoutee';Assert-Equal 0 $r.LostLinks
+    Assert-Equal 2 @($r.State.Links).Count;Assert-Equal 'Console CIM/DCOM' $r.State.Links[0].Source 'Le lien Domenia n est pas remplace'
+    Assert-Equal 1 $r.First.KeepCount 'Association existante conservee'
     Assert-Equal 0 @($r.First.Steps|Where-Object{$_.Kind -eq 'Base'}).Count 'Base Domenia : rien a adopter'
 }
 Test-Case 'D113' 'Une configuration Domenia deja creee n est jamais ecrasee' {

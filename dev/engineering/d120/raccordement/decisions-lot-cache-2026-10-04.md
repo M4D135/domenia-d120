@@ -32,3 +32,7 @@ David confirme dans cette session : refuser l import si une des quatre tables
 des donnees. Les associations existantes restent protegees ; seuls les postes
 absents de `user_machine_links` sont ajoutes. Le controle a lieu dans la
 transaction du worker, apres le controle du marqueur d idempotence.
+
+## Precision G2/G3 et nom du produit, 2026-10-04
+
+David choisit de proteger les associations reprises sous Import CSV, en conservant leur source d origine dans le detail. La regle Relations choisit d abord la ligne a retenir ; le changement de source vient ensuite. Le produit est Domenia : les libelles utilisateur parlent de « Reprendre les anciennes donnees ». Les noms historiques de fichiers et de tables restent uniquement des identifiants de compatibilite.

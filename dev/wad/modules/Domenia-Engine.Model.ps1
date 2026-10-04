@@ -277,7 +277,7 @@ function Get-DomeniaOperationProvider {
     # per target with the CIM provider: an outage there must never slow the directory.
     $cim = @('ComputerDiagnostics','ComputerInventory','SoftwareInventory','WmiNamespaces','WmiClasses','WmiQuery','LiveConsole','ComputerLastUser','ComputerQuickDiag','JoinStateRead','UpdateStateRead','GpoAppliedRead','ComputerEventsRead','MachineIdentityRead','ParkSweep','BatchNetworkDiag','ComputerGpUpdate','ComputerRestart','RimotteRun','UserComputerProbe','RemoteCredentialCheck')
     $wts = @('SessionsList')
-    $storage = @('LocalStore','LiveCache','ReceiptStore','DocumentStore','StorageUsage','StoragePurge','LinkHistoryStore','LocalIndexRead')
+    $storage = @('LegacyMigration','LocalStore','LiveCache','ReceiptStore','DocumentStore','StorageUsage','StoragePurge','LinkHistoryStore','LocalIndexRead')
     $local = @('CmdletHelp','CmdletInventory','EngineSelfTest','EmbeddedPathBrowse','LocalAssistant','DemoDirectory','IsolatedRead')
     # ParkSharedSync reads and writes a shared file, possibly on a UNC path: network I/O, not the local base.
     $network = @('LiveSelectedPing','ComputerPing','SelectedPresence','PresenceScan','WakeOnLanSend','ConnectorRead','ParkSharedSync')
@@ -297,7 +297,7 @@ function Get-DomeniaOperationCredentialNeeds {
     $remote = @('SessionsList','ComputerDiagnostics','ComputerLastUser','LiveConsole','ComputerPing','ComputerGpUpdate','ComputerRestart','ComputerInventory','SoftwareInventory','ParkSweep','BatchNetworkDiag','WmiNamespaces','WmiClasses','WmiQuery','RimotteRun')
     $machine = @('SessionsList','ComputerDiagnostics','ComputerInventory','SoftwareInventory','ParkSweep','WmiNamespaces','WmiClasses','WmiQuery','ComputerLastUser','LiveConsole','ComputerGpUpdate','ComputerRestart','UserComputerProbe','RimotteRun')
     # Local or storage operations that never bind to the directory. New D120 operations are classified here.
-    $local = @('CmdletHelp','CmdletInventory','EngineSelfTest','LiveCache','LiveSelectedPing','LocalStore','ReceiptStore','SessionsList','DocumentStore','EmbeddedPathBrowse','DemoDirectory','LocalIndexRead','ParkSharedSync','IsolatedRead')
+    $local = @('LegacyMigration','CmdletHelp','CmdletInventory','EngineSelfTest','LiveCache','LiveSelectedPing','LocalStore','ReceiptStore','SessionsList','DocumentStore','EmbeddedPathBrowse','DemoDirectory','LocalIndexRead','ParkSharedSync','IsolatedRead')
     $id = [string]$OperationId
     $isRemote = ($remote -contains $id)
     $nonDirectory = (($local -contains $id) -or $isRemote)

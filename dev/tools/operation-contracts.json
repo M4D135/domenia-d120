@@ -439,5 +439,12 @@
     "Function": "Get-DomeniaBitLockerKeyWorkerCode",
     "LiteralIndex": 0,
     "Sha256": "8A98EBCDC48AD572404E1566826035C84F34ACB87564330A7AA511FAAC01EE6F"
+  },
+  {
+    "Operation": "LegacyMigration",
+    "File": "wad/modules/Domenia-Migration.Worker.ps1",
+    "Function": "Get-DomeniaMigrationWorkerCode",
+    "LiteralIndex": 0,
+    "Sha256": "9F9E86E2BD40130C8E8726DC065112CB0F770D04063ADB1EB890AFBB45C303F3"
   }
 ]

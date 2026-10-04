@@ -811,7 +811,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Invoke-DomeniaReconcileTick',
             'Initialize-DomeniaReconcile'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Storage.UI.ps1'); File='Domenia-Guard.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Storage.UI.ps1','Domenia-Migration.UI.ps1'); File='Domenia-Guard.UI.ps1'; DotSource=$true; Functions=@(
             'Show-DomeniaGuard',
             'Start-DomeniaReceiptRefresh',
             'Complete-DomeniaReceiptRefresh',
@@ -951,6 +951,22 @@ function Get-DomeniaRuntimeModulePlan {
             'Test-DomeniaInlineBlocks',
             'Request-DomeniaInlineConfirmation',
             'Complete-DomeniaInlineRequest'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Release.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Storage.UI.ps1','Domenia-Inline.UI.ps1','Domenia-Migration.Worker.ps1'); File='Domenia-Migration.UI.ps1'; DotSource=$true; Functions=@(
+            'ConvertTo-DomeniaLegacyNumber',
+            'ConvertTo-DomeniaLegacyDate',
+            'Read-DomeniaLegacySource',
+            'Get-DomeniaLegacySnapshot',
+            'New-DomeniaLegacyImportPlan',
+            'Invoke-DomeniaLegacyImport',
+            'Show-DomeniaLegacyImportPlan',
+            'Request-DomeniaLegacyImport',
+            'Start-DomeniaLegacyImportWork',
+            'Complete-DomeniaLegacyImportWork',
+            'Fail-DomeniaLegacyImportWork'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Migration.Worker.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaMigrationWorkerCode'
         ) }
     )
 }

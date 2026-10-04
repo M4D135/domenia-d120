@@ -594,8 +594,8 @@ function Get-DomeniaMigrationPlan {
     #   domenia_schema revision after Backup-DomeniaDatabase. The file keeps its name but is modified: adoption needs
     #   schema_version 11, the same domain (base_dn of sync_state) and a backup;
     # - stores: Import-DomeniaLegacyStoreIfNeeded fills one Domenia table from objets.tsv, parc.tsv, recherches.tsv,
-    #   secrets-etat.tsv or the links CSV only while that table is empty; a table already filled is never merged.
-    #   Links are canonical as in the core: one row per computer (computer_key), the most recent kept.
+    #   secrets-etat.tsv only when the four target tables are empty. Existing workstation links are never replaced.
+    #   The caller canonicalizes links through Relations before planning: declared assignment, then most recent.
     # $Legacy: ConfigFiles (wad\ADCC.* names), Domain (domain of the TSV/CSV data, read by the caller from their DN
     # columns), Stores (Kind = Objets, Parc, Recherches, Secrets or Liens; Path; Rows; Links for Liens).
     # $Current: ConfigFiles (wad\Domenia.* names), Domain, Database (Name, SchemaVersion, DomeniaSchema, BaseDn of the
@@ -622,7 +622,7 @@ function Get-DomeniaMigrationPlan {
         if (-not $currentDomain) { $blockers.Add('Domaine courant inconnu : reprise des donnees reportee.'); return }
         if ($Domain -cne $currentDomain) { $blockers.Add('Domaine different (' + $Origin + ' : ' + $Domain + ' ; Domenia : ' + $currentDomain + ') : aucune fusion entre domaines.') }
     }
-    if ($Trigger -cne 'Explicit') { $blockers.Add('Migration ADCC non lancee au demarrage : elle part seulement d un geste explicite de l operateur.') }
+    if ($Trigger -cne 'Explicit') { $blockers.Add('Reprise des anciennes donnees non lancee au demarrage : elle part seulement d un geste explicite de l operateur.') }
 
     # Preferences kept by the installer.
     $preserved = @{}
@@ -633,17 +633,17 @@ function Get-DomeniaMigrationPlan {
         $sourceName = [string]$name
         if (-not $sourceName) { continue }
         $found = [regex]::Match($sourceName,'^(?i:ADCC)\.([A-Za-z0-9][A-Za-z0-9._-]*)$')
-        if (-not $found.Success) { & $addStep 'Configuration' 'Ignorer' $sourceName '' 'Nom non reconnu comme preference ADCC : fichier conserve, non repris.' '' $null; continue }
+        if (-not $found.Success) { & $addStep 'Configuration' 'Ignorer' $sourceName '' 'Nom non reconnu comme preference historique : fichier conserve, non repris.' '' $null; continue }
         $targetName = 'Domenia.' + $found.Groups[1].Value
-        if (-not $preserved.ContainsKey($targetName)) { & $addStep 'Configuration' 'Ignorer' $sourceName '' 'Fichier ADCC sans equivalent Domenia : conserve, non repris.' '' $null; continue }
+        if (-not $preserved.ContainsKey($targetName)) { & $addStep 'Configuration' 'Ignorer' $sourceName '' 'Fichier historique sans equivalent Domenia : conserve, non repris.' '' $null; continue }
         if ($currentConfig.ContainsKey($targetName)) {
             & $addStep 'Configuration' 'Conserver' $sourceName $targetName 'Configuration Domenia deja presente : elle n est pas ecrasee.' $targetName $null
             $trace.Add([pscustomobject]@{Ancien=$sourceName;Nouveau=$targetName;Decision='Non repris : configuration Domenia conservee'})
             continue
         }
         $currentConfig[$targetName] = $true
-        & $addStep 'Configuration' 'Copier' $sourceName $targetName 'Copie sous le nom Domenia ; le fichier ADCC est conserve.' $targetName $null
-        $trace.Add([pscustomobject]@{Ancien=$sourceName;Nouveau=$targetName;Decision='Repris sous le nouveau nom ; fichier ADCC conserve'})
+        & $addStep 'Configuration' 'Copier' $sourceName $targetName 'Copie sous le nom Domenia ; le fichier historique est conserve.' $targetName $null
+        $trace.Add([pscustomobject]@{Ancien=$sourceName;Nouveau=$targetName;Decision='Repris sous le nouveau nom ; fichier historique conserve'})
     }
 
     # Database selected by the core: Domenia.db, or ADCC.db adopted in place.
@@ -662,14 +662,32 @@ function Get-DomeniaMigrationPlan {
         }
         elseif (-not $revision) {
             & $checkDomain ('de la base ' + $databaseName) (ConvertTo-DomeniaMigrationDomain ([string](Get-DomeniaMember $database 'BaseDn' '')))
-            & $addStep 'Base' 'Adopter' $databaseName $databaseName 'Base ADCC adoptee sur place apres sauvegarde verifiee : ajout de la revision domenia_schema et de la table domenia_provenance. Le fichier garde son nom ; aucune donnee supprimee ni recreee.' $databaseName $null
+            & $addStep 'Base' 'Adopter' $databaseName $databaseName 'Base historique adoptee sur place apres sauvegarde verifiee : ajout de la revision domenia_schema et de la table domenia_provenance. Le fichier garde son nom ; aucune donnee supprimee ni recreee.' $databaseName $null
             $trace.Add([pscustomobject]@{Ancien=$databaseName;Nouveau=($databaseName + ' (adoptee sur place)');Decision='Nom historique conserve ; fichier modifie apres sauvegarde (revision domenia_schema ajoutee)'})
         }
     }
 
-    # TSV and CSV stores: one source per table, only into an empty table.
+    # TSV and CSV stores: four empty tables; existing workstation links are preserved.
     $tables = Get-DomeniaMember $Current 'Tables' $null
     $legacyDomain = ConvertTo-DomeniaMigrationDomain ([string](Get-DomeniaMember $Legacy 'Domain' ''))
+    $marker = [string](Get-DomeniaMember $Legacy 'Marker' '')
+    if (-not $marker) { $marker = Get-DomeniaTextHash ($Legacy | ConvertTo-Json -Depth 12 -Compress) }
+    $existingMarker = [string](Get-DomeniaMember $Current 'MigrationMarker' '')
+    $already = ($existingMarker -and ($existingMarker -ceq $marker))
+    if ($existingMarker -and (-not $already)) { $blockers.Add('Une autre reprise de donnees a deja ete appliquee : aucun ajout automatique.') }
+    $stores = @(@(Get-DomeniaMember $Legacy 'Stores' @()) | Where-Object { $null -ne $_ })
+    if ($stores.Count -gt 0 -and (-not $already)) {
+        foreach ($tableName in @('ad_objects','park_state','user_scan_history','secret_state')) {
+            $n = Get-DomeniaReleaseMapValue $tables $tableName $null
+            if ($null -eq $n) { $blockers.Add('Etat de la table ' + $tableName + ' inconnu.') }
+            elseif ([long]$n -gt 0) { $blockers.Add('La table ' + $tableName + ' contient deja des donnees : reprise refusee.') }
+        }
+    }
+    $existingComputers = @{}
+    foreach ($link in @(Get-DomeniaMember $Current 'Links' @())) {
+        $key = ConvertTo-DomeniaMigrationComputerKey ([string](Get-DomeniaMember $link 'Computer' ''))
+        if ($key) { $existingComputers[$key] = $true }
+    }
     $taken = @{}
     $domainChecked = $false
     foreach ($store in @(Get-DomeniaMember $Legacy 'Stores' @())) {
@@ -677,29 +695,30 @@ function Get-DomeniaMigrationPlan {
         $kind = [string](Get-DomeniaMember $store 'Kind' '')
         $path = [string](Get-DomeniaMember $store 'Path' '')
         $leaf = $path.Replace('/','\').Split([char]92)[-1]
-        if (-not $tableOf.ContainsKey($kind)) { & $addStep 'Source' 'Ignorer' $path '' 'Source ADCC non reconnue : conservee, non reprise.' '' $null; continue }
+        if (-not $tableOf.ContainsKey($kind)) { & $addStep 'Source' 'Ignorer' $path '' 'Source historique non reconnue : conservee, non reprise.' '' $null; continue }
         $kind = [string]@($tableOf.Keys | Where-Object { $_ -ieq $kind })[0]
         $table = [string]$tableOf[$kind]
         $links = @(@(Get-DomeniaMember $store 'Links' @()) | Where-Object { $null -ne $_ })
         $rows = 0
         if ($kind -ceq 'Liens') { $rows = $links.Count }
         else { [void][int]::TryParse([string](Get-DomeniaMember $store 'Rows' 0),[ref]$rows) }
+        if ($already) { & $addStep 'Source' 'Ignorer' $path $table 'Reprise identique deja appliquee : rien a ecrire.' '' $null; continue }
         if ($rows -le 0) { & $addStep 'Source' 'Ignorer' $path $table 'Source vide : rien a reprendre.' '' $null; continue }
         $filled = Get-DomeniaReleaseMapValue $tables $table $null
         $count = -1
         if ($null -ne $filled) { [void][int]::TryParse([string]$filled,[ref]$count) }
         if ($count -lt 0) { & $addStep 'Source' 'Ignorer' $path $table ('Etat de la table ' + $table + ' non fourni : rien n est repris.') '' $null; continue }
-        if ($count -gt 0) {
+        if (($count -gt 0) -and ($kind -cne 'Liens')) {
             & $addStep 'Source' 'Ignorer' $path $table ('Table ' + $table + ' deja alimentee dans Domenia : aucune fusion ni remplacement.') '' $null
             $trace.Add([pscustomobject]@{Ancien=$leaf;Nouveau=$table;Decision='Non repris : donnees Domenia conservees'})
             continue
         }
         if ($taken.ContainsKey($table)) { & $addStep 'Source' 'Ignorer' $path $table ('Une source est deja reprise pour ' + $table + ' : la premiere trouvee est retenue, comme dans le coeur.') '' $null; continue }
         $taken[$table] = $true
-        if (-not $domainChecked) { & $checkDomain 'des fichiers ADCC' $legacyDomain; $domainChecked = $true }
-        $trace.Add([pscustomobject]@{Ancien=$leaf;Nouveau=$table;Decision=('Repris dans la table ' + $table + ' ; fichier ADCC conserve')})
+        if (-not $domainChecked) { & $checkDomain 'des fichiers historiques' $legacyDomain; $domainChecked = $true }
+        $trace.Add([pscustomobject]@{Ancien=$leaf;Nouveau=$table;Decision=('Repris dans la table ' + $table + ' ; fichier historique conserve')})
         if ($kind -cne 'Liens') {
-            & $addStep 'Source' 'Importer' $path $table ([string]$rows + ' ligne(s) reprises dans une table vide ; fichier ADCC conserve.') $table ([pscustomobject]@{Table=$table;Rows=$rows})
+            & $addStep 'Source' 'Importer' $path $table ([string]$rows + ' ligne(s) reprises dans une table vide ; fichier historique conserve.') $table ([pscustomobject]@{Table=$table;Rows=$rows})
             continue
         }
         # Links: canonical as ConvertTo-DomeniaCanonicalLinks, most recent first, one per computer.
@@ -715,6 +734,10 @@ function Get-DomeniaMigrationPlan {
             if ((-not $user) -or (-not $computerKey)) { & $addStep 'Lien' 'Rejeter' $label '' 'Lien incomplet : utilisateur ou poste absent ou non reconnu.' '' $null; continue }
             if ($seenComputers.ContainsKey($computerKey)) { & $addStep 'Lien' 'Ignorer' $label '' 'Poste deja repris depuis un lien plus recent : la table garde un lien par poste.' $computerKey $null; continue }
             $seenComputers[$computerKey] = $true
+            if ($existingComputers.ContainsKey($computerKey)) {
+                & $addStep 'Lien' 'Conserver' $label $table 'Association Domenia existante : aucun remplacement.' $computerKey $null
+                continue
+            }
             & $addStep 'Lien' 'Ajouter' $label $table 'Lien repris avec sa source et sa date d origine.' $computerKey $link
         }
     }
@@ -731,7 +754,7 @@ function Get-DomeniaMigrationPlan {
     $import = @($all | Where-Object { $_.Action -ceq 'Importer' }).Count
     $add = @($all | Where-Object { $_.Action -ceq 'Ajouter' }).Count
     return [pscustomobject]@{
-        Allowed=$allowed;Blockers=$blockers.ToArray();Steps=$all;Trace=$trace.ToArray()
+        Allowed=$allowed;Blockers=$blockers.ToArray();Steps=$all;Trace=$trace.ToArray();Marker=$marker;Already=[bool]$already
         CopyCount=$copy;AdoptCount=$adopt;ImportCount=$import;AddCount=$add
         KeepCount=@($all | Where-Object { $_.Action -ceq 'Conserver' }).Count
         SkipCount=@($all | Where-Object { $_.Action -ceq 'Ignorer' }).Count
@@ -778,7 +801,9 @@ function Get-DomeniaMigratedState {
             }
         }
     }
-    return [pscustomobject]@{Domain=[string](Get-DomeniaMember $Current 'Domain' '');ConfigFiles=$configs.ToArray();Database=$database;Tables=$tables;Links=$links.ToArray()}
+    $migrationMarker = [string](Get-DomeniaMember $Current 'MigrationMarker' '')
+    if ($applied -and ([int]$Plan.ImportCount + [int]$Plan.AddCount -gt 0)) { $migrationMarker = [string]$Plan.Marker }
+    return [pscustomobject]@{Domain=[string](Get-DomeniaMember $Current 'Domain' '');ConfigFiles=$configs.ToArray();Database=$database;Tables=$tables;Links=$links.ToArray();MigrationMarker=$migrationMarker}
 }
 
 function Test-DomeniaMigrationIdempotent {

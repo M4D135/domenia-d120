@@ -1,5 +1,5 @@
 {
-  "Archive": "lot cache etape G1",
+  "Archive": "source tree",
   "ArchiveSHA256": "655ED21F90345B3C7667D4E777814C6A0595A5D5BE628AD587FB46CCA5241922",
   "CoreFunctions": {
     "Write-DomeniaAtomicText": "1C9A1583F52EB7BE80BE420662653E4AF886FE11DC4FDB3B1C4CDF19FD1C0EDA",
@@ -129,7 +129,7 @@
     "Set-DomeniaResourceColor": "27391F9046A85B14658803F03178045ABEDF0B1F4DD5364D7BA5575C5E4F11BE",
     "Apply-DomeniaTheme": "115A426BAE13A4A67A3C252EE193AA35BF115C2BDCD1E1AA4CFC96D63A006010",
     "Toggle-DomeniaTheme": "EA7E0F31A78D8B4A0BFAB0C27D8028521C1C3A1A255DDA4BEA3B65B5F7C99F03",
-    "Get-MainXaml": "229DD5D33594540B6DF5F4871336746F166F29ECB737EC9B396F75414B85902E",
+    "Get-MainXaml": "74D4BA6C38FC37BA842507519B99ECA1BA16FABC2567069DEC40FD9DB36A6123",
     "Assert-DomeniaXamlPreflight": "20BB1DA04FD88D78E1A52C5610376467D5E9408437BC823DDC8EC8F40C0EAEB7",
     "Save-DomeniaXamlDiagnostic": "D648C9D6BD6F5F3A6613957D22A6A42EC1AAC0C1FA6218195A55D10EADF4DC67",
     "ConvertFrom-DomeniaXaml": "855E6CA9E56D62F77F5C22ACAC048293D24281B5B8FCC7FEB6806450BE561228",
@@ -472,8 +472,8 @@
     "Backup-DomeniaDatabase": "2AF049A4E909C951FB3189B21D685F9C51B337D81105B8F645E13A880EB1C35B",
     "Recover-DomeniaDatabase": "5266400B0366C10C3DB714598CF109A18FECD34AAC1913F4ADD62119193A2AB6",
     "Initialize-DomeniaDatabase": "9A3CD3AA497BE4DE3EEE61C25F79B88C28108D3F2E755CF271BCAB31F1F745B9",
-    "Import-DomeniaLegacyStoreIfNeeded": "63B2C2388DA9892BA38BA46922544210A12FF9B3BB42560064ECC652ABA1B869",
-    "Invoke-DomeniaDatabaseMaintenance": "7708274BF94E7800ABD7A1100B401CCEBBDE2E0E9A8EC95AAB1E49EA8F30D90D",
+    "Import-DomeniaLegacyStoreIfNeeded": "80613E5324DB590E8CF35A64555F011CADAA091EE1832122D603FB8522801642",
+    "Invoke-DomeniaDatabaseMaintenance": "88A1BEF6A33E024E2D89536ACF810BB25C81861EB45A32CE5D2DCB35035442B2",
     "Register-DomeniaOperationSample": "39FBC80C5C24794E8590745DE39D7BF1F444628A3C4CE1469A2357C8C36743B8",
     "Get-DomeniaOperationHistoryModel": "73F3990A71222BA2538761145E79A49E36BA55BD939593378F8E102FB51A4E22",
     "Format-DomeniaByteEstimate": "DFDFCE4C8439044EA0159BED35F24A59E9CC64861E40795B28FFAC8533750168",
@@ -488,8 +488,8 @@
     "Load-UserMachineLinks": "D588E9FAB3DB852FD760624C2A463CDEA8A5B97BAF550C273F8C7C1B2CB7776D",
     "ConvertTo-DomeniaCanonicalWorkerCode": "48A6A851309CF03C8AA4802B160FC0C9D3234B795C63D0BAED6923BF42FE2FAF",
     "Get-DomeniaWorkerCodeHash": "6B81660F207AAEB37BA076144EDD12F5A926F9F64858B03755C2567E335C0D16",
-    "Get-DomeniaWorkerOperationHashes": "B5C800B463AD17D85F29489CBF4C867142CF162E9928DE1D6479AA6561BD25B2",
-    "Assert-DomeniaWorkerRegistry": "6992CE1675CFCF3DF7317C4A6D2CC71807E69A645FDB4B48518FFFC71F08CDC0",
+    "Get-DomeniaWorkerOperationHashes": "7D641BEC7291EC0C66D2B53375107C055D9E295E4E3AA983871397510DD6F1D8",
+    "Assert-DomeniaWorkerRegistry": "82EBBDAB891D01005D5392B22183B468D4CCA4057B13324247CD0B9C695899F4",
     "Assert-DomeniaWorkerOperationCode": "41D63871EDC11F5765938E6DAF8004A01471CD63E9666E2569D6E43008032526",
     "Get-DomeniaWorkerEngineSelfTestCode": "7FB07491846A78A89C13351DC07ABCA7B150642EE02AA25FF430A19942001AF0",
     "New-DomeniaWorkerRunspace": "8D2FB4E8786E147F555EC5860E76F8EB0D606D66BF9A610F43A0CC2836197A0D",
@@ -587,7 +587,7 @@
     "Get-DomeniaStandardLoginXaml": "943F338242C5B7CBE9D0384128DCD1369C8FAB3468F433F09D21461E294575FD",
     "Get-DomeniaDebugLoginXaml": "20D4A0D101217FBAA6CCAD1D0C72B28A67ED3C9DF060430F70170754BCA5D137",
     "Show-LoginWindow": "2DE31969C7AA42AA39ACB0329CD42097EBF54AD734CC74D21E7864A04D080C3A",
-    "Invoke-DomeniaSelfTest": "F58514405B5C9899DA5DF7110F3716FDA2FA33B44B754CFE5390B4B1D4331D68"
+    "Invoke-DomeniaSelfTest": "8187CD6097D0F6F7A198E00AB6D90C6351E2ACBC92443033AA96B7E6D9A620C1"
   },
   "Files": {
     ".github/workflows/windows.yml": "7926C8DFD11FE9105D34E454E9D0168B94DCE27479C952DE8DA0379746F4D30A",
@@ -649,7 +649,7 @@
     "wad/ActiveDirectoryPowerShellResources.dll": "E233D92238AA31EA1B3C60145D8811EDB2E517E1B9B53F4BC496883EE5D9973B",
     "wad/Domenia-Core.ps1": "33FFA39D156F3142BE32E6F1BDF52038740F45A22D3BC9E83573E2EE29F35530",
     "wad/Domenia-Modules.ps1": "8D694641BEB0DC3E0DF4F95BC72AD048C6AB299D813520BE7E9798241DF0EFA0",
-    "wad/Domenia-Start.ps1": "0303C16017691CDC38B9E637A3833447B4DD04EF070F633E3BDD8656CB026932",
+    "wad/Domenia-Start.ps1": "18723E03C893F9588C5DA886F759AE643501F4FBD99FD801D68914EA05997178",
     "wad/Domenia.config.json": "5F051A082799F9E39C54D78256E72FA37E1A797E6374BBEC0CEB7DDB932AE871",
     "wad/Domenia.ico": "EC032BF6A14EAC2CC80073B376FE0364DDA62F25D452C8C783C926B0C28E837F",
     "wad/Domenia.login-mode.cfg": "EF6691545D2C5523EFED00424407CB261AEB0037D165CA5792F7F8BAC3381362",
@@ -834,7 +834,7 @@
     "wad/modules/Domenia-Guard.UI.ps1": "11ED5549BE999C0A7DC039386ECBFB0B424668AE8CF117C0F0AE03783F12917A",
     "wad/modules/Domenia-Live.Model.ps1": "6B2C5C145D2354DED32577F45D59945B397D6AFBA91A5BACBB61B0BF8221BE19",
     "wad/modules/Domenia-Live.Types.cs": "EA90657459EDAB05A25440C2EDDAB6D15577CB437FAEF95DA939767885F05F0E",
-    "wad/modules/Domenia-Live.UI.ps1": "807E8FC66FE197640A227EFFDC641AB7E416FCBDDC3A590262B74F86AEC055F9",
+    "wad/modules/Domenia-Live.UI.ps1": "335F69BEC3EE285E463A6C696E9D97114BCF62464F24A9A891CCD994B0885AF6",
     "wad/modules/Domenia-Receipts.Worker.ps1": "72D43A96BABB55F6EB5C008018EB1C4AA1C0A1265402FBAD7294C1113735B68E",
     "wad/modules/Domenia-Reconcile.UI.ps1": "845F7531CCD8FB82BB4CECB5210E47E9C86E5E2C0913074D8BE460E814F52288",
     "wad/modules/Domenia-Relations.UI.ps1": "D967C24EFAC00BCDE69901B614960D69232C4062C302CEB0874744980449E64C",
@@ -1274,6 +1274,104 @@
         "Assert-DomeniaWorkerRegistry",
         "Get-DomeniaWorkerOperationHashes"
       ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "lot cache etape G1",
+      "Source": "source tree",
+      "Decision": "D113 G2/G3 : lecteur borne sans SQL direct, plan verifie, confirmation dans la page ; XAML Fiabilite et module Migration relus, interface nommee Domenia",
+      "ChangedCoreFunctions": [
+        "Get-MainXaml",
+        "Import-DomeniaLegacyStoreIfNeeded",
+        "Invoke-DomeniaDatabaseMaintenance",
+        "Invoke-DomeniaSelfTest"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": [
+        "wad/Domenia-Start.ps1"
+      ]
+    },
+    {
+      "Previous": "source tree",
+      "Source": "source tree",
+      "Decision": "D113 G2/G3 : worker LegacyMigration genere depuis les aides relues, operation locale sans identifiants, simulation et sauvegarde hors WPF ; exclusion LocalStore/LiveCache et confirmation bornee au contexte",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Get-DomeniaWorkerOperationHashes",
+        "Invoke-DomeniaSelfTest"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": [
+        "wad/Domenia-Start.ps1",
+        "wad/modules/Domenia-Live.UI.ps1"
+      ]
+    },
+    {
+      "Previous": "source tree",
+      "Source": "source tree",
+      "Decision": "D113 : derniers libelles generiques de reprise dans Domenia, noms de fichiers historiques conserves comme compatibilite ; corps LegacyMigration regenere et relu",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Get-DomeniaWorkerOperationHashes"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "source tree",
+      "Source": "source tree",
+      "Decision": "D113 worker isole : ajout de Test-DomeniaReleaseMapKey, dependance revelee par le test en runspace reel ; aucun appel a la portee WPF",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Get-DomeniaWorkerOperationHashes"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "source tree",
+      "Source": "source tree",
+      "Decision": "D113 worker : fermeture verifiee des dependances des regles de dictionnaire et de date ; le generateur refuse les aides Domenia absentes",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Get-DomeniaWorkerOperationHashes"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "source tree",
+      "Source": "source tree",
+      "Decision": "D113 : normalisation du suffixe DN valide avec espaces ; doublons des quatre magasins detectes pendant simulation avant sauvegarde ; lecteur et worker coherents",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Get-DomeniaWorkerOperationHashes"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "source tree",
+      "Source": "source tree",
+      "Decision": "D113 G2/G3 final : simulation annulable, preparation de sauvegarde non rejouee ; interface Domaine, lecteur et worker isole relus et testes",
+      "ChangedCoreFunctions": [],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "source tree",
+      "Source": "source tree",
+      "Decision": "D113 G2/G3 : simulation annulable, sauvegarde sans rejeu ; interface Domenia, lecteur et worker isole relus et testes",
+      "ChangedCoreFunctions": [],
       "AddedCoreFunctions": [],
       "RemovedCoreFunctions": [],
       "ChangedPayloads": []

@@ -1966,6 +1966,241 @@ Test-Case 'D113 : rappel Already ne fusionne rien dans la session' {
     Assert-False $script:Persistence.LinkBusy
 }
 
+# ---------------------------------------------------------------- D113: file readers, plan and explicit gesture (G2/G3).
+. (Join-Path $modules 'Domenia-Relations.Model.ps1')
+. (Join-Path $modules 'Domenia-Migration.UI.ps1')
+. (Join-Path $modules 'Domenia-Migration.Worker.ps1')
+foreach ($name in @('Normalize-LinkUser','Import-DomeniaLegacyStoreIfNeeded','Invoke-DomeniaDatabaseMaintenance')) {
+    . ([scriptblock]::Create((Get-FunctionTextFromFile $core $name)))
+}
+$script:G23LocalAppData=$env:LOCALAPPDATA
+$script:G23Reset=(Get-Item function:Reset-TestState).ScriptBlock
+function Reset-TestState {
+    & $script:G23Reset
+    $env:LOCALAPPDATA=$script:G23LocalAppData
+    $script:LegacyImportPreview=$null;$script:LegacyImportWork=$null
+    $script:InlineCalls=0;$script:InlineConfirm=$null;$script:InlineCancel=$null
+}
+function Request-DomeniaInlineConfirmation {
+    param($Title,$Message,$Target,$ConfirmText,$CancelText,$OnConfirm,$OnCancel)
+    $script:InlineCalls++;$script:InlineConfirm=$OnConfirm;$script:InlineCancel=$OnCancel
+}
+function Complete-TestMigrationWorker {
+    $state=$script:LastStorageState;$Payload=$script:LastStoragePayload
+    $result=& ([scriptblock]::Create((Get-DomeniaMigrationWorkerCode)))
+    foreach ($key in @($script:AsyncJobs.Keys)) { if ($script:AsyncJobs[$key].OperationId -eq 'LegacyMigration') { [void]$script:AsyncJobs.Remove($key) } }
+    Complete-DomeniaLegacyImportWork $result $state
+}
+function New-G23Fixture {
+    $root=New-LegacySandbox
+    $script:DatabaseScopedPath=$script:TestDbPath
+    $script:DataDir=Join-Path $root 'data';$env:LOCALAPPDATA=Join-Path $root 'local'
+    [void][IO.Directory]::CreateDirectory((Join-Path $script:DataDir 'Index'))
+    $script:Conn=[pscustomobject]@{BaseDn='DC=example,DC=invalid';Domain='example.invalid'}
+    Initialize-DomeniaPersistence;Stop-TestTimers
+    $tab=[string][char]9
+    $objects=@(('Type','Name','Login','Upn','Display','Description','Extra','State','DN','WhenChanged','Usn','LastLogon','Guid') -join $tab)
+    $objects+=('Computer','PC1','PC1$','','Poste','','','Enabled','CN=PC1,DC=example,DC=invalid','2026-01-01T10:00:00Z','12','','guid-pc1') -join $tab
+    [IO.File]::WriteAllLines((Join-Path $script:DataDir 'Index\objets.tsv'),$objects,[Text.Encoding]::UTF8)
+    [IO.File]::WriteAllText((Join-Path $script:DataDir 'Index\parc.tsv'),(('PC1','2026-01-01T10:00:00Z','Observe','alice','2') -join $tab),[Text.Encoding]::UTF8)
+    [IO.File]::WriteAllText((Join-Path $script:DataDir 'Index\recherches.tsv'),(('alice','2026-01-01T10:00:00Z','1','3','2','1','PC1') -join $tab),[Text.Encoding]::UTF8)
+    [IO.File]::WriteAllText((Join-Path $script:DataDir 'Index\secrets-etat.tsv'),(('PC1','2026-01-01T10:00:00Z','2','','Windows LAPS','','Disponible','detail non repris') -join $tab),[Text.Encoding]::UTF8)
+    $links=@(
+        [pscustomobject]@{UserLogin='alice';Computer='PC1.example.invalid';Source='Saisie manuelle';Confidence=90;VerifiedInAD='False';When='2026-01-01T10:00:00Z';Details='declared'}
+        [pscustomobject]@{UserLogin='bob';Computer='PC1$';Source='Console CIM/DCOM';Confidence=80;VerifiedInAD='True';When='2026-09-01T10:00:00Z';Details='observed'}
+    )
+    foreach ($n in 2..70) { $links+=[pscustomobject]@{UserLogin=('user'+$n);Computer=('PC'+$n);Source='Console CIM/DCOM';Confidence=60;VerifiedInAD='False';When='2026-01-01T10:00:00Z';Details=''} }
+    $links | Export-Csv -LiteralPath (Join-Path $script:DataDir 'Domenia-user-machine-links.csv') -NoTypeInformation -Encoding UTF8
+    return $root
+}
+Test-Case 'D113 G2 : simulation des fichiers sans aucune ecriture, choix Relations et origine preservee' {
+    $root=New-G23Fixture
+    $before=(Get-FileHash $script:TestDbPath -Algorithm SHA256).Hash
+    $plan=Invoke-DomeniaDatabaseMaintenance -ImportLegacy -DryRun
+    Assert-True $plan.Allowed ($plan.Blockers -join ' ')
+    Assert-Equal 4 $plan.ImportCount;Assert-Equal 70 $plan.AddCount
+    Assert-Equal 0 $plan.RejectedLines
+    Assert-Equal $before (Get-FileHash $script:TestDbPath -Algorithm SHA256).Hash
+    Assert-Equal 0 $script:Persistence.Pending.Count
+    Assert-Equal 0 @(Get-ChildItem $root -Recurse -Filter 'Domenia-migration-*.db').Count
+    $link=@($plan.Payload.Links | Where-Object { $_.Computer -eq 'PC1' })[0]
+    Assert-Equal 'alice' $link.UserLogin 'Affectation declaree plus ancienne prioritaire'
+    Assert-Equal 'Import CSV' $link.Source
+    Assert-True ($link.Details -match 'Saisie manuelle')
+    Assert-False $link.VerifiedInAD 'La chaine False ne devient pas True'
+    Assert-Equal $plan.Fingerprint (Invoke-DomeniaDatabaseMaintenance -ImportLegacy -DryRun).Fingerprint 'Empreinte stable'
+}
+Test-Case 'D113 G2 : import reel par un seul lot, sauvegarde, baseline puis second passage sans effet' {
+    $root=New-G23Fixture
+    $preview=Invoke-DomeniaDatabaseMaintenance -ImportLegacy -DryRun
+    $plan=Invoke-DomeniaDatabaseMaintenance -ImportLegacy -ExpectedFingerprint $preview.Fingerprint
+    Assert-True $plan.Queued
+    Assert-Equal 1 $script:Persistence.Pending.Count
+    $item=@($script:Persistence.Pending.Values)[0]
+    Assert-Equal 'LegacyImport' $item.Kind
+    Assert-Equal 70 $item.Row.Links.Count
+    Assert-Equal 1 @(Get-ChildItem $root -Recurse -Filter 'Domenia-migration-*.db').Count
+    $result=Invoke-LegacyWorker ([pscustomobject]@{Path=$script:TestDbPath;Items=@($item)})
+    $script:Persistence.Pending.Clear()
+    Complete-DomeniaStorageWork $result ([pscustomobject]@{Items=@($item);Epoch=$script:SessionEpoch})
+    Assert-Equal 70 (Get-LegacyCount 'user_machine_links');Assert-Equal 70 $script:LinkBaseline.Count
+    Assert-Equal 1 (Get-LegacyCount 'ad_objects');Assert-Equal 1 (Get-LegacyCount 'park_state')
+    Assert-Equal 1 (Get-LegacyCount 'user_scan_history');Assert-Equal 1 (Get-LegacyCount 'secret_state')
+    Assert-Equal 'DC=example,DC=invalid' (Get-LegacySyncState 'directory').base_dn
+    $sha=(Get-FileHash $script:TestDbPath -Algorithm SHA256).Hash
+    $second=Invoke-DomeniaDatabaseMaintenance -ImportLegacy -DryRun
+    Assert-True $second.Already;Assert-Equal 0 $second.WriteCount
+    Assert-False (Invoke-DomeniaDatabaseMaintenance -ImportLegacy).Queued
+    Assert-Equal $sha (Get-FileHash $script:TestDbPath -Algorithm SHA256).Hash
+    Assert-Equal 0 $script:Persistence.Pending.Count
+}
+Test-Case 'D113 G2 : associations existantes preservees dans le plan et sur disque' {
+    [void](New-G23Fixture)
+    $db=Open-DomeniaDatabase -Path $script:TestDbPath
+    try { [void](Invoke-DomeniaDbExec "INSERT INTO user_machine_links(computer_key,computer,user_login,source) VALUES('PC1','PC1','owner','Manual');" $db) } finally { Close-DomeniaDatabase $db }
+    $plan=Invoke-DomeniaDatabaseMaintenance -ImportLegacy
+    Assert-Equal 69 $plan.AddCount;Assert-Equal 1 $plan.KeepCount
+    $item=@($script:Persistence.Pending.Values)[0]
+    $result=Invoke-LegacyWorker ([pscustomobject]@{Path=$script:TestDbPath;Items=@($item)})
+    Assert-Equal 'PC1' ($result.Conflicts -join ',')
+    $db=Open-DomeniaDatabase -Path $script:TestDbPath -ReadOnly
+    try { $row=@(Invoke-DomeniaDbQuery "SELECT user_login,source FROM user_machine_links WHERE computer_key='PC1';" $db)[0] } finally { Close-DomeniaDatabase $db }
+    Assert-Equal 'owner' $row.user_login;Assert-Equal 'Manual' $row.source
+}
+Test-Case 'D113 G2 : domaine absent ou different refuse et base non remplie' {
+    [void](New-G23Fixture)
+    $objects=Join-Path $script:DataDir 'Index\objets.tsv'
+    $original=[IO.File]::ReadAllText($objects)
+    [IO.File]::WriteAllText($objects,$original.Replace('DC=example','DC=other'),[Text.Encoding]::UTF8)
+    Assert-False (Invoke-DomeniaDatabaseMaintenance -ImportLegacy -DryRun).Allowed
+    Remove-Item -LiteralPath $objects
+    Assert-False (Invoke-DomeniaDatabaseMaintenance -ImportLegacy -DryRun).Allowed
+    Assert-Equal 0 $script:Persistence.Pending.Count;Assert-Equal 0 (Get-LegacyCount 'park_state')
+}
+Test-Case 'D113 G2 : table deja peuplee refuse toute la reprise avant sauvegarde' {
+    $root=New-G23Fixture
+    $db=Open-DomeniaDatabase -Path $script:TestDbPath
+    try { [void](Invoke-DomeniaDbExec "INSERT INTO park_state(computer_key,computer,status) VALUES('KEEP','KEEP','present');" $db) } finally { Close-DomeniaDatabase $db }
+    $plan=Invoke-DomeniaDatabaseMaintenance -ImportLegacy -DryRun
+    Assert-False $plan.Allowed;Assert-Equal 0 $plan.WriteCount
+    $message='';try { [void](Invoke-DomeniaDatabaseMaintenance -ImportLegacy) } catch { $message=$_.Exception.Message }
+    Assert-True ($message -match 'park_state')
+    Assert-Equal 0 $script:Persistence.Pending.Count
+    Assert-Equal 0 @(Get-ChildItem $root -Recurse -Filter 'Domenia-migration-*.db').Count
+}
+Test-Case 'D113 G2 : nombres dates et lignes invalides comptes, metadonnees sans detail libre' {
+    [void](New-G23Fixture)
+    $park=Join-Path $script:DataDir 'Index\parc.tsv'
+    [IO.File]::AppendAllText($park,([Environment]::NewLine+(('PC2','2026-01-01','Observe','alice','pas-un-nombre') -join [char]9)+[Environment]::NewLine+'incomplete'),[Text.Encoding]::UTF8)
+    $plan=Invoke-DomeniaDatabaseMaintenance -ImportLegacy -DryRun
+    Assert-Equal 2 $plan.RejectedLines;Assert-Equal 1 $plan.Payload.Park.Count
+    Assert-Equal '2026-01-01T10:00:00.0000000Z' $plan.Payload.Secrets[0].At
+    Assert-False ($null -ne $plan.Payload.Secrets[0].PSObject.Properties['Detail'])
+}
+Test-Case 'D113 G3 : Non ne sauvegarde ni ne met en file, Oui importe une seule fois' {
+    $root=New-G23Fixture
+    Request-DomeniaLegacyImport
+    Assert-Equal 0 $script:InlineCalls 'La simulation est asynchrone'
+    Assert-Equal 'Preview' $script:LastStoragePayload.Mode
+    Complete-TestMigrationWorker
+    Assert-Equal 1 $script:InlineCalls
+    & $script:InlineCancel
+    Assert-Equal 0 $script:Persistence.Pending.Count
+    Assert-Equal 0 @(Get-ChildItem $root -Recurse -Filter 'Domenia-migration-*.db').Count
+    Request-DomeniaLegacyImport
+    Complete-TestMigrationWorker
+    & $script:InlineConfirm
+    Complete-TestMigrationWorker
+    Assert-Equal 1 $script:Persistence.Pending.Count
+    $message='';try { & $script:InlineConfirm;Complete-TestMigrationWorker } catch { $message=$_.Exception.Message }
+    Assert-True ($message -match 'Contexte');Assert-Equal 1 $script:Persistence.Pending.Count
+}
+Test-Case 'D113 G3 : source changee entre simulation et confirmation refusee avant sauvegarde' {
+    $root=New-G23Fixture
+    Request-DomeniaLegacyImport
+    Complete-TestMigrationWorker
+    [IO.File]::AppendAllText((Join-Path $script:DataDir 'Index\parc.tsv'),[Environment]::NewLine,[Text.Encoding]::UTF8)
+    $message='';try { & $script:InlineConfirm;Complete-TestMigrationWorker } catch { $message=$_.Exception.Message }
+    Assert-True ($message -match 'change')
+    Assert-Equal 0 $script:Persistence.Pending.Count
+    Assert-Equal 0 @(Get-ChildItem $root -Recurse -Filter 'Domenia-migration-*.db').Count
+}
+Test-Case 'D113 G3 : contexte change ou blocage ne propose aucune ecriture' {
+    [void](New-G23Fixture)
+    Request-DomeniaLegacyImport
+    Complete-TestMigrationWorker
+    $script:SessionEpoch++
+    $message='';try { & $script:InlineConfirm;Complete-TestMigrationWorker } catch { $message=$_.Exception.Message }
+    Assert-True ($message -match 'Contexte')
+    $script:Conn.BaseDn='DC=other,DC=invalid'
+    $script:InlineCalls=0
+    Request-DomeniaLegacyImport
+    Complete-TestMigrationWorker
+    Assert-Equal 0 $script:InlineCalls;Assert-Equal 0 $script:Persistence.Pending.Count
+}
+Test-Case 'D113 G2 : base absente ou ecriture en attente interdit la reprise' {
+    [void](New-G23Fixture)
+    $script:Persistence.LinkBusy=$true
+    $message='';try { [void](Invoke-DomeniaDatabaseMaintenance -ImportLegacy) } catch { $message=$_.Exception.Message }
+    Assert-True ($message -match 'enregistrement')
+    $script:DatabaseScopedPath=''
+    $message='';try { [void](Invoke-DomeniaDatabaseMaintenance -ImportLegacy -DryRun) } catch { $message=$_.Exception.Message }
+    Assert-True ($message -match 'Base du contexte')
+    Assert-Equal 0 $script:Persistence.Pending.Count
+}
+Test-Case 'D113 G3 : geste declare et aucune reprise au demarrage ni SQL direct du lecteur' {
+    $text=[IO.File]::ReadAllText($core)
+    Assert-True ($text.Contains('x:Name="BtnGuardLegacyImport"'))
+    Assert-True ($text.Contains('"BtnGuardLegacyImport" = "Default"'))
+    $init=Get-FunctionTextFromFile $core 'Initialize-DomeniaDatabase'
+    Assert-False ($init -match 'Import-DomeniaLegacyStoreIfNeeded|Invoke-DomeniaDatabaseMaintenance')
+    $source=[IO.File]::ReadAllText((Join-Path $modules 'Domenia-Migration.UI.ps1'))
+    Assert-False ($source -match 'Invoke-DomeniaDbExec|Save-DomeniaIndex|Save-UserMachineLinks|Show-DomeniaDialog')
+    Assert-True ($source.Contains('Request-DomeniaInlineConfirmation'))
+    Assert-True ([IO.File]::ReadAllText((Join-Path $modules 'Domenia-Guard.UI.ps1')).Contains('BtnGuardLegacyImport={Request-DomeniaLegacyImport}'))
+}
+Test-Case 'D113 G2 : DN avec espaces normalise et doublons de cache refuses avant sauvegarde' {
+    $root=New-G23Fixture
+    $path=Join-Path $script:DataDir 'Index\objets.tsv'
+    $text=[IO.File]::ReadAllText($path).Replace('CN=PC1,DC=example,DC=invalid','CN=PC1, DC=example, DC=invalid')
+    [IO.File]::WriteAllText($path,$text,[Text.Encoding]::UTF8)
+    $plan=Invoke-DomeniaDatabaseMaintenance -ImportLegacy -DryRun
+    Assert-Equal 'CN=PC1,DC=example,DC=invalid' $plan.Payload.Objects[0].DN
+    $park=Join-Path $script:DataDir 'Index\parc.tsv'
+    [IO.File]::AppendAllText($park,([Environment]::NewLine+[IO.File]::ReadAllText($park)),[Text.Encoding]::UTF8)
+    $message='';try { [void](Invoke-DomeniaDatabaseMaintenance -ImportLegacy) } catch { $message=$_.Exception.Message }
+    Assert-True ($message -match 'Doublon')
+    Assert-Equal 0 $script:Persistence.Pending.Count
+    Assert-Equal 0 @(Get-ChildItem $root -Recurse -Filter 'Domenia-migration-*.db').Count
+}
+Test-Case 'D113 G3 : lecteur reel en runspace, Dispatcher vivant et base intacte' {
+    [void](New-G23Fixture)
+    $sha=(Get-FileHash $script:TestDbPath -Algorithm SHA256).Hash
+    $Payload=[pscustomobject]@{Mode='Preview';Path=$script:TestDbPath;DataDir=$script:DataDir;LocalAppData=$env:LOCALAPPDATA;BaseDn=$script:Conn.BaseDn;Epoch=$script:SessionEpoch;BackupTimeoutSeconds=30}
+    $ps=[powershell]::Create();$timer=[Windows.Threading.DispatcherTimer]::new()
+    $script:MigrationHeartbeat=0;$timer.Interval=[timespan]::FromMilliseconds(5);$timer.Add_Tick({$script:MigrationHeartbeat++})
+    try {
+        [void]$ps.AddScript(('param($Payload)'+[Environment]::NewLine+(Get-DomeniaMigrationWorkerCode))).AddArgument($Payload)
+        $timer.Start();$async=$ps.BeginInvoke();$watch=[Diagnostics.Stopwatch]::StartNew()
+        while (-not $async.IsCompleted -and $watch.ElapsedMilliseconds -lt 20000) { Invoke-WiringPump 10 }
+        Assert-True $async.IsCompleted 'Lecteur trop lent ou bloque'
+        $rows=@($ps.EndInvoke($async));Assert-Equal 0 $ps.Streams.Error.Count ($ps.Streams.Error -join ' ')
+        Assert-Equal 1 $rows.Count;Assert-True $rows[0].Allowed;Assert-Equal 70 $rows[0].AddCount
+        Assert-True ($script:MigrationHeartbeat -gt 0) 'Dispatcher bloque pendant la lecture'
+        $Payload.Mode='Prepare';$Payload | Add-Member -NotePropertyName ExpectedFingerprint -NotePropertyValue $rows[0].Fingerprint
+        $ps.Commands.Clear()
+        [void]$ps.AddScript(('param($Payload)'+[Environment]::NewLine+(Get-DomeniaMigrationWorkerCode))).AddArgument($Payload)
+        $async=$ps.BeginInvoke();$watch.Restart()
+        while (-not $async.IsCompleted -and $watch.ElapsedMilliseconds -lt 20000) { Invoke-WiringPump 10 }
+        Assert-True $async.IsCompleted 'Sauvegarde trop lente ou bloquee'
+        $prepared=@($ps.EndInvoke($async));Assert-Equal 0 $ps.Streams.Error.Count ($ps.Streams.Error -join ' ')
+        Assert-True ([IO.File]::Exists([string]$prepared[0].BackupPath)) 'Sauvegarde isolee absente'
+        Assert-Equal $sha (Get-FileHash $script:TestDbPath -Algorithm SHA256).Hash
+    } finally { $timer.Stop();$ps.Dispose() }
+}
+$env:LOCALAPPDATA=$script:G23LocalAppData
+
+
 Stop-TestTimers
 $passed = @($checks | Where-Object { $_.Status -eq 'Passed' }).Count
 $failed = @($checks | Where-Object { $_.Status -eq 'Failed' }).Count

@@ -11,6 +11,56 @@
   ],
   "Modules": [
     {
+      "File": "Domenia-Migration.Worker.ps1",
+      "Phase": "Modules",
+      "Requires": [],
+      "DotSource": true,
+      "Functions": [
+        "Get-DomeniaMigrationWorkerCode"
+      ],
+      "NewFunctions": [
+        "Get-DomeniaMigrationWorkerCode"
+      ]
+    },
+    {
+      "File": "Domenia-Migration.UI.ps1",
+      "Phase": "Modules",
+      "Requires": [
+        "Domenia-Release.Model.ps1",
+        "Domenia-Relations.Model.ps1",
+        "Domenia-Storage.UI.ps1",
+        "Domenia-Inline.UI.ps1",
+        "Domenia-Migration.Worker.ps1"
+      ],
+      "DotSource": true,
+      "Functions": [
+        "ConvertTo-DomeniaLegacyNumber",
+        "ConvertTo-DomeniaLegacyDate",
+        "Read-DomeniaLegacySource",
+        "Get-DomeniaLegacySnapshot",
+        "New-DomeniaLegacyImportPlan",
+        "Invoke-DomeniaLegacyImport",
+        "Show-DomeniaLegacyImportPlan",
+        "Request-DomeniaLegacyImport",
+        "Start-DomeniaLegacyImportWork",
+        "Complete-DomeniaLegacyImportWork",
+        "Fail-DomeniaLegacyImportWork"
+      ],
+      "NewFunctions": [
+        "ConvertTo-DomeniaLegacyNumber",
+        "ConvertTo-DomeniaLegacyDate",
+        "Read-DomeniaLegacySource",
+        "Get-DomeniaLegacySnapshot",
+        "New-DomeniaLegacyImportPlan",
+        "Invoke-DomeniaLegacyImport",
+        "Show-DomeniaLegacyImportPlan",
+        "Request-DomeniaLegacyImport",
+        "Start-DomeniaLegacyImportWork",
+        "Complete-DomeniaLegacyImportWork",
+        "Fail-DomeniaLegacyImportWork"
+      ]
+    },
+    {
       "File": "Domenia-Storage.UI.ps1",
       "Phase": "Modules",
       "Requires": [
@@ -73,7 +123,8 @@
       "File": "Domenia-Guard.UI.ps1",
       "Phase": "Modules",
       "Requires": [
-        "Domenia-Storage.UI.ps1"
+        "Domenia-Storage.UI.ps1",
+        "Domenia-Migration.UI.ps1"
       ],
       "DotSource": true,
       "ExistingEntry": true,
@@ -98,10 +149,26 @@
     "Domenia-Guard.UI.ps1 (Initialize-DomeniaGuard : LblGuardMetrics porte 'Enregistrement local : '+(Get-DomeniaPersistenceState).Label au lieu de 'Cache en attente' ; D028 etape F)",
     "wad/maintenance/Preview-DomeniaProgress.ps1 (apercu -Progressive : charge Domenia-Cache.Model.ps1 et Domenia-Storage.UI.ps1 avant Domenia-Live.UI.ps1, dont la ligne d etat lit Get-DomeniaPersistenceState ; D028 etape F)",
     "Domenia-Storage.Worker.ps1 (D113 G1 : import LegacyImport transactionnel ; D029 : historique protege)",
-    "Domenia-Storage.UI.ps1 (D113 G1 : item import isole, LinkBusy pendant attente/execution, sans rejeu automatique, fusion et baseline apres resultat confirme)"
+    "Domenia-Storage.UI.ps1 (D113 G1 : item import isole, LinkBusy pendant attente/execution, sans rejeu automatique, fusion et baseline apres resultat confirme)",
+    "Domenia-Release.Model.ps1 (G2 : quatre tables vides, marqueur idempotent, associations absentes seulement)",
+    "Domenia-Core.ps1 (G2/G3 : maintenance sans ecriture en simulation, bouton et apercu dans Fiabilite)"
   ],
   "TypeFiles": [],
-  "Operations": [],
+  "Operations": [
+    {
+      "Operation": "LegacyMigration",
+      "File": "wad/modules/Domenia-Migration.Worker.ps1",
+      "Function": "Get-DomeniaMigrationWorkerCode",
+      "LiteralIndex": 0,
+      "Provider": "Storage",
+      "Resource": "Local",
+      "NeedsDirectoryCredential": false,
+      "NeedsMachineCredential": false,
+      "NonDirectory": true,
+      "IsWrite": false,
+      "Class": "Explicit"
+    }
+  ],
   "OperationsModified": [
     {
       "Operation": "LiveCache",
@@ -132,7 +199,7 @@
       "Change": "D113 G1 : LegacyImport isole, garde des quatre tables vides, insertions atomiques, marqueur idempotent et liens absents seulement. D029 : historique manuel et Import CSV exclu de la retention automatique."
     }
   ],
-  "OperationsNote": "LiveCache et LocalStore sont des operations epinglees modifiees dans ce lot. Etape G1 : seul LocalStore change ; corps relu avant mise a jour des empreintes et du registre.",
+  "OperationsNote": "LiveCache et LocalStore sont des operations epinglees modifiees dans ce lot. Etape G1 : seul LocalStore change ; corps relu avant mise a jour des empreintes et du registre. G2/G3 : nouvelle operation LegacyMigration pour la simulation et la sauvegarde hors du thread WPF, aucune ecriture dans la base active.",
   "SelfTestRequiredFunctions": [
     "Request-DomeniaLinkPersistence",
     "Queue-DomeniaLinkChanges",
@@ -141,7 +208,19 @@
     "Get-DomeniaCacheKey",
     "Invoke-DomeniaObjectChanges",
     "Get-DomeniaPersistenceState",
-    "Get-DomeniaPersistenceLabel"
+    "Get-DomeniaPersistenceLabel",
+    "ConvertTo-DomeniaLegacyNumber",
+    "ConvertTo-DomeniaLegacyDate",
+    "Read-DomeniaLegacySource",
+    "Get-DomeniaLegacySnapshot",
+    "New-DomeniaLegacyImportPlan",
+    "Invoke-DomeniaLegacyImport",
+    "Request-DomeniaLegacyImport",
+    "Show-DomeniaLegacyImportPlan",
+    "Start-DomeniaLegacyImportWork",
+    "Complete-DomeniaLegacyImportWork",
+    "Fail-DomeniaLegacyImportWork",
+    "Get-DomeniaMigrationWorkerCode"
   ],
   "SelfTestChecks": [
     "Test-DomeniaWiringCache.ps1 : LiveCache ne contient plus INSERT OR REPLACE INTO user_machine_links",
@@ -170,19 +249,30 @@
     "Test-DomeniaWiringRecherche.ps1 : D028 LblLiveState porte le libelle de la regle",
     "rules/Cache.Tests.ps1 : D028 Libelle d enregistrement : indisponible > suspendu > conflits > echecs > attente > enregistre",
     "Test-DomeniaWiringCache.ps1 : D113 G1 SQLite reel, rollback, quatre tables vides, idempotence octets, conflits, domaine, plafond, plus de 64 liens, file isolee et erreur sans rejeu",
-    "Test-DomeniaWiringCache.ps1 : D029 historique protege hors plafond 20000 ; les lignes protegees precedent les lignes elaguables"
+    "Test-DomeniaWiringCache.ps1 : D029 historique protege hors plafond 20000 ; les lignes protegees precedent les lignes elaguables",
+    "Test-DomeniaWiringCache.ps1 : G2/G3 sources reelles, simulation sans ecriture, empreinte de confirmation, import et idempotence de bout en bout"
   ],
-  "HelpEntries": [],
+  "HelpEntries": [
+    {
+      "Name": "BtnGuardLegacyImport",
+      "Title": "Reprendre les anciennes données",
+      "Text": "Simule la reprise dans Domenia. Les quatre tables de cache doivent être vides. Les associations existantes sont conservées ; celles importées sont protégées. Une sauvegarde précède la reprise confirmée. Aucun import au démarrage.",
+      "Kind": "Button"
+    }
+  ],
   "Features": [],
   "AsyncConfigKeys": [],
-  "StartRequired": [],
+  "StartRequired": [
+    "wad/modules/Domenia-Migration.UI.ps1"
+  ],
   "DevOnlyFiles": [
     "wad/tests/Test-DomeniaWiringCache.ps1",
     "wad/tests/Test-DomeniaWiringMoteur.ps1",
     "wad/tests/Test-DomeniaWiringRecherche.ps1"
   ],
   "StaticTools": [
-    "tools/audit_preload.py"
+    "tools/audit_preload.py",
+    "tools/update_migration_worker.py"
   ],
   "CrossLaneRequests": [
     {
@@ -202,5 +292,5 @@
       "Request": "Etape F (D028) : aucun corps worker modifie. Verifier sans --apply (python tools/update_worker_contracts.py) que LocalStore et LiveCache restent identiques."
     }
   ],
-  "Notes": "Premier jet Spark revise (persistance differee par lots de 64, garde centrale de cle vide, audit mis a jour), relu et ajuste ; a valider dans la VM. Etape B : D115 et la partie schema de D113 raccordees ; import TSV/CSV historique non transactionnel reporte (chemin de maintenance -ImportLegacy)."
+  "Notes": "G1-G3 : reprise explicite des anciennes donnees dans Domenia par simulation, confirmation dans la page et LocalStore atomique. Liens importes sous Import CSV avec origine dans Details. Aucun appel Spark ; decision de David le 2026-10-04. D029 : purge selective L1-L3 encore a raccorder."
 }

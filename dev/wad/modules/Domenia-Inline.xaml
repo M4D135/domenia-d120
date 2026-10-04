@@ -10,7 +10,7 @@
     </Grid.ColumnDefinitions>
     <StackPanel Grid.Column="0" Margin="0,0,12,0">
       <TextBlock x:Name="LblInlineRequestTitle" Text="" FontWeight="SemiBold" Foreground="{DynamicResource InfoFg}" TextWrapping="Wrap"/>
-      <TextBlock x:Name="LblInlineRequestMessage" Text="" Foreground="{DynamicResource InfoFg}" Margin="0,4,0,0" TextWrapping="Wrap" MaxHeight="120" TextTrimming="CharacterEllipsis"/>
+      <ScrollViewer MaxHeight="120" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><TextBlock x:Name="LblInlineRequestMessage" Text="" Foreground="{DynamicResource InfoFg}" Margin="0,4,0,0" TextWrapping="Wrap"/></ScrollViewer>
     </StackPanel>
     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
       <Button x:Name="BtnInlineRequestCancel" Content="Annuler" MinWidth="96" MinHeight="34" Margin="0,0,8,0" ToolTip="Réponse sûre (Échap) : rien nʼest modifié."

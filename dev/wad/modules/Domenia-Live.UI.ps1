@@ -596,7 +596,7 @@ function Start-DomeniaLiveBackgroundWork {
     if($physical -ge [Math]::Max(1,$max-2)){return} # reserve slots for interactive reads/writes
     $s=$script:Live.Search;$grid=Get-DomeniaControl 'DgObjects'
     # Cache work has its own concurrency gate. Writes are batched, never per UI row.
-    if($script:Live.CacheReady -and (Get-DomeniaLiveWorkerCount 'LiveCache') -eq 0 -and (Get-DomeniaLiveWorkerCount 'LocalStore') -eq 0){
+    if($script:Live.CacheReady -and (Get-DomeniaLiveWorkerCount 'LiveCache') -eq 0 -and (Get-DomeniaLiveWorkerCount 'LocalStore') -eq 0 -and (Get-DomeniaLiveWorkerCount 'LegacyMigration') -eq 0){
         if(($script:Live.SaveQueue.Count -gt 0 -or $null -ne $script:Live.QueryToSave) -and [datetime]::UtcNow -ge $script:Live.SaveAfter){
             $observations=@($script:Live.SaveQueue.Values);$query=$script:Live.QueryToSave
             $state=[pscustomobject]@{Mode='Write';Identity=$script:Live.Identity;Epoch=[long]$script:SessionEpoch;Observations=$observations;Query=$query}

@@ -179,7 +179,7 @@ function Initialize-DomeniaGuard {
     $actions=@{
         BtnGuardOpen={Show-DomeniaGuard};BtnGuardReceiptRefresh={Start-DomeniaReceiptRefresh};BtnGuardReceiptVerify={Invoke-DomeniaReceiptChoice Verify};BtnGuardReceiptReview={Invoke-DomeniaReceiptChoice Review}
         BtnGuardDraft={Show-DomeniaDraftComparison};BtnGuardRemote={Set-DomeniaArtifactConsent};BtnGuardRemoteOff={$script:ArtifactConsent=$null;[void](Set-DomeniaControlText 'LblGuardRemote' 'Depots et services non autorises par defaut.')}
-        BtnGuardSaveSearch={Save-DomeniaFavouriteSearch};BtnGuardLoadSearch={Load-DomeniaFavouriteSearch};BtnGuardRemoveSearch={Remove-DomeniaFavouriteSearch};BtnGuardStoreResume={Resume-DomeniaStorage};BtnGuardWhy={Show-DomeniaUnavailableReasons};BtnGuardExport={Export-DomeniaTechnicalDossier}
+        BtnGuardSaveSearch={Save-DomeniaFavouriteSearch};BtnGuardLoadSearch={Load-DomeniaFavouriteSearch};BtnGuardRemoveSearch={Remove-DomeniaFavouriteSearch};BtnGuardStoreResume={Resume-DomeniaStorage};BtnGuardLegacyImport={Request-DomeniaLegacyImport};BtnGuardWhy={Show-DomeniaUnavailableReasons};BtnGuardExport={Export-DomeniaTechnicalDossier}
         BtnGuardPesto={Open-DomeniaSuiteTool Pesto};BtnGuardFilPro={Open-DomeniaSuiteTool FilPro}
     }
     foreach($n in $actions.Keys){$c=Get-DomeniaControl $n;if($null -ne $c){$body=$actions[$n];$c.Add_Click($body)}}

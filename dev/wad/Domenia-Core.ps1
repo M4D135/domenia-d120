@@ -421,6 +421,8 @@ function Ensure-DomeniaIcon {
 $script:GuiElementPolicy = [ordered]@{
     # Valeurs possibles : "Default", "Disabled" ou "Hidden".
     # Modifie uniquement la valeur a droite. Le nom doit rester identique au x:Name WPF.
+    "BtnGuardLegacyImport" = "Default"
+    "LblGuardMigration" = "Default"
     "TxtLogin" = "Default"
     "PwdLogin" = "Default"
     "TxtLoginPasswordVisible" = "Default"
@@ -5837,7 +5839,7 @@ function Get-MainXaml {
 <ListBox AutomationProperties.Name="LstGuardSearches" AutomationProperties.HelpText="Recherches appartenant au domaine courant." ToolTipService.ShowOnDisabled="True" x:Name="LstGuardSearches" DisplayMemberPath="Name" Height="110" ToolTip="Recherches appartenant au domaine courant."/>
 </StackPanel></Border>
 <Border Style="{StaticResource Card}" Margin="0,0,0,12"><StackPanel><TextBlock Text="Suite support et mesures" FontSize="18" FontWeight="SemiBold"/>
-<WrapPanel Margin="0,6,0,10"><Button x:Name="BtnGuardStoreResume" Content="Reprendre les sauvegardes" ToolTip="Relance les lots de cache interrompus apres correction du stockage." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Reprendre les sauvegardes" AutomationProperties.HelpText="Relance les lots de cache interrompus apres correction du stockage."/><Button x:Name="BtnGuardExport" Content="Dossier technique" ToolTip="Affiche puis exporte les seuls compteurs techniques, sans logs bruts ni identifiants." AutomationProperties.Name="Dossier technique" AutomationProperties.HelpText="Affiche puis exporte les seuls compteurs techniques, sans logs bruts ni identifiants."/><Button x:Name="BtnGuardWhy" Content="Pourquoi une action est indisponible ?" ToolTip="Explique les protections et preconditions actuelles sans modifier de droit." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Pourquoi une action est indisponible ?" AutomationProperties.HelpText="Explique les protections et preconditions actuelles sans modifier de droit."/></WrapPanel><CheckBox x:Name="ChkGuardReconcile" Content="Reverifier le perimetre consulte en arriere-plan" IsChecked="True" Margin="0,0,0,8" ToolTip="Relit la derniere requete explicite, au plus toutes les trois minutes et dans sa limite de resultats. Aucun scan au demarrage." AutomationProperties.Name="Reverifier le perimetre consulte en arriere-plan" AutomationProperties.HelpText="Relit la derniere requete explicite, au plus toutes les trois minutes et dans sa limite de resultats. Aucun scan au demarrage."/><TextBlock x:Name="LblGuardMetrics" Text="Les mesures locales apparaîtront ici." TextWrapping="Wrap" Margin="0,8,0,12" Foreground="{DynamicResource MutedColor}"/>
+<WrapPanel Margin="0,6,0,10"><Button x:Name="BtnGuardStoreResume" Content="Reprendre les sauvegardes" ToolTip="Relance les lots de cache interrompus apres correction du stockage." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Reprendre les sauvegardes" AutomationProperties.HelpText="Relance les lots de cache interrompus apres correction du stockage."/><Button x:Name="BtnGuardLegacyImport" Content="Reprendre les anciennes données" ToolTip="Simule la reprise des fichiers historiques dans Domenia, puis demande confirmation." AutomationProperties.Name="Reprendre les anciennes données" AutomationProperties.HelpText="Vérifie le domaine et les données, affiche la simulation puis demande confirmation avant sauvegarde et import."/><Button x:Name="BtnGuardExport" Content="Dossier technique" ToolTip="Affiche puis exporte les seuls compteurs techniques, sans logs bruts ni identifiants." AutomationProperties.Name="Dossier technique" AutomationProperties.HelpText="Affiche puis exporte les seuls compteurs techniques, sans logs bruts ni identifiants."/><Button x:Name="BtnGuardWhy" Content="Pourquoi une action est indisponible ?" ToolTip="Explique les protections et preconditions actuelles sans modifier de droit." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Pourquoi une action est indisponible ?" AutomationProperties.HelpText="Explique les protections et preconditions actuelles sans modifier de droit."/></WrapPanel><ScrollViewer Height="96" VerticalScrollBarVisibility="Auto" Margin="0,0,0,8"><TextBlock x:Name="LblGuardMigration" Text="La simulation des anciennes données sera affichée ici avant confirmation." TextWrapping="Wrap" AutomationProperties.Name="Simulation de reprise des données"/></ScrollViewer><CheckBox x:Name="ChkGuardReconcile" Content="Reverifier le perimetre consulte en arriere-plan" IsChecked="True" Margin="0,0,0,8" ToolTip="Relit la derniere requete explicite, au plus toutes les trois minutes et dans sa limite de resultats. Aucun scan au demarrage." AutomationProperties.Name="Reverifier le perimetre consulte en arriere-plan" AutomationProperties.HelpText="Relit la derniere requete explicite, au plus toutes les trois minutes et dans sa limite de resultats. Aucun scan au demarrage."/><TextBlock x:Name="LblGuardMetrics" Text="Les mesures locales apparaîtront ici." TextWrapping="Wrap" Margin="0,8,0,12" Foreground="{DynamicResource MutedColor}"/>
 <WrapPanel><Button AutomationProperties.Name="Ouvrir Pesto" AutomationProperties.HelpText="Exécutable configuré et contrôlé par empreinte. Aucun identifiant ou ordre d'intervention transmis." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardPesto" Content="Ouvrir Pesto" ToolTip="Exécutable configuré et contrôlé par empreinte. Aucun identifiant ou ordre d'intervention transmis."/><Button AutomationProperties.Name="Ouvrir FilPro" AutomationProperties.HelpText="Exécutable configuré et contrôlé par empreinte. Aucun identifiant ou ordre d'intervention transmis." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardFilPro" Content="Ouvrir FilPro" ToolTip="Exécutable configuré et contrôlé par empreinte. Aucun identifiant ou ordre d'intervention transmis."/></WrapPanel>
 </StackPanel></Border>
 </StackPanel></ScrollViewer></TabItem>
@@ -20257,102 +20259,37 @@ COMMIT;
 }
 
 function Import-DomeniaLegacyStoreIfNeeded {
-    try {
-        $count = @(Invoke-DomeniaDbQuery "SELECT count(*) AS n FROM ad_objects;")
-        if ($count.Count -gt 0 -and [long]$count[0].n -eq 0) {
-            $legacyCandidates = New-Object System.Collections.Generic.List[string]
-            $legacyCandidates.Add((Join-Path ([string]$script:DataDir) "Index\objets.tsv"))
-            if (-not [string]::IsNullOrWhiteSpace([string]$env:LOCALAPPDATA)) { $legacyCandidates.Add((Join-Path ([string]$env:LOCALAPPDATA) "DOMENIA\Index\objets.tsv")) }
-            foreach ($legacy in $legacyCandidates) {
-                if (-not (Test-Path -LiteralPath $legacy -PathType Leaf)) { continue }
-                $lines = [IO.File]::ReadAllLines($legacy,[Text.Encoding]::UTF8)
-                $rows = New-Object Collections.ArrayList
-                for($i=1;$i -lt $lines.Length;$i++) {
-                    $f=([string]$lines[$i]).Split([char]9); if($f.Length -lt 9){continue}
-                    [void]$rows.Add([pscustomobject]@{Type=$f[0];Name=$f[1];Login=$f[2];Upn=$f[3];Display=$f[4];Description=$f[5];Extra=$f[6];State=$f[7];DN=$f[8];WhenChanged=$(if($f.Length-ge 10){$f[9]}else{""});Usn=$(if($f.Length-ge 11){try{[long]$f[10]}catch{0}}else{0});LastLogon=$(if($f.Length-ge 12){$f[11]}else{""});Guid=$(if($f.Length-ge 13){$f[12]}else{""})})
-                }
-                if ($rows.Count -gt 0) { [void](Save-DomeniaIndex -Rows @($rows) -Server "migration" -BaseDn "" -HighestUsn 0); Write-AppLog "$($rows.Count) objet(s) migre(s) du TSV historique vers Domenia.db." "INFO"; break }
-            }
-        }
-        $parkCount = @(Invoke-DomeniaDbQuery "SELECT count(*) AS n FROM park_state;")
-        if ($parkCount.Count -gt 0 -and [long]$parkCount[0].n -eq 0) {
-            $parkCandidates=@((Join-Path ([string]$script:DataDir) "Index\parc.tsv"))
-            if(-not[string]::IsNullOrWhiteSpace([string]$env:LOCALAPPDATA)){$parkCandidates += (Join-Path ([string]$env:LOCALAPPDATA) "DOMENIA\Index\parc.tsv")}
-            foreach($legacyPark in $parkCandidates){
-                if(-not(Test-Path -LiteralPath $legacyPark -PathType Leaf)){continue}
-                foreach($line in [IO.File]::ReadAllLines($legacyPark,[Text.Encoding]::UTF8)){
-                    $f=([string]$line).Split([char]9);if($f.Length-lt4){continue};$key=([string]$f[0]).Trim().ToUpperInvariant();if([string]::IsNullOrWhiteSpace($key)){continue}
-                    $attempts=0;try{if($f.Length-ge5){$attempts=[int]$f[4]}}catch{}
-                    $sql="INSERT OR REPLACE INTO park_state(computer_key,computer,last_probe,status,user_login,attempts) VALUES("+((@($key,$f[0],$f[1],$f[2],$f[3],$attempts)|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_})-join ',')+");";[void](Invoke-DomeniaDbExec $sql)
-                }
-                Write-AppLog "Etat parc historique migre vers Domenia.db." "INFO";break
-            }
-        }
-        $linksCount = @(Invoke-DomeniaDbQuery "SELECT count(*) AS n FROM user_machine_links;")
-        if ($linksCount.Count -gt 0 -and [long]$linksCount[0].n -eq 0 -and -not [string]::IsNullOrWhiteSpace([string]$env:LOCALAPPDATA)) {
-            $legacyLinks = Join-Path ([string]$env:LOCALAPPDATA) "DOMENIA\Domenia-user-machine-links.csv"
-            if (Test-Path -LiteralPath $legacyLinks -PathType Leaf) {
-                $script:UserMachineLinks = [object[]]@(ConvertTo-DomeniaCanonicalLinks -Links @(Import-Csv -LiteralPath $legacyLinks -Encoding UTF8))
-                if (@($script:UserMachineLinks).Count -gt 0) { [void](Save-UserMachineLinks); Write-AppLog "$(@($script:UserMachineLinks).Count) association(s) migree(s) vers Domenia.db." "INFO" }
-            }
-        }
-
-        $scanCount = @(Invoke-DomeniaDbQuery "SELECT count(*) AS n FROM user_scan_history;")
-        if ($scanCount.Count -gt 0 -and [long]$scanCount[0].n -eq 0) {
-            $scanCandidates=@((Join-Path ([string]$script:DataDir) "Index\recherches.tsv"))
-            if(-not[string]::IsNullOrWhiteSpace([string]$env:LOCALAPPDATA)){$scanCandidates += (Join-Path ([string]$env:LOCALAPPDATA) "DOMENIA\Index\recherches.tsv")}
-            foreach($legacyScan in $scanCandidates){
-                if(-not(Test-Path -LiteralPath $legacyScan -PathType Leaf)){continue}
-                foreach($line in [IO.File]::ReadAllLines($legacyScan,[Text.Encoding]::UTF8)){
-                    $f=([string]$line).Split([char]9);if($f.Length-lt7){continue};$login=([string]$f[0]).Trim();if([string]::IsNullOrWhiteSpace($login)){continue}
-                    $flag=$(if($f[2]-eq"1"){1}else{0});$vals=@($login.ToLowerInvariant(),$login,$f[1],$flag,[int]$f[3],[int]$f[4],[int]$f[5],$f[6])|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}
-                    [void](Invoke-DomeniaDbExec ("INSERT OR REPLACE INTO user_scan_history(login_key,login,scanned_at,scanned,candidates,reachable,probed,found) VALUES("+($vals-join",")+");"))
-                }
-                Write-AppLog "Historique des recherches migre vers Domenia.db." "INFO";break
-            }
-        }
-        $secretCount = @(Invoke-DomeniaDbQuery "SELECT count(*) AS n FROM secret_state;")
-        if ($secretCount.Count -gt 0 -and [long]$secretCount[0].n -eq 0) {
-            $secretCandidates=@((Join-Path ([string]$script:DataDir) "Index\secrets-etat.tsv"))
-            if(-not[string]::IsNullOrWhiteSpace([string]$env:LOCALAPPDATA)){$secretCandidates += (Join-Path ([string]$env:LOCALAPPDATA) "DOMENIA\Index\secrets-etat.tsv")}
-            foreach($legacySecret in $secretCandidates){
-                if(-not(Test-Path -LiteralPath $legacySecret -PathType Leaf)){continue}
-                foreach($line in [IO.File]::ReadAllLines($legacySecret,[Text.Encoding]::UTF8)){
-                    $f=([string]$line).Split([char]9);if($f.Length-lt8){continue};$computer=([string]$f[0]).Trim();if([string]::IsNullOrWhiteSpace($computer)){continue}
-                    $vals=@($computer.ToUpperInvariant(),$computer,$f[1],[int]$f[2],$f[3],$f[4],$f[5],$f[6],$f[7])|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}
-                    [void](Invoke-DomeniaDbExec ("INSERT OR REPLACE INTO secret_state(computer_key,computer,checked_at,bitlocker_keys,bitlocker_last,laps_scheme,laps_expiry,verdict,detail) VALUES("+($vals-join",")+");"))
-                }
-                Write-AppLog "Metadonnees BitLocker/LAPS historiques migrees vers Domenia.db (aucun secret stocke)." "INFO";break
-            }
-        }
-    }
-    catch { Write-AppLog "Migration du stockage historique ignoree : $($_.Exception.Message)" "WARN" }
+    param([switch]$DryRun,[string]$ExpectedFingerprint='')
+    return (Invoke-DomeniaLegacyImport -DryRun:$DryRun -ExpectedFingerprint $ExpectedFingerprint)
 }
 
-
 function Invoke-DomeniaDatabaseMaintenance {
-    # Maintenance volontaire uniquement. Jamais appelee pendant le demarrage.
-    # Les operations potentiellement longues sont ainsi visibles et mesurables.
-    param([switch]$ImportLegacy,[switch]$IntegrityCheck,[switch]$Backup)
+    # Migration simulation never initializes the database or records an operation sample.
+    param([switch]$ImportLegacy,[switch]$IntegrityCheck,[switch]$Backup,[switch]$DryRun,[string]$ExpectedFingerprint='')
+    if ($ImportLegacy) {
+        if ($IntegrityCheck -or $Backup) { throw 'La reprise des anciennes donnees doit etre demandee seule.' }
+        return (Import-DomeniaLegacyStoreIfNeeded -DryRun:$DryRun -ExpectedFingerprint $ExpectedFingerprint)
+    }
+    if ($DryRun) { throw 'La simulation est reservee a la reprise des anciennes donnees.' }
     $sw=[Diagnostics.Stopwatch]::StartNew()
     Initialize-DomeniaDatabase | Out-Null
     try {
-        if($ImportLegacy){ Import-DomeniaLegacyStoreIfNeeded }
-        if($IntegrityCheck){
-            $check=@(Invoke-DomeniaDbQuery "PRAGMA quick_check;")
-            if($check.Count -eq 0 -or [string]$check[0].quick_check -ne "ok"){throw "PRAGMA quick_check a signale une incoherence."}
+        if ($IntegrityCheck) {
+            $check=@(Invoke-DomeniaDbQuery 'PRAGMA quick_check;')
+            if ($check.Count -eq 0 -or [string]$check[0].quick_check -ne 'ok') { throw 'PRAGMA quick_check a signale une incoherence.' }
         }
-        if($Backup){[void](Backup-DomeniaDatabase)}
+        if ($Backup) { [void](Backup-DomeniaDatabase) }
         [void](Load-DomeniaIndexMetadata)
         $sw.Stop()
-        try{Register-DomeniaOperationSample -Operation "DatabaseMaintenance" -Mode "Local SQLite" -ItemCount 1 -DurationMs $sw.ElapsedMilliseconds -SuccessCount 1}catch{}
+        try { Register-DomeniaOperationSample -Operation 'DatabaseMaintenance' -Mode 'Local SQLite' -ItemCount 1 -DurationMs $sw.ElapsedMilliseconds -SuccessCount 1 } catch {}
         return $true
     } catch {
         $sw.Stop()
-        try{Register-DomeniaOperationSample -Operation "DatabaseMaintenance" -Mode "Local SQLite" -ItemCount 1 -DurationMs $sw.ElapsedMilliseconds -FailureCount 1 -Notes $_.Exception.Message}catch{}
+        try { Register-DomeniaOperationSample -Operation 'DatabaseMaintenance' -Mode 'Local SQLite' -ItemCount 1 -DurationMs $sw.ElapsedMilliseconds -FailureCount 1 -Notes $_.Exception.Message } catch {}
         throw
     }
 }
+
 
 function Register-DomeniaOperationSample {
     param([string]$Operation,[string]$Mode='', [int]$ItemCount=0,[long]$DurationMs=0,[long]$BytesEstimated=0,[int]$AdQueries=0,[int]$RemoteAttempts=0,[int]$FallbackTasks=0,[int]$SuccessCount=0,[int]$FailureCount=0,[string]$StartedAt='', [string]$Notes='')
@@ -20658,6 +20595,7 @@ function Get-DomeniaWorkerCodeHash {
 function Get-DomeniaWorkerOperationHashes {
     # Registre ferme : seules ces operations internes, avec leur corps exact, peuvent entrer dans un runspace.
     return [ordered]@{
+        LegacyMigration       = "9F9E86E2BD40130C8E8726DC065112CB0F770D04063ADB1EB890AFBB45C303F3"
         ReadBitLockerList     = "B1456CEA5805D83C6BF48E9A4040206F18F3C3773ED250610D6890E8D1F4EEC9"
         ReadBitLockerKey      = "8A98EBCDC48AD572404E1566826035C84F34ACB87564330A7AA511FAAC01EE6F"
         DemoDirectory         = "F12481F3B254D64F9C5D870A98EA33BE6C69A67D4C99D28601CF292A1150EAE0"
@@ -20729,7 +20667,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "529101EF5FFE54B0AD249E23AA1E8EFA59D96F65ACBD0D6285C1AA1EEC6A6CFB"
+    $expectedFingerprint = "A8D70730F426B599E4F3FB936A19CC9E8E8F6C00172BD772764D5B9AEEBE7395"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -25328,7 +25266,9 @@ function Invoke-DomeniaSelfTest {
         'Get-DomeniaWritePostcondition','Get-DomeniaPostconditionRule','Resolve-DomeniaPostcondition',
         'Get-DomeniaRemotePostconditionText',
         'Get-DomeniaAttributeWriteStrategy','Get-DomeniaAtomicStrategy',
-        'Get-DomeniaPersistenceState','Get-DomeniaPersistenceLabel'
+        'Get-DomeniaPersistenceState','Get-DomeniaPersistenceLabel',
+        'ConvertTo-DomeniaLegacyNumber','ConvertTo-DomeniaLegacyDate','Read-DomeniaLegacySource','Get-DomeniaLegacySnapshot','New-DomeniaLegacyImportPlan','Invoke-DomeniaLegacyImport','Request-DomeniaLegacyImport',
+        'Show-DomeniaLegacyImportPlan','Start-DomeniaLegacyImportWork','Complete-DomeniaLegacyImportWork','Fail-DomeniaLegacyImportWork','Get-DomeniaMigrationWorkerCode'
     )
     $missing = @($requiredFunctions | Where-Object { $null -eq (Get-Command -Name $_ -CommandType Function -ErrorAction SilentlyContinue) })
     Add-SelfTestResult -Name 'Fonctions critiques' -Success ($missing.Count -eq 0) -Detail $(if($missing.Count -eq 0){'Toutes presentes.'}else{"Absentes : $($missing -join ', ')"})
