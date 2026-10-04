@@ -3047,7 +3047,7 @@
       "title": "Postcondition propre à chaque opération",
       "proposal": "Vérifier appartenance, déplacement, attribut ou état avec leur règle dédiée ; ne pas confondre retour du processus et résultat vérifié.",
       "acceptance_criterion": "Chaque opération indique Vérifié, Partiel ou À vérifier avec la preuve précise disponible.",
-      "status": "RACCORDE_NON_EXECUTE",
+      "status": "RACCORDE_A_VALIDER_WINDOWS",
       "reference_ids": [
         "S07"
       ],
@@ -3056,13 +3056,13 @@
         "wad/modules/Domenia-Identity.Types.cs"
       ],
       "acceptance_passed": false,
-      "remaining": "Actions distantes (ComputerGpUpdate, ComputerRestart, RimotteRun) : statut de postcondition a afficher (relecture du dernier demarrage ou de l application des strategies, sinon A verifier). Puis preuve Windows liee au ZIP final.",
+      "remaining": "Limite : aucune relecture du poste apres GPUpdate ou redemarrage (le statut reste A verifier, la verification a faire est indiquee) ; resultat d un script Rimotte a verifier sur le poste. Preuve Windows liee au ZIP final (release_guard.py --require-windows).",
       "tests": [
         "wad/tests/Test-DomeniaWiringEcritures.ps1",
         "wad/tests/rules/Safety.Tests.ps1"
       ],
-      "wiring": "Partiel",
-      "evidence": "Raccorde pour les ecritures annuaire (lot ecritures, etape B2) : les treize workers renvoient ce qu ils attendaient et ce qu ils ont relu (attributs, etat, appartenance, emplacement par GUID, presence, absence par GUID, pwdLastSet relu apres la pose du mot de passe) ; Complete-DomeniaWriteTaskUi affiche Verifie, Partiel ou A verifier avec la preuve (Resolve-DomeniaPostcondition) et la verification a faire ; ETAT INCONNU indique la verification a faire. Campagne d integration Windows PowerShell 5.1.26100.6584 x64 dans la VM CNAMTS-W11-01 le 2026-10-04, commit 5f53771 lie (413/413) : startcheck reussi, Test-DomeniaWiringEcritures 26/26 ; corps reels des workers executes avec doublures, aucun AD reel ; non qualifiant pour la livraison."
+      "wiring": "Complet",
+      "evidence": "Raccorde pour les ecritures annuaire (lot ecritures, etape B2) : les treize workers renvoient ce qu ils attendaient et ce qu ils ont relu (attributs, etat, appartenance, emplacement par GUID, presence, absence par GUID, pwdLastSet relu apres la pose du mot de passe) ; Complete-DomeniaWriteTaskUi affiche Verifie, Partiel ou A verifier avec la preuve (Resolve-DomeniaPostcondition) et la verification a faire ; ETAT INCONNU indique la verification a faire. Campagne d integration Windows PowerShell 5.1.26100.6584 x64 dans la VM CNAMTS-W11-01 le 2026-10-04, commit 5f53771 lie (413/413) : startcheck reussi, Test-DomeniaWiringEcritures 26/26 ; corps reels des workers executes avec doublures, aucun AD reel ; non qualifiant pour la livraison. Complement (commit 577dfe0, campagne liee 413/413, 2142/2 Geometry) : GPUpdate, redemarrage et Rimotte affichent A verifier avec la verification a faire (Get-DomeniaRemotePostconditionText) ; Test-DomeniaWiringEcritures 27/27."
     },
     {
       "id": "D094",
