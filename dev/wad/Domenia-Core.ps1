@@ -20673,19 +20673,19 @@ function Get-DomeniaWorkerOperationHashes {
         PruneLinks            = "0CDDB662FA027ED979FC9A44A7A66662DB540D5B562F9D33CCDD3BA86FF0819F"
         OpenLinkedObject      = "24863184FC8441FCE8F270A75B30736954AC066DBBC5A2DE99CDF1C5D7CAA6C2"
         OpenAdObject          = "28BA398A2209576CAA79A637C0BE2CF05AF51013D553F0155F87C99A29CBB284"
-        WriteAttributes       = "42E39B2BC65512E3A71FB5DB912C0728590E8FEB48D65994907A4FB74403DC0B"
-        WriteAccountDisabled  = "02FF46D7DA918CD4931F69A2103568CAF690BC41D02A964D291582B74C5E83B6"
-        WriteUnlock           = "733F15687C7FB8BFB09718134ECF4246645CB2F3B0884E8F9C4C581AB55EB23E"
-        WriteResetPassword    = "1E5F8CDB9D86C00D4294D315F2CAE6A688CD8FC1DE599BE577D623DC6FE28907"
-        WriteAccountOptions   = "AA6033FEB5653DF9F479718D8CD8B9AF9EA2D84EE08E2602257E0AC1DEE03470"
-        WriteExpiration       = "1E63117DCB058116991C80D96E85457BF50484C9D22EED192B4991A3B62C15FA"
-        WriteExpirePassword   = "2531938712550D3327AD19C6744A437CED733EC1503F4FC2908F67CBC45B8B54"
-        WriteMoveObject       = "99E66671D3D0050DBFC259E6AFEAC47EA119F0DB55ADC6F158EDFB9210DBAF33"
-        WriteObjectGroup      = "F9AED5F5B8A082BEFF84E29627F79E2E3F224440AF716F0F0ABCB0BE55B52101"
-        WriteGroupMember      = "8542D9FEE4C9CA95765B8B71A0898393C6059E5C147605FB39B3F3337CA0ED79"
-        WriteRenameComputer   = "527CAD31AE8EA18FD9F167B4D22729321D22900546096480E3EE86316E85307E"
-        WriteCreateOu         = "FB781A6403464525C64C751222594581F41285088BF99BF6F924BE6FEA553747"
-        WriteDeleteObject     = "86BA0ADC33686EFF9AC35803D0F31025DF9F7E4770DC6432B77526B03FE65AB6"
+        WriteAttributes       = "9D42588D82D290A3709CF1E68FF079C7CF030A47DF159E0703F74A1FB1BEE6B6"
+        WriteAccountDisabled  = "F95D9F066EBD52859A8FED47FB42F3981DF80903D8543818B2633A233C41E321"
+        WriteUnlock           = "0C77C5EBCA4A4F4D2F5F99709D03DC86965747604D97CFB67FCA49988BE76FE5"
+        WriteResetPassword    = "D74B0E6923B37ACFF9E576EE4DF580410436DD7A77821A16CA188E7175ACDCCE"
+        WriteAccountOptions   = "60C4CE127C0CB3424A64DD31F676F5B0722A135534A5DCCBD0193092927D157E"
+        WriteExpiration       = "3982B298C3D4E558F4069EAA915AEB07824CB6E01213D1AAD8C642FA86476CD1"
+        WriteExpirePassword   = "F73AFD1E29C9A6DDF585B0BE066DEBB43AFC405F2B4C65E5CE2778CB65EC1238"
+        WriteMoveObject       = "E9DF1DFD02CBDFBE409E43EF00CDABFFD0E363B5497160D1CBBB78B6CFB40540"
+        WriteObjectGroup      = "DDC7E14A4A9FBBF8AB88646E196EFD09D8328ECC7BCB96DBE5DD158AA5B5D0A0"
+        WriteGroupMember      = "2577510597E83ABBAC35A4790664DCE19601D371F4ECC4D49B138A09F8C8C716"
+        WriteRenameComputer   = "8728C8F504BE466CA476E34E050F9037B6BD40090123C79EEA0572A3D99880EA"
+        WriteCreateOu         = "988CCC8BF90B978762150782B1D5E5E209859537833E0128F3F3B0A0B3AECF38"
+        WriteDeleteObject     = "DC025E66FB45A08FD6BB15DB7A1D4468A76F915819719D2D423AB01F99A9E6E5"
         PresenceScan          = "E7F81414C29C1C8F1E91453D9EC4BA48B6F92F0AA0E2674C9EBF5C88437F4486"
         SelectedPresence      = "4ECADF4F231390182A3BF091EF8636B3536D7B3F8A28EF3984DE1E2D524D5BFA"
         StartupWarmCache      = "864735012ED29EBAF1B094DA12C1D44266933DC9D3D2046BD1E5D68AE58CA1A3"
@@ -20710,7 +20710,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "32C6915075942848506776D4525ECF88327D873CF3080DB299F9A9B3F32C4ED3"
+    $expectedFingerprint = "80D69C0B27F6F0EFE04954F7DC92538CF8BD8B6AD0364320255960418A6BC16C"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -22376,6 +22376,25 @@ function Invoke-DomeniaWritePostAction {
     }
 }
 
+function Get-DomeniaWritePostcondition {
+    param([string]$OperationId,$Result)
+    if ($null -eq $Result) { return $null }
+    $pc = $null
+    try { $pc = $Result.Postcondition } catch { }
+    $expected = $null
+    $observed = $null
+    $sent = $null
+    if ($null -ne $pc) {
+        try { $expected = $pc.Expected } catch { }
+        try { $observed = $pc.Observed } catch { }
+        try { $sent = $pc.SentUtc } catch { }
+    }
+    if ($null -eq (Get-Command -Name 'Resolve-DomeniaPostcondition' -ErrorAction SilentlyContinue)) { return $null }
+    try {
+        return Resolve-DomeniaPostcondition -Rule ([string]$OperationId) -Expected $expected -Observed $observed -SentUtc $sent
+    } catch { return $null }
+}
+
 function Complete-DomeniaWriteTaskUi {
     param($Result,$State)
     $script:ReceiptReady=$false; $script:ReceiptRefreshNeeded=$true
@@ -22409,7 +22428,41 @@ function Complete-DomeniaWriteTaskUi {
         try { $backend = [string]$effective.Backend } catch { }
         $partial = $false
         try { if ($null -ne $effective.PSObject.Properties["Partial"]) { $partial = [bool]$effective.Partial } } catch { }
-        if ($partial) {
+        $post = Get-DomeniaWritePostcondition -OperationId ([string]$State.OperationId) -Result $effective
+        $script:LastWritePostcondition = $post
+        $postStatus = ""
+        $postLabel = ""
+        $postProof = ""
+        if ($null -ne $post) {
+            try { $postStatus = [string]$post.Status } catch { }
+            try { $postLabel = [string]$post.Label } catch { }
+            try { $postProof = [string]$post.Proof } catch { }
+        }
+        if ($postLabel) {
+            $postLevel = "INFO"
+            if ($postStatus -ne "Verifie") { $postLevel = "WARN" }
+            Write-AppLog "[$correlation] POSTCONDITION $name : $postLabel - $postProof" $postLevel
+        }
+        if ($postStatus -eq "Verifie") {
+            if ($partial) {
+                Write-AppLog "[$correlation] PARTIEL $name via $backend : $message" "WARN"
+                Set-Status "$message (Partiel)" "WARN"
+                Show-InfoBox "$name a ete accepte en partie par le controleur de domaine.`r`n`r`n$message`r`n`r`nVerifie les etapes signalees en echec avant toute nouvelle tentative."
+            }
+            else {
+                Write-AppLog "[$correlation] SUCCES $name via $backend : $message" "INFO"
+                Set-Status "$message (Verifie)"
+            }
+        }
+        elseif ($postStatus -eq "Partiel" -or $postStatus -eq "A verifier") {
+            $ruleCheck = ""
+            try { $ruleCheck = [string](Get-DomeniaPostconditionRule ([string]$State.OperationId)).Check } catch { }
+            $info = "$name : $postLabel`r`n`r`nPreuve : $postProof"
+            if ($ruleCheck) { $info += "`r`n`r`nVerification a faire : $ruleCheck" }
+            Set-Status "$name : $postLabel - $postProof" "WARN"
+            Show-InfoBox $info
+        }
+        elseif ($partial) {
             Write-AppLog "[$correlation] PARTIEL $name via $backend : $message" "WARN"
             Set-Status $message "WARN"
             Show-InfoBox "$name a ete accepte en partie par le controleur de domaine.`r`n`r`n$message`r`n`r`nVerifie les etapes signalees en echec avant toute nouvelle tentative."
@@ -22419,7 +22472,7 @@ function Complete-DomeniaWriteTaskUi {
             Set-Status $message
         }
         $script:DraftState=$null
-    Invoke-DomeniaWritePostAction -Result $effective -State $State
+        Invoke-DomeniaWritePostAction -Result $effective -State $State
         Apply-CurrentPermissionUi
         Request-DomeniaDashboardRefresh -Immediate
     }
@@ -22474,7 +22527,14 @@ function Fail-DomeniaWriteTaskUi {
     Write-AppLog "[$correlation] ECHEC $name [$($errorInfo.Kind)] : $detail" "ERROR"
     Set-Status $errorInfo.Friendly "ERROR"
     Apply-CurrentPermissionUi
-    if ($detail -match "(?i)etat inconnu") { Show-InfoBox "$name : $detail`r`n`r`nAucun rejeu automatique ne sera effectue." }
+    if ($detail -match "(?i)etat inconnu") {
+        $info = "$name : $detail`r`n`r`nAucun rejeu automatique ne sera effectue."
+        try {
+            $check = [string](Get-DomeniaPostconditionRule ([string]$State.OperationId)).Check
+            if ($check) { $info += "`r`n`r`nIssue : A verifier. Verification a faire : $check" }
+        } catch { }
+        Show-InfoBox $info
+    }
     else { Show-ErrorBox "$($errorInfo.Friendly)`r`n`r`nLe detail technique a ete enregistre dans le journal Domenia." }
 }
 
@@ -22675,6 +22735,7 @@ function Start-DomeniaWriteTask {
     if ([string]::IsNullOrWhiteSpace($targetDn)) { try { $targetDn = [string]$script:SelectedObject.DN } catch { } }
     $callbackState = [pscustomobject]@{
         Name = $Name
+        OperationId = $OperationId
         Correlation = $correlation
         Capability = $Capability
         TargetDn = $targetDn
@@ -22749,29 +22810,44 @@ $before=Assert-WObjectFresh $Context $Payload.Safety
 $backend=Get-WWriteBackend $Context @("Set-ADObject")
 $replace=@{};$clear=New-Object Collections.ArrayList
 foreach($c in @($Payload.Changes)){if([bool]$c.Clear){[void]$clear.Add([string]$c.Name)}else{$replace[[string]$c.Name]=[string]$c.New}}
+$SentUtc=""
 if($backend -eq "Module"){
     $p=@{Identity=[string]$Payload.DN;ErrorAction="Stop"}
     if($Context.Server){$p.Server=[string]$Context.Server}
     $cred=Get-WAdCredential $Context;if($cred){$p.Credential=$cred}
     if($replace.Count -gt 0){$p.Replace=$replace}
     if($clear.Count -gt 0){$p.Clear=@($clear)}
+    $SentUtc=[DateTime]::UtcNow.ToString('o')
     $DomeniaWriteDispatched=$true
     Set-ADObject @p
 }else{
     $de=New-WEntry $Context ([string]$Payload.DN)
     foreach($c in @($Payload.Changes)){if([bool]$c.Clear){$de.Properties[[string]$c.Name].Clear()}else{$de.Properties[[string]$c.Name].Value=[string]$c.New}}
+    $SentUtc=[DateTime]::UtcNow.ToString('o')
     $DomeniaWriteDispatched=$true
     $de.CommitChanges()
 }
 $failed=New-Object Collections.ArrayList
+$expectedValues=@{}
+$observedValues=@{}
 foreach($c in @($Payload.Changes)){
-    $actual=Get-WAttributeFirst $Context ([string]$Payload.DN) ([string]$c.Name)
-    if([bool]$c.Clear){if($null -ne $actual -and -not [string]::IsNullOrWhiteSpace([string]$actual)){[void]$failed.Add("$($c.Name) non efface")}}
-    elseif(-not [string]::Equals([string]$actual,[string]$c.New,[StringComparison]::Ordinal)){[void]$failed.Add("$($c.Name) attendu [$($c.New)] obtenu [$actual]")}
+    $name=[string]$c.Name
+    $expectedValue=""
+    if([bool]$c.Clear){$expectedValue=""}else{$expectedValue=[string]$c.New}
+    $expectedValues[$name]=$expectedValue
+    $actual=Get-WAttributeFirst $Context ([string]$Payload.DN) $name
+    if([bool]$c.Clear){
+        if($null -ne $actual -and -not [string]::IsNullOrWhiteSpace([string]$actual)){$observedValues[$name]=[string]$actual}else{$observedValues[$name]=$null}
+        if($null -ne $actual -and -not [string]::IsNullOrWhiteSpace([string]$actual)){[void]$failed.Add("$name non efface")}
+    }else{
+        if($null -eq $actual){$observedValues[$name]=$null}else{$observedValues[$name]=[string]$actual}
+        if(-not [string]::Equals([string]$actual,[string]$c.New,[StringComparison]::Ordinal)){[void]$failed.Add("$name attendu [$($c.New)] obtenu [$actual]")}
+    }
 }
 if($failed.Count -gt 0){throw "Verification post-ecriture echouee : $($failed -join ' ; ')"}
 $after=Get-WObjectSnapshot $Context ([string]$Payload.DN)
-[pscustomobject]@{Verified=$true;Backend=$backend;Message="$(@($Payload.Changes).Count) attribut(s) modifie(s) et verifie(s).";Before=$before;After=$after}
+$ReadUtc=[DateTime]::UtcNow.ToString('o')
+[pscustomobject]@{Verified=$true;Backend=$backend;Message="$(@($Payload.Changes).Count) attribut(s) modifie(s) et verifie(s).";Before=$before;After=$after;Postcondition=[pscustomobject]@{SentUtc=$SentUtc;Expected=[pscustomobject]@{Server=[string]$Context.Server;Values=$expectedValues};Observed=[pscustomobject]@{ReadStatus="OK";Server=[string]$Context.Server;ReadUtc=$ReadUtc;Values=$observedValues}}}
 '@
     Start-DomeniaWriteTask -Name $OperationName -OperationId "WriteAttributes" -Code $code -Payload $payload -Plan $plan -PlanChanges $clean -Capability $Capability -DisableControls $DisableControls -AfterSuccessAction $AfterSuccessAction -AfterSuccessState $AfterSuccessState
 }
@@ -22839,21 +22915,26 @@ function Set-AccountDisabled {
         $code=@'
 $before=Assert-WObjectFresh $Context $Payload.Safety
 $currentDisabled=(([int]$before.Uac -band 2) -ne 0)
-if($currentDisabled -eq [bool]$Payload.Disabled){[pscustomobject]@{Verified=$true;Backend="None";Message="Etat deja conforme. Aucune ecriture AD.";Before=$before;After=$before};return}
+if($currentDisabled -eq [bool]$Payload.Disabled){
+    $ReadUtc=[DateTime]::UtcNow.ToString('o')
+    [pscustomobject]@{Verified=$true;Backend="None";Message="Etat deja conforme. Aucune ecriture AD.";Before=$before;After=$before;Postcondition=[pscustomobject]@{SentUtc="";Expected=[pscustomobject]@{Server=[string]$Context.Server;Flags=[pscustomobject]@{Disabled=[string][bool]$Payload.Disabled}};Observed=[pscustomobject]@{ReadStatus="OK";Server=[string]$Context.Server;ReadUtc=$ReadUtc;Flags=[pscustomobject]@{Disabled=[string]((([int]$before.Uac) -band 2) -ne 0)}}}};return}
 $command=if([bool]$Payload.Disabled){"Disable-ADAccount"}else{"Enable-ADAccount"};$backend=Get-WWriteBackend $Context @($command)
+$SentUtc=""
 if($backend -eq "Module"){
     $p=@{Identity=[string]$Payload.DN;Confirm=$false;ErrorAction="Stop"};if($Context.Server){$p.Server=[string]$Context.Server};$c=Get-WAdCredential $Context;if($c){$p.Credential=$c}
+    $SentUtc=[DateTime]::UtcNow.ToString('o')
     $DomeniaWriteDispatched=$true
     if([bool]$Payload.Disabled){Disable-ADAccount @p}else{Enable-ADAccount @p}
 }else{
     $de=New-WEntry $Context ([string]$Payload.DN);$u=[int]$de.Properties["userAccountControl"].Value
     if([bool]$Payload.Disabled){$u=$u -bor 2}else{$u=$u -band (-bnot 2)}
-    $de.Properties["userAccountControl"].Value=$u;$DomeniaWriteDispatched=$true;$de.CommitChanges()
+    $de.Properties["userAccountControl"].Value=$u;$SentUtc=[DateTime]::UtcNow.ToString('o');$DomeniaWriteDispatched=$true;$de.CommitChanges()
 }
 $after=Get-WObjectSnapshot $Context ([string]$Payload.DN)
 $actual=(([int]$after.Uac -band 2) -ne 0)
 if($actual -ne [bool]$Payload.Disabled){throw "Verification post-ecriture : etat Enabled/Disabled non conforme."}
-[pscustomobject]@{Verified=$true;Backend=$backend;Message=$(if([bool]$Payload.Disabled){"Compte desactive et verifie."}else{"Compte active et verifie."});Before=$before;After=$after}
+$ReadUtc=[DateTime]::UtcNow.ToString('o')
+[pscustomobject]@{Verified=$true;Backend=$backend;Message=$(if([bool]$Payload.Disabled){"Compte desactive et verifie."}else{"Compte active et verifie."});Before=$before;After=$after;Postcondition=[pscustomobject]@{SentUtc=$SentUtc;Expected=[pscustomobject]@{Server=[string]$Context.Server;Flags=[pscustomobject]@{Disabled=[string][bool]$Payload.Disabled}};Observed=[pscustomobject]@{ReadStatus="OK";Server=[string]$Context.Server;ReadUtc=$ReadUtc;Flags=[pscustomobject]@{Disabled=[string]((([int]$after.Uac) -band 2) -ne 0)}}}}
 '@
         Start-DomeniaWriteTask -Name "$action compte" -OperationId "WriteAccountDisabled" -Code $code -Payload $payload -Plan $plan -PlanChanges $changes -Capability "Account" -DisableControls @("BtnUserEnable","BtnUserDisable","BtnCompEnable","BtnCompDisable") -AfterSuccessAction "RefreshObjectBranch"
     } catch { Show-ErrorBox "Erreur etat du compte : $($_.Exception.Message)" }
@@ -22868,13 +22949,17 @@ function Unlock-UserAccount {
         $payload=[pscustomobject]@{DN=[string]$plan.Target.DN;Safety=$safety}
         $code=@'
 $before=Assert-WObjectFresh $Context $Payload.Safety
-if([int64]$before.Lockout -eq 0){[pscustomobject]@{Verified=$true;Backend="None";Message="Compte deja deverrouille. Aucune ecriture AD.";Before=$before;After=$before};return}
+if([int64]$before.Lockout -eq 0){
+    $ReadUtc=[DateTime]::UtcNow.ToString('o')
+    [pscustomobject]@{Verified=$true;Backend="None";Message="Compte deja deverrouille. Aucune ecriture AD.";Before=$before;After=$before;Postcondition=[pscustomobject]@{SentUtc="";Expected=[pscustomobject]@{Server=[string]$Context.Server;Flags=[pscustomobject]@{Locked="False"}};Observed=[pscustomobject]@{ReadStatus="OK";Server=[string]$Context.Server;ReadUtc=$ReadUtc;Flags=[pscustomobject]@{Locked=[string](([int64]$before.Lockout) -ne 0)}}}};return}
 $backend=Get-WWriteBackend $Context @("Unlock-ADAccount")
-if($backend -eq "Module"){$p=@{Identity=[string]$Payload.DN;ErrorAction="Stop"};if($Context.Server){$p.Server=[string]$Context.Server};$c=Get-WAdCredential $Context;if($c){$p.Credential=$c};$DomeniaWriteDispatched=$true;Unlock-ADAccount @p}
-else{$de=New-WEntry $Context ([string]$Payload.DN);$de.Properties["lockoutTime"].Value=0;$DomeniaWriteDispatched=$true;$de.CommitChanges()}
+$SentUtc=""
+if($backend -eq "Module"){$p=@{Identity=[string]$Payload.DN;ErrorAction="Stop"};if($Context.Server){$p.Server=[string]$Context.Server};$c=Get-WAdCredential $Context;if($c){$p.Credential=$c};$SentUtc=[DateTime]::UtcNow.ToString('o');$DomeniaWriteDispatched=$true;Unlock-ADAccount @p}
+else{$de=New-WEntry $Context ([string]$Payload.DN);$de.Properties["lockoutTime"].Value=0;$SentUtc=[DateTime]::UtcNow.ToString('o');$DomeniaWriteDispatched=$true;$de.CommitChanges()}
 $after=Get-WObjectSnapshot $Context ([string]$Payload.DN)
 if([int64]$after.Lockout -ne 0){throw "Le compte reste verrouille apres l operation."}
-[pscustomobject]@{Verified=$true;Backend=$backend;Message="Compte utilisateur deverrouille et verifie.";Before=$before;After=$after}
+$ReadUtc=[DateTime]::UtcNow.ToString('o')
+[pscustomobject]@{Verified=$true;Backend=$backend;Message="Compte utilisateur deverrouille et verifie.";Before=$before;After=$after;Postcondition=[pscustomobject]@{SentUtc=$SentUtc;Expected=[pscustomobject]@{Server=[string]$Context.Server;Flags=[pscustomobject]@{Locked="False"}};Observed=[pscustomobject]@{ReadStatus="OK";Server=[string]$Context.Server;ReadUtc=$ReadUtc;Flags=[pscustomobject]@{Locked=[string](([int64]$after.Lockout) -ne 0)}}}}
 '@
         Start-DomeniaWriteTask -Name "Deverrouillage utilisateur" -OperationId "WriteUnlock" -Code $code -Payload $payload -Plan $plan -PlanChanges $changes -Capability "Account" -DisableControls @("BtnUserUnlock") -AfterSuccessAction "RefreshObject"
     } catch { Show-ErrorBox "Erreur deverrouillage : $($_.Exception.Message)" }
@@ -22902,14 +22987,31 @@ function Reset-UserPassword {
         $pw = $null
         $code=@'
 $before=Assert-WObjectFresh $Context $Payload.Safety
+$PreviousUtc=$null
+$previousRaw=$null
+try { $previousRaw=Get-WAttributeFirst $Context ([string]$Payload.DN) "pwdLastSet" } catch { }
+if($null -ne $previousRaw){
+    $previousTicks=Convert-WLargeInteger $previousRaw
+    if($previousTicks -gt 0){ try { $PreviousUtc=[DateTime]::FromFileTimeUtc([int64]$previousTicks).ToString('o') } catch { $PreviousUtc=$null } }
+}
 $required=New-Object Collections.ArrayList;[void]$required.Add("Set-ADAccountPassword");if([bool]$Payload.Unlock){[void]$required.Add("Unlock-ADAccount")};if([bool]$Payload.MustChange){[void]$required.Add("Set-ADUser")}
 $backend=Get-WWriteBackend $Context @($required)
 $steps=New-Object Collections.ArrayList
+$SentUtc=""
+$PwdLastSetUtc=$null
+$PwdReadStatus="OK"
 if($backend -eq "Module"){
     $base=@{Identity=[string]$Payload.DN;ErrorAction="Stop"};if($Context.Server){$base.Server=[string]$Context.Server};$cred=Get-WAdCredential $Context;if($cred){$base.Credential=$cred}
     $p=@{};foreach($k in $base.Keys){$p[$k]=$base[$k]};$p.Reset=$true;$p.NewPassword=[System.Security.SecureString]$Payload.SecurePassword
+    $SentUtc=[DateTime]::UtcNow.ToString('o')
     $DomeniaWriteDispatched=$true
     Set-ADAccountPassword @p;[void]$steps.Add("mot de passe reinitialise")
+    $pwdRaw=$null
+    try { $pwdRaw=Get-WAttributeFirst $Context ([string]$Payload.DN) "pwdLastSet" } catch { $PwdReadStatus="Unavailable" }
+    if($PwdReadStatus -eq "OK" -and $null -ne $pwdRaw){
+        $pwdTicks=Convert-WLargeInteger $pwdRaw
+        if($pwdTicks -gt 0){ try { $PwdLastSetUtc=[DateTime]::FromFileTimeUtc([int64]$pwdTicks).ToString('o') } catch { $PwdLastSetUtc=$null } }
+    }
     if([bool]$Payload.Unlock){try{Unlock-ADAccount @base;[void]$steps.Add("compte deverrouille")}catch{[void]$steps.Add("deverrouillage en echec : $($_.Exception.Message)")}}
     if([bool]$Payload.MustChange){try{$u=@{};foreach($k in $base.Keys){$u[$k]=$base[$k]};$u.ChangePasswordAtLogon=$true;Set-ADUser @u;[void]$steps.Add("changement impose au prochain logon")}catch{[void]$steps.Add("option prochain logon en echec : $($_.Exception.Message)")}}
 }else{
@@ -22917,8 +23019,15 @@ if($backend -eq "Module"){
     $plainPassword=""
     try {
         $plainPassword=[System.Net.NetworkCredential]::new("",[System.Security.SecureString]$Payload.SecurePassword).Password
+        $SentUtc=[DateTime]::UtcNow.ToString('o')
         $DomeniaWriteDispatched=$true
         $de.Invoke("SetPassword",$plainPassword)|Out-Null;[void]$steps.Add("mot de passe reinitialise")
+        $pwdRaw=$null
+        try { $pwdRaw=Get-WAttributeFirst $Context ([string]$Payload.DN) "pwdLastSet" } catch { $PwdReadStatus="Unavailable" }
+        if($PwdReadStatus -eq "OK" -and $null -ne $pwdRaw){
+            $pwdTicks=Convert-WLargeInteger $pwdRaw
+            if($pwdTicks -gt 0){ try { $PwdLastSetUtc=[DateTime]::FromFileTimeUtc([int64]$pwdTicks).ToString('o') } catch { $PwdLastSetUtc=$null } }
+        }
     }
     finally { $plainPassword="" }
     if([bool]$Payload.Unlock){try{$de.Properties["lockoutTime"].Value=0;[void]$steps.Add("compte deverrouille")}catch{[void]$steps.Add("deverrouillage en echec : $($_.Exception.Message)")}}
@@ -22927,7 +23036,8 @@ if($backend -eq "Module"){
 }
 $after=Get-WObjectSnapshot $Context ([string]$Payload.DN)
 if(-not [bool]$after.Exists){throw "Objet introuvable apres le reset."}
-[pscustomobject]@{Verified=$true;Backend=$backend;Message=("Reset accepte par le DC ; "+($steps -join " ; "));Before=$before;After=$after;Partial=(@($steps|Where-Object{$_ -match "echec"}).Count -gt 0)}
+$ReadUtc=[DateTime]::UtcNow.ToString('o')
+[pscustomobject]@{Verified=$true;Backend=$backend;Message=("Reset accepte par le DC ; "+($steps -join " ; "));Before=$before;After=$after;Partial=(@($steps|Where-Object{$_ -match "echec"}).Count -gt 0);Postcondition=[pscustomobject]@{SentUtc=$SentUtc;Expected=[pscustomobject]@{Server=[string]$Context.Server;PreviousUtc=$PreviousUtc};Observed=[pscustomobject]@{ReadStatus=$PwdReadStatus;Server=[string]$Context.Server;ReadUtc=$ReadUtc;PwdLastSetUtc=$PwdLastSetUtc}}}
 '@
         Start-DomeniaWriteTask -Name "Reset mot de passe" -OperationId "WriteResetPassword" -Code $code -Payload $payload -Plan $plan -PlanChanges $changes -Capability "Password" -DisableControls @("BtnUserResetPwd") -AfterSuccessAction "ResetPassword"
         $securePassword = $null
@@ -22971,17 +23081,32 @@ function Apply-UserAccountOptions {
         $code=@'
 $before=Assert-WObjectFresh $Context $Payload.Safety
 $backend=Get-WWriteBackend $Context @("Set-ADAccountControl")
+$SentUtc=""
 if($backend -eq "Module"){
     $p=@{Identity=[string]$Payload.DN;ErrorAction="Stop"};if($Context.Server){$p.Server=[string]$Context.Server};$c=Get-WAdCredential $Context;if($c){$p.Credential=$c}
     foreach($prop in $Payload.Options.PSObject.Properties){$p[$prop.Name]=[bool]$prop.Value}
+    $SentUtc=[DateTime]::UtcNow.ToString('o')
     $DomeniaWriteDispatched=$true
     Set-ADAccountControl @p
 }else{
-    $de=New-WEntry $Context ([string]$Payload.DN);$de.Properties["userAccountControl"].Value=[int]$Payload.TargetUac;$DomeniaWriteDispatched=$true;$de.CommitChanges()
+    $de=New-WEntry $Context ([string]$Payload.DN);$de.Properties["userAccountControl"].Value=[int]$Payload.TargetUac;$SentUtc=[DateTime]::UtcNow.ToString('o');$DomeniaWriteDispatched=$true;$de.CommitChanges()
 }
 $after=Get-WObjectSnapshot $Context ([string]$Payload.DN)
-foreach($prop in $Payload.Options.PSObject.Properties){$mask=[int]$Payload.Masks.($prop.Name);$actual=(([int]$after.Uac -band $mask) -ne 0);if($actual -ne [bool]$prop.Value){throw "Verification UAC echouee pour $($prop.Name)."}}
-[pscustomobject]@{Verified=$true;Backend=$backend;Message="Options UAC appliquees et verifiees.";Before=$before;After=$after}
+$expectedFlags=@{}
+$observedFlags=@{}
+foreach($maskProp in $Payload.Masks.PSObject.Properties){
+    $name=[string]$maskProp.Name
+    $mask=[int]$maskProp.Value
+    $target=$false
+    try { $target=[bool]$Payload.Options.($name) } catch { $target=(([int]$Payload.TargetUac -band $mask) -ne 0) }
+    $expectedBool=(([int]$Payload.TargetUac -band $mask) -ne 0)
+    $observedBool=(([int]$after.Uac -band $mask) -ne 0)
+    $expectedFlags[$name]=[string]$expectedBool
+    $observedFlags[$name]=[string]$observedBool
+    if($observedBool -ne $target){throw "Verification UAC echouee pour $name."}
+}
+$ReadUtc=[DateTime]::UtcNow.ToString('o')
+[pscustomobject]@{Verified=$true;Backend=$backend;Message="Options UAC appliquees et verifiees.";Before=$before;After=$after;Postcondition=[pscustomobject]@{SentUtc=$SentUtc;Expected=[pscustomobject]@{Server=[string]$Context.Server;Flags=$expectedFlags};Observed=[pscustomobject]@{ReadStatus="OK";Server=[string]$Context.Server;ReadUtc=$ReadUtc;Flags=$observedFlags}}}
 '@
         Start-DomeniaWriteTask -Name "Options du compte" -OperationId "WriteAccountOptions" -Code $code -Payload $payload -Plan $plan -PlanChanges $changes -Capability "Account" -DisableControls @("BtnApplyAccountOptions") -AfterSuccessAction "RefreshObject"
     } catch { Show-ErrorBox "Erreur options compte : $($_.Exception.Message)" }
@@ -23015,13 +23140,18 @@ function Set-UserExpiration {
 $before=Assert-WObjectFresh $Context $Payload.Safety
 $command=if([bool]$Payload.Never){"Clear-ADAccountExpiration"}else{"Set-ADAccountExpiration"}
 $backend=Get-WWriteBackend $Context @($command)
+$SentUtc=""
+$ExpectedValue="0"
 if($backend -eq "Module"){
     $p=@{Identity=[string]$Payload.DN;ErrorAction="Stop"};if($Context.Server){$p.Server=[string]$Context.Server};$c=Get-WAdCredential $Context;if($c){$p.Credential=$c}
+    if([bool]$Payload.Never){$ExpectedValue="0"}else{$dt=[datetime]::Parse([string]$Payload.Date);$ExpectedValue=[string]$dt.ToUniversalTime().ToFileTimeUtc();$p.DateTime=$dt}
+    $SentUtc=[DateTime]::UtcNow.ToString('o')
     $DomeniaWriteDispatched=$true
-    if([bool]$Payload.Never){Clear-ADAccountExpiration @p}else{$p.DateTime=[datetime]::Parse([string]$Payload.Date);Set-ADAccountExpiration @p}
+    if([bool]$Payload.Never){Clear-ADAccountExpiration @p}else{Set-ADAccountExpiration @p}
 }else{
     $de=New-WEntry $Context ([string]$Payload.DN)
-    if([bool]$Payload.Never){$de.Properties["accountExpires"].Value=0}else{$dt=[datetime]::Parse([string]$Payload.Date);$de.Properties["accountExpires"].Value=$dt.ToUniversalTime().ToFileTimeUtc()}
+    if([bool]$Payload.Never){$ExpectedValue="0";$de.Properties["accountExpires"].Value=0}else{$dt=[datetime]::Parse([string]$Payload.Date);$ExpectedValue=[string]$dt.ToUniversalTime().ToFileTimeUtc();$de.Properties["accountExpires"].Value=$dt.ToUniversalTime().ToFileTimeUtc()}
+    $SentUtc=[DateTime]::UtcNow.ToString('o')
     $DomeniaWriteDispatched=$true
     $de.CommitChanges()
 }
@@ -23035,7 +23165,13 @@ else{
     if($actualDate -ne $expectedDate){throw "Date d expiration relue $($actualDate.ToString('dd/MM/yyyy')) au lieu de $($expectedDate.ToString('dd/MM/yyyy'))."}
 }
 $after=Get-WObjectSnapshot $Context ([string]$Payload.DN)
-[pscustomobject]@{Verified=$true;Backend=$backend;Message=$(if([bool]$Payload.Never){"Expiration du compte supprimee et verifiee."}else{"Expiration du compte definie et verifiee."});Before=$before;After=$after}
+# Compared by local day, like the check above: 0 and 9223372036854775807 both mean "never".
+$ExpectedValue="Jamais"
+if(-not [bool]$Payload.Never){$ExpectedValue=([datetime]::Parse([string]$Payload.Date)).Date.ToString("yyyy-MM-dd")}
+$observedAccountExpires=$null
+if($null -ne $actual){if($i -eq 0 -or $i -eq 9223372036854775807){$observedAccountExpires="Jamais"}else{$observedAccountExpires=[datetime]::FromFileTimeUtc([int64]$i).ToLocalTime().Date.ToString("yyyy-MM-dd")}}
+$ReadUtc=[DateTime]::UtcNow.ToString('o')
+[pscustomobject]@{Verified=$true;Backend=$backend;Message=$(if([bool]$Payload.Never){"Expiration du compte supprimee et verifiee."}else{"Expiration du compte definie et verifiee."});Before=$before;After=$after;Postcondition=[pscustomobject]@{SentUtc=$SentUtc;Expected=[pscustomobject]@{Server=[string]$Context.Server;Values=@{accountExpires=$ExpectedValue}};Observed=[pscustomobject]@{ReadStatus="OK";Server=[string]$Context.Server;ReadUtc=$ReadUtc;Values=@{accountExpires=$observedAccountExpires}}}}
 '@
         Start-DomeniaWriteTask -Name "Expiration utilisateur" -OperationId "WriteExpiration" -Code $code -Payload $payload -Plan $plan -PlanChanges $changes -Capability "Account" -DisableControls @("BtnSetExpiration","BtnNeverExpires") -AfterSuccessAction "RefreshObject"
     } catch { Show-ErrorBox "Erreur expiration : $($_.Exception.Message)" }
@@ -23055,12 +23191,17 @@ function Expire-UserPasswordNow {
         $code=@'
 $before=Assert-WObjectFresh $Context $Payload.Safety
 $backend=Get-WWriteBackend $Context @("Set-ADUser")
-if($backend -eq "Module"){$p=@{Identity=[string]$Payload.DN;ChangePasswordAtLogon=$true;ErrorAction="Stop"};if($Context.Server){$p.Server=[string]$Context.Server};$c=Get-WAdCredential $Context;if($c){$p.Credential=$c};$DomeniaWriteDispatched=$true;Set-ADUser @p}
-else{$de=New-WEntry $Context ([string]$Payload.DN);$de.Properties["pwdLastSet"].Value=0;$DomeniaWriteDispatched=$true;$de.CommitChanges()}
-$actual=Convert-WLargeInteger (Get-WAttributeFirst $Context ([string]$Payload.DN) "pwdLastSet")
+$SentUtc=""
+if($backend -eq "Module"){$p=@{Identity=[string]$Payload.DN;ChangePasswordAtLogon=$true;ErrorAction="Stop"};if($Context.Server){$p.Server=[string]$Context.Server};$c=Get-WAdCredential $Context;if($c){$p.Credential=$c};$SentUtc=[DateTime]::UtcNow.ToString('o');$DomeniaWriteDispatched=$true;Set-ADUser @p}
+else{$de=New-WEntry $Context ([string]$Payload.DN);$de.Properties["pwdLastSet"].Value=0;$SentUtc=[DateTime]::UtcNow.ToString('o');$DomeniaWriteDispatched=$true;$de.CommitChanges()}
+$raw=Get-WAttributeFirst $Context ([string]$Payload.DN) "pwdLastSet"
+$actual=Convert-WLargeInteger $raw
 if($actual -ne 0){throw "pwdLastSet n est pas a zero apres l operation."}
 $after=Get-WObjectSnapshot $Context ([string]$Payload.DN)
-[pscustomobject]@{Verified=$true;Backend=$backend;Message="Changement du mot de passe impose au prochain logon.";Before=$before;After=$after}
+$observedPwdLastSet=$null
+if($null -ne $raw){$observedPwdLastSet=[string]$actual}
+$ReadUtc=[DateTime]::UtcNow.ToString('o')
+[pscustomobject]@{Verified=$true;Backend=$backend;Message="Changement du mot de passe impose au prochain logon.";Before=$before;After=$after;Postcondition=[pscustomobject]@{SentUtc=$SentUtc;Expected=[pscustomobject]@{Server=[string]$Context.Server;Values=@{pwdLastSet="0"}};Observed=[pscustomobject]@{ReadStatus="OK";Server=[string]$Context.Server;ReadUtc=$ReadUtc;Values=@{pwdLastSet=$observedPwdLastSet}}}}
 '@
         Start-DomeniaWriteTask -Name "Expiration immediate du mot de passe" -OperationId "WriteExpirePassword" -Code $code -Payload $payload -Plan $plan -PlanChanges $changes -Capability "Account" -DisableControls @("BtnExpirePwdNow") -AfterSuccessAction "RefreshObject"
     } catch { Show-ErrorBox "Erreur expiration mot de passe : $($_.Exception.Message)" }
@@ -23093,15 +23234,19 @@ $target=Get-WObjectSnapshot $Context ([string]$Payload.TargetDn)
 if(-not [bool]$target.Exists){throw "OU ou conteneur cible introuvable."}
 if(-not (@($target.Classes) -contains "organizationalUnit") -and -not (@($target.Classes) -contains "container") -and -not (@($target.Classes) -contains "domainDNS")){throw "La cible n est pas une OU ou un conteneur AD."}
 $currentParent=Get-WParentDn ([string]$before.DN)
-if($currentParent -ieq [string]$Payload.TargetDn){[pscustomobject]@{Verified=$true;Backend="None";Message="Objet deja dans cette branche. Aucune ecriture AD.";NewDn=[string]$before.DN;Before=$before;After=$before};return}
+if($currentParent -ieq [string]$Payload.TargetDn){
+    $ReadUtc=[DateTime]::UtcNow.ToString('o')
+    [pscustomobject]@{Verified=$true;Backend="None";Message="Objet deja dans cette branche. Aucune ecriture AD.";NewDn=[string]$before.DN;Before=$before;After=$before;Postcondition=[pscustomobject]@{SentUtc="";Expected=[pscustomobject]@{Server=[string]$Context.Server;Guid=[string]$before.Guid;NewDn=[string]$before.DN};Observed=[pscustomobject]@{ReadStatus="OK";Server=[string]$Context.Server;ReadUtc=$ReadUtc;Guid=[string]$before.Guid;DN=[string]$before.DN}}};return}
 $backend=Get-WWriteBackend $Context @("Move-ADObject")
 $newDn=""
-if($backend -eq "Module"){$p=@{Identity=[string]$Payload.DN;TargetPath=[string]$Payload.TargetDn;PassThru=$true;ErrorAction="Stop"};if($Context.Server){$p.Server=[string]$Context.Server};$c=Get-WAdCredential $Context;if($c){$p.Credential=$c};$DomeniaWriteDispatched=$true;$o=Move-ADObject @p;$newDn=[string]$o.DistinguishedName}
-else{$de=New-WEntry $Context ([string]$Payload.DN);$t=New-WEntry $Context ([string]$Payload.TargetDn);$DomeniaWriteDispatched=$true;$de.MoveTo($t);$de.CommitChanges();$de.RefreshCache(@("distinguishedName"));$newDn=[string]$de.Properties["distinguishedName"].Value}
+$SentUtc=""
+if($backend -eq "Module"){$p=@{Identity=[string]$Payload.DN;TargetPath=[string]$Payload.TargetDn;PassThru=$true;ErrorAction="Stop"};if($Context.Server){$p.Server=[string]$Context.Server};$c=Get-WAdCredential $Context;if($c){$p.Credential=$c};$SentUtc=[DateTime]::UtcNow.ToString('o');$DomeniaWriteDispatched=$true;$o=Move-ADObject @p;$newDn=[string]$o.DistinguishedName}
+else{$de=New-WEntry $Context ([string]$Payload.DN);$t=New-WEntry $Context ([string]$Payload.TargetDn);$SentUtc=[DateTime]::UtcNow.ToString('o');$DomeniaWriteDispatched=$true;$de.MoveTo($t);$de.CommitChanges();$de.RefreshCache(@("distinguishedName"));$newDn=[string]$de.Properties["distinguishedName"].Value}
 if([string]::IsNullOrWhiteSpace($newDn)){throw "Le DC n a pas retourne le nouveau DN."}
 $after=Get-WObjectSnapshot $Context $newDn
 if(-not [bool]$after.Exists -or -not ([string]$after.DN).EndsWith(","+[string]$Payload.TargetDn,[System.StringComparison]::OrdinalIgnoreCase)){throw "Verification du deplacement echouee : $newDn"}
-[pscustomobject]@{Verified=$true;Backend=$backend;Message="Objet deplace et verifie.";NewDn=$newDn;Before=$before;After=$after}
+$ReadUtc=[DateTime]::UtcNow.ToString('o')
+[pscustomobject]@{Verified=$true;Backend=$backend;Message="Objet deplace et verifie.";NewDn=$newDn;Before=$before;After=$after;Postcondition=[pscustomobject]@{SentUtc=$SentUtc;Expected=[pscustomobject]@{Server=[string]$Context.Server;Guid=[string]$before.Guid;NewDn=$newDn};Observed=[pscustomobject]@{ReadStatus="OK";Server=[string]$Context.Server;ReadUtc=$ReadUtc;Guid=[string]$after.Guid;DN=[string]$after.DN}}}
 '@
         Start-DomeniaWriteTask -Name "Deplacement objet AD" -OperationId "WriteMoveObject" -Code $code -Payload $payload -Plan $plan -PlanChanges $changes -Capability "Move" -DisableControls @("BtnUserMove") -AfterSuccessAction "UpdateDnRefreshObjectBranch"
     } catch { Show-ErrorBox "Erreur deplacement : $($_.Exception.Message)" }
@@ -23131,14 +23276,25 @@ $gdn=Resolve-WGroupDn $Context ([string]$Payload.GroupValue)
 $gs=Get-WObjectSnapshot $Context $gdn
 if([bool]$Context.BlockProtectedObjects -and -not [bool]$Context.AllowProtectedObjectWrites -and (Test-WProtectedSnapshot $gs)){throw "Groupe protege : modification d appartenance bloquee."}
 $member=Test-WDirectMembership $Context $gdn ([string]$Payload.ObjectDn)
-if($member -eq [bool]$Payload.Add){[pscustomobject]@{Verified=$true;Backend="None";Message=$(if([bool]$Payload.Add){"Objet deja membre direct. Aucune ecriture AD."}else{"Objet non membre direct. Aucune ecriture AD."});GroupDn=$gdn;Before=$before;After=$before};return}
+if($member -eq [bool]$Payload.Add){
+    $ReadUtc=[DateTime]::UtcNow.ToString('o')
+    $members=@()
+    if($member){$members=@([string]$Payload.ObjectDn)}
+    if([bool]$Payload.Add){$expectedMembership=[pscustomobject]@{Server=[string]$Context.Server;Add=@([string]$Payload.ObjectDn)}}else{$expectedMembership=[pscustomobject]@{Server=[string]$Context.Server;Remove=@([string]$Payload.ObjectDn)}}
+    [pscustomobject]@{Verified=$true;Backend="None";Message=$(if([bool]$Payload.Add){"Objet deja membre direct. Aucune ecriture AD."}else{"Objet non membre direct. Aucune ecriture AD."});GroupDn=$gdn;Before=$before;After=$before;Postcondition=[pscustomobject]@{SentUtc="";Expected=$expectedMembership;Observed=[pscustomobject]@{ReadStatus="OK";Server=[string]$Context.Server;ReadUtc=$ReadUtc;Members=$members}}};return}
 $command=if([bool]$Payload.Add){"Add-ADGroupMember"}else{"Remove-ADGroupMember"}
 $backend=Get-WWriteBackend $Context @($command)
-if($backend -eq "Module"){$p=@{Identity=$gdn;Members=[string]$Payload.ObjectDn;Confirm=$false;ErrorAction="Stop"};if($Context.Server){$p.Server=[string]$Context.Server};$c=Get-WAdCredential $Context;if($c){$p.Credential=$c};$DomeniaWriteDispatched=$true;if([bool]$Payload.Add){Add-ADGroupMember @p}else{Remove-ADGroupMember @p}}
-else{$g=New-WEntry $Context $gdn;$objPath=Get-WLdapPath $Context ([string]$Payload.ObjectDn);$DomeniaWriteDispatched=$true;if([bool]$Payload.Add){$g.Invoke("Add",$objPath)|Out-Null}else{$g.Invoke("Remove",$objPath)|Out-Null};$g.CommitChanges()}
+$SentUtc=""
+if($backend -eq "Module"){$p=@{Identity=$gdn;Members=[string]$Payload.ObjectDn;Confirm=$false;ErrorAction="Stop"};if($Context.Server){$p.Server=[string]$Context.Server};$c=Get-WAdCredential $Context;if($c){$p.Credential=$c};$SentUtc=[DateTime]::UtcNow.ToString('o');$DomeniaWriteDispatched=$true;if([bool]$Payload.Add){Add-ADGroupMember @p}else{Remove-ADGroupMember @p}}
+else{$g=New-WEntry $Context $gdn;$objPath=Get-WLdapPath $Context ([string]$Payload.ObjectDn);$SentUtc=[DateTime]::UtcNow.ToString('o');$DomeniaWriteDispatched=$true;if([bool]$Payload.Add){$g.Invoke("Add",$objPath)|Out-Null}else{$g.Invoke("Remove",$objPath)|Out-Null};$g.CommitChanges()}
+$members=@()
+$readStatus="OK"
 $afterMember=Test-WDirectMembership $Context $gdn ([string]$Payload.ObjectDn)
+if($afterMember){$members=@([string]$Payload.ObjectDn)}
 if($afterMember -ne [bool]$Payload.Add){throw "Verification de l appartenance directe au groupe echouee."}
-[pscustomobject]@{Verified=$true;Backend=$backend;Message=$(if([bool]$Payload.Add){"Objet ajoute au groupe et verifie."}else{"Objet retire du groupe et verifie."});GroupDn=$gdn;Before=$before;After=(Get-WObjectSnapshot $Context ([string]$Payload.ObjectDn))}
+if([bool]$Payload.Add){$expectedMembership=[pscustomobject]@{Server=[string]$Context.Server;Add=@([string]$Payload.ObjectDn)}}else{$expectedMembership=[pscustomobject]@{Server=[string]$Context.Server;Remove=@([string]$Payload.ObjectDn)}}
+$ReadUtc=[DateTime]::UtcNow.ToString('o')
+[pscustomobject]@{Verified=$true;Backend=$backend;Message=$(if([bool]$Payload.Add){"Objet ajoute au groupe et verifie."}else{"Objet retire du groupe et verifie."});GroupDn=$gdn;Before=$before;After=(Get-WObjectSnapshot $Context ([string]$Payload.ObjectDn));Postcondition=[pscustomobject]@{SentUtc=$SentUtc;Expected=$expectedMembership;Observed=[pscustomobject]@{ReadStatus=$readStatus;Server=[string]$Context.Server;ReadUtc=$ReadUtc;Members=$members}}}
 '@
         Start-DomeniaWriteTask -Name "$verb AD" -OperationId "WriteObjectGroup" -Code $code -Payload $payload -Plan $plan -PlanChanges $changes -Capability "Group" -DisableControls @("BtnUserAddGroup","BtnUserRemoveGroup","BtnCompAddGroup","BtnCompRemoveGroup") -AfterSuccessAction "RefreshObject"
     } catch { Show-ErrorBox "Erreur groupe : $($_.Exception.Message)" }
@@ -23166,14 +23322,25 @@ function AddOrRemoveGroupMember {
 $before=Assert-WObjectFresh $Context $Payload.Safety
 $odn=Resolve-WObjectDn $Context ([string]$Payload.ObjectValue)
 $member=Test-WDirectMembership $Context ([string]$Payload.GroupDn) $odn
-if($member -eq [bool]$Payload.Add){[pscustomobject]@{Verified=$true;Backend="None";Message=$(if([bool]$Payload.Add){"Membre deja present directement. Aucune ecriture AD."}else{"Membre deja absent directement. Aucune ecriture AD."});ObjectDn=$odn;Before=$before;After=$before};return}
+if($member -eq [bool]$Payload.Add){
+    $ReadUtc=[DateTime]::UtcNow.ToString('o')
+    $members=@()
+    if($member){$members=@($odn)}
+    if([bool]$Payload.Add){$expectedMembership=[pscustomobject]@{Server=[string]$Context.Server;Add=@($odn)}}else{$expectedMembership=[pscustomobject]@{Server=[string]$Context.Server;Remove=@($odn)}}
+    [pscustomobject]@{Verified=$true;Backend="None";Message=$(if([bool]$Payload.Add){"Membre deja present directement. Aucune ecriture AD."}else{"Membre deja absent directement. Aucune ecriture AD."});ObjectDn=$odn;Before=$before;After=$before;Postcondition=[pscustomobject]@{SentUtc="";Expected=$expectedMembership;Observed=[pscustomobject]@{ReadStatus="OK";Server=[string]$Context.Server;ReadUtc=$ReadUtc;Members=$members}}};return}
 $command=if([bool]$Payload.Add){"Add-ADGroupMember"}else{"Remove-ADGroupMember"}
 $backend=Get-WWriteBackend $Context @($command)
-if($backend -eq "Module"){$p=@{Identity=[string]$Payload.GroupDn;Members=$odn;Confirm=$false;ErrorAction="Stop"};if($Context.Server){$p.Server=[string]$Context.Server};$c=Get-WAdCredential $Context;if($c){$p.Credential=$c};$DomeniaWriteDispatched=$true;if([bool]$Payload.Add){Add-ADGroupMember @p}else{Remove-ADGroupMember @p}}
-else{$g=New-WEntry $Context ([string]$Payload.GroupDn);$objPath=Get-WLdapPath $Context $odn;$DomeniaWriteDispatched=$true;if([bool]$Payload.Add){$g.Invoke("Add",$objPath)|Out-Null}else{$g.Invoke("Remove",$objPath)|Out-Null};$g.CommitChanges()}
+$SentUtc=""
+if($backend -eq "Module"){$p=@{Identity=[string]$Payload.GroupDn;Members=$odn;Confirm=$false;ErrorAction="Stop"};if($Context.Server){$p.Server=[string]$Context.Server};$c=Get-WAdCredential $Context;if($c){$p.Credential=$c};$SentUtc=[DateTime]::UtcNow.ToString('o');$DomeniaWriteDispatched=$true;if([bool]$Payload.Add){Add-ADGroupMember @p}else{Remove-ADGroupMember @p}}
+else{$g=New-WEntry $Context ([string]$Payload.GroupDn);$objPath=Get-WLdapPath $Context $odn;$SentUtc=[DateTime]::UtcNow.ToString('o');$DomeniaWriteDispatched=$true;if([bool]$Payload.Add){$g.Invoke("Add",$objPath)|Out-Null}else{$g.Invoke("Remove",$objPath)|Out-Null};$g.CommitChanges()}
+$members=@()
+$readStatus="OK"
 $afterMember=Test-WDirectMembership $Context ([string]$Payload.GroupDn) $odn
+if($afterMember){$members=@($odn)}
 if($afterMember -ne [bool]$Payload.Add){throw "Verification de l appartenance directe au groupe echouee."}
-[pscustomobject]@{Verified=$true;Backend=$backend;Message=$(if([bool]$Payload.Add){"Membre ajoute et verifie."}else{"Membre retire et verifie."});ObjectDn=$odn;Before=$before;After=(Get-WObjectSnapshot $Context ([string]$Payload.GroupDn))}
+if([bool]$Payload.Add){$expectedMembership=[pscustomobject]@{Server=[string]$Context.Server;Add=@($odn)}}else{$expectedMembership=[pscustomobject]@{Server=[string]$Context.Server;Remove=@($odn)}}
+$ReadUtc=[DateTime]::UtcNow.ToString('o')
+[pscustomobject]@{Verified=$true;Backend=$backend;Message=$(if([bool]$Payload.Add){"Membre ajoute et verifie."}else{"Membre retire et verifie."});ObjectDn=$odn;Before=$before;After=(Get-WObjectSnapshot $Context ([string]$Payload.GroupDn));Postcondition=[pscustomobject]@{SentUtc=$SentUtc;Expected=$expectedMembership;Observed=[pscustomobject]@{ReadStatus=$readStatus;Server=[string]$Context.Server;ReadUtc=$ReadUtc;Members=$members}}}
 '@
         Start-DomeniaWriteTask -Name "$verb au groupe" -OperationId "WriteGroupMember" -Code $code -Payload $payload -Plan $plan -PlanChanges $changes -Capability "Group" -DisableControls @("BtnGroupAddMember","BtnGroupRemoveMember") -AfterSuccessAction "GroupMemberRefreshObject"
     } catch { Show-ErrorBox "Erreur membre groupe : $($_.Exception.Message)" }
@@ -23198,14 +23365,18 @@ function Rename-ComputerObject {
         $payload=[pscustomobject]@{DN=[string]$plan.Target.DN;NewName=$newName;Safety=$safety}
         $code=@'
 $before=Assert-WObjectFresh $Context $Payload.Safety
-if([string]$before.Name -ieq [string]$Payload.NewName){[pscustomobject]@{Verified=$true;Backend="None";Message="Nom deja conforme. Aucune ecriture AD.";NewDn=[string]$before.DN;Before=$before;After=$before};return}
+if([string]$before.Name -ieq [string]$Payload.NewName){
+    $ReadUtc=[DateTime]::UtcNow.ToString('o')
+    [pscustomobject]@{Verified=$true;Backend="None";Message="Nom deja conforme. Aucune ecriture AD.";NewDn=[string]$before.DN;Before=$before;After=$before;Postcondition=[pscustomobject]@{SentUtc="";Expected=[pscustomobject]@{Server=[string]$Context.Server;Guid=[string]$before.Guid;NewDn=[string]$before.DN};Observed=[pscustomobject]@{ReadStatus="OK";Server=[string]$Context.Server;ReadUtc=$ReadUtc;Guid=[string]$before.Guid;DN=[string]$before.DN}}};return}
 $backend=Get-WWriteBackend $Context @("Rename-ADObject")
 $newDn=""
-if($backend -eq "Module"){$p=@{Identity=[string]$Payload.DN;NewName=[string]$Payload.NewName;PassThru=$true;ErrorAction="Stop"};if($Context.Server){$p.Server=[string]$Context.Server};$c=Get-WAdCredential $Context;if($c){$p.Credential=$c};$DomeniaWriteDispatched=$true;$o=Rename-ADObject @p;$newDn=[string]$o.DistinguishedName}
-else{$de=New-WEntry $Context ([string]$Payload.DN);$DomeniaWriteDispatched=$true;$de.Rename("CN="+(Escape-WRdn ([string]$Payload.NewName)));$de.CommitChanges();$de.RefreshCache(@("distinguishedName"));$newDn=[string]$de.Properties["distinguishedName"].Value}
+$SentUtc=""
+if($backend -eq "Module"){$p=@{Identity=[string]$Payload.DN;NewName=[string]$Payload.NewName;PassThru=$true;ErrorAction="Stop"};if($Context.Server){$p.Server=[string]$Context.Server};$c=Get-WAdCredential $Context;if($c){$p.Credential=$c};$SentUtc=[DateTime]::UtcNow.ToString('o');$DomeniaWriteDispatched=$true;$o=Rename-ADObject @p;$newDn=[string]$o.DistinguishedName}
+else{$de=New-WEntry $Context ([string]$Payload.DN);$SentUtc=[DateTime]::UtcNow.ToString('o');$DomeniaWriteDispatched=$true;$de.Rename("CN="+(Escape-WRdn ([string]$Payload.NewName)));$de.CommitChanges();$de.RefreshCache(@("distinguishedName"));$newDn=[string]$de.Properties["distinguishedName"].Value}
 $after=Get-WObjectSnapshot $Context $newDn
 if(-not [bool]$after.Exists -or [string]$after.Name -ine [string]$Payload.NewName){throw "Verification du renommage echouee."}
-[pscustomobject]@{Verified=$true;Backend=$backend;Message="Objet ordinateur renomme et verifie.";NewDn=$newDn;Before=$before;After=$after}
+$ReadUtc=[DateTime]::UtcNow.ToString('o')
+[pscustomobject]@{Verified=$true;Backend=$backend;Message="Objet ordinateur renomme et verifie.";NewDn=$newDn;Before=$before;After=$after;Postcondition=[pscustomobject]@{SentUtc=$SentUtc;Expected=[pscustomobject]@{Server=[string]$Context.Server;Guid=[string]$before.Guid;NewDn=$newDn};Observed=[pscustomobject]@{ReadStatus="OK";Server=[string]$Context.Server;ReadUtc=$ReadUtc;Guid=[string]$after.Guid;DN=[string]$after.DN}}}
 '@
         Start-DomeniaWriteTask -Name "Renommage machine AD" -OperationId "WriteRenameComputer" -Code $code -Payload $payload -Plan $plan -PlanChanges $changes -Capability "Move" -DisableControls @("BtnCompRename") -AfterSuccessAction "RenameComputer"
     } catch { Show-ErrorBox "Erreur renommage : $($_.Exception.Message)" }
@@ -23230,13 +23401,16 @@ $check=New-WSearcher $Context ([string]$Payload.ParentDn) "(&(objectClass=organi
 if(@($check.FindAll()).Count -gt 0){throw "Une OU portant deja ce nom existe sous la branche cible."}
 $backend=Get-WWriteBackend $Context @("New-ADOrganizationalUnit")
 $dn=""
+$SentUtc=""
 if($backend -eq "Module"){
     $p=@{Name=[string]$Payload.Name;Path=[string]$Payload.ParentDn;ProtectedFromAccidentalDeletion=$true;PassThru=$true;ErrorAction="Stop"}
     if($Context.Server){$p.Server=[string]$Context.Server};$c=Get-WAdCredential $Context;if($c){$p.Credential=$c}
+    $SentUtc=[DateTime]::UtcNow.ToString('o')
     $DomeniaWriteDispatched=$true
     $o=New-ADOrganizationalUnit @p;$dn=[string]$o.DistinguishedName
 }else{
     $de=New-WEntry $Context ([string]$Payload.ParentDn)
+    $SentUtc=[DateTime]::UtcNow.ToString('o')
     $DomeniaWriteDispatched=$true
     $ou=$de.Children.Add("OU="+(Escape-WRdn ([string]$Payload.Name)),"organizationalUnit")
     $ou.CommitChanges();$ou.RefreshCache(@("distinguishedName"));$dn=[string]$ou.Properties["distinguishedName"].Value
@@ -23244,7 +23418,8 @@ if($backend -eq "Module"){
 if([string]::IsNullOrWhiteSpace($dn)){$dn="OU="+(Escape-WRdn ([string]$Payload.Name))+","+[string]$Payload.ParentDn}
 $after=Get-WObjectSnapshot $Context $dn
 if(-not [bool]$after.Exists -or -not (@($after.Classes) -contains "organizationalUnit")){throw "La verification de l OU creee a echoue."}
-[pscustomobject]@{Verified=$true;Backend=$backend;Message=$(if($backend -eq "Module"){"OU creee, protegee et verifiee : $dn"}else{"OU creee et verifiee via ADSI : $dn. La protection contre suppression accidentelle necessite le module AD."});DN=$dn;Before=$parent;After=$after}
+$ReadUtc=[DateTime]::UtcNow.ToString('o')
+[pscustomobject]@{Verified=$true;Backend=$backend;Message=$(if($backend -eq "Module"){"OU creee, protegee et verifiee : $dn"}else{"OU creee et verifiee via ADSI : $dn. La protection contre suppression accidentelle necessite le module AD."});DN=$dn;Before=$parent;After=$after;Postcondition=[pscustomobject]@{SentUtc=$SentUtc;Expected=[pscustomobject]@{Server=[string]$Context.Server;Guid=""};Observed=[pscustomobject]@{ReadStatus="OK";Server=[string]$Context.Server;ReadUtc=$ReadUtc;Exists=[bool]$after.Exists;Guid=[string]$after.Guid}}}
 '@
         Start-DomeniaWriteTask -Name "Creation OU" -OperationId "WriteCreateOu" -Code $code -Payload $payload -BranchDn $parentDn -Capability "Create" -DisableControls @("BtnCreateOu") -AfterSuccessAction "CreateOu"
     }
@@ -23311,18 +23486,43 @@ if($children -gt 0){throw "Suppression bloquee : cet objet possede $children obj
 if(@($before.Classes) -contains "domainDNS"){throw "Suppression de la racine domaine interdite."}
 if((@($before.Classes) -contains "organizationalUnit" -or @($before.Classes) -contains "container") -and -not [bool]$Context.AllowContainerDelete){throw "Suppression OU/conteneur bloquee par la politique Domenia."}
 $backend=Get-WWriteBackend $Context @("Remove-ADObject")
+$SentUtc=""
 if($backend -eq "Module"){
-    $p=@{Identity=[string]$Payload.DN;Confirm=$false;Recursive=$false;ErrorAction="Stop"};if($Context.Server){$p.Server=[string]$Context.Server};$c=Get-WAdCredential $Context;if($c){$p.Credential=$c};$DomeniaWriteDispatched=$true;Remove-ADObject @p
+    $p=@{Identity=[string]$Payload.DN;Confirm=$false;Recursive=$false;ErrorAction="Stop"};if($Context.Server){$p.Server=[string]$Context.Server};$c=Get-WAdCredential $Context;if($c){$p.Credential=$c};$SentUtc=[DateTime]::UtcNow.ToString('o');$DomeniaWriteDispatched=$true;Remove-ADObject @p
 }else{
     $parentDn=Get-WParentDn ([string]$Payload.DN);if([string]::IsNullOrWhiteSpace($parentDn)){throw "Parent DN introuvable."}
     $parent=New-WEntry $Context $parentDn;$child=New-WEntry $Context ([string]$Payload.DN)
     $class=if(@($before.Classes) -contains "computer"){"computer"}elseif(@($before.Classes) -contains "user"){"user"}elseif(@($before.Classes) -contains "group"){"group"}elseif(@($before.Classes) -contains "organizationalUnit"){"organizationalUnit"}else{[string](@($before.Classes)[-1])}
-    $DomeniaWriteDispatched=$true;$parent.Children.Remove($child);$parent.CommitChanges()
+    $SentUtc=[DateTime]::UtcNow.ToString('o');$DomeniaWriteDispatched=$true;$parent.Children.Remove($child);$parent.CommitChanges()
 }
 Start-Sleep -Milliseconds 250
 $after=Get-WObjectSnapshot $Context ([string]$Payload.DN)
 if([bool]$after.Exists){throw "Verification impossible : l objet existe encore apres la demande de suppression."}
-[pscustomobject]@{Verified=$true;Backend=$backend;Message="Objet supprime sans recursivite et absence verifiee.";Before=$before;After=$after}
+$pcReadStatus="OK"
+$pcExists=$false
+$pcGuid=""
+$guidText=[string]$before.Guid
+if($guidText.StartsWith("{") -and $guidText.EndsWith("}")){$guidText=$guidText.Substring(1,$guidText.Length-2)}
+if([string]::IsNullOrWhiteSpace($guidText)){$pcReadStatus="Unavailable"}
+else{
+    try {
+        $guidSnapshot=Get-WObjectSnapshot $Context ('<GUID=' + $guidText + '>')
+        $pcExists=[bool]$guidSnapshot.Exists
+        $pcGuid=[string]$guidSnapshot.Guid
+    } catch {
+        $ex=$_.Exception
+        $h=0
+        try { $h=[int]$ex.HResult } catch { }
+        if($h -eq 0 -and $null -ne $ex.InnerException){ try { $h=[int]$ex.InnerException.HResult } catch { } }
+        $msg=[string]$ex.Message
+        if($null -ne $ex.InnerException){ $msg += " " + [string]$ex.InnerException.Message }
+        if($h -eq -2147016656 -or $msg -match "(?i)not found|introuvable"){ $pcExists=$false; $pcReadStatus="OK" }
+        elseif($h -eq -2147024891 -or $msg -match "(?i)access is denied" -or $msg -match "(?i)acc.*s refus"){ $pcReadStatus="Refused" }
+        else { $pcReadStatus="Unavailable" }
+    }
+}
+$ReadUtc=[DateTime]::UtcNow.ToString('o')
+[pscustomobject]@{Verified=$true;Backend=$backend;Message="Objet supprime sans recursivite et absence verifiee.";Before=$before;After=$after;Postcondition=[pscustomobject]@{SentUtc=$SentUtc;Expected=[pscustomobject]@{Server=[string]$Context.Server;Guid=[string]$before.Guid};Observed=[pscustomobject]@{ReadStatus=$pcReadStatus;Server=[string]$Context.Server;ReadUtc=$ReadUtc;Exists=$pcExists;Guid=$pcGuid}}}
 '@
         $deleteState = [pscustomobject]@{ DeletedType=$deletedType; DeletedName=$deletedName; DeletedSam=$deletedSam; DeletedDns=$deletedDns }
         Start-DomeniaWriteTask -Name "Suppression objet AD" -OperationId "WriteDeleteObject" -Code $code -Payload $payload -Plan $plan -PlanChanges @() -Capability "Delete" -DisableControls @("BtnDeleteObject") -AfterSuccessAction "DeleteObject" -AfterSuccessState $deleteState
@@ -24838,7 +25038,8 @@ function Invoke-DomeniaSelfTest {
         'Request-DomeniaLinkPersistence','Queue-DomeniaLinkChanges','Merge-DomeniaLiveLinkMemory','Get-DomeniaObjectCacheKey','Get-DomeniaCacheKey','Invoke-DomeniaObjectChanges',
         'Update-DomeniaAccessButton','Update-DomeniaExperienceActivity','Update-DomeniaSelectionReadUi','Enter-DomeniaSelectionContext','Reset-DomeniaSelectionBoundViews','Complete-DomeniaInventoryUi','Complete-DomeniaSoftwareUi',
         'Get-DomeniaReceiptRequirement','Get-DomeniaReceiptResumeState','New-DomeniaWriteRegistry','Test-DomeniaWriteAdmission','Set-DomeniaWriteOutcome','Start-DomeniaWriteTask','Invoke-ComputerTool','Start-DomeniaRimotteRun','Get-DomeniaRimotteWorkerCode','Initialize-DomeniaGuard',
-        'Get-DomeniaWriteRoute','New-DomeniaSelectionWritePlan','Format-DomeniaPlanConfirmation','Test-DomeniaPlanDispatch','New-DomeniaInterventionPlan','Test-DomeniaPlanStillValid'
+        'Get-DomeniaWriteRoute','New-DomeniaSelectionWritePlan','Format-DomeniaPlanConfirmation','Test-DomeniaPlanDispatch','New-DomeniaInterventionPlan','Test-DomeniaPlanStillValid',
+        'Get-DomeniaWritePostcondition','Get-DomeniaPostconditionRule','Resolve-DomeniaPostcondition'
     )
     $missing = @($requiredFunctions | Where-Object { $null -eq (Get-Command -Name $_ -CommandType Function -ErrorAction SilentlyContinue) })
     Add-SelfTestResult -Name 'Fonctions critiques' -Success ($missing.Count -eq 0) -Detail $(if($missing.Count -eq 0){'Toutes presentes.'}else{"Absentes : $($missing -join ', ')"})

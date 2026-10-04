@@ -57,10 +57,10 @@ try {
         if (-not (Get-Command Get-DomeniaReceiptRequirement -ErrorAction SilentlyContinue)) { foreach($p in @(Get-ChildItem -LiteralPath $modulesDir -Filter '*.Model.ps1' -File | ForEach-Object{$_.FullName})) { . $p } }
     }
     if (-not (Get-Command Protect-DomeniaSecretText -ErrorAction SilentlyContinue)) { function Protect-DomeniaSecretText {param($Text); return [string]$Text} }
-    foreach($rule in @('Get-DomeniaMember','Get-DomeniaOperationEffect','Get-DomeniaReceiptRequirement','Get-DomeniaReceiptResumeState','New-DomeniaWriteRegistry','Test-DomeniaWriteAdmission')) { if (-not (Get-Command $rule -ErrorAction SilentlyContinue)) { throw ('Regles absente : '+$rule) } }
+    foreach($rule in @('Get-DomeniaMember','Get-DomeniaOperationEffect','Get-DomeniaReceiptRequirement','Get-DomeniaReceiptResumeState','New-DomeniaWriteRegistry','Test-DomeniaWriteAdmission','Get-DomeniaPostconditionRule','Resolve-DomeniaPostcondition')) { if (-not (Get-Command $rule -ErrorAction SilentlyContinue)) { throw ('Regles absente : '+$rule) } }
     foreach($fn in @('New-DomeniaInterventionPlan','Test-DomeniaPlanStillValid','ConvertTo-DomeniaPlanChanges','Test-DomeniaPlanHasSecret','New-DomeniaSelectionIdentity')) { if (-not (Get-Command $fn -ErrorAction SilentlyContinue)) { throw ('Fonction de regle absente : '+$fn) } }
     $script:CoreAst=Read-SourceAst (Join-Path $wad 'Domenia-Core.ps1')
-    foreach($name in @('Get-WorkerContext','ConvertTo-DomeniaErrorInfo','Get-DomeniaStructuredError','Get-DomeniaWorkerOperationHashes','ConvertTo-DomeniaCanonicalWorkerCode','Get-DomeniaWorkerCodeHash','Assert-DomeniaWorkerOperationCode','Assert-DomeniaWorkerRegistry','Start-UiTask','Start-DomeniaWriteTask','Set-ControlsBusy','Get-DomeniaControl','Set-DomeniaControlText','Write-DomeniaAtomicText','Assert-WriteAllowed','Assert-DomeniaRemoteWriteAllowed','Get-DomeniaWriteRoute','New-DomeniaSelectionWritePlan','Format-DomeniaPlanConfirmation','Test-DomeniaPlanDispatch','Set-AccountDisabled')) { [void](Import-AstFunction $script:CoreAst $name -Optional) }
+    foreach($name in @('Get-WorkerContext','ConvertTo-DomeniaErrorInfo','Get-DomeniaStructuredError','Get-DomeniaWorkerOperationHashes','ConvertTo-DomeniaCanonicalWorkerCode','Get-DomeniaWorkerCodeHash','Assert-DomeniaWorkerOperationCode','Assert-DomeniaWorkerRegistry','Start-UiTask','Start-DomeniaWriteTask','Set-ControlsBusy','Get-DomeniaControl','Set-DomeniaControlText','Write-DomeniaAtomicText','Assert-WriteAllowed','Assert-DomeniaRemoteWriteAllowed','Get-DomeniaWriteRoute','New-DomeniaSelectionWritePlan','Format-DomeniaPlanConfirmation','Test-DomeniaPlanDispatch','Set-AccountDisabled','Get-DomeniaWritePostcondition','Complete-DomeniaWriteTaskUi','Fail-DomeniaWriteTaskUi','Get-DomeniaEffectiveWorkerResult')) { [void](Import-AstFunction $script:CoreAst $name -Optional) }
     foreach($fn in @('Start-UiTask','Start-DomeniaWriteTask','Set-ControlsBusy','Get-DomeniaControl','Get-DomeniaStructuredError','Assert-DomeniaWorkerOperationCode','ConvertTo-DomeniaCanonicalWorkerCode','Get-DomeniaWorkerCodeHash','Get-DomeniaWorkerOperationHashes','Assert-WriteAllowed','Get-DomeniaWriteRoute','New-DomeniaSelectionWritePlan','Format-DomeniaPlanConfirmation','Test-DomeniaPlanDispatch','Set-AccountDisabled')) { if (-not (Get-Command $fn -ErrorAction SilentlyContinue)) { throw ('Fonction absente : '+$fn) } }
     $assignment=@($script:CoreAst.FindAll({param($n)((($n -is [Management.Automation.Language.AssignmentStatementAst])) -and ((($n.Left.Extent.Text -eq '$script:WorkerCommon')) -and (($n.Operator -eq [Management.Automation.Language.TokenKind]::Equals))))},$true))
     if($assignment.Count -ne 1){throw 'Code commun des workers introuvable.'}
@@ -120,6 +120,16 @@ if ($infrastructure) {
     }
 }
 foreach($name in @('Start-UiTask','Set-ControlsBusy','Get-DomeniaControl','Set-DomeniaControlText','Write-DomeniaAtomicText','Show-ErrorBox','Show-InfoBox','Show-DomeniaOperationError','Apply-CurrentPermissionUi','Initialize-AsyncEngine','Initialize-DomeniaEngineState','Get-CfgValue','Confirm-Action','Assert-DomeniaCapability','Get-AllWriteControlNames','Assert-DomeniaWorkerRegistry','Get-WMachineCredential','Set-WReceiptStage','Get-DomeniaErrorDecision','Get-DomeniaCancelStatusText','Get-DomeniaOperationCredentialNeeds','Get-DomeniaRetryCredential','Set-DomeniaRetryWorkerContext','Get-DomeniaAccessScope','Get-DomeniaOperationResource','Initialize-DomeniaWorkerContextCache','Test-DomeniaSchedulerEnabled','Add-DomeniaUiLog','Write-AppLog','Set-Status','Update-TaskUi','Request-UiTaskStop','Complete-DomeniaDetachedReadJobs','Show-DomeniaGuard','Start-DomeniaReceiptRefresh','Invoke-DomeniaUiTaskDispatch','Invoke-DomeniaReceiptChoice','Restart-Computer','Invoke-WRemoteTaskScript','Test-DomeniaActualCapabilityDenied','Set-DomeniaActualCapabilityDenied','Get-DomeniaCapabilityDenialKey','Complete-DomeniaWriteTaskUi','Fail-DomeniaWriteTaskUi')) { Spy-Function $name }
+foreach($name in @('Get-DomeniaWritePostcondition','Get-DomeniaEffectiveWorkerResult','Get-DomeniaPostconditionRule','Resolve-DomeniaPostcondition')) { Spy-Function $name }
+$script:RealCompleteWriteTaskUi=$null
+$script:RealFailWriteTaskUi=$null
+$script:RealGetWritePostcondition=$null
+$cmd=Get-Command -Name 'Complete-DomeniaWriteTaskUi' -ErrorAction SilentlyContinue
+if ($cmd) { $script:RealCompleteWriteTaskUi=$cmd.ScriptBlock }
+$cmd=Get-Command -Name 'Fail-DomeniaWriteTaskUi' -ErrorAction SilentlyContinue
+if ($cmd) { $script:RealFailWriteTaskUi=$cmd.ScriptBlock }
+$cmd=Get-Command -Name 'Get-DomeniaWritePostcondition' -ErrorAction SilentlyContinue
+if ($cmd) { $script:RealGetWritePostcondition=$cmd.ScriptBlock }
 if (-not (Get-Command Get-DomeniaFeatureFlag -ErrorAction SilentlyContinue)) { function Get-DomeniaFeatureFlag {param($Name,$Default=$true); return $Default} }
 function Write-AppLog {param($Text,$Level)}
 function Set-Status {param($Text,$Level) if ($null -eq $script:StatusLog) { $script:StatusLog=[Collections.Generic.List[string]]::new() }; $script:StatusLog.Add([string]$Text) }
@@ -236,7 +246,100 @@ function New-FixtureWindowStub {
     Add-Member -InputObject $w -MemberType NoteProperty -Name IsEnabled -Value $true
     return $w
 }
+$script:D093SavedFunctions=@{}
+$script:D093Before=[pscustomobject]@{Classes=@('user');Guid='00000000-0000-0000-0000-000000000000';Lockout='0'}
+$script:D093AttributeFirstValue='abc'
+$script:D093MembershipCalls=0
+$script:D093MembershipSecondThrows=$false
+$script:D093GuidReadThrows=$false
+$script:D093GuidReadException=$null
+$script:D093PropertyNames=@()
+$script:StatusLines=[Collections.Generic.List[string]]::new()
+$script:InfoBoxes=[Collections.Generic.List[string]]::new()
+function Begin-D093FunctionOverride {
+    param([string]$Name)
+    if ($null -eq $script:D093SavedFunctions) { $script:D093SavedFunctions=@{} }
+    if (-not $script:D093SavedFunctions.ContainsKey($Name)) {
+        $cmd=Get-Command -Name $Name -CommandType Function -ErrorAction SilentlyContinue
+        if ($null -ne $cmd) { $script:D093SavedFunctions[$Name]=$cmd.ScriptBlock } else { $script:D093SavedFunctions[$Name]=$null }
+    }
+}
+function Set-D093Function {
+    param([string]$Name,$Value)
+    Begin-D093FunctionOverride -Name $Name
+    Set-Item -Path ('function:script:'+$Name) -Value $Value
+}
+function End-D093FunctionOverrides {
+    if ($null -ne $script:D093SavedFunctions) {
+        foreach($name in @($script:D093SavedFunctions.Keys)) {
+            $sb=$script:D093SavedFunctions[$name]
+            if ($null -ne $sb) { Set-Item -Path ('function:script:'+$name) -Value $sb }
+            else { Remove-Item -Path ('function:script:'+$name) -ErrorAction SilentlyContinue }
+        }
+        $script:D093SavedFunctions=@{}
+    }
+}
+function New-D093PropertyValueCollection {
+    $pvc=[pscustomobject]@{Value=$null}
+    Add-Member -InputObject $pvc -MemberType ScriptMethod -Name Clear -Value { $this.Value=$null } -Force
+    return $pvc
+}
+function Get-D093WorkerBody {
+    param([string]$FunctionName)
+    $fn=Get-FunctionAst $script:CoreAst $FunctionName
+    $literals=@(Get-SingleQuotedLiterals $fn)
+    if ($literals.Count -ne 1) { throw ('Here-string worker attendu unique pour '+$FunctionName+' ('+$literals.Count+')') }
+    return [string]$literals[0].Value
+}
+function Invoke-D093WorkerBody {
+    param([string]$FunctionName,$Context,$Payload)
+    $body=Get-D093WorkerBody -FunctionName $FunctionName
+    $sb=[scriptblock]::Create($body)
+    & $sb
+}
+function New-D093Context {
+    param([string]$Server='dc01.example.invalid')
+    return [pscustomobject]@{Server=$Server;BaseDn='DC=example,DC=invalid';Domain='example.invalid';Credential=$null;MachineCredential=$null;UseCredential=$false;BindUser='EXAMPLE\lecteur';AllowContainerDelete=$false;ReceiptRoot=''}
+}
+function Install-D093WHelpers {
+    Set-D093Function 'Assert-WObjectFresh' { param($Context,$Safety) return $script:D093Before }
+    Set-D093Function 'Get-WWriteBackend' { param($Context,$Commands) return 'ADSI' }
+    Set-D093Function 'New-WEntry' { param($Context,[string]$Dn)
+        $props=@{}
+        if ($null -ne $script:D093PropertyNames) {
+            foreach($n in @($script:D093PropertyNames)) {
+                if ($null -ne $n) { $props[[string]$n]=New-D093PropertyValueCollection }
+            }
+        }
+        $children=[pscustomobject]@{}
+        Add-Member -InputObject $children -MemberType ScriptMethod -Name Remove -Value { param($Child) } -Force
+        $entry=[pscustomobject]@{Properties=$props;Children=$children}
+        Add-Member -InputObject $entry -MemberType ScriptMethod -Name CommitChanges -Value { } -Force
+        Add-Member -InputObject $entry -MemberType ScriptMethod -Name Invoke -Value { param($Method,$Arg) return $null } -Force
+        return $entry
+    }
+    Set-D093Function 'Get-WAttributeFirst' { param($Context,[string]$Dn,[string]$Name) return $script:D093AttributeFirstValue }
+    Set-D093Function 'Get-WObjectSnapshot' { param($Context,[string]$Dn)
+        if ([string]::IsNullOrWhiteSpace($Dn)) { return [pscustomobject]@{Exists=$false;DN=''} }
+        if ($Dn.StartsWith('<GUID=')) {
+            if ($script:D093GuidReadThrows -and ($null -ne $script:D093GuidReadException)) { throw $script:D093GuidReadException }
+            return [pscustomobject]@{Exists=$false;DN=$Dn;Guid='00000000-0000-0000-0000-000000000000';Classes=@('user');Lockout='0'}
+        }
+        return [pscustomobject]@{Exists=$false;DN=$Dn;Guid='00000000-0000-0000-0000-000000000000';Classes=@('user');Lockout='0'}
+    }
+    Set-D093Function 'Test-WDirectMembership' { param($Context,[string]$GroupDn,[string]$ObjectDn)
+        $script:D093MembershipCalls++
+        if ($script:D093MembershipCalls -eq 1) { return $false }
+        if ($script:D093MembershipSecondThrows) { throw 'Relecture appartenance indisponible.' }
+        return $true
+    }
+    Set-D093Function 'Get-WLdapPath' { param($Context,[string]$Dn) return ('LDAP://' + [string]$Dn) }
+    Set-D093Function 'Resolve-WObjectDn' { param($Context,[string]$Value) return [string]$Value }
+    Set-D093Function 'Get-WChildCount' { param($Context,[string]$Dn) return 0 }
+    Set-D093Function 'Get-WParentDn' { param([string]$Dn) if ($Dn.Contains(',')) { return $Dn.Substring($Dn.IndexOf(',')+1) }; return '' }
+}
 function Reset-WiringFixture {
+    if (Get-Command -Name 'End-D093FunctionOverrides' -ErrorAction SilentlyContinue) { End-D093FunctionOverrides }
     $script:StatusLog=[Collections.Generic.List[string]]::new()
     $script:Dialogs=[Collections.Generic.List[string]]::new()
     $script:ConfirmCalls=0
@@ -303,6 +406,18 @@ function Reset-WiringFixture {
     $script:LastStartWritePlanChanges = $null
     $script:LastStartWriteBranchDn = ''
     $script:StartUiTaskPayloads = [Collections.Generic.List[object]]::new()
+    $script:D093SavedFunctions=@{}
+    $script:D093Before=[pscustomobject]@{Classes=@('user');Guid='00000000-0000-0000-0000-000000000000';Lockout='0'}
+    $script:D093AttributeFirstValue='abc'
+    $script:D093MembershipCalls=0
+    $script:D093MembershipSecondThrows=$false
+    $script:D093GuidReadThrows=$false
+    $script:D093GuidReadException=$null
+    $script:D093PropertyNames=@()
+    $script:StatusLines=[Collections.Generic.List[string]]::new()
+    $script:InfoBoxes=[Collections.Generic.List[string]]::new()
+    $script:LastWritePostcondition=$null
+    $script:UnknownWriteTargetDn=''
     Set-Item function:script:Confirm-Action -Value $script:DefaultConfirmAction
 }
 function New-WriteEnvelopeScript {
@@ -625,6 +740,173 @@ if ($infrastructure) {
         $err=''
         try { Assert-WriteAllowed } catch { $thrown=$true; $err=$_.Exception.Message }
         Assert-True $thrown ('Aucun blocage en lecture seule : '+$err)
+    }
+    Test-Case 'D093 attributs : relecture conforme = Verifie' {
+        Reset-WiringFixture
+        try {
+            Install-D093WHelpers
+            $script:D093PropertyNames=@('description')
+            $script:D093AttributeFirstValue='abc'
+            $context=New-D093Context
+            $payload=[pscustomobject]@{DN='CN=Demo User,OU=Users,DC=example,DC=invalid';Changes=@([pscustomobject]@{Name='description';New='abc';Clear=$false});Safety=[pscustomobject]@{Guid='00000000-0000-0000-0000-000000000000'}}
+            $r=Invoke-D093WorkerBody -FunctionName 'Start-DomeniaAttributeWrite' -Context $context -Payload $payload
+            Assert-True ($null -ne $r) 'Resultat nul.'
+            Assert-True ($r.Postcondition.Expected.Values.description -eq 'abc') ('Expected.Values.description : '+[string]$r.Postcondition.Expected.Values.description)
+            Assert-True (-not [string]::IsNullOrWhiteSpace([string]$r.Postcondition.SentUtc)) 'SentUtc vide.'
+            $pc=Get-DomeniaWritePostcondition -OperationId 'WriteAttributes' -Result $r
+            Assert-True ($null -ne $pc) 'Postcondition resolu nulle.'
+            Assert-True ($pc.Status -eq 'Verifie') ('Statut : '+[string]$pc.Status)
+        } finally { End-D093FunctionOverrides }
+    }
+    Test-Case 'D093 attributs : relecture differente leve (etat inconnu par l enveloppe)' {
+        Reset-WiringFixture
+        try {
+            Install-D093WHelpers
+            $script:D093PropertyNames=@('description')
+            $script:D093AttributeFirstValue='xyz'
+            $context=New-D093Context
+            $payload=[pscustomobject]@{DN='CN=Demo User,OU=Users,DC=example,DC=invalid';Changes=@([pscustomobject]@{Name='description';New='abc';Clear=$false});Safety=[pscustomobject]@{Guid='00000000-0000-0000-0000-000000000000'}}
+            $err=''
+            try { [void](Invoke-D093WorkerBody -FunctionName 'Start-DomeniaAttributeWrite' -Context $context -Payload $payload) } catch { $err=$_.Exception.Message }
+            Assert-True ($err -match 'Verification post-ecriture echouee') ('Message : '+$err)
+        } finally { End-D093FunctionOverrides }
+    }
+    Test-Case 'D093 membre de groupe : ajout constate = Verifie, echec de relecture leve' {
+        Reset-WiringFixture
+        try {
+            Install-D093WHelpers
+            $context=New-D093Context
+            $payload=[pscustomobject]@{GroupDn='CN=Demo Group,OU=Groups,DC=example,DC=invalid';ObjectValue='CN=Demo User,OU=Users,DC=example,DC=invalid';Add=$true;Safety=[pscustomobject]@{Guid='00000000-0000-0000-0000-000000000000'}}
+            $script:D093MembershipCalls=0
+            $script:D093MembershipSecondThrows=$false
+            $r=Invoke-D093WorkerBody -FunctionName 'AddOrRemoveGroupMember' -Context $context -Payload $payload
+            Assert-True ($null -ne $r) 'Resultat nul.'
+            $memberCount=@($r.Postcondition.Observed.Members).Count
+            Assert-True ($memberCount -eq 1) ('Membres observes : '+$memberCount)
+            $pc=Get-DomeniaWritePostcondition -OperationId 'WriteGroupMember' -Result $r
+            Assert-True ($null -ne $pc) 'Postcondition resolu nulle.'
+            Assert-True ($pc.Status -eq 'Verifie') ('Statut : '+[string]$pc.Status)
+            $script:D093MembershipCalls=0
+            $script:D093MembershipSecondThrows=$true
+            $err=''
+            try { [void](Invoke-D093WorkerBody -FunctionName 'AddOrRemoveGroupMember' -Context $context -Payload $payload) } catch { $err=$_.Exception.Message }
+            # The re-read failure itself propagates (the write envelope turns it into ETAT INCONNU).
+            Assert-True ($err -match 'Relecture appartenance indisponible') ('Message : '+$err)
+        } finally { End-D093FunctionOverrides }
+    }
+    Test-Case 'D093 suppression : absence par GUID constatee = Verifie' {
+        Reset-WiringFixture
+        try {
+            Install-D093WHelpers
+            $script:D093Before=[pscustomobject]@{Classes=@('user');Guid='11111111-2222-3333-4444-555555555555';Lockout='0'}
+            $script:D093GuidReadThrows=$true
+            $script:D093GuidReadException=New-Object -TypeName 'System.Runtime.InteropServices.COMException' -ArgumentList @('There is no such object on the server.', -2147016656)
+            $context=New-D093Context
+            $payload=[pscustomobject]@{DN='CN=Demo User,OU=Users,DC=example,DC=invalid';Safety=[pscustomobject]@{Guid='00000000-0000-0000-0000-000000000000'};Type='Utilisateur';Name='Demo User'}
+            $r=Invoke-D093WorkerBody -FunctionName 'Delete-SelectedObject' -Context $context -Payload $payload
+            Assert-True ($null -ne $r) 'Resultat nul.'
+            Assert-True ($r.Postcondition.Observed.Exists -eq $false) ('Exists : '+[string]$r.Postcondition.Observed.Exists)
+            Assert-True ($r.Postcondition.Observed.ReadStatus -eq 'OK') ('ReadStatus : '+[string]$r.Postcondition.Observed.ReadStatus)
+            $pc=Get-DomeniaWritePostcondition -OperationId 'WriteDeleteObject' -Result $r
+            Assert-True ($null -ne $pc) 'Postcondition resolu nulle.'
+            Assert-True ($pc.Status -eq 'Verifie') ('Statut : '+[string]$pc.Status)
+        } finally { End-D093FunctionOverrides }
+    }
+    Test-Case 'D093 suppression : refus de relecture par GUID = A verifier' {
+        Reset-WiringFixture
+        try {
+            Install-D093WHelpers
+            $script:D093Before=[pscustomobject]@{Classes=@('user');Guid='11111111-2222-3333-4444-555555555555';Lockout='0'}
+            $script:D093GuidReadThrows=$true
+            $script:D093GuidReadException=New-Object -TypeName 'System.Runtime.InteropServices.COMException' -ArgumentList @('Access is denied.', -2147024891)
+            $context=New-D093Context
+            $payload=[pscustomobject]@{DN='CN=Demo User,OU=Users,DC=example,DC=invalid';Safety=[pscustomobject]@{Guid='00000000-0000-0000-0000-000000000000'};Type='Utilisateur';Name='Demo User'}
+            $r=Invoke-D093WorkerBody -FunctionName 'Delete-SelectedObject' -Context $context -Payload $payload
+            Assert-True ($null -ne $r) 'Resultat nul.'
+            Assert-True ($r.Postcondition.Observed.ReadStatus -eq 'Refused') ('ReadStatus : '+[string]$r.Postcondition.Observed.ReadStatus)
+            $pc=Get-DomeniaWritePostcondition -OperationId 'WriteDeleteObject' -Result $r
+            Assert-True ($null -ne $pc) 'Postcondition resolu nulle.'
+            Assert-True ($pc.Status -eq 'A verifier') ('Statut : '+[string]$pc.Status)
+        } finally { End-D093FunctionOverrides }
+    }
+    Test-Case 'D093 interface : Verifie affiche (Verifie) sans boite' {
+        Reset-WiringFixture
+        try {
+            if ($null -eq $script:RealCompleteWriteTaskUi) { throw 'Complete-DomeniaWriteTaskUi reel non importe.' }
+            if ($null -eq $script:RealGetWritePostcondition) { throw 'Get-DomeniaWritePostcondition reel non importe.' }
+            Set-D093Function 'Complete-DomeniaWriteTaskUi' $script:RealCompleteWriteTaskUi
+            Set-D093Function 'Get-DomeniaWritePostcondition' $script:RealGetWritePostcondition
+            Set-D093Function 'Get-DomeniaEffectiveWorkerResult' { param($Result,$RequiredProperties) return $Result }
+            Set-D093Function 'Invoke-DomeniaWritePostAction' { param($Result,$State) }
+            Set-D093Function 'Request-DomeniaDashboardRefresh' { param([switch]$Immediate) }
+            Set-D093Function 'Apply-CurrentPermissionUi' { }
+            Set-D093Function 'Set-Status' { param($Text,$Level) if ($null -eq $script:StatusLines) { $script:StatusLines=[Collections.Generic.List[string]]::new() }; $script:StatusLines.Add([string]$Text) }
+            Set-D093Function 'Show-InfoBox' { param($Message,$Details) if ($null -eq $script:InfoBoxes) { $script:InfoBoxes=[Collections.Generic.List[string]]::new() }; $script:InfoBoxes.Add([string]$Message) }
+            $script:StatusLines=[Collections.Generic.List[string]]::new()
+            $script:InfoBoxes=[Collections.Generic.List[string]]::new()
+            $state=[pscustomobject]@{Name='Deverrouillage';Correlation='c';OperationId='WriteUnlock';TargetDn='CN=Demo User,OU=Users,DC=example,DC=invalid'}
+            $result=[pscustomobject]@{
+                Verified=$true
+                Backend='ADSI'
+                Message='Compte deverrouille'
+                Postcondition=[pscustomobject]@{
+                    SentUtc=(Get-Date).ToString('o')
+                    Expected=[pscustomobject]@{Server='dc01.example.invalid';Flags=[pscustomobject]@{Locked='False'}}
+                    Observed=[pscustomobject]@{ReadStatus='OK';Server='dc01.example.invalid';ReadUtc=(Get-Date).ToString('o');Flags=[pscustomobject]@{Locked='False'}}
+                }
+            }
+            Complete-DomeniaWriteTaskUi -Result $result -State $state
+            $statusCount=@($script:StatusLines | Where-Object { $_.Contains('(Verifie)') }).Count
+            Assert-True ($statusCount -ge 1) 'Statut (Verifie) absent.'
+            Assert-True ($script:InfoBoxes.Count -eq 0) ('Boites : '+$script:InfoBoxes.Count)
+            Assert-True ($script:WriteState -eq 'Idle') ('WriteState : '+[string]$script:WriteState)
+            Assert-True ($null -ne $script:LastWritePostcondition) 'LastWritePostcondition nul.'
+            Assert-True ($script:LastWritePostcondition.Status -eq 'Verifie') ('Statut : '+[string]$script:LastWritePostcondition.Status)
+        } finally { End-D093FunctionOverrides }
+    }
+    Test-Case 'D093 interface : sans postcondition = A verifier avec verification a faire' {
+        Reset-WiringFixture
+        try {
+            if ($null -eq $script:RealCompleteWriteTaskUi) { throw 'Complete-DomeniaWriteTaskUi reel non importe.' }
+            if ($null -eq $script:RealGetWritePostcondition) { throw 'Get-DomeniaWritePostcondition reel non importe.' }
+            Set-D093Function 'Complete-DomeniaWriteTaskUi' $script:RealCompleteWriteTaskUi
+            Set-D093Function 'Get-DomeniaWritePostcondition' $script:RealGetWritePostcondition
+            Set-D093Function 'Get-DomeniaEffectiveWorkerResult' { param($Result,$RequiredProperties) return $Result }
+            Set-D093Function 'Invoke-DomeniaWritePostAction' { param($Result,$State) }
+            Set-D093Function 'Request-DomeniaDashboardRefresh' { param([switch]$Immediate) }
+            Set-D093Function 'Apply-CurrentPermissionUi' { }
+            Set-D093Function 'Set-Status' { param($Text,$Level) if ($null -eq $script:StatusLines) { $script:StatusLines=[Collections.Generic.List[string]]::new() }; $script:StatusLines.Add([string]$Text) }
+            Set-D093Function 'Show-InfoBox' { param($Message,$Details) if ($null -eq $script:InfoBoxes) { $script:InfoBoxes=[Collections.Generic.List[string]]::new() }; $script:InfoBoxes.Add([string]$Message) }
+            $script:StatusLines=[Collections.Generic.List[string]]::new()
+            $script:InfoBoxes=[Collections.Generic.List[string]]::new()
+            $state=[pscustomobject]@{Name='Deplacement';Correlation='c';OperationId='WriteMoveObject';TargetDn='CN=Demo User,OU=Users,DC=example,DC=invalid'}
+            $result=[pscustomobject]@{Verified=$true;Backend='ADSI';Message='Operation verifiee'}
+            Complete-DomeniaWriteTaskUi -Result $result -State $state
+            Assert-True ($script:InfoBoxes.Count -eq 1) ('Boites : '+$script:InfoBoxes.Count)
+            Assert-True ($script:InfoBoxes[0].Contains('Verification a faire')) ('Boite : '+$script:InfoBoxes[0])
+            Assert-True ($null -ne $script:LastWritePostcondition) 'LastWritePostcondition nul.'
+            Assert-True ($script:LastWritePostcondition.Status -eq 'A verifier') ('Statut : '+[string]$script:LastWritePostcondition.Status)
+            Assert-True ($script:WriteState -eq 'Idle') ('WriteState : '+[string]$script:WriteState)
+        } finally { End-D093FunctionOverrides }
+    }
+    Test-Case 'D093 interface : echec etat inconnu indique la verification a faire' {
+        Reset-WiringFixture
+        try {
+            if ($null -eq $script:RealFailWriteTaskUi) { throw 'Fail-DomeniaWriteTaskUi reel non importe.' }
+            Set-D093Function 'Fail-DomeniaWriteTaskUi' $script:RealFailWriteTaskUi
+            Set-D093Function 'ConvertTo-DomeniaErrorInfo' { param($ErrorRecordOrException,$Operation) return @{Kind='Unknown';Friendly='x'} }
+            Set-D093Function 'Set-DomeniaActualCapabilityDenied' { param($Dn,$Capability,$Reason) }
+            Set-D093Function 'Apply-CurrentPermissionUi' { }
+            Set-D093Function 'Set-Status' { param($Text,$Level) if ($null -eq $script:StatusLines) { $script:StatusLines=[Collections.Generic.List[string]]::new() }; $script:StatusLines.Add([string]$Text) }
+            Set-D093Function 'Show-InfoBox' { param($Message,$Details) if ($null -eq $script:InfoBoxes) { $script:InfoBoxes=[Collections.Generic.List[string]]::new() }; $script:InfoBoxes.Add([string]$Message) }
+            $script:StatusLines=[Collections.Generic.List[string]]::new()
+            $script:InfoBoxes=[Collections.Generic.List[string]]::new()
+            $state=[pscustomobject]@{Name='Membre groupe';Correlation='c';OperationId='WriteGroupMember';TargetDn='CN=Demo Group,OU=Groups,DC=example,DC=invalid';Capability='Group'}
+            Fail-DomeniaWriteTaskUi -Message 'ETAT INCONNU : relecture indisponible' -State $state
+            Assert-True ($script:InfoBoxes.Count -eq 1) ('Boites : '+$script:InfoBoxes.Count)
+            Assert-True ($script:InfoBoxes[0].Contains('Verification a faire')) ('Boite : '+$script:InfoBoxes[0])
+            Assert-True ($script:WriteState -eq 'Unknown') ('WriteState : '+[string]$script:WriteState)
+        } finally { End-D093FunctionOverrides }
     }
 }
 $passed=@($script:Checks | Where-Object { $_.Status -eq 'Passed' }).Count

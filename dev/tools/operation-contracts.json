@@ -221,91 +221,91 @@
     "File": "wad/Domenia-Core.ps1",
     "Function": "Start-DomeniaAttributeWrite",
     "LiteralIndex": 0,
-    "Sha256": "42E39B2BC65512E3A71FB5DB912C0728590E8FEB48D65994907A4FB74403DC0B"
+    "Sha256": "9D42588D82D290A3709CF1E68FF079C7CF030A47DF159E0703F74A1FB1BEE6B6"
   },
   {
     "Operation": "WriteAccountDisabled",
     "File": "wad/Domenia-Core.ps1",
     "Function": "Set-AccountDisabled",
     "LiteralIndex": 0,
-    "Sha256": "02FF46D7DA918CD4931F69A2103568CAF690BC41D02A964D291582B74C5E83B6"
+    "Sha256": "F95D9F066EBD52859A8FED47FB42F3981DF80903D8543818B2633A233C41E321"
   },
   {
     "Operation": "WriteUnlock",
     "File": "wad/Domenia-Core.ps1",
     "Function": "Unlock-UserAccount",
     "LiteralIndex": 0,
-    "Sha256": "733F15687C7FB8BFB09718134ECF4246645CB2F3B0884E8F9C4C581AB55EB23E"
+    "Sha256": "0C77C5EBCA4A4F4D2F5F99709D03DC86965747604D97CFB67FCA49988BE76FE5"
   },
   {
     "Operation": "WriteResetPassword",
     "File": "wad/Domenia-Core.ps1",
     "Function": "Reset-UserPassword",
     "LiteralIndex": 0,
-    "Sha256": "1E5F8CDB9D86C00D4294D315F2CAE6A688CD8FC1DE599BE577D623DC6FE28907"
+    "Sha256": "D74B0E6923B37ACFF9E576EE4DF580410436DD7A77821A16CA188E7175ACDCCE"
   },
   {
     "Operation": "WriteAccountOptions",
     "File": "wad/Domenia-Core.ps1",
     "Function": "Apply-UserAccountOptions",
     "LiteralIndex": 0,
-    "Sha256": "AA6033FEB5653DF9F479718D8CD8B9AF9EA2D84EE08E2602257E0AC1DEE03470"
+    "Sha256": "60C4CE127C0CB3424A64DD31F676F5B0722A135534A5DCCBD0193092927D157E"
   },
   {
     "Operation": "WriteExpiration",
     "File": "wad/Domenia-Core.ps1",
     "Function": "Set-UserExpiration",
     "LiteralIndex": 0,
-    "Sha256": "1E63117DCB058116991C80D96E85457BF50484C9D22EED192B4991A3B62C15FA"
+    "Sha256": "3982B298C3D4E558F4069EAA915AEB07824CB6E01213D1AAD8C642FA86476CD1"
   },
   {
     "Operation": "WriteExpirePassword",
     "File": "wad/Domenia-Core.ps1",
     "Function": "Expire-UserPasswordNow",
     "LiteralIndex": 0,
-    "Sha256": "2531938712550D3327AD19C6744A437CED733EC1503F4FC2908F67CBC45B8B54"
+    "Sha256": "F73AFD1E29C9A6DDF585B0BE066DEBB43AFC405F2B4C65E5CE2778CB65EC1238"
   },
   {
     "Operation": "WriteMoveObject",
     "File": "wad/Domenia-Core.ps1",
     "Function": "Move-SelectedObject",
     "LiteralIndex": 0,
-    "Sha256": "99E66671D3D0050DBFC259E6AFEAC47EA119F0DB55ADC6F158EDFB9210DBAF33"
+    "Sha256": "E9DF1DFD02CBDFBE409E43EF00CDABFFD0E363B5497160D1CBBB78B6CFB40540"
   },
   {
     "Operation": "WriteObjectGroup",
     "File": "wad/Domenia-Core.ps1",
     "Function": "AddOrRemoveObjectGroup",
     "LiteralIndex": 0,
-    "Sha256": "F9AED5F5B8A082BEFF84E29627F79E2E3F224440AF716F0F0ABCB0BE55B52101"
+    "Sha256": "DDC7E14A4A9FBBF8AB88646E196EFD09D8328ECC7BCB96DBE5DD158AA5B5D0A0"
   },
   {
     "Operation": "WriteGroupMember",
     "File": "wad/Domenia-Core.ps1",
     "Function": "AddOrRemoveGroupMember",
     "LiteralIndex": 0,
-    "Sha256": "8542D9FEE4C9CA95765B8B71A0898393C6059E5C147605FB39B3F3337CA0ED79"
+    "Sha256": "2577510597E83ABBAC35A4790664DCE19601D371F4ECC4D49B138A09F8C8C716"
   },
   {
     "Operation": "WriteRenameComputer",
     "File": "wad/Domenia-Core.ps1",
     "Function": "Rename-ComputerObject",
     "LiteralIndex": 0,
-    "Sha256": "527CAD31AE8EA18FD9F167B4D22729321D22900546096480E3EE86316E85307E"
+    "Sha256": "8728C8F504BE466CA476E34E050F9037B6BD40090123C79EEA0572A3D99880EA"
   },
   {
     "Operation": "WriteCreateOu",
     "File": "wad/Domenia-Core.ps1",
     "Function": "Create-OuUnderSelected",
     "LiteralIndex": 0,
-    "Sha256": "FB781A6403464525C64C751222594581F41285088BF99BF6F924BE6FEA553747"
+    "Sha256": "988CCC8BF90B978762150782B1D5E5E209859537833E0128F3F3B0A0B3AECF38"
   },
   {
     "Operation": "WriteDeleteObject",
     "File": "wad/Domenia-Core.ps1",
     "Function": "Delete-SelectedObject",
     "LiteralIndex": 0,
-    "Sha256": "86BA0ADC33686EFF9AC35803D0F31025DF9F7E4770DC6432B77526B03FE65AB6"
+    "Sha256": "DC025E66FB45A08FD6BB15DB7A1D4468A76F915819719D2D423AB01F99A9E6E5"
   },
   {
     "Operation": "StartupWarmCache",
