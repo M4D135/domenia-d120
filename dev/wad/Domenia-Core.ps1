@@ -1354,11 +1354,13 @@ function Set-UacFlagValue {
 }
 
 function Get-SelectedComputerTarget {
-    $name = ""
-    try { $name = $script:Ctrl["TxtCompDns"].Text } catch { }
-    if ([string]::IsNullOrWhiteSpace($name)) { try { $name = $script:Ctrl["TxtCompName"].Text } catch { } }
-    if ([string]::IsNullOrWhiteSpace($name) -and $script:SelectedObject) { $name = $script:SelectedObject.Name }
-    return ($name + "").Trim()
+    # D012: a control label never supplies a workstation target.
+    $identity = Get-DomeniaCurrentSelectionIdentity -Workspace 'WsObject'
+    if ($null -eq $identity -or $identity.Type -ne 'Machine') { return '' }
+    if ($script:CurrentObjectRequestDn -and [string]$script:CurrentObjectRequestDn -ine [string]$identity.DN) { return '' }
+    $name = [string]$identity.Login
+    if ($name.EndsWith('$')) { $name = $name.Substring(0,$name.Length-1) } else { $name = [string]$identity.Name }
+    try { return (Assert-DomeniaComputerTarget $name) } catch { return '' }
 }
 
 function Assert-DomeniaComputerTarget {
@@ -7480,11 +7482,7 @@ function Remove-LinksForDeletedObject {
 
 
 function Get-CurrentSelectedComputerName {
-    $name = ""
-    try { $name = $script:Ctrl["TxtCompDns"].Text } catch { }
-    if ([string]::IsNullOrWhiteSpace($name)) { try { $name = $script:Ctrl["TxtCompName"].Text } catch { } }
-    if ([string]::IsNullOrWhiteSpace($name) -and $script:SelectedObject) { $name = $script:SelectedObject.Name }
-    return (Normalize-LinkComputer $name)
+    return (Normalize-LinkComputer (Get-SelectedComputerTarget))
 }
 
 
@@ -20635,7 +20633,7 @@ function Get-DomeniaWorkerOperationHashes {
         ReadBitLockerList     = "B1456CEA5805D83C6BF48E9A4040206F18F3C3773ED250610D6890E8D1F4EEC9"
         ReadBitLockerKey      = "8A98EBCDC48AD572404E1566826035C84F34ACB87564330A7AA511FAAC01EE6F"
         DemoDirectory         = "F12481F3B254D64F9C5D870A98EA33BE6C69A67D4C99D28601CF292A1150EAE0"
-        LocalIndexRead        = "5401416F87E0981D53E7E4F6ED15802D2148D941181661D9FFCF02067DD3443B"
+        LocalIndexRead        = "B0C0220E0B629769E2DEFF5E8A34FEB097D9E719F68785536672DB1FA5CF06D1"
         ParkSharedSync        = "B3A64051813F12A24BD5E791D59CF7E2330FA84E965C9F44BD62366D4A81415E"
         IsolatedRead          = "4074D6ECAA620A9C80A5B6B535BB657E02DCE06A9DF97E35CA1EA47572D1060C"
         CmdletHelp            = "12505D0654AB0E97BD803A70B953BB0BBE2152836AAA1889744C1312EB215D62"
@@ -20703,7 +20701,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "34B89237726D9195E07B3C2CE8FA1E183CD83A5C375C1BBFDA5004D5C9DD2FD2"
+    $expectedFingerprint = "8182E8B669C0FDC37914AD7793F0174FCD22D180851A8800CE653D684EB0F56B"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }

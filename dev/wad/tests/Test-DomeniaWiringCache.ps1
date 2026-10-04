@@ -3241,6 +3241,27 @@ Test-Case 'Parc : cache durable relu au redemarrage sans expiration ni limite 15
         $read=Invoke-ParkTargetsFixture;Assert-True ($null -eq @($read.Rows|Where-Object Computer -eq 'PC-1')[0].Previous)
     }finally{Remove-Item $root -Recurse -Force}
 }
+Test-Case 'Parc : utilisateur recree connu sous le meme DN ou login invalide le cache' {
+    $root=New-LegacySandbox
+    try{
+        $db=Open-DomeniaDatabase -Path $script:TestDbPath
+        try{[void](Invoke-DomeniaDbExec "INSERT INTO ad_objects(object_key,object_guid,object_type,name,state,distinguished_name) VALUES('machine','machine-guid','Machine','PC-1','Actif','cn=pc-1,dc=example,dc=invalid'); INSERT INTO ad_objects(object_key,object_guid,object_type,name,login,state,distinguished_name,usn_changed) VALUES('user','old-user-guid','Utilisateur','Alice','alice','Actif','CN=Alice,DC=example,DC=invalid',5);" $db)}finally{Close-DomeniaDatabase $db}
+        $row=[pscustomobject]@{Version=1;Key='cn=pc-1,dc=example,dc=invalid';Guid='machine-guid';Computer='PC-1';CheckedUtc='2000-01-01T00:00:00Z';Outcome='Observed';RawAccount='EXAMPLE\alice';LinkUser='alice';UserDn='CN=Alice,DC=example,DC=invalid';UserGuid='old-user-guid';UserUsn='5';ObservedUtc='2000-01-01T00:00:00Z'}
+        [void](Invoke-LegacyWorker ([pscustomobject]@{Path=$script:TestDbPath;Items=@([pscustomobject]@{Kind='ParkSession';Row=$row})}))
+        $targets=@([pscustomobject]@{name='PC-1';distinguished_name=$row.Key;object_guid=$row.Guid})
+        foreach($scope in @('Results','Park')){Assert-False (Invoke-ParkTargetsFixture -Scope $scope -Targets $targets).Rows[0].Previous.DirectoryChanged}
+        $db=Open-DomeniaDatabase -Path $script:TestDbPath
+        try{[void](Invoke-DomeniaDbExec "UPDATE ad_objects SET object_guid='new-user-guid' WHERE object_key='user';" $db)}finally{Close-DomeniaDatabase $db}
+        foreach($scope in @('Results','Park')){Assert-True (Invoke-ParkTargetsFixture -Scope $scope -Targets $targets).Rows[0].Previous.DirectoryChanged 'Le meme DN avec un nouveau GUID doit etre revalide'}
+        $db=Open-DomeniaDatabase -Path $script:TestDbPath
+        try{[void](Invoke-DomeniaDbExec "UPDATE ad_objects SET distinguished_name='CN=Another,DC=example,DC=invalid' WHERE object_key='user';" $db)}finally{Close-DomeniaDatabase $db}
+        foreach($scope in @('Results','Park')){Assert-True (Invoke-ParkTargetsFixture -Scope $scope -Targets $targets).Rows[0].Previous.DirectoryChanged 'Le meme login avec un nouveau GUID doit etre revalide'}
+        $db=Open-DomeniaDatabase -Path $script:TestDbPath
+        try{[void](Invoke-DomeniaDbExec "UPDATE ad_objects SET login='unrelated' WHERE object_key='user';" $db)}finally{Close-DomeniaDatabase $db}
+        foreach($scope in @('Results','Park')){Assert-False (Invoke-ParkTargetsFixture -Scope $scope -Targets $targets).Rows[0].Previous.DirectoryChanged 'Une absence dans un index partiel ne prouve pas un changement'}
+    }finally{Remove-Item $root -Recurse -Force}
+}
+
 Test-Case 'Parc : resultat vide reste vide et aucune expansion implicite' {
     $root=New-LegacySandbox
     try{$read=Invoke-ParkTargetsFixture -Scope Results;Assert-Equal 0 $read.Rows.Count}finally{Remove-Item $root -Recurse -Force}

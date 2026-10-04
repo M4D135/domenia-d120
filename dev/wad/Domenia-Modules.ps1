@@ -490,7 +490,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Fail-DomeniaEmbeddedPath',
             'Show-DomeniaInlineFilePicker'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Relations.Model.ps1'); File='Domenia-Relations.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Selection.UI.ps1'); File='Domenia-Relations.UI.ps1'; DotSource=$true; Functions=@(
             'Initialize-DomeniaRelationsState',
             'Set-DomeniaRelationsSelection',
             'Set-DomeniaRelationsGridSelection',

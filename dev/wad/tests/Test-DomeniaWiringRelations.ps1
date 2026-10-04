@@ -190,6 +190,9 @@ try {
     }
     . ([scriptblock]::Create(($definitions.ToArray() -join "`n")))
     . (Join-Path $wad 'modules\Domenia-Common.Model.ps1')
+    . (Join-Path $wad 'modules\Domenia-Engine.Model.ps1')
+    if($null -eq ('Domenia.SelectionIdentity' -as [type])){Add-Type -Path (Join-Path $wad 'modules\Domenia-Identity.Types.cs')}
+    . (Join-Path $wad 'modules\Domenia-Selection.UI.ps1')
     . (Join-Path $wad 'modules\Domenia-Relations.Model.ps1')
     . (Join-Path $wad 'modules\Domenia-Embedded.UI.ps1')
     . (Join-Path $wad 'modules\Domenia-Relations.UI.ps1')

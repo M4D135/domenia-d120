@@ -27,7 +27,7 @@ function Initialize-DomeniaRelationsState {
     }
 }
 function Set-DomeniaRelationsSelection {
-    param($Row,$Object)
+    param($Row,$Object,$SelectionIdentity=$null)
     Initialize-DomeniaRelationsState
     if($script:SuppressGridSelectionEvents){return}
     $model=Get-DomeniaFeatureFlag 'RelationsSymmetry' $true
@@ -39,7 +39,10 @@ function Set-DomeniaRelationsSelection {
     }elseif($null -ne $Object -and $objectType -in @('Utilisateur','Machine')){
         $s=[pscustomobject]@{Type=$objectType;Login=(Get-DomeniaEntryFirstString $Object.Entry 'sAMAccountName');Name=[string]$Object.Name;DN=[string]$Object.DN;Guid=[string]$Object.Safety.Guid}
     }
-    if($null -eq $s -or -not $s.DN){return}
+    if($null -ne $SelectionIdentity){$s=$SelectionIdentity}
+    elseif($null -ne $Object -and [object]::ReferenceEquals($Object,$script:SelectedObject)){$s=Get-DomeniaCurrentSelectionIdentity -Workspace 'WsObject'}
+    elseif($null -ne $s){$s=Get-DomeniaRowSelectionIdentity -Row $s}
+    if($null -eq $s -or $s -isnot [Domenia.SelectionIdentity] -or -not $s.DN -or $s.Type -notin @('Utilisateur','Machine') -or $s.Epoch -ne [long]$script:SessionEpoch -or $s.Reader -cne (Get-DomeniaObjectReadIdentity)){return}
     if($null -ne $script:Relations.Subject -and $script:Relations.Subject.DN -ieq $s.DN -and $script:Relations.Subject.Guid -ieq $s.Guid){$script:Relations.Subject=$s;Refresh-DomeniaRelationViews;return}
     $r=$script:Relations
     # A manual search cancelled from the task panel ends without a callback: it must not keep the subject locked.
@@ -71,7 +74,10 @@ function Set-DomeniaRelationsSelection {
 function Set-DomeniaRelationsGridSelection {
     if($script:SuppressGridSelectionEvents -or (Test-DomeniaAccessBusyWrite)){return}
     $grid=Get-DomeniaControl 'DgObjects'
-    if($null -ne $grid -and @($grid.SelectedItems).Count -eq 1){Set-DomeniaRelationsSelection -Row $grid.SelectedItem}
+    if($null -ne $grid -and @($grid.SelectedItems).Count -eq 1){
+        $identity=Get-DomeniaCurrentSelectionIdentity -Workspace 'WsSearch'
+        if($null -ne $identity){Set-DomeniaRelationsSelection -SelectionIdentity $identity}
+    }
 }
 function Get-DomeniaRelationsSubject {
     Initialize-DomeniaRelationsState

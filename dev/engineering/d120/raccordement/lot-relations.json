@@ -61,7 +61,8 @@
       "Phase": "Modules",
       "Requires": [
         "Domenia-Common.Model.ps1",
-        "Domenia-Relations.Model.ps1"
+        "Domenia-Relations.Model.ps1",
+        "Domenia-Selection.UI.ps1"
       ],
       "DotSource": true,
       "Functions": [

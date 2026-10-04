@@ -83,6 +83,7 @@ function Get-DomeniaCurrentSelectionIdentity {
             $loadedGuid = ''
             try { $loadedGuid = ConvertTo-DomeniaGuidText $loaded.Safety.Guid } catch { }
             if ($loadedGuid -and $loadedGuid -ine [string]$captured.Guid) { return $null }
+            if ($captured.Epoch -ne [long]$script:SessionEpoch -or $captured.Reader -cne (Get-DomeniaObjectReadIdentity)) { return $null }
             return $captured
         }
     }

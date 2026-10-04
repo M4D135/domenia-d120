@@ -77,7 +77,7 @@ try {
         if(@($schema|Where-Object{$_.key -eq 'schema_version' -and $_.value -ceq '11'}).Count -ne 1 -or @($schema|Where-Object{$_.key -eq 'domenia_schema' -and $_.value -ceq '1'}).Count -ne 1){throw 'Schema du parc incompatible.'}
         $source=if([string]$Payload.Scope -eq 'Results'){@($Payload.Targets)}else{@(Invoke-IdxWQuery $db "SELECT name,distinguished_name,object_guid FROM ad_objects WHERE object_type='Machine' AND (state IS NULL OR state<>'Desactive') ORDER BY name COLLATE NOCASE;")}
         $cacheSql='SELECT object_key,payload FROM park_session_cache'
-        $usersSql="SELECT object_guid,usn_changed,distinguished_name FROM ad_objects WHERE object_type='Utilisateur'"
+        $usersSql="SELECT object_guid,usn_changed,distinguished_name,login FROM ad_objects WHERE object_type='Utilisateur'"
         if([string]$Payload.Scope -eq 'Results'){
             if(@($source).Count -gt 500){throw 'Perimetre affiche trop grand.'}
             $keys=@($source|ForEach-Object{Get-IdxWLiteral (([string]$_.distinguished_name).ToLowerInvariant())})
@@ -91,12 +91,25 @@ try {
                 try{$observation=([string]$item.payload)|ConvertFrom-Json -ErrorAction Stop;if([string]$observation.Key -ieq [string]$item.object_key){$cache[[string]$item.object_key]=$observation}}catch{}
             }
         }
-        $users=@{}
+        $users=@{};$usersByDn=@{};$usersByLogin=@{}
         if([string]$Payload.Scope -eq 'Results'){
-            $guids=@($cache.Values|Where-Object{$_.UserGuid}|ForEach-Object{Get-IdxWLiteral ([string]$_.UserGuid)})
-            $usersSql+=if($guids.Count){' AND object_guid IN ('+($guids -join ',')+')'}else{' AND 1=0'}
+            $conditions=New-Object 'System.Collections.Generic.List[string]'
+            foreach($pair in @(@('UserGuid','object_guid'),@('UserDn','distinguished_name'),@('LinkUser','login'))){
+                $field=[string]$pair[0]
+                $values=@($cache.Values|Where-Object{$_.$field}|ForEach-Object{Get-IdxWLiteral ([string]$_.$field)})
+                if($values.Count){$conditions.Add($pair[1]+' COLLATE NOCASE IN ('+($values -join ',')+')')}
+            }
+            $usersSql+=if($conditions.Count){' AND ('+($conditions -join ' OR ')+')'}else{' AND 1=0'}
         }
-        foreach($user in @(Invoke-IdxWQuery $db $usersSql)){if($user.object_guid){$users[[string]$user.object_guid]=$user}}
+        foreach($user in @(Invoke-IdxWQuery $db $usersSql)){
+            if(-not $user.object_guid){continue}
+            $users[[string]$user.object_guid]=$user
+            foreach($pair in @(@($usersByDn,[string]$user.distinguished_name),@($usersByLogin,[string]$user.login))){
+                $map=$pair[0];$value=[string]$pair[1];if(-not $value){continue}
+                if(-not $map.ContainsKey($value)){$map[$value]=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)}
+                [void]$map[$value].Add([string]$user.object_guid)
+            }
+        }
         $targets=New-Object 'System.Collections.Generic.List[object]';$seen=@{}
         foreach($row in $source){
             $key=([string]$row.distinguished_name).ToLowerInvariant();$name=[string]$row.name;$guid=[string]$row.object_guid
@@ -107,6 +120,12 @@ try {
                 $user=$users[[string]$previous.UserGuid]
                 $oldUsn=0L;$validUsn=[long]::TryParse([string]$previous.UserUsn,[ref]$oldUsn)
                 $changed=(-not $validUsn -or ($null -ne $user -and ([string]$user.distinguished_name -ine [string]$previous.UserDn -or [long]$user.usn_changed -gt $oldUsn)))
+                # A known reused DN or login belongs to a new user even if the old GUID is absent.
+                foreach($field in @('UserDn','LinkUser')){
+                    $set=$null
+                    if($field -eq 'UserDn'){$set=$usersByDn[[string]$previous.UserDn]}else{$set=$usersByLogin[[string]$previous.LinkUser]}
+                    if($null -ne $set -and ($set.Count -ne 1 -or -not $set.Contains([string]$previous.UserGuid))){$changed=$true}
+                }
                 $previous|Add-Member -NotePropertyName DirectoryChanged -NotePropertyValue $changed -Force
             }
             $targets.Add([pscustomobject]@{Key=$key;Computer=$name;Guid=$guid;Previous=$previous})
