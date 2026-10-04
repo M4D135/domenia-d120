@@ -200,10 +200,10 @@ Case 'Transaction SQLite annulée si observation invalide' {$before=@(Read-Fixtu
 Case 'Cache expire sans supprimer une table métier' {Exec-FixtureSql "CREATE TABLE business_fixture(id INTEGER); INSERT INTO business_fixture VALUES(1); UPDATE adcc_live_queries SET observed_utc='2000-01-01T00:00:00Z';";Invoke-FixtureCache ([pscustomobject]@{Mode='Write';Path=$dbPath;Scope=$scope;Query=$null;Observations=@()});Assert-Live (@(Read-FixtureSql 'SELECT * FROM adcc_live_queries;').Count -eq 0 -and @(Read-FixtureSql 'SELECT * FROM business_fixture;').Count -eq 1)}
 # These doubles intercept every network boundary, including the optional ping.
 function Invoke-ProbeFixture {
-    param([string]$User='EXAMPLE\alice',[string]$ErrorKind='', [switch]$AdError)
+    param([string]$User='EXAMPLE\alice',[string]$ErrorKind='', [switch]$AdError,$Previous=$null)
     $script:ProbeCalls=@{Sessions=0;Reads=0;Closes=0;Ldap=0;Credential=$null}
     $Context=[pscustomobject]@{MachineCredential=$script:RemoteFixture;Credential=$script:AdFixture;Domain='example.invalid';Netbios='EXAMPLE';BaseDn='DC=example,DC=invalid';UseCim=$true}
-    $Payload=[pscustomobject]@{Computer='pc-01.example.invalid';Key=$observed.Key;Guid=$observed.Guid;MethodSeconds=4}
+    $Payload=[pscustomobject]@{Computer='pc-01.example.invalid';Key=$observed.Key;Guid=$observed.Guid;MethodSeconds=4;Previous=$Previous}
     function Get-WMachineCredential {param($Context) return $Context.MachineCredential}
     function New-Object {
         param($TypeName)
@@ -241,6 +241,22 @@ $script:RemoteFixture=[pscustomobject]@{UserName='EXAMPLE\postes'}
 $script:AdFixture=[pscustomobject]@{UserName='EXAMPLE\annuaire'}
 Case 'Sonde réelle sur doubles : un compte poste, un transport et nettoyage' {$r=Invoke-ProbeFixture;Assert-Live ($r.Outcome -eq 'Observed' -and $r.User -eq 'EXAMPLE\alice' -and $script:ProbeCalls.Sessions -eq 1 -and $script:ProbeCalls.Reads -eq 1 -and $script:ProbeCalls.Closes -eq 1 -and [object]::ReferenceEquals($script:ProbeCalls.Credential,$script:RemoteFixture))}
 Case 'L utilisateur AD vérifié devient une association, pas un compte local deviné' {$r=Invoke-ProbeFixture;Assert-Live ($r.LinkUser -eq 'alice' -and $r.UserDn -eq 'CN=Alice,DC=example,DC=invalid')}
+Case 'Parc incremental : meme console une lecture legere et aucune requete LDAP' {
+ $previous=[pscustomobject]@{Version=1;Key=$observed.Key;Guid=$observed.Guid;RawAccount='EXAMPLE\alice';LinkUser='alice';UserDn='CN=Alice,DC=example,DC=invalid';UserGuid='cached-guid';UserUsn='5';DirectoryChanged=$false}
+ $r=Invoke-ProbeFixture -Previous $previous
+ Assert-Live ($r.CacheReused -and $script:ProbeCalls.Ldap -eq 0 -and $script:ProbeCalls.Reads -eq 1 -and $r.UserGuid -eq 'cached-guid')
+}
+Case 'Parc incremental : identite modifiee ou machine recreee oblige une resolution' {
+ foreach($change in @('RawAccount','Guid','Key','DirectoryChanged','UserGuid')){
+  $p=[pscustomobject]@{Version=1;Key=$observed.Key;Guid=$observed.Guid;RawAccount='EXAMPLE\alice';LinkUser='alice';UserDn='CN=Alice,DC=example,DC=invalid';UserGuid='cached-guid';UserUsn='5';DirectoryChanged=$false}
+  switch($change){RawAccount{$p.RawAccount='EXAMPLE\bob'}Guid{$p.Guid='recreated'}Key{$p.Key='another-domain'}DirectoryChanged{$p.DirectoryChanged=$true}UserGuid{$p.UserGuid=''}}
+  $r=Invoke-ProbeFixture -Previous $p;Assert-Live (-not $r.CacheReused -and $script:ProbeCalls.Ldap -eq 1) $change
+ }
+}
+Case 'Parc incremental : un cache ne transforme pas un compte local en compte AD' {
+ $p=[pscustomobject]@{Version=1;Key=$observed.Key;Guid=$observed.Guid;RawAccount='PC-01\alice';LinkUser='alice';UserDn='CN=Alice,DC=example,DC=invalid';UserGuid='cached-guid'}
+ $r=Invoke-ProbeFixture -User 'PC-01\alice' -Previous $p;Assert-Live (-not $r.CacheReused -and -not $r.LinkUser -and $script:ProbeCalls.Ldap -eq 0)
+}
 Case 'Nom de compte local jamais interprété comme un compte du domaine' {$r=Invoke-ProbeFixture -User 'PC-01\alice';Assert-Live ($r.Outcome -eq 'Observed' -and -not $r.LinkUser -and $script:ProbeCalls.Ldap -eq 0)}
 Case 'Nom nu jamais réinterprété comme identité AD' {$r=Invoke-ProbeFixture -User 'alice';Assert-Live ($script:ProbeCalls.Ldap -eq 0 -and -not $r.LinkUser)}
 Case 'Console vide ne déclenche pas de recherche de profils historique' {$r=Invoke-ProbeFixture -User '';Assert-Live ($r.Outcome -eq 'NoConsole' -and $script:ProbeCalls.Reads -eq 1 -and $script:ProbeCalls.Ldap -eq 0)}

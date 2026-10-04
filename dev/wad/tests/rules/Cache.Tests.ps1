@@ -243,7 +243,7 @@ Test-Case 'D029' 'Reconstructible vide a la demande, historique borne avec date 
 }
 Test-Case 'D029' 'Liste de tables fermee et historique des associations declarees protege' {
     $targets=@(foreach($category in @('Observations','Snapshots','History','Index')){Get-DomeniaPurgeTargets $category})
-    Assert-Equal 10 $targets.Count
+    Assert-Equal 11 $targets.Count
     foreach($target in $targets){
         Assert-False ($target.Table -in @('user_machine_links','schema_info','secret_state','receipts','configuration','preferences'))
         Assert-False ($target.Table -match '[\\/.]') 'Aucun fichier'

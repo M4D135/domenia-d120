@@ -1864,7 +1864,7 @@ Test-Case 'D029 : cap historique protege Manual Saisie manuelle Import CSV et as
     Assert-Equal 1 (Get-LegacyCount "user_machine_history WHERE lower(trim(COALESCE(source,'')))='manual'")
     Assert-Equal 1 (Get-LegacyCount "user_machine_history WHERE computer_key='PC-PROT'")
     Assert-Equal 2 (Get-LegacyCount "user_machine_history WHERE source IN ('Saisie manuelle','Import CSV')")
-    Assert-Equal 20000 (Get-LegacyCount "user_machine_history WHERE lower(COALESCE(source,''))='console' AND computer_key='PC-UNPROT'")
+    Assert-Equal 20001 (Get-LegacyCount "user_machine_history WHERE lower(COALESCE(source,''))='console' AND computer_key='PC-UNPROT'")
 }
 
 
@@ -2806,7 +2806,7 @@ Test-Case 'D029 : mesure native en runspace et progression du Dispatcher WPF' {
         $ps=[PowerShell]::Create()
         [void]$ps.AddScript(('param($Payload)'+[Environment]::NewLine+(Get-DomeniaStorageUsageWorkerCode))).AddArgument([pscustomobject]@{Path=$script:TestDbPath})
         $async=$ps.BeginInvoke();$turns=0;$watch=[Diagnostics.Stopwatch]::StartNew()
-        do {Invoke-WiringPump 10;$turns++;if(-not $async.IsCompleted -and $watch.ElapsedMilliseconds -gt 10000){throw 'Mesure runspace trop longue'}}while(-not $async.IsCompleted)
+        do {Invoke-WiringPump 10;$turns++;if(-not $async.IsCompleted -and $watch.ElapsedMilliseconds -gt 10000){throw ('Mesure runspace trop longue : '+$watch.ElapsedMilliseconds+' ms ; etat='+$ps.InvocationStateInfo.State+' ; erreurs='+$ps.Streams.Error.Count)}}while(-not $async.IsCompleted)
         $out=@($ps.EndInvoke($async));Assert-Equal 0 $ps.Streams.Error.Count ($ps.Streams.Error|Out-String)
         $result=@($out|Where-Object{$_.Kind -eq 'StorageUsage'})[0]
         Assert-Equal 10003 @($result.Categories|Where-Object{$_.Category -eq 'History'})[0].Rows
@@ -3198,6 +3198,78 @@ Test-Case 'D029 : un paquet de purge mal forme ne devient jamais une confirmatio
 }
 
 Stop-TestTimers
+# Persistent park cache uses the existing single writer and survives a new read context.
+. (Join-Path $modules 'Domenia-Park.Model.ps1')
+. ([scriptblock]::Create((Get-FunctionTextFromFile (Join-Path $modules 'Domenia-Engine.Worker.ps1') 'Get-DomeniaLocalIndexReadWorkerCode')))
+function Invoke-ParkTargetsFixture {
+    param([string]$Scope='Park',[object[]]$Targets=@())
+    $Payload=[pscustomobject]@{Action='ParkTargets';Path=$script:TestDbPath;BusyTimeoutMs=250;Scope=$Scope;Targets=$Targets}
+    return & ([scriptblock]::Create((Get-DomeniaLocalIndexReadWorkerCode)))
+}
+Test-Case 'Parc : cache durable relu au redemarrage sans expiration ni limite 150' {
+    $root=New-LegacySandbox
+    try{
+        $db=Open-DomeniaDatabase -Path $script:TestDbPath
+        try{
+            [void](Invoke-DomeniaDbExec "WITH RECURSIVE c(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM c WHERE n<151) INSERT INTO ad_objects(object_key,object_guid,object_type,name,state,distinguished_name) SELECT 'machine'||n,'guid'||n,'Machine','PC-'||n,'Actif','cn=pc-'||n||',dc=example,dc=invalid' FROM c; INSERT INTO ad_objects(object_key,object_guid,object_type,name,state,distinguished_name,usn_changed) VALUES('user','user-guid','Utilisateur','alice','Actif','CN=Alice,DC=example,DC=invalid',5);" $db)
+        }finally{Close-DomeniaDatabase $db}
+        $row=[pscustomobject]@{Version=1;Key='cn=pc-1,dc=example,dc=invalid';Guid='guid1';Computer='PC-1';CheckedUtc='2000-01-01T00:00:00Z';Outcome='Observed';RawAccount='EXAMPLE\alice';LinkUser='alice';UserDn='CN=Alice,DC=example,DC=invalid';UserGuid='user-guid';UserUsn='5';ObservedUtc='2000-01-01T00:00:00Z'}
+        $Payload=[pscustomobject]@{Path=$script:TestDbPath;Items=@([pscustomobject]@{Kind='ParkSession';Row=$row})}
+        $write=Invoke-LegacyWorker $Payload;Assert-True $write.Saved
+        $read=Invoke-ParkTargetsFixture
+        Assert-Equal 151 $read.Rows.Count
+        $target=@($read.Rows|Where-Object Computer -eq 'PC-1')[0]
+        Assert-Equal 'EXAMPLE\alice' $target.Previous.RawAccount;Assert-False $target.Previous.DirectoryChanged
+        Assert-Equal 1 (Get-LegacyCount 'park_session_cache');Assert-Equal 1 (Get-LegacyCount 'park_state');Assert-Equal 0 (Get-LegacyCount 'user_machine_links')
+        $read=Invoke-ParkTargetsFixture -Scope Results -Targets @([pscustomobject]@{name='PC-1';distinguished_name=$row.Key;object_guid='guid1'})
+        Assert-Equal 1 $read.Rows.Count;Assert-Equal 'alice' $read.Rows[0].Previous.LinkUser
+        $db=Open-DomeniaDatabase -Path $script:TestDbPath
+        try{[void](Invoke-DomeniaDbExec "UPDATE ad_objects SET usn_changed=6 WHERE object_key='user';" $db)}finally{Close-DomeniaDatabase $db}
+        $read=Invoke-ParkTargetsFixture;Assert-True @($read.Rows|Where-Object Computer -eq 'PC-1')[0].Previous.DirectoryChanged
+        $db=Open-DomeniaDatabase -Path $script:TestDbPath
+        try{[void](Invoke-DomeniaDbExec "UPDATE ad_objects SET object_guid='recreated' WHERE object_key='machine1';" $db)}finally{Close-DomeniaDatabase $db}
+        $read=Invoke-ParkTargetsFixture;Assert-True ($null -eq @($read.Rows|Where-Object Computer -eq 'PC-1')[0].Previous)
+    }finally{Remove-Item $root -Recurse -Force}
+}
+Test-Case 'Parc : resultat vide reste vide et aucune expansion implicite' {
+    $root=New-LegacySandbox
+    try{$read=Invoke-ParkTargetsFixture -Scope Results;Assert-Equal 0 $read.Rows.Count}finally{Remove-Item $root -Recurse -Force}
+}
+Test-Case 'Parc : cache durable fait partie de la mesure et de la purge explicite' {
+    $root=New-LegacySandbox
+    try{
+        $row=[pscustomobject]@{Version=1;Key='cn=pc-1,dc=example,dc=invalid';Guid='guid1';Computer='PC-1';CheckedUtc='2000-01-01T00:00:00Z';Outcome='Unavailable';LinkUser='alice'}
+        [void](Invoke-LegacyWorker ([pscustomobject]@{Path=$script:TestDbPath;Items=@([pscustomobject]@{Kind='ParkSession';Row=$row})}))
+        $usage=Invoke-UsageWorker;$table=@(@($usage.Categories|Where-Object Category -eq 'Observations')[0].Tables|Where-Object Table -eq 'park_session_cache')[0];Assert-Equal 1 $table.Rows
+        $Payload=[pscustomobject]@{Path=$script:TestDbPath;Selection=@('Observations');HistoryCutoffUtc='';DryRun=$true;ExpectedFingerprint=''}
+        $preview=& ([scriptblock]::Create((Get-DomeniaStoragePurgeWorkerCode)))
+        Assert-Equal 1 (Get-LegacyCount 'park_session_cache')
+        $Payload.DryRun=$false;$Payload.ExpectedFingerprint=$preview.Fingerprint
+        $apply=& ([scriptblock]::Create((Get-DomeniaStoragePurgeWorkerCode)))
+        Assert-True $apply.Committed;Assert-Equal 0 (Get-LegacyCount 'park_session_cache')
+    }finally{Remove-Item $root -Recurse -Force}
+}
+
+Test-Case 'Parc : remplacement atomique conserve ancien et nouveau user et refuse le conflit' {
+    $root=New-LegacySandbox
+    try{
+        $old=[pscustomobject]@{UserLogin='alice';Computer='PC-1';Source='Console CIM/DCOM';Confidence=0;VerifiedInAD=$true;When='2026-01-01T00:00:00Z';Details='premier';UserGuid='user-1';ComputerGuid='machine-1';UserDn='CN=Alice,DC=example,DC=invalid';ComputerDn='CN=PC-1,DC=example,DC=invalid'}
+        $item=[pscustomobject]@{Kind='Link';Key='PC-1';Expected='';Row=$old;Remove=$false}
+        [void](Invoke-LegacyWorker ([pscustomobject]@{Path=$script:TestDbPath;Items=@($item)}))
+        # Simulate an old primary imported before this history writer existed.
+        $db=Open-DomeniaDatabase -Path $script:TestDbPath
+        try{[void](Invoke-DomeniaDbExec 'DELETE FROM user_machine_history;' $db)}finally{Close-DomeniaDatabase $db}
+        $new=$old.PSObject.Copy();$new.UserLogin='bob';$new.UserGuid='user-2';$new.UserDn='CN=Bob,DC=example,DC=invalid';$new.When='2026-02-01T00:00:00Z'
+        $item.Expected=Get-DomeniaLinkFingerprint $old;$item.Row=$new
+        $written=Invoke-LegacyWorker ([pscustomobject]@{Path=$script:TestDbPath;Items=@($item)})
+        Assert-Equal 0 $written.Conflicts.Count;Assert-Equal 1 (Get-LegacyCount "user_machine_links WHERE user_login='bob'")
+        Assert-Equal 1 (Get-LegacyCount "user_machine_history WHERE user_login='alice'");Assert-Equal 1 (Get-LegacyCount "user_machine_history WHERE user_login='bob'")
+        $item.Row=$old
+        $conflict=Invoke-LegacyWorker ([pscustomobject]@{Path=$script:TestDbPath;Items=@($item)})
+        Assert-Equal 1 $conflict.Conflicts.Count;Assert-Equal 1 (Get-LegacyCount "user_machine_links WHERE user_login='bob'");Assert-Equal 2 (Get-LegacyCount 'user_machine_history')
+    }finally{Remove-Item $root -Recurse -Force}
+}
+
 $passed = @($checks | Where-Object { $_.Status -eq 'Passed' }).Count
 $failed = @($checks | Where-Object { $_.Status -eq 'Failed' }).Count
 if (-not $ReportPath) { $ReportPath = Join-Path ([IO.Path]::GetTempPath()) ('Domenia-wiring-cache-' + [guid]::NewGuid().ToString('N') + '.json') }

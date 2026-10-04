@@ -281,6 +281,26 @@
         "Get-DomeniaStorageUsageWorkerCode",
         "Get-DomeniaStoragePurgeWorkerCode"
       ]
+    },
+    {
+      "File": "Domenia-Park.Model.ps1",
+      "Phase": "Modules",
+      "Requires": [
+        "Domenia-Cache.Model.ps1"
+      ],
+      "DotSource": true
+    },
+    {
+      "File": "Domenia-Park.UI.ps1",
+      "Phase": "Modules",
+      "Requires": [
+        "Domenia-Park.Model.ps1",
+        "Domenia-Relations.UI.ps1",
+        "Domenia-Storage.UI.ps1",
+        "Domenia-Inline.UI.ps1",
+        "Domenia-Engine.Worker.ps1"
+      ],
+      "DotSource": true
     }
   ],
   "ModifiedModulesWithoutNewFunctions": [

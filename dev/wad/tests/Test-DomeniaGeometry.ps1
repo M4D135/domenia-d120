@@ -242,6 +242,23 @@ if($infrastructure){
     }
 }
 
+if($infrastructure){
+    foreach($theme in @('Light','Dark')){
+        $window=$null
+        try{
+            $window=New-GeometryWindow $theme 960 516
+            Test-Case ($theme+' : detection des resultats et du parc accessible a 960x516') {
+                foreach($page in @('WsSearch','TabRelations')){
+                    $window.FindName('WorkspaceTabs').SelectedItem=$window.FindName($page);Invoke-GeometryPump $window
+                    $names=if($page -eq 'WsSearch'){@('BtnParkResults','BtnParkResultsStop')}else{@('BtnParkSweep','BtnParkSweepStop')}
+                    foreach($name in $names){$a=Get-ClientRect $window $name;Assert-True ($a.Visible -and $a.W -gt 20 -and $a.H -ge 25 -and $a.X -ge 0 -and $a.Y -ge 0 -and $a.X+$a.W -le $window.Content.ActualWidth+0.5 -and $a.Y+$a.H -le $window.Content.ActualHeight+0.5) ($name+' hors vue')}
+                }
+            }
+        }catch{$script:Checks.Add([pscustomobject]@{Name=($theme+' : preparation detection');Status='Failed';Detail=$_.Exception.ToString()})}
+        finally{if($window){$window.Close()};$script:Window=$null;$script:Ctrl=@{}}
+    }
+}
+
 $failed=@($script:Checks|Where-Object{$_.Status -eq 'Failed'}).Count
 $passed=@($script:Checks|Where-Object{$_.Status -eq 'Passed'}).Count
 $report=[ordered]@{

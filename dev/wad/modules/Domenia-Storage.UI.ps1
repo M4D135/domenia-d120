@@ -266,7 +266,7 @@ function Fail-DomeniaStorageWork {
     Set-Status 'Cache non enregistre sur disque. Les observations sont encore en memoire ; une nouvelle tentative bornee sera faite.' 'WARN'
 }
 function Queue-DomeniaMetadata {
-    param([ValidateSet('Presence','UserScan','Park','SecretMeta','Sample','IndexBulk','LegacyImport')][string]$Kind,$Row,[string]$Key='')
+    param([ValidateSet('Presence','UserScan','Park','ParkSession','SecretMeta','Sample','IndexBulk','LegacyImport')][string]$Kind,$Row,[string]$Key='')
     if($null -eq $script:Persistence){Initialize-DomeniaPersistence}
     if(-not $script:DatabaseScopedPath){return $false}
     if($Kind -eq 'LegacyImport'){
@@ -471,6 +471,7 @@ function Assert-DomeniaStoragePurgeReady {
     if([bool]$script:DemoMode){throw 'Purge locale indisponible en demonstration.'}
     if([string]::IsNullOrWhiteSpace([string]$script:DatabaseScopedPath)){throw 'Aucune base locale active.'}
     if($script:AsyncEngineClosing){throw 'Fermeture en cours.'}
+    if($null -ne $script:ParkRun -and -not $script:ParkRun.Completed){throw 'Arretez le releve du parc avant la maintenance locale.'}
     # Every outstanding producer must finish; a late AD or workstation result can also refill the cache.
     if(@($script:AsyncJobs.Values|Where-Object{$null -ne $_}).Count -or @($script:DetachedReadJobs|Where-Object{$null -ne $_}).Count -or $script:ActiveWriteTaskId -or $script:WriteState -in @('Unknown','UnknownPending')){throw 'Une operation est encore active ou a verifier. Attendez sa fin puis refaites la simulation.'}
     if($null -ne $script:Live -and ($script:Live.SaveJob -or [int]$script:Live.SaveInFlight -gt 0)){throw 'Un enregistrement des observations est encore en cours.'}

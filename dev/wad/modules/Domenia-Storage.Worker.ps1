@@ -155,6 +155,9 @@ function Invoke-DomeniaLinkWrite {
         if($actual -cne $Expected){$Conflicts.Add($Key);return $false}
         if($Remove){[void](Invoke-DomeniaDbExec ("DELETE FROM user_machine_links WHERE computer_key=$keyLit;") $DatabaseHandle);return $true}
     }
+    if($current.Count){
+        [void](Invoke-DomeniaDbExec ("INSERT INTO user_machine_history(user_login,computer_key,computer,source,confidence,verified_in_ad,observed_at,details,user_guid,computer_guid) SELECT l.user_login,l.computer_key,l.computer,l.source,l.confidence,l.verified_in_ad,l.observed_at,l.details,l.user_guid,l.computer_guid FROM user_machine_links l WHERE l.computer_key=$keyLit AND NOT EXISTS(SELECT 1 FROM user_machine_history h WHERE h.computer_key=l.computer_key AND h.user_login=l.user_login AND COALESCE(h.observed_at,'')=COALESCE(l.observed_at,'') AND COALESCE(h.source,'')=COALESCE(l.source,'') AND COALESCE(h.user_guid,'')=COALESCE(l.user_guid,''));") $DatabaseHandle)
+    }
     $l=$Row
     $verified=if([string]$l.VerifiedInAD -ieq 'True'){1}else{0}
     $values=@($Key,[string]$l.UserLogin,[string]$l.Computer,[string]$l.Source,[int]$l.Confidence,$verified,[string]$l.When,[string]$l.Details,[string]$l.UserGuid,[string]$l.ComputerGuid,[string]$l.UserDn,[string]$l.ComputerDn)
@@ -278,6 +281,21 @@ try {
     [void](Invoke-DomeniaDbExec $sql $db)
   } elseif($i.Kind -eq 'Link'){
     [void](Invoke-DomeniaLinkWrite -DatabaseHandle $db -Key ([string]$i.Key) -Expected ([string]$i.Expected) -Row $i.Row -Remove ([bool]$i.Remove) -Conflicts $conflicts -ImportMode $false)
+  }elseif($i.Kind -eq 'ParkSession'){
+    $r=$i.Row
+    if([int]$r.Version -ne 1 -or -not $r.Key -or -not $r.Guid){throw 'Observation du parc invalide.'}
+    $json=$r|ConvertTo-Json -Depth 4 -Compress
+    if($json.Length -gt 16384){throw 'Observation du parc trop volumineuse.'}
+    [void](Invoke-DomeniaDbExec 'CREATE TABLE IF NOT EXISTS park_session_cache(object_key TEXT PRIMARY KEY,checked_utc TEXT NOT NULL,payload TEXT NOT NULL);' $db)
+    $values=@([string]$r.Key,[string]$r.CheckedUtc,$json)
+    [void](Invoke-DomeniaDbExec ('INSERT OR REPLACE INTO park_session_cache(object_key,checked_utc,payload) VALUES('+(($values|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ',')+');') $db)
+    # Existing park coverage continues to display the latest attempt and the last known account.
+    $keyLit=ConvertTo-DomeniaSqlLiteral (([string]$r.Computer).ToUpperInvariant())
+    $old=@(Invoke-DomeniaDbQuery ("SELECT attempts FROM park_state WHERE computer_key=$keyLit;") $db)
+    $attempts=1;if($old.Count){$attempts+=[int]$old[0].attempts}
+    $status=if($r.Outcome -eq 'Observed'){'Session'}else{[string]$r.Outcome}
+    $values=@(([string]$r.Computer).ToUpperInvariant(),[string]$r.Computer,[string]$r.CheckedUtc,$status,[string]$r.LinkUser,$attempts)
+    [void](Invoke-DomeniaDbExec ('INSERT OR REPLACE INTO park_state(computer_key,computer,last_probe,status,user_login,attempts) VALUES('+(($values|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ',')+');') $db)
   }elseif($i.Kind -in @('Presence','UserScan','Park','SecretMeta','Sample')){
     $r=$i.Row;$columns='';$table='';$values=@();$verb='INSERT OR REPLACE'
     switch([string]$i.Kind){
@@ -316,9 +334,7 @@ try {
   }else{throw 'Type stockage non autorise.'}
  }
  [void](Invoke-DomeniaDbExec 'DELETE FROM operation_runs WHERE id NOT IN (SELECT id FROM operation_runs ORDER BY id DESC LIMIT 10000);' $db)
- $protectedSources="('manual','saisie manuelle','import csv')"
- $pruneSql="DELETE FROM user_machine_history WHERE lower(trim(COALESCE(source,''))) NOT IN $protectedSources AND lower(trim(COALESCE(computer_key,''))) NOT IN (SELECT lower(trim(COALESCE(computer_key,''))) FROM user_machine_links WHERE lower(trim(COALESCE(source,''))) IN $protectedSources) AND id NOT IN (SELECT id FROM user_machine_history WHERE lower(trim(COALESCE(source,''))) NOT IN $protectedSources AND lower(trim(COALESCE(computer_key,''))) NOT IN (SELECT lower(trim(COALESCE(computer_key,''))) FROM user_machine_links WHERE lower(trim(COALESCE(source,''))) IN $protectedSources) ORDER BY id DESC LIMIT 20000);"
- [void](Invoke-DomeniaDbExec $pruneSql $db)
+ # User request 2026-10-04: association history is retained; only explicit History purge removes it.
  [void](Invoke-DomeniaDbExec 'COMMIT;' $db);$transaction=$false
  [pscustomobject]@{Saved=$true;Conflicts=$conflicts.ToArray();Count=@($Payload.Items).Count;Already=0;Imported=0;ImportedLinks=@()}
 } finally {if($transaction){try{[void](Invoke-DomeniaDbExec 'ROLLBACK;' $db)}catch{}};if($db -ne [IntPtr]::Zero){Close-DomeniaDatabase $db}}
@@ -476,7 +492,7 @@ try {
     if($baseVersion.Count -ne 1 -or [string]$baseVersion[0].value -cne '11' -or $localVersion.Count -ne 1 -or [string]$localVersion[0].value -cne '1'){throw 'Schema local non pris en charge pour la mesure (11/1 requis).'}
     # Every identifier is constant. The payload contributes no table, category, SQL or size estimate.
     $categories=[ordered]@{
-        Observations=@('adcc_live_observations','presence_cache','park_state')
+        Observations=@('adcc_live_observations','presence_cache','park_state','park_session_cache')
         Snapshots=@('adcc_live_queries')
         History=@('user_machine_history','user_scan_history','operation_runs')
         Index=@('ad_objects','domenia_provenance','sync_state')
@@ -502,6 +518,7 @@ try {
         $tables=New-Object 'System.Collections.Generic.List[object]';$totalRows=0L;$totalBytes=0L
         foreach($table in $categories[$category]){
             $rows=-1L;$bytes=-1L;$state='Absent'
+            if($table -eq 'park_session_cache' -and -not $existing.ContainsKey($table)){$rows=0L;$bytes=0L}
             if($existing.ContainsKey($table)){
                 $rows=[long](@(Invoke-DomeniaDbQuery ('SELECT count(*) AS n FROM '+$table+';') $db)[0].n)
                 $state='Mesure'
@@ -696,7 +713,7 @@ try {
     foreach($category in @($selection|Sort-Object)){
         switch($category){
             Observations {
-                foreach($table in @('adcc_live_observations','presence_cache','park_state')){$targets.Add([pscustomobject]@{Category=$category;Table=$table;Action='Delete';Where='1=1'})}
+                foreach($table in @('adcc_live_observations','presence_cache','park_state','park_session_cache')){$targets.Add([pscustomobject]@{Category=$category;Table=$table;Action='Delete';Where='1=1'})}
             }
             Snapshots {$targets.Add([pscustomobject]@{Category=$category;Table='adcc_live_queries';Action='Delete';Where='1=1'})}
             History {
@@ -717,7 +734,7 @@ try {
     foreach($target in $targets){
         $n=0L;$exists=$tables.ContainsKey($target.Table)
         if($exists){$n=[long](@(Invoke-DomeniaDbQuery ('SELECT count(*) AS n FROM '+$target.Table+' WHERE '+$target.Where+';') $db)[0].n)}
-        elseif($target.Table -notin @('adcc_live_observations','adcc_live_queries')){throw ('Table locale requise absente : '+$target.Table)}
+        elseif($target.Table -notin @('adcc_live_observations','adcc_live_queries','park_session_cache')){throw ('Table locale requise absente : '+$target.Table)}
         $counts.Add([pscustomobject]@{Category=$target.Category;Table=$target.Table;Action=$target.Action;Rows=$n;Exists=$exists})
     }
     # Bind confirmation to the categories, fixed cutoff, path and freshly recounted rows.

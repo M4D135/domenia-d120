@@ -682,6 +682,9 @@ $script:GuiElementPolicy = [ordered]@{
     "ChkParkSweepEnabled" = "Default"
     "BtnParkHarvest" = "Default"
     "BtnParkSweep" = "Default"
+    "BtnParkSweepStop" = "Default"
+    "BtnParkResults" = "Default"
+    "BtnParkResultsStop" = "Default"
     "BtnParkReset" = "Default"
     "LblParkStatus" = "Default"
     "LblIndexStats" = "Default"
@@ -4630,8 +4633,10 @@ function Get-MainXaml {
 <Button x:Name="BtnSuiteResultClear" Grid.Column="2" Content="Effacer le filtre" Margin="8,0,0,0" MinHeight="32" ToolTip="Réaffiche les lignes déjà chargées, en conservant le filtre OU, la présence et le texte de recherche AD." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Effacer le filtre local" AutomationProperties.HelpText="Réaffiche les lignes déjà chargées, en conservant le filtre OU, la présence et le texte de recherche AD." IsEnabled="{Binding IsEnabled, ElementName=DgObjects}"/>
 </Grid><Grid x:Name="UxResultLive" Margin="0,10,0,0"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="0"/></Grid.ColumnDefinitions>
                             <WrapPanel>
-                              <CheckBox x:Name="ChkLiveUsers" IsEnabled="{Binding IsEnabled, ElementName=DgObjects}" Content="Utilisateur à la sélection" IsChecked="True" VerticalAlignment="Center" Margin="0,0,14,4" ToolTip="Un clic lance un ping unique sur le poste. Cochée : lit aussi son utilisateur console. Décochée : ping seulement. Jamais de sondage collectif." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vérification sur sélection" AutomationProperties.HelpText="Vérifie uniquement la machine sélectionnée. Les autres lignes conservent leurs observations en cache, sans nouvel appel distant."/>
+                              <CheckBox x:Name="ChkLiveUsers" IsEnabled="{Binding IsEnabled, ElementName=DgObjects}" Content="Utilisateur au clic" IsChecked="True" VerticalAlignment="Center" Margin="0,0,14,4" ToolTip="Un clic lance un ping unique sur le poste. Cochée : lit aussi son utilisateur console. Décochée : ping seulement. Jamais de sondage collectif." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vérification sur sélection" AutomationProperties.HelpText="Vérifie uniquement la machine sélectionnée. Les autres lignes conservent leurs observations en cache, sans nouvel appel distant."/>
                               <Button x:Name="BtnLiveRecheck" IsEnabled="{Binding IsEnabled, ElementName=DgObjects}" Content="Revérifier ce poste" Margin="0,0,0,4" MinHeight="30" Padding="10,4" ToolTip="Relance un ping unique et la lecture utilisateur sur le poste sélectionné. Si le compte est refusé ou CIM désactivé, seul le ping reste disponible. Aucun balayage." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Revérifier ce poste" AutomationProperties.HelpText="Relance la vérification du compte console d’une seule machine sélectionnée."/>
+                              <Button x:Name="BtnParkResults" Content="Detecter la liste" Margin="8,0,0,4" MinHeight="30" Padding="10,4" IsEnabled="{Binding IsEnabled, ElementName=DgObjects}" ToolTip="Lit seulement la console des postes actuellement affiches apres filtres. Cache et associations conserves. Aucune detection au demarrage." AutomationProperties.Name="Detecter les resultats affiches"/>
+                              <Button x:Name="BtnParkResultsStop" Content="Arreter" Margin="8,0,0,4" MinHeight="30" Padding="10,4" ToolTip="Arrete les nouvelles lectures ; conserve les resultats deja obtenus." AutomationProperties.Name="Arreter la detection des resultats"/>
                             </WrapPanel>
                             <Grid x:Name="UxResultLiveStatuses" Grid.Row="1"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><TextBlock Text="Selectionnez une ligne pour precharger sa fiche. Double-clic : ouvrir." Foreground="{DynamicResource MutedColor}" FontSize="11" Height="20" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" x:Name="LblSelectionReadState" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/><TextBlock x:Name="LblLiveState" Grid.Row="1" Text="Un clic : vérifier ce poste · Double-clic : ouvrir la fiche · Aucune sonde de liste" FontSize="11" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Height="18" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/></Grid>
                           </Grid></StackPanel><Grid Grid.Row="1">
@@ -5209,6 +5214,11 @@ function Get-MainXaml {
                       <TextBlock Text="Relations utilisateur / poste" FontSize="18" FontWeight="SemiBold"/>
                       <TextBlock x:Name="LblRelationsSelection" Text="Sélectionnez un utilisateur ou un poste depuis Rechercher." FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource AccentText}" Margin="0,6,0,4" TextWrapping="Wrap"/>
                       <TextBlock Text="Une association mémorisée n'est pas une preuve de session ouverte. La détection réseau reste volontaire." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap"/>
+                      <WrapPanel Margin="0,6,0,0">
+                                  <Button x:Name="BtnParkSweep" Content="Detecter sur tout le parc" MinWidth="170" Margin="0,0,8,8" ToolTip="Verifie les consoles des postes indexes. Cache persistant, resolution AD seulement si changement. Les sessions RDP ne sont pas recensees." AutomationProperties.Name="Detecter sur tout le parc"/>
+                                  <Button x:Name="BtnParkSweepStop" Content="Arreter le releve" Margin="0,0,8,8" ToolTip="Arrete les nouvelles lectures. Les lectures deja lancees se terminent et leurs resultats sont conserves." AutomationProperties.Name="Arreter le releve"/>
+                      </WrapPanel>
+                      <TextBlock x:Name="LblParkDetectionStatus" Text="Cache conserve ; detection uniquement sur demande." TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
                       <TextBlock x:Name="LblLinkProbeStatus" Text="Aucune recherche complémentaire en cours." Foreground="{DynamicResource MutedColor}" Margin="0,6,0,0" TextWrapping="Wrap"/>
                     </StackPanel>
 
@@ -5934,9 +5944,8 @@ function Get-MainXaml {
                                 <TextBlock Text="Releve du parc" FontWeight="SemiBold"/>
                                 <TextBlock Text="Le journal du controleur donne des milliers de couples utilisateur et poste en une requete, sans contacter aucune machine. La sonde poste par poste ne sert qu a completer." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,2,0,8"/>
                                 <WrapPanel>
-                                  <CheckBox x:Name="ChkParkSweepEnabled" Content="Relever au lancement" VerticalAlignment="Center" Margin="0,0,14,8" ToolTip="Lance un lot de releves en arriere-plan a chaque ouverture. Ce sont les seules requetes qui touchent les postes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Relever au lancement" AutomationProperties.HelpText="Lance un lot de releves en arriere-plan a chaque ouverture. Ce sont les seules requetes qui touchent les postes."/>
+                                  <CheckBox x:Name="ChkParkSweepEnabled" Content="Releve manuel uniquement" IsEnabled="False" Visibility="Collapsed" VerticalAlignment="Center" Margin="0,0,14,8" ToolTip="Lance un lot de releves en arriere-plan a chaque ouverture. Ce sont les seules requetes qui touchent les postes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Relever au lancement" AutomationProperties.HelpText="Lance un lot de releves en arriere-plan a chaque ouverture. Ce sont les seules requetes qui touchent les postes."/>
                                   <Button x:Name="BtnParkHarvest" Content="Lire le journal du controleur" Style="{StaticResource RunButton}" MinWidth="220" Margin="0,0,8,8" ToolTip="Une seule requete sur le controleur rend des milliers de couples utilisateur et poste, sans contacter aucune machine." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lire le journal du controleur" AutomationProperties.HelpText="Une seule requete sur le controleur rend des milliers de couples utilisateur et poste, sans contacter aucune machine."/>
-                                  <Button x:Name="BtnParkSweep" Content="Sonder les postes" MinWidth="170" Margin="0,0,8,8" ToolTip="Interroge les postes un par un. Beaucoup plus couteux : a reserver a ce que le journal du controleur ne donne pas." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Sonder les postes" AutomationProperties.HelpText="Interroge les postes un par un. Beaucoup plus couteux : a reserver a ce que le journal du controleur ne donne pas."/>
                                   <Button x:Name="BtnParkReset" Content="Oublier les releves" MinWidth="170" Margin="0,0,0,8" ToolTip="Efface l etat du parc. Le prochain releve repartira de zero." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Oublier les releves" AutomationProperties.HelpText="Efface l etat du parc. Le prochain releve repartira de zero."/>
                                 </WrapPanel>
                                 <TextBlock x:Name="LblParkStatus" Text="Aucun releve." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap"/>
@@ -14970,35 +14979,8 @@ function Fail-DomeniaParkSweepUi {
 
 function Start-DomeniaParkSweep {
     param([switch]$Silent)
-    try {
-        if (@($script:IndexRows).Count -eq 0) {
-            if (-not $Silent) { Set-Status "Construis d abord l index : le releve s appuie sur la liste des postes." "WARN" }
-            return
-        }
-        $limit = [int](Get-CfgValue "ParkSweep" "PerRun" 150)
-        $queue = @(Get-DomeniaParkPriority -Limit $limit)
-        if (@($queue).Count -eq 0) {
-            $message = "Releve du parc a jour : aucun poste a interroger. " + (Get-DomeniaParkCoverageText)
-            [void](Set-DomeniaControlText -Name "LblParkStatus" -Text $message)
-            if (-not $Silent) { Set-Status $message }
-            return
-        }
-        if(-not $Silent){$impact=Get-DomeniaOperationImpactEstimate -Operation "ParkSweep" -ItemCount @($queue).Count -BudgetMs ([int](Get-CfgValue "ParkSweep" "BudgetMs" 120000));if(-not(Confirm-DomeniaOperationImpact -Estimate $impact -Title "Releve du parc")){return}}
-        [void](Set-DomeniaControlText -Name "LblParkStatus" -Text ("Releve de " + @($queue).Count + " poste(s) en cours..."))
-        Start-UiTask `
-            -Name "Releve du parc" `
-            -OperationId "ParkSweep" `
-            -Code (Get-DomeniaParkSweepWorkerCode) `
-            -Payload ([pscustomobject]@{ Computers=$queue; BudgetMs=[int](Get-CfgValue "ParkSweep" "BudgetMs" 120000) }) `
-            -CallbackState ([pscustomobject]@{ Silent=[bool]$Silent; Count=@($queue).Count }) `
-            -ReplaceKey "parksweep" `
-            -DisableControls @("BtnParkSweep") `
-            -TimeoutSeconds 200 `
-            -StatusText ("Releve de " + @($queue).Count + " poste(s) en arriere-plan...") `
-            -SuccessHandler "Complete-DomeniaParkSweepUi" `
-            -ErrorHandler "Fail-DomeniaParkSweepUi" | Out-Null
-    }
-    catch { [void](Show-DomeniaOperationError -Operation "Releve du parc" -ErrorRecordOrException $_) }
+    # Only this explicit control starts the whole-index scan. No startup continuation.
+    if(-not $Silent){Start-DomeniaOnlinePark}
 }
 
 function Request-DomeniaParkSweepAtStartup {
@@ -19265,6 +19247,9 @@ function Wire-Events {
     $age=Get-DomeniaControl 'TxtStorageHistoryDays';if($age){$age.Add_TextChanged({Reset-DomeniaStoragePurgePreview})}
     if ($script:Ctrl.ContainsKey("BtnParkHarvest")) { $script:Ctrl["BtnParkHarvest"].Add_Click({ Start-DomeniaLogonHarvest }) }
     if ($script:Ctrl.ContainsKey("BtnParkSweep")) { $script:Ctrl["BtnParkSweep"].Add_Click({ Start-DomeniaParkSweep }) }
+    if ($script:Ctrl.ContainsKey("BtnParkSweepStop")) { $script:Ctrl["BtnParkSweepStop"].Add_Click({ Stop-DomeniaOnlinePark }) }
+    if ($script:Ctrl.ContainsKey("BtnParkResults")) { $script:Ctrl["BtnParkResults"].Add_Click({ Start-DomeniaOnlinePark -DisplayedResults }) }
+    if ($script:Ctrl.ContainsKey("BtnParkResultsStop")) { $script:Ctrl["BtnParkResultsStop"].Add_Click({ Stop-DomeniaOnlinePark }) }
     if ($script:Ctrl.ContainsKey("BtnParkReset")) {
         $script:Ctrl["BtnParkReset"].Add_Click({
             if (-not (Confirm-Action -Message "Effacer l etat du parc ? Les associations deja creees sont conservees, seul l historique des releves est perdu." -Title "Oublier les releves")) { return }
@@ -20644,13 +20629,13 @@ function Get-DomeniaWorkerCodeHash {
 function Get-DomeniaWorkerOperationHashes {
     # Registre ferme : seules ces operations internes, avec leur corps exact, peuvent entrer dans un runspace.
     return [ordered]@{
-        StoragePurge          = "0061F6EA5AD47641252F0BE0D98E17ADA6F779603498E15661A6EA91B09B4095"
-        StorageUsage          = "1017F972CC267E57601B38D0798982BC13BFE6E4D8615298E5DB302DAA762B23"
+        StoragePurge          = "7AF1E83D5A2CC189D70F73C2743A93999162D1C0C74D111BCBD4F101F0C0FC01"
+        StorageUsage          = "84D550654B883DB7DE1CD68904BDB99E1F817E12FB2C14A2CAE081F4B1BC4FDD"
         LegacyMigration       = "9F9E86E2BD40130C8E8726DC065112CB0F770D04063ADB1EB890AFBB45C303F3"
         ReadBitLockerList     = "B1456CEA5805D83C6BF48E9A4040206F18F3C3773ED250610D6890E8D1F4EEC9"
         ReadBitLockerKey      = "8A98EBCDC48AD572404E1566826035C84F34ACB87564330A7AA511FAAC01EE6F"
         DemoDirectory         = "F12481F3B254D64F9C5D870A98EA33BE6C69A67D4C99D28601CF292A1150EAE0"
-        LocalIndexRead        = "2974178D600D640E53834C8C63257EAEB4930BBA88D66CD68E0752FD1206E54A"
+        LocalIndexRead        = "5401416F87E0981D53E7E4F6ED15802D2148D941181661D9FFCF02067DD3443B"
         ParkSharedSync        = "B3A64051813F12A24BD5E791D59CF7E2330FA84E965C9F44BD62366D4A81415E"
         IsolatedRead          = "4074D6ECAA620A9C80A5B6B535BB657E02DCE06A9DF97E35CA1EA47572D1060C"
         CmdletHelp            = "12505D0654AB0E97BD803A70B953BB0BBE2152836AAA1889744C1312EB215D62"
@@ -20697,8 +20682,8 @@ function Get-DomeniaWorkerOperationHashes {
         PresenceScan          = "E7F81414C29C1C8F1E91453D9EC4BA48B6F92F0AA0E2674C9EBF5C88437F4486"
         SelectedPresence      = "4ECADF4F231390182A3BF091EF8636B3536D7B3F8A28EF3984DE1E2D524D5BFA"
         StartupWarmCache      = "864735012ED29EBAF1B094DA12C1D44266933DC9D3D2046BD1E5D68AE58CA1A3"
-        LiveSelectedPing     = "2D26C899D61097F0395FA2745A1133FA32CCB6870256882DFAB56DF6B4931E2E"
-        LiveConsole          = "2D26C899D61097F0395FA2745A1133FA32CCB6870256882DFAB56DF6B4931E2E"
+        LiveSelectedPing     = "D836CEB7029BC8E7EAA74F55F7EA53F82CF28EDD3C387C39379E882599D8D127"
+        LiveConsole          = "D836CEB7029BC8E7EAA74F55F7EA53F82CF28EDD3C387C39379E882599D8D127"
         LiveCache            = "C4C1A3C6D502680012CB92465FF70FB70713D577731A6894D03C24CB56972289"
         LiveDirectoryCheck    = "49F6D4249F6465D6E461D3B04DD090F00477ABBD871683ECF3622714A2AB53CD"
         SessionsList         = "DD09187778C09CF31B0BDA41EAC88FF898D9484756AFDF2F3EE643E6B5318BF6"
@@ -20706,7 +20691,7 @@ function Get-DomeniaWorkerOperationHashes {
         ReceiptStore         = "45FE35D694782ECB8B13D14C5B3CD637FD5CA1C4B0E6CD278EEE3AC5804121D1"
         ScopeReconcile       = "5917B0E2AB92BA626EF3621CCCE7B9A4988B318E62834EFD02FD6AFEF5C0B650"
         DocumentStore        = "BFD83587CB1BA62BC141E5F0742C6C6453A561617ED157045F3B4E7AB11A14E7"
-        LocalStore           = "BE7D51F58DA64DEEA6D2A448367812E0DC4481EF0FE0F225048830FE74C7E339"
+        LocalStore           = "7AB18CFBDC9B5040B838C0859C444F0CE2EBA8489D617FE3C522E93C9E5A4501"
         EngineSelfTest        = "40E2C89F858E22E1D221AC48DC04DD5BF627F1ACBC836AB48036C43DB9F7E1D1"
             EmbeddedDirectoryLookup = "2B3A888C7E1A97B4D523B0B3A408EF03AA5C0D0F95D534984B8EB3D581CDDD17"
         EmbeddedPathBrowse = "B643D707E242EC4416AD63622847DD7C39E5B53ED47CF64FECD56E22B5A82271"
@@ -20718,7 +20703,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "6612DA5438FA047306CF0625D85E26F163BB89A409F6616C41335B152396B789"
+    $expectedFingerprint = "34B89237726D9195E07B3C2CE8FA1E183CD83A5C375C1BBFDA5004D5C9DD2FD2"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }

@@ -302,9 +302,11 @@ function Set-DomeniaUxShortLayout {
     }
     $results=Get-DomeniaControl 'UxResultsCard';if($results){$results.Padding=if($compact){[Windows.Thickness]::new(6)}else{[Windows.Thickness]::new(12)}}
     $actions=Get-DomeniaControl 'UxResultActionsRow';if($actions){$actions.Margin=if($compact){[Windows.Thickness]::new(0,0,0,4)}else{[Windows.Thickness]::new(0,0,0,8)}}
+    $consoleCheck=Get-DomeniaControl 'ChkLiveUsers';if($consoleCheck){$consoleCheck.Content=if($compact){'Console au clic'}else{'Utilisateur au clic'}}
+    $recheck=Get-DomeniaControl 'BtnLiveRecheck';if($recheck){$recheck.Content=if($compact){'Revérifier'}else{'Revérifier ce poste'}}
     $statuses=Get-DomeniaControl 'UxResultLiveStatuses'
     if($live -and $statuses){
-        $live.ColumnDefinitions[0].Width=if($compact){[Windows.GridLength]::new(330)}else{[Windows.GridLength]::new(1,[Windows.GridUnitType]::Star)}
+        $live.ColumnDefinitions[0].Width=if($compact){[Windows.GridLength]::new(415)}else{[Windows.GridLength]::new(1,[Windows.GridUnitType]::Star)}
         $live.ColumnDefinitions[1].Width=if($compact){[Windows.GridLength]::new(1,[Windows.GridUnitType]::Star)}else{[Windows.GridLength]::new(0)}
         [Windows.Controls.Grid]::SetRow($statuses,$(if($compact){0}else{1}))
         [Windows.Controls.Grid]::SetColumn($statuses,$(if($compact){1}else{0}))

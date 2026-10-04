@@ -139,7 +139,7 @@ function Get-DomeniaLiveProbeCode {
     return @'
 $target=[string]$Payload.Computer
 if($target.Length -gt 253 -or $target -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$'){throw 'Cible distante invalide.'}
-$answer=[ordered]@{Key=[string]$Payload.Key;Guid=[string]$Payload.Guid;Computer=$target;Outcome='Unavailable';User='';Source='CIM/DCOM · Win32_ComputerSystem.UserName';Detail='';Presence='Non vérifié';PresenceCheckedUtc='';PresenceDetail='';LinkUser='';UserDn='';UserGuid='';DirectoryAuthRejected=$false}
+$answer=[ordered]@{Key=[string]$Payload.Key;Guid=[string]$Payload.Guid;Computer=$target;Outcome='Unavailable';User='';Source='CIM/DCOM · Win32_ComputerSystem.UserName';Detail='';Presence='Non vérifié';PresenceCheckedUtc='';PresenceDetail='';LinkUser='';UserDn='';UserGuid='';UserUsn='';CacheReused=$false;DirectoryAuthRejected=$false}
 $cim=$null;$ping=$null
 function Get-NativeCode($ErrorValue){
     $ex=$ErrorValue.Exception
@@ -212,12 +212,19 @@ if($answer.Outcome -eq 'Observed'){
     }
     if($sam -match '^(?i:administrator|administrateur|defaultuser0|system)$'){$filter=''}
     if($filter){
+        # An explicit park run checks the raw console every time; only the unchanged LDAP identity is reused.
+        $previous=$Payload.Previous
+        if($null -ne $previous -and [int]$previous.Version -eq 1 -and [string]$previous.Key -ieq $answer.Key -and [string]$previous.Guid -ieq $answer.Guid -and $answer.Guid -and [string]$previous.RawAccount -ieq $answer.User -and $previous.LinkUser -and $previous.UserDn -and $previous.UserGuid -and -not [bool]$previous.DirectoryChanged){
+            foreach($field in @('LinkUser','UserDn','UserGuid','UserUsn')){$answer[$field]=[string]$previous.$field}
+            $answer.CacheReused=$true
+            [pscustomobject]$answer;return
+        }
         $searcher=$null;$results=$null;$root=$null
         try{
-            $searcher=New-WSearcher $Context ([string]$Context.BaseDn) $filter @('sAMAccountName','distinguishedName','objectGUID') 'Subtree' 2
+            $searcher=New-WSearcher $Context ([string]$Context.BaseDn) $filter @('sAMAccountName','distinguishedName','objectGUID','uSNChanged') 'Subtree' 2
             $root=$searcher.SearchRoot;$searcher.ServerTimeLimit=[TimeSpan]::FromSeconds(3);$searcher.ClientTimeout=[TimeSpan]::FromSeconds(4)
             $results=$searcher.FindAll();$found=@($results)
-            if($found.Count -eq 1){$answer.LinkUser=[string](Get-WPropFirst $found[0].Properties 'samaccountname' '');$answer.UserDn=[string](Get-WPropFirst $found[0].Properties 'distinguishedname' '');$g=Get-WPropFirst $found[0].Properties 'objectguid' $null;$answer.UserGuid=if($g -is [array] -and $g.Count -eq 16){([guid]([byte[]]$g)).ToString('D')}else{Convert-WGuid $g}}
+            if($found.Count -eq 1){$answer.UserUsn=[string](Get-WPropFirst $found[0].Properties 'usnchanged' '');$answer.LinkUser=[string](Get-WPropFirst $found[0].Properties 'samaccountname' '');$answer.UserDn=[string](Get-WPropFirst $found[0].Properties 'distinguishedname' '');$g=Get-WPropFirst $found[0].Properties 'objectguid' $null;$answer.UserGuid=if($g -is [array] -and $g.Count -eq 16){([guid]([byte[]]$g)).ToString('D')}else{Convert-WGuid $g}}
         }catch{
             $code=Get-NativeCode $_
             $answer.DirectoryAuthRejected=($code -in @(2147943726,2147944309,2147943730,2147943731,2147943732,2147943734))

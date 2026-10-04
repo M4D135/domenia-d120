@@ -399,6 +399,7 @@ function Get-DomeniaPurgeTargets {
             [pscustomobject]@{Table='adcc_live_observations';TimeColumn='checked_utc';Filter='All';Action='Delete'}
             [pscustomobject]@{Table='presence_cache';TimeColumn='checked_at';Filter='All';Action='Delete'}
             [pscustomobject]@{Table='park_state';TimeColumn='last_probe';Filter='All';Action='Delete'}
+            [pscustomobject]@{Table='park_session_cache';TimeColumn='checked_utc';Filter='All';Action='Delete'}
         }
         'Snapshots' {[pscustomobject]@{Table='adcc_live_queries';TimeColumn='observed_utc';Filter='All';Action='Delete'}}
         'History' {

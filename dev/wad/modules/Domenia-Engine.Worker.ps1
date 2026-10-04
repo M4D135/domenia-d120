@@ -6,7 +6,7 @@ function Get-DomeniaLocalIndexReadWorkerCode {
     # never an empty answer presented as a result.
     return @'
 $action = [string]$Payload.Action
-if ($action -notin @('Search','ParkState')) { throw 'Lecture locale non autorisee.' }
+if ($action -notin @('Search','ParkState','ParkTargets')) { throw 'Lecture locale non autorisee.' }
 $path = [IO.Path]::GetFullPath([string]$Payload.Path)
 if ($path.StartsWith('\\')) { throw 'Base locale reseau non prise en charge.' }
 if (-not [IO.File]::Exists($path)) { return [pscustomobject]@{ Rows=@(); Busy=$false; Missing=$true; MachineCount=0 } }
@@ -72,6 +72,47 @@ try {
     finally { [Runtime.InteropServices.Marshal]::FreeHGlobal($pathPtr) }
     if ($rc -ne 0 -or $db -eq [IntPtr]::Zero) { throw ('Ouverture SQLite en lecture impossible (code ' + $rc + ').') }
     [void][Domenia.WinSqliteNative]::sqlite3_busy_timeout($db,$busyMs)
+    if ($action -eq 'ParkTargets') {
+        $schema=@(Invoke-IdxWQuery $db "SELECT key,value FROM schema_info WHERE key IN ('schema_version','domenia_schema');")
+        if(@($schema|Where-Object{$_.key -eq 'schema_version' -and $_.value -ceq '11'}).Count -ne 1 -or @($schema|Where-Object{$_.key -eq 'domenia_schema' -and $_.value -ceq '1'}).Count -ne 1){throw 'Schema du parc incompatible.'}
+        $source=if([string]$Payload.Scope -eq 'Results'){@($Payload.Targets)}else{@(Invoke-IdxWQuery $db "SELECT name,distinguished_name,object_guid FROM ad_objects WHERE object_type='Machine' AND (state IS NULL OR state<>'Desactive') ORDER BY name COLLATE NOCASE;")}
+        $cacheSql='SELECT object_key,payload FROM park_session_cache'
+        $usersSql="SELECT object_guid,usn_changed,distinguished_name FROM ad_objects WHERE object_type='Utilisateur'"
+        if([string]$Payload.Scope -eq 'Results'){
+            if(@($source).Count -gt 500){throw 'Perimetre affiche trop grand.'}
+            $keys=@($source|ForEach-Object{Get-IdxWLiteral (([string]$_.distinguished_name).ToLowerInvariant())})
+            if(-not $keys.Count){[pscustomobject]@{Rows=@();Busy=$false;Missing=$false;MachineCount=0};return}
+            $cacheSql+=' WHERE object_key IN ('+($keys -join ',')+')'
+        }
+        $cache=@{}
+        if(@(Invoke-IdxWQuery $db "SELECT name FROM sqlite_master WHERE type='table' AND name='park_session_cache';").Count){
+            foreach($item in @(Invoke-IdxWQuery $db $cacheSql)){
+                if(([string]$item.payload).Length -gt 16384){continue}
+                try{$observation=([string]$item.payload)|ConvertFrom-Json -ErrorAction Stop;if([string]$observation.Key -ieq [string]$item.object_key){$cache[[string]$item.object_key]=$observation}}catch{}
+            }
+        }
+        $users=@{}
+        if([string]$Payload.Scope -eq 'Results'){
+            $guids=@($cache.Values|Where-Object{$_.UserGuid}|ForEach-Object{Get-IdxWLiteral ([string]$_.UserGuid)})
+            $usersSql+=if($guids.Count){' AND object_guid IN ('+($guids -join ',')+')'}else{' AND 1=0'}
+        }
+        foreach($user in @(Invoke-IdxWQuery $db $usersSql)){if($user.object_guid){$users[[string]$user.object_guid]=$user}}
+        $targets=New-Object 'System.Collections.Generic.List[object]';$seen=@{}
+        foreach($row in $source){
+            $key=([string]$row.distinguished_name).ToLowerInvariant();$name=[string]$row.name;$guid=[string]$row.object_guid
+            if(-not $key -or -not $guid -or $name -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,252}$' -or $seen.ContainsKey($key)){continue}
+            $seen[$key]=$true;$previous=$cache[$key]
+            if($null -ne $previous -and [string]$previous.Guid -ine $guid){$previous=$null}
+            if($null -ne $previous){
+                $user=$users[[string]$previous.UserGuid]
+                $oldUsn=0L;$validUsn=[long]::TryParse([string]$previous.UserUsn,[ref]$oldUsn)
+                $changed=(-not $validUsn -or ($null -ne $user -and ([string]$user.distinguished_name -ine [string]$previous.UserDn -or [long]$user.usn_changed -gt $oldUsn)))
+                $previous|Add-Member -NotePropertyName DirectoryChanged -NotePropertyValue $changed -Force
+            }
+            $targets.Add([pscustomobject]@{Key=$key;Computer=$name;Guid=$guid;Previous=$previous})
+        }
+        [pscustomobject]@{Rows=$targets.ToArray();Busy=$false;Missing=$false;MachineCount=$targets.Count};return
+    }
     if ($action -eq 'ParkState') {
         $park = @(Invoke-IdxWQuery $db 'SELECT computer_key,computer,last_probe,status,user_login,attempts FROM park_state;')
         $machines = 0

@@ -2212,8 +2212,8 @@
   },
   {
     "Name": "ChkParkSweepEnabled",
-    "Title": "Relever au lancement",
-    "Text": "Lance un lot de releves en arriere-plan a chaque ouverture. Ce sont les seules requetes qui touchent les postes.",
+    "Title": "Detection manuelle",
+    "Text": "Ancien reglage desactive : aucun releve collectif au lancement. Utiliser les actions de Rechercher ou Associations.",
     "Kind": "CheckBox",
     "Source": "existing-help"
   },
@@ -2226,8 +2226,8 @@
   },
   {
     "Name": "BtnParkSweep",
-    "Title": "Sonder les postes",
-    "Text": "Interroge les postes un par un. Beaucoup plus couteux : a reserver a ce que le journal du controleur ne donne pas.",
+    "Title": "Detecter sur tout le parc",
+    "Text": "Sur demande : lit les consoles de tous les postes actifs de la base autonome. Les resultats sont gardes en cache ; les associations automatiques changent seulement si utilisateur ou identite change. Historique conserve, associations manuelles/importees protegees. Sessions RDP non recensees.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -3479,5 +3479,26 @@
     "Text": "Demande confirmation après simulation. Associations, historique protégé, secrets, configuration, journaux et reçus sont conservés. Aucun rejeu automatique.",
     "Kind": "Button",
     "Source": "d120-cache"
+  },
+  {
+    "Name": "BtnParkResults",
+    "Kind": "Button",
+    "Source": "park-detection",
+    "Title": "Detecter les resultats affiches",
+    "Text": "Sur demande : fige les postes visibles apres les filtres de recherche. Aucune extension au reste du parc. Verifie legerement chaque console et reutilise les identites deja connues."
+  },
+  {
+    "Name": "BtnParkSweepStop",
+    "Kind": "Button",
+    "Source": "park-detection",
+    "Title": "Arreter le releve",
+    "Text": "Arrete les nouvelles lectures. Les lectures deja lancees se terminent et leurs resultats sont conserves."
+  },
+  {
+    "Name": "BtnParkResultsStop",
+    "Kind": "Button",
+    "Source": "park-detection",
+    "Title": "Arreter la detection",
+    "Text": "Arrete les nouvelles lectures des resultats. Les associations et les observations obtenues restent conservees."
   }
 ]

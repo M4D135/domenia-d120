@@ -95,6 +95,8 @@ try {
         'wad/modules/Domenia-Migration.UI.ps1',
         'wad/modules/Domenia-Migration.UI.ps1',
         'wad/modules/Domenia-Migration.Worker.ps1',
+        'wad/modules/Domenia-Park.Model.ps1',
+        'wad/modules/Domenia-Park.UI.ps1',
         'wad/modules/Domenia-Guard.UI.ps1'
     )){
         if(-not $seen.ContainsKey($required)){throw ('Manifeste incomplet : '+$required)}

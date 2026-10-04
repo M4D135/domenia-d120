@@ -129,7 +129,7 @@
     "Set-DomeniaResourceColor": "27391F9046A85B14658803F03178045ABEDF0B1F4DD5364D7BA5575C5E4F11BE",
     "Apply-DomeniaTheme": "115A426BAE13A4A67A3C252EE193AA35BF115C2BDCD1E1AA4CFC96D63A006010",
     "Toggle-DomeniaTheme": "EA7E0F31A78D8B4A0BFAB0C27D8028521C1C3A1A255DDA4BEA3B65B5F7C99F03",
-    "Get-MainXaml": "18DA4865C5F9CA06E237F78BC4810D83AC5457324AF0B9992CC3C1C2FC16DC8D",
+    "Get-MainXaml": "A485937E045CBFFBAD6180C8995A339C1DE8BC7685337711D29E229E305BF08C",
     "Assert-DomeniaXamlPreflight": "20BB1DA04FD88D78E1A52C5610376467D5E9408437BC823DDC8EC8F40C0EAEB7",
     "Save-DomeniaXamlDiagnostic": "D648C9D6BD6F5F3A6613957D22A6A42EC1AAC0C1FA6218195A55D10EADF4DC67",
     "ConvertFrom-DomeniaXaml": "855E6CA9E56D62F77F5C22ACAC048293D24281B5B8FCC7FEB6806450BE561228",
@@ -354,7 +354,7 @@
     "Get-DomeniaParkCoverageText": "0D5233DCE9548028D5EB2FDAE072CECECBF93DF4480BF4B999D423FA396E7D4E",
     "Complete-DomeniaParkSweepUi": "284E1B8CA63D610E556C72C0E261AEE31DB80024D0120874371667931CDFACF6",
     "Fail-DomeniaParkSweepUi": "E968D8470379508FD22D34546681ABB70B9AB6D835AFD19D19C239ED93D2C6A0",
-    "Start-DomeniaParkSweep": "29FC9CA0E21219EE54424C7D9B0DAC1C8B5FE0F31F2E89E0FEBE451FDD4EB6F3",
+    "Start-DomeniaParkSweep": "41A05759FC85FEFAA92021AF9EE251F5CAEB9525B1222D599FDA79EFFE6074E4",
     "Request-DomeniaParkSweepAtStartup": "CE893D74A4E82B0AEE5AB8AD43BD99370014D735F9B85FED0EB4BBAC85BFAB0A",
     "Get-DomeniaParkSweepWorkerCode": "BAFB48ED3A5617F93878F340259C6D92E0497620AEC608BA2175629FE8978F25",
     "Complete-DomeniaIndexBuildUi": "59739C99691B781317AF7438092E9CA08238A96FE4DF545894A0B5F3ADCCD2D2",
@@ -450,7 +450,7 @@
     "Clear-DomeniaSecondaryCredential": "CD8BB39C79262CBFF7EBBC941C6D31C67791476824B8C7EA1A1903B251DF26E8",
     "Start-DomeniaAccountRelogin": "B03934105A08C0781F56149CA33EB99A9B7459ED4660E8EA3A0E3D8E4A0B134D",
     "Initialize-DomeniaAccountPanel": "05F251F380F8DF6C8E6DB91B2631449C8C6CCF4619709DA289F9BD1C7AD3273D",
-    "Wire-Events": "4D40F87DD2878A41D190E60D599C955926B003A781A2D2F234EC3CA17ABCE08A",
+    "Wire-Events": "AC4833765C49A710F7C8629DADBDD1809B55B2F51602018FEA5FEA22193F526A",
     "New-DefaultConfig": "F1DC255ED0F8D0538880FB22F561E8DD31B63C7CF92BF7C98B61213E46632986",
     "Initialize-DomeniaDataStore": "75C63F73149D4C8CACBAA107F9223E9140830F4F01360F1899E8D79DC6A51E5A",
     "Write-StartupTrace": "216F93F6D1D37A669438F904233E5819260B8DA5AD48CF8887D6C5A372435250",
@@ -488,8 +488,8 @@
     "Load-UserMachineLinks": "D588E9FAB3DB852FD760624C2A463CDEA8A5B97BAF550C273F8C7C1B2CB7776D",
     "ConvertTo-DomeniaCanonicalWorkerCode": "48A6A851309CF03C8AA4802B160FC0C9D3234B795C63D0BAED6923BF42FE2FAF",
     "Get-DomeniaWorkerCodeHash": "6B81660F207AAEB37BA076144EDD12F5A926F9F64858B03755C2567E335C0D16",
-    "Get-DomeniaWorkerOperationHashes": "29CF120D173475D650CA5884FB121D37F4AC7179626A165BF753BE6EB2789CF9",
-    "Assert-DomeniaWorkerRegistry": "6E61CEBFDA7A51D37C811B2D45B03B2C0E0507700A061029F6F000B0C39D6CA7",
+    "Get-DomeniaWorkerOperationHashes": "3DF008415CAEE0873523AAE5568F4DFF4DA565D07DB42BDEA704415840817645",
+    "Assert-DomeniaWorkerRegistry": "307497E88153E05FD1C027FE01BCA21025BAB80AAF9108357E3667B064AB24C2",
     "Assert-DomeniaWorkerOperationCode": "41D63871EDC11F5765938E6DAF8004A01471CD63E9666E2569D6E43008032526",
     "Get-DomeniaWorkerEngineSelfTestCode": "7FB07491846A78A89C13351DC07ABCA7B150642EE02AA25FF430A19942001AF0",
     "New-DomeniaWorkerRunspace": "8D2FB4E8786E147F555EC5860E76F8EB0D606D66BF9A610F43A0CC2836197A0D",
@@ -649,7 +649,7 @@
     "wad/ActiveDirectoryPowerShellResources.dll": "E233D92238AA31EA1B3C60145D8811EDB2E517E1B9B53F4BC496883EE5D9973B",
     "wad/Domenia-Core.ps1": "33FFA39D156F3142BE32E6F1BDF52038740F45A22D3BC9E83573E2EE29F35530",
     "wad/Domenia-Modules.ps1": "8D694641BEB0DC3E0DF4F95BC72AD048C6AB299D813520BE7E9798241DF0EFA0",
-    "wad/Domenia-Start.ps1": "18723E03C893F9588C5DA886F759AE643501F4FBD99FD801D68914EA05997178",
+    "wad/Domenia-Start.ps1": "C99E906FFC48BA00D1DD0F2DBCE06787557A29BE16D6CFA37DA6798585EC5190",
     "wad/Domenia.config.json": "5F051A082799F9E39C54D78256E72FA37E1A797E6374BBEC0CEB7DDB932AE871",
     "wad/Domenia.ico": "EC032BF6A14EAC2CC80073B376FE0364DDA62F25D452C8C783C926B0C28E837F",
     "wad/Domenia.login-mode.cfg": "EF6691545D2C5523EFED00424407CB261AEB0037D165CA5792F7F8BAC3381362",
@@ -834,7 +834,7 @@
     "wad/modules/Domenia-Guard.UI.ps1": "11ED5549BE999C0A7DC039386ECBFB0B424668AE8CF117C0F0AE03783F12917A",
     "wad/modules/Domenia-Live.Model.ps1": "6B2C5C145D2354DED32577F45D59945B397D6AFBA91A5BACBB61B0BF8221BE19",
     "wad/modules/Domenia-Live.Types.cs": "EA90657459EDAB05A25440C2EDDAB6D15577CB437FAEF95DA939767885F05F0E",
-    "wad/modules/Domenia-Live.UI.ps1": "3D8F70E3AD286C190BF13D765FA2ED300551A9B17899B9B748B81CB0FBC08A23",
+    "wad/modules/Domenia-Live.UI.ps1": "3794E5FD911C5BE770FF3DAB783C71D6AF5C72E7402DB2911E405BB460F15F1B",
     "wad/modules/Domenia-Receipts.Worker.ps1": "72D43A96BABB55F6EB5C008018EB1C4AA1C0A1265402FBAD7294C1113735B68E",
     "wad/modules/Domenia-Reconcile.UI.ps1": "845F7531CCD8FB82BB4CECB5210E47E9C86E5E2C0913074D8BE460E814F52288",
     "wad/modules/Domenia-Relations.UI.ps1": "D967C24EFAC00BCDE69901B614960D69232C4062C302CEB0874744980449E64C",
@@ -1507,6 +1507,59 @@
         "Start-UiTask",
         "Wire-Events"
       ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": [
+        "wad/modules/Domenia-Live.UI.ps1"
+      ]
+    },
+    {
+      "Previous": "source tree",
+      "Source": "source tree",
+      "Decision": "Detection manuelle resultats filtres ou parc : nouveaux modules Park ; cache persistant, reutilisation identite qualifiee, historique conserve, lecture et purge de la nouvelle table ; revue des workers LiveConsole/LiveSelectedPing LocalIndexRead LocalStore StorageUsage StoragePurge.",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Get-DomeniaWorkerOperationHashes",
+        "Get-MainXaml",
+        "Start-DomeniaParkSweep",
+        "Wire-Events"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": [
+        "wad/Domenia-Start.ps1"
+      ]
+    },
+    {
+      "Previous": "source tree",
+      "Source": "source tree",
+      "Decision": "Parc : lecture du cache limitee au perimetre affiche et statut de detection dans les resultats ; aucune lecture reseau automatique.",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Get-DomeniaWorkerOperationHashes"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": [
+        "wad/modules/Domenia-Live.UI.ps1"
+      ]
+    },
+    {
+      "Previous": "source tree",
+      "Source": "source tree",
+      "Decision": "Detection : libelles compacts sur une ligne, aide coherente avec lancement manuel et perimetre fige ; aucune nouvelle operation worker.",
+      "ChangedCoreFunctions": [
+        "Get-MainXaml"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "source tree",
+      "Source": "source tree",
+      "Decision": "Revue mise en page compacte : largeur des commandes 415 au lieu de 330 et libelles reduits transitoirement ; contexte de statut et idempotence callbacks parc.",
+      "ChangedCoreFunctions": [],
       "AddedCoreFunctions": [],
       "RemovedCoreFunctions": [],
       "ChangedPayloads": [

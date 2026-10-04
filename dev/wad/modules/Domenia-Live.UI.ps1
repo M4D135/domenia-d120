@@ -763,7 +763,9 @@ function Invoke-DomeniaLiveTick {
         # D028: the save state is the rule label shared with Fiabilite (Get-DomeniaPersistenceState, Storage.UI).
         $save=(Get-DomeniaPersistenceState).Label
         $probe=if($script:DirectoryCredentialFaulted){'validation AD suspendue · revoir la connexion'}elseif($script:Live.RemoteFaulted){'compte distant refusé · détection suspendue'}elseif(-not $script:Live.AutoDetect){'ping à la sélection · utilisateur désactivé'}elseif($script:Live.PendingKeys.Count -or $script:Live.Busy.Count){"poste sélectionné : $($script:Live.PendingKeys.Count) en attente, $($script:Live.Busy.Count) en cours"}else{'Sélection : un ping + utilisateur si activé · double-clic : fiche · aucun contrôle collectif'}
-        [void](Set-DomeniaControlText 'LblLiveState' ($probe+' · '+$save))
+        $stateText=$probe+' · '+$save
+        if($null -ne $script:ParkRun -and $script:ParkRun.Scope -eq 'Results' -and $script:ParkRun.StatusText -and $script:ParkRun.Epoch -eq [long]$script:SessionEpoch -and $script:ParkRun.Generation -eq [long]$script:GlobalSearchGeneration){$stateText=$script:ParkRun.StatusText}
+        [void](Set-DomeniaControlText 'LblLiveState' $stateText)
     }finally{$script:Live.InTick=$false}
 }
 function Test-DomeniaLiveBackgroundAllowed {

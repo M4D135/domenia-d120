@@ -991,6 +991,23 @@ function Get-DomeniaRuntimeModulePlan {
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Migration.Worker.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaMigrationWorkerCode'
         ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Cache.Model.ps1'); File='Domenia-Park.Model.ps1'; DotSource=$true; Functions=@(
+            'ConvertTo-DomeniaParkSession',
+            'Test-DomeniaParkLinkChanged'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Park.Model.ps1','Domenia-Relations.UI.ps1','Domenia-Storage.UI.ps1','Domenia-Inline.UI.ps1','Domenia-Engine.Worker.ps1'); File='Domenia-Park.UI.ps1'; DotSource=$true; Functions=@(
+            'Test-DomeniaParkRunCurrent',
+            'Update-DomeniaParkRunStatus',
+            'Start-DomeniaOnlinePark',
+            'Complete-DomeniaParkTargets',
+            'Fail-DomeniaParkTargets',
+            'Start-DomeniaParkRunTimer',
+            'Stop-DomeniaOnlinePark',
+            'Invoke-DomeniaParkRunTick',
+            'Complete-DomeniaParkSession',
+            'Fail-DomeniaParkSession',
+            'Update-DomeniaParkResultRows'
+        ) }
     )
 }
 
