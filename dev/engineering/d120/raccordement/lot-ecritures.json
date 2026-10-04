@@ -68,7 +68,8 @@
     "Test-DomeniaPlanStillValid",
     "Get-DomeniaWritePostcondition",
     "Get-DomeniaPostconditionRule",
-    "Resolve-DomeniaPostcondition"
+    "Resolve-DomeniaPostcondition",
+    "Get-DomeniaRemotePostconditionText"
   ],
   "HelpEntries": [],
   "Features": [
@@ -117,9 +118,11 @@
     "Create-OuUnderSelected",
     "Delete-SelectedObject",
     "Complete-DomeniaWriteTaskUi",
-    "Fail-DomeniaWriteTaskUi"
+    "Fail-DomeniaWriteTaskUi",
+    "Complete-DomeniaComputerToolUi",
+    "Complete-DomeniaRimotteUi"
   ],
-  "Notes": "Revision D094/D095. Aucune etape Rejected. Delivered est terminal non bloquant. Unknown ne casse plus Start-UiTask. Les actions distantes passent par Start-UiTask -IsWrite avec CorrelationId 32 hex et cible nom de poste. Le mode lecture seule bloque les actions distantes converties. Les corps ComputerGpUpdate, ComputerRestart, RimotteRun et ReceiptStore sont modifies et devront etre re-epingles apres relecture. Integration : contrat de Get-DomeniaReceiptRequirement conserve (operation inconnue = recu exige, Start-UiTask ne bloque que DirectoryWrite et RemoteMutation sans -IsWrite) ; Test-DomeniaWriteAdmission garde son corps d origine pour le jeu Plan (positions 0,1,2) et gagne la branche Fingerprint. Etape B1 (D091) : plan construit avant chaque confirmation par New-DomeniaSelectionWritePlan, affiche par Format-DomeniaPlanConfirmation, revalide par Test-DomeniaPlanDispatch ; payload construit depuis le DN du plan ; blocs workers inchanges a l octet pres (aucun re-epinglage). Etape B2 (D093) : treize workers d ecriture re-epingles apres revue (Postcondition ajoutee, gardes et ordre d envoi conserves) ; un echec de relecture apres envoi leve toujours (ETAT INCONNU).",
+  "Notes": "Revision D094/D095. Aucune etape Rejected. Delivered est terminal non bloquant. Unknown ne casse plus Start-UiTask. Les actions distantes passent par Start-UiTask -IsWrite avec CorrelationId 32 hex et cible nom de poste. Le mode lecture seule bloque les actions distantes converties. Les corps ComputerGpUpdate, ComputerRestart, RimotteRun et ReceiptStore sont modifies et devront etre re-epingles apres relecture. Integration : contrat de Get-DomeniaReceiptRequirement conserve (operation inconnue = recu exige, Start-UiTask ne bloque que DirectoryWrite et RemoteMutation sans -IsWrite) ; Test-DomeniaWriteAdmission garde son corps d origine pour le jeu Plan (positions 0,1,2) et gagne la branche Fingerprint. Etape B1 (D091) : plan construit avant chaque confirmation par New-DomeniaSelectionWritePlan, affiche par Format-DomeniaPlanConfirmation, revalide par Test-DomeniaPlanDispatch ; payload construit depuis le DN du plan ; blocs workers inchanges a l octet pres (aucun re-epinglage). Etape B2 (D093) : treize workers d ecriture re-epingles apres revue (Postcondition ajoutee, gardes et ordre d envoi conserves) ; un echec de relecture apres envoi leve toujours (ETAT INCONNU). Complement D093 : GPUpdate, redemarrage et Rimotte affichent A verifier avec la verification a faire (aucune relecture du poste a ce stade).",
   "DevOnlyFiles": [
     "wad/tests/Test-DomeniaWiringEcritures.ps1"
   ],
@@ -128,6 +131,7 @@
     "New-DomeniaSelectionWritePlan",
     "Format-DomeniaPlanConfirmation",
     "Test-DomeniaPlanDispatch",
-    "Get-DomeniaWritePostcondition"
+    "Get-DomeniaWritePostcondition",
+    "Get-DomeniaRemotePostconditionText"
   ]
 }

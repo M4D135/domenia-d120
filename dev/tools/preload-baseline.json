@@ -1,5 +1,5 @@
 {
-  "Archive": "lot ecritures etape B2",
+  "Archive": "lot ecritures etape B2 complement",
   "ArchiveSHA256": "655ED21F90345B3C7667D4E777814C6A0595A5D5BE628AD587FB46CCA5241922",
   "CoreFunctions": {
     "Write-DomeniaAtomicText": "1C9A1583F52EB7BE80BE420662653E4AF886FE11DC4FDB3B1C4CDF19FD1C0EDA",
@@ -391,11 +391,12 @@
     "Load-AdCmdlets": "45CA81F2722F6312B75EFF8FED1BB247F0FF3C9345DB31C1F805D471106566CD",
     "Assert-WriteAllowed": "6D7FF1BCB76C0025ED9CD43763B8A719B79048213E8B3FE53E73D2445D236677",
     "Invoke-DomeniaPostWriteRefresh": "52B721D2E68B91522A6B9C95D9166BCC02FA091CFB153E88F3FA157CDCF39F75",
-    "Complete-DomeniaComputerToolUi": "FCA55D8DE5B58279B9BCDC43F0C44202E0F3892D218BD6959DD5C20B6726EEC0",
+    "Get-DomeniaRemotePostconditionText": "EDCCE32B9CCB9F547E130C23D1517B95C2851A1A9842F6902EEE0A3CD241C16E",
+    "Complete-DomeniaComputerToolUi": "7427AF041B4011EE4C3E25D5C27FDB1FDA98F781E7E80863C69B9C058A7B5458",
     "Fail-DomeniaComputerToolUi": "A7BC89F34BD88CCB253F02B65FB9574754E70A770988EEB2EF2F39B3FC694001",
     "Assert-DomeniaRemoteWriteAllowed": "8968CB8F05C01828B901D2F02B6E4A88CE1EBFB6834C21274DB6FCDFC2821BEC",
     "Get-DomeniaRimotteWorkerCode": "63C4AFEA5CCE627F1BFDD1209E209652088F0FEE67CBE2F9DA62CCF3CBBAC91A",
-    "Complete-DomeniaRimotteUi": "B80EA1DC8EADA2A31BDE62EA6A15B9F43EE0CF256C72E4295B494C5085055CE8",
+    "Complete-DomeniaRimotteUi": "46926B3D52E78B13660C3C20AA4AF06B3A1517DB66A382258626EAC8D9DE2758",
     "Fail-DomeniaRimotteUi": "F3A6E2C0CD6296A476867A777F8DDCC2CF73EC0C8E7E7FC3017BAE85EC9E9A64",
     "Start-DomeniaRimotteRun": "AA6871C02EA00FBFA19019037016524D3AC1FA489FA7FB6FB0794A66D208FAE8",
     "Show-DomeniaRimotteDialog": "6754A81454F3C4A1C14E203A2AD30B209BEFE0EE474E4E0C4B3F8726953228DD",
@@ -585,7 +586,7 @@
     "Get-DomeniaStandardLoginXaml": "943F338242C5B7CBE9D0384128DCD1369C8FAB3468F433F09D21461E294575FD",
     "Get-DomeniaDebugLoginXaml": "20D4A0D101217FBAA6CCAD1D0C72B28A67ED3C9DF060430F70170754BCA5D137",
     "Show-LoginWindow": "2DE31969C7AA42AA39ACB0329CD42097EBF54AD734CC74D21E7864A04D080C3A",
-    "Invoke-DomeniaSelfTest": "829E240ED01559D18592679967BB140A902556C26E9097A03C82BBDAB7DCEA05"
+    "Invoke-DomeniaSelfTest": "207C16976B873FADC832E2ACE3C23750A0D030E5AF1F9E393DDDDAA40D76B19D"
   },
   "Files": {
     ".github/workflows/windows.yml": "7926C8DFD11FE9105D34E454E9D0168B94DCE27479C952DE8DA0379746F4D30A",
@@ -1213,6 +1214,22 @@
       ],
       "AddedCoreFunctions": [
         "Get-DomeniaWritePostcondition"
+      ],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "lot ecritures etape B2",
+      "Source": "lot ecritures etape B2 complement",
+      "Decision": "Complement D093 : Get-DomeniaRemotePostconditionText ajoute ; Complete-DomeniaComputerToolUi (GPUpdate, redemarrage) et Complete-DomeniaRimotteUi affichent le statut de postcondition (A verifier sans relecture du poste) et la verification a faire. Aucun worker modifie. Prouve par Test-DomeniaWiringEcritures 27/27 dans la VM.",
+      "ChangedCoreFunctions": [
+        "Complete-DomeniaComputerToolUi",
+        "Complete-DomeniaRimotteUi",
+        "Get-DomeniaRemotePostconditionText",
+        "Invoke-DomeniaSelfTest"
+      ],
+      "AddedCoreFunctions": [
+        "Get-DomeniaRemotePostconditionText"
       ],
       "RemovedCoreFunctions": [],
       "ChangedPayloads": []

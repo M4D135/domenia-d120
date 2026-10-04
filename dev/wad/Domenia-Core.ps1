@@ -16629,6 +16629,21 @@ function Invoke-DomeniaPostWriteRefresh {
 
 
 
+function Get-DomeniaRemotePostconditionText {
+    # D093 for remote actions: the delivery is not the effect. Without a re-read of the workstation the status
+    # stays "A verifier" and the check to do is stated; the process return is never taken as proof.
+    param([string]$OperationId,$Result)
+    $post = Get-DomeniaWritePostcondition -OperationId $OperationId -Result $Result
+    $script:LastWritePostcondition = $post
+    if ($null -eq $post) { return '' }
+    $text = ' - ' + [string]$post.Label + ' : ' + [string]$post.Proof
+    try {
+        $check = [string](Get-DomeniaPostconditionRule $OperationId).Check
+        if ($check) { $text += ' Verification a faire : ' + $check }
+    } catch { }
+    return $text
+}
+
 function Complete-DomeniaComputerToolUi {
     param($Result,$State)
     $tool = [string]$State.Tool
@@ -16636,6 +16651,9 @@ function Complete-DomeniaComputerToolUi {
     $message = ""
     try { $message = [string]$Result.Message } catch { }
     if ([string]::IsNullOrWhiteSpace($message)) { $message = "$tool termine sur $computer." }
+    $remoteOperation = ""
+    if ($tool -eq "GPUpdate") { $remoteOperation = "ComputerGpUpdate" } elseif ($tool -eq "Redemarrage") { $remoteOperation = "ComputerRestart" }
+    if ($remoteOperation) { $message += (Get-DomeniaRemotePostconditionText -OperationId $remoteOperation -Result $Result) }
     if ($tool -eq "Ping") { Set-Status "Ping $computer : $message" }
     else { Set-Status $message }
 }
@@ -16744,6 +16762,7 @@ function Complete-DomeniaRimotteUi {
     $effective=$Result;if($Result-is[System.Array]-and$Result.Count-gt0){$effective=$Result[-1]}
     $msg=[string]$effective.Message
     if([string]::IsNullOrWhiteSpace($msg)){$msg="Rimotte termine."}
+    $msg+=(Get-DomeniaRemotePostconditionText -OperationId "RimotteRun" -Result $effective)
     Set-Status $msg
     Add-DomeniaUiLog -Area "Rimotte" -Text ($msg+" "+[string]$effective.Detail)
     try{Register-DomeniaOperationSample -Operation "RimotteRun" -Mode "ScheduledTask" -ItemCount 1 -DurationMs ([long]$effective.DurationMs) -BytesEstimated 6000 -RemoteAttempts 1 -FallbackTasks 1 -SuccessCount 1}catch{}
@@ -25039,7 +25058,8 @@ function Invoke-DomeniaSelfTest {
         'Update-DomeniaAccessButton','Update-DomeniaExperienceActivity','Update-DomeniaSelectionReadUi','Enter-DomeniaSelectionContext','Reset-DomeniaSelectionBoundViews','Complete-DomeniaInventoryUi','Complete-DomeniaSoftwareUi',
         'Get-DomeniaReceiptRequirement','Get-DomeniaReceiptResumeState','New-DomeniaWriteRegistry','Test-DomeniaWriteAdmission','Set-DomeniaWriteOutcome','Start-DomeniaWriteTask','Invoke-ComputerTool','Start-DomeniaRimotteRun','Get-DomeniaRimotteWorkerCode','Initialize-DomeniaGuard',
         'Get-DomeniaWriteRoute','New-DomeniaSelectionWritePlan','Format-DomeniaPlanConfirmation','Test-DomeniaPlanDispatch','New-DomeniaInterventionPlan','Test-DomeniaPlanStillValid',
-        'Get-DomeniaWritePostcondition','Get-DomeniaPostconditionRule','Resolve-DomeniaPostcondition'
+        'Get-DomeniaWritePostcondition','Get-DomeniaPostconditionRule','Resolve-DomeniaPostcondition',
+        'Get-DomeniaRemotePostconditionText'
     )
     $missing = @($requiredFunctions | Where-Object { $null -eq (Get-Command -Name $_ -CommandType Function -ErrorAction SilentlyContinue) })
     Add-SelfTestResult -Name 'Fonctions critiques' -Success ($missing.Count -eq 0) -Detail $(if($missing.Count -eq 0){'Toutes presentes.'}else{"Absentes : $($missing -join ', ')"})

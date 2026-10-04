@@ -130,6 +130,7 @@ $cmd=Get-Command -Name 'Fail-DomeniaWriteTaskUi' -ErrorAction SilentlyContinue
 if ($cmd) { $script:RealFailWriteTaskUi=$cmd.ScriptBlock }
 $cmd=Get-Command -Name 'Get-DomeniaWritePostcondition' -ErrorAction SilentlyContinue
 if ($cmd) { $script:RealGetWritePostcondition=$cmd.ScriptBlock }
+foreach($name in @('Get-DomeniaRemotePostconditionText','Complete-DomeniaComputerToolUi')) { [void](Import-AstFunction $script:CoreAst $name) }
 if (-not (Get-Command Get-DomeniaFeatureFlag -ErrorAction SilentlyContinue)) { function Get-DomeniaFeatureFlag {param($Name,$Default=$true); return $Default} }
 function Write-AppLog {param($Text,$Level)}
 function Set-Status {param($Text,$Level) if ($null -eq $script:StatusLog) { $script:StatusLog=[Collections.Generic.List[string]]::new() }; $script:StatusLog.Add([string]$Text) }
@@ -906,6 +907,24 @@ if ($infrastructure) {
             Assert-True ($script:InfoBoxes.Count -eq 1) ('Boites : '+$script:InfoBoxes.Count)
             Assert-True ($script:InfoBoxes[0].Contains('Verification a faire')) ('Boite : '+$script:InfoBoxes[0])
             Assert-True ($script:WriteState -eq 'Unknown') ('WriteState : '+[string]$script:WriteState)
+        } finally { End-D093FunctionOverrides }
+    }
+    Test-Case 'D093 action distante : livraison = A verifier avec verification a faire' {
+        Reset-WiringFixture
+        try {
+            if ($null -eq $script:RealGetWritePostcondition) { throw 'Get-DomeniaWritePostcondition reel non importe.' }
+            Set-D093Function 'Get-DomeniaWritePostcondition' $script:RealGetWritePostcondition
+            Set-D093Function 'Set-Status' { param($Text,$Level) if ($null -eq $script:StatusLines) { $script:StatusLines=[Collections.Generic.List[string]]::new() }; $script:StatusLines.Add([string]$Text) }
+            $script:StatusLines=[Collections.Generic.List[string]]::new()
+            Complete-DomeniaComputerToolUi -Result ([pscustomobject]@{Message='Redemarrage demande a PC-DEMO-01.';Delivered=$true}) -State ([pscustomobject]@{Tool='Redemarrage';Computer='PC-DEMO-01'})
+            Assert-True ($script:StatusLines.Count -eq 1) ('Statuts : '+$script:StatusLines.Count)
+            Assert-True ($script:StatusLines[0].Contains('Verification a faire')) ('Statut : '+$script:StatusLines[0])
+            Assert-True ($null -ne $script:LastWritePostcondition) 'LastWritePostcondition nul.'
+            Assert-True ($script:LastWritePostcondition.Status -eq 'A verifier') ('Statut : '+[string]$script:LastWritePostcondition.Status)
+            Assert-True ($script:LastWritePostcondition.Kind -eq 'Restart') ('Regle : '+[string]$script:LastWritePostcondition.Kind)
+            $script:StatusLines=[Collections.Generic.List[string]]::new()
+            Complete-DomeniaComputerToolUi -Result ([pscustomobject]@{Message='Reponse en 3 ms.'}) -State ([pscustomobject]@{Tool='Ping';Computer='PC-DEMO-01'})
+            Assert-True (-not $script:StatusLines[0].Contains('Verification a faire')) ('Ping : '+$script:StatusLines[0])
         } finally { End-D093FunctionOverrides }
     }
 }
