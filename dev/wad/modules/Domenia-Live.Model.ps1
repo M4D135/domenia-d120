@@ -72,8 +72,6 @@ function ConvertTo-DomeniaLiveObservation {
     if($newValid -and (-not $oldValid -or $newStamp -ge $oldStamp)){
         $presence=Get-DomeniaLiveField $Result 'Presence' 'Erreur de ping'
         $presenceAt=$newPresenceAt;$presenceDetail=Get-DomeniaLiveField $Result 'PresenceDetail'
-    } elseif(-not $presenceAt -and (Get-DomeniaLiveField $Result 'Presence') -eq 'En ligne') {
-        $presence='En ligne';$presenceAt=$NowUtc;$presenceDetail='Réponse distante confirmée.'
     }
     $userChecked=if($presenceOnly){Get-DomeniaLiveField $Previous 'UserCheckedUtc' (Get-DomeniaLiveField $Previous 'CheckedUtc')}else{$NowUtc}
     return [pscustomobject]@{

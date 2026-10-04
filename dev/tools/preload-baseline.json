@@ -834,7 +834,7 @@
     "wad/modules/Domenia-Guard.UI.ps1": "11ED5549BE999C0A7DC039386ECBFB0B424668AE8CF117C0F0AE03783F12917A",
     "wad/modules/Domenia-Live.Model.ps1": "6B2C5C145D2354DED32577F45D59945B397D6AFBA91A5BACBB61B0BF8221BE19",
     "wad/modules/Domenia-Live.Types.cs": "EA90657459EDAB05A25440C2EDDAB6D15577CB437FAEF95DA939767885F05F0E",
-    "wad/modules/Domenia-Live.UI.ps1": "335F69BEC3EE285E463A6C696E9D97114BCF62464F24A9A891CCD994B0885AF6",
+    "wad/modules/Domenia-Live.UI.ps1": "650D6FEC89C25E33B09D9C8E6DBD350F15C48775705331B67888C8D18A2E575C",
     "wad/modules/Domenia-Receipts.Worker.ps1": "72D43A96BABB55F6EB5C008018EB1C4AA1C0A1265402FBAD7294C1113735B68E",
     "wad/modules/Domenia-Reconcile.UI.ps1": "845F7531CCD8FB82BB4CECB5210E47E9C86E5E2C0913074D8BE460E814F52288",
     "wad/modules/Domenia-Relations.UI.ps1": "D967C24EFAC00BCDE69901B614960D69232C4062C302CEB0874744980449E64C",
@@ -1375,6 +1375,17 @@
       "AddedCoreFunctions": [],
       "RemovedCoreFunctions": [],
       "ChangedPayloads": []
+    },
+    {
+      "Previous": "source tree",
+      "Source": "source tree",
+      "Decision": "D024 I1 I2 relus : conservation des dates par nature, ping distinct de la console, erreur comme tentative seulement, JSON robuste et details recalcules ; retrait du TTL mort et aucune date reseau inventee.",
+      "ChangedCoreFunctions": [],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": [
+        "wad/modules/Domenia-Live.UI.ps1"
+      ]
     }
   ]
 }

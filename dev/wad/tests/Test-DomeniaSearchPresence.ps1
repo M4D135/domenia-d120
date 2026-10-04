@@ -130,7 +130,14 @@ Case 'Given name and mail are in first global pass' {Invoke-GlobalSearch;Expect 
 Case 'ANR is part of global first pass' {Invoke-GlobalSearch;Expect ($script:LastPayload.PrefixFilter.Contains('(anr=alex)'))}
 Case 'Mail query uses mail and UPN in whole domain' {$script:Ctrl.TxtGlobalSearch.Text='alex@example.invalid';Invoke-GlobalSearch;Expect ($script:LastPayload.PrefixFilter.Contains('(mail=alex@example.invalid*)') -and $script:LastState.BaseDn -eq $script:Conn.BaseDn)}
 Case 'LDAP metacharacters remain escaped' {$script:Ctrl.TxtGlobalSearch.Text='alex(x)';Invoke-GlobalSearch;Expect ($script:LastPayload.PrefixFilter.Contains('alex\28x\29'))}
-Case 'Global limit remains capped' {$script:Ctrl.TxtGlobalLimit.Text='99999';Invoke-GlobalSearch;Expect ($script:LastPayload.Limit -eq 500)}
+Case 'Global limit remains capped' {
+    $script:Ctrl.TxtGlobalLimit.Text='100000';Invoke-GlobalSearch
+    Expect ($script:LastPayload.Limit -eq 500 -and $script:Ctrl.TxtGlobalLimit.Text -eq '500')
+    $script:Ctrl.TxtGlobalLimit.Text='100';Invoke-GlobalSearch -LimitOverride 4000
+    Expect ($script:LastPayload.Limit -eq 500 -and $script:Ctrl.TxtGlobalLimit.Text -eq '100')
+    $script:Ctrl.TxtGlobalLimit.Text='0';Invoke-GlobalSearch
+    Expect ($script:LastPayload.Limit -eq 100 -and $script:Ctrl.TxtGlobalLimit.Text -eq '100')
+}
 Case 'Write lock blocks both search modes' {$script:WriteBlocked=$true;Invoke-GlobalSearch;Invoke-GlobalSearch -SearchMode OU;Expect ($script:Tasks -eq 0 -and $script:Invalidations -eq 0)}
 Case 'Draft decision blocks a new search without changing mode' {$script:DraftBlocked=$true;Invoke-GlobalSearch;Expect ($script:Tasks -eq 0 -and (Get-DomeniaSearchMode) -eq 'OU')}
 Case 'Cache key separates global from OU even at domain root' {$script:SelectedBranchDn=$script:Conn.BaseDn;$script:Ctrl.ChkSubtree.IsChecked=$true;$script:Ctrl.CmbGlobalType.SelectedItem.Content='Tous';$script:Ctrl.TxtBranchSearch.Text='alex';Invoke-GlobalSearch;$globalKey=$script:LastState.CacheKey;Invoke-GlobalSearch -SearchMode OU;Expect ($globalKey -cne $script:LastState.CacheKey)}

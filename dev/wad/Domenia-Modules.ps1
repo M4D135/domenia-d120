@@ -67,6 +67,8 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaDataNatures',
             'Get-DomeniaFreshnessPolicy',
             'Get-DomeniaFreshness',
+            'Get-DomeniaObservationTimes',
+            'Copy-DomeniaObservationTimes',
             'Set-DomeniaObservationTime',
             'Get-DomeniaRecordFreshness',
             'Get-DomeniaCacheKey',

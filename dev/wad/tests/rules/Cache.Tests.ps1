@@ -54,6 +54,38 @@ Test-Case 'D024' 'Une tentative echouee est datee sans rajeunir l observation' {
 Test-Case 'D024' 'L historique n est jamais presente comme frais' {
     Assert-Equal 'Historical' (Get-DomeniaFreshness 'History' $script:C0 $null $script:C0.AddSeconds(1)).State
 }
+Test-Case 'D024' 'Les cinq natures survivent au JSON et se copient sans partager les dates' {
+    $source=[pscustomobject]@{Guid=$script:GA}
+    foreach($nature in Get-DomeniaDataNatures){[void](Set-DomeniaObservationTime $source $nature $script:C0)}
+    $source=$source | ConvertTo-Json -Depth 3 | ConvertFrom-Json
+    $copy=[pscustomobject]@{Guid=$script:GA};[void](Copy-DomeniaObservationTimes $source $copy)
+    foreach($nature in Get-DomeniaDataNatures){Assert-Equal $script:C0.ToString('o') (Get-DomeniaRecordFreshness $copy $nature $script:C0).ObservedUtc.ToString('o')}
+    [void](Set-DomeniaObservationTime $copy 'Presence' $script:C0.AddHours(1) $false)
+    Assert-Equal $script:C0.ToString('o') $source.Times.Presence.LastAttemptUtc
+    Assert-Equal $script:C0.AddHours(1).ToString('o') $copy.Times.Presence.LastAttemptUtc
+    [void](Set-DomeniaObservationTime $source 'Console' $script:C0.AddHours(1))
+    Assert-Equal $script:C0.ToString('o') $copy.Times.Console.ObservedUtc
+    $different=[pscustomobject]@{Guid=$script:GB};[void](Copy-DomeniaObservationTimes $source $different)
+    Assert-Equal 0 $different.Times.Count
+}
+Test-Case 'D024' 'Une ancienne observation fournit ses dates reelles et jamais la date du rechargement' {
+    $old=[pscustomobject]@{LastUser='alice';ObservedUtc=$script:C0.AddDays(-3).ToString('o');UserCheckedUtc=$script:C0.AddHours(-1).ToString('o');Presence='En ligne';PresenceCheckedUtc=$script:C0.AddHours(-2).ToString('o')}
+    Assert-Equal 'Stale' (Get-DomeniaRecordFreshness $old 'Console' $script:C0).State
+    Assert-Equal $old.ObservedUtc (Get-DomeniaRecordFreshness $old 'Console' $script:C0).ObservedUtc.ToString('o')
+    Assert-Equal $old.PresenceCheckedUtc (Get-DomeniaRecordFreshness $old 'Presence' $script:C0).ObservedUtc.ToString('o')
+    Assert-Equal 'Unknown' (Get-DomeniaRecordFreshness $old 'Attributes' $script:C0).State
+    $old.Presence='Erreur de ping';$old.ObservedUtc='invalide'
+    Assert-Equal 'Unknown' (Get-DomeniaRecordFreshness $old 'Presence' $script:C0).State
+    Assert-Equal 'Unknown' (Get-DomeniaRecordFreshness $old 'Console' $script:C0).State
+}
+Test-Case 'D024' 'Un paquet arrive en retard ne recule pas les dates de la meme nature' {
+    $record=[pscustomobject]@{Guid=$script:GA}
+    [void](Set-DomeniaObservationTime $record 'Presence' $script:C0)
+    [void](Set-DomeniaObservationTime $record 'Presence' $script:C0.AddSeconds(-20))
+    [void](Set-DomeniaObservationTime $record 'Presence' $script:C0.AddSeconds(-10) $false)
+    Assert-Equal $script:C0.ToString('o') $record.Times.Presence.ObservedUtc
+    Assert-Equal $script:C0.ToString('o') $record.Times.Presence.LastAttemptUtc
+}
 Test-Case 'D025' 'La cle distingue lecteur, controleur, instance et objet' {
     $k=Get-DomeniaCacheKey 'example.invalid' $script:GA '' 'reader1' 'dc1' 'inv1'
     Assert-True ($k -cne (Get-DomeniaCacheKey 'example.invalid' $script:GA '' 'reader2' 'dc1' 'inv1'))

@@ -21,15 +21,15 @@
     },
     {
       "Path": "wad/Domenia-Core.ps1",
-      "Sha256": "A425F3A9C2FDD35B8D871DA0DD5A87B0F04C3F3104977087EBC078AEAF19C090",
-      "Bytes": 1706743,
+      "Sha256": "35B558A9C888C8F769A55A32A6648015299F77042DE85F8AD7212E4FEF2405CE",
+      "Bytes": 1706708,
       "Runtime": true,
       "PreserveExisting": false
     },
     {
       "Path": "wad/Domenia-Modules.ps1",
-      "Sha256": "8CA0DC4A496F2DB44B95347E3FDB8BDDCB18B3EBC7A0B270DFC0207981B23215",
-      "Bytes": 52622,
+      "Sha256": "129745D8C3F1CBC5DB4C202C03782452E42CCD196F5A5D2972BD3B1C05364960",
+      "Bytes": 52709,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -140,8 +140,8 @@
     },
     {
       "Path": "wad/modules/Domenia-Cache.Model.ps1",
-      "Sha256": "666887CF2C25432627609FAA2F3EC5D2CB8D76F92119477060A573C145ACB2BC",
-      "Bytes": 28919,
+      "Sha256": "E58A711086961F0E5C210A001F7A4EF7C80706C72D8AFF2FAA9BAB5F0CF5F80D",
+      "Bytes": 31472,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -308,8 +308,8 @@
     },
     {
       "Path": "wad/modules/Domenia-Live.Model.ps1",
-      "Sha256": "CDB92F659D7B760D9257B76BBB999F15D2E261FD90381091611C416519189D9C",
-      "Bytes": 29313,
+      "Sha256": "E3E6E09069C24E6814F55D6C694165E7CD75240EAEF200DEF5D7FAC71962A47E",
+      "Bytes": 29121,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -322,8 +322,8 @@
     },
     {
       "Path": "wad/modules/Domenia-Live.UI.ps1",
-      "Sha256": "335F69BEC3EE285E463A6C696E9D97114BCF62464F24A9A891CCD994B0885AF6",
-      "Bytes": 58585,
+      "Sha256": "650D6FEC89C25E33B09D9C8E6DBD350F15C48775705331B67888C8D18A2E575C",
+      "Bytes": 59014,
       "Runtime": true,
       "PreserveExisting": false
     },

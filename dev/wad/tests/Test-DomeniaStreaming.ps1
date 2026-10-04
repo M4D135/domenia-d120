@@ -73,6 +73,51 @@ function End-Live {param([bool]$Partial=$false)
 $testDirectory=Join-Path ([IO.Path]::GetTempPath()) ('Domenia-R1.12-tests-'+[guid]::NewGuid().ToString('N'))
 [void][IO.Directory]::CreateDirectory($testDirectory)
 try{
+Case 'D024 : une observation rechargee depuis JSON reste utilisable par Add-DomeniaLiveRow' {
+    Reset-LiveFixture
+    $source=New-FixtureRow 'PC-CACHED';$key=Get-DomeniaLiveObjectKey $source
+    $when=[datetime]::UtcNow.AddDays(-3)
+    $observation=[pscustomobject]@{Guid=$source.Guid;LastUser='alice';ObservedUtc=$when.ToString('o');UserCheckedUtc=$when.ToString('o');Presence='En ligne';PresenceCheckedUtc=$when.ToString('o')}
+    [void](Set-DomeniaObservationTime $observation 'Console' $when)
+    [void](Set-DomeniaObservationTime $observation 'Presence' $when)
+    $script:Live.Observations[$key]=($observation | ConvertTo-Json -Depth 3 -Compress | ConvertFrom-Json)
+    Add-DomeniaLiveRow ([pscustomobject]@{Kind='CachedRow';Row=$source;ObservedUtc=$when.ToString('o')})
+    Assert-Live ($script:Live.Search.Rows.Count -eq 1)
+    $row=$script:Live.Search.Rows[0]
+    Assert-Live ($row.SessionDisplay -eq 'alice (cache)' -and $row.SessionDetail -match 'Session console.+a relire')
+    Assert-Live ($row.PresenceDetail -match 'Presence reseau.+a relire')
+}
+Case 'D023 : 2000 lignes restent bornees a 500 et les lignes AD remplacent le cache' {
+    Reset-LiveFixture
+    $script:State.Limit=500
+    $script:Ctrl.LblBranchCount=[Windows.Controls.TextBlock]::new();$script:Ctrl.BtnSearchMore=[Windows.Controls.Button]::new()
+    [void](Begin-DomeniaLiveSearch $script:State $script:Payload)
+    for($i=0;$i -lt 2000;$i++){
+        Add-DomeniaLiveRow ([pscustomobject]@{Kind='CachedRow';Row=(New-FixtureRow ('OLD-'+$i));ObservedUtc='2026-01-01T00:00:00Z'})
+    }
+    Assert-Live ($script:Live.Search.Rows.Count -eq 500)
+    for($i=0;$i -lt 2000;$i++){Feed-Live (New-FixtureRow ('NEW-'+$i))}
+    Complete-DomeniaLiveSearch ([pscustomobject]@{Rows=@();BaseDn=$script:State.BaseDn;Scope=$script:State.Scope;Partial=$false;Failure='';LimitReached=$true}) $script:State
+    $watch=[Diagnostics.Stopwatch]::StartNew()
+    while(-not $script:Live.Search.Finalized -and $watch.Elapsed.TotalSeconds -lt 60){Invoke-DomeniaLiveTick}
+    Assert-Live $script:Live.Search.Finalized 'Le flux ne se termine pas'
+    Assert-Live ($script:Live.Search.Rows.Count -eq 500 -and $script:Live.Search.Fresh.Count -eq 500)
+    Assert-Live (@($script:Live.Search.Rows | Where-Object{$_.Name -notlike 'NEW-*'}).Count -eq 0) 'Le cache ancien consomme encore le quota'
+    Assert-Live ($script:Ctrl.LblBranchCount.Text -match 'limitée à 500') $script:Ctrl.LblBranchCount.Text
+    Assert-Live (-not $script:Ctrl.BtnSearchMore.IsEnabled) 'Charger la suite depasse le plafond'
+}
+Case 'D023 : vingt-cinq recherches conservent seulement vingt caches de requete' {
+    Reset-LiveFixture
+    $script:Ctrl.TxtBranchSearch=[Windows.Controls.TextBox]::new()
+    for($i=0;$i -lt 25;$i++){
+        $script:State.Search='query-'+$i;$script:Ctrl.TxtBranchSearch.Text=$script:State.Search
+        [void](Begin-DomeniaLiveSearch $script:State $script:Payload)
+        Feed-Live (New-FixtureRow ('QUERY-'+$i));End-Live
+        Assert-Live $script:Live.Search.Finalized ("Recherche $i non finalisee")
+        Assert-Live ($script:Live.MemoryQueries.Count -le 20) ("Trop de caches apres la recherche $i")
+    }
+    Assert-Live ($script:Live.MemoryQueries.Count -eq 20)
+}
 Case 'Parseur natif de tous les scripts du paquet' {
     foreach($file in Get-ChildItem -LiteralPath $root -Filter '*.ps1' -File -Recurse){$t=$null;$e=$null;[void][Management.Automation.Language.Parser]::ParseFile($file.FullName,[ref]$t,[ref]$e);Assert-Live (@($e).Count -eq 0) ($file.Name+': '+(@($e)|Out-String))}
 }

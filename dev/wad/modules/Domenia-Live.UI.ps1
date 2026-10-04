@@ -222,13 +222,13 @@ function Set-DomeniaLiveObservationOnRow {
     # GUID mismatch means a recreated AD object, not the same cached machine.
     if($null -ne $Observation -and $Row.Guid -and $Observation.Guid -and [string]$Row.Guid -ine [string]$Observation.Guid){$Observation=$null}
     $view=Get-DomeniaLiveObservationView $Observation -Cached:$Cached -Pending:$Pending
-    $Row.SessionDisplay=$view.Display;$Row.SessionState=$view.State;$Row.SessionDetail=$view.Detail
+    $Row.SessionDisplay=$view.Display;$Row.SessionState=$view.State;$Row.SessionDetail=$view.Detail+"`r`n"+(Get-DomeniaRecordFreshness $Observation 'Console').Label
     $Row.SessionChecked=$view.Checked;$Row.SessionObserved=$view.Observed;$Row.SessionSource=$view.Source
     $key=Get-DomeniaLiveObjectKey $Row
     $historical=[bool]$Cached
     if($null -ne $script:Live -and $null -ne $script:Live.PresenceSeen -and $script:Live.PresenceSeen.ContainsKey($key)){$historical=$false}
     $network=Get-DomeniaLivePresenceView $Observation -Cached:$historical
-    $Row.Presence=$network.Display;Set-DomeniaLiveRowValue $Row 'PresenceDetail' $network.Detail
+    $Row.Presence=$network.Display;Set-DomeniaLiveRowValue $Row 'PresenceDetail' ($network.Detail+"`r`n"+(Get-DomeniaRecordFreshness $Observation 'Presence').Label)
 }
 function Add-DomeniaLiveRow {
     param($Event)
@@ -430,6 +430,11 @@ function Complete-DomeniaLivePresence {
     $previous=$null;[void]$script:Live.Observations.TryGetValue([string]$State.Key,[ref]$previous)
     if($null -ne $previous -and $previous.Guid -and $State.Guid -and [string]$previous.Guid -ine [string]$State.Guid){return}
     $observation=ConvertTo-DomeniaLiveObservation $Result $previous
+    [void](Copy-DomeniaObservationTimes $previous $observation)
+    $presenceAt=ConvertTo-DomeniaUtcDate (Get-DomeniaLiveField $Result 'PresenceCheckedUtc')
+    if($null -ne $presenceAt){
+        [void](Set-DomeniaObservationTime $observation 'Presence' $presenceAt -Succeeded:([string]$Result.Presence -in @('En ligne','Sans réponse au ping')))
+    }
     $script:Live.Observations[[string]$State.Key]=$observation
     $script:Live.SaveQueue[[string]$State.Key]=$observation
     if(Test-DomeniaLiveSearchActive){
@@ -437,7 +442,7 @@ function Complete-DomeniaLivePresence {
         if($null -ne $row -and [string]$row.Guid -ieq [string]$State.Guid){
             $script:Live.PresenceSeen[[string]$State.Key]=$true
             $view=Get-DomeniaLivePresenceView $observation
-            $row.Presence=$view.Display;Set-DomeniaLiveRowValue $row 'PresenceDetail' $view.Detail;$s.RefreshNeeded=$true
+            $row.Presence=$view.Display;Set-DomeniaLiveRowValue $row 'PresenceDetail' ($view.Detail+"`r`n"+(Get-DomeniaRecordFreshness $observation 'Presence').Label);$s.RefreshNeeded=$true
             if($null -ne $script:SelectedObject -and [string]$script:SelectedObject.DN -ieq [string]$row.DN){
                 Set-DomeniaPresenceText 'TxtCompPresence' $view.Display
                 Update-DomeniaObjectPresence -State $view.Display -Target ([string]$State.Computer)
@@ -461,22 +466,21 @@ function Complete-DomeniaLiveProbe {
         if($null -ne $current -and $current.Guid -and $State.Guid -and $current.Guid -ine $State.Guid){return}
     }
     $previous=$null;[void]$script:Live.Observations.TryGetValue([string]$State.Key,[ref]$previous)
-    $presenceChecked=[bool](Get-DomeniaLiveField $result 'PresenceCheckedUtc')
+    $presenceAt=ConvertTo-DomeniaUtcDate (Get-DomeniaLiveField $result 'PresenceCheckedUtc')
+    $presenceChecked=($null -ne $presenceAt)
     $observation=ConvertTo-DomeniaLiveObservation $result $previous
+    [void](Copy-DomeniaObservationTimes $previous $observation)
     if($null -ne $observation){
-        $probeUtc=[datetime]::UtcNow
-        $outcome=[string]$observation.Outcome
-        if([string]::IsNullOrWhiteSpace($outcome)){$outcome=[string]$result.Outcome}
-        $presenceSucceeded=($presenceChecked -or ($outcome -eq 'PresenceOnly'))
-        [void](Set-DomeniaObservationTime $observation 'Presence' $probeUtc -Succeeded:$presenceSucceeded)
-        if($outcome -ne 'PresenceOnly'){
-            $consoleSucceeded=($outcome -eq 'Observed' -or $outcome -eq 'NoConsole')
-            [void](Set-DomeniaObservationTime $observation 'Console' $probeUtc -Succeeded:$consoleSucceeded)
+        if($presenceChecked){
+            $presenceSucceeded=([string]$result.Presence -in @('En ligne','Sans réponse au ping'))
+            [void](Set-DomeniaObservationTime $observation 'Presence' $presenceAt -Succeeded:$presenceSucceeded)
         }
-        $consoleFreshness=Get-DomeniaRecordFreshness $observation 'Console'
-        $presenceFreshness=Get-DomeniaRecordFreshness $observation 'Presence'
-        $observation | Add-Member -NotePropertyName ConsoleFreshness -NotePropertyValue $consoleFreshness -Force
-        $observation | Add-Member -NotePropertyName PresenceFreshness -NotePropertyValue $presenceFreshness -Force
+        # The projection preserves the previous console Outcome for a ping-only result.
+        # Only the worker result says whether a console read really happened.
+        if([string]$result.Outcome -ne 'PresenceOnly'){
+            $consoleSucceeded=([string]$result.Outcome -in @('Observed','NoConsole'))
+            [void](Set-DomeniaObservationTime $observation 'Console' ([datetime]::UtcNow) -Succeeded:$consoleSucceeded)
+        }
     }
     $script:Live.Observations[[string]$State.Key]=$observation;if($State.Generation -eq $script:GlobalSearchGeneration -or ((Test-DomeniaLiveSearchActive) -and $script:Live.Search.Fresh.ContainsKey([string]$State.Key))){$script:Live.Done[[string]$State.Key]=$true}
     $script:Live.SaveQueue[[string]$State.Key]=$observation
@@ -515,7 +519,8 @@ function Complete-DomeniaLiveProbe {
         }
     }
     if([string]$result.Outcome -ne 'PresenceOnly' -and (Get-CurrentSelectedComputerName) -ieq (Normalize-LinkComputer ([string]$State.Computer))){
-        [void](Set-DomeniaControlText 'LblLinkProbeStatus' -Text ((Get-DomeniaLiveObservationView $observation).State+' : '+(Get-DomeniaLiveObservationView $observation).Display))
+        $view=Get-DomeniaLiveObservationView $observation
+        [void](Set-DomeniaControlText 'LblLinkProbeStatus' -Text ($view.State+' : '+$view.Display+' · '+(Get-DomeniaRecordFreshness $observation 'Console').Label))
         # Do not rebuild the complete associations grid for every background result.
         $link=Get-ExistingLinkForComputer ([string]$State.Computer)
         if($null -ne $link){

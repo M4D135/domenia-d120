@@ -8034,7 +8034,6 @@ $script:GlobalSearchGeneration = 0
 $script:DirectoryCredentialFaulted = $false
 $script:DirectoryCredentialFaultMessage = ""
 $script:PresenceCache = @{}
-$script:PresenceCacheSeconds = 120
 
 $script:SelectionResetDn = ""
 $script:ActiveSecretRequestId = ""

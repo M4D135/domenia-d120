@@ -121,27 +121,60 @@ function Get-DomeniaFreshness {
     return [pscustomobject]@{Nature=$Nature;State=$state;AgeSeconds=$age;Label=$label;ObservedUtc=$observed;LastAttemptUtc=$attempt}
 }
 
-function Set-DomeniaObservationTime {
-    # Records an observation or an attempt for ONE nature. The other natures keep their own dates:
-    # a successful ping never rejuvenates the historical user or the AD attributes.
-    param($Record,[Parameter(Mandatory=$true)][ValidateSet('Identity','Attributes','Presence','Console','History')][string]$Nature,[datetime]$WhenUtc=[datetime]::UtcNow,[bool]$Succeeded=$true)
-    if ($null -eq $Record) { return $null }
-    $times = Get-DomeniaMember $Record 'Times' $null
-    if ($null -eq $times) {
-        $times = @{}
-        if ($Record -is [Collections.IDictionary]) { $Record['Times'] = $times } else { $Record | Add-Member -NotePropertyName Times -NotePropertyValue $times -Force }
+function Get-DomeniaObservationTimes {
+    # Copy the five known natures. JSON reloads produce PSCustomObject rather than dictionaries.
+    # ISO UTC strings also survive the Windows PowerShell 5.1 JSON date round trip.
+    param($Record)
+    $times=@{};$stored=Get-DomeniaMember $Record 'Times' $null
+    foreach($nature in Get-DomeniaDataNatures){
+        $entry=Get-DomeniaMember $stored $nature $null
+        if($null -eq $entry){continue}
+        $observed=ConvertTo-DomeniaUtcDate (Get-DomeniaMember $entry 'ObservedUtc' $null)
+        $attempt=ConvertTo-DomeniaUtcDate (Get-DomeniaMember $entry 'LastAttemptUtc' $null)
+        $times[$nature]=[pscustomobject]@{ObservedUtc=$(if($null -ne $observed){$observed.ToString('o')}else{$null});LastAttemptUtc=$(if($null -ne $attempt){$attempt.ToString('o')}else{$null})}
     }
-    if (-not $times.ContainsKey($Nature)) { $times[$Nature] = [pscustomobject]@{ObservedUtc=$null;LastAttemptUtc=$null} }
-    $times[$Nature].LastAttemptUtc = $WhenUtc
-    if ($Succeeded) { $times[$Nature].ObservedUtc = $WhenUtc }
+    # Legacy observations may supply real dates, but a reload never invents a new observation.
+    if(-not $times.ContainsKey('Console') -and [string](Get-DomeniaMember $Record 'LastUser' '')){
+        $observed=ConvertTo-DomeniaUtcDate (Get-DomeniaMember $Record 'ObservedUtc' $null)
+        $attempt=ConvertTo-DomeniaUtcDate (Get-DomeniaMember $Record 'UserCheckedUtc' (Get-DomeniaMember $Record 'CheckedUtc' $null))
+        if($null -ne $observed){$times['Console']=[pscustomobject]@{ObservedUtc=$observed.ToString('o');LastAttemptUtc=$(if($null -ne $attempt){$attempt.ToString('o')}else{$null})}}
+    }
+    if(-not $times.ContainsKey('Presence') -and [string](Get-DomeniaMember $Record 'Presence' '') -in @('En ligne','Sans réponse au ping')){
+        $observed=ConvertTo-DomeniaUtcDate (Get-DomeniaMember $Record 'PresenceCheckedUtc' $null)
+        if($null -ne $observed){$times['Presence']=[pscustomobject]@{ObservedUtc=$observed.ToString('o');LastAttemptUtc=$observed.ToString('o')}}
+    }
+    return $times
+}
+
+function Copy-DomeniaObservationTimes {
+    param($Source,$Target)
+    if($null -eq $Target){return $null}
+    $sourceGuid=[string](Get-DomeniaMember $Source 'Guid' '')
+    $targetGuid=[string](Get-DomeniaMember $Target 'Guid' '')
+    $times=if($sourceGuid -and $targetGuid -and $sourceGuid -ine $targetGuid){@{}}else{Get-DomeniaObservationTimes $Source}
+    if($Target -is [Collections.IDictionary]){$Target['Times']=$times}else{$Target | Add-Member -NotePropertyName Times -NotePropertyValue $times -Force}
+    return $Target
+}
+
+function Set-DomeniaObservationTime {
+    # A failed attempt never advances the last successful observation or another nature's date.
+    param($Record,[Parameter(Mandatory=$true)][ValidateSet('Identity','Attributes','Presence','Console','History')][string]$Nature,[datetime]$WhenUtc=[datetime]::UtcNow,[bool]$Succeeded=$true)
+    if($null -eq $Record){return $null}
+    $times=Get-DomeniaObservationTimes $Record
+    if(-not $times.ContainsKey($Nature)){$times[$Nature]=[pscustomobject]@{ObservedUtc=$null;LastAttemptUtc=$null}}
+    $date=ConvertTo-DomeniaUtcDate $WhenUtc;$stamp=$date.ToString('o')
+    $previousAttempt=ConvertTo-DomeniaUtcDate $times[$Nature].LastAttemptUtc
+    $previousObservation=ConvertTo-DomeniaUtcDate $times[$Nature].ObservedUtc
+    # Late progress packets cannot roll back a newer observation or attempt.
+    if($null -eq $previousAttempt -or $date -ge $previousAttempt){$times[$Nature].LastAttemptUtc=$stamp}
+    if($Succeeded -and ($null -eq $previousObservation -or $date -ge $previousObservation)){$times[$Nature].ObservedUtc=$stamp}
+    if($Record -is [Collections.IDictionary]){$Record['Times']=$times}else{$Record | Add-Member -NotePropertyName Times -NotePropertyValue $times -Force}
     return $Record
 }
 
 function Get-DomeniaRecordFreshness {
     param($Record,[Parameter(Mandatory=$true)][string]$Nature,[datetime]$NowUtc=[datetime]::UtcNow)
-    $times = Get-DomeniaMember $Record 'Times' $null
-    $entry = $null
-    if ($null -ne $times -and $times.ContainsKey($Nature)) { $entry = $times[$Nature] }
+    $entry=Get-DomeniaMember (Get-DomeniaObservationTimes $Record) $Nature $null
     return (Get-DomeniaFreshness $Nature (Get-DomeniaMember $entry 'ObservedUtc' $null) (Get-DomeniaMember $entry 'LastAttemptUtc' $null) $NowUtc)
 }
 

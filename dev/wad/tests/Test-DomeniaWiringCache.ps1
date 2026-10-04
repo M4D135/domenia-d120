@@ -597,57 +597,117 @@ Test-Case 'D024 : LiveCache ecrit checked_utc depuis UserCheckedUtc' {
     Assert-True ($code -match '\$checkedForRetention,\$json')
 }
 
-Test-Case 'D024 : Complete-DomeniaLiveProbe appelle Set-DomeniaObservationTime et Get-DomeniaRecordFreshness' {
-    . ([scriptblock]::Create((Get-Content -Raw $cacheModel)))
+$script:FreshnessFixture=@'
+. $cacheModel
+. $liveModel
+foreach($name in @('Complete-DomeniaLiveProbe','Complete-DomeniaLivePresence','Fail-DomeniaLiveProbe','Set-DomeniaLiveObservationOnRow')){
+    . ([scriptblock]::Create((Get-FunctionTextFromFile $liveUi $name)))
+}
+function Reset-DomeniaLiveIdentity { }
+function Get-DomeniaEffectiveWorkerResult { param($Result,$RequiredProperties) return $Result }
+function Merge-DomeniaLiveLinkMemory { param($Observation) }
+function Test-DomeniaLiveSearchActive { return $false }
+function Get-CurrentSelectedComputerName { return '' }
+function Normalize-LinkComputer { param($Computer) return $Computer }
+$script:Live=[pscustomobject]@{NegativeCache=(New-DomeniaNegativeCache);Observations=[Collections.Concurrent.ConcurrentDictionary[string,object]]::new();SaveQueue=@{};PresenceSeen=@{};Done=@{};RemoteFaulted=$false;Search=$null;Identity='id'}
+$script:SessionEpoch=1L;$script:GlobalSearchGeneration=1;$script:ActiveWriteTaskId='';$script:WriteState='Known'
+$script:DirectoryCredentialFaulted=$false
+$now=[datetime]::UtcNow;$consoleAt=$now.AddDays(-3);$presenceAt=$now.AddHours(-2)
+$previous=[pscustomobject]@{Key='k';Computer='PC1';Guid='g';Outcome='Observed';CurrentUser='alice';LastUser='alice';ObservedUtc=$consoleAt.ToString('o');UserCheckedUtc=$consoleAt.ToString('o');CheckedUtc=$consoleAt.ToString('o');Source='Console CIM/DCOM';LastSource='Console CIM/DCOM';Presence='En ligne';PresenceCheckedUtc=$presenceAt.ToString('o')}
+[void](Set-DomeniaObservationTime $previous 'Console' $consoleAt)
+[void](Set-DomeniaObservationTime $previous 'Presence' $presenceAt)
+$script:Live.Observations['k']=$previous
+$script:SelectedObject=[pscustomobject]@{Guid='g'}
+[void](Set-DomeniaObservationTime $script:SelectedObject 'Attributes' $now.AddHours(-5))
+$attributesBefore=$script:SelectedObject | ConvertTo-Json -Depth 5 -Compress
+$state=[pscustomobject]@{Key='k';Computer='PC1';Guid='g';Identity='id';Epoch=1L;Generation=1;RequestId='r';ProbeUser=$false}
+$result=[pscustomobject]@{Outcome='PresenceOnly';Key='k';Computer='PC1';Guid='g';Presence='En ligne';PresenceCheckedUtc=$now.ToString('o')}
+'@
+Test-Case 'D024 : un ping reel preserve les dates console et attributs' {
+    . ([scriptblock]::Create($script:FreshnessFixture))
+    Complete-DomeniaLiveProbe $result $state
+    $observed=$script:Live.Observations['k']
+    Assert-Equal 'Fresh' (Get-DomeniaRecordFreshness $observed 'Presence').State
+    Assert-Equal 'Stale' (Get-DomeniaRecordFreshness $observed 'Console').State
+    Assert-Equal $consoleAt.ToString('o') $observed.Times.Console.ObservedUtc
+    Assert-Equal $previous.ObservedUtc $observed.ObservedUtc
+    Assert-Equal 'alice' $observed.LastUser
+    Assert-Equal $attributesBefore ($script:SelectedObject | ConvertTo-Json -Depth 5 -Compress)
+    Assert-Equal $now.ToString('o') $observed.Times.Presence.ObservedUtc
+}
+Test-Case 'D024 : le paquet presence intermediaire preserve la console puis la lecture la renouvelle' {
+    . ([scriptblock]::Create($script:FreshnessFixture))
+    Complete-DomeniaLivePresence $result $state
+    Assert-Equal $consoleAt.ToString('o') $script:Live.Observations['k'].Times.Console.ObservedUtc
+    Assert-Equal $now.ToString('o') $script:Live.Observations['k'].Times.Presence.ObservedUtc
+    $result.Outcome='Observed';$result | Add-Member User 'bob';$state.ProbeUser=$true
+    Complete-DomeniaLiveProbe $result $state
+    $observed=$script:Live.Observations['k']
+    Assert-Equal 'Fresh' (Get-DomeniaRecordFreshness $observed 'Console').State
+    Assert-Equal 'bob' $observed.LastUser
+    Assert-Equal $now.ToString('o') $observed.Times.Presence.ObservedUtc 'La date est celle du worker'
+    Assert-Equal $consoleAt.ToString('o') $previous.Times.Console.ObservedUtc 'L ancien enregistrement ne change pas'
+    Assert-True ($null -eq $observed.PSObject.Properties['ConsoleFreshness']) 'Aucune fraicheur figee serialisee'
+}
+Test-Case 'D024 : erreur ping directe ou echec worker ne rajeunit aucune observation' {
+    . ([scriptblock]::Create($script:FreshnessFixture))
+    $result.Presence='Erreur de ping'
+    Complete-DomeniaLiveProbe $result $state
+    $observed=$script:Live.Observations['k']
+    Assert-Equal $presenceAt.ToString('o') $observed.Times.Presence.ObservedUtc
+    Assert-Equal $now.ToString('o') $observed.Times.Presence.LastAttemptUtc
+    Assert-Equal 'Stale' (Get-DomeniaRecordFreshness $observed 'Presence').State
+    Fail-DomeniaLiveProbe 'delai fictif' $state
+    $observed=$script:Live.Observations['k']
+    Assert-Equal $presenceAt.ToString('o') $observed.Times.Presence.ObservedUtc
+    Assert-Equal $consoleAt.ToString('o') $observed.Times.Console.ObservedUtc
+    Assert-True ((ConvertTo-DomeniaUtcDate $observed.Times.Presence.LastAttemptUtc) -ge $now)
+}
+Test-Case 'D024 : une lecture console refusee conserve son dernier succes' {
+    . ([scriptblock]::Create($script:FreshnessFixture))
+    $result.Outcome='Denied';$state.ProbeUser=$true
+    Complete-DomeniaLiveProbe $result $state
+    $observed=$script:Live.Observations['k']
+    $freshness=Get-DomeniaRecordFreshness $observed 'Console'
+    Assert-Equal 'Stale' $freshness.State
+    Assert-Equal $consoleAt.ToString('o') $observed.Times.Console.ObservedUtc
+    Assert-True ($freshness.Label -match 'derniere tentative')
+}
+Test-Case 'D024 : details recalcules apres rechargement JSON sans dates inventees' {
+    . ([scriptblock]::Create($script:FreshnessFixture))
+    $reloaded=$previous | ConvertTo-Json -Depth 3 -Compress | ConvertFrom-Json
+    $row=New-DomeniaLiveResultRow;$row.Type='Machine';$row.Guid='g';$row.DN='k'
+    Set-DomeniaLiveObservationOnRow $row $reloaded -Cached
+    Assert-True ($row.SessionDetail -match 'Session console.+a relire')
+    Assert-True ($row.PresenceDetail -match 'Presence reseau.+a relire')
+    Assert-Equal 'alice (cache)' $row.SessionDisplay
+    Assert-Equal 'En ligne (cache)' $row.Presence
+    Complete-DomeniaLivePresence $result $state
+    Set-DomeniaLiveObservationOnRow $row $script:Live.Observations['k'] -Cached
+    Assert-True ($row.SessionDetail -match 'Session console.+a relire')
+    Assert-False ($row.PresenceDetail -match 'Presence reseau.+a relire')
+}
+Test-Case 'D024 : identite remplacee et date de ping invalide ne recuperent pas une ancienne fraicheur' {
+    . ([scriptblock]::Create($script:FreshnessFixture))
+    $result.Guid='new-guid';$state.Guid='new-guid';$result.PresenceCheckedUtc='date-invalide'
+    Complete-DomeniaLiveProbe $result $state
+    $observed=$script:Live.Observations['k']
+    Assert-Equal 'Unknown' (Get-DomeniaRecordFreshness $observed 'Console').State
+    Assert-Equal 'Unknown' (Get-DomeniaRecordFreshness $observed 'Presence').State
+    Assert-Equal '' $observed.LastUser
+    Assert-False ((Get-Content -Raw $core).Contains('$script:PresenceCacheSeconds'))
+}
 
-    function Reset-DomeniaLiveIdentity { }
-    function Test-DomeniaLiveIdentity { param($State,$Epoch,$Identity) return $true }
-    function Get-DomeniaEffectiveWorkerResult { param($Result,$RequiredProperties) return $Result }
-    function ConvertTo-DomeniaLiveObservation {
-        param($Result,$Previous)
-        return [pscustomobject]@{
-            Outcome=[string]$Result.Outcome
-            Computer=[string]$Result.Computer
-            Guid=[string]$Result.Guid
-            DirectoryAuthRejected=$false
-        }
-    }
-    function Get-DomeniaLiveField { param($Object,$Name,$Default='') return $Default }
-    function Merge-DomeniaLiveLinkMemory { param($Observation) }
-    function Test-DomeniaLiveSearchActive { return $false }
-    function Get-CurrentSelectedComputerName { return '' }
-    function Normalize-LinkComputer { param($Computer) return $Computer }
-    function Get-ExistingLinkForComputer { param($Computer) return $null }
-    function Set-DomeniaLiveObservationOnRow { param($Row,$Observation,[switch]$Cached) }
-    function Set-DomeniaPresenceText { param($Name,$Text) }
-    function Update-DomeniaObjectPresence { param($State,$Target) }
-    function Set-RowAssociationMetadata { param($Rows) }
-    function Set-DomeniaControlText { param($Name,$Text) return $true }
-    function Get-DomeniaLiveObservationView { param($Observation) return [pscustomobject]@{State='';Display=''} }
-    function Set-DomeniaObservationTime { param($Object,$Nature,$ObservedUtc,[switch]$Succeeded) $script:ObservedTimeCalls++ }
-    function Get-DomeniaRecordFreshness { param($Object,$Nature) $script:FreshnessCalls++; return [pscustomobject]@{Nature=$Nature;State='Fresh';AgeSeconds=0;Label=''} }
-
-    $script:ObservedTimeCalls=0
-    $script:FreshnessCalls=0
-    $script:Live=[pscustomobject]@{
-        NegativeCache=(New-DomeniaNegativeCache)
-        Observations=[Collections.Concurrent.ConcurrentDictionary[string,object]]::new()
-        SaveQueue=@{}
-        PresenceSeen=@{}
-        Done=@{}
-        RemoteFaulted=$false
-        Search=$null
-        Identity='id'
-    }
-    $script:SessionEpoch=[long]1
-    $script:ActiveWriteTaskId=''
-    $script:WriteState='Known'
-    $script:DirectoryCredentialFaulted=$false
-    $result=[pscustomobject]@{Outcome='Observed';Key='k';Computer='PC1';Guid='g'}
-    $state=[pscustomobject]@{Key='k';Computer='PC1';Guid='g';Identity='id';Epoch=[long]1;Generation=1;RequestId='r'}
-    Complete-DomeniaLiveProbe -Result $result -State $state
-    Assert-True ($script:ObservedTimeCalls -ge 2)
-    Assert-True ($script:FreshnessCalls -ge 2)
+Test-Case 'D024 : une console vide observee affiche sa fraicheur dans le statut selectionne' {
+    . ([scriptblock]::Create($script:FreshnessFixture))
+    function Get-CurrentSelectedComputerName { return 'PC1' }
+    function Set-DomeniaControlText { param($Name,$Text) $script:FreshnessStatus[$Name]=$Text;return $true }
+    $script:FreshnessStatus=@{}
+    $result.Outcome='NoConsole';$state.ProbeUser=$true
+    Complete-DomeniaLiveProbe $result $state
+    Assert-Equal 'Fresh' (Get-DomeniaRecordFreshness $script:Live.Observations['k'] 'Console').State
+    Assert-True ($script:FreshnessStatus.LblLinkProbeStatus -match 'Aucun compte console.+Session console :')
+    Assert-Equal $consoleAt.ToString('o') $script:Live.Observations['k'].ObservedUtc 'Le dernier utilisateur reste historique'
 }
 
 Test-Case 'D026 : changement de DC sans instance identique ne marque pas Missing' {
@@ -1131,6 +1191,59 @@ Test-Case 'D021 : Invoke-GlobalSearch passe par Get-DomeniaProjection List' {
     } finally {
         Restore-TestFunctions
     }
+}
+
+Test-Case 'D023 : le vrai XAML virtualise 100, 500 et 2000 lignes et recycle apres defilement' {
+    . ([scriptblock]::Create((Get-FunctionTextFromFile $core 'Get-MainXaml')))
+    . (Join-Path $modules 'Domenia-UX.UI.ps1')
+    function Get-DomeniaControl { param($Name) return $window.FindName($Name) }
+    function Get-CfgValue { param($Section,$Name,$Default) return $Default }
+    function Set-DomeniaSetting { param($Name,$Value) throw 'Aucune preference ecrite par ce test' }
+    $xaml=Get-MainXaml
+    $reader=[Xml.XmlNodeReader]::new([xml]$xaml);$window=$null
+    $oldWindow=$script:Window;$oldCtrl=$script:Ctrl
+    try {
+        $window=[Windows.Markup.XamlReader]::Load($reader)
+        $window.ShowActivated=$false;$window.ShowInTaskbar=$false;$window.WindowState='Normal';$window.Width=1280;$window.Height=800
+        $grid=$window.FindName('DgObjects');$window.FindName('WorkspaceTabs').SelectedItem=$window.FindName('WsSearch')
+        Assert-True $grid.EnableRowVirtualization;Assert-True $grid.EnableColumnVirtualization
+        Assert-True ([Windows.Controls.VirtualizingPanel]::GetIsVirtualizing($grid))
+        Assert-Equal 'Recycling' ([Windows.Controls.VirtualizingPanel]::GetVirtualizationMode($grid))
+        Assert-True ([Windows.Controls.ScrollViewer]::GetCanContentScroll($grid))
+        $script:Window=$window;$script:Ctrl=@{}
+        foreach($match in [regex]::Matches($xaml,'x:Name="([^"]+)"')){
+            $name=$match.Groups[1].Value;$control=$window.FindName($name)
+            if($null -ne $control){$script:Ctrl[$name]=$control}
+        }
+        # The application applies this real responsive layout after the window is shown.
+        $window.Show();$window.UpdateLayout();Update-DomeniaUxLayout;$window.UpdateLayout();Invoke-WiringPump 30
+        Assert-True ($grid.ActualHeight -ge 68) ('Grille sans viewport utilisable : '+$grid.ActualHeight)
+        $counts=@{}
+        foreach($n in @(100,500,2000)){
+            $rows=[Collections.ObjectModel.ObservableCollection[object]]::new()
+            for($i=0;$i -lt $n;$i++){[void]$rows.Add([pscustomobject]@{Type='Machine';Name=('PC-'+$i);DN=('CN=PC-'+$i+',DC=example,DC=invalid');Guid=[string]$i})}
+            $grid.ItemsSource=$rows;$grid.ScrollIntoView($rows[0]);$window.UpdateLayout();Invoke-WiringPump 30
+            $realized=0;for($i=0;$i -lt $n;$i++){if($null -ne $grid.ItemContainerGenerator.ContainerFromIndex($i)){$realized++}}
+            $counts[$n]=$realized
+            Assert-True ($realized -gt 0 -and $realized -le (3*[Math]::Ceiling($grid.ActualHeight/34)+8)) ("Virtualisation absente : $realized/$n, hauteur=$($grid.ActualHeight)")
+        }
+        Assert-True (($counts[2000]-$counts[100]) -le 2) 'Le nombre de lignes realisees depend du total'
+        # WPF retains the current cell's row even outside the viewport. Move the current cell
+        # with the explicit selection before checking that the formerly current row is recycled.
+        $grid.SelectedItem=$rows[1999]
+        $grid.CurrentCell=[Windows.Controls.DataGridCellInfo]::new($rows[1999],$grid.Columns[0])
+        $grid.ScrollIntoView($rows[1999]);$window.UpdateLayout();Invoke-WiringPump 30
+        Assert-True ($null -eq $grid.ItemContainerGenerator.ContainerFromIndex(0)) 'La premiere ligne reste realisee apres defilement'
+        Assert-True ($null -ne $grid.ItemContainerGenerator.ContainerFromIndex(1999)) 'La derniere ligne est inaccessible'
+        # Negative control: an unbounded ancestor must make this test detect lost virtualization.
+        $shell=$window.FindName('UxShellGrid')
+        [Windows.Data.BindingOperations]::ClearBinding($shell,[Windows.FrameworkElement]::HeightProperty);$shell.Height=[double]::NaN
+        $rows=[Collections.ObjectModel.ObservableCollection[object]]::new()
+        for($i=0;$i -lt 300;$i++){[void]$rows.Add([pscustomobject]@{Type='Machine';Name=('NEG-'+$i)})}
+        $grid.ItemsSource=$rows;$window.UpdateLayout();Invoke-WiringPump 30
+        $realized=0;for($i=0;$i -lt 300;$i++){if($null -ne $grid.ItemContainerGenerator.ContainerFromIndex($i)){$realized++}}
+        Assert-Equal 300 $realized 'Le controle negatif ne detecte pas la perte de borne'
+    } finally {$reader.Close();if($null -ne $window){$window.Close()};$script:Window=$oldWindow;$script:Ctrl=$oldCtrl}
 }
 
 Test-Case 'D022 : Complete-DomeniaReconcile n met en file que les lignes modifiees' {
@@ -2213,7 +2326,7 @@ $report = [ordered]@{
     Wpf=$true
     MockedNetwork=$true
     LiveAD=$false
-    Points=@('D025','D028','D115','D113','D024','D026','D027','D021','D022')
+    Points=@('D023','D025','D028','D115','D113','D024','D026','D027','D021','D022')
     Passed=$passed
     Failed=$failed
     Complete=($failed -eq 0 -and $passed -gt 0)

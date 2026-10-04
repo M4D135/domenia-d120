@@ -1,6 +1,7 @@
 {
   "Lot": "cache",
   "Points": [
+    "D023",
     "D024",
     "D025",
     "D026",
@@ -130,6 +131,24 @@
       "ExistingEntry": true,
       "Functions": [],
       "NewFunctions": []
+    },
+    {
+      "File": "Domenia-Cache.Model.ps1",
+      "ExistingEntry": true,
+      "Functions": [
+        "Get-DomeniaObservationTimes",
+        "Copy-DomeniaObservationTimes"
+      ],
+      "NewFunctions": [
+        "Get-DomeniaObservationTimes",
+        "Copy-DomeniaObservationTimes"
+      ],
+      "Phase": "Modules",
+      "Requires": [
+        "Domenia-Common.Model.ps1",
+        "Domenia-Engine.Model.ps1"
+      ],
+      "DotSource": true
     }
   ],
   "ModifiedModulesWithoutNewFunctions": [
@@ -151,7 +170,10 @@
     "Domenia-Storage.Worker.ps1 (D113 G1 : import LegacyImport transactionnel ; D029 : historique protege)",
     "Domenia-Storage.UI.ps1 (D113 G1 : item import isole, LinkBusy pendant attente/execution, sans rejeu automatique, fusion et baseline apres resultat confirme)",
     "Domenia-Release.Model.ps1 (G2 : quatre tables vides, marqueur idempotent, associations absentes seulement)",
-    "Domenia-Core.ps1 (G2/G3 : maintenance sans ecriture en simulation, bouton et apercu dans Fiabilite)"
+    "Domenia-Core.ps1 (G2/G3 : maintenance sans ecriture en simulation, bouton et apercu dans Fiabilite)",
+    "Domenia-Live.UI.ps1 (I1/I2 : conserve Times, presence datee par le worker, console renouvelee uniquement par une lecture, details recalcules au rendu)",
+    "Domenia-Live.Model.ps1 (I1 : aucune date de presence inventee quand le resultat ne contient pas de date valide)",
+    "Domenia-Core.ps1 (I1 : suppression de PresenceCacheSeconds inutilise)"
   ],
   "TypeFiles": [],
   "Operations": [
@@ -250,7 +272,9 @@
     "rules/Cache.Tests.ps1 : D028 Libelle d enregistrement : indisponible > suspendu > conflits > echecs > attente > enregistre",
     "Test-DomeniaWiringCache.ps1 : D113 G1 SQLite reel, rollback, quatre tables vides, idempotence octets, conflits, domaine, plafond, plus de 64 liens, file isolee et erreur sans rejeu",
     "Test-DomeniaWiringCache.ps1 : D029 historique protege hors plafond 20000 ; les lignes protegees precedent les lignes elaguables",
-    "Test-DomeniaWiringCache.ps1 : G2/G3 sources reelles, simulation sans ecriture, empreinte de confirmation, import et idempotence de bout en bout"
+    "Test-DomeniaWiringCache.ps1 : G2/G3 sources reelles, simulation sans ecriture, empreinte de confirmation, import et idempotence de bout en bout",
+    "D023 : vrai XAML virtualise 100/500/2000 lignes, controle negatif sans borne et recyclage au defilement ; plafond 500 et vingt caches de requete.",
+    "D024 : dates conservees apres JSON, ping distinct de la console, echecs sans rajeunissement et fraicheur recalculee dans les details."
   ],
   "HelpEntries": [
     {
