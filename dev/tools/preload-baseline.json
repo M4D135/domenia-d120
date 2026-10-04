@@ -129,7 +129,7 @@
     "Set-DomeniaResourceColor": "27391F9046A85B14658803F03178045ABEDF0B1F4DD5364D7BA5575C5E4F11BE",
     "Apply-DomeniaTheme": "115A426BAE13A4A67A3C252EE193AA35BF115C2BDCD1E1AA4CFC96D63A006010",
     "Toggle-DomeniaTheme": "EA7E0F31A78D8B4A0BFAB0C27D8028521C1C3A1A255DDA4BEA3B65B5F7C99F03",
-    "Get-MainXaml": "74D4BA6C38FC37BA842507519B99ECA1BA16FABC2567069DEC40FD9DB36A6123",
+    "Get-MainXaml": "3D207D541B0D3546EF81AABD6736D846E9BFDCC499953C390835FD3A938ACC2C",
     "Assert-DomeniaXamlPreflight": "20BB1DA04FD88D78E1A52C5610376467D5E9408437BC823DDC8EC8F40C0EAEB7",
     "Save-DomeniaXamlDiagnostic": "D648C9D6BD6F5F3A6613957D22A6A42EC1AAC0C1FA6218195A55D10EADF4DC67",
     "ConvertFrom-DomeniaXaml": "855E6CA9E56D62F77F5C22ACAC048293D24281B5B8FCC7FEB6806450BE561228",
@@ -1443,6 +1443,39 @@
       "Source": "source tree",
       "Decision": "K2 D118 : six fonctions critiques relues par Codex ; chemins Preferences, droits observes et journaux ; 413 tests cibles Windows reussis, aucun worker modifie",
       "ChangedCoreFunctions": [],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "source tree",
+      "Source": "source tree",
+      "Decision": "D006 : vue compacte sous 700 unites WPF, commandes et etats conserves, preferences de disposition inchangees",
+      "ChangedCoreFunctions": [
+        "Get-MainXaml"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "source tree",
+      "Source": "source tree",
+      "Decision": "D006 : conserver aussi la syntaxe de recherche visible en mode compact, controle de redimensionnement et bornes WPF",
+      "ChangedCoreFunctions": [
+        "Get-MainXaml"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "source tree",
+      "Source": "source tree",
+      "Decision": "D006 : texte de domaine tronque explicitement avec texte complet accessible, sans modifier le message de session",
+      "ChangedCoreFunctions": [
+        "Get-MainXaml"
+      ],
       "AddedCoreFunctions": [],
       "RemovedCoreFunctions": [],
       "ChangedPayloads": []

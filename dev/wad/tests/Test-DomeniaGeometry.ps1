@@ -185,6 +185,37 @@ if($infrastructure){
     }
 }
 
+if($infrastructure){
+    foreach($theme in @('Light','Dark')){
+        $window=$null
+        try {
+            $window=New-GeometryWindow -Theme $theme -Width 960 -Height 800
+            $column=$window.FindName('UxOuColumn');$column.Width=[Windows.GridLength]::new(290)
+            $saved=@{Navigation=$script:UxNavCollapsed;Help=$script:UxHelpVisible;Journal=$script:UxLogCollapsed}
+            [void](Set-DomeniaControlText 'LblSearchHint' ('Prefixe inconnu traite comme texte litteral : '+('texte de recherche ' * 20)))
+            Test-Case ($theme+' : redimensionnement vertical compact reversible, resultats et arbre utilisables') {
+                foreach($height in @(516,800,516)){
+                    $window.Height=$height;Invoke-GeometryPump $window;Update-DomeniaUxLayout;Invoke-GeometryPump $window
+                    Set-FakeActivity 1;Invoke-GeometryPump $window
+                    Assert-True ($window.ActualHeight -le $height+0.5) 'Fenetre plus haute que la surface demandee.'
+                    Assert-True ($window.FindName('DgObjects').ActualHeight -ge 120) ('Resultats trop petits : '+$window.FindName('DgObjects').ActualHeight)
+                    Assert-True ($window.FindName('TvDirectory').ActualHeight -ge 80) ('Arbre OU trop petit : '+$window.FindName('TvDirectory').ActualHeight)
+                    foreach($name in @('CmbGlobalType','CmbPresenceFilter','TxtGlobalLimit','CmbWorkView','BtnWorkView','ChkLiveUsers','BtnLiveRecheck','TxtSuiteResultFilter','BtnSuiteResultClear','BtnGlobalClear','BtnExportResults','BtnCancelTask','LblUxDomain','TvDirectory','LblSearchScope','LblSearchHint','LblSelectionReadState','LblLiveState')){
+                        $r=Get-ClientRect $window $name
+                        Assert-True ($r.Visible -and $r.W -ge 8 -and $r.H -ge 8 -and $r.X -ge 0 -and $r.Y -ge 0 -and $r.X+$r.W -le $window.Content.ActualWidth+0.5 -and $r.Y+$r.H -le $window.Content.ActualHeight+0.5) ($name+' inaccessible apres redimensionnement a '+$height)
+                    }
+                    if($height -eq 800){Assert-True ($column.Width.Value -eq 290) 'Largeur OU choisie perdue en quittant le mode compact.'}
+                    else{Assert-True ($column.Width.Value -eq 230) 'Colonne OU non compacte.'}
+                    Assert-True ($script:UxNavCollapsed -eq $saved.Navigation -and $script:UxHelpVisible -eq $saved.Help -and $script:UxLogCollapsed -eq $saved.Journal) 'Preference enregistree modifiee par le redimensionnement.'
+                }
+            }
+        }
+        catch {$script:Checks.Add([pscustomobject]@{Name=($theme+' : preparation du redimensionnement');Status='Failed';Detail=$_.Exception.ToString()})}
+        finally {if($window){$window.Close()};$script:Window=$null;$script:Ctrl=@{}}
+    }
+}
+
+
 $failed=@($script:Checks|Where-Object{$_.Status -eq 'Failed'}).Count
 $passed=@($script:Checks|Where-Object{$_.Status -eq 'Passed'}).Count
 $report=[ordered]@{

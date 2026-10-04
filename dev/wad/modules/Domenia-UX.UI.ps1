@@ -224,12 +224,13 @@ function Get-DomeniaUxHeightPlan {
     # keeps its room. Pure plan; display state only: the saved journal, help and menu preferences never change.
     param([double]$Height=0,[double]$Width=0)
     $short = (($Height -gt 0) -and ($Height -lt 940))
+    $low = (($Height -gt 0) -and ($Height -lt 700))
     return [pscustomobject]@{
-        Short=$short;FoldJournal=$short;InlineDomainBadge=$short;CloseHelp=$short;HideFilterCaptions=$short
+        LowHeight=$low;Short=$short;FoldJournal=$short;InlineDomainBadge=$short;CloseHelp=$short;HideFilterCaptions=$short
         FoldNavigation=($short -and ($Width -gt 0) -and ($Width -lt 1200))
         WorkViewWidth=$(if ($short) { 230.0 } else { 250.0 })
-        FilterCardPadding=$(if ($short) { 12.0 } else { 16.0 });FilterCardBottom=$(if ($short) { 8.0 } else { 12.0 })
-        ResultBarBottom=$(if ($short) { 6.0 } else { 10.0 });ResultLiveTop=$(if ($short) { 4.0 } else { 10.0 });ResultCountTop=$(if ($short) { 2.0 } else { 5.0 })
+        FilterCardPadding=$(if ($low) { 4.0 } elseif ($short) { 12.0 } else { 16.0 });FilterCardBottom=$(if ($low) { 4.0 } elseif ($short) { 8.0 } else { 12.0 })
+        ResultBarBottom=$(if ($low) { 2.0 } elseif ($short) { 6.0 } else { 10.0 });ResultLiveTop=$(if ($low) { 2.0 } elseif ($short) { 4.0 } else { 10.0 });ResultCountTop=0.0
     }
 }
 
@@ -258,6 +259,72 @@ function Set-DomeniaUxShortLayout {
     $bar = Get-DomeniaControl 'UxResultBar';if ($null -ne $bar) { $bar.Margin = [Windows.Thickness]::new(0,0,0,[double]$Plan.ResultBarBottom) }
     $live = Get-DomeniaControl 'UxResultLive';if ($null -ne $live) { $live.Margin = [Windows.Thickness]::new(0,[double]$Plan.ResultLiveTop,0,0) }
     $count = Get-DomeniaControl 'LblSuiteResultCount';if ($null -ne $count) { $count.Margin = [Windows.Thickness]::new(0,[double]$Plan.ResultCountTop,0,0) }
+    # A low viewport keeps all commands and both trees reachable; only explanatory
+    # captions and the duplicate OU summary fold (scope stays above the results and in LDAP details).
+    # This is transient and never updates saved layout preferences.
+    $compact=[bool]$Plan.LowHeight
+    if($script:UxCompactLayoutWindow -ne $script:Window){$script:UxCompactLayoutActive=$false;$script:UxCompactLayoutWindow=$script:Window}
+    $pageTitle=Get-DomeniaControl 'LblUxPageTitle';if($pageTitle){$pageTitle.FontSize=if($compact){18.0}else{22.0}}
+    if($badge){$badge.Padding=if($compact){[Windows.Thickness]::new(6,1,6,1)}else{[Windows.Thickness]::new(8,3,8,3)}}
+    if($compact){if($title){$title.Orientation=[Windows.Controls.Orientation]::Vertical};if($badge){$badge.Margin=[Windows.Thickness]::new(0)}}
+    $main=Get-DomeniaControl 'UxMainLayout';if($main){$main.Margin=if($compact){[Windows.Thickness]::new(18,6,16,6)}else{[Windows.Thickness]::new(18,12,16,12)}}
+    $header=Get-DomeniaControl 'UxHeader';if($header){$header.Margin=if($compact){[Windows.Thickness]::new(0,0,0,4)}else{[Windows.Thickness]::new(0,0,0,10)}}
+    $header=Get-DomeniaControl 'UxPageHeader';if($header){$header.Margin=if($compact){[Windows.Thickness]::new(2,0,0,6)}else{[Windows.Thickness]::new(2,0,0,12)}}
+    foreach($name in @('UxSearchScopeTitle','UxOuIntro','UxOuScopeCaption','UxOuScopeCard')){
+        $control=Get-DomeniaControl $name
+        if($control){$control.Visibility=if($compact){[Windows.Visibility]::Collapsed}else{[Windows.Visibility]::Visible}}
+    }
+    $scopeInfo=Get-DomeniaControl 'UxSearchScopeInfo';$hint=Get-DomeniaControl 'LblSearchHint'
+    if($scopeInfo -and $hint){
+        $scopeInfo.ColumnDefinitions[1].Width=if($compact){[Windows.GridLength]::new(1,[Windows.GridUnitType]::Star)}else{[Windows.GridLength]::new(0)}
+        [Windows.Controls.Grid]::SetRow($hint,$(if($compact){0}else{1}))
+        [Windows.Controls.Grid]::SetColumn($hint,$(if($compact){1}else{0}))
+        $hint.Margin=if($compact){[Windows.Thickness]::new(6,0,0,2)}else{[Windows.Thickness]::new(0,0,0,8)}
+    }
+    $widths=@{CmbGlobalType=148.0;CmbPresenceFilter=138.0;TxtGlobalLimit=90.0}
+    foreach($name in $widths.Keys){
+        $control=Get-DomeniaControl $name
+        if($control -and $control.Parent -is [Windows.Controls.StackPanel]){
+            $control.Parent.Width=if($compact -and $name -eq 'TxtGlobalLimit'){70.0}else{$widths[$name]}
+            $control.Parent.Margin=if($compact){[Windows.Thickness]::new(0,0,6,0)}else{[Windows.Thickness]::new(0,0,12,8)}
+        }
+    }
+    if($workView -and $workView.Parent.Parent -is [Windows.Controls.StackPanel]){
+        $workView.Parent.Parent.Width=if($compact){190.0}else{[double]$Plan.WorkViewWidth}
+        $workView.Parent.Parent.Margin=if($compact){[Windows.Thickness]::new(0)}else{[Windows.Thickness]::new(0,0,12,8)}
+    }
+    foreach($name in @('TxtGlobalLimit','TxtSuiteResultFilter','BtnSuiteResultClear')){
+        $control=Get-DomeniaControl $name
+        if($control){
+            if($compact){$control.Padding=[Windows.Thickness]::new(6,2,6,2)}
+            else{$control.ClearValue([Windows.Controls.Control]::PaddingProperty)}
+        }
+    }
+    $results=Get-DomeniaControl 'UxResultsCard';if($results){$results.Padding=if($compact){[Windows.Thickness]::new(6)}else{[Windows.Thickness]::new(12)}}
+    $actions=Get-DomeniaControl 'UxResultActionsRow';if($actions){$actions.Margin=if($compact){[Windows.Thickness]::new(0,0,0,4)}else{[Windows.Thickness]::new(0,0,0,8)}}
+    $statuses=Get-DomeniaControl 'UxResultLiveStatuses'
+    if($live -and $statuses){
+        $live.ColumnDefinitions[0].Width=if($compact){[Windows.GridLength]::new(330)}else{[Windows.GridLength]::new(1,[Windows.GridUnitType]::Star)}
+        $live.ColumnDefinitions[1].Width=if($compact){[Windows.GridLength]::new(1,[Windows.GridUnitType]::Star)}else{[Windows.GridLength]::new(0)}
+        [Windows.Controls.Grid]::SetRow($statuses,$(if($compact){0}else{1}))
+        [Windows.Controls.Grid]::SetColumn($statuses,$(if($compact){1}else{0}))
+        $statuses.Margin=if($compact){[Windows.Thickness]::new(8,0,0,0)}else{[Windows.Thickness]::new(0)}
+    }
+    $ouColumn=Get-DomeniaControl 'UxOuColumn'
+    if($ouColumn){
+        if($compact -and -not [bool]$script:UxCompactLayoutActive){$script:UxCompactOuWidth=$ouColumn.Width;$ouColumn.Width=[Windows.GridLength]::new(230)}
+        elseif(-not $compact -and [bool]$script:UxCompactLayoutActive -and $null -ne $script:UxCompactOuWidth){$ouColumn.Width=$script:UxCompactOuWidth}
+    }
+    $ouPanel=Get-DomeniaControl 'SearchOuPanel';if($ouPanel){$ouPanel.Padding=if($compact){[Windows.Thickness]::new(10)}else{[Windows.Thickness]::new(16)}}
+    $scope=Get-DomeniaControl 'UxOuScopeCard'
+    if($scope){$scope.Padding=if($compact){[Windows.Thickness]::new(6)}else{[Windows.Thickness]::new(12)};$scope.Margin=if($compact){[Windows.Thickness]::new(0,0,0,6)}else{[Windows.Thickness]::new(0,0,0,12)}}
+    foreach($name in @('BtnSearchAllDomain','BtnSearchInOu')){
+        $control=Get-DomeniaControl $name
+        if($control){$control.Margin=if($compact){[Windows.Thickness]::new(0,0,0,4)}else{[Windows.Thickness]::new(0,0,0,12)}}
+    }
+    $scopeName=Get-DomeniaControl 'LblOuScopeName';if($scopeName){$scopeName.MaxHeight=if($compact){40.0}else{[double]::PositiveInfinity}}
+    $script:UxCompactLayoutActive=$compact
+
     # Journal shown folded while the screen is short, unless the operator unfolds it; the saved state is untouched.
     $hold = ([bool]$Plan.FoldJournal -and (-not [bool]$script:UxLogCollapsed) -and (-not [bool]$script:UxShortLogReleased))
     # Applied every time (idempotent): the held flag alone must not decide what the journal row shows.
@@ -282,7 +349,7 @@ function Update-DomeniaUxLayout {
     $helpVisible = $script:UxHelpVisible;$compactOpen = $script:UxHelpCompactOpen
     if ([bool]$script:UxShortScreen) { $helpVisible = [bool]$script:UxShortHelpOpen;$compactOpen = [bool]$script:UxShortHelpOpen }
     $plan = Get-DomeniaUxLayoutPlan -Width $width -NavCollapsed (Test-DomeniaUxNavFolded) -HelpVisible $helpVisible -CompactHelpOpen $compactOpen
-    $signature = '{0}:{1}:{2}:{3}' -f $plan.Compact,$plan.HelpShown,$plan.NavWidth,$script:UxShortScreen
+    $signature = '{0}:{1}:{2}:{3}:{4}' -f $plan.Compact,$plan.HelpShown,$plan.NavWidth,$script:UxShortScreen,$heightPlan.LowHeight
     if ($signature -eq $script:UxLayoutSignature) { return }
     $script:UxLayoutSignature=$signature
     $button = Get-DomeniaControl 'BtnUxHelpToggle'
