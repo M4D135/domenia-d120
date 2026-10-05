@@ -103,7 +103,8 @@ function Complete-DomeniaReconcile {
         $script:Reconcile.Events.Enqueue([pscustomobject]@{Kind='Move';Row=$moveRow;Guid=[string]$move.Guid;From=[string]$move.From;To=[string]$move.To;ObservedUtc=$r.ObservedUtc;Search=$s;Identity=$State.Identity;Mutation=$State.Mutation})
     }
 
-    if($sync.CheckpointAdvanced){$script:Reconcile.Checkpoint=$sync.CheckpointNext}
+    # Field report 2026-10-05: the state object had no Checkpoint property, so the assignment failed.
+    if($sync.CheckpointAdvanced){$script:Reconcile|Add-Member -NotePropertyName Checkpoint -NotePropertyValue $sync.CheckpointNext -Force}
 
     $status='Perimetre relu en arriere-plan : '+@($r.Rows).Count+' lignes'
     if([bool]$r.Capped){$status+=' ; limite atteinte, liste non exhaustive.'}
@@ -147,7 +148,7 @@ function Invoke-DomeniaReconcileTick {
 }
 function Initialize-DomeniaReconcile {
     if($null -ne $script:Reconcile){return}
-    $script:Reconcile=[pscustomobject]@{Search=$null;Job='';Events=[Collections.Generic.Queue[object]]::new();Next=[datetime]::UtcNow.AddMinutes(3);Timer=$null}
+    $script:Reconcile=[pscustomobject]@{Search=$null;Job='';Events=[Collections.Generic.Queue[object]]::new();Next=[datetime]::UtcNow.AddMinutes(3);Timer=$null;Checkpoint=$null}
     $timer=[Windows.Threading.DispatcherTimer]::new([Windows.Threading.DispatcherPriority]::Background);$timer.Interval=[timespan]::FromMilliseconds(250)
     $timer.Add_Tick({try{Invoke-DomeniaReconcileTick}catch{Write-AppLog ('Reconciliation : '+$_.Exception.Message) 'WARN'}});$timer.Start();$script:Reconcile.Timer=$timer
     # D019: owned timer, stopped by the resource registry at shutdown.

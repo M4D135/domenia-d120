@@ -37,8 +37,9 @@ function Reset-Fixture {
  $script:Ctrl.DgObjects.CanUserAddRows=$false
 }
 function New-Target {param([int]$N=1) [pscustomobject]@{Computer=('PC-'+$N);Key=('cn=pc-'+$N+',dc=example,dc=invalid');Guid=('00000000-0000-0000-0000-'+$N.ToString('d12'));Previous=$null}}
+function Add-DisplayedMachine {[void]$script:Ctrl.DgObjects.Items.Add([pscustomobject]@{Type='Machine';Name='PC-SHOWN';DN='cn=pc-shown,dc=example,dc=invalid';Guid='00000000-0000-0000-0000-000000000999'})}
 function Ready-Run {param([int]$Count=10)
- Start-DomeniaOnlinePark;$call=$script:Calls[0]
+ Add-DisplayedMachine;Start-DomeniaOnlinePark -DisplayedResults;$call=$script:Calls[0]
  Complete-DomeniaParkTargets ([pscustomobject]@{Rows=@(for($i=1;$i -le $Count;$i++){New-Target $i});Busy=$false}) $call.State
  $script:AsyncJobs.Remove($call.Id)
  $script:ParkRun.Approved=$true
@@ -98,16 +99,19 @@ Case 'Parc : arret attend la sauvegarde deja demandee' {
 }
 Case 'Parc : nouveau releve attend une association encore dans le timer de sauvegarde' {
  Reset-Fixture;$script:Persistence=[pscustomobject]@{Pending=@{};InFlight=0;Failures=0;Conflicts=@{};LinkBusy=$false;LinkRequestTimer=[pscustomobject]@{IsEnabled=$true};LinkPersistenceMore=$false}
- Start-DomeniaOnlinePark;Assert ($script:Calls.Count -eq 0)
+ Add-DisplayedMachine;Start-DomeniaOnlinePark -DisplayedResults;Assert ($script:Calls.Count -eq 0)
 }
+Case 'Parc entier : retire, aucune lecture sans la liste affichee (decision 2026-10-05)' {Reset-Fixture;Add-DisplayedMachine;Start-DomeniaOnlinePark;Start-DomeniaParkSweep;Assert ($script:Calls.Count -eq 0 -and $null -eq $script:ParkRun)}
 
-Case 'Interface : les deux actions et leurs arrets sont cables aux bons perimetres' {
+Case 'Interface : detection de la liste et son arret cables ; aucun bouton parc entier' {
  $reader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml));try{$window=[Windows.Markup.XamlReader]::Load($reader)}finally{$reader.Close()}
  try{
   $script:ClickScope='';function Start-DomeniaOnlinePark {param([switch]$DisplayedResults)$script:ClickScope=$(if($DisplayedResults){'Results'}else{'Park'})};function Stop-DomeniaOnlinePark {$script:ClickScope='Stop'}
-  $script:Ctrl=@{};foreach($name in @('BtnParkSweep','BtnParkResults','BtnParkSweepStop','BtnParkResultsStop')){$script:Ctrl[$name]=$window.FindName($name);Assert ($null -ne $script:Ctrl[$name])}
-  foreach($n in @($ast.FindAll({param($n)$n -is [Management.Automation.Language.InvokeMemberExpressionAst] -and $n.Member.Value -eq 'Add_Click'},$true))){if($n.Expression.Extent.Text -match '^\$script:Ctrl\["(BtnParkSweep|BtnParkResults|BtnParkSweepStop|BtnParkResultsStop)"\]$'){. ([scriptblock]::Create($n.Extent.Text))}}
-  foreach($pair in @(@('BtnParkSweep','Park'),@('BtnParkResults','Results'),@('BtnParkSweepStop','Stop'),@('BtnParkResultsStop','Stop'))){$script:Ctrl[$pair[0]].RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent));Assert ($script:ClickScope -eq $pair[1]) $pair[0]}
+  $script:Ctrl=@{};foreach($name in @('BtnParkSweep','BtnParkSweepStop')){Assert ($null -eq $window.FindName($name)) ($name+' encore present')}
+  foreach($name in @('BtnParkResults','BtnParkResultsStop')){$script:Ctrl[$name]=$window.FindName($name);Assert ($null -ne $script:Ctrl[$name])}
+  foreach($n in @($ast.FindAll({param($n)$n -is [Management.Automation.Language.InvokeMemberExpressionAst] -and $n.Member.Value -eq 'Add_Click'},$true))){if($n.Expression.Extent.Text -match '^\$script:Ctrl\["(BtnParkResults|BtnParkResultsStop)"\]$'){. ([scriptblock]::Create($n.Extent.Text))}}
+  $script:Ctrl['BtnParkResultsStop'].IsEnabled=$true
+  foreach($pair in @(@('BtnParkResults','Results'),@('BtnParkResultsStop','Stop'))){$script:Ctrl[$pair[0]].RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent));Assert ($script:ClickScope -eq $pair[1]) $pair[0]}
  }finally{$window.Close()}
 }
 if($null -ne $script:ParkRun -and $null -ne $script:ParkRun.Timer){$script:ParkRun.Timer.Stop()}

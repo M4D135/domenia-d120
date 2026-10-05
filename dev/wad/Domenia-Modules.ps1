@@ -999,6 +999,7 @@ function Get-DomeniaRuntimeModulePlan {
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Park.Model.ps1','Domenia-Relations.UI.ps1','Domenia-Storage.UI.ps1','Domenia-Inline.UI.ps1','Domenia-Engine.Worker.ps1'); File='Domenia-Park.UI.ps1'; DotSource=$true; Functions=@(
             'Test-DomeniaParkRunCurrent',
             'Update-DomeniaParkRunStatus',
+            'Update-DomeniaParkControls',
             'Start-DomeniaOnlinePark',
             'Complete-DomeniaParkTargets',
             'Fail-DomeniaParkTargets',

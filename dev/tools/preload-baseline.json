@@ -1,5 +1,5 @@
 {
-  "Archive": "fermetures integrees 2026-10-05",
+  "Archive": "retrait parc entier boutons reconciliation 2026-10-05",
   "ArchiveSHA256": "655ED21F90345B3C7667D4E777814C6A0595A5D5BE628AD587FB46CCA5241922",
   "CoreFunctions": {
     "Write-DomeniaAtomicText": "1C9A1583F52EB7BE80BE420662653E4AF886FE11DC4FDB3B1C4CDF19FD1C0EDA",
@@ -130,7 +130,7 @@
     "Set-DomeniaResourceColor": "27391F9046A85B14658803F03178045ABEDF0B1F4DD5364D7BA5575C5E4F11BE",
     "Apply-DomeniaTheme": "115A426BAE13A4A67A3C252EE193AA35BF115C2BDCD1E1AA4CFC96D63A006010",
     "Toggle-DomeniaTheme": "EA7E0F31A78D8B4A0BFAB0C27D8028521C1C3A1A255DDA4BEA3B65B5F7C99F03",
-    "Get-MainXaml": "51C74F150515FF9BD34E7DE9CB37F8A92ECE8DF8123185DB19D42F185D04DA18",
+    "Get-MainXaml": "1AE661E7541F527664B23B297F7464BAE35F66F41E1949E30F81B45E8BF4359E",
     "Assert-DomeniaXamlPreflight": "20BB1DA04FD88D78E1A52C5610376467D5E9408437BC823DDC8EC8F40C0EAEB7",
     "Save-DomeniaXamlDiagnostic": "D648C9D6BD6F5F3A6613957D22A6A42EC1AAC0C1FA6218195A55D10EADF4DC67",
     "ConvertFrom-DomeniaXaml": "855E6CA9E56D62F77F5C22ACAC048293D24281B5B8FCC7FEB6806450BE561228",
@@ -345,7 +345,7 @@
     "Sync-DomeniaParkShared": "E2A0DAB7204027357358B93A8E3AE4A1FF7AD772E51661E879B568B1699FB0FA",
     "Complete-DomeniaLogonHarvestUi": "D3C91A212B852B08471C9915D11CD4F8D5162ECD3F3458A1E5B220FA2BA8EABD",
     "Fail-DomeniaLogonHarvestUi": "B61EDEF9CA356FAEDA6B5D239EB2CC414BB94A36D3D674EBD6A75EA9E8153F0F",
-    "Start-DomeniaLogonHarvest": "56C7227417DBA55270E55B72F9FD1E4F65938A1D22DA5B788E7D68FF5774857C",
+    "Start-DomeniaLogonHarvest": "A8BD17683991FF36D56A8896DA55F31B474FA2E862DBAD05E04D8B05D5E24178",
     "Get-DomeniaLogonHarvestWorkerCode": "74359E4199F63FCFC948EDA4EF02350C850080366F60A8F5604F4C64FEB5F64E",
     "Get-DomeniaParkStatePath": "9D3D7077EDDAD71424CD8FABD76090364F036036227AB458B485B628E2E2AD6C",
     "Load-DomeniaParkState": "CABA5D6EADB3041EC55646EB76AD5E460E4F3DD17DDA2768B63154ED96D5BB18",
@@ -355,7 +355,7 @@
     "Get-DomeniaParkCoverageText": "0D5233DCE9548028D5EB2FDAE072CECECBF93DF4480BF4B999D423FA396E7D4E",
     "Complete-DomeniaParkSweepUi": "284E1B8CA63D610E556C72C0E261AEE31DB80024D0120874371667931CDFACF6",
     "Fail-DomeniaParkSweepUi": "E968D8470379508FD22D34546681ABB70B9AB6D835AFD19D19C239ED93D2C6A0",
-    "Start-DomeniaParkSweep": "41A05759FC85FEFAA92021AF9EE251F5CAEB9525B1222D599FDA79EFFE6074E4",
+    "Start-DomeniaParkSweep": "8E718A526CD8F30423F5EA9229F84B7A74C0E97099D403D42CA48FDC0F74AD70",
     "Request-DomeniaParkSweepAtStartup": "CE893D74A4E82B0AEE5AB8AD43BD99370014D735F9B85FED0EB4BBAC85BFAB0A",
     "Get-DomeniaParkSweepWorkerCode": "BAFB48ED3A5617F93878F340259C6D92E0497620AEC608BA2175629FE8978F25",
     "Complete-DomeniaIndexBuildUi": "59739C99691B781317AF7438092E9CA08238A96FE4DF545894A0B5F3ADCCD2D2",
@@ -451,7 +451,7 @@
     "Clear-DomeniaSecondaryCredential": "CD8BB39C79262CBFF7EBBC941C6D31C67791476824B8C7EA1A1903B251DF26E8",
     "Start-DomeniaAccountRelogin": "B03934105A08C0781F56149CA33EB99A9B7459ED4660E8EA3A0E3D8E4A0B134D",
     "Initialize-DomeniaAccountPanel": "05F251F380F8DF6C8E6DB91B2631449C8C6CCF4619709DA289F9BD1C7AD3273D",
-    "Wire-Events": "AC4833765C49A710F7C8629DADBDD1809B55B2F51602018FEA5FEA22193F526A",
+    "Wire-Events": "271EBA439F983286428D1F3200C94C20823B373EC11DA5899A00D2E344A0D1A0",
     "New-DefaultConfig": "F1DC255ED0F8D0538880FB22F561E8DD31B63C7CF92BF7C98B61213E46632986",
     "Initialize-DomeniaDataStore": "75C63F73149D4C8CACBAA107F9223E9140830F4F01360F1899E8D79DC6A51E5A",
     "Write-StartupTrace": "216F93F6D1D37A669438F904233E5819260B8DA5AD48CF8887D6C5A372435250",
@@ -1685,6 +1685,20 @@
       "Source": "fermetures integrees 2026-10-05",
       "Decision": "Retour terrain 2026-10-05 : 'Get-DomeniaEmbeddedContext n est pas reconnu'. GetNewClosure lie un gestionnaire a la seule portee globale ; les fonctions de l application (portee script de Domenia-Core) n y sont pas visibles. Domenia-Embedded.UI capture desormais ses fonctions avant les fermetures (minuterie de garde, Verr. Maj, choix integre AD, choix de fichier), comme Domenia-Access.UI. Nouveau cas Test-DomeniaModules : aucune fermeture GetNewClosure n appelle une fonction de l application par son nom. Modules 102/102.",
       "ChangedCoreFunctions": [],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "fermetures integrees 2026-10-05",
+      "Source": "retrait parc entier boutons reconciliation 2026-10-05",
+      "Decision": "Decision David 2026-10-05 : jamais de detection sur tout le parc (branches jamais visitees, perturbe les associations). Bouton Detecter sur tout le parc et son arret retires de Relations ; Start-DomeniaOnlinePark refuse sans -DisplayedResults ; Start-DomeniaParkSweep inerte. Rechercher : Reverifier ce poste en SecondaryButton, Detecter la liste en RunButton, Arreter la detection en DangerButton actif seulement pendant une detection (Update-DomeniaParkControls). Correctif terrain : Complete-DomeniaReconcile echouait sur la propriete Checkpoint absente de l etat. Suites VM : ParkDetection 22/22, Geometry 0 echec, Modules 102/102, WiringCache 143/143.",
+      "ChangedCoreFunctions": [
+        "Get-MainXaml",
+        "Start-DomeniaLogonHarvest",
+        "Start-DomeniaParkSweep",
+        "Wire-Events"
+      ],
       "AddedCoreFunctions": [],
       "RemovedCoreFunctions": [],
       "ChangedPayloads": []

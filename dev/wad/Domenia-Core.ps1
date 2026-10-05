@@ -681,8 +681,6 @@ $script:GuiElementPolicy = [ordered]@{
     "DgOperationStats" = "Default"
     "ChkParkSweepEnabled" = "Default"
     "BtnParkHarvest" = "Default"
-    "BtnParkSweep" = "Default"
-    "BtnParkSweepStop" = "Default"
     "BtnParkResults" = "Default"
     "BtnParkResultsStop" = "Default"
     "BtnParkReset" = "Default"
@@ -4649,9 +4647,9 @@ function Get-MainXaml {
 </Grid><Grid x:Name="UxResultLive" Margin="0,10,0,0"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="0"/></Grid.ColumnDefinitions>
                             <WrapPanel>
                               <CheckBox x:Name="ChkLiveUsers" IsEnabled="{Binding IsEnabled, ElementName=DgObjects}" Content="Utilisateur au clic" IsChecked="True" VerticalAlignment="Center" Margin="0,0,14,4" ToolTip="Un clic lance un ping unique sur le poste. Cochée : lit aussi son utilisateur console. Décochée : ping seulement. Jamais de sondage collectif." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vérification sur sélection" AutomationProperties.HelpText="Vérifie uniquement la machine sélectionnée. Les autres lignes conservent leurs observations en cache, sans nouvel appel distant."/>
-                              <Button x:Name="BtnLiveRecheck" IsEnabled="{Binding IsEnabled, ElementName=DgObjects}" Content="Revérifier ce poste" Margin="0,0,0,4" MinHeight="30" Padding="10,4" ToolTip="Relance un ping unique et la lecture utilisateur sur le poste sélectionné. Si le compte est refusé ou CIM désactivé, seul le ping reste disponible. Aucun balayage." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Revérifier ce poste" AutomationProperties.HelpText="Relance la vérification du compte console d’une seule machine sélectionnée."/>
-                              <Button x:Name="BtnParkResults" Content="Detecter la liste" Margin="8,0,0,4" MinHeight="30" Padding="10,4" IsEnabled="{Binding IsEnabled, ElementName=DgObjects}" ToolTip="Lit seulement la console des postes actuellement affiches apres filtres. Cache et associations conserves. Aucune detection au demarrage." AutomationProperties.Name="Detecter les resultats affiches"/>
-                              <Button x:Name="BtnParkResultsStop" Content="Arreter" Margin="8,0,0,4" MinHeight="30" Padding="10,4" ToolTip="Arrete les nouvelles lectures ; conserve les resultats deja obtenus." AutomationProperties.Name="Arreter la detection des resultats"/>
+                              <Button x:Name="BtnLiveRecheck" IsEnabled="{Binding IsEnabled, ElementName=DgObjects}" Content="Revérifier ce poste" Style="{StaticResource SecondaryButton}" Margin="0,0,8,4" ToolTip="Relance un ping unique et la lecture utilisateur sur le poste sélectionné. Si le compte est refusé ou CIM désactivé, seul le ping reste disponible. Aucun balayage." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Revérifier ce poste" AutomationProperties.HelpText="Relance la vérification du compte console d’une seule machine sélectionnée."/>
+                              <Button x:Name="BtnParkResults" Content="Détecter la liste" Style="{StaticResource RunButton}" Margin="0,0,8,4" IsEnabled="{Binding IsEnabled, ElementName=DgObjects}" ToolTip="Lit la console des seuls postes affichés, après vos filtres (OU, recherche, présence, filtre local). Confirmation avec le nombre de postes avant toute lecture. Cache et associations conservés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Detecter les resultats affiches"/>
+                              <Button x:Name="BtnParkResultsStop" Content="Arrêter la détection" Style="{StaticResource DangerButton}" Margin="0,0,8,4" IsEnabled="False" ToolTip="Actif pendant une détection : arrête les nouvelles lectures et conserve les résultats déjà obtenus." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Arreter la detection des resultats"/>
                             </WrapPanel>
                             <Grid x:Name="UxResultLiveStatuses" Grid.Row="1"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><TextBlock Text="Selectionnez une ligne pour precharger sa fiche. Double-clic : ouvrir." Foreground="{DynamicResource MutedColor}" FontSize="11" Height="20" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" x:Name="LblSelectionReadState" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/><TextBlock x:Name="LblLiveState" Grid.Row="1" Text="Un clic : vérifier ce poste · Double-clic : ouvrir la fiche · Aucune sonde de liste" FontSize="11" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Height="18" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/></Grid>
                           </Grid></StackPanel><Grid Grid.Row="1">
@@ -5231,10 +5229,7 @@ function Get-MainXaml {
                       <TextBlock Text="Relations utilisateur / poste" FontSize="18" FontWeight="SemiBold"/>
                       <TextBlock x:Name="LblRelationsSelection" Text="Sélectionnez un utilisateur ou un poste depuis Rechercher." FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource AccentText}" Margin="0,6,0,4" TextWrapping="Wrap"/>
                       <TextBlock Text="Une association mémorisée n'est pas une preuve de session ouverte. La détection réseau reste volontaire." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap"/>
-                      <WrapPanel Margin="0,6,0,0">
-                                  <Button x:Name="BtnParkSweep" Content="Detecter sur tout le parc" MinWidth="170" Margin="0,0,8,8" ToolTip="Verifie les consoles des postes indexes. Cache persistant, resolution AD seulement si changement. Les sessions RDP ne sont pas recensees." AutomationProperties.Name="Detecter sur tout le parc"/>
-                                  <Button x:Name="BtnParkSweepStop" Content="Arreter le releve" Margin="0,0,8,8" ToolTip="Arrete les nouvelles lectures. Les lectures deja lancees se terminent et leurs resultats sont conserves." AutomationProperties.Name="Arreter le releve"/>
-                      </WrapPanel>
+                      <TextBlock Text="Détection des utilisateurs connectés : dans Rechercher, filtrez la liste puis « Détecter la liste ». Aucune détection sur tout le parc." Foreground="{DynamicResource MutedColor}" Margin="0,6,0,4" TextWrapping="Wrap"/>
                       <TextBlock x:Name="LblParkDetectionStatus" Text="Cache conserve ; detection uniquement sur demande." TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
                       <TextBlock x:Name="LblLinkProbeStatus" Text="Aucune recherche complémentaire en cours." Foreground="{DynamicResource MutedColor}" Margin="0,6,0,0" TextWrapping="Wrap"/>
                     </StackPanel>
@@ -14740,7 +14735,7 @@ function Start-DomeniaLogonHarvest {
             }) `
             -CallbackState ([pscustomobject]@{ Silent=[bool]$Silent }) `
             -ReplaceKey "harvest" `
-            -DisableControls @("BtnParkHarvest","BtnParkSweep") `
+            -DisableControls @("BtnParkHarvest") `
             -TimeoutSeconds 180 `
             -StatusText "Lecture du journal du controleur en arriere-plan..." `
             -SuccessHandler "Complete-DomeniaLogonHarvestUi" `
@@ -14992,8 +14987,9 @@ function Fail-DomeniaParkSweepUi {
 
 function Start-DomeniaParkSweep {
     param([switch]$Silent)
-    # Only this explicit control starts the whole-index scan. No startup continuation.
-    if(-not $Silent){Start-DomeniaOnlinePark}
+    # Decision David 2026-10-05: no whole-park detection any more (too wide, it disturbed the associations).
+    # Detection runs only on the rows displayed in Rechercher, after the user's filters.
+    if(-not $Silent){Set-Status 'Detection sur tout le parc retiree : filtrez la liste dans Rechercher puis Detecter la liste.' 'WARN'}
 }
 
 function Request-DomeniaParkSweepAtStartup {
@@ -19283,8 +19279,6 @@ function Wire-Events {
     }
     $age=Get-DomeniaControl 'TxtStorageHistoryDays';if($age){$age.Add_TextChanged({Reset-DomeniaStoragePurgePreview})}
     if ($script:Ctrl.ContainsKey("BtnParkHarvest")) { $script:Ctrl["BtnParkHarvest"].Add_Click({ Start-DomeniaLogonHarvest }) }
-    if ($script:Ctrl.ContainsKey("BtnParkSweep")) { $script:Ctrl["BtnParkSweep"].Add_Click({ Start-DomeniaParkSweep }) }
-    if ($script:Ctrl.ContainsKey("BtnParkSweepStop")) { $script:Ctrl["BtnParkSweepStop"].Add_Click({ Stop-DomeniaOnlinePark }) }
     if ($script:Ctrl.ContainsKey("BtnParkResults")) { $script:Ctrl["BtnParkResults"].Add_Click({ Start-DomeniaOnlinePark -DisplayedResults }) }
     if ($script:Ctrl.ContainsKey("BtnParkResultsStop")) { $script:Ctrl["BtnParkResultsStop"].Add_Click({ Stop-DomeniaOnlinePark }) }
     if ($script:Ctrl.ContainsKey("BtnParkReset")) {

@@ -12,13 +12,21 @@ function Update-DomeniaParkRunStatus {
     if($save.Pending -gt 0){$text+=' Enregistrement local en attente.'}
     if($save.Suspended -or $save.Conflicts -gt 0){$text+=' Stockage a verifier dans Fiabilite.'}
     $r.StatusText=$text
+    Update-DomeniaParkControls
     foreach($label in @('LblParkStatus','LblParkDetectionStatus')){[void](Set-DomeniaControlText $label $text)}
     if($r.Scope -eq 'Results'){[void](Set-DomeniaControlText 'LblLiveState' $text)}
+}
+function Update-DomeniaParkControls {
+    # The stop button is active only while a detection is running.
+    $stop=Get-DomeniaControl 'BtnParkResultsStop'
+    if($null -ne $stop -and -not $script:DemoMode){$stop.IsEnabled=($null -ne $script:ParkRun -and -not $script:ParkRun.Completed)}
 }
 function Start-DomeniaOnlinePark {
     param([switch]$DisplayedResults)
     $started=$false
     try{
+        # Decision David 2026-10-05: whole-park detection removed; only the displayed, filtered rows are read.
+        if(-not $DisplayedResults){throw 'detection sur tout le parc retiree. Filtrez la liste dans Rechercher puis Detecter la liste.'}
         if($script:DemoMode){throw 'Releve distant indisponible en demonstration.'}
         if($null -ne $script:ParkRun -and -not $script:ParkRun.Completed){throw 'Un releve est deja en cours.'}
         if(@($script:AsyncJobs.Values|Where-Object{$_.OperationId -in @('StoragePurge','IndexBuild','LegacyMigration')}).Count){throw 'Attendez la fin de la maintenance locale.'}
@@ -38,6 +46,7 @@ function Start-DomeniaOnlinePark {
         if(-not $job){throw 'Lecture du parc non admise.'}
         [void](Set-DomeniaControlText 'LblParkStatus' 'Lecture des postes et des sessions conservees en cache...')
     }catch{if($started -and $null -ne $script:ParkRun -and $script:ParkRun.Loading){$script:ParkRun.Completed=$true};Set-Status ('Releve impossible : '+$_.Exception.Message) 'WARN'}
+    Update-DomeniaParkControls
 }
 function Complete-DomeniaParkTargets {
     param($Result,$State)
@@ -58,6 +67,7 @@ function Fail-DomeniaParkTargets {
     if(-not (Test-DomeniaParkRunCurrent $State)){return}
     $script:ParkRun.Completed=$true;$script:ParkRun.Loading=$false
     [void](Set-DomeniaControlText 'LblParkStatus' ('Releve non lance : '+[string]$Message))
+    Update-DomeniaParkControls
 }
 function Start-DomeniaParkRunTimer {
     param([string]$RunId)
