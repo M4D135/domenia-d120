@@ -1,5 +1,5 @@
 {
-  "Archive": "correctif connexion 2026-10-05",
+  "Archive": "correctif connexion 2026-10-05 final",
   "ArchiveSHA256": "655ED21F90345B3C7667D4E777814C6A0595A5D5BE628AD587FB46CCA5241922",
   "CoreFunctions": {
     "Write-DomeniaAtomicText": "1C9A1583F52EB7BE80BE420662653E4AF886FE11DC4FDB3B1C4CDF19FD1C0EDA",
@@ -406,7 +406,7 @@
     "Open-DomeniaAuditLog": "39B42FC9F7B4BB4CB9A79AD064B4C54440487641FEABE38B990A19A31ED465CE",
     "Get-DomeniaCriticalControlNames": "7CBC56FF03899414AF4B85C76F9E012CBEB29230F36EC4C319E916DEAEAC36F2",
     "Get-DomeniaIntegritySnapshot": "F9EBCE1487E2933C317E800DD4B48DD7F6AABD0BF00ECC814A29B45E96156162",
-    "Invoke-DomeniaInProcessAuthProbe": "281D349172CF0EB2B4EECA235868FD742D25C6A0C38F170B939D732E028454DB",
+    "Invoke-DomeniaInProcessAuthProbe": "68D33BDE27F0D4F8F2D44DA276DE5AD335F6E8EFE18849BD5CA9339899BEA4A4",
     "Complete-DomeniaLoginAuthRunspaceCleanup": "05F3F30D4B2C31357E4685A8AEC6D52860D849B25C24F2468BC4889C2FFCBA3F",
     "Ensure-DomeniaAuthCleanupTimer": "A0F16BE7A8FD2F42F772B120C5CB5ADD06B498B8C94E895E615493B91987D3E1",
     "Queue-DomeniaLoginAuthRunspaceCleanup": "20F8C32EC697FEE69C82AB1A0C4BE5852EAB434513FF9E5E1745082753A7147E",
@@ -578,7 +578,7 @@
     "Reset-DomeniaFastLoginAttempt": "FC7BB722D7B43B88D6FEC52062B2F8C3A99B9250A62A18FF3F92D2C7774719A1",
     "Complete-DomeniaFastLoginSuccess": "D9D2A05F65FF32F2EFDB34C20C50F637627FB9A61A9A6DE7C85DE157DBF62B2D",
     "Convert-DomeniaLoginFailureMessage": "A6705C0C3EE9493EA8CD041B6EB9C5A5FD76D8054960FAFD2AC4B92AE5E8C7E1",
-    "Get-DomeniaLoginFailureHint": "71C3738928DE228B03580546A408C6AAC029D79B947FB28319E71FE944B98E3A",
+    "Get-DomeniaLoginFailureHint": "3DE952900CDEDF96D4362D87FFB7611A386BFE9A246D540D117DEFE423D00CC8",
     "Update-DomeniaFastLoginAttempt": "03EE4DDFBF77674963FF4F07B41FF05C36B4416539BD88D37F2E7BDF87B59A38",
     "Test-DomeniaComputerAccountIdentity": "AEC9DE0238A10FD0D4D0575B5A9FD2345D5FD76E483DCAFB91666B658C14A028",
     "Get-DomeniaProcessWindowsIdentity": "8457971CDA703D82A2A2FDACB9CE9C33488C1B3E50AE2094811E1815C22673DA",
@@ -1628,6 +1628,18 @@
       "AddedCoreFunctions": [
         "Set-DomeniaWindowActivationPolicy"
       ],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "correctif connexion 2026-10-05",
+      "Source": "correctif connexion 2026-10-05 final",
+      "Decision": "Cause reelle du retour terrain du 2026-10-05 : mot de passe du compte admin expire, remonte par AD avec le sous-code 52f (et non 532). Invoke-DomeniaInProcessAuthProbe revient au choix d origine du controleur (dnsHostName RootDSE, une seule validation) : la preference pour un controleur inscriptible et les essais multi-controleurs (v2 non poussee) sont retires, inutiles et bruyants. Restent : ConvertFrom-AuthLdapSubCode (sous-code AD nomme, 52f cite d abord le mot de passe expire ou a changer, indication de changer le mot de passe) et Set-DomeniaWindowActivationPolicy (fenetre maximisee toujours activee). Prouve par Test-DomeniaLogin 54/54 et Test-DomeniaStartupLogin dans la VM.",
+      "ChangedCoreFunctions": [
+        "Get-DomeniaLoginFailureHint",
+        "Invoke-DomeniaInProcessAuthProbe"
+      ],
+      "AddedCoreFunctions": [],
       "RemovedCoreFunctions": [],
       "ChangedPayloads": []
     }

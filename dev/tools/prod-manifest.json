@@ -21,8 +21,8 @@
     },
     {
       "Path": "wad/Domenia-Core.ps1",
-      "Sha256": "04BBCD23B73DA35BEF7C3040D9376574BF377166099AF7D0C4FD043D9DAC0689",
-      "Bytes": 1726413,
+      "Sha256": "D9F0F319467C659A7C32B74C4489CD5474ADDF258E664097EF00803156F38D2E",
+      "Bytes": 1724173,
       "Runtime": true,
       "PreserveExisting": false
     },

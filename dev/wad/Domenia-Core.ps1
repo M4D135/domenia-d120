@@ -17091,15 +17091,15 @@ function Invoke-DomeniaInProcessAuthProbe {
 
     function ConvertFrom-AuthLdapSubCode {
         # The LDAP answer carries the precise Windows sub-code ("data 52f") while the HRESULT can stay the
-        # generic 0x8007052E (logon failure). Except 525 and 52e, these codes are account states or restrictions:
-        # the password check is not what failed.
+        # generic 0x8007052E (logon failure). Except 525 and 52e, these codes are account states or restrictions.
+        # Field report 2026-10-05: an EXPIRED password also came back as 52f, so 52f names it first.
         param([AllowNull()][string]$ExtendedMessage)
         $code = ''
         if (([string]$ExtendedMessage) -match '(?i)\bdata\s+([0-9a-f]{3,4})\b') { $code = $matches[1].ToLowerInvariant() }
         $category = ''; $summary = ''
         if ($code -ceq '525') { $category = 'Credentials'; $summary = 'Compte inconnu du controleur (code AD 525).' }
         elseif ($code -ceq '52e') { $category = 'Credentials'; $summary = 'Identifiant ou mot de passe refuse (code AD 52e).' }
-        elseif ($code -ceq '52f') { $category = 'AccountRestriction'; $summary = 'Restriction de compte sur ce controleur (code AD 52f) : ce n est pas le mot de passe. Un controleur en lecture seule ou une regle du compte refuse cette connexion.' }
+        elseif ($code -ceq '52f') { $category = 'AccountRestriction'; $summary = 'Connexion refusee par une restriction du compte (code AD 52f). Cause la plus frequente : mot de passe expire ou a changer. Sinon : regle du compte (compte protege, postes ou horaires autorises).' }
         elseif ($code -ceq '530') { $category = 'AccountRestriction'; $summary = 'Connexion interdite a cette heure pour ce compte (code AD 530).' }
         elseif ($code -ceq '531') { $category = 'AccountRestriction'; $summary = 'Connexion interdite depuis ce poste pour ce compte (code AD 531).' }
         elseif ($code -ceq '532') { $category = 'AccountRestriction'; $summary = 'Le mot de passe de ce compte a expire (code AD 532).' }
@@ -17108,24 +17108,6 @@ function Invoke-DomeniaInProcessAuthProbe {
         elseif ($code -ceq '773') { $category = 'AccountRestriction'; $summary = 'Ce compte doit changer de mot de passe avant la connexion (code AD 773).' }
         elseif ($code -ceq '775') { $category = 'AccountRestriction'; $summary = 'Ce compte est verrouille (code AD 775). Arrete les essais et verifie son etat.' }
         return [pscustomobject]@{ SubCode = $code; Category = $category; Summary = $summary }
-    }
-
-    function Find-AuthWritableDomainController {
-        # An administration tool works on a WRITABLE controller. A read-only controller (RODC) usually refuses
-        # privileged accounts (AD sub-code 52f) and refers every write elsewhere. Located by Windows with the
-        # current session only: the typed password is never used to locate. Empty when the locator cannot answer.
-        param([AllowNull()][string]$DomainName)
-        $name = ([string]$DomainName).Trim().TrimEnd('.')
-        if ((-not $name) -or (-not $name.Contains('.'))) { return '' }
-        $found = $null
-        try {
-            $options = [System.DirectoryServices.ActiveDirectory.LocatorOptions]::WriteableRequired
-            $found = [System.DirectoryServices.ActiveDirectory.DomainController]::FindOne((New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext -ArgumentList @([System.DirectoryServices.ActiveDirectory.DirectoryContextType]::Domain,$name)),$options)
-            if ($null -eq $found) { return '' }
-            return ([string]$found.Name).Trim()
-        }
-        catch { return '' }
-        finally { try { if ($null -ne $found) { $found.Dispose() } } catch { } }
     }
 
     function Get-AuthNativeFailure {
@@ -17551,24 +17533,10 @@ function Invoke-DomeniaInProcessAuthProbe {
                             $bindLogin = "$detectedNetbios\$rawLogin"
                         }
 
-                        $selectedServer = if ([string]::IsNullOrWhiteSpace($detectedDc)) { [string]$serverName } else { $detectedDc }
-                        $selectionNote = ''
-                        # Without a configured server, the account is validated on a writable controller located by
-                        # Windows (current session, no password). Same single attempt; RootDSE choice kept otherwise.
-                        if ([string]::IsNullOrWhiteSpace($configuredServer)) {
-                            $authStage = 'Discovery.WritableLocator'
-                            $writableDc = Find-AuthWritableDomainController -DomainName $detectedDomain
-                            if (-not [string]::IsNullOrWhiteSpace($writableDc)) {
-                                if ($writableDc -ine $selectedServer) { $selectionNote = '; controleur inscriptible, RootDSE ' + $selectedServer }
-                                else { $selectionNote = '; controleur inscriptible' }
-                                $selectedServer = $writableDc
-                            }
-                            else { $selectionNote = '; localisateur sans reponse, controleur RootDSE' }
-                            $authStage = 'Identity.Resolve'
-                        }
                         $plainPassword = [string]$Request.Credential.GetNetworkCredential().Password
+                        $selectedServer = if ([string]::IsNullOrWhiteSpace($detectedDc)) { [string]$serverName } else { $detectedDc }
                         $basePath = "LDAP://$selectedServer/$effectiveBase"
-                        Set-AuthProgress -Stage "Authentification Active Directory" -Detail "Validation unique de $bindLogin sur $selectedServer (ADSI get_NativeObject$selectionNote)"
+                        Set-AuthProgress -Stage "Authentification Active Directory" -Detail "Validation unique de $bindLogin sur $selectedServer (ADSI get_NativeObject)"
 
                         $authStage = 'Explicit.NativeBind'
                         $explicitBindAttempted = $true
@@ -24642,7 +24610,7 @@ function Get-DomeniaLoginFailureHint {
     if ($Category -eq 'AccessDenied') { return 'Verifie le contexte, les droits du compte et les restrictions. Details dans le journal.' }
     if ($Message -eq 'Identifiant ou mot de passe incorrect.') { return 'Verifie les identifiants avant tout nouvel essai.' }
     if ($Category -eq 'Credentials') { return 'Compte refuse : lis le motif avant de refaire un essai.' }
-    if (($Category -eq 'AccountRestriction') -and ($Message -match 'code AD 52f')) { return 'Ce controleur refuse ce compte. Un autre controleur peut etre impose par Conf.Server dans Domenia.config.json.' }
+    if (($Category -eq 'AccountRestriction') -and ($Message -match 'code AD 52f')) { return 'Verifie d abord l expiration du mot de passe : change-le (Ctrl+Alt+Suppr, Modifier un mot de passe) puis reessaie.' }
     if ($Category -eq 'AccountRestriction') { return 'Lis la restriction indiquee avant tout nouvel essai. Ne multiplie pas les tentatives.' }
     if ($Category -eq 'Authentication') { return 'Le bind a echoue sans cause identifiee. Copie le diagnostic natif avant tout nouvel essai.' }
     if ($Category -eq 'Input') { return 'Complete les informations demandees.' }
