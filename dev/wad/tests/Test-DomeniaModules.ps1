@@ -199,6 +199,21 @@ try {
     $cmds=@($init.Body.FindAll({param($n)$n -is [Management.Automation.Language.CommandAst]},$true)|ForEach-Object{$_.GetCommandName()})
     Case 'Etat Live initialise avant le timer de reconciliation' {Expect ([array]::IndexOf($cmds,'Initialize-DomeniaLive') -lt [array]::IndexOf($cmds,'Initialize-DomeniaReconcile')) 'Ordre invalide.'}
     Case 'Point d entree partage raccorde au vrai demarrage' {Expect ($coreText.Contains(". (Join-Path `$PSScriptRoot 'Domenia-Modules.ps1')")) 'Bootstrap non raccorde.'}
+    # GetNewClosure links a handler to the global scope only: an application function called by name from it is
+    # "not recognized" at run time (field report 2026-10-05, Get-DomeniaEmbeddedContext). It must be captured first.
+    Case 'Aucune fermeture GetNewClosure n appelle une fonction de l application par son nom' {
+        $parsed=@{};$appFunctions=New-Object 'Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+        foreach($file in @(@(Get-ChildItem -LiteralPath (Join-Path $wad 'modules') -Filter '*.ps1')+@(Get-Item -LiteralPath (Join-Path $wad 'Domenia-Core.ps1')))){
+            $t=$null;$e=$null;$parsed[$file.Name]=[Management.Automation.Language.Parser]::ParseFile($file.FullName,[ref]$t,[ref]$e)
+            foreach($d in $parsed[$file.Name].FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst]},$true)){[void]$appFunctions.Add($d.Name)}
+        }
+        $byName=@(foreach($name in $parsed.Keys){
+            foreach($closure in $parsed[$name].FindAll({param($n)$n -is [Management.Automation.Language.InvokeMemberExpressionAst] -and $n.Member.Value -eq 'GetNewClosure' -and $n.Expression -is [Management.Automation.Language.ScriptBlockExpressionAst]},$true)){
+                foreach($cmd in $closure.Expression.FindAll({param($n)$n -is [Management.Automation.Language.CommandAst]},$true)){$command=$cmd.GetCommandName();if($command -and $appFunctions.Contains($command)){$name+':'+$cmd.Extent.StartLineNumber+' '+$command}}
+            }
+        })
+        Expect ($byName.Count -eq 0) ('Fonction appelee par son nom dans une fermeture : '+($byName -join ', '))
+    }
     $contracts=[IO.File]::ReadAllText((Join-Path $root 'tools\operation-contracts.json'))|ConvertFrom-Json
     Case 'Corps ScopeReconcile toujours conforme au contrat' {Expect ($normal.ReconcileHash -ieq [string]($contracts|Where-Object{$_.Operation -eq 'ScopeReconcile'}).Sha256) 'Contrat reconciliation different.'}
     Case 'Corps DocumentStore toujours conforme au contrat' {Expect ($normal.DocumentHash -ieq [string]($contracts|Where-Object{$_.Operation -eq 'DocumentStore'}).Sha256) 'Contrat document different.'}

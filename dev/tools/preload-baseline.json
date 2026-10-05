@@ -1,5 +1,5 @@
 {
-  "Archive": "clavier perimetre ping 2026-10-05",
+  "Archive": "fermetures integrees 2026-10-05",
   "ArchiveSHA256": "655ED21F90345B3C7667D4E777814C6A0595A5D5BE628AD587FB46CCA5241922",
   "CoreFunctions": {
     "Write-DomeniaAtomicText": "1C9A1583F52EB7BE80BE420662653E4AF886FE11DC4FDB3B1C4CDF19FD1C0EDA",
@@ -1679,6 +1679,15 @@
       "ChangedPayloads": [
         "wad/modules/Domenia-Live.UI.ps1"
       ]
+    },
+    {
+      "Previous": "clavier perimetre ping 2026-10-05",
+      "Source": "fermetures integrees 2026-10-05",
+      "Decision": "Retour terrain 2026-10-05 : 'Get-DomeniaEmbeddedContext n est pas reconnu'. GetNewClosure lie un gestionnaire a la seule portee globale ; les fonctions de l application (portee script de Domenia-Core) n y sont pas visibles. Domenia-Embedded.UI capture desormais ses fonctions avant les fermetures (minuterie de garde, Verr. Maj, choix integre AD, choix de fichier), comme Domenia-Access.UI. Nouveau cas Test-DomeniaModules : aucune fermeture GetNewClosure n appelle une fonction de l application par son nom. Modules 102/102.",
+      "ChangedCoreFunctions": [],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
     }
   ]
 }

@@ -181,13 +181,16 @@ function Show-DomeniaEmbeddedWindow {
         if((-not $inText) -and $shortcut -and $e.Key -ne [Windows.Input.Key]::Tab){$e.Handled=$true}
     }.GetNewClosure()
     $layer.Add_KeyDown($keys)
+    # GetNewClosure binds these handlers to a module linked to the global scope only: the application functions they
+    # call are captured here (same rule as Domenia-Access.UI), never looked up by name (field report 2026-10-05).
+    $fnCapsLock=${function:Update-DomeniaExperienceCapsLock};$fnContext=${function:Get-DomeniaEmbeddedContext}
     $keyUp={param($sender,$e)
-        if($PreserveTheme -and $null -ne $Window.FindName('LblSuiteCapsLock')){Update-DomeniaExperienceCapsLock $Window}
+        if($PreserveTheme -and $null -ne $fnCapsLock -and $null -ne $Window.FindName('LblSuiteCapsLock')){& $fnCapsLock $Window}
     }.GetNewClosure()
     $layer.Add_PreviewKeyUp($keyUp)
     $tick=[Windows.Threading.DispatcherTimer]::new([Windows.Threading.DispatcherPriority]::Background);$tick.Interval=[timespan]::FromMilliseconds(150)
     $guard={
-        $current=Get-DomeniaEmbeddedContext
+        $current=& $fnContext
         if(-not $main.IsVisible -or $current.Closing -or $current.Epoch -ne $epoch -or $current.BaseDn -ine $base){$r.Accepted=$false;$Window.Close()}
     }.GetNewClosure();$tick.Add_Tick($guard)
     $script:DomeniaSurfaceState=$r;$watch=[Diagnostics.Stopwatch]::StartNew()
@@ -293,6 +296,9 @@ function Show-DomeniaInlinePicker {
     $accept=[Windows.Controls.Button]::new();$accept.Name='EmbeddedObjectAccept';$accept.ToolTip='Revérifier l objet choisi et le transmettre au formulaire. Une association ou un déplacement demande encore sa confirmation.';$accept.Content='Choisir';$accept.Width=130;$accept.Height=40;$accept.Margin='0';$accept.IsEnabled=$false;$accept.IsDefault=$true;[void]$buttons.Children.Add($accept)
     [Windows.Controls.Grid]::SetRow($foot,4);[void]$root.Children.Add($foot);$w.Content=$root
     $r=[pscustomobject]@{Window=$w;Kind=$Kind;Box=$box;Grid=$grid;Go=$go;Accept=$accept;Busy=$busy;Status=$status;RequestId='';Closed=$false;Job='';Selected=$null}
+    # GetNewClosure binds these handlers to a module linked to the global scope only: the application functions they
+    # call are captured here (same rule as Domenia-Access.UI), never looked up by name (field report 2026-10-05).
+    $fnContext=${function:Get-DomeniaEmbeddedContext};$fnStartTask=${function:Start-UiTask};$fnLookupCode=${function:Get-DomeniaEmbeddedLookupCode}
     $run={param([bool]$Verify=$false)
         try{
             if($r.Job){return}
@@ -302,10 +308,10 @@ function Show-DomeniaInlinePicker {
             $r.RequestId=[guid]::NewGuid().ToString('N');$r.Accept.IsEnabled=$false;$r.Go.IsEnabled=$false;$r.Box.IsEnabled=$false;$r.Grid.IsEnabled=$false;$r.Busy.Visibility='Visible'
             if(-not $Verify){$r.Grid.ItemsSource=$null}
             $r.Status.Text=if($Verify){'Vérification de l''objet sélectionné…'}else{'Recherche dans le domaine…'}
-            $ctx=Get-DomeniaEmbeddedContext
+            $ctx=& $fnContext
             $state=[pscustomobject]@{Owner=$r;RequestId=$r.RequestId;Epoch=$ctx.Epoch;BaseDn=$ctx.BaseDn;Verify=$Verify;DN=$(if($null -ne $row){[string]$row.DN}else{''});Guid=$(if($null -ne $row){[string]$row.Guid}else{''})}
             $payload=[pscustomobject]@{Kind=$r.Kind;Term=$term;Verify=$Verify;RequestId=$r.RequestId;DN=$(if($null -ne $row){[string]$row.DN}else{''});Guid=$(if($null -ne $row){[string]$row.Guid}else{''})}
-            $r.Job=Start-UiTask -Name 'Choix intégré dans AD' -OperationId 'EmbeddedDirectoryLookup' -Code (Get-DomeniaEmbeddedLookupCode) -Payload $payload -CallbackState $state -ReplaceKey 'embedded:lookup' -TimeoutSeconds 18 -SuccessHandler 'Complete-DomeniaEmbeddedLookup' -ErrorHandler 'Fail-DomeniaEmbeddedLookup'
+            $r.Job=& $fnStartTask -Name 'Choix intégré dans AD' -OperationId 'EmbeddedDirectoryLookup' -Code (& $fnLookupCode) -Payload $payload -CallbackState $state -ReplaceKey 'embedded:lookup' -TimeoutSeconds 18 -SuccessHandler 'Complete-DomeniaEmbeddedLookup' -ErrorHandler 'Fail-DomeniaEmbeddedLookup'
         }catch{$r.Job='';$r.Go.IsEnabled=$true;$r.Box.IsEnabled=$true;$r.Grid.IsEnabled=$true;$r.Busy.Visibility='Hidden';$r.Status.Text='Recherche non confirmée : '+$_.Exception.Message}
     }.GetNewClosure()
     $go.Add_Click({& $run $false}.GetNewClosure());$accept.Add_Click({& $run $true}.GetNewClosure())
@@ -421,10 +427,13 @@ function Show-DomeniaInlineFilePicker {
     $r=[pscustomobject]@{Window=$w;Request=$Request;Folder=$folder;File=$file;Grid=$list;Go=$go;Up=$up;Accept=$accept;Busy=$busy;Status=$status;Path='';RequestId='';Closed=$false;Job='';Overwrite=''}
     $folder.Text=if($Request.InitialDirectory){$Request.InitialDirectory}else{[Environment]::GetFolderPath('UserProfile')}
     $file.Text=[string]$Request.FileName
+    # GetNewClosure binds these handlers to a module linked to the global scope only: the application functions they
+    # call are captured here (same rule as Domenia-Access.UI), never looked up by name (field report 2026-10-05).
+    $fnContext=${function:Get-DomeniaEmbeddedContext};$fnStartTask=${function:Start-UiTask};$fnPathCode=${function:Get-DomeniaEmbeddedPathCode}
     $submit={param([string]$Action='Browse')
         if($r.Job){return}
         try{
-            $ctx=Get-DomeniaEmbeddedContext
+            $ctx=& $fnContext
             if($Action -eq 'Browse'){$path=$r.Folder.Text.Trim()}
             else{
                 $name=$r.File.Text.Trim();if(-not $name){$r.Status.Text='Saisissez un nom de fichier.';return}
@@ -440,7 +449,7 @@ function Show-DomeniaInlineFilePicker {
             $r.Status.Text='Lecture du dossier…'
             $payload=[pscustomobject]@{Action=$Action;Path=$path;Mode=$r.Request.Mode;RequestId=$r.RequestId}
             $state=[pscustomobject]@{Owner=$r;RequestId=$r.RequestId;Epoch=$ctx.Epoch}
-            $r.Job=Start-UiTask -Name 'Choix du fichier' -OperationId 'EmbeddedPathBrowse' -Code (Get-DomeniaEmbeddedPathCode) -Payload $payload -CallbackState $state -ReplaceKey 'embedded:files' -TimeoutSeconds 15 -SuccessHandler 'Complete-DomeniaEmbeddedPath' -ErrorHandler 'Fail-DomeniaEmbeddedPath'
+            $r.Job=& $fnStartTask -Name 'Choix du fichier' -OperationId 'EmbeddedPathBrowse' -Code (& $fnPathCode) -Payload $payload -CallbackState $state -ReplaceKey 'embedded:files' -TimeoutSeconds 15 -SuccessHandler 'Complete-DomeniaEmbeddedPath' -ErrorHandler 'Fail-DomeniaEmbeddedPath'
         }catch{$r.Job='';$r.Go.IsEnabled=$true;$r.Up.IsEnabled=$true;$r.Accept.IsEnabled=$true;$r.Folder.IsEnabled=$true;$r.File.IsEnabled=$true;$r.Busy.Visibility='Hidden';$r.Status.Text=$_.Exception.Message}
     }.GetNewClosure()
     $go.Add_Click({& $submit 'Browse'}.GetNewClosure());$accept.Add_Click({& $submit 'Validate'}.GetNewClosure())
