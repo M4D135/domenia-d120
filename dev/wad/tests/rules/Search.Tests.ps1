@@ -94,7 +94,7 @@ Test-Case 'D036' 'Une saisie reconnue ou ambigue n ouvre jamais automatiquement 
 }
 Test-Case 'D037' 'Le compteur precise charge, limite ou complet' {
     Assert-True ((Get-DomeniaResultCounterText 100 100 $false) -match 'limitée à 100');Assert-True ((Get-DomeniaResultCounterText 42 100 $true) -match 'liste complète')
-    Assert-True ((Get-DomeniaResultCounterText 500 500 $false) -match 'affinez la recherche');Assert-False ((Get-DomeniaResultCounterText 500 500 $false) -match 'chargez la suite')
+    Assert-True ((Get-DomeniaResultCounterText 20000 20000 $false) -match 'affinez la recherche');Assert-False ((Get-DomeniaResultCounterText 20000 20000 $false) -match 'chargez la suite')
     Assert-True ((Get-DomeniaResultCounterText 10 100 $false $true) -match 'lecture en cours');Assert-True ((Get-DomeniaResultCounterText 42 100 $true $false 7) -match '7 visible')
 }
 Test-Case 'D037' 'La suite reprend apres le dernier nom et refuse un ancien contexte' {
@@ -104,9 +104,9 @@ Test-Case 'D037' 'La suite reprend apres le dernier nom et refuse un ancien cont
     Assert-False (Test-DomeniaContinuationCurrent $c 'autre' 5 $script:DomainDn);Assert-False (Test-DomeniaContinuationCurrent $c 'reader' 5 'OU=X,DC=example,DC=invalid')
 }
 Test-Case 'D038' 'Une vue enregistree ne restaure ni compte privilegie ni permission d ecriture' {
-    $v=ConvertTo-DomeniaSavedView ([pscustomobject]@{Name='Ma vue';Text='dupont';Type='Utilisateur';OuDn='OU=X';Limit=5000;Credential='secret';ReadOnlyMode=$false;AdminAccount='adm'})
+    $v=ConvertTo-DomeniaSavedView ([pscustomobject]@{Name='Ma vue';Text='dupont';Type='Utilisateur';OuDn='OU=X';Limit=50000;Credential='secret';ReadOnlyMode=$false;AdminAccount='adm'})
     $names=@($v.PSObject.Properties|ForEach-Object{$_.Name})
-    Assert-False ($names -contains 'Credential');Assert-False ($names -contains 'ReadOnlyMode');Assert-False ($names -contains 'AdminAccount');Assert-Equal 500 $v.Limit
+    Assert-False ($names -contains 'Credential');Assert-False ($names -contains 'ReadOnlyMode');Assert-False ($names -contains 'AdminAccount');Assert-Equal 20000 $v.Limit
 }
 Test-Case 'D038' 'Vues de travail : filtres bornes et lecture seule' {
     $views=@(Get-DomeniaWorkViews ([datetime]::SpecifyKind([datetime]'2026-01-01',[DateTimeKind]::Utc)))
@@ -154,8 +154,9 @@ Test-Case 'D040' 'Un brouillon n est pas abandonne par la navigation' {
 }
 Test-Case 'D037' 'Charger la suite : seulement pour une liste limitee, terminee et sous le plafond' {
     $d=Get-DomeniaContinuationDecision $true $false $true 100;Assert-True $d.Allowed;Assert-Equal 200 $d.NextLimit
-    Assert-Equal 500 (Get-DomeniaContinuationDecision $true $false $true 300).NextLimit
-    Assert-False (Get-DomeniaContinuationDecision $true $false $true 500).Allowed
+    Assert-Equal 600 (Get-DomeniaContinuationDecision $true $false $true 300).NextLimit
+    Assert-Equal 20000 (Get-DomeniaContinuationDecision $true $false $true 15000).NextLimit
+    Assert-False (Get-DomeniaContinuationDecision $true $false $true 20000).Allowed
     Assert-False (Get-DomeniaContinuationDecision $true $false $false 100).Allowed
     Assert-False (Get-DomeniaContinuationDecision $false $false $true 100).Allowed
     Assert-False (Get-DomeniaContinuationDecision $true $true $true 100).Allowed

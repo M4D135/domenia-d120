@@ -79,7 +79,7 @@ try {
         $cacheSql='SELECT object_key,payload FROM park_session_cache'
         $usersSql="SELECT object_guid,usn_changed,distinguished_name,login FROM ad_objects WHERE object_type='Utilisateur'"
         if([string]$Payload.Scope -eq 'Results'){
-            if(@($source).Count -gt 500){throw 'Perimetre affiche trop grand.'}
+            if(@($source).Count -gt 20000){throw 'Perimetre affiche trop grand (20 000 postes au plus).'}
             $keys=@($source|ForEach-Object{Get-IdxWLiteral (([string]$_.distinguished_name).ToLowerInvariant())})
             if(-not $keys.Count){[pscustomobject]@{Rows=@();Busy=$false;Missing=$false;MachineCount=0};return}
             $cacheSql+=' WHERE object_key IN ('+($keys -join ',')+')'

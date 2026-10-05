@@ -132,9 +132,9 @@ Case 'Mail query uses mail and UPN in whole domain' {$script:Ctrl.TxtGlobalSearc
 Case 'LDAP metacharacters remain escaped' {$script:Ctrl.TxtGlobalSearch.Text='alex(x)';Invoke-GlobalSearch;Expect ($script:LastPayload.PrefixFilter.Contains('alex\28x\29'))}
 Case 'Global limit remains capped' {
     $script:Ctrl.TxtGlobalLimit.Text='100000';Invoke-GlobalSearch
-    Expect ($script:LastPayload.Limit -eq 500 -and $script:Ctrl.TxtGlobalLimit.Text -eq '500')
-    $script:Ctrl.TxtGlobalLimit.Text='100';Invoke-GlobalSearch -LimitOverride 4000
-    Expect ($script:LastPayload.Limit -eq 500 -and $script:Ctrl.TxtGlobalLimit.Text -eq '100')
+    Expect ($script:LastPayload.Limit -eq 20000 -and $script:Ctrl.TxtGlobalLimit.Text -eq '20000')
+    $script:Ctrl.TxtGlobalLimit.Text='100';Invoke-GlobalSearch -LimitOverride 40000
+    Expect ($script:LastPayload.Limit -eq 20000 -and $script:Ctrl.TxtGlobalLimit.Text -eq '100')
     $script:Ctrl.TxtGlobalLimit.Text='0';Invoke-GlobalSearch
     Expect ($script:LastPayload.Limit -eq 100 -and $script:Ctrl.TxtGlobalLimit.Text -eq '100')
 }

@@ -4599,7 +4599,7 @@ function Get-MainXaml {
                           </StackPanel>
                           <StackPanel Width="90" Margin="0,0,12,8">
                             <TextBlock Text="Limite" Margin="0,0,0,6" FontSize="12" FontWeight="SemiBold" TextWrapping="NoWrap"/>
-                            <TextBox x:Name="TxtGlobalLimit" Text="100" ToolTip="Nombre maximum de resultats affiches." Margin="0" MinWidth="0" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Maximum de résultats" AutomationProperties.HelpText="Nombre maximum de resultats affiches." MinHeight="36"/>
+                            <TextBox x:Name="TxtGlobalLimit" Text="100" ToolTip="Nombre maximum de résultats affichés (20 000 au plus)." Margin="0" MinWidth="0" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Maximum de résultats" AutomationProperties.HelpText="Nombre maximum de resultats affiches." MinHeight="36"/>
                           </StackPanel>
                           <StackPanel Width="250" Margin="0,0,12,8">
                             <TextBlock Text="Vue de travail" Margin="0,0,0,6" FontSize="12" FontWeight="SemiBold"/>
@@ -4636,7 +4636,7 @@ function Get-MainXaml {
                             <Button MinHeight="30" Padding="10,2" Margin="0,0,8,0" x:Name="BtnGlobalClear" Content="Effacer" ToolTip="Efface le texte et les résultats sans modifier l’OU sélectionnée. Tout le domaine retire le filtre OU." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Effacer la recherche" AutomationProperties.HelpText="Efface le texte et les résultats sans modifier l’OU sélectionnée. Tout le domaine retire le filtre OU."/>
                             <Button MinHeight="30" Padding="10,2" Margin="0" x:Name="BtnExportResults" Content="Exporter CSV" ToolTip="Exporte les resultats affiches, ou uniquement les lignes selectionnees, au format CSV." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Exporter CSV" AutomationProperties.HelpText="Exporte les resultats affiches, ou uniquement les lignes selectionnees, au format CSV."/>
                           </StackPanel>
-                          <Button x:Name="BtnSearchMore" Content="Charger la suite" DockPanel.Dock="Right" IsEnabled="False" MinHeight="30" Padding="10,2" Margin="8,0,0,0" ToolTip="Disponible quand la liste est limitée : relit la même recherche avec une limite doublée, jusquʼà 500 lignes, sans doublon ni ancien contexte." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Charger la suite" AutomationProperties.HelpText="Disponible quand la liste est limitée : relit la même recherche avec une limite doublée, jusquʼà 500 lignes, sans doublon ni ancien contexte."/>
+                          <Button x:Name="BtnSearchMore" Content="Charger la suite" DockPanel.Dock="Right" IsEnabled="False" MinHeight="30" Padding="10,2" Margin="8,0,0,0" ToolTip="Disponible quand la liste est limitée : relit la même recherche avec une limite doublée, jusquʼà 20 000 lignes, sans doublon ni ancien contexte." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Charger la suite" AutomationProperties.HelpText="Disponible quand la liste est limitée : relit la même recherche avec une limite doublée, jusquʼà 20 000 lignes, sans doublon ni ancien contexte."/>
                           <TextBlock x:Name="LblBranchCount" Text="0 objet" Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" Margin="12,0,0,0" DockPanel.Dock="Right" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" MaxWidth="320" FontSize="12" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
                           <TextBlock Text="Résultats" FontSize="16" FontWeight="SemiBold"/>
                         </DockPanel>
@@ -9503,7 +9503,7 @@ function Get-BranchQueryData {
     $filter = if ([string]::IsNullOrWhiteSpace($searchFilter)) { $typeFilter } else { "(&$typeFilter$searchFilter)" }
     $limit = 100
     try { $limit = [int](Get-DomeniaControl -Name 'TxtGlobalLimit').Text } catch { }
-    if ($limit -le 0) { $limit = 100 }; $limit = [Math]::Min(500,$limit)
+    if ($limit -le 0) { $limit = 100 }; $limit = [Math]::Min(20000,$limit)
     [pscustomobject]@{BaseDn=$scope.BaseDn;Scope=$scope.Scope;Filter=$filter;Limit=$limit}
 }
 
@@ -9773,7 +9773,8 @@ function Invoke-GlobalSearch {
         # D037: an explicit 'Charger la suite' raises the bound for this query only; the field keeps the operator value.
         if ($LimitOverride -gt 0) { $limit = $LimitOverride }
         if ($limit -le 0) { $limit = 100 }
-        if ($limit -gt 500) { $limit = 500 }
+        # Decision David 2026-10-05: at least 10 000 results must be displayable (former cap 500).
+        if ($limit -gt 20000) { $limit = 20000 }
         if ($LimitOverride -le 0) { [void](Set-DomeniaControlText -Name "TxtGlobalLimit" -Text ([string]$limit)) }
 
         # Une nouvelle recherche repart toujours sans selection. DOMENIA affiche les
@@ -20666,7 +20667,7 @@ function Get-DomeniaWorkerOperationHashes {
         ReadBitLockerList     = "B1456CEA5805D83C6BF48E9A4040206F18F3C3773ED250610D6890E8D1F4EEC9"
         ReadBitLockerKey      = "8A98EBCDC48AD572404E1566826035C84F34ACB87564330A7AA511FAAC01EE6F"
         DemoDirectory         = "F12481F3B254D64F9C5D870A98EA33BE6C69A67D4C99D28601CF292A1150EAE0"
-        LocalIndexRead        = "B0C0220E0B629769E2DEFF5E8A34FEB097D9E719F68785536672DB1FA5CF06D1"
+        LocalIndexRead        = "32274CE29D88540C3EAA9E68C348F3A44842AE956C5AAFA5DE356661E586AF0C"
         ParkSharedSync        = "B3A64051813F12A24BD5E791D59CF7E2330FA84E965C9F44BD62366D4A81415E"
         IsolatedRead          = "4074D6ECAA620A9C80A5B6B535BB657E02DCE06A9DF97E35CA1EA47572D1060C"
         CmdletHelp            = "12505D0654AB0E97BD803A70B953BB0BBE2152836AAA1889744C1312EB215D62"
@@ -20715,7 +20716,7 @@ function Get-DomeniaWorkerOperationHashes {
         StartupWarmCache      = "864735012ED29EBAF1B094DA12C1D44266933DC9D3D2046BD1E5D68AE58CA1A3"
         LiveSelectedPing     = "6479F173DD0503C41B07200629121C6967C27CDB506FDCB48BCD70BA8CCBA136"
         LiveConsole          = "6479F173DD0503C41B07200629121C6967C27CDB506FDCB48BCD70BA8CCBA136"
-        LiveCache            = "C4C1A3C6D502680012CB92465FF70FB70713D577731A6894D03C24CB56972289"
+        LiveCache            = "DDE5FCD862785432F805D446F3E16A28D3D60282A50892354C01BB2ED147196E"
         LiveDirectoryCheck    = "49F6D4249F6465D6E461D3B04DD090F00477ABBD871683ECF3622714A2AB53CD"
         SessionsList         = "DD09187778C09CF31B0BDA41EAC88FF898D9484756AFDF2F3EE643E6B5318BF6"
         RemoteCredentialCheck = "9070C7A5D9460D0FD129FD67CD5070595DE4DED7CA7EE7573C65AF102B0E515B"
@@ -20734,7 +20735,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "D3D52BE5D7DBABC6D4B693595D8C698D5A83524DF31F69F308C43D65D5B97386"
+    $expectedFingerprint = "7D3BDA4A5DC820AD04DD971DEDB4F24362FD83E8DA555431ADC828ABA97C3A55"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }

@@ -29,7 +29,7 @@ function ConvertTo-DomeniaExperienceSettings {
     $numbers=@{
         WindowWidth=@(0,10000);WindowHeight=@(0,10000);WindowLeft=@(-32768,32768);WindowTop=@(-32768,32768)
         TreeWidth=@(0,900);LogHeight=@(42,600);UxLogExpandedHeight=@(100,600);UxLogFontSize=@(10,18)
-        SearchLimit=@(1,500);WmiLimit=@(1,500)
+        SearchLimit=@(1,20000);WmiLimit=@(1,500)
     }
     foreach($key in $Defaults.Keys) {
         $value=$Defaults[$key]

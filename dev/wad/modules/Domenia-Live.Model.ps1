@@ -405,12 +405,12 @@ try{
         if(@($tables|Where-Object {$_.name -eq 'adcc_live_queries'}).Count -gt 0){
             $queryKey=ConvertTo-DomeniaSqlLiteral ([string]$Payload.QueryKey)
             $cached=@(Invoke-DomeniaDbQuery ("SELECT observed_utc,payload FROM adcc_live_queries WHERE scope_key=$qScope AND query_key=$queryKey AND observed_utc>=strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days') LIMIT 1;") $db)
-            if($cached.Count -eq 1 -and ([string]$cached[0].payload).Length -le 8388608){
+            if($cached.Count -eq 1 -and ([string]$cached[0].payload).Length -le 33554432){
                 $envelope=([string]$cached[0].payload)|ConvertFrom-Json -ErrorAction Stop
                 if([string]$envelope.QueryKey -cne [string]$Payload.QueryKey){throw 'Périmètre du cache incohérent.'}
                 $rowCount=0
                 foreach($row in @($envelope.Rows)){
-                    if($rowCount -ge [Math]::Min(500,[int]$Payload.Limit)){break}
+                    if($rowCount -ge [Math]::Min(20000,[int]$Payload.Limit)){break}
                     if($null -eq $row -or [string]::IsNullOrWhiteSpace([string]$row.DN)){continue}
                     $Payload.Progress.Enqueue([pscustomobject]@{Kind='CachedRow';Row=$row;ObservedUtc=[string]$cached[0].observed_utc})
                     $rowCount++
@@ -443,7 +443,7 @@ BEGIN IMMEDIATE;
     if($null -ne $Payload.Query){
         $query=$Payload.Query
         $json=$query|ConvertTo-Json -Depth 5 -Compress
-        if($json.Length -gt 8388608 -or @($query.Rows).Count -gt 500){throw 'Cache de recherche trop volumineux.'}
+        if($json.Length -gt 33554432 -or @($query.Rows).Count -gt 20000){throw 'Cache de recherche trop volumineux.'}
         $sql='INSERT OR REPLACE INTO adcc_live_queries(scope_key,query_key,observed_utc,payload) VALUES('+((@($scope,[string]$query.QueryKey,[string]$query.ObservedUtc,$json)|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ',')+');'
         [void](Invoke-DomeniaDbExec $sql $db)
     }

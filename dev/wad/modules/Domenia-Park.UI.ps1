@@ -154,8 +154,12 @@ function Update-DomeniaParkResultRows {
     $liveObservation.LastUser=$Observation.RawAccount;$liveObservation.ObservedUtc=$Observation.ObservedUtc
     if($null -ne $script:Live){$script:Live.Observations[$Observation.Key]=$liveObservation}
     $grid=Get-DomeniaControl 'DgObjects';if($null -eq $grid){return}
-    # Snapshot Items before changing properties that may affect an active filter.
-    foreach($row in @($grid.Items)){
+    # Direct lookup in the live search map (keyed by lowercase DN): no scan of a list of thousands per result.
+    $rows=$null
+    if($null -ne $script:Live -and $null -ne $script:Live.Search -and $null -ne $script:Live.Search.Map){$hit=$script:Live.Search.Map[[string]$Observation.Key];$rows=if($null -ne $hit){@($hit)}else{@()}}
+    # Without a live search, snapshot Items before changing properties that may affect an active filter.
+    if($null -eq $rows){$rows=@($grid.Items)}
+    foreach($row in $rows){
         if([string]$row.Type -ne 'Machine' -or [string]$row.DN -ine $Observation.Key -or [string]$row.Guid -ine $Observation.Guid){continue}
         Set-DomeniaLiveObservationOnRow $row $liveObservation
         [void](Set-RowAssociationMetadata -Rows @($row))

@@ -713,8 +713,11 @@ function Invoke-DomeniaLiveTick {
         if($activeSearch){
             $s=$script:Live.Search
             if($null -ne $grid -and $grid.IsEnabled -and -not $script:ActiveWriteTaskId -and $script:WriteState -notin @('Unknown','UnknownPending')){
+                # A large backlog (lists of several thousand rows) gets a wider slice so that 10 000 rows do not take a minute.
+                $backlog=($s.Progress.Count+$s.CacheProgress.Count) -gt 200
+                $maxRows=if($backlog){400}else{12};$sliceMs=if($backlog){30}else{6}
                 $watch=[Diagnostics.Stopwatch]::StartNew();$done=0
-                while($done -lt 12 -and $watch.ElapsedMilliseconds -lt 6){
+                while($done -lt $maxRows -and $watch.ElapsedMilliseconds -lt $sliceMs){
                     $event=$null
                     if($s.Progress.TryDequeue([ref]$event)){Add-DomeniaLiveRow $event;$done++;continue}
                     if((-not $s.Ended -or $s.Error) -and $s.CacheProgress.TryDequeue([ref]$event)){Add-DomeniaLiveRow $event;$done++;continue}
@@ -780,7 +783,7 @@ function Test-DomeniaLiveBackgroundAllowed {
     try{return [bool](Test-DomeniaBackgroundWorkAllowed -Source $Source)}catch{return $true}
 }
 function Update-DomeniaSearchMoreButton {
-    # D037: 'Charger la suite' is enabled only for the current, finished and limited list, below 500 lines.
+    # D037: 'Charger la suite' is enabled only for the current, finished and limited list, below 20 000 lines.
     param($Search)
     $button=Get-DomeniaControl 'BtnSearchMore'
     if($null -eq $button){return}
@@ -795,7 +798,7 @@ function Update-DomeniaSearchMoreButton {
     if([string]$button.ToolTip -cne $tip){$button.ToolTip=$tip}
 }
 function Invoke-DomeniaSearchMore {
-    # D037: explicit continuation. The same query, mode and view are read again with a doubled bound (500 at most).
+    # D037: explicit continuation. The same query, mode and view are read again with a doubled bound (20 000 at most).
     # Rows are deduplicated by directory identity and the older generation is discarded; nothing is replayed automatically.
     if(-not (Test-DomeniaLiveSearchActive)){Set-Status 'La liste affichée nʼest plus la recherche courante : relancez la recherche.' 'WARN';Update-DomeniaSearchMoreButton -Search $null;return}
     $s=$script:Live.Search

@@ -326,7 +326,7 @@
     "File": "wad/modules/Domenia-Live.Model.ps1",
     "Function": "Get-DomeniaLiveCacheCode",
     "LiteralIndex": 0,
-    "Sha256": "C4C1A3C6D502680012CB92465FF70FB70713D577731A6894D03C24CB56972289"
+    "Sha256": "DDE5FCD862785432F805D446F3E16A28D3D60282A50892354C01BB2ED147196E"
   },
   {
     "Operation": "LiveDirectoryCheck",
@@ -410,7 +410,7 @@
     "File": "wad/modules/Domenia-Engine.Worker.ps1",
     "Function": "Get-DomeniaLocalIndexReadWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "B0C0220E0B629769E2DEFF5E8A34FEB097D9E719F68785536672DB1FA5CF06D1"
+    "Sha256": "32274CE29D88540C3EAA9E68C348F3A44842AE956C5AAFA5DE356661E586AF0C"
   },
   {
     "Operation": "ParkSharedSync",

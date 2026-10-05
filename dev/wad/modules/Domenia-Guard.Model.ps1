@@ -61,7 +61,7 @@ function ConvertTo-DomeniaSavedSearch {
     if($name.Length -lt 1 -or $name.Length -gt 80 -or $query.Length -gt 256 -or $dn.Length -gt 4096){return $null}
     if($dn -ine $BaseDn -and -not $dn.EndsWith(','+$BaseDn,[StringComparison]::OrdinalIgnoreCase)){return $null}
     if([string]$Value.Type -notin @('Tous','Utilisateurs','Machines','Groupes','OU et conteneurs')){return $null}
-    $limit=100;[void][int]::TryParse([string]$Value.Limit,[ref]$limit);$limit=[Math]::Max(1,[Math]::Min(500,$limit))
+    $limit=100;[void][int]::TryParse([string]$Value.Limit,[ref]$limit);$limit=[Math]::Max(1,[Math]::Min(20000,$limit))
     $mode=if([string]$Value.SearchMode -eq 'Global'){'Global'}else{'OU'}
     return [pscustomobject]@{SearchMode=$mode;Name=$name;DN=$dn;Query=$query;Type=[string]$Value.Type;Limit=$limit;Subtree=(ConvertTo-SuiteFlag $Value.Subtree -Default $true)}
 }

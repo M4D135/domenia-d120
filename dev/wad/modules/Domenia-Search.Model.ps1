@@ -134,7 +134,7 @@ function New-DomeniaGlobalSearchRequest {
     else { $filter = ConvertTo-DomeniaSearchFilter -Text $syntax.FreeText -Type $syntax.Type -Tokens $syntax.Tokens }
     return [pscustomobject]@{
         Mode='Global';BaseDn=$DomainDn;Scope='Subtree';PresenceFilter='';LocalFilter='';OuDn=''
-        Text=([string]$Text).Trim();Limit=[Math]::Max(1,[Math]::Min(500,$Limit))
+        Text=([string]$Text).Trim();Limit=[Math]::Max(1,[Math]::Min(20000,$Limit))
         Filter=$filter.Filter;Valid=$filter.Valid;Reason=$filter.Reason
         Tokens=$syntax.Tokens;Notes=$syntax.Notes;Identifier=$identifier;Reader=$Reader;Generation=$Generation
         ScopeLabel='Domaine entier'
@@ -329,7 +329,7 @@ function Get-DomeniaPastedIdentifier {
 function Get-DomeniaResultCounterText {
     # States plainly whether the list is complete, limited or still loading.
     # At the safety maximum the next step is to refine: no further page is offered.
-    param([int]$Loaded=0,[int]$Limit=100,[bool]$Complete=$false,[bool]$Loading=$false,[int]$Visible=-1,[int]$Maximum=500)
+    param([int]$Loaded=0,[int]$Limit=100,[bool]$Complete=$false,[bool]$Loading=$false,[int]$Visible=-1,[int]$Maximum=20000)
     $text = [string]$Loaded + ' chargé(s)'
     if ($Loading) { $text += ' · lecture en cours' }
     elseif ($Complete) { $text = [string]$Loaded + ' résultat(s) · liste complète' }
@@ -343,7 +343,7 @@ function Get-DomeniaContinuationDecision {
     # 'Charger la suite' is offered only for a finished, complete-but-limited list below the safety maximum.
     # The next load relaunches the same query with a larger bound: rows are deduplicated by identity and an
     # older generation is discarded by the caller.
-    param([bool]$Finalized=$false,[bool]$HasError=$false,[bool]$LimitReached=$false,[int]$Limit=100,[int]$Maximum=500)
+    param([bool]$Finalized=$false,[bool]$HasError=$false,[bool]$LimitReached=$false,[int]$Limit=100,[int]$Maximum=20000)
     if (-not $Finalized) { return [pscustomobject]@{Allowed=$false;NextLimit=$Limit;Reason='Lecture en cours : attendez la fin du chargement.'} }
     if ($HasError) { return [pscustomobject]@{Allowed=$false;NextLimit=$Limit;Reason='Liste partielle après une erreur : relancez la recherche.'} }
     if (-not $LimitReached) { return [pscustomobject]@{Allowed=$false;NextLimit=$Limit;Reason='Liste complète : aucune suite à charger.'} }
@@ -399,7 +399,7 @@ function ConvertTo-DomeniaSavedView {
         Type=[string](Get-DomeniaMember $View 'Type' '')
         OuDn=[string](Get-DomeniaMember $View 'OuDn' '')
         Subtree=[bool](Get-DomeniaMember $View 'Subtree' $true)
-        Limit=[Math]::Max(1,[Math]::Min(500,$limit))
+        Limit=[Math]::Max(1,[Math]::Min(20000,$limit))
         ViewId=[string](Get-DomeniaMember $View 'ViewId' '')
     }
 }

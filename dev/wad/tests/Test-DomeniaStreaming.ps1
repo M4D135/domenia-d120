@@ -104,7 +104,8 @@ Case 'D023 : 2000 lignes restent bornees a 500 et les lignes AD remplacent le ca
     Assert-Live ($script:Live.Search.Rows.Count -eq 500 -and $script:Live.Search.Fresh.Count -eq 500)
     Assert-Live (@($script:Live.Search.Rows | Where-Object{$_.Name -notlike 'NEW-*'}).Count -eq 0) 'Le cache ancien consomme encore le quota'
     Assert-Live ($script:Ctrl.LblBranchCount.Text -match 'limitée à 500') $script:Ctrl.LblBranchCount.Text
-    Assert-Live (-not $script:Ctrl.BtnSearchMore.IsEnabled) 'Charger la suite depasse le plafond'
+    # Decision David 2026-10-05: the safety maximum is 20 000 rows, so a list limited at 500 may still be continued.
+    Assert-Live ($script:Ctrl.BtnSearchMore.IsEnabled) 'Charger la suite refuse sous le plafond de 20 000'
 }
 Case 'D023 : vingt-cinq recherches conservent seulement vingt caches de requete' {
     Reset-LiveFixture

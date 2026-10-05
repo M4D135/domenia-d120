@@ -139,6 +139,8 @@ function Invoke-DomeniaReconcileTick {
     if($script:DirectoryCredentialFaulted -or @($script:AsyncJobs.Keys).Count -ge 4){return}
     # D020 (C1): the idle policy may also hold the pass (write in flight, other page). Never more permissive than the window check above.
     if($null -ne (Get-Command Test-DomeniaBackgroundWorkAllowed -CommandType Function -ErrorAction SilentlyContinue)){try{if(-not (Test-DomeniaBackgroundWorkAllowed -Source 'Reconcile')){return}}catch{}}
+    # The periodic background re-read stays for lists of 500 rows at most; a list of thousands is not re-read every few minutes.
+    if([int]$s.State.Limit -gt 500){return}
     $filter=[string]$s.Final.FilterUsed;if(-not $filter){return}
     $state=[pscustomobject]@{Search=$s;Epoch=[long]$script:SessionEpoch;Identity=$script:Live.Identity;Filter=$filter;Mutation=$script:Continuity.Mutation}
     try{
