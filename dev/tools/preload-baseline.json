@@ -1,5 +1,5 @@
 {
-  "Archive": "colonne Login 2026-10-05",
+  "Archive": "ping IPv4 2026-10-05",
   "ArchiveSHA256": "655ED21F90345B3C7667D4E777814C6A0595A5D5BE628AD587FB46CCA5241922",
   "CoreFunctions": {
     "Write-DomeniaAtomicText": "1C9A1583F52EB7BE80BE420662653E4AF886FE11DC4FDB3B1C4CDF19FD1C0EDA",
@@ -489,8 +489,8 @@
     "Load-UserMachineLinks": "D588E9FAB3DB852FD760624C2A463CDEA8A5B97BAF550C273F8C7C1B2CB7776D",
     "ConvertTo-DomeniaCanonicalWorkerCode": "48A6A851309CF03C8AA4802B160FC0C9D3234B795C63D0BAED6923BF42FE2FAF",
     "Get-DomeniaWorkerCodeHash": "6B81660F207AAEB37BA076144EDD12F5A926F9F64858B03755C2567E335C0D16",
-    "Get-DomeniaWorkerOperationHashes": "40547DAD10C8193E2C5078BC3C4B6FEC532DCA337EDF9804B6C541ECF3825BFF",
-    "Assert-DomeniaWorkerRegistry": "88E6D8D360861E0FB330ACF1B79234A034CA791C013E65359D39F482C2277E8B",
+    "Get-DomeniaWorkerOperationHashes": "518263054756DD96ECEE5165AC630AC536FC17BD117C60835ACFCB17556C614B",
+    "Assert-DomeniaWorkerRegistry": "BC5DFE7A7D4E64BCF60AA55DD2DB73D7B3A98DF41254AC6A8847D300A46443E2",
     "Assert-DomeniaWorkerOperationCode": "41D63871EDC11F5765938E6DAF8004A01471CD63E9666E2569D6E43008032526",
     "Get-DomeniaWorkerEngineSelfTestCode": "7FB07491846A78A89C13351DC07ABCA7B150642EE02AA25FF430A19942001AF0",
     "New-DomeniaWorkerRunspace": "8D2FB4E8786E147F555EC5860E76F8EB0D606D66BF9A610F43A0CC2836197A0D",
@@ -1649,6 +1649,18 @@
       "Decision": "Retour terrain du 2026-10-05 : la colonne Login de la grille de resultats affichait, pour une machine, son nom de compte AD (sAMAccountName sans le dollar), redondant avec le nom. Get-MainXaml : la colonne devient un DataGridTemplateColumn (meme en-tete, tri sur Login) dont le texte est vide quand Type vaut Machine ; les donnees de la ligne (Login, utilise par l identite de selection) sont inchangees. Utilisateur connecte et association restent dans leurs colonnes. Suites UI vertes dans la VM : Test-Domenia 284, StableUi 52, Selection 47, Geometry 84, SearchPresence 61.",
       "ChangedCoreFunctions": [
         "Get-MainXaml"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "colonne Login 2026-10-05",
+      "Source": "ping IPv4 2026-10-05",
+      "Decision": "Retour terrain du 2026-10-05 : Ping.Send(nom) levait une PingException generique sur tous les postes (Erreur de ping) alors que ping.exe repasse sur IPv4. Get-DomeniaLiveProbeCode (LiveConsole, LiveSelectedPing, re-epingles) resout le nom puis pingue l adresse IPv4 en priorite ; le message d erreur donne la cause la plus interne (hote inconnu, protocole non configure). Teste dans la VM avec le vrai corps : noms du labo En ligne en IPv4, nom inexistant = No such host is known.",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Get-DomeniaWorkerOperationHashes"
       ],
       "AddedCoreFunctions": [],
       "RemovedCoreFunctions": [],

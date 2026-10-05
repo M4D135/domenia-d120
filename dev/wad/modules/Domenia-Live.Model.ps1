@@ -155,14 +155,22 @@ function Get-NativeCode($ErrorValue){
 # One ICMP echo, on the worker. Publish it before any possibly slow CIM call.
 try {
     $ping=New-Object Net.NetworkInformation.Ping
-    $p=$ping.Send($target,900)
+    # Resolve first and prefer IPv4: when a name also resolves to IPv6, Ping.Send(name) can fail with a generic
+    # PingException where ping.exe falls back to IPv4 (field report 2026-10-05).
+    $addresses=@([Net.Dns]::GetHostAddresses($target))
+    $address=@($addresses|Where-Object{$_.AddressFamily -eq [Net.Sockets.AddressFamily]::InterNetwork}|Select-Object -First 1)
+    if(-not $address.Count){$address=@($addresses|Select-Object -First 1)}
+    if(-not $address.Count){throw 'Nom non résolu par le DNS.'}
+    $p=$ping.Send($address[0],900)
     if($null -ne $p -and [string]$p.Status -eq 'Success') {
-        $answer.Presence='En ligne';$answer.PresenceDetail='Réponse ICMP · '+[string]$p.RoundtripTime+' ms'
+        $answer.Presence='En ligne';$answer.PresenceDetail='Réponse ICMP · '+[string]$p.RoundtripTime+' ms · '+[string]$address[0]
     } else {
-        $answer.Presence='Sans réponse au ping';$answer.PresenceDetail='ICMP : '+$(if($null -ne $p){[string]$p.Status}else{'aucune réponse'})
+        $answer.Presence='Sans réponse au ping';$answer.PresenceDetail='ICMP : '+$(if($null -ne $p){[string]$p.Status}else{'aucune réponse'})+' · '+[string]$address[0]
     }
 } catch {
-    $answer.Presence='Erreur de ping';$answer.PresenceDetail='Le contrôle ICMP n''a pas abouti (résolution DNS ou erreur réseau). '+$_.Exception.Message
+    # The innermost message names the real cause (unknown host, protocol not configured...).
+    $inner=$_.Exception;while($null -ne $inner.InnerException){$inner=$inner.InnerException}
+    $answer.Presence='Erreur de ping';$answer.PresenceDetail='Le contrôle ICMP n''a pas abouti (résolution DNS ou erreur réseau). '+[string]$inner.Message
 } finally {if($null -ne $ping){$ping.Dispose()}}
 $answer.PresenceCheckedUtc=[datetime]::UtcNow.ToString('o')
 if($null -ne $Payload.PSObject.Properties['PresenceProgress'] -and $null -ne $Payload.PresenceProgress){
