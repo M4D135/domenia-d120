@@ -3022,6 +3022,19 @@ function Set-DomeniaComboByContent {
     return $false
 }
 
+function Set-DomeniaWindowActivationPolicy {
+    # D089: after a voluntary Alt-Tab during the startup, a window opens without taking the foreground.
+    # WPF refuses to show a maximized window that is not activated (InvalidOperationException in Show and
+    # ShowDialog): a maximized window is therefore always shown activated. Returns the ShowActivated value.
+    param($Window,[switch]$UserSwitchedAway)
+    if ($null -eq $Window) { return $true }
+    $maximized = $false
+    try { $maximized = ($Window.WindowState -eq [System.Windows.WindowState]::Maximized) } catch { }
+    $activate = ((-not $UserSwitchedAway) -or $maximized)
+    try { $Window.ShowActivated = $activate } catch { }
+    return $activate
+}
+
 function Restore-DomeniaWindowGeometry {
     # Une position enregistree sur un ecran desormais absent ne doit pas
     # rendre la fenetre invisible : elle est ignoree si elle sort du bureau.
@@ -17076,6 +17089,45 @@ function Invoke-DomeniaInProcessAuthProbe {
         return $safe
     }
 
+    function ConvertFrom-AuthLdapSubCode {
+        # The LDAP answer carries the precise Windows sub-code ("data 52f") while the HRESULT can stay the
+        # generic 0x8007052E (logon failure). Except 525 and 52e, these codes are account states or restrictions:
+        # the password check is not what failed.
+        param([AllowNull()][string]$ExtendedMessage)
+        $code = ''
+        if (([string]$ExtendedMessage) -match '(?i)\bdata\s+([0-9a-f]{3,4})\b') { $code = $matches[1].ToLowerInvariant() }
+        $category = ''; $summary = ''
+        if ($code -ceq '525') { $category = 'Credentials'; $summary = 'Compte inconnu du controleur (code AD 525).' }
+        elseif ($code -ceq '52e') { $category = 'Credentials'; $summary = 'Identifiant ou mot de passe refuse (code AD 52e).' }
+        elseif ($code -ceq '52f') { $category = 'AccountRestriction'; $summary = 'Restriction de compte sur ce controleur (code AD 52f) : ce n est pas le mot de passe. Un controleur en lecture seule ou une regle du compte refuse cette connexion.' }
+        elseif ($code -ceq '530') { $category = 'AccountRestriction'; $summary = 'Connexion interdite a cette heure pour ce compte (code AD 530).' }
+        elseif ($code -ceq '531') { $category = 'AccountRestriction'; $summary = 'Connexion interdite depuis ce poste pour ce compte (code AD 531).' }
+        elseif ($code -ceq '532') { $category = 'AccountRestriction'; $summary = 'Le mot de passe de ce compte a expire (code AD 532).' }
+        elseif ($code -ceq '533') { $category = 'AccountRestriction'; $summary = 'Ce compte est desactive (code AD 533).' }
+        elseif ($code -ceq '701') { $category = 'AccountRestriction'; $summary = 'Ce compte a expire (code AD 701).' }
+        elseif ($code -ceq '773') { $category = 'AccountRestriction'; $summary = 'Ce compte doit changer de mot de passe avant la connexion (code AD 773).' }
+        elseif ($code -ceq '775') { $category = 'AccountRestriction'; $summary = 'Ce compte est verrouille (code AD 775). Arrete les essais et verifie son etat.' }
+        return [pscustomobject]@{ SubCode = $code; Category = $category; Summary = $summary }
+    }
+
+    function Find-AuthWritableDomainController {
+        # An administration tool works on a WRITABLE controller. A read-only controller (RODC) usually refuses
+        # privileged accounts (AD sub-code 52f) and refers every write elsewhere. Located by Windows with the
+        # current session only: the typed password is never used to locate. Empty when the locator cannot answer.
+        param([AllowNull()][string]$DomainName)
+        $name = ([string]$DomainName).Trim().TrimEnd('.')
+        if ((-not $name) -or (-not $name.Contains('.'))) { return '' }
+        $found = $null
+        try {
+            $options = [System.DirectoryServices.ActiveDirectory.LocatorOptions]::WriteableRequired
+            $found = [System.DirectoryServices.ActiveDirectory.DomainController]::FindOne((New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext -ArgumentList @([System.DirectoryServices.ActiveDirectory.DirectoryContextType]::Domain,$name)),$options)
+            if ($null -eq $found) { return '' }
+            return ([string]$found.Name).Trim()
+        }
+        catch { return '' }
+        finally { try { if ($null -ne $found) { $found.Dispose() } } catch { } }
+    }
+
     function Get-AuthNativeFailure {
         param($Record)
         $deep=Get-DeepestException -ErrorRecord $Record
@@ -17113,9 +17165,12 @@ function Invoke-DomeniaInProcessAuthProbe {
             '0x8007203A' { $category='DomainUnavailable'; $summary='Le serveur d annuaire n est pas operationnel.' }
             '0x800705B4' { $category='Timeout'; $summary='Le delai de l operation est depasse.' }
         }
+        # A precise AD sub-code wins over the generic logon failure, except 52e which says the same thing.
+        $sub=ConvertFrom-AuthLdapSubCode -ExtendedMessage $extendedMessage
+        if ((-not [string]::IsNullOrWhiteSpace($sub.Category)) -and ($sub.SubCode -cne '52e')) { $category=$sub.Category; $summary=$sub.Summary }
         return [pscustomobject]@{
             HResult=$hr; Category=$category; Summary=$summary; NativeMessage=$nativeMessage
-            ExtendedCode=$extendedCode; ExtendedMessage=$extendedMessage; LdapCode=$ldapCode
+            ExtendedCode=$extendedCode; ExtendedMessage=$extendedMessage; LdapCode=$ldapCode; SubCode=$sub.SubCode
         }
     }
 
@@ -17496,10 +17551,24 @@ function Invoke-DomeniaInProcessAuthProbe {
                             $bindLogin = "$detectedNetbios\$rawLogin"
                         }
 
-                        $plainPassword = [string]$Request.Credential.GetNetworkCredential().Password
                         $selectedServer = if ([string]::IsNullOrWhiteSpace($detectedDc)) { [string]$serverName } else { $detectedDc }
+                        $selectionNote = ''
+                        # Without a configured server, the account is validated on a writable controller located by
+                        # Windows (current session, no password). Same single attempt; RootDSE choice kept otherwise.
+                        if ([string]::IsNullOrWhiteSpace($configuredServer)) {
+                            $authStage = 'Discovery.WritableLocator'
+                            $writableDc = Find-AuthWritableDomainController -DomainName $detectedDomain
+                            if (-not [string]::IsNullOrWhiteSpace($writableDc)) {
+                                if ($writableDc -ine $selectedServer) { $selectionNote = '; controleur inscriptible, RootDSE ' + $selectedServer }
+                                else { $selectionNote = '; controleur inscriptible' }
+                                $selectedServer = $writableDc
+                            }
+                            else { $selectionNote = '; localisateur sans reponse, controleur RootDSE' }
+                            $authStage = 'Identity.Resolve'
+                        }
+                        $plainPassword = [string]$Request.Credential.GetNetworkCredential().Password
                         $basePath = "LDAP://$selectedServer/$effectiveBase"
-                        Set-AuthProgress -Stage "Authentification Active Directory" -Detail "Validation unique de $bindLogin sur $selectedServer (ADSI get_NativeObject)"
+                        Set-AuthProgress -Stage "Authentification Active Directory" -Detail "Validation unique de $bindLogin sur $selectedServer (ADSI get_NativeObject$selectionNote)"
 
                         $authStage = 'Explicit.NativeBind'
                         $explicitBindAttempted = $true
@@ -19835,7 +19904,7 @@ function New-DomeniaStartupWindow {
         # D089: the monitor prolongs the explicit launch. It is never Topmost; one activation request, and a
         # voluntary Alt-Tab of the operator is remembered for the switch to the main window.
         try { Register-DomeniaUserSwitchWatch -Window $win } catch { }
-        try { if (Test-DomeniaUserSwitchedAway) { $win.ShowActivated = $false } } catch { }
+        try { [void](Set-DomeniaWindowActivationPolicy -Window $win -UserSwitchedAway:(Test-DomeniaUserSwitchedAway)) } catch { }
         $win.Show() | Out-Null
         try { [void](Request-DomeniaWindowActivation -Window $win -Trigger 'StartupMonitor') } catch { }
         [System.Windows.Forms.Application]::DoEvents()
@@ -24141,7 +24210,7 @@ function Initialize-Window {
         # D020: Activated, Deactivated, StateChanged and the page selector drive the idle policy (C1).
         try { Initialize-DomeniaIdlePolicy -Window $script:Window } catch { Write-AppLog ("Politique de repos non initialisee : " + $_.Exception.Message) "WARN" }
         # D089: a voluntary Alt-Tab during the startup is respected: the main window then opens without taking the foreground.
-        try { if (Test-DomeniaUserSwitchedAway) { $script:Window.ShowActivated = $false } } catch { }
+        try { [void](Set-DomeniaWindowActivationPolicy -Window $script:Window -UserSwitchedAway:(Test-DomeniaUserSwitchedAway)) } catch { }
         $script:Window.Add_Closing({param($s,$e)
             $writeJobStillAlive = $false
             try { $writeJobStillAlive = (@($script:AsyncJobs.Values | Where-Object { $null -ne $_ -and [bool]$_.IsWrite }).Count -gt 0) } catch { }
@@ -24573,6 +24642,7 @@ function Get-DomeniaLoginFailureHint {
     if ($Category -eq 'AccessDenied') { return 'Verifie le contexte, les droits du compte et les restrictions. Details dans le journal.' }
     if ($Message -eq 'Identifiant ou mot de passe incorrect.') { return 'Verifie les identifiants avant tout nouvel essai.' }
     if ($Category -eq 'Credentials') { return 'Compte refuse : lis le motif avant de refaire un essai.' }
+    if (($Category -eq 'AccountRestriction') -and ($Message -match 'code AD 52f')) { return 'Ce controleur refuse ce compte. Un autre controleur peut etre impose par Conf.Server dans Domenia.config.json.' }
     if ($Category -eq 'AccountRestriction') { return 'Lis la restriction indiquee avant tout nouvel essai. Ne multiplie pas les tentatives.' }
     if ($Category -eq 'Authentication') { return 'Le bind a echoue sans cause identifiee. Copie le diagnostic natif avant tout nouvel essai.' }
     if ($Category -eq 'Input') { return 'Complete les informations demandees.' }
@@ -25576,6 +25646,8 @@ try {
     Initialize-Window
     if (-not $script:StartupReady) { throw "Initialisation incomplete : la fenetre principale reste masquee." }
     Write-StartupTrace -Stage "Apres login" -Status "OK" -Detail "Fenetre principale initialisee ; Domenia.db, cache initial et pool MTA valides"
+    # The geometry may have been restored maximized after the activation choice: check again just before showing.
+    try { [void](Set-DomeniaWindowActivationPolicy -Window $script:Window -UserSwitchedAway:(-not [bool]$script:Window.ShowActivated)) } catch { }
     $null = $script:Window.ShowDialog()
 }
 catch {

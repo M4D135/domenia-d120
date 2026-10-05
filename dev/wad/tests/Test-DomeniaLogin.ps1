@@ -23,7 +23,8 @@ function Get-TestDefinition {
 }
 $wanted=@('Get-AuthOptionalFlag','Get-AuthAdsiAttributeFirst','Read-AuthAdsiBase','Get-DeepestException',
           'Get-AuthNativeFailure','Protect-AuthDiagnosticText','Get-AuthFailureDiagnostic','Get-AuthFailureCategory','Convert-DomeniaLoginFailureMessage','Get-DomeniaLoginFailureHint',
-          'Start-DomeniaLoginAuthRunspace','Read-DomeniaAuthRunspaceResult','Complete-DomeniaLoginAuthRunspaceCleanup')
+          'Start-DomeniaLoginAuthRunspace','Read-DomeniaAuthRunspaceResult','Complete-DomeniaLoginAuthRunspaceCleanup',
+          'ConvertFrom-AuthLdapSubCode','Set-DomeniaWindowActivationPolicy')
 foreach ($name in $wanted) { . ([scriptblock]::Create((Get-TestDefinition $name))) }
 $realProbe=Get-TestDefinition 'Invoke-DomeniaInProcessAuthProbe'
 $original=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'fixtures\AuthProbe-R1.7.ps1'))
@@ -34,7 +35,9 @@ foreach ($body in @($realProbe,$original,$previous)) {
         throw 'Frontiere de decouverte modifiee : arret avant tout appel AD.'
     }
 }
-$testProbe=$realProbe.Replace($staticBoundary,'(Get-TestComputerDomain)')
+$writableBoundary='[System.DirectoryServices.ActiveDirectory.DomainController]::FindOne((New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext -ArgumentList @([System.DirectoryServices.ActiveDirectory.DirectoryContextType]::Domain,$name)),$options)'
+if ([regex]::Matches($realProbe,[regex]::Escape($writableBoundary)).Count -ne 1) { throw 'Frontiere du localisateur inscriptible modifiee : arret avant tout appel AD.' }
+$testProbe=$realProbe.Replace($staticBoundary,'(Get-TestComputerDomain)').Replace($writableBoundary,'(Get-TestWritableDc -DomainName $name -Options $options)')
 $testOriginal=$original.Replace($staticBoundary,'(Get-TestComputerDomain)').Replace(
     'function Invoke-DomeniaInProcessAuthProbe {','function Invoke-DomeniaR17AuthProbe {')
 . ([scriptblock]::Create($testProbe))
@@ -133,6 +136,20 @@ function Test-LoginCase {
     if (-not $Quiet -or $status -eq 'FAIL') { Write-Host ("$status | $Name | $detail") }
 }
 function Get-TestComputerDomain { throw 'TEST ONLY: OS domain discovery disabled.' }
+$script:TestWritableDc=''
+$script:WritableLookups=0
+$script:WritableLookupDomain=''
+function Get-TestWritableDc {
+    param([string]$DomainName,$Options)
+    $script:WritableLookups++
+    $script:WritableLookupDomain=$DomainName
+    if (-not ([string]$Options).Contains('WriteableRequired')) { throw 'Localisateur sans exigence de controleur inscriptible.' }
+    if ($script:TestWritableDc -eq 'throw') { throw 'TEST ONLY: locator unavailable.' }
+    if ([string]::IsNullOrWhiteSpace($script:TestWritableDc)) { return $null }
+    $dc=[pscustomobject]@{Name=$script:TestWritableDc}
+    $dc | Add-Member -MemberType ScriptMethod -Name Dispose -Value { }
+    return $dc
+}
 # Reject every unmocked DirectoryServices creation to make network regressions fail closed.
 function New-Object {
     [CmdletBinding()]
@@ -156,11 +173,12 @@ function New-Object {
     return Microsoft.PowerShell.Utility\New-Object @PSBoundParameters
 }
 function Invoke-TestProbe {
-    param([switch]$Original,[switch]$Previous,[string]$Scenario='Success')
+    param([switch]$Original,[switch]$Previous,[string]$Scenario='Success',[string]$ConfiguredServer='dc.example.test')
     [Domenia.LoginTests172.Entry]::Reset($Scenario)
+    $script:WritableLookups=0
     $request=[pscustomobject]@{
         Login='tech'; Credential=$script:TestCredential; UseCurrentCredentials=$false
-        ConfiguredServer='dc.example.test'; ConfiguredBase=''; Domain='example.test'; Netbios='EXAMPLE'
+        ConfiguredServer=$ConfiguredServer; ConfiguredBase=''; Domain='example.test'; Netbios='EXAMPLE'
         MaxServers=2; OverallTimeoutSeconds=8; PerServerTimeoutSeconds=2
     }
     $progress=[hashtable]::Synchronized(@{Stage='';Detail='';Sequence=0;UpdatedAt=[datetime]::UtcNow})
@@ -397,6 +415,86 @@ Test-LoginCase 'Transport MTA reel : SelfTestOnly sans dependance AD' {
             else { [void]$session.PowerShell.BeginStop($null,$null) }
         }
     }
+}
+# --- 2026-10-05 : retour terrain (compte admin refuse par un controleur, code AD 52f ; fenetre maximisee non activee)
+Test-LoginCase 'Code AD 52f : restriction de compte, jamais mot de passe incorrect' {
+    $sub=ConvertFrom-AuthLdapSubCode -ExtendedMessage '8009030C: LdapErr: DSID-0C0905FE, comment: AcceptSecurityContext error, data 52f, v3839'
+    Assert-Login ($sub.SubCode -ceq '52f' -and $sub.Category -eq 'AccountRestriction') ('Sous-code : '+$sub.SubCode+' / '+$sub.Category)
+    Assert-Login ($sub.Summary.Contains('n est pas le mot de passe'))
+    $raw=$sub.Summary+' (HRESULT=0x8007052E; serveur=w-ro.example.test)'
+    $ui=Convert-DomeniaLoginFailureMessage -Message $raw -Category 'AccountRestriction'
+    Assert-Login ($ui -notmatch '(?i)incorrect') ('Message : '+$ui)
+    Assert-Login ($ui.Contains('serveur=w-ro.example.test')) 'Controleur absent du message.'
+    $hint=Get-DomeniaLoginFailureHint -Category 'AccountRestriction' -Message $ui
+    Assert-Login ($hint.Contains('Conf.Server')) ('Indication : '+$hint)
+}
+Test-LoginCase 'Code AD 52e : identifiants refuses, message inchange' {
+    $sub=ConvertFrom-AuthLdapSubCode -ExtendedMessage 'LdapErr: DSID-0C0905FE, comment: AcceptSecurityContext error, data 52e, v3839'
+    Assert-Login ($sub.SubCode -ceq '52e' -and $sub.Category -eq 'Credentials')
+    Assert-Login ((Convert-DomeniaLoginFailureMessage -Message 'data 52e (HRESULT=0x8007052E)') -eq 'Identifiant ou mot de passe incorrect.')
+}
+Test-LoginCase 'Codes AD 530 531 533 775 : restrictions nommees ; sans code : rien' {
+    foreach ($c in @('530','531','533','775')) {
+        $sub=ConvertFrom-AuthLdapSubCode -ExtendedMessage ('AcceptSecurityContext error, data '+$c+', v3839')
+        Assert-Login ($sub.Category -eq 'AccountRestriction' -and $sub.Summary.Contains('code AD '+$c)) ('Code '+$c)
+    }
+    $none=ConvertFrom-AuthLdapSubCode -ExtendedMessage 'aucun detail'
+    Assert-Login ([string]::IsNullOrEmpty($none.SubCode) -and [string]::IsNullOrEmpty($none.Category))
+    $empty=ConvertFrom-AuthLdapSubCode -ExtendedMessage $null
+    Assert-Login ([string]::IsNullOrEmpty($empty.SubCode))
+}
+Test-LoginCase 'Sans serveur configure : validation sur le controleur inscriptible localise par Windows' {
+    $script:TestWritableDc='rw-dc.example.test'
+    try { $r=Invoke-TestProbe -ConfiguredServer '' } finally { $script:TestWritableDc='' }
+    Assert-Login $r.Success ('Echec : '+$r.Error)
+    Assert-Login ($r.Server -eq 'rw-dc.example.test') ('Serveur : '+$r.Server)
+    Assert-Login ($script:WritableLookups -eq 1) ('Recherches : '+$script:WritableLookups)
+    Assert-Login ($script:WritableLookupDomain -eq 'example.test') ('Domaine localise : '+$script:WritableLookupDomain)
+    Assert-Login ([Domenia.LoginTests172.Entry]::ExplicitBinds -eq 1) 'Une seule validation explicite attendue.'
+}
+Test-LoginCase 'Localisateur sans reponse : controleur RootDSE conserve, une seule validation' {
+    $script:TestWritableDc='throw'
+    try { $r=Invoke-TestProbe -ConfiguredServer '' } finally { $script:TestWritableDc='' }
+    Assert-Login $r.Success ('Echec : '+$r.Error)
+    Assert-Login ($r.Server -eq 'dc.example.test') ('Serveur : '+$r.Server)
+    Assert-Login ([Domenia.LoginTests172.Entry]::ExplicitBinds -eq 1)
+}
+Test-LoginCase 'Serveur configure : aucun recours au localisateur' {
+    $script:TestWritableDc='rw-dc.example.test'
+    try { $r=Invoke-TestProbe } finally { $script:TestWritableDc='' }
+    Assert-Login $r.Success
+    Assert-Login ($script:WritableLookups -eq 0) ('Recherches : '+$script:WritableLookups)
+    Assert-Login ($r.Server -eq 'dc.example.test') ('Serveur : '+$r.Server)
+}
+Test-LoginCase 'Mot de passe refuse sur le controleur inscriptible : aucun second essai' {
+    $script:TestWritableDc='rw-dc.example.test'
+    try { $r=Invoke-TestProbe -ConfiguredServer '' -Scenario 'BadPassword' } finally { $script:TestWritableDc='' }
+    Assert-Login (-not $r.Success)
+    Assert-Login ([Domenia.LoginTests172.Entry]::ExplicitBinds -eq 1) ('Validations : '+[Domenia.LoginTests172.Entry]::ExplicitBinds)
+    Assert-Login ($r.Server -eq 'rw-dc.example.test') ('Serveur : '+$r.Server)
+}
+Test-LoginCase 'Fenetre maximisee : toujours activee, meme apres un Alt-Tab (contrainte WPF)' {
+    Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
+    $w=New-Object System.Windows.Window
+    try {
+        $w.WindowState=[System.Windows.WindowState]::Maximized
+        Assert-Login ((Set-DomeniaWindowActivationPolicy -Window $w -UserSwitchedAway) -eq $true)
+        Assert-Login ($w.ShowActivated -eq $true) 'Fenetre maximisee non activee.'
+        $w.WindowState=[System.Windows.WindowState]::Normal
+        Assert-Login ((Set-DomeniaWindowActivationPolicy -Window $w -UserSwitchedAway) -eq $false)
+        Assert-Login ($w.ShowActivated -eq $false) 'Alt-Tab non respecte pour une fenetre normale.'
+        Assert-Login ((Set-DomeniaWindowActivationPolicy -Window $w) -eq $true)
+        Assert-Login ($w.ShowActivated -eq $true)
+        Assert-Login ((Set-DomeniaWindowActivationPolicy -Window $null -UserSwitchedAway) -eq $true)
+    } finally { try { $w.Close() } catch { } }
+}
+Test-LoginCase 'Coeur : la fenetre principale repasse par la regle juste avant ShowDialog' {
+    $main=$source.Substring($source.IndexOf('Write-StartupTrace -Stage "Apres login" -Status "OK"'))
+    $guard=$main.IndexOf('Set-DomeniaWindowActivationPolicy -Window $script:Window')
+    $show=$main.IndexOf('$script:Window.ShowDialog()')
+    Assert-Login (($guard -ge 0) -and ($show -gt $guard)) 'Garde absent avant ShowDialog.'
+    Assert-Login (-not $source.Contains('{ $script:Window.ShowActivated = $false }')) 'Ancienne desactivation brute encore presente.'
+    Assert-Login (-not $source.Contains('{ $win.ShowActivated = $false }')) 'Ancienne desactivation brute encore presente (moniteur).'
 }
 $passed=@($script:LoginTestResults | Where-Object Status -eq PASS).Count
 $failed=@($script:LoginTestResults | Where-Object Status -eq FAIL).Count

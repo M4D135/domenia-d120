@@ -658,14 +658,14 @@
     },
     {
       "Path": "tools/preload-baseline.json",
-      "Sha256": "97090520C4239895F9B4D70F1586ED2AA2125A29D362E307B89D9B921D9200CB",
-      "Bytes": 127468,
+      "Sha256": "252B0E8A0A8C4A3FDE9C55B92FACABE26184FC3AE42ED00CD674B0BCEDF51632",
+      "Bytes": 129225,
       "Runtime": false,
       "PreserveExisting": false
     },
     {
       "Path": "tools/prod-manifest.json",
-      "Sha256": "32AB55C317D3E3C4894B5E21ECDB86B0330049E81DE5777FCB36C7F241528A17",
+      "Sha256": "01B89D81EFB2BC30AB5F551B62E380090FF5FF21B08F9AFC61FB11CF9E2F2ED5",
       "Bytes": 16811,
       "Runtime": false,
       "PreserveExisting": false
@@ -728,8 +728,8 @@
     },
     {
       "Path": "wad/Domenia-Core.ps1",
-      "Sha256": "70D8E5B1EE239025853BC60613D01715DAAE7D3D6E6EADC565C74656C5239003",
-      "Bytes": 1720332,
+      "Sha256": "04BBCD23B73DA35BEF7C3040D9376574BF377166099AF7D0C4FD043D9DAC0689",
+      "Bytes": 1726413,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -2583,8 +2583,8 @@
     },
     {
       "Path": "wad/tests/Test-DomeniaLogin.ps1",
-      "Sha256": "0CABE54E54C58EFF59449B191A8BEABB2AF84D2EA296773FCF1FEE9F70BFEEAA",
-      "Bytes": 25748,
+      "Sha256": "E0FFDB4A8DA8218B0E159023A7DF5279C8D75A69D85ACB609DAFFDCAAB95747A",
+      "Bytes": 32931,
       "Runtime": false,
       "PreserveExisting": false
     },
