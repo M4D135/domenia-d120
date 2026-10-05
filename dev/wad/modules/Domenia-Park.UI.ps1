@@ -163,6 +163,7 @@ function Update-DomeniaParkResultRows {
         if([string]$row.Type -ne 'Machine' -or [string]$row.DN -ine $Observation.Key -or [string]$row.Guid -ine $Observation.Guid){continue}
         Set-DomeniaLiveObservationOnRow $row $liveObservation
         [void](Set-RowAssociationMetadata -Rows @($row))
+        if([string]$row.Association){Set-DomeniaLoginColumnVisible $true}
     }
     # ResultRow notifies WPF; classic PSCustomObject rows need a refresh after the scan.
     if($null -ne $grid.ItemsSource -and $script:ParkRun.Next -ge $script:ParkRun.Targets.Count -and -not $script:ParkRun.Pending.Count){$grid.Items.Refresh()}

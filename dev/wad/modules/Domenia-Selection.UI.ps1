@@ -272,6 +272,7 @@ function Clear-DomeniaSelectionEverywhere {
     }
     [void](Set-DomeniaControlText 'LblLinkContext' 'Aucune sélection.')
     try{Clear-DomeniaRelationsSelection}catch{}
+    try{Update-DomeniaSearchActionStates}catch{}
 }
 
 function Enter-DomeniaSelectionContext {

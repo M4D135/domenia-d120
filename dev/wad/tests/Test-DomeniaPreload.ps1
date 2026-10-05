@@ -57,6 +57,7 @@ function Clear-Secrets {$script:SecretsCleared++}
 # D085: the views bound to the previous object are purged on a new selection (core function, counted here).
 function Reset-DomeniaSelectionBoundViews {param($Dn,$Type,$Name) $script:BoundViewsReset++}
 function Clear-DomeniaLiveProbeIntent {$script:RemoteIntent=''}
+function Update-DomeniaSearchActionStates { }
 function Select-DomeniaLiveResult {param([switch]$Force,[switch]$Manual)
     $r=Get-DomeniaSelectedGridRow
     if($null -ne $r -and $r.Type -eq 'Machine'){$script:RemoteIntent=[string]$r.DN}else{$script:RemoteIntent=''}

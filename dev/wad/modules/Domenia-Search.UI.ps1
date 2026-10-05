@@ -190,6 +190,7 @@ function Restore-DomeniaNavState {
             $script:SuppressGridSelectionEvents = $true
             try {
                 $grid.ItemsSource = $State.Rows
+                try { Update-DomeniaLoginColumnFromRows $State.Rows } catch { }
                 $script:BranchObjects = $State.Rows
                 $grid.SelectedItem = $null
                 $match = $null

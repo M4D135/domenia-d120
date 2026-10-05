@@ -1,5 +1,5 @@
 {
-  "Archive": "selection videe partout 2026-10-05",
+  "Archive": "colonne Compte recherche universelle 2026-10-05",
   "ArchiveSHA256": "655ED21F90345B3C7667D4E777814C6A0595A5D5BE628AD587FB46CCA5241922",
   "CoreFunctions": {
     "Write-DomeniaAtomicText": "1C9A1583F52EB7BE80BE420662653E4AF886FE11DC4FDB3B1C4CDF19FD1C0EDA",
@@ -130,7 +130,7 @@
     "Set-DomeniaResourceColor": "27391F9046A85B14658803F03178045ABEDF0B1F4DD5364D7BA5575C5E4F11BE",
     "Apply-DomeniaTheme": "115A426BAE13A4A67A3C252EE193AA35BF115C2BDCD1E1AA4CFC96D63A006010",
     "Toggle-DomeniaTheme": "EA7E0F31A78D8B4A0BFAB0C27D8028521C1C3A1A255DDA4BEA3B65B5F7C99F03",
-    "Get-MainXaml": "5959024BDDD4842779A08CD9E7F11C20704912CFC49F4402A5627FEAEC94B314",
+    "Get-MainXaml": "EB2F4934A57E2BB6172063E2B920DE6C0842DAC4DF0EE883CD76956C744B5856",
     "Assert-DomeniaXamlPreflight": "20BB1DA04FD88D78E1A52C5610376467D5E9408437BC823DDC8EC8F40C0EAEB7",
     "Save-DomeniaXamlDiagnostic": "D648C9D6BD6F5F3A6613957D22A6A42EC1AAC0C1FA6218195A55D10EADF4DC67",
     "ConvertFrom-DomeniaXaml": "855E6CA9E56D62F77F5C22ACAC048293D24281B5B8FCC7FEB6806450BE561228",
@@ -451,7 +451,7 @@
     "Clear-DomeniaSecondaryCredential": "CD8BB39C79262CBFF7EBBC941C6D31C67791476824B8C7EA1A1903B251DF26E8",
     "Start-DomeniaAccountRelogin": "B03934105A08C0781F56149CA33EB99A9B7459ED4660E8EA3A0E3D8E4A0B134D",
     "Initialize-DomeniaAccountPanel": "05F251F380F8DF6C8E6DB91B2631449C8C6CCF4619709DA289F9BD1C7AD3273D",
-    "Wire-Events": "271EBA439F983286428D1F3200C94C20823B373EC11DA5899A00D2E344A0D1A0",
+    "Wire-Events": "758D21BE0B0A9EAD019AB479F14ED89683279438302FA818E332D6562CED2FA8",
     "New-DefaultConfig": "F1DC255ED0F8D0538880FB22F561E8DD31B63C7CF92BF7C98B61213E46632986",
     "Initialize-DomeniaDataStore": "75C63F73149D4C8CACBAA107F9223E9140830F4F01360F1899E8D79DC6A51E5A",
     "Write-StartupTrace": "216F93F6D1D37A669438F904233E5819260B8DA5AD48CF8887D6C5A372435250",
@@ -835,7 +835,7 @@
     "wad/modules/Domenia-Guard.UI.ps1": "11ED5549BE999C0A7DC039386ECBFB0B424668AE8CF117C0F0AE03783F12917A",
     "wad/modules/Domenia-Live.Model.ps1": "6B2C5C145D2354DED32577F45D59945B397D6AFBA91A5BACBB61B0BF8221BE19",
     "wad/modules/Domenia-Live.Types.cs": "EA90657459EDAB05A25440C2EDDAB6D15577CB437FAEF95DA939767885F05F0E",
-    "wad/modules/Domenia-Live.UI.ps1": "D4690BEF1996E69C3F493309DD86AE8D53AB9A7BCB366306A0B0E8689876A211",
+    "wad/modules/Domenia-Live.UI.ps1": "E3021888410EDA0C8CA629CEAFF7B9C884C2336D69D3EE80666690D7FE62D965",
     "wad/modules/Domenia-Receipts.Worker.ps1": "72D43A96BABB55F6EB5C008018EB1C4AA1C0A1265402FBAD7294C1113735B68E",
     "wad/modules/Domenia-Reconcile.UI.ps1": "845F7531CCD8FB82BB4CECB5210E47E9C86E5E2C0913074D8BE460E814F52288",
     "wad/modules/Domenia-Relations.UI.ps1": "42567220C9A3D71C02498303A14BA2E39E125E30D26700EA418E259A4BF37B1E",
@@ -1747,6 +1747,20 @@
       "ChangedPayloads": [
         "wad/modules/Domenia-Live.UI.ps1",
         "wad/modules/Domenia-Relations.UI.ps1"
+      ]
+    },
+    {
+      "Previous": "selection videe partout 2026-10-05",
+      "Source": "colonne Compte recherche universelle 2026-10-05",
+      "Decision": "Decisions David 2026-10-05 : colonne Login renommee Compte et valable pour tous les types (utilisateur : login ; poste : compte de l utilisateur associe ; groupe : nom de compte ; OU et conteneur : vide), masquee quand aucune ligne n a de compte. Recherche universelle : Reverifier ce poste actif seulement pour un seul poste selectionne, Detecter la liste seulement si la liste contient un poste (Update-DomeniaSearchActionStates, Update-DomeniaLoginColumnFromRows). Boutons de detection compacts (30 px) pour garder la grille a 516 px. Suites VM : Geometry 42/42, Selection 47/47, Preload 103/103, Streaming, SearchPresence 61/61, WiringCache 143/143, WiringRecherche 32/32, ParkDetection 22/22, Modules 102/102.",
+      "ChangedCoreFunctions": [
+        "Get-MainXaml",
+        "Wire-Events"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": [
+        "wad/modules/Domenia-Live.UI.ps1"
       ]
     }
   ]

@@ -102,8 +102,50 @@ function Test-DomeniaLiveSearchActive {
     $s=$script:Live.Search
     return (-not $s.Stopped -and (Test-DomeniaLiveIdentity $s ([long]$script:SessionEpoch) $script:Live.Identity) -and (Test-DomeniaSearchStateCurrent $s.State))
 }
+function Set-DomeniaLoginColumnVisible {
+    # Decision David 2026-10-05: the 'Compte' column (user login, linked account of a workstation, group account name)
+    # is shown only when at least one listed row has such an account.
+    param([bool]$Visible)
+    $grid=Get-DomeniaControl 'DgObjects';if($null -eq $grid){return}
+    $wanted=if($Visible){'Visible'}else{'Collapsed'}
+    foreach($column in @($grid.Columns)){if([string]$column.Header -ceq 'Compte' -and [string]$column.Visibility -ne $wanted){$column.Visibility=$wanted}}
+}
+function Update-DomeniaLoginColumnFromRows {
+    param($Rows)
+    # One pass over the list: the 'Compte' column and the workstation-only actions follow what it holds.
+    $hasAccount=$false;$hasMachine=$false
+    foreach($row in @($Rows)){
+        if(-not $hasAccount -and (Test-DomeniaRowHasAccount $row)){$hasAccount=$true}
+        if(-not $hasMachine -and $null -ne $row -and [string]$row.Type -eq 'Machine'){$hasMachine=$true}
+        if($hasAccount -and $hasMachine){break}
+    }
+    Set-DomeniaLoginColumnVisible $hasAccount
+    $script:SearchListHasMachine=$hasMachine
+    Update-DomeniaSearchActionStates
+}
+function Update-DomeniaSearchActionStates {
+    # Decision David 2026-10-05: one search for every object type; a workstation-only action is greyed when it
+    # does not apply (selection that is not a single workstation, list without any workstation).
+    $grid=Get-DomeniaControl 'DgObjects';if($null -eq $grid){return}
+    $ready=[bool]$grid.IsEnabled
+    $selected=@($grid.SelectedItems)
+    $recheck=Get-DomeniaControl 'BtnLiveRecheck'
+    if($null -ne $recheck){$recheck.IsEnabled=($ready -and $selected.Count -eq 1 -and [string]$selected[0].Type -eq 'Machine')}
+    $detect=Get-DomeniaControl 'BtnParkResults'
+    if($null -ne $detect -and -not $script:DemoMode){$detect.IsEnabled=($ready -and [bool]$script:SearchListHasMachine)}
+}
+function Test-DomeniaRowHasAccount {
+    # User or group: its own account name. Workstation: the login of its linked account (decision David 2026-10-05).
+    param($Row)
+    if($null -eq $Row){return $false}
+    $type=[string]$Row.Type
+    if($type -eq 'Machine'){return [bool][string]$Row.Association}
+    return ($type -in @('Utilisateur','Groupe') -and [bool][string]$Row.Login)
+}
 function Begin-DomeniaLiveSearch {
     param($State,$Payload)
+    Set-DomeniaLoginColumnVisible $false
+    $script:SearchListHasMachine=$false;Update-DomeniaSearchActionStates
     if($null -eq $script:Live){Initialize-DomeniaLive}
     if($null -eq $script:Live){throw 'Chargement progressif indisponible. Consulter le journal.'}
     Reset-DomeniaLiveIdentity;Stop-DomeniaLiveSearch
@@ -244,6 +286,8 @@ function Add-DomeniaLiveRow {
         try{if(-not [bool]$s.PSObject.Properties['OutOfScopeLogged']){Write-AppLog ('Ligne hors perimetre ecartee ('+$(if($fresh){'AD'}else{'cache'})+') : '+[string]$snapshot.DN+' ; perimetre '+[string]$s.State.BaseDn) 'WARN';$s|Add-Member -NotePropertyName OutOfScopeLogged -NotePropertyValue $true -Force}}catch{}
         return
     }
+    if([string]$snapshot.Type -eq 'Machine' -and -not $script:SearchListHasMachine){$script:SearchListHasMachine=$true;Update-DomeniaSearchActionStates}
+    if([string]$snapshot.Type -in @('Utilisateur','Groupe') -and [string]$snapshot.Login -and -not [bool]$s.PSObject.Properties['LoginShown']){Set-DomeniaLoginColumnVisible $true;$s|Add-Member -NotePropertyName LoginShown -NotePropertyValue $true -Force}
     $isNew=-not $s.Map.ContainsKey($key)
     if($isNew){
         if($s.Rows.Count -ge [int]$s.State.Limit){
@@ -274,6 +318,7 @@ function Add-DomeniaLiveRow {
     if($fresh){if(-not $s.Fresh.ContainsKey($key)){[void]$s.FreshOrder.Add($snapshot)};$s.Fresh[$key]=$snapshot}
     if($isNew){
         [void](Set-RowAssociationMetadata -Rows @($row))
+        if([string]$row.Type -eq 'Machine' -and [string]$row.Association -and -not [bool]$s.PSObject.Properties['LoginShown']){Set-DomeniaLoginColumnVisible $true;$s|Add-Member -NotePropertyName LoginShown -NotePropertyValue $true -Force}
         $row.Presence=$(if($row.Type -eq 'Machine'){'Non vérifié'}else{'Sans objet'})
         if(-not $fresh){$s.CacheKeys.Enqueue($key)}
         $observation=$null
@@ -520,6 +565,7 @@ function Complete-DomeniaLiveProbe {
                     Update-DomeniaObjectPresence -State ([string]$row.Presence) -Target ([string]$State.Computer)
                 }
                 [void](Set-RowAssociationMetadata -Rows @($row));$s.RefreshNeeded=$true
+                if([string]$row.Association){Set-DomeniaLoginColumnVisible $true}
             }
         }
     }
@@ -745,6 +791,8 @@ function Invoke-DomeniaLiveTick {
                         }
                     }else{$s.Finalized=$true}
                     if($s.Finalized){
+                        # Cached rows may have been pruned: the 'Compte' column and the workstation actions follow the final list.
+                        Update-DomeniaLoginColumnFromRows $s.Rows
                         # The selection kept for this search is no longer in the list: clear it everywhere.
                         if($null -ne $grid -and @($grid.SelectedItems).Count -eq 0 -and ($null -ne $script:SelectionLoad -or $null -ne $script:SelectedObject)){Clear-DomeniaSelectionEverywhere}
                         $label=if($s.Error){'Liste partielle · '+$s.Fresh.Count+' résultat(s) AD · vérification incomplète'}else{"$($s.Fresh.Count) résultat(s) AD vérifiés"}
