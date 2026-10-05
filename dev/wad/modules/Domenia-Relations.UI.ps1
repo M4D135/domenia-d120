@@ -79,6 +79,19 @@ function Set-DomeniaRelationsGridSelection {
         if($null -ne $identity){Set-DomeniaRelationsSelection -SelectionIdentity $identity}
     }
 }
+function Clear-DomeniaRelationsSelection {
+    # Field report 2026-10-05: once nothing is selected any more, Relations no longer shows the former subject.
+    Initialize-DomeniaRelationsState
+    $r=$script:Relations
+    if($null -eq $r.Subject){return}
+    foreach($job in @([string]$r.ManualSearchJob,$(if($null -ne $r.Query){[string]$r.Query.Job}else{''}))){if($job){try{Request-UiTaskStop -Id $job -Silent -Force -Superseded -Reason 'Selection videe'}catch{}}}
+    if($null -ne $r.Timer){$r.Timer.Stop()}
+    $r.Subject=$null;$r.Generation++;$r.Query=$null;$r.PendingConfirmed=$null;$r.PendingAssociation=$null;$r.PendingPlan=$null
+    $r.ManualSearchJob='';$r.ManualSearchRequest='';$r.ManualSearchRows=@();$r.SubjectNotice=''
+    if(Get-DomeniaFeatureFlag 'RelationsSymmetry' $true){$r.AssociationState=[string](Step-DomeniaAssociationState ([string]$r.AssociationState) 'SubjectChanged').State}
+    [void](Set-DomeniaControlText 'LblLinkProbeStatus' 'Aucune recherche complémentaire en cours.')
+    Refresh-DomeniaRelationViews
+}
 function Get-DomeniaRelationsSubject {
     Initialize-DomeniaRelationsState
     if($null -eq $script:Relations.Subject -and $null -ne $script:SelectedObject){Set-DomeniaRelationsSelection -Object $script:SelectedObject}

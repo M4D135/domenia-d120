@@ -745,6 +745,8 @@ function Invoke-DomeniaLiveTick {
                         }
                     }else{$s.Finalized=$true}
                     if($s.Finalized){
+                        # The selection kept for this search is no longer in the list: clear it everywhere.
+                        if($null -ne $grid -and @($grid.SelectedItems).Count -eq 0 -and ($null -ne $script:SelectionLoad -or $null -ne $script:SelectedObject)){Clear-DomeniaSelectionEverywhere}
                         $label=if($s.Error){'Liste partielle · '+$s.Fresh.Count+' résultat(s) AD · vérification incomplète'}else{"$($s.Fresh.Count) résultat(s) AD vérifiés"}
                         $limited=($null -ne $s.Final -and [bool]$s.Final.LimitReached)
                         if($limited){$label+=' · limite atteinte, affiner'}

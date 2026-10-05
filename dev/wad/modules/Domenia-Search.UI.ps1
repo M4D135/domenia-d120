@@ -175,7 +175,7 @@ function Restore-DomeniaNavState {
         $grid = Get-DomeniaControl 'DgObjects'
         $otherRows = ($null -ne $grid -and $null -ne $State.Rows -and -not [object]::ReferenceEquals($grid.ItemsSource,$State.Rows))
         # Another list is displayed now: stop following it before showing the remembered rows.
-        if ($otherRows) { Invalidate-DomeniaSearchResults }
+        if ($otherRows) { Invalidate-DomeniaSearchResults -KeepSelection }
         [void](Set-DomeniaControlText -Name 'TxtGlobalSearch' -Text ([string]$State.Text))
         [void](Set-DomeniaControlText -Name 'TxtBranchSearch' -Text ([string]$State.BranchText))
         try { if ($null -ne $script:LiveSearchTimer) { $script:LiveSearchTimer.Stop() } } catch { }

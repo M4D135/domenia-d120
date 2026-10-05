@@ -6845,6 +6845,7 @@ function Update-DomeniaSearchScopeUi {
 }
 
 function Invalidate-DomeniaSearchResults {
+    param([switch]$KeepSelection)
     Stop-DomeniaLiveSearch
     # Toute modification de perimetre invalide aussi les retours deja en vol.
     $script:GlobalSearchGeneration = [int]$script:GlobalSearchGeneration + 1
@@ -6866,6 +6867,8 @@ function Invalidate-DomeniaSearchResults {
     try { [void](Set-DomeniaItemsSource -Name 'DgObjects' -Rows @()) }
     finally { $script:SuppressGridSelectionEvents = $wasSuppressed }
     [void](Set-DomeniaControlText -Name 'LblBranchCount' -Text $script:BranchCountLabel)
+    # The list is reset: the former selection is no longer shown anywhere (unless it is restored by this search).
+    if (-not $KeepSelection) { Clear-DomeniaSelectionEverywhere }
 }
 
 function Test-DomeniaSearchStateCurrent {
@@ -9761,7 +9764,7 @@ function Invoke-GlobalSearch {
         $navHook = Get-Command Enter-DomeniaNavSearch -CommandType Function -ErrorAction SilentlyContinue
         if ($null -ne $navHook) { Enter-DomeniaNavSearch }
         Set-DomeniaSearchMode -Mode $SearchMode
-        Invalidate-DomeniaSearchResults
+        Invalidate-DomeniaSearchResults -KeepSelection:([bool]$preserveDn)
         $generation = [int]$script:GlobalSearchGeneration
         $script:ActiveSearchViewId = $(if ($null -ne $view) { [string]$view.Id } else { '' })
         [void](Set-DomeniaControlText -Name 'LblSearchHint' -Text $searchHint)
@@ -10199,8 +10202,7 @@ function Queue-DomeniaSelectedObjectOpen {
         return
     }
     if ($null -eq $context) {
-        Clear-DomeniaLiveProbeIntent
-        Clear-DomeniaPreloadSelection
+        Clear-DomeniaSelectionEverywhere
         return
     }
     $same = ($null -ne $script:SelectionLoad -and (Test-DomeniaSameSelectionContext $script:SelectionLoad.Context $context))

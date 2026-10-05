@@ -47,6 +47,7 @@ function Begin-DomeniaLiveSearch {
 function Get-WPropFirst {param($Props,$Name,$Default) return $Default}
 function Convert-WGuid {param($Value) return [string]$Value}
 function Stop-DomeniaSelectionOpenTimer { }
+function Clear-DomeniaSelectionEverywhere { $script:SelectionClearedEverywhere=[int]$script:SelectionClearedEverywhere+1 }
 function Select-DomeniaWorkspace {param($Workspace,$Inner,$Tab) $script:CurrentPage=$Workspace}
 function Request-UiTaskStop {param($Id,[switch]$Silent,[switch]$Force,[switch]$Superseded) [void]$script:Stopped.Add($Id)}
 function Set-DomeniaItemsSource {param($Name,$Rows) $script:Ctrl[$Name].ItemsSource=@($Rows);return $true}
@@ -122,7 +123,7 @@ Test-Case 'Texte conserve dans la recherche OU' { $script:Ctrl.TxtBranchSearch.T
 Test-Case 'Recherche vide lit le contenu sans ajouter une etoile au champ' { Invoke-GlobalSearch -SearchMode OU;Assert-Test ($null -ne $script:LastTask -and $script:Ctrl.TxtBranchSearch.Text -eq '' -and $script:LastTask.Payload.BroadFilter -eq (Get-GlobalSelectedTypeFilter)) }
 Test-Case 'Groupes proposes et filtres cote requete' { $script:Ctrl.CmbGlobalType.SelectedItem.Content='Groupes';Invoke-GlobalSearch -SearchMode OU;Assert-Test ($script:LastTask.Payload.BroadFilter -eq '(objectCategory=group)') }
 Test-Case 'OU et conteneurs proposes' { $script:Ctrl.CmbGlobalType.SelectedItem.Content='OU et conteneurs';Invoke-GlobalSearch -SearchMode OU;Assert-Test ($script:LastTask.Payload.BroadFilter -match 'organizationalUnit') }
-Test-Case 'Limite bornee a 500' { $script:Ctrl.TxtGlobalLimit.Text='9999';Invoke-GlobalSearch -SearchMode OU;Assert-Test ($script:LastTask.Payload.Limit -eq 500) }
+Test-Case 'Limite bornee a 20000' { $script:Ctrl.TxtGlobalLimit.Text='99999';Invoke-GlobalSearch -SearchMode OU;Assert-Test ($script:LastTask.Payload.Limit -eq 20000) }
 Test-Case 'Limite negative revient a 100' { $script:Ctrl.TxtGlobalLimit.Text='-2';Invoke-GlobalSearch -SearchMode OU;Assert-Test ($script:LastTask.Payload.Limit -eq 100) }
 Test-Case 'Pas d apercu local global sous une OU' { $script:Ctrl.TxtBranchSearch.Text='Alex';Invoke-GlobalSearch -SearchMode OU;Assert-Test ($script:LocalReads -eq 0) }
 Test-Case 'Pas d apercu local global en OneLevel' { $script:SelectedBranchDn=$script:Conn.BaseDn;$script:Ctrl.ChkSubtree.IsChecked=$false;$script:Ctrl.TxtBranchSearch.Text='Alex';Invoke-GlobalSearch -SearchMode OU;Assert-Test ($script:LocalReads -eq 0) }

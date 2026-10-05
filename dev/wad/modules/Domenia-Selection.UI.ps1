@@ -257,6 +257,23 @@ function Clear-DomeniaPreloadSelection {
     }
 }
 
+function Clear-DomeniaSelectionEverywhere {
+    # Field report 2026-10-05: once the list no longer holds the selected row (list reset, new search, empty
+    # selection), nothing of the former object stays displayed: search line, object card, Assistance poste, Relations.
+    try{Clear-DomeniaLiveProbeIntent}catch{}
+    Clear-DomeniaPreloadSelection
+    try{Reset-DomeniaSelectionBoundViews}catch{}
+    $script:SelectedObject=$null
+    $text='Aucun objet sélectionné : choisissez une ligne dans Rechercher.'
+    foreach($kind in @('Object','Computer')){
+        $title=Get-DomeniaControl ('Lbl'+$kind+'ReadStatus');if($null -ne $title){$title.Text=$text;$title.ToolTip=$text}
+        $empty=Get-DomeniaControl ($kind+'ReadPlaceholder');if($null -ne $empty){$empty.Visibility='Visible'}
+        $retry=Get-DomeniaControl ('Btn'+$kind+'ReadRetry');if($null -ne $retry){$retry.Visibility='Hidden'}
+    }
+    [void](Set-DomeniaControlText 'LblLinkContext' 'Aucune sélection.')
+    try{Clear-DomeniaRelationsSelection}catch{}
+}
+
 function Enter-DomeniaSelectionContext {
     param($Context)
     Stop-DomeniaSelectionOpenTimer
