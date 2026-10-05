@@ -20719,8 +20719,8 @@ function Get-DomeniaWorkerOperationHashes {
         PresenceScan          = "E7F81414C29C1C8F1E91453D9EC4BA48B6F92F0AA0E2674C9EBF5C88437F4486"
         SelectedPresence      = "4ECADF4F231390182A3BF091EF8636B3536D7B3F8A28EF3984DE1E2D524D5BFA"
         StartupWarmCache      = "864735012ED29EBAF1B094DA12C1D44266933DC9D3D2046BD1E5D68AE58CA1A3"
-        LiveSelectedPing     = "AC435296DB11EE19E4DA45C65C5373EEFB0E031CA18F1216BE6375774F6EA9C9"
-        LiveConsole          = "AC435296DB11EE19E4DA45C65C5373EEFB0E031CA18F1216BE6375774F6EA9C9"
+        LiveSelectedPing     = "6479F173DD0503C41B07200629121C6967C27CDB506FDCB48BCD70BA8CCBA136"
+        LiveConsole          = "6479F173DD0503C41B07200629121C6967C27CDB506FDCB48BCD70BA8CCBA136"
         LiveCache            = "C4C1A3C6D502680012CB92465FF70FB70713D577731A6894D03C24CB56972289"
         LiveDirectoryCheck    = "49F6D4249F6465D6E461D3B04DD090F00477ABBD871683ECF3622714A2AB53CD"
         SessionsList         = "DD09187778C09CF31B0BDA41EAC88FF898D9484756AFDF2F3EE643E6B5318BF6"
@@ -20740,7 +20740,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "0C870139B03026B400B23C87A594619A555A8566D0E7E7FA6C20610B45885B0C"
+    $expectedFingerprint = "D3D52BE5D7DBABC6D4B693595D8C698D5A83524DF31F69F308C43D65D5B97386"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }

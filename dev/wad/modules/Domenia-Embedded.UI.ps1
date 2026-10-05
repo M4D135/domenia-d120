@@ -172,8 +172,13 @@ function Show-DomeniaEmbeddedWindow {
             $multiline=($e.OriginalSource -is [Windows.Controls.TextBox] -and $e.OriginalSource.AcceptsReturn)
             if(-not $multiline){$d=@($defaults|Where-Object{$_.IsEnabled -and $_.IsVisible}|Select-Object -First 1);if($d.Count){$d[0].RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent));$e.Handled=$true}}
         }
-        # Prevent an application shortcut from acting on the disabled page underneath.
-        if([Windows.Input.Keyboard]::Modifiers -ne [Windows.Input.ModifierKeys]::None -and $e.Key -notin @([Windows.Input.Key]::Tab,[Windows.Input.Key]::LeftShift,[Windows.Input.Key]::RightShift)){$e.Handled=$true}
+        # Prevent an application shortcut from acting on the disabled page underneath. Never inside a text or
+        # password field (Shift and AltGr = Ctrl+Alt type characters, Ctrl+C/V/A edit the field), and Shift alone
+        # is not a shortcut (field report 2026-10-05: uppercase and AltGr characters could not be typed).
+        $focused=[Windows.Input.Keyboard]::FocusedElement
+        $inText=(($e.OriginalSource -is [Windows.Controls.Primitives.TextBoxBase]) -or ($e.OriginalSource -is [Windows.Controls.PasswordBox]) -or ($focused -is [Windows.Controls.Primitives.TextBoxBase]) -or ($focused -is [Windows.Controls.PasswordBox]))
+        $shortcut=(([Windows.Input.Keyboard]::Modifiers -band ([Windows.Input.ModifierKeys]::Control -bor [Windows.Input.ModifierKeys]::Alt)) -ne [Windows.Input.ModifierKeys]::None)
+        if((-not $inText) -and $shortcut -and $e.Key -ne [Windows.Input.Key]::Tab){$e.Handled=$true}
     }.GetNewClosure()
     $layer.Add_KeyDown($keys)
     $keyUp={param($sender,$e)

@@ -239,6 +239,11 @@ function Add-DomeniaLiveRow {
     if(-not $fresh -and $s.Fresh.ContainsKey($key)){return}
     $snapshot=ConvertTo-DomeniaLiveSnapshot $source
     if($snapshot.Type -notin @('Utilisateur','Machine','Groupe','OU','Conteneur')){if($fresh){$s.Error='Type LDAP inattendu : résultat partiel.'};return}
+    # A row outside the scope of this search (another OU, from the cache or a late result) is never displayed.
+    if(-not (Test-DomeniaLiveRowInScope -Dn ([string]$snapshot.DN) -BaseDn ([string]$s.State.BaseDn) -Scope ([string]$s.State.Scope))){
+        try{if(-not [bool]$s.PSObject.Properties['OutOfScopeLogged']){Write-AppLog ('Ligne hors perimetre ecartee ('+$(if($fresh){'AD'}else{'cache'})+') : '+[string]$snapshot.DN+' ; perimetre '+[string]$s.State.BaseDn) 'WARN';$s|Add-Member -NotePropertyName OutOfScopeLogged -NotePropertyValue $true -Force}}catch{}
+        return
+    }
     $isNew=-not $s.Map.ContainsKey($key)
     if($isNew){
         if($s.Rows.Count -ge [int]$s.State.Limit){

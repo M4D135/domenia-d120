@@ -135,6 +135,23 @@ function Test-DomeniaPresenceMatch {
     if($state -eq 'Hors ligne'){$state='Sans réponse au ping'}
     return ($state -eq $Filter)
 }
+function Test-DomeniaLiveRowInScope {
+    # A displayed row must belong to the scope of the running search: a row from another OU (cache or late
+    # result) is never shown. An empty base accepts everything (no scope to enforce).
+    param([AllowNull()][string]$Dn,[AllowNull()][string]$BaseDn,[AllowNull()][string]$Scope)
+    $base=([string]$BaseDn).Trim()
+    if(-not $base){return $true}
+    $dn=([string]$Dn).Trim()
+    if(-not $dn){return $false}
+    if($dn -ieq $base){return $true}
+    if(-not $dn.EndsWith(','+$base,[StringComparison]::OrdinalIgnoreCase)){return $false}
+    if([string]$Scope -ieq 'OneLevel'){
+        # Direct children only: the remaining part is a single RDN (no unescaped comma).
+        $rest=$dn.Substring(0,$dn.Length-$base.Length-1)
+        return ($rest -notmatch '(?<!\\),')
+    }
+    return $true
+}
 function Get-DomeniaLiveProbeCode {
     return @'
 $target=[string]$Payload.Computer
@@ -157,10 +174,11 @@ try {
     $ping=New-Object Net.NetworkInformation.Ping
     # Resolve first and prefer IPv4: when a name also resolves to IPv6, Ping.Send(name) can fail with a generic
     # PingException where ping.exe falls back to IPv4 (field report 2026-10-05).
-    $addresses=@([Net.Dns]::GetHostAddresses($target))
+    # When the resolution itself fails, the name is pinged as before and the error names the cause.
+    $addresses=@();try{$addresses=@([Net.Dns]::GetHostAddresses($target))}catch{$addresses=@()}
     $address=@($addresses|Where-Object{$_.AddressFamily -eq [Net.Sockets.AddressFamily]::InterNetwork}|Select-Object -First 1)
     if(-not $address.Count){$address=@($addresses|Select-Object -First 1)}
-    if(-not $address.Count){throw 'Nom non résolu par le DNS.'}
+    if(-not $address.Count){$address=@($target)}
     $p=$ping.Send($address[0],900)
     if($null -ne $p -and [string]$p.Status -eq 'Success') {
         $answer.Presence='En ligne';$answer.PresenceDetail='Réponse ICMP · '+[string]$p.RoundtripTime+' ms · '+[string]$address[0]

@@ -1,5 +1,5 @@
 {
-  "Archive": "ping IPv4 2026-10-05",
+  "Archive": "clavier perimetre ping 2026-10-05",
   "ArchiveSHA256": "655ED21F90345B3C7667D4E777814C6A0595A5D5BE628AD587FB46CCA5241922",
   "CoreFunctions": {
     "Write-DomeniaAtomicText": "1C9A1583F52EB7BE80BE420662653E4AF886FE11DC4FDB3B1C4CDF19FD1C0EDA",
@@ -489,8 +489,8 @@
     "Load-UserMachineLinks": "D588E9FAB3DB852FD760624C2A463CDEA8A5B97BAF550C273F8C7C1B2CB7776D",
     "ConvertTo-DomeniaCanonicalWorkerCode": "48A6A851309CF03C8AA4802B160FC0C9D3234B795C63D0BAED6923BF42FE2FAF",
     "Get-DomeniaWorkerCodeHash": "6B81660F207AAEB37BA076144EDD12F5A926F9F64858B03755C2567E335C0D16",
-    "Get-DomeniaWorkerOperationHashes": "518263054756DD96ECEE5165AC630AC536FC17BD117C60835ACFCB17556C614B",
-    "Assert-DomeniaWorkerRegistry": "BC5DFE7A7D4E64BCF60AA55DD2DB73D7B3A98DF41254AC6A8847D300A46443E2",
+    "Get-DomeniaWorkerOperationHashes": "AF19C7051BFA5D60F3EFC0CE217F0B060FB40DA3B4EA2D32A9F2B7B8C1A555A1",
+    "Assert-DomeniaWorkerRegistry": "5EEAACF0B5FFFB5B07B3416CBA5D27026A3719BEAF65027500B8CD1D70785310",
     "Assert-DomeniaWorkerOperationCode": "41D63871EDC11F5765938E6DAF8004A01471CD63E9666E2569D6E43008032526",
     "Get-DomeniaWorkerEngineSelfTestCode": "7FB07491846A78A89C13351DC07ABCA7B150642EE02AA25FF430A19942001AF0",
     "New-DomeniaWorkerRunspace": "8D2FB4E8786E147F555EC5860E76F8EB0D606D66BF9A610F43A0CC2836197A0D",
@@ -835,7 +835,7 @@
     "wad/modules/Domenia-Guard.UI.ps1": "11ED5549BE999C0A7DC039386ECBFB0B424668AE8CF117C0F0AE03783F12917A",
     "wad/modules/Domenia-Live.Model.ps1": "6B2C5C145D2354DED32577F45D59945B397D6AFBA91A5BACBB61B0BF8221BE19",
     "wad/modules/Domenia-Live.Types.cs": "EA90657459EDAB05A25440C2EDDAB6D15577CB437FAEF95DA939767885F05F0E",
-    "wad/modules/Domenia-Live.UI.ps1": "3794E5FD911C5BE770FF3DAB783C71D6AF5C72E7402DB2911E405BB460F15F1B",
+    "wad/modules/Domenia-Live.UI.ps1": "CF40442996B663249A20B8014BAF70756F09EDDD4AA3294F15FCD07C0C6BD388",
     "wad/modules/Domenia-Receipts.Worker.ps1": "72D43A96BABB55F6EB5C008018EB1C4AA1C0A1265402FBAD7294C1113735B68E",
     "wad/modules/Domenia-Reconcile.UI.ps1": "845F7531CCD8FB82BB4CECB5210E47E9C86E5E2C0913074D8BE460E814F52288",
     "wad/modules/Domenia-Relations.UI.ps1": "8DC98BA7666C63765A43718F7631126F6EFADB651A966061FF09DDA6AFCB380E",
@@ -1665,6 +1665,20 @@
       "AddedCoreFunctions": [],
       "RemovedCoreFunctions": [],
       "ChangedPayloads": []
+    },
+    {
+      "Previous": "ping IPv4 2026-10-05",
+      "Source": "clavier perimetre ping 2026-10-05",
+      "Decision": "Retours terrain du 2026-10-05 : (1) Domenia-Embedded.UI : le panneau integre (Autre compte, etc.) bloquait toute touche avec modificateur, donc Maj et AltGr dans les champs de mot de passe ; il ne bloque plus que Ctrl ou Alt hors champ de saisie. (2) Domenia-Live.UI Add-DomeniaLiveRow + Test-DomeniaLiveRowInScope (Live.Model) : une ligne hors du perimetre de la recherche en cours (autre OU, cache ou resultat tardif) n est jamais affichee et est journalisee. (3) Ping : resolution DNS puis adresse IPv4 en priorite, repli sur le nom si la resolution echoue (LiveConsole, LiveSelectedPing re-epingles). Suites VM : SearchPresence 61/61, Streaming vert, Modules 101/101.",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Get-DomeniaWorkerOperationHashes"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": [
+        "wad/modules/Domenia-Live.UI.ps1"
+      ]
     }
   ]
 }

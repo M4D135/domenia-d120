@@ -659,6 +659,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Test-DomeniaLiveIdentity',
             'Get-DomeniaLivePresenceView',
             'Test-DomeniaPresenceMatch',
+            'Test-DomeniaLiveRowInScope',
             'Get-DomeniaLiveProbeCode',
             'Get-DomeniaLiveCacheCode'
         ) }
