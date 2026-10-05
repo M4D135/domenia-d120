@@ -144,7 +144,7 @@
     "File": "wad/Domenia-Core.ps1",
     "Function": "Start-ComputerDiagnostics",
     "LiteralIndex": 0,
-    "Sha256": "CD844877946FB2D144846A098E7E33A3856337613F5AA9C8633D8E1B378BB785"
+    "Sha256": "BF2903E02E09571D4DCDEAE0039616C2E57E7B08978722035F34E2CCF17B39A4"
   },
   {
     "Operation": "ComputerLastUser",

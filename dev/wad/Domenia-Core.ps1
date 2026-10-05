@@ -15887,7 +15887,8 @@ try {
             $size = [Math]::Round([double]$d.Size / 1GB,1)
             $pct = 0
             if ([double]$d.Size -gt 0) { $pct = [Math]::Round(100.0 * [double]$d.FreeSpace / [double]$d.Size,0) }
-            return ($free + ' Go libres sur ' + $size + ' Go, soit ' + $pct + ' pour cent')
+            # Field report 2026-10-05: number + text converted the text to a number and failed. Formatted as text.
+            return ('{0:N1} Go libres sur {1:N1} Go, soit {2:N0} pour cent' -f $free,$size,$pct)
         }
         Add-Diag 'Redemarrage en attente' {
             $keys = @(
@@ -20688,7 +20689,7 @@ function Get-DomeniaWorkerOperationHashes {
         IndexBuild            = "4FC47EF863C2EE3F31D7D868F947D35905DCE9FC1BDDEEB0DBEFD4A179C3E7E0"
         UserComputerProbe     = "EB7C36419C1B8B91AFB9ECE6B98D4E3FE663B87E4011F7D264D8AEDE7735E775"
         ComputerInventory     = "87D68E504BC8311DB952A143475CF7676C6223246AE00DF715432E85DDE0323C"
-        ComputerDiagnostics   = "CD844877946FB2D144846A098E7E33A3856337613F5AA9C8633D8E1B378BB785"
+        ComputerDiagnostics   = "BF2903E02E09571D4DCDEAE0039616C2E57E7B08978722035F34E2CCF17B39A4"
         ComputerLastUser      = "8F79C42CE673CE98DBE30EB30B9DBF246D8819B08149A4FBA1C5F9BA894395F9"
         CmdletInventory       = "FA1105E9540BBC2AB373FC45037CC54FA11EB8BD9B058194CE44C422E812DF75"
         ComputerPing          = "BE1A5B70CCA9477571D839A85A1330334210DA891C53DBA257814486369F5887"
@@ -20735,7 +20736,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "7D3BDA4A5DC820AD04DD971DEDB4F24362FD83E8DA555431ADC828ABA97C3A55"
+    $expectedFingerprint = "315B76F8FA6EEF21B7763AC40620DA4500BECDB4C555305C554FAD71A2190376"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }

@@ -1,5 +1,5 @@
 {
-  "Archive": "plafond recherche 20000 2026-10-05",
+  "Archive": "diagnostic disque systeme 2026-10-05",
   "ArchiveSHA256": "655ED21F90345B3C7667D4E777814C6A0595A5D5BE628AD587FB46CCA5241922",
   "CoreFunctions": {
     "Write-DomeniaAtomicText": "1C9A1583F52EB7BE80BE420662653E4AF886FE11DC4FDB3B1C4CDF19FD1C0EDA",
@@ -376,7 +376,7 @@
     "Ensure-DomeniaPermissions": "8DAA53B2A1C49AE68A4F57E22DE11B8FC0448A946F9D0AE22809AC2BD7679571",
     "Register-DomeniaDeferredViewHandlers": "68FF9E5E56FD29EC1AB8D88F02EF95D029E9A781E5F6290F4925E5D07A8604C4",
     "Register-DomeniaShortcuts": "343835921121E80E31F773B841C4BCAAAF106E9403B7C1773D0A490E20470D39",
-    "Start-ComputerDiagnostics": "558184CC62F1EA7D6E28EBA3618BFBBBC218A0BDD41C9A3C36A70985ECA5A12F",
+    "Start-ComputerDiagnostics": "43AD2B2580750737491734B51C1199452037EFD99D696C2261B67AAC354E8CA4",
     "Copy-ComputerDiagnostics": "A188275C51CFCAF2D55C5B9AC31B3F37B8B0437EA33B36A4BF243894D8F74E69",
     "Get-DomeniaRunningComputerUserProbe": "AAAEE5EFFB592A6489AD11D2D49938E509181AA78152D4A6E4F790A9DF7A9872",
     "Clear-DomeniaComputerUserProbeState": "CFB0566F82093241E0919721488D728C875C004989925DEA56BAD6D422F3302F",
@@ -489,8 +489,8 @@
     "Load-UserMachineLinks": "D588E9FAB3DB852FD760624C2A463CDEA8A5B97BAF550C273F8C7C1B2CB7776D",
     "ConvertTo-DomeniaCanonicalWorkerCode": "48A6A851309CF03C8AA4802B160FC0C9D3234B795C63D0BAED6923BF42FE2FAF",
     "Get-DomeniaWorkerCodeHash": "6B81660F207AAEB37BA076144EDD12F5A926F9F64858B03755C2567E335C0D16",
-    "Get-DomeniaWorkerOperationHashes": "52B142AD6C2221B87241A0B2CE7F3DD31140E4D6A18C9F6F166BB77994A8F63F",
-    "Assert-DomeniaWorkerRegistry": "5A3EF53F5B5A372ED2A7584A9EF5E4B11E0B040BF05547158417BCF8D1EB64AB",
+    "Get-DomeniaWorkerOperationHashes": "E4B181ECBC6DFB94B8FEFC67DBAC421FD695D33468714F865F878698152DAEFB",
+    "Assert-DomeniaWorkerRegistry": "74B9C50A5066521BCF3FE580FACAC86C51087F0A757ECD9089D585488ADE4465",
     "Assert-DomeniaWorkerOperationCode": "41D63871EDC11F5765938E6DAF8004A01471CD63E9666E2569D6E43008032526",
     "Get-DomeniaWorkerEngineSelfTestCode": "7FB07491846A78A89C13351DC07ABCA7B150642EE02AA25FF430A19942001AF0",
     "New-DomeniaWorkerRunspace": "8D2FB4E8786E147F555EC5860E76F8EB0D606D66BF9A610F43A0CC2836197A0D",
@@ -1719,6 +1719,19 @@
       "ChangedPayloads": [
         "wad/modules/Domenia-Live.UI.ps1"
       ]
+    },
+    {
+      "Previous": "plafond recherche 20000 2026-10-05",
+      "Source": "diagnostic disque systeme 2026-10-05",
+      "Decision": "Retour terrain 2026-10-05 : le controle Disque systeme du diagnostic poste echouait (nombre + texte : conversion de 'Go libres sur' en Double). Texte formate avec -f ; worker de diagnostic re-epingle. Erreur reproduite puis corrigee dans la VM (fr-FR : 31,4 Go libres sur 236,6 Go, soit 13 pour cent).",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Get-DomeniaWorkerOperationHashes",
+        "Start-ComputerDiagnostics"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
     }
   ]
 }
