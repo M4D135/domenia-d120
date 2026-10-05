@@ -1,5 +1,5 @@
 {
-  "Archive": "correctif connexion 2026-10-05 final",
+  "Archive": "colonne Login 2026-10-05",
   "ArchiveSHA256": "655ED21F90345B3C7667D4E777814C6A0595A5D5BE628AD587FB46CCA5241922",
   "CoreFunctions": {
     "Write-DomeniaAtomicText": "1C9A1583F52EB7BE80BE420662653E4AF886FE11DC4FDB3B1C4CDF19FD1C0EDA",
@@ -130,7 +130,7 @@
     "Set-DomeniaResourceColor": "27391F9046A85B14658803F03178045ABEDF0B1F4DD5364D7BA5575C5E4F11BE",
     "Apply-DomeniaTheme": "115A426BAE13A4A67A3C252EE193AA35BF115C2BDCD1E1AA4CFC96D63A006010",
     "Toggle-DomeniaTheme": "EA7E0F31A78D8B4A0BFAB0C27D8028521C1C3A1A255DDA4BEA3B65B5F7C99F03",
-    "Get-MainXaml": "A485937E045CBFFBAD6180C8995A339C1DE8BC7685337711D29E229E305BF08C",
+    "Get-MainXaml": "51C74F150515FF9BD34E7DE9CB37F8A92ECE8DF8123185DB19D42F185D04DA18",
     "Assert-DomeniaXamlPreflight": "20BB1DA04FD88D78E1A52C5610376467D5E9408437BC823DDC8EC8F40C0EAEB7",
     "Save-DomeniaXamlDiagnostic": "D648C9D6BD6F5F3A6613957D22A6A42EC1AAC0C1FA6218195A55D10EADF4DC67",
     "ConvertFrom-DomeniaXaml": "855E6CA9E56D62F77F5C22ACAC048293D24281B5B8FCC7FEB6806450BE561228",
@@ -1638,6 +1638,17 @@
       "ChangedCoreFunctions": [
         "Get-DomeniaLoginFailureHint",
         "Invoke-DomeniaInProcessAuthProbe"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "correctif connexion 2026-10-05 final",
+      "Source": "colonne Login 2026-10-05",
+      "Decision": "Retour terrain du 2026-10-05 : la colonne Login de la grille de resultats affichait, pour une machine, son nom de compte AD (sAMAccountName sans le dollar), redondant avec le nom. Get-MainXaml : la colonne devient un DataGridTemplateColumn (meme en-tete, tri sur Login) dont le texte est vide quand Type vaut Machine ; les donnees de la ligne (Login, utilise par l identite de selection) sont inchangees. Utilisateur connecte et association restent dans leurs colonnes. Suites UI vertes dans la VM : Test-Domenia 284, StableUi 52, Selection 47, Geometry 84, SearchPresence 61.",
+      "ChangedCoreFunctions": [
+        "Get-MainXaml"
       ],
       "AddedCoreFunctions": [],
       "RemovedCoreFunctions": [],

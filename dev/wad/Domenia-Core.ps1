@@ -4677,7 +4677,9 @@ function Get-MainXaml {
                               </DataGridTemplateColumn>
                               <DataGridTextColumn Header="Vérification utilisateur" Binding="{Binding SessionState}" Width="175"/>
                               <DataGridTextColumn Header="Fraîcheur AD" Binding="{Binding DirectoryState}" Width="135"/>
-                              <DataGridTextColumn Header="Login" Binding="{Binding Login}" Width="150"/>
+                              <DataGridTemplateColumn Header="Login" SortMemberPath="Login" Width="150">
+                                <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock TextTrimming="CharacterEllipsis" VerticalAlignment="Center"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Text" Value="{Binding Login}"/><Style.Triggers><DataTrigger Binding="{Binding Type}" Value="Machine"><Setter Property="Text" Value=""/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></DataTemplate></DataGridTemplateColumn.CellTemplate>
+                              </DataGridTemplateColumn>
                               <DataGridTextColumn Header="UPN / DNS" Binding="{Binding UPN}" Width="235"/>
                               <DataGridTextColumn Header="Association mémorisée" SortMemberPath="Association" Binding="{Binding Association}" Width="230">
                                 <DataGridTextColumn.HeaderStyle><Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}"><Setter Property="ToolTip" Value="Utilisateur associé au poste ou postes associés au compte. Cette information mémorisée ne prouve pas une session actuelle."/></Style></DataGridTextColumn.HeaderStyle>
