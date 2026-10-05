@@ -266,8 +266,8 @@
     },
     {
       "Path": "engineering/d120/ETAT-2026-10-02.md",
-      "Sha256": "FA4344A275E9DDCA92AADBC454810160B51258F200DBA03E41C45812690676FE",
-      "Bytes": 59697,
+      "Sha256": "C20E166304D4AD7879318B7ADE7B51E06CBFEB145676003FE236D5C3C5FF7B43",
+      "Bytes": 61504,
       "Runtime": false,
       "PreserveExisting": false
     },
