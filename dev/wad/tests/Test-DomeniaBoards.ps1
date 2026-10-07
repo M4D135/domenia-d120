@@ -205,6 +205,7 @@ try{
         Expect ([string]$run.Trial.Seen['Visuals'] -notlike '*Jauge*') ('Representations : '+$run.Trial.Seen['Visuals'])
         $added=@(Get-Layout Software|Where-Object{$_.Key -eq 'software.largest'})
         Expect ($added.Count -eq 1 -and [string]$added[0].Visual -eq 'Column' -and [string]$added[0].Title -eq 'Les plus lourds') 'Widget ajoute incorrect'
+        Expect ([string]$added[0].Group -eq 'Repartition') ('Section du widget ajoute : '+[string]$added[0].Group)
     }
     Case 'Editeur : Modifier change le titre, et un titre remis par defaut redevient vide' {
         $item=@(Get-Layout Software|Where-Object{$_.Key -eq 'software.largest'})[0]

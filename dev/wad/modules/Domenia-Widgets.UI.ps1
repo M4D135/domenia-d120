@@ -755,7 +755,10 @@ function Show-DomeniaBoardEditor {
         $bedWantedSize = if ($bedEditing) { [string]$bedItem.Size } elseif ([string]$Row.Size) { [string]$Row.Size } elseif ([string]$Row.Visual -eq 'Kpi') { 'S' } else { 'M' }
         $bedSize.SelectedItem = [string]$bedSizes[$bedWantedSize]
         $bedTitle.Text = if ($bedEditing -and [string]$bedItem.Title) { [string]$bedItem.Title } else { [string]$Row.Name }
-        $bedGroup.Text = if ($bedEditing) { [string]$bedItem.Group } elseif ($Group) { $Group } else { [string]$Row.Group }
+        # An editable combo shows a value reliably through its selected item; Text only for a new section name.
+        $bedWantedGroup = if ($bedEditing) { [string]$bedItem.Group } elseif ($Group) { $Group } else { [string]$Row.Group }
+        $bedMatch = @($bedGroup.Items | Where-Object { [string]$_ -eq $bedWantedGroup } | Select-Object -First 1)
+        if ($bedMatch.Count) { $bedGroup.SelectedItem = $bedMatch[0] } else { $bedGroup.SelectedItem = $null; $bedGroup.Text = $bedWantedGroup }
         $bedState.Loading = $false
         & $bedRefresh
     }
