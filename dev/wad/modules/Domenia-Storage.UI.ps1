@@ -612,7 +612,8 @@ function Open-DomeniaIndexLocation {
     Start-Process -FilePath 'explorer.exe' -ArgumentList @('/select,"'+$path+'"')
 }
 function Invoke-DomeniaIndexBackup {
-    # Consistent hot copy through the SQLite backup API (Backup-DomeniaDatabase); the original is never modified.
+    # Consistent hot copy through the SQLite backup API, run by the StorageBackup worker (no wait on the Dispatcher,
+    # D014); the original is never modified.
     param([switch]$ChooseDestination)
     try{
         $destination=''
@@ -623,10 +624,19 @@ function Invoke-DomeniaIndexBackup {
             if(-not $request.ShowDialog($script:Window)){return}
             $destination=[string]$request.FileName
         }
-        $backup=Backup-DomeniaDatabase
-        if(-not $backup){throw 'aucune base active a sauvegarder.'}
-        if($destination){Copy-Item -LiteralPath $backup -Destination $destination -Force;Set-Status ('Sauvegarde de la base copiee : '+$destination)}
-        else{Set-Status ('Sauvegarde de la base enregistree : '+$backup)}
+        $path=Get-DomeniaDatabasePath
+        if(-not [IO.File]::Exists($path)){throw 'aucune base active a sauvegarder.'}
+        $payload=[pscustomobject]@{Database=$path;BackupDirectory=(Join-Path ([IO.Path]::GetDirectoryName($path)) 'Backups');BudgetSeconds=[int](Get-CfgValue 'LocalStore' 'BackupTimeoutSeconds' 30);Keep=[int](Get-CfgValue 'LocalStore' 'DatabaseBackupCount' 7);CopyTo=$destination}
+        [void](Start-UiTask -Name 'Sauvegarder la base' -OperationId 'StorageBackup' -Code (Get-DomeniaStorageBackupWorkerCode) -Payload $payload -CallbackState ([pscustomobject]@{CopyTo=$destination}) -ReplaceKey 'storage:backup' -TimeoutSeconds 150 -StatusText 'Sauvegarde de la base en cours...' -SuccessHandler 'Complete-DomeniaIndexBackupUi' -ErrorHandler 'Fail-DomeniaIndexBackupUi')
     }catch{Set-Status ('Sauvegarde de la base impossible : '+$_.Exception.Message) 'WARN'}
+}
+function Complete-DomeniaIndexBackupUi {
+    param($Result,$State)
+    if([string]$Result.CopiedTo){Set-Status ('Sauvegarde de la base copiee : '+[string]$Result.CopiedTo)}
+    else{Set-Status ('Sauvegarde de la base enregistree : '+[string]$Result.Backup)}
     Update-DomeniaIndexLocation
+}
+function Fail-DomeniaIndexBackupUi {
+    param([string]$Message,$State)
+    Set-Status ('Sauvegarde de la base impossible : '+$Message) 'WARN'
 }

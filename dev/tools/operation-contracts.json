@@ -460,5 +460,19 @@
     "Function": "Get-DomeniaStoragePurgeWorkerCode",
     "LiteralIndex": 0,
     "Sha256": "7AF1E83D5A2CC189D70F73C2743A93999162D1C0C74D111BCBD4F101F0C0FC01"
+  },
+  {
+    "Operation": "ComputerAdminShare",
+    "File": "wad/Domenia-Core.ps1",
+    "Function": "Start-DomeniaAdminShareOpen",
+    "LiteralIndex": 0,
+    "Sha256": "051272FF57B277E19504F52BAC289ED8297A333393644B853FF4A80624347F70"
+  },
+  {
+    "Operation": "StorageBackup",
+    "File": "wad/modules/Domenia-Storage.Worker.ps1",
+    "Function": "Get-DomeniaStorageBackupWorkerCode",
+    "LiteralIndex": 0,
+    "Sha256": "E89924A7F04D958CFF4CD41847BFC2C9A838D6F242D4BD7242F2048FCCBDED79"
   }
 ]

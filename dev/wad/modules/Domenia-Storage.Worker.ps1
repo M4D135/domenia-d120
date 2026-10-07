@@ -766,3 +766,162 @@ try {
 
 '@
 }
+function Get-DomeniaStorageBackupWorkerCode {
+return @'
+function Initialize-DomeniaWinSqliteNative { return [Domenia.WinSqliteNative] }
+function New-DomeniaUtf8Ptr {
+    param([AllowEmptyString()][string]$Text)
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes(([string]$Text) + [char]0)
+    $ptr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($bytes.Length)
+    [System.Runtime.InteropServices.Marshal]::Copy($bytes,0,$ptr,$bytes.Length)
+    return $ptr
+}
+function ConvertFrom-DomeniaUtf8Ptr {
+    param([IntPtr]$Pointer,[int]$Length = -1)
+    if ($Pointer -eq [IntPtr]::Zero) { return "" }
+    if ($Length -lt 0) {
+        $Length = 0
+        while ([System.Runtime.InteropServices.Marshal]::ReadByte($Pointer,$Length) -ne 0) { $Length++ }
+    }
+    if ($Length -le 0) { return "" }
+    $bytes = New-Object byte[] $Length
+    [System.Runtime.InteropServices.Marshal]::Copy($Pointer,$bytes,0,$Length)
+    return [System.Text.Encoding]::UTF8.GetString($bytes)
+}
+function Close-DomeniaDatabase {
+    param([IntPtr]$DatabaseHandle)
+    if ($DatabaseHandle -ne [IntPtr]::Zero) { try { Initialize-DomeniaWinSqliteNative | Out-Null; [void][Domenia.WinSqliteNative]::sqlite3_close($DatabaseHandle) } catch { } }
+}
+function ConvertTo-DomeniaSqlLiteral {
+    param($Value)
+    if ($null -eq $Value) { return "NULL" }
+    if ($Value -is [bool]) { return $(if ($Value) { "1" } else { "0" }) }
+    if ($Value -is [byte] -or $Value -is [int16] -or $Value -is [int32] -or $Value -is [int64] -or $Value -is [double] -or $Value -is [decimal]) { return ([Convert]::ToString($Value,[Globalization.CultureInfo]::InvariantCulture)) }
+    return "'" + (([string]$Value) -replace "'","''") + "'"
+}
+function Open-DomeniaDatabase {
+    param([string]$Path = '',[switch]$ReadOnly)
+    $native = Initialize-DomeniaWinSqliteNative
+    $db = [IntPtr]::Zero
+    $pathPtr = [IntPtr]::Zero
+    try {
+        if ([string]::IsNullOrWhiteSpace($Path)) { $Path = Get-DomeniaDatabasePath }
+        $pathPtr = New-DomeniaUtf8Ptr $Path
+        $flags = if ($ReadOnly) { 1 -bor 65536 } else { 2 -bor 4 -bor 65536 }
+        $rc = [Domenia.WinSqliteNative]::sqlite3_open_v2($pathPtr,[ref]$db,$flags,[IntPtr]::Zero)
+        if ($rc -ne 0 -or $db -eq [IntPtr]::Zero) { throw "Ouverture SQLite impossible (code $rc)." }
+        [void][Domenia.WinSqliteNative]::sqlite3_busy_timeout($db,300)
+        return $db
+    }
+    catch {
+        # sqlite3_open_v2 can return a non-null handle even on failure.
+        if ($db -ne [IntPtr]::Zero) { [void][Domenia.WinSqliteNative]::sqlite3_close($db) }
+        throw
+    }
+    finally { if ($pathPtr -ne [IntPtr]::Zero) { [Runtime.InteropServices.Marshal]::FreeHGlobal($pathPtr) } }
+}
+function Invoke-DomeniaDbExec {
+    param([Parameter(Mandatory=$true)][AllowEmptyString()][string]$Sql,[IntPtr]$DatabaseHandle = [IntPtr]::Zero)
+    $own = ($DatabaseHandle -eq [IntPtr]::Zero)
+    $sqlPtr = [IntPtr]::Zero
+    $errPtr = [IntPtr]::Zero
+    try {
+        if ($own) { $DatabaseHandle = Open-DomeniaDatabase }
+        $native = Initialize-DomeniaWinSqliteNative
+        $sqlPtr = New-DomeniaUtf8Ptr $Sql
+        $rc = [Domenia.WinSqliteNative]::sqlite3_exec($DatabaseHandle,$sqlPtr,[IntPtr]::Zero,[IntPtr]::Zero,[ref]$errPtr)
+        if ($rc -ne 0) {
+            $msg = if ($errPtr -ne [IntPtr]::Zero) { ConvertFrom-DomeniaUtf8Ptr $errPtr } else { ConvertFrom-DomeniaUtf8Ptr ([Domenia.WinSqliteNative]::sqlite3_errmsg($DatabaseHandle)) }
+            throw "SQLite code $rc : $msg"
+        }
+        return $true
+    }
+    finally {
+        if ($errPtr -ne [IntPtr]::Zero) { try { Initialize-DomeniaWinSqliteNative | Out-Null; [Domenia.WinSqliteNative]::sqlite3_free($errPtr) } catch { } }
+        if ($sqlPtr -ne [IntPtr]::Zero) { [System.Runtime.InteropServices.Marshal]::FreeHGlobal($sqlPtr) }
+        if ($own) { Close-DomeniaDatabase $DatabaseHandle }
+    }
+}
+function Invoke-DomeniaDbQuery {
+    param([Parameter(Mandatory=$true)][AllowEmptyString()][string]$Sql,[IntPtr]$DatabaseHandle = [IntPtr]::Zero)
+    $own = ($DatabaseHandle -eq [IntPtr]::Zero)
+    $sqlPtr = [IntPtr]::Zero
+    $stmt = [IntPtr]::Zero
+    $rows = New-Object System.Collections.Generic.List[object]
+    try {
+        if ($own) { $DatabaseHandle = Open-DomeniaDatabase }
+        $native = Initialize-DomeniaWinSqliteNative
+        $sqlPtr = New-DomeniaUtf8Ptr $Sql
+        $rc = [Domenia.WinSqliteNative]::sqlite3_prepare_v2($DatabaseHandle,$sqlPtr,-1,[ref]$stmt,[IntPtr]::Zero)
+        if ($rc -ne 0) { throw "SQLite prepare code $rc : $(ConvertFrom-DomeniaUtf8Ptr ([Domenia.WinSqliteNative]::sqlite3_errmsg($DatabaseHandle)))" }
+        $count = [Domenia.WinSqliteNative]::sqlite3_column_count($stmt)
+        while (($step = [Domenia.WinSqliteNative]::sqlite3_step($stmt)) -eq 100) {
+            $o = [ordered]@{}
+            for ($i=0;$i -lt $count;$i++) {
+                $name = ConvertFrom-DomeniaUtf8Ptr ([Domenia.WinSqliteNative]::sqlite3_column_name($stmt,$i))
+                $type = [Domenia.WinSqliteNative]::sqlite3_column_type($stmt,$i)
+                $value = $null
+                switch ($type) {
+                    1 { $value = [long][Domenia.WinSqliteNative]::sqlite3_column_int64($stmt,$i) }
+                    2 { $value = [double][Domenia.WinSqliteNative]::sqlite3_column_double($stmt,$i) }
+                    3 { $p=[Domenia.WinSqliteNative]::sqlite3_column_text($stmt,$i); $n=[Domenia.WinSqliteNative]::sqlite3_column_bytes($stmt,$i); $value=ConvertFrom-DomeniaUtf8Ptr $p $n }
+                    5 { $value = $null }
+                    default { $p=[Domenia.WinSqliteNative]::sqlite3_column_text($stmt,$i); $n=[Domenia.WinSqliteNative]::sqlite3_column_bytes($stmt,$i); $value=ConvertFrom-DomeniaUtf8Ptr $p $n }
+                }
+                $o[$name] = $value
+            }
+            $rows.Add([pscustomobject]$o)
+        }
+        if ($step -ne 101) { throw "SQLite step code $step : $(ConvertFrom-DomeniaUtf8Ptr ([Domenia.WinSqliteNative]::sqlite3_errmsg($DatabaseHandle)))" }
+        return $rows.ToArray()
+    }
+    finally {
+        if ($stmt -ne [IntPtr]::Zero) { try { Initialize-DomeniaWinSqliteNative | Out-Null; [void][Domenia.WinSqliteNative]::sqlite3_finalize($stmt) } catch { } }
+        if ($sqlPtr -ne [IntPtr]::Zero) { [System.Runtime.InteropServices.Marshal]::FreeHGlobal($sqlPtr) }
+        if ($own) { Close-DomeniaDatabase $DatabaseHandle }
+    }
+}
+
+function Get-DomeniaDatabasePath {throw 'Chemin de base explicite requis pour la sauvegarde.'}
+# StorageBackup (2026-10-08): consistent hot copy through the SQLite backup API, outside the Dispatcher (D014).
+# The original is opened read-only and never modified; a partial copy is removed on failure.
+$dbPath=[string]$Payload.Database;$backupDir=[string]$Payload.BackupDirectory;$copyTo=[string]$Payload.CopyTo
+$budget=[Math]::Max(5,[Math]::Min(120,[int]$Payload.BudgetSeconds));$keep=[Math]::Max(2,[Math]::Min(30,[int]$Payload.Keep))
+if(-not [IO.File]::Exists($dbPath)){throw 'aucune base active a sauvegarder.'}
+[void][IO.Directory]::CreateDirectory($backupDir)
+$stamp=(Get-Date -Format 'yyyyMMdd-HHmmss-fff')+'-'+[guid]::NewGuid().ToString('N').Substring(0,8)
+$dest=Join-Path $backupDir ('Domenia-'+$stamp+'.db');$temporary=$dest+'.partial'
+$sourceDb=[IntPtr]::Zero;$targetDb=[IntPtr]::Zero;$backup=[IntPtr]::Zero;$mainPtr=[IntPtr]::Zero;$complete=$false
+try{
+    $sourceDb=Open-DomeniaDatabase -Path $dbPath -ReadOnly
+    $targetDb=Open-DomeniaDatabase -Path $temporary
+    $mainPtr=New-DomeniaUtf8Ptr 'main'
+    $backup=[Domenia.WinSqliteNative]::sqlite3_backup_init($targetDb,$mainPtr,$sourceDb,$mainPtr)
+    if($backup -eq [IntPtr]::Zero){throw 'Initialisation de la sauvegarde SQLite impossible.'}
+    $watch=[Diagnostics.Stopwatch]::StartNew()
+    do{
+        $rc=[Domenia.WinSqliteNative]::sqlite3_backup_step($backup,256)
+        if($rc -eq 101){break}
+        if($rc -notin @(0,5,6)){throw "Sauvegarde SQLite : code $rc."}
+        if($watch.Elapsed.TotalSeconds -ge $budget){throw "Sauvegarde SQLite interrompue apres $budget secondes. L'original est intact."}
+        if($rc -in @(5,6)){Start-Sleep -Milliseconds 25}
+    }while($true)
+    $finish=[Domenia.WinSqliteNative]::sqlite3_backup_finish($backup);$backup=[IntPtr]::Zero
+    if($finish -ne 0){throw "Finalisation de sauvegarde SQLite : code $finish."}
+    $check=@(Invoke-DomeniaDbQuery -Sql 'PRAGMA quick_check;' -DatabaseHandle $targetDb)
+    if($check.Count -ne 1 -or [string]$check[0].quick_check -cne 'ok'){throw 'La sauvegarde ne passe pas le controle SQLite.'}
+    Close-DomeniaDatabase $targetDb;$targetDb=[IntPtr]::Zero
+    Close-DomeniaDatabase $sourceDb;$sourceDb=[IntPtr]::Zero
+    [IO.File]::Move($temporary,$dest);$complete=$true
+    Get-ChildItem -LiteralPath $backupDir -Filter 'Domenia-*.db' -File | Sort-Object LastWriteTime -Descending | Select-Object -Skip $keep | ForEach-Object { Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue }
+    if($copyTo){[IO.File]::Copy($dest,$copyTo,$true)}
+    [pscustomobject]@{Backup=$dest;CopiedTo=$copyTo}
+}
+finally{
+    if($backup -ne [IntPtr]::Zero){[void][Domenia.WinSqliteNative]::sqlite3_backup_finish($backup)}
+    Close-DomeniaDatabase $targetDb;Close-DomeniaDatabase $sourceDb
+    if($mainPtr -ne [IntPtr]::Zero){[Runtime.InteropServices.Marshal]::FreeHGlobal($mainPtr)}
+    if(-not $complete){foreach($suffix in @('','-wal','-shm','-journal')){Remove-Item -LiteralPath ($temporary+$suffix) -Force -ErrorAction SilentlyContinue}}
+}
+'@
+}

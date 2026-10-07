@@ -1,5 +1,5 @@
 {
-  "Archive": "lot 2026-10-08 tableaux en widgets",
+  "Archive": "lot 2026-10-08 correctifs campagne",
   "ArchiveSHA256": "655ED21F90345B3C7667D4E777814C6A0595A5D5BE628AD587FB46CCA5241922",
   "CoreFunctions": {
     "Write-DomeniaAtomicText": "1C9A1583F52EB7BE80BE420662653E4AF886FE11DC4FDB3B1C4CDF19FD1C0EDA",
@@ -403,10 +403,12 @@
     "Show-DomeniaRimotteDialog": "6754A81454F3C4A1C14E203A2AD30B209BEFE0EE474E4E0C4B3F8726953228DD",
     "Get-DomeniaMachineOperationCredential": "7A82D1615E1EF2795D2C2E4D6CAC18EF65B2059AADB47D76AA5561277BCDA2C6",
     "Get-DomeniaMachineOperationAccountText": "4BC3DCA0FBC7D75B74C337851B12315B35A983E2B2F3A2F1AA004727F0C18738",
-    "Initialize-DomeniaNetUse": "59C4D6D8049FAEF3DBC0C770A42B4ABC03DDE711D0110AA9BE8000CD568EDFCD",
     "Get-DomeniaNetUseSource": "CB3B6E197656B098570A41269B71560D6F4E5CE92C65975DDF549EA439F341DE",
-    "Connect-DomeniaAdminShare": "7D7890B33F9AFB171C09C2D8D4324AF3640A8C8997A9F325A95287E1496D4FA9",
-    "Invoke-ComputerTool": "264B0CCAC9C38596BFC9024F5CBC7581A0A956A690FCCF1D6C64A9FF43E10C44",
+    "Start-DomeniaAdminShareOpen": "E755047DA1EEC06FCF5E458E3E6014E81A7A1ECF1B65503BD72C0A98DEF0BCEF",
+    "Complete-DomeniaAdminShareOpen": "AA2F2B0F5E5E5B5733652A8B9B6F64DA02253FBA9059FE0F257EF603D78319FF",
+    "Fail-DomeniaAdminShareOpen": "41AA321C8D85C971A4F1B64DF80DD66AA83DE658280DC49275203AB4CB6116E8",
+    "Start-DomeniaComputerToolProcess": "8C7F66EF9C9050BC3B76A790474FAFA71C043C4F32691934B1FBE3BBC7E96AE6",
+    "Invoke-ComputerTool": "D06798469587D5F2A51BA76E7CA9E359EEEBBAC0349682FC9DC280197CE326B0",
     "Write-AppLog": "B569007B6AFC2BD35C9758A8319C19658010285756ACAE31DA8A3BEF73F71C4F",
     "Open-DomeniaAuditLog": "39B42FC9F7B4BB4CB9A79AD064B4C54440487641FEABE38B990A19A31ED465CE",
     "Get-DomeniaCriticalControlNames": "7CBC56FF03899414AF4B85C76F9E012CBEB29230F36EC4C319E916DEAEAC36F2",
@@ -494,8 +496,8 @@
     "Load-UserMachineLinks": "D588E9FAB3DB852FD760624C2A463CDEA8A5B97BAF550C273F8C7C1B2CB7776D",
     "ConvertTo-DomeniaCanonicalWorkerCode": "48A6A851309CF03C8AA4802B160FC0C9D3234B795C63D0BAED6923BF42FE2FAF",
     "Get-DomeniaWorkerCodeHash": "6B81660F207AAEB37BA076144EDD12F5A926F9F64858B03755C2567E335C0D16",
-    "Get-DomeniaWorkerOperationHashes": "334AB699E5E633E250FB428AB354F9AD4D214B67A91BB5F2D8F5204EC3FE8F24",
-    "Assert-DomeniaWorkerRegistry": "BB9ABB122E764EEBEA302C389F5429556FC84CC6347F352E461312040A5BB4D2",
+    "Get-DomeniaWorkerOperationHashes": "11DC8D56A927364729870EE1D6DF83155E7D42718DF5B925B8C36A1291E9218C",
+    "Assert-DomeniaWorkerRegistry": "936A9014BA276D5B284E7C918755BA7944C2B3F03B8D819C5ACFBEA079F354BA",
     "Assert-DomeniaWorkerOperationCode": "41D63871EDC11F5765938E6DAF8004A01471CD63E9666E2569D6E43008032526",
     "Get-DomeniaWorkerEngineSelfTestCode": "7FB07491846A78A89C13351DC07ABCA7B150642EE02AA25FF430A19942001AF0",
     "New-DomeniaWorkerRunspace": "8D2FB4E8786E147F555EC5860E76F8EB0D606D66BF9A610F43A0CC2836197A0D",
@@ -1843,6 +1845,31 @@
       ],
       "AddedCoreFunctions": [],
       "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "lot 2026-10-08 tableaux en widgets",
+      "Source": "lot 2026-10-08 correctifs campagne",
+      "Decision": "Relu : registre des workers etendu a ComputerAdminShare (ouverture C$ et IPC$ hors Dispatcher, D014) et StorageBackup (sauvegarde SQLite hors Dispatcher, D014) ; empreintes regenerees par update_worker_contracts --apply.",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Complete-DomeniaAdminShareOpen",
+        "Fail-DomeniaAdminShareOpen",
+        "Get-DomeniaWorkerOperationHashes",
+        "Invoke-ComputerTool",
+        "Start-DomeniaAdminShareOpen",
+        "Start-DomeniaComputerToolProcess"
+      ],
+      "AddedCoreFunctions": [
+        "Complete-DomeniaAdminShareOpen",
+        "Fail-DomeniaAdminShareOpen",
+        "Start-DomeniaAdminShareOpen",
+        "Start-DomeniaComputerToolProcess"
+      ],
+      "RemovedCoreFunctions": [
+        "Connect-DomeniaAdminShare",
+        "Initialize-DomeniaNetUse"
+      ],
       "ChangedPayloads": []
     }
   ]

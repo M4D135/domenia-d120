@@ -166,7 +166,8 @@ function Register-DomeniaCountUp {
 }
 function Start-DomeniaCountTimer {
     if ($null -eq $script:DomeniaIntroTimer) {
-        $script:DomeniaIntroTimer = New-Object System.Windows.Threading.DispatcherTimer
+        # Normal priority: at Background the ticks can starve behind the rendering of the entrance animations.
+        $script:DomeniaIntroTimer = New-Object System.Windows.Threading.DispatcherTimer ([System.Windows.Threading.DispatcherPriority]::Normal)
         $script:DomeniaIntroTimer.Interval = [TimeSpan]::FromMilliseconds(16)
         $script:DomeniaIntroTimer.Add_Tick({
             $now = [DateTime]::UtcNow

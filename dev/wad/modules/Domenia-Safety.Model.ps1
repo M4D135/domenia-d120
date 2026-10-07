@@ -14,12 +14,12 @@ function Get-DomeniaOperationEffect {
     # Same pattern as Start-DomeniaWriteTask: every directory write is named Write<Name>.
     if ($id -cmatch '^Write[A-Za-z0-9]{2,59}$') { return 'DirectoryWrite' }
     if ($id -in @('ComputerGpUpdate','ComputerRestart','RimotteRun','WakeOnLanSend')) { return 'RemoteMutation' }
-    if ($id -in @('LocalStore','ReceiptStore','DocumentStore','StoragePurge','LinkHistoryStore','LiveCache','IndexBuild','IndexRefresh')) { return 'LocalWrite' }
+    if ($id -in @('LocalStore','ReceiptStore','DocumentStore','StoragePurge','StorageBackup','LinkHistoryStore','LiveCache','IndexBuild','IndexRefresh')) { return 'LocalWrite' }
     $reads = @(
         'SelectedPresence','PresenceScan','CmdletHelp','CmdletInventory','TreeChildren','GlobalSearch','PermissionAnalysis','SelfCheck',
         'ReadBitLocker','ReadBitLockerKey','ReadLaps','ComputerInventory','DomainOverview','BatchNetworkDiag','SoftwareInventory',
         'WmiNamespaces','WmiClasses','WmiQuery','UserComputerProbe','LogonHarvest','ParkSweep','ComputerDiagnostics','ComputerLastUser',
-        'ComputerPing','PruneLinks','OpenLinkedObject','EngineSelfTest','OpenAdObject','StartupWarmCache','StartupWarmup','LiveConsole',
+        'ComputerPing','ComputerAdminShare','PruneLinks','OpenLinkedObject','EngineSelfTest','OpenAdObject','StartupWarmCache','StartupWarmup','LiveConsole',
         'LiveDirectoryCheck','SessionsList','RemoteCredentialCheck','ScopeReconcile','ReconcileScope','LiveSelectedPing',
         'EmbeddedDirectoryLookup','EmbeddedPathBrowse','ObjectChanges','StorageUsage','ComputerQuickDiag','PasswordPolicyRead',
         'LockoutDiagnosis','GroupPathRead','JoinStateRead','UpdateStateRead','GpoLinksRead','GpoAppliedRead','DcCompareRead',

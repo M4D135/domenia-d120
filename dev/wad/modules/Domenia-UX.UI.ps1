@@ -304,6 +304,18 @@ function Set-DomeniaUxShortLayout {
     $actions=Get-DomeniaControl 'UxResultActionsRow';if($actions){$actions.Margin=if($compact){[Windows.Thickness]::new(0,0,0,4)}else{[Windows.Thickness]::new(0,0,0,8)}}
     $consoleCheck=Get-DomeniaControl 'ChkLiveUsers';if($consoleCheck){$consoleCheck.Content=if($compact){'Console au clic'}else{'Utilisateur au clic'}}
     $recheck=Get-DomeniaControl 'BtnLiveRecheck';if($recheck){$recheck.Content=if($compact){'Revérifier'}else{'Revérifier ce poste'}}
+    # Ping and detection of the list (lot 2026-10-07) keep the action row on one line in compact mode: short labels
+    # and tighter buttons; every action stays in view (Arreter included).
+    $parkPing=Get-DomeniaControl 'BtnParkPing';if($parkPing){$parkPing.Content=if($compact){'Pinger'}else{'Pinger la liste'}}
+    $parkRun=Get-DomeniaControl 'BtnParkResults';if($parkRun){$parkRun.Content=if($compact){'Détecter'}else{'Détecter la liste'}}
+    foreach($name in @('BtnLiveRecheck','BtnParkPing','BtnParkResults','BtnParkResultsStop')){
+        $button=Get-DomeniaControl $name
+        if($button){
+            $button.Padding=if($compact){[Windows.Thickness]::new(6,4,6,4)}else{[Windows.Thickness]::new(10,4,10,4)}
+            $button.Margin=if($compact){[Windows.Thickness]::new(0,0,4,4)}else{[Windows.Thickness]::new(0,0,8,4)}
+        }
+    }
+    if($consoleCheck){$consoleCheck.Margin=if($compact){[Windows.Thickness]::new(0,0,8,4)}else{[Windows.Thickness]::new(0,0,14,4)}}
     $statuses=Get-DomeniaControl 'UxResultLiveStatuses'
     if($live -and $statuses){
         $live.ColumnDefinitions[0].Width=if($compact){[Windows.GridLength]::new(415)}else{[Windows.GridLength]::new(1,[Windows.GridUnitType]::Star)}

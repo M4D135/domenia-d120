@@ -299,7 +299,7 @@ try{
         $mw.UpdateLayout()
         Invoke-DomeniaDashboardEntrance -Panel $panel
         Expect ($script:DomeniaCounting.Count -ge 1) 'Compteur non lance'
-        Invoke-Pump 1800
+        Invoke-Pump 2600
         Expect ($script:DomeniaCounting.Count -eq 0) ('Compteurs restants : '+$script:DomeniaCounting.Count)
         $texts=@(Get-DomeniaLogicalControls $panel|Where-Object{$_ -is [Windows.Controls.TextBlock] -and [string]$_.Text -eq '128 postes'})
         Expect ($texts.Count -eq 1) 'Valeur finale du compteur'

@@ -782,7 +782,8 @@ function Get-DomeniaRuntimeModulePlan {
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Storage.Worker.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaStorageWorkerCode',
             'Get-DomeniaStorageUsageWorkerCode',
-            'Get-DomeniaStoragePurgeWorkerCode'
+            'Get-DomeniaStoragePurgeWorkerCode',
+            'Get-DomeniaStorageBackupWorkerCode'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Cache.Model.ps1','Domenia-Common.Model.ps1','Domenia-Release.Model.ps1','Domenia-Storage.Worker.ps1'); File='Domenia-Storage.UI.ps1'; DotSource=$true; Functions=@(
             'Initialize-DomeniaPersistence',
@@ -811,7 +812,9 @@ function Get-DomeniaRuntimeModulePlan {
             'Fail-DomeniaStoragePurge',
             'Update-DomeniaIndexLocation',
             'Open-DomeniaIndexLocation',
-            'Invoke-DomeniaIndexBackup'
+            'Invoke-DomeniaIndexBackup',
+            'Complete-DomeniaIndexBackupUi',
+            'Fail-DomeniaIndexBackupUi'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Receipts.Worker.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaReceiptsCommon',

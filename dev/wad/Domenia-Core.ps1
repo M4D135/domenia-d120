@@ -17007,45 +17007,58 @@ function Get-DomeniaMachineOperationAccountText {
     return "Operations poste : compte de connexion Domenia $($credential.UserName) (CIM, C$, consoles)."
 }
 
-function Initialize-DomeniaNetUse {
-    if ('Domenia.NetUse' -as [type]) { return }
-    # A diagnostic worker may define the same type at the same moment: only a real absence is an error.
-    try { Add-Type -TypeDefinition (Get-DomeniaNetUseSource) } catch { if (-not ('Domenia.NetUse' -as [type])) { throw } }
-}
-
 function Get-DomeniaNetUseSource {
     # Shared with the diagnostic worker (same text): opens an SMB connection under an explicit account.
     return 'using System; using System.Runtime.InteropServices; namespace Domenia { public static class NetUse { [StructLayout(LayoutKind.Sequential, CharSet=CharSet.Unicode)] private class NETRESOURCE { public int dwScope; public int dwType; public int dwDisplayType; public int dwUsage; public string lpLocalName; public string lpRemoteName; public string lpComment; public string lpProvider; } [DllImport("mpr.dll", CharSet=CharSet.Unicode)] private static extern int WNetAddConnection2(NETRESOURCE resource, string password, string user, int flags); [DllImport("mpr.dll", CharSet=CharSet.Unicode)] private static extern int WNetCancelConnection2(string name, int flags, bool force); public static int Connect(string remote, string user, string password) { NETRESOURCE r = new NETRESOURCE(); r.lpRemoteName = remote; return WNetAddConnection2(r, password, user, 0); } public static int Disconnect(string remote) { return WNetCancelConnection2(remote, 0, true); } } }'
 }
 
-function Connect-DomeniaAdminShare {
+function Start-DomeniaAdminShareOpen {
     # Field report 2026-10-07: Explorer and the MMC consoles run under the Windows session, which has no rights on the
     # workstations. The share is first opened with the account used for workstation operations, so Windows does not
-    # ask for credentials. The password is passed to the Windows API only, never on a command line.
-    param([Parameter(Mandatory=$true)][string]$Computer,[string]$Share='C$')
-    $credential = Get-DomeniaMachineOperationCredential
-    if ($null -eq $credential) { return '' }
-    $client = New-Object Net.Sockets.TcpClient
-    try {
-        $wait = $client.BeginConnect($Computer,445,$null,$null)
-        if (-not $wait.AsyncWaitHandle.WaitOne(1500) -or -not $client.Connected) { throw "le partage du poste ne repond pas (port 445)." }
-    } finally { $client.Close() }
-    Initialize-DomeniaNetUse
-    $remote = '\\' + $Computer + '\' + $Share
-    $network = $credential.GetNetworkCredential()
-    $user = if ($network.Domain) { $network.Domain + '\' + $network.UserName } else { $network.UserName }
-    # A login typed without DOMAINE\ must not be read as a local account of the workstation.
-    if (-not $network.Domain -and $user -notmatch '@' -and [string]$script:Conn.Netbios) { $user = [string]$script:Conn.Netbios + '\' + $user }
-    $rc = [Domenia.NetUse]::Connect($remote,$user,$network.Password)
-    if ($rc -eq 1219) {
-        # Windows keeps one account per server: an older connection under another account is closed first.
-        foreach ($existing in @(('\\' + $Computer + '\IPC$'),$remote)) { [void][Domenia.NetUse]::Disconnect($existing) }
-        $rc = [Domenia.NetUse]::Connect($remote,$user,$network.Password)
-    }
-    if ($rc -ne 0) { throw ("acces a $remote refuse pour $user : " + (New-Object ComponentModel.Win32Exception $rc).Message) }
-    return $user
+    # ask for credentials. The 445 check and the SMB connection run in a worker (no wait on the Dispatcher, D014);
+    # the password goes to the Windows API only, never on a command line. The tool opens when the share answers.
+    param([Parameter(Mandatory=$true)][string]$Computer,[string]$Share='C$',[Parameter(Mandatory=$true)][string]$Tool)
+    if ($null -eq (Get-DomeniaMachineOperationCredential)) { Complete-DomeniaAdminShareOpen -Result ([pscustomobject]@{ Connected=$false; Account='' }) -State ([pscustomobject]@{ Computer=$Computer; Share=$Share; Tool=$Tool }); return }
+    $code=@'
+$computer=[string]$Payload.Computer;$share=[string]$Payload.Share
+$cred=Get-WMachineCredential $Context
+if($null -eq $cred){return [pscustomobject]@{Connected=$false;Account=''}}
+$client=New-Object Net.Sockets.TcpClient
+try{$wait=$client.BeginConnect($computer,445,$null,$null);if(-not $wait.AsyncWaitHandle.WaitOne(1500) -or -not $client.Connected){throw 'le partage du poste ne repond pas (port 445).'}}finally{$client.Close()}
+if(-not ('Domenia.NetUse' -as [type])){try{Add-Type -TypeDefinition ([string]$Payload.NetUseSource)}catch{if(-not ('Domenia.NetUse' -as [type])){throw}}}
+$remote='\\'+$computer+'\'+$share
+$net=$cred.GetNetworkCredential();$user=if($net.Domain){$net.Domain+'\'+$net.UserName}else{$net.UserName}
+if(-not $net.Domain -and $user -notmatch '@' -and [string]$Payload.NetbiosDomain){$user=[string]$Payload.NetbiosDomain+'\'+$user}
+$rc=[Domenia.NetUse]::Connect($remote,$user,$net.Password)
+if($rc -eq 1219){foreach($existing in @(('\\'+$computer+'\IPC$'),$remote)){[void][Domenia.NetUse]::Disconnect($existing)};$rc=[Domenia.NetUse]::Connect($remote,$user,$net.Password)}
+if($rc -ne 0){throw ('acces a '+$remote+' refuse pour '+$user+' : '+(New-Object ComponentModel.Win32Exception $rc).Message)}
+[pscustomobject]@{Connected=$true;Account=$user}
+'@
+    Start-UiTask -Name ("Partage $Share de $Computer") -OperationId "ComputerAdminShare" -Code $code -Payload ([pscustomobject]@{ Computer=$Computer; Share=$Share; NetUseSource=(Get-DomeniaNetUseSource); NetbiosDomain=[string]$script:Conn.Netbios }) -CallbackState ([pscustomobject]@{ Computer=$Computer; Share=$Share; Tool=$Tool }) -ReplaceKey ("share:" + $Computer + ":" + $Tool) -TimeoutSeconds 30 -StatusText ("Ouverture du partage $Share de $Computer avec le compte des operations poste...") -SuccessHandler "Complete-DomeniaAdminShareOpen" -ErrorHandler "Fail-DomeniaAdminShareOpen" | Out-Null
 }
-
+function Complete-DomeniaAdminShareOpen {
+    param($Result,$State)
+    $computer=[string]$State.Computer;$account='';try{$account=[string]$Result.Account}catch{}
+    Start-DomeniaComputerToolProcess -Tool ([string]$State.Tool) -Computer $computer
+    if ($account) { Set-Status ([string]$State.Share + " de $computer ouvert avec $account.") }
+}
+function Fail-DomeniaAdminShareOpen {
+    param([string]$Message,$State)
+    $computer=[string]$State.Computer;$tool=[string]$State.Tool
+    if ($tool -eq 'C') { [void](Show-DomeniaOperationError -Operation ("Ouvrir C$ de $computer") -ErrorRecordOrException ([string]$Message)); return }
+    # Consoles still open, under the Windows session, as before.
+    Set-Status ("Console ouverte avec la session Windows : " + $Message) "WARN"
+    Start-DomeniaComputerToolProcess -Tool $tool -Computer $computer
+}
+function Start-DomeniaComputerToolProcess {
+    param([string]$Tool,[string]$Computer)
+    switch ($Tool) {
+        "C" { Start-Process -FilePath "explorer.exe" -ArgumentList @("\\$Computer\C$") }
+        "Manage" { Start-Process -FilePath "compmgmt.msc" -ArgumentList @("/computer=$Computer") }
+        "Events" { Start-Process -FilePath "eventvwr.exe" -ArgumentList @("/computer:$Computer") }
+        "Services" { Start-Process -FilePath "services.msc" -ArgumentList @("/computer=$Computer") }
+    }
+}
 function Invoke-ComputerTool {
     param([string]$Tool)
     try {
@@ -17062,11 +17075,8 @@ $sw.Stop();[pscustomobject]@{Rows=@($rows);Message=(($rows|ForEach-Object{"#$($_
                 Start-UiTask -Name "Ping $name" -OperationId "ComputerPing" -Code $code -Payload ([pscustomobject]@{Computer=$name}) -CallbackState ([pscustomobject]@{ Tool="Ping"; Computer=$name }) -ReplaceKey "ping:$name" -DisableControls @("BtnCompPing") -TimeoutSeconds 12 -StatusText "Ping de $name..." -SuccessHandler "Complete-DomeniaComputerToolUi" -ErrorHandler "Fail-DomeniaComputerToolUi" | Out-Null
             }
             "RDP" { Start-Process -FilePath "mstsc.exe" -ArgumentList @("/v:$name") }
-            "C" { $account = Connect-DomeniaAdminShare -Computer $name -Share 'C$'; Start-Process -FilePath "explorer.exe" -ArgumentList @("\\$name\C$"); if ($account) { Set-Status "C$ de $name ouvert avec $account." } }
-            { $_ -in @("Manage","Events","Services") } { try { [void](Connect-DomeniaAdminShare -Computer $name -Share 'IPC$') } catch { Set-Status ("Console ouverte avec la session Windows : " + $_.Exception.Message) "WARN" } }
-            "Manage" { Start-Process -FilePath "compmgmt.msc" -ArgumentList @("/computer=$name") }
-            "Events" { Start-Process -FilePath "eventvwr.exe" -ArgumentList @("/computer:$name") }
-            "Services" { Start-Process -FilePath "services.msc" -ArgumentList @("/computer=$name") }
+            "C" { Start-DomeniaAdminShareOpen -Computer $name -Share 'C$' -Tool 'C' }
+            { $_ -in @("Manage","Events","Services") } { Start-DomeniaAdminShareOpen -Computer $name -Share 'IPC$' -Tool $Tool }
             "PSRemote" {
                 $remoteCommand = "Enter-PSSession -ComputerName '$name'"
                 Set-ClipboardSafe $remoteCommand
@@ -20871,6 +20881,8 @@ function Get-DomeniaWorkerOperationHashes {
     # Registre ferme : seules ces operations internes, avec leur corps exact, peuvent entrer dans un runspace.
     return [ordered]@{
         StoragePurge          = "7AF1E83D5A2CC189D70F73C2743A93999162D1C0C74D111BCBD4F101F0C0FC01"
+        StorageBackup         = "E89924A7F04D958CFF4CD41847BFC2C9A838D6F242D4BD7242F2048FCCBDED79"
+        ComputerAdminShare    = "051272FF57B277E19504F52BAC289ED8297A333393644B853FF4A80624347F70"
         StorageUsage          = "84D550654B883DB7DE1CD68904BDB99E1F817E12FB2C14A2CAE081F4B1BC4FDD"
         LegacyMigration       = "9F9E86E2BD40130C8E8726DC065112CB0F770D04063ADB1EB890AFBB45C303F3"
         ReadBitLockerList     = "B1456CEA5805D83C6BF48E9A4040206F18F3C3773ED250610D6890E8D1F4EEC9"
@@ -20944,7 +20956,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "571D6EA68C694B9B5B13C673488F2E015070B6DF9B0F6D30733F41D521A127DB"
+    $expectedFingerprint = "4D8A5DCFE676AC28769291B0FC9A420200C5B44E26DA01B8C4AC69A9501E6F17"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
