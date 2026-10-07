@@ -6,6 +6,7 @@ param(
     [switch]$Progressive,
     [string]$ReportPath = '',
     [string]$CaptureDirectory = '',
+    [string[]]$CaptureRoutes = @('WsSearch'),
     [switch]$Quiet
 )
 
@@ -474,7 +475,11 @@ try {
         [void][IO.Directory]::CreateDirectory([IO.Path]::GetFullPath($CaptureDirectory))
         $script:Window.Width=1600;$script:Window.Height=960;$script:UxHelpVisible=$true;$script:UxLayoutSignature=''
         Reset-DomeniaSearchScope
-        Invoke-DomeniaUxRoute -Route 'WsSearch'
+        foreach($captureRoute in @($CaptureRoutes)) {
+        $captureTab=''
+        if($captureRoute -match '^(?<route>[^:]+):(?<tab>.+)$'){$captureRoute=$Matches.route;$captureTab=$Matches.tab}
+        Invoke-DomeniaUxRoute -Route $captureRoute
+        if($captureTab){$tabControl=$script:Window.FindName($captureTab);if($null -ne $tabControl){$tabControl.IsSelected=$true}}
         foreach($captureTheme in @('Light','Dark')) {
             Set-DomeniaUxPalette -Window $script:Window -Theme $captureTheme
             foreach($layout in @('Ouvert','Compact')) {
@@ -484,10 +489,12 @@ try {
                 $bitmap=[Windows.Media.Imaging.RenderTargetBitmap]::new([int]$script:Window.ActualWidth,[int]$script:Window.ActualHeight,96,96,[Windows.Media.PixelFormats]::Pbgra32)
                 $bitmap.Render($script:Window)
                 $encoder=[Windows.Media.Imaging.PngBitmapEncoder]::new();$encoder.Frames.Add([Windows.Media.Imaging.BitmapFrame]::Create($bitmap))
-                $path=Join-Path $CaptureDirectory ('DOMENIA_1.0 RC1_APERCU_'+$captureTheme+'_'+$layout+'.png')
+                $label=if($captureTab){$captureRoute+'-'+$captureTab}else{$captureRoute}
+                $path=Join-Path $CaptureDirectory ('DOMENIA_1.0 RC1_APERCU_'+$label+'_'+$captureTheme+'_'+$layout+'.png')
                 $stream=[IO.File]::Create($path);try{$encoder.Save($stream)}finally{$stream.Dispose()}
                 Write-Host ('Capture WPF locale de donnees fictives : '+$path)
             }
+        }
         }
     }
     if (-not $Verify -and [string]::IsNullOrWhiteSpace($CaptureDirectory)) { [void]$script:Window.ShowDialog() }

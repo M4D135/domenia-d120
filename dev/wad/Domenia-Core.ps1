@@ -3594,6 +3594,19 @@ function Get-MainXaml {
       <Setter Property="BorderBrush" Value="{DynamicResource BorderColor}"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="FocusVisualStyle">
+        <Setter.Value>
+          <Style>
+            <Setter Property="Control.Template">
+              <Setter.Value>
+                <ControlTemplate>
+                  <Rectangle Stroke="{DynamicResource AccentColor}" StrokeThickness="2" RadiusX="10" RadiusY="10" Margin="-3" SnapsToDevicePixels="True"/>
+                </ControlTemplate>
+              </Setter.Value>
+            </Setter>
+          </Style>
+        </Setter.Value>
+      </Setter>
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="Button">
@@ -3612,7 +3625,6 @@ function Get-MainXaml {
               </Trigger>
               <Trigger Property="IsKeyboardFocused" Value="True">
                 <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentColor}"/>
-                <Setter TargetName="Bd" Property="BorderThickness" Value="2"/>
               </Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
@@ -3644,8 +3656,6 @@ function Get-MainXaml {
       <Setter Property="Background" Value="{DynamicResource BgInput}"/>
       <Setter Property="BorderBrush" Value="{DynamicResource BorderColor}"/>
       <Setter Property="Foreground" Value="{DynamicResource TextColor}"/>
-      <Setter Property="FontFamily" Value="Segoe UI Emoji"/>
-      <Setter Property="FontSize" Value="12"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
       <Setter Property="HorizontalContentAlignment" Value="Center"/>
       <Setter Property="VerticalContentAlignment" Value="Center"/>
@@ -3816,6 +3826,7 @@ function Get-MainXaml {
       <Setter Property="FontWeight" Value="SemiBold"/>
     </Style>
     <Style TargetType="DataGrid">
+      <Setter Property="AlternationCount" Value="2"/>
       <Setter Property="EnableRowVirtualization" Value="True"/>
       <Setter Property="EnableColumnVirtualization" Value="True"/>
       <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True"/>
@@ -3861,6 +3872,7 @@ function Get-MainXaml {
       </Style.Triggers>
     </Style>
     <Style TargetType="DataGridCell">
+      <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
       <Setter Property="Background" Value="Transparent"/>
       <Setter Property="BorderThickness" Value="0"/>
       <Setter Property="Foreground" Value="{DynamicResource TextColor}"/>
@@ -3923,6 +3935,7 @@ function Get-MainXaml {
       <Setter Property="Padding" Value="12"/>
     </Style>
     <Style TargetType="CheckBox">
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
       <Setter Property="ToolTipService.ShowDuration" Value="20000"/>
       <Setter Property="ToolTipService.InitialShowDelay" Value="350"/>
       <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
@@ -15849,8 +15862,9 @@ if ([bool]$open[445]) {
         # Field report 2026-10-07: Test-Path runs under the Windows session; the share is first opened with the
         # operations account (same SMB API as the Ouvrir C$ button).
         if ($null -ne $cred) {
-            if (-not ('Domenia.NetUse' -as [type])) { Add-Type -TypeDefinition ([string]$Payload.NetUseSource) }
+            if (-not ('Domenia.NetUse' -as [type])) { try { Add-Type -TypeDefinition ([string]$Payload.NetUseSource) } catch { if (-not ('Domenia.NetUse' -as [type])) { throw } } }
             $net = $cred.GetNetworkCredential(); $user = if ($net.Domain) { $net.Domain + '\' + $net.UserName } else { $net.UserName }
+            if (-not $net.Domain -and $user -notmatch '@' -and [string]$Payload.NetbiosDomain) { $user = [string]$Payload.NetbiosDomain + '\' + $user }
             $rc = [Domenia.NetUse]::Connect($path,$user,$net.Password)
             if ($rc -eq 1219) { [void][Domenia.NetUse]::Disconnect('\\' + $computer + '\IPC$'); [void][Domenia.NetUse]::Disconnect($path); $rc = [Domenia.NetUse]::Connect($path,$user,$net.Password) }
             if ($rc -ne 0) { throw ('Refuse pour ' + $user + ' : ' + (New-Object ComponentModel.Win32Exception $rc).Message) }
@@ -15969,7 +15983,7 @@ $methodsUsed=@($rows | Where-Object { [string]$_.Status -eq 'OK' -and -not [stri
             -Name ("Diagnostic " + $computer) `
             -OperationId "ComputerDiagnostics" `
             -Code $code `
-            -Payload ([pscustomobject]@{ Computer=$computer; BudgetMs=55000; NetUseSource=(Get-DomeniaNetUseSource) }) `
+            -Payload ([pscustomobject]@{ Computer=$computer; BudgetMs=55000; NetUseSource=(Get-DomeniaNetUseSource); NetbiosDomain=[string]$script:Conn.Netbios }) `
             -CallbackState $diagnosticState `
             -ReplaceKey "computerdiag" `
             -DisableControls @("BtnRunComputerDiag") `
@@ -16899,7 +16913,8 @@ function Get-DomeniaMachineOperationAccountText {
 
 function Initialize-DomeniaNetUse {
     if ('Domenia.NetUse' -as [type]) { return }
-    Add-Type -TypeDefinition (Get-DomeniaNetUseSource)
+    # A diagnostic worker may define the same type at the same moment: only a real absence is an error.
+    try { Add-Type -TypeDefinition (Get-DomeniaNetUseSource) } catch { if (-not ('Domenia.NetUse' -as [type])) { throw } }
 }
 
 function Get-DomeniaNetUseSource {
@@ -16923,6 +16938,8 @@ function Connect-DomeniaAdminShare {
     $remote = '\\' + $Computer + '\' + $Share
     $network = $credential.GetNetworkCredential()
     $user = if ($network.Domain) { $network.Domain + '\' + $network.UserName } else { $network.UserName }
+    # A login typed without DOMAINE\ must not be read as a local account of the workstation.
+    if (-not $network.Domain -and $user -notmatch '@' -and [string]$script:Conn.Netbios) { $user = [string]$script:Conn.Netbios + '\' + $user }
     $rc = [Domenia.NetUse]::Connect($remote,$user,$network.Password)
     if ($rc -eq 1219) {
         # Windows keeps one account per server: an older connection under another account is closed first.
@@ -20772,7 +20789,7 @@ function Get-DomeniaWorkerOperationHashes {
         IndexBuild            = "4FC47EF863C2EE3F31D7D868F947D35905DCE9FC1BDDEEB0DBEFD4A179C3E7E0"
         UserComputerProbe     = "EB7C36419C1B8B91AFB9ECE6B98D4E3FE663B87E4011F7D264D8AEDE7735E775"
         ComputerInventory     = "87D68E504BC8311DB952A143475CF7676C6223246AE00DF715432E85DDE0323C"
-        ComputerDiagnostics   = "58511341DA6752E2F874A28B7925CF64AD756481180E9DA8E022A5686B4DC410"
+        ComputerDiagnostics   = "9A5535EB658FA19AFC0905D57B339CEE0C14CCD4DA81AE2E0A527A86B5046608"
         ComputerLastUser      = "8F79C42CE673CE98DBE30EB30B9DBF246D8819B08149A4FBA1C5F9BA894395F9"
         CmdletInventory       = "FA1105E9540BBC2AB373FC45037CC54FA11EB8BD9B058194CE44C422E812DF75"
         ComputerPing          = "BE1A5B70CCA9477571D839A85A1330334210DA891C53DBA257814486369F5887"
@@ -20819,7 +20836,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "AD0E13E5AE9C7AB1C6CAB76BA530D9D125F0C96CE528EC37E307ED1F68EEA571"
+    $expectedFingerprint = "2D12949DFF40009C2BF90188E4272B76D4FBF7AF563AD41DCFFD4E3A4B555E35"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
