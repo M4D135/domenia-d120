@@ -113,15 +113,32 @@ function Set-DomeniaLoginColumnVisible {
 function Update-DomeniaLoginColumnFromRows {
     param($Rows)
     # One pass over the list: the 'Compte' column and the workstation-only actions follow what it holds.
-    $hasAccount=$false;$hasMachine=$false
+    $hasAccount=$false;$hasMachine=$false;$hasUser=$false
     foreach($row in @($Rows)){
         if(-not $hasAccount -and (Test-DomeniaRowHasAccount $row)){$hasAccount=$true}
         if(-not $hasMachine -and $null -ne $row -and [string]$row.Type -eq 'Machine'){$hasMachine=$true}
-        if($hasAccount -and $hasMachine){break}
+        if(-not $hasUser -and $null -ne $row -and [string]$row.Type -eq 'Utilisateur'){$hasUser=$true}
+        if($hasAccount -and $hasMachine -and $hasUser){break}
     }
     Set-DomeniaLoginColumnVisible $hasAccount
-    $script:SearchListHasMachine=$hasMachine
+    $script:SearchListHasMachine=$hasMachine;$script:SearchListHasUser=$hasUser
+    Set-DomeniaResultColumns
     Update-DomeniaSearchActionStates
+}
+function Set-DomeniaResultColumns {
+    # Decision David 2026-10-07: one table for every object type. Workstation columns appear only when the list
+    # holds a workstation; association and logon columns only when it holds users or workstations.
+    $grid=Get-DomeniaControl 'DgObjects';if($null -eq $grid){return}
+    $machine=[bool]$script:SearchListHasMachine;$linkable=($machine -or [bool]$script:SearchListHasUser)
+    foreach($column in @($grid.Columns)){
+        $header=[string]$column.Header
+        $show=$null
+        if($header -in @('Utilisateur connecté (console)','Vérification utilisateur','Présence réseau','OS')){$show=$machine}
+        elseif($header -in @('Association mémorisée','Source lien','Qualification','Derniere connexion')){$show=$linkable}
+        if($null -eq $show){continue}
+        $wanted=if($show){'Visible'}else{'Collapsed'}
+        if([string]$column.Visibility -ne $wanted){$column.Visibility=$wanted}
+    }
 }
 function Update-DomeniaSearchActionStates {
     # Decision David 2026-10-05: one search for every object type; a workstation-only action is greyed when it
@@ -131,8 +148,7 @@ function Update-DomeniaSearchActionStates {
     $selected=@($grid.SelectedItems)
     $recheck=Get-DomeniaControl 'BtnLiveRecheck'
     if($null -ne $recheck){$recheck.IsEnabled=($ready -and $selected.Count -eq 1 -and [string]$selected[0].Type -eq 'Machine')}
-    $detect=Get-DomeniaControl 'BtnParkResults'
-    if($null -ne $detect -and -not $script:DemoMode){$detect.IsEnabled=($ready -and [bool]$script:SearchListHasMachine)}
+    foreach($name in @('BtnParkResults','BtnParkPing')){$button=Get-DomeniaControl $name;if($null -ne $button -and -not $script:DemoMode){$button.IsEnabled=($ready -and [bool]$script:SearchListHasMachine)}}
 }
 function Test-DomeniaRowHasAccount {
     # User or group: its own account name. Workstation: the login of its linked account (decision David 2026-10-05).
@@ -145,7 +161,7 @@ function Test-DomeniaRowHasAccount {
 function Begin-DomeniaLiveSearch {
     param($State,$Payload)
     Set-DomeniaLoginColumnVisible $false
-    $script:SearchListHasMachine=$false;Update-DomeniaSearchActionStates
+    $script:SearchListHasMachine=$false;$script:SearchListHasUser=$false;Update-DomeniaSearchActionStates;Set-DomeniaResultColumns
     if($null -eq $script:Live){Initialize-DomeniaLive}
     if($null -eq $script:Live){throw 'Chargement progressif indisponible. Consulter le journal.'}
     Reset-DomeniaLiveIdentity;Stop-DomeniaLiveSearch
@@ -286,7 +302,8 @@ function Add-DomeniaLiveRow {
         try{if(-not [bool]$s.PSObject.Properties['OutOfScopeLogged']){Write-AppLog ('Ligne hors perimetre ecartee ('+$(if($fresh){'AD'}else{'cache'})+') : '+[string]$snapshot.DN+' ; perimetre '+[string]$s.State.BaseDn) 'WARN';$s|Add-Member -NotePropertyName OutOfScopeLogged -NotePropertyValue $true -Force}}catch{}
         return
     }
-    if([string]$snapshot.Type -eq 'Machine' -and -not $script:SearchListHasMachine){$script:SearchListHasMachine=$true;Update-DomeniaSearchActionStates}
+    if([string]$snapshot.Type -eq 'Machine' -and -not $script:SearchListHasMachine){$script:SearchListHasMachine=$true;Update-DomeniaSearchActionStates;Set-DomeniaResultColumns}
+    if([string]$snapshot.Type -eq 'Utilisateur' -and -not $script:SearchListHasUser){$script:SearchListHasUser=$true;Set-DomeniaResultColumns}
     if([string]$snapshot.Type -in @('Utilisateur','Groupe') -and [string]$snapshot.Login -and -not [bool]$s.PSObject.Properties['LoginShown']){Set-DomeniaLoginColumnVisible $true;$s|Add-Member -NotePropertyName LoginShown -NotePropertyValue $true -Force}
     $isNew=-not $s.Map.ContainsKey($key)
     if($isNew){

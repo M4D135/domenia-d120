@@ -675,6 +675,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Test-DomeniaLiveSearchActive',
             'Set-DomeniaLoginColumnVisible',
             'Update-DomeniaLoginColumnFromRows',
+            'Set-DomeniaResultColumns',
             'Update-DomeniaSearchActionStates',
             'Test-DomeniaRowHasAccount',
             'Begin-DomeniaLiveSearch',
@@ -1004,6 +1005,30 @@ function Get-DomeniaRuntimeModulePlan {
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Cache.Model.ps1'); File='Domenia-Park.Model.ps1'; DotSource=$true; Functions=@(
             'ConvertTo-DomeniaParkSession',
             'Test-DomeniaParkLinkChanged'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Charts.UI.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaChartPalette',
+            'ConvertTo-DomeniaChartBrush',
+            'New-DomeniaChartText',
+            'Get-DomeniaChartTruncated',
+            'New-DomeniaChartEmpty',
+            'New-DomeniaChartHeader',
+            'New-DomeniaChartCard',
+            'New-DomeniaKpiTile',
+            'New-DomeniaDonutChart',
+            'New-DomeniaBarChart',
+            'New-DomeniaColumnChart',
+            'New-DomeniaLineChart',
+            'New-DomeniaGauge'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Charts.UI.ps1'); File='Domenia-Dashboard.UI.ps1'; DotSource=$true; Functions=@(
+            'Clear-DomeniaDashboards',
+            'Format-DomeniaDashboardSize',
+            'Get-DomeniaInventoryValue',
+            'Get-DomeniaCategorySummary',
+            'New-DomeniaDashboardSection',
+            'Update-DomeniaComputerDashboard',
+            'Update-DomeniaSoftwareDashboard'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Park.Model.ps1','Domenia-Relations.UI.ps1','Domenia-Storage.UI.ps1','Domenia-Inline.UI.ps1','Domenia-Engine.Worker.ps1'); File='Domenia-Park.UI.ps1'; DotSource=$true; Functions=@(
             'Test-DomeniaParkRunCurrent',

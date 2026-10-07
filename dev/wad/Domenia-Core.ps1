@@ -4661,7 +4661,8 @@ function Get-MainXaml {
                             <WrapPanel>
                               <CheckBox x:Name="ChkLiveUsers" IsEnabled="{Binding IsEnabled, ElementName=DgObjects}" Content="Utilisateur au clic" IsChecked="True" VerticalAlignment="Center" Margin="0,0,14,4" ToolTip="Un clic lance un ping unique sur le poste. Cochée : lit aussi son utilisateur console. Décochée : ping seulement. Jamais de sondage collectif." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vérification sur sélection" AutomationProperties.HelpText="Vérifie uniquement la machine sélectionnée. Les autres lignes conservent leurs observations en cache, sans nouvel appel distant."/>
                               <Button x:Name="BtnLiveRecheck" IsEnabled="False" Content="Revérifier ce poste" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" ToolTip="Poste sélectionné seulement : relance un ping unique et la lecture utilisateur. Grisé pour un autre type d objet ou une sélection multiple. Si le compte est refusé ou CIM désactivé, seul le ping reste disponible. Aucun balayage." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Revérifier ce poste" AutomationProperties.HelpText="Relance la vérification du compte console d’une seule machine sélectionnée."/>
-                              <Button x:Name="BtnParkResults" Content="Détecter la liste" Style="{StaticResource RunButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" IsEnabled="False" ToolTip="Grisé si la liste ne contient aucun poste. Lit la console des seuls postes affichés, après vos filtres (OU, recherche, présence, filtre local). Confirmation avec le nombre de postes avant toute lecture. Cache et associations conservés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Detecter les resultats affiches"/>
+                              <Button x:Name="BtnParkPing" Content="Pinger la liste" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" IsEnabled="False" ToolTip="Grisé si la liste ne contient aucun poste. Ping seul des postes affichés après vos filtres : met à jour la présence réseau, sans lecture de session ni association. Confirmation avant envoi." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Pinger les postes affiches"/>
+                              <Button x:Name="BtnParkResults" Content="Détecter la liste" Style="{StaticResource RunButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" IsEnabled="False" ToolTip="Grisé si la liste ne contient aucun poste. Ping puis lecture de la console des seuls postes affichés, après vos filtres (OU, recherche, présence, filtre local). Confirmation avec le nombre de postes avant toute lecture. Cache et associations conservés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Detecter les resultats affiches"/>
                               <Button x:Name="BtnParkResultsStop" Content="Arrêter" Style="{StaticResource DangerButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" IsEnabled="False" ToolTip="Actif pendant une détection : arrête les nouvelles lectures et conserve les résultats déjà obtenus." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Arreter la detection des resultats"/>
                             </WrapPanel>
                             <Grid x:Name="UxResultLiveStatuses" Grid.Row="1"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><TextBlock Text="Selectionnez une ligne pour precharger sa fiche. Double-clic : ouvrir." Foreground="{DynamicResource MutedColor}" FontSize="11" Height="20" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" x:Name="LblSelectionReadState" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/><TextBlock x:Name="LblLiveState" Grid.Row="1" Text="Un clic : vérifier ce poste · Double-clic : ouvrir la fiche · Aucune sonde de liste" FontSize="11" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Height="18" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/></Grid>
@@ -5452,6 +5453,23 @@ function Get-MainXaml {
                       </ScrollViewer>
                     </Border>
                   </TabItem>
+                  <TabItem x:Name="TabComputerDashboard" Header="Tableau de bord" ToolTip="Synthese graphique du dernier inventaire du poste : disques, memoire, correctifs et etat. Aucune requete supplementaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Tableau de bord du poste">
+                    <Border Style="{StaticResource Card}" Margin="4">
+                      <DockPanel>
+                        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                          <TextBlock Text="Tableau de bord du poste" FontSize="18" FontWeight="SemiBold"/>
+                          <TextBlock x:Name="LblComputerDashboard" Text="Lancez un inventaire (Rapide ou Complet) : le tableau de bord se remplit avec ses resultats." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,4,0,8"/>
+                          <WrapPanel>
+                            <Button x:Name="BtnDashboardInventory" Content="Inventaire rapide" Style="{StaticResource RunButton}" ToolTip="Lit l inventaire du poste (CIM) puis remplit ce tableau de bord." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Inventaire rapide pour le tableau de bord"/>
+                            <Button x:Name="BtnDashboardInventoryDeep" Content="Inventaire complet" ToolTip="Inventaire complet, plus long : ajoute correctifs, evenements et details." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Inventaire complet pour le tableau de bord"/>
+                          </WrapPanel>
+                        </StackPanel>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                          <StackPanel x:Name="PnlComputerDashboard"/>
+                        </ScrollViewer>
+                      </DockPanel>
+                    </Border>
+                  </TabItem>
                   <TabItem x:Name="TabComputerAdmin" ToolTip="Activation, renommage, deplacement, groupes et actions a distance." Header="Actions" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Actions" AutomationProperties.HelpText="Activation, renommage, deplacement, groupes et actions a distance.">
                     <Border Style="{StaticResource Card}" Margin="4">
                       <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -5656,6 +5674,12 @@ function Get-MainXaml {
                             <Button x:Name="BtnCopySoftware" ToolTip="Copie la liste complete des logiciels." Content="Copier" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Copier" AutomationProperties.HelpText="Copie la liste complete des logiciels."/>
                             <Button x:Name="BtnExportSoftware" ToolTip="Enregistre la liste des logiciels au format CSV." Content="Exporter CSV" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Exporter CSV" AutomationProperties.HelpText="Enregistre la liste des logiciels au format CSV."/>
                           </WrapPanel>
+                          <Expander x:Name="ExpSoftwareDashboard" Header="Synthese en graphiques" IsExpanded="True" Margin="0,8,0,0" ToolTip="Editeurs, installations par mois et plus gros logiciels, calcules sur la liste chargee." AutomationProperties.Name="Synthese des logiciels">
+                            <StackPanel Margin="0,6,0,0">
+                              <TextBlock x:Name="LblSoftwareDashboard" Text="Chargez les logiciels pour afficher la synthese." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap"/>
+                              <WrapPanel x:Name="PnlSoftwareDashboard"/>
+                            </StackPanel>
+                          </Expander>
                           <Grid Margin="0,8,0,0">
                             <Grid.ColumnDefinitions>
                               <ColumnDefinition Width="Auto"/>
@@ -7098,6 +7122,7 @@ function Reset-DomeniaSelectionBoundViews {
 
         Clear-ObjectDetails
         Clear-Secrets
+        try { Clear-DomeniaDashboards } catch { }
 
         $script:ComputerDiagRows = @()
         $script:PermissionRows = @()
@@ -9374,7 +9399,7 @@ function Set-VisibleTabsForType {
 
     foreach ($t in @(
         "TabUser","TabUserContact","TabUserAdmin","TabGroup","TabContainer",
-        "TabComputer","TabComputerAdmin","TabSecurity","TabComputerHealth","TabInventory","TabSoftware","TabWmi",
+        "TabComputer","TabComputerDashboard","TabComputerAdmin","TabSecurity","TabComputerHealth","TabInventory","TabSoftware","TabWmi",
         "TabPermissions"
     )) { Set-TabVisibility $t $false }
 
@@ -9392,7 +9417,7 @@ function Set-VisibleTabsForType {
             foreach ($t in @("TabUser","TabUserContact","TabUserAdmin")) { Set-TabVisibility $t $true }
         }
         "Machine" {
-            foreach ($t in @("TabComputer","TabComputerAdmin","TabComputerHealth","TabInventory","TabSoftware","TabWmi","TabSecurity")) { Set-TabVisibility $t $true }
+            foreach ($t in @("TabComputer","TabComputerDashboard","TabComputerAdmin","TabComputerHealth","TabInventory","TabSoftware","TabWmi","TabSecurity")) { Set-TabVisibility $t $true }
         }
         "Groupe" { Set-TabVisibility "TabGroup" $true }
         "OU" { Set-TabVisibility "TabContainer" $true }
@@ -11064,6 +11089,8 @@ function Get-DomeniaInventoryWorkerCode {
     return @'
 $rows = New-Object Collections.ArrayList
 $access = New-Object Collections.ArrayList
+# Numbers for the workstation dashboard (decision David 2026-10-07); the rows stay the textual inventory.
+$metrics = [pscustomobject]@{ MemoryTotal=0.0; MemoryFree=0.0; LastBoot=''; CpuLoad=-1.0; Battery=-1.0; Disks=(New-Object Collections.ArrayList); Hotfixes=(New-Object Collections.ArrayList); Processes=(New-Object Collections.ArrayList); Services=@{} }
 $computer = [string]$Payload.Computer
 $deep = [bool]$Payload.Deep
 $cred = Get-WMachineCredential $Context
@@ -11411,6 +11438,7 @@ try {
             Add-Item 'Processeur' ($prefix + ' processeurs logiques') $cpu.NumberOfLogicalProcessors 'Win32_Processor'
             Add-Item 'Processeur' ($prefix + ' frequence max MHz') $cpu.MaxClockSpeed 'Win32_Processor'
             Add-Item 'Processeur' ($prefix + ' charge actuelle %') $cpu.LoadPercentage 'Win32_Processor'
+            try { if ($null -ne $cpu.LoadPercentage) { $metrics.CpuLoad = [Math]::Max([double]$metrics.CpuLoad,[double]$cpu.LoadPercentage) } } catch { }
             Add-Item 'Processeur' ($prefix + ' virtualisation firmware') $cpu.VirtualizationFirmwareEnabled 'Win32_Processor'
         }
     }
@@ -11428,9 +11456,10 @@ try {
             $value = $size + ' a ' + $speed + ' MHz, emplacement ' + $slot
             Add-Item 'Memoire' $label $value 'Win32_PhysicalMemory'
         }
-        if ($index -gt 0) { Add-Item 'Memoire' 'Total installe' (Format-Size $total) 'Win32_PhysicalMemory' }
+        if ($index -gt 0) { Add-Item 'Memoire' 'Total installe' (Format-Size $total) 'Win32_PhysicalMemory'; $metrics.MemoryTotal = [double]$total }
         foreach ($os in (Get-Cim 'Win32_OperatingSystem')) {
             Add-Item 'Memoire' 'Memoire libre' (Format-Size ([double]$os.FreePhysicalMemory * 1024)) 'Win32_OperatingSystem'
+            try { $metrics.MemoryFree = [double]$os.FreePhysicalMemory * 1024 } catch { }
         }
         foreach ($pf in (Get-Cim 'Win32_PageFileUsage')) {
             $value = 'taille ' + [string]$pf.AllocatedBaseSize + ' Mo, pic ' + [string]$pf.PeakUsage + ' Mo'
@@ -11446,6 +11475,7 @@ try {
             Add-Item 'Systeme d exploitation' 'Architecture' $os.OSArchitecture 'Win32_OperatingSystem'
             Add-Item 'Systeme d exploitation' 'Installe le' (Get-CimDate $os.InstallDate) 'Win32_OperatingSystem'
             Add-Item 'Systeme d exploitation' 'Dernier demarrage' (Get-CimDate $os.LastBootUpTime) 'Win32_OperatingSystem'
+            try { $metrics.LastBoot = ([datetime]$os.LastBootUpTime).ToString('o') } catch { }
             try {
                 $uptime = (Get-Date) - [datetime]$os.LastBootUpTime
                 $days = [int]$uptime.Days
@@ -11494,6 +11524,7 @@ try {
             $value = (Format-Size $size) + ' dont ' + (Format-Size $free) + ' libres (' + $pct + ' %)'
             $label = [string]$d.DeviceID + ' ' + [string]$d.VolumeName
             Add-Item 'Disques logiques' $label $value 'Win32_LogicalDisk'
+            [void]$metrics.Disks.Add([pscustomobject]@{ Name=[string]$d.DeviceID; Label=[string]$d.VolumeName; Size=$size; Free=$free })
             if ($pct -lt 10 -and $size -gt 0) { Add-Item 'Disques logiques' ($label + ' alerte') 'Espace libre inferieur a 10 pour cent' 'Win32_LogicalDisk' }
         }
     }
@@ -11613,6 +11644,10 @@ try {
     Invoke-Collector 'Correctifs' {
         $all = @(Get-Cim 'Win32_QuickFixEngineering')
         Add-Item 'Correctifs' 'Nombre total' (@($all).Count) 'Win32_QuickFixEngineering'
+        foreach ($h in $all) {
+            $installed = [datetime]::MinValue
+            if ([datetime]::TryParse([string]$h.InstalledOn,[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::None,[ref]$installed)) { [void]$metrics.Hotfixes.Add($installed.ToString('yyyy-MM-dd')) }
+        }
         foreach ($h in ($all | Sort-Object -Property InstalledOn -Descending | Select-Object -First 15)) {
             Add-Item 'Correctifs' $h.HotFixID ([string]$h.Description + ' installe le ' + (Get-CimDate $h.InstalledOn)) 'Win32_QuickFixEngineering'
         }
@@ -11721,6 +11756,11 @@ try {
             Add-Item 'Services en defaut' $s.DisplayName ('Demarrage automatique mais arrete. Nom : ' + [string]$s.Name) 'Win32_Service'
         }
         if (@($stopped).Count -eq 0) { Add-Item 'Services en defaut' 'Etat' 'Aucun service automatique arrete' 'Win32_Service' }
+        # Distribution of all services for the dashboard ring (one more CIM read of the same class).
+        foreach ($service in @(Get-Cim 'Win32_Service')) {
+            $key = if ([string]$service.StartMode -eq 'Disabled') { 'Desactives' } elseif ([string]$service.State -eq 'Running') { 'En cours' } elseif ([string]$service.StartMode -eq 'Auto') { 'Arretes (automatiques)' } else { 'Arretes (manuels)' }
+            $metrics.Services[$key] = 1 + [int]$metrics.Services[$key]
+        }
     }
 
     Invoke-Collector 'Peripheriques en erreur' {
@@ -11755,6 +11795,7 @@ try {
         foreach ($b in (Get-Cim 'Win32_Battery')) {
             $found++
             Add-Item 'Batterie' ([string]$b.Name) ('Charge ' + [string]$b.EstimatedChargeRemaining + ' %, etat ' + [string]$b.BatteryStatus) 'Win32_Battery'
+            try { if ($null -ne $b.EstimatedChargeRemaining) { $metrics.Battery = [double]$b.EstimatedChargeRemaining } } catch { }
         }
         if ($found -eq 0) { Add-Item 'Batterie' 'Etat' 'Aucune batterie : poste fixe ou alimentation secteur uniquement' 'Win32_Battery' }
     }
@@ -11838,6 +11879,7 @@ try {
         Invoke-Collector 'Processus' {
             foreach ($p in (@(Get-Cim 'Win32_Process') | Sort-Object WorkingSetSize -Descending | Select-Object -First 12)) {
                 Add-Item 'Processus' ([string]$p.Name + ' (PID ' + [string]$p.ProcessId + ')') (Format-Size $p.WorkingSetSize) 'Win32_Process'
+                try { [void]$metrics.Processes.Add([pscustomobject]@{ Name=[string]$p.Name; Mb=[Math]::Round([double]$p.WorkingSetSize / 1MB) }) } catch { }
             }
         } 12000
 
@@ -11904,6 +11946,7 @@ $totalWatch.Stop()
     Computer = $computer
     Rows = @($rows)
     Access = @($access)
+    Metrics = $metrics
     DurationMs = [long]$totalWatch.ElapsedMilliseconds
     Success = $true
 }
@@ -11954,6 +11997,7 @@ function Complete-DomeniaInventoryUi {
 
     $script:InventoryRows = @($effective.Rows)
     $script:InventoryAccess = @($effective.Access)
+    try { Update-DomeniaComputerDashboard -Result $effective } catch { Add-DomeniaUiLog -Area "Tableau de bord" -Level "WARN" -Text ("Tableau de bord du poste non construit : " + $_.Exception.Message) }
     Update-DomeniaInventoryCategories
     Apply-DomeniaInventoryFilter
     [void](Set-DomeniaItemsSource -Name "DgInventoryAccess" -Rows $script:InventoryAccess)
@@ -13036,6 +13080,7 @@ function Add-Software {
         Publisher = ([string]$Publisher).Trim()
         InstallDate = Convert-InstallDate $InstallDate
         Size = $size
+        SizeKb = $(try { [double]$SizeKb } catch { 0.0 })
         Scope = $Scope
         Architecture = $Architecture
         Kind = $Kind
@@ -13402,6 +13447,7 @@ function Complete-DomeniaSoftwareUi {
     $effective = Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @("Access")
     if ($null -eq $effective) { throw "Resultat logiciels vide ou invalide." }
     $script:SoftwareRows = @($effective.Rows)
+    try { Update-DomeniaSoftwareDashboard -Rows $script:SoftwareRows } catch { Add-DomeniaUiLog -Area "Tableau de bord" -Level "WARN" -Text ("Synthese des logiciels non construite : " + $_.Exception.Message) }
     $script:SoftwareAccess = @($effective.Access)
     [void](Set-DomeniaItemsSource -Name "DgSoftwareAccess" -Rows $script:SoftwareAccess)
     Apply-DomeniaSoftwareFilter
@@ -19379,6 +19425,7 @@ function Wire-Events {
     $age=Get-DomeniaControl 'TxtStorageHistoryDays';if($age){$age.Add_TextChanged({Reset-DomeniaStoragePurgePreview})}
     if ($script:Ctrl.ContainsKey("BtnParkHarvest")) { $script:Ctrl["BtnParkHarvest"].Add_Click({ Start-DomeniaLogonHarvest }) }
     if ($script:Ctrl.ContainsKey("BtnParkResults")) { $script:Ctrl["BtnParkResults"].Add_Click({ Start-DomeniaOnlinePark -DisplayedResults }) }
+    if ($script:Ctrl.ContainsKey("BtnParkPing")) { $script:Ctrl["BtnParkPing"].Add_Click({ Start-DomeniaOnlinePark -DisplayedResults -PingOnly }) }
     if ($script:Ctrl.ContainsKey("BtnParkResultsStop")) { $script:Ctrl["BtnParkResultsStop"].Add_Click({ Stop-DomeniaOnlinePark }) }
     if ($script:Ctrl.ContainsKey("BtnParkReset")) {
         $script:Ctrl["BtnParkReset"].Add_Click({
@@ -19467,6 +19514,8 @@ function Wire-Events {
     }
     if ($script:Ctrl.ContainsKey("BtnRunInventory")) { $script:Ctrl["BtnRunInventory"].Add_Click({ Start-DomeniaComputerInventory }) }
     if ($script:Ctrl.ContainsKey("BtnRunInventoryDeep")) { $script:Ctrl["BtnRunInventoryDeep"].Add_Click({ Start-DomeniaComputerInventory -Deep }) }
+    if ($script:Ctrl.ContainsKey("BtnDashboardInventory")) { $script:Ctrl["BtnDashboardInventory"].Add_Click({ Start-DomeniaComputerInventory }) }
+    if ($script:Ctrl.ContainsKey("BtnDashboardInventoryDeep")) { $script:Ctrl["BtnDashboardInventoryDeep"].Add_Click({ Start-DomeniaComputerInventory -Deep }) }
     if ($script:Ctrl.ContainsKey("BtnCopyInventory")) { $script:Ctrl["BtnCopyInventory"].Add_Click({ Copy-DomeniaInventory }) }
     if ($script:Ctrl.ContainsKey("BtnExportInventory")) { $script:Ctrl["BtnExportInventory"].Add_Click({ Export-DomeniaInventory }) }
     if ($script:Ctrl.ContainsKey("CmbInventoryCategory")) {
@@ -20783,12 +20832,12 @@ function Get-DomeniaWorkerOperationHashes {
         WmiNamespaces         = "3F54C07FC76AABC9511861F7B13A2A97394B366C7C8702EAF0BB67D30E886E25"
         WmiClasses            = "D7BD82BD51A7C7FAA920CC549BDACCD37038C19FA2A5BF43B01C7CDBA0CB9556"
         WmiQuery              = "CCF547839D0C78001741E9A278DDFC531166108188BE9AAB498E61F6EFB2313F"
-        SoftwareInventory     = "9F522EDE22ECD0644118E8295ABCB3CE41692FD243771A8BEFF39A0FD3106D76"
+        SoftwareInventory     = "0F758A7DFEF27A63A230A3CD34FE45A5D7079691AB6C9D989C861ADE2A61E9D1"
         LogonHarvest          = "ED7FFF55506C7BCE5567D65F683E10E9F28EA9771947F12A8DEEE1435994119A"
         ParkSweep             = "134ED776E45640FA67B7F51659711C33B37834105375CC4B083342469F2C26A9"
         IndexBuild            = "4FC47EF863C2EE3F31D7D868F947D35905DCE9FC1BDDEEB0DBEFD4A179C3E7E0"
         UserComputerProbe     = "EB7C36419C1B8B91AFB9ECE6B98D4E3FE663B87E4011F7D264D8AEDE7735E775"
-        ComputerInventory     = "87D68E504BC8311DB952A143475CF7676C6223246AE00DF715432E85DDE0323C"
+        ComputerInventory     = "237CF6856712A8D627B8E236A2DA6127088088CB654802D1F7E0BFD3ED110E9F"
         ComputerDiagnostics   = "9A5535EB658FA19AFC0905D57B339CEE0C14CCD4DA81AE2E0A527A86B5046608"
         ComputerLastUser      = "8F79C42CE673CE98DBE30EB30B9DBF246D8819B08149A4FBA1C5F9BA894395F9"
         CmdletInventory       = "FA1105E9540BBC2AB373FC45037CC54FA11EB8BD9B058194CE44C422E812DF75"
@@ -20836,7 +20885,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "2D12949DFF40009C2BF90188E4272B76D4FBF7AF563AD41DCFFD4E3A4B555E35"
+    $expectedFingerprint = "A84942B0D6B52891E9025B093FA9409D07FA2B370CC3A272716E628394B3C9D4"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }

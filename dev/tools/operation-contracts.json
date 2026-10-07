@@ -67,7 +67,7 @@
     "File": "wad/Domenia-Core.ps1",
     "Function": "Get-DomeniaInventoryWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "87D68E504BC8311DB952A143475CF7676C6223246AE00DF715432E85DDE0323C"
+    "Sha256": "237CF6856712A8D627B8E236A2DA6127088088CB654802D1F7E0BFD3ED110E9F"
   },
   {
     "Operation": "DomainOverview",
@@ -88,7 +88,7 @@
     "File": "wad/Domenia-Core.ps1",
     "Function": "Get-DomeniaSoftwareWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "9F522EDE22ECD0644118E8295ABCB3CE41692FD243771A8BEFF39A0FD3106D76"
+    "Sha256": "0F758A7DFEF27A63A230A3CD34FE45A5D7079691AB6C9D989C861ADE2A61E9D1"
   },
   {
     "Operation": "WmiNamespaces",
