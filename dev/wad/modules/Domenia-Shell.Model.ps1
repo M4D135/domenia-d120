@@ -60,10 +60,9 @@ function Get-DomeniaShellPages {
         [pscustomobject]@{Id='WsSearch';Label='Rechercher';Subject='Selection';SubjectPicker=$true;TargetPicker=$false}
         [pscustomobject]@{Id='TabDirectory';Label='Parcourir';Subject='Selection';SubjectPicker=$true;TargetPicker=$false}
         [pscustomobject]@{Id='WsObject';Label='Fiche';Subject='Selection';SubjectPicker=$false;TargetPicker=$false}
-        [pscustomobject]@{Id='TabRelations';Label='Relations';Subject='Selection';SubjectPicker=$false;TargetPicker=$true}
         [pscustomobject]@{Id='WsComputer';Label='Assistance poste';Subject='Machine';SubjectPicker=$false;TargetPicker=$false}
+        [pscustomobject]@{Id='TabRelations';Label='Relations';Subject='Selection';SubjectPicker=$false;TargetPicker=$true}
         [pscustomobject]@{Id='TabAccounts';Label='Comptes';Subject='Selection';SubjectPicker=$false;TargetPicker=$false}
-        [pscustomobject]@{Id='TabSupport';Label='Atelier';Subject='Selection';SubjectPicker=$false;TargetPicker=$false}
         [pscustomobject]@{Id='TabApplicationTools';Label='Outils';Subject='Selection';SubjectPicker=$false;TargetPicker=$false}
     )
 }

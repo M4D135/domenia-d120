@@ -594,3 +594,39 @@ function Fail-DomeniaStoragePurge {
     $text='Operation locale non confirmee : '+[string]$Message+'. Verifiez avec Mesurer puis refaites la simulation. Aucun rejeu automatique.'
     [void](Set-DomeniaControlText 'LblStoragePurge' $text);Set-Status $text 'WARN';Write-AppLog $text 'WARN'
 }
+function Update-DomeniaIndexLocation {
+    # Decision David 2026-10-07: Outils > Base autonome shows where the base lives, with backup and copy.
+    $path='';try{$path=[string](Get-DomeniaDatabasePath)}catch{}
+    $box=Get-DomeniaControl 'TxtIndexLocation';if($null -ne $box){$box.Text=if($path){$path}else{'Aucune base active.'}}
+    $text=''
+    if($path -and [IO.File]::Exists($path)){
+        $backups=[string](Get-DomeniaStoreBackupDirectory)
+        $last=Get-ChildItem -LiteralPath $backups -Filter 'Domenia-*.db' -File -ErrorAction SilentlyContinue|Sort-Object LastWriteTime -Descending|Select-Object -First 1
+        $text='Sauvegardes : '+$backups+' · '+$(if($null -ne $last){'derniere le '+$last.LastWriteTime.ToString('dd/MM/yyyy HH:mm')}else{'aucune pour l instant'})
+    }
+    [void](Set-DomeniaControlText 'LblIndexBackupStatus' $text)
+}
+function Open-DomeniaIndexLocation {
+    $path=[string](Get-DomeniaDatabasePath)
+    if(-not $path -or -not [IO.File]::Exists($path)){Set-Status 'Aucune base active a afficher.' 'WARN';return}
+    Start-Process -FilePath 'explorer.exe' -ArgumentList @('/select,"'+$path+'"')
+}
+function Invoke-DomeniaIndexBackup {
+    # Consistent hot copy through the SQLite backup API (Backup-DomeniaDatabase); the original is never modified.
+    param([switch]$ChooseDestination)
+    try{
+        $destination=''
+        if($ChooseDestination){
+            $request=New-DomeniaFileRequest -Mode Save
+            $request.Title='Copier une sauvegarde de la base';$request.FileName=('Domenia-'+(Get-Date -Format 'yyyyMMdd-HHmm')+'.db')
+            $request.Filter='Base SQLite (*.db)|*.db';$request.DefaultExt='.db';$request.CheckFileExists=$false
+            if(-not $request.ShowDialog($script:Window)){return}
+            $destination=[string]$request.FileName
+        }
+        $backup=Backup-DomeniaDatabase
+        if(-not $backup){throw 'aucune base active a sauvegarder.'}
+        if($destination){Copy-Item -LiteralPath $backup -Destination $destination -Force;Set-Status ('Sauvegarde de la base copiee : '+$destination)}
+        else{Set-Status ('Sauvegarde de la base enregistree : '+$backup)}
+    }catch{Set-Status ('Sauvegarde de la base impossible : '+$_.Exception.Message) 'WARN'}
+    Update-DomeniaIndexLocation
+}

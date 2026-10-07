@@ -119,7 +119,7 @@ function Restore-DomeniaUxBaseToolTip {
 }
 
 function Get-DomeniaUxRouteNames {
-    return @('TabDashboard','WsSearch','TabDirectory','WsObject','TabRelations','WsComputer','TabSupport','TabAccounts','TabApplicationTools')
+    return @('TabDashboard','WsSearch','TabDirectory','WsObject','WsComputer','TabRelations','TabAccounts','TabApplicationTools')
 }
 
 function Invoke-DomeniaUxRoute {

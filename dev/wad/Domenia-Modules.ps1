@@ -807,7 +807,10 @@ function Get-DomeniaRuntimeModulePlan {
             'Start-DomeniaStoragePurge',
             'Request-DomeniaStoragePurge',
             'Complete-DomeniaStoragePurge',
-            'Fail-DomeniaStoragePurge'
+            'Fail-DomeniaStoragePurge',
+            'Update-DomeniaIndexLocation',
+            'Open-DomeniaIndexLocation',
+            'Invoke-DomeniaIndexBackup'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Receipts.Worker.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaReceiptsCommon',
