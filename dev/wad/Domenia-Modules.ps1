@@ -1006,48 +1006,129 @@ function Get-DomeniaRuntimeModulePlan {
             'ConvertTo-DomeniaParkSession',
             'Test-DomeniaParkLinkChanged'
         ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Boards.Model.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaBoardCatalog',
+            'Get-DomeniaBoardCatalogItem',
+            'Get-DomeniaBoardColor',
+            'Format-DomeniaDashboardSize',
+            'Get-DomeniaWindowsRelease',
+            'New-DomeniaBoardEntry',
+            'New-DomeniaBoardData',
+            'Add-DomeniaBoardEntry',
+            'Add-DomeniaBoardAttention',
+            'Get-DomeniaBoardHealth',
+            'Complete-DomeniaBoardData',
+            'Get-DomeniaBoardVisualNames',
+            'Get-DomeniaBoardVisuals',
+            'Resolve-DomeniaBoardVisual',
+            'Get-DomeniaBoardSizeNames',
+            'Get-DomeniaBoardSize',
+            'New-DomeniaBoardItemId',
+            'New-DomeniaBoardItem',
+            'Get-DomeniaBoardDefaultLayout',
+            'ConvertTo-DomeniaBoardLayout',
+            'ConvertTo-DomeniaBoardLayoutJson',
+            'Get-DomeniaBoardGroups',
+            'Add-DomeniaBoardItem',
+            'Remove-DomeniaBoardItem',
+            'Update-DomeniaBoardItem',
+            'Move-DomeniaBoardItem',
+            'Get-DomeniaProbeKind',
+            'Get-DomeniaProbeUnit',
+            'ConvertFrom-DomeniaProbeMeasure',
+            'ConvertTo-DomeniaSearchText',
+            'New-DomeniaBoardSample'
+        ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Charts.UI.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaChartPalette',
+            'Get-DomeniaStateColor',
+            'Get-DomeniaStateDotColor',
+            'Get-DomeniaStateTextKey',
             'ConvertTo-DomeniaChartBrush',
+            'Format-DomeniaChartNumber',
             'New-DomeniaChartText',
+            'New-DomeniaChartIcon',
             'Get-DomeniaChartTruncated',
-            'New-DomeniaChartEmpty',
-            'New-DomeniaChartHeader',
+            'Get-DomeniaChartItemColor',
+            'Test-DomeniaMotion',
+            'New-DomeniaChartEase',
+            'Start-DomeniaTween',
+            'Set-DomeniaHoverValue',
+            'Register-DomeniaIntro',
+            'Register-DomeniaCountUp',
+            'Start-DomeniaCountTimer',
+            'Add-DomeniaDashboardCards',
+            'Invoke-DomeniaDashboardEntrance',
             'New-DomeniaChartCard',
+            'New-DomeniaChartHeader',
+            'New-DomeniaChartEmpty',
             'New-DomeniaKpiTile',
+            'New-DomeniaAttentionCard',
+            'New-DomeniaArcPath',
+            'Register-DomeniaArcDrawing',
+            'Set-DomeniaDonutFocus',
             'New-DomeniaDonutChart',
+            'New-DomeniaGauge',
             'New-DomeniaBarChart',
+            'New-DomeniaChartGrid',
             'New-DomeniaColumnChart',
             'New-DomeniaLineChart',
-            'New-DomeniaGauge'
+            'New-DomeniaHealthCard',
+            'New-DomeniaListCard'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Probes.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaProbeCatalog',
+            'Get-DomeniaProbeVisuals',
             'Get-DomeniaProbe',
             'ConvertTo-DomeniaProbePayload',
             'Get-DomeniaProbeValues',
             'Measure-DomeniaWidgetData'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Charts.UI.ps1','Domenia-Probes.Model.ps1'); File='Domenia-Widgets.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Boards.Model.ps1'); File='Domenia-BoardFleet.Model.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaFleetBoardData'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Boards.Model.ps1'); File='Domenia-BoardSoftware.Model.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaSoftwareBoardData'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Boards.Model.ps1','Domenia-Charts.UI.ps1'); File='Domenia-BoardComputer.UI.ps1'; DotSource=$true; Functions=@(
+            'Add-DomeniaComputerBoardAdEntries',
+            'Get-DomeniaComputerBoardData'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Boards.Model.ps1','Domenia-Charts.UI.ps1','Domenia-Probes.Model.ps1'); File='Domenia-Widgets.UI.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaWidgetList',
-            'Save-DomeniaWidgetList',
-            'Remove-DomeniaWidget',
+            'Get-DomeniaBoardPanelName',
+            'Get-DomeniaBoardState',
+            'Get-DomeniaBoardLayout',
+            'Set-DomeniaBoardLayout',
+            'Show-DomeniaBoard',
+            'Find-DomeniaBoardHolder',
+            'Get-DomeniaBoardGroupSubtitle',
+            'New-DomeniaBoardButton',
+            'New-DomeniaBoardToolbar',
+            'New-DomeniaBoardAddTile',
+            'Optimize-DomeniaBoardRow',
+            'Resolve-DomeniaBoardEntry',
+            'New-DomeniaWidgetVisual',
+            'New-DomeniaBoardChromeButton',
+            'New-DomeniaBoardMenu',
+            'New-DomeniaBoardWidget',
+            'Invoke-DomeniaBoardAutoScroll',
+            'Request-DomeniaBoardDrop',
+            'Complete-DomeniaBoardDrop',
+            'Invoke-DomeniaBoardAction',
+            'Restore-DomeniaBoardFocus',
+            'Get-DomeniaBoardSources',
+            'Get-DomeniaBoardPreviewEntry',
+            'Show-DomeniaBoardEditor',
             'Get-DomeniaWidgetResults',
-            'Add-DomeniaWidgetSection',
-            'Start-DomeniaWidgetProbe',
-            'Show-DomeniaWidgetEditor',
-            'New-DomeniaWidgetElement'
+            'Start-DomeniaWidgetProbe'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Charts.UI.ps1'); File='Domenia-Dashboard.UI.ps1'; DotSource=$true; Functions=@(
             'Clear-DomeniaDashboards',
-            'Show-DomeniaComputerWidgetsOnly',
-            'Format-DomeniaDashboardSize',
             'Get-DomeniaInventoryValue',
             'Get-DomeniaCategorySummary',
             'New-DomeniaDashboardSection',
-            'Get-DomeniaWindowsRelease',
             'Get-DomeniaEntryFileTimeUtc',
-            'Add-DomeniaComputerAdSection',
             'Start-DomeniaFleetDashboard',
             'Fail-DomeniaFleetDashboard',
             'Get-DomeniaFleetScope',

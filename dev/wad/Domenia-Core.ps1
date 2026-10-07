@@ -2916,6 +2916,13 @@ function Get-DomeniaDefaultSettings {
         WindowMaximized  = $false
         TreeWidth        = 0
         LogHeight        = 180
+        # Dashboards (decision David 2026-10-07): only keys listed here survive Load-DomeniaSettings.
+        FleetScopeDn     = ''
+        'Dashboard.Computer.Layout' = ''
+        'Dashboard.Fleet.Layout'    = ''
+        'Dashboard.Software.Layout' = ''
+        'Widgets.Computer' = ''
+        'Widgets.Fleet'    = ''
     }
 }
 
@@ -3004,7 +3011,8 @@ function Set-DomeniaSetting {
     if ($null -eq $script:Settings) { $script:Settings = Get-DomeniaDefaultSettings }
     $current = $null
     if ($script:Settings.Contains($Name)) { $current = $script:Settings[$Name] }
-    if ([string]$current -eq [string]$Value) { return }
+    # Case matters (a title or a layout differing only by case is a change).
+    if ([string]$current -ceq [string]$Value) { return }
     $script:Settings[$Name] = $Value
     Save-DomeniaSettings
 }
@@ -4416,7 +4424,7 @@ function Get-MainXaml {
                         <DockPanel>
                           <Button x:Name="BtnFleetDashboardRefresh" DockPanel.Dock="Right" Content="Actualiser" MinHeight="30" Padding="10,4" Margin="8,0,0,0" ToolTip="Recalcule la vue d ensemble a partir de la base autonome locale. Aucune requete AD ni poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Actualiser la vue d ensemble du parc"/>
                           <StackPanel>
-                            <TextBlock Text="Vue d ensemble du parc" FontSize="18" FontWeight="SemiBold"/>
+                            <TextBlock Text="Vue d ensemble du parc" FontSize="20" FontWeight="SemiBold" FontFamily="Segoe UI Variable Display, Segoe UI"/>
                             <TextBlock x:Name="LblFleetDashboard" Text="Calculee depuis la base autonome locale. Pour un parc complet : Outils, Base autonome, Mettre a jour tout." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,4,0,8"/>
                           </StackPanel>
                         </DockPanel>
@@ -4433,10 +4441,10 @@ function Get-MainXaml {
                           <Button x:Name="BtnFleetAnalyze" Content="Analyser l OU (WMI)" Style="{StaticResource RunButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" ToolTip="Ping, utilisateur console et releve WMI leger (modele, memoire, disque C:, build, demarrage) de chaque poste de l OU ; resultats conserves pour ce tableau de bord." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Analyser les postes de l OU"/>
                           <Button x:Name="BtnFleetStop" Content="Arreter" Style="{StaticResource DangerButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" ToolTip="Arrete les nouvelles lectures ; les resultats obtenus sont conserves." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Arreter l analyse"/>
                         </WrapPanel>
-                        <TextBlock x:Name="LblFleetRun" Text="" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,0,0,8"/>
-                        <StackPanel x:Name="PnlFleetDashboard"/>
+                        <TextBlock x:Name="LblFleetRun" Text="" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,0,0,0"/>
                       </StackPanel>
                     </Border>
+                    <StackPanel x:Name="PnlFleetDashboard" Margin="-7,0,-7,12"/>
                     <Expander Header="Détails de la session et outils de vérification" IsExpanded="False" ToolTip="Affiche les informations techniques déjà chargées, sans lancer de scan." x:Name="UxSessionDetails" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Détails de la session et outils de vérification" AutomationProperties.HelpText="Affiche les informations techniques déjà chargées, sans lancer de scan.">
                       <Border Style="{StaticResource Card}" Margin="0,10,0,0">
                         <StackPanel>
@@ -5480,18 +5488,18 @@ function Get-MainXaml {
                     </Border>
                   </TabItem>
                   <TabItem x:Name="TabComputerDashboard" Header="Tableau de bord" ToolTip="Synthese graphique du dernier inventaire du poste : disques, memoire, correctifs et etat. Aucune requete supplementaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Tableau de bord du poste">
-                    <Border Style="{StaticResource Card}" Margin="4">
+                    <Border Background="{DynamicResource WindowBg}" CornerRadius="12" Padding="18,16,10,4" Margin="4">
                       <DockPanel>
                         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
-                          <TextBlock Text="Tableau de bord du poste" FontSize="18" FontWeight="SemiBold"/>
+                          <TextBlock Text="Tableau de bord du poste" FontSize="22" FontWeight="SemiBold" FontFamily="Segoe UI Variable Display, Segoe UI"/>
                           <TextBlock x:Name="LblComputerDashboard" Text="Lancez un inventaire (Rapide ou Complet) : le tableau de bord se remplit avec ses resultats." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,4,0,8"/>
                           <WrapPanel>
                             <Button x:Name="BtnDashboardInventory" Content="Inventaire rapide" Style="{StaticResource RunButton}" ToolTip="Lit l inventaire du poste (CIM) puis remplit ce tableau de bord." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Inventaire rapide pour le tableau de bord"/>
                             <Button x:Name="BtnDashboardInventoryDeep" Content="Inventaire complet" ToolTip="Inventaire complet, plus long : ajoute correctifs, evenements et details." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Inventaire complet pour le tableau de bord"/>
                           </WrapPanel>
                         </StackPanel>
-                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                          <StackPanel x:Name="PnlComputerDashboard"/>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="-7,0,0,0">
+                          <StackPanel x:Name="PnlComputerDashboard" Margin="0,0,0,12"/>
                         </ScrollViewer>
                       </DockPanel>
                     </Border>
@@ -5703,7 +5711,9 @@ function Get-MainXaml {
                           <Expander x:Name="ExpSoftwareDashboard" Header="Synthese en graphiques" IsExpanded="True" Margin="0,8,0,0" ToolTip="Editeurs, installations par mois et plus gros logiciels, calcules sur la liste chargee." AutomationProperties.Name="Synthese des logiciels">
                             <StackPanel Margin="0,6,0,0">
                               <TextBlock x:Name="LblSoftwareDashboard" Text="Chargez les logiciels pour afficher la synthese." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap"/>
-                              <WrapPanel x:Name="PnlSoftwareDashboard"/>
+                              <Border Background="{DynamicResource WindowBg}" CornerRadius="12" Padding="4" Margin="0,8,0,0">
+                                <StackPanel x:Name="PnlSoftwareDashboard"/>
+                              </Border>
                             </StackPanel>
                           </Expander>
                           <Grid Margin="0,8,0,0">
@@ -11137,7 +11147,17 @@ function Add-Item {
     param([string]$Category,[string]$Name,$Value,[string]$Source)
     $text = ''
     if ($null -ne $Value) { $text = ([string]$Value).Trim() }
-    if ([string]::IsNullOrWhiteSpace($text)) { $text = '(vide)' }
+    if ([string]::IsNullOrWhiteSpace($text)) {
+        # An empty answer is said in words: nobody connected, no proxy, a field the maker left blank.
+        $text = switch -Regex ($Name) {
+            '^Utilisateur connecte$' { 'Aucun'; break }
+            '^Proxy' { 'Aucun (acces direct)'; break }
+            '^Site Active Directory$' { 'Non determine'; break }
+            '^Suffixe DNS' { 'Aucun'; break }
+            'serie|UUID|Reference produit' { 'Non fourni par le fabricant'; break }
+            default { 'Non renseigne' }
+        }
+    }
     [void]$rows.Add([pscustomobject]@{ Category=$Category; Item=$Name; Value=$text; Source=$Source })
 }
 function Add-Access {
@@ -11486,6 +11506,8 @@ try {
         foreach ($os in (Get-Cim 'Win32_OperatingSystem')) {
             Add-Item 'Memoire' 'Memoire libre' (Format-Size ([double]$os.FreePhysicalMemory * 1024)) 'Win32_OperatingSystem'
             try { $metrics.MemoryFree = [double]$os.FreePhysicalMemory * 1024 } catch { }
+            # Virtual machines expose no memory module: the visible memory of the system gives the total.
+            if ($metrics.MemoryTotal -le 0) { try { $metrics.MemoryTotal = [double]$os.TotalVisibleMemorySize * 1024 } catch { } }
         }
         foreach ($pf in (Get-Cim 'Win32_PageFileUsage')) {
             $value = 'taille ' + [string]$pf.AllocatedBaseSize + ' Mo, pic ' + [string]$pf.PeakUsage + ' Mo'
@@ -12163,7 +12185,7 @@ function Add-Row {
     param([string]$Category,[string]$Name,$Value,[string]$Status = 'OK')
     $text = ''
     if ($null -ne $Value) { $text = ([string]$Value).Trim() }
-    if ([string]::IsNullOrWhiteSpace($text)) { $text = '(vide)' }
+    if ([string]::IsNullOrWhiteSpace($text)) { $text = 'Non renseigne' }
     [void]$rows.Add([pscustomobject]@{ Category=$Category; Item=$Name; Value=$text; Status=$Status })
 }
 function Invoke-Section {
@@ -19097,6 +19119,8 @@ function Start-DomeniaAccountRelogin {
         if (-not (Show-LoginWindow)) { Set-Status 'Relogin annule. La session courante est conservee.' 'WARN'; return }
 
         $script:SessionEpoch = [long]$script:SessionEpoch + 1
+        # Fleet observations and analysis targets belong to the previous session.
+        $script:FleetObservations = $null; $script:FleetLast = $null
     try { Reset-DomeniaSupportSession } catch { }
         $script:GlobalSearchGeneration++
         $script:PresenceScanGeneration++
@@ -20862,7 +20886,7 @@ function Get-DomeniaWorkerOperationHashes {
         SelfCheck             = "C73BA6DA41221073BF1B56DA687BC8CF2A3250B5151F3D996C37EAFAA8E572B3"
         ReadBitLocker         = "55F469517F1AD169F93E772DADFDAED51DDCCF12BCE2313194D667A8A69EA485"
         ReadLaps              = "51B8A2DA023D46E85199FEF76EFBEC0C14E820322B7DF67B672E2556341C851A"
-        DomainOverview        = "F91B644222F2EAFFB9D4FFAAF0349CA9E570C0FBC10D3965B528EA7F0E2F2220"
+        DomainOverview        = "3D330D03E7A2A8B99300962D033C29CB5934F60B2FD89311C2A10DD519736A28"
         BatchNetworkDiag      = "C3043A5234A626DD8E83E9DE0791D55005C81C5716C7BA5FD559204C1BC87815"
         WmiNamespaces         = "3F54C07FC76AABC9511861F7B13A2A97394B366C7C8702EAF0BB67D30E886E25"
         WmiClasses            = "D7BD82BD51A7C7FAA920CC549BDACCD37038C19FA2A5BF43B01C7CDBA0CB9556"
@@ -20872,7 +20896,7 @@ function Get-DomeniaWorkerOperationHashes {
         ParkSweep             = "134ED776E45640FA67B7F51659711C33B37834105375CC4B083342469F2C26A9"
         IndexBuild            = "4FC47EF863C2EE3F31D7D868F947D35905DCE9FC1BDDEEB0DBEFD4A179C3E7E0"
         UserComputerProbe     = "EB7C36419C1B8B91AFB9ECE6B98D4E3FE663B87E4011F7D264D8AEDE7735E775"
-        ComputerInventory     = "1C7B1351732FBDAB934D84D4EEC203E4A62B7423F4A49AB8298AE632F71BB7A7"
+        ComputerInventory     = "C7BC13160472F873F2517EB5C8E5C5D2C296FE1CF37ABCD86B9B0BC00F750905"
         ComputerDiagnostics   = "9A5535EB658FA19AFC0905D57B339CEE0C14CCD4DA81AE2E0A527A86B5046608"
         ComputerLastUser      = "8F79C42CE673CE98DBE30EB30B9DBF246D8819B08149A4FBA1C5F9BA894395F9"
         CmdletInventory       = "FA1105E9540BBC2AB373FC45037CC54FA11EB8BD9B058194CE44C422E812DF75"
@@ -20920,7 +20944,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "1C2861F24C629F43B0B3910F3768DFF1733B23C1C98126ABADA9CEA8B0587FE4"
+    $expectedFingerprint = "571D6EA68C694B9B5B13C673488F2E015070B6DF9B0F6D30733F41D521A127DB"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }

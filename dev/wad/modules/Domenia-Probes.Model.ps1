@@ -19,7 +19,7 @@ hw.battery|Materiel|Batterie presente|root\cimv2|Win32_Battery|Name||Count|Map:0
 hw.chassis|Materiel|Type de systeme|root\cimv2|Win32_ComputerSystem|PCSystemType||First|Map:1=Bureau;2=Portable;3=Station;4=Serveur;5=Serveur;8=Tablette|Pie
 hw.serialmissing|Materiel|Numero de serie|root\cimv2|Win32_BIOS|SerialNumber||First|Text|Text
 os.caption|Systeme|Edition de Windows|root\cimv2|Win32_OperatingSystem|Caption||First|Text|Pie
-os.release|Systeme|Version de Windows|root\cimv2|Win32_OperatingSystem|BuildNumber||First|Release|Pie
+os.release|Systeme|Version de Windows|root\cimv2|Win32_OperatingSystem|BuildNumber,ProductType||First|Release|Pie
 os.arch|Systeme|Architecture|root\cimv2|Win32_OperatingSystem|OSArchitecture||First|Text|Pie
 os.uptime|Systeme|Jours depuis le dernier demarrage|root\cimv2|Win32_OperatingSystem|LastBootUpTime||First|DaysSince|Column
 os.installyear|Systeme|Annee d installation de Windows|root\cimv2|Win32_OperatingSystem|InstallDate||First|Year|Column
@@ -69,6 +69,16 @@ evt.unexpected|Evenements|Arrets inattendus (7 j)|root\cimv2|Win32_NTLogEvent|Ev
     $script:DomeniaProbeCatalog = @($catalog | Where-Object { $_.Id -ne 'sec.uac' })
     return $script:DomeniaProbeCatalog
 }
+function Get-DomeniaProbeVisuals {
+    # Representations that make sense for this kind of data (decision David 2026-10-07): text values can be shared out,
+    # measures are bucketed; a single workstation only gets a figure or a text.
+    param($Probe,[string]$Board = 'Fleet')
+    if ($null -eq $Probe) { return @() }
+    if ($Board -eq 'Computer') { return @('Kpi','Text') }
+    $numeric = ([string]$Probe.Mode -eq 'Count' -or [string]$Probe.Transform -match '^(GB|GBfromKB|MB|Mbps|Number|DaysSince|PercentFree)$')
+    if ($numeric) { return @('Column','Kpi','Text') }
+    return @('Pie','Bar','Text','Kpi')
+}
 function Get-DomeniaProbe {
     param([string]$Id)
     foreach ($probe in @(Get-DomeniaProbeCatalog)) { if ($probe.Id -ceq $Id) { return $probe } }
@@ -97,7 +107,8 @@ function Get-DomeniaProbeValues {
             '^DaysSince$' { try { [Math]::Round(([datetime]::UtcNow - [datetime]::Parse([string]$value).ToUniversalTime()).TotalDays) } catch { }; break }
             '^Year$' { try { [string]([datetime]::Parse([string]$value).Year) } catch { }; break }
             '^PercentFree$' { $cells = @($rows[0]); if ($cells.Count -ge 2 -and [double]$cells[1] -gt 0) { [Math]::Round(100.0 * [double]$cells[0] / [double]$cells[1]) }; break }
-            '^Release$' { $name = (Get-DomeniaWindowsRelease ([string]$value)).Name; if ($name) { $name } else { 'Build ' + $value }; break }
+            # ProductType 2 or 3 = domain controller or server: same builds as Windows 11, other release names.
+            '^Release$' { $cells = @($rows[0]); $kind = if ($cells.Count -ge 2 -and [string]$cells[1] -notin @('','1')) { 'Server' } else { '' }; $name = (Get-DomeniaWindowsRelease -Build ([string]$value) -Caption $kind).Name; if ($name) { $name } else { 'Build ' + $value }; break }
             '^Map:' { $map = @{}; foreach ($pair in $transform.Substring(4).Split(';')) { $kv = $pair.Split('='); if ($kv.Count -eq 2) { $map[$kv[0]] = $kv[1] } }; if ($map.ContainsKey([string]$value)) { $map[[string]$value] } else { [string]$value }; break }
             default { ([string]$value).Trim() }
         }
@@ -111,7 +122,8 @@ function Measure-DomeniaWidgetData {
     foreach ($result in @($Results)) { $v = @(Get-DomeniaProbeValues $Probe $result); if ($v.Count) { $machines++; foreach ($x in $v) { [void]$values.Add($x) } } }
     $numeric = ($values.Count -gt 0 -and @($values | Where-Object { $_ -isnot [double] -and $_ -isnot [int] -and $_ -isnot [long] }).Count -eq 0)
     $items = @()
-    $distinct = @($values | ForEach-Object { [double]$_ } | Sort-Object -Unique)
+    # Distinct numbers only once the values are known to be numeric (text such as a version or an address stays text).
+    $distinct = if ($numeric) { @($values | ForEach-Object { [double]$_ } | Sort-Object -Unique) } else { @() }
     if ($numeric -and $Visual -ne 'Pie' -and $distinct.Count -le 8 -and [string]$Probe.Transform -match '^(Number|DaysSince)$') {
         # Few distinct values (screens, printers, cores...): one bar per value, in order.
         $items = @(foreach ($d in $distinct) { [pscustomobject]@{ Label = [string]$d; Value = [double]@($values | Where-Object { [double]$_ -eq $d }).Count } })

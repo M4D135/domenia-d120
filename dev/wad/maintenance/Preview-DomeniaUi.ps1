@@ -222,6 +222,8 @@ try {
     $script:Window.Add_ContentRendered({Update-PreviewLayout})
 
     if ($Verify -or -not [string]::IsNullOrWhiteSpace($CaptureDirectory)) {
+        # Static captures show the final state of the dashboards, not a frame of their entrance motion.
+        $script:DomeniaReduceMotion = $true
         $script:Window.Show()
         Update-PreviewLayout
     }

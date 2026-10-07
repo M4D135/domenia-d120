@@ -615,7 +615,7 @@ function Get-DomeniaOperationSummary {
         if ((-not $influences) -and (-not $changed)) { continue }
         if ($advanced -and $Collapsed) { $folded++ }
         $shown = Protect-DomeniaSecretText $valueText
-        if ($sensitive) { $shown = '(masque)' } elseif (-not $shown) { $shown = '(vide)' }
+        if ($sensitive) { $shown = '(masque)' } elseif (-not $shown) { $shown = 'Non defini' }
         $lines.Add([pscustomobject]@{Name=$name;Label=(ConvertTo-DomeniaFlatText $label 80);Value=$shown;Advanced=$advanced;Changed=$changed})
     }
     $operationText = ConvertTo-DomeniaFlatText $Operation 120
