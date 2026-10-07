@@ -172,44 +172,14 @@ function New-DomeniaDonutChart {
         $angle += $sweep
 
         if ($sweep -ge 359.99) {
-            # single segment = full ring (two arcs)
-            $fig = New-Object System.Windows.Media.PathFigure
-            $fig.IsClosed = $true
-            $fig.Segments = New-Object System.Windows.Media.PathSegmentCollection
-            $p = [System.Windows.Point]::new($cx, $cy - $outer)
-            $fig.StartPoint = $p
-            $fig.Segments.Add(([System.Windows.Media.ArcSegment]::new(
-                ([System.Windows.Point]::new($cx, $cy + $outer)),
-                ([System.Windows.Size]::new($outer, $outer)), 0, $true,
-                [System.Windows.Media.SweepDirection]::Clockwise, $true)))
-            $fig.Segments.Add(([System.Windows.Media.ArcSegment]::new(
-                ([System.Windows.Point]::new($cx, $cy - $outer)),
-                ([System.Windows.Size]::new($outer, $outer)), 0, $true,
-                [System.Windows.Media.SweepDirection]::Clockwise, $true)))
-            $fig.Segments.Add(([System.Windows.Media.ArcSegment]::new(
-                ([System.Windows.Point]::new($cx, $cy - $inner)),
-                ([System.Windows.Size]::new($inner, $inner)), 0, $true,
-                [System.Windows.Media.SweepDirection]::Counterclockwise, $true)))
-            $fig.Segments.Add(([System.Windows.Media.ArcSegment]::new(
-                ([System.Windows.Point]::new($cx, $cy + $inner)),
-                ([System.Windows.Size]::new($inner, $inner)), 0, $true,
-                [System.Windows.Media.SweepDirection]::Counterclockwise, $true)))
-            $fig.Segments.Add(([System.Windows.Media.ArcSegment]::new(
-                ([System.Windows.Point]::new($cx, $cy - $inner)),
-                ([System.Windows.Size]::new($inner, $inner)), 0, $true,
-                [System.Windows.Media.SweepDirection]::Counterclockwise, $true)))
-            $fig.Segments.Add(([System.Windows.Media.ArcSegment]::new(
-                ([System.Windows.Point]::new($cx, $cy - $outer)),
-                ([System.Windows.Size]::new($outer, $outer)), 0, $true,
-                [System.Windows.Media.SweepDirection]::Counterclockwise, $true)))
-
-            $geo = New-Object System.Windows.Media.PathGeometry
-            $geo.Figures = New-Object System.Windows.Media.PathFigureCollection
-            $geo.Figures.Add($fig)
-            $path = New-Object System.Windows.Shapes.Path
-            $path.Data = $geo
-            $path.Fill = $brush
-            [void]$canvas.Children.Add($path)
+            # A single value is a plain thick circle (an arc cannot start and end at the same point).
+            $ringWidth = $outer - $inner
+            $circle = New-Object System.Windows.Shapes.Ellipse
+            $circle.Width = $outer + $inner; $circle.Height = $outer + $inner
+            $circle.StrokeThickness = $ringWidth; $circle.Stroke = $brush
+            [System.Windows.Controls.Canvas]::SetLeft($circle, $cx - ($outer + $inner) / 2.0)
+            [System.Windows.Controls.Canvas]::SetTop($circle, $cy - ($outer + $inner) / 2.0)
+            [void]$canvas.Children.Add($circle)
         }
         else {
             $a0 = $angle - $sweep

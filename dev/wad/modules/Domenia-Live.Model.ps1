@@ -214,6 +214,37 @@ try{
     $answer.Presence='En ligne';$answer.PresenceCheckedUtc=[datetime]::UtcNow.ToString('o');$answer.PresenceDetail='Réponse CIM/DCOM reçue ; '+$answer.PresenceDetail
     $answer.User=([string]$cs.UserName).Trim()
     $answer.Outcome=if($answer.User){'Observed'}else{'NoConsole'}
+    # Fleet analysis (decision David 2026-10-07): light WMI reading in the same session, kept with the observation.
+    if($null -ne $Payload.PSObject.Properties['Inventory'] -and [bool]$Payload.Inventory){
+        try{
+            $os=Get-CimInstance -CimSession $cim -ClassName Win32_OperatingSystem -Property Caption,BuildNumber,LastBootUpTime -OperationTimeoutSec $timeout -ErrorAction Stop
+            $system=Get-CimInstance -CimSession $cim -ClassName Win32_ComputerSystem -Property Manufacturer,Model,TotalPhysicalMemory -OperationTimeoutSec $timeout -ErrorAction Stop
+            $disk=Get-CimInstance -CimSession $cim -ClassName Win32_LogicalDisk -Filter "DeviceID='C:'" -Property Size,FreeSpace -OperationTimeoutSec $timeout -ErrorAction Stop
+            $answer.Inventory=[pscustomobject]@{OsCaption=[string]$os.Caption;Build=[string]$os.BuildNumber;LastBootUtc=$(try{([datetime]$os.LastBootUpTime).ToUniversalTime().ToString('o')}catch{''});Manufacturer=([string]$system.Manufacturer).Trim();Model=([string]$system.Model).Trim();RamBytes=[double]$system.TotalPhysicalMemory;DiskSize=[double]$disk.Size;DiskFree=[double]$disk.FreeSpace;CheckedUtc=[datetime]::UtcNow.ToString('o')}
+        }catch{$answer.InventoryError=[string]$_.Exception.Message}
+    }
+    # Widget probes (decision David 2026-10-07): catalog queries run read-only in the same CIM session. Only class,
+    # namespace, property names and a filter come from the catalog; names are checked before the call.
+    if($null -ne $Payload.PSObject.Properties['Probes'] -and @($Payload.Probes).Count){
+        $since=@{'{SINCE_24H}'=(Get-Date).AddHours(-24).ToUniversalTime().ToString('yyyyMMddHHmmss.000000+000');'{SINCE_7D}'=(Get-Date).AddDays(-7).ToUniversalTime().ToString('yyyyMMddHHmmss.000000+000')}
+        $probeResults=[ordered]@{}
+        foreach($probe in @($Payload.Probes)){
+            $entry=[ordered]@{Rows=@();Count=0;Error='';CheckedUtc=[datetime]::UtcNow.ToString('o')}
+            try{
+                if([string]$probe.Class -notmatch '^[A-Za-z0-9_]+$' -or [string]$probe.Namespace -notmatch '^[A-Za-z0-9_\\]+$'){throw 'Requete refusee.'}
+                $properties=@(@($probe.Properties)|Where-Object{[string]$_ -match '^[A-Za-z0-9_]+$'})
+                $filter=[string]$probe.Filter;foreach($token in $since.Keys){$filter=$filter.Replace($token,$since[$token])}
+                $query=@{CimSession=$cim;Namespace=[string]$probe.Namespace;ClassName=[string]$probe.Class;OperationTimeoutSec=[Math]::Max(10,$timeout);ErrorAction='Stop'}
+                if($properties.Count){$query.Property=$properties}
+                if($filter){$query.Filter=$filter}
+                $items=@(Get-CimInstance @query)
+                $entry.Count=$items.Count
+                $entry.Rows=@($items|Select-Object -First 20|ForEach-Object{$instance=$_;,@($properties|ForEach-Object{$value=$instance.$_;if($value -is [datetime]){$value.ToUniversalTime().ToString('o')}elseif($value -is [array]){[string]@($value)[0]}else{$text=[string]$value;if($text.Length -gt 200){$text.Substring(0,200)}else{$text}}})})
+            }catch{$entry.Error=[string]$_.Exception.Message}
+            $probeResults[[string]$probe.Id]=[pscustomobject]$entry
+        }
+        $answer.Probes=[pscustomobject]$probeResults
+    }
     $answer.Detail=if($answer.User){'Compte de la console observé maintenant. Les sessions RDP ne sont pas recensées.'}else{'Lecture réussie : aucun compte renvoyé pour la console. Cela ne prouve pas l''absence de sessions RDP.'}
 }catch{
     $code=Get-NativeCode $_

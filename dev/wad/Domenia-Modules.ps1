@@ -1021,12 +1021,39 @@ function Get-DomeniaRuntimeModulePlan {
             'New-DomeniaLineChart',
             'New-DomeniaGauge'
         ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Probes.Model.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaProbeCatalog',
+            'Get-DomeniaProbe',
+            'ConvertTo-DomeniaProbePayload',
+            'Get-DomeniaProbeValues',
+            'Measure-DomeniaWidgetData'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Charts.UI.ps1','Domenia-Probes.Model.ps1'); File='Domenia-Widgets.UI.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaWidgetList',
+            'Save-DomeniaWidgetList',
+            'Remove-DomeniaWidget',
+            'Get-DomeniaWidgetResults',
+            'Add-DomeniaWidgetSection',
+            'Start-DomeniaWidgetProbe',
+            'Show-DomeniaWidgetEditor',
+            'New-DomeniaWidgetElement'
+        ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Charts.UI.ps1'); File='Domenia-Dashboard.UI.ps1'; DotSource=$true; Functions=@(
             'Clear-DomeniaDashboards',
+            'Show-DomeniaComputerWidgetsOnly',
             'Format-DomeniaDashboardSize',
             'Get-DomeniaInventoryValue',
             'Get-DomeniaCategorySummary',
             'New-DomeniaDashboardSection',
+            'Get-DomeniaWindowsRelease',
+            'Get-DomeniaEntryFileTimeUtc',
+            'Add-DomeniaComputerAdSection',
+            'Start-DomeniaFleetDashboard',
+            'Fail-DomeniaFleetDashboard',
+            'Get-DomeniaFleetScope',
+            'Select-DomeniaFleetScope',
+            'Start-DomeniaFleetAction',
+            'Complete-DomeniaFleetDashboard',
             'Update-DomeniaComputerDashboard',
             'Update-DomeniaSoftwareDashboard'
         ) }

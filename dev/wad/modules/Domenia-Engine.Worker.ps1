@@ -6,7 +6,7 @@ function Get-DomeniaLocalIndexReadWorkerCode {
     # never an empty answer presented as a result.
     return @'
 $action = [string]$Payload.Action
-if ($action -notin @('Search','ParkState','ParkTargets')) { throw 'Lecture locale non autorisee.' }
+if ($action -notin @('Search','ParkState','ParkTargets','FleetStats')) { throw 'Lecture locale non autorisee.' }
 $path = [IO.Path]::GetFullPath([string]$Payload.Path)
 if ($path.StartsWith('\\')) { throw 'Base locale reseau non prise en charge.' }
 if (-not [IO.File]::Exists($path)) { return [pscustomobject]@{ Rows=@(); Busy=$false; Missing=$true; MachineCount=0 } }
@@ -87,7 +87,7 @@ try {
         $cache=@{}
         if(@(Invoke-IdxWQuery $db "SELECT name FROM sqlite_master WHERE type='table' AND name='park_session_cache';").Count){
             foreach($item in @(Invoke-IdxWQuery $db $cacheSql)){
-                if(([string]$item.payload).Length -gt 16384){continue}
+                if(([string]$item.payload).Length -gt 262144){continue}
                 try{$observation=([string]$item.payload)|ConvertFrom-Json -ErrorAction Stop;if([string]$observation.Key -ieq [string]$item.object_key){$cache[[string]$item.object_key]=$observation}}catch{}
             }
         }
@@ -131,6 +131,19 @@ try {
             $targets.Add([pscustomobject]@{Key=$key;Computer=$name;Guid=$guid;Previous=$previous})
         }
         [pscustomobject]@{Rows=$targets.ToArray();Busy=$false;Missing=$false;MachineCount=$targets.Count};return
+    }
+    if ($action -eq 'FleetStats') {
+        # Aggregates of the local index for the home dashboard (decision David 2026-10-07). Read only.
+        $types = @(Invoke-IdxWQuery $db "SELECT object_type AS t, CASE WHEN state='Desactive' THEN 'Desactive' ELSE 'Actif' END AS s, count(*) AS n FROM ad_objects GROUP BY 1,2;")
+        $machines = @(Invoke-IdxWQuery $db "SELECT name, object_guid, extra, last_logon, distinguished_name FROM ad_objects WHERE object_type='Machine' AND (state IS NULL OR state<>'Desactive');")
+        $links = 0; $sources = @(); $presence = @()
+        try { $links = [int](@(Invoke-IdxWQuery $db 'SELECT count(*) AS n FROM user_machine_links;')[0].n) } catch { }
+        try { $sources = @(Invoke-IdxWQuery $db 'SELECT source AS s, count(*) AS n FROM user_machine_links GROUP BY 1 ORDER BY 2 DESC LIMIT 6;') } catch { }
+        if (@(Invoke-IdxWQuery $db "SELECT name FROM sqlite_master WHERE type='table' AND name='park_session_cache';").Count) {
+            try { $presence = @(Invoke-IdxWQuery $db 'SELECT object_key, checked_utc, payload FROM park_session_cache;') } catch { }
+        }
+        [pscustomobject]@{ Rows=@(); Busy=$false; Missing=$false; MachineCount=$machines.Count; Types=$types; Machines=$machines; Links=$links; LinkSources=$sources; Presence=$presence }
+        return
     }
     if ($action -eq 'ParkState') {
         $park = @(Invoke-IdxWQuery $db 'SELECT computer_key,computer,last_probe,status,user_login,attempts FROM park_state;')

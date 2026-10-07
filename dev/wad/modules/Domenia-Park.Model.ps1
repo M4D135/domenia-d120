@@ -10,6 +10,15 @@ function ConvertTo-DomeniaParkSession {
         # CIM observed the same account now; LDAP reuse does not make that observation older.
         $record.ObservedUtc=$NowUtc
     }
+    # Light WMI inventory of a fleet analysis; the previous one is kept when this reading has none.
+    $record.Inventory=$null
+    if($null -ne $Result.PSObject.Properties['Inventory'] -and $null -ne $Result.Inventory){$record.Inventory=$Result.Inventory}
+    elseif($null -ne $Previous -and $null -ne $Previous.PSObject.Properties['Inventory']){$record.Inventory=$Previous.Inventory}
+    # Widget probe results: the latest result of each probe, older probes of this workstation kept.
+    $record.Probes=$null;$merged=[ordered]@{}
+    if($null -ne $Previous -and $null -ne $Previous.PSObject.Properties['Probes'] -and $null -ne $Previous.Probes){foreach($p in $Previous.Probes.PSObject.Properties){$merged[$p.Name]=$p.Value}}
+    if($null -ne $Result.PSObject.Properties['Probes'] -and $null -ne $Result.Probes){foreach($p in $Result.Probes.PSObject.Properties){$merged[$p.Name]=$p.Value}}
+    if($merged.Count){$record.Probes=[pscustomobject]$merged}
     return [pscustomobject]$record
 }
 function Test-DomeniaParkLinkChanged {

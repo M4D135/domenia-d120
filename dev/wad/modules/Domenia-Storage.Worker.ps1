@@ -284,8 +284,9 @@ try {
   }elseif($i.Kind -eq 'ParkSession'){
     $r=$i.Row
     if([int]$r.Version -ne 1 -or -not $r.Key -or -not $r.Guid){throw 'Observation du parc invalide.'}
-    $json=$r|ConvertTo-Json -Depth 4 -Compress
-    if($json.Length -gt 16384){throw 'Observation du parc trop volumineuse.'}
+    # Widget probe results (2026-10-07) need a deeper and larger observation; still bounded.
+    $json=$r|ConvertTo-Json -Depth 7 -Compress
+    if($json.Length -gt 262144){throw 'Observation du parc trop volumineuse.'}
     [void](Invoke-DomeniaDbExec 'CREATE TABLE IF NOT EXISTS park_session_cache(object_key TEXT PRIMARY KEY,checked_utc TEXT NOT NULL,payload TEXT NOT NULL);' $db)
     $values=@([string]$r.Key,[string]$r.CheckedUtc,$json)
     [void](Invoke-DomeniaDbExec ('INSERT OR REPLACE INTO park_session_cache(object_key,checked_utc,payload) VALUES('+(($values|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ',')+');') $db)

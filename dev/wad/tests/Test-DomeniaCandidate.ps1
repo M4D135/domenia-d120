@@ -72,7 +72,7 @@ Case 'Percentile mesures reellement entrees' {Expect ((Get-DomeniaPercentile @(1
 Case 'Mediane mesures reellement entrees' {Expect ((Get-DomeniaPercentile @(1,2,3,4,100) 50) -eq 3)}
 Case 'Favori domaine valide' {$v=[pscustomobject]@{Name='Test';DN='OU=Test,DC=example,DC=invalid';Query='pc';Type='Machines';Limit=100;Subtree=$true};Expect ($null -ne (ConvertTo-DomeniaSavedSearch $v 'DC=example,DC=invalid'))}
 Case 'Favori autre domaine refuse' {$v=[pscustomobject]@{Name='Test';DN='OU=Test,DC=else,DC=invalid';Query='pc';Type='Machines';Limit=100;Subtree=$true};Expect ($null -eq (ConvertTo-DomeniaSavedSearch $v 'DC=example,DC=invalid'))}
-Case 'Favori volume borne' {$v=[pscustomobject]@{Name='Test';DN='DC=example,DC=invalid';Query='';Type='Tous';Limit=999999;Subtree=$true};Expect ((ConvertTo-DomeniaSavedSearch $v 'DC=example,DC=invalid').Limit -eq 500)}
+Case 'Favori volume borne' {$v=[pscustomobject]@{Name='Test';DN='DC=example,DC=invalid';Query='';Type='Tous';Limit=999999;Subtree=$true};Expect ((ConvertTo-DomeniaSavedSearch $v 'DC=example,DC=invalid').Limit -eq 20000)}
 Case 'Favori requete excessive refusee' {$v=[pscustomobject]@{Name='Test';DN='DC=example,DC=invalid';Query=('x'*257);Type='Tous';Limit=100;Subtree=$true};Expect ($null -eq (ConvertTo-DomeniaSavedSearch $v 'DC=example,DC=invalid'))}
 # Parse each exact pinned worker, and both non-write/write forms used by the runtime.
 $contracts=Get-Content -LiteralPath (Join-Path $root 'tools\operation-contracts.json') -Raw|ConvertFrom-Json

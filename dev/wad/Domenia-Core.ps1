@@ -4411,6 +4411,32 @@ function Get-MainXaml {
                         <TextBlock Text="Le mode Essentiel simplifie les vues. La case Lecture seule contrôle les modifications : ce sont deux réglages indépendants." TextWrapping="Wrap" Foreground="{DynamicResource InfoFg}" Margin="0,6,0,0"/>
                       </StackPanel>
                     </Border>
+                    <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+                      <StackPanel>
+                        <DockPanel>
+                          <Button x:Name="BtnFleetDashboardRefresh" DockPanel.Dock="Right" Content="Actualiser" MinHeight="30" Padding="10,4" Margin="8,0,0,0" ToolTip="Recalcule la vue d ensemble a partir de la base autonome locale. Aucune requete AD ni poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Actualiser la vue d ensemble du parc"/>
+                          <StackPanel>
+                            <TextBlock Text="Vue d ensemble du parc" FontSize="18" FontWeight="SemiBold"/>
+                            <TextBlock x:Name="LblFleetDashboard" Text="Calculee depuis la base autonome locale. Pour un parc complet : Outils, Base autonome, Mettre a jour tout." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,4,0,8"/>
+                          </StackPanel>
+                        </DockPanel>
+                        <Grid Margin="0,0,0,8">
+                          <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                          <TextBlock Text="Perimetre" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="SemiBold"/>
+                          <TextBox x:Name="TxtFleetScope" Grid.Column="1" IsReadOnly="True" MinHeight="30" ToolTip="OU de depart du tableau de bord et des analyses. Vide : tout le domaine indexe (consultation seulement)." AutomationProperties.Name="Perimetre du tableau de bord"/>
+                          <Button x:Name="BtnFleetScope" Grid.Column="2" Content="Choisir l OU..." MinHeight="30" Padding="10,4" Margin="8,0,0,0" ToolTip="Choisir l OU de depart dans l annuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Choisir l OU du tableau de bord"/>
+                          <Button x:Name="BtnFleetScopeReset" Grid.Column="3" Content="Tout le domaine" MinHeight="30" Padding="10,4" Margin="8,0,0,0" ToolTip="Revient au domaine entier pour la consultation. Les analyses demandent une OU." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Revenir au domaine entier"/>
+                        </Grid>
+                        <WrapPanel Margin="0,0,0,8">
+                          <Button x:Name="BtnFleetPing" Content="Pinger l OU" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" ToolTip="Ping des postes indexes de l OU choisie, avec confirmation. Jamais le domaine entier." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Pinger les postes de l OU"/>
+                          <Button x:Name="BtnFleetDetect" Content="Detecter les utilisateurs" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" ToolTip="Ping puis utilisateur console des postes de l OU choisie ; associations actualisees si changement." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Detecter les utilisateurs de l OU"/>
+                          <Button x:Name="BtnFleetAnalyze" Content="Analyser l OU (WMI)" Style="{StaticResource RunButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" ToolTip="Ping, utilisateur console et releve WMI leger (modele, memoire, disque C:, build, demarrage) de chaque poste de l OU ; resultats conserves pour ce tableau de bord." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Analyser les postes de l OU"/>
+                          <Button x:Name="BtnFleetStop" Content="Arreter" Style="{StaticResource DangerButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" ToolTip="Arrete les nouvelles lectures ; les resultats obtenus sont conserves." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Arreter l analyse"/>
+                        </WrapPanel>
+                        <TextBlock x:Name="LblFleetRun" Text="" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                        <StackPanel x:Name="PnlFleetDashboard"/>
+                      </StackPanel>
+                    </Border>
                     <Expander Header="Détails de la session et outils de vérification" IsExpanded="False" ToolTip="Affiche les informations techniques déjà chargées, sans lancer de scan." x:Name="UxSessionDetails" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Détails de la session et outils de vérification" AutomationProperties.HelpText="Affiche les informations techniques déjà chargées, sans lancer de scan.">
                       <Border Style="{StaticResource Card}" Margin="0,10,0,0">
                         <StackPanel>
@@ -11090,7 +11116,7 @@ function Get-DomeniaInventoryWorkerCode {
 $rows = New-Object Collections.ArrayList
 $access = New-Object Collections.ArrayList
 # Numbers for the workstation dashboard (decision David 2026-10-07); the rows stay the textual inventory.
-$metrics = [pscustomobject]@{ MemoryTotal=0.0; MemoryFree=0.0; LastBoot=''; CpuLoad=-1.0; Battery=-1.0; Disks=(New-Object Collections.ArrayList); Hotfixes=(New-Object Collections.ArrayList); Processes=(New-Object Collections.ArrayList); Services=@{} }
+$metrics = [pscustomobject]@{ MemoryTotal=0.0; MemoryFree=0.0; LastBoot=''; CpuLoad=-1.0; Battery=-1.0; ClockSkewSeconds=$null; Disks=(New-Object Collections.ArrayList); Hotfixes=(New-Object Collections.ArrayList); Processes=(New-Object Collections.ArrayList); Services=@{} }
 $computer = [string]$Payload.Computer
 $deep = [bool]$Payload.Deep
 $cred = Get-WMachineCredential $Context
@@ -11476,6 +11502,8 @@ try {
             Add-Item 'Systeme d exploitation' 'Installe le' (Get-CimDate $os.InstallDate) 'Win32_OperatingSystem'
             Add-Item 'Systeme d exploitation' 'Dernier demarrage' (Get-CimDate $os.LastBootUpTime) 'Win32_OperatingSystem'
             try { $metrics.LastBoot = ([datetime]$os.LastBootUpTime).ToString('o') } catch { }
+            # Clock offset of the workstation (Kerberos refuses more than 5 minutes); includes the read latency.
+            try { $metrics.ClockSkewSeconds = [Math]::Round((([datetime]$os.LocalDateTime).ToUniversalTime() - (Get-Date).ToUniversalTime()).TotalSeconds) } catch { }
             try {
                 $uptime = (Get-Date) - [datetime]$os.LastBootUpTime
                 $days = [int]$uptime.Days
@@ -19514,6 +19542,13 @@ function Wire-Events {
     }
     if ($script:Ctrl.ContainsKey("BtnRunInventory")) { $script:Ctrl["BtnRunInventory"].Add_Click({ Start-DomeniaComputerInventory }) }
     if ($script:Ctrl.ContainsKey("BtnRunInventoryDeep")) { $script:Ctrl["BtnRunInventoryDeep"].Add_Click({ Start-DomeniaComputerInventory -Deep }) }
+    if ($script:Ctrl.ContainsKey("BtnFleetDashboardRefresh")) { $script:Ctrl["BtnFleetDashboardRefresh"].Add_Click({ Start-DomeniaFleetDashboard }) }
+    if ($script:Ctrl.ContainsKey("BtnFleetScope")) { $script:Ctrl["BtnFleetScope"].Add_Click({ Select-DomeniaFleetScope }) }
+    if ($script:Ctrl.ContainsKey("BtnFleetScopeReset")) { $script:Ctrl["BtnFleetScopeReset"].Add_Click({ Select-DomeniaFleetScope -Reset }) }
+    if ($script:Ctrl.ContainsKey("BtnFleetPing")) { $script:Ctrl["BtnFleetPing"].Add_Click({ Start-DomeniaFleetAction -Mode Ping }) }
+    if ($script:Ctrl.ContainsKey("BtnFleetDetect")) { $script:Ctrl["BtnFleetDetect"].Add_Click({ Start-DomeniaFleetAction -Mode Detect }) }
+    if ($script:Ctrl.ContainsKey("BtnFleetAnalyze")) { $script:Ctrl["BtnFleetAnalyze"].Add_Click({ Start-DomeniaFleetAction -Mode Analyze }) }
+    if ($script:Ctrl.ContainsKey("BtnFleetStop")) { $script:Ctrl["BtnFleetStop"].Add_Click({ Stop-DomeniaOnlinePark }) }
     if ($script:Ctrl.ContainsKey("BtnDashboardInventory")) { $script:Ctrl["BtnDashboardInventory"].Add_Click({ Start-DomeniaComputerInventory }) }
     if ($script:Ctrl.ContainsKey("BtnDashboardInventoryDeep")) { $script:Ctrl["BtnDashboardInventoryDeep"].Add_Click({ Start-DomeniaComputerInventory -Deep }) }
     if ($script:Ctrl.ContainsKey("BtnCopyInventory")) { $script:Ctrl["BtnCopyInventory"].Add_Click({ Copy-DomeniaInventory }) }
@@ -20817,7 +20852,7 @@ function Get-DomeniaWorkerOperationHashes {
         ReadBitLockerList     = "B1456CEA5805D83C6BF48E9A4040206F18F3C3773ED250610D6890E8D1F4EEC9"
         ReadBitLockerKey      = "8A98EBCDC48AD572404E1566826035C84F34ACB87564330A7AA511FAAC01EE6F"
         DemoDirectory         = "F12481F3B254D64F9C5D870A98EA33BE6C69A67D4C99D28601CF292A1150EAE0"
-        LocalIndexRead        = "32274CE29D88540C3EAA9E68C348F3A44842AE956C5AAFA5DE356661E586AF0C"
+        LocalIndexRead        = "E25CC7C3B0D0E3F6F2416DD90786149C3CFB6163BB0B02CD3A23A5141D8CDCB7"
         ParkSharedSync        = "B3A64051813F12A24BD5E791D59CF7E2330FA84E965C9F44BD62366D4A81415E"
         IsolatedRead          = "4074D6ECAA620A9C80A5B6B535BB657E02DCE06A9DF97E35CA1EA47572D1060C"
         CmdletHelp            = "12505D0654AB0E97BD803A70B953BB0BBE2152836AAA1889744C1312EB215D62"
@@ -20837,7 +20872,7 @@ function Get-DomeniaWorkerOperationHashes {
         ParkSweep             = "134ED776E45640FA67B7F51659711C33B37834105375CC4B083342469F2C26A9"
         IndexBuild            = "4FC47EF863C2EE3F31D7D868F947D35905DCE9FC1BDDEEB0DBEFD4A179C3E7E0"
         UserComputerProbe     = "EB7C36419C1B8B91AFB9ECE6B98D4E3FE663B87E4011F7D264D8AEDE7735E775"
-        ComputerInventory     = "237CF6856712A8D627B8E236A2DA6127088088CB654802D1F7E0BFD3ED110E9F"
+        ComputerInventory     = "1C7B1351732FBDAB934D84D4EEC203E4A62B7423F4A49AB8298AE632F71BB7A7"
         ComputerDiagnostics   = "9A5535EB658FA19AFC0905D57B339CEE0C14CCD4DA81AE2E0A527A86B5046608"
         ComputerLastUser      = "8F79C42CE673CE98DBE30EB30B9DBF246D8819B08149A4FBA1C5F9BA894395F9"
         CmdletInventory       = "FA1105E9540BBC2AB373FC45037CC54FA11EB8BD9B058194CE44C422E812DF75"
@@ -20864,8 +20899,8 @@ function Get-DomeniaWorkerOperationHashes {
         PresenceScan          = "E7F81414C29C1C8F1E91453D9EC4BA48B6F92F0AA0E2674C9EBF5C88437F4486"
         SelectedPresence      = "4ECADF4F231390182A3BF091EF8636B3536D7B3F8A28EF3984DE1E2D524D5BFA"
         StartupWarmCache      = "864735012ED29EBAF1B094DA12C1D44266933DC9D3D2046BD1E5D68AE58CA1A3"
-        LiveSelectedPing     = "6479F173DD0503C41B07200629121C6967C27CDB506FDCB48BCD70BA8CCBA136"
-        LiveConsole          = "6479F173DD0503C41B07200629121C6967C27CDB506FDCB48BCD70BA8CCBA136"
+        LiveSelectedPing     = "100C1190783EFDF3B5E55C0B5BBE6F630703A15099FA85D28886DF72F6EE5465"
+        LiveConsole          = "100C1190783EFDF3B5E55C0B5BBE6F630703A15099FA85D28886DF72F6EE5465"
         LiveCache            = "DDE5FCD862785432F805D446F3E16A28D3D60282A50892354C01BB2ED147196E"
         LiveDirectoryCheck    = "49F6D4249F6465D6E461D3B04DD090F00477ABBD871683ECF3622714A2AB53CD"
         SessionsList         = "DD09187778C09CF31B0BDA41EAC88FF898D9484756AFDF2F3EE643E6B5318BF6"
@@ -20873,7 +20908,7 @@ function Get-DomeniaWorkerOperationHashes {
         ReceiptStore         = "45FE35D694782ECB8B13D14C5B3CD637FD5CA1C4B0E6CD278EEE3AC5804121D1"
         ScopeReconcile       = "5917B0E2AB92BA626EF3621CCCE7B9A4988B318E62834EFD02FD6AFEF5C0B650"
         DocumentStore        = "BFD83587CB1BA62BC141E5F0742C6C6453A561617ED157045F3B4E7AB11A14E7"
-        LocalStore           = "7AB18CFBDC9B5040B838C0859C444F0CE2EBA8489D617FE3C522E93C9E5A4501"
+        LocalStore           = "C7EBA9EB28327A938CAA3201EC0E05A0EA327D7788E09F173D4EC85FB75F2558"
         EngineSelfTest        = "40E2C89F858E22E1D221AC48DC04DD5BF627F1ACBC836AB48036C43DB9F7E1D1"
             EmbeddedDirectoryLookup = "2B3A888C7E1A97B4D523B0B3A408EF03AA5C0D0F95D534984B8EB3D581CDDD17"
         EmbeddedPathBrowse = "B643D707E242EC4416AD63622847DD7C39E5B53ED47CF64FECD56E22B5A82271"
@@ -20885,7 +20920,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "A84942B0D6B52891E9025B093FA9409D07FA2B370CC3A272716E628394B3C9D4"
+    $expectedFingerprint = "1C2861F24C629F43B0B3910F3768DFF1733B23C1C98126ABADA9CEA8B0587FE4"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -24346,6 +24381,7 @@ function Initialize-Window {
                 if ([bool]$script:DemoMode) { Set-Status ("Prêt. " + (Get-DomeniaDemoBannerText) + ".") "WARN" }
                 else { Set-Status "Pret. Connexion validee, mode lecture seule actif." }
                 try { $script:Ctrl["LblMachineCredential"].Text = (Get-DomeniaMachineOperationAccountText) } catch { }
+                try { Start-DomeniaFleetDashboard -Quiet } catch { }
                 Write-AppLog "Pret. Base=$($script:Conn.BaseDn) Server=$($script:Conn.Server) AD=$($script:Conn.BindUser) WIN=$script:ProcessIdentity Demo=$([bool]$script:DemoMode)" "INFO"
                 Update-Dashboard
             }catch{Write-AppLog "ContentRendered : $($_.Exception.ToString())" "ERROR"}
