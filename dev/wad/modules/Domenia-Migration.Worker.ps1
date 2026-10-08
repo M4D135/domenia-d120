@@ -158,7 +158,9 @@ function Get-DomeniaTextHash {
 
 function ConvertTo-DomeniaUtcDate {
     # Returns a UTC DateTime or $null. Accepts DateTime, ISO text, and an AD FILETIME (Int64 ticks since 1601).
-    param($Value)
+    # A text or DateTime without offset is UTC by default; -AssumeLocal reads it as local time instead (CO-29: the
+    # relation dates written before RC1.14 as local "yyyy-MM-dd HH:mm:ss"). An explicit offset or Z always wins.
+    param($Value,[switch]$AssumeLocal)
     if ($null -eq $Value) { return $null }
     try {
         if ($Value -is [byte[]]) { return $null }
@@ -166,12 +168,15 @@ function ConvertTo-DomeniaUtcDate {
             # One AD value in a collection is read; several values never pick one silently.
             $items = Get-DomeniaCollectionItems $Value
             if ($items.Count -ne 1) { return $null }
-            return (ConvertTo-DomeniaUtcDate $items[0])
+            return (ConvertTo-DomeniaUtcDate $items[0] -AssumeLocal:$AssumeLocal)
         }
         $large = ConvertFrom-DomeniaLargeInteger $Value
         if ($null -ne $large) { $Value = [long]$large }
         if ($Value -is [datetime]) {
-            if ($Value.Kind -eq [DateTimeKind]::Unspecified) { return [datetime]::SpecifyKind($Value,[DateTimeKind]::Utc) }
+            if ($Value.Kind -eq [DateTimeKind]::Unspecified) {
+                if ($AssumeLocal) { return [datetime]::SpecifyKind($Value,[DateTimeKind]::Local).ToUniversalTime() }
+                return [datetime]::SpecifyKind($Value,[DateTimeKind]::Utc)
+            }
             return $Value.ToUniversalTime()
         }
         if ($Value -is [long] -or $Value -is [int] -or $Value -is [decimal] -or $Value -is [double]) {
@@ -188,7 +193,9 @@ function ConvertTo-DomeniaUtcDate {
             return [datetime]::FromFileTimeUtc($number)
         }
         $parsed = [datetime]::MinValue
-        $styles = [Globalization.DateTimeStyles]::AssumeUniversal -bor [Globalization.DateTimeStyles]::AdjustToUniversal
+        $assumed = [Globalization.DateTimeStyles]::AssumeUniversal
+        if ($AssumeLocal) { $assumed = [Globalization.DateTimeStyles]::AssumeLocal }
+        $styles = $assumed -bor [Globalization.DateTimeStyles]::AdjustToUniversal
         if ([datetime]::TryParse($text,[Globalization.CultureInfo]::InvariantCulture,$styles,[ref]$parsed)) { return $parsed }
     } catch { }
     return $null
@@ -524,6 +531,14 @@ function Get-DomeniaRelationKind {
     return 'Inconnu'
 }
 
+function ConvertTo-DomeniaRelationUtcDate {
+    # Date of a relation as a UTC DateTime, or $null. Relation dates are stored as UTC ISO 8601 ("o"). A date
+    # without offset was written in local time before RC1.14 (manual and imported rows "yyyy-MM-dd HH:mm:ss",
+    # Live rows "s"): it is read as local time, never as UTC.
+    param($Value)
+    return (ConvertTo-DomeniaUtcDate $Value -AssumeLocal)
+}
+
 function Select-DomeniaPrimaryRelation {
     # The relation shown first for a workstation: a declared assignment, otherwise the most recent relation.
     param([object[]]$Relations=@())
@@ -533,7 +548,7 @@ function Select-DomeniaPrimaryRelation {
         $kind = [string](Get-DomeniaMember $relation 'Kind' '')
         if (-not $kind) { $kind = Get-DomeniaRelationKind ([string](Get-DomeniaMember $relation 'Source' '')) }
         $declared = ($kind -eq 'Affectation')
-        $when = ConvertTo-DomeniaUtcDate (Get-DomeniaMember $relation 'When' $null)
+        $when = ConvertTo-DomeniaRelationUtcDate (Get-DomeniaMember $relation 'When' $null)
         if ($null -eq $best) { $best = $relation; $bestDeclared = $declared; $bestWhen = $when; continue }
         if ($declared -and -not $bestDeclared) { $best = $relation; $bestDeclared = $true; $bestWhen = $when; continue }
         if ($declared -ne $bestDeclared) { continue }

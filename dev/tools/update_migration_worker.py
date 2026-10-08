@@ -13,7 +13,7 @@ SOURCES = {
     'modules/Domenia-Storage.Worker.ps1': ['Initialize-DomeniaWinSqliteNative', 'New-DomeniaUtf8Ptr', 'ConvertFrom-DomeniaUtf8Ptr', 'Close-DomeniaDatabase', 'ConvertTo-DomeniaSqlLiteral', 'Open-DomeniaDatabase', 'Invoke-DomeniaDbQuery'],
     'modules/Domenia-Common.Model.ps1': ['Test-DomeniaDictionaryKey', 'Get-DomeniaMember', 'Get-DomeniaCollectionItems', 'ConvertFrom-DomeniaLargeInteger', 'Get-DomeniaTextHash', 'ConvertTo-DomeniaUtcDate'],
     'modules/Domenia-Release.Model.ps1': ['Test-DomeniaReleaseMapKey', 'Get-DomeniaReleaseMapValue', 'ConvertTo-DomeniaMigrationDomain', 'ConvertTo-DomeniaMigrationComputerKey', 'ConvertTo-DomeniaMigrationUserLogin', 'Get-DomeniaMigrationPlan', 'Get-DomeniaMigratedState', 'Test-DomeniaMigrationIdempotent'],
-    'modules/Domenia-Relations.Model.ps1': ['Get-DomeniaRelationKind', 'Select-DomeniaPrimaryRelation'],
+    'modules/Domenia-Relations.Model.ps1': ['Get-DomeniaRelationKind', 'ConvertTo-DomeniaRelationUtcDate', 'Select-DomeniaPrimaryRelation'],
     'Domenia-Core.ps1': ['Normalize-LinkComputer', 'Normalize-LinkUser', 'Get-DomeniaStoreBackupDirectory', 'Backup-DomeniaDatabase'],
     'modules/Domenia-Migration.UI.ps1': ['ConvertTo-DomeniaLegacyNumber', 'ConvertTo-DomeniaLegacyDate', 'Read-DomeniaLegacySource', 'Get-DomeniaLegacySnapshot', 'New-DomeniaLegacyImportPlan'],
 }
