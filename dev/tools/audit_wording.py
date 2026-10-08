@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """TE-01: offline audit of the French interface wording. Reads files only; no PowerShell is executed.
 
-Interface strings read:
+Interface strings read (wad/Domenia-Core.ps1, wad/Domenia-Start.ps1, wad/modules):
   - XAML attributes Content, Text, Header and ToolTip (here-strings of the core and modules, module .xaml files);
-  - string literals passed to Set-Status and Set-DomeniaContextHint;
+  - string literals passed to Set-Status, Set-DomeniaContextHint and the message boxes (Show-InfoBox, Show-WarningBox,
+    Show-ErrorBox, Confirm-Action, Confirm-WarningAction, Show-DomeniaDialog, [Windows.MessageBox]::Show);
+  - string literals assigned in code to the Text, Content, ToolTip and Header properties (« $label.Text = '...' »);
   - Title and Text of wad/modules/Domenia-UX.help.json.
 Rules:
   accent    a word written without its accent (Etat, Derniere, Detecter, Perimetre, Synthese, resultat...);
@@ -12,6 +14,8 @@ Rules:
 The reference tools/baselines/wording-baseline.json is a ratchet. Each finding is keyed by rule and exact text, so
 moving a sentence between files changes nothing, while a new faulty sentence (or one more copy of an old one) makes
 the audit fail. --update rewrites the reference after corrections and refuses any increase.
+Integration note: a lot that edits a historical faulty label must correct all of its faults. The key is the whole text,
+so a label partly corrected becomes a new text: the old key goes down, the new one goes up and the build fails.
 """
 from pathlib import Path
 import argparse, html, json, re, sys
@@ -49,7 +53,9 @@ SECOND_RX = [
     re.compile(r'(?:^|[.!?:;]\s+)(' + '|'.join(SECOND_PERSON_START) + r')(?![\w-])'),
 ]
 XAML_RX = re.compile(r'(?<=\s)(Content|Text|Header|ToolTip)="([^"]*)"')
-CALL_RX = re.compile(r'(?<![\w-])(Set-Status|Set-DomeniaContextHint)(?![\w-])')
+CALL_RX = re.compile(r'(?<![\w-])(Set-Status|Set-DomeniaContextHint|Show-InfoBox|Show-WarningBox|Show-ErrorBox|Confirm-Action|'
+                     r'Confirm-WarningAction|Show-DomeniaDialog)(?![\w-])|\[(?:System\.)?Windows\.MessageBox\]::Show\(')
+ASSIGN_RX = re.compile(r'\.(Text|Content|ToolTip|Header)\s*\+?=(?!=)')
 LEVELS = {'INFO', 'WARN', 'ERROR', 'OK', 'SUCCESS', 'DEBUG'}
 
 
@@ -86,7 +92,8 @@ def collect(root):
     """(file, line, source kind, text) for every interface string."""
     root = Path(root)
     items = []
-    sources = [root / 'wad/Domenia-Core.ps1'] + sorted((root / 'wad/modules').glob('*.ps1')) + sorted((root / 'wad/modules').glob('*.xaml'))
+    sources = ([root / 'wad/Domenia-Core.ps1', root / 'wad/Domenia-Start.ps1'] + sorted((root / 'wad/modules').glob('*.ps1')) +
+               sorted((root / 'wad/modules').glob('*.xaml')))
     for path in sources:
         if not path.is_file():
             continue
@@ -116,7 +123,10 @@ def collect(root):
                     continue
                 for m in CALL_RX.finditer(line):
                     for value in call_literals(line[m.end():]):
-                        items.append((rel, number, m.group(1), value))
+                        items.append((rel, number, m.group(1) or 'MessageBox', value))
+                for m in ASSIGN_RX.finditer(line):
+                    for value in call_literals(line[m.end():]):
+                        items.append((rel, number, 'assign.' + m.group(1), value))
     help_path = root / 'wad/modules/Domenia-UX.help.json'
     if help_path.is_file():
         rel = help_path.relative_to(root).as_posix()

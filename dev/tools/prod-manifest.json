@@ -35,8 +35,8 @@
     },
     {
       "Path": "wad/Domenia-Start.ps1",
-      "Sha256": "48C867970F71F2658690092518435392E1395D443FDBDEEE07AC391B479D3E37",
-      "Bytes": 9119,
+      "Sha256": "BB415642F380F42C5402FBD8FC041C8B593950C7154FC9E57F6FB2D6D6BEC590",
+      "Bytes": 9763,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -119,8 +119,8 @@
     },
     {
       "Path": "wad/Support/INSTALLER-MISE-A-JOUR.ps1",
-      "Sha256": "E4DE66D8E7976CDC02C272542D0144CCA7EDA63111E23617E0BA9BBAA0E9ED68",
-      "Bytes": 42632,
+      "Sha256": "8DE2D1C4C8F3AF56668412DF44BADB52166386514FED60991B42662AAD13D8CD",
+      "Bytes": 50210,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -441,8 +441,8 @@
     },
     {
       "Path": "wad/modules/Domenia-Release.Model.ps1",
-      "Sha256": "66C87A597B106AEFB23828F5755F88E28728AE1203C38BDD59575C5BEFE56321",
-      "Bytes": 135583,
+      "Sha256": "A0E9D18243D20F3798507A1DB2A9278337D958E95C5BDCC3EB33A37E0A6DCAC4",
+      "Bytes": 138488,
       "Runtime": true,
       "PreserveExisting": false
     },

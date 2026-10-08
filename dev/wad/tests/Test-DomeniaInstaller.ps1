@@ -38,15 +38,22 @@ function New-Fixture {
  return [pscustomobject]@{Dir=$case;Source=$src;Target=$dst;OldHash=(Hash $oldCore)}
 }
 function Run-Script {
- param([string]$Path,[string[]]$Extra=@())
- $log=$Path+'.'+[guid]::NewGuid().ToString('N');$arguments=@('-NoLogo','-NoProfile','-STA','-NonInteractive','-ExecutionPolicy','Bypass','-File',('"'+$Path+'"'))+$Extra
- $p=Start-Process (Join-Path $PSHOME 'powershell.exe') -ArgumentList $arguments -NoNewWindow -PassThru -RedirectStandardOutput ($log+'.out') -RedirectStandardError ($log+'.err');$null=$p.Handle
+ # -Answers: the operator's typed answers, one per line, read by Read-Host from the redirected input (interactive host).
+ param([string]$Path,[string[]]$Extra=@(),[string[]]$Answers=$null)
+ $log=$Path+'.'+[guid]::NewGuid().ToString('N')
+ $arguments=@('-NoLogo','-NoProfile','-STA')
+ if($null -eq $Answers){$arguments+='-NonInteractive'}
+ $arguments+=@('-ExecutionPolicy','Bypass','-File',('"'+$Path+'"'))+$Extra
+ $redirect=@{RedirectStandardOutput=($log+'.out');RedirectStandardError=($log+'.err')}
+ if($null -ne $Answers){[IO.File]::WriteAllText(($log+'.in'),(($Answers -join "`r`n")+"`r`n"));$redirect.RedirectStandardInput=($log+'.in')}
+ $p=Start-Process (Join-Path $PSHOME 'powershell.exe') -ArgumentList $arguments -NoNewWindow -PassThru @redirect;$null=$p.Handle
  if(-not $p.WaitForExit(90000)){try{$p.Kill()}catch{};throw ('Processus de test hors delai : '+$log)}
  $p.WaitForExit();return [pscustomobject]@{Code=$p.ExitCode;Output=([IO.File]::ReadAllText($log+'.out')+[IO.File]::ReadAllText($log+'.err'))}
 }
 function Install {
- # ARGS defaults to an update of the fixture target with the question waived (-Confirm:$false).
- param($Fixture,[string]$Mode='Normal',[string]$Arguments='-Destination (Join-Path $PSScriptRoot ''active'') -Confirm:$false')
+ # ARGS defaults to an update of the fixture target with the question waived (-Confirm:$false). -Relay goes through the
+ # DEV entry point (dev\INSTALLER-MISE-A-JOUR.ps1); -Prelude runs first (for instance a Set-Location).
+ param($Fixture,[string]$Mode='Normal',[string]$Arguments='-Destination (Join-Path $PSScriptRoot ''active'') -Confirm:$false',[string[]]$Answers=$null,[switch]$Relay,[string]$Prelude='')
  $runner=Join-Path $Fixture.Dir ('invoke-'+[guid]::NewGuid().ToString('N').Substring(0,8)+'.ps1')
  $text=@'
 $ErrorActionPreference='Stop'
@@ -74,9 +81,12 @@ for($i=0;$i -lt $lines.Length;$i++){
   }|Out-Null
  }
 }
-& $installer ARGS
+PRELUDE
+& $(if($global:relay){Join-Path $PSScriptRoot 'source\INSTALLER-MISE-A-JOUR.ps1'}else{$installer}) ARGS
+exit ([int]$LASTEXITCODE)
 '@
- Save $runner ($text.Replace('MODE',$Mode).Replace('ARGS',$Arguments));return Run-Script $runner
+ $text=$text.Replace('$global:mode=''MODE''',('$global:mode='''+$Mode+''';$global:relay=$'+([bool]$Relay).ToString().ToLowerInvariant()))
+ Save $runner ($text.Replace('PRELUDE',$Prelude).Replace('ARGS',$Arguments));return Run-Script $runner @() $Answers
 }
 function Start-Check {param($Fixture,[string]$Path='')if(-not $Path){$Path=$Fixture.Target};return Run-Script (Join-Path $Path 'wad\Domenia-Start.ps1') @('-CheckOnly')}
 function Backup {param($Fixture)return @(Get-ChildItem (Join-Path $Fixture.Target 'wad\maintenance\backups') -Directory|Where-Object {Test-Path (Join-Path $_.FullName 'transaction.json')}|Sort-Object Name -Descending)[0].FullName}
@@ -92,21 +102,38 @@ function Set-ReleaseLimit {
  Save (Join-Path $Fixture.Target 'wad\package-manifest.json') ($active|ConvertTo-Json -Depth 8)
 }
 function New-QualifiedPackage {
- # Test double of a delivered ZIP (its manifest only) and of a release_guard report bound to it. Fixture only:
+ # Test double of a delivered PROD ZIP (every runtime file and its manifest, or the manifest alone with -ManifestOnly)
+ # and of a release_guard report bound to it. -Edit changes the report before it is written. Temporary test data only:
  # neither is a Windows qualification of the real delivery.
- param($Fixture,[string]$BoundSha='')
+ param($Fixture,[string]$BoundSha='',[scriptblock]$Edit=$null,[switch]$ManifestOnly)
  Add-Type -AssemblyName System.IO.Compression,System.IO.Compression.FileSystem
- $zipPath=Join-Path $Fixture.Dir 'Domenia_PROD.zip'
+ $zipPath=Join-Path $Fixture.Dir $(if($ManifestOnly){'Domenia_PROD_manifeste.zip'}else{'Domenia_PROD.zip'})
  if(-not [IO.File]::Exists($zipPath)){
   $zip=[IO.Compression.ZipFile]::Open($zipPath,[IO.Compression.ZipArchiveMode]::Create)
-  try{[void][IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip,(Join-Path $dev 'tools\prod-manifest.json'),'prod/wad/package-manifest.json')}finally{$zip.Dispose()}
+  try{
+   if(-not $ManifestOnly){foreach($entry in $manifest.Files){[void][IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip,(Join-Path $dev $entry.Path),('prod/'+$entry.Path))}}
+   [void][IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip,(Join-Path $dev 'tools\prod-manifest.json'),'prod/wad/package-manifest.json')
+  }finally{$zip.Dispose()}
  }
  if(-not $BoundSha){$BoundSha=(Hash $zipPath).ToLowerInvariant()}
- $scenarios=@('parser.ps51','runtime.modules','worker.contracts','startup.exe_login_main','ui.actual_events','ui.layout_profiles','data.sqlite','security.secret_markers','race.selection','prod.standalone'|ForEach-Object{[ordered]@{Id=$_;Status='PASS';Executed=$true;StartedUtc='2026-10-08T10:00:00Z';EndedUtc='2026-10-08T10:01:00Z';EvidenceSHA256=('b'*64)}})
- $report=[ordered]@{FixtureOnly=$true;Build=[string]$manifest.Build;ArchiveSHA256=$BoundSha;Host=[ordered]@{Platform='Windows';PSEdition='Desktop';PSVersion=$PSVersionTable.PSVersion.ToString()};OverallStatus='PASS';Scenarios=$scenarios}
+ $scenarios=@($script:RequiredScenarios|ForEach-Object{[pscustomobject][ordered]@{Id=$_;Status='PASS';Executed=$true;StartedUtc='2026-10-08T10:00:00Z';EndedUtc='2026-10-08T10:01:00Z';EvidenceSHA256=('b'*64)}})
+ $report=[pscustomobject][ordered]@{Build=[string]$manifest.Build;ArchiveSHA256=$BoundSha;Host=[pscustomobject][ordered]@{Platform='Windows';PSEdition='Desktop';PSVersion=$PSVersionTable.PSVersion.ToString()};OverallStatus='PASS';Scenarios=$scenarios}
+ if($null -ne $Edit){& $Edit $report}
  $reportPath=Join-Path $Fixture.Dir ('qualification-'+[guid]::NewGuid().ToString('N').Substring(0,8)+'.json')
  Save $reportPath ($report|ConvertTo-Json -Depth 6)
  return [pscustomobject]@{Zip=$zipPath;Report=$reportPath}
+}
+# Floor of engineering/d120/release_guard.py REQUIRED, read from the installer itself (a Python test compares them).
+$script:InstallerPath=Join-Path $dev 'wad\Support\INSTALLER-MISE-A-JOUR.ps1'
+$installerTokens=$null;$installerErrors=$null
+$script:InstallerAst=[Management.Automation.Language.Parser]::ParseFile($script:InstallerPath,[ref]$installerTokens,[ref]$installerErrors)
+$script:RequiredScenarios=@(& ([scriptblock]::Create($script:InstallerAst.Find({param($n) ($n -is [Management.Automation.Language.AssignmentStatementAst]) -and ($n.Left.Extent.Text -ceq '$qualificationScenarios')},$true).Right.Extent.Text)))
+function Get-InstallerFunctionText {
+ # Real function text of the installer, for direct checks of its offline rules (the script itself has top-level code).
+ # The caller dot-sources the returned text, so no helper variable leaks into its scope.
+ param([string[]]$FunctionNames)
+ $texts=foreach($wanted in $FunctionNames){$script:InstallerAst.Find({param($x) ($x -is [Management.Automation.Language.FunctionDefinitionAst]) -and ($x.Name -ceq $wanted)},$true).Extent.Text}
+ return ($texts -join "`n")
 }
 try{
  Case 'D114 version complete preparee, activation, preferences et donnees conservees, retour verifie' {
@@ -134,7 +161,10 @@ try{
  }
  Case 'D114 interruption au milieu des copies bloque le lancement, restauration complete disponible' {
   $f=New-Fixture;$r=Install $f 'Interrupt';Assert ($r.Code -eq 77) $r.Output
-  Assert (Test-Path (Join-Path $f.Target 'wad\Support\.update.pending'));Assert ((Start-Check $f).Code -ne 0)
+  Assert (Test-Path (Join-Path $f.Target 'wad\Support\.update.pending'))
+  # The startup refusal names the restore script of that backup and the complete fallback command.
+  $c=Start-Check $f;Assert ($c.Code -ne 0) $c.Output
+  Assert (($c.Output -match 'RESTAURER-CODE\.ps1') -and ($c.Output -match '-RestoreBackup') -and ($c.Output -match '-RestoreLatest -Destination')) $c.Output
   $r=Restore $f (Backup $f);Assert ($r.Code -eq 0) $r.Output
   Assert ((Hash (Join-Path $f.Target 'wad\Domenia-Core.ps1')) -eq $f.OldHash);Assert ((Start-Check $f).Code -eq 0)
  }
@@ -161,23 +191,45 @@ try{
   $r=Install $f -Arguments ('-Destination (Join-Path $PSScriptRoot ''active'') -Confirm:$false -RequireQualification -Package '''+$wrong.Zip+''' -QualificationReport '''+$wrong.Report+'''')
   Assert ($r.Code -ne 0) $r.Output;Assert ($r.Output -match 'non li') $r.Output
   Assert ((Hash (Join-Path $f.Target 'wad\Domenia-Core.ps1')) -eq $f.OldHash)
+  # A supplied report that is refused stops the installation even without -RequireQualification.
+  $failed=New-QualifiedPackage $f -Edit {param($r) $r.OverallStatus='FAIL'}
+  $r=Install $f -Arguments ('-Destination (Join-Path $PSScriptRoot ''active'') -Confirm:$false -Package '''+$failed.Zip+''' -QualificationReport '''+$failed.Report+'''')
+  Assert ($r.Code -ne 0) $r.Output;Assert ($r.Output -match 'fourni refus') $r.Output;Assert ($r.Output -notmatch 'Aucun rapport') $r.Output
+  Assert ((Hash (Join-Path $f.Target 'wad\Domenia-Core.ps1')) -eq $f.OldHash)
+  Assert (-not (Test-Path (Join-Path $f.Target 'wad\maintenance\backups'))) 'Sauvegarde creee malgre le refus.'
   $good=New-QualifiedPackage $f
   $r=Install $f -Arguments ('-Destination (Join-Path $PSScriptRoot ''active'') -Confirm:$false -RequireQualification -Package '''+$good.Zip+''' -QualificationReport '''+$good.Report+'''')
   Assert ($r.Code -eq 0) $r.Output;Assert ($r.Output -match 'Qualification : rapport Windows PowerShell 5.1') $r.Output
   Assert ((Hash (Join-Path $f.Target 'wad\Domenia-Core.ps1')) -eq (Hash (Join-Path $dev 'wad\Domenia-Core.ps1')))
  }
- Case 'UX-29 sans reponse de l operateur rien n est installe' {
-  $f=New-Fixture;$r=Install $f -Arguments '-Destination (Join-Path $PSScriptRoot ''active'')'
-  Assert ($r.Code -eq 0) $r.Output;Assert ($r.Output -match 'Installation annul') $r.Output
+ Case 'UX-29 sans reponse de l operateur rien n est installe, code 2 transmis par l entree DEV' {
+  # Through dev\INSTALLER-MISE-A-JOUR.ps1 (relay): the exit code 2 reaches a scripted deployment.
+  $f=New-Fixture;$r=Install $f -Relay -Arguments '-Destination (Join-Path $PSScriptRoot ''active'')'
+  Assert ($r.Code -eq 2) ('Code '+$r.Code+' : '+$r.Output);Assert ($r.Output -match 'Installation annul') $r.Output
   Assert ((Hash (Join-Path $f.Target 'wad\Domenia-Core.ps1')) -eq $f.OldHash)
   Assert (-not (Test-Path (Join-Path $f.Target 'wad\maintenance\backups'))) 'Sauvegarde creee sans reponse.'
+ }
+ Case 'UX-29 reponse reelle de l operateur : N refuse (code 2), O installe par l entree DEV' {
+  $f=New-Fixture
+  $r=Install $f -Arguments '-Destination (Join-Path $PSScriptRoot ''active'')' -Answers @('N')
+  Assert ($r.Code -eq 2) ('Code '+$r.Code+' : '+$r.Output);Assert ($r.Output -match 'Installation annul') $r.Output
+  Assert ((Hash (Join-Path $f.Target 'wad\Domenia-Core.ps1')) -eq $f.OldHash)
+  $r=Install $f -Relay -Arguments '-Destination (Join-Path $PSScriptRoot ''active'')' -Answers @('O')
+  Assert ($r.Code -eq 0) ('Code '+$r.Code+' : '+$r.Output);Assert ($r.Output -match 'Version avant') $r.Output
+  Assert ((Hash (Join-Path $f.Target 'wad\Domenia-Core.ps1')) -eq (Hash (Join-Path $dev 'wad\Domenia-Core.ps1')))
  }
  Case 'UX-29 cinq sauvegardes completes gardees, preparation abandonnee retiree, RestoreLatest' {
   $f=New-Fixture;$parent=Join-Path $f.Target 'wad\maintenance\backups'
   for($i=1;$i -le 6;$i++){Save (Join-Path $parent ('2020010'+$i+'-000000-0000000'+$i+'\transaction.json')) ('{"Format":1,"Build":"old-'+$i+'","Status":"Installed","Destination":"'+$f.Target.Replace('\','\\')+'","Files":[]}')}
   Save (Join-Path $parent '20200107-000000-00000007\transaction.json') ('{"Format":1,"Build":"old-7","Status":"Prepared","Destination":"'+$f.Target.Replace('\','\\')+'","Files":[]}')
   Save (Join-Path $parent '20200108-000000-00000008\prepared\wad\x.txt') 'abandoned'
+  # Backups of an earlier installer kept their prepared copy: removed from kept complete backups, never from an
+  # unfinished journal.
+  foreach($old in @('20200106-000000-00000006','20200107-000000-00000007')){Save (Join-Path $parent ($old+'\prepared\wad\Domenia-Core.ps1')) 'old prepared copy'}
   $r=Install $f;Assert ($r.Code -eq 0) $r.Output
+  Assert (-not (Test-Path (Join-Path $parent '20200106-000000-00000006\prepared'))) 'Copie prepared conservee dans une sauvegarde complete.'
+  Assert (Test-Path (Join-Path $parent '20200106-000000-00000006\transaction.json')) 'Journal de sauvegarde retire.'
+  Assert (Test-Path (Join-Path $parent '20200107-000000-00000007\prepared')) 'Copie prepared retiree d un journal inacheve.'
   $names=@(Get-ChildItem $parent -Directory|ForEach-Object Name|Sort-Object)
   foreach($gone in @('20200101-000000-00000001','20200102-000000-00000002','20200108-000000-00000008')){Assert ($names -notcontains $gone) ('Sauvegarde non retiree : '+$gone)}
   foreach($kept in @('20200103-000000-00000003','20200104-000000-00000004','20200105-000000-00000005','20200106-000000-00000006','20200107-000000-00000007')){Assert ($names -contains $kept) ('Sauvegarde retiree a tort : '+$kept)}
@@ -189,14 +241,83 @@ try{
  Case 'FO-20 premiere installation PROD dans un dossier vide, raccourcis jamais crees sans reponse' {
   $f=New-Fixture -Prod;$fresh=Join-Path $f.Dir 'fresh'
   Assert (-not (Test-Path (Join-Path $f.Source 'tools'))) 'Source PROD attendue.'
-  $r=Install $f -Arguments ('-Install -Destination '''+$fresh+''' -Confirm:$false')
+  # Relative destination: resolved from the PowerShell location (Set-Location), not from the process directory.
+  $r=Install $f -Prelude 'Set-Location -LiteralPath $PSScriptRoot' -Arguments '-Install -Destination fresh -Confirm:$false'
   Assert ($r.Code -eq 0) $r.Output
   foreach($entry in $manifest.Files){Assert ((Hash (Join-Path $fresh $entry.Path)) -eq $entry.Sha256) ('Empreinte differente : '+$entry.Path)}
   Assert ((Hash (Join-Path $fresh 'wad\package-manifest.json')) -eq (Hash (Join-Path $dev 'tools\prod-manifest.json')))
-  Assert (@([regex]::Matches($r.Output,'non cr')).Count -eq 2) $r.Output
+  # Child output is read back in the console code page: the checks avoid accented characters.
+  Assert (@([regex]::Matches($r.Output,'question non pos')).Count -eq 2) $r.Output
   Assert ((Start-Check $f $fresh).Code -eq 0)
   $r=Install $f -Arguments ('-Install -Destination '''+$fresh+''' -Confirm:$false')
   Assert ($r.Code -ne 0) $r.Output;Assert ($r.Output -match 'pas vide') $r.Output
+  $r=Install $f -Arguments ('-Install -Destination '''+(Join-Path $f.Dir 'fresh-non')+''' -Confirm:$false -Shortcuts Non')
+  Assert (($r.Code -eq 0) -and (@([regex]::Matches($r.Output,'non cr\S*\.')).Count -eq 2)) $r.Output
+ }
+ Case 'FO-20 reponses reelles : installation O, raccourci Bureau O cree par COM, menu Demarrer N' {
+  # The shortcut is really created in the Desktop of the test account, then removed; an existing Domenia.lnk is kept.
+  $f=New-Fixture -Prod;$fresh=Join-Path $f.Dir 'fresh-ui'
+  $desktop=Join-Path ([Environment]::GetFolderPath('DesktopDirectory')) 'Domenia.lnk';$programs=Join-Path ([Environment]::GetFolderPath('Programs')) 'Domenia.lnk'
+  $hadDesktop=[IO.File]::Exists($desktop);$hadPrograms=[IO.File]::Exists($programs)
+  try{
+   $r=Install $f -Arguments ('-Install -Destination '''+$fresh+'''') -Answers @('O','O','N')
+   Assert ($r.Code -eq 0) ('Code '+$r.Code+' : '+$r.Output)
+   if($hadDesktop){Assert ($r.Output -match 'Un raccourci Domenia existe') $r.Output}
+   else{
+    Assert ([IO.File]::Exists($desktop)) ('Raccourci Bureau absent : '+$r.Output)
+    $shell=New-Object -ComObject WScript.Shell
+    # The shell stores long paths while TEMP may be a short (8.3) path: compare the unique tail of the fixture path.
+    $tail='\'+(Split-Path $f.Dir -Leaf)+'\fresh-ui'
+    try{$link=$shell.CreateShortcut($desktop);Assert ($link.TargetPath -like ('*'+$tail+'\Domenia.exe')) ('Cible : '+$link.TargetPath);Assert ($link.WorkingDirectory -like ('*'+$tail)) $link.WorkingDirectory;Assert ([IO.File]::Exists($link.TargetPath)) 'Cible absente.'}
+    finally{[void][Runtime.InteropServices.Marshal]::ReleaseComObject($shell)}
+   }
+   Assert ($r.Output -match 'menu D\S+ non cr\S*\.') $r.Output
+   Assert ([IO.File]::Exists($programs) -eq $hadPrograms) 'Raccourci du menu Demarrer cree malgre la reponse N.'
+  }finally{
+   foreach($pair in @(@($desktop,$hadDesktop),@($programs,$hadPrograms))){
+    if((-not $pair[1]) -and [IO.File]::Exists($pair[0])){[IO.File]::Delete($pair[0])}
+   }
+  }
+ }
+ Case 'FI-06 controles hors ligne du rapport : memes regles que release_guard.require_evidence' {
+  . ([scriptblock]::Create((Get-InstallerFunctionText 'Get-CodeHash','Get-QualificationState')))
+  $qualificationScenarios=$script:RequiredScenarios
+  $f=New-Fixture -Prod
+  $good=New-QualifiedPackage $f
+  $state=Get-QualificationState $good.Report $good.Zip $manifest
+  Assert $state.Bound $state.Reason;Assert ($state.Edition -eq 'prod') $state.Edition
+  $zipSha=(Hash $good.Zip).ToLowerInvariant();$devSha=('d'*64)
+  $both={param($r) $r.PSObject.Properties.Remove('ArchiveSHA256');$r|Add-Member -NotePropertyName Archives -NotePropertyValue @([pscustomobject]@{Edition='dev';SHA256=$devSha},[pscustomobject]@{Edition='prod';SHA256=$zipSha});foreach($x in $r.Scenarios){$x|Add-Member -NotePropertyName ArchiveSHA256 -NotePropertyValue $zipSha}}
+  $paired=New-QualifiedPackage $f -Edit $both
+  $state=Get-QualificationState $paired.Report $paired.Zip $manifest;Assert $state.Bound ('DEV et PROD : '+$state.Reason)
+  $cases=[ordered]@{
+   'campagne en echec'=@({param($r) $r.OverallStatus='FAIL'},'chec')
+   'autre Build'=@({param($r) $r.Build='2020.01.01-AUTRE'},'Build du rapport')
+   'scenario manquant'=@({param($r) $r.Scenarios=@($r.Scenarios|Where-Object{$_.Id -ne 'race.selection'})},'race\.selection')
+   'scenario en echec'=@({param($r) @($r.Scenarios|Where-Object{$_.Id -eq 'data.sqlite'})[0].Status='FAIL'},'data\.sqlite')
+   'hote non 5.1'=@({param($r) $r.Host.PSVersion='7.4.6';$r.Host.PSEdition='Core'},'5\.1')
+   'rapport de test'=@({param($r) $r|Add-Member -NotePropertyName FixtureOnly -NotePropertyValue $true},'FixtureOnly')
+   'horodatage incoherent'=@({param($r) @($r.Scenarios|Where-Object{$_.Id -eq 'parser.ps51'})[0].EndedUtc='2026-10-08T09:00:00Z'},'incoh')
+   'horodatage absent'=@({param($r) @($r.Scenarios|Where-Object{$_.Id -eq 'parser.ps51'})[0].StartedUtc=''},'horodatage')
+   'preuve sans empreinte'=@({param($r) @($r.Scenarios|Where-Object{$_.Id -eq 'worker.contracts'})[0].EvidenceSHA256=''},'empreinte de preuve')
+   'scenario lie a une autre archive'=@({param($r) @($r.Scenarios|Where-Object{$_.Id -eq 'ui.actual_events'})[0]|Add-Member -NotePropertyName ArchiveSHA256 -NotePropertyValue ('e'*64)},'autre archive')
+   'archive PROD seule'=@({param($r) $r.PSObject.Properties.Remove('ArchiveSHA256');$r|Add-Member -NotePropertyName Archives -NotePropertyValue @([pscustomobject]@{Edition='prod';SHA256=$zipSha})},'DEV et PROD')
+   'prod.standalone sur l archive DEV'=@({param($r) & $both $r;@($r.Scenarios|Where-Object{$_.Id -eq 'prod.standalone'})[0].ArchiveSHA256=$devSha},'prod\.standalone')
+   'archive modifiee pendant la campagne'=@({param($r) & $both $r;@($r.Archives|Where-Object{$_.Edition -eq 'prod'})[0]|Add-Member -NotePropertyName SHA256End -NotePropertyValue ('f'*64)},'modifi')
+  }
+  foreach($name in @($cases.Keys)){
+   $bad=New-QualifiedPackage $f -Edit $cases[$name][0]
+   $state=Get-QualificationState $bad.Report $bad.Zip $manifest
+   Assert (-not $state.Bound) ('Accepte a tort : '+$name);Assert ($state.Reason -match $cases[$name][1]) ($name+' : '+$state.Reason)
+  }
+  $thin=New-QualifiedPackage $f -ManifestOnly
+  $state=Get-QualificationState $thin.Report $thin.Zip $manifest
+  Assert ((-not $state.Bound) -and ($state.Reason -match 'absent du ZIP')) ('ZIP reduit au manifeste : '+$state.Reason)
+  $other=$manifest|ConvertTo-Json -Depth 8|ConvertFrom-Json;($other.Files|Where-Object Path -eq 'wad/Domenia-Core.ps1').Sha256=('A'*64)
+  $state=Get-QualificationState $good.Report $good.Zip $other
+  Assert ((-not $state.Bound) -and ($state.Reason -match 'différent du ZIP qualifié')) ('Paquet different du ZIP qualifie : '+$state.Reason)
+  $state=Get-QualificationState $good.Report '' $manifest
+  Assert ((-not $state.Bound) -and $state.Provided) 'Rapport sans ZIP accepte.'
  }
  Case 'FI-14 plafond du runtime lu dans wad/Domenia.release.json' {
   $f=New-Fixture
@@ -210,7 +331,7 @@ try{
  Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
 }
 $passed=@($checks|Where-Object Status -eq 'Passed').Count;$failed=@($checks|Where-Object Status -eq 'Failed').Count
-$expected=if($RestoreOnly){2}else{12}
+$expected=if($RestoreOnly){2}else{15}
 $report=[ordered]@{Suite='Test-DomeniaInstaller';Passed=$passed;Failed=$failed;Skipped=0;Expected=$expected;Complete=($checks.Count -eq $expected);NativeWindowsPowerShell51=$true;PSVersion=$PSVersionTable.PSVersion.ToString();Checks=$checks.ToArray()}
 if($ReportPath){Save $ReportPath ($report|ConvertTo-Json -Depth 7)}
 Write-Host ('Installer : '+$passed+' reussis, '+$failed+' echecs')

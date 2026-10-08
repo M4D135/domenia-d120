@@ -6,6 +6,7 @@
      .\INSTALLER-MISE-A-JOUR.ps1 -Destination 'C:\Domenia'
      .\INSTALLER-MISE-A-JOUR.ps1 -Install -Destination 'C:\Domenia'
      .\INSTALLER-MISE-A-JOUR.ps1 -RestoreLatest -Destination 'C:\Domenia'
+   Exit codes: 0 done (or -WhatIf), 1 error, 2 nothing installed (refused or unanswered question).
 #>
 [CmdletBinding(SupportsShouldProcess=$true,ConfirmImpact='Medium',DefaultParameterSetName='Update')]
 param(
@@ -23,3 +24,5 @@ param(
 )
 $ErrorActionPreference='Stop'
 & (Join-Path $PSScriptRoot 'wad\Support\INSTALLER-MISE-A-JOUR.ps1') @PSBoundParameters
+# Same exit code as the installer: 2 when nothing was installed (refused or unanswered question).
+exit ([int]$LASTEXITCODE)

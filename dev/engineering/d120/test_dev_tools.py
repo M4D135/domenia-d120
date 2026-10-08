@@ -1,6 +1,6 @@
 """Offline tests of the DEV tools changed by lot L05 (SE-15, SP-09, FI-14, CD-14, TE-01). Non qualifying: no Windows,
 no PowerShell, temporary trees only (the real tree is read, never written)."""
-import contextlib, hashlib, io, json, subprocess, sys, tempfile, unittest
+import contextlib, hashlib, io, json, re, subprocess, sys, tempfile, unittest
 from pathlib import Path
 DEV = Path(__file__).resolve().parents[2]
 TOOLS = DEV / 'tools'
@@ -36,6 +36,21 @@ class PackagingTests(unittest.TestCase):
 
     def test_installer_ships_in_prod_runtime(self):
         self.assertIn('wad/Support/INSTALLER-MISE-A-JOUR.ps1', build_packages.runtime_paths())
+
+    def test_installer_scenario_floor_matches_release_guard(self):
+        # FI-06: the installer reads release_guard reports offline; its copy of REQUIRED must not drift.
+        sys.path.insert(0, str(DEV / 'engineering/d120'))
+        import release_guard
+        text = (DEV / 'wad/Support/INSTALLER-MISE-A-JOUR.ps1').read_text(encoding='utf-8-sig')
+        match = re.search(r"^\$qualificationScenarios=@\(([^)]*)\)", text, re.M)
+        self.assertIsNotNone(match)
+        self.assertEqual(tuple(re.findall(r"'([^']+)'", match.group(1))), release_guard.REQUIRED)
+
+    def test_signature_tool_ignores_the_same_folders_as_the_dev_archive(self):
+        # SP-09: what the DEV archive leaves in the repository is never an undeclared addition for the verifier.
+        text = (TOOLS / 'Test-DomeniaSignature.ps1').read_text(encoding='utf-8-sig')
+        for prefix in build_packages.DEV_EXCLUDED_PREFIXES:
+            self.assertIn(prefix.rstrip('/'), text)
 
 
 class RuntimeLimitTests(unittest.TestCase):
@@ -101,6 +116,16 @@ class WordingAuditTests(unittest.TestCase):
         self.assertIn(('accent', ('Etat',)), rules); self.assertIn(('accent', ('a jour',)), rules); self.assertIn(('elision', ('n',)), rules)
         self.assertIn(('accent', ('Synthese',)), rules)
         self.assertNotIn('Fermez-le.', [r['Text'] for r in audit_wording.findings(self.root)])
+
+    def test_code_assignments_and_message_boxes_are_read(self):
+        self.write("$label.Text = 'Etat du poste'\n$button.ToolTip='Ouvre l OU'; $button.Content=$x\n"
+                   "Show-WarningBox -Message ('Selection '+$n+' perdue')\n[Windows.MessageBox]::Show($m,'Domenia | Demarrage','OK','Error')\n"
+                   "if($label.Text -eq 'Etat'){}\n")
+        rows = audit_wording.findings(self.root)
+        kinds = {(r['Kind'], r['Rule']) for r in rows}
+        self.assertIn(('assign.Text', 'accent'), kinds); self.assertIn(('assign.ToolTip', 'elision'), kinds)
+        self.assertIn(('Show-WarningBox', 'accent'), kinds); self.assertIn(('MessageBox', 'accent'), kinds)
+        self.assertNotIn('Etat', [r['Text'] for r in rows], 'a comparison is not a label')
 
     def test_ratchet_fails_on_new_text_and_only_goes_down(self):
         self.write("<TextBlock Text=\"Etat\"/>\n<TextBlock Text=\"Etat\"/>\n")

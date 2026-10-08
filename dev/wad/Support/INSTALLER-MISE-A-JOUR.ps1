@@ -7,7 +7,10 @@
    of the delivered ZIP. Without it a warning is shown; -RequireQualification refuses instead.
    UX-29: explicit answer before any write, prepared copy removed after success, five complete backups kept.
    FO-20: -Install copies a package into an empty folder (hashes checked, files unblocked, Domenia-Start -CheckOnly);
-   shortcuts are offered and never created without an answer.
+   shortcuts are offered and never created without an answer. -Confirm:$false waives every question, the shortcut one
+   included: -Shortcuts Oui|Non then gives the answer.
+   A supplied qualification report that is refused stops the installation before any write.
+   Exit codes: 0 done (or -WhatIf), 1 error, 2 nothing installed (refused or unanswered question).
    -WhatIf performs verification and lists the plan without writing.
    Restore is hash-guarded: it refuses to discard an independently modified file.
 #>
@@ -28,6 +31,9 @@ param(
 $ErrorActionPreference='Stop'
 # -Confirm:$false waives the question; an explicit -Confirm already asked through ShouldProcess.
 $askOperator=-not $PSBoundParameters.ContainsKey('Confirm')
+# Relative paths follow the PowerShell location (cd), not the process directory.
+if($Package){$Package=$PSCmdlet.GetUnresolvedProviderPathFromPSPath($Package)}
+if($QualificationReport){$QualificationReport=$PSCmdlet.GetUnresolvedProviderPathFromPSPath($QualificationReport)}
 $keptBackups=5
 # Same floor as engineering/d120/release_guard.py REQUIRED.
 $qualificationScenarios=@('parser.ps51','runtime.modules','worker.contracts','startup.exe_login_main','ui.actual_events','ui.layout_profiles','data.sqlite','security.secret_markers','race.selection','prod.standalone')
@@ -181,6 +187,12 @@ function Read-OperatorAnswer {
     }
     return $null
 }
+function Stop-Cancelled {
+    # Nothing was written. Exit code 2 tells a scripted deployment that the update did not happen.
+    param([string]$Message)
+    Write-Host $Message
+    exit 2
+}
 function Get-BackupRoot {param([string]$Root) return (Join-Path $Root 'wad\maintenance\backups')}
 function Get-CompletedBackups {
     # Backup folders created by this installer (yyyyMMdd-HHmmss-xxxxxxxx), newest first, with their journal status.
@@ -204,7 +216,8 @@ function Get-CompletedBackups {
 function Invoke-BackupRotation {
     # Keeps the $Keep newest complete backups (Installed or Restored). A backup referenced by the pending marker, an
     # unfinished or unreadable journal is never deleted. A folder without journal changed nothing (the journal is
-    # written before the first replacement): it is an abandoned preparation and is removed.
+    # written before the first replacement): it is an abandoned preparation and is removed. The prepared copy kept by
+    # the backups of earlier installers is removed from the complete backups that stay (files and journal are kept).
     param([string]$Root,[string]$Current,[int]$Keep)
     $pending=Join-Path $Root 'wad\Support\.update.pending'
     $protected=''
@@ -221,7 +234,12 @@ function Invoke-BackupRotation {
         $drop=$false
         if(-not $candidate.Journal){$drop=$true}
         elseif($isComplete){$complete++;$drop=($complete -gt $Keep)}
-        if($drop){Remove-Item -LiteralPath $candidate.Path -Recurse -Force;$removed.Add($candidate.Name)}
+        if($drop){Remove-Item -LiteralPath $candidate.Path -Recurse -Force;$removed.Add($candidate.Name);continue}
+        $prepared=Join-Path $candidate.Path 'prepared'
+        if($isComplete -and [IO.Directory]::Exists($prepared)){
+            if((Get-Item -LiteralPath $prepared -Force).Attributes -band [IO.FileAttributes]::ReparsePoint){continue}
+            Remove-Item -LiteralPath $prepared -Recurse -Force
+        }
     }
     return @($removed.ToArray())
 }
@@ -237,46 +255,102 @@ function Get-SourceManifestPath {
     return $prod
 }
 function Get-QualificationState {
-    # Offline check of a release_guard report: Windows PowerShell 5.1, campaign PASS, same Build, required scenarios
-    # executed and PASS, report bound to the SHA-256 of the ZIP given in -Package, and that ZIP carrying the same file
-    # hashes as the package being installed. A local report is not a signature: it proves neither origin nor author.
+    # Offline check of a release_guard report, with the same rules as engineering/d120/release_guard.py require_evidence:
+    # Windows PowerShell 5.1, campaign PASS, same Build, no fixture, archives bound by SHA-256 (DEV and PROD when the
+    # report lists both), each required scenario executed, PASS, timed, with its evidence hash and bound to an archive
+    # of the report (prod.standalone to the PROD one). The ZIP given in -Package must be one of them: each member listed
+    # by its manifest carries the manifest SHA-256, and that manifest carries the hashes of the package being installed.
+    # A local report is not a signature: it proves neither origin nor author.
     param([string]$ReportPath,[string]$PackagePath,[object]$Manifest)
-    $state=[pscustomobject]@{Bound=$false;Reason='';ArchiveSha256='';Edition=''}
-    if(-not $ReportPath){$state.Reason='aucun rapport fourni (-QualificationReport).';return $state}
+    $state=[pscustomobject]@{Provided=(-not [string]::IsNullOrWhiteSpace($ReportPath));Bound=$false;Reason='';ArchiveSha256='';Edition=''}
+    if(-not $state.Provided){$state.Reason='aucun rapport fourni (-QualificationReport).';return $state}
     if(-not $PackagePath){$state.Reason='le ZIP livré (-Package) est nécessaire pour lier le rapport à son empreinte.';return $state}
+    $hex={param($Value,[string]$What) $text=[string]$Value;if(($Value -isnot [string]) -or ($text -cnotmatch '^[0-9a-fA-F]{64}$')){throw ($What+' : empreinte SHA-256 attendue.')};return $text.ToLowerInvariant()}
+    $utc={
+        param($Value,[string]$What)
+        if($Value -is [datetime]){return ([DateTimeOffset]$Value).UtcDateTime}
+        if(($Value -isnot [string]) -or ($Value -cnotmatch '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,7})?(Z|[+-]\d{2}:\d{2})$')){throw ('horodatage absent ou illisible : '+$What)}
+        return [DateTimeOffset]::Parse($Value,[Globalization.CultureInfo]::InvariantCulture).UtcDateTime
+    }
     try{
-        $reportFile=[IO.FileInfo]::new([IO.Path]::GetFullPath($ReportPath))
-        $zipFile=[IO.FileInfo]::new([IO.Path]::GetFullPath($PackagePath))
+        $reportFile=[IO.FileInfo]::new($ReportPath)
+        $zipFile=[IO.FileInfo]::new($PackagePath)
         if((-not $reportFile.Exists) -or ($reportFile.Length -gt 16MB)){throw 'rapport absent ou trop volumineux.'}
         if(-not $zipFile.Exists){throw 'ZIP absent.'}
         $zipHash=(Get-CodeHash $zipFile.FullName).ToLowerInvariant()
         $state.ArchiveSha256=$zipHash
         $report=[IO.File]::ReadAllText($reportFile.FullName)|ConvertFrom-Json
-        $reportHost=$report.Host
-        if(($null -eq $reportHost) -or ([string]$reportHost.Platform -cne 'Windows') -or ([string]$reportHost.PSEdition -cne 'Desktop') -or (-not ([string]$reportHost.PSVersion).StartsWith('5.1.'))){throw 'preuve Windows PowerShell 5.1 requise.'}
-        if([string]$report.OverallStatus -cne 'PASS'){throw 'campagne inachevée ou en échec.'}
-        if([string]$report.Build -cne [string]$Manifest.Build){throw 'Build du rapport différent de celui du paquet.'}
-        $edition=''
-        if($null -ne $report.PSObject.Properties['Archives'] -and $null -ne $report.Archives){
-            foreach($archive in @($report.Archives)){if(([string]$archive.SHA256).ToLowerInvariant() -ceq $zipHash){$edition=[string]$archive.Edition}}
-        }elseif(([string]$report.ArchiveSHA256).ToLowerInvariant() -ceq $zipHash){$edition='?'}
-        if(-not $edition){throw 'rapport non lié au ZIP fourni.'}
-        $byId=@{}
-        foreach($scenario in @($report.Scenarios)){if($null -ne $scenario){$byId[[string]$scenario.Id]=$scenario}}
-        foreach($id in $qualificationScenarios){
-            $scenario=$byId[$id]
-            if(($null -eq $scenario) -or ([string]$scenario.Status -cne 'PASS') -or ($scenario.Executed -isnot [bool]) -or (-not $scenario.Executed)){throw ('scénario requis absent, non exécuté ou en échec : '+$id)}
-        }
+        if(($null -ne $report.PSObject.Properties['FixtureOnly']) -and ($report.FixtureOnly -ne $false)){throw 'rapport de test (FixtureOnly) : ce nʼest pas une qualification.'}
+        # Edition of the delivered ZIP, read from its single manifest (prod/ or dev/ root).
         Add-Type -AssemblyName System.IO.Compression,System.IO.Compression.FileSystem
         $zip=[IO.Compression.ZipFile]::OpenRead($zipFile.FullName)
         try{
-            $entry=$null
-            foreach($prefix in @('prod','dev')){if($null -eq $entry){$entry=$zip.GetEntry($prefix+'/wad/package-manifest.json');if($null -ne $entry){$state.Edition=$prefix}}}
-            if(($null -eq $entry) -or ($entry.Length -gt 2MB)){throw 'manifeste absent du ZIP.'}
-            $reader=[IO.StreamReader]::new($entry.Open(),[Text.Encoding]::UTF8)
+            $manifestEntries=@($zip.Entries|Where-Object{$_.FullName -match '^(prod|dev)/wad/package-manifest\.json$'})
+            if($manifestEntries.Count -ne 1){throw 'manifeste unique absent du ZIP.'}
+            $zipEdition=$manifestEntries[0].FullName.Substring(0,$manifestEntries[0].FullName.IndexOf('/'))
+            if($manifestEntries[0].Length -gt 2MB){throw 'manifeste du ZIP trop volumineux.'}
+            $reader=[IO.StreamReader]::new($manifestEntries[0].Open(),[Text.Encoding]::UTF8)
             try{$zipManifest=$reader.ReadToEnd()|ConvertFrom-Json}finally{$reader.Dispose()}
+            # Every member listed by the ZIP manifest is present with that SHA-256: a ZIP reduced to its manifest is refused.
+            $hasher=[Security.Cryptography.SHA256]::Create()
+            try{
+                foreach($file in @($zipManifest.Files)){
+                    $member=$zip.GetEntry($zipEdition+'/'+[string]$file.Path)
+                    if($null -eq $member){throw ('fichier absent du ZIP : '+$file.Path)}
+                    $stream=$member.Open()
+                    try{$memberHash=[BitConverter]::ToString($hasher.ComputeHash($stream)).Replace('-','')}finally{$stream.Dispose()}
+                    if($memberHash -ine [string]$file.Sha256){throw ('empreinte différente dans le ZIP : '+$file.Path)}
+                }
+            }finally{$hasher.Dispose()}
         }finally{$zip.Dispose()}
+        $state.Edition=$zipEdition
+        $bound=@{}
+        if($null -eq $report.PSObject.Properties['Archives']){
+            if((& $hex $report.ArchiveSHA256 'ArchiveSHA256') -cne $zipHash){throw 'rapport non lié au ZIP fourni.'}
+            $bound[$zipHash]=$zipEdition
+        }else{
+            $archives=@($report.Archives)
+            if(($null -eq $report.Archives) -or ($archives.Count -eq 0)){throw 'Archives : liste attendue.'}
+            foreach($archive in $archives){
+                $edition=[string]$archive.Edition
+                if(($edition -cne 'dev') -and ($edition -cne 'prod')){throw ('édition inconnue dans le rapport : '+$edition)}
+                $sha=& $hex $archive.SHA256 'Archives[].SHA256'
+                if($bound.ContainsKey($sha) -or (@($bound.Values) -ccontains $edition)){throw 'archive déclarée deux fois dans le rapport.'}
+                if(($null -ne $archive.PSObject.Properties['SHA256End']) -and ($null -ne $archive.SHA256End) -and ((& $hex $archive.SHA256End 'Archives[].SHA256End') -cne $sha)){throw ('archive modifiée pendant la campagne : '+$edition)}
+                $bound[$sha]=$edition
+            }
+            if((@($bound.Values) -cnotcontains 'dev') -or (@($bound.Values) -cnotcontains 'prod')){throw 'campagne liée aux archives DEV et PROD requise.'}
+            if(-not $bound.ContainsKey($zipHash)){throw 'rapport non lié au ZIP fourni.'}
+            if($bound[$zipHash] -cne $zipEdition){throw 'édition du rapport différente de celle du ZIP.'}
+            if(($null -ne $report.PSObject.Properties['ArchiveSHA256']) -and ($null -ne $report.ArchiveSHA256) -and (-not $bound.ContainsKey((& $hex $report.ArchiveSHA256 'ArchiveSHA256')))){throw 'ArchiveSHA256 hors des archives du rapport.'}
+        }
+        if([string]$report.Build -cne [string]$Manifest.Build){throw 'Build du rapport différent de celui du paquet.'}
         if([string]$zipManifest.Build -cne [string]$Manifest.Build){throw 'Build du ZIP différent de celui du paquet.'}
+        $reportHost=$report.Host
+        if(($null -eq $reportHost) -or ([string]$reportHost.Platform -cne 'Windows') -or ([string]$reportHost.PSEdition -cne 'Desktop') -or (-not ([string]$reportHost.PSVersion).StartsWith('5.1.'))){throw 'preuve Windows PowerShell 5.1 requise.'}
+        if([string]$report.OverallStatus -cne 'PASS'){throw 'campagne inachevée ou en échec.'}
+        $byId=@{}
+        foreach($scenario in @($report.Scenarios)){
+            if($null -eq $scenario){throw 'Scenarios : objet attendu.'}
+            $id=[string]$scenario.Id
+            if((-not $id) -or $byId.ContainsKey($id)){throw 'scénario de preuve sans identifiant ou dupliqué.'}
+            if(@('PASS','FAIL','SKIP','NOT_EXECUTED') -cnotcontains [string]$scenario.Status){throw ('statut de scénario inconnu : '+$id)}
+            $byId[$id]=$scenario
+        }
+        foreach($id in $qualificationScenarios){
+            $scenario=$byId[$id]
+            if(($null -eq $scenario) -or ([string]$scenario.Status -cne 'PASS') -or ($scenario.Executed -isnot [bool]) -or (-not $scenario.Executed)){throw ('scénario requis absent, non exécuté ou en échec : '+$id)}
+            if((& $utc $scenario.EndedUtc $id) -lt (& $utc $scenario.StartedUtc $id)){throw ('horodatage incohérent : '+$id)}
+            [void](& $hex $scenario.EvidenceSHA256 ('empreinte de preuve de '+$id))
+            $target=$null;if($null -ne $scenario.PSObject.Properties['ArchiveSHA256']){$target=$scenario.ArchiveSHA256}
+            if($null -ne $report.PSObject.Properties['Archives']){
+                if($null -eq $target){throw ('scénario non lié à une archive : '+$id)}
+                $target=& $hex $target ($id+'.ArchiveSHA256')
+                if(-not $bound.ContainsKey($target)){throw ('scénario lié à une archive hors rapport : '+$id)}
+                if(($id -ceq 'prod.standalone') -and ($bound[$target] -cne 'prod')){throw 'prod.standalone doit viser lʼarchive PROD.'}
+                if(($null -ne $scenario.PSObject.Properties['Edition']) -and ($null -ne $scenario.Edition) -and ([string]$scenario.Edition -cne $bound[$target])){throw ('édition du scénario incohérente : '+$id)}
+            }elseif(($null -ne $target) -and ((& $hex $target ($id+'.ArchiveSHA256')) -cne $zipHash)){throw ('scénario lié à une autre archive : '+$id)}
+        }
         $zipHashes=@{}
         foreach($file in @($zipManifest.Files)){$zipHashes[[string]$file.Path]=([string]$file.Sha256).ToUpperInvariant()}
         foreach($file in @($Manifest.Files)){
@@ -290,6 +364,9 @@ function Confirm-Qualification {
     param([object]$Manifest)
     $state=Get-QualificationState $QualificationReport $Package $Manifest
     if($state.Bound){Write-Host ('Qualification : '+$state.Reason);return}
+    # A report given by the operator and refused is a contrary proof (failed campaign, other build, other ZIP): never
+    # continue on it. Only a missing report keeps the non-qualifying installation (integrator decision).
+    if($state.Provided){throw ('Rapport de qualification fourni refusé : '+$state.Reason+' Rien nʼa été modifié. Corrigez le rapport ou relancez sans -QualificationReport.')}
     if($RequireQualification){throw ('Rapport de qualification refusé : '+$state.Reason+' Rien nʼa été modifié.')}
     Write-Warning ('Aucun rapport de qualification Windows lié au ZIP de cette livraison ('+$state.Reason+') Installation non qualifiante : la version préparée sera seulement contrôlée par Domenia-Start -CheckOnly.')
 }
@@ -354,7 +431,7 @@ if($PSCmdlet.ParameterSetName -eq 'RestoreLatest') {
 
 $source=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..')).TrimEnd([IO.Path]::DirectorySeparatorChar)
 if($Install){
-    $fullDestination=[IO.Path]::GetFullPath($Destination).TrimEnd([IO.Path]::DirectorySeparatorChar)
+    $fullDestination=$PSCmdlet.GetUnresolvedProviderPathFromPSPath($Destination).TrimEnd([IO.Path]::DirectorySeparatorChar)
     if([IO.File]::Exists($fullDestination)){throw 'La destination est un fichier : choisissez un dossier vide.'}
     if([IO.Directory]::Exists($fullDestination) -and @([IO.Directory]::EnumerateFileSystemEntries($fullDestination)).Count -gt 0){throw 'Le dossier de destination nʼest pas vide. Pour une mise à jour, relancez sans -Install.'}
     $targetRoot=$fullDestination
@@ -385,10 +462,10 @@ if($Install){
     }
     Confirm-Qualification $manifest
     Write-Host ('Première installation de la version '+[string]$manifest.Build+' dans '+$targetRoot+' : '+($copies.Count+1)+' fichiers.')
-    if(-not $PSCmdlet.ShouldProcess($targetRoot,'Installer Domenia dans un dossier vide')) {return}
+    if(-not $PSCmdlet.ShouldProcess($targetRoot,'Installer Domenia dans un dossier vide')) {if($WhatIfPreference){return};Stop-Cancelled 'Installation annulée : aucun fichier écrit.'}
     if($askOperator){
         $answer=Read-OperatorAnswer ('Installer ces '+($copies.Count+1)+' fichiers ? (O/N)')
-        if($answer -ne $true){Write-Host 'Installation annulée : aucun fichier écrit.';return}
+        if($answer -ne $true){Stop-Cancelled $(if($null -eq $answer){'Installation annulée faute de réponse : aucun fichier écrit.'}else{'Installation annulée : aucun fichier écrit.'})}
     }
     $created=-not [IO.Directory]::Exists($targetRoot)
     [void][IO.Directory]::CreateDirectory($targetRoot)
@@ -405,7 +482,8 @@ if($Install){
             Unblock-File -LiteralPath $to -ErrorAction Stop
         }
         Assert-CodeVersion $targetRoot $manifest
-        & $desktopPowerShell -NoLogo -NoProfile -STA -NonInteractive -File (Join-Path $targetRoot 'wad\Domenia-Start.ps1') -CheckOnly
+        # Empty input: the check never consumes the answers typed for the questions that follow.
+        $null | & $desktopPowerShell -NoLogo -NoProfile -STA -NonInteractive -File (Join-Path $targetRoot 'wad\Domenia-Start.ps1') -CheckOnly
         if($LASTEXITCODE -ne 0){throw 'La version installée ne passe pas le contrôle de démarrage (Domenia-Start -CheckOnly).'}
     }catch{
         $failure=$_.Exception.Message
@@ -422,21 +500,27 @@ if($Install){
     )
     foreach($shortcut in $shortcutTargets){
         $choice=$null
-        if($Shortcuts -ceq 'Oui'){$choice=$true}elseif($Shortcuts -ceq 'Non'){$choice=$false}elseif($askOperator){$choice=Read-OperatorAnswer ('Créer un raccourci Domenia '+$shortcut.Label+' ? (O/N)')}
+        if($Shortcuts -ceq 'Oui'){$choice=$true}elseif($Shortcuts -ceq 'Non'){$choice=$false}
+        elseif(-not $askOperator){Write-Host ('Raccourci '+$shortcut.Label+' non créé : question non posée (-Confirm:$false). Ajoutez -Shortcuts Oui pour le créer.');continue}
+        else{$choice=Read-OperatorAnswer ('Créer un raccourci Domenia '+$shortcut.Label+' ? (O/N)')}
         if($choice -ne $true){
             if($null -eq $choice){Write-Host ('Raccourci '+$shortcut.Label+' non créé : aucune réponse.')}else{Write-Host ('Raccourci '+$shortcut.Label+' non créé.')}
             continue
         }
-        if([string]::IsNullOrWhiteSpace([string]$shortcut.Folder) -or -not [IO.Directory]::Exists([string]$shortcut.Folder)){Write-Warning ('Dossier introuvable : raccourci '+$shortcut.Label+' non créé.');continue}
-        $link=Join-Path ([string]$shortcut.Folder) 'Domenia.lnk'
-        if([IO.File]::Exists($link)){Write-Host ('Un raccourci Domenia existe déjà '+$shortcut.Label+' : il est conservé tel quel.');continue}
-        $shell=New-Object -ComObject WScript.Shell
+        # The installation is complete: a shortcut that cannot be created (COM, redirected or read-only folder) is a
+        # warning, and the next shortcut is still offered.
         try{
-            $item=$shell.CreateShortcut($link)
-            $item.TargetPath=Join-Path $targetRoot 'Domenia.exe';$item.WorkingDirectory=$targetRoot;$item.IconLocation=(Join-Path $targetRoot 'wad\Domenia.ico')+',0';$item.Description='Domenia'
-            $item.Save()
-        }finally{[void][Runtime.InteropServices.Marshal]::ReleaseComObject($shell)}
-        Write-Host ('Raccourci créé '+$shortcut.Label+' : '+$link)
+            if([string]::IsNullOrWhiteSpace([string]$shortcut.Folder) -or -not [IO.Directory]::Exists([string]$shortcut.Folder)){throw 'dossier introuvable.'}
+            $link=Join-Path ([string]$shortcut.Folder) 'Domenia.lnk'
+            if([IO.File]::Exists($link)){Write-Host ('Un raccourci Domenia existe déjà '+$shortcut.Label+' : il est conservé tel quel.');continue}
+            $shell=New-Object -ComObject WScript.Shell
+            try{
+                $item=$shell.CreateShortcut($link)
+                $item.TargetPath=Join-Path $targetRoot 'Domenia.exe';$item.WorkingDirectory=$targetRoot;$item.IconLocation=(Join-Path $targetRoot 'wad\Domenia.ico')+',0';$item.Description='Domenia'
+                $item.Save()
+            }finally{[void][Runtime.InteropServices.Marshal]::ReleaseComObject($shell)}
+            Write-Host ('Raccourci créé '+$shortcut.Label+' : '+$link)
+        }catch{Write-Warning ('Raccourci '+$shortcut.Label+' non créé : '+$_.Exception.Message)}
     }
     return
 }
@@ -491,10 +575,10 @@ $activeLabel=if($activeBuild){$activeBuild}else{'(inconnue)'}
 Write-Host ('Version active : '+$activeLabel+' ; version préparée : '+[string]$manifest.Build+'.')
 Write-Host ('Fichiers à installer : '+$plan.Count)
 foreach($entry in $plan){Write-Host ('  '+$entry.Path)}
-if(-not $PSCmdlet.ShouldProcess($targetRoot,'Sauvegarder le code puis installer la mise à jour, sans toucher à wad\data')) {return}
+if(-not $PSCmdlet.ShouldProcess($targetRoot,'Sauvegarder le code puis installer la mise à jour, sans toucher à wad\data')) {if($WhatIfPreference){return};Stop-Cancelled 'Installation annulée : aucun fichier modifié.'}
 if($askOperator){
     $answer=Read-OperatorAnswer ('Installer ces '+$plan.Count+' fichiers ? (O/N)')
-    if($answer -ne $true){Write-Host 'Installation annulée : aucun fichier modifié.';return}
+    if($answer -ne $true){Stop-Cancelled $(if($null -eq $answer){'Installation annulée faute de réponse : aucun fichier modifié.'}else{'Installation annulée : aucun fichier modifié.'})}
 }
 Assert-AppClosed $targetRoot
 
@@ -524,7 +608,7 @@ Assert-CodeVersion $staged $manifest
 $installDecision=Get-DomeniaInstallPlan -Manifest $manifest -StagedHashes $stagedHashes -ActiveBuild $activeBuild
 if(-not $installDecision.Allowed){throw ([string]::Join('; ',[string[]]$installDecision.Blockers))}
 # FI-06: the prepared version must start (-CheckOnly: hashes, parser, imports); no test suite runs on this workstation.
-& $desktopPowerShell -NoLogo -NoProfile -STA -NonInteractive -File (Join-Path $staged 'wad/Domenia-Start.ps1') -CheckOnly
+$null | & $desktopPowerShell -NoLogo -NoProfile -STA -NonInteractive -File (Join-Path $staged 'wad/Domenia-Start.ps1') -CheckOnly
 if($LASTEXITCODE -ne 0){throw 'La version préparée ne peut pas démarrer. Le code actif est inchangé.'}
 [void](Get-SafePackagePath $targetRoot 'wad/Support/.lifecycle.lock')
 [void][IO.Directory]::CreateDirectory((Join-Path $targetRoot 'wad\Support'))

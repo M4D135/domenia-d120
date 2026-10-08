@@ -126,8 +126,8 @@
     },
     {
       "Path": "INSTALLER-MISE-A-JOUR.ps1",
-      "Sha256": "9AFD5E94A60275DD029A4EC0BE6672CB2CCE3A4D419035A6EBB19501ACB64D95",
-      "Bytes": 1605,
+      "Sha256": "DF6175DB0681AA59440C4D90DA9A84E7B0350B0CBEA0753D3FC1FC9ABED3D344",
+      "Bytes": 1828,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -147,8 +147,8 @@
     },
     {
       "Path": "LIRE-MOI.md",
-      "Sha256": "0E1525355CBA892E9313FE64CF067AF64438C5B54EDADA0B8E390EF39E0C68EE",
-      "Bytes": 5341,
+      "Sha256": "ECF55D69F4E02F5BB02E62676F13CA9FF8590EF507F1F9F7A1CBD3025DB85385",
+      "Bytes": 7977,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -483,8 +483,8 @@
     },
     {
       "Path": "engineering/d120/test_dev_tools.py",
-      "Sha256": "84207B4A751171C168C825CF6E1810E1D396E57BA022FBBB8DE651EA30BD22B6",
-      "Bytes": 7347,
+      "Sha256": "C0C42AB4169B87E4D2C5332C3A49656C3179E439970BFE2EE616FD88A8612B38",
+      "Bytes": 9087,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -497,8 +497,8 @@
     },
     {
       "Path": "tools/Signer-Distribution.ps1",
-      "Sha256": "45F2214ED3FE9ED0027B5B16522077911C302F1E6041EB1B70744F254B6D1FC1",
-      "Bytes": 2491,
+      "Sha256": "38DAA5052C33B8551F8062BAE59868A1DE20483D53B92B778A990382ACBEE758",
+      "Bytes": 4766,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -511,8 +511,8 @@
     },
     {
       "Path": "tools/Test-DomeniaSignature.ps1",
-      "Sha256": "5C1F4567D11B93BB573A015B1DD7D49D7331F082559A312F24468DB24A561F3D",
-      "Bytes": 7180,
+      "Sha256": "FB2C0891747F2CCB3DAC040DF97FB0BBEF44E0A9BADB9657E8E2729523ED3760",
+      "Bytes": 12271,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -546,8 +546,8 @@
     },
     {
       "Path": "tools/audit_wording.py",
-      "Sha256": "445E7245C5597594E9D9CEA85688B96AABA56BEABA04339F194187079E61F04E",
-      "Bytes": 10986,
+      "Sha256": "4DF58949F7D804E6AFF5C924C5860D779C6838432AF7F22EDE194A362B6E8EB8",
+      "Bytes": 12055,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -560,8 +560,8 @@
     },
     {
       "Path": "tools/baselines/wording-baseline.json",
-      "Sha256": "140B79616CBDB16CB05C1B16946EF385C1EC237C66F81D86D79B76576613EF08",
-      "Bytes": 35954,
+      "Sha256": "4AECE3B1178E5D47504E8A85A2C4F2F4793A56A40AEFC7FC2015118B975EFC08",
+      "Bytes": 46646,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -609,14 +609,14 @@
     },
     {
       "Path": "tools/preload-baseline.json",
-      "Sha256": "FCBBDD1A2CC287BD23361CDFAFAB401BE17E4D6E0E42B6C606F2791790040BF1",
-      "Bytes": 147171,
+      "Sha256": "EA45CF84CC3ED7403E340120BB9CDACE188B906F56AAF760793CB7779864D37A",
+      "Bytes": 147567,
       "Runtime": false,
       "PreserveExisting": false
     },
     {
       "Path": "tools/prod-manifest.json",
-      "Sha256": "29C2E41E2EF6D5D46A92AC053F5800E957851DF694CDE1A71AE5E0643BC8E5DA",
+      "Sha256": "BD107AB65E5E93E2BD62D6D93E54A3A9122FB553306E59EADEB58FC08FD578B1",
       "Bytes": 18874,
       "Runtime": false,
       "PreserveExisting": false
@@ -693,8 +693,8 @@
     },
     {
       "Path": "wad/Domenia-Start.ps1",
-      "Sha256": "48C867970F71F2658690092518435392E1395D443FDBDEEE07AC391B479D3E37",
-      "Bytes": 9119,
+      "Sha256": "BB415642F380F42C5402FBD8FC041C8B593950C7154FC9E57F6FB2D6D6BEC590",
+      "Bytes": 9763,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -777,8 +777,8 @@
     },
     {
       "Path": "wad/Support/INSTALLER-MISE-A-JOUR.ps1",
-      "Sha256": "E4DE66D8E7976CDC02C272542D0144CCA7EDA63111E23617E0BA9BBAA0E9ED68",
-      "Bytes": 42632,
+      "Sha256": "8DE2D1C4C8F3AF56668412DF44BADB52166386514FED60991B42662AAD13D8CD",
+      "Bytes": 50210,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -1176,8 +1176,8 @@
     },
     {
       "Path": "wad/maintenance/Preview-DomeniaUi.ps1",
-      "Sha256": "717B17AC5C4AE5503BB89F8B4A9512C9F33E76F62E37CC6BAA62A25DAF1C97E7",
-      "Bytes": 36878,
+      "Sha256": "513095398B531BB04DA32568F589D7328681998528504A0BE3C6FAB0D143524E",
+      "Bytes": 38825,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -1190,8 +1190,8 @@
     },
     {
       "Path": "wad/maintenance/Verifier-Paquet.ps1",
-      "Sha256": "350811557B5392C38843E893DCB71EE31217E0BA6EFA10607B6E1F097D9889A3",
-      "Bytes": 5314,
+      "Sha256": "CBD999F68B387B9263846F08E0A4F05CD495E8FEBA7AE9B3CCE1B086570B6D2C",
+      "Bytes": 7033,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -1512,8 +1512,8 @@
     },
     {
       "Path": "wad/modules/Domenia-Release.Model.ps1",
-      "Sha256": "66C87A597B106AEFB23828F5755F88E28728AE1203C38BDD59575C5BEFE56321",
-      "Bytes": 135583,
+      "Sha256": "A0E9D18243D20F3798507A1DB2A9278337D958E95C5BDCC3EB33A37E0A6DCAC4",
+      "Bytes": 138488,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -1736,8 +1736,8 @@
     },
     {
       "Path": "wad/tests/Test-DomeniaInstaller.ps1",
-      "Sha256": "8EADE31318BC3873101D4FA9088DBFBB55E93BADF66E2F97E8449D157B1F9B38",
-      "Bytes": 17434,
+      "Sha256": "9D38B8792C3D64CA59DED0D4F5A1F7169CE86A00CEDBE873505ED8E1C049A238",
+      "Bytes": 28333,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -1799,8 +1799,8 @@
     },
     {
       "Path": "wad/tests/Test-DomeniaRelease.ps1",
-      "Sha256": "B63E69936BB116646E203CE858F9A54EB57B22B38E705EFF625A67D63C05C8DA",
-      "Bytes": 26010,
+      "Sha256": "F6B0469F5E6FB309A0EDCAC2F6CCA7BFF5CC81EB9DCD5A8B7CC45C0B440584D4",
+      "Bytes": 38075,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -2128,8 +2128,8 @@
     },
     {
       "Path": "wad/tests/rules/Release.Tests.ps1",
-      "Sha256": "1C3E7BB52BD1460811096B1666F0B35A978280A6D103CA46FF1235870B16FC0F",
-      "Bytes": 97877,
+      "Sha256": "CCD613AE73A6BD382B53D7CDCCF83B30E0756BA746DD3FE0CAD6D7168C413794",
+      "Bytes": 102662,
       "Runtime": false,
       "PreserveExisting": false
     },

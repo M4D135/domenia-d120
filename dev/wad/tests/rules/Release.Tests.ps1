@@ -611,6 +611,54 @@ Test-Case 'D116' 'SP-09 integrite et editeur rendus separement pour un controle 
     $noHash=@(& $script:RelSignedFiles|ForEach-Object{$_.ActualSha256='';$_})
     Assert-Equal 'Non verifiee' (Get-DomeniaSignatureVerdict $noHash $script:RelPin $script:RelManifestSig).IntegrityStatus
 }
+Test-Case 'D116' 'SP-09 vraie composition PROD : scripts signes, binaires figes epingles, non signables a part' {
+    # The 83 files of tools\prod-manifest.json with the statuses the delivery chain really produces on a workstation that
+    # trusts the organisation certificate: each .ps1 signed by Signer-Distribution, Domenia.exe unsigned (F8), the AD
+    # libraries unsigned, PsExec signed by its vendor, the other files not signable. Pins come from the release contract.
+    $prod=& $script:RelReadJson 'tools\prod-manifest.json'
+    $contract=& $script:RelReadJson 'tools\release-contract.json'
+    Assert-True (@($prod.Files).Count -ge 80) ('Composition PROD lue : '+@($prod.Files).Count)
+    $pins=@{};foreach($c in @($contract.Components|Where-Object{$_.Pinned -eq $true})){$pins[[string]$c.Path]=[string]$c.Sha256}
+    Assert-Equal 4 $pins.Count 'Composants figes epingles par le contrat'
+    $vendorThumb=(Get-DomeniaTextHash 'certificat du fournisseur tiers').Substring(0,40)
+    $build={
+        param([scriptblock]$Edit=$null)
+        $rows=New-Object 'System.Collections.Generic.List[object]'
+        foreach($f in @($prod.Files)){
+            if($f.PreserveExisting){continue}
+            $p=[string]$f.Path;$status='';$signer='';$print=''
+            if($p -match '(?i)\.ps1$'){$status='Valid';$signer=$script:RelPublisher;$print=$script:RelThumb}
+            elseif($p -ceq 'wad/PsExec.exe'){$status='Valid';$signer='CN=Fournisseur tiers';$print=$vendorThumb}
+            elseif($p -match '(?i)\.(exe|dll)$'){$status='NotSigned'}
+            $rows.Add([pscustomobject]@{Path=$p;ExpectedSha256=[string]$f.Sha256;ActualSha256=[string]$f.Sha256;Present=$true;SignatureStatus=$status;Signer=$signer;SignerThumbprint=$print})
+        }
+        $all=$rows.ToArray();if($null -ne $Edit){& $Edit $all};$all
+    }
+    $rows=& $build
+    $nonSignable=@($rows|Where-Object{$_.Path -notmatch '(?i)\.(exe|dll|ps1)$'}).Count
+    Assert-True ($nonSignable -ge 8) 'Fichiers non signables presents'
+    Assert-Equal 'Editeur non prouve' (Get-DomeniaSignatureVerdict $rows $script:RelPin).PublisherStatus 'Sans epingles, aucune vraie distribution n est verifiable'
+    $v=Get-DomeniaSignatureVerdict $rows $script:RelPin -PinnedComponents $pins
+    Assert-Equal 'Conforme' $v.IntegrityStatus;Assert-Equal 'Editeur verifie, manifeste non signe' $v.PublisherStatus
+    Assert-Equal 'Conforme, code signe, manifeste non signe' $v.Overall;Assert-False $v.DistributionSignatureValid
+    Assert-Equal 4 @($v.PinnedFiles).Count;Assert-Equal $nonSignable @($v.ManifestOnlyFiles).Count
+    Assert-True (@($v.ManifestOnlyFiles) -contains 'wad/modules/Domenia-Identity.Types.cs') 'Code C# compile couvert par le manifeste seul'
+    Assert-Equal 'Composant fige epingle par son empreinte' @($v.Files|Where-Object{$_.Path -eq 'Domenia.exe'})[0].Publisher
+    $full=Get-DomeniaSignatureVerdict $rows $script:RelPin $script:RelManifestSig -PinnedComponents $pins
+    Assert-Equal 'Editeur verifie' $full.PublisherStatus;Assert-Equal 'Signee et conforme' $full.Overall;Assert-True $full.DistributionSignatureValid
+    Assert-Equal 'Editeur attendu non configure' (Get-DomeniaSignatureVerdict $rows $null -PinnedComponents $pins).PublisherStatus
+    # A third-party library swapped and the manifest regenerated: integrity agrees with the manifest, the pin does not.
+    $swapped=& $build {param($all) $x=@($all|Where-Object{$_.Path -eq 'wad/Microsoft.ActiveDirectory.Management.dll'})[0];$x.ExpectedSha256=(Get-DomeniaTextHash 'autre dll');$x.ActualSha256=$x.ExpectedSha256}
+    $s=Get-DomeniaSignatureVerdict $swapped $script:RelPin $script:RelManifestSig -PinnedComponents $pins
+    Assert-Equal 'Conforme' $s.IntegrityStatus;Assert-Equal 'Editeur non prouve' $s.PublisherStatus
+    Assert-Equal 'Composant different de son empreinte epinglee' @($s.Files|Where-Object{$_.Path -like '*Management.dll'})[0].Publisher
+    $resigned=& $build {param($all) $x=@($all|Where-Object{$_.Path -eq 'wad/Domenia-Core.ps1'})[0];$x.SignerThumbprint=$script:RelOtherThumb}
+    Assert-Equal 'Editeur non prouve' (Get-DomeniaSignatureVerdict $resigned $script:RelPin -PinnedComponents $pins).PublisherStatus 'Script signe par un autre certificat'
+    $broken=& $build {param($all) @($all|Where-Object{$_.Path -eq 'wad/Domenia-Start.ps1'})[0].SignatureStatus='HashMismatch'}
+    Assert-Equal 'Signature invalide' (Get-DomeniaSignatureVerdict $broken $script:RelPin -PinnedComponents $pins).PublisherStatus
+    $catalog=[pscustomobject]@{SignatureStatus='HashMismatch';Signer=$script:RelPublisher;SignerThumbprint=$script:RelThumb}
+    Assert-Equal 'Signature invalide' (Get-DomeniaSignatureVerdict $rows $script:RelPin $catalog -PinnedComponents $pins).PublisherStatus 'Catalogue du manifeste different du manifeste'
+}
 Test-Case 'D116' 'Distribution d origine signee par le certificat epingle : statut de signature valide' {
     $v=Get-DomeniaSignatureVerdict (& $script:RelSignedFiles) $script:RelPin $script:RelManifestSig
     Assert-True $v.DistributionSignatureValid $v.Overall;Assert-Equal 'Signee et conforme' $v.Overall;Assert-True $v.PublisherPinned

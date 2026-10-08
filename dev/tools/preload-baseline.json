@@ -657,7 +657,7 @@
     "wad/ActiveDirectoryPowerShellResources.dll": "E233D92238AA31EA1B3C60145D8811EDB2E517E1B9B53F4BC496883EE5D9973B",
     "wad/Domenia-Core.ps1": "33FFA39D156F3142BE32E6F1BDF52038740F45A22D3BC9E83573E2EE29F35530",
     "wad/Domenia-Modules.ps1": "8D694641BEB0DC3E0DF4F95BC72AD048C6AB299D813520BE7E9798241DF0EFA0",
-    "wad/Domenia-Start.ps1": "48C867970F71F2658690092518435392E1395D443FDBDEEE07AC391B479D3E37",
+    "wad/Domenia-Start.ps1": "BB415642F380F42C5402FBD8FC041C8B593950C7154FC9E57F6FB2D6D6BEC590",
     "wad/Domenia.config.json": "5F051A082799F9E39C54D78256E72FA37E1A797E6374BBEC0CEB7DDB932AE871",
     "wad/Domenia.ico": "EC032BF6A14EAC2CC80073B376FE0364DDA62F25D452C8C783C926B0C28E837F",
     "wad/Domenia.login-mode.cfg": "EF6691545D2C5523EFED00424407CB261AEB0037D165CA5792F7F8BAC3381362",
@@ -1907,6 +1907,17 @@
         "Initialize-Window",
         "Wire-Events"
       ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": [
+        "wad/Domenia-Start.ps1"
+      ]
+    },
+    {
+      "Previous": "dev",
+      "Source": "dev",
+      "Decision": "L05 corrections de relecture : Domenia-Start relu (commande de restauration complete lue dans le marqueur, messages -CheckOnly et titre accentues)",
+      "ChangedCoreFunctions": [],
       "AddedCoreFunctions": [],
       "RemovedCoreFunctions": [],
       "ChangedPayloads": [

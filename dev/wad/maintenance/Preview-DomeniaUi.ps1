@@ -100,21 +100,47 @@ function Update-PreviewLayout {
     # Never suggest a verified AD connection in the offline view.
     (Get-DomeniaControl 'LblUxDomain').Text='APERÇU LOCAL · Données fictives · Sans accès AD'
 }
+$script:PreviewWorkAreaContent = $null
 function Enter-PreviewWorkArea {
-    # TE-08: the UX layout reads its work area from $script:Window. A real window is clamped to the screen of the test
-    # machine (1024x768 in the lab VM, a short screen for D006), so the width- and height-dependent checks run against
-    # a fixed-size container standing for a desktop work area. Controls stay in the real window, which keeps rendering.
+    # TE-08: a real window is clamped to the screen of the test machine (1024x768 in the lab VM, a short screen for
+    # D006). The width- and height-dependent checks therefore run in a container of fixed size standing for a desktop
+    # work area: the window content is moved into that container, hosted by a Canvas (which never constrains it) inside
+    # the real window, so every control is measured and arranged at the imposed size, stays in the visual tree (IsVisible,
+    # TranslatePoint) and keeps the window resources. The UX layout reads its work area from $script:Window, which
+    # stands for the container meanwhile (Width assignments resize it).
     param([double]$Width=1600,[double]$Height=960)
     if ($null -ne $script:PreviewRealWindow) { return }
+    $real = $script:Window
+    $content = $real.Content
     $area = New-Object Windows.Controls.Border
     $area.Width = $Width;$area.Height = $Height
-    $script:PreviewRealWindow = $script:Window;$script:Window = $area
+    $canvas = New-Object Windows.Controls.Canvas
+    $real.Content = $null
+    try {
+        $area.Child = $content
+        [void]$canvas.Children.Add($area)
+        $real.Content = $canvas
+    } catch {
+        $area.Child = $null;$real.Content = $content
+        throw
+    }
+    $script:PreviewWorkAreaContent = $content
+    $script:PreviewRealWindow = $real;$script:Window = $area
     $script:UxLayoutSignature = '';$script:UxNavLayoutSignature = ''
     Update-PreviewLayout
 }
 function Exit-PreviewWorkArea {
     if ($null -eq $script:PreviewRealWindow) { return }
-    $script:Window = $script:PreviewRealWindow;$script:PreviewRealWindow = $null
+    $real = $script:PreviewRealWindow
+    $area = $script:Window
+    $script:Window = $real;$script:PreviewRealWindow = $null
+    if ($null -ne $script:PreviewWorkAreaContent) {
+        # Put the content back in the real window exactly as it was.
+        $real.Content = $null
+        if ($area -is [Windows.Controls.Border]) { $area.Child = $null }
+        $real.Content = $script:PreviewWorkAreaContent
+        $script:PreviewWorkAreaContent = $null
+    }
     $script:UxLayoutSignature = '';$script:UxNavLayoutSignature = ''
     Update-PreviewLayout
 }
@@ -378,8 +404,15 @@ try {
             $dark -ne $script:Window.Resources['BgCard'].Color.ToString()
         }
         # TE-08: the width-dependent checks below run in a fixed 1600x960 work area (Width assignments resize it), so they
-        # no longer depend on the screen of the test machine.
+        # no longer depend on the screen of the test machine. The real window is always restored, even after a failure.
+        try {
         Enter-PreviewWorkArea -Width 1600 -Height 960
+        Test-PreviewAssertion 'Zone de travail fixe : contrôles mesurés à 1600 px dans la fenêtre réelle' {
+            $tabs=Get-DomeniaControl 'WorkspaceTabs'
+            $script:PreviewRealWindow.Content -is [Windows.Controls.Canvas] -and $script:Window.ActualWidth -eq 1600 -and
+            $tabs.IsVisible -and [Windows.Window]::GetWindow($tabs) -eq $script:PreviewRealWindow -and
+            $tabs.TranslatePoint([Windows.Point]::new($tabs.ActualWidth,0),$script:Window).X -gt 1024
+        }
         Test-PreviewAssertion 'Panneau latéral en grande largeur' {
             $script:Window.Width=1600;$script:UxHelpVisible=$true;$script:UxLayoutSignature='';Update-PreviewLayout
             (Get-DomeniaControl 'UxHelpColumn').Width.Value -eq 300
@@ -438,7 +471,7 @@ try {
             (Get-DomeniaControl 'BtnUxHelpToggle').RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent));Update-PreviewLayout
             (Get-DomeniaControl 'UxHelpPanel').Visibility -eq [Windows.Visibility]::Visible -and [bool]$script:PreviewSettings.UxHelpVisible
         }
-        Exit-PreviewWorkArea
+        } finally { Exit-PreviewWorkArea }
         Test-PreviewAssertion 'OU lisible sans DN coupe dans une hauteur fixe' {
             $script:SelectedBranchDn='OU=STAGING,OU=Postes,OU=Unite locale,DC=example,DC=invalid'
             Update-DomeniaSearchScopeUi
@@ -536,5 +569,7 @@ try {
     }
     if (-not $Verify -and [string]::IsNullOrWhiteSpace($CaptureDirectory)) { [void]$script:Window.ShowDialog() }
 } finally {
-    if($null -ne $script:Window){$script:Window.Close()}
+    # A failure inside the fixed work area must not leave the stand-in container in place of the window.
+    if($null -ne $script:PreviewRealWindow){try{Exit-PreviewWorkArea}catch{$script:Window=$script:PreviewRealWindow;$script:PreviewRealWindow=$null}}
+    if($script:Window -is [Windows.Window]){$script:Window.Close()}
 }

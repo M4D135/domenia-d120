@@ -14,7 +14,16 @@ try {
     while($null -ne $cursor){if($cursor.Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Dossier du logiciel redirige. Utilisez une copie locale validee.'};$cursor=$cursor.Parent}
     $lockPath=Join-Path $PSScriptRoot 'Support\.lifecycle.lock'
     $lifecycle=[IO.File]::Open($lockPath,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
-    if([IO.File]::Exists((Join-Path $PSScriptRoot 'Support\.update.pending'))){throw 'Mise à jour incomplète. Restaurez le code avec wad\Support\INSTALLER-MISE-A-JOUR.ps1 -RestoreLatest avant le lancement.'}
+    $pendingPath=Join-Path $PSScriptRoot 'Support\.update.pending'
+    if([IO.File]::Exists($pendingPath)){
+        # The marker names the backup of the interrupted installation, which holds its own restore script (written
+        # before the first replacement, so it exists even when this update came from an older version).
+        $pendingBackup=''
+        try{$pendingBackup=[string](([IO.File]::ReadAllText($pendingPath)|ConvertFrom-Json).Backup)}catch{}
+        $restoreHint="wad\Support\INSTALLER-MISE-A-JOUR.ps1 -RestoreLatest -Destination '"+$root+"'"
+        if($pendingBackup){$restoreHint="'"+(Join-Path $pendingBackup 'RESTAURER-CODE.ps1')+"' -RestoreBackup '"+$pendingBackup+"' (ou "+$restoreHint+')'}
+        throw ('Mise à jour incomplète. Restaurez le code avant le lancement, dans Windows PowerShell : '+$restoreHint+'.')
+    }
     $manifestPath=Join-Path $PSScriptRoot 'package-manifest.json'
     $mi=Get-Item -LiteralPath $manifestPath -Force
     if($mi.Length -gt 2MB -or ($mi.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'Manifeste invalide.'}
@@ -111,7 +120,7 @@ try {
         $expectedModules=[int]$importReport[0].Expected
         $importReport=@($importReport[0].Imports)
         if($importReport.Count -ne $expectedModules){throw 'Validation des modules incomplete.'}
-        Write-Host ('Runtime '+$manifest.Build+' : '+$entries.Count+' fichiers verifies en '+$DomeniaStartIntegrity.DurationMs+' ms (plafond '+$runtimeLimit+') ; '+$importReport.Count+' modules charges et fonctions disponibles. Aucun acces AD.')
+        Write-Host ('Runtime '+$manifest.Build+' : '+$entries.Count+' fichiers vérifiés en '+$DomeniaStartIntegrity.DurationMs+' ms (plafond '+$runtimeLimit+') ; '+$importReport.Count+' modules chargés et fonctions disponibles. Aucun accès AD.')
         exit 0
     }
     & (Join-Path $PSScriptRoot 'Domenia-Core.ps1')
@@ -123,7 +132,7 @@ try {
         [IO.File]::AppendAllText($log,([datetime]::Now.ToString('o')+' '+$message+[Environment]::NewLine))
         if(-not $CheckOnly){
             Add-Type -AssemblyName PresentationFramework
-            [void][Windows.MessageBox]::Show($message+"`r`n`r`nDiagnostic : "+$log,'Domenia | Demarrage','OK','Error')
+            [void][Windows.MessageBox]::Show($message+"`r`n`r`nDiagnostic : "+$log,'Domenia | Démarrage','OK','Error')
         }
     }catch{}
     exit 1

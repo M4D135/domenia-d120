@@ -5,7 +5,8 @@ Relevé du 8 octobre 2026 sur le dépôt `Domenia-D120`, branche `claude/epic-ne
 
 Conventions :
 - Références : `Core:N` = `dev/wad/Domenia-Core.ps1` ligne N ; `Start:N` = `dev/wad/Domenia-Start.ps1` ;
-  `Modules:N` = `dev/wad/Domenia-Modules.ps1` ; `Installer:N` = `dev/INSTALLER-MISE-A-JOUR.ps1` ;
+  `Modules:N` = `dev/wad/Domenia-Modules.ps1` ; `Installer:N` = `dev/INSTALLER-MISE-A-JOUR.ps1` au relevé du 8 octobre
+  (depuis le lot L05, l'installateur est `dev/wad/Support/INSTALLER-MISE-A-JOUR.ps1` et la section 6 cite ses fonctions) ;
   `launcher.c:N` = `dev/tools/launcher/launcher.c` ; `X.UI:N` = `dev/wad/modules/Domenia-X.UI.ps1` (idem `.Model`, `.Worker`).
 - Libellés entre « » : copiés à l'identique du code (sans accents quand le code n'en a pas). Les libellés de la fenêtre
   de connexion contiennent l'apostrophe typographique U+2019 (« l’identifiant ») : la reprendre telle quelle.
@@ -69,7 +70,8 @@ Conventions :
 
 1. `Domenia.exe` (source `tools/launcher/launcher.c`, chaînes de l'exécutable identiques à la source) :
    - ouvre `wad\Support\.lifecycle.lock` en lecture partagée ; échec → « Paquet absent, mise a jour en cours ou dossier
-     inaccessible. Ne pas supprimer les verrous. Utiliser l installateur DEV. » (code 7, launcher.c:41-42) ;
+     inaccessible. Ne pas supprimer les verrous. Utiliser l installateur DEV. » (code 7, launcher.c:41-42 ; lanceur conservé
+     à l'octet, F8 : depuis L05, l'installateur visé est `wad\Support\INSTALLER-MISE-A-JOUR.ps1`, livré dans PROD et DEV) ;
    - si `wad\Support\.update.pending` existe → « Une installation interrompue doit etre restauree ou terminee avant de
      lancer Domenia. » (code 8, launcher.c:43-44) ;
    - `wad\Domenia-Start.ps1` absent → « wad\Domenia-Start.ps1 est absent. Extraire tout le dossier prod ou dev. » (code 3) ;
@@ -87,8 +89,9 @@ Conventions :
    - exige Windows PowerShell 5.1 Desktop x64 STA, sinon « Windows PowerShell 5.1 x64 STA requis. Lancez Domenia.exe. » (Start:7-9) ;
    - refuse un dossier redirigé (jonction/lien) sur la racine ou un ancêtre : « Dossier du logiciel redirige. Utilisez une
      copie locale validee. » (Start:10-12) ;
-   - refuse le marqueur `.update.pending` : « Mise a jour incomplete. Restaurez le code avec l installateur DEV avant
-     lancement. » (Start:15) ;
+   - refuse le marqueur `.update.pending` (depuis L05) : « Mise à jour incomplète. Restaurez le code avant le lancement,
+     dans Windows PowerShell : » suivi de `'<sauvegarde>\RESTAURER-CODE.ps1' -RestoreBackup '<sauvegarde>'` (sauvegarde lue
+     dans le marqueur) et de `wad\Support\INSTALLER-MISE-A-JOUR.ps1 -RestoreLatest -Destination '<racine>'` ;
    - lit `wad/package-manifest.json` (≤ 2 Mo, `Format` 1), garde les entrées `Runtime` = vrai (entre 10 et 100, sinon
      « Liste du runtime invalide. » — 82 aujourd'hui), refuse chemins absolus, `..`, `:` et `wad/data` ;
    - recalcule le SHA-256 de chaque fichier non conservé à CHAQUE démarrage : « Composant modifie ou versions melangees : <chemin> »,
@@ -148,7 +151,7 @@ Tous lancent `%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe` (ou `
 | `VERIFIER-PACK.cmd` | `wad\maintenance\Verifier-Paquet.ps1` avec `-ExecutionPolicy Bypass` : empreintes et syntaxe de tous les fichiers du manifeste, rapport JSON (`%TEMP%\Domenia-pack-<guid>.json` par défaut) ; fichiers conservés notés « LOCAL » ; option `-StrictConfig` pour imposer aussi leur empreinte ; message final « Un manifeste local verifie la coherence, pas la signature ou la provenance du code. ». Aucun accès AD, aucun démarrage. |
 | `TESTER-DOMENIA.cmd` | `wad\tests\Test-DomeniaModules.ps1`, puis si réussite `Test-DomeniaCandidate.ps1 -Wpf`. |
 | `TESTER-MODULES.cmd` | `Test-DomeniaModules.ps1`. |
-| `TESTER-PRECHARGEMENT.cmd` | `Test-DomeniaPreload.ps1` (la suite exigée par l'installateur). |
+| `TESTER-PRECHARGEMENT.cmd` | `Test-DomeniaPreload.ps1` (depuis L05, l'installateur ne lance plus aucune suite). |
 | `TESTER-DEMARRAGE-LOGIN.cmd` | `Test-DomeniaStartupLogin.ps1`. |
 | `TESTER-INTERFACE-STABLE.cmd` | `Test-DomeniaStableUi.ps1`. |
 | `TESTER-ACTIVITE.cmd` | `Test-DomeniaActivityLayout.ps1`. |
@@ -176,57 +179,45 @@ Tous lancent `%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe` (ou `
 
 ## 6. Installation et mise à jour
 
-Première installation (LIRE-MOI.md) : extraire le ZIP ENTIER dans un dossier local ; si Windows bloque les fichiers,
-`wad/Support/DEBLOQUER_TOUT.cmd` ; « Ne pas déplacer le cœur sans les modules et leur manifeste. » ; lancer `Domenia.exe`.
-L'installateur ne sert pas à une première installation : il exige une destination contenant déjà
-`wad\Domenia-Core.ps1` (ou l'ancien `wad\ADCC-Core.ps1`), sinon « Destination incorrecte : choisir le dossier DOMENIA
-contenant wad\Domenia-Core.ps1. » (Installer:181).
-
-Mise à jour : fermer Domenia, extraire le ZIP DEV dans un dossier distinct, puis dans Windows PowerShell 5.1 :
+État après le lot L05 (relu dans le code le 8 octobre 2026 ; les fonctions nommées font foi). L'installateur est
+`dev/wad/Support/INSTALLER-MISE-A-JOUR.ps1`, livré dans PROD et DEV ; `dev/INSTALLER-MISE-A-JOUR.ps1` le relaie avec les
+mêmes paramètres et le même code de sortie. Il ne lance aucune suite de tests sur le poste.
 
 ~~~
-.\INSTALLER-MISE-A-JOUR.ps1 -Destination 'C:\Domenia'
-.\INSTALLER-MISE-A-JOUR.ps1 -Destination 'C:\Domenia' -WhatIf
-.\INSTALLER-MISE-A-JOUR.ps1 -RestoreBackup 'C:\Domenia\wad\maintenance\backups\DOSSIER'
+.\wad\Support\INSTALLER-MISE-A-JOUR.ps1 -Destination 'C:\Domenia' -WhatIf
+.\wad\Support\INSTALLER-MISE-A-JOUR.ps1 -Destination 'C:\Domenia'
+.\wad\Support\INSTALLER-MISE-A-JOUR.ps1 -Install -Destination 'C:\Domenia'
+.\wad\Support\INSTALLER-MISE-A-JOUR.ps1 -RestoreLatest -Destination 'C:\Domenia'
+.\wad\Support\INSTALLER-MISE-A-JOUR.ps1 -RestoreBackup 'C:\Domenia\wad\maintenance\backups\DOSSIER'
 ~~~
 
-Déroulé lu dans le code :
-1. Refus si source = destination (« Extrais le nouveau ZIP dans un dossier distinct de ton DOMENIA actuel. ») ou
-   dossiers imbriqués (Installer:178-180).
-2. `Assert-AppClosed` : refuse si un processus `Domenia`/`ADCC` du dossier cible tourne ou si un `powershell.exe`,
-   `powershell_ise.exe` ou `pwsh.exe` exécute son cœur ou son Start : « Fermez Domenia dans le dossier a mettre a jour
-   ou restaurer. », « DOMENIA encore lance : PID <n>. Ferme-le sans interrompre une ecriture AD. » (Installer:34-49).
-   Une copie ouverte dans un AUTRE dossier n'empêche pas la mise à jour.
-3. Source = `tools\prod-manifest.json` du DEV : seuls les 82 fichiers runtime sont installés (le DEV n'est pas copié).
-   Contrôle de chaque empreinte source, analyse syntaxique des `.ps1` ; refus de tout chemin `wad/data` ou
-   `wad/maintenance/backups` (« Le programme de mise a jour ne doit pas toucher aux donnees ou sauvegardes. »,
-   Installer:18) ; refus des jonctions/liens.
-4. Version active identique → « Cette version est deja active. … » (Installer:191). Les fichiers déjà identiques ne
-   sont pas recopiés ; les préférences existantes sont « Conserve : … » ; un ancien `ADCC.*` de configuration est
-   repris « Migration sans suppression : … » si le `Domenia.*` n'existe pas (Installer:206-215).
-5. Affiche « Fichiers a installer : N » et la liste ; s'arrête là avec `-WhatIf` (Installer:229-231).
-6. Porte DEV : exécute `wad\tests\Test-DomeniaPreload.ps1 -ReportPath … -Quiet` sous PowerShell 5.1 -STA ; exige un
-   rapport complet, natif Windows PowerShell, WPF exécuté, 0 échec, 0 ignoré et au moins 40 réussites, sinon
-   « Verification native echouee avant copie » / « Rapport de tests incomplet ou en echec » (Installer:232-245).
-7. Prépare une copie complète dans `<destination>\wad\maintenance\backups\<aaaaMMjj-HHmmss>-<8 hex>\prepared`,
-   vérifie chaque empreinte, applique la règle `Get-DomeniaInstallPlan` (Release.Model), puis lance
-   `Domenia-Start.ps1 -CheckOnly` sur la copie préparée : « La version preparee ne peut pas demarrer. Le code actif est
-   inchange. » (Installer:248-274).
-8. Prend le verrou exclusif `.lifecycle.lock`, refuse si `.update.pending` existe (« Installation precedente incomplete.
-   Utilisez -RestoreBackup … »), sauvegarde l'ancien code dans `…\files`, écrit `transaction.json`, copie l'installateur
-   en `RESTAURER-CODE.ps1`, écrit le marqueur `wad\Support\.update.pending` (le lancement est alors bloqué), remplace les
-   fichiers un à un (copie atomique + vérification), vérifie l'ensemble, retire le marqueur (seul point d'activation).
-   Fin : « Mise a jour installee. Ancien code : <sauvegarde> » et « Runtime installe. Lancez Domenia.exe. Les anciens
-   fichiers DEV ne sont pas supprimes automatiquement. » (Installer:276-314).
-9. Échec après le début des remplacements : restauration automatique (« Installation en echec : ancien code restaure. »)
-   ou « Restauration automatique incomplete : … Sauvegarde : … », puis « Mise a jour interrompue : … » (Installer:316-322).
-- Restauration `-RestoreBackup` : relit `transaction.json`, refuse si une autre transaction est en attente, vérifie
-  d'abord sans écrire, refuse d'écraser un fichier modifié indépendamment (« Fichier modifie depuis la mise a jour,
-  restauration refusee : … »), puis « Code precedent restaure. wad\data et les preferences conservees n ont pas ete
-  modifies. » (Installer:149-174). Les données ne sont jamais touchées.
-- LIRE-MOI déclare l'installateur vérifié sur six scénarios (installation, restauration, interruption, verrouillage,
-  corruption, modifications concurrentes) via `wad\tests\Test-DomeniaInstaller.ps1` [NV : non rejoué].
-- [NV] Stratégie d'exécution nécessaire pour lancer `INSTALLER-MISE-A-JOUR.ps1` : non documentée dans la livraison.
+- Source : le dossier extrait qui contient `Domenia.exe` et `wad` ; manifeste `tools\prod-manifest.json` (DEV) ou
+  `wad\package-manifest.json` d'édition `prod` (`Get-SourceManifestPath`). Seuls les fichiers runtime sont installés.
+- Chemins relatifs (`-Destination` en mode `-Install`, `-Package`, `-QualificationReport`) résolus depuis le dossier
+  courant de PowerShell (`GetUnresolvedProviderPathFromPSPath`).
+- Rapport de qualification (`Get-QualificationState`, `Confirm-Qualification`) : mêmes règles que
+  `release_guard.require_evidence` (Windows PowerShell 5.1, `OverallStatus` PASS, même Build, `FixtureOnly` refusé,
+  archives DEV et PROD quand le rapport les liste, scénarios requis exécutés, PASS, horodatés, avec `EvidenceSHA256` et
+  liés à une archive du rapport, `prod.standalone` sur l'archive PROD) ; le ZIP de `-Package` doit être une de ces
+  archives, chaque fichier listé par son manifeste doit porter l'empreinte annoncée et ce manifeste celles du paquet
+  installé. Un rapport fourni et refusé arrête tout avant écriture (« Rapport de qualification fourni refusé : … ») ;
+  sans rapport, avertissement et installation non qualifiante ; `-RequireQualification` refuse alors.
+- Mise à jour : contrôles de départ (`Assert-AppClosed`, destination contenant `wad\Domenia-Core.ps1`), versions active
+  et préparée affichées, liste, question « Installer ces N fichiers ? (O/N) » (`Read-OperatorAnswer`, supprimée par
+  `-Confirm:$false`), copie préparée démarrée par `Domenia-Start.ps1 -CheckOnly`, verrou, sauvegarde, journal,
+  `RESTAURER-CODE.ps1`, marqueur `.update.pending`, remplacement vérifié, retrait du marqueur, puis suppression de la
+  copie préparée et rotation (`Invoke-BackupRotation` : cinq sauvegardes complètes gardées, copies `prepared` des
+  anciennes sauvegardes complètes retirées, sauvegarde protégée par le marqueur et journaux inachevés jamais touchés).
+- Première installation `-Install` : dossier vide ou absent, copie contrôlée par empreintes, verrou de cycle de vie
+  copié en dernier, déblocage, `-CheckOnly` ; en cas d'échec, les fichiers copiés sont retirés. Raccourcis Bureau et
+  menu Démarrer proposés un par un, jamais créés sans réponse O ; `-Shortcuts Oui|Non` répond d'avance ; avec
+  `-Confirm:$false` la question n'est pas posée. Un raccourci qui échoue donne un avertissement, l'installation reste faite.
+- Codes de sortie (`Stop-Cancelled`) : 0 fait (ou `-WhatIf`), 1 erreur, 2 rien d'installé (réponse N ou aucune réponse).
+- `-RestoreLatest` : sauvegarde désignée par le marqueur s'il existe, sinon la dernière installation terminée du dossier.
+  La restauration vérifie tout sans écrire, refuse d'écraser un fichier modifié indépendamment et ne touche pas aux données.
+- Tests : `wad\tests\Test-DomeniaInstaller.ps1` (15 cas). Le relevé du 8 octobre (porte `Test-DomeniaPreload.ps1`,
+  paquet DEV exigé, messages tutoyés) est remplacé par ce qui précède.
+- [NV] Stratégie d'exécution nécessaire pour lancer l'installateur : non documentée dans la livraison.
 
 ## 7. Prérequis
 
@@ -605,7 +596,7 @@ powershell -NoProfile -STA -File wad\Domenia-Start.ps1 -CheckOnly
 Suites Windows `dev/wad/tests/Test-*.ps1` (41 fichiers) : chacune accepte `-ReportPath` (rapport JSON) et le plus
 souvent `-Quiet` ; certaines `-Wpf`/`-SkipWpf`/`-Preview`. Exemples d'objet : `Test-DomeniaRules.ps1` (règles pures des
 modules, 16 fichiers `rules/*.Tests.ps1`, sans WPF ni réseau ; option `-Filter`) ; `Test-DomeniaModules.ps1` (chargeur
-fermé) ; `Test-DomeniaPreload.ps1` (porte de l'installateur) ; `Test-DomeniaBoards.ps1` (tableaux de bord en widgets
+fermé) ; `Test-DomeniaPreload.ps1` (ancienne porte de l'installateur, retirée par L05) ; `Test-DomeniaBoards.ps1` (tableaux de bord en widgets
 dans la vraie fenêtre, données fictives `example.invalid`) ; `Test-DomeniaInstaller.ps1` (`-RestoreOnly`) ;
 `Test-DomeniaGeometry.ps1` (géométrie de la vraie fenêtre) ; `Test-DomeniaFaults.ps1` (injection de pannes) ;
 `Test-DomeniaWiring*.ps1` (preuves de raccordement par lot : Acces, Cache, Ecritures, Inline, Interface, Moteur,
@@ -626,7 +617,10 @@ et hors Windows (contrôles non qualifiants) : `python tools/validate_powershell
 `python -m unittest -v engineering/d120/test_release_guard.py` (depuis `engineering/d120`),
 `python tools/build_packages.py --output <dossier>`. Autres outils : `tools/Test-DomeniaUiBlocking.ps1` (audit statique
 des appels bloquants depuis le Dispatcher, D014), `tools/Signer-Distribution.ps1 -Thumbprint <empreinte>` (signature
-Authenticode des fichiers runtime avec un certificat « Code Signing » du magasin utilisateur, D116).
+Authenticode des scripts runtime de la copie préparée avec un certificat « Code Signing » du magasin utilisateur, D116 ;
+depuis L05, `-ManifestCatalog` signe aussi un catalogue du manifeste livré, et `tools/Test-DomeniaSignature.ps1` rend hors
+ligne l'intégrité et l'éditeur : scripts signés par le certificat épinglé, `Domenia.exe` et composants tiers épinglés par
+SHA-256 dans `tools/release-contract.json`, fichiers non signables couverts par le seul catalogue signé).
 
 - `engineering/d120/lab/Invoke-LabRun.ps1 -DevRoot … -OutDir … [-Filter] [-TimeoutSeconds 600]` : lance chaque
   `wad\tests\Test-*.ps1` dans son propre processus 5.1 -STA, écrit `<suite>.json`, `.stdout.txt`, `.stderr.txt`,

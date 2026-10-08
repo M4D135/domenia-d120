@@ -1235,7 +1235,13 @@ function Get-DomeniaSignatureVerdict {
     # manifest broken) never keeps a valid signature status, even when a substituted file carries its own valid
     # signature. Files that cannot carry a signature are trusted only through a signed manifest. The verdict only reads
     # statuses; it never proposes to weaken a Windows protection.
-    param([object[]]$Files=@(),$Publisher=$null,$ManifestSignature=$null,[string[]]$UndeclaredFiles=@())
+    # SP-09: -PinnedComponents (path -> SHA-256, from the reviewed release contract) covers the frozen binaries that the
+    # delivery chain never signs: Domenia.exe (F8) and the third-party components (signed by their own vendor, or not).
+    # Such a file is accepted for its exact pinned bytes, whatever its Authenticode signature, and refused otherwise.
+    # Each row says which proof covers it (Scope): Authenticode signature, pinned SHA-256, signed manifest, or the
+    # unsigned manifest only. The publisher answer separates a complete cover ('Editeur verifie') from a cover of the
+    # signed scripts and pinned binaries whose non-signable files rest on an unsigned manifest.
+    param([object[]]$Files=@(),$Publisher=$null,$ManifestSignature=$null,[string[]]$UndeclaredFiles=@(),[Collections.IDictionary]$PinnedComponents=$null)
     $pin = ConvertTo-DomeniaPublisherPin $Publisher
     $manifestStatus = ([string](Get-DomeniaMember $ManifestSignature 'SignatureStatus' '')).Trim()
     $manifestSigner = ([string](Get-DomeniaMember $ManifestSignature 'Signer' '')).Trim()
@@ -1243,6 +1249,13 @@ function Get-DomeniaSignatureVerdict {
     $manifestTrust = Test-DomeniaSignerTrust $manifestStatus $manifestSigner $manifestPrint $pin
     $manifestTrusted = [bool]$manifestTrust.Verified
     $manifestBroken = ($manifestStatus -ceq 'HashMismatch')
+    $pinnedHashes = @{}
+    if ($null -ne $PinnedComponents) {
+        foreach ($key in @($PinnedComponents.Keys)) {
+            $pinnedSha = ConvertTo-DomeniaSha256Text ([string]$PinnedComponents[$key])
+            if ($pinnedSha) { $pinnedHashes[([string]$key).Replace('\','/').ToLowerInvariant()] = $pinnedSha }
+        }
+    }
     $rows = New-Object 'System.Collections.Generic.List[object]'
     foreach ($file in @($Files)) {
         if ($null -eq $file) { continue }
@@ -1254,12 +1267,22 @@ function Get-DomeniaSignatureVerdict {
         $signer = ([string](Get-DomeniaMember $file 'Signer' '')).Trim()
         $print = ([string](Get-DomeniaMember $file 'SignerThumbprint' '')).Trim()
         $signable = ($path -match '(?i)\.(exe|dll|ps1|psm1|psd1)$')
+        $pinKey = $path.Replace('\','/').ToLowerInvariant()
+        $isPinned = $pinnedHashes.ContainsKey($pinKey)
         $integrity = 'Non verifiee'
         if (-not $isPresent) { $integrity = 'Absente' }
         elseif ($expected -and $actual) { if ($expected -ceq $actual) { $integrity = 'Conforme' } else { $integrity = 'Modifiee' } }
         $verified = $false
         $publisher = 'Signature non verifiee'
+        $scope = 'Signature'
         if (-not $isPresent) { $publisher = 'Fichier absent' }
+        elseif ($isPinned) {
+            $scope = 'Empreinte epinglee'
+            if ($status -ceq 'HashMismatch') { $publisher = 'Signature invalide : fichier modifie apres signature' }
+            elseif ($actual -and ($actual -ceq $pinnedHashes[$pinKey])) { $publisher = 'Composant fige epingle par son empreinte'; $verified = $true }
+            elseif ($actual) { $publisher = 'Composant different de son empreinte epinglee' }
+            else { $publisher = 'Empreinte du composant non calculee' }
+        }
         elseif ($signable) {
             if ($status -ceq 'Valid') {
                 $trust = Test-DomeniaSignerTrust $status $signer $print $pin
@@ -1271,13 +1294,13 @@ function Get-DomeniaSignatureVerdict {
             elseif ($status -ceq 'NotTrusted') { $publisher = 'Signature non approuvee par ce poste' }
             elseif ($status) { $publisher = 'Signature non verifiee (' + $status + ')' }
         }
-        elseif ($manifestTrusted) { $publisher = 'Couvert par le manifeste signe'; $verified = $true }
-        else { $publisher = 'Editeur non prouve : fichier non signable et manifeste non signe par le certificat epingle' }
+        elseif ($manifestTrusted) { $scope = 'Manifeste signe'; $publisher = 'Couvert par le manifeste signe'; $verified = $true }
+        else { $scope = 'Manifeste seul'; $publisher = 'Editeur non prouve : fichier non signable et manifeste non signe par le certificat epingle' }
         $signatureValid = (($integrity -ceq 'Conforme') -and $verified)
         $display = $publisher
         if (($integrity -ceq 'Modifiee') -or ($integrity -ceq 'Absente')) { $display = 'Invalide : fichier different de la distribution publiee' }
         elseif (($integrity -ceq 'Non verifiee') -and $verified) { $display = 'Signature non retenue : integrite non verifiee' }
-        $rows.Add([pscustomobject]@{Path=$path;Signable=$signable;Integrity=$integrity;Publisher=$publisher;PublisherVerified=$verified;SignatureStatus=$display;SignatureValid=$signatureValid;AuthenticodeStatus=$status;Signer=$signer;SignerThumbprint=$print.ToUpperInvariant()})
+        $rows.Add([pscustomobject]@{Path=$path;Signable=$signable;Scope=$scope;Integrity=$integrity;Publisher=$publisher;PublisherVerified=$verified;SignatureStatus=$display;SignatureValid=$signatureValid;AuthenticodeStatus=$status;Signer=$signer;SignerThumbprint=$print.ToUpperInvariant()})
     }
     $all = $rows.ToArray()
     $undeclared = @(@($UndeclaredFiles) | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
@@ -1286,6 +1309,12 @@ function Get-DomeniaSignatureVerdict {
     $broken = @($all | Where-Object { $_.AuthenticodeStatus -ceq 'HashMismatch' }).Count
     if ($manifestBroken) { $broken++ }
     $trusted = @($all | Where-Object { $_.SignatureValid }).Count
+    $publisherVerified = @($all | Where-Object { $_.PublisherVerified }).Count
+    $manifestOnly = @($all | Where-Object { $_.Scope -ceq 'Manifeste seul' } | ForEach-Object { $_.Path })
+    $signedScope = @($all | Where-Object { $_.Scope -ceq 'Signature' })
+    # Every signed script carries the pinned signature and every frozen binary its pinned bytes; only the files that
+    # Authenticode cannot sign rest on the manifest hashes, and the manifest itself is not signed.
+    $partialCover = ([bool]$pin.Pinned -and ($signedScope.Count -gt 0) -and ($manifestOnly.Count -gt 0) -and (($publisherVerified + $manifestOnly.Count) -eq $all.Count))
     $overall = 'Conforme, editeur non prouve'
     $next = 'Integrite conforme au manifeste. Une empreinte ne prouve pas l identite de l editeur : verifier la provenance du manifeste avant diffusion.'
     # A modification is reported first: undeclared files make a distribution modified even when no file was examined.
@@ -1294,19 +1323,21 @@ function Get-DomeniaSignatureVerdict {
     elseif ($broken -gt 0) { $overall = 'Signature invalide'; $next = 'Ne pas utiliser cette copie : une signature ne correspond plus au contenu. Recuperer la distribution d origine.' }
     elseif ($unverified -gt 0) { $overall = 'Integrite non verifiee'; $next = 'Calculer les empreintes SHA-256 et les comparer au manifeste avant usage.' }
     elseif ($trusted -eq $all.Count) { $overall = 'Signee et conforme'; $next = 'Distribution conforme et signee par le certificat epingle de l editeur.' }
+    elseif ($partialCover) { $overall = 'Conforme, code signe, manifeste non signe'; $next = 'Scripts signes par le certificat epingle et composants figes conformes a leur empreinte. Les fichiers non signables ne sont couverts que par le manifeste, qui n est pas signe : signer son catalogue pour les couvrir.' }
     # SP-09: the two answers are also given apart, for an offline report (tools/Test-DomeniaSignature.ps1). Integrity
     # comes from the manifest hashes only; the publisher from the Authenticode statuses read by the caller and the pin.
     $integrityStatus = 'Conforme'
     if ($modified -gt 0) { $integrityStatus = 'Modifiee' }
     elseif (($all.Count -eq 0) -or ($unverified -gt 0)) { $integrityStatus = 'Non verifiee' }
-    $publisherVerified = @($all | Where-Object { $_.PublisherVerified }).Count
     $publisherStatus = 'Editeur non prouve'
     if ($all.Count -eq 0) { $publisherStatus = 'Non verifie' }
     elseif ($broken -gt 0) { $publisherStatus = 'Signature invalide' }
     elseif (-not [bool]$pin.Pinned) { $publisherStatus = 'Editeur attendu non configure' }
     elseif ($publisherVerified -eq $all.Count) { $publisherStatus = 'Editeur verifie' }
+    elseif ($partialCover) { $publisherStatus = 'Editeur verifie, manifeste non signe' }
     return [pscustomobject]@{
         IntegrityStatus=$integrityStatus;PublisherStatus=$publisherStatus;PublisherVerifiedFiles=$publisherVerified
+        ManifestOnlyFiles=$manifestOnly;PinnedFiles=@($all | Where-Object { $_.Scope -ceq 'Empreinte epinglee' } | ForEach-Object { $_.Path })
         Overall=$overall;DistributionSignatureValid=(($all.Count -gt 0) -and ($modified -eq 0) -and ($broken -eq 0) -and ($trusted -eq $all.Count))
         Files=$all;Undeclared=$undeclared;ManifestSigned=$manifestTrusted;PublisherPinned=[bool]$pin.Pinned;NextAction=$next
         IntegrityNote='Une empreinte conforme prouve que le fichier est celui du manifeste, pas l identite de son editeur.'
