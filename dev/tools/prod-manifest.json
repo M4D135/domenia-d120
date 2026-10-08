@@ -21,15 +21,15 @@
     },
     {
       "Path": "wad/Domenia-Core.ps1",
-      "Sha256": "8542ED2E65B440F7AC34FB82C58144AE93B01632ED8FAA561CD28BA6F0ED4D31",
-      "Bytes": 1750415,
+      "Sha256": "2A06211B7DE0626B1C7C3727F81EA5D7EA5CDB9DC7DF367D041CC66492EBCB86",
+      "Bytes": 1784435,
       "Runtime": true,
       "PreserveExisting": false
     },
     {
       "Path": "wad/Domenia-Modules.ps1",
-      "Sha256": "A2ABA25D8433A03DD9B88B9CA414F93D5049686CBCAB0BC536527FA92007DA09",
-      "Bytes": 61590,
+      "Sha256": "5983DFA4827FF14FD4DEFE1F87622E4AA8E4AFEA59C06305249611079203D79A",
+      "Bytes": 62247,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -126,8 +126,8 @@
     },
     {
       "Path": "wad/modules/Domenia-Access.UI.ps1",
-      "Sha256": "06D387B0F4EDB1536BBC87B851A254DFCC720DC7D2C36FEC7A8FA2D6938F8160",
-      "Bytes": 44015,
+      "Sha256": "FE85882C28C82ADE66A4F5BD8A9FC2092DE1234D2B39BDCC85D8C244AF5EBBF2",
+      "Bytes": 44346,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -259,8 +259,8 @@
     },
     {
       "Path": "wad/modules/Domenia-Embedded.UI.ps1",
-      "Sha256": "F09362CED15F9EBB41D59DC5184CD1B8E95309A0D1C351E7A5CB6F50A66E704D",
-      "Bytes": 41114,
+      "Sha256": "20B5C5460C162A13CCA15E19AAA172EF23A00F7967986744C89395EFBC40D7CA",
+      "Bytes": 53843,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -294,8 +294,8 @@
     },
     {
       "Path": "wad/modules/Domenia-Experience.UI.ps1",
-      "Sha256": "F1182DEBC7EF05969FE24F5AF4B4CFB4E0948ABA39056F6AA8911C202DA54663",
-      "Bytes": 16887,
+      "Sha256": "42C09B9362331DCF695BC264B7CC58D71E2A05F03D357436606B1D6CA258871D",
+      "Bytes": 29381,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -553,8 +553,8 @@
     },
     {
       "Path": "wad/modules/Domenia-UX.help.json",
-      "Sha256": "763A609D152EE64A83D93768ED31841F12818895FA6A873BEC4C006CEA8A6E28",
-      "Bytes": 113159,
+      "Sha256": "A165B17BC9A6AF1D180C70413700797335E70690922063F72309F236CFC0A930",
+      "Bytes": 114766,
       "Runtime": true,
       "PreserveExisting": false
     },
