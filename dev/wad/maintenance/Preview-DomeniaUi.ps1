@@ -82,14 +82,41 @@ function Test-PreviewAssertion {
         $script:PreviewChecks.Add([pscustomobject]@{Name=$Name;Passed=$false;Detail=$_.Exception.Message})
     }
 }
+$script:PreviewRealWindow = $null
 function Update-PreviewLayout {
     if ($null -eq $script:Window) { return }
-    $script:Window.UpdateLayout()
-    $script:Window.Dispatcher.Invoke([Action]{},[Windows.Threading.DispatcherPriority]::ApplicationIdle)
+    $visual = $script:Window
+    if ($null -ne $script:PreviewRealWindow) {
+        # Fixed work area (TE-08): the stand-in is measured at its imposed size; the real window keeps rendering.
+        $area = $script:Window
+        $area.Measure([Windows.Size]::new($area.Width,$area.Height));$area.Arrange([Windows.Rect]::new(0,0,$area.Width,$area.Height))
+        if (([Math]::Abs($area.ActualWidth-$area.Width) -gt 0.5) -or ([Math]::Abs($area.ActualHeight-$area.Height) -gt 0.5)) { throw 'Zone de travail de taille fixe non mesurée.' }
+        $visual = $script:PreviewRealWindow
+    }
+    $visual.UpdateLayout()
+    $visual.Dispatcher.Invoke([Action]{},[Windows.Threading.DispatcherPriority]::ApplicationIdle)
     Update-DomeniaUxLayout
     Sync-DomeniaUxNavigation
     # Never suggest a verified AD connection in the offline view.
     (Get-DomeniaControl 'LblUxDomain').Text='APERÇU LOCAL · Données fictives · Sans accès AD'
+}
+function Enter-PreviewWorkArea {
+    # TE-08: the UX layout reads its work area from $script:Window. A real window is clamped to the screen of the test
+    # machine (1024x768 in the lab VM, a short screen for D006), so the width- and height-dependent checks run against
+    # a fixed-size container standing for a desktop work area. Controls stay in the real window, which keeps rendering.
+    param([double]$Width=1600,[double]$Height=960)
+    if ($null -ne $script:PreviewRealWindow) { return }
+    $area = New-Object Windows.Controls.Border
+    $area.Width = $Width;$area.Height = $Height
+    $script:PreviewRealWindow = $script:Window;$script:Window = $area
+    $script:UxLayoutSignature = '';$script:UxNavLayoutSignature = ''
+    Update-PreviewLayout
+}
+function Exit-PreviewWorkArea {
+    if ($null -eq $script:PreviewRealWindow) { return }
+    $script:Window = $script:PreviewRealWindow;$script:PreviewRealWindow = $null
+    $script:UxLayoutSignature = '';$script:UxNavLayoutSignature = ''
+    Update-PreviewLayout
 }
 function Open-PreviewObject {
     param([string]$Kind='Machine')
@@ -336,9 +363,13 @@ try {
             Apply-DomeniaUiProfile -Profile 'Admin';[bool](Get-DomeniaControl 'ChkReadOnlyMode').IsChecked
         }
         Test-PreviewAssertion 'Réduire le journal conserve son contenu' {
-            $before=(Get-DomeniaControl 'TxtUiLog').Text;Switch-DomeniaUxLog
-            $ok=((Get-DomeniaControl 'UxLogRow').Height.Value -eq 42 -and (Get-DomeniaControl 'TxtUiLog').Text -ceq $before)
-            Switch-DomeniaUxLog;$ok
+            # Desktop work area: on a short screen the journal is folded for the session (D006), whatever the test machine.
+            Enter-PreviewWorkArea
+            try {
+                $before=(Get-DomeniaControl 'TxtUiLog').Text;Switch-DomeniaUxLog
+                $ok=((Get-DomeniaControl 'UxLogRow').Height.Value -eq 42 -and (Get-DomeniaControl 'TxtUiLog').Text -ceq $before)
+                Switch-DomeniaUxLog;$ok
+            } finally { Exit-PreviewWorkArea }
         }
         Test-PreviewAssertion 'Thèmes clair et sombre changent les ressources effectives' {
             Set-DomeniaUxPalette -Window $script:Window -Theme 'Dark'
@@ -346,6 +377,9 @@ try {
             Set-DomeniaUxPalette -Window $script:Window -Theme 'Light'
             $dark -ne $script:Window.Resources['BgCard'].Color.ToString()
         }
+        # TE-08: the width-dependent checks below run in a fixed 1600x960 work area (Width assignments resize it), so they
+        # no longer depend on the screen of the test machine.
+        Enter-PreviewWorkArea -Width 1600 -Height 960
         Test-PreviewAssertion 'Panneau latéral en grande largeur' {
             $script:Window.Width=1600;$script:UxHelpVisible=$true;$script:UxLayoutSignature='';Update-PreviewLayout
             (Get-DomeniaControl 'UxHelpColumn').Width.Value -eq 300
@@ -404,6 +438,7 @@ try {
             (Get-DomeniaControl 'BtnUxHelpToggle').RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent));Update-PreviewLayout
             (Get-DomeniaControl 'UxHelpPanel').Visibility -eq [Windows.Visibility]::Visible -and [bool]$script:PreviewSettings.UxHelpVisible
         }
+        Exit-PreviewWorkArea
         Test-PreviewAssertion 'OU lisible sans DN coupe dans une hauteur fixe' {
             $script:SelectedBranchDn='OU=STAGING,OU=Postes,OU=Unite locale,DC=example,DC=invalid'
             Update-DomeniaSearchScopeUi
