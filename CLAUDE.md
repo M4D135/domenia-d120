@@ -3,12 +3,14 @@
 Domenia (ex-ADCC) est un outil interne d'administration Active Directory en **Windows PowerShell 5.1 + WPF**.
 Ce fichier donne les règles qui valent pour toute session. L'état du lot en cours et le reste à faire sont dans `REPRISE-D120.md`.
 
-## Moteur de travail — décision de David du 2026-10-04
+## Moteur de travail — décision de David du 2026-10-08
 
-**Codex uniquement pour Domenia. Aucun nouvel appel au Spark.** La dernière décision
-explicite de David (« oublie le spark only codex ») annule la réautorisation temporaire
-du Spark. Codex assure aussi les brouillons et relectures. Les tests restent exécutés
-dans la VM Windows prévue ci-dessous. Aucun workflow multi-agents sans demande explicite.
+**Claude Code, en s'aidant du Spark.** David a demandé de « tout faire en autonomie et de s'aider du Spark »
+pour le programme d'améliorations du 08/10 (liste `PISTES-AMELIORATION-2026-10-08.md`). Le Spark
+(`~/bin/kbza ask --prompt-file FICHIER --no-memory --max-tokens 0`) sert aux brouillons, relectures et passes
+mécaniques ; ses sorties sont des brouillons à vérifier, jamais des preuves. Cette décision remplace celle du
+2026-10-04 (« Codex uniquement, aucun appel au Spark »). Les tests restent exécutés dans la VM Windows prévue
+ci-dessous. Aucun workflow multi-agents sans demande explicite.
 
 ## Règles non négociables
 
