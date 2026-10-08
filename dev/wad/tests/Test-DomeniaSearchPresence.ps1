@@ -202,7 +202,8 @@ if($env:OS -eq 'Windows_NT' -and -not $SkipWpf){
             $window.FindName('WorkspaceTabs').SelectedItem=$window.FindName('WsSearch');$layout=$window.FindName('SearchBrowserLayout')
             $layout.Tag='Global';$window.UpdateLayout()
             foreach($name in @('CmbGlobalType','CmbPresenceFilter','TxtSuiteResultFilter')){Expect (-not $window.FindName($name).IsEnabled) ('Global filter still enabled: '+$name)}
-            Expect ($window.FindName('DgObjects').IsEnabled -and $window.FindName('BtnSearchInOu').IsEnabled)
+            # L03 (DS-07): the OU is shown again by a click in the tree ('Afficher cette OU' is gone).
+            Expect ($window.FindName('DgObjects').IsEnabled -and $window.FindName('TvDirectory').IsEnabled)
             $layout.Tag='OU';$window.UpdateLayout()
             foreach($name in @('CmbGlobalType','CmbPresenceFilter','TxtSuiteResultFilter')){Expect ($window.FindName($name).IsEnabled) ('OU filter still disabled: '+$name)}
             $presence=@($window.FindName('DgObjects').Columns|Where-Object{$_.SortMemberPath -eq 'Presence'})
