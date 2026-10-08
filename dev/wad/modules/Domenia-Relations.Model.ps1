@@ -336,7 +336,8 @@ function Get-DomeniaAssociationRefusal {
             if ($State -eq 'Pending') { return 'Une association attend déjà sa confirmation : confirmez-la ou annulez-la avant dʼen choisir une autre.' }
             if ($State -eq 'Verifying') { return 'Vérification en cours : attendez son résultat avant de choisir une autre ligne.' }
             if ($State -eq 'Searching') { return 'Recherche en cours : attendez les résultats avant de choisir une ligne.' }
-            return 'Lancez dʼabord une détection ou une recherche, puis choisissez une ligne dans les résultats.'
+            # Idle with rows still listed: the detection was stopped or interrupted, its list is no longer active.
+            return 'Cette liste nʼest plus active (détection arrêtée, interrompue ou aucune lancée) : relancez la détection ou la recherche, puis choisissez une ligne.'
         }
         'Confirm' {
             if ($State -eq 'Verifying') { return 'Vérification déjà en cours : attendez son résultat.' }

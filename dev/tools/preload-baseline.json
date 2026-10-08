@@ -845,7 +845,7 @@
     "wad/modules/Domenia-Live.UI.ps1": "7F970976B175E5F923A1DF6CFB66C499FC7A89304F05288B59432A1F914938D3",
     "wad/modules/Domenia-Receipts.Worker.ps1": "72D43A96BABB55F6EB5C008018EB1C4AA1C0A1265402FBAD7294C1113735B68E",
     "wad/modules/Domenia-Reconcile.UI.ps1": "845F7531CCD8FB82BB4CECB5210E47E9C86E5E2C0913074D8BE460E814F52288",
-    "wad/modules/Domenia-Relations.UI.ps1": "11ADFF85D2697A58641B602724998B616B77DDF3D3B309E948E3309487289D06",
+    "wad/modules/Domenia-Relations.UI.ps1": "533E8469A8021604C946956EC650D905B72E98C4434F2D9ACD5BC00409E82AAF",
     "wad/modules/Domenia-Sessions.Native.cs": "2A51A8E0B777055758789BAB3A8464DFA6BBA617CB2A98FC3B99DACD46B1B28A",
     "wad/modules/Domenia-Sessions.UI.ps1": "6E1B56E6EC5CB915F0DFC5FF9A5D1DA53957B70BF67B4CEA56377F1B69D61CF9",
     "wad/modules/Domenia-Storage.UI.ps1": "FA4F2115504EBC83B4F4A0591C9D109B9B1D1C646E2C8963C67356A21DD6BEDF",
@@ -1935,6 +1935,17 @@
       "AddedCoreFunctions": [],
       "RemovedCoreFunctions": [],
       "ChangedPayloads": []
+    },
+    {
+      "Previous": "dev",
+      "Source": "dev",
+      "Decision": "L04 (RC1.14) : relations utilisateur-poste relues (CO-08 import avec apercu, CO-28 restauration nommee, CO-29 dates UTC, CO-30 messages, UI-09 deux zones, DS-17 puces, FO-14 filtre et ouverture, UX-40 orphelines restaurables, CD-06 chemin RC1.10.7 retire, PF-16 rafraichissement differe). Domenia-Live.UI.ps1 et Domenia-Relations.UI.ps1 relus (Exporter tout vide le filtre). Seul worker epingle modifie : LegacyMigration, regenere par update_migration_worker.py, empreinte et registre recalcules par update_worker_contracts.py --apply.",
+      "ChangedCoreFunctions": [],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": [
+        "wad/modules/Domenia-Relations.UI.ps1"
+      ]
     }
   ]
 }

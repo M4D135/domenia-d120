@@ -672,7 +672,8 @@ try {
             Expect (@($grid.Items).Count -eq 1 -and $w.FindName('LblAllLinksCount').Text -eq '1 association(s) sur 2') 'Filtre texte'
             $w.FindName('TxtAllLinksFilter').Text='';$w.FindName('ChkAllLinksObserved').IsChecked=$true;Update-DomeniaAllLinksView;Pump $w
             Expect (@($grid.Items).Count -eq 1 -and @($grid.Items)[0].UserLogin -eq 'alice') 'Puce Observé'
-            $w.FindName('ChkAllLinksObserved').IsChecked=$false;Update-DomeniaAllLinksView;Pump $w
+            $w.FindName('TxtAllLinksFilter').Text='zzz';Update-DomeniaAllLinksView;Clear-DomeniaAllLinksFilter;Pump $w
+            Expect (@($grid.Items).Count -eq 2 -and -not [bool]$w.FindName('ChkAllLinksObserved').IsChecked -and $w.FindName('TxtAllLinksFilter').Text -eq '') 'Exporter tout ne repart pas de toutes les associations'
             $row=@($grid.Items|Where-Object{$_.UserLogin -eq 'bob'})[0];$grid.ScrollIntoView($row);Pump $w
             $container=$grid.ItemContainerGenerator.ContainerFromItem($row);Expect ($null -ne $container) 'Ligne non generee'
             Open-DomeniaAllLinksCell -Source (@($grid.Columns|Where-Object{[string]$_.Header -eq 'Machine'})[0].GetCellContent($container))
@@ -698,6 +699,16 @@ try {
             $orphans=@($script:Relations.Orphans)
             Expect ($orphans.Count -eq 1 -and $orphans[0].Reason -match '^Compte absent' -and [bool]$orphans[0].Selected -and $script:SaveCount -eq 0 -and @(Get-LinksForComputer 'PC-A').Count -eq 1) 'Orpheline non listee, ou retiree sans confirmation'
             Expect ([string]$w.FindName('LinkOrphanPanel').Visibility -eq 'Visible' -and $w.FindName('DgLinkOrphans').Items.Count -eq 1 -and $w.FindName('RelationTabs').SelectedItem.Name -eq 'TabLinksAll') 'Liste absente de la page'
+            # The real check box of the row writes back to the row: an unchecked association is never removed.
+            $og=$w.FindName('DgLinkOrphans');$og.ScrollIntoView($orphans[0]);Pump $w
+            $orow=$og.ItemContainerGenerator.ContainerFromItem($orphans[0]);Expect ($null -ne $orow) 'Ligne orpheline non generee'
+            $cell=@($og.Columns|Where-Object{[string]$_.Header -eq 'Retirer'})[0].GetCellContent($orow);Pump $w
+            $box=[Windows.Media.VisualTreeHelper]::GetChild($cell,0);Expect ($box -is [Windows.Controls.CheckBox] -and [bool]$box.IsChecked) 'Case a cocher absente ou decochee'
+            $box.IsChecked=$false;Pump $w
+            Expect (-not [bool]$orphans[0].Selected) 'Decocher la case ne change pas la ligne'
+            Request-DomeniaOrphanRemoval
+            Expect ([string]$w.FindName('LinkOrphanConfirm').Visibility -eq 'Collapsed' -and $script:Messages['Status'] -match 'Cochez') 'Retrait demande sans ligne cochee'
+            $box.IsChecked=$true;Pump $w;Expect ([bool]$orphans[0].Selected) 'Recocher la case ne change pas la ligne'
             Request-DomeniaOrphanRemoval;Pump $w
             Expect ([string]$w.FindName('LinkOrphanConfirm').Visibility -eq 'Visible' -and $script:SaveCount -eq 0 -and $script:ConfirmCount -eq 0) 'Confirmation hors de la page ou retrait immediat'
             Complete-DomeniaOrphanRemoval;Pump $w

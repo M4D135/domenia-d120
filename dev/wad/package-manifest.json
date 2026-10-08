@@ -658,14 +658,14 @@
     },
     {
       "Path": "tools/preload-baseline.json",
-      "Sha256": "B1AF2166EBC5105EED830785A3C7099C06325EC9CEF00FC7E47E5B70C807E1E7",
-      "Bytes": 148051,
+      "Sha256": "5C50975C775D1C067C5B2E3D129AE42F72E4447BDBD9C2897FE324A20EEC59C7",
+      "Bytes": 148851,
       "Runtime": false,
       "PreserveExisting": false
     },
     {
       "Path": "tools/prod-manifest.json",
-      "Sha256": "BD9D6F2D8840D57AA2665F0C652EE86D469153E696826085722455B9486A81DF",
+      "Sha256": "0FC197EC61F6708EBAD9BCFBDF09BBCE6213E8819938C7C0F409F2159469D281",
       "Bytes": 18645,
       "Runtime": false,
       "PreserveExisting": false
@@ -735,8 +735,8 @@
     },
     {
       "Path": "wad/Domenia-Modules.ps1",
-      "Sha256": "42FE5D9ADFE7BF421D02E3B596A0488000FAE3F0B2C4D842D4186BF40DD77C49",
-      "Bytes": 63280,
+      "Sha256": "9A5CFF4322EB9D7282A12531FBC53FCD72BD2F162046494A2FB32A06F99D429F",
+      "Bytes": 63323,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -2387,15 +2387,15 @@
     },
     {
       "Path": "wad/modules/Domenia-Relations.Model.ps1",
-      "Sha256": "F7E09E4E0F27B6129C3B8AC4964381AC4A02DEF9C6DB23012FE7EAE8B60234A3",
-      "Bytes": 46973,
+      "Sha256": "5C983C9F5CC2350DA125508BCADFC6EF15A2384958DC15B7BAAEBEB670C16894",
+      "Bytes": 47146,
       "Runtime": true,
       "PreserveExisting": false
     },
     {
       "Path": "wad/modules/Domenia-Relations.UI.ps1",
-      "Sha256": "11ADFF85D2697A58641B602724998B616B77DDF3D3B309E948E3309487289D06",
-      "Bytes": 140858,
+      "Sha256": "533E8469A8021604C946956EC650D905B72E98C4434F2D9ACD5BC00409E82AAF",
+      "Bytes": 141328,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -2821,8 +2821,8 @@
     },
     {
       "Path": "wad/tests/Test-DomeniaWiringRelations.ps1",
-      "Sha256": "C15CABFA14D1E1ACE02057044F623CF455439DA6114073CBAAB932083FFB3E46",
-      "Bytes": 81834,
+      "Sha256": "5B4DD7359825A80FE03C56361D03A5441BFEDA1CD7A78CFD74E770B3F087DF23",
+      "Bytes": 83168,
       "Runtime": false,
       "PreserveExisting": false
     },

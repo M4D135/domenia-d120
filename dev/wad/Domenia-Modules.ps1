@@ -526,6 +526,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Update-DomeniaRelationEvidence',
             'Update-DomeniaRelationCandidateEvidence',
             'Get-DomeniaAllLinksBadgeFilter',
+            'Clear-DomeniaAllLinksFilter',
             'Update-DomeniaAllLinksView',
             'Refresh-DomeniaRelationViews',
             'Update-DomeniaRelationDetectionCounters',

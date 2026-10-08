@@ -330,6 +330,12 @@ function Get-DomeniaAllLinksBadgeFilter {
     }
     return $badges.ToArray()
 }
+function Clear-DomeniaAllLinksFilter {
+    # FO-14: « Exporter tout » exports every association, so the text filter and the chips are cleared first (visibly).
+    $box=Get-DomeniaControl 'TxtAllLinksFilter';if($null -ne $box){$box.Text=''}
+    foreach($name in @('ChkAllLinksDeclared','ChkAllLinksObserved','ChkAllLinksConflict')){$chip=Get-DomeniaControl $name;if($null -ne $chip){$chip.IsChecked=$false}}
+    Update-DomeniaAllLinksView
+}
 function Update-DomeniaAllLinksView {
     # FO-14: Toutes les associations, filtered by text and qualification chips, with its counter.
     param([object[]]$Rows=$null)
@@ -1026,7 +1032,7 @@ function Initialize-DomeniaRelationsUi {
     $search=Get-DomeniaControl 'BtnRelationComputerSearch';if($null -ne $search){$search.Add_Click({Start-DomeniaRelationComputerSearch})}
     $term=Get-DomeniaControl 'TxtRelationComputerSearch';if($null -ne $term){$term.Add_KeyDown({param($s,$e)if($e.Key -eq 'Return'){$e.Handled=$true;Start-DomeniaRelationComputerSearch}});$term.Add_TextChanged({Clear-DomeniaRelationManualResults})}
     $assoc=Get-DomeniaControl 'BtnRelationAssociateSearchResult';if($null -ne $assoc){$assoc.Add_Click({Request-DomeniaRelationManualAssociation})}
-    $exportAll=Get-DomeniaControl 'BtnExportAllLinks';if($null -ne $exportAll){$exportAll.Add_Click({$tabs=Get-DomeniaControl 'RelationTabs';$all=Get-DomeniaControl 'TabLinksAll';if($null -ne $tabs -and $null -ne $all){$tabs.SelectedItem=$all};Export-DomeniaLinksCsv})}
+    $exportAll=Get-DomeniaControl 'BtnExportAllLinks';if($null -ne $exportAll){$exportAll.Add_Click({$tabs=Get-DomeniaControl 'RelationTabs';$all=Get-DomeniaControl 'TabLinksAll';if($null -ne $tabs -and $null -ne $all){$tabs.SelectedItem=$all};Clear-DomeniaAllLinksFilter;Export-DomeniaLinksCsv})}
     $cancel=Get-DomeniaControl 'BtnRelationConfirmCancel';if($null -ne $cancel){$cancel.Add_Click({Cancel-DomeniaRelationAssociation})}
     $apply=Get-DomeniaControl 'BtnRelationConfirmApply';if($null -ne $apply){$apply.Add_Click({Confirm-DomeniaRelationAssociation})}
     $planRun=Get-DomeniaControl 'BtnRelationPlanRun';if($null -ne $planRun){$planRun.Add_Click({Confirm-DomeniaRelationDetectionPlan})}
