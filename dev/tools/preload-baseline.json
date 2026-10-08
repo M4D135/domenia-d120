@@ -1,5 +1,5 @@
 {
-  "Archive": ".",
+  "Archive": "dev",
   "ArchiveSHA256": "655ED21F90345B3C7667D4E777814C6A0595A5D5BE628AD587FB46CCA5241922",
   "CoreFunctions": {
     "Write-DomeniaAtomicText": "1C9A1583F52EB7BE80BE420662653E4AF886FE11DC4FDB3B1C4CDF19FD1C0EDA",
@@ -107,7 +107,7 @@
     "Get-DomeniaPreferencePath": "DAD987C58AF30E7836681C0973FEB76FD5D74107B3EF657B007AE9F988E5FD9B",
     "Read-DomeniaPreference": "943DDC94646294A338257918A7846E2DA0B478AE25FFF9F6924C75CD1B9F1E8B",
     "Write-DomeniaPreference": "855B823A24012068281B810A2D57B1D53A66E5D6CBBBAC405E4091068F5D8701",
-    "Get-DomeniaDefaultSettings": "9137C7648463F9DDAA15359582760E55FEA675B4F54EC48A43AE26A2553916F1",
+    "Get-DomeniaDefaultSettings": "500A236998A1766B6C2D84E4EA215C0020A8F4E94BE755EDA92202381D611E89",
     "Load-DomeniaSettings": "19F11BAD6E2D582E9A0BA5F824EB3F74C90A1641FFA56AC44711C03671E5AA0A",
     "Save-DomeniaSettings": "A04CCBC6DA80FB0CEFE484BBDB799CE9F58DCBFACAC71AB567F73D5E2529E983",
     "Get-DomeniaSetting": "0EAAF3A4E8C78628E947B9C542C314AFFC0AE47C1C64F69D2F75E5B55C9718D7",
@@ -130,7 +130,7 @@
     "Set-DomeniaResourceColor": "27391F9046A85B14658803F03178045ABEDF0B1F4DD5364D7BA5575C5E4F11BE",
     "Apply-DomeniaTheme": "115A426BAE13A4A67A3C252EE193AA35BF115C2BDCD1E1AA4CFC96D63A006010",
     "Toggle-DomeniaTheme": "EA7E0F31A78D8B4A0BFAB0C27D8028521C1C3A1A255DDA4BEA3B65B5F7C99F03",
-    "Get-MainXaml": "48DBFE0A379823D9F44CC49D72CFC9BD8E338B5CFFE6CB49EE02B521D07EC779",
+    "Get-MainXaml": "C0B15536825B6EFF92BC4E93C26C2ACD15F6E3BABA0BD217A552FD3A5D66F23D",
     "Assert-DomeniaXamlPreflight": "20BB1DA04FD88D78E1A52C5610376467D5E9408437BC823DDC8EC8F40C0EAEB7",
     "Save-DomeniaXamlDiagnostic": "D648C9D6BD6F5F3A6613957D22A6A42EC1AAC0C1FA6218195A55D10EADF4DC67",
     "ConvertFrom-DomeniaXaml": "855E6CA9E56D62F77F5C22ACAC048293D24281B5B8FCC7FEB6806450BE561228",
@@ -199,7 +199,7 @@
     "Toggle-PasswordBox": "82D7EFA0A1E426943ED32E57287715E5D3A63B33A2B23346314E693BF6D3FDC3",
     "Get-NewTaskId": "67D76FEA6F42BF1BB0B3BD01ADB0B9501512FA24F19DC1A76DF41ABC954CCDB3",
     "Set-ControlsBusy": "2AF818D792C8C1DA1546AF58A27CC5BA60BBF446D9627314940555720808CC80",
-    "Update-TaskUi": "69CF8D5B3BE4B58BB4877B9655142B8303F2539F42FE61F2CE46A92F6C06A64D",
+    "Update-TaskUi": "F1E5A129EDFA20ADFFFD20DA010A5406CFC5D566FE03F6D19571AD130225351B",
     "Get-VisitCacheValue": "8AB70A8575B8AEE809A6CF451756042EC7EB1399A925D88BD1EF2010D9A982FE",
     "Set-VisitCacheValue": "51356DE56FD7107910DF637E3BF302FD0839AA96202215ADA27DEE042CDFCDD6",
     "Clear-VisitCache": "000698D4DB3047A9CB15217631F8E9B870390CE8CF30261B8A2F676B913BCFB1",
@@ -358,14 +358,14 @@
     "Start-DomeniaParkSweep": "8E718A526CD8F30423F5EA9229F84B7A74C0E97099D403D42CA48FDC0F74AD70",
     "Request-DomeniaParkSweepAtStartup": "CE893D74A4E82B0AEE5AB8AD43BD99370014D735F9B85FED0EB4BBAC85BFAB0A",
     "Get-DomeniaParkSweepWorkerCode": "BAFB48ED3A5617F93878F340259C6D92E0497620AEC608BA2175629FE8978F25",
-    "Complete-DomeniaIndexBuildUi": "D0B0E3FBEA03CB2198501D005F9B17DD72E07ABC5851D8B50275DC6A5178A86F",
+    "Complete-DomeniaIndexBuildUi": "B6DF5F1D19DBBF95565117096C47C9D1EDFCACE705F18355DCAF2C30D5773C00",
     "Fail-DomeniaIndexBuildUi": "C75F99E5AA09A697BD909B101823EE3C8CDA39BAB8C16A4C5410981F3E475EA7",
     "Start-DomeniaIndexBuild": "16D962D917375B3E02BEB1A8222FFDB605FEAA678F49ED9D0C3D8F0796E02F10",
-    "Update-DomeniaIndexStats": "0E90C3EA3895E27C2E71539C187A4D69A511C232F20C1FD6B51BF0A6D3A45EEA",
+    "Update-DomeniaIndexStats": "DC004727C9B1350DD07C82DE5664B2DFE4D7D0BDC7C10976F6C26E855DD76C77",
     "Search-DomeniaIndexUi": "584618DDAB5A9C915FFC897BA7DDCAE6EB0E8793302813E803958396B155BEA3",
     "Open-DomeniaIndexSelection": "9BE3FD5EBE1056D095F353BF8343EE38B6BADC3E718AB2AFEED78DBE105314EE",
     "Get-DomeniaIndexSuggestionText": "A189BD10FD32AC5E28D051E9DC507C4324723C1560484070F959DE47BF64E2B6",
-    "Get-DomeniaIndexWorkerCode": "C844732CA0919D439A30E1794CC061989FEF1BDB84C9F5E30D2BABDB55BAD658",
+    "Get-DomeniaIndexWorkerCode": "77DFDA7DCF8D0251EA7F76FABBDD5E5D3B847E420DB7936106C9AB52F5D3C249",
     "Get-DomeniaSecretIndexPath": "00C124F7A35836171C14A0C1AC16FD4928585E5E8FD6AC5BE1B4DEEC3C53D3D5",
     "Get-DomeniaSecretIndexEntry": "62FA80F56C5B4E9B55122FDBE804A2792D1B0DE1360E78907D9E51D047B54668",
     "Save-DomeniaSecretIndexEntry": "31D058BDD2C2DEACDBF69A4B7224CA2C66A1AAD7373D9337C725B464A3C809BA",
@@ -458,8 +458,8 @@
     "Clear-DomeniaSecondaryCredential": "CD8BB39C79262CBFF7EBBC941C6D31C67791476824B8C7EA1A1903B251DF26E8",
     "Start-DomeniaAccountRelogin": "D397EBD3337720384D5BCF5ECD2CEDEC21142918605BFFC510ABAE08775CB2CE",
     "Initialize-DomeniaAccountPanel": "05F251F380F8DF6C8E6DB91B2631449C8C6CCF4619709DA289F9BD1C7AD3273D",
-    "Wire-Events": "61B0D20F91FEB2665C5D32927307A0F40A21FA69B64858111BF229C3B764A614",
-    "New-DefaultConfig": "F1DC255ED0F8D0538880FB22F561E8DD31B63C7CF92BF7C98B61213E46632986",
+    "Wire-Events": "7CB9E39B6108822B976A7F5887855C2AF5ECF17BCC37D5676CC8FE91FEF462C0",
+    "New-DefaultConfig": "482EED76E6FF8FFE53CA7623492E7486535796D87F8FAC315D3C248120517FD2",
     "Initialize-DomeniaDataStore": "75C63F73149D4C8CACBAA107F9223E9140830F4F01360F1899E8D79DC6A51E5A",
     "Write-StartupTrace": "216F93F6D1D37A669438F904233E5819260B8DA5AD48CF8887D6C5A372435250",
     "Get-DomeniaStartupXaml": "3945EB4C86332E38EC1491FC14A462CD4F2A103E615D82682E132E8164245F7F",
@@ -479,7 +479,7 @@
     "ConvertTo-DomeniaSqlLiteral": "D83D9BFC77CDB91498820C8179FAB807D4B37CC115C1E2950D686FAE79FC3421",
     "Backup-DomeniaDatabase": "2AF049A4E909C951FB3189B21D685F9C51B337D81105B8F645E13A880EB1C35B",
     "Recover-DomeniaDatabase": "5266400B0366C10C3DB714598CF109A18FECD34AAC1913F4ADD62119193A2AB6",
-    "Initialize-DomeniaDatabase": "9A3CD3AA497BE4DE3EEE61C25F79B88C28108D3F2E755CF271BCAB31F1F745B9",
+    "Initialize-DomeniaDatabase": "186ECD8376347D452E6C8AC271785262EA2808D7197B4449B821FBB6283DB633",
     "Import-DomeniaLegacyStoreIfNeeded": "80613E5324DB590E8CF35A64555F011CADAA091EE1832122D603FB8522801642",
     "Invoke-DomeniaDatabaseMaintenance": "88A1BEF6A33E024E2D89536ACF810BB25C81861EB45A32CE5D2DCB35035442B2",
     "Register-DomeniaOperationSample": "39FBC80C5C24794E8590745DE39D7BF1F444628A3C4CE1469A2357C8C36743B8",
@@ -496,8 +496,8 @@
     "Load-UserMachineLinks": "D588E9FAB3DB852FD760624C2A463CDEA8A5B97BAF550C273F8C7C1B2CB7776D",
     "ConvertTo-DomeniaCanonicalWorkerCode": "48A6A851309CF03C8AA4802B160FC0C9D3234B795C63D0BAED6923BF42FE2FAF",
     "Get-DomeniaWorkerCodeHash": "6B81660F207AAEB37BA076144EDD12F5A926F9F64858B03755C2567E335C0D16",
-    "Get-DomeniaWorkerOperationHashes": "744E78BC44AB3215E5655D7908697FF478733384F04551999751019F2DBB90BE",
-    "Assert-DomeniaWorkerRegistry": "3FD44A0F58CE8B6C087712739543EA19DAE2C55B86EAD0C6FEC9624AA5A35BAA",
+    "Get-DomeniaWorkerOperationHashes": "94C173A3FA07BD69E3B2476E8B56DC6AFCEB8EDB0C38E59A572DC49988CCA00A",
+    "Assert-DomeniaWorkerRegistry": "09C63A923DB197F3CEE7BE9E435A4E38FA92747FE4DCE163221EBC50B3A3255B",
     "Assert-DomeniaWorkerOperationCode": "41D63871EDC11F5765938E6DAF8004A01471CD63E9666E2569D6E43008032526",
     "Get-DomeniaWorkerEngineSelfTestCode": "7FB07491846A78A89C13351DC07ABCA7B150642EE02AA25FF430A19942001AF0",
     "New-DomeniaWorkerRunspace": "8D2FB4E8786E147F555EC5860E76F8EB0D606D66BF9A610F43A0CC2836197A0D",
@@ -536,7 +536,7 @@
     "Test-DomeniaActualCapabilityDenied": "7B1587596DF9FB74495E2E1719356E63C2A6447A0768ECF1588FEFD836D4062A",
     "Clear-DomeniaActualCapabilityDenials": "406426EE2A49F6ADE3D93F78FCDB88BB31C9013B510AF1A856068FD38C7BD9EF",
     "Apply-CurrentPermissionUi": "598C39DC8D6B36D61799BBD6C27ABDDA07FCEECE0C4A3D6A0D13214C534EF4BB",
-    "Initialize-DomeniaPresentation": "04933378447FAF23C13603A0D2F996D732D0288F0C346452C2F99CB031D1D249",
+    "Initialize-DomeniaPresentation": "6AE8613A6D6EC13F599D75DC436B33A68D88ECE76E888F6C644CC7F05A8C62E5",
     "Assert-DomeniaCapability": "F1F25727EF50BCD7B2349C382A57D66CB1D83373B28E8386B36F8D4ACCB2160F",
     "Invoke-DomeniaWritePostAction": "1F8DAA26A4FE81A1409A3548CE95E90F4B492BD480ACE3F23D476ED1864D9098",
     "Get-DomeniaWritePostcondition": "0B993663665A91761922DA37F25B966FF99F3783C48C77619580B57C72B0A37D",
@@ -569,12 +569,12 @@
     "Export-SelfCheckReport": "B0F3CD08546A026308929A5435DF89C312F72E6E059415AFF3CEA2D707D154AC",
     "Get-DomeniaCriticalFunctionNames": "A08C581FA780481A214295AF6652E1DDCE809DF84F0C3EA6BA10F9F4575E7D10",
     "Request-DomeniaDashboardRefresh": "C9F1E358AA9167C02841982901A567868AD1596685AA91322702F8524DEEBF06",
-    "Update-Dashboard": "9053A5EDC535475201DA793A02E37DD67741C885762E948C4185C98E72696698",
+    "Update-Dashboard": "A73A2F97F7D648E02AF9EF3F18BEBCDDE73EA0547D01BEFFE9C8626303B46775",
     "Complete-DomeniaStartupWarmupUi": "52CECCBD6DE2C3E6D359551BAC47E67991346BD9B876A57BCE57F346D1100A35",
     "Fail-DomeniaStartupWarmupUi": "F839E3B53D46A3F5242CD9226F085C4E33F37B00C9E96CE95DB99ED8B17BF1E3",
     "Invoke-DomeniaStartupCacheWarmup": "CCE81C0738D112F9A8BFB917ADF249CDA0C8EE078769B62AC180A92BCB442AA6",
     "Assert-DomeniaStartupReadiness": "5786E92D88FFACCA70CAC5EC41AA80F544A5C988762D747DFF34AEABAD804FB1",
-    "Initialize-Window": "74AF6184248CFA0D7CEF62FA85D8141BEDD50E87D0518FC5364B820F08B1814C",
+    "Initialize-Window": "D9EF48A5DADE96D02F8358087C82E43E7C68D53820E64C0AB81444CC48F4E7B8",
     "Get-DomeniaFastLoginLogPath": "04A616D17C339159025D4191840FC8D36774AD1B9F9264730BEA54081638B375",
     "Write-DomeniaFastLoginLog": "88D0C11A5468A73DFE0C4331847D8D340E65B2ACAE8D2DF055B0D493EF04AFB0",
     "New-DomeniaFastLoginSession": "B5BDF1254AFF7E14BA2D48B18079868B897DACAE1197239D771692A3B2D16D27",
@@ -1895,6 +1895,72 @@
       "ChangedPayloads": [
         "wad/modules/Domenia-Live.UI.ps1"
       ]
+    },
+    {
+      "Previous": ".",
+      "Source": "dev",
+      "Decision": "L01 (2026-10-08) : Accueil tire de l annuaire. Core relu : IndexBuild lit operatingSystemVersion, whenCreated, pwdLastSet et l expiration LAPS (jamais le mot de passe) plus une lecture du schema ; tables additives ad_computer_facts et fleet_snapshots, schema 11/1 inchange ; reparation unique du search_key ; nouvelle operation epinglee BitLockerPresence ; details de session recalcules a l ouverture ; carte Premiers pas.",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Complete-DomeniaIndexBuildUi",
+        "Get-DomeniaDefaultSettings",
+        "Get-DomeniaIndexWorkerCode",
+        "Get-DomeniaWorkerOperationHashes",
+        "Get-MainXaml",
+        "Initialize-DomeniaDatabase",
+        "Initialize-DomeniaPresentation",
+        "Initialize-Window",
+        "New-DefaultConfig",
+        "Test-DomeniaSessionDetailsOpen",
+        "Update-Dashboard",
+        "Update-DomeniaIndexStats",
+        "Update-TaskUi",
+        "Wire-Events"
+      ],
+      "AddedCoreFunctions": [
+        "Test-DomeniaSessionDetailsOpen"
+      ],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "dev",
+      "Source": "dev",
+      "Decision": "L01 (2026-10-08) : Accueil tire de l annuaire. Core relu : IndexBuild lit operatingSystemVersion, whenCreated, pwdLastSet et l expiration LAPS (jamais le mot de passe) plus une lecture du schema ; tables additives ad_computer_facts et fleet_snapshots, schema 11/1 inchange ; reparation unique du search_key ; nouvelle operation epinglee BitLockerPresence ; LocalIndexRead lit les noms de colonnes une fois ; details de session recalcules a l ouverture ; carte Premiers pas.",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Complete-DomeniaIndexBuildUi",
+        "Get-DomeniaWorkerOperationHashes"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "dev",
+      "Source": "dev",
+      "Decision": "L01 (2026-10-08) : Accueil tire de l annuaire. Core relu : IndexBuild lit operatingSystemVersion, whenCreated, pwdLastSet et l expiration LAPS (jamais le mot de passe) plus une lecture du schema ; tables additives ad_computer_facts et fleet_snapshots, schema 11/1 inchange ; reparation unique du search_key ; nouvelle operation epinglee BitLockerPresence ; LocalIndexRead lit les noms de colonnes une fois ; details de session recalcules a l ouverture (Update-Dashboard, Update-TaskUi) ; carte Premiers pas.",
+      "ChangedCoreFunctions": [
+        "Update-Dashboard",
+        "Update-TaskUi"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [
+        "Test-DomeniaSessionDetailsOpen"
+      ],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "dev",
+      "Source": "dev",
+      "Decision": "L01 (2026-10-08) : Accueil tire de l annuaire. Core relu : IndexBuild lit operatingSystemVersion, whenCreated, pwdLastSet et l expiration LAPS (jamais le mot de passe) plus une lecture du schema ; tables additives ad_computer_facts et fleet_snapshots, schema 11/1 inchange ; reparation unique du search_key ; nouvelle operation epinglee BitLockerPresence ; LocalIndexRead lit les noms de colonnes une fois ; details de session recalcules a l ouverture (Update-Dashboard, Update-TaskUi marque seulement a refaire) ; carte Premiers pas.",
+      "ChangedCoreFunctions": [
+        "Initialize-DomeniaDatabase",
+        "Update-TaskUi"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
     }
   ]
 }

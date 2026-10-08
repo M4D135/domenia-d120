@@ -210,6 +210,14 @@
       "Chain": "wad\\Domenia-Core.ps1:2563 Start-UiTask > Apply-DomeniaPresenceFilter > Set-DomeniaGridRows > Queue-DomeniaSelectedObjectOpen > Select-DomeniaWorkspace > Sync-DomeniaUxNavigation > Get-DomeniaUxHelpEntry > Import-DomeniaUxHelpCatalogue"
     },
     {
+      "Function": "Get-DomeniaWindowsLifecycleTable",
+      "Pattern": ".ReadAllText",
+      "Status": "Justifie",
+      "Owner": "interface",
+      "Reason": "Lot L01 : lecture unique, mise en cache pour la session, d un petit fichier du paquet (table des fins de service, quelques Ko), jamais un chemin reseau.",
+      "Chain": "callback Complete-DomeniaInventoryUi (wad\\Domenia-Core.ps1:12139) > Complete-DomeniaInventoryUi > Update-DomeniaComputerDashboard > Get-DomeniaWindowsLifecycleTable"
+    },
+    {
       "Function": "Invoke-DomeniaUiPump",
       "Pattern": ".DoEvents",
       "Status": "AFaire",
