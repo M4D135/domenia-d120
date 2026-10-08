@@ -1,0 +1,72 @@
+{
+  "source": "technicien.md",
+  "output": "Domenia-1.0-Guide-technicien",
+  "product": "Domenia 1.0",
+  "title": "Guide technicien",
+  "subtitle": "Trouver un poste, le dépanner et suivre le parc au quotidien",
+  "edition": "Édition du 8 octobre 2026",
+  "author": "Domenia",
+  "cover": "accueil",
+  "coverCaption": "Page d'accueil de Domenia : vue d'ensemble du parc",
+  "info": [
+    [
+      "Pour qui",
+      "Techniciens de proximité et du support des postes Windows."
+    ],
+    [
+      "Ce que couvre ce guide",
+      "Trouver une personne ou un poste, ouvrir la fiche d'un poste et ses outils, lire son tableau de bord, savoir qui est connecté, suivre le parc depuis l'Accueil, personnaliser un tableau de bord et consulter les logiciels d'un poste."
+    ],
+    [
+      "Version décrite",
+      "Domenia 1.0, état du 8 octobre 2026."
+    ]
+  ],
+  "tocIntro": "Cliquez sur un chapitre pour y aller. Dans Word, le volet Navigation (Affichage > Volet de navigation) donne aussi accès aux chapitres et aux sections.",
+  "figures": {
+    "connexion": {
+      "file": "images/connexion.png",
+      "width": 8.5
+    },
+    "recherche": {
+      "file": "images/recherche.png",
+      "width": 15
+    },
+    "recherche-actions": {
+      "file": "images/recherche-actions.png",
+      "width": 12
+    },
+    "fiche-poste": {
+      "file": "images/fiche-poste.png",
+      "width": 15
+    },
+    "actions-poste": {
+      "file": "images/actions-poste.png",
+      "width": 15
+    },
+    "tableau-poste": {
+      "file": "images/tableau-poste.png",
+      "width": 13.5
+    },
+    "personnaliser": {
+      "file": "images/personnaliser.png",
+      "width": 15
+    },
+    "editeur-widget": {
+      "file": "images/editeur-widget.png",
+      "width": 15
+    },
+    "accueil": {
+      "file": "images/accueil.png",
+      "width": 15
+    },
+    "base-autonome": {
+      "file": "images/base-autonome.png",
+      "width": 15
+    },
+    "logiciels": {
+      "file": "images/logiciels.png",
+      "width": 12.5
+    }
+  }
+}

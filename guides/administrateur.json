@@ -1,0 +1,76 @@
+{
+  "source": "administrateur.md",
+  "output": "Domenia-1.0-Guide-administrateur",
+  "product": "Domenia 1.0",
+  "title": "Guide administrateur",
+  "subtitle": "Installer, configurer, exploiter et maintenir Domenia",
+  "edition": "Édition du 8 octobre 2026",
+  "author": "Domenia",
+  "cover": "tableau-poste",
+  "coverCaption": "Tableau de bord d'un poste dans Domenia 1.0",
+  "info": [
+    [
+      "Pour qui",
+      "Administrateurs Active Directory et responsables de l'outillage du support des postes Windows."
+    ],
+    [
+      "Ce que couvre ce guide",
+      "Règles de la recherche, des fiches, des outils du poste, de l'inventaire, des tableaux de bord, des widgets, des requêtes WMI et des relations ; puis comptes et droits, lecture seule, architecture, installation, configuration, base autonome, sécurité, journaux, tests et maintenance."
+    ],
+    [
+      "Version décrite",
+      "Domenia 1.0 RC1.12.0 (Build du 8 octobre 2026), avec les lots des 7 et 8 octobre."
+    ],
+    [
+      "Captures",
+      "Rendus de la vraie fenêtre de Domenia avec des valeurs fictives (example.local) : ils montrent l'écran, ils ne prouvent pas une action réelle."
+    ]
+  ],
+  "tocIntro": "Cliquez sur un chapitre pour y aller. Dans Word, le volet Navigation (Affichage > Volet de navigation) donne aussi accès aux chapitres et aux sections.",
+  "figures": {
+    "connexion": {
+      "file": "images/connexion.png",
+      "width": 8.5
+    },
+    "accueil": {
+      "file": "images/accueil.png",
+      "width": 16
+    },
+    "recherche": {
+      "file": "images/recherche.png",
+      "width": 16
+    },
+    "recherche-actions": {
+      "file": "images/recherche-actions.png",
+      "width": 12
+    },
+    "fiche-poste": {
+      "file": "images/fiche-poste.png",
+      "width": 15
+    },
+    "actions-poste": {
+      "file": "images/actions-poste.png",
+      "width": 15
+    },
+    "tableau-poste": {
+      "file": "images/tableau-poste.png",
+      "width": 13.5
+    },
+    "personnaliser": {
+      "file": "images/personnaliser.png",
+      "width": 16
+    },
+    "editeur-widget": {
+      "file": "images/editeur-widget.png",
+      "width": 14
+    },
+    "logiciels": {
+      "file": "images/logiciels.png",
+      "width": 12.5
+    },
+    "base-autonome": {
+      "file": "images/base-autonome.png",
+      "width": 15
+    }
+  }
+}
