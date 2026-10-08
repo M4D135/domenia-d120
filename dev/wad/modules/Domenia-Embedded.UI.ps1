@@ -323,10 +323,10 @@ function Show-DomeniaInlinePicker {
     finally{$r.Closed=$true;if($r.Job){Request-UiTaskStop -Id $r.Job -Silent -Force -Superseded -Reason 'Sélecteur fermé'|Out-Null};$grid.ItemsSource=$null;$w.Close()}
 }
 function Select-DomeniaRelationsUser {
-    # D045: no separate window to associate. The user is searched in Relations > Associer > Rechercher, in the
+    # D045: no separate window to associate. The user is searched in Relations, panel Ajouter > Rechercher, in the
     # page, from a selected workstation (or a user is selected in Rechercher). Nothing is probed here.
     $workspace=Get-DomeniaControl 'WorkspaceTabs';$relations=Get-DomeniaControl 'TabRelations';if($null -ne $workspace -and $null -ne $relations){$workspace.SelectedItem=$relations}
-    $tabs=Get-DomeniaControl 'RelationTabs';$associate=Get-DomeniaControl 'TabLinksAssociate';if($null -ne $tabs -and $null -ne $associate){$tabs.SelectedItem=$associate}
+    $tabs=Get-DomeniaControl 'RelationTabs';$associate=Get-DomeniaControl 'TabLinksSelected';if($null -ne $tabs -and $null -ne $associate){$tabs.SelectedItem=$associate}
     $modes=Get-DomeniaControl 'RelationAssociateModeTabs';$search=Get-DomeniaControl 'TabRelationSearch';if($null -ne $modes -and $null -ne $search){$modes.SelectedItem=$search}
     Refresh-DomeniaRelationViews
     $s=Get-DomeniaRelationsSubject

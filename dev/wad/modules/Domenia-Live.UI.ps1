@@ -462,31 +462,12 @@ function Merge-DomeniaLiveLinkMemory {
     if($Observation.Outcome -ne 'Observed' -or -not $Observation.LinkUser -or -not $Observation.UserDn){return}
     $computer=Normalize-LinkComputer ([string]$Observation.Computer);$user=Normalize-LinkUser ([string]$Observation.LinkUser)
     if(-not $computer -or -not $user){return}
-    if(Get-DomeniaFeatureFlag 'RelationsSymmetry' $true){
-        # D042: the observed console joins the relations of the workstation through the upsert rule (memory only).
-        # D028: persistence is requested once; LiveCache must not write user_machine_links.
-        $observed=[pscustomobject]@{UserLogin=$user;Computer=$computer;Source='Console CIM/DCOM';Confidence=0;VerifiedInAD=$true;When=([datetime]::Parse([string]$Observation.ObservedUtc)).ToLocalTime().ToString('s');Details='Compte console observé ; sessions RDP non recensées.';UserGuid=[string]$Observation.UserGuid;ComputerGuid=[string]$Observation.Guid;UserDn=[string]$Observation.UserDn;ComputerDn=[string]$Observation.Key;Kind='Console'}
-        [void](Add-DomeniaRelation -Relation $observed -NoSave -Quiet)
-        Request-DomeniaLinkPersistence
-        return
-    }
-    $existing=Get-ExistingLinkForComputer $computer
-    if($null -ne $existing -and [string]$existing.Source -match '^(?i:Manual|Saisie manuelle)'){return}
-    $oldUser=if($null -ne $existing){Normalize-LinkUser ([string]$existing.UserLogin)}else{''}
-    $link=if($null -ne $existing){$existing}else{[pscustomobject]@{UserLogin='';Computer=$computer;Source='';Confidence=97;VerifiedInAD=$true;When='';Details='';UserGuid='';ComputerGuid='';UserDn='';ComputerDn=''}}
-    $link.UserLogin=$user;$link.Source='Console CIM/DCOM';$link.Confidence=97;$link.VerifiedInAD=$true
-    $link.When=([datetime]::Parse([string]$Observation.ObservedUtc)).ToLocalTime().ToString('s');$link.Details='Compte console observé ; sessions RDP non recensées.'
-    foreach($pair in @(@('UserGuid',$Observation.UserGuid),@('ComputerGuid',$Observation.Guid),@('UserDn',$Observation.UserDn),@('ComputerDn',$Observation.Key))){Set-DomeniaLiveRowValue $link $pair[0] $pair[1]}
-    if($null -eq $existing){$script:UserMachineLinks=@($script:UserMachineLinks)+$link}
-    # Maintain the existing lookup without serializing the whole links table per machine.
-    if($null -eq $script:LinkByComputer){$script:LinkByComputer=@{}}
-    if($null -eq $script:LinksByUser){$script:LinksByUser=@{}}
-    if($oldUser -and $script:LinksByUser.ContainsKey($oldUser.ToLowerInvariant())){[void]$script:LinksByUser[$oldUser.ToLowerInvariant()].Remove($link)}
-    $list=[Collections.ArrayList]::new();[void]$list.Add($link);$script:LinkByComputer[$computer]=$list
-    $u=$user.ToLowerInvariant()
-    if(-not $script:LinksByUser.ContainsKey($u)){$script:LinksByUser[$u]=[Collections.ArrayList]::new()}
-    if(-not $script:LinksByUser[$u].Contains($link)){[void]$script:LinksByUser[$u].Add($link)}
-    $script:LinkIndexCount=@($script:UserMachineLinks).Count;$script:LinkIndexGeneration++
+    # D042: the observed console joins the relations of the workstation through the upsert rule (memory only).
+    # CD-06: the RC1.10.7 path (overwrite of the workstation row with a fixed score) is removed.
+    # CO-29: the date is stored in UTC ISO 8601, like every other relation date.
+    $observedUtc=ConvertTo-DomeniaUtcDate ([string]$Observation.ObservedUtc);if($null -eq $observedUtc){$observedUtc=[datetime]::UtcNow}
+    $observed=[pscustomobject]@{UserLogin=$user;Computer=$computer;Source='Console CIM/DCOM';Confidence=0;VerifiedInAD=$true;When=$observedUtc.ToString('o');Details='Compte console observé ; sessions RDP non recensées.';UserGuid=[string]$Observation.UserGuid;ComputerGuid=[string]$Observation.Guid;UserDn=[string]$Observation.UserDn;ComputerDn=[string]$Observation.Key;Kind='Console'}
+    [void](Add-DomeniaRelation -Relation $observed -NoSave -Quiet)
     # D028: persistence is requested once; LiveCache must not write user_machine_links.
     Request-DomeniaLinkPersistence
 }
