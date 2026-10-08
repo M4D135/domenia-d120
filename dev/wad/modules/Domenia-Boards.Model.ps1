@@ -418,7 +418,9 @@ function ConvertFrom-DomeniaProbeMeasure {
     $kind = Get-DomeniaProbeKind -Probe $Probe -Board $Board
     $unit = Get-DomeniaProbeUnit -Probe $Probe
     if ($null -eq $Measured -or -not [int]$Measured.Machines) {
-        return New-DomeniaBoardEntry -Key $Key -Kind $kind -Value 'En attente' -Detail 'Actualiser les requetes pour remplir ce widget' -State 'Off'
+        # Fleet queries run from Rechercher on the displayed workstations (decision David 2026-10-08).
+        $how = if ($Board -eq 'Fleet') { 'Dans Rechercher, Analyser la liste remplit ce widget' } else { 'Actualiser les requetes pour remplir ce widget' }
+        return New-DomeniaBoardEntry -Key $Key -Kind $kind -Value 'En attente' -Detail $how -State 'Off'
     }
     $items = @($Measured.Items)
     if ($kind -eq 'Value') {

@@ -236,6 +236,10 @@ function Complete-DomeniaStorageWork {
         [void]$script:Persistence.Conflicts.Remove([string]$i.Key)
         if($i.Remove){[void]$script:LinkBaseline.Remove($i.Key)}else{$script:LinkBaseline[$i.Key]=$i.Row}
     }
+    # The home overview reads what was just committed (decision David 2026-10-08): a saved index update is computed
+    # again; single rows and observations only mark it out of date (the end of a run asks for the calculation).
+    if(@($items|Where-Object{$_.Kind -eq 'IndexBulk'}).Count){try{Request-DomeniaFleetRefresh -Force}catch{}}
+    elseif(@($items|Where-Object{$_.Kind -in @('Index','ParkSession')}).Count){$script:FleetStale=$true}
     $hasLinkWork=$false
     if($script:Persistence.LegacyImportJob){$hasLinkWork=$true}
     foreach($v in @($script:Persistence.Pending.Values)){if($v.Kind -eq 'Link' -or $v.Kind -eq 'LegacyImport'){$hasLinkWork=$true;break}}
@@ -571,9 +575,12 @@ function Complete-DomeniaStoragePurge {
             }
             if($State.Selection -contains 'Observations'){
                 $script:PresenceCache=@{};$script:ParkState=@{}
+                # The dashboards forget the purged observations too (merged with the base otherwise).
+                $script:FleetObservations=$null
                 if($null -ne $script:Live){$script:Live.Observations.Clear();$script:Live.ObservationsLoaded=$false;$script:Live.SaveQueue=@{};$script:Live.Done=@{};$script:Live.PresenceSeen=@{}}
             }
             if($State.Selection -contains 'Snapshots' -and $null -ne $script:Live){$script:Live.MemoryQueries=@{};$script:Live.QueryToSave=$null}
+            if(@($State.Selection|Where-Object{$_ -in @('Observations','Index')}).Count){try{Request-DomeniaFleetRefresh -Force}catch{}}
             if(@($State.Selection|Where-Object{$_ -in @('Snapshots','Observations','Index')}).Count){
                 # Invalidate the displayed search producer too: no old stream may repopulate the purged cache.
                 Stop-DomeniaLiveSearch

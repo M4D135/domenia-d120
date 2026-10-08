@@ -1124,6 +1124,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaBoardPreviewEntry',
             'Show-DomeniaBoardEditor',
             'Get-DomeniaWidgetResults',
+            'Get-DomeniaBoardProbeIds',
             'Start-DomeniaWidgetProbe'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Charts.UI.ps1'); File='Domenia-Dashboard.UI.ps1'; DotSource=$true; Functions=@(
@@ -1132,11 +1133,15 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaCategorySummary',
             'New-DomeniaDashboardSection',
             'Get-DomeniaEntryFileTimeUtc',
+            'Get-DomeniaFleetScope',
+            'Test-DomeniaFleetDashboardShown',
+            'Test-DomeniaFleetAwaitingScope',
+            'Request-DomeniaFleetRefresh',
             'Start-DomeniaFleetDashboard',
             'Fail-DomeniaFleetDashboard',
-            'Get-DomeniaFleetScope',
-            'Select-DomeniaFleetScope',
-            'Start-DomeniaFleetAction',
+            'Update-DomeniaFleetScopeText',
+            'Show-DomeniaFleetScopeSource',
+            'Merge-DomeniaFleetObservations',
             'Complete-DomeniaFleetDashboard',
             'Update-DomeniaComputerDashboard',
             'Update-DomeniaSoftwareDashboard'
@@ -1146,6 +1151,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Update-DomeniaParkRunStatus',
             'Update-DomeniaParkControls',
             'Start-DomeniaOnlinePark',
+            'Start-DomeniaParkAnalysis',
             'Complete-DomeniaParkTargets',
             'Fail-DomeniaParkTargets',
             'Start-DomeniaParkRunTimer',

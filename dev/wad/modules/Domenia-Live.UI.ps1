@@ -149,7 +149,7 @@ function Update-DomeniaSearchActionStates {
     $selected=@($grid.SelectedItems)
     $recheck=Get-DomeniaControl 'BtnLiveRecheck'
     if($null -ne $recheck){$recheck.IsEnabled=($ready -and $selected.Count -eq 1 -and [string]$selected[0].Type -eq 'Machine')}
-    foreach($name in @('BtnParkResults','BtnParkPing')){$button=Get-DomeniaControl $name;if($null -ne $button -and -not $script:DemoMode){$button.IsEnabled=($ready -and [bool]$script:SearchListHasMachine)}}
+    foreach($name in @('BtnParkResults','BtnParkPing','BtnParkAnalyze')){$button=Get-DomeniaControl $name;if($null -ne $button -and -not $script:DemoMode){$button.IsEnabled=($ready -and [bool]$script:SearchListHasMachine)}}
 }
 function Test-DomeniaRowHasAccount {
     # User or group: its own account name. Workstation: the login of its linked account (decision David 2026-10-05).

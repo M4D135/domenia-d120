@@ -103,15 +103,15 @@ Case 'Parc : nouveau releve attend une association encore dans le timer de sauve
 }
 Case 'Parc entier : retire, aucune lecture sans la liste affichee (decision 2026-10-05)' {Reset-Fixture;Add-DisplayedMachine;Start-DomeniaOnlinePark;Start-DomeniaParkSweep;Assert ($script:Calls.Count -eq 0 -and $null -eq $script:ParkRun)}
 
-Case 'Interface : detection de la liste et son arret cables ; aucun bouton parc entier' {
+Case 'Interface : detection et analyse de la liste et leur arret cables ; aucun bouton parc entier' {
  $reader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml));try{$window=[Windows.Markup.XamlReader]::Load($reader)}finally{$reader.Close()}
  try{
-  $script:ClickScope='';function Start-DomeniaOnlinePark {param([switch]$DisplayedResults)$script:ClickScope=$(if($DisplayedResults){'Results'}else{'Park'})};function Stop-DomeniaOnlinePark {$script:ClickScope='Stop'}
+  $script:ClickScope='';function Start-DomeniaOnlinePark {param([switch]$DisplayedResults)$script:ClickScope=$(if($DisplayedResults){'Results'}else{'Park'})};function Stop-DomeniaOnlinePark {$script:ClickScope='Stop'};function Start-DomeniaParkAnalysis {$script:ClickScope='Analyze'}
   $script:Ctrl=@{};foreach($name in @('BtnParkSweep','BtnParkSweepStop')){Assert ($null -eq $window.FindName($name)) ($name+' encore present')}
-  foreach($name in @('BtnParkResults','BtnParkResultsStop')){$script:Ctrl[$name]=$window.FindName($name);Assert ($null -ne $script:Ctrl[$name])}
-  foreach($n in @($ast.FindAll({param($n)$n -is [Management.Automation.Language.InvokeMemberExpressionAst] -and $n.Member.Value -eq 'Add_Click'},$true))){if($n.Expression.Extent.Text -match '^\$script:Ctrl\["(BtnParkResults|BtnParkResultsStop)"\]$'){. ([scriptblock]::Create($n.Extent.Text))}}
-  $script:Ctrl['BtnParkResultsStop'].IsEnabled=$true;$script:Ctrl['BtnParkResults'].IsEnabled=$true
-  foreach($pair in @(@('BtnParkResults','Results'),@('BtnParkResultsStop','Stop'))){$script:Ctrl[$pair[0]].RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent));Assert ($script:ClickScope -eq $pair[1]) $pair[0]}
+  foreach($name in @('BtnParkResults','BtnParkAnalyze','BtnParkResultsStop')){$script:Ctrl[$name]=$window.FindName($name);Assert ($null -ne $script:Ctrl[$name])}
+  foreach($n in @($ast.FindAll({param($n)$n -is [Management.Automation.Language.InvokeMemberExpressionAst] -and $n.Member.Value -eq 'Add_Click'},$true))){if($n.Expression.Extent.Text -match '^\$script:Ctrl\["(BtnParkResults|BtnParkAnalyze|BtnParkResultsStop)"\]$'){. ([scriptblock]::Create($n.Extent.Text))}}
+  $script:Ctrl['BtnParkResultsStop'].IsEnabled=$true;$script:Ctrl['BtnParkResults'].IsEnabled=$true;$script:Ctrl['BtnParkAnalyze'].IsEnabled=$true
+  foreach($pair in @(@('BtnParkResults','Results'),@('BtnParkAnalyze','Analyze'),@('BtnParkResultsStop','Stop'))){$script:Ctrl[$pair[0]].RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent));Assert ($script:ClickScope -eq $pair[1]) $pair[0]}
  }finally{$window.Close()}
 }
 if($null -ne $script:ParkRun -and $null -ne $script:ParkRun.Timer){$script:ParkRun.Timer.Stop()}

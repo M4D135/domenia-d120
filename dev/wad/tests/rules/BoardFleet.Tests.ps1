@@ -84,7 +84,7 @@ Test-Case -Id 'BF-002' -Name 'Parc : perimetre en sous-arbre, cibles des analyse
     Assert-Equal 'guid-PC-L03' ([string]@($board.Last.Targets)[2].object_guid)
     Assert-Equal ('CN=PC-L05,' + $script:BfScope) ([string]@($board.Last.Targets)[4].distinguished_name)
     Assert-Equal '7' ([string]$board.Entries['fleet.machines'].Value)
-    Assert-Equal 'dans l OU choisie' ([string]$board.Entries['fleet.machines'].Detail)
+    Assert-Equal 'dans l OU et ses sous-OU' ([string]$board.Entries['fleet.machines'].Detail)
     Assert-Equal 6 $board.Observations.Count
     Assert-True ($board.Observations.ContainsKey('cn=pc-p01,ou=postes,ou=paris,dc=example,dc=test')) 'Observation hors perimetre conservee'
     Assert-False ($board.Observations.ContainsKey('cn=pc-l04,ou=etage2,ou=compta,ou=postes,ou=lyon,dc=example,dc=test')) 'Charge illisible ignoree'
@@ -233,11 +233,11 @@ Test-Case -Id 'BF-008' -Name 'Parc : releves WMI (modeles, versions, memoire, es
 Test-Case -Id 'BF-009' -Name 'Parc : sans releve WMI, section remplacee par une indication et widgets omis' -Body {
     $result = New-BfResult -Machines @(Get-BfMachines) -Presence @(@(Get-BfPresenceRows)[1])
     $board = Get-DomeniaFleetBoardData -Result $result -Scope $script:BfScope -Now $script:BfNow
-    Assert-Equal 'Analysez l OU (WMI) pour remplir cette section : modeles, memoire, disques, versions et demarrages.' ([string]$board.Hints['Releves WMI'])
+    Assert-Equal 'Dans Rechercher, Analyser la liste remplit cette section pour les postes affiches : modeles, memoire, disques, versions et demarrages.' ([string]$board.Hints['Releves WMI'])
     foreach ($key in @('fleet.models','fleet.releases','fleet.ram','fleet.diskfree','fleet.lowdisk','fleet.uptime')) { Assert-False ($board.Entries.ContainsKey($key)) ('Widget sans donnees emis : ' + $key) }
     Assert-Equal '0 postes avec releve WMI' ([string]$board.Entries['fleet.lastcheck'].Detail)
     $none = Get-DomeniaFleetBoardData -Result (New-BfResult -Machines @(Get-BfMachines)) -Scope '' -Now $script:BfNow
-    Assert-True (([string]$none.Hints['Releves WMI']).StartsWith('Choisissez une OU')) 'Domaine entier : choisir une OU'
+    Assert-True (([string]$none.Hints['Releves WMI']).StartsWith('Dans Rechercher, Analyser la liste')) 'Domaine entier : meme consigne, l analyse se lance dans Rechercher'
     Assert-Equal 'Aucune' ([string]$none.Entries['fleet.lastcheck'].Value)
 }
 Test-Case -Id 'BF-013' -Name 'Parc : WMI sans disque ni demarrage lisibles, tuiles omises ; modeles, huit premiers puis Autres' -Body {
@@ -299,4 +299,30 @@ Test-Case -Id 'BF-012' -Name 'Parc : resultat du worker en tableau, base occupee
     $message = ''
     try { [void](Get-DomeniaFleetBoardData -Result $locked -Scope '' -Now $script:BfNow) } catch { $message = $_.Exception.Message }
     Assert-Equal 'base occupee, reessayez dans un instant.' $message
+}
+Test-Case -Id 'BF-014' -Name 'Parc : OU de Rechercher sans les sous-OU, enfants directs seulement' -Body {
+    $board = Get-DomeniaFleetBoardData -Result (New-BfResult -Machines @(Get-BfMachines) -Presence @(Get-BfPresenceRows)) -Scope $script:BfScope -Subtree $false -Now $script:BfNow
+    Assert-Equal '1' ([string]$board.Entries['fleet.machines'].Value)
+    Assert-Equal 'directement dans l OU' ([string]$board.Entries['fleet.machines'].Detail)
+    Assert-Equal 'PC-L05' ((@($board.Last.Targets) | ForEach-Object { [string]$_.name }) -join '|')
+    Assert-False ([bool]$board.Last.Subtree) 'Profondeur conservee pour les widgets de requete'
+    # An escaped comma in the workstation name stays inside its RDN.
+    $escaped = New-BfMachine 'PC-L08' $script:BfScope 'Windows 11 Pro' 1
+    $escaped.distinguished_name = 'CN=Poste\, accueil,' + $script:BfScope
+    $board = Get-DomeniaFleetBoardData -Result (New-BfResult -Machines @($escaped)) -Scope $script:BfScope -Subtree $false -Now $script:BfNow
+    Assert-Equal '1' ([string]$board.Entries['fleet.machines'].Value)
+}
+Test-Case -Id 'BF-015' -Name 'Parc : observations deja lues par le worker, utilisees sans nouvelle lecture JSON' -Body {
+    $parsed = @(foreach ($row in @(Get-BfPresenceRows)) {
+        $observation = $null
+        try { $observation = ([string]$row.payload) | ConvertFrom-Json -ErrorAction Stop } catch { continue }
+        [pscustomobject]@{ object_key = $row.object_key; checked_utc = $row.checked_utc; observation = $observation }
+    })
+    $fromWorker = Get-DomeniaFleetBoardData -Result (New-BfResult -Machines @(Get-BfMachines) -Presence $parsed) -Scope $script:BfScope -Now $script:BfNow
+    $fromPayload = Get-BfBoard
+    foreach ($key in @('fleet.presence','fleet.users','fleet.lastcheck','fleet.models','fleet.ram')) {
+        Assert-Equal (Get-BfJoined $fromPayload.Entries[$key] 'Label') (Get-BfJoined $fromWorker.Entries[$key] 'Label') ('Etiquettes : ' + $key)
+        Assert-Equal ([string]$fromPayload.Entries[$key].Value) ([string]$fromWorker.Entries[$key].Value) ('Valeur : ' + $key)
+    }
+    Assert-Equal $fromPayload.Observations.Count $fromWorker.Observations.Count
 }

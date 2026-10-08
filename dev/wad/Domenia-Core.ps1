@@ -2916,11 +2916,11 @@ function Get-DomeniaDefaultSettings {
         WindowMaximized  = $false
         TreeWidth        = 0
         LogHeight        = 180
-        # Dashboards (decision David 2026-10-07): only keys listed here survive Load-DomeniaSettings.
-        FleetScopeDn     = ''
         # Account names only (never a password): accounts for workstations (POSTES) and secrets (SECRETS).
         RemoteCredentialUser  = ''
         SecretsCredentialUser = ''
+        # Dashboards (decision David 2026-10-07): only keys listed here survive Load-DomeniaSettings. The home
+        # overview has no OU of its own since 2026-10-08: it follows the OU chosen in Rechercher.
         'Dashboard.Computer.Layout' = ''
         'Dashboard.Fleet.Layout'    = ''
         'Dashboard.Software.Layout' = ''
@@ -4176,7 +4176,7 @@ function Get-MainXaml {
               </Button>
             </StackPanel>
             <StackPanel DockPanel.Dock="Bottom" Margin="8,12,0,6" x:Name="UxNavFooter">
-              <TextBlock Text="DOMENIA 1.0 · RC1.12.0" Foreground="{DynamicResource MutedColor}" FontSize="11"/>
+              <TextBlock Text="DOMENIA 1.0 · RC1.13.0" Foreground="{DynamicResource MutedColor}" FontSize="11"/>
               <TextBlock Text="Les actions restent sous votre contrôle." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="11" Margin="0,6,0,0"/>
             </StackPanel>
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
@@ -4432,20 +4432,13 @@ function Get-MainXaml {
                             <TextBlock x:Name="LblFleetDashboard" Text="Calculee depuis la base autonome locale. Pour un parc complet : Outils, Base autonome, Mettre a jour tout." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,4,0,8"/>
                           </StackPanel>
                         </DockPanel>
-                        <Grid Margin="0,0,0,8">
-                          <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                          <TextBlock Text="Perimetre" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="SemiBold"/>
-                          <TextBox x:Name="TxtFleetScope" Grid.Column="1" IsReadOnly="True" MinHeight="30" ToolTip="OU de depart du tableau de bord et des analyses. Vide : tout le domaine indexe (consultation seulement)." AutomationProperties.Name="Perimetre du tableau de bord"/>
-                          <Button x:Name="BtnFleetScope" Grid.Column="2" Content="Choisir l OU..." MinHeight="30" Padding="10,4" Margin="8,0,0,0" ToolTip="Choisir l OU de depart dans l annuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Choisir l OU du tableau de bord"/>
-                          <Button x:Name="BtnFleetScopeReset" Grid.Column="3" Content="Tout le domaine" MinHeight="30" Padding="10,4" Margin="8,0,0,0" ToolTip="Revient au domaine entier pour la consultation. Les analyses demandent une OU." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Revenir au domaine entier"/>
+                        <Grid>
+                          <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                          <TextBlock Text="Périmètre" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="SemiBold"/>
+                          <TextBlock x:Name="LblFleetScope" Grid.Column="1" Text="OU choisie dans Rechercher" VerticalAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" AutomationProperties.Name="Périmètre de la vue d ensemble"/>
+                          <Button x:Name="BtnFleetScope" Grid.Column="2" Content="Changer dʼOU" MinHeight="30" Padding="10,4" Margin="8,0,0,0" ToolTip="Ouvre lʼarbre des OU de Rechercher : lʼOU choisie filtre la recherche et cette vue d ensemble." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Changer dʼOU dans Rechercher"/>
                         </Grid>
-                        <WrapPanel Margin="0,0,0,8">
-                          <Button x:Name="BtnFleetPing" Content="Pinger l OU" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" ToolTip="Ping des postes indexes de l OU choisie, avec confirmation. Jamais le domaine entier." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Pinger les postes de l OU"/>
-                          <Button x:Name="BtnFleetDetect" Content="Detecter les utilisateurs" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" ToolTip="Ping puis utilisateur console des postes de l OU choisie ; associations actualisees si changement." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Detecter les utilisateurs de l OU"/>
-                          <Button x:Name="BtnFleetAnalyze" Content="Analyser l OU (WMI)" Style="{StaticResource RunButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" ToolTip="Ping, utilisateur console et releve WMI leger (modele, memoire, disque C:, build, demarrage) de chaque poste de l OU ; resultats conserves pour ce tableau de bord." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Analyser les postes de l OU"/>
-                          <Button x:Name="BtnFleetStop" Content="Arreter" Style="{StaticResource DangerButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" ToolTip="Arrete les nouvelles lectures ; les resultats obtenus sont conserves." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Arreter l analyse"/>
-                        </WrapPanel>
-                        <TextBlock x:Name="LblFleetRun" Text="" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,0,0,0"/>
+                        <TextBlock x:Name="LblFleetHint" Text="Pour pinger, détecter ou analyser des postes : dans Rechercher, affichez-les, puis Pinger, Détecter ou Analyser la liste." Foreground="{DynamicResource MutedColor}" FontSize="12" TextWrapping="Wrap" Margin="0,6,0,0"/>
                       </StackPanel>
                     </Border>
                     <StackPanel x:Name="PnlFleetDashboard" Margin="-7,0,-7,12"/>
@@ -4701,6 +4694,7 @@ function Get-MainXaml {
                               <Button x:Name="BtnLiveRecheck" IsEnabled="False" Content="Revérifier ce poste" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" ToolTip="Poste sélectionné seulement : relance un ping unique et la lecture utilisateur. Grisé pour un autre type d objet ou une sélection multiple. Si le compte est refusé ou CIM désactivé, seul le ping reste disponible. Aucun balayage." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Revérifier ce poste" AutomationProperties.HelpText="Relance la vérification du compte console d’une seule machine sélectionnée."/>
                               <Button x:Name="BtnParkPing" Content="Pinger la liste" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" IsEnabled="False" ToolTip="Grisé si la liste ne contient aucun poste. Ping seul des postes affichés après vos filtres : met à jour la présence réseau, sans lecture de session ni association. Confirmation avant envoi." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Pinger les postes affiches"/>
                               <Button x:Name="BtnParkResults" Content="Détecter la liste" Style="{StaticResource RunButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" IsEnabled="False" ToolTip="Grisé si la liste ne contient aucun poste. Ping puis lecture de la console des seuls postes affichés, après vos filtres (OU, recherche, présence, filtre local). Confirmation avec le nombre de postes avant toute lecture. Cache et associations conservés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Detecter les resultats affiches"/>
+                              <Button x:Name="BtnParkAnalyze" Content="Analyser la liste" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" IsEnabled="False" ToolTip="Grisé si la liste ne contient aucun poste. Ping, utilisateur console et relevé WMI léger (modèle, mémoire, disque C:, build, démarrage) des seuls postes affichés, plus les requêtes WMI des widgets des tableaux de bord. Lecture seule sur les postes, confirmation avec le nombre de postes avant envoi. Associations actualisées si lʼutilisateur change ; résultats conservés pour les tableaux de bord." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Analyser les postes affiches"/>
                               <Button x:Name="BtnParkResultsStop" Content="Arrêter" Style="{StaticResource DangerButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" IsEnabled="False" ToolTip="Actif pendant une détection : arrête les nouvelles lectures et conserve les résultats déjà obtenus." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Arreter la detection des resultats"/>
                             </WrapPanel>
                             <Grid x:Name="UxResultLiveStatuses" Grid.Row="1"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><TextBlock Text="Selectionnez une ligne pour precharger sa fiche. Double-clic : ouvrir." Foreground="{DynamicResource MutedColor}" FontSize="11" Height="20" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" x:Name="LblSelectionReadState" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/><TextBlock x:Name="LblLiveState" Grid.Row="1" Text="Un clic : vérifier ce poste · Double-clic : ouvrir la fiche · Aucune sonde de liste" FontSize="11" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Height="18" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/></Grid>
@@ -6923,6 +6917,8 @@ function Update-DomeniaSearchScopeUi {
         Update-DomeniaUxOuScope -Scope $ouScope
     }
     Set-DomeniaSearchMode -Mode $mode
+    # The home overview follows this OU: recomputed now if Accueil is on screen, otherwise when it is shown.
+    try { Request-DomeniaFleetRefresh } catch { }
     $summary = Get-DomeniaControl -Name 'LblSearchScope'
     if ($null -eq $summary) { return }
     if ($mode -eq 'Global') {
@@ -7543,7 +7539,11 @@ function Get-ExistingLinkForComputer {
     $cn = Normalize-LinkComputer $Computer
     if ([string]::IsNullOrWhiteSpace($cn)) { return $null }
     foreach ($l in @($script:UserMachineLinks)) {
-        if ((Normalize-LinkComputer ([string]$l.Computer)) -eq $cn) { return $l }
+        # Called once per workstation of a list analysis: a cheap substring test skips the other computers first
+        # (the normalised name is always a case-insensitive substring of the stored one).
+        $stored = [string]$l.Computer
+        if ($stored.IndexOf($cn,[StringComparison]::OrdinalIgnoreCase) -lt 0) { continue }
+        if ((Normalize-LinkComputer $stored) -eq $cn) { return $l }
     }
     return $null
 }
@@ -15276,6 +15276,8 @@ function Complete-DomeniaIndexBuildUi {
     Set-Status $summary
     Add-DomeniaUiLog -Area "Index" -Text ($summary + " Associations resynchronisees : " + $linkChanges + ". " + ((@($effective.Diagnostics)) -join " | "))
     Update-DomeniaIndexStats
+    # The home overview reads this base: out of date now, computed again once the queued index is saved (storage).
+    $script:FleetStale = $true
     try{Register-DomeniaOperationSample -Operation "IndexBuild" -Mode "AD" -ItemCount @($rows).Count -DurationMs ([long]$effective.DurationMs) -BytesEstimated ([long](@($rows).Count*1800)) -AdQueries ([Math]::Max(1,[int][Math]::Ceiling(@($rows).Count/1000.0))) -SuccessCount @($rows).Count -StartedAt $(if($null-ne$State.PSObject.Properties['StartedAt']){[string]$State.StartedAt}else{""})}catch{}
     if ($null -ne $State -and [bool]$State.UpdateLinks) {
         try { Start-DomeniaLogonHarvest -Silent } catch { Add-DomeniaUiLog -Area "Base autonome" -Level "WARN" -Text ("Mise a jour des associations via journal non lancee : " + $_.Exception.Message) }
@@ -19135,7 +19137,7 @@ function Start-DomeniaAccountRelogin {
 
         $script:SessionEpoch = [long]$script:SessionEpoch + 1
         # Fleet observations and analysis targets belong to the previous session.
-        $script:FleetObservations = $null; $script:FleetLast = $null
+        $script:FleetObservations = $null; $script:FleetLast = $null; $script:FleetComputedKey = ''; $script:FleetStale = $true
     try { Reset-DomeniaSupportSession } catch { }
         $script:GlobalSearchGeneration++
         $script:PresenceScanGeneration++
@@ -19183,6 +19185,7 @@ function Start-DomeniaAccountRelogin {
         Update-DomeniaAccountUi
         Apply-CurrentPermissionUi
         Request-DomeniaDashboardRefresh
+        try { Request-DomeniaFleetRefresh -Force } catch { }
         Set-Status ('Nouvelle session AD : ' + [string]$script:Conn.BindUser + '. Vues rechargees, lecture seule active.')
     }
     catch { [void](Show-DomeniaOperationError -Operation 'Relogin AD' -ErrorRecordOrException $_) }
@@ -19493,6 +19496,7 @@ function Wire-Events {
     if ($script:Ctrl.ContainsKey("BtnParkHarvest")) { $script:Ctrl["BtnParkHarvest"].Add_Click({ Start-DomeniaLogonHarvest }) }
     if ($script:Ctrl.ContainsKey("BtnParkResults")) { $script:Ctrl["BtnParkResults"].Add_Click({ Start-DomeniaOnlinePark -DisplayedResults }) }
     if ($script:Ctrl.ContainsKey("BtnParkPing")) { $script:Ctrl["BtnParkPing"].Add_Click({ Start-DomeniaOnlinePark -DisplayedResults -PingOnly }) }
+    if ($script:Ctrl.ContainsKey("BtnParkAnalyze")) { $script:Ctrl["BtnParkAnalyze"].Add_Click({ Start-DomeniaParkAnalysis }) }
     if ($script:Ctrl.ContainsKey("BtnParkResultsStop")) { $script:Ctrl["BtnParkResultsStop"].Add_Click({ Stop-DomeniaOnlinePark }) }
     if ($script:Ctrl.ContainsKey("BtnParkReset")) {
         $script:Ctrl["BtnParkReset"].Add_Click({
@@ -19581,13 +19585,13 @@ function Wire-Events {
     }
     if ($script:Ctrl.ContainsKey("BtnRunInventory")) { $script:Ctrl["BtnRunInventory"].Add_Click({ Start-DomeniaComputerInventory }) }
     if ($script:Ctrl.ContainsKey("BtnRunInventoryDeep")) { $script:Ctrl["BtnRunInventoryDeep"].Add_Click({ Start-DomeniaComputerInventory -Deep }) }
-    if ($script:Ctrl.ContainsKey("BtnFleetDashboardRefresh")) { $script:Ctrl["BtnFleetDashboardRefresh"].Add_Click({ Start-DomeniaFleetDashboard }) }
-    if ($script:Ctrl.ContainsKey("BtnFleetScope")) { $script:Ctrl["BtnFleetScope"].Add_Click({ Select-DomeniaFleetScope }) }
-    if ($script:Ctrl.ContainsKey("BtnFleetScopeReset")) { $script:Ctrl["BtnFleetScopeReset"].Add_Click({ Select-DomeniaFleetScope -Reset }) }
-    if ($script:Ctrl.ContainsKey("BtnFleetPing")) { $script:Ctrl["BtnFleetPing"].Add_Click({ Start-DomeniaFleetAction -Mode Ping }) }
-    if ($script:Ctrl.ContainsKey("BtnFleetDetect")) { $script:Ctrl["BtnFleetDetect"].Add_Click({ Start-DomeniaFleetAction -Mode Detect }) }
-    if ($script:Ctrl.ContainsKey("BtnFleetAnalyze")) { $script:Ctrl["BtnFleetAnalyze"].Add_Click({ Start-DomeniaFleetAction -Mode Analyze }) }
-    if ($script:Ctrl.ContainsKey("BtnFleetStop")) { $script:Ctrl["BtnFleetStop"].Add_Click({ Stop-DomeniaOnlinePark }) }
+    # Home overview (decision David 2026-10-08): it follows the OU of Rechercher and only displays; the analyses
+    # stay in Rechercher on the displayed list. It is recomputed when Accueil is shown and its OU or data changed.
+    if ($script:Ctrl.ContainsKey("BtnFleetDashboardRefresh")) { $script:Ctrl["BtnFleetDashboardRefresh"].Add_Click({ try { Start-DomeniaFleetDashboard } catch { Set-Status ('Vue d ensemble non calculee : ' + $_.Exception.Message) 'WARN' } }) }
+    if ($script:Ctrl.ContainsKey("BtnFleetScope")) { $script:Ctrl["BtnFleetScope"].Add_Click({ try { Show-DomeniaFleetScopeSource } catch { Set-Status ('Rechercher indisponible : ' + $_.Exception.Message) 'WARN' } }) }
+    $workspaceTabs = Get-DomeniaControl 'WorkspaceTabs'
+    # Deferred: a tab selected for an instant (a search started from another page passes through Accueil) starts nothing.
+    if ($null -ne $workspaceTabs) { $workspaceTabs.Add_SelectionChanged({ param($sender,$eventArgs) if ($sender -eq $eventArgs.OriginalSource) { try { [void]$sender.Dispatcher.BeginInvoke([System.Windows.Threading.DispatcherPriority]::Background,[Action]{ try { Request-DomeniaFleetRefresh } catch { } }) } catch { } } }) }
     if ($script:Ctrl.ContainsKey("BtnDashboardInventory")) { $script:Ctrl["BtnDashboardInventory"].Add_Click({ Start-DomeniaComputerInventory }) }
     if ($script:Ctrl.ContainsKey("BtnDashboardInventoryDeep")) { $script:Ctrl["BtnDashboardInventoryDeep"].Add_Click({ Start-DomeniaComputerInventory -Deep }) }
     if ($script:Ctrl.ContainsKey("BtnCopyInventory")) { $script:Ctrl["BtnCopyInventory"].Add_Click({ Copy-DomeniaInventory }) }
@@ -19677,7 +19681,7 @@ Activer le mode ecriture ?
 # DOMENIA_MASTER_LAST_V1 = TRUE
 $script:Version = "1.0"
 $script:AppName = "Domenia"
-$script:MasterBuild = "2026.10.08-DOMENIA-1.0-RC1.12.0-D120"
+$script:MasterBuild = "2026.10.08-DOMENIA-1.0-RC1.13.0-D120"
 $script:ActiveWriteTaskId = ""
 $script:WriteState = "Idle"
 $script:UnknownWriteTargetDn = ""
@@ -20893,7 +20897,7 @@ function Get-DomeniaWorkerOperationHashes {
         ReadBitLockerList     = "B1456CEA5805D83C6BF48E9A4040206F18F3C3773ED250610D6890E8D1F4EEC9"
         ReadBitLockerKey      = "8A98EBCDC48AD572404E1566826035C84F34ACB87564330A7AA511FAAC01EE6F"
         DemoDirectory         = "F12481F3B254D64F9C5D870A98EA33BE6C69A67D4C99D28601CF292A1150EAE0"
-        LocalIndexRead        = "E25CC7C3B0D0E3F6F2416DD90786149C3CFB6163BB0B02CD3A23A5141D8CDCB7"
+        LocalIndexRead        = "B2B40A190D73F07C02E95FC78A833C020AABF952D0904F53B492B67999130D86"
         ParkSharedSync        = "B3A64051813F12A24BD5E791D59CF7E2330FA84E965C9F44BD62366D4A81415E"
         IsolatedRead          = "4074D6ECAA620A9C80A5B6B535BB657E02DCE06A9DF97E35CA1EA47572D1060C"
         CmdletHelp            = "12505D0654AB0E97BD803A70B953BB0BBE2152836AAA1889744C1312EB215D62"
@@ -20961,7 +20965,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "4D8A5DCFE676AC28769291B0FC9A420200C5B44E26DA01B8C4AC69A9501E6F17"
+    $expectedFingerprint = "7F45EED4CFF092484EE3DCDD359FFA311EFBC6F177B5223F0C87AE3E97C8D86E"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -22557,7 +22561,7 @@ function Initialize-DomeniaPresentation {
     Initialize-DomeniaGuard
     Initialize-DomeniaLive
     Initialize-DomeniaReconcile
-    Add-DomeniaUiLog -Area "Application" -Text "Domenia 1.0 RC1.12.0 pret."
+    Add-DomeniaUiLog -Area "Application" -Text "Domenia 1.0 RC1.13.0 pret."
 }
 
 function Assert-DomeniaCapability {
@@ -24422,7 +24426,8 @@ function Initialize-Window {
                 if ([bool]$script:DemoMode) { Set-Status ("Prêt. " + (Get-DomeniaDemoBannerText) + ".") "WARN" }
                 else { Set-Status "Pret. Connexion validee, mode lecture seule actif." }
                 try { $script:Ctrl["LblMachineCredential"].Text = (Get-DomeniaMachineOperationAccountText) } catch { }
-                try { Start-DomeniaFleetDashboard -Quiet } catch { }
+                # After every ContentRendered handler: the remembered OU of Rechercher is then known to be restoring.
+                try { [void]$script:Window.Dispatcher.BeginInvoke([System.Windows.Threading.DispatcherPriority]::ApplicationIdle,[Action]{ try { Request-DomeniaFleetRefresh } catch { } }) } catch { }
                 Write-AppLog "Pret. Base=$($script:Conn.BaseDn) Server=$($script:Conn.Server) AD=$($script:Conn.BindUser) WIN=$script:ProcessIdentity Demo=$([bool]$script:DemoMode)" "INFO"
                 Update-Dashboard
             }catch{Write-AppLog "ContentRendered : $($_.Exception.ToString())" "ERROR"}
@@ -24464,7 +24469,7 @@ function Initialize-Window {
 # Le login effectue un bind LDAP reel, lit RootDSE et valide la base detectee
 # dans un runspace borne afin que le thread WPF ne soit jamais bloque.
 # =====================================================================
-$script:DomeniaBuild = "Domenia 1.0 RC1.12.0"
+$script:DomeniaBuild = "Domenia 1.0 RC1.13.0"
 $script:FastLoginUi = $null
 $script:FastLoginState = $null
 $script:FastLoginTimer = $null
@@ -25796,7 +25801,7 @@ try {
         Write-StartupTrace -Stage 'Stockage/Preferences' -Status 'WARN' -Detail $script:StoragePreferenceWarning
         Show-WarningBox -Message $script:StoragePreferenceWarning
     }
-    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 RC1.12.0 (2026.10.08-DOMENIA-1.0-RC1.12.0-D120)"
+    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 RC1.13.0 (2026.10.08-DOMENIA-1.0-RC1.13.0-D120)"
     if ([bool]$script:DemoMode) { Write-StartupTrace -Stage "Demonstration" -Status "WARN" -Detail "Demo=True : annuaire fictif en memoire, aucune connexion AD, ecritures desactivees." }
     Write-DomeniaFastLoginLog -Stage "APPLICATION_START" -Detail "PID=$PID Script=$($script:LaunchPath) Root=$($script:RootDir)"
 

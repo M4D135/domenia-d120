@@ -3,11 +3,11 @@
 # network, no script state (the caller keeps the returned Observations and Last).
 
 function Get-DomeniaFleetBoardData {
-    # Entries of the Fleet board for the chosen OU (empty scope = whole indexed domain). Throws the text shown by
-    # Fail-DomeniaFleetDashboard when the worker result cannot be used, so the previous board stays on screen.
-    # Also returns Observations (lower-cased DN -> observation, every cached row whatever its scope) and
-    # Last ({Scope; Targets}: indexed workstations of the scope, used by the Ping, Detect and Analyze actions).
-    param($Result,[string]$Scope = '',[datetime]$Now = [datetime]::Now)
+    # Entries of the Fleet board for the OU chosen in Rechercher (empty scope = whole indexed domain; -Subtree:$false =
+    # its direct children only). Throws the text shown by Fail-DomeniaFleetDashboard when the worker result cannot be
+    # used, so the previous board stays on screen. Also returns Observations (lower-cased DN -> observation, every
+    # cached row whatever its scope) and Last ({Scope; Subtree; Targets}: indexed workstations of the scope).
+    param($Result,[string]$Scope = '',[bool]$Subtree = $true,[datetime]$Now = [datetime]::Now)
     $invariant = [Globalization.CultureInfo]::InvariantCulture
 
     # Last worker output carrying both aggregates (same rule as Get-DomeniaEffectiveWorkerResult).
@@ -27,12 +27,13 @@ function Get-DomeniaFleetBoardData {
 
     $scope = ([string]$Scope).Trim()
     $data = New-DomeniaBoardData -Board Fleet
-    # Same rule as Test-DomeniaLiveRowInScope with the Subtree scope: an empty scope accepts every DN.
+    # Same rule as the Rechercher list (Subtree or OneLevel) and the FleetStats worker: an empty scope accepts every DN.
     $inScope = {
         param([string]$Dn)
         if (-not $scope) { return $true }
         $text = ([string]$Dn).Trim()
         if (-not $text) { return $false }
+        if (-not $Subtree) { return (($text -replace '^(?:[^,\\]|\\.)*,','') -ieq $scope) }
         if ($text -ieq $scope) { return $true }
         return $text.EndsWith(',' + $scope,[StringComparison]::OrdinalIgnoreCase)
     }
@@ -99,8 +100,12 @@ function Get-DomeniaFleetBoardData {
     $presenceRows = @(if ($null -ne $source.PSObject.Properties['Presence']) { $source.Presence })
     foreach ($item in $presenceRows) {
         if ($null -eq $item) { continue }
+        # The worker parses the payloads off the interface thread; older results still carry the raw payload.
         $observation = $null
-        try { $observation = ([string]$item.payload) | ConvertFrom-Json -ErrorAction Stop } catch { continue }
+        $parsed = $item.PSObject.Properties['observation']
+        if ($null -ne $parsed) { $observation = $parsed.Value }
+        else { try { $observation = ([string]$item.payload) | ConvertFrom-Json -ErrorAction Stop } catch { continue } }
+        if ($null -eq $observation) { continue }
         $observations[([string]$item.object_key).ToLowerInvariant()] = $observation
         if (-not (& $inScope ([string]$item.object_key))) { continue }
         $state = [string](& $field $observation 'Presence')
@@ -127,7 +132,7 @@ function Get-DomeniaFleetBoardData {
     $links = 0
     $linksProperty = $source.PSObject.Properties['Links']
     if ($null -ne $linksProperty) { try { $links = [int]$linksProperty.Value } catch { $links = 0 } }
-    Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.machines' -Kind Value -Value ([string]$machines.Count) -Detail $(if ($scope) { 'dans l OU choisie' } else { [string]$activeUsers + ' utilisateurs actifs au total' }))
+    Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.machines' -Kind Value -Value ([string]$machines.Count) -Detail $(if ($scope) { $(if ($Subtree) { 'dans l OU et ses sous-OU' } else { 'directement dans l OU' }) } else { [string]$activeUsers + ' utilisateurs actifs au total' }))
     Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.stale' -Kind Value -Value ([string]$stale) -State $(if ($stale) { 'Warn' } else { 'Ok' }) -Detail 'Derniere connexion au domaine : a verifier ou nettoyer')
     Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.win10' -Kind Value -Value ([string]$windows10) -State $(if ($windows10) { 'Alert' } else { 'Ok' }) -Detail 'Fin de support le 14/10/2025')
     Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.users' -Kind Value -Value ([string]$users) -Detail ([string]$links + ' associations au total'))
@@ -172,7 +177,7 @@ function Get-DomeniaFleetBoardData {
 
     # Releves WMI
     if (-not $inventories.Count) {
-        $data.Hints['Releves WMI'] = $(if ($scope) { 'Analysez l OU (WMI) pour remplir cette section : modeles, memoire, disques, versions et demarrages.' } else { 'Choisissez une OU puis analysez-la (WMI) pour remplir cette section : modeles, memoire, disques, versions et demarrages.' })
+        $data.Hints['Releves WMI'] = 'Dans Rechercher, Analyser la liste remplit cette section pour les postes affiches : modeles, memoire, disques, versions et demarrages.'
     } else {
         $models = @{}; $releases = @{}; $longUptime = 0; $lowDisk = 0; $bootSeen = 0
         $ram = [ordered]@{ '4 Go et -' = 0; '8 Go' = 0; '16 Go' = 0; '32 Go' = 0; '+ de 32 Go' = 0 }
@@ -233,7 +238,7 @@ function Get-DomeniaFleetBoardData {
 
     $data.Summary = 'Base autonome locale et derniers releves : ' + [string]$machines.Count + ' postes actifs dans le perimetre, calcul du ' + $Now.ToString('dd/MM/yyyy HH:mm',$invariant) + '. Parc incomplet ? Outils, Base autonome, Mettre a jour tout.'
     Add-Member -InputObject $data -MemberType NoteProperty -Name 'Observations' -Value $observations
-    Add-Member -InputObject $data -MemberType NoteProperty -Name 'Last' -Value ([pscustomobject]@{ Scope = $scope; Targets = $targets })
+    Add-Member -InputObject $data -MemberType NoteProperty -Name 'Last' -Value ([pscustomobject]@{ Scope = $scope; Subtree = [bool]$Subtree; Targets = $targets })
     [void](Complete-DomeniaBoardData -Data $data)
     return $data
 }

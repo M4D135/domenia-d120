@@ -313,6 +313,8 @@ function Initialize-DomeniaContinuity {
             if($script:AsyncEngineClosing){return}
             if($script:Continuity.RestoreToken -cne ([string]$script:SessionEpoch+'|'+(Get-DomeniaTreeContextKey))){Start-DomeniaTreeBookmarkRestore}
             Invoke-DomeniaTreeBookmarkRestore
+            # The home overview waited for the remembered OU: computed once the restore ended, found or not.
+            if([bool]$script:FleetAwaitingRestore -and -not ([bool]$script:Continuity.Restoring -and -not [bool]$script:Continuity.SelectedRestored)){$script:FleetAwaitingRestore=$false;try{Request-DomeniaFleetRefresh}catch{}}
             Invoke-DomeniaRestoredOuSearch
             if($script:Continuity.Dirty -and -not $script:Continuity.Restoring){Save-DomeniaTreeBookmark;$script:Continuity.Dirty=$false}
             if($script:Continuity.ChangeJob -and -not $script:AsyncJobs.Contains($script:Continuity.ChangeJob)){

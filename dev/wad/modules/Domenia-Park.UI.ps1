@@ -12,8 +12,15 @@ function Update-DomeniaParkRunStatus {
     if($save.Pending -gt 0){$text+=' Enregistrement local en attente.'}
     if($save.Suspended -or $save.Conflicts -gt 0){$text+=' Stockage a verifier dans Fiabilite.'}
     $r.StatusText=$text
-    if($r.Completed -and [bool]$r.FleetRefresh -and -not [bool]$r.FleetRefreshed){$r|Add-Member -NotePropertyName FleetRefreshed -NotePropertyValue $true -Force;try{Start-DomeniaFleetDashboard -Quiet}catch{}}
-    try{[void](Set-DomeniaControlText 'LblFleetRun' $text)}catch{}
+    # A finished run that read workstations changed the observations: the selected workstation board is redrawn at
+    # once, the home overview now or when Accueil is shown again.
+    if($r.Completed -and [bool]$r.FleetRefresh -and -not [bool]$r.FleetRefreshed){
+        $r|Add-Member -NotePropertyName FleetRefreshed -NotePropertyValue $true -Force
+        if($r.Approved -and $r.Done -gt 0){
+            if($null -ne $script:SelectedObject){try{Show-DomeniaBoard -Board Computer -Quiet}catch{}}
+            try{Request-DomeniaFleetRefresh -Force}catch{}
+        }
+    }
     Update-DomeniaParkControls
     foreach($label in @('LblParkStatus','LblParkDetectionStatus')){[void](Set-DomeniaControlText $label $text)}
     if($r.Scope -eq 'Results'){[void](Set-DomeniaControlText 'LblLiveState' $text)}
@@ -25,8 +32,8 @@ function Update-DomeniaParkControls {
 }
 function Start-DomeniaOnlinePark {
     # -PingOnly (decision David 2026-10-07): ping of the listed workstations only, no console reading.
-    # -ScopeTargets (decision David 2026-10-07): workstations of the OU chosen on the home dashboard; -Inventory adds
-    # the light WMI reading. The whole domain is still refused.
+    # -ScopeTargets: explicit workstations (the selected one for the queries of its board). -Inventory adds the light
+    # WMI reading (Analyser la liste, decision David 2026-10-08). The whole domain is still refused.
     param([switch]$DisplayedResults,[switch]$PingOnly,[switch]$Inventory,[object[]]$ScopeTargets=$null,[string]$ScopeLabel='',[object[]]$Probes=$null)
     $started=$false
     try{
@@ -41,7 +48,7 @@ function Start-DomeniaOnlinePark {
         $targets=@()
         if($null -ne $ScopeTargets){
             $targets=@($ScopeTargets|Where-Object{$null -ne $_ -and $_.distinguished_name -and $_.object_guid})
-            if(-not $targets.Count){throw 'Aucun poste indexe dans cette OU.'}
+            if(-not $targets.Count){throw 'Poste selectionne sans DN ni GUID connu : relisez sa fiche.'}
             $DisplayedResults=[switch]$true
         }
         elseif($DisplayedResults){
@@ -49,7 +56,7 @@ function Start-DomeniaOnlinePark {
             $targets=@(foreach($row in @($grid.Items)){if($null -ne $row -and $row.Type -eq 'Machine' -and $row.DN -and $row.Guid){[pscustomobject]@{name=[string]$row.Name;distinguished_name=[string]$row.DN;object_guid=[string]$row.Guid}}})
             if(-not $targets.Count){throw 'Aucun poste dans les resultats affiches.'}
         }
-        $script:ParkRun=[pscustomobject]@{Id=[guid]::NewGuid().ToString('N');Epoch=[long]$script:SessionEpoch;Path=[string]$script:DatabaseScopedPath;Targets=@();Next=0;Pending=@{};Done=0;Online=0;Reused=0;Changed=0;Failed=0;Stopping=$false;Completed=$false;Loading=$true;Approved=$false;Timer=$null;StatusText='';Generation=[long]$script:GlobalSearchGeneration;PingOnly=[bool]$PingOnly;Inventory=[bool]$Inventory;Probes=@($Probes|Where-Object{$null -ne $_});FleetRefresh=($null -ne $ScopeTargets);ScopeLabel=[string]$ScopeLabel;Scope=$(if($DisplayedResults){'Results'}else{'Park'})}
+        $script:ParkRun=[pscustomobject]@{Id=[guid]::NewGuid().ToString('N');Epoch=[long]$script:SessionEpoch;Path=[string]$script:DatabaseScopedPath;Targets=@();Next=0;Pending=@{};Done=0;Online=0;Reused=0;Changed=0;Failed=0;Stopping=$false;Completed=$false;Loading=$true;Approved=$false;Timer=$null;StatusText='';Generation=[long]$script:GlobalSearchGeneration;PingOnly=[bool]$PingOnly;Inventory=[bool]$Inventory;Probes=@($Probes|Where-Object{$null -ne $_});FleetRefresh=$true;ScopeLabel=[string]$ScopeLabel;Scope=$(if($DisplayedResults){'Results'}else{'Park'})}
         $started=$true
         $r=$script:ParkRun;$state=[pscustomobject]@{RunId=$r.Id;Epoch=$r.Epoch;Path=$r.Path}
         $job=Start-UiTask -Name 'Preparer le releve du parc' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload ([pscustomobject]@{Action='ParkTargets';Path=$r.Path;BusyTimeoutMs=250;Scope=$r.Scope;Targets=$targets}) -CallbackState $state -SuccessHandler 'Complete-DomeniaParkTargets' -ErrorHandler 'Fail-DomeniaParkTargets' -NonCancellable -TimeoutSeconds 60 -TaskClass 'Explicit'
@@ -57,6 +64,16 @@ function Start-DomeniaOnlinePark {
         [void](Set-DomeniaControlText 'LblParkStatus' 'Lecture des postes et des sessions conservees en cache...')
     }catch{if($started -and $null -ne $script:ParkRun -and $script:ParkRun.Loading){$script:ParkRun.Completed=$true};Set-Status ('Releve impossible : '+$_.Exception.Message) 'WARN'}
     Update-DomeniaParkControls
+}
+function Start-DomeniaParkAnalysis {
+    # Analyser la liste (decision David 2026-10-08): ping, console user and light WMI reading of the displayed
+    # workstations, plus the WMI queries of the dashboard widgets. Read only, confirmed with the count first.
+    $probes=$null
+    try{
+        $ids=@(Get-DomeniaBoardProbeIds)
+        if($ids.Count){$probes=@(ConvertTo-DomeniaProbePayload -Ids $ids)}
+    }catch{Set-Status ('Requetes des widgets ignorees : '+$_.Exception.Message) 'WARN';$probes=$null}
+    Start-DomeniaOnlinePark -DisplayedResults -Inventory -Probes $probes
 }
 function Complete-DomeniaParkTargets {
     param($Result,$State)
@@ -69,11 +86,11 @@ function Complete-DomeniaParkTargets {
         if($r.Stopping -or -not $r.Targets.Count){$r.Completed=$true;Update-DomeniaParkRunStatus;return}
         $start=${function:Start-DomeniaParkRunTimer};$stop=${function:Stop-DomeniaOnlinePark};$runId=$r.Id
         $message=$r.Targets.Count.ToString()+$(if($r.Scope -eq 'Results'){' postes dans les resultats affiches.'}elseif($r.ScopeLabel){' postes de '+[string]$r.ScopeLabel+'.'}else{' postes du perimetre choisi.'})+' Lecture legere de la console Windows (CIM/DCOM), quatre postes au maximum a la fois. Seuls les comptes nouveaux ou modifies sont resolus dans AD. Les sessions RDP ne sont pas recensees. Associations et cache conserves entre les lancements ; aucun inventaire complet, aucune tache distante.'
-        if(@($r.Probes).Count){$message=$r.Targets.Count.ToString()+' postes'+$(if($r.ScopeLabel){' de '+$r.ScopeLabel}else{''})+'. '+@($r.Probes).Count+' requete(s) WMI des widgets en lecture seule, plus ping et utilisateur console ; quatre postes au maximum a la fois. Resultats conserves pour les tableaux de bord.'}
-        elseif($r.Inventory){$message=$r.Targets.Count.ToString()+' postes'+$(if($r.ScopeLabel){' de '+$r.ScopeLabel}else{''})+'. Ping, utilisateur console et releve WMI leger (modele, memoire, disque C:, build, demarrage), quatre postes au maximum a la fois. Resultats conserves pour le tableau de bord.'}
+        if($r.Inventory){$message=$r.Targets.Count.ToString()+' postes'+$(if($r.ScopeLabel){' de '+$r.ScopeLabel}else{' dans les resultats affiches'})+'. Ping, utilisateur console et releve WMI leger (modele, memoire, disque C:, build, demarrage)'+$(if(@($r.Probes).Count){', plus '+@($r.Probes).Count+' requete(s) WMI des widgets'}else{''})+', en lecture seule ; quatre postes au maximum a la fois. Associations actualisees si l utilisateur change ; resultats conserves pour les tableaux de bord.'}
+        elseif(@($r.Probes).Count){$message=$r.Targets.Count.ToString()+' postes'+$(if($r.ScopeLabel){' de '+$r.ScopeLabel}else{''})+'. '+@($r.Probes).Count+' requete(s) WMI des widgets en lecture seule, plus ping et utilisateur console ; quatre postes au maximum a la fois. Resultats conserves pour les tableaux de bord.'}
         elseif($r.ScopeLabel){$message=$r.Targets.Count.ToString()+' postes de '+$r.ScopeLabel+'.'+$(if($r.PingOnly){' Ping ICMP seulement.'}else{' Ping puis utilisateur console ; associations actualisees si changement.'})}
         if($r.PingOnly -and -not $r.ScopeLabel){$message=$r.Targets.Count.ToString()+' postes dans les resultats affiches. Ping ICMP seulement, quatre postes au maximum a la fois ; aucune lecture de session ni association.'}
-        Request-DomeniaInlineConfirmation -Title $(if(@($r.Probes).Count){'Sonder pour les widgets'}elseif($r.Inventory){'Analyser le perimetre'}elseif($r.PingOnly){'Pinger les postes affiches'}elseif($r.Scope -eq 'Results'){'Detecter sur les resultats affiches'}else{'Detecter sur tout le parc'}) -Target ([string]$script:Conn.Domain) -Message $message -ConfirmText $(if($r.PingOnly){'Pinger'}else{'Verifier les sessions'}) -CancelText 'Annuler' -OnConfirm ({& $start $runId}.GetNewClosure()) -OnCancel ({& $stop -RunId $runId}.GetNewClosure())
+        Request-DomeniaInlineConfirmation -Title $(if($r.Inventory){'Analyser les postes affiches'}elseif(@($r.Probes).Count){'Sonder pour les widgets'}elseif($r.PingOnly){'Pinger les postes affiches'}elseif($r.Scope -eq 'Results'){'Detecter sur les resultats affiches'}else{'Detecter sur tout le parc'}) -Target ([string]$script:Conn.Domain) -Message $message -ConfirmText $(if($r.PingOnly){'Pinger'}elseif($r.Inventory){'Analyser'}else{'Verifier les sessions'}) -CancelText 'Annuler' -OnConfirm ({& $start $runId}.GetNewClosure()) -OnCancel ({& $stop -RunId $runId}.GetNewClosure())
     }catch{Fail-DomeniaParkTargets $_.Exception.Message $State}
 }
 function Fail-DomeniaParkTargets {

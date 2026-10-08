@@ -308,7 +308,8 @@ function Set-DomeniaUxShortLayout {
     # and tighter buttons; every action stays in view (Arreter included).
     $parkPing=Get-DomeniaControl 'BtnParkPing';if($parkPing){$parkPing.Content=if($compact){'Pinger'}else{'Pinger la liste'}}
     $parkRun=Get-DomeniaControl 'BtnParkResults';if($parkRun){$parkRun.Content=if($compact){'Détecter'}else{'Détecter la liste'}}
-    foreach($name in @('BtnLiveRecheck','BtnParkPing','BtnParkResults','BtnParkResultsStop')){
+    $parkAnalyze=Get-DomeniaControl 'BtnParkAnalyze';if($parkAnalyze){$parkAnalyze.Content=if($compact){'Analyser'}else{'Analyser la liste'}}
+    foreach($name in @('BtnLiveRecheck','BtnParkPing','BtnParkResults','BtnParkAnalyze','BtnParkResultsStop')){
         $button=Get-DomeniaControl $name
         if($button){
             $button.Padding=if($compact){[Windows.Thickness]::new(6,4,6,4)}else{[Windows.Thickness]::new(10,4,10,4)}
@@ -318,7 +319,7 @@ function Set-DomeniaUxShortLayout {
     if($consoleCheck){$consoleCheck.Margin=if($compact){[Windows.Thickness]::new(0,0,8,4)}else{[Windows.Thickness]::new(0,0,14,4)}}
     $statuses=Get-DomeniaControl 'UxResultLiveStatuses'
     if($live -and $statuses){
-        $live.ColumnDefinitions[0].Width=if($compact){[Windows.GridLength]::new(415)}else{[Windows.GridLength]::new(1,[Windows.GridUnitType]::Star)}
+        $live.ColumnDefinitions[0].Width=if($compact){[Windows.GridLength]::new(470)}else{[Windows.GridLength]::new(1,[Windows.GridUnitType]::Star)}
         $live.ColumnDefinitions[1].Width=if($compact){[Windows.GridLength]::new(1,[Windows.GridUnitType]::Star)}else{[Windows.GridLength]::new(0)}
         [Windows.Controls.Grid]::SetRow($statuses,$(if($compact){0}else{1}))
         [Windows.Controls.Grid]::SetColumn($statuses,$(if($compact){1}else{0}))

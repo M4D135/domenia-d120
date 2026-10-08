@@ -146,7 +146,7 @@ function Get-DomeniaBoardGroupSubtitle {
         'Securite et etat' = 'Protection, correctifs et configuration'
         'Inventaire du perimetre' = 'Base autonome locale'
         'Repartition' = 'Systemes, activite et unites d organisation'
-        'Releves WMI' = 'Derniere analyse de l OU'
+        'Releves WMI' = 'Analyser la liste, dans Rechercher'
         'Synthese' = 'Calculee sur la liste chargee'
     }
     if ($known.ContainsKey($Group)) { return $known[$Group] }
@@ -194,7 +194,8 @@ function New-DomeniaBoardToolbar {
     $buttons.Orientation = [System.Windows.Controls.Orientation]::Horizontal
     [System.Windows.Controls.Grid]::SetColumn($buttons, 1)
     $probes = @($Layout | Where-Object { [string]$_.Source -eq 'Probe' }).Count
-    if ($probes -and $Board -ne 'Software') { [void]$buttons.Children.Add((New-DomeniaBoardButton ([string][char]0xE72C) 'Actualiser les requetes' 'Execute les requetes WMI des widgets (lecture seule) sur le perimetre, avec confirmation.' @{ Board = $Board; Action = 'Probe' })) }
+    # Fleet queries run from Rechercher (Analyser la liste): the overview only displays (decision David 2026-10-08).
+    if ($probes -and $Board -eq 'Computer') { [void]$buttons.Children.Add((New-DomeniaBoardButton ([string][char]0xE72C) 'Actualiser les requetes' 'Execute les requetes WMI des widgets (lecture seule) sur le perimetre, avec confirmation.' @{ Board = $Board; Action = 'Probe' })) }
     [void]$buttons.Children.Add((New-DomeniaBoardButton ([string][char]0xE710) 'Ajouter un widget' 'Choisir une information du tableau de bord ou une requete prete a l emploi.' @{ Board = $Board; Action = 'Add'; Value = '' }))
     if ($State.Editing) {
         [void]$buttons.Children.Add((New-DomeniaBoardButton ([string][char]0xE777) 'Par defaut' 'Revient a la disposition livree (annulable).' @{ Board = $Board; Action = 'Reset' }))
@@ -840,11 +841,16 @@ function Get-DomeniaWidgetResults {
     $results = @()
     if ($null -eq $script:FleetObservations) { return @() }
     if ($Board -eq 'Fleet') {
+        # Same OU and depth as the overview (OU chosen in Rechercher).
         $scope = if ($null -ne $script:FleetLast) { [string]$script:FleetLast.Scope } else { '' }
+        $subtree = ($null -eq $script:FleetLast -or $null -eq $script:FleetLast.PSObject.Properties['Subtree'] -or [bool]$script:FleetLast.Subtree)
         foreach ($dn in @($script:FleetObservations.Keys)) {
             $obs = $script:FleetObservations[$dn]
             if ($null -eq $obs -or $null -eq $obs.Probes) { continue }
-            if (-not [string]::IsNullOrWhiteSpace($scope) -and -not ([string]$dn).ToLowerInvariant().EndsWith(',' + $scope.ToLowerInvariant())) { continue }
+            if (-not [string]::IsNullOrWhiteSpace($scope)) {
+                if ($subtree) { if (-not ([string]$dn).EndsWith(',' + $scope,[StringComparison]::OrdinalIgnoreCase)) { continue } }
+                elseif ((([string]$dn) -replace '^(?:[^,\\]|\\.)*,','') -ine $scope) { continue }
+            }
             if ($obs.Probes.PSObject.Properties.Name -contains $ProbeId) {
                 $res = $obs.Probes.$ProbeId
                 if ($null -ne $res) { $results += $res }
@@ -865,22 +871,19 @@ function Get-DomeniaWidgetResults {
     }
     return $results
 }
+function Get-DomeniaBoardProbeIds {
+    # Queries placed on the workstation and fleet boards, run by Analyser la liste in Rechercher.
+    return @(foreach ($board in @('Fleet','Computer')) { Get-DomeniaBoardLayout -Board $board | Where-Object { [string]$_.Source -eq 'Probe' } | ForEach-Object { [string]$_.Key } }) | Select-Object -Unique
+}
 function Start-DomeniaWidgetProbe {
-    # Runs the queries of the board's widgets: an OU (never the whole domain) or the selected workstation.
+    # Runs the queries of the workstation board on the selected workstation. The fleet board only displays: its
+    # queries run from Rechercher on the displayed workstations (Analyser la liste, decision David 2026-10-08).
     param([string]$Board)
+    if ($Board -eq 'Fleet') { Set-Status 'Requetes du parc : dans Rechercher, affichez les postes puis Analyser la liste.' 'WARN'; return }
     $probeIds = @(Get-DomeniaBoardLayout -Board $Board | Where-Object { [string]$_.Source -eq 'Probe' } | ForEach-Object { [string]$_.Key } | Select-Object -Unique)
     if (-not $probeIds.Count) { Set-Status 'Aucune requete WMI sur ce tableau de bord : ajoutez un widget de requete.' 'WARN'; return }
     $probes = ConvertTo-DomeniaProbePayload -Ids $probeIds
-    if ($Board -eq 'Fleet') {
-        $scope = if ($null -ne $script:FleetLast) { [string]$script:FleetLast.Scope } else { '' }
-        if ([string]::IsNullOrWhiteSpace($scope) -or $scope -eq [string]$script:Conn.BaseDn) { Set-Status 'Choisissez une OU : jamais le domaine entier.' 'WARN'; return }
-        $epoch = if ($null -ne $script:FleetLast.PSObject.Properties['Epoch']) { [long]$script:FleetLast.Epoch } else { -1L }
-        if ($epoch -ne [long]$script:SessionEpoch -or $scope -ne (Get-DomeniaFleetScope)) { Set-Status 'Actualisez la vue du parc : le perimetre a change depuis le dernier calcul.' 'WARN'; return }
-        $targets = @($script:FleetLast.Targets)
-        if (-not $targets.Count) { Set-Status 'Aucun poste dans le perimetre.' 'WARN'; return }
-        $ouName = ($scope -split '(?<!\\),')[0] -replace '^OU=',''
-        Start-DomeniaOnlinePark -ScopeTargets $targets -ScopeLabel $ouName -Probes $probes
-    } elseif ($Board -eq 'Computer') {
+    if ($Board -eq 'Computer') {
         if ($null -eq $script:SelectedObject) { Set-Status 'Aucun poste selectionne.' 'WARN'; return }
         $so = $script:SelectedObject
         $target = [pscustomobject]@{ name = $so.Name; distinguished_name = $so.DN; object_guid = [string]$so.Safety.Guid }

@@ -3481,6 +3481,13 @@
     "Text": "Sur demande : fige les postes visibles apres les filtres de recherche. Aucune extension au reste du parc. Verifie legerement chaque console et reutilise les identites deja connues."
   },
   {
+    "Name": "BtnParkAnalyze",
+    "Kind": "Button",
+    "Source": "park-detection",
+    "Title": "Analyser les resultats affiches",
+    "Text": "Sur demande et apres confirmation : ping, utilisateur console et releve WMI leger des seuls postes affiches, plus les requetes WMI des widgets. Lecture seule sur les postes ; associations actualisees si l utilisateur change ; les resultats remplissent les tableaux de bord."
+  },
+  {
     "Name": "BtnParkSweepStop",
     "Kind": "Button",
     "Source": "park-detection",

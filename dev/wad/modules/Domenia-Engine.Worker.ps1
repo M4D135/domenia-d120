@@ -134,15 +134,38 @@ try {
     }
     if ($action -eq 'FleetStats') {
         # Aggregates of the local index for the home dashboard (decision David 2026-10-07). Read only.
+        # The scope is the OU chosen in Rechercher (decision David 2026-10-08): workstations are filtered and cached
+        # observations parsed here, off the interface thread, which only aggregates the workstations of the OU.
+        $scope = ([string]$Payload.Scope).Trim()
+        $subtree = ($null -eq $Payload.PSObject.Properties['Subtree'] -or [bool]$Payload.Subtree)
         $types = @(Invoke-IdxWQuery $db "SELECT object_type AS t, CASE WHEN state='Desactive' THEN 'Desactive' ELSE 'Actif' END AS s, count(*) AS n FROM ad_objects GROUP BY 1,2;")
-        $machines = @(Invoke-IdxWQuery $db "SELECT name, object_guid, extra, last_logon, distinguished_name FROM ad_objects WHERE object_type='Machine' AND (state IS NULL OR state<>'Desactive');")
-        $links = 0; $sources = @(); $presence = @()
+        $machines = New-Object 'System.Collections.Generic.List[object]'
+        foreach ($machine in @(Invoke-IdxWQuery $db "SELECT name, object_guid, extra, last_logon, distinguished_name FROM ad_objects WHERE object_type='Machine' AND (state IS NULL OR state<>'Desactive');")) {
+            $dn = ([string]$machine.distinguished_name).Trim()
+            if ($scope) {
+                # Subtree: the OU and its sub-OUs; one level: the parent DN (first RDN removed, escaped commas kept) is the OU.
+                if ($subtree) { if (-not ($dn -ieq $scope -or $dn.EndsWith(',' + $scope,[StringComparison]::OrdinalIgnoreCase))) { continue } }
+                elseif (($dn -replace '^(?:[^,\\]|\\.)*,','') -ine $scope) { continue }
+            }
+            $machines.Add($machine)
+        }
+        $links = 0; $sources = @(); $presence = New-Object 'System.Collections.Generic.List[object]'
         try { $links = [int](@(Invoke-IdxWQuery $db 'SELECT count(*) AS n FROM user_machine_links;')[0].n) } catch { }
         try { $sources = @(Invoke-IdxWQuery $db 'SELECT source AS s, count(*) AS n FROM user_machine_links GROUP BY 1 ORDER BY 2 DESC LIMIT 6;') } catch { }
         if (@(Invoke-IdxWQuery $db "SELECT name FROM sqlite_master WHERE type='table' AND name='park_session_cache';").Count) {
-            try { $presence = @(Invoke-IdxWQuery $db 'SELECT object_key, checked_utc, payload FROM park_session_cache;') } catch { }
+            $cached = @()
+            try { $cached = @(Invoke-IdxWQuery $db 'SELECT object_key, checked_utc, payload FROM park_session_cache;') } catch { }
+            # Every observation is kept (the workstation board reads the selected one, whatever the OU); same size
+            # limit as ParkTargets.
+            foreach ($item in $cached) {
+                if (([string]$item.payload).Length -gt 262144) { continue }
+                $observation = $null
+                try { $observation = ([string]$item.payload) | ConvertFrom-Json -ErrorAction Stop } catch { continue }
+                if ($null -eq $observation) { continue }
+                $presence.Add([pscustomobject]@{ object_key = [string]$item.object_key; checked_utc = [string]$item.checked_utc; observation = $observation })
+            }
         }
-        [pscustomobject]@{ Rows=@(); Busy=$false; Missing=$false; MachineCount=$machines.Count; Types=$types; Machines=$machines; Links=$links; LinkSources=$sources; Presence=$presence }
+        [pscustomobject]@{ Rows=@(); Busy=$false; Missing=$false; MachineCount=$machines.Count; Scope=$scope; Subtree=$subtree; Types=$types; Machines=$machines.ToArray(); Links=$links; LinkSources=$sources; Presence=$presence.ToArray() }
         return
     }
     if ($action -eq 'ParkState') {

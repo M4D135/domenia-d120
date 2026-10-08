@@ -250,7 +250,7 @@ if($infrastructure){
             Test-Case ($theme+' : detection des resultats accessible a 960x516') {
                 foreach($page in @('WsSearch')){
                     $window.FindName('WorkspaceTabs').SelectedItem=$window.FindName($page);Invoke-GeometryPump $window
-                    $names=@('BtnParkResults','BtnParkResultsStop')
+                    $names=@('BtnParkResults','BtnParkAnalyze','BtnParkResultsStop')
                     foreach($name in $names){$a=Get-ClientRect $window $name;Assert-True ($a.Visible -and $a.W -gt 20 -and $a.H -ge 25 -and $a.X -ge 0 -and $a.Y -ge 0 -and $a.X+$a.W -le $window.Content.ActualWidth+0.5 -and $a.Y+$a.H -le $window.Content.ActualHeight+0.5) ($name+' hors vue')}
                 }
             }
