@@ -3506,7 +3506,7 @@
     "Kind": "Button",
     "Source": "lot-L01",
     "Title": "Analyser ces postes dans Rechercher",
-    "Text": "Ouvre Rechercher sur lʼOU de lʼaccueil. Pinger, détecter ou analyser se lancent ensuite depuis la liste, à votre clic."
+    "Text": "Affiche dans Rechercher les postes actifs de lʼOU de lʼaccueil, depuis la base locale et sans requête. Pinger, détecter ou analyser se lancent ensuite depuis la liste, à votre clic."
   },
   {
     "Name": "BtnFirstStepOu",

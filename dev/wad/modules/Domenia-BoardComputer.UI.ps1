@@ -44,7 +44,7 @@ function Add-DomeniaComputerBoardAdEntries {
     if ($null -eq $laps) { $laps = Get-DomeniaEntryFileTimeUtc $entry 'ms-Mcs-AdmPwdExpirationTime' }
     if ($null -ne $laps) {
         $expired = ($laps -lt $now)
-        if ($expired) { Add-DomeniaBoardAttention -Data $Data -Level Warn -Text 'Mot de passe LAPS expire (rotation en attente).' -Point 'secrets' -Route 'TabAccounts' -RouteText 'Secrets' }
+        if ($expired) { Add-DomeniaBoardAttention -Data $Data -Level Warn -Text 'Mot de passe LAPS expire (rotation en attente).' -Point 'secrets' -Route 'ComputerSecrets' -RouteText 'Onglet Secrets du poste' }
         Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.ad.laps' -Kind Value -Value $(if ($expired) { 'Expire' } else { 'Valide' }) -Detail ('Expiration le ' + $laps.ToLocalTime().ToString('dd/MM/yyyy HH:mm', $invariant)) -State $(if ($expired) { 'Warn' } else { 'Ok' }))
     }
 
@@ -75,7 +75,7 @@ function Get-DomeniaComputerBoardData {
     }
     $fr = [Globalization.CultureInfo]::GetCultureInfo('fr-FR')
     $invariant = [Globalization.CultureInfo]::InvariantCulture
-    # A point may name the workspace holding its useful action (stable point name, route of Invoke-DomeniaUxRoute):
+    # A point may name the tab holding its useful action (stable point name, route of Invoke-DomeniaBoardRoute):
     # the attention card offers a link that opens it and runs nothing (decision David 2026-10-08, UX-10).
     $note = { param([string]$Level,[string]$Text,[string]$Point = '',[string]$Route = '',[string]$RouteText = '') Add-DomeniaBoardAttention -Data $Data -Level $Level -Text $Text -Point $Point -Route $Route -RouteText $RouteText }
     $isEmpty = { param([string]$Text) return ($Text -match '^\(vide\)$|^Non renseigne$|^Non fourni|^Aucun$|^\s*$') }
@@ -131,7 +131,7 @@ function Get-DomeniaComputerBoardData {
             $uptimeText = if ($uptimeDays -gt 0) { [string]$uptimeDays + ' j ' + $hours + ' h' } elseif ($hours -gt 0) { [string]$hours + ' h ' + $minutes.ToString('00') + ' min' } else { [string]$minutes + ' min' }
         }
         $longUptime = ($uptimeDays -gt 30)
-        if ($longUptime) { & $note 'Warn' ('Pas de redemarrage depuis ' + $uptimeDays + ' jours.') 'restart' 'WsComputer' 'Redémarrer (Assistance poste)' }
+        if ($longUptime) { & $note 'Warn' ('Pas de redemarrage depuis ' + $uptimeDays + ' jours.') 'restart' 'ComputerActions' 'Redémarrer : onglet Actions' }
         $lastBoot = & $value 'Systeme d exploitation' 'Dernier demarrage'
         $uptimeDetail = if ($longUptime) { 'Plus de 30 jours : redemarrage conseille' } elseif ($lastBoot) { 'Demarre le ' + $lastBoot } else { '' }
         Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.uptime' -Kind Value -Value $(if ($uptime) { $uptimeText } else { 'Non lu' }) -Detail $uptimeDetail -State $(if ($longUptime) { 'Warn' } elseif (-not $uptime) { 'Off' } else { '' }))
@@ -203,7 +203,7 @@ function Get-DomeniaComputerBoardData {
             $size = [double]$disk.Size; $free = [double]$disk.Free; $used = [Math]::Max(0.0, $size - $free)
             $percent = [Math]::Round(100.0 * $free / $size)
             $diskState = & $freeLevel $percent
-            if ($diskState -eq 'Alert') { & $note 'Alert' ('Disque ' + $diskName + ' presque plein : ' + $percent + ' % libre.') 'disk.c' 'WsComputer' 'Disque C (Assistance poste)' } elseif ($diskState -eq 'Warn') { & $note 'Warn' ('Disque ' + $diskName + ' : ' + $percent + ' % libre.') 'disk.c' 'WsComputer' 'Disque C (Assistance poste)' }
+            if ($diskState -eq 'Alert') { & $note 'Alert' ('Disque ' + $diskName + ' presque plein : ' + $percent + ' % libre.') 'disk.c' 'ComputerActions' 'Ouvrir C$ : onglet Actions' } elseif ($diskState -eq 'Warn') { & $note 'Warn' ('Disque ' + $diskName + ' : ' + $percent + ' % libre.') 'disk.c' 'ComputerActions' 'Ouvrir C$ : onglet Actions' }
             $ring = @(
                 [pscustomobject]@{ Label = ('Utilise ' + (Format-DomeniaDashboardSize $used)); Value = $used; Color = (Get-DomeniaBoardColor 'Used') },
                 [pscustomobject]@{ Label = ('Libre ' + (Format-DomeniaDashboardSize $free)); Value = $free; Color = (Get-DomeniaBoardColor $diskState) }
@@ -285,7 +285,7 @@ function Get-DomeniaComputerBoardData {
         $bitlockerText = [string]$bitlocker[0].Value
         # Worker values: 'Protection Active', 'Protection Desactive', 'Protection Inconnu' (the word 'Protection' alone proves nothing).
         $protected = (($bitlockerText -match '(?i)\bactive\b|\bprotege\b') -and ($bitlockerText -notmatch '(?i)desactiv|non protege|inconnu|\boff\b'))
-        if (-not $protected) { & $note 'Warn' ('BitLocker : ' + $bitlockerText + '.') 'secrets' 'TabAccounts' 'Secrets (Comptes et accès)' }
+        if (-not $protected) { & $note 'Warn' ('BitLocker : ' + $bitlockerText + '.') 'secrets' 'ComputerSecrets' 'Onglet Secrets du poste' }
         Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.bitlocker' -Kind Value -Value $bitlockerText -Detail ([string]$bitlocker[0].Item) -State $(if ($protected) { 'Ok' } else { 'Warn' }))
     }
 
@@ -297,7 +297,7 @@ function Get-DomeniaComputerBoardData {
         # The worker writes one 'Etat' row: 'Aucun redemarrage en attente' or 'Redemarrage requis : <reasons>'.
         $rebootState = [string]$rebootItems.State
         $pending = (($rebootItems.Count -gt 0) -or ($rebootState -like 'Redemarrage requis*'))
-        if ($pending) { & $note 'Warn' 'Redemarrage en attente.' 'restart' 'WsComputer' 'Redémarrer (Assistance poste)' }
+        if ($pending) { & $note 'Warn' 'Redemarrage en attente.' 'restart' 'ComputerActions' 'Redémarrer : onglet Actions' }
         Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.reboot' -Kind Value -Value $(if ($pending) { 'Oui' } else { 'Non' }) -Detail $(if ($rebootItems.Count) { [string]$rebootItems.Items[0].Item } else { $rebootState }) -State $(if ($pending) { 'Warn' } else { 'Ok' }))
     }
 

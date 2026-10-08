@@ -98,6 +98,8 @@ function Show-DomeniaBoard {
     # "Annuler"; Clear-DomeniaDashboards forgets it when another object is selected.
     if ($null -ne $Data) { $state.Data = $Data; $state.Notice = ''; $state.EmptyText = '' }
     if ($EmptyText) { $state.EmptyText = $EmptyText }
+    # FI-04: a selected workstation outside the OU of the overview gets its observations from the local base (once).
+    if ($Board -eq 'Computer') { try { [void](Request-DomeniaSelectedObservation) } catch { } }
     $panel = Get-DomeniaControl (Get-DomeniaBoardPanelName $Board)
     if ($null -eq $panel) { return }
     # Ctrl+Z on the board undoes the last layout change (text boxes keep their own undo).

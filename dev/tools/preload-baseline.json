@@ -479,7 +479,7 @@
     "ConvertTo-DomeniaSqlLiteral": "D83D9BFC77CDB91498820C8179FAB807D4B37CC115C1E2950D686FAE79FC3421",
     "Backup-DomeniaDatabase": "2AF049A4E909C951FB3189B21D685F9C51B337D81105B8F645E13A880EB1C35B",
     "Recover-DomeniaDatabase": "5266400B0366C10C3DB714598CF109A18FECD34AAC1913F4ADD62119193A2AB6",
-    "Initialize-DomeniaDatabase": "186ECD8376347D452E6C8AC271785262EA2808D7197B4449B821FBB6283DB633",
+    "Initialize-DomeniaDatabase": "A84C0A02EE1A740691EAEC30A731B27BB674D0FBBF0B831D58220F2A4424D196",
     "Import-DomeniaLegacyStoreIfNeeded": "80613E5324DB590E8CF35A64555F011CADAA091EE1832122D603FB8522801642",
     "Invoke-DomeniaDatabaseMaintenance": "88A1BEF6A33E024E2D89536ACF810BB25C81861EB45A32CE5D2DCB35035442B2",
     "Register-DomeniaOperationSample": "39FBC80C5C24794E8590745DE39D7BF1F444628A3C4CE1469A2357C8C36743B8",
@@ -496,8 +496,8 @@
     "Load-UserMachineLinks": "D588E9FAB3DB852FD760624C2A463CDEA8A5B97BAF550C273F8C7C1B2CB7776D",
     "ConvertTo-DomeniaCanonicalWorkerCode": "48A6A851309CF03C8AA4802B160FC0C9D3234B795C63D0BAED6923BF42FE2FAF",
     "Get-DomeniaWorkerCodeHash": "6B81660F207AAEB37BA076144EDD12F5A926F9F64858B03755C2567E335C0D16",
-    "Get-DomeniaWorkerOperationHashes": "94C173A3FA07BD69E3B2476E8B56DC6AFCEB8EDB0C38E59A572DC49988CCA00A",
-    "Assert-DomeniaWorkerRegistry": "09C63A923DB197F3CEE7BE9E435A4E38FA92747FE4DCE163221EBC50B3A3255B",
+    "Get-DomeniaWorkerOperationHashes": "F361587C51B78BB231E9B746E76DD30D2CF43B3B7EC59FA691098C2E4FF9B063",
+    "Assert-DomeniaWorkerRegistry": "D94A7DF5AC7557DCBABAC4895678DA6C62FAABA02D538AD6B1E4D325A296AB48",
     "Assert-DomeniaWorkerOperationCode": "41D63871EDC11F5765938E6DAF8004A01471CD63E9666E2569D6E43008032526",
     "Get-DomeniaWorkerEngineSelfTestCode": "7FB07491846A78A89C13351DC07ABCA7B150642EE02AA25FF430A19942001AF0",
     "New-DomeniaWorkerRunspace": "8D2FB4E8786E147F555EC5860E76F8EB0D606D66BF9A610F43A0CC2836197A0D",
@@ -1957,6 +1957,19 @@
       "ChangedCoreFunctions": [
         "Initialize-DomeniaDatabase",
         "Update-TaskUi"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "dev",
+      "Source": "dev",
+      "Decision": "L01 corrections de relecture : reparation CO-26 unique par base (marqueur sync_state), empreintes LocalStore et LocalIndexRead regenerees apres relecture (BitLocker inconnu -1, KeepKnown, ObservationsOnly, groupes sensibles a la casse)",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Get-DomeniaWorkerOperationHashes",
+        "Initialize-DomeniaDatabase"
       ],
       "AddedCoreFunctions": [],
       "RemovedCoreFunctions": [],

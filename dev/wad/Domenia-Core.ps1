@@ -4459,7 +4459,7 @@ function Get-MainXaml {
                         <TextBlock x:Name="LblFleetDashboard" Text="Calculée depuis la base autonome locale." Foreground="{DynamicResource MutedColor}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0"/>
                         <WrapPanel Margin="0,8,0,0">
                           <Button x:Name="BtnFleetScope" Content="Changer dʼOU" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" Margin="0,0,8,0" ToolTip="Ouvre lʼarbre des OU de Rechercher : lʼOU choisie filtre la recherche et cette vue dʼensemble." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Changer dʼOU dans Rechercher"/>
-                          <Button x:Name="BtnFleetOpenSearch" Content="Analyser ces postes dans Rechercher" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" ToolTip="Ouvre Rechercher sur cette OU. Pinger, détecter ou analyser se lancent ensuite depuis la liste, à votre clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Analyser ces postes dans Rechercher"/>
+                          <Button x:Name="BtnFleetOpenSearch" Content="Analyser ces postes dans Rechercher" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" ToolTip="Affiche dans Rechercher les postes actifs de cette OU, depuis la base locale et sans requête. Pinger, détecter ou analyser se lancent ensuite depuis la liste, à votre clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Analyser ces postes dans Rechercher"/>
                         </WrapPanel>
                       </StackPanel>
                     </Border>
@@ -20625,14 +20625,16 @@ CREATE VIEW IF NOT EXISTS operation_stats AS
 CREATE TABLE IF NOT EXISTS domenia_provenance(object_guid TEXT PRIMARY KEY,domain_dn TEXT,reader TEXT,source_dc TEXT,invocation_id TEXT,usn_changed INTEGER,observed_at TEXT);
 CREATE TABLE IF NOT EXISTS ad_computer_facts(object_guid TEXT PRIMARY KEY,object_key TEXT,os_version TEXT,when_created TEXT,pwd_last_set TEXT,laps_kind TEXT,laps_expiry TEXT,read_at TEXT);
 CREATE TABLE IF NOT EXISTS fleet_snapshots(scope_key TEXT NOT NULL,snapshot_day TEXT NOT NULL,taken_at TEXT,scope_dn TEXT,machines INTEGER DEFAULT 0,figures TEXT,PRIMARY KEY(scope_key,snapshot_day));
-UPDATE ad_objects SET search_key=COALESCE(search_key,'')||' '||lower(extra) WHERE object_type IN ('Utilisateur','Machine') AND COALESCE(extra,'')<>'' AND instr(COALESCE(search_key,''),lower(extra))=0;
+UPDATE ad_objects SET search_key=COALESCE(search_key,'')||' '||lower(extra) WHERE NOT EXISTS(SELECT 1 FROM sync_state WHERE scope='repair:search_key_extra') AND object_type IN ('Utilisateur','Machine') AND COALESCE(extra,'')<>'' AND instr(lower(COALESCE(search_key,'')),lower(extra))=0;
+INSERT OR IGNORE INTO sync_state(scope,details) VALUES('repair:search_key_extra','CO-26');
 INSERT OR IGNORE INTO schema_info(key,value) VALUES('domenia_schema','1');
 COMMIT;
 "@
         # Lot L01 (decision David 2026-10-08): two additive tables (computer facts, daily fleet snapshots) created like the
-        # others, schema_info unchanged (11/1, never updated): an RC1.13 ignores them. The UPDATE repairs once the
-        # search keys written without the extra field by the single-row updates of RC1.13.0 and before (CO-26); a
-        # repaired row no longer matches its condition.
+        # others, schema_info unchanged (11/1, never updated): an RC1.13 ignores them. The UPDATE repairs the search keys
+        # written without the extra field by the single-row updates of RC1.13.0 and before (CO-26), once per base: the
+        # marker row of sync_state (scope 'repair:search_key_extra', read by nothing else) skips the scan at every later
+        # start, whatever the case of the extra field (SQLite lower() only folds ASCII).
         # Demarrage ultra-court : creation/upgrade du schema uniquement.
         # Aucun quick_check complet, aucune migration TSV/CSV et aucune copie
         # de sauvegarde ne doivent bloquer le thread WPF au lancement.
@@ -21002,7 +21004,7 @@ function Get-DomeniaWorkerOperationHashes {
         ReadBitLockerKey      = "8A98EBCDC48AD572404E1566826035C84F34ACB87564330A7AA511FAAC01EE6F"
         BitLockerPresence     = "F1A7C8FD83BA659E7826DE2DDBDD01EE13BC185819FD9330656B77A99ACD6764"
         DemoDirectory         = "EA76156ECA8C5DADB7650C90D58C100B3CA2BCC184FC9E309CC1E56DC258A30D"
-        LocalIndexRead        = "01D0234BE5E44B7B618753F09CA95E8131AD36619816D0544BDA2C4826880CF9"
+        LocalIndexRead        = "DA04BD7A486164DD4507420C1F3694F23BF9795F85F0C669BCAEC6068FB930D8"
         ParkSharedSync        = "B3A64051813F12A24BD5E791D59CF7E2330FA84E965C9F44BD62366D4A81415E"
         IsolatedRead          = "4074D6ECAA620A9C80A5B6B535BB657E02DCE06A9DF97E35CA1EA47572D1060C"
         CmdletHelp            = "12505D0654AB0E97BD803A70B953BB0BBE2152836AAA1889744C1312EB215D62"
@@ -21058,7 +21060,7 @@ function Get-DomeniaWorkerOperationHashes {
         ReceiptStore         = "45FE35D694782ECB8B13D14C5B3CD637FD5CA1C4B0E6CD278EEE3AC5804121D1"
         ScopeReconcile       = "5917B0E2AB92BA626EF3621CCCE7B9A4988B318E62834EFD02FD6AFEF5C0B650"
         DocumentStore        = "BFD83587CB1BA62BC141E5F0742C6C6453A561617ED157045F3B4E7AB11A14E7"
-        LocalStore           = "5E94D77BBC681ED30AAF0EDBB62AF4E933BCC119947E05308A345B425B7476D1"
+        LocalStore           = "0073EF8956CCECDEE06A9BF2C39552AC149747FD1BCC6EC1EE0F835794423792"
         EngineSelfTest        = "40E2C89F858E22E1D221AC48DC04DD5BF627F1ACBC836AB48036C43DB9F7E1D1"
             EmbeddedDirectoryLookup = "2B3A888C7E1A97B4D523B0B3A408EF03AA5C0D0F95D534984B8EB3D581CDDD17"
         EmbeddedPathBrowse = "B643D707E242EC4416AD63622847DD7C39E5B53ED47CF64FECD56E22B5A82271"
@@ -21070,7 +21072,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "474DAC0EF1455313B265181AE4419BC23CCF0D865F13280C4C941806B5C4F1B2"
+    $expectedFingerprint = "41CA6772F95C2AF9F49A55DF3566A2B4ACAE3A875169405B15F59C88CE654BF0"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }

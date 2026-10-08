@@ -40,7 +40,7 @@ Test-Case 'BRD-004' 'Sans reglage, la disposition livree contient le catalogue l
     Assert-Equal 'Vue d ensemble' ([string]$layout[0].Group)
     # Lot L01: the home overview is delivered without the observation widgets nor any WMI query.
     $fleet = @(ConvertTo-DomeniaBoardLayout -Board Fleet -Json '')
-    Assert-Equal 'fleet.health,fleet.attention,fleet.machines,fleet.stale,fleet.disabled,fleet.created,fleet.pwdold,fleet.laps,fleet.bitlocker,fleet.versions,fleet.eos,fleet.os,fleet.lastlogon,fleet.ou' (@($fleet | ForEach-Object { [string]$_.Key }) -join ',')
+    Assert-Equal 'fleet.health,fleet.attention,fleet.machines,fleet.stale,fleet.disabled,fleet.created,fleet.pwdold,fleet.laps,fleet.bitlocker,fleet.versions,fleet.eos,fleet.win10,fleet.os,fleet.lastlogon,fleet.ou' (@($fleet | ForEach-Object { [string]$_.Key }) -join ',')
     Assert-Equal 'Santé' ([string]$fleet[0].Group)
     Assert-Equal 0 @($fleet | Where-Object { ([string]$_.Source -eq 'Probe') -or ([string]$_.Key -in @('fleet.presence','fleet.users','fleet.lastcheck','fleet.models','fleet.releases','fleet.ram','fleet.diskfree','fleet.lowdisk','fleet.uptime')) }).Count 'aucun widget d observation livre'
     Assert-True (@(Get-DomeniaBoardCatalog -Board Fleet | Where-Object { $_.Key -eq 'fleet.presence' }).Count -eq 1) 'widget d observation toujours au catalogue'

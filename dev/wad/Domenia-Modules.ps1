@@ -1162,8 +1162,12 @@ function Get-DomeniaRuntimeModulePlan {
             'Fail-DomeniaFleetDashboard',
             'Update-DomeniaFleetScopeText',
             'Show-DomeniaFleetScopeSource',
+            'Select-DomeniaFleetScopeOu',
             'Show-DomeniaFleetAnalyzeSource',
             'Merge-DomeniaFleetObservations',
+            'Request-DomeniaSelectedObservation',
+            'Complete-DomeniaSelectedObservation',
+            'Fail-DomeniaSelectedObservation',
             'Save-DomeniaFleetSnapshot',
             'Complete-DomeniaFleetDashboard',
             'Get-DomeniaAttentionTargets',
@@ -1175,6 +1179,8 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaFirstStepsState',
             'Update-DomeniaFirstSteps',
             'Open-DomeniaFirstStep',
+            'Get-DomeniaBoardRouteTarget',
+            'Invoke-DomeniaBoardRoute',
             'Update-DomeniaComputerDashboard',
             'Update-DomeniaSoftwareDashboard'
         ) }

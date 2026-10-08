@@ -2732,7 +2732,8 @@ Test-Case 'D029 : mesure native compte les six categories sans modifier la base'
         $result=Invoke-UsageWorker
         Assert-Equal 'StorageUsage' $result.Kind;Assert-True $result.ReadOnly
         Assert-Equal 6 @($result.Categories).Count
-        $expected=@{Observations=3;Snapshots=1;History=3;Index=3;ManualLinks=1;Secrets=1}
+        # Index: the fixture rows plus the CO-26 repair marker of sync_state written at creation (lot L01).
+        $expected=@{Observations=3;Snapshots=1;History=3;Index=4;ManualLinks=1;Secrets=1}
         foreach($c in $result.Categories){Assert-Equal $expected[$c.Category] $c.Rows $c.Category}
         Assert-Equal $hash (Get-FileHash $script:TestDbPath -Algorithm SHA256).Hash
         Assert-Equal ([IO.FileInfo]::new($script:TestDbPath).Length) $result.DatabaseBytes
@@ -3342,7 +3343,7 @@ Test-Case 'L01 : base 11/1 existante, tables additives creees, schema_info incha
         Assert-False ([IO.Directory]::Exists((Join-Path $root 'Backups\migrations'))) 'Sauvegarde de migration demandee pour une base 11/1.'
         Assert-Equal 0 $script:RecoverCalls 'Restauration tentee.'
         # The RC1.13.0 schema script (this function without the lines of the lot) still opens the completed base.
-        $lines = @((Get-FunctionTextFromFile $core 'Initialize-DomeniaDatabase') -split "`n" | Where-Object { $_ -notmatch 'ad_computer_facts|fleet_snapshots|UPDATE ad_objects SET search_key' })
+        $lines = @((Get-FunctionTextFromFile $core 'Initialize-DomeniaDatabase') -split "`n" | Where-Object { $_ -notmatch 'ad_computer_facts|fleet_snapshots|UPDATE ad_objects SET search_key|repair:search_key_extra' })
         $old = ($lines -join "`n") -replace 'function Initialize-DomeniaDatabase \{','function Initialize-L01PreviousDatabase {'
         Assert-False ($old -match 'ad_computer_facts|fleet_snapshots') 'Script precedent mal reconstitue.'
         . ([scriptblock]::Create($old))
@@ -3482,18 +3483,77 @@ Test-Case 'L01 : presence BitLocker en lot ecrite dans secret_state, lue par Fle
         Assert-False ($secrets -match '\d{6}-\d{6}-\d{6}') 'Valeur de cle ecrite.'
     } finally { Remove-Item $root -Recurse -Force }
 }
-Test-Case 'L01 : search_key sans Extra repare une fois au demarrage (CO-26)' {
+Test-Case 'L01 : lecture LAPS seule = BitLocker non lu ; presence d OU sans objet visible ne remplace jamais des cles lues' {
     $root = New-LegacySandbox
     try {
-        Add-L01Rows "INSERT INTO ad_objects(object_key,object_guid,object_type,name,extra,search_key,distinguished_name) VALUES('guid-9','guid-9','Machine','PC-9','Windows 10 Pro / Lyon','pc-9 pc-9','CN=PC-9,DC=example,DC=invalid'),('guid-8','guid-8','Machine','PC-8','','pc-8','CN=PC-8,DC=example,DC=invalid');"
+        $lyon = 'OU=Lyon,DC=example,DC=invalid'
+        [void](Invoke-L01Bulk @((New-L01IndexRow 'PC-A' $lyon 'guid-000a'), (New-L01IndexRow 'PC-B' $lyon 'guid-000b'), (New-L01IndexRow 'PC-C' $lyon 'guid-000c')))
+        $now = [datetime]::UtcNow.ToString('o')
+        # LAPS read alone on PC-A (Save-DomeniaSecretIndexEntry sends BitLockerKeys -1): BitLocker stays unknown.
+        $laps = [pscustomobject]@{ Computer = 'PC-A'; BitLockerKeys = -1; BitLockerLast = ''; LapsScheme = 'Windows'; LapsExpiry = '2026-12-01T00:00:00Z'; Verdict = 'mot de passe LAPS lisible'; At = $now }
+        Assert-True (Invoke-LegacyWorker ([pscustomobject]@{ Path = $script:TestDbPath; Items = @([pscustomobject]@{ Kind = 'SecretMeta'; Row = $laps }) })).Saved
+        Assert-Equal -1 ([int]@(Get-L01Rows "SELECT bitlocker_keys FROM secret_state WHERE computer_key='PC-A';")[0].bitlocker_keys) 'LAPS seul ecrit 0 cle BitLocker.'
+        $result = Invoke-L01Fleet -Scope $lyon
+        Assert-Equal 0 ([int]$result.Coverage.BitLockerRead) 'Lecture LAPS seule comptee comme BitLocker lu.'
+        Assert-Equal 0 @(@($result.Groups) | Where-Object { [string]$_.bk -ne 'U' }).Count 'Poste LAPS seul hors U.'
+        $board = Get-DomeniaFleetBoardData -Result $result -Scope $lyon -Now ([datetime]::Now)
+        Assert-Equal 'Non lu' ([string]$board.Entries['fleet.bitlocker'].Value)
+        Assert-Equal 0 @(@($board.Attention) | Where-Object { [string]$_.Point -eq 'bitlocker.none' }).Count 'Poste sans cle signale sans lecture BitLocker.'
+        # Two keys read on PC-B one by one, then a read of the OU that sees nothing: PC-B keeps its two keys.
+        $keyed = [pscustomobject]@{ Computer = 'PC-B'; BitLockerKeys = 2; BitLockerLast = '2026-09-01T00:00:00Z'; LapsScheme = ''; LapsExpiry = ''; Verdict = '2 cle(s) visible(s)'; At = $now }
+        [void](Invoke-LegacyWorker ([pscustomobject]@{ Path = $script:TestDbPath; Items = @([pscustomobject]@{ Kind = 'SecretMeta'; Row = $keyed }) }))
+        $blind = @(foreach ($name in @('PC-A','PC-B','PC-C')) { [pscustomobject]@{ Computer = $name; BitLockerKeys = 0; BitLockerLast = ''; LapsScheme = ''; LapsExpiry = ''; Verdict = 'aucune cle visible avec ce compte'; At = $now; KeepKnown = $true } })
+        Assert-True (Invoke-LegacyWorker ([pscustomobject]@{ Path = $script:TestDbPath; Items = @([pscustomobject]@{ Kind = 'SecretMeta'; Row = [pscustomobject]@{ Rows = $blind } }) })).Saved
+        Assert-Equal 2 ([int]@(Get-L01Rows "SELECT bitlocker_keys FROM secret_state WHERE computer_key='PC-B';")[0].bitlocker_keys) 'Cles lues poste par poste remplacees par 0.'
+        Assert-Equal 'Windows' ([string]@(Get-L01Rows "SELECT laps_scheme FROM secret_state WHERE computer_key='PC-A';")[0].laps_scheme) 'Metadonnees LAPS perdues.'
+        Assert-Equal 0 ([int]@(Get-L01Rows "SELECT bitlocker_keys FROM secret_state WHERE computer_key='PC-C';")[0].bitlocker_keys)
+        # A read that sees keys elsewhere writes the zero of an unseen workstation (KeepKnown false).
+        $seen = [pscustomobject]@{ Computer = 'PC-B'; BitLockerKeys = 0; BitLockerLast = ''; LapsScheme = ''; LapsExpiry = ''; Verdict = 'aucune cle visible avec ce compte'; At = $now; KeepKnown = $false }
+        [void](Invoke-LegacyWorker ([pscustomobject]@{ Path = $script:TestDbPath; Items = @([pscustomobject]@{ Kind = 'SecretMeta'; Row = [pscustomobject]@{ Rows = @($seen) } }) }))
+        Assert-Equal 0 ([int]@(Get-L01Rows "SELECT bitlocker_keys FROM secret_state WHERE computer_key='PC-B';")[0].bitlocker_keys) 'Cle supprimee de l annuaire encore comptee.'
+    } finally { Remove-Item $root -Recurse -Force }
+}
+Test-Case 'L01 : releves d un poste hors OU lus seuls (ObservationsOnly), groupes distincts par la casse' {
+    $root = New-LegacySandbox
+    try {
+        $lyon = 'OU=Lyon,DC=example,DC=invalid'
+        [void](Invoke-L01Bulk @((New-L01IndexRow 'PC-1' $lyon 'guid-0001' -Os 'Windows 11 Entreprise'), (New-L01IndexRow 'PC-2' $lyon 'guid-0002' -Os 'WINDOWS 11 Entreprise'), (New-L01IndexRow 'PC-3' 'OU=Paris,DC=example,DC=invalid' 'guid-0003')))
+        [void](Save-L01Observation ('CN=PC-1,' + $lyon) 'guid-0001' 'PC-1' 1 'EX\alice')
+        [void](Save-L01Observation 'CN=PC-3,OU=Paris,DC=example,DC=invalid' 'guid-0003' 'PC-3' 1 'EX\carl')
+        $Payload = [pscustomobject]@{ Action = 'FleetStats'; Path = $script:TestDbPath; BusyTimeoutMs = 250; Scope = ''; Subtree = $true; Plan = (Get-DomeniaFleetQueryPlan -Now ([datetime]::Now)); Keys = @('cn=pc-3,ou=paris,dc=example,dc=invalid'); ObservationsOnly = $true }
+        $only = & ([scriptblock]::Create((Get-DomeniaLocalIndexReadWorkerCode)))
+        Assert-Equal 0 @($only.Groups).Count 'Agregats calcules pour une lecture de releves.'
+        Assert-Equal 0 @($only.Machines).Count
+        Assert-Equal 'cn=pc-3,ou=paris,dc=example,dc=invalid' (@(@($only.Presence) | ForEach-Object { [string]$_.object_key }) -join '|') 'Releve du seul poste demande.'
+        Assert-False ([bool]@($only.Presence)[0].in_scope)
+        # Two systems that differ by case only: two groups, each workstation in its own (GROUP BY is case sensitive).
+        $result = Invoke-L01Fleet -Scope $lyon
+        $gids = @(@($result.Machines) | ForEach-Object { [string]$_.gid })
+        Assert-Equal 2 @($result.Groups).Count ('Groupes : ' + @($result.Groups).Count)
+        Assert-Equal 2 @($gids | Sort-Object -Unique).Count ('Postes rattaches au meme groupe : ' + ($gids -join ','))
+        foreach ($gid in $gids) { Assert-True ([bool]$gid) 'Poste sans groupe.' }
+    } finally { Remove-Item $root -Recurse -Force }
+}
+Test-Case 'L01 : search_key sans Extra repare une seule fois par base au demarrage (CO-26)' {
+    $root = New-LegacySandbox
+    try {
+        # A base written by RC1.13.0 has no repair marker: rows written by its single-row updates lack the extra field.
+        Add-L01Rows "DELETE FROM sync_state WHERE scope='repair:search_key_extra';"
+        Add-L01Rows "INSERT INTO ad_objects(object_key,object_guid,object_type,name,extra,search_key,distinguished_name) VALUES('guid-9','guid-9','Machine','PC-9','Windows 10 Pro / Lyon','pc-9 pc-9','CN=PC-9,DC=example,DC=invalid'),('guid-8','guid-8','Machine','PC-8','','pc-8','CN=PC-8,DC=example,DC=invalid'),('guid-7','guid-7','Machine','PC-7','École / Étage 2','pc-7 école / étage 2','CN=PC-7,DC=example,DC=invalid');"
         $script:DomeniaDatabaseReady = $false
         Assert-True (Initialize-DomeniaDatabase)
         $key = [string]@(Get-L01Rows "SELECT search_key FROM ad_objects WHERE name='PC-9';")[0].search_key
         Assert-True ($key -like '*windows 10 pro / lyon*') ('search_key non repare : ' + $key)
         Assert-Equal 'pc-8' ([string]@(Get-L01Rows "SELECT search_key FROM ad_objects WHERE name='PC-8';")[0].search_key) 'Ligne sans Extra modifiee.'
+        Assert-Equal 1 @(Get-L01Rows "SELECT scope FROM sync_state WHERE scope='repair:search_key_extra';").Count 'Marqueur de reparation absent.'
+        # Later starts never scan again: a row still lacking the extra field is left to the next index write.
+        Add-L01Rows "INSERT INTO ad_objects(object_key,object_guid,object_type,name,extra,search_key,distinguished_name) VALUES('guid-6','guid-6','Machine','PC-6','Windows 11 Pro / Paris','pc-6','CN=PC-6,DC=example,DC=invalid');"
+        $accented = [string]@(Get-L01Rows "SELECT search_key FROM ad_objects WHERE name='PC-7';")[0].search_key
         $script:DomeniaDatabaseReady = $false
         Assert-True (Initialize-DomeniaDatabase)
         Assert-Equal $key ([string]@(Get-L01Rows "SELECT search_key FROM ad_objects WHERE name='PC-9';")[0].search_key) 'Reparation repetee.'
+        Assert-Equal 'pc-6' ([string]@(Get-L01Rows "SELECT search_key FROM ad_objects WHERE name='PC-6';")[0].search_key) 'Parcours de reparation relance a un demarrage suivant.'
+        Assert-Equal $accented ([string]@(Get-L01Rows "SELECT search_key FROM ad_objects WHERE name='PC-7';")[0].search_key) 'Majuscule accentuee recopiee a chaque demarrage.'
     } finally { Remove-Item $root -Recurse -Force }
 }
 Test-Case 'L01 : IndexBuild et BitLockerPresence ne demandent aucun attribut sensible ; BitLockerPresence refusee a la racine' {

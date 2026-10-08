@@ -56,11 +56,12 @@ fleet.stale|Inventaire du périmètre|Sans connexion depuis 90 j|Value|Kpi|S|Att
 fleet.disabled|Inventaire du périmètre|Comptes désactivés encore dans lʼOU|Value|Kpi|S|Comptes ordinateur désactivés à déplacer ou supprimer
 fleet.created|Inventaire du périmètre|Créés ces 30 jours|Value|Kpi|S|Attribut whenCreated
 fleet.pwdold|Inventaire du périmètre|Mot de passe machine de plus de 60 j|Value|Kpi|S|Attribut pwdLastSet
+fleet.servers|Inventaire du périmètre|Serveurs / postes|Distribution|Pie|M|Attribut operatingSystem : serveurs et postes de travail|N
 fleet.laps|Sécurité|Sans LAPS|Value|Kpi|S|Expiration LAPS lue avec la base autonome, jamais le mot de passe
 fleet.bitlocker|Sécurité|Sans clé BitLocker|Value|Kpi|S|Présence des clés de récupération, lue sur demande pour lʼOU affichée
 fleet.versions|Versions de Windows|Versions de Windows|Distribution|Pie|M|Attribut operatingSystemVersion de tout le périmètre
 fleet.eos|Versions de Windows|Fin de service|Value|Kpi|S|Versions plus maintenues ou bientôt (90 jours avant la date)
-fleet.win10|Versions de Windows|Postes sous Windows 10|Value|Kpi|S|Hors LTSC, LTSB et IoT|N
+fleet.win10|Versions de Windows|Postes sous Windows 10|Value|Kpi|S|Hors LTSC, LTSB et IoT
 fleet.os|Répartition|Systèmes dʼexploitation|Distribution|Pie|M|Systèmes déclarés dans lʼannuaire
 fleet.lastlogon|Répartition|Dernière connexion au domaine|Series|Column|M|Ancienneté de la dernière connexion
 fleet.ou|Répartition|Postes par unité dʼorganisation|Distribution|Bar|M|Postes par OU ou sous-OU
@@ -74,6 +75,9 @@ fleet.diskfree|Relevés des postes|Espace libre sur C:|Series|Column|M|Postes pa
 fleet.lowdisk|Relevés des postes|Disque C: presque plein|Value|Kpi|S|Postes avec moins de 10 % libre|N
 fleet.uptime|Relevés des postes|Non redémarrés depuis 30 j|Value|Kpi|S|Postes à redémarrer|N
 fleet.trend|Évolution|Postes à traiter sur 90 jours|Timeline|Line|L|Instantanés quotidiens locaux de lʼOU affichée|N
+fleet.trend.win10|Évolution|Windows 10 sur 90 jours|Timeline|Line|L|Postes sous Windows 10 hors LTSC, LTSB et IoT, instantanés quotidiens|N
+fleet.trend.stale|Évolution|Inactifs sur 90 jours|Timeline|Line|L|Postes sans connexion depuis 90 j, instantanés quotidiens|N
+fleet.trend.lowdisk|Évolution|Disques C: presque pleins sur 90 jours|Timeline|Line|L|Postes analysés avec moins de 10 % libre, instantanés quotidiens|N
 '@
     Software = @'
 software.count|Synthese|Logiciels|Value|Kpi|S|Nombre de logiciels et d editeurs
@@ -159,6 +163,8 @@ function Get-DomeniaWindowsFamily {
     $c = [string]$Caption
     if ($c -match '(?i)server') { return 'Server' }
     if ($c -match '(?i)LTS[BC]') { if ($c -match '(?i)\bIoT\b') { return 'IoT' }; return 'LTSC' }
+    # Pro Education and Pro for Workstations follow the Pro dates (table Families.Pro), never the Education ones.
+    if ($c -match '(?i)\bPro\b|professionnel|professional') { return 'Pro' }
     if ($c -match '(?i)entreprise|enterprise|education|éducation') { return 'Enterprise' }
     if ($c -match '(?i)\bIoT\b') { return 'Enterprise' }
     return 'Pro'

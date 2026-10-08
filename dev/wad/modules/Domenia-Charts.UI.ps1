@@ -403,7 +403,7 @@ function New-DomeniaRowButton {
 function New-DomeniaAttentionCard {
     # Points requiring attention, most serious first; a single reassuring line when nothing is wrong.
     # Fleet: a point naming its workstations unfolds them on click (Switch-DomeniaAttentionDetails), from the data in
-    # memory. Workstation: a point naming a route offers a link to the workspace of the useful action, running nothing.
+    # memory. Workstation: a point naming a route offers a link to the tab of the useful action, running nothing.
     param([string]$Title = 'Points d attention',[object[]]$Items = @(),[double]$Width = 460,[double]$MinHeight = 0,[int]$Max = 9,[string]$Board = '')
     $panel = New-Object System.Windows.Controls.StackPanel
     $ordered = @(@($Items | Where-Object { $_.Level -eq 'Alert' }) + @($Items | Where-Object { $_.Level -eq 'Warn' }) + @($Items | Where-Object { $_.Level -notin @('Alert','Warn') }))
@@ -474,7 +474,7 @@ function New-DomeniaAttentionCard {
                 [void]$hyperlink.Inlines.Add($routeText)
                 $hyperlink.ToolTip = 'Ouvre lʼécran de lʼaction utile, sans rien exécuter.'
                 $hyperlink.Tag = $route
-                $hyperlink.Add_Click({ param($s,$e) try { Invoke-DomeniaUxRoute -Route ([string]$s.Tag) } catch { } })
+                $hyperlink.Add_Click({ param($s,$e) try { Invoke-DomeniaBoardRoute -Route ([string]$s.Tag) } catch { } })
                 [void]$link.Inlines.Add($hyperlink)
                 [System.Windows.Controls.DockPanel]::SetDock($link, [System.Windows.Controls.Dock]::Right)
                 $row.Children.Insert(0, $link)

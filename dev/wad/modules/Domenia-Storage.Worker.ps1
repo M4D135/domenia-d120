@@ -308,7 +308,11 @@ try {
         $key=ConvertTo-DomeniaSqlLiteral (([string]$r.Computer).ToUpperInvariant())
         $old=@(Invoke-DomeniaDbQuery ("SELECT * FROM secret_state WHERE computer_key=$key;") $db)
         $prev=if($old.Count){$old[0]}else{$null}
-        $keys=if([int]$r.BitLockerKeys -lt 0){[int]$prev.bitlocker_keys}else{[int]$r.BitLockerKeys}
+        # KeepKnown (BitLocker presence of an OU where nothing was visible): a key count already read for this computer
+        # is never replaced by the zero of a read that saw nothing.
+        if($null -ne $r.PSObject.Properties['KeepKnown'] -and [bool]$r.KeepKnown -and [int]$r.BitLockerKeys -eq 0 -and $null -ne $prev -and [int]$prev.bitlocker_keys -gt 0){continue}
+        # BitLocker not read (-1, a LAPS read alone): the previous count, or -1 (unknown) for a first row, never 0.
+        $keys=if([int]$r.BitLockerKeys -lt 0){if($null -ne $prev){[int]$prev.bitlocker_keys}else{-1}}else{[int]$r.BitLockerKeys}
         $last=if([int]$r.BitLockerKeys -lt 0){[string]$prev.bitlocker_last}else{[string]$r.BitLockerLast}
         $scheme=if([string]$r.LapsScheme){[string]$r.LapsScheme}else{[string]$prev.laps_scheme}
         $expiry=if([string]$r.LapsScheme){[string]$r.LapsExpiry}else{[string]$prev.laps_expiry}

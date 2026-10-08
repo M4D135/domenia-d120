@@ -151,54 +151,62 @@ try {
         foreach ($stamp in @([string]$plan.CreatedSince,[string]$plan.PasswordBefore,[string]$plan.NowUtc,[string]$plan.ObservationsSince)) { if ($stamp -notmatch '^\d{4}-\d{2}-\d{2}T[0-9:.]+Z$') { throw 'Plan de calcul invalide.' } }
         $tables = @{}
         foreach ($row in @(Invoke-IdxWQuery $db "SELECT name FROM sqlite_master WHERE type='table';")) { $tables[[string]$row.name] = $true }
-        $types = @(Invoke-IdxWQuery $db "SELECT object_type AS t, CASE WHEN state='Desactive' THEN 'Desactive' ELSE 'Actif' END AS s, count(*) AS n FROM ad_objects GROUP BY 1,2;")
-        $scopeSql = '1=1'
-        if ($scope) {
-            $suffix = ',' + $scope
-            $len = $suffix.Length
-            $scopeLit = Get-IdxWLiteral $scope; $suffixLit = Get-IdxWLiteral $suffix
-            if ($subtree) { $scopeSql = "(a.distinguished_name = $scopeLit COLLATE NOCASE OR (length(a.distinguished_name) > $len AND substr(a.distinguished_name,-$len) = $suffixLit COLLATE NOCASE))" }
-            else { $scopeSql = "(length(a.distinguished_name) > $len AND substr(a.distinguished_name,-$len) = $suffixLit COLLATE NOCASE AND replace(replace(substr(a.distinguished_name,1,length(a.distinguished_name) - $len),'\\',''),'\,','') NOT LIKE '%,%')" }
-        }
-        $factsJoin = ''; $factsCols = "'N' AS fx, NULL AS fv, NULL AS fc, NULL AS fp, NULL AS fk, NULL AS fe, NULL AS fr"
-        if ($tables.ContainsKey('ad_computer_facts')) {
-            $factsJoin = ' LEFT JOIN ad_computer_facts f ON f.object_guid = lower(a.object_guid)'
-            $factsCols = "CASE WHEN f.object_guid IS NULL THEN 'N' WHEN COALESCE(f.read_at,'') >= COALESCE((SELECT last_sync FROM sync_state WHERE scope='directory'),'') THEN 'F' ELSE 'S' END AS fx, f.os_version AS fv, f.when_created AS fc, f.pwd_last_set AS fp, f.laps_kind AS fk, f.laps_expiry AS fe, f.read_at AS fr"
-        }
-        $b = @($bounds | ForEach-Object { Get-IdxWLiteral $_ })
-        $created = Get-IdxWLiteral ([string]$plan.CreatedSince); $pwdBefore = Get-IdxWLiteral ([string]$plan.PasswordBefore); $nowLit = Get-IdxWLiteral ([string]$plan.NowUtc)
-        $cte = "WITH m AS (SELECT a.name AS name, a.distinguished_name AS dn, a.object_guid AS guid, CASE WHEN a.state='Desactive' THEN 'D' ELSE 'A' END AS st," +
-            " CASE WHEN instr(COALESCE(a.extra,''),' / ')>0 THEN substr(a.extra,1,instr(a.extra,' / ')-1) ELSE COALESCE(a.extra,'') END AS os," +
-            " CASE WHEN COALESCE(a.last_logon,'') GLOB '[0-9][0-9]/[0-9][0-9]/[0-9][0-9][0-9][0-9]*' THEN substr(a.last_logon,7,4)||'-'||substr(a.last_logon,4,2)||'-'||substr(a.last_logon,1,2) ELSE '' END AS ld," +
-            " $factsCols, s.computer_key AS sk, s.bitlocker_keys AS sb, s.checked_at AS sc, s.verdict AS sv" +
-            " FROM ad_objects a$factsJoin LEFT JOIN secret_state s ON s.computer_key = upper(a.name) WHERE a.object_type='Machine' AND $scopeSql)," +
-            " g AS (SELECT name, dn, guid, st, os, ld, fx, sc, fr, CASE WHEN fx='F' THEN COALESCE(fv,'') ELSE '' END AS ver," +
-            " CASE WHEN ld='' THEN 5 WHEN ld >= $($b[0]) THEN 0 WHEN ld >= $($b[1]) THEN 1 WHEN ld >= $($b[2]) THEN 2 WHEN ld >= $($b[3]) THEN 3 ELSE 4 END AS lb," +
-            " CASE WHEN fx<>'F' OR COALESCE(fc,'')='' THEN '' WHEN fc >= $created THEN 'R' ELSE 'O' END AS cr," +
-            " CASE WHEN fx<>'F' OR COALESCE(fp,'')='' THEN '' WHEN fp < $pwdBefore THEN 'O' ELSE 'R' END AS pw," +
-            " CASE WHEN fx<>'F' THEN '' WHEN fk='NoSchema' THEN 'X' WHEN fk IN ('Legacy','Windows') AND COALESCE(fe,'')<>'' THEN (CASE WHEN fe < $nowLit THEN 'E' ELSE 'O' END) WHEN fk='None' THEN 'N' ELSE '' END AS lk," +
-            " CASE WHEN sk IS NULL THEN 'U' WHEN sv='non disponible dans ce domaine' THEN 'X' WHEN COALESCE(sb,0) > 0 THEN 'K' ELSE 'N' END AS bk FROM m)," +
-            " h AS (SELECT *, st||'|'||os||'|'||ver||'|'||lb||'|'||cr||'|'||pw||'|'||lk||'|'||bk AS k FROM g) "
-        $groups = New-Object 'System.Collections.Generic.List[object]'; $gids = @{}
-        foreach ($group in @(Invoke-IdxWQuery $db ($cte + 'SELECT k, st, os, ver, lb, cr, pw, lk, bk, count(*) AS n FROM h GROUP BY k;'))) {
-            $gids[[string]$group.k] = [string]($groups.Count + 1)
-            $groups.Add([pscustomobject]@{ gid = $gids[[string]$group.k]; st = [string]$group.st; os = [string]$group.os; ver = [string]$group.ver; lb = [int]$group.lb; cr = [string]$group.cr; pw = [string]$group.pw; lk = [string]$group.lk; bk = [string]$group.bk; n = [int]$group.n })
-        }
-        # One text cell per workstation (fields never hold a tab: the index replaces them): thousands of rows are read
-        # without one native call per cell.
+        # ObservationsOnly: only the observations of the explicitly named keys (a selected workstation outside the OU of
+        # the last overview), without any aggregate.
+        $observationsOnly = (($null -ne $Payload.PSObject.Properties['ObservationsOnly']) -and [bool]$Payload.ObservationsOnly)
+        $types = @(); $parents = @(); $groups = New-Object 'System.Collections.Generic.List[object]'
         $machines = New-Object 'System.Collections.Generic.List[object]'; $targets = New-Object 'System.Collections.Generic.List[object]'; $byDn = @{}
-        foreach ($machine in @(Invoke-IdxWQuery $db ($cte + "SELECT COALESCE(name,'')||char(9)||COALESCE(dn,'')||char(9)||COALESCE(guid,'')||char(9)||st||char(9)||k||char(9)||ld AS r FROM h ORDER BY name COLLATE NOCASE;"))) {
-            $cells = ([string]$machine.r).Split([char]9)
-            if ($cells.Count -lt 6) { continue }
-            $row = [pscustomobject]@{ name = $cells[0]; distinguished_name = $cells[1]; object_guid = $cells[2]; gid = [string]$gids[$cells[4]]; st = $cells[3]; logon = $cells[5] }
-            $machines.Add($row)
-            if ($cells[3] -ne 'D') { $targets.Add($row); $byDn[$cells[1].ToLowerInvariant()] = $row }
+        $coverage = [pscustomobject]@{ BitLockerRead = 0; BitLockerAt = ''; FactsFresh = 0; FactsStale = 0; FactsAt = '' }
+        if (-not $observationsOnly) {
+            $types = @(Invoke-IdxWQuery $db "SELECT object_type AS t, CASE WHEN state='Desactive' THEN 'Desactive' ELSE 'Actif' END AS s, count(*) AS n FROM ad_objects GROUP BY 1,2;")
+            $scopeSql = '1=1'
+            if ($scope) {
+                $suffix = ',' + $scope
+                $len = $suffix.Length
+                $scopeLit = Get-IdxWLiteral $scope; $suffixLit = Get-IdxWLiteral $suffix
+                if ($subtree) { $scopeSql = "(a.distinguished_name = $scopeLit COLLATE NOCASE OR (length(a.distinguished_name) > $len AND substr(a.distinguished_name,-$len) = $suffixLit COLLATE NOCASE))" }
+                else { $scopeSql = "(length(a.distinguished_name) > $len AND substr(a.distinguished_name,-$len) = $suffixLit COLLATE NOCASE AND replace(replace(substr(a.distinguished_name,1,length(a.distinguished_name) - $len),'\\',''),'\,','') NOT LIKE '%,%')" }
+            }
+            $factsJoin = ''; $factsCols = "'N' AS fx, NULL AS fv, NULL AS fc, NULL AS fp, NULL AS fk, NULL AS fe, NULL AS fr"
+            if ($tables.ContainsKey('ad_computer_facts')) {
+                $factsJoin = ' LEFT JOIN ad_computer_facts f ON f.object_guid = lower(a.object_guid)'
+                $factsCols = "CASE WHEN f.object_guid IS NULL THEN 'N' WHEN COALESCE(f.read_at,'') >= COALESCE((SELECT last_sync FROM sync_state WHERE scope='directory'),'') THEN 'F' ELSE 'S' END AS fx, f.os_version AS fv, f.when_created AS fc, f.pwd_last_set AS fp, f.laps_kind AS fk, f.laps_expiry AS fe, f.read_at AS fr"
+            }
+            $b = @($bounds | ForEach-Object { Get-IdxWLiteral $_ })
+            $created = Get-IdxWLiteral ([string]$plan.CreatedSince); $pwdBefore = Get-IdxWLiteral ([string]$plan.PasswordBefore); $nowLit = Get-IdxWLiteral ([string]$plan.NowUtc)
+            $cte = "WITH m AS (SELECT a.name AS name, a.distinguished_name AS dn, a.object_guid AS guid, CASE WHEN a.state='Desactive' THEN 'D' ELSE 'A' END AS st," +
+                " CASE WHEN instr(COALESCE(a.extra,''),' / ')>0 THEN substr(a.extra,1,instr(a.extra,' / ')-1) ELSE COALESCE(a.extra,'') END AS os," +
+                " CASE WHEN COALESCE(a.last_logon,'') GLOB '[0-9][0-9]/[0-9][0-9]/[0-9][0-9][0-9][0-9]*' THEN substr(a.last_logon,7,4)||'-'||substr(a.last_logon,4,2)||'-'||substr(a.last_logon,1,2) ELSE '' END AS ld," +
+                " $factsCols, s.computer_key AS sk, s.bitlocker_keys AS sb, s.checked_at AS sc, s.verdict AS sv" +
+                " FROM ad_objects a$factsJoin LEFT JOIN secret_state s ON s.computer_key = upper(a.name) WHERE a.object_type='Machine' AND $scopeSql)," +
+                " g AS (SELECT name, dn, guid, st, os, ld, fx, sc, fr, CASE WHEN fx='F' THEN COALESCE(fv,'') ELSE '' END AS ver," +
+                " CASE WHEN ld='' THEN 5 WHEN ld >= $($b[0]) THEN 0 WHEN ld >= $($b[1]) THEN 1 WHEN ld >= $($b[2]) THEN 2 WHEN ld >= $($b[3]) THEN 3 ELSE 4 END AS lb," +
+                " CASE WHEN fx<>'F' OR COALESCE(fc,'')='' THEN '' WHEN fc >= $created THEN 'R' ELSE 'O' END AS cr," +
+                " CASE WHEN fx<>'F' OR COALESCE(fp,'')='' THEN '' WHEN fp < $pwdBefore THEN 'O' ELSE 'R' END AS pw," +
+                " CASE WHEN fx<>'F' THEN '' WHEN fk='NoSchema' THEN 'X' WHEN fk IN ('Legacy','Windows') AND COALESCE(fe,'')<>'' THEN (CASE WHEN fe < $nowLit THEN 'E' ELSE 'O' END) WHEN fk='None' THEN 'N' ELSE '' END AS lk," +
+                " CASE WHEN sk IS NULL THEN 'U' WHEN COALESCE(sb,-1) < 0 THEN 'U' WHEN sv='non disponible dans ce domaine' THEN 'X' WHEN COALESCE(sb,0) > 0 THEN 'K' ELSE 'N' END AS bk FROM m)," +
+                " h AS (SELECT *, st||'|'||os||'|'||ver||'|'||lb||'|'||cr||'|'||pw||'|'||lk||'|'||bk AS k FROM g) "
+            # GROUP BY k is case sensitive (BINARY): the group ids are looked up the same way, never without the case.
+            $gids = [System.Collections.Generic.Dictionary[string,string]]::new([StringComparer]::Ordinal)
+            foreach ($group in @(Invoke-IdxWQuery $db ($cte + 'SELECT k, st, os, ver, lb, cr, pw, lk, bk, count(*) AS n FROM h GROUP BY k;'))) {
+                $gids[[string]$group.k] = [string]($groups.Count + 1)
+                $groups.Add([pscustomobject]@{ gid = $gids[[string]$group.k]; st = [string]$group.st; os = [string]$group.os; ver = [string]$group.ver; lb = [int]$group.lb; cr = [string]$group.cr; pw = [string]$group.pw; lk = [string]$group.lk; bk = [string]$group.bk; n = [int]$group.n })
+            }
+            # One text cell per workstation (fields never hold a tab: the index replaces them): thousands of rows are read
+            # without one native call per cell.
+            foreach ($machine in @(Invoke-IdxWQuery $db ($cte + "SELECT COALESCE(name,'')||char(9)||COALESCE(dn,'')||char(9)||COALESCE(guid,'')||char(9)||st||char(9)||k||char(9)||ld AS r FROM h ORDER BY name COLLATE NOCASE;"))) {
+                $cells = ([string]$machine.r).Split([char]9)
+                if ($cells.Count -lt 6) { continue }
+                $gid = ''; [void]$gids.TryGetValue([string]$cells[4],[ref]$gid)
+                $row = [pscustomobject]@{ name = $cells[0]; distinguished_name = $cells[1]; object_guid = $cells[2]; gid = [string]$gid; st = $cells[3]; logon = $cells[5] }
+                $machines.Add($row)
+                if ($cells[3] -ne 'D') { $targets.Add($row); $byDn[$cells[1].ToLowerInvariant()] = $row }
+            }
+            $parents = @(Invoke-IdxWQuery $db ($cte + "SELECT substr(dn,instr(dn,',')+1) AS p, count(*) AS n FROM g WHERE st<>'D' GROUP BY 1;"))
+            $coverageRow = @(Invoke-IdxWQuery $db ($cte + "SELECT sum(CASE WHEN bk<>'U' THEN 1 ELSE 0 END) AS br, max(CASE WHEN bk<>'U' THEN sc END) AS ba, sum(CASE WHEN fx='F' THEN 1 ELSE 0 END) AS ff, sum(CASE WHEN fx='S' THEN 1 ELSE 0 END) AS fs, max(fr) AS fa FROM g WHERE st<>'D';"))
+            if ($coverageRow.Count) { $c0 = $coverageRow[0]; $coverage = [pscustomobject]@{ BitLockerRead = [int]$c0.br; BitLockerAt = [string]$c0.ba; FactsFresh = [int]$c0.ff; FactsStale = [int]$c0.fs; FactsAt = [string]$c0.fa } }
         }
         $active = $targets.Count
-        $parents = @(Invoke-IdxWQuery $db ($cte + "SELECT substr(dn,instr(dn,',')+1) AS p, count(*) AS n FROM g WHERE st<>'D' GROUP BY 1;"))
-        $coverageRow = @(Invoke-IdxWQuery $db ($cte + "SELECT sum(CASE WHEN bk<>'U' THEN 1 ELSE 0 END) AS br, max(CASE WHEN bk<>'U' THEN sc END) AS ba, sum(CASE WHEN fx='F' THEN 1 ELSE 0 END) AS ff, sum(CASE WHEN fx='S' THEN 1 ELSE 0 END) AS fs, max(fr) AS fa FROM g WHERE st<>'D';"))
-        $coverage = [pscustomobject]@{ BitLockerRead = 0; BitLockerAt = ''; FactsFresh = 0; FactsStale = 0; FactsAt = '' }
-        if ($coverageRow.Count) { $c0 = $coverageRow[0]; $coverage = [pscustomobject]@{ BitLockerRead = [int]$c0.br; BitLockerAt = [string]$c0.ba; FactsFresh = [int]$c0.ff; FactsStale = [int]$c0.fs; FactsAt = [string]$c0.fa } }
         $links = 0; $sources = @(); $presence = New-Object 'System.Collections.Generic.List[object]'
         try { $links = [int](@(Invoke-IdxWQuery $db 'SELECT count(*) AS n FROM user_machine_links;')[0].n) } catch { }
         try { $sources = @(Invoke-IdxWQuery $db 'SELECT source AS s, count(*) AS n FROM user_machine_links GROUP BY 1 ORDER BY 2 DESC LIMIT 6;') } catch { }
@@ -234,7 +242,7 @@ try {
             }
         }
         $history = @()
-        if ($tables.ContainsKey('fleet_snapshots') -and [string]$Payload.ScopeKey) {
+        if ((-not $observationsOnly) -and $tables.ContainsKey('fleet_snapshots') -and [string]$Payload.ScopeKey) {
             $history = @(Invoke-IdxWQuery $db ('SELECT snapshot_day AS day, figures FROM fleet_snapshots WHERE scope_key = ' + (Get-IdxWLiteral ([string]$Payload.ScopeKey)) + ' AND snapshot_day >= ' + (Get-IdxWLiteral ([string]$plan.HistorySince)) + ' ORDER BY snapshot_day;'))
         }
         [pscustomobject]@{ Rows=@(); Busy=$false; Missing=$false; MachineCount=$active; Scope=$scope; Subtree=$subtree; Types=$types; Groups=$groups.ToArray(); Machines=$machines.ToArray(); Targets=$targets.ToArray(); Parents=$parents; Coverage=$coverage; Links=$links; LinkSources=$sources; Presence=$presence.ToArray(); History=$history }

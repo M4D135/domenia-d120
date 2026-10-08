@@ -361,7 +361,7 @@
     "File": "wad/modules/Domenia-Storage.Worker.ps1",
     "Function": "Get-DomeniaStorageWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "5E94D77BBC681ED30AAF0EDBB62AF4E933BCC119947E05308A345B425B7476D1"
+    "Sha256": "0073EF8956CCECDEE06A9BF2C39552AC149747FD1BCC6EC1EE0F835794423792"
   },
   {
     "Operation": "ScopeReconcile",
@@ -410,7 +410,7 @@
     "File": "wad/modules/Domenia-Engine.Worker.ps1",
     "Function": "Get-DomeniaLocalIndexReadWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "01D0234BE5E44B7B618753F09CA95E8131AD36619816D0544BDA2C4826880CF9"
+    "Sha256": "DA04BD7A486164DD4507420C1F3694F23BF9795F85F0C669BCAEC6068FB930D8"
   },
   {
     "Operation": "ParkSharedSync",

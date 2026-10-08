@@ -117,7 +117,8 @@ function Get-DomeniaFleetBoardData {
     $stale = 0; $never = 0; $created = 0; $pwdOld = 0; $windows10 = 0; $versionRead = 0
     $staleGroups = New-Object System.Collections.ArrayList; $neverGroups = New-Object System.Collections.ArrayList
     $createdGroups = New-Object System.Collections.ArrayList; $pwdGroups = New-Object System.Collections.ArrayList
-    $win10Groups = New-Object System.Collections.ArrayList
+    $win10Groups = New-Object System.Collections.ArrayList; $win10Status = @{}; $win10End = $null
+    $kinds = [ordered]@{ 'Postes de travail' = 0; 'Serveurs' = 0; 'Système non renseigné' = 0 }
     $laps = @{ 'O' = 0; 'E' = 0; 'N' = 0; 'X' = 0; '' = 0 }
     $bitlocker = @{ 'K' = 0; 'N' = 0; 'X' = 0; 'U' = 0 }
     $factsKnown = 0
@@ -131,6 +132,9 @@ function Get-DomeniaFleetBoardData {
         $releaseKey = $os + '|' + $ver
         if (-not $releaseCache.ContainsKey($releaseKey)) { $releaseCache[$releaseKey] = Get-DomeniaWindowsRelease -Build $ver -Caption $os -Lifecycle $Lifecycle -Now $Now }
         $release = $releaseCache[$releaseKey]
+        # Serveurs / postes (FO-11): from operatingSystem, the family of the lifecycle table (no extra call per group).
+        $kind = if (-not ([string]$group.os).Trim()) { 'Système non renseigné' } elseif ([string]$release.Family -eq 'Server') { 'Serveurs' } else { 'Postes de travail' }
+        $kinds[$kind] = $n + [int]$kinds[$kind]
         $label = if ([string]$release.Build) { $(if ([string]$release.Label) { [string]$release.Label } else { $os + ' (build ' + [string]$release.Build + ')' }) } else { 'Version non lue' }
         if ([string]$release.Build) { $versionRead += $n }
         $versions[$label] = $n + [int]$versions[$label]
@@ -143,7 +147,11 @@ function Get-DomeniaFleetBoardData {
             $soon[$eosLabel].Total += $n; [void]$soon[$eosLabel].Groups.Add($gid); $problem[$gid] = $true
         }
         # Windows 10 out of LTSC, LTSB and IoT (decision David 2026-10-08, CO-13).
-        if ((($os -like 'Windows 10*') -or ([string]$release.Name -like 'Windows 10*')) -and ([string]$release.Family -in @('Pro','Enterprise'))) { $windows10 += $n; [void]$win10Groups.Add($gid) }
+        if ((($os -like 'Windows 10*') -or ([string]$release.Name -like 'Windows 10*')) -and ([string]$release.Family -in @('Pro','Enterprise'))) {
+            $windows10 += $n; [void]$win10Groups.Add($gid)
+            $win10Status[[string]$release.Status] = $n + [int]$win10Status[[string]$release.Status]
+            if (($release.EndDate -is [datetime]) -and (($null -eq $win10End) -or ($release.EndDate -gt $win10End))) { $win10End = $release.EndDate }
+        }
         $lb = 5; try { $lb = [int]$group.lb } catch { $lb = 5 }
         if (($lb -lt 0) -or ($lb -gt 5)) { $lb = 5 }
         $buckets[$bucketNames[$lb]] = $n + [int]$buckets[$bucketNames[$lb]]
@@ -192,6 +200,8 @@ function Get-DomeniaFleetBoardData {
     $observations = @{}; $observed = 0
     $unreachable = New-Object System.Collections.ArrayList; $lowDiskMachines = New-Object System.Collections.ArrayList; $uptimeMachines = New-Object System.Collections.ArrayList
     $observedProblem = @{}
+    # Figure of the daily snapshot: only when a disk size was read (otherwise unknown, never 0).
+    $lowDiskFigure = $null
     foreach ($item in @(& $member $source 'Presence' @())) {
         if ($null -eq $item) { continue }
         $observation = & $member $item 'observation' $null
@@ -250,6 +260,11 @@ function Get-DomeniaFleetBoardData {
     try { $links = [int](& $member $source 'Links' 0) } catch { $links = 0 }
     Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.machines' -Kind Value -Value ([string]$total) -Detail $(if ($scope) { $(if ($Subtree) { 'dans l OU et ses sous-OU' } else { 'directement dans l OU' }) } else { [string]$activeUsers + ' utilisateurs actifs au total' }))
     Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.stale' -Kind Value -Value ([string]$stale) -State $(if ($stale) { 'Warn' } else { 'Ok' }) -Detail 'Dernière connexion au domaine, à 14 jours près')
+    $kindItems = @(foreach ($name in @($kinds.Keys)) { if ([int]$kinds[$name] -gt 0) { [pscustomobject]@{ Label = [string]$name; Value = [double]$kinds[$name] } } })
+    if ($kindItems.Count) {
+        $servers = [int]$kinds['Serveurs']
+        Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.servers' -Kind Distribution -Value ([string]$servers + ' serveur' + $(if ($servers -gt 1) { 's' } else { '' })) -Detail ([string]$kinds['Postes de travail'] + ' poste(s) de travail sur ' + [string]$total + ' comptes actifs') -Items $kindItems -CenterText ([string]$total + ' comptes'))
+    }
     Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.disabled' -Kind Value -Value ([string]$disabled) -State $(if ($disabled) { 'Warn' } else { 'Ok' }) -Detail $(if ($disabled) { 'Désactivés, encore dans le périmètre' } else { 'Aucun compte désactivé dans le périmètre' }))
     if ($factsMissing) {
         foreach ($key in @('fleet.created','fleet.pwdold')) { Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key $key -Kind Value -Value $(if ($factsStale -gt 0) { 'À relire' } else { 'Non lu' }) -Detail $factsText -State Off) }
@@ -296,7 +311,15 @@ function Get-DomeniaFleetBoardData {
         $eosDetail = if ($soonCount) { [string]$soonCount + ' à surveiller (fin dans 90 jours ou moins)' } elseif ($endedCount) { 'Versions plus maintenues : à migrer' } else { 'Aucune version en fin de service' }
         Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.eos' -Kind Value -Value ([string]$endedCount) -State $(if ($endedCount) { 'Alert' } elseif ($soonCount) { 'Warn' } else { 'Ok' }) -Detail $eosDetail)
     }
-    Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.win10' -Kind Value -Value ([string]$windows10) -State $(if ($windows10) { 'Alert' } else { 'Ok' }) -Detail 'Hors LTSC, LTSB et IoT : fin de service le 14/10/2025')
+    # Windows 10 out of LTSC, LTSB and IoT: its state comes from the end-of-service table, never from a date in the code
+    # (no table: end date unknown, never critical).
+    if (-not $lifecycleKnown) { $win10State = 'Off'; $win10Detail = 'Hors LTSC, LTSB et IoT : date de fin inconnue (table des fins de service absente)' }
+    elseif (-not $windows10) { $win10State = 'Ok'; $win10Detail = 'Hors LTSC, LTSB et IoT' }
+    else {
+        $win10State = if ([int]$win10Status['Ended']) { 'Alert' } elseif ([int]$win10Status['Soon']) { 'Warn' } elseif ([int]$win10Status['Ok']) { 'Ok' } else { 'Off' }
+        $win10Detail = 'Hors LTSC, LTSB et IoT' + $(if ($null -ne $win10End) { ' : fin de service le ' + $win10End.ToString('dd/MM/yyyy',$invariant) } else { ' : date de fin inconnue' })
+    }
+    Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.win10' -Kind Value -Value ([string]$windows10) -State $win10State -Detail $win10Detail)
 
     # Repartition
     $osRanked = @(& $rank $osCounts)
@@ -405,6 +428,7 @@ function Get-DomeniaFleetBoardData {
         $diskItems = @(foreach ($name in @($disk.Keys)) { [pscustomobject]@{ Label = [string]$name; Value = [double]$disk[$name] } })
         $diskTotal = 0.0; foreach ($part in $diskItems) { $diskTotal += [double]$part.Value }
         if ($diskTotal -gt 0) {
+            $lowDiskFigure = $lowDisk
             $lead = & $share $diskItems $diskTotal
             Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.diskfree' -Kind Series -Value $lead.Value -Detail $observedText -State $observationState -Items $diskItems)
             # Only when a disk size was read: a failed WMI probe stores DiskSize 0, which is no "0 full disk".
@@ -426,15 +450,30 @@ function Get-DomeniaFleetBoardData {
     $since = $Now.Date.AddDays(-89).ToString('yyyy-MM-dd',$invariant)
     $first = if ($history.Count) { [string]$history[0].day } else { '' }
     if ($first -and ([string]::CompareOrdinal($first,$since) -le 0)) {
-        $points = New-Object System.Collections.ArrayList
+        # One curve per figure of the snapshots (FO-10); a day whose snapshot lacks the figure (older delivery, disks
+        # not read) is left out of that curve, never drawn as 0.
+        $curves = @(
+            @('fleet.trend','Problems','postes à traiter'),
+            @('fleet.trend.win10','Windows10','postes sous Windows 10'),
+            @('fleet.trend.stale','Stale','postes sans connexion depuis 90 j'),
+            @('fleet.trend.lowdisk','LowDisk','postes analysés avec C: presque plein')
+        )
+        $parsedDays = New-Object System.Collections.ArrayList
         foreach ($row in $history) {
             if ([string]::CompareOrdinal([string]$row.day,$since) -lt 0) { continue }
             $figures = $null
             try { $figures = ([string]$row.figures) | ConvertFrom-Json -ErrorAction Stop } catch { continue }
-            $value = [double](& $member $figures 'Problems' 0)
-            [void]$points.Add([pscustomobject]@{ Label = ([string]$row.day).Substring(8,2) + '/' + ([string]$row.day).Substring(5,2); Value = $value })
+            if ($null -ne $figures) { [void]$parsedDays.Add([pscustomobject]@{ Label = ([string]$row.day).Substring(8,2) + '/' + ([string]$row.day).Substring(5,2); Figures = $figures }) }
         }
-        if ($points.Count) { Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.trend' -Kind Timeline -Value ([string][int]$points[$points.Count - 1].Value) -Detail ([string]$points.Count + ' jour(s) relevé(s) sur 90 : postes à traiter') -Items @($points)) }
+        foreach ($curve in $curves) {
+            $points = New-Object System.Collections.ArrayList
+            foreach ($day in $parsedDays) {
+                $figure = & $member $day.Figures ([string]$curve[1]) $null
+                if ($null -eq $figure) { continue }
+                [void]$points.Add([pscustomobject]@{ Label = [string]$day.Label; Value = [double]$figure })
+            }
+            if ($points.Count) { Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key ([string]$curve[0]) -Kind Timeline -Value ([string][int]$points[$points.Count - 1].Value) -Detail ([string]$points.Count + ' jour(s) relevé(s) sur 90 : ' + [string]$curve[2]) -Items @($points)) }
+        }
     } else {
         $days = 0
         if ($first) { $parsed = [datetime]::MinValue; if ([datetime]::TryParseExact($first,'yyyy-MM-dd',$invariant,[Globalization.DateTimeStyles]::None,[ref]$parsed)) { $days = [int]($Now.Date - $parsed).TotalDays + 1 } }
@@ -455,7 +494,7 @@ function Get-DomeniaFleetBoardData {
         $targets = $targetList.ToArray()
     }
     Add-Member -InputObject $data -MemberType NoteProperty -Name 'Last' -Value ([pscustomobject]@{ Scope = $scope; Subtree = [bool]$Subtree; Targets = $targets; Machines = $machines })
-    $figures = [pscustomobject]@{ Machines = $total; Healthy = $healthy; Problems = ($total - $healthy); Stale = $stale; EndOfService = $endedCount; Disabled = $disabled }
+    $figures = [pscustomobject]@{ Machines = $total; Healthy = $healthy; Problems = ($total - $healthy); Stale = $stale; EndOfService = $endedCount; Disabled = $disabled; Windows10 = $windows10; LowDisk = $lowDiskFigure }
     Add-Member -InputObject $data -MemberType NoteProperty -Name 'Snapshot' -Value ([pscustomobject]@{ Day = $today; Taken = $taken; Figures = $figures })
     [void](Complete-DomeniaBoardData -Data $data)
     return $data

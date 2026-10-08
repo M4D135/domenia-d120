@@ -312,6 +312,13 @@ Test-Case -Id 'BF-016' -Name 'Fin de service : LTSC 2019/2021, LTSB 2016 et IoT 
     Assert-Equal 0 @(@($board.Attention) | Where-Object { [string]$_.Point -like 'eos*' }).Count 'Jamais critique sans table'
     $server = Get-DomeniaWindowsRelease -Build '26100' -Caption 'Microsoft Windows Server 2025 Datacenter' -Lifecycle $script:BfLifecycle -Now $now
     Assert-Equal 'Windows Server 2025' ([string]$server.Name); Assert-Equal 'Ok' ([string]$server.Status)
+    # Pro Education follows the Pro dates (table Families.Pro), not the Education ones: 23H2 Pro ended on 11/11/2025.
+    foreach ($caption in @('Windows 11 Professionnel Éducation','Microsoft Windows 11 Pro Education','Windows 10 Pro for Workstations')) { Assert-Equal 'Pro' (Get-DomeniaWindowsFamily $caption) $caption }
+    Assert-Equal 'Enterprise' (Get-DomeniaWindowsFamily 'Windows 11 Éducation'); Assert-Equal 'Enterprise' (Get-DomeniaWindowsFamily 'Windows 10 Education')
+    $proEdu = Get-DomeniaWindowsRelease -Build '10.0 (22631)' -Caption 'Windows 11 Professionnel Éducation' -Lifecycle $script:BfLifecycle -Now $now
+    Assert-Equal 'Ended' ([string]$proEdu.Status) 'Windows 11 23H2 Pro Education hors service'; Assert-Equal '11/11/2025' ([string]$proEdu.End)
+    $edu = Get-DomeniaWindowsRelease -Build '10.0 (22631)' -Caption 'Windows 11 Éducation' -Lifecycle $script:BfLifecycle -Now $now
+    Assert-Equal 'Enterprise' ([string]$edu.Family); Assert-True ([string]$edu.Status -in @('Ok','Soon')) 'Windows 11 23H2 Education maintenue'
 }
 Test-Case -Id 'BF-017' -Name 'LAPS et BitLocker : rien de visible sur M postes = non determine, jamais M postes sans' -Body {
     $machines = @(foreach ($i in 1..5) { New-BfMachine ('PC-S' + $i) $script:BfScope 'Windows 11 Entreprise' '10.0 (26100)' 0 'O' 'R' 'N' 'N' })
@@ -375,4 +382,44 @@ Test-Case -Id 'BF-019' -Name 'Instantane quotidien : chiffres de l annuaire, cou
     Assert-Equal 'Timeline' ([string]$entry.Kind)
     Assert-Equal 90 @($entry.Items).Count
     Assert-Equal 'Line' (@(Get-DomeniaBoardVisuals -Kind Timeline)[0]) 'Courbe pour des valeurs datees'
+    # FO-10: Windows 10, inactive and nearly full disks have their own curve; a snapshot without the figure (older
+    # delivery, disks not read) is left out of that curve, never drawn as 0.
+    Assert-Equal 1 ([int]$board.Snapshot.Figures.Windows10) 'Windows 10 hors LTSC dans l instantane'
+    Assert-Equal 2 ([int]$board.Snapshot.Figures.Stale)
+    Assert-Equal 1 ([int]$board.Snapshot.Figures.LowDisk) 'Disque plein des postes analyses'
+    $noDisk = Get-BfBoard -Presence @()
+    Assert-True ($null -eq $noDisk.Snapshot.Figures.LowDisk) 'Disques non lus : chiffre inconnu, jamais 0'
+    Assert-False ($trend.Entries.ContainsKey('fleet.trend.win10')) 'Courbe sans aucun chiffre Windows 10'
+    $rich = @(foreach ($d in 0..95) { [pscustomobject]@{ day = $script:BfNow.Date.AddDays(0 - $d).ToString('yyyy-MM-dd',$script:BfInvariant); figures = $(if ($d % 2) { '{"Machines":7,"Problems":1,"Windows10":' + [string]($d % 3) + ',"Stale":2,"LowDisk":null}' } else { '{"Machines":7,"Problems":1,"Windows10":1,"Stale":3,"LowDisk":1}' }) } })
+    $curves = Get-BfBoard -History $rich
+    Assert-Equal 90 @($curves.Entries['fleet.trend.win10'].Items).Count
+    Assert-Equal 90 @($curves.Entries['fleet.trend.stale'].Items).Count
+    Assert-Equal 45 @($curves.Entries['fleet.trend.lowdisk'].Items).Count 'Jours sans disque lu ecartes de la courbe'
+    Assert-Equal '1' ([string]$curves.Entries['fleet.trend.lowdisk'].Value)
+    foreach ($key in @('fleet.trend.win10','fleet.trend.stale','fleet.trend.lowdisk')) { Assert-Equal 'Timeline' ([string]$curves.Entries[$key].Kind) $key; Assert-True (@(Get-DomeniaBoardCatalog -Board Fleet | Where-Object { $_.Key -eq $key -and $_.Kind -eq 'Timeline' }).Count -eq 1) ('Courbe absente du catalogue : ' + $key) }
+}
+Test-Case -Id 'BF-020' -Name 'Windows 10 : etat tire de la table des fins de service, sans table jamais critique' -Body {
+    $board = Get-BfBoard
+    Assert-Equal 'Alert' ([string]$board.Entries['fleet.win10'].State)
+    Assert-Equal 'Hors LTSC, LTSB et IoT : fin de service le 14/10/2025' ([string]$board.Entries['fleet.win10'].Detail)
+    $blind = Get-BfBoard -Lifecycle $null
+    Assert-Equal '1' ([string]$blind.Entries['fleet.win10'].Value)
+    Assert-Equal 'Off' ([string]$blind.Entries['fleet.win10'].State) 'Sans table : jamais critique'
+    Assert-True ([string]$blind.Entries['fleet.win10'].Detail -like '*date de fin inconnue*') ([string]$blind.Entries['fleet.win10'].Detail)
+    $none = Get-BfBoard -Machines @((New-BfMachine 'PC-N1' $script:BfScope 'Windows 11 Entreprise' '10.0 (26100)' 0)) -Presence @()
+    Assert-Equal 'Ok' ([string]$none.Entries['fleet.win10'].State)
+    Assert-True (@(Get-DomeniaBoardDefaultLayout -Board Fleet | Where-Object { $_.Key -eq 'fleet.win10' }).Count -eq 1) 'Widget Windows 10 garde dans la disposition livree'
+}
+Test-Case -Id 'BF-021' -Name 'Serveurs / postes : tire de operatingSystem, au catalogue seulement' -Body {
+    $machines = @(Get-BfMachines) + @((New-BfMachine 'SRV-L01' $script:BfScope 'Windows Server 2022 Standard' '10.0 (20348)' 0), (New-BfMachine 'SRV-L02' $script:BfScope 'Microsoft Windows Server 2025 Datacenter' '10.0 (26100)' 0))
+    $board = Get-BfBoard -Machines $machines -Presence @()
+    $entry = $board.Entries['fleet.servers']
+    Assert-Equal 'Distribution' ([string]$entry.Kind)
+    Assert-Equal '2 serveurs' ([string]$entry.Value)
+    Assert-Equal 2 (Get-BfPart $entry 'Serveurs')
+    Assert-Equal 6 (Get-BfPart $entry 'Postes de travail')
+    Assert-Equal 1 (Get-BfPart $entry 'Système non renseigné')
+    Assert-Equal '6 poste(s) de travail sur 9 comptes actifs' ([string]$entry.Detail)
+    $item = Get-DomeniaBoardCatalogItem -Board Fleet -Key 'fleet.servers'
+    Assert-True (($null -ne $item) -and (-not [bool]$item.Default)) 'Serveurs / postes au catalogue, hors disposition livree'
 }
