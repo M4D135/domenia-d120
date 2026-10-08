@@ -406,10 +406,14 @@ function Get-DomeniaPurgeTargets {
             [pscustomobject]@{Table='user_machine_history';TimeColumn='observed_at';Filter='PreserveDeclaredAssociations';Action='Delete'}
             [pscustomobject]@{Table='user_scan_history';TimeColumn='scanned_at';Filter='All';Action='Delete'}
             [pscustomobject]@{Table='operation_runs';TimeColumn='finished_at';Filter='All';Action='Delete'}
+            # Daily local snapshots of the fleet (FO-10), purged with the history.
+            [pscustomobject]@{Table='fleet_snapshots';TimeColumn='snapshot_day';Filter='All';Action='Delete'}
         }
         'Index' {
             [pscustomobject]@{Table='ad_objects';TimeColumn='';Filter='All';Action='Delete'}
             [pscustomobject]@{Table='domenia_provenance';TimeColumn='';Filter='All';Action='Delete'}
+            # Computer facts read with the index; secret_state (BitLocker and LAPS metadata) is never an index target.
+            [pscustomobject]@{Table='ad_computer_facts';TimeColumn='';Filter='All';Action='Delete'}
             # Preserve other scopes, including the idempotence marker of an old-data import.
             [pscustomobject]@{Table='sync_state';TimeColumn='';Filter='DirectoryScope';Action='Reset'}
         }

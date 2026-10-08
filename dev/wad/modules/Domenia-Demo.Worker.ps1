@@ -342,6 +342,72 @@ if ($op -eq 'OpenAdObject') {
     return
 }
 
+if ($op -eq 'IndexBuild') {
+    # Same rows as the real IndexBuild, computer facts included (operatingSystemVersion, whenCreated, pwdLastSet,
+    # LAPS expiration, never a password); the demonstration schema holds both LAPS attributes.
+    Wait-DemoLatency $null
+    $utcText = {
+        param($Value)
+        if ($null -eq $Value -or [string]$Value -eq '') { return '' }
+        if ($Value -is [datetime]) { return $Value.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ',[Globalization.CultureInfo]::InvariantCulture) }
+        $ticks = [long]0
+        if (-not [long]::TryParse([string]$Value,[ref]$ticks) -or $ticks -le 0 -or $ticks -eq [long]::MaxValue) { return '' }
+        return [DateTime]::FromFileTimeUtc($ticks).ToString('yyyy-MM-ddTHH:mm:ssZ',[Globalization.CultureInfo]::InvariantCulture)
+    }
+    $rows = New-Object Collections.ArrayList
+    foreach ($item in $ordered) {
+        $attrs = $item.Attrs
+        $type = Get-WObjectType $attrs
+        if ($type -notin @('Utilisateur','Machine')) { continue }
+        $name = [string](Get-WPropFirst $attrs 'name' '')
+        if (-not $name) { continue }
+        $uac = 0; try { $uac = [int](Get-WPropFirst $attrs 'useraccountcontrol' 0) } catch { $uac = 0 }
+        $guid = ConvertTo-DemoPropertyValue 'objectGUID' (Get-WPropFirst $attrs 'objectguid' $null)
+        $logonTicks = [long]0; [void][long]::TryParse([string](Get-WPropFirst $attrs 'lastlogontimestamp' 0),[ref]$logonTicks)
+        $lastLogon = if (($logonTicks -gt 0) -and ($logonTicks -ne [long]::MaxValue)) { [DateTime]::FromFileTimeUtc($logonTicks).ToLocalTime().ToString('dd/MM/yyyy HH:mm:ss') } else { 'Jamais' }
+        $changed = Get-WPropFirst $attrs 'whenchanged' $null
+        $row = [ordered]@{ Type=$type; WhenChanged=$(if ($changed -is [datetime]) { $changed.ToString('dd/MM/yyyy HH:mm:ss') } else { '' }); Usn=[long](Get-WPropFirst $attrs 'usnchanged' 0); LastLogon=$lastLogon; Name=$name
+            Login=([string](Get-WPropFirst $attrs 'samaccountname' '')).TrimEnd([char]36); Upn=''; Display=[string](Get-WPropFirst $attrs 'displayname' ''); Description=[string](Get-WPropFirst $attrs 'description' ''); Extra=''
+            State=$(if (($uac -band 2) -ne 0) { 'Desactive' } else { 'Actif' }); DN=$item.DN; Guid=[string]$guid; Facts=$false; OsVersion=''; WhenCreated=''; PwdLastSet=''; LapsKind=''; LapsExpiry='' }
+        if ($type -eq 'Utilisateur') { $row.Upn = [string](Get-WPropFirst $attrs 'userprincipalname' '') }
+        else {
+            $row.Upn = [string](Get-WPropFirst $attrs 'dnshostname' '')
+            $row.Extra = [string](Get-WPropFirst $attrs 'operatingsystem' '')
+            $row.Facts = $true
+            $row.OsVersion = [string](Get-WPropFirst $attrs 'operatingsystemversion' '')
+            $row.WhenCreated = & $utcText (Get-WPropFirst $attrs 'whencreated' $null)
+            $row.PwdLastSet = & $utcText (Get-WPropFirst $attrs 'pwdlastset' $null)
+            $windows = & $utcText (Get-WPropFirst $attrs 'mslaps-passwordexpirationtime' $null)
+            $legacy = & $utcText (Get-WPropFirst $attrs 'ms-mcs-admpwdexpirationtime' $null)
+            if ($windows) { $row.LapsKind = 'Windows'; $row.LapsExpiry = $windows } elseif ($legacy) { $row.LapsKind = 'Legacy'; $row.LapsExpiry = $legacy } else { $row.LapsKind = 'None' }
+        }
+        [void]$rows.Add([pscustomobject]$row)
+    }
+    [pscustomobject]@{ Rows=@($rows); Diagnostics=@('demonstration : ' + $rows.Count + ' objet(s) indexes'); Truncated=$false; Incremental=$false; DeltaClause=''; HighestUsn=[long]12999; Server='(demonstration)'; BaseDn=$baseDn; DurationMs=[long]0; Success=$true; InvocationId=''; LapsSchema='Present' }
+    return
+}
+
+if ($op -eq 'BitLockerPresence') {
+    # Same refusals and shape as the real reader: never at the domain root, metadata of recovery objects only.
+    $ouDn = ([string]$req.DN).Trim()
+    $ouKey = $ouDn.ToLowerInvariant()
+    if (-not $ouDn) { throw 'OU absente : aucune lecture envoyee.' }
+    if ($ouKey -eq $baseKey) { throw 'Lecture refusee a la racine du domaine : choisissez une OU dans Rechercher.' }
+    if (-not (Test-DemoInBase $ouKey)) { throw 'OU hors du domaine de la session : aucune lecture envoyee.' }
+    Wait-DemoLatency $null
+    $computers = @{}; $found = 0
+    foreach ($item in $ordered) {
+        $classes = @($item.Attrs['objectclass'] | ForEach-Object { ([string]$_).ToLowerInvariant() })
+        if ($classes -notcontains 'msfve-recoveryinformation') { continue }
+        if (-not $item.Key.EndsWith(',' + $ouKey)) { continue }
+        $found++
+        if (-not $computers.ContainsKey($item.Parent)) { $computers[$item.Parent] = [pscustomobject]@{ DN = (Get-DemoParentDn $item.DN); Keys = 0; Last = '' } }
+        $computers[$item.Parent].Keys = [int]$computers[$item.Parent].Keys + 1
+    }
+    [pscustomobject]@{ Mode='BitLockerPresence'; Success=$true; DN=$ouDn; ClassPresent=$true; RecoveryObjectsFound=$found; Truncated=$false; Computers=@($computers.Values); ErrorKind=''; ErrorMessage=''; ReadAtUtc=[datetime]::UtcNow.ToString('o') }
+    return
+}
+
 if ($op -eq 'ReceiptStore' -and [string]$req.Action -eq 'List') {
     # Demonstration receipts are never read from the real receipt folder.
     [pscustomobject]@{ Rows=@(); Pending=0 }

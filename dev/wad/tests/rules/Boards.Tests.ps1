@@ -19,6 +19,10 @@ Test-Case 'BRD-002' 'Les representations dependent du type de donnee' {
     Assert-False ('Gauge' -in @(Get-DomeniaBoardVisuals -Kind Number)) 'jauge sans maximum'
     Assert-True ('Gauge' -in @(Get-DomeniaBoardVisuals -Kind Number -HasMaximum)) 'jauge avec maximum'
     Assert-False ('Pie' -in @(Get-DomeniaBoardVisuals -Kind Measure)) 'anneau sur des mesures'
+    # Lot L01 (FO-10): a curve only for dated values, never for buckets or shares.
+    foreach ($kind in @('Distribution','Measure','Series','Value','Number')) { Assert-False ('Line' -in @(Get-DomeniaBoardVisuals -Kind $kind -HasMaximum)) ('courbe sur ' + $kind) }
+    Assert-Equal 'Line' (@(Get-DomeniaBoardVisuals -Kind Timeline)[0])
+    Assert-Equal 'Column' (Resolve-DomeniaBoardVisual -Visual 'Line' -Kind Series) 'courbe enregistree remplacee'
     Assert-Equal 'List' (@(Get-DomeniaBoardVisuals -Kind List) -join ',')
     Assert-Equal 'Kpi' (Resolve-DomeniaBoardVisual -Visual 'Pie' -Kind Value)
     Assert-Equal 'Bar' (Resolve-DomeniaBoardVisual -Visual 'Bar' -Kind Distribution)
@@ -29,11 +33,17 @@ Test-Case 'BRD-003' 'Deux tuiles compactes empilees s alignent sur une carte hau
     Assert-Equal ([double](2 * ($kpi.Height + 14))) ([double]($pie.Height + 14))
     Assert-Equal ([double]0) ([double](Get-DomeniaBoardSize -Visual List -Size L).Height) 'liste a hauteur libre'
 }
-Test-Case 'BRD-004' 'Sans reglage, la disposition livree contient tout le catalogue dans l ordre' {
+Test-Case 'BRD-004' 'Sans reglage, la disposition livree contient le catalogue livre dans l ordre' {
     $layout = @(ConvertTo-DomeniaBoardLayout -Board Computer -Json '')
     Assert-Equal (@(Get-DomeniaBoardCatalog -Board Computer).Count) $layout.Count
     Assert-Equal 'computer.health' ([string]$layout[0].Key)
     Assert-Equal 'Vue d ensemble' ([string]$layout[0].Group)
+    # Lot L01: the home overview is delivered without the observation widgets nor any WMI query.
+    $fleet = @(ConvertTo-DomeniaBoardLayout -Board Fleet -Json '')
+    Assert-Equal 'fleet.health,fleet.attention,fleet.machines,fleet.stale,fleet.disabled,fleet.created,fleet.pwdold,fleet.laps,fleet.bitlocker,fleet.versions,fleet.eos,fleet.win10,fleet.os,fleet.lastlogon,fleet.ou' (@($fleet | ForEach-Object { [string]$_.Key }) -join ',')
+    Assert-Equal 'Santé' ([string]$fleet[0].Group)
+    Assert-Equal 0 @($fleet | Where-Object { ([string]$_.Source -eq 'Probe') -or ([string]$_.Key -in @('fleet.presence','fleet.users','fleet.lastcheck','fleet.models','fleet.releases','fleet.ram','fleet.diskfree','fleet.lowdisk','fleet.uptime')) }).Count 'aucun widget d observation livre'
+    Assert-True (@(Get-DomeniaBoardCatalog -Board Fleet | Where-Object { $_.Key -eq 'fleet.presence' }).Count -eq 1) 'widget d observation toujours au catalogue'
 }
 Test-Case 'BRD-005' 'Une disposition enregistree est relue, nettoyee et reecrite a l identique' {
     $json = '[{"Id":"a1","Source":"Builtin","Key":"computer.os","Visual":"Pie","Title":"","Size":"Z","Group":""},{"Id":"a1","Source":"Builtin","Key":"computer.inconnu","Visual":"Kpi"},{"Id":"b2","Source":"Builtin","Key":"computer.services","Visual":"Bar","Size":"L","Group":"Activite"}]'
@@ -126,9 +136,50 @@ Test-Case 'BRD-011' 'Recherche sans accents et requetes comptees en mots' {
 }
 Test-Case 'BRD-010' 'Version commerciale de Windows et taille lisible' {
     Assert-Equal 'Windows 11 24H2' ([string](Get-DomeniaWindowsRelease '26100').Name)
-    Assert-True ([string](Get-DomeniaWindowsRelease '19045').Note -like 'Fin de support*')
+    # Lot L01 (FO-08): end of service from the delivered table only; without it the date is unknown.
+    Assert-True ([string](Get-DomeniaWindowsRelease '19045').Note -like '*date de fin inconnue') ([string](Get-DomeniaWindowsRelease '19045').Note)
+    $table = [pscustomobject]@{ Entries = @([pscustomobject]@{ Build = '19045'; Family = 'Pro'; Name = 'Windows 10 22H2'; End = '2025-10-14' }) }
+    $ended = Get-DomeniaWindowsRelease -Build '19045' -Caption 'Windows 10 Pro' -Lifecycle $table -Now ([datetime]'2026-10-08')
+    Assert-Equal 'Ended' ([string]$ended.Status)
+    Assert-True ([string]$ended.Note -like 'Fin de service le 14/10/2025*') ([string]$ended.Note)
+    Assert-Equal '19045' (ConvertFrom-DomeniaOsVersion '10.0 (19045)')
+    Assert-Equal '22631' (ConvertFrom-DomeniaOsVersion '10.0.22631')
     Assert-Equal '' ([string](Get-DomeniaWindowsRelease '12345').Name)
     Assert-Equal 'Windows Server 2025' ([string](Get-DomeniaWindowsRelease -Build '26100' -Caption 'Microsoft Windows Server 2025 Datacenter Evaluation').Name) 'serveur au meme build que Windows 11'
     Assert-Equal 'Windows 11 24H2' ([string](Get-DomeniaWindowsRelease -Build '26100' -Caption 'Microsoft Windows 11 Entreprise').Name)
     Assert-True ((Format-DomeniaDashboardSize (8GB)) -like '8*Go')
+}
+Test-Case 'BRD-012' 'Score du parc proportionnel : 22 sur 26 et paliers' {
+    $warn = @([pscustomobject]@{ Level = 'Warn'; Text = 'x' })
+    $h = Get-DomeniaFleetHealth -Total 26 -Healthy 22 -Attention $warn
+    Assert-Equal 84 $h.Score; Assert-Equal 'À surveiller' $h.Verdict; Assert-Equal 'Warn' $h.State
+    Assert-Equal '22 postes sur 26 sans problème' $h.Detail
+    Assert-Equal 'Bon état' (Get-DomeniaFleetHealth -Total 10 -Healthy 9 -Attention $warn).Verdict
+    Assert-Equal 'Dégradé' (Get-DomeniaFleetHealth -Total 4 -Healthy 2 -Attention $warn).Verdict
+    Assert-Equal 'Alert' (Get-DomeniaFleetHealth -Total 4 -Healthy 2 -Attention $warn).State
+    $critical = Get-DomeniaFleetHealth -Total 2000 -Healthy 1999 -Attention @([pscustomobject]@{ Level = 'Alert'; Text = 'x' })
+    Assert-Equal 99 $critical.Score 'Un poste sur 2000 ne fait pas tomber le score'
+    Assert-Equal 'Critique' $critical.Verdict
+    Assert-Equal 'Bon état' (Get-DomeniaFleetHealth -Total 0 -Healthy 0).Verdict
+    $data = New-DomeniaBoardData -Board Fleet
+    Add-Member -InputObject $data -MemberType NoteProperty -Name 'Population' -Value ([pscustomobject]@{ Total = 26; Healthy = 22 })
+    Add-DomeniaBoardAttention -Data $data -Level Warn -Text 'Quatre postes inactifs.'
+    [void](Complete-DomeniaBoardData -Data $data)
+    Assert-Equal 84 $data.Entries['fleet.health'].Number
+    Assert-Equal '22 postes sur 26 sans problème' ([string]$data.Entries['fleet.health'].Detail)
+}
+Test-Case 'BRD-013' 'Ancienne disposition livree du parc migree, disposition personnalisee conservee' {
+    $old = @(foreach ($line in ([string]$script:DomeniaFleetLegacyLayoutText -split "`n")) { $text = $line.Trim(); if ($text) { $c = $text -split '\|'; [pscustomobject]@{ Id = ('b-' + $c[0]); Source = 'Builtin'; Key = $c[0]; Visual = $c[2]; Title = ''; Size = $c[3]; Group = $c[1] } } })
+    Assert-Equal 17 $old.Count
+    $json = ConvertTo-Json -InputObject $old -Depth 3 -Compress
+    $migrated = @(ConvertTo-DomeniaBoardLayout -Board Fleet -Json $json)
+    Assert-Equal (@(Get-DomeniaBoardDefaultLayout -Board Fleet | ForEach-Object { $_.Key }) -join ',') (@($migrated | ForEach-Object { $_.Key }) -join ',') 'ancienne disposition livree remplacee'
+    $renamed = @($old | ForEach-Object { $_.PSObject.Copy() }); $renamed[0].Id = 'x1'
+    Assert-Equal 'fleet.health,fleet.attention,fleet.machines' ((@(ConvertTo-DomeniaBoardLayout -Board Fleet -Json (ConvertTo-Json -InputObject $renamed -Depth 3 -Compress)) | Select-Object -First 3 | ForEach-Object { $_.Key }) -join ',') 'identifiants seuls differents : migree'
+    $custom = @($old | Where-Object { $_.Key -ne 'fleet.users' })
+    $kept = @(ConvertTo-DomeniaBoardLayout -Board Fleet -Json (ConvertTo-Json -InputObject $custom -Depth 3 -Compress))
+    Assert-Equal 16 $kept.Count 'disposition personnalisee conservee'
+    Assert-True (@($kept | Where-Object { $_.Key -eq 'fleet.presence' -and $_.Group -eq 'Repartition' }).Count -eq 1) 'widget d observation garde dans sa section'
+    $titled = @($old | ForEach-Object { $_.PSObject.Copy() }); $titled[3].Title = 'Mes inactifs'
+    Assert-Equal 17 @(ConvertTo-DomeniaBoardLayout -Board Fleet -Json (ConvertTo-Json -InputObject $titled -Depth 3 -Compress)).Count 'titre change : conservee'
 }

@@ -246,6 +246,17 @@ Test-Case 'D051 Lecture d une cle BitLocker : compte Secrets de l onglet Comptes
     $search=Set-DomeniaTargetCredentialContext -Context ([pscustomobject]@{OperationId='GlobalSearch';Credential=$null;BindUser='';UseCredential=$false;AuthMode='Windows';MachineCredential=$null;RemoteAdminCredential=$null;RemoteAdminUser=''}) -Payload $null
     Assert-True ($null -eq $search.Credential) 'Le compte Secrets a atteint une lecture de l annuaire'
 }
+Test-Case 'L01 Presence BitLocker d une OU : compte Secrets, ressource et refus BitLocker, jamais le canal AD' {
+    $secrets=New-TestCredential 'EXAMPLE\secrets';$script:SecretsCredential=$secrets
+    Assert-True ((Get-DomeniaOperationResource 'BitLockerPresence') -eq 'BitLocker') 'Ressource de la presence BitLocker'
+    Assert-True ((Get-DomeniaAccessScope 'BitLockerPresence') -eq (Get-DomeniaAccessScope 'ReadBitLockerList')) 'Refus de la presence hors du compte BitLocker'
+    $needs=Get-DomeniaOperationCredentialNeeds 'BitLockerPresence'
+    Assert-True ([bool]$needs.Secrets -and [string]$needs.Resource -eq 'BitLocker') 'Besoins de la presence BitLocker'
+    $ctx=[pscustomobject]@{OperationId='BitLockerPresence';Credential=$null;BindUser='EXAMPLE\lecteur';UseCredential=$false;AuthMode='Windows';MachineCredential=$null;RemoteAdminCredential=$null;RemoteAdminUser=''}
+    $ctx=Set-DomeniaTargetCredentialContext -Context $ctx -Payload ([pscustomobject]@{DN='OU=Postes,DC=example,DC=invalid';Limit=100000})
+    Assert-True ([object]::ReferenceEquals($ctx.Credential,$secrets) -and $ctx.UseCredential -and $ctx.BindUser -eq 'EXAMPLE\secrets') 'Le compte Secrets n atteint pas la presence BitLocker de l OU'
+    $script:SecretsCredential=$null
+}
 Test-Case 'D051 WPF : compte d un autre poste refuse dans la page avant tout appel reseau' {
     $script:UseRealDialog=$true
     $script:AccessState.AuthSession=$null

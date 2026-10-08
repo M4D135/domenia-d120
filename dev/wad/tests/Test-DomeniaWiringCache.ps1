@@ -2732,7 +2732,8 @@ Test-Case 'D029 : mesure native compte les six categories sans modifier la base'
         $result=Invoke-UsageWorker
         Assert-Equal 'StorageUsage' $result.Kind;Assert-True $result.ReadOnly
         Assert-Equal 6 @($result.Categories).Count
-        $expected=@{Observations=3;Snapshots=1;History=3;Index=3;ManualLinks=1;Secrets=1}
+        # Index: the fixture rows plus the CO-26 repair marker of sync_state written at creation (lot L01).
+        $expected=@{Observations=3;Snapshots=1;History=3;Index=4;ManualLinks=1;Secrets=1}
         foreach($c in $result.Categories){Assert-Equal $expected[$c.Category] $c.Rows $c.Category}
         Assert-Equal $hash (Get-FileHash $script:TestDbPath -Algorithm SHA256).Hash
         Assert-Equal ([IO.FileInfo]::new($script:TestDbPath).Length) $result.DatabaseBytes
@@ -3311,6 +3312,334 @@ Test-Case 'Parc : remplacement atomique conserve ancien et nouveau user et refus
     }finally{Remove-Item $root -Recurse -Force}
 }
 
+# ---------------------------------------------------------------- Lot L01 (decision David 2026-10-08): directory facts,
+# fleet aggregates in SQL, daily snapshots, BitLocker presence. Real SQLite, real pinned bodies, no network.
+Stop-TestTimers
+. (Join-Path $modules 'Domenia-Boards.Model.ps1')
+. (Join-Path $modules 'Domenia-BoardFleet.Model.ps1')
+. ([scriptblock]::Create((Get-FunctionTextFromFile (Join-Path $modules 'Domenia-Secrets.Worker.ps1') 'Get-DomeniaBitLockerPresenceWorkerCode')))
+. ([scriptblock]::Create((Get-FunctionTextFromFile $core 'Get-DomeniaIndexWorkerCode')))
+. ([scriptblock]::Create((Get-FunctionTextFromFile $core 'Test-DomeniaSensitiveAttributeName')))
+function Add-L01Rows { param([string]$Sql) $db = Open-DomeniaDatabase -Path $script:TestDbPath; try { [void](Invoke-DomeniaDbExec $Sql $db) } finally { Close-DomeniaDatabase $db } }
+function Get-L01Rows { param([string]$Sql) $db = Open-DomeniaDatabase -Path $script:TestDbPath -ReadOnly; try { return @(Invoke-DomeniaDbQuery $Sql $db) } finally { Close-DomeniaDatabase $db } }
+function New-L01IndexRow {
+    param([string]$Name,[string]$Container,[string]$Guid,[string]$Os = 'Windows 11 Entreprise',[string]$Version = '10.0 (26100)',[string]$State = 'Actif',[string]$LastLogon = '01/10/2026 08:00:00',[string]$Created = '2025-01-01T00:00:00Z',[string]$Pwd = '2026-09-20T00:00:00Z',[string]$LapsKind = 'None',[string]$LapsExpiry = '')
+    return [pscustomobject]@{ Type = 'Machine'; Name = $Name; Login = $Name; Upn = ($Name.ToLowerInvariant() + '.example.invalid'); Display = ''; Description = 'Poste fictif'; Extra = ($Os + ' / Lyon'); State = $State; DN = ('CN=' + $Name + ',' + $Container); WhenChanged = ''; Usn = 1; LastLogon = $LastLogon; Guid = $Guid; Facts = $true; OsVersion = $Version; WhenCreated = $Created; PwdLastSet = $Pwd; LapsKind = $LapsKind; LapsExpiry = $LapsExpiry }
+}
+function Invoke-L01Bulk {
+    param([object[]]$Rows,[bool]$ReplaceAll = $true,[string]$At = '2026-10-08T08:00:00.0000000Z')
+    $bulk = [pscustomobject]@{ Rows = @($Rows); Server = 'dc.example.invalid'; BaseDn = 'DC=example,DC=invalid'; HighestUsn = 10; TotalCount = @($Rows).Count; ReplaceAll = $ReplaceAll; InvocationId = ''; At = $At }
+    return Invoke-LegacyWorker ([pscustomobject]@{ Path = $script:TestDbPath; Items = @([pscustomobject]@{ Kind = 'IndexBulk'; Key = 'directory'; Row = $bulk }) })
+}
+function Invoke-L01Fleet {
+    param([string]$Scope = '',[bool]$Subtree = $true,[object[]]$Keys = @(),[datetime]$Now = [datetime]::Now)
+    $Payload = [pscustomobject]@{ Action = 'FleetStats'; Path = $script:TestDbPath; BusyTimeoutMs = 250; Scope = $Scope; Subtree = $Subtree; Plan = (Get-DomeniaFleetQueryPlan -Now $Now); Keys = $Keys; ScopeKey = 'scope-l01' }
+    return & ([scriptblock]::Create((Get-DomeniaLocalIndexReadWorkerCode)))
+}
+function Save-L01Observation {
+    param([string]$Dn,[string]$Guid,[string]$Computer,[double]$DaysAgo,[string]$User = '')
+    $row = [pscustomobject]@{ Version = 1; Key = $Dn.ToLowerInvariant(); Guid = $Guid; Computer = $Computer; CheckedUtc = [datetime]::UtcNow.AddDays(0 - $DaysAgo).ToString('o'); Outcome = 'Observed'; Presence = 'En ligne'; LinkUser = $User }
+    return Invoke-LegacyWorker ([pscustomobject]@{ Path = $script:TestDbPath; Items = @([pscustomobject]@{ Kind = 'ParkSession'; Row = $row }) })
+}
+
+Test-Case 'L01 : base 11/1 existante, tables additives creees, schema_info inchange, sans sauvegarde de migration, relue par RC1.13.0' {
+    $root = New-SchemaSandbox -Version '11' -Revision '1'
+    try {
+        Assert-True (Initialize-DomeniaDatabase) 'Ouverture refusee.'
+        Assert-Equal '11' (Get-SchemaValue 'schema_version') 'Version modifiee.'
+        Assert-Equal '1' (Get-SchemaValue 'domenia_schema') 'Revision modifiee.'
+        Assert-Equal 2 @(Get-L01Rows 'SELECT key FROM schema_info;').Count 'Cle de schema ajoutee.'
+        Assert-Equal 2 @(Get-L01Rows "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('ad_computer_facts','fleet_snapshots');").Count 'Tables additives absentes.'
+        Assert-False ([IO.Directory]::Exists((Join-Path $root 'Backups\migrations'))) 'Sauvegarde de migration demandee pour une base 11/1.'
+        Assert-Equal 0 $script:RecoverCalls 'Restauration tentee.'
+        # The RC1.13.0 schema script (this function without the lines of the lot) still opens the completed base.
+        $lines = @((Get-FunctionTextFromFile $core 'Initialize-DomeniaDatabase') -split "`n" | Where-Object { $_ -notmatch 'ad_computer_facts|fleet_snapshots|UPDATE ad_objects SET search_key|repair:search_key_extra' })
+        $old = ($lines -join "`n") -replace 'function Initialize-DomeniaDatabase \{','function Initialize-L01PreviousDatabase {'
+        Assert-False ($old -match 'ad_computer_facts|fleet_snapshots') 'Script precedent mal reconstitue.'
+        . ([scriptblock]::Create($old))
+        $script:DomeniaDatabaseReady = $false
+        Assert-True (Initialize-L01PreviousDatabase) 'RC1.13.0 refuse la base completee.'
+        Assert-Equal '11' (Get-SchemaValue 'schema_version'); Assert-Equal '1' (Get-SchemaValue 'domenia_schema')
+        Assert-Equal 2 @(Get-L01Rows "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('ad_computer_facts','fleet_snapshots');").Count 'Tables additives supprimees par RC1.13.0.'
+        $script:DomeniaDatabaseReady = $false
+        Assert-True (Initialize-DomeniaDatabase) 'Deuxieme ouverture refusee.'
+    } finally { Remove-Item $root -Recurse -Force }
+}
+Test-Case 'L01 : IndexBulk ecrit les faits par GUID, ReplaceAll les vide ; Index et IndexBulk ont le meme search_key' {
+    $root = New-LegacySandbox
+    try {
+        $rows = @((New-L01IndexRow 'PC-1' 'OU=Lyon,DC=example,DC=invalid' 'AAAA-0001' -LapsKind 'Windows' -LapsExpiry '2026-11-01T00:00:00Z'), (New-L01IndexRow 'PC-2' 'OU=Lyon,DC=example,DC=invalid' 'BBBB-0002'))
+        Assert-True (Invoke-L01Bulk $rows).Saved 'IndexBulk non enregistre.'
+        Assert-Equal 2 (Get-LegacyCount 'ad_computer_facts')
+        $facts = @(Get-L01Rows "SELECT * FROM ad_computer_facts WHERE object_guid='aaaa-0001';")[0]
+        Assert-Equal '10.0 (26100)' $facts.os_version; Assert-Equal 'Windows' $facts.laps_kind; Assert-Equal '2026-11-01T00:00:00Z' $facts.laps_expiry
+        Assert-Equal '2026-10-08T08:00:00.0000000Z' $facts.read_at 'Faits dates de la mise a jour.'
+        $bulkKey = [string]@(Get-L01Rows "SELECT search_key FROM ad_objects WHERE name='PC-1';")[0].search_key
+        Assert-True ($bulkKey -like '*windows 11 entreprise / lyon*') ('search_key IndexBulk : ' + $bulkKey)
+        # A single row written when an object card is opened keeps the extra field (CO-26).
+        $index = [pscustomobject]@{ Kind = 'Index'; Row = $rows[0]; Server = 'dc.example.invalid'; At = '2026-10-08T09:00:00Z' }
+        Assert-True (Invoke-LegacyWorker ([pscustomobject]@{ Path = $script:TestDbPath; Items = @($index) })).Saved
+        Assert-Equal $bulkKey ([string]@(Get-L01Rows "SELECT search_key FROM ad_objects WHERE name='PC-1';")[0].search_key) 'search_key different entre Index et IndexBulk.'
+        Assert-True (Invoke-L01Bulk @($rows[1]) -At '2026-10-09T08:00:00.0000000Z').Saved
+        Assert-Equal 1 (Get-LegacyCount 'ad_computer_facts') 'ReplaceAll ne vide pas les faits.'
+        Assert-Equal 1 (Get-LegacyCount 'ad_objects')
+    } finally { Remove-Item $root -Recurse -Force }
+}
+Test-Case 'L01 : faits anterieurs a la derniere mise a jour affiches a relire, mise a jour partielle conservee' {
+    $root = New-LegacySandbox
+    try {
+        $rows = @((New-L01IndexRow 'PC-1' 'OU=Lyon,DC=example,DC=invalid' 'AAAA-0001'), (New-L01IndexRow 'PC-2' 'OU=Lyon,DC=example,DC=invalid' 'BBBB-0002'))
+        [void](Invoke-L01Bulk $rows)
+        [void](Invoke-L01Bulk @($rows[0]) -ReplaceAll $false -At '2026-10-08T12:00:00.0000000Z')
+        $fresh = Invoke-L01Fleet -Scope 'OU=Lyon,DC=example,DC=invalid'
+        Assert-Equal 2 ([int]$fresh.Coverage.FactsFresh) 'Mise a jour partielle : faits encore courants.'
+        Assert-Equal 0 ([int]$fresh.Coverage.FactsStale)
+        # A previous version rebuilds the index without the facts: they are older than the last update.
+        Add-L01Rows "UPDATE sync_state SET last_sync='2026-12-01T00:00:00.0000000Z' WHERE scope='directory';"
+        $stale = Invoke-L01Fleet -Scope 'OU=Lyon,DC=example,DC=invalid'
+        Assert-Equal 0 ([int]$stale.Coverage.FactsFresh); Assert-Equal 2 ([int]$stale.Coverage.FactsStale)
+        Assert-Equal 0 @(@($stale.Groups) | Where-Object { [string]$_.ver }).Count 'Version lue dans des faits perimes.'
+        $board = Get-DomeniaFleetBoardData -Result $stale -Scope 'OU=Lyon,DC=example,DC=invalid' -Now ([datetime]::Now)
+        Assert-Equal 'À relire' ([string]$board.Entries['fleet.laps'].Value)
+        Assert-Equal 'À relire' ([string]$board.Entries['fleet.created'].Value)
+    } finally { Remove-Item $root -Recurse -Force }
+}
+Test-Case 'L01 : FleetStats filtre l OU en SQL, rattache les observations par GUID et ecarte les anciennes' {
+    $root = New-LegacySandbox
+    try {
+        $lyon = 'OU=Lyon,DC=example,DC=invalid'
+        $rows = @(
+            (New-L01IndexRow 'PC-1' $lyon 'guid-0001' -LapsKind 'Legacy' -LapsExpiry '2027-01-01T00:00:00Z')
+            (New-L01IndexRow 'PC-2' $lyon 'guid-0002')
+            (New-L01IndexRow 'PC-3' 'OU=Paris,DC=example,DC=invalid' 'guid-0003')
+            (New-L01IndexRow 'PC-4' $lyon 'guid-0004' -State 'Desactive')
+            (New-L01IndexRow 'PC-5' $lyon 'guid-0005' -Os 'Windows 10 Entreprise' -Version '10.0 (19045)')
+            (New-L01IndexRow 'PC-6' ('OU=Etage,' + $lyon) 'guid-0006' -LastLogon '01/01/2026 08:00:00')
+        )
+        [void](Invoke-L01Bulk $rows)
+        [void](Save-L01Observation ('CN=PC-1,' + $lyon) 'guid-0001' 'PC-1' 1 'EX\alice')
+        [void](Save-L01Observation ('CN=PC-2,' + $lyon) 'guid-recreated' 'PC-2' 1 'EX\bob')
+        [void](Save-L01Observation 'CN=PC-3,OU=Paris,DC=example,DC=invalid' 'guid-0003' 'PC-3' 1 'EX\carl')
+        [void](Save-L01Observation ('CN=PC-5,' + $lyon) 'guid-0005' 'PC-5' 40 'EX\dan')
+        $result = Invoke-L01Fleet -Scope $lyon -Keys @('cn=pc-3,ou=paris,dc=example,dc=invalid')
+        Assert-False ([bool]$result.Busy)
+        Assert-Equal 4 ([int]$result.MachineCount) 'Postes actifs de l OU et sous-OU.'
+        Assert-Equal 'PC-1,PC-2,PC-4,PC-5,PC-6' (@(@($result.Machines) | ForEach-Object { [string]$_.name }) -join ',')
+        $n = 0; foreach ($group in @($result.Groups)) { $n += [int]$group.n }
+        Assert-Equal 5 $n 'Groupes = postes de l OU, desactive compris.'
+        Assert-Equal 'D' ([string]@(@($result.Machines) | Where-Object { $_.name -eq 'PC-4' })[0].st)
+        $presence = @($result.Presence)
+        Assert-Equal 'cn=pc-1,ou=lyon,dc=example,dc=invalid|cn=pc-3,ou=paris,dc=example,dc=invalid' (@($presence | ForEach-Object { [string]$_.object_key } | Sort-Object) -join '|') 'GUID different ou releve de plus de 30 jours retenu.'
+        Assert-False ([bool]@($presence | Where-Object { $_.name -eq 'PC-3' })[0].in_scope) 'Poste selectionne hors OU compte dans l OU.'
+        Assert-True ([string]@($presence | Where-Object { $_.name -eq 'PC-1' })[0].gid) 'Observation sans groupe.'
+        $board = Get-DomeniaFleetBoardData -Result $result -Scope $lyon -Now ([datetime]::Now)
+        Assert-Equal '4' ([string]$board.Entries['fleet.machines'].Value)
+        Assert-Equal '1' ([string]$board.Entries['fleet.disabled'].Value)
+        Assert-Equal '1' ([string]$board.Entries['fleet.users'].Value) 'Seul le releve rattache par GUID compte.'
+        Assert-Equal 'En ligne|Non verifie' (@(@($board.Entries['fleet.presence'].Items) | ForEach-Object { [string]$_.Label }) -join '|')
+        Assert-Equal '1|3' (@(@($board.Entries['fleet.presence'].Items) | ForEach-Object { [string][int]$_.Value }) -join '|')
+        $one = Invoke-L01Fleet -Scope $lyon -Subtree $false
+        Assert-Equal 'PC-1,PC-2,PC-4,PC-5' (@(@($one.Machines) | ForEach-Object { [string]$_.name }) -join ',') 'Sans les sous-OU.'
+        $all = Invoke-L01Fleet
+        Assert-Equal 5 ([int]$all.MachineCount) 'Domaine entier.'
+        Assert-Equal 3 @($all.Parents).Count
+    } finally { Remove-Item $root -Recurse -Force }
+}
+Test-Case 'L01 : instantane quotidien, premier du jour garde, retention 400 jours, purges Index et Historique' {
+    $root = New-LegacySandbox
+    try {
+        [void](Invoke-L01Bulk @((New-L01IndexRow 'PC-1' 'OU=Lyon,DC=example,DC=invalid' 'guid-0001')))
+        Add-L01Rows "INSERT INTO secret_state(computer_key,computer,checked_at,bitlocker_keys,verdict) VALUES('PC-1','PC-1','2026-10-01T00:00:00Z',1,'presence lue pour l OU');"
+        $items = @(
+            [pscustomobject]@{ Kind = 'FleetSnapshot'; Row = [pscustomobject]@{ ScopeKey = 'k1'; ScopeDn = 'OU=Lyon,DC=example,DC=invalid'; Day = '2026-01-15'; TakenAt = '2026-01-15T08:00:00Z'; Machines = 1; Figures = '{"Machines":1,"Problems":0}' } }
+            [pscustomobject]@{ Kind = 'FleetSnapshot'; Row = [pscustomobject]@{ ScopeKey = 'k1'; ScopeDn = 'OU=Lyon,DC=example,DC=invalid'; Day = '2026-01-15'; TakenAt = '2026-01-15T18:00:00Z'; Machines = 9; Figures = '{"Machines":9,"Problems":9}' } }
+            [pscustomobject]@{ Kind = 'FleetSnapshot'; Row = [pscustomobject]@{ ScopeKey = 'k1'; ScopeDn = 'OU=Lyon,DC=example,DC=invalid'; Day = '2020-01-15'; TakenAt = '2020-01-15T08:00:00Z'; Machines = 1; Figures = '{}' } }
+        )
+        Assert-True (Invoke-LegacyWorker ([pscustomobject]@{ Path = $script:TestDbPath; Items = $items })).Saved
+        $snapshots = @(Get-L01Rows 'SELECT * FROM fleet_snapshots;')
+        Assert-Equal 1 $snapshots.Count 'Premier instantane du jour seul garde, ancien au-dela de 400 jours supprime.'
+        Assert-Equal 1 ([int]$snapshots[0].machines)
+        $bad = $false
+        try { [void](Invoke-LegacyWorker ([pscustomobject]@{ Path = $script:TestDbPath; Items = @([pscustomobject]@{ Kind = 'FleetSnapshot'; Row = [pscustomobject]@{ ScopeKey = 'k1'; Day = 'hier'; Figures = '{}' } }) })) } catch { $bad = $true }
+        Assert-True $bad 'Instantane invalide accepte.'
+        $usage = Invoke-UsageWorker
+        Assert-Equal 1 @(@(@($usage.Categories | Where-Object Category -eq 'Index')[0].Tables) | Where-Object { $_.Table -eq 'ad_computer_facts' -and $_.Rows -eq 1 }).Count 'Faits mesures avec l index.'
+        Assert-Equal 1 @(@(@($usage.Categories | Where-Object Category -eq 'History')[0].Tables) | Where-Object { $_.Table -eq 'fleet_snapshots' -and $_.Rows -eq 1 }).Count 'Instantanes mesures avec l historique.'
+        $cutoff = [datetime]::UtcNow.AddMinutes(-1).ToString('o')
+        $preview = Invoke-PurgeWorker @('Index','History') $true '' $cutoff
+        Assert-Equal 1 @(@($preview.Counts) | Where-Object { $_.Table -eq 'ad_computer_facts' -and $_.Rows -eq 1 }).Count
+        Assert-Equal 1 @(@($preview.Counts) | Where-Object { $_.Table -eq 'fleet_snapshots' -and $_.Rows -eq 1 }).Count
+        Assert-Equal 0 @(@($preview.Counts) | Where-Object { $_.Table -eq 'secret_state' }).Count 'secret_state cible d une purge.'
+        $applied = Invoke-PurgeWorker @('Index','History') $false $preview.Fingerprint $cutoff
+        Assert-True $applied.Committed
+        Assert-Equal 0 (Get-LegacyCount 'ad_computer_facts'); Assert-Equal 0 (Get-LegacyCount 'fleet_snapshots')
+        Assert-Equal 1 (Get-LegacyCount 'secret_state') 'Metadonnees des secrets purgees avec l index.'
+    } finally { Remove-Item $root -Recurse -Force }
+}
+Test-Case 'L01 : presence BitLocker en lot ecrite dans secret_state, lue par FleetStats, jamais une cle' {
+    $root = New-LegacySandbox
+    try {
+        $lyon = 'OU=Lyon,DC=example,DC=invalid'
+        [void](Invoke-L01Bulk @((New-L01IndexRow 'PC-1' $lyon 'guid-0001'), (New-L01IndexRow 'PC-2' $lyon 'guid-0002')))
+        $rows = @([pscustomobject]@{ Computer = 'PC-1'; BitLockerKeys = 2; BitLockerLast = '2026-09-01T00:00:00Z'; LapsScheme = ''; LapsExpiry = ''; Verdict = 'presence lue pour l OU'; At = [datetime]::UtcNow.ToString('o') }, [pscustomobject]@{ Computer = 'PC-2'; BitLockerKeys = 0; BitLockerLast = ''; LapsScheme = ''; LapsExpiry = ''; Verdict = 'aucune cle visible avec ce compte'; At = [datetime]::UtcNow.ToString('o') })
+        Assert-True (Invoke-LegacyWorker ([pscustomobject]@{ Path = $script:TestDbPath; Items = @([pscustomobject]@{ Kind = 'SecretMeta'; Row = [pscustomobject]@{ Rows = $rows } }) })).Saved
+        Assert-Equal 2 (Get-LegacyCount 'secret_state')
+        $result = Invoke-L01Fleet -Scope $lyon
+        Assert-Equal 2 ([int]$result.Coverage.BitLockerRead)
+        $board = Get-DomeniaFleetBoardData -Result $result -Scope $lyon -Now ([datetime]::Now)
+        Assert-Equal '1' ([string]$board.Entries['fleet.bitlocker'].Value) 'Un poste sans cle visible.'
+        Assert-True ([string]$board.Entries['fleet.bitlocker'].Detail -like '2 postes analysés sur 2, le *') ([string]$board.Entries['fleet.bitlocker'].Detail)
+        $secrets = (@(Get-L01Rows 'SELECT * FROM secret_state;') | ConvertTo-Json -Compress)
+        Assert-False ($secrets -match '\d{6}-\d{6}-\d{6}') 'Valeur de cle ecrite.'
+    } finally { Remove-Item $root -Recurse -Force }
+}
+Test-Case 'L01 : lecture LAPS seule = BitLocker non lu ; presence d OU sans objet visible ne remplace jamais des cles lues' {
+    $root = New-LegacySandbox
+    try {
+        $lyon = 'OU=Lyon,DC=example,DC=invalid'
+        [void](Invoke-L01Bulk @((New-L01IndexRow 'PC-A' $lyon 'guid-000a'), (New-L01IndexRow 'PC-B' $lyon 'guid-000b'), (New-L01IndexRow 'PC-C' $lyon 'guid-000c')))
+        $now = [datetime]::UtcNow.ToString('o')
+        # LAPS read alone on PC-A (Save-DomeniaSecretIndexEntry sends BitLockerKeys -1): BitLocker stays unknown.
+        $laps = [pscustomobject]@{ Computer = 'PC-A'; BitLockerKeys = -1; BitLockerLast = ''; LapsScheme = 'Windows'; LapsExpiry = '2026-12-01T00:00:00Z'; Verdict = 'mot de passe LAPS lisible'; At = $now }
+        Assert-True (Invoke-LegacyWorker ([pscustomobject]@{ Path = $script:TestDbPath; Items = @([pscustomobject]@{ Kind = 'SecretMeta'; Row = $laps }) })).Saved
+        Assert-Equal -1 ([int]@(Get-L01Rows "SELECT bitlocker_keys FROM secret_state WHERE computer_key='PC-A';")[0].bitlocker_keys) 'LAPS seul ecrit 0 cle BitLocker.'
+        $result = Invoke-L01Fleet -Scope $lyon
+        Assert-Equal 0 ([int]$result.Coverage.BitLockerRead) 'Lecture LAPS seule comptee comme BitLocker lu.'
+        Assert-Equal 0 @(@($result.Groups) | Where-Object { [string]$_.bk -ne 'U' }).Count 'Poste LAPS seul hors U.'
+        $board = Get-DomeniaFleetBoardData -Result $result -Scope $lyon -Now ([datetime]::Now)
+        Assert-Equal 'Non lu' ([string]$board.Entries['fleet.bitlocker'].Value)
+        Assert-Equal 0 @(@($board.Attention) | Where-Object { [string]$_.Point -eq 'bitlocker.none' }).Count 'Poste sans cle signale sans lecture BitLocker.'
+        # Two keys read on PC-B one by one, then a read of the OU that sees nothing: PC-B keeps its two keys.
+        $keyed = [pscustomobject]@{ Computer = 'PC-B'; BitLockerKeys = 2; BitLockerLast = '2026-09-01T00:00:00Z'; LapsScheme = ''; LapsExpiry = ''; Verdict = '2 cle(s) visible(s)'; At = $now }
+        [void](Invoke-LegacyWorker ([pscustomobject]@{ Path = $script:TestDbPath; Items = @([pscustomobject]@{ Kind = 'SecretMeta'; Row = $keyed }) }))
+        $blind = @(foreach ($name in @('PC-A','PC-B','PC-C')) { [pscustomobject]@{ Computer = $name; BitLockerKeys = 0; BitLockerLast = ''; LapsScheme = ''; LapsExpiry = ''; Verdict = 'aucune cle visible avec ce compte'; At = $now; KeepKnown = $true } })
+        Assert-True (Invoke-LegacyWorker ([pscustomobject]@{ Path = $script:TestDbPath; Items = @([pscustomobject]@{ Kind = 'SecretMeta'; Row = [pscustomobject]@{ Rows = $blind } }) })).Saved
+        Assert-Equal 2 ([int]@(Get-L01Rows "SELECT bitlocker_keys FROM secret_state WHERE computer_key='PC-B';")[0].bitlocker_keys) 'Cles lues poste par poste remplacees par 0.'
+        Assert-Equal 'Windows' ([string]@(Get-L01Rows "SELECT laps_scheme FROM secret_state WHERE computer_key='PC-A';")[0].laps_scheme) 'Metadonnees LAPS perdues.'
+        Assert-Equal 0 ([int]@(Get-L01Rows "SELECT bitlocker_keys FROM secret_state WHERE computer_key='PC-C';")[0].bitlocker_keys)
+        # A read that sees keys elsewhere writes the zero of an unseen workstation (KeepKnown false).
+        $seen = [pscustomobject]@{ Computer = 'PC-B'; BitLockerKeys = 0; BitLockerLast = ''; LapsScheme = ''; LapsExpiry = ''; Verdict = 'aucune cle visible avec ce compte'; At = $now; KeepKnown = $false }
+        [void](Invoke-LegacyWorker ([pscustomobject]@{ Path = $script:TestDbPath; Items = @([pscustomobject]@{ Kind = 'SecretMeta'; Row = [pscustomobject]@{ Rows = @($seen) } }) }))
+        Assert-Equal 0 ([int]@(Get-L01Rows "SELECT bitlocker_keys FROM secret_state WHERE computer_key='PC-B';")[0].bitlocker_keys) 'Cle supprimee de l annuaire encore comptee.'
+    } finally { Remove-Item $root -Recurse -Force }
+}
+Test-Case 'L01 : releves d un poste hors OU lus seuls (ObservationsOnly), groupes distincts par la casse' {
+    $root = New-LegacySandbox
+    try {
+        $lyon = 'OU=Lyon,DC=example,DC=invalid'
+        [void](Invoke-L01Bulk @((New-L01IndexRow 'PC-1' $lyon 'guid-0001' -Os 'Windows 11 Entreprise'), (New-L01IndexRow 'PC-2' $lyon 'guid-0002' -Os 'WINDOWS 11 Entreprise'), (New-L01IndexRow 'PC-3' 'OU=Paris,DC=example,DC=invalid' 'guid-0003')))
+        [void](Save-L01Observation ('CN=PC-1,' + $lyon) 'guid-0001' 'PC-1' 1 'EX\alice')
+        [void](Save-L01Observation 'CN=PC-3,OU=Paris,DC=example,DC=invalid' 'guid-0003' 'PC-3' 1 'EX\carl')
+        $Payload = [pscustomobject]@{ Action = 'FleetStats'; Path = $script:TestDbPath; BusyTimeoutMs = 250; Scope = ''; Subtree = $true; Plan = (Get-DomeniaFleetQueryPlan -Now ([datetime]::Now)); Keys = @('cn=pc-3,ou=paris,dc=example,dc=invalid'); ObservationsOnly = $true }
+        $only = & ([scriptblock]::Create((Get-DomeniaLocalIndexReadWorkerCode)))
+        Assert-Equal 0 @($only.Groups).Count 'Agregats calcules pour une lecture de releves.'
+        Assert-Equal 0 @($only.Machines).Count
+        Assert-Equal 'cn=pc-3,ou=paris,dc=example,dc=invalid' (@(@($only.Presence) | ForEach-Object { [string]$_.object_key }) -join '|') 'Releve du seul poste demande.'
+        Assert-False ([bool]@($only.Presence)[0].in_scope)
+        # Two systems that differ by case only: two groups, each workstation in its own (GROUP BY is case sensitive).
+        $result = Invoke-L01Fleet -Scope $lyon
+        $gids = @(@($result.Machines) | ForEach-Object { [string]$_.gid })
+        Assert-Equal 2 @($result.Groups).Count ('Groupes : ' + @($result.Groups).Count)
+        Assert-Equal 2 @($gids | Sort-Object -Unique).Count ('Postes rattaches au meme groupe : ' + ($gids -join ','))
+        foreach ($gid in $gids) { Assert-True ([bool]$gid) 'Poste sans groupe.' }
+    } finally { Remove-Item $root -Recurse -Force }
+}
+Test-Case 'L01 : search_key sans Extra repare une seule fois par base au demarrage (CO-26)' {
+    $root = New-LegacySandbox
+    try {
+        # A base written by RC1.13.0 has no repair marker: rows written by its single-row updates lack the extra field.
+        Add-L01Rows "DELETE FROM sync_state WHERE scope='repair:search_key_extra';"
+        Add-L01Rows "INSERT INTO ad_objects(object_key,object_guid,object_type,name,extra,search_key,distinguished_name) VALUES('guid-9','guid-9','Machine','PC-9','Windows 10 Pro / Lyon','pc-9 pc-9','CN=PC-9,DC=example,DC=invalid'),('guid-8','guid-8','Machine','PC-8','','pc-8','CN=PC-8,DC=example,DC=invalid'),('guid-7','guid-7','Machine','PC-7','École / Étage 2','pc-7 école / étage 2','CN=PC-7,DC=example,DC=invalid');"
+        $script:DomeniaDatabaseReady = $false
+        Assert-True (Initialize-DomeniaDatabase)
+        $key = [string]@(Get-L01Rows "SELECT search_key FROM ad_objects WHERE name='PC-9';")[0].search_key
+        Assert-True ($key -like '*windows 10 pro / lyon*') ('search_key non repare : ' + $key)
+        Assert-Equal 'pc-8' ([string]@(Get-L01Rows "SELECT search_key FROM ad_objects WHERE name='PC-8';")[0].search_key) 'Ligne sans Extra modifiee.'
+        Assert-Equal 1 @(Get-L01Rows "SELECT scope FROM sync_state WHERE scope='repair:search_key_extra';").Count 'Marqueur de reparation absent.'
+        # Later starts never scan again: a row still lacking the extra field is left to the next index write.
+        Add-L01Rows "INSERT INTO ad_objects(object_key,object_guid,object_type,name,extra,search_key,distinguished_name) VALUES('guid-6','guid-6','Machine','PC-6','Windows 11 Pro / Paris','pc-6','CN=PC-6,DC=example,DC=invalid');"
+        $accented = [string]@(Get-L01Rows "SELECT search_key FROM ad_objects WHERE name='PC-7';")[0].search_key
+        $script:DomeniaDatabaseReady = $false
+        Assert-True (Initialize-DomeniaDatabase)
+        Assert-Equal $key ([string]@(Get-L01Rows "SELECT search_key FROM ad_objects WHERE name='PC-9';")[0].search_key) 'Reparation repetee.'
+        Assert-Equal 'pc-6' ([string]@(Get-L01Rows "SELECT search_key FROM ad_objects WHERE name='PC-6';")[0].search_key) 'Parcours de reparation relance a un demarrage suivant.'
+        Assert-Equal $accented ([string]@(Get-L01Rows "SELECT search_key FROM ad_objects WHERE name='PC-7';")[0].search_key) 'Majuscule accentuee recopiee a chaque demarrage.'
+    } finally { Remove-Item $root -Recurse -Force }
+}
+Test-Case 'L01 : IndexBuild et BitLockerPresence ne demandent aucun attribut sensible ; BitLockerPresence refusee a la racine' {
+    $script:L01Searches = New-Object System.Collections.ArrayList
+    function New-WSearcher {
+        param($Context,[string]$BaseDn,[string]$Filter,[string[]]$Properties,[string]$Scope = 'OneLevel',[int]$Limit = 0)
+        [void]$script:L01Searches.Add([pscustomobject]@{ Base = $BaseDn; Filter = $Filter; Properties = @($Properties); Scope = $Scope })
+        $searcher = [pscustomobject]@{ PageSize = 0; ServerTimeLimit = $null; ClientTimeout = $null; Filter = $Filter }
+        $searcher | Add-Member -MemberType ScriptMethod -Name FindAll -Value { if ($this.Filter -like '*attributeSchema*' -or $this.Filter -like '*classSchema*') { return ,@([pscustomobject]@{ Properties = @{} }) }; return ,@() }
+        $searcher | Add-Member -MemberType ScriptMethod -Name Dispose -Value { }
+        return $searcher
+    }
+    function New-WRootDse { param($Context) $r = [pscustomobject]@{ Properties = @{ highestCommittedUSN = @{ Value = 5 }; schemaNamingContext = @{ Value = 'CN=Schema,CN=Configuration,DC=example,DC=invalid' } } }; $r | Add-Member -MemberType ScriptMethod -Name RefreshCache -Value { param($Names) }; return $r }
+    function Get-WDirectoryVersionSource { param($Context) return '' }
+    function Get-WPropFirst { param($Props,[string]$Name,$Default = '') return $Default }
+    function Get-DomeniaStructuredError { param($ErrorRecord,$Phase,$Provider,$Target) return [pscustomobject]@{ Kind = 'ReadFailed'; NativeCode = ''; Code = '' } }
+    $Context = [pscustomobject]@{ BaseDn = 'DC=example,DC=invalid'; Server = 'dc.example.invalid'; OperationId = 'IndexBuild'; PageSize = 100 }
+    $Payload = [pscustomobject]@{ MaxObjects = 1000; BudgetMs = 30000; LastUsn = 0; LastServer = ''; Since = ''; ComputerFirst = $true }
+    $index = & ([scriptblock]::Create((Get-DomeniaIndexWorkerCode)))
+    Assert-Equal 'Present' ([string]$index.LapsSchema) 'Presence des attributs LAPS dans le schema non lue.'
+    $computer = @($script:L01Searches | Where-Object { $_.Filter -eq '(objectCategory=computer)' })[0]
+    foreach ($name in @('operatingSystemVersion','whenCreated','pwdLastSet','ms-Mcs-AdmPwdExpirationTime','msLAPS-PasswordExpirationTime')) { Assert-True (@($computer.Properties) -contains $name) ('Attribut non lu : ' + $name) }
+    foreach ($search in @($script:L01Searches)) { foreach ($name in @($search.Properties)) { Assert-False (Test-DomeniaSensitiveAttributeName -Name $name) ('Attribut sensible demande par IndexBuild : ' + $name) } }
+    Assert-False ((Get-DomeniaIndexWorkerCode) -match '(?i)msLAPS-Password[^E]|ms-Mcs-AdmPwd[^E]|unicodePwd') 'Mot de passe LAPS demande.'
+    $script:L01Searches.Clear()
+    $Context = [pscustomobject]@{ BaseDn = 'DC=example,DC=invalid'; Server = 'dc.example.invalid'; OperationId = 'BitLockerPresence'; PageSize = 100 }
+    $Payload = [pscustomobject]@{ DN = 'DC=example,DC=invalid' }
+    $refused = ''
+    try { [void](& ([scriptblock]::Create((Get-DomeniaBitLockerPresenceWorkerCode)))) } catch { $refused = $_.Exception.Message }
+    Assert-True ($refused -like '*racine du domaine*') ('Racine du domaine acceptee : ' + $refused)
+    Assert-Equal 0 $script:L01Searches.Count 'Recherche envoyee a la racine du domaine.'
+    $Payload = [pscustomobject]@{ DN = 'OU=Lyon,DC=example,DC=invalid' }
+    $presence = & ([scriptblock]::Create((Get-DomeniaBitLockerPresenceWorkerCode)))
+    Assert-True ([bool]$presence.Success) ([string]$presence.ErrorMessage)
+    Assert-True ([bool]$presence.ClassPresent)
+    $ou = @($script:L01Searches | Where-Object { $_.Filter -eq '(objectClass=msFVE-RecoveryInformation)' })[0]
+    Assert-Equal 'OU=Lyon,DC=example,DC=invalid' ([string]$ou.Base) 'Recherche hors de l OU affichee.'
+    Assert-Equal 'Subtree' ([string]$ou.Scope)
+    Assert-Equal 'name,distinguishedName,whenCreated' (@($ou.Properties) -join ',')
+    foreach ($search in @($script:L01Searches)) { foreach ($name in @($search.Properties)) { Assert-False (Test-DomeniaSensitiveAttributeName -Name $name) ('Attribut sensible demande par BitLockerPresence : ' + $name) } }
+    Assert-False ((Get-DomeniaBitLockerPresenceWorkerCode) -match '(?i)msFVE-RecoveryPassword|msFVE-KeyPackage') 'Cle BitLocker demandee.'
+    $Payload = [pscustomobject]@{ DN = 'OU=Ailleurs,DC=autre,DC=invalid' }
+    $outside = ''
+    try { [void](& ([scriptblock]::Create((Get-DomeniaBitLockerPresenceWorkerCode)))) } catch { $outside = $_.Exception.Message }
+    Assert-True ($outside -like '*hors du domaine*') ('OU hors domaine acceptee : ' + $outside)
+}
+Test-Case 'L01 : vue du parc sur 5 000 postes, agregats SQL et calcul des regles mesures' {
+    $root = New-LegacySandbox
+    try {
+        Add-L01Rows @"
+BEGIN IMMEDIATE;
+WITH RECURSIVE c(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM c WHERE n<5000)
+INSERT INTO ad_objects(object_key,object_guid,object_type,name,login,extra,state,distinguished_name,last_logon,search_key)
+ SELECT 'guid-'||n,'guid-'||n,'Machine','PC-'||n,'PC-'||n,CASE WHEN n%7=0 THEN 'Windows 10 Professionnel / Lyon' ELSE 'Windows 11 Entreprise / Lyon' END,CASE WHEN n%97=0 THEN 'Desactive' ELSE 'Actif' END,
+ 'CN=PC-'||n||',OU=Site'||(n%25)||',OU=Parc,DC=example,DC=invalid',printf('%02d/%02d/2026 08:00:00',1+(n%28),1+(n%9)),'pc-'||n FROM c;
+WITH RECURSIVE c(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM c WHERE n<5000)
+INSERT INTO ad_computer_facts(object_guid,object_key,os_version,when_created,pwd_last_set,laps_kind,laps_expiry,read_at)
+ SELECT 'guid-'||n,'guid-'||n,CASE WHEN n%7=0 THEN '10.0 (19045)' WHEN n%3=0 THEN '10.0 (22631)' ELSE '10.0 (26100)' END,'2025-01-01T00:00:00Z',printf('2026-%02d-01T00:00:00Z',1+(n%9)),CASE WHEN n%5=0 THEN 'None' ELSE 'Windows' END,'2026-12-01T00:00:00Z','2026-10-08T08:00:00.0000000Z' FROM c;
+INSERT OR REPLACE INTO sync_state(scope,server,base_dn,highest_usn,last_sync,item_count,details) VALUES('directory','dc','DC=example,DC=invalid',1,'2026-10-08T08:00:00.0000000Z',5000,'test');
+COMMIT;
+"@
+        $watch = [Diagnostics.Stopwatch]::StartNew()
+        $result = Invoke-L01Fleet -Scope 'OU=Parc,DC=example,DC=invalid'
+        $workerMs = $watch.ElapsedMilliseconds
+        $lifecycle = [IO.File]::ReadAllText((Join-Path $modules 'Domenia-WindowsLifecycle.json'),[Text.Encoding]::UTF8) | ConvertFrom-Json
+        [void](Get-DomeniaFleetBoardData -Result $result -Scope 'OU=Parc,DC=example,DC=invalid' -Now ([datetime]::Now) -Lifecycle $lifecycle)
+        $watch.Restart()
+        $board = Get-DomeniaFleetBoardData -Result $result -Scope 'OU=Parc,DC=example,DC=invalid' -Now ([datetime]::Now) -Lifecycle $lifecycle
+        $modelMs = $watch.ElapsedMilliseconds
+        Assert-Equal ([string](5000 - 51)) ([string]$board.Entries['fleet.machines'].Value)
+        Assert-True (@($result.Groups).Count -lt 400) ('Trop de groupes : ' + @($result.Groups).Count)
+        $script:CaseDetail = 'Worker FleetStats ' + $workerMs + ' ms ; regles sur les agregats ' + $modelMs + ' ms ; ' + @($result.Groups).Count + ' groupes pour 5000 postes.'
+        Assert-True ($modelMs -lt 120) ('Calcul des regles trop long : ' + $modelMs + ' ms')
+    } finally { Remove-Item $root -Recurse -Force }
+}
+
 $passed = @($checks | Where-Object { $_.Status -eq 'Passed' }).Count
 $failed = @($checks | Where-Object { $_.Status -eq 'Failed' }).Count
 if (-not $ReportPath) { $ReportPath = Join-Path ([IO.Path]::GetTempPath()) ('Domenia-wiring-cache-' + [guid]::NewGuid().ToString('N') + '.json') }
@@ -3322,7 +3651,7 @@ $report = [ordered]@{
     Wpf=$true
     MockedNetwork=$true
     LiveAD=$false
-    Points=@('D029','D118','D030','D023','D025','D028','D115','D113','D024','D026','D027','D021','D022')
+    Points=@('D029','D118','D030','D023','D025','D028','D115','D113','D024','D026','D027','D021','D022','L01')
     Passed=$passed
     Failed=$failed
     Complete=($failed -eq 0 -and $passed -gt 0)

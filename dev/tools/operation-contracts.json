@@ -137,7 +137,7 @@
     "File": "wad/Domenia-Core.ps1",
     "Function": "Get-DomeniaIndexWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "4FC47EF863C2EE3F31D7D868F947D35905DCE9FC1BDDEEB0DBEFD4A179C3E7E0"
+    "Sha256": "C16101D0C74DC5DFA2B4572CB1D52381B58C1E74E28265E4916A6A4052466450"
   },
   {
     "Operation": "ComputerDiagnostics",
@@ -361,7 +361,7 @@
     "File": "wad/modules/Domenia-Storage.Worker.ps1",
     "Function": "Get-DomeniaStorageWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "C7EBA9EB28327A938CAA3201EC0E05A0EA327D7788E09F173D4EC85FB75F2558"
+    "Sha256": "0073EF8956CCECDEE06A9BF2C39552AC149747FD1BCC6EC1EE0F835794423792"
   },
   {
     "Operation": "ScopeReconcile",
@@ -403,14 +403,14 @@
     "File": "wad/modules/Domenia-Demo.Worker.ps1",
     "Function": "Get-DomeniaDemoDirectoryWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "F12481F3B254D64F9C5D870A98EA33BE6C69A67D4C99D28601CF292A1150EAE0"
+    "Sha256": "EA76156ECA8C5DADB7650C90D58C100B3CA2BCC184FC9E309CC1E56DC258A30D"
   },
   {
     "Operation": "LocalIndexRead",
     "File": "wad/modules/Domenia-Engine.Worker.ps1",
     "Function": "Get-DomeniaLocalIndexReadWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "B2B40A190D73F07C02E95FC78A833C020AABF952D0904F53B492B67999130D86"
+    "Sha256": "DA04BD7A486164DD4507420C1F3694F23BF9795F85F0C669BCAEC6068FB930D8"
   },
   {
     "Operation": "ParkSharedSync",
@@ -441,6 +441,13 @@
     "Sha256": "8A98EBCDC48AD572404E1566826035C84F34ACB87564330A7AA511FAAC01EE6F"
   },
   {
+    "Operation": "BitLockerPresence",
+    "File": "wad/modules/Domenia-Secrets.Worker.ps1",
+    "Function": "Get-DomeniaBitLockerPresenceWorkerCode",
+    "LiteralIndex": 0,
+    "Sha256": "F1A7C8FD83BA659E7826DE2DDBDD01EE13BC185819FD9330656B77A99ACD6764"
+  },
+  {
     "Operation": "LegacyMigration",
     "File": "wad/modules/Domenia-Migration.Worker.ps1",
     "Function": "Get-DomeniaMigrationWorkerCode",
@@ -452,14 +459,14 @@
     "File": "wad/modules/Domenia-Storage.Worker.ps1",
     "Function": "Get-DomeniaStorageUsageWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "84D550654B883DB7DE1CD68904BDB99E1F817E12FB2C14A2CAE081F4B1BC4FDD"
+    "Sha256": "181CE32EF4BC1D322300FB4D4BB7B41D3B4E98E1D5562898109ED1E1F6841E4C"
   },
   {
     "Operation": "StoragePurge",
     "File": "wad/modules/Domenia-Storage.Worker.ps1",
     "Function": "Get-DomeniaStoragePurgeWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "7AF1E83D5A2CC189D70F73C2743A93999162D1C0C74D111BCBD4F101F0C0FC01"
+    "Sha256": "4FB461802A90DB7DC858BC87C9D3BD83B3BCCE05182FEAB29FF6AE5219DC6F79"
   },
   {
     "Operation": "ComputerAdminShare",

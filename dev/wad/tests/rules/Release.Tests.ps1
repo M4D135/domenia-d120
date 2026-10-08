@@ -526,6 +526,19 @@ Test-Case 'D115' 'Base courante, absente, illisible ou migration interrompue' {
     $stop=Test-DomeniaSchemaCompatibility -DatabaseVersion '11' -DatabaseRevision '' -BackupVerified $true -MigrationInterrupted $true
     Assert-Equal 'Reprise requise' $stop.Decision;Assert-False $stop.CanWrite;Assert-Equal 0 @($stop.Steps).Count
 }
+Test-Case 'D115' 'Lot L01 : deux tables additives, schema 11/1 inchange, aucune sauvegarde de migration pour une base 11/1' {
+    $cur=Test-DomeniaSchemaCompatibility -DatabaseVersion '11' -DatabaseRevision '1'
+    Assert-Equal 'Ouvrir' $cur.Decision;Assert-False ([bool]$cur.RequiresBackup) 'Une base 11/1 ne demande aucune sauvegarde de migration'
+    $core=[IO.File]::ReadAllText((Join-Path $wad 'Domenia-Core.ps1'),[Text.Encoding]::UTF8)
+    $init=[regex]::Match($core,'(?s)function Initialize-DomeniaDatabase \{.*?\n\}\n')
+    Assert-True $init.Success 'Initialize-DomeniaDatabase introuvable'
+    $script=[regex]::Match($init.Value,'(?s)BEGIN IMMEDIATE;(.*?)COMMIT;').Groups[1].Value
+    foreach($table in @('ad_computer_facts','fleet_snapshots')){Assert-True ($script -match ('CREATE TABLE IF NOT EXISTS '+$table+'\(')) ('Table additive absente : '+$table)}
+    Assert-True ($script -match "INSERT OR IGNORE INTO schema_info\(key,value\) VALUES\('schema_version','11'\);") 'Version ecrite seulement si absente'
+    Assert-True ($script -match "INSERT OR IGNORE INTO schema_info\(key,value\) VALUES\('domenia_schema','1'\);") 'Revision ecrite seulement si absente'
+    Assert-False ($script -match '(?i)UPDATE schema_info|REPLACE INTO schema_info|DROP TABLE|ALTER TABLE') 'Schema jamais modifie ni table recreee'
+    Assert-True ($script.IndexOf('fleet_snapshots') -lt $script.IndexOf("'domenia_schema','1'")) 'Tables creees dans la meme transaction'
+}
 Test-Case 'D115' 'Le controle des etapes detecte retour arriere, recus vises et base recreee' {
     $ok=@([pscustomobject]@{Action='Sauvegarder';Target='Sauvegarde';From='11/0';To='11/0'},[pscustomobject]@{Action='Migrer';Target='Base';From='11/0';To='11/1'},[pscustomobject]@{Action='Controler';Target='Base';From='11/1';To='11/1'})
     $clean=Test-DomeniaSchemaStepSafety $ok;Assert-True $clean.Safe ($clean.Findings -join ' ');Assert-False $clean.Downgrade

@@ -302,11 +302,12 @@ function Get-DomeniaOperationCredentialNeeds {
     $isRemote = ($remote -contains $id)
     $nonDirectory = (($local -contains $id) -or $isRemote)
     $directory = (($id -in @('ComputerLastUser','LiveConsole')) -or -not $nonDirectory)
-    # ReadBitLockerList and ReadBitLockerKey (lot acces, D058) read BitLocker exactly like ReadBitLocker.
-    $secrets = ($id -in @('ReadBitLocker','ReadBitLockerList','ReadBitLockerKey','ReadLaps'))
+    # ReadBitLockerList and ReadBitLockerKey (lot acces, D058) read BitLocker exactly like ReadBitLocker, and so does
+    # BitLockerPresence (lot L01: recovery objects of one OU, Secrets account, refusals kept on the BitLocker resource).
+    $secrets = ($id -in @('ReadBitLocker','ReadBitLockerList','ReadBitLockerKey','ReadLaps','BitLockerPresence'))
     $resource = 'Directory'
     if ($id -eq 'ReadLaps') { $resource = 'Laps' }
-    elseif ($id -in @('ReadBitLocker','ReadBitLockerList','ReadBitLockerKey')) { $resource = 'BitLocker' }
+    elseif ($id -in @('ReadBitLocker','ReadBitLockerList','ReadBitLockerKey','BitLockerPresence')) { $resource = 'BitLocker' }
     elseif ($isRemote -or ($machine -contains $id) -or $id -eq 'RemoteCredentialCheck') { $resource = 'Remote' }
     elseif ($id -in @('LiveSelectedPing','ComputerPing','SelectedPresence','PresenceScan','WakeOnLanSend','ConnectorRead','ParkSharedSync')) { $resource = 'Network' }
     elseif ($nonDirectory) { $resource = 'Local' }

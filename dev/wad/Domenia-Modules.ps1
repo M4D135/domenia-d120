@@ -963,7 +963,8 @@ function Get-DomeniaRuntimeModulePlan {
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Secrets.Worker.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaBitLockerListWorkerCode',
-            'Get-DomeniaBitLockerKeyWorkerCode'
+            'Get-DomeniaBitLockerKeyWorkerCode',
+            'Get-DomeniaBitLockerPresenceWorkerCode'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Access.Model.ps1','Domenia-Access.UI.ps1','Domenia-Secrets.Worker.ps1'); File='Domenia-Secrets.UI.ps1'; DotSource=$true; Functions=@(
             'Test-DomeniaBitLockerKeySelection',
@@ -1014,12 +1015,19 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaBoardCatalogItem',
             'Get-DomeniaBoardColor',
             'Format-DomeniaDashboardSize',
+            'ConvertFrom-DomeniaOsVersion',
+            'Get-DomeniaWindowsFamily',
             'Get-DomeniaWindowsRelease',
+            'Format-DomeniaAge',
+            'ConvertFrom-DomeniaUtcText',
+            'Get-DomeniaCoverageText',
+            'Test-DomeniaObservationAge',
             'New-DomeniaBoardEntry',
             'New-DomeniaBoardData',
             'Add-DomeniaBoardEntry',
             'Add-DomeniaBoardAttention',
             'Get-DomeniaBoardHealth',
+            'Get-DomeniaFleetHealth',
             'Complete-DomeniaBoardData',
             'Get-DomeniaBoardVisualNames',
             'Get-DomeniaBoardVisuals',
@@ -1029,6 +1037,7 @@ function Get-DomeniaRuntimeModulePlan {
             'New-DomeniaBoardItemId',
             'New-DomeniaBoardItem',
             'Get-DomeniaBoardDefaultLayout',
+            'Test-DomeniaFleetLegacyLayout',
             'ConvertTo-DomeniaBoardLayout',
             'ConvertTo-DomeniaBoardLayoutJson',
             'Get-DomeniaBoardGroups',
@@ -1066,6 +1075,7 @@ function Get-DomeniaRuntimeModulePlan {
             'New-DomeniaChartHeader',
             'New-DomeniaChartEmpty',
             'New-DomeniaKpiTile',
+            'New-DomeniaRowButton',
             'New-DomeniaAttentionCard',
             'New-DomeniaArcPath',
             'Register-DomeniaArcDrawing',
@@ -1088,6 +1098,8 @@ function Get-DomeniaRuntimeModulePlan {
             'Measure-DomeniaWidgetData'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Boards.Model.ps1'); File='Domenia-BoardFleet.Model.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaFleetQueryPlan',
+            'Get-DomeniaFleetPointTargets',
             'Get-DomeniaFleetBoardData'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Boards.Model.ps1'); File='Domenia-BoardSoftware.Model.ps1'; DotSource=$true; Functions=@(
@@ -1102,6 +1114,8 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaBoardPanelName',
             'Get-DomeniaBoardState',
             'Get-DomeniaBoardLayout',
+            'Sync-DomeniaBoardUndo',
+            'Clear-DomeniaBoardUndo',
             'Set-DomeniaBoardLayout',
             'Show-DomeniaBoard',
             'Find-DomeniaBoardHolder',
@@ -1123,7 +1137,12 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaBoardSources',
             'Get-DomeniaBoardPreviewEntry',
             'Show-DomeniaBoardEditor',
+            'Get-DomeniaWidgetObservations',
+            'ConvertTo-DomeniaWidgetGuid',
             'Get-DomeniaWidgetResults',
+            'Get-DomeniaWidgetCoverage',
+            'Invoke-DomeniaBoardEntryAction',
+            'Switch-DomeniaAttentionDetails',
             'Get-DomeniaBoardProbeIds',
             'Start-DomeniaWidgetProbe'
         ) }
@@ -1134,6 +1153,8 @@ function Get-DomeniaRuntimeModulePlan {
             'New-DomeniaDashboardSection',
             'Get-DomeniaEntryFileTimeUtc',
             'Get-DomeniaFleetScope',
+            'Get-DomeniaWindowsLifecycleTable',
+            'Get-DomeniaObservationMaxAgeDays',
             'Test-DomeniaFleetDashboardShown',
             'Test-DomeniaFleetAwaitingScope',
             'Request-DomeniaFleetRefresh',
@@ -1141,8 +1162,25 @@ function Get-DomeniaRuntimeModulePlan {
             'Fail-DomeniaFleetDashboard',
             'Update-DomeniaFleetScopeText',
             'Show-DomeniaFleetScopeSource',
+            'Select-DomeniaFleetScopeOu',
+            'Show-DomeniaFleetAnalyzeSource',
             'Merge-DomeniaFleetObservations',
+            'Request-DomeniaSelectedObservation',
+            'Complete-DomeniaSelectedObservation',
+            'Fail-DomeniaSelectedObservation',
+            'Save-DomeniaFleetSnapshot',
             'Complete-DomeniaFleetDashboard',
+            'Get-DomeniaAttentionTargets',
+            'Copy-DomeniaFleetTargets',
+            'Show-DomeniaFleetTargetsInSearch',
+            'Start-DomeniaFleetBitLockerPresence',
+            'Complete-DomeniaFleetBitLockerPresence',
+            'Fail-DomeniaFleetBitLockerPresence',
+            'Get-DomeniaFirstStepsState',
+            'Update-DomeniaFirstSteps',
+            'Open-DomeniaFirstStep',
+            'Get-DomeniaBoardRouteTarget',
+            'Invoke-DomeniaBoardRoute',
             'Update-DomeniaComputerDashboard',
             'Update-DomeniaSoftwareDashboard'
         ) }

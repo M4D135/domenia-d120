@@ -2926,6 +2926,8 @@ function Get-DomeniaDefaultSettings {
         'Dashboard.Software.Layout' = ''
         'Widgets.Computer' = ''
         'Widgets.Fleet'    = ''
+        # Lot L01: the "Premiers pas" card of Accueil stays hidden once its four steps were done.
+        'Home.FirstStepsDone' = $false
     }
 }
 
@@ -4423,22 +4425,42 @@ function Get-MainXaml {
                         <TextBlock Text="Le mode Essentiel simplifie les vues. La case Lecture seule contrôle les modifications : ce sont deux réglages indépendants." TextWrapping="Wrap" Foreground="{DynamicResource InfoFg}" Margin="0,6,0,0"/>
                       </StackPanel>
                     </Border>
-                    <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+                    <Border x:Name="CardFirstSteps" Style="{StaticResource Card}" Margin="0,0,0,12" Visibility="Collapsed" AutomationProperties.Name="Premiers pas">
+                      <StackPanel>
+                        <TextBlock Text="Premiers pas" FontSize="18" FontWeight="SemiBold"/>
+                        <TextBlock Text="Quatre étapes pour une vue du parc complète. Chaque bouton ouvre lʼécran concerné, sans rien lancer." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,4,0,10"/>
+                        <Grid>
+                          <Grid.ColumnDefinitions><ColumnDefinition Width="30"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                          <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                          <TextBlock x:Name="LblFirstStepOuMark" Grid.Row="0" Grid.Column="0" Text="1" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource AccentText}"/>
+                          <TextBlock x:Name="LblFirstStepOu" Grid.Row="0" Grid.Column="1" Text="Choisir mon OU dans lʼarbre de Rechercher : lʼaccueil la suit." TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                          <Button x:Name="BtnFirstStepOu" Grid.Row="0" Grid.Column="2" Content="Choisir mon OU" MinHeight="30" Padding="12,3" Margin="0,0,0,6" ToolTip="Ouvre lʼarbre des OU de Rechercher. Aucune lecture nʼest lancée." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Premiers pas : choisir mon OU"/>
+                          <TextBlock x:Name="LblFirstStepBaseMark" Grid.Row="1" Grid.Column="0" Text="2" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource AccentText}"/>
+                          <TextBlock x:Name="LblFirstStepBase" Grid.Row="1" Grid.Column="1" Text="Construire la base autonome : Mettre à jour tout, dans Outils." TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                          <Button x:Name="BtnFirstStepBase" Grid.Row="1" Grid.Column="2" Content="Ouvrir la base autonome" MinHeight="30" Padding="12,3" Margin="0,0,0,6" ToolTip="Ouvre Outils, Base autonome. La mise à jour ne part quʼà votre clic sur Mettre à jour tout." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Premiers pas : ouvrir la base autonome"/>
+                          <TextBlock x:Name="LblFirstStepAccountMark" Grid.Row="2" Grid.Column="0" Text="3" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource AccentText}"/>
+                          <TextBlock x:Name="LblFirstStepAccount" Grid.Row="2" Grid.Column="1" Text="Enregistrer le compte des postes pour les analyses : Comptes et accès." TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                          <Button x:Name="BtnFirstStepAccount" Grid.Row="2" Grid.Column="2" Content="Ouvrir Comptes et accès" MinHeight="30" Padding="12,3" Margin="0,0,0,6" ToolTip="Ouvre Comptes et accès. Aucun compte nʼest demandé ni vérifié par ce bouton." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Premiers pas : ouvrir Comptes et accès"/>
+                          <TextBlock x:Name="LblFirstStepBackupMark" Grid.Row="3" Grid.Column="0" Text="4" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource AccentText}"/>
+                          <TextBlock x:Name="LblFirstStepBackup" Grid.Row="3" Grid.Column="1" Text="Faire une première sauvegarde de la base locale." TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                          <Button x:Name="BtnFirstStepBackup" Grid.Row="3" Grid.Column="2" Content="Ouvrir la sauvegarde" MinHeight="30" Padding="12,3" ToolTip="Ouvre Outils, Base autonome. La sauvegarde ne part quʼà votre clic sur Sauvegarder maintenant." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Premiers pas : ouvrir la sauvegarde"/>
+                        </Grid>
+                      </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource Card}" Margin="0,0,0,12" Padding="18,12">
                       <StackPanel>
                         <DockPanel>
-                          <Button x:Name="BtnFleetDashboardRefresh" DockPanel.Dock="Right" Content="Actualiser" MinHeight="30" Padding="10,4" Margin="8,0,0,0" ToolTip="Recalcule la vue d ensemble a partir de la base autonome locale. Aucune requete AD ni poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Actualiser la vue d ensemble du parc"/>
-                          <StackPanel>
-                            <TextBlock Text="Vue d ensemble du parc" FontSize="20" FontWeight="SemiBold" FontFamily="Segoe UI Variable Display, Segoe UI"/>
-                            <TextBlock x:Name="LblFleetDashboard" Text="Calculee depuis la base autonome locale. Pour un parc complet : Outils, Base autonome, Mettre a jour tout." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,4,0,8"/>
-                          </StackPanel>
+                          <Button x:Name="BtnFleetDashboardRefresh" DockPanel.Dock="Right" Content="&#xE72C;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="13" Width="34" MinHeight="30" Padding="0" Margin="8,0,0,0" ToolTip="Recalcule la vue dʼensemble depuis la base autonome locale : aucune requête AD ni poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Actualiser la vue dʼensemble du parc"/>
+                          <WrapPanel VerticalAlignment="Center">
+                            <WrapPanel x:Name="PnlFleetCrumbs" VerticalAlignment="Center" AutomationProperties.Name="OU de la vue dʼensemble"/>
+                            <TextBlock x:Name="LblFleetScope" Text="OU choisie dans Rechercher" FontSize="15" VerticalAlignment="Center" TextWrapping="Wrap" AutomationProperties.Name="Périmètre de la vue dʼensemble"/>
+                          </WrapPanel>
                         </DockPanel>
-                        <Grid>
-                          <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                          <TextBlock Text="Périmètre" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="SemiBold"/>
-                          <TextBlock x:Name="LblFleetScope" Grid.Column="1" Text="OU choisie dans Rechercher" VerticalAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" AutomationProperties.Name="Périmètre de la vue d ensemble"/>
-                          <Button x:Name="BtnFleetScope" Grid.Column="2" Content="Changer dʼOU" MinHeight="30" Padding="10,4" Margin="8,0,0,0" ToolTip="Ouvre lʼarbre des OU de Rechercher : lʼOU choisie filtre la recherche et cette vue d ensemble." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Changer dʼOU dans Rechercher"/>
-                        </Grid>
-                        <TextBlock x:Name="LblFleetHint" Text="Pour pinger, détecter ou analyser des postes : dans Rechercher, affichez-les, puis Pinger, Détecter ou Analyser la liste." Foreground="{DynamicResource MutedColor}" FontSize="12" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                        <TextBlock x:Name="LblFleetDashboard" Text="Calculée depuis la base autonome locale." Foreground="{DynamicResource MutedColor}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                        <WrapPanel Margin="0,8,0,0">
+                          <Button x:Name="BtnFleetScope" Content="Changer dʼOU" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" Margin="0,0,8,0" ToolTip="Ouvre lʼarbre des OU de Rechercher : lʼOU choisie filtre la recherche et cette vue dʼensemble." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Changer dʼOU dans Rechercher"/>
+                          <Button x:Name="BtnFleetOpenSearch" Content="Analyser ces postes dans Rechercher" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" ToolTip="Affiche dans Rechercher les postes actifs de cette OU, depuis la base locale et sans requête. Pinger, détecter ou analyser se lancent ensuite depuis la liste, à votre clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Analyser ces postes dans Rechercher"/>
+                        </WrapPanel>
                       </StackPanel>
                     </Border>
                     <StackPanel x:Name="PnlFleetDashboard" Margin="-7,0,-7,12"/>
@@ -9254,7 +9276,11 @@ function Update-TaskUi {
         try { $experienceTab = Get-DomeniaControl -Name 'TabExperience'; $experienceForce = ($null -ne $experienceTab -and [bool]$experienceTab.IsVisible) } catch { $experienceForce = $false }
     }
     try { Update-DomeniaExperienceActivity -Force:$experienceForce } catch { }
-    if ($Force -or $stateChanged) { Request-DomeniaDashboardRefresh }
+    # PF-11 (decision David 2026-10-08): the session details of Accueil are rebuilt by a task only while they are open.
+    $sessionDetailsOpen = $true
+    try { if (($null -ne $script:Ctrl) -and $script:Ctrl.ContainsKey('UxSessionDetails') -and ($null -ne $script:Ctrl['UxSessionDetails'])) { $sessionDetailsOpen = [bool]$script:Ctrl['UxSessionDetails'].IsExpanded } } catch { $sessionDetailsOpen = $true }
+    # Closed: only marked to rebuild (D020); the expander rebuilds them when it opens.
+    if ($Force -or $stateChanged) { if ($sessionDetailsOpen) { Request-DomeniaDashboardRefresh } else { $script:DashboardDirty = $true } }
 }
 
 
@@ -15270,6 +15296,9 @@ function Complete-DomeniaIndexBuildUi {
     $computers = @($rows | Where-Object { [string]$_.Type -eq "Machine" }).Count
     $suffix = ""
     if ([bool]$effective.Truncated) { $suffix = " Index partiel : limite atteinte." }
+    # Lot L01: the LAPS expiration is read with the computers; the schema tells whether it exists in this domain.
+    $lapsSchemaProperty = $effective.PSObject.Properties['LapsSchema']
+    if (($null -ne $lapsSchemaProperty) -and ([string]$lapsSchemaProperty.Value -eq 'Absent')) { $suffix += " Expiration LAPS non disponible dans ce domaine." }
     $summary = "Base autonome reconstruite : {0} objet(s), dont {1} compte(s) et {2} poste(s), en {3} ms.{4}" -f `
         @($rows).Count,$users,$computers,([long]$effective.DurationMs),$suffix
     [void](Set-DomeniaControlText -Name "LblIndexStatus" -Text $summary)
@@ -15327,7 +15356,7 @@ function Update-DomeniaIndexStats {
         if ([int]$script:IndexDbCount -lt 0) { [void](Load-DomeniaIndexMetadata) }
         $count = [int]$script:IndexDbCount
         if ($count -eq 0) {
-            [void](Set-DomeniaControlText -Name "LblIndexStats" -Text "Aucune base autonome. Utilise  Mettre a jour tout  pour creer la copie persistante des utilisateurs, postes et associations.")
+            [void](Set-DomeniaControlText -Name "LblIndexStats" -Text "Aucune base autonome : Mettre à jour tout crée la copie locale des utilisateurs, postes et associations.")
             return
         }
         $users = [Math]::Max(0,[int]$script:IndexDbUsers)
@@ -15440,12 +15469,50 @@ elseif ((-not [string]::IsNullOrWhiteSpace($since)) -and $sameInstance) {
 }
 
 $highestUsn = 0
+$schemaNc = ''
 try {
     $rootDse = New-WRootDse $Context
-    $rootDse.RefreshCache(@('highestCommittedUSN'))
+    $rootDse.RefreshCache(@('highestCommittedUSN','schemaNamingContext'))
     $highestUsn = [int64]$rootDse.Properties['highestCommittedUSN'].Value
+    try { $schemaNc = [string]$rootDse.Properties['schemaNamingContext'].Value } catch { $schemaNc = '' }
 }
 catch { }
+
+# LAPS expiration (legacy and Windows LAPS) is read with the computers, never the password. One small read of the
+# schema tells "attribute absent from this domain" (NoSchema) from "not visible with this account" (None).
+$lapsSchema = ''
+if (-not [string]::IsNullOrWhiteSpace($schemaNc)) {
+    $schemaSearcher = $null
+    $schemaResults = $null
+    try {
+        $schemaSearcher = New-WSearcher $Context $schemaNc '(&(objectClass=attributeSchema)(|(lDAPDisplayName=ms-Mcs-AdmPwdExpirationTime)(lDAPDisplayName=msLAPS-PasswordExpirationTime)))' @('lDAPDisplayName') 'OneLevel' 0
+        $schemaResults = $schemaSearcher.FindAll()
+        $schemaCount = 0
+        foreach ($schemaResult in $schemaResults) { $schemaCount++ }
+        $lapsSchema = if ($schemaCount -gt 0) { 'Present' } else { 'Absent' }
+    }
+    catch { $lapsSchema = '' }
+    finally {
+        if ($null -ne $schemaResults) { try { $schemaResults.Dispose() } catch { } }
+        if ($null -ne $schemaSearcher) { try { $schemaSearcher.Dispose() } catch { } }
+    }
+}
+function ConvertTo-IdxUtcText {
+    # Directory date (generalized time or large integer) as 'yyyy-MM-ddTHH:mm:ssZ'; '' when absent or never.
+    param($Value)
+    if ($null -eq $Value -or [string]$Value -eq '') { return '' }
+    try {
+        if ($Value -is [datetime]) {
+            $date = $Value
+            if ($date.Kind -eq [DateTimeKind]::Local) { $date = $date.ToUniversalTime() }
+            return $date.ToString('yyyy-MM-ddTHH:mm:ssZ',[Globalization.CultureInfo]::InvariantCulture)
+        }
+        $ticks = Convert-WLargeInteger $Value
+        if ($ticks -le 0 -or $ticks -eq [long]::MaxValue) { return '' }
+        return [DateTime]::FromFileTimeUtc($ticks).ToString('yyyy-MM-ddTHH:mm:ssZ',[Globalization.CultureInfo]::InvariantCulture)
+    }
+    catch { return '' }
+}
 
 $rows = New-Object Collections.ArrayList
 $diagnostics = New-Object Collections.ArrayList
@@ -15462,7 +15529,7 @@ function Clean-Field {
 }
 
 $userPlan = @{ Kind='Utilisateur'; Filter='(&(objectCategory=person)(objectClass=user))'; Props=@('name','sAMAccountName','userPrincipalName','displayName','description','department','title','mail','distinguishedName','objectGUID','userAccountControl','whenChanged','uSNChanged') }
-$computerPlan = @{ Kind='Machine'; Filter='(objectCategory=computer)'; Props=@('name','sAMAccountName','dNSHostName','description','operatingSystem','location','distinguishedName','objectGUID','userAccountControl','whenChanged','uSNChanged','lastLogonTimestamp') }
+$computerPlan = @{ Kind='Machine'; Filter='(objectCategory=computer)'; Props=@('name','sAMAccountName','dNSHostName','description','operatingSystem','location','distinguishedName','objectGUID','userAccountControl','whenChanged','uSNChanged','lastLogonTimestamp','operatingSystemVersion','whenCreated','pwdLastSet','ms-Mcs-AdmPwdExpirationTime','msLAPS-PasswordExpirationTime') }
 $plan = if ([bool]$Payload.ComputerFirst) { @($computerPlan,$userPlan) } else { @($userPlan,$computerPlan) }
 
 foreach ($entry in $plan) {
@@ -15519,6 +15586,19 @@ foreach ($entry in $plan) {
             # mais suffisant a l echelle de la peremption utilisee ici.
             $lastLogon = ''
             try { $lastLogon = Clean-Field (Convert-WFileTime (Get-WPropFirst $p 'lastlogontimestamp' 0)) } catch { }
+            $facts = $false; $osVersion = ''; $created = ''; $pwdSet = ''; $lapsKind = ''; $lapsExpiry = ''
+            if ([string]$entry.Kind -eq 'Machine') {
+                $facts = $true
+                $osVersion = Clean-Field (Get-WPropFirst $p 'operatingsystemversion' '')
+                $created = ConvertTo-IdxUtcText (Get-WPropFirst $p 'whencreated' $null)
+                $pwdSet = ConvertTo-IdxUtcText (Get-WPropFirst $p 'pwdlastset' $null)
+                $windowsLaps = ConvertTo-IdxUtcText (Get-WPropFirst $p 'mslaps-passwordexpirationtime' $null)
+                $legacyLaps = ConvertTo-IdxUtcText (Get-WPropFirst $p 'ms-mcs-admpwdexpirationtime' $null)
+                if ($windowsLaps) { $lapsKind = 'Windows'; $lapsExpiry = $windowsLaps }
+                elseif ($legacyLaps) { $lapsKind = 'Legacy'; $lapsExpiry = $legacyLaps }
+                elseif ($lapsSchema -eq 'Absent') { $lapsKind = 'NoSchema' }
+                elseif ($lapsSchema -eq 'Present') { $lapsKind = 'None' }
+            }
             [void]$rows.Add([pscustomobject]@{
                 Type = [string]$entry.Kind
                 WhenChanged = Clean-Field (Convert-WDate (Get-WPropFirst $p 'whenchanged' ''))
@@ -15533,6 +15613,12 @@ foreach ($entry in $plan) {
                 State = $state
                 DN = Clean-Field (Get-WPropFirst $p 'distinguishedname' '')
                 Guid = Clean-Field (Convert-WGuid (Get-WPropFirst $p 'objectguid' ''))
+                Facts = $facts
+                OsVersion = $osVersion
+                WhenCreated = $created
+                PwdLastSet = $pwdSet
+                LapsKind = $lapsKind
+                LapsExpiry = $lapsExpiry
             })
             $added++
         }
@@ -15562,6 +15648,7 @@ $watch.Stop()
     DurationMs = [long]$watch.ElapsedMilliseconds
     Success = $true
     InvocationId = $invocationId
+    LapsSchema = $lapsSchema
 }
 
 '@
@@ -19589,6 +19676,14 @@ function Wire-Events {
     # stay in Rechercher on the displayed list. It is recomputed when Accueil is shown and its OU or data changed.
     if ($script:Ctrl.ContainsKey("BtnFleetDashboardRefresh")) { $script:Ctrl["BtnFleetDashboardRefresh"].Add_Click({ try { Start-DomeniaFleetDashboard } catch { Set-Status ('Vue d ensemble non calculee : ' + $_.Exception.Message) 'WARN' } }) }
     if ($script:Ctrl.ContainsKey("BtnFleetScope")) { $script:Ctrl["BtnFleetScope"].Add_Click({ try { Show-DomeniaFleetScopeSource } catch { Set-Status ('Rechercher indisponible : ' + $_.Exception.Message) 'WARN' } }) }
+    if ($script:Ctrl.ContainsKey("BtnFleetOpenSearch")) { $script:Ctrl["BtnFleetOpenSearch"].Add_Click({ try { Show-DomeniaFleetAnalyzeSource } catch { Set-Status ('Rechercher indisponible : ' + $_.Exception.Message) 'WARN' } }) }
+    # First steps (UX-20): each step opens its screen and starts nothing.
+    foreach ($firstStep in @('Ou','Base','Account','Backup')) {
+        $firstStepName = 'BtnFirstStep' + $firstStep
+        if ($script:Ctrl.ContainsKey($firstStepName)) { $script:Ctrl[$firstStepName].Tag = $firstStep; $script:Ctrl[$firstStepName].Add_Click({ param($sender,$eventArgs) try { Open-DomeniaFirstStep -Step ([string]$sender.Tag) } catch { Set-Status ('Etape non ouverte : ' + $_.Exception.Message) 'WARN' } }) }
+    }
+    # PF-11: the session details are rebuilt when they are opened.
+    if ($script:Ctrl.ContainsKey("UxSessionDetails")) { $script:Ctrl["UxSessionDetails"].Add_Expanded({ try { Update-Dashboard -Force } catch { } }) }
     $workspaceTabs = Get-DomeniaControl 'WorkspaceTabs'
     # Deferred: a tab selected for an instant (a search started from another page passes through Accueil) starts nothing.
     if ($null -ne $workspaceTabs) { $workspaceTabs.Add_SelectionChanged({ param($sender,$eventArgs) if ($sender -eq $eventArgs.OriginalSource) { try { [void]$sender.Dispatcher.BeginInvoke([System.Windows.Threading.DispatcherPriority]::Background,[Action]{ try { Request-DomeniaFleetRefresh } catch { } }) } catch { } } }) }
@@ -19784,6 +19879,8 @@ function New-DefaultConfig {
         Dashboard = [ordered]@{
             Enabled = $true
             RefreshAfterEachAction = $true
+            # Lot L01: observations older than this are left out of the overview (greyed past 7 days).
+            ObservationMaxAgeDays = 30
         }
         UI = [ordered]@{
             WindowWidth = 1720
@@ -20526,9 +20623,18 @@ CREATE VIEW IF NOT EXISTS operation_stats AS
         sum(success_count) AS successes,sum(failure_count) AS failures
  FROM operation_runs GROUP BY operation;
 CREATE TABLE IF NOT EXISTS domenia_provenance(object_guid TEXT PRIMARY KEY,domain_dn TEXT,reader TEXT,source_dc TEXT,invocation_id TEXT,usn_changed INTEGER,observed_at TEXT);
+CREATE TABLE IF NOT EXISTS ad_computer_facts(object_guid TEXT PRIMARY KEY,object_key TEXT,os_version TEXT,when_created TEXT,pwd_last_set TEXT,laps_kind TEXT,laps_expiry TEXT,read_at TEXT);
+CREATE TABLE IF NOT EXISTS fleet_snapshots(scope_key TEXT NOT NULL,snapshot_day TEXT NOT NULL,taken_at TEXT,scope_dn TEXT,machines INTEGER DEFAULT 0,figures TEXT,PRIMARY KEY(scope_key,snapshot_day));
+UPDATE ad_objects SET search_key=COALESCE(search_key,'')||' '||lower(extra) WHERE NOT EXISTS(SELECT 1 FROM sync_state WHERE scope='repair:search_key_extra') AND object_type IN ('Utilisateur','Machine') AND COALESCE(extra,'')<>'' AND instr(lower(COALESCE(search_key,'')),lower(extra))=0;
+INSERT OR IGNORE INTO sync_state(scope,details) VALUES('repair:search_key_extra','CO-26');
 INSERT OR IGNORE INTO schema_info(key,value) VALUES('domenia_schema','1');
 COMMIT;
 "@
+        # Lot L01 (decision David 2026-10-08): two additive tables (computer facts, daily fleet snapshots) created like the
+        # others, schema_info unchanged (11/1, never updated): an RC1.13 ignores them. The UPDATE repairs the search keys
+        # written without the extra field by the single-row updates of RC1.13.0 and before (CO-26), once per base: the
+        # marker row of sync_state (scope 'repair:search_key_extra', read by nothing else) skips the scan at every later
+        # start, whatever the case of the extra field (SQLite lower() only folds ASCII).
         # Demarrage ultra-court : creation/upgrade du schema uniquement.
         # Aucun quick_check complet, aucune migration TSV/CSV et aucune copie
         # de sauvegarde ne doivent bloquer le thread WPF au lancement.
@@ -20889,15 +20995,16 @@ function Get-DomeniaWorkerCodeHash {
 function Get-DomeniaWorkerOperationHashes {
     # Registre ferme : seules ces operations internes, avec leur corps exact, peuvent entrer dans un runspace.
     return [ordered]@{
-        StoragePurge          = "7AF1E83D5A2CC189D70F73C2743A93999162D1C0C74D111BCBD4F101F0C0FC01"
+        StoragePurge          = "4FB461802A90DB7DC858BC87C9D3BD83B3BCCE05182FEAB29FF6AE5219DC6F79"
         StorageBackup         = "E89924A7F04D958CFF4CD41847BFC2C9A838D6F242D4BD7242F2048FCCBDED79"
         ComputerAdminShare    = "051272FF57B277E19504F52BAC289ED8297A333393644B853FF4A80624347F70"
-        StorageUsage          = "84D550654B883DB7DE1CD68904BDB99E1F817E12FB2C14A2CAE081F4B1BC4FDD"
+        StorageUsage          = "181CE32EF4BC1D322300FB4D4BB7B41D3B4E98E1D5562898109ED1E1F6841E4C"
         LegacyMigration       = "9F9E86E2BD40130C8E8726DC065112CB0F770D04063ADB1EB890AFBB45C303F3"
         ReadBitLockerList     = "B1456CEA5805D83C6BF48E9A4040206F18F3C3773ED250610D6890E8D1F4EEC9"
         ReadBitLockerKey      = "8A98EBCDC48AD572404E1566826035C84F34ACB87564330A7AA511FAAC01EE6F"
-        DemoDirectory         = "F12481F3B254D64F9C5D870A98EA33BE6C69A67D4C99D28601CF292A1150EAE0"
-        LocalIndexRead        = "B2B40A190D73F07C02E95FC78A833C020AABF952D0904F53B492B67999130D86"
+        BitLockerPresence     = "F1A7C8FD83BA659E7826DE2DDBDD01EE13BC185819FD9330656B77A99ACD6764"
+        DemoDirectory         = "EA76156ECA8C5DADB7650C90D58C100B3CA2BCC184FC9E309CC1E56DC258A30D"
+        LocalIndexRead        = "DA04BD7A486164DD4507420C1F3694F23BF9795F85F0C669BCAEC6068FB930D8"
         ParkSharedSync        = "B3A64051813F12A24BD5E791D59CF7E2330FA84E965C9F44BD62366D4A81415E"
         IsolatedRead          = "4074D6ECAA620A9C80A5B6B535BB657E02DCE06A9DF97E35CA1EA47572D1060C"
         CmdletHelp            = "12505D0654AB0E97BD803A70B953BB0BBE2152836AAA1889744C1312EB215D62"
@@ -20915,7 +21022,7 @@ function Get-DomeniaWorkerOperationHashes {
         SoftwareInventory     = "0F758A7DFEF27A63A230A3CD34FE45A5D7079691AB6C9D989C861ADE2A61E9D1"
         LogonHarvest          = "ED7FFF55506C7BCE5567D65F683E10E9F28EA9771947F12A8DEEE1435994119A"
         ParkSweep             = "134ED776E45640FA67B7F51659711C33B37834105375CC4B083342469F2C26A9"
-        IndexBuild            = "4FC47EF863C2EE3F31D7D868F947D35905DCE9FC1BDDEEB0DBEFD4A179C3E7E0"
+        IndexBuild            = "C16101D0C74DC5DFA2B4572CB1D52381B58C1E74E28265E4916A6A4052466450"
         UserComputerProbe     = "EB7C36419C1B8B91AFB9ECE6B98D4E3FE663B87E4011F7D264D8AEDE7735E775"
         ComputerInventory     = "C7BC13160472F873F2517EB5C8E5C5D2C296FE1CF37ABCD86B9B0BC00F750905"
         ComputerDiagnostics   = "9A5535EB658FA19AFC0905D57B339CEE0C14CCD4DA81AE2E0A527A86B5046608"
@@ -20953,7 +21060,7 @@ function Get-DomeniaWorkerOperationHashes {
         ReceiptStore         = "45FE35D694782ECB8B13D14C5B3CD637FD5CA1C4B0E6CD278EEE3AC5804121D1"
         ScopeReconcile       = "5917B0E2AB92BA626EF3621CCCE7B9A4988B318E62834EFD02FD6AFEF5C0B650"
         DocumentStore        = "BFD83587CB1BA62BC141E5F0742C6C6453A561617ED157045F3B4E7AB11A14E7"
-        LocalStore           = "C7EBA9EB28327A938CAA3201EC0E05A0EA327D7788E09F173D4EC85FB75F2558"
+        LocalStore           = "0073EF8956CCECDEE06A9BF2C39552AC149747FD1BCC6EC1EE0F835794423792"
         EngineSelfTest        = "40E2C89F858E22E1D221AC48DC04DD5BF627F1ACBC836AB48036C43DB9F7E1D1"
             EmbeddedDirectoryLookup = "2B3A888C7E1A97B4D523B0B3A408EF03AA5C0D0F95D534984B8EB3D581CDDD17"
         EmbeddedPathBrowse = "B643D707E242EC4416AD63622847DD7C39E5B53ED47CF64FECD56E22B5A82271"
@@ -20965,7 +21072,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "7F45EED4CFF092484EE3DCDD359FFA311EFBC6F177B5223F0C87AE3E97C8D86E"
+    $expectedFingerprint = "41CA6772F95C2AF9F49A55DF3566A2B4ACAE3A875169405B15F59C88CE654BF0"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -24182,6 +24289,13 @@ function Request-DomeniaDashboardRefresh {
 }
 
 function Update-Dashboard {
+    # PF-11: the fields live in the "Details de la session" expander, closed most of the time; they are rebuilt when it
+    # opens (Wire-Events) and while it stays open. Without the expander (older layouts) they keep refreshing.
+    param([switch]$Force)
+    $detailsOpen = $true
+    try { if (($null -ne $script:Ctrl) -and $script:Ctrl.ContainsKey('UxSessionDetails') -and ($null -ne $script:Ctrl['UxSessionDetails'])) { $detailsOpen = [bool]$script:Ctrl['UxSessionDetails'].IsExpanded } } catch { $detailsOpen = $true }
+    if ((-not $Force) -and (-not $detailsOpen)) { $script:SessionDetailsDirty = $true; return }
+    $script:SessionDetailsDirty = $false
     try {
         # D014: no command lookup in series on each refresh; the AD module state is read once per change of module.
         $rows=@($script:BranchObjects)

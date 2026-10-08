@@ -379,9 +379,32 @@ function New-DomeniaKpiTile {
     }
     return New-DomeniaChartCard -Width $Width -Height $Height -Content $grid -State $State
 }
+function New-DomeniaRowButton {
+    # Flat button holding a whole line (click and keyboard), highlighted on hover and on focus.
+    param($Content,[string]$Name)
+    $xaml = @'
+<Button xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" HorizontalContentAlignment="Stretch" HorizontalAlignment="Stretch" Cursor="Hand" Padding="0">
+  <Button.Template>
+    <ControlTemplate TargetType="Button">
+      <Border x:Name="Bd" Background="Transparent" BorderBrush="Transparent" BorderThickness="1" CornerRadius="6"><ContentPresenter/></Border>
+      <ControlTemplate.Triggers>
+        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentSoft}"/></Trigger>
+        <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentColor}"/></Trigger>
+      </ControlTemplate.Triggers>
+    </ControlTemplate>
+  </Button.Template>
+</Button>
+'@
+    $button = [Windows.Markup.XamlReader]::Parse($xaml)
+    $button.Content = $Content
+    [System.Windows.Automation.AutomationProperties]::SetName($button, $Name)
+    return $button
+}
 function New-DomeniaAttentionCard {
     # Points requiring attention, most serious first; a single reassuring line when nothing is wrong.
-    param([string]$Title = 'Points d attention',[object[]]$Items = @(),[double]$Width = 460,[double]$MinHeight = 0,[int]$Max = 9)
+    # Fleet: a point naming its workstations unfolds them on click (Switch-DomeniaAttentionDetails), from the data in
+    # memory. Workstation: a point naming a route offers a link to the tab of the useful action, running nothing.
+    param([string]$Title = 'Points d attention',[object[]]$Items = @(),[double]$Width = 460,[double]$MinHeight = 0,[int]$Max = 9,[string]$Board = '')
     $panel = New-Object System.Windows.Controls.StackPanel
     $ordered = @(@($Items | Where-Object { $_.Level -eq 'Alert' }) + @($Items | Where-Object { $_.Level -eq 'Warn' }) + @($Items | Where-Object { $_.Level -notin @('Alert','Warn') }))
     $alerts = @($Items | Where-Object { $_.Level -eq 'Alert' }).Count
@@ -419,8 +442,46 @@ function New-DomeniaAttentionCard {
         $mark.VerticalAlignment = [System.Windows.VerticalAlignment]::Top
         $mark.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, $(if ($level -in @('Alert','Warn')) { Get-DomeniaStateTextKey $level } else { 'AccentText' }))
         [void]$row.Children.Add($mark)
-        [void]$row.Children.Add((New-DomeniaChartText -Text ([string]$item.Text) -Size 12.5 -Key 'TextColor'))
-        $line.Child = $row
+        $groupsProperty = $item.PSObject.Properties['Groups']; $machinesProperty = $item.PSObject.Properties['Machines']; $routeProperty = $item.PSObject.Properties['Route']
+        $hasTargets = ((($null -ne $groupsProperty) -and (@($groupsProperty.Value).Count -gt 0)) -or (($null -ne $machinesProperty) -and (@($machinesProperty.Value).Count -gt 0)))
+        $route = if ($null -ne $routeProperty) { [string]$routeProperty.Value } else { '' }
+        if ($hasTargets -and ($Board -eq 'Fleet')) {
+            $chevron = New-Object System.Windows.Controls.TextBlock
+            $chevron.Text = [string][char]0xE70D
+            $chevron.FontFamily = [System.Windows.Media.FontFamily]::new($script:DomeniaChartIconFont)
+            $chevron.FontSize = 10; $chevron.Margin = [System.Windows.Thickness]::new(8, 3, 4, 0); $chevron.VerticalAlignment = [System.Windows.VerticalAlignment]::Top
+            $chevron.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, 'MutedColor')
+            [System.Windows.Controls.DockPanel]::SetDock($chevron, [System.Windows.Controls.Dock]::Right)
+            $row.Children.Insert(0, $chevron)
+            [void]$row.Children.Add((New-DomeniaChartText -Text ([string]$item.Text) -Size 12.5 -Key 'TextColor'))
+            $holder = New-Object System.Windows.Controls.StackPanel
+            $details = New-Object System.Windows.Controls.StackPanel
+            $details.Visibility = [System.Windows.Visibility]::Collapsed
+            $details.Margin = [System.Windows.Thickness]::new(32, 4, 0, 2)
+            $button = New-DomeniaRowButton -Content $row -Name ([string]$item.Text + ' : afficher les postes concernés')
+            $button.ToolTip = 'Afficher les postes concernés (données déjà en mémoire, aucune requête).'
+            $button.Tag = @{ Item = $item; Board = $Board; Details = $details; Chevron = $chevron }
+            $button.Add_Click({ param($s,$e) Switch-DomeniaAttentionDetails -Button $s })
+            [void]$holder.Children.Add($button)
+            [void]$holder.Children.Add($details)
+            $line.Child = $holder
+        } else {
+            if ($route) {
+                $routeText = if (($null -ne $item.PSObject.Properties['RouteText']) -and [string]$item.RouteText) { [string]$item.RouteText } else { 'Ouvrir' }
+                $link = New-Object System.Windows.Controls.TextBlock
+                $link.Margin = [System.Windows.Thickness]::new(8, 1, 0, 0); $link.FontSize = 12
+                $hyperlink = New-Object System.Windows.Documents.Hyperlink
+                [void]$hyperlink.Inlines.Add($routeText)
+                $hyperlink.ToolTip = 'Ouvre lʼécran de lʼaction utile, sans rien exécuter.'
+                $hyperlink.Tag = $route
+                $hyperlink.Add_Click({ param($s,$e) try { Invoke-DomeniaBoardRoute -Route ([string]$s.Tag) } catch { } })
+                [void]$link.Inlines.Add($hyperlink)
+                [System.Windows.Controls.DockPanel]::SetDock($link, [System.Windows.Controls.Dock]::Right)
+                $row.Children.Insert(0, $link)
+            }
+            [void]$row.Children.Add((New-DomeniaChartText -Text ([string]$item.Text) -Size 12.5 -Key 'TextColor'))
+            $line.Child = $row
+        }
         [void]$panel.Children.Add($line)
         $shown++
     }

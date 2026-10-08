@@ -8,7 +8,7 @@ param([string]$ReportPath='',[switch]$Quiet)
 $ErrorActionPreference='Stop'
 $wad=Split-Path -Parent $PSScriptRoot
 $script:Results=[Collections.Generic.List[object]]::new();$script:Finished=$false;$script:Window=$null
-$script:ExpectedCases=21
+$script:ExpectedCases=30
 function Expect {param([bool]$Value,[string]$Why='Assertion non verifiee');if(-not $Value){throw $Why}}
 function Case {param([string]$Name,[scriptblock]$Body)
     try {& $Body|Out-Null;$script:Results.Add([pscustomobject]@{Name=$Name;Passed=$true;Error=''})}
@@ -39,9 +39,14 @@ function Set-AppWindowIcon {param($Window)}
 function Start-DomeniaOnlinePark {param([switch]$DisplayedResults,[switch]$PingOnly,[switch]$Inventory,$ScopeTargets,$ScopeLabel,$Probes);$script:ParkCalls.Add([pscustomobject]@{Targets=@($ScopeTargets);Label=$ScopeLabel;Probes=@($Probes);Displayed=[bool]$DisplayedResults;Inventory=[bool]$Inventory})}
 # Overview calculation (FleetStats worker): recorded, never run.
 $script:StartCalls=[Collections.Generic.List[object]]::new();$script:AsyncJobs=@{}
-function Start-UiTask {param($Name,$OperationId,$Code,$Payload,$CallbackState,$ReplaceKey,$SuccessHandler,$ErrorHandler,$TimeoutSeconds,$TaskClass);$script:StartCalls.Add([pscustomobject]@{Payload=$Payload;State=$CallbackState;ReplaceKey=$ReplaceKey;TaskClass=$TaskClass});return ('job-'+$script:StartCalls.Count)}
+function Start-UiTask {param($Name,$OperationId,$Code,$Payload,$CallbackState,$ReplaceKey,$SuccessHandler,$ErrorHandler,$TimeoutSeconds,$TaskClass);$script:StartCalls.Add([pscustomobject]@{OperationId=$OperationId;Payload=$Payload;State=$CallbackState;ReplaceKey=$ReplaceKey;TaskClass=$TaskClass});return ('job-'+$script:StartCalls.Count)}
 function Initialize-DomeniaWinSqliteNative {return $true}
 function Get-DomeniaLocalIndexReadWorkerCode {return '# fixture'}
+function Get-DomeniaBitLockerPresenceWorkerCode {return '# fixture'}
+function Queue-DomeniaMetadata {param($Kind,$Row,$Key='');$script:Queued.Add([pscustomobject]@{Kind=$Kind;Row=$Row;Key=$Key});return $true}
+function Select-DomeniaWorkspace {param($Workspace,$Inner,$Tab);$script:Workspaces.Add([string]$Workspace+'/'+[string]$Tab);$tabs=Get-DomeniaControl 'WorkspaceTabs';$target=Get-DomeniaControl $Workspace;if($null -ne $tabs -and $null -ne $target -and $target -is [Windows.Controls.TabItem]){$tabs.SelectedItem=$target};if($Inner -and $Tab){$innerControl=Get-DomeniaControl $Inner;$tabControl=Get-DomeniaControl $Tab;if($null -ne $innerControl -and $null -ne $tabControl){$innerControl.SelectedItem=$tabControl}}}
+function Invoke-DomeniaUxRoute {param($Route);$script:Workspaces.Add('route:'+[string]$Route)}
+$script:Queued=[Collections.Generic.List[object]]::new();$script:Workspaces=[Collections.Generic.List[string]]::new()
 # The OU of Rechercher (decision David 2026-10-08): $script:TestScopeDn empty = domain root.
 function Get-DomeniaSearchScope {param($Mode);$dn=if($script:TestScopeDn){$script:TestScopeDn}else{[string]$script:Conn.BaseDn};return [pscustomobject]@{BaseDn=$dn;Scope=$(if($script:TestScopeOneLevel){'OneLevel'}else{'Subtree'});IsDomain=($dn -ieq [string]$script:Conn.BaseDn);Mode='OU'}}
 function Invoke-Pump {param([int]$Ms=250)
@@ -95,11 +100,22 @@ function New-InventoryResult {
     return [pscustomobject]@{Rows=@($rows|ForEach-Object{[pscustomobject]@{Category=$_[0];Item=$_[1];Value=$_[2];Source='fixture'}});Metrics=$metrics}
 }
 function New-FleetResult {
-    $machine={param($Name,$Container,$Os,$Logon)[pscustomobject]@{name=$Name;object_guid=('g-'+$Name);extra=$Os;last_logon=$Logon;distinguished_name=('CN='+$Name+','+$Container)}}
-    return [pscustomobject]@{Busy=$false;Links=2;LinkSources=@()
+    # Shaped like the FleetStats worker (lot L01): the workstations of the OU already filtered, grouped by their
+    # system, version, activity and facts; observations attached by GUID.
+    param([string]$Scope='',[object[]]$Presence=@())
+    $all=@(
+        [pscustomobject]@{name='PC-1';object_guid='g-PC-1';distinguished_name='CN=PC-1,OU=Postes,DC=example,DC=invalid';st='A';os='Windows 11 Entreprise';ver='10.0 (26100)';lb=0;cr='O';pw='R';lk='O';bk='U';logon='2026-10-01'}
+        [pscustomobject]@{name='PC-2';object_guid='g-PC-2';distinguished_name='CN=PC-2,OU=Postes,DC=example,DC=invalid';st='A';os='Windows 10 Entreprise';ver='10.0 (19045)';lb=3;cr='O';pw='O';lk='O';bk='U';logon='2026-05-01'}
+        [pscustomobject]@{name='SRV-1';object_guid='g-SRV-1';distinguished_name='CN=SRV-1,OU=Serveurs,DC=example,DC=invalid';st='A';os='Windows Server 2025 Datacenter';ver='10.0 (26100)';lb=5;cr='O';pw='R';lk='O';bk='U';logon=''}
+    )
+    $kept=@($all|Where-Object{(-not $Scope) -or ([string]$_.distinguished_name).EndsWith(','+$Scope,[StringComparison]::OrdinalIgnoreCase)})
+    $groups=@();$machines=@();$parents=@{};$i=0
+    foreach($m in $kept){$i++;$groups+=[pscustomobject]@{gid=[string]$i;st=$m.st;os=$m.os;ver=$m.ver;lb=$m.lb;cr=$m.cr;pw=$m.pw;lk=$m.lk;bk=$m.bk;n=1};$machines+=[pscustomobject]@{name=$m.name;distinguished_name=$m.distinguished_name;object_guid=$m.object_guid;gid=[string]$i;st=$m.st;logon=$m.logon};$p=([string]$m.distinguished_name).Substring(([string]$m.distinguished_name).IndexOf(',')+1);$parents[$p]=1+[int]$parents[$p]}
+    return [pscustomobject]@{Busy=$false;Links=2;LinkSources=@();MachineCount=$machines.Count
         Types=@([pscustomobject]@{t='Machine';s='Actif';n=3},[pscustomobject]@{t='Utilisateur';s='Actif';n=12})
-        Machines=@((& $machine 'PC-1' 'OU=Postes,DC=example,DC=invalid' 'Windows 11 Entreprise / 10.0 (26100)' '01/10/2026 10:00:00'),(& $machine 'PC-2' 'OU=Postes,DC=example,DC=invalid' 'Windows 10 Entreprise / 10.0 (19045)' '01/05/2026 10:00:00'),(& $machine 'SRV-1' 'OU=Serveurs,DC=example,DC=invalid' 'Windows Server 2025 Datacenter / 10.0 (26100)' ''))
-        Presence=@()}
+        Groups=$groups;Machines=$machines;Parents=@(foreach($k in $parents.Keys){[pscustomobject]@{p=$k;n=$parents[$k]}})
+        Coverage=[pscustomobject]@{BitLockerRead=0;BitLockerAt='';FactsFresh=$machines.Count;FactsStale=0;FactsAt=''}
+        Presence=@($Presence);History=@()}
 }
 try{
     Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
@@ -286,8 +302,163 @@ try{
         $data=(Get-DomeniaBoardState 'Fleet').Data
         Expect ($data.Entries.ContainsKey('fleet.os') -and $data.Entries.ContainsKey('fleet.health')) 'Entrees du parc'
         Expect (@($script:FleetLast.Targets).Count -eq 3) 'Cibles du perimetre'
-        Expect (@($data.Entries['fleet.attention'].Items|Where-Object{[string]$_.Text -like '*Windows 10*'}).Count -eq 1) 'Windows 10 signale'
+        Expect (@($data.Entries['fleet.attention'].Items|Where-Object{[string]$_.Text -like '*Windows 10 22H2*fin de service*'}).Count -eq 1) 'Windows 10 signale par la table des fins de service'
+        Expect (@($data.Entries['fleet.versions'].Items|Where-Object{[string]$_.Label -eq 'Windows Server 2025'}).Count -eq 1) 'Serveur reconnu a son build'
         Expect (@(Get-Holders (Get-DomeniaControl 'PnlFleetDashboard')).Count -ge 6) 'Widgets du parc'
+    }
+    Case 'Accueil : disposition livree sans widget d observation ni requete WMI' {
+        $script:TestSettings.Remove('Dashboard.Fleet.Layout')
+        $layout=@(Get-Layout Fleet)
+        Expect (@($layout|Where-Object{[string]$_.Source -eq 'Probe'}).Count -eq 0) 'Requete WMI livree'
+        $observation=@('fleet.presence','fleet.users','fleet.lastcheck','fleet.models','fleet.releases','fleet.ram','fleet.diskfree','fleet.lowdisk','fleet.uptime')
+        Expect (@($layout|Where-Object{[string]$_.Key -in $observation}).Count -eq 0) 'Widget d observation livre'
+        foreach($key in @('fleet.machines','fleet.stale','fleet.versions','fleet.eos','fleet.disabled','fleet.created','fleet.pwdold','fleet.laps','fleet.bitlocker')){Expect (@($layout|Where-Object{[string]$_.Key -eq $key}).Count -eq 1) ('Widget livre absent : '+$key)}
+        $before=$script:StartCalls.Count;$parks=$script:ParkCalls.Count
+        Complete-DomeniaFleetDashboard -Result (New-FleetResult) -State $null
+        Expect ($script:StartCalls.Count -eq $before -and $script:ParkCalls.Count -eq $parks) 'Affichage de l accueil a lance une lecture'
+        $bitlocker=@(Get-DomeniaLogicalControls (Get-DomeniaControl 'PnlFleetDashboard')|Where-Object{$_ -is [Windows.Controls.Button] -and $_.Tag -is [hashtable] -and [string]$_.Tag['Action'] -eq 'EntryAction'})
+        Expect ($bitlocker.Count -eq 0) 'Bouton BitLocker a la racine du domaine'
+    }
+    Case 'Presence BitLocker : refusee a la racine du domaine, limitee a l OU affichee, sur geste' {
+        $script:TestScopeDn=''
+        $before=$script:StartCalls.Count
+        Expect (-not (Start-DomeniaFleetBitLockerPresence)) 'Lecture acceptee a la racine du domaine'
+        Expect ($script:StartCalls.Count -eq $before) 'Tache lancee a la racine du domaine'
+        Expect (@($script:Trace|Where-Object{$_ -like '*racine du domaine*'}).Count -ge 1) 'Refus non explique'
+        $script:TestScopeDn='OU=Postes,DC=example,DC=invalid'
+        Complete-DomeniaFleetDashboard -Result (New-FleetResult -Scope 'OU=Postes,DC=example,DC=invalid') -State $null
+        $button=@(Get-DomeniaLogicalControls (Get-DomeniaControl 'PnlFleetDashboard')|Where-Object{$_ -is [Windows.Controls.Button] -and $_.Tag -is [hashtable] -and [string]$_.Tag['Action'] -eq 'EntryAction'})
+        Expect ($button.Count -eq 1) 'Bouton de lecture absent du widget BitLocker'
+        $button[0].RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
+        $call=$script:StartCalls[$script:StartCalls.Count-1]
+        Expect ($script:StartCalls.Count -eq $before+1 -and [string]$call.OperationId -eq 'BitLockerPresence') 'Lecture BitLocker non lancee par le bouton'
+        Expect ([string]$call.Payload.DN -eq 'OU=Postes,DC=example,DC=invalid') ('Perimetre de lecture : '+[string]$call.Payload.DN)
+        Expect ([string]$call.TaskClass -eq 'Explicit') 'Lecture BitLocker non explicite'
+        $script:Queued.Clear()
+        Complete-DomeniaFleetBitLockerPresence -Result ([pscustomobject]@{Mode='BitLockerPresence';Success=$true;DN='OU=Postes,DC=example,DC=invalid';ClassPresent=$true;RecoveryObjectsFound=0;Truncated=$false;Computers=@();ErrorKind='';ErrorMessage='';ReadAtUtc=[datetime]::UtcNow.ToString('o')}) -State $call.State
+        Expect ($script:Queued.Count -eq 1 -and [string]$script:Queued[0].Kind -eq 'SecretMeta' -and @($script:Queued[0].Row.Rows).Count -eq 2) 'Presence non enregistree pour les postes de l OU'
+        Expect (@($script:Queued[0].Row.Rows|Where-Object{[string]$_.Verdict -eq 'aucune cle visible avec ce compte'}).Count -eq 2) 'Verdict sans cle visible'
+        # Nothing visible in the OU: the zero never replaces a key count already read for the workstation (KeepKnown).
+        Expect (@($script:Queued[0].Row.Rows|Where-Object{[bool]$_.KeepKnown}).Count -eq 2) 'Zero d une lecture sans objet visible non marque KeepKnown'
+        Expect ($null -ne $call.State.PSObject.Properties['Generation']) 'Garde de selection des lectures de secrets absente'
+        $script:Queued.Clear()
+        Complete-DomeniaFleetBitLockerPresence -Result ([pscustomobject]@{Mode='BitLockerPresence';Success=$true;DN='OU=Postes,DC=example,DC=invalid';ClassPresent=$true;RecoveryObjectsFound=1;Truncated=$false;Computers=@([pscustomobject]@{DN='CN=PC-1,OU=Postes,DC=example,DC=invalid';Keys=1;Last='2026-09-01T00:00:00Z'});ErrorKind='';ErrorMessage='';ReadAtUtc=[datetime]::UtcNow.ToString('o')}) -State $call.State
+        Expect (@($script:Queued[0].Row.Rows|Where-Object{[bool]$_.KeepKnown}).Count -eq 0) 'Lecture qui voit des cles : un poste sans cle est bien sans cle'
+        Expect (@($script:Trace|Where-Object{$_ -like 'Aucune clé visible avec ce compte*'}).Count -ge 1) 'Message non lisible avec ce compte absent'
+        $script:TestScopeDn=''
+    }
+    Case 'Points d attention : un clic deplie les postes concernes sans lancer de tache' {
+        $script:TestScopeDn='OU=Postes,DC=example,DC=invalid'
+        Complete-DomeniaFleetDashboard -Result (New-FleetResult -Scope 'OU=Postes,DC=example,DC=invalid') -State $null
+        $rows=@(Get-DomeniaLogicalControls (Get-DomeniaControl 'PnlFleetDashboard')|Where-Object{$_ -is [Windows.Controls.Button] -and $_.Tag -is [hashtable] -and $_.Tag.ContainsKey('Details')})
+        Expect ($rows.Count -ge 2) ('Lignes cliquables : '+$rows.Count)
+        $stale=@($rows|Where-Object{[string]$_.Tag['Item'].Point -eq 'stale'})[0]
+        Expect ($null -ne $stale) 'Point des postes inactifs absent'
+        $before=$script:StartCalls.Count;$parks=$script:ParkCalls.Count
+        $stale.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
+        $details=$stale.Tag['Details']
+        Expect ($details.Visibility -eq [Windows.Visibility]::Visible) 'Postes non deplies'
+        $texts=@(Get-DomeniaLogicalControls $details|Where-Object{$_ -is [Windows.Controls.TextBlock]}|ForEach-Object{[string]$_.Text})
+        Expect (@($texts|Where-Object{$_ -like 'PC-2 · Postes · connexion 01/05/2026'}).Count -eq 1) ('Ligne du poste : '+($texts -join ' | '))
+        Expect (@(Get-DomeniaLogicalControls $details|Where-Object{$_ -is [Windows.Controls.Button] -and [string]$_.Tag['Action'] -in @('CopyTargets','SearchTargets')}).Count -eq 2) 'Copier et Afficher dans Rechercher absents'
+        Expect ($script:StartCalls.Count -eq $before -and $script:ParkCalls.Count -eq $parks) 'Tache lancee par le clic'
+        $stale.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
+        Expect ($details.Visibility -eq [Windows.Visibility]::Collapsed) 'Second clic ne replie pas'
+        $script:TestScopeDn=''
+    }
+    Case 'Points du poste : le lien ouvre l onglet de l action utile (Actions, Secrets) sans rien lancer' {
+        $data=New-DomeniaBoardData -Board Computer
+        Add-DomeniaBoardAttention -Data $data -Level Warn -Text 'Pas de redemarrage depuis 40 jours.' -Point 'restart' -Route 'ComputerActions' -RouteText 'Redémarrer : onglet Actions'
+        Add-DomeniaBoardAttention -Data $data -Level Alert -Text 'Disque C: presque plein : 4 % libre.' -Point 'disk.c' -Route 'ComputerActions' -RouteText 'Ouvrir C$ : onglet Actions'
+        Add-DomeniaBoardAttention -Data $data -Level Warn -Text 'BitLocker : Protection Desactive.' -Point 'secrets' -Route 'ComputerSecrets' -RouteText 'Onglet Secrets du poste'
+        $card=New-DomeniaAttentionCard -Items @($data.Attention) -Board 'Computer'
+        $links=@(Get-DomeniaLogicalControls $card|Where-Object{$_ -is [Windows.Documents.Hyperlink]})
+        Expect ($links.Count -eq 3) ('Liens des points : '+$links.Count)
+        $inner=Get-DomeniaControl 'ComputerTabs'
+        $inner.SelectedItem=Get-DomeniaControl 'TabComputerDashboard'
+        $before=$script:StartCalls.Count;$parks=$script:ParkCalls.Count;$script:Workspaces.Clear()
+        $disk=@($links|Where-Object{(New-Object Windows.Documents.TextRange($_.ContentStart,$_.ContentEnd)).Text -eq 'Ouvrir C$ : onglet Actions'})[0]
+        Expect ($null -ne $disk) 'Lien Ouvrir C$ absent'
+        $disk.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Documents.Hyperlink]::ClickEvent))
+        Expect ([string]$inner.SelectedItem.Name -eq 'TabComputerAdmin') ('Onglet ouvert : '+[string]$inner.SelectedItem.Name)
+        Expect ([string](Get-DomeniaControl 'WorkspaceTabs').SelectedItem.Name -eq 'WsComputer') 'Assistance poste non ouverte'
+        $secret=@($links|Where-Object{[string]$_.Tag -eq 'ComputerSecrets'})[0]
+        $secret.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Documents.Hyperlink]::ClickEvent))
+        Expect ([string]$inner.SelectedItem.Name -eq 'TabSecurity') ('Onglet Secrets non ouvert : '+[string]$inner.SelectedItem.Name)
+        Expect (($script:Workspaces -join ',') -eq 'WsComputer/TabComputerAdmin,WsComputer/TabSecurity') ('Ecrans ouverts : '+($script:Workspaces -join ','))
+        Expect ($script:StartCalls.Count -eq $before -and $script:ParkCalls.Count -eq $parks) 'Un lien a lance une tache'
+        $inner.SelectedItem=Get-DomeniaControl 'TabComputerDashboard';(Get-DomeniaControl 'WorkspaceTabs').SelectedItem=Get-DomeniaControl 'WsSearch'
+    }
+    Case 'Poste hors de l OU de l accueil : ses releves lus une fois dans la base locale et gardes' {
+        $script:DatabaseScopedPath='C:\fictif\domenia.db';$script:FleetObservations=@{};$script:FleetSelectedReads=@{};$script:TestScopeDn=''
+        $script:SelectedObject=[pscustomobject]@{DN='CN=PC-9,OU=Lyon,DC=example,DC=invalid';Type='Machine';Name='PC-9';Safety=[pscustomobject]@{Guid='g-PC-9'}}
+        $before=$script:StartCalls.Count;$parks=$script:ParkCalls.Count
+        Show-DomeniaBoard -Board Computer -Quiet
+        Expect ($script:StartCalls.Count -eq $before+1) 'Releves du poste selectionne non demandes'
+        $call=$script:StartCalls[$script:StartCalls.Count-1]
+        Expect ([string]$call.OperationId -eq 'LocalIndexRead' -and [string]$call.Payload.Action -eq 'FleetStats' -and [bool]$call.Payload.ObservationsOnly -and (@($call.Payload.Keys) -contains 'cn=pc-9,ou=lyon,dc=example,dc=invalid') -and [string]$call.TaskClass -eq 'Background' -and [string]$call.ReplaceKey -eq 'fleet:selected') 'Lecture du poste mal parametree'
+        Show-DomeniaBoard -Board Computer -Quiet
+        Expect ($script:StartCalls.Count -eq $before+1) 'Lecture repetee pour le meme poste'
+        $recent=[datetime]::UtcNow.AddHours(-3).ToString('o')
+        $obs=[pscustomobject]@{Guid='g-PC-9';CheckedUtc=$recent;Probes=[pscustomobject]@{'os.release'=[pscustomobject]@{Rows=@(,@('26100','1'));Count=1;Error=''}}}
+        Complete-DomeniaSelectedObservation -Result ([pscustomobject]@{Rows=@();Busy=$false;Missing=$false;MachineCount=0;Presence=@([pscustomobject]@{object_key='cn=pc-9,ou=lyon,dc=example,dc=invalid';checked_utc=$recent;observation=$obs;in_scope=$false})}) -State $call.State
+        Expect (@(Get-DomeniaWidgetResults -Board Computer -ProbeId 'os.release').Count -eq 1) 'Releve du poste hors OU absent de son tableau'
+        Complete-DomeniaFleetDashboard -Result (New-FleetResult) -State $null
+        Expect (@(Get-DomeniaWidgetResults -Board Computer -ProbeId 'os.release').Count -eq 1) 'Releve perdu apres un recalcul de l accueil'
+        Expect ($script:StartCalls.Count -eq $before+1 -and $script:ParkCalls.Count -eq $parks) 'Lecture ou analyse relancee'
+        $script:SelectedObject=$null;$script:DatabaseScopedPath='';$script:FleetObservations=$null
+    }
+    Case 'En-tete de l accueil : le fil choisit son OU dans Rechercher, Analyser affiche les postes de l OU sans requete' {
+        $script:TestScopeDn='OU=Lyon,OU=Postes,DC=example,DC=invalid'
+        Update-DomeniaFleetScopeText (Get-DomeniaFleetScope) -Count 2
+        $links=@(Get-DomeniaLogicalControls (Get-DomeniaControl 'PnlFleetCrumbs')|Where-Object{$_ -is [Windows.Documents.Hyperlink]})
+        Expect (($links.Count -eq 2) -and ([string]$links[0].Tag -eq 'OU=Postes,DC=example,DC=invalid') -and ([string]$links[1].Tag -eq 'OU=Lyon,OU=Postes,DC=example,DC=invalid')) ('Fil d OU : '+(@($links|ForEach-Object{[string]$_.Tag}) -join '|'))
+        $node=[Windows.Controls.TreeViewItem]::new();$node.Header='Postes';$node.Tag=[pscustomobject]@{DN='OU=Postes,DC=example,DC=invalid'}
+        $script:TestTreeNodes=@($node);$script:TreeSelected=[Collections.Generic.List[string]]::new()
+        $node.Add_Selected({param($s,$e) $script:TreeSelected.Add([string]$s.Tag.DN)})
+        function script:Get-DomeniaRealizedTreeNodes {return ,@($script:TestTreeNodes)}
+        $before=$script:StartCalls.Count;$parks=$script:ParkCalls.Count;$script:Trace.Clear()
+        $links[0].RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Documents.Hyperlink]::ClickEvent))
+        Expect ($node.IsSelected -and ($script:TreeSelected -contains 'OU=Postes,DC=example,DC=invalid')) 'OU du fil non choisie dans l arbre de Rechercher'
+        Expect ([string](Get-DomeniaControl 'WorkspaceTabs').SelectedItem.Name -eq 'WsSearch') 'Rechercher non ouvert'
+        # A node the tree does not show yet: the tree opens, nothing else is chosen.
+        $links[1].RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Documents.Hyperlink]::ClickEvent))
+        Expect (@($script:Trace|Where-Object{$_ -like 'Choisissez*arbre de Rechercher*'}).Count -ge 1) 'OU absente de l arbre : arbre non ouvert'
+        $script:TestScopeDn='OU=Postes,DC=example,DC=invalid'
+        Complete-DomeniaFleetDashboard -Result (New-FleetResult -Scope 'OU=Postes,DC=example,DC=invalid') -State $null
+        $script:ShownRows=$null
+        function script:Show-ObjectRows {param($Rows,$Label,[switch]$SkipPresenceScan,[switch]$NoAutoOpen);$script:ShownRows=@($Rows)}
+        function script:Stop-DomeniaLiveSearch {}
+        Show-DomeniaFleetAnalyzeSource
+        Expect ((@($script:ShownRows).Count -eq 2) -and ((@($script:ShownRows|ForEach-Object{[string]$_.Name}|Sort-Object) -join ',') -eq 'PC-1,PC-2')) ('Postes affiches : '+(@($script:ShownRows|ForEach-Object{[string]$_.Name}) -join ','))
+        Expect (@($script:Trace|Where-Object{$_ -like '2 poste(s) de Postes dans Rechercher*'}).Count -ge 1) 'Consigne de Rechercher absente'
+        # Whole domain: never listed this way.
+        $script:TestScopeDn='';$script:ShownRows=$null
+        Complete-DomeniaFleetDashboard -Result (New-FleetResult) -State $null
+        Show-DomeniaFleetAnalyzeSource
+        Expect ($null -eq $script:ShownRows) 'Tout le domaine liste dans Rechercher'
+        Expect ($script:StartCalls.Count -eq $before -and $script:ParkCalls.Count -eq $parks) 'Une tache a ete lancee par l en-tete'
+        $script:TestTreeNodes=@();(Get-DomeniaControl 'WorkspaceTabs').SelectedItem=Get-DomeniaControl 'WsSearch'
+    }
+    Case 'Annuler une disposition survit a un recalcul de fond, pile d annulation et Ctrl+Z' {
+        $script:TestScopeDn=''
+        Complete-DomeniaFleetDashboard -Result (New-FleetResult) -State $null
+        $before=(ConvertTo-DomeniaBoardLayoutJson -Layout (Get-Layout Fleet))
+        $target=@(Get-Layout Fleet|Where-Object{$_.Key -eq 'fleet.os'})[0]
+        Invoke-DomeniaBoardAction -Tag @{Board='Fleet';Id=[string]$target.Id;Action='Remove'}
+        Invoke-DomeniaBoardAction -Tag @{Board='Fleet';Id=[string]@(Get-Layout Fleet|Where-Object{$_.Key -eq 'fleet.ou'})[0].Id;Action='Size';Value='L'}
+        Expect ([string](Get-DomeniaBoardState 'Fleet').UndoText -eq 'Taille changee') 'Annulation non proposee'
+        Complete-DomeniaFleetDashboard -Result (New-FleetResult) -State $null
+        Expect ([string](Get-DomeniaBoardState 'Fleet').UndoText -eq 'Taille changee') 'Annulation retiree par un recalcul de fond'
+        Expect ((Get-DomeniaBoardState 'Fleet').UndoStack.Count -eq 2) 'Pile d annulation incomplete'
+        $panel=Get-DomeniaControl 'PnlFleetDashboard'
+        Expect ($panel.Tag -is [hashtable] -and [bool]$panel.Tag['UndoKey']) 'Ctrl+Z non branche sur le tableau'
+        Invoke-DomeniaBoardAction -Tag @{Board='Fleet';Action='Undo'}
+        Invoke-DomeniaBoardAction -Tag @{Board='Fleet';Action='Undo'}
+        Expect ((ConvertTo-DomeniaBoardLayoutJson -Layout (Get-Layout Fleet)) -eq $before) 'Deux annulations ne retablissent pas la disposition'
+        Expect ((Get-DomeniaBoardState 'Fleet').UndoStack.Count -eq 0) 'Pile non videe'
+        Clear-DomeniaDashboards
+        Expect ((Get-DomeniaBoardState 'Fleet').UndoStack.Count -eq 0) 'Pile du parc touchee par le changement d objet'
     }
     Case 'Requetes du parc : lancees depuis Rechercher sur la liste affichee, jamais depuis l accueil' {
         $layout=@(Get-Layout Fleet)
@@ -298,7 +469,7 @@ try{
         $fleetButtons=@(Get-DomeniaLogicalControls (Get-DomeniaControl 'PnlFleetDashboard')|Where-Object{$_ -is [Windows.Controls.Button] -and $_.Tag -is [hashtable] -and [string]$_.Tag['Action'] -eq 'Probe'})
         Expect ($fleetButtons.Count -eq 0) 'Bouton de requete sur l accueil'
         $script:TestScopeDn='OU=Postes,DC=example,DC=invalid'
-        Complete-DomeniaFleetDashboard -Result (New-FleetResult) -State $null
+        Complete-DomeniaFleetDashboard -Result (New-FleetResult -Scope 'OU=Postes,DC=example,DC=invalid') -State $null
         Expect (@($script:FleetLast.Targets).Count -eq 2 -and [string]$script:FleetLast.Scope -eq 'OU=Postes,DC=example,DC=invalid') 'Perimetre de Rechercher non applique'
         Start-DomeniaParkAnalysis
         Expect ($script:ParkCalls.Count -eq 1 -and $script:ParkCalls[0].Displayed -and $script:ParkCalls[0].Inventory) 'Analyser la liste : mauvais mode'
@@ -326,14 +497,17 @@ try{
         $script:AsyncJobs['job-1']=$true
         Request-DomeniaFleetRefresh;Request-DomeniaFleetRefresh -Force
         Expect ($script:StartCalls.Count -eq 1) 'Calcul relance pendant le calcul de la meme OU'
-        Complete-DomeniaFleetDashboard -Result (New-FleetResult) -State $call.State
+        Complete-DomeniaFleetDashboard -Result (New-FleetResult -Scope 'OU=Postes,DC=example,DC=invalid') -State $call.State
         $script:AsyncJobs.Remove('job-1')
         Expect ([string]$script:FleetComputedKey -eq 'ou=postes,dc=example,dc=invalid|Subtree') ('Cle calculee : '+$script:FleetComputedKey)
         Expect ($script:StartCalls.Count -eq 2) 'Donnees changees pendant le calcul non recalculees'
-        Complete-DomeniaFleetDashboard -Result (New-FleetResult) -State $script:StartCalls[1].State
+        Complete-DomeniaFleetDashboard -Result (New-FleetResult -Scope 'OU=Postes,DC=example,DC=invalid') -State $script:StartCalls[1].State
         Request-DomeniaFleetRefresh
         Expect ($script:StartCalls.Count -eq 2) 'Recalcul sans changement'
-        Expect ([string](Get-DomeniaControl 'LblFleetScope').Text -eq 'Postes et ses sous-OU') ('Perimetre affiche : '+[string](Get-DomeniaControl 'LblFleetScope').Text)
+        # UI-03: one status line, clickable OU path then 'et ses sous-OU · N postes · base ...'.
+        Expect ([string](Get-DomeniaControl 'LblFleetScope').Text -like ' · et ses sous-OU · 2 postes*') ('Perimetre affiche : '+[string](Get-DomeniaControl 'LblFleetScope').Text)
+        $crumbs=@(Get-DomeniaLogicalControls (Get-DomeniaControl 'PnlFleetCrumbs')|Where-Object{$_ -is [Windows.Controls.TextBlock]}|ForEach-Object{(New-Object Windows.Documents.TextRange($_.ContentStart,$_.ContentEnd)).Text})
+        Expect ($crumbs -contains 'Postes') ('Fil d OU : '+($crumbs -join '|'))
         # Another OU: computed; a lost calculation (cancelled, never answered) is tried again at the next display.
         $script:TestScopeOneLevel=$true
         Request-DomeniaFleetRefresh
@@ -352,9 +526,60 @@ try{
         $pending=Resolve-DomeniaBoardEntry -Board Fleet -Item $item -State (Get-DomeniaBoardState 'Fleet')
         Expect ([string]$pending.Entry.State -eq 'Off') 'Etat en attente'
         Expect ([string]$pending.Entry.Detail -like '*Rechercher*Analyser la liste*') ('Consigne : '+[string]$pending.Entry.Detail)
-        $script:FleetObservations=@{'cn=pc-1,ou=postes,dc=example,dc=invalid'=[pscustomobject]@{Probes=[pscustomobject]@{'os.release'=[pscustomobject]@{Rows=@(,@('26100','1'));Count=1;Error=''}}};'cn=pc-2,ou=postes,dc=example,dc=invalid'=[pscustomobject]@{Probes=[pscustomobject]@{'os.release'=[pscustomobject]@{Rows=@(,@('19045','1'));Count=1;Error=''}}}}
+        # FI-04: query results attached by GUID to the active workstations of the overview, recent ones only.
+        $recent=[datetime]::UtcNow.AddHours(-2).ToString('o')
+        $script:FleetObservations=@{'cn=pc-1,ou=postes,dc=example,dc=invalid'=[pscustomobject]@{Guid='g-PC-1';CheckedUtc=$recent;Probes=[pscustomobject]@{'os.release'=[pscustomobject]@{Rows=@(,@('26100','1'));Count=1;Error=''}}};'cn=pc-2,ou=postes,dc=example,dc=invalid'=[pscustomobject]@{Guid='g-PC-2';CheckedUtc=$recent;Probes=[pscustomobject]@{'os.release'=[pscustomobject]@{Rows=@(,@('19045','1'));Count=1;Error=''}}}}
         $filled=Resolve-DomeniaBoardEntry -Board Fleet -Item $item -State (Get-DomeniaBoardState 'Fleet')
         Expect ([string]$filled.Entry.Kind -eq 'Distribution' -and @($filled.Entry.Items).Count -eq 2) ('Repartition : '+$filled.Entry.Kind+' '+@($filled.Entry.Items).Count)
+        Expect ([string]$filled.Entry.Detail -like '*2 postes analysés sur 2*') ('Couverture : '+[string]$filled.Entry.Detail)
+        # A recreated workstation (other GUID) and an observation older than 30 days are left out; past 7 days greyed.
+        $script:FleetObservations['cn=pc-2,ou=postes,dc=example,dc=invalid'].Guid='g-recree'
+        Expect (@(Get-DomeniaWidgetResults -Board Fleet -ProbeId 'os.release').Count -eq 1) 'Observation d un poste recree comptee'
+        $script:FleetObservations['cn=pc-1,ou=postes,dc=example,dc=invalid'].CheckedUtc=[datetime]::UtcNow.AddDays(-40).ToString('o')
+        Expect (@(Get-DomeniaWidgetResults -Board Fleet -ProbeId 'os.release').Count -eq 0) 'Observation de plus de 30 jours comptee'
+        $script:FleetObservations['cn=pc-1,ou=postes,dc=example,dc=invalid'].CheckedUtc=[datetime]::UtcNow.AddDays(-10).ToString('o')
+        $grey=Resolve-DomeniaBoardEntry -Board Fleet -Item $item -State (Get-DomeniaBoardState 'Fleet')
+        Expect ([string]$grey.Entry.State -eq 'Off') 'Observation de plus de 7 jours non grisee'
+    }
+    Case 'Details de la session : non recalcules expander ferme, a jour a l ouverture' {
+        $coreAst=Parse-Text ([IO.File]::ReadAllText((Join-Path $wad 'Domenia-Core.ps1')))
+        foreach($n in @('Update-Dashboard')){Import-Function $coreAst $n}
+        $updateTask=@($coreAst.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Update-TaskUi'},$true))[0].Extent.Text
+        Expect ($updateTask -match "UxSessionDetails'\]\.IsExpanded" -and $updateTask -match 'if \(\$sessionDetailsOpen\) \{ Request-DomeniaDashboardRefresh \} else \{ \$script:DashboardDirty = \$true \}') 'Update-TaskUi recalcule toujours les details masques'
+        $script:Ctrl=@{};foreach($n in @('UxSessionDetails','TxtDashDomain','TxtDashServer','TxtDashUser','TxtDashMode','TxtDashBaseDn','TxtDashBranch','TxtDashRows','TxtDashModule','TxtDashStats','TxtDashSelected','TxtDashRights','TxtDashTasks','TxtDashCache','TxtDashSelfCheck','TxtDashLinks')){$script:Ctrl[$n]=Get-DomeniaControl $n}
+        function script:Get-ObjectsStatsText {param($Rows);$script:StatsCalls++;return 'stats fictives'}
+        function script:Test-DomeniaAdCommandsAvailable {return $false}
+        function script:Get-AssociationStatsText {return ''}
+        $script:StatsCalls=0;$script:BranchObjects=@();$script:CurrentCapabilities=@{};$script:VisitCache=@{};$script:DashboardAdModuleCheckedAt=$null
+        $expander=$script:Ctrl['UxSessionDetails'];$expander.IsExpanded=$false
+        $script:Ctrl['TxtDashStats'].Text='avant'
+        Update-Dashboard
+        Expect ($script:StatsCalls -eq 0 -and [string]$script:Ctrl['TxtDashStats'].Text -eq 'avant') 'Details recalcules expander ferme'
+        Expect ([bool]$script:SessionDetailsDirty) 'Details non marques a refaire'
+        $expander.IsExpanded=$true
+        Update-Dashboard -Force
+        Expect ($script:StatsCalls -eq 1 -and [string]$script:Ctrl['TxtDashStats'].Text -eq 'stats fictives') 'Details non mis a jour a l ouverture'
+        $expander.IsExpanded=$false;$script:Ctrl=$null
+    }
+    Case 'Premiers pas : quatre etapes qui ouvrent un ecran sans rien lancer, carte masquee une fois faites' {
+        $script:TestScopeDn='';$script:IndexDbCount=0;$script:RemoteAdminCredential=$null
+        $script:TestSettings['Home.FirstStepsDone']=$false
+        $db=Join-Path ([IO.Path]::GetTempPath()) ('domenia-firststeps-'+[guid]::NewGuid().ToString('N')+'\Domenia.db')
+        Set-Item function:script:Get-DomeniaDatabasePath ([scriptblock]::Create("return '"+$db+"'"))
+        Update-DomeniaFirstSteps
+        $card=Get-DomeniaControl 'CardFirstSteps'
+        Expect ($card.Visibility -eq [Windows.Visibility]::Visible) 'Carte Premiers pas masquee au premier lancement'
+        $before=$script:StartCalls.Count;$parks=$script:ParkCalls.Count;$script:Workspaces.Clear()
+        foreach($step in @('Ou','Base','Account','Backup')){Open-DomeniaFirstStep -Step $step}
+        Expect ($script:StartCalls.Count -eq $before -and $script:ParkCalls.Count -eq $parks) 'Une etape a lance une tache'
+        Expect (($script:Workspaces -join ',') -eq 'WsSearch/,TabApplicationTools/TabIndex,route:TabAccounts,TabApplicationTools/TabIndex') ('Ecrans ouverts : '+($script:Workspaces -join ','))
+        $script:TestScopeDn='OU=Postes,DC=example,DC=invalid';$script:IndexDbCount=12;$script:TestSettings['RemoteCredentialUser']='EXAMPLE\poste'
+        $folder=Join-Path ([IO.Path]::GetDirectoryName($db)) 'Backups';[void][IO.Directory]::CreateDirectory($folder);[IO.File]::WriteAllText((Join-Path $folder 'Domenia-20261008.db'),'x')
+        Update-DomeniaFirstSteps
+        Expect ($card.Visibility -eq [Windows.Visibility]::Collapsed) 'Carte encore affichee apres les quatre etapes'
+        Expect ([bool]$script:TestSettings['Home.FirstStepsDone']) 'Preference locale non enregistree'
+        Remove-Item -LiteralPath ([IO.Path]::GetDirectoryName($db)) -Recurse -Force -ErrorAction SilentlyContinue
+        $script:TestScopeDn='';$script:TestSettings.Remove('RemoteCredentialUser')
     }
     Case 'Anciens widgets repris une fois dans la disposition' {
         $script:TestSettings.Remove('Dashboard.Computer.Layout')
