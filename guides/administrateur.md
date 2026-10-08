@@ -1,20 +1,20 @@
 # 1 Ce qui change dans cette édition
 
-Cette édition du 8 octobre 2026 est la première des guides de Domenia 1.0. Elle décrit le code du 8 octobre et place en tête les changements des lots des 7 et 8 octobre, livrés en RC1.12.0 après la version candidate RC1.11.0 du 5 octobre. Le guide technicien donne les gestes du quotidien ; ce guide en donne les règles, les raisons, l'architecture et l'exploitation.
+Cette édition du 8 octobre 2026 est la première des guides de Domenia 1.0. Elle décrit le code du 8 octobre et place en tête les changements des lots des 7 et 8 octobre, livrés en RC1.13.0 après la version candidate RC1.11.0 du 5 octobre (RC1.12.0, livrée le matin du 8 octobre, est remplacée le jour même : la vue d'ensemble du parc suit désormais l'OU de Rechercher). Le guide technicien donne les gestes du quotidien ; ce guide en donne les règles, les raisons, l'architecture et l'exploitation.
 
 | Changement | Ce que l'administrateur doit faire ou savoir |
 |---|---|
 | Tableaux de bord en widgets (08/10) | Les tableaux du poste, du parc et des logiciels sont entièrement faits de widgets. Chaque tuile ou graphique se modifie, se déplace, change de taille ou se retire, avec un retour arrière par « Annuler ». Le catalogue intégré compte 67 widgets ; les requêtes WMI s'y ajoutent (chapitre 9). |
-| Vue d'ensemble du parc par OU (07/10) | La carte « Vue d ensemble du parc » de l'Accueil se limite à une OU de départ mémorisée et propose « Pinger l OU », « Detecter les utilisateurs » et « Analyser l OU (WMI) ». Aucune analyse ne part sur le domaine entier (chapitre 8). |
-| Requêtes WMI prêtes à l'emploi (07/10) | 52 requêtes en lecture seule, réparties en 8 catégories, deviennent des widgets des tableaux du poste et du parc. Elles ne partent qu'avec « Actualiser les requetes », après confirmation (chapitre 10). |
-| Pinger la liste (07/10) et Détecter la liste (05/10) | Dans « Rechercher », le ping ou la lecture de l'utilisateur console visent les seuls postes affichés, après confirmation. La détection sur tout le parc est retirée (chapitre 3). |
+| Vue d'ensemble du parc (07 et 08/10) | La carte « Vue d ensemble du parc » de l'Accueil suit l'OU choisie dans l'arbre de « Rechercher » : un seul filtre OU pour toute l'application. Elle ne fait qu'afficher ; son calcul part en arrière-plan, sur l'OU seulement (chapitre 8). |
+| Requêtes WMI prêtes à l'emploi (07/10) | 52 requêtes en lecture seule, réparties en 8 catégories, deviennent des widgets des tableaux du poste et du parc. Elles partent après confirmation : « Actualiser les requetes » pour le poste, « Analyser la liste » dans « Rechercher » pour le parc (chapitre 10). |
+| Pinger, Détecter et Analyser la liste (05 au 08/10) | Dans « Rechercher », le ping, la lecture de l'utilisateur console et le relevé WMI léger visent les seuls postes affichés, après confirmation. La détection sur tout le parc est retirée (chapitre 3). |
 | Ouvrir C$ et consoles (07 et 08/10) | « Ouvrir C$ » ouvre le partage avec le compte des opérations poste. Le contrôle du port 445 et la connexion SMB passent par le worker ComputerAdminShare, hors du fil de l'interface (chapitre 5). |
 | Base autonome (07 et 08/10) | L'encadré « Emplacement et sauvegarde » montre le fichier de la base et propose « Ouvrir l emplacement », « Sauvegarder maintenant » et « Copier une sauvegarde vers... ». La copie à chaud passe par le worker StorageBackup (chapitre 18). |
 | Retraits (07/10) | La rubrique « Atelier support » du menu est retirée. Les onglets « Fiabilité », « Opérations et confort » et « Commandes » de la page Outils sont masqués, y compris en profil Expert. |
 | Barre d'actions compacte (08/10) | Dans une fenêtre étroite, la barre des résultats tient sur une ligne : « Console au clic », « Revérifier », « Pinger » et « Détecter » remplacent « Utilisateur au clic » et les libellés longs. |
 | Registre des workers (07 et 08/10) | 68 opérations au lieu de 66 : ComputerAdminShare et StorageBackup sont ajoutées ; ComputerDiagnostics, ComputerInventory, DomainOverview, LiveConsole, LiveSelectedPing, LocalIndexRead, LocalStore et SoftwareInventory sont modifiées (chapitre 15). |
 | Corrections (08/10) | Dispositions des tableaux et OU du parc conservées au redémarrage ; Windows Server 2025 n'est plus pris pour Windows 11 24H2 ; redémarrage en attente et BitLocker lus correctement ; mémoire totale des machines virtuelles ; profils de pare-feu désactivés signalés ; périmètre des requêtes revérifié après une reconnexion. |
-| Nouvelle identité de livraison | Le contrat porte RC1.12.0 et le Build 2026.10.08-DOMENIA-1.0-RC1.12.0-D120 : l'installateur accepte la mise à jour d'un poste en RC1.11.0 (chapitre 16). |
+| Nouvelle identité de livraison | Le contrat porte RC1.13.0 et le Build 2026.10.08-DOMENIA-1.0-RC1.13.0-D120 : l'installateur accepte la mise à jour d'un poste en RC1.11.0 ou RC1.12.0 ; il refuse seulement un Build déjà actif (chapitre 16). |
 
 > [!ATTENTION] Version candidate. Les lots des 7 et 8 octobre ont passé des tests d'intégration dans une VM de test, mais aucun point du suivi n'est encore clôturé. Une livraison n'est qualifiée qu'avec un rapport Windows PowerShell 5.1 lié à l'empreinte de ses ZIP (chapitre 21).
 
@@ -35,7 +35,7 @@ Ces étapes mettent Domenia 1.0 en service sur un poste d'administration. Chaque
 | 7 | Choisir l'emplacement des données (LocalStore.Mode) : UserLocal dans le profil de l'utilisateur, ou Portable réservé à un support personnel. | 18 |
 | 8 | Lancer Domenia.exe, se connecter et vérifier que la case « Lecture seule » est cochée. | 13 et 14 |
 | 9 | Remplir la base autonome : Outils, onglet « Base autonome », « Mettre a jour tout ». | 18 |
-| 10 | Choisir l'OU de départ du parc sur l'Accueil, puis analyser une OU pilote. | 8 |
+| 10 | Choisir une OU pilote dans « Rechercher », afficher ses postes et lancer « Analyser la liste » ; vérifier la vue d'ensemble de l'Accueil. | 3 et 8 |
 | 11 | Faire une première sauvegarde de la base : « Sauvegarder maintenant ». | 18 |
 | 12 | Remettre aux techniciens le guide technicien et le profil « Essentiel ». | 13 |
 
@@ -92,16 +92,17 @@ La lecture de la console passe par CIM en DCOM, avec le compte des opérations p
 | Vérification utilisateur | Console observée, Lecture réussie, Accès refusé, Compte distant refusé, Délai dépassé, Non confirmé, Utilisateur non vérifié, Vérification en cours, À vérifier. |
 | Présence réseau | En ligne, Sans réponse au ping, Non vérifié, Erreur de ping, Vérification en cours, avec (cache) pour une observation ancienne. |
 
-## Pinger la liste et Détecter la liste
+## Pinger, Détecter et Analyser la liste
 
-Ces deux boutons agissent sur les seuls postes affichés, après tous les filtres : OU, recherche, présence et filtre local. Ils sont grisés si la liste ne contient aucun poste.
+Ces trois boutons agissent sur les seuls postes affichés, après tous les filtres : OU, recherche, présence et filtre local. Ils sont grisés si la liste ne contient aucun poste. Ce sont les seules analyses de postes en nombre : la vue d'ensemble de l'Accueil n'en lance aucune.
 
-![Barre d'actions des résultats : case Utilisateur au clic, Revérifier ce poste, Pinger la liste, Détecter la liste et Arrêter](fig:recherche-actions)
+![Barre d'actions des résultats : case Utilisateur au clic, Revérifier ce poste, Pinger la liste, Détecter la liste, Analyser la liste et Arrêter](fig:recherche-actions)
 
 | Bouton | Ce qui part | Confirmation |
 |---|---|---|
 | « Pinger la liste » | Ping ICMP seul, quatre postes au maximum à la fois. Met à jour la présence réseau, sans lecture de session ni association. | Nombre de postes, puis « Pinger » ou « Annuler ». |
 | « Détecter la liste » | Ping puis lecture légère de la console Windows (CIM/DCOM), quatre postes au maximum à la fois. Seuls les comptes nouveaux ou modifiés sont résolus dans AD. Associations et cache conservés. | Nombre de postes, puis « Verifier les sessions » ou « Annuler ». |
+| « Analyser la liste » | Comme « Détecter la liste », plus le relevé WMI léger (modèle, mémoire, disque C:, build, démarrage) et les requêtes WMI des widgets placés sur les tableaux du poste et du parc. Les résultats remplissent les tableaux de bord. | « Analyser les postes affiches », nombre de postes et de requêtes, puis « Analyser » ou « Annuler ». |
 | « Arrêter » | Arrête les nouvelles lectures ; les résultats déjà obtenus restent. | Aucune. |
 
 Les confirmations s'affichent dans la page, sans nouvelle fenêtre ; Échap choisit la réponse sûre. Un relevé s'arrête de lui-même sur des identifiants rejetés, après trois échecs d'enregistrement local, sur un conflit d'enregistrement, ou si une lecture est annulée ou ne correspond pas au poste attendu. Une lecture de poste en échec ne l'arrête pas : elle compte dans les « lectures non confirmees ». Il se met en pause tant que 64 enregistrements locaux attendent.
@@ -316,29 +317,36 @@ Les widgets « Administrateurs locaux », « Sessions et comptes locaux », 
 
 Un autre build s'affiche « Build » suivi du numéro. Le serveur est reconnu par le mot server dans la légende du système.
 
-# 8 Vue d'ensemble du parc et analyses
+# 8 Vue d'ensemble du parc
 
-La carte « Vue d ensemble du parc » de l'Accueil se calcule depuis la base autonome locale et les derniers relevés, sans requête AD ni poste. Les analyses qui touchent les postes partent seulement sur une OU choisie, après confirmation, quatre postes au plus à la fois. Jamais sur le domaine entier.
+La carte « Vue d ensemble du parc » de l'Accueil se calcule depuis la base autonome locale et les derniers relevés, sans requête AD ni poste. Elle suit l'OU choisie dans l'arbre de « Rechercher » et ne lance aucune analyse : les pings, détections et analyses partent de « Rechercher », sur la liste affichée (chapitre 3).
 
-![Accueil : périmètre OU, boutons Pinger l OU, Detecter les utilisateurs, Analyser l OU (WMI) et Arreter, puis les widgets du parc](fig:accueil)
+![Accueil : périmètre suivi depuis Rechercher, bouton Changer dʼOU, rappel des analyses de Rechercher, puis les widgets du parc](fig:accueil)
 
 ## Périmètre
 
-- « Choisir l OU... » ouvre le sélecteur « Perimetre du tableau de bord ». Le choix est enregistré aussitôt (préférence FleetScopeDn) puis la vue est recalculée.
-- « Tout le domaine » revient au domaine entier pour la consultation : les widgets montrent alors tout le domaine indexé et toutes les observations en cache, mais aucune analyse n'est permise.
-- « Actualiser » recalcule la vue depuis la base locale. Le calcul part aussi à l'ouverture de la fenêtre.
-- Sont comptés les comptes ordinateur actifs de la base locale dont le DN est l'OU choisie ou se trouve sous elle.
+- La vue reprend l'OU sélectionnée dans l'arbre de « Rechercher » et la case « Inclure les sous-OU » : cochée, l'OU et ses sous-OU ; décochée, ses postes directs seulement. Aucune préférence propre à l'Accueil n'est enregistrée ; l'OU est celle que « Rechercher » mémorise pour le domaine et le compte.
+- La ligne « Périmètre » affiche le nom de l'OU, suivi de « et ses sous-OU » ou de « (sans les sous-OU) » ; l'info-bulle donne le DN complet. Avec la racine du domaine : « Tout le domaine indexe (consultation) ».
+- « Changer dʼOU » ouvre « Rechercher » et place le focus sur l'arbre des OU.
+- « Actualiser » recalcule la vue depuis la base locale. Sans ce bouton, la vue se recalcule d'elle-même quand l'Accueil s'affiche et que l'OU ou les données ont changé : autre OU dans « Rechercher », fin d'un relevé, mise à jour de la base autonome une fois enregistrée, purge des observations, nouvelle session.
 
 > [!NOTE] La vue n'est complète que si la base autonome l'est. Après l'installation, remplissez-la avec « Mettre a jour tout » (chapitre 18) ; le sous-titre de la carte le rappelle.
 
-## Analyses
+## Calcul en arrière-plan
 
-| Bouton | Ce qui est lu sur chaque poste | Confirmation |
+1. **Lecture.** Le worker LocalIndexRead (action FleetStats) lit la base locale en lecture seule. Il garde les comptes ordinateur actifs de l'OU, selon la profondeur choisie, et décode lui-même les observations enregistrées : présence, utilisateur console, relevé WMI et résultats des requêtes. Une observation de plus de 256 Ko est ignorée.
+2. **Un seul calcul à la fois.** Pour la même OU, Domenia attend la fin du calcul en cours ; pour une autre OU, le nouveau calcul remplace l'ancien, dont le résultat n'est pas affiché. Au démarrage, la vue attend que « Rechercher » ait retrouvé son OU mémorisée : « En attente de l OU memorisee dans Rechercher... ».
+3. **Affichage.** Le fil de l'interface ne fait que regrouper les postes de l'OU et dessiner les widgets.
+
+Les observations de tous les postes restent en mémoire après le calcul : le tableau d'un poste affiche ses résultats de requêtes même s'il est hors de l'OU. Une observation lue depuis le dernier enregistrement l'emporte sur celle de la base, plus ancienne.
+
+## Remplir la vue
+
+| Section | Source | Comment la remplir |
 |---|---|---|
-| « Pinger l OU » | Ping ICMP seul : présence réseau, sans lecture de session ni association. | « Ping ICMP seulement. », bouton « Pinger ». |
-| « Detecter les utilisateurs » | Ping, puis utilisateur console par CIM/DCOM ; l'association utilisateur et poste est actualisée si elle change. | Bouton « Verifier les sessions ». |
-| « Analyser l OU (WMI) » | Comme la détection, plus un relevé WMI léger : modèle, mémoire, disque C:, build et date de démarrage. Les résultats remplissent la section « Releves WMI ». | Bouton « Verifier les sessions ». |
-| « Arreter » | Arrête les nouvelles lectures ; celles en cours se terminent et les résultats restent. | Aucune. |
+| « Vue d ensemble », « Inventaire du perimetre », « Repartition » | Base autonome locale | « Mettre a jour tout » ou « Mettre a jour les changements » (chapitre 18). |
+| Présence, « Utilisateurs detectes », « Derniere analyse » | Observations des relevés | « Pinger la liste » ou « Détecter la liste » dans « Rechercher ». |
+| « Releves WMI » et widgets de requête du parc | Relevé WMI léger et requêtes | « Analyser la liste » dans « Rechercher ». |
 
 Le relevé WMI léger lit Win32_OperatingSystem (Caption, BuildNumber, LastBootUpTime), Win32_ComputerSystem (Manufacturer, Model, TotalPhysicalMemory) et Win32_LogicalDisk filtré sur C: (Size, FreeSpace).
 
@@ -347,19 +355,16 @@ Le relevé WMI léger lit Win32_OperatingSystem (Caption, BuildNumber, LastBootU
 1. **Nom.** Il contrôle le nom du poste : 253 caractères au plus, lettres, chiffres, point, tiret et tiret bas.
 2. **Ping.** Un seul ping ICMP de 900 ms, adresse IPv4 préférée.
 3. **Session CIM.** Il ouvre une session CIM en DCOM avec le compte des opérations poste, délai de 4 s, et lit Win32_ComputerSystem.UserName.
-4. **Lectures.** Seulement si la console a été lue : relevé WMI léger, et requêtes des widgets s'il s'agit d'« Actualiser les requetes » (chapitre 10).
+4. **Lectures.** Seulement si la console a été lue : relevé WMI léger et requêtes des widgets pour « Analyser la liste », requêtes seules pour « Actualiser les requetes » du tableau du poste (chapitre 10).
 5. **Enregistrement.** L'observation est fusionnée avec la précédente et enregistrée dans la base locale.
 
-Le suivi s'affiche sous les boutons : « Ping en cours » ou « Releve en cours », avec les postes vérifiés, joignables, les identités en cache, les associations actualisées et les lectures non confirmées. En fin de relevé, la vue d'ensemble se recalcule seule. Si le stockage local est indisponible : « Observation en memoire seulement : stockage local indisponible. ».
+Le suivi s'affiche sous les boutons de « Rechercher » : « Ping en cours » ou « Releve en cours », avec les postes vérifiés, joignables, les identités en cache, les associations actualisées et les lectures non confirmées. En fin de relevé, la vue d'ensemble se recalcule seule. Si le stockage local est indisponible : « Observation en memoire seulement : stockage local indisponible. ».
 
 ## Refus
 
 | Vous voyez | Cause | Que faire |
 |---|---|---|
-| « Analyse impossible : » puis « choisissez d abord une OU : aucune analyse sur le domaine entier. » | Périmètre vide ou domaine entier. | « Choisir l OU... ». |
-| « Analyse impossible : » puis « actualisez d abord la vue d ensemble de cette OU. » | Vue calculée sur un autre périmètre. | « Actualiser ». |
-| « Analyse impossible : » puis « aucun poste indexe dans cette OU. Mettez a jour la base autonome. » | Base autonome vide pour cette OU. | « Mettre a jour tout » ou « Mettre a jour les changements ». |
-| « Releve impossible : » puis « Un releve est deja en cours. » | Un relevé tourne déjà. | Attendre ou « Arreter ». |
+| « Releve impossible : » puis « Un releve est deja en cours. » | Un relevé tourne déjà. | Attendre ou « Arrêter ». |
 | « Releve impossible : » puis « Attendez la confirmation des enregistrements locaux avant un nouveau releve. » | Enregistrements locaux en attente. | Attendre quelques secondes. |
 | « Vue d ensemble non calculee : » puis « base occupee, reessayez dans un instant. » | Base locale occupée. | « Actualiser » un peu plus tard. |
 | « Aucune base autonome active : vue d ensemble indisponible. » | Pas de base pour ce domaine. | Chapitre 18. |
@@ -403,7 +408,7 @@ Les trois tableaux de bord sont faits de widgets : chaque tuile ou graphique se 
 
 | Bouton | Quand | Effet |
 |---|---|---|
-| « Actualiser les requetes » | Poste et parc, si au moins un widget de requête est présent. | Exécute les requêtes WMI des widgets, en lecture seule, après confirmation (chapitre 10). |
+| « Actualiser les requetes » | Tableau du poste, si au moins un widget de requête est présent. | Exécute les requêtes WMI des widgets sur le poste sélectionné, en lecture seule, après confirmation (chapitre 10). Sur le parc, les requêtes partent avec « Analyser la liste » dans « Rechercher ». |
 | « Ajouter un widget » | Toujours. | Ouvre l'éditeur. |
 | « Personnaliser » | Hors personnalisation. | Passe en mode personnalisation. |
 | « Par defaut » | En personnalisation. | Revient à la disposition livrée, sans confirmation mais annulable. |
@@ -538,7 +543,7 @@ Dimensions en pixels, largeur × hauteur ; auto suit le contenu. Limites d'affic
 | Disque C: presque plein | fleet.lowdisk | Releves WMI | Chiffre cle, Compacte | Postes avec moins de 10 % libre |
 | Non redemarres depuis 30 j | fleet.uptime | Releves WMI | Chiffre cle, Compacte | Postes a redemarrer |
 
-Les sections « Vue d ensemble », « Inventaire du perimetre » et « Repartition » viennent de la base autonome ; la section « Releves WMI » se remplit avec « Analyser l OU (WMI) ».
+Les sections « Vue d ensemble », « Inventaire du perimetre » et « Repartition » viennent de la base autonome ; la section « Releves WMI » se remplit avec « Analyser la liste » dans « Rechercher ».
 
 ## Catalogue du tableau des logiciels (8 widgets)
 
@@ -555,7 +560,7 @@ Les sections « Vue d ensemble », « Inventaire du perimetre » et « Repa
 
 # 10 Requêtes WMI prêtes à l'emploi
 
-Le catalogue propose 52 requêtes WMI en lecture seule, en 8 catégories. On les ajoute comme widgets aux tableaux du poste et du parc depuis l'éditeur. Elles ne partent qu'avec « Actualiser les requetes », après confirmation : sur le poste sélectionné, ou sur les postes de l'OU choisie, jamais sur le domaine entier.
+Le catalogue propose 52 requêtes WMI en lecture seule, en 8 catégories. On les ajoute comme widgets aux tableaux du poste et du parc depuis l'éditeur. Elles partent après confirmation, jamais sur le domaine entier : « Actualiser les requetes » sur le tableau du poste interroge le poste sélectionné ; « Analyser la liste » dans « Rechercher » interroge les postes affichés avec les requêtes des tableaux du poste et du parc.
 
 ## Pourquoi c'est sûr
 
@@ -567,18 +572,15 @@ Le catalogue propose 52 requêtes WMI en lecture seule, en 8 catégories. On les
 
 ## Exécution
 
-1. **Lancer.** Cliquez « Actualiser les requetes » sur le tableau. Les requêtes des widgets présents sont regroupées, sans doublon.
-2. **Contrôle du périmètre.** Parc : il faut une OU, et une vue d'ensemble calculée sur cette OU depuis la dernière connexion. Poste : il faut un poste sélectionné.
-3. **Confirmer.** La confirmation « Sonder pour les widgets » donne le nombre de postes et de requêtes. Bouton « Verifier les sessions » ou « Annuler ».
-4. **Suivre.** Quatre postes au plus à la fois. Délai par poste : 20 s plus 8 s par requête, plafonné à 150 s.
-5. **Lire.** En fin de relevé, les widgets se remplissent et la vue du parc se recalcule.
+1. **Lancer.** Poste : cliquez « Actualiser les requetes » sur son tableau ; il faut un poste sélectionné. Parc : dans « Rechercher », affichez les postes puis cliquez « Analyser la liste ». Les requêtes des widgets présents sont regroupées, sans doublon.
+2. **Confirmer.** Poste : confirmation « Sonder pour les widgets », bouton « Verifier les sessions ». Parc : confirmation « Analyser les postes affiches », bouton « Analyser ». Les deux donnent le nombre de postes et de requêtes ; « Annuler » ne lance rien.
+3. **Suivre.** Quatre postes au plus à la fois. Délai par poste : 20 s plus 8 s par requête, plafonné à 150 s.
+4. **Lire.** En fin de relevé, les widgets se remplissent et la vue du parc se recalcule.
 
 | Vous voyez | Que faire |
 |---|---|
 | « Aucune requete WMI sur ce tableau de bord : ajoutez un widget de requete. » | Ajouter un widget de requête avec « Ajouter un widget ». |
-| « Choisissez une OU : jamais le domaine entier. » | Choisir une OU avec « Choisir l OU... ». |
-| « Actualisez la vue du parc : le perimetre a change depuis le dernier calcul. » | « Actualiser » sur la carte du parc, puis relancer. |
-| « Aucun poste dans le perimetre. » | Vérifier l'OU et la base autonome. |
+| « Requetes du parc : dans Rechercher, affichez les postes puis Analyser la liste. » | Le parc n'a pas de bouton de requête : utiliser « Analyser la liste ». |
 | « Aucun poste selectionne. » | Choisir un poste dans « Rechercher ». |
 
 ## Lecture des résultats
@@ -586,7 +588,7 @@ Le catalogue propose 52 requêtes WMI en lecture seule, en 8 catégories. On les
 - Résultats par poste : 20 instances au plus, textes coupés à 200 caractères, dates en UTC. Le dernier résultat de chaque requête est gardé dans l'observation du poste.
 - Tableau du poste : toujours une valeur (chiffre clé ou liste), avec la catégorie et le nom de la requête.
 - Tableau du parc : une requête de comptage ou à transformation numérique devient une mesure (moyenne, minimum, maximum, histogramme par tranches) ; les autres deviennent une répartition (valeur la plus fréquente, nombre de postes).
-- Sans résultat, le widget affiche « En attente » et « Actualiser les requetes pour remplir ce widget ».
+- Sans résultat, le widget affiche « En attente » et, sur le poste, « Actualiser les requetes pour remplir ce widget » ; sur le parc, « Dans Rechercher, Analyser la liste remplit ce widget ».
 
 Modes : First lit la première instance, Count compte les instances, All lit toutes les instances. Transformations : Text, GB (octets en Go), GBfromKB (Ko en Go), MB, Mbps, Number, DaysSince (jours écoulés), Year, PercentFree (pourcentage libre), Release (build en nom de version) et Map (table de correspondance). Dans les filtres, {SINCE_24H} et {SINCE_7D} sont remplacés par la date UTC d'il y a 24 heures ou 7 jours.
 
@@ -712,7 +714,7 @@ Les associations entre utilisateurs et postes sont conservées dans la base auto
 | Source | Comment elle arrive |
 |---|---|
 | Lien manuel | Onglet « Associer », bouton « Associer ce poste », puis « Associer » dans le panneau « Confirmer l'association ». |
-| Console observée | « Détecter la liste » et « Detecter les utilisateurs » lisent l'utilisateur console ; l'association est actualisée si elle change. |
+| Console observée | « Détecter la liste » et « Analyser la liste » lisent l'utilisateur console ; l'association est actualisée si elle change. |
 | Détection ciblée | Onglet « Associer », « Détecter les postes » propose des postes ; « Associer ce poste » prépare le lien, puis « Associer » dans « Confirmer l'association » l'enregistre. |
 
 ## Détection ciblée
@@ -956,8 +958,8 @@ Domenia s'installe par simple extraction d'un ZIP complet dans un dossier local.
 
 | Paquet | Contenu |
 |---|---|
-| Domenia_1.0_RC1.12.0_PROD.zip | Domenia.exe et le dossier wad : 82 fichiers runtime. À installer sur les postes. |
-| Domenia_1.0_RC1.12.0_DEV.zip | Le même runtime à l'octet, plus l'installateur, les sources, les outils, les tests et le suivi (436 fichiers). Pour l'administrateur et la qualification. |
+| Domenia_1.0_RC1.13.0_PROD.zip | Domenia.exe et le dossier wad : 82 fichiers runtime. À installer sur les postes. |
+| Domenia_1.0_RC1.13.0_DEV.zip | Le même runtime à l'octet, plus l'installateur, les sources, les outils, les tests et le suivi (436 fichiers). Pour l'administrateur et la qualification. |
 
 Fichiers conservés par l'installateur, jamais remplacés : wad\Domenia.config.json, wad\Domenia.login-mode.cfg, wad\Domenia.theme.cfg et wad\Domenia.ui-profile.cfg. Configuration livrée : connexion Standard, vérification au clic active, thème clair, profil Essentiel.
 
@@ -1011,7 +1013,7 @@ La restauration relit la transaction, vérifie tout sans écrire, refuse d'écra
 
 ## Identité de livraison et nouveau Build
 
-L'identité tient dans un seul fichier, dev\tools\release-contract.json : produit, version 1.0, release RC1.12.0, Build 2026.10.08-DOMENIA-1.0-RC1.12.0-D120, schéma de données 11. Le pied du menu affiche « DOMENIA 1.0 · RC1.12.0 ».
+L'identité tient dans un seul fichier, dev\tools\release-contract.json : produit, version 1.0, release RC1.13.0, Build 2026.10.08-DOMENIA-1.0-RC1.13.0-D120, schéma de données 11. Le pied du menu affiche « DOMENIA 1.0 · RC1.13.0 ».
 
 L'installateur refuse de mettre à jour un poste qui porte déjà le même Build. Pour chaque nouvelle livraison, changez la release et le Build dans le contrat, puis :
 
@@ -1171,11 +1173,10 @@ Seules ces clés survivent à un redémarrage ; la lecture seule n'en fait volon
 | Recherche | SavedSearches, OuBookmarksJson, PresenceFilter, SearchType, SearchLimit (100), GridLayoutsJson |
 | Interface | Theme (Light), UiProfile (Tech), Workspace, UxDensity (Confort), UxNavCollapsed, UxHelpVisible, UxHelpCompactOpen, UxLogCollapsed, UxLogExpandedHeight, UxLogWrap, UxLogFontSize |
 | Fenêtre | WindowWidth, WindowHeight, WindowLeft, WindowTop, WindowMaximized, TreeWidth, LogHeight |
-| Tableaux de bord | FleetScopeDn, Dashboard.Computer.Layout, Dashboard.Fleet.Layout, Dashboard.Software.Layout, Widgets.Computer, Widgets.Fleet |
+| Tableaux de bord | Dashboard.Computer.Layout, Dashboard.Fleet.Layout, Dashboard.Software.Layout, Widgets.Computer, Widgets.Fleet. Le périmètre du parc n'a plus de clé : c'est l'OU de « Rechercher ». |
+| Comptes | RemoteCredentialUser, SecretsCredentialUser : noms des comptes « POSTES / WMI / DISTANT » et « SECRETS AD », jamais de mot de passe. |
 | Poste | InventoryScope, SoftwareScope, SoftwarePerUser, SoftwareStore, SoftwareUpdates, WmiLimit (25) |
 | Parc | IndexAutoBuild, ParkSweepEnabled, ParkHarvestEnabled |
-
-> [!NOTE] Les identifiants des comptes « POSTES / WMI / DISTANT » et « SECRETS AD » sont écrits dans les préférences, mais leurs clés ne figurent pas dans cette liste : ils ne sont probablement pas relus au lancement suivant (déduction du code, non vérifiée).
 
 # 18 Base autonome
 

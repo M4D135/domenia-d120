@@ -440,6 +440,9 @@ Nature d'une requête (`Get-DomeniaProbeKind`, `Boards.Model:399-408`) : sur le 
 
 ## 9. Exécution des requêtes : « Actualiser les requetes »
 
+> Remplacé le 08/10/2026 (décision de David) : la vue d'ensemble de l'Accueil suit l'OU choisie dans Rechercher (Get-DomeniaFleetScope), n'a plus de sélecteur ni de réglage FleetScopeDn, et ne lance aucune analyse ; « Choisir l OU... », « Tout le domaine », « Pinger l OU », « Detecter les utilisateurs », « Analyser l OU (WMI) », « Arreter » et LblFleetRun sont retirés. Les analyses partent de Rechercher : Pinger, Détecter et Analyser la liste (BtnParkAnalyze, Start-DomeniaParkAnalysis). Les requêtes du parc partent avec Analyser la liste. Source à jour : guides/administrateur.md, chapitres 3, 8 et 10.
+
+
 L'essentiel : les requêtes ne partent que sur demande, après confirmation, en lecture seule, sur une OU choisie (tableau du parc) ou sur le poste sélectionné (tableau du poste), jamais sur le domaine entier ; quatre postes au plus à la fois.
 
 ### 9.1 Périmètre et refus (`Start-DomeniaWidgetProbe`, `Widgets.UI:851-872`)
@@ -481,6 +484,9 @@ L'essentiel : les requêtes ne partent que sur demande, après confirmation, en 
 - Affichage (`ConvertFrom-DomeniaProbeMeasure`, `Boards.Model:414-446`) : sans résultat, tuile « En attente » avec « Actualiser les requetes pour remplir ce widget » ; Parc : titre « <nom> (<n> postes) », Measure = moyenne avec unité et « Moyenne · min <a> · max <b> », Distribution = valeur la plus fréquente avec « <n> poste(s) sur <N> » et centre « <N> postes » ; Poste : la valeur lue (ou « <n> valeurs : <v1>, <v2>, <v3> »), détail « <catégorie> · <nom> ».
 
 ## 10. Analyses de la vue d'ensemble du parc (page Accueil)
+
+> Remplacé le 08/10/2026 (décision de David) : la vue d'ensemble de l'Accueil suit l'OU choisie dans Rechercher (Get-DomeniaFleetScope), n'a plus de sélecteur ni de réglage FleetScopeDn, et ne lance aucune analyse ; « Choisir l OU... », « Tout le domaine », « Pinger l OU », « Detecter les utilisateurs », « Analyser l OU (WMI) », « Arreter » et LblFleetRun sont retirés. Les analyses partent de Rechercher : Pinger, Détecter et Analyser la liste (BtnParkAnalyze, Start-DomeniaParkAnalysis). Les requêtes du parc partent avec Analyser la liste. Source à jour : guides/administrateur.md, chapitres 3, 8 et 10.
+
 
 ### 10.1 Périmètre (`Core:4431-4437`, `Dashboard.UI:66-80`)
 

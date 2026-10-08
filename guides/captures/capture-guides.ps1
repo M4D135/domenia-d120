@@ -209,10 +209,11 @@ $script:UxHelpVisible = $false; $script:UxNavCollapsed = $false; $script:UxLayou
 Update-GuideLayout
 'surface ' + $script:GuideHost.ActualWidth + 'x' + $script:GuideHost.ActualHeight
 
-# 1. Accueil: fleet overview of an OU.
-$script:GuideSettings['FleetScopeDn'] = 'OU=Postes,OU=Lyon,DC=example,DC=local'
+# 1. Accueil: fleet overview of the OU chosen in the Rechercher tree (decision David 2026-10-08).
+$script:SelectedBranchDn = 'OU=Postes,OU=Lyon,DC=example,DC=local'
+try { Update-DomeniaSearchScopeUi } catch { }
 Complete-DomeniaFleetDashboard -Result $fleet -State $null
-(Get-DomeniaControl 'LblFleetRun').Text = 'Releve termine : 22/22 postes verifies, 18 joignables, 15 identites en cache, 2 associations actualisees, 4 lectures non confirmees.'
+Update-DomeniaFleetScopeText (Get-DomeniaFleetScope)
 Show-GuideTab 'TabDashboard'
 Set-GuideHeight 1240; Update-GuideLayout
 $logRow = Get-DomeniaControl 'UxLogRow'; if ($null -ne $logRow -and $logRow.Height.Value -gt 60) { Switch-DomeniaUxLog; Update-GuideLayout }
@@ -239,7 +240,7 @@ $script:BranchObjects = $rows
 [void](Set-DomeniaItemsSource 'DgObjects' $rows)
 (Get-DomeniaControl 'TxtGlobalSearch').Text = 'compta'
 (Get-DomeniaControl 'LblBranchCount').Text = '7 résultat(s) · liste complète'
-foreach ($b in @('BtnParkPing','BtnParkResults','BtnLiveRecheck','BtnExportResults')) { $c = Get-DomeniaControl $b; if ($null -ne $c) { $c.IsEnabled = $true } }
+foreach ($b in @('BtnParkPing','BtnParkResults','BtnParkAnalyze','BtnLiveRecheck','BtnExportResults')) { $c = Get-DomeniaControl $b; if ($null -ne $c) { $c.IsEnabled = $true } }
 $grid = Get-DomeniaControl 'DgObjects'
 $order = @('Type','Nom','Utilisateur connecté (console)','Association mémorisée','Présence réseau')
 for ($k = 0; $k -lt $order.Count; $k++) { $col = @($grid.Columns | Where-Object { [string]$_.Header -eq $order[$k] })[0]; if ($null -ne $col) { $col.DisplayIndex = $k } }

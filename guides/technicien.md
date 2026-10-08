@@ -178,11 +178,12 @@ Quand : vous cherchez sur quel poste travaille un utilisateur, ou quels postes d
 1. **Préparer la liste.** Affichez les postes voulus dans « Rechercher » : OU, recherche ou « Dans les résultats » (chapitre 1). Seuls les postes affichés sont interrogés : une liste courte va plus vite.
 2. **Pinger la liste.** Pour savoir seulement quels postes répondent, cliquez sur « Pinger la liste ». La demande « Pinger les postes affiches » donne le nombre de postes. Cliquez sur « Pinger ».
 3. **Ou détecter les utilisateurs.** Pour savoir aussi qui est connecté, cliquez sur « Détecter la liste ». La demande « Detecter sur les resultats affiches » donne le nombre de postes. Cliquez sur « Verifier les sessions ».
-4. **Suivre l'avancement.** La ligne sous les boutons suit l'avancement, quatre postes au plus à la fois, jusqu'à « Ping termine » ou « Releve termine ».
-5. **Lire le résultat.** Après « Pinger la liste », seule « Présence réseau » est mise à jour ; après « Détecter la liste », « Utilisateur connecté (console) » et « Vérification utilisateur » le sont aussi.
-6. **Arrêter si besoin.** Cliquez sur « Arrêter » : aucune nouvelle lecture ne démarre et les résultats déjà obtenus restent affichés.
+4. **Ou analyser les postes.** Pour connaître aussi leur matériel, cliquez sur « Analyser la liste ». La demande « Analyser les postes affiches » donne le nombre de postes. Cliquez sur « Analyser ». En plus de l'utilisateur, Domenia lit le modèle, la mémoire, le disque C:, la version de Windows et la date de démarrage de chaque poste.
+5. **Suivre l'avancement.** La ligne sous les boutons suit l'avancement, quatre postes au plus à la fois, jusqu'à « Ping termine » ou « Releve termine ».
+6. **Lire le résultat.** Après « Pinger la liste », seule « Présence réseau » est mise à jour ; après « Détecter la liste » ou « Analyser la liste », « Utilisateur connecté (console) » et « Vérification utilisateur » le sont aussi. Le matériel lu par « Analyser la liste » s'affiche dans la vue d'ensemble de l'Accueil (chapitre 5).
+7. **Arrêter si besoin.** Cliquez sur « Arrêter » : aucune nouvelle lecture ne démarre et les résultats déjà obtenus restent affichés.
 
-![Ligne d'actions sous les résultats : « Utilisateur au clic », « Revérifier ce poste », « Pinger la liste », « Détecter la liste » et « Arrêter »](fig:recherche-actions)
+![Ligne d'actions sous les résultats : « Utilisateur au clic », « Revérifier ce poste », « Pinger la liste », « Détecter la liste », « Analyser la liste » et « Arrêter »](fig:recherche-actions)
 
 > [!ASTUCE] Pour un seul poste, cliquez sur sa ligne, ou sur « Revérifier ce poste » pour recommencer. Décochez « Utilisateur au clic » pour un ping seul.
 
@@ -194,7 +195,7 @@ Quand : vous cherchez sur quel poste travaille un utilisateur, ou quels postes d
 
 | Vous voyez | Que faire |
 |---|---|
-| « Pinger la liste » et « Détecter la liste » sont grisés | La liste ne contient aucun poste. Affichez des postes, par exemple avec « Type d’objet » sur « Machines ». |
+| « Pinger la liste », « Détecter la liste » et « Analyser la liste » sont grisés | La liste ne contient aucun poste. Affichez des postes, par exemple avec « Type d’objet » sur « Machines ». |
 | « Releve impossible : Un releve est deja en cours. » | Attendez la fin du relevé en cours, ou cliquez sur « Arrêter ». |
 | « Releve impossible : Attendez la confirmation des enregistrements locaux avant un nouveau releve. » | Attendez quelques secondes, puis relancez. |
 | « Releve impossible : Aucune base autonome active. » | Prévenez l'administrateur. |
@@ -206,14 +207,16 @@ Quand : vous cherchez sur quel poste travaille un utilisateur, ou quels postes d
 
 Quand : vous voulez une vue d'ensemble des postes d'un site ou d'un service.
 
+La vue d'ensemble suit l'OU choisie dans « Rechercher » : il n'y a qu'un seul choix d'OU dans Domenia. Elle ne fait qu'afficher ; les pings, détections et analyses se lancent dans « Rechercher », sur la liste affichée.
+
 ## Lire la vue d'ensemble
 
-1. **Ouvrir l'Accueil.** Cliquez sur « Accueil » dans le menu, ou appuyez sur Ctrl+D. La carte « Vue d ensemble du parc » est calculée dès l'ouverture de Domenia.
-2. **Choisir le périmètre.** Cliquez sur « Choisir l OU... ». Dans « Perimetre du tableau de bord », cliquez sur « Rechercher », sélectionnez l'OU de votre site ou de votre service, puis cliquez sur « Choisir ».
-3. **Lire les widgets.** Le champ « Perimetre » affiche l'OU choisie et la vue se recalcule pour ses postes. Domenia garde ce choix pour vos prochaines sessions.
-4. **Actualiser.** « Actualiser » recalcule la vue sans interroger les postes. « Tout le domaine » montre le domaine entier, en consultation seulement.
+1. **Choisir l'OU.** Dans « Rechercher », cliquez sur l'OU de votre site ou de votre service dans l'arbre (chapitre 1). Depuis l'Accueil, le bouton « Changer dʼOU » ouvre directement cet arbre.
+2. **Ouvrir l'Accueil.** Cliquez sur « Accueil » dans le menu, ou appuyez sur Ctrl+D. La carte « Vue d ensemble du parc » se recalcule pour l'OU choisie, sans interroger les postes.
+3. **Vérifier le périmètre.** La ligne « Périmètre » affiche le nom de l'OU, avec ses sous-OU si la case « Inclure les sous-OU » est cochée dans « Rechercher ». Avec « Tout le domaine », elle affiche « Tout le domaine indexe (consultation) ».
+4. **Lire les widgets.** « Actualiser » recalcule la vue à la demande, toujours sans interroger les postes.
 
-![Accueil : vue d'ensemble du parc pour l'OU Postes de Lyon, boutons d'analyse et widgets du parc](fig:accueil)
+![Accueil : vue d'ensemble du parc pour l'OU Postes de Lyon, choisie dans Rechercher, et widgets du parc](fig:accueil)
 
 | Section | Ce que vous y lisez |
 |---|---|
@@ -221,18 +224,17 @@ Quand : vous voulez une vue d'ensemble des postes d'un site ou d'un service.
 | « Repartition » | Systèmes, ancienneté de la dernière connexion au domaine, postes par OU, présence réseau. |
 | « Releves WMI » | Modèles, versions de Windows, mémoire installée, espace libre sur C:, postes non redémarrés depuis 30 jours. |
 
-> [!RESULTAT] La vue d'ensemble montre les postes de l'OU choisie.
+> [!RESULTAT] La vue d'ensemble montre les postes de l'OU choisie dans « Rechercher ».
 
-## Analyser les postes de l'OU
+## Mettre à jour les chiffres des postes
 
 Quand : vous voulez des chiffres à jour sur la présence, les utilisateurs et le matériel des postes de l'OU.
 
-1. **Vérifier le périmètre.** Le champ « Perimetre » doit afficher une OU : les analyses ne portent jamais sur le domaine entier.
-2. **Choisir l'analyse.** « Pinger l OU » : présence réseau. « Detecter les utilisateurs » : présence et utilisateur de chaque poste. « Analyser l OU (WMI) » : en plus, modèle, mémoire, disque C:, version de Windows et démarrage.
-3. **Confirmer.** Une demande s'affiche en haut de la page avec le nombre de postes de l'OU. Cliquez sur « Pinger » ou sur « Verifier les sessions ». « Annuler » ne lance rien.
-4. **Suivre.** La ligne sous les boutons indique l'avancement, quatre postes au plus à la fois. « Arreter » stoppe les nouvelles lectures et garde les résultats obtenus.
+1. **Afficher les postes.** Dans « Rechercher », choisissez l'OU et affichez ses postes, par exemple avec « Type d’objet » sur « Machines ».
+2. **Lancer.** Cliquez sur « Pinger la liste », « Détecter la liste » ou « Analyser la liste », puis confirmez (chapitre 4). « Analyser la liste » remplit aussi la section « Releves WMI ».
+3. **Revenir à l'Accueil.** À la fin du relevé, la vue d'ensemble se recalcule d'elle-même.
 
-> [!RESULTAT] À la fin, la vue d'ensemble se recalcule d'elle-même : les widgets du parc montrent l'état des postes de l'OU.
+> [!RESULTAT] Les widgets du parc montrent l'état des postes analysés de l'OU.
 
 ## Mettre à jour la base du parc
 
@@ -240,7 +242,7 @@ Quand : la vue d'ensemble semble incomplète, ou des postes récents n'y figuren
 
 1. **Ouvrir la base.** Cliquez sur « Outils » dans le menu, puis sur l'onglet « Base autonome », ou appuyez sur Ctrl+I. La carte « Base autonome DOMENIA » s'affiche.
 2. **Mettre à jour.** « Mettre a jour les changements » relit seulement les objets modifiés : c'est rapide. « Mettre a jour tout » relit tous les utilisateurs et les postes, parfois en plusieurs minutes.
-3. **Recalculer la vue.** Revenez à l'« Accueil » et cliquez sur « Actualiser ».
+3. **Revenir à l'Accueil.** La vue d'ensemble se recalcule d'elle-même avec la base à jour.
 
 ![Outils, onglet « Base autonome » : boutons de mise à jour et cadre « Emplacement et sauvegarde »](fig:base-autonome)
 
@@ -250,12 +252,10 @@ Quand : la vue d'ensemble semble incomplète, ou des postes récents n'y figuren
 
 | Vous voyez | Que faire |
 |---|---|
-| « Analyse impossible : choisissez d abord une OU : aucune analyse sur le domaine entier. » | Cliquez sur « Choisir l OU... » et choisissez une OU. |
-| « Analyse impossible : actualisez d abord la vue d ensemble de cette OU. » | Cliquez sur « Actualiser », puis relancez l'analyse. |
-| « Analyse impossible : aucun poste indexe dans cette OU. Mettez a jour la base autonome. » | Suivez la section **Mettre à jour la base du parc** de ce chapitre. |
+| La vue ne montre pas la bonne OU | Choisissez l'OU dans l'arbre de « Rechercher », ou cliquez sur « Changer dʼOU ». |
 | « Vue d ensemble non calculee : base occupee, reessayez dans un instant. » | Attendez quelques secondes, puis cliquez sur « Actualiser ». |
 | « Aucune base autonome active : vue d ensemble indisponible. » | Prévenez l'administrateur. |
-| La section « Releves WMI » est vide | Cliquez sur « Analyser l OU (WMI) ». |
+| La section « Releves WMI » est vide | Dans « Rechercher », affichez les postes de l'OU, puis cliquez sur « Analyser la liste ». |
 
 # 6 Personnaliser un tableau de bord
 
@@ -271,7 +271,7 @@ Quand : vous voulez garder sous les yeux les informations utiles. Chaque tuile o
 
 ![Fenêtre « Ajouter un widget » : recherche, liste des informations, réglages à droite et aperçu du widget « Disque systeme »](fig:editeur-widget)
 
-> [!NOTE] Une ligne « Requetes WMI · » interroge le poste, ou les postes de l'OU sur l'Accueil. Après l'ajout, cliquez sur « Actualiser les requetes », puis sur « Verifier les sessions » : le widget se remplit.
+> [!NOTE] Une ligne « Requetes WMI · » interroge les postes. Sur le tableau du poste, cliquez sur « Actualiser les requetes », puis sur « Verifier les sessions » : le widget se remplit. Sur l'Accueil, ces requêtes partent avec « Analyser la liste » dans « Rechercher ».
 
 > [!RESULTAT] Le widget est enregistré sur le tableau, dans la section choisie.
 
@@ -301,8 +301,8 @@ Quand : vous voulez garder sous les yeux les informations utiles. Chaque tuile o
 | Vous voyez | Que faire |
 |---|---|
 | « Aucun widget » | Tous les widgets ont été retirés. Cliquez sur « Ajouter un widget », ou sur « Personnaliser » puis « Par defaut ». |
-| Un widget affiche « En attente » | Cliquez sur « Actualiser les requetes ». |
-| « Actualisez la vue du parc : le perimetre a change depuis le dernier calcul. » | Cliquez sur « Actualiser » dans « Vue d ensemble du parc », puis relancez. |
+| Un widget affiche « En attente » | Sur le tableau du poste, cliquez sur « Actualiser les requetes ». Sur l'Accueil, lancez « Analyser la liste » dans « Rechercher ». |
+| « Requetes du parc : dans Rechercher, affichez les postes puis Analyser la liste. » | Les requêtes de l'Accueil partent de « Rechercher » : affichez les postes de l'OU, puis cliquez sur « Analyser la liste ». |
 | Un widget vide n'apparaît plus | Il réapparaît quand ses données sont lues ; « Personnaliser » le montre. |
 
 # 7 Consulter les logiciels d'un poste
@@ -392,7 +392,7 @@ Donnez-lui ces éléments :
 |---|---|
 | AD (Active Directory) | Annuaire de l'entreprise : comptes des utilisateurs, postes et groupes. |
 | OU (unité d'organisation) | Dossier de l'AD qui range les postes ou les comptes, par exemple par site ou par service. |
-| Périmètre | OU choisie pour la vue d'ensemble du parc et ses analyses. |
+| Périmètre | OU choisie dans l'arbre de « Rechercher » ; la vue d'ensemble du parc la suit. |
 | Base autonome | Copie locale de l'annuaire, gardée par Domenia ; elle sert à la vue du parc et se met à jour depuis « Outils ». |
 | Ping | Test réseau : le poste répond-il ? Une absence de réponse ne prouve pas qu'il est éteint. |
 | Utilisateur console | Personne connectée sur l'écran du poste, hors Bureau à distance. |

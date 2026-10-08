@@ -392,7 +392,7 @@ Fichiers et emplacements :
   ("Tous"), `SearchLimit` ("100"), `IndexAutoBuild` ("Ask"), `ParkSweepEnabled` (faux), `ParkHarvestEnabled` (vrai),
   `InventoryScope` ("Toutes"), `SoftwareScope` ("Toutes"), `SoftwarePerUser` (vrai), `SoftwareStore` (faux),
   `SoftwareUpdates` (faux), `WmiLimit` ("25"), `WindowWidth`, `WindowHeight`, `WindowLeft`, `WindowTop`,
-  `WindowMaximized`, `TreeWidth`, `LogHeight`, `FleetScopeDn`, `Dashboard.Computer.Layout`, `Dashboard.Fleet.Layout`,
+  `WindowMaximized`, `TreeWidth`, `LogHeight`, `Dashboard.Computer.Layout`, `Dashboard.Fleet.Layout`,
   `Dashboard.Software.Layout`, `Widgets.Computer`, `Widgets.Fleet` (39 clés). La lecture seule en est volontairement exclue.
 - Thème : `Theme` du JSON prime ; `Domenia.theme.cfg` (Preferences, puis DataDir, puis `wad`) n'est lu qu'en l'absence
   de choix JSON valide ; valeurs Light/Dark, sinon Light (`Get-DomeniaStoredTheme`, Core:3167-3188). Le bouton de thème

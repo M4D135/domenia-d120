@@ -10,9 +10,10 @@ En docx et pdf les deux docs. »
   Règles du dépôt : `/Users/david/Documents/Projets/Domenia-D120/CLAUDE.md`. Le code fait foi.
 - Interface : XAML dans `dev/wad/Domenia-Core.ps1` (fonction `Get-MainXaml`) et modules `dev/wad/modules/*.ps1`.
   Libellés exacts : rechercher avec `grep -F` (beaucoup de textes du code sont sans accents : « Memoire », « a verifier »).
-- Lots récents (07-08/10/2026) : tableaux de bord entièrement en widgets (poste, parc, logiciels), vue du parc par OU
-  avec analyses (Pinger l'OU, Détecter les utilisateurs, Analyser l'OU (WMI)), requêtes WMI prêtes à l'emploi (catalogue
-  `dev/wad/modules/Domenia-Probes.Model.ps1`), Pinger la liste / Détecter la liste dans Rechercher, Ouvrir C$ avec le
+- Lots récents (07-08/10/2026) : tableaux de bord entièrement en widgets (poste, parc, logiciels), vue du parc qui suit
+  l'OU de Rechercher et ne fait qu'afficher (décision du 08/10 après essai : plus de choix d'OU ni d'analyse sur l'Accueil),
+  requêtes WMI prêtes à l'emploi (catalogue `dev/wad/modules/Domenia-Probes.Model.ps1`), Pinger la liste / Détecter la
+  liste / Analyser la liste dans Rechercher, Ouvrir C$ avec le
   compte des opérations poste, Base autonome (emplacement, sauvegarde, copie), retrait de l'atelier support et des
   onglets Commandes / Fiabilité / Opérations et confort. Fichiers : `dev/wad/modules/Domenia-Widgets.UI.ps1`,
   `Domenia-Boards.Model.ps1`, `Domenia-BoardComputer.UI.ps1`, `Domenia-BoardFleet.Model.ps1`,
@@ -37,9 +38,9 @@ En docx et pdf les deux docs. »
 Rendus de la vraie fenêtre WPF avec des valeurs fictives cohérentes (domaine `example.local`, postes `PC-COMPTA-014`,
 `PC-ACCUEIL-002`, `PC-RH-031`, utilisateur `Camille Martin` / `cmartin`, OU `Postes`, `Lyon`). Identifiants :
 - `connexion` : fenêtre de connexion.
-- `accueil` : page d'accueil avec la vue d'ensemble du parc (périmètre OU, boutons d'analyse, widgets du parc).
+- `accueil` : page d'accueil avec la vue d'ensemble du parc (périmètre suivi depuis Rechercher, « Changer dʼOU », widgets du parc).
 - `recherche` : page Rechercher avec une liste de résultats (postes et utilisateurs).
-- `recherche-actions` : barre d'actions des résultats (Utilisateur au clic, Revérifier ce poste, Pinger la liste, Détecter la liste, Arrêter).
+- `recherche-actions` : barre d'actions des résultats (Utilisateur au clic, Revérifier ce poste, Pinger la liste, Détecter la liste, Analyser la liste, Arrêter).
 - `fiche-poste` : fiche d'un poste (onglet Poste).
 - `actions-poste` : onglet Actions du poste (outils : Ouvrir C$, consoles, Bureau à distance...).
 - `tableau-poste` : onglet Tableau de bord du poste (widgets).

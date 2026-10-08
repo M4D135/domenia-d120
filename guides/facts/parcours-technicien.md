@@ -176,6 +176,9 @@ Autre journal : Accueil > « Détails de la session et outils de vérification �
 
 ## 3. Accueil : vue d'ensemble du parc
 
+> Remplacé le 08/10/2026 (décision de David) : la vue d'ensemble de l'Accueil suit l'OU choisie dans Rechercher (Get-DomeniaFleetScope), n'a plus de sélecteur ni de réglage FleetScopeDn, et ne lance aucune analyse ; « Choisir l OU... », « Tout le domaine », « Pinger l OU », « Detecter les utilisateurs », « Analyser l OU (WMI) », « Arreter » et LblFleetRun sont retirés. Les analyses partent de Rechercher : Pinger, Détecter et Analyser la liste (BtnParkAnalyze, Start-DomeniaParkAnalysis). Les requêtes du parc partent avec Analyser la liste. Source à jour : guides/administrateur.md, chapitres 3, 8 et 10.
+
+
 ### 3.1 Haut de page
 
 « Que souhaitez-vous faire ? » / « Retrouvez une personne ou un poste, consultez sa fiche, puis préparez votre intervention. » (Core:4358-4359). Tuiles : « Rechercher » (« Nom, identifiant, adresse mail ou poste »), « Choisir une OU » (« OU et conteneurs du domaine »), « Gérer les comptes » (« Annuaire, accès aux postes et secrets ») (Core:4363-4411). Tuile « Préparer un dossier » masquée (Core:4389).
