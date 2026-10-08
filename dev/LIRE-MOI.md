@@ -28,23 +28,36 @@ les associations manuelles et importées restent protégées. Une absence de ré
 
 ## Mise à jour et restauration
 
-Fermer Domenia après la fin des opérations. Conserver une sauvegarde de ses données. Extraire **DEV** dans
-un dossier distinct, puis lancer dans Windows PowerShell 5.1 :
+Fermer Domenia après la fin des opérations. Conserver une sauvegarde de ses données. Extraire **PROD** (ou DEV) dans
+un dossier distinct, puis lancer dans Windows PowerShell 5.1 l'installateur livré dans `wad\Support` (dans DEV,
+`.\INSTALLER-MISE-A-JOUR.ps1` à la racine appelle le même script) :
 
 ```powershell
-.\INSTALLER-MISE-A-JOUR.ps1 -Destination 'C:\Domenia'
+.\wad\Support\INSTALLER-MISE-A-JOUR.ps1 -Destination 'C:\Domenia' -WhatIf
+.\wad\Support\INSTALLER-MISE-A-JOUR.ps1 -Destination 'C:\Domenia'
 ```
 
-L'installateur vérifie et prépare la livraison complète, sauvegarde le code précédent, verrouille le lancement,
-remplace les fichiers puis contrôle l'ensemble avant activation. Les données et les préférences existantes sont conservées.
-Une copie de Domenia ouverte dans un autre dossier n'empêche pas cette mise à jour.
-Les versions déjà actives ne sont pas réinstallées. Le build daté distingue cette livraison des candidats précédents.
+L'installateur vérifie et prépare la livraison complète, contrôle la version préparée avec `Domenia-Start.ps1 -CheckOnly`,
+demande « Installer ces N fichiers ? (O/N) », sauvegarde le code précédent, verrouille le lancement, remplace les fichiers
+puis contrôle l'ensemble avant activation. Il ne lance aucune suite de tests sur le poste. Les données et les préférences
+existantes sont conservées. Le résumé final donne la version avant et après ; la copie préparée est supprimée et seules
+les cinq dernières sauvegardes complètes sont gardées. Une copie de Domenia ouverte dans un autre dossier n'empêche pas
+cette mise à jour. Les versions déjà actives ne sont pas réinstallées.
 
-En cas d'interruption, le lancement reste bloqué jusqu'à restauration. Utiliser le chemin de sauvegarde indiqué
-par l'installateur ou dans `wad/Support/.update.pending` :
+Rapport de qualification : `-Package <ZIP livré> -QualificationReport <rapport>` vérifie hors ligne que le rapport
+Windows PowerShell 5.1 est lié à l'empreinte de ce ZIP. Sans rapport, un avertissement s'affiche et l'installation continue ;
+`-RequireQualification` refuse alors toute modification.
+
+Première installation dans un dossier vide : `-Install -Destination 'C:\Domenia'` copie les fichiers contrôlés par
+empreintes, les débloque et lance le contrôle de démarrage. Les raccourcis Bureau et menu Démarrer sont proposés et ne sont
+jamais créés sans réponse (`-Shortcuts Oui` ou `Non` pour répondre d'avance).
+
+En cas d'interruption, le lancement reste bloqué jusqu'à restauration. La dernière sauvegarde (ou celle de l'installation
+interrompue) se restaure sans chercher son chemin :
 
 ```powershell
-.\INSTALLER-MISE-A-JOUR.ps1 -RestoreBackup 'C:\Domenia\wad\maintenance\backups\DOSSIER'
+.\wad\Support\INSTALLER-MISE-A-JOUR.ps1 -RestoreLatest -Destination 'C:\Domenia'
+.\wad\Support\INSTALLER-MISE-A-JOUR.ps1 -RestoreBackup 'C:\Domenia\wad\maintenance\backups\DOSSIER'
 ```
 
 La restauration contrôle les empreintes et refuse d'écraser un fichier modifié indépendamment. Elle ne touche pas aux données.

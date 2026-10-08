@@ -21,8 +21,8 @@
     },
     {
       "Path": "wad/Domenia-Core.ps1",
-      "Sha256": "8542ED2E65B440F7AC34FB82C58144AE93B01632ED8FAA561CD28BA6F0ED4D31",
-      "Bytes": 1750415,
+      "Sha256": "0424054EA756D566C52938C90967FDD8A45C54848AB37AE44E9F869C9BEE3254",
+      "Bytes": 1750948,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -35,8 +35,8 @@
     },
     {
       "Path": "wad/Domenia-Start.ps1",
-      "Sha256": "95C5E80045C2E3823819D2DCEB2B086BA2B27A59C17CC10BBAD9B9043D2CC09B",
-      "Bytes": 7478,
+      "Sha256": "48C867970F71F2658690092518435392E1395D443FDBDEEE07AC391B479D3E37",
+      "Bytes": 9119,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -63,8 +63,8 @@
     },
     {
       "Path": "wad/Domenia.release.json",
-      "Sha256": "99C0201D33D7236E773908B874D62256E27E66F08689D446A112F354109D656E",
-      "Bytes": 2041,
+      "Sha256": "28C5360D5658C9DA1B6FC7F16CAD50D4A383063D26B9AAA4437BED21DB1C8FA0",
+      "Bytes": 2068,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -114,6 +114,13 @@
       "Path": "wad/Support/Debloquer-Paquet.ps1",
       "Sha256": "420A91B2FCFCB7083A807E02F0F81CE6015696F4332B5D6AC78D98336A1EBF07",
       "Bytes": 2222,
+      "Runtime": true,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "wad/Support/INSTALLER-MISE-A-JOUR.ps1",
+      "Sha256": "E4DE66D8E7976CDC02C272542D0144CCA7EDA63111E23617E0BA9BBAA0E9ED68",
+      "Bytes": 42632,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -434,8 +441,8 @@
     },
     {
       "Path": "wad/modules/Domenia-Release.Model.ps1",
-      "Sha256": "DB982FD13F2F4C12E126467401539F04D92901BAEBAF89B993C589CCDC5C45B5",
-      "Bytes": 134370,
+      "Sha256": "66C87A597B106AEFB23828F5755F88E28728AE1203C38BDD59575C5BEFE56321",
+      "Bytes": 135583,
       "Runtime": true,
       "PreserveExisting": false
     },

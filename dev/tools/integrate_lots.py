@@ -4,7 +4,7 @@ that lanes are not allowed to edit. Offline and deterministic; review the result
 
   - wad/Domenia-Modules.ps1      : one plan entry per declared module (Functions computed from the file itself, never
                                    copied from the manifest), Phase/Requires from the manifest; type files.
-  - wad/Domenia-Start.ps1        : required runtime paths.
+  - wad/Domenia-Start.ps1        : required runtime paths outside the closed module plan (modules are derived, PF-19).
   - Get-DomeniaWorkerOperationHashes (core) + tools/operation-contracts.json : new operations, then hashes and the
                                    registry fingerprint are recomputed by tools/update_worker_contracts.py --apply.
   - wad/modules/Domenia-UX.help.json : help entries (existing names are never overwritten).
@@ -118,16 +118,20 @@ def refresh_functions(problems):
 
 
 def apply_start(lots):
+    """PF-19: Domenia-Start.ps1 derives the module and type files from the closed plan of Domenia-Modules.ps1. Only a
+    required file outside that plan (StartRequired) is added to its short static list."""
     path = WAD / 'Domenia-Start.ps1'
     text = read(path)
-    marker = "        'wad/modules/Domenia-Guard.UI.ps1'\n"
+    loader = read(WAD / 'Domenia-Modules.ps1')
+    marker = "        'wad/Support/.lifecycle.lock'\n"
+    if marker not in text:
+        raise ValueError('Liste statique de Domenia-Start.ps1 introuvable.')
     for lot in lots:
-        req = list(lot.get('StartRequired', []))
-        for module in lot.get('Modules', []):
-            req.append('wad/modules/' + module['File'].split('/')[-1])
-        for t in lot.get('TypeFiles', []):
-            req.append('wad/modules/' + t['File'].split('/')[-1])
-        for rel in req:
+        planned = {'wad/modules/' + m['File'].split('/')[-1] for m in lot.get('Modules', []) + lot.get('TypeFiles', [])}
+        for rel in lot.get('StartRequired', []):
+            name = rel.split('/')[-1]
+            if rel in planned or (rel.startswith('wad/modules/') and f"File='{name}'" in loader):
+                continue
             if f"'{rel}'" not in text:
                 text = text.replace(marker, f"        '{rel}',\n" + marker, 1)
     write(path, text)

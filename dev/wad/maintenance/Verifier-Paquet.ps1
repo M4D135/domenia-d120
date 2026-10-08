@@ -1,6 +1,6 @@
 ﻿#requires -Version 5.1
 [CmdletBinding()]
-param([string]$Root=(Split-Path -Parent (Split-Path -Parent $PSScriptRoot)),[string]$ReportPath='',[switch]$StrictConfig,[switch]$Quiet)
+param([string]$Root=(Split-Path -Parent (Split-Path -Parent $PSScriptRoot)),[string]$ReportPath='',[switch]$StrictConfig,[switch]$Quiet,[string[]]$PublisherThumbprint=@(),[switch]$RequireSignature)
 $ErrorActionPreference='Stop'
 $rootPath=[IO.Path]::GetFullPath($Root).TrimEnd([IO.Path]::DirectorySeparatorChar)
 $prefix=$rootPath+[IO.Path]::DirectorySeparatorChar
@@ -40,8 +40,21 @@ foreach($entry in $data.Files){
     $results.Add([pscustomobject]@{File=$relative;State=$state;Detail=$message})
 }
 $errors=@($results|Where-Object{$_.State -eq 'ERROR'})
-$report=[ordered]@{Build=[string]$data.Build;Executed=(Get-Date).ToString('o');Runtime=$PSVersionTable.PSVersion.ToString();Failed=$errors.Count;NoADAccess=$true;NoApplicationStartup=$true;SignatureVerified=$false;Files=$results.ToArray()}
+# SP-09: offline signature report (DEV package): integrity and publisher are two separate answers.
+$signature=$null;$signatureFailed=$false
+$signatureTool=Join-Path $rootPath 'tools\Test-DomeniaSignature.ps1'
+if([IO.File]::Exists($signatureTool)){
+    $signature=@(& $signatureTool -Root $rootPath -PublisherThumbprint $PublisherThumbprint -RequireSignature:$RequireSignature -PassThru -Quiet)|Select-Object -Last 1
+    $signatureFailed=(($null -eq $signature) -or (-not [bool]$signature.Passed))
+}elseif($RequireSignature){$signatureFailed=$true}
+$signatureSummary=if($null -ne $signature){[ordered]@{Integrity=$signature.Integrity.Status;Publisher=$signature.Publisher.Status;Overall=$signature.Overall;Undeclared=@($signature.Integrity.Undeclared);Offline=$true}}else{$null}
+$report=[ordered]@{Build=[string]$data.Build;Executed=(Get-Date).ToString('o');Runtime=$PSVersionTable.PSVersion.ToString();Failed=$errors.Count;NoADAccess=$true;NoApplicationStartup=$true;SignatureVerified=(($null -ne $signature) -and ($signature.Publisher.Status -ceq 'Editeur verifie'));Signature=$signatureSummary;Files=$results.ToArray()}
 if(-not $ReportPath){$ReportPath=Join-Path ([IO.Path]::GetTempPath()) ('Domenia-pack-'+[guid]::NewGuid().ToString('N')+'.json')}
 [IO.File]::WriteAllText([IO.Path]::GetFullPath($ReportPath),($report|ConvertTo-Json -Depth 5),[Text.UTF8Encoding]::new($false))
-if(-not $Quiet){$results|Format-Table File,State -AutoSize;Write-Host ('Rapport : '+$ReportPath);Write-Host 'Un manifeste local verifie la coherence, pas la signature ou la provenance du code.'}
+if(-not $Quiet){
+    $results|Format-Table File,State -AutoSize;Write-Host ('Rapport : '+$ReportPath)
+    if($null -ne $signature){Write-Host ('Intégrité : '+$signature.Integrity.Status+' ; éditeur : '+$signature.Publisher.Status+'. '+$signature.IntegrityNote)}
+    else{Write-Host 'Un manifeste local vérifie la cohérence, pas la signature ou la provenance du code.'}
+}
 if($errors.Count){throw ('Verification du paquet en echec : '+$errors.Count+' fichier(s).')}
+if($signatureFailed){throw ('Vérification de signature en échec : '+$(if($null -ne $signature){$signature.Overall+' ; éditeur : '+$signature.Publisher.Status}else{'outil tools\Test-DomeniaSignature.ps1 absent'}))}

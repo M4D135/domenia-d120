@@ -212,9 +212,11 @@ Test-Case 'D111' 'PROD livre : Domenia.exe et wad seulement, deblocage dans wad/
     $prod=& $script:RelReadJson 'tools\prod-manifest.json'
     $paths=@(@($prod.Files|ForEach-Object{[string]$_.Path})+'wad/package-manifest.json')
     $startText=[IO.File]::ReadAllText((Join-Path $wad 'Domenia-Start.ps1'),[Text.Encoding]::UTF8)
-    $block=[regex]::Match($startText,'foreach\(\$required in @\(([\s\S]*?)\)\)\{')
+    $block=[regex]::Match($startText,'foreach\(\$rel in @\(([\s\S]*?)\)\)\{\$required\.Add\(\$rel\)\}')
     Assert-True $block.Success 'Liste de demarrage introuvable dans Domenia-Start.ps1'
-    $required=@([regex]::Matches($block.Groups[1].Value,"'([^']+)'")|ForEach-Object{$_.Groups[1].Value})
+    # PF-19: Domenia-Start adds the module and type files of the closed plan of Domenia-Modules.ps1 to its short list.
+    $loaderText=[IO.File]::ReadAllText((Join-Path $wad 'Domenia-Modules.ps1'),[Text.Encoding]::UTF8)
+    $required=@(@([regex]::Matches($block.Groups[1].Value,"'([^']+)'")|ForEach-Object{$_.Groups[1].Value})+@([regex]::Matches($loaderText,"File='([^']+)'")|ForEach-Object{'wad/modules/'+$_.Groups[1].Value}))
     Assert-True ($required.Count -ge 10) 'Liste de demarrage lue'
     $layout=Test-DomeniaProdLayout $paths $required $prod
     Assert-True $layout.Valid ($layout.Errors -join ' | ')
@@ -232,6 +234,9 @@ Test-Case 'D111' 'Un fichier DEV, un test, un apercu, un jeu d essai, un lanceur
     foreach($removed in @('wad/Support/DEBLOQUER_TOUT.cmd','wad/Support/.lifecycle.lock','wad/Domenia-Core.ps1','Domenia.exe','wad/package-manifest.json')){
         Assert-False (Test-DomeniaProdLayout @($base|Where-Object{$_ -ne $removed})).Valid ('Requis absent accepte : '+$removed)
     }
+    # FI-06: the installer ships in PROD at its single reviewed place only.
+    Assert-True (Test-DomeniaProdLayout ($base+'wad/Support/INSTALLER-MISE-A-JOUR.ps1')).Valid 'Installateur livre dans wad/Support refuse'
+    foreach($misplaced in @('wad/INSTALLER-MISE-A-JOUR.ps1','wad/Support/INSTALLER-AUTRE.ps1','wad/modules/INSTALLER-MISE-A-JOUR.ps1')){Assert-False (Test-DomeniaProdLayout ($base+$misplaced)).Valid ('Accepte a tort : '+$misplaced)}
     $needsDev=Test-DomeniaProdLayout $base @('wad/modules/Domenia-Common.Model.ps1','wad/tests/Test-DomeniaRules.ps1')
     Assert-False $needsDev.Valid;Assert-True (($needsDev.Errors -join ' ') -match 'necessaire au demarrage absent de PROD : wad/tests/Test-DomeniaRules.ps1')
 }
@@ -588,6 +593,23 @@ Test-Case 'D116' 'Empreinte d integrite et confiance de l editeur sont deux repo
     $noHash=@(& $script:RelSignedFiles|ForEach-Object{$_.ActualSha256='';$_})
     $u=Get-DomeniaSignatureVerdict $noHash $script:RelPin $script:RelManifestSig
     Assert-False $u.DistributionSignatureValid 'Signature valide sans integrite verifiee';Assert-Equal 'Integrite non verifiee' $u.Overall
+}
+Test-Case 'D116' 'SP-09 integrite et editeur rendus separement pour un controle hors ligne' {
+    $v=Get-DomeniaSignatureVerdict (& $script:RelSignedFiles) $script:RelPin $script:RelManifestSig
+    Assert-Equal 'Conforme' $v.IntegrityStatus;Assert-Equal 'Editeur verifie' $v.PublisherStatus;Assert-Equal 3 $v.PublisherVerifiedFiles
+    $unsigned=@(& $script:RelSignedFiles|ForEach-Object{$_.SignatureStatus='NotSigned';$_.Signer='';$_.SignerThumbprint='';$_})
+    $u=Get-DomeniaSignatureVerdict $unsigned $null
+    Assert-Equal 'Conforme' $u.IntegrityStatus 'Integrite prouvee sans signature';Assert-Equal 'Editeur attendu non configure' $u.PublisherStatus
+    $p=Get-DomeniaSignatureVerdict $unsigned $script:RelPin
+    Assert-Equal 'Conforme' $p.IntegrityStatus;Assert-Equal 'Editeur non prouve' $p.PublisherStatus
+    # A substituted file signed by the pinned publisher: the publisher answer stays separate from the integrity answer.
+    $modified=@(& $script:RelSignedFiles);$modified[0].ActualSha256=(Get-DomeniaTextHash 'autre exe signe')
+    $m=Get-DomeniaSignatureVerdict $modified $script:RelPin $script:RelManifestSig
+    Assert-Equal 'Modifiee' $m.IntegrityStatus;Assert-Equal 'Editeur verifie' $m.PublisherStatus;Assert-Equal 'Distribution modifiee' $m.Overall
+    $broken=@(& $script:RelSignedFiles);$broken[1].SignatureStatus='HashMismatch'
+    Assert-Equal 'Signature invalide' (Get-DomeniaSignatureVerdict $broken $script:RelPin $script:RelManifestSig).PublisherStatus
+    $noHash=@(& $script:RelSignedFiles|ForEach-Object{$_.ActualSha256='';$_})
+    Assert-Equal 'Non verifiee' (Get-DomeniaSignatureVerdict $noHash $script:RelPin $script:RelManifestSig).IntegrityStatus
 }
 Test-Case 'D116' 'Distribution d origine signee par le certificat epingle : statut de signature valide' {
     $v=Get-DomeniaSignatureVerdict (& $script:RelSignedFiles) $script:RelPin $script:RelManifestSig

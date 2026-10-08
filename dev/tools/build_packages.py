@@ -9,6 +9,9 @@ qualification report must be bound to both archives (release_guard.require_evide
 D111 decision: a shipped configuration that enables Auth.DemoProvider is refused.
 D116: --signed-stage builds from a staged copy signed by tools/Signer-Distribution.ps1; each signed file must equal the
 audited source once its Authenticode block is removed, and Domenia.exe is never taken from the stage (F8).
+SP-09: --stage-dir writes that copy (runtime files and tools/prod-manifest.json, outside the source tree) so that the
+signature is applied to the copy, never to the audited source; nothing is signed or published by this tool.
+SE-15: the lab tools (engineering/d120/lab) and the historical documents (wad/docs/history) stay out of the DEV archive.
 """
 from pathlib import Path
 import argparse,hashlib,json,platform,re,struct,subprocess,sys,zipfile,zlib
@@ -19,6 +22,8 @@ CONTRACT=json.loads(CONTRACT_PATH.read_text(encoding='utf-8-sig'))
 BUILD=CONTRACT['Build'];RELEASE=CONTRACT['Release'];VERSION=CONTRACT['Version'];STATUS=CONTRACT['ReleaseStatus']
 JUNK_NAMES={'.ds_store','thumbs.db','desktop.ini'}
 SKIPPED_DIRS={'__pycache__','.git','backups'}
+# SE-15: lab host tooling and history are kept in the repository, never in a delivered archive.
+DEV_EXCLUDED_PREFIXES=('engineering/d120/lab/','wad/docs/history/')
 SIGNATURE_MARK=b'# SIG # Begin signature block'
 
 def digest(data):return hashlib.sha256(data).hexdigest().upper()
@@ -30,7 +35,8 @@ def require(condition,message):
     if not condition:raise ValueError(message)
 def runtime_paths(root=ROOT):
     paths=['Domenia.exe']+['wad/'+n for n in ['Domenia-Start.ps1','Domenia-Modules.ps1','Domenia-Core.ps1','Domenia.ico','Domenia.config.json','Domenia.release.json','Domenia.login-mode.cfg','Domenia.theme.cfg','Domenia.ui-profile.cfg','Microsoft.ActiveDirectory.Management.dll','ActiveDirectoryPowerShellResources.dll','PsExec.exe']]
-    paths+=['wad/Support/DEBLOQUER_TOUT.cmd','wad/Support/Debloquer-Paquet.ps1','wad/Support/.lifecycle.lock']
+    # FI-06: the installer ships in PROD (wad/Support), so an update never needs the DEV package.
+    paths+=['wad/Support/DEBLOQUER_TOUT.cmd','wad/Support/Debloquer-Paquet.ps1','wad/Support/INSTALLER-MISE-A-JOUR.ps1','wad/Support/.lifecycle.lock']
     paths+=[p.relative_to(root).as_posix() for p in (root/'wad/modules').iterdir() if p.is_file() and p.suffix in {'.ps1','.json','.cs','.xaml'} and p.name.lower() not in JUNK_NAMES]
     return sorted(paths)
 def preserved(rel):return rel in ['wad/Domenia.config.json','wad/Domenia.login-mode.cfg','wad/Domenia.theme.cfg','wad/Domenia.ui-profile.cfg']
@@ -51,6 +57,7 @@ def select_members(root=ROOT,exclude=()):
         rel=p.relative_to(base).as_posix()
         parts=rel.split('/')
         if rel=='wad/package-manifest.json' or any(x in SKIPPED_DIRS for x in parts[:-1]) or rel.startswith('wad/data/'):continue
+        if rel.startswith(DEV_EXCLUDED_PREFIXES):continue
         if p.suffix in {'.pyc','.tmp'} or parts[-1].lower() in JUNK_NAMES:continue
         members.append(rel)
     return sorted(members)
@@ -86,6 +93,17 @@ def signed_source(rel,stage,root=ROOT):
     if bare!=source and bare!=source.rstrip(b'\r\n') and bare+b'\n'!=source:
         raise ValueError('Fichier signe different de la source auditee : '+rel)
     return data
+
+def write_stage(stage,runtime,prod,root=ROOT):
+    """SP-09: unsigned copy of the PROD runtime and its manifest, to be signed by tools/Signer-Distribution.ps1 -Root.
+    The folder must be outside the source tree and empty (or absent): a previous copy is never mixed with this one."""
+    target=check_output(stage,root)
+    if target.exists() and any(target.iterdir()):raise ValueError('Dossier de preparation non vide : '+str(target))
+    for rel in runtime:
+        dest=target/rel;dest.parent.mkdir(parents=True,exist_ok=True);dest.write_bytes((root/rel).read_bytes())
+    writejson(target/'tools/prod-manifest.json',prod)
+    for rel in runtime:require(digest((target/rel).read_bytes())==digest((root/rel).read_bytes()),'Copie preparee differente : '+rel)
+    return {'StageDir':str(target),'Files':len(runtime)}
 
 def pe_file_version(data):
     """FileVersion from VS_FIXEDFILEINFO (signature 0xFEEF04BD), '' when absent. Pure parsing, nothing executed."""
@@ -143,14 +161,17 @@ def guard_archives(out,result,windows_report=None,require_windows=False,evidence
     result['Publishable']=all(result[e]['WindowsQualification']=='PASS_REPORTED' for e in ('prod','dev'))
     return result
 
-def build(out,manifest_only=False,windows_report=None,require_windows=False,evidence_dir=None,signed_stage=None):
+def build(out,manifest_only=False,windows_report=None,require_windows=False,evidence_dir=None,signed_stage=None,stage_dir=None):
     out=check_output(out)
+    if stage_dir is not None and signed_stage is not None:raise ValueError('--stage-dir prepare une copie a signer ; --signed-stage construit depuis une copie deja signee.')
     stage=Path(signed_stage).resolve() if signed_stage else None
     if stage is not None:check_output(stage)
     # D010/D117: version sites and pinned components must agree with the release contract.
     gate('tools/release_contract.py','Release contract','--check')
     # D011: one definition per function name and a complete closed loader list.
     gate('tools/audit_function_names.py','Closed loader function names')
+    # TE-01: the interface wording reference is a ratchet; a delivery never adds an unaccented, unelided or tutoyed text.
+    gate('tools/audit_wording.py','Interface wording ratchet')
     # Mandatory static preflight over every PowerShell source shipped in DEV.
     preflight=subprocess.run([sys.executable,str(ROOT/'tools/validate_powershell_static.py')],capture_output=True,text=True)
     if preflight.returncode: raise ValueError('PowerShell static preflight failed:\n'+preflight.stdout+preflight.stderr)
@@ -192,9 +213,13 @@ def build(out,manifest_only=False,windows_report=None,require_windows=False,evid
         return dict(Path=rel,Sha256=digest(data),Bytes=len(data),Runtime=isruntime,PreserveExisting=preserved(rel))
     prod=dict(Format=1,Version=VERSION,Build=BUILD,Edition='prod',ReleaseStatus=STATUS,Files=[entry(x,True) for x in runtime])
     writejson(ROOT/'tools/prod-manifest.json',prod)
-    members=select_members(ROOT,exclude=[out]+([stage] if stage is not None else []))
+    excluded=[out]+([stage] if stage is not None else [])+([Path(stage_dir).resolve()] if stage_dir is not None else [])
+    members=select_members(ROOT,exclude=excluded)
     dev=dict(Format=1,Version=VERSION,Build=BUILD,Edition='dev',ReleaseStatus=STATUS,Files=[entry(x,x in runtime) for x in members])
     writejson(ROOT/'wad/package-manifest.json',dev)
+    if stage_dir is not None:
+        staged=write_stage(stage_dir,runtime,prod)
+        if manifest_only:return {'runtime':len(runtime),'dev':len(members),'stage':staged}
     if manifest_only:return {'runtime':len(runtime),'dev':len(members)}
     out.mkdir(parents=True,exist_ok=True);result={}
     stamp=tuple(int(x) for x in CONTRACT['Date'].split('-'))+(0,0,0)
@@ -223,6 +248,7 @@ def build(out,manifest_only=False,windows_report=None,require_windows=False,evid
     result['Environment']=environment()
     result['Components']=component_inventory(runtime,read)
     result['SignedStage']=str(stage) if stage is not None else ''
+    if stage_dir is not None:result['StageDir']=staged['StageDir']
     result['PublicationRule']='Publiable uniquement avec un rapport Windows PowerShell 5.1 lie au SHA-256 des deux ZIP (release_guard.py --require-windows).'
     writejson(out/'build-report.json',result)
     return result
@@ -233,6 +259,7 @@ if __name__=='__main__':
     ap.add_argument('--require-windows',action='store_true',help='Refuser la construction sans rapport Windows lie aux deux archives.')
     ap.add_argument('--evidence-dir',type=Path,help='Dossier des preuves de la campagne, recalculees par le garde.')
     ap.add_argument('--signed-stage',type=Path,help='Copie signee par tools/Signer-Distribution.ps1 (D116).')
+    ap.add_argument('--stage-dir',type=Path,help='Ecrire une copie non signee du runtime PROD a signer (SP-09), hors de l arbre source.')
     a=ap.parse_args()
     if a.require_windows and not a.windows_report:ap.error('--require-windows exige --windows-report')
-    print(json.dumps(build(a.output,a.manifest_only,a.windows_report,a.require_windows,a.evidence_dir,a.signed_stage),indent=2))
+    print(json.dumps(build(a.output,a.manifest_only,a.windows_report,a.require_windows,a.evidence_dir,a.signed_stage,a.stage_dir),indent=2))

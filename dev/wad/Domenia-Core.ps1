@@ -25802,6 +25802,9 @@ try {
         Show-WarningBox -Message $script:StoragePreferenceWarning
     }
     Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 RC1.13.0 (2026.10.08-DOMENIA-1.0-RC1.13.0-D120)"
+    # PF-19: duration of the package integrity check made by Domenia-Start.ps1 before the core (absent when launched otherwise).
+    $startIntegrity = Get-Variable -Name DomeniaStartIntegrity -ValueOnly -ErrorAction SilentlyContinue
+    if ($null -ne $startIntegrity) { Write-StartupTrace -Stage "Integrite du paquet" -Status "OK" -DurationMs ([long]$startIntegrity.DurationMs) -Detail ("{0} fichiers runtime controles (plafond {1}), {2} composants requis." -f $startIntegrity.Files,$startIntegrity.Limit,$startIntegrity.Required) }
     if ([bool]$script:DemoMode) { Write-StartupTrace -Stage "Demonstration" -Status "WARN" -Detail "Demo=True : annuaire fictif en memoire, aucune connexion AD, ecritures desactivees." }
     Write-DomeniaFastLoginLog -Stage "APPLICATION_START" -Detail "PID=$PID Script=$($script:LaunchPath) Root=$($script:RootDir)"
 

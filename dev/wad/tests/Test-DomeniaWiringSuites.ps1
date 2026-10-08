@@ -303,7 +303,9 @@ if($infrastructure){
     }
 
     # ------------------------------------------------------------------ Suites : raccordement a la campagne
-    $runner=[IO.File]::ReadAllText((Join-Path $root 'engineering\d120\lab\Invoke-LabRun.ps1'))
+    # SE-15: the lab tools stay in the repository and are not shipped in the DEV archive; the discovery check needs them.
+    $runnerPath=Join-Path $root 'engineering\d120\lab\Invoke-LabRun.ps1'
+    $runner=if([IO.File]::Exists($runnerPath)){[IO.File]::ReadAllText($runnerPath)}else{$null}
     foreach($suite in @('Test-DomeniaRegressions.ps1','Test-DomeniaGeometry.ps1','Test-DomeniaFaults.ps1','Test-DomeniaWiringSuites.ps1')){
         $suitePath=Join-Path $PSScriptRoot $suite
         Test-Case ('Suites : '+$suite+' presente, analysable et au contrat de rapport') {
@@ -313,7 +315,7 @@ if($infrastructure){
             Assert-True ($parameters -contains 'ReportPath' -and $parameters -contains 'Quiet') 'Parametres -ReportPath et -Quiet requis.'
             $text=[IO.File]::ReadAllText($suitePath)
             Assert-True ($text.Contains('Tests=') -and $text.Contains('exit 1') -and $text.Contains("Status='Failed'")) 'Rapport Tests[Name,Status,Detail] ou code de sortie absent.'
-            Assert-True ($suite -like 'Test-*.ps1' -and $runner.Contains("-Filter 'Test-*.ps1'")) 'Suite non decouverte par Invoke-LabRun.'
+            Assert-True (($suite -like 'Test-*.ps1') -and (($null -eq $runner) -or $runner.Contains("-Filter 'Test-*.ps1'"))) 'Suite non decouverte par Invoke-LabRun.'
         }
     }
     Test-Case 'Suites : regles de courses chargees par le lanceur de regles' {

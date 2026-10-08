@@ -210,6 +210,46 @@ Case 'WPF : dialogue credentials reel en clair et sombre sans authentification' 
         try{$window=[Windows.Markup.XamlReader]::Load($reader);Assert-Release ($null -ne $window.FindName('Password') -and $window.ResizeMode -eq 'NoResize')}finally{$reader.Close();if($null -ne $window){$window.Close()}}
     }
 }
+Case 'FI-14 plafond du runtime lu dans le contrat, alerte a 80 %' {
+    $contract=[IO.File]::ReadAllText((Join-Path $root 'tools\release-contract.json'))|ConvertFrom-Json
+    $release=[IO.File]::ReadAllText((Join-Path $wad 'Domenia.release.json'))|ConvertFrom-Json
+    $limit=[int]$contract.RuntimeFileLimit
+    Assert-Release ($limit -ge 10) 'RuntimeFileLimit absent du contrat de release.'
+    Assert-Release ([int]$release.RuntimeFileLimit -eq $limit) 'wad\Domenia.release.json non estampille depuis le contrat (release_contract.py --stamp).'
+    Assert-Release ([IO.File]::ReadAllText((Join-Path $wad 'Domenia-Start.ps1')) -match 'RuntimeFileLimit') 'Domenia-Start ne lit pas le plafond du contrat.'
+    $prod=[IO.File]::ReadAllText((Join-Path $root 'tools\prod-manifest.json'))|ConvertFrom-Json
+    $count=@($prod.Files|Where-Object{$_.Runtime -eq $true}).Count
+    # Alert before the ceiling: a lot that adds runtime files (CD-01) must raise the reviewed limit first.
+    Assert-Release ($count -lt (0.8*$limit)) ('Alerte : '+$count+' fichiers runtime pour un plafond de '+$limit+' (80 % atteints). Relever RuntimeFileLimit dans tools\release-contract.json.')
+}
+Case 'SP-09 Test-DomeniaSignature rend integrite et editeur separement, hors ligne' {
+    $dist=Join-Path ([IO.Path]::GetTempPath()) ('Domenia-signature-test-'+[guid]::NewGuid().ToString('N'))
+    try {
+        $content=[ordered]@{'wad/Domenia-Start.ps1'="Write-Output 'fixture'`n";'wad/modules/Kit.json'='{"Kit":1}'}
+        $entries=@()
+        foreach($rel in @($content.Keys)){
+            $path=Join-Path $dist $rel;[void][IO.Directory]::CreateDirectory((Split-Path $path -Parent));[IO.File]::WriteAllText($path,$content[$rel],[Text.UTF8Encoding]::new($true))
+            $entries+=[pscustomobject]@{Path=$rel;Sha256=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash;Bytes=([IO.FileInfo]::new($path)).Length;Runtime=$true;PreserveExisting=$false}
+        }
+        [IO.File]::WriteAllText((Join-Path $dist 'wad\package-manifest.json'),([pscustomobject]@{Format=1;Build='fixture-signature';Files=$entries}|ConvertTo-Json -Depth 4),[Text.UTF8Encoding]::new($false))
+        $tool=Join-Path $root 'tools\Test-DomeniaSignature.ps1'
+        $v=@(& $tool -Root $dist -PassThru -Quiet -ReportPath (Join-Path $dist 'r1.json'))|Select-Object -Last 1
+        Assert-Release ($LASTEXITCODE -eq 0) 'Distribution intacte refusee alors que la signature est facultative.'
+        Assert-Release (($v.Integrity.Status -eq 'Conforme') -and ($v.Publisher.Status -eq 'Editeur attendu non configure')) ($v.Integrity.Status+' / '+$v.Publisher.Status)
+        Assert-Release ($v.Offline -and (-not $v.RevocationChecked)) 'Controle annonce en ligne.'
+        $p=@(& $tool -Root $dist -PublisherThumbprint ('AB'*20) -RequireSignature -PassThru -Quiet -ReportPath (Join-Path $dist 'r2.json'))|Select-Object -Last 1
+        Assert-Release ($LASTEXITCODE -ne 0) 'Signature exigee mais distribution non signee acceptee.'
+        Assert-Release (($p.Integrity.Status -eq 'Conforme') -and ($p.Publisher.Status -eq 'Editeur non prouve') -and $p.Publisher.Pinned) ($p.Integrity.Status+' / '+$p.Publisher.Status)
+        [IO.File]::AppendAllText((Join-Path $dist 'wad\modules\Kit.json'),' ')
+        $m=@(& $tool -Root $dist -PassThru -Quiet -ReportPath (Join-Path $dist 'r3.json'))|Select-Object -Last 1
+        Assert-Release ($LASTEXITCODE -ne 0) 'Fichier modifie accepte.'
+        Assert-Release (($m.Integrity.Status -eq 'Modifiee') -and ($m.Publisher.Status -eq 'Editeur attendu non configure') -and (@($m.Integrity.Modified) -contains 'wad/modules/Kit.json')) ($m.Integrity.Status+' / '+$m.Publisher.Status)
+        [IO.File]::WriteAllText((Join-Path $dist 'wad\modules\Kit.json'),'{"Kit":1}',[Text.UTF8Encoding]::new($true))
+        [IO.File]::WriteAllText((Join-Path $dist 'wad\Ajout.ps1'),'1',[Text.UTF8Encoding]::new($true))
+        $u=@(& $tool -Root $dist -PassThru -Quiet -ReportPath (Join-Path $dist 'r4.json'))|Select-Object -Last 1
+        Assert-Release (($LASTEXITCODE -ne 0) -and ($u.Integrity.Status -eq 'Modifiee') -and (@($u.Integrity.Undeclared) -contains 'wad/Ajout.ps1')) 'Script ajoute non signale.'
+    } finally {Remove-Item -LiteralPath $dist -Recurse -Force -ErrorAction SilentlyContinue}
+}
 $bad=@($script:Tests|Where-Object{-not $_.Passed})
 $report=[ordered]@{Build='2026.09.30-DOMENIA-1.0-RC1';Environment='Windows PowerShell 5.1 / WPF';NoNetwork=$true;Passed=$script:Tests.Count-$bad.Count;Failed=$bad.Count;Tests=$script:Tests.ToArray()}
 if(-not $ReportPath){$ReportPath=Join-Path ([IO.Path]::GetTempPath()) ('Domenia-R1.13-'+[guid]::NewGuid().ToString('N')+'.json')}

@@ -1,36 +1,91 @@
 #!/usr/bin/env python3
 """Development only: review changed operations, then explicitly refresh their source hashes.
 The running application NEVER calls this tool. It is not a bypass for a bad downloaded pack.
+
+CD-14: --add OP FUNCTION [--file wad/...] [--literal-index N] declares a new pinned operation and --remove OP withdraws
+one. Both update the three places together (tools/operation-contracts.json, Get-DomeniaWorkerOperationHashes and the
+registry fingerprint of Assert-DomeniaWorkerRegistry), print the diff, and write nothing without --apply.
 """
 from pathlib import Path
-import argparse, functools, hashlib, json, re, sys
+import argparse, difflib, functools, hashlib, json, re, sys
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'wad/tests'))
 from powershell_lex import functions as raw_functions
 functions=functools.lru_cache(64)(raw_functions)
+OPERATION=re.compile(r'[A-Za-z][A-Za-z0-9]{2,63}')
 def function(source,name):
     spans=functions(source).get(name,[])
     if len(spans)!=1:raise ValueError('Ambiguous/missing function '+name)
     a,b=spans[0];return source[a:b]
-def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--apply',action='store_true',help='Write reviewed hashes; otherwise show differences only');a=p.parse_args()
-    meta_path=ROOT/'tools/operation-contracts.json';items=json.loads(meta_path.read_text());core_path=ROOT/'wad/Domenia-Core.ps1';core=core_path.read_text('utf-8-sig');getter=function(core,'Get-DomeniaWorkerOperationHashes');old=getter;changes=[]
+def literal_bodies(fn):
+    return [m[2] for m in re.finditer(r'@([\'"])\n(.*?)\n^\1@',fn,re.M|re.S)]
+def locate(name,file=None):
+    """Repository-relative file that defines the function exactly once (core or a module)."""
+    candidates=[ROOT/file] if file else [ROOT/'wad/Domenia-Core.ps1']+sorted((ROOT/'wad/modules').glob('*.ps1'))
+    found=[p for p in candidates if p.is_file() and len(functions(p.read_text('utf-8-sig')).get(name,[]))==1]
+    if len(found)!=1:raise ValueError('Fonction introuvable ou definie dans plusieurs fichiers : '+name)
+    return found[0].relative_to(ROOT).as_posix()
+def add_operation(items,getter,name,fn_name,file,index):
+    if not OPERATION.fullmatch(name):raise ValueError('Nom d operation invalide : '+name)
+    if name in {i['Operation'] for i in items} or re.search(r'(?m)^\s*'+re.escape(name)+r'\s*=',getter):
+        raise ValueError('Operation deja declaree : '+name)
+    rel=locate(fn_name,file)
+    bodies=literal_bodies(function((ROOT/rel).read_text('utf-8-sig'),fn_name))
+    if not 0<=index<len(bodies):raise ValueError('Here-string %d absente de %s' % (index,fn_name))
+    items.append({'Operation':name,'File':rel,'Function':fn_name,'LiteralIndex':index,'Sha256':'0'*64})
+    lines=list(re.finditer(r'(?m)^([ \t]+)\w+\s*=\s*"[0-9A-F]{64}"[ \t]*$',getter))
+    if not lines:raise ValueError('Registre Get-DomeniaWorkerOperationHashes illisible.')
+    last=lines[-1];indent=lines[0].group(1)
+    return getter[:last.end()]+'\n'+indent+'%-21s = "%s"' % (name,'0'*64)+getter[last.end():]
+def remove_operation(items,getter,name):
+    kept=[i for i in items if i['Operation']!=name]
+    if len(kept)==len(items):raise ValueError('Operation inconnue du contrat : '+name)
+    updated,count=re.subn(r'(?m)^[ \t]+'+re.escape(name)+r'\s*=\s*"[0-9A-F]{64}"[ \t]*\n','',getter)
+    if count!=1:raise ValueError('Operation absente du registre ou dupliquee : '+name)
+    items[:]=kept
+    return updated
+def unified(before,after,label):
+    return ''.join(difflib.unified_diff(before.splitlines(True),after.splitlines(True),'a/'+label,'b/'+label,n=1))
+def main(argv=None):
+    p=argparse.ArgumentParser(description=__doc__,formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument('--apply',action='store_true',help='Write reviewed hashes; otherwise show differences only')
+    p.add_argument('--add',nargs=2,metavar=('OP','FUNCTION'),help='Declare a new pinned operation (CD-14).')
+    p.add_argument('--file',help='With --add: repository-relative file of FUNCTION when the search is ambiguous.')
+    p.add_argument('--literal-index',type=int,default=0,help='With --add: index of the pinned here-string in FUNCTION.')
+    p.add_argument('--remove',metavar='OP',help='Withdraw a pinned operation (CD-14).')
+    a=p.parse_args(argv)
+    if a.add and a.remove:p.error('--add et --remove sont exclusifs.')
+    if (a.file or a.literal_index) and not a.add:p.error('--file et --literal-index accompagnent --add.')
+    meta_path=ROOT/'tools/operation-contracts.json';meta_text=meta_path.read_text();items=json.loads(meta_text)
+    core_path=ROOT/'wad/Domenia-Core.ps1';core=core_path.read_text('utf-8-sig');getter=function(core,'Get-DomeniaWorkerOperationHashes');old=getter;changes=[]
+    if a.add:
+        getter=add_operation(items,getter,a.add[0],a.add[1],a.file,a.literal_index);changes.append('Added:'+a.add[0])
+    if a.remove:
+        getter=remove_operation(items,getter,a.remove);changes.append('Removed:'+a.remove)
     registered=dict(re.findall(r'(\w+)\s*=\s*"([0-9A-F]{64})"',getter))
-    if set(registered)!={i['Operation'] for i in items}:raise ValueError('Operation list differs: audit contract metadata manually first.')
+    if set(registered)!={i['Operation'] for i in items}:raise ValueError('Operation list differs: audit contract metadata manually first (or use --add / --remove).')
     for item in items:
         path=ROOT/item['File'];source=path.read_text('utf-8-sig');fn=function(source,item['Function'])
-        literals=[m[2] for m in re.finditer(r'@([\'"])\n(.*?)\n^\1@',fn,re.M|re.S)];body=literals[item['LiteralIndex']]
+        body=literal_bodies(fn)[item['LiteralIndex']]
         h=hashlib.sha256(body.encode('utf-8')).hexdigest().upper()
-        if h!=registered[item['Operation']]:changes.append(item['Operation'])
+        if h!=registered[item['Operation']] and item['Operation'] not in (a.add or [])[:1]:changes.append(item['Operation'])
         getter=re.sub(r'(\b'+re.escape(item['Operation'])+r'\s*=\s*")[A-F0-9]{64}(\")',lambda m:m[1]+h+m[2],getter)
         item['Sha256']=h
     fingerprint=hashlib.sha256('\n'.join(i['Operation']+'='+i['Sha256'] for i in sorted(items,key=lambda x:x['Operation'])).encode()).hexdigest().upper()
     validation=function(core,'Assert-DomeniaWorkerRegistry')
     updated_validation=re.sub(r'(\$expectedFingerprint\s*=\s*")[A-F0-9]{64}(")',lambda m:m[1]+fingerprint+m[2],validation)
     if validation!=updated_validation:changes.append('RegistryFingerprint')
+    new_core=core.replace(old,getter,1).replace(validation,updated_validation,1)
+    new_meta=json.dumps(items,indent=2)+'\n'
+    if a.add or a.remove:
+        # CD-14: the reviewer sees the three places before anything is written.
+        sys.stderr.write(unified(meta_text,new_meta,'tools/operation-contracts.json')+unified(core,new_core,'wad/Domenia-Core.ps1'))
     if a.apply:
-        core_path.write_text(core.replace(old,getter,1).replace(validation,updated_validation,1),encoding='utf-8-sig')
-        meta_path.write_text(json.dumps(items,indent=2)+'\n')
+        core_path.write_text(new_core,encoding='utf-8-sig')
+        meta_path.write_text(new_meta)
     print(json.dumps({'ReviewedChangesRequired':changes,'Applied':a.apply,'Count':len(items)},indent=2))
     return 0 if a.apply or not changes else 1
-if __name__=='__main__':sys.exit(main())
+if __name__=='__main__':
+    try:sys.exit(main())
+    except ValueError as error:
+        sys.stderr.write('Refus : '+str(error)+'\n');sys.exit(2)

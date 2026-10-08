@@ -453,7 +453,9 @@ function Test-DomeniaProdLayout {
             if ($segment -in @('tests','test','tools','docs','demo','demos','engineering','data','history','backups','maintenance','fixtures','fixture','mocks','samples','preview')) { $errors.Add('Dossier de developpement ou de donnees dans PROD : ' + $path + '.'); break }
         }
         $leaf = $segments[$segments.Count - 1]
-        if ($leaf -match '^(?i:TESTER|APERCU|DEMO|QUALIFIER|LANCER|VERIFIER|INSTALLER)[-_]') { $errors.Add('Lanceur, test, installateur ou demonstration dans PROD : ' + $path + '.') }
+        # FI-06: the installer runs no test suite and ships in PROD, at this single path only.
+        $shippedInstaller = ($path -ceq 'wad/Support/INSTALLER-MISE-A-JOUR.ps1')
+        if (($leaf -match '^(?i:TESTER|APERCU|DEMO|QUALIFIER|LANCER|VERIFIER|INSTALLER)[-_]') -and (-not $shippedInstaller)) { $errors.Add('Lanceur, test, installateur ou demonstration dans PROD : ' + $path + '.') }
         elseif (($leaf -match '^(?i:Test|Tests)[-_.]') -or ($leaf -match '(?i)\.Tests?\.ps1$') -or ($leaf -match '^(?i:Preview|Demo|Mock|Fake|Fixture|Sample)')) { $errors.Add('Test, apercu, jeu d essai ou demonstration dans PROD : ' + $path + '.') }
         if (($leaf -match '(?i)\.(cmd|bat|vbs)$') -and (-not $path.StartsWith('wad/Support/',[StringComparison]::Ordinal))) { $errors.Add('Script de lancement hors de wad/Support : ' + $path + '.') }
         if (($null -ne $declared) -and (-not $declared.ContainsKey($path))) { $errors.Add('Fichier non declare runtime par le manifeste PROD : ' + $path + '.') }
@@ -1275,7 +1277,7 @@ function Get-DomeniaSignatureVerdict {
         $display = $publisher
         if (($integrity -ceq 'Modifiee') -or ($integrity -ceq 'Absente')) { $display = 'Invalide : fichier different de la distribution publiee' }
         elseif (($integrity -ceq 'Non verifiee') -and $verified) { $display = 'Signature non retenue : integrite non verifiee' }
-        $rows.Add([pscustomobject]@{Path=$path;Signable=$signable;Integrity=$integrity;Publisher=$publisher;SignatureStatus=$display;SignatureValid=$signatureValid;AuthenticodeStatus=$status;Signer=$signer;SignerThumbprint=$print.ToUpperInvariant()})
+        $rows.Add([pscustomobject]@{Path=$path;Signable=$signable;Integrity=$integrity;Publisher=$publisher;PublisherVerified=$verified;SignatureStatus=$display;SignatureValid=$signatureValid;AuthenticodeStatus=$status;Signer=$signer;SignerThumbprint=$print.ToUpperInvariant()})
     }
     $all = $rows.ToArray()
     $undeclared = @(@($UndeclaredFiles) | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
@@ -1292,7 +1294,19 @@ function Get-DomeniaSignatureVerdict {
     elseif ($broken -gt 0) { $overall = 'Signature invalide'; $next = 'Ne pas utiliser cette copie : une signature ne correspond plus au contenu. Recuperer la distribution d origine.' }
     elseif ($unverified -gt 0) { $overall = 'Integrite non verifiee'; $next = 'Calculer les empreintes SHA-256 et les comparer au manifeste avant usage.' }
     elseif ($trusted -eq $all.Count) { $overall = 'Signee et conforme'; $next = 'Distribution conforme et signee par le certificat epingle de l editeur.' }
+    # SP-09: the two answers are also given apart, for an offline report (tools/Test-DomeniaSignature.ps1). Integrity
+    # comes from the manifest hashes only; the publisher from the Authenticode statuses read by the caller and the pin.
+    $integrityStatus = 'Conforme'
+    if ($modified -gt 0) { $integrityStatus = 'Modifiee' }
+    elseif (($all.Count -eq 0) -or ($unverified -gt 0)) { $integrityStatus = 'Non verifiee' }
+    $publisherVerified = @($all | Where-Object { $_.PublisherVerified }).Count
+    $publisherStatus = 'Editeur non prouve'
+    if ($all.Count -eq 0) { $publisherStatus = 'Non verifie' }
+    elseif ($broken -gt 0) { $publisherStatus = 'Signature invalide' }
+    elseif (-not [bool]$pin.Pinned) { $publisherStatus = 'Editeur attendu non configure' }
+    elseif ($publisherVerified -eq $all.Count) { $publisherStatus = 'Editeur verifie' }
     return [pscustomobject]@{
+        IntegrityStatus=$integrityStatus;PublisherStatus=$publisherStatus;PublisherVerifiedFiles=$publisherVerified
         Overall=$overall;DistributionSignatureValid=(($all.Count -gt 0) -and ($modified -eq 0) -and ($broken -eq 0) -and ($trusted -eq $all.Count))
         Files=$all;Undeclared=$undeclared;ManifestSigned=$manifestTrusted;PublisherPinned=[bool]$pin.Pinned;NextAction=$next
         IntegrityNote='Une empreinte conforme prouve que le fichier est celui du manifeste, pas l identite de son editeur.'
