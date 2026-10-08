@@ -98,6 +98,26 @@ function Exercise-Sheet {param([bool]$Accept=$false,[bool]$ChangeEpoch=$false)
     return [pscustomobject]@{Data=$t;Accepted=$accepted}
 }
 function Set-TestEpoch {param([long]$Value);$script:SessionEpoch=$Value}
+# L02 (UX-06): the real Show-InfoBox/Show-ErrorBox of the core; a modal box would be counted here.
+function Show-DomeniaDialog {param($Message,$Title,$Kind,$Buttons,$Details);$script:DialogCalls++;return 'OK'}
+function Exercise-BannerSheet {
+    # An error raised while a sheet is open: its banner is shown above the sheet and stays usable.
+    $w=[Windows.Window]::new();$w.Title='Panneau de recette';$w.Width=520;$w.Height=300;$w.Content=[Windows.Controls.Grid]::new()
+    $script:BannerTrial=[pscustomobject]@{Window=$w;HostEnabled=$false;Shown=$false;SearchEnabled=$true;Error=''}
+    Register-DomeniaSurfaceReady $w {
+        $t=$script:BannerTrial
+        try{
+            Show-ErrorBox ("Erreur pendant le panneau.`r`n`r`nCode incident : INC-5E6F.")
+            $t.Shown=(@($script:DomeniaBanners|Where-Object{$_.Code -eq 'INC-5E6F'}).Count -eq 1)
+            $t.HostEnabled=$script:Window.FindName('DomeniaBannerHost').IsEnabled
+            $t.SearchEnabled=$script:Window.FindName('TxtGlobalSearch').IsEnabled
+        }catch{$t.Error=$_.Exception.ToString()}
+        finally{$t.Window.Close()}
+    }
+    try{[void](Show-DomeniaEmbeddedWindow $w)}finally{$w.Close()}
+    Expect (-not $script:BannerTrial.Error) $script:BannerTrial.Error
+    return $script:BannerTrial
+}
 function Tick-Picker {param($Trial)
     $Trial.Ticks++
     if($Trial.Ticks -gt 25){$Trial.Error='Panneau de recette non termine.';$Trial.Timer.Stop();if($script:DomeniaSurfaceState){$script:DomeniaSurfaceState.Window.Close()};return}
@@ -158,7 +178,8 @@ namespace Domenia.EmbeddedTests {
     $script:Trace=[Collections.Generic.List[string]]::new();$script:Submissions=[Collections.Generic.List[object]]::new();$script:Stops=[Collections.Generic.List[string]]::new()
     $coreText=[IO.File]::ReadAllText((Join-Path $wad 'Domenia-Core.ps1'));$ast=Parse-Text $coreText
     . (Join-Path $wad 'modules\Domenia-Embedded.UI.ps1')
-    foreach($n in @('Get-MainXaml','Get-DomeniaEffectiveWorkerResult')){Import-Function $ast $n}
+    foreach($n in @('Get-MainXaml','Get-DomeniaEffectiveWorkerResult','Show-InfoBox','Show-ErrorBox','Show-WarningBox','Show-DomeniaPageBanner','Test-DomeniaMainHostAvailable',
+        'Add-DomeniaErrorIncidentCode','Register-DomeniaErrorOccurrence','New-DomeniaIncidentCode')){Import-Function $ast $n}
     $m=[regex]::Match($coreText,'(?ms)^\$script:WorkerCommon\s*=\s*@''\r?\n(.*?)\r?\n''@')
     Expect $m.Success 'WorkerCommon introuvable.';$commonAst=Parse-Text $m.Groups[1].Value
     foreach($n in @('Get-WPropFirst','Convert-WGuid','Escape-WLdap')){Import-Function $commonAst $n}
@@ -201,6 +222,13 @@ namespace Domenia.EmbeddedTests {
     Case 'Action de fichier inconnue refusee' {Must-Fail {Run-Path $temp -Action Delete}}
     Case 'Changement de fichier modifie sa signature' {$p=Join-Path $temp 'fichier.json';$old=Run-Path $p -Action Validate;[IO.File]::WriteAllText($p,'{"nouveau":true}');$new=Run-Path $p -Action Validate;Expect ($old.Signature -cne $new.Signature)}
     Case 'Aucun selecteur de fichier hors fenetre principale' {$r=New-DomeniaFileRequest Open;Must-Fail {$r.ShowDialog()}}
+    Case 'Bandeau : information courte 5 s, erreur ou detail jusqu a fermeture' {
+        $info=Get-DomeniaBannerPlan -Kind Info -Message 'Export terminé.'
+        $long=Get-DomeniaBannerPlan -Kind Info -Message "Écriture acceptée en partie.`r`n`r`nVérifiez les étapes en échec."
+        $err=Get-DomeniaBannerPlan -Kind Error -Message "Lecture impossible.`r`n`r`nCode incident : INC-9A0B. Le détail est enregistré."
+        Expect (($info.AutoCloseSeconds -eq 5) -and ($long.AutoCloseSeconds -eq 0) -and ($err.AutoCloseSeconds -eq 0) -and ((Get-DomeniaBannerPlan -Kind Info -Message 'x' -Details 'y').AutoCloseSeconds -eq 0))
+        Expect (($err.Code -eq 'INC-9A0B') -and ($err.Headline -eq 'Lecture impossible.') -and $err.Body.StartsWith('Code incident'))
+    }
     $script:TestPhase='WPF'
     foreach($theme in @('Light','Dark')){
         $w=Load-Host $theme
@@ -233,6 +261,56 @@ namespace Domenia.EmbeddedTests {
             Case ($theme+' : callback tardif ignore') {& $trial.LastJob.Success ([pscustomobject]@{Rows=@();Verified=$false;RequestId=$trial.LastJob.State.RequestId}) $trial.LastJob.State;Expect ($null -eq $trial.Selected)}
             $trial=Exercise-Picker Cancel
             Case ($theme+' : annulation sans aucune recherche') {Expect ($script:Submissions.Count -eq 0 -and $null -eq $trial.Selected)}
+            # L02 (UX-06, FI-02, FI-07): information and errors in page banners once the main window is shown.
+            $script:DialogCalls=0;$bannerHost=$w.FindName('DomeniaBannerHost')
+            Show-InfoBox 'Export terminé.'
+            Case ($theme+' : information en bandeau, aucune fenetre') {Expect (($script:DialogCalls -eq 0) -and ($bannerHost.Children.Count -eq 1) -and ($bannerHost.Visibility -eq 'Visible'))}
+            Case ($theme+' : information courte fermee apres 5 s') {$r=$script:DomeniaBanners[$script:DomeniaBanners.Count-1];Expect (($null -ne $r.Timer) -and ($r.Timer.Interval.TotalSeconds -eq 5) -and $r.Timer.IsEnabled)}
+            $incident="Lecture impossible.`r`n`r`nCode incident : INC-1A2B. Le détail technique est enregistré dans le journal Domenia."
+            Show-ErrorBox $incident;Show-ErrorBox $incident
+            Case ($theme+' : erreur en bandeau, meme incident compte') {
+                $r=@($script:DomeniaBanners|Where-Object{$_.Code -eq 'INC-1A2B'})
+                Expect (($script:DialogCalls -eq 0) -and ($r.Count -eq 1) -and ($r[0].Occurrences -eq 2) -and ($r[0].Counter.Text -match '2$') -and ($null -eq $r[0].Timer) -and ($bannerHost.Children.Count -eq 2))
+            }
+            Case ($theme+' : copie pour le support avec le code') {
+                $t=Get-DomeniaBannerSupportText -Record @($script:DomeniaBanners|Where-Object{$_.Code -eq 'INC-1A2B'})[0]
+                Expect ($t.Contains('incident INC-1A2B') -and $t.Contains('Lecture impossible.') -and $t.Contains('Occurrences : 2'))
+            }
+            Show-WarningBox 'Préférences non enregistrées.';Show-InfoBox 'Liste copiée.'
+            Case ($theme+' : trois bandeaux au plus') {Expect (($bannerHost.Children.Count -eq 3) -and ($script:DialogCalls -eq 0))}
+            $bannerSheet=Exercise-BannerSheet
+            Case ($theme+' : bandeau lisible pendant un panneau modal') {Expect ($bannerSheet.Shown -and $bannerSheet.HostEnabled -and (-not $bannerSheet.SearchEnabled))}
+            foreach($b in @($script:DomeniaBanners)){Close-DomeniaBanner -Record $b}
+            Case ($theme+' : fermeture des bandeaux vide l hote') {Expect (($bannerHost.Children.Count -eq 0) -and ($bannerHost.Visibility -eq 'Collapsed') -and (@($script:DomeniaBanners).Count -eq 0))}
+            # L02 review (FI-07, FI-02): an error box without code gets one and its journal line; a repeated
+            # message updates its banner (latest detail, counter label of its kind, timer kept while pinned).
+            $script:DomeniaErrorOccurrences=$null;$script:Trace.Clear()
+            Show-ErrorBox 'Export impossible : dossier refusé.'
+            Case ($theme+' : erreur sans code, code incident et ligne de journal') {
+                $r=@($script:DomeniaBanners|Where-Object{([string]$_.Message).StartsWith('Export impossible')})
+                Expect (($r.Count -eq 1) -and ([string]$r[0].Code -match '^INC-[0-9A-F]{4}$') -and (@($script:Trace|Where-Object{$_.Contains('['+[string]$r[0].Code+'] Export impossible')}).Count -eq 1)) ('Trace : '+($script:Trace -join ' | '))
+            }
+            Show-ErrorBox 'Export impossible : dossier refusé.'
+            Case ($theme+' : meme erreur sans code, un bandeau et une ligne') {
+                $r=@($script:DomeniaBanners|Where-Object{([string]$_.Message).StartsWith('Export impossible')})
+                Expect (($r.Count -eq 1) -and ($r[0].Occurrences -eq 2) -and ($r[0].Counter.Text -ceq 'même erreur ×2') -and (@($script:Trace|Where-Object{$_.Contains('Export impossible')}).Count -eq 1) -and ($script:DialogCalls -eq 0))
+            }
+            Show-InfoBox -Message 'État du moteur Domenia' -Details 'Mémoire : 100 Mo';Show-InfoBox -Message 'État du moteur Domenia' -Details 'Mémoire : 140 Mo'
+            Case ($theme+' : information repetee, detail du dernier appel') {
+                $r=@($script:DomeniaBanners|Where-Object{$_.Message -eq 'État du moteur Domenia'})
+                Expect (($r.Count -eq 1) -and ($r[0].Details -ceq 'Mémoire : 140 Mo') -and ($r[0].DetailBox.Text -ceq 'Mémoire : 140 Mo') -and ([string]$r[0].Counter.Text).StartsWith('Mis à jour à') -and (Get-DomeniaBannerSupportText -Record $r[0]).Contains('140 Mo'))
+            }
+            Show-WarningBox 'Préférences non enregistrées.';Show-WarningBox 'Préférences non enregistrées.'
+            Case ($theme+' : avertissement repete, libelle avertissement') {
+                $r=@($script:DomeniaBanners|Where-Object{$_.Kind -eq 'Warning'})
+                Expect (($r.Count -eq 1) -and ($r[0].Counter.Text -ceq 'même avertissement ×2'))
+            }
+            foreach($b in @($script:DomeniaBanners)){Close-DomeniaBanner -Record $b}
+            Show-InfoBox 'Liste copiée.'
+            $pinned=@($script:DomeniaBanners)[0];$pinned.Pinned=$true;$pinned.Timer.Stop()
+            Show-InfoBox 'Liste copiée.'
+            Case ($theme+' : bandeau epingle, minuteur non relance') {Expect ((-not $pinned.Timer.IsEnabled) -and ($pinned.Occurrences -eq 2))}
+            foreach($b in @($script:DomeniaBanners)){Close-DomeniaBanner -Record $b}
         }finally{$w.Close();$script:Window=$null}
     }
     $script:Finished=$true
@@ -254,7 +332,7 @@ finally{
     if($null -ne $script:Window){$script:Window.Close()}
     if([IO.Directory]::Exists($temp)){Remove-Item -LiteralPath $temp -Recurse -Force}
     $fail=@($script:Results|Where-Object{-not $_.Passed}).Count
-    $report=[ordered]@{Build='Domenia 1.0 RC1.9';Host=$PSVersionTable.PSVersion.ToString();Platform=$env:OS;Passed=($script:Results.Count-$fail);Failed=$fail;Skipped=0;Complete=($script:Finished -and $script:Results.Count -eq 72);LiveADExecuted=$false;MockedLDAP=$true;WpfExecuted=($script:TestPhase -eq 'WPF');Tests=$script:Results.ToArray()}
+    $report=[ordered]@{Build='Domenia 1.0 RC1.9';Host=$PSVersionTable.PSVersion.ToString();Platform=$env:OS;Passed=($script:Results.Count-$fail);Failed=$fail;Skipped=0;Complete=($script:Finished -and $script:Results.Count -eq 97);LiveADExecuted=$false;MockedLDAP=$true;WpfExecuted=($script:TestPhase -eq 'WPF');Tests=$script:Results.ToArray()}
     if($ReportPath){[IO.File]::WriteAllText($ReportPath,($report|ConvertTo-Json -Depth 8),[Text.UTF8Encoding]::new($true))}
     if(-not $Quiet){$report|ConvertTo-Json -Depth 8}
 }

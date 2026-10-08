@@ -18,14 +18,6 @@
       "Chain": "wad\\Domenia-Core.ps1:23777 $ui.OpenLog.Add_Click"
     },
     {
-      "Function": "<Add_Click@wad/Domenia-Core.ps1>",
-      "Pattern": "Export-Csv",
-      "Status": "AFaire",
-      "Owner": "poste/interface",
-      "Reason": "Export ou ecriture choisis par l operateur apres la boite d enregistrement : a deplacer dans un worker (carte D014, priorite 5).",
-      "Chain": "wad\\Domenia-Core.ps1:18745 $script:Ctrl[\"BtnIndexExport\"].Add_Click"
-    },
-    {
       "Function": "Complete-DomeniaDetachedReadJobs",
       "Pattern": ".EndInvoke",
       "Status": "Justifie",
@@ -74,64 +66,16 @@
       "Chain": "wad\\Domenia-Core.ps1:294 $copy.Add_Click > Show-ErrorBox > Show-DomeniaDialog > Set-AppWindowIcon > Ensure-AppIconFile"
     },
     {
-      "Function": "Export-CurrentResults",
+      "Function": "Export-DomeniaCsv",
       "Pattern": "Export-Csv",
       "Status": "AFaire",
       "Owner": "poste/interface",
-      "Reason": "Export ou ecriture choisis par l operateur apres la boite d enregistrement : a deplacer dans un worker (carte D014, priorite 5).",
-      "Chain": "wad\\Domenia-Core.ps1:12190 $menu.Add_Opened > Build-DomeniaObjectsContextMenu > Export-CurrentResults"
-    },
-    {
-      "Function": "Export-DomeniaInventory",
-      "Pattern": "Export-Csv",
-      "Status": "AFaire",
-      "Owner": "poste/interface",
-      "Reason": "Export ou ecriture choisis par l operateur apres la boite d enregistrement : a deplacer dans un worker (carte D014, priorite 5).",
-      "Chain": "wad\\Domenia-Core.ps1:18806 $script:Ctrl[\"BtnExportInventory\"].Add_Click > Export-DomeniaInventory"
-    },
-    {
-      "Function": "Export-DomeniaLinksCsv",
-      "Pattern": "Export-Csv",
-      "Status": "AFaire",
-      "Owner": "poste/interface",
-      "Reason": "Export ou ecriture choisis par l operateur apres la boite d enregistrement : a deplacer dans un worker (carte D014, priorite 5).",
-      "Chain": "wad\\Domenia-Core.ps1:18692 $script:Ctrl[\"BtnOpenLinksCsv\"].Add_Click > Export-DomeniaLinksCsv"
-    },
-    {
-      "Function": "Export-DomeniaOperationStatsCsv",
-      "Pattern": "Export-Csv",
-      "Status": "AFaire",
-      "Owner": "poste/interface",
-      "Reason": "Export ou ecriture choisis par l operateur apres la boite d enregistrement : a deplacer dans un worker (carte D014, priorite 5).",
-      "Chain": "wad\\Domenia-Core.ps1:18759 $script:Ctrl[\"BtnOperationStatsExport\"].Add_Click > Export-DomeniaOperationStatsCsv"
-    },
-    {
-      "Function": "Export-DomeniaSoftware",
-      "Pattern": "Export-Csv",
-      "Status": "AFaire",
-      "Owner": "poste/interface",
-      "Reason": "Export ou ecriture choisis par l operateur apres la boite d enregistrement : a deplacer dans un worker (carte D014, priorite 5).",
-      "Chain": "wad\\Domenia-Core.ps1:18790 $script:Ctrl[\"BtnExportSoftware\"].Add_Click > Export-DomeniaSoftware"
-    },
-    {
-      "Function": "Export-DomeniaWmi",
-      "Pattern": "Export-Csv",
-      "Status": "AFaire",
-      "Owner": "poste/interface",
-      "Reason": "Export ou ecriture choisis par l operateur apres la boite d enregistrement : a deplacer dans un worker (carte D014, priorite 5).",
-      "Chain": "wad\\Domenia-Core.ps1:18784 $script:Ctrl[\"BtnWmiExport\"].Add_Click > Export-DomeniaWmi"
+      "Reason": "Export commun CO-04 (lot L02) qui remplace les huit Export-Csv : ecriture locale choisie par l operateur, a deplacer dans un worker (carte D014, priorite 5).",
+      "Chain": "wad\\Domenia-Core.ps1 $menu.Add_Opened > Build-DomeniaObjectsContextMenu > Export-CurrentResults > Export-DomeniaCsv"
     },
     {
       "Function": "Export-SelfCheckReport",
       "Pattern": ".CreateFromDirectory",
-      "Status": "AFaire",
-      "Owner": "poste/interface",
-      "Reason": "Export ou ecriture choisis par l operateur apres la boite d enregistrement : a deplacer dans un worker (carte D014, priorite 5).",
-      "Chain": "wad\\Domenia-Core.ps1:18824 $script:Ctrl[\"BtnSelfCheckExport\"].Add_Click > Export-SelfCheckReport"
-    },
-    {
-      "Function": "Export-SelfCheckReport",
-      "Pattern": "Export-Csv",
       "Status": "AFaire",
       "Owner": "poste/interface",
       "Reason": "Export ou ecriture choisis par l operateur apres la boite d enregistrement : a deplacer dans un worker (carte D014, priorite 5).",
@@ -144,6 +88,14 @@
       "Owner": "poste/interface",
       "Reason": "Export ou ecriture choisis par l operateur apres la boite d enregistrement : a deplacer dans un worker (carte D014, priorite 5).",
       "Chain": "wad\\Domenia-Core.ps1:18824 $script:Ctrl[\"BtnSelfCheckExport\"].Add_Click > Export-SelfCheckReport"
+    },
+    {
+      "Function": "Invoke-DomeniaAppLogFlush",
+      "Pattern": ".AppendAllText",
+      "Status": "Justifie",
+      "Owner": "interface",
+      "Reason": "PF-09 (lot L02) : Domenia.log ecrit par lot depuis une file en memoire, toutes les 500 ms a la priorite Background et a la fermeture, au lieu d un ajout disque par ligne ; ecriture immediate seulement avant la fenetre principale ; apres un refus total, nouvel essai 10 s plus tard. Ecriture hors du fil de l interface : renvoyee a L05 (cle de dette fonction, appel bloquant).",
+      "Chain": "wad\\Domenia-Core.ps1 $copy.Add_Click > Set-Status > Write-DomeniaAppLogFile > Flush-DomeniaAppLog > Invoke-DomeniaAppLogFlush"
     },
     {
       "Function": "Get-DomeniaDatabasePath",
@@ -352,22 +304,6 @@
       "Owner": "interface",
       "Reason": "Pompe imbriquee de l hote integre : le Dispatcher continue de traiter les messages pendant le panneau.",
       "Chain": "wad\\Domenia-Core.ps1:294 $copy.Add_Click > Show-ErrorBox > Show-DomeniaDialog > Invoke-DomeniaHostWindow > Show-DomeniaEmbeddedWindow"
-    },
-    {
-      "Function": "Write-AppLog",
-      "Pattern": ".AppendAllText",
-      "Status": "Justifie",
-      "Owner": "moteur",
-      "Reason": "Journal local (ajout court ou rotation locale) : exception retenue par la carte D014, aucun chemin reseau.",
-      "Chain": "wad\\Domenia-Core.ps1:294 $copy.Add_Click > Show-ErrorBox > Show-DomeniaDialog > Write-AppLog"
-    },
-    {
-      "Function": "Write-AppLog",
-      "Pattern": "Move-Item",
-      "Status": "Justifie",
-      "Owner": "moteur",
-      "Reason": "Journal local (ajout court ou rotation locale) : exception retenue par la carte D014, aucun chemin reseau.",
-      "Chain": "wad\\Domenia-Core.ps1:294 $copy.Add_Click > Show-ErrorBox > Show-DomeniaDialog > Write-AppLog"
     },
     {
       "Function": "Write-DomeniaBootstrapTrace",

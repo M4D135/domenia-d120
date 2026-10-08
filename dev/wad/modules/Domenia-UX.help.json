@@ -2430,42 +2430,42 @@
   {
     "Name": "ChkUiLogFollow",
     "Title": "Suivre",
-    "Text": "Desactiver pour lire le journal sans defilement automatique.",
+    "Text": "Désactivez pour lire le journal sans défilement automatique.",
     "Kind": "CheckBox",
     "Source": "existing-help"
   },
   {
     "Name": "BtnRuntimeHealth",
-    "Title": "Etat moteur",
-    "Text": "Memoire, workers actifs, annulations et cache utilise. Aucune sonde reseau.",
+    "Title": "État du moteur",
+    "Text": "Mémoire, workers actifs, annulations et cache utilisé. Aucune sonde réseau.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnCopyUiLog",
     "Title": "Copier",
-    "Text": "Copie le journal visible, sans anonymiser les noms du parc.",
+    "Text": "Copie le journal tel quʼil est affiché. Cochez Masquer les noms pour remplacer chemins AD, comptes, noms DNS et adresses.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnClearUiLog",
     "Title": "Effacer",
-    "Text": "Efface seulement le journal affiche.",
+    "Text": "Efface seulement le journal affiché.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnUxLogToggle",
     "Title": "Taille du journal",
-    "Text": "Réduit ou agrandit le journal visible. L’enregistrement des événements continue dans les deux cas.",
+    "Text": "Déplie ou replie le journal de session. Replié, il montre la dernière ligne et une pastille rouge pour une erreur non lue. Lʼenregistrement continue dans les deux cas.",
     "Kind": "Button",
     "Source": "specific"
   },
   {
     "Name": "TxtUiLog",
     "Title": "Journal de session",
-    "Text": "Événements et erreurs de la session. Désactivez Suivre pour lire sans défilement automatique. Copier n’anonymise pas les noms internes.",
+    "Text": "Événements et erreurs de la session. Désactivez Suivre pour lire sans défilement automatique. Copier masque les noms internes si Masquer les noms est coché.",
     "Kind": "TextBox",
     "Source": "specific"
   },
@@ -3542,5 +3542,47 @@
     "Source": "lot-L01",
     "Title": "Actualiser la vue dʼensemble",
     "Text": "Recalcule la vue dʼensemble depuis la base autonome locale : aucune requête AD ni poste."
+  },
+  {
+    "Name": "LstUiLogReadable",
+    "Title": "Journal de session lisible",
+    "Text": "Heure, niveau et message de la session. Le format brut et lʼétat du moteur sont dans le profil Expert.",
+    "Kind": "ListBox",
+    "Source": "d120-L02"
+  },
+  {
+    "Name": "ChkUiLogErrorsOnly",
+    "Title": "Erreurs seulement",
+    "Text": "Nʼaffiche que les erreurs du journal lisible. Lʼenregistrement continue pour tous les niveaux.",
+    "Kind": "CheckBox",
+    "Source": "d120-L02"
+  },
+  {
+    "Name": "ChkUiLogCopyMask",
+    "Title": "Masquer les noms à la copie",
+    "Text": "Copier remplace les chemins AD, comptes, noms DNS et adresses par des repères. Un nom de poste isolé peut rester visible : relisez avant envoi.",
+    "Kind": "CheckBox",
+    "Source": "d120-L02"
+  },
+  {
+    "Name": "LblUiLogLast",
+    "Title": "Dernier message du journal",
+    "Text": "Dernier message de la session. Un clic sur la barre déplie le journal.",
+    "Kind": "TextBlock",
+    "Source": "d120-L02"
+  },
+  {
+    "Name": "UiLogErrorBadge",
+    "Title": "Erreur non lue",
+    "Text": "Erreur non lue dans le journal. Dépliez le journal pour la lire.",
+    "Kind": "Border",
+    "Source": "d120-L02"
+  },
+  {
+    "Name": "UiLogUnavailableBadge",
+    "Title": "Journal indisponible",
+    "Text": "Domenia.log nʼest pas inscriptible. Un journal de secours est utilisé si possible ; son chemin est dans cette info-bulle.",
+    "Kind": "Border",
+    "Source": "d120-L02"
   }
 ]
