@@ -233,12 +233,6 @@ Test-Case 'UI-16' 'Conteneurs systeme regroupes, Users et Computers visibles' {
     Assert-Equal 1 @($deeper.Visible).Count 'Un conteneur nomme System hors de la racine reste visible'
     Assert-False (Test-DomeniaSystemContainer ('OU=System,'+$script:DomainDn) $script:DomainDn 'OU') 'Une OU nest jamais un conteneur systeme'
 }
-Test-Case 'UI-16' 'Pas de chevron pour une branche lue sans sous-branche' {
-    Assert-False (Test-DomeniaTreeRowExpandable ([pscustomobject]@{DN='OU=A';HasChildren=$false}))
-    Assert-True (Test-DomeniaTreeRowExpandable ([pscustomobject]@{DN='OU=A';HasChildren=$true}))
-    Assert-True (Test-DomeniaTreeRowExpandable ([pscustomobject]@{DN='OU=A';HasChildren=$null})) 'Reponse inconnue : le chevron reste'
-    Assert-True (Test-DomeniaTreeRowExpandable ([pscustomobject]@{DN='OU=A'})) 'Ancienne ligne sans information : le chevron reste'
-}
 Test-Case 'PF-14' 'Clavier et type temporises a 300 ms, souris immediate' {
     Assert-Equal 300 (Get-DomeniaTreeSelectionDelay 'Keyboard');Assert-Equal 300 (Get-DomeniaTreeSelectionDelay 'Type')
     Assert-Equal 0 (Get-DomeniaTreeSelectionDelay 'Mouse');Assert-Equal 0 (Get-DomeniaTreeSelectionDelay '')
@@ -279,4 +273,15 @@ Test-Case 'FO-04' 'Epingler et retirer une OU, borne a 50' {
     $outside=Set-DomeniaOuFavouriteState @() ([pscustomobject]@{DN='OU=X,DC=autre,DC=invalid'}) $true $script:DomainDn;Assert-False $outside.Changed
     $full=@(1..50|ForEach-Object{[pscustomobject]@{DN=('OU=O'+$_+','+$script:DomainDn);Name=('O'+$_)}})
     $over=Set-DomeniaOuFavouriteState $full $fav $true $script:DomainDn;Assert-False $over.Changed;Assert-True ($over.Reason -match '50')
+}
+Test-Case 'FO-04' 'Le plafond de 50 favoris compte le seul domaine de l OU' {
+    Assert-Equal 'dc=example,dc=invalid' (Get-DomeniaDnDomainKey ('OU=A,OU=B,'+$script:DomainDn));Assert-Equal '' (Get-DomeniaDnDomainKey 'OU=A')
+    $other=@(1..50|ForEach-Object{[pscustomobject]@{DN=('OU=O'+$_+',DC=autre,DC=invalid');Name=('O'+$_)}})
+    $pin=Set-DomeniaOuFavouriteState $other ([pscustomobject]@{DN=('OU=Postes,'+$script:DomainDn);Name='Postes'}) $true $script:DomainDn
+    Assert-True $pin.Changed 'Les favoris d un autre domaine, invisibles ici, ne bloquent pas l epinglage';Assert-Equal 51 @($pin.Favourites).Count
+    $saved=@(1..3|ForEach-Object{[pscustomobject]@{SearchMode='OU';Name=('S'+$_);DN=('OU=S'+$_+','+$script:DomainDn)}})
+    $r=Import-DomeniaOuFavourites $other $saved
+    Assert-Equal 3 $r.Imported 'La reprise compte par domaine';Assert-Equal 53 @($r.Favourites).Count
+    $same=@(1..50|ForEach-Object{[pscustomobject]@{DN=('OU=O'+$_+','+$script:DomainDn);Name=('O'+$_)}})
+    Assert-Equal 0 (Import-DomeniaOuFavourites $same $saved).Imported 'Domaine deja plein : rien n est repris'
 }

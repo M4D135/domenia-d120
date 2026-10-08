@@ -386,7 +386,7 @@ function Get-DomeniaWorkViews {
         [pscustomobject]@{Id='recent';Name='Objets modifies depuis 7 jours';Type='';NeedsOu=$true;Filter=('(whenChanged>=' + (ConvertTo-DomeniaLdapTime $NowUtc.AddDays(-7)) + ')');Note='whenChanged est propre a chaque controleur.'}
         [pscustomobject]@{Id='oucomputers';Name='Postes de cette OU';Type='Machine';NeedsOu=$true;Filter='(objectCategory=computer)';Note='Perimetre : OU selectionnee.'}
         # CO-20: a workstation that never logged on has no lastLogonTimestamp: it is listed too (shown 'Jamais').
-        [pscustomobject]@{Id='stalecomputers';Name='Postes sans connexion depuis 90 jours';Type='Machine';NeedsOu=$true;Filter=('(&(objectCategory=computer)(|(lastLogonTimestamp<=' + $inactive + ')(!(lastLogonTimestamp=*))))');Note='Postes jamais connectés inclus. lastLogonTimestamp est approximatif (retard de replication jusqu a 14 jours). Aucun objet n est declare supprimable.'}
+        [pscustomobject]@{Id='stalecomputers';Name='Postes sans connexion depuis 90 jours';Type='Machine';NeedsOu=$true;Filter=('(&(objectCategory=computer)(|(lastLogonTimestamp<=' + $inactive + ')(!(lastLogonTimestamp=*))))');Note='Postes jamais connectés inclus. lastLogonTimestamp est approximatif (retard de réplication jusquʼà 14 jours). Aucun objet nʼest déclaré supprimable.'}
     )
 }
 
@@ -594,16 +594,6 @@ function Split-DomeniaTreeRows {
     return [pscustomobject]@{Visible=$visible.ToArray();System=$system.ToArray()}
 }
 
-function Test-DomeniaTreeRowExpandable {
-    # UI-16: a branch read without any sub-branch gets no chevron. An unknown answer keeps the chevron: the
-    # branch is then read when the operator unfolds it.
-    param($Row)
-    $value = Get-DomeniaMember $Row 'HasChildren' $null
-    if ($null -eq $value) { return $true }
-    if ($value -is [bool]) { return $value }
-    return (([string]$value).Trim() -notin @('False','0'))
-}
-
 function Get-DomeniaTreeSelectionDelay {
     # PF-14: walking the tree with the keyboard, or changing the object type, waits 300 ms and only the last
     # stop is read; a mouse click is read at once. Milliseconds.
@@ -650,32 +640,46 @@ function ConvertTo-DomeniaOuFavourite {
     return [pscustomobject]@{DN=$dn;Name=$name;Subtree=$subtree;Type=$type;Term=$term}
 }
 
+function Get-DomeniaDnDomainKey {
+    # FO-04: the domain of a DN (its DC= components, lower case), so that the favourites are counted per domain.
+    param([AllowEmptyString()][AllowNull()][string]$Dn)
+    $parts = @(Split-DomeniaDn ([string]$Dn) | Where-Object { ([string]$_).Trim() -match '^(?i)DC=' } | ForEach-Object { ([string]$_).Trim() })
+    return (($parts -join ',').ToLowerInvariant())
+}
+
 function Import-DomeniaOuFavourites {
     # FO-04: one-time takeover of the former saved searches, which stay stored untouched. Only an OU search
     # becomes a favourite (its text goes to the visible local filter); a whole-domain text search has no OU
-    # to pin. The existing favourite wins on the same DN; at most $Maximum favourites.
+    # to pin. The existing favourite wins on the same DN; at most $Maximum favourites per domain, since only the
+    # favourites of the session domain are shown.
     param($Existing,$SavedSearches,[int]$Maximum=50)
     $out = [Collections.Generic.List[object]]::new()
     $seen = @{}
+    $perDomain = @{}
     foreach ($item in @($Existing)) {
         $fav = ConvertTo-DomeniaOuFavourite $item
-        if ($null -eq $fav -or $out.Count -ge $Maximum -or $seen.ContainsKey($fav.DN.ToLowerInvariant())) { continue }
-        $seen[$fav.DN.ToLowerInvariant()] = $true; $out.Add($fav)
+        if ($null -eq $fav -or $seen.ContainsKey($fav.DN.ToLowerInvariant())) { continue }
+        $domain = Get-DomeniaDnDomainKey $fav.DN
+        if ([int]$perDomain[$domain] -ge $Maximum) { continue }
+        $seen[$fav.DN.ToLowerInvariant()] = $true; $perDomain[$domain] = [int]$perDomain[$domain] + 1; $out.Add($fav)
     }
     $imported = 0
     foreach ($saved in @($SavedSearches)) {
-        if ($null -eq $saved -or $out.Count -ge $Maximum) { continue }
+        if ($null -eq $saved) { continue }
         if ([string](Get-DomeniaMember $saved 'SearchMode' 'OU') -eq 'Global') { continue }
         $candidate = [pscustomobject]@{DN=[string](Get-DomeniaMember $saved 'DN' '');Name=[string](Get-DomeniaMember $saved 'Name' '');Subtree=(Get-DomeniaMember $saved 'Subtree' $true);Type=[string](Get-DomeniaMember $saved 'Type' 'Tous');Term=[string](Get-DomeniaMember $saved 'Query' '')}
         $fav = ConvertTo-DomeniaOuFavourite $candidate
         if ($null -eq $fav -or $seen.ContainsKey($fav.DN.ToLowerInvariant())) { continue }
-        $seen[$fav.DN.ToLowerInvariant()] = $true; $out.Add($fav); $imported++
+        $domain = Get-DomeniaDnDomainKey $fav.DN
+        if ([int]$perDomain[$domain] -ge $Maximum) { continue }
+        $seen[$fav.DN.ToLowerInvariant()] = $true; $perDomain[$domain] = [int]$perDomain[$domain] + 1; $out.Add($fav); $imported++
     }
     return [pscustomobject]@{Favourites=$out.ToArray();Imported=$imported}
 }
 
 function Set-DomeniaOuFavouriteState {
     # FO-04: pins or unpins one OU. Unpinning only forgets the favourite: nothing is changed in the directory.
+    # $Maximum counts the favourites of the domain of that OU only: the other domains are not shown in the session.
     param($Favourites,$Favourite,[bool]$Pinned=$true,[AllowEmptyString()][string]$DomainDn='',[int]$Maximum=50)
     $fav = ConvertTo-DomeniaOuFavourite $Favourite $DomainDn
     $list = [Collections.Generic.List[object]]::new()
@@ -685,7 +689,8 @@ function Set-DomeniaOuFavouriteState {
     for ($i = 0; $i -lt $list.Count; $i++) { if ([string]$list[$i].DN -ieq $fav.DN) { $index = $i; break } }
     if ($Pinned) {
         if ($index -ge 0) { return [pscustomobject]@{Favourites=$list.ToArray();Changed=$false;Reason='Cette OU est déjà dans les favoris.'} }
-        if ($list.Count -ge $Maximum) { return [pscustomobject]@{Favourites=$list.ToArray();Changed=$false;Reason=([string]$Maximum + ' favoris au maximum : retirez un favori avant dʼen ajouter un.')} }
+        $domain = Get-DomeniaDnDomainKey $fav.DN
+        if (@($list | Where-Object { (Get-DomeniaDnDomainKey $_.DN) -ceq $domain }).Count -ge $Maximum) { return [pscustomobject]@{Favourites=$list.ToArray();Changed=$false;Reason=([string]$Maximum + ' favoris au maximum : retirez un favori avant dʼen ajouter un.')} }
         $list.Add($fav)
         return [pscustomobject]@{Favourites=$list.ToArray();Changed=$true;Reason=''}
     }

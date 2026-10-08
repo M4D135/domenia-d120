@@ -132,10 +132,10 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaSystemContainerNames',
             'Test-DomeniaSystemContainer',
             'Split-DomeniaTreeRows',
-            'Test-DomeniaTreeRowExpandable',
             'Get-DomeniaTreeSelectionDelay',
             'Test-DomeniaOuTreeMatch',
             'ConvertTo-DomeniaOuFavourite',
+            'Get-DomeniaDnDomainKey',
             'Import-DomeniaOuFavourites',
             'Set-DomeniaOuFavouriteState'
         ) }
@@ -972,6 +972,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Invoke-DomeniaWorkView',
             'Get-DomeniaGridScrollViewer',
             'Get-DomeniaNavSnapshot',
+            'Get-DomeniaTypeLabelOfFilter',
             'Get-DomeniaVisiblePageName',
             'Enter-DomeniaNavSearch',
             'Exit-DomeniaNavSearch',

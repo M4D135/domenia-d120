@@ -879,5 +879,7 @@ function Invoke-DomeniaSearchMore {
     if(-not [bool]$decision.Allowed){Set-Status ([string]$decision.Reason) 'WARN';Update-DomeniaSearchMoreButton -Search $s;return}
     $mode=if([string]$s.State.SearchMode -eq 'Global'){'Global'}else{'OU'}
     $viewId='';if($null -ne $s.State.PSObject.Properties['ViewId']){$viewId=[string]$s.State.ViewId}
-    Invoke-GlobalSearch -SearchMode $mode -PreserveSelection -SilentError -ViewId $viewId -LimitOverride ([int]$decision.NextLimit)
+    # D037 / UX-33: the same perimeter as the list (view chip choice, base, depth), not the one the chip or the tree show now.
+    $viewScope='';if($viewId -and $null -ne $s.State.PSObject.Properties['ViewChoice'] -and [string]$s.State.ViewChoice -in @('OU','Domain')){$viewScope=[string]$s.State.ViewChoice}
+    Invoke-GlobalSearch -SearchMode $mode -PreserveSelection -SilentError -ViewId $viewId -LimitOverride ([int]$decision.NextLimit) -ViewScope $viewScope -ExpectBaseDn ([string]$s.State.BaseDn) -ExpectScope ([string]$s.State.Scope)
 }

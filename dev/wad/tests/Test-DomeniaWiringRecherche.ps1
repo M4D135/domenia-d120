@@ -47,8 +47,21 @@ $coreNames=@('Get-MainXaml','Get-DomeniaControl','Set-DomeniaControlText','Get-D
     # L03: OU tree, favourites, background revalidation default and targeted reread.
     'Refresh-SelectedObject','New-DefaultConfig','New-TreeItem','New-DomeniaTreeRowItem','New-DomeniaTreeSystemGroup','Get-DomeniaTreeRenderRows',
     'Get-DomeniaTreeHeaderTemplate','New-DomeniaTreeLoadingItem','Add-DomeniaTreeRowsToNode','Queue-DomeniaTreeRowsToNode','Stop-DomeniaTreeRenderForNode',
-    'Initialize-DomeniaTreeRenderTimer','Load-TreeChildren')
+    'Initialize-DomeniaTreeRenderTimer','Load-TreeChildren',
+    # UX-25: the local filter and the presence repaint the grid with a filtered copy of the list.
+    'Apply-DomeniaPresenceFilter','Set-DomeniaGridRows')
 . ([scriptblock]::Create((Import-AstFunctions (Join-Path $wad 'Domenia-Core.ps1') $coreNames)))
+# PF-14 / UX-25: the real handler of the object type, as Wire-Events attaches it (no copy of its text in this file).
+function Get-WireEventsHandler {param([string]$Control,[string]$Event)
+    $tokens=$null;$errors=$null
+    $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'Domenia-Core.ps1'),[ref]$tokens,[ref]$errors)
+    $wire=@($ast.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Wire-Events'},$true))
+    if($wire.Count -ne 1){throw 'Wire-Events absent.'}
+    $calls=@($wire[0].Body.FindAll({param($n)$n -is [Management.Automation.Language.InvokeMemberExpressionAst] -and $n.Member.Extent.Text -eq $Event -and $n.Expression.Extent.Text -match [regex]::Escape('"'+$Control+'"')},$true))
+    if($calls.Count -ne 1){throw ('Raccordement absent de Wire-Events : '+$Control+'.'+$Event)}
+    return $calls[0].Extent.Text
+}
+$script:TypeWiring=Get-WireEventsHandler 'CmbGlobalType' 'Add_SelectionChanged'
 . ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-UX.UI.ps1') @('Get-DomeniaUxOuDisplay','Update-DomeniaUxOuScope'))))
 . ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Guard.UI.ps1') @('Read-DomeniaOuFavouriteStore','Write-DomeniaOuFavouriteStore','Import-DomeniaFavouriteSearchesOnce','Get-DomeniaFavouriteSearches','Test-DomeniaOuFavourite','Save-DomeniaFavouriteSearch','Load-DomeniaFavouriteSearch','Update-DomeniaOuFavouritesUi','Remove-DomeniaFavouriteSearch'))))
 . ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Guard.Model.ps1') @('ConvertTo-DomeniaSavedSearch'))))
@@ -119,7 +132,7 @@ function Start-UiTask {
 function New-TestControls {
     $c=@{}
     foreach($n in @('TxtGlobalSearch','TxtBranchSearch','TxtGlobalLimit','TxtSuiteResultFilter','TxtBranchDn')){$c[$n]=[Windows.Controls.TextBox]::new()}
-    foreach($n in @('LblBranchCount','LblSuiteResultCount','LblSearchScope','LblSearchHint','LblLiveState','LblOuRestoreMessage','LblSelectionReadState','LblOuScopeName','LblOuScopePath')){$c[$n]=[Windows.Controls.TextBlock]::new()}
+    foreach($n in @('LblBranchCount','LblSuiteResultCount','LblSearchScope','LblSearchHint','LblLiveState','LblOuRestoreMessage','LblSelectionReadState','LblOuScopeName','LblOuScopePath','LblTreeStatus')){$c[$n]=[Windows.Controls.TextBlock]::new()}
     foreach($n in @('BtnSearchMore','BtnNavBack','BtnNavForward','BtnWorkView','BtnOuRestoreRetry','BtnOuRestoreDismiss')){$c[$n]=[Windows.Controls.Button]::new()}
     $c.TxtGlobalLimit.Text='100'
     $c.ChkSubtree=[Windows.Controls.CheckBox]::new();$c.ChkSubtree.IsChecked=$false
@@ -170,7 +183,7 @@ function Reset-Fixture {
     $script:Tasks=[Collections.Generic.List[object]]::new();$script:OperationErrors=[Collections.Generic.List[string]]::new();$script:Stops=0
     $script:LastStatus='';$script:LastStatusLevel='';$script:DirtyFields=@();$script:CfgOverrides=@{};$script:Settings=@{}
     $script:SearchUiInitialized=$false;$script:NavHistory=$null;$script:NavRestoring=$false;$script:NavSearchLaunching=$false
-    $script:NavHistoryRows=$null;$script:TreeSelectionSource='Mouse';$script:WorkViewScopeOu='';$script:ListSurveyBlocked=$false;$script:ListRevalidationPaused=$false
+    $script:NavHistoryRows=$null;$script:NavHistoryState=$null;$script:NavListShape=$null;$script:OuTreeFilterStatus='';$script:TreeSelectionSource='Mouse';$script:WorkViewScopeOu='';$script:ListSurveyBlocked=$false;$script:ListRevalidationPaused=$false
     if($null -ne $script:FilterChangeTimer){$script:FilterChangeTimer.Stop()};$script:FilterChangeTimer=$null;$script:PendingFilterChange=$null
     if($null -ne $script:TreeRenderTimer){$script:TreeRenderTimer.Stop()};$script:TreeRenderTimer=$null;$script:TreeRenderJobs=@{}
     $script:OuFavouriteKeys=$null;$script:FleetScopes=[Collections.Generic.List[string]]::new();$script:SearchListHasMachine=$false;$script:ParkRun=$null
@@ -200,6 +213,16 @@ function New-TreeNode {param([string]$Dn,[bool]$Loaded)
     $n=[Windows.Controls.TreeViewItem]::new();$n.Header=$Dn;$n.Tag=[pscustomobject]@{DN=$Dn;Loaded=$Loaded};return $n
 }
 function Start-Continuity {Initialize-DomeniaContinuity;if($null -ne $script:Continuity.Timer){$script:Continuity.Timer.Stop()}}
+function Send-TreeKey {param($Tree)
+    # A real PreviewKeyDown needs a presentation source: a hidden HWND source, disposed at once.
+    $parameters=[Windows.Interop.HwndSourceParameters]::new('Domenia test clavier');$parameters.WindowStyle=0
+    $source=[Windows.Interop.HwndSource]::new($parameters)
+    try{$key=[Windows.Input.KeyEventArgs]::new([Windows.Input.Keyboard]::PrimaryDevice,$source,0,[Windows.Input.Key]::Down);$key.RoutedEvent=[Windows.Input.Keyboard]::PreviewKeyDownEvent;$Tree.RaiseEvent($key)}
+    finally{$source.Dispose()}
+}
+function Send-TreeMouse {param($Tree)
+    $mouse=[Windows.Input.MouseButtonEventArgs]::new([Windows.Input.Mouse]::PrimaryDevice,0,[Windows.Input.MouseButton]::Left);$mouse.RoutedEvent=[Windows.UIElement]::PreviewMouseDownEvent;$Tree.RaiseEvent($mouse)
+}
 
 # ---------------------------------------------------------------- D031 strict global contract
 # Unwired if Set-DomeniaItemsSource stops reading the search mode: the global user is hidden again.
@@ -408,6 +431,22 @@ Case 'D037 Limited list says so and offers the next load; a new load discards th
     Expect ((Get-TaskCount 'GlobalSearch') -eq ($before+1) -and [int]$next.Payload.Limit -eq 2 -and [string]$next.CallbackState.Search -eq 'alex') 'La suite ne relance pas la meme recherche.'
     Expect ($script:Ctrl.TxtGlobalLimit.Text -eq '1') 'La limite saisie par lʼoperateur a ete modifiee.'
     Expect (-not (Test-DomeniaSearchStateCurrent $t.CallbackState)) 'Lʼancien contexte reste accepte.'
+}
+# Unwired if 'Charger la suite' plans the view again with the chip as it is now: another perimeter would be read.
+Case 'D037 / UX-33 Charger la suite relit le perimetre de la vue, pas celui de la puce' {
+    Update-DomeniaSearchScopeUi
+    $script:Ctrl.TxtGlobalLimit.Text='1'
+    $script:Ctrl.CmbWorkViewScope.SelectedIndex=1
+    Invoke-DomeniaWorkView -ViewId 'stalecomputers'
+    $t=Get-LastTask 'GlobalSearch'
+    Expect ($t.CallbackState.SearchMode -eq 'Global' -and $t.CallbackState.ViewChoice -eq 'Domain') 'Vue sur tout le domaine non lancee.'
+    Feed-Live (New-ResultRow 'PC-OLD' 'pcold' 'Machine' '' 'OU=Lyon');Finish-Live $t $true
+    # The chip comes back to the OU (by hand, or another OU chosen): the continuation keeps the whole domain.
+    $script:Ctrl.CmbWorkViewScope.SelectedIndex=0
+    Invoke-DomeniaSearchMore
+    $next=Get-LastTask 'GlobalSearch'
+    Expect (-not [object]::ReferenceEquals($next,$t) -and [int]$next.Payload.Limit -eq 2) 'Suite non lancee.'
+    Expect ($next.CallbackState.SearchMode -eq 'Global' -and $next.Payload.BaseDn -eq $script:Conn.BaseDn -and $next.Payload.Scope -eq 'Subtree' -and $next.CallbackState.ViewId -eq 'stalecomputers' -and -not [bool]$next.CallbackState.SurveyAllowed) ('La suite lit un autre perimetre : '+$next.Payload.BaseDn)
 }
 Case 'D037 Complete list says so and offers nothing more' {
     $t=Search-Global 'alex'
@@ -638,10 +677,19 @@ Case 'UX-33 Vue de travail appliquee a lʼOU par defaut, releve refuse en domain
     $script:SearchListHasMachine=$true
     Update-DomeniaSearchActionStates
     Expect ($script:Ctrl.BtnParkResults.IsEnabled) 'Le releve reste refuse sur une liste dʼOU.'
+    # DS-07: on the root with its sub-OU, the chip does not offer the same whole domain twice.
+    $script:SelectedBranchDn=$script:Conn.BaseDn;$script:Ctrl.ChkSubtree.IsChecked=$true;Update-DomeniaSearchScopeUi
+    Expect ($script:Ctrl.CmbWorkViewScope.Items[1].Visibility -eq 'Collapsed' -and [string]$script:Ctrl.CmbWorkViewScope.Items[0].Content -eq 'Vues dans : tout le domaine') 'Deux entrees disent tout le domaine a la racine.'
+    $script:Ctrl.ChkSubtree.IsChecked=$false;Update-DomeniaSearchScopeUi
+    Expect ($script:Ctrl.CmbWorkViewScope.Items[1].Visibility -eq 'Visible') 'Le domaine entier manque sous la racine sans sous-OU.'
 }
-# Unwired if Set-SelectedBranch reads the OU at each arrow key: one request per node walked.
+# Unwired if Set-SelectedBranch reads the OU at each arrow key (one request per node walked), if the tree no longer
+# records whether the keyboard or the mouse drives it, or if Wire-Events sends a change of type without the pause.
 Case 'PF-14 Parcours clavier temporise (300 ms) sans requete par noeud, souris immediate' {
-    $script:TreeSelectionSource='Keyboard'
+    Initialize-DomeniaSearchUi
+    . ([scriptblock]::Create($script:TypeWiring))
+    Send-TreeKey $script:Ctrl.TvDirectory
+    Expect ((Get-DomeniaTreeSelectionSource) -eq 'Keyboard') 'Le clavier de lʼarbre nʼest pas pris en compte.'
     foreach($dn in @('OU=A,DC=example,DC=invalid','OU=B,DC=example,DC=invalid','OU=C,DC=example,DC=invalid')){Set-SelectedBranch ([pscustomobject]@{Tag=[pscustomobject]@{DN=$dn}})}
     Expect ((Get-TaskCount 'GlobalSearch') -eq 0) 'Une requete par noeud parcouru au clavier.'
     Expect ($null -ne $script:PendingFilterChange -and $script:PendingFilterChange.Dn -eq 'OU=C,DC=example,DC=invalid' -and $script:FilterChangeTimer.Interval.TotalMilliseconds -eq 300 -and $script:FilterChangeTimer.IsEnabled) 'Temporisation absente.'
@@ -649,13 +697,17 @@ Case 'PF-14 Parcours clavier temporise (300 ms) sans requete par noeud, souris i
     $t=Get-LastTask 'GlobalSearch'
     Expect ((Get-TaskCount 'GlobalSearch') -eq 1 -and $t.Payload.BaseDn -eq 'OU=C,DC=example,DC=invalid') 'Seul le dernier arret doit etre lu.'
     Expect ($script:FleetScopes.Count -gt 0 -and $script:FleetScopes[$script:FleetScopes.Count-1] -eq 'OU=C,DC=example,DC=invalid') 'LʼAccueil ne suit pas lʼOU choisie.'
-    $script:Ctrl.CmbGlobalType.SelectedIndex=3;Request-DomeniaSearchFilterChanged -Source Type
-    Expect ((Get-TaskCount 'GlobalSearch') -eq 1) 'Un changement de type part sans pause.'
-    $script:TreeSelectionSource='Mouse'
-    Set-SelectedBranch ([pscustomobject]@{Tag=[pscustomobject]@{DN='OU=D,DC=example,DC=invalid'}})
-    Expect ((Get-TaskCount 'GlobalSearch') -eq 2 -and (Get-LastTask 'GlobalSearch').Payload.BaseDn -eq 'OU=D,DC=example,DC=invalid' -and $null -eq $script:PendingFilterChange) 'Un clic souris doit lire tout de suite, et annuler la pause.'
+    # The real handler of the object type: the change waits for its pause, then the chosen type is read.
+    $script:Ctrl.CmbGlobalType.SelectedIndex=3
+    Expect ((Get-TaskCount 'GlobalSearch') -eq 1 -and $null -ne $script:PendingFilterChange -and $script:PendingFilterChange.Source -eq 'Type') 'Un changement de type part sans pause.'
     Invoke-DomeniaPendingFilterChange
-    Expect ((Get-TaskCount 'GlobalSearch') -eq 2) 'Une lecture differee perimee est partie.'
+    Expect ((Get-TaskCount 'GlobalSearch') -eq 2 -and [string](Get-LastTask 'GlobalSearch').CallbackState.TypeFilter -ceq (Get-TypeLdapFilter 'Groupes')) 'Le type choisi nʼest pas lu apres la pause.'
+    Send-TreeMouse $script:Ctrl.TvDirectory
+    Expect ((Get-DomeniaTreeSelectionSource) -eq 'Mouse') 'La souris de lʼarbre nʼest pas prise en compte.'
+    Set-SelectedBranch ([pscustomobject]@{Tag=[pscustomobject]@{DN='OU=D,DC=example,DC=invalid'}})
+    Expect ((Get-TaskCount 'GlobalSearch') -eq 3 -and (Get-LastTask 'GlobalSearch').Payload.BaseDn -eq 'OU=D,DC=example,DC=invalid' -and $null -eq $script:PendingFilterChange) 'Un clic souris doit lire tout de suite, et annuler la pause.'
+    Invoke-DomeniaPendingFilterChange
+    Expect ((Get-TaskCount 'GlobalSearch') -eq 3) 'Une lecture differee perimee est partie.'
 }
 # Unwired if the former saved searches are not taken over, or taken over at every start.
 Case 'FO-04 Favoris repris une fois de SavedSearches, donnees conservees' {
@@ -683,16 +735,18 @@ Case 'CO-21 Un favori ne remplit plus de champ cache : son terme va au filtre lo
     Expect ($script:Ctrl.TxtBranchSearch.Text -eq '' -and $script:Ctrl.TxtSuiteResultFilter.Text -eq 'compta') ('Champs : cache='+$script:Ctrl.TxtBranchSearch.Text+' visible='+$script:Ctrl.TxtSuiteResultFilter.Text)
     Expect ($null -ne $t -and $t.CallbackState.Search -eq '' -and $t.Payload.BaseDn -eq 'OU=Lyon,DC=example,DC=invalid' -and $t.Payload.Scope -eq 'Subtree') 'La recherche porte un terme invisible ou un autre perimetre.'
     Expect ([string]$script:Ctrl.CmbGlobalType.SelectedItem.Content -eq 'Groupes' -and -not ([string]$script:Ctrl.LblSearchScope.Text).Contains('Terme')) ('Portee : '+$script:Ctrl.LblSearchScope.Text)
+    Expect (([string]$script:Ctrl.LblSearchHint.Text).Contains('compta') -and ([string]$script:Ctrl.LblSearchHint.Text).Contains('lignes lues seulement')) ('Le filtre local nʼest pas annonce : '+$script:Ctrl.LblSearchHint.Text)
 }
-# Unwired if the root rows are added as they come, or a leaf keeps its fake child.
-Case 'UI-16 Conteneurs systeme regroupes, chevron absent sans sous-OU, noeud jamais grise' {
+# Unwired if the root rows are added as they come, if a branch read without sub-branch keeps its fake child, or if
+# the worker probes every sub-branch again (more than one directory request per unfold).
+Case 'UI-16 Conteneurs systeme regroupes, chevron retire apres lecture sans sous-OU, noeud jamais grise' {
     $root=New-TreeItem -Name 'example.invalid' -Dn $script:Conn.BaseDn -Kind 'domainDNS';[void]$script:Ctrl.TvDirectory.Items.Add($root)
     $rows=@(
-        [pscustomobject]@{Name='Computers';DN='CN=Computers,DC=example,DC=invalid';Kind='Conteneur';HasChildren=$false}
-        [pscustomobject]@{Name='Postes';DN='OU=Postes,DC=example,DC=invalid';Kind='OU';HasChildren=$true}
-        [pscustomobject]@{Name='Program Data';DN='CN=Program Data,DC=example,DC=invalid';Kind='Conteneur';HasChildren=$true}
-        [pscustomobject]@{Name='Serveurs';DN='OU=Serveurs,DC=example,DC=invalid';Kind='OU';HasChildren=$false}
-        [pscustomobject]@{Name='System';DN='CN=System,DC=example,DC=invalid';Kind='Conteneur';HasChildren=$null}
+        [pscustomobject]@{Name='Computers';DN='CN=Computers,DC=example,DC=invalid';Kind='Conteneur'}
+        [pscustomobject]@{Name='Postes';DN='OU=Postes,DC=example,DC=invalid';Kind='OU'}
+        [pscustomobject]@{Name='Program Data';DN='CN=Program Data,DC=example,DC=invalid';Kind='Conteneur'}
+        [pscustomobject]@{Name='Serveurs';DN='OU=Serveurs,DC=example,DC=invalid';Kind='OU'}
+        [pscustomobject]@{Name='System';DN='CN=System,DC=example,DC=invalid';Kind='Conteneur'}
         [pscustomobject]@{Name='Users';DN='CN=Users,DC=example,DC=invalid';Kind='Conteneur'}
     )
     $root.Items.Clear();$count=Add-DomeniaTreeRowsToNode -Node $root -Rows $rows
@@ -700,14 +754,13 @@ Case 'UI-16 Conteneurs systeme regroupes, chevron absent sans sous-OU, noeud jam
     Expect ($count -eq 6 -and $items.Count -eq 5) ('Noeuds : '+$items.Count)
     Expect ((@($items|ForEach-Object{[string]$_.Header}) -join '|') -eq 'CN  Computers|OU  Postes|OU  Serveurs|CN  Users|Conteneurs système (2)') ('Ordre : '+(@($items|ForEach-Object{[string]$_.Header}) -join '|'))
     $group=$items[4];Expect ([string]$group.Tag.DN -eq '' -and -not $group.IsExpanded -and $group.Items.Count -eq 2) 'Groupe systeme incorrect.'
-    Expect ($items[2].Items.Count -eq 0 -and [bool]$items[2].Tag.Loaded) 'Une OU sans sous-OU garde un chevron.'
-    Expect ($items[1].Items.Count -eq 1 -and -not [bool]$items[1].Tag.Loaded) 'Une OU avec sous-OU a perdu son chevron.'
-    Expect ($items[3].Items.Count -eq 1) 'Une branche sans information perd son chevron.'
-    # A read with sub-branches: the node is never greyed and a second unfold starts nothing.
-    $postes=$items[1];$postes.Items.Clear();$postes.Tag.Loaded=$false
+    Expect (@($items[0..3]|Where-Object{$_.Items.Count -ne 1 -or [bool]$_.Tag.Loaded}).Count -eq 0) 'Une branche non lue doit garder son chevron jusquʼa sa lecture.'
+    # One unfold, one request: the node is never greyed and a second unfold during the read starts nothing.
+    $postes=$items[1]
     Load-TreeChildren -Node $postes;Load-TreeChildren -Node $postes
+    $task=Get-LastTask 'TreeChildren'
     Expect ((Get-TaskCount 'TreeChildren') -eq 1 -and $postes.IsEnabled -and [string]$postes.Items[0].Tag -eq 'Loading') 'Noeud grise ou double lecture.'
-    Expect ([int](Get-LastTask 'TreeChildren').Payload.ProbeMax -gt 0) 'Le worker ne sait pas dire si une branche a des sous-branches.'
+    Expect ([regex]::Matches([string]$task.Code,'\.Find(All|One)\(').Count -eq 1 -and $null -eq $task.Payload.PSObject.Properties['ProbeMax']) 'Le worker sonde chaque sous-branche : plusieurs requetes par depliage.'
     Queue-DomeniaTreeRowsToNode -Node $postes -Rows @() -DisplayName 'Postes'
     Expect ($postes.Items.Count -eq 0 -and [bool]$postes.Tag.Loaded -and -not [bool]$postes.Tag.Loading -and $postes.IsEnabled) 'Branche lue sans enfant : le chevron reste.'
     Queue-DomeniaTreeRowsToNode -Node $root -Rows $rows -DisplayName 'example.invalid'
@@ -718,14 +771,16 @@ Case 'UI-16 Conteneurs systeme regroupes, chevron absent sans sous-OU, noeud jam
 # Unwired if the OU filter reads the directory or unfolds a branch never read.
 Case 'DS-07 Filtrer les OU : local, sans lecture ni depliage dʼune branche non lue' {
     $root=New-TreeItem -Name 'example.invalid' -Dn $script:Conn.BaseDn -Kind 'domainDNS';[void]$script:Ctrl.TvDirectory.Items.Add($root)
-    $root.Items.Clear();[void](Add-DomeniaTreeRowsToNode -Node $root -Rows @([pscustomobject]@{Name='Comptabilité';DN='OU=Comptabilite,DC=example,DC=invalid';Kind='OU';HasChildren=$true},[pscustomobject]@{Name='Postes';DN='OU=Postes,DC=example,DC=invalid';Kind='OU';HasChildren=$true}))
+    $root.Items.Clear();[void](Add-DomeniaTreeRowsToNode -Node $root -Rows @([pscustomobject]@{Name='Comptabilité';DN='OU=Comptabilite,DC=example,DC=invalid';Kind='OU'},[pscustomobject]@{Name='Postes';DN='OU=Postes,DC=example,DC=invalid';Kind='OU'}))
     $root.Tag.Loaded=$true
     $script:Ctrl.TxtOuFilter.Text='compta';Update-DomeniaOuTreeFilter
     $items=@($root.Items)
     Expect ($root.Visibility -eq 'Visible' -and $items[0].Visibility -eq 'Visible' -and $items[1].Visibility -eq 'Collapsed') 'Filtre des OU incorrect.'
     Expect (-not $items[0].IsExpanded -and (Get-TaskCount @('TreeChildren','GlobalSearch')) -eq 0) 'Le filtre a lu lʼannuaire ou deplie une branche non lue.'
+    Expect (([string]$script:Ctrl.LblTreeStatus.Text).Contains('compta')) ('Statut du filtre : '+$script:Ctrl.LblTreeStatus.Text)
     $script:Ctrl.TxtOuFilter.Text='';Update-DomeniaOuTreeFilter
     Expect ($items[1].Visibility -eq 'Visible') 'Effacer le filtre ne reaffiche pas tout.'
+    Expect (-not ([string]$script:Ctrl.LblTreeStatus.Text).Contains('compta')) ('Le statut decrit un filtre efface : '+$script:Ctrl.LblTreeStatus.Text)
 }
 # Unwired if the default comes back to true: the listed objects are reread in AD without any gesture.
 Case 'SE-13 RevalidateListedObjects faux par defaut : aucune lecture AD sans geste' {
@@ -770,30 +825,48 @@ Case 'FI-21 Relire lʼobjet invalide seulement son GUID et ne relance pas la lis
     Expect ((Get-TaskCount 'GlobalSearch') -eq $before) 'La liste a ete relancee.'
     Expect ((Get-TaskCount 'OpenAdObject') -eq 1) 'La fiche nʼa pas ete relue.'
 }
-# Unwired if the restored list does not say it comes from the history, or its filters are not restored.
+# Unwired if the restored list does not say it comes from the history, if the banner follows the grid instead of the
+# list (a local filter repaints the grid), or if the list being left is recorded with the type or the local filter
+# that the launching gesture (type change, favourite) already put in the controls.
 Case 'UX-25 Liste de lʼhistorique : bandeau, Actualiser, type, presence et filtre local memorises' {
     Initialize-DomeniaSearchUi
+    . ([scriptblock]::Create($script:TypeWiring))
     $script:Ctrl.TxtSuiteResultFilter.Text='PC'
     Invoke-GlobalSearch -SearchMode OU;$first=Get-LastTask 'GlobalSearch'
     Feed-Live (New-ResultRow 'PC-01' 'pc01' 'Machine' '' 'OU=Postes');Finish-Live $first $false
     $firstRows=$script:Ctrl.DgObjects.ItemsSource
-    Select-DomeniaWorkspace -Workspace 'WsObject'
-    $second=Search-Global 'martin';Feed-Live (New-ResultRow 'Paul Martin' 'pmartin');Finish-Live $second $false
-    # The operator changes the type and the local filter while the second list is shown.
-    $script:Ctrl.TxtSuiteResultFilter.Text='';$script:Ctrl.CmbGlobalType.SelectedIndex=3
+    $script:Ctrl.DgObjects.SelectedItem=@($script:Ctrl.DgObjects.Items)[0]
+    # The type change really launches the next list, after its pause.
+    $script:Ctrl.CmbGlobalType.SelectedIndex=3
+    Invoke-DomeniaPendingFilterChange
+    $second=Get-LastTask 'GlobalSearch'
+    Expect (-not [object]::ReferenceEquals($second,$first) -and [string]$second.CallbackState.TypeFilter -ceq (Get-TypeLdapFilter 'Groupes')) 'Le changement de type ne relance pas la liste.'
+    Feed-Live (New-ResultRow 'G-Compta' 'gcompta' 'Groupe' '' 'OU=Postes');Finish-Live $second $false
     Expect ($script:Ctrl.UxHistoryBanner.Visibility -eq 'Collapsed') 'Bandeau affiche sur une liste suivie.'
+    # A favourite changes the type and the local filter before its own search.
+    $script:Ctrl.TxtSuiteResultFilter.Text='G'
+    Write-DomeniaOuFavouriteStore -Favourites @([pscustomobject]@{DN='OU=Lyon,DC=example,DC=invalid';Name='Lyon';Subtree=$true;Type='Utilisateurs';Term='compta'})
+    Load-DomeniaFavouriteSearch -Dn 'OU=Lyon,DC=example,DC=invalid'
+    $third=Get-LastTask 'GlobalSearch'
+    Expect ($third.Payload.BaseDn -eq 'OU=Lyon,DC=example,DC=invalid' -and -not [bool]$script:NavSearchLaunching) 'Favori non lance, ou lancement laisse ouvert.'
+    Feed-Live (New-ResultRow 'Alice Compta' 'acompta' 'Utilisateur' '' 'OU=Lyon');Finish-Live $third $false
     $tasks=$script:Tasks.Count
-    [void](Invoke-DomeniaNavStep -Direction Back);[void](Invoke-DomeniaNavStep -Direction Back)
-    Expect ([object]::ReferenceEquals($script:Ctrl.DgObjects.ItemsSource,$firstRows) -and $script:Tasks.Count -eq $tasks) 'Liste non restituee ou relue.'
+    [void](Invoke-DomeniaNavStep -Direction Back)
+    Expect ($script:SelectedBranchDn -eq 'OU=Postes,DC=example,DC=invalid' -and [string]$script:Ctrl.CmbGlobalType.SelectedItem.Content -eq 'Groupes' -and $script:Ctrl.TxtSuiteResultFilter.Text -eq 'G') ('Liste quittee par le favori : type='+[string]$script:Ctrl.CmbGlobalType.SelectedItem.Content+' local='+$script:Ctrl.TxtSuiteResultFilter.Text)
+    [void](Invoke-DomeniaNavStep -Direction Back)
+    Expect ([object]::ReferenceEquals($script:Ctrl.DgObjects.ItemsSource,$firstRows) -and $script:Tasks.Count -eq $tasks -and $null -eq $script:PendingFilterChange) 'Liste non restituee, relue, ou lecture differee lancee.'
     Expect ($script:Ctrl.UxHistoryBanner.Visibility -eq 'Visible') 'Bandeau Liste de lʼhistorique absent.'
-    Expect ([string]$script:Ctrl.CmbGlobalType.SelectedItem.Content -eq 'Machines' -and $script:Ctrl.TxtSuiteResultFilter.Text -eq 'PC' -and $script:Ctrl.TxtBranchSearch.Text -eq '') ('Filtres : type='+[string]$script:Ctrl.CmbGlobalType.SelectedItem.Content+' local='+$script:Ctrl.TxtSuiteResultFilter.Text)
+    Expect ([string]$script:Ctrl.CmbGlobalType.SelectedItem.Content -eq 'Machines' -and $script:Ctrl.TxtSuiteResultFilter.Text -eq 'PC' -and $script:Ctrl.TxtBranchSearch.Text -eq '') ('Liste quittee par le type : type='+[string]$script:Ctrl.CmbGlobalType.SelectedItem.Content+' local='+$script:Ctrl.TxtSuiteResultFilter.Text)
+    # The local filter repaints the grid with a filtered copy: the list is still the history list.
+    $script:Ctrl.TxtSuiteResultFilter.Text='PC-0';Apply-DomeniaPresenceFilter
+    Expect (-not [object]::ReferenceEquals($script:Ctrl.DgObjects.ItemsSource,$firstRows) -and $script:Ctrl.UxHistoryBanner.Visibility -eq 'Visible' -and (Test-DomeniaHistoryListShown)) 'Le bandeau disparait au filtre local.'
     $script:Ctrl.DgObjects.SelectedItem=@($script:Ctrl.DgObjects.Items)[0]
     Select-DomeniaLiveResult
     Expect ($script:LastStatus -match 'historique' -and $script:Tasks.Count -eq $tasks) ('Clic sur une liste de lʼhistorique : '+$script:LastStatus)
     $searches=Get-TaskCount 'GlobalSearch'
     Invoke-DomeniaHistoryRefresh
     $again=Get-LastTask 'GlobalSearch'
-    Expect ((Get-TaskCount 'GlobalSearch') -eq ($searches+1) -and $again.CallbackState.SearchMode -eq 'OU' -and $again.Payload.BaseDn -eq 'OU=Postes,DC=example,DC=invalid') 'Actualiser ne relit pas la meme liste.'
+    Expect ((Get-TaskCount 'GlobalSearch') -eq ($searches+1) -and $again.CallbackState.SearchMode -eq 'OU' -and $again.Payload.BaseDn -eq 'OU=Postes,DC=example,DC=invalid' -and [string]$again.CallbackState.TypeFilter -ceq (Get-TypeLdapFilter 'Machines')) 'Actualiser ne relit pas la meme liste.'
     Expect ((Get-TaskCount @('ComputerPing','LiveSelectedPing','LiveConsole','PresenceScan','ParkSweep')) -eq 0) 'Actualiser a lance un ping ou un releve.'
     Expect ($script:Ctrl.UxHistoryBanner.Visibility -eq 'Collapsed') 'Bandeau toujours affiche apres Actualiser.'
 }

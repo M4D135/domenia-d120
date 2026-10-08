@@ -4639,7 +4639,7 @@ function Get-MainXaml {
                       <StackPanel>
                         <TextBlock x:Name="UxSearchScopeTitle" Text="Périmètre des résultats" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
                         <Grid x:Name="UxSearchScopeInfo"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="0"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                        <ComboBox x:Name="CmbWorkViewScope" Grid.Column="2" Grid.Row="0" VerticalAlignment="Top" SelectedIndex="0" MinWidth="0" MinHeight="0" Height="18" MaxWidth="190" Margin="8,0,0,0" Padding="6,0,4,0" FontSize="11" VerticalContentAlignment="Center" ToolTip="Périmètre des vues de travail : lʼOU choisie dans lʼarbre. Tout le domaine reste un choix explicite, sans ping, détection ni analyse des postes listés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Périmètre des vues de travail" AutomationProperties.HelpText="Périmètre des vues de travail : lʼOU choisie dans lʼarbre. Tout le domaine reste un choix explicite, sans ping, détection ni analyse des postes listés.">
+                        <ComboBox x:Name="CmbWorkViewScope" Grid.Column="2" Grid.Row="0" VerticalAlignment="Top" SelectedIndex="0" MinWidth="0" MinHeight="0" Height="24" MaxWidth="210" Margin="8,0,0,2" Padding="6,0,4,0" FontSize="11.5" VerticalContentAlignment="Center" ToolTip="Périmètre des vues de travail : lʼOU choisie dans lʼarbre. Tout le domaine reste un choix explicite, sans ping, détection ni analyse des postes listés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Périmètre des vues de travail" AutomationProperties.HelpText="Périmètre des vues de travail : lʼOU choisie dans lʼarbre. Tout le domaine reste un choix explicite, sans ping, détection ni analyse des postes listés.">
                           <ComboBoxItem Tag="OU" Content="Vues dans : OU choisie"/>
                           <ComboBoxItem Tag="Domain" Content="Vues sur tout le domaine, sans relevé"/>
                         </ComboBox><TextBlock Text="Dans : tout le domaine | Sous-OU incluses" TextWrapping="NoWrap" Margin="0,0,0,4" Foreground="{DynamicResource AccentText}" FontSize="12" x:Name="LblSearchScope" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" TextTrimming="CharacterEllipsis"/>
@@ -6732,15 +6732,14 @@ function New-TreeItem {
 }
 
 function New-DomeniaTreeRowItem {
-    # One branch returned by TreeChildren. UI-16: a branch read without any sub-branch gets no chevron.
+    # One branch returned by TreeChildren. UI-16: TreeChildren reads one level only (no probe per sub-branch); the
+    # chevron of a branch without sub-branch falls once that branch is read (Queue-DomeniaTreeRowsToNode).
     param($Row)
     if ($null -eq $Row) { return $null }
     $dn = [string]$Row.DN
     if ([string]::IsNullOrWhiteSpace($dn)) { return $null }
     $prefix = if ([string]$Row.Kind -eq "OU") { "OU" } else { "CN" }
-    $item = New-TreeItem -Name "$prefix  $([string]$Row.Name)" -Dn $dn -Kind ([string]$Row.Kind)
-    if (-not (Test-DomeniaTreeRowExpandable $Row)) { $item.Items.Clear(); $item.Tag.Loaded = $true }
-    return $item
+    return (New-TreeItem -Name "$prefix  $([string]$Row.Name)" -Dn $dn -Kind ([string]$Row.Kind))
 }
 
 function New-DomeniaTreeSystemGroup {
@@ -9738,35 +9737,11 @@ foreach ($r in @($s.FindAll())) {
     $type = Get-WObjectType $r.Properties
     $dn = [string](Get-WPropFirst $r.Properties "distinguishedname" "")
     if ([string]::IsNullOrWhiteSpace($dn)) { continue }
-    [void]$rows.Add([pscustomobject]@{ Name=[string](Get-WPropFirst $r.Properties "name" ""); DN=$dn; Kind=$type; HasChildren=$null })
-}
-# UI-16: one bounded existence check per branch (one entry at most) says whether it holds sub-branches, so that a
-# leaf gets no chevron. Above ProbeMax branches or past the time budget the answer stays unknown (chevron kept).
-$probeMax = [Math]::Max(0,[Math]::Min(200,[int]$Payload.ProbeMax))
-$budgetMs = [Math]::Max(500,[Math]::Min(10000,[int]$Payload.ProbeBudgetMs))
-$budget = [Diagnostics.Stopwatch]::StartNew()
-if ($rows.Count -le $probeMax) {
-    foreach ($row in $rows) {
-        if ($budget.ElapsedMilliseconds -gt $budgetMs) { break }
-        $probe = $null
-        $probeRoot = $null
-        try {
-            $probe = New-WSearcher $Context ([string]$row.DN) $filter @("distinguishedName") "OneLevel" 1
-            $probe.ServerTimeLimit = [TimeSpan]::FromSeconds(3)
-            $probe.ClientTimeout = [TimeSpan]::FromSeconds(5)
-            $probeRoot = $probe.SearchRoot
-            $row.HasChildren = ($null -ne $probe.FindOne())
-        }
-        catch { $row.HasChildren = $null }
-        finally {
-            try { if ($null -ne $probe) { $probe.Dispose() } } catch { }
-            try { if ($null -ne $probeRoot) { $probeRoot.Dispose() } } catch { }
-        }
-    }
+    [void]$rows.Add([pscustomobject]@{ Name=[string](Get-WPropFirst $r.Properties "name" ""); DN=$dn; Kind=$type })
 }
 [pscustomobject]@{ Rows=@($rows | Sort-Object Name) }
 '@
-        Start-UiTask -Name "Arborescence $name" -OperationId "TreeChildren" -Code $code -Payload ([pscustomobject]@{ DN=$dn; ProbeMax=100; ProbeBudgetMs=4000 }) -CallbackState ([pscustomobject]@{ Node=$Node; DN=$dn; Name=$name; PreserveExisting=[bool]$PreserveExisting; PreviousItems=@($previousItems); PreviousLoaded=$previousLoaded }) -ReplaceKey "tree:$dn" -TimeoutSeconds ([int](Get-CfgValue "Async" "TreeTimeoutSeconds" 30)) -StatusText "Chargement des sous-branches de $name..." -SuccessHandler "Complete-DomeniaTreeChildrenUi" -ErrorHandler "Fail-DomeniaTreeChildrenUi" | Out-Null
+        Start-UiTask -Name "Arborescence $name" -OperationId "TreeChildren" -Code $code -Payload ([pscustomobject]@{ DN=$dn }) -CallbackState ([pscustomobject]@{ Node=$Node; DN=$dn; Name=$name; PreserveExisting=[bool]$PreserveExisting; PreviousItems=@($previousItems); PreviousLoaded=$previousLoaded }) -ReplaceKey "tree:$dn" -TimeoutSeconds ([int](Get-CfgValue "Async" "TreeTimeoutSeconds" 30)) -StatusText "Chargement des sous-branches de $name..." -SuccessHandler "Complete-DomeniaTreeChildrenUi" -ErrorHandler "Fail-DomeniaTreeChildrenUi" | Out-Null
     }
     catch {
         $message = [string]$_.Exception.Message
@@ -9991,9 +9966,12 @@ function Clear-DomeniaGlobalSearch {
 }
 
 function Invoke-GlobalSearch {
+    # D037 / UX-33: -ViewScope, -ExpectBaseDn and -ExpectScope let 'Charger la suite' read the same perimeter again
+    # (view chip choice, base and depth of the list), whatever the chip or the tree show now.
     param([switch]$SilentError,[switch]$AllowEmpty,[switch]$PreserveSelection,
         [ValidateSet('Global','OU')][string]$SearchMode = 'Global',
-        [string]$ViewId = '',[int]$LimitOverride = 0)
+        [string]$ViewId = '',[int]$LimitOverride = 0,
+        [ValidateSet('','OU','Domain')][string]$ViewScope = '',[string]$ExpectBaseDn = '',[string]$ExpectScope = '')
 
     if(Test-DomeniaAccessBusyWrite){Set-Status 'Recherche différée : écriture active ou à vérifier.' 'WARN';return}
     if(-not (Test-DomeniaDraftNavigation -DN "")){return}
@@ -10005,6 +9983,7 @@ function Invoke-GlobalSearch {
         # D038: a work view is a read-only filter chosen in a list. It replaces the typed text of its
         # own mode and never carries an account, a right or a write mode.
         $view = $null
+        $viewChoice = ''
         if (-not [string]::IsNullOrWhiteSpace($ViewId)) {
             $view = @(Get-DomeniaWorkViews | Where-Object { [string]$_.Id -ceq $ViewId } | Select-Object -First 1)
             if ($view.Count -eq 0) { Set-Status 'Vue de travail inconnue : aucune recherche lancée.' 'WARN'; return }
@@ -10012,7 +9991,8 @@ function Invoke-GlobalSearch {
             # UX-33: the view applies to the OU chosen in the tree; the whole domain only on the explicit secondary
             # choice of the 'Dans :' chip, and such a list never offers a survey of its workstations.
             $viewChoice = 'OU'
-            if ($null -ne (Get-Command Get-DomeniaWorkViewScopeChoice -CommandType Function -ErrorAction SilentlyContinue)) { $viewChoice = Get-DomeniaWorkViewScopeChoice }
+            if ($ViewScope) { $viewChoice = $ViewScope }
+            elseif ($null -ne (Get-Command Get-DomeniaWorkViewScopeChoice -CommandType Function -ErrorAction SilentlyContinue)) { $viewChoice = Get-DomeniaWorkViewScopeChoice }
             $viewOu = Get-DomeniaSearchScope -Mode OU
             $viewOuName = ''
             if ($null -ne (Get-Command Get-DomeniaUxOuDisplay -CommandType Function -ErrorAction SilentlyContinue)) { try { $viewOuName = [string](Get-DomeniaUxOuDisplay -DistinguishedName ([string]$viewOu.BaseDn) -IsDomain ([bool]$viewOu.IsDomain)).Name } catch { } }
@@ -10024,6 +10004,11 @@ function Invoke-GlobalSearch {
 
         $textValue = Get-DomeniaSearchText -Mode $SearchMode
         $scope = Get-DomeniaSearchScope -Mode $SearchMode
+        # D037: a continuation reads the perimeter of its list or nothing.
+        if (($ExpectBaseDn -and -not [string]::Equals([string]$scope.BaseDn,$ExpectBaseDn,[StringComparison]::OrdinalIgnoreCase)) -or ($ExpectScope -and [string]$scope.Scope -ne $ExpectScope)) {
+            Set-Status 'Suite non chargée : le périmètre de la liste a changé. Relancez la recherche.' 'WARN'
+            return
+        }
         $isBrowse = [string]::IsNullOrWhiteSpace($textValue)
         $minChars = [Math]::Max(1,[int](Get-CfgValue "Browser" "GlobalSearchMinChars" 2))
         if (-not $isBrowse -and $textValue.Length -lt $minChars -and $textValue -ne "*") {
@@ -10100,6 +10085,9 @@ function Invoke-GlobalSearch {
         }
 
         $typeFilter = Get-GlobalSelectedTypeFilter -Mode $SearchMode
+        # UX-25: the object type shown when this list is produced comes back with it from the history.
+        $typeLabel = 'Tous'
+        try { $typeItem = (Get-DomeniaControl -Name 'CmbGlobalType').SelectedItem; if ($null -ne $typeItem -and [string]$typeItem.Content) { $typeLabel = [string]$typeItem.Content } } catch { }
         $prefixFilter = ""
         $fastFilter = ""
         $exactFilter = ""
@@ -10393,6 +10381,8 @@ $watch.Stop()
             Generation = $generation
             ViewId = [string]$script:ActiveSearchViewId
             SurveyAllowed = (-not [bool]$script:ListSurveyBlocked)
+            ViewChoice = [string]$viewChoice
+            TypeLabel = $typeLabel
         }
 
         # D031: the request actually sent by the upper bar is checked against the strict global contract.
@@ -21107,7 +21097,7 @@ function Get-DomeniaWorkerOperationHashes {
         ParkSharedSync        = "B3A64051813F12A24BD5E791D59CF7E2330FA84E965C9F44BD62366D4A81415E"
         IsolatedRead          = "4074D6ECAA620A9C80A5B6B535BB657E02DCE06A9DF97E35CA1EA47572D1060C"
         CmdletHelp            = "12505D0654AB0E97BD803A70B953BB0BBE2152836AAA1889744C1312EB215D62"
-        TreeChildren          = "6B13460FDFD352D329FE2AD973A27DB4DD40083D717A573F0979024E5DFB6539"
+        TreeChildren          = "64E2C2F8DCE64FBF68A3079937B7671039CA4E71EC00805A7E9195CC9C483141"
         GlobalSearch          = "DFCA576AEC76E948F20D4E51AC47F657C4482BACD992D4A384E8E9FEC65A2819"
         PermissionAnalysis    = "664513B3CF363C35CA895100374950039EAE9B69DD288AD5AE53F862EC10A340"
         SelfCheck             = "C73BA6DA41221073BF1B56DA687BC8CF2A3250B5151F3D996C37EAFAA8E572B3"
@@ -21171,7 +21161,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "7BC03CFC4FE0F70063283932EC28F4DCC5BD2C36334AE19EBAA90E53D9B804E8"
+    $expectedFingerprint = "7F45EED4CFF092484EE3DCDD359FFA311EFBC6F177B5223F0C87AE3E97C8D86E"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
