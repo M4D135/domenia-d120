@@ -43,7 +43,11 @@ $wanted=@('Write-DomeniaAtomicText','Read-DomeniaPreference','Write-DomeniaPrefe
     'Complete-DomeniaDetachedReadJobs','Initialize-DomeniaWinSqliteNative','New-DomeniaUtf8Ptr','ConvertFrom-DomeniaUtf8Ptr',
     'Open-DomeniaDatabase','Close-DomeniaDatabase','Invoke-DomeniaDbExec','Invoke-DomeniaDbQuery','ConvertTo-DomeniaSqlLiteral',
     'Get-DomeniaDatabasePath','Get-DomeniaStoreBackupDirectory','Backup-DomeniaDatabase','Search-DomeniaDatabaseRows',
-    'Get-DomeniaWorkerOperationHashes','Assert-DomeniaWorkerRegistry','Get-DomeniaWorkerCodeHash','ConvertTo-DomeniaCanonicalWorkerCode','Assert-DomeniaWorkerOperationCode')
+    'Get-DomeniaWorkerOperationHashes','Assert-DomeniaWorkerRegistry','Get-DomeniaWorkerCodeHash','ConvertTo-DomeniaCanonicalWorkerCode','Assert-DomeniaWorkerOperationCode',
+    # L02: Domenia.log writer (FI-08, FI-09, FI-10, PF-09) and the common CSV export (CO-04, UX-02).
+    'ConvertTo-DomeniaLogFileLines','Get-DomeniaAppLogFallbackPaths','Write-DomeniaAppLogFile','Start-DomeniaAppLogFlushTimer','Stop-DomeniaAppLogQueue',
+    'Invoke-DomeniaAppLogRotation','Flush-DomeniaAppLog','Set-DomeniaAppLogAvailability','Set-Status',
+    'Get-DomeniaGridExportColumns','ConvertTo-DomeniaExportRows','Get-DomeniaExportFileName','Export-DomeniaCsv','Get-DomeniaCsvDelimiter')
 $definitions=New-Object 'System.Collections.Generic.List[string]'
 $nodes=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst]},$true))
 foreach($name in $wanted) {
@@ -69,6 +73,7 @@ function Write-AppLog {param($Text,$Level);$script:TestMessages.Add([string]$Tex
 function Get-DomeniaControl {param($Name);if($Name -eq 'DgSecrets'){return $script:TestGrid};return $null}
 function Set-DomeniaItemsSource {param($Name,$Rows);$script:TestBoundRows=@($Rows);return $true}
 function Update-DomeniaSecretActionUi { }
+function Add-DomeniaUiLog {param($Text,$Level,$Area)}
 try {
     Test-Case 'Ecriture atomique UTF-8 et derniere version valide' {
         $p=Join-Path $script:DataDir 'atomic.json'
@@ -130,6 +135,111 @@ try {
         Assert-True ($round.Count -eq 1) ('Aller-retour CSV : '+$round.Count+' ligne(s) ; brut <'+$raw+'> ; culture '+$culture)
         Assert-True ($round[0].Name -ceq "'=2+2") ('Aller-retour CSV, Name : '+$roundText+' ; brut <'+$raw+'> ; culture '+$culture)
         Assert-True ($round[0].Description -ceq 'a,"b"') ('Aller-retour CSV, Description : '+$roundText+' ; brut <'+$raw+'> ; culture '+$culture)
+    }
+    # ---------------------------------------------------------------- L02 : Domenia.log et export CSV
+    Test-Case 'Journal FI-09 : CR, LF et TAB echappes, pile sur des lignes |' {
+        $t=[datetime]'2026-10-08T10:11:12.345'
+        $text="Valeur AD`r`n2026-10-08 10:00:00.000`tERROR`tAD=x`tWIN=y`tligne forgee`nSystem.Exception: panne`r`n   at Domenia.Test.Run()`r`n   à Domenia.Test.Start()"
+        $lines=@(ConvertTo-DomeniaLogFileLines -Time $t -Level 'ERROR' -AdIdentity 'EXEMPLE\lecteur' -WinIdentity 'EXEMPLE\tech' -Text $text)
+        Assert-True ($lines.Count -eq 3) ('Lignes : '+$lines.Count+' <'+($lines -join '|')+'>')
+        Assert-True (@($lines|Where-Object{$_.Contains("`r") -or $_.Contains("`n")}).Count -eq 0) 'Retour a la ligne brut dans une ligne du journal.'
+        Assert-True ($lines[0].StartsWith("2026-10-08 10:11:12.345`tERROR`tAD=EXEMPLE\lecteur`tWIN=EXEMPLE\tech`t")) $lines[0]
+        Assert-True ($lines[0].Split("`t").Count -eq 5) ('Champs : '+$lines[0].Split("`t").Count)
+        Assert-True ($lines[0].Contains('Valeur AD\n2026-10-08 10:00:00.000\tERROR\tAD=x\tWIN=y\tligne forgee\nSystem.Exception: panne')) $lines[0]
+        Assert-True ($lines[1] -ceq "2026-10-08 10:11:12.345`tERROR`t| at Domenia.Test.Run()") $lines[1]
+        Assert-True ($lines[2] -ceq "2026-10-08 10:11:12.345`tERROR`t| à Domenia.Test.Start()") $lines[2]
+    }
+    Test-Case 'Journal FI-08 : WARN et ERROR de Set-Status ecrits dans Domenia.log' {
+        $script:Window=$null;$script:AppLogQueue=$null;$script:AppLogUnavailable=$false
+        $script:AuditPath=Join-Path $testDirectory 'statut-Domenia.log'
+        Set-Status 'Releve impossible (test FI-08).' 'WARN'
+        Set-Status 'Information seulement (test FI-08).'
+        Set-Status 'Lecture refusee (test FI-08).' 'ERROR'
+        $journal=[IO.File]::ReadAllText($script:AuditPath)
+        Assert-True ($journal.Contains("`tWARN`t") -and $journal.Contains('Releve impossible (test FI-08).')) $journal
+        Assert-True ($journal.Contains("`tERROR`t") -and $journal.Contains('Lecture refusee (test FI-08).')) $journal
+        Assert-True (-not $journal.Contains('Information seulement')) 'Un statut INFO est ecrit dans Domenia.log.'
+    }
+    Test-Case 'Journal FI-10 : repli LOCALAPPDATA puis TEMP, puis retour sur Domenia.log' {
+        $saved=@{Local=$env:LOCALAPPDATA;Temp=$env:TEMP;Tmp=$env:TMP;Audit=$script:AuditPath}
+        try {
+            $script:Window=$null;$script:AppLogQueue=$null;$script:AppLogUnavailable=$false
+            $blocker=Join-Path $testDirectory 'bloque';[IO.File]::WriteAllText($blocker,'x')
+            $script:AuditPath=Join-Path $blocker 'Domenia.log'
+            $env:LOCALAPPDATA=Join-Path $testDirectory 'profil-local'
+            Write-DomeniaAppLogFile -Text 'Ligne de repli LOCALAPPDATA.' -Level 'WARN'
+            $local=Join-Path $env:LOCALAPPDATA 'DOMENIA\Logs\Domenia.log'
+            Assert-True ([IO.File]::Exists($local) -and [IO.File]::ReadAllText($local).Contains('Ligne de repli LOCALAPPDATA.')) 'Repli LOCALAPPDATA absent.'
+            Assert-True ([bool]$script:AppLogUnavailable -and ([string]$script:AppLogFallbackPath -eq $local)) 'Pastille Journal indisponible non armee.'
+            $env:LOCALAPPDATA=Join-Path $blocker 'profil'
+            $env:TEMP=Join-Path $testDirectory 'temp-repli';$env:TMP=$env:TEMP
+            Write-DomeniaAppLogFile -Text 'Ligne de repli TEMP.' -Level 'WARN'
+            $tempLog=Join-Path ([IO.Path]::GetTempPath()) 'DOMENIA\Logs\Domenia.log'
+            Assert-True ($tempLog.StartsWith($env:TEMP) -and [IO.File]::Exists($tempLog) -and [IO.File]::ReadAllText($tempLog).Contains('Ligne de repli TEMP.')) ('Repli TEMP absent : '+$tempLog)
+            $script:AuditPath=Join-Path $testDirectory 'retour-Domenia.log'
+            Write-DomeniaAppLogFile -Text 'Ligne de retour.' -Level 'INFO'
+            $back=[IO.File]::ReadAllText($script:AuditPath)
+            Assert-True ($back.Contains('Ligne de retour.') -and $back.Contains($tempLog) -and (-not [bool]$script:AppLogUnavailable)) $back
+        } finally {
+            $env:LOCALAPPDATA=$saved.Local;$env:TEMP=$saved.Temp;$env:TMP=$saved.Tmp;$script:AuditPath=$saved.Audit
+            $script:AppLogUnavailable=$false;$script:AppLogFallbackPath=''
+        }
+    }
+    Test-Case 'Journal PF-09 : file en memoire videe a la fermeture' {
+        Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
+        $script:AppLogQueue=$null;$script:AppLogUnavailable=$false;$script:AppLogFlushTimer=$null;$script:AppLogFlushWindow=$null;$script:AppLogQueueClosed=$false
+        $script:AuditPath=Join-Path $testDirectory 'file-Domenia.log'
+        $script:Window=[Windows.Window]::new()
+        try {
+            Write-DomeniaAppLogFile -Text 'Ligne en file (test PF-09).' -Level 'INFO'
+            Assert-True ($null -ne $script:AppLogFlushTimer -and $script:AppLogQueue.Count -ge 1) 'La ligne n est pas passee par la file.'
+            Assert-True (-not [IO.File]::Exists($script:AuditPath)) 'Ecriture disque immediate sur le fil de l interface.'
+            Stop-DomeniaAppLogQueue
+            Assert-True ([IO.File]::ReadAllText($script:AuditPath).Contains('Ligne en file (test PF-09).')) 'File non videe a la fermeture.'
+            Write-DomeniaAppLogFile -Text 'Ligne apres fermeture.' -Level 'INFO'
+            Assert-True ([IO.File]::ReadAllText($script:AuditPath).Contains('Ligne apres fermeture.')) 'Ligne perdue apres fermeture.'
+        } finally {
+            if($null -ne $script:AppLogFlushTimer){$script:AppLogFlushTimer.Stop()}
+            $script:AppLogFlushTimer=$null;$script:Window.Close();$script:Window=$null;$script:AppLogQueueClosed=$false;$script:AppLogFlushWindow=$null
+        }
+    }
+    Test-Case 'CSV CO-04 : separateur point-virgule, BOM, colonnes visibles et en-tetes francais' {
+        Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
+        $grid=[Windows.Controls.DataGrid]::new()
+        foreach($spec in @(@('Nom','Name',$true),@('Interne','Guid',$false),@('Type','Type',$true))){
+            $col=[Windows.Controls.DataGridTextColumn]::new();$col.Header=$spec[0];$col.Binding=[Windows.Data.Binding]::new($spec[1])
+            if(-not $spec[2]){$col.Visibility='Collapsed'};[void]$grid.Columns.Add($col)
+        }
+        $template=[Windows.Controls.DataGridTemplateColumn]::new();$template.Header='Présence réseau';$template.SortMemberPath='Presence';[void]$grid.Columns.Add($template)
+        $columns=@(Get-DomeniaGridExportColumns -Grid $grid)
+        Assert-True ((($columns|ForEach-Object{$_.Header}) -join '|') -ceq 'Nom|Type|Présence réseau') ('Colonnes : '+(($columns|ForEach-Object{$_.Header}) -join '|'))
+        $rows=@([pscustomobject]@{Name='=2+2';Type='Machine';Guid='0a1b';Presence='En ligne';PresenceDetail="Multi`r`nligne"},[pscustomobject]@{Name='PC-02';Type='Machine';Guid='0c1d';Presence='Hors ligne';PresenceDetail=''})
+        $out=Join-Path $testDirectory 'export-co04.csv'
+        $result=Export-DomeniaCsv -Rows $rows -Grid $grid -Path $out
+        $bytes=[IO.File]::ReadAllBytes($out)
+        Assert-True (($bytes[0] -eq 0xEF) -and ($bytes[1] -eq 0xBB) -and ($bytes[2] -eq 0xBF)) 'UTF-8 sans BOM.'
+        $text=[IO.File]::ReadAllText($out)
+        $first=($text -split "\r?\n")[0]
+        Assert-True ($first -ceq '"Nom";"Type";"Présence réseau"') ('En-tete : '+$first)
+        Assert-True ((-not $text.Contains('0a1b')) -and (-not $text.Contains('Multi'))) 'Colonne masquee ou propriete interne exportee.'
+        Assert-True ($text.Contains("""'=2+2""") -and ($result.RowCount -eq 2)) $text
+        $round=@(Import-Csv -LiteralPath $out -Delimiter ';' -Encoding UTF8)
+        Assert-True (($round.Count -eq 2) -and ($round[1].Nom -ceq 'PC-02')) 'Relecture point-virgule impossible.'
+    }
+    Test-Case 'CSV UX-02 : nom Domenia-<OU ou poste>-AAAAMMJJ-HHmm, jamais d ecrasement' {
+        $name=Get-DomeniaExportFileName -Subject 'Postes / Paris' -Time ([datetime]'2026-10-08T14:30:59')
+        Assert-True ($name -ceq 'Domenia-Postes-Paris-20261008-1430.csv') $name
+        Assert-True ((Get-DomeniaExportFileName -Subject '' -Time ([datetime]'2026-10-08T14:30:00')) -ceq 'Domenia-export-20261008-1430.csv') 'Sujet vide.'
+        $dir=Join-Path $testDirectory 'exports';[void][IO.Directory]::CreateDirectory($dir)
+        $one=Export-DomeniaCsv -Rows @([pscustomobject]@{Nom='A'}) -Directory $dir -Subject 'PC-01'
+        $two=Export-DomeniaCsv -Rows @([pscustomobject]@{Nom='B'}) -Directory $dir -Subject 'PC-01'
+        Assert-True ($one.Path -ne $two.Path -and [IO.File]::Exists($one.Path) -and [IO.File]::ReadAllText($one.Path).Contains('"A"')) ($one.Path+' / '+$two.Path)
+        Assert-True ([IO.Path]::GetFileName($one.Path) -match '^Domenia-PC-01-\d{8}-\d{4}\.csv$') $one.Path
+    }
+    Test-Case 'CSV : import accepte le point-virgule de Domenia et la virgule historique' {
+        $semi=Join-Path $testDirectory 'liens-semi.csv';[IO.File]::WriteAllText($semi,"""UserLogin"";""Computer""`r`n""a"";""PC-1""",[Text.UTF8Encoding]::new($true))
+        $comma=Join-Path $testDirectory 'liens-comma.csv';[IO.File]::WriteAllText($comma,"""UserLogin"",""Computer""`r`n""a"",""PC-1""")
+        Assert-True (((Get-DomeniaCsvDelimiter -Path $semi) -eq ';') -and ((Get-DomeniaCsvDelimiter -Path $comma) -eq ',')) 'Separateur mal detecte.'
     }
     Test-Case 'LIKE : echappement independant du SQL' {
         Assert-True ((ConvertTo-DomeniaSqlLikeText 'pc_20%!') -ceq 'pc!_20!%!!')

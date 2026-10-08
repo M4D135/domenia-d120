@@ -57,7 +57,11 @@ $coreNames=@('Protect-DomeniaLogText','ConvertTo-DomeniaErrorInfo','Show-Domenia
     'Update-SecretsGrid','Get-DomeniaSelectedSecretSource','Test-DomeniaSecretCallbackCurrent','Clear-DomeniaSecretResultValues','Complete-DomeniaSecretLoadUi','Fail-DomeniaSecretLoadUi','Start-LoadComputerSecrets',
     'Toggle-SecretsVisibility','Copy-SelectedSecret','Copy-AllSecrets','Update-DomeniaSecretActionUi','Test-DomeniaControlIsBusy',
     'New-DomeniaWorkerRunspace','ConvertTo-DomeniaCanonicalWorkerCode','Get-DomeniaWorkerCodeHash','Get-DomeniaWorkerOperationHashes','Assert-DomeniaWorkerOperationCode',
-    'Get-DomeniaBootThemePalette','Get-DomeniaBootThemeResources','Convert-DomeniaXamlToBootTheme')
+    'Get-DomeniaBootThemePalette','Get-DomeniaBootThemeResources','Convert-DomeniaXamlToBootTheme',
+    # L02: incident code of Show-DomeniaOperationError and queued Domenia.log writer of Write-AppLog.
+    'New-DomeniaIncidentCode','Get-DomeniaErrorSignature','Register-DomeniaErrorOccurrence',
+    'ConvertTo-DomeniaLogFileLines','Get-DomeniaAppLogFallbackPaths','Write-DomeniaAppLogFile','Start-DomeniaAppLogFlushTimer','Stop-DomeniaAppLogQueue',
+    'Invoke-DomeniaAppLogRotation','Flush-DomeniaAppLog','Set-DomeniaAppLogAvailability')
 foreach($name in $coreNames){. ([scriptblock]::Create((Get-CoreFunctionText $name)))}
 $script:RealAssertWorker=${function:Assert-DomeniaWorkerOperationCode}
 $script:RealShowAlternate=${function:Show-DomeniaAlternateCredential}

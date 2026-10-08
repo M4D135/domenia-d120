@@ -154,6 +154,9 @@ function Request-DomeniaAccessRecovery {
     $job=$script:AccessCurrentJob
     if($null -ne $job -and $null -ne $job.PSObject.Properties['SessionEpoch'] -and [long]$job.SessionEpoch -ne [long]$script:SessionEpoch){return $false}
     if(-not $OperationId -and $null -ne $job){$OperationId=[string]$job.OperationId}
+    # FI-15: without a task whose operation needs an account, a refusal is local (file, folder, local store):
+    # another AD account cannot help. The suspended AD channel keeps its own route back to the main login.
+    if(-not $OperationId -and [string]$ErrorValue -notmatch '(?i)Canal Active Directory suspendu'){return $false}
     if($OperationId){
         $needs=Get-DomeniaOperationCredentialNeeds $OperationId
         if(-not ([bool]$needs.DirectoryCredential -or [bool]$needs.Machine -or [bool]$needs.RemoteAdmin -or [bool]$needs.Secrets)){return $false}

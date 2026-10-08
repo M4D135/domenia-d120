@@ -50,6 +50,11 @@ try {
         'Get-DomeniaWorkerOperationHashes','ConvertTo-DomeniaCanonicalWorkerCode','Get-DomeniaWorkerCodeHash','Assert-DomeniaWorkerOperationCode')){
         . ([scriptblock]::Create((Get-FunctionAst $script:CoreAst $name).Extent.Text))
     }
+    # L02: incident code, error signature, dispatcher handler, engine fault and fatal report of the shipped core.
+    foreach($name in @('Protect-DomeniaLogText','New-DomeniaIncidentCode','Get-DomeniaErrorSignature','Register-DomeniaErrorOccurrence','Invoke-DomeniaDispatcherFault',
+        'Register-DomeniaAsyncEngineFault','Get-DomeniaFatalMessage','Test-DomeniaMainHostAvailable','Assert-DomeniaWorkerRegistry','Get-DomeniaWorkerEngineSelfTestCode','Initialize-AsyncEngine')){
+        . ([scriptblock]::Create((Get-FunctionAst $script:CoreAst $name).Extent.Text))
+    }
     $assignment=@($script:CoreAst.FindAll({param($n)$n -is [Management.Automation.Language.AssignmentStatementAst] -and $n.Left.Extent.Text -eq '$script:WorkerCommon' -and $n.Operator -eq [Management.Automation.Language.TokenKind]::Equals},$true))
     if($assignment.Count -ne 1){throw 'Code commun des workers introuvable.'}
     $literal=$assignment[0].Right.Find({param($n)$n -is [Management.Automation.Language.StringConstantExpressionAst]},$true)
@@ -351,6 +356,121 @@ try {
         Assert-True ($blocked.Length -gt 0) 'Nouvelle ecriture autorisee avant verification.'
         Assert-True (@($script:Dialogs|Where-Object{$_ -match 'Aucun rejeu automatique'}).Count -eq 1 -and $script:Dispatched -eq 0) 'Rejeu ou message manquant.'
         Assert-True (@(@($script:StatusLog)+@($script:Dialogs)|Where-Object{$_ -match '(?i)\breussi|succes|Operation verifiee'}).Count -eq 0) 'Reussite annoncee sur une issue incertaine.'
+    }
+    # ------------------------------------------------------------ L02 : FI-15 erreur locale prise pour un refus de compte
+    Test-Case 'FI-15 : acces fichier refuse hors tache AD, aucune proposition de changer de compte' {
+        Reset-FaultFixture
+        $local="Access to the path 'C:\DomeniaLab\Exports\liste.csv' is denied."
+        $offered=Request-DomeniaAccessRecovery -Operation 'Action demandee' -ErrorValue $local -Interactive
+        Assert-True (-not $offered) 'Un autre compte AD est propose pour un fichier local refuse.'
+        Assert-True ($script:AccessState.Pending.Count -eq 0) ('Avis de droits cree pour un fichier local : '+$script:AccessState.Pending.Count)
+        [void](Request-DomeniaAccessRecovery -Operation 'Operation a verifier' -ErrorValue $local)
+        Assert-True ($script:AccessState.Pending.Count -eq 0) 'Un statut WARN/ERROR local alimente le badge d acces.'
+    }
+    Test-Case 'FI-15 : refus venu d une tache qui exige un compte, reprise toujours proposee' {
+        Reset-FaultFixture
+        $script:AccessCurrentJob=[pscustomobject]@{OperationId='ReadLaps';SessionEpoch=1L;IsWrite=$false;CallbackState=[pscustomobject]@{DN=$script:SelectedObject.DN;Generation=1L}}
+        try { [void](Request-DomeniaAccessRecovery -Operation 'Lecture LAPS' -ErrorValue 'Acces refuse' -Interactive) }
+        finally { $script:AccessCurrentJob=$null }
+        Assert-True ($script:AccessState.Pending.Count -eq 1) ('Refus AD reel non signale : '+$script:AccessState.Pending.Count)
+    }
+
+    # ------------------------------------------------------------ L02 : FI-01, FI-02, FI-07, FI-22
+    Test-Case 'FI-01 : exception levee pendant l affichage d une erreur, journalisee et comptee' {
+        Reset-FaultFixture
+        $script:DomeniaErrorOccurrences=$null;$script:HandlingDispatcherException=$false;$script:CurrentUiProfile='Tech'
+        $logs=[Collections.Generic.List[string]]::new()
+        function Write-AppLog {param($Text,$Level) $logs.Add([string]$Text)}
+        # The box of the first error pumps a frame in which a timer raises a second, different exception.
+        $script:SecondFault=[InvalidOperationException]::new('Seconde panne pendant l affichage (simulation).')
+        function Show-ErrorBox {param($Message,$Details)
+            $script:Dialogs.Add('ERREUR '+[string]$Message)
+            if($null -ne $script:SecondFault){$f=$script:SecondFault;$script:SecondFault=$null;$script:Nested=Invoke-DomeniaDispatcherFault -Exception $f}
+        }
+        $first=Invoke-DomeniaDispatcherFault -Exception ([NullReferenceException]::new('Premiere panne (simulation).'))
+        Assert-True ([bool]$script:Nested.Queued -and [bool]$script:Nested.Logged) 'La seconde exception n a pas ete journalisee pendant l affichage.'
+        Assert-True (@($logs|Where-Object{$_ -match 'Seconde panne' -and $_ -match [regex]::Escape($script:Nested.Code)}).Count -eq 1) ('Journal : '+($logs -join ' | '))
+        Assert-True (@($logs|Where-Object{$_ -match 'Premiere panne' -and $_ -match [regex]::Escape($first.Code)}).Count -eq 1) 'Premiere erreur absente du journal.'
+        Assert-True ($first.Shown -and $first.Others -eq 1 -and @($script:Dialogs).Count -eq 1) ('Fenetres : '+@($script:Dialogs).Count+' ; autres : '+$first.Others)
+        Assert-True (@($script:StatusLog|Where-Object{$_ -match '1 autre erreur' -and $_ -match [regex]::Escape($first.Code)}).Count -eq 1) ('Statuts : '+($script:StatusLog -join ' | '))
+        Assert-True (-not $script:HandlingDispatcherException) 'Drapeau d affichage reste leve.'
+        Assert-True (-not ((@($script:Dialogs)+@($script:StatusLog)) -join ' ').Contains('Premiere panne')) 'Message .NET brut affiche en Essentiel (UI-02).'
+    }
+    Test-Case 'FI-02 : meme erreur repetee, un seul code, une banniere comptee et une ligne par minute' {
+        Reset-FaultFixture
+        $script:DomeniaErrorOccurrences=$null;$script:HandlingDispatcherException=$false
+        $logs=[Collections.Generic.List[string]]::new()
+        function Write-AppLog {param($Text,$Level) $logs.Add([string]$Text)}
+        $codes=@{}
+        for($i=0;$i -lt 12;$i++){$r=Invoke-DomeniaDispatcherFault -Exception ([InvalidOperationException]::new('Panne repetee (simulation).'));$codes[$r.Code]=$true}
+        Assert-True ($codes.Count -eq 1) ('Codes differents pour la meme erreur : '+$codes.Count)
+        Assert-True (@($logs).Count -eq 1) ('Lignes de journal pour 12 occurrences : '+@($logs).Count)
+        # Without the page banner (no main window), a repeated error never opens a new box.
+        Assert-True (@($script:Dialogs).Count -eq 1) ('Boites ouvertes : '+@($script:Dialogs).Count)
+        $t0=[datetime]'2026-10-08T10:00:00'
+        $engine=@(for($i=0;$i -lt 240;$i++){Register-DomeniaErrorOccurrence -Signature 'System.Exception|Moteur (simulation)|Moteur asynchrone' -Now $t0.AddMilliseconds(250*$i)})
+        Assert-True (@($engine|Where-Object{$_.Write}).Count -eq 1) ('Lignes en une minute de ticks : '+@($engine|Where-Object{$_.Write}).Count)
+        Assert-True ($engine[239].Count -eq 240 -and @($engine|ForEach-Object{$_.Code}|Select-Object -Unique).Count -eq 1) 'Compteur ou code incoherent.'
+        Assert-True ((Register-DomeniaErrorOccurrence -Signature 'System.Exception|Moteur (simulation)|Moteur asynchrone' -Now $t0.AddSeconds(121)).Write) 'Aucune ligne apres une minute.'
+        $other=Register-DomeniaErrorOccurrence -Signature 'System.Exception|Autre panne|Moteur asynchrone' -Now $t0.AddSeconds(1)
+        Assert-True ($other.Write -and $other.New -and $other.Code -ne $engine[0].Code) 'Une autre erreur est masquee par le dedoublonnage.'
+    }
+    Test-Case 'FI-02 : minuteur du moteur en panne arrete apres 3 echecs, sans boucle de fenetres' {
+        Reset-FaultFixture
+        $script:DomeniaErrorOccurrences=$null;$script:EngineTicks=0;$script:EngineLogs=[Collections.Generic.List[string]]::new()
+        $savedLog=${function:Write-AppLog}
+        function script:Write-StartupTrace {param($Stage,$Status,$Detail,$DurationMs)}
+        function script:Complete-UiTasks {$script:EngineTicks++;throw [InvalidOperationException]::new('Panne du moteur (simulation).')}
+        function script:Write-AppLog {param($Text,$Level) $script:EngineLogs.Add([string]$Text)}
+        try {
+            $script:AsyncEngineReady=$false;$script:AsyncTimer=$null
+            Initialize-AsyncEngine
+            Assert-True ($script:AsyncTimer.IsEnabled) 'Moteur non demarre.'
+            $frame=[Windows.Threading.DispatcherFrame]::new()
+            $stop=[Windows.Threading.DispatcherTimer]::new();$stop.Interval=[TimeSpan]::FromMilliseconds(2600)
+            $handler=[EventHandler]({$frame.Continue=$false}.GetNewClosure())
+            $stop.Add_Tick($handler)
+            try{$stop.Start();[Windows.Threading.Dispatcher]::PushFrame($frame)}finally{$stop.Stop();$stop.Remove_Tick($handler)}
+            Assert-True ($script:EngineTicks -eq 3) ('Ticks en echec avant arret : '+$script:EngineTicks)
+            Assert-True ((-not $script:AsyncTimer.IsEnabled) -and [bool]$script:AsyncEngineFaultStopped) 'Minuteur toujours actif apres 3 echecs.'
+            Assert-True (@($script:Dialogs).Count -eq 1) ('Fenetres ouvertes : '+@($script:Dialogs).Count)
+            Assert-True (@($script:EngineLogs|Where-Object{$_ -match 'Panne du moteur'}).Count -eq 1) ('Lignes de la meme erreur : '+@($script:EngineLogs|Where-Object{$_ -match 'Panne du moteur'}).Count)
+            Assert-True (@($script:StatusLog|Where-Object{$_ -match '3 erreurs'}).Count -eq 1) ('Statuts : '+($script:StatusLog -join ' | '))
+            $code=([regex]::Match(($script:Dialogs -join ' '),'INC-[0-9A-F]{4}')).Value
+            Assert-True ($code -and @($script:EngineLogs|Where-Object{$_.Contains($code)}).Count -ge 1) 'Code incident de la fenetre absent du journal.'
+        } finally {
+            if($null -ne $script:AsyncTimer){$script:AsyncTimer.Stop()};$script:AsyncTimer=$null;$script:AsyncEngineReady=$false
+            Set-Item -Path function:script:Write-AppLog -Value $savedLog
+            Remove-Item -Path function:script:Complete-UiTasks -ErrorAction SilentlyContinue
+        }
+    }
+    Test-Case 'FI-07 : code incident identique a l ecran, au statut et dans Domenia.log' {
+        Reset-FaultFixture
+        $script:DomeniaErrorOccurrences=$null;$script:CurrentUiProfile='Tech'
+        foreach($name in @('Show-DomeniaOperationError','Write-AppLog','ConvertTo-DomeniaLogFileLines','Get-DomeniaAppLogFallbackPaths','Write-DomeniaAppLogFile','Start-DomeniaAppLogFlushTimer',
+            'Stop-DomeniaAppLogQueue','Invoke-DomeniaAppLogRotation','Flush-DomeniaAppLog','Set-DomeniaAppLogAvailability')){
+            . ([scriptblock]::Create((Get-FunctionAst $script:CoreAst $name).Extent.Text))
+        }
+        function Initialize-DomeniaDataStore {}
+        $script:AuditPath=Join-Path $temp 'incident-Domenia.log';$script:AppLogQueue=$null;$script:AppLogUnavailable=$false
+        $info=Show-DomeniaOperationError -Operation 'Lecture de test' -ErrorRecordOrException ([TimeoutException]::new('Delai de test depasse.'))
+        $code=[string]$info.IncidentCode
+        Assert-True ($code -match '^INC-[0-9A-F]{4}$') ('Code : '+$code)
+        Assert-True (@($script:Dialogs|Where-Object{$_.Contains('Code incident : '+$code)}).Count -eq 1) ('Ecran : '+($script:Dialogs -join ' | '))
+        Assert-True (@($script:StatusLog|Where-Object{$_.Contains('('+$code+')')}).Count -eq 1) 'Code absent du statut (incident Support).'
+        $journal=[IO.File]::ReadAllText($script:AuditPath)
+        Assert-True ($journal.Contains('['+$code+'] Lecture de test')) ('Domenia.log : '+$journal)
+    }
+    Test-Case 'FI-22 : erreur apres affichage annoncee comme arret inattendu, avant comme initialisation' {
+        $after=Get-DomeniaFatalMessage -SessionShown $true -Summary 'Object reference not set to an instance of an object.' -Code 'INC-1A2B' -AppLog 'C:\Domenia\Logs\Domenia.log' -StartupLog 'C:\Domenia\Logs\Domenia-startup.log'
+        Assert-True ($after.Contains('sʼest arrêté de façon inattendue') -and $after.Contains('INC-1A2B') -and $after.Contains('Domenia.log') -and $after.Contains('Domenia-startup.log')) $after
+        Assert-True (-not $after.Contains('Object reference')) 'Message .NET brut affiche hors Expert.'
+        Assert-True ((Get-DomeniaFatalMessage -SessionShown $true -Summary 'Object reference' -Code 'INC-1A2B' -Expert $true).Contains('Object reference')) 'Detail Expert absent.'
+        $before=Get-DomeniaFatalMessage -SessionShown $false -Summary 'Stockage non inscriptible.' -Code 'INC-3C4D'
+        Assert-True ($before.Contains('nʼa pas pu terminer son initialisation') -and $before.Contains('Stockage non inscriptible.') -and $before.Contains('conservez ce message')) $before
+        $text=$script:CoreAst.Extent.Text
+        $shown=$text.IndexOf('$script:DomeniaSessionShown = $true');$dialog=$text.IndexOf('$null = $script:Window.ShowDialog()')
+        Assert-True ($shown -gt 0 -and $dialog -gt $shown -and $text.IndexOf('Get-DomeniaFatalMessage -SessionShown $sessionShown') -gt $dialog) 'Distinction avant/apres affichage absente du bloc principal.'
     }
     Test-Case 'Resultat d ecriture sans verification positive : jamais annonce reussi' {
         Reset-FaultFixture

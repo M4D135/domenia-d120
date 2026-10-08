@@ -139,8 +139,10 @@ function Show-DomeniaEmbeddedWindow {
     [Windows.Controls.Grid]::SetRow($r.Status,2);[void]$layout.Children.Add($r.Status)
     $card.Child=$layout;[void]$layer.Children.Add($card)
     $saved=@();$bindings=@($main.InputBindings);$previousFocus=[Windows.Input.Keyboard]::FocusedElement
+    # UX-06: an error raised while this sheet is open stays readable and closable in its banner, above the sheet.
+    $bannerHost=$main.FindName('DomeniaBannerHost')
     foreach($item in @($root.Children)){
-        if($item -ne $layer){$saved+=,[pscustomobject]@{Control=$item;Enabled=$item.IsEnabled};$item.IsEnabled=$false}
+        if(($item -ne $layer) -and ($item -ne $bannerHost)){$saved+=,[pscustomobject]@{Control=$item;Enabled=$item.IsEnabled};$item.IsEnabled=$false}
     }
     $main.InputBindings.Clear()
     $buttonStates=@();$cancel=$null;$defaults=@()
@@ -207,6 +209,163 @@ function Show-DomeniaEmbeddedWindow {
         $watch.Stop();$script:ModalBlockedMs=[long]$script:ModalBlockedMs+$watch.ElapsedMilliseconds
         if($script:DomeniaSurfaceState -eq $r){$script:DomeniaSurfaceState=$null}
         [void]$script:DomeniaSurfaceRecords.Remove($Window)
+    }
+}
+# UX-06: information and errors as banners in the page (DomeniaBannerHost of the main XAML), never a window.
+# Handlers are plain script blocks reading their banner from Tag: no closure, application functions resolve
+# in the application scope like every other handler of this module.
+$script:DomeniaBanners=$null
+function Get-DomeniaBannerPlan {
+    # Pure: what a banner shows and how long it stays. Information and success close after 5 s unless they carry
+    # a detail or several paragraphs (a write outcome to read); warnings and errors stay until closed.
+    param([string]$Kind='Info',[AllowEmptyString()][string]$Message='',[AllowEmptyString()][string]$Details='')
+    $text=([string]$Message).Trim()
+    $code='';$match=[regex]::Match($text,'\bINC-[0-9A-F]{4}\b');if($match.Success){$code=$match.Value}
+    $paragraphs=@([regex]::Split($text,'(?:\r?\n[ \t]*){2,}')|Where-Object{([string]$_).Trim()})
+    $headline=if($paragraphs.Count){([string]$paragraphs[0]).Trim()}else{''}
+    $body=if($paragraphs.Count -gt 1){(@($paragraphs|Select-Object -Skip 1)|ForEach-Object{([string]$_).Trim()}) -join "`r`n`r`n"}else{''}
+    $sticky=(($Kind -in @('Error','Warning')) -or ($paragraphs.Count -gt 1) -or (-not [string]::IsNullOrWhiteSpace($Details)))
+    return [pscustomobject]@{Kind=$Kind;Headline=$headline;Body=$body;Details=[string]$Details;Code=$code;AutoCloseSeconds=$(if($sticky){0}else{5})}
+}
+function New-DomeniaBannerButton {
+    param([string]$Text,[string]$Command,$Record,[string]$Help)
+    $b=[Windows.Controls.Button]::new();$b.Content=$Text;$b.MinHeight=28;$b.Height=28;$b.Padding='10,2';$b.Margin='0,6,6,0'
+    $b.SetResourceReference([Windows.FrameworkElement]::StyleProperty,'BaseButton')
+    $b.ToolTip=$Help;[Windows.Automation.AutomationProperties]::SetName($b,$Text);[Windows.Automation.AutomationProperties]::SetHelpText($b,$Help)
+    $b.Tag=[pscustomobject]@{Banner=$Record;Command=$Command}
+    $b.Add_Click({param($sender,$eventArgs) Invoke-DomeniaBannerCommand -Sender $sender})
+    return $b
+}
+function Show-DomeniaBanner {
+    # Returns $false when the page cannot host a banner (no main window yet): the caller keeps its modal box.
+    param([ValidateSet('Info','Success','Warning','Error')][string]$Kind='Info',[AllowEmptyString()][string]$Message='',[AllowEmptyString()][string]$Details='',[string]$Key='',[string]$ActionText='',[string]$ActionPath='')
+    if(-not (Test-DomeniaEmbeddedHost)){return $false}
+    $hostPanel=$script:Window.FindName('DomeniaBannerHost')
+    if(($null -eq $hostPanel) -or (-not $hostPanel.Dispatcher.CheckAccess())){return $false}
+    if($null -eq $script:DomeniaBanners){$script:DomeniaBanners=[System.Collections.Generic.List[object]]::new()}
+    $plan=Get-DomeniaBannerPlan -Kind $Kind -Message $Message -Details $Details
+    if(-not $Key){$Key=if($plan.Code){$plan.Code}else{$Kind+'|'+([string]$Message).Trim()}}
+    foreach($open in @($script:DomeniaBanners)){
+        if((-not [bool]$open.Closed) -and ([string]$open.Key -ceq $Key)){
+            # FI-02: the same incident updates its counter instead of stacking one more banner.
+            $open.Occurrences=[int]$open.Occurrences+1
+            $open.Counter.Text=$(if($Kind -in @('Error','Warning')){'même erreur ×'}else{'même message ×'})+[string]$open.Occurrences
+            $open.Counter.Visibility='Visible'
+            if($null -ne $open.Timer){$open.Timer.Stop();$open.Timer.Start()}
+            return $true
+        }
+    }
+    $record=[pscustomobject]@{Key=$Key;Kind=$Kind;Message=([string]$Message).Trim();Details=[string]$Details;Code=$plan.Code;Occurrences=1;At=(Get-Date);ActionPath=$ActionPath;Closed=$false;Pinned=$false;Border=$null;Counter=$null;DetailBox=$null;DetailButton=$null;Timer=$null;Panel=$hostPanel}
+    $border=[Windows.Controls.Border]::new();$border.CornerRadius='12';$border.BorderThickness=[Windows.Thickness]::new(4,1,1,1);$border.Padding='12,10,8,10';$border.Margin='0,0,0,8';$border.MinWidth=380.0
+    $accent=switch($Kind){'Error'{'DangerColor'}'Warning'{'StatusWarning'}'Success'{'StatusSuccess'}default{'AccentColor'}}
+    $border.SetResourceReference([Windows.Controls.Border]::BackgroundProperty,'BgCard')
+    $border.SetResourceReference([Windows.Controls.Border]::BorderBrushProperty,$accent)
+    $shadow=[Windows.Media.Effects.DropShadowEffect]::new();$shadow.BlurRadius=16;$shadow.ShadowDepth=2;$shadow.Opacity=0.22;$border.Effect=$shadow
+    $kindLabel=switch($Kind){'Error'{'Erreur'}'Warning'{'Attention'}'Success'{'Terminé'}default{'Information'}}
+    [Windows.Automation.AutomationProperties]::SetName($border,$kindLabel+' : '+$plan.Headline)
+    $grid=[Windows.Controls.Grid]::new()
+    foreach($w in @('Auto','*','Auto')){$c=[Windows.Controls.ColumnDefinition]::new();$c.Width=[Windows.GridLengthConverter]::new().ConvertFromInvariantString($w);[void]$grid.ColumnDefinitions.Add($c)}
+    $icon=[Windows.Controls.TextBlock]::new();$icon.FontFamily='Segoe UI Symbol';$icon.FontSize=18;$icon.Margin='0,0,10,0';$icon.VerticalAlignment='Top'
+    $icon.Text=switch($Kind){'Error'{[string][char]0x2715}'Warning'{[string][char]0x26A0}'Success'{[string][char]0x2713}default{'i'}}
+    $icon.SetResourceReference([Windows.Controls.TextBlock]::ForegroundProperty,$(if($Kind -eq 'Info'){'AccentText'}elseif($Kind -eq 'Error'){'DangerColor'}else{$accent}))
+    [void]$grid.Children.Add($icon)
+    $stack=[Windows.Controls.StackPanel]::new();[Windows.Controls.Grid]::SetColumn($stack,1)
+    $head=[Windows.Controls.TextBlock]::new();$head.Text=$plan.Headline;$head.TextWrapping='Wrap';$head.FontWeight='SemiBold'
+    $head.SetResourceReference([Windows.Controls.TextBlock]::ForegroundProperty,'TextColor');[void]$stack.Children.Add($head)
+    if($plan.Body){
+        $body=[Windows.Controls.TextBlock]::new();$body.Text=$plan.Body;$body.TextWrapping='Wrap';$body.Margin='0,4,0,0'
+        $body.SetResourceReference([Windows.Controls.TextBlock]::ForegroundProperty,'MutedColor')
+        $scroll=[Windows.Controls.ScrollViewer]::new();$scroll.MaxHeight=180;$scroll.VerticalScrollBarVisibility='Auto';$scroll.Content=$body
+        [void]$stack.Children.Add($scroll)
+    }
+    $counter=[Windows.Controls.TextBlock]::new();$counter.FontSize=11;$counter.Margin='0,4,0,0';$counter.Visibility='Collapsed'
+    $counter.SetResourceReference([Windows.Controls.TextBlock]::ForegroundProperty,'MutedColor');[void]$stack.Children.Add($counter)
+    $detail=[Windows.Controls.TextBox]::new();$detail.Text=$plan.Details;$detail.IsReadOnly=$true;$detail.TextWrapping='Wrap';$detail.AcceptsReturn=$true
+    $detail.MaxHeight=200;$detail.VerticalScrollBarVisibility='Auto';$detail.Margin='0,6,0,0';$detail.Visibility='Collapsed'
+    $detail.SetResourceReference([Windows.Controls.Control]::BackgroundProperty,'BgInput');$detail.SetResourceReference([Windows.Controls.Control]::ForegroundProperty,'TextColor')
+    $detail.ToolTip='Détail du message. Sélectionnez le texte pour le copier.';[Windows.Automation.AutomationProperties]::SetName($detail,'Détail du message')
+    [void]$stack.Children.Add($detail)
+    $record.Border=$border;$record.Counter=$counter;$record.DetailBox=$detail
+    $actions=[Windows.Controls.WrapPanel]::new();$actions.Margin='0,2,0,0'
+    if($Kind -in @('Error','Warning')){
+        [void]$actions.Children.Add((New-DomeniaBannerButton -Text 'Copier pour le support' -Command 'Support' -Record $record -Help 'Copie le code incident, lʼheure, le message et son détail. Les secrets connus sont masqués.'))
+        [void]$actions.Children.Add((New-DomeniaBannerButton -Text 'Ouvrir le journal' -Command 'Journal' -Record $record -Help 'Déplie le journal de session en bas de la page.'))
+    }
+    if($plan.Details){
+        $record.DetailButton=New-DomeniaBannerButton -Text 'Voir le détail' -Command 'Detail' -Record $record -Help 'Affiche ou masque le détail de ce message.'
+        [void]$actions.Children.Add($record.DetailButton)
+    }
+    if($ActionText -and $ActionPath){[void]$actions.Children.Add((New-DomeniaBannerButton -Text $ActionText -Command 'Folder' -Record $record -Help ('Ouvre lʼExplorateur sur '+$ActionPath)))}
+    if($actions.Children.Count){[void]$stack.Children.Add($actions)}
+    [void]$grid.Children.Add($stack)
+    $close=New-DomeniaBannerButton -Text ([string][char]0x00D7) -Command 'Close' -Record $record -Help 'Ferme ce message. Il reste dans le journal de session.'
+    $close.Margin='8,0,0,0';$close.Padding='8,0';$close.VerticalAlignment='Top';[Windows.Automation.AutomationProperties]::SetName($close,'Fermer le message')
+    [Windows.Controls.Grid]::SetColumn($close,2);[void]$grid.Children.Add($close)
+    $border.Child=$grid;$border.Tag=$record
+    [void]$hostPanel.Children.Insert(0,$border);$script:DomeniaBanners.Add($record);$hostPanel.Visibility='Visible'
+    # Three banners at most: the oldest leaves first; its text stays in the session journal.
+    while(@($script:DomeniaBanners|Where-Object{-not $_.Closed}).Count -gt 3){Close-DomeniaBanner -Record @($script:DomeniaBanners|Where-Object{-not $_.Closed})[0]}
+    if([int]$plan.AutoCloseSeconds -gt 0){
+        $timer=[Windows.Threading.DispatcherTimer]::new();$timer.Interval=[TimeSpan]::FromSeconds([int]$plan.AutoCloseSeconds);$timer.Tag=$record
+        $timer.Add_Tick({param($sender,$eventArgs) Close-DomeniaBanner -Record $sender.Tag})
+        $record.Timer=$timer
+        # Pointer over the banner: it stays while it is read.
+        $border.Add_MouseEnter({param($sender,$eventArgs) $r=$sender.Tag;if(($null -ne $r) -and ($null -ne $r.Timer)){$r.Timer.Stop()}})
+        $border.Add_MouseLeave({param($sender,$eventArgs) $r=$sender.Tag;if(($null -ne $r) -and ($null -ne $r.Timer) -and (-not $r.Closed) -and (-not $r.Pinned)){$r.Timer.Start()}})
+        $timer.Start()
+    }
+    return $true
+}
+function Close-DomeniaBanner {
+    param($Record)
+    if(($null -eq $Record) -or [bool]$Record.Closed){return}
+    $Record.Closed=$true
+    if($null -ne $Record.Timer){try{$Record.Timer.Stop()}catch{}}
+    $hostPanel=$Record.Panel
+    if($null -ne $hostPanel){
+        try{[void]$hostPanel.Children.Remove($Record.Border)}catch{}
+        if($hostPanel.Children.Count -eq 0){$hostPanel.Visibility='Collapsed'}
+    }
+    if($null -ne $script:DomeniaBanners){[void]$script:DomeniaBanners.Remove($Record)}
+}
+function Get-DomeniaBannerSupportText {
+    # FI-07: what the technician sends to the support: code, time, message and detail, secrets masked.
+    param($Record)
+    $lines=[System.Collections.Generic.List[string]]::new()
+    $lines.Add('Domenia - incident '+$(if($Record.Code){[string]$Record.Code}else{'sans code'}))
+    $lines.Add('Date : '+([datetime]$Record.At).ToString('yyyy-MM-dd HH:mm:ss'))
+    if([int]$Record.Occurrences -gt 1){$lines.Add('Occurrences : '+[int]$Record.Occurrences)}
+    $lines.Add('Message : '+[string]$Record.Message)
+    if([string]$Record.Details){$lines.Add('Détail :');$lines.Add([string]$Record.Details)}
+    if([string]$script:AuditPath){$lines.Add('Journal : '+[string]$script:AuditPath+' (rechercher le code)')}
+    $text=[string]::Join("`r`n",$lines.ToArray())
+    try{$text=Protect-DomeniaLogText $text}catch{}
+    return $text
+}
+function Invoke-DomeniaBannerCommand {
+    param($Sender)
+    $tag=$Sender.Tag;if($null -eq $tag){return}
+    $record=$tag.Banner;if($null -eq $record){return}
+    switch([string]$tag.Command){
+        'Close'{Close-DomeniaBanner -Record $record}
+        'Detail'{
+            $shown=($record.DetailBox.Visibility -eq [Windows.Visibility]::Visible)
+            $record.DetailBox.Visibility=if($shown){'Collapsed'}else{'Visible'}
+            if($null -ne $record.DetailButton){$record.DetailButton.Content=if($shown){'Voir le détail'}else{'Masquer le détail'}}
+            # A detail being read keeps its banner open.
+            $record.Pinned=$true;if($null -ne $record.Timer){$record.Timer.Stop()}
+        }
+        'Support'{
+            Set-ClipboardSafe (Get-DomeniaBannerSupportText -Record $record)
+            Set-Status ('Incident '+$(if($record.Code){[string]$record.Code}else{'sans code'})+' copié pour le support.')
+        }
+        'Journal'{Open-DomeniaExperienceJournal}
+        'Folder'{
+            $path=[string]$record.ActionPath
+            if([IO.File]::Exists($path)){Start-Process -FilePath 'explorer.exe' -ArgumentList @('/select,"'+$path+'"')}
+            elseif([IO.Directory]::Exists($path)){Start-Process -FilePath 'explorer.exe' -ArgumentList @('"'+$path+'"')}
+            else{Set-Status ('Dossier introuvable : '+$path) 'WARN'}
+        }
     }
 }
 function Get-DomeniaEmbeddedLookupCode {

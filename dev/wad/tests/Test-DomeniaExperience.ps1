@@ -12,7 +12,7 @@ function Check-Suite {param([string]$Name,[scriptblock]$Code)
 # Dot-sourcing definitions in script scope avoids executing application startup.
 foreach($source in @(
     @{File=(Join-Path $wad 'Domenia-Core.ps1');Names=@('Get-DomeniaDefaultSettings','Load-DomeniaSettings','Save-DomeniaSettings','Get-DomeniaBootThemePalette')},
-    @{File=(Join-Path $wad 'modules\Domenia-Experience.UI.ps1');Names=@('Get-DomeniaExperienceExportRows','Stop-DomeniaExperienceSelectedRead')}
+    @{File=(Join-Path $wad 'modules\Domenia-Experience.UI.ps1');Names=@('Get-DomeniaExperienceExportRows','Stop-DomeniaExperienceSelectedRead','ConvertTo-DomeniaExperienceLogEntry','ConvertTo-DomeniaMaskedLogText')}
 )){
     $tokens=$null;$errors=$null;$ast=[Management.Automation.Language.Parser]::ParseFile($source.File,[ref]$tokens,[ref]$errors)
     if(@($errors).Count){throw $errors[0].Message}
@@ -82,8 +82,26 @@ Check-Suite 'Ligne nulle exclue' {-not (Test-DomeniaExperienceRow $null '')}
 $a=[pscustomobject]@{Name='A'};$b=[pscustomobject]@{Name='B'};$hidden=[pscustomobject]@{Name='Hidden'}
 Check-Suite 'Export sans selection prend seulement les lignes visibles' {$v=@(Get-DomeniaExperienceExportRows @($a,$b) @());$v.Count -eq 2 -and $v[0].Name -eq 'A'}
 Check-Suite 'Export selection preserve ordre de la grille' {$v=@(Get-DomeniaExperienceExportRows @($a,$b) @($b,$a));$v.Count -eq 2 -and $v[0].Name -eq 'A'}
-Check-Suite 'Selection obsolete ne fuit pas dans export' {@(Get-DomeniaExperienceExportRows @($a,$b) @($hidden)).Count -eq 0}
+# L02 (UX-02): a stale selection never reaches the file; with less than two selected visible rows the whole list goes.
+Check-Suite 'Selection obsolete ne fuit pas dans export' {$v=@(Get-DomeniaExperienceExportRows @($a,$b) @($hidden,[pscustomobject]@{Name='Autre'}));($v.Count -eq 2) -and (@($v|Where-Object{[object]::ReferenceEquals($_,$hidden)}).Count -eq 0)}
 Check-Suite 'Grille vide exporte zero ligne' {@(Get-DomeniaExperienceExportRows @() @($a)).Count -eq 0}
+$c=[pscustomobject]@{Name='C'}
+Check-Suite 'Un clic sur une ligne puis Exporter = toute la liste' {$v=@(Get-DomeniaExperienceExportRows @($a,$b,$c) @($b));($v.Count -eq 3) -and ($v[0].Name -eq 'A') -and ($v[2].Name -eq 'C')}
+Check-Suite 'Deux lignes selectionnees : la selection seule' {$v=@(Get-DomeniaExperienceExportRows @($a,$b,$c) @($c,$a));($v.Count -eq 2) -and ($v[0].Name -eq 'A') -and ($v[1].Name -eq 'C')}
+# L02 (UI-22): readable journal line and optional masking of the copied journal.
+Check-Suite 'Journal lisible : heure HH:mm, icone et premiere ligne' {
+    $e=ConvertTo-DomeniaExperienceLogEntry -Time ([datetime]'2026-10-08T14:32:51.123') -Level 'error' -Area 'Statut' -Text "Lecture impossible.`r`nSystem.Exception: detail"
+    ($e.Time -eq '14:32') -and ($e.Level -eq 'ERROR') -and ($e.Icon -eq [string][char]0x2715) -and ($e.Text -eq 'Lecture impossible.')
+}
+Check-Suite 'Journal lisible : avertissement et information' {
+    ((ConvertTo-DomeniaExperienceLogEntry -Time (Get-Date) -Level 'WARN' -Text 'a').Icon -eq [string][char]0x26A0) -and ((ConvertTo-DomeniaExperienceLogEntry -Time (Get-Date) -Level 'INFO' -Text 'b').Icon -eq [string][char]0x2713) -and ((ConvertTo-DomeniaExperienceLogEntry -Time (Get-Date) -Level 'DEBUG' -Text 'c').Level -eq 'INFO')
+}
+Check-Suite 'Journal lisible : phrase longue bornee' {(ConvertTo-DomeniaExperienceLogEntry -Time (Get-Date) -Text ('x'*400)).Text.Length -eq 280}
+Check-Suite 'Copie masquee : chemins AD, comptes, DNS, adresses et noms connus' {
+    $m=ConvertTo-DomeniaMaskedLogText -Text 'CN=PC-PARIS-01,OU=Postes,DC=cnamts,DC=local ; CNAMTS\alex.martin ; alex.martin@cnamts.local ; dc01.cnamts.local ; 10.77.0.20 ; PC-LYON-02 vu' -KnownNames @('PC-LYON-02')
+    (-not ($m -match 'PARIS|alex|dc01|10\.77|LYON')) -and $m.Contains('[chemin AD]') -and $m.Contains('[compte]') -and $m.Contains('[adresse IP]') -and $m.Contains('[nom]')
+}
+Check-Suite 'Copie masquee : texte ordinaire conserve' {(ConvertTo-DomeniaMaskedLogText -Text 'Recherche terminee : 48 resultat(s) en 1.2 s.') -eq 'Recherche terminee : 48 resultat(s) en 1.2 s.'}
 function New-JobFixture {
     [pscustomobject]@{Id='job1';Name='Lecture exemple';OperationId='ExampleRead';IsWrite=$false;NonCancellable=$false;CancelRequested=$false;SessionEpoch=3;Started=[datetime]'2026-09-30T10:00:00';TimeoutNotified=$false;TimeoutErrorDelivered=$false;CallbackState=[pscustomobject]@{Password='SECRET_CALLBACK'}}
 }
