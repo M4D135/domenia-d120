@@ -210,6 +210,150 @@ Case 'WPF : dialogue credentials reel en clair et sombre sans authentification' 
         try{$window=[Windows.Markup.XamlReader]::Load($reader);Assert-Release ($null -ne $window.FindName('Password') -and $window.ResizeMode -eq 'NoResize')}finally{$reader.Close();if($null -ne $window){$window.Close()}}
     }
 }
+Case 'FI-14 plafond du runtime lu dans le contrat, alerte a 80 %' {
+    $contract=[IO.File]::ReadAllText((Join-Path $root 'tools\release-contract.json'))|ConvertFrom-Json
+    $release=[IO.File]::ReadAllText((Join-Path $wad 'Domenia.release.json'))|ConvertFrom-Json
+    $limit=[int]$contract.RuntimeFileLimit
+    Assert-Release ($limit -ge 10) 'RuntimeFileLimit absent du contrat de release.'
+    Assert-Release ([int]$release.RuntimeFileLimit -eq $limit) 'wad\Domenia.release.json non estampille depuis le contrat (release_contract.py --stamp).'
+    Assert-Release ([IO.File]::ReadAllText((Join-Path $wad 'Domenia-Start.ps1')) -match 'RuntimeFileLimit') 'Domenia-Start ne lit pas le plafond du contrat.'
+    $prod=[IO.File]::ReadAllText((Join-Path $root 'tools\prod-manifest.json'))|ConvertFrom-Json
+    $count=@($prod.Files|Where-Object{$_.Runtime -eq $true}).Count
+    # Alert before the ceiling: a lot that adds runtime files (CD-01) must raise the reviewed limit first.
+    Assert-Release ($count -lt (0.8*$limit)) ('Alerte : '+$count+' fichiers runtime pour un plafond de '+$limit+' (80 % atteints). Relever RuntimeFileLimit dans tools\release-contract.json.')
+}
+Case 'SP-09 Test-DomeniaSignature rend integrite et editeur separement, hors ligne' {
+    $dist=Join-Path ([IO.Path]::GetTempPath()) ('Domenia-signature-test-'+[guid]::NewGuid().ToString('N'))
+    try {
+        $content=[ordered]@{'wad/Domenia-Start.ps1'="Write-Output 'fixture'`n";'wad/modules/Kit.json'='{"Kit":1}'}
+        $entries=@()
+        foreach($rel in @($content.Keys)){
+            $path=Join-Path $dist $rel;[void][IO.Directory]::CreateDirectory((Split-Path $path -Parent));[IO.File]::WriteAllText($path,$content[$rel],[Text.UTF8Encoding]::new($true))
+            $entries+=[pscustomobject]@{Path=$rel;Sha256=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash;Bytes=([IO.FileInfo]::new($path)).Length;Runtime=$true;PreserveExisting=$false}
+        }
+        [IO.File]::WriteAllText((Join-Path $dist 'wad\package-manifest.json'),([pscustomobject]@{Format=1;Build='fixture-signature';Files=$entries}|ConvertTo-Json -Depth 4),[Text.UTF8Encoding]::new($false))
+        $tool=Join-Path $root 'tools\Test-DomeniaSignature.ps1'
+        $v=@(& $tool -Root $dist -PassThru -Quiet -ReportPath (Join-Path $dist 'r1.json'))|Select-Object -Last 1
+        Assert-Release ($LASTEXITCODE -eq 0) 'Distribution intacte refusee alors que la signature est facultative.'
+        Assert-Release (($v.Integrity.Status -eq 'Conforme') -and ($v.Publisher.Status -eq 'Editeur attendu non configure')) ($v.Integrity.Status+' / '+$v.Publisher.Status)
+        Assert-Release ($v.Offline -and (-not $v.RevocationChecked)) 'Controle annonce en ligne.'
+        $p=@(& $tool -Root $dist -PublisherThumbprint ('AB'*20) -RequireSignature -PassThru -Quiet -ReportPath (Join-Path $dist 'r2.json'))|Select-Object -Last 1
+        Assert-Release ($LASTEXITCODE -ne 0) 'Signature exigee mais distribution non signee acceptee.'
+        Assert-Release (($p.Integrity.Status -eq 'Conforme') -and ($p.Publisher.Status -eq 'Editeur non prouve') -and $p.Publisher.Pinned) ($p.Integrity.Status+' / '+$p.Publisher.Status)
+        [IO.File]::AppendAllText((Join-Path $dist 'wad\modules\Kit.json'),' ')
+        $m=@(& $tool -Root $dist -PassThru -Quiet -ReportPath (Join-Path $dist 'r3.json'))|Select-Object -Last 1
+        Assert-Release ($LASTEXITCODE -ne 0) 'Fichier modifie accepte.'
+        Assert-Release (($m.Integrity.Status -eq 'Modifiee') -and ($m.Publisher.Status -eq 'Editeur attendu non configure') -and (@($m.Integrity.Modified) -contains 'wad/modules/Kit.json')) ($m.Integrity.Status+' / '+$m.Publisher.Status)
+        [IO.File]::WriteAllText((Join-Path $dist 'wad\modules\Kit.json'),'{"Kit":1}',[Text.UTF8Encoding]::new($true))
+        [IO.File]::WriteAllText((Join-Path $dist 'wad\Ajout.ps1'),'1',[Text.UTF8Encoding]::new($true))
+        $u=@(& $tool -Root $dist -PassThru -Quiet -ReportPath (Join-Path $dist 'r4.json'))|Select-Object -Last 1
+        Assert-Release (($LASTEXITCODE -ne 0) -and ($u.Integrity.Status -eq 'Modifiee') -and (@($u.Integrity.Undeclared) -contains 'wad/Ajout.ps1')) 'Script ajoute non signale.'
+        # Lab tools and history stay in the repository, out of the DEV package (SE-15): never an undeclared addition.
+        Remove-Item -LiteralPath (Join-Path $dist 'wad\Ajout.ps1') -Force
+        [void][IO.Directory]::CreateDirectory((Join-Path $dist 'engineering\d120\lab'));[IO.File]::WriteAllText((Join-Path $dist 'engineering\d120\lab\Outil-Labo.ps1'),'1',[Text.UTF8Encoding]::new($true))
+        $l=@(& $tool -Root $dist -PassThru -Quiet -ReportPath (Join-Path $dist 'r5.json'))|Select-Object -Last 1
+        Assert-Release (($LASTEXITCODE -eq 0) -and ($l.Integrity.Status -eq 'Conforme')) ('Outil du labo compte comme ajout : '+(@($l.Integrity.Undeclared) -join ', '))
+        # Beside a PROD manifest, code left by a previous version (installer never deletes it) is reported apart.
+        [IO.File]::WriteAllText((Join-Path $dist 'wad\package-manifest.json'),([pscustomobject]@{Format=1;Build='fixture-signature';Edition='prod';Files=$entries}|ConvertTo-Json -Depth 4),[Text.UTF8Encoding]::new($false))
+        [void][IO.Directory]::CreateDirectory((Join-Path $dist 'wad\tests'));[IO.File]::WriteAllText((Join-Path $dist 'wad\tests\Test-Ancien.ps1'),'1',[Text.UTF8Encoding]::new($true))
+        $k=@(& $tool -Root $dist -PassThru -Quiet -ReportPath (Join-Path $dist 'r6.json'))|Select-Object -Last 1
+        Assert-Release (($LASTEXITCODE -eq 0) -and ($k.Integrity.Status -eq 'Conforme') -and (@($k.Integrity.KeptOutsideManifest) -contains 'wad/tests/Test-Ancien.ps1')) ('Copie DEV mise a jour en PROD : '+$k.Integrity.Status)
+    } finally {Remove-Item -LiteralPath $dist -Recurse -Force -ErrorAction SilentlyContinue}
+}
+Case 'SP-09 Verifier-Paquet : outil de signature du verificateur seulement, jamais lance sur une copie en erreur' {
+    # Run as VERIFIER-PACK.cmd does (powershell -File). The examined copy carries its own tools\Test-DomeniaSignature.ps1,
+    # which must never run: it would write the marker file.
+    $dist=Join-Path ([IO.Path]::GetTempPath()) ('Domenia-verifier-test-'+[guid]::NewGuid().ToString('N'))
+    $marker=Join-Path ([IO.Path]::GetTempPath()) ('Domenia-verifier-marker-'+[guid]::NewGuid().ToString('N')+'.txt')
+    try {
+        $content=[ordered]@{
+            'wad/Domenia-Start.ps1'="Write-Output 'fixture'`n";'wad/Domenia-Core.ps1'="Write-Output 'core'`n";'wad/modules/Kit.json'='{"Kit":1}'
+            'wad/modules/Fixture.Model.ps1'="function Get-Fixture {1}`n";'tools/Test-DomeniaSignature.ps1'=("[IO.File]::WriteAllText('"+$marker+"','copie')`n")
+        }
+        $entries=@()
+        foreach($rel in @($content.Keys)){
+            $path=Join-Path $dist $rel;[void][IO.Directory]::CreateDirectory((Split-Path $path -Parent));[IO.File]::WriteAllText($path,$content[$rel],[Text.UTF8Encoding]::new($true))
+            $entries+=[pscustomobject]@{Path=$rel;Sha256=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash;Bytes=([IO.FileInfo]::new($path)).Length;Runtime=$true;PreserveExisting=$false}
+        }
+        [IO.File]::WriteAllText((Join-Path $dist 'wad\package-manifest.json'),([pscustomobject]@{Format=1;Build='fixture-verifier';Edition='dev';Files=$entries}|ConvertTo-Json -Depth 4),[Text.UTF8Encoding]::new($false))
+        $verifier=Join-Path $wad 'maintenance\Verifier-Paquet.ps1'
+        # The verifier reports a failure on stderr: read as data here, not as an error of this suite.
+        $run={param([string]$Report) $ErrorActionPreference='Continue';$null=& (Join-Path $PSHOME 'powershell.exe') -NoLogo -NoProfile -STA -NonInteractive -ExecutionPolicy Bypass -File $verifier -Root $dist -Quiet -ReportPath $Report 2>&1;return $LASTEXITCODE}
+        $errorsOf={param($Report) (@($Report.Files|Where-Object{$_.State -eq 'ERROR'}|ForEach-Object{$_.File+' : '+$_.Detail}) -join ' | ')}
+        $code=& $run (Join-Path $dist 'v1.json')
+        $v=[IO.File]::ReadAllText((Join-Path $dist 'v1.json'))|ConvertFrom-Json
+        Assert-Release (($code -eq 0) -and ($v.Failed -eq 0) -and ($v.Signature.Integrity -eq 'Conforme')) ('Copie intacte : code '+$code+' / '+(& $errorsOf $v)+' / '+($v.Signature|ConvertTo-Json -Compress))
+        Assert-Release (-not [IO.File]::Exists($marker)) 'Outil de signature pris dans la copie examinee.'
+        [IO.File]::AppendAllText((Join-Path $dist 'wad\modules\Kit.json'),' ')
+        $code=& $run (Join-Path $dist 'v2.json')
+        $e=[IO.File]::ReadAllText((Join-Path $dist 'v2.json'))|ConvertFrom-Json
+        Assert-Release (($code -ne 0) -and ($e.Failed -eq 1) -and ([string]$e.Signature.Skipped -match 'non lanc')) ('Copie en erreur : code '+$code+' / '+($e.Signature|ConvertTo-Json -Compress))
+        Assert-Release (-not [IO.File]::Exists($marker)) 'Code de la copie execute malgre les erreurs.'
+    } finally {Remove-Item -LiteralPath $dist -Recurse -Force -ErrorAction SilentlyContinue;Remove-Item -LiteralPath $marker -Force -ErrorAction SilentlyContinue}
+}
+Case 'SP-09 preuve reelle : copie signee de la composition PROD, certificat de test jamais approuve' {
+    # Real Authenticode on the real PROD composition. The test certificate is self-signed with an ephemeral CNG key held
+    # in memory (CertificateRequest): it is placed in no certificate store, Root included, so Windows does not trust it.
+    # The publisher therefore stays unproven while the signer thumbprint, the pinned binaries, the signed catalog and a
+    # modified byte are all read for real. (New-SelfSignedCertificate needs CertEnroll and a loaded profile, absent from
+    # the guest sessions of the lab.)
+    $stage=Join-Path ([IO.Path]::GetTempPath()) ('Domenia-sign-proof-'+[guid]::NewGuid().ToString('N'))
+    $cert=$null;$key=$null
+    try {
+        $prod=[IO.File]::ReadAllText((Join-Path $root 'tools\prod-manifest.json'))|ConvertFrom-Json
+        foreach($f in @($prod.Files)){
+            $to=Join-Path $stage ([string]$f.Path);[void][IO.Directory]::CreateDirectory((Split-Path $to -Parent));[IO.File]::Copy((Join-Path $root ([string]$f.Path)),$to,$false)
+        }
+        [void][IO.Directory]::CreateDirectory((Join-Path $stage 'tools'));[IO.File]::Copy((Join-Path $root 'tools\prod-manifest.json'),(Join-Path $stage 'tools\prod-manifest.json'),$false)
+        $key=[Security.Cryptography.RSACng]::new(2048)
+        $request=[Security.Cryptography.X509Certificates.CertificateRequest]::new(('CN=Domenia test signature '+[guid]::NewGuid().ToString('N').Substring(0,8)),$key,[Security.Cryptography.HashAlgorithmName]::SHA256,[Security.Cryptography.RSASignaturePadding]::Pkcs1)
+        $usage=New-Object Security.Cryptography.OidCollection;[void]$usage.Add([Security.Cryptography.Oid]::new('1.3.6.1.5.5.7.3.3'))
+        $request.CertificateExtensions.Add([Security.Cryptography.X509Certificates.X509EnhancedKeyUsageExtension]::new($usage,$false))
+        $request.CertificateExtensions.Add([Security.Cryptography.X509Certificates.X509KeyUsageExtension]::new([Security.Cryptography.X509Certificates.X509KeyUsageFlags]::DigitalSignature,$true))
+        $cert=$request.CreateSelfSigned([DateTimeOffset]::Now.AddMinutes(-5),[DateTimeOffset]::Now.AddDays(1))
+        # Same signing as Signer-Distribution (scripts only, SHA-256), then the delivered manifest of the signed copy.
+        $scripts=@($prod.Files|Where-Object{[string]$_.Path -match '\.ps1$'})
+        foreach($f in $scripts){[void](Set-AuthenticodeSignature -FilePath (Join-Path $stage ([string]$f.Path)) -Certificate $cert -HashAlgorithm SHA256)}
+        $entries=@($prod.Files|ForEach-Object{$p=Join-Path $stage ([string]$_.Path);[pscustomobject]@{Path=[string]$_.Path;Sha256=(Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash;Bytes=([IO.FileInfo]::new($p)).Length;Runtime=$true;PreserveExisting=[bool]$_.PreserveExisting}})
+        $manifestFile=Join-Path $stage 'wad\package-manifest.json'
+        [IO.File]::WriteAllText($manifestFile,([pscustomobject]@{Format=1;Build=[string]$prod.Build;Edition='prod';Files=$entries}|ConvertTo-Json -Depth 4),[Text.UTF8Encoding]::new($false))
+        $tool=Join-Path $root 'tools\Test-DomeniaSignature.ps1'
+        $v=@(& $tool -Root $stage -PublisherThumbprint $cert.Thumbprint -PassThru -Quiet -ReportPath (Join-Path $stage 'r1.json'))|Select-Object -Last 1
+        Assert-Release ($LASTEXITCODE -eq 0) 'Copie intacte refusee alors que la signature est facultative.'
+        Assert-Release ($v.Integrity.Status -eq 'Conforme') ('Integrite : '+$v.Integrity.Status+' '+(@($v.Integrity.Modified) -join ', '))
+        $signedRows=@($v.Files|Where-Object{$_.Path -match '\.ps1$'})
+        Assert-Release ($signedRows.Count -eq $scripts.Count) ('Scripts examines : '+$signedRows.Count)
+        Assert-Release (@($signedRows|Where-Object{$_.SignerThumbprint -cne $cert.Thumbprint}).Count -eq 0) 'Empreinte du signataire non lue sur un script signe.'
+        Assert-Release (@($signedRows|Where-Object{$_.AuthenticodeStatus -eq 'Valid'}).Count -eq 0) 'Certificat de test approuve par le poste : il ne doit jamais etre dans Root.'
+        Assert-Release ($v.Publisher.Status -eq 'Editeur non prouve') ('Editeur : '+$v.Publisher.Status)
+        Assert-Release (@($v.Publisher.PinnedComponents).Count -eq 4) 'Binaires figes non couverts par leur empreinte epinglee.'
+        Assert-Release (@($v.Files|Where-Object{($_.Scope -eq 'Empreinte epinglee') -and (-not $_.PublisherVerified)}).Count -eq 0) 'Binaire fige different de son empreinte epinglee.'
+        Assert-Release (@($v.Publisher.ManifestOnly).Count -ge 8) 'Fichiers non signables non listes a part.'
+        $null=@(& $tool -Root $stage -PublisherThumbprint $cert.Thumbprint -RequireSignature -PassThru -Quiet -ReportPath (Join-Path $stage 'r2.json'))
+        Assert-Release ($LASTEXITCODE -ne 0) 'Signature exigee acceptee avec un certificat non approuve.'
+        # Signed catalog of the delivered manifest: read for real, bound to this exact manifest.
+        $catalog=[IO.Path]::ChangeExtension($manifestFile,'.cat')
+        [void](New-FileCatalog -Path $manifestFile -CatalogFilePath $catalog -CatalogVersion 2.0)
+        [void](Set-AuthenticodeSignature -FilePath $catalog -Certificate $cert -HashAlgorithm SHA256)
+        $c=@(& $tool -Root $stage -PublisherThumbprint $cert.Thumbprint -PassThru -Quiet -ReportPath (Join-Path $stage 'r3.json'))|Select-Object -Last 1
+        Assert-Release (($c.Publisher.ManifestCatalogMatch -eq 'Valid') -and (-not $c.Publisher.ManifestSigned)) ('Catalogue : '+$c.Publisher.ManifestCatalogMatch+' / '+$c.Publisher.ManifestSigned)
+        # One byte changed in one signed script: HashMismatch for that file only, distribution modified.
+        $target=Join-Path $stage 'wad\modules\Domenia-Common.Model.ps1'
+        $bytes=[IO.File]::ReadAllBytes($target);$index=[Array]::IndexOf($bytes,[byte]0x65,3);$bytes[$index]=[byte]0x45;[IO.File]::WriteAllBytes($target,$bytes)
+        $m=@(& $tool -Root $stage -PublisherThumbprint $cert.Thumbprint -PassThru -Quiet -ReportPath (Join-Path $stage 'r4.json'))|Select-Object -Last 1
+        Assert-Release ($LASTEXITCODE -ne 0) 'Octet modifie accepte.'
+        $mismatch=@($m.Files|Where-Object{$_.AuthenticodeStatus -eq 'HashMismatch'}|ForEach-Object{$_.Path})
+        Assert-Release (($mismatch.Count -eq 1) -and ($mismatch[0] -eq 'wad/modules/Domenia-Common.Model.ps1')) ('HashMismatch : '+($mismatch -join ', '))
+        Assert-Release (($m.Integrity.Status -eq 'Modifiee') -and (@($m.Integrity.Modified).Count -eq 1) -and ($m.Publisher.Status -eq 'Signature invalide')) ($m.Integrity.Status+' / '+$m.Publisher.Status)
+        # The manifest changed after its catalog was signed: the catalog no longer matches.
+        [IO.File]::AppendAllText($manifestFile,' ')
+        $x=@(& $tool -Root $stage -PublisherThumbprint $cert.Thumbprint -PassThru -Quiet -ReportPath (Join-Path $stage 'r5.json'))|Select-Object -Last 1
+        Assert-Release (($x.Publisher.ManifestCatalogMatch -ne 'Valid') -and ($x.Publisher.Status -eq 'Signature invalide')) ('Catalogue apres modification : '+$x.Publisher.ManifestCatalogMatch+' / '+$x.Publisher.Status)
+    } finally {
+        Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue
+        if($null -ne $cert){$cert.Dispose()};if($null -ne $key){$key.Dispose()}
+    }
+}
 $bad=@($script:Tests|Where-Object{-not $_.Passed})
 $report=[ordered]@{Build='2026.09.30-DOMENIA-1.0-RC1';Environment='Windows PowerShell 5.1 / WPF';NoNetwork=$true;Passed=$script:Tests.Count-$bad.Count;Failed=$bad.Count;Tests=$script:Tests.ToArray()}
 if(-not $ReportPath){$ReportPath=Join-Path ([IO.Path]::GetTempPath()) ('Domenia-R1.13-'+[guid]::NewGuid().ToString('N')+'.json')}

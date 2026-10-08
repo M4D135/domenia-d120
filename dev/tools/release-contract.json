@@ -10,6 +10,7 @@
   "ReleaseStatus": "CandidateRequiresWindowsValidation",
   "DataSchemaVersion": 11,
   "MinimumPowerShell": "5.1",
+  "RuntimeFileLimit": 250,
   "Components": [
     {
       "Path": "Domenia.exe",

@@ -6,6 +6,8 @@ tools/release-contract.json is the ONLY place where the version is written by ha
             component hashes agree with the contract (exit 1 on any difference);
   --stamp   rewrites the version sites of the core and wad/Domenia.release.json from the contract.
 Each site must match its expected number of occurrences: a renamed or duplicated site fails instead of being skipped.
+FI-14: RuntimeFileLimit is the ceiling of runtime files that wad/Domenia-Start.ps1 accepts (read from
+wad/Domenia.release.json at startup). --check fails above it and warns from 80 % of it, before a lot crosses it.
 """
 from pathlib import Path
 import argparse, hashlib, json, re, sys
@@ -15,6 +17,8 @@ CONTRACT = ROOT / 'tools' / 'release-contract.json'
 CORE = ROOT / 'wad' / 'Domenia-Core.ps1'
 RUNTIME_FILE = ROOT / 'wad' / 'Domenia.release.json'
 REQUIRED = ('Schema', 'Product', 'Version', 'Release', 'Build', 'DisplayName', 'Channel', 'ReleaseStatus', 'DataSchemaVersion', 'Components')
+DEFAULT_RUNTIME_LIMIT = 250
+ALERT_RATIO = 0.8
 
 # (name, regex with ONE group = the value, expected count, value builder)
 SITES = [
@@ -44,16 +48,29 @@ def load_contract():
         raise ValueError('Release invalide : ' + contract['Release'])
     if contract['Release'] not in contract['Build'] or contract['Version'] not in contract['DisplayName']:
         raise ValueError('Build ou DisplayName incoherent avec Version/Release.')
+    limit = contract.get('RuntimeFileLimit', DEFAULT_RUNTIME_LIMIT)
+    if type(limit) is not int or not 10 <= limit <= 1000:
+        raise ValueError('RuntimeFileLimit invalide : entier de 10 a 1000 attendu.')
     return contract
+
+
+def runtime_limit_state(contract, count):
+    """(problem, warning) for the runtime file count against the startup ceiling (FI-14)."""
+    limit = contract.get('RuntimeFileLimit', DEFAULT_RUNTIME_LIMIT)
+    if count > limit:
+        return ('%d fichiers runtime pour un plafond de %d : Domenia-Start refuserait de demarrer.' % (count, limit), '')
+    if count >= ALERT_RATIO * limit:
+        return ('', 'Alerte plafond : %d fichiers runtime sur %d (80 %% atteints). Relever RuntimeFileLimit avant le prochain ajout.' % (count, limit))
+    return ('', '')
 
 
 def runtime_document(contract):
     keep = ['Schema', 'Product', 'Version', 'Release', 'Build', 'DisplayName', 'Date', 'Channel', 'ReleaseStatus',
-            'DataSchemaVersion', 'MinimumPowerShell', 'Components', 'SystemComponents']
+            'DataSchemaVersion', 'MinimumPowerShell', 'RuntimeFileLimit', 'Components', 'SystemComponents']
     return {k: contract[k] for k in keep if k in contract}
 
 
-def check(contract, problems):
+def check(contract, problems, warnings=None):
     text = CORE.read_text(encoding='utf-8-sig')
     for name, rx, count, value in SITES:
         found = rx.findall(text)
@@ -74,6 +91,14 @@ def check(contract, problems):
             problems.append('Composant absent : ' + comp['Path'])
         elif comp.get('Pinned') and sha(path) != comp['Sha256'].lower():
             problems.append('Composant epingle modifie : ' + comp['Path'])
+    # The same runtime list as the packaging tool (imported here only: build_packages reads the contract at import).
+    sys.path.insert(0, str(ROOT / 'tools'))
+    from build_packages import runtime_paths
+    problem, warning = runtime_limit_state(contract, len(runtime_paths(ROOT)))
+    if problem:
+        problems.append(problem)
+    if warning and warnings is not None:
+        warnings.append(warning)
 
 
 def stamp(contract):
@@ -99,8 +124,9 @@ def main():
     if a.stamp:
         stamp(contract)
     problems = []
-    check(contract, problems)
-    print(json.dumps({'Build': contract['Build'], 'Status': 'FAIL' if problems else 'PASS', 'Problems': problems}, ensure_ascii=False, indent=2))
+    warnings = []
+    check(contract, problems, warnings)
+    print(json.dumps({'Build': contract['Build'], 'Status': 'FAIL' if problems else 'PASS', 'Problems': problems, 'Warnings': warnings}, ensure_ascii=False, indent=2))
     return 1 if problems else 0
 
 

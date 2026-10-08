@@ -2815,12 +2815,22 @@ Test-Case 'D029 : mesure native en runspace et progression du Dispatcher WPF' {
         try{[void](Invoke-DomeniaDbExec "WITH RECURSIVE n(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM n WHERE x<10000) INSERT INTO user_machine_history(computer_key,source) SELECT 'PC'||x,'Synthetic' FROM n;" $db)}finally{Close-DomeniaDatabase $db}
         $ps=[PowerShell]::Create()
         [void]$ps.AddScript(('param($Payload)'+[Environment]::NewLine+(Get-DomeniaStorageUsageWorkerCode))).AddArgument([pscustomobject]@{Path=$script:TestDbPath})
-        $async=$ps.BeginInvoke();$turns=0;$watch=[Diagnostics.Stopwatch]::StartNew()
-        do {Invoke-WiringPump 10;$turns++;if(-not $async.IsCompleted -and $watch.ElapsedMilliseconds -gt 10000){throw ('Mesure runspace trop longue : '+$watch.ElapsedMilliseconds+' ms ; etat='+$ps.InvocationStateInfo.State+' ; erreurs='+$ps.Streams.Error.Count)}}while(-not $async.IsCompleted)
+        # TE-02: an independent DispatcherTimer counts its ticks only while the measure is still running, so the
+        # assertion proves that the Dispatcher kept serving the UI during the work (a do/while counter always ran once).
+        $probe=New-Object System.Windows.Threading.DispatcherTimer
+        $probe.Interval=[TimeSpan]::FromMilliseconds(5)
+        $probe.Tag=[pscustomobject]@{Async=$null;Ticks=0}
+        $probe.Add_Tick({param($sender,$eventArgs) if(($null -ne $sender.Tag.Async) -and (-not $sender.Tag.Async.IsCompleted)){$sender.Tag.Ticks++}})
+        $async=$ps.BeginInvoke();$probe.Tag.Async=$async;$probe.Start();$turns=0;$watch=[Diagnostics.Stopwatch]::StartNew()
+        try {
+            # Ceiling 60 s: a loaded VM may be slow; the duration is reported as a measure, not asserted tightly.
+            while(-not $async.IsCompleted){Invoke-WiringPump 10;$turns++;if((-not $async.IsCompleted) -and ($watch.ElapsedMilliseconds -gt 60000)){throw ('Mesure runspace trop longue : '+$watch.ElapsedMilliseconds+' ms ; etat='+$ps.InvocationStateInfo.State+' ; erreurs='+$ps.Streams.Error.Count)}}
+        } finally {$probe.Stop();$watch.Stop()}
         $out=@($ps.EndInvoke($async));Assert-Equal 0 $ps.Streams.Error.Count ($ps.Streams.Error|Out-String)
         $result=@($out|Where-Object{$_.Kind -eq 'StorageUsage'})[0]
         Assert-Equal 10003 @($result.Categories|Where-Object{$_.Category -eq 'History'})[0].Rows
-        Assert-True ($turns -gt 0);$script:CaseDetail='Runspace natif ; tours Dispatcher='+$turns+' ; '+$watch.ElapsedMilliseconds+' ms.'
+        Assert-True ($probe.Tag.Ticks -gt 0) ('Dispatcher immobile pendant la mesure : aucun tick de minuterie pendant '+$watch.ElapsedMilliseconds+' ms.')
+        $script:CaseDetail='Runspace natif ; ticks Dispatcher pendant la mesure='+$probe.Tag.Ticks+' ; tours='+$turns+' ; duree='+$watch.ElapsedMilliseconds+' ms (plafond 60000).'
     } finally {if($ps){$ps.Dispose()};Remove-Item $root -Recurse -Force}
 }
 Test-Case 'D029 : mesure UI transmet seulement le chemin et le contexte courant' {

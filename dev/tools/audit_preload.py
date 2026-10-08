@@ -105,9 +105,13 @@ def audit():
     test=(ROOT/'wad/tests/Test-DomeniaPreload.ps1').read_text('utf-8-sig')
     for item in ['Parser]::ParseFile','Parser]::ParseInput','Add_SelectionChanged','GetScriptBlock','XamlReader','NativeWindowsPowerShell','Requests.Count','Late A','SkipWpf','Failed','Complete']:
         ck('Windows suite contains: '+item,item in test)
-    install=(ROOT/'INSTALLER-MISE-A-JOUR.ps1').read_text('utf-8-sig')
-    ck('Windows suite gates installer before copy',install.index('Test-DomeniaPreload.ps1')<install.index('$started=$false'))
-    ck('Installer rejects skipped/incomplete native runs','-not $result.Complete' in install and '$result.Skipped -ne 0' in install)
+    # FI-06: the installer ships in PROD and never runs a test suite on the target workstation; the prepared version
+    # must pass Domenia-Start -CheckOnly before activation and a qualification report is checked against the ZIP hash.
+    install=(ROOT/'wad/Support/INSTALLER-MISE-A-JOUR.ps1').read_text('utf-8-sig')
+    ck('Installer runs no test suite on the target','wad\\tests' not in install and 'wad/tests' not in install and 'Test-Domenia' not in install)
+    ck('Installer checks the prepared version before activation',install.index("Join-Path $staged 'wad/Domenia-Start.ps1') -CheckOnly")<install.index('$started=$false'))
+    ck('Installer binds a qualification report to the ZIP hash','RequireQualification' in install and 'Get-QualificationState' in install and 'GetEntry(' in install)
+    ck('DEV installer entry point forwards to the shipped installer',"wad\\Support\\INSTALLER-MISE-A-JOUR.ps1') @PSBoundParameters" in (ROOT/'INSTALLER-MISE-A-JOUR.ps1').read_text('utf-8-sig'))
     # These are actual host-side validators; neither one is the native parser.
     for tool in ['validate_powershell_static.py','update_worker_contracts.py']:
         result=subprocess.run([sys.executable,str(ROOT/'tools'/tool)],capture_output=True,text=True)

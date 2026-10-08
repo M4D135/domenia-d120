@@ -139,6 +139,11 @@ if($infrastructure){
                     # Reported, not hidden: the minimum window size exceeds the work area of this screen.
                     $script:Observations.Add([pscustomobject]@{Configuration=$prefix;WorkArea=($workW.ToString()+'x'+$workH);Window=([string][Math]::Round($window.ActualWidth)+'x'+[Math]::Round($window.ActualHeight));Detail='Fenetre minimale plus grande que la zone de travail : le bas de la fenetre sort de l ecran.'})
                 }
+                if(($window.ActualWidth -lt $workW-0.5) -or ($window.ActualHeight -lt $workH-0.5)){
+                    # TE-08: Windows clamps a window to the screen of the test machine (1024x768 in the lab VM). The
+                    # configuration is then measured at the clamped size; say so instead of presenting it as covered.
+                    $script:Observations.Add([pscustomobject]@{Configuration=$prefix;WorkArea=($workW.ToString()+'x'+$workH);Window=([string][Math]::Round($window.ActualWidth)+'x'+[Math]::Round($window.ActualHeight));Detail='Ecran de test plus petit que la configuration : geometrie mesuree a la taille reelle de la fenetre.'})
+                }
                 Test-Case ($prefix+' : champs essentiels visibles et atteignables') {
                     Set-FakeActivity 1;Invoke-GeometryPump $window
                     foreach($name in @($essentials+'BtnCancelTask')){
