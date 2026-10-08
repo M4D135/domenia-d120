@@ -213,11 +213,18 @@ try{
             param($c,$t)
             (Find-Named $c 'Titre du widget').Text='Plus gros logiciels'
             (Find-Named $c 'Taille').SelectedItem='Compacte'
+            $t.Seen['Section']=[string](Find-Named $c 'Section').SelectedItem
+            (Find-Named $c 'Section').SelectedItem='+ Nouvelle section...'
+            $t.Seen['NewVisible']=[string](Find-Named $c 'Nom de la nouvelle section').Visibility
+            (Find-Named $c 'Nom de la nouvelle section').Text='Logiciels lourds'
             $save=@($c|Where-Object{$_ -is [Windows.Controls.Button] -and [string]$_.Content -eq 'Enregistrer'})[0]
             $save.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
         }
         $now=@(Get-Layout Software|Where-Object{$_.Id -eq $item.Id})[0]
         Expect ($run.Accepted -and [string]$now.Title -eq '' -and [string]$now.Size -eq 'S') ('Obtenu titre='+$now.Title+' taille='+$now.Size)
+        Expect ($run.Trial.Seen['Section'] -eq 'Repartition') ('Section affichee : '+$run.Trial.Seen['Section'])
+        Expect ($run.Trial.Seen['NewVisible'] -eq 'Visible') 'Champ de nouvelle section non affiche'
+        Expect ([string]$now.Group -eq 'Logiciels lourds') ('Nouvelle section : '+[string]$now.Group)
     }
     Case 'Editeur : Annuler ne change rien' {
         $before=ConvertTo-DomeniaBoardLayoutJson -Layout (Get-Layout Software)

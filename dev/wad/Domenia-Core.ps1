@@ -2918,6 +2918,9 @@ function Get-DomeniaDefaultSettings {
         LogHeight        = 180
         # Dashboards (decision David 2026-10-07): only keys listed here survive Load-DomeniaSettings.
         FleetScopeDn     = ''
+        # Account names only (never a password): accounts for workstations (POSTES) and secrets (SECRETS).
+        RemoteCredentialUser  = ''
+        SecretsCredentialUser = ''
         'Dashboard.Computer.Layout' = ''
         'Dashboard.Fleet.Layout'    = ''
         'Dashboard.Software.Layout' = ''
@@ -4173,7 +4176,7 @@ function Get-MainXaml {
               </Button>
             </StackPanel>
             <StackPanel DockPanel.Dock="Bottom" Margin="8,12,0,6" x:Name="UxNavFooter">
-              <TextBlock Text="DOMENIA 1.0 · RC1.11.0" Foreground="{DynamicResource MutedColor}" FontSize="11"/>
+              <TextBlock Text="DOMENIA 1.0 · RC1.12.0" Foreground="{DynamicResource MutedColor}" FontSize="11"/>
               <TextBlock Text="Les actions restent sous votre contrôle." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="11" Margin="0,6,0,0"/>
             </StackPanel>
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
@@ -4304,8 +4307,9 @@ function Get-MainXaml {
             <Grid x:Name="UxPageHeaderBar">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" MinWidth="80"/>
-                <!-- 504 = 12 margin + the 252, 144 and 96 fixed slots: BtnCancelTask is never clipped. -->
-                <ColumnDefinition Width="2*" MinWidth="504"/>
+                <!-- 504 = 12 margin + the 252, 144 and 96 fixed slots: BtnCancelTask is never clipped. Equal share with the title
+                     (2026-10-08): a long page title keeps its session badge beside it on a wide window. -->
+                <ColumnDefinition Width="*" MinWidth="504"/>
                 <ColumnDefinition Width="Auto"/>
               </Grid.ColumnDefinitions>
               <StackPanel x:Name="UxPageTitleStack">
@@ -5545,7 +5549,7 @@ function Get-MainXaml {
                             <Button Grid.Column="2" x:Name="BtnCompAddGroup" ToolTip="Ajoute ce poste au groupe indique." Content="Ajouter" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ajouter" AutomationProperties.HelpText="Ajoute ce poste au groupe indique."/>
                             <Button Grid.Column="3" x:Name="BtnCompRemoveGroup" ToolTip="Retire ce poste du groupe indique." Content="Retirer" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Retirer" AutomationProperties.HelpText="Retire ce poste du groupe indique."/>
                           </Grid>
-                          <TextBlock Text="Le partage C$ et le bureau a distance utilisent ta session Windows, pas le compte de connexion Active Directory." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,14,0,0"/>
+                          <TextBlock Text="Ouvrir C$ et les consoles utilisent le compte des operations poste : compte poste saisi dans Diagnostic, sinon compte admin distant, sinon compte de connexion. Le bureau a distance passe par Windows." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,14,0,0"/>
                         </StackPanel>
                       </ScrollViewer>
                     </Border>
@@ -5708,7 +5712,7 @@ function Get-MainXaml {
                             <Button x:Name="BtnCopySoftware" ToolTip="Copie la liste complete des logiciels." Content="Copier" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Copier" AutomationProperties.HelpText="Copie la liste complete des logiciels."/>
                             <Button x:Name="BtnExportSoftware" ToolTip="Enregistre la liste des logiciels au format CSV." Content="Exporter CSV" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Exporter CSV" AutomationProperties.HelpText="Enregistre la liste des logiciels au format CSV."/>
                           </WrapPanel>
-                          <Expander x:Name="ExpSoftwareDashboard" Header="Synthese en graphiques" IsExpanded="True" Margin="0,8,0,0" ToolTip="Editeurs, installations par mois et plus gros logiciels, calcules sur la liste chargee." AutomationProperties.Name="Synthese des logiciels">
+                          <Expander x:Name="ExpSoftwareDashboard" Header="Synthese en graphiques" IsExpanded="True" Margin="0,8,0,0" ToolTip="Editeurs, architecture, portee d installation et plus gros logiciels, calcules sur la liste chargee." AutomationProperties.Name="Synthese des logiciels">
                             <StackPanel Margin="0,6,0,0">
                               <TextBlock x:Name="LblSoftwareDashboard" Text="Chargez les logiciels pour afficher la synthese." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap"/>
                               <Border Background="{DynamicResource WindowBg}" CornerRadius="12" Padding="4" Margin="0,8,0,0">
@@ -9439,7 +9443,8 @@ function Set-VisibleTabsForType {
         "TabPermissions"
     )) { Set-TabVisibility $t $false }
 
-    foreach ($t in @("TabDashboard","TabApplicationTools","TabSelfCheck","TabIndex","TabDomain","TabCmdlets","TabLog","WsSearch","TabRelations","TabAccounts")) { Set-TabVisibility $t $true }
+    # Commandes was removed from the tools (decision David 2026-10-07): it is never shown again here.
+    foreach ($t in @("TabDashboard","TabApplicationTools","TabSelfCheck","TabIndex","TabDomain","TabLog","WsSearch","TabRelations","TabAccounts")) { Set-TabVisibility $t $true }
 
     $hasObject = -not [string]::IsNullOrWhiteSpace($Type)
     foreach ($t in @("TabGeneric","TabRaw")) { Set-TabVisibility $t $hasObject }
@@ -19672,7 +19677,7 @@ Activer le mode ecriture ?
 # DOMENIA_MASTER_LAST_V1 = TRUE
 $script:Version = "1.0"
 $script:AppName = "Domenia"
-$script:MasterBuild = "2026.10.05-DOMENIA-1.0-RC1.11.0-D120"
+$script:MasterBuild = "2026.10.08-DOMENIA-1.0-RC1.12.0-D120"
 $script:ActiveWriteTaskId = ""
 $script:WriteState = "Idle"
 $script:UnknownWriteTargetDn = ""
@@ -22552,7 +22557,7 @@ function Initialize-DomeniaPresentation {
     Initialize-DomeniaGuard
     Initialize-DomeniaLive
     Initialize-DomeniaReconcile
-    Add-DomeniaUiLog -Area "Application" -Text "Domenia 1.0 RC1.11.0 pret."
+    Add-DomeniaUiLog -Area "Application" -Text "Domenia 1.0 RC1.12.0 pret."
 }
 
 function Assert-DomeniaCapability {
@@ -24459,7 +24464,7 @@ function Initialize-Window {
 # Le login effectue un bind LDAP reel, lit RootDSE et valide la base detectee
 # dans un runspace borne afin que le thread WPF ne soit jamais bloque.
 # =====================================================================
-$script:DomeniaBuild = "Domenia 1.0 RC1.11.0"
+$script:DomeniaBuild = "Domenia 1.0 RC1.12.0"
 $script:FastLoginUi = $null
 $script:FastLoginState = $null
 $script:FastLoginTimer = $null
@@ -25791,7 +25796,7 @@ try {
         Write-StartupTrace -Stage 'Stockage/Preferences' -Status 'WARN' -Detail $script:StoragePreferenceWarning
         Show-WarningBox -Message $script:StoragePreferenceWarning
     }
-    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 RC1.11.0 (2026.10.05-DOMENIA-1.0-RC1.11.0-D120)"
+    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 RC1.12.0 (2026.10.08-DOMENIA-1.0-RC1.12.0-D120)"
     if ([bool]$script:DemoMode) { Write-StartupTrace -Stage "Demonstration" -Status "WARN" -Detail "Demo=True : annuaire fictif en memoire, aucune connexion AD, ecritures desactivees." }
     Write-DomeniaFastLoginLog -Stage "APPLICATION_START" -Detail "PID=$PID Script=$($script:LaunchPath) Root=$($script:RootDir)"
 

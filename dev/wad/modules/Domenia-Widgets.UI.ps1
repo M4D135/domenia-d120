@@ -683,7 +683,7 @@ function Show-DomeniaBoardEditor {
     $bedForm = [Windows.Controls.Grid]::new()
     $bedFc0 = [Windows.Controls.ColumnDefinition]::new(); $bedFc0.Width = [Windows.GridLength]::new(120)
     [void]$bedForm.ColumnDefinitions.Add($bedFc0); [void]$bedForm.ColumnDefinitions.Add([Windows.Controls.ColumnDefinition]::new())
-    foreach ($bedI in 0..3) { $bedRow = [Windows.Controls.RowDefinition]::new(); $bedRow.Height = [Windows.GridLength]::Auto; [void]$bedForm.RowDefinitions.Add($bedRow) }
+    foreach ($bedI in 0..4) { $bedRow = [Windows.Controls.RowDefinition]::new(); $bedRow.Height = [Windows.GridLength]::Auto; [void]$bedForm.RowDefinitions.Add($bedRow) }
     $bedPlace = { param($Element,[int]$Row,[int]$Column) [Windows.Controls.Grid]::SetRow($Element, $Row); [Windows.Controls.Grid]::SetColumn($Element, $Column); $Element.Margin = [Windows.Thickness]::new(0, 4, 0, 4); [void]$bedForm.Children.Add($Element) }
     $bedRowLabel = 0
     foreach ($bedText in @('Titre','Representation','Taille','Section')) { $bedLabel = New-DomeniaChartText -Text $bedText -Size 12.5 -Weight Medium -Key 'TextColor'; & $bedPlace $bedLabel $bedRowLabel 0; $bedRowLabel++ }
@@ -691,9 +691,16 @@ function Show-DomeniaBoardEditor {
     $bedVisual = [Windows.Controls.ComboBox]::new(); $bedVisual.MinHeight = 32; & $bedPlace $bedVisual 1 1
     $bedSize = [Windows.Controls.ComboBox]::new(); $bedSize.MinHeight = 32; & $bedPlace $bedSize 2 1
     foreach ($bedK in $bedSizes.Keys) { [void]$bedSize.Items.Add([string]$bedSizes[$bedK]) }
-    $bedGroup = [Windows.Controls.ComboBox]::new(); $bedGroup.MinHeight = 32; $bedGroup.IsEditable = $true; & $bedPlace $bedGroup 3 1
+    # A plain list of sections, then "+ Nouvelle section..." which opens a name field (the application combo style
+    # does not draw the text of an editable combo).
+    $bedNewGroupItem = '+ Nouvelle section...'
+    $bedGroup = [Windows.Controls.ComboBox]::new(); $bedGroup.MinHeight = 32; & $bedPlace $bedGroup 3 1
     foreach ($bedG in @(Get-DomeniaBoardGroups -Layout $bedLayout)) { [void]$bedGroup.Items.Add($bedG) }
     foreach ($bedC in @(Get-DomeniaBoardCatalog -Board $Board | ForEach-Object { $_.Group } | Select-Object -Unique)) { if (-not $bedGroup.Items.Contains($bedC)) { [void]$bedGroup.Items.Add($bedC) } }
+    [void]$bedGroup.Items.Add($bedNewGroupItem)
+    $bedNewGroup = [Windows.Controls.TextBox]::new(); $bedNewGroup.MinHeight = 32; $bedNewGroup.Padding = [Windows.Thickness]::new(6, 4, 6, 4); $bedNewGroup.Visibility = [Windows.Visibility]::Collapsed; & $bedPlace $bedNewGroup 4 1
+    $bedNewGroup.ToolTip = 'Nom de la nouvelle section, cree a la fin du tableau de bord.'
+    [Windows.Automation.AutomationProperties]::SetName($bedNewGroup, 'Nom de la nouvelle section')
     [Windows.Automation.AutomationProperties]::SetName($bedTitle, 'Titre du widget')
     [Windows.Automation.AutomationProperties]::SetName($bedVisual, 'Representation')
     [Windows.Automation.AutomationProperties]::SetName($bedSize, 'Taille')
@@ -758,7 +765,8 @@ function Show-DomeniaBoardEditor {
         # An editable combo shows a value reliably through its selected item; Text only for a new section name.
         $bedWantedGroup = if ($bedEditing) { [string]$bedItem.Group } elseif ($Group) { $Group } else { [string]$Row.Group }
         $bedMatch = @($bedGroup.Items | Where-Object { [string]$_ -eq $bedWantedGroup } | Select-Object -First 1)
-        if ($bedMatch.Count) { $bedGroup.SelectedItem = $bedMatch[0] } else { $bedGroup.SelectedItem = $null; $bedGroup.Text = $bedWantedGroup }
+        if (-not $bedMatch.Count -and $bedWantedGroup) { $bedGroup.Items.Insert($bedGroup.Items.Count - 1, $bedWantedGroup); $bedMatch = @($bedWantedGroup) }
+        if ($bedMatch.Count) { $bedGroup.SelectedItem = $bedMatch[0] }
         $bedState.Loading = $false
         & $bedRefresh
     }
@@ -775,6 +783,11 @@ function Show-DomeniaBoardEditor {
         $bedKindText.Text = 'Choisissez une information dans la liste.'
     })
     $bedVisual.Add_SelectionChanged({ & $bedRefresh })
+    $bedGroup.Add_SelectionChanged({
+        $bedIsNew = ([string]$bedGroup.SelectedItem -eq $bedNewGroupItem)
+        $bedNewGroup.Visibility = if ($bedIsNew) { [Windows.Visibility]::Visible } else { [Windows.Visibility]::Collapsed }
+        if ($bedIsNew -and -not $bedState.Loading) { [void]$bedNewGroup.Focus() }
+    })
     $bedSize.Add_SelectionChanged({ & $bedRefresh })
     $bedTitle.Add_TextChanged({ & $bedRefresh })
     $bedSave.Add_Click({
@@ -782,7 +795,8 @@ function Show-DomeniaBoardEditor {
         $bedV = 'Kpi'; foreach ($bedK in $bedNames.Keys) { if ([string]$bedNames[$bedK] -eq [string]$bedVisual.SelectedItem) { $bedV = $bedK } }
         $bedS = 'M'; foreach ($bedK in $bedSizes.Keys) { if ([string]$bedSizes[$bedK] -eq [string]$bedSize.SelectedItem) { $bedS = $bedK } }
         $bedT = $bedTitle.Text.Trim(); if ($bedT -ceq $bedState.DefaultTitle) { $bedT = '' }
-        $bedG = ([string]$bedGroup.Text).Trim(); if (-not $bedG) { $bedG = 'Mes widgets' }
+        $bedG = if ([string]$bedGroup.SelectedItem -eq $bedNewGroupItem) { $bedNewGroup.Text.Trim() } else { ([string]$bedGroup.SelectedItem).Trim() }
+        if (-not $bedG) { $bedG = 'Mes widgets' }
         $bedNow = @(Get-DomeniaBoardLayout -Board $Board)
         if ($bedEditing) {
             Set-DomeniaBoardLayout -Board $Board -Layout @(Update-DomeniaBoardItem -Layout $bedNow -Id ([string]$bedItem.Id) -Changes @{ Visual = $bedV; Size = $bedS; Title = $bedT; Group = $bedG }) -Undo 'Widget modifie' -Highlight ([string]$bedItem.Id)

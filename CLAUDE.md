@@ -31,7 +31,7 @@ dev/
   Domenia.exe                    lanceur natif (C, conservé à l'octet ; ne pas recompiler sans décision)
   wad/Domenia-Start.ps1          contrôle du manifeste et des empreintes, puis lance le cœur
   wad/Domenia-Modules.ps1        chargeur FERMÉ : liste exacte des modules et de leurs fonctions
-  wad/Domenia-Core.ps1           cœur monolithique (~23 800 lignes, 598 fonctions, XAML principal inclus)
+  wad/Domenia-Core.ps1           cœur monolithique (~25 900 lignes, ~594 fonctions de premier niveau au 8 octobre 2026, XAML principal inclus)
   wad/modules/                   modules : *.Model.ps1 (règles pures), *.UI.ps1, *.Worker.ps1, *.cs, *.xaml
   wad/tests/                     suites Windows (Test-*.ps1) ; rules/ = tests des règles pures
   tools/                         build (build_packages.py), audits, contrats worker, garde-fou 5.1

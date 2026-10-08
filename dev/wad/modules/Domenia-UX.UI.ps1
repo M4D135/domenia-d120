@@ -200,7 +200,7 @@ function Update-DomeniaUxProfileVisibility {
         $hasObject = -not [string]::IsNullOrWhiteSpace($ObjectType)
         $rules = @{
             TabRaw=($expert -and $hasObject);TabPermissions=($expert -and $hasObject)
-            TabWmi=($expert -and $ObjectType -eq 'Machine');TabSelfCheck=$expert;TabCmdlets=$expert;TabLog=$expert
+            TabWmi=($expert -and $ObjectType -eq 'Machine');TabSelfCheck=$expert;TabCmdlets=$false;TabLog=$expert
         }
         foreach ($name in $rules.Keys) {
             $tab = Get-DomeniaControl $name

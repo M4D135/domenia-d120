@@ -2225,13 +2225,6 @@
     "Source": "existing-help"
   },
   {
-    "Name": "BtnParkSweep",
-    "Title": "Detecter sur tout le parc",
-    "Text": "Sur demande : lit les consoles de tous les postes actifs de la base autonome. Les resultats sont gardes en cache ; les associations automatiques changent seulement si utilisateur ou identite change. Historique conserve, associations manuelles/importees protegees. Sessions RDP non recensees.",
-    "Kind": "Button",
-    "Source": "existing-help"
-  },
-  {
     "Name": "BtnParkReset",
     "Title": "Oublier les releves",
     "Text": "Efface l etat du parc. Le prochain releve repartira de zero.",

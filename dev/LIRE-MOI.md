@@ -1,6 +1,7 @@
-# Domenia 1.0 RC1.11.0 — livraison du 5 octobre 2026
+# Domenia 1.0 RC1.12.0 — livraison du 8 octobre 2026
 
-Build : `2026.10.05-DOMENIA-1.0-RC1.11.0-D120`.
+Build : `2026.10.08-DOMENIA-1.0-RC1.12.0-D120`.
+Guides : `DOC/Domenia-1.0-Guide-technicien` et `DOC/Domenia-1.0-Guide-administrateur` (.docx et .pdf) dans la livraison.
 Cible : Windows PowerShell 5.1 x64, interface WPF. Lancer `Domenia.exe`.
 
 ## Les deux packs
@@ -16,7 +17,7 @@ Extraire le ZIP entièrement dans un dossier local. Si Windows bloque les fichie
 La détection est déclenchée manuellement :
 
 - dans **Rechercher**, **Détecter la liste** traite seulement les postes des résultats chargés après filtrage ; le périmètre est figé au clic ;
-- dans **Relations**, **Détecter sur tout le parc** traite tous les postes actifs de l'index local.
+- sur l'**Accueil**, **Detecter les utilisateurs** traite les postes de l'OU choisie dans la vue d'ensemble du parc ; jamais le domaine entier.
 
 Une confirmation indique le périmètre. Aucun scan ne part au démarrage. Les postes hors ligne sont ignorés.
 Le relevé concerne l'utilisateur de la console, pas les sessions RDP. Chaque demande vérifie légèrement la console
