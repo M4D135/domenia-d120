@@ -238,8 +238,10 @@ function Complete-DomeniaStorageWork {
     }
     # The home overview reads what was just committed (decision David 2026-10-08): a saved index update is computed
     # again; single rows and observations only mark it out of date (the end of a run asks for the calculation).
-    if(@($items|Where-Object{$_.Kind -eq 'IndexBulk'}).Count){try{Request-DomeniaFleetRefresh -Force}catch{}}
-    elseif(@($items|Where-Object{$_.Kind -in @('Index','ParkSession')}).Count){$script:FleetStale=$true}
+    # The BitLocker presence of an OU (bulk of secret metadata) is shown as soon as it is saved. A daily snapshot of
+    # the overview never asks for a new calculation.
+    if(@($items|Where-Object{($_.Kind -eq 'IndexBulk') -or (($_.Kind -eq 'SecretMeta') -and ($null -ne $_.Row.PSObject.Properties['Rows']))}).Count){try{Request-DomeniaFleetRefresh -Force}catch{}}
+    elseif(@($items|Where-Object{$_.Kind -in @('Index','ParkSession','SecretMeta')}).Count){$script:FleetStale=$true}
     $hasLinkWork=$false
     if($script:Persistence.LegacyImportJob){$hasLinkWork=$true}
     foreach($v in @($script:Persistence.Pending.Values)){if($v.Kind -eq 'Link' -or $v.Kind -eq 'LegacyImport'){$hasLinkWork=$true;break}}
@@ -270,7 +272,7 @@ function Fail-DomeniaStorageWork {
     Set-Status 'Cache non enregistre sur disque. Les observations sont encore en memoire ; une nouvelle tentative bornee sera faite.' 'WARN'
 }
 function Queue-DomeniaMetadata {
-    param([ValidateSet('Presence','UserScan','Park','ParkSession','SecretMeta','Sample','IndexBulk','LegacyImport')][string]$Kind,$Row,[string]$Key='')
+    param([ValidateSet('Presence','UserScan','Park','ParkSession','SecretMeta','Sample','IndexBulk','LegacyImport','FleetSnapshot')][string]$Kind,$Row,[string]$Key='')
     if($null -eq $script:Persistence){Initialize-DomeniaPersistence}
     if(-not $script:DatabaseScopedPath){return $false}
     if($Kind -eq 'LegacyImport'){
@@ -290,7 +292,7 @@ function Queue-DomeniaMetadata {
         return $true
     }
     if(-not $Key){$Key=[guid]::NewGuid().ToString('N')}
-    if($Kind -eq 'SecretMeta'){$Key+='|'+$(if([string]$Row.LapsScheme){'LAPS'}else{'BitLocker'})}
+    if($Kind -eq 'SecretMeta' -and $null -eq $Row.PSObject.Properties['Rows']){$Key+='|'+$(if([string]$Row.LapsScheme){'LAPS'}else{'BitLocker'})}
     $queueKey=$Kind+'|'+[string]$script:DatabaseScopedPath+'|'+$Key
     if($script:Persistence.Pending.Count -ge 256 -and -not $script:Persistence.Pending.ContainsKey($queueKey)){Set-Status 'File locale pleine : les dernieres informations sont en memoire, pas encore enregistrees.' 'WARN';return $false}
     $script:Persistence.Pending[$queueKey]=[pscustomobject]@{QueueKey=$queueKey;Kind=$Kind;Path=[string]$script:DatabaseScopedPath;Row=$Row;Epoch=[long]$script:SessionEpoch}
@@ -580,7 +582,8 @@ function Complete-DomeniaStoragePurge {
                 if($null -ne $script:Live){$script:Live.Observations.Clear();$script:Live.ObservationsLoaded=$false;$script:Live.SaveQueue=@{};$script:Live.Done=@{};$script:Live.PresenceSeen=@{}}
             }
             if($State.Selection -contains 'Snapshots' -and $null -ne $script:Live){$script:Live.MemoryQueries=@{};$script:Live.QueryToSave=$null}
-            if(@($State.Selection|Where-Object{$_ -in @('Observations','Index')}).Count){try{Request-DomeniaFleetRefresh -Force}catch{}}
+            # History holds the daily snapshots of the overview (FO-10): purged, the curve is computed again.
+            if(@($State.Selection|Where-Object{$_ -in @('Observations','Index','History')}).Count){try{Request-DomeniaFleetRefresh -Force}catch{}}
             if(@($State.Selection|Where-Object{$_ -in @('Snapshots','Observations','Index')}).Count){
                 # Invalidate the displayed search producer too: no old stream may repopulate the purged cache.
                 Stop-DomeniaLiveSearch

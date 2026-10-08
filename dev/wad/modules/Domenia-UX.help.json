@@ -3500,5 +3500,47 @@
     "Source": "park-detection",
     "Title": "Arreter la detection",
     "Text": "Arrete les nouvelles lectures des resultats. Les associations et les observations obtenues restent conservees."
+  },
+  {
+    "Name": "BtnFleetOpenSearch",
+    "Kind": "Button",
+    "Source": "lot-L01",
+    "Title": "Analyser ces postes dans Rechercher",
+    "Text": "Ouvre Rechercher sur lʼOU de lʼaccueil. Pinger, détecter ou analyser se lancent ensuite depuis la liste, à votre clic."
+  },
+  {
+    "Name": "BtnFirstStepOu",
+    "Kind": "Button",
+    "Source": "lot-L01",
+    "Title": "Premiers pas : choisir mon OU",
+    "Text": "Ouvre lʼarbre des OU de Rechercher. Lʼaccueil suit lʼOU choisie ; aucune lecture nʼest lancée."
+  },
+  {
+    "Name": "BtnFirstStepBase",
+    "Kind": "Button",
+    "Source": "lot-L01",
+    "Title": "Premiers pas : base autonome",
+    "Text": "Ouvre Outils, Base autonome. La mise à jour ne part quʼà votre clic sur Mettre à jour tout."
+  },
+  {
+    "Name": "BtnFirstStepAccount",
+    "Kind": "Button",
+    "Source": "lot-L01",
+    "Title": "Premiers pas : compte des postes",
+    "Text": "Ouvre Comptes et accès pour enregistrer le compte utilisé sur les postes. Aucun compte nʼest demandé par ce bouton."
+  },
+  {
+    "Name": "BtnFirstStepBackup",
+    "Kind": "Button",
+    "Source": "lot-L01",
+    "Title": "Premiers pas : première sauvegarde",
+    "Text": "Ouvre Outils, Base autonome. La sauvegarde ne part quʼà votre clic sur Sauvegarder maintenant."
+  },
+  {
+    "Name": "BtnFleetDashboardRefresh",
+    "Kind": "Button",
+    "Source": "lot-L01",
+    "Title": "Actualiser la vue dʼensemble",
+    "Text": "Recalcule la vue dʼensemble depuis la base autonome locale : aucune requête AD ni poste."
   }
 ]

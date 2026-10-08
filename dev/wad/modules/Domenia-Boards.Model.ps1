@@ -49,23 +49,31 @@ computer.certificates|Securite et etat|Certificats machine|Value|Kpi|S|Certifica
 computer.hotfix|Securite et etat|Dernier correctif|Value|Kpi|S|Date du dernier correctif installe
 '@
     Fleet = @'
-fleet.health|Vue d ensemble|Etat du parc|Health|Health|S|Score calcule a partir des points d attention
-fleet.attention|Vue d ensemble|Points d attention|List|List|L|Problemes detectes sur le perimetre
-fleet.machines|Inventaire du perimetre|Postes actifs|Value|Kpi|S|Comptes ordinateur actifs du perimetre
-fleet.stale|Inventaire du perimetre|Postes inactifs (90 j et plus)|Value|Kpi|S|Sans connexion au domaine depuis 90 jours
-fleet.win10|Inventaire du perimetre|Postes sous Windows 10|Value|Kpi|S|Fin de support le 14/10/2025
-fleet.users|Inventaire du perimetre|Utilisateurs detectes|Value|Kpi|S|Utilisateurs vus sur les postes
-fleet.lastcheck|Inventaire du perimetre|Derniere analyse|Value|Kpi|S|Date du dernier releve des postes
-fleet.os|Repartition|Systemes d exploitation|Distribution|Pie|M|Systemes declares dans l annuaire
-fleet.lastlogon|Repartition|Derniere connexion au domaine|Series|Column|M|Anciennete de la derniere connexion
-fleet.ou|Repartition|Postes par unite d organisation|Distribution|Bar|M|Postes par OU ou sous-OU
-fleet.presence|Repartition|Presence reseau|Distribution|Pie|M|Resultat des derniers releves
-fleet.models|Releves WMI|Modeles|Distribution|Bar|M|Modeles des postes analyses
-fleet.releases|Releves WMI|Versions de Windows|Distribution|Pie|M|Versions commerciales relevees
-fleet.ram|Releves WMI|Memoire installee|Series|Column|M|Postes par quantite de memoire
-fleet.diskfree|Releves WMI|Espace libre sur C:|Series|Column|M|Postes par espace libre du disque systeme
-fleet.lowdisk|Releves WMI|Disque C: presque plein|Value|Kpi|S|Postes avec moins de 10 % libre
-fleet.uptime|Releves WMI|Non redemarres depuis 30 j|Value|Kpi|S|Postes a redemarrer
+fleet.health|Santé|État du parc|Health|Health|S|Part des postes sans point critique ni à surveiller
+fleet.attention|Santé|Points dʼattention|List|List|L|Problèmes détectés sur le périmètre : un clic déplie les postes concernés
+fleet.machines|Inventaire du périmètre|Postes|Value|Kpi|S|Comptes ordinateur actifs du périmètre
+fleet.stale|Inventaire du périmètre|Sans connexion depuis 90 j|Value|Kpi|S|Attribut lastLogonTimestamp, à 14 jours près
+fleet.disabled|Inventaire du périmètre|Comptes désactivés encore dans lʼOU|Value|Kpi|S|Comptes ordinateur désactivés à déplacer ou supprimer
+fleet.created|Inventaire du périmètre|Créés ces 30 jours|Value|Kpi|S|Attribut whenCreated
+fleet.pwdold|Inventaire du périmètre|Mot de passe machine de plus de 60 j|Value|Kpi|S|Attribut pwdLastSet
+fleet.laps|Sécurité|Sans LAPS|Value|Kpi|S|Expiration LAPS lue avec la base autonome, jamais le mot de passe
+fleet.bitlocker|Sécurité|Sans clé BitLocker|Value|Kpi|S|Présence des clés de récupération, lue sur demande pour lʼOU affichée
+fleet.versions|Versions de Windows|Versions de Windows|Distribution|Pie|M|Attribut operatingSystemVersion de tout le périmètre
+fleet.eos|Versions de Windows|Fin de service|Value|Kpi|S|Versions plus maintenues ou bientôt (90 jours avant la date)
+fleet.win10|Versions de Windows|Postes sous Windows 10|Value|Kpi|S|Hors LTSC, LTSB et IoT|N
+fleet.os|Répartition|Systèmes dʼexploitation|Distribution|Pie|M|Systèmes déclarés dans lʼannuaire
+fleet.lastlogon|Répartition|Dernière connexion au domaine|Series|Column|M|Ancienneté de la dernière connexion
+fleet.ou|Répartition|Postes par unité dʼorganisation|Distribution|Bar|M|Postes par OU ou sous-OU
+fleet.presence|Relevés des postes|Présence réseau|Distribution|Pie|M|Derniers relevés de moins de 30 jours|N
+fleet.users|Relevés des postes|Utilisateurs détectés|Value|Kpi|S|Utilisateurs distincts vus en session sur les postes|N
+fleet.lastcheck|Relevés des postes|Dernière analyse|Value|Kpi|S|Date du dernier relevé des postes|N
+fleet.models|Relevés des postes|Modèles|Distribution|Bar|M|Modèles des postes analysés|N
+fleet.releases|Relevés des postes|Versions relevées|Distribution|Pie|M|Versions commerciales relevées par WMI|N
+fleet.ram|Relevés des postes|Mémoire installée|Series|Column|M|Postes par quantité de mémoire|N
+fleet.diskfree|Relevés des postes|Espace libre sur C:|Series|Column|M|Postes par espace libre du disque système|N
+fleet.lowdisk|Relevés des postes|Disque C: presque plein|Value|Kpi|S|Postes avec moins de 10 % libre|N
+fleet.uptime|Relevés des postes|Non redémarrés depuis 30 j|Value|Kpi|S|Postes à redémarrer|N
+fleet.trend|Évolution|Postes à traiter sur 90 jours|Timeline|Line|L|Instantanés quotidiens locaux de lʼOU affichée|N
 '@
     Software = @'
 software.count|Synthese|Logiciels|Value|Kpi|S|Nombre de logiciels et d editeurs
@@ -79,6 +87,28 @@ software.largest|Repartition|Plus gros logiciels|Distribution|Bar|L|Taille decla
 '@
 }
 
+# Fleet layout delivered up to RC1.13.0 (key|section|representation|size): a saved layout identical to it is
+# replaced by the current delivered layout; any other saved layout is kept as it is (decision David 2026-10-08).
+$script:DomeniaFleetLegacyLayoutText = @'
+fleet.health|Vue d ensemble|Health|S
+fleet.attention|Vue d ensemble|List|L
+fleet.machines|Inventaire du perimetre|Kpi|S
+fleet.stale|Inventaire du perimetre|Kpi|S
+fleet.win10|Inventaire du perimetre|Kpi|S
+fleet.users|Inventaire du perimetre|Kpi|S
+fleet.lastcheck|Inventaire du perimetre|Kpi|S
+fleet.os|Repartition|Pie|M
+fleet.lastlogon|Repartition|Column|M
+fleet.ou|Repartition|Bar|M
+fleet.presence|Repartition|Pie|M
+fleet.models|Releves WMI|Bar|M
+fleet.releases|Releves WMI|Pie|M
+fleet.ram|Releves WMI|Column|M
+fleet.diskfree|Releves WMI|Column|M
+fleet.lowdisk|Releves WMI|Kpi|S
+fleet.uptime|Releves WMI|Kpi|S
+'@
+
 function Get-DomeniaBoardCatalog {
     # Built-in widgets of a board, in their default order.
     param([Parameter(Mandatory=$true)][ValidateSet('Computer','Fleet','Software')][string]$Board)
@@ -88,7 +118,9 @@ function Get-DomeniaBoardCatalog {
         if (-not $text) { continue }
         $cells = $text -split '\|'
         if ($cells.Count -lt 7) { continue }
-        [void]$rows.Add([pscustomobject]@{ Key = $cells[0]; Group = $cells[1]; Title = $cells[2]; Kind = $cells[3]; Visual = $cells[4]; Size = $cells[5]; Description = $cells[6] })
+        # Optional eighth cell: N = in the catalog only, left out of the delivered layout.
+        $default = -not (($cells.Count -ge 8) -and ([string]$cells[7]).Trim() -eq 'N')
+        [void]$rows.Add([pscustomobject]@{ Key = $cells[0]; Group = $cells[1]; Title = $cells[2]; Kind = $cells[3]; Visual = $cells[4]; Size = $cells[5]; Description = $cells[6]; Default = $default })
     }
     return @($rows)
 }
@@ -112,23 +144,126 @@ function Format-DomeniaDashboardSize {
     if ($Bytes -ge 1GB) { return ('{0:0.#} Go' -f ($Bytes / 1GB)) }
     return ('{0:0} Mo' -f ($Bytes / 1MB))
 }
+function ConvertFrom-DomeniaOsVersion {
+    # Build number of operatingSystemVersion ('10.0 (19045)') or of a CIM version ('10.0.19045'); '' when absent.
+    param([string]$Version)
+    $text = ([string]$Version).Trim()
+    if ($text -match '\((\d{3,6})\)') { return [string]$Matches[1] }
+    if ($text -match '^\d+\.\d+\.(\d{3,6})') { return [string]$Matches[1] }
+    if ($text -match '^\d{3,6}$') { return $text }
+    return ''
+}
+function Get-DomeniaWindowsFamily {
+    # Lifecycle family of a system name (AD operatingSystem or CIM caption): LTSC, LTSB and IoT keep their own dates.
+    param([string]$Caption)
+    $c = [string]$Caption
+    if ($c -match '(?i)server') { return 'Server' }
+    if ($c -match '(?i)LTS[BC]') { if ($c -match '(?i)\bIoT\b') { return 'IoT' }; return 'LTSC' }
+    if ($c -match '(?i)entreprise|enterprise|education|éducation') { return 'Enterprise' }
+    if ($c -match '(?i)\bIoT\b') { return 'Enterprise' }
+    return 'Pro'
+}
 function Get-DomeniaWindowsRelease {
-    # Release name from the build number. Only Windows 10 carries an end-of-support note (14/10/2025).
+    # Release name and end of service of one system. $Lifecycle: the delivered table (Domenia-WindowsLifecycle.json,
+    # read once by the interface and passed here: a rule never reads the disk). Without the table, or without a line
+    # for the build and family, the end date is unknown and never critical (decision David 2026-10-08).
     # Servers share their builds with Windows 11: a caption naming a server gives the server release
     # (real case 2026-10-07: CNAMTS-DC01, Windows Server 2025, build 26100, was shown as Windows 11 24H2).
-    param([string]$Build,[string]$Caption = '')
+    # Status: Ended (past the date), Soon (90 days or less before), Ok, Unknown.
+    param([string]$Build,[string]$Caption = '',$Lifecycle = $null,[datetime]$Now = [datetime]::Now)
     $names = @{ '26200'='Windows 11 25H2'; '26100'='Windows 11 24H2'; '22631'='Windows 11 23H2'; '22621'='Windows 11 22H2'; '22000'='Windows 11 21H2'; '19045'='Windows 10 22H2'; '19044'='Windows 10 21H2'; '19043'='Windows 10 21H1' }
     $servers = @{ '26100'='Windows Server 2025'; '20348'='Windows Server 2022'; '17763'='Windows Server 2019'; '14393'='Windows Server 2016' }
-    $key = ([string]$Build).Trim()
-    if ($Caption -match '(?i)server') {
-        $name = [string]$servers[$key]
-        if (-not $name) { $name = (($Caption -replace '(?i)^Microsoft\s+','') -replace '(?i)\s+(Standard|Datacenter|Essentials|Evaluation).*$','').Trim() }
-        if ($name -notlike 'Windows*') { $name = 'Windows Server' }
-        return [pscustomobject]@{ Name = $name; Note = $(if ($key) { 'Build ' + $key } else { '' }) }
+    $invariant = [Globalization.CultureInfo]::InvariantCulture
+    $key = ConvertFrom-DomeniaOsVersion $Build
+    $family = Get-DomeniaWindowsFamily $Caption
+    $entries = @()
+    if ($null -ne $Lifecycle) {
+        $listProperty = $Lifecycle.PSObject.Properties['Entries']
+        $entries = @(if ($null -ne $listProperty) { @($listProperty.Value) } else { @($Lifecycle) })
     }
-    $name = [string]$names[$key]
-    $note = if ($name -like 'Windows 10*') { 'Fin de support le 14/10/2025 : a migrer' } elseif ($name) { 'Build ' + $Build } else { '' }
-    return [pscustomobject]@{ Name = $name; Note = $note }
+    $tableKnown = (@($entries | Where-Object { $null -ne $_ }).Count -gt 0)
+    $match = $null
+    if ($key) { foreach ($entry in $entries) { if (($null -ne $entry) -and ([string]$entry.Build -eq $key) -and ([string]$entry.Family -eq $family)) { $match = $entry } } }
+    $name = ''
+    if ($null -ne $match) { $name = [string]$match.Name }
+    elseif ($family -eq 'Server') {
+        $name = [string]$servers[$key]
+        if (-not $name) { $name = (([string]$Caption -replace '(?i)^Microsoft\s+','') -replace '(?i)\s+(Standard|Datacenter|Essentials|Evaluation).*$','').Trim() }
+        if ($name -notlike 'Windows*') { $name = 'Windows Server' }
+    }
+    else { $name = [string]$names[$key] }
+    # Family shown with the client releases whose dates differ by edition.
+    $label = $name
+    if ($name -and ($family -in @('Pro','Enterprise')) -and ($name -like 'Windows 1*') -and ($name -notmatch 'LTS')) { $label = $name + $(if ($family -eq 'Pro') { ' Pro' } else { ' Entreprise' }) }
+    $end = $null
+    if (($null -ne $match) -and [string]$match.End) {
+        $parsed = [datetime]::MinValue
+        if ([datetime]::TryParseExact([string]$match.End,'yyyy-MM-dd',$invariant,[Globalization.DateTimeStyles]::None,[ref]$parsed)) { $end = $parsed }
+    }
+    # Build not read: every Windows 10 release of a mainstream family ended on 14/10/2025 at the latest, so the
+    # latest date of the family settles it; otherwise the date stays unknown.
+    $guessed = $false
+    if (($null -eq $end) -and (-not $key) -and $tableKnown -and ($family -in @('Pro','Enterprise')) -and ([string]$Caption -match '(?i)windows\s+(\d+)')) {
+        $product = 'Windows ' + $Matches[1]
+        $latest = $null
+        foreach ($entry in $entries) {
+            if (($null -eq $entry) -or ([string]$entry.Family -ne $family) -or (-not ([string]$entry.Name).StartsWith($product + ' '))) { continue }
+            $parsed = [datetime]::MinValue
+            if ([datetime]::TryParseExact([string]$entry.End,'yyyy-MM-dd',$invariant,[Globalization.DateTimeStyles]::None,[ref]$parsed) -and (($null -eq $latest) -or ($parsed -gt $latest))) { $latest = $parsed }
+        }
+        if (($null -ne $latest) -and ($latest -lt $Now.Date)) { $end = $latest; $guessed = $true; if (-not $name) { $name = $product; $label = $product + ' (version non lue)' } }
+    }
+    $status = 'Unknown'
+    if ($null -ne $end) {
+        if ($Now.Date -gt $end) { $status = 'Ended' }
+        elseif (($end - $Now.Date).TotalDays -le 90) { $status = 'Soon' }
+        else { $status = 'Ok' }
+    }
+    $endText = if ($null -ne $end) { $end.ToString('dd/MM/yyyy',$invariant) } else { '' }
+    $buildText = if ($key) { 'Build ' + $key } else { '' }
+    $note = switch ($status) {
+        'Ended' { $(if ($guessed) { 'Fin de service au plus tard le ' + $endText + ' : à migrer' } else { 'Fin de service le ' + $endText + ' : à migrer' }) }
+        'Soon' { 'Fin de service le ' + $endText }
+        'Ok' { (@($buildText, ('fin de service le ' + $endText)) | Where-Object { $_ }) -join ' · ' }
+        default { $(if ($name -or $key) { (@($buildText, 'date de fin inconnue') | Where-Object { $_ }) -join ' · ' } else { '' }) }
+    }
+    return [pscustomobject]@{ Name = $name; Label = $label; Note = $note; Family = $family; Build = $key; End = $endText; EndDate = $end; Status = $status }
+}
+function Format-DomeniaAge {
+    # 'il y a 5 min', 'il y a 3 h', 'il y a 2 j' between two UTC times.
+    param([datetime]$FromUtc,[datetime]$NowUtc = [datetime]::UtcNow)
+    $span = $NowUtc - $FromUtc
+    if ($span.TotalMinutes -lt 1) { return 'à lʼinstant' }
+    if ($span.TotalHours -lt 1) { return 'il y a ' + [int][Math]::Floor($span.TotalMinutes) + ' min' }
+    if ($span.TotalDays -lt 1) { return 'il y a ' + [int][Math]::Floor($span.TotalHours) + ' h' }
+    return 'il y a ' + [int][Math]::Floor($span.TotalDays) + ' j'
+}
+function ConvertFrom-DomeniaUtcText {
+    # ISO 8601 text written by the workers ('o' or 'yyyy-MM-ddTHH:mm:ssZ') to a UTC date; $null when unreadable.
+    param([string]$Text)
+    $value = ([string]$Text).Trim()
+    if (-not $value) { return $null }
+    $parsed = [datetime]::MinValue
+    if ([datetime]::TryParse($value,[Globalization.CultureInfo]::InvariantCulture,([Globalization.DateTimeStyles]::AdjustToUniversal -bor [Globalization.DateTimeStyles]::AssumeUniversal),[ref]$parsed)) { return $parsed }
+    return $null
+}
+function Get-DomeniaCoverageText {
+    # Coverage of a widget built on observations: 'N postes analysés sur M, le jj/MM'.
+    param([int]$Analysed,[int]$Total,$LastUtc = $null)
+    $text = [string]$Analysed + ' poste' + $(if ($Analysed -gt 1) { 's' } else { '' }) + ' analysé' + $(if ($Analysed -gt 1) { 's' } else { '' }) + ' sur ' + [string]$Total
+    if ($LastUtc -is [datetime]) { $text += ', le ' + $LastUtc.ToLocalTime().ToString('dd/MM',[Globalization.CultureInfo]::InvariantCulture) }
+    return $text
+}
+function Test-DomeniaObservationAge {
+    # Use of an observation by its age (decision David 2026-10-08): Fresh, Old (shown greyed, past $GreyDays) or
+    # Expired (left out, past $MaxDays). An unreadable date is Expired.
+    param($CheckedUtc,[datetime]$NowUtc = [datetime]::UtcNow,[int]$MaxDays = 30,[int]$GreyDays = 7)
+    $date = if ($CheckedUtc -is [datetime]) { $CheckedUtc.ToUniversalTime() } else { ConvertFrom-DomeniaUtcText ([string]$CheckedUtc) }
+    if ($null -eq $date) { return 'Expired' }
+    $days = ($NowUtc - $date).TotalDays
+    if ($days -gt [Math]::Max(1,$MaxDays)) { return 'Expired' }
+    if ($days -gt $GreyDays) { return 'Old' }
+    return 'Fresh'
 }
 
 # ---------------------------------------------------------------------------
@@ -137,9 +272,11 @@ function Get-DomeniaWindowsRelease {
 function New-DomeniaBoardEntry {
     # Value: one text. Number: a measure with an optional maximum (gauge). Distribution: parts of a whole.
     # Measure: numeric values gathered in buckets. Series: ordered buckets. List: Level/Text lines. Health: score.
+    # Timeline: values by date (daily local snapshots), the only data drawn as a curve.
+    # Action: optional button of the widget {Id; Text; Tip} handled by the interface (never run by a rule).
     param(
         [Parameter(Mandatory=$true)][string]$Key,
-        [Parameter(Mandatory=$true)][ValidateSet('Value','Number','Distribution','Measure','Series','List','Health')][string]$Kind,
+        [Parameter(Mandatory=$true)][ValidateSet('Value','Number','Distribution','Measure','Series','List','Health','Timeline')][string]$Kind,
         [string]$Title = '',
         [string]$Value = '',
         [string]$Detail = '',
@@ -149,9 +286,10 @@ function New-DomeniaBoardEntry {
         $Maximum = $null,
         [string]$Unit = '',
         [switch]$LowIsBad,
-        [string]$CenterText = ''
+        [string]$CenterText = '',
+        $Action = $null
     )
-    return [pscustomobject]@{ Key = $Key; Kind = $Kind; Title = $Title; Value = $Value; Detail = $Detail; State = $State; Items = @($Items | Where-Object { $null -ne $_ }); Number = $Number; Maximum = $Maximum; Unit = $Unit; LowIsBad = [bool]$LowIsBad; CenterText = $CenterText }
+    return [pscustomobject]@{ Key = $Key; Kind = $Kind; Title = $Title; Value = $Value; Detail = $Detail; State = $State; Items = @($Items | Where-Object { $null -ne $_ }); Number = $Number; Maximum = $Maximum; Unit = $Unit; LowIsBad = [bool]$LowIsBad; CenterText = $CenterText; Action = $Action }
 }
 function New-DomeniaBoardData {
     # What a provider returns: entries by key, attention points, hints for empty sections, a summary line.
@@ -164,9 +302,12 @@ function Add-DomeniaBoardEntry {
     $Data.Entries[[string]$Entry.Key] = $Entry
 }
 function Add-DomeniaBoardAttention {
-    param([Parameter(Mandatory=$true)]$Data,[ValidateSet('Alert','Warn','Info')][string]$Level,[string]$Text)
+    # -Point: stable name of the check. -Groups / -Machines: workstations concerned (fleet: aggregate groups of the
+    # worker, or observed workstations), unfolded by a click from the data already in memory. -Route: workspace that
+    # holds the useful action (workstation board), opened by Invoke-DomeniaUxRoute without running anything.
+    param([Parameter(Mandatory=$true)]$Data,[ValidateSet('Alert','Warn','Info')][string]$Level,[string]$Text,[string]$Point = '',[object[]]$Groups = @(),[object[]]$Machines = @(),[string]$Route = '',[string]$RouteText = '')
     if (-not $Text) { return }
-    [void]$Data.Attention.Add([pscustomobject]@{ Level = $Level; Text = $Text })
+    [void]$Data.Attention.Add([pscustomobject]@{ Level = $Level; Text = $Text; Point = $Point; Groups = @($Groups | Where-Object { $null -ne $_ }); Machines = @($Machines | Where-Object { $null -ne $_ }); Route = $Route; RouteText = $RouteText })
 }
 function Get-DomeniaBoardHealth {
     # 100 minus 25 per critical point and 10 per point to watch; information lines do not count.
@@ -178,14 +319,35 @@ function Get-DomeniaBoardHealth {
     $state = if ($alerts -or $score -lt 60) { 'Alert' } elseif ($warnings) { 'Warn' } else { 'Ok' }
     return [pscustomobject]@{ Score = $score; Verdict = $verdict; State = $state; Alerts = $alerts; Warnings = $warnings }
 }
+function Get-DomeniaFleetHealth {
+    # Fleet score (decision David 2026-10-08, MO-01): share of the workstations without any critical point nor point
+    # to watch. Critique as soon as one point is critical, otherwise Bon état from 90 %, À surveiller from 75 %,
+    # Dégradé below. An empty perimeter is in good health.
+    param([int]$Total,[int]$Healthy,[object[]]$Attention = @())
+    $alerts = @($Attention | Where-Object { ($null -ne $_) -and ([string]$_.Level -eq 'Alert') }).Count
+    $warnings = @($Attention | Where-Object { ($null -ne $_) -and ([string]$_.Level -eq 'Warn') }).Count
+    $healthy = [Math]::Max(0,[Math]::Min($Total,$Healthy))
+    $score = if ($Total -gt 0) { [int][Math]::Floor(100.0 * $healthy / $Total) } else { 100 }
+    $verdict = if ($alerts) { 'Critique' } elseif ($score -ge 90) { 'Bon état' } elseif ($score -ge 75) { 'À surveiller' } else { 'Dégradé' }
+    $state = if ($alerts -or ($verdict -eq 'Dégradé')) { 'Alert' } elseif ($verdict -eq 'À surveiller') { 'Warn' } else { 'Ok' }
+    $detail = if ($Total -gt 0) { [string]$healthy + ' poste' + $(if ($healthy -gt 1) { 's' } else { '' }) + ' sur ' + [string]$Total + ' sans problème' } else { 'Aucun poste dans le périmètre' }
+    return [pscustomobject]@{ Score = $score; Verdict = $verdict; State = $state; Alerts = $alerts; Warnings = $warnings; Detail = $detail; Healthy = $healthy; Total = $Total }
+}
 function Complete-DomeniaBoardData {
     # Adds the health and attention entries computed from every check, whether its widget is shown or not.
+    # A provider that counts its workstations ($Data.Population = {Total; Healthy}) gets the proportional score.
     param([Parameter(Mandatory=$true)]$Data)
     $prefix = ([string]$Data.Board).ToLowerInvariant()
     $attention = @($Data.Attention)
-    $health = Get-DomeniaBoardHealth -Attention $attention
+    $population = $null
+    $populationProperty = $Data.PSObject.Properties['Population']
+    if ($null -ne $populationProperty) { $population = $populationProperty.Value }
+    if ($null -ne $population) { $health = Get-DomeniaFleetHealth -Total ([int]$population.Total) -Healthy ([int]$population.Healthy) -Attention $attention }
+    else { $health = Get-DomeniaBoardHealth -Attention $attention }
     $detail = if ($health.Alerts -or $health.Warnings) { @($(if ($health.Alerts) { [string]$health.Alerts + ' critique(s)' }), $(if ($health.Warnings) { [string]$health.Warnings + ' a surveiller' })) -join ' · ' } else { 'Aucun point a verifier' }
-    Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key ($prefix + '.health') -Kind Health -Value $health.Verdict -Detail $detail.Trim(' ','·') -State $health.State -Number $health.Score -Maximum 100)
+    $healthDetail = $detail
+    if ($null -ne $population) { $healthDetail = [string]$health.Detail }
+    Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key ($prefix + '.health') -Kind Health -Value $health.Verdict -Detail $healthDetail.Trim(' ','·') -State $health.State -Number $health.Score -Maximum 100)
     $sorted = @(@($attention | Where-Object { $_.Level -eq 'Alert' }) + @($attention | Where-Object { $_.Level -eq 'Warn' }) + @($attention | Where-Object { $_.Level -notin @('Alert','Warn') }))
     $title = if ($health.Alerts + $health.Warnings) { [string]($health.Alerts + $health.Warnings) + ' point(s) a verifier' } else { 'Rien a signaler' }
     Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key ($prefix + '.attention') -Kind List -Title $title -Value $title -Detail $detail.Trim(' ','·') -State $health.State -Items $sorted)
@@ -199,14 +361,16 @@ function Get-DomeniaBoardVisualNames {
     return [ordered]@{ Kpi = 'Chiffre cle'; Gauge = 'Jauge'; Pie = 'Anneau'; Bar = 'Barres'; Column = 'Histogramme'; Line = 'Courbe'; Text = 'Liste'; List = 'Liste de points'; Health = 'Score' }
 }
 function Get-DomeniaBoardVisuals {
-    # Representations that make sense for a kind of data (decision David 2026-10-07), preferred first.
+    # Representations that make sense for a kind of data (decision David 2026-10-07), preferred first. A curve
+    # (Line) is offered for dated values only: buckets and shares are not a time line (decision David 2026-10-08).
     param([string]$Kind,[switch]$HasMaximum)
     switch ($Kind) {
         'Value' { return @('Kpi','Text') }
         'Number' { if ($HasMaximum) { return @('Gauge','Kpi','Text') }; return @('Kpi','Text') }
         'Distribution' { return @('Pie','Bar','Column','Text','Kpi') }
-        'Measure' { return @('Column','Bar','Line','Kpi','Text') }
-        'Series' { return @('Column','Line','Bar','Text','Kpi') }
+        'Measure' { return @('Column','Bar','Kpi','Text') }
+        'Series' { return @('Column','Bar','Text','Kpi') }
+        'Timeline' { return @('Line','Column','Text') }
         'List' { return @('List') }
         'Health' { return @('Health','Kpi') }
         default { return @('Kpi','Text') }
@@ -255,8 +419,26 @@ function New-DomeniaBoardItem {
     return [pscustomobject]@{ Id = $Id; Source = $Source; Key = $Key; Visual = $Visual; Title = $Title; Size = $Size; Group = $Group }
 }
 function Get-DomeniaBoardDefaultLayout {
+    # Delivered layout: the catalog in its order, without the widgets marked catalog only (eighth cell N).
     param([Parameter(Mandatory=$true)][ValidateSet('Computer','Fleet','Software')][string]$Board)
-    return @(Get-DomeniaBoardCatalog -Board $Board | ForEach-Object { New-DomeniaBoardItem -Source Builtin -Key $_.Key -Visual $_.Visual -Size $_.Size -Group $_.Group -Id ('b-' + $_.Key) })
+    return @(Get-DomeniaBoardCatalog -Board $Board | Where-Object { [bool]$_.Default } | ForEach-Object { New-DomeniaBoardItem -Source Builtin -Key $_.Key -Visual $_.Visual -Size $_.Size -Group $_.Group -Id ('b-' + $_.Key) })
+}
+function Test-DomeniaFleetLegacyLayout {
+    # True when a saved Fleet layout is the layout delivered up to RC1.13.0, unchanged (identifiers aside): it is then
+    # replaced by the current delivered layout. A layout changed by the operator is never replaced.
+    param([object[]]$Items = @())
+    $legacy = New-Object System.Collections.ArrayList
+    foreach ($line in ([string]$script:DomeniaFleetLegacyLayoutText -split "`n")) { $text = $line.Trim(); if ($text) { [void]$legacy.Add(($text -split '\|')) } }
+    $stored = @($Items | Where-Object { $null -ne $_ })
+    if (($stored.Count -ne $legacy.Count) -or (-not $legacy.Count)) { return $false }
+    for ($i = 0; $i -lt $legacy.Count; $i++) {
+        $raw = $stored[$i]
+        $cells = @($legacy[$i])
+        $read = @{}
+        foreach ($name in @('Source','Key','Group','Visual','Size','Title')) { $property = $raw.PSObject.Properties[$name]; $read[$name] = $(if (($null -ne $property) -and ($null -ne $property.Value)) { [string]$property.Value } else { '' }) }
+        if (($read['Source'] -ne 'Builtin') -or ($read['Key'] -cne $cells[0]) -or ($read['Group'] -cne $cells[1]) -or ($read['Visual'] -cne $cells[2]) -or ($read['Size'] -cne $cells[3]) -or $read['Title']) { return $false }
+    }
+    return $true
 }
 function ConvertTo-DomeniaBoardLayout {
     # Stored text (JSON) to a clean layout: unknown widgets dropped, representations and sizes corrected, ids unique.
@@ -271,6 +453,8 @@ function ConvertTo-DomeniaBoardLayout {
     # ConvertFrom-Json (5.1) emits a JSON array as a single object: assigned first, then wrapped.
     if (-not [string]::IsNullOrWhiteSpace($Json)) { try { $parsed = ConvertFrom-Json -InputObject $Json; $stored = @($parsed) } catch { $stored = $null } }
     # Nothing stored: the delivered layout. A stored empty list ('[]') is a board emptied on purpose and stays empty.
+    # The Fleet layout delivered up to RC1.13.0, saved unchanged, becomes the current delivered layout.
+    if (($null -ne $stored) -and ($Board -eq 'Fleet') -and (Test-DomeniaFleetLegacyLayout -Items $stored)) { $stored = $null }
     $items = if ($null -eq $stored) { @(Get-DomeniaBoardDefaultLayout -Board $Board) } else { @($stored) }
     foreach ($legacy in @($LegacyWidgets)) {
         if ($null -eq $legacy -or $null -eq $legacy.PSObject.Properties['ProbeId']) { continue }
@@ -465,6 +649,7 @@ function New-DomeniaBoardSample {
         'Series' { return New-DomeniaBoardEntry -Key $Key -Kind Series -Value '22' -Detail 'Apercu' -Items $parts }
         'List' { return New-DomeniaBoardEntry -Key $Key -Kind List -Value 'Apercu' -Items @([pscustomobject]@{ Level = 'Warn'; Text = 'Exemple de point a surveiller.' }, [pscustomobject]@{ Level = 'Info'; Text = 'Exemple d information.' }) }
         'Health' { return New-DomeniaBoardEntry -Key $Key -Kind Health -Value 'Bon etat' -Detail 'Apercu' -State Ok -Number 90 -Maximum 100 }
+        'Timeline' { return New-DomeniaBoardEntry -Key $Key -Kind Timeline -Value '7' -Detail 'Aperçu' -Items @([pscustomobject]@{ Label = '01/07'; Value = 9 }, [pscustomobject]@{ Label = '01/08'; Value = 8 }, [pscustomobject]@{ Label = '01/09'; Value = 7 }) }
         default { return New-DomeniaBoardEntry -Key $Key -Kind Value -Value 'Exemple' -Detail 'Apercu : la valeur reelle apparait apres lecture' }
     }
 }

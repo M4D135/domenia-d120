@@ -95,3 +95,77 @@ try {
 [pscustomobject]@{ Mode="BitLockerKey"; Success=($null -ne $row); Rows=@($(if ($null -ne $row) { $row })); KeyDn=$keyDn; KeyGuid=$wanted.ToUpperInvariant(); ErrorKind=$errorKind; ErrorMessage=$errorMessage }
 '@
 }
+
+function Get-DomeniaBitLockerPresenceWorkerCode {
+# BitLockerPresence (lot L01, decision David 2026-10-08): presence of recovery objects for the workstations of the OU
+# shown on Accueil, on an explicit gesture. One paged search under that OU, refused at the domain root; it asks for
+# name, distinguishedName and whenCreated only, never msFVE-RecoveryPassword nor msFVE-KeyPackage. One small read of the
+# schema tells "class absent from this domain" from "no object visible with this account".
+return @'
+$ouDn = ([string]$Payload.DN).Trim()
+$baseDn = ([string]$Context.BaseDn).Trim()
+if (-not $ouDn) { throw 'OU absente : aucune lecture envoyee.' }
+if ($baseDn -and ($ouDn -ieq $baseDn)) { throw 'Lecture refusee a la racine du domaine : choisissez une OU dans Rechercher.' }
+if ($ouDn -notmatch '^(?i:OU|CN)=') { throw 'Perimetre de lecture invalide : une OU est attendue.' }
+if ($baseDn -and (-not $ouDn.EndsWith(',' + $baseDn,[StringComparison]::OrdinalIgnoreCase))) { throw 'OU hors du domaine de la session : aucune lecture envoyee.' }
+$limit = 100000
+if ($null -ne $Payload.PSObject.Properties['Limit']) { $limit = [Math]::Max(1,[Math]::Min(100000,[int]$Payload.Limit)) }
+$computers = @{}
+$objectCount = 0
+$truncated = $false
+$classPresent = $true
+$errorKind = ''
+$errorMessage = ''
+$schemaSearcher = $null; $schemaResults = $null; $searcher = $null; $results = $null
+try {
+    $schemaNc = ''
+    try {
+        $rootDse = New-WRootDse $Context
+        $rootDse.RefreshCache(@('schemaNamingContext'))
+        $schemaNc = [string]$rootDse.Properties['schemaNamingContext'].Value
+    } catch { $schemaNc = '' }
+    if ($schemaNc) {
+        $schemaSearcher = New-WSearcher $Context $schemaNc '(&(objectClass=classSchema)(lDAPDisplayName=msFVE-RecoveryInformation))' @('lDAPDisplayName') 'OneLevel' 0
+        $schemaResults = $schemaSearcher.FindAll()
+        $classCount = 0
+        foreach ($schemaResult in $schemaResults) { $classCount++ }
+        $classPresent = ($classCount -gt 0)
+    }
+    if ($classPresent) {
+        $searcher = New-WSearcher $Context $ouDn '(objectClass=msFVE-RecoveryInformation)' @('name','distinguishedName','whenCreated') 'Subtree' 0
+        $searcher.PageSize = 500
+        $results = $searcher.FindAll()
+        foreach ($r in $results) {
+            $objectCount++
+            if ($objectCount -gt $limit) { $truncated = $true; break }
+            $dn = [string](Get-WPropFirst $r.Properties 'distinguishedname' '')
+            # The recovery object is a direct child of its computer: its parent DN is the computer DN.
+            $parent = ''
+            for ($i = 0; $i -lt $dn.Length; $i++) {
+                if ($dn[$i] -eq [char]92) { $i++; continue }
+                if ($dn[$i] -eq [char]44) { $parent = $dn.Substring($i + 1); break }
+            }
+            if (-not $parent) { continue }
+            $key = $parent.ToLowerInvariant()
+            $created = ''
+            $raw = Get-WPropFirst $r.Properties 'whencreated' $null
+            try { if ($raw -is [datetime]) { $created = $raw.ToString('yyyy-MM-ddTHH:mm:ssZ',[Globalization.CultureInfo]::InvariantCulture) } } catch { $created = '' }
+            if (-not $computers.ContainsKey($key)) { $computers[$key] = [pscustomobject]@{ DN = $parent; Keys = 0; Last = '' } }
+            $computers[$key].Keys = [int]$computers[$key].Keys + 1
+            if ($created -and ([string]::CompareOrdinal($created,[string]$computers[$key].Last) -gt 0)) { $computers[$key].Last = $created }
+        }
+    }
+} catch {
+    $diagnostic = Get-DomeniaStructuredError $_ -Phase ([string]$Context.OperationId) -Provider 'LDAP' -Target ([string]$Context.Server)
+    $errorKind = [string]$diagnostic.Kind
+    if (-not $errorKind -or $errorKind -eq 'Unknown') { $errorKind = 'ReadFailed' }
+    $errorMessage = '[DOMENIA:' + $diagnostic.Kind + ';' + $diagnostic.NativeCode + ';' + $diagnostic.Code + '] ' + $_.Exception.Message
+} finally {
+    if ($null -ne $results) { try { $results.Dispose() } catch { } }
+    if ($null -ne $searcher) { try { $searcher.Dispose() } catch { } }
+    if ($null -ne $schemaResults) { try { $schemaResults.Dispose() } catch { } }
+    if ($null -ne $schemaSearcher) { try { $schemaSearcher.Dispose() } catch { } }
+}
+[pscustomobject]@{ Mode='BitLockerPresence'; Success=(-not $errorKind); DN=$ouDn; ClassPresent=$classPresent; RecoveryObjectsFound=$objectCount; Truncated=$truncated; Computers=@($computers.Values); ErrorKind=$errorKind; ErrorMessage=$errorMessage; ReadAtUtc=[datetime]::UtcNow.ToString('o') }
+'@
+}

@@ -43,10 +43,13 @@ function Invoke-IdxWQuery {
         if ($rc -eq 5 -or $rc -eq 6) { throw 'SQLITE_BUSY' }
         if ($rc -ne 0) { throw ('SQLite prepare code ' + $rc + ' : ' + (ConvertFrom-IdxWUtf8 ([Domenia.WinSqliteNative]::sqlite3_errmsg($Db)))) }
         $count = [Domenia.WinSqliteNative]::sqlite3_column_count($stmt)
+        # Column names are read once per statement, not once per cell (thousands of rows for the overview).
+        $names = New-Object 'string[]' ([Math]::Max(0,$count))
+        for ($i = 0; $i -lt $count; $i++) { $names[$i] = ConvertFrom-IdxWUtf8 ([Domenia.WinSqliteNative]::sqlite3_column_name($stmt,$i)) }
         while (($step = [Domenia.WinSqliteNative]::sqlite3_step($stmt)) -eq 100) {
             $o = [ordered]@{}
             for ($i = 0; $i -lt $count; $i++) {
-                $name = ConvertFrom-IdxWUtf8 ([Domenia.WinSqliteNative]::sqlite3_column_name($stmt,$i))
+                $name = $names[$i]
                 $type = [Domenia.WinSqliteNative]::sqlite3_column_type($stmt,$i)
                 $value = $null
                 if ($type -eq 1) { $value = [long][Domenia.WinSqliteNative]::sqlite3_column_int64($stmt,$i) }
@@ -133,39 +136,108 @@ try {
         [pscustomobject]@{Rows=$targets.ToArray();Busy=$false;Missing=$false;MachineCount=$targets.Count};return
     }
     if ($action -eq 'FleetStats') {
-        # Aggregates of the local index for the home dashboard (decision David 2026-10-07). Read only.
-        # The scope is the OU chosen in Rechercher (decision David 2026-10-08): workstations are filtered and cached
-        # observations parsed here, off the interface thread, which only aggregates the workstations of the OU.
+        # Aggregates of the local index for the home dashboard, read only (decision David 2026-10-08, PF-03 and PF-21):
+        # the OU is filtered in SQL (DN suffix, COLLATE NOCASE), the computer facts and the BitLocker presence are
+        # joined by GUID and name, and the workstations are grouped by the boundaries of the payload plan (the rules
+        # stay in BoardFleet.Model). Only the observations of the active workstations of the OU are parsed, after a
+        # GUID check, plus those of the explicitly named keys (selected workstation).
         $scope = ([string]$Payload.Scope).Trim()
         $subtree = ($null -eq $Payload.PSObject.Properties['Subtree'] -or [bool]$Payload.Subtree)
+        $plan = $Payload.Plan
+        if ($null -eq $plan) { throw 'Plan de calcul absent.' }
+        $bounds = @($plan.LogonBounds | ForEach-Object { [string]$_ })
+        if ($bounds.Count -ne 4) { throw 'Plan de calcul invalide.' }
+        foreach ($day in @($bounds + @([string]$plan.Today,[string]$plan.HistorySince))) { if ($day -notmatch '^\d{4}-\d{2}-\d{2}$') { throw 'Plan de calcul invalide.' } }
+        foreach ($stamp in @([string]$plan.CreatedSince,[string]$plan.PasswordBefore,[string]$plan.NowUtc,[string]$plan.ObservationsSince)) { if ($stamp -notmatch '^\d{4}-\d{2}-\d{2}T[0-9:.]+Z$') { throw 'Plan de calcul invalide.' } }
+        $tables = @{}
+        foreach ($row in @(Invoke-IdxWQuery $db "SELECT name FROM sqlite_master WHERE type='table';")) { $tables[[string]$row.name] = $true }
         $types = @(Invoke-IdxWQuery $db "SELECT object_type AS t, CASE WHEN state='Desactive' THEN 'Desactive' ELSE 'Actif' END AS s, count(*) AS n FROM ad_objects GROUP BY 1,2;")
-        $machines = New-Object 'System.Collections.Generic.List[object]'
-        foreach ($machine in @(Invoke-IdxWQuery $db "SELECT name, object_guid, extra, last_logon, distinguished_name FROM ad_objects WHERE object_type='Machine' AND (state IS NULL OR state<>'Desactive');")) {
-            $dn = ([string]$machine.distinguished_name).Trim()
-            if ($scope) {
-                # Subtree: the OU and its sub-OUs; one level: the parent DN (first RDN removed, escaped commas kept) is the OU.
-                if ($subtree) { if (-not ($dn -ieq $scope -or $dn.EndsWith(',' + $scope,[StringComparison]::OrdinalIgnoreCase))) { continue } }
-                elseif (($dn -replace '^(?:[^,\\]|\\.)*,','') -ine $scope) { continue }
-            }
-            $machines.Add($machine)
+        $scopeSql = '1=1'
+        if ($scope) {
+            $suffix = ',' + $scope
+            $len = $suffix.Length
+            $scopeLit = Get-IdxWLiteral $scope; $suffixLit = Get-IdxWLiteral $suffix
+            if ($subtree) { $scopeSql = "(a.distinguished_name = $scopeLit COLLATE NOCASE OR (length(a.distinguished_name) > $len AND substr(a.distinguished_name,-$len) = $suffixLit COLLATE NOCASE))" }
+            else { $scopeSql = "(length(a.distinguished_name) > $len AND substr(a.distinguished_name,-$len) = $suffixLit COLLATE NOCASE AND replace(replace(substr(a.distinguished_name,1,length(a.distinguished_name) - $len),'\\',''),'\,','') NOT LIKE '%,%')" }
         }
+        $factsJoin = ''; $factsCols = "'N' AS fx, NULL AS fv, NULL AS fc, NULL AS fp, NULL AS fk, NULL AS fe, NULL AS fr"
+        if ($tables.ContainsKey('ad_computer_facts')) {
+            $factsJoin = ' LEFT JOIN ad_computer_facts f ON f.object_guid = lower(a.object_guid)'
+            $factsCols = "CASE WHEN f.object_guid IS NULL THEN 'N' WHEN COALESCE(f.read_at,'') >= COALESCE((SELECT last_sync FROM sync_state WHERE scope='directory'),'') THEN 'F' ELSE 'S' END AS fx, f.os_version AS fv, f.when_created AS fc, f.pwd_last_set AS fp, f.laps_kind AS fk, f.laps_expiry AS fe, f.read_at AS fr"
+        }
+        $b = @($bounds | ForEach-Object { Get-IdxWLiteral $_ })
+        $created = Get-IdxWLiteral ([string]$plan.CreatedSince); $pwdBefore = Get-IdxWLiteral ([string]$plan.PasswordBefore); $nowLit = Get-IdxWLiteral ([string]$plan.NowUtc)
+        $cte = "WITH m AS (SELECT a.name AS name, a.distinguished_name AS dn, a.object_guid AS guid, CASE WHEN a.state='Desactive' THEN 'D' ELSE 'A' END AS st," +
+            " CASE WHEN instr(COALESCE(a.extra,''),' / ')>0 THEN substr(a.extra,1,instr(a.extra,' / ')-1) ELSE COALESCE(a.extra,'') END AS os," +
+            " CASE WHEN COALESCE(a.last_logon,'') GLOB '[0-9][0-9]/[0-9][0-9]/[0-9][0-9][0-9][0-9]*' THEN substr(a.last_logon,7,4)||'-'||substr(a.last_logon,4,2)||'-'||substr(a.last_logon,1,2) ELSE '' END AS ld," +
+            " $factsCols, s.computer_key AS sk, s.bitlocker_keys AS sb, s.checked_at AS sc, s.verdict AS sv" +
+            " FROM ad_objects a$factsJoin LEFT JOIN secret_state s ON s.computer_key = upper(a.name) WHERE a.object_type='Machine' AND $scopeSql)," +
+            " g AS (SELECT name, dn, guid, st, os, ld, fx, sc, fr, CASE WHEN fx='F' THEN COALESCE(fv,'') ELSE '' END AS ver," +
+            " CASE WHEN ld='' THEN 5 WHEN ld >= $($b[0]) THEN 0 WHEN ld >= $($b[1]) THEN 1 WHEN ld >= $($b[2]) THEN 2 WHEN ld >= $($b[3]) THEN 3 ELSE 4 END AS lb," +
+            " CASE WHEN fx<>'F' OR COALESCE(fc,'')='' THEN '' WHEN fc >= $created THEN 'R' ELSE 'O' END AS cr," +
+            " CASE WHEN fx<>'F' OR COALESCE(fp,'')='' THEN '' WHEN fp < $pwdBefore THEN 'O' ELSE 'R' END AS pw," +
+            " CASE WHEN fx<>'F' THEN '' WHEN fk='NoSchema' THEN 'X' WHEN fk IN ('Legacy','Windows') AND COALESCE(fe,'')<>'' THEN (CASE WHEN fe < $nowLit THEN 'E' ELSE 'O' END) WHEN fk='None' THEN 'N' ELSE '' END AS lk," +
+            " CASE WHEN sk IS NULL THEN 'U' WHEN sv='non disponible dans ce domaine' THEN 'X' WHEN COALESCE(sb,0) > 0 THEN 'K' ELSE 'N' END AS bk FROM m)," +
+            " h AS (SELECT *, st||'|'||os||'|'||ver||'|'||lb||'|'||cr||'|'||pw||'|'||lk||'|'||bk AS k FROM g) "
+        $groups = New-Object 'System.Collections.Generic.List[object]'; $gids = @{}
+        foreach ($group in @(Invoke-IdxWQuery $db ($cte + 'SELECT k, st, os, ver, lb, cr, pw, lk, bk, count(*) AS n FROM h GROUP BY k;'))) {
+            $gids[[string]$group.k] = [string]($groups.Count + 1)
+            $groups.Add([pscustomobject]@{ gid = $gids[[string]$group.k]; st = [string]$group.st; os = [string]$group.os; ver = [string]$group.ver; lb = [int]$group.lb; cr = [string]$group.cr; pw = [string]$group.pw; lk = [string]$group.lk; bk = [string]$group.bk; n = [int]$group.n })
+        }
+        # One text cell per workstation (fields never hold a tab: the index replaces them): thousands of rows are read
+        # without one native call per cell.
+        $machines = New-Object 'System.Collections.Generic.List[object]'; $targets = New-Object 'System.Collections.Generic.List[object]'; $byDn = @{}
+        foreach ($machine in @(Invoke-IdxWQuery $db ($cte + "SELECT COALESCE(name,'')||char(9)||COALESCE(dn,'')||char(9)||COALESCE(guid,'')||char(9)||st||char(9)||k||char(9)||ld AS r FROM h ORDER BY name COLLATE NOCASE;"))) {
+            $cells = ([string]$machine.r).Split([char]9)
+            if ($cells.Count -lt 6) { continue }
+            $row = [pscustomobject]@{ name = $cells[0]; distinguished_name = $cells[1]; object_guid = $cells[2]; gid = [string]$gids[$cells[4]]; st = $cells[3]; logon = $cells[5] }
+            $machines.Add($row)
+            if ($cells[3] -ne 'D') { $targets.Add($row); $byDn[$cells[1].ToLowerInvariant()] = $row }
+        }
+        $active = $targets.Count
+        $parents = @(Invoke-IdxWQuery $db ($cte + "SELECT substr(dn,instr(dn,',')+1) AS p, count(*) AS n FROM g WHERE st<>'D' GROUP BY 1;"))
+        $coverageRow = @(Invoke-IdxWQuery $db ($cte + "SELECT sum(CASE WHEN bk<>'U' THEN 1 ELSE 0 END) AS br, max(CASE WHEN bk<>'U' THEN sc END) AS ba, sum(CASE WHEN fx='F' THEN 1 ELSE 0 END) AS ff, sum(CASE WHEN fx='S' THEN 1 ELSE 0 END) AS fs, max(fr) AS fa FROM g WHERE st<>'D';"))
+        $coverage = [pscustomobject]@{ BitLockerRead = 0; BitLockerAt = ''; FactsFresh = 0; FactsStale = 0; FactsAt = '' }
+        if ($coverageRow.Count) { $c0 = $coverageRow[0]; $coverage = [pscustomobject]@{ BitLockerRead = [int]$c0.br; BitLockerAt = [string]$c0.ba; FactsFresh = [int]$c0.ff; FactsStale = [int]$c0.fs; FactsAt = [string]$c0.fa } }
         $links = 0; $sources = @(); $presence = New-Object 'System.Collections.Generic.List[object]'
         try { $links = [int](@(Invoke-IdxWQuery $db 'SELECT count(*) AS n FROM user_machine_links;')[0].n) } catch { }
         try { $sources = @(Invoke-IdxWQuery $db 'SELECT source AS s, count(*) AS n FROM user_machine_links GROUP BY 1 ORDER BY 2 DESC LIMIT 6;') } catch { }
-        if (@(Invoke-IdxWQuery $db "SELECT name FROM sqlite_master WHERE type='table' AND name='park_session_cache';").Count) {
-            $cached = @()
-            try { $cached = @(Invoke-IdxWQuery $db 'SELECT object_key, checked_utc, payload FROM park_session_cache;') } catch { }
-            # Every observation is kept (the workstation board reads the selected one, whatever the OU); same size
-            # limit as ParkTargets.
-            foreach ($item in $cached) {
-                if (([string]$item.payload).Length -gt 262144) { continue }
-                $observation = $null
-                try { $observation = ([string]$item.payload) | ConvertFrom-Json -ErrorAction Stop } catch { continue }
-                if ($null -eq $observation) { continue }
-                $presence.Add([pscustomobject]@{ object_key = [string]$item.object_key; checked_utc = [string]$item.checked_utc; observation = $observation })
+        if ($tables.ContainsKey('park_session_cache')) {
+            # Explicit keys outside the OU (selected workstation): looked up as active workstations, never in scope.
+            $wanted = New-Object 'System.Collections.Generic.List[string]'
+            foreach ($key in @($byDn.Keys)) { $wanted.Add([string]$key) }
+            $extra = @(@($Payload.Keys) | ForEach-Object { ([string]$_).Trim().ToLowerInvariant() } | Where-Object { $_ -and -not $byDn.ContainsKey($_) } | Select-Object -First 20)
+            if ($extra.Count) {
+                foreach ($row in @(Invoke-IdxWQuery $db ("SELECT name, distinguished_name, object_guid FROM ad_objects WHERE object_type='Machine' AND (state IS NULL OR state<>'Desactive') AND distinguished_name COLLATE NOCASE IN (" + (@($extra | ForEach-Object { Get-IdxWLiteral $_ }) -join ',') + ');'))) {
+                    $key = ([string]$row.distinguished_name).ToLowerInvariant()
+                    if ($byDn.ContainsKey($key)) { continue }
+                    $byDn[$key] = [pscustomobject]@{ name = [string]$row.name; distinguished_name = [string]$row.distinguished_name; object_guid = [string]$row.object_guid; gid = ''; st = 'A'; logon = ''; outside = $true }
+                    $wanted.Add($key)
+                }
+            }
+            $since = Get-IdxWLiteral ([string]$plan.ObservationsSince)
+            for ($start = 0; $start -lt $wanted.Count; $start += 500) {
+                $chunk = @($wanted.GetRange($start,[Math]::Min(500,$wanted.Count - $start)) | ForEach-Object { Get-IdxWLiteral $_ })
+                foreach ($item in @(Invoke-IdxWQuery $db ('SELECT object_key, checked_utc, payload FROM park_session_cache WHERE checked_utc >= ' + $since + ' AND object_key IN (' + ($chunk -join ',') + ');'))) {
+                    if (([string]$item.payload).Length -gt 262144) { continue }
+                    $owner = $byDn[([string]$item.object_key).ToLowerInvariant()]
+                    if ($null -eq $owner) { continue }
+                    $observation = $null
+                    try { $observation = ([string]$item.payload) | ConvertFrom-Json -ErrorAction Stop } catch { continue }
+                    if ($null -eq $observation) { continue }
+                    # A moved, deleted or recreated workstation does not inherit the observation of its DN.
+                    $guidProperty = $observation.PSObject.Properties['Guid']
+                    if (($null -eq $guidProperty) -or (-not [string]$guidProperty.Value) -or ([string]$guidProperty.Value -ine [string]$owner.object_guid)) { continue }
+                    $outside = ($null -ne $owner.PSObject.Properties['outside'])
+                    $presence.Add([pscustomobject]@{ object_key = ([string]$item.object_key).ToLowerInvariant(); checked_utc = [string]$item.checked_utc; observation = $observation; gid = [string]$owner.gid; name = [string]$owner.name; distinguished_name = [string]$owner.distinguished_name; object_guid = [string]$owner.object_guid; in_scope = (-not $outside) })
+                }
             }
         }
-        [pscustomobject]@{ Rows=@(); Busy=$false; Missing=$false; MachineCount=$machines.Count; Scope=$scope; Subtree=$subtree; Types=$types; Machines=$machines.ToArray(); Links=$links; LinkSources=$sources; Presence=$presence.ToArray() }
+        $history = @()
+        if ($tables.ContainsKey('fleet_snapshots') -and [string]$Payload.ScopeKey) {
+            $history = @(Invoke-IdxWQuery $db ('SELECT snapshot_day AS day, figures FROM fleet_snapshots WHERE scope_key = ' + (Get-IdxWLiteral ([string]$Payload.ScopeKey)) + ' AND snapshot_day >= ' + (Get-IdxWLiteral ([string]$plan.HistorySince)) + ' ORDER BY snapshot_day;'))
+        }
+        [pscustomobject]@{ Rows=@(); Busy=$false; Missing=$false; MachineCount=$active; Scope=$scope; Subtree=$subtree; Types=$types; Groups=$groups.ToArray(); Machines=$machines.ToArray(); Targets=$targets.ToArray(); Parents=$parents; Coverage=$coverage; Links=$links; LinkSources=$sources; Presence=$presence.ToArray(); History=$history }
         return
     }
     if ($action -eq 'ParkState') {

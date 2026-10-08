@@ -118,7 +118,8 @@ function New-DomeniaDemoDirectory {
         $objects.Add([pscustomobject]@{DN=$Dn;DeniedFor=@($DeniedFor);Attributes=$attributes})
     }
     $addComputer = {
-        param([string]$Dn,[string]$Name,[string]$Dns)
+        # Lot L01: operatingSystemVersion and the LAPS expiration (never a password) feed the fleet overview.
+        param([string]$Dn,[string]$Name,[string]$Dns,[string]$Version = '10.0 (26100)',[string]$LapsAttribute = '',$LapsExpiry = $null)
         $counter.N++
         $attributes = [ordered]@{
             objectClass=@('top','person','organizationalPerson','user','computer');objectCategory=@('CN=Computer,' + $schema)
@@ -129,6 +130,8 @@ function New-DomeniaDemoDirectory {
             memberOf=@()
         }
         if ($Dns) { $attributes['dNSHostName'] = @($Dns) }
+        if ($Version) { $attributes['operatingSystemVersion'] = @($Version) }
+        if ($LapsAttribute -and ($null -ne $LapsExpiry)) { $attributes[$LapsAttribute] = @([long]$LapsExpiry) }
         $objects.Add([pscustomobject]@{DN=$Dn;DeniedFor=@();Attributes=$attributes})
     }
     $addGroup = {
@@ -172,9 +175,11 @@ function New-DomeniaDemoDirectory {
     & $addUser ('CN=Demo Admin,CN=Users,' + $base) 'Demo Admin' 'demo.admin' 'Demo' 'Admin' 512 0 0 @() @() 1
     & $addUser ('CN=Compte Restreint,OU=Restreint,' + $base) 'Compte Restreint' 'restreint' 'Compte' 'Restreint' 512 0 0 @() @('DEMO\demo.operateur')
 
-    & $addComputer ('CN=PC-DEMO-01,' + $postes) 'PC-DEMO-01' 'pc-demo-01.demo.invalid'
-    & $addComputer ('CN=PC-DEMO-02,OU=Lyon,OU=Agences,' + $base) 'PC-DEMO-02' ''
-    & $addComputer ('CN=PC-DEMO-03,CN=Computers,' + $base) 'PC-DEMO-03' 'pc-demo-03.demo.invalid'
+    $lapsSoon = [datetime]::SpecifyKind([datetime]'2026-11-30T08:00:00',[DateTimeKind]::Utc).ToFileTimeUtc()
+    $lapsPast = [datetime]::SpecifyKind([datetime]'2026-09-01T08:00:00',[DateTimeKind]::Utc).ToFileTimeUtc()
+    & $addComputer ('CN=PC-DEMO-01,' + $postes) 'PC-DEMO-01' 'pc-demo-01.demo.invalid' '10.0 (26100)' 'msLAPS-PasswordExpirationTime' $lapsSoon
+    & $addComputer ('CN=PC-DEMO-02,OU=Lyon,OU=Agences,' + $base) 'PC-DEMO-02' '' '10.0 (22631)'
+    & $addComputer ('CN=PC-DEMO-03,CN=Computers,' + $base) 'PC-DEMO-03' 'pc-demo-03.demo.invalid' '10.0 (26100)' 'ms-Mcs-AdmPwdExpirationTime' $lapsPast
 
     & $addGroup $vide 'GG-Vide' 'GG-Vide' @()
     & $addGroup $compta 'GG-Compta' 'GG-Compta' @($jean)
