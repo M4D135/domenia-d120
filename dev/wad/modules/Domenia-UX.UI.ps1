@@ -333,10 +333,10 @@ function Set-DomeniaUxShortLayout {
     $ouPanel=Get-DomeniaControl 'SearchOuPanel';if($ouPanel){$ouPanel.Padding=if($compact){[Windows.Thickness]::new(10)}else{[Windows.Thickness]::new(16)}}
     $scope=Get-DomeniaControl 'UxOuScopeCard'
     if($scope){$scope.Padding=if($compact){[Windows.Thickness]::new(6)}else{[Windows.Thickness]::new(12)};$scope.Margin=if($compact){[Windows.Thickness]::new(0,0,0,6)}else{[Windows.Thickness]::new(0,0,0,12)}}
-    foreach($name in @('BtnSearchAllDomain','BtnSearchInOu')){
-        $control=Get-DomeniaControl $name
-        if($control){$control.Margin=if($compact){[Windows.Thickness]::new(0,0,0,4)}else{[Windows.Thickness]::new(0,0,0,12)}}
-    }
+    # L03: 'Tout le domaine' sits in the WrapPanel of the OU tree menu, next to the pin button: its XAML margin is kept.
+    # The 'Dans :' chip of the work views keeps a 24 px target, reduced to the scope line height on a short screen.
+    $viewScope=Get-DomeniaControl 'CmbWorkViewScope'
+    if($viewScope){$viewScope.Height=if($compact){18.0}else{24.0};$viewScope.Margin=if($compact){[Windows.Thickness]::new(8,0,0,0)}else{[Windows.Thickness]::new(8,0,0,2)}}
     $scopeName=Get-DomeniaControl 'LblOuScopeName';if($scopeName){$scopeName.MaxHeight=if($compact){40.0}else{[double]::PositiveInfinity}}
     $script:UxCompactLayoutActive=$compact
 

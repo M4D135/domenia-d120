@@ -187,3 +187,101 @@ Test-Case 'D038' 'Nom de favori construit sans fenetre ni compte' {
     Assert-Equal 'Domaine entier : dupont' (Get-DomeniaFavouriteName Global 'dupont');Assert-Equal 'Vue : Comptes desactives' (Get-DomeniaFavouriteName Global '' '' 'Comptes desactives')
     Assert-Equal 'Postes : PC' (Get-DomeniaFavouriteName OU 'PC' 'Postes');Assert-True ((Get-DomeniaFavouriteName Global ('x'*200)).Length -le 80)
 }
+
+# ---------------------------------------------------------------- L03 : arbre des OU, perimetre et vues de travail
+Test-Case 'CO-20' 'Postes sans connexion : les postes jamais connectes sont inclus' {
+    $now=[datetime]::SpecifyKind([datetime]'2026-01-01',[DateTimeKind]::Utc)
+    $stale=@(Get-DomeniaWorkViews $now|Where-Object{$_.Id -eq 'stalecomputers'})[0]
+    $limit=$now.AddDays(-90).ToFileTimeUtc()
+    Assert-Equal ('(&(objectCategory=computer)(|(lastLogonTimestamp<='+$limit+')(!(lastLogonTimestamp=*))))') $stale.Filter
+    Assert-True ($stale.Note -match 'jamais connect') 'La note doit dire que les postes jamais connectes sont inclus'
+    $depth=0;foreach($ch in $stale.Filter.ToCharArray()){if($ch -eq '('){$depth++}elseif($ch -eq ')'){$depth--}};Assert-Equal 0 $depth 'Filtre desequilibre'
+}
+Test-Case 'UX-33' 'Chaque vue de travail s applique a l OU choisie par defaut' {
+    $ou='OU=Postes,DC=example,DC=invalid'
+    foreach($view in @(Get-DomeniaWorkViews)){
+        Assert-True $view.NeedsOu ('Vue sans OU : '+$view.Id)
+        $plan=Get-DomeniaWorkViewPlan $view 'OU' $ou $script:DomainDn $true 'Postes'
+        Assert-Equal 'OU' $plan.SearchMode $view.Id;Assert-Equal $ou $plan.BaseDn $view.Id;Assert-True $plan.SurveyAllowed $view.Id
+        Assert-Equal 'Dans : Postes' $plan.ChipText
+    }
+}
+Test-Case 'UX-33' 'Le domaine entier est un choix explicite, sans releve possible' {
+    $view=@(Get-DomeniaWorkViews|Where-Object{$_.Id -eq 'stalecomputers'})[0]
+    $domain=Get-DomeniaWorkViewPlan $view 'Domain' 'OU=Postes,DC=example,DC=invalid' $script:DomainDn
+    Assert-Equal 'Global' $domain.SearchMode;Assert-Equal $script:DomainDn $domain.BaseDn;Assert-False $domain.SurveyAllowed;Assert-True $domain.WholeDomain
+    Assert-True ($domain.Reason -match 'aucun relev') 'Le refus du releve doit etre explique'
+    $root=Get-DomeniaWorkViewPlan $view 'OU' $script:DomainDn $script:DomainDn $true
+    Assert-False $root.SurveyAllowed 'La racine avec sous-OU vaut le domaine entier';Assert-Equal 'Dans : tout le domaine' $root.ChipText
+    Assert-True (Get-DomeniaWorkViewPlan $view 'OU' $script:DomainDn $script:DomainDn $false).SurveyAllowed 'Enfants directs de la racine : pas le domaine entier'
+    Assert-Equal $null (Get-DomeniaWorkViewPlan $null 'OU' '' $script:DomainDn)
+}
+Test-Case 'UI-16' 'Conteneurs systeme regroupes, Users et Computers visibles' {
+    $rows=@(
+        [pscustomobject]@{Name='Computers';DN=('CN=Computers,'+$script:DomainDn);Kind='Conteneur'}
+        [pscustomobject]@{Name='Domain Controllers';DN=('OU=Domain Controllers,'+$script:DomainDn);Kind='OU'}
+        [pscustomobject]@{Name='ForeignSecurityPrincipals';DN=('CN=ForeignSecurityPrincipals,'+$script:DomainDn);Kind='Conteneur'}
+        [pscustomobject]@{Name='LostAndFound';DN=('CN=LostAndFound,'+$script:DomainDn);Kind='Conteneur'}
+        [pscustomobject]@{Name='Program Data';DN=('CN=Program Data,'+$script:DomainDn);Kind='Conteneur'}
+        [pscustomobject]@{Name='System';DN=('CN=System,'+$script:DomainDn);Kind='Conteneur'}
+        [pscustomobject]@{Name='Users';DN=('CN=Users,'+$script:DomainDn);Kind='Conteneur'}
+    )
+    $split=Split-DomeniaTreeRows $rows $script:DomainDn $script:DomainDn
+    Assert-Equal 'Computers|Domain Controllers|Users' ((@($split.Visible)|ForEach-Object{$_.Name}) -join '|')
+    Assert-Equal 'ForeignSecurityPrincipals|LostAndFound|Program Data|System' ((@($split.System)|ForEach-Object{$_.Name}) -join '|')
+    $deeper=Split-DomeniaTreeRows @([pscustomobject]@{Name='System';DN=('CN=System,OU=Sites,'+$script:DomainDn);Kind='Conteneur'}) ('OU=Sites,'+$script:DomainDn) $script:DomainDn
+    Assert-Equal 1 @($deeper.Visible).Count 'Un conteneur nomme System hors de la racine reste visible'
+    Assert-False (Test-DomeniaSystemContainer ('OU=System,'+$script:DomainDn) $script:DomainDn 'OU') 'Une OU nest jamais un conteneur systeme'
+}
+Test-Case 'PF-14' 'Clavier et type temporises a 300 ms, souris immediate' {
+    Assert-Equal 300 (Get-DomeniaTreeSelectionDelay 'Keyboard');Assert-Equal 300 (Get-DomeniaTreeSelectionDelay 'Type')
+    Assert-Equal 0 (Get-DomeniaTreeSelectionDelay 'Mouse');Assert-Equal 0 (Get-DomeniaTreeSelectionDelay '')
+}
+Test-Case 'DS-07' 'Filtre local des OU : litteral, sans casse ni accents' {
+    Assert-True (Test-DomeniaOuTreeMatch 'Comptabilité' 'compta');Assert-True (Test-DomeniaOuTreeMatch 'Comptabilité' 'COMPTABILITE')
+    Assert-False (Test-DomeniaOuTreeMatch 'Postes' 'compta');Assert-True (Test-DomeniaOuTreeMatch 'Postes' '  ')
+    Assert-False (Test-DomeniaOuTreeMatch 'Postes' '*') 'Le joker nest pas interprete'
+}
+Test-Case 'FO-04' 'Favori d OU : perimetre seulement, domaine verifie' {
+    $f=ConvertTo-DomeniaOuFavourite ([pscustomobject]@{DN=('OU=Postes,'+$script:DomainDn);Name='';Subtree='False';Type='Machines';Term='pc';Credential='secret';Rows=@(1,2)}) $script:DomainDn
+    Assert-Equal 'Postes' $f.Name;Assert-False $f.Subtree;Assert-Equal 'Machines' $f.Type;Assert-Equal 'pc' $f.Term
+    Assert-Equal 'DN,Name,Subtree,Term,Type' ((@($f.PSObject.Properties|ForEach-Object{$_.Name}|Sort-Object)) -join ',')
+    Assert-Equal $null (ConvertTo-DomeniaOuFavourite ([pscustomobject]@{DN='OU=Postes,DC=autre,DC=invalid'}) $script:DomainDn) 'Un autre domaine est refuse'
+    Assert-Equal $null (ConvertTo-DomeniaOuFavourite ([pscustomobject]@{DN='OU=Postes'}) '') 'Un DN sans domaine est refuse'
+    Assert-Equal 'Tous' (ConvertTo-DomeniaOuFavourite ([pscustomobject]@{DN=('OU=Postes,'+$script:DomainDn);Type='Inconnu'})).Type
+}
+Test-Case 'FO-04' 'Favoris repris une fois des recherches enregistrees, sans perte' {
+    $saved=@(
+        [pscustomobject]@{SearchMode='OU';Name='Postes : PC';DN=('OU=Postes,'+$script:DomainDn);Query='PC';Type='Machines';Limit=100;Subtree=$false}
+        [pscustomobject]@{SearchMode='Global';Name='Domaine entier : dupont';DN=$script:DomainDn;Query='dupont';Type='Tous';Limit=100;Subtree=$true}
+        [pscustomobject]@{SearchMode='OU';Name='Postes bis';DN=('OU=Postes,'+$script:DomainDn);Query='';Type='Tous';Limit=100;Subtree=$true}
+        [pscustomobject]@{SearchMode='OU';Name='Lyon';DN=('OU=Lyon,'+$script:DomainDn);Query='';Type='Tous';Limit=100;Subtree=$true}
+    )
+    $existing=@([pscustomobject]@{DN=('OU=Lyon,'+$script:DomainDn);Name='Mon Lyon';Subtree=$true;Type='Tous';Term=''})
+    $r=Import-DomeniaOuFavourites $existing $saved
+    Assert-Equal 1 $r.Imported 'Une seule OU nouvelle : la recherche globale et les doublons ne sont pas repris'
+    Assert-Equal 'Mon Lyon|Postes : PC' ((@($r.Favourites)|ForEach-Object{$_.Name}) -join '|')
+    $postes=@($r.Favourites)[1];Assert-Equal 'PC' $postes.Term 'Le terme passe au filtre local visible';Assert-False $postes.Subtree;Assert-Equal 'Machines' $postes.Type
+    Assert-Equal 4 $saved.Count 'Les recherches enregistrees restent intactes'
+    Assert-Equal 0 (Import-DomeniaOuFavourites @() @()).Imported
+}
+Test-Case 'FO-04' 'Epingler et retirer une OU, borne a 50' {
+    $fav=[pscustomobject]@{DN=('OU=Postes,'+$script:DomainDn);Name='Postes'}
+    $pin=Set-DomeniaOuFavouriteState @() $fav $true $script:DomainDn;Assert-True $pin.Changed;Assert-Equal 1 @($pin.Favourites).Count
+    $again=Set-DomeniaOuFavouriteState $pin.Favourites $fav $true $script:DomainDn;Assert-False $again.Changed;Assert-True ($again.Reason -match 'déjà')
+    $off=Set-DomeniaOuFavouriteState $pin.Favourites $fav $false $script:DomainDn;Assert-True $off.Changed;Assert-Equal 0 @($off.Favourites).Count
+    $outside=Set-DomeniaOuFavouriteState @() ([pscustomobject]@{DN='OU=X,DC=autre,DC=invalid'}) $true $script:DomainDn;Assert-False $outside.Changed
+    $full=@(1..50|ForEach-Object{[pscustomobject]@{DN=('OU=O'+$_+','+$script:DomainDn);Name=('O'+$_)}})
+    $over=Set-DomeniaOuFavouriteState $full $fav $true $script:DomainDn;Assert-False $over.Changed;Assert-True ($over.Reason -match '50')
+}
+Test-Case 'FO-04' 'Le plafond de 50 favoris compte le seul domaine de l OU' {
+    Assert-Equal 'dc=example,dc=invalid' (Get-DomeniaDnDomainKey ('OU=A,OU=B,'+$script:DomainDn));Assert-Equal '' (Get-DomeniaDnDomainKey 'OU=A')
+    $other=@(1..50|ForEach-Object{[pscustomobject]@{DN=('OU=O'+$_+',DC=autre,DC=invalid');Name=('O'+$_)}})
+    $pin=Set-DomeniaOuFavouriteState $other ([pscustomobject]@{DN=('OU=Postes,'+$script:DomainDn);Name='Postes'}) $true $script:DomainDn
+    Assert-True $pin.Changed 'Les favoris d un autre domaine, invisibles ici, ne bloquent pas l epinglage';Assert-Equal 51 @($pin.Favourites).Count
+    $saved=@(1..3|ForEach-Object{[pscustomobject]@{SearchMode='OU';Name=('S'+$_);DN=('OU=S'+$_+','+$script:DomainDn)}})
+    $r=Import-DomeniaOuFavourites $other $saved
+    Assert-Equal 3 $r.Imported 'La reprise compte par domaine';Assert-Equal 53 @($r.Favourites).Count
+    $same=@(1..50|ForEach-Object{[pscustomobject]@{DN=('OU=O'+$_+','+$script:DomainDn);Name=('O'+$_)}})
+    Assert-Equal 0 (Import-DomeniaOuFavourites $same $saved).Imported 'Domaine deja plein : rien n est repris'
+}

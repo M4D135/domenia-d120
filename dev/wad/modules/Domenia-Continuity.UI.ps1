@@ -166,6 +166,9 @@ function Complete-DomeniaObjectChanges {
     if(-not (Test-DomeniaLiveSearchActive) -or -not [object]::ReferenceEquals($script:Live.Search,$State.Search) -or $State.Epoch -ne [long]$script:SessionEpoch -or $State.Identity -cne $script:Live.Identity -or $State.Mutation -ne $script:Continuity.Mutation){return}
     $effective=Get-DomeniaEffectiveWorkerResult $Result @('Rows','Server');if($null -eq $effective){return}
     foreach($r in @($effective.Rows)){$script:Continuity.ChangeEvents.Enqueue([pscustomobject]@{Row=$r;State=$State;At=[datetime]::UtcNow.ToString('o')})}
+    # SE-13: the page states when the listed objects were last checked in the directory.
+    $script:Continuity|Add-Member -NotePropertyName CheckedAt -NotePropertyValue ([datetime]::Now) -Force
+    try{Update-DomeniaListRevalidationUi}catch{}
 }
 function Fail-DomeniaObjectChanges {
     param($Message,$State)
@@ -175,12 +178,56 @@ function Fail-DomeniaObjectChanges {
     Write-AppLog ('Reverification des objets non confirmee : '+$Message) 'WARN'
     [void](Request-DomeniaAccessRecovery -Operation 'Reverification AD' -ErrorValue $Message -OperationId 'GlobalSearch')
 }
+function Clear-DomeniaVisitCacheForObject {
+    # D025 / FI-21: drops the cached reads of one object only: every key carrying its GUID (with or without hyphens),
+    # or, without a GUID, every key carrying its DN. The other objects and the cached lists stay. Returns the count.
+    param([AllowEmptyString()][string]$Guid='',[AllowEmptyString()][string]$Dn='')
+    if($null -eq $script:VisitCache){return 0}
+    $removed=0
+    $invalidateGuid=ConvertTo-DomeniaGuidText $Guid
+    if($invalidateGuid){
+        $needle=$invalidateGuid.ToLowerInvariant()
+        $needleNoHyphen=$needle.Replace('-','')
+        foreach($cacheKey in @($script:VisitCache.Keys)){
+            $keyText=[string]$cacheKey
+            $keyNoHyphen=$keyText.Replace('-','')
+            if(($keyText.IndexOf($needle,[StringComparison]::OrdinalIgnoreCase) -ge 0) -or ($keyNoHyphen.IndexOf($needleNoHyphen,[StringComparison]::OrdinalIgnoreCase) -ge 0)){[void]$script:VisitCache.Remove($cacheKey);$removed++}
+        }
+    }elseif($Dn){
+        foreach($cacheKey in @($script:VisitCache.Keys)){
+            if(([string]$cacheKey).IndexOf($Dn,[StringComparison]::OrdinalIgnoreCase) -ge 0){[void]$script:VisitCache.Remove($cacheKey);$removed++}
+        }
+    }
+    return $removed
+}
+function Test-DomeniaListRevalidationEnabled {
+    # SE-13: the background revalidation of the listed objects is off by default (nothing on the network without a
+    # gesture). An administrator may enable it (Streaming.RevalidateListedObjects); the in-page switch then stops it
+    # for the session.
+    if(-not (ConvertTo-SuiteFlag (Get-CfgValue 'Streaming' 'RevalidateListedObjects' $false) -Default $false)){return $false}
+    return (-not [bool]$script:ListRevalidationPaused)
+}
+function Update-DomeniaListRevalidationUi {
+    # SE-13: the switch and 'Liste vérifiée à HH:mm' exist in the page only when the administrator enabled the revalidation.
+    $configured=ConvertTo-SuiteFlag (Get-CfgValue 'Streaming' 'RevalidateListedObjects' $false) -Default $false
+    $panel=Get-DomeniaControl 'UxListRevalidation'
+    if($null -ne $panel){$panel.Visibility=if($configured){[Windows.Visibility]::Visible}else{[Windows.Visibility]::Collapsed}}
+    $label=''
+    if($configured){
+        if([bool]$script:ListRevalidationPaused){$label='arrêtée pour cette session'}
+        elseif($null -ne $script:Continuity -and $null -ne $script:Continuity.PSObject.Properties['CheckedAt'] -and $script:Continuity.CheckedAt -is [datetime]){$label='Liste vérifiée à '+$script:Continuity.CheckedAt.ToString('HH:mm')}
+        else{$label='Liste non encore revérifiée'}
+    }
+    [void](Set-DomeniaControlText 'LblListRevalidation' $label)
+}
 function Invoke-DomeniaObjectChanges {
     if($null -eq $script:Continuity -or -not (Test-DomeniaLiveSearchActive) -or (Test-DomeniaAccessBusyWrite)){return}
     $s=$script:Live.Search;$c=$script:Continuity;$grid=Get-DomeniaControl 'DgObjects'
     if($null -eq $grid -or -not $grid.IsEnabled -or -not $s.Finalized -or $s.Error){return}
     if(-not [object]::ReferenceEquals($c.ChangeSearch,$s)){
         $c.ChangeSearch=$s;$c.ChangeQueue.Clear();$c.ChangeEvents.Clear();$c.Stamps=@{};$c.ChangeNext=[datetime]::UtcNow.AddSeconds(8);$c.CacheDirty=$false
+        # SE-13: a new list has not been checked yet.
+        if($null -ne $c.PSObject.Properties['CheckedAt']){$c.CheckedAt=$null;try{Update-DomeniaListRevalidationUi}catch{}}
     }
     $count=0;$watch=[Diagnostics.Stopwatch]::StartNew()
     while($c.ChangeEvents.Count -gt 0 -and $count -lt 8 -and $watch.ElapsedMilliseconds -lt 5){
@@ -196,22 +243,7 @@ function Invoke-DomeniaObjectChanges {
             foreach($p in $snapshot.PSObject.Properties){Set-DomeniaLiveRowValue $row $p.Name $p.Value}
             $s.Fresh[$key]=$snapshot;$s.RefreshNeeded=$true;$c.CacheDirty=$true
             # D025: invalidate detail caches by object GUID when known; otherwise fall back to the old DN match.
-            $invalidateGuid = ConvertTo-DomeniaGuidText ([string]$row.Guid)
-            if ($invalidateGuid) {
-                $needle = $invalidateGuid.ToLowerInvariant()
-                $needleNoHyphen = $needle.Replace('-','')
-                foreach ($cacheKey in @($script:VisitCache.Keys)) {
-                    $keyText = [string]$cacheKey
-                    $keyNoHyphen = $keyText.Replace('-','')
-                    if (($keyText.IndexOf($needle,[StringComparison]::OrdinalIgnoreCase) -ge 0) -or ($keyNoHyphen.IndexOf($needleNoHyphen,[StringComparison]::OrdinalIgnoreCase) -ge 0)) {
-                        [void]$script:VisitCache.Remove($cacheKey)
-                    }
-                }
-            } else {
-                foreach($cacheKey in @($script:VisitCache.Keys)){
-                    if(([string]$cacheKey).IndexOf([string]$row.DN,[StringComparison]::OrdinalIgnoreCase) -ge 0){[void]$script:VisitCache.Remove($cacheKey)}
-                }
-            }
+            [void](Clear-DomeniaVisitCacheForObject -Guid ([string]$row.Guid) -Dn ([string]$row.DN))
             $row.DirectoryState='AD mis a jour'
         }else{$row.DirectoryState='AD revalide'}
         $row.DirectoryChecked=$event.At;$c.Stamps[[string]$r.Guid]=[string]$r.Stamp
@@ -230,7 +262,8 @@ function Invoke-DomeniaObjectChanges {
     }elseif(-not $script:Window.IsActive){return}
     if([bool]$script:DirectoryCredentialFaulted -and $null -eq (Get-DomeniaRetryCredential 'GlobalSearch')){return}
     if(@($script:AsyncJobs.Keys).Count -ge [Math]::Max(1,([int](Get-CfgValue 'Async' 'MaxThreads' 6)-2))){return}
-    if(-not (ConvertTo-SuiteFlag (Get-CfgValue 'Streaming' 'RevalidateListedObjects' $true) -Default $true)){return}
+    # SE-13: off by default; when an administrator enables it, the in-page switch can stop it for the session.
+    if(-not (Test-DomeniaListRevalidationEnabled)){return}
     if($c.ChangeQueue.Count -eq 0){foreach($r in $s.Rows){if($r.Guid){$c.ChangeQueue.Enqueue([pscustomobject]@{Guid=[string]$r.Guid;DN=[string]$r.DN;Stamp=[string]$c.Stamps[[string]$r.Guid]})}}}
     $items=[Collections.Generic.List[object]]::new();while($items.Count -lt 24 -and $c.ChangeQueue.Count){$items.Add($c.ChangeQueue.Dequeue())}
     if(-not $items.Count){$c.ChangeNext=[datetime]::UtcNow.AddSeconds(60);return}
@@ -295,7 +328,16 @@ function Initialize-DomeniaContinuity {
         try{Initialize-DomeniaSearchUi}catch{Write-AppLog ('Initialisation de la recherche : '+$_.Exception.Message) 'ERROR'}
     }
     if($null -ne $script:Continuity){return}
-    $script:Continuity=[pscustomobject]@{Mutation=0L;Grids=@{};Layouts=(ConvertTo-DomeniaStateMap ([string](Get-DomeniaSetting 'GridLayoutsJson' '{}')));Bookmarks=(ConvertTo-DomeniaStateMap ([string](Get-DomeniaSetting 'OuBookmarksJson' '{}')));Applying=$false;Restoring=$false;Restore=$null;RestoreSearch=$null;RestoreToken='';RestoreGeneration=0;Context='';RestoreDeadline=[datetime]::MinValue;SelectedRestored=$false;Dirty=$false;Timer=$null;ChangeQueue=[Collections.Generic.Queue[object]]::new();ChangeEvents=[Collections.Generic.Queue[object]]::new();ChangeSearch=$null;ChangeJob='';ChangeNext=[datetime]::MinValue;Stamps=@{};CacheDirty=$false;RestoreNotice=$null}
+    $script:Continuity=[pscustomobject]@{Mutation=0L;Grids=@{};Layouts=(ConvertTo-DomeniaStateMap ([string](Get-DomeniaSetting 'GridLayoutsJson' '{}')));Bookmarks=(ConvertTo-DomeniaStateMap ([string](Get-DomeniaSetting 'OuBookmarksJson' '{}')));Applying=$false;Restoring=$false;Restore=$null;RestoreSearch=$null;RestoreToken='';RestoreGeneration=0;Context='';RestoreDeadline=[datetime]::MinValue;SelectedRestored=$false;Dirty=$false;Timer=$null;ChangeQueue=[Collections.Generic.Queue[object]]::new();ChangeEvents=[Collections.Generic.Queue[object]]::new();ChangeSearch=$null;ChangeJob='';ChangeNext=[datetime]::MinValue;Stamps=@{};CacheDirty=$false;RestoreNotice=$null;CheckedAt=$null}
+    # SE-13: in-page switch, shown only when an administrator enabled the background revalidation.
+    $script:ListRevalidationPaused=$false
+    $revalidate=Get-DomeniaControl 'ChkListRevalidation'
+    if($revalidate -is [Windows.Controls.CheckBox]){
+        $revalidate.IsChecked=$true
+        $revalidate.Add_Checked({$script:ListRevalidationPaused=$false;try{Update-DomeniaListRevalidationUi}catch{}})
+        $revalidate.Add_Unchecked({$script:ListRevalidationPaused=$true;try{Update-DomeniaListRevalidationUi}catch{}})
+    }
+    try{Update-DomeniaListRevalidationUi}catch{}
     foreach($control in @($script:Ctrl.Values)){if($control -is [Windows.Controls.DataGrid]){Register-DomeniaGridLayout $control}}
     $retry=Get-DomeniaControl 'BtnOuRestoreRetry';if($null -ne $retry){$retry.Add_Click({try{Invoke-DomeniaOuRestoreRetry}catch{Write-AppLog ('Relecture de lʼOU mémorisée : '+$_.Exception.Message) 'WARN'}})}
     $dismiss=Get-DomeniaControl 'BtnOuRestoreDismiss';if($null -ne $dismiss){$dismiss.Add_Click({Hide-DomeniaOuRestoreNotice;$tree=Get-DomeniaControl 'TvDirectory';if($null -ne $tree){[void]$tree.Focus()}})}

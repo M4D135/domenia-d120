@@ -115,6 +115,8 @@ $script:RequestOriginal = (Get-Item function:Request-DomeniaLinkPersistence).Scr
 . ([scriptblock]::Create((Get-FunctionTextFromFile $liveModel 'Get-DomeniaLiveCacheCode')))
 . ([scriptblock]::Create((Get-FunctionTextFromFile $selectionUi 'Get-DomeniaObjectCacheKey')))
 . ([scriptblock]::Create((Get-FunctionTextFromFile $continuityUi 'Invoke-DomeniaObjectChanges')))
+# L03 (FI-21): the GUID invalidation is shared with 'Relire l objet' (Refresh-SelectedObject).
+. ([scriptblock]::Create((Get-FunctionTextFromFile $continuityUi 'Clear-DomeniaVisitCacheForObject')))
 . ([scriptblock]::Create((Get-FunctionTextFromFile $core 'Get-VisitCacheValue')))
 . ([scriptblock]::Create((Get-FunctionTextFromFile $core 'Set-VisitCacheValue')))
 

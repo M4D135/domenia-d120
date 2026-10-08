@@ -3029,24 +3029,6 @@
     "Sensitive": false
   },
   {
-    "Name": "BtnGuardSaveSearch",
-    "Title": "Mémoriser la recherche actuelle",
-    "Text": "Enregistre l'OU, le texte et les filtres. Aucun secret n'est mémorisé.",
-    "Sensitive": false
-  },
-  {
-    "Name": "BtnGuardLoadSearch",
-    "Title": "Ouvrir la recherche choisie",
-    "Text": "Applique le périmètre et lance une lecture AD. Ne modifie aucun objet.",
-    "Sensitive": false
-  },
-  {
-    "Name": "LstGuardSearches",
-    "Title": "LstGuardSearches",
-    "Text": "Recherches appartenant au domaine courant.",
-    "Sensitive": false
-  },
-  {
     "Name": "BtnGuardStoreResume",
     "Title": "Reprendre les sauvegardes",
     "Text": "Relance les lots de cache interrompus apres correction du stockage.",
@@ -3081,14 +3063,6 @@
     "Title": "Ouvrir FilPro",
     "Text": "Exécutable configuré et contrôlé par empreinte. Aucun identifiant ou ordre d'intervention transmis.",
     "Sensitive": false
-  },
-  {
-    "Name": "BtnSearchInOu",
-    "Kind": "Button",
-    "Source": "RC1.4",
-    "Title": "Afficher l’OU sélectionnée",
-    "Text": "Revient à l’OU sélectionnée et réactive ses filtres. Le texte du bandeau n’est pas utilisé.",
-    "Shortcut": ""
   },
   {
     "Name": "BtnLoginWaitCancel",
@@ -3329,7 +3303,7 @@
   {
     "Name": "CmbWorkView",
     "Title": "Vue de travail",
-    "Text": "Vues prêtes à lʼemploi en lecture seule : comptes expirants ou désactivés, objets modifiés récemment, postes dʼune OU ou sans connexion depuis 90 jours. Le choix seul ne lance rien.",
+    "Text": "Vues prêtes à lʼemploi en lecture seule : comptes expirants ou désactivés, objets modifiés récemment, postes dʼune OU ou sans connexion depuis 90 jours (jamais connectés inclus). Chaque vue sʼapplique à lʼOU choisie dans lʼarbre ; le choix seul ne lance rien.",
     "Kind": "ComboBox",
     "Source": "d120-recherche"
   },
@@ -3584,5 +3558,61 @@
     "Text": "Domenia.log nʼest pas inscriptible. Un journal de secours est utilisé si possible ; son chemin est dans cette info-bulle.",
     "Kind": "Border",
     "Source": "d120-L02"
+  },
+  {
+    "Name": "BtnOuMenu",
+    "Title": "Options de lʼarbre des OU",
+    "Text": "Ouvre les options de lʼarbre : inclure les sous-OU, tout le domaine, épingler lʼOU choisie et voir son chemin LDAP. Ouvrir ce menu ne lance aucune lecture.",
+    "Kind": "Button",
+    "Source": "L03"
+  },
+  {
+    "Name": "TxtOuFilter",
+    "Title": "Filtrer les OU",
+    "Text": "Filtre local de lʼarbre sur le nom des branches déjà affichées. Aucune lecture de lʼannuaire ; une branche jamais dépliée nʼest pas parcourue.",
+    "Kind": "TextBox",
+    "Source": "L03"
+  },
+  {
+    "Name": "BtnOuFavouriteToggle",
+    "Title": "Épingler ou retirer lʼOU choisie",
+    "Text": "Ajoute lʼOU choisie aux favoris en haut de lʼarbre, ou lʼen retire. Préférence locale : rien nʼest lu ni modifié dans lʼannuaire.",
+    "Kind": "Button",
+    "Source": "L03"
+  },
+  {
+    "Name": "UxOuFavourites",
+    "Title": "Favoris",
+    "Text": "OU épinglées (étoile au survol dʼune branche). Un clic affiche son contenu ; × la retire des favoris sans rien modifier dans lʼannuaire.",
+    "Kind": "Border",
+    "Source": "L03"
+  },
+  {
+    "Name": "CmbWorkViewScope",
+    "Title": "Périmètre des vues de travail",
+    "Text": "Les vues de travail sʼappliquent à lʼOU choisie dans lʼarbre, par défaut. Tout le domaine reste un choix explicite, sans ping, détection ni analyse des postes listés.",
+    "Kind": "ComboBox",
+    "Source": "L03"
+  },
+  {
+    "Name": "UxHistoryBanner",
+    "Title": "Liste de lʼhistorique",
+    "Text": "Liste remise par Précédent ou Suivant : elle nʼest pas relue et un clic ne vérifie pas le poste. Actualiser relance la même recherche.",
+    "Kind": "Border",
+    "Source": "L03"
+  },
+  {
+    "Name": "BtnHistoryRefresh",
+    "Title": "Actualiser la liste de lʼhistorique",
+    "Text": "Relance dans lʼannuaire la recherche de cette liste, avec son périmètre, sa vue et ses filtres. Aucun ping ni relevé des postes.",
+    "Kind": "Button",
+    "Source": "L03"
+  },
+  {
+    "Name": "ChkListRevalidation",
+    "Title": "Revérifier la liste en arrière-plan",
+    "Text": "Présent seulement si lʼadministrateur lʼa activé : relit dans lʼannuaire les objets listés, par petits lots, tant que la page est affichée. Décochez pour lʼarrêter pendant cette session.",
+    "Kind": "CheckBox",
+    "Source": "L03"
   }
 ]

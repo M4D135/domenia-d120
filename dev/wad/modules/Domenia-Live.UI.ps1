@@ -149,7 +149,8 @@ function Update-DomeniaSearchActionStates {
     $selected=@($grid.SelectedItems)
     $recheck=Get-DomeniaControl 'BtnLiveRecheck'
     if($null -ne $recheck){$recheck.IsEnabled=($ready -and $selected.Count -eq 1 -and [string]$selected[0].Type -eq 'Machine')}
-    foreach($name in @('BtnParkResults','BtnParkPing','BtnParkAnalyze')){$button=Get-DomeniaControl $name;if($null -ne $button -and -not $script:DemoMode){$button.IsEnabled=($ready -and [bool]$script:SearchListHasMachine)}}
+    # UX-33: a work view listed over the whole domain never offers a survey of its workstations.
+    foreach($name in @('BtnParkResults','BtnParkPing','BtnParkAnalyze')){$button=Get-DomeniaControl $name;if($null -ne $button -and -not $script:DemoMode){$button.IsEnabled=($ready -and [bool]$script:SearchListHasMachine -and -not [bool]$script:ListSurveyBlocked)}}
 }
 function Test-DomeniaRowHasAccount {
     # User or group: its own account name. Workstation: the login of its linked account (decision David 2026-10-05).
@@ -391,7 +392,12 @@ function Test-DomeniaLiveProbeIntent {
 function Select-DomeniaLiveResult {
     [CmdletBinding()]
     param([switch]$Force,[switch]$Manual)
-    if($script:SuppressGridSelectionEvents -or -not (Test-DomeniaLiveSearchActive) -or (Test-DomeniaAccessBusyWrite)){return}
+    if($script:SuppressGridSelectionEvents -or (Test-DomeniaAccessBusyWrite)){return}
+    if(-not (Test-DomeniaLiveSearchActive)){
+        # UX-25: a list shown from the history is not followed: say so instead of a silent click.
+        if($null -ne (Get-Command Test-DomeniaHistoryListShown -CommandType Function -ErrorAction SilentlyContinue) -and (Test-DomeniaHistoryListShown)){Set-Status 'Liste de lʼhistorique : ce clic ne vérifie pas le poste. Actualisez la liste pour la relire.'}
+        return
+    }
     $grid=Get-DomeniaControl 'DgObjects'
     if($null -eq $grid -or -not $grid.IsEnabled){return}
     $row=Get-DomeniaSelectedGridRow
@@ -873,5 +879,7 @@ function Invoke-DomeniaSearchMore {
     if(-not [bool]$decision.Allowed){Set-Status ([string]$decision.Reason) 'WARN';Update-DomeniaSearchMoreButton -Search $s;return}
     $mode=if([string]$s.State.SearchMode -eq 'Global'){'Global'}else{'OU'}
     $viewId='';if($null -ne $s.State.PSObject.Properties['ViewId']){$viewId=[string]$s.State.ViewId}
-    Invoke-GlobalSearch -SearchMode $mode -PreserveSelection -SilentError -ViewId $viewId -LimitOverride ([int]$decision.NextLimit)
+    # D037 / UX-33: the same perimeter as the list (view chip choice, base, depth), not the one the chip or the tree show now.
+    $viewScope='';if($viewId -and $null -ne $s.State.PSObject.Properties['ViewChoice'] -and [string]$s.State.ViewChoice -in @('OU','Domain')){$viewScope=[string]$s.State.ViewChoice}
+    Invoke-GlobalSearch -SearchMode $mode -PreserveSelection -SilentError -ViewId $viewId -LimitOverride ([int]$decision.NextLimit) -ViewScope $viewScope -ExpectBaseDn ([string]$s.State.BaseDn) -ExpectScope ([string]$s.State.Scope)
 }

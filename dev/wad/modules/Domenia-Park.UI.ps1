@@ -39,6 +39,8 @@ function Start-DomeniaOnlinePark {
     try{
         # Decision David 2026-10-05: whole-park detection removed; only the displayed, filtered rows are read.
         if(-not $DisplayedResults -and $null -eq $ScopeTargets){throw 'detection sur tout le parc retiree. Filtrez la liste dans Rechercher puis Detecter la liste.'}
+        # UX-33: a work view listed over the whole domain is read-only: no ping, detection or analysis of its rows.
+        if($null -eq $ScopeTargets -and [bool]$script:ListSurveyBlocked){throw 'vue sur tout le domaine : aucun relevé des postes. Choisissez une OU puis relancez la vue.'}
         if($script:DemoMode){throw 'Releve distant indisponible en demonstration.'}
         if($null -ne $script:ParkRun -and -not $script:ParkRun.Completed){throw 'Un releve est deja en cours.'}
         if(@($script:AsyncJobs.Values|Where-Object{$_.OperationId -in @('StoragePurge','IndexBuild','LegacyMigration')}).Count){throw 'Attendez la fin de la maintenance locale.'}
