@@ -214,7 +214,8 @@ Test-Case 'D028 : Merge-DomeniaLiveLinkMemory (RelationsSymmetry) demande la per
     Assert-Equal 0 @($script:UserMachineLinks).Count
 }
 
-Test-Case 'D028 : Merge-DomeniaLiveLinkMemory (repli) demande la persistance a la fin' {
+Test-Case 'D028 / CD-06 : Merge-DomeniaLiveLinkMemory ignore l ancien interrupteur et passe toujours par la regle de relation' {
+    # CD-06 (L04): the RC1.10.7 fallback (overwrite of the workstation row, fixed score) is removed; the switch is no longer read.
     Set-Item function:script:Request-DomeniaLinkPersistence { $script:RequestCalls++ }
     $script:FeatureFlagValue = $false
     $obs = [pscustomobject]@{
@@ -224,7 +225,8 @@ Test-Case 'D028 : Merge-DomeniaLiveLinkMemory (repli) demande la persistance a l
     }
     Merge-DomeniaLiveLinkMemory $obs
     Assert-Equal 1 $script:RequestCalls
-    Assert-Equal 1 @($script:UserMachineLinks).Count
+    Assert-Equal 1 $script:RelationCalls
+    Assert-Equal 0 @($script:UserMachineLinks).Count
 }
 
 Test-Case 'D028 : parcours explicite sans parametre refuse toujours plus de 64 ecarts' {
@@ -3160,24 +3162,25 @@ Test-Case 'D029 : admission centrale bloque les nouveaux producteurs pendant pur
         Assert-True ($message -match 'purge locale est encore active') ($operation+': '+$message)
     }
 }
-Test-Case 'D029 : nettoyage des orphelins conserve les sources declarees et une promotion tardive' {
+Test-Case 'D029 / UX-40 : le controle des orphelins ne propose que les sources automatiques et ne retire rien sans confirmation' {
+    # UX-40 (L04): the result is listed in Relations (Show-DomeniaOrphanLinks); the confirmed, journaled and restorable
+    # removal and the late promotion are proven in Test-DomeniaWiringRelations.ps1.
     . ([scriptblock]::Create($script:OrphanPruneDefinition))
     function Start-UiTask {param($Name,$OperationId,$Code,$Payload,$ReplaceKey,$DisableControls,$TimeoutSeconds,$StatusText,$OnSuccess,$OnError) $script:OrphanPayload=$Payload;$script:OrphanComplete=$OnSuccess}
-    function Confirm-Action {param($Message) return $true}
+    function Confirm-Action {param($Message) $script:OrphanConfirms++;return $true}
     function Save-UserMachineLinks {$script:OrphanSaves++;return $true}
     function Show-ErrorBox {param($Message) throw $Message}
-    $script:OrphanSaves=0
+    function Show-DomeniaOrphanLinks {param($Result) $script:OrphanShown=$Result}
+    $script:OrphanSaves=0;$script:OrphanConfirms=0;$script:OrphanShown=$null
     $script:UserMachineLinks=@(foreach($source in @('Manual',' Saisie manuelle ','import csv','Journal du controleur')){[pscustomobject]@{UserLogin='user';Computer=$source;Source=$source;When='old'}})
     Start-PruneOrphanLinks
     Assert-Equal 1 @($script:OrphanPayload.Links).Count
     $auto=$script:OrphanPayload.Links[0]
+    Assert-Equal 'Journal du controleur' ([string]$auto.Source)
     $result=[pscustomobject]@{Checked=1;Rows=@([pscustomobject]@{UserLogin=$auto.UserLogin;Computer=$auto.Computer;When=$auto.When;UserExists=$false;ComputerExists=$false})}
-    $auto.Source='Import CSV'
     & $script:OrphanComplete $result
-    Assert-Equal 4 $script:UserMachineLinks.Count;Assert-Equal 0 $script:OrphanSaves
-    $auto.Source='Journal du controleur'
-    & $script:OrphanComplete $result
-    Assert-Equal 3 $script:UserMachineLinks.Count;Assert-Equal 1 $script:OrphanSaves
+    Assert-True ([object]::ReferenceEquals($script:OrphanShown,$result)) 'Resultat non transmis a la liste de la page'
+    Assert-Equal 4 $script:UserMachineLinks.Count;Assert-Equal 0 $script:OrphanSaves;Assert-Equal 0 $script:OrphanConfirms
 }
 Test-Case 'D029 : vrais evenements WPF de simulation et confirmation raccordes au coeur' {
     . ([scriptblock]::Create($script:PurgeFixtureDefinitions))

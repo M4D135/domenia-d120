@@ -1,8 +1,8 @@
 ﻿#requires -Version 5.1
-# D120 lot relations (D041-D050): integration proofs that the pure rules of Domenia-Relations.Model.ps1 are
-# really called by the application. The real functions of the core (extracted by AST) and of the modules run
+# D120 lot relations (D041-D050), then L04 (CO-08, CO-28, CO-29, CO-30, UI-09, DS-17, FO-14, UX-40, CD-06, PF-16):
+# integration proofs that the pure rules of Domenia-Relations.Model.ps1 are really called by the application. The real functions of the core (extracted by AST) and of the modules run
 # against real WPF controls of the main XAML; network, AD, CIM and storage are inert doubles.
-# Each case fails when the wiring is removed (the RC1.10.7 behaviour is asserted against).
+# Each case fails when the wiring is removed (the RC1.10.7 behaviour is asserted against; CD-06 removed its switches).
 [CmdletBinding()]
 param([string]$ReportPath='', [switch]$Quiet)
 $ErrorActionPreference='Stop'
@@ -41,14 +41,15 @@ function Save-UserMachineLinks {$script:SaveCount++;if($script:UseRealQueue){ret
 function Request-DomeniaAccessRecovery {param($Operation,$OperationId,$ErrorValue,$DN,$Target);return $true}
 function Get-DomeniaEffectiveWorkerResult {param($Result,$RequiredProperties);return @($Result)[-1]}
 function Request-UiTaskStop {param($Id,[switch]$Silent,[switch]$Force,[switch]$Superseded,$Reason);$script:Stops.Add([string]$Id)}
-function Start-UiTask {param($Name,$OperationId,$Code,$Payload,$CallbackState,$ReplaceKey,$DisableControls,$TimeoutSeconds,$StatusText,$SuccessHandler,$ErrorHandler)
+function Start-UiTask {param($Name,$OperationId,$Code,$Payload,$CallbackState,$ReplaceKey,$DisableControls,$TimeoutSeconds,$StatusText,$SuccessHandler,$ErrorHandler,$OnSuccess,$OnError)
     $id='job-'+($script:Submissions.Count+1)
-    $script:Submission=[pscustomobject]@{Id=$id;Payload=$Payload;State=$CallbackState;Operation=$OperationId;Success=$SuccessHandler;Error=$ErrorHandler;Code=$Code}
+    $script:Submission=[pscustomobject]@{Id=$id;Payload=$Payload;State=$CallbackState;Operation=$OperationId;Success=$SuccessHandler;Error=$ErrorHandler;Code=$Code;OnSuccess=$OnSuccess;OnError=$OnError}
     $script:Submissions.Add($script:Submission);$script:AsyncJobs[$id]=[pscustomobject]@{CancelRequested=$false;OperationId=$OperationId};return $id
 }
 function Confirm-Action {param($Message,$Title);$script:ConfirmCount++;return [bool]$script:ConfirmAccepted}
 function Get-CfgValue {param($Section,$Key,$Default);if($Section -eq 'Features' -and $null -ne $script:Features -and $script:Features.ContainsKey([string]$Key)){return $script:Features[[string]$Key]};return $Default}
 function Open-AdObject {param($Dn,$Type,[switch]$Force);$script:Opened=[string]$Dn}
+function Start-OpenLinkedObject {param($Type,$Identity);$script:Opened=('name:'+[string]$Identity)}
 function Get-CurrentSelectedComputerName {return [string]$script:CurrentComputer}
 function Register-DomeniaOperationSample {param($Operation,$Mode,$ItemCount,$DurationMs,$BytesEstimated,$RemoteAttempts,$FallbackTasks,$SuccessCount)}
 function Fail-DomeniaComputerUserProbeUi {param($Message,$State);$script:ProbeFailures.Add([string]$Message)}
@@ -67,6 +68,7 @@ function Reset-Fixture {
     $script:LinkByComputer=$null;$script:LinksByUser=$null;$script:LinkIndexCount=0;$script:LinkIndexGeneration=0
     $script:IndexUsersByGuid=@{};$script:IndexUsersByLogin=@{};$script:IndexComputersByGuid=@{};$script:IndexComputersByName=@{}
     $script:ActiveLinkProbeId='';$script:ActiveLinkProbeComputer='';$script:LinkProbeDone=@{};$script:Live=$null;$script:MasterBuild='TEST-WIRING';$script:CurrentComputer=''
+    $script:IndexRows=@()
     $script:DatabaseScopedPath=Join-Path $script:TempRoot ('Domenia-'+[guid]::NewGuid().ToString('N')+'.db')
     $script:UserMachineLinks=@(
         [pscustomobject]@{UserLogin='alice';Computer='PC-A';Source='Console CIM/DCOM';Confidence=97;VerifiedInAD=$true;When='2026-01-01 08:00:00';Details='Historique';UserGuid='11111111-1111-1111-1111-111111111111';ComputerGuid='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';UserDn='CN=Alice,DC=example,DC=invalid';ComputerDn='CN=PC-A,DC=example,DC=invalid'},
@@ -81,6 +83,8 @@ function Reset-Fixture {
         $script:Window.FindName('RelationTabs').SelectedItem=$script:Window.FindName('TabLinksSelected')
         $script:Window.FindName('TxtRelationComputerSearch').Text='';$script:Window.FindName('TxtRelationScanLimit').Text='20'
         $script:Window.FindName('CmbRelationScanScope').SelectedIndex=0;$script:Window.FindName('ChkRelationEvents').IsChecked=$false
+        $script:Window.FindName('TxtAllLinksFilter').Text='';foreach($n in @('ChkAllLinksDeclared','ChkAllLinksObserved','ChkAllLinksConflict')){$script:Window.FindName($n).IsChecked=$false}
+        $script:Window.FindName('WorkspaceTabs').SelectedItem=$script:Window.FindName('TabRelations')
         $script:Relations.Bound=$true
     }
 }
@@ -184,13 +188,14 @@ try {
     [void][IO.Directory]::CreateDirectory($script:TempRoot)
     $core=Parse-Source (Join-Path $wad 'Domenia-Core.ps1')
     $definitions=[Collections.Generic.List[string]]::new()
-    foreach($name in @('Get-MainXaml','Normalize-LinkComputer','Normalize-LinkUser','Rebuild-UserMachineLinkIndex','Ensure-UserMachineLinkIndex','Get-LinksForComputer','Get-LinksForUser','Get-ExistingLinkForComputer','Find-DomeniaCachedUserRow','Find-DomeniaCachedComputerRow','Add-UserMachineLinkIfMissing','ConvertTo-DomeniaCanonicalLinks','Remove-SelectedLink','Start-ComputerUserLinkProbe')){$definitions.Add((Get-SourceFunctionText $core $name))}
+    foreach($name in @('Get-MainXaml','Normalize-LinkComputer','Normalize-LinkUser','Rebuild-UserMachineLinkIndex','Ensure-UserMachineLinkIndex','Get-LinksForComputer','Get-LinksForUser','Get-ExistingLinkForComputer','Find-DomeniaCachedUserRow','Find-DomeniaCachedComputerRow','Add-UserMachineLinkIfMissing','ConvertTo-DomeniaCanonicalLinks','Remove-SelectedLink','Start-ComputerUserLinkProbe','Import-LinksCsv','Start-PruneOrphanLinks')){$definitions.Add((Get-SourceFunctionText $core $name))}
     foreach($pair in @(@('modules\Domenia-Live.UI.ps1','Merge-DomeniaLiveLinkMemory'),@('modules\Domenia-Storage.UI.ps1','Queue-DomeniaLinkChanges'),@('modules\Domenia-Storage.UI.ps1','Reset-DomeniaLinkBaseline'),@('modules\Domenia-Guard.Model.ps1','ConvertTo-DomeniaLinkRecord'),@('modules\Domenia-Guard.Model.ps1','Get-DomeniaLinkFingerprint'),@('modules\Domenia-Live.Model.ps1','Get-DomeniaLiveHash'))){
         $definitions.Add((Get-SourceFunctionText (Parse-Source (Join-Path $wad $pair[0])) $pair[1]))
     }
     . ([scriptblock]::Create(($definitions.ToArray() -join "`n")))
     . (Join-Path $wad 'modules\Domenia-Common.Model.ps1')
     . (Join-Path $wad 'modules\Domenia-Engine.Model.ps1')
+    . (Join-Path $wad 'modules\Domenia-Cache.Model.ps1')
     if($null -eq ('Domenia.SelectionIdentity' -as [type])){Add-Type -Path (Join-Path $wad 'modules\Domenia-Identity.Types.cs')}
     . (Join-Path $wad 'modules\Domenia-Selection.UI.ps1')
     . (Join-Path $wad 'modules\Domenia-Relations.Model.ps1')
@@ -445,6 +450,62 @@ try {
             Expect (@(Get-LinksForComputer 'PC-A').Count -eq 0) 'Continuation de suppression non executee'
         }finally{Remove-Item -LiteralPath 'Function:\Request-DomeniaInlineConfirmation' -ErrorAction SilentlyContinue;$script:Ctrl=@{}}
     }
+    Case 'CO-30 Pick depuis Pending : message francais dans la page, noms internes au journal seulement' {
+        Reset-Fixture;Set-DomeniaRelationsSelection -Row $script:Alice
+        $script:Relations.AssociationState='Candidate'
+        Set-DomeniaRelationPendingAssociation -Computer 'PC-C' -DN $script:PcC.DN -Guid $script:PcC.Guid -Source 'Recherche AD manuelle'
+        Expect ($script:Relations.AssociationState -eq 'Pending') 'Premiere ligne non choisie'
+        Set-DomeniaRelationPendingAssociation -Computer 'PC-B' -DN 'CN=PC-B,DC=example,DC=invalid' -Guid 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb' -Source 'Recherche AD manuelle'
+        $shown=[string]$script:Messages['LblRelationConfirm']
+        Expect ($shown -match 'attend déjà sa confirmation' -and -not ($shown -cmatch '\b(Pick|Pending|Idle|Candidate)\b')) ('Message : '+$shown)
+        Expect ([string]$script:Messages['Status'] -match 'confirm' -and -not ([string]$script:Messages['Status'] -cmatch '\bPick\b')) 'Barre d etat avec un nom interne'
+        Expect (@($script:Log|Where-Object{$_ -match 'Pick' -and $_ -match 'Pending'}).Count -eq 1) 'Noms internes absents du journal'
+        Expect ($script:Relations.PendingAssociation.Computer -eq 'PC-C') 'Association en attente remplacee'
+    }
+    Case 'CO-08 Import-LinksCsv : apercu sans ecriture, source forcee Import CSV, journal par ligne, annulation' {
+        Reset-Fixture
+        $csv=Join-Path $script:TempRoot ('liens-'+[guid]::NewGuid().ToString('N')+'.csv')
+        $lines=@('UserLogin,Computer,Source,Confidence,VerifiedInAD,When,Details','carol,PC-NEW,Saisie manuelle,100,True,2026-10-08 09:15:00,Bureau 12','bob,PC-B,Saisie manuelle,100,True,,','dave,PC-A,Console,90,True,,','erin,PC-NEW,Manual,100,True,,',',PC-X,,,,,')
+        [IO.File]::WriteAllLines($csv,[string[]]$lines,[Text.UTF8Encoding]::new($true))
+        $script:PickedFile=$csv
+        function script:New-DomeniaFileRequest {param($Mode);$r=[pscustomobject]@{Mode=$Mode;Filter='';FileName=$script:PickedFile};$r|Add-Member -MemberType ScriptMethod -Name ShowDialog -Value {return $true};return $r}
+        try{
+            Import-LinksCsv
+            $p=$script:Relations.ImportPlan
+            Expect ($null -ne $p -and $script:SaveCount -eq 0 -and @(Get-LinksForComputer 'PC-NEW').Count -eq 0) 'Import ecrit avant l apercu'
+            Expect ($p.Ready -eq 1 -and @($p.Rows).Count -eq 5) ('Apercu : '+$p.Ready+' / '+@($p.Rows).Count)
+            $byLine=@{};foreach($row in @($p.Rows)){$byLine[[int]$row.Line]=$row}
+            Expect ($byLine[2].Status -eq 'À importer' -and $byLine[3].Reason -match 'déjà connue' -and $byLine[4].Reason -match 'associé à alice' -and $byLine[5].Reason -match 'plus haut' -and $byLine[6].Status -eq 'Ignorée') 'Motifs des lignes de l apercu'
+            Confirm-DomeniaLinkImport
+            $l=@(Get-LinksForComputer 'PC-NEW')
+            Expect ($script:SaveCount -eq 1 -and $l.Count -eq 1 -and $l[0].UserLogin -eq 'carol' -and $l[0].Source -eq 'Import CSV' -and $l[0].Kind -eq 'Importe') 'Ligne absente ou Source Saisie manuelle reprise du fichier'
+            Expect ((Get-DomeniaEvidenceBadge $l[0]).Badge -eq 'Importe' -and [int]$l[0].Confidence -eq 0 -and ([string]$l[0].When).EndsWith('Z') -and $l[0].Details -match 'Saisie manuelle') 'Qualification, score ou date de la ligne importee'
+            Expect (@($script:Log|Where-Object{$_ -match 'journal Added' -and $_ -match 'carol'}).Count -eq 1) 'Ligne importee non journalisee'
+            Expect ($null -eq $script:Relations.ImportPlan -and $null -ne $script:Relations.LastImport -and $script:Messages['Status'] -match 'Annuler') 'Annulation non proposee'
+            Undo-DomeniaLinkImport
+            Expect (@(Get-LinksForComputer 'PC-NEW').Count -eq 0 -and $script:SaveCount -eq 2 -and $null -eq $script:Relations.LastImport) 'Import non annule'
+            $removed=@($script:Relations.History|Where-Object{$_.Action -eq 'Removed'})
+            Expect ($removed.Count -eq 1 -and $removed[0].Note -match 'annulé') 'Annulation non journalisee'
+            Expect ((Get-DomeniaRelationRestoreLabel (Get-DomeniaRelationsRestoreCandidate)) -eq 'Restaurer carol → PC-NEW') 'Annulation non restaurable'
+        }finally{Remove-Item -LiteralPath 'Function:\New-DomeniaFileRequest' -ErrorAction SilentlyContinue}
+    }
+    Case 'CO-29 Dates : ancienne date locale relue en heure locale, reecrite en UTC quand la ligne change' {
+        Reset-Fixture
+        $old=[pscustomobject]@{UserLogin='carol';Computer='PC-D';Source='Console CIM/DCOM';Confidence=0;VerifiedInAD=$true;When='2026-10-08 09:15:00';Details='Ancienne ligne locale'}
+        $script:UserMachineLinks=@($script:UserMachineLinks)+$old;Rebuild-UserMachineLinkIndex
+        $instant=ConvertTo-DomeniaRelationUtcDate '2026-10-08 09:15:00'
+        $newer=[pscustomobject]@{UserLogin='dave';Computer='PC-D';Source='Console CIM/DCOM';Kind='Console';When=$instant.AddMinutes(30).ToString('o');Details='Observation UTC plus recente'}
+        $o=Add-DomeniaRelation $newer -NoSave -Quiet
+        Expect ($o.Placement -eq 'Replace' -and (Get-ExistingLinkForComputer 'PC-D').UserLogin -eq 'dave') 'La date locale lue comme UTC fausse le choix du plus recent'
+        Refresh-DomeniaRelationViews
+        $row=@(Find-Relations 'PC-D'|Where-Object{$_.UserLogin -eq 'carol'})[0]
+        Expect (([string]$row.WhenDisplay) -match '^08/10(/2026)? 09:15$' -and $row.WhenSort -eq $instant) ('Affichage : '+$row.WhenDisplay)
+        $again=[pscustomobject]@{UserLogin='carol';Computer='PC-D';Source='Console CIM/DCOM';Kind='Console';When=$instant.AddHours(2).ToString('o');Details='Reconfirmee'}
+        [void](Add-DomeniaRelation $again -NoSave -Quiet)
+        Expect (([string]$row.When).EndsWith('Z') -and (ConvertTo-DomeniaRelationUtcDate $row.When) -eq $instant.AddHours(2)) 'Ligne actualisee non reecrite en UTC'
+        $legacy=[pscustomobject]@{When='2026-10-08 09:15:00'};Set-DomeniaRelationWhenUtc $legacy
+        Expect ($legacy.When -eq $instant.ToString('o',[Globalization.CultureInfo]::InvariantCulture)) 'Reecriture UTC d une ligne modifiee'
+    }
 
     # ------------------------------------------------------------ real WPF controls of the main XAML
     $reader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml))
@@ -457,7 +518,7 @@ try {
     try{
         Case 'D041 Onglet Associer utilisable depuis un poste, recherche d un utilisateur' {
             Reset-Fixture;Set-DomeniaRelationsSelection -Row $script:PcA;Pump $w
-            Expect ($w.FindName('TabLinksAssociate').IsEnabled -and $w.FindName('BtnRelationComputerSearch').IsEnabled -and $w.FindName('TxtRelationComputerSearch').IsEnabled) 'Associer grise pour un poste'
+            Expect ($w.FindName('RelationAddPanel').IsEnabled -and $w.FindName('BtnRelationComputerSearch').IsEnabled -and $w.FindName('TxtRelationComputerSearch').IsEnabled) 'Panneau Ajouter grise pour un poste'
             Expect ([string]$w.FindName('BtnDetectUserComputers').Content -eq 'Lire la session de ce poste' -and $w.FindName('BtnDetectUserComputers').IsEnabled) 'Detecter non adapte au poste'
             Expect ($w.FindName('LblRelationAssociateHint').Text -match 'utilisateur' -and [string]$w.FindName('DgRelationComputerSearch').Columns[0].Header -eq 'Utilisateur') 'Libelles non symetriques'
             Expect (-not $w.FindName('CmbRelationScanScope').IsEnabled) 'Perimetre utilisateur propose pour un poste'
@@ -560,16 +621,155 @@ try {
             [void](Remove-DomeniaRelation -Relation (@(Get-LinksForComputer 'PC-A')[0]) -Declarant 'EXAMPLE\reader');Pump $w
             Expect ($w.FindName('BtnRestoreLink').IsEnabled) 'Restaurer inactif apres suppression'
         }
-        Case 'Interrupteur RelationsSymmetry desactive : parcours RC1.10.7 restaure' {
-            Reset-Fixture;$script:Features['RelationsSymmetry']=$false;Set-DomeniaRelationsSelection -Row $script:PcA;Pump $w
-            Expect (-not $w.FindName('TabLinksAssociate').IsEnabled) 'Interrupteur sans effet'
+        Case 'CO-28 Restaurer : libelle nommant le lien, puis inactif apres la restauration' {
+            Reset-Fixture;Set-DomeniaRelationsSelection -Row $script:Alice;Pump $w
+            $button=$w.FindName('BtnRestoreLink')
+            Expect ([string]$button.Content -eq 'Restaurer la suppression' -and -not $button.IsEnabled) 'Etat initial'
+            [void](Remove-DomeniaRelation -Relation (@(Get-LinksForComputer 'PC-A')[0]) -Declarant 'EXAMPLE\reader');Pump $w
+            Expect ([string]$button.Content -eq 'Restaurer alice → PC-A' -and $button.IsEnabled -and [string]$button.ToolTip -match 'alice → PC-A') ('Libelle : '+[string]$button.Content)
+            Expect ($script:Messages['Status'] -match 'Restaurer alice → PC-A') 'Message de suppression sans le nom du lien'
+            Expect (Restore-DomeniaRemovedLink) 'Restauration refusee';Pump $w
+            Expect (-not $button.IsEnabled -and [string]$button.Content -eq 'Restaurer la suppression') 'Restaurer reste actif sans rien a restaurer'
+            # The journal file exists on disk, yet nothing is restorable any more: availability is not the file.
+            Expect ([IO.File]::Exists((Get-DomeniaRelationsJournalPath)) -and -not (Test-DomeniaRelationsRestoreAvailable)) 'Disponibilite fondee sur la presence du journal'
         }
-        Case 'Interrupteur DetectionPreview desactive : soumission directe comme avant' {
+        Case 'CO-29 Colonne Date : heure locale affichee, tri sur l instant' {
+            Reset-Fixture
+            $instant=ConvertTo-DomeniaRelationUtcDate '2026-10-08 09:15:00'
+            $script:UserMachineLinks=@(
+                [pscustomobject]@{UserLogin='carol';Computer='PC-L';Source='Console CIM/DCOM';When='2026-10-08 09:15:00';Details='Locale'},
+                [pscustomobject]@{UserLogin='dave';Computer='PC-U';Source='Console CIM/DCOM';When=$instant.AddMinutes(30).ToString('o');Details='UTC'},
+                [pscustomobject]@{UserLogin='erin';Computer='PC-V';Source='Console CIM/DCOM';When=$instant.AddMinutes(-30).ToString('o');Details='UTC'}
+            )
+            Rebuild-UserMachineLinkIndex;Set-DomeniaRelationsSelection -Row $script:Alice
+            $w.FindName('RelationTabs').SelectedItem=$w.FindName('TabLinksAll');Pump $w
+            $grid=$w.FindName('DgAllLinks');$date=@($grid.Columns|Where-Object{[string]$_.Header -eq 'Date'})[0]
+            Expect ($date.SortMemberPath -eq 'WhenSort') 'Tri de la colonne Date sur le texte'
+            Expect (@($grid.Items|Where-Object{[string]$_.WhenDisplay -match '^08/10(/2026)? 09:15$'}).Count -eq 1) 'Heure locale non affichee'
+            $view=[Windows.Data.CollectionViewSource]::GetDefaultView($grid.ItemsSource);$view.SortDescriptions.Clear()
+            $view.SortDescriptions.Add([ComponentModel.SortDescription]::new('WhenSort',[ComponentModel.ListSortDirection]::Descending));Pump $w
+            $order=@($grid.Items|ForEach-Object{[string]$_.UserLogin}) -join ','
+            $view.SortDescriptions.Clear()
+            Expect ($order -eq 'dave,carol,erin') ('Ordre : '+$order)
+        }
+        Case 'PF-16 Page cachee : rafraichissement note, puis execute a l ouverture' {
+            Reset-Fixture;Set-DomeniaRelationsSelection -Row $script:Alice;Pump $w
+            Expect (@($w.FindName('DgLinks').Items).Count -eq 1 -and @($w.FindName('DgLinks').Items)[0].UserLogin -eq 'alice') 'Etat initial'
+            $w.FindName('WorkspaceTabs').SelectedItem=$w.FindName('WsSearch');Pump $w
+            Set-DomeniaRelationsSelection -Row $script:Bob
+            Expect ($script:Relations.RefreshPending -and @($w.FindName('DgLinks').Items)[0].UserLogin -eq 'alice') 'Grilles Relations recalculees alors que la page est cachee'
+            $w.FindName('WorkspaceTabs').SelectedItem=$w.FindName('TabRelations');Open-DomeniaRelationsPage;Pump $w
+            Expect (-not $script:Relations.RefreshPending -and @($w.FindName('DgLinks').Items)[0].UserLogin -eq 'bob') 'Rafraichissement non execute a l ouverture'
+            $init=Get-SourceFunctionText (Parse-Source (Join-Path $wad 'modules\Domenia-Relations.UI.ps1')) 'Initialize-DomeniaRelationsUi'
+            Expect ($init -match "TabRelations'\)\{Open-DomeniaRelationsPage\}") 'Ouverture de la page non raccordee'
+        }
+        Case 'FO-14 Toutes les associations : filtre, puces, compteur, double-clic et clic droit' {
+            Reset-Fixture;Set-DomeniaRelationsSelection -Row $script:Alice
+            $w.FindName('RelationTabs').SelectedItem=$w.FindName('TabLinksAll');Pump $w
+            $grid=$w.FindName('DgAllLinks')
+            Expect (@($grid.Items).Count -eq 2 -and $w.FindName('LblAllLinksCount').Text -eq '2 association(s)') ('Compteur : '+$w.FindName('LblAllLinksCount').Text)
+            $w.FindName('TxtAllLinksFilter').Text='bob';Update-DomeniaAllLinksView;Pump $w
+            Expect (@($grid.Items).Count -eq 1 -and $w.FindName('LblAllLinksCount').Text -eq '1 association(s) sur 2') 'Filtre texte'
+            $w.FindName('TxtAllLinksFilter').Text='';$w.FindName('ChkAllLinksObserved').IsChecked=$true;Update-DomeniaAllLinksView;Pump $w
+            Expect (@($grid.Items).Count -eq 1 -and @($grid.Items)[0].UserLogin -eq 'alice') 'Puce Observé'
+            $w.FindName('ChkAllLinksObserved').IsChecked=$false;Update-DomeniaAllLinksView;Pump $w
+            $row=@($grid.Items|Where-Object{$_.UserLogin -eq 'bob'})[0];$grid.ScrollIntoView($row);Pump $w
+            $container=$grid.ItemContainerGenerator.ContainerFromItem($row);Expect ($null -ne $container) 'Ligne non generee'
+            Open-DomeniaAllLinksCell -Source (@($grid.Columns|Where-Object{[string]$_.Header -eq 'Machine'})[0].GetCellContent($container))
+            Expect ($script:Opened -eq 'CN=PC-B,DC=example,DC=invalid') ('Double-clic sur Machine : '+$script:Opened)
+            Open-DomeniaAllLinksCell -Source (@($grid.Columns|Where-Object{[string]$_.Header -eq 'Utilisateur'})[0].GetCellContent($container))
+            Expect ($script:Opened -eq 'CN=Bob,DC=example,DC=invalid') ('Double-clic sur Utilisateur : '+$script:Opened)
+            $script:Opened='';$grid.SelectedItem=$row
+            $menu=New-DomeniaAllLinksContextMenu
+            Expect (@($menu.Items).Count -eq 2 -and [string]$menu.Items[1].Header -eq 'Ouvrir le poste') 'Menu contextuel'
+            $menu.Items[1].RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.MenuItem]::ClickEvent,$menu.Items[1]))
+            Expect ($script:Opened -eq 'CN=PC-B,DC=example,DC=invalid') ('Clic droit Ouvrir le poste : '+$script:Opened)
+            $wire=Get-SourceFunctionText $core 'Wire-Events'
+            Expect ($wire -match 'DgAllLinks"\]\.Add_MouseDoubleClick' -and $wire -match 'Open-DomeniaAllLinksCell') 'Double-clic non raccorde'
+        }
+        Case 'UX-40 Orphelines listees avec motif dans la page, retrait confirme, journalise et restaurable' {
+            Reset-Fixture;Set-DomeniaRelationsSelection -Row $script:Alice;Pump $w
+            Start-PruneOrphanLinks
+            $sub=$script:Submission
+            Expect ($null -ne $sub -and $sub.Operation -eq 'PruneLinks' -and @($sub.Payload.Links).Count -eq 1 -and $sub.Payload.Links[0].UserLogin -eq 'alice') 'Liste verifiee : affectation declaree proposee ou console absente'
+            $link=$sub.Payload.Links[0]
+            & $sub.OnSuccess ([pscustomobject]@{Checked=1;Rows=@([pscustomobject]@{UserLogin=$link.UserLogin;Computer=$link.Computer;When=$link.When;UserExists=$false;ComputerExists=$true})})
+            Pump $w
+            $orphans=@($script:Relations.Orphans)
+            Expect ($orphans.Count -eq 1 -and $orphans[0].Reason -match '^Compte absent' -and [bool]$orphans[0].Selected -and $script:SaveCount -eq 0 -and @(Get-LinksForComputer 'PC-A').Count -eq 1) 'Orpheline non listee, ou retiree sans confirmation'
+            Expect ([string]$w.FindName('LinkOrphanPanel').Visibility -eq 'Visible' -and $w.FindName('DgLinkOrphans').Items.Count -eq 1 -and $w.FindName('RelationTabs').SelectedItem.Name -eq 'TabLinksAll') 'Liste absente de la page'
+            Request-DomeniaOrphanRemoval;Pump $w
+            Expect ([string]$w.FindName('LinkOrphanConfirm').Visibility -eq 'Visible' -and $script:SaveCount -eq 0 -and $script:ConfirmCount -eq 0) 'Confirmation hors de la page ou retrait immediat'
+            Complete-DomeniaOrphanRemoval;Pump $w
+            Expect ($script:SaveCount -eq 1 -and @(Get-LinksForComputer 'PC-A').Count -eq 0 -and [string]$w.FindName('LinkOrphanPanel').Visibility -eq 'Collapsed') 'Retrait non effectue'
+            $entry=@($script:Relations.History|Where-Object{$_.Action -eq 'Removed'})[0]
+            Expect ($null -ne $entry -and $entry.Note -match 'Orpheline : Compte absent' -and [IO.File]::ReadAllText((Get-DomeniaRelationsJournalPath)) -match 'Orpheline') 'Retrait non journalise'
+            Expect ([string]$w.FindName('BtnRestoreLink').Content -eq 'Restaurer alice → PC-A') ('Restaurer : '+[string]$w.FindName('BtnRestoreLink').Content)
+            Expect ((Restore-DomeniaRemovedLink) -and @(Get-LinksForComputer 'PC-A').Count -eq 1) 'Retrait non restaurable'
+        }
+        Case 'UX-40 Une source devenue importee apres le controle n est jamais retiree' {
+            Reset-Fixture;Set-DomeniaRelationsSelection -Row $script:Alice
+            Start-PruneOrphanLinks;$sub=$script:Submission;$link=$sub.Payload.Links[0]
+            & $sub.OnSuccess ([pscustomobject]@{Checked=1;Rows=@([pscustomobject]@{UserLogin=$link.UserLogin;Computer=$link.Computer;When=$link.When;UserExists=$true;ComputerExists=$false})})
+            Expect (@($script:Relations.Orphans)[0].Reason -match '^Poste absent') 'Motif du poste absent'
+            $link.Source='Import CSV'
+            Request-DomeniaOrphanRemoval;Complete-DomeniaOrphanRemoval
+            Expect ($script:SaveCount -eq 0 -and @(Get-LinksForComputer 'PC-A').Count -eq 1 -and $script:Messages['Status'] -match 'conservée') 'Source protegee retiree'
+        }
+        Case 'CO-08 Apercu de l import dans la page, puis Annuler l import' {
+            Reset-Fixture;Set-DomeniaRelationsSelection -Row $script:Alice;Pump $w
+            $csv=Join-Path $script:TempRoot ('liens-'+[guid]::NewGuid().ToString('N')+'.csv')
+            [IO.File]::WriteAllLines($csv,[string[]]@('UserLogin,Computer,Source','carol,PC-NEW,Saisie manuelle'),[Text.UTF8Encoding]::new($true))
+            Show-DomeniaLinkImportPreview -Path $csv;Pump $w
+            Expect ([string]$w.FindName('LinkImportPanel').Visibility -eq 'Visible' -and $w.FindName('DgLinkImportPreview').Items.Count -eq 1 -and [string]$w.FindName('BtnLinkImportApply').Content -eq 'Importer 1 association(s)' -and $w.FindName('RelationTabs').SelectedItem.Name -eq 'TabLinksAll') 'Apercu absent de la page'
+            Expect ([string]$w.FindName('BtnUndoImport').Visibility -eq 'Collapsed' -and $script:SaveCount -eq 0) 'Annulation proposee avant tout import'
+            Confirm-DomeniaLinkImport;Pump $w
+            $row=@($w.FindName('DgAllLinks').Items|Where-Object{$_.UserLogin -eq 'carol'})[0]
+            Expect ([string]$w.FindName('LinkImportPanel').Visibility -eq 'Collapsed' -and [string]$w.FindName('BtnUndoImport').Visibility -eq 'Visible' -and $null -ne $row -and $row.BadgeLabel -eq 'Importé') 'Ligne importee absente ou non qualifiee Importe'
+            Undo-DomeniaLinkImport;Pump $w
+            Expect ([string]$w.FindName('BtnUndoImport').Visibility -eq 'Collapsed' -and @($w.FindName('DgAllLinks').Items|Where-Object{$_.UserLogin -eq 'carol'}).Count -eq 0) 'Annulation sans effet visible'
+        }
+        Case 'CD-06 Ancien interrupteur RelationsSymmetry a faux : sans effet, le poste reste un sujet' {
+            Reset-Fixture;$script:Features['RelationsSymmetry']=$false;Set-DomeniaRelationsSelection -Row $script:PcA;Pump $w
+            Expect ($w.FindName('RelationAddPanel').IsEnabled -and [string]$w.FindName('BtnDetectUserComputers').Content -eq 'Lire la session de ce poste') 'Ancien parcours RC1.10.7 encore actif'
+        }
+        Case 'CD-06 Ancien interrupteur DetectionPreview a faux : apercu toujours montre, aucune soumission directe' {
             Reset-Fixture;$script:Features['DetectionPreview']=$false;Set-DomeniaRelationsSelection -Row $script:Alice;Pump $w
             $script:BranchObjects=@((Get-Machine 'PC-1' '10000000-0000-0000-0000-000000000001'))
             $w.FindName('CmbRelationScanScope').SelectedIndex=1
             Start-DomeniaRelationsSearch
-            Expect ($null -ne $script:Submission -and $script:Submission.Payload.ScanScope -eq 'Loaded' -and $null -eq $script:Relations.PendingPlan) 'Interrupteur sans effet'
+            Expect ($script:Submissions.Count -eq 0 -and $null -ne $script:Relations.PendingPlan) 'Soumission sans apercu du perimetre'
+        }
+        Case 'UI-09 Deux zones : associations a gauche, panneau Ajouter a droite, precautions derriere ?' {
+            Reset-Fixture;Set-DomeniaRelationsSelection -Row $script:Alice;Pump $w
+            $selected=$w.FindName('TabLinksSelected');$add=$w.FindName('RelationAddPanel');$grid=$w.FindName('DgLinks')
+            Expect ($selected.Content.IsAncestorOf($add) -and $selected.Content.IsAncestorOf($grid)) 'Panneau Ajouter hors de l onglet Associations'
+            Expect ($add.TranslatePoint([Windows.Point]::new(0,0),$w).X -gt $grid.TranslatePoint([Windows.Point]::new(0,0),$w).X) 'Panneau Ajouter pas a droite'
+            Expect ($w.FindName('TabRelationDetect').IsDescendantOf($add) -and $w.FindName('TabRelationSearch').IsDescendantOf($add)) 'Detecter | Rechercher hors du panneau Ajouter'
+            $help=$w.FindName('RelationsHelpPanel')
+            Expect ([string]$help.Visibility -eq 'Collapsed' -and $w.FindName('LblParkDetectionStatus').IsDescendantOf($help)) 'Avertissements encore dans l en-tete'
+            Switch-DomeniaRelationsHelp;Pump $w;Expect ([string]$help.Visibility -eq 'Visible') 'Le bouton ? n ouvre pas les precautions'
+            Switch-DomeniaRelationsHelp;$w.FindName('RelationTabs').SelectedItem=$w.FindName('TabLinksAll');Pump $w
+            Show-DomeniaRelationsAddPanel -Mode Search;Pump $w
+            Expect ($w.FindName('RelationTabs').SelectedItem.Name -eq 'TabLinksSelected' -and $w.FindName('RelationAssociateModeTabs').SelectedItem.Name -eq 'TabRelationSearch') 'Panneau Ajouter non montre'
+        }
+        Case 'CD-06 Aucun reste des interrupteurs RC1.10.7 dans le code' {
+            foreach($rel in @('modules\Domenia-Relations.UI.ps1','modules\Domenia-Live.UI.ps1','Domenia-Core.ps1')){
+                $text=[IO.File]::ReadAllText((Join-Path $wad $rel))
+                Expect (-not ($text -match "Get-DomeniaFeatureFlag\s+'(RelationsSymmetry|DetectionPreview)'")) ('Interrupteur encore lu dans '+$rel)
+            }
+            $config=Get-SourceFunctionText $core 'New-DefaultConfig'
+            Expect (-not ($config -match 'RelationsSymmetry|DetectionPreview|LinkStaleHours')) 'Cles RC1.10.7 encore dans la configuration par defaut'
+        }
+        Case 'DS-17 Puces de qualification : cle interne, libelle accentue, couleur et regle' {
+            Reset-Fixture;Set-DomeniaRelationsSelection -Row $script:Alice;Pump $w
+            $grid=$w.FindName('DgLinks');$row=@($grid.Items)[0]
+            Expect ($row.Badge -eq 'Observe' -and $row.BadgeLabel -eq 'Observé') ('Libelle : '+$row.BadgeLabel)
+            $column=@($grid.Columns|Where-Object{[string]$_.Header -eq 'Qualification'})[0]
+            $container=$grid.ItemContainerGenerator.ContainerFromItem($row);Expect ($null -ne $container) 'Ligne non generee'
+            $presenter=$column.GetCellContent($container);Pump $w
+            $chip=[Windows.Media.VisualTreeHelper]::GetChild($presenter,0)
+            Expect ($chip -is [Windows.Controls.Border] -and ([string]$chip.Background).ToUpperInvariant() -eq '#FFDCFCE7' -and [string]$chip.ToolTip -match 'Provenance') ('Puce : '+[string]$chip.Background)
         }
     }finally{$w.Close();$script:Window=$null}
 }catch{$script:Tests.Add([pscustomobject]@{Name='Initialisation ou suite interrompue';Status='Failed';Detail=$_.Exception.ToString()})}
@@ -577,9 +777,9 @@ finally{
     if($null -ne $script:Window){$script:Window.Close()}
     if($script:TempRoot -and [IO.Directory]::Exists($script:TempRoot)){Remove-Item -LiteralPath $script:TempRoot -Recurse -Force -ErrorAction SilentlyContinue}
 }
-$expected=36
+$expected=49
 $passed=@($script:Tests|Where-Object{$_.Status -eq 'Passed'}).Count;$failed=@($script:Tests|Where-Object{$_.Status -eq 'Failed'}).Count
-$report=[ordered]@{Build='RC1.11.0-D120-relations';Suite='Raccordement relations D041-D050';Host=$PSVersionTable.PSVersion.ToString();NativeWindowsPowerShell=$script:WindowsExecuted;Wpf=$true;MockedNetwork=$true;LiveAD=$false;LiveCIM=$false;Expected=$expected;Passed=$passed;Failed=$failed;Skipped=0;Complete=($script:WindowsExecuted -and $failed -eq 0 -and $script:Tests.Count -eq $expected);Tests=$script:Tests.ToArray()}
+$report=[ordered]@{Build='RC1.14-L04-relations';Suite='Raccordement relations D041-D050 et L04';Host=$PSVersionTable.PSVersion.ToString();NativeWindowsPowerShell=$script:WindowsExecuted;Wpf=$true;MockedNetwork=$true;LiveAD=$false;LiveCIM=$false;Expected=$expected;Passed=$passed;Failed=$failed;Skipped=0;Complete=($script:WindowsExecuted -and $failed -eq 0 -and $script:Tests.Count -eq $expected);Tests=$script:Tests.ToArray()}
 if(-not $ReportPath){$ReportPath=Join-Path ([IO.Path]::GetTempPath()) ('Domenia-wiring-relations-'+[guid]::NewGuid().ToString('N')+'.json')}
 [IO.File]::WriteAllText($ReportPath,($report|ConvertTo-Json -Depth 8),[Text.UTF8Encoding]::new($false))
 if(-not $Quiet){Write-Host ("$passed passed, $failed failed. Rapport : "+$ReportPath);foreach($x in $script:Tests|Where-Object{$_.Status -eq 'Failed'}){Write-Host ($x.Name+': '+$x.Detail)}}
