@@ -204,8 +204,8 @@ try {
         if($args.Key -eq 'Enter' -and @($sender.SelectedItems).Count -eq 1){Open-PreviewObject -Kind ([string]$sender.SelectedItem.Type);$args.Handled=$true}
     })
     (Get-DomeniaControl 'BtnGlobalSearch').Add_Click({ Invoke-DomeniaSearchFilterChanged -Mode Global })
-    (Get-DomeniaControl 'BtnSearchInOu').IsEnabled=$true
-    (Get-DomeniaControl 'BtnSearchInOu').Add_Click({Invoke-DomeniaSearchFilterChanged -Mode OU})
+    # L03 (DS-07): 'Afficher cette OU' is gone: a click on the branch shows it. Depth and LDAP path are in the tree menu.
+    (Get-DomeniaControl 'BtnOuMenu').Add_Click({$panel=Get-DomeniaControl 'UxOuMenuPanel';$panel.Visibility=if($panel.Visibility -eq [Windows.Visibility]::Visible){[Windows.Visibility]::Collapsed}else{[Windows.Visibility]::Visible}})
     (Get-DomeniaControl 'TxtGlobalSearch').Add_KeyDown({param($sender,$args) if($args.Key -eq [Windows.Input.Key]::Return){Invoke-DomeniaSearchFilterChanged -Mode Global;$args.Handled=$true}})
     (Get-DomeniaControl 'BtnThemeToggle').Add_Click({
         $script:PreviewTheme=if($script:PreviewTheme -eq 'Light'){'Dark'}else{'Light'}
@@ -407,17 +407,19 @@ try {
         Test-PreviewAssertion 'OU lisible sans DN coupe dans une hauteur fixe' {
             $script:SelectedBranchDn='OU=STAGING,OU=Postes,OU=Unite locale,DC=example,DC=invalid'
             Update-DomeniaSearchScopeUi
-            (Get-DomeniaControl 'LblOuScopeName').Text -eq 'STAGING' -and
+            ([string](Get-DomeniaControl 'LblSearchScope').Text).Contains('STAGING') -and
             (Get-DomeniaControl 'TxtBranchDn').Text -ceq $script:SelectedBranchDn -and
             [double]::IsNaN((Get-DomeniaControl 'TxtBranchDn').Height)
         }
         Test-PreviewAssertion 'Deplier le DN ne lance aucune recherche' {
             Invoke-DomeniaUxRoute -Route 'WsSearch';Update-PreviewLayout
             $before=$script:SelectedBranchDn;$count=(Get-DomeniaControl 'DgObjects').Items.Count
+            (Get-DomeniaControl 'UxOuMenuPanel').Visibility=[Windows.Visibility]::Visible
             (Get-DomeniaControl 'UxOuPathDetails').IsExpanded=$true;Update-PreviewLayout
             (Get-DomeniaControl 'TxtBranchDn').IsVisible -and $script:SelectedBranchDn -ceq $before -and (Get-DomeniaControl 'DgObjects').Items.Count -eq $count
         }
         (Get-DomeniaControl 'UxOuPathDetails').IsExpanded=$false
+        (Get-DomeniaControl 'UxOuMenuPanel').Visibility=[Windows.Visibility]::Collapsed
 
         Test-PreviewAssertion 'Filtre local respecte le verrouillage de la grille' {
             $grid=Get-DomeniaControl 'DgObjects';$was=$grid.IsEnabled

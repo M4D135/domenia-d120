@@ -110,55 +110,124 @@ function Set-DomeniaArtifactConsent {
     $script:ArtifactConsent=[pscustomobject]@{Target=$target;Aliases=$aliases;Epoch=[long]$script:SessionEpoch;Expires=[datetime]::UtcNow.AddMinutes(5)}
     [void](Set-DomeniaControlText 'LblGuardRemote' ('Autorisation temporaire : '+$target+'. Relancez volontairement votre diagnostic.'))
 }
-function Get-DomeniaFavouriteSearches {
-    $all=Get-DomeniaSetting 'SavedSearches' @();$list=[Collections.Generic.List[object]]::new()
-    foreach($value in @($all|Select-Object -First 50)){$v=ConvertTo-DomeniaSavedSearch $value ([string]$script:Conn.BaseDn);if($null -ne $v){$list.Add($v)}}
+function Read-DomeniaOuFavouriteStore {
+    # FO-04: every OU favourite kept locally (all domains), as validated perimeters. Never a result or an account.
+    $text=[string](Get-DomeniaSetting 'OuFavouritesJson' '[]')
+    if([string]::IsNullOrWhiteSpace($text)){return @()}
+    $parsed=$null;try{$parsed=ConvertFrom-Json -InputObject $text}catch{return @()}
+    $list=[Collections.Generic.List[object]]::new()
+    foreach($value in @($parsed)){$v=ConvertTo-DomeniaOuFavourite $value;if($null -ne $v){$list.Add($v)}}
     return $list.ToArray()
 }
+function Write-DomeniaOuFavouriteStore {
+    param($Favourites)
+    $items=@(foreach($f in @($Favourites)){if($null -ne $f){[ordered]@{DN=[string]$f.DN;Name=[string]$f.Name;Subtree=[bool]$f.Subtree;Type=[string]$f.Type;Term=[string]$f.Term}}})
+    $json=if($items.Count -eq 0){'[]'}else{ConvertTo-Json -InputObject $items -Depth 3 -Compress}
+    Set-DomeniaSetting 'OuFavouritesJson' $json;Save-DomeniaSettings -Immediate
+}
+function Import-DomeniaFavouriteSearchesOnce {
+    # FO-04: the former saved searches (hidden Fiabilité block) become OU favourites once. SavedSearches itself is
+    # kept as it was; a whole-domain text search has no OU to pin and is not taken over.
+    if(ConvertTo-SuiteFlag (Get-DomeniaSetting 'OuFavouritesImported' $false) -Default $false){return 0}
+    $result=Import-DomeniaOuFavourites -Existing @(Read-DomeniaOuFavouriteStore) -SavedSearches @(Get-DomeniaSetting 'SavedSearches' @())
+    if([int]$result.Imported -gt 0){Write-DomeniaOuFavouriteStore -Favourites $result.Favourites}
+    Set-DomeniaSetting 'OuFavouritesImported' $true;Save-DomeniaSettings -Immediate
+    if([int]$result.Imported -gt 0){Write-AppLog ('Favoris dʼOU repris des recherches enregistrées : '+[int]$result.Imported+'. Les recherches enregistrées sont conservées.') 'INFO'}
+    return [int]$result.Imported
+}
+function Get-DomeniaFavouriteSearches {
+    # FO-04: OU favourites of the current domain, in their pinned order.
+    $domain=[string]$script:Conn.BaseDn;$list=[Collections.Generic.List[object]]::new()
+    if(-not $domain){return $list.ToArray()}
+    foreach($value in @(Read-DomeniaOuFavouriteStore)){$v=ConvertTo-DomeniaOuFavourite $value $domain;if($null -ne $v){$list.Add($v)}}
+    return $list.ToArray()
+}
+function Test-DomeniaOuFavourite {
+    param([string]$Dn)
+    if(-not $Dn){return $false}
+    return (@(Get-DomeniaFavouriteSearches|Where-Object{[string]$_.DN -ieq $Dn}).Count -gt 0)
+}
 function Save-DomeniaFavouriteSearch {
-    # D038: no dialog window. The name comes from an in-page field when one exists, otherwise from what is
-    # visible (mode, OU, text). Only the perimeter and filters are kept: no result, account, right or write mode.
-    $viewShown=([string]$script:ActiveSearchViewId -and $null -ne $script:Live -and $null -ne $script:Live.Search -and $null -ne $script:Live.Search.State.PSObject.Properties['ViewId'] -and [string]$script:Live.Search.State.ViewId -ceq [string]$script:ActiveSearchViewId)
-    if($viewShown){Set-Status 'Une vue de travail se relance depuis la liste des vues : elle nʼest pas mémorisée comme favori.' 'WARN';return}
-    $scope=Get-DomeniaSearchScope
-    $mode=Get-DomeniaSearchMode
-    $nameBox=Get-DomeniaControl 'TxtGuardSearchName'
-    $name=if($null -ne $nameBox){([string]$nameBox.Text).Trim()}else{''}
-    if(-not $name){
-        $ouName='';try{$ouName=[string](Get-DomeniaUxOuDisplay -DistinguishedName ([string]$scope.BaseDn) -IsDomain ([bool]$scope.IsDomain)).Name}catch{}
-        $name=Get-DomeniaFavouriteName -Mode $mode -Text (Get-DomeniaSearchText) -OuName $ouName
-    }
-    $item=[pscustomobject]@{SearchMode=$mode;Name=$name;DN=$scope.BaseDn;Subtree=($scope.Scope -eq 'Subtree');Query=(Get-DomeniaSearchText);Type=$(if($mode -eq 'Global'){'Tous'}else{[string](Get-DomeniaControl 'CmbGlobalType').SelectedItem.Content});Limit=[string](Get-DomeniaControl 'TxtGlobalLimit').Text}
-    $valid=ConvertTo-DomeniaSavedSearch $item ([string]$script:Conn.BaseDn)
-    if($null -eq $valid){Set-Status 'Recherche non mémorisée : nom ou périmètre invalide.' 'WARN';return}
-    $all=@(Get-DomeniaSetting 'SavedSearches' @()|Where-Object{[string]$_.Name -ine $valid.Name -or [string]$_.DN -ine $valid.DN})
-    if($all.Count -ge 50){Set-Status '50 favoris au maximum : retirez un favori avant dʼen ajouter un.' 'WARN';return}
-    Set-DomeniaSetting 'SavedSearches' @($all+$valid);Save-DomeniaSettings -Immediate
-    [void](Set-DomeniaItemsSource 'LstGuardSearches' (Get-DomeniaFavouriteSearches))
-    Set-Status ('Recherche mémorisée : '+[string]$valid.Name+'. Périmètre et filtres seulement, sans compte ni droit.')
+    # FO-04: pins the OU chosen in the tree (or -Dn) above the tree; -Remove forgets it, -Toggle switches. A local
+    # preference only: no dialog window, no directory read, never a result, an account, a right or a write mode.
+    param([string]$Dn='',[switch]$Remove,[switch]$Toggle)
+    if(-not $Dn){$Dn=[string]$script:SelectedBranchDn}
+    $domain=[string]$script:Conn.BaseDn
+    if(-not $Dn -or -not $domain){Set-Status 'Choisissez dʼabord une OU dans lʼarbre.' 'WARN';return $false}
+    $pinned=(-not $Remove)
+    if($Toggle){$pinned=(-not (Test-DomeniaOuFavourite -Dn $Dn))}
+    $name='';try{$name=[string](Get-DomeniaUxOuDisplay -DistinguishedName $Dn -IsDomain ($Dn -ieq $domain)).Name}catch{}
+    $candidate=[pscustomobject]@{DN=$Dn;Name=$name;Subtree=$true;Type='Tous';Term=''}
+    $r=Set-DomeniaOuFavouriteState -Favourites @(Read-DomeniaOuFavouriteStore) -Favourite $candidate -Pinned $pinned -DomainDn $domain
+    if(-not [bool]$r.Changed){Set-Status ([string]$r.Reason) 'WARN';return $false}
+    Write-DomeniaOuFavouriteStore -Favourites $r.Favourites
+    Update-DomeniaOuFavouritesUi
+    if($pinned){Set-Status ('OU épinglée dans les favoris : '+$(if($name){$name}else{$Dn})+'. Préférence locale, rien nʼest lu ni modifié dans lʼannuaire.')}
+    else{Set-Status 'OU retirée des favoris. Rien nʼest modifié dans lʼannuaire.'}
+    return $true
 }
 function Load-DomeniaFavouriteSearch {
-    $v=(Get-DomeniaControl 'LstGuardSearches').SelectedItem;if($null -eq $v){return}
-    # D038: only the whitelisted perimeter and filters are applied, for the current domain; never an account or a right.
-    $v=ConvertTo-DomeniaSavedSearch $v ([string]$script:Conn.BaseDn)
-    if($null -eq $v){Set-Status 'Favori ignoré : il ne correspond pas au domaine de cette session.' 'WARN';return}
+    # FO-04 / CO-21: shows a favourite OU. Its depth and type go to their visible controls and its term, if any, to
+    # the visible local filter of the results: nothing filters the list out of sight. One read of that OU follows.
+    param([string]$Dn='')
+    $v=@(Get-DomeniaFavouriteSearches|Where-Object{[string]$_.DN -ieq $Dn}|Select-Object -First 1)
+    if($v.Count -eq 0){Set-Status 'Favori ignoré : il ne correspond pas au domaine de cette session.' 'WARN';return}
+    $v=$v[0]
     if(-not (Test-DomeniaDraftNavigation '')){return}
-    if(Test-DomeniaAccessBusyWrite){Show-InfoBox 'Une ecriture est active ou a verifier.';return}
+    if(Test-DomeniaAccessBusyWrite){Set-Status 'Favori non affiché : une écriture est active ou à vérifier.' 'WARN';return}
     $oldRestore=$script:RestoringSettings;$oldSuppress=$script:SuppressBranchAutoLoad
     $script:RestoringSettings=$true;$script:SuppressBranchAutoLoad=$true
     try {
-    $mode=if([string]$v.SearchMode -eq 'Global'){'Global'}else{'OU'}
-    if($mode -eq 'OU'){$script:SelectedBranchDn=[string]$v.DN}
-    $field=if($mode -eq 'Global'){'TxtGlobalSearch'}else{'TxtBranchSearch'}
-    (Get-DomeniaControl $field).Text=[string]$v.Query
-    (Get-DomeniaControl 'TxtGlobalLimit').Text=[string]$v.Limit
-    if($mode -eq 'OU'){
-        (Get-DomeniaControl 'ChkSubtree').IsChecked=[bool]$v.Subtree
-        $combo=Get-DomeniaControl 'CmbGlobalType';foreach($item in $combo.Items){if([string]$item.Content -eq $v.Type){$combo.SelectedItem=$item;break}}
-    }
+        $script:SelectedBranchDn=[string]$v.DN
+        [void](Set-DomeniaControlText 'TxtBranchSearch' '')
+        $check=Get-DomeniaControl 'ChkSubtree';if($null -ne $check){$check.IsChecked=[bool]$v.Subtree}
+        $combo=Get-DomeniaControl 'CmbGlobalType';if($null -ne $combo){foreach($item in $combo.Items){if([string]$item.Content -eq [string]$v.Type){$combo.SelectedItem=$item;break}}}
+        $filter=Get-DomeniaControl 'TxtSuiteResultFilter';if($null -ne $filter){$filter.Text=[string]$v.Term}
+        $tree=Get-DomeniaControl 'TvDirectory'
+        if($null -ne $tree -and $null -ne (Get-Command Get-DomeniaRealizedTreeNodes -CommandType Function -ErrorAction SilentlyContinue)){
+            foreach($n in (Get-DomeniaRealizedTreeNodes)){if([string]$n.Tag.DN -ieq [string]$v.DN){$n.IsSelected=$true;try{$n.BringIntoView()}catch{};break}}
+        }
     } finally {$script:RestoringSettings=$oldRestore;$script:SuppressBranchAutoLoad=$oldSuppress}
     Update-DomeniaSearchScopeUi;Select-DomeniaWorkspace -Workspace 'WsSearch'
-    Invoke-GlobalSearch -SearchMode $mode
+    Invoke-GlobalSearch -SearchMode OU
+}
+function Update-DomeniaOuFavouritesUi {
+    # FO-04: the favourites section pinned above the OU tree, the stars of the tree and the pin button of the menu.
+    [void](Import-DomeniaFavouriteSearchesOnce)
+    $favourites=@(Get-DomeniaFavouriteSearches)
+    $keys=@{};foreach($f in $favourites){$keys[([string]$f.DN).ToLowerInvariant()]=$true}
+    $script:OuFavouriteKeys=$keys
+    if($null -ne (Get-Command Get-DomeniaRealizedTreeNodes -CommandType Function -ErrorAction SilentlyContinue)){
+        # Get-DomeniaRealizedTreeNodes returns its array as one object: enumerate it, do not wrap it again.
+        foreach($n in (Get-DomeniaRealizedTreeNodes)){
+            $dn=[string]$n.Tag.DN;if(-not $dn){continue}
+            $status=if($keys.ContainsKey($dn.ToLowerInvariant())){'Favori'}else{''}
+            if([string][Windows.Automation.AutomationProperties]::GetItemStatus($n) -cne $status){[Windows.Automation.AutomationProperties]::SetItemStatus($n,$status)}
+        }
+    }
+    $toggle=Get-DomeniaControl 'BtnOuFavouriteToggle'
+    if($null -ne $toggle){$toggle.Content=if($keys.ContainsKey(([string]$script:SelectedBranchDn).ToLowerInvariant())){'Retirer des favoris'}else{'Épingler cette OU'}}
+    $panel=Get-DomeniaControl 'PnlOuFavourites';$section=Get-DomeniaControl 'UxOuFavourites'
+    if($null -eq $panel){return}
+    $panel.Children.Clear()
+    foreach($f in $favourites){
+        $path=[string]$f.DN;try{$path=[string](Get-DomeniaUxOuDisplay -DistinguishedName ([string]$f.DN)).FullPath}catch{}
+        $row=[Windows.Controls.DockPanel]::new();$row.Margin=[Windows.Thickness]::new(0,0,0,2)
+        $remove=[Windows.Controls.Button]::new();$remove.Content=[string][char]0x00D7;$remove.Tag=[string]$f.DN;$remove.MinWidth=0;$remove.MinHeight=0;$remove.Padding=[Windows.Thickness]::new(6,0,6,0);$remove.Margin=[Windows.Thickness]::new(4,0,0,0)
+        $remove.ToolTip='Retirer '+[string]$f.Name+' des favoris. Rien nʼest modifié dans lʼannuaire.'
+        [Windows.Automation.AutomationProperties]::SetName($remove,'Retirer le favori '+[string]$f.Name)
+        $remove.Add_Click({param($sender,$eventArgs) try{[void](Save-DomeniaFavouriteSearch -Dn ([string]$sender.Tag) -Remove)}catch{Write-AppLog ('Favori : '+$_.Exception.Message) 'WARN'}})
+        [Windows.Controls.DockPanel]::SetDock($remove,[Windows.Controls.Dock]::Right)
+        $open=[Windows.Controls.Button]::new();$open.Tag=[string]$f.DN;$open.HorizontalContentAlignment=[Windows.HorizontalAlignment]::Left;$open.MinHeight=0;$open.Padding=[Windows.Thickness]::new(8,2,8,2)
+        $label=[Windows.Controls.TextBlock]::new();$label.Text=[string][char]0x2605+' '+[string]$f.Name;$label.TextTrimming=[Windows.TextTrimming]::CharacterEllipsis;$open.Content=$label
+        $tip='Affiche le contenu de '+$path+'.';if([string]$f.Term){$tip+=' Filtre local repris : '+[string]$f.Term+'.'}
+        $open.ToolTip=$tip
+        [Windows.Automation.AutomationProperties]::SetName($open,'Favori '+[string]$f.Name)
+        $open.Add_Click({param($sender,$eventArgs) try{Load-DomeniaFavouriteSearch -Dn ([string]$sender.Tag)}catch{Write-AppLog ('Favori : '+$_.Exception.Message) 'WARN';Set-Status ('Favori non affiché : '+$_.Exception.Message) 'WARN'}})
+        [void]$row.Children.Add($remove);[void]$row.Children.Add($open)
+        [void]$panel.Children.Add($row)
+    }
+    if($null -ne $section){$section.Visibility=if($favourites.Count -gt 0){[Windows.Visibility]::Visible}else{[Windows.Visibility]::Collapsed}}
 }
 function Open-DomeniaSuiteTool {
     param([ValidateSet('Pesto','FilPro')][string]$Name)
@@ -179,11 +248,13 @@ function Initialize-DomeniaGuard {
     $actions=@{
         BtnGuardOpen={Show-DomeniaGuard};BtnGuardReceiptRefresh={Start-DomeniaReceiptRefresh};BtnGuardReceiptVerify={Invoke-DomeniaReceiptChoice Verify};BtnGuardReceiptReview={Invoke-DomeniaReceiptChoice Review}
         BtnGuardDraft={Show-DomeniaDraftComparison};BtnGuardRemote={Set-DomeniaArtifactConsent};BtnGuardRemoteOff={$script:ArtifactConsent=$null;[void](Set-DomeniaControlText 'LblGuardRemote' 'Depots et services non autorises par defaut.')}
-        BtnGuardSaveSearch={Save-DomeniaFavouriteSearch};BtnGuardLoadSearch={Load-DomeniaFavouriteSearch};BtnGuardRemoveSearch={Remove-DomeniaFavouriteSearch};BtnGuardStoreResume={Resume-DomeniaStorage};BtnGuardLegacyImport={Request-DomeniaLegacyImport};BtnGuardWhy={Show-DomeniaUnavailableReasons};BtnGuardExport={Export-DomeniaTechnicalDossier}
+        BtnGuardStoreResume={Resume-DomeniaStorage};BtnGuardLegacyImport={Request-DomeniaLegacyImport};BtnGuardWhy={Show-DomeniaUnavailableReasons};BtnGuardExport={Export-DomeniaTechnicalDossier}
         BtnGuardPesto={Open-DomeniaSuiteTool Pesto};BtnGuardFilPro={Open-DomeniaSuiteTool FilPro}
+        # FO-04: the former saved searches block is gone; OU favourites are pinned above the tree (Rechercher).
+        BtnOuFavouriteToggle={try{[void](Save-DomeniaFavouriteSearch -Toggle)}catch{Write-AppLog ('Favori : '+$_.Exception.Message) 'WARN'}}
     }
     foreach($n in $actions.Keys){$c=Get-DomeniaControl $n;if($null -ne $c){$body=$actions[$n];$c.Add_Click($body)}}
-    [void](Set-DomeniaItemsSource 'LstGuardSearches' (Get-DomeniaFavouriteSearches))
+    try{Update-DomeniaOuFavouritesUi}catch{Write-AppLog ('Favoris dʼOU : '+$_.Exception.Message) 'WARN'}
     $timer=[Windows.Threading.DispatcherTimer]::new([Windows.Threading.DispatcherPriority]::Background);$timer.Interval=[timespan]::FromMilliseconds(500)
     $timer.Add_Tick({
         if($script:AsyncEngineClosing -or $null -eq $script:Guard){return}
@@ -213,11 +284,9 @@ function Set-DomeniaProtectedClipboard {
 }
 
 function Remove-DomeniaFavouriteSearch {
-    $v=(Get-DomeniaControl 'LstGuardSearches').SelectedItem;if($null -eq $v){return}
-    if(-not (Confirm-Action -Title 'Retirer ce favori' -Message ('Retirer uniquement la recherche memorisee '+$v.Name+' ? Aucun objet AD ne sera modifie.'))){return}
-    $items=@(Get-DomeniaSetting 'SavedSearches' @()|Where-Object{[string]$_.Name -ine [string]$v.Name -or [string]$_.DN -ine [string]$v.DN})
-    Set-DomeniaSetting 'SavedSearches' $items;Save-DomeniaSettings -Immediate
-    [void](Set-DomeniaItemsSource 'LstGuardSearches' (Get-DomeniaFavouriteSearches))
+    # FO-04: forgets one OU favourite (local preference, reversible with the star). Nothing changes in the directory.
+    param([string]$Dn='')
+    return (Save-DomeniaFavouriteSearch -Dn $Dn -Remove)
 }
 function Resume-DomeniaStorage {
     if($null -eq $script:Persistence){return}

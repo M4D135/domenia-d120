@@ -375,16 +375,38 @@ function ConvertTo-DomeniaLdapTime {
 
 function Get-DomeniaWorkViews {
     # Ready-made read-only views. Each one is a filter and a type: no account, no right and no write mode.
+    # UX-33: every view applies to the OU chosen in the tree (NeedsOu); the whole domain is a secondary,
+    # explicit choice decided by Get-DomeniaWorkViewPlan.
     param([datetime]$NowUtc=[datetime]::UtcNow)
     $in30 = $NowUtc.AddDays(30).ToFileTimeUtc(); $now = $NowUtc.ToFileTimeUtc()
     $inactive = $NowUtc.AddDays(-90).ToFileTimeUtc()
     return @(
-        [pscustomobject]@{Id='expiring';Name='Comptes expirant sous 30 jours';Type='Utilisateur';NeedsOu=$false;Filter=('(&(objectCategory=person)(objectClass=user)(accountExpires>=' + $now + ')(accountExpires<=' + $in30 + '))');Note='Date d expiration du compte, pas du mot de passe.'}
-        [pscustomobject]@{Id='disabled';Name='Comptes desactives';Type='Utilisateur';NeedsOu=$false;Filter='(&(objectCategory=person)(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=2))';Note=''}
-        [pscustomobject]@{Id='recent';Name='Objets modifies depuis 7 jours';Type='';NeedsOu=$false;Filter=('(whenChanged>=' + (ConvertTo-DomeniaLdapTime $NowUtc.AddDays(-7)) + ')');Note='whenChanged est propre a chaque controleur.'}
+        [pscustomobject]@{Id='expiring';Name='Comptes expirant sous 30 jours';Type='Utilisateur';NeedsOu=$true;Filter=('(&(objectCategory=person)(objectClass=user)(accountExpires>=' + $now + ')(accountExpires<=' + $in30 + '))');Note='Date d expiration du compte, pas du mot de passe.'}
+        [pscustomobject]@{Id='disabled';Name='Comptes desactives';Type='Utilisateur';NeedsOu=$true;Filter='(&(objectCategory=person)(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=2))';Note=''}
+        [pscustomobject]@{Id='recent';Name='Objets modifies depuis 7 jours';Type='';NeedsOu=$true;Filter=('(whenChanged>=' + (ConvertTo-DomeniaLdapTime $NowUtc.AddDays(-7)) + ')');Note='whenChanged est propre a chaque controleur.'}
         [pscustomobject]@{Id='oucomputers';Name='Postes de cette OU';Type='Machine';NeedsOu=$true;Filter='(objectCategory=computer)';Note='Perimetre : OU selectionnee.'}
-        [pscustomobject]@{Id='stalecomputers';Name='Postes sans connexion depuis 90 jours';Type='Machine';NeedsOu=$false;Filter=('(&(objectCategory=computer)(lastLogonTimestamp<=' + $inactive + '))');Note='lastLogonTimestamp est approximatif (retard de replication jusqu a 14 jours). Aucun objet n est declare supprimable.'}
+        # CO-20: a workstation that never logged on has no lastLogonTimestamp: it is listed too (shown 'Jamais').
+        [pscustomobject]@{Id='stalecomputers';Name='Postes sans connexion depuis 90 jours';Type='Machine';NeedsOu=$true;Filter=('(&(objectCategory=computer)(|(lastLogonTimestamp<=' + $inactive + ')(!(lastLogonTimestamp=*))))');Note='Postes jamais connectés inclus. lastLogonTimestamp est approximatif (retard de replication jusqu a 14 jours). Aucun objet n est declare supprimable.'}
     )
+}
+
+function Get-DomeniaWorkViewPlan {
+    # UX-33: a work view applies to the OU chosen in the tree ('Dans : Postes'). The whole domain is only a
+    # secondary, explicit choice, and a whole-domain list never offers a survey of its workstations (ping,
+    # detection or analysis): that would be a scan of the whole park.
+    param($View,[ValidateSet('OU','Domain')][string]$Choice='OU',[AllowEmptyString()][string]$OuDn='',[AllowEmptyString()][string]$DomainDn='',[bool]$Subtree=$true,[AllowEmptyString()][string]$OuName='')
+    if ($null -eq $View) { return $null }
+    $survey = 'Vue sur tout le domaine : aucun relevé des postes (ping, détection, analyse) nʼest proposé sur cette liste.'
+    if ($Choice -eq 'Domain') {
+        return [pscustomobject]@{SearchMode='Global';BaseDn=$DomainDn;WholeDomain=$true;SurveyAllowed=$false;ChipText='Dans : tout le domaine';Reason=$survey}
+    }
+    $base = $OuDn
+    if (-not $base) { $base = $DomainDn }
+    $isDomain = ([bool]$DomainDn -and $base -ieq $DomainDn)
+    $whole = ($isDomain -and $Subtree)
+    $name = $OuName
+    if ($isDomain) { $name = 'tout le domaine' } elseif (-not $name) { $name = 'OU choisie' }
+    return [pscustomobject]@{SearchMode='OU';BaseDn=$base;WholeDomain=$whole;SurveyAllowed=(-not $whole);ChipText=('Dans : ' + $name);Reason=$(if ($whole) { $survey } else { '' })}
 }
 
 function ConvertTo-DomeniaSavedView {
@@ -533,4 +555,141 @@ function Step-DomeniaNavHistory {
     if ($null -ne $History.Current) { [void]$target.Add($History.Current) }
     $History.Current = $state
     return [pscustomobject]@{Moved=$true;State=$state;Blocked=$false;Reason='';RestoreWithoutScan=$true}
+}
+
+# ---------------------------------------------------------------- L03 OU tree, keyboard pacing, OU favourites
+function Get-DomeniaSystemContainerNames {
+    # UI-16: well-known containers created by Active Directory under the domain root. Users and Computers are not
+    # in this list: they stay visible in the tree.
+    return @('System','Program Data','ForeignSecurityPrincipals','LostAndFound','Infrastructure','NTDS Quotas','TPM Devices','Keys','Managed Service Accounts','Builtin')
+}
+
+function Test-DomeniaSystemContainer {
+    # UI-16: true for a well-known system container placed directly under the domain root. An OU never is.
+    param([AllowEmptyString()][AllowNull()][string]$Dn,[AllowEmptyString()][AllowNull()][string]$DomainDn,[AllowEmptyString()][AllowNull()][string]$Kind='')
+    if (-not $Dn -or -not $DomainDn -or $Kind -eq 'OU') { return $false }
+    if ((Get-DomeniaDnParent $Dn) -ine $DomainDn) { return $false }
+    $parts = @(Split-DomeniaDn $Dn)
+    if ($parts.Count -lt 1) { return $false }
+    $first = [string]$parts[0]
+    $equals = $first.IndexOf('=')
+    if ($equals -lt 1 -or $first.Substring(0,$equals).Trim() -ine 'CN') { return $false }
+    $name = ConvertFrom-DomeniaDnValue ($first.Substring($equals + 1))
+    return (@(Get-DomeniaSystemContainerNames) -contains $name)
+}
+
+function Split-DomeniaTreeRows {
+    # UI-16: the children of the domain root are split between the visible branches and the system containers
+    # folded under 'Conteneurs système'. Any other parent keeps all its children visible, in the same order.
+    param($Rows,[AllowEmptyString()][string]$ParentDn='',[AllowEmptyString()][string]$DomainDn='')
+    $visible = [Collections.Generic.List[object]]::new()
+    $system = [Collections.Generic.List[object]]::new()
+    $isRoot = ([bool]$ParentDn -and [bool]$DomainDn -and $ParentDn -ieq $DomainDn)
+    foreach ($row in @($Rows)) {
+        if ($null -eq $row) { continue }
+        $dn = [string](Get-DomeniaMember $row 'DN' '')
+        $kind = [string](Get-DomeniaMember $row 'Kind' '')
+        if ($isRoot -and (Test-DomeniaSystemContainer $dn $DomainDn $kind)) { $system.Add($row) } else { $visible.Add($row) }
+    }
+    return [pscustomobject]@{Visible=$visible.ToArray();System=$system.ToArray()}
+}
+
+function Test-DomeniaTreeRowExpandable {
+    # UI-16: a branch read without any sub-branch gets no chevron. An unknown answer keeps the chevron: the
+    # branch is then read when the operator unfolds it.
+    param($Row)
+    $value = Get-DomeniaMember $Row 'HasChildren' $null
+    if ($null -eq $value) { return $true }
+    if ($value -is [bool]) { return $value }
+    return (([string]$value).Trim() -notin @('False','0'))
+}
+
+function Get-DomeniaTreeSelectionDelay {
+    # PF-14: walking the tree with the keyboard, or changing the object type, waits 300 ms and only the last
+    # stop is read; a mouse click is read at once. Milliseconds.
+    param([AllowEmptyString()][string]$Source='Mouse')
+    if ($Source -in @('Keyboard','Type')) { return 300 }
+    return 0
+}
+
+function Test-DomeniaOuTreeMatch {
+    # DS-07: local filter of the OU tree. Literal, case and accent insensitive, on the branch name only.
+    # It never reads the directory.
+    param([AllowEmptyString()][AllowNull()][string]$Name,[AllowEmptyString()][AllowNull()][string]$Filter)
+    $needle = ([string]$Filter).Trim()
+    if (-not $needle) { return $true }
+    $compare = [Globalization.CultureInfo]::InvariantCulture.CompareInfo
+    $options = [Globalization.CompareOptions]::IgnoreCase -bor [Globalization.CompareOptions]::IgnoreNonSpace
+    return ($compare.IndexOf([string]$Name,$needle,$options) -ge 0)
+}
+
+function ConvertTo-DomeniaOuFavourite {
+    # FO-04: an OU favourite keeps a perimeter only: the DN, a short name, the depth, the object type and an
+    # optional term for the visible local filter (CO-21). Never a result, an account, a right or a write mode.
+    # With a domain, a DN outside that domain is refused.
+    param($Value,[AllowEmptyString()][string]$DomainDn='')
+    if ($null -eq $Value) { return $null }
+    $dn = ([string](Get-DomeniaMember $Value 'DN' '')).Trim()
+    if (-not $dn -or $dn.Length -gt 4096) { return $null }
+    $parts = @(Split-DomeniaDn $dn)
+    if (@($parts | Where-Object { $_ -match '^(?i)DC=' }).Count -lt 1) { return $null }
+    if ($DomainDn -and $dn -ine $DomainDn -and -not $dn.EndsWith(',' + $DomainDn,[StringComparison]::OrdinalIgnoreCase)) { return $null }
+    $name = ConvertTo-DomeniaFlatText ([string](Get-DomeniaMember $Value 'Name' '')) 80
+    if (-not $name) {
+        $equals = ([string]$parts[0]).IndexOf('=')
+        if ($equals -gt 0) { $name = ConvertTo-DomeniaFlatText (ConvertFrom-DomeniaDnValue (([string]$parts[0]).Substring($equals + 1))) 80 }
+    }
+    if (-not $name) { return $null }
+    $type = [string](Get-DomeniaMember $Value 'Type' 'Tous')
+    if ($type -notin @('Tous','Utilisateurs','Machines','Groupes','OU et conteneurs')) { $type = 'Tous' }
+    $subtreeValue = Get-DomeniaMember $Value 'Subtree' $true
+    $subtree = $true
+    if ($subtreeValue -is [bool]) { $subtree = $subtreeValue }
+    elseif ($null -ne $subtreeValue -and ([string]$subtreeValue).Trim() -in @('False','0')) { $subtree = $false }
+    $term = ConvertTo-DomeniaFlatText ([string](Get-DomeniaMember $Value 'Term' '')) 120
+    return [pscustomobject]@{DN=$dn;Name=$name;Subtree=$subtree;Type=$type;Term=$term}
+}
+
+function Import-DomeniaOuFavourites {
+    # FO-04: one-time takeover of the former saved searches, which stay stored untouched. Only an OU search
+    # becomes a favourite (its text goes to the visible local filter); a whole-domain text search has no OU
+    # to pin. The existing favourite wins on the same DN; at most $Maximum favourites.
+    param($Existing,$SavedSearches,[int]$Maximum=50)
+    $out = [Collections.Generic.List[object]]::new()
+    $seen = @{}
+    foreach ($item in @($Existing)) {
+        $fav = ConvertTo-DomeniaOuFavourite $item
+        if ($null -eq $fav -or $out.Count -ge $Maximum -or $seen.ContainsKey($fav.DN.ToLowerInvariant())) { continue }
+        $seen[$fav.DN.ToLowerInvariant()] = $true; $out.Add($fav)
+    }
+    $imported = 0
+    foreach ($saved in @($SavedSearches)) {
+        if ($null -eq $saved -or $out.Count -ge $Maximum) { continue }
+        if ([string](Get-DomeniaMember $saved 'SearchMode' 'OU') -eq 'Global') { continue }
+        $candidate = [pscustomobject]@{DN=[string](Get-DomeniaMember $saved 'DN' '');Name=[string](Get-DomeniaMember $saved 'Name' '');Subtree=(Get-DomeniaMember $saved 'Subtree' $true);Type=[string](Get-DomeniaMember $saved 'Type' 'Tous');Term=[string](Get-DomeniaMember $saved 'Query' '')}
+        $fav = ConvertTo-DomeniaOuFavourite $candidate
+        if ($null -eq $fav -or $seen.ContainsKey($fav.DN.ToLowerInvariant())) { continue }
+        $seen[$fav.DN.ToLowerInvariant()] = $true; $out.Add($fav); $imported++
+    }
+    return [pscustomobject]@{Favourites=$out.ToArray();Imported=$imported}
+}
+
+function Set-DomeniaOuFavouriteState {
+    # FO-04: pins or unpins one OU. Unpinning only forgets the favourite: nothing is changed in the directory.
+    param($Favourites,$Favourite,[bool]$Pinned=$true,[AllowEmptyString()][string]$DomainDn='',[int]$Maximum=50)
+    $fav = ConvertTo-DomeniaOuFavourite $Favourite $DomainDn
+    $list = [Collections.Generic.List[object]]::new()
+    foreach ($item in @($Favourites)) { $valid = ConvertTo-DomeniaOuFavourite $item; if ($null -ne $valid) { $list.Add($valid) } }
+    if ($null -eq $fav) { return [pscustomobject]@{Favourites=$list.ToArray();Changed=$false;Reason='OU invalide ou hors du domaine de cette session.'} }
+    $index = -1
+    for ($i = 0; $i -lt $list.Count; $i++) { if ([string]$list[$i].DN -ieq $fav.DN) { $index = $i; break } }
+    if ($Pinned) {
+        if ($index -ge 0) { return [pscustomobject]@{Favourites=$list.ToArray();Changed=$false;Reason='Cette OU est déjà dans les favoris.'} }
+        if ($list.Count -ge $Maximum) { return [pscustomobject]@{Favourites=$list.ToArray();Changed=$false;Reason=([string]$Maximum + ' favoris au maximum : retirez un favori avant dʼen ajouter un.')} }
+        $list.Add($fav)
+        return [pscustomobject]@{Favourites=$list.ToArray();Changed=$true;Reason=''}
+    }
+    if ($index -lt 0) { return [pscustomobject]@{Favourites=$list.ToArray();Changed=$false;Reason='Cette OU nʼest pas dans les favoris.'} }
+    $list.RemoveAt($index)
+    return [pscustomobject]@{Favourites=$list.ToArray();Changed=$true;Reason=''}
 }

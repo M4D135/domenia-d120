@@ -1,10 +1,15 @@
-﻿# Search and navigation surfaces of the Rechercher page: syntax hint, work views, back and forward.
-# Decisions come from Domenia-Search.Model.ps1. Nothing here contacts the directory or a workstation by itself:
-# a search starts only from an explicit operator gesture, through Invoke-GlobalSearch.
+﻿# Search and navigation surfaces of the Rechercher page: syntax hint, work views, back and forward, OU tree pacing,
+# OU filter and header menu. Decisions come from Domenia-Search.Model.ps1. Nothing here contacts the directory or a
+# workstation by itself: a search starts only from an explicit operator gesture, through Invoke-GlobalSearch.
 $script:SearchUiInitialized = $false
 $script:NavHistory = $null
 $script:NavRestoring = $false
 $script:NavSearchLaunching = $false
+$script:NavHistoryRows = $null
+$script:TreeSelectionSource = 'Mouse'
+$script:PendingFilterChange = $null
+$script:FilterChangeTimer = $null
+$script:WorkViewScopeOu = ''
 
 function Update-DomeniaSearchHint {
     # D033/D036: explains what the upper bar will search (explicit tokens, pasted identifier, unknown prefix).
@@ -23,18 +28,62 @@ function Update-DomeniaSearchHint {
 
 function Update-DomeniaWorkViewList {
     # D038: ready-made read-only views. Choosing one in the list starts nothing.
+    # UX-33: a waiting entry is shown until a view is chosen; every view applies to the OU of the 'Dans :' chip.
     $combo = Get-DomeniaControl 'CmbWorkView'
     if ($null -eq $combo) { return }
     $combo.Items.Clear()
+    $wait = [Windows.Controls.ComboBoxItem]::new()
+    $wait.Content = 'Vues prêtes' + [string][char]0x2026
+    $wait.Tag = ''
+    $wait.IsEnabled = $false
+    $wait.ToolTip = 'Choisissez une vue : le choix seul ne lance rien.'
+    [void]$combo.Items.Add($wait)
     foreach ($view in @(Get-DomeniaWorkViews)) {
         $item = [Windows.Controls.ComboBoxItem]::new()
         $item.Content = [string]$view.Name
         $item.Tag = [string]$view.Id
         $tip = [string]$view.Note
         if (-not $tip) { $tip = 'Vue en lecture seule.' }
-        if ([bool]$view.NeedsOu) { $tip += ' Périmètre : OU sélectionnée.' } else { $tip += ' Périmètre : domaine entier.' }
+        $tip += ' Périmètre : lʼOU choisie dans lʼarbre (puce Dans :) ; tout le domaine seulement sur choix explicite, sans relevé des postes.'
         $item.ToolTip = $tip
         [void]$combo.Items.Add($item)
+    }
+    $combo.SelectedIndex = 0
+}
+
+function Get-DomeniaWorkViewScopeChoice {
+    # UX-33: 'OU' (the OU chosen in the tree, default) or 'Domain' (explicit secondary choice of the chip).
+    $combo = Get-DomeniaControl 'CmbWorkViewScope'
+    try { if ($null -ne $combo -and $null -ne $combo.SelectedItem -and [string]$combo.SelectedItem.Tag -eq 'Domain') { return 'Domain' } } catch { }
+    return 'OU'
+}
+
+function Update-DomeniaOuScopeChoices {
+    # UX-33 / FO-04: the 'Dans :' chip of the work views names the OU chosen in the tree, and the pin button of the
+    # tree menu says whether that OU is a favourite. Choosing another OU brings the chip back to that OU.
+    param($Scope)
+    if ($null -eq $Scope) { return }
+    $name = 'OU choisie'
+    if ([bool]$Scope.IsDomain) { $name = 'tout le domaine' }
+    else { try { $name = [string](Get-DomeniaUxOuDisplay -DistinguishedName ([string]$Scope.BaseDn)).Name } catch { } }
+    $combo = Get-DomeniaControl 'CmbWorkViewScope'
+    if ($null -ne $combo -and $combo.Items.Count -gt 0) {
+        $first = $combo.Items[0]
+        $text = 'Vues dans : ' + $name
+        $moved = ([string]$script:WorkViewScopeOu -ine [string]$Scope.BaseDn)
+        $script:WorkViewScopeOu = [string]$Scope.BaseDn
+        if ([string]$first.Content -cne $text -or ($moved -and $combo.SelectedIndex -ne 0)) {
+            $first.Content = $text
+            $first.ToolTip = 'Applique la vue à ' + $name + ' (' + [string]$Scope.BaseDn + ').'
+            # The closed box shows the selected entry as it was selected: select it again to show the new name.
+            $combo.SelectedIndex = -1
+            $combo.SelectedIndex = 0
+        }
+    }
+    $toggle = Get-DomeniaControl 'BtnOuFavouriteToggle'
+    if ($null -ne $toggle) {
+        $pinned = ($null -ne $script:OuFavouriteKeys -and $script:OuFavouriteKeys.ContainsKey(([string]$Scope.BaseDn).ToLowerInvariant()))
+        $toggle.Content = if ($pinned) { 'Retirer des favoris' } else { 'Épingler cette OU' }
     }
 }
 
@@ -109,11 +158,20 @@ function Get-DomeniaNavSnapshot {
     }
     $objectDn = ''
     if ($null -ne $script:SelectedObject) { $objectDn = [string]$script:SelectedObject.DN }
+    # UX-25: the list is restored with what filtered it on screen: object type, network presence and local filter.
+    $typeLabel = ''
+    $typeBox = Get-DomeniaControl 'CmbGlobalType'
+    try { if ($null -ne $typeBox -and $null -ne $typeBox.SelectedItem) { $typeLabel = [string]$typeBox.SelectedItem.Content } } catch { }
+    $localBox = Get-DomeniaControl 'TxtSuiteResultFilter'
+    $localFilter = ''
+    if ($null -ne $localBox) { $localFilter = [string]$localBox.Text }
     return [pscustomobject]@{
         Page=$Page;Tab=$inner;Mode=$mode;Text=$text;BranchText=$branchText;OuDn=$ouDn;Subtree=$subtree
         SelectionGuid=$selectionGuid;SelectionDn=$selectionDn;Rows=$rows;Scroll=$scroll
         CountLabel=$(if ($null -ne $count) { [string]$count.Text } else { '' })
         Generation=[int]$script:GlobalSearchGeneration;ViewId=$viewId
+        TypeLabel=$typeLabel;Presence=[string]$script:CurrentPresenceFilter;LocalFilter=$localFilter
+        SurveyBlocked=[bool]$script:ListSurveyBlocked;ViewChoice=$(if ($viewId -and $mode -eq 'Global') { 'Domain' } else { 'OU' })
         ObjectDn=$objectDn;At=[datetime]::UtcNow
     }
 }
@@ -177,7 +235,8 @@ function Restore-DomeniaNavState {
         # Another list is displayed now: stop following it before showing the remembered rows.
         if ($otherRows) { Invalidate-DomeniaSearchResults -KeepSelection }
         [void](Set-DomeniaControlText -Name 'TxtGlobalSearch' -Text ([string]$State.Text))
-        [void](Set-DomeniaControlText -Name 'TxtBranchSearch' -Text ([string]$State.BranchText))
+        # CO-21: no hidden term. A term of the remembered OU list is shown in the visible local filter instead.
+        [void](Set-DomeniaControlText -Name 'TxtBranchSearch' -Text '')
         try { if ($null -ne $script:LiveSearchTimer) { $script:LiveSearchTimer.Stop() } } catch { }
         $script:SelectedBranchDn = [string]$State.OuDn
         $check = Get-DomeniaControl 'ChkSubtree'
@@ -186,6 +245,28 @@ function Restore-DomeniaNavState {
         $script:ActiveSearchViewId = [string]$State.ViewId
         Update-DomeniaSearchScopeUi
         if ($otherRows) {
+            # UX-25: the type, the presence and the local filter that shaped the remembered list come back with it,
+            # before its rows, so that the filters shown never contradict the list.
+            $typeLabel = [string](Get-DomeniaMember $State 'TypeLabel' '')
+            $typeBox = Get-DomeniaControl 'CmbGlobalType'
+            if ($typeLabel -and $null -ne $typeBox) { foreach ($item in @($typeBox.Items)) { if ([string]$item.Content -eq $typeLabel) { $typeBox.SelectedItem = $item; break } } }
+            $presence = [string](Get-DomeniaMember $State 'Presence' '')
+            $presenceBox = Get-DomeniaControl 'CmbPresenceFilter'
+            if ($presence) {
+                $script:CurrentPresenceFilter = $presence
+                if ($null -ne $presenceBox) { foreach ($item in @($presenceBox.Items)) { if ([string]$item.Content -eq $presence) { $presenceBox.SelectedItem = $item; break } } }
+            }
+            $local = [string](Get-DomeniaMember $State 'LocalFilter' '')
+            if (-not $local -and [string]$State.Mode -ne 'Global') { $local = [string]$State.BranchText }
+            $localBox = Get-DomeniaControl 'TxtSuiteResultFilter'
+            if ($null -ne $localBox) {
+                $oldExperience = [bool]$script:ExperienceRestoring
+                $script:ExperienceRestoring = $true
+                try { $localBox.Text = $local } finally { $script:ExperienceRestoring = $oldExperience }
+            }
+            $chip = Get-DomeniaControl 'CmbWorkViewScope'
+            if ($null -ne $chip -and $chip.Items.Count -gt 1) { $chip.SelectedIndex = $(if ([string](Get-DomeniaMember $State 'ViewChoice' 'OU') -eq 'Domain') { 1 } else { 0 }) }
+            $script:ListSurveyBlocked = [bool](Get-DomeniaMember $State 'SurveyBlocked' $false)
             $suppressed = [bool]$script:SuppressGridSelectionEvents
             $script:SuppressGridSelectionEvents = $true
             try {
@@ -209,6 +290,9 @@ function Restore-DomeniaNavState {
             if (-not $label.Contains('historique, non relu')) { $label += ' · historique, non relu' }
             $script:BranchCountLabel = $label
             [void](Set-DomeniaControlText -Name 'LblBranchCount' -Text $script:BranchCountLabel)
+            # UX-25: 'Liste de l'historique · Actualiser' stays in the results bar while these rows are shown.
+            $script:NavHistoryRows = $State.Rows
+            Update-DomeniaHistoryBanner
         }
         $inner = ''
         if ([string]$State.Tab) { $inner = 'DetailTabs' }
@@ -241,13 +325,185 @@ function Invoke-DomeniaNavStep {
     return $step
 }
 
+function Test-DomeniaHistoryListShown {
+    # UX-25: true while the grid shows rows restored from the history (Précédent / Suivant), not a followed search.
+    $grid = Get-DomeniaControl 'DgObjects'
+    if ($null -eq $grid -or $null -eq $script:NavHistoryRows) { return $false }
+    try { return [object]::ReferenceEquals($grid.ItemsSource,$script:NavHistoryRows) } catch { return $false }
+}
+
+function Update-DomeniaHistoryBanner {
+    # UX-25: 'Liste de l'historique · Actualiser' is shown exactly while the restored rows are on screen.
+    $shown = Test-DomeniaHistoryListShown
+    if (-not $shown) { $script:NavHistoryRows = $null }
+    $banner = Get-DomeniaControl 'UxHistoryBanner'
+    if ($null -eq $banner) { return }
+    $wanted = if ($shown) { [Windows.Visibility]::Visible } else { [Windows.Visibility]::Collapsed }
+    if ($banner.Visibility -ne $wanted) { $banner.Visibility = $wanted }
+}
+
+function Invoke-DomeniaHistoryRefresh {
+    # UX-25: explicit gesture. The list shown from the history is read again with its own perimeter, view and
+    # filters, which the history step put back in the visible controls. No ping and no survey.
+    if (-not (Test-DomeniaHistoryListShown)) { return }
+    $viewId = [string]$script:ActiveSearchViewId
+    if ($viewId) { Invoke-GlobalSearch -ViewId $viewId -SilentError; return }
+    Invoke-GlobalSearch -SearchMode (Get-DomeniaSearchMode) -AllowEmpty -SilentError
+}
+
+function Get-DomeniaTreeSelectionSource {
+    # PF-14: the last input received by the OU tree (keyboard or mouse) decides how a new selection is read.
+    if ([string]$script:TreeSelectionSource -eq 'Keyboard') { return 'Keyboard' }
+    return 'Mouse'
+}
+
+function Stop-DomeniaPendingFilterChange {
+    $script:PendingFilterChange = $null
+    try { if ($null -ne $script:FilterChangeTimer) { $script:FilterChangeTimer.Stop() } } catch { }
+}
+
+function Request-DomeniaSearchFilterChanged {
+    # PF-14: a mouse click reads the OU at once; a keyboard walk in the tree or a change of object type waits 300 ms
+    # and only the last stop is read. Nothing is planned while settings are restored or the tree is driven by code.
+    param([string]$Source='Mouse')
+    if ($script:RestoringSettings -or $script:SuppressBranchAutoLoad -or -not $script:Conn.Connected) { return }
+    $delay = [int](Get-DomeniaTreeSelectionDelay -Source $Source)
+    if ($delay -le 0) { Stop-DomeniaPendingFilterChange; Invoke-DomeniaSearchFilterChanged; return }
+    $script:PendingFilterChange = [pscustomobject]@{ Dn=[string]$script:SelectedBranchDn; Generation=[int]$script:GlobalSearchGeneration; Source=$Source; DelayMs=$delay }
+    if ($null -eq $script:FilterChangeTimer) {
+        $timer = [Windows.Threading.DispatcherTimer]::new()
+        $timer.Add_Tick({ try { Invoke-DomeniaPendingFilterChange } catch { Write-AppLog ('Lecture différée de lʼOU : '+$_.Exception.Message) 'WARN' } })
+        $script:FilterChangeTimer = $timer
+    }
+    $script:FilterChangeTimer.Stop()
+    $script:FilterChangeTimer.Interval = [TimeSpan]::FromMilliseconds($delay)
+    $script:FilterChangeTimer.Start()
+}
+
+function Invoke-DomeniaPendingFilterChange {
+    # The OU still chosen after the pause is read once. Another OU, or a search started meanwhile, wins.
+    try { if ($null -ne $script:FilterChangeTimer) { $script:FilterChangeTimer.Stop() } } catch { }
+    $pending = $script:PendingFilterChange
+    $script:PendingFilterChange = $null
+    if ($null -eq $pending) { return }
+    if ([string]$pending.Dn -ine [string]$script:SelectedBranchDn -or [int]$pending.Generation -ne [int]$script:GlobalSearchGeneration) { return }
+    Invoke-DomeniaSearchFilterChanged
+}
+
+function Get-DomeniaOuTreeNodeName {
+    # Branch name without its 'OU' / 'CN' prefix, as the operator reads it.
+    param($Node)
+    $text = ''
+    try { $text = [string]$Node.Header } catch { }
+    $cut = $text.IndexOf('  ')
+    if ($cut -ge 0 -and $cut -le 3) { $text = $text.Substring($cut + 2) }
+    return $text
+}
+
+function Set-DomeniaOuTreeNodeFilter {
+    # Returns true when the branch or one of its read sub-branches matches. A read branch holding a match unfolds:
+    # unfolding a read branch reads nothing again.
+    param($Node,[string]$Filter,[switch]$IsRoot)
+    $childMatch = $false
+    foreach ($child in @($Node.Items)) {
+        if ($child -isnot [Windows.Controls.TreeViewItem]) { continue }
+        if (Set-DomeniaOuTreeNodeFilter -Node $child -Filter $Filter) { $childMatch = $true }
+    }
+    $self = Test-DomeniaOuTreeMatch -Name (Get-DomeniaOuTreeNodeName $Node) -Filter $Filter
+    $visible = ($IsRoot -or -not $Filter -or $self -or $childMatch)
+    $wanted = if ($visible) { [Windows.Visibility]::Visible } else { [Windows.Visibility]::Collapsed }
+    if ($Node.Visibility -ne $wanted) { $Node.Visibility = $wanted }
+    $loaded = $false
+    try { $loaded = [bool]$Node.Tag.Loaded } catch { }
+    if ($Filter -and $childMatch -and $loaded -and -not $Node.IsExpanded) { $Node.IsExpanded = $true }
+    return ($self -or $childMatch)
+}
+
+function Update-DomeniaOuTreeFilter {
+    # DS-07: 'Filtrer les OU' filters the branches already read, by name. No directory read: a branch never unfolded
+    # is not searched, and the domain root always stays visible.
+    param([switch]$OnlyWhenActive)
+    $box = Get-DomeniaControl 'TxtOuFilter'
+    $filter = ''
+    if ($null -ne $box) { $filter = ([string]$box.Text).Trim() }
+    if ($OnlyWhenActive -and -not $filter) { return }
+    $tree = Get-DomeniaControl 'TvDirectory'
+    if ($null -eq $tree) { return }
+    $matched = $false
+    foreach ($root in @($tree.Items)) {
+        if ($root -isnot [Windows.Controls.TreeViewItem]) { continue }
+        if (Set-DomeniaOuTreeNodeFilter -Node $root -Filter $filter -IsRoot) { $matched = $true }
+    }
+    if ($filter) {
+        $text = if ($matched) { 'Filtre des OU : ' + $filter + ' · branches déjà lues seulement' } else { 'Aucune branche lue ne contient ' + $filter + ' : dépliez une OU pour la parcourir.' }
+        [void](Set-DomeniaControlText -Name 'LblTreeStatus' -Text $text)
+    }
+}
+
+function Switch-DomeniaOuMenu {
+    # DS-07: depth, whole domain, pin and LDAP path live in the header menu, so that the tree keeps the full height.
+    # Opening the menu reads nothing.
+    param([ValidateSet('Toggle','Open','Close')][string]$State='Toggle')
+    $panel = Get-DomeniaControl 'UxOuMenuPanel'
+    if ($null -eq $panel) { return }
+    $show = ($panel.Visibility -ne [Windows.Visibility]::Visible)
+    if ($State -eq 'Open') { $show = $true } elseif ($State -eq 'Close') { $show = $false }
+    $panel.Visibility = if ($show) { [Windows.Visibility]::Visible } else { [Windows.Visibility]::Collapsed }
+    $button = Get-DomeniaControl 'BtnOuMenu'
+    if ($null -ne $button) { [Windows.Automation.AutomationProperties]::SetItemStatus($button,$(if ($show) { 'Menu ouvert' } else { 'Menu fermé' })) }
+}
+
+function Get-DomeniaTreeItemFromElement {
+    # The OU node that holds a header element (the star of a branch).
+    param($Element)
+    $current = $Element
+    $guard = 0
+    while ($null -ne $current -and $guard -lt 64) {
+        if ($current -is [Windows.Controls.TreeViewItem]) { return $current }
+        $guard++
+        try { $current = [Windows.Media.VisualTreeHelper]::GetParent($current) } catch { $current = $null }
+    }
+    return $null
+}
+
 function Initialize-DomeniaSearchUi {
     if ($script:SearchUiInitialized) { return }
     $script:SearchUiInitialized = $true
     $script:NavHistory = New-DomeniaNavHistory -Capacity 40
     $script:NavRestoring = $false
     $script:NavSearchLaunching = $false
+    $script:NavHistoryRows = $null
+    $script:TreeSelectionSource = 'Mouse'
+    $script:PendingFilterChange = $null
     if ((Get-DomeniaControl 'CmbWorkView') -is [Windows.Controls.ComboBox]) { Update-DomeniaWorkViewList }
+    $menuButton = Get-DomeniaControl 'BtnOuMenu'
+    if ($menuButton -is [Windows.Controls.Primitives.ButtonBase]) { $menuButton.Add_Click({ Switch-DomeniaOuMenu }) }
+    $ouFilter = Get-DomeniaControl 'TxtOuFilter'
+    if ($ouFilter -is [Windows.Controls.TextBox]) { $ouFilter.Add_TextChanged({ try { Update-DomeniaOuTreeFilter } catch { Write-AppLog ('Filtre des OU : '+$_.Exception.Message) 'WARN' } }) }
+    $historyButton = Get-DomeniaControl 'BtnHistoryRefresh'
+    if ($historyButton -is [Windows.Controls.Primitives.ButtonBase]) { $historyButton.Add_Click({ try { Invoke-DomeniaHistoryRefresh } catch { Write-AppLog ('Liste de lʼhistorique : '+$_.Exception.Message) 'WARN' } }) }
+    $tree = Get-DomeniaControl 'TvDirectory'
+    if ($tree -is [Windows.Controls.TreeView]) {
+        # PF-14: remember whether the tree is driven by the keyboard or by the mouse.
+        $tree.Add_PreviewKeyDown({ $script:TreeSelectionSource = 'Keyboard' })
+        $tree.Add_PreviewMouseDown({ $script:TreeSelectionSource = 'Mouse' })
+        # FO-04: the star of a branch pins or unpins it; the click does not select the branch.
+        $tree.AddHandler([Windows.Controls.Primitives.ButtonBase]::ClickEvent,[Windows.RoutedEventHandler]{
+            param($sender,$eventArgs)
+            $star = $eventArgs.OriginalSource
+            if ($star -isnot [Windows.Controls.Button] -or [string]$star.Name -ne 'OuStar') { return }
+            $eventArgs.Handled = $true
+            $node = Get-DomeniaTreeItemFromElement $star
+            if ($null -eq $node -or $null -eq $node.Tag -or [string]::IsNullOrWhiteSpace([string]$node.Tag.DN)) { return }
+            try { [void](Save-DomeniaFavouriteSearch -Dn ([string]$node.Tag.DN) -Toggle) } catch { Write-AppLog ('Favori : '+$_.Exception.Message) 'WARN' }
+        })
+    }
+    $grid = Get-DomeniaControl 'DgObjects'
+    if ($grid -is [Windows.Controls.DataGrid]) {
+        # UX-25: the history banner follows the rows actually shown, whatever replaced them.
+        $descriptor = [ComponentModel.DependencyPropertyDescriptor]::FromProperty([Windows.Controls.ItemsControl]::ItemsSourceProperty,[Windows.Controls.DataGrid])
+        if ($null -ne $descriptor) { $descriptor.AddValueChanged($grid,[EventHandler]{ param($sender,$eventArgs) try { Update-DomeniaHistoryBanner } catch { } }) }
+    }
     $more = Get-DomeniaControl 'BtnSearchMore'
     if ($more -is [Windows.Controls.Primitives.ButtonBase]) { $more.Add_Click({ try { Invoke-DomeniaSearchMore } catch { Write-AppLog ('Charger la suite : '+$_.Exception.Message) 'ERROR'; Set-Status ('Suite non chargée : '+$_.Exception.Message) 'ERROR' } }) }
     $viewButton = Get-DomeniaControl 'BtnWorkView'
@@ -281,7 +537,7 @@ function Initialize-DomeniaSearchUi {
         $forwardBinding.Add_Executed({ try { [void](Invoke-DomeniaNavStep -Direction Forward) } catch { Write-AppLog ('Alt+Droite : '+$_.Exception.Message) 'WARN' } })
         [void]$script:Window.CommandBindings.Add($forwardBinding)
         [void]$script:Window.InputBindings.Add([Windows.Input.KeyBinding]::new($forwardCommand,[Windows.Input.KeyGesture]::new([Windows.Input.Key]::Right,[Windows.Input.ModifierKeys]::Alt)))
-        $script:Window.Add_Closed({ $script:SearchUiInitialized = $false; $script:NavHistory = $null; $script:NavRestoring = $false })
+        $script:Window.Add_Closed({ $script:SearchUiInitialized = $false; $script:NavHistory = $null; $script:NavRestoring = $false; $script:NavHistoryRows = $null; Stop-DomeniaPendingFilterChange })
     }
     Update-DomeniaNavButtons
     Update-DomeniaSearchHint

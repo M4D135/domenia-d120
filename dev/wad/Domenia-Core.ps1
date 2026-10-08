@@ -2884,6 +2884,10 @@ function Write-DomeniaPreference {
 function Get-DomeniaDefaultSettings {
     return [ordered]@{
         SavedSearches = @()
+        # FO-04: OU favourites pinned above the tree (JSON list of perimeters), taken over once from SavedSearches,
+        # which stays stored untouched.
+        OuFavouritesJson = '[]'
+        OuFavouritesImported = $false
         GridLayoutsJson = '{}'
         OuBookmarksJson = '{}'
         UxNavCollapsed   = $false
@@ -4567,19 +4571,37 @@ function Get-MainXaml {
                   </Grid.ColumnDefinitions>
                   <Border Style="{StaticResource Card}" Margin="0" Padding="16" Grid.Column="0" x:Name="SearchOuPanel">
                     <DockPanel LastChildFill="True">
-                      <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
-                        <Grid Margin="0,0,0,6">
+                      <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <Grid Margin="0,0,0,8">
                           <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
                           </Grid.ColumnDefinitions>
                           <TextBlock Text="Parcourir les OU" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
                           <Button Grid.Column="1" x:Name="BtnTreeRefresh" Width="34" MinWidth="34" Height="30" MinHeight="30" Padding="0" Margin="6,0,0,0" ToolTip="Recharge les branches de l’arbre. Le texte de recherche et le filtre OU courant sont conservés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Actualiser l’arbre" AutomationProperties.HelpText="Recharge les branches de l’arbre. Le texte de recherche et le filtre OU courant sont conservés.">
                             <TextBlock Text="↻" FontFamily="Segoe UI Symbol" FontSize="19" FontWeight="SemiBold" Foreground="{DynamicResource AccentText}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                           </Button>
+                          <Button Grid.Column="2" x:Name="BtnOuMenu" Width="34" MinWidth="34" Height="30" MinHeight="30" Padding="0" Margin="6,0,0,0" ToolTip="Options de lʼarbre : sous-OU, tout le domaine, favori et chemin LDAP. Ouvrir ce menu ne lance aucune lecture." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Options de lʼarbre des OU" AutomationProperties.HelpText="Options de lʼarbre : sous-OU, tout le domaine, favori et chemin LDAP. Ouvrir ce menu ne lance aucune lecture.">
+                            <TextBlock Text="⋯" FontFamily="Segoe UI Symbol" FontSize="19" FontWeight="SemiBold" Foreground="{DynamicResource AccentText}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                          </Button>
                         </Grid>
-                        <TextBlock x:Name="UxOuIntro" Text="La barre du haut cherche partout. Cliquez une OU pour consulter son contenu." FontSize="12" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" LineHeight="17" Margin="0,0,0,12"/>
-                        <Border x:Name="OuRestoreBanner" Visibility="Collapsed" Background="{DynamicResource BgReadonly}" BorderBrush="{DynamicResource AccentColor}" BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,0,0,12">
+                        <Border x:Name="UxOuMenuPanel" Visibility="Collapsed" Background="{DynamicResource BgReadonly}" CornerRadius="10" Padding="10" Margin="0,0,0,8">
+                          <StackPanel>
+                            <CheckBox x:Name="ChkSubtree" IsChecked="True" ToolTip="Coché : recherche dans la branche et ses sous-branches. Décoché : seulement ses enfants directs." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Inclure les sous-OU" AutomationProperties.HelpText="Coché : recherche dans la branche et ses sous-branches. Décoché : seulement ses enfants directs." Content="Inclure les sous-OU" Margin="0,0,0,8"/>
+                            <WrapPanel Margin="0,0,0,4">
+                              <Button Content="Tout le domaine" Margin="0,0,0,4" Padding="10,2" x:Name="BtnSearchAllDomain" ToolTip="Affiche le domaine dans le mode navigation OU. La recherche du bandeau reste indépendante." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Tout le domaine" AutomationProperties.HelpText="Affiche le domaine dans le mode navigation OU. La recherche du bandeau reste indépendante." MinHeight="30"/>
+                              <Button x:Name="BtnOuFavouriteToggle" Content="Épingler cette OU" Margin="8,0,0,4" Padding="10,2" MinHeight="30" ToolTip="Ajoute lʼOU choisie aux favoris en haut de lʼarbre, ou lʼen retire. Préférence locale : rien nʼest lu ni modifié dans lʼannuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Épingler ou retirer lʼOU choisie" AutomationProperties.HelpText="Ajoute lʼOU choisie aux favoris en haut de lʼarbre, ou lʼen retire. Préférence locale : rien nʼest lu ni modifié dans lʼannuaire."/>
+                            </WrapPanel>
+                            <Expander x:Name="UxOuPathDetails" Header="Voir le chemin LDAP" IsExpanded="False" Margin="0" FontSize="12" Foreground="{DynamicResource MutedColor}" ToolTip="Déplie le DN exact utilisé par la recherche. Cela ne change pas le périmètre et ne lance aucune requête." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Chemin complet de l’OU" AutomationProperties.HelpText="Déplie le DN exact utilisé par la recherche. Cela ne change pas le périmètre et ne lance aucune requête.">
+                              <StackPanel Margin="0,8,0,2">
+                                <TextBox x:Name="TxtBranchDn" IsReadOnly="True" Background="{DynamicResource BgReadonly}" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" ToolTip="Chemin LDAP complet de la branche sélectionnée. Cette racine est utilisée par la requête AD, pas seulement pour masquer des lignes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="OU utilisée pour la recherche" AutomationProperties.HelpText="Chemin LDAP complet de la branche sélectionnée. Cette racine est utilisée par la requête AD, pas seulement pour masquer des lignes." MaxHeight="128" MinHeight="64" Padding="10,8" VerticalContentAlignment="Top" Margin="0,0,0,8" HorizontalScrollBarVisibility="Disabled"/>
+                                <Button Content="Copier le chemin" MinHeight="32" Margin="0" HorizontalAlignment="Left" Padding="10,4" x:Name="BtnUxCopyOuPath" ToolTip="Copie seulement le DN de l’OU sélectionnée. Ne modifie pas le filtre et ne contacte pas l’annuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Copier le chemin LDAP" AutomationProperties.HelpText="Copie seulement le DN de l’OU sélectionnée. Ne modifie pas le filtre et ne contacte pas l’annuaire."/>
+                              </StackPanel>
+                            </Expander>
+                          </StackPanel>
+                        </Border>
+                        <Border x:Name="OuRestoreBanner" Visibility="Collapsed" Background="{DynamicResource BgReadonly}" BorderBrush="{DynamicResource AccentColor}" BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,0,0,8">
                           <StackPanel>
                             <TextBlock x:Name="LblOuRestoreMessage" Text="" TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource TextColor}"/>
                             <WrapPanel Margin="0,8,0,0">
@@ -4588,22 +4610,20 @@ function Get-MainXaml {
                             </WrapPanel>
                           </StackPanel>
                         </Border>
-                        <Button Content="Tout le domaine" Margin="0,0,0,12" x:Name="BtnSearchAllDomain" ToolTip="Affiche le domaine dans le mode navigation OU. La recherche du bandeau reste indépendante." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Tout le domaine" AutomationProperties.HelpText="Affiche le domaine dans le mode navigation OU. La recherche du bandeau reste indépendante." MinHeight="36"/>
-                        <Border x:Name="UxOuScopeCard" Background="{DynamicResource BgReadonly}" CornerRadius="10" Padding="12" Margin="0,0,0,12">
+                        <Grid>
+                          <TextBox x:Name="TxtOuFilter" MaxLength="80" MinHeight="32" VerticalContentAlignment="Center" ToolTip="Filtre local de lʼarbre sur le nom des branches déjà affichées. Aucune lecture de lʼannuaire ; une branche repliée et jamais ouverte nʼest pas parcourue." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Filtrer les OU" AutomationProperties.HelpText="Filtre local de lʼarbre sur le nom des branches déjà affichées. Aucune lecture de lʼannuaire ; une branche repliée et jamais ouverte nʼest pas parcourue."/>
+                          <TextBlock Text="Filtrer les OU" Margin="10,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False" FontSize="12" Foreground="{DynamicResource MutedColor}">
+                            <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=TxtOuFilter}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+                          </TextBlock>
+                        </Grid>
+                        <Border x:Name="UxOuFavourites" Visibility="Collapsed" Margin="0,8,0,0" ToolTip="Favoris : OU épinglées. Un clic affiche son contenu ; × la retire des favoris sans rien modifier dans lʼannuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Favoris" AutomationProperties.HelpText="Favoris : OU épinglées. Un clic affiche son contenu ; × la retire des favoris sans rien modifier dans lʼannuaire.">
                           <StackPanel>
-                            <TextBlock x:Name="UxOuScopeCaption" Text="PÉRIMÈTRE SÉLECTIONNÉ" FontSize="10.5" FontWeight="SemiBold" Foreground="{DynamicResource MutedColor}" Margin="0,0,0,6"/>
-                            <TextBlock x:Name="LblOuScopeName" Text="Tout le domaine" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap" LineHeight="20"/>
-                            <TextBlock x:Name="LblOuScopePath" Text="Choisissez une OU dans l’arbre." FontSize="11.5" Foreground="{DynamicResource MutedColor}" TextTrimming="CharacterEllipsis" Margin="0,4,0,0"/>
+                            <TextBlock Text="FAVORIS" FontSize="10.5" FontWeight="SemiBold" Foreground="{DynamicResource MutedColor}" Margin="0,0,0,4"/>
+                            <ScrollViewer MaxHeight="132" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                              <StackPanel x:Name="PnlOuFavourites"/>
+                            </ScrollViewer>
                           </StackPanel>
                         </Border>
-                        <Button x:Name="BtnSearchInOu" Content="Afficher cette OU" Margin="0,0,0,12" MinHeight="34" ToolTip="Revient à l’OU sélectionnée et réactive ses filtres. Le texte du bandeau n’est pas utilisé." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Afficher l’OU sélectionnée" AutomationProperties.HelpText="Retour au contenu de l’OU, sans perdre la recherche du bandeau."/>
-                        <CheckBox x:Name="ChkSubtree" IsChecked="True" ToolTip="Coché : recherche dans la branche et ses sous-branches. Décoché : seulement ses enfants directs." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Inclure les sous-OU" AutomationProperties.HelpText="Coché : recherche dans la branche et ses sous-branches. Décoché : seulement ses enfants directs." Content="Inclure les sous-OU" Margin="0,0,0,10"/>
-                        <Expander x:Name="UxOuPathDetails" Header="Voir le chemin LDAP" IsExpanded="False" Margin="0,0,0,4" FontSize="12" Foreground="{DynamicResource MutedColor}" ToolTip="Déplie le DN exact utilisé par la recherche. Cela ne change pas le périmètre et ne lance aucune requête." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Chemin complet de l’OU" AutomationProperties.HelpText="Déplie le DN exact utilisé par la recherche. Cela ne change pas le périmètre et ne lance aucune requête.">
-                          <StackPanel Margin="0,8,0,2">
-                            <TextBox x:Name="TxtBranchDn" IsReadOnly="True" Background="{DynamicResource BgReadonly}" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" ToolTip="Chemin LDAP complet de la branche sélectionnée. Cette racine est utilisée par la requête AD, pas seulement pour masquer des lignes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="OU utilisée pour la recherche" AutomationProperties.HelpText="Chemin LDAP complet de la branche sélectionnée. Cette racine est utilisée par la requête AD, pas seulement pour masquer des lignes." MaxHeight="128" MinHeight="64" Padding="10,8" VerticalContentAlignment="Top" Margin="0,0,0,8" HorizontalScrollBarVisibility="Disabled"/>
-                            <Button Content="Copier le chemin" MinHeight="32" Margin="0" HorizontalAlignment="Left" Padding="10,4" x:Name="BtnUxCopyOuPath" ToolTip="Copie seulement le DN de l’OU sélectionnée. Ne modifie pas le filtre et ne contacte pas l’annuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Copier le chemin LDAP" AutomationProperties.HelpText="Copie seulement le DN de l’OU sélectionnée. Ne modifie pas le filtre et ne contacte pas l’annuaire."/>
-                          </StackPanel>
-                        </Expander>
                       </StackPanel>
                       <TextBlock x:Name="LblTreeStatus" Text="Arbre pret." Foreground="{DynamicResource MutedColor}" FontSize="11" TextWrapping="NoWrap" Margin="0,10,0,0" DockPanel.Dock="Bottom" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
                       <TreeView x:Name="TvDirectory" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto" ToolTip="Développez les sous-OU ou cliquez une branche pour afficher son contenu. Le texte de la recherche globale reste conservé mais ne filtre pas cette navigation." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Arbre des OU et conteneurs" AutomationProperties.HelpText="Développez les sous-OU ou cliquez une branche pour afficher son contenu. Le texte de la recherche globale reste conservé mais ne filtre pas cette navigation."/>
@@ -4618,7 +4638,11 @@ function Get-MainXaml {
                     <Border x:Name="UxSearchFilterCard" Style="{StaticResource Card}" Grid.Row="0" Margin="0,0,0,12" Padding="16">
                       <StackPanel>
                         <TextBlock x:Name="UxSearchScopeTitle" Text="Périmètre des résultats" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
-                        <Grid x:Name="UxSearchScopeInfo"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="0"/></Grid.ColumnDefinitions><TextBlock Text="Dans : tout le domaine | Sous-OU incluses" TextWrapping="NoWrap" Margin="0,0,0,4" Foreground="{DynamicResource AccentText}" FontSize="12" x:Name="LblSearchScope" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" TextTrimming="CharacterEllipsis"/>
+                        <Grid x:Name="UxSearchScopeInfo"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="0"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <ComboBox x:Name="CmbWorkViewScope" Grid.Column="2" Grid.Row="0" VerticalAlignment="Top" SelectedIndex="0" MinWidth="0" MinHeight="0" Height="18" MaxWidth="190" Margin="8,0,0,0" Padding="6,0,4,0" FontSize="11" VerticalContentAlignment="Center" ToolTip="Périmètre des vues de travail : lʼOU choisie dans lʼarbre. Tout le domaine reste un choix explicite, sans ping, détection ni analyse des postes listés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Périmètre des vues de travail" AutomationProperties.HelpText="Périmètre des vues de travail : lʼOU choisie dans lʼarbre. Tout le domaine reste un choix explicite, sans ping, détection ni analyse des postes listés.">
+                          <ComboBoxItem Tag="OU" Content="Vues dans : OU choisie"/>
+                          <ComboBoxItem Tag="Domain" Content="Vues sur tout le domaine, sans relevé"/>
+                        </ComboBox><TextBlock Text="Dans : tout le domaine | Sous-OU incluses" TextWrapping="NoWrap" Margin="0,0,0,4" Foreground="{DynamicResource AccentText}" FontSize="12" x:Name="LblSearchScope" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" TextTrimming="CharacterEllipsis"/>
                         <TextBlock x:Name="LblSearchHint" Grid.Row="1" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" Text="" Height="18" Margin="0,0,0,8" FontSize="11.5" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/></Grid>
                         <WrapPanel x:Name="UxSearchFilters">
                           <StackPanel Width="148" Margin="0,0,12,8"><StackPanel.Style><Style TargetType="StackPanel"><Style.Triggers><DataTrigger Binding="{Binding Tag, ElementName=SearchBrowserLayout}" Value="Global"><Setter Property="IsEnabled" Value="False"/></DataTrigger></Style.Triggers></Style></StackPanel.Style>
@@ -4682,7 +4706,15 @@ function Get-MainXaml {
                           </StackPanel>
                           <Button x:Name="BtnSearchMore" Content="Charger la suite" DockPanel.Dock="Right" IsEnabled="False" MinHeight="30" Padding="10,2" Margin="8,0,0,0" ToolTip="Disponible quand la liste est limitée : relit la même recherche avec une limite doublée, jusquʼà 20 000 lignes, sans doublon ni ancien contexte." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Charger la suite" AutomationProperties.HelpText="Disponible quand la liste est limitée : relit la même recherche avec une limite doublée, jusquʼà 20 000 lignes, sans doublon ni ancien contexte."/>
                           <TextBlock x:Name="LblBranchCount" Text="0 objet" Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" Margin="12,0,0,0" DockPanel.Dock="Right" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" MaxWidth="320" FontSize="12" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
-                          <TextBlock Text="Résultats" FontSize="16" FontWeight="SemiBold"/>
+                          <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Résultats" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <Border x:Name="UxHistoryBanner" Visibility="Collapsed" Margin="10,0,0,0" Padding="8,0,2,0" CornerRadius="10" Background="{DynamicResource BgReadonly}" VerticalAlignment="Center" ToolTip="Liste remise depuis lʼhistorique (Précédent ou Suivant) : elle nʼest pas relue et un clic ne vérifie pas le poste. Actualiser relance la même recherche." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Liste de lʼhistorique" AutomationProperties.HelpText="Liste remise depuis lʼhistorique (Précédent ou Suivant) : elle nʼest pas relue et un clic ne vérifie pas le poste. Actualiser relance la même recherche.">
+                              <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Liste de lʼhistorique ·" FontSize="11.5" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}"/>
+                                <Button x:Name="BtnHistoryRefresh" Content="Actualiser" MinHeight="0" Height="22" MinWidth="0" Padding="6,0" Margin="4,1,0,1" FontSize="11.5" ToolTip="Relance la recherche de cette liste dans lʼannuaire, avec son périmètre, sa vue et ses filtres. Aucun ping ni relevé des postes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Actualiser la liste de lʼhistorique" AutomationProperties.HelpText="Relance la recherche de cette liste dans lʼannuaire, avec son périmètre, sa vue et ses filtres. Aucun ping ni relevé des postes."/>
+                              </StackPanel>
+                            </Border>
+                          </StackPanel>
                         </DockPanel>
                         <Grid><Grid.Style><Style TargetType="Grid"><Style.Triggers><DataTrigger Binding="{Binding Tag, ElementName=SearchBrowserLayout}" Value="Global"><Setter Property="IsEnabled" Value="False"/></DataTrigger></Style.Triggers></Style></Grid.Style><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
 <StackPanel Width="112" VerticalAlignment="Center" Margin="0,0,10,0"><TextBlock Text="Dans les résultats" FontSize="11" Foreground="{DynamicResource MutedColor}"/><TextBlock x:Name="LblSuiteResultCount" Text="Filtre local : affine seulement les lignes déjà chargées." FontSize="11" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Height="18" Margin="0" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/></StackPanel>
@@ -4696,6 +4728,10 @@ function Get-MainXaml {
                               <Button x:Name="BtnParkResults" Content="Détecter la liste" Style="{StaticResource RunButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" IsEnabled="False" ToolTip="Grisé si la liste ne contient aucun poste. Ping puis lecture de la console des seuls postes affichés, après vos filtres (OU, recherche, présence, filtre local). Confirmation avec le nombre de postes avant toute lecture. Cache et associations conservés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Detecter les resultats affiches"/>
                               <Button x:Name="BtnParkAnalyze" Content="Analyser la liste" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" IsEnabled="False" ToolTip="Grisé si la liste ne contient aucun poste. Ping, utilisateur console et relevé WMI léger (modèle, mémoire, disque C:, build, démarrage) des seuls postes affichés, plus les requêtes WMI des widgets des tableaux de bord. Lecture seule sur les postes, confirmation avec le nombre de postes avant envoi. Associations actualisées si lʼutilisateur change ; résultats conservés pour les tableaux de bord." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Analyser les postes affiches"/>
                               <Button x:Name="BtnParkResultsStop" Content="Arrêter" Style="{StaticResource DangerButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" IsEnabled="False" ToolTip="Actif pendant une détection : arrête les nouvelles lectures et conserve les résultats déjà obtenus." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Arreter la detection des resultats"/>
+                              <StackPanel x:Name="UxListRevalidation" Orientation="Horizontal" Visibility="Collapsed" VerticalAlignment="Center" Margin="0,0,8,4">
+                                <CheckBox x:Name="ChkListRevalidation" Content="Revérifier la liste" IsChecked="True" VerticalAlignment="Center" ToolTip="Activé par lʼadministrateur : relit dans lʼannuaire les objets listés, par petits lots, tant que la page est affichée. Décochez pour lʼarrêter pendant cette session." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Revérifier la liste en arrière-plan" AutomationProperties.HelpText="Activé par lʼadministrateur : relit dans lʼannuaire les objets listés, par petits lots, tant que la page est affichée. Décochez pour lʼarrêter pendant cette session."/>
+                                <TextBlock x:Name="LblListRevalidation" Text="" Margin="8,0,0,0" FontSize="11" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}"/>
+                              </StackPanel>
                             </WrapPanel>
                             <Grid x:Name="UxResultLiveStatuses" Grid.Row="1"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><TextBlock Text="Selectionnez une ligne pour precharger sa fiche. Double-clic : ouvrir." Foreground="{DynamicResource MutedColor}" FontSize="11" Height="20" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" x:Name="LblSelectionReadState" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/><TextBlock x:Name="LblLiveState" Grid.Row="1" Text="Un clic : vérifier ce poste · Double-clic : ouvrir la fiche · Aucune sonde de liste" FontSize="11" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Height="18" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/></Grid>
                           </Grid></StackPanel><Grid Grid.Row="1">
@@ -5959,10 +5995,6 @@ function Get-MainXaml {
 <TextBlock x:Name="LblGuardRemote" Text="Les sondes ordinaires ne créent ni service ni tâche. Les anciens transports avec dépôts demandent une autorisation distincte." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,16,0,10"/>
 <WrapPanel><Button AutomationProperties.Name="Autoriser une intervention sur cette machine" AutomationProperties.HelpText="Autorisation de cinq minutes, pour la machine sélectionnée uniquement. Ne lance rien ; les droits restent obligatoires." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardRemote" Content="Autoriser une intervention sur cette machine" ToolTip="Autorisation de cinq minutes, pour la machine sélectionnée uniquement. Ne lance rien ; les droits restent obligatoires."/><Button AutomationProperties.Name="Retirer l'autorisation" AutomationProperties.HelpText="Les sondes déjà envoyées peuvent encore finir. Aucune nouvelle intervention avec dépôt ne sera autorisée." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardRemoteOff" Content="Retirer l'autorisation" ToolTip="Les sondes déjà envoyées peuvent encore finir. Aucune nouvelle intervention avec dépôt ne sera autorisée."/></WrapPanel>
 </StackPanel></Border>
-<Border Style="{StaticResource Card}" Margin="0,0,0,12"><StackPanel><TextBlock Text="Recherches enregistrées" FontSize="18" FontWeight="SemiBold"/><TextBlock Text="Périmètres et filtres uniquement. Les résultats sont toujours relus dans AD." TextWrapping="Wrap" Margin="0,8,0,10" Foreground="{DynamicResource MutedColor}"/>
-<WrapPanel Margin="0,0,0,10"><Button AutomationProperties.Name="Mémoriser la recherche actuelle" AutomationProperties.HelpText="Enregistre l'OU, le texte et les filtres. Aucun secret n'est mémorisé." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardSaveSearch" Content="Mémoriser la recherche actuelle" ToolTip="Enregistre l'OU, le texte et les filtres. Aucun secret n'est mémorisé."/><Button AutomationProperties.Name="Ouvrir la recherche choisie" AutomationProperties.HelpText="Applique le périmètre et lance une lecture AD. Ne modifie aucun objet." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardLoadSearch" Content="Ouvrir la recherche choisie" ToolTip="Applique le périmètre et lance une lecture AD. Ne modifie aucun objet."/></WrapPanel>
-<ListBox AutomationProperties.Name="LstGuardSearches" AutomationProperties.HelpText="Recherches appartenant au domaine courant." ToolTipService.ShowOnDisabled="True" x:Name="LstGuardSearches" DisplayMemberPath="Name" Height="110" ToolTip="Recherches appartenant au domaine courant."/>
-</StackPanel></Border>
 <Border Style="{StaticResource Card}" Margin="0,0,0,12"><StackPanel><TextBlock Text="Suite support et mesures" FontSize="18" FontWeight="SemiBold"/>
 <WrapPanel Margin="0,6,0,10"><Button x:Name="BtnGuardStoreResume" Content="Reprendre les sauvegardes" ToolTip="Relance les lots de cache interrompus apres correction du stockage." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Reprendre les sauvegardes" AutomationProperties.HelpText="Relance les lots de cache interrompus apres correction du stockage."/><Button x:Name="BtnGuardLegacyImport" Content="Reprendre les anciennes données" ToolTip="Simule la reprise des fichiers historiques dans Domenia, puis demande confirmation." AutomationProperties.Name="Reprendre les anciennes données" AutomationProperties.HelpText="Vérifie le domaine et les données, affiche la simulation puis demande confirmation avant sauvegarde et import."/><Button x:Name="BtnGuardExport" Content="Dossier technique" ToolTip="Affiche puis exporte les seuls compteurs techniques, sans logs bruts ni identifiants." AutomationProperties.Name="Dossier technique" AutomationProperties.HelpText="Affiche puis exporte les seuls compteurs techniques, sans logs bruts ni identifiants."/><Button x:Name="BtnGuardWhy" Content="Pourquoi une action est indisponible ?" ToolTip="Explique les protections et preconditions actuelles sans modifier de droit." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Pourquoi une action est indisponible ?" AutomationProperties.HelpText="Explique les protections et preconditions actuelles sans modifier de droit."/></WrapPanel><ScrollViewer Height="96" VerticalScrollBarVisibility="Auto" Margin="0,0,0,8"><TextBlock x:Name="LblGuardMigration" Text="La simulation des anciennes données sera affichée ici avant confirmation." TextWrapping="Wrap" AutomationProperties.Name="Simulation de reprise des données"/></ScrollViewer><CheckBox x:Name="ChkGuardReconcile" Content="Reverifier le perimetre consulte en arriere-plan" IsChecked="True" Margin="0,0,0,8" ToolTip="Relit la derniere requete explicite, au plus toutes les trois minutes et dans sa limite de resultats. Aucun scan au demarrage." AutomationProperties.Name="Reverifier le perimetre consulte en arriere-plan" AutomationProperties.HelpText="Relit la derniere requete explicite, au plus toutes les trois minutes et dans sa limite de resultats. Aucun scan au demarrage."/><TextBlock x:Name="LblGuardMetrics" Text="Les mesures locales apparaîtront ici." TextWrapping="Wrap" Margin="0,8,0,12" Foreground="{DynamicResource MutedColor}"/>
 <WrapPanel><Button AutomationProperties.Name="Ouvrir Pesto" AutomationProperties.HelpText="Exécutable configuré et contrôlé par empreinte. Aucun identifiant ou ordre d'intervention transmis." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardPesto" Content="Ouvrir Pesto" ToolTip="Exécutable configuré et contrôlé par empreinte. Aucun identifiant ou ordre d'intervention transmis."/><Button AutomationProperties.Name="Ouvrir FilPro" AutomationProperties.HelpText="Exécutable configuré et contrôlé par empreinte. Aucun identifiant ou ordre d'intervention transmis." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardFilPro" Content="Ouvrir FilPro" ToolTip="Exécutable configuré et contrôlé par empreinte. Aucun identifiant ou ordre d'intervention transmis."/></WrapPanel>
@@ -6658,27 +6690,126 @@ function Set-TabVisibility {
 
 
 
+function Get-DomeniaTreeHeaderTemplate {
+    # FO-04: the header of a branch shows its text and, on hover, a star to pin it; the star stays filled for a
+    # favourite (AutomationProperties.ItemStatus = 'Favori'). The Header itself remains the plain branch text.
+    if ($null -ne $script:TreeHeaderTemplate) { return $script:TreeHeaderTemplate }
+    $xaml = @'
+<DataTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <StackPanel x:Name="HeaderRoot" Orientation="Horizontal" Background="Transparent">
+    <TextBlock Text="{Binding}" VerticalAlignment="Center"/>
+    <Button x:Name="OuStar" Content="☆" Visibility="Hidden" Focusable="False" Margin="6,0,0,0" MinWidth="0" MinHeight="0" Cursor="Hand" FontFamily="Segoe UI Symbol" FontSize="13" Foreground="{DynamicResource AccentText}" ToolTip="Épingler cette OU dans les favoris" AutomationProperties.Name="Épingler cette OU">
+      <Button.Template><ControlTemplate TargetType="Button"><Border Background="Transparent" Padding="2,0"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></ControlTemplate></Button.Template>
+    </Button>
+  </StackPanel>
+  <DataTemplate.Triggers>
+    <Trigger SourceName="HeaderRoot" Property="UIElement.IsMouseOver" Value="True"><Setter TargetName="OuStar" Property="UIElement.Visibility" Value="Visible"/></Trigger>
+    <DataTrigger Binding="{Binding Path=(AutomationProperties.ItemStatus), RelativeSource={RelativeSource AncestorType=TreeViewItem}}" Value="Favori">
+      <Setter TargetName="OuStar" Property="Visibility" Value="Visible"/>
+      <Setter TargetName="OuStar" Property="Content" Value="★"/>
+      <Setter TargetName="OuStar" Property="ToolTip" Value="Retirer cette OU des favoris"/>
+    </DataTrigger>
+  </DataTemplate.Triggers>
+</DataTemplate>
+'@
+    $script:TreeHeaderTemplate = [Windows.Markup.XamlReader]::Parse($xaml)
+    return $script:TreeHeaderTemplate
+}
+
 function New-TreeItem {
     param([string]$Name, [string]$Dn, [string]$Kind)
     $item = New-Object System.Windows.Controls.TreeViewItem
     $item.Header = $Name
-    $item.Tag = [pscustomobject]@{ Name = $Name; DN = $Dn; Kind = $Kind; Loaded = $false; RenderId = "" }
+    $item.Tag = [pscustomobject]@{ Name = $Name; DN = $Dn; Kind = $Kind; Loaded = $false; RenderId = ""; Loading = $false }
+    try { $item.HeaderTemplate = Get-DomeniaTreeHeaderTemplate } catch { }
+    if (-not [string]::IsNullOrWhiteSpace($Dn) -and $null -ne $script:OuFavouriteKeys -and $script:OuFavouriteKeys.ContainsKey($Dn.ToLowerInvariant())) {
+        [Windows.Automation.AutomationProperties]::SetItemStatus($item,'Favori')
+    }
     [void]$item.Items.Add("Chargement...")
     $item.Add_Expanded({ param($sender,$e) if ($e.OriginalSource -eq $sender) { Load-TreeChildren -Node $sender } })
     $item.Add_Selected({ param($sender,$e) if ($e.OriginalSource -eq $sender) { Set-SelectedBranch -Node $sender; $e.Handled = $true } })
     return $item
 }
 
+function New-DomeniaTreeRowItem {
+    # One branch returned by TreeChildren. UI-16: a branch read without any sub-branch gets no chevron.
+    param($Row)
+    if ($null -eq $Row) { return $null }
+    $dn = [string]$Row.DN
+    if ([string]::IsNullOrWhiteSpace($dn)) { return $null }
+    $prefix = if ([string]$Row.Kind -eq "OU") { "OU" } else { "CN" }
+    $item = New-TreeItem -Name "$prefix  $([string]$Row.Name)" -Dn $dn -Kind ([string]$Row.Kind)
+    if (-not (Test-DomeniaTreeRowExpandable $Row)) { $item.Items.Clear(); $item.Tag.Loaded = $true }
+    return $item
+}
+
+function New-DomeniaTreeSystemGroup {
+    # UI-16: System, Program Data, ForeignSecurityPrincipals, LostAndFound... folded under one node. The group has
+    # no DN: selecting it never becomes a search root, and unfolding it reads nothing.
+    param($Rows)
+    $rowArray = @($Rows | Where-Object { $null -ne $_ })
+    $group = New-Object System.Windows.Controls.TreeViewItem
+    $group.Header = 'Conteneurs système (' + $rowArray.Count + ')'
+    $group.Tag = [pscustomobject]@{ Name = 'Conteneurs système'; DN = ''; Kind = 'SystemGroup'; Loaded = $true; RenderId = ""; Loading = $false }
+    $group.IsExpanded = $false
+    $group.ToolTip = 'Conteneurs créés par Active Directory (System, Program Data, ForeignSecurityPrincipals, LostAndFound…), repliés ici. Users et Computers restent visibles. Déplier ce groupe ne lance aucune lecture.'
+    foreach ($row in $rowArray) {
+        $child = New-DomeniaTreeRowItem -Row $row
+        if ($null -ne $child) { [void]$group.Items.Add($child) }
+    }
+    return $group
+}
+
+function Get-DomeniaTreeRenderRows {
+    # UI-16: under the domain root, the system containers become one trailing group entry; elsewhere rows are kept.
+    # The rows are written to the pipeline: callers collect them with @().
+    param($Node,$Rows)
+    $rowArray = @($Rows | Where-Object { $null -ne $_ })
+    $parentDn = ''
+    try { $parentDn = [string]$Node.Tag.DN } catch { }
+    if ([string]::IsNullOrWhiteSpace($parentDn) -or [string]::IsNullOrWhiteSpace([string]$script:Conn.BaseDn) -or $parentDn -ine [string]$script:Conn.BaseDn) { return $rowArray }
+    $split = Split-DomeniaTreeRows -Rows $rowArray -ParentDn $parentDn -DomainDn ([string]$script:Conn.BaseDn)
+    $out = New-Object System.Collections.Generic.List[object]
+    foreach ($row in @($split.Visible)) { $out.Add($row) }
+    if (@($split.System).Count -gt 0) { $out.Add([pscustomobject]@{ Kind = 'SystemGroup'; Rows = @($split.System); DN = '' }) }
+    return $out.ToArray()
+}
+
+function New-DomeniaTreeLoadingItem {
+    # UI-16: a small turning wheel under the unfolded branch replaces the former greyed node while it is read.
+    $panel = New-Object System.Windows.Controls.StackPanel
+    $panel.Orientation = [System.Windows.Controls.Orientation]::Horizontal
+    $panel.Tag = 'Loading'
+    $wheel = New-Object System.Windows.Controls.TextBlock
+    $wheel.Text = [string][char]0x21BB
+    $wheel.FontFamily = New-Object System.Windows.Media.FontFamily('Segoe UI Symbol')
+    $wheel.Margin = New-Object System.Windows.Thickness(0,0,6,0)
+    $wheel.RenderTransformOrigin = New-Object System.Windows.Point(0.5,0.5)
+    $rotate = New-Object System.Windows.Media.RotateTransform
+    $wheel.RenderTransform = $rotate
+    try {
+        $spin = New-Object System.Windows.Media.Animation.DoubleAnimation(0.0,360.0,(New-Object System.Windows.Duration([TimeSpan]::FromSeconds(1.2))))
+        $spin.RepeatBehavior = [System.Windows.Media.Animation.RepeatBehavior]::Forever
+        $rotate.BeginAnimation([System.Windows.Media.RotateTransform]::AngleProperty,$spin)
+    } catch { }
+    $text = New-Object System.Windows.Controls.TextBlock
+    $text.Text = 'Chargement des sous-branches' + [string][char]0x2026
+    [void]$panel.Children.Add($wheel)
+    [void]$panel.Children.Add($text)
+    [System.Windows.Automation.AutomationProperties]::SetName($panel,'Chargement des sous-branches')
+    return $panel
+}
+
 function Add-DomeniaTreeRowsToNode {
     param($Node,$Rows,[switch]$PumpUi)
     if ($null -eq $Node) { return 0 }
     $count = 0
-    foreach ($row in @($Rows)) {
+    foreach ($row in @(Get-DomeniaTreeRenderRows -Node $Node -Rows $Rows)) {
         if ($null -eq $row) { continue }
-        $dn = [string]$row.DN
-        if ([string]::IsNullOrWhiteSpace($dn)) { continue }
-        $prefix = if ([string]$row.Kind -eq "OU") { "OU" } else { "CN" }
-        [void]$Node.Items.Add((New-TreeItem -Name "$prefix  $([string]$row.Name)" -Dn $dn -Kind ([string]$row.Kind)))
+        if ([string]$row.Kind -eq 'SystemGroup') { [void]$Node.Items.Add((New-DomeniaTreeSystemGroup -Rows $row.Rows)); $count += @($row.Rows).Count; continue }
+        $item = New-DomeniaTreeRowItem -Row $row
+        if ($null -eq $item) { continue }
+        [void]$Node.Items.Add($item)
         $count++
         if ($PumpUi -and (($count % 40) -eq 0)) { Invoke-DomeniaUiPump }
     }
@@ -6701,10 +6832,15 @@ function Initialize-DomeniaTreeRenderTimer {
                     $row = $job.Rows[[int]$job.Index]
                     $job.Index = [int]$job.Index + 1
                     if ($null -eq $row) { continue }
-                    $dn = [string]$row.DN
-                    if ([string]::IsNullOrWhiteSpace($dn)) { continue }
-                    $prefix = if ([string]$row.Kind -eq "OU") { "OU" } else { "CN" }
-                    [void]$job.Node.Items.Add((New-TreeItem -Name "$prefix  $([string]$row.Name)" -Dn $dn -Kind ([string]$row.Kind)))
+                    if ([string]$row.Kind -eq 'SystemGroup') {
+                        [void]$job.Node.Items.Add((New-DomeniaTreeSystemGroup -Rows $row.Rows))
+                        $job.Added = [int]$job.Added + @($row.Rows).Count
+                        $added++
+                        continue
+                    }
+                    $item = New-DomeniaTreeRowItem -Row $row
+                    if ($null -eq $item) { continue }
+                    [void]$job.Node.Items.Add($item)
                     $job.Added = [int]$job.Added + 1
                     $added++
                 }
@@ -6715,6 +6851,8 @@ function Initialize-DomeniaTreeRenderTimer {
                     [void]$finished.Add([string]$renderId)
                     [void](Set-DomeniaControlText -Name "LblTreeStatus" -Text "$($job.Added) sous-branche(s) affichee(s).")
                     Set-Status "Sous-branches pretes : $($job.Added)."
+                    # DS-07: a branch read while the OU filter is set follows that filter (local only).
+                    if ($null -ne (Get-Command Update-DomeniaOuTreeFilter -CommandType Function -ErrorAction SilentlyContinue)) { try { Update-DomeniaOuTreeFilter -OnlyWhenActive } catch { } }
                 }
                 else {
                     [void](Set-DomeniaControlText -Name "LblTreeStatus" -Text "Affichage progressif : $($job.Added) / $($job.Rows.Count) sous-branche(s)...")
@@ -6763,8 +6901,10 @@ function Queue-DomeniaTreeRowsToNode {
     if ($null -eq $Node) { throw "Nud d'arborescence absent." }
     Stop-DomeniaTreeRenderForNode -Node $Node
     $Node.Items.Clear()
-    $rowArray = @($Rows)
+    try { $Node.Tag | Add-Member -NotePropertyName Loading -NotePropertyValue $false -Force } catch { }
+    $rowArray = @(Get-DomeniaTreeRenderRows -Node $Node -Rows $Rows)
     if ($rowArray.Count -eq 0) {
+        # UI-16: read and without sub-branch: no item, hence no chevron.
         $Node.Tag.Loaded = $true
         $Node.Tag.RenderId = ""
         $Node.IsEnabled = $true
@@ -6775,7 +6915,7 @@ function Queue-DomeniaTreeRowsToNode {
     $renderId = "tree-render:" + [guid]::NewGuid().ToString("N")
     $Node.Tag.Loaded = $false
     $Node.Tag.RenderId = $renderId
-    $Node.IsEnabled = $false
+    # UI-16: the node stays enabled while its sub-branches appear (no greyed branch).
     $script:TreeRenderJobs[$renderId] = [pscustomobject]@{
         Id=$renderId; Node=$Node; Rows=$rowArray; Index=0; Added=0
         BatchSize=[Math]::Max(5,[int](Get-CfgValue "UI" "TreeRenderBatchSize" 24))
@@ -6846,6 +6986,10 @@ function Load-TreeRoot {
             [void](Set-DomeniaControlText -Name "LblTreeStatus" -Text "Arbre initialise. Chargement des sous-branches en arriere-plan.")
             [void](Set-DomeniaControlText -Name "LblBranchCount" -Text "Aucune branche chargee")
         }
+        # FO-04: the favourites pinned above the tree belong to the domain of this session.
+        if ($null -ne (Get-Command Update-DomeniaOuFavouritesUi -CommandType Function -ErrorAction SilentlyContinue)) {
+            try { Update-DomeniaOuFavouritesUi } catch { Write-AppLog "Favoris d OU : $($_.Exception.Message)" "WARN" }
+        }
         Update-Dashboard
     }
     catch {
@@ -6864,6 +7008,13 @@ function Set-SelectedBranch {
     Update-Dashboard
     if ($script:SuppressBranchAutoLoad) { return }
     [void](Set-DomeniaControlText -Name 'TxtBranchSearch' -Text '')
+    # PF-14: a keyboard walk in the tree waits for its last stop (300 ms); a mouse click reads at once.
+    if ($null -ne (Get-Command Request-DomeniaSearchFilterChanged -CommandType Function -ErrorAction SilentlyContinue)) {
+        $source = 'Mouse'
+        if ($null -ne (Get-Command Get-DomeniaTreeSelectionSource -CommandType Function -ErrorAction SilentlyContinue)) { $source = Get-DomeniaTreeSelectionSource }
+        Request-DomeniaSearchFilterChanged -Source $source
+        return
+    }
     Invoke-DomeniaSearchFilterChanged
 }
 
@@ -6915,6 +7066,10 @@ function Update-DomeniaSearchScopeUi {
     [void](Set-DomeniaControlText -Name 'TxtBranchDn' -Text ([string]$ouScope.BaseDn))
     if ($null -ne (Get-Command Update-DomeniaUxOuScope -CommandType Function -ErrorAction SilentlyContinue)) {
         Update-DomeniaUxOuScope -Scope $ouScope
+    }
+    # UX-33 / FO-04: the work view chip ('Dans : Postes') and the pin button follow the chosen OU.
+    if ($null -ne (Get-Command Update-DomeniaOuScopeChoices -CommandType Function -ErrorAction SilentlyContinue)) {
+        try { Update-DomeniaOuScopeChoices -Scope $ouScope } catch { }
     }
     Set-DomeniaSearchMode -Mode $mode
     # The home overview follows this OU: recomputed now if Accueil is on screen, otherwise when it is shown.
@@ -9514,6 +9669,7 @@ function Complete-DomeniaTreeChildrenUi {
             $treeNode.Items.Clear()
             [void]$treeNode.Items.Add("Erreur d'affichage  replie puis redeplie pour reessayer")
             $treeNode.Tag.Loaded = $false
+            $treeNode.Tag | Add-Member -NotePropertyName Loading -NotePropertyValue $false -Force
             $treeNode.IsEnabled = $true
         }
         catch { }
@@ -9530,6 +9686,7 @@ function Fail-DomeniaTreeChildrenUi {
     try {
         if ($null -ne $treeNode) {
             Stop-DomeniaTreeRenderForNode -Node $treeNode
+            try { $treeNode.Tag | Add-Member -NotePropertyName Loading -NotePropertyValue $false -Force } catch { }
             $preserve = $false
             try { $preserve = [bool]$State.PreserveExisting } catch { }
             if ($preserve -and $null -ne $State.PreviousItems) {
@@ -9555,6 +9712,12 @@ function Load-TreeChildren {
     param($Node,[switch]$PreserveExisting,[switch]$Force)
     try {
         if ($null -eq $Node -or ([bool]$Node.Tag.Loaded -and -not $Force)) { return }
+        # UI-16: the node is no longer greyed while it is read; a second unfold during that read starts nothing.
+        # A read that never answered (withdrawn from the queue) stops blocking after its timeout.
+        $loadingAt = $null
+        try { $loadingAt = $Node.Tag.LoadingAt } catch { }
+        $reading = ([bool]$Node.Tag.Loading -and $loadingAt -is [datetime] -and ([datetime]::UtcNow - $loadingAt).TotalSeconds -lt ([int](Get-CfgValue "Async" "TreeTimeoutSeconds" 30) + 15))
+        if (-not $Force -and ($reading -or -not [string]::IsNullOrWhiteSpace([string]$Node.Tag.RenderId))) { return }
         $dn = [string]$Node.Tag.DN
         $name = [string]$Node.Tag.Name
         Stop-DomeniaTreeRenderForNode -Node $Node
@@ -9563,8 +9726,9 @@ function Load-TreeChildren {
         if ($PreserveExisting) {
             try { $previousItems = @($Node.Items); $previousLoaded = [bool]$Node.Tag.Loaded } catch { $previousItems = @(); $previousLoaded = $false }
         }
-        $Node.Items.Clear(); [void]$Node.Items.Add("Chargement en arriere-plan...")
-        $Node.IsEnabled = $false
+        $Node.Items.Clear(); [void]$Node.Items.Add((New-DomeniaTreeLoadingItem))
+        $Node.Tag | Add-Member -NotePropertyName Loading -NotePropertyValue $true -Force
+        $Node.Tag | Add-Member -NotePropertyName LoadingAt -NotePropertyValue ([datetime]::UtcNow) -Force
         $code = @'
 $filter = "(|(objectClass=organizationalUnit)(objectClass=container)(objectClass=builtinDomain))"
 $props = @("name","distinguishedName","objectClass")
@@ -9574,17 +9738,42 @@ foreach ($r in @($s.FindAll())) {
     $type = Get-WObjectType $r.Properties
     $dn = [string](Get-WPropFirst $r.Properties "distinguishedname" "")
     if ([string]::IsNullOrWhiteSpace($dn)) { continue }
-    [void]$rows.Add([pscustomobject]@{ Name=[string](Get-WPropFirst $r.Properties "name" ""); DN=$dn; Kind=$type })
+    [void]$rows.Add([pscustomobject]@{ Name=[string](Get-WPropFirst $r.Properties "name" ""); DN=$dn; Kind=$type; HasChildren=$null })
+}
+# UI-16: one bounded existence check per branch (one entry at most) says whether it holds sub-branches, so that a
+# leaf gets no chevron. Above ProbeMax branches or past the time budget the answer stays unknown (chevron kept).
+$probeMax = [Math]::Max(0,[Math]::Min(200,[int]$Payload.ProbeMax))
+$budgetMs = [Math]::Max(500,[Math]::Min(10000,[int]$Payload.ProbeBudgetMs))
+$budget = [Diagnostics.Stopwatch]::StartNew()
+if ($rows.Count -le $probeMax) {
+    foreach ($row in $rows) {
+        if ($budget.ElapsedMilliseconds -gt $budgetMs) { break }
+        $probe = $null
+        $probeRoot = $null
+        try {
+            $probe = New-WSearcher $Context ([string]$row.DN) $filter @("distinguishedName") "OneLevel" 1
+            $probe.ServerTimeLimit = [TimeSpan]::FromSeconds(3)
+            $probe.ClientTimeout = [TimeSpan]::FromSeconds(5)
+            $probeRoot = $probe.SearchRoot
+            $row.HasChildren = ($null -ne $probe.FindOne())
+        }
+        catch { $row.HasChildren = $null }
+        finally {
+            try { if ($null -ne $probe) { $probe.Dispose() } } catch { }
+            try { if ($null -ne $probeRoot) { $probeRoot.Dispose() } } catch { }
+        }
+    }
 }
 [pscustomobject]@{ Rows=@($rows | Sort-Object Name) }
 '@
-        Start-UiTask -Name "Arborescence $name" -OperationId "TreeChildren" -Code $code -Payload ([pscustomobject]@{ DN=$dn }) -CallbackState ([pscustomobject]@{ Node=$Node; DN=$dn; Name=$name; PreserveExisting=[bool]$PreserveExisting; PreviousItems=@($previousItems); PreviousLoaded=$previousLoaded }) -ReplaceKey "tree:$dn" -TimeoutSeconds ([int](Get-CfgValue "Async" "TreeTimeoutSeconds" 30)) -StatusText "Chargement des sous-branches de $name..." -SuccessHandler "Complete-DomeniaTreeChildrenUi" -ErrorHandler "Fail-DomeniaTreeChildrenUi" | Out-Null
+        Start-UiTask -Name "Arborescence $name" -OperationId "TreeChildren" -Code $code -Payload ([pscustomobject]@{ DN=$dn; ProbeMax=100; ProbeBudgetMs=4000 }) -CallbackState ([pscustomobject]@{ Node=$Node; DN=$dn; Name=$name; PreserveExisting=[bool]$PreserveExisting; PreviousItems=@($previousItems); PreviousLoaded=$previousLoaded }) -ReplaceKey "tree:$dn" -TimeoutSeconds ([int](Get-CfgValue "Async" "TreeTimeoutSeconds" 30)) -StatusText "Chargement des sous-branches de $name..." -SuccessHandler "Complete-DomeniaTreeChildrenUi" -ErrorHandler "Fail-DomeniaTreeChildrenUi" | Out-Null
     }
     catch {
         $message = [string]$_.Exception.Message
         try {
             $Node.Items.Clear(); [void]$Node.Items.Add("Erreur : $message  replie puis redeplie pour reessayer")
             $Node.Tag.Loaded = $false
+            $Node.Tag | Add-Member -NotePropertyName Loading -NotePropertyValue $false -Force
             $Node.IsEnabled = $true
         } catch { }
         [void](Set-DomeniaControlText -Name "LblTreeStatus" -Text "Erreur : $message")
@@ -9820,7 +10009,15 @@ function Invoke-GlobalSearch {
             $view = @(Get-DomeniaWorkViews | Where-Object { [string]$_.Id -ceq $ViewId } | Select-Object -First 1)
             if ($view.Count -eq 0) { Set-Status 'Vue de travail inconnue : aucune recherche lancée.' 'WARN'; return }
             $view = $view[0]
-            $SearchMode = if ([bool]$view.NeedsOu) { 'OU' } else { 'Global' }
+            # UX-33: the view applies to the OU chosen in the tree; the whole domain only on the explicit secondary
+            # choice of the 'Dans :' chip, and such a list never offers a survey of its workstations.
+            $viewChoice = 'OU'
+            if ($null -ne (Get-Command Get-DomeniaWorkViewScopeChoice -CommandType Function -ErrorAction SilentlyContinue)) { $viewChoice = Get-DomeniaWorkViewScopeChoice }
+            $viewOu = Get-DomeniaSearchScope -Mode OU
+            $viewOuName = ''
+            if ($null -ne (Get-Command Get-DomeniaUxOuDisplay -CommandType Function -ErrorAction SilentlyContinue)) { try { $viewOuName = [string](Get-DomeniaUxOuDisplay -DistinguishedName ([string]$viewOu.BaseDn) -IsDomain ([bool]$viewOu.IsDomain)).Name } catch { } }
+            $viewPlan = Get-DomeniaWorkViewPlan -View $view -Choice $viewChoice -OuDn ([string]$viewOu.BaseDn) -DomainDn ([string]$script:Conn.BaseDn) -Subtree ([string]$viewOu.Scope -eq 'Subtree') -OuName $viewOuName
+            $SearchMode = [string]$viewPlan.SearchMode
             if ($SearchMode -eq 'OU' -and [string]::IsNullOrWhiteSpace([string]$script:SelectedBranchDn)) { Set-Status 'Choisissez dʼabord une OU dans lʼarbre pour cette vue.' 'WARN'; return }
             [void](Set-DomeniaControlText -Name $(if ($SearchMode -eq 'Global') { 'TxtGlobalSearch' } else { 'TxtBranchSearch' }) -Text '')
         }
@@ -9837,7 +10034,8 @@ function Invoke-GlobalSearch {
         $searchPlan = $null
         $searchHint = ''
         if ($null -ne $view) {
-            $searchHint = 'Vue : ' + [string]$view.Name + $(if ([string]$view.Note) { ' · ' + [string]$view.Note } else { '' })
+            $searchHint = 'Vue : ' + [string]$view.Name + ' · ' + [string]$viewPlan.ChipText + $(if ([string]$view.Note) { ' · ' + [string]$view.Note } else { '' })
+            if (-not [bool]$viewPlan.SurveyAllowed) { $searchHint += ' · ' + [string]$viewPlan.Reason }
         }
         elseif ($SearchMode -eq 'Global' -and -not $isBrowse) {
             $searchPlan = Get-DomeniaGlobalSearchPlan -Text $textValue -TypeFilter (Get-TypeLdapFilter -Type 'Tous') -MinimumLength $minChars -SyntaxEnabled (Get-DomeniaFeatureFlag -Name 'SearchSyntax' -Default $true)
@@ -9861,6 +10059,8 @@ function Invoke-GlobalSearch {
         Invalidate-DomeniaSearchResults -KeepSelection:([bool]$preserveDn)
         $generation = [int]$script:GlobalSearchGeneration
         $script:ActiveSearchViewId = $(if ($null -ne $view) { [string]$view.Id } else { '' })
+        # UX-33: a work view listed over the whole domain refuses ping, detection and analysis of its rows.
+        $script:ListSurveyBlocked = ($null -ne $view -and -not [bool]$viewPlan.SurveyAllowed)
         [void](Set-DomeniaControlText -Name 'LblSearchHint' -Text $searchHint)
         Update-DomeniaSearchScopeUi
         if (-not $PreserveSelection) { Select-DomeniaWorkspace -Workspace 'WsSearch' }
@@ -10192,6 +10392,7 @@ $watch.Stop()
             NoPopup = [bool]$SilentError
             Generation = $generation
             ViewId = [string]$script:ActiveSearchViewId
+            SurveyAllowed = (-not [bool]$script:ListSurveyBlocked)
         }
 
         # D031: the request actually sent by the upper bar is checked against the strict global contract.
@@ -16664,10 +16865,13 @@ function Invoke-AdModuleAction {
 }
 
 function Refresh-SelectedObject {
+    # FI-21: 'Relire l objet depuis AD' drops only the cached reads of this object (by GUID, by DN without GUID)
+    # and rereads its fiche. The list and the other cached objects are left as they are.
     if ($null -eq $script:SelectedObject) { return }
-    $script:VisitCache.Clear()
+    $guid = ''
+    try { $guid = [string]$script:SelectedObject.Safety.Guid } catch { }
+    [void](Clear-DomeniaVisitCacheForObject -Guid $guid -Dn ([string]$script:SelectedObject.DN))
     Open-AdObject -Dn $script:SelectedObject.DN -Type $script:SelectedObject.Type -Force
-    if (-not [string]::IsNullOrWhiteSpace($script:SelectedBranchDn)) { Load-BranchObjects }
 }
 
 function Queue-LiveGlobalSearch {
@@ -19320,10 +19524,10 @@ function Wire-Events {
 
     $script:Ctrl["BtnTreeRefresh"].Add_Click({ Load-TreeRoot -ForceRefresh })
     $script:Ctrl["BtnSearchAllDomain"].Add_Click({ Reset-DomeniaSearchScope })
-    $script:Ctrl["BtnSearchInOu"].Add_Click({ Invoke-DomeniaSearchFilterChanged })
     $script:Ctrl["ChkSubtree"].Add_Checked({ Invoke-DomeniaSearchFilterChanged })
     $script:Ctrl["ChkSubtree"].Add_Unchecked({ Invoke-DomeniaSearchFilterChanged })
-    $script:Ctrl["CmbGlobalType"].Add_SelectionChanged({ Invoke-DomeniaSearchFilterChanged })
+    # PF-14: a change of object type waits 300 ms, so that scrolling through the list sends one request only.
+    $script:Ctrl["CmbGlobalType"].Add_SelectionChanged({ Request-DomeniaSearchFilterChanged -Source Type })
     $script:Ctrl["BtnLoadBranch"].Add_Click({ Load-BranchObjects -Browse })
     $script:Ctrl["BtnClearBranch"].Add_Click({ Clear-DomeniaGlobalSearch })
     $script:Ctrl["BtnGlobalSearch"].Add_Click({
@@ -19758,7 +19962,9 @@ function New-DefaultConfig {
         }
         Streaming = [ordered]@{
             VerifyUserOnSelection = $true
-            RevalidateListedObjects = $true
+            # SE-13: nothing goes to the network without a gesture. An administrator may enable it; the page then
+            # shows 'Liste vérifiée à HH:mm' and a switch to stop it for the session.
+            RevalidateListedObjects = $false
             RevalidateIntervalSeconds = 60
             ReconcileSeconds = 180
             MaxUserProbes = 2
@@ -20901,7 +21107,7 @@ function Get-DomeniaWorkerOperationHashes {
         ParkSharedSync        = "B3A64051813F12A24BD5E791D59CF7E2330FA84E965C9F44BD62366D4A81415E"
         IsolatedRead          = "4074D6ECAA620A9C80A5B6B535BB657E02DCE06A9DF97E35CA1EA47572D1060C"
         CmdletHelp            = "12505D0654AB0E97BD803A70B953BB0BBE2152836AAA1889744C1312EB215D62"
-        TreeChildren          = "64E2C2F8DCE64FBF68A3079937B7671039CA4E71EC00805A7E9195CC9C483141"
+        TreeChildren          = "6B13460FDFD352D329FE2AD973A27DB4DD40083D717A573F0979024E5DFB6539"
         GlobalSearch          = "DFCA576AEC76E948F20D4E51AC47F657C4482BACD992D4A384E8E9FEC65A2819"
         PermissionAnalysis    = "664513B3CF363C35CA895100374950039EAE9B69DD288AD5AE53F862EC10A340"
         SelfCheck             = "C73BA6DA41221073BF1B56DA687BC8CF2A3250B5151F3D996C37EAFAA8E572B3"
@@ -20965,7 +21171,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "7F45EED4CFF092484EE3DCDD359FFA311EFBC6F177B5223F0C87AE3E97C8D86E"
+    $expectedFingerprint = "7BC03CFC4FE0F70063283932EC28F4DCC5BD2C36334AE19EBAA90E53D9B804E8"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
