@@ -20407,7 +20407,7 @@ function Wire-Events {
     # First steps (UX-20): each step opens its screen and starts nothing.
     foreach ($firstStep in @('Ou','Base','Account','Backup')) {
         $firstStepName = 'BtnFirstStep' + $firstStep
-        if ($script:Ctrl.ContainsKey($firstStepName)) { $script:Ctrl[$firstStepName].Tag = $firstStep; $script:Ctrl[$firstStepName].Add_Click({ param($sender,$eventArgs) try { Open-DomeniaFirstStep -Step ([string]$sender.Tag) } catch { Set-Status ('Etape non ouverte : ' + $_.Exception.Message) 'WARN' } }) }
+        if ($script:Ctrl.ContainsKey($firstStepName)) { $script:Ctrl[$firstStepName].Tag = $firstStep; $script:Ctrl[$firstStepName].Add_Click({ param($sender,$eventArgs) try { Open-DomeniaFirstStep -Step ([string]$sender.Tag) } catch { Set-Status ('Étape non ouverte : ' + $_.Exception.Message) 'WARN' } }) }
     }
     # PF-11: the session details are rebuilt when they are opened.
     if ($script:Ctrl.ContainsKey("UxSessionDetails")) { $script:Ctrl["UxSessionDetails"].Add_Expanded({ try { Update-Dashboard -Force } catch { } }) }
