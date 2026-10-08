@@ -46,7 +46,7 @@ $wanted=@('Write-DomeniaAtomicText','Read-DomeniaPreference','Write-DomeniaPrefe
     'Get-DomeniaWorkerOperationHashes','Assert-DomeniaWorkerRegistry','Get-DomeniaWorkerCodeHash','ConvertTo-DomeniaCanonicalWorkerCode','Assert-DomeniaWorkerOperationCode',
     # L02: Domenia.log writer (FI-08, FI-09, FI-10, PF-09) and the common CSV export (CO-04, UX-02).
     'ConvertTo-DomeniaLogFileLines','Get-DomeniaAppLogFallbackPaths','Write-DomeniaAppLogFile','Start-DomeniaAppLogFlushTimer','Stop-DomeniaAppLogQueue',
-    'Invoke-DomeniaAppLogRotation','Flush-DomeniaAppLog','Set-DomeniaAppLogAvailability','Set-Status',
+    'Invoke-DomeniaAppLogRotation','Flush-DomeniaAppLog','Invoke-DomeniaAppLogFlush','Set-DomeniaAppLogAvailability','Set-Status',
     'Get-DomeniaGridExportColumns','ConvertTo-DomeniaExportRows','Get-DomeniaExportFileName','Export-DomeniaCsv','Get-DomeniaCsvDelimiter')
 $definitions=New-Object 'System.Collections.Generic.List[string]'
 $nodes=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst]},$true))
@@ -150,7 +150,7 @@ try {
         Assert-True ($lines[2] -ceq "2026-10-08 10:11:12.345`tERROR`t| à Domenia.Test.Start()") $lines[2]
     }
     Test-Case 'Journal FI-08 : WARN et ERROR de Set-Status ecrits dans Domenia.log' {
-        $script:Window=$null;$script:AppLogQueue=$null;$script:AppLogUnavailable=$false
+        $script:Window=$null;$script:AppLogQueue=$null;$script:AppLogUnavailable=$false;$script:AppLogRetryAt=$null;$script:AppLogLastLine=$null
         $script:AuditPath=Join-Path $testDirectory 'statut-Domenia.log'
         Set-Status 'Releve impossible (test FI-08).' 'WARN'
         Set-Status 'Information seulement (test FI-08).'
@@ -160,10 +160,23 @@ try {
         Assert-True ($journal.Contains("`tERROR`t") -and $journal.Contains('Lecture refusee (test FI-08).')) $journal
         Assert-True (-not $journal.Contains('Information seulement')) 'Un statut INFO est ecrit dans Domenia.log.'
     }
+    Test-Case 'Journal FI-08 : une seule ligne quand Set-Status et Write-AppLog disent la meme phrase' {
+        $script:Window=$null;$script:AppLogQueue=$null;$script:AppLogUnavailable=$false;$script:AppLogRetryAt=$null;$script:AppLogLastLine=$null
+        $script:AuditPath=Join-Path $testDirectory 'doublon-Domenia.log'
+        Set-Status 'Detection du dernier utilisateur de PC-01 : refus (test).' 'ERROR'
+        Write-DomeniaAppLogFile -Text 'Detection du dernier utilisateur de PC-01 : refus (test).' -Level 'ERROR' -Source 'AppLog'
+        Write-DomeniaAppLogFile -Text 'Panne repetee (test).' -Level 'ERROR' -Source 'AppLog'
+        Write-DomeniaAppLogFile -Text 'Panne repetee (test).' -Level 'ERROR' -Source 'AppLog'
+        Set-Status 'Lecture impossible (INC-1A2B).' 'ERROR' -NoFileLog
+        $lines=@([IO.File]::ReadAllLines($script:AuditPath))
+        Assert-True (@($lines|Where-Object{$_.Contains('dernier utilisateur de PC-01')}).Count -eq 1) ($lines -join ' | ')
+        Assert-True (@($lines|Where-Object{$_.Contains('Panne repetee')}).Count -eq 2) 'Deux lignes Write-AppLog identiques fusionnees.'
+        Assert-True (@($lines|Where-Object{$_.Contains('INC-1A2B')}).Count -eq 0) 'Set-Status -NoFileLog ecrit dans Domenia.log.'
+    }
     Test-Case 'Journal FI-10 : repli LOCALAPPDATA puis TEMP, puis retour sur Domenia.log' {
         $saved=@{Local=$env:LOCALAPPDATA;Temp=$env:TEMP;Tmp=$env:TMP;Audit=$script:AuditPath}
         try {
-            $script:Window=$null;$script:AppLogQueue=$null;$script:AppLogUnavailable=$false
+            $script:Window=$null;$script:AppLogQueue=$null;$script:AppLogUnavailable=$false;$script:AppLogRetryAt=$null;$script:AppLogLastLine=$null
             $blocker=Join-Path $testDirectory 'bloque';[IO.File]::WriteAllText($blocker,'x')
             $script:AuditPath=Join-Path $blocker 'Domenia.log'
             $env:LOCALAPPDATA=Join-Path $testDirectory 'profil-local'
@@ -185,22 +198,58 @@ try {
             $script:AppLogUnavailable=$false;$script:AppLogFallbackPath=''
         }
     }
-    Test-Case 'Journal PF-09 : file en memoire videe a la fermeture' {
+    Test-Case 'Journal FI-10 : aucun emplacement inscriptible, lignes gardees en file et pertes comptees' {
+        $saved=@{Local=$env:LOCALAPPDATA;Temp=$env:TEMP;Tmp=$env:TMP;Audit=$script:AuditPath}
+        try {
+            $script:Window=$null;$script:AppLogQueue=$null;$script:AppLogUnavailable=$false;$script:AppLogRetryAt=$null;$script:AppLogLastLine=$null;$script:AppLogDropped=0
+            $blocker=Join-Path $testDirectory 'bloque-tout';[IO.File]::WriteAllText($blocker,'x')
+            $script:AuditPath=Join-Path $blocker 'Domenia.log'
+            $env:LOCALAPPDATA=Join-Path $blocker 'profil';$env:TEMP=Join-Path $blocker 'temp';$env:TMP=$env:TEMP
+            Write-DomeniaAppLogFile -Text 'Ligne sans emplacement (test).' -Level 'ERROR'
+            Assert-True ($script:AppLogQueue.Count -eq 1 -and [bool]$script:AppLogUnavailable -and (-not [string]$script:AppLogFallbackPath)) ('File : '+$script:AppLogQueue.Count)
+            Assert-True (($null -ne $script:AppLogRetryAt) -and ([int]$script:AppLogDropped -eq 0)) 'Ligne perdue au premier refus.'
+            # Bounded queue: the oldest lines leave first and are counted.
+            $script:AppLogQueue.AddRange([string[]]@(1..5010|ForEach-Object{'ligne en attente '+$_}))
+            Write-DomeniaAppLogFile -Text 'Ligne la plus recente (test).' -Level 'WARN'
+            Assert-True (($script:AppLogQueue.Count -eq 5000) -and ([int]$script:AppLogDropped -eq 12)) ('File '+$script:AppLogQueue.Count+', perdues '+$script:AppLogDropped)
+            $script:AuditPath=Join-Path $testDirectory 'retour-total-Domenia.log'
+            Flush-DomeniaAppLog -Force
+            $back=[IO.File]::ReadAllText($script:AuditPath)
+            Assert-True ($back.Contains('12 ligne(s) de journal perdue(s)') -and $back.Contains('Ligne la plus recente (test).') -and ($script:AppLogQueue.Count -eq 0) -and ([int]$script:AppLogDropped -eq 0)) 'Lignes ou compte des pertes absents apres retour.'
+        } finally {
+            $env:LOCALAPPDATA=$saved.Local;$env:TEMP=$saved.Temp;$env:TMP=$saved.Tmp;$script:AuditPath=$saved.Audit
+            $script:AppLogUnavailable=$false;$script:AppLogFallbackPath='';$script:AppLogRetryAt=$null;$script:AppLogDropped=0;$script:AppLogQueue=$null
+        }
+    }
+    Test-Case 'Journal PF-09 : file videe toutes les 500 ms et a la fermeture de la fenetre' {
         Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
         $script:AppLogQueue=$null;$script:AppLogUnavailable=$false;$script:AppLogFlushTimer=$null;$script:AppLogFlushWindow=$null;$script:AppLogQueueClosed=$false
+        $script:AppLogRetryAt=$null;$script:AppLogLastLine=$null
         $script:AuditPath=Join-Path $testDirectory 'file-Domenia.log'
         $script:Window=[Windows.Window]::new()
         try {
             Write-DomeniaAppLogFile -Text 'Ligne en file (test PF-09).' -Level 'INFO'
             Assert-True ($null -ne $script:AppLogFlushTimer -and $script:AppLogQueue.Count -ge 1) 'La ligne n est pas passee par la file.'
             Assert-True (-not [IO.File]::Exists($script:AuditPath)) 'Ecriture disque immediate sur le fil de l interface.'
-            Stop-DomeniaAppLogQueue
-            Assert-True ([IO.File]::ReadAllText($script:AuditPath).Contains('Ligne en file (test PF-09).')) 'File non videe a la fermeture.'
+            # Periodic flush: the Dispatcher runs for 700 ms, the 500 ms timer writes the queue.
+            $frame=[Windows.Threading.DispatcherFrame]::new()
+            $stop=[Windows.Threading.DispatcherTimer]::new();$stop.Interval=[TimeSpan]::FromMilliseconds(700)
+            $handler=[EventHandler]({$frame.Continue=$false}.GetNewClosure())
+            $stop.Add_Tick($handler)
+            try{$stop.Start();[Windows.Threading.Dispatcher]::PushFrame($frame)}finally{$stop.Stop();$stop.Remove_Tick($handler)}
+            Assert-True ([IO.File]::Exists($script:AuditPath) -and [IO.File]::ReadAllText($script:AuditPath).Contains('Ligne en file (test PF-09).')) 'File non videe par le minuteur de 500 ms.'
+            Assert-True ($script:AppLogQueue.Count -eq 0) ('Lignes restees en file : '+$script:AppLogQueue.Count)
+            # Closed hook: the window closes before the next tick, its queued line is written.
+            Write-DomeniaAppLogFile -Text 'Ligne avant fermeture (test PF-09).' -Level 'INFO'
+            Assert-True (-not [IO.File]::ReadAllText($script:AuditPath).Contains('Ligne avant fermeture')) 'Ecriture immediate avant la fermeture.'
+            $script:Window.Close()
+            Assert-True ([IO.File]::ReadAllText($script:AuditPath).Contains('Ligne avant fermeture (test PF-09).')) 'File non videe par la fermeture de la fenetre.'
+            Assert-True ([bool]$script:AppLogQueueClosed -and ($null -eq $script:AppLogFlushTimer)) 'Minuteur du journal actif apres fermeture.'
             Write-DomeniaAppLogFile -Text 'Ligne apres fermeture.' -Level 'INFO'
             Assert-True ([IO.File]::ReadAllText($script:AuditPath).Contains('Ligne apres fermeture.')) 'Ligne perdue apres fermeture.'
         } finally {
             if($null -ne $script:AppLogFlushTimer){$script:AppLogFlushTimer.Stop()}
-            $script:AppLogFlushTimer=$null;$script:Window.Close();$script:Window=$null;$script:AppLogQueueClosed=$false;$script:AppLogFlushWindow=$null
+            $script:AppLogFlushTimer=$null;try{$script:Window.Close()}catch{};$script:Window=$null;$script:AppLogQueueClosed=$false;$script:AppLogFlushWindow=$null
         }
     }
     Test-Case 'CSV CO-04 : separateur point-virgule, BOM, colonnes visibles et en-tetes francais' {
@@ -211,20 +260,26 @@ try {
             if(-not $spec[2]){$col.Visibility='Collapsed'};[void]$grid.Columns.Add($col)
         }
         $template=[Windows.Controls.DataGridTemplateColumn]::new();$template.Header='Présence réseau';$template.SortMemberPath='Presence';[void]$grid.Columns.Add($template)
+        # A template column without sort path (Détail of DgSelfCheck): its binding is read from the cell template.
+        $cell=[Windows.Markup.XamlReader]::Parse('<DataTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"><StackPanel Orientation="Horizontal"><TextBlock Text="{Binding Detail}"/></StackPanel></DataTemplate>')
+        $detail=[Windows.Controls.DataGridTemplateColumn]::new();$detail.Header='Détail';$detail.CellTemplate=$cell;[void]$grid.Columns.Add($detail)
         $columns=@(Get-DomeniaGridExportColumns -Grid $grid)
-        Assert-True ((($columns|ForEach-Object{$_.Header}) -join '|') -ceq 'Nom|Type|Présence réseau') ('Colonnes : '+(($columns|ForEach-Object{$_.Header}) -join '|'))
-        $rows=@([pscustomobject]@{Name='=2+2';Type='Machine';Guid='0a1b';Presence='En ligne';PresenceDetail="Multi`r`nligne"},[pscustomobject]@{Name='PC-02';Type='Machine';Guid='0c1d';Presence='Hors ligne';PresenceDetail=''})
+        Assert-True ((($columns|ForEach-Object{$_.Header}) -join '|') -ceq 'Nom|Type|Présence réseau|Détail') ('Colonnes : '+(($columns|ForEach-Object{$_.Header}) -join '|'))
+        Assert-True ([string]$columns[3].Property -ceq 'Detail') ('Propriete du modele : '+[string]$columns[3].Property)
+        $rows=@([pscustomobject]@{Name='=2+2';Type='Machine';Guid='0a1b';Presence='En ligne';PresenceDetail="Multi`r`nligne";Detail='Contrôle réussi'},[pscustomobject]@{Name='PC-02';Type='Machine';Guid='0c1d';Presence='Hors ligne';PresenceDetail='';Detail='À vérifier'})
         $out=Join-Path $testDirectory 'export-co04.csv'
         $result=Export-DomeniaCsv -Rows $rows -Grid $grid -Path $out
         $bytes=[IO.File]::ReadAllBytes($out)
         Assert-True (($bytes[0] -eq 0xEF) -and ($bytes[1] -eq 0xBB) -and ($bytes[2] -eq 0xBF)) 'UTF-8 sans BOM.'
         $text=[IO.File]::ReadAllText($out)
         $first=($text -split "\r?\n")[0]
-        Assert-True ($first -ceq '"Nom";"Type";"Présence réseau"') ('En-tete : '+$first)
+        Assert-True ($first -ceq '"Nom";"Type";"Présence réseau";"Détail"') ('En-tete : '+$first)
         Assert-True ((-not $text.Contains('0a1b')) -and (-not $text.Contains('Multi'))) 'Colonne masquee ou propriete interne exportee.'
         Assert-True ($text.Contains("""'=2+2""") -and ($result.RowCount -eq 2)) $text
         $round=@(Import-Csv -LiteralPath $out -Delimiter ';' -Encoding UTF8)
         Assert-True (($round.Count -eq 2) -and ($round[1].Nom -ceq 'PC-02')) 'Relecture point-virgule impossible.'
+        Assert-True (($round[0].'Présence réseau' -ceq 'En ligne') -and ($round[1].'Présence réseau' -ceq 'Hors ligne')) 'Valeurs de la colonne modele absentes.'
+        Assert-True (($round[0].'Détail' -ceq 'Contrôle réussi') -and ($round[1].'Détail' -ceq 'À vérifier')) 'Valeurs de la colonne sans chemin de tri absentes.'
     }
     Test-Case 'CSV UX-02 : nom Domenia-<OU ou poste>-AAAAMMJJ-HHmm, jamais d ecrasement' {
         $name=Get-DomeniaExportFileName -Subject 'Postes / Paris' -Time ([datetime]'2026-10-08T14:30:59')

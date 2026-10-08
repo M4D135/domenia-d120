@@ -52,7 +52,8 @@ try {
     }
     # L02: incident code, error signature, dispatcher handler, engine fault and fatal report of the shipped core.
     foreach($name in @('Protect-DomeniaLogText','New-DomeniaIncidentCode','Get-DomeniaErrorSignature','Register-DomeniaErrorOccurrence','Invoke-DomeniaDispatcherFault',
-        'Register-DomeniaAsyncEngineFault','Get-DomeniaFatalMessage','Test-DomeniaMainHostAvailable','Assert-DomeniaWorkerRegistry','Get-DomeniaWorkerEngineSelfTestCode','Initialize-AsyncEngine')){
+        'Register-DomeniaAsyncEngineFault','Get-DomeniaFatalMessage','Test-DomeniaMainHostAvailable','Assert-DomeniaWorkerRegistry','Get-DomeniaWorkerEngineSelfTestCode','Initialize-AsyncEngine',
+        'Test-DomeniaOperatorMessage','Test-DomeniaInternalFault','Register-DomeniaSessionShownHook')){
         . ([scriptblock]::Create((Get-FunctionAst $script:CoreAst $name).Extent.Text))
     }
     $assignment=@($script:CoreAst.FindAll({param($n)$n -is [Management.Automation.Language.AssignmentStatementAst] -and $n.Left.Extent.Text -eq '$script:WorkerCommon' -and $n.Operator -eq [Management.Automation.Language.TokenKind]::Equals},$true))
@@ -444,33 +445,68 @@ try {
             Remove-Item -Path function:script:Complete-UiTasks -ErrorAction SilentlyContinue
         }
     }
-    Test-Case 'FI-07 : code incident identique a l ecran, au statut et dans Domenia.log' {
+    Test-Case 'FI-07 : code incident identique a l ecran, au journal lisible, au Support et sur une seule ligne de Domenia.log' {
         Reset-FaultFixture
         $script:DomeniaErrorOccurrences=$null;$script:CurrentUiProfile='Tech'
-        foreach($name in @('Show-DomeniaOperationError','Write-AppLog','ConvertTo-DomeniaLogFileLines','Get-DomeniaAppLogFallbackPaths','Write-DomeniaAppLogFile','Start-DomeniaAppLogFlushTimer',
-            'Stop-DomeniaAppLogQueue','Invoke-DomeniaAppLogRotation','Flush-DomeniaAppLog','Set-DomeniaAppLogAvailability')){
+        # Real chain: Show-DomeniaOperationError, Set-Status, Write-AppLog, Add-DomeniaUiLog, readable journal and
+        # Domenia.log writer; the Support collector is observed at its input (Add-DomeniaSupportIncidentFromLog).
+        foreach($name in @('Show-DomeniaOperationError','Set-Status','Add-DomeniaUiLog','Write-AppLog','ConvertTo-DomeniaLogFileLines','Get-DomeniaAppLogFallbackPaths','Write-DomeniaAppLogFile',
+            'Start-DomeniaAppLogFlushTimer','Stop-DomeniaAppLogQueue','Invoke-DomeniaAppLogRotation','Flush-DomeniaAppLog','Invoke-DomeniaAppLogFlush','Set-DomeniaAppLogAvailability')){
             . ([scriptblock]::Create((Get-FunctionAst $script:CoreAst $name).Extent.Text))
         }
         function Initialize-DomeniaDataStore {}
-        $script:AuditPath=Join-Path $temp 'incident-Domenia.log';$script:AppLogQueue=$null;$script:AppLogUnavailable=$false
+        $support=[Collections.Generic.List[object]]::new()
+        function Add-DomeniaSupportIncidentFromLog {param($Text,$Level,$Area) $support.Add([pscustomobject]@{Text=[string]$Text;Level=[string]$Level;Area=[string]$Area})}
+        $script:Window=$null;$script:UiLogLines=$null;$script:UiLogReadableItems=$null;$script:UiLogVisuallyCollapsed=$true;$script:UiLogUnreadErrors=0
+        $script:AuditPath=Join-Path $temp 'incident-Domenia.log';$script:AppLogQueue=$null;$script:AppLogUnavailable=$false;$script:AppLogRetryAt=$null;$script:AppLogLastLine=$null
         $info=Show-DomeniaOperationError -Operation 'Lecture de test' -ErrorRecordOrException ([TimeoutException]::new('Delai de test depasse.'))
         $code=[string]$info.IncidentCode
         Assert-True ($code -match '^INC-[0-9A-F]{4}$') ('Code : '+$code)
         Assert-True (@($script:Dialogs|Where-Object{$_.Contains('Code incident : '+$code)}).Count -eq 1) ('Ecran : '+($script:Dialogs -join ' | '))
-        Assert-True (@($script:StatusLog|Where-Object{$_.Contains('('+$code+')')}).Count -eq 1) 'Code absent du statut (incident Support).'
-        $journal=[IO.File]::ReadAllText($script:AuditPath)
-        Assert-True ($journal.Contains('['+$code+'] Lecture de test')) ('Domenia.log : '+$journal)
+        $readable=@($script:UiLogReadableItems)
+        Assert-True (($readable.Count -eq 1) -and $readable[0].Text.Contains('('+$code+')') -and ($readable[0].Level -eq 'ERROR') -and ([int]$script:UiLogUnreadErrors -eq 1)) ('Journal lisible : '+(@($readable|ForEach-Object{$_.Text}) -join ' | '))
+        Assert-True (-not $readable[0].Text.Contains('TimeoutException')) 'Texte technique dans le journal lisible.'
+        Assert-True (@($support|Where-Object{($_.Level -eq 'ERROR') -and $_.Text.Contains($code)}).Count -ge 1) ('Support : '+(@($support|ForEach-Object{$_.Area+' '+$_.Text}) -join ' | '))
+        $lines=@([IO.File]::ReadAllLines($script:AuditPath)|Where-Object{$_.Contains($code)})
+        Assert-True (($lines.Count -eq 1) -and $lines[0].Contains('['+$code+'] Lecture de test')) ('Domenia.log : '+($lines -join ' | '))
+    }
+    Test-Case 'UI-02 : faute interne sans texte .NET a l ecran, message Domenia et refus systeme conserves' {
+        $nullFault=try{$o=$null;$o.Methode()}catch{$_}
+        $internal=ConvertTo-DomeniaErrorInfo -ErrorRecordOrException $nullFault -Operation 'Lecture de test'
+        Assert-True ([bool]$internal.Internal -and $internal.Friendly.Contains('erreur interne de Domenia') -and (-not $internal.Friendly.Contains('Methode'))) $internal.Friendly
+        $own=try{throw 'Choisissez dʼabord une OU.'}catch{$_}
+        Assert-True (Test-DomeniaOperatorMessage $own) 'Message leve par Domenia non reconnu.'
+        Assert-True ((ConvertTo-DomeniaErrorInfo -ErrorRecordOrException $own -Operation 'Lecture de test').Friendly.Contains('Choisissez dʼabord une OU.')) 'Message Domenia masque.'
+        $io=ConvertTo-DomeniaErrorInfo -ErrorRecordOrException ([IO.IOException]::new('Le fichier est utilise par un autre processus.')) -Operation 'Export'
+        Assert-True ((-not [bool]$io.Internal) -and $io.Friendly.Contains('utilise par un autre processus')) $io.Friendly
+        Assert-True ((Test-DomeniaInternalFault ([NullReferenceException]::new('x'))) -and (-not (Test-DomeniaOperatorMessage ([IO.IOException]::new('x'))))) 'Classement des fautes incoherent.'
     }
     Test-Case 'FI-22 : erreur apres affichage annoncee comme arret inattendu, avant comme initialisation' {
         $after=Get-DomeniaFatalMessage -SessionShown $true -Summary 'Object reference not set to an instance of an object.' -Code 'INC-1A2B' -AppLog 'C:\Domenia\Logs\Domenia.log' -StartupLog 'C:\Domenia\Logs\Domenia-startup.log'
         Assert-True ($after.Contains('sʼest arrêté de façon inattendue') -and $after.Contains('INC-1A2B') -and $after.Contains('Domenia.log') -and $after.Contains('Domenia-startup.log')) $after
         Assert-True (-not $after.Contains('Object reference')) 'Message .NET brut affiche hors Expert.'
-        Assert-True ((Get-DomeniaFatalMessage -SessionShown $true -Summary 'Object reference' -Code 'INC-1A2B' -Expert $true).Contains('Object reference')) 'Detail Expert absent.'
-        $before=Get-DomeniaFatalMessage -SessionShown $false -Summary 'Stockage non inscriptible.' -Code 'INC-3C4D'
-        Assert-True ($before.Contains('nʼa pas pu terminer son initialisation') -and $before.Contains('Stockage non inscriptible.') -and $before.Contains('conservez ce message')) $before
-        $text=$script:CoreAst.Extent.Text
-        $shown=$text.IndexOf('$script:DomeniaSessionShown = $true');$dialog=$text.IndexOf('$null = $script:Window.ShowDialog()')
-        Assert-True ($shown -gt 0 -and $dialog -gt $shown -and $text.IndexOf('Get-DomeniaFatalMessage -SessionShown $sessionShown') -gt $dialog) 'Distinction avant/apres affichage absente du bloc principal.'
+        Assert-True ((Get-DomeniaFatalMessage -SessionShown $true -Summary 'Object reference' -Code 'INC-1A2B' -AppLog 'C:\x.log' -Expert $true).Contains('Object reference')) 'Detail Expert absent.'
+        # Before display: a raw .NET message stays in the journals outside Expert; a Domenia message is shown.
+        $raw=Get-DomeniaFatalMessage -SessionShown $false -Summary 'Cannot find type [X].' -Code 'INC-3C4D' -StartupLog 'C:\Domenia\Logs\Domenia-startup.log'
+        Assert-True ($raw.Contains('nʼa pas pu terminer son initialisation') -and (-not $raw.Contains('Cannot find type')) -and $raw.Contains('INC-3C4D') -and $raw.Contains('Domenia-startup.log')) $raw
+        $own=Get-DomeniaFatalMessage -SessionShown $false -Summary 'Stockage non inscriptible.' -Code 'INC-3C4D' -StartupLog 'C:\Domenia\Logs\Domenia-startup.log' -SummaryForOperator $true
+        Assert-True ($own.Contains('Stockage non inscriptible.')) $own
+        $none=Get-DomeniaFatalMessage -SessionShown $false -Summary 'Cannot find type [X].' -Code 'INC-3C4D'
+        Assert-True ($none.Contains('Cannot find type') -and $none.Contains('conservez ce message')) 'Sans journal, le detail doit rester a l ecran.'
+        # The session counts as shown only once the main window has rendered (ContentRendered), never before.
+        $w=[Windows.Window]::new()
+        try {
+            $script:DomeniaSessionShown=$true
+            Register-DomeniaSessionShownHook -Window $w
+            Assert-True (-not [bool]$script:DomeniaSessionShown) 'Session annoncee affichee avant le rendu.'
+            $raise=[Windows.Window].GetMethod('OnContentRendered',[Reflection.BindingFlags]'NonPublic,Instance')
+            [void]$raise.Invoke($w,@([EventArgs]::Empty))
+            Assert-True ([bool]$script:DomeniaSessionShown) 'Rendu de la fenetre sans bascule en arret inattendu.'
+        } finally { $w.Close();$script:DomeniaSessionShown=$false }
+        $text=$script:CoreAst.Extent.Text;$text=$text.Substring($text.IndexOf('# Main autoritaire'))
+        $hook=$text.IndexOf('Register-DomeniaSessionShownHook -Window $script:Window');$dialog=$text.IndexOf('$null = $script:Window.ShowDialog()')
+        Assert-True ($hook -gt 0 -and $dialog -gt $hook) 'Crochet de rendu absent avant ShowDialog dans le bloc principal.'
+        Assert-True ($text.Substring(0,$dialog).IndexOf('$script:DomeniaSessionShown = $true') -lt 0) 'Bascule posee avant ShowDialog dans le bloc principal.'
     }
     Test-Case 'Resultat d ecriture sans verification positive : jamais annonce reussi' {
         Reset-FaultFixture

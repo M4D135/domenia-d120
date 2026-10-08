@@ -2430,14 +2430,14 @@
   {
     "Name": "ChkUiLogFollow",
     "Title": "Suivre",
-    "Text": "Desactiver pour lire le journal sans defilement automatique.",
+    "Text": "Désactivez pour lire le journal sans défilement automatique.",
     "Kind": "CheckBox",
     "Source": "existing-help"
   },
   {
     "Name": "BtnRuntimeHealth",
     "Title": "État du moteur",
-    "Text": "Memoire, workers actifs, annulations et cache utilise. Aucune sonde reseau.",
+    "Text": "Mémoire, workers actifs, annulations et cache utilisé. Aucune sonde réseau.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -2451,7 +2451,7 @@
   {
     "Name": "BtnClearUiLog",
     "Title": "Effacer",
-    "Text": "Efface seulement le journal affiche.",
+    "Text": "Efface seulement le journal affiché.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -2465,7 +2465,7 @@
   {
     "Name": "TxtUiLog",
     "Title": "Journal de session",
-    "Text": "Événements et erreurs de la session. Désactivez Suivre pour lire sans défilement automatique. Copier n’anonymise pas les noms internes.",
+    "Text": "Événements et erreurs de la session. Désactivez Suivre pour lire sans défilement automatique. Copier masque les noms internes si Masquer les noms est coché.",
     "Kind": "TextBox",
     "Source": "specific"
   },

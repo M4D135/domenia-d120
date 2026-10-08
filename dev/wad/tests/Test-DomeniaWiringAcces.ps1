@@ -61,7 +61,7 @@ $coreNames=@('Protect-DomeniaLogText','ConvertTo-DomeniaErrorInfo','Show-Domenia
     # L02: incident code of Show-DomeniaOperationError and queued Domenia.log writer of Write-AppLog.
     'New-DomeniaIncidentCode','Get-DomeniaErrorSignature','Register-DomeniaErrorOccurrence',
     'ConvertTo-DomeniaLogFileLines','Get-DomeniaAppLogFallbackPaths','Write-DomeniaAppLogFile','Start-DomeniaAppLogFlushTimer','Stop-DomeniaAppLogQueue',
-    'Invoke-DomeniaAppLogRotation','Flush-DomeniaAppLog','Set-DomeniaAppLogAvailability')
+    'Invoke-DomeniaAppLogRotation','Flush-DomeniaAppLog','Invoke-DomeniaAppLogFlush','Set-DomeniaAppLogAvailability','Test-DomeniaInternalFault','Test-DomeniaOperatorMessage')
 foreach($name in $coreNames){. ([scriptblock]::Create((Get-CoreFunctionText $name)))}
 $script:RealAssertWorker=${function:Assert-DomeniaWorkerOperationCode}
 $script:RealShowAlternate=${function:Show-DomeniaAlternateCredential}

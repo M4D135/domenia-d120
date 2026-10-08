@@ -12,7 +12,8 @@ function Check-Suite {param([string]$Name,[scriptblock]$Code)
 # Dot-sourcing definitions in script scope avoids executing application startup.
 foreach($source in @(
     @{File=(Join-Path $wad 'Domenia-Core.ps1');Names=@('Get-DomeniaDefaultSettings','Load-DomeniaSettings','Save-DomeniaSettings','Get-DomeniaBootThemePalette')},
-    @{File=(Join-Path $wad 'modules\Domenia-Experience.UI.ps1');Names=@('Get-DomeniaExperienceExportRows','Stop-DomeniaExperienceSelectedRead','ConvertTo-DomeniaExperienceLogEntry','ConvertTo-DomeniaMaskedLogText')}
+    @{File=(Join-Path $wad 'modules\Domenia-Experience.UI.ps1');Names=@('Get-DomeniaExperienceExportRows','Stop-DomeniaExperienceSelectedRead','ConvertTo-DomeniaExperienceLogEntry','ConvertTo-DomeniaMaskedLogText',
+        'Add-DomeniaExperienceLogEntry','Update-DomeniaExperienceLogBadge')}
 )){
     $tokens=$null;$errors=$null;$ast=[Management.Automation.Language.Parser]::ParseFile($source.File,[ref]$tokens,[ref]$errors)
     if(@($errors).Count){throw $errors[0].Message}
@@ -102,6 +103,29 @@ Check-Suite 'Copie masquee : chemins AD, comptes, DNS, adresses et noms connus' 
     (-not ($m -match 'PARIS|alex|dc01|10\.77|LYON')) -and $m.Contains('[chemin AD]') -and $m.Contains('[compte]') -and $m.Contains('[adresse IP]') -and $m.Contains('[nom]')
 }
 Check-Suite 'Copie masquee : texte ordinaire conserve' {(ConvertTo-DomeniaMaskedLogText -Text 'Recherche terminee : 48 resultat(s) en 1.2 s.') -eq 'Recherche terminee : 48 resultat(s) en 1.2 s.'}
+# L02 review: a local path, a version, a script name and a .NET type name stay readable for the support.
+Check-Suite 'Copie masquee : chemins locaux, versions et noms .NET conserves' {
+    $text='Journal : C:\Domenia\Logs\Domenia.log ; partage \\srv01\Domenia\Exports ; Domenia 1.0 RC1.13.0 ; System.Management.Automation.RuntimeException ; Domenia-Experience.UI.ps1'
+    (ConvertTo-DomeniaMaskedLogText -Text $text) -ceq $text
+}
+Check-Suite 'Copie masquee : hote UNC et nom DNS en fin de phrase masques' {
+    $m=ConvertTo-DomeniaMaskedLogText -Text 'Lecture de \\dc01.cnamts.local\SYSVOL puis de srv02.cnamts.local.'
+    (-not ($m -match 'dc01|srv02')) -and $m.Contains('\\[nom]\SYSVOL') -and $m.EndsWith('[nom].')
+}
+# L02 review (UX-01): WARN and ERROR written only by Write-AppLog stay readable and keep the red pill; its INFO
+# lines and the technical twins of a sentence already shown (area Technique) stay out of the readable view.
+function Get-DomeniaControl {param($Name) if($Name -eq 'DgSuiteActivity'){return $script:GridFixture};return $null}
+Check-Suite 'Journal lisible : WARN et ERROR de Write-AppLog visibles et comptes' {
+    $script:Window=$null;$script:UiLogReadableItems=$null;$script:UiLogVisuallyCollapsed=$true;$script:UiLogUnreadErrors=0;$script:UiLogMaxLines=2500
+    $t=Get-Date
+    Add-DomeniaExperienceLogEntry -Time $t -Level 'INFO' -Area 'Journal' -Text 'Pret. Base=DC=example,DC=invalid'
+    Add-DomeniaExperienceLogEntry -Time $t -Level 'ERROR' -Area 'Journal' -Text 'Clic Recherche : panne (test).'
+    Add-DomeniaExperienceLogEntry -Time $t -Level 'WARN' -Area 'Journal' -Text 'Lecture des liens impossible (test).'
+    Add-DomeniaExperienceLogEntry -Time $t -Level 'ERROR' -Area 'Technique' -Text '[INC-1A2B] Lecture [Unexpected] : System.Exception: detail'
+    Add-DomeniaExperienceLogEntry -Time $t -Level 'ERROR' -Area 'Statut' -Text 'Lecture impossible (INC-1A2B).'
+    $texts=@($script:UiLogReadableItems|ForEach-Object{[string]$_.Text})
+    ($texts.Count -eq 3) -and ($texts[0] -ceq 'Clic Recherche : panne (test).') -and ($texts[1] -ceq 'Lecture des liens impossible (test).') -and ([int]$script:UiLogUnreadErrors -eq 2) -and (-not ($texts -join ' ').Contains('System.Exception'))
+}
 function New-JobFixture {
     [pscustomobject]@{Id='job1';Name='Lecture exemple';OperationId='ExampleRead';IsWrite=$false;NonCancellable=$false;CancelRequested=$false;SessionEpoch=3;Started=[datetime]'2026-09-30T10:00:00';TimeoutNotified=$false;TimeoutErrorDelivered=$false;CallbackState=[pscustomobject]@{Password='SECRET_CALLBACK'}}
 }

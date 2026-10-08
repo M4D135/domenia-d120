@@ -90,12 +90,12 @@
       "Chain": "wad\\Domenia-Core.ps1:18824 $script:Ctrl[\"BtnSelfCheckExport\"].Add_Click > Export-SelfCheckReport"
     },
     {
-      "Function": "Flush-DomeniaAppLog",
+      "Function": "Invoke-DomeniaAppLogFlush",
       "Pattern": ".AppendAllText",
       "Status": "Justifie",
       "Owner": "interface",
-      "Reason": "PF-09 (lot L02) : Domenia.log ecrit par lot depuis une file en memoire, toutes les 500 ms a la priorite Background et a la fermeture, au lieu d un ajout disque par ligne ; ecriture immediate seulement avant la fenetre principale.",
-      "Chain": "wad\\Domenia-Core.ps1 $copy.Add_Click > Set-Status > Write-DomeniaAppLogFile > Flush-DomeniaAppLog"
+      "Reason": "PF-09 (lot L02) : Domenia.log ecrit par lot depuis une file en memoire, toutes les 500 ms a la priorite Background et a la fermeture, au lieu d un ajout disque par ligne ; ecriture immediate seulement avant la fenetre principale ; apres un refus total, nouvel essai 10 s plus tard. Ecriture hors du fil de l interface : renvoyee a L05 (cle de dette fonction, appel bloquant).",
+      "Chain": "wad\\Domenia-Core.ps1 $copy.Add_Click > Set-Status > Write-DomeniaAppLogFile > Flush-DomeniaAppLog > Invoke-DomeniaAppLogFlush"
     },
     {
       "Function": "Get-DomeniaDatabasePath",

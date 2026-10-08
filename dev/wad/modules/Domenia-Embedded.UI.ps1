@@ -247,15 +247,12 @@ function Show-DomeniaBanner {
     if(-not $Key){$Key=if($plan.Code){$plan.Code}else{$Kind+'|'+([string]$Message).Trim()}}
     foreach($open in @($script:DomeniaBanners)){
         if((-not [bool]$open.Closed) -and ([string]$open.Key -ceq $Key)){
-            # FI-02: the same incident updates its counter instead of stacking one more banner.
-            $open.Occurrences=[int]$open.Occurrences+1
-            $open.Counter.Text=$(if($Kind -in @('Error','Warning')){'même erreur ×'}else{'même message ×'})+[string]$open.Occurrences
-            $open.Counter.Visibility='Visible'
-            if($null -ne $open.Timer){$open.Timer.Stop();$open.Timer.Start()}
+            # FI-02: the same incident updates its banner (counter, time, latest detail) instead of stacking one more.
+            Update-DomeniaBannerOccurrence -Record $open -Plan $plan -Message $Message
             return $true
         }
     }
-    $record=[pscustomobject]@{Key=$Key;Kind=$Kind;Message=([string]$Message).Trim();Details=[string]$Details;Code=$plan.Code;Occurrences=1;At=(Get-Date);ActionPath=$ActionPath;Closed=$false;Pinned=$false;Border=$null;Counter=$null;DetailBox=$null;DetailButton=$null;Timer=$null;Panel=$hostPanel}
+    $record=[pscustomobject]@{Key=$Key;Kind=$Kind;Message=([string]$Message).Trim();Details=[string]$Details;Code=$plan.Code;Occurrences=1;At=(Get-Date);ActionPath=$ActionPath;Closed=$false;Pinned=$false;Border=$null;Counter=$null;DetailBox=$null;DetailButton=$null;Actions=$null;Stack=$null;Timer=$null;Panel=$hostPanel}
     $border=[Windows.Controls.Border]::new();$border.CornerRadius='12';$border.BorderThickness=[Windows.Thickness]::new(4,1,1,1);$border.Padding='12,10,8,10';$border.Margin='0,0,0,8';$border.MinWidth=380.0
     $accent=switch($Kind){'Error'{'DangerColor'}'Warning'{'StatusWarning'}'Success'{'StatusSuccess'}default{'AccentColor'}}
     $border.SetResourceReference([Windows.Controls.Border]::BackgroundProperty,'BgCard')
@@ -296,6 +293,7 @@ function Show-DomeniaBanner {
         [void]$actions.Children.Add($record.DetailButton)
     }
     if($ActionText -and $ActionPath){[void]$actions.Children.Add((New-DomeniaBannerButton -Text $ActionText -Command 'Folder' -Record $record -Help ('Ouvre lʼExplorateur sur '+$ActionPath)))}
+    $record.Actions=$actions;$record.Stack=$stack
     if($actions.Children.Count){[void]$stack.Children.Add($actions)}
     [void]$grid.Children.Add($stack)
     $close=New-DomeniaBannerButton -Text ([string][char]0x00D7) -Command 'Close' -Record $record -Help 'Ferme ce message. Il reste dans le journal de session.'
@@ -315,6 +313,33 @@ function Show-DomeniaBanner {
         $timer.Start()
     }
     return $true
+}
+function Update-DomeniaBannerOccurrence {
+    # FI-02: a repeated message keeps one banner. Errors and warnings count their occurrences; an information
+    # (« État du moteur ») shows its refresh time. The latest detail replaces the first one, for the support copy too.
+    param($Record,$Plan,[AllowEmptyString()][string]$Message='')
+    $Record.Occurrences=[int]$Record.Occurrences+1
+    $Record.At=Get-Date
+    $Record.Message=([string]$Message).Trim()
+    $Record.Details=[string]$Plan.Details
+    if($null -ne $Record.DetailBox){$Record.DetailBox.Text=[string]$Plan.Details}
+    if($Plan.Details -and ($null -eq $Record.DetailButton) -and ($null -ne $Record.Actions)){
+        $Record.DetailButton=New-DomeniaBannerButton -Text 'Voir le détail' -Command 'Detail' -Record $Record -Help 'Affiche ou masque le détail de ce message.'
+        [void]$Record.Actions.Children.Add($Record.DetailButton)
+        if(($null -ne $Record.Stack) -and (-not $Record.Stack.Children.Contains($Record.Actions))){[void]$Record.Stack.Children.Add($Record.Actions)}
+    }
+    if($null -ne $Record.DetailButton){$Record.DetailButton.Visibility=if($Plan.Details){'Visible'}else{'Collapsed'}}
+    if((-not $Plan.Details) -and ($null -ne $Record.DetailBox)){$Record.DetailBox.Visibility='Collapsed'}
+    $Record.Counter.Text=switch([string]$Record.Kind){
+        'Error'{'même erreur ×'+[string]$Record.Occurrences}
+        'Warning'{'même avertissement ×'+[string]$Record.Occurrences}
+        default{'Mis à jour à '+([datetime]$Record.At).ToString('HH:mm:ss')}
+    }
+    $Record.Counter.Visibility='Visible'
+    if($null -eq $Record.Timer){return}
+    # A detail to read now keeps the banner; otherwise the 5 s restart, except under the pointer or once pinned.
+    if([int]$Plan.AutoCloseSeconds -le 0){$Record.Timer.Stop();$Record.Pinned=$true;return}
+    if((-not [bool]$Record.Pinned) -and (-not $Record.Border.IsMouseOver)){$Record.Timer.Stop();$Record.Timer.Start()}
 }
 function Close-DomeniaBanner {
     param($Record)

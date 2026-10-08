@@ -482,6 +482,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaBannerPlan',
             'New-DomeniaBannerButton',
             'Show-DomeniaBanner',
+            'Update-DomeniaBannerOccurrence',
             'Close-DomeniaBanner',
             'Get-DomeniaBannerSupportText',
             'Invoke-DomeniaBannerCommand',

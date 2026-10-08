@@ -344,9 +344,11 @@ function Show-DomeniaExportResult {
 }
 
 function Get-DomeniaExportComputerName {
-    # Name of the workstation an inventory, software or WMI export belongs to (file name only).
-    $name = ''
-    try { $name = [string]$script:SelectedObject.Name } catch { }
+    # Name of the workstation an inventory, software or WMI export belongs to (file name only). -Computer: the
+    # workstation the rows were read from, when the caller kept it.
+    param([string]$Computer='')
+    $name = ([string]$Computer).Trim()
+    if (-not $name) { try { $name = [string]$script:SelectedObject.Name } catch { } }
     if (-not $name) { $name = 'poste' }
     return $name
 }
@@ -1859,7 +1861,8 @@ function Get-DomeniaEffectiveWorkerResult {
 }
 
 function Set-Status {
-    param([string]$Text, [string]$Level = "INFO")
+    # -NoFileLog: the caller already wrote its technical line, with the same incident code, in Domenia.log.
+    param([string]$Text, [string]$Level = "INFO", [switch]$NoFileLog)
     try {
         # Le journal detaille en bas est l'unique surface pour les messages
         # de statut. La barre haute reste volontairement silencieuse.
@@ -1868,7 +1871,7 @@ function Set-Status {
         $script:UiLogProtectedText = $Text
         Add-DomeniaUiLog -Text $Text -Level $Level -Area "Statut"
         # FI-08: warnings and errors also reach Domenia.log through the queued writer (not lost at closing).
-        if ($Level -in @('WARN','ERROR')) { try { Write-DomeniaAppLogFile -Text $Text -Level $Level } catch { } }
+        if (($Level -in @('WARN','ERROR')) -and (-not $NoFileLog)) { try { Write-DomeniaAppLogFile -Text $Text -Level $Level -Source 'Status' } catch { } }
         if($Level -in @('WARN','ERROR') -and $null -ne (Get-Command Request-DomeniaAccessRecovery -ErrorAction SilentlyContinue)){
             [void](Request-DomeniaAccessRecovery -Operation 'Operation a verifier' -ErrorValue $Text)
         }
@@ -2157,11 +2160,26 @@ function Show-DomeniaPageBanner {
     try { return [bool](Show-DomeniaBanner -Kind $Kind -Message $Message -Details $Details -ActionText $ActionText -ActionPath $ActionPath) }
     catch { return $false }
 }
+function Add-DomeniaErrorIncidentCode {
+    # FI-07: an error shown without an incident code gets one, with its line in Domenia.log (at most once a minute
+    # for the same text), so that « Copier pour le support » always points to a line of the journal.
+    param([AllowEmptyString()][string]$Message)
+    $text = ([string]$Message).Trim()
+    if ((-not $text) -or ($text -match '\bINC-[0-9A-F]{4}\b')) { return $Message }
+    $occurrence = Register-DomeniaErrorOccurrence -Signature ('Message|' + $text)
+    $code = [string]$occurrence.Code
+    if ([bool]$occurrence.Write) {
+        $repeat = if ([int]$occurrence.Count -gt 1) { ' (même erreur ×' + [int]$occurrence.Count + ')' } else { '' }
+        try { Write-AppLog ("[$code] $text$repeat") 'ERROR' } catch { }
+    }
+    return ($text + "`r`n`r`nCode incident : $code.")
+}
 function Show-ErrorBox {
     param([string]$Message,[string]$Details='')
     if($null -ne (Get-Command Request-DomeniaAccessRecovery -ErrorAction SilentlyContinue)) {
         if(Request-DomeniaAccessRecovery -Operation 'Action demandee' -ErrorValue $Message -Interactive){return}
     }
+    try { $Message = Add-DomeniaErrorIncidentCode -Message $Message } catch { }
     # UX-06: once the main window is shown an error is a non-blocking banner (copy for support, open the journal).
     if (Show-DomeniaPageBanner -Kind Error -Message $Message -Details $Details) { return }
     [void](Show-DomeniaDialog -Message $Message -Title "$script:AppName - Erreur" -Kind Error -Buttons OK -Details $Details)
@@ -2190,6 +2208,7 @@ function ConvertTo-DomeniaErrorInfo {
     $hresult = 0
     try { if ($null -ne $exception) { $hresult = [int]$exception.HResult } } catch { }
     $kind = "Unexpected"
+    $internal = $false
     $friendly = "$Operation a echoue."
     # D052: one structured decision (native code first, French and English alike). A delay is never a
     # rejected password; an uncertain outcome is never presented as a failure or a success.
@@ -2240,9 +2259,49 @@ function ConvertTo-DomeniaErrorInfo {
         elseif ($message -match "(?i)timed?\s*out|timeout|delai.*depass") {
             $kind = "Timeout"; $friendly = "$Operation : le delai d'attente a ete depasse. L'etat distant doit etre verifie avant de recommencer."
         }
-        elseif (-not [string]::IsNullOrWhiteSpace($message)) { $friendly = "$Operation : $message" }
+        elseif (-not [string]::IsNullOrWhiteSpace($message)) {
+            # UI-02: the raw text of a fault of Domenia itself stays in the journal and in the Expert detail.
+            if (($null -ne (Get-Command -Name 'Test-DomeniaInternalFault' -CommandType Function -ErrorAction SilentlyContinue)) -and (Test-DomeniaInternalFault $ErrorRecordOrException)) {
+                $internal = $true; $friendly = "$Operation : erreur interne de Domenia. Votre travail est conservé."
+            }
+            else { $friendly = "$Operation : $message" }
+        }
     }
-    [pscustomobject]@{ Kind=$kind; Friendly=$friendly; Technical=$technical; HResult=$hresult }
+    [pscustomobject]@{ Kind=$kind; Friendly=$friendly; Technical=$technical; HResult=$hresult; Internal=$internal }
+}
+
+function Test-DomeniaOperatorMessage {
+    # FI-22 / UI-02: a message Domenia raised itself (throw 'texte') is written for the operator; a .NET or
+    # PowerShell runtime message is not: it stays in the journal and in the Expert profile.
+    param($ErrorRecordOrException)
+    $record = $null; $exception = $ErrorRecordOrException
+    if ($ErrorRecordOrException -is [System.Management.Automation.ErrorRecord]) { $record = $ErrorRecordOrException; $exception = $record.Exception }
+    while ((($exception -is [System.Management.Automation.MethodInvocationException]) -or ($exception -is [System.Reflection.TargetInvocationException])) -and ($null -ne $exception.InnerException)) { $exception = $exception.InnerException; $record = $null }
+    if ($exception -isnot [System.Exception]) { return $false }
+    if ($exception.GetType() -ne [System.Management.Automation.RuntimeException]) { return $false }
+    try { if ([bool]$exception.WasThrownFromThrowStatement) { return $true } } catch { }
+    # throw 'texte' also names its error record after the text itself.
+    try {
+        if ($null -eq $record) { $record = $exception.ErrorRecord }
+        return (($null -ne $record) -and ([string]$record.FullyQualifiedErrorId -ceq [string]$exception.Message))
+    } catch { return $false }
+}
+
+function Test-DomeniaInternalFault {
+    # UI-02: a fault of Domenia itself (null value, missing member, wrong type, index, binding) tells a technician
+    # nothing. A message raised by Domenia, or an I/O, network or directory message, stays readable.
+    param($ErrorRecordOrException)
+    $exception = $ErrorRecordOrException
+    if ($ErrorRecordOrException -is [System.Management.Automation.ErrorRecord]) { $exception = $ErrorRecordOrException.Exception }
+    while ((($exception -is [System.Management.Automation.MethodInvocationException]) -or ($exception -is [System.Reflection.TargetInvocationException])) -and ($null -ne $exception.InnerException)) { $exception = $exception.InnerException }
+    if ($exception -isnot [System.Exception]) { return $false }
+    if ($exception.GetType() -eq [System.Management.Automation.RuntimeException]) { return (-not (Test-DomeniaOperatorMessage $ErrorRecordOrException)) }
+    foreach ($type in @([System.NullReferenceException],[System.InvalidCastException],[System.IndexOutOfRangeException],[System.ArgumentException],
+        [System.Collections.Generic.KeyNotFoundException],[System.Management.Automation.MethodException],[System.Management.Automation.PropertyNotFoundException],
+        [System.Management.Automation.ParameterBindingException],[System.Management.Automation.CommandNotFoundException])) {
+        if ($exception -is $type) { return $true }
+    }
+    return $false
 }
 
 function New-DomeniaIncidentCode {
@@ -2281,7 +2340,12 @@ function Register-DomeniaErrorOccurrence {
     if ($null -eq $entry) {
         # Bounded memory: an unusual burst of distinct errors restarts the table, never the logging.
         if ($script:DomeniaErrorOccurrences.Count -ge 200) { $script:DomeniaErrorOccurrences.Clear() }
-        $entry = [pscustomobject]@{ Code=(New-DomeniaIncidentCode); Count=0; LastWrite=[datetime]::MinValue }
+        # FI-07: two different errors never share a code (four hex digits: a collision is drawn again).
+        $used = @{}
+        foreach ($known in @($script:DomeniaErrorOccurrences.Values)) { $used[[string]$known.Code] = $true }
+        $code = New-DomeniaIncidentCode
+        for ($try = 0; ($try -lt 64) -and $used.ContainsKey($code); $try++) { $code = New-DomeniaIncidentCode }
+        $entry = [pscustomobject]@{ Code=$code; Count=0; LastWrite=[datetime]::MinValue }
         $script:DomeniaErrorOccurrences[$Signature] = $entry
     }
     $entry.Count = [int]$entry.Count + 1
@@ -2291,23 +2355,21 @@ function Register-DomeniaErrorOccurrence {
 }
 
 function Show-DomeniaOperationError {
-    # -Internal: a display failure of the interface (UI-02): fixed sentence, raw .NET text only in Domenia.log
-    # and in the Expert detail. -IncidentCode/-Logged: the caller already wrote the line with its code.
-    param([string]$Operation,$ErrorRecordOrException,[string]$CorrelationId="",[switch]$NoPopup,[switch]$Internal,[string]$IncidentCode="",[switch]$Logged)
+    param([string]$Operation,$ErrorRecordOrException,[string]$CorrelationId="",[switch]$NoPopup)
     $info = ConvertTo-DomeniaErrorInfo -ErrorRecordOrException $ErrorRecordOrException -Operation $Operation
     # FI-07: one code per error signature, identical on screen, in Domenia.log and in the Support incident.
-    $code = [string]$IncidentCode
-    $count = 1
-    if (-not $code) {
-        $occurrence = Register-DomeniaErrorOccurrence -Signature (Get-DomeniaErrorSignature -ErrorRecordOrException $ErrorRecordOrException -Source $Operation)
-        $code = [string]$occurrence.Code
-        $count = [int]$occurrence.Count
-    }
+    # FI-02: the technical line of a repeated error is written at most once a minute, with its counter.
+    $occurrence = Register-DomeniaErrorOccurrence -Signature (Get-DomeniaErrorSignature -ErrorRecordOrException $ErrorRecordOrException -Source $Operation)
+    $code = [string]$occurrence.Code
     $prefix = if ([string]::IsNullOrWhiteSpace($CorrelationId)) { "" } else { "[$CorrelationId] " }
-    $repeat = if ($count -gt 1) { " (même erreur ×$count)" } else { "" }
-    if (-not $Logged) { try { Write-AppLog "[$code] $prefix$Operation [$($info.Kind)]$repeat : $($info.Technical)" "ERROR" } catch { } }
-    $friendly = if ($Internal) { 'Un affichage nʼa pas pu se mettre à jour. Votre travail est conservé.' } else { [string]$info.Friendly }
-    try { Set-Status "$friendly ($code)" "ERROR" } catch { }
+    if ([bool]$occurrence.Write) {
+        $repeat = if ([int]$occurrence.Count -gt 1) { " (même erreur ×$([int]$occurrence.Count))" } else { "" }
+        # Area Technique: Domenia.log, raw Expert view and Support incident; the readable journal shows the sentence.
+        try { Write-AppLog "[$code] $prefix$Operation [$($info.Kind)]$repeat : $($info.Technical)" "ERROR" -Area 'Technique' } catch { }
+    }
+    $friendly = [string]$info.Friendly
+    # One Domenia.log line per error: the sentence goes to the session journal only.
+    try { Set-Status "$friendly ($code)" "ERROR" -NoFileLog } catch { }
     if (-not $NoPopup) {
         $message = "$friendly`r`n`r`nCode incident : $code. Le détail technique est enregistré dans le journal Domenia."
         try {
@@ -2340,7 +2402,7 @@ function Invoke-DomeniaDispatcherFault {
     } catch { }
     if ([bool]$occurrence.Write) {
         $repeat = if ([int]$occurrence.Count -gt 1) { ' (même erreur ×' + [int]$occurrence.Count + ')' } else { '' }
-        try { Write-AppLog ("[$code] $operation [$kind]$repeat : $technical") 'ERROR' } catch { }
+        try { Write-AppLog ("[$code] $operation [$kind]$repeat : $technical") 'ERROR' -Area 'Technique' } catch { }
     }
     if ([bool]$script:HandlingDispatcherException) {
         $script:DispatcherErrorsDuringDisplay = [int]$script:DispatcherErrorsDuringDisplay + 1
@@ -2351,7 +2413,7 @@ function Invoke-DomeniaDispatcherFault {
     $shown = $false; $others = 0
     try {
         $friendly = 'Un affichage nʼa pas pu se mettre à jour. Votre travail est conservé.'
-        if ([bool]$occurrence.Write) { try { Set-Status "$friendly ($code)" 'ERROR' } catch { } }
+        if ([bool]$occurrence.Write) { try { Set-Status "$friendly ($code)" 'ERROR' -NoFileLog } catch { } }
         # Without the page banner, a repeated error never opens a new modal box: it is counted in the journal.
         if ([bool]$occurrence.New -or (Test-DomeniaMainHostAvailable)) {
             $message = "$friendly`r`n`r`nCode incident : $code. Le détail technique est enregistré dans le journal Domenia."
@@ -2367,7 +2429,7 @@ function Invoke-DomeniaDispatcherFault {
         $script:DispatcherErrorsDuringDisplay = 0
         if ($others -gt 0) {
             $label = if ($others -eq 1) { '1 autre erreur' } else { "$others autres erreurs" }
-            try { Set-Status ("$label pendant lʼaffichage de lʼincident $code. Détail dans le journal Domenia.") 'ERROR' } catch { }
+            try { Set-Status ("$label pendant lʼaffichage de lʼincident $code. Détail dans le journal Domenia.") 'ERROR' -NoFileLog } catch { }
         }
     }
     return [pscustomobject]@{ Code=$code; Count=[int]$occurrence.Count; Logged=[bool]$occurrence.Write; Shown=$shown; Queued=$false; Others=$others }
@@ -6611,16 +6673,16 @@ function Get-MainXaml {
                     <TextBlock Text="Journal indisponible" Foreground="{DynamicResource StatusWarning}" FontSize="11" FontWeight="SemiBold"/>
                   </Border>
                   <StackPanel x:Name="UxLogCommands" Orientation="Horizontal" VerticalAlignment="Center">
-                    <CheckBox x:Name="ChkUiLogFollow" Content="Suivre" IsChecked="True" VerticalAlignment="Center" Margin="4,0,10,0" ToolTip="Desactiver pour lire le journal sans defilement automatique." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Suivre" AutomationProperties.HelpText="Desactiver pour lire le journal sans defilement automatique."/>
-                    <Button x:Name="BtnRuntimeHealth" Content="État du moteur" MinHeight="28" Height="28" Padding="10,2" Margin="2,0" ToolTip="Memoire, workers actifs, annulations et cache utilise. Aucune sonde reseau." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="État du moteur" AutomationProperties.HelpText="Memoire, workers actifs, annulations et cache utilise. Aucune sonde reseau."/>
-                    <Button x:Name="BtnCopyUiLog" Content="Copier" MinHeight="28" Height="28" Padding="10,2" Margin="2,0" ToolTip="Copie le journal visible, sans anonymiser les noms du parc." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Copier" AutomationProperties.HelpText="Copie le journal visible, sans anonymiser les noms du parc."/>
+                    <CheckBox x:Name="ChkUiLogFollow" Content="Suivre" IsChecked="True" VerticalAlignment="Center" Margin="4,0,10,0" ToolTip="Désactivez pour lire le journal sans défilement automatique." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Suivre" AutomationProperties.HelpText="Désactivez pour lire le journal sans défilement automatique."/>
+                    <Button x:Name="BtnRuntimeHealth" Content="État du moteur" MinHeight="28" Height="28" Padding="10,2" Margin="2,0" ToolTip="Mémoire, workers actifs, annulations et cache utilisé. Aucune sonde réseau." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="État du moteur" AutomationProperties.HelpText="Mémoire, workers actifs, annulations et cache utilisé. Aucune sonde réseau."/>
+                    <Button x:Name="BtnCopyUiLog" Content="Copier" MinHeight="28" Height="28" Padding="10,2" Margin="2,0" ToolTip="Copie le journal tel quʼil est affiché. Cochez Masquer les noms pour remplacer chemins AD, comptes, noms DNS et adresses." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Copier" AutomationProperties.HelpText="Copie le journal tel quʼil est affiché. Cochez Masquer les noms pour remplacer chemins AD, comptes, noms DNS et adresses."/>
                     <CheckBox x:Name="ChkUiLogCopyMask" Content="Masquer les noms" VerticalAlignment="Center" Margin="6,0,6,0" ToolTip="Copier remplace les chemins AD, comptes, noms DNS et adresses par des repères. Un nom de poste isolé peut rester visible : relisez avant envoi." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Masquer les noms à la copie" AutomationProperties.HelpText="Copier remplace les chemins AD, comptes, noms DNS et adresses par des repères. Un nom de poste isolé peut rester visible : relisez avant envoi."/>
-                    <Button x:Name="BtnClearUiLog" Content="Effacer" MinHeight="28" Height="28" Padding="10,2" Margin="2,0" ToolTip="Efface seulement le journal affiche." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Effacer" AutomationProperties.HelpText="Efface seulement le journal affiche."/>
+                    <Button x:Name="BtnClearUiLog" Content="Effacer" MinHeight="28" Height="28" Padding="10,2" Margin="2,0" ToolTip="Efface seulement le journal affiché." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Effacer" AutomationProperties.HelpText="Efface seulement le journal affiché."/>
                   </StackPanel>
-                  <Button Content="˅" Margin="4,0,0,0" Height="28" MinHeight="28" Padding="8,2" ToolTip="Réduit ou agrandit le journal visible. L’enregistrement des événements continue dans les deux cas." x:Name="BtnUxLogToggle" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Taille du journal" AutomationProperties.HelpText="Réduit ou agrandit le journal visible. L’enregistrement des événements continue dans les deux cas."/>
+                  <Button Content="˅" Margin="4,0,0,0" Height="28" MinHeight="28" Padding="8,2" ToolTip="Déplie ou replie le journal de session. Replié, il montre la dernière ligne et une pastille rouge pour une erreur non lue. Lʼenregistrement continue dans les deux cas." x:Name="BtnUxLogToggle" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Taille du journal" AutomationProperties.HelpText="Déplie ou replie le journal de session. Replié, il montre la dernière ligne et une pastille rouge pour une erreur non lue. Lʼenregistrement continue dans les deux cas."/>
                 </StackPanel>
               </Grid>
-              <TextBox x:Name="TxtUiLog" Grid.Row="2" Background="{DynamicResource LogBg}" Foreground="{DynamicResource LogFg}" BorderThickness="0" FontFamily="Consolas" FontSize="11" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Padding="10" ToolTip="Événements et erreurs de la session. Désactivez Suivre pour lire sans défilement automatique. Copier n’anonymise pas les noms internes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Journal de session" AutomationProperties.HelpText="Événements et erreurs de la session. Désactivez Suivre pour lire sans défilement automatique. Copier n’anonymise pas les noms internes." VerticalContentAlignment="Top"/>
+              <TextBox x:Name="TxtUiLog" Grid.Row="2" Background="{DynamicResource LogBg}" Foreground="{DynamicResource LogFg}" BorderThickness="0" FontFamily="Consolas" FontSize="11" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Padding="10" ToolTip="Événements et erreurs de la session. Désactivez Suivre pour lire sans défilement automatique. Copier masque les noms internes si Masquer les noms est coché." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Journal de session" AutomationProperties.HelpText="Événements et erreurs de la session. Désactivez Suivre pour lire sans défilement automatique. Copier masque les noms internes si Masquer les noms est coché." VerticalContentAlignment="Top"/>
               <ListBox x:Name="LstUiLogReadable" Grid.Row="2" Visibility="Collapsed" Background="{DynamicResource LogBg}" Foreground="{DynamicResource LogFg}" BorderThickness="0" Padding="8,4" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ToolTip="Journal lisible : heure, niveau et message. Le format brut et lʼétat du moteur sont dans le profil Expert." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Journal de session lisible" AutomationProperties.HelpText="Journal lisible : heure, niveau et message. Le format brut et lʼétat du moteur sont dans le profil Expert.">
                 <ListBox.ItemTemplate>
                   <DataTemplate>
@@ -14014,6 +14076,8 @@ function Complete-DomeniaWmiQueryUi {
     if ($null -eq $effective) { throw "Resultat de requete vide ou invalide." }
     $script:WmiSchema = @($effective.Schema)
     $script:WmiInstances = @($effective.Instances)
+    # CO-04: the export file names the workstation that answered, not the one selected later.
+    $script:WmiInstancesComputer = [string]$State.Computer
     [void](Set-DomeniaItemsSource -Name "DgWmiSchema" -Rows $script:WmiSchema)
     [void](Set-DomeniaItemsSource -Name "DgWmiInstances" -Rows $script:WmiInstances)
     $summary = "{0} : {1} instance(s), {2} propriete(s) de schema, {3} valeur(s), en {4} ms. Requete : {5}" -f `
@@ -14163,8 +14227,11 @@ function Copy-DomeniaWmi {
 
 function Export-DomeniaWmi {
     try {
-        if (@($script:WmiInstances).Count -eq 0) { Set-Status "Aucune instance a exporter." "WARN"; return }
-        Show-DomeniaExportResult -Result (Export-DomeniaCsv -Rows @($script:WmiInstances) -Grid (Get-DomeniaControl -Name 'DgWmiInstances') -Subject ((Get-DomeniaExportComputerName) + '-wmi'))
+        # The grid is emptied when the selection changes: only the instances still shown are exported.
+        $grid = Get-DomeniaControl -Name 'DgWmiInstances'
+        $rows = if ($null -ne $grid) { @($grid.Items | Where-Object { $_ -ne [System.Windows.Data.CollectionView]::NewItemPlaceholder }) } else { @($script:WmiInstances) }
+        if ($rows.Count -eq 0) { Set-Status "Aucune instance à exporter." "WARN"; return }
+        Show-DomeniaExportResult -Result (Export-DomeniaCsv -Rows $rows -Grid $grid -Subject ((Get-DomeniaExportComputerName -Computer ([string]$script:WmiInstancesComputer)) + '-wmi'))
     }
     catch { [void](Show-DomeniaOperationError -Operation "Export WMI" -ErrorRecordOrException $_) }
 }
@@ -17458,7 +17525,14 @@ function Get-DomeniaAppLogFallbackPaths {
 function Write-DomeniaAppLogFile {
     # PF-09: Domenia.log is written from an in-memory queue, flushed every 500 ms on the Dispatcher idle priority
     # and at closing, instead of a data-store check, a size probe and a file append for every line.
-    param([AllowEmptyString()][string]$Text,[string]$Level='INFO',[datetime]$Time=(Get-Date))
+    param([AllowEmptyString()][string]$Text,[string]$Level='INFO',[datetime]$Time=(Get-Date),[ValidateSet('AppLog','Status')][string]$Source='AppLog')
+    # FI-08: a caller that gives the same sentence to Set-Status and to Write-AppLog gets one Domenia.log line.
+    $last = $script:AppLogLastLine
+    if (($null -ne $last) -and ([string]$last.Source -ne $Source) -and ([string]$last.Level -eq $Level) -and ([string]$last.Text -ceq [string]$Text) -and ([Math]::Abs(($Time - [datetime]$last.Time).TotalSeconds) -lt 2)) {
+        $script:AppLogLastLine = $null
+        return
+    }
+    $script:AppLogLastLine = [pscustomobject]@{ Source=$Source; Level=$Level; Text=[string]$Text; Time=$Time }
     $adIdentity = ''; try { $adIdentity = [string]$script:Conn.BindUser } catch { }
     $winIdentity = ''; try { $winIdentity = [string]$script:ProcessIdentity } catch { }
     if ($null -eq $script:AppLogQueue) { $script:AppLogQueue = New-Object 'System.Collections.Generic.List[string]' }
@@ -17497,16 +17571,20 @@ function Stop-DomeniaAppLogQueue {
     $script:AppLogQueueClosed = $true
     try { if ($null -ne $script:AppLogFlushTimer) { $script:AppLogFlushTimer.Stop() } } catch { }
     $script:AppLogFlushTimer = $null
-    Flush-DomeniaAppLog
+    Flush-DomeniaAppLog -Force
 }
 
 function Invoke-DomeniaAppLogRotation {
-    # Size check every 200 written lines (PF-09), same 5 MB limit and single .1 generation as before.
+    # Size check at the first write of a file then every 200 written lines (PF-09), same 5 MB limit and single .1
+    # generation as before, for Domenia.log and for its fallback journal alike.
     param([string]$Path,[int]$Written)
-    $script:AppLogLinesSinceSizeCheck = [int]$script:AppLogLinesSinceSizeCheck + $Written
-    if (($null -ne $script:AppLogSizeChecked) -and ([int]$script:AppLogLinesSinceSizeCheck -lt 200)) { return }
-    $script:AppLogLinesSinceSizeCheck = 0
-    $script:AppLogSizeChecked = $true
+    if ($null -eq $script:AppLogRotationCounters) { $script:AppLogRotationCounters = @{} }
+    $key = ([string]$Path).ToUpperInvariant()
+    if ($script:AppLogRotationCounters.ContainsKey($key)) {
+        $count = [int]$script:AppLogRotationCounters[$key] + $Written
+        if ($count -lt 200) { $script:AppLogRotationCounters[$key] = $count; return }
+    }
+    $script:AppLogRotationCounters[$key] = 0
     $file = [IO.FileInfo]::new($Path)
     if ($file.Exists -and $file.Length -gt 5242880) {
         $old = $Path + '.1'
@@ -17516,12 +17594,25 @@ function Invoke-DomeniaAppLogRotation {
 }
 
 function Flush-DomeniaAppLog {
+    # -Force: closing or opening the journal; otherwise a flush waits 10 s after every journal refused the write.
+    param([switch]$Force)
     if ($null -eq $script:AppLogQueue -or $script:AppLogQueue.Count -eq 0) { return }
-    $lines = $script:AppLogQueue.ToArray()
+    # A line logged while flushing (data store initialisation) waits in the queue for the next flush.
+    if ([bool]$script:AppLogFlushing) { return }
+    if ((-not $Force) -and ($null -ne $script:AppLogRetryAt) -and ((Get-Date) -lt [datetime]$script:AppLogRetryAt)) { return }
+    $script:AppLogFlushing = $true
+    try { Invoke-DomeniaAppLogFlush }
+    finally { $script:AppLogFlushing = $false }
+}
+
+function Invoke-DomeniaAppLogFlush {
+    $queued = $script:AppLogQueue.ToArray()
     $script:AppLogQueue.Clear()
-    if ([int]$script:AppLogDropped -gt 0) {
-        $lines = @((ConvertTo-DomeniaLogFileLines -Time (Get-Date) -Level 'WARN' -Text ([string]$script:AppLogDropped + ' ligne(s) de journal perdue(s) : aucun emplacement inscriptible.'))) + $lines
-        $script:AppLogDropped = 0
+    # The count of lost lines is cleared only once its note is written.
+    $dropped = [int]$script:AppLogDropped
+    $lines = $queued
+    if ($dropped -gt 0) {
+        $lines = @((ConvertTo-DomeniaLogFileLines -Time (Get-Date) -Level 'WARN' -Text ([string]$dropped + ' ligne(s) de journal perdue(s) : aucun emplacement inscriptible.'))) + $queued
     }
     $text = [string]::Join([Environment]::NewLine,[string[]]$lines) + [Environment]::NewLine
     $utf8 = New-Object System.Text.UTF8Encoding($false)
@@ -17531,6 +17622,8 @@ function Flush-DomeniaAppLog {
         try {
             try { Invoke-DomeniaAppLogRotation -Path $primary -Written $lines.Count } catch { }
             [IO.File]::AppendAllText($primary,$text,$utf8)
+            $script:AppLogDropped = [Math]::Max(0,[int]$script:AppLogDropped - $dropped)
+            $script:AppLogRetryAt = $null
             if ([bool]$script:AppLogUnavailable) {
                 # Back on Domenia.log: say where the meantime lines are, once.
                 $note = @(ConvertTo-DomeniaLogFileLines -Time (Get-Date) -Level 'WARN' -Text ('Journal Domenia.log de nouveau inscriptible. Lignes intermédiaires : ' + [string]$script:AppLogFallbackPath))
@@ -17547,11 +17640,24 @@ function Flush-DomeniaAppLog {
             $probe = $folder
             while ($null -ne $probe) { if ($probe.Exists -and ($probe.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'Journal redirige refuse.' }; $probe = $probe.Parent }
             [void][IO.Directory]::CreateDirectory($folder.FullName)
+            # The fallback journal is bounded like Domenia.log.
+            try { Invoke-DomeniaAppLogRotation -Path $candidate -Written $lines.Count } catch { }
             [IO.File]::AppendAllText($candidate,$text,$utf8)
+            $script:AppLogDropped = [Math]::Max(0,[int]$script:AppLogDropped - $dropped)
+            $script:AppLogRetryAt = $null
             Set-DomeniaAppLogAvailability -Available $false -Fallback $candidate -Reason $failure
             return
         } catch { }
     }
+    # Every target refused the write: the lines go back to the head of the queue for the next flush. The queue
+    # stays bounded; what it drops is counted and announced by the first line that reaches a journal.
+    $script:AppLogQueue.InsertRange(0,[string[]]$queued)
+    if ($script:AppLogQueue.Count -gt 5000) {
+        $drop = $script:AppLogQueue.Count - 5000
+        $script:AppLogQueue.RemoveRange(0,$drop)
+        $script:AppLogDropped = [int]$script:AppLogDropped + $drop
+    }
+    $script:AppLogRetryAt = (Get-Date).AddSeconds(10)
     Set-DomeniaAppLogAvailability -Available $false -Fallback '' -Reason $failure
 }
 
@@ -17564,12 +17670,15 @@ function Set-DomeniaAppLogAvailability {
 }
 
 function Write-AppLog {
-    param([string]$Text, [string]$Level = "INFO")
+    # -Area Technique: the technical twin of a sentence already given to the operator (incident code, .NET text):
+    # Domenia.log, raw Expert view and Support incident, never the readable journal nor its red pill.
+    param([string]$Text, [string]$Level = "INFO", [string]$Area = "Journal")
     $now = Get-Date
+    if ([string]::IsNullOrWhiteSpace($Area)) { $Area = "Journal" }
     # PF-09: masked once; the session journal and Domenia.log receive the same masked text.
     $Text = Protect-DomeniaLogText $Text
     $script:UiLogProtectedText = $Text
-    try { Add-DomeniaUiLog -Text $Text -Level $Level -Area "Journal" } catch { }
+    try { Add-DomeniaUiLog -Text $Text -Level $Level -Area $Area } catch { }
     $script:UiLogProtectedText = $null
     try {
         if ($script:Ctrl.ContainsKey("TxtLog")) {
@@ -17587,12 +17696,12 @@ function Write-AppLog {
         }
     }
     catch { }
-    try { Write-DomeniaAppLogFile -Text $Text -Level $Level -Time $now } catch { }
+    try { Write-DomeniaAppLogFile -Text $Text -Level $Level -Time $now -Source 'AppLog' } catch { }
 }
 
 function Open-DomeniaAuditLog {
     try {
-        try { Flush-DomeniaAppLog } catch { }
+        try { Flush-DomeniaAppLog -Force } catch { }
         Initialize-DomeniaDataStore | Out-Null
         if (-not (Test-Path -LiteralPath $script:AuditPath)) { [System.IO.File]::WriteAllText($script:AuditPath,"",(New-Object System.Text.UTF8Encoding($false))) }
         Start-Process notepad.exe -ArgumentList @($script:AuditPath)
@@ -21549,15 +21658,18 @@ function Register-DomeniaAsyncEngineFault {
     $code = [string]$occurrence.Code
     if ([bool]$occurrence.Write) {
         $repeat = if ([int]$occurrence.Count -gt 1) { ' (même erreur ×' + [int]$occurrence.Count + ')' } else { '' }
-        try { Write-AppLog ("[$code] Moteur asynchrone$repeat : " + [string]$exception) 'ERROR' } catch { }
+        try { Write-AppLog ("[$code] Moteur asynchrone$repeat : " + [string]$exception) 'ERROR' -Area 'Technique' } catch { }
+        # The readable journal says it as often as Domenia.log, with the same code.
+        if ([int]$script:AsyncEngineTickFailures -lt 3) { try { Set-Status ("Erreur interne du moteur des tâches ($code). Nouvel essai automatique.") 'ERROR' -NoFileLog } catch { } }
     }
     if ([int]$script:AsyncEngineTickFailures -lt 3) { return $false }
     try { if ($null -ne $script:AsyncTimer) { $script:AsyncTimer.Stop() } } catch { }
     if ([bool]$script:AsyncEngineFaultStopped) { return $true }
     $script:AsyncEngineFaultStopped = $true
-    try { Write-AppLog ("[$code] Moteur asynchrone arrete apres 3 echecs consecutifs ; aucun nouvel essai automatique.") 'ERROR' } catch { }
-    try { Set-Status ("Moteur des tâches arrêté après 3 erreurs consécutives ($code). Relancez Domenia.") 'ERROR' } catch { }
-    try { Show-ErrorBox ("Le moteur des tâches sʼest arrêté après 3 erreurs consécutives : les lectures en cours nʼaboutiront plus. Fermez puis relancez Domenia.`r`n`r`nCode incident : $code. Le détail technique est enregistré dans le journal Domenia.") } catch { }
+    try { Write-AppLog ("[$code] Moteur asynchrone arrete apres 3 echecs consecutifs ; aucun nouvel essai automatique.") 'ERROR' -Area 'Technique' } catch { }
+    try { Set-Status ("Moteur des tâches arrêté après 3 erreurs consécutives ($code). Fermez puis relancez Domenia.") 'ERROR' -NoFileLog } catch { }
+    # The closing guard lets the operator leave after a confirmation when a write was in progress (Initialize-Window).
+    try { Show-ErrorBox ("Le moteur des tâches sʼest arrêté après 3 erreurs consécutives : les lectures en cours nʼaboutiront plus.`r`n`r`nFermez puis relancez Domenia. Si une écriture AD était en cours, la fermeture demande une confirmation : son reçu local est conservé et sera à vérifier dans les reçus au prochain démarrage.`r`n`r`nCode incident : $code. Le détail technique est enregistré dans le journal Domenia.") } catch { }
     return $true
 }
 
@@ -24849,8 +24961,16 @@ function Initialize-Window {
             $writeJobStillAlive = $false
             try { $writeJobStillAlive = (@($script:AsyncJobs.Values | Where-Object { $null -ne $_ -and [bool]$_.IsWrite }).Count -gt 0) } catch { }
             if(-not [string]::IsNullOrWhiteSpace($script:ActiveWriteTaskId) -or $writeJobStillAlive){
+                # FI-02: a stopped engine will never confirm this write; its durable receipt keeps it to be verified.
+                if([bool]$script:AsyncEngineFaultStopped){
+                    $leave=$false
+                    try{$leave=Confirm-WarningAction "Le moteur des tâches est arrêté : Domenia ne pourra plus confirmer lʼécriture AD en cours.`r`n`r`nSon reçu local est conservé. Au prochain démarrage, vérifiez cette écriture dans les reçus avant toute autre modification.`r`n`r`nFermer Domenia maintenant ?"}catch{}
+                    if($leave){Write-AppLog "Fermeture confirmee avec une ecriture AD non confirmee (moteur arrete) ; recu conserve." "WARN";return}
+                    $e.Cancel=$true;return
+                }
                 $e.Cancel=$true
-                Show-InfoBox "Une ecriture AD est en cours de confirmation par le DC. La fenetre ne peut pas etre fermee tant que son etat est inconnu."
+                # A refusal to close stays on screen until it is read (UX-06: a warning banner is not closed after 5 s).
+                Show-WarningBox "Une écriture AD est en cours de confirmation par le DC. La fenêtre ne peut pas être fermée tant que son état est inconnu."
             }
         })
         $script:Window.Add_Closed({
@@ -26201,25 +26321,41 @@ function Invoke-DomeniaSelfTest {
 }
 
 function Get-DomeniaFatalMessage {
-    # FI-22 / UI-02: before the main window is shown the failure is an initialisation failure (its cause stays
-    # visible, it is what the administrator fixes); once the session was shown it is an unexpected stop, announced
-    # with its incident code and the journal paths. The raw .NET message then stays in the journal and in Expert.
-    param([bool]$SessionShown,[string]$Summary='',[string]$Code='',[string]$StartupLog='',[string]$LoginLog='',[string]$AppLog='',[bool]$Expert=$false)
+    # FI-22 / UI-02: before the main window has rendered, the failure is an initialisation failure; once the session
+    # was shown it is an unexpected stop, announced with its incident code and the journal paths. A raw .NET or
+    # PowerShell message is shown only in Expert, or when no journal could keep it. A message Domenia raised for
+    # the operator (-SummaryForOperator: what the administrator fixes) stays visible before display.
+    param([bool]$SessionShown,[string]$Summary='',[string]$Code='',[string]$StartupLog='',[string]$LoginLog='',[string]$AppLog='',[bool]$Expert=$false,[bool]$SummaryForOperator=$false)
     $nl = "`r`n"
-    if ($SessionShown) {
-        $message = 'Domenia sʼest arrêté de façon inattendue.' + $nl + $nl + 'Code incident : ' + $Code + '. Le détail technique est enregistré dans le journal.'
-        if ($Expert -and $Summary) { $message += $nl + $nl + 'Détail (Expert) : ' + $Summary }
-    } else {
-        $message = 'Domenia nʼa pas pu terminer son initialisation.' + $nl + $nl + $Summary + $nl + $nl + 'Code incident : ' + $Code + '.'
-    }
     $paths = @()
     if ($AppLog) { $paths += ('Journal Domenia :' + $nl + $AppLog) }
     if ($StartupLog) { $paths += ('Journal de démarrage :' + $nl + $StartupLog) }
     if ($LoginLog) { $paths += ('Journal de connexion :' + $nl + $LoginLog) }
+    $written = ($paths.Count -gt 0)
+    if ($SessionShown) {
+        $message = 'Domenia sʼest arrêté de façon inattendue.' + $nl + $nl + 'Code incident : ' + $Code + '.'
+        if ($written) { $message += ' Le détail technique est enregistré dans le journal.' }
+        if ($Summary -and ($Expert -or (-not $written))) { $message += $nl + $nl + 'Détail technique : ' + $Summary }
+    } else {
+        $message = 'Domenia nʼa pas pu terminer son initialisation.'
+        $showSummary = ($Summary -and ($SummaryForOperator -or $Expert -or (-not $written)))
+        if ($showSummary) { $message += $nl + $nl + $Summary }
+        $message += $nl + $nl + 'Code incident : ' + $Code + '.'
+        if ($written -and (-not $showSummary)) { $message += ' Le détail technique est enregistré dans les journaux ci-dessous.' }
+    }
     foreach ($path in $paths) { $message += $nl + $nl + $path }
-    if ($paths.Count -eq 0) { $message += $nl + $nl + 'Aucun journal nʼa pu être écrit ; conservez ce message.' }
+    if (-not $written) { $message += $nl + $nl + 'Aucun journal nʼa pu être écrit ; conservez ce message.' }
     else { $message += $nl + $nl + 'Consultez les journaux indiqués pour le détail disponible.' }
     return $message
+}
+
+function Register-DomeniaSessionShownHook {
+    # FI-22: the session counts as shown once the main window has rendered its content. A failure inside ShowDialog
+    # before that moment is still reported as an initialisation failure.
+    param($Window)
+    $script:DomeniaSessionShown = $false
+    if ($null -eq $Window) { return }
+    $Window.Add_ContentRendered({ $script:DomeniaSessionShown = $true })
 }
 
 # Main autoritaire
@@ -26307,11 +26443,12 @@ try {
     Write-StartupTrace -Stage "Apres login" -Status "OK" -Detail "Fenetre principale initialisee ; Domenia.db, cache initial et pool MTA valides"
     # The geometry may have been restored maximized after the activation choice: check again just before showing.
     try { [void](Set-DomeniaWindowActivationPolicy -Window $script:Window -UserSwitchedAway:(-not [bool]$script:Window.ShowActivated)) } catch { }
-    # FI-22: from here a failure is an unexpected stop of a shown session, no longer an initialisation failure.
-    $script:DomeniaSessionShown = $true
+    # FI-22: once the main window has rendered, a failure is an unexpected stop of a shown session.
+    Register-DomeniaSessionShownHook -Window $script:Window
     $null = $script:Window.ShowDialog()
 }
 catch {
+    $fatalRecord = $_
     $fatalText = $_.Exception.ToString()
     $fatalCode = 'INC-0000'
     try { $fatalCode = New-DomeniaIncidentCode } catch { }
@@ -26339,7 +26476,9 @@ catch {
     }
 
     $existing = { param([string]$Path) if ($Path -and [IO.File]::Exists($Path)) { return $Path }; return '' }
-    $message = Get-DomeniaFatalMessage -SessionShown $sessionShown -Summary $summary -Code $fatalCode -StartupLog (& $existing $startupLog) -LoginLog (& $existing $loginLog) -AppLog (& $existing $appLog) -Expert ([string]$script:CurrentUiProfile -eq 'Admin')
+    $forOperator = $false
+    try { $forOperator = [bool](Test-DomeniaOperatorMessage $fatalRecord) } catch { }
+    $message = Get-DomeniaFatalMessage -SessionShown $sessionShown -Summary $summary -Code $fatalCode -StartupLog (& $existing $startupLog) -LoginLog (& $existing $loginLog) -AppLog (& $existing $appLog) -Expert ([string]$script:CurrentUiProfile -eq 'Admin') -SummaryForOperator $forOperator
     # The page banner of a session that stopped would never be read: the report is a box of its own.
     if ($sessionShown) { try { if ($null -ne $script:Window -and $script:Window.IsVisible) { $script:Window.Hide() } } catch { } }
     Show-ErrorBox -Message $message

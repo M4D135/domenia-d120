@@ -227,12 +227,15 @@ function ConvertTo-DomeniaExperienceLogEntry {
 }
 
 function Add-DomeniaExperienceLogEntry {
-    # UI-22 / UX-01: called by Add-DomeniaUiLog. Technical lines (Write-AppLog, area Journal) stay in the raw
-    # view of the Expert profile and in Domenia.log; the readable view keeps the session statuses.
+    # UI-22 / UX-01: called by Add-DomeniaUiLog. The readable view keeps the session statuses and every warning or
+    # error, including those written only by Write-AppLog (area Journal): they keep the red pill until read.
+    # Informational Write-AppLog lines and technical twins (area Technique: incident code and .NET text of a
+    # sentence already shown) stay in the raw view of the Expert profile and in Domenia.log.
     param([datetime]$Time,[string]$Level='INFO',[string]$Area='',[AllowEmptyString()][string]$Text='')
-    if([string]$Area -eq 'Journal'){return}
+    if([string]$Area -eq 'Technique'){return}
     if(($null -ne $script:Window) -and (-not $script:Window.Dispatcher.CheckAccess())){return}
     $entry=ConvertTo-DomeniaExperienceLogEntry -Time $Time -Level $Level -Area $Area -Text $Text
+    if(([string]$Area -eq 'Journal') -and ($entry.Level -notin @('WARN','ERROR'))){return}
     if($null -eq $script:UiLogReadableItems){$script:UiLogReadableItems=[System.Collections.ObjectModel.ObservableCollection[object]]::new()}
     $items=$script:UiLogReadableItems
     $items.Add($entry)
@@ -332,9 +335,18 @@ function ConvertTo-DomeniaMaskedLogText {
     }
     $value=[regex]::Replace($value,'(?i)\b(?:CN|OU|DC)=(?:\\.|[^,;\r\n])+(?:\s*,\s*(?:CN|OU|DC)=(?:\\.|[^,;\r\n])+)*','[chemin AD]')
     $value=[regex]::Replace($value,'\b[\w.+-]+@[\w-]+(?:\.[\w-]+)+\b','[compte]')
-    $value=[regex]::Replace($value,'\b[\w-]{1,15}\\[\w.$-]+','[compte]')
+    # DOMAINE\compte, never a segment of a local or UNC path (C:\Domenia\Logs, \\serveur\partage).
+    $value=[regex]::Replace($value,'(?<![\w:\\.$-])[\w-]{1,15}\\[\w.$-]+','[compte]')
     $value=[regex]::Replace($value,'\b(?:\d{1,3}\.){3}\d{1,3}\b','[adresse IP]')
-    $value=[regex]::Replace($value,'(?i)\b(?=[\w-]*[a-z])[\w-]+(?:\.[\w-]+){2,}\b','[nom]')
+    # DNS names: three labels or more ending with a letter label (a version such as RC1.13.0 is kept), never a file
+    # name of a path (a UNC host is masked), a script or log file name, nor a dotted .NET name.
+    $value=[regex]::Replace($value,'(?i)(?<![\w./-])(?<![^\\]\\)(?<!^\\)[\w-]+(?:\.[\w-]+)+\.[a-z][\w-]*(?![\w-]|\.[\w-])',[Text.RegularExpressions.MatchEvaluator]{
+        param($match)
+        $found=[string]$match.Value
+        if($found -match '(?i)\.(?:ps1|psm1|psd1|dll|exe|json|log|xaml|xml|cs|txt|csv|db|zip)$'){return $found}
+        if($found -cmatch '^(?:[A-Z][a-z0-9]*[a-z][A-Za-z0-9]*\.)+[A-Z][A-Za-z0-9]*$'){return $found}
+        return '[nom]'
+    })
     return $value
 }
 
