@@ -1,5 +1,5 @@
 {
-  "Archive": ".",
+  "Archive": "lot/L08",
   "ArchiveSHA256": "655ED21F90345B3C7667D4E777814C6A0595A5D5BE628AD587FB46CCA5241922",
   "CoreFunctions": {
     "Write-DomeniaAtomicText": "1C9A1583F52EB7BE80BE420662653E4AF886FE11DC4FDB3B1C4CDF19FD1C0EDA",
@@ -107,7 +107,7 @@
     "Get-DomeniaProfilePath": "4264D7E93C64BA63751C4145D8C35E75E07A1361512F75D4970D5D9DCBFA3F9C",
     "Load-DomeniaUiProfile": "96E434E1FC86CD37576C27B587807D588B25A11B95A272E11220626736128F1B",
     "Save-DomeniaUiProfile": "1067E5B45E380BD581F3BEAE0EF3EF5768AF588826CD5A8032F256885218D4A7",
-    "Apply-DomeniaUiProfile": "03378E85A5CDDCF790B9B1747D077D86269A75D04070AC27CAC901D86256ABEF",
+    "Apply-DomeniaUiProfile": "A2E947D4D2ECC5906A6A9FA2156CCCB97DAA9A321EA108E9B2492835AE6A9AC9",
     "Get-DomeniaPingState": "7134E4D675AAAB77D9C41F6EE53FE9405B0B2346AC6669A929489CE7E30AAB25",
     "Get-DomeniaPresenceColor": "66EAE6CF9C2FD6A9D4639C634F82929B22D4BCC3A9937F38DF470ED47EC2FDFD",
     "Set-DomeniaPresenceText": "92CE5DDC0B79D59EE583F9478423307FFCA11F6756903EC216CBE2891AEBBB55",
@@ -124,7 +124,7 @@
     "Get-DomeniaPreferencePath": "DAD987C58AF30E7836681C0973FEB76FD5D74107B3EF657B007AE9F988E5FD9B",
     "Read-DomeniaPreference": "943DDC94646294A338257918A7846E2DA0B478AE25FFF9F6924C75CD1B9F1E8B",
     "Write-DomeniaPreference": "855B823A24012068281B810A2D57B1D53A66E5D6CBBBAC405E4091068F5D8701",
-    "Get-DomeniaDefaultSettings": "1A0C053E7452B29769758AF2439D1524DD4F37E3CCA02625586ED2EB209C1B5E",
+    "Get-DomeniaDefaultSettings": "469CCFEDBC4595F3BC4615859C140D5CB0846DF43B43A829BD1A3A08B073A966",
     "Load-DomeniaSettings": "19F11BAD6E2D582E9A0BA5F824EB3F74C90A1641FFA56AC44711C03671E5AA0A",
     "Save-DomeniaSettings": "A04CCBC6DA80FB0CEFE484BBDB799CE9F58DCBFACAC71AB567F73D5E2529E983",
     "Get-DomeniaSetting": "0EAAF3A4E8C78628E947B9C542C314AFFC0AE47C1C64F69D2F75E5B55C9718D7",
@@ -145,9 +145,9 @@
     "Load-DomeniaTheme": "D511927ABCEAB6EA33B003662D9101D59233FD30E3A1AAD90D04F086F84C98C3",
     "Save-DomeniaTheme": "6ED6C37E4A08CC3A9685723426CC9EF4839B3A4158168EEB2F453E183B0C32B8",
     "Set-DomeniaResourceColor": "27391F9046A85B14658803F03178045ABEDF0B1F4DD5364D7BA5575C5E4F11BE",
-    "Apply-DomeniaTheme": "115A426BAE13A4A67A3C252EE193AA35BF115C2BDCD1E1AA4CFC96D63A006010",
+    "Apply-DomeniaTheme": "B0ECA10884F7B8D32279AD437EAB8C806D868256D7071B79511688468E2D02BE",
     "Toggle-DomeniaTheme": "EA7E0F31A78D8B4A0BFAB0C27D8028521C1C3A1A255DDA4BEA3B65B5F7C99F03",
-    "Get-MainXaml": "D4BA2C1AEB6E593A499BEB8315A3D965E6EBCA22908CB5908F22D45F4531B10C",
+    "Get-MainXaml": "5C756EEC4AD17E15562BF7CE0734A51E7C6CE019089D56C0D5D3BD16B59656B9",
     "Assert-DomeniaXamlPreflight": "20BB1DA04FD88D78E1A52C5610376467D5E9408437BC823DDC8EC8F40C0EAEB7",
     "Save-DomeniaXamlDiagnostic": "D648C9D6BD6F5F3A6613957D22A6A42EC1AAC0C1FA6218195A55D10EADF4DC67",
     "ConvertFrom-DomeniaXaml": "855E6CA9E56D62F77F5C22ACAC048293D24281B5B8FCC7FEB6806450BE561228",
@@ -232,8 +232,8 @@
     "Remove-DomeniaSensitiveProperties": "BB37B81582511B42DD2E888DBBF0520FE2B3F630E5B440A9AC175355391750DF",
     "Entry-ToRawAttributes": "E6F6DA0D4222C8D51D68DE7B461452E0315FCE101A76672D5D6DF97C956B406C",
     "Apply-AutoTooltips": "3E8123486340D3A07A476CD448CEFCB23529E455CB8C1EFE0A05EB7913E0DBD6",
-    "Select-DomeniaWorkspace": "8AC447A3A6AB2E7B6D3707FF668B1F39658DAA9403B3EF95B8CC19FB54BF6446",
-    "Set-VisibleTabsForType": "8C62A68AFA82918975D140C4D46B1B05D5A28973860DD7057D4234ECC0F89AF6",
+    "Select-DomeniaWorkspace": "DA2808CB0C5C4F2C8199714B4C964D7EEE7113DA5E55CD99467CEF8E173CF362",
+    "Set-VisibleTabsForType": "89CC1B65FE740E939C999C557EED6F482472AC571E674D85B046CE5ED51831D9",
     "Assert-DomeniaWorkspaceSelection": "6BD1442693E929234ECBE910C64CA4B32C71B06FFDCFDA9ABDD3B3425FEDE87A",
     "Complete-DomeniaTreeChildrenUi": "A86B28415FB3EF6925E477D51A678E28F0B1D7DE5493C0E38203C845E74B71AD",
     "Fail-DomeniaTreeChildrenUi": "548F3488D28252DD90843EBCB9B14B81FA5472ED3913FAEA8B9EDB2AB7B33DB7",
@@ -397,7 +397,7 @@
     "Ensure-DomeniaRawAttributes": "A342805212091276C7D645F62DB2A2E624236F89D8BD171D02E86C957ED16770",
     "Ensure-DomeniaPermissions": "8DAA53B2A1C49AE68A4F57E22DE11B8FC0448A946F9D0AE22809AC2BD7679571",
     "Register-DomeniaDeferredViewHandlers": "68FF9E5E56FD29EC1AB8D88F02EF95D029E9A781E5F6290F4925E5D07A8604C4",
-    "Register-DomeniaShortcuts": "343835921121E80E31F773B841C4BCAAAF106E9403B7C1773D0A490E20470D39",
+    "Register-DomeniaShortcuts": "FD189C01ECA7AE1265DC2593ED4ACB674775747291BC669F51B9C6D9F96DFA11",
     "Start-ComputerDiagnostics": "361B8580A5EAE7FAF601CB7FD19E0DB7E353BA89F43A6C60D3D5D0EACC015155",
     "Copy-ComputerDiagnostics": "A188275C51CFCAF2D55C5B9AC31B3F37B8B0437EA33B36A4BF243894D8F74E69",
     "Get-DomeniaRunningComputerUserProbe": "AAAEE5EFFB592A6489AD11D2D49938E509181AA78152D4A6E4F790A9DF7A9872",
@@ -442,7 +442,7 @@
     "Set-DomeniaAppLogAvailability": "3A5DAC6209589F0AAB3D92A2B5A5794A80E76CC79F9467CC9A31B258E29D2FE4",
     "Write-AppLog": "581D386A6CE330EB94881C14CA729CFEBDE64DB94BED0B6C5A9F376943F39341",
     "Open-DomeniaAuditLog": "FD987363890DA8E901F4D9210A5F87D1BED385AE5C1D95A2FD659C8715B696DD",
-    "Get-DomeniaCriticalControlNames": "7CBC56FF03899414AF4B85C76F9E012CBEB29230F36EC4C319E916DEAEAC36F2",
+    "Get-DomeniaCriticalControlNames": "45DED617A9225F883C64D5643A3E633FE6E6AEA498842965A0CB252E16DD5708",
     "Get-DomeniaIntegritySnapshot": "F9EBCE1487E2933C317E800DD4B48DD7F6AABD0BF00ECC814A29B45E96156162",
     "Invoke-DomeniaInProcessAuthProbe": "68D33BDE27F0D4F8F2D44DA276DE5AD335F6E8EFE18849BD5CA9339899BEA4A4",
     "Complete-DomeniaLoginAuthRunspaceCleanup": "05F3F30D4B2C31357E4685A8AEC6D52860D849B25C24F2468BC4889C2FFCBA3F",
@@ -489,8 +489,8 @@
     "Clear-DomeniaSecondaryCredential": "CD8BB39C79262CBFF7EBBC941C6D31C67791476824B8C7EA1A1903B251DF26E8",
     "Start-DomeniaAccountRelogin": "D397EBD3337720384D5BCF5ECD2CEDEC21142918605BFFC510ABAE08775CB2CE",
     "Initialize-DomeniaAccountPanel": "05F251F380F8DF6C8E6DB91B2631449C8C6CCF4619709DA289F9BD1C7AD3273D",
-    "Wire-Events": "F5298F6ADBFE7836DB169B16F9EE098102500061AC6107E8F1288CA3D5E85A0E",
-    "New-DefaultConfig": "422CC9419411B537164D0C8CACECBA8BE08BB249E547A12CE820875B2FAC95E7",
+    "Wire-Events": "28DB5F47129F2396201C0BE96B9E60B3652F7EE04E41AF1C9138BFDD12295E96",
+    "New-DefaultConfig": "26B51F4B2DE79BD52EE783AB6DD85AB7C8AD23A1F21B9899063347760F08AA41",
     "Initialize-DomeniaDataStore": "75C63F73149D4C8CACBAA107F9223E9140830F4F01360F1899E8D79DC6A51E5A",
     "Write-StartupTrace": "216F93F6D1D37A669438F904233E5819260B8DA5AD48CF8887D6C5A372435250",
     "Get-DomeniaStartupXaml": "3945EB4C86332E38EC1491FC14A462CD4F2A103E615D82682E132E8164245F7F",
@@ -562,12 +562,12 @@
     "Test-DomeniaControlIsBusy": "8E2F1916596ED2218CC66095541C27F15091E51959C0759FD06D765C943CB7D3",
     "Update-DomeniaSecretActionUi": "0EBF14DC44553048BDAC855F09E92DCDCDC83C8769753FB23535F9151B4DCF79",
     "Assert-DomeniaReadWriteControlClassification": "8820FAC1AA8037A6CB215FC42E88D7EA5DBC7D20C137319A59B971AD2CD57F86",
-    "Update-DomeniaWriteModeVisual": "0CD2D0236B436B797FE6587E9C22C5E12670B1EF7B9AA70594BB4DF8D391FBC3",
+    "Update-DomeniaWriteModeVisual": "3D60543F70C980ADE36C1BA1561A08489AD1B0F7BABAE6A8021CC16BE9CC733D",
     "Get-DomeniaCapabilityDenialKey": "DF805F080E2EBEA2C34EC34EC618E92E09D0C7F1B05CE420C4F672FA49B8C8F4",
     "Set-DomeniaActualCapabilityDenied": "6F6687401F5C56E7D22055F846B00248F5830FE81F28525D0EBCB522F8A0386D",
     "Test-DomeniaActualCapabilityDenied": "7B1587596DF9FB74495E2E1719356E63C2A6447A0768ECF1588FEFD836D4062A",
     "Clear-DomeniaActualCapabilityDenials": "406426EE2A49F6ADE3D93F78FCDB88BB31C9013B510AF1A856068FD38C7BD9EF",
-    "Apply-CurrentPermissionUi": "598C39DC8D6B36D61799BBD6C27ABDDA07FCEECE0C4A3D6A0D13214C534EF4BB",
+    "Apply-CurrentPermissionUi": "746770E261FF2EB3D2F13FB5BD9AF14F40DB7206F2F5FFAC29DCA5F2DD944977",
     "Initialize-DomeniaPresentation": "6AE8613A6D6EC13F599D75DC436B33A68D88ECE76E888F6C644CC7F05A8C62E5",
     "Assert-DomeniaCapability": "F1F25727EF50BCD7B2349C382A57D66CB1D83373B28E8386B36F8D4ACCB2160F",
     "Invoke-DomeniaWritePostAction": "1F8DAA26A4FE81A1409A3548CE95E90F4B492BD480ACE3F23D476ED1864D9098",
@@ -624,7 +624,7 @@
     "Start-DomeniaFastLoginAttempt": "3BBC59E752DFBC3216BF7BB0B66C5A2D7226BE3929FA0F6D7B6ED4E920C7883D",
     "Toggle-DomeniaFastLoginPassword": "1BC67F94755245EAB6F14FCAC15D1A0A4EA8107439723606219093B8CDBB2F93",
     "Get-DomeniaLoginWindowMode": "23AEFDDD4CEDD3FEADA20D29DE3B068DE9915E1B24C0A7259930377C5DA54D29",
-    "Get-DomeniaStandardLoginXaml": "943F338242C5B7CBE9D0384128DCD1369C8FAB3468F433F09D21461E294575FD",
+    "Get-DomeniaStandardLoginXaml": "664A2BF64AB662660100EF9186F9AC06EB9AACAD1DFC0BB10CD5F50FEBF53A4A",
     "Get-DomeniaDebugLoginXaml": "20D4A0D101217FBAA6CCAD1D0C72B28A67ED3C9DF060430F70170754BCA5D137",
     "Show-LoginWindow": "2DE31969C7AA42AA39ACB0329CD42097EBF54AD734CC74D21E7864A04D080C3A",
     "Invoke-DomeniaSelfTest": "8187CD6097D0F6F7A198E00AB6D90C6351E2ACBC92443033AA96B7E6D9A620C1",
@@ -2133,6 +2133,61 @@
         "wad/modules/Domenia-Live.UI.ps1",
         "wad/modules/Domenia-Relations.UI.ps1"
       ]
+    },
+    {
+      "Previous": ".",
+      "Source": "lot/L08",
+      "Decision": "L08 (bandeau, en-tete, menu, profil, lecture seule) : Get-MainXaml, Get-DomeniaStandardLoginXaml (icone Path du theme), Wire-Events (interrupteur de lecture seule et choix Essentiel/Expert), Apply-CurrentPermissionUi (badge AD injoignable), Update-DomeniaWriteModeVisual, Select-DomeniaWorkspace (plus de bascule de profil), Set-VisibleTabsForType (Fiche et Poste toujours ouvertes), Apply-DomeniaUiProfile, Apply-DomeniaTheme, Register-DomeniaShortcuts (Ctrl+L), New-DefaultConfig, Get-DomeniaDefaultSettings, Get-DomeniaCriticalControlNames relus ; aucune charge de worker modifiee.",
+      "ChangedCoreFunctions": [
+        "Apply-CurrentPermissionUi",
+        "Apply-DomeniaTheme",
+        "Apply-DomeniaUiProfile",
+        "Get-DomeniaCriticalControlNames",
+        "Get-DomeniaDefaultSettings",
+        "Get-DomeniaStandardLoginXaml",
+        "Get-MainXaml",
+        "New-DefaultConfig",
+        "Register-DomeniaShortcuts",
+        "Select-DomeniaWorkspace",
+        "Set-VisibleTabsForType",
+        "Update-DomeniaWriteModeVisual",
+        "Wire-Events"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "lot/L08",
+      "Source": "lot/L08",
+      "Decision": "L08 (bandeau, en-tete, menu, profil, lecture seule) : Get-MainXaml, Get-DomeniaStandardLoginXaml (icone Path du theme), Wire-Events (interrupteur de lecture seule et choix Essentiel/Expert), Apply-CurrentPermissionUi (badge AD injoignable), Update-DomeniaWriteModeVisual, Select-DomeniaWorkspace (plus de bascule de profil), Set-VisibleTabsForType (Fiche et Poste toujours ouvertes), Apply-DomeniaUiProfile, Apply-DomeniaTheme, Register-DomeniaShortcuts (Ctrl+L), New-DefaultConfig, Get-DomeniaDefaultSettings, Get-DomeniaCriticalControlNames relus ; aucune charge de worker modifiee.",
+      "ChangedCoreFunctions": [
+        "Get-MainXaml"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "lot/L08",
+      "Source": "lot/L08",
+      "Decision": "L08 (bandeau, en-tete, menu, profil, lecture seule) : Get-MainXaml, Get-DomeniaStandardLoginXaml (icone Path du theme), Wire-Events (interrupteur de lecture seule et choix Essentiel/Expert), Apply-CurrentPermissionUi (badge AD injoignable), Update-DomeniaWriteModeVisual, Select-DomeniaWorkspace (plus de bascule de profil), Set-VisibleTabsForType (Fiche et Poste toujours ouvertes), Apply-DomeniaUiProfile, Apply-DomeniaTheme, Register-DomeniaShortcuts (Ctrl+L), New-DefaultConfig, Get-DomeniaDefaultSettings, Get-DomeniaCriticalControlNames relus ; aucune charge de worker modifiee.",
+      "ChangedCoreFunctions": [],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "lot/L08",
+      "Source": "lot/L08",
+      "Decision": "L08 (bandeau, en-tete, menu, profil, lecture seule) : Get-MainXaml, Get-DomeniaStandardLoginXaml (icone Path du theme), Wire-Events (interrupteur de lecture seule et choix Essentiel/Expert), Apply-CurrentPermissionUi (badge AD injoignable), Update-DomeniaWriteModeVisual, Select-DomeniaWorkspace (plus de bascule de profil), Set-VisibleTabsForType (Fiche et Poste toujours ouvertes), Apply-DomeniaUiProfile, Apply-DomeniaTheme, Register-DomeniaShortcuts (Ctrl+L), New-DefaultConfig, Get-DomeniaDefaultSettings, Get-DomeniaCriticalControlNames relus ; aucune charge de worker modifiee.",
+      "ChangedCoreFunctions": [
+        "Get-MainXaml",
+        "Wire-Events"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
     }
   ]
 }
