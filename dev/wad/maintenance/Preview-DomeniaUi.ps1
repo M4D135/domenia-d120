@@ -264,7 +264,8 @@ try {
         $script:PreviewTheme=if($script:PreviewTheme -eq 'Light'){'Dark'}else{'Light'}
         Set-DomeniaUxPalette -Window $script:Window -Theme $script:PreviewTheme
     })
-    (Get-DomeniaControl 'CmbUiProfile').Add_SelectionChanged({
+    # L08 (UI-30): the profile is chosen in the segmented control at the foot of the menu.
+    (Get-DomeniaControl 'LstUiProfile').Add_SelectionChanged({
         param($sender,$args)
         if($null -ne $sender.SelectedItem -and [string]$sender.SelectedItem.Tag -ne $script:CurrentUiProfile){Apply-DomeniaUiProfile -Profile ([string]$sender.SelectedItem.Tag)}
     })
@@ -297,7 +298,12 @@ try {
             $box=Get-DomeniaControl 'TxtGlobalSearch';$box.ApplyTemplate()|Out-Null;$null -ne $box.Template.FindName('PART_ContentHost',$box)
         }
         Test-PreviewAssertion 'Partie popup de la liste déroulante conservée' {
-            $combo=Get-DomeniaControl 'CmbUiProfile';$combo.ApplyTemplate()|Out-Null;$null -ne $combo.Template.FindName('PART_Popup',$combo)
+            $combo=Get-DomeniaControl 'CmbGlobalType';$combo.ApplyTemplate()|Out-Null;$null -ne $combo.Template.FindName('PART_Popup',$combo)
+        }
+        Test-PreviewAssertion 'Profil Essentiel | Expert au pied du menu, plus dans l en-tête' {
+            $segment=Get-DomeniaControl 'LstUiProfile'
+            $null -eq (Get-DomeniaControl 'CmbUiProfile') -and $segment -is [Windows.Controls.ListBox] -and $segment.Items.Count -eq 2 -and
+            [Windows.Media.VisualTreeHelper]::GetParent($segment) -ne $null -and (Get-DomeniaControl 'UxNavFooter').Children.Contains($segment)
         }
         Test-PreviewAssertion 'Aide statique et accessible sur les contrôles catalogués' {
             foreach($pair in @($script:Ctrl.GetEnumerator())) {
@@ -326,9 +332,14 @@ try {
             $box=Get-DomeniaControl 'TxtGlobalSearch';Initialize-DomeniaUxControlHelp $box;Initialize-DomeniaUxControlHelp $box
             [bool]$box.Resources['Domenia.UxHelpAttached']
         }
-        Test-PreviewAssertion 'Sans objet la navigation assistance est indisponible' {
+        Test-PreviewAssertion 'Sans objet, Fiche et Poste restent ouvertes avec leur page vide' {
+            # UX-09 (L08): no greyed menu entry; the pages show their empty state (search field, recent fiches).
             $script:SelectedObject=$null;Set-VisibleTabsForType -Type '';Sync-DomeniaUxNavigation
-            -not (Get-DomeniaControl 'BtnUxNavComputer').IsEnabled
+            $ok=(Get-DomeniaControl 'BtnUxNavComputer').IsEnabled -and (Get-DomeniaControl 'BtnUxNavObject').IsEnabled
+            Invoke-DomeniaUxRoute -Route 'WsComputer';Update-PreviewLayout
+            $ok=$ok -and (Get-DomeniaControl 'ComputerEmptyState').IsVisible -and (Get-DomeniaControl 'WorkspaceTabs').SelectedItem.Name -eq 'WsComputer'
+            Invoke-DomeniaUxRoute -Route 'WsObject';Update-PreviewLayout
+            $ok -and (Get-DomeniaControl 'ObjectEmptyState').IsVisible
         }
         Test-PreviewAssertion 'Ancien raccourci Annuaire redirige vers Recherche' {
             Invoke-DomeniaUxRoute -Route 'TabDirectory'
@@ -433,8 +444,15 @@ try {
             $xml='<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"><StackPanel><Button x:Name="Duplicate"/><Button x:Name="Duplicate"/></StackPanel></Window>'
             try{Assert-DomeniaXamlPreflight -XamlText $xml}catch{return $true};$false
         }
+        Test-PreviewAssertion 'Sous 1280 de large, le menu se replie sans changer la préférence' {
+            # UI-05 (L08): half screen beside the ticket tool; the saved menu choice stays as it was.
+            $script:UxNavCollapsed=$false;$script:UxShortNavReleased=$false;$script:Window.Width=1200;$script:UxLayoutSignature='';$script:UxNavLayoutSignature='';Update-PreviewLayout
+            $folded=((Get-DomeniaControl 'UxNavColumn').Width.Value -eq 68) -and -not [bool]$script:UxNavCollapsed
+            $script:Window.Width=1600;$script:UxLayoutSignature='';$script:UxNavLayoutSignature='';Update-PreviewLayout
+            $folded -and (Get-DomeniaControl 'UxNavColumn').Width.Value -eq 204 -and (Get-DomeniaControl 'TxtGlobalSearch').ActualWidth -ge 280
+        }
         Test-PreviewAssertion 'Rail icones : largeur et libelles replies' {
-            $script:UxNavCollapsed=$false;$script:UxNavLayoutSignature='';Update-PreviewLayout
+            $script:Window.Width=1600;$script:UxNavCollapsed=$false;$script:UxShortNavReleased=$false;$script:UxLayoutSignature='';$script:UxNavLayoutSignature='';Update-PreviewLayout
             Switch-DomeniaUxSidebar;Update-PreviewLayout
             (Get-DomeniaControl 'UxNavColumn').Width.Value -eq 68 -and
             (Get-DomeniaControl 'UxNavLabelSearch').Visibility -eq [Windows.Visibility]::Collapsed -and

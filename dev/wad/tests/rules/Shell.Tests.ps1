@@ -11,12 +11,12 @@ Test-Case 'D081' 'Le titre montre toujours la page active et la cible' {
     }
 }
 Test-Case 'D081' 'Sans cible le titre le dit ; un utilisateur n est pas la cible de l assistance poste' {
-    $none=Get-DomeniaPageTitle -Page 'WsSearch';Assert-Equal 'Rechercher · Aucune selection' $none.Header;Assert-False $none.HasTarget
+    $none=Get-DomeniaPageTitle -Page 'WsSearch';Assert-Equal 'Rechercher · Aucune sélection' $none.Header;Assert-False $none.HasTarget
     $wrong=Get-DomeniaPageTitle -Page 'WsComputer' -TargetName 'Jean Dupont' -TargetType 'Utilisateur'
-    Assert-False $wrong.HasTarget;Assert-Equal 'Assistance poste · Aucun poste selectionne' $wrong.Header
+    Assert-False $wrong.HasTarget;Assert-Equal 'Poste · Aucun poste sélectionné' $wrong.Header
     Assert-False ($wrong.WindowTitle -match 'Dupont') 'Le nom d une autre cible ne reste pas dans le titre'
-    Assert-True ((Get-DomeniaPageTitle -Page 'WsObject' -TargetName 'x' -WriteEnabled $true).WindowTitle.EndsWith('[ECRITURE AD ACTIVE]',[StringComparison]::Ordinal))
-    Assert-False ((Get-DomeniaPageTitle -Page 'WsObject' -TargetName 'x').WindowTitle -match 'ECRITURE')
+    Assert-True ((Get-DomeniaPageTitle -Page 'WsObject' -TargetName 'x' -WriteEnabled $true).WindowTitle.EndsWith('[ÉCRITURE AD ACTIVE]',[StringComparison]::Ordinal))
+    Assert-False ((Get-DomeniaPageTitle -Page 'WsObject' -TargetName 'x').WindowTitle -match 'CRITURE AD')
     $long=Get-DomeniaPageTitle -Page 'WsObject' -TargetName ("Nom`r`n"+('x'*300))
     Assert-True ($long.Target.Length -le 80) 'Cible bornee';Assert-False ($long.Header -match "[`r`n]") 'Titre sur une ligne'
 }
@@ -467,4 +467,125 @@ Test-Case 'D090' 'Le vocabulaire reel des modeles est reconnu et jamais rendu In
     Assert-Equal 'Refused' (Get-DomeniaStatusGlyph ('Acc'+[char]0xE8+'s refus'+[char]0xE9)).Status 'Libelle du lecteur de sessions'
     Assert-Equal 'Uncertain' (Get-DomeniaStatusGlyph '  A  VERIFIER ').Status 'Casse et espaces ignores'
     Assert-Equal 'Error' (Get-DomeniaStatusGlyph 'Echec').Status 'Un echec confirme n est jamais Inconnu'
+}
+# ---------------------------------------------------------------- L08 header, menu, read-only return, profile and session badge
+Test-Case 'L08-UI01' 'Titre de fenetre « Fiche · nom — Domenia », libelles du menu et puce du sujet' {
+    $t=Get-DomeniaPageTitle -Page 'WsObject' -TargetName 'Camille Martin' -TargetType 'Utilisateur'
+    Assert-Equal 'Fiche · Camille Martin — Domenia' $t.WindowTitle
+    Assert-Equal 'Utilisateur · Camille Martin' $t.Chip
+    $p=Get-DomeniaPageTitle -Page 'WsComputer' -TargetName 'PC-COMPTA-014' -TargetType 'Machine'
+    Assert-Equal 'Poste · PC-COMPTA-014' $p.Header;Assert-Equal 'Poste · PC-COMPTA-014' $p.Chip
+    Assert-Equal 'Poste · PC-COMPTA-014 — Domenia' $p.WindowTitle
+    Assert-Equal 'Utilisateurs et postes' (Get-DomeniaPageTitle -Page 'TabRelations').PageLabel
+    Assert-Equal '' (Get-DomeniaPageTitle -Page 'WsObject').Chip 'Sans sujet, aucune puce'
+    $demo=Get-DomeniaPageTitle -Page 'TabDashboard' -ApplicationName 'Domenia 1.0 · DÉMONSTRATION'
+    Assert-True ($demo.WindowTitle.EndsWith('— Domenia 1.0 · DÉMONSTRATION',[StringComparison]::Ordinal)) 'Le bandeau de demonstration reste dans le titre'
+    $labels=@(Get-DomeniaShellPages|ForEach-Object{$_.Label})
+    Assert-True ($labels -contains 'Poste') 'Assistance poste devient Poste';Assert-False ($labels -contains 'Assistance poste')
+    $preview=Get-DomeniaSelectionPreview ([pscustomobject]@{Type='Machine';Name='PC-1';Guid='11111111-1111-1111-1111-111111111111';Generation='1'})
+    Assert-Equal 'Ouvrir la fiche,Utilisateurs et postes,Poste' ((@($preview.Destinations|ForEach-Object{$_.Label})) -join ',')
+}
+Test-Case 'L08-SE06' 'Retour en lecture seule apres le delai sans ecriture, jamais pendant une ecriture' {
+    $t0=[datetime]'2026-10-09T10:00:00'
+    $off=Get-DomeniaReadOnlyReturnPlan -WriteEnabled $false -Now $t0
+    Assert-Equal 'Lecture seule' $off.Label;Assert-False $off.Expired;Assert-False $off.Deferred
+    $p=Get-DomeniaReadOnlyReturnPlan -WriteEnabled $true -EnabledAt $t0 -Now $t0.AddMinutes(3)
+    Assert-Equal 15 $p.DelayMinutes 'Delai par defaut';Assert-Equal 'Écriture active · 12 min' $p.Label;Assert-False $p.Expired
+    $p=Get-DomeniaReadOnlyReturnPlan -WriteEnabled $true -EnabledAt $t0 -Now $t0.AddMinutes(14).AddSeconds(30)
+    Assert-Equal 'Écriture active · 1 min' $p.Label;Assert-False $p.Expired
+    $p=Get-DomeniaReadOnlyReturnPlan -WriteEnabled $true -EnabledAt $t0 -Now $t0.AddMinutes(15)
+    Assert-True $p.Expired 'Retour au bout de 15 min sans ecriture';Assert-Equal 0 $p.RemainingSeconds
+    $p=Get-DomeniaReadOnlyReturnPlan -WriteEnabled $true -EnabledAt $t0 -Now $t0.AddMinutes(40) -WriteInProgress $true
+    Assert-False $p.Expired 'Une ecriture en cours n est jamais interrompue';Assert-True $p.Deferred;Assert-True ($p.Label -match 'en cours')
+    $p=Get-DomeniaReadOnlyReturnPlan -WriteEnabled $true -EnabledAt $t0 -LastWriteAt $t0.AddMinutes(10) -Now $t0.AddMinutes(20)
+    Assert-False $p.Expired 'La derniere ecriture relance le delai';Assert-Equal 5 $p.RemainingMinutes
+    Assert-True (Get-DomeniaReadOnlyReturnPlan -WriteEnabled $true -EnabledAt $t0 -LastWriteAt $t0.AddMinutes(10) -Now $t0.AddMinutes(25)).Expired
+    Assert-Equal 5 (Get-DomeniaReadOnlyReturnPlan -WriteEnabled $true -DelayMinutes 1 -Now $t0).DelayMinutes 'Borne basse'
+    Assert-Equal 120 (Get-DomeniaReadOnlyReturnPlan -WriteEnabled $true -DelayMinutes 500 -Now $t0).DelayMinutes 'Borne haute'
+    Assert-Equal 15 (Get-DomeniaReadOnlyReturnPlan -WriteEnabled $true -DelayMinutes 'abc' -Now $t0).DelayMinutes 'Valeur illisible'
+    $unknown=Get-DomeniaReadOnlyReturnPlan -WriteEnabled $true -Now $t0
+    Assert-False $unknown.Expired 'Sans date connue, le delai part de maintenant';Assert-Equal 15 $unknown.RemainingMinutes
+    Assert-True ($p.ToolTip -match 'jamais interrompue') 'L infobulle le dit'
+}
+Test-Case 'L08-DS10' 'Icone du theme vise, meme dessin dans la fenetre et la connexion' {
+    $light=Get-DomeniaThemeToggleIcon 'Light';$dark=Get-DomeniaThemeToggleIcon 'Dark'
+    Assert-Equal 'Moon' $light.Glyph;Assert-Equal 'Dark' $light.Target;Assert-Equal 'Passer au thème sombre' $light.Name
+    Assert-Equal 'Sun' $dark.Glyph;Assert-Equal 'Light' $dark.Target;Assert-Equal 'Passer au thème clair' $dark.Name
+    Assert-Equal 'Moon' (Get-DomeniaThemeToggleIcon 'autre').Glyph 'Theme inconnu traite comme clair'
+    Assert-Equal 'Sun' (Get-DomeniaThemeToggleIcon ' dark ').Glyph 'Casse et espaces ignores'
+    $core=[IO.File]::ReadAllText((Join-Path $wad 'Domenia-Core.ps1'),[Text.Encoding]::UTF8)
+    foreach($data in @($light.SunData,$light.MoonData)){
+        $count=([regex]::Matches($core,[regex]::Escape('Data="'+$data+'"'))).Count
+        Assert-True ($count -ge 2) ('Dessin partage par la fenetre principale et la connexion : '+$count)
+    }
+    Assert-False ($core -match 'ThemeIconGlyph') 'Plus d emoji de theme'
+}
+Test-Case 'L08-SP04' 'Badge de session : connecte, AD injoignable depuis HH:MM, demonstration' {
+    Assert-Equal 'Connecté à example.local' (Get-DomeniaSessionBadge -Domain 'example.local').Text
+    $off=Get-DomeniaSessionBadge -Domain 'example.local' -Offline $true -OfflineSince ([datetime]'2026-10-09T09:05:00')
+    Assert-Equal 'AD injoignable depuis 09:05 · données déjà lues seulement' $off.Text;Assert-Equal 'Offline' $off.State
+    Assert-True ($off.ToolTip -match 'Aucune relance') 'Aucune relance automatique annoncee'
+    Assert-Equal 'AD injoignable · données déjà lues seulement' (Get-DomeniaSessionBadge -Domain 'x' -Offline $true).Text
+    Assert-Equal 'Connecté à example.local' (Get-DomeniaSessionBadge -Domain 'example.local' -Offline $false -OfflineSince ([datetime]'2026-10-09T09:05:00')).Text 'Retour seul au premier succes'
+    Assert-Equal 'Pending' (Get-DomeniaSessionBadge).State
+    Assert-Equal 'DÉMO' (Get-DomeniaSessionBadge -Domain 'x' -Demo $true -DemoText 'DÉMO').Text
+}
+Test-Case 'L08-FO03' 'Recherches et fiches recentes : 8 au plus, sans doublon, memoire locale lisible' {
+    $list=@()
+    for($i=1;$i -le 10;$i++){$list=@(Add-DomeniaRecentEntry -Entries $list -Kind Recherche -Text ('dupont'+$i))}
+    Assert-Equal 8 @($list|Where-Object{$_.Kind -eq 'Recherche'}).Count 'Huit recherches au plus'
+    Assert-Equal 'dupont10' $list[0].Text 'La plus recente en tete'
+    $list=@(Add-DomeniaRecentEntry -Entries $list -Kind Recherche -Text 'DUPONT5')
+    Assert-Equal 'DUPONT5' $list[0].Text;Assert-Equal 1 @($list|Where-Object{$_.Text -ieq 'dupont5'}).Count 'Sans doublon, casse ignoree'
+    $list=@(Add-DomeniaRecentEntry -Entries $list -Kind Fiche -Text 'Camille Martin' -Type 'Utilisateur' -Dn 'CN=Camille Martin,DC=example,DC=local')
+    $list=@(Add-DomeniaRecentEntry -Entries $list -Kind Fiche -Text 'Camille Martin (Paris)' -Type 'Utilisateur' -Dn 'cn=camille martin,dc=example,dc=local')
+    Assert-Equal 1 @($list|Where-Object{$_.Kind -eq 'Fiche'}).Count 'Une fiche par DN'
+    Assert-Equal 8 @($list|Where-Object{$_.Kind -eq 'Recherche'}).Count 'Les fiches ne chassent pas les recherches'
+    $same=@(Add-DomeniaRecentEntry -Entries $list -Kind Recherche -Text '   ')
+    Assert-Equal $list.Count $same.Count 'Un texte vide n est pas retenu'
+    $json=ConvertTo-Json -InputObject @($list) -Depth 3 -Compress
+    $back=@(ConvertFrom-DomeniaRecentJson -Json $json)
+    Assert-Equal $list.Count $back.Count 'Relecture JSON';Assert-Equal 'Camille Martin (Paris)' @($back|Where-Object{$_.Kind -eq 'Fiche'})[0].Text
+    Assert-Equal 0 @(ConvertFrom-DomeniaRecentJson -Json '{pas du json').Count 'JSON illisible : liste vide'
+    Assert-Equal 0 @(ConvertFrom-DomeniaRecentJson -Json '[{"Kind":"Secret","Text":"x"}]').Count 'Type inconnu ignore'
+    $long=@(Add-DomeniaRecentEntry -Entries @() -Kind Recherche -Text ("a`r`n"+('b'*300)))
+    Assert-True ($long[0].Text.Length -le 80) 'Texte borne';Assert-False ($long[0].Text -match "[`r`n]") 'Une ligne'
+    $pc=@(Add-DomeniaRecentEntry -Kind Fiche -Text 'PC-1' -Type 'Machine' -Dn 'CN=PC-1')[0]
+    $user=@(Add-DomeniaRecentEntry -Kind Fiche -Text 'Jean' -Type 'Utilisateur' -Dn 'CN=Jean')[0]
+    $machines=@(Select-DomeniaRecentEntries -Entries @($pc,$user) -Kind @('Fiche') -Type 'Machine')
+    Assert-Equal 1 $machines.Count 'La page Poste ne propose que des postes';Assert-Equal 'PC-1' $machines[0].Text
+    $found=@(Select-DomeniaRecentEntries -Entries $list -Text 'DUPONT1')
+    Assert-Equal 1 $found.Count 'Filtre par texte contenu, casse ignoree';Assert-Equal 'dupont10' $found[0].Text
+}
+Test-Case 'L08-FO03' 'Suggestions de la barre : recentes puis base locale, sans doublon, aucune requete AD' {
+    $recent=@([pscustomobject]@{Kind='Recherche';Text='dupont';Type='';Dn=''},[pscustomobject]@{Kind='Fiche';Text='PC-COMPTA-014';Type='Machine';Dn='CN=PC'})
+    $local=@([pscustomobject]@{Type='Utilisateur';Name='Dupont Jean';Login='jdupont';Display='Jean Dupont'},[pscustomobject]@{Type='Machine';Name='pc-compta-014';Login='PC$';Display=''},[pscustomobject]@{Type='Utilisateur';Name='';Login='duponta';Display=''})
+    $items=@(Get-DomeniaSearchSuggestionItems -Recent $recent -LocalRows $local)
+    Assert-Equal 'dupont,PC-COMPTA-014,Dupont Jean,duponta' ((@($items|ForEach-Object{$_.Text})) -join ',') 'Recentes d abord, doublon local retire'
+    Assert-Equal 'Recherche récente' $items[0].Detail;Assert-Equal 'Fiche récente · Machine' $items[1].Detail;Assert-Equal 'Base locale · Utilisateur · Jean Dupont' $items[2].Detail
+    Assert-True (@($items|Where-Object{$_.Source -notin @('Recent','Local')}).Count -eq 0) 'Aucune source annuaire'
+    $many=@(for($i=0;$i -lt 20;$i++){[pscustomobject]@{Type='Machine';Name=('PC-'+$i)}})
+    Assert-Equal 8 @(Get-DomeniaSearchSuggestionItems -LocalRows $many).Count 'Huit lignes au plus'
+}
+Test-Case 'L08-CO06' 'Une vue Expert demandee par raccourci, menu ou palette ne change jamais le profil' {
+    $d=Get-DomeniaExpertTabDecision -Tab 'TabLog' -Profile 'Tech'
+    Assert-True $d.Show;Assert-True $d.Temporary 'Affichee seule, pour cette consultation';Assert-False $d.ChangesProfile
+    $d=Get-DomeniaExpertTabDecision -Tab 'TabWmi' -Profile 'Tech' -ObjectType 'Machine'
+    Assert-True ($d.Show -and $d.Temporary -and -not $d.ChangesProfile) 'Explorateur WMI depuis le menu contextuel'
+    $d=Get-DomeniaExpertTabDecision -Tab 'TabWmi' -Profile 'Tech' -ObjectType 'Utilisateur'
+    Assert-False $d.Show 'WMI refuse sur un utilisateur';Assert-True ($d.Reason.Length -gt 5) 'Refus explique'
+    $d=Get-DomeniaExpertTabDecision -Tab 'TabLog' -Profile 'Tech' -AllowExpert $false
+    Assert-False $d.Show 'Profil Expert masque par l administrateur';Assert-True ($d.Reason -match 'administrateur')
+    $d=Get-DomeniaExpertTabDecision -Tab 'TabRaw' -Profile 'Admin' -ObjectType 'Utilisateur'
+    Assert-True ($d.Show -and -not $d.Temporary) 'Expert : vue normale'
+    $d=Get-DomeniaExpertTabDecision -Tab 'TabGeneric' -Profile 'Tech'
+    Assert-True ($d.Show -and -not $d.Expert) 'Vue ordinaire non concernee'
+    foreach($tab in @('TabRaw','TabPermissions','TabWmi','TabSelfCheck','TabCmdlets','TabLog')){Assert-False (Get-DomeniaExpertTabDecision -Tab $tab -Profile 'Tech' -ObjectType 'Machine').ChangesProfile $tab}
+}
+Test-Case 'L08-DS01' 'Boutons-icones de 40 et pastilles fixes dans les emplacements D082' {
+    $slots=Get-DomeniaActivityStripSlots
+    foreach($name in @('BtnAccessRecovery','BtnSuiteActivity')){$s=@($slots.Slots|Where-Object{$_.Name -eq $name})[0];Assert-Equal 40 ([int]$s.Width) $name;Assert-Equal 40 ([int]$s.Height) $name}
+    foreach($name in @('BadgeAccessRecovery','BadgeSuiteActivity')){$s=@($slots.Slots|Where-Object{$_.Name -eq $name})[0];Assert-Equal 24 ([int]$s.Width) $name}
+    Assert-Equal '*,252,144,96' ($slots.StripColumns -join ',') 'Bandeau d activite inchange'
+    Assert-Equal 'Hidden' $slots.EmptySlotVisibility
 }

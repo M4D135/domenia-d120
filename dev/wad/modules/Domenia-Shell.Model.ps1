@@ -60,10 +60,12 @@ function Get-DomeniaShellPages {
         [pscustomobject]@{Id='WsSearch';Label='Rechercher';Subject='Selection';SubjectPicker=$true;TargetPicker=$false}
         [pscustomobject]@{Id='TabDirectory';Label='Parcourir';Subject='Selection';SubjectPicker=$true;TargetPicker=$false}
         [pscustomobject]@{Id='WsObject';Label='Fiche';Subject='Selection';SubjectPicker=$false;TargetPicker=$false}
-        [pscustomobject]@{Id='WsComputer';Label='Assistance poste';Subject='Machine';SubjectPicker=$false;TargetPicker=$false}
-        [pscustomobject]@{Id='TabRelations';Label='Relations';Subject='Selection';SubjectPicker=$false;TargetPicker=$true}
+        [pscustomobject]@{Id='WsComputer';Label='Poste';Subject='Machine';SubjectPicker=$false;TargetPicker=$false}
+        [pscustomobject]@{Id='TabRelations';Label='Utilisateurs et postes';Subject='Selection';SubjectPicker=$false;TargetPicker=$true}
         [pscustomobject]@{Id='TabAccounts';Label='Comptes';Subject='Selection';SubjectPicker=$false;TargetPicker=$false}
         [pscustomobject]@{Id='TabApplicationTools';Label='Outils';Subject='Selection';SubjectPicker=$false;TargetPicker=$false}
+        # L08 (UI-29): the page title is the menu label; the support workshop keeps its own label when it is shown.
+        [pscustomobject]@{Id='TabSupport';Label='Atelier support';Subject='Selection';SubjectPicker=$false;TargetPicker=$false}
     )
 }
 
@@ -79,12 +81,13 @@ function Test-DomeniaSelectorAllowed {
 function Get-DomeniaPageTitle {
     # The page header and the window title always carry the active page AND its target ("Fiche · Jean Dupont").
     # Without a target the title says so; it never keeps the name of a previous target.
+    # L08 (UI-01, UI-29): the label is the menu label; the window title reads "Fiche · Camille Martin — Domenia".
     param(
         [Parameter(Mandatory=$true)][string]$Page,
         [AllowEmptyString()][AllowNull()][string]$TargetName='',
         [AllowEmptyString()][AllowNull()][string]$TargetType='',
         [bool]$WriteEnabled=$false,
-        [AllowEmptyString()][string]$ApplicationName='Domenia 1.0'
+        [AllowEmptyString()][string]$ApplicationName='Domenia'
     )
     $row = @(Get-DomeniaShellPages | Where-Object { $_.Id -eq $Page })
     $label = ConvertTo-DomeniaFlatText $Page 40
@@ -96,13 +99,22 @@ function Get-DomeniaPageTitle {
     if ($hasTarget -and ($subject -eq 'Machine') -and ((ConvertTo-DomeniaRelationType $TargetType) -ne 'Machine')) { $hasTarget = $false }
     $target = $name
     if (-not $hasTarget) {
-        if ($subject -eq 'Machine') { $target = 'Aucun poste selectionne' } else { $target = 'Aucune selection' }
+        if ($subject -eq 'Machine') { $target = 'Aucun poste sélectionné' } else { $target = 'Aucune sélection' }
     }
     $header = $label + ' · ' + $target
     $windowTitle = $header
-    if (-not [string]::IsNullOrWhiteSpace($ApplicationName)) { $windowTitle = $header + ' - ' + $ApplicationName.Trim() }
-    if ($WriteEnabled) { $windowTitle += '  [ECRITURE AD ACTIVE]' }
-    return [pscustomobject]@{Page=$Page;PageLabel=$label;Target=$target;HasTarget=$hasTarget;Header=$header;WindowTitle=$windowTitle}
+    if (-not [string]::IsNullOrWhiteSpace($ApplicationName)) { $windowTitle = $header + ' — ' + $ApplicationName.Trim() }
+    if ($WriteEnabled) { $windowTitle += '  [ÉCRITURE AD ACTIVE]' }
+    # Chip near the page title (UI-01): "Poste · PC-COMPTA-014", only with a real target of this page.
+    $chip = ''
+    if ($hasTarget) {
+        $kind = ConvertTo-DomeniaRelationType $TargetType
+        $kindLabel = 'Fiche'
+        if ($kind -eq 'Machine') { $kindLabel = 'Poste' } elseif ($kind -eq 'Utilisateur') { $kindLabel = 'Utilisateur' }
+        elseif ([string]$TargetType -eq 'Groupe') { $kindLabel = 'Groupe' }
+        $chip = $kindLabel + ' · ' + $name
+    }
+    return [pscustomobject]@{Page=$Page;PageLabel=$label;Target=$target;HasTarget=$hasTarget;Header=$header;WindowTitle=$windowTitle;Chip=$chip}
 }
 
 # ---------------------------------------------------------------- D082 layout that does not move
@@ -122,6 +134,8 @@ function Get-DomeniaActivityStripSlots {
     # Fixed slots of the main window activity strip (in the page header bar) and header badges (device-independent units), as reserved in
     # the main XAML. Busy, idle, 0, 1, 10 or 100 tasks and a long message only change texts and visibility inside
     # these slots: an empty slot is Hidden, never Collapsed, so no neighbour moves.
+    # L08 (DS-01): Accès and Opérations are 40-unit icon buttons; their counter is a pill laid over the icon corner,
+    # shown above zero only, so it takes no room of its own.
     return [pscustomobject]@{
         HostName='UxPageHeaderBar';HostMinHeight=44.0;StripName='UxActivityStrip';StripHeight=44.0
         StripColumns=@('*','252','144','96')
@@ -130,10 +144,10 @@ function Get-DomeniaActivityStripSlots {
             [pscustomobject]@{Name='BtnCancelTask';Width=96.0;Height=32.0;Role='Action'}
             [pscustomobject]@{Name='LblTaskElapsed';Width=[double]::NaN;Height=24.0;Role='Message'}
             [pscustomobject]@{Name='WriteModeBanner';Width=240.0;Height=32.0;Role='Etat'}
-            [pscustomobject]@{Name='BtnAccessRecovery';Width=108.0;Height=40.0;Role='Action'}
-            [pscustomobject]@{Name='BtnSuiteActivity';Width=144.0;Height=40.0;Role='Action'}
-            [pscustomobject]@{Name='BadgeAccessRecovery';Width=30.0;Height=22.0;Role='Compteur'}
-            [pscustomobject]@{Name='BadgeSuiteActivity';Width=30.0;Height=22.0;Role='Compteur'}
+            [pscustomobject]@{Name='BtnAccessRecovery';Width=40.0;Height=40.0;Role='Action'}
+            [pscustomobject]@{Name='BtnSuiteActivity';Width=40.0;Height=40.0;Role='Action'}
+            [pscustomobject]@{Name='BadgeAccessRecovery';Width=24.0;Height=16.0;Role='Compteur'}
+            [pscustomobject]@{Name='BadgeSuiteActivity';Width=24.0;Height=16.0;Role='Compteur'}
         )
         EmptySlotVisibility='Hidden'
     }
@@ -505,7 +519,7 @@ function Get-DomeniaSelectionPreview {
         'Refused' { $stateText = 'Lecture refusee pour ce compte : la fiche n est pas affichee.' }
     }
     $destinations = New-Object 'System.Collections.Generic.List[object]'
-    foreach ($route in @(@('WsObject','Ouvrir la fiche'),@('TabRelations','Relations'),@('WsComputer','Assistance poste'))) {
+    foreach ($route in @(@('WsObject','Ouvrir la fiche'),@('TabRelations','Utilisateurs et postes'),@('WsComputer','Poste'))) {
         $applicable = $true; $notApplicable = ''
         if (($route[0] -eq 'TabRelations') -and ($type -notin @('Utilisateur','Machine'))) { $applicable = $false; $notApplicable = 'Reserve aux utilisateurs et aux postes.' }
         if (($route[0] -eq 'WsComputer') -and ($type -ne 'Machine')) { $applicable = $false; $notApplicable = 'Reserve aux postes.' }
@@ -1079,4 +1093,231 @@ function Get-DomeniaStatusGlyph {
         Status=[string]$entry[0];Requested=[string]$Status;Recognized=$recognized;Glyph=[string][char][int]$entry[1];Text=[string]$entry[2]
         ColorKey=[string]$entry[3];AutomationName=[string]$entry[2];FontFamily='Segoe UI Symbol'
     }
+}
+
+# ---------------------------------------------------------------- L08 header, read-only return, profile and session badge
+function Get-DomeniaReadOnlyReturnPlan {
+    # SE-06: write mode goes back to read-only after a delay without any write (15 min by default, bounded to 5-120).
+    # The delay counts from the later of the activation and the last write seen. A write in progress is never
+    # interrupted: the return waits for its end. Pure: the caller gives the clock and the dates.
+    param(
+        [bool]$WriteEnabled=$false,
+        $EnabledAt=$null,
+        $LastWriteAt=$null,
+        [datetime]$Now=[datetime]::MinValue,
+        $DelayMinutes=15,
+        [bool]$WriteInProgress=$false
+    )
+    $delay = 15
+    try { $delay = [int]$DelayMinutes } catch { $delay = 15 }
+    if ($delay -lt 5) { $delay = 5 }
+    if ($delay -gt 120) { $delay = 120 }
+    if (-not $WriteEnabled) {
+        return [pscustomobject]@{WriteEnabled=$false;DelayMinutes=$delay;Since=$null;RemainingSeconds=0;RemainingMinutes=0;Expired=$false;Deferred=$false
+            Label='Lecture seule';ToolTip='Lecture seule : les modifications AD et les actions distantes modificatrices sont bloquées. Cliquez pour autoriser les modifications, après confirmation.'}
+    }
+    $since = $null
+    foreach ($value in @($EnabledAt,$LastWriteAt)) {
+        if ($null -eq $value) { continue }
+        $date = $null
+        try { $date = [datetime]$value } catch { $date = $null }
+        if ($null -eq $date) { continue }
+        if (($null -eq $since) -or ($date -gt $since)) { $since = $date }
+    }
+    # Without a known start the delay starts now: an unknown date never shortens the write window to nothing.
+    if ($null -eq $since) { $since = $Now }
+    $remaining = [int][Math]::Ceiling(($since.AddMinutes($delay) - $Now).TotalSeconds)
+    if ($remaining -lt 0) { $remaining = 0 }
+    $minutes = [int][Math]::Ceiling($remaining / 60.0)
+    $deferred = (($remaining -le 0) -and $WriteInProgress)
+    $expired = (($remaining -le 0) -and (-not $WriteInProgress))
+    $label = 'Écriture active · ' + [string]$minutes + ' min'
+    if ($deferred) { $label = 'Écriture active · écriture en cours' }
+    $tip = 'Écriture active : les modifications sont autorisées, avec leurs confirmations. Retour automatique en lecture seule après ' + [string]$delay + ' min sans écriture ; une écriture en cours nʼest jamais interrompue. Cliquez pour repasser en lecture seule.'
+    return [pscustomobject]@{WriteEnabled=$true;DelayMinutes=$delay;Since=$since;RemainingSeconds=$remaining;RemainingMinutes=$minutes;Expired=$expired;Deferred=$deferred;Label=$label;ToolTip=$tip}
+}
+
+function Get-DomeniaThemeToggleIcon {
+    # DS-10: one convention for the main window and the login, the icon of the theme the button switches TO
+    # (sun while dark, moon while light), drawn as a Path with the stroke of the menu icons.
+    param([AllowEmptyString()][AllowNull()][string]$CurrentTheme='Light')
+    $sun = 'M16,12 A4,4 0 1 1 8,12 A4,4 0 1 1 16,12 M12,2 L12,4 M12,20 L12,22 M2,12 L4,12 M20,12 L22,12 M4.9,4.9 L6.3,6.3 M17.7,17.7 L19.1,19.1 M4.9,19.1 L6.3,17.7 M17.7,6.3 L19.1,4.9'
+    $moon = 'M20,14.5 A8,8 0 1 1 9.5,4 A6.5,6.5 0 0 0 20,14.5 Z'
+    if (([string]$CurrentTheme).Trim() -ieq 'Dark') {
+        return [pscustomobject]@{Current='Dark';Target='Light';Glyph='Sun';Data=$sun;SunData=$sun;MoonData=$moon;Name='Passer au thème clair';ToolTip='Passer au thème clair. Le choix est enregistré pour Domenia.'}
+    }
+    return [pscustomobject]@{Current='Light';Target='Dark';Glyph='Moon';Data=$moon;SunData=$sun;MoonData=$moon;Name='Passer au thème sombre';ToolTip='Passer au thème sombre. Le choix est enregistré pour Domenia.'}
+}
+
+function Get-DomeniaSessionBadge {
+    # UI-29 / SP-04: « Connecté à example.local ». While the directory does not answer: « AD injoignable depuis HH:MM
+    # · données déjà lues seulement », back by itself at the next directory success. Nothing is retried from here.
+    param(
+        [AllowEmptyString()][AllowNull()][string]$Domain='',
+        [bool]$Offline=$false,
+        $OfflineSince=$null,
+        [bool]$Demo=$false,
+        [AllowEmptyString()][AllowNull()][string]$DemoText=''
+    )
+    if ($Demo -and (-not [string]::IsNullOrWhiteSpace($DemoText))) {
+        $text = ConvertTo-DomeniaFlatText $DemoText 120
+        return [pscustomobject]@{State='Demo';Text=$text;ToolTip=$text}
+    }
+    $domainText = ConvertTo-DomeniaFlatText $Domain 80
+    if ($Offline) {
+        $time = ''
+        if ($null -ne $OfflineSince) { try { $time = ([datetime]$OfflineSince).ToString('HH:mm',[Globalization.CultureInfo]::InvariantCulture) } catch { $time = '' } }
+        $text = 'AD injoignable'
+        if ($time) { $text += ' depuis ' + $time }
+        $text += ' · données déjà lues seulement'
+        $tip = 'Le contrôleur de domaine ne répond plus : seules les données déjà lues sont consultables et les modifications attendent son retour. Aucune relance automatique ; le badge revient seul à la prochaine lecture réussie.'
+        return [pscustomobject]@{State='Offline';Text=$text;ToolTip=$tip}
+    }
+    if ([string]::IsNullOrWhiteSpace($domainText)) {
+        return [pscustomobject]@{State='Pending';Text='Session AD en préparation';ToolTip='La session AD nʼest pas encore établie.'}
+    }
+    return [pscustomobject]@{State='Connected';Text=('Connecté à ' + $domainText);ToolTip=('Session Active Directory ouverte sur ' + $domainText + '.')}
+}
+
+function ConvertFrom-DomeniaRecentJson {
+    # FO-03 / UX-09: recent searches and fiches kept in the local preferences (JSON list). An unreadable or foreign
+    # value gives an empty list, never an error; only the known members are kept, bounded on one line.
+    # The list helpers of this section return their rows on the pipeline: callers wrap them in @().
+    param([AllowEmptyString()][AllowNull()][string]$Json='')
+    $out = New-Object 'System.Collections.Generic.List[object]'
+    if ([string]::IsNullOrWhiteSpace($Json)) { return $out.ToArray() }
+    $parsed = $null
+    try { $parsed = $Json | ConvertFrom-Json } catch { return $out.ToArray() }
+    foreach ($item in @($parsed)) {
+        if ($null -eq $item) { continue }
+        $kind = [string](Get-DomeniaMember $item 'Kind' '')
+        if ($kind -notin @('Recherche','Fiche')) { continue }
+        $text = ConvertTo-DomeniaFlatText ([string](Get-DomeniaMember $item 'Text' '')) 80
+        if ([string]::IsNullOrWhiteSpace($text)) { continue }
+        $out.Add([pscustomobject]@{Kind=$kind;Text=$text;Type=(ConvertTo-DomeniaFlatText ([string](Get-DomeniaMember $item 'Type' '')) 20);Dn=(ConvertTo-DomeniaFlatText ([string](Get-DomeniaMember $item 'Dn' '')) 400)})
+    }
+    return $out.ToArray()
+}
+
+function Add-DomeniaRecentEntry {
+    # Newest first, one entry per kind and text (per DN for a fiche), at most $Maximum entries of each kind.
+    # Returns a new list; the input list is never modified.
+    param(
+        [object[]]$Entries=@(),
+        [ValidateSet('Recherche','Fiche')][string]$Kind='Recherche',
+        [AllowEmptyString()][AllowNull()][string]$Text='',
+        [AllowEmptyString()][AllowNull()][string]$Type='',
+        [AllowEmptyString()][AllowNull()][string]$Dn='',
+        [ValidateRange(1,50)][int]$Maximum=8
+    )
+    $clean = ConvertTo-DomeniaFlatText ([string]$Text) 80
+    $list = New-Object 'System.Collections.Generic.List[object]'
+    if (-not [string]::IsNullOrWhiteSpace($clean)) {
+        $list.Add([pscustomobject]@{Kind=$Kind;Text=$clean;Type=(ConvertTo-DomeniaFlatText ([string]$Type) 20);Dn=(ConvertTo-DomeniaFlatText ([string]$Dn) 400)})
+    }
+    $count = $list.Count
+    foreach ($entry in @($Entries)) {
+        if ($null -eq $entry) { continue }
+        $entryKind = [string](Get-DomeniaMember $entry 'Kind' '')
+        $entryText = [string](Get-DomeniaMember $entry 'Text' '')
+        $entryDn = [string](Get-DomeniaMember $entry 'Dn' '')
+        if ($entryKind -eq $Kind) {
+            $same = ($entryText -ieq $clean)
+            if (($Kind -eq 'Fiche') -and (-not [string]::IsNullOrWhiteSpace($Dn)) -and (-not [string]::IsNullOrWhiteSpace($entryDn))) { $same = ($entryDn -ieq [string]$Dn) }
+            if ($same) { continue }
+            if ($count -ge $Maximum) { continue }
+            $count++
+        }
+        $list.Add($entry)
+    }
+    return $list.ToArray()
+}
+
+function Select-DomeniaRecentEntries {
+    # Entries shown under the top search (and on the empty Fiche / Poste pages): those of the asked kinds whose
+    # text starts with, or contains, the typed text. Local memory only: nothing here reads the directory.
+    param([object[]]$Entries=@(),[string[]]$Kind=@('Recherche','Fiche'),[AllowEmptyString()][AllowNull()][string]$Text='',[AllowEmptyString()][string]$Type='',[ValidateRange(1,50)][int]$Maximum=8)
+    $needle = ([string]$Text).Trim()
+    $out = New-Object 'System.Collections.Generic.List[object]'
+    foreach ($entry in @($Entries)) {
+        if ($out.Count -ge $Maximum) { break }
+        if ($null -eq $entry) { continue }
+        if ([string](Get-DomeniaMember $entry 'Kind' '') -notin $Kind) { continue }
+        if ($Type -and ((ConvertTo-DomeniaRelationType ([string](Get-DomeniaMember $entry 'Type' ''))) -ne (ConvertTo-DomeniaRelationType $Type))) { continue }
+        $value = [string](Get-DomeniaMember $entry 'Text' '')
+        if ($needle -and ($value.IndexOf($needle,[StringComparison]::OrdinalIgnoreCase) -lt 0)) { continue }
+        $out.Add($entry)
+    }
+    return $out.ToArray()
+}
+
+function Get-DomeniaSearchSuggestionItems {
+    # FO-03: the list under the top search. Recent entries first (local memory), then rows of the local base read by the
+    # LocalIndexRead worker; one line per text (case ignored), at most $Maximum lines. Each line names its source:
+    # nothing in it comes from a directory request, and picking one only copies its text into the field.
+    param([object[]]$Recent=@(),[object[]]$LocalRows=@(),[ValidateRange(1,50)][int]$Maximum=8)
+    $seen = @{}
+    $out = New-Object 'System.Collections.Generic.List[object]'
+    foreach ($entry in @($Recent)) {
+        if ($out.Count -ge $Maximum) { break }
+        if ($null -eq $entry) { continue }
+        $text = ConvertTo-DomeniaFlatText ([string](Get-DomeniaMember $entry 'Text' '')) 80
+        if ([string]::IsNullOrWhiteSpace($text) -or $seen.ContainsKey($text.ToLowerInvariant())) { continue }
+        $seen[$text.ToLowerInvariant()] = $true
+        $detail = 'Recherche récente'
+        if ([string](Get-DomeniaMember $entry 'Kind' '') -eq 'Fiche') {
+            $detail = 'Fiche récente'
+            $type = ConvertTo-DomeniaFlatText ([string](Get-DomeniaMember $entry 'Type' '')) 20
+            if ($type) { $detail += ' · ' + $type }
+        }
+        $out.Add([pscustomobject]@{Source='Recent';Text=$text;Label=$text;Detail=$detail})
+    }
+    foreach ($row in @($LocalRows)) {
+        if ($out.Count -ge $Maximum) { break }
+        if ($null -eq $row) { continue }
+        $text = ConvertTo-DomeniaFlatText ([string](Get-DomeniaMember $row 'Name' '')) 80
+        if ([string]::IsNullOrWhiteSpace($text)) { $text = ConvertTo-DomeniaFlatText ([string](Get-DomeniaMember $row 'Login' '')) 80 }
+        if ([string]::IsNullOrWhiteSpace($text) -or $seen.ContainsKey($text.ToLowerInvariant())) { continue }
+        $seen[$text.ToLowerInvariant()] = $true
+        $detail = 'Base locale'
+        $type = ConvertTo-DomeniaFlatText ([string](Get-DomeniaMember $row 'Type' '')) 20
+        if ($type) { $detail += ' · ' + $type }
+        $display = ConvertTo-DomeniaFlatText ([string](Get-DomeniaMember $row 'Display' '')) 60
+        if ($display -and ($display -ine $text)) { $detail += ' · ' + $display }
+        $out.Add([pscustomobject]@{Source='Local';Text=$text;Label=$text;Detail=$detail})
+    }
+    return $out.ToArray()
+}
+
+function Get-DomeniaExpertTabDecision {
+    # CO-06: a shortcut, a menu or the palette never changes the interface profile. An Expert view asked from
+    # Essentiel is shown alone, for this navigation only (the profile and its saved value stay Essentiel). It is
+    # refused, with its reason, when the administrator hides the Expert profile (UI.AllowExpertProfile = false) or
+    # when the view does not apply to the selected object.
+    param(
+        [AllowEmptyString()][AllowNull()][string]$Tab='',
+        [AllowEmptyString()][AllowNull()][string]$Profile='Tech',
+        [bool]$AllowExpert=$true,
+        [AllowEmptyString()][AllowNull()][string]$ObjectType=''
+    )
+    $expertTabs = @('TabRaw','TabPermissions','TabWmi','TabSelfCheck','TabCmdlets','TabLog')
+    if ([string]$Tab -notin $expertTabs) {
+        return [pscustomobject]@{Tab=$Tab;Expert=$false;Show=$true;Temporary=$false;ChangesProfile=$false;Reason=''}
+    }
+    $type = ConvertTo-DomeniaRelationType ([string]$ObjectType)
+    $hasObject = -not [string]::IsNullOrWhiteSpace([string]$ObjectType)
+    $notApplicable = ''
+    if ($Tab -eq 'TabCmdlets') { $notApplicable = 'Vue retirée des outils.' }
+    elseif (($Tab -in @('TabRaw','TabPermissions')) -and (-not $hasObject)) { $notApplicable = 'Ouvrez dʼabord une fiche.' }
+    elseif (($Tab -eq 'TabWmi') -and ($type -ne 'Machine')) { $notApplicable = 'Vue réservée aux postes.' }
+    if ($notApplicable) {
+        return [pscustomobject]@{Tab=$Tab;Expert=$true;Show=$false;Temporary=$false;ChangesProfile=$false;Reason=$notApplicable}
+    }
+    if (-not $AllowExpert) {
+        return [pscustomobject]@{Tab=$Tab;Expert=$true;Show=$false;Temporary=$false;ChangesProfile=$false;Reason='Vue réservée au profil Expert, masqué par lʼadministrateur.'}
+    }
+    if ([string]$Profile -eq 'Admin') {
+        return [pscustomobject]@{Tab=$Tab;Expert=$true;Show=$true;Temporary=$false;ChangesProfile=$false;Reason=''}
+    }
+    return [pscustomobject]@{Tab=$Tab;Expert=$true;Show=$true;Temporary=$true;ChangesProfile=$false;Reason='Vue Expert affichée pour cette consultation ; le profil Essentiel est conservé.'}
 }

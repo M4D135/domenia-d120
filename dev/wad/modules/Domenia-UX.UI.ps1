@@ -128,7 +128,7 @@ function Invoke-DomeniaUxRoute {
     if ($Route -eq 'TabDirectory') { $Route = 'WsSearch' }
     $target = Get-DomeniaControl -Name $Route
     if ($null -eq $target -or -not $target.IsEnabled -or $target.Visibility -ne [Windows.Visibility]::Visible) {
-        Set-DomeniaContextHint -Title 'Ouvrez d abord une fiche' -Text 'Selectionnez une ligne pour precharger sa fiche. Pour l assistance poste, choisissez une machine.'
+        Set-DomeniaContextHint -Title 'Page indisponible' -Text 'Cette page nʼest pas disponible pour le moment. Les autres rubriques du menu restent accessibles.'
         return
     }
     Select-DomeniaWorkspace -Workspace $Route
@@ -139,45 +139,59 @@ function Invoke-DomeniaUxRoute {
     Sync-DomeniaUxNavigation
 }
 
-function Sync-DomeniaUxNavigation {
-    if ($null -eq $script:Ctrl) { return }
-    $workspaces = Get-DomeniaControl 'WorkspaceTabs'
-    if ($null -eq $workspaces) { return }
-    $current = '';try { $current = [string]$workspaces.SelectedItem.Name } catch { }
+function Get-DomeniaUxNavButtons {
+    # PF-28 (L08): the navigation buttons and their base help are collected once per window, not on every page change
+    # (the former loop matched every named control against a regular expression and rebuilt each help text).
+    if (($null -ne $script:UxNavButtonCache) -and [object]::ReferenceEquals($script:UxNavButtonCacheWindow,$script:Window) -and ([int]$script:UxNavButtonCacheCount -eq $script:Ctrl.Count)) {
+        return $script:UxNavButtonCache
+    }
     $allowed = @(Get-DomeniaUxRouteNames)
+    $list = New-Object 'System.Collections.Generic.List[object]'
     foreach ($pair in @($script:Ctrl.GetEnumerator())) {
         if ([string]$pair.Key -notmatch '^BtnUx(Nav|Home|Step|HelpAccounts)') { continue }
         $button = $pair.Value
         if ($button -isnot [Windows.Controls.Button]) { continue }
         $route = [string]$button.Uid
         if ($route -notin $allowed) { continue }
+        $list.Add([pscustomobject]@{Name=[string]$pair.Key;Button=$button;Route=$route;Tip=[string](Get-DomeniaUxHelpEntry -Control $button).Text;Menu=([string]$pair.Key -like 'BtnUxNav*')})
+    }
+    $script:UxNavButtonCache = $list.ToArray()
+    $script:UxNavButtonCacheWindow = $script:Window
+    $script:UxNavButtonCacheCount = $script:Ctrl.Count
+    return $script:UxNavButtonCache
+}
+
+function Sync-DomeniaUxNavigation {
+    if ($null -eq $script:Ctrl) { return }
+    $workspaces = Get-DomeniaControl 'WorkspaceTabs'
+    if ($null -eq $workspaces) { return }
+    $current = '';try { $current = [string]$workspaces.SelectedItem.Name } catch { }
+    foreach ($entry in @(Get-DomeniaUxNavButtons)) {
+        $button = $entry.Button
+        $route = [string]$entry.Route
         $target = Get-DomeniaControl -Name $route
         $available = ($null -ne $target -and $target.IsEnabled -and $target.Visibility -eq [Windows.Visibility]::Visible)
         # These are navigation buttons only; no permission-bearing control is enabled here.
         $button.IsEnabled = $available
-        $button.Tag = if ($route -eq $current) { 'Active' } else { '' }
-        $tip = [string](Get-DomeniaUxHelpEntry -Control $button).Text
+        $active = ($route -eq $current)
+        $button.Tag = if ($active) { 'Active' } else { '' }
+        # UI-13: the active menu entry is announced as the current page.
+        if ([bool]$entry.Menu) { [Windows.Automation.AutomationProperties]::SetItemStatus($button,$(if ($active) { 'Page actuelle' } else { '' })) }
+        $tip = [string]$entry.Tip
         if (-not $available) {
             if ($route -eq 'TabSupport') { $tip += ' Atelier indisponible : consultez le journal.' }
-            else { $tip += ' Selectionnez une ligne adaptee dans les resultats ; sa fiche se prepare sans changer de page.' }
+            else { $tip += ' Page indisponible pour le moment.' }
         }
         $button.ToolTip = $tip
     }
-    $titles = @{
-        TabDashboard='Accueil';WsSearch='Recherche et filtre OU';TabDirectory='Parcourir l''annuaire';WsObject='Fiche de l''objet'
-        TabRelations='Relations utilisateur / poste';WsComputer='Assistance poste';TabSupport='Atelier support'
-        TabAccounts='Comptes et accès';TabApplicationTools='Outils et vérifications'
-    }
-    $pageTitle = Get-DomeniaControl 'LblUxPageTitle'
-    if ($null -ne $pageTitle -and $titles.ContainsKey($current)) { $pageTitle.Text = [string]$titles[$current] }
-    $domainText = '';try { $domainText = [string](Get-DomeniaControl 'TxtDashDomain').Text } catch { }
-    $domainLabel = Get-DomeniaControl 'LblUxDomain'
-    # D002: in demonstration the session badge keeps the demonstration banner on every navigation.
-    if ($null -ne $domainLabel -and [bool]$script:DemoMode -and $null -ne (Get-Command -Name Get-DomeniaDemoBannerText -CommandType Function -ErrorAction SilentlyContinue)) { $domainLabel.Text = Get-DomeniaDemoBannerText }
-    elseif ($null -ne $domainLabel -and -not [string]::IsNullOrWhiteSpace($domainText)) { $domainLabel.Text = 'Session AD · ' + $domainText }
+    # UI-29 / UI-01: page title = menu label followed by its subject; window title and subject chip follow.
+    Update-DomeniaUxPageTitle
+    Update-DomeniaUxSessionBadge
+    Update-DomeniaUxEmptyStates
+    Update-DomeniaUxAccountFooter
     $selectionLabel = Get-DomeniaControl 'LblUxSelected'
     if ($null -ne $selectionLabel) {
-        $selectionLabel.Text = 'Aucune selection'
+        $selectionLabel.Text = 'Aucune sélection'
         if ($null -ne $script:SelectionLoad) {
             $selectionLabel.Text = $script:SelectionLoad.Context.Type + ' : ' + $script:SelectionLoad.Context.Name
         }
@@ -225,9 +239,12 @@ function Get-DomeniaUxHeightPlan {
     param([double]$Height=0,[double]$Width=0)
     $short = (($Height -gt 0) -and ($Height -lt 940))
     $low = (($Height -gt 0) -and ($Height -lt 700))
+    # UI-05 (L08): under 1280 units of width the menu also folds for the session (half screen beside the ticket tool),
+    # so that the top search keeps its room; the saved menu preference is never changed by a resize.
+    $narrow = (($Width -gt 0) -and ($Width -lt 1280))
     return [pscustomobject]@{
         LowHeight=$low;Short=$short;FoldJournal=$short;InlineDomainBadge=$short;CloseHelp=$short;HideFilterCaptions=$short
-        FoldNavigation=($short -and ($Width -gt 0) -and ($Width -lt 1200))
+        FoldNavigation=($narrow -or ($short -and ($Width -gt 0) -and ($Width -lt 1200)));Narrow=$narrow
         WorkViewWidth=$(if ($short) { 230.0 } else { 250.0 })
         FilterCardPadding=$(if ($low) { 4.0 } elseif ($short) { 12.0 } else { 16.0 });FilterCardBottom=$(if ($low) { 4.0 } elseif ($short) { 8.0 } else { 12.0 })
         ResultBarBottom=$(if ($low) { 2.0 } elseif ($short) { 6.0 } else { 10.0 });ResultLiveTop=$(if ($low) { 2.0 } elseif ($short) { 4.0 } else { 10.0 });ResultCountTop=0.0
@@ -237,10 +254,12 @@ function Get-DomeniaUxHeightPlan {
 function Set-DomeniaUxShortLayout {
     param($Plan)
     if ($null -eq $Plan) { return }
-    $title = Get-DomeniaControl 'UxPageTitleStack';$badge = Get-DomeniaControl 'UxDomainBadge'
-    # The session badge stays visible (demo, domain): it moves beside the title instead of disappearing.
+    $title = Get-DomeniaControl 'UxPageTitleStack';$badge = Get-DomeniaControl 'UxPageSubRow'
+    # The session badge (and the subject chip beside it) stays visible (demo, domain): it moves beside the title
+    # instead of disappearing.
     if ($null -ne $title) { $title.Orientation = if ([bool]$Plan.InlineDomainBadge) { [Windows.Controls.Orientation]::Horizontal } else { [Windows.Controls.Orientation]::Vertical } }
     if ($null -ne $badge) { $badge.Margin = if ([bool]$Plan.InlineDomainBadge) { [Windows.Thickness]::new(12,0,0,0) } else { [Windows.Thickness]::new(0,5,0,0) } }
+    $badge = Get-DomeniaControl 'UxDomainBadge'
     # Filter captions fold away; every filter keeps its tooltip and automation name.
     $filters = Get-DomeniaControl 'UxSearchFilters'
     if ($null -ne $filters) {
@@ -266,7 +285,8 @@ function Set-DomeniaUxShortLayout {
     if($script:UxCompactLayoutWindow -ne $script:Window){$script:UxCompactLayoutActive=$false;$script:UxCompactLayoutWindow=$script:Window}
     $pageTitle=Get-DomeniaControl 'LblUxPageTitle';if($pageTitle){$pageTitle.FontSize=if($compact){18.0}else{22.0}}
     if($badge){$badge.Padding=if($compact){[Windows.Thickness]::new(6,1,6,1)}else{[Windows.Thickness]::new(8,3,8,3)}}
-    if($compact){if($title){$title.Orientation=[Windows.Controls.Orientation]::Vertical};if($badge){$badge.Margin=[Windows.Thickness]::new(0)}}
+    $subRow=Get-DomeniaControl 'UxPageSubRow'
+    if($compact){if($title){$title.Orientation=[Windows.Controls.Orientation]::Vertical};if($subRow){$subRow.Margin=[Windows.Thickness]::new(0)}}
     $main=Get-DomeniaControl 'UxMainLayout';if($main){$main.Margin=if($compact){[Windows.Thickness]::new(18,6,16,6)}else{[Windows.Thickness]::new(18,12,16,12)}}
     $header=Get-DomeniaControl 'UxHeader';if($header){$header.Margin=if($compact){[Windows.Thickness]::new(0,0,0,4)}else{[Windows.Thickness]::new(0,0,0,10)}}
     $header=Get-DomeniaControl 'UxPageHeader';if($header){$header.Margin=if($compact){[Windows.Thickness]::new(2,0,0,6)}else{[Windows.Thickness]::new(2,0,0,12)}}
@@ -364,9 +384,10 @@ function Update-DomeniaUxLayout {
     $helpVisible = $script:UxHelpVisible;$compactOpen = $script:UxHelpCompactOpen
     if ([bool]$script:UxShortScreen) { $helpVisible = [bool]$script:UxShortHelpOpen;$compactOpen = [bool]$script:UxShortHelpOpen }
     $plan = Get-DomeniaUxLayoutPlan -Width $width -NavCollapsed (Test-DomeniaUxNavFolded) -HelpVisible $helpVisible -CompactHelpOpen $compactOpen
-    $signature = '{0}:{1}:{2}:{3}:{4}' -f $plan.Compact,$plan.HelpShown,$plan.NavWidth,$script:UxShortScreen,$heightPlan.LowHeight
+    $signature = '{0}:{1}:{2}:{3}:{4}:{5}' -f $plan.Compact,$plan.HelpShown,$plan.NavWidth,$script:UxShortScreen,$heightPlan.LowHeight,$plan.HeaderStacked
     if ($signature -eq $script:UxLayoutSignature) { return }
     $script:UxLayoutSignature=$signature
+    Set-DomeniaUxHeaderLayout -Stacked ([bool]$plan.HeaderStacked)
     $button = Get-DomeniaControl 'BtnUxHelpToggle'
     if (-not $plan.HelpShown -and $panel.IsKeyboardFocusWithin -and $null -ne $button) { [void]$button.Focus() }
     $column.Width = [Windows.GridLength]::new([double]$plan.ColumnWidth)
@@ -448,11 +469,19 @@ function Initialize-DomeniaUxShell {
     try { Update-DomeniaSearchScopeUi } catch { }
     $script:Window.Add_SizeChanged({Update-DomeniaUxLayout})
     $script:Window.Add_ContentRendered({Sync-DomeniaUxNavigation;Update-DomeniaUxLayout})
-    $script:Window.Add_Closed({$script:UxShellInitialized=$false;$script:UxLayoutSignature='';$script:UxHelpCompactOpen=$false;$script:UxNavLayoutSignature='';$script:UxShortScreen=$false;$script:UxShortHelpOpen=$false;$script:UxShortLogHeld=$false;$script:UxShortLogReleased=$false;$script:UxShortNavFold=$false;$script:UxShortNavReleased=$false})
+    $script:Window.Add_Closed({$script:UxShellInitialized=$false;$script:UxLayoutSignature='';$script:UxHelpCompactOpen=$false;$script:UxNavLayoutSignature='';$script:UxShortScreen=$false;$script:UxShortHelpOpen=$false;$script:UxShortLogHeld=$false;$script:UxShortLogReleased=$false;$script:UxShortNavFold=$false;$script:UxShortNavReleased=$false;$script:UxNavButtonCache=$null;Stop-DomeniaReadOnlyReturnTimer})
+    # L08: subject chip, account of the menu foot, search bar (recent entries, local suggestions) and empty pages.
+    $clear = Get-DomeniaControl 'BtnUxSubjectClear';if ($null -ne $clear) { $clear.Add_Click({ Clear-DomeniaUxSubject }) }
+    $account = Get-DomeniaControl 'BtnUxNavAccount';if ($null -ne $account) { $account.Add_Click({ param($sender,$eventArgs) Show-DomeniaUxAccountMenu -Button $sender }) }
+    Initialize-DomeniaUxSearchBar
+    Initialize-DomeniaUxEmptyStates
     $script:UxShellInitialized=$true
     Initialize-DomeniaExperience
+    Update-DomeniaUxProfileSwitch
     Update-DomeniaUxProfileVisibility
+    Update-DomeniaUxThemeToggle
     Sync-DomeniaUxNavigation
+    Update-DomeniaReadOnlySwitch
     Update-DomeniaUxLayout
 }
 
@@ -493,6 +522,9 @@ function Get-DomeniaUxLayoutPlan {
     $compact = $available -lt 1040.0
     $shown = if ($compact) { $CompactHelpOpen } else { $HelpVisible }
     [pscustomobject]@{
+        # SP-03 (L08): below 1000 units of main area the read-only switch moves to the top bar, so the page title keeps
+        # room beside the fixed slots of the activity strip (504 units) instead of being clipped.
+        HeaderStacked=($available -lt 1000.0)
         NavWidth=$navWidth;Compact=$compact;HelpShown=$shown
         HelpWidth=300.0
         ColumnWidth=$(if ($shown -and -not $compact) {300.0} else {0.0})
@@ -533,7 +565,7 @@ function Update-DomeniaUxSidebar {
     if ($null -eq $column -or $null -eq $sidebar) { return }
     $column.Width=[Windows.GridLength]::new($(if($collapsed){68.0}else{204.0}))
     $sidebar.Padding=[Windows.Thickness]::new($(if($collapsed){8.0}else{10.0}))
-    foreach ($name in @('UxBrandExpanded','UxNavFooter','UxSidebarToggleLabel')) {
+    foreach ($name in @('UxBrandExpanded','UxNavFooter')) {
         $c=Get-DomeniaControl $name
         if ($null -ne $c) { $c.Visibility=if($collapsed){[Windows.Visibility]::Collapsed}else{[Windows.Visibility]::Visible} }
     }
@@ -553,14 +585,14 @@ function Update-DomeniaUxSidebar {
     $toggle=Get-DomeniaControl 'BtnUxSidebarToggle'
     if($null -ne $toggle){
         $toggle.ToolTip=if($collapsed){'Déployer le menu : icônes et libellés.'}else{'Réduire le menu : conserver uniquement les icônes.'}
-        $toggle.HorizontalContentAlignment=if($collapsed){[Windows.HorizontalAlignment]::Center}else{[Windows.HorizontalAlignment]::Stretch}
+        $toggle.HorizontalAlignment=if($collapsed){[Windows.HorizontalAlignment]::Center}else{[Windows.HorizontalAlignment]::Left}
         [Windows.Automation.AutomationProperties]::SetName($toggle,$toggle.ToolTip)
     }
     $content=Get-DomeniaControl 'UxSidebarToggleContent'
     if($null -ne $content){$content.HorizontalAlignment=if($collapsed){[Windows.HorizontalAlignment]::Center}else{[Windows.HorizontalAlignment]::Left}}
     $glyph=Get-DomeniaControl 'UxSidebarToggleGlyph'
     if($null -ne $glyph){
-        $glyph.Margin=[Windows.Thickness]::new(0,0,$(if($collapsed){0}else{10}),0)
+        $glyph.Margin=[Windows.Thickness]::new(0)
         $path=if($collapsed){'M2,2 L20,2 20,18 2,18 Z M8,2 L8,18 M12,6 L16,10 12,14'}else{'M2,2 L20,2 20,18 2,18 Z M8,2 L8,18 M16,6 L12,10 16,14'}
         $glyph.Data=[Windows.Media.Geometry]::Parse($path)
     }
@@ -664,4 +696,605 @@ function Initialize-DomeniaUxLoginPresentation {
         $Window.Resources['DomeniaLoginWaitWired'] = $true
     }
     Initialize-DomeniaExperienceLogin -Window $Window
+}
+
+# ---------------------------------------------------------------- L08 header, menu foot, search bar and read-only switch
+function Test-DomeniaUxExpertAllowed {
+    # SP-13: UI.AllowExpertProfile, true by default. False hides Expert at the menu foot and keeps Ctrl+L on the journal.
+    try { return [bool](Get-CfgValue 'UI' 'AllowExpertProfile' $true) } catch { return $true }
+}
+
+function Send-DomeniaUxLiveChange {
+    # UI-13: tells a screen reader that a polite live region changed (page title, last journal line, write state).
+    # Best effort and only when an automation client listens: the text itself is always updated by the caller.
+    param($Control)
+    if ($null -eq $Control) { return }
+    try {
+        $liveEvent = [Windows.Automation.Peers.AutomationEvents]::LiveRegionChanged
+        if (-not [Windows.Automation.Peers.AutomationPeer]::ListenerExists($liveEvent)) { return }
+        $peer = [Windows.Automation.Peers.UIElementAutomationPeer]::CreatePeerForElement($Control)
+        if ($null -ne $peer) { $peer.RaiseAutomationEvent($liveEvent) }
+    } catch { }
+}
+
+function Get-DomeniaUxSubject {
+    # The current subject: the loaded object, otherwise the object being read; never a former object.
+    $name = ''; $type = ''
+    if ($null -ne $script:SelectedObject) {
+        try { $name = [string]$script:SelectedObject.Name; $type = [string]$script:SelectedObject.Type } catch { }
+    }
+    elseif ($null -ne $script:SelectionLoad) {
+        try { $name = [string]$script:SelectionLoad.Context.Name; $type = [string]$script:SelectionLoad.Context.Type } catch { }
+    }
+    return [pscustomobject]@{Name=$name;Type=$type}
+}
+
+function Update-DomeniaUxPageTitle {
+    # UI-01 / UI-29: the page header shows the menu label, followed by the subject on Fiche, Poste and Utilisateurs et
+    # postes (« Fiche · Camille Martin »); the window title reads « Fiche · Camille Martin — Domenia » (Alt+Tab) and a
+    # « Poste · nom » chip with ✕ sits beside the session badge.
+    if ($null -eq $script:Ctrl) { return }
+    $page = ''
+    try { $page = [string](Get-DomeniaControl 'WorkspaceTabs').SelectedItem.Name } catch { $page = '' }
+    if ([string]::IsNullOrWhiteSpace($page)) { $page = 'TabDashboard' }
+    $subject = Get-DomeniaUxSubject
+    $application = [string]$script:BaseWindowTitle
+    if ([string]::IsNullOrWhiteSpace($application)) { $application = 'Domenia' }
+    $title = Get-DomeniaPageTitle -Page $page -TargetName $subject.Name -TargetType $subject.Type -WriteEnabled (-not [bool]$script:ReadOnlyMode) -ApplicationName $application
+    $label = Get-DomeniaControl 'LblUxPageTitle'
+    if ($null -ne $label) {
+        $text = [string]$title.PageLabel
+        if (($page -in @('WsObject','WsComputer','TabRelations')) -and [bool]$title.HasTarget) { $text = [string]$title.Header }
+        if ([string]$label.Text -cne $text) { $label.Text = $text; Send-DomeniaUxLiveChange -Control $label }
+    }
+    if ($null -ne $script:Window) {
+        try { if ([string]$script:Window.Title -cne [string]$title.WindowTitle) { $script:Window.Title = [string]$title.WindowTitle } } catch { }
+    }
+    $chipValue = ''
+    if (-not [string]::IsNullOrWhiteSpace($subject.Name)) { $chipValue = [string](Get-DomeniaPageTitle -Page 'WsObject' -TargetName $subject.Name -TargetType $subject.Type).Chip }
+    $chipText = Get-DomeniaControl 'LblUxSubject'
+    if ($null -ne $chipText) { $chipText.Text = $chipValue }
+    $chip = Get-DomeniaControl 'UxSubjectChip'
+    if ($null -ne $chip) { $chip.Visibility = if ($chipValue) { [Windows.Visibility]::Visible } else { [Windows.Visibility]::Collapsed } }
+    Add-DomeniaUxRecentObject
+}
+
+function Update-DomeniaUxSessionBadge {
+    # UI-29 / SP-04: « Connecté à example.local », or « AD injoignable depuis HH:MM · données déjà lues seulement » while the
+    # last directory request did not get an answer; back by itself at the next directory success, nothing is retried.
+    $label = Get-DomeniaControl 'LblUxDomain'
+    if ($null -eq $label) { return }
+    $offline = $false
+    $outage = $null
+    try {
+        $reach = $script:DirectoryReachability
+        if (($null -ne $reach) -and ([long]$reach.Epoch -eq [long]$script:SessionEpoch)) { $offline = [bool]$reach.Offline; $outage = $reach.LastOutageUtc }
+    } catch { $offline = $false }
+    if ($offline) {
+        # « depuis » is the first failure of the outage, not the latest one.
+        if ($null -eq $script:UxAdOfflineSince) {
+            $since = Get-Date
+            try { if ($null -ne $outage) { $since = ([datetime]$outage).ToLocalTime() } } catch { $since = Get-Date }
+            $script:UxAdOfflineSince = $since
+        }
+    } else { $script:UxAdOfflineSince = $null }
+    $domain = ''
+    try { $domain = [string]$script:Conn.Domain } catch { $domain = '' }
+    if ([string]::IsNullOrWhiteSpace($domain)) { try { $domain = [string](Get-DomeniaControl 'TxtDashDomain').Text } catch { $domain = '' } }
+    $demo = [bool]$script:DemoMode
+    $demoText = ''
+    if ($demo -and ($null -ne (Get-Command -Name Get-DomeniaDemoBannerText -CommandType Function -ErrorAction SilentlyContinue))) { $demoText = [string](Get-DomeniaDemoBannerText) }
+    $badge = Get-DomeniaSessionBadge -Domain $domain -Offline $offline -OfflineSince $script:UxAdOfflineSince -Demo $demo -DemoText $demoText
+    # A badge without a domain yet keeps its startup text (« Session AD en préparation ») or an offline preview text.
+    if (([string]$badge.State -eq 'Pending') -and (-not [string]::IsNullOrWhiteSpace([string]$label.Text))) { return }
+    if ([string]$label.Text -cne [string]$badge.Text) { $label.Text = [string]$badge.Text; Send-DomeniaUxLiveChange -Control $label }
+    if ([string]$badge.State -ne 'Demo') {
+        $label.SetResourceReference([Windows.Controls.TextBlock]::ForegroundProperty,$(if ($offline) { 'StatusError' } else { 'InfoFg' }))
+    }
+}
+
+function Update-DomeniaUxAccountFooter {
+    # DS-12: the account and the domain in use at the foot of the menu (they were only in the help panel).
+    $account = Get-DomeniaControl 'LblUxNavAccount'
+    $domainLabel = Get-DomeniaControl 'LblUxNavDomain'
+    if (($null -eq $account) -and ($null -eq $domainLabel)) { return }
+    $user = ''; $domain = ''
+    try { $user = [string]$script:Conn.BindUser } catch { $user = '' }
+    if ([string]::IsNullOrWhiteSpace($user)) { try { $user = [string]$script:Conn.User } catch { $user = '' } }
+    try { $domain = [string]$script:Conn.Domain } catch { $domain = '' }
+    if ($null -ne $account) { $account.Text = if ([string]::IsNullOrWhiteSpace($user)) { 'Aucun compte connecté' } else { ConvertTo-DomeniaFlatText $user 60 } }
+    if ($null -ne $domainLabel) { $domainLabel.Text = if ([string]::IsNullOrWhiteSpace($domain)) { 'Domaine non connecté' } else { ConvertTo-DomeniaFlatText $domain 60 } }
+}
+
+function Show-DomeniaUxAccountMenu {
+    # DS-12: menu of the account at the foot of the menu: change of account (page Comptes) and « À propos » (version).
+    param($Button)
+    if ($null -eq $Button) { return }
+    $menu = New-Object Windows.Controls.ContextMenu
+    $change = New-Object Windows.Controls.MenuItem
+    $change.Header = 'Changer de compte'
+    $change.ToolTip = 'Ouvre la page Comptes : compte AD, compte pour les postes et compte pour les secrets.'
+    $change.Add_Click({ Invoke-DomeniaUxRoute -Route 'TabAccounts' })
+    $about = New-Object Windows.Controls.MenuItem
+    $about.Header = 'À propos de Domenia'
+    $about.ToolTip = 'Affiche la version de Domenia au pied du menu.'
+    $about.Add_Click({ Switch-DomeniaUxAbout })
+    [void]$menu.Items.Add($change)
+    [void]$menu.Items.Add($about)
+    $menu.PlacementTarget = $Button
+    $menu.Placement = [Windows.Controls.Primitives.PlacementMode]::Top
+    $Button.ContextMenu = $menu
+    $menu.IsOpen = $true
+}
+
+function Switch-DomeniaUxAbout {
+    # « À propos » shows the version line that left the menu foot (DS-12), and says it in the help panel.
+    $panel = Get-DomeniaControl 'UxAboutPanel'
+    if ($null -eq $panel) { return }
+    $show = ($panel.Visibility -ne [Windows.Visibility]::Visible)
+    $panel.Visibility = if ($show) { [Windows.Visibility]::Visible } else { [Windows.Visibility]::Collapsed }
+    if ($show) { Set-DomeniaContextHint -Title 'À propos de Domenia' -Text ([string]$script:DomeniaBuild + '. Les actions restent sous votre contrôle ; aucune écriture ne part sans votre geste.') }
+}
+
+function Clear-DomeniaUxSubject {
+    # UI-01: ✕ of the subject chip. Same path as an empty selection in the result list (the unsaved-input guard
+    # applies); nothing is read or written.
+    try {
+        $grid = Get-DomeniaControl 'DgObjects'
+        if (($null -ne $grid) -and (@($grid.SelectedItems).Count -gt 0)) { $grid.UnselectAll() }
+        elseif ($null -ne (Get-Command -Name Queue-DomeniaSelectedObjectOpen -CommandType Function -ErrorAction SilentlyContinue)) { Queue-DomeniaSelectedObjectOpen -Immediate }
+        elseif ($null -ne (Get-Command -Name Clear-DomeniaSelectionEverywhere -CommandType Function -ErrorAction SilentlyContinue)) { Clear-DomeniaSelectionEverywhere }
+    } catch { Write-AppLog ('Désélection depuis lʼen-tête : ' + $_.Exception.Message) 'WARN' }
+    Sync-DomeniaUxNavigation
+}
+
+function Update-DomeniaUxProfileSwitch {
+    # UI-30 / SP-13: the Essentiel | Expert choice of the menu foot follows the profile; Expert is hidden (and never
+    # applied) when the administrator sets UI.AllowExpertProfile to false.
+    $allowed = Test-DomeniaUxExpertAllowed
+    $expert = Get-DomeniaControl 'LstUiProfileExpert'
+    if ($null -ne $expert) { $expert.Visibility = if ($allowed) { [Windows.Visibility]::Visible } else { [Windows.Visibility]::Collapsed } }
+    if ((-not $allowed) -and ([string]$script:CurrentUiProfile -eq 'Admin')) {
+        if ($null -ne (Get-Command -Name Apply-DomeniaUiProfile -CommandType Function -ErrorAction SilentlyContinue)) { Apply-DomeniaUiProfile -Profile 'Tech' } else { $script:CurrentUiProfile = 'Tech' }
+    }
+    $segment = Get-DomeniaControl 'LstUiProfile'
+    if ($null -ne $segment) {
+        foreach ($item in @($segment.Items)) {
+            if ([string]$item.Tag -eq [string]$script:CurrentUiProfile) { if (-not [object]::ReferenceEquals($segment.SelectedItem,$item)) { $segment.SelectedItem = $item }; break }
+        }
+    }
+}
+
+function Invoke-DomeniaJournalShortcut {
+    # CO-06 / SP-13: Ctrl+L never changes the interface profile. In Expert it opens Outils > Journal; in Essentiel, or
+    # when Expert is hidden by the administrator, it unfolds the session journal at the bottom of the window.
+    if (([string]$script:CurrentUiProfile -eq 'Admin') -and (Test-DomeniaUxExpertAllowed)) {
+        Select-DomeniaWorkspace -Workspace 'TabApplicationTools' -Inner 'ApplicationToolTabs' -Tab 'TabLog'
+        return
+    }
+    if ($null -ne (Get-Command -Name Open-DomeniaExperienceJournal -CommandType Function -ErrorAction SilentlyContinue)) { Open-DomeniaExperienceJournal }
+    $list = Get-DomeniaControl 'LstUiLogReadable'
+    if (($null -ne $list) -and $list.IsVisible) { [void]$list.Focus() }
+}
+
+function Update-DomeniaUxThemeToggle {
+    # DS-10: name and tool tip of the theme button give the theme it switches to (the help catalogue sets a neutral
+    # title at start-up; this restores the precise name).
+    $button = Get-DomeniaControl 'BtnThemeToggle'
+    if ($null -eq $button) { return }
+    $icon = Get-DomeniaThemeToggleIcon -CurrentTheme ([string]$script:CurrentTheme)
+    $button.ToolTip = [string]$icon.ToolTip
+    [Windows.Automation.AutomationProperties]::SetName($button,[string]$icon.Name)
+    $sun = Get-DomeniaControl 'ThemeIconSun';$moon = Get-DomeniaControl 'ThemeIconMoon'
+    if ($null -ne $sun) { $sun.Visibility = if ($icon.Glyph -eq 'Sun') { [Windows.Visibility]::Visible } else { [Windows.Visibility]::Collapsed } }
+    if ($null -ne $moon) { $moon.Visibility = if ($icon.Glyph -eq 'Moon') { [Windows.Visibility]::Visible } else { [Windows.Visibility]::Collapsed } }
+}
+
+function Set-DomeniaUxHeaderLayout {
+    # SP-03: on a narrow main area the read-only switch leaves the page header for the top bar, before the icon
+    # buttons: the page title gains the room of the switch, no row is added (the short screens of D006 keep their
+    # results) and the activity strip keeps its fixed slots (D082). A resize only; the switch itself is unchanged.
+    param([bool]$Stacked=$false)
+    $switchHost = Get-DomeniaControl 'UxReadOnlyHost'
+    $bar = Get-DomeniaControl 'UxPageHeaderBar'
+    $tools = Get-DomeniaControl 'UxHeaderTools'
+    if (($null -eq $switchHost) -or ($null -eq $bar) -or ($null -eq $tools)) { return }
+    $parent = $switchHost.Parent
+    if ($Stacked) {
+        if (-not [object]::ReferenceEquals($parent,$tools)) {
+            if ($null -ne $parent) { $parent.Children.Remove($switchHost) }
+            [void]$tools.Children.Insert(0,$switchHost)
+        }
+        $switchHost.Margin = [Windows.Thickness]::new(0,0,6,0)
+    } else {
+        if (-not [object]::ReferenceEquals($parent,$bar)) {
+            if ($null -ne $parent) { $parent.Children.Remove($switchHost) }
+            [void]$bar.Children.Add($switchHost)
+        }
+        [Windows.Controls.Grid]::SetColumn($switchHost,2)
+        $switchHost.Margin = [Windows.Thickness]::new(12,0,0,0)
+    }
+}
+
+# ---------------------------------------------------------------- L08 recent searches and fiches (local memory)
+function Get-DomeniaUxRecentEntries {
+    if ($null -eq $script:UxRecentEntries) {
+        $json = '[]'
+        try { $json = [string](Get-DomeniaSetting -Name 'UxRecentJson' -Default '[]') } catch { $json = '[]' }
+        $script:UxRecentEntries = @(ConvertFrom-DomeniaRecentJson -Json $json)
+    }
+    return $script:UxRecentEntries
+}
+
+function Add-DomeniaUxRecentEntry {
+    # FO-03: the 8 latest searches and fiches are kept in the local preferences of this workstation only.
+    param([ValidateSet('Recherche','Fiche')][string]$Kind='Recherche',[AllowEmptyString()][string]$Text='',[AllowEmptyString()][string]$Type='',[AllowEmptyString()][string]$Dn='')
+    if ([string]::IsNullOrWhiteSpace($Text)) { return }
+    $script:UxRecentEntries = @(Add-DomeniaRecentEntry -Entries @(Get-DomeniaUxRecentEntries) -Kind $Kind -Text $Text -Type $Type -Dn $Dn -Maximum 8)
+    try { Set-DomeniaSetting -Name 'UxRecentJson' -Value (ConvertTo-Json -InputObject @($script:UxRecentEntries) -Depth 3 -Compress) }
+    catch { Write-AppLog ('Mémoire des recherches récentes non enregistrée : ' + $_.Exception.Message) 'WARN' }
+}
+
+function Add-DomeniaUxRecentObject {
+    # A fiche enters the recent list once really loaded (never a row merely clicked), once per object.
+    $object = $script:SelectedObject
+    if ($null -eq $object) { return }
+    $dn = ''
+    try { $dn = [string]$object.DN } catch { $dn = '' }
+    if ([string]::IsNullOrWhiteSpace($dn) -or ($dn -ieq [string]$script:UxRecentLastDn)) { return }
+    $script:UxRecentLastDn = $dn
+    Add-DomeniaUxRecentEntry -Kind Fiche -Text ([string]$object.Name) -Type ([string]$object.Type) -Dn $dn
+}
+
+# ---------------------------------------------------------------- L08 search bar: clear, recent entries, local suggestions
+function Initialize-DomeniaUxSearchBar {
+    # FO-03 / SP-01: magnifier, ✕, the latest searches and fiches on focus, suggestions of the local base while typing.
+    # Typing never queries AD: Entrée (or Rechercher) remains the only gesture of the bar that reads the directory.
+    $box = Get-DomeniaControl 'TxtGlobalSearch'
+    if ($box -isnot [Windows.Controls.TextBox]) { return }
+    $box.Add_GotKeyboardFocus({ param($sender,$eventArgs) Update-DomeniaUxSearchSuggestions })
+    $box.Add_LostKeyboardFocus({ param($sender,$eventArgs) Hide-DomeniaUxSearchSuggestions })
+    $box.Add_TextChanged({
+        param($sender,$eventArgs)
+        Update-DomeniaUxSearchClear
+        if ($sender.IsKeyboardFocusWithin) { Update-DomeniaUxSearchSuggestions -Typing }
+    })
+    $box.Add_PreviewKeyDown({ param($sender,$eventArgs) Invoke-DomeniaUxSearchKey -Box $sender -KeyEvent $eventArgs })
+    $clear = Get-DomeniaControl 'BtnGlobalSearchClear'
+    if ($null -ne $clear) { $clear.Add_Click({ $field = Get-DomeniaControl 'TxtGlobalSearch'; if ($null -ne $field) { $field.Clear(); [void]$field.Focus() } }) }
+    $search = Get-DomeniaControl 'BtnGlobalSearch'
+    if ($null -ne $search) { $search.Add_Click({ Register-DomeniaUxSearchGesture }) }
+    $list = Get-DomeniaControl 'LstSearchSuggest'
+    if ($null -ne $list) { $list.Add_PreviewMouseLeftButtonDown({ param($sender,$eventArgs) Select-DomeniaUxSuggestion -List $sender -MouseEvent $eventArgs }) }
+    Update-DomeniaUxSearchClear
+}
+
+function Update-DomeniaUxSearchClear {
+    $box = Get-DomeniaControl 'TxtGlobalSearch';$clear = Get-DomeniaControl 'BtnGlobalSearchClear'
+    if (($null -eq $box) -or ($null -eq $clear)) { return }
+    $clear.Visibility = if ([string]::IsNullOrEmpty([string]$box.Text)) { [Windows.Visibility]::Collapsed } else { [Windows.Visibility]::Visible }
+}
+
+function Update-DomeniaUxSearchSuggestions {
+    # Recent entries matching the text at once; local-base rows after a 300 ms pause in the typing (worker, no network).
+    param([switch]$Typing)
+    $box = Get-DomeniaControl 'TxtGlobalSearch'
+    if (($null -eq $box) -or (-not $box.IsEnabled)) { Hide-DomeniaUxSearchSuggestions; return }
+    $text = ([string]$box.Text).Trim()
+    $script:UxSuggestWanted = $true
+    $script:UxSuggestGeneration = [long]$script:UxSuggestGeneration + 1
+    if ($null -ne $script:UxSuggestTimer) { $script:UxSuggestTimer.Stop() }
+    $script:UxSuggestRecent = @(Select-DomeniaRecentEntries -Entries @(Get-DomeniaUxRecentEntries) -Kind @('Recherche','Fiche') -Text $text -Maximum 8)
+    $script:UxSuggestLocal = @()
+    Set-DomeniaUxSuggestionItems -Text $text
+    if ($Typing -and ($text.Length -ge 2)) { Request-DomeniaUxLocalSuggestions -Text $text }
+}
+
+function Set-DomeniaUxSuggestionItems {
+    param([AllowEmptyString()][string]$Text='')
+    $panel = Get-DomeniaControl 'UxSearchSuggest';$list = Get-DomeniaControl 'LstSearchSuggest'
+    if (($null -eq $panel) -or ($null -eq $list)) { return }
+    $items = @(Get-DomeniaSearchSuggestionItems -Recent @($script:UxSuggestRecent) -LocalRows @($script:UxSuggestLocal) -Maximum 8)
+    $list.ItemsSource = $items
+    $list.SelectedIndex = -1
+    $title = Get-DomeniaControl 'LblSearchSuggestTitle'
+    if ($null -ne $title) { $title.Text = if ([string]::IsNullOrWhiteSpace($Text)) { 'Recherches et fiches récentes' } else { 'Suggestions, sans requête AD' } }
+    $show = ([bool]$script:UxSuggestWanted -and ($items.Count -gt 0))
+    $panel.Visibility = if ($show) { [Windows.Visibility]::Visible } else { [Windows.Visibility]::Collapsed }
+}
+
+function Hide-DomeniaUxSearchSuggestions {
+    $script:UxSuggestWanted = $false
+    $script:UxSuggestGeneration = [long]$script:UxSuggestGeneration + 1
+    if ($null -ne $script:UxSuggestTimer) { $script:UxSuggestTimer.Stop() }
+    $panel = Get-DomeniaControl 'UxSearchSuggest'
+    if ($null -ne $panel) { $panel.Visibility = [Windows.Visibility]::Collapsed }
+}
+
+function Request-DomeniaUxLocalSuggestions {
+    param([Parameter(Mandatory=$true)][string]$Text)
+    $script:UxSuggestTerm = $Text
+    if ($null -eq $script:UxSuggestTimer) {
+        $timer = New-Object System.Windows.Threading.DispatcherTimer
+        $timer.Interval = [TimeSpan]::FromMilliseconds(300)
+        $timer.Add_Tick({
+            param($sender,$eventArgs)
+            try { $sender.Stop() } catch { }
+            try { Start-DomeniaUxLocalSuggestions -Text ([string]$script:UxSuggestTerm) } catch { }
+        })
+        $script:UxSuggestTimer = $timer
+        if ($null -ne (Get-Command -Name Register-DomeniaOwnedTimer -CommandType Function -ErrorAction SilentlyContinue)) { try { [void](Register-DomeniaOwnedTimer -Owner 'Timer:SearchSuggest' -Timer $timer) } catch { } }
+    }
+    $script:UxSuggestTimer.Stop()
+    $script:UxSuggestTimer.Start()
+}
+
+function Start-DomeniaUxLocalSuggestions {
+    # The local base is read by the LocalIndexRead worker (read-only SQLite, short busy timeout): no AD request, no
+    # probe, nothing on the Dispatcher. A newer text or a closed list supersedes the answer.
+    param([Parameter(Mandatory=$true)][string]$Text)
+    if (-not [bool]$script:UxSuggestWanted) { return }
+    if ($null -eq (Get-Command -Name Start-UiTask -CommandType Function -ErrorAction SilentlyContinue)) { return }
+    $path = ''
+    try { $path = [string](Get-DomeniaLocalDatabasePathForRead) } catch { $path = '' }
+    if ([string]::IsNullOrWhiteSpace($path)) { return }
+    $state = [pscustomobject]@{Term=$Text;Generation=[long]$script:UxSuggestGeneration;Epoch=[long]$script:SessionEpoch}
+    $payload = [pscustomobject]@{Action='Search';Path=$path;Term=$Text;Limit=8;BusyTimeoutMs=50}
+    [void](Start-UiTask -Name 'Suggestions de la base locale' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload $payload -CallbackState $state -ReplaceKey 'bar-suggest' -TimeoutSeconds 10 -SuccessHandler 'Complete-DomeniaUxLocalSuggestionsUi' -ErrorHandler 'Fail-DomeniaUxLocalSuggestionsUi' -TaskClass 'Explicit')
+}
+
+function Complete-DomeniaUxLocalSuggestionsUi {
+    param($Result,$State)
+    if (($null -eq $State) -or ([long]$State.Generation -ne [long]$script:UxSuggestGeneration) -or ([long]$State.Epoch -ne [long]$script:SessionEpoch)) { return }
+    $effective = Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @('Rows','Busy')
+    if (($null -eq $effective) -or [bool]$effective.Busy) { return }
+    # A list closed meanwhile (focus left the field, Entrée, Échap) changed the generation above: nothing reopens it.
+    $box = Get-DomeniaControl 'TxtGlobalSearch'
+    if (($null -eq $box) -or (([string]$box.Text).Trim() -cne [string]$State.Term) -or (-not [bool]$script:UxSuggestWanted)) { return }
+    $script:UxSuggestLocal = @($effective.Rows)
+    Set-DomeniaUxSuggestionItems -Text ([string]$State.Term)
+}
+
+function Fail-DomeniaUxLocalSuggestionsUi {
+    # Suggestions are optional: a locked or missing local base leaves the recent entries and the search unaffected.
+    param($Message,$State)
+}
+
+function Register-DomeniaUxSearchGesture {
+    # Entrée or Rechercher: the text joins the recent searches and the list closes; the search itself is started by
+    # the existing handlers of the bar (Wire-Events), the only AD read of the bar.
+    $box = Get-DomeniaControl 'TxtGlobalSearch'
+    Hide-DomeniaUxSearchSuggestions
+    if ($null -eq $box) { return }
+    $text = ([string]$box.Text).Trim()
+    if ($text.Length -ge 2) { Add-DomeniaUxRecentEntry -Kind Recherche -Text $text }
+}
+
+function Invoke-DomeniaUxSearchKey {
+    # Arrows choose a suggestion, Échap closes the list (a second Échap keeps its former meaning), Entrée copies the
+    # chosen suggestion into the field and lets the bar search it.
+    param($Box,$KeyEvent)
+    if (($null -eq $Box) -or ($null -eq $KeyEvent)) { return }
+    $panel = Get-DomeniaControl 'UxSearchSuggest';$list = Get-DomeniaControl 'LstSearchSuggest'
+    $open = (($null -ne $panel) -and ($panel.Visibility -eq [Windows.Visibility]::Visible) -and ($null -ne $list) -and ($list.Items.Count -gt 0))
+    $key = $KeyEvent.Key
+    if ($key -eq [Windows.Input.Key]::Down) {
+        if ($open) { $list.SelectedIndex = [Math]::Min($list.Items.Count - 1,$list.SelectedIndex + 1); $list.ScrollIntoView($list.SelectedItem); $KeyEvent.Handled = $true }
+        else { Update-DomeniaUxSearchSuggestions }
+    }
+    elseif ($key -eq [Windows.Input.Key]::Up) {
+        if ($open) { $list.SelectedIndex = [Math]::Max(-1,$list.SelectedIndex - 1); $KeyEvent.Handled = $true }
+    }
+    elseif ($key -eq [Windows.Input.Key]::Escape) {
+        if ($open) { Hide-DomeniaUxSearchSuggestions; $KeyEvent.Handled = $true }
+    }
+    elseif ($key -eq [Windows.Input.Key]::Enter) {
+        if ($open -and ($null -ne $list.SelectedItem)) { $Box.Text = [string]$list.SelectedItem.Text; $Box.CaretIndex = $Box.Text.Length }
+        # Not handled: the KeyDown of the bar (Wire-Events) starts the global search with this text.
+        Register-DomeniaUxSearchGesture
+    }
+}
+
+function Select-DomeniaUxSuggestion {
+    # A click copies the suggestion into the field and keeps the focus there: nothing is read until Entrée.
+    param($List,$MouseEvent)
+    if (($null -eq $List) -or ($null -eq $MouseEvent)) { return }
+    $container = [Windows.Controls.ItemsControl]::ContainerFromElement($List,$MouseEvent.OriginalSource)
+    if ($container -isnot [Windows.Controls.ListBoxItem]) { return }
+    $MouseEvent.Handled = $true
+    $item = $container.DataContext
+    $box = Get-DomeniaControl 'TxtGlobalSearch'
+    if (($null -eq $item) -or ($null -eq $box)) { return }
+    $box.Text = [string]$item.Text
+    $box.CaretIndex = $box.Text.Length
+    [void]$box.Focus()
+    Hide-DomeniaUxSearchSuggestions
+    Set-DomeniaContextHint -Title 'Suggestion recopiée' -Text 'Le texte est dans la barre de recherche. Entrée lance la recherche dans tout le domaine ; rien nʼa été lu.'
+}
+
+# ---------------------------------------------------------------- L08 empty Fiche and Poste pages (UX-09)
+function Initialize-DomeniaUxEmptyStates {
+    foreach ($kind in @('Object','Computer')) {
+        $box = Get-DomeniaControl ('Txt' + $kind + 'EmptySearch')
+        if ($box -is [Windows.Controls.TextBox]) {
+            $box.Add_KeyDown({ param($sender,$eventArgs) if ($eventArgs.Key -eq [Windows.Input.Key]::Enter) { $eventArgs.Handled = $true; Invoke-DomeniaUxEmptySearch -Text ([string]$sender.Text) } })
+        }
+        $list = Get-DomeniaControl ('Lst' + $kind + 'EmptyRecent')
+        if ($list -is [Windows.Controls.ListBox]) {
+            $list.Tag = 'Txt' + $kind + 'EmptySearch'
+            $list.Add_SelectionChanged({
+                param($sender,$eventArgs)
+                $item = $sender.SelectedItem
+                if ($null -eq $item) { return }
+                $field = Get-DomeniaControl ([string]$sender.Tag)
+                if ($null -ne $field) { $field.Text = [string]$item.Text; $field.CaretIndex = $field.Text.Length }
+            })
+            $list.Add_KeyDown({ param($sender,$eventArgs) if (($eventArgs.Key -eq [Windows.Input.Key]::Enter) -and ($null -ne $sender.SelectedItem)) { $eventArgs.Handled = $true; Invoke-DomeniaUxEmptySearch -Text ([string]$sender.SelectedItem.Text) } })
+        }
+    }
+}
+
+function Update-DomeniaUxEmptyStates {
+    # UX-09: Fiche and Poste stay open without a subject and show an empty page (search field and recent fiches from
+    # the local memory) instead of a greyed menu entry. Nothing is read here.
+    $loadType = ''; $objectType = ''
+    try { if ($null -ne $script:SelectionLoad) { $loadType = [string]$script:SelectionLoad.Context.Type } } catch { $loadType = '' }
+    try { if ($null -ne $script:SelectedObject) { $objectType = [string]$script:SelectedObject.Type } } catch { $objectType = '' }
+    $hasSubject = ((-not [string]::IsNullOrWhiteSpace($loadType)) -or (-not [string]::IsNullOrWhiteSpace($objectType)))
+    $hasMachine = (($loadType -eq 'Machine') -or ($objectType -eq 'Machine'))
+    foreach ($page in @(@('Object',(-not $hasSubject),''),@('Computer',(-not $hasMachine),'Machine'))) {
+        $state = Get-DomeniaControl ([string]$page[0] + 'EmptyState')
+        if ($null -eq $state) { continue }
+        $show = [bool]$page[1]
+        $state.Visibility = if ($show) { [Windows.Visibility]::Visible } else { [Windows.Visibility]::Collapsed }
+        if (-not $show) { continue }
+        $rows = @(Select-DomeniaRecentEntries -Entries @(Get-DomeniaUxRecentEntries) -Kind @('Fiche') -Type ([string]$page[2]) -Maximum 8 | ForEach-Object {
+            $label = [string]$_.Text
+            if (-not [string]::IsNullOrWhiteSpace([string]$_.Type)) { $label += '  ·  ' + [string]$_.Type }
+            [pscustomobject]@{Label=$label;Text=[string]$_.Text;Type=[string]$_.Type}
+        })
+        $list = Get-DomeniaControl ('Lst' + [string]$page[0] + 'EmptyRecent')
+        if ($null -ne $list) { $list.ItemsSource = $rows; $list.Visibility = if ($rows.Count -gt 0) { [Windows.Visibility]::Visible } else { [Windows.Visibility]::Collapsed } }
+        $none = Get-DomeniaControl ('Lbl' + [string]$page[0] + 'EmptyRecentNone')
+        if ($null -ne $none) { $none.Visibility = if ($rows.Count -gt 0) { [Windows.Visibility]::Collapsed } else { [Windows.Visibility]::Visible } }
+    }
+}
+
+function Invoke-DomeniaUxEmptySearch {
+    # Entrée in the field of an empty Fiche or Poste page: the global search of the top bar, on this explicit gesture.
+    param([AllowEmptyString()][string]$Text='')
+    $clean = ([string]$Text).Trim()
+    if (-not $clean) { return }
+    $top = Get-DomeniaControl 'TxtGlobalSearch'
+    if ($null -ne $top) { $top.Text = $clean }
+    Add-DomeniaUxRecentEntry -Kind Recherche -Text $clean
+    Select-DomeniaWorkspace -Workspace 'WsSearch'
+    try { Invoke-GlobalSearch -SearchMode Global }
+    catch {
+        Write-AppLog ('Recherche depuis une page vide : ' + $_.Exception.Message) 'ERROR'
+        Set-Status ('La recherche nʼa pas pu être lancée : ' + $_.Exception.Message) 'ERROR'
+    }
+}
+
+# ---------------------------------------------------------------- L08 read-only switch and automatic return (DS-02, SE-06)
+function Get-DomeniaUxReadOnlyDelay {
+    $value = 15
+    try { $value = [int](Get-CfgValue 'Security' 'ReadOnlyReturnMinutes' 15) } catch { $value = 15 }
+    return [int](Get-DomeniaReadOnlyReturnPlan -WriteEnabled $false -DelayMinutes $value -Now (Get-Date)).DelayMinutes
+}
+
+function Request-DomeniaWriteMode {
+    # Unchecked handler of the switch. The switch goes back to « Lecture seule » at once and a one-sentence request is
+    # shown in a panel of the page (Request-DomeniaInlineConfirmation): no window. Only « Autoriser » enables writes.
+    if ([bool]$script:UxWriteModeConfirmed) { return }
+    $switch = Get-DomeniaControl 'ChkReadOnlyMode'
+    $script:ReadOnlyMode = $true
+    $script:UxReadOnlySwitchUpdating = $true
+    try { if ($null -ne $switch) { $switch.IsChecked = $true } } finally { $script:UxReadOnlySwitchUpdating = $false }
+    if ([bool]$script:DemoMode) {
+        Set-Status 'Écritures désactivées en démonstration : la lecture seule reste active.' 'WARN'
+        return
+    }
+    $delay = Get-DomeniaUxReadOnlyDelay
+    $message = 'Vous allez autoriser les modifications Active Directory : chaque action garde ses contrôles et sa confirmation, et la lecture seule revient seule après ' + [string]$delay + ' min sans écriture.'
+    [void](Request-DomeniaInlineConfirmation -Title 'Autoriser les modifications ?' -Message $message -Target 'write-mode' -ConfirmText 'Autoriser les modifications' -CancelText 'Rester en lecture seule' -OnConfirm { Enable-DomeniaWriteMode } -OnCancel { Set-Status 'Lecture seule conservée.' 'INFO' } -Risk 'Danger')
+}
+
+function Enable-DomeniaWriteMode {
+    # Confirmed answer of the request: write mode starts with its countdown (SE-06).
+    if ([bool]$script:DemoMode) { return }
+    $script:UxWriteModeConfirmed = $true
+    try {
+        $switch = Get-DomeniaControl 'ChkReadOnlyMode'
+        if ($null -ne $switch) { $switch.IsChecked = $false }
+    } finally { $script:UxWriteModeConfirmed = $false }
+    $script:ReadOnlyMode = $false
+    $script:UxWriteModeSince = Get-Date
+    $script:UxWriteModeLastWrite = $null
+    $script:UxWriteSeenInProgress = $false
+    Apply-CurrentPermissionUi
+    Start-DomeniaReadOnlyReturnTimer
+    Set-Status ('Écriture active : les garde-fous restent actifs et chaque action sensible demande confirmation. Retour en lecture seule après ' + [string](Get-DomeniaUxReadOnlyDelay) + ' min sans écriture.') 'WARN'
+    try { Add-DomeniaUiLog -Area 'Securite' -Level 'WARN' -Text 'Écriture active, confirmée dans la page.' } catch { }
+}
+
+function Enter-DomeniaReadOnlyMode {
+    # Checked handler of the switch: back to read-only at once (switch, « Repasser en lecture », timer, new account).
+    $reason = [string]$script:UxReadOnlyReturnReason
+    $script:ReadOnlyMode = $true
+    Stop-DomeniaReadOnlyReturnTimer
+    $script:UxWriteModeSince = $null
+    $script:UxWriteModeLastWrite = $null
+    if ([bool]$script:UxReadOnlySwitchUpdating) { return }
+    Apply-CurrentPermissionUi
+    if ($reason -eq 'Automatic') {
+        $text = 'Retour automatique en lecture seule après ' + [string](Get-DomeniaUxReadOnlyDelay) + ' min sans écriture.'
+        Set-Status $text 'INFO'
+        try { Add-DomeniaUiLog -Area 'Securite' -Level 'INFO' -Text $text } catch { }
+    }
+    else { Set-Status 'Lecture seule active : écritures AD, GPUpdate et redémarrage distant bloqués.' 'INFO' }
+}
+
+function Exit-DomeniaWriteMode {
+    # Back to read-only from the « Repasser en lecture » button or from the timer. The timer only asks it when the
+    # plan says so, that is never while a write is in progress.
+    param([ValidateSet('Manual','Automatic')][string]$Reason='Manual')
+    $script:UxReadOnlyReturnReason = $Reason
+    try {
+        $switch = Get-DomeniaControl 'ChkReadOnlyMode'
+        if (($null -ne $switch) -and (-not [bool]$switch.IsChecked)) { $switch.IsChecked = $true }
+        else { Enter-DomeniaReadOnlyMode }
+    } finally { $script:UxReadOnlyReturnReason = '' }
+}
+
+function Update-DomeniaReadOnlySwitch {
+    # Label and tool tip of the switch (« Lecture seule » or « Écriture active · 12 min »). A write running, or ending
+    # since the last update, restarts the delay. Display only: the return itself is decided by the timer.
+    param($Now=$null,[switch]$PassThru)
+    if ($null -eq $Now) { $Now = Get-Date }
+    $plan = Get-DomeniaUxReadOnlyPlan -Now ([datetime]$Now)
+    $switch = Get-DomeniaControl 'ChkReadOnlyMode'
+    if ($null -ne $switch) {
+        $changed = ([string]$switch.Content -cne [string]$plan.Label)
+        $switch.Content = [string]$plan.Label
+        $switch.ToolTip = [string]$plan.ToolTip
+        [Windows.Automation.AutomationProperties]::SetHelpText($switch,[string]$plan.ToolTip)
+        if ($changed) { Send-DomeniaUxLiveChange -Control $switch }
+    }
+    if ($PassThru) { return $plan }
+}
+
+function Get-DomeniaUxReadOnlyPlan {
+    param([datetime]$Now)
+    $writeEnabled = -not [bool]$script:ReadOnlyMode
+    $inProgress = ((-not [string]::IsNullOrWhiteSpace([string]$script:ActiveWriteTaskId)) -or ([string]$script:WriteState -eq 'Running'))
+    if ($writeEnabled -and ($inProgress -or [bool]$script:UxWriteSeenInProgress)) { $script:UxWriteModeLastWrite = $Now }
+    $script:UxWriteSeenInProgress = ($writeEnabled -and $inProgress)
+    return (Get-DomeniaReadOnlyReturnPlan -WriteEnabled $writeEnabled -EnabledAt $script:UxWriteModeSince -LastWriteAt $script:UxWriteModeLastWrite -Now $Now -DelayMinutes (Get-DomeniaUxReadOnlyDelay) -WriteInProgress $inProgress)
+}
+
+function Invoke-DomeniaReadOnlyReturnTick {
+    # Timer tick (every 15 s while writes are allowed): countdown, then the return once the delay has passed without
+    # any write. A write in progress defers it to its end; it is never interrupted.
+    param($Now=$null)
+    if ([bool]$script:ReadOnlyMode) { Stop-DomeniaReadOnlyReturnTimer; return $null }
+    $plan = Update-DomeniaReadOnlySwitch -Now $Now -PassThru
+    if ([bool]$plan.Expired) { Exit-DomeniaWriteMode -Reason Automatic }
+    return $plan
+}
+
+function Start-DomeniaReadOnlyReturnTimer {
+    if ($null -eq $script:UxReadOnlyTimer) {
+        $timer = New-Object System.Windows.Threading.DispatcherTimer
+        $timer.Interval = [TimeSpan]::FromSeconds(15)
+        $timer.Add_Tick({ try { [void](Invoke-DomeniaReadOnlyReturnTick) } catch { Write-AppLog ('Retour en lecture seule : ' + $_.Exception.Message) 'WARN' } })
+        $script:UxReadOnlyTimer = $timer
+        if ($null -ne (Get-Command -Name Register-DomeniaOwnedTimer -CommandType Function -ErrorAction SilentlyContinue)) { try { [void](Register-DomeniaOwnedTimer -Owner 'Timer:ReadOnlyReturn' -Timer $timer) } catch { } }
+    }
+    $script:UxReadOnlyTimer.Stop()
+    $script:UxReadOnlyTimer.Start()
+}
+
+function Stop-DomeniaReadOnlyReturnTimer {
+    if ($null -ne $script:UxReadOnlyTimer) { try { $script:UxReadOnlyTimer.Stop() } catch { } }
 }

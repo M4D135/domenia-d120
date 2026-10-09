@@ -86,21 +86,21 @@
   {
     "Name": "BtnUxNavObject",
     "Title": "Fiche",
-    "Text": "Ouvre la fiche de la ligne selectionnee. Sa lecture AD est preparee en arriere-plan au simple clic.",
+    "Text": "Ouvre la fiche de lʼobjet sélectionné. Sans sélection, une page vide propose la recherche et les dernières fiches, sans rien lire sur le réseau.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnUxNavRelations",
-    "Title": "Relations",
-    "Text": "Ouvrir : Relations.",
+    "Title": "Utilisateurs et postes",
+    "Text": "Ouvrir : Utilisateurs et postes.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnUxNavComputer",
-    "Title": "Assistance poste",
-    "Text": "Ouvre les outils du poste selectionne. Les actions attendent la lecture de sa fiche AD.",
+    "Title": "Poste",
+    "Text": "Ouvre les outils du poste sélectionné ; les actions attendent la lecture de sa fiche AD. Sans poste, une page vide propose la recherche et les derniers postes.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -128,7 +128,7 @@
   {
     "Name": "TxtGlobalSearch",
     "Title": "Rechercher",
-    "Text": "Recherche globale dans tout le domaine : personne, compte, mail ou poste. L’OU et les filtres de la liste sont ignorés. La limite de résultats reste appliquée.",
+    "Text": "Personne, poste ou groupe, dans tout le domaine : lʼOU et les filtres de la liste sont ignorés. Au clic, les recherches et fiches récentes ; pendant la frappe, des suggestions de la base locale. Seule Entrée interroge lʼannuaire.",
     "Kind": "TextBox",
     "Source": "specific",
     "Shortcut": ""
@@ -150,8 +150,8 @@
   },
   {
     "Name": "BtnThemeToggle",
-    "Title": "Apparence",
-    "Text": "Bascule entre le thème clair et le thème sombre. Le choix est enregistré par le mécanisme existant.",
+    "Title": "Thème clair ou sombre",
+    "Text": "Bascule entre le thème clair et le thème sombre ; lʼicône montre le thème obtenu. Le choix est enregistré pour Domenia.",
     "Kind": "Button",
     "Source": "specific"
   },
@@ -165,15 +165,15 @@
   {
     "Name": "ChkReadOnlyMode",
     "Title": "Protection des modifications",
-    "Text": "Coché : les écritures AD et les actions distantes classées comme modificatrices sont bloquées. Décocher ne donne pas de droits supplémentaires ; les confirmations restent nécessaires.",
+    "Text": "Lecture seule : les écritures AD et les actions distantes modificatrices sont bloquées. Un clic demande une confirmation dans la page avant dʼautoriser les modifications ; la lecture seule revient seule après 15 min sans écriture (réglage Security.ReadOnlyReturnMinutes).",
     "Kind": "CheckBox",
     "Source": "specific"
   },
   {
-    "Name": "CmbUiProfile",
+    "Name": "LstUiProfile",
     "Title": "Niveau de détail",
-    "Text": "Essentiel affiche les vues du quotidien. Expert ajoute les attributs, les permissions et WMI. Ce choix ne donne aucun droit supplémentaire.",
-    "Kind": "ComboBox",
+    "Text": "Essentiel affiche les vues du quotidien. Expert ajoute les attributs, les permissions et WMI. Ce choix ne donne aucun droit supplémentaire ; aucun raccourci ne le change.",
+    "Kind": "ListBox",
     "Source": "specific"
   },
   {
@@ -2957,7 +2957,7 @@
   },
   {
     "Name": "BtnAccessRecovery",
-    "Title": "Autre compte",
+    "Title": "Accès",
     "Text": "Accès à revoir et comptes temporaires. Le badge indique les refus en attente. Aucun changement de compte sans votre accord, aucune écriture rejouée.",
     "Kind": "Button",
     "Source": "R1.13"
@@ -3719,5 +3719,68 @@
     "Text": "Revient à la liste sans rien retirer.",
     "Kind": "Button",
     "Source": "L04-relations"
+  },
+  {
+    "Name": "BtnGlobalSearchClear",
+    "Title": "Vider la recherche",
+    "Text": "Vide le champ de recherche. Les résultats affichés et lʼOU restent inchangés.",
+    "Kind": "Button",
+    "Source": "L08"
+  },
+  {
+    "Name": "LstSearchSuggest",
+    "Title": "Suggestions",
+    "Text": "Recherches et fiches récentes (mémoire locale), puis objets de la base locale. Un clic recopie le texte ; seule Entrée interroge lʼannuaire.",
+    "Kind": "ListBox",
+    "Source": "L08"
+  },
+  {
+    "Name": "BtnUxSubjectClear",
+    "Title": "Désélectionner",
+    "Text": "Désélectionne lʼobjet affiché près du titre : sa fiche nʼest plus montrée. Rien nʼest modifié ni relu.",
+    "Kind": "Button",
+    "Source": "L08"
+  },
+  {
+    "Name": "BtnReadOnlyResume",
+    "Title": "Repasser en lecture seule",
+    "Text": "Repasse tout de suite en lecture seule : les modifications AD et les actions distantes modificatrices sont de nouveau bloquées.",
+    "Kind": "Button",
+    "Source": "L08"
+  },
+  {
+    "Name": "BtnUxNavAccount",
+    "Title": "Compte connecté",
+    "Text": "Compte et domaine utilisés pour lʼannuaire. Le menu permet de changer de compte ou dʼafficher « À propos » avec la version.",
+    "Kind": "Button",
+    "Source": "L08"
+  },
+  {
+    "Name": "TxtObjectEmptySearch",
+    "Title": "Rechercher une fiche",
+    "Text": "Nom, identifiant, adresse mail ou poste. Entrée lance la recherche dans tout le domaine ; la saisie seule ne lit rien.",
+    "Kind": "TextBox",
+    "Source": "L08"
+  },
+  {
+    "Name": "LstObjectEmptyRecent",
+    "Title": "Dernières fiches consultées",
+    "Text": "Fiches ouvertes récemment, gardées dans la mémoire locale de ce poste. Un clic recopie le nom ; Entrée lance la recherche.",
+    "Kind": "ListBox",
+    "Source": "L08"
+  },
+  {
+    "Name": "TxtComputerEmptySearch",
+    "Title": "Rechercher un poste",
+    "Text": "Nom du poste. Entrée lance la recherche dans tout le domaine ; la saisie seule ne lit rien et ne sonde aucun poste.",
+    "Kind": "TextBox",
+    "Source": "L08"
+  },
+  {
+    "Name": "LstComputerEmptyRecent",
+    "Title": "Derniers postes consultés",
+    "Text": "Postes ouverts récemment, gardés dans la mémoire locale de ce poste. Un clic recopie le nom ; Entrée lance la recherche.",
+    "Kind": "ListBox",
+    "Source": "L08"
   }
 ]

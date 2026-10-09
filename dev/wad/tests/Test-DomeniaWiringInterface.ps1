@@ -1,5 +1,6 @@
 ﻿#requires -Version 5.1
 # D120 D082/D085: integration proofs for activity layout and stale selection views.
+# L08: header, menu, read-only switch, search bar and empty pages on the real main window (second part).
 # The real rules from Domenia-Shell.Model.ps1 and the real UI functions extracted by AST run
 # against a real WPF window carrying the reserved activity geometry and the selection read label.
 [CmdletBinding()]
@@ -194,16 +195,16 @@ try{
         <Button x:Name="BtnCancelTask" Grid.Column="3" Width="96" Height="32"/>
       </Grid>
       <StackPanel Grid.Column="1" Orientation="Horizontal">
-        <Button x:Name="BtnAccessRecovery" Width="108" Height="40">
+        <Button x:Name="BtnAccessRecovery" Width="40" Height="40">
           <Grid>
-            <Border x:Name="BadgeAccessRecovery" Width="30" Height="22" HorizontalAlignment="Right" VerticalAlignment="Top" Background="Red" Visibility="Hidden">
+            <Border x:Name="BadgeAccessRecovery" Width="24" Height="16" HorizontalAlignment="Right" VerticalAlignment="Top" Background="Red" Visibility="Hidden">
               <TextBlock x:Name="LblAccessRecoveryCount" Text=""/>
             </Border>
           </Grid>
         </Button>
-        <Button x:Name="BtnSuiteActivity" Width="144" Height="40">
+        <Button x:Name="BtnSuiteActivity" Width="40" Height="40">
           <Grid>
-            <Border x:Name="BadgeSuiteActivity" Width="30" Height="22" HorizontalAlignment="Right" VerticalAlignment="Top" Background="Blue" Visibility="Hidden">
+            <Border x:Name="BadgeSuiteActivity" Width="24" Height="16" HorizontalAlignment="Right" VerticalAlignment="Top" Background="Blue" Visibility="Hidden">
               <TextBlock x:Name="LblSuiteActivityCount" Text=""/>
             </Border>
           </Grid>
@@ -474,11 +475,283 @@ try{
         $w.Close()
         $script:Window=$null
     }
+
+    # ---------------------------------------------------------------- L08: real main window, header, menu and read-only switch
+    # The real main XAML (Get-MainXaml) and the real UX, inline-request and core presentation functions run against
+    # doubles that read nothing: no directory, no network, no dialog (a dialog double throws), no saved preference.
+    $script:L08 = [pscustomobject]@{Settings=@{};SettingWrites=New-Object 'System.Collections.ArrayList';Statuses=New-Object 'System.Collections.ArrayList';Dialogs=0;Searches=0;Tasks=New-Object 'System.Collections.ArrayList';Cfg=@{};Clears=0}
+    function Get-CfgValue {param($Section,$Key,$Default);$k=[string]$Section+'.'+[string]$Key;if($script:L08.Cfg.ContainsKey($k)){return $script:L08.Cfg[$k]};return $Default}
+    function Get-DomeniaSetting {param([string]$Name,$Default=$null);if($script:L08.Settings.ContainsKey($Name)){return $script:L08.Settings[$Name]};return $Default}
+    function Set-DomeniaSetting {param([string]$Name,$Value);$script:L08.Settings[$Name]=$Value;[void]$script:L08.SettingWrites.Add($Name)}
+    function Save-DomeniaSettings {param([switch]$Immediate)}
+    function Set-Status {param($Text,$Level);[void]$script:L08.Statuses.Add([string]$Text)}
+    function Add-DomeniaUiLog {param([string]$Area,[string]$Text,[string]$Level)}
+    function Confirm-Action {param($Message,$Title);$script:L08.Dialogs++;throw 'Aucune fenetre de confirmation attendue.'}
+    function Confirm-WarningAction {param($Message,$Title);$script:L08.Dialogs++;throw 'Aucune fenetre de confirmation attendue.'}
+    function Apply-DomeniaGuiElementPolicy {}
+    function Update-Dashboard {}
+    function Update-DomeniaSearchScopeUi {}
+    function Invoke-GlobalSearch {param([switch]$AllowEmpty,[switch]$SilentError,[string]$SearchMode='');$script:L08.Searches++}
+    function Start-UiTask {param($Name,$OperationId,$Code,$Payload,$CallbackState,$ReplaceKey,$TimeoutSeconds,$SuccessHandler,$ErrorHandler,$TaskClass);[void]$script:L08.Tasks.Add([pscustomobject]@{OperationId=$OperationId;Payload=$Payload;State=$CallbackState;Success=$SuccessHandler});return 'task-l08'}
+    function Get-DomeniaLocalDatabasePathForRead {return 'C:\DomeniaTest\Domenia.db'}
+    function Get-DomeniaLocalIndexReadWorkerCode {return 'fixture'}
+    function Queue-DomeniaSelectedObjectOpen {param([switch]$Immediate);$script:L08.Clears++;$script:SelectedObject=$null;$script:SelectionLoad=$null}
+    function Apply-CurrentPermissionUi {param([switch]$StartupFastPath)
+        # Read-only part of the real function: the switch is the authority, then the write visuals are refreshed.
+        $c=Get-DomeniaControl 'ChkReadOnlyMode';if($null -ne $c){$script:ReadOnlyMode=[bool]$c.IsChecked}
+        Update-DomeniaWriteModeVisual
+    }
+    function Get-DomeniaCredentialUserName {param($Credential);return ''}
+    $coreNames=@('Get-MainXaml','Get-DomeniaXamlControlNames','Select-DomeniaWorkspace','Set-VisibleTabsForType','Set-TabVisibility','Assert-DomeniaWorkspaceSelection','Update-DomeniaWriteModeVisual','Apply-DomeniaUiProfile','Save-DomeniaUiProfile','Set-DomeniaContextHint')
+    $parseTokens=$null;$parseErrors=$null
+    $coreAst=[System.Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'Domenia-Core.ps1'),[ref]$parseTokens,[ref]$parseErrors)
+    foreach($fn in @($coreAst.FindAll({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst]},$true))){
+        if($coreNames -contains $fn.Name){. ([scriptblock]::Create($fn.Extent.Text))}
+    }
+    . (Join-Path $wad 'modules\Domenia-UX.UI.ps1')
+    . (Join-Path $wad 'modules\Domenia-Inline.UI.ps1')
+    $mainXaml=Get-MainXaml
+    [xml]$mainDoc=$mainXaml
+    $mainReader=New-Object Xml.XmlNodeReader $mainDoc
+    try{$main=[Windows.Markup.XamlReader]::Load($mainReader)}finally{$mainReader.Close()}
+    $main.ShowActivated=$false;$main.ShowInTaskbar=$false;$main.WindowStartupLocation='Manual';$main.Left=0;$main.Top=0;$main.Width=900;$main.Height=640
+    $design=Get-Content -LiteralPath (Join-Path $wad 'modules\SupportSuite.UI.json') -Raw -Encoding UTF8|ConvertFrom-Json
+    $converter=[Windows.Media.BrushConverter]::new()
+    foreach($property in $design.Palettes.Light.PSObject.Properties){$main.Resources[$property.Name]=$converter.ConvertFromInvariantString([string]$property.Value)}
+    $script:Ctrl=@{}
+    foreach($name in @(Get-DomeniaXamlControlNames -XamlText $mainXaml)){$c=$main.FindName($name);if($null -ne $c){$script:Ctrl[$name]=$c}}
+    $script:Window=$main;$script:BaseWindowTitle='Domenia';$script:CurrentUiProfile='Tech';$script:CurrentTheme='Light';$script:ReadOnlyMode=$true;$script:DemoMode=$false
+    $script:Conn=[pscustomobject]@{Domain='example.local';BindUser='EXAMPLE\technicien';User='';BaseDn='DC=example,DC=local'}
+    $script:SessionEpoch=7L;$script:DirectoryReachability=$null;$script:ActiveWriteTaskId='';$script:WriteState='Idle'
+    $script:SelectedObject=$null;$script:SelectionLoad=$null;$script:UxRecentEntries=$null;$script:UxRecentLastDn='';$script:UxShellInitialized=$false
+    $script:ExperienceInitialized=$true
+    $main.Show();Pump $main
+    # Wiring of the switch exactly as Wire-Events does it (checked by the AST case below).
+    $script:Ctrl['ChkReadOnlyMode'].Add_Checked({ Enter-DomeniaReadOnlyMode })
+    $script:Ctrl['ChkReadOnlyMode'].Add_Unchecked({ Request-DomeniaWriteMode })
+    $script:Ctrl['BtnReadOnlyResume'].Add_Click({ Exit-DomeniaWriteMode -Reason Manual })
+    Initialize-DomeniaUxShell;Pump $main
+    try{
+        Case 'L08 : Ctrl+L, menu Explorateur WMI et palette ne modifient jamais le profil enregistre' {
+            $script:L08.SettingWrites.Clear();$script:CurrentUiProfile='Tech'
+            $wire=@($coreAst.FindAll({param($n)$n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Register-DomeniaShortcuts'},$true))[0].Extent.Text
+            Expect ($wire -match 'Key="L"; Modifiers="Control"; Action=\{ Invoke-DomeniaJournalShortcut \}') 'Ctrl+L ne passe pas par Invoke-DomeniaJournalShortcut'
+            $select=@($coreAst.FindAll({param($n)$n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Select-DomeniaWorkspace'},$true))[0].Extent.Text
+            Expect (-not ($select -match 'Apply-DomeniaUiProfile')) 'Select-DomeniaWorkspace change encore le profil'
+            Set-DomeniaExperienceJournalLayout -Collapsed $true -Transient;Pump $main
+            Invoke-DomeniaJournalShortcut;Pump $main
+            Expect (-not [bool]$script:UiLogVisuallyCollapsed) 'Ctrl+L en Essentiel ne deplie pas le journal de session'
+            $script:SelectedObject=[pscustomobject]@{Type='Machine';Name='PC-COMPTA-014';DN='CN=PC-COMPTA-014,DC=example,DC=local'}
+            Set-VisibleTabsForType -Type 'Machine' -PreserveWorkspace
+            Select-DomeniaWorkspace -Workspace 'WsComputer' -Inner 'ComputerTabs' -Tab 'TabWmi';Pump $main
+            Expect ([string]$script:Ctrl['ComputerTabs'].SelectedItem.Name -eq 'TabWmi') 'Explorateur WMI non affiche'
+            Select-DomeniaWorkspace -Workspace 'TabApplicationTools' -Inner 'ApplicationToolTabs' -Tab 'TabLog';Pump $main
+            Expect ([string]$script:Ctrl['ApplicationToolTabs'].SelectedItem.Name -eq 'TabLog') 'Journal detaille de la palette non affiche'
+            Expect ($script:CurrentUiProfile -eq 'Tech') ('Profil modifie : '+$script:CurrentUiProfile)
+            Expect (-not ($script:L08.SettingWrites -contains 'UiProfile')) 'Profil enregistre par un raccourci, un menu ou la palette'
+            Expect ([string]$script:Ctrl['LstUiProfile'].SelectedItem.Tag -eq 'Tech') 'Le choix du pied de menu a change'
+            Update-DomeniaUxProfileVisibility -ObjectType 'Machine';Pump $main
+            Expect ($script:Ctrl['TabWmi'].Visibility -ne 'Visible') 'La vue Expert ponctuelle reste affichee apres la mise a jour du profil'
+            $script:L08.Cfg['UI.AllowExpertProfile']=$false
+            try{
+                Update-DomeniaUxProfileSwitch;Pump $main
+                Expect ($script:Ctrl['LstUiProfileExpert'].Visibility -eq 'Collapsed') 'Entree Expert visible alors que UI.AllowExpertProfile vaut faux'
+                Select-DomeniaWorkspace -Workspace 'WsComputer' -Inner 'ComputerTabs' -Tab 'TabWmi';Pump $main
+                Expect ($script:Ctrl['TabWmi'].Visibility -ne 'Visible') 'Vue Expert affichee malgre UI.AllowExpertProfile = faux'
+                Apply-DomeniaUiProfile -Profile 'Admin'
+                Expect ($script:CurrentUiProfile -eq 'Tech') 'Expert applique malgre UI.AllowExpertProfile = faux'
+            }finally{$script:L08.Cfg.Remove('UI.AllowExpertProfile');Update-DomeniaUxProfileSwitch}
+            $script:SelectedObject=$null
+        }
+
+        Case 'L08 : retour en lecture seule apres le delai sans ecriture, jamais pendant une ecriture' {
+            $script:L08.Statuses.Clear()
+            Enable-DomeniaWriteMode;Pump $main
+            Expect ((-not [bool]$script:ReadOnlyMode) -and (-not [bool]$script:Ctrl['ChkReadOnlyMode'].IsChecked)) 'Ecriture non activee'
+            Expect ([string]$script:Ctrl['ChkReadOnlyMode'].Content -eq 'Écriture active · 15 min') ('Compte a rebours : '+[string]$script:Ctrl['ChkReadOnlyMode'].Content)
+            Expect ($script:Ctrl['WriteModeBanner'].IsVisible -and ($script:Ctrl['WriteModeHalo'].Visibility -eq 'Visible')) 'Repasser en lecture ou cadre absent'
+            Expect ($null -eq $script:Ctrl['WriteModeHalo'].Effect -and [double]$script:Ctrl['WriteModeHalo'].BorderThickness.Left -eq 3) 'Cadre flou ou epaisseur differente de 3'
+            Expect ($null -ne $script:UxReadOnlyTimer -and $script:UxReadOnlyTimer.IsEnabled) 'Minuteur de retour non demarre'
+            Expect (@(Update-DomeniaWriteModeVisual).Count -eq 0 -and @(Apply-CurrentPermissionUi).Count -eq 0) 'Le rafraichissement ecrit dans le pipeline de l appelant'
+            $script:UxWriteModeSince=(Get-Date).AddMinutes(-40);$script:UxWriteModeLastWrite=$null
+            $script:ActiveWriteTaskId='ecriture-en-cours';$script:WriteState='Running'
+            $plan=Invoke-DomeniaReadOnlyReturnTick;Pump $main
+            Expect (-not [bool]$script:ReadOnlyMode) 'Retour en lecture seule pendant une ecriture'
+            $script:ActiveWriteTaskId='';$script:WriteState='Idle'
+            $plan=Invoke-DomeniaReadOnlyReturnTick;Pump $main
+            Expect ((-not [bool]$script:ReadOnlyMode) -and ([int]$plan.RemainingMinutes -eq 15)) 'La fin d une ecriture ne relance pas le delai'
+            $script:UxWriteModeLastWrite=(Get-Date).AddMinutes(-16)
+            [void](Invoke-DomeniaReadOnlyReturnTick);Pump $main
+            Expect ([bool]$script:ReadOnlyMode -and [bool]$script:Ctrl['ChkReadOnlyMode'].IsChecked) 'Pas de retour en lecture seule apres 15 min sans ecriture'
+            Expect ([string]$script:Ctrl['ChkReadOnlyMode'].Content -eq 'Lecture seule') 'Libelle de l interrupteur'
+            Expect (-not $script:Ctrl['WriteModeBanner'].IsVisible -and -not $script:UxReadOnlyTimer.IsEnabled) 'Bandeau ou minuteur encore actifs'
+            Expect (@($script:L08.Statuses|Where-Object{$_ -like 'Retour automatique en lecture seule*'}).Count -eq 1) 'Retour automatique non annonce'
+            Expect ($script:L08.Dialogs -eq 0) 'Une fenetre a ete ouverte'
+        }
+
+        Case 'L08 : confirmation de sortie de lecture seule dans la page, sans fenetre' {
+            $script:L08.Statuses.Clear();$script:L08.Dialogs=0
+            $switch=$script:Ctrl['ChkReadOnlyMode']
+            $switch.IsChecked=$false;Pump $main
+            Expect ([bool]$switch.IsChecked -and [bool]$script:ReadOnlyMode) 'L interrupteur quitte la lecture seule avant la reponse'
+            $panel=Get-DomeniaControl 'InlineRequestPanel'
+            Expect ($null -ne $panel -and $panel.IsVisible) 'Pas de panneau de confirmation dans la page'
+            Expect ([string](Get-DomeniaControl 'LblInlineRequestTitle').Text -eq 'Autoriser les modifications ?') 'Titre de la demande'
+            $message=[string](Get-DomeniaControl 'LblInlineRequestMessage').Text
+            Expect (($message -match '^Vous ') -and (@($message.Split('.')|Where-Object{$_.Trim()}).Count -eq 1)) ('Une phrase vouvoyee attendue : '+$message)
+            Click (Get-DomeniaControl 'BtnInlineRequestCancel');Pump $main
+            Expect ([bool]$script:ReadOnlyMode -and -not $panel.IsVisible) 'Annuler a quitte la lecture seule'
+            $switch.IsChecked=$false;Pump $main
+            Click (Get-DomeniaControl 'BtnInlineRequestConfirm');Pump $main
+            Expect ((-not [bool]$script:ReadOnlyMode) -and (-not [bool]$switch.IsChecked)) 'La confirmation n autorise pas les modifications'
+            Expect ([string]$main.Title -match 'CRITURE AD ACTIVE') ('Titre de fenetre en ecriture : '+[string]$main.Title)
+            Click (Get-DomeniaControl 'BtnReadOnlyResume');Pump $main
+            Expect ([bool]$script:ReadOnlyMode -and [bool]$switch.IsChecked) 'Repasser en lecture sans effet'
+            $script:DemoMode=$true
+            try{$switch.IsChecked=$false;Pump $main;Expect ([bool]$switch.IsChecked -and -not $panel.IsVisible) 'Demande proposee en demonstration'}finally{$script:DemoMode=$false}
+            Expect ($script:L08.Dialogs -eq 0) 'Une fenetre de confirmation a ete ouverte'
+            $wire=@($coreAst.FindAll({param($n)$n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Wire-Events'},$true))[0].Extent.Text
+            Expect (($wire -match 'Add_Unchecked\(\{ Request-DomeniaWriteMode \}\)') -and ($wire -match 'Add_Checked\(\{ Enter-DomeniaReadOnlyMode \}\)') -and -not ($wire -match 'Confirm-WarningAction')) 'Wire-Events ne branche pas l interrupteur de la page'
+        }
+
+        Case 'L08 : titre de fenetre « Fiche · nom — Domenia », puce du sujet et desinscription' {
+            $script:SelectedObject=[pscustomobject]@{Type='Utilisateur';Name='Camille Martin';DN='CN=Camille Martin,OU=Paris,DC=example,DC=local'}
+            Select-DomeniaWorkspace -Workspace 'WsObject';Pump $main
+            Expect ([string]$main.Title -ceq 'Fiche · Camille Martin — Domenia') ('Titre de fenetre : '+[string]$main.Title)
+            Expect ([string]$script:Ctrl['LblUxPageTitle'].Text -ceq 'Fiche · Camille Martin') ('Titre de page : '+[string]$script:Ctrl['LblUxPageTitle'].Text)
+            Expect ($script:Ctrl['UxSubjectChip'].IsVisible -and [string]$script:Ctrl['LblUxSubject'].Text -ceq 'Utilisateur · Camille Martin') 'Puce du sujet'
+            Expect (@(Get-DomeniaUxRecentEntries|Where-Object{$_.Kind -eq 'Fiche' -and $_.Text -eq 'Camille Martin'}).Count -eq 1) 'Fiche non retenue dans la memoire locale'
+            Click $script:Ctrl['BtnUxSubjectClear'];Pump $main
+            Expect ($script:L08.Clears -ge 1 -and -not $script:Ctrl['UxSubjectChip'].IsVisible) 'Le bouton de la puce ne desinscrit pas'
+            Expect ([string]$main.Title -ceq 'Fiche · Aucune sélection — Domenia') ('Titre apres desinscription : '+[string]$main.Title)
+        }
+
+        Case 'L08 : Fiche et Poste actives sans selection, avec une page vide sans reseau' {
+            $script:SelectedObject=$null;$script:SelectionLoad=$null;$script:L08.Tasks.Clear();$script:L08.Searches=0
+            Set-VisibleTabsForType -Type '' -PreserveWorkspace;Pump $main
+            Expect ($script:Ctrl['BtnUxNavObject'].IsEnabled -and $script:Ctrl['BtnUxNavComputer'].IsEnabled) 'Fiche ou Poste grise sans selection'
+            Invoke-DomeniaUxRoute -Route 'WsObject';Pump $main
+            Expect ([string]$script:Ctrl['WorkspaceTabs'].SelectedItem.Name -eq 'WsObject' -and $script:Ctrl['ObjectEmptyState'].IsVisible) 'Page vide de la fiche absente'
+            Expect ($script:Ctrl['LstObjectEmptyRecent'].Items.Count -ge 1) 'Dernieres fiches absentes de la page vide'
+            Invoke-DomeniaUxRoute -Route 'WsComputer';Pump $main
+            Expect ($script:Ctrl['ComputerEmptyState'].IsVisible) 'Page vide du poste absente'
+            Expect ($script:L08.Tasks.Count -eq 0 -and $script:L08.Searches -eq 0) 'Une page vide a lance une lecture'
+            $script:SelectedObject=[pscustomobject]@{Type='Utilisateur';Name='Jean';DN='CN=Jean,DC=example,DC=local'}
+            Sync-DomeniaUxNavigation;Pump $main
+            Expect ($script:Ctrl['ComputerEmptyState'].IsVisible) 'Un utilisateur ouvre la page Poste'
+            Invoke-DomeniaUxRoute -Route 'WsObject';Pump $main
+            Expect (-not $script:Ctrl['ObjectEmptyState'].IsVisible) 'Page vide affichee devant une fiche ouverte'
+            $script:SelectedObject=$null;Sync-DomeniaUxNavigation
+            Invoke-DomeniaUxEmptySearch -Text 'camille'
+            Expect ($script:L08.Searches -eq 1 -and [string]$script:Ctrl['TxtGlobalSearch'].Text -eq 'camille') 'Entree de la page vide ne lance pas la recherche globale'
+        }
+
+        Case 'L08 : badge AD injoignable depuis HH:MM puis retour seul, sans relance' {
+            $script:L08.Tasks.Clear()
+            $outage=[datetime]::UtcNow.AddMinutes(-3)
+            $script:DirectoryReachability=[pscustomobject]@{Epoch=7L;Offline=$true;LastOutageUtc=$outage.ToString('o');LastSuccessUtc=$null}
+            Update-DomeniaUxSessionBadge;Pump $main
+            $expectedText='AD injoignable depuis '+$outage.ToLocalTime().ToString('HH:mm',[Globalization.CultureInfo]::InvariantCulture)+' · données déjà lues seulement'
+            Expect ([string]$script:Ctrl['LblUxDomain'].Text -ceq $expectedText) ('Badge : '+[string]$script:Ctrl['LblUxDomain'].Text)
+            $script:DirectoryReachability=[pscustomobject]@{Epoch=7L;Offline=$true;LastOutageUtc=[datetime]::UtcNow.ToString('o');LastSuccessUtc=$null}
+            Update-DomeniaUxSessionBadge
+            Expect ([string]$script:Ctrl['LblUxDomain'].Text -ceq $expectedText) 'L heure de debut de la panne a change'
+            $script:DirectoryReachability=[pscustomobject]@{Epoch=7L;Offline=$false;LastOutageUtc=$outage.ToString('o');LastSuccessUtc=[datetime]::UtcNow.ToString('o')}
+            Update-DomeniaUxSessionBadge;Pump $main
+            Expect ([string]$script:Ctrl['LblUxDomain'].Text -ceq 'Connecté à example.local') ('Retour : '+[string]$script:Ctrl['LblUxDomain'].Text)
+            Expect ($script:L08.Tasks.Count -eq 0) 'Une relance a ete lancee'
+        }
+
+        Case 'L08 : ItemStatus « Page actuelle » et regions annoncees' {
+            Invoke-DomeniaUxRoute -Route 'WsSearch';Pump $main
+            Expect ([Windows.Automation.AutomationProperties]::GetItemStatus($script:Ctrl['BtnUxNavSearch']) -eq 'Page actuelle') 'Rubrique active non annoncee'
+            foreach($name in @('BtnUxNavHome','BtnUxNavObject','BtnUxNavComputer','BtnUxNavRelations','BtnUxNavAccounts','BtnUxNavTools')){Expect ([string]::IsNullOrEmpty([Windows.Automation.AutomationProperties]::GetItemStatus($script:Ctrl[$name]))) ($name+' annoncee comme page actuelle')}
+            foreach($name in @('LblUxPageTitle','LblUiLogLast','ChkReadOnlyMode','LblUxDomain')){Expect ([Windows.Automation.AutomationProperties]::GetLiveSetting($script:Ctrl[$name]) -eq 'Polite') ($name+' sans LiveSetting Polite')}
+            Expect ([string]$script:Ctrl['LblUxPageTitle'].Text -ceq 'Rechercher') 'Titre = libelle du menu'
+            Expect ([string]$script:Ctrl['LblUxDomain'].Text -ceq 'Connecté à example.local') 'Badge de session'
+        }
+
+        Case 'L08 : suggestions de la barre sans requete AD, Entree seule interroge l annuaire' {
+            $script:L08.Tasks.Clear();$script:L08.Searches=0
+            $script:UxRecentEntries=@(Add-DomeniaRecentEntry -Entries @() -Kind Recherche -Text 'dupont')
+            $box=$script:Ctrl['TxtGlobalSearch'];$box.Text=''
+            Update-DomeniaUxSearchSuggestions;Pump $main
+            Expect ($script:Ctrl['UxSearchSuggest'].IsVisible -and $script:Ctrl['LstSearchSuggest'].Items.Count -eq 1) 'Recherches recentes non proposees'
+            $box.Text='dup';Update-DomeniaUxSearchSuggestions -Typing;Pump $main
+            Expect ($null -ne $script:UxSuggestTimer -and $script:UxSuggestTimer.IsEnabled -and $script:L08.Tasks.Count -eq 0) 'La frappe a lu quelque chose sans pause'
+            $script:UxSuggestTimer.Stop();Start-DomeniaUxLocalSuggestions -Text 'dup'
+            Expect ($script:L08.Tasks.Count -eq 1 -and $script:L08.Tasks[0].OperationId -eq 'LocalIndexRead' -and [string]$script:L08.Tasks[0].Payload.Action -eq 'Search') 'Suggestions hors de la base locale'
+            $result=[pscustomobject]@{Busy=$false;Rows=@([pscustomobject]@{Type='Utilisateur';Name='Dupont Jean';Login='jdupont';Display=''})}
+            Complete-DomeniaUxLocalSuggestionsUi $result $script:L08.Tasks[0].State;Pump $main
+            Expect ($script:Ctrl['LstSearchSuggest'].Items.Count -eq 2) 'Ligne de la base locale non ajoutee'
+            Expect ($script:L08.Searches -eq 0) 'Une suggestion a interroge l annuaire'
+            $down=[Windows.Input.KeyEventArgs]::new([Windows.Input.Keyboard]::PrimaryDevice,[Windows.PresentationSource]::FromVisual($main),0,[Windows.Input.Key]::Down)
+            $down.RoutedEvent=[Windows.Input.Keyboard]::PreviewKeyDownEvent
+            Invoke-DomeniaUxSearchKey -Box $box -KeyEvent $down;$down.Handled=$false;Invoke-DomeniaUxSearchKey -Box $box -KeyEvent $down
+            $enter=[Windows.Input.KeyEventArgs]::new([Windows.Input.Keyboard]::PrimaryDevice,[Windows.PresentationSource]::FromVisual($main),0,[Windows.Input.Key]::Enter)
+            $enter.RoutedEvent=[Windows.Input.Keyboard]::PreviewKeyDownEvent
+            Invoke-DomeniaUxSearchKey -Box $box -KeyEvent $enter;Pump $main
+            Expect ([string]$box.Text -ceq 'Dupont Jean' -and -not $enter.Handled) 'Entree ne recopie pas la suggestion ou bloque la recherche de la barre'
+            Expect (-not $script:Ctrl['UxSearchSuggest'].IsVisible) 'Liste encore ouverte apres Entree'
+            Expect (@(Get-DomeniaUxRecentEntries|Where-Object{$_.Kind -eq 'Recherche' -and $_.Text -eq 'Dupont Jean'}).Count -eq 1) 'Recherche non retenue'
+            $late=$script:L08.Tasks[0].State;$script:UxSuggestWanted=$false
+            Complete-DomeniaUxLocalSuggestionsUi $result $late
+            Expect (-not $script:Ctrl['UxSearchSuggest'].IsVisible) 'Une reponse tardive rouvre la liste'
+            $clear=$script:Ctrl['BtnGlobalSearchClear']
+            Expect ($clear.Visibility -eq 'Visible') 'Bouton effacer absent'
+            Click $clear;Pump $main
+            Expect ([string]$box.Text -eq '' -and $clear.Visibility -eq 'Collapsed' -and $script:L08.Searches -eq 0) 'Effacer ne vide pas seulement le texte'
+            Hide-DomeniaUxSearchSuggestions
+        }
+
+        # 1280 x 688 is the work area of a 1920 x 1080 screen at 150 %.
+        Case 'L08 : a 960 et 1280 de large la recherche garde 280, les emplacements fixes restent, rien n est rogne' {
+            # Fixed work area (as Preview-DomeniaUi, TE-08): the lab screen (1024x768) would clamp a real 1280 window.
+            $content=$main.Content
+            $area=New-Object Windows.Controls.Border;$canvas=New-Object Windows.Controls.Canvas
+            $main.Content=$null;$area.Child=$content;[void]$canvas.Children.Add($area);$main.Content=$canvas
+            $realWindow=$script:Window;$script:Window=$area
+            try{
+                foreach($size in @(@(960,700),@(1280,688))){
+                    $area.Width=$size[0];$area.Height=$size[1]
+                    $script:UxLayoutSignature='';$script:UxNavLayoutSignature='';$script:UxNavCollapsed=$false
+                    $area.Measure([Windows.Size]::new($size[0],$size[1]));$area.Arrange([Windows.Rect]::new(0,0,$size[0],$size[1]))
+                    Update-DomeniaUxLayout;Pump $main
+                    $area.Measure([Windows.Size]::new($size[0],$size[1]));$area.Arrange([Windows.Rect]::new(0,0,$size[0],$size[1]));Pump $main
+                    $label=[string]$size[0]+'x'+[string]$size[1]
+                    $navWanted=if($size[0] -lt 1280){68}else{204}
+                    Expect ($script:Ctrl['UxNavColumn'].Width.Value -eq $navWanted) ($label+' : largeur du menu '+$script:Ctrl['UxNavColumn'].Width.Value+' au lieu de '+$navWanted)
+                    Expect (-not [bool]$script:UxNavCollapsed) ($label+' : preference du menu modifiee')
+                    Expect ($script:Ctrl['TxtGlobalSearch'].ActualWidth -ge 280) ($label+' : recherche a '+[Math]::Round($script:Ctrl['TxtGlobalSearch'].ActualWidth))
+                    $measured=@{}
+                    foreach($slot in (Get-DomeniaActivityStripSlots).Slots){$c=$script:Ctrl[[string]$slot.Name];$measured[[string]$slot.Name]=@{Width=$c.Width;Height=$c.Height;MaxWidth=$c.MaxWidth;MaxHeight=$c.MaxHeight}}
+                    $measured['__StripColumns']=@(foreach($col in $script:Ctrl['UxActivityStrip'].ColumnDefinitions){$col.Width.ToString()})
+                    $measured['__RowHeight']=44.0;$measured['__StripHeight']=[double]$script:Ctrl['UxActivityStrip'].Height
+                    $issues=@(Compare-DomeniaReservedSlots -Expected (Get-DomeniaActivityStripSlots) -Measured $measured)
+                    Expect ($issues.Count -eq 0) ($label+' : '+($issues -join '; '))
+                    foreach($name in @('BtnGlobalSearch','BtnAccessRecovery','BtnSuiteActivity','BtnThemeToggle','BtnUxHelpToggle','BtnCancelTask','ChkReadOnlyMode','LblUxPageTitle','BtnNavBack','BtnCommandPalette')){
+                        $c=$script:Ctrl[$name];$p=$c.TranslatePoint([Windows.Point]::new(0,0),$area)
+                        Expect (($p.X -ge -0.5) -and ($p.Y -ge -0.5) -and (($p.X+$c.ActualWidth) -le ($size[0]+0.5)) -and ($c.ActualWidth -ge 8)) ($label+' : '+$name+' rogne ('+[Math]::Round($p.X)+'+'+[Math]::Round($c.ActualWidth)+')')
+                    }
+                    Expect ($script:Ctrl['ChkReadOnlyMode'].ActualWidth -ge 200) ($label+' : interrupteur rogne')
+                    $hostWanted=if($size[0] -lt 1280){'UxHeaderTools'}else{'UxPageHeaderBar'}
+                    Expect ([string]$script:Ctrl['UxReadOnlyHost'].Parent.Name -eq $hostWanted) ($label+' : interrupteur dans '+[string]$script:Ctrl['UxReadOnlyHost'].Parent.Name+' au lieu de '+$hostWanted)
+                    Expect ($script:Ctrl['LblUxPageTitle'].ActualWidth -ge 60) ($label+' : titre de page ecrase a '+[Math]::Round($script:Ctrl['LblUxPageTitle'].ActualWidth))
+                }
+            }finally{
+                $area.Child=$null;$main.Content=$null;$main.Content=$content;$script:Window=$realWindow;$script:UxLayoutSignature='';$script:UxNavLayoutSignature=''
+            }
+        }
+    }finally{
+        Stop-DomeniaReadOnlyReturnTimer
+        if($null -ne $script:UxSuggestTimer){$script:UxSuggestTimer.Stop()}
+        $main.Close();$script:Window=$null
+    }
 }catch{
     $script:Tests.Add([pscustomobject]@{Name='Initialisation ou suite interrompue';Status='Failed';Detail=$_.Exception.ToString()})
 }
 
-$expected=10
+$expected=19
 $passed=@($script:Tests|Where-Object{$_.Status -eq 'Passed'}).Count
 $failed=@($script:Tests|Where-Object{$_.Status -eq 'Failed'}).Count
 $report=[ordered]@{
