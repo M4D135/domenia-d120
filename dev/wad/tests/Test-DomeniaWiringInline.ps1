@@ -20,11 +20,12 @@ function Set-DomeniaControlText {param([string]$Name,[string]$Text);$c=Get-Domen
 function Set-Status {param($Text,$Level);$script:Status=[string]$Text}
 function Write-AppLog {param($Text,$Level);[void]$script:Log.Add([string]$Text)}
 function Confirm-Action {param($Message,$Title);$script:DialogCount++;return [bool]$script:DialogAnswer}
+function Confirm-TextAction {param($Message,$Expected,$Title);$script:DialogCount++;$script:TypedDialog=[string]$Expected;return [bool]$script:DialogAnswer}
 function Pump {param($Window);$Window.UpdateLayout();$Window.Dispatcher.Invoke([Action]{},[Windows.Threading.DispatcherPriority]::ApplicationIdle);$Window.UpdateLayout()}
 function Click {param($Button);$Button.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Primitives.ButtonBase]::ClickEvent))}
 function Reset-Fixture {
     $script:Status='';$script:Log=[Collections.ArrayList]::new();$script:DialogCount=0;$script:DialogAnswer=$false
-    $script:Confirmed=0;$script:Cancelled=0;$script:SessionEpoch=7L
+    $script:Confirmed=0;$script:Cancelled=0;$script:SessionEpoch=7L;$script:TypedDialog='';$script:CurrentUiProfile='Tech'
     if($null -ne $script:DomeniaInline -and $null -ne $script:DomeniaInline.Current){$script:DomeniaInline.Current=$null;$script:DomeniaInline.View.Visibility='Collapsed'}
 }
 try{
@@ -38,6 +39,23 @@ try{
         $r=Request-DomeniaInlineConfirmation -Title 'Supprimer' -Message 'Test' -Target 'relation:a' -ConfirmText 'Supprimer' -OnConfirm {$script:Confirmed++} -OnCancel {$script:Cancelled++}
         Expect ($r.Presentation -eq 'Dialog' -and $r.Answered -and $r.Confirmed) 'Repli absent'
         Expect ($script:DialogCount -eq 1 -and $script:Confirmed -eq 1 -and $script:Cancelled -eq 0) 'Suite du repli incorrecte'
+    }
+    Case 'L07 sans fenetre principale : la saisie exacte passe par la confirmation historique' {
+        Reset-Fixture;$script:DialogAnswer=$true
+        $r=Request-DomeniaInlineConfirmation -Title 'Supprimer' -Message 'Test' -Target 'ad:x' -ConfirmText 'Supprimer' -TypedConfirmation 'SUPPRIMER' -Changes @('Objet : supprime') -OnConfirm {$script:Confirmed++} -OnCancel {$script:Cancelled++}
+        Expect ($r.Presentation -eq 'Dialog' -and $script:TypedDialog -eq 'SUPPRIMER' -and $script:Confirmed -eq 1) 'Saisie exacte absente du repli'
+    }
+    Case 'L07 regle : la confirmation saisie exige le texte exact, la reponse sure jamais' {
+        $request=New-DomeniaInlineRequest -Kind Confirm -HostName 'InlineRequestPanel' -Title 'T' -Choices @('Supprimer','Annuler') -SafeChoice 'Annuler' -ConfirmChoice 'Supprimer' -ContinuationId 'c1' -Scope 'ad:x' -Generation '7' -TypedConfirmation 'SUPPRIMER'
+        $wrong=Resolve-DomeniaInlineRequest -Request $request -Choice 'Supprimer' -CurrentGeneration '7' -Typed 'supprimer'
+        Expect ((-not $wrong.Continue) -and ($wrong.State -eq 'Pending') -and ($request.State -eq 'Pending')) 'Casse differente acceptee'
+        $empty=Resolve-DomeniaInlineRequest -Request $request -Choice 'Supprimer' -CurrentGeneration '7'
+        Expect (-not $empty.Continue) 'Confirmation sans saisie acceptee'
+        $ok=Resolve-DomeniaInlineRequest -Request $request -Choice 'Supprimer' -CurrentGeneration '7' -Typed ' SUPPRIMER '
+        Expect ($ok.Continue -and $ok.Confirmed) 'Saisie exacte refusee'
+        $other=New-DomeniaInlineRequest -Kind Confirm -HostName 'InlineRequestPanel' -Title 'T' -Choices @('Supprimer','Annuler') -SafeChoice 'Annuler' -ConfirmChoice 'Supprimer' -ContinuationId 'c2' -Generation '7' -TypedConfirmation 'SUPPRIMER'
+        $safe=Resolve-DomeniaInlineRequest -Request $other -Dismiss -CurrentGeneration '7'
+        Expect ($safe.Continue -and (-not $safe.Confirmed)) 'Reponse sure bloquee par la saisie'
     }
     $xaml=@'
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Width="900" Height="600" ShowActivated="False">
@@ -122,13 +140,58 @@ try{
             Expect ($before.X -eq $after.X -and $before.Y -eq $after.Y -and $probe.ActualHeight -eq 40) ('Deplacement : '+$before+' -> '+$after)
             Complete-DomeniaInlineRequest -Dismiss
         }
+        Case 'L07 avant/apres en clair, details techniques replies, aucune fenetre' {
+            Reset-Fixture
+            $arrow=[string][char]0x2192
+            [void](Request-DomeniaInlineConfirmation -Title 'Desactiver le compte' -Message 'Jean Dupont ne pourra plus ouvrir de session.' -Target 'ad:g1' -ConfirmText 'Desactiver' -Risk Danger -Changes @(('Compte : actif '+$arrow+' desactive'),'') -Details ('Cible : CN=Jean Dupont,OU=U,DC=example,DC=invalid'+[char]10+'GUID : 6f1c2d3e-4a5b-4c6d-8e7f-0a1b2c3d4e5f') -OnConfirm {$script:Confirmed++} -OnCancel {$script:Cancelled++});Pump $w
+            Expect ($w.OwnedWindows.Count -eq 0 -and $script:DialogCount -eq 0) 'Une fenetre a ete ouverte'
+            $changes=[string](Get-DomeniaControl 'LblInlineRequestChanges').Text
+            Expect ($changes -eq ([string][char]0x2022+' Compte : actif '+$arrow+' desactive')) ('Changements : '+$changes)
+            Expect ((Get-DomeniaControl 'InlineRequestChangesHost').IsVisible) 'Changements invisibles'
+            $details=Get-DomeniaControl 'InlineRequestDetails'
+            Expect ($details.IsVisible -and (-not $details.IsExpanded)) 'Details techniques absents ou deplies'
+            Expect (([string](Get-DomeniaControl 'TxtInlineRequestDetails').Text) -match 'CN=Jean Dupont') 'DN absent des details'
+            $shown=[string](Get-DomeniaControl 'LblInlineRequestTitle').Text+' '+[string](Get-DomeniaControl 'LblInlineRequestMessage').Text+' '+$changes
+            Expect ($shown -notmatch '(?i)\b(CN|OU|DC)=|6f1c2d3e') ('DN ou GUID visible hors details : '+$shown)
+            Expect (-not (Get-DomeniaControl 'InlineRequestTypedPanel').IsVisible) 'Saisie demandee sans raison'
+            Expect ((Get-DomeniaControl 'BtnInlineRequestConfirm').IsEnabled) 'Confirmation desactivee sans saisie demandee'
+            Click (Get-DomeniaControl 'BtnInlineRequestConfirm');Pump $w
+            Expect ($script:Confirmed -eq 1) 'Confirmation'
+            Expect (([string](Get-DomeniaControl 'TxtInlineRequestDetails').Text) -eq '') 'Details conserves apres la reponse'
+        }
+        Case 'L07 details de l estimation visibles en Expert seulement' {
+            Reset-Fixture
+            [void](Request-DomeniaInlineConfirmation -Title 'Mettre a jour' -Message 'Environ 2 min' -Target 'impact:x' -ConfirmText 'Lancer' -Details 'Volume reseau estime : 1 Mo' -DetailsExpertOnly -OnConfirm {} -OnCancel {});Pump $w
+            Expect (-not (Get-DomeniaControl 'InlineRequestDetails').IsVisible) 'Details visibles hors Expert'
+            Complete-DomeniaInlineRequest -Dismiss
+            $script:CurrentUiProfile='Admin'
+            [void](Request-DomeniaInlineConfirmation -Title 'Mettre a jour' -Message 'Environ 2 min' -Target 'impact:x' -ConfirmText 'Lancer' -Details 'Volume reseau estime : 1 Mo' -DetailsExpertOnly -OnConfirm {} -OnCancel {});Pump $w
+            Expect ((Get-DomeniaControl 'InlineRequestDetails').IsVisible) 'Details absents en Expert'
+            Complete-DomeniaInlineRequest -Dismiss
+        }
+        Case 'L07 saisie exacte : confirmation inactive puis une seule execution' {
+            Reset-Fixture
+            [void](Request-DomeniaInlineConfirmation -Title 'Supprimer' -Message 'Suppression non recursive.' -Target 'ad:g2' -ConfirmText 'Supprimer' -Risk Danger -TypedConfirmation 'SUPPRIMER' -OnConfirm {$script:Confirmed++} -OnCancel {$script:Cancelled++});Pump $w
+            $box=Get-DomeniaControl 'TxtInlineRequestTyped';$confirm=Get-DomeniaControl 'BtnInlineRequestConfirm'
+            Expect ((Get-DomeniaControl 'InlineRequestTypedPanel').IsVisible -and (-not $confirm.IsEnabled)) 'Confirmation active sans saisie'
+            Expect ($box.IsKeyboardFocused -or $box.IsFocused) 'Le champ de saisie n a pas le focus'
+            Complete-DomeniaInlineRequest -Confirm
+            Expect ($script:Confirmed -eq 0 -and $null -ne (Get-DomeniaInlinePendingRequest)) 'Confirmation sans saisie executee'
+            $box.Text='supprimer';Pump $w
+            Expect (-not $confirm.IsEnabled) 'Casse differente acceptee'
+            $box.Text='SUPPRIMER';Pump $w
+            Expect $confirm.IsEnabled 'Saisie exacte refusee'
+            Click $confirm;Click $confirm;Pump $w
+            Expect ($script:Confirmed -eq 1 -and $script:Cancelled -eq 0) ('Executions : '+$script:Confirmed)
+            Expect ($box.Text -eq '') 'Saisie conservee apres la reponse'
+        }
         Case 'Choix identiques refuses par la regle' {
             $failed=$false;try{[void](Request-DomeniaInlineConfirmation -Title 'X' -ConfirmText 'Oui' -CancelText 'Oui')}catch{$failed=$true}
             Expect $failed 'Choix ambigus acceptes'
         }
     }finally{$w.Close();$script:Window=$null}
 }catch{$script:Tests.Add([pscustomobject]@{Name='Initialisation ou suite interrompue';Status='Failed';Detail=$_.Exception.ToString()})}
-$expected=10
+$expected=15
 $passed=@($script:Tests|Where-Object{$_.Status -eq 'Passed'}).Count;$failed=@($script:Tests|Where-Object{$_.Status -eq 'Failed'}).Count
 $report=[ordered]@{Build='RC1.11.0-D120-interface-c4';Suite='Demande dans la page D083 (contrat C4)';Host=$PSVersionTable.PSVersion.ToString();NativeWindowsPowerShell=$script:WindowsExecuted;Wpf=$true;MockedNetwork=$true;LiveAD=$false;Expected=$expected;Passed=$passed;Failed=$failed;Skipped=0;Complete=($script:WindowsExecuted -and $failed -eq 0 -and $script:Tests.Count -eq $expected);Tests=$script:Tests.ToArray()}
 if(-not $ReportPath){$ReportPath=Join-Path ([IO.Path]::GetTempPath()) ('Domenia-wiring-inline-'+[guid]::NewGuid().ToString('N')+'.json')}

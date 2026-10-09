@@ -53,15 +53,18 @@ try {
             $identityTypes=Join-Path $modulesDir 'Domenia-Identity.Types.cs'
             if (Test-Path -LiteralPath $identityTypes) { Add-Type -Path $identityTypes }
         }
-        foreach($m in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Access.Model.ps1','Domenia-Safety.Model.ps1')) { $p=Join-Path $modulesDir $m; if(Test-Path -LiteralPath $p){ . $p } }
+        # L07: Search (DN rules) and Shell (in-page request rules) are the providers of the shared write rules.
+        foreach($m in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Access.Model.ps1','Domenia-Search.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Safety.Model.ps1')) { $p=Join-Path $modulesDir $m; if(Test-Path -LiteralPath $p){ . $p } }
         if (-not (Get-Command Get-DomeniaReceiptRequirement -ErrorAction SilentlyContinue)) { foreach($p in @(Get-ChildItem -LiteralPath $modulesDir -Filter '*.Model.ps1' -File | ForEach-Object{$_.FullName})) { . $p } }
+        # The real in-page confirmation: without the main window it answers through Confirm-Action / Confirm-TextAction.
+        . (Join-Path $modulesDir 'Domenia-Inline.UI.ps1')
     }
     if (-not (Get-Command Protect-DomeniaSecretText -ErrorAction SilentlyContinue)) { function Protect-DomeniaSecretText {param($Text); return [string]$Text} }
     if (-not (Get-Command Test-DomeniaSecretAttribute -ErrorAction SilentlyContinue)) { function Test-DomeniaSecretAttribute {param($Attribute); return $false} }
     foreach($rule in @('Get-DomeniaMember','Get-DomeniaOperationEffect','Get-DomeniaReceiptRequirement','Get-DomeniaReceiptResumeState','New-DomeniaWriteRegistry','Test-DomeniaWriteAdmission','Get-DomeniaPostconditionRule','Resolve-DomeniaPostcondition')) { if (-not (Get-Command $rule -ErrorAction SilentlyContinue)) { throw ('Regles absente : '+$rule) } }
     foreach($fn in @('New-DomeniaInterventionPlan','Test-DomeniaPlanStillValid','ConvertTo-DomeniaPlanChanges','Test-DomeniaPlanHasSecret','New-DomeniaSelectionIdentity')) { if (-not (Get-Command $fn -ErrorAction SilentlyContinue)) { throw ('Fonction de regle absente : '+$fn) } }
     $script:CoreAst=Read-SourceAst (Join-Path $wad 'Domenia-Core.ps1')
-    foreach($name in @('Get-WorkerContext','ConvertTo-DomeniaErrorInfo','Get-DomeniaStructuredError','Get-DomeniaWorkerOperationHashes','ConvertTo-DomeniaCanonicalWorkerCode','Get-DomeniaWorkerCodeHash','Assert-DomeniaWorkerOperationCode','Assert-DomeniaWorkerRegistry','Start-UiTask','Start-DomeniaWriteTask','Set-ControlsBusy','Get-DomeniaControl','Set-DomeniaControlText','Write-DomeniaAtomicText','Assert-WriteAllowed','Assert-DomeniaRemoteWriteAllowed','Get-DomeniaWriteRoute','New-DomeniaSelectionWritePlan','Format-DomeniaPlanConfirmation','Test-DomeniaPlanDispatch','Set-AccountDisabled','Get-DomeniaWritePostcondition','Complete-DomeniaWriteTaskUi','Fail-DomeniaWriteTaskUi','Get-DomeniaEffectiveWorkerResult','Get-DomeniaAttributeWriteStrategy')) { [void](Import-AstFunction $script:CoreAst $name -Optional) }
+    foreach($name in @('Get-WorkerContext','ConvertTo-DomeniaErrorInfo','Get-DomeniaStructuredError','Get-DomeniaWorkerOperationHashes','ConvertTo-DomeniaCanonicalWorkerCode','Get-DomeniaWorkerCodeHash','Assert-DomeniaWorkerOperationCode','Assert-DomeniaWorkerRegistry','Start-UiTask','Start-DomeniaWriteTask','Set-ControlsBusy','Get-DomeniaControl','Set-DomeniaControlText','Write-DomeniaAtomicText','Assert-WriteAllowed','Assert-DomeniaRemoteWriteAllowed','Get-DomeniaWriteRoute','New-DomeniaSelectionWritePlan','Format-DomeniaPlanConfirmation','Test-DomeniaPlanDispatch','Set-AccountDisabled','Get-DomeniaWritePostcondition','Complete-DomeniaWriteTaskUi','Fail-DomeniaWriteTaskUi','Get-DomeniaEffectiveWorkerResult','Get-DomeniaAttributeWriteStrategy','Request-DomeniaWriteConfirmation','Get-DomeniaWriteLocks','Set-DomeniaWriteTaskOutcome','Get-DomeniaWriteCompensationText','Format-DomeniaOperationImpact','Request-DomeniaOperationImpact','Format-DomeniaByteEstimate','Get-DomeniaWorkerRulesCommon','AddOrRemoveObjectGroup','AddOrRemoveGroupMember','Set-OrClearRawAttribute','Start-DomeniaAttributeWrite','New-DomeniaAttributeChange')) { [void](Import-AstFunction $script:CoreAst $name -Optional) }
     foreach($fn in @('Start-UiTask','Start-DomeniaWriteTask','Set-ControlsBusy','Get-DomeniaControl','Get-DomeniaStructuredError','Assert-DomeniaWorkerOperationCode','ConvertTo-DomeniaCanonicalWorkerCode','Get-DomeniaWorkerCodeHash','Get-DomeniaWorkerOperationHashes','Assert-WriteAllowed','Get-DomeniaWriteRoute','New-DomeniaSelectionWritePlan','Format-DomeniaPlanConfirmation','Test-DomeniaPlanDispatch','Set-AccountDisabled')) { if (-not (Get-Command $fn -ErrorAction SilentlyContinue)) { throw ('Fonction absente : '+$fn) } }
     $assignment=@($script:CoreAst.FindAll({param($n)((($n -is [Management.Automation.Language.AssignmentStatementAst])) -and ((($n.Left.Extent.Text -eq '$script:WorkerCommon')) -and (($n.Operator -eq [Management.Automation.Language.TokenKind]::Equals))))},$true))
     if($assignment.Count -ne 1){throw 'Code commun des workers introuvable.'}
@@ -71,6 +74,16 @@ try {
     if(@($ce).Count){throw 'Code commun des workers non analysable.'}
     $script:WorkerCommon=[string]$literal.Value
     foreach($fn in @($commonAst.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst]},$true))) { . ([scriptblock]::Create($fn.Extent.Text)) }
+    # L07: the appended common blocks too (raw attribute guard, DN resolution, conditional modify), as the runspace has them.
+    $appended=@($script:CoreAst.FindAll({param($n)((($n -is [Management.Automation.Language.AssignmentStatementAst])) -and ((($n.Left.Extent.Text -eq '$script:WorkerCommon')) -and (($n.Operator -eq [Management.Automation.Language.TokenKind]::PlusEquals))))},$true))
+    foreach($block in $appended){
+        $blockLiteral=$block.Right.Find({param($n)((($n -is [Management.Automation.Language.StringConstantExpressionAst])) -and (($n.StringConstantType -eq [Management.Automation.Language.StringConstantType]::SingleQuotedHereString)))},$true)
+        if ($null -eq $blockLiteral) { continue }
+        $bt=$null;$be=$null;$blockAst=[Management.Automation.Language.Parser]::ParseInput([string]$blockLiteral.Value,[ref]$bt,[ref]$be)
+        if(@($be).Count){throw 'Bloc commun ajoute non analysable.'}
+        foreach($fn in @($blockAst.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst]},$true))) { . ([scriptblock]::Create($fn.Extent.Text)) }
+    }
+    foreach($fn in @('Assert-WAttributeChangesAllowed','Test-WFormAttribute','Test-WRawAttributeAllowed','Resolve-WDirectoryIdentityDn')) { if (-not (Get-Command $fn -ErrorAction SilentlyContinue)) { throw ('Fonction commune absente : '+$fn) } }
     if (-not (Get-Command Invoke-WConditionalModify -ErrorAction SilentlyContinue)) {
         $fnAst=@($commonAst.FindAll({param($n)((($n -is [Management.Automation.Language.FunctionDefinitionAst])) -and (($n.Name -eq 'Invoke-WConditionalModify')))},$true))
         if ($fnAst.Count -eq 1) { . ([scriptblock]::Create($fnAst[0].Extent.Text)) }
@@ -140,7 +153,7 @@ if (-not (Get-Command Get-DomeniaFeatureFlag -ErrorAction SilentlyContinue)) { f
 function Write-AppLog {param($Text,$Level)}
 function Set-Status {param($Text,$Level) if ($null -eq $script:StatusLog) { $script:StatusLog=[Collections.Generic.List[string]]::new() }; $script:StatusLog.Add([string]$Text) }
 function Get-CfgValue {param($Section,$Name,$Default); return $Default}
-function Show-ErrorBox {param($Message) if ($null -eq $script:Dialogs) { $script:Dialogs=[Collections.Generic.List[string]]::new() }; $script:Dialogs.Add('ERREUR '+[string]$Message) }
+function Show-ErrorBox {param($Message,$Details) if ($null -eq $script:Dialogs) { $script:Dialogs=[Collections.Generic.List[string]]::new() }; $script:Dialogs.Add('ERREUR '+[string]$Message) }
 function Show-InfoBox {param($Message,$Details) if ($null -eq $script:Dialogs) { $script:Dialogs=[Collections.Generic.List[string]]::new() }; $script:Dialogs.Add('INFO '+[string]$Message) }
 function Show-DomeniaOperationError {param($Operation,$ErrorRecordOrException,$CorrelationId,[switch]$NoPopup) if ($null -eq $script:Dialogs) { $script:Dialogs=[Collections.Generic.List[string]]::new() }; $script:Dialogs.Add('OPERATION '+[string]$ErrorRecordOrException) }
 function Apply-CurrentPermissionUi {}
@@ -151,6 +164,15 @@ function Assert-DomeniaCapability {param($Capability) }
 function Get-AllWriteControlNames {return @()}
 function Confirm-Action {param($Message,$Title='') if ($null -eq $script:ConfirmCalls) { $script:ConfirmCalls=0 }; $script:ConfirmCalls++; return $true }
 $script:DefaultConfirmAction = (Get-Command Confirm-Action -CommandType Function).ScriptBlock
+function Confirm-TextAction {param($Message,$Expected,$Title='') if ($null -eq $script:TypedConfirmCalls) { $script:TypedConfirmCalls=[Collections.Generic.List[string]]::new() }; $script:TypedConfirmCalls.Add([string]$Expected); return [bool]$script:TypedConfirmAnswer }
+# L07: the in-page confirmation is spied: what the panel would show (sentence, changes, technical details).
+$script:RealRequestInline = (Get-Command Request-DomeniaInlineConfirmation -CommandType Function -ErrorAction SilentlyContinue).ScriptBlock
+function Request-DomeniaInlineConfirmation { [CmdletBinding()] param($Title,$Message='',$Target='',$ConfirmText='Confirmer',$CancelText='Annuler',$OnConfirm=$null,$OnCancel=$null,$Risk='Normal',[string[]]$Changes=@(),$Details='',$DetailsTitle='Détails techniques',[switch]$DetailsExpertOnly,$TypedConfirmation='',$TypedPrompt='')
+    if ($null -eq $script:InlineRequests) { $script:InlineRequests=[Collections.Generic.List[object]]::new() }
+    $script:InlineRequests.Add([pscustomobject]@{Title=[string]$Title;Message=[string]$Message;Target=[string]$Target;ConfirmText=[string]$ConfirmText;Risk=[string]$Risk;Changes=@($Changes);Details=[string]$Details;DetailsExpertOnly=[bool]$DetailsExpertOnly;TypedConfirmation=[string]$TypedConfirmation})
+    $bound=@{}; foreach($key in $PSBoundParameters.Keys) { $bound[$key]=$PSBoundParameters[$key] }
+    return & $script:RealRequestInline @bound
+}
 function Complete-DomeniaWriteTaskUi {param($Output,$State) if ($null -eq $script:CompletedWrites) { $script:CompletedWrites=0 }; $script:CompletedWrites++ }
 function Fail-DomeniaWriteTaskUi {param($Message,$State) if ($null -eq $script:FailedWrites) { $script:FailedWrites=0 }; $script:FailedWrites++ }
 function Test-DomeniaActualCapabilityDenied {param($Dn,$Capability); return $false}
@@ -339,7 +361,8 @@ function Install-D093WHelpers {
         Add-Member -InputObject $entry -MemberType ScriptMethod -Name Invoke -Value { param($Method,$Arg) return $null } -Force
         return $entry
     }
-    Set-D093Function 'Get-WAttributeFirst' { param($Context,[string]$Dn,[string]$Name) return $script:D093AttributeFirstValue }
+    # Before the dispatch the precondition re-read sees the value of the plan; after it, the value written.
+    Set-D093Function 'Get-WAttributeFirst' { param($Context,[string]$Dn,[string]$Name) if ((-not $DomeniaWriteDispatched) -and [bool]$script:D093UseBeforeValue) { return $script:D093AttributeBeforeValue }; return $script:D093AttributeFirstValue }
     Set-D093Function 'Get-WObjectSnapshot' { param($Context,[string]$Dn)
         if ([string]::IsNullOrWhiteSpace($Dn)) { return [pscustomobject]@{Exists=$false;DN=''} }
         if ($Dn.StartsWith('<GUID=')) {
@@ -442,6 +465,13 @@ function Reset-WiringFixture {
     $script:InfoBoxes=[Collections.Generic.List[string]]::new()
     $script:LastWritePostcondition=$null
     $script:UnknownWriteTargetDn=''
+    $script:ActiveWriteLock=$null
+    $script:CurrentUiProfile='Tech'
+    $script:TypedConfirmCalls=[Collections.Generic.List[string]]::new()
+    $script:TypedConfirmAnswer=$true
+    $script:InlineRequests=[Collections.Generic.List[object]]::new()
+    $script:D093UseBeforeValue=$true
+    $script:D093AttributeBeforeValue=$null
     Set-Item function:script:Confirm-Action -Value $script:DefaultConfirmAction
 }
 function New-WriteEnvelopeScript {
@@ -992,7 +1022,8 @@ if ($infrastructure) {
             $payload=[pscustomobject]@{DN='CN=Demo User,OU=Users,DC=example,DC=invalid';Changes=@([pscustomobject]@{Name='description';Old='ancien';New='nouveau';Clear=$false;Conditional=$true});Safety=[pscustomobject]@{Guid='00000000-0000-0000-0000-000000000000'}}
             $r=Invoke-D096WorkerBody -FunctionName 'Start-DomeniaAttributeWrite' -Context $context -Payload $payload
             Assert-True (([string]$r.Error).Contains('Conflit')) ('Erreur : '+[string]$r.Error)
-            Assert-True (([string]$r.Error).Contains('Rien n a ete ecrase')) ('Erreur : '+[string]$r.Error)
+            # SE-09: the controller answer is read by Resolve-DomeniaConditionalWrite (shared rule).
+            Assert-True (([string]$r.Error) -match 'rien n.a .t. .cras') ('Erreur : '+[string]$r.Error)
             Assert-True ($r.Dispatched -eq $false) ('Dispatched : '+[string]$r.Dispatched)
         } finally { End-D093FunctionOverrides }
     }
@@ -1008,7 +1039,7 @@ if ($infrastructure) {
             $context=New-D093Context
             $payload=[pscustomobject]@{DN='CN=Demo User,OU=Users,DC=example,DC=invalid';Changes=@([pscustomobject]@{Name='description';Old='ancien';New='nouveau';Clear=$false;Conditional=$true});Safety=[pscustomobject]@{Guid='00000000-0000-0000-0000-000000000000'}}
             $r=Invoke-D096WorkerBody -FunctionName 'Start-DomeniaAttributeWrite' -Context $context -Payload $payload
-            Assert-True (([string]$r.Error).Contains('Requete refusee')) ('Erreur : '+[string]$r.Error)
+            Assert-True (([string]$r.Error) -match '(?i)Requ.te refus.e par le contr.leur \(code LDAP 53\)') ('Erreur : '+[string]$r.Error)
             Assert-True (([string]$r.Error).Contains('unwilling')) ('Diagnostic du controleur perdu : '+[string]$r.Error)
             Assert-True ($r.Dispatched -eq $false) ('Dispatched : '+[string]$r.Dispatched)
         } finally { End-D093FunctionOverrides }
@@ -1044,7 +1075,8 @@ if ($infrastructure) {
             $context=New-D093Context
             $payload=[pscustomobject]@{DN='CN=Demo User,OU=Users,DC=example,DC=invalid';Changes=@([pscustomobject]@{Name='description';Old='ancien';New='nouveau';Clear=$false;Conditional=$true});Safety=[pscustomobject]@{Guid='00000000-0000-0000-0000-000000000000'}}
             $r=Invoke-D096WorkerBody -FunctionName 'Start-DomeniaAttributeWrite' -Context $context -Payload $payload
-            Assert-True (([string]$r.Error).Contains('Pas de reponse')) ('Erreur : '+[string]$r.Error)
+            Assert-True (([string]$r.Error) -match 'Pas de r.ponse du contr.leur \(code client 81\)') ('Erreur : '+[string]$r.Error)
+            Assert-True (([string]$r.Error) -match 'issue . v.rifier') ('Erreur : '+[string]$r.Error)
             Assert-True ($r.Dispatched -eq $true) ('Dispatched : '+[string]$r.Dispatched)
         } finally { End-D093FunctionOverrides }
     }
@@ -1091,6 +1123,7 @@ if ($infrastructure) {
             Set-D093Function 'Invoke-WConditionalModify' { param($Context,[string]$Dn,[object[]]$Modifications) $script:D096Mods=@($Modifications | Where-Object { $null -ne $_ }); return $script:D096Answer }
             $script:D093PropertyNames=@('description')
             $script:D093AttributeFirstValue='abc'
+            $script:D093AttributeBeforeValue='ancien'
             $context=New-D093Context
             $payload=[pscustomobject]@{DN='CN=Demo User,OU=Users,DC=example,DC=invalid';Changes=@([pscustomobject]@{Name='description';Old='ancien';New='abc';Clear=$false;Conditional=$false});Safety=[pscustomobject]@{Guid='00000000-0000-0000-0000-000000000000'}}
             $r=Invoke-D096WorkerBody -FunctionName 'Start-DomeniaAttributeWrite' -Context $context -Payload $payload
@@ -1156,6 +1189,266 @@ if ($infrastructure) {
             Assert-True (-not ([string]$res.Message).Contains('Cannot find type')) ('Type introuvable : '+[string]$res.Message)
             Assert-True (-not ([string]$res.Message -match '(?i)constructor|overload|argument')) ('Construction invalide : '+[string]$res.Message)
         } finally { End-D093FunctionOverrides }
+    }
+    Test-Case 'SE-02 worker : attribut brut bloque refuse meme si l interface est contournee' {
+        Reset-WiringFixture
+        try {
+            Install-D093WHelpers
+            $script:D096Called=0
+            Set-D093Function 'Invoke-WConditionalModify' { param($Context,[string]$Dn,[object[]]$Modifications) $script:D096Called++; return [pscustomobject]@{ResultCode=0;Message='';Sent=$true} }
+            $script:D093PropertyNames=@('adminCount','info','description')
+            $context=New-D093Context
+            $context | Add-Member -NotePropertyName AllowRawAttributeWrite -NotePropertyValue $true
+            $context | Add-Member -NotePropertyName BlockSensitiveRawAttributes -NotePropertyValue $true
+            $context | Add-Member -NotePropertyName RawAttributeBlockList -NotePropertyValue @('adminCount','unicodePwd')
+            $blocked=[pscustomobject]@{DN='CN=Demo User,OU=Users,DC=example,DC=invalid';Changes=@([pscustomobject]@{Name='adminCount';Old='';New='1';Clear=$false;Conditional=$false});Safety=[pscustomobject]@{Guid='00000000-0000-0000-0000-000000000000'}}
+            $r=Invoke-D096WorkerBody -FunctionName 'Start-DomeniaAttributeWrite' -Context $context -Payload $blocked
+            Assert-True (([string]$r.Error) -match 'sensible') ('Attribut bloque accepte : '+[string]$r.Error)
+            Assert-True ($r.Dispatched -eq $false) 'Envoi malgre la garde.'
+            Assert-True ($script:D096Called -eq 0) 'Requete LDAP partie.'
+            $context.AllowRawAttributeWrite=$false
+            $raw=[pscustomobject]@{DN='CN=Demo User,OU=Users,DC=example,DC=invalid';Changes=@([pscustomobject]@{Name='info';Old='';New='x';Clear=$false;Conditional=$false});Safety=[pscustomobject]@{Guid='00000000-0000-0000-0000-000000000000'}}
+            $r2=Invoke-D096WorkerBody -FunctionName 'Start-DomeniaAttributeWrite' -Context $context -Payload $raw
+            Assert-True (([string]$r2.Error) -match 'AllowRawAttributeWrite') ('Ecriture brute non refusee : '+[string]$r2.Error)
+            Assert-True ($r2.Dispatched -eq $false) 'Ecriture brute envoyee.'
+            $flagged=[pscustomobject]@{DN='CN=Demo User,OU=Users,DC=example,DC=invalid';Changes=@([pscustomobject]@{Name='description';Old='';New='x';Clear=$false;Conditional=$false;Raw=$true});Safety=[pscustomobject]@{Guid='00000000-0000-0000-0000-000000000000'}}
+            $r3=Invoke-D096WorkerBody -FunctionName 'Start-DomeniaAttributeWrite' -Context $context -Payload $flagged
+            Assert-True (([string]$r3.Error) -match 'AllowRawAttributeWrite') ('Edition brute d un champ de fiche non refusee : '+[string]$r3.Error)
+            $script:D093AttributeFirstValue='x'
+            $form=[pscustomobject]@{DN='CN=Demo User,OU=Users,DC=example,DC=invalid';Changes=@([pscustomobject]@{Name='description';Old='';New='x';Clear=$false;Conditional=$false});Safety=[pscustomobject]@{Guid='00000000-0000-0000-0000-000000000000'}}
+            $r4=Invoke-D096WorkerBody -FunctionName 'Start-DomeniaAttributeWrite' -Context $context -Payload $form
+            Assert-True (([string]$r4.Error) -eq '') ('Champ de fiche refuse : '+[string]$r4.Error)
+        } finally { End-D093FunctionOverrides }
+    }
+    Test-Case 'SE-02 interface : meme regle, configuration de securite respectee' {
+        Reset-WiringFixture
+        $script:Ctrl=@{TxtRawAttrName=[pscustomobject]@{Text='adminCount'};TxtRawAttrValue=[pscustomobject]@{Text='1'}}
+        $script:SelectedObject=[pscustomobject]@{Type='Utilisateur';DN=$script:FakeIdentity.DN}
+        $script:RawAttributeBlockList=@('adminCount')
+        $script:CfgOverride=@{AllowRawAttributeWrite=$true;BlockSensitiveRawAttributes=$true}
+        try {
+            Set-Item function:script:Get-CfgValue -Value { param($Section,$Name,$Default) if (($null -ne $script:CfgOverride) -and $script:CfgOverride.ContainsKey([string]$Name)) { return $script:CfgOverride[[string]$Name] }; return $Default }
+            Set-OrClearRawAttribute -Clear $false
+            Assert-True (@($script:Dialogs | Where-Object { $_ -match 'sensible' }).Count -eq 1) ('Refus absent : '+($script:Dialogs -join ' | '))
+            Assert-True ($script:InlineRequests.Count -eq 0) 'Confirmation proposee pour un attribut bloque.'
+            Assert-True ($script:StartUiTaskCalls -eq 0) 'Ecriture lancee.'
+        } finally { Set-Item function:script:Get-CfgValue -Value { param($Section,$Name,$Default) return $Default }; $script:CfgOverride=$null }
+    }
+    Test-Case 'SE-12 DN hors domaine ou sous CN=Configuration refuse avant envoi, nomme par son nom' {
+        Reset-WiringFixture
+        $script:UseDoubleStartUiTask=$true
+        $group=New-TestIdentity -Dn 'CN=Comptables,OU=Groupes,DC=example,DC=invalid' -Name 'Comptables' -Type 'Groupe'
+        $script:FakeIdentity=$group
+        $script:SelectedObject=[pscustomobject]@{Type='Groupe';DN=$group.DN}
+        foreach($bad in @('CN=Services,CN=Configuration,DC=example,DC=invalid','CN=Admins,OU=Groupes,DC=autre,DC=invalid')){
+            $script:Dialogs=[Collections.Generic.List[string]]::new()
+            $script:Ctrl=@{TxtGroupMemberTarget=[pscustomobject]@{Text=$bad}}
+            AddOrRemoveGroupMember -Add $true
+            $leaf=([string]$bad.Split(',')[0]).Substring(3)
+            Assert-True (@($script:Dialogs).Count -eq 1) ('Refus absent pour '+$bad)
+            Assert-True ($script:Dialogs[0] -match [regex]::Escape($leaf)) ('Nom lisible absent : '+$script:Dialogs[0])
+            Assert-True ($script:Dialogs[0] -notmatch '(?i)\b(CN|OU|DC)=') ('DN dans le message : '+$script:Dialogs[0])
+            Assert-True (($script:InlineRequests.Count -eq 0) -and ($script:StartUiTaskCalls -eq 0)) 'Confirmation ou envoi malgre le refus.'
+        }
+        $script:Ctrl=@{TxtGroupMemberTarget=[pscustomobject]@{Text='CN=Jean Dupont,OU=Utilisateurs,DC=example,DC=invalid'}}
+        AddOrRemoveGroupMember -Add $true
+        Assert-True ($script:InlineRequests.Count -eq 1) 'DN du domaine non propose a la confirmation.'
+        $request=$script:InlineRequests[0]
+        Assert-True ($request.Message -match 'Jean Dupont') ('Nom lisible absent de la confirmation : '+$request.Message)
+        Assert-True ((($request.Message+' '+($request.Changes -join ' ')) -notmatch '(?i)\b(CN|OU|DC)=')) 'DN hors des details techniques.'
+        Assert-True ($request.Details -match [regex]::Escape('CN=Jean Dupont,OU=Utilisateurs,DC=example,DC=invalid')) 'DN absent des details techniques.'
+        Assert-True ($script:StartUiTaskCalls -eq 1) ('Envoi apres confirmation : '+$script:StartUiTaskCalls)
+    }
+    Test-Case 'SE-12 worker : DN saisi controle puis resolu par son GUID avant tout envoi' {
+        Reset-WiringFixture
+        try {
+            $script:D093Snapshots=0
+            Set-D093Function 'Get-WObjectSnapshot' { param($Context,[string]$Dn)
+                $script:D093Snapshots++
+                if ($Dn.StartsWith('<GUID=')) { return [pscustomobject]@{Exists=$true;DN='CN=Jean Dupont,OU=Utilisateurs,DC=example,DC=invalid';Guid='11111111-2222-3333-4444-555555555555'} }
+                return [pscustomobject]@{Exists=$true;DN=$Dn;Guid='11111111-2222-3333-4444-555555555555'}
+            }
+            $context=New-D093Context
+            foreach($bad in @('CN=Services,CN=Configuration,DC=example,DC=invalid','CN=x,DC=DomainDnsZones,DC=example,DC=invalid','CN=Admins,DC=autre,DC=invalid','CN=,DC=example,DC=invalid')){
+                $err='';try{[void](Resolve-WObjectDn $context $bad)}catch{$err=$_.Exception.Message}
+                Assert-True ($err -match 'rien n|jamais une cible') ('Refus absent pour '+$bad+' : '+$err)
+            }
+            Assert-True ($script:D093Snapshots -eq 0) 'Lecture AD avant le controle du DN.'
+            $dn=Resolve-WObjectDn $context 'cn=jean dupont, ou=utilisateurs,dc=example,dc=invalid'
+            Assert-True ($dn -ceq 'CN=Jean Dupont,OU=Utilisateurs,DC=example,DC=invalid') ('DN non canonique : '+$dn)
+            Assert-True ($script:D093Snapshots -eq 2) ('Lectures : '+$script:D093Snapshots)
+            Set-D093Function 'Get-WObjectSnapshot' { param($Context,[string]$Dn) if ($Dn.StartsWith('<GUID=')) { return [pscustomobject]@{Exists=$true;DN='CN=Autre,OU=Utilisateurs,DC=example,DC=invalid';Guid='99999999-2222-3333-4444-555555555555'} }; return [pscustomobject]@{Exists=$true;DN=$Dn;Guid='11111111-2222-3333-4444-555555555555'} }
+            $err='';try{[void](Resolve-WObjectDn $context 'CN=Jean Dupont,OU=Utilisateurs,DC=example,DC=invalid')}catch{$err=$_.Exception.Message}
+            Assert-True ($err -match 'GUID') ('GUID different non refuse : '+$err)
+        } finally { End-D093FunctionOverrides }
+    }
+    Test-Case 'SE-09 deux ecritures sur la meme cible : la seconde refusee proprement' {
+        Reset-WiringFixture
+        $script:UseDoubleStartUiTask=$true
+        $identity=$script:FakeIdentity
+        $first=@(New-TestChange -After 'premier')
+        $second=@(New-TestChange -After 'second')
+        $planA=New-TestPlan -OperationId 'WriteTest' -Target $identity -Changes $first
+        $planB=New-TestPlan -OperationId 'WriteTest' -Target $identity -Changes $second
+        [void](Start-DomeniaWriteTask -Name 'A' -OperationId 'WriteTest' -Code 'x' -Payload ([pscustomobject]@{DN=$identity.DN}) -Plan $planA -PlanChanges $first)
+        Assert-True ($script:StartUiTaskCalls -eq 1) 'Premiere ecriture non partie.'
+        Assert-True ($null -ne $script:ActiveWriteLock) 'Verrou de la cible absent.'
+        $failure=''
+        try { [void](Start-DomeniaWriteTask -Name 'B' -OperationId 'WriteTest' -Code 'x' -Payload ([pscustomobject]@{DN=$identity.DN}) -Plan $planB -PlanChanges $second) } catch { $failure=$_.Exception.Message }
+        Assert-True ($failure -eq '') ('Exception : '+$failure)
+        Assert-True ($script:StartUiTaskCalls -eq 1) ('Seconde ecriture partie : '+$script:StartUiTaskCalls)
+        Assert-True (@($script:Dialogs | Where-Object { $_ -match 'cette cible' }).Count -eq 1) ('Refus absent : '+($script:Dialogs -join ' | '))
+        $other=$script:OtherFakeIdentity
+        $script:FakeIdentity=$other
+        $planC=New-TestPlan -OperationId 'WriteTest' -Target $other -Changes $first
+        [void](Start-DomeniaWriteTask -Name 'C' -OperationId 'WriteTest' -Code 'x' -Payload ([pscustomobject]@{DN=$other.DN}) -Plan $planC -PlanChanges $first)
+        Assert-True ($script:StartUiTaskCalls -eq 1) 'Les ecritures ne partent plus une par une.'
+        Assert-True (@($script:Dialogs | Where-Object { $_ -match 'une par une' }).Count -eq 1) 'Refus une par une absent.'
+        & $script:RealFailWriteTaskUi -Message 'Refus du controleur (code LDAP 53).' -State ([pscustomobject]@{Name='A';OperationId='WriteTest';Correlation='c';Capability='Edit';TargetDn=$identity.DN;PlanKey=$planA.Fingerprint.ToUpperInvariant()})
+        Assert-True ($null -eq $script:ActiveWriteLock) 'Verrou conserve apres la fin.'
+        [void](Start-DomeniaWriteTask -Name 'C' -OperationId 'WriteTest' -Code 'x' -Payload ([pscustomobject]@{DN=$other.DN}) -Plan $planC -PlanChanges $first)
+        Assert-True ($script:StartUiTaskCalls -eq 2) 'Ecriture suivante refusee apres la fin.'
+        Reset-WiringFixture
+        $script:UseDoubleStartUiTask=$true
+        $identity=$script:FakeIdentity
+        $script:ReceiptRows=@([pscustomobject]@{Format=1;Id=('a'*32);Operation='WriteTest';Domain='dc=example,dc=invalid';Stage='Unknown';Guid=$identity.Guid;DN=$identity.DN;PlanFingerprint=('B'*64)})
+        $planD=New-TestPlan -OperationId 'WriteTest' -Target $identity -Changes $first
+        [void](Start-DomeniaWriteTask -Name 'D' -OperationId 'WriteTest' -Code 'x' -Payload ([pscustomobject]@{DN=$identity.DN}) -Plan $planD -PlanChanges $first)
+        Assert-True ($script:StartUiTaskCalls -eq 0) 'Ecriture sur une cible a verifier.'
+        Assert-True (@($script:Dialogs | Where-Object { $_ -match 'v.rifier sur cette cible' }).Count -eq 1) ('Refus recu incertain absent : '+($script:Dialogs -join ' | '))
+        $script:FakeIdentity=$script:OtherFakeIdentity
+        $planE=New-TestPlan -OperationId 'WriteTest' -Target $script:OtherFakeIdentity -Changes $first
+        [void](Start-DomeniaWriteTask -Name 'E' -OperationId 'WriteTest' -Code 'x' -Payload ([pscustomobject]@{DN=$script:OtherFakeIdentity.DN}) -Plan $planE -PlanChanges $first)
+        Assert-True ($script:StartUiTaskCalls -eq 1) 'Une autre cible reste modifiable.'
+    }
+    Test-Case 'SE-09 code LDAP 81 et plus : recu a verifier, jamais rejoue' {
+        Reset-WiringFixture
+        try {
+            Install-D093WHelpers
+            $receiptRoot=Join-Path $temp ('se09-'+[guid]::NewGuid().ToString('N'))
+            [void][IO.Directory]::CreateDirectory($receiptRoot)
+            $script:ReceiptRoot=$receiptRoot
+            Set-D093Function 'Invoke-WConditionalModify' { param($Context,[string]$Dn,[object[]]$Modifications) return [pscustomobject]@{ResultCode=85;Message='timeout';Sent=$true} }
+            $context=New-WriteContext -ReceiptRoot $receiptRoot -OperationId 'WriteAttributes'
+            $payload=[pscustomobject]@{DN='CN=Demo User,OU=Users,DC=example,DC=invalid';Changes=@([pscustomobject]@{Name='description';Old='ancien';New='nouveau';Clear=$false;Conditional=$true});Safety=[pscustomobject]@{Guid='00000000-0000-0000-0000-000000000000';ExpectedGuid='00000000-0000-0000-0000-000000000000'};CorrelationId=[guid]::NewGuid().ToString('N');PlanFingerprint=('C'*64)}
+            $worker=New-WriteEnvelopeScript -Business (Get-D093WorkerBody -FunctionName 'Start-DomeniaAttributeWrite')
+            $failure=''
+            try { [void](& $worker $context $payload) } catch { $failure=$_.Exception.Message }
+            Assert-True ($failure -match 'ETAT INCONNU') ('Issue : '+$failure)
+            Assert-True ($failure -match 'code client 85') ('Lecture du code absente : '+$failure)
+            $records=@(Get-ReceiptRecords $receiptRoot)
+            Assert-True (($records.Count -eq 1) -and ($records[0].Stage -eq 'Unknown')) ('Recu : '+(@($records|ForEach-Object{$_.Stage}) -join ','))
+        } finally { End-D093FunctionOverrides }
+        Reset-WiringFixture
+        $script:UseDoubleStartUiTask=$true
+        $identity=$script:FakeIdentity
+        $changes=@(New-TestChange -After 'nouveau')
+        $plan=New-TestPlan -OperationId 'WriteTest' -Target $identity -Changes $changes
+        [void](Start-DomeniaWriteTask -Name 'T' -OperationId 'WriteTest' -Code 'x' -Payload ([pscustomobject]@{DN=$identity.DN}) -Plan $plan -PlanChanges $changes)
+        Assert-True ($script:StartUiTaskCalls -eq 1) 'Ecriture non partie.'
+        $key=$plan.Fingerprint.ToUpperInvariant()
+        & $script:RealFailWriteTaskUi -Message ('ETAT INCONNU apres envoi. Recu conserve ; aucun rejeu automatique. '+$failure) -State ([pscustomobject]@{Name='T';OperationId='WriteTest';Correlation='c';Capability='Edit';TargetDn=$identity.DN;PlanKey=$key})
+        Assert-True ($script:SubmittedWritePlans[$key].State -eq 'Uncertain') ('Etat : '+[string]$script:SubmittedWritePlans[$key].State)
+        Assert-True ($script:WriteState -eq 'Unknown') ('Etat d ecriture : '+$script:WriteState)
+        $again=New-TestPlan -OperationId 'WriteTest' -Target $identity -Changes $changes
+        [void](Start-DomeniaWriteTask -Name 'T' -OperationId 'WriteTest' -Code 'x' -Payload ([pscustomobject]@{DN=$identity.DN}) -Plan $again -PlanChanges $changes)
+        Assert-True ($script:StartUiTaskCalls -eq 1) 'Demande incertaine rejouee.'
+        Assert-True (@($script:Dialogs | Where-Object { $_ -match 'aucun nouvel envoi' }).Count -ge 1) ('Refus absent : '+($script:Dialogs -join ' | '))
+        Reset-WiringFixture
+        $script:UseDoubleStartUiTask=$true
+        $identity=$script:FakeIdentity
+        $plan=New-TestPlan -OperationId 'WriteTest' -Target $identity -Changes $changes
+        [void](Start-DomeniaWriteTask -Name 'T' -OperationId 'WriteTest' -Code 'x' -Payload ([pscustomobject]@{DN=$identity.DN}) -Plan $plan -PlanChanges $changes)
+        $key=$plan.Fingerprint.ToUpperInvariant()
+        & $script:RealFailWriteTaskUi -Message 'Requete refusee par le controleur (code LDAP 53) : rien n a ete applique.' -State ([pscustomobject]@{Name='T';OperationId='WriteTest';Correlation='c';Capability='Edit';TargetDn=$identity.DN;PlanKey=$key})
+        Assert-True ($script:SubmittedWritePlans[$key].State -eq 'NotSent') ('Refus certain : '+[string]$script:SubmittedWritePlans[$key].State)
+        [void](Start-DomeniaWriteTask -Name 'T' -OperationId 'WriteTest' -Code 'x' -Payload ([pscustomobject]@{DN=$identity.DN}) -Plan (New-TestPlan -OperationId 'WriteTest' -Target $identity -Changes $changes) -PlanChanges $changes)
+        Assert-True ($script:StartUiTaskCalls -eq 2) 'Nouvelle confirmation apres un refus certain non admise.'
+    }
+    Test-Case 'UX-08 panneau avant/apres sans DN ni GUID hors Details techniques, aucune fenetre d ecriture' {
+        Reset-WiringFixture
+        $script:UseDoubleStartUiTask=$true
+        $identity=$script:FakeIdentity
+        $script:SelectedObject=[pscustomobject]@{Type='Utilisateur';DN=$identity.DN}
+        [void](Set-AccountDisabled -Disabled $true)
+        Assert-True ($script:InlineRequests.Count -eq 1) ('Demandes dans la page : '+$script:InlineRequests.Count)
+        $request=$script:InlineRequests[0]
+        $arrow=[string][char]0x2192
+        Assert-True (@($request.Changes) -contains ('Compte : actif '+$arrow+' d'+[char]0xE9+'sactiv'+[char]0xE9)) ('Avant/apres : '+(@($request.Changes) -join ' | '))
+        $visible=$request.Title+' '+$request.Message+' '+(@($request.Changes) -join ' ')
+        Assert-True ($visible -notmatch '(?i)\b(CN|OU|DC)=') ('DN visible : '+$visible)
+        Assert-True ($visible -notmatch [regex]::Escape($identity.Guid)) 'GUID visible.'
+        Assert-True ($request.Details.Contains($identity.DN) -and $request.Details.Contains($identity.Guid)) 'DN ou GUID absent des details techniques.'
+        Assert-True ($request.Details -match 'Empreinte du plan : ') 'Empreinte absente des details techniques.'
+        Assert-True ($request.Details.Contains('dc01.example.invalid')) 'Controleur absent des details techniques.'
+        Assert-True ($request.Risk -eq 'Danger') 'Desactivation sans risque affiche.'
+        Assert-True ($script:StartUiTaskCalls -eq 1) 'Ecriture non partie apres confirmation.'
+        Reset-WiringFixture
+        $script:UseDoubleStartUiTask=$true
+        $script:SelectedObject=[pscustomobject]@{Type='Utilisateur';DN=$script:FakeIdentity.DN}
+        $script:TypedConfirmAnswer=$false
+        $script:Ctrl=@{TxtRawAttrName=[pscustomobject]@{Text='info'};TxtRawAttrValue=[pscustomobject]@{Text='note'}}
+        $script:CfgOverride=@{AllowRawAttributeWrite=$true;BlockSensitiveRawAttributes=$true}
+        try {
+            Set-Item function:script:Get-CfgValue -Value { param($Section,$Name,$Default) if (($null -ne $script:CfgOverride) -and $script:CfgOverride.ContainsKey([string]$Name)) { return $script:CfgOverride[[string]$Name] }; return $Default }
+            Set-OrClearRawAttribute -Clear $false
+            Assert-True ($script:InlineRequests.Count -eq 1) ('Une seule demande pour l ecriture brute : '+$script:InlineRequests.Count+' ; '+(@($script:Dialogs) -join ' | ')+' ; '+(@($script:StatusLog) -join ' | '))
+            Assert-True ($script:InlineRequests[0].TypedConfirmation -eq 'MODIFIER') 'Saisie MODIFIER non demandee.'
+            Assert-True ($script:StartUiTaskCalls -eq 0) 'Ecriture brute partie sans la saisie exacte.'
+            Assert-True ($script:ConfirmCalls -eq 0) 'Confirmation simple a la place de la saisie.'
+        } finally { Set-Item function:script:Get-CfgValue -Value { param($Section,$Name,$Default) return $Default }; $script:CfgOverride=$null }
+        $sources=@('Set-AccountDisabled','Reset-UserPassword','Apply-UserAccountOptions','Set-UserExpiration','Expire-UserPasswordNow','Move-SelectedObject','AddOrRemoveObjectGroup','AddOrRemoveGroupMember','Rename-ComputerObject','Create-OuUnderSelected','Set-OrClearRawAttribute','Delete-SelectedObject','Start-DomeniaAttributeWrite')
+        foreach($fn in $sources){
+            $text=(Get-FunctionAst $script:CoreAst $fn).Extent.Text
+            $modal=@([regex]::Matches($text,'(?i)\bConfirm-(Warning|Text)?Action\b|Show-Domenia(Form)?Dialog|\.ShowDialog\s*\(|Confirm-DomeniaOperationImpact')|ForEach-Object{$_.Value})
+            Assert-True ($modal.Count -eq 0) ($fn+' ouvre encore une fenetre : '+($modal -join ', '))
+            Assert-True ($text -match 'Request-Domenia(Write|Inline)Confirmation|Start-DomeniaAttributeWrite') ($fn+' sans confirmation dans la page.')
+        }
+    }
+    Test-Case 'UX-07 confirmation d impact en clair : ni worker, ni RPC, ni req/s' {
+        Reset-WiringFixture
+        $estimates=@(
+            [pscustomobject]@{Operation='IndexBuild';ItemCount=238;DurationMs=120000;Bytes=428400;AdQueries=1;RemoteAttempts=0;FallbackTasks=0;SchedulerRpc=0;Concurrency=1;Impact='Faible';Samples=0;AverageMsPerItem=0;MinMsPerItem=0;MaxMsPerItem=0;SuccessPct=0;AverageBytesPerSecond=3570;AverageMbitPerSecond=0.03;PeakMbitPerSecond=0.03;AdQueriesPerSecond=0.01;Confidence='Initiale'}
+            [pscustomobject]@{Operation='LogonHarvest';ItemCount=5000;DurationMs=15000;Bytes=11000000;AdQueries=1;RemoteAttempts=0;FallbackTasks=0;SchedulerRpc=0;Concurrency=1;Impact='Modere';Samples=4;AverageMsPerItem=3;MinMsPerItem=1;MaxMsPerItem=9;SuccessPct=100;AverageBytesPerSecond=733000;AverageMbitPerSecond=5.8;PeakMbitPerSecond=5.8;AdQueriesPerSecond=0.07;Confidence='Moyenne'}
+            [pscustomobject]@{Operation='ParkSweep';ItemCount=120;DurationMs=144000;Bytes=2880000;AdQueries=0;RemoteAttempts=120;FallbackTasks=30;SchedulerRpc=120;Concurrency=6;Impact='Modere';Samples=12;AverageMsPerItem=1200;MinMsPerItem=300;MaxMsPerItem=4000;SuccessPct=80;AverageBytesPerSecond=20000;AverageMbitPerSecond=0.16;PeakMbitPerSecond=0.96;AdQueriesPerSecond=0;Confidence='Haute'}
+        )
+        foreach($e in $estimates){
+            $f=Format-DomeniaOperationImpact -Estimate $e
+            $all=$f.Sentence+' '+$f.Details
+            Assert-True ($all -notmatch '(?i)worker|\bRPC\b|req/s|Fallback|Parallellisme') ($e.Operation+' : '+$all)
+            Assert-True ($f.Sentence -notmatch "`n") 'Phrase sur plusieurs lignes.'
+        }
+        $dot=' '+[string][char]0x00B7+' '
+        $first=Format-DomeniaOperationImpact -Estimate $estimates[0]
+        Assert-True ($first.Sentence -eq ('Environ 2 min'+$dot+'238 objet(s) lu(s) dans l'+[char]0x02BC+'annuaire'+$dot+'aucun poste contact'+[char]0xE9)) ('Phrase : '+$first.Sentence)
+        Assert-True ((Format-DomeniaOperationImpact -Estimate $estimates[2]).Sentence -match '120 poste\(s\) contact') 'Postes contactes absents.'
+        $script:ImpactRuns=0
+        $script:CurrentUiProfile='Tech'
+        [void](Request-DomeniaOperationImpact -Estimate $estimates[0] -Title 'Mettre a jour' -OnConfirm { $script:ImpactRuns++ })
+        $request=$script:InlineRequests[0]
+        Assert-True (($request.ConfirmText -eq 'Lancer') -and $request.DetailsExpertOnly) 'Lancer ou volet Expert absent.'
+        Assert-True ($script:ImpactRuns -eq 1) ('Lancement : '+$script:ImpactRuns)
+    }
+    Test-Case 'SE-09 regles copiees dans le worker : fermeture complete, memes reponses' {
+        Reset-WiringFixture
+        $text=Get-DomeniaWorkerRulesCommon
+        $ps=[PowerShell]::Create([Management.Automation.RunspaceMode]::NewRunspace)
+        try {
+            [void]$ps.AddScript($text+"`r`n"+@'
+$r85=Resolve-DomeniaConditionalWrite -Strategy ([pscustomobject]@{Strategy='ConditionalReplace'}) -ResultCode 85
+$r16=Resolve-DomeniaConditionalWrite -Strategy ([pscustomobject]@{Strategy='ConditionalReplace'}) -ResultCode 16
+$pre=Test-DomeniaPreconditionCurrent -Changes @([pscustomobject]@{Attribute='manager';Kind='Replace';Before='CN=A,DC=example,DC=invalid';After='CN=B,DC=example,DC=invalid'}) -Current @{manager=@('cn=a, dc=example,dc=invalid')} -Server 'dc01'
+$conf=Test-DomeniaPreconditionCurrent -Changes @([pscustomobject]@{Attribute='description';Kind='Replace';Before='x';After='y'}) -Current @{description=@('z')} -Server 'dc01'
+$dn=Test-DomeniaWriteTargetDn -Dn 'CN=Services,CN=Configuration,DC=example,DC=invalid' -BaseDn 'DC=example,DC=invalid'
+[pscustomobject]@{R85=[string]$r85.Outcome;R16=[string]$r16.Outcome;Pre=[bool]$pre.Current;Conf=[bool]$conf.Current;Dn=[bool]$dn.Valid;Name=[string]$dn.Name}
+'@)
+            $out=@($ps.Invoke())
+            Assert-True ($ps.Streams.Error.Count -eq 0) ('Erreurs : '+(@($ps.Streams.Error|ForEach-Object{$_.ToString()}) -join ' | '))
+            Assert-True ($out.Count -eq 1) ('Sorties : '+$out.Count)
+            Assert-True (($out[0].R85 -eq 'Unknown') -and ($out[0].R16 -eq 'Conflict')) ('Codes : '+$out[0].R85+' '+$out[0].R16)
+            Assert-True ($out[0].Pre -and (-not $out[0].Conf)) 'Preconditions mal lues dans le worker.'
+            Assert-True ((-not $out[0].Dn) -and ($out[0].Name -eq 'Services')) 'Controle du DN absent du worker.'
+        } finally { $ps.Dispose() }
     }
 }
 $passed=@($script:Checks | Where-Object { $_.Status -eq 'Passed' }).Count

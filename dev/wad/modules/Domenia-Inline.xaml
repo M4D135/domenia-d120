@@ -11,6 +11,23 @@
     <StackPanel Grid.Column="0" Margin="0,0,12,0">
       <TextBlock x:Name="LblInlineRequestTitle" Text="" FontWeight="SemiBold" Foreground="{DynamicResource InfoFg}" TextWrapping="Wrap"/>
       <ScrollViewer MaxHeight="120" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><TextBlock x:Name="LblInlineRequestMessage" Text="" Foreground="{DynamicResource InfoFg}" Margin="0,4,0,0" TextWrapping="Wrap"/></ScrollViewer>
+      <ScrollViewer x:Name="InlineRequestChangesHost" Visibility="Collapsed" MaxHeight="160" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,6,0,0">
+        <TextBlock x:Name="LblInlineRequestChanges" Text="" Foreground="{DynamicResource InfoFg}" FontWeight="SemiBold" TextWrapping="Wrap"
+                   AutomationProperties.Name="Changements demandés" AutomationProperties.HelpText="Chaque changement en clair : valeur actuelle, puis valeur après lʼopération."/>
+      </ScrollViewer>
+      <StackPanel x:Name="InlineRequestTypedPanel" Visibility="Collapsed" Margin="0,8,0,0">
+        <TextBlock x:Name="LblInlineRequestTyped" Text="" Foreground="{DynamicResource InfoFg}" TextWrapping="Wrap"/>
+        <TextBox x:Name="TxtInlineRequestTyped" MinHeight="30" MinWidth="220" MaxWidth="360" HorizontalAlignment="Left" Margin="0,4,0,0" Padding="6,3"
+                 ToolTip="Saisissez exactement le texte demandé : la confirmation sʼactive alors." AutomationProperties.Name="Texte de confirmation"
+                 AutomationProperties.HelpText="Saisissez exactement le texte demandé : la confirmation sʼactive alors."/>
+      </StackPanel>
+      <Expander x:Name="InlineRequestDetails" Header="Détails techniques" IsExpanded="False" Visibility="Collapsed" Margin="0,6,0,0" Foreground="{DynamicResource InfoFg}"
+                ToolTip="Identifiants, nom distinctif, contrôleur et empreinte du plan : à copier pour le support." AutomationProperties.Name="Détails techniques">
+        <ScrollViewer MaxHeight="140" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <TextBox x:Name="TxtInlineRequestDetails" IsReadOnly="True" TextWrapping="Wrap" BorderThickness="0" Background="Transparent" Foreground="{DynamicResource InfoFg}"
+                   FontFamily="Consolas" AutomationProperties.Name="Détails techniques de la demande"/>
+        </ScrollViewer>
+      </Expander>
     </StackPanel>
     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
       <Button x:Name="BtnInlineRequestCancel" Content="Annuler" MinWidth="96" MinHeight="34" Margin="0,0,8,0" ToolTip="Réponse sûre (Échap) : rien nʼest modifié."

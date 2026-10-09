@@ -1,6 +1,8 @@
-﻿# Intervention safety rules: immutable confirmed plans, dry runs, per-operation postconditions,
-# durable receipts before dispatch, idempotent admission, conditional writes, locks scoped to a target,
-# session end without abandoning what was sent, reviewed batches and honest compensation.
+﻿# Intervention safety rules: immutable confirmed plans, per-operation postconditions, durable receipts before
+# dispatch, idempotent admission, conditional writes, locks scoped to a target, honest compensation, the raw
+# attribute and typed target rules shared by the interface and the write workers, and the plain-words view of a plan.
+# L07 (SE-09, 08/10/2026): the dry run, session end, batch and rollback-kind rules, never called by the application,
+# were removed with their tests.
 # Pure decisions: no write, no network call, no disk access and no clock read happens here.
 # The only implicit values are those of the Domenia.InterventionPlan type (Id and CreatedUtc), which the
 # fingerprint deliberately ignores; every time-dependent rule takes "now" as a parameter.
@@ -268,66 +270,6 @@ function Test-DomeniaPlanStillValid {
     $limit = ''
     if (Test-DomeniaPlanHasSecret @($Plan.Changes)) { $limit = Get-DomeniaPlanSecretLimit }
     return [pscustomobject]@{Valid=(($reasons.Count -eq 0) -and ($fingerprint -ceq $Plan.Fingerprint));Reasons=$reasons.ToArray();Fingerprint=$fingerprint;Expected=$Plan.Fingerprint;Limit=$limit}
-}
-
-# ---------------------------------------------------------------- D092 verify without applying
-function Get-DomeniaDryRunPolicy {
-    # What a simulation may do: the prior reads and the plan, nothing else. No write provider is ever called.
-    # AllowedEffects is what Invoke-DomeniaDryRun enforces; the other flags only describe it for the screen.
-    param([Parameter(Mandatory=$true)][string]$OperationId)
-    return [pscustomobject]@{
-        OperationId=$OperationId;Effect=(Get-DomeniaOperationEffect $OperationId);Provider=(Get-DomeniaOperationProvider $OperationId);Simulation=$true
-        RunReads=$true;ProducePlan=$true;AllowedEffects=@('Read')
-        CallWriteProvider=$false;CreateScheduledTask=$false;CreateService=$false;CopyArtifact=$false
-        WriteDirectory=$false;WriteRegistry=$false;WriteReceipt=$false;WriteCache=$false;SendWakePacket=$false
-        Text='Simulation : lectures préalables et plan uniquement. Aucune écriture AD, aucun registre, aucune tâche planifiée, aucun service, aucun reçu.'
-    }
-}
-
-function Invoke-DomeniaDryRun {
-    # Runs the read steps only, then returns the plan marked as a simulation. A step is classified by its
-    # operation identifier, never by what it declares: a write, a remote action, a local save or an
-    # unclassified operation is listed as "not sent" and its body is never invoked.
-    param(
-        [Parameter(Mandatory=$true)][string]$OperationId,
-        [Parameter(Mandatory=$true)][AllowNull()]$Target,
-        [AllowEmptyString()][string]$Server='',
-        [AllowEmptyString()][string]$Account='',
-        [object[]]$Changes=@(),
-        [string[]]$Effects=@(),
-        [object[]]$Steps=@()
-    )
-    $policy = Get-DomeniaDryRunPolicy $OperationId
-    $reads = New-Object 'System.Collections.Generic.List[object]'
-    $planned = New-Object 'System.Collections.Generic.List[object]'
-    $index = 0
-    foreach ($step in @($Steps)) {
-        if ($null -eq $step) { continue }
-        $index++
-        $label = [string](Get-DomeniaMember $step 'Name' ('Etape ' + $index))
-        $stepOperation = [string](Get-DomeniaMember $step 'OperationId' '')
-        $stepEffect = Get-DomeniaOperationEffect $stepOperation
-        $body = Get-DomeniaMember $step 'Body' $null
-        if ($policy.AllowedEffects -notcontains $stepEffect) {
-            $planned.Add([pscustomobject]@{Name=$label;OperationId=$stepOperation;Effect=$stepEffect;State='Non envoye';Detail='Simulation : étape préparée, jamais exécutée.'})
-            continue
-        }
-        if ($body -isnot [scriptblock]) {
-            $reads.Add([pscustomobject]@{Name=$label;OperationId=$stepOperation;State='Non executee';Result=$null;Detail='Lecture sans code associé.'})
-            continue
-        }
-        try {
-            $result = & $body
-            $reads.Add([pscustomobject]@{Name=$label;OperationId=$stepOperation;State='Lue';Result=$result;Detail=''})
-        } catch {
-            $reads.Add([pscustomobject]@{Name=$label;OperationId=$stepOperation;State='Echec';Result=$null;Detail=(ConvertTo-DomeniaFlatText $_.Exception.Message 200)})
-        }
-    }
-    $plan = New-DomeniaInterventionPlan -OperationId $OperationId -Target $Target -Server $Server -Account $Account -Changes $Changes -Effects $Effects -Simulation $true
-    $incomplete = @($reads | Where-Object { $_.State -ne 'Lue' }).Count
-    $text = 'Simulation terminée : ' + $reads.Count + ' lecture(s), ' + $planned.Count + ' étape(s) non envoyée(s).'
-    if ($incomplete) { $text += ' ' + $incomplete + ' lecture(s) sans résultat : le plan reste indicatif.' }
-    return [pscustomobject]@{Plan=$plan;Policy=$policy;Reads=$reads.ToArray();Planned=$planned.ToArray();Complete=($incomplete -eq 0);Text=$text}
 }
 
 # ---------------------------------------------------------------- D093 postcondition per operation
@@ -1005,207 +947,7 @@ function Test-DomeniaOperationAllowed {
     return (& $answer $true '' '' $null)
 }
 
-# ---------------------------------------------------------------- D098 session end without abandon
-function Get-DomeniaSessionEndPlan {
-    # Credentials are forgotten for NEW calls only. What already left keeps its tracking and its receipt,
-    # and no text claims that a remote action was called off: only requests still in the local queue are withdrawn,
-    # because nothing of them was sent.
-    param(
-        [Parameter(Mandatory=$true)][ValidateSet('Logout','Expiry','Close','AccountChange')][string]$Reason,
-        [object[]]$Operations=@(),
-        [ValidateRange(0,100000)][int]$PendingSaves=0,
-        [string[]]$CredentialScopes=@()
-    )
-    $tracked = New-Object 'System.Collections.Generic.List[object]'
-    $withdrawn = New-Object 'System.Collections.Generic.List[string]'
-    $ignored = New-Object 'System.Collections.Generic.List[string]'
-    $saves = $PendingSaves
-    foreach ($operation in @($Operations)) {
-        if ($null -eq $operation) { continue }
-        $operationId = [string](Get-DomeniaMember $operation 'OperationId' '')
-        $label = [string](Get-DomeniaMember $operation 'Name' $operationId)
-        if (-not $label) { $label = 'Opération' }
-        $state = [string](Get-DomeniaMember $operation 'State' 'Running')
-        if ($state -in @('Completed','Verified','NotSent')) { continue }
-        if ($state -eq 'Queued') { $withdrawn.Add($label); continue }
-        $effect = Get-DomeniaOperationEffect $operationId
-        if ($effect -in @('DirectoryWrite','RemoteMutation','Unknown')) {
-            $tracked.Add([pscustomobject]@{Name=$label;OperationId=$operationId;State=$state;Text=($label + ' : demande déjà partie, issue non confirmée. Elle peut encore sʼappliquer ; son suivi et son reçu sont conservés pour la vérifier.')})
-        } elseif ($effect -eq 'LocalWrite') { $saves++ }
-        else { $ignored.Add($label) }
-    }
-    $prefix = @{Logout='Déconnexion';Expiry='Expiration';Close='Fermeture';AccountChange='Changement de compte'}[$Reason]
-    $messages = New-Object 'System.Collections.Generic.List[string]'
-    $scopes = @(@($CredentialScopes) | Where-Object { $_ })
-    if ($scopes.Count) { $messages.Add($prefix + ' : comptes oubliés pour les nouveaux appels (' + ($scopes -join ', ') + '). Les opérations déjà parties gardent leur contexte jusquʼà leur fin.') }
-    else { $messages.Add($prefix + ' : aucun nouvel appel avant une nouvelle authentification.') }
-    foreach ($item in $tracked) { $messages.Add([string]$item.Text) }
-    if ($withdrawn.Count) { $messages.Add([string]$withdrawn.Count + ' demande(s) encore en file locale retirée(s) : elles nʼavaient pas été envoyées.') }
-    if ($ignored.Count) { $messages.Add([string]$ignored.Count + ' lecture(s) en cours : leur résultat sera ignoré à lʼarrivée ; lʼappel déjà parti se termine de lui-même.') }
-    if ($saves -gt 0) {
-        $tail = 'elles se poursuivent.'
-        if ($Reason -eq 'Close') { $tail = 'la fermeture attend leur fin ou votre confirmation.' }
-        $messages.Add([string]$saves + ' sauvegarde(s) locale(s) en attente : ' + $tail)
-    }
-    return [pscustomobject]@{
-        Reason=$Reason;ForgetCredentials=$scopes;NewCallsAllowed=$false;KeepTracking=$true;KeepReceipts=$true;RemoteCancellationClaimed=$false
-        Tracked=$tracked.ToArray();Withdrawn=$withdrawn.ToArray();IgnoredReads=$ignored.ToArray();PendingSaves=$saves
-        CloseNeedsConfirmation=(($Reason -eq 'Close') -and (($saves -gt 0) -or ($tracked.Count -gt 0)));ApplicationStays=($Reason -ne 'Close')
-        Messages=$messages.ToArray()
-    }
-}
-
-# ---------------------------------------------------------------- D099 prepared and reviewed batches
-function New-DomeniaBatchPlan {
-    # Explicit selection only (never a search result or a single selection), one preview line per object,
-    # bounded size refused rather than truncated, and an explicit stop policy. Deletions and secrets are never
-    # batched, whether named by the operation or by a change of an item (unicodePwd through WriteAttributes...).
-    # Every text shown or reported (name, summary, detail) is masked by Protect-DomeniaSecretText.
-    param(
-        [Parameter(Mandatory=$true)][string]$OperationId,
-        [object[]]$Items=@(),
-        [ValidateSet('ExplicitSelection','Search','SingleSelection')][string]$Origin='ExplicitSelection',
-        [ValidateRange(2,200)][int]$MaxItems=25,
-        [ValidateSet('StopOnFirstProblem','ContinueWhenCertain')][string]$StopPolicy='StopOnFirstProblem'
-    )
-    $problems = New-Object 'System.Collections.Generic.List[string]'
-    if ((Get-DomeniaOperationEffect $OperationId) -notin @('DirectoryWrite','RemoteMutation')) { $problems.Add('Un lot prépare des modifications identifiées : cette opération nʼen est pas une.') }
-    if ($OperationId -in @('WriteDeleteObject','WriteResetPassword')) { $problems.Add('Suppression et mot de passe ne sont jamais proposés en lot.') }
-    if ($Origin -eq 'Search') { $problems.Add('Un lot ne part jamais dʼune recherche : cochez explicitement les objets.') }
-    if ($Origin -eq 'SingleSelection') { $problems.Add('Une sélection simple utilise lʼaction unitaire, pas un lot.') }
-    $rows = New-Object 'System.Collections.Generic.List[object]'
-    $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
-    $count = 0
-    foreach ($item in @($Items)) {
-        if ($null -eq $item) { continue }
-        $count++
-        $guid = ConvertTo-DomeniaGuidText (Get-DomeniaMember $item 'Guid' '')
-        $label = ConvertTo-DomeniaFlatText (Protect-DomeniaSecretText ([string](Get-DomeniaMember $item 'Name' ''))) 120
-        if (-not $guid) { $problems.Add('Élément ' + $count + ' (' + $label + ') sans GUID : sélection à corriger.'); continue }
-        if (-not $seen.Add($guid)) { $problems.Add('Élément ' + $count + ' (' + $label + ') sélectionné deux fois.'); continue }
-        $changes = @()
-        try { $changes = @(ConvertTo-DomeniaPlanChanges @(Get-DomeniaMember $item 'Changes' @())) }
-        catch { $problems.Add('Élément ' + $count + ' (' + $label + ') : ' + (ConvertTo-DomeniaFlatText $_.Exception.Message 160)); continue }
-        if (Test-DomeniaPlanHasSecret $changes) { $problems.Add('Élément ' + $count + ' (' + $label + ') : un mot de passe ou un secret ne se modifie jamais en lot.'); continue }
-        $summary = [string](Get-DomeniaMember $item 'Summary' '')
-        if (-not $summary) { $summary = (@($changes) | ForEach-Object { $_.Attribute + ' : [' + $_.Before + '] -> [' + $_.After + ']' }) -join ' ; ' }
-        $summary = ConvertTo-DomeniaFlatText (Protect-DomeniaSecretText $summary) 240
-        if (-not $summary) { $problems.Add('Élément ' + $count + ' (' + $label + ') sans aperçu de la modification.') }
-        $rows.Add([pscustomobject]@{Index=$count;Guid=$guid;Name=$label;DN=[string](Get-DomeniaMember $item 'DN' '');Summary=$summary;State='A lancer';Detail=''})
-    }
-    if ($count -lt 2) { $problems.Add('Moins de deux objets : utilisez lʼaction unitaire.') }
-    if ($count -gt $MaxItems) { $problems.Add([string]$count + ' objets sélectionnés pour une limite de ' + $MaxItems + ' : réduisez la sélection, rien nʼest tronqué en silence.') }
-    $valid = ($problems.Count -eq 0)
-    $state = 'Invalid'
-    if ($valid) { $state = 'Preview' }
-    return [pscustomobject]@{OperationId=$OperationId;Origin=$Origin;StopPolicy=$StopPolicy;MaxItems=$MaxItems;Valid=$valid;State=$state;Problems=$problems.ToArray();Items=$rows.ToArray();StopReason=''}
-}
-
-function Step-DomeniaBatch {
-    # Preview -> Ready (confirmation) -> Running (one item at a time) -> Done or Stopped.
-    # An uncertain item always stops the batch; nothing that already started is ever started again,
-    # and a stopped batch never resumes (a new batch is prepared from the report instead).
-    # Outcome 'Echec' means certainly not applied (refused by the controller, or never sent); anything uncertain
-    # after dispatch (timeout, lost connection, unreadable answer) is 'A verifier'.
-    param(
-        [Parameter(Mandatory=$true)]$Batch,
-        [Parameter(Mandatory=$true)][ValidateSet('Confirm','Start','Complete','Stop')][string]$Action,
-        [ValidateSet('Verifie','Partiel','A verifier','Echec','Non envoye')][string]$Outcome='',
-        [AllowEmptyString()][string]$Detail=''
-    )
-    $reply = { param([bool]$accepted,[string]$why,$item) [pscustomobject]@{Accepted=$accepted;Reason=$why;Item=$item;State=[string]$Batch.State} }
-    $items = @($Batch.Items)
-    $running = @($items | Where-Object { $_.State -eq 'En cours' })
-    $closeRemaining = { foreach ($row in @($items | Where-Object { $_.State -eq 'A lancer' })) { $row.State = 'Non lance' } }
-    switch ($Action) {
-        'Confirm' {
-            if ([string]$Batch.State -ne 'Preview') { return (& $reply $false ('Confirmation impossible dans lʼétat « ' + $Batch.State + ' ».') $null) }
-            $Batch.State = 'Ready'
-            return (& $reply $true '' $null)
-        }
-        'Start' {
-            if ([string]$Batch.State -notin @('Ready','Running')) { return (& $reply $false ('Lancement impossible dans lʼétat « ' + $Batch.State + ' ».') $null) }
-            if ($running.Count) { return (& $reply $false 'Un élément est en cours : exécution séquentielle, un seul à la fois.' $running[0]) }
-            $next = @($items | Where-Object { $_.State -eq 'A lancer' } | Select-Object -First 1)
-            if (-not $next.Count) { $Batch.State = 'Done'; return (& $reply $false 'Aucun élément restant.' $null) }
-            $next[0].State = 'En cours'
-            $Batch.State = 'Running'
-            return (& $reply $true '' $next[0])
-        }
-        'Complete' {
-            if (-not $running.Count) { return (& $reply $false 'Aucun élément en cours.' $null) }
-            if (-not $Outcome) { return (& $reply $false 'Issue de lʼélément requise.' $running[0]) }
-            $item = $running[0]
-            $item.State = $Outcome
-            $item.Detail = Protect-DomeniaSecretText $Detail
-            $why = ''
-            if ($Outcome -eq 'A verifier') { $why = 'Issue incertaine pour ' + $item.Name + ' : lot arrêté. Cet élément ne sera pas relancé.' }
-            elseif (($Outcome -ne 'Verifie') -and ([string]$Batch.StopPolicy -eq 'StopOnFirstProblem')) { $why = 'Problème sur ' + $item.Name + ' : arrêt selon la politique du lot.' }
-            if ($why -or ([string]$Batch.State -eq 'Stopped')) {
-                & $closeRemaining
-                $Batch.State = 'Stopped'
-                if (-not $Batch.StopReason) { $Batch.StopReason = $why }
-            } elseif (-not @($items | Where-Object { $_.State -eq 'A lancer' }).Count) { $Batch.State = 'Done' }
-            return (& $reply $true $why $item)
-        }
-        'Stop' {
-            if ([string]$Batch.State -in @('Done','Stopped','Invalid')) { return (& $reply $false ('Arrêt sans objet dans lʼétat « ' + $Batch.State + ' ».') $null) }
-            & $closeRemaining
-            $Batch.State = 'Stopped'
-            $Batch.StopReason = 'Arrêt demandé par lʼopérateur : aucun nouvel élément ne part.'
-            if ($running.Count) { $Batch.StopReason += ' Lʼélément déjà parti se termine ; son issue sera relevée.' }
-            return (& $reply $true $Batch.StopReason $null)
-        }
-    }
-}
-
-function Get-DomeniaBatchReport {
-    # One line per object. The batch is "verified" only when every object was re-read as expected;
-    # a failure or an uncertain item never turns the whole batch into a success.
-    param([Parameter(Mandatory=$true)]$Batch)
-    $items = @($Batch.Items)
-    $order = @('Verifie','Partiel','A verifier','Echec','Non envoye','Non lance','En cours','A lancer')
-    $words = @{'Verifie'='vérifié(s)';'Partiel'='partiel(s)';'A verifier'='à vérifier';'Echec'='en échec';'Non envoye'='non envoyé(s)';'Non lance'='non lancé(s)';'En cours'='en cours';'A lancer'='à lancer'}
-    $counts = [ordered]@{}
-    foreach ($state in $order) { $counts[$state] = 0 }
-    foreach ($item in $items) { $key = [string]$item.State; if ($counts.Contains($key)) { $counts[$key] = [int]$counts[$key] + 1 } }
-    $total = $items.Count
-    $overall = 'Non lance'
-    if ($total -eq 0) { $overall = 'Non lance' }
-    elseif ($counts['A verifier'] -gt 0) { $overall = 'A verifier' }
-    elseif (($counts['En cours'] -gt 0) -or (($counts['A lancer'] -gt 0) -and ([string]$Batch.State -in @('Ready','Running')))) { $overall = 'En cours' }
-    elseif ($counts['Verifie'] -eq $total) { $overall = 'Verifie' }
-    elseif (($counts['Verifie'] + $counts['Partiel']) -gt 0) { $overall = 'Partiel' }
-    elseif (($counts['Echec'] + $counts['Non envoye']) -gt 0) { $overall = 'Echec' }
-    $label = @{'Verifie'='Lot vérifié : chaque objet a été relu conforme.';'A verifier'='Lot à vérifier : au moins une issue est incertaine.';'Partiel'='Lot partiellement appliqué : voir le détail par objet.';'Echec'='Lot en échec : aucune modification constatée.';'Non lance'='Lot non lancé.';'En cours'='Lot en cours.'}[$overall]
-    $parts = @(foreach ($state in $order) { if ($counts[$state] -gt 0) { [string]$counts[$state] + ' ' + $words[$state] } })
-    $text = [string]$total + ' objet(s) : ' + ($parts -join ', ') + '.'
-    if ($counts['A verifier'] -gt 0) { $text += ' Aucun élément incertain nʼest relancé.' }
-    if ($Batch.StopReason) { $text += ' ' + [string]$Batch.StopReason }
-    $lines = @(foreach ($item in $items) {
-        $line = [string]$item.Index + '. ' + [string]$item.Name + ' : ' + $words[[string]$item.State]
-        if ($item.Detail) { $line += ' (' + (ConvertTo-DomeniaFlatText (Protect-DomeniaSecretText ([string]$item.Detail)) 160) + ')' }
-        $line
-    })
-    # Items to verify are never offered again; only items that never left may go into a NEW batch.
-    $toVerify = @($items | Where-Object { $_.State -eq 'A verifier' } | ForEach-Object { [string]$_.Name })
-    $notStarted = @($items | Where-Object { $_.State -eq 'Non lance' } | ForEach-Object { [string]$_.Name })
-    return [pscustomobject]@{
-        Overall=$overall;Label=$label;AllVerified=($overall -eq 'Verifie');Total=$total;Counts=$counts;Interrupted=([string]$Batch.State -eq 'Stopped')
-        ToVerify=$toVerify;NotStarted=$notStarted;Replay=$false;Lines=$lines;Text=$text
-    }
-}
-
 # ---------------------------------------------------------------- D100 limited and honest rollback
-function Get-DomeniaRollbackKinds {
-    # Three different things that must never be confused, and none of them is an "undo everything".
-    return @(
-        [pscustomobject]@{Kind='Code';Label='Retour à la version précédente de Domenia';Effect='Réinstalle le code précédent.';DoesNotRevert='Ne modifie ni lʼannuaire, ni les postes, ni le cache local.';RevertsDirectory=$false;Universal=$false}
-        [pscustomobject]@{Kind='Cache';Label='Purge ou reconstruction du cache local';Effect='Efface ou relit les données locales de Domenia.';DoesNotRevert='Ne modifie ni lʼannuaire ni les postes.';RevertsDirectory=$false;Universal=$false}
-        [pscustomobject]@{Kind='Annuaire';Label='Compensation dʼune modification AD';Effect='Nouvelle écriture inverse, une opération à la fois, avec plan, confirmation, reçu et vérification.';DoesNotRevert='Jamais pour un mot de passe, une suppression ou une action à distance.';RevertsDirectory=$true;Universal=$false}
-    )
-}
-
 function Get-DomeniaCompensation {
     # One operation at a time. A compensation is a NEW write with its own plan, confirmation, receipt and
     # verification, offered only while its preconditions can be re-read and still hold.
@@ -1288,4 +1030,150 @@ function Get-DomeniaCompensation {
         Offered=$true;Reason='Compensation possible : nouvelle opération à confirmer, avec reçu et vérification.';OperationId=$operation
         Changes=[Domenia.PlanChange[]]$inverse.ToArray();Preconditions=$rows.ToArray();Scope='Annuaire';NewPlanRequired=$true;Automatic=$false;NotCovered=$notCovered
     }
+}
+
+# ---------------------------------------------------------------- L07 rules shared by the interface and the workers
+function Test-DomeniaRawAttributeAllowed {
+    # SE-02: one rule for a raw attribute write. The interface applies it before the confirmation and the
+    # WriteAttributes worker applies it again (Test-WRawAttributeAllowed), whatever the interface did.
+    # A raw write needs Security.AllowRawAttributeWrite; with Security.BlockSensitiveRawAttributes the block list applies.
+    param(
+        [AllowEmptyString()][AllowNull()][string]$Attribute,
+        [bool]$AllowRaw=$false,
+        [bool]$BlockSensitive=$true,
+        [string[]]$BlockList=@()
+    )
+    $name = ([string]$Attribute).Trim()
+    $answer = { param([bool]$allowed,[string]$why) [pscustomobject]@{Allowed=$allowed;Attribute=$name;Reason=$why} }
+    if ($name -notmatch '^[A-Za-z][A-Za-z0-9-]{0,126}$') { return (& $answer $false 'Nom dʼattribut invalide.') }
+    if (-not $AllowRaw) { return (& $answer $false 'Écriture brute désactivée par la configuration de sécurité (Security.AllowRawAttributeWrite).') }
+    if ($BlockSensitive) {
+        foreach ($blocked in @($BlockList)) {
+            if (([string]$blocked).Trim() -ieq $name) { return (& $answer $false ('Attribut sensible, modification bloquée : ' + $name + '.')) }
+        }
+    }
+    return (& $answer $true '')
+}
+
+function ConvertTo-DomeniaDnDisplayName {
+    # Readable name of a DN for the operator: the value of its first relative name, or the dotted domain name when
+    # the DN only has DC= parts. A text that is not a DN is returned flattened, as typed.
+    param([AllowEmptyString()][AllowNull()][string]$Dn)
+    $text = ([string]$Dn).Trim()
+    if (-not (ConvertTo-DomeniaDnKey $text)) { return (ConvertTo-DomeniaFlatText $text 120) }
+    $values = New-Object 'System.Collections.Generic.List[string]'
+    $allDc = $true
+    foreach ($part in @(Split-DomeniaDn $text)) {
+        $equals = $part.IndexOf('=')
+        if ($part.Substring(0,$equals).Trim() -ine 'DC') { $allDc = $false }
+        $values.Add((ConvertFrom-DomeniaDnValue ($part.Substring($equals + 1).Trim())))
+    }
+    if ($allDc) { return (ConvertTo-DomeniaFlatText ($values.ToArray() -join '.') 120) }
+    return (ConvertTo-DomeniaFlatText $values[0] 120)
+}
+
+function Test-DomeniaWriteTargetDn {
+    # SE-12: a DN typed as a write target (group, member, destination) is accepted only when every relative name
+    # reads <attribute>=<value>, it lies in the connected domain (BaseDn suffix, compared name by name), and it is
+    # not in the configuration, schema or DNS application partitions that share the forest root suffix. The answer
+    # names the target by its readable name; the DN itself only goes to the technical details.
+    param([AllowEmptyString()][AllowNull()][string]$Dn,[AllowEmptyString()][AllowNull()][string]$BaseDn)
+    $text = ([string]$Dn).Trim()
+    $name = ConvertTo-DomeniaDnDisplayName $text
+    $answer = { param([bool]$valid,[string]$why) [pscustomobject]@{Valid=$valid;Dn=$text;Name=$name;Reason=$why} }
+    $baseKey = ConvertTo-DomeniaDnKey ([string]$BaseDn)
+    if (-not $baseKey) { return (& $answer $false 'Domaine de connexion inconnu : aucune cible saisie nʼest acceptée.') }
+    $key = ConvertTo-DomeniaDnKey $text
+    $keyParts = @(Split-DomeniaDn $key)
+    $empty = @($keyParts | Where-Object { -not ($_.Substring($_.IndexOf('=') + 1).Trim()) }).Count
+    if ((-not $key) -or ($empty -gt 0)) { return (& $answer $false ('« ' + $name + ' » nʼest pas un nom distinctif valide : rien nʼest envoyé.')) }
+    $baseParts = @(Split-DomeniaDn $baseKey)
+    $inside = ($keyParts.Count -ge $baseParts.Count)
+    if ($inside) {
+        for ($i = 1; $i -le $baseParts.Count; $i++) {
+            if ([string]$keyParts[$keyParts.Count - $i] -cne [string]$baseParts[$baseParts.Count - $i]) { $inside = $false; break }
+        }
+    }
+    if (-not $inside) { return (& $answer $false ('« ' + $name + ' » est hors du domaine connecté : rien nʼest envoyé.')) }
+    if ($keyParts.Count -gt $baseParts.Count) {
+        $top = [string]$keyParts[$keyParts.Count - $baseParts.Count - 1]
+        if ($top -in @('cn=configuration','dc=domaindnszones','dc=forestdnszones')) {
+            return (& $answer $false ('« ' + $name + ' » appartient à la configuration de la forêt ou à une partition DNS : ce nʼest jamais une cible dʼécriture.'))
+        }
+    }
+    return (& $answer $true '')
+}
+
+function Get-DomeniaPlanChangeText {
+    # UX-08: each change of a plan in plain words, « Libellé : avant → après », for the confirmation in the page.
+    # No DN and no GUID: a DN value is shown by its readable name, an empty value as « (vide) », a secret never.
+    # Attribute names and raw values stay in the technical details (Format-DomeniaPlanConfirmation in the core).
+    param([object[]]$Changes=@())
+    $labels = @{
+        givenname='Prénom';sn='Nom';displayname='Nom affiché';userprincipalname='Identifiant de connexion';mail='Adresse de messagerie'
+        telephonenumber='Téléphone';physicaldeliveryofficename='Bureau';description='Description';title='Fonction';department='Service'
+        company='Société';location='Emplacement';manager='Responsable';managedby='Géré par';accountexpires='Expiration du compte'
+    }
+    $flags = @{
+        passwordneverexpires='Mot de passe sans expiration';passwordnotrequired='Mot de passe facultatif'
+        allowreversiblepasswordencryption='Chiffrement réversible du mot de passe';smartcardlogonrequired='Carte à puce obligatoire'
+        accountnotdelegated='Compte sensible, non délégable';doesnotrequirepreauth='Sans préauthentification Kerberos'
+        usedeskeyonly='Chiffrement DES uniquement';trustedfordelegation='Approuvé pour la délégation'
+        trustedtoauthfordelegation='Délégation avec transition de protocole'
+    }
+    $show = {
+        param([string]$attribute,[AllowEmptyString()][string]$value)
+        $v = ([string]$value).Trim()
+        if (-not $v) { return '(vide)' }
+        if (((Test-DomeniaDnValuedAttribute $attribute) -or ($v -match '^(?i:CN|OU|DC)\s*=')) -and (ConvertTo-DomeniaDnKey $v)) { return ('« ' + (ConvertTo-DomeniaDnDisplayName $v) + ' »') }
+        if ($v -match '^\{?[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\}?$') { return '(identifiant, voir les détails techniques)' }
+        return ('« ' + (ConvertTo-DomeniaFlatText $v 120) + ' »')
+    }
+    $yesNo = { param([string]$value) if ([string]$value -match '^(?i:true|1|oui)$') { 'oui' } else { 'non' } }
+    $arrow = ' ' + [string][char]0x2192 + ' '
+    $lines = New-Object 'System.Collections.Generic.List[string]'
+    foreach ($change in @(ConvertTo-DomeniaPlanChanges $Changes)) {
+        $attribute = [string]$change.Attribute
+        $lower = $attribute.ToLowerInvariant()
+        $kind = [string]$change.Kind
+        $before = [string]$change.Before
+        $after = [string]$change.After
+        if (($kind -eq 'Reset') -or (Test-DomeniaSecretAttribute $attribute)) { $lines.Add('Mot de passe : remplacé par la nouvelle valeur saisie, ni affichée ni conservée'); continue }
+        if ($lower -eq 'useraccountcontrol') {
+            $state = { param([string]$value) if ([string]$value -match '^(?i:desactive|désactivé|disabled)$') { 'désactivé' } elseif ([string]$value -match '^(?i:active|actif|enabled)$') { 'actif' } else { '' } }
+            $from = & $state $before; $to = & $state $after
+            if ($from -and $to) { $lines.Add('Compte : ' + $from + $arrow + $to); continue }
+        }
+        if (($lower -eq 'lockouttime') -and ($kind -eq 'Clear')) { $lines.Add('Compte : verrouillé' + $arrow + 'déverrouillé'); continue }
+        if (($lower -eq 'pwdlastset') -and ($after -eq '0')) { $lines.Add('Changement du mot de passe à la prochaine connexion : imposé'); continue }
+        if ($flags.ContainsKey($lower)) { $lines.Add($flags[$lower] + ' : ' + (& $yesNo $before) + $arrow + (& $yesNo $after)); continue }
+        if ($kind -eq 'Move') {
+            if ($lower -eq 'distinguishedname') {
+                $from = Get-DomeniaOuDisplayPath (Get-DomeniaDnParent $before)
+                $to = Get-DomeniaOuDisplayPath (Get-DomeniaDnParent $after)
+                if (-not $from) { $from = '(inconnu)' }
+                if (-not $to) { $to = '(inconnu)' }
+                $lines.Add('Emplacement : « ' + $from + ' »' + $arrow + '« ' + $to + ' »')
+            } else {
+                $lines.Add('Nom : ' + (& $show '' $before) + $arrow + (& $show '' $after))
+            }
+            continue
+        }
+        if ($lower -eq 'memberof') {
+            if ($kind -eq 'Add') { $lines.Add('Groupes : ajout à ' + (& $show 'member' $after)); continue }
+            if ($kind -eq 'Remove') { $lines.Add('Groupes : retrait de ' + (& $show 'member' $before)); continue }
+        }
+        if ($lower -eq 'member') {
+            if ($kind -eq 'Add') { $lines.Add('Membres : ajout de ' + (& $show 'member' $after)); continue }
+            if ($kind -eq 'Remove') { $lines.Add('Membres : retrait de ' + (& $show 'member' $before)); continue }
+        }
+        $label = $attribute
+        if ($labels.ContainsKey($lower)) { $label = $labels[$lower] }
+        switch ($kind) {
+            'Add' { $lines.Add($label + ' : ajout de ' + (& $show $attribute $after)) }
+            'Remove' { $lines.Add($label + ' : retrait de ' + (& $show $attribute $before)) }
+            default { $lines.Add($label + ' : ' + (& $show $attribute $before) + $arrow + (& $show $attribute $after)) }
+        }
+    }
+    return $lines.ToArray()
 }
