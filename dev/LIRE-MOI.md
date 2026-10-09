@@ -1,6 +1,6 @@
-# Domenia 1.0 RC1.13.0 — livraison du 8 octobre 2026
+# Domenia 1.0 RC1.14.0 — livraison du 9 octobre 2026
 
-Build : `2026.10.08-DOMENIA-1.0-RC1.13.0-D120`.
+Build : `2026.10.09-DOMENIA-1.0-RC1.14.0-D120`.
 Guides : `DOC/Domenia-1.0-Guide-technicien` et `DOC/Domenia-1.0-Guide-administrateur` (.docx et .pdf) dans la livraison.
 Cible : Windows PowerShell 5.1 x64, interface WPF. Lancer `Domenia.exe`.
 

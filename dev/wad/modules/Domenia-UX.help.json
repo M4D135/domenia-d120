@@ -207,7 +207,7 @@
   {
     "Name": "TabDashboard",
     "Title": "Accueil",
-    "Text": "Connexion en cours, droits du compte et operations en cours.",
+    "Text": "Connexion en cours, droits du compte et opérations en cours.",
     "Kind": "TabItem",
     "Source": "existing-help"
   },
@@ -249,7 +249,7 @@
   {
     "Name": "BtnDashRoot",
     "Title": "Racine du domaine",
-    "Text": "Revient a la racine du domaine.",
+    "Text": "Revient à la racine du domaine.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -262,22 +262,22 @@
   },
   {
     "Name": "BtnDashSelfCheck",
-    "Title": "Verifier l application",
-    "Text": "Verifie que l application fonctionne correctement. Aucune ecriture dans Active Directory.",
+    "Title": "Vérifier lʼapplication",
+    "Text": "Vérifie que lʼapplication fonctionne correctement. Aucune écriture dans Active Directory.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnDashClearCache",
     "Title": "Vider le cache",
-    "Text": "Vide le cache d affichage. Aucun objet Active Directory n est modifie.",
+    "Text": "Vide le cache dʼaffichage. Aucun objet Active Directory nʼest modifié.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnDashOpenLog",
     "Title": "Ouvrir le journal",
-    "Text": "Ouvre le journal d audit. Aucun mot de passe ni cle n y figure.",
+    "Text": "Ouvre le journal dʼaudit. Aucun mot de passe ni clé nʼy figure.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -440,7 +440,7 @@
   {
     "Name": "TxtGlobalLimit",
     "Title": "Maximum de résultats",
-    "Text": "Nombre maximum de resultats affiches.",
+    "Text": "Nombre maximum de résultats affichés.",
     "Kind": "TextBox",
     "Source": "existing-help"
   },
@@ -454,7 +454,7 @@
   {
     "Name": "BtnExportResults",
     "Title": "Exporter CSV",
-    "Text": "Exporte les resultats affiches, ou uniquement les lignes selectionnees, au format CSV.",
+    "Text": "Exporte les résultats affichés, ou uniquement les lignes sélectionnées, au format CSV.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -582,7 +582,7 @@
   {
     "Name": "TxtObjPresence",
     "Title": "Presence",
-    "Text": "Poste : joignable ou non. Utilisateur : etat du poste qui lui est associe.",
+    "Text": "Poste : joignable ou non. Utilisateur : état du poste qui lui est associé.",
     "Kind": "TextBox",
     "Source": "existing-help"
   },
@@ -596,7 +596,7 @@
   {
     "Name": "BtnCopyObjectSummary",
     "Title": "Copier le resume",
-    "Text": "Copie les informations principales de l objet.",
+    "Text": "Copie les informations principales de lʼobjet.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -610,21 +610,21 @@
   {
     "Name": "BtnDeleteObject",
     "Title": "Supprimer",
-    "Text": "Supprime definitivement l objet. Deux confirmations sont demandees.",
+    "Text": "Supprime définitivement lʼobjet. Deux confirmations sont demandées.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "TabUser",
     "Title": "Utilisateur",
-    "Text": "Identite, coordonnees professionnelles et etat du compte.",
+    "Text": "Identité, coordonnées professionnelles et état du compte.",
     "Kind": "TabItem",
     "Source": "existing-help"
   },
   {
     "Name": "TxtUserGivenName",
     "Title": "Prenom",
-    "Text": "Prenom de l utilisateur.",
+    "Text": "Prénom de lʼutilisateur.",
     "Kind": "TextBox",
     "Source": "existing-help"
   },
@@ -673,7 +673,7 @@
   {
     "Name": "TxtUserOffice",
     "Title": "Bureau",
-    "Text": "Bureau ou site d affectation.",
+    "Text": "Bureau ou site dʼaffectation.",
     "Kind": "TextBox",
     "Source": "existing-help"
   },
@@ -764,7 +764,7 @@
   {
     "Name": "BtnOpenLinkedComputer",
     "Title": "Ouvrir le poste",
-    "Text": "Ouvre la fiche du poste associe.",
+    "Text": "Ouvre la fiche du poste associé.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -799,7 +799,7 @@
   {
     "Name": "TxtUserState2",
     "Title": "Departement ou region",
-    "Text": "Departement, region ou etat.",
+    "Text": "Département, région ou état.",
     "Kind": "TextBox",
     "Source": "existing-help"
   },
@@ -855,49 +855,49 @@
   {
     "Name": "TxtUserEmployeeId",
     "Title": "Matricule",
-    "Text": "Matricule interne de l employe.",
+    "Text": "Matricule interne de lʼemployé.",
     "Kind": "TextBox",
     "Source": "existing-help"
   },
   {
     "Name": "TxtUserProfilePath",
     "Title": "Chemin du profil",
-    "Text": "Chemin reseau du profil itinerant. Vide : profil local.",
+    "Text": "Chemin réseau du profil itinérant. Vide : profil local.",
     "Kind": "TextBox",
     "Source": "existing-help"
   },
   {
     "Name": "TxtUserScriptPath",
     "Title": "Script de connexion",
-    "Text": "Script execute a l ouverture de session.",
+    "Text": "Script exécuté à lʼouverture de session.",
     "Kind": "TextBox",
     "Source": "existing-help"
   },
   {
     "Name": "TxtUserHomeDirectory",
     "Title": "Dossier de base",
-    "Text": "Dossier personnel de l utilisateur sur le reseau.",
+    "Text": "Dossier personnel de lʼutilisateur sur le réseau.",
     "Kind": "TextBox",
     "Source": "existing-help"
   },
   {
     "Name": "TxtUserHomeDrive",
     "Title": "Lecteur de base",
-    "Text": "Lettre du lecteur reseau, par exemple H:",
+    "Text": "Lettre du lecteur réseau, par exemple H:",
     "Kind": "TextBox",
     "Source": "existing-help"
   },
   {
     "Name": "TxtUserWorkstations",
     "Title": "Postes autorises",
-    "Text": "Postes depuis lesquels l utilisateur peut ouvrir une session, separes par des virgules. Vide : aucune restriction.",
+    "Text": "Postes depuis lesquels lʼutilisateur peut ouvrir une session, séparés par des virgules. Vide : aucune restriction.",
     "Kind": "TextBox",
     "Source": "existing-help"
   },
   {
     "Name": "BtnUserSaveContact",
     "Title": "Enregistrer",
-    "Text": "Enregistre l adresse, la telephonie, le profil et les postes autorises.",
+    "Text": "Enregistre lʼadresse, la téléphonie, le profil et les postes autorisés.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -925,7 +925,7 @@
   {
     "Name": "BtnUserDisable",
     "Title": "Desactiver",
-    "Text": "Desactive le compte. L utilisateur ne pourra plus ouvrir de session.",
+    "Text": "Désactive le compte. Lʼutilisateur ne pourra plus ouvrir de session.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -981,7 +981,7 @@
   {
     "Name": "ChkMustChangeAtLogon",
     "Title": "Changement obligatoire",
-    "Text": "L utilisateur devra choisir son propre mot de passe a la prochaine ouverture de session.",
+    "Text": "Lʼutilisateur devra choisir son propre mot de passe à la prochaine ouverture de session.",
     "Kind": "CheckBox",
     "Source": "existing-help"
   },
@@ -995,7 +995,7 @@
   {
     "Name": "ChkPwdNeverExpires",
     "Title": "Mot de passe",
-    "Text": "Le mot de passe n expire jamais.",
+    "Text": "Le mot de passe nʼexpire jamais.",
     "Kind": "CheckBox",
     "Source": "specific-sensitive"
   },
@@ -1015,36 +1015,36 @@
   },
   {
     "Name": "ChkSmartcardRequired",
-    "Title": "Carte a puce",
-    "Text": "Exige une carte a puce pour ouvrir une session.",
+    "Title": "Carte à puce",
+    "Text": "Exige une carte à puce pour ouvrir une session.",
     "Kind": "CheckBox",
     "Source": "existing-help"
   },
   {
     "Name": "ChkAccountNotDelegated",
     "Title": "Non delegable",
-    "Text": "Interdit la delegation de ce compte. Recommande pour les comptes a privileges.",
+    "Text": "Interdit la délégation de ce compte. Recommandé pour les comptes à privilèges.",
     "Kind": "CheckBox",
     "Source": "existing-help"
   },
   {
     "Name": "ChkNoPreAuth",
     "Title": "Sans pre-authentification",
-    "Text": "Affaiblit l authentification Kerberos. A n activer qu en cas de besoin avere.",
+    "Text": "Affaiblit lʼauthentification Kerberos. À nʼactiver quʼen cas de besoin avéré.",
     "Kind": "CheckBox",
     "Source": "existing-help"
   },
   {
     "Name": "ChkUseDesOnly",
     "Title": "Chiffrement DES",
-    "Text": "Chiffrement obsolete. A n activer que pour une contrainte de compatibilite.",
+    "Text": "Chiffrement obsolète. À nʼactiver que pour une contrainte de compatibilité.",
     "Kind": "CheckBox",
     "Source": "existing-help"
   },
   {
     "Name": "ChkTrustedForDelegation",
     "Title": "Delegation approuvee",
-    "Text": "Autorise ce compte a agir au nom d autres utilisateurs. A reserver aux comptes de service.",
+    "Text": "Autorise ce compte à agir au nom dʼautres utilisateurs. À réserver aux comptes de service.",
     "Kind": "CheckBox",
     "Source": "existing-help"
   },
@@ -1058,49 +1058,49 @@
   {
     "Name": "BtnApplyAccountOptions",
     "Title": "Appliquer",
-    "Text": "Enregistre les options de compte cochees ci-dessus.",
+    "Text": "Enregistre les options de compte cochées ci-dessus.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "DpAccountExpires",
     "Title": "Expiration",
-    "Text": "Date a laquelle le compte cesse de fonctionner.",
+    "Text": "Date à laquelle le compte cesse de fonctionner.",
     "Kind": "DatePicker",
     "Source": "existing-help"
   },
   {
     "Name": "BtnSetExpiration",
     "Title": "Fixer",
-    "Text": "Applique la date d expiration choisie.",
+    "Text": "Applique la date dʼexpiration choisie.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnNeverExpires",
     "Title": "Jamais",
-    "Text": "Retire toute date d expiration du compte.",
+    "Text": "Retire toute date dʼexpiration du compte.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnExpirePwdNow",
     "Title": "Mot de passe",
-    "Text": "Oblige l utilisateur a changer son mot de passe a la prochaine ouverture de session.",
+    "Text": "Oblige lʼutilisateur à changer son mot de passe à la prochaine ouverture de session.",
     "Kind": "Button",
     "Source": "specific-sensitive"
   },
   {
     "Name": "TxtUserMoveTarget",
     "Title": "Deplacer vers",
-    "Text": "Chemin complet de l unite d organisation de destination.",
+    "Text": "Chemin complet de lʼunité dʼorganisation de destination.",
     "Kind": "TextBox",
     "Source": "existing-help"
   },
   {
     "Name": "BtnUserMove",
     "Title": "Deplacer",
-    "Text": "Deplace le compte vers l unite d organisation indiquee.",
+    "Text": "Déplace le compte vers lʼunité dʼorganisation indiquée.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -1155,8 +1155,8 @@
   },
   {
     "Name": "TxtGroupMemberTarget",
-    "Title": "DN du membre a ajouter ou retirer",
-    "Text": "DN du membre a ajouter ou retirer.",
+    "Title": "DN du membre à ajouter ou retirer",
+    "Text": "DN du membre à ajouter ou retirer.",
     "Kind": "TextBox",
     "Source": "existing-help"
   },
@@ -1183,22 +1183,22 @@
   },
   {
     "Name": "TabContainer",
-    "Title": "Unite d organisation",
-    "Text": "Creer une unite d organisation sous la branche selectionnee.",
+    "Title": "Unité dʼorganisation",
+    "Text": "Créer une unité dʼorganisation sous la branche sélectionnée.",
     "Kind": "TabItem",
     "Source": "existing-help"
   },
   {
     "Name": "TxtNewOuName",
     "Title": "Nom",
-    "Text": "Nom de la nouvelle unite d organisation.",
+    "Text": "Nom de la nouvelle unité dʼorganisation.",
     "Kind": "TextBox",
     "Source": "existing-help"
   },
   {
     "Name": "BtnCreateOu",
     "Title": "Creer",
-    "Text": "Cree l unite d organisation sous la branche selectionnee.",
+    "Text": "Crée lʼunité dʼorganisation sous la branche sélectionnée.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -1219,14 +1219,14 @@
   {
     "Name": "TabRaw",
     "Title": "Attributs",
-    "Text": "Tous les attributs Active Directory de l objet, consultables et modifiables.",
+    "Text": "Tous les attributs Active Directory de lʼobjet, consultables et modifiables.",
     "Kind": "TabItem",
     "Source": "existing-help"
   },
   {
     "Name": "TxtRawAttrName",
-    "Title": "Nom de l attribut Active Directory, par exemple description",
-    "Text": "Nom de l attribut Active Directory, par exemple description.",
+    "Title": "Nom de lʼattribut Active Directory, par exemple description",
+    "Text": "Nom de lʼattribut Active Directory, par exemple description.",
     "Kind": "TextBox",
     "Source": "existing-help"
   },
@@ -1240,7 +1240,7 @@
   {
     "Name": "BtnRawSet",
     "Title": "Appliquer",
-    "Text": "Ecrit la valeur indiquee dans l attribut.",
+    "Text": "Écrit la valeur indiquée dans lʼattribut.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -1254,14 +1254,14 @@
   {
     "Name": "BtnRawClear",
     "Title": "Effacer",
-    "Text": "Vide l attribut indique.",
+    "Text": "Vide lʼattribut indiqué.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "DgRawAttrs",
-    "Title": "Attributs de l objet",
-    "Text": "Attributs de l objet. Clic droit pour copier un nom ou une valeur.",
+    "Title": "Attributs de lʼobjet",
+    "Text": "Attributs de lʼobjet. Clic droit pour copier un nom ou une valeur.",
     "Kind": "DataGrid",
     "Source": "existing-help"
   },
@@ -1296,7 +1296,7 @@
   {
     "Name": "TabAccounts",
     "Title": "Comptes",
-    "Text": "Gestion des identites utilisees par Domenia. Les mots de passe ne sont jamais ecrits dans Domenia.db ni dans les preferences.",
+    "Text": "Gestion des identités utilisées par Domenia. Les mots de passe ne sont jamais écrits dans Domenia.db ni dans les préférences.",
     "Kind": "TabItem",
     "Source": "existing-help"
   },
@@ -1331,7 +1331,7 @@
   {
     "Name": "BtnAccountRemoteClear",
     "Title": "Effacer",
-    "Text": "Supprime le compte distant de la memoire. DOMENIA reutilisera alors le compte AD courant.",
+    "Text": "Supprime le compte distant de la mémoire. DOMENIA réutilisera alors le compte AD courant.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -1352,28 +1352,28 @@
   {
     "Name": "BtnAccountRemoteTest",
     "Title": "Tester",
-    "Text": "Teste l authentification du compte contre le domaine.",
+    "Text": "Teste lʼauthentification du compte contre le domaine.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnAccountRemoteSave",
     "Title": "Activer",
-    "Text": "Charge ce compte en memoire pour les operations distantes.",
+    "Text": "Charge ce compte en mémoire pour les opérations distantes.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnAccountSecretsClear",
     "Title": "Effacer",
-    "Text": "Supprime le compte secrets de la memoire. DOMENIA reutilisera alors le compte AD courant.",
+    "Text": "Supprime le compte secrets de la mémoire. DOMENIA réutilisera alors le compte AD courant.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "TxtAccountSecretsUser",
     "Title": "Identifiant",
-    "Text": "Identifiant autorise a lire LAPS et BitLocker dans Active Directory.",
+    "Text": "Identifiant autorisé à lire LAPS et BitLocker dans Active Directory.",
     "Kind": "TextBox",
     "Source": "existing-help"
   },
@@ -1387,14 +1387,14 @@
   {
     "Name": "BtnAccountSecretsTest",
     "Title": "Tester",
-    "Text": "Teste l authentification du compte contre le domaine.",
+    "Text": "Teste lʼauthentification du compte contre le domaine.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnAccountSecretsSave",
     "Title": "Activer",
-    "Text": "Charge ce compte en memoire pour les lectures LAPS et BitLocker.",
+    "Text": "Charge ce compte en mémoire pour les lectures LAPS et BitLocker.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -1464,7 +1464,7 @@
   {
     "Name": "WsComputer",
     "Title": "Assistance poste",
-    "Text": "Informations et actions sur le poste selectionne.",
+    "Text": "Informations et actions sur le poste sélectionné.",
     "Kind": "TabItem",
     "Source": "existing-help"
   },
@@ -1478,7 +1478,7 @@
   {
     "Name": "TabComputer",
     "Title": "Machine",
-    "Text": "Nom, systeme, etat du compte et utilisateur associe.",
+    "Text": "Nom, système, état du compte et utilisateur associé.",
     "Kind": "TabItem",
     "Source": "existing-help"
   },
@@ -1561,8 +1561,8 @@
   },
   {
     "Name": "TxtCompLinkedUser",
-    "Title": "Utilisateur associe",
-    "Text": "Dernier utilisateur associe a ce poste.",
+    "Title": "Utilisateur associé",
+    "Text": "Dernier utilisateur associé à ce poste.",
     "Kind": "TextBox",
     "Source": "existing-help"
   },
@@ -1589,15 +1589,15 @@
   },
   {
     "Name": "BtnRefreshMachineLink",
-    "Title": "Detecter l utilisateur",
-    "Text": "Recherche le dernier utilisateur connu du poste. Un lien deja enregistre n est pas remplace.",
+    "Title": "Détecter lʼutilisateur",
+    "Text": "Recherche le dernier utilisateur connu du poste. Un lien déjà enregistré nʼest pas remplacé.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnOpenLinkedUser",
-    "Title": "Ouvrir l utilisateur",
-    "Text": "Ouvre la fiche de l utilisateur associe.",
+    "Title": "Ouvrir lʼutilisateur",
+    "Text": "Ouvre la fiche de lʼutilisateur associé.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -1611,7 +1611,7 @@
   {
     "Name": "TabComputerAdmin",
     "Title": "Actions",
-    "Text": "Activation, renommage, deplacement, groupes et actions a distance.",
+    "Text": "Activation, renommage, déplacement, groupes et actions à distance.",
     "Kind": "TabItem",
     "Source": "existing-help"
   },
@@ -1625,42 +1625,42 @@
   {
     "Name": "BtnCompDisable",
     "Title": "Desactiver",
-    "Text": "Desactive le compte du poste. Il ne pourra plus s authentifier.",
+    "Text": "Désactive le compte du poste. Il ne pourra plus sʼauthentifier.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnCompPing",
     "Title": "Ping",
-    "Text": "Teste si le poste repond sur le reseau.",
+    "Text": "Teste si le poste répond sur le réseau.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnCompRdp",
     "Title": "Bureau à distance",
-    "Text": "Ouvre une connexion Bureau a distance vers ce poste.",
+    "Text": "Ouvre une connexion Bureau à distance vers ce poste.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnCompC",
     "Title": "Ouvrir C$",
-    "Text": "Ouvre le partage administratif C du poste dans l explorateur.",
+    "Text": "Ouvre le partage administratif C du poste dans lʼexplorateur.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnCompManage",
     "Title": "Gestion de l ordinateur",
-    "Text": "Ouvre la console Gestion de l ordinateur sur ce poste.",
+    "Text": "Ouvre la console Gestion de lʼordinateur sur ce poste.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnCompEvents",
     "Title": "Journaux",
-    "Text": "Ouvre l Observateur d evenements sur ce poste.",
+    "Text": "Ouvre lʼObservateur dʼévénements sur ce poste.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -1688,21 +1688,21 @@
   {
     "Name": "BtnCompGpUpdate",
     "Title": "Actualiser les stratégies",
-    "Text": "Force la mise a jour des strategies de groupe sur le poste. Demande confirmation.",
+    "Text": "Force la mise à jour des stratégies de groupe sur le poste. Demande confirmation.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnCompRestart",
-    "Title": "Redemarrer",
-    "Text": "Redemarre le poste. Demande confirmation.",
+    "Title": "Redémarrer",
+    "Text": "Redémarre le poste. Demande confirmation.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "TxtCompNewName",
     "Title": "Nouveau nom",
-    "Text": "Nouveau nom du compte d ordinateur dans l annuaire.",
+    "Text": "Nouveau nom du compte dʼordinateur dans lʼannuaire.",
     "Kind": "TextBox",
     "Source": "existing-help"
   },
@@ -1737,7 +1737,7 @@
   {
     "Name": "TabComputerHealth",
     "Title": "Diagnostic",
-    "Text": "Verifie que le poste repond et que les services d administration sont joignables.",
+    "Text": "Vérifie que le poste répond et que les services dʼadministration sont joignables.",
     "Kind": "TabItem",
     "Source": "existing-help"
   },
@@ -1799,22 +1799,22 @@
   },
   {
     "Name": "DgComputerDiag",
-    "Title": "Resultat de chaque controle",
-    "Text": "Resultat de chaque controle. Clic droit pour copier.",
+    "Title": "Résultat de chaque contrôle",
+    "Text": "Résultat de chaque contrôle. Clic droit pour copier.",
     "Kind": "DataGrid",
     "Source": "existing-help"
   },
   {
     "Name": "TabInventory",
     "Title": "Inventaire",
-    "Text": "Materiel, systeme, disques, reseau et configuration du poste.",
+    "Text": "Matériel, système, disques, réseau et configuration du poste.",
     "Kind": "TabItem",
     "Source": "existing-help"
   },
   {
     "Name": "BtnRunInventory",
     "Title": "Rapide",
-    "Text": "Materiel, systeme, disques, reseau, securite, correctifs, logiciels, services, comptes, partages et imprimantes.",
+    "Text": "Matériel, système, disques, réseau, sécurité, correctifs, logiciels, services, comptes, partages et imprimantes.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -1842,7 +1842,7 @@
   {
     "Name": "CmbInventoryCategory",
     "Title": "Categorie",
-    "Text": "N affiche qu une seule categorie.",
+    "Text": "Nʼaffiche quʼune seule catégorie.",
     "Kind": "ComboBox",
     "Source": "existing-help"
   },
@@ -1863,7 +1863,7 @@
   {
     "Name": "DgInventoryAccess",
     "Title": "Detail par source",
-    "Text": "Ce qui a pu etre lu, refuse ou reste indisponible sur ce poste.",
+    "Text": "Ce qui a pu être lu, refusé ou reste indisponible sur ce poste.",
     "Kind": "DataGrid",
     "Source": "existing-help"
   },
@@ -1897,7 +1897,7 @@
   },
   {
     "Name": "ChkSoftwareUpdates",
-    "Title": "Mises a jour",
+    "Title": "Mises à jour",
     "Text": "Affiche aussi les correctifs et composants systeme, masques par defaut.",
     "Kind": "CheckBox",
     "Source": "existing-help"
@@ -1932,8 +1932,8 @@
   },
   {
     "Name": "DgSoftware",
-    "Title": "Logiciels detectes",
-    "Text": "Logiciels detectes. Clic droit pour copier un nom ou une commande de desinstallation.",
+    "Title": "Logiciels détectés",
+    "Text": "Logiciels détectés. Clic droit pour copier un nom ou une commande de désinstallation.",
     "Kind": "DataGrid",
     "Source": "existing-help"
   },
@@ -1947,7 +1947,7 @@
   {
     "Name": "DgSoftwareAccess",
     "Title": "Detail par portee",
-    "Text": "Ce qui a pu etre lu pour chaque portee.",
+    "Text": "Ce qui a pu être lu pour chaque portée.",
     "Kind": "DataGrid",
     "Source": "existing-help"
   },
@@ -1961,7 +1961,7 @@
   {
     "Name": "BtnWmiNamespaces",
     "Title": "Charger",
-    "Text": "Liste root et ses espaces de noms WMI directs. Les classes sont ensuite chargees a la demande.",
+    "Text": "Liste root et ses espaces de noms WMI directs. Les classes sont ensuite chargées à la demande.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -2003,7 +2003,7 @@
   {
     "Name": "TxtWmiLimit",
     "Title": "Limite",
-    "Text": "Nombre maximum de resultats.",
+    "Text": "Nombre maximum de résultats.",
     "Kind": "TextBox",
     "Source": "existing-help"
   },
@@ -2031,7 +2031,7 @@
   {
     "Name": "LstWmiClasses",
     "Title": "0 classe",
-    "Text": "Classes de l espace de noms. Double-clic pour lire leurs valeurs.",
+    "Text": "Classes de lʼespace de noms. Double-clic pour lire leurs valeurs.",
     "Kind": "ListBox",
     "Source": "existing-help"
   },
@@ -2066,7 +2066,7 @@
   {
     "Name": "TabSecurity",
     "Title": "Secrets",
-    "Text": "Cles de recuperation BitLocker et mot de passe administrateur local.",
+    "Text": "Clés de récupération BitLocker et mot de passe administrateur local.",
     "Kind": "TabItem",
     "Source": "existing-help"
   },
@@ -2114,15 +2114,15 @@
   },
   {
     "Name": "DgSecrets",
-    "Title": "Cles et mots de passe recuperes",
-    "Text": "Cles et mots de passe recuperes. Clic droit pour copier.",
+    "Title": "Clés et mots de passe récupérés",
+    "Text": "Clés et mots de passe récupérés. Clic droit pour copier.",
     "Kind": "DataGrid",
     "Source": "existing-help"
   },
   {
     "Name": "TabApplicationTools",
     "Title": "Outils avances",
-    "Text": "Verification de l application, etat du domaine, aide sur les commandes et journal.",
+    "Text": "Vérification de lʼapplication, état du domaine, aide sur les commandes et journal.",
     "Kind": "TabItem",
     "Source": "existing-help"
   },
@@ -2135,21 +2135,21 @@
   },
   {
     "Name": "TabSelfCheck",
-    "Title": "Verification",
+    "Title": "Vérification",
     "Text": "Verifie que la connexion et les composants de l application fonctionnent.",
     "Kind": "TabItem",
     "Source": "existing-help"
   },
   {
     "Name": "BtnSelfCheckQuick",
-    "Title": "Verification rapide",
+    "Title": "Vérification rapide",
     "Text": "Controles essentiels de la connexion et des composants.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnSelfCheckFull",
-    "Title": "Verification complete",
+    "Title": "Vérification complète",
     "Text": "Controles complets avec mesures de performance. Plus long.",
     "Kind": "Button",
     "Source": "existing-help"
@@ -2170,8 +2170,8 @@
   },
   {
     "Name": "DgSelfCheck",
-    "Title": "Resultat de chaque controle",
-    "Text": "Resultat de chaque controle. Clic droit pour copier.",
+    "Title": "Résultat de chaque contrôle",
+    "Text": "Résultat de chaque contrôle. Clic droit pour copier.",
     "Kind": "DataGrid",
     "Source": "existing-help"
   },
@@ -2184,21 +2184,21 @@
   },
   {
     "Name": "BtnIndexBuild",
-    "Title": "Mettre a jour tout",
+    "Title": "Mettre à jour tout",
     "Text": "Relit tous les utilisateurs et postes, reconstruit la base autonome et resynchronise les associations connues. Peut durer plusieurs minutes.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnIndexRefresh",
-    "Title": "Mettre a jour les changements",
-    "Text": "Ne relit que les objets modifies depuis la derniere passe grace a uSNChanged/whenChanged. Beaucoup plus rapide.",
+    "Title": "Mettre à jour les changements",
+    "Text": "Ne relit que les objets modifiés depuis la dernière passe grâce à uSNChanged/whenChanged. Beaucoup plus rapide.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnIndexOpen",
-    "Title": "Ouvrir l objet",
+    "Title": "Ouvrir lʼobjet",
     "Text": "Recherche dans l annuaire l objet selectionne ci-dessous.",
     "Kind": "Button",
     "Source": "existing-help"
@@ -2226,8 +2226,8 @@
   },
   {
     "Name": "BtnParkReset",
-    "Title": "Oublier les releves",
-    "Text": "Efface l etat du parc. Le prochain releve repartira de zero.",
+    "Title": "Oublier les relevés",
+    "Text": "Efface lʼétat du parc. Le prochain relevé repartira de zéro.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -2240,15 +2240,15 @@
   },
   {
     "Name": "DgIndex",
-    "Title": "Resultats de l index local",
-    "Text": "Resultats de l index local. Double-clic pour ouvrir l objet dans l annuaire.",
+    "Title": "Résultats de lʼindex local",
+    "Text": "Résultats de lʼindex local. Double-clic pour ouvrir lʼobjet dans lʼannuaire.",
     "Kind": "DataGrid",
     "Source": "existing-help"
   },
   {
     "Name": "TabOperationStats",
     "Title": "Charge & stats",
-    "Text": "Mesures reelles des operations DOMENIA : duree, volume reseau estime, fallback distant et taux de reussite.",
+    "Text": "Mesures réelles des opérations DOMENIA : durée, volume réseau estimé, fallback distant et taux de réussite.",
     "Kind": "TabItem",
     "Source": "existing-help"
   },
@@ -2283,14 +2283,14 @@
   {
     "Name": "BtnLoadDomain",
     "Title": "Analyser le domaine",
-    "Text": "Lit l etat du domaine et de ses controleurs.",
+    "Text": "Lit lʼétat du domaine et de ses contrôleurs.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnCountDomain",
     "Title": "Analyser et denombrer",
-    "Text": "Compte en plus les utilisateurs, machines, groupes et unites d organisation. Plus long sur un grand annuaire.",
+    "Text": "Compte en plus les utilisateurs, machines, groupes et unités dʼorganisation. Plus long sur un grand annuaire.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -2303,8 +2303,8 @@
   },
   {
     "Name": "DgDomain",
-    "Title": "Informations relevees",
-    "Text": "Informations relevees. Clic droit pour copier.",
+    "Title": "Informations relevées",
+    "Text": "Informations relevées. Clic droit pour copier.",
     "Kind": "DataGrid",
     "Source": "existing-help"
   },
@@ -2331,8 +2331,8 @@
   },
   {
     "Name": "CmbCmdletModule",
-    "Title": "N affiche que les commandes d un module",
-    "Text": "N affiche que les commandes d un module.",
+    "Title": "Nʼaffiche que les commandes dʼun module",
+    "Text": "Nʼaffiche que les commandes dʼun module.",
     "Kind": "ComboBox",
     "Source": "existing-help"
   },
@@ -2373,15 +2373,15 @@
   },
   {
     "Name": "BtnCopyCmdletHelp",
-    "Title": "Copier l aide",
+    "Title": "Copier lʼaide",
     "Text": "Copie l aide complete de la commande.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "TxtCmdletHelp",
-    "Title": "Description, syntaxe, parametres et exemples de la commande selectionnee",
-    "Text": "Description, syntaxe, parametres et exemples de la commande selectionnee.",
+    "Title": "Description, syntaxe, paramètres et exemples de la commande sélectionnée",
+    "Text": "Description, syntaxe, paramètres et exemples de la commande sélectionnée.",
     "Kind": "TextBox",
     "Source": "existing-help"
   },
@@ -3048,8 +3048,8 @@
   },
   {
     "Name": "ChkGuardReconcile",
-    "Title": "Reverifier le perimetre consulte en arriere-plan",
-    "Text": "Relit la derniere requete explicite, au plus toutes les trois minutes et dans sa limite de resultats. Aucun scan au demarrage.",
+    "Title": "Revérifier le périmètre consulté en arrière-plan",
+    "Text": "Relit la dernière requête explicite, au plus toutes les trois minutes et dans sa limite de résultats. Aucun scan au démarrage.",
     "Sensitive": false
   },
   {
@@ -3365,7 +3365,7 @@
   },
   {
     "Name": "TxtBitLockerRecoveryId",
-    "Title": "Identifiant de recuperation BitLocker",
+    "Title": "Identifiant de récupération BitLocker",
     "Text": "Saisissez les premiers caracteres de l identifiant affiche par le poste. Filtre local sur les metadonnees deja lues : aucune cle n est lue ni revelee.",
     "Kind": "TextBox",
     "Source": "d120-acces"
@@ -3451,7 +3451,7 @@
     "Name": "BtnParkResults",
     "Kind": "Button",
     "Source": "park-detection",
-    "Title": "Detecter les resultats affiches",
+    "Title": "Détecter les résultats affichés",
     "Text": "Sur demande : fige les postes visibles apres les filtres de recherche. Aucune extension au reste du parc. Verifie legerement chaque console et reutilise les identites deja connues."
   },
   {
