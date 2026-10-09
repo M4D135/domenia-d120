@@ -1939,8 +1939,8 @@
     },
     {
       "Path": "wad/tests/Test-DomeniaWiringRelations.ps1",
-      "Sha256": "7C641D4291316B8725A5A162A9B126A4A69270D7E704CD73C7C22C347D25253F",
-      "Bytes": 98890,
+      "Sha256": "C7090BBA72D1C9C8F83838C7FBE51E9FE389E83657F1D55B6215CA6B47C5AEEF",
+      "Bytes": 98916,
       "Runtime": false,
       "PreserveExisting": false
     },
