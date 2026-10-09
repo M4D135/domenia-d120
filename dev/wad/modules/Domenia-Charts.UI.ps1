@@ -555,8 +555,7 @@ function New-DomeniaDonutChart {
         [object[]]$Items,
         [double]$Width = 340,
         [double]$Height = 240,
-        [string]$CenterText = '',
-        [string]$Subtitle = ''
+        [string]$CenterText = ''
     )
     $valid = @($Items | Where-Object { $_ -and $_.Value -ne $null -and [double]$_.Value -gt 0 })
     if ($valid.Count -eq 0) { return New-DomeniaChartEmpty -Width $Width -Height $Height -Title $Title }
@@ -572,7 +571,7 @@ function New-DomeniaDonutChart {
     if ($total -le 0) { return New-DomeniaChartEmpty -Width $Width -Height $Height -Title $Title }
 
     $palette = Get-DomeniaChartPalette
-    $size = [Math]::Floor([Math]::Min([Math]::Min($Width * 0.44, $Height - 76 - $(if ($Subtitle) { 16 } else { 0 })), 168))
+    $size = [Math]::Floor([Math]::Min([Math]::Min($Width * 0.44, $Height - 76), 168))
     $thickness = [Math]::Round($size * 0.13)
     $radius = ($size - $thickness - 8) / 2.0
     $center = $size / 2.0
@@ -600,7 +599,7 @@ function New-DomeniaDonutChart {
         $arc.Path.Stroke = ConvertTo-DomeniaChartBrush $hex
         $arc.Path.Cursor = [System.Windows.Input.Cursors]::Hand
         $arc.Path.Tag = @{ State = $state; Index = $index }
-        $arc.Path.ToolTip = [string]$it.Label + ' : ' + $(if (($null -ne $it.PSObject.Properties['Display']) -and [string]$it.Display) { [string]$it.Display } else { Format-DomeniaChartNumber ([Math]::Round([double]$it.Value, 1)) })
+        $arc.Path.ToolTip = [string]$it.Label + ' : ' + (Format-DomeniaChartNumber ([Math]::Round([double]$it.Value, 1)))
         $arc.Path.Add_MouseEnter({ param($s,$e) Set-DomeniaDonutFocus $s.Tag.State $s.Tag.Index })
         $arc.Path.Add_MouseLeave({ param($s,$e) Set-DomeniaDonutFocus $s.Tag.State -1 })
         [void]$canvas.Children.Add($arc.Path)
@@ -668,7 +667,7 @@ function New-DomeniaDonutChart {
     }
 
     $body = New-Object System.Windows.Controls.DockPanel
-    $header = New-DomeniaChartHeader -Title $Title -Width $Width -Subtitle $Subtitle
+    $header = New-DomeniaChartHeader -Title $Title -Width $Width
     [System.Windows.Controls.DockPanel]::SetDock($header, [System.Windows.Controls.Dock]::Top)
     [void]$body.Children.Add($header)
     $content = New-Object System.Windows.Controls.StackPanel

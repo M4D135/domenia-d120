@@ -453,7 +453,7 @@ function New-DomeniaWidgetVisual {
             # CO-14: the ring takes the state of the entry, computed with the shared thresholds.
             return New-DomeniaGauge -Title $Title -Value ([double]$Entry.Number) -Maximum $maximum -Unit $unit -LowIsBad:([bool]$Entry.LowIsBad) -Width $w -Height $h -Caption $detail -State ([string]$Entry.State)
         }
-        'Pie' { return New-DomeniaDonutChart -Title $Title -Items $items -Width $w -Height $h -CenterText ([string]$Entry.CenterText) -Subtitle $subtitle }
+        'Pie' { return New-DomeniaDonutChart -Title $Title -Items $items -Width $w -Height $h -CenterText ([string]$Entry.CenterText) }
         'Bar' { return New-DomeniaBarChart -Title $Title -Items $items -Width $w -Height $h -Top 12 -Unit $(if ($unit) { ' ' + $unit } else { '' }) -Subtitle $subtitle }
         'Column' { return New-DomeniaColumnChart -Title $Title -Items $items -Width $w -Height $h -Subtitle $subtitle }
         'Line' { return New-DomeniaLineChart -Title $Title -Points $items -Width $w -Height $h -Subtitle $subtitle }
@@ -1054,7 +1054,7 @@ function Invoke-DomeniaBoardEntryAction {
         'BitLockerPresence' { [void](Start-DomeniaFleetBitLockerPresence) }
         { $_ -in @('InventoryQuick','InventoryFull','LoadSoftware') } {
             $target = Get-DomeniaBoardActionControl -Id $Id
-            if (($null -eq $target) -or (-not $target.IsEnabled)) { Set-Status 'Action indisponible pour le moment : sélectionnez dʼabord un poste dans Rechercher.' 'WARN'; return }
+            if (($null -eq $target) -or (-not $target.IsEnabled)) { Set-Status 'Action indisponible pour le moment : aucun poste sélectionné ou lecture déjà en cours.' 'WARN'; return }
             $target.RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent))
         }
         'OpenCard' { Invoke-DomeniaUxRoute -Route 'WsObject' }

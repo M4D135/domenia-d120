@@ -182,8 +182,8 @@
     },
     {
       "Path": "wad/modules/Domenia-Charts.UI.ps1",
-      "Sha256": "FE2AFDFC61F1A3336081684C7D997A744DDF975E376F49845C23973F192B192B",
-      "Bytes": 70783,
+      "Sha256": "AA7F754714E085BA409D845E1A61AF58603361AF39C153A938098B7A6E46DEC6",
+      "Bytes": 70582,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -567,8 +567,8 @@
     },
     {
       "Path": "wad/modules/Domenia-Widgets.UI.ps1",
-      "Sha256": "37DA087072D653B1BD43E7B5121794027BB6683AF61EFA807ACA2201205C5146",
-      "Bytes": 82437,
+      "Sha256": "92775CDC6013BECE223E25B3662CE80B465B5D41085ABA31373631A0AA6BC5A6",
+      "Bytes": 82422,
       "Runtime": true,
       "PreserveExisting": false
     },
