@@ -270,11 +270,14 @@ function Initialize-DomeniaGuard {
     }
     foreach($n in $actions.Keys){$c=Get-DomeniaControl $n;if($null -ne $c){$body=$actions[$n];$c.Add_Click($body)}}
     try{Update-DomeniaOuFavouritesUi}catch{Write-AppLog ('Favoris dʼOU : '+$_.Exception.Message) 'WARN'}
-    $timer=[Windows.Threading.DispatcherTimer]::new([Windows.Threading.DispatcherPriority]::Background);$timer.Interval=[timespan]::FromMilliseconds(500)
-    $timer.Add_Tick({
+    # FI-05 / PF-06: protected heartbeat timer, owned and registered by the factory, once per second and aligned on the
+    # other subscribers at rest. The Dispatcher delay is the lateness measured by the heartbeat itself.
+    $script:Guard.Timer=New-DomeniaTimer -Owner 'Timer:Guard' -IntervalMs 1000 -IdleIntervalMs 1000 -Tick {
+        param($sender,$eventArgs)
         if($script:AsyncEngineClosing -or $null -eq $script:Guard){return}
-        $now=[datetime]::UtcNow;$delay=[Math]::Max(0,($now-$script:Guard.Last).TotalMilliseconds-500);$script:Guard.Last=$now
+        $now=[datetime]::UtcNow;$delay=[Math]::Round([double]$sender.LateMs,1);$script:Guard.Last=$now
         $script:Guard.Samples.Add($delay);if($script:Guard.Samples.Count -gt 240){$script:Guard.Samples.RemoveAt(0)}
+        try{Add-DomeniaRuntimeMetric -Provenance 'Dispatcher' -OperationId 'Pulse' -DurationMs $delay}catch{}
         if($script:Guard.Epoch -ne [long]$script:SessionEpoch){$script:Guard.Epoch=[long]$script:SessionEpoch;$script:ReceiptReady=$false;$script:ReceiptRefreshNeeded=$true;$script:ArtifactConsent=$null;$script:DraftState=$null}
         if(($script:ReceiptRefreshNeeded -or -not $script:ReceiptReady) -and $now -ge $script:Guard.NextReceipt){Start-DomeniaReceiptRefresh}
         $tab=Get-DomeniaControl 'TabGuard'
@@ -283,7 +286,7 @@ function Initialize-DomeniaGuard {
             # D028: the local save state comes from the rule, through the same reader as the Live state line.
             [void](Set-DomeniaControlText 'LblGuardMetrics' ('Retard du Dispatcher (local) p50/p95 : '+$p50+' / '+$p95+' ms. Taches : '+$script:AsyncJobs.Count+'. Enregistrement local : '+(Get-DomeniaPersistenceState).Label+' Mesure indicative, pas un benchmark reseau.'))
         }
-    });$script:Guard.Timer=$timer;$timer.Start()
+    };$script:Guard.Timer.Start()
     $script:Window.Add_Closed({if($null -ne $script:Guard){$script:Guard.Timer.Stop()};$script:DraftState=$null;$script:ArtifactConsent=$null})
     $script:ReceiptRefreshNeeded=$true;Start-DomeniaReceiptRefresh
 }
@@ -307,6 +310,8 @@ function Resume-DomeniaStorage {
     if($null -eq $script:Persistence){return}
     if($script:Persistence.Job){Show-InfoBox 'Un enregistrement est encore actif.';return}
     $script:Persistence.Failures=0;$script:Persistence.Fault='';$script:Persistence.Next=[datetime]::UtcNow
+    # MO-03: the save timer stopped while the writer was suspended; it is armed again here.
+    try{Request-DomeniaStorageWork}catch{}
     Set-Status 'Reprise demandee pour les lots de cache en memoire. Aucune ecriture AD.'
 }
 function Show-DomeniaUnavailableReasons {

@@ -55,6 +55,8 @@ try{
     # Only definition-only UI modules are imported. The application entrypoint is not executed.
     . (Join-Path $wad 'modules\Domenia-Embedded.UI.ps1')
     . (Join-Path $wad 'modules\Domenia-UX.UI.ps1')
+    # FI-05 / PF-06: the real initializer takes its poll timer from the protected factory of the engine heartbeat.
+    foreach($engineModule in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Engine.UI.ps1')){. (Join-Path $wad ('modules\'+$engineModule))}
     $script:TestTheme='Light';$script:Traces=[Collections.Generic.List[object]]::new();$script:PollTicks=0
     $registry=Get-DomeniaWorkerOperationHashes
     $script:BaselineRegistry=$registry

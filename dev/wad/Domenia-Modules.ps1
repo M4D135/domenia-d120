@@ -35,6 +35,10 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaTaskDedupKey',
             'Test-DomeniaTaskAdmission',
             'Select-DomeniaNextQueuedTask',
+            'Test-DomeniaForegroundTaskClass',
+            'Get-DomeniaTaskOrder',
+            'Test-DomeniaPulseDue',
+            'Get-DomeniaPulseDelay',
             'Get-DomeniaTaskState',
             'Get-DomeniaTaskStateSummary',
             'Get-DomeniaCancelStatusText',
@@ -668,8 +672,16 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaExperienceVisibleRows',
             'Get-DomeniaExperienceExportRows',
             'Open-DomeniaExperienceActivity',
-            'Update-DomeniaExperienceCancelState',
+            'Initialize-DomeniaOperationsPanel',
+            'Set-DomeniaOperationsPanelPosition',
+            'Show-DomeniaOperationsPanel',
+            'Hide-DomeniaOperationsPanel',
+            'Switch-DomeniaOperationsPanel',
+            'Test-DomeniaOperationsPanelOpen',
+            'Stop-DomeniaOperationRow',
             'Stop-DomeniaExperienceSelectedRead',
+            'Sync-DomeniaOperationRows',
+            'Get-DomeniaOperationsHealthText',
             'Update-DomeniaExperienceActivity',
             'Update-DomeniaExperienceIdentity',
             'Apply-DomeniaExperienceDensity',
@@ -745,6 +757,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaLiveCacheCode'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Search.Model.ps1','Domenia-Live.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Storage.UI.ps1'); File='Domenia-Live.UI.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaLiveIdentityKey',
             'Get-DomeniaLiveIdentitySignal',
             'Initialize-DomeniaLive',
             'Reset-DomeniaLiveIdentity',
@@ -781,6 +794,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Start-DomeniaLiveBackgroundWork',
             'Invoke-DomeniaLiveTick',
             'Test-DomeniaLiveBackgroundAllowed',
+            'Test-DomeniaLiveTickNeeded',
             'Update-DomeniaSearchMoreButton',
             'Invoke-DomeniaSearchMore'
         ) }
@@ -841,6 +855,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Clear-DomeniaVisitCacheForObject',
             'Test-DomeniaListRevalidationEnabled',
             'Update-DomeniaListRevalidationUi',
+            'Test-DomeniaContinuityTickNeeded',
             'Invoke-DomeniaObjectChanges',
             'Get-DomeniaOuRestoreDecision',
             'Show-DomeniaOuRestoreNotice',
@@ -870,6 +885,8 @@ function Get-DomeniaRuntimeModulePlan {
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Cache.Model.ps1','Domenia-Common.Model.ps1','Domenia-Release.Model.ps1','Domenia-Storage.Worker.ps1'); File='Domenia-Storage.UI.ps1'; DotSource=$true; Functions=@(
             'Initialize-DomeniaPersistence',
             'Add-DomeniaIndexPersistence',
+            'Request-DomeniaStorageWork',
+            'Test-DomeniaStorageWorkPending',
             'Reset-DomeniaLinkBaseline',
             'Queue-DomeniaLinkChanges',
             'Request-DomeniaLinkPersistence',
@@ -993,15 +1010,32 @@ function Get-DomeniaRuntimeModulePlan {
             'Sync-DomeniaJobResources',
             'Register-DomeniaOwnedTimer',
             'Register-DomeniaWorkerPool',
+            'New-DomeniaTimer',
+            'Get-DomeniaPulse',
+            'Get-DomeniaPulseNow',
+            'Start-DomeniaTimer',
+            'Stop-DomeniaTimer',
+            'Set-DomeniaTimerInterval',
+            'Invoke-DomeniaTimerSoon',
+            'Invoke-DomeniaTimerTick',
+            'Invoke-DomeniaPulse',
+            'Update-DomeniaPulseSchedule',
+            'Get-DomeniaPulseState',
+            'Resume-DomeniaAsyncPoll',
+            'Add-DomeniaRuntimeMetric',
+            'Get-DomeniaRuntimeMetricSummary',
+            'Write-DomeniaTrace',
             'Add-DomeniaTaskSubscriber',
             'Invoke-DomeniaTaskSubscribers',
             'Remove-DomeniaQueuedTask',
             'Invoke-DomeniaQueuedTaskPromotion',
             'Register-DomeniaTaskOutcome',
+            'ConvertTo-DomeniaTaskErrorInfo',
             'Add-DomeniaTaskRuntimeMetric',
             'Test-DomeniaIdlePolicyEnabled',
             'Test-DomeniaBackgroundWorkAllowed',
             'Update-DomeniaIdlePolicy',
+            'Set-DomeniaWindowSuspended',
             'Initialize-DomeniaIdlePolicy',
             'Request-DomeniaIndexSearch',
             'Get-DomeniaLocalDatabasePathForRead',
@@ -1325,7 +1359,7 @@ function Get-DomeniaRuntimeModuleValue {
 function Get-DomeniaRuntimeTypePlan {
     # Immutable C# 5 types compiled before the rule modules (Add-Type of Windows PowerShell 5.1).
     @(
-        [pscustomobject]@{ File='Domenia-Live.Types.cs'; Types=@('Domenia.Live.ResultRow') }
+        [pscustomobject]@{ File='Domenia-Live.Types.cs'; Types=@('Domenia.Live.ResultRow','Domenia.Live.OperationRow') }
         [pscustomobject]@{ File='Domenia-Identity.Types.cs'; Types=@('Domenia.SelectionIdentity','Domenia.PlanChange','Domenia.InterventionPlan') }
     )
 }

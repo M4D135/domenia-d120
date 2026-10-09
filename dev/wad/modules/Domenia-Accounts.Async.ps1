@@ -11,9 +11,8 @@ function Start-DomeniaAccountValidation {
         $session=Start-DomeniaLoginAuthRunspace -Request $request
         $script:AccountValidation=[pscustomobject]@{Session=$session;Started=[datetime]::UtcNow;Epoch=[long]$script:SessionEpoch;Base=[string]$script:Conn.BaseDn;Scope=$ActivateScope;Operation=$Operation;Password=$copy;Timeout=$TimeoutSeconds;Abandoned=$false;Timer=$null;Busy=@('BtnAccountAdTest','BtnAccountRemoteTest','BtnAccountRemoteSave','BtnAccountRemoteClear','BtnAccountSecretsTest','BtnAccountSecretsSave','BtnAccountSecretsClear','TxtAccountRemoteUser','PwdAccountRemote','TxtAccountSecretsUser','PwdAccountSecrets')}
         Set-ControlsBusy -Names $script:AccountValidation.Busy -Busy $true
-        $timer=[Windows.Threading.DispatcherTimer]::new([Windows.Threading.DispatcherPriority]::Background)
-        $timer.Interval=[timespan]::FromMilliseconds(100);$timer.Add_Tick({Complete-DomeniaAccountValidation})
-        $script:AccountValidation.Timer=$timer;$timer.Start()
+        # FI-05: protected heartbeat timer, owned and registered by the factory; it also runs minimized.
+        $script:AccountValidation.Timer=New-DomeniaTimer -Owner 'Timer:AccountValidation' -IntervalMs 100 -RunWhenHidden -Start -Tick {Complete-DomeniaAccountValidation}
         Set-Status ($Operation+' en cours. La fenetre reste disponible.')
         return [pscustomobject]@{Started=$true;Success=$false;Pending=$true}
     }catch{

@@ -3,6 +3,9 @@ $script:ExperienceInitialized=$false
 $script:ExperienceActivitySignature=''
 $script:ExperienceFilterTimer=$null
 $script:ExperienceRestoring=$false
+# UX-32: the operations panel (Domenia-Operations.xaml) is loaded on its first opening.
+$script:OperationsPanel=$null
+$script:DomeniaExperienceModuleRoot=$PSScriptRoot
 
 function Get-DomeniaExperienceVisibleRows {
     $grid=Get-DomeniaControl 'DgObjects'
@@ -28,19 +31,119 @@ function Get-DomeniaExperienceExportRows {
 }
 
 function Open-DomeniaExperienceActivity {
-    Select-DomeniaWorkspace -Workspace 'TabApplicationTools' -Inner 'ApplicationToolTabs' -Tab 'TabExperience'
-    Update-DomeniaExperienceActivity -Force
+    # UX-32: the Opérations button opens (or closes) the panel under itself; the page underneath does not move.
+    Switch-DomeniaOperationsPanel
 }
 
-function Update-DomeniaExperienceCancelState {
-    $button=Get-DomeniaControl 'BtnSuiteCancelRead';$grid=Get-DomeniaControl 'DgSuiteActivity'
-    if($null -eq $button -or $null -eq $grid){return}
-    $button.IsEnabled=$false
-    $row=$grid.SelectedItem
-    if($null -ne $row -and -not [bool]$row.Detached -and $null -ne $script:AsyncJobs -and $script:AsyncJobs.Contains([string]$row.Id)){
-        $button.IsEnabled=Test-DomeniaExperienceCanCancel $script:AsyncJobs[[string]$row.Id] ([long]$script:SessionEpoch)
+function Initialize-DomeniaOperationsPanel {
+    # UX-32: drop-down panel of the operations, laid in DomeniaDialogLayer under the Opérations button. Its view comes
+    # from Domenia-Operations.xaml (same model as Initialize-DomeniaSupportUi), loaded once, at the first opening.
+    if($null -ne $script:OperationsPanel){return $true}
+    if($null -eq $script:Window){return $false}
+    $layer=$script:Window.FindName('DomeniaDialogLayer')
+    if($null -eq $layer){return $false}
+    $path=Join-Path $script:DomeniaExperienceModuleRoot 'Domenia-Operations.xaml'
+    [xml]$document=[IO.File]::ReadAllText($path,[Text.Encoding]::UTF8)
+    $reader=New-Object Xml.XmlNodeReader $document
+    try{$view=[Windows.Markup.XamlReader]::Load($reader)}finally{$reader.Close()}
+    foreach($element in $document.SelectNodes('//*')){
+        $name=$element.GetAttribute('Name','http://schemas.microsoft.com/winfx/2006/xaml')
+        if([string]::IsNullOrWhiteSpace($name)){continue}
+        $control=if($name -eq [string]$view.Name){$view}else{$view.FindName($name)}
+        if($null -ne $control -and $null -ne $script:Ctrl){$script:Ctrl[$name]=$control}
     }
-    $button.ToolTip=if($button.IsEnabled){'Demande l''arrêt de cette lecture. Un appel natif peut encore terminer son nettoyage.'}else{'Sélectionnez une lecture annulable de cette session. Une écriture envoyée ne peut pas être annulée ici.'}
+    $rows=[Collections.ObjectModel.ObservableCollection[object]]::new()
+    $grid=$view.FindName('DgSuiteActivity');$grid.ItemsSource=$rows
+    # One handler for the Arrêter buttons of every row (bubbling Click); the real job is checked again on click.
+    $grid.AddHandler([Windows.Controls.Primitives.ButtonBase]::ClickEvent,[Windows.RoutedEventHandler]{
+        param($sender,$eventArgs)
+        $button=$eventArgs.OriginalSource
+        if(($button -is [Windows.Controls.Button]) -and -not [string]::IsNullOrWhiteSpace([string]$button.Tag)){$eventArgs.Handled=$true;Stop-DomeniaOperationRow -Id ([string]$button.Tag)}
+    })
+    $grid.Add_KeyDown({param($sender,$eventArgs) if($eventArgs.Key -eq [Windows.Input.Key]::Delete){$eventArgs.Handled=$true;Stop-DomeniaExperienceSelectedRead}})
+    $view.FindName('BtnOperationsClose').Add_Click({Hide-DomeniaOperationsPanel})
+    $view.Add_PreviewKeyDown({param($sender,$eventArgs) if($eventArgs.Key -eq [Windows.Input.Key]::Escape){$eventArgs.Handled=$true;Hide-DomeniaOperationsPanel}})
+    # A click beside the panel (on the transparent layer itself) closes it, like a drop-down list.
+    $layer.Add_MouseLeftButtonDown({param($sender,$eventArgs) if([object]::ReferenceEquals($eventArgs.OriginalSource,$sender) -and $null -ne $script:OperationsPanel -and $script:OperationsPanel.Open){$eventArgs.Handled=$true;Hide-DomeniaOperationsPanel}})
+    $script:OperationsPanel=[pscustomobject]@{View=$view;Layer=$layer;Rows=$rows;Map=@{};Signature='';Open=$false;Timer=$null;Typed=($null -ne ('Domenia.Live.OperationRow' -as [type]))}
+    # PF-12: durations are refreshed in place once per second while the panel is open, aligned with the other timers.
+    $script:OperationsPanel.Timer=New-DomeniaTimer -Owner 'Timer:Operations' -IntervalMs 1000 -IdleIntervalMs 1000 -Tick {Update-DomeniaExperienceActivity}
+    return $true
+}
+
+function Set-DomeniaOperationsPanelPosition {
+    # Under the Opérations button, right edges aligned, inside the window whatever its width.
+    $panel=$script:OperationsPanel
+    if($null -eq $panel){return}
+    $width=620.0;$left=16.0;$top=64.0
+    try{
+        $layerWidth=[double]$panel.Layer.ActualWidth
+        if($layerWidth -gt 0){$width=[Math]::Min(620.0,[Math]::Max(320.0,$layerWidth-32))}
+        $button=Get-DomeniaControl 'BtnSuiteActivity'
+        if($null -ne $button -and $button.IsVisible){
+            $point=$button.TranslatePoint([Windows.Point]::new(0,0),$panel.Layer)
+            $top=[double]$point.Y+[double]$button.ActualHeight+6
+            $left=[double]$point.X+[double]$button.ActualWidth-$width
+            if($layerWidth -gt 0){$left=[Math]::Min($left,$layerWidth-$width-16)}
+            $left=[Math]::Max(16.0,$left)
+        }
+        $layerHeight=[double]$panel.Layer.ActualHeight
+        if($layerHeight -gt 0){$panel.View.MaxHeight=[Math]::Max(240.0,$layerHeight-$top-16)}
+    }catch{}
+    $panel.View.Width=$width
+    $panel.View.Margin=[Windows.Thickness]::new($left,$top,0,0)
+}
+
+function Show-DomeniaOperationsPanel {
+    # Returns $false when the panel cannot open (no main window, or a sheet waiting for an answer holds the layer).
+    $ready=$false
+    try{$ready=Initialize-DomeniaOperationsPanel}catch{Write-AppLog ('Panneau des opérations indisponible : '+$_.Exception.Message) 'WARN';$ready=$false}
+    if(-not $ready){return $false}
+    if($null -ne $script:DomeniaSurfaceState -and -not $script:DomeniaSurfaceState.Done){return $false}
+    $panel=$script:OperationsPanel;$layer=$panel.Layer
+    if(-not $layer.Children.Contains($panel.View)){$layer.Children.Clear();[void]$layer.Children.Add($panel.View)}
+    $layer.Background=[Windows.Media.Brushes]::Transparent
+    $layer.Visibility=[Windows.Visibility]::Visible
+    Set-DomeniaOperationsPanelPosition
+    $panel.Open=$true;$panel.Signature=''
+    Update-DomeniaExperienceActivity -Force
+    $panel.Timer.Start()
+    try{$grid=Get-DomeniaControl 'DgSuiteActivity';if($null -ne $grid){[void]$grid.Focus()}}catch{}
+    return $true
+}
+
+function Hide-DomeniaOperationsPanel {
+    $panel=$script:OperationsPanel
+    if($null -eq $panel -or -not $panel.Open){return}
+    $panel.Open=$false
+    try{$panel.Timer.Stop()}catch{}
+    $layer=$panel.Layer
+    if($layer.Children.Contains($panel.View)){[void]$layer.Children.Remove($panel.View)}
+    if($layer.Children.Count -eq 0){$layer.Visibility=[Windows.Visibility]::Collapsed;$layer.ClearValue([Windows.Controls.Panel]::BackgroundProperty)}
+    $button=Get-DomeniaControl 'BtnSuiteActivity';if($null -ne $button){try{[void]$button.Focus()}catch{}}
+}
+
+function Switch-DomeniaOperationsPanel {
+    if($null -ne $script:OperationsPanel -and $script:OperationsPanel.Open){Hide-DomeniaOperationsPanel}else{[void](Show-DomeniaOperationsPanel)}
+}
+
+function Test-DomeniaOperationsPanelOpen {
+    return ($null -ne $script:OperationsPanel -and [bool]$script:OperationsPanel.Open)
+}
+
+function Stop-DomeniaOperationRow {
+    # UX-32: Arrêter on one row. The real job is checked again: a write, a protected local save or a task of another
+    # session is never stopped from here.
+    param([string]$Id)
+    if([string]::IsNullOrWhiteSpace($Id) -or $null -eq $script:AsyncJobs -or -not $script:AsyncJobs.Contains($Id)){return}
+    $job=$script:AsyncJobs[$Id]
+    if(-not (Test-DomeniaExperienceCanCancel $job ([long]$script:SessionEpoch))){
+        if([bool]$job.IsWrite){Set-Status 'Une écriture AD envoyée ne peut pas être annulée. Attendez la relecture de vérification.' 'WARN'}
+        elseif([bool]$job.NonCancellable){Set-Status 'Enregistrement local : il se termine seul.'}
+        return
+    }
+    Request-UiTaskStop -Id $Id -Reason 'Arrêt demandé depuis le panneau des opérations'
+    Update-DomeniaExperienceActivity -Force
 }
 
 function Stop-DomeniaExperienceSelectedRead {
@@ -53,6 +156,50 @@ function Stop-DomeniaExperienceSelectedRead {
     if(-not (Test-DomeniaExperienceCanCancel $job ([long]$script:SessionEpoch))){return}
     Request-UiTaskStop -Id $id -Reason 'Arrêt demandé depuis le suivi des opérations'
     Update-DomeniaExperienceActivity -Force
+}
+
+function Sync-DomeniaOperationRows {
+    # PF-12: the identity of the list is the Id and the state of each row. A new, finished or changed operation
+    # updates the collection; otherwise only the duration of each row changes, in place: the selection, the scroll
+    # position and the focus stay where the operator left them. Without the notifying type, rows are replaced only
+    # when that identity changes.
+    param([object[]]$Projections=@())
+    $panel=$script:OperationsPanel
+    if($null -eq $panel){return}
+    $signature=(@($Projections|ForEach-Object{[string]$_.Id+'='+[string]$_.State})) -join '|'
+    if(-not [bool]$panel.Typed){
+        if($signature -cne [string]$panel.Signature){
+            $panel.Rows.Clear();$panel.Map=@{}
+            foreach($projection in $Projections){[void]$panel.Rows.Add($projection);$panel.Map[[string]$projection.Id]=$projection}
+        }
+        $panel.Signature=$signature
+        return
+    }
+    $seen=@{}
+    foreach($projection in $Projections){
+        $id=[string]$projection.Id;$seen[$id]=$true
+        $row=$panel.Map[$id]
+        if($null -eq $row){$row=New-Object Domenia.Live.OperationRow;$row.Id=$id;$panel.Map[$id]=$row;[void]$panel.Rows.Add($row)}
+        $row.Name=[string]$projection.Name;$row.Kind=[string]$projection.Kind;$row.State=[string]$projection.State
+        $row.Duration=[string]$projection.Duration;$row.Detail=[string]$projection.Detail
+        $row.CanCancel=[bool]$projection.CanCancel;$row.Detached=[bool]$projection.Detached
+    }
+    foreach($id in @($panel.Map.Keys)){if(-not $seen.ContainsKey([string]$id)){[void]$panel.Rows.Remove($panel.Map[$id]);[void]$panel.Map.Remove($id)}}
+    $panel.Signature=$signature
+}
+
+function Get-DomeniaOperationsHealthText {
+    # UX-32: the health of the engine in plain words. Local measures of this session only, no network probe.
+    $lines=New-Object 'System.Collections.Generic.List[string]'
+    try{$process=[Diagnostics.Process]::GetCurrentProcess();try{$lines.Add('Mémoire utilisée par Domenia : '+[Math]::Round($process.PrivateMemorySize64/1MB)+' Mo.')}finally{$process.Dispose()}}catch{}
+    $delay=$null;try{$delay=Get-DomeniaRuntimeMetricSummary -Provenance 'Dispatcher' -Prefix 'Pulse'}catch{$delay=$null}
+    if($null -ne $delay -and [int]$delay.Count -gt 0){$lines.Add('Réactivité de lʼinterface : retard habituel '+[Math]::Round([double]$delay.P50)+' ms ; 95 % des mesures sous '+[Math]::Round([double]$delay.P95)+' ms.')}
+    else{$lines.Add('Réactivité de lʼinterface : pas encore mesurée.')}
+    $saved=$null;try{if($null -ne $script:Persistence){$saved=$script:Persistence.LastSavedAt}}catch{$saved=$null}
+    $save=if($null -ne $saved){'Dernière sauvegarde locale à '+([datetime]$saved).ToString('HH:mm:ss')+'.'}else{'Aucune sauvegarde locale dans cette session.'}
+    try{$state=Get-DomeniaPersistenceState;if([string]$state.Label){$save+=' '+[string]$state.Label}}catch{}
+    $lines.Add($save)
+    return ($lines.ToArray() -join "`r`n")
 }
 
 function Update-DomeniaExperienceActivity {
@@ -70,19 +217,22 @@ function Update-DomeniaExperienceActivity {
     if($null -ne $counter -and $counter.Text -cne $label){$counter.Text=$label}
     if($null -ne $badge -and [string]$badge.Visibility -ne $visibility){$badge.Visibility=$visibility}
     if($null -ne $button){
-        $help=if($total -eq 0){'Aucune opération active. Ouvrir le suivi des opérations.'}elseif($queued -gt 0){"$total opération(s) suivie(s) : $active active(s), $queued en attente, $detached en nettoyage. Ouvrir le suivi."}else{"$total opération(s) suivie(s) : $active active(s), $detached en nettoyage. Ouvrir le suivi."}
+        $help=if($total -eq 0){'Aucune opération active. Afficher le panneau des opérations et la santé du moteur.'}elseif($queued -gt 0){"$total opération(s) suivie(s) : $active active(s), $queued en attente, $detached en nettoyage. Afficher le panneau."}else{"$total opération(s) suivie(s) : $active active(s), $detached en nettoyage. Afficher le panneau."}
         if([string]$button.ToolTip -cne $help){$button.ToolTip=$help}
         [Windows.Automation.AutomationProperties]::SetHelpText($button,$help)
     }
-    $tab=Get-DomeniaControl 'TabExperience'
-    if($null -eq $tab -or (-not $Force -and (-not $tab.IsVisible -or -not $tab.IsSelected))){return}
+    # UX-32 / D020: the rows are built only while the panel is open.
+    $panel=$script:OperationsPanel
+    if($null -eq $panel -or -not [bool]$panel.Open){return}
+    # A sheet that took the layer removed the panel: it is closed, not left half open.
+    if($null -eq $panel.View.Parent){$panel.Open=$false;try{$panel.Timer.Stop()}catch{};return}
     $now=Get-Date;$rows=New-Object 'System.Collections.Generic.List[object]'
     if($null -ne $script:AsyncJobs){
         foreach($job in @($script:AsyncJobs.Values)){
             if($rows.Count -ge 64){break}
             $row=Get-DomeniaExperienceTaskRow $job -Now $now -SessionEpoch ([long]$script:SessionEpoch)
             if($null -ne $row -and [string]$job.State -eq 'Queued'){
-                # D017: never shown as running before its worker starts.
+                # D017: never shown as running before its worker starts; its waiting time is the one shown.
                 $row.State='En attente';$row.Detail='Demande non envoyée ; aucun appel en cours.'
             }
             if($null -ne $row){$rows.Add($row)}
@@ -93,17 +243,12 @@ function Update-DomeniaExperienceActivity {
         $row=Get-DomeniaExperienceTaskRow $job -Now $now -Detached -SessionEpoch ([long]$script:SessionEpoch)
         if($null -ne $row){$rows.Add($row)}
     }
-    $materialized=@($rows.ToArray()|Sort-Object Detached,Name,Id)
-    $signature=($materialized|ConvertTo-Json -Depth 3 -Compress)
-    if($Force -or $signature -cne $script:ExperienceActivitySignature){
-        [void](Set-DomeniaGridRows 'DgSuiteActivity' -Rows $materialized -KeyProperty 'Id')
-        $script:ExperienceActivitySignature=$signature
-    }
+    Sync-DomeniaOperationRows -Projections $rows.ToArray()
     $state=[string]$script:WriteState
     $message=if($active+$detached+$queued -eq 0){'Aucune opération active. Les résultats précédents restent dans le journal.'}else{"$active opération(s) active(s) · $queued en attente · $detached lecture(s) en nettoyage."}
-    if($state -in @('Unknown','UnknownPending')){$message+=' Écriture à vérifier : ne relancez pas l''action avant relecture de l''objet.'}
+    if($state -in @('Unknown','UnknownPending')){$message+=' Écriture à vérifier : ne relancez pas lʼaction avant relecture de lʼobjet.'}
     [void](Set-DomeniaControlText 'LblSuiteActivityState' $message)
-    Update-DomeniaExperienceCancelState
+    [void](Set-DomeniaControlText 'LblOperationsHealth' (Get-DomeniaOperationsHealthText))
 }
 
 function Update-DomeniaExperienceIdentity {
@@ -397,14 +542,12 @@ function Initialize-DomeniaExperience {
         Apply-DomeniaExperienceDensity
         Apply-DomeniaExperienceLogReading
     }finally{$script:ExperienceRestoring=$false}
+    # UX-32: Opérations opens its drop-down panel; the panel (rows, Arrêter, Santé) is wired when it is first loaded.
     $bindings=@{
-        BtnSuiteActivity={Open-DomeniaExperienceActivity};BtnSuiteRefreshActivity={Update-DomeniaExperienceActivity -Force}
-        BtnSuiteCancelRead={Stop-DomeniaExperienceSelectedRead};BtnSuiteLogNext={Find-DomeniaExperienceLog}
+        BtnSuiteActivity={Open-DomeniaExperienceActivity};BtnSuiteLogNext={Find-DomeniaExperienceLog}
         BtnSuiteResultClear={(Get-DomeniaControl 'TxtSuiteResultFilter').Clear()}
     }
     foreach($name in $bindings.Keys){$control=Get-DomeniaControl $name;if($null -ne $control){$control.Add_Click($bindings[$name])}}
-    $control=Get-DomeniaControl 'DgSuiteActivity';if($null -ne $control){$control.Add_SelectionChanged({Update-DomeniaExperienceCancelState})}
-    $control=Get-DomeniaControl 'ApplicationToolTabs';if($null -ne $control){$control.Add_SelectionChanged({param($s,$e) if($s -eq $e.OriginalSource){Update-DomeniaExperienceActivity -Force}})}
     $control=Get-DomeniaControl 'CmbSuiteDensity';if($null -ne $control){$control.Add_SelectionChanged({Apply-DomeniaExperienceDensity})}
     $control=Get-DomeniaControl 'CmbSuiteLogSize';if($null -ne $control){$control.Add_SelectionChanged({Apply-DomeniaExperienceLogReading})}
     if($null -ne $wrap){$wrap.Add_Checked({Apply-DomeniaExperienceLogReading});$wrap.Add_Unchecked({Apply-DomeniaExperienceLogReading})}
@@ -413,14 +556,14 @@ function Initialize-DomeniaExperience {
     $control=Get-DomeniaControl 'UxLogHeader'
     if($null -ne $control){$control.Add_MouseLeftButtonUp({param($s,$e) if([bool]$script:UiLogVisuallyCollapsed){Switch-DomeniaUxLog;$e.Handled=$true}})}
     $control=Get-DomeniaControl 'TxtSuiteLogFind';if($null -ne $control){$control.Add_KeyDown({param($s,$e) if($e.Key -eq [Windows.Input.Key]::Enter){Find-DomeniaExperienceLog;$e.Handled=$true}})}
-    $timer=[Windows.Threading.DispatcherTimer]::new();$timer.Interval=[TimeSpan]::FromMilliseconds(180)
-    $timer.Add_Tick({
-        $script:ExperienceFilterTimer.Stop()
+    # FI-05: protected, session-bound heartbeat timer (debounce of the local filter), owned and registered by the factory.
+    $script:ExperienceFilterTimer=New-DomeniaTimer -Owner 'Timer:ResultFilter' -IntervalMs 180 -SessionBound -Tick {
+        param($sender,$eventArgs)
+        $sender.Stop()
         $grid=Get-DomeniaControl 'DgObjects'
         # A pending local filter must not change the selection during a write lock.
         if($null -ne $grid -and $grid.IsEnabled){Apply-DomeniaPresenceFilter}
-    })
-    $script:ExperienceFilterTimer=$timer
+    }
     $control=Get-DomeniaControl 'TxtSuiteResultFilter'
     if($null -ne $control){$control.Add_TextChanged({
         if($script:ExperienceRestoring){return}
@@ -429,6 +572,7 @@ function Initialize-DomeniaExperience {
     $script:Window.Add_Closed({
         try{Save-DomeniaExperiencePreferences}finally{
             if($null -ne $script:ExperienceFilterTimer){$script:ExperienceFilterTimer.Stop();$script:ExperienceFilterTimer=$null}
+            if($null -ne $script:OperationsPanel){try{$script:OperationsPanel.Timer.Stop()}catch{};$script:OperationsPanel=$null}
             $script:ExperienceInitialized=$false;$script:ExperienceActivitySignature=''
         }
     })

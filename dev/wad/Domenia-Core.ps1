@@ -434,7 +434,11 @@ function Get-DomeniaRuntimeHealthText {
         foreach ($job in @($script:AsyncJobs.Values) + @($script:DetachedReadJobs)) {
             if ($null -eq $job) { continue }
             $age = [int]((Get-Date) - [datetime]$job.Started).TotalSeconds
-            $lines.Add(('{0} | {1}s | ecriture={2} | annulation={3} | {4}' -f $job.OperationId,$age,$job.IsWrite,$job.CancelRequested,$job.CorrelationId))
+            # UX-32: one plain sentence per task; the short reference ties it to Domenia.log for the support.
+            $kind = if ([bool]$job.IsWrite) { 'écriture' } else { 'lecture' }
+            $stop = if ([bool]$job.CancelRequested) { ', arrêt demandé' } else { '' }
+            $reference = ([string]$job.CorrelationId); if ($reference.Length -gt 8) { $reference = $reference.Substring(0,8) }
+            $lines.Add(('{0} ({1}) : {2}, depuis {3} s{4}. Réf. {5}' -f [string]$job.Name,[string]$job.OperationId,$kind,$age,$stop,$reference))
         }
         $lines.Add('')
         $lines.Add('Une lecture detachee ne renvoie plus de resultat dans le GUI, mais son appel natif peut encore etre actif.')
@@ -458,7 +462,8 @@ function Register-DomeniaReliabilityUi {
     }) }
     $health = Get-DomeniaControl -Name 'BtnRuntimeHealth'
     if ($null -ne $health) { $health.Add_Click({
-        try { Show-InfoBox -Message 'État du moteur Domenia' -Details (Get-DomeniaRuntimeHealthText) }
+        # UX-32: the health of the engine is read in clear in the operations panel, not in a box of raw text.
+        try { if (-not (Show-DomeniaOperationsPanel)) { Show-InfoBox -Message 'État du moteur Domenia' -Details (Get-DomeniaRuntimeHealthText) } }
         catch { Show-ErrorBox $_.Exception.Message }
     }) }
     if ($null -ne $script:Window) { $script:Window.Add_Deactivated({
@@ -469,14 +474,13 @@ function Register-DomeniaReliabilityUi {
 function Restart-DomeniaSecretLifetime {
     try { if ($null -ne $script:SecretLifetimeTimer) { $script:SecretLifetimeTimer.Stop() } } catch { }
     $seconds = [Math]::Max(30,[Math]::Min(1800,[int](Get-CfgValue 'Security' 'SecretMemorySeconds' 300)))
-    $timer = New-Object System.Windows.Threading.DispatcherTimer
-    $timer.Interval = [TimeSpan]::FromSeconds($seconds)
-    $timer.Add_Tick({
+    # FI-05: protected heartbeat timer; one expiry clears the secrets, the next reveal restarts it.
+    $script:SecretLifetimeTimer = New-DomeniaTimer -Owner 'Timer:SecretLifetime' -IntervalMs ($seconds * 1000) -Start -Tick {
+        param($sender,$eventArgs)
+        try { $sender.Stop() } catch { }
         try { Clear-Secrets; Set-Status 'Secrets retires de la vue et references effacees apres expiration.' }
         catch { Write-AppLog 'Expiration des secrets : echec du nettoyage.' 'WARN' }
-    })
-    $script:SecretLifetimeTimer = $timer
-    $timer.Start()
+    }
 }
 
 function Get-DomeniaSelectedSecretSource {
@@ -2208,7 +2212,8 @@ function Confirm-Action { param([string]$Message,[string]$Title='') if([string]:
 function Confirm-WarningAction { param([string]$Message,[string]$Title='') if([string]::IsNullOrWhiteSpace($Title)){$Title="$script:AppName - Attention"}; return ((Show-DomeniaDialog -Message $Message -Title $Title -Kind Warning -Buttons YesNo) -eq [System.Windows.MessageBoxResult]::Yes) }
 
 function ConvertTo-DomeniaErrorInfo {
-    param($ErrorRecordOrException,[string]$Operation="Operation")
+    # CD-12: Structured and Category are returned too, so that a caller never analyses the same error twice.
+    param($ErrorRecordOrException,[string]$Operation="Operation",[string]$Phase='',[string]$Provider='Unknown')
     $exception = $null
     if ($ErrorRecordOrException -is [System.Management.Automation.ErrorRecord]) { $exception = $ErrorRecordOrException.Exception }
     elseif ($ErrorRecordOrException -is [System.Exception]) { $exception = $ErrorRecordOrException }
@@ -2221,13 +2226,17 @@ function ConvertTo-DomeniaErrorInfo {
     $friendly = "$Operation a echoue."
     # D052: one structured decision (native code first, French and English alike). A delay is never a
     # rejected password; an uncertain outcome is never presented as a failure or a success.
-    $decision = $null
-    if ($null -ne (Get-Command -Name 'Get-DomeniaErrorDecision' -CommandType Function -ErrorAction SilentlyContinue)) {
-        try {
-            $structuredSource = if ($null -ne $exception) { $exception } else { $message }
-            $decision = Get-DomeniaErrorDecision -Structured (Get-DomeniaStructuredError $structuredSource -Phase $Operation) -Text $message
-        } catch { $decision = $null }
-    }
+    $decision = $null; $structured = $null
+    # The step of the decision is the operation identifier only when the caller gives it (a task, CD-12): an
+    # operator label never changes the classification of the historical callers.
+    $step = ''
+    if ([string]::IsNullOrWhiteSpace($Phase)) { $Phase = $Operation } else { $step = $Phase }
+    # PF-10: the closed loader guarantees the rules; an isolated caller without them keeps the text classification.
+    try {
+        $structuredSource = if ($null -ne $exception) { $exception } else { $message }
+        $structured = Get-DomeniaStructuredError $structuredSource -Phase $Phase -Provider $Provider
+        $decision = Get-DomeniaErrorDecision -Structured $structured -Text $message -Step $step
+    } catch { $decision = $null }
     $decided = $false
     if ($null -ne $decision -and [string]$decision.Category -ne 'Unknown') {
         $decided = $true
@@ -2270,13 +2279,17 @@ function ConvertTo-DomeniaErrorInfo {
         }
         elseif (-not [string]::IsNullOrWhiteSpace($message)) {
             # UI-02: the raw text of a fault of Domenia itself stays in the journal and in the Expert detail.
-            if (($null -ne (Get-Command -Name 'Test-DomeniaInternalFault' -CommandType Function -ErrorAction SilentlyContinue)) -and (Test-DomeniaInternalFault $ErrorRecordOrException)) {
+            $isInternal = $false
+            try { $isInternal = [bool](Test-DomeniaInternalFault $ErrorRecordOrException) } catch { $isInternal = $false }
+            if ($isInternal) {
                 $internal = $true; $friendly = "$Operation : erreur interne de Domenia. Votre travail est conservé."
             }
             else { $friendly = "$Operation : $message" }
         }
     }
-    [pscustomobject]@{ Kind=$kind; Friendly=$friendly; Technical=$technical; HResult=$hresult; Internal=$internal }
+    $category = ''
+    if ($null -ne $decision) { $category = [string]$decision.Category }
+    [pscustomobject]@{ Kind=$kind; Friendly=$friendly; Technical=$technical; HResult=$hresult; Internal=$internal; Structured=$structured; Category=$category }
 }
 
 function Test-DomeniaOperatorMessage {
@@ -3344,13 +3357,12 @@ function Save-DomeniaSettings {
         # provoque qu un seul acces disque.
         try {
             if ($null -eq $script:SettingsTimer) {
-                $timer = New-Object System.Windows.Threading.DispatcherTimer
-                $timer.Interval = [System.TimeSpan]::FromMilliseconds(1500)
-                $timer.Add_Tick({
-                    try { $script:SettingsTimer.Stop() } catch { }
+                # FI-05: protected timer of the engine heartbeat; it keeps running while the window is minimized.
+                $script:SettingsTimer = New-DomeniaTimer -Owner 'Timer:Settings' -IntervalMs 1500 -RunWhenHidden -Tick {
+                    param($sender,$eventArgs)
+                    try { $sender.Stop() } catch { }
                     Save-DomeniaSettings -Immediate
-                })
-                $script:SettingsTimer = $timer
+                }
             }
             $script:SettingsTimer.Stop()
             $script:SettingsTimer.Start()
@@ -4761,7 +4773,7 @@ function Get-MainXaml {
                     <TextBlock x:Name="LblAccessRecoveryCount" Text="0" FontSize="10" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                   </Border>
                 </Grid>
-              </Button><Button x:Name="BtnSuiteActivity" Style="{StaticResource UxIconButton}" Width="40" MinWidth="40" MaxWidth="40" Height="40" MinHeight="40" MaxHeight="40" ToolTip="Opérations : ouvre le suivi des opérations. Le compteur inclut les lectures en nettoyage. Aucun accès AD supplémentaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Opérations" AutomationProperties.HelpText="Ouvre le suivi des opérations. Le compteur inclut les lectures en nettoyage. Aucun accès AD supplémentaire.">
+              </Button><Button x:Name="BtnSuiteActivity" Style="{StaticResource UxIconButton}" Width="40" MinWidth="40" MaxWidth="40" Height="40" MinHeight="40" MaxHeight="40" ToolTip="Opérations : affiche sous ce bouton les opérations en cours et en attente, leur durée, Arrêter par ligne et la santé du moteur. Aucun accès AD supplémentaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Opérations" AutomationProperties.HelpText="Ouvre le suivi des opérations. Le compteur inclut les lectures en nettoyage. Aucun accès AD supplémentaire.">
                 <Grid Width="38" Height="38" IsHitTestVisible="False">
                   <Path Data="M2,12 L7,12 10,5 14,19 17,12 22,12" Width="18" Height="18" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                   <Border x:Name="BadgeSuiteActivity" Width="24" Height="16" CornerRadius="8" Background="{DynamicResource AccentColor}" HorizontalAlignment="Right" VerticalAlignment="Top" Visibility="Hidden">
@@ -6701,17 +6713,7 @@ function Get-MainXaml {
 <WrapPanel><Button AutomationProperties.Name="Ouvrir Pesto" AutomationProperties.HelpText="Exécutable configuré et contrôlé par empreinte. Aucun identifiant ou ordre d'intervention transmis." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardPesto" Content="Ouvrir Pesto" ToolTip="Exécutable configuré et contrôlé par empreinte. Aucun identifiant ou ordre d'intervention transmis."/><Button AutomationProperties.Name="Ouvrir FilPro" AutomationProperties.HelpText="Exécutable configuré et contrôlé par empreinte. Aucun identifiant ou ordre d'intervention transmis." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardFilPro" Content="Ouvrir FilPro" ToolTip="Exécutable configuré et contrôlé par empreinte. Aucun identifiant ou ordre d'intervention transmis."/></WrapPanel>
 </StackPanel></Border>
 </StackPanel></ScrollViewer></TabItem>
-<TabItem x:Name="TabExperience" Visibility="Collapsed" Header="Opérations et confort" ToolTip="Suit les opérations actives et règle la densité des résultats. Ce panneau n’est pas un historique de réussites." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Opérations et confort" AutomationProperties.HelpText="Suit les opérations actives et règle la densité des résultats. Ce panneau n’est pas un historique de réussites."><Border Style="{StaticResource Card}" Margin="4"><Grid>
-<Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-<StackPanel Margin="0,0,0,12"><TextBlock Text="Suivi des opérations" FontSize="20" FontWeight="SemiBold"/><TextBlock Text="Vue en direct des workers. Une fin de traitement ne certifie pas le résultat métier ; consultez le journal et les vérifications de l’action." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,6,0,12"/>
-<WrapPanel><Button x:Name="BtnSuiteRefreshActivity" Content="Actualiser le suivi" ToolTip="Relit les états des workers déjà en mémoire. Ne relance aucune opération." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Actualiser le suivi" AutomationProperties.HelpText="Relit les états des workers déjà en mémoire. Ne relance aucune opération."/><Button x:Name="BtnSuiteCancelRead" Content="Demander l’arrêt" IsEnabled="False" ToolTip="Demande l’arrêt d’une lecture annulable de cette session. Une écriture envoyée ne peut pas être annulée ici." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Demander l’arrêt" AutomationProperties.HelpText="Demande l’arrêt d’une lecture annulable de cette session. Une écriture envoyée ne peut pas être annulée ici."/></WrapPanel>
-<TextBlock x:Name="LblSuiteActivityState" TextWrapping="Wrap" Margin="0,10,0,0" Foreground="{DynamicResource MutedColor}"/></StackPanel>
-<DataGrid x:Name="DgSuiteActivity" Grid.Row="1" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" SelectionUnit="FullRow" MinRowHeight="34" CanUserAddRows="False" CanUserDeleteRows="False" ToolTip="États réels des workers : en cours, arrêt demandé, à vérifier ou nettoyage. Aucun résultat métier n’est déduit de leur disparition." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Opérations en cours" AutomationProperties.HelpText="États réels des workers : en cours, arrêt demandé, à vérifier ou nettoyage. Aucun résultat métier n’est déduit de leur disparition."><DataGrid.Columns>
-<DataGridTextColumn Header="Opération" Binding="{Binding Name}" Width="2*"/><DataGridTextColumn Header="Type" Binding="{Binding Kind}" Width="80"/><DataGridTextColumn Header="État" Binding="{Binding State}" Width="130"/><DataGridTextColumn Header="Durée" Binding="{Binding Duration}" Width="85"/>
-<DataGridTextColumn Header="À savoir" Binding="{Binding Detail}" Width="3*"/>
-</DataGrid.Columns></DataGrid>
-<Border Grid.Row="2" Background="{DynamicResource TileBg}" CornerRadius="12" Padding="14" Margin="0,14,0,0"><StackPanel><TextBlock Text="Confort de lecture" FontWeight="SemiBold" FontSize="15"/><WrapPanel Margin="0,10,0,0"><TextBlock Text="Lignes de résultats" VerticalAlignment="Center" Margin="0,0,10,0"/><ComboBox x:Name="CmbSuiteDensity" Width="135" SelectedIndex="0" ToolTip="Confort : lignes de 36 unités. Compact : 28 unités. Ce réglage visuel est mémorisé." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Densité des résultats" AutomationProperties.HelpText="Confort : lignes de 36 unités. Compact : 28 unités. Ce réglage visuel est mémorisé."><ComboBoxItem Content="Confort"/><ComboBoxItem Content="Compact"/></ComboBox><TextBlock Text="Ces réglages ne changent ni les filtres AD ni vos droits." Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" Margin="14,0,0,0" TextWrapping="Wrap"/></WrapPanel></StackPanel></Border>
-</Grid></Border></TabItem><TabItem x:Name="TabSelfCheck" IsSelected="True" ToolTip="Verifie que la connexion et les composants de l application fonctionnent." Header="Verification" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Verification" AutomationProperties.HelpText="Verifie que la connexion et les composants de l application fonctionnent.">
+<TabItem x:Name="TabSelfCheck" IsSelected="True" ToolTip="Verifie que la connexion et les composants de l application fonctionnent." Header="Verification" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Verification" AutomationProperties.HelpText="Verifie que la connexion et les composants de l application fonctionnent.">
                         <Grid Margin="8">
                           <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
@@ -7057,7 +7059,7 @@ function Get-MainXaml {
                   </Border>
                   <StackPanel x:Name="UxLogCommands" Orientation="Horizontal" VerticalAlignment="Center">
                     <CheckBox x:Name="ChkUiLogFollow" Content="Suivre" IsChecked="True" VerticalAlignment="Center" Margin="4,0,10,0" ToolTip="Désactivez pour lire le journal sans défilement automatique." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Suivre" AutomationProperties.HelpText="Désactivez pour lire le journal sans défilement automatique."/>
-                    <Button x:Name="BtnRuntimeHealth" Content="État du moteur" MinHeight="28" Height="28" Padding="10,2" Margin="2,0" ToolTip="Mémoire, workers actifs, annulations et cache utilisé. Aucune sonde réseau." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="État du moteur" AutomationProperties.HelpText="Mémoire, workers actifs, annulations et cache utilisé. Aucune sonde réseau."/>
+                    <Button x:Name="BtnRuntimeHealth" Content="État du moteur" MinHeight="28" Height="28" Padding="10,2" Margin="2,0" ToolTip="Ouvre le panneau des opérations : tâches en cours et santé du moteur (mémoire, réactivité de lʼinterface, dernière sauvegarde). Aucune sonde réseau." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="État du moteur" AutomationProperties.HelpText="Ouvre le panneau des opérations : tâches en cours et santé du moteur (mémoire, réactivité de lʼinterface, dernière sauvegarde). Aucune sonde réseau."/>
                     <Button x:Name="BtnCopyUiLog" Content="Copier" MinHeight="28" Height="28" Padding="10,2" Margin="2,0" ToolTip="Copie le journal tel quʼil est affiché. Cochez Masquer les noms pour remplacer chemins AD, comptes, noms DNS et adresses." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Copier" AutomationProperties.HelpText="Copie le journal tel quʼil est affiché. Cochez Masquer les noms pour remplacer chemins AD, comptes, noms DNS et adresses."/>
                     <CheckBox x:Name="ChkUiLogCopyMask" Content="Masquer les noms" VerticalAlignment="Center" Margin="6,0,6,0" ToolTip="Copier remplace les chemins AD, comptes, noms DNS et adresses par des repères. Un nom de poste isolé peut rester visible : relisez avant envoi." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Masquer les noms à la copie" AutomationProperties.HelpText="Copier remplace les chemins AD, comptes, noms DNS et adresses par des repères. Un nom de poste isolé peut rester visible : relisez avant envoi."/>
                     <Button x:Name="BtnClearUiLog" Content="Effacer" MinHeight="28" Height="28" Padding="10,2" Margin="2,0" ToolTip="Efface seulement le journal affiché." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Effacer" AutomationProperties.HelpText="Efface seulement le journal affiché."/>
@@ -7085,6 +7087,8 @@ function Get-MainXaml {
 <CheckBox x:Name="ChkUiLogErrorsOnly" Content="Erreurs seulement" VerticalAlignment="Center" Margin="0,0,12,0" ToolTip="Nʼaffiche que les erreurs du journal lisible. Lʼenregistrement continue pour tous les niveaux." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Erreurs seulement" AutomationProperties.HelpText="Nʼaffiche que les erreurs du journal lisible. Lʼenregistrement continue pour tous les niveaux."/>
 <CheckBox x:Name="ChkSuiteLogWrap" Content="Retour à la ligne" VerticalAlignment="Center" Margin="0,0,12,0" ToolTip="Replie les longues lignes pour les lire sans déplacement horizontal. Ne modifie pas les événements enregistrés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Retour à la ligne du journal" AutomationProperties.HelpText="Replie les longues lignes pour les lire sans déplacement horizontal. Ne modifie pas les événements enregistrés."/>
 <ComboBox x:Name="CmbSuiteLogSize" Width="60" MinHeight="28" SelectedIndex="1" ToolTip="Ajuste uniquement la taille de lecture, entre 10 et 18. Le choix est mémorisé." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Taille du texte du journal" AutomationProperties.HelpText="Ajuste uniquement la taille de lecture, entre 10 et 18. Le choix est mémorisé."><ComboBoxItem Content="10"/><ComboBoxItem Content="11"/><ComboBoxItem Content="12"/><ComboBoxItem Content="14"/><ComboBoxItem Content="16"/><ComboBoxItem Content="18"/></ComboBox>
+<TextBlock Text="Lignes des résultats" VerticalAlignment="Center" Margin="14,0,8,0" FontSize="11"/>
+<ComboBox x:Name="CmbSuiteDensity" Width="104" MinHeight="28" SelectedIndex="0" ToolTip="Réglage dʼaffichage : Confort, lignes de 36 unités ; Compact, lignes de 28 unités. Mémorisé. Ne change ni les filtres AD ni vos droits." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Densité des résultats" AutomationProperties.HelpText="Réglage dʼaffichage : Confort, lignes de 36 unités ; Compact, lignes de 28 unités. Mémorisé. Ne change ni les filtres AD ni vos droits."><ComboBoxItem Content="Confort"/><ComboBoxItem Content="Compact"/></ComboBox>
 <TextBlock x:Name="LblSuiteLogFind" VerticalAlignment="Center" Margin="10,0,0,0" FontSize="11" Foreground="{DynamicResource MutedColor}"/>
 </WrapPanel></Grid>
           </Border>
@@ -7540,9 +7544,8 @@ function Add-DomeniaTreeRowsToNode {
 
 function Initialize-DomeniaTreeRenderTimer {
     if ($null -ne $script:TreeRenderTimer) { return }
-    $timer = New-Object System.Windows.Threading.DispatcherTimer
-    $timer.Interval = [System.TimeSpan]::FromMilliseconds([Math]::Max(10,[int](Get-CfgValue "UI" "TreeRenderIntervalMs" 18)))
-    $timer.Add_Tick({
+    # FI-05: protected timer of the engine heartbeat; it only runs while a branch is being rendered.
+    $script:TreeRenderTimer = New-DomeniaTimer -Owner 'Timer:TreeRender' -IntervalMs ([Math]::Max(10,[int](Get-CfgValue "UI" "TreeRenderIntervalMs" 18))) -Tick {
         $finished = New-Object System.Collections.Generic.List[string]
         foreach ($renderId in @($script:TreeRenderJobs.Keys)) {
             $job = $script:TreeRenderJobs[$renderId]
@@ -7573,8 +7576,8 @@ function Initialize-DomeniaTreeRenderTimer {
                     [void]$finished.Add([string]$renderId)
                     [void](Set-DomeniaControlText -Name "LblTreeStatus" -Text "$($job.Added) sous-branche(s) affichee(s).")
                     Set-Status "Sous-branches pretes : $($job.Added)."
-                    # DS-07: a branch read while the OU filter is set follows that filter (local only).
-                    if ($null -ne (Get-Command Update-DomeniaOuTreeFilter -CommandType Function -ErrorAction SilentlyContinue)) { try { Update-DomeniaOuTreeFilter -OnlyWhenActive } catch { } }
+                    # DS-07: a branch read while the OU filter is set follows that filter (local only). PF-10: no command lookup in a tick.
+                    try { Update-DomeniaOuTreeFilter -OnlyWhenActive } catch { }
                 }
                 else {
                     [void](Set-DomeniaControlText -Name "LblTreeStatus" -Text "Affichage progressif : $($job.Added) / $($job.Rows.Count) sous-branche(s)...")
@@ -7594,8 +7597,7 @@ function Initialize-DomeniaTreeRenderTimer {
         }
         foreach ($renderId in $finished.ToArray()) { [void]$script:TreeRenderJobs.Remove([string]$renderId) }
         if (@($script:TreeRenderJobs.Keys).Count -eq 0) { try { $script:TreeRenderTimer.Stop() } catch { } }
-    })
-    $script:TreeRenderTimer = $timer
+    }
 }
 
 function Stop-DomeniaTreeRenderForNode {
@@ -10018,14 +10020,22 @@ function Update-TaskUi {
     param([switch]$Force)
 
     $count = @($script:AsyncJobs.Keys).Count
+    # CO-02: the bar, Annuler and the label follow the foreground tasks (writes, explicit actions, selection). A local
+    # save or a background read alone never shows them; the Opérations badge still counts every task.
+    $foregroundJobs = New-Object 'System.Collections.Generic.List[object]'
+    foreach ($job in @($script:AsyncJobs.Values)) {
+        if ($null -eq $job) { continue }
+        $flag = $job.PSObject.Properties['Foreground']
+        if (($null -eq $flag) -or [bool]$flag.Value) { $foregroundJobs.Add($job) }
+    }
+    $foregroundCount = $foregroundJobs.Count
     # D017: exact states. A detached read whose native call still runs keeps the bar visible ("nettoyage"),
     # a queued entry is shown as waiting, never as running. Without the engine rules: historical display.
+    # PF-10: the closed loader guarantees the rules; a missing rule (isolated test) only falls back to the counter.
     $summary = $null
-    if ($null -ne (Get-Command -Name Get-DomeniaTaskStateSummary -CommandType Function -ErrorAction SilentlyContinue)) {
-        try { $summary = Get-DomeniaTaskStateSummary -Jobs @($script:AsyncJobs.Values) -Detached @($script:DetachedReadJobs) } catch { $summary = $null }
-    }
-    $total = $count; $active = $count; $signature = [string]$count
-    if ($null -ne $summary) { $total = [int]$summary.Total; $active = [int]$summary.Active; $signature = [string]$summary.Text }
+    try { $summary = Get-DomeniaTaskStateSummary -Jobs $foregroundJobs.ToArray() -Detached @($script:DetachedReadJobs) } catch { $summary = $null }
+    $total = $foregroundCount + @($script:DetachedReadJobs).Count; $active = $total; $signature = [string]$count + '|' + [string]$foregroundCount
+    if ($null -ne $summary) { $total = [int]$summary.Total; $active = [int]$summary.Active; $signature = [string]$count + '|' + [string]$summary.Text }
     $now = Get-Date
     $refreshMs = [Math]::Max(200,[int](Get-CfgValue "Async" "UiRefreshIntervalMs" 500))
     $stateChanged = (($count -ne [int]$script:LastTaskUiCount) -or ($signature -cne [string]$script:LastTaskUiSignature))
@@ -10042,20 +10052,20 @@ function Update-TaskUi {
         if ($null -ne $cancel) {
             $cancel.Visibility = if ($total -gt 0) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Hidden }
             # Only an entry still held by the engine can be stopped; a detached call is waited for, not cancelled.
-            $cancel.IsEnabled = ($count -gt 0)
+            $cancel.IsEnabled = ($foregroundCount -gt 0)
         }
         $elapsedLabel = Get-DomeniaControl -Name "LblTaskElapsed"
         if ($null -ne $elapsedLabel) {
             $elapsedLabel.Visibility = if ($total -gt 0) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Hidden }
-            if ($count -gt 0) {
+            if ($foregroundCount -gt 0) {
                 $latest = $null
                 if (-not [string]::IsNullOrWhiteSpace([string]$script:LatestTaskId) -and $script:AsyncJobs.Contains($script:LatestTaskId)) { $latest = $script:AsyncJobs[$script:LatestTaskId] }
-                if ($null -eq $latest) { $latest = $script:AsyncJobs[@($script:AsyncJobs.Keys)[-1]] }
+                if ($null -eq $latest -or -not $foregroundJobs.Contains($latest)) { $latest = $foregroundJobs[$foregroundCount - 1] }
                 $since = $null
                 if ($null -ne $latest) { $since = $latest.Started; if ([string]$latest.State -eq 'Queued' -and $null -ne $latest.QueuedAt) { $since = $latest.QueuedAt } }
                 $elapsed = if ($null -ne $since) { [int]((Get-Date) - [datetime]$since).TotalSeconds } else { 0 }
                 if ($null -ne $summary) { $elapsedLabel.Text = "$($summary.Text) · $([string]$latest.Name) · $elapsed s" }
-                else { $elapsedLabel.Text = "$count tache(s)  $([string]$latest.Name)  $elapsed s" }
+                else { $elapsedLabel.Text = "$foregroundCount tache(s)  $([string]$latest.Name)  $elapsed s" }
             }
             elseif ($total -gt 0 -and $null -ne $summary) { $elapsedLabel.Text = "$($summary.Text) · appel natif encore actif, compte jusqu a sa fin reelle" }
             else { $elapsedLabel.Text = "" }
@@ -10063,12 +10073,8 @@ function Update-TaskUi {
     }
     catch { }
 
-    # D020: the operations page is rebuilt only when it is visible; the badge counter is always refreshed.
-    $experienceForce = $false
-    if ($Force) {
-        try { $experienceTab = Get-DomeniaControl -Name 'TabExperience'; $experienceForce = ($null -ne $experienceTab -and [bool]$experienceTab.IsVisible) } catch { $experienceForce = $false }
-    }
-    try { Update-DomeniaExperienceActivity -Force:$experienceForce } catch { }
+    # UX-32 / D020: the rows of the operations panel are updated only while it is open; the badge always is.
+    try { Update-DomeniaExperienceActivity -Force:([bool]$Force) } catch { }
     # PF-11 (decision David 2026-10-08): the session details of Accueil are rebuilt by a task only while they are open.
     $sessionDetailsOpen = $true
     try { if (($null -ne $script:Ctrl) -and $script:Ctrl.ContainsKey('UxSessionDetails') -and ($null -ne $script:Ctrl['UxSessionDetails'])) { $sessionDetailsOpen = [bool]$script:Ctrl['UxSessionDetails'].IsExpanded } } catch { $sessionDetailsOpen = $true }
@@ -10259,7 +10265,7 @@ function Select-DomeniaWorkspace {
             $innerControl = Get-DomeniaControl -Name $Inner
             $tabControl = Get-DomeniaControl -Name $Tab
             # Decision David 2026-10-07: Fiabilite and Operations et confort are hidden and shown only when routed to.
-            if ($null -ne $tabControl -and $Tab -in @('TabGuard','TabExperience') -and $tabControl.Visibility -ne [System.Windows.Visibility]::Visible) { $tabControl.Visibility = [System.Windows.Visibility]::Visible }
+            if ($null -ne $tabControl -and $Tab -in @('TabGuard') -and $tabControl.Visibility -ne [System.Windows.Visibility]::Visible) { $tabControl.Visibility = [System.Windows.Visibility]::Visible }
             if ($null -ne $innerControl -and $null -ne $tabControl) { $innerControl.SelectedItem = $tabControl }
         }
     }
@@ -11194,16 +11200,15 @@ function Queue-DomeniaSelectedObjectOpen {
         return
     }
     if ($null -eq $script:SelectionOpenTimer) {
-        $timer = New-Object System.Windows.Threading.DispatcherTimer
-        $timer.Add_Tick({
+        # FI-05: protected timer of the engine heartbeat (selection debounce).
+        $script:SelectionOpenTimer = New-DomeniaTimer -Owner 'Timer:SelectionOpen' -IntervalMs 180 -Tick {
             try { Stop-DomeniaSelectionOpenTimer; Invoke-DomeniaPendingSelectionOpen }
             catch {
                 $script:LastObjectOpenError = [string]$_.Exception.Message
                 Update-DomeniaSelectionReadUi -Phase Failed -Message $script:LastObjectOpenError
                 Write-AppLog ('Prechargement de la selection : '+$script:LastObjectOpenError) 'ERROR'
             }
-        })
-        $script:SelectionOpenTimer = $timer
+        }
     }
     $delay = [Math]::Max(80,[Math]::Min(500,[int](Get-CfgValue 'Browser' 'SelectionDebounceMs' 180)))
     Stop-DomeniaSelectionOpenTimer
@@ -11887,15 +11892,13 @@ function Toggle-SecretsVisibility {
     $script:SecretsVisible = -not $script:SecretsVisible
     try { if ($null -ne $script:SecretRevealTimer) { $script:SecretRevealTimer.Stop() } } catch { }
     if ($script:SecretsVisible) {
-        $timer = New-Object System.Windows.Threading.DispatcherTimer
-        $timer.Interval = [TimeSpan]::FromSeconds(60)
-        $timer.Add_Tick({
-            $script:SecretRevealTimer.Stop()
+        # FI-05: protected timer of the engine heartbeat.
+        $script:SecretRevealTimer = New-DomeniaTimer -Owner 'Timer:SecretReveal' -IntervalMs 60000 -Start -Tick {
+            param($sender,$eventArgs)
+            $sender.Stop()
             $script:SecretsVisible = $false
             Update-SecretsGrid
-        })
-        $script:SecretRevealTimer = $timer
-        $timer.Start()
+        }
     }
     Update-SecretsGrid
 }
@@ -11907,17 +11910,16 @@ function Start-SecretClipboardAutoClear {
         $script:SecretClipboardValue = $Value
         $seconds = [int](Get-CfgValue "Security" "AutoClearSecretClipboardSeconds" 30)
         if ($seconds -le 0) { return }
-        $timer = New-Object System.Windows.Threading.DispatcherTimer
-        $timer.Interval = [System.TimeSpan]::FromSeconds($seconds)
-        $timer.Add_Tick({
+        # FI-05: protected timer of the engine heartbeat; it also runs while the window is minimized.
+        $script:SecretClipboardTimer = New-DomeniaTimer -Owner 'Timer:SecretClipboard' -IntervalMs ($seconds * 1000) -RunWhenHidden -Start -Tick {
+            param($sender,$eventArgs)
+            try { $sender.Stop() } catch { }
             try {
                 Clear-DomeniaSecretClipboard
                 Set-Status "Presse-papiers secret efface automatiquement."
             }
             catch { try { Write-AppLog "Timer presse-papiers secret : $($_.Exception.ToString())" "WARN" } catch { } }
-        })
-        $script:SecretClipboardTimer = $timer
-        $timer.Start()
+        }
     } catch { try { Write-AppLog "Programmation de l'effacement du presse-papiers impossible : $($_.Exception.ToString())" "WARN" } catch { } }
 }
 
@@ -15550,13 +15552,12 @@ function Request-DomeniaIndexFlush {
     if (-not $script:IndexDirty) { return }
     try {
         if ($null -eq $script:IndexFlushTimer) {
-            $timer = New-Object System.Windows.Threading.DispatcherTimer
-            $timer.Interval = [System.TimeSpan]::FromSeconds(10)
-            $timer.Add_Tick({
-                try { $script:IndexFlushTimer.Stop() } catch { }
+            # FI-05: protected timer of the engine heartbeat; it also runs while the window is minimized.
+            $script:IndexFlushTimer = New-DomeniaTimer -Owner 'Timer:IndexFlush' -IntervalMs 10000 -RunWhenHidden -Tick {
+                param($sender,$eventArgs)
+                try { $sender.Stop() } catch { }
                 [void](Flush-DomeniaIndex)
-            })
-            $script:IndexFlushTimer = $timer
+            }
         }
         $script:IndexFlushTimer.Stop()
         $script:IndexFlushTimer.Start()
@@ -18160,12 +18161,19 @@ function Start-DomeniaAppLogFlushTimer {
     if ($null -eq $script:Window) { return $false }
     $sameWindow = [object]::ReferenceEquals($script:AppLogFlushWindow,$script:Window)
     if ($sameWindow -and [bool]$script:AppLogQueueClosed) { return $false }
-    if ($sameWindow -and $null -ne $script:AppLogFlushTimer) { return $true }
+    # PF-06: the flush timer is armed by a queued line and stops once the queue is written: nothing ticks at rest.
+    if ($sameWindow -and $null -ne $script:AppLogFlushTimer) {
+        try { if (-not [bool]$script:AppLogFlushTimer.IsEnabled) { $script:AppLogFlushTimer.Start() } } catch { }
+        return $true
+    }
     try { if (-not $script:Window.Dispatcher.CheckAccess()) { return $false } } catch { return $false }
     try { if ($null -ne $script:AppLogFlushTimer) { $script:AppLogFlushTimer.Stop() } } catch { }
-    $timer = New-Object System.Windows.Threading.DispatcherTimer([System.Windows.Threading.DispatcherPriority]::Background)
-    $timer.Interval = [TimeSpan]::FromMilliseconds(500)
-    $timer.Add_Tick({ try { Flush-DomeniaAppLog } catch { } })
+    # FI-05: protected timer of the engine heartbeat, also while the window is minimized.
+    $timer = New-DomeniaTimer -Owner 'Timer:AppLog' -IntervalMs 500 -RunWhenHidden -Tick {
+        param($sender,$eventArgs)
+        try { Flush-DomeniaAppLog } catch { }
+        if ($null -eq $script:AppLogQueue -or $script:AppLogQueue.Count -eq 0) { try { $sender.Stop() } catch { } }
+    }
     $script:AppLogFlushTimer = $timer
     $script:AppLogFlushWindow = $script:Window
     $script:AppLogQueueClosed = $false
@@ -19071,9 +19079,8 @@ function Complete-DomeniaLoginAuthRunspaceCleanup {
 
 function Ensure-DomeniaAuthCleanupTimer {
     if ($null -ne $script:AuthCleanupTimer) { return }
-    $script:AuthCleanupTimer = New-Object System.Windows.Threading.DispatcherTimer
-    $script:AuthCleanupTimer.Interval = [TimeSpan]::FromMilliseconds(350)
-    $script:AuthCleanupTimer.Add_Tick({
+    # FI-05: protected standalone timer (connection, before and after the engine).
+    $script:AuthCleanupTimer = New-DomeniaTimer -Owner 'Timer:AuthCleanup' -IntervalMs 350 -Standalone -RunWhenHidden -Tick {
         try {
             foreach ($key in @($script:AuthCleanupSessions.Keys)) {
                 $session = $script:AuthCleanupSessions[$key]
@@ -19103,7 +19110,7 @@ function Ensure-DomeniaAuthCleanupTimer {
             }
         }
         catch { }
-    })
+    }
     $script:AuthCleanupTimer.Start()
 }
 
@@ -20172,6 +20179,7 @@ function Clear-DomeniaSecondaryCredential {
     if($null -ne $script:AccessState){
         $scopes=if($Scope -eq 'Secrets'){@('ReadLaps','ReadBitLocker')}else{@('Remote')}
         foreach($k in $scopes){[void]$script:AccessState.Credentials.Remove($k);[void]$script:AccessState.Faults.Remove($k)}
+        $script:DomeniaAccountGeneration=[long]$script:DomeniaAccountGeneration+1
         if($Scope -eq 'Secrets'){$script:AccessState.Denied=@{}}
     }
     Update-DomeniaAccountUi
@@ -20862,7 +20870,8 @@ function New-DefaultConfig {
             MaxQueueWaitSeconds = 120
             PollIntervalMs = 250
             UiRefreshIntervalMs = 500
-            MaxCompletionsPerTick = 2
+            # PF-04: time budget of one engine tick for the promotions and the completions (replaces MaxCompletionsPerTick).
+            TickBudgetMs = 25
             CallbackWarningMs = 120
             CancelGraceSeconds = 5
             DefaultTimeoutSeconds = 60
@@ -21140,17 +21149,14 @@ function New-DomeniaStartupWindow {
             Set-DomeniaStartupStage -Stage "Annulation..." -Detail "Annulation demandee ; arret propre du worker en cours."
         })
         $win.Add_Closing({ if (-not $script:StartupReady) { $script:StartupCancelled = $true } })
-        $script:StartupTimer = New-Object System.Windows.Threading.DispatcherTimer
-        $script:StartupTimer.Interval = [TimeSpan]::FromSeconds(1)
-        $script:StartupTimer.Add_Tick({
+        # FI-05: protected standalone timer, registered with its owner by the factory (the engine is not started yet).
+        $script:StartupTimer = New-DomeniaTimer -Owner 'Timer:StartupMonitor' -IntervalMs 1000 -Standalone -RunWhenHidden -Start -Tick {
             try {
                 if ($null -ne $script:LoginAuthStarted -and $script:StartupCtrl.ContainsKey("Elapsed")) {
                     $script:StartupCtrl.Elapsed.Text = "$([int]((Get-Date)-$script:LoginAuthStarted).TotalSeconds) s"
                 }
             } catch { }
-        })
-        $script:StartupTimer.Start()
-        try { [void](Register-DomeniaOwnedTimer -Owner 'Timer:StartupMonitor' -Timer $script:StartupTimer) } catch { }
+        }
         # D089: the monitor prolongs the explicit launch. It is never Topmost; one activation request, and a
         # voluntary Alt-Tab of the operator is remembered for the switch to the main window.
         try { Register-DomeniaUserSwitchWatch -Window $win } catch { }
@@ -22112,13 +22118,21 @@ function New-DomeniaWorkerRunspace {
         [Parameter(Mandatory=$true)][string]$Code,
         [switch]$IsWrite
     )
+    # PF-05: the whole cost paid on the Dispatcher to obtain a worker is measured (series Dispatcher|RunspaceOpen:<op>).
+    $openWatch = [System.Diagnostics.Stopwatch]::StartNew()
     $verifiedHash = Assert-DomeniaWorkerOperationCode -OperationId $OperationId -Code $Code
-    $pooled = ($OperationId -in @('GlobalSearch','LiveConsole','LiveSelectedPing','LiveCache','LiveDirectoryCheck')) -and -not $IsWrite
+    # PF-05: the reads opened most often reuse a pool of prepared runspaces (pinned body and worker helpers loaded once)
+    # instead of opening a runspace on the Dispatcher at each task. A write never uses a pool.
+    # DemoDirectory answers every read in demonstration (in-memory directory, no network): pooled the same way.
+    $pooledOperations = @('GlobalSearch','LiveConsole','LiveSelectedPing','LiveCache','LiveDirectoryCheck','OpenAdObject','TreeChildren','ComputerPing','SelectedPresence','LocalIndexRead','LocalStore','DemoDirectory')
+    $pooled = ($OperationId -in $pooledOperations) -and -not $IsWrite
     if ($pooled) {
         if ($null -eq $script:LiveWorkerPools) { $script:LiveWorkerPools=@{} }
         if ($script:LiveWorkerPools.ContainsKey($OperationId)) {
             $existing=$script:LiveWorkerPools[$OperationId]
             if ($existing.CodeHash -cne $verifiedHash) { throw 'Empreinte de pool incohérente.' }
+            $openWatch.Stop()
+            try { Add-DomeniaRuntimeMetric -Provenance 'Dispatcher' -OperationId ('RunspaceOpen:' + $OperationId) -DurationMs ([double]$openWatch.Elapsed.TotalMilliseconds) } catch { }
             return $existing
         }
     }
@@ -22172,7 +22186,9 @@ $VerbosePreference = "SilentlyContinue"
 $DebugPreference = "SilentlyContinue"
 $InformationPreference = "SilentlyContinue"
 '@
-    $errorContract="function Get-DomeniaStructuredError {`r`n"+(Get-Command Get-DomeniaStructuredError -CommandType Function).Definition+"`r`n}"
+    # PF-10: the error contract copied into every worker is read once per session, not looked up at each task.
+    if ([string]::IsNullOrEmpty([string]$script:DomeniaWorkerErrorContract)) { $script:DomeniaWorkerErrorContract="function Get-DomeniaStructuredError {`r`n"+(Get-Command Get-DomeniaStructuredError -CommandType Function).Definition+"`r`n}" }
+    $errorContract=[string]$script:DomeniaWorkerErrorContract
     $businessCode="try {`r`n"+$businessCode+"`r`n}"+@'
  catch {
     $diagnostic=Get-DomeniaStructuredError $_ -Phase ([string]$Context.OperationId) -Provider 'Windows' -Target ([string]$Context.Server)
@@ -22186,15 +22202,21 @@ $InformationPreference = "SilentlyContinue"
     $entry = New-Object System.Management.Automation.Runspaces.SessionStateFunctionEntry -ArgumentList @($functionName,$definition)
     [void]$iss.Commands.Add($entry)
     if ($pooled) {
-        $pool=[Management.Automation.Runspaces.RunspaceFactory]::CreateRunspacePool(1,3,$iss,$Host)
+        # PF-05: up to MaxThreads runspaces per operation (a cancelled native call that keeps its runspace never makes the
+        # next read wait in the pool); idle extra runspaces are closed after two minutes, one stays prepared.
+        $poolMax=[Math]::Max(3,[Math]::Min(32,[int](Get-CfgValue 'Async' 'MaxThreads' 6)))
+        $pool=[Management.Automation.Runspaces.RunspaceFactory]::CreateRunspacePool(1,$poolMax,$iss,$Host)
         try {
             $pool.ApartmentState=[Threading.ApartmentState]::MTA
             $pool.ThreadOptions=[Management.Automation.Runspaces.PSThreadOptions]::ReuseThread
+            $pool.CleanupInterval=[TimeSpan]::FromMinutes(2)
             $pool.Open()
             $record=[pscustomobject]@{Runspace=$null;Pool=$pool;CommandName=$functionName;OperationId=$OperationId;CodeHash=$verifiedHash}
             $script:LiveWorkerPools[$OperationId]=$record
             # D019: the pool has an owner and is closed by the registry at shutdown.
             try { [void](Register-DomeniaWorkerPool -OperationId $OperationId -Pool $pool) } catch { }
+            $openWatch.Stop()
+            try { Add-DomeniaRuntimeMetric -Provenance 'Dispatcher' -OperationId ('RunspaceOpen:' + $OperationId) -DurationMs ([double]$openWatch.Elapsed.TotalMilliseconds) } catch { }
             return $record
         } catch { $pool.Dispose(); throw }
     }
@@ -22202,12 +22224,10 @@ $InformationPreference = "SilentlyContinue"
     try {
         $runspace.ApartmentState = [System.Threading.ApartmentState]::MTA
         $runspace.ThreadOptions = [System.Management.Automation.Runspaces.PSThreadOptions]::ReuseThread
-        $openWatch = [System.Diagnostics.Stopwatch]::StartNew()
         $runspace.Open()
         $openWatch.Stop()
-        # D014: the synchronous Open() on the Dispatcher is measured (series 'Dispatcher' of C7 when available).
-        $openMetric = Get-Command -Name Add-DomeniaRuntimeMetric -CommandType Function -ErrorAction SilentlyContinue
-        if ($null -ne $openMetric) { try { Add-DomeniaRuntimeMetric -Provenance 'Dispatcher' -OperationId ('RunspaceOpen:' + $OperationId) -DurationMs ([double]$openWatch.Elapsed.TotalMilliseconds) } catch { } }
+        # D014: the synchronous Open() on the Dispatcher is measured (series 'Dispatcher' of C7). PF-10: no lookup.
+        try { Add-DomeniaRuntimeMetric -Provenance 'Dispatcher' -OperationId ('RunspaceOpen:' + $OperationId) -DurationMs ([double]$openWatch.Elapsed.TotalMilliseconds) } catch { }
         return [pscustomobject]@{ Runspace=$runspace; CommandName=$functionName; OperationId=$OperationId; CodeHash=$verifiedHash }
     }
     catch {
@@ -22258,13 +22278,13 @@ function Initialize-AsyncEngine {
         $script:AsyncEngineTickFailures = 0
         $script:AsyncEngineFaultStopped = $false
 
-        $timer = New-Object System.Windows.Threading.DispatcherTimer
-        $timer.Interval = [System.TimeSpan]::FromMilliseconds([Math]::Max(100,[int](Get-CfgValue "Async" "PollIntervalMs" 250)))
-        $timer.Add_Tick({
+        # PF-06: the poll is a subscriber of the engine heartbeat. It runs while a task, a queued entry or a detached
+        # read exists (Complete-UiTasks stops it at rest, Start-UiTask resumes it) and also while the window is minimized.
+        $timer = New-DomeniaTimer -Owner 'Timer:Async' -IntervalMs ([Math]::Max(100,[int](Get-CfgValue "Async" "PollIntervalMs" 250))) -RunWhenHidden -Tick {
             # FI-02: a failing poll is counted; three consecutive failures stop the timer with one message.
             try { Complete-UiTasks; $script:AsyncEngineTickFailures = 0 }
             catch { try { [void](Register-DomeniaAsyncEngineFault -ErrorRecord $_) } catch { } }
-        })
+        }
         $script:AsyncTimer = $timer
         $script:AsyncTimer.Start()
         $sw.Stop()
@@ -22359,14 +22379,11 @@ try {
         if ($null -ne $Payload) {
             try { $payloadCount = @($Payload).Count } catch { $payloadCount = 1 }
         }
-
-        Add-DomeniaUiLog `
-            -Area "Tache" `
-            -Level "INFO" `
-            -Text (
-                "Preparation : nom={0}, operation={1}, payload={2}, timeout={3}s, remplacement={4}" -f
-                $Name,$OperationId,$payloadCount,$TimeoutSeconds,$ReplaceKey
-            )
+        # UX-04: engine detail at the Trace level (Domenia.log only), never in the session journal.
+        Write-DomeniaTrace -Area 'Tache' -Text (
+            "Préparation : nom={0}, opération={1}, charge={2}, délai={3} s, remplacement={4}" -f
+            $Name,$OperationId,$payloadCount,$TimeoutSeconds,$ReplaceKey
+        )
     }
     catch { }
 
@@ -22388,6 +22405,12 @@ try {
 
     $scheduler = Test-DomeniaSchedulerEnabled
     $taskClassValue = ''; $providerValue = ''; $providerTarget = ''; $dedupKey = ''
+    # CO-02: only a foreground task (Write, Explicit, Selection) becomes the target of Annuler and of the progress label.
+    $foregroundValue = $true
+    try {
+        $trackedClass = Get-DomeniaTaskClass -OperationId $OperationId -IsWrite ([bool]$IsWrite) -ReplaceKey $ReplaceKey -Hint $TaskClass
+        $foregroundValue = [bool](Test-DomeniaForegroundTaskClass -Class $trackedClass)
+    } catch { $foregroundValue = $true }
     if ($scheduler) {
         $taskClassValue = Get-DomeniaTaskClass -OperationId $OperationId -IsWrite ([bool]$IsWrite) -ReplaceKey $ReplaceKey -Hint $TaskClass
         $providerValue = Get-DomeniaOperationProvider $OperationId
@@ -22426,7 +22449,7 @@ try {
     $maxConcurrent = [Math]::Max(1,[Math]::Min(32,[int](Get-CfgValue "Async" "MaxThreads" 6)))
     $physicalCount = @($script:AsyncJobs.Keys).Count + @($script:DetachedReadJobs).Count
     $maxOutstanding = [Math]::Max($maxConcurrent,[Math]::Min(64,[int](Get-CfgValue 'Async' 'MaxOutstandingWorkers' 12)))
-    $admission = 'Start'
+    $admission = 'Start'; $admissionReason = ''
     if (-not $scheduler) {
         # Features.Scheduler=false: historical limits, unchanged.
         if ($physicalCount -ge $maxOutstanding) {
@@ -22439,7 +22462,10 @@ try {
     }
     else {
         # D015: start, wait in the bounded priority queue, or refuse (a refusal still throws its reason).
-        $admission = [string](Get-DomeniaUiTaskAdmission -Class $taskClassValue).Decision
+        # FI-03: a write admitted on its reserved place while reads finish carries a reason shown to the operator.
+        $admissionResult = Get-DomeniaUiTaskAdmission -Class $taskClassValue
+        $admission = [string]$admissionResult.Decision
+        $admissionReason = [string](Get-DomeniaMember $admissionResult 'Reason' '')
     }
 
     if ($TimeoutSeconds -le 0) { $TimeoutSeconds = [int](Get-CfgValue "Async" "DefaultTimeoutSeconds" 60) }
@@ -22457,6 +22483,7 @@ try {
         State='Starting'; Class=$taskClassValue; Provider=$providerValue; ProviderTarget=$providerTarget; Sequence=(Get-DomeniaNextTaskSequence); QueuedAt=$null
         Subscribers=(New-Object System.Collections.ArrayList); BusyApplied=$false; Code=$Code; Payload=$Payload; StatusText=$StatusText
         ExecutedOperationId=''; Demo=$false; Isolated=$false; DedupKey=$dedupKey; SchedulerManaged=[bool]$scheduler; CredentialIdentity=''
+        Foreground=[bool]$foregroundValue; ErrorInfo=$null
     }
     if ($admission -eq 'Queue') {
         # Nothing is sent yet: the pinned body is checked now, the worker starts when Complete-UiTasks promotes it.
@@ -22466,15 +22493,20 @@ try {
         Set-ControlsBusy -Names $DisableControls -Busy $true
         $job.BusyApplied = $true
         $script:AsyncJobs[$id] = $job
-        Set-Status ("En attente : $Name. Aucune lecture envoyee pour l instant.")
-        $script:LatestTaskId = $id
+        if ($foregroundValue) { Set-Status ("En attente : $Name. Aucune lecture envoyee pour l instant.") }
+        if ($foregroundValue) { $script:LatestTaskId = $id }
+        try { Resume-DomeniaAsyncPoll } catch { }
         Update-TaskUi -Force
         return $id
     }
     # D015/C2/D016/D018/D019: the launch body lives in Invoke-DomeniaUiTaskDispatch (Domenia-Engine.UI.ps1).
     [void](Invoke-DomeniaUiTaskDispatch -Job $job)
     $script:AsyncJobs[$id] = $job
-    $script:LatestTaskId = $id
+    # CO-02: LatestTaskId follows the foreground tasks only; a local save never becomes the target of Annuler.
+    if ($foregroundValue) { $script:LatestTaskId = $id }
+    if ($admissionReason -and [bool]$IsWrite) { try { Set-Status $admissionReason } catch { } }
+    # PF-06: the engine poll stops at rest; a new task resumes it.
+    try { Resume-DomeniaAsyncPoll } catch { }
     Update-TaskUi -Force
     return $id
 }
@@ -22508,7 +22540,12 @@ function Request-UiTaskStop {
         return
     }
     if ([bool]$job.NonCancellable -and -not $Force) {
-        if (-not $Silent) { Set-Status "Cette ecriture AD ne peut pas etre annulee apres envoi. Attends la relecture de verification." "WARN" }
+        # CO-02: a local save is not an AD write: it says that it ends by itself.
+        if (-not $Silent) {
+            if ([bool]$job.IsWrite) { Set-Status "Cette écriture AD ne peut pas être annulée après envoi. Attendez la relecture de vérification." "WARN" }
+            elseif ([string]$job.Provider -eq 'Storage' -or [string]$job.OperationId -in @('LocalStore','LiveCache','ReceiptStore','DocumentStore','LinkHistoryStore')) { Set-Status 'Enregistrement local : il se termine seul.' }
+            else { Set-Status ([string]$job.Name + ' : opération locale protégée, elle se termine seule.') }
+        }
         return
     }
     if ([bool]$job.CancelRequested) {
@@ -22538,7 +22575,7 @@ function Request-UiTaskStop {
     if (-not $Silent -and -not $Superseded) {
         # D017: a stop request is never presented as a finished cancellation.
         $stopText = "Annulation demandee : $($job.Name). Le thread graphique reste disponible."
-        if ($null -ne (Get-Command -Name Get-DomeniaCancelStatusText -CommandType Function -ErrorAction SilentlyContinue)) { $stopText = Get-DomeniaCancelStatusText -Name ([string]$job.Name) -State 'StopRequested' -IsWrite ([bool]$job.IsWrite) }
+        try { $stopText = Get-DomeniaCancelStatusText -Name ([string]$job.Name) -State 'StopRequested' -IsWrite ([bool]$job.IsWrite) } catch { }
         Set-Status $stopText "WARN"
     }
     Update-TaskUi -Force
@@ -22550,17 +22587,32 @@ function Stop-UiTask {
 }
 
 function Stop-LatestUiTask {
-    if ([string]::IsNullOrWhiteSpace($script:LatestTaskId) -or -not $script:AsyncJobs.Contains($script:LatestTaskId)) {
-        $keys = @($script:AsyncJobs.Keys)
-        if ($keys.Count -eq 0) { return }
-        $script:LatestTaskId = $keys[-1]
+    # CO-02: Annuler targets the most recent cancellable foreground task (search, record, explicit action), then a
+    # cancellable background read; never a local save. A write is refused; a lone local save ends by itself.
+    $jobs = @($script:AsyncJobs.Values | Where-Object { $null -ne $_ })
+    if ($jobs.Count -eq 0) { return }
+    $target = $null
+    if (-not [string]::IsNullOrWhiteSpace($script:LatestTaskId) -and $script:AsyncJobs.Contains($script:LatestTaskId)) {
+        $latest = $script:AsyncJobs[$script:LatestTaskId]
+        if ($null -ne $latest -and -not [bool]$latest.IsWrite -and -not [bool]$latest.NonCancellable -and -not [bool]$latest.CancelRequested) { $target = $latest }
     }
-    $job = $script:AsyncJobs[$script:LatestTaskId]
-    if ($null -ne $job -and [bool]$job.IsWrite) {
-        Set-Status "Annulation refusee : une ecriture AD est en cours ou en attente de confirmation du DC." "WARN"
+    foreach ($foreground in @($true,$false)) {
+        if ($null -ne $target) { break }
+        for ($i = $jobs.Count - 1; $i -ge 0; $i--) {
+            $job = $jobs[$i]
+            if ([bool]$job.IsWrite -or [bool]$job.NonCancellable -or [bool]$job.CancelRequested) { continue }
+            $flag = $job.PSObject.Properties['Foreground']
+            $isForeground = (($null -eq $flag) -or [bool]$flag.Value)
+            if ($foreground -and -not $isForeground) { continue }
+            $target = $job; break
+        }
+    }
+    if ($null -eq $target) {
+        if (@($jobs | Where-Object { [bool]$_.IsWrite }).Count) { Set-Status "Annulation refusée : une écriture AD est en cours ou en attente de confirmation du DC." "WARN"; return }
+        if (@($jobs | Where-Object { -not [bool]$_.CancelRequested }).Count) { Set-Status 'Enregistrement local : il se termine seul.' }
         return
     }
-    Request-UiTaskStop -Id $script:LatestTaskId -Reason 'Annulation utilisateur'
+    Request-UiTaskStop -Id ([string]$target.Id) -Reason 'Annulation utilisateur'
 }
 
 function Detach-DomeniaReadUiTask {
@@ -22588,7 +22640,7 @@ function Detach-DomeniaReadUiTask {
         Write-AppLog "[$($job.CorrelationId)] Lecture detachee du GUI apres annulation non cooperative : $($job.Name). $Reason" "WARN"
     } catch { }
     # D017: the native call still runs and stays counted; say so instead of announcing a finished cancellation.
-    if (-not [bool]$job.Superseded -and $null -ne (Get-Command -Name Get-DomeniaCancelStatusText -CommandType Function -ErrorAction SilentlyContinue)) {
+    if (-not [bool]$job.Superseded) {
         try { Set-Status (Get-DomeniaCancelStatusText -Name ([string]$job.Name) -State 'Cleanup') "WARN" } catch { }
     }
     try { Update-TaskUi -Force } catch { }
@@ -22600,9 +22652,13 @@ function Complete-UiTasks {
     # D019: per-job resources are released once their job is neither active nor detached.
     try { Initialize-DomeniaEngineState; [void](Sync-DomeniaJobResources) } catch { }
     $removed = $false
-    $completedThisTick = 0
-    $maxCompletions = [Math]::Max(1,[int](Get-CfgValue "Async" "MaxCompletionsPerTick" 2))
+    # PF-04: a time budget per tick (Async.TickBudgetMs, about 25 ms) replaces MaxCompletionsPerTick, and finished
+    # jobs are handled by class priority: Write, Explicit, Selection, then Background.
+    $budgetMs = 25
+    try { $budgetMs = [int](Get-DomeniaEngineLimits).TickBudgetMs } catch { $budgetMs = [Math]::Max(5,[Math]::Min(250,[int](Get-CfgValue "Async" "TickBudgetMs" 25))) }
     $callbackWarningMs = [Math]::Max(25,[int](Get-CfgValue "Async" "CallbackWarningMs" 120))
+    $tickWatch = [System.Diagnostics.Stopwatch]::StartNew()
+    $finished = New-Object 'System.Collections.Generic.List[object]'
 
     foreach ($id in @($script:AsyncJobs.Keys)) {
         $job = $script:AsyncJobs[$id]
@@ -22660,9 +22716,19 @@ function Complete-UiTasks {
             continue
         }
 
-        # Une seule rafale de callbacks WPF ne doit jamais monopoliser le dispatcher.
-        if ($completedThisTick -ge $maxCompletions) { continue }
-        $completedThisTick++
+        $finished.Add([pscustomobject]@{Key=$id;Job=$job;Class=[string]$job.Class;Sequence=[long]$job.Sequence;InvokeCompleted=$invokeCompleted;StopCompleted=$stopCompleted})
+    }
+    $ordered = $finished.ToArray()
+    try { $ordered = @(Get-DomeniaTaskOrder -Jobs $finished.ToArray()) } catch { $ordered = $finished.ToArray() }
+    $handled = 0
+    foreach ($entry in $ordered) {
+        $id = $entry.Key; $job = $entry.Job
+        if (-not $script:AsyncJobs.Contains($id)) { continue }
+        # Une rafale de callbacks WPF ne doit jamais monopoliser le dispatcher : au moins une fin par tick, puis le budget.
+        if ($handled -gt 0 -and $tickWatch.ElapsedMilliseconds -ge $budgetMs) { break }
+        $handled++
+        $invokeCompleted = [bool]$entry.InvokeCompleted
+        $stopCompleted = [bool]$entry.StopCompleted
 
         $errorMessage = ""
         $output = $null
@@ -22698,7 +22764,7 @@ function Complete-UiTasks {
         if ([bool]$job.CancelRequested) {
             if (-not [bool]$job.Superseded -and -not [bool]$job.TimeoutErrorDelivered) {
                 $endText = "Operation annulee : $($job.Name)."
-                if ($null -ne (Get-Command -Name Get-DomeniaCancelStatusText -CommandType Function -ErrorAction SilentlyContinue)) { $endText = Get-DomeniaCancelStatusText -Name ([string]$job.Name) -State 'Completed' }
+                try { $endText = Get-DomeniaCancelStatusText -Name ([string]$job.Name) -State 'Completed' } catch { }
                 Set-Status $endText "WARN"
             }
             continue
@@ -22708,7 +22774,11 @@ function Complete-UiTasks {
             $output = $null
             continue
         }
-        try { [void](Register-DomeniaTaskOutcome -Job $job -ErrorMessage $errorMessage) } catch { }
+        # CD-12: the error of a task is analysed once; the same object feeds the provider outcome, the anti-lockout
+        # breaker and the callbacks (on the job: $Job.ErrorInfo, reachable through $script:AccessCurrentJob).
+        $errorInfo = $null
+        if (-not [string]::IsNullOrWhiteSpace($errorMessage)) { $errorInfo = ConvertTo-DomeniaTaskErrorInfo -Job $job -Message $errorMessage }
+        try { [void](Register-DomeniaTaskOutcome -Job $job -ErrorMessage $errorMessage -ErrorInfo $errorInfo) } catch { }
         if ([string]::IsNullOrWhiteSpace($errorMessage)) {
             $callbackWatch = [System.Diagnostics.Stopwatch]::StartNew()
             $modalBefore = [long]$script:ModalBlockedMs
@@ -22737,10 +22807,9 @@ function Complete-UiTasks {
             # l'identite et on ne retente pas automatiquement avec une variante.
             $credentialRejected = ($errorMessage -match "(?i)(nom d.utilisateur ou le mot de passe est incorrect|user name or password is incorrect|logon failure|identifiant ou mot de passe|credentials?.*(invalid|incorrect)|compte.*verrouill|account.*locked)")
             # D052: the structured decision (native code or worker marker, French and English alike) joins the text rule;
-            # a delay or a refused right never trips the anti-lockout breaker.
-            if (-not $credentialRejected -and $null -ne (Get-Command -Name Get-DomeniaErrorDecision -CommandType Function -ErrorAction SilentlyContinue)) {
-                try { $credentialRejected = ([string](Get-DomeniaErrorDecision -Structured (Get-DomeniaStructuredError $errorMessage -Phase ([string]$job.OperationId)) -Text $errorMessage).Category -in @('CredentialsRejected','AccountState')) } catch { }
-            }
+            # a delay or a refused right never trips the anti-lockout breaker. CD-12: computed once, above.
+            if ($null -eq $errorInfo) { $errorInfo = ConvertTo-DomeniaTaskErrorInfo -Job $job -Message $errorMessage }
+            if (-not $credentialRejected -and $null -ne $errorInfo) { $credentialRejected = ([string](Get-DomeniaMember $errorInfo 'Category' '') -in @('CredentialsRejected','AccountState')) }
             if ($credentialRejected) {
                 # C3/D018: only an operation that can carry the AD account trips the AD breaker. A refused
                 # workstation, WTS or local-storage account (SessionsList, LocalStore...) never suspends the directory.
@@ -22767,11 +22836,17 @@ function Complete-UiTasks {
             Write-AppLog "[$($job.CorrelationId)] $($job.Name) : $errorMessage" "ERROR"
         }
     }
-    # D015: at most one queued entry starts per tick, explicit actions first; stale or expired entries leave the queue.
-    try { if (Invoke-DomeniaQueuedTaskPromotion) { $removed = $true } }
+    # D015 / PF-04: queued entries start by priority while the admission and the tick budget allow; stale or expired
+    # entries leave the queue.
+    try { if (Invoke-DomeniaQueuedTaskPromotion -BudgetMs ([Math]::Max(5,$budgetMs - [int]$tickWatch.ElapsedMilliseconds))) { $removed = $true } }
     catch { try { Write-AppLog ("Promotion de la file : " + $_.Exception.Message) "ERROR" } catch { } }
     if ($removed) { Update-TaskUi -Force } else { Update-TaskUi }
+    # PF-06: without task, queued entry or detached read, the poll stops; Start-UiTask resumes it.
+    if ((@($script:AsyncJobs.Keys).Count -eq 0) -and (@($script:DetachedReadJobs).Count -eq 0)) {
+        try { if ($null -ne $script:AsyncTimer -and [bool]$script:AsyncTimer.IsEnabled) { $script:AsyncTimer.Stop() } } catch { }
+    }
 }
+
 
 function Dispose-AsyncEngine {
     Stop-DomeniaLive -Closing
@@ -22856,6 +22931,35 @@ function Get-WorkerContext {
         if($null -ne $script:AccessState -and $script:AccessState.Faults.ContainsKey($retryScope)){throw 'Authentification rejetee pour cette ressource. Utilisez un autre compte avant de recommencer.'}
     }
     $static = $script:WorkerContextStatic
+    # PF-23: the configuration part of the context is read once per configuration object (Load-AppConfig builds a
+    # new one); only the identities are computed per operation. Without a loaded configuration it is read each time.
+    $cfg = $script:WorkerContextConfig
+    if (($null -eq $script:Config) -or ($null -eq $cfg) -or (-not [object]::ReferenceEquals($cfg.Config,$script:Config))) {
+        $cfg = [pscustomobject]@{
+            Config = $script:Config
+            PageSize = [int](Get-CfgValue "Browser" "MaxPageSize" 300)
+            PreferModule = [bool](Get-CfgValue "Modules" "PreferActiveDirectoryModule" $true)
+            ModuleUseCredential = [bool](Get-CfgValue "Modules" "UseCredential" $true)
+            PortTimeoutMs = [int](Get-CfgValue "Remote" "PortTimeoutMs" 1200)
+            RemoteCommandTimeoutSeconds = [Math]::Max(3,[int](Get-CfgValue "Remote" "CommandTimeoutSeconds" 10))
+            UseCim = [bool](Get-CfgValue "Remote" "UseCim" $true)
+            UseWinRM = [bool](Get-CfgValue "Remote" "UseWinRM" $true)
+            UsePsExecFallback = [bool](Get-CfgValue "Remote" "UsePsExecFallback" $true)
+            UseTaskFallback = [bool](Get-CfgValue "Remote" "UseTaskFallback" $true)
+            TaskFallbackTimeoutSeconds = [Math]::Max(15,[int](Get-CfgValue "Remote" "TaskFallbackTimeoutSeconds" 75))
+            WaptEnabled = [bool](Get-CfgValue "WAPT" "Enabled" $false)
+            WaptGetPath = [string](Get-CfgValue "WAPT" "WaptGetPath" "")
+            WaptServerUrl = [string](Get-CfgValue "WAPT" "ServerUrl" "")
+            BlockProtectedObjects = [bool](Get-CfgValue "Security" "BlockProtectedObjects" $true)
+            AllowProtectedObjectWrites = [bool](Get-CfgValue "Security" "AllowProtectedObjectWrites" $false)
+            AllowContainerDelete = [bool](Get-CfgValue "Security" "AllowContainerDelete" $false)
+            AllowRawAttributeWrite = [bool](Get-CfgValue "Security" "AllowRawAttributeWrite" $false)
+            BlockSensitiveRawAttributes = [bool](Get-CfgValue "Security" "BlockSensitiveRawAttributes" $true)
+            RequireFreshObject = [bool](Get-CfgValue "Security" "RequireFreshObject" $true)
+            SingleWriteChannel = [bool](Get-CfgValue "Security" "SingleWriteChannel" $true)
+        }
+        if ($null -ne $script:Config) { $script:WorkerContextConfig = $cfg }
+    }
     # C3 (D018): one reviewed table, Get-DomeniaOperationCredentialNeeds (Domenia-Engine.Model.ps1), replaces the
     # three historical lists; its golden test keeps every registered operation identical to RC1.10.7.
     # "LiveSelectedPing" stays credential free (local/network list of the table).
@@ -22868,7 +22972,7 @@ function Get-WorkerContext {
         if ([string]::IsNullOrWhiteSpace($fault)) { $fault = "authentification AD rejetee" }
         throw "Canal Active Directory suspendu apres un rejet d'authentification ($fault). Reconnecte DOMENIA avant toute nouvelle lecture AD."
     }
-    $useDirectoryCredential = ([bool]$credentialNeeds.DirectoryCredential -and [bool](Get-CfgValue "Modules" "UseCredential" $true) -and [bool]$script:Conn.UseCredential -and $null -ne $script:Conn.Credential)
+    $useDirectoryCredential = ([bool]$credentialNeeds.DirectoryCredential -and [bool]$cfg.ModuleUseCredential -and [bool]$script:Conn.UseCredential -and $null -ne $script:Conn.Credential)
     $useRemoteAdminCredential = ([bool]$credentialNeeds.RemoteAdmin -and ($null -ne $script:RemoteAdminCredential -or ([bool]$script:Conn.UseCredential -and $null -ne $script:Conn.Credential)))
     $useSecretsCredential = ([bool]$credentialNeeds.Secrets -and ($null -ne $script:SecretsCredential -or ([bool]$script:Conn.UseCredential -and $null -ne $script:Conn.Credential)))
     $workerDirectoryCredential = if ($useSecretsCredential -and $null -ne $script:SecretsCredential) { $script:SecretsCredential } elseif ($useDirectoryCredential) { $script:Conn.Credential } elseif ($useSecretsCredential) { $script:Conn.Credential } else { $null }
@@ -22880,13 +22984,13 @@ function Get-WorkerContext {
         # Un compte Secrets dedie ne doit jamais recevoir le nom du compte AD.
         BindUser = if ($null -ne $workerDirectoryCredential) { [string]$workerDirectoryCredential.UserName } else { [string]$script:Conn.BindUser }
         Credential = $workerDirectoryCredential
-        PageSize = [int](Get-CfgValue "Browser" "MaxPageSize" 300)
+        PageSize = [int]$cfg.PageSize
         AdModuleSources = @($static.AdModuleSources)
         AdRequiredCommands = @($static.AdRequiredCommands)
         AdTypeNames = @($static.AdTypeNames)
         AdManagementHash = [string]$static.AdManagementHash
         AdResourceHash = [string]$static.AdResourceHash
-        PreferModule = [bool](Get-CfgValue "Modules" "PreferActiveDirectoryModule" $true)
+        PreferModule = [bool]$cfg.PreferModule
         UseCredential = ($useDirectoryCredential -or $useSecretsCredential)
         AuthMode = [string]$script:Conn.AuthMode
         RootDir = [string]$script:RootDir
@@ -22901,16 +23005,16 @@ function Get-WorkerContext {
         RemoteAdminUser = if ($useRemoteAdminCredential) { if ($null -ne $script:RemoteAdminCredential) { [string]$script:RemoteAdminCredential.UserName } else { [string]$script:Conn.BindUser } } else { "" }
         RemoteAdminCredential = if ($useRemoteAdminCredential) { if ($null -ne $script:RemoteAdminCredential) { $script:RemoteAdminCredential } elseif ([bool]$script:Conn.UseCredential) { $script:Conn.Credential } else { $null } } else { $null }
         OperationId = $OperationId
-        PortTimeoutMs = [int](Get-CfgValue "Remote" "PortTimeoutMs" 1200)
-        RemoteCommandTimeoutSeconds = [Math]::Max(3,[int](Get-CfgValue "Remote" "CommandTimeoutSeconds" 10))
-        UseCim = [bool](Get-CfgValue "Remote" "UseCim" $true)
-        UseWinRM = [bool](Get-CfgValue "Remote" "UseWinRM" $true)
-        UsePsExecFallback = [bool](Get-CfgValue "Remote" "UsePsExecFallback" $true)
+        PortTimeoutMs = [int]$cfg.PortTimeoutMs
+        RemoteCommandTimeoutSeconds = [int]$cfg.RemoteCommandTimeoutSeconds
+        UseCim = [bool]$cfg.UseCim
+        UseWinRM = [bool]$cfg.UseWinRM
+        UsePsExecFallback = [bool]$cfg.UsePsExecFallback
         AllowRemoteArtifacts = ($null -ne $script:ArtifactConsent -and $script:ArtifactConsent.Epoch -eq $script:SessionEpoch -and $script:ArtifactConsent.Expires -gt [datetime]::UtcNow)
         ArtifactTarget = $(if($null -ne $script:ArtifactConsent){[string]$script:ArtifactConsent.Target}else{''})
         ArtifactAliases = $(if($null -ne $script:ArtifactConsent){[string[]]$script:ArtifactConsent.Aliases}else{@()})
-        UseTaskFallback = [bool](Get-CfgValue "Remote" "UseTaskFallback" $true)
-        TaskFallbackTimeoutSeconds = [Math]::Max(15,[int](Get-CfgValue "Remote" "TaskFallbackTimeoutSeconds" 75))
+        UseTaskFallback = [bool]$cfg.UseTaskFallback
+        TaskFallbackTimeoutSeconds = [int]$cfg.TaskFallbackTimeoutSeconds
         ExpectedControls = if ($null -ne $script:Ctrl) { [int]$script:Ctrl.Count } else { 0 }
         MissingCriticalFunctions = @($static.MissingCriticalFunctions)
         MissingCriticalControls = @($static.MissingCriticalControls)
@@ -22919,17 +23023,17 @@ function Get-WorkerContext {
         AsyncEngineReady = [bool]$script:AsyncEngineReady
         PowerShellVersion = [string]$static.PowerShellVersion
         IsSta = [bool]$static.IsSta
-        WaptEnabled = [bool](Get-CfgValue "WAPT" "Enabled" $false)
-        WaptGetPath = [string](Get-CfgValue "WAPT" "WaptGetPath" "")
-        WaptServerUrl = [string](Get-CfgValue "WAPT" "ServerUrl" "")
-        BlockProtectedObjects = [bool](Get-CfgValue "Security" "BlockProtectedObjects" $true)
-        AllowProtectedObjectWrites = [bool](Get-CfgValue "Security" "AllowProtectedObjectWrites" $false)
-        AllowContainerDelete = [bool](Get-CfgValue "Security" "AllowContainerDelete" $false)
-        AllowRawAttributeWrite = [bool](Get-CfgValue "Security" "AllowRawAttributeWrite" $false)
-        BlockSensitiveRawAttributes = [bool](Get-CfgValue "Security" "BlockSensitiveRawAttributes" $true)
+        WaptEnabled = [bool]$cfg.WaptEnabled
+        WaptGetPath = [string]$cfg.WaptGetPath
+        WaptServerUrl = [string]$cfg.WaptServerUrl
+        BlockProtectedObjects = [bool]$cfg.BlockProtectedObjects
+        AllowProtectedObjectWrites = [bool]$cfg.AllowProtectedObjectWrites
+        AllowContainerDelete = [bool]$cfg.AllowContainerDelete
+        AllowRawAttributeWrite = [bool]$cfg.AllowRawAttributeWrite
+        BlockSensitiveRawAttributes = [bool]$cfg.BlockSensitiveRawAttributes
         RawAttributeBlockList = @($script:RawAttributeBlockList)
-        RequireFreshObject = [bool](Get-CfgValue "Security" "RequireFreshObject" $true)
-        SingleWriteChannel = [bool](Get-CfgValue "Security" "SingleWriteChannel" $true)
+        RequireFreshObject = [bool]$cfg.RequireFreshObject
+        SingleWriteChannel = [bool]$cfg.SingleWriteChannel
         ReadOnlyMode = [bool]$script:ReadOnlyMode
         WriteState = [string]$script:WriteState
     }
@@ -25531,31 +25635,25 @@ function Request-DomeniaDashboardRefresh {
         try { Update-Dashboard } catch { }
         return
     }
-    # D020: a hidden or inactive home page is not rebuilt; it is marked dirty and rebuilt once when shown again.
+    # D020 / UX-30: a hidden page or a minimized window is not rebuilt; it is marked dirty and rebuilt once when shown
+    # again. An inactive but visible window keeps its home page current. PF-10: no command lookup.
     $dashboardAllowed = $true
-    if ($null -ne (Get-Command -Name Test-DomeniaBackgroundWorkAllowed -CommandType Function -ErrorAction SilentlyContinue)) {
-        try { $dashboardAllowed = [bool](Test-DomeniaBackgroundWorkAllowed -Source 'Dashboard') } catch { $dashboardAllowed = $true }
-    }
+    try { $dashboardAllowed = [bool](Test-DomeniaBackgroundWorkAllowed -Source 'Dashboard') } catch { $dashboardAllowed = $true }
     if (-not $dashboardAllowed) { $script:DashboardDirty = $true; return }
     $script:DashboardDirty = $false
     try {
         if ($null -eq $script:DashboardRefreshTimer) {
-            $script:DashboardRefreshTimer = New-Object System.Windows.Threading.DispatcherTimer
-            $script:DashboardRefreshTimer.Interval = [TimeSpan]::FromMilliseconds(160)
-            $script:DashboardRefreshTimer.Add_Tick({
+            # FI-05: protected timer of the engine heartbeat, owned and registered by the factory.
+            $script:DashboardRefreshTimer = New-DomeniaTimer -Owner 'Timer:DashboardRefresh' -IntervalMs 160 -Tick {
                 param($sender,$eventArgs)
                 # Stop the timer that ticked, not the script variable: a replaced or cleared variable left it ticking forever.
                 try { $sender.Stop() } catch { }
                 # D020: the page may have been hidden since the request; it is then rebuilt once when shown again.
                 $tickAllowed = $true
-                if ($null -ne (Get-Command -Name Test-DomeniaBackgroundWorkAllowed -CommandType Function -ErrorAction SilentlyContinue)) {
-                    try { $tickAllowed = [bool](Test-DomeniaBackgroundWorkAllowed -Source 'Dashboard') } catch { $tickAllowed = $true }
-                }
+                try { $tickAllowed = [bool](Test-DomeniaBackgroundWorkAllowed -Source 'Dashboard') } catch { $tickAllowed = $true }
                 if (-not $tickAllowed) { $script:DashboardDirty = $true; return }
                 try { Update-Dashboard } catch { }
-            })
-            # D019: owned timer, stopped by the registry at shutdown.
-            try { [void](Register-DomeniaOwnedTimer -Owner 'Timer:DashboardRefresh' -Timer $script:DashboardRefreshTimer) } catch { }
+            }
         }
         $script:DashboardRefreshTimer.Stop()
         $script:DashboardRefreshTimer.Start()
@@ -26420,10 +26518,8 @@ function Start-DomeniaFastLoginAttempt {
         try {
             $session = New-DomeniaFastLoginSession -Login $demoLogin -Password "" -TimeoutSeconds 8 -Demo
             $state.Session = Start-DomeniaFastLoginWorker -Session $session
-            $script:FastLoginTimer = New-Object System.Windows.Threading.DispatcherTimer
-            $script:FastLoginTimer.Interval = [TimeSpan]::FromMilliseconds(200)
-            $script:FastLoginTimer.Add_Tick({ Update-DomeniaFastLoginAttempt })
-            $script:FastLoginTimer.Start()
+            # FI-05: protected standalone timer (connection, before the engine).
+            $script:FastLoginTimer = New-DomeniaTimer -Owner 'Timer:FastLogin' -IntervalMs 200 -Standalone -RunWhenHidden -Start -Tick { Update-DomeniaFastLoginAttempt }
             Write-DomeniaFastLoginLog -Stage "TIMER_STARTED" -Detail "Interval=200ms Mode=Demo"
         }
         catch {
@@ -26498,10 +26594,8 @@ function Start-DomeniaFastLoginAttempt {
         try { $ui.Password.Password = ""; $ui.PasswordVisible.Text = "" } catch { }
         Add-DomeniaFastLoginDetail "Validation lancee dans un runspace MTA interne. Aucun processus enfant et aucun fichier de mot de passe ne sont utilises."
 
-        $script:FastLoginTimer = New-Object System.Windows.Threading.DispatcherTimer
-        $script:FastLoginTimer.Interval = [TimeSpan]::FromMilliseconds(200)
-        $script:FastLoginTimer.Add_Tick({ Update-DomeniaFastLoginAttempt })
-        $script:FastLoginTimer.Start()
+        # FI-05: protected standalone timer (connection, before the engine).
+        $script:FastLoginTimer = New-DomeniaTimer -Owner 'Timer:FastLogin' -IntervalMs 200 -Standalone -RunWhenHidden -Start -Tick { Update-DomeniaFastLoginAttempt }
         Write-DomeniaFastLoginLog -Stage "TIMER_STARTED" -Detail "Interval=200ms IsEnabled=$($script:FastLoginTimer.IsEnabled)"
     }
     catch {

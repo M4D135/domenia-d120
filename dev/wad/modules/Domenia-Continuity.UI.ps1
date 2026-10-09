@@ -220,6 +220,16 @@ function Update-DomeniaListRevalidationUi {
     }
     [void](Set-DomeniaControlText 'LblListRevalidation' $label)
 }
+function Test-DomeniaContinuityTickNeeded {
+    # PF-06: a restore, a layout to save, a revalidation in progress or its results to show keep the 700 ms pace.
+    $c=$script:Continuity
+    if($null -eq $c){return $false}
+    if([bool]$c.Restoring -or [bool]$c.Dirty -or [bool]$c.CacheDirty -or $null -ne $c.RestoreSearch -or [bool]$script:FleetAwaitingRestore){return $true}
+    # Revalidation results waiting to be shown; the revalidation itself is paced by ChangeNext (2 s or more).
+    if($c.ChangeEvents.Count -gt 0){return $true}
+    if([string]$c.RestoreToken -cne ([string]$script:SessionEpoch+'|'+(Get-DomeniaTreeContextKey))){return $true}
+    return $false
+}
 function Invoke-DomeniaObjectChanges {
     if($null -eq $script:Continuity -or -not (Test-DomeniaLiveSearchActive) -or (Test-DomeniaAccessBusyWrite)){return}
     $s=$script:Live.Search;$c=$script:Continuity;$grid=Get-DomeniaControl 'DgObjects'
@@ -257,9 +267,8 @@ function Invoke-DomeniaObjectChanges {
     if(-not $grid.IsVisible -or $c.ChangeJob -or [datetime]::UtcNow -lt $c.ChangeNext){return}
     # C2: no directory read in demonstration. C1: the rest policy decides; without it, only an active window revalidates.
     if([bool]$script:DemoMode){return}
-    if($null -ne (Get-Command Test-DomeniaBackgroundWorkAllowed -CommandType Function -ErrorAction SilentlyContinue)){
-        if(-not (Test-DomeniaLiveBackgroundAllowed -Source 'ObjectChanges')){return}
-    }elseif(-not $script:Window.IsActive){return}
+    # PF-10: no command lookup in the tick; the shared C1 check keeps its open fallback.
+    if(-not (Test-DomeniaLiveBackgroundAllowed -Source 'ObjectChanges')){return}
     if([bool]$script:DirectoryCredentialFaulted -and $null -eq (Get-DomeniaRetryCredential 'GlobalSearch')){return}
     if(@($script:AsyncJobs.Keys).Count -ge [Math]::Max(1,([int](Get-CfgValue 'Async' 'MaxThreads' 6)-2))){return}
     # SE-13: off by default; when an administrator enables it, the in-page switch can stop it for the session.
@@ -349,9 +358,9 @@ function Initialize-DomeniaContinuity {
         $tree.AddHandler([Windows.Controls.TreeViewItem]::ExpandedEvent,[Windows.RoutedEventHandler]{if($null -ne $script:Continuity -and -not $script:Continuity.Restoring){$script:Continuity.Dirty=$true}})
         $tree.AddHandler([Windows.Controls.TreeViewItem]::CollapsedEvent,[Windows.RoutedEventHandler]{if($null -ne $script:Continuity -and -not $script:Continuity.Restoring){$script:Continuity.Dirty=$true}})
     }
-    $timer=[Windows.Threading.DispatcherTimer]::new([Windows.Threading.DispatcherPriority]::Background);$timer.Interval=[timespan]::FromMilliseconds(700)
-    $timer.Add_Tick({
-        try{
+    # FI-05 / PF-06: protected heartbeat timer, owned and registered by the factory: 700 ms while a layout, a restore or
+    # a revalidation is under way, every 2 s at rest.
+    $script:Continuity.Timer=New-DomeniaTimer -Owner 'Timer:Continuity' -IntervalMs 700 -IdleIntervalMs 2000 -Busy {Test-DomeniaContinuityTickNeeded} -Tick {
             if($script:AsyncEngineClosing){return}
             if($script:Continuity.RestoreToken -cne ([string]$script:SessionEpoch+'|'+(Get-DomeniaTreeContextKey))){Start-DomeniaTreeBookmarkRestore}
             Invoke-DomeniaTreeBookmarkRestore
@@ -363,9 +372,7 @@ function Initialize-DomeniaContinuity {
                 $pending=@($script:DetachedReadJobs|Where-Object{$_.Id -eq $script:Continuity.ChangeJob});if(-not $pending.Count){$script:Continuity.ChangeJob=''}
             }
             Invoke-DomeniaObjectChanges
-        }catch{Write-AppLog ('Disposition ou revalidation : '+$_.Exception.Message) 'WARN'}
-    });$script:Continuity.Timer=$timer;$timer.Start()
-    if($null -ne (Get-Command Register-DomeniaOwnedTimer -CommandType Function -ErrorAction SilentlyContinue)){try{[void](Register-DomeniaOwnedTimer -Owner 'Timer:Continuity' -Timer $timer)}catch{}}
+    };$script:Continuity.Timer.Start()
     $script:Window.Add_ContentRendered({Start-DomeniaTreeBookmarkRestore})
     $script:Window.Add_Closed({
         if($null -ne $script:Continuity){$script:Continuity.Timer.Stop();foreach($g in $script:Continuity.Grids.Values){Save-DomeniaGridLayout $g.Grid};Save-DomeniaTreeBookmark;Save-DomeniaSettings -Immediate}

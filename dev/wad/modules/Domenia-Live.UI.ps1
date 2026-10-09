@@ -1,15 +1,25 @@
 ﻿# Progressive search: only this module's timer touches the live WPF collection.
 # LDAP, CIM and SQLite are executed by pinned operations in background runspaces.
 $script:LiveModuleRoot=$PSScriptRoot
+function Get-DomeniaLiveIdentityKey {
+    # PF-01: cheap key of everything the identity signal depends on: the session epoch, the base DN, the account
+    # objects in use (by reference) and the account generation counter of the temporary accounts. No command lookup,
+    # no pipeline: the 80 ms tick compares it and rebuilds the full signal only when it changed.
+    $access=$script:AccessState;$credentials=$null;$count=0
+    if($null -ne $access){$credentials=$access.Credentials;if($null -ne $credentials){$count=[int]$credentials.Count}}
+    $refs=[string][Runtime.CompilerServices.RuntimeHelpers]::GetHashCode($script:Live)+'|'+[string][Runtime.CompilerServices.RuntimeHelpers]::GetHashCode($script:Conn.Credential)+'|'+[string][Runtime.CompilerServices.RuntimeHelpers]::GetHashCode($script:MachineCredential)+'|'+[string][Runtime.CompilerServices.RuntimeHelpers]::GetHashCode($script:RemoteAdminCredential)+'|'+[string][Runtime.CompilerServices.RuntimeHelpers]::GetHashCode($credentials)
+    return ([string]$script:SessionEpoch+'|'+[string]$script:Conn.BaseDn+'|'+[string]$script:Conn.UseCredential+'|'+[string]$script:Conn.BindUser+'|'+[string]$script:ProcessIdentity+'|'+[string]$script:DomeniaAccountGeneration+'|'+$count+'|'+$refs+'|'+[string]$script:Live.Identity)
+}
 function Get-DomeniaLiveIdentitySignal {
     $ad=if($script:Conn.UseCredential){[string]$script:Conn.BindUser}else{[string]$script:ProcessIdentity}
-    $adRetry=$null;if(Get-Command Get-DomeniaRetryCredential -ErrorAction SilentlyContinue){$adRetry=Get-DomeniaRetryCredential 'GlobalSearch'}
+    # PF-10: the closed loader provides Get-DomeniaRetryCredential; without it (isolated test) no retry account exists.
+    $adRetry=$null;try{$adRetry=Get-DomeniaRetryCredential 'GlobalSearch'}catch{$adRetry=$null}
     if($null -ne $adRetry){$ad=[string]$adRetry.UserName}
     $adRef=if($null -ne $adRetry){[Runtime.CompilerServices.RuntimeHelpers]::GetHashCode($adRetry)}else{0}
     $remote=$script:MachineCredential
     if($null -eq $remote){$remote=$script:RemoteAdminCredential}
     if($null -eq $remote -and $script:Conn.UseCredential){$remote=$script:Conn.Credential}
-    $remoteRetry=$null;if(Get-Command Get-DomeniaRetryCredential -ErrorAction SilentlyContinue){$remoteRetry=Get-DomeniaRetryCredential 'LiveConsole'}
+    $remoteRetry=$null;try{$remoteRetry=Get-DomeniaRetryCredential 'LiveConsole'}catch{$remoteRetry=$null}
     if($null -ne $remoteRetry){$remote=$remoteRetry}
     $remoteUser=if($null -ne $remote){[string]$remote.UserName}else{[string]$script:ProcessIdentity}
     $reference=if($null -ne $remote){[Runtime.CompilerServices.RuntimeHelpers]::GetHashCode($remote)}else{0}
@@ -43,19 +53,19 @@ function Initialize-DomeniaLive {
         }
         $button=Get-DomeniaControl 'BtnLiveRecheck'
         if($null -ne $button){$button.Add_Click({Request-DomeniaLiveRecheck})}
-        $timer=[Windows.Threading.DispatcherTimer]::new([Windows.Threading.DispatcherPriority]::Background)
-        $timer.Interval=[TimeSpan]::FromMilliseconds(80)
-        $timer.Add_Tick({try{Invoke-DomeniaLiveTick}catch{Write-AppLog ('Chargement progressif : '+$_.Exception.Message) 'ERROR'}})
-        $script:Live.Timer=$timer;$timer.Start()
-        # D019: owned timer, stopped by the resource registry at shutdown.
-        if($null -ne (Get-Command Register-DomeniaOwnedTimer -CommandType Function -ErrorAction SilentlyContinue)){try{[void](Register-DomeniaOwnedTimer -Owner 'Timer:Live' -Timer $timer)}catch{}}
+        # FI-05 / PF-06: protected heartbeat timer, owned and registered by the factory (D019). 80 ms while the
+        # search has work, once per second at rest (state line only); a search or a selection wakes it at once.
+        $script:Live.Timer=New-DomeniaTimer -Owner 'Timer:Live' -IntervalMs 80 -IdleIntervalMs 1000 -Busy {Test-DomeniaLiveTickNeeded} -Start -Tick {Invoke-DomeniaLiveTick}
         $script:Window.Add_Closed({Stop-DomeniaLive -Closing})
     }catch{Write-AppLog ('Initialisation progressive impossible : '+$_.Exception.Message) 'ERROR';$script:Live=$null}
 }
 function Reset-DomeniaLiveIdentity {
     if($null -eq $script:Live){return}
+    # PF-01: nothing that the signal depends on changed since the last tick: no rebuild.
+    $key=Get-DomeniaLiveIdentityKey
+    if([string]$script:DomeniaLiveIdentityKey -ceq $key){return}
     $signal=Get-DomeniaLiveIdentitySignal
-    if([string]$script:Live.Identity -ceq $signal.Signal){return}
+    if([string]$script:Live.Identity -ceq $signal.Signal){$script:DomeniaLiveIdentityKey=$key;return}
     if($null -ne $script:Live.Search){
         foreach($row in $script:Live.Search.Rows){if($row.Type -eq 'Machine'){$script:Live.IdentityRows.Enqueue($row)}}
     }
@@ -69,6 +79,7 @@ function Reset-DomeniaLiveIdentity {
     $script:Live.Refresh.Clear();$script:Live.Deferred.Clear();$script:Live.SaveJob='';$script:Live.SaveAfter=[datetime]::MinValue;$script:Live.SaveInFlight=0
     $script:Live.NegativeCache=(New-DomeniaNegativeCache)
     # Old callbacks carry the old identity and can never repopulate this scope.
+    $script:DomeniaLiveIdentityKey=Get-DomeniaLiveIdentityKey
 }
 function Stop-DomeniaLiveSearch {
     if($null -eq $script:Live -or $null -eq $script:Live.Search){return}
@@ -185,6 +196,9 @@ function Begin-DomeniaLiveSearch {
         Ranking=[bool]$ranking;SearchRules=[bool]$rules
     }
     $script:Live.Search=$s;$script:BranchObjects=$rows;$script:BranchCountLabel='Chargement progressif…'
+    # PF-06: the first rows are shown at the normal pace, not after the rest interval. A new search (explicit gesture)
+    # also restarts a timer stopped after three consecutive errors (FI-05).
+    try{if($null -ne $script:Live.Timer -and -not [bool]$script:Live.Timer.IsEnabled){$script:Live.Timer.Start()};Invoke-DomeniaTimerSoon -Owner 'Timer:Live'}catch{}
     $grid=Get-DomeniaControl 'DgObjects'
     $suppressed=$script:SuppressGridSelectionEvents;$script:SuppressGridSelectionEvents=$true
     try{$grid.ItemsSource=$rows;$grid.SelectedIndex=-1}finally{$script:SuppressGridSelectionEvents=$suppressed}
@@ -418,6 +432,7 @@ function Select-DomeniaLiveResult {
         Generation=[int]$script:GlobalSearchGeneration;RequestId=[guid]::NewGuid().ToString('N')
         Requested=$false;Manual=[bool]$Manual;ReadyAfter=[datetime]::UtcNow.AddMilliseconds(180)
     }
+    try{Invoke-DomeniaTimerSoon -Owner 'Timer:Live'}catch{}
     Request-DomeniaLiveProbe -Row $row
 }
 function Request-DomeniaLiveProbe {
@@ -832,9 +847,27 @@ function Invoke-DomeniaLiveTick {
 }
 function Test-DomeniaLiveBackgroundAllowed {
     # C1 belongs to the engine lane. An absent or failing policy means allowed (open fallback of the same contract).
+    # PF-10: no command lookup in the tick; a missing rule falls in the same open fallback.
     param([string]$Source='Live')
-    if($null -eq (Get-Command Test-DomeniaBackgroundWorkAllowed -CommandType Function -ErrorAction SilentlyContinue)){return $true}
     try{return [bool](Test-DomeniaBackgroundWorkAllowed -Source $Source)}catch{return $true}
+}
+function Test-DomeniaLiveTickNeeded {
+    # PF-06: the progressive search ticks every 80 ms only while it has visible work: rows, probes, presence events,
+    # a selection to check, or (when the rest policy allows it) a cache read or write to start. Otherwise the state
+    # line is refreshed once per second.
+    $l=$script:Live
+    if($null -eq $l){return $false}
+    if($l.Busy.Count -or $l.Deferred.Count -or $l.Refresh.Count -or $l.IdentityRows.Count){return $true}
+    if($null -ne $l.PresenceEvents -and -not $l.PresenceEvents.IsEmpty){return $true}
+    $s=$l.Search
+    if($null -ne $s){
+        if(-not [bool]$s.Finalized){return $true}
+        if(-not $s.Progress.IsEmpty -or -not $s.CacheProgress.IsEmpty){return $true}
+        if($null -ne $s.Prune -and $s.Prune.Count){return $true}
+    }
+    $pendingBackground=($l.PendingKeys.Count -or $l.Pending.Count -or $l.SaveQueue.Count -or $null -ne $l.QueryToSave -or ($null -ne $l.ProbeSelection -and -not [bool]$l.ProbeSelection.Requested) -or ($null -ne $s -and -not [bool]$s.CacheRequested))
+    if($pendingBackground -and (Test-DomeniaLiveBackgroundAllowed -Source 'Live')){return $true}
+    return $false
 }
 function Update-DomeniaSearchMoreButton {
     # D037: 'Charger la suite' is enabled only for the current, finished and limited list, below 20 000 lines.

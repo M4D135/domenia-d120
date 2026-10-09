@@ -72,14 +72,13 @@ function Start-DomeniaSecretReveal {
     $policy=Get-DomeniaSecretExposurePolicy
     try{if($null -ne $script:SecretRevealTimer){$script:SecretRevealTimer.Stop()}}catch{}
     $script:SecretsVisible=$true;$script:RevealedSecretIndex=$Index
-    $timer=New-Object System.Windows.Threading.DispatcherTimer
-    $timer.Interval=[TimeSpan]::FromSeconds([int]$policy.RevealSeconds)
-    $timer.Add_Tick({
-        try{$script:SecretRevealTimer.Stop()}catch{}
+    # FI-05: protected heartbeat timer, owned and registered by the factory; it also runs minimized.
+    $script:SecretRevealTimer=New-DomeniaTimer -Owner 'Timer:SecretReveal' -IntervalMs ([int]$policy.RevealSeconds*1000) -RunWhenHidden -Start -Tick {
+        param($sender,$eventArgs)
+        try{$sender.Stop()}catch{}
         $script:SecretsVisible=$false;$script:RevealedSecretIndex=-1
         Update-SecretsGrid
-    })
-    $script:SecretRevealTimer=$timer;$timer.Start()
+    }
     Update-SecretsGrid
     Select-DomeniaSecretRow -Index $Index
     return $true

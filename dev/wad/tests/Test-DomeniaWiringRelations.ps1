@@ -196,6 +196,8 @@ try {
     . ([scriptblock]::Create(($definitions.ToArray() -join "`n")))
     . (Join-Path $wad 'modules\Domenia-Common.Model.ps1')
     . (Join-Path $wad 'modules\Domenia-Engine.Model.ps1')
+    # FI-05 / PF-06: every Dispatcher timer comes from the protected factory of the engine (Domenia-Engine.UI.ps1).
+    . (Join-Path $wad 'modules\Domenia-Engine.UI.ps1')
     . (Join-Path $wad 'modules\Domenia-Cache.Model.ps1')
     if($null -eq ('Domenia.SelectionIdentity' -as [type])){Add-Type -Path (Join-Path $wad 'modules\Domenia-Identity.Types.cs')}
     . (Join-Path $wad 'modules\Domenia-Selection.UI.ps1')

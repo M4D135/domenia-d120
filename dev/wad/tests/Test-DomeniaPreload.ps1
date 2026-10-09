@@ -46,6 +46,9 @@ foreach($name in @('Get-MainXaml','Get-DomeniaControl','Set-DomeniaControlText',
 . (Join-Path $wad 'modules\Domenia-Shell.Model.ps1')
 . (Join-Path $wad 'modules\Domenia-Selection.UI.ps1')
 . (Join-Path $wad 'modules\Domenia-Experience.Model.ps1')
+# FI-05 / PF-06: every Dispatcher timer comes from the protected factory of the engine (Domenia-Engine.UI.ps1).
+. (Join-Path $wad 'modules\Domenia-Engine.Model.ps1')
+. (Join-Path $wad 'modules\Domenia-Engine.UI.ps1')
 # The fixture never imports the bootstrap, loads a user cache or invokes a real worker.
 function Get-DomeniaRetryCredential {param($OperationId);return $null}
 function Get-CfgValue {param($Section,$Name,$Default);return $Default}

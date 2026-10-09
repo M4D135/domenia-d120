@@ -813,7 +813,8 @@ function Get-DomeniaDisabledHelp {
             'Prerequisite' { $label = 'Prerequis non rempli sur ce poste ou sur la cible.'; $route = 'TabSelfCheck' }
             'Pending'      { $label = 'Une operation precedente reste a verifier sur cette cible.'; $route = 'TabGuard' }
             # A read or a remote action started from this control is still running (Busy is an AD write).
-            'Running'      { $label = 'Operation en cours, action de nouveau disponible a sa fin.'; $route = 'TabExperience' }
+            # UX-32: the operations are followed in the drop-down panel of the Opérations button.
+            'Running'      { $label = 'Operation en cours, action de nouveau disponible a sa fin.'; $route = 'Operations' }
         }
         $text = $actionText + ' : ' + $label
     }

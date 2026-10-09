@@ -65,6 +65,8 @@ function Test-UiBlockingDeferredBlock {
         for ($i = 0; $i -lt $elements.Count; $i++) {
             if ([object]::ReferenceEquals($elements[$i],$Block) -and $i -gt 0 -and $elements[$i - 1] -is [System.Management.Automation.Language.CommandParameterAst]) {
                 if ([string]$elements[$i - 1].ParameterName -in @('OnSuccess','OnError')) { return $true }
+                # FI-05: the -Tick and -Busy blocks of the timer factory run later, on the heartbeat.
+                if (($name -eq 'New-DomeniaTimer') -and ([string]$elements[$i - 1].ParameterName -in @('Tick','Busy'))) { return $true }
             }
         }
     }

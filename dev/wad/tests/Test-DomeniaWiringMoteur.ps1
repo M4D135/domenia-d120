@@ -61,7 +61,9 @@ $script:CoreFunctions = @('Start-UiTask','Complete-UiTasks','Request-UiTaskStop'
     'Close-DomeniaDatabase','Invoke-DomeniaDbExec','Get-DomeniaStartupXaml','Convert-DomeniaXamlToBootTheme','Get-DomeniaBootThemeResources',
     'Get-DomeniaBootThemePalette','Get-DomeniaStandardLoginXaml','Get-DomeniaBootStatusColor','Test-DomeniaMainHostAvailable',
     'Invoke-DomeniaDbQuery','ConvertTo-DomeniaSqlLiteral','Initialize-DomeniaDatabase','Backup-DomeniaDatabase','Get-DomeniaStoreBackupDirectory',
-    'Normalize-LinkComputer','Normalize-LinkUser','ConvertTo-DomeniaCanonicalLinks','Load-UserMachineLinks')
+    'Normalize-LinkComputer','Normalize-LinkUser','ConvertTo-DomeniaCanonicalLinks','Load-UserMachineLinks',
+    # CD-12: the error of a task is analysed once by the real ConvertTo-DomeniaErrorInfo.
+    'ConvertTo-DomeniaErrorInfo','Test-DomeniaInternalFault','Test-DomeniaOperatorMessage')
 $coreSource = New-Object 'System.Collections.Generic.List[string]'
 foreach ($name in $script:CoreFunctions) { $coreSource.Add((Get-CoreFunctionAst $name).Extent.Text) }
 . ([scriptblock]::Create(($coreSource.ToArray() -join "`n")))
@@ -226,6 +228,10 @@ function Reset-WiringState {
     $script:Window = $script:Main.Window
     $script:Ctrl = $script:Main.Controls
     $script:LastTaskUiCount = -1; $script:LastTaskUiSignature = ''; $script:LastTaskUiRefresh = [datetime]::MinValue
+    # PF-06: every heartbeat subscriber of a previous case is stopped; the window is not suspended.
+    if ($null -ne $script:DomeniaPulse) { foreach ($timer in @($script:DomeniaPulse.Active.Values)) { try { $timer.Stop() } catch { } } }
+    $script:DomeniaWindowSuspended = $false; $script:AsyncEngineFaultStopped = $false
+    $script:WorkerContextConfig = $null; $script:DomeniaFeatureFlagCache = $null; $script:DomeniaRuntimeMetrics = $null
 }
 
 # ---------------------------------------------------------------- D011
@@ -298,13 +304,18 @@ Test-Case 'D015 : a la liberation, l action explicite part avant le travail de f
     Assert-True ([string]$script:AsyncJobs[$c].State -eq 'Queued') 'Le travail de fond est passe avant l action explicite'
 }
 Test-Case 'D015 : une ecriture saturee est refusee, jamais mise en file' {
+    # FI-03: a write has its own physical place above the read cap; saturation means that place is taken as well
+    # (here by two detached reads beside the running one): the write is refused, never queued.
     $script:Config.Async.MaxThreads = 1; $script:Config.Async.MaxOutstandingWorkers = 1
     $gate = New-WiringGate
     [void](Start-WiringTask -Name 'A' -Gate $gate.Name)
-    $refused = $false
-    try { [void](Start-WiringTask -OperationId 'WriteAttributes' -Name 'W' -IsWrite) } catch { $refused = $true }
-    Assert-True $refused 'Ecriture acceptee en saturation'
-    Assert-True (@($script:AsyncJobs.Values | Where-Object { [bool]$_.IsWrite }).Count -eq 0) 'Ecriture placee en file'
+    foreach ($i in 1..2) { [void]$script:DetachedReadJobs.Add([pscustomobject]@{Id=('detache' + $i);Name='Detache';OperationId='TreeChildren';Handle=[pscustomobject]@{IsCompleted=$false};StopHandle=$null;PowerShell=$null;Runspace=$null;IsWrite=$false;Started=(Get-Date)}) }
+    try {
+        $refused = $false
+        try { [void](Start-WiringTask -OperationId 'WriteAttributes' -Name 'W' -IsWrite) } catch { $refused = $true }
+        Assert-True $refused 'Ecriture acceptee en saturation'
+        Assert-True (@($script:AsyncJobs.Values | Where-Object { [bool]$_.IsWrite }).Count -eq 0) 'Ecriture placee en file'
+    } finally { $script:DetachedReadJobs.Clear() }
 }
 Test-Case 'D015 : deux lectures identiques partagent un seul appel et deux rappels' {
     $gate = New-WiringGate
@@ -499,9 +510,20 @@ Test-Case 'D014 : frappe dans l index local sans SQLite sur le Dispatcher, base 
     $handler = Get-WiringIndexHandler
     $box.Add_TextChanged($handler)
     $sequence = [int]$script:AsyncSequence
-    $slowest = 0.0
-    foreach ($text in @('j','jd','jdu','jdup')) { $watch = [Diagnostics.Stopwatch]::StartNew(); $box.Text = $text; $watch.Stop(); $slowest = [Math]::Max($slowest,$watch.Elapsed.TotalMilliseconds) }
-    Assert-True ($slowest -lt 50) ('Gestionnaire de frappe lent : ' + $slowest + ' ms')
+    # TE-03: a structural proof replaces the former 50 ms threshold: the keystroke only re-arms the debounce timer;
+    # no worker starts and no SQLite connection opens on the Dispatcher. The durations are reported (median of 5).
+    $opens = @{N=0}
+    $realOpen = ${function:Open-DomeniaDatabase}
+    Set-Item function:script:Open-DomeniaDatabase -Value { $opens.N++; & $realOpen @args }.GetNewClosure()
+    $durations = New-Object 'System.Collections.Generic.List[double]'
+    try {
+        foreach ($text in @('j','jd','jdu','jdup','jdupo')) { $watch = [Diagnostics.Stopwatch]::StartNew(); $box.Text = $text; $watch.Stop(); $durations.Add($watch.Elapsed.TotalMilliseconds) }
+        Assert-True ([int]$script:AsyncSequence -eq $sequence) ('Une lecture est partie pendant la frappe : ' + ([int]$script:AsyncSequence - $sequence))
+        Assert-True ($opens.N -eq 0) ('Connexion SQLite ouverte sur le Dispatcher pendant la frappe : ' + $opens.N)
+        Assert-True ([bool]$script:DomeniaIndexSearchTimer.IsEnabled) 'Anti-rebond non arme'
+    } finally { Set-Item function:script:Open-DomeniaDatabase -Value $realOpen }
+    $sorted = $durations.ToArray(); [Array]::Sort($sorted)
+    $script:CaseDetail = 'Frappe : mediane de 5 essais ' + [Math]::Round($sorted[2],1) + ' ms (mesure, sans seuil).'
     Assert-True (Wait-WiringCondition -Complete { $script:ItemsSources.ContainsKey('DgIndex') }) ('Aucun resultat : ' + $label.Text)
     Assert-True ([int]$script:AsyncSequence -eq $sequence + 1) ('Une seule lecture attendue apres anti-rebond, obtenue ' + ([int]$script:AsyncSequence - $sequence))
     Assert-True (@($script:ItemsSources['DgIndex']).Count -eq 1 -and [string]@($script:ItemsSources['DgIndex'])[0].Login -eq 'jdupont') 'Ligne de l index absente'
@@ -510,8 +532,11 @@ Test-Case 'D014 : frappe dans l index local sans SQLite sur le Dispatcher, base 
     try {
         [void](Invoke-DomeniaDbExec 'BEGIN EXCLUSIVE;' $lock)
         $script:ItemsSources = @{}
+        # TE-03: with the base locked, the keystroke still starts nothing on the Dispatcher (structural proof).
+        $before = [int]$script:AsyncSequence
         $watch = [Diagnostics.Stopwatch]::StartNew(); $box.Text = 'jean'; $watch.Stop()
-        Assert-True ($watch.Elapsed.TotalMilliseconds -lt 50) ('Gestionnaire bloque par le verrou : ' + $watch.Elapsed.TotalMilliseconds + ' ms')
+        Assert-True ([int]$script:AsyncSequence -eq $before -and [bool]$script:DomeniaIndexSearchTimer.IsEnabled) 'La frappe a lance une lecture sur le Dispatcher malgre le verrou'
+        $script:CaseDetail += ' Frappe pendant le verrou : ' + [Math]::Round($watch.Elapsed.TotalMilliseconds,1) + ' ms (mesure).'
         Assert-True (Wait-WiringCondition -Complete -TimeoutMs 15000 { [string]$label.Text -match 'occupee : recherche non effectuee' }) ('Etat occupe non affiche : ' + $label.Text)
         Assert-True (-not $script:ItemsSources.ContainsKey('DgIndex')) 'Base verrouillee presentee comme resultat vide'
     } finally { try { [void](Invoke-DomeniaDbExec 'ROLLBACK;' $lock) } catch { }; Close-DomeniaDatabase $lock }
@@ -530,9 +555,12 @@ Test-Case 'D014 : synchronisation du releve partage hors Dispatcher (fichier ver
     $watch = [Diagnostics.Stopwatch]::StartNew()
     Complete-DomeniaParkSweepUi -Result $result -State ([pscustomobject]@{Silent=$true})
     $watch.Stop()
-    # The historical path waited up to 12 x 250 ms for the lock on the Dispatcher; opening the worker runspace is allowed.
-    Assert-True ($watch.Elapsed.TotalMilliseconds -lt 1500) ('Rappel bloque par le fichier partage : ' + $watch.Elapsed.TotalMilliseconds + ' ms')
+    # TE-03: the historical path waited up to 12 x 250 ms for the lock on the Dispatcher. Structural proof instead of a
+    # threshold: the callback returned while the worker still held the shared file wait (its job is not finished).
     Assert-True ($null -ne $script:DomeniaParkSharedJob) 'Synchronisation non confiee au worker'
+    $sharedJob = $script:AsyncJobs[[string]$script:DomeniaParkSharedJob]
+    Assert-True ($null -ne $sharedJob -and -not [bool]$sharedJob.Handle.IsCompleted) 'Le rappel a attendu la fin de la synchronisation sur le Dispatcher'
+    $script:CaseDetail = 'Rappel du releve : ' + [Math]::Round($watch.Elapsed.TotalMilliseconds) + ' ms (mesure, sans seuil).'
     Assert-True (Wait-WiringCondition -Complete -TimeoutMs 15000 { $null -eq $script:DomeniaParkSharedJob }) 'Synchronisation non terminee'
     Assert-True ($script:ParkState.ContainsKey('PC-B') -and $script:ParkState.ContainsKey('PC-A')) 'Releve distant non fusionne'
     Assert-True ((@($script:Logs) -join ' ') -match 'verrouille') 'Verrou de l autre console non signale'
@@ -564,6 +592,8 @@ Test-Case 'D016 : desactive par defaut, la lecture reste dans le moteur' {
 }
 Test-Case 'D016 : processus auxiliaire arrete sans toucher l interface, sans donnee en argument' {
     $script:Config.Features.IsolatedReads = $true
+    # PF-10: the flags are kept per configuration object; a configuration changed in place starts a new generation.
+    $script:DomeniaFeatureFlagCache = $null
     $marker = 'MARQUEUR-' + [guid]::NewGuid().ToString('N')
     $id = Start-WiringTask -OperationId 'TreeChildren' -Name $marker -SleepMs 30000
     $job = $script:AsyncJobs[$id]
@@ -818,14 +848,22 @@ function Get-WiringStoredLinks {
     return $map
 }
 function Start-WiringStorage {
-    # Real persistence state; its own 350 ms timer is stopped so that the case decides when the writer is admitted.
+    # Real persistence state. MO-03: its timer is armed when an item is queued; it is set aside here (and given back by
+    # Resume-WiringStorageTimer) so that the case decides when the writer is admitted.
     $script:Persistence = $null
     Initialize-DomeniaPersistence
     $script:Persistence.Timer.Stop()
+    $script:WiringStorageTimer = $script:Persistence.Timer
+    $script:Persistence.Timer = $null
+}
+function Resume-WiringStorageTimer {
+    $script:Persistence.Timer = $script:WiringStorageTimer
+    $script:Persistence.Timer.Start()
 }
 function Stop-WiringStorage {
     if ($null -eq $script:Persistence) { return }
     try { $script:Persistence.Timer.Stop() } catch { }
+    try { if ($null -ne $script:WiringStorageTimer) { $script:WiringStorageTimer.Stop() } } catch { }
     if ($null -ne $script:Persistence.LinkRequestTimer) { try { $script:Persistence.LinkRequestTimer.Stop() } catch { } }
 }
 function Wait-WiringStoreIdle {
@@ -928,9 +966,10 @@ Test-Case 'D028 : un verrou SQLite ne bloque pas WPF' {
             $watch = [Diagnostics.Stopwatch]::StartNew(); Start-DomeniaStorageWork; $watch.Stop()
             $starts.Add([Math]::Round($watch.Elapsed.TotalMilliseconds,1))
             Assert-True ([string]$script:Persistence.Job) ('Essai ' + $attempt + ' : aucun lot demarre. ' + [string]$script:Persistence.Fault)
-            # Start-UiTask opens the worker runspace synchronously (accepted engine cost, measured by D014); the SQLite
-            # wait itself (busy_timeout 300 ms) must never happen here.
-            Assert-True ($watch.Elapsed.TotalMilliseconds -lt 250) ('Essai ' + $attempt + ' : Start-DomeniaStorageWork a tenu le Dispatcher ' + [Math]::Round($watch.Elapsed.TotalMilliseconds) + ' ms')
+            # TE-03: structural proof instead of the former 250 ms threshold: Start-DomeniaStorageWork returned while
+            # its worker is still waiting on the lock (busy_timeout 300 ms), so the SQLite wait never ran here.
+            $started = $script:AsyncJobs[[string]$script:Persistence.Job]
+            Assert-True ($null -ne $started -and -not [bool]$started.Handle.IsCompleted) ('Essai ' + $attempt + ' : Start-DomeniaStorageWork a attendu le verrou SQLite sur le Dispatcher')
             Assert-True ($script:Persistence.Pending.Count -eq 0 -and [int]$script:Persistence.InFlight -eq 1) 'Lot en cours non compte'
             # While the batch waits on the lock the label never says saved: pending first, then the previous failure.
             $during = (Get-DomeniaPersistenceState).Label
@@ -989,11 +1028,11 @@ Test-Case 'D028 : un verrou SQLite ne bloque pas WPF' {
             Assert-True ($script:Persistence.Pending.Count -eq 1) 'Apres reprise : lien perdu pendant le refus du moteur'
             $waiting = (Get-DomeniaPersistenceState).Label
             Assert-True ($waiting -ceq 'En memoire : 1 modification(s) a enregistrer.') ('Libelle pendant le delai du moteur : ' + $waiting)
-            # The real persistence timer (350 ms, Next gate of 5 s after a refusal) retries on its own.
-            $script:Persistence.Timer.Start()
+            # The real persistence timer (MO-03: about 1 s, Next gate of 5 s after a refusal) retries on its own.
+            Resume-WiringStorageTimer
         }
         Assert-True (Wait-WiringCondition -Complete -TimeoutMs 60000 { $script:StorageResults.Count -gt 0 -and -not [string]$script:Persistence.Job }) ('Apres reprise : aucun lot enregistre. ' + [string]$script:Persistence.Fault)
-        $script:Persistence.Timer.Stop()
+        if ($null -ne $script:Persistence.Timer) { $script:Persistence.Timer.Stop() }
         Assert-True ((Get-WiringStoredLinks)['PC1'] -eq 'alice') 'Lien absent du disque apres la reprise'
         Assert-True ([int]$script:Persistence.Failures -eq 0 -and $script:Persistence.Pending.Count -eq 0 -and [int]$script:Persistence.InFlight -eq 0) 'Etat apres reprise'
         $final = (Get-DomeniaPersistenceState).Label
@@ -1058,6 +1097,224 @@ Test-Case 'D028 : consoles simultanees : verification et ecriture dans une seule
     }
 }
 
+
+# ---------------------------------------------------------------- L09 : admission, pulsation, minuteurs, inactivite
+Test-Case 'FI-03 : ecriture admise malgre 12 lectures detachees, lectures de fond en file' {
+    foreach ($i in 1..12) { [void]$script:DetachedReadJobs.Add([pscustomobject]@{Id=('detache' + $i);Name='Detache';OperationId='TreeChildren';Handle=[pscustomobject]@{IsCompleted=$false};StopHandle=$null;PowerShell=$null;Runspace=$null;IsWrite=$false;Started=(Get-Date)}) }
+    try {
+        Initialize-AsyncEngine; Initialize-DomeniaEngineState
+        $write = Get-DomeniaUiTaskAdmission -Class 'Write'
+        Assert-True ([string]$write.Decision -eq 'Start') ('Ecriture refusee : ' + [string]$write.Decision)
+        Assert-True ([string]$write.Reason -match 'partira') ('Message de place reservee absent : ' + [string]$write.Reason)
+        $explicit = Start-WiringTask -Name 'Explicite'
+        Assert-True ([string]$script:AsyncJobs[$explicit].State -eq 'Running') 'L action explicite n a pas pris sa place reservee'
+        $background = Start-WiringTask -Name 'Fond' -TaskClass 'Background'
+        Assert-True ([string]$script:AsyncJobs[$background].State -eq 'Queued') 'Lecture de fond lancee au-dela du plafond physique'
+        $selection = Start-WiringTask -Name 'Selection' -TaskClass 'Selection'
+        Assert-True ([string]$script:AsyncJobs[$selection].State -eq 'Queued') 'Lecture de selection lancee au-dela du plafond physique'
+        $refused = ''
+        try { [void](Get-DomeniaUiTaskAdmission -Class 'Write') } catch { $refused = $_.Exception.Message }
+        Assert-True ($refused -eq '') ('Deuxieme demande d ecriture refusee avec 13 workers : ' + $refused)
+    } finally { $script:DetachedReadJobs.Clear() }
+}
+Test-Case 'CO-02 : Annuler vise la recherche, jamais l enregistrement local' {
+    $gateStore = New-WiringGate; $gateRead = New-WiringGate
+    $script:TestOverrides['LocalStore'] = $script:TestBody
+    $store = Start-UiTask -Name 'Enregistrement cache et liens' -OperationId 'LocalStore' -Code $script:TestBody -Payload ([pscustomobject]@{Name='Store';Gate=$gateStore.Name;SleepMs=0;Fail='';Computer=''}) -CallbackState ([pscustomobject]@{Tag='store'}) -SuccessHandler 'Complete-WiringTestUi' -ErrorHandler 'Fail-WiringTestUi' -NonCancellable
+    Assert-True ([string]$script:LatestTaskId -eq '') ('Un enregistrement local est devenu la cible d Annuler : ' + [string]$script:LatestTaskId)
+    Update-TaskUi -Force
+    Assert-True ($script:Ctrl.PbTop.Visibility -ne 'Visible' -and $script:Ctrl.BtnCancelTask.Visibility -ne 'Visible') 'La barre et Annuler suivent un enregistrement local'
+    $script:Statuses.Clear()
+    Stop-LatestUiTask
+    Assert-True ((@($script:Statuses) -join ' ') -match 'Enregistrement local : il se termine seul') ('Message inattendu : ' + (@($script:Statuses) -join ' | '))
+    Assert-True (-not [bool]$script:AsyncJobs[$store].CancelRequested) 'Enregistrement local arrete'
+    $read = Start-WiringTask -Name 'Recherche' -Gate $gateRead.Name
+    Assert-True ([string]$script:LatestTaskId -eq $read) 'La recherche n est pas la cible d Annuler'
+    Update-TaskUi -Force
+    Assert-True ([string]$script:Ctrl.LblTaskElapsed.Text -match 'Recherche') ('Libelle de progression : ' + [string]$script:Ctrl.LblTaskElapsed.Text)
+    Stop-LatestUiTask
+    Assert-True ([bool]$script:AsyncJobs[$read].CancelRequested) 'Annuler n a pas arrete la recherche'
+    Assert-True (-not [bool]$script:AsyncJobs[$store].CancelRequested) 'Annuler a arrete l enregistrement local'
+}
+Test-Case 'FI-05 : minuteur protege arrete apres 3 erreurs, une ligne par erreur' {
+    $script:FailingTicks = 0
+    $timer = New-DomeniaTimer -Owner 'Timer:TestPanne' -IntervalMs 30 -Tick { $script:FailingTicks++; throw 'panne de minuteur (test)' }
+    Assert-True (@($script:DomeniaResources.Items | Where-Object { $_.Owner -eq 'Timer:TestPanne' }).Count -eq 1) 'Minuteur non enregistre'
+    $timer.Start()
+    [void](Wait-WiringCondition -TimeoutMs 5000 { -not [bool]$timer.IsEnabled })
+    Invoke-WiringPump 200
+    Assert-True ($script:FailingTicks -eq 3) ('Ticks en echec avant arret : ' + $script:FailingTicks)
+    Assert-True ((-not [bool]$timer.IsEnabled) -and [bool]$timer.FaultStopped) 'Minuteur toujours actif apres 3 echecs'
+    $lines = @($script:Logs | Where-Object { $_ -match 'Timer:TestPanne' })
+    Assert-True ($lines.Count -eq 4) ('Lignes de journal : ' + $lines.Count + ' (3 erreurs et l arret attendus)')
+    $epoch = New-DomeniaTimer -Owner 'Timer:TestEpoque' -IntervalMs 30 -SessionBound -Tick { $script:FailingTicks = -100 }
+    $epoch.Start(); $script:SessionEpoch = [long]$script:SessionEpoch + 1
+    Invoke-WiringPump 200
+    Assert-True ((-not [bool]$epoch.IsEnabled) -and $script:FailingTicks -eq 3) 'Minuteur de session encore actif apres le changement d epoque'
+}
+Test-Case 'MO-05 : candidat d un fournisseur sature saute et garde en file, sans erreur' {
+    $script:Config.Async.MaxThreads = 2; $script:Config.Async.ReservedForeground = 0
+    $gateStore = New-WiringGate; $gateBusy = New-WiringGate
+    [void](Start-WiringTask -OperationId 'LocalStore' -Name 'Enregistrement' -Gate $gateStore.Name -Tag 'store')
+    [void](Start-WiringTask -OperationId 'TreeChildren' -Name 'Occupant' -Gate $gateBusy.Name -Tag 'busy')
+    $cache = Start-WiringTask -OperationId 'LiveCache' -Name 'Cache' -Tag 'cache'
+    $ping = Start-WiringTask -OperationId 'ComputerPing' -Name 'Ping' -Computer 'PC1' -TaskClass 'Background' -Tag 'ping'
+    Assert-True ([string]$script:AsyncJobs[$cache].State -eq 'Queued' -and [string]$script:AsyncJobs[$ping].State -eq 'Queued') 'Les deux demandes doivent attendre une place'
+    [void]$gateBusy.Handle.Set()
+    Assert-True (Wait-WiringCondition -Complete { ($script:AsyncJobs.Contains($ping) -and ([string]$script:AsyncJobs[$ping].State -eq 'Running')) -or ((@(Get-WiringCalls) -match '\|Ping\|').Count -eq 1) }) 'Le candidat d un autre fournisseur n est pas parti'
+    Assert-True ($script:AsyncJobs.Contains($cache) -and [string]$script:AsyncJobs[$cache].State -eq 'Queued') 'Le candidat du fournisseur sature a quitte la file'
+    Assert-True (@($script:Callbacks | Where-Object { $_.Tag -eq 'cache' }).Count -eq 0) 'Une erreur a ete signalee pour un fournisseur seulement occupe'
+    [void]$gateStore.Handle.Set()
+    Assert-True (Wait-WiringCondition -Complete { @($script:Callbacks | Where-Object { $_.Tag -eq 'cache' -and $_.Kind -eq 'Success' }).Count -eq 1 }) 'Le candidat garde en file n est pas parti a la liberation du fournisseur'
+}
+Test-Case 'CD-12 : erreur d une tache analysee une seule fois et transmise aux rappels' {
+    $analyses = @{N=0}
+    $realStructured = ${function:Get-DomeniaStructuredError}
+    Set-Item function:script:Get-DomeniaStructuredError -Value { $analyses.N++; & $realStructured @args }.GetNewClosure()
+    $script:SeenErrorInfo = $null
+    Set-Item function:script:Fail-WiringTestUi -Value { param($Message,$State) $script:SeenErrorInfo = Get-DomeniaMember $script:AccessCurrentJob 'ErrorInfo' $null; $script:Callbacks.Add([pscustomobject]@{Kind='Error';Tag=[string]$State.Tag;Result=[string]$Message}) }
+    try {
+        [void](Start-WiringTask -OperationId 'TreeChildren' -Name 'Panne' -Fail '[DOMENIA:AccessDenied;5;0x80070005] Acces refuse (test).')
+        Assert-True (Wait-WiringCondition -Complete { $script:Callbacks.Count -eq 1 }) 'Erreur non remontee'
+        Assert-True ($analyses.N -eq 1) ('Analyses de l erreur : ' + $analyses.N)
+        Assert-True ($null -ne $script:SeenErrorInfo -and [string]$script:SeenErrorInfo.Category -eq 'AccessDenied') 'Le rappel ne recoit pas l erreur analysee'
+    } finally {
+        Set-Item function:script:Get-DomeniaStructuredError -Value $realStructured
+        Set-Item function:script:Fail-WiringTestUi -Value { param($Message,$State) $script:Callbacks.Add([pscustomobject]@{Kind='Error';Tag=[string]$State.Tag;Result=[string]$Message}) }
+    }
+}
+Test-Case 'UX-30 : accueil recalcule fenetre inactive mais visible, suspendu fenetre reduite' {
+    $window = $script:Main.Window
+    $script:Ctrl['WorkspaceTabs'].SelectedItem = $script:Ctrl['TabDashboard']
+    $script:DomeniaIdlePolicyWired = $false
+    Initialize-DomeniaIdlePolicy -Window $window
+    $flags = [Reflection.BindingFlags]'NonPublic,Instance'
+    [Windows.Window].GetMethod('OnDeactivated',$flags).Invoke($window,@([EventArgs]::Empty))
+    Assert-True ([bool]$script:DomeniaIdlePolicy.Visible -and -not [bool]$script:DomeniaIdlePolicy.AllowBackgroundRefresh) 'Politique inattendue fenetre inactive'
+    $script:DashboardCalls = 0
+    Request-DomeniaDashboardRefresh
+    Assert-True (Wait-WiringCondition -TimeoutMs 3000 { $script:DashboardCalls -eq 1 }) ('Accueil non recalcule fenetre inactive mais visible : ' + $script:DashboardCalls)
+    $window.WindowState = 'Minimized'
+    try {
+        [Windows.Window].GetMethod('OnStateChanged',$flags).Invoke($window,@([EventArgs]::Empty))
+        Assert-True ([bool]$script:DomeniaWindowSuspended) 'Pulsation non suspendue fenetre reduite'
+        $script:DashboardCalls = 0; $script:DashboardDirty = $false
+        Request-DomeniaDashboardRefresh
+        Invoke-WiringPump 400
+        Assert-True ($script:DashboardCalls -eq 0 -and [bool]$script:DashboardDirty) 'Accueil recalcule fenetre reduite'
+    } finally {
+        $window.WindowState = 'Normal'
+        [Windows.Window].GetMethod('OnStateChanged',$flags).Invoke($window,@([EventArgs]::Empty))
+    }
+    Assert-True (-not [bool]$script:DomeniaWindowSuspended) 'Pulsation encore suspendue apres restauration'
+}
+Test-Case 'PF-06 : moteur au repos, minuteur du moteur arrete puis relance par une tache' {
+    [void](Start-WiringTask -Name 'Courte')
+    Assert-True (Wait-WiringCondition -Complete { $script:AsyncJobs.Count -eq 0 }) 'Tache non terminee'
+    Complete-UiTasks
+    Assert-True (-not [bool]$script:AsyncTimer.IsEnabled) 'Minuteur du moteur actif sans tache'
+    [void](Start-WiringTask -Name 'Relance' -Gate (New-WiringGate).Name)
+    Assert-True ([bool]$script:AsyncTimer.IsEnabled) 'Une nouvelle tache ne relance pas le minuteur du moteur'
+}
+Test-Case 'PF-04 : plusieurs demandes en file partent dans le meme tick, par priorite' {
+    $script:Config.Async.MaxThreads = 1
+    $gate = New-WiringGate
+    $first = Start-WiringTask -Name 'A' -Gate $gate.Name
+    Assert-True (Wait-WiringCondition { (Get-WiringCalls).Count -eq 1 }) 'A n a pas demarre'
+    $ids = @(); foreach ($i in 1..3) { $ids += Start-WiringTask -Name ('Fond' + $i) -TaskClass 'Background' -Gate $gate.Name }
+    $explicit = Start-WiringTask -Name 'Explicite' -Gate $gate.Name
+    Assert-True (@($script:AsyncJobs.Values | Where-Object { [string]$_.State -eq 'Queued' }).Count -eq 4) 'Quatre demandes attendues en file'
+    # Two places freed and a budget large enough for the VM: the proof is structural. In ONE tick the explicit action
+    # (queued last) and one background read start; the other background reads wait for a place.
+    $script:Config.Async.MaxThreads = 2; $script:Config.Async.ReservedForeground = 0; $script:Config.Async.TickBudgetMs = 250
+    [void]$gate.Handle.Reset()
+    [void]$gate.Handle.Set()
+    Assert-True (Wait-WiringCondition { [bool]$script:AsyncJobs[$first].Handle.IsCompleted }) 'A non termine'
+    [void]$gate.Handle.Reset()
+    Complete-UiTasks
+    $states = @($explicit,$ids[0],$ids[1],$ids[2] | ForEach-Object { [string]$script:AsyncJobs[$_].State })
+    Assert-True ($states[0] -eq 'Running' -and $states[1] -eq 'Running') ('Deux departs attendus dans le meme tick : ' + ($states -join ','))
+    Assert-True ($states[2] -eq 'Queued' -and $states[3] -eq 'Queued') ('Ordre ou plafond non respectes : ' + ($states -join ','))
+    [void]$gate.Handle.Set()
+}
+Test-Case 'PF-23 : partie statique du contexte en cache, operation locale sans secret' {
+    $script:Conn.UseCredential = $true
+    $script:Conn.Credential = New-Object System.Management.Automation.PSCredential -ArgumentList @('EXAMPLE\lecteur',(New-Object System.Security.SecureString))
+    $first = Get-WorkerContext -OperationId 'TreeChildren'
+    $cached = $script:WorkerContextConfig
+    $local = Get-WorkerContext -OperationId 'LocalStore'
+    Assert-True ($null -ne $cached -and [object]::ReferenceEquals($cached,$script:WorkerContextConfig)) 'Partie statique reconstruite pour chaque operation'
+    Assert-True ($null -ne $first.Credential) 'Le compte AD manque a une lecture de l annuaire'
+    Assert-True ($null -eq $local.Credential -and $null -eq $local.MachineCredential -and $null -eq $local.RemoteAdminCredential) 'Une operation locale recoit un secret'
+    $script:Config = New-DefaultConfig
+    [void](Get-WorkerContext -OperationId 'TreeChildren')
+    Assert-True (-not [object]::ReferenceEquals($cached,$script:WorkerContextConfig)) 'Nouvelle configuration ignoree par le cache'
+}
+Test-Case 'PF-05 : lectures frequentes servies par un pool, RunspaceOpen mesure' {
+    $script:LiveWorkerPools = @{}
+    foreach ($i in 1..3) {
+        [void](Start-WiringTask -OperationId 'OpenAdObject' -Name ('Objet ' + $i))
+        Assert-True (Wait-WiringCondition -Complete { $script:AsyncJobs.Count -eq 0 }) ('Lecture ' + $i + ' non terminee')
+    }
+    Assert-True ($script:LiveWorkerPools.ContainsKey('OpenAdObject')) 'OpenAdObject sans pool'
+    $summary = Get-DomeniaRuntimeMetricSummary -Provenance 'Dispatcher' -Prefix 'RunspaceOpen:OpenAdObject'
+    Assert-True ([int]$summary.Count -eq 3) ('Mesures RunspaceOpen : ' + $summary.Count)
+    $script:CaseDetail = 'RunspaceOpen OpenAdObject : p50 ' + $summary.P50 + ' ms, p95 ' + $summary.P95 + ' ms, max ' + $summary.Max + ' ms (premiere ouverture du pool comprise ; mesure).'
+}
+Test-Case 'MO-03 : minuterie de sauvegarde armee a la mise en file, arretee file vide, ordre conserve' {
+    try {
+        Reset-WiringStore
+        $path = New-WiringStoreDatabase
+        $script:Persistence = $null
+        Initialize-DomeniaPersistence
+        Assert-True (-not [bool]$script:Persistence.Timer.IsEnabled) 'Minuterie de sauvegarde active file vide'
+        Assert-True ($script:Persistence.Pending -is [Collections.Specialized.OrderedDictionary]) 'File de sauvegarde non ordonnee'
+        # First queued, first written: three rows keep their order in the queue (no tick runs inside this block).
+        foreach ($n in @('c','a','b')) { Assert-True (Add-DomeniaIndexPersistence -Row ([pscustomobject]@{Guid=('guid-' + $n);DN=('CN=' + $n + ',DC=example,DC=invalid')})) ('Ligne ' + $n + ' refusee') }
+        Assert-True ([bool]$script:Persistence.Timer.IsEnabled) 'Minuterie non armee a la mise en file'
+        Assert-True (((@($script:Persistence.Pending.Values) | ForEach-Object { [string]$_.Row.Guid }) -join ',') -ceq 'guid-c,guid-a,guid-b') 'Ordre de la file perdu'
+        $script:Persistence.Pending.Clear(); $script:Persistence.Timer.Stop()
+        $script:UserMachineLinks = @((New-WiringLink 'alice' 'PC1'),(New-WiringLink 'bob' 'PC2'))
+        Assert-True (Queue-DomeniaLinkChanges) 'Mise en file refusee'
+        Assert-True ([bool]$script:Persistence.Timer.IsEnabled -and $script:Persistence.Pending.Count -eq 2) 'Minuterie non armee pour les liens'
+        Assert-True (Wait-WiringCondition -Complete -TimeoutMs 30000 { $script:Persistence.Pending.Count -eq 0 -and -not [string]$script:Persistence.Job -and -not [bool]$script:Persistence.Timer.IsEnabled }) ('Minuterie encore active apres la sauvegarde. ' + [string]$script:Persistence.Fault)
+        Assert-True ((Get-WiringStoredLinks)['PC2'] -eq 'bob') 'Lot non enregistre'
+    } finally { Stop-WiringStorage }
+}
+
+Test-Case 'UX-32 / PF-12 : panneau Operations sous le bouton, lignes mises a jour sur place, Arreter par ligne' {
+    if ($null -eq ('Domenia.Live.OperationRow' -as [type])) { Add-Type -Path (Join-Path $modules 'Domenia-Live.Types.cs') -ErrorAction Stop }
+    $script:ExperienceInitialized = $true; $script:OperationsPanel = $null
+    $layer = $script:Main.Window.FindName('DomeniaDialogLayer')
+    try {
+        $gate = New-WiringGate
+        $id = Start-WiringTask -Name 'Lecture suivie' -Gate $gate.Name
+        Assert-True (Show-DomeniaOperationsPanel) 'Panneau non ouvert'
+        Assert-True ($layer.Visibility -eq 'Visible' -and $layer.Children.Contains($script:OperationsPanel.View)) 'Panneau absent de DomeniaDialogLayer'
+        Assert-True ($null -eq $script:Main.Window.FindName('TabExperience')) 'TabExperience existe encore'
+        $grid = Get-DomeniaControl 'DgSuiteActivity'
+        $source = $grid.ItemsSource
+        Assert-True (@($grid.Items).Count -eq 1) ('Lignes : ' + @($grid.Items).Count)
+        $row = @($grid.Items)[0]
+        Assert-True ($row -is [Domenia.Live.OperationRow] -and $row.Id -eq $id -and $row.CanCancel) 'Ligne non typee ou non annulable'
+        $grid.SelectedItem = $row
+        $script:AsyncJobs[$id].Started = (Get-Date).AddSeconds(-75)
+        Update-DomeniaExperienceActivity
+        Assert-True ([object]::ReferenceEquals($source,$grid.ItemsSource) -and [object]::ReferenceEquals($row,@($grid.Items)[0])) 'Grille remplacee au lieu d une mise a jour sur place'
+        Assert-True ([string]$row.Duration -eq '01:15') ('Duree non mise a jour sur place : ' + [string]$row.Duration)
+        Assert-True ([object]::ReferenceEquals($grid.SelectedItem,$row)) 'Selection perdue'
+        Assert-True ([string](Get-DomeniaControl 'LblOperationsHealth').Text -match 'Mémoire') 'Zone Sante vide'
+        Stop-DomeniaOperationRow -Id $id
+        Assert-True ([bool]$script:AsyncJobs[$id].CancelRequested) 'Arreter n a pas demande l arret de la ligne'
+        Assert-True ([string]$row.State -eq 'Arrêt demandé' -and -not $row.CanCancel) ('Etat de ligne : ' + [string]$row.State)
+        Hide-DomeniaOperationsPanel
+        Assert-True ($layer.Visibility -eq 'Collapsed' -and -not (Test-DomeniaOperationsPanelOpen)) 'Panneau non ferme'
+    } finally {
+        if ($null -ne $script:OperationsPanel) { try { Hide-DomeniaOperationsPanel } catch { }; try { $script:OperationsPanel.Timer.Stop() } catch { } }
+        $script:OperationsPanel = $null; $script:ExperienceInitialized = $false
+        $layer.Children.Clear(); $layer.Visibility = 'Collapsed'
+    }
+}
 # ---------------------------------------------------------------- report
 try { Stop-WiringJobs } catch { }
 try { Stop-WiringStorage } catch { }

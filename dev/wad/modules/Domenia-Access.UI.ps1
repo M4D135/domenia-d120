@@ -62,6 +62,8 @@ function Remove-DomeniaAccessCredential {
     param([string]$Key)
     if($null -eq $script:AccessState){return}
     [void]$script:AccessState.Credentials.Remove($Key)
+    # PF-01: every change of temporary account moves the account generation read by the progressive search.
+    $script:DomeniaAccountGeneration=[long]$script:DomeniaAccountGeneration+1
     $leases=Get-DomeniaMember $script:AccessState 'Leases' $null
     if($null -ne $leases -and $leases.ContainsKey($Key)){[void](Clear-DomeniaCredentialLease -Lease $leases[$Key]);[void]$leases.Remove($Key)}
 }
@@ -258,7 +260,8 @@ function Show-DomeniaAlternateCredential {
     $ui.Purpose.Text="$Operation`r`nPortee : $Scope. Usage en memoire pour cette session uniquement."
     $ui.Status.Text='La validation de l identite ne garantit pas ses droits sur la ressource.'
     $state=[pscustomobject]@{Session=$null;Started=[datetime]::MinValue;Credential=$null;Epoch=[long]$script:SessionEpoch;BaseDn=[string]$script:Conn.BaseDn;Done=$false}
-    $timer=[Windows.Threading.DispatcherTimer]::new();$timer.Interval=[timespan]::FromMilliseconds(120)
+    # FI-05: protected heartbeat timer of this panel; its tick is attached below, once its closure exists.
+    $timer=New-DomeniaTimer -Owner 'Timer:AccessValidation' -IntervalMs 120 -RunWhenHidden
     $access=$script:AccessState
     $remoteValidation=($Scope -eq 'Remote' -and -not [string]::IsNullOrWhiteSpace($Target))
     # D051: context per resource AND target, checked before any validation call. The rule is captured as a
@@ -315,7 +318,7 @@ function Show-DomeniaAlternateCredential {
             if($null -eq $state.Session -or $state.Session.AsyncResult.IsCompleted){$ui.Progress.Visibility='Hidden'}
         }
     }.GetNewClosure()
-    $ui.Connect.Add_Click($connect);$timer.Add_Tick($tick)
+    $ui.Connect.Add_Click($connect);$timer.Tick=$tick
     Register-DomeniaSurfaceReady $w ({$ui.User.Focus()}.GetNewClosure())
     try{[void](Show-DomeniaEmbeddedWindow -Window $w);return $state.Credential}
     finally{
@@ -365,6 +368,7 @@ function Invoke-DomeniaAccessRecovery {
         $credentialKey=$Record.Scope
         if($Record.Scope -eq 'Remote' -and $target -and (Test-DomeniaLocalAccountName -UserName ([string]$credential.UserName) -Target $target)){$credentialKey='RemoteLocal|'+(ConvertTo-DomeniaMachineKey $target).ToUpperInvariant()}
         $script:AccessState.Credentials[$credentialKey]=$credential
+        $script:DomeniaAccountGeneration=[long]$script:DomeniaAccountGeneration+1
         # D054: sliding inactivity lease, measured from the last worker departure, and bound to this session.
         $leases=Get-DomeniaMember $script:AccessState 'Leases' $null
         if($null -eq $leases){$leases=@{};$script:AccessState|Add-Member -NotePropertyName Leases -NotePropertyValue $leases -Force}
@@ -397,6 +401,8 @@ function Resolve-DomeniaCapabilityRoute {
         'TabGuard'           { return [pscustomobject]@{Route=$Route;Workspace='TabApplicationTools';Inner='ApplicationToolTabs';Tab='TabGuard';Focus='';Label='Outils > Fiabilite'} }
         'ChkReadOnlyMode'    { return [pscustomobject]@{Route=$Route;Workspace='';Inner='';Tab='';Focus='ChkReadOnlyMode';Label='Protection lecture seule'} }
         'BtnObjectReadRetry' { return [pscustomobject]@{Route=$Route;Workspace='WsObject';Inner='';Tab='';Focus='BtnObjectReadRetry';Label='Fiche > Relire'} }
+        # UX-32: the operations panel under the Opérations button (TabExperience no longer exists).
+        'Operations'         { return [pscustomobject]@{Route=$Route;Workspace='';Inner='';Tab='';Focus='';Label='Opérations';Panel='Operations'} }
     }
     return $null
 }
@@ -405,6 +411,7 @@ function Invoke-DomeniaCapabilityRoute {
     param([AllowEmptyString()][string]$Route)
     $target=Resolve-DomeniaCapabilityRoute -Route $Route
     if($null -eq $target){return $false}
+    if([string](Get-DomeniaMember $target 'Panel' '') -eq 'Operations'){return [bool](Show-DomeniaOperationsPanel)}
     if($target.Workspace){Select-DomeniaWorkspace -Workspace $target.Workspace -Inner $target.Inner -Tab $target.Tab}
     if($target.Focus){$control=Get-DomeniaControl $target.Focus;if($null -ne $control){try{[void]$control.Focus()}catch{}}}
     return $true
@@ -481,6 +488,7 @@ function Clear-DomeniaAccessAccounts {
     if($null -eq $script:AccessState){return}
     foreach($key in @($script:AccessState.Credentials.Keys)){Remove-DomeniaAccessCredential -Key ([string]$key)}
     $script:AccessState.Credentials=@{}
+    $script:DomeniaAccountGeneration=[long]$script:DomeniaAccountGeneration+1
     $script:AccessState|Add-Member -NotePropertyName Leases -NotePropertyValue @{} -Force
     $script:AccessState|Add-Member -NotePropertyName Coalescer -NotePropertyValue (New-DomeniaDenialCoalescer 60) -Force
     $script:AccessState.Denied=@{};$script:AccessState.Faults=@{};$script:AccessState.Prompted=@{}
@@ -535,8 +543,9 @@ function Initialize-DomeniaAccess {
             }elseif(-not $names.Count){Show-InfoBox $message}
         }
     })}
-    $timer=[Windows.Threading.DispatcherTimer]::new([Windows.Threading.DispatcherPriority]::Background);$timer.Interval=[timespan]::FromMilliseconds(500)
-    $timer.Add_Tick({
+    # FI-05 / PF-06: protected heartbeat timer, owned and registered by the factory: 500 ms while an access request
+    # waits, once per second at rest (lease sweep, change of session).
+    $script:AccessState.Timer=New-DomeniaTimer -Owner 'Timer:Access' -IntervalMs 500 -IdleIntervalMs 1000 -Busy {($null -ne $script:AccessState) -and ($script:AccessState.Pending.Count -gt 0)} -Tick {
         if($null -eq $script:AccessState -or $script:AccessState.Showing -or $script:AsyncEngineClosing){return}
         if($script:AccessState.Epoch -ne [long]$script:SessionEpoch -or $script:AccessState.BaseDn -ine [string]$script:Conn.BaseDn){
             Clear-DomeniaAccessAccounts
@@ -549,8 +558,7 @@ function Initialize-DomeniaAccess {
             $next=@($script:AccessState.Pending.Values|Where-Object{$_.Interactive}|Sort-Object At|Select-Object -First 1)
             if($next.Count){Invoke-DomeniaAccessRecovery $next[0]}
         }
-    });$script:AccessState.Timer=$timer;$timer.Start()
-    if($null -ne (Get-Command Register-DomeniaOwnedTimer -CommandType Function -ErrorAction SilentlyContinue)){try{[void](Register-DomeniaOwnedTimer -Owner 'Timer:Access' -Timer $timer)}catch{}}
+    };$script:AccessState.Timer.Start()
     $script:Window.Add_Closed({
         if($null -ne $script:AccessState){$script:AccessState.Timer.Stop();if($null -ne $script:AccessState.AuthSession){Stop-DomeniaLoginAuthRunspace -Session $script:AccessState.AuthSession -Terminate};Clear-DomeniaAccessAccounts}
     })

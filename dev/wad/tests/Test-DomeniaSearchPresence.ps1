@@ -19,6 +19,9 @@ foreach($name in @('Get-MainXaml','Get-DomeniaControl','Set-DomeniaControlText',
 . (Join-Path $wad 'modules\Domenia-Experience.Model.ps1')
 # D027: Live.UI builds its negative cache with the cache rules.
 . (Join-Path $wad 'modules\Domenia-Cache.Model.ps1')
+# FI-05 / PF-06: the progressive search takes its timer from the protected factory of the engine.
+. (Join-Path $wad 'modules\Domenia-Engine.Model.ps1')
+. (Join-Path $wad 'modules\Domenia-Engine.UI.ps1')
 . (Join-Path $wad 'modules\Domenia-Live.UI.ps1')
 # Explicit dependencies; none can issue a network call, launch a process or read the real database.
 function Get-CfgValue {param($Section,$Name,$Default);return $Default}

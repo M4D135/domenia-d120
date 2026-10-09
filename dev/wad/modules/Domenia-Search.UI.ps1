@@ -439,9 +439,8 @@ function Request-DomeniaSearchFilterChanged {
     if ($delay -le 0) { Stop-DomeniaPendingFilterChange; Invoke-DomeniaSearchFilterChanged; return }
     $script:PendingFilterChange = [pscustomobject]@{ Dn=[string]$script:SelectedBranchDn; Generation=[int]$script:GlobalSearchGeneration; Source=$Source; DelayMs=$delay }
     if ($null -eq $script:FilterChangeTimer) {
-        $timer = [Windows.Threading.DispatcherTimer]::new()
-        $timer.Add_Tick({ try { Invoke-DomeniaPendingFilterChange } catch { Write-AppLog ('Lecture différée de lʼOU : '+$_.Exception.Message) 'WARN' } })
-        $script:FilterChangeTimer = $timer
+        # FI-05: protected, session-bound heartbeat timer (debounce of the OU read), owned and registered by the factory.
+        $script:FilterChangeTimer = New-DomeniaTimer -Owner 'Timer:FilterChange' -IntervalMs 300 -SessionBound -Tick { Invoke-DomeniaPendingFilterChange }
     }
     $script:FilterChangeTimer.Stop()
     $script:FilterChangeTimer.Interval = [TimeSpan]::FromMilliseconds($delay)

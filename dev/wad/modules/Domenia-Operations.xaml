@@ -1,0 +1,58 @@
+<Border xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Name="OperationsPanel" Width="620" MaxHeight="560" HorizontalAlignment="Left" VerticalAlignment="Top" Padding="14,12"
+        CornerRadius="12" BorderThickness="1" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderColor}"
+        KeyboardNavigation.TabNavigation="Cycle" AutomationProperties.Name="Opérations"
+        AutomationProperties.HelpText="Opérations en cours et en attente de cette session, leur durée et la santé du moteur. Échap ou un clic à côté ferme le panneau ; les opérations continuent.">
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+    <Grid>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="Auto"/>
+      </Grid.ColumnDefinitions>
+      <TextBlock Text="Opérations" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource TextColor}"/>
+      <Button x:Name="BtnOperationsClose" Grid.Column="1" Content="Fermer" MinHeight="30" Padding="10,2" ToolTip="Ferme ce panneau. Les opérations continuent et restent comptées sur le bouton Opérations."
+              ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Fermer le panneau des opérations"
+              AutomationProperties.HelpText="Ferme ce panneau. Les opérations continuent et restent comptées sur le bouton Opérations."/>
+    </Grid>
+    <TextBlock x:Name="LblSuiteActivityState" Grid.Row="1" Text="" TextWrapping="Wrap" Margin="0,8,0,8" Foreground="{DynamicResource MutedColor}"/>
+    <DataGrid x:Name="DgSuiteActivity" Grid.Row="2" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" SelectionUnit="FullRow" HeadersVisibility="Column"
+              MinRowHeight="32" MinHeight="96" MaxHeight="300" CanUserAddRows="False" CanUserDeleteRows="False"
+              ToolTip="Opérations de cette session : en cours, en attente, arrêt demandé, à vérifier ou nettoyage. Une ligne qui disparaît ne prouve pas un résultat ; consultez le journal."
+              ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Opérations en cours"
+              AutomationProperties.HelpText="Opérations de cette session : en cours, en attente, arrêt demandé, à vérifier ou nettoyage. Une ligne qui disparaît ne prouve pas un résultat ; consultez le journal.">
+      <DataGrid.RowStyle>
+        <Style TargetType="DataGridRow">
+          <Setter Property="ToolTip" Value="{Binding Detail}"/>
+        </Style>
+      </DataGrid.RowStyle>
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="Opération" Binding="{Binding Name}" Width="2*"/>
+        <DataGridTextColumn Header="Type" Binding="{Binding Kind}" Width="90"/>
+        <DataGridTextColumn Header="État" Binding="{Binding State}" Width="110"/>
+        <DataGridTextColumn Header="Durée" Binding="{Binding Duration}" Width="70"/>
+        <DataGridTemplateColumn Header="" Width="96">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate>
+              <Button Content="Arrêter" Tag="{Binding Id}" IsEnabled="{Binding CanCancel}" MinHeight="26" Padding="8,0" Margin="2"
+                      ToolTip="Demande lʼarrêt de cette lecture. Une écriture envoyée ou un enregistrement local ne sʼarrêtent pas ; un appel natif peut encore finir son nettoyage."
+                      ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Arrêter cette opération"/>
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+      </DataGrid.Columns>
+    </DataGrid>
+    <Border Grid.Row="3" Background="{DynamicResource TileBg}" CornerRadius="10" Padding="12,8" Margin="0,10,0,0">
+      <StackPanel>
+        <TextBlock Text="Santé" FontWeight="SemiBold" Foreground="{DynamicResource TextColor}"/>
+        <TextBlock x:Name="LblOperationsHealth" Text="" TextWrapping="Wrap" Margin="0,4,0,0" Foreground="{DynamicResource MutedColor}"
+                   ToolTip="Mesures locales de cette session : mémoire, réactivité de lʼinterface, dernière sauvegarde locale. Aucune sonde réseau."/>
+      </StackPanel>
+    </Border>
+  </Grid>
+</Border>

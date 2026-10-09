@@ -173,9 +173,8 @@ function Register-DomeniaCountUp {
 function Start-DomeniaCountTimer {
     if ($null -eq $script:DomeniaIntroTimer) {
         # Normal priority: at Background the ticks can starve behind the rendering of the entrance animations.
-        $script:DomeniaIntroTimer = New-Object System.Windows.Threading.DispatcherTimer ([System.Windows.Threading.DispatcherPriority]::Normal)
-        $script:DomeniaIntroTimer.Interval = [TimeSpan]::FromMilliseconds(16)
-        $script:DomeniaIntroTimer.Add_Tick({
+        # FI-05: protected standalone timer (its own priority), owned and registered by the factory; it stops at the end.
+        $script:DomeniaIntroTimer = New-DomeniaTimer -Owner 'Timer:CountIntro' -IntervalMs 16 -Standalone -Priority Normal -Tick {
             $now = [DateTime]::UtcNow
             $left = 0
             foreach ($item in @($script:DomeniaCounting)) {
@@ -188,7 +187,7 @@ function Start-DomeniaCountTimer {
                 $left++
             }
             if (-not $left) { $script:DomeniaIntroTimer.Stop() }
-        })
+        }
     }
     if (-not $script:DomeniaIntroTimer.IsEnabled) { $script:DomeniaIntroTimer.Start() }
 }

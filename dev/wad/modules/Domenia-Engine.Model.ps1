@@ -185,21 +185,28 @@ function Get-DomeniaTaskDedupKey {
 
 function Test-DomeniaTaskAdmission {
     # Decides whether a request starts now, waits in the bounded queue, or is refused.
+    # FI-03: reads (Selection, Background) stop at MaxOutstanding physical workers. An explicit action has one
+    # reserved physical place above that cap and a write one more: detached reads never refuse a write.
     param(
         [Parameter(Mandatory=$true)][string]$Class,
         [int]$Running=0,[int]$Outstanding=0,[int]$MaxConcurrent=6,[int]$MaxOutstanding=12,
         [int]$Queued=0,[int]$MaxQueued=32,[int]$ReservedForeground=2
     )
     $reserved = [Math]::Max(0,[Math]::Min($ReservedForeground,$MaxConcurrent - 1))
-    if ($Outstanding -ge $MaxOutstanding) {
+    $physical = $MaxOutstanding
+    if ($Class -eq 'Explicit') { $physical = $MaxOutstanding + 1 }
+    if ($Class -eq 'Write') { $physical = $MaxOutstanding + 2 }
+    if ($Outstanding -ge $physical) {
         if ($Class -ne 'Write' -and $Queued -lt $MaxQueued) { return [pscustomobject]@{Decision='Queue';Reason='Workers encore actifs ou en nettoyage : attente de leur liberation reelle.'} }
         return [pscustomobject]@{Decision='Reject';Reason='Limite physique atteinte : des workers restent actifs ou en nettoyage.'}
     }
+    $startReason = ''
+    if ($Class -eq 'Write' -and $Outstanding -ge $MaxOutstanding) { $startReason = 'Des lectures se terminent ; lʼécriture partira dans un instant.' }
     $limit = $MaxConcurrent
     if ($Class -eq 'Background') { $limit = $MaxConcurrent - $reserved }
     # A write is never starved by reads: it may use one slot above the read limit.
     if ($Class -eq 'Write') { $limit = $MaxConcurrent + 1 }
-    if ($Running -lt $limit) { return [pscustomobject]@{Decision='Start';Reason=''} }
+    if ($Running -lt $limit) { return [pscustomobject]@{Decision='Start';Reason=$startReason} }
     if ($Class -eq 'Write') { return [pscustomobject]@{Decision='Reject';Reason='Moteur sature : aucune ecriture mise en attente silencieuse.'} }
     if ($Queued -lt $MaxQueued) {
         $why = 'Lectures en cours : demande placee en attente.'
@@ -211,15 +218,68 @@ function Test-DomeniaTaskAdmission {
 
 function Select-DomeniaNextQueuedTask {
     # Returns the queued task that may start now, or $null. Priority first, then arrival order.
-    param([object[]]$Queued,[int]$Running=0,[int]$Outstanding=0,[int]$MaxConcurrent=6,[int]$MaxOutstanding=12,[int]$ReservedForeground=2)
+    # MO-05: with -ProviderLoad (running workers per provider), a candidate whose provider is saturated or paused
+    # is skipped and stays queued; a durable refusal (rejected account) is returned so that its start reports it.
+    param([object[]]$Queued,[int]$Running=0,[int]$Outstanding=0,[int]$MaxConcurrent=6,[int]$MaxOutstanding=12,[int]$ReservedForeground=2,
+        $ProviderLoad=$null,$ProviderState=$null,[datetime]$NowUtc=[datetime]::UtcNow)
     $candidates = @(@($Queued) | Where-Object { $null -ne $_ })
     if (-not $candidates.Count) { return $null }
-    $ordered = @($candidates | Sort-Object @{Expression={ Get-DomeniaTaskPriority ([string](Get-DomeniaMember $_ 'Class' 'Background')) }},@{Expression={ [long](Get-DomeniaMember $_ 'Sequence' 0) }})
-    foreach ($task in $ordered) {
-        $decision = Test-DomeniaTaskAdmission -Class ([string](Get-DomeniaMember $task 'Class' 'Background')) -Running $Running -Outstanding $Outstanding -MaxConcurrent $MaxConcurrent -MaxOutstanding $MaxOutstanding -Queued 0 -MaxQueued 1 -ReservedForeground $ReservedForeground
-        if ($decision.Decision -eq 'Start') { return $task }
+    foreach ($task in @(Get-DomeniaTaskOrder -Jobs $candidates)) {
+        $class = [string](Get-DomeniaMember $task 'Class' 'Background')
+        $decision = Test-DomeniaTaskAdmission -Class $class -Running $Running -Outstanding $Outstanding -MaxConcurrent $MaxConcurrent -MaxOutstanding $MaxOutstanding -Queued 0 -MaxQueued 1 -ReservedForeground $ReservedForeground
+        if ($decision.Decision -ne 'Start') { continue }
+        if ($null -ne $ProviderLoad) {
+            $provider = [string](Get-DomeniaMember $task 'Provider' '')
+            if ($provider) {
+                $busy = 0
+                if (($ProviderLoad -is [Collections.IDictionary]) -and $ProviderLoad.Contains($provider)) { $busy = [int]$ProviderLoad[$provider] }
+                $budget = Test-DomeniaProviderAdmission -State $ProviderState -Provider $provider -Target ([string](Get-DomeniaMember $task 'ProviderTarget' '')) -Class $class -RunningForProvider $busy -NowUtc $NowUtc
+                if ((-not [bool]$budget.Allowed) -and (-not [bool](Get-DomeniaMember $budget 'Durable' $false))) { continue }
+            }
+        }
+        return $task
     }
     return $null
+}
+
+function Test-DomeniaForegroundTaskClass {
+    # CO-02: the classes the operator waits for. Only they drive Annuler, the progress label and LatestTaskId.
+    param([string]$Class)
+    return ($Class -in @('Write','Explicit','Selection'))
+}
+
+function Get-DomeniaTaskOrder {
+    # PF-04: completions and promotions are handled by class priority (Write, Explicit, Selection, Background),
+    # then in arrival order, so that the record the operator clicked never waits behind background probes.
+    param([object[]]$Jobs=@())
+    return @(@($Jobs) | Where-Object { $null -ne $_ } | Sort-Object @{Expression={ Get-DomeniaTaskPriority ([string](Get-DomeniaMember $_ 'Class' 'Background')) }},@{Expression={ [long](Get-DomeniaMember $_ 'Sequence' 0) }})
+}
+
+# ---------------------------------------------------------------- PF-06 heartbeat schedule
+function Test-DomeniaPulseDue {
+    # A subscriber runs when it is due, or due within a quarter of its interval (100 ms at most): nearby
+    # subscribers share one wake-up instead of waking the Dispatcher one after the other.
+    param($Subscriber,[double]$NowMs=0,[bool]$Hidden=$false)
+    if ($null -eq $Subscriber -or -not [bool](Get-DomeniaMember $Subscriber 'Enabled' $false)) { return $false }
+    if ($Hidden -and -not [bool](Get-DomeniaMember $Subscriber 'RunWhenHidden' $false)) { return $false }
+    $interval = [double](Get-DomeniaMember $Subscriber 'IntervalMs' 0)
+    $tolerance = [Math]::Min(100.0,[Math]::Max(0.0,$interval / 4.0))
+    return (([double](Get-DomeniaMember $Subscriber 'DueMs' 0) - $NowMs) -le $tolerance)
+}
+
+function Get-DomeniaPulseDelay {
+    # Delay in milliseconds until the next subscriber is due, or -1 when nothing is enabled (the heartbeat stops).
+    # A minimized or hidden window keeps only the subscribers marked RunWhenHidden (tasks, saves).
+    param([object[]]$Subscribers=@(),[double]$NowMs=0,[bool]$Hidden=$false,[int]$MinimumMs=15)
+    $next = [double]::MaxValue
+    foreach ($subscriber in @($Subscribers)) {
+        if ($null -eq $subscriber -or -not [bool](Get-DomeniaMember $subscriber 'Enabled' $false)) { continue }
+        if ($Hidden -and -not [bool](Get-DomeniaMember $subscriber 'RunWhenHidden' $false)) { continue }
+        $due = [double](Get-DomeniaMember $subscriber 'DueMs' 0)
+        if ($due -lt $next) { $next = $due }
+    }
+    if ($next -eq [double]::MaxValue) { return -1 }
+    return [int][Math]::Max([double][Math]::Max(1,$MinimumMs),[Math]::Ceiling($next - $NowMs))
 }
 
 # ---------------------------------------------------------------- D017 cancellation states
@@ -441,20 +501,20 @@ function Test-DomeniaProviderAdmission {
         # Same account (or unknown account): refused. Another account chosen explicitly: allowed once more.
         $rejected = [string](Get-DomeniaMember $entry 'RejectedIdentity' '')
         if (-not $rejected -or -not $Identity -or $rejected -ieq ([string]$Identity).Trim()) {
-            return [pscustomobject]@{Allowed=$false;Reason='Identifiants rejetes pour cette ressource : aucun nouvel essai avant un changement de compte explicite.';RetryAfterUtc=$null;Budget=$budget}
+            return [pscustomobject]@{Allowed=$false;Reason='Identifiants rejetes pour cette ressource : aucun nouvel essai avant un changement de compte explicite.';RetryAfterUtc=$null;Budget=$budget;Durable=$true}
         }
     }
     foreach ($entry in $entries) {
         # Only background reads pause: a read the operator asked for (Explicit) or caused by a selection
         # (an object opened, a presence check) is still sent, and its outcome keeps feeding the budget.
         if (([datetime]$entry.BackoffUntilUtc -gt $NowUtc) -and ($Class -eq 'Background')) {
-            return [pscustomobject]@{Allowed=$false;Reason='Pannes repetees : nouvelles lectures de fond suspendues temporairement.';RetryAfterUtc=[datetime]$entry.BackoffUntilUtc;Budget=$budget}
+            return [pscustomobject]@{Allowed=$false;Reason='Pannes repetees : nouvelles lectures de fond suspendues temporairement.';RetryAfterUtc=[datetime]$entry.BackoffUntilUtc;Budget=$budget;Durable=$false}
         }
     }
     if ($Class -eq 'Background' -and $RunningForProvider -ge $budget.MaxConcurrent) {
-        return [pscustomobject]@{Allowed=$false;Reason='Concurrence maximale atteinte pour ce fournisseur.';RetryAfterUtc=$null;Budget=$budget}
+        return [pscustomobject]@{Allowed=$false;Reason='Concurrence maximale atteinte pour ce fournisseur.';RetryAfterUtc=$null;Budget=$budget;Durable=$false}
     }
-    return [pscustomobject]@{Allowed=$true;Reason='';RetryAfterUtc=$null;Budget=$budget}
+    return [pscustomobject]@{Allowed=$true;Reason='';RetryAfterUtc=$null;Budget=$budget;Durable=$false}
 }
 
 function Test-DomeniaAutoRetryAllowed {
@@ -514,15 +574,18 @@ function Get-DomeniaResourceSummary {
 
 # ---------------------------------------------------------------- D020 idle policy
 function Get-DomeniaIdlePolicy {
-    param([bool]$WindowActive=$true,[bool]$Minimized=$false,[string]$VisiblePage='',[bool]$WriteInFlight=$false,[int]$PendingSaves=0,[bool]$ExplicitActivity=$false)
-    $visible = ($WindowActive -and -not $Minimized)
-    $reason = 'Fenetre active.'
-    if ($Minimized) { $reason = 'Fenetre reduite : rafraichissements suspendus.' }
-    elseif (-not $WindowActive) { $reason = 'Fenetre inactive : rafraichissements suspendus.' }
+    # UX-30: a view is rebuilt while the window is visible, active or not (a home page on a second screen stays
+    # current); only a minimized or hidden window suspends it. Background network reads keep needing the active window.
+    param([bool]$WindowActive=$true,[bool]$Minimized=$false,[string]$VisiblePage='',[bool]$WriteInFlight=$false,[int]$PendingSaves=0,[bool]$ExplicitActivity=$false,[bool]$Hidden=$false)
+    $visible = ((-not $Minimized) -and (-not $Hidden))
+    $reason = 'Fenêtre active.'
+    if ($Minimized) { $reason = 'Fenêtre réduite : rafraîchissements suspendus.' }
+    elseif ($Hidden) { $reason = 'Fenêtre masquée : rafraîchissements suspendus.' }
+    elseif (-not $WindowActive) { $reason = 'Fenêtre inactive : lectures réseau de fond suspendues, affichage tenu à jour.' }
     return [pscustomobject]@{
-        Visible=$visible;VisiblePage=$VisiblePage
-        # Background refreshes need a visible window; a write in flight also pauses them.
-        AllowBackgroundRefresh=($visible -and -not $WriteInFlight)
+        Visible=$visible;Active=$WindowActive;VisiblePage=$VisiblePage
+        # Background network refreshes need the active window; a write in flight also pauses them.
+        AllowBackgroundRefresh=($visible -and $WindowActive -and (-not $WriteInFlight))
         AllowHiddenViewRebuild=$false
         # Explicit work, receipts and saves are never abandoned by the idle policy.
         AllowExplicitWork=$true;KeepReceiptTracking=$true;KeepStorageWrites=$true
@@ -555,7 +618,8 @@ function Test-DomeniaIdleAllows {
         'Receipts' { return $true }
         'Explicit' { return $true }
         'ViewRebuild' {
-            # A hidden page is rebuilt when it is shown again, not while it is hidden.
+            # A hidden page is rebuilt when it is shown again, not while it is hidden. UX-30: an inactive but
+            # visible window keeps its view current; only a minimized or hidden window suspends the rebuild.
             if (-not [bool]$Policy.Visible) { return $false }
             if ($Page -and [string]$Policy.VisiblePage -and $Page -ne [string]$Policy.VisiblePage) { return $false }
             return $true
