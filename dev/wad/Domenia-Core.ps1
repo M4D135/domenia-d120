@@ -816,6 +816,7 @@ $script:GuiElementPolicy = [ordered]@{
     "TabIndex" = "Default"
     "BtnIndexBuild" = "Default"
     "BtnIndexRefresh" = "Default"
+    "BtnIndexWalk" = "Default"
     "BtnIndexOpen" = "Default"
     "BtnIndexExport" = "Default"
     "BtnStorageUsage" = "Default"
@@ -6758,6 +6759,7 @@ function Get-MainXaml {
                             <WrapPanel>
                               <Button x:Name="BtnIndexBuild" Content="Mettre a jour tout" Style="{StaticResource RunButton}" ToolTip="Relit tous les utilisateurs et postes, reconstruit la base autonome et resynchronise les associations connues. Peut durer plusieurs minutes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mettre a jour tout" AutomationProperties.HelpText="Relit tous les utilisateurs et postes, reconstruit la base autonome et resynchronise les associations connues. Peut durer plusieurs minutes."/>
                               <Button x:Name="BtnIndexRefresh" Content="Mettre a jour les changements" Style="{StaticResource RunButton}" ToolTip="Ne relit que les objets modifiés depuis la dernière passe grâce à uSNChanged/whenChanged. Beaucoup plus rapide." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mettre a jour les changements" AutomationProperties.HelpText="Ne relit que les objets modifies depuis la derniere passe grace a uSNChanged/whenChanged. Beaucoup plus rapide."/>
+                              <Button x:Name="BtnIndexWalk" Content="Tout relire (OU par OU)" Style="{StaticResource SecondaryButton}" ToolTip="Relit le domaine entier en une tache par OU et ajoute chaque OU a la base locale sans rien supprimer. Utile quand la base est annoncee incomplete : la limite de lecture ne porte plus que sur une seule OU a la fois. Lecture seule, a votre clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Tout relire OU par OU" AutomationProperties.HelpText="Relit le domaine entier en une tache par OU et ajoute chaque OU a la base locale sans rien supprimer."/>
                               <Button x:Name="BtnIndexOpen" Content="Ouvrir l objet" ToolTip="Recherche dans l annuaire l objet selectionne ci-dessous." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ouvrir l objet" AutomationProperties.HelpText="Recherche dans l annuaire l objet selectionne ci-dessous."/>
                               <Button x:Name="BtnIndexExport" Content="Exporter CSV" ToolTip="Enregistre les resultats affiches au format CSV." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Exporter CSV" AutomationProperties.HelpText="Enregistre les resultats affiches au format CSV."/>
                             </WrapPanel>
@@ -16308,6 +16310,153 @@ function Complete-DomeniaIndexScopeUi {
     $script:FleetStale = $true
 }
 
+$script:IndexWalk = $null
+
+function Start-DomeniaIndexWalk {
+    # « Tout relire (OU par OU) » : le domaine entier est relu en une tache par OU, chacune fusionnee dans la base sans
+    # rien supprimer. La limite de lecture (Index.MaxObjects, Index.BudgetMs) ne porte plus que sur une seule OU, donc
+    # une grosse OU ne peut plus a elle seule empecher la base locale d'etre complete. Le repere du domaine n'avance pas
+    # (une passe ne couvre qu'une OU) : c'est « Mettre a jour les changements » qui le fait progresser.
+    param([switch]$Confirmed)
+    try {
+        if (-not $Confirmed) {
+            $run = { Start-DomeniaIndexWalk -Confirmed }
+            [void](Request-DomeniaInlineConfirmation -Title 'Relire tout le domaine OU par OU' -Message 'Le domaine entier est relu, une tache par OU, et chaque OU est ajoutee a la base locale sans rien supprimer. Long : la limite de lecture ne porte plus que sur une seule OU a la fois.' -Target 'base:tout-relire' -OnConfirm $run)
+            return
+        }
+        if ($null -ne $script:IndexWalk) { Set-Status 'La passe par OU est deja en cours.' 'WARN'; return }
+        $script:IndexWalk = [pscustomobject]@{ Queue = (New-Object 'System.Collections.Generic.Queue[string]'); Total = 0; Done = 0; Objects = 0; Limited = 0; Errors = 0; Started = (Get-Date) }
+        Start-UiTask `
+            -Name 'Passe par OU : liste des OU' `
+            -OperationId 'IndexOuList' `
+            -Code (Get-DomeniaIndexOuListWorkerCode) `
+            -Payload ([pscustomobject]@{ SearchBase = '' }) `
+            -CallbackState ([pscustomobject]@{ Epoch = [long]$script:SessionEpoch }) `
+            -ReplaceKey "index" `
+            -DisableControls @("BtnIndexBuild","BtnIndexRefresh","BtnIndexWalk","BtnFleetIndexScope") `
+            -TimeoutSeconds 300 `
+            -StatusText 'Passe par OU : lecture de la liste des OU...' `
+            -SuccessHandler 'Complete-DomeniaIndexWalkPlanUi' `
+            -ErrorHandler 'Fail-DomeniaIndexWalkUi' | Out-Null
+    }
+    catch { [void](Show-DomeniaOperationError -Operation 'Passe par OU dans la base autonome' -ErrorRecordOrException $_) }
+}
+
+function Complete-DomeniaIndexWalkPlanUi {
+    param($Result,$State)
+    if ($null -ne $State -and [long]$State.Epoch -ne [long]$script:SessionEpoch) { return }
+    $walk = $script:IndexWalk
+    if ($null -eq $walk) { return }
+    $effective = Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @("Rows")
+    if ($null -eq $effective) { Complete-DomeniaIndexWalkUi -Aborted -Detail 'Lecture des OU sans resultat exploitable.'; return }
+    $root = [string]$script:Conn.BaseDn
+    foreach ($row in @($effective.Rows)) {
+        $dn = [string]$row.DN
+        if ([string]::IsNullOrWhiteSpace($dn)) { continue }
+        if ($dn.Equals($root,[StringComparison]::OrdinalIgnoreCase)) { continue }
+        $walk.Queue.Enqueue($dn)
+    }
+    # Les objets poses directement sur la racine du domaine ne sont dans aucune OU : une passe OneLevel les relit.
+    $walk.Queue.Enqueue($root)
+    $walk.Total = $walk.Queue.Count
+    $summary = 'Passe par OU : ' + $walk.Total + ' lecture(s) a lancer.'
+    [void](Set-DomeniaControlText -Name "LblIndexStatus" -Text $summary)
+    Set-Status $summary
+    Start-DomeniaIndexWalkStep
+}
+
+function Start-DomeniaIndexWalkStep {
+    $walk = $script:IndexWalk
+    if ($null -eq $walk) { return }
+    if ($walk.Queue.Count -eq 0) { Complete-DomeniaIndexWalkUi; return }
+    $dn = $walk.Queue.Dequeue()
+    $walk.Done = $walk.Done + 1
+    $isRoot = $dn.Equals([string]$script:Conn.BaseDn,[StringComparison]::OrdinalIgnoreCase)
+    $limits = Get-DomeniaIndexLimits
+    try {
+        Start-UiTask `
+            -Name ('Passe par OU ' + $walk.Done + '/' + $walk.Total) `
+            -OperationId 'IndexBuild' `
+            -Code (Get-DomeniaIndexWorkerCode) `
+            -Payload ([pscustomobject]@{ MaxObjects = $limits.MaxObjects; BudgetMs = $limits.BudgetMs; LastUsn = [long]0; LastServer = ""; Since = ""; ComputerFirst = [bool](Get-CfgValue "Index" "ComputerFirst" $true); SearchBase = $dn; SearchScope = $(if ($isRoot) { 'OneLevel' } else { 'Subtree' }) }) `
+            -CallbackState ([pscustomobject]@{ Epoch = [long]$script:SessionEpoch; SearchBase = $dn; Done = $walk.Done; Total = $walk.Total }) `
+            -ReplaceKey "index" `
+            -DisableControls @("BtnIndexBuild","BtnIndexRefresh","BtnIndexWalk","BtnFleetIndexScope") `
+            -TimeoutSeconds $limits.TimeoutSeconds `
+            -StatusText ('Passe par OU (' + $walk.Done + '/' + $walk.Total + ') : ' + $dn) `
+            -SuccessHandler 'Complete-DomeniaIndexWalkStepUi' `
+            -ErrorHandler 'Fail-DomeniaIndexWalkUi' | Out-Null
+    }
+    catch {
+        # Le moteur refuse d'admettre une tache de plus : la marche s'arrete la, sur un message, sans relancer en boucle.
+        $walk.Queue.Clear()
+        Complete-DomeniaIndexWalkUi -Aborted -Detail ([string]$_.Exception.Message)
+    }
+}
+
+function Complete-DomeniaIndexWalkStepUi {
+    param($Result,$State)
+    if ($null -ne $State -and [long]$State.Epoch -ne [long]$script:SessionEpoch) { return }
+    $walk = $script:IndexWalk
+    if ($null -eq $walk) { return }
+    $effective = Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @("Rows")
+    if ($null -eq $effective) { Complete-DomeniaIndexWalkUi -Aborted -Detail 'Passe sans resultat exploitable.'; return }
+    $rows = @($effective.Rows)
+    # Le repere du domaine (serveur, USN, identite du controleur) est conserve : cette passe ne couvre qu'une OU.
+    $info = $script:IndexInfo
+    $usn = if ($null -ne $info) { [long]$info.Usn } else { 0L }
+    $server = if ($null -ne $info -and [string]$info.Server) { [string]$info.Server } else { [string]$effective.Server }
+    $invocation = if ($null -ne $info) { [string]$info.InvocationId } else { '' }
+    try {
+        if ($rows.Count -gt 0) {
+            [void](Update-DomeniaIndexDatabaseRows -Rows $rows -Server $server -BaseDn ([string]$effective.BaseDn) -HighestUsn $usn -TotalCount 0 -InvocationId $invocation)
+        }
+        $walk.Objects = $walk.Objects + $rows.Count
+    }
+    catch {
+        # Une OU trop grosse pour la base (Update-DomeniaIndexDatabaseRows plafonne par passe) ne doit pas perdre les OU
+        # deja lues : elle est comptee a part et la marche continue.
+        $walk.Errors = $walk.Errors + 1
+        Add-DomeniaUiLog -Area "Index" -Level "WARN" -Text ('Passe par OU non ecrite : ' + [string]$effective.SearchBase + ' (' + $rows.Count + ' objet(s)) : ' + [string]$_.Exception.Message)
+    }
+    $cut = Get-DomeniaIndexCut -Effective $effective
+    if ($cut.Reason) { $walk.Limited = $walk.Limited + 1 }
+    $script:FleetStale = $true
+    [void](Set-DomeniaControlText -Name "LblIndexStatus" -Text ('Passe par OU ' + $walk.Done + '/' + $walk.Total + ' : ' + $rows.Count + ' objet(s), ' + $walk.Objects + ' relu(s) au total.'))
+    Start-DomeniaIndexWalkStep
+}
+
+function Fail-DomeniaIndexWalkUi {
+    param($Message,$State)
+    if ($null -ne $State -and [long]$State.Epoch -ne [long]$script:SessionEpoch) { return }
+    $detail = ([string]$Message).Trim()
+    if ([string]::IsNullOrWhiteSpace($detail)) { $detail = 'Erreur inconnue.' }
+    # Une passe qui echoue (annuaire injoignable, annulation) arrete la marche : le reste serait relu pour rien.
+    Complete-DomeniaIndexWalkUi -Aborted -Detail $detail
+}
+
+function Complete-DomeniaIndexWalkUi {
+    param([switch]$Aborted,[string]$Detail = '')
+    $walk = $script:IndexWalk
+    $script:IndexWalk = $null
+    if ($null -eq $walk) { return }
+    $seconds = [int](((Get-Date) - $walk.Started).TotalSeconds)
+    $summary = 'Passe par OU {0} : {1} lecture(s) sur {2}, {3} objet(s) relu(s) en {4} s.' -f $(if ($Aborted) { 'interrompue' } else { 'terminee' }),$walk.Done,$walk.Total,$walk.Objects,$seconds
+    if ($Aborted -and $Detail) { $summary += ' ' + $Detail }
+    if ($walk.Limited -gt 0) { $summary += ' ' + $walk.Limited + ' OU ont atteint leur limite : relisez-les une par une depuis Accueil.' }
+    if ($walk.Errors -gt 0) { $summary += ' ' + $walk.Errors + ' OU trop volumineuse(s) non ecrite(s).' }
+    if ((-not $Aborted) -and ($walk.Limited -eq 0) -and ($walk.Errors -eq 0)) {
+        # Toutes les OU ont ete relues sans coupure : la base autonome n'est plus incomplete.
+        Set-DomeniaIndexPartial -Clear
+        $summary += ' Base complete.'
+    }
+    [void](Set-DomeniaControlText -Name "LblIndexStatus" -Text $summary)
+    Set-Status $summary $(if ($Aborted -or $walk.Limited -gt 0 -or $walk.Errors -gt 0) { 'WARN' } else { 'INFO' })
+    Add-DomeniaUiLog -Area "Index" -Text $summary
+    $script:FleetStale = $true
+    try { [void](Load-DomeniaIndexMetadata); Update-DomeniaIndexStats } catch { }
+}
+
 function Start-DomeniaIndexBuild {
     param([switch]$UpdateLinks,[switch]$Confirmed)
     try {
@@ -16421,6 +16570,45 @@ function Get-DomeniaIndexSuggestionText {
     return ""
 }
 
+function Get-DomeniaIndexOuListWorkerCode {
+    # Corps épinglé (IndexOuList) : une seule lecture OneLevel sous la racine pour connaître les OU à relire une par
+    # une. Le filtre reprend celui du cache d'accueil : OU et conteneurs (CN=Computers, CN=Domain Controllers...).
+    return @'
+$watch = [System.Diagnostics.Stopwatch]::StartNew()
+$baseDn = [string]$Context.BaseDn
+if ([string]::IsNullOrWhiteSpace($baseDn)) { throw 'Base DN vide : lecture des OU impossible.' }
+$searchBase = $baseDn
+$scopeProperty = $Payload.PSObject.Properties['SearchBase']
+if ($null -ne $scopeProperty -and -not [string]::IsNullOrWhiteSpace([string]$scopeProperty.Value)) {
+    $scopeText = ([string]$scopeProperty.Value).Trim()
+    if (-not ($scopeText -ieq $baseDn -or $scopeText.EndsWith(',' + $baseDn,[StringComparison]::OrdinalIgnoreCase))) { throw 'OU hors du domaine : lecture refusee.' }
+    $searchBase = $scopeText
+}
+$rows = New-Object Collections.ArrayList
+$searcher = $null
+$collection = $null
+try {
+    $searcher = New-WSearcher $Context $searchBase '(|(objectClass=organizationalUnit)(objectClass=container))' @('name','distinguishedName') 'OneLevel' 0
+    $searcher.PageSize = 200
+    $searcher.ServerTimeLimit = [TimeSpan]::FromSeconds(60)
+    $searcher.ClientTimeout = [TimeSpan]::FromSeconds(90)
+    $collection = $searcher.FindAll()
+    foreach ($r in @($collection)) {
+        $dn = [string](Get-WPropFirst $r.Properties 'distinguishedName' '')
+        if ([string]::IsNullOrWhiteSpace($dn)) { continue }
+        if ($dn.Equals($searchBase,[StringComparison]::OrdinalIgnoreCase)) { continue }
+        [void]$rows.Add([pscustomobject]@{ Name = [string](Get-WPropFirst $r.Properties 'name' ''); DN = $dn })
+    }
+}
+finally {
+    if ($null -ne $collection) { try { $collection.Dispose() } catch { } }
+    if ($null -ne $searcher) { try { $searcher.Dispose() } catch { } }
+}
+$sorted = @($rows | Sort-Object @{Expression = {[string]$_.DN}; Descending = $false })
+return [pscustomobject]@{ Success = $true; Rows = $sorted; SearchBase = $searchBase; BaseDn = $baseDn; DurationMs = [int]$watch.ElapsedMilliseconds }
+'@
+}
+
 function Get-DomeniaIndexWorkerCode {
     return @'
 $watch = [System.Diagnostics.Stopwatch]::StartNew()
@@ -16434,6 +16622,11 @@ if ($null -ne $scopeProperty -and -not [string]::IsNullOrWhiteSpace([string]$sco
     if (-not ($scopeText -ieq $baseDn -or $scopeText.EndsWith(',' + $baseDn,[StringComparison]::OrdinalIgnoreCase))) { throw 'OU hors du domaine : mise a jour refusee.' }
     $searchBase = $scopeText
 }
+# Portée de la passe : la marche par OU relit chaque OU en Subtree ; le reste posé directement sur la
+# racine du domaine (objets hors OU) se lit à un seul niveau. Toute autre valeur retombe sur Subtree.
+$searchScope = 'Subtree'
+$scopeKindProperty = $Payload.PSObject.Properties['SearchScope']
+if ($null -ne $scopeKindProperty -and ([string]$scopeKindProperty.Value) -ieq 'OneLevel') { $searchScope = 'OneLevel' }
 # Ceiling of Index.MaxObjects, the same literal as in Get-DomeniaIndexLimits (this body runs in its own runspace).
 # It used to be 200 000 whatever the configuration asked for: a domain larger than that could never fill its base.
 $maxObjects = [Math]::Max(1000,[Math]::Min(5000000,[int]$Payload.MaxObjects))
@@ -16551,7 +16744,7 @@ foreach ($entry in $plan) {
     try {
         $filter = [string]$entry.Filter
         if ($incremental) { $filter = '(&' + $filter + $deltaClause + ')' }
-        $searcher = New-WSearcher $Context $searchBase $filter @($entry.Props) 'Subtree' 0
+        $searcher = New-WSearcher $Context $searchBase $filter @($entry.Props) $searchScope 0
         $searcher.PageSize = 1000
         $searcher.ServerTimeLimit = [TimeSpan]::FromSeconds(120)
         $searcher.ClientTimeout = [TimeSpan]::FromSeconds(150)
@@ -20689,6 +20882,7 @@ function Wire-Events {
     $script:Ctrl["BtnRunComputerDiag"].Add_Click({ Start-ComputerDiagnostics })
     if ($script:Ctrl.ContainsKey("BtnUserSaveContact")) { $script:Ctrl["BtnUserSaveContact"].Add_Click({ Save-DomeniaUserContact }) }
     if ($script:Ctrl.ContainsKey("BtnIndexBuild")) { $script:Ctrl["BtnIndexBuild"].Add_Click({ Start-DomeniaIndexBuild -UpdateLinks }) }
+    if ($script:Ctrl.ContainsKey("BtnIndexWalk")) { $script:Ctrl["BtnIndexWalk"].Add_Click({ Start-DomeniaIndexWalk }) }
     if ($script:Ctrl.ContainsKey("BtnStorageUsage")) { $script:Ctrl["BtnStorageUsage"].Add_Click({ Start-DomeniaStorageUsage }) }
     if ($script:Ctrl.ContainsKey("BtnStoragePurgePreview")) { $script:Ctrl["BtnStoragePurgePreview"].Add_Click({ Start-DomeniaStoragePurge }) }
     if ($script:Ctrl.ContainsKey("BtnStoragePurge")) { $script:Ctrl["BtnStoragePurge"].Add_Click({ Request-DomeniaStoragePurge }) }
@@ -22150,7 +22344,7 @@ function Get-DomeniaWorkerOperationHashes {
         SoftwareInventory     = "0F758A7DFEF27A63A230A3CD34FE45A5D7079691AB6C9D989C861ADE2A61E9D1"
         LogonHarvest          = "ED7FFF55506C7BCE5567D65F683E10E9F28EA9771947F12A8DEEE1435994119A"
         ParkSweep             = "134ED776E45640FA67B7F51659711C33B37834105375CC4B083342469F2C26A9"
-        IndexBuild            = "8918C3C3D0FD376F5354D108185B88F8A3DF80A6D83F81F215DE022841DC5B32"
+        IndexBuild            = "647DD166D5AD185DFDEAECE3FD091DF9F55195C98C4777DDB5A2970CDD892535"
         UserComputerProbe     = "EB7C36419C1B8B91AFB9ECE6B98D4E3FE663B87E4011F7D264D8AEDE7735E775"
         ComputerInventory     = "41F162A5B0870C10F1BAE378DC365CCC83582D6003435A86624752362B18E159"
         ComputerDiagnostics   = "9A5535EB658FA19AFC0905D57B339CEE0C14CCD4DA81AE2E0A527A86B5046608"
@@ -22192,6 +22386,7 @@ function Get-DomeniaWorkerOperationHashes {
         EngineSelfTest        = "40E2C89F858E22E1D221AC48DC04DD5BF627F1ACBC836AB48036C43DB9F7E1D1"
             EmbeddedDirectoryLookup = "2B3A888C7E1A97B4D523B0B3A408EF03AA5C0D0F95D534984B8EB3D581CDDD17"
         EmbeddedPathBrowse = "B643D707E242EC4416AD63622847DD7C39E5B53ED47CF64FECD56E22B5A82271"
+        IndexOuList           = "242B26E610F11F6B45580B6D669F1B32C9442229DD89B334DB023FD5C5CB2DD2"
     }
 }
 
@@ -22200,7 +22395,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "79935B12A21B9337BE06F8231BAAF5C0BCCD6C9098CC382B1CF56AD2F18153FC"
+    $expectedFingerprint = "0573CCACB2274A0874987D74D1B8B7BB5EE92C1EE18079482736A204AF3E64E1"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }

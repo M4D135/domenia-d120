@@ -3346,6 +3346,7 @@ Stop-TestTimers
 . (Join-Path $modules 'Domenia-BoardFleet.Model.ps1')
 . ([scriptblock]::Create((Get-FunctionTextFromFile (Join-Path $modules 'Domenia-Secrets.Worker.ps1') 'Get-DomeniaBitLockerPresenceWorkerCode')))
 . ([scriptblock]::Create((Get-FunctionTextFromFile $core 'Get-DomeniaIndexWorkerCode')))
+. ([scriptblock]::Create((Get-FunctionTextFromFile $core 'Get-DomeniaIndexOuListWorkerCode')))
 . ([scriptblock]::Create((Get-FunctionTextFromFile $core 'Test-DomeniaSensitiveAttributeName')))
 function Add-L01Rows { param([string]$Sql) $db = Open-DomeniaDatabase -Path $script:TestDbPath; try { [void](Invoke-DomeniaDbExec $Sql $db) } finally { Close-DomeniaDatabase $db } }
 function Get-L01Rows { param([string]$Sql) $db = Open-DomeniaDatabase -Path $script:TestDbPath -ReadOnly; try { return @(Invoke-DomeniaDbQuery $Sql $db) } finally { Close-DomeniaDatabase $db } }
@@ -3646,6 +3647,57 @@ Test-Case 'L01 : IndexBuild et BitLockerPresence ne demandent aucun attribut sen
     try { [void](& ([scriptblock]::Create((Get-DomeniaBitLockerPresenceWorkerCode)))) } catch { $outside = $_.Exception.Message }
     Assert-True ($outside -like '*hors du domaine*') ('OU hors domaine acceptee : ' + $outside)
 }
+Test-Case 'L01 : passe par OU — IndexOuList rend les OU enfants, IndexBuild relit une OU en Subtree et la racine en OneLevel' {
+    $script:L01Searches = New-Object System.Collections.ArrayList
+    function New-WSearcher {
+        param($Context,[string]$BaseDn,[string]$Filter,[string[]]$Properties,[string]$Scope = 'OneLevel',[int]$Limit = 0)
+        [void]$script:L01Searches.Add([pscustomobject]@{ Base = $BaseDn; Filter = $Filter; Properties = @($Properties); Scope = $Scope })
+        $rows = @()
+        if ($Filter -like '*organizationalUnit*') { $rows = $script:L01OuRows }
+        $searcher = [pscustomobject]@{ PageSize = 0; ServerTimeLimit = $null; ClientTimeout = $null; Filter = $Filter; Rows = $rows }
+        $searcher | Add-Member -MemberType ScriptMethod -Name FindAll -Value { if ($this.Filter -like '*attributeSchema*' -or $this.Filter -like '*classSchema*') { return ,@([pscustomobject]@{ Properties = @{} }) }; if (@($this.Rows).Count -gt 0) { return ,@($this.Rows) }; return ,@() }
+        $searcher | Add-Member -MemberType ScriptMethod -Name Dispose -Value { }
+        return $searcher
+    }
+    function New-WRootDse { param($Context) $r = [pscustomobject]@{ Properties = @{ highestCommittedUSN = @{ Value = 5 }; schemaNamingContext = @{ Value = '' } } }; $r | Add-Member -MemberType ScriptMethod -Name RefreshCache -Value { param($Names) }; return $r }
+    function Get-WDirectoryVersionSource { param($Context) return '' }
+    function Get-WPropFirst { param($Props,[string]$Name,$Default = '') if ($null -ne $Props -and $Props.ContainsKey($Name)) { return $Props[$Name] }; return $Default }
+    function Get-DomeniaStructuredError { param($ErrorRecord,$Phase,$Provider,$Target) return [pscustomobject]@{ Kind = 'ReadFailed'; NativeCode = ''; Code = '' } }
+    # La racine elle-meme peut remonter dans une lecture OneLevel mal filtree : elle ne doit jamais etre relue comme une OU.
+    $script:L01OuRows = @(
+        [pscustomobject]@{ Properties = @{ name = 'Postes'; distinguishedName = 'OU=Postes,DC=example,DC=invalid' } },
+        [pscustomobject]@{ Properties = @{ name = 'Comptes'; distinguishedName = 'OU=Comptes,DC=example,DC=invalid' } },
+        [pscustomobject]@{ Properties = @{ name = 'Ordinateurs'; distinguishedName = 'CN=Computers,DC=example,DC=invalid' } },
+        [pscustomobject]@{ Properties = @{ name = 'example'; distinguishedName = 'DC=example,DC=invalid' } }
+    )
+    $Context = [pscustomobject]@{ BaseDn = 'DC=example,DC=invalid'; Server = 'dc.example.invalid'; OperationId = 'IndexOuList'; PageSize = 100 }
+    $Payload = [pscustomobject]@{ SearchBase = '' }
+    $list = & ([scriptblock]::Create((Get-DomeniaIndexOuListWorkerCode)))
+    $ouSearch = @($script:L01Searches | Where-Object { $_.Filter -like '*organizationalUnit*' })[0]
+    Assert-Equal 'OneLevel' ([string]$ouSearch.Scope) 'La liste des OU ne lit pas un seul niveau sous la racine.'
+    Assert-Equal 'DC=example,DC=invalid' ([string]$ouSearch.Base) 'La liste des OU ne part pas de la racine du domaine.'
+    Assert-Equal 3 (@($list.Rows).Count) ('OU rendues : ' + ((@($list.Rows) | ForEach-Object { [string]$_.DN }) -join ' | '))
+    Assert-Equal 'CN=Computers,DC=example,DC=invalid' ([string](@($list.Rows)[0].DN)) ('OU rendues dans le desordre : ' + ((@($list.Rows) | ForEach-Object { [string]$_.DN }) -join ' | '))
+    # Chaque OU est ensuite relue en Subtree ; la racine, elle, ne se lit qu'a un seul niveau.
+    $Context = [pscustomobject]@{ BaseDn = 'DC=example,DC=invalid'; Server = 'dc.example.invalid'; OperationId = 'IndexBuild'; PageSize = 100 }
+    $script:L01Searches.Clear()
+    $Payload = [pscustomobject]@{ MaxObjects = 1000; BudgetMs = 30000; LastUsn = 0; LastServer = ''; Since = ''; ComputerFirst = $true; SearchBase = 'OU=Postes,DC=example,DC=invalid' }
+    [void](& ([scriptblock]::Create((Get-DomeniaIndexWorkerCode))))
+    $ouPass = @($script:L01Searches | Where-Object { $_.Filter -eq '(objectCategory=computer)' })[0]
+    Assert-Equal 'Subtree' ([string]$ouPass.Scope) 'La passe d une OU ne relit plus tout son sous-arbre.'
+    Assert-Equal 'OU=Postes,DC=example,DC=invalid' ([string]$ouPass.Base) 'La passe ne lit pas la OU demandee.'
+    $script:L01Searches.Clear()
+    $Payload = [pscustomobject]@{ MaxObjects = 1000; BudgetMs = 30000; LastUsn = 0; LastServer = ''; Since = ''; ComputerFirst = $true; SearchBase = 'DC=example,DC=invalid'; SearchScope = 'OneLevel' }
+    [void](& ([scriptblock]::Create((Get-DomeniaIndexWorkerCode))))
+    $rootPass = @($script:L01Searches | Where-Object { $_.Filter -eq '(objectCategory=computer)' })[0]
+    Assert-Equal 'OneLevel' ([string]$rootPass.Scope) 'Les objets poses sur la racine du domaine ne sont pas relus a un seul niveau.'
+    $script:L01Searches.Clear()
+    $Payload = [pscustomobject]@{ MaxObjects = 1000; BudgetMs = 30000; LastUsn = 0; LastServer = ''; Since = ''; ComputerFirst = $true; SearchBase = 'OU=Postes,DC=example,DC=invalid'; SearchScope = 'Base' }
+    [void](& ([scriptblock]::Create((Get-DomeniaIndexWorkerCode))))
+    $guardedPass = @($script:L01Searches | Where-Object { $_.Filter -eq '(objectCategory=computer)' })[0]
+    Assert-Equal 'Subtree' ([string]$guardedPass.Scope) 'Une portee inconnue nest pas ramenee a Subtree.'
+}
+
 Test-Case 'L01 : vue du parc sur 5 000 postes, agregats SQL et calcul des regles mesures' {
     $root = New-LegacySandbox
     try {

@@ -1202,7 +1202,7 @@ Une clé absente, nulle ou vide prend la valeur par défaut du code. Une section
 | LocalStore.BackupTimeoutSeconds | 30 | Budget d'une sauvegarde (5 à 120 s). |
 | LocalStore.DatabaseBusyTimeoutMs, MutexTimeoutMilliseconds | 2500, 350 | Attente d'une base occupée. |
 | Index.StartupDeltaMaxAgeMinutes | 5 | Âge au-delà duquel le journal recommande une mise à jour. |
-| Index.MaxObjects, BudgetMs, ComputerFirst | 200000, 1200000, true | Taille, budget et ordre de la reconstruction de l'index. `Index.MaxObjects` est accepté jusqu'à 5 000 000 d'objets. Une passe qui l'atteint, ou le budget, s'arrête là, avertit sur l'accueil et ne déplace pas le repère de suivi : la passe suivante relit tout. L'application estime elle-même 1 800 octets par objet lu, et chaque objet relu repasse par l'interface : ne relevez ces clés que pour la taille réelle de votre domaine, OU par OU quand c'est possible. |
+| Index.MaxObjects, BudgetMs, ComputerFirst | 200000, 1200000, true | Taille, budget et ordre de la reconstruction de l'index. `Index.MaxObjects` est accepté jusqu'à 5 000 000 d'objets. Une passe qui l'atteint, ou le budget, s'arrête là, avertit sur l'accueil et ne déplace pas le repère de suivi : la passe suivante relit tout. L'application estime elle-même 1 800 octets par objet lu, et chaque objet relu repasse par l'interface : ne relevez ces clés que pour la taille réelle de votre domaine, OU par OU quand c'est possible. Le bouton « Tout relire (OU par OU) » relit le domaine en une passe par OU : la limite ne porte alors plus que sur une seule OU, les OU déjà lues sont conservées, et le marqueur d'incomplétude s'efface quand aucune OU n'a été coupée. |
 
 ## Clés sans effet
 
