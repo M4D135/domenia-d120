@@ -109,6 +109,9 @@ foreach ($path in @($storageUi,$liveUi,$liveModel,$selectionUi,$continuityUi,$co
 
 . ([scriptblock]::Create((Get-FunctionTextFromFile $storageUi 'Initialize-DomeniaPersistence')))
 . ([scriptblock]::Create((Get-FunctionTextFromFile $storageUi 'Queue-DomeniaLinkChanges')))
+# Queue-DomeniaLinkChanges reveille le minuteur de sauvegarde a chaque lot pose : la vraie fonction, pas un
+# bouchon. Elle ne fait que demarrer Persistence.Timer (Domenia-Storage.UI.ps1) et ne touche aucun etat asserti.
+. ([scriptblock]::Create((Get-FunctionTextFromFile $storageUi 'Request-DomeniaStorageWork')))
 . ([scriptblock]::Create((Get-FunctionTextFromFile $storageUi 'Request-DomeniaLinkPersistence')))
 $script:QueueOriginal = (Get-Item function:Queue-DomeniaLinkChanges).ScriptBlock
 $script:RequestOriginal = (Get-Item function:Request-DomeniaLinkPersistence).ScriptBlock

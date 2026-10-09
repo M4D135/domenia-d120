@@ -2114,8 +2114,8 @@
     },
     {
       "Path": "wad/tests/Test-DomeniaWiringCache.ps1",
-      "Sha256": "7C031DB260D0CB834FAAF7F09BD643869F4109994C9F450AC3D0D4CB1671392C",
-      "Bytes": 256691,
+      "Sha256": "1D84C2D83BC790135F0875C9B82C90AA2126E9098CA47CD05454E68F7F634F51",
+      "Bytes": 257006,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -2135,8 +2135,8 @@
     },
     {
       "Path": "wad/tests/Test-DomeniaWiringInterface.ps1",
-      "Sha256": "CD66302F101F0E154D4177547B79DAF1BC72A83DAFB2D8A76610D10FF1046A62",
-      "Bytes": 56334,
+      "Sha256": "BC72252D7E9AFD26079160955B39A5DF58341B012B045FFF4ADEDCFBED03FFE5",
+      "Bytes": 57838,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -2156,8 +2156,8 @@
     },
     {
       "Path": "wad/tests/Test-DomeniaWiringRelations.ps1",
-      "Sha256": "DF7D910EE48C4E8288ED4F4B1D77D56C0B7EA16204A804D6E2AB2538054890C3",
-      "Bytes": 99087,
+      "Sha256": "50B566A7B5F7B5E30E804C69D915619B4E21F3B23AEA74B9DD9EDC1D4426633A",
+      "Bytes": 99152,
       "Runtime": false,
       "PreserveExisting": false
     },
