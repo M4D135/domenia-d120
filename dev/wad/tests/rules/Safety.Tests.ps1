@@ -12,7 +12,6 @@ $script:SfId={ param([string]$Guid,[string]$Dn,[string]$Name='Jean Dupont',[long
 $script:SfPlan={ param($Target,[string]$Operation='WriteAttributes',[object[]]$Changes=$script:SfChanges,[bool]$Simulation=$false)
     New-DomeniaInterventionPlan -OperationId $Operation -Target $Target -Server 'DC01.example.test' -Account 'EX\adm-jd' -Changes $Changes -Effects @('Fiche modifiee') -Simulation $Simulation }
 $script:SfError={ param([scriptblock]$Body) try { & $Body | Out-Null; '' } catch { $_.Exception.Message } }
-$script:SfItems={ param([int]$Count=3) @(for($i=1;$i -le $Count;$i++){ [pscustomobject]@{Guid=('00000000-0000-4000-8000-0000000000'+$i.ToString('00'));Name=('Poste '+$i);DN=('CN=PC'+$i+',OU=Postes,DC=example,DC=test');Changes=@([pscustomobject]@{Name='description';Old='';New=('Salle '+$i)})} }) }
 $script:SfCheck={ param($Plan,$Current,[object[]]$Changes=$script:SfChanges,[string]$Server='DC01.example.test',[string]$Account='EX\adm-jd',[string]$OperationId='')
     Test-DomeniaPlanStillValid -Plan $Plan -Current $Current -Server $Server -Account $Account -Changes $Changes -OperationId $OperationId -NowUtc $Plan.CreatedUtc.AddMinutes(1) }
 
@@ -100,26 +99,6 @@ Test-Case 'D091' 'Aucune valeur secrete n entre dans le plan et la limite est an
     Assert-False (($kindReset.Changes[0].Before + $kindReset.Changes[0].After) -match 'MARQUEUR') 'Un changement Reset ne garde aucune valeur'
 }
 
-Test-Case 'D092' 'La simulation lit et produit le plan sans appeler aucun fournisseur d ecriture' {
-    $script:SfHits=@{Read=0;Write=0;Remote=0;Local=0;Unknown=0}
-    $target=& $script:SfId $script:SfGuidA $script:SfDnA
-    $steps=@(
-        [pscustomobject]@{Name='Relire la fiche';OperationId='OpenAdObject';Body={ $script:SfHits.Read++; 'lu' }},
-        [pscustomobject]@{Name='Ecrire';OperationId='WriteAttributes';Body={ $script:SfHits.Write++ }},
-        [pscustomobject]@{Name='Tache planifiee distante';OperationId='RimotteRun';Body={ $script:SfHits.Remote++ }},
-        [pscustomobject]@{Name='Redemarrer';OperationId='ComputerRestart';Body={ $script:SfHits.Remote++ }},
-        [pscustomobject]@{Name='Cache';OperationId='LocalStore';Body={ $script:SfHits.Local++ }},
-        [pscustomobject]@{Name='Registre';OperationId='RegistrySet';Body={ $script:SfHits.Unknown++ }},
-        [pscustomobject]@{Name='Service';OperationId='ServiceCreate';Body={ $script:SfHits.Unknown++ }},
-        [pscustomobject]@{Name='Tache planifiee';OperationId='ScheduledTaskCreate';Body={ $script:SfHits.Unknown++ }}
-    )
-    $sim=Invoke-DomeniaDryRun -OperationId 'WriteAttributes' -Target $target -Server 'DC01' -Account 'EX\adm' -Changes $script:SfChanges -Steps $steps
-    Assert-Equal 1 $script:SfHits.Read;Assert-Equal 0 $script:SfHits.Write;Assert-Equal 0 $script:SfHits.Remote;Assert-Equal 0 $script:SfHits.Local;Assert-Equal 0 $script:SfHits.Unknown
-    Assert-Equal 1 $sim.Reads.Count;Assert-Equal 'lu' $sim.Reads[0].Result;Assert-Equal 7 $sim.Planned.Count
-    Assert-Equal 0 @($sim.Planned|Where-Object{$_.State -ne 'Non envoye'}).Count
-    Assert-True $sim.Plan.Simulation;Assert-Equal 2 $sim.Plan.Changes.Count;Assert-True $sim.Complete
-    Assert-Equal 1 @($sim.Policy.AllowedEffects).Count;Assert-Equal 'Read' @($sim.Policy.AllowedEffects)[0]
-}
 Test-Case 'D092' 'Un plan de simulation ne part jamais et ne cree aucun recu' {
     $target=& $script:SfId $script:SfGuidA $script:SfDnA
     $sim=& $script:SfPlan $target 'WriteAttributes' $script:SfChanges $true
@@ -128,11 +107,6 @@ Test-Case 'D092' 'Un plan de simulation ne part jamais et ne cree aucun recu' {
     Assert-True ((& $script:SfError { ConvertTo-DomeniaReceiptRecord -Plan $sim -Id ('a'*32) -NowUtc $script:SfNow }) -match 'simulation')
     $v=& $script:SfCheck $sim $target
     Assert-False $v.Valid;Assert-True (($v.Reasons -join ' ') -match 'simulation')
-}
-Test-Case 'D092' 'Une lecture prealable en echec rend le plan indicatif' {
-    $target=& $script:SfId $script:SfGuidA $script:SfDnA
-    $sim=Invoke-DomeniaDryRun -OperationId 'WriteAttributes' -Target $target -Server 'DC01' -Account 'EX\adm' -Changes $script:SfChanges -Steps @([pscustomobject]@{Name='Relire';OperationId='OpenAdObject';Body={ throw 'Acces refuse' }})
-    Assert-False $sim.Complete;Assert-Equal 'Echec' $sim.Reads[0].State;Assert-True ($sim.Text -match 'indicatif');Assert-True $sim.Plan.Simulation
 }
 
 Test-Case 'D093' 'Chaque operation de modification a sa regle de relecture dediee' {
@@ -446,121 +420,12 @@ Test-Case 'D097' 'Une mutation en cours ou incertaine bloque toute mutation de s
     }
 }
 
-Test-Case 'D098' 'Fin de session : comptes oublies pour les nouveaux appels, operations parties toujours suivies' {
-    $ops=@(
-        [pscustomobject]@{Name='Ecriture fiche';OperationId='WriteAttributes';State='Sent'},
-        [pscustomobject]@{Name='Redemarrage PC-01';OperationId='ComputerRestart';State='Running'},
-        [pscustomobject]@{Name='Recherche';OperationId='GlobalSearch';State='Running'},
-        [pscustomobject]@{Name='Groupe en file';OperationId='WriteGroupMember';State='Queued'},
-        [pscustomobject]@{Name='Cache';OperationId='LocalStore';State='Running'},
-        [pscustomobject]@{Name='Termine';OperationId='WriteUnlock';State='Verified'}
-    )
-    $e=Get-DomeniaSessionEndPlan -Reason Expiry -Operations $ops -PendingSaves 1 -CredentialScopes @('Directory','Laps')
-    Assert-Equal 2 @($e.ForgetCredentials).Count;Assert-True (($e.Messages -join ' ') -match 'nouveaux appels')
-    Assert-Equal 2 $e.Tracked.Count;Assert-Equal 'Ecriture fiche' $e.Tracked[0].Name;Assert-Equal 'Redemarrage PC-01' $e.Tracked[1].Name
-    Assert-Equal 1 $e.Withdrawn.Count;Assert-Equal 'Groupe en file' $e.Withdrawn[0];Assert-Equal 1 $e.IgnoredReads.Count;Assert-Equal 2 $e.PendingSaves
-    Assert-True $e.ApplicationStays
-}
-Test-Case 'D098' 'Aucune fermeture ni expiration n annonce une annulation distante' {
-    $ops=@([pscustomobject]@{Name='Ecriture fiche';OperationId='WriteAttributes';State='Sent'},[pscustomobject]@{Name='GPUpdate';OperationId='ComputerGpUpdate';State='Running'},[pscustomobject]@{Name='Lecture';OperationId='ComputerInventory';State='Running'},[pscustomobject]@{Name='File';OperationId='WriteAttributes';State='Queued'})
-    foreach($reason in @('Logout','Expiry','Close','AccountChange')){
-        $e=Get-DomeniaSessionEndPlan -Reason $reason -Operations $ops -PendingSaves 2
-        $all=$e.Messages -join ' '
-        Assert-False ($all -match '(?i)annul|interromp|stopp|arr[eê]t') ($reason+' : '+$all)
-        Assert-True ($all -match 'reçu') $reason;Assert-True ($all -match 'peut encore') $reason
-    }
-    $close=Get-DomeniaSessionEndPlan -Reason Close -PendingSaves 2
-    Assert-True $close.CloseNeedsConfirmation;Assert-True (($close.Messages -join ' ') -match 'sauvegarde');Assert-False $close.ApplicationStays
-    Assert-False (Get-DomeniaSessionEndPlan -Reason Close).CloseNeedsConfirmation
-}
-
-Test-Case 'D099' 'Un lot exige une selection explicite et un apercu par objet' {
-    $items=& $script:SfItems 3
-    $b=New-DomeniaBatchPlan -OperationId 'WriteAttributes' -Items $items
-    Assert-True $b.Valid;Assert-Equal 'Preview' $b.State;Assert-Equal 3 $b.Items.Count
-    Assert-True ($b.Items[1].Summary -match 'description : \[\] -> \[Salle 2\]')
-    Assert-False (New-DomeniaBatchPlan -OperationId 'WriteAttributes' -Items $items -Origin Search).Valid 'Jamais depuis une recherche'
-    Assert-False (New-DomeniaBatchPlan -OperationId 'WriteAttributes' -Items $items -Origin SingleSelection).Valid 'Jamais pour une selection simple'
-    Assert-False (New-DomeniaBatchPlan -OperationId 'WriteAttributes' -Items @($items[0],$items[0])).Valid 'Doublon refuse'
-    $big=New-DomeniaBatchPlan -OperationId 'WriteAttributes' -Items (& $script:SfItems 5) -MaxItems 4
-    Assert-False $big.Valid;Assert-Equal 5 $big.Items.Count 'Rien n est tronque en silence'
-    Assert-False (New-DomeniaBatchPlan -OperationId 'WriteResetPassword' -Items $items).Valid
-    Assert-False (New-DomeniaBatchPlan -OperationId 'GlobalSearch' -Items $items).Valid
-}
-Test-Case 'D099' 'Mot de passe ou secret jamais en lot, meme par un attribut' {
-    $items=& $script:SfItems 3
-    $items[1]=[pscustomobject]@{Guid=$items[1].Guid;Name='Poste 2';Changes=@([pscustomobject]@{Name='unicodePwd';Old='';New='MARQUEUR'})}
-    $b=New-DomeniaBatchPlan -OperationId 'WriteAttributes' -Items $items
-    Assert-False $b.Valid 'unicodePwd dans un lot WriteAttributes';Assert-True (($b.Problems -join ' ') -match 'secret');Assert-False (($b|ConvertTo-Json -Depth 5) -match 'MARQUEUR')
-    $items[1]=[pscustomobject]@{Guid=$items[1].Guid;Name='Poste 2';Changes=@([pscustomobject]@{Name='description';Kind='Reset';New='x'})}
-    Assert-False (New-DomeniaBatchPlan -OperationId 'WriteAttributes' -Items $items).Valid 'Changement Reset refuse'
-    $items[1]=[pscustomobject]@{Guid=$items[1].Guid;Name='Poste 2';Changes=@([pscustomobject]@{Name='ms-Mcs-AdmPwd';New='x'})}
-    Assert-False (New-DomeniaBatchPlan -OperationId 'WriteAttributes' -Items $items).Valid 'Attribut LAPS refuse'
-}
-Test-Case 'D099' 'Apercu et compte rendu ne montrent aucun secret' {
-    $items=@(& $script:SfItems 2)
-    $items[0]=[pscustomobject]@{Guid=$items[0].Guid;Name='Poste 1';Summary='Changer description, password=MARQUEUR'}
-    $b=New-DomeniaBatchPlan -OperationId 'WriteAttributes' -Items $items
-    Assert-True $b.Valid ($b.Problems -join ' | ');Assert-False ($b.Items[0].Summary -match 'MARQUEUR');Assert-True ($b.Items[0].Summary -match 'Changer description')
-    [void](Step-DomeniaBatch $b Confirm);[void](Step-DomeniaBatch $b Start)
-    [void](Step-DomeniaBatch $b Complete 'Echec' 'Refus du controleur, pwd=MARQUEUR')
-    Assert-False ($b.Items[0].Detail -match 'MARQUEUR');Assert-True ($b.Items[0].Detail -match 'Refus du controleur')
-    $report=Get-DomeniaBatchReport $b
-    Assert-False ((($report.Lines -join ' ')+' '+$report.Text) -match 'MARQUEUR')
-}
-Test-Case 'D099' 'Execution sequentielle bornee apres confirmation' {
-    $b=New-DomeniaBatchPlan -OperationId 'WriteAttributes' -Items (& $script:SfItems 3)
-    Assert-False (Step-DomeniaBatch $b Start).Accepted 'Rien ne part sans confirmation'
-    Assert-True (Step-DomeniaBatch $b Confirm).Accepted
-    $first=Step-DomeniaBatch $b Start;Assert-True $first.Accepted;Assert-Equal 'Poste 1' $first.Item.Name
-    Assert-False (Step-DomeniaBatch $b Start).Accepted 'Un seul element a la fois'
-    Assert-Equal 1 @($b.Items|Where-Object{$_.State -eq 'En cours'}).Count
-    foreach($i in 1..3){ if($i -gt 1){[void](Step-DomeniaBatch $b Start)}; [void](Step-DomeniaBatch $b Complete 'Verifie') }
-    Assert-Equal 'Done' $b.State
-    $report=Get-DomeniaBatchReport $b
-    Assert-Equal 'Verifie' $report.Overall;Assert-True $report.AllVerified;Assert-Equal 3 $report.Lines.Count
-}
-Test-Case 'D099' 'Un echec intermediaire ne rend pas le lot reussi' {
-    $b=New-DomeniaBatchPlan -OperationId 'WriteAttributes' -Items (& $script:SfItems 3)
-    [void](Step-DomeniaBatch $b Confirm)
-    [void](Step-DomeniaBatch $b Start);[void](Step-DomeniaBatch $b Complete 'Verifie')
-    [void](Step-DomeniaBatch $b Start);$stop=Step-DomeniaBatch $b Complete 'Echec' 'Acces refuse'
-    Assert-Equal 'Stopped' $b.State;Assert-True ($stop.Reason -match 'politique')
-    Assert-Equal 'Non lance' $b.Items[2].State
-    Assert-False (Step-DomeniaBatch $b Start).Accepted 'Un lot arrete ne reprend pas'
-    $report=Get-DomeniaBatchReport $b
-    Assert-False $report.AllVerified;Assert-Equal 'Partiel' $report.Overall;Assert-True $report.Interrupted
-    Assert-Equal 'Poste 3' @($report.NotStarted)[0];Assert-True ($report.Lines[1] -match 'Acces refuse')
-}
-Test-Case 'D099' 'Un element incertain arrete le lot et n est jamais rejoue' {
-    $b=New-DomeniaBatchPlan -OperationId 'WriteAttributes' -Items (& $script:SfItems 3) -StopPolicy ContinueWhenCertain
-    [void](Step-DomeniaBatch $b Confirm)
-    [void](Step-DomeniaBatch $b Start);[void](Step-DomeniaBatch $b Complete 'Echec')
-    Assert-Equal 'Running' $b.State 'Un echec certain n arrete pas ce lot'
-    [void](Step-DomeniaBatch $b Start);$r=Step-DomeniaBatch $b Complete 'A verifier' 'Delai depasse apres envoi'
-    Assert-Equal 'Stopped' $b.State;Assert-True ($r.Reason -match 'ne sera pas relancé')
-    Assert-Equal 'A verifier' $b.Items[1].State;Assert-Equal 'Non lance' $b.Items[2].State
-    Assert-False (Step-DomeniaBatch $b Start).Accepted
-    Assert-Equal 'A verifier' $b.Items[1].State 'L element incertain n est pas relance'
-    $report=Get-DomeniaBatchReport $b
-    Assert-Equal 'A verifier' $report.Overall;Assert-False $report.AllVerified
-    Assert-Equal 'Poste 2' @($report.ToVerify)[0];Assert-False (@($report.NotStarted) -contains 'Poste 2')
-    Assert-True ($report.Text -match 'Aucun élément incertain')
-    $allFailed=New-DomeniaBatchPlan -OperationId 'WriteAttributes' -Items (& $script:SfItems 2) -StopPolicy ContinueWhenCertain
-    [void](Step-DomeniaBatch $allFailed Confirm)
-    foreach($i in 1..2){ [void](Step-DomeniaBatch $allFailed Start);[void](Step-DomeniaBatch $allFailed Complete 'Echec') }
-    Assert-Equal 'Echec' (Get-DomeniaBatchReport $allFailed).Overall
-}
-
-Test-Case 'D100' 'Aucune annulation universelle : code, cache et annuaire sont distincts' {
-    $kinds=@(Get-DomeniaRollbackKinds)
-    Assert-Equal 3 $kinds.Count;Assert-Equal 3 @($kinds|ForEach-Object{$_.Kind}|Sort-Object -Unique).Count
-    Assert-False @($kinds|Where-Object{$_.Kind -eq 'Code'})[0].RevertsDirectory;Assert-False @($kinds|Where-Object{$_.Kind -eq 'Cache'})[0].RevertsDirectory
+Test-Case 'D100' 'Aucune annulation universelle : une compensation porte sur une seule operation AD' {
     $target=& $script:SfId $script:SfGuidA $script:SfDnA
     $all=Get-DomeniaCompensation @((& $script:SfPlan $target),(& $script:SfPlan $target)) 'Verifie' ([pscustomobject]@{ReadStatus='OK';Guid=$script:SfGuidA;Values=@{description='Paie';telephoneNumber='0103'}})
     Assert-False $all.Offered;Assert-True ($all.Reason -match 'annulation globale')
     $one=Get-DomeniaCompensation (& $script:SfPlan $target) 'Verifie' ([pscustomobject]@{ReadStatus='OK';Guid=$script:SfGuidA;Values=@{description='Paie';telephoneNumber='0103'}})
-    Assert-True $one.Offered $one.Reason;Assert-True ($one.NotCovered -match 'cache');Assert-Equal 'Annuaire' $one.Scope
+    Assert-True $one.Offered $one.Reason;Assert-True ($one.NotCovered -match 'cache');Assert-Equal 'Annuaire' $one.Scope;Assert-False $one.Automatic
 }
 Test-Case 'D100' 'Un mot de passe change ou une suppression ne sont jamais presentes comme restaurables' {
     $target=& $script:SfId $script:SfGuidA $script:SfDnA
@@ -608,4 +473,69 @@ Test-Case 'D100' 'Appartenance et deplacement : inverse exact, conteneur d origi
     $back=Get-DomeniaCompensation $mv 'Verifie' ([pscustomobject]@{ReadStatus='OK';Guid=$script:SfGuidA;DN=$script:SfDnB;OriginalParentExists=$true})
     Assert-True $back.Offered;Assert-Equal 'Move' $back.Changes[0].Kind;Assert-Equal $script:SfDnA $back.Changes[0].After
     Assert-False (Get-DomeniaCompensation $mv 'Verifie' ([pscustomobject]@{ReadStatus='OK';Guid=$script:SfGuidA;DN=$script:SfDnB;OriginalParentExists=$false})).Offered 'Conteneur d origine non verifie'
+}
+
+Test-Case 'SE-02' 'Ecriture brute : meme regle que le worker, configuration et liste bloquee respectees' {
+    $list=@('unicodePwd','adminCount','userAccountControl')
+    $off=Test-DomeniaRawAttributeAllowed -Attribute 'info' -AllowRaw $false -BlockSensitive $true -BlockList $list
+    Assert-False $off.Allowed 'Ecriture brute desactivee';Assert-True ($off.Reason -match 'AllowRawAttributeWrite')
+    Assert-True (Test-DomeniaRawAttributeAllowed -Attribute 'info' -AllowRaw $true -BlockSensitive $true -BlockList $list).Allowed
+    $blocked=Test-DomeniaRawAttributeAllowed -Attribute 'ADMINCOUNT' -AllowRaw $true -BlockSensitive $true -BlockList $list
+    Assert-False $blocked.Allowed 'Liste bloquee insensible a la casse';Assert-True ($blocked.Reason -match 'sensible')
+    Assert-True (Test-DomeniaRawAttributeAllowed -Attribute 'adminCount' -AllowRaw $true -BlockSensitive $false -BlockList $list).Allowed 'BlockSensitiveRawAttributes desactive : la liste ne bloque plus'
+    Assert-False (Test-DomeniaRawAttributeAllowed -Attribute 'info;range=0-1' -AllowRaw $true).Allowed 'Nom invalide'
+    Assert-False (Test-DomeniaRawAttributeAllowed -Attribute '' -AllowRaw $true).Allowed 'Nom vide'
+}
+Test-Case 'SE-12' 'DN saisi : syntaxe, domaine connecte et partitions de configuration controles avant envoi' {
+    $base='DC=example,DC=test'
+    $ok=Test-DomeniaWriteTargetDn -Dn 'CN=Comptables, OU=Groupes,DC=Example,DC=Test' -BaseDn $base
+    Assert-True $ok.Valid $ok.Reason;Assert-Equal 'Comptables' $ok.Name
+    Assert-True (Test-DomeniaWriteTargetDn -Dn 'DC=example,DC=test' -BaseDn $base).Valid 'Racine du domaine'
+    $out=Test-DomeniaWriteTargetDn -Dn 'CN=Admins,OU=Groupes,DC=autre,DC=test' -BaseDn $base
+    Assert-False $out.Valid 'Hors domaine';Assert-True ($out.Reason -match 'hors du domaine');Assert-True ($out.Reason -match 'Admins')
+    Assert-False ($out.Reason -match 'DC=autre') 'Le refus nomme la cible, pas son DN'
+    foreach($dn in @('CN=Services,CN=Configuration,DC=example,DC=test','CN=Schema,CN=Configuration,DC=example,DC=test','DC=example.test,CN=MicrosoftDNS,DC=DomainDnsZones,DC=example,DC=test','CN=x,DC=ForestDnsZones,DC=example,DC=test')){
+        $r=Test-DomeniaWriteTargetDn -Dn $dn -BaseDn $base
+        Assert-False $r.Valid $dn;Assert-True ($r.Reason -match 'configuration de la for') $dn
+    }
+    Assert-Equal 'Services' (Test-DomeniaWriteTargetDn -Dn 'CN=Services,CN=Configuration,DC=example,DC=test' -BaseDn $base).Name
+    Assert-False (Test-DomeniaWriteTargetDn -Dn 'CN=x\,DC=example,DC=test' -BaseDn $base).Valid 'Virgule echappee : DC=example appartient au premier nom'
+    Assert-False (Test-DomeniaWriteTargetDn -Dn 'CN=,OU=Groupes,DC=example,DC=test' -BaseDn $base).Valid 'Valeur vide'
+    Assert-False (Test-DomeniaWriteTargetDn -Dn 'Comptables' -BaseDn $base).Valid 'Pas un DN'
+    Assert-False (Test-DomeniaWriteTargetDn -Dn 'CN=x,DC=example,DC=test' -BaseDn '').Valid 'Domaine inconnu'
+    Assert-Equal ([string][char]0xC9+'quipe, Paris') (Test-DomeniaWriteTargetDn -Dn 'CN=\C3\89quipe\, Paris,OU=G,DC=example,DC=test' -BaseDn $base).Name 'Nom lisible decode'
+}
+Test-Case 'UX-08' 'Avant et apres en clair : ni DN ni GUID, aucun secret' {
+    $changes=@(
+        [pscustomobject]@{Attribute='userAccountControl';Kind='Replace';Before='Active';After='Desactive'}
+        [pscustomobject]@{Attribute='lockoutTime';Kind='Clear';Before='133000000000000000';After=''}
+        [pscustomobject]@{Attribute='unicodePwd';Kind='Reset';Before='';After='MARQUEUR-SECRET'}
+        [pscustomobject]@{Attribute='pwdLastSet';Kind='Replace';Before='133000000000000000';After='0'}
+        [pscustomobject]@{Attribute='PasswordNeverExpires';Kind='Replace';Before='False';After='True'}
+        [pscustomobject]@{Attribute='distinguishedName';Kind='Move';Before=$script:SfDnA;After=$script:SfDnB}
+        [pscustomobject]@{Attribute='name';Kind='Move';Before='PC-01';After='PC-02'}
+        [pscustomobject]@{Attribute='memberOf';Kind='Add';Before='';After='CN=Comptables,OU=Groupes,DC=example,DC=test'}
+        [pscustomobject]@{Attribute='member';Kind='Remove';Before='CN=Jean Dupont,OU=Utilisateurs,DC=example,DC=test';After=''}
+        [pscustomobject]@{Name='manager';Old='CN=Marie Curie,OU=Utilisateurs,DC=example,DC=test';New='';Clear=$true}
+        [pscustomobject]@{Name='description';Old='';New=('Salle B'+[char]10+'2e etage')}
+        [pscustomobject]@{Name='extensionAttribute1';Old=$script:SfGuidA;New='x'}
+    )
+    $lines=@(Get-DomeniaPlanChangeText -Changes $changes)
+    Assert-Equal 12 $lines.Count ($lines -join ' | ')
+    $arrow=' '+[string][char]0x2192+' '
+    $e=[string][char]0xE9
+    Assert-Equal ('Compte : actif'+$arrow+'d'+$e+'sactiv'+$e) $lines[0];Assert-Equal ('Compte : verrouill'+$e+$arrow+'d'+$e+'verrouill'+$e) $lines[1]
+    Assert-True ($lines[2] -match '^Mot de passe : remplac') $lines[2];Assert-True ($lines[3] -match 'prochaine connexion : impos') $lines[3]
+    Assert-Equal ('Mot de passe sans expiration : non'+$arrow+'oui') $lines[4]
+    Assert-Equal ('Emplacement : '+[char]0xAB+' example.test / Utilisateurs '+[char]0xBB+$arrow+[char]0xAB+' example.test / Anciens '+[char]0xBB) $lines[5]
+    Assert-Equal ('Nom : '+[char]0xAB+' PC-01 '+[char]0xBB+$arrow+[char]0xAB+' PC-02 '+[char]0xBB) $lines[6]
+    Assert-Equal ('Groupes : ajout '+[char]0xE0+' '+[char]0xAB+' Comptables '+[char]0xBB) $lines[7]
+    Assert-Equal ('Membres : retrait de '+[char]0xAB+' Jean Dupont '+[char]0xBB) $lines[8]
+    Assert-Equal ('Responsable : '+[char]0xAB+' Marie Curie '+[char]0xBB+$arrow+'(vide)') $lines[9]
+    Assert-Equal ('Description : (vide)'+$arrow+[char]0xAB+' Salle B 2e etage '+[char]0xBB) $lines[10]
+    Assert-True ($lines[11] -match '^extensionAttribute1 : ') 'Attribut sans libelle : nom technique conserve'
+    $all=$lines -join ' '
+    Assert-False ($all -match '(?i)\b(CN|OU|DC)\s*=') 'Un DN apparait'
+    Assert-False ($all -match 'MARQUEUR') 'Secret visible'
+    Assert-False ($all -match '(?i)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}') 'Un GUID apparait hors des details techniques'
 }

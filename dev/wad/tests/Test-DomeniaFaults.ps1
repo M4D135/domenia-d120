@@ -42,7 +42,8 @@ try {
     [void][IO.Directory]::CreateDirectory($temp)
     . (Join-Path $wad 'Domenia-Modules.ps1')
     $script:CoreAst=Read-SourceAst (Join-Path $wad 'Domenia-Core.ps1')
-    foreach($name in @('Get-WorkerContext','Fail-DomeniaWriteTaskUi','Complete-DomeniaWriteTaskUi','ConvertTo-DomeniaErrorInfo','Assert-DomeniaCapability','Assert-WriteAllowed',
+    # L07: the write handlers record the issue of the request (Set-DomeniaWriteTaskOutcome) and evaluate the compensation.
+    foreach($name in @('Get-WorkerContext','Fail-DomeniaWriteTaskUi','Complete-DomeniaWriteTaskUi','Set-DomeniaWriteTaskOutcome','Get-DomeniaWriteCompensationText','ConvertTo-DomeniaErrorInfo','Assert-DomeniaCapability','Assert-WriteAllowed',
         'Set-DomeniaActualCapabilityDenied','Test-DomeniaActualCapabilityDenied','Get-DomeniaCapabilityDenialKey',
         'Complete-DomeniaSecretLoadUi','Test-DomeniaSecretCallbackCurrent','Clear-DomeniaSecretResultValues','Update-SecretsGrid','Get-DomeniaEffectiveWorkerResult',
         'Get-DomeniaControl','Set-DomeniaControlText','Write-DomeniaAtomicText',

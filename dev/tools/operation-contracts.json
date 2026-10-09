@@ -221,7 +221,7 @@
     "File": "wad/Domenia-Core.ps1",
     "Function": "Start-DomeniaAttributeWrite",
     "LiteralIndex": 0,
-    "Sha256": "F992885228C597A1396F2709B4D84487C25E9B9B268D1730B4AB002EDB13A54C"
+    "Sha256": "DF5B8DE7F499980D115BDBED7E71A03E8FF16EA5A038ECBB8B67363F32CDEB82"
   },
   {
     "Operation": "WriteAccountDisabled",
@@ -270,7 +270,7 @@
     "File": "wad/Domenia-Core.ps1",
     "Function": "Move-SelectedObject",
     "LiteralIndex": 0,
-    "Sha256": "E9DF1DFD02CBDFBE409E43EF00CDABFFD0E363B5497160D1CBBB78B6CFB40540"
+    "Sha256": "ABA281A305A8DD1619E1A4EB214640194DBA2BD8C527D759A6525DF459328748"
   },
   {
     "Operation": "WriteObjectGroup",
@@ -298,7 +298,7 @@
     "File": "wad/Domenia-Core.ps1",
     "Function": "Create-OuUnderSelected",
     "LiteralIndex": 0,
-    "Sha256": "988CCC8BF90B978762150782B1D5E5E209859537833E0128F3F3B0A0B3AECF38"
+    "Sha256": "589036DA065F351E2F415986E398FD5C396276C20D9E25D9CE0D93056B0DA333"
   },
   {
     "Operation": "WriteDeleteObject",

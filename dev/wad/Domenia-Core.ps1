@@ -15112,7 +15112,7 @@ function Complete-DomeniaIndexRefreshUi {
 }
 
 function Start-DomeniaIndexRefresh {
-    param([switch]$Silent)
+    param([switch]$Silent,[switch]$Confirmed)
     try {
         $lastUsn = [long]0
         $lastServer = ""
@@ -15128,8 +15128,12 @@ function Start-DomeniaIndexRefresh {
             return
         }
         if (-not $Silent) {
-            $impact=Get-DomeniaOperationImpactEstimate -Operation "IndexBuild" -ItemCount ([Math]::Max(1000,[int]($dbCount*0.05)))
-            if(-not(Confirm-DomeniaOperationImpact -Estimate $impact -Title "Mettre a jour les changements")){return}
+            if (-not $Confirmed) {
+                # UX-07: the estimate is confirmed in the page; the refresh starts again from the answer, once.
+                $impact=Get-DomeniaOperationImpactEstimate -Operation "IndexBuild" -ItemCount ([Math]::Max(1000,[int]($dbCount*0.05)))
+                [void](Request-DomeniaOperationImpact -Estimate $impact -Title "Mettre à jour les changements" -Target 'impact:IndexRefresh' -OnConfirm { Start-DomeniaIndexRefresh -Confirmed })
+                return
+            }
             [void](Set-DomeniaControlText -Name "LblIndexStatus" -Text "Recherche des objets modifies...")
         }
         Start-UiTask `
@@ -15495,10 +15499,15 @@ function Fail-DomeniaLogonHarvestUi {
 }
 
 function Start-DomeniaLogonHarvest {
-    param([switch]$Silent)
+    param([switch]$Silent,[switch]$Confirmed)
     try {
         $maxEvents=[int](Get-CfgValue "ParkSweep" "HarvestMaxEvents" 5000)
-        if(-not $Silent){$impact=Get-DomeniaOperationImpactEstimate -Operation "LogonHarvest" -MaxEvents $maxEvents;if(-not(Confirm-DomeniaOperationImpact -Estimate $impact -Title "Lecture du journal du controleur")){return}}
+        if((-not $Silent) -and (-not $Confirmed)){
+            # UX-07: the estimate is confirmed in the page; the reading starts again from the answer, once.
+            $impact=Get-DomeniaOperationImpactEstimate -Operation "LogonHarvest" -MaxEvents $maxEvents
+            [void](Request-DomeniaOperationImpact -Estimate $impact -Title "Lire le journal du contrôleur" -Target 'impact:LogonHarvest' -OnConfirm { Start-DomeniaLogonHarvest -Confirmed })
+            return
+        }
         [void](Set-DomeniaControlText -Name "LblParkStatus" -Text "Lecture du journal du controleur...")
         Start-UiTask `
             -Name "Journal du controleur" `
@@ -15940,10 +15949,16 @@ function Fail-DomeniaIndexBuildUi {
 }
 
 function Start-DomeniaIndexBuild {
-    param([switch]$UpdateLinks)
+    param([switch]$UpdateLinks,[switch]$Confirmed)
     try {
-        $impact=Get-DomeniaOperationImpactEstimate -Operation "IndexBuild" -ItemCount @($script:IndexRows).Count
-        if(-not(Confirm-DomeniaOperationImpact -Estimate $impact -Title "Mettre a jour toute la base autonome")){return}
+        if (-not $Confirmed) {
+            # UX-07: the estimate is confirmed in the page; the update starts again from the answer, once.
+            $impact=Get-DomeniaOperationImpactEstimate -Operation "IndexBuild" -ItemCount @($script:IndexRows).Count
+            $run = { Start-DomeniaIndexBuild -Confirmed }
+            if ($UpdateLinks) { $run = { Start-DomeniaIndexBuild -UpdateLinks -Confirmed } }
+            [void](Request-DomeniaOperationImpact -Estimate $impact -Title "Mettre à jour toute la base autonome" -Target 'impact:IndexBuild' -OnConfirm $run)
+            return
+        }
         [void](Set-DomeniaControlText -Name "LblIndexStatus" -Text "Mise a jour complete de la base autonome en cours...")
         Start-UiTask `
             -Name "Mise a jour complete de la base autonome" `
@@ -21525,35 +21540,59 @@ function Get-DomeniaOperationImpactEstimate {
     return [pscustomobject]@{Operation=$Operation;ItemCount=$ItemCount;DurationMs=$durationMs;Bytes=$bytes;AdQueries=$adQueries;RemoteAttempts=$remote;FallbackTasks=[int]$fallback;SchedulerRpc=$schedulerRpc;Concurrency=$concurrency;Impact=$impact;Samples=$samples;AverageMsPerItem=[double]$mpi;MinMsPerItem=$minMs;MaxMsPerItem=$maxMs;SuccessPct=$successPct;AverageBytesPerSecond=$avgBps;AverageMbitPerSecond=$avgMbit;PeakMbitPerSecond=$peakMbit;AdQueriesPerSecond=$adQps;Confidence=$confidence}
 }
 
-function Confirm-DomeniaOperationImpact {
-    param($Estimate,[string]$Title="Operation longue")
-    if($null -eq $Estimate){return $true}
-    $seconds=[Math]::Max(1,[int][Math]::Ceiling([long]$Estimate.DurationMs/1000.0))
-    $durationText=$(if($seconds-ge3600){("{0:N1} h" -f ($seconds/3600.0))}elseif($seconds-ge120){("{0:N1} min" -f ($seconds/60.0))}else{"$seconds s"})
-    $cal=$(if([int]$Estimate.Samples -gt 0){"$([string]$Estimate.Confidence), calibree sur $([int]$Estimate.Samples) execution(s) reelles"}else{"initiale, aucune execution comparable encore mesuree"})
-    $hist=""
-    if([int]$Estimate.Samples -gt 0){
-        $avg=[Math]::Round([double]$Estimate.AverageMsPerItem,0)
-        $hist="`r`nHistorique : moyenne $avg ms/element"
-        if([double]$Estimate.MinMsPerItem -gt0-and[double]$Estimate.MaxMsPerItem -gt0){$hist += ", plage $([Math]::Round([double]$Estimate.MinMsPerItem,0)) a $([Math]::Round([double]$Estimate.MaxMsPerItem,0)) ms/element"}
-        if([double]$Estimate.SuccessPct -gt0){$hist += ", succes moyen $([int]$Estimate.SuccessPct)%"}
+function Format-DomeniaOperationImpact {
+    # UX-07: the estimate in one sentence for the operator, « Environ 2 min · 238 objets lus dans lʼannuaire ·
+    # aucun poste contacté », and the technical figures apart for the folded Expert part. No engine vocabulary.
+    param($Estimate)
+    if ($null -eq $Estimate) { return [pscustomobject]@{Sentence='';Details=''} }
+    $seconds = [Math]::Max(1,[int][Math]::Ceiling([long]$Estimate.DurationMs/1000.0))
+    $duration = 'Moins dʼune minute'
+    if ($seconds -ge 3600) { $duration = 'Environ ' + ('{0:N1}' -f ($seconds/3600.0)) + ' h' }
+    elseif ($seconds -ge 60) { $duration = 'Environ ' + [int][Math]::Ceiling($seconds/60.0) + ' min' }
+    $items = [int]$Estimate.ItemCount
+    $operation = [string]$Estimate.Operation
+    $directory = 'aucune lecture dans lʼannuaire'
+    if ($operation -eq 'IndexBuild') { $directory = ('{0:N0}' -f $items) + ' objet(s) lu(s) dans lʼannuaire' }
+    elseif ($operation -eq 'LogonHarvest') { $directory = 'jusquʼà ' + ('{0:N0}' -f $items) + ' événement(s) lu(s) dans le journal du contrôleur' }
+    elseif ([int]$Estimate.AdQueries -gt 0) { $directory = ('{0:N0}' -f [int]$Estimate.AdQueries) + ' lecture(s) dans lʼannuaire' }
+    $workstations = 'aucun poste contacté'
+    if ([int]$Estimate.RemoteAttempts -gt 0) { $workstations = ('{0:N0}' -f [int]$Estimate.RemoteAttempts) + ' poste(s) contacté(s)' }
+    $dot = ' ' + [string][char]0x00B7 + ' '
+    $sentence = $duration + $dot + $directory + $dot + $workstations
+    $impactText = @{Eleve='élevée';Modere='modérée';Faible='faible'}
+    $load = [string]$Estimate.Impact
+    if ($impactText.ContainsKey($load)) { $load = [string]$impactText[$load] } elseif ($load -match '(?i)aucun') { $load = 'aucune lecture directe de lʼannuaire' }
+    $rate = 'quasi nul'
+    if ([double]$Estimate.AverageMbitPerSecond -ge 1) { $rate = ('{0:N2} Mbit/s' -f [double]$Estimate.AverageMbitPerSecond) }
+    elseif ([double]$Estimate.AverageMbitPerSecond -gt 0) { $rate = ('{0:N1} kbit/s' -f ([double]$Estimate.AverageMbitPerSecond*1000)) }
+    $lines = New-Object 'System.Collections.Generic.List[string]'
+    $lines.Add('Éléments à traiter : ' + ('{0:N0}' -f $items))
+    $lines.Add('Volume réseau estimé : ' + (Format-DomeniaByteEstimate ([long]$Estimate.Bytes)) + ' ; débit moyen : ' + $rate)
+    $lines.Add('Traitements en parallèle : ' + [int]$Estimate.Concurrency + ' ; débit de pointe estimé : ' + ('{0:N2} Mbit/s' -f [double]$Estimate.PeakMbitPerSecond))
+    if ([int]$Estimate.AdQueries -gt 0) { $lines.Add('Lectures dans lʼannuaire : ' + [int]$Estimate.AdQueries + ', environ ' + ('{0:N2}' -f [double]$Estimate.AdQueriesPerSecond) + ' par seconde') }
+    if ([int]$Estimate.RemoteAttempts -gt 0) { $lines.Add('Repli à distance : ' + [int]$Estimate.FallbackTasks + ' tâche(s) planifiée(s) probable(s) sur ' + [int]$Estimate.RemoteAttempts + ' poste(s), environ ' + [int]$Estimate.SchedulerRpc + ' appel(s) au Planificateur de tâches') }
+    $lines.Add('Charge estimée du contrôleur : ' + $load)
+    $basis = 'initiale, aucune exécution comparable mesurée'
+    if ([int]$Estimate.Samples -gt 0) { $basis = ([string]$Estimate.Confidence).ToLowerInvariant() + ', calibrée sur ' + [int]$Estimate.Samples + ' exécution(s) réelle(s)' }
+    $lines.Add('Fiabilité de lʼestimation : ' + $basis)
+    if ([int]$Estimate.Samples -gt 0) {
+        $history = 'Historique : ' + [Math]::Round([double]$Estimate.AverageMsPerItem,0) + ' ms par élément en moyenne'
+        if (([double]$Estimate.MinMsPerItem -gt 0) -and ([double]$Estimate.MaxMsPerItem -gt 0)) { $history += ', de ' + [Math]::Round([double]$Estimate.MinMsPerItem,0) + ' à ' + [Math]::Round([double]$Estimate.MaxMsPerItem,0) + ' ms' }
+        if ([double]$Estimate.SuccessPct -gt 0) { $history += ', ' + [int]$Estimate.SuccessPct + ' % de réussite' }
+        $lines.Add($history)
     }
-    $rate="";if($seconds-gt0-and[int]$Estimate.ItemCount-gt1){$rate="`r`nDebit de traitement estime : $([Math]::Round([int]$Estimate.ItemCount/[double]$seconds,2)) element(s)/s"}
-    $netRate=$(if([double]$Estimate.AverageMbitPerSecond-ge1){("{0:N2} Mbit/s" -f [double]$Estimate.AverageMbitPerSecond)}elseif([double]$Estimate.AverageMbitPerSecond-gt0){("{0:N1} kbit/s" -f ([double]$Estimate.AverageMbitPerSecond*1000))}else{"quasi nul"})
-    $adLine=$(if([int]$Estimate.AdQueries-gt0){"$([int]$Estimate.AdQueries) requete(s), environ $([Math]::Round([double]$Estimate.AdQueriesPerSecond,2)) req/s"}else{"aucun appel AD direct estime"})
-    $taskLine=$(if([int]$Estimate.RemoteAttempts-gt0){"$([int]$Estimate.FallbackTasks) tache(s) probable(s) sur $([int]$Estimate.RemoteAttempts) cible(s), environ $([int]$Estimate.SchedulerRpc) appels RPC Planificateur"}else{"aucune tache distante"})
-    $msg="Estimation avant lancement :`r`n`r`n"+
-         "Objets / cibles : $([int]$Estimate.ItemCount)`r`n"+
-         "Duree estimee : $durationText$rate`r`n"+
-         "Volume reseau total estime : $(Format-DomeniaByteEstimate ([long]$Estimate.Bytes))`r`n"+
-         "Bande passante moyenne estimee : $netRate`r`n"+
-         "Parallellisme prevu : $([int]$Estimate.Concurrency) worker(s) ; pic theorique : $([Math]::Round([double]$Estimate.PeakMbitPerSecond,2)) Mbit/s`r`n"+
-         "Activite AD/DC : $adLine`r`n"+
-         "Fallback distant : $taskLine`r`n"+
-         "Impact serveur AD : $([string]$Estimate.Impact)`r`n"+
-         "Confiance de l estimation : $cal$hist`r`n`r`n"+
-         "DOMENIA enregistrera la duree, le volume estime, les reussites et le taux de fallback dans Domenia.db afin de recalibrer les prochaines previsions.`r`n`r`nLancer ?"
-    return (Confirm-Action -Message $msg -Title $Title)
+    $lines.Add('Domenia enregistre la durée, le volume estimé et les réussites dans Domenia.db pour affiner les prochaines estimations.')
+    return [pscustomobject]@{Sentence=$sentence;Details=($lines.ToArray() -join "`r`n")}
+}
+
+function Request-DomeniaOperationImpact {
+    # UX-07: before a long operation, a panel of the page with one sentence, then Lancer and Annuler; the technical
+    # figures stay in a folded part shown in the Expert profile only. No window. Returns at once: the operation
+    # starts from -OnConfirm, once, when the operator confirms.
+    param($Estimate,[string]$Title='Opération longue',[Parameter(Mandatory=$true)][scriptblock]$OnConfirm,[scriptblock]$OnCancel=$null,[AllowEmptyString()][string]$Target='')
+    if ($null -eq $OnCancel) { $OnCancel = { Set-Status 'Opération annulée : rien nʼa été lancé.' 'INFO' } }
+    $text = Format-DomeniaOperationImpact -Estimate $Estimate
+    return (Request-DomeniaInlineConfirmation -Title $Title -Message ([string]$text.Sentence) -Target $Target -ConfirmText 'Lancer' -CancelText 'Annuler' -OnConfirm $OnConfirm -OnCancel $OnCancel -Details ([string]$text.Details) -DetailsTitle 'Détails de lʼestimation' -DetailsExpertOnly)
 }
 
 function Get-LinkCsvPath {
@@ -21752,18 +21791,18 @@ function Get-DomeniaWorkerOperationHashes {
         PruneLinks            = "0CDDB662FA027ED979FC9A44A7A66662DB540D5B562F9D33CCDD3BA86FF0819F"
         OpenLinkedObject      = "24863184FC8441FCE8F270A75B30736954AC066DBBC5A2DE99CDF1C5D7CAA6C2"
         OpenAdObject          = "28BA398A2209576CAA79A637C0BE2CF05AF51013D553F0155F87C99A29CBB284"
-        WriteAttributes       = "F992885228C597A1396F2709B4D84487C25E9B9B268D1730B4AB002EDB13A54C"
+        WriteAttributes       = "DF5B8DE7F499980D115BDBED7E71A03E8FF16EA5A038ECBB8B67363F32CDEB82"
         WriteAccountDisabled  = "F95D9F066EBD52859A8FED47FB42F3981DF80903D8543818B2633A233C41E321"
         WriteUnlock           = "0C77C5EBCA4A4F4D2F5F99709D03DC86965747604D97CFB67FCA49988BE76FE5"
         WriteResetPassword    = "D74B0E6923B37ACFF9E576EE4DF580410436DD7A77821A16CA188E7175ACDCCE"
         WriteAccountOptions   = "60C4CE127C0CB3424A64DD31F676F5B0722A135534A5DCCBD0193092927D157E"
         WriteExpiration       = "3982B298C3D4E558F4069EAA915AEB07824CB6E01213D1AAD8C642FA86476CD1"
         WriteExpirePassword   = "F73AFD1E29C9A6DDF585B0BE066DEBB43AFC405F2B4C65E5CE2778CB65EC1238"
-        WriteMoveObject       = "E9DF1DFD02CBDFBE409E43EF00CDABFFD0E363B5497160D1CBBB78B6CFB40540"
+        WriteMoveObject       = "ABA281A305A8DD1619E1A4EB214640194DBA2BD8C527D759A6525DF459328748"
         WriteObjectGroup      = "DDC7E14A4A9FBBF8AB88646E196EFD09D8328ECC7BCB96DBE5DD158AA5B5D0A0"
         WriteGroupMember      = "2577510597E83ABBAC35A4790664DCE19601D371F4ECC4D49B138A09F8C8C716"
         WriteRenameComputer   = "8728C8F504BE466CA476E34E050F9037B6BD40090123C79EEA0572A3D99880EA"
-        WriteCreateOu         = "988CCC8BF90B978762150782B1D5E5E209859537833E0128F3F3B0A0B3AECF38"
+        WriteCreateOu         = "589036DA065F351E2F415986E398FD5C396276C20D9E25D9CE0D93056B0DA333"
         WriteDeleteObject     = "DC025E66FB45A08FD6BB15DB7A1D4468A76F915819719D2D423AB01F99A9E6E5"
         PresenceScan          = "E7F81414C29C1C8F1E91453D9EC4BA48B6F92F0AA0E2674C9EBF5C88437F4486"
         SelectedPresence      = "4ECADF4F231390182A3BF091EF8636B3536D7B3F8A28EF3984DE1E2D524D5BFA"
@@ -21789,7 +21828,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "0DD33C1A4D9566D4B08CF9466E82D931E6B4BC715CB706DBA91A174122E11A6A"
+    $expectedFingerprint = "1A381609327284AF7330CE705C3AFC7F74D2A63924A191F11D7BBB0215F3F2A4"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -22774,6 +22813,24 @@ function Test-WRawAttributeAllowed {
     if([bool]$Context.BlockSensitiveRawAttributes){foreach($a in @($Context.RawAttributeBlockList)){if([string]$a -ieq $Attribute){throw "Attribut sensible, modification bloquee : $Attribute"}}}
     return $true
 }
+function Test-WFormAttribute {
+    # SE-02: the text and DN attributes written by the user, computer and group forms. Anything else is a raw write.
+    param([string]$Name)
+    return (([string]$Name).ToLowerInvariant() -in @('givenname','sn','displayname','userprincipalname','mail','telephonenumber','physicaldeliveryofficename','description','title','department','company','location','manager','managedby'))
+}
+function Assert-WAttributeChangesAllowed {
+    # SE-02: the WriteAttributes worker applies the raw attribute rule itself (same rule as Test-DomeniaRawAttributeAllowed),
+    # before anything is read or sent: a change outside the form attributes, or flagged Raw, is a raw write.
+    param($Context,[object[]]$Changes)
+    foreach($c in @($Changes)){
+        if($null -eq $c){continue}
+        $name=[string]$c.Name
+        if($name -notmatch '^[A-Za-z][A-Za-z0-9-]{0,126}$'){throw 'Nom d attribut LDAP invalide : rien n est envoye.'}
+        $raw=$false
+        if($null -ne $c.PSObject.Properties['Raw']){$raw=[bool]$c.Raw}
+        if($raw -or (-not (Test-WFormAttribute $name))){[void](Test-WRawAttributeAllowed $Context $name)}
+    }
+}
 '@
 
 function Get-DomeniaEntryFirstString {
@@ -23519,6 +23576,27 @@ function Get-DomeniaWritePostcondition {
     } catch { return $null }
 }
 
+function Get-DomeniaWriteCompensationText {
+    # SE-09 / D100: after a verified attribute write, the compensation rule (Get-DomeniaCompensation) says from the
+    # values re-read by the worker whether a reverse change could be prepared, or why not. It is only shown: nothing
+    # is prepared or sent; a reverse change is a new write with its own plan and confirmation.
+    param($State,$Result)
+    $plan = $null
+    try { $plan = $State.Plan } catch { $plan = $null }
+    if (($plan -isnot [Domenia.InterventionPlan]) -or ([string]$plan.Operation -cne ('Write' + 'Attributes'))) { return '' }
+    $observed = $null
+    try { $observed = $Result.Postcondition.Observed } catch { $observed = $null }
+    $guid = ''
+    try { $guid = [string]$Result.After.Guid } catch { $guid = '' }
+    $current = [pscustomobject]@{ ReadStatus=[string](Get-DomeniaMember $observed 'ReadStatus' ''); Guid=$guid; Values=(Get-DomeniaMemberValue $observed 'Values' $null) }
+    $compensation = Get-DomeniaCompensation -Plan $plan -OriginalStatus 'Verifie' -Current $current
+    if ([bool]$compensation.Offered) {
+        $lines = @(Get-DomeniaPlanChangeText -Changes @($compensation.Changes))
+        return ('retour arrière possible par une nouvelle modification à confirmer (' + ($lines -join ' ; ') + '). Rien nʼest préparé ni envoyé automatiquement.')
+    }
+    return ('retour arrière non proposé : ' + [string]$compensation.Reason)
+}
+
 function Complete-DomeniaWriteTaskUi {
     param($Result,$State)
     $script:ReceiptReady=$false; $script:ReceiptRefreshNeeded=$true
@@ -23529,6 +23607,7 @@ function Complete-DomeniaWriteTaskUi {
     $verifiedOperation = $false
     try {
         $script:ActiveWriteTaskId = ""
+        $script:ActiveWriteLock = $null
         $script:WriteState = "Idle"
         $effective = Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @("Verified")
         $verified = $false
@@ -23536,6 +23615,7 @@ function Complete-DomeniaWriteTaskUi {
         if (-not $verified) {
             $script:WriteState = "Unknown"
             try { $script:UnknownWriteTargetDn = [string]$State.TargetDn } catch { }
+            [void](Set-DomeniaWriteTaskOutcome -State $State -Outcome Uncertain)
             $msg = "Ecriture retournee sans verification positive. Etat verrouille : recharge l'objet avant toute autre ecriture."
             Write-AppLog "[$correlation] $name : $msg" "ERROR"
             Set-Status $msg "ERROR"
@@ -23544,6 +23624,11 @@ function Complete-DomeniaWriteTaskUi {
             return
         }
         $verifiedOperation = $true
+        [void](Set-DomeniaWriteTaskOutcome -State $State -Outcome Verified)
+        try {
+            $compensation = Get-DomeniaWriteCompensationText -State $State -Result $effective
+            if ($compensation) { Add-DomeniaUiLog -Area "Ecritures" -Text ($name + ' : ' + $compensation) }
+        } catch { Write-AppLog ('Retour arriere non evalue : ' + $_.Exception.Message) 'WARN' }
         $script:WriteState = "Idle"
         $script:UnknownWriteTargetDn = ""
         $message = "Operation verifiee."
@@ -23635,13 +23720,18 @@ function Fail-DomeniaWriteTaskUi {
     try { $capability = [string]$State.Capability; $targetDn = [string]$State.TargetDn } catch { }
     $errorInfo = ConvertTo-DomeniaErrorInfo -ErrorRecordOrException $detail -Operation $name
     $script:ActiveWriteTaskId = ""
+    $script:ActiveWriteLock = $null
     if ($detail -match "(?i)etat inconnu") {
         $script:WriteState = "Unknown"
         $script:UnknownWriteTargetDn = $targetDn
+        # SE-09: sent without proof (no answer, client-side LDAP code from 81 up, timeout): to verify, never sent again.
+        [void](Set-DomeniaWriteTaskOutcome -State $State -Outcome Uncertain)
     }
     else {
         $script:WriteState = "Idle"
         $script:UnknownWriteTargetDn = ""
+        # Refused before dispatch or by the controller itself (LDAP 1-80): certainly not applied.
+        [void](Set-DomeniaWriteTaskOutcome -State $State -Outcome NotSent)
     }
     if ($errorInfo.Kind -eq "AccessDenied" -and -not [string]::IsNullOrWhiteSpace($capability)) {
         $script:CurrentCapabilities[$capability] = "Refuse"
@@ -23736,6 +23826,38 @@ function Format-DomeniaPlanConfirmation {
         [void]$lines.Add('Empreinte du plan : ' + $fp)
     }
     return ($lines.ToArray() -join "`r`n")
+}
+
+function Request-DomeniaWriteConfirmation {
+    # UX-08: every directory write is confirmed by one panel of the page (Request-DomeniaInlineConfirmation), never
+    # a window: a sentence, the changes in plain words (Get-DomeniaPlanChangeText) and, folded, the technical
+    # details of the plan (GUID, DN, controller, account, fingerprint). The write leaves only from the continuation,
+    # once, and Start-DomeniaWriteTask checks the plan against the current selection again at that moment.
+    param(
+        [AllowNull()]$Plan=$null,
+        [Parameter(Mandatory=$true)][string]$Title,
+        [AllowEmptyString()][string]$Message='',
+        [string]$ConfirmText='Confirmer',
+        [ValidateSet('Normal','Danger')][string]$Risk='Normal',
+        [AllowEmptyString()][string]$TypedConfirmation='',
+        [AllowEmptyString()][string]$TypedPrompt='',
+        [string[]]$Changes=@(),
+        [AllowEmptyString()][string]$Details='',
+        [AllowEmptyString()][string]$Target='',
+        [Parameter(Mandatory=$true)][scriptblock]$Send,
+        $State=$null,
+        [string]$CancelStatus='Modification annulée : rien nʼa été envoyé à lʼannuaire.'
+    )
+    $isPlan = ($Plan -is [Domenia.InterventionPlan])
+    if ((-not $PSBoundParameters.ContainsKey('Changes')) -and $isPlan) { $Changes = @(Get-DomeniaPlanChangeText -Changes @($Plan.Changes)) }
+    if ((-not $PSBoundParameters.ContainsKey('Details')) -and $isPlan) { $Details = Format-DomeniaPlanConfirmation -Plan $Plan }
+    if ((-not $Target) -and $isPlan) { $Target = 'ad:' + ([string]$Plan.Target.Guid).ToLowerInvariant() }
+    # The continuations are closures over plain script blocks of this script: the functions they call resolve here.
+    $send = $Send; $sendState = $State; $cancelStatusText = $CancelStatus
+    $cancel = { param([string]$text) Set-Status $text 'INFO' }
+    $onConfirm = { & $send $sendState }.GetNewClosure()
+    $onCancel = { & $cancel $cancelStatusText }.GetNewClosure()
+    return (Request-DomeniaInlineConfirmation -Title $Title -Message $Message -Target $Target -ConfirmText $ConfirmText -CancelText 'Annuler' -OnConfirm $onConfirm -OnCancel $onCancel -Risk $Risk -Changes @($Changes) -Details $Details -TypedConfirmation $TypedConfirmation -TypedPrompt $TypedPrompt)
 }
 
 function Test-DomeniaPlanDispatch {
@@ -23849,6 +23971,16 @@ function Start-DomeniaWriteTask {
         $admissionCheck = Test-DomeniaWriteAdmission -Fingerprint $planKey -Submitted $script:SubmittedWritePlans -Receipts $receipts -Active $script:AsyncJobs -Origin Operator -CheckOnly
         if (-not [bool]$admissionCheck.Admit) { Show-ErrorBox ([string]$admissionCheck.Reason); return }
     }
+    # SE-09: locks by target and action class (Test-DomeniaOperationAllowed). The write running in this session and
+    # the receipts left to verify hold their own target; while a directory write runs, the others wait one by one.
+    $lockTargets = @()
+    if ($planProvided) { $lockTargets = @($Plan.Target) } else { $lockTargets = @(([string]$BranchDn).Trim()) }
+    $lockCheck = Test-DomeniaOperationAllowed -OperationId $OperationId -Targets $lockTargets -Locks @(Get-DomeniaWriteLocks -Receipts $receipts)
+    if (-not [bool]$lockCheck.Allowed) {
+        Show-ErrorBox ([string]$lockCheck.Reason)
+        Write-AppLog "VERROU $Name : $([string]$lockCheck.Reason)" "WARN"
+        return
+    }
     try { Assert-DomeniaCapability $Capability }
     catch { Show-ErrorBox $_.Exception.Message; return }
     if($null -ne $script:Continuity){$script:Continuity.Mutation++}
@@ -23856,6 +23988,9 @@ function Start-DomeniaWriteTask {
         $admission = Test-DomeniaWriteAdmission -Fingerprint $planKey -Submitted $script:SubmittedWritePlans -Receipts $receipts -Active $script:AsyncJobs -Origin Operator
         if (-not [bool]$admission.Admit) { Show-ErrorBox ([string]$admission.Reason); return }
         if ($null -eq $Payload.PSObject.Properties['PlanFingerprint']) { $Payload | Add-Member -NotePropertyName PlanFingerprint -NotePropertyValue $planKey } else { $Payload.PlanFingerprint = $planKey }
+        # SE-09: the reserved entry names its operation, so that Set-DomeniaWriteOutcome can tell a directory write.
+        $entry = $script:SubmittedWritePlans[$planKey]
+        if (($null -ne $entry) -and ($null -eq $entry.PSObject.Properties['Operation'])) { $entry | Add-Member -NotePropertyName Operation -NotePropertyValue $OperationId }
     }
     $correlation = [guid]::NewGuid().ToString("N")
     if ($null -eq $Payload.PSObject.Properties["CorrelationId"]) { $Payload | Add-Member -NotePropertyName CorrelationId -NotePropertyValue $correlation }
@@ -23878,6 +24013,8 @@ function Start-DomeniaWriteTask {
         TargetDn = $targetDn
         AfterSuccessAction = $AfterSuccessAction
         AfterSuccessState = $AfterSuccessState
+        PlanKey = $planKey
+        Plan = $Plan
     }
     try {
         $id = Start-UiTask -Name $Name -OperationId $OperationId -Code $Code -Payload $Payload -ReplaceKey "domenia-write-channel" -DisableControls $allControls -TimeoutSeconds $TimeoutSeconds -HardTimeoutSeconds $hard -StatusText "$Name en cours, GUI disponible..." -SuccessHandler "Complete-DomeniaWriteTaskUi" -ErrorHandler "Fail-DomeniaWriteTaskUi" -CallbackState $callbackState -IsWrite -NonCancellable -CorrelationId $correlation
@@ -23888,30 +24025,72 @@ function Start-DomeniaWriteTask {
         throw
     }
     $script:ActiveWriteTaskId = [string]$id
+    $script:ActiveWriteLock = New-DomeniaOperationLock -OperationId $OperationId -Targets $lockTargets -State Running -Id ([string]$id)
     $script:WriteState = "Running"
     Apply-CurrentPermissionUi
 }
 
+function Get-DomeniaWriteLocks {
+    # SE-09: the locks a new write is checked against: the directory write running in this session and the locks of
+    # the receipts left to verify (Get-DomeniaReceiptLocks). An unreadable receipt list keeps the running lock only;
+    # the worker refuses any write while a receipt of the domain stays to verify in any case.
+    param([object[]]$Receipts=@())
+    $locks = New-Object 'System.Collections.Generic.List[object]'
+    if ($null -ne $script:ActiveWriteLock) { $locks.Add($script:ActiveWriteLock) }
+    try { foreach ($lock in @(Get-DomeniaReceiptLocks -Receipts @($Receipts))) { if ($null -ne $lock) { $locks.Add($lock) } } }
+    catch { Write-AppLog ('Verrous des recus illisibles : ' + $_.Exception.Message) 'WARN' }
+    return $locks.ToArray()
+}
+
+function Set-DomeniaWriteTaskOutcome {
+    # SE-09: records the issue of an admitted request in the admission registry with the shared rule
+    # Set-DomeniaWriteOutcome: Verified, Uncertain (sent without proof: never sent again before its receipt is
+    # verified) or NotSent (certainly not applied: a new explicit confirmation may send the same change again).
+    param($State,[Parameter(Mandatory=$true)][ValidateSet('Verified','Uncertain','NotSent')][string]$Outcome)
+    $key = ''
+    try { $key = [string]$State.PlanKey } catch { $key = '' }
+    if ([string]::IsNullOrWhiteSpace($key) -or ($null -eq $script:SubmittedWritePlans)) { return $null }
+    $answer = Set-DomeniaWriteOutcome -Registry ([pscustomobject]@{Entries=$script:SubmittedWritePlans}) -Key $key -Outcome $Outcome
+    if (-not [bool]$answer.Accepted) { Write-AppLog ('Issue de la demande non enregistree (' + $Outcome + ') : ' + [string]$answer.Reason) 'WARN' }
+    return $answer
+}
+
 $script:WorkerCommon += @'
+function Resolve-WDirectoryIdentityDn {
+    # SE-12: a typed DN is checked by the shared rule (syntax, connected domain, never the configuration or DNS
+    # partitions), then the object is read and named by its GUID: the DN used is the one the directory returns
+    # for that GUID, never the typed text. Nothing is sent when one of these steps fails.
+    param($Context,[string]$Dn)
+    $check=Test-DomeniaWriteTargetDn -Dn $Dn -BaseDn ([string]$Context.BaseDn)
+    if(-not [bool]$check.Valid){throw [string]$check.Reason}
+    $snap=Get-WObjectSnapshot $Context ([string]$check.Dn)
+    $guid=([string]$snap.Guid).Trim([char[]]'{}')
+    if((-not [bool]$snap.Exists) -or [string]::IsNullOrWhiteSpace($guid)){throw ('Cible introuvable dans l annuaire : '+[string]$check.Name+'. Rien n est envoye.')}
+    $byGuid=Get-WObjectSnapshot $Context ('<GUID='+$guid+'>')
+    if((-not [bool]$byGuid.Exists) -or (([string]$byGuid.Guid).Trim([char[]]'{}') -ine $guid)){throw ('Cible non confirmee par son GUID : '+[string]$check.Name+'. Rien n est envoye.')}
+    $final=Test-DomeniaWriteTargetDn -Dn ([string]$byGuid.DN) -BaseDn ([string]$Context.BaseDn)
+    if(-not [bool]$final.Valid){throw [string]$final.Reason}
+    return [string]$byGuid.DN
+}
 function Resolve-WGroupDn {
     param($Context,[string]$Value)
-    if($Value -match "(?i)^(CN|OU|DC)="){return $Value}
+    if($Value -match "(?i)^\s*(CN|OU|DC)\s*="){return (Resolve-WDirectoryIdentityDn $Context $Value)}
     $e=Escape-WLdap $Value
     $s=New-WSearcher $Context ([string]$Context.BaseDn) "(&(objectCategory=group)(|(sAMAccountName=$e)(name=$e)))" @("distinguishedName") "Subtree" 2
     $all=@($s.FindAll())
     if($all.Count -eq 0){throw "Groupe introuvable : $Value"}
     if($all.Count -gt 1){throw "Groupe ambigu : $Value. Utilise son DN complet."}
-    return [string](Get-WPropFirst $all[0].Properties "distinguishedname" "")
+    return (Resolve-WDirectoryIdentityDn $Context ([string](Get-WPropFirst $all[0].Properties "distinguishedname" "")))
 }
 function Resolve-WObjectDn {
     param($Context,[string]$Value)
-    if($Value -match "(?i)^(CN|OU|DC)="){return $Value}
+    if($Value -match "(?i)^\s*(CN|OU|DC)\s*="){return (Resolve-WDirectoryIdentityDn $Context $Value)}
     $e=Escape-WLdap $Value
     $s=New-WSearcher $Context ([string]$Context.BaseDn) "(|(sAMAccountName=$e)(name=$e)(dNSHostName=$e)(userPrincipalName=$e))" @("distinguishedName") "Subtree" 2
     $all=@($s.FindAll())
     if($all.Count -eq 0){throw "Objet introuvable : $Value"}
     if($all.Count -gt 1){throw "Objet ambigu : $Value. Utilise son DN complet."}
-    return [string](Get-WPropFirst $all[0].Properties "distinguishedname" "")
+    return (Resolve-WDirectoryIdentityDn $Context ([string](Get-WPropFirst $all[0].Properties "distinguishedname" "")))
 }
 function Escape-WRdn {
     param([string]$Value)
@@ -24044,6 +24223,26 @@ function Invoke-WConditionalModify {
 }
 '@
 
+function Get-DomeniaWorkerRulesCommon {
+    # SE-09 / SE-12: the write workers read the controller answer (Resolve-DomeniaConditionalWrite), re-read the
+    # preconditions (Test-DomeniaPreconditionCurrent) and check a typed DN (Test-DomeniaWriteTargetDn) with the very
+    # rules of Domenia-Safety.Model.ps1, copied into the runspace as text like the error contract, with their call
+    # closure. A rule missing from the closed loader stops the start-up: no write runs with another copy of a rule.
+    $names=@(
+        'Test-DomeniaDictionaryKey','Get-DomeniaMember','ConvertTo-DomeniaFlatText','Split-DomeniaDn','ConvertFrom-DomeniaDnValue',
+        'ConvertTo-DomeniaDnKey','ConvertTo-DomeniaDnDisplayName','Test-DomeniaWriteTargetDn','Test-DomeniaSecretAttribute',
+        'Test-DomeniaMemberPresent','Test-DomeniaDnValuedAttribute','ConvertTo-DomeniaComparableValue','ConvertTo-DomeniaPlanChanges',
+        'Test-DomeniaPreconditionCurrent','Resolve-DomeniaConditionalWrite'
+    )
+    $parts=New-Object 'System.Collections.Generic.List[string]'
+    foreach($name in $names){
+        $command=Get-Command -Name $name -CommandType Function -ErrorAction SilentlyContinue
+        if($null -eq $command){throw ('Regle d ecriture absente du chargeur : '+$name)}
+        $parts.Add('function '+$name+" {`r`n"+[string]$command.Definition+"`r`n}")
+    }
+    return ($parts.ToArray() -join "`r`n")
+}
+
 function Get-DomeniaAttributeWriteStrategy {
     param([Parameter(Mandatory=$true)][object]$Change)
     $name = [string]$Change.Name
@@ -24094,7 +24293,9 @@ function Start-DomeniaAttributeWrite {
         [string]$Capability = "Edit",
         [string[]]$DisableControls = @(),
         [string]$AfterSuccessAction = "RefreshObjectBranch",
-        $AfterSuccessState = $null
+        $AfterSuccessState = $null,
+        [switch]$RawEdit,
+        [AllowEmptyString()][string]$TypedConfirmation = ''
     )
     $raw = @($Changes | Where-Object { $null -ne $_ })
     if ($raw.Count -eq 0) { Set-Status "Aucune modification detectee. Aucun appel d ecriture AD."; return }
@@ -24111,7 +24312,8 @@ function Start-DomeniaAttributeWrite {
             if ($strategy.PSObject.Properties['TransactionLimit'] -and -not $transactionLimit) { $transactionLimit = [string]$strategy.TransactionLimit }
         }
         if ($strategyName -like 'Conditional*') { $conditional = $true }
-        $copy = [pscustomobject]@{ Name=[string]$c.Name; Old=[string]$c.Old; New=[string]$c.New; Clear=[bool]$c.Clear; Conditional=$conditional }
+        # SE-02: a raw edit is flagged for the worker, which applies the raw attribute rule again on its own.
+        $copy = [pscustomobject]@{ Name=[string]$c.Name; Old=[string]$c.Old; New=[string]$c.New; Clear=[bool]$c.Clear; Conditional=$conditional; Raw=[bool]$RawEdit }
         [void]$cleanList.Add($copy)
         if ($conditional) { [void]$conditionalNames.Add([string]$c.Name) }
         elseif ($strategyName -ne 'NoChange' -and $strategyName -ne 'NotApplicable') { [void]$checkedNames.Add([string]$c.Name) }
@@ -24128,14 +24330,28 @@ function Start-DomeniaAttributeWrite {
     $effects = @($effectList.ToArray() | ForEach-Object { [string]$_ })
     try { $plan = New-DomeniaSelectionWritePlan -OperationId 'WriteAttributes' -Changes $clean -Effects $effects } catch { Show-ErrorBox $_.Exception.Message; return }
     try { $safety = Get-DomeniaSafetyDescriptor } catch { Show-ErrorBox $_.Exception.Message; return }
-    $summary = ($clean | ForEach-Object { "$($_.Name) : [$($_.Old)] -> [$($_.New)]" }) -join "`r`n"
-    $confirmMessage = "$OperationName ?`r`n`r`n$summary"
-    $planText = Format-DomeniaPlanConfirmation -Plan $plan
-    if ($planText) { $confirmMessage += "`r`n`r`n$planText" }
-    if (-not (Confirm-Action $confirmMessage)) { return }
     $payload = [pscustomobject]@{ DN=[string]$plan.Target.DN; Changes=$clean; Safety=$safety }
     $code = @'
+Assert-WAttributeChangesAllowed $Context @($Payload.Changes)
 $before=Assert-WObjectFresh $Context $Payload.Safety
+# SE-09: a form attribute written without a controller condition is re-read on the planned controller just before
+# sending; any difference with the confirmed plan sends nothing (Test-DomeniaPreconditionCurrent, shared rule).
+$preChanges=New-Object Collections.ArrayList
+$preCurrent=@{}
+foreach($c in @($Payload.Changes)){
+    if(($null -eq $c) -or [bool]$c.Conditional){continue}
+    $name=[string]$c.Name
+    if(-not (Test-WFormAttribute $name)){continue}
+    $kind='Replace';$target=[string]$c.New
+    if([bool]$c.Clear){$kind='Clear';$target=''}
+    [void]$preChanges.Add([pscustomobject]@{Attribute=$name;Kind=$kind;Before=[string]$c.Old;After=$target})
+    $current=Get-WAttributeFirst $Context ([string]$Payload.DN) $name
+    if($null -eq $current){$preCurrent[$name]=@()}else{$preCurrent[$name]=@([string]$current)}
+}
+if($preChanges.Count -gt 0){
+    $pre=Test-DomeniaPreconditionCurrent -Changes @($preChanges.ToArray()) -Current $preCurrent -Server ([string]$Context.Server)
+    if(-not [bool]$pre.Current){throw [string]$pre.Text}
+}
 $hasConditional=$false
 foreach($c in @($Payload.Changes)){if([bool]$c.Conditional){$hasConditional=$true;break}}
 if($hasConditional){
@@ -24175,25 +24391,25 @@ if($hasConditional){
             if($ldapCode -eq 81){throw [Runtime.InteropServices.COMException]::new($notSentText,-2147016646)}
             throw $notSentText
         }
-        if($ldapCode -eq -1){
-            throw "Pas de reponse du controleur (code -1) : l ecriture a pu s appliquer. $([string]$res.Message)"
-        }
-        if($ldapCode -eq 0){
+        # SE-09: the controller answer is read by the shared rule Resolve-DomeniaConditionalWrite. 0: applied.
+        # 1-80: refused by the controller, nothing applied (16, 19, 20: changed elsewhere, nothing overwritten).
+        # No answer, or a client-side code from 81 up: the write may have applied; the receipt stays to verify
+        # (the dispatch flag stays set) and nothing is ever retried.
+        $answer=Resolve-DomeniaConditionalWrite -Strategy ([pscustomobject]@{Strategy='ConditionalReplace'}) -ResultCode $ldapCode
+        $controllerText=''
+        if($null -ne $res){$controllerText=[string]$res.Message}
+        $outcome=[string]$answer.Outcome
+        if($outcome -eq 'Applied'){
             $backend="Conditional"
-        }elseif($ldapCode -ge 1 -and $ldapCode -le 80){
+        }elseif($outcome -eq 'Conflict'){
             $DomeniaWriteDispatched=$false
-            $controllerText=[string]$res.Message
-            if($ldapCode -eq 50){
-                throw [UnauthorizedAccessException]::new("Acces refuse par le controleur (code LDAP 50) : rien n a ete applique. $controllerText")
-            }elseif($ldapCode -in @(16,20)){
-                throw "Conflit : valeur modifiee ailleurs sur le controleur depuis l apercu (code LDAP $ldapCode). Rien n a ete ecrase. Relisez puis preparez un nouveau plan. $controllerText"
-            }elseif($ldapCode -eq 19){
-                throw "Refus du controleur (contrainte, code LDAP 19) : la valeur a peut-etre ete modifiee ailleurs ou ne respecte pas une contrainte. Rien n a ete applique. $controllerText"
-            }else{
-                throw "Requete refusee par le controleur (code LDAP $ldapCode) : rien n a ete applique. $controllerText"
-            }
+            throw ('Conflit (code LDAP '+$ldapCode+') : '+[string]$answer.Text+' '+$controllerText)
+        }elseif($outcome -eq 'Error'){
+            $DomeniaWriteDispatched=$false
+            if($ldapCode -eq 50){throw [UnauthorizedAccessException]::new(('Acces refuse par le controleur. '+[string]$answer.Text+' '+$controllerText))}
+            throw ([string]$answer.Text+' '+$controllerText)
         }else{
-            throw "Pas de reponse du controleur (code $ldapCode) : l ecriture a pu s appliquer. $([string]$res.Message)"
+            throw ([string]$answer.Text+' '+$controllerText)
         }
     }
 }else{
@@ -24240,7 +24456,19 @@ $after=Get-WObjectSnapshot $Context ([string]$Payload.DN)
 $ReadUtc=[DateTime]::UtcNow.ToString('o')
 [pscustomobject]@{Verified=$true;Backend=$backend;Message="$(@($Payload.Changes).Count) attribut(s) modifie(s) et verifie(s).";Before=$before;After=$after;Postcondition=[pscustomobject]@{SentUtc=$SentUtc;Expected=[pscustomobject]@{Server=[string]$Context.Server;Values=$expectedValues};Observed=[pscustomobject]@{ReadStatus="OK";Server=[string]$Context.Server;ReadUtc=$ReadUtc;Values=$observedValues}}}
 '@
-    Start-DomeniaWriteTask -Name $OperationName -OperationId "WriteAttributes" -Code $code -Payload $payload -Plan $plan -PlanChanges $clean -Capability $Capability -DisableControls $DisableControls -AfterSuccessAction $AfterSuccessAction -AfterSuccessState $AfterSuccessState
+    # UX-08: confirmed in the page; the write leaves from the continuation, with the plan confirmed here.
+    $state = [pscustomobject]@{ Name=$OperationName; Code=$code; Payload=$payload; Plan=$plan; Changes=$clean; Capability=$Capability; DisableControls=@($DisableControls); AfterSuccessAction=$AfterSuccessAction; AfterSuccessState=$AfterSuccessState }
+    $send = {
+        param($s)
+        Start-DomeniaWriteTask -Name $s.Name -OperationId "WriteAttributes" -Code $s.Code -Payload $s.Payload -Plan $s.Plan -PlanChanges $s.Changes -Capability $s.Capability -DisableControls $s.DisableControls -AfterSuccessAction $s.AfterSuccessAction -AfterSuccessState $s.AfterSuccessState
+    }
+    $message = 'Seules les valeurs ci-dessous sont envoyées à lʼannuaire pour « ' + [string]$plan.Target.Name + ' ».'
+    $risk = 'Normal'
+    if ($RawEdit) {
+        $message = 'Écriture brute sur « ' + [string]$plan.Target.Name + ' » : la valeur est envoyée telle quelle, sans contrôle de forme.'
+        $risk = 'Danger'
+    }
+    [void](Request-DomeniaWriteConfirmation -Plan $plan -Title $OperationName -Message $message -ConfirmText 'Enregistrer' -Risk $risk -TypedConfirmation $TypedConfirmation -Send $send -State $state)
 }
 
 function Save-UserProfile {
@@ -24298,10 +24526,6 @@ function Set-AccountDisabled {
         try { $plan = New-DomeniaSelectionWritePlan -OperationId "WriteAccountDisabled" -Changes $changes -Effects @() } catch { Show-ErrorBox $_.Exception.Message; return }
         try { $safety = Get-DomeniaSafetyDescriptor } catch { Show-ErrorBox $_.Exception.Message; return }
         $action=if($Disabled){"Desactiver"}else{"Activer"}
-        $confirmMessage = "$action cet objet AD ?`r`n$($plan.Target.DN)"
-        $planText = Format-DomeniaPlanConfirmation -Plan $plan
-        if ($planText) { $confirmMessage += "`r`n`r`n$planText" }
-        if (-not (Confirm-Action $confirmMessage)) { return }
         $payload=[pscustomobject]@{DN=[string]$plan.Target.DN;Disabled=$Disabled;Safety=$safety}
         $code=@'
 $before=Assert-WObjectFresh $Context $Payload.Safety
@@ -24327,7 +24551,15 @@ if($actual -ne [bool]$Payload.Disabled){throw "Verification post-ecriture : etat
 $ReadUtc=[DateTime]::UtcNow.ToString('o')
 [pscustomobject]@{Verified=$true;Backend=$backend;Message=$(if([bool]$Payload.Disabled){"Compte desactive et verifie."}else{"Compte active et verifie."});Before=$before;After=$after;Postcondition=[pscustomobject]@{SentUtc=$SentUtc;Expected=[pscustomobject]@{Server=[string]$Context.Server;Flags=[pscustomobject]@{Disabled=[string][bool]$Payload.Disabled}};Observed=[pscustomobject]@{ReadStatus="OK";Server=[string]$Context.Server;ReadUtc=$ReadUtc;Flags=[pscustomobject]@{Disabled=[string]((([int]$after.Uac) -band 2) -ne 0)}}}}
 '@
-        Start-DomeniaWriteTask -Name "$action compte" -OperationId "WriteAccountDisabled" -Code $code -Payload $payload -Plan $plan -PlanChanges $changes -Capability "Account" -DisableControls @("BtnUserEnable","BtnUserDisable","BtnCompEnable","BtnCompDisable") -AfterSuccessAction "RefreshObjectBranch"
+        $state=[pscustomobject]@{Name="$action compte";Code=$code;Payload=$payload;Plan=$plan;Changes=$changes}
+        $send={
+            param($s)
+            try { Start-DomeniaWriteTask -Name $s.Name -OperationId "WriteAccountDisabled" -Code $s.Code -Payload $s.Payload -Plan $s.Plan -PlanChanges $s.Changes -Capability "Account" -DisableControls @("BtnUserEnable","BtnUserDisable","BtnCompEnable","BtnCompDisable") -AfterSuccessAction "RefreshObjectBranch" }
+            catch { Show-ErrorBox "Changement dʼétat du compte impossible : $($_.Exception.Message)" }
+        }
+        $who=[string]$plan.Target.Name
+        if($Disabled){[void](Request-DomeniaWriteConfirmation -Plan $plan -Title 'Désactiver le compte' -Message ('« '+$who+' » ne pourra plus ouvrir de session tant que le compte reste désactivé.') -ConfirmText 'Désactiver' -Risk Danger -Send $send -State $state)}
+        else{[void](Request-DomeniaWriteConfirmation -Plan $plan -Title 'Activer le compte' -Message ('« '+$who+' » pourra de nouveau ouvrir une session.') -ConfirmText 'Activer' -Send $send -State $state)}
     } catch { Show-ErrorBox "Erreur etat du compte : $($_.Exception.Message)" }
 }
 
@@ -24367,15 +24599,10 @@ function Reset-UserPassword {
         if ($mustChange) { $changes = @($changes + [pscustomobject]@{ Attribute="pwdLastSet"; Kind="Replace"; Before=(Get-DomeniaOriginalValue "pwdLastSet"); After="0" }) }
         try { $plan = New-DomeniaSelectionWritePlan -OperationId "WriteResetPassword" -Changes $changes -Effects @() } catch { Show-ErrorBox $_.Exception.Message; return }
         try { $safety = Get-DomeniaSafetyDescriptor } catch { Show-ErrorBox $_.Exception.Message; return }
-        $confirmMessage = "Reinitialiser le mot de passe de cet utilisateur ?`r`nLe mot de passe ne sera ni journalise ni stocke."
-        $planText = Format-DomeniaPlanConfirmation -Plan $plan
-        if ($planText) { $confirmMessage += "`r`n`r`n$planText" }
-        if (-not (Confirm-Action $confirmMessage)) { return }
-        $securePassword = ConvertTo-DomeniaSecureString -Text ([string]$pw.New)
-        $payload=[pscustomobject]@{DN=[string]$plan.Target.DN;SecurePassword=$securePassword;Unlock=[bool]$script:Ctrl["ChkUnlockAfterReset"].IsChecked;MustChange=$mustChange;Safety=$safety}
-        foreach ($controlName in @("PwdUserNew","PwdUserConfirm")) { try { $script:Ctrl[$controlName].Password = "" } catch { } }
-        foreach ($controlName in @("TxtUserNewVisible","TxtUserConfirmVisible")) { try { $script:Ctrl[$controlName].Text = "" } catch { } }
+        # UX-08: no password is kept while the confirmation waits in the page; it is read again from the fields when
+        # the operator confirms, then the fields are cleared.
         $pw = $null
+        $unlockAfter=[bool]$script:Ctrl["ChkUnlockAfterReset"].IsChecked
         $code=@'
 $before=Assert-WObjectFresh $Context $Payload.Safety
 $PreviousUtc=$null
@@ -24430,8 +24657,26 @@ if(-not [bool]$after.Exists){throw "Objet introuvable apres le reset."}
 $ReadUtc=[DateTime]::UtcNow.ToString('o')
 [pscustomobject]@{Verified=$true;Backend=$backend;Message=("Reset accepte par le DC ; "+($steps -join " ; "));Before=$before;After=$after;Partial=(@($steps|Where-Object{$_ -match "echec"}).Count -gt 0);Postcondition=[pscustomobject]@{SentUtc=$SentUtc;Expected=[pscustomobject]@{Server=[string]$Context.Server;PreviousUtc=$PreviousUtc};Observed=[pscustomobject]@{ReadStatus=$PwdReadStatus;Server=[string]$Context.Server;ReadUtc=$ReadUtc;PwdLastSetUtc=$PwdLastSetUtc}}}
 '@
-        Start-DomeniaWriteTask -Name "Reset mot de passe" -OperationId "WriteResetPassword" -Code $code -Payload $payload -Plan $plan -PlanChanges $changes -Capability "Password" -DisableControls @("BtnUserResetPwd") -AfterSuccessAction "ResetPassword"
-        $securePassword = $null
+        $state=[pscustomobject]@{Code=$code;Plan=$plan;Changes=$changes;Safety=$safety;Unlock=$unlockAfter;MustChange=$mustChange}
+        $send={
+            param($s)
+            try {
+                $pair=Get-PasswordPair
+                if([string]::IsNullOrWhiteSpace([string]$pair.New)){throw "Nouveau mot de passe vide."}
+                if([string]$pair.New -ne [string]$pair.Confirm){throw "Confirmation differente."}
+                $securePassword = ConvertTo-DomeniaSecureString -Text ([string]$pair.New)
+                $pair = $null
+                $payload=[pscustomobject]@{DN=[string]$s.Plan.Target.DN;SecurePassword=$securePassword;Unlock=[bool]$s.Unlock;MustChange=[bool]$s.MustChange;Safety=$s.Safety}
+                foreach ($controlName in @("PwdUserNew","PwdUserConfirm")) { try { $script:Ctrl[$controlName].Password = "" } catch { } }
+                foreach ($controlName in @("TxtUserNewVisible","TxtUserConfirmVisible")) { try { $script:Ctrl[$controlName].Text = "" } catch { } }
+                Start-DomeniaWriteTask -Name "Reset mot de passe" -OperationId "WriteResetPassword" -Code $s.Code -Payload $payload -Plan $s.Plan -PlanChanges $s.Changes -Capability "Password" -DisableControls @("BtnUserResetPwd") -AfterSuccessAction "ResetPassword"
+                $securePassword = $null
+            } catch { Show-ErrorBox "Erreur reset mot de passe : $($_.Exception.Message)" }
+        }
+        $extra=@()
+        if($unlockAfter){$extra+='Compte : déverrouillé après la réinitialisation'}
+        $lines=@(@(Get-DomeniaPlanChangeText -Changes @($plan.Changes))+$extra)
+        [void](Request-DomeniaWriteConfirmation -Plan $plan -Title 'Réinitialiser le mot de passe' -Message ('Le mot de passe saisi remplace celui de « '+[string]$plan.Target.Name+' ». Il nʼest ni journalisé ni conservé.') -ConfirmText 'Réinitialiser' -Risk Danger -Changes $lines -Send $send -State $state)
     } catch { Show-ErrorBox "Erreur reset mot de passe : $($_.Exception.Message)" }
 }
 
@@ -24457,17 +24702,8 @@ function Apply-UserAccountOptions {
         $changes=@($planChanges)
         try { $plan = New-DomeniaSelectionWritePlan -OperationId "WriteAccountOptions" -Changes $changes -Effects @() } catch { Show-ErrorBox $_.Exception.Message; return }
         try { $safety = Get-DomeniaSafetyDescriptor } catch { Show-ErrorBox $_.Exception.Message; return }
-        $summary=$changed -join "`r`n"
-        $planText = Format-DomeniaPlanConfirmation -Plan $plan
-        if($highRisk -and [bool](Get-CfgValue "Security" "RequireTypedHighRiskConfirmation" $true)){
-            $confirmMessage = "Options UAC a haut risque :`r`n$summary"
-            if ($planText) { $confirmMessage += "`r`n`r`n$planText" }
-            if(-not (Confirm-TextAction -Message $confirmMessage -Expected "RISQUE")){Set-Status "Modification UAC annulee." "WARN";return}
-        }else{
-            $confirmMessage = "Appliquer ces options UAC ?`r`n`r`n$summary"
-            if ($planText) { $confirmMessage += "`r`n`r`n$planText" }
-            if(-not (Confirm-Action $confirmMessage)){return}
-        }
+        $typedRisk=''
+        if($highRisk -and [bool](Get-CfgValue "Security" "RequireTypedHighRiskConfirmation" $true)){$typedRisk='RISQUE'}
         $payload=[pscustomobject]@{DN=[string]$plan.Target.DN;Options=[pscustomobject]$options;Masks=[pscustomobject]$masks;TargetUac=$target;Safety=$safety}
         $code=@'
 $before=Assert-WObjectFresh $Context $Payload.Safety
@@ -24499,7 +24735,15 @@ foreach($maskProp in $Payload.Masks.PSObject.Properties){
 $ReadUtc=[DateTime]::UtcNow.ToString('o')
 [pscustomobject]@{Verified=$true;Backend=$backend;Message="Options UAC appliquees et verifiees.";Before=$before;After=$after;Postcondition=[pscustomobject]@{SentUtc=$SentUtc;Expected=[pscustomobject]@{Server=[string]$Context.Server;Flags=$expectedFlags};Observed=[pscustomobject]@{ReadStatus="OK";Server=[string]$Context.Server;ReadUtc=$ReadUtc;Flags=$observedFlags}}}
 '@
-        Start-DomeniaWriteTask -Name "Options du compte" -OperationId "WriteAccountOptions" -Code $code -Payload $payload -Plan $plan -PlanChanges $changes -Capability "Account" -DisableControls @("BtnApplyAccountOptions") -AfterSuccessAction "RefreshObject"
+        $state=[pscustomobject]@{Code=$code;Payload=$payload;Plan=$plan;Changes=$changes}
+        $send={
+            param($s)
+            try { Start-DomeniaWriteTask -Name "Options du compte" -OperationId "WriteAccountOptions" -Code $s.Code -Payload $s.Payload -Plan $s.Plan -PlanChanges $s.Changes -Capability "Account" -DisableControls @("BtnApplyAccountOptions") -AfterSuccessAction "RefreshObject" }
+            catch { Show-ErrorBox "Erreur options compte : $($_.Exception.Message)" }
+        }
+        $who=[string]$plan.Target.Name
+        if($highRisk){[void](Request-DomeniaWriteConfirmation -Plan $plan -Title 'Options du compte à haut risque' -Message ('Ces options affaiblissent la sécurité du compte « '+$who+' » : vérifiez chaque ligne avant de confirmer.') -ConfirmText 'Appliquer' -Risk Danger -TypedConfirmation $typedRisk -Send $send -State $state -CancelStatus 'Modification des options du compte annulée : rien nʼa été envoyé.')}
+        else{[void](Request-DomeniaWriteConfirmation -Plan $plan -Title 'Options du compte' -Message ('Options du compte « '+$who+' » à appliquer :') -ConfirmText 'Appliquer' -Send $send -State $state)}
     } catch { Show-ErrorBox "Erreur options compte : $($_.Exception.Message)" }
 }
 
@@ -24522,10 +24766,6 @@ function Set-UserExpiration {
         $changes = @([pscustomobject]@{ Attribute="accountExpires"; Kind="Replace"; Before=$beforeText; After=$afterText })
         try { $plan = New-DomeniaSelectionWritePlan -OperationId "WriteExpiration" -Changes $changes -Effects @() } catch { Show-ErrorBox $_.Exception.Message; return }
         try { $safety = Get-DomeniaSafetyDescriptor } catch { Show-ErrorBox $_.Exception.Message; return }
-        $message=if($Never){"Supprimer l expiration du compte ?"}else{"Definir l expiration du compte au $(([datetime]$date).ToString('dd/MM/yyyy')) ?"}
-        $planText = Format-DomeniaPlanConfirmation -Plan $plan
-        if ($planText) { $message += "`r`n`r`n$planText" }
-        if(-not (Confirm-Action $message)){return}
         $payload=[pscustomobject]@{DN=[string]$plan.Target.DN;Never=$Never;Date=$date;Safety=$safety}
         $code=@'
 $before=Assert-WObjectFresh $Context $Payload.Safety
@@ -24564,7 +24804,15 @@ if($null -ne $actual){if($i -eq 0 -or $i -eq 9223372036854775807){$observedAccou
 $ReadUtc=[DateTime]::UtcNow.ToString('o')
 [pscustomobject]@{Verified=$true;Backend=$backend;Message=$(if([bool]$Payload.Never){"Expiration du compte supprimee et verifiee."}else{"Expiration du compte definie et verifiee."});Before=$before;After=$after;Postcondition=[pscustomobject]@{SentUtc=$SentUtc;Expected=[pscustomobject]@{Server=[string]$Context.Server;Values=@{accountExpires=$ExpectedValue}};Observed=[pscustomobject]@{ReadStatus="OK";Server=[string]$Context.Server;ReadUtc=$ReadUtc;Values=@{accountExpires=$observedAccountExpires}}}}
 '@
-        Start-DomeniaWriteTask -Name "Expiration utilisateur" -OperationId "WriteExpiration" -Code $code -Payload $payload -Plan $plan -PlanChanges $changes -Capability "Account" -DisableControls @("BtnSetExpiration","BtnNeverExpires") -AfterSuccessAction "RefreshObject"
+        $state=[pscustomobject]@{Code=$code;Payload=$payload;Plan=$plan;Changes=$changes}
+        $send={
+            param($s)
+            try { Start-DomeniaWriteTask -Name "Expiration utilisateur" -OperationId "WriteExpiration" -Code $s.Code -Payload $s.Payload -Plan $s.Plan -PlanChanges $s.Changes -Capability "Account" -DisableControls @("BtnSetExpiration","BtnNeverExpires") -AfterSuccessAction "RefreshObject" }
+            catch { Show-ErrorBox "Erreur expiration : $($_.Exception.Message)" }
+        }
+        $who=[string]$plan.Target.Name
+        if($Never){[void](Request-DomeniaWriteConfirmation -Plan $plan -Title 'Supprimer lʼexpiration du compte' -Message ('Le compte « '+$who+' » nʼexpirera plus.') -ConfirmText 'Supprimer lʼexpiration' -Send $send -State $state)}
+        else{[void](Request-DomeniaWriteConfirmation -Plan $plan -Title 'Définir lʼexpiration du compte' -Message ('Le compte « '+$who+' » expirera le '+$afterText+'.') -ConfirmText 'Définir' -Send $send -State $state)}
     } catch { Show-ErrorBox "Erreur expiration : $($_.Exception.Message)" }
 }
 
@@ -24574,10 +24822,6 @@ function Expire-UserPasswordNow {
         $changes = @([pscustomobject]@{ Attribute="pwdLastSet"; Kind="Replace"; Before=(Get-DomeniaOriginalValue "pwdLastSet"); After="0" })
         try { $plan = New-DomeniaSelectionWritePlan -OperationId "WriteExpirePassword" -Changes $changes -Effects @() } catch { Show-ErrorBox $_.Exception.Message; return }
         try { $safety = Get-DomeniaSafetyDescriptor } catch { Show-ErrorBox $_.Exception.Message; return }
-        $confirmMessage = "Forcer le changement du mot de passe au prochain logon sans le reinitialiser ?`r`n$($plan.Target.DN)"
-        $planText = Format-DomeniaPlanConfirmation -Plan $plan
-        if ($planText) { $confirmMessage += "`r`n`r`n$planText" }
-        if(-not (Confirm-Action $confirmMessage)){return}
         $payload=[pscustomobject]@{DN=[string]$plan.Target.DN;Safety=$safety}
         $code=@'
 $before=Assert-WObjectFresh $Context $Payload.Safety
@@ -24594,7 +24838,13 @@ if($null -ne $raw){$observedPwdLastSet=[string]$actual}
 $ReadUtc=[DateTime]::UtcNow.ToString('o')
 [pscustomobject]@{Verified=$true;Backend=$backend;Message="Changement du mot de passe impose au prochain logon.";Before=$before;After=$after;Postcondition=[pscustomobject]@{SentUtc=$SentUtc;Expected=[pscustomobject]@{Server=[string]$Context.Server;Values=@{pwdLastSet="0"}};Observed=[pscustomobject]@{ReadStatus="OK";Server=[string]$Context.Server;ReadUtc=$ReadUtc;Values=@{pwdLastSet=$observedPwdLastSet}}}}
 '@
-        Start-DomeniaWriteTask -Name "Expiration immediate du mot de passe" -OperationId "WriteExpirePassword" -Code $code -Payload $payload -Plan $plan -PlanChanges $changes -Capability "Account" -DisableControls @("BtnExpirePwdNow") -AfterSuccessAction "RefreshObject"
+        $state=[pscustomobject]@{Code=$code;Payload=$payload;Plan=$plan;Changes=$changes}
+        $send={
+            param($s)
+            try { Start-DomeniaWriteTask -Name "Expiration immediate du mot de passe" -OperationId "WriteExpirePassword" -Code $s.Code -Payload $s.Payload -Plan $s.Plan -PlanChanges $s.Changes -Capability "Account" -DisableControls @("BtnExpirePwdNow") -AfterSuccessAction "RefreshObject" }
+            catch { Show-ErrorBox "Erreur expiration mot de passe : $($_.Exception.Message)" }
+        }
+        [void](Request-DomeniaWriteConfirmation -Plan $plan -Title 'Imposer un nouveau mot de passe' -Message ('« '+[string]$plan.Target.Name+' » devra choisir un nouveau mot de passe à sa prochaine connexion ; lʼactuel nʼest pas modifié.') -ConfirmText 'Imposer' -Send $send -State $state)
     } catch { Show-ErrorBox "Erreur expiration mot de passe : $($_.Exception.Message)" }
 }
 
@@ -24604,6 +24854,9 @@ function Move-SelectedObject {
         if($null -eq $script:SelectedObject){return}
         $target=($TargetDn+"").Trim();if([string]::IsNullOrWhiteSpace($target)){throw "OU cible vide."}
         if($target -ieq [string]$script:SelectedObject.DN){throw "La cible ne peut pas etre l objet lui-meme."}
+        # SE-12: the destination is a DN of the connected domain, outside the configuration and DNS partitions.
+        $targetCheck = Test-DomeniaWriteTargetDn -Dn $target -BaseDn ([string]$script:Conn.BaseDn)
+        if (-not [bool]$targetCheck.Valid) { Show-ErrorBox ([string]$targetCheck.Reason) -Details $target; return }
         $identity = Get-DomeniaCurrentSelectionIdentity
         if ($null -eq $identity) { Show-ErrorBox 'Selection sans identite exacte (domaine et GUID) : relire l objet avant toute ecriture.'; return }
         $oldDn = [string]$identity.DN
@@ -24614,12 +24867,10 @@ function Move-SelectedObject {
         $changes = @([pscustomobject]@{ Attribute="distinguishedName"; Kind="Move"; Before=$oldDn; After=$newDn })
         try { $plan = New-DomeniaSelectionWritePlan -OperationId "WriteMoveObject" -Changes $changes -Effects @() } catch { Show-ErrorBox $_.Exception.Message; return }
         try { $safety = Get-DomeniaSafetyDescriptor } catch { Show-ErrorBox $_.Exception.Message; return }
-        $confirmMessage = "Deplacer cet objet vers :`r`n$target ?"
-        $planText = Format-DomeniaPlanConfirmation -Plan $plan
-        if ($planText) { $confirmMessage += "`r`n`r`n$planText" }
-        if(-not (Confirm-Action $confirmMessage)){return}
         $payload=[pscustomobject]@{DN=[string]$plan.Target.DN;TargetDn=$target;Safety=$safety}
         $code=@'
+$targetCheck=Test-DomeniaWriteTargetDn -Dn ([string]$Payload.TargetDn) -BaseDn ([string]$Context.BaseDn)
+if(-not [bool]$targetCheck.Valid){throw [string]$targetCheck.Reason}
 $before=Assert-WObjectFresh $Context $Payload.Safety
 $target=Get-WObjectSnapshot $Context ([string]$Payload.TargetDn)
 if(-not [bool]$target.Exists){throw "OU ou conteneur cible introuvable."}
@@ -24639,7 +24890,13 @@ if(-not [bool]$after.Exists -or -not ([string]$after.DN).EndsWith(","+[string]$P
 $ReadUtc=[DateTime]::UtcNow.ToString('o')
 [pscustomobject]@{Verified=$true;Backend=$backend;Message="Objet deplace et verifie.";NewDn=$newDn;Before=$before;After=$after;Postcondition=[pscustomobject]@{SentUtc=$SentUtc;Expected=[pscustomobject]@{Server=[string]$Context.Server;Guid=[string]$before.Guid;NewDn=$newDn};Observed=[pscustomobject]@{ReadStatus="OK";Server=[string]$Context.Server;ReadUtc=$ReadUtc;Guid=[string]$after.Guid;DN=[string]$after.DN}}}
 '@
-        Start-DomeniaWriteTask -Name "Deplacement objet AD" -OperationId "WriteMoveObject" -Code $code -Payload $payload -Plan $plan -PlanChanges $changes -Capability "Move" -DisableControls @("BtnUserMove") -AfterSuccessAction "UpdateDnRefreshObjectBranch"
+        $state=[pscustomobject]@{Code=$code;Payload=$payload;Plan=$plan;Changes=$changes}
+        $send={
+            param($s)
+            try { Start-DomeniaWriteTask -Name "Deplacement objet AD" -OperationId "WriteMoveObject" -Code $s.Code -Payload $s.Payload -Plan $s.Plan -PlanChanges $s.Changes -Capability "Move" -DisableControls @("BtnUserMove") -AfterSuccessAction "UpdateDnRefreshObjectBranch" }
+            catch { Show-ErrorBox "Erreur deplacement : $($_.Exception.Message)" }
+        }
+        [void](Request-DomeniaWriteConfirmation -Plan $plan -Title 'Déplacer lʼobjet' -Message ('« '+[string]$plan.Target.Name+' » sera déplacé vers « '+(Get-DomeniaOuDisplayPath $target)+' ».') -ConfirmText 'Déplacer' -Send $send -State $state)
     } catch { Show-ErrorBox "Erreur deplacement : $($_.Exception.Message)" }
 }
 
@@ -24648,6 +24905,13 @@ function AddOrRemoveObjectGroup {
     try {
         if($null -eq $script:SelectedObject){return}
         $value=($GroupValue+"").Trim();if([string]::IsNullOrWhiteSpace($value)){throw "Groupe vide."}
+        # SE-12: a group typed as a DN must be a DN of the connected domain; it is shown by its readable name.
+        $groupName = $value
+        if ($value -match '^(?i:CN|OU|DC)\s*=') {
+            $groupCheck = Test-DomeniaWriteTargetDn -Dn $value -BaseDn ([string]$script:Conn.BaseDn)
+            if (-not [bool]$groupCheck.Valid) { Show-ErrorBox ([string]$groupCheck.Reason) -Details $value; return }
+            $groupName = [string]$groupCheck.Name
+        }
         $verb=if($Add){"Ajouter au groupe"}else{"Retirer du groupe"}
         if ($Add) {
             $changes = @([pscustomobject]@{ Attribute="memberOf"; Kind="Add"; Before=""; After=$value })
@@ -24656,10 +24920,6 @@ function AddOrRemoveObjectGroup {
         }
         try { $plan = New-DomeniaSelectionWritePlan -OperationId "WriteObjectGroup" -Changes $changes -Effects @() } catch { Show-ErrorBox $_.Exception.Message; return }
         try { $safety = Get-DomeniaSafetyDescriptor } catch { Show-ErrorBox $_.Exception.Message; return }
-        $confirmMessage = "$verb :`r`n$value ?"
-        $planText = Format-DomeniaPlanConfirmation -Plan $plan
-        if ($planText) { $confirmMessage += "`r`n`r`n$planText" }
-        if(-not (Confirm-Action $confirmMessage)){return}
         $payload=[pscustomobject]@{ObjectDn=[string]$plan.Target.DN;GroupValue=$value;Add=$Add;Safety=$safety}
         $code=@'
 $before=Assert-WObjectFresh $Context $Payload.Safety
@@ -24687,7 +24947,15 @@ if([bool]$Payload.Add){$expectedMembership=[pscustomobject]@{Server=[string]$Con
 $ReadUtc=[DateTime]::UtcNow.ToString('o')
 [pscustomobject]@{Verified=$true;Backend=$backend;Message=$(if([bool]$Payload.Add){"Objet ajoute au groupe et verifie."}else{"Objet retire du groupe et verifie."});GroupDn=$gdn;Before=$before;After=(Get-WObjectSnapshot $Context ([string]$Payload.ObjectDn));Postcondition=[pscustomobject]@{SentUtc=$SentUtc;Expected=$expectedMembership;Observed=[pscustomobject]@{ReadStatus=$readStatus;Server=[string]$Context.Server;ReadUtc=$ReadUtc;Members=$members}}}
 '@
-        Start-DomeniaWriteTask -Name "$verb AD" -OperationId "WriteObjectGroup" -Code $code -Payload $payload -Plan $plan -PlanChanges $changes -Capability "Group" -DisableControls @("BtnUserAddGroup","BtnUserRemoveGroup","BtnCompAddGroup","BtnCompRemoveGroup") -AfterSuccessAction "RefreshObject"
+        $state=[pscustomobject]@{Name="$verb AD";Code=$code;Payload=$payload;Plan=$plan;Changes=$changes}
+        $send={
+            param($s)
+            try { Start-DomeniaWriteTask -Name $s.Name -OperationId "WriteObjectGroup" -Code $s.Code -Payload $s.Payload -Plan $s.Plan -PlanChanges $s.Changes -Capability "Group" -DisableControls @("BtnUserAddGroup","BtnUserRemoveGroup","BtnCompAddGroup","BtnCompRemoveGroup") -AfterSuccessAction "RefreshObject" }
+            catch { Show-ErrorBox "Erreur groupe : $($_.Exception.Message)" }
+        }
+        $who=[string]$plan.Target.Name
+        if($Add){[void](Request-DomeniaWriteConfirmation -Plan $plan -Title 'Ajouter au groupe' -Message ('« '+$who+' » devient membre direct du groupe « '+$groupName+' ».') -ConfirmText 'Ajouter' -Send $send -State $state)}
+        else{[void](Request-DomeniaWriteConfirmation -Plan $plan -Title 'Retirer du groupe' -Message ('« '+$who+' » ne sera plus membre direct du groupe « '+$groupName+' ».') -ConfirmText 'Retirer' -Risk Danger -Send $send -State $state)}
     } catch { Show-ErrorBox "Erreur groupe : $($_.Exception.Message)" }
 }
 
@@ -24696,6 +24964,13 @@ function AddOrRemoveGroupMember {
     try {
         if($null -eq $script:SelectedObject -or $script:SelectedObject.Type -ne "Groupe"){return}
         $target=($script:Ctrl["TxtGroupMemberTarget"].Text+"").Trim();if([string]::IsNullOrWhiteSpace($target)){throw "Membre cible vide."}
+        # SE-12: a member typed as a DN must be a DN of the connected domain; it is shown by its readable name.
+        $memberName = $target
+        if ($target -match '^(?i:CN|OU|DC)\s*=') {
+            $memberCheck = Test-DomeniaWriteTargetDn -Dn $target -BaseDn ([string]$script:Conn.BaseDn)
+            if (-not [bool]$memberCheck.Valid) { Show-ErrorBox ([string]$memberCheck.Reason) -Details $target; return }
+            $memberName = [string]$memberCheck.Name
+        }
         $verb=if($Add){"Ajouter le membre"}else{"Retirer le membre"}
         if ($Add) {
             $changes = @([pscustomobject]@{ Attribute="member"; Kind="Add"; Before=""; After=$target })
@@ -24704,10 +24979,6 @@ function AddOrRemoveGroupMember {
         }
         try { $plan = New-DomeniaSelectionWritePlan -OperationId "WriteGroupMember" -Changes $changes -Effects @() } catch { Show-ErrorBox $_.Exception.Message; return }
         try { $safety = Get-DomeniaSafetyDescriptor } catch { Show-ErrorBox $_.Exception.Message; return }
-        $confirmMessage = "$verb :`r`n$target ?"
-        $planText = Format-DomeniaPlanConfirmation -Plan $plan
-        if ($planText) { $confirmMessage += "`r`n`r`n$planText" }
-        if(-not (Confirm-Action $confirmMessage)){return}
         $payload=[pscustomobject]@{GroupDn=[string]$plan.Target.DN;ObjectValue=$target;Add=$Add;Safety=$safety}
         $code=@'
 $before=Assert-WObjectFresh $Context $Payload.Safety
@@ -24733,7 +25004,15 @@ if([bool]$Payload.Add){$expectedMembership=[pscustomobject]@{Server=[string]$Con
 $ReadUtc=[DateTime]::UtcNow.ToString('o')
 [pscustomobject]@{Verified=$true;Backend=$backend;Message=$(if([bool]$Payload.Add){"Membre ajoute et verifie."}else{"Membre retire et verifie."});ObjectDn=$odn;Before=$before;After=(Get-WObjectSnapshot $Context ([string]$Payload.GroupDn));Postcondition=[pscustomobject]@{SentUtc=$SentUtc;Expected=$expectedMembership;Observed=[pscustomobject]@{ReadStatus=$readStatus;Server=[string]$Context.Server;ReadUtc=$ReadUtc;Members=$members}}}
 '@
-        Start-DomeniaWriteTask -Name "$verb au groupe" -OperationId "WriteGroupMember" -Code $code -Payload $payload -Plan $plan -PlanChanges $changes -Capability "Group" -DisableControls @("BtnGroupAddMember","BtnGroupRemoveMember") -AfterSuccessAction "GroupMemberRefreshObject"
+        $state=[pscustomobject]@{Name="$verb au groupe";Code=$code;Payload=$payload;Plan=$plan;Changes=$changes}
+        $send={
+            param($s)
+            try { Start-DomeniaWriteTask -Name $s.Name -OperationId "WriteGroupMember" -Code $s.Code -Payload $s.Payload -Plan $s.Plan -PlanChanges $s.Changes -Capability "Group" -DisableControls @("BtnGroupAddMember","BtnGroupRemoveMember") -AfterSuccessAction "GroupMemberRefreshObject" }
+            catch { Show-ErrorBox "Erreur membre groupe : $($_.Exception.Message)" }
+        }
+        $groupName=[string]$plan.Target.Name
+        if($Add){[void](Request-DomeniaWriteConfirmation -Plan $plan -Title 'Ajouter un membre' -Message ('« '+$memberName+' » devient membre direct du groupe « '+$groupName+' ».') -ConfirmText 'Ajouter' -Send $send -State $state)}
+        else{[void](Request-DomeniaWriteConfirmation -Plan $plan -Title 'Retirer un membre' -Message ('« '+$memberName+' » ne sera plus membre direct du groupe « '+$groupName+' ».') -ConfirmText 'Retirer' -Risk Danger -Send $send -State $state)}
     } catch { Show-ErrorBox "Erreur membre groupe : $($_.Exception.Message)" }
 }
 
@@ -24749,10 +25028,6 @@ function Rename-ComputerObject {
         $changes = @([pscustomobject]@{ Attribute="name"; Kind="Move"; Before=$oldName; After=$newName })
         try { $plan = New-DomeniaSelectionWritePlan -OperationId "WriteRenameComputer" -Changes $changes -Effects @() } catch { Show-ErrorBox $_.Exception.Message; return }
         try { $safety = Get-DomeniaSafetyDescriptor } catch { Show-ErrorBox $_.Exception.Message; return }
-        $confirmMessage = "Renommer le CN de la machine en $newName ?`r`nLe poste Windows distant ne sera pas renomme."
-        $planText = Format-DomeniaPlanConfirmation -Plan $plan
-        if ($planText) { $confirmMessage += "`r`n`r`n$planText" }
-        if(-not (Confirm-Action $confirmMessage)){return}
         $payload=[pscustomobject]@{DN=[string]$plan.Target.DN;NewName=$newName;Safety=$safety}
         $code=@'
 $before=Assert-WObjectFresh $Context $Payload.Safety
@@ -24769,7 +25044,13 @@ if(-not [bool]$after.Exists -or [string]$after.Name -ine [string]$Payload.NewNam
 $ReadUtc=[DateTime]::UtcNow.ToString('o')
 [pscustomobject]@{Verified=$true;Backend=$backend;Message="Objet ordinateur renomme et verifie.";NewDn=$newDn;Before=$before;After=$after;Postcondition=[pscustomobject]@{SentUtc=$SentUtc;Expected=[pscustomobject]@{Server=[string]$Context.Server;Guid=[string]$before.Guid;NewDn=$newDn};Observed=[pscustomobject]@{ReadStatus="OK";Server=[string]$Context.Server;ReadUtc=$ReadUtc;Guid=[string]$after.Guid;DN=[string]$after.DN}}}
 '@
-        Start-DomeniaWriteTask -Name "Renommage machine AD" -OperationId "WriteRenameComputer" -Code $code -Payload $payload -Plan $plan -PlanChanges $changes -Capability "Move" -DisableControls @("BtnCompRename") -AfterSuccessAction "RenameComputer"
+        $state=[pscustomobject]@{Code=$code;Payload=$payload;Plan=$plan;Changes=$changes}
+        $send={
+            param($s)
+            try { Start-DomeniaWriteTask -Name "Renommage machine AD" -OperationId "WriteRenameComputer" -Code $s.Code -Payload $s.Payload -Plan $s.Plan -PlanChanges $s.Changes -Capability "Move" -DisableControls @("BtnCompRename") -AfterSuccessAction "RenameComputer" }
+            catch { Show-ErrorBox "Erreur renommage : $($_.Exception.Message)" }
+        }
+        [void](Request-DomeniaWriteConfirmation -Plan $plan -Title 'Renommer lʼobjet ordinateur' -Message ('« '+$oldName+' » devient « '+$newName+' » dans lʼannuaire. Le poste Windows lui-même nʼest pas renommé.') -ConfirmText 'Renommer' -Send $send -State $state)
     } catch { Show-ErrorBox "Erreur renommage : $($_.Exception.Message)" }
 }
 
@@ -24781,9 +25062,13 @@ function Create-OuUnderSelected {
         if ($name.IndexOfAny([IO.Path]::GetInvalidFileNameChars()) -ge 0) { throw "Le nom contient des caracteres invalides." }
         # La branche de l arbre n a pas d identite GUID : son DN est fige avant la confirmation et reverifie a l envoi.
         $parentDn = ([string]$script:SelectedBranchDn).Trim()
-        if (-not (Confirm-TextAction -Message "Creer une OU protegee contre la suppression accidentelle ?`r`nNom : $name`r`nParent : $parentDn" -Expected "CREER")) { Set-Status "Creation OU annulee." "WARN"; return }
+        # SE-12: the parent branch is a DN of the connected domain, outside the configuration and DNS partitions.
+        $parentCheck = Test-DomeniaWriteTargetDn -Dn $parentDn -BaseDn ([string]$script:Conn.BaseDn)
+        if (-not [bool]$parentCheck.Valid) { Show-ErrorBox ([string]$parentCheck.Reason) -Details $parentDn; return }
         $payload = [pscustomobject]@{ ParentDn=$parentDn; Name=$name; DN=$parentDn }
         $code = @'
+$parentCheck=Test-DomeniaWriteTargetDn -Dn ([string]$Payload.ParentDn) -BaseDn ([string]$Context.BaseDn)
+if(-not [bool]$parentCheck.Valid){throw [string]$parentCheck.Reason}
 $parent=Get-WObjectSnapshot $Context ([string]$Payload.ParentDn)
 if(-not [bool]$parent.Exists){throw "Branche parente introuvable."}
 if(-not (@($parent.Classes) -contains "organizationalUnit") -and -not (@($parent.Classes) -contains "container") -and -not (@($parent.Classes) -contains "domainDNS")){throw "La cible n est pas une OU, un conteneur ou la racine du domaine."}
@@ -24812,7 +25097,15 @@ if(-not [bool]$after.Exists -or -not (@($after.Classes) -contains "organizationa
 $ReadUtc=[DateTime]::UtcNow.ToString('o')
 [pscustomobject]@{Verified=$true;Backend=$backend;Message=$(if($backend -eq "Module"){"OU creee, protegee et verifiee : $dn"}else{"OU creee et verifiee via ADSI : $dn. La protection contre suppression accidentelle necessite le module AD."});DN=$dn;Before=$parent;After=$after;Postcondition=[pscustomobject]@{SentUtc=$SentUtc;Expected=[pscustomobject]@{Server=[string]$Context.Server;Guid=""};Observed=[pscustomobject]@{ReadStatus="OK";Server=[string]$Context.Server;ReadUtc=$ReadUtc;Exists=[bool]$after.Exists;Guid=[string]$after.Guid}}}
 '@
-        Start-DomeniaWriteTask -Name "Creation OU" -OperationId "WriteCreateOu" -Code $code -Payload $payload -BranchDn $parentDn -Capability "Create" -DisableControls @("BtnCreateOu") -AfterSuccessAction "CreateOu"
+        $state=[pscustomobject]@{Code=$code;Payload=$payload;ParentDn=$parentDn}
+        $send={
+            param($s)
+            try { Start-DomeniaWriteTask -Name "Creation OU" -OperationId "WriteCreateOu" -Code $s.Code -Payload $s.Payload -BranchDn $s.ParentDn -Capability "Create" -DisableControls @("BtnCreateOu") -AfterSuccessAction "CreateOu" }
+            catch { Show-ErrorBox "Erreur creation OU : $($_.Exception.Message)" }
+        }
+        $where=Get-DomeniaOuDisplayPath $parentDn
+        $details='Parent : '+$parentDn+"`r`nNom relatif : OU="+$name+"`r`nProtection contre la suppression accidentelle : demandée (module AD requis)."
+        [void](Request-DomeniaWriteConfirmation -Title 'Créer une unité dʼorganisation' -Message ('Nouvelle unité dʼorganisation « '+$name+' » dans « '+$where+' », protégée contre la suppression accidentelle.') -Changes @('Unité dʼorganisation : création de « '+$name+' » dans « '+$where+' »') -Details $details -Target ('ad:branch:'+$parentDn.ToLowerInvariant()) -ConfirmText 'Créer' -TypedConfirmation 'CREER' -Send $send -State $state -CancelStatus 'Création de lʼOU annulée : rien nʼa été envoyé.')
     }
     catch { Show-ErrorBox "Erreur creation OU : $($_.Exception.Message)" }
 }
@@ -24821,19 +25114,17 @@ function Set-OrClearRawAttribute {
     param([bool]$Clear)
     try {
         if ($null -eq $script:SelectedObject) { return }
-        if (-not [bool](Get-CfgValue "Security" "AllowRawAttributeWrite" $false)) { throw "L editeur brut est verrouille par defaut. Active Security.AllowRawAttributeWrite uniquement apres validation en laboratoire." }
         $attr = ($script:Ctrl["TxtRawAttrName"].Text + "").Trim()
-        if ($attr -notmatch "^[A-Za-z][A-Za-z0-9-]{0,127}$") { throw "Nom d attribut invalide." }
-        foreach ($blocked in $script:RawAttributeBlockList) { if ([string]$blocked -ieq $attr) { throw "Attribut sensible bloque : $attr" } }
+        # SE-02: the same rule as the WriteAttributes worker (Security.AllowRawAttributeWrite, then the block list when
+        # Security.BlockSensitiveRawAttributes is set); the worker applies it again whatever the interface did.
+        $rule = Test-DomeniaRawAttributeAllowed -Attribute $attr -AllowRaw ([bool](Get-CfgValue "Security" "AllowRawAttributeWrite" $false)) -BlockSensitive ([bool](Get-CfgValue "Security" "BlockSensitiveRawAttributes" $true)) -BlockList @($script:RawAttributeBlockList)
+        if (-not [bool]$rule.Allowed) { throw ([string]$rule.Reason) }
         $value = [string]$script:Ctrl["TxtRawAttrValue"].Text
         $old = Get-DomeniaOriginalValue $attr
         if ($Clear -and [string]::IsNullOrWhiteSpace($old)) { Set-Status "Attribut deja vide. Aucune ecriture AD."; return }
         if ((-not $Clear) -and ([string]$old -ceq $value)) { Set-Status "Valeur deja conforme. Aucune ecriture AD."; return }
-        $newLabel = if ($Clear) { "<EFFACE>" } else { $value }
-        $message = "Objet : $($script:SelectedObject.DN)`r`nAttribut : $attr`r`nAncienne valeur : $old`r`nNouvelle valeur : $newLabel"
-        if (-not (Confirm-TextAction -Message $message -Expected "MODIFIER" -Title "Ecriture d attribut a haut risque")) { Set-Status "Ecriture brute annulee." "WARN"; return }
         $change = [pscustomobject]@{ Name=$attr; Old=[string]$old; New=$value; Clear=$Clear }
-        Start-DomeniaAttributeWrite -OperationName "Attribut brut $attr" -Changes @($change) -Capability "Edit" -DisableControls @("BtnRawSet","BtnRawClear")
+        Start-DomeniaAttributeWrite -OperationName "Attribut brut $attr" -Changes @($change) -Capability "Edit" -DisableControls @("BtnRawSet","BtnRawClear") -RawEdit -TypedConfirmation "MODIFIER"
     }
     catch { Show-ErrorBox "Erreur attribut brut : $($_.Exception.Message)" }
 }
@@ -24855,17 +25146,6 @@ function Delete-SelectedObject {
         try { $plan = New-DomeniaSelectionWritePlan -OperationId "WriteDeleteObject" -Changes @() -Effects $effects } catch { Show-ErrorBox $_.Exception.Message; return }
         try { $safety = Get-DomeniaSafetyDescriptor } catch { Show-ErrorBox $_.Exception.Message; return }
         $expected = if ([string]::IsNullOrWhiteSpace($name)) { $dn } else { $name }
-        $planText = Format-DomeniaPlanConfirmation -Plan $plan
-        $firstMessage = "SUPPRESSION AD NON RECURSIVE`r`n`r`nObjet : $dn`r`nLes objets proteges ou possedant des enfants seront refuses."
-        if ($planText) { $firstMessage += "`r`n`r`n$planText" }
-        if (-not (Confirm-TextAction `
-            -Message $firstMessage `
-            -Expected $expected `
-            -Title "Confirmation 1 sur 2")) {
-            Set-Status "Suppression annulee : confirmation incorrecte." "WARN"
-            return
-        }
-        if (-not (Confirm-TextAction -Message "Derniere confirmation pour supprimer uniquement cet objet :`r`n$dn" -Expected "SUPPRIMER" -Title "Confirmation finale")) { Set-Status "Suppression annulee." "WARN"; return }
         $deletedType=$type;$deletedName=$name;$deletedSam="";$deletedDns=""
         if($type -eq "Utilisateur"){$deletedSam=[string]$script:Ctrl["TxtUserSam"].Text}
         if($type -eq "Machine"){$deletedSam=[string]$script:Ctrl["TxtCompName"].Text;$deletedDns=[string]$script:Ctrl["TxtCompDns"].Text}
@@ -24916,7 +25196,19 @@ $ReadUtc=[DateTime]::UtcNow.ToString('o')
 [pscustomobject]@{Verified=$true;Backend=$backend;Message="Objet supprime sans recursivite et absence verifiee.";Before=$before;After=$after;Postcondition=[pscustomobject]@{SentUtc=$SentUtc;Expected=[pscustomobject]@{Server=[string]$Context.Server;Guid=[string]$before.Guid};Observed=[pscustomobject]@{ReadStatus=$pcReadStatus;Server=[string]$Context.Server;ReadUtc=$ReadUtc;Exists=$pcExists;Guid=$pcGuid}}}
 '@
         $deleteState = [pscustomobject]@{ DeletedType=$deletedType; DeletedName=$deletedName; DeletedSam=$deletedSam; DeletedDns=$deletedDns }
-        Start-DomeniaWriteTask -Name "Suppression objet AD" -OperationId "WriteDeleteObject" -Code $code -Payload $payload -Plan $plan -PlanChanges @() -Capability "Delete" -DisableControls @("BtnDeleteObject") -AfterSuccessAction "DeleteObject" -AfterSuccessState $deleteState
+        # UX-08: two confirmations in the page, as before in two windows: the name of the object, then SUPPRIMER.
+        $send={
+            param($s)
+            try { Start-DomeniaWriteTask -Name "Suppression objet AD" -OperationId "WriteDeleteObject" -Code $s.Code -Payload $s.Payload -Plan $s.Plan -PlanChanges @() -Capability "Delete" -DisableControls @("BtnDeleteObject") -AfterSuccessAction "DeleteObject" -AfterSuccessState $s.DeleteState }
+            catch { Show-ErrorBox "Erreur suppression : $($_.Exception.Message)" }
+        }
+        $finalStep={
+            param($s)
+            [void](Request-DomeniaWriteConfirmation -Plan $s.Plan -Title 'Supprimer : dernière confirmation' -Message ('Seul « '+$s.Name+' » est supprimé de lʼannuaire ; un objet protégé ou qui contient dʼautres objets est refusé.') -Changes $s.Lines -ConfirmText 'Supprimer' -Risk Danger -TypedConfirmation 'SUPPRIMER' -Send $s.Send -State $s -CancelStatus 'Suppression annulée : rien nʼa été envoyé.')
+        }
+        $lines=@('Objet : « '+$expected+' » supprimé de lʼannuaire, sans suppression récursive')
+        $state=[pscustomobject]@{Code=$code;Payload=$payload;Plan=$plan;DeleteState=$deleteState;Name=$expected;Lines=$lines;Send=$send}
+        [void](Request-DomeniaWriteConfirmation -Plan $plan -Title 'Supprimer lʼobjet (1 sur 2)' -Message ('Suppression non récursive de « '+$expected+' ». Les objets protégés ou qui contiennent dʼautres objets sont refusés.') -Changes $lines -ConfirmText 'Continuer' -Risk Danger -TypedConfirmation $expected -TypedPrompt ('Pour continuer, saisissez exactement le nom de lʼobjet : '+$expected) -Send $finalStep -State $state -CancelStatus 'Suppression annulée : rien nʼa été envoyé.')
     }
     catch { Show-ErrorBox "Erreur suppression : $($_.Exception.Message)" }
 }
@@ -26665,6 +26957,7 @@ try {
     # Dot-sourcing here keeps the functions in this application script scope.
     . (Join-Path $PSScriptRoot 'Domenia-Modules.ps1')
     $script:WorkerCommon += "`r`n"+(Get-DomeniaReceiptsCommon)
+    $script:WorkerCommon += "`r`n"+(Get-DomeniaWorkerRulesCommon)
     $script:ReceiptReady=$false;$script:ReceiptPending=0
     Load-AppConfig | Out-Null
     # C2 (D002): demonstration mode fixed once for the whole session, right after the configuration is read.

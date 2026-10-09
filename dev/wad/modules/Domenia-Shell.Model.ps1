@@ -258,6 +258,8 @@ function New-DomeniaInlineRequest {
     # The safe answer (also the Escape answer) and the confirming answer are named, never guessed from the
     # position of the choices: with custom -Choices, -SafeChoice is mandatory, and -ConfirmChoice as well for
     # Confirm, Associate and AccountChange. Only the confirming answer reports Confirmed.
+    # -TypedConfirmation (L07, typed confirmation of a risky write): the confirming answer is accepted only with this
+    # exact text typed by the operator; the safe answer never needs it.
     param(
         [Parameter(Mandatory=$true)][ValidateSet('Confirm','Associate','AccountChange','Choice')][string]$Kind,
         [Parameter(Mandatory=$true)][string]$HostName,
@@ -268,7 +270,8 @@ function New-DomeniaInlineRequest {
         [AllowEmptyString()][string]$ConfirmChoice='',
         [Parameter(Mandatory=$true)][string]$ContinuationId,
         [AllowEmptyString()][string]$Scope='',
-        [AllowEmptyString()][string]$Generation=''
+        [AllowEmptyString()][string]$Generation='',
+        [AllowEmptyString()][string]$TypedConfirmation=''
     )
     $list = @(@($Choices) | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) } | ForEach-Object { ([string]$_).Trim() })
     $safe = ([string]$SafeChoice).Trim()
@@ -303,7 +306,7 @@ function New-DomeniaInlineRequest {
         Id=$id;Kind=$Kind;HostName=$HostName;Title=(ConvertTo-DomeniaFlatText $Title 120);Message=$text
         Choices=$list;SafeChoice=$safe;ConfirmChoice=$confirm;Choice='';State='Pending'
         Presentation='Inline';CreatesWindow=$false;Modal=$false;BlocksNavigation=$false
-        Scope=$Scope;Generation=$Generation;ContinuationId=$ContinuationId
+        Scope=$Scope;Generation=$Generation;ContinuationId=$ContinuationId;TypedConfirmation=([string]$TypedConfirmation).Trim()
     }
 }
 
@@ -312,7 +315,9 @@ function Resolve-DomeniaInlineRequest {
     # answered only when the caller states the current generation and it is the same; otherwise (another target,
     # a new search, or no generation given) the request is withdrawn and its continuation never runs.
     # -Dismiss (Escape) picks the safe choice. Confirmed is true for the named confirming choice only.
-    param($Request,[AllowEmptyString()][string]$Choice='',[switch]$Dismiss,[AllowEmptyString()][AllowNull()][string]$CurrentGeneration='')
+    # A request with a typed confirmation is confirmed only when -Typed is that exact text (case-sensitive);
+    # otherwise it stays pending and nothing runs.
+    param($Request,[AllowEmptyString()][string]$Choice='',[switch]$Dismiss,[AllowEmptyString()][AllowNull()][string]$CurrentGeneration='',[AllowEmptyString()][AllowNull()][string]$Typed='')
     if ($null -eq $Request) { return [pscustomobject]@{Continue=$false;Confirmed=$false;Choice='';ContinuationId='';State='Missing';Reason='Aucune demande en attente.'} }
     $state = [string](Get-DomeniaMember $Request 'State' '')
     $continuation = [string](Get-DomeniaMember $Request 'ContinuationId' '')
@@ -337,6 +342,10 @@ function Resolve-DomeniaInlineRequest {
     if ($wanted) { foreach ($candidate in @(Get-DomeniaMember $Request 'Choices' @())) { if ([string]$candidate -ieq $wanted) { $picked = [string]$candidate } } }
     if (-not $picked) {
         return [pscustomobject]@{Continue=$false;Confirmed=$false;Choice='';ContinuationId=$continuation;State='Pending';Reason='Choix non propose : la demande reste affichee.'}
+    }
+    $expectedTyped = [string](Get-DomeniaMember $Request 'TypedConfirmation' '')
+    if ($expectedTyped -and $confirm -and ($picked -ceq $confirm) -and (([string]$Typed).Trim() -cne $expectedTyped)) {
+        return [pscustomobject]@{Continue=$false;Confirmed=$false;Choice='';ContinuationId=$continuation;State='Pending';Reason='Saisie de confirmation différente du texte demandé : la demande reste affichée.'}
     }
     $Request.State = 'Answered'
     $Request.Choice = $picked
