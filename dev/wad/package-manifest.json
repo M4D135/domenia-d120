@@ -1379,8 +1379,8 @@
     },
     {
       "Path": "wad/maintenance/Preview-DomeniaUi.ps1",
-      "Sha256": "2BD0B3FE90C00190D9CD4DBB8AEB77A6FC61A8694380EE77492DCC338D8A0B57",
-      "Bytes": 41174,
+      "Sha256": "57935823A6D187508F64FA7301CC90EC68B404C93FD660822D8C9963A7E73C93",
+      "Bytes": 42656,
       "Runtime": false,
       "PreserveExisting": false
     },

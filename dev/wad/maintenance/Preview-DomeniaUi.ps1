@@ -65,6 +65,32 @@ function Apply-DomeniaGuiElementPolicy { }
 function Update-Dashboard { }
 function Save-DomeniaSettings { param([switch]$Immediate) }
 function Get-DomeniaCredentialUserName { param($Credential) return '' }
+# FI-05: l'aperçu vérifie une mise en page et ne doit déclencher aucune minuterie. La fabrique réelle
+# (Domenia-Engine.UI.ps1) n'est pas chargée ici : ce bouchon rend le même contrat d'objet (Start, Stop,
+# IsEnabled, Interval, Tag) sans créer de minuterie, comme les autres remplacements locaux ci-dessus.
+function New-DomeniaTimer {
+    param(
+        [Parameter(Mandatory=$true)][string]$Owner,
+        [Parameter(Mandatory=$true)][int]$IntervalMs,
+        [scriptblock]$Tick=$null,
+        [switch]$Standalone,
+        [ValidateSet('Background','Normal','Input','Loaded','Render','ContextIdle','ApplicationIdle')][string]$Priority='Background',
+        [int]$IdleIntervalMs=0,
+        [scriptblock]$Busy=$null,
+        [switch]$SessionBound,
+        [switch]$RunWhenHidden,
+        [switch]$Transient,
+        [int]$MaxFailures=3,
+        [switch]$Start,
+        $Tag=$null
+    )
+    $timer = [pscustomobject]@{ Owner=$Owner; IntervalMs=[Math]::Max(1,$IntervalMs); Tag=$Tag; Enabled=$false }
+    Add-Member -InputObject $timer -MemberType ScriptMethod -Name Start -Value { $this.Enabled=$true }
+    Add-Member -InputObject $timer -MemberType ScriptMethod -Name Stop -Value { $this.Enabled=$false }
+    Add-Member -InputObject $timer -MemberType ScriptProperty -Name IsEnabled -Value { [bool]$this.Enabled }
+    Add-Member -InputObject $timer -MemberType ScriptProperty -Name Interval -Value { [TimeSpan]::FromMilliseconds([double]$this.IntervalMs) }
+    return $timer
+}
 $script:AsyncJobs=@{};$script:DetachedReadJobs=@();$script:SessionEpoch=1;$script:WriteState='Idle'
 function Apply-DomeniaPresenceFilter {
     [void](Set-DomeniaGridRows 'DgObjects' -Rows $script:BranchObjects)
