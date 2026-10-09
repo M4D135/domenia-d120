@@ -1449,3 +1449,67 @@ function Get-DomeniaSuiteLaunchPlan {
     }
     return [pscustomobject]@{Allowed=$true;Mode='Contract';Arguments=($list.ToArray() -join ' ');ArgumentList=$list.ToArray();Omitted=$omitted.ToArray();UsesShell=$false;Reason=''}
 }
+
+# ---------------------------------------------------------------- workstation board noise (MO-06)
+function Get-DomeniaWorkstationNoiseRules {
+    # Exclusions of the workstation board (decision David 2026-10-08, MO-06), kept as data in this module: no runtime
+    # file. Event|Level|Sources|Event IDs (* = any)|Reason: Ignore leaves the error out of the board, Warn makes it a
+    # point to watch; any other System error is an information line. Service|Name (* wildcard)|Reason: a service that
+    # starts on a trigger or after a delay is expected to be stopped between two uses.
+    $text = @'
+Event|Ignore|DCOM,DistributedCOM,Microsoft-Windows-DistributedCOM|10016|Autorisations DCOM par défaut des composants Windows
+Event|Warn|disk|*|Erreur du disque
+Event|Warn|Ntfs,Microsoft-Windows-Ntfs|*|Système de fichiers NTFS
+Event|Warn|Microsoft-Windows-Kernel-Power,Kernel-Power|41|Arrêt inattendu (Kernel-Power 41)
+Service|gupdate|Google Update, démarrage différé
+Service|GoogleUpdater*|Google Updater, démarrage sur déclencheur
+Service|edgeupdate|Microsoft Edge Update, démarrage différé
+Service|MapsBroker|Gestionnaire des cartes téléchargées, démarrage différé
+Service|sppsvc|Protection logicielle, démarrage différé sur déclencheur
+Service|RemoteRegistry|Registre à distance, démarrage sur déclencheur
+Service|clr_optimization_*|Optimisation du runtime .NET, démarrage différé
+Service|DoSvc|Optimisation de la distribution, démarrage différé
+Service|UsoSvc|Orchestrateur des mises à jour, démarrage différé
+Service|BITS|Service de transfert intelligent, démarrage différé
+Service|wuauserv|Windows Update, démarrage sur déclencheur
+Service|WbioSrvc|Biométrie Windows, démarrage sur déclencheur
+Service|dmwappushservice|Routage des messages push, démarrage sur déclencheur
+Service|WMPNetworkSvc|Partage réseau du Lecteur Windows Media, démarrage différé
+Service|OneSyncSvc_*|Synchronisation de lʼhôte, démarrage différé
+'@
+    $events = New-Object System.Collections.ArrayList
+    $services = New-Object System.Collections.ArrayList
+    foreach ($line in ($text -split "`r?`n")) {
+        $cells = @(([string]$line).Trim().Split('|'))
+        if (($cells.Count -eq 5) -and ($cells[0] -ceq 'Event')) {
+            $sources = @($cells[2].Split(',') | ForEach-Object { $_.Trim().ToLowerInvariant() } | Where-Object { $_ })
+            $ids = @($cells[3].Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+            [void]$events.Add([pscustomobject]@{ Level = $cells[1]; Sources = $sources; Ids = $ids; Reason = $cells[4] })
+        }
+        elseif (($cells.Count -eq 3) -and ($cells[0] -ceq 'Service') -and $cells[1].Trim()) {
+            [void]$services.Add([pscustomobject]@{ Name = $cells[1].Trim(); Reason = $cells[2] })
+        }
+    }
+    return [pscustomobject]@{ Events = @($events); Services = @($services) }
+}
+function Get-DomeniaSystemEventLevel {
+    # Level of one System log error on the workstation board: Ignore (excluded), Warn (critical source) or Info.
+    param([AllowEmptyString()][string]$Source,[AllowEmptyString()][string]$EventId,$Rules = $null)
+    if ($null -eq $Rules) { $Rules = Get-DomeniaWorkstationNoiseRules }
+    $name = ([string]$Source).Trim().ToLowerInvariant()
+    $id = ([string]$EventId).Trim()
+    foreach ($rule in @($Rules.Events)) {
+        if ($name -notin @($rule.Sources)) { continue }
+        if (('*' -in @($rule.Ids)) -or ($id -and ($id -in @($rule.Ids)))) { return [string]$rule.Level }
+    }
+    return 'Info'
+}
+function Test-DomeniaServiceStopExpected {
+    # True when an automatic service may be stopped without fault (trigger or delayed start), by its short name.
+    param([AllowEmptyString()][string]$Name,$Rules = $null)
+    $service = ([string]$Name).Trim()
+    if (-not $service) { return $false }
+    if ($null -eq $Rules) { $Rules = Get-DomeniaWorkstationNoiseRules }
+    foreach ($rule in @($Rules.Services)) { if ($service -like [string]$rule.Name) { return $true } }
+    return $false
+}

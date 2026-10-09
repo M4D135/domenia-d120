@@ -11786,7 +11786,7 @@ function Get-DomeniaInventoryWorkerCode {
 $rows = New-Object Collections.ArrayList
 $access = New-Object Collections.ArrayList
 # Numbers for the workstation dashboard (decision David 2026-10-07); the rows stay the textual inventory.
-$metrics = [pscustomobject]@{ MemoryTotal=0.0; MemoryFree=0.0; LastBoot=''; CpuLoad=-1.0; Battery=-1.0; ClockSkewSeconds=$null; Disks=(New-Object Collections.ArrayList); Hotfixes=(New-Object Collections.ArrayList); Processes=(New-Object Collections.ArrayList); Services=@{} }
+$metrics = [pscustomobject]@{ MemoryTotal=0.0; MemoryFree=0.0; LastBoot=''; CpuLoad=-1.0; Battery=-1.0; ClockSkewSeconds=$null; ClockReference=''; Disks=(New-Object Collections.ArrayList); Hotfixes=(New-Object Collections.ArrayList); Processes=(New-Object Collections.ArrayList); Services=@{} }
 $computer = [string]$Payload.Computer
 $deep = [bool]$Payload.Deep
 $cred = Get-WMachineCredential $Context
@@ -11840,6 +11840,27 @@ function Get-CimDate {
     param($Value)
     if ($null -eq $Value) { return '' }
     try { return ([datetime]$Value).ToString('dd/MM/yyyy HH:mm:ss') } catch { return [string]$Value }
+}
+function Get-InventoryControllerClockOffset {
+    # Seconds between the currentTime of the connected controller's RootDSE and this computer's clock; $null when not
+    # read. One read of the controller already used by the session, nothing else on the network.
+    $root = $null
+    try {
+        $root = New-WRootDse $Context
+        $root.RefreshCache(@('currentTime'))
+        $raw = $root.Properties['currentTime'].Value
+        $readUtc = (Get-Date).ToUniversalTime()
+        $controllerUtc = $null
+        if ($raw -is [datetime]) { $controllerUtc = [datetime]::SpecifyKind($raw,[DateTimeKind]::Utc) }
+        else {
+            $parsed = [datetime]::MinValue
+            if ([datetime]::TryParseExact(([string]$raw).Trim(),'yyyyMMddHHmmss.0Z',[Globalization.CultureInfo]::InvariantCulture,([Globalization.DateTimeStyles]::AssumeUniversal -bor [Globalization.DateTimeStyles]::AdjustToUniversal),[ref]$parsed)) { $controllerUtc = $parsed }
+        }
+        if ($null -eq $controllerUtc) { return $null }
+        return ($controllerUtc - $readUtc).TotalSeconds
+    }
+    catch { return $null }
+    finally { if ($null -ne $root) { try { $root.Dispose() } catch { } } }
 }
 function Test-Budget { return ($totalWatch.ElapsedMilliseconds -lt $budgetMs) }
 function Test-CollectorBudget {
@@ -12185,7 +12206,15 @@ try {
             Add-Item 'Systeme d exploitation' 'Dernier demarrage' (Get-CimDate $os.LastBootUpTime) 'Win32_OperatingSystem'
             try { $metrics.LastBoot = ([datetime]$os.LastBootUpTime).ToString('o') } catch { }
             # Clock offset of the workstation (Kerberos refuses more than 5 minutes); includes the read latency.
-            try { $metrics.ClockSkewSeconds = [Math]::Round((([datetime]$os.LocalDateTime).ToUniversalTime() - (Get-Date).ToUniversalTime()).TotalSeconds) } catch { }
+            # CO-09: measured against the connected domain controller (currentTime of its RootDSE, read during this
+            # requested inventory only). Both offsets are taken against this computer's clock, so its own drift cancels.
+            try {
+                $workstationOffset = (([datetime]$os.LocalDateTime).ToUniversalTime() - (Get-Date).ToUniversalTime()).TotalSeconds
+                $metrics.ClockSkewSeconds = [Math]::Round($workstationOffset)
+                $metrics.ClockReference = 'Poste'
+                $controllerOffset = Get-InventoryControllerClockOffset
+                if ($null -ne $controllerOffset) { $metrics.ClockSkewSeconds = [Math]::Round($workstationOffset - [double]$controllerOffset); $metrics.ClockReference = 'Controleur' }
+            } catch { }
             try {
                 $uptime = (Get-Date) - [datetime]$os.LastBootUpTime
                 $days = [int]$uptime.Days
@@ -12316,20 +12345,21 @@ try {
     }
 
     Invoke-Collector 'Pare-feu' {
+        # CO-12: one effective state per profile; the group policy key wins over the local key.
         foreach ($profile in @(
-            @{ Key='SOFTWARE\Policies\Microsoft\WindowsFirewall\DomainProfile'; Label='Profil domaine (strategie)' },
-            @{ Key='SOFTWARE\Policies\Microsoft\WindowsFirewall\StandardProfile'; Label='Profil prive (strategie)' },
-            @{ Key='SOFTWARE\Policies\Microsoft\WindowsFirewall\PublicProfile'; Label='Profil public (strategie)' },
-            @{ Key='SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy\DomainProfile'; Label='Profil domaine' },
-            @{ Key='SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy\StandardProfile'; Label='Profil prive' },
-            @{ Key='SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy\PublicProfile'; Label='Profil public' }
+            @{ Policy='SOFTWARE\Policies\Microsoft\WindowsFirewall\DomainProfile'; Local='SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy\DomainProfile'; Label='Profil domaine' },
+            @{ Policy='SOFTWARE\Policies\Microsoft\WindowsFirewall\StandardProfile'; Local='SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy\StandardProfile'; Label='Profil prive' },
+            @{ Policy='SOFTWARE\Policies\Microsoft\WindowsFirewall\PublicProfile'; Local='SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy\PublicProfile'; Label='Profil public' }
         )) {
-            $value = $null
-            try { $value = Get-RegDword $HKLM ([string]$profile.Key) 'EnableFirewall' } catch { }
+            $policyValue = $null; $localValue = $null
+            try { $policyValue = Get-RegDword $HKLM ([string]$profile.Policy) 'EnableFirewall' } catch { }
+            try { $localValue = Get-RegDword $HKLM ([string]$profile.Local) 'EnableFirewall' } catch { }
+            $value = $policyValue; $origin = 'strategie'
+            if ($null -eq $value) { $value = $localValue; $origin = 'local' }
             if ($null -eq $value) { continue }
             $state = 'Desactive'
             if ([int]$value -eq 1) { $state = 'Active' }
-            Add-Item 'Pare-feu' ([string]$profile.Label) $state 'Registre FirewallPolicy'
+            Add-Item 'Pare-feu' ([string]$profile.Label) ($state + ' (' + $origin + ')') 'Registre FirewallPolicy'
         }
     }
 
@@ -21741,7 +21771,7 @@ function Get-DomeniaWorkerOperationHashes {
         ParkSweep             = "134ED776E45640FA67B7F51659711C33B37834105375CC4B083342469F2C26A9"
         IndexBuild            = "C16101D0C74DC5DFA2B4572CB1D52381B58C1E74E28265E4916A6A4052466450"
         UserComputerProbe     = "EB7C36419C1B8B91AFB9ECE6B98D4E3FE663B87E4011F7D264D8AEDE7735E775"
-        ComputerInventory     = "C7BC13160472F873F2517EB5C8E5C5D2C296FE1CF37ABCD86B9B0BC00F750905"
+        ComputerInventory     = "41F162A5B0870C10F1BAE378DC365CCC83582D6003435A86624752362B18E159"
         ComputerDiagnostics   = "9A5535EB658FA19AFC0905D57B339CEE0C14CCD4DA81AE2E0A527A86B5046608"
         ComputerLastUser      = "8F79C42CE673CE98DBE30EB30B9DBF246D8819B08149A4FBA1C5F9BA894395F9"
         CmdletInventory       = "FA1105E9540BBC2AB373FC45037CC54FA11EB8BD9B058194CE44C422E812DF75"
@@ -21768,8 +21798,8 @@ function Get-DomeniaWorkerOperationHashes {
         PresenceScan          = "E7F81414C29C1C8F1E91453D9EC4BA48B6F92F0AA0E2674C9EBF5C88437F4486"
         SelectedPresence      = "4ECADF4F231390182A3BF091EF8636B3536D7B3F8A28EF3984DE1E2D524D5BFA"
         StartupWarmCache      = "864735012ED29EBAF1B094DA12C1D44266933DC9D3D2046BD1E5D68AE58CA1A3"
-        LiveSelectedPing     = "100C1190783EFDF3B5E55C0B5BBE6F630703A15099FA85D28886DF72F6EE5465"
-        LiveConsole          = "100C1190783EFDF3B5E55C0B5BBE6F630703A15099FA85D28886DF72F6EE5465"
+        LiveSelectedPing     = "1096C61BB04511091B3F2CFE7731797EADFA74C8973B312E77AE7A793952125B"
+        LiveConsole          = "1096C61BB04511091B3F2CFE7731797EADFA74C8973B312E77AE7A793952125B"
         LiveCache            = "DDE5FCD862785432F805D446F3E16A28D3D60282A50892354C01BB2ED147196E"
         LiveDirectoryCheck    = "49F6D4249F6465D6E461D3B04DD090F00477ABBD871683ECF3622714A2AB53CD"
         SessionsList         = "DD09187778C09CF31B0BDA41EAC88FF898D9484756AFDF2F3EE643E6B5318BF6"
@@ -21789,7 +21819,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "0DD33C1A4D9566D4B08CF9466E82D931E6B4BC715CB706DBA91A174122E11A6A"
+    $expectedFingerprint = "4CB5D1E9525EAE8E10E1FEC0C9A123FAA6905AD5A509B03B24A9170A88C4D3FB"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }

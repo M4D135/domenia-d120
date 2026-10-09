@@ -8,7 +8,7 @@ param([string]$ReportPath='',[switch]$Quiet)
 $ErrorActionPreference='Stop'
 $wad=Split-Path -Parent $PSScriptRoot
 $script:Results=[Collections.Generic.List[object]]::new();$script:Finished=$false;$script:Window=$null
-$script:ExpectedCases=30
+$script:ExpectedCases=36
 function Expect {param([bool]$Value,[string]$Why='Assertion non verifiee');if(-not $Value){throw $Why}}
 function Case {param([string]$Name,[scriptblock]$Body)
     try {& $Body|Out-Null;$script:Results.Add([pscustomobject]@{Name=$Name;Passed=$true;Error=''})}
@@ -125,7 +125,7 @@ try{
     foreach($n in @('Get-MainXaml','Get-DomeniaEffectiveWorkerResult','Get-DomeniaDefaultSettings')){Import-Function $ast $n}
     $parkAst=Parse-Text ([IO.File]::ReadAllText((Join-Path $wad 'modules\Domenia-Park.UI.ps1')));Import-Function $parkAst 'Start-DomeniaParkAnalysis'
     $script:TestScopeDn='';$script:TestScopeOneLevel=$false
-    foreach($m in @('Domenia-Embedded.UI.ps1','Domenia-Boards.Model.ps1','Domenia-Charts.UI.ps1','Domenia-Probes.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-BoardSoftware.Model.ps1','Domenia-BoardComputer.UI.ps1','Domenia-Widgets.UI.ps1','Domenia-Dashboard.UI.ps1')){. (Join-Path $wad ('modules\'+$m))}
+    foreach($m in @('Domenia-Embedded.UI.ps1','Domenia-Workstation.Model.ps1','Domenia-Boards.Model.ps1','Domenia-Charts.UI.ps1','Domenia-Probes.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-BoardSoftware.Model.ps1','Domenia-BoardComputer.UI.ps1','Domenia-Widgets.UI.ps1','Domenia-Dashboard.UI.ps1')){. (Join-Path $wad ('modules\'+$m))}
     $reader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml));try{$w=[Windows.Markup.XamlReader]::Load($reader)}finally{$reader.Close()}
     $w.Width=1400;$w.Height=900;$w.ShowInTaskbar=$false
     $palette=(Get-Content -LiteralPath (Join-Path $wad 'modules\SupportSuite.UI.json') -Raw|ConvertFrom-Json).Palettes.Light
@@ -589,6 +589,111 @@ try{
         Set-DomeniaBoardLayout -Board Computer -Layout $layout
         Expect (-not (Get-DomeniaSetting 'Widgets.Computer' '')) 'Ancien reglage non vide apres reprise'
         Expect (@(Get-Layout Computer|Where-Object{$_.Source -eq 'Probe'}).Count -eq 1) 'Doublon apres reprise'
+    }
+    # Lot L06: gauge, tiles, bars and columns drawn in a window of their own (same palette), then the workstation board.
+    function Show-InTestWindow {param($Element)
+        $tw=[Windows.Window]::new();$tw.Width=900;$tw.Height=600;$tw.ShowInTaskbar=$false
+        foreach($k in @('BgCard','BorderColor','TextColor','MutedColor','AccentColor','AccentSoft','WindowBg','StatusWarning','StatusError','StatusSuccess')){$tw.Resources[$k]=$w.Resources[$k]}
+        $host_=[Windows.Controls.WrapPanel]::new();$tw.Content=$host_;[void]$host_.Children.Add($Element);$tw.Show();$tw.UpdateLayout();return $tw
+    }
+    function Get-Texts {param($Root);return @(Get-DomeniaLogicalControls $Root|Where-Object{$_ -is [Windows.Controls.TextBlock]})}
+    Case 'Jauge : legende bornee dans l anneau sur deux lignes, couleur tiree de l etat (CO-14, CO-15)' {
+        $caption='Au moment de l'+[char]0x02BC+'inventaire, mesure tres longue a couper'
+        $gauge=New-DomeniaGauge -Title 'Charge du processeur' -Value 85 -Maximum 100 -Unit '%' -Width 230 -Height 250 -Caption $caption
+        $tw=Show-InTestWindow $gauge
+        try{
+            $small=@(Get-Texts $gauge|Where-Object{[string]$_.Text -eq $caption})[0]
+            Expect ($null -ne $small) 'Legende absente'
+            $ring=$small.Parent.Parent
+            $size=[double]$ring.Width;$thickness=[Math]::Round($size*0.1);$inner=($size-$thickness-6)/2.0-$thickness/2.0
+            Expect ($small.MaxWidth -le (1.5*$inner+1)) ('Largeur maximale '+$small.MaxWidth+' pour un rayon interieur de '+$inner)
+            Expect ($small.ActualWidth -le ($small.MaxWidth+0.5)) ('Legende plus large que sa borne : '+$small.ActualWidth)
+            Expect ($small.ActualHeight -le 28.5) ('Plus de deux lignes : '+$small.ActualHeight)
+            $origin=$small.TransformToAncestor($ring).Transform([Windows.Point]::new(0,0))
+            Expect (($origin.X -ge ($size/2-$inner-0.5)) -and (($origin.X+$small.ActualWidth) -le ($size/2+$inner+0.5))) ('Legende hors de l anneau : '+$origin.X)
+            $arc=@($ring.Children[0].Children)[1]
+            Expect ($arc.Stroke.Color -eq [Windows.Media.ColorConverter]::ConvertFromString((Get-DomeniaBoardColor 'Info'))) '85 % sans point a surveiller : couleur neutre'
+        }finally{$tw.Close()}
+        $warn=New-DomeniaGauge -Title 'Memoire' -Value 95 -Maximum 100 -Unit '%' -Width 230 -Height 250 -State Warn
+        $arcWarn=@(@(Get-DomeniaLogicalControls $warn|Where-Object{$_ -is [Windows.Controls.Canvas]})[0].Children)[1]
+        Expect ($arcWarn.Stroke.Color -eq [Windows.Media.ColorConverter]::ConvertFromString((Get-DomeniaBoardColor 'Warn'))) 'Etat a surveiller : couleur de l etat'
+    }
+    Case 'Tuile : 27 px pour un chiffre, 18 px sur deux lignes au plus pour un texte (DS-13)' {
+        $figure=New-DomeniaKpiTile -Title 'Memoire' -Value '16 Go' -Detail 'x'
+        Expect (@(Get-Texts $figure|Where-Object{[string]$_.Text -eq '16 Go' -and $_.FontSize -eq 27}).Count -eq 1) 'Chiffre en 27 px'
+        $long='Intel(R) Core i5-1345U vPro avec un nom de modele vraiment tres long'
+        $text=New-DomeniaKpiTile -Title 'Processeur' -Value $long -Detail 'x'
+        $tw=Show-InTestWindow $text
+        try{
+            $value=@(Get-Texts $text|Where-Object{[string]$_.Text -eq $long})[0]
+            Expect ($value.FontSize -eq 18 -and $value.TextWrapping -eq [Windows.TextWrapping]::Wrap) ('Texte : '+$value.FontSize)
+            Expect ($value.ActualHeight -le 44.5) ('Plus de deux lignes : '+$value.ActualHeight)
+            Expect ($value.TextTrimming -ne [Windows.TextTrimming]::None -and [string]$value.ToolTip -eq $long) 'Points de suspension et infobulle'
+        }finally{$tw.Close()}
+        $short=New-DomeniaKpiTile -Title 'Service' -Value 'Service informatique' -Detail 'x'
+        Expect (@(Get-Texts $short|Where-Object{[string]$_.Text -eq 'Service informatique' -and $_.FontSize -eq 18}).Count -eq 1) 'Taille independante de la longueur'
+    }
+    Case 'Barres et histogramme : libelles larges, tailles lisibles, graduations entieres, sans axe si etiquete (CO-16)' {
+        $bars=New-DomeniaBarChart -Title 'Plus gros logiciels' -Items @([pscustomobject]@{Label='Suite bureautique de demonstration';Value=2354;Display='2,3 Go'},[pscustomobject]@{Label='Outil';Value=12;Display='12 Mo'}) -Width 600 -Height 250 -Unit ' Mo'
+        $row=@(Get-DomeniaLogicalControls $bars|Where-Object{$_ -is [Windows.Controls.Grid] -and $_.ColumnDefinitions.Count -eq 3})[0]
+        Expect ([double]$row.ColumnDefinitions[0].Width.Value -eq [Math]::Floor([Math]::Min(260,600*0.42))) ('Largeur des libelles : '+$row.ColumnDefinitions[0].Width.Value)
+        Expect (@(Get-Texts $bars|Where-Object{[string]$_.Text -eq '2,3 Go'}).Count -eq 1) 'Taille lisible, jamais 2354 Mo'
+        $few=New-DomeniaColumnChart -Title 'Postes' -Items @([pscustomobject]@{Label='A';Value=1},[pscustomobject]@{Label='B';Value=2},[pscustomobject]@{Label='C';Value=1}) -Width 440 -Height 250 -Subtitle '19 postes'
+        $fewTexts=@(Get-Texts $few|ForEach-Object{[string]$_.Text})
+        Expect (-not ($fewTexts -contains '0')) ('Axe dessine alors que chaque colonne a sa valeur : '+($fewTexts -join ','))
+        Expect ($fewTexts -contains '19 postes') 'Sous-titre absent'
+        $many=New-DomeniaColumnChart -Title 'Postes' -Items @(0..13|ForEach-Object{[pscustomobject]@{Label=('L'+$_);Value=[double]$_}}) -Width 600 -Height 250
+        $numbers=@(Get-Texts $many|ForEach-Object{[string]$_.Text}|Where-Object{$_ -match '^[\d,\s]+$'})
+        Expect (($numbers -join '|') -eq '0|5|10|15') ('Graduations : '+($numbers -join '|'))
+    }
+    Case 'Score partiel : badge et bouton Inventaire complet dans la carte, lance seulement au clic (UX-23)' {
+        $script:SelectedObject=$null
+        $deep=Get-DomeniaControl 'BtnDashboardInventoryDeep';$deep.IsEnabled=$true
+        $script:DeepClicks=0;$deep.Add_Click({$script:DeepClicks++})
+        Update-DomeniaComputerDashboard -Result (New-InventoryResult)
+        $panel=Get-DomeniaControl 'PnlComputerDashboard'
+        $badge='Partiel : s'+[char]0x00E9+'curit'+[char]0x00E9+' non v'+[char]0x00E9+'rifi'+[char]0x00E9+'e'
+        Expect (@(Get-Texts $panel|Where-Object{[string]$_.Text -eq $badge}).Count -eq 1) 'Badge Partiel absent'
+        $button=@(Get-DomeniaLogicalControls $panel|Where-Object{$_ -is [Windows.Controls.Button] -and $_.Tag -is [hashtable] -and [string]$_.Tag['Value'] -eq 'InventoryFull' -and [string]$_.Content -eq 'Inventaire complet'})
+        Expect ($button.Count -ge 1) 'Bouton Inventaire complet absent de la carte'
+        Expect ($script:DeepClicks -eq 0) 'Inventaire lance sans clic'
+        $button[0].RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
+        Expect ($script:DeepClicks -eq 1) ('Clic non transmis au bouton existant : '+$script:DeepClicks)
+        $deep.IsEnabled=$false;$script:Trace.Clear()
+        $button[0].RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
+        Expect ($script:DeepClicks -eq 1 -and @($script:Trace|Where-Object{$_ -like 'Action indisponible*'}).Count -eq 1) 'Bouton indisponible contourne'
+        $deep.IsEnabled=$true
+    }
+    Case 'Section vide : bouton de l action existante, Accueil : lien Aller dans Rechercher sans analyse (SP-17)' {
+        $panel=Get-DomeniaControl 'PnlComputerDashboard'
+        $open=@(Get-DomeniaLogicalControls $panel|Where-Object{$_ -is [Windows.Controls.Button] -and $_.Tag -is [hashtable] -and [string]$_.Tag['Value'] -eq 'OpenCard'})
+        Expect ($open.Count -eq 1) 'Bouton Ouvrir la fiche absent sous la section du compte machine'
+        $script:Workspaces.Clear();$before=$script:StartCalls.Count;$parks=$script:ParkCalls.Count
+        $open[0].RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
+        Expect (($script:Workspaces -join ',') -eq 'route:WsObject') ('Ecran ouvert : '+($script:Workspaces -join ','))
+        $state=Get-DomeniaBoardState 'Fleet';$previous=$state.Data
+        $data=New-DomeniaBoardData -Board Fleet
+        $data.Hints['Répartition']='Aucun poste actif indexé dans ce périmètre.'
+        $data.HintActions['Répartition']=[pscustomobject]@{Id='GoSearch';Text='Aller dans Rechercher';Tip='Ouvre Rechercher.';Link=$true}
+        try{
+            Show-DomeniaBoard -Board Fleet -Data $data -Quiet
+            $links=@(Get-DomeniaLogicalControls (Get-DomeniaControl 'PnlFleetDashboard')|Where-Object{$_ -is [Windows.Documents.Hyperlink] -and $_.Tag -is [hashtable] -and [string]$_.Tag['Id'] -eq 'GoSearch'})
+            Expect ($links.Count -eq 1) ('Lien Aller dans Rechercher : '+$links.Count)
+            Expect (@(Get-DomeniaLogicalControls (Get-DomeniaControl 'PnlFleetDashboard')|Where-Object{$_ -is [Windows.Controls.Button] -and $_.Tag -is [hashtable] -and [string]$_.Tag['Action'] -eq 'EntryAction'}).Count -eq 0) 'Bouton d action sur l accueil'
+            $script:Workspaces.Clear()
+            $links[0].RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Documents.Hyperlink]::ClickEvent))
+            Expect (($script:Workspaces -join ',') -eq 'route:WsSearch') ('Ecran ouvert : '+($script:Workspaces -join ','))
+            Expect ($script:StartCalls.Count -eq $before -and $script:ParkCalls.Count -eq $parks) 'Analyse lancee depuis l accueil'
+        }finally{if($null -ne $previous){Show-DomeniaBoard -Board Fleet -Data $previous -Quiet}}
+    }
+    Case 'Widget non lu : emplacement Non lu par cet inventaire une fois le tableau rempli, masque avant (SP-18)' {
+        $panel=Get-DomeniaControl 'PnlComputerDashboard'
+        $places=@(Get-Texts $panel|Where-Object{[string]$_.Text -eq 'Non lu par cet inventaire'})
+        Expect ($places.Count -ge 2) ('Emplacements : '+$places.Count)
+        $titles=@($places|ForEach-Object{@(Get-Texts $_.Parent|ForEach-Object{[string]$_.Text})}|Where-Object{$_ -ne 'Non lu par cet inventaire'})
+        Expect (($titles -contains 'Batterie') -and ($titles -contains 'Autres volumes')) ('Widgets non lus : '+($titles -join ', '))
+        Clear-DomeniaDashboards
+        Expect (@(Get-Texts $panel|Where-Object{[string]$_.Text -eq 'Non lu par cet inventaire'}).Count -eq 0) 'Emplacement avant toute lecture'
     }
     Case 'Animation d entree : cartes, anneaux et compteurs vont au bout puis s arretent' {
         # Windows animations off (accessibility, some remote sessions): the board stays static by design.

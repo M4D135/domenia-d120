@@ -1,5 +1,5 @@
 {
-  "Archive": ".",
+  "Archive": "dev",
   "ArchiveSHA256": "655ED21F90345B3C7667D4E777814C6A0595A5D5BE628AD587FB46CCA5241922",
   "CoreFunctions": {
     "Write-DomeniaAtomicText": "1C9A1583F52EB7BE80BE420662653E4AF886FE11DC4FDB3B1C4CDF19FD1C0EDA",
@@ -275,7 +275,7 @@
     "Toggle-MachineCredentialPassword": "B904E2565F1BE8410321560B245995F6A49A7CE0B3E1F55BAC482E469BFE824C",
     "Set-MachineCredentialFromUi": "186CA2385F6EE8321FC295AC33E2FA1772CED4959BA4B5FCD6D63F9C76CAFB31",
     "Clear-MachineCredential": "89126AA8AEF11A4361E43FC9F62149032D217C7E987594DD84013E725A22BE29",
-    "Get-DomeniaInventoryWorkerCode": "3CAAB17CA4524CF8996DAABDC174D706E795D16717F1382717C7905CB0B2E221",
+    "Get-DomeniaInventoryWorkerCode": "A9A0DDBA9DF9B08BA8946FC446E03C61DFA3589F123103E21904E8E2A29974B4",
     "Apply-DomeniaInventoryFilter": "1AB20D35307D9386DCD7FB6CEABAB4E4C3C6097FB8A4F5E0738FDAD3A778D041",
     "Update-DomeniaInventoryCategories": "9829F97A6E45FDBE1D8DE9BB030230433035A55F12444C7D124917D3E5F764EE",
     "Complete-DomeniaInventoryUi": "567C52E389A6A71C42ABF26C5C9933BE09C340A9D5CFCC9CF796B31B339C3C53",
@@ -527,8 +527,8 @@
     "Load-UserMachineLinks": "D588E9FAB3DB852FD760624C2A463CDEA8A5B97BAF550C273F8C7C1B2CB7776D",
     "ConvertTo-DomeniaCanonicalWorkerCode": "48A6A851309CF03C8AA4802B160FC0C9D3234B795C63D0BAED6923BF42FE2FAF",
     "Get-DomeniaWorkerCodeHash": "6B81660F207AAEB37BA076144EDD12F5A926F9F64858B03755C2567E335C0D16",
-    "Get-DomeniaWorkerOperationHashes": "561908F8A4AC776A7884452DE8F931ED77288ADA9364C30C09A0CA0619DF7B34",
-    "Assert-DomeniaWorkerRegistry": "DC58505779E725177025CFBFE706F7D7112C24E16E8517B0B3C50B1ED93DB885",
+    "Get-DomeniaWorkerOperationHashes": "F4090D56CAC11A055A072D07038D874DAD1CC7394D620D7364B8126E00F0B593",
+    "Assert-DomeniaWorkerRegistry": "04895B9E689263EB57485DCC5C29BC67D1096EED76A929810FE07DF854DDB827",
     "Assert-DomeniaWorkerOperationCode": "41D63871EDC11F5765938E6DAF8004A01471CD63E9666E2569D6E43008032526",
     "Get-DomeniaWorkerEngineSelfTestCode": "7FB07491846A78A89C13351DC07ABCA7B150642EE02AA25FF430A19942001AF0",
     "New-DomeniaWorkerRunspace": "8D2FB4E8786E147F555EC5860E76F8EB0D606D66BF9A610F43A0CC2836197A0D",
@@ -2133,6 +2133,19 @@
         "wad/modules/Domenia-Live.UI.ps1",
         "wad/modules/Domenia-Relations.UI.ps1"
       ]
+    },
+    {
+      "Previous": ".",
+      "Source": "dev",
+      "Decision": "L06 (2026-10-09) : ComputerInventory relu (ecart d horloge mesure contre le RootDSE du controleur connecte, pare-feu en etat effectif par profil) ; registre des operations regenere ; LiveConsole et LiveSelectedPing relus (requete des widgets ignoree sur un controleur)",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Get-DomeniaInventoryWorkerCode",
+        "Get-DomeniaWorkerOperationHashes"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
     }
   ]
 }

@@ -103,6 +103,12 @@ function Get-DomeniaChartTruncated {
     if ($Max -le 1) { return [string][char]0x2026 }
     return ($Text.Substring(0, $Max - 1) + [char]0x2026)
 }
+function Get-DomeniaChartValueText {
+    # Text of one value: the item's own Display when it has one ('2,3 Go'), else the number and its unit.
+    param($Item,[string]$Unit = '')
+    if (($null -ne $Item) -and ($null -ne $Item.PSObject.Properties['Display']) -and [string]$Item.Display) { return [string]$Item.Display }
+    return ((Format-DomeniaChartNumber $Item.Value) + $Unit)
+}
 function Get-DomeniaChartItemColor {
     # An item may carry its own meaning colour (Color = '#RRGGBB'): free space, presence, service state...
     param($Item,[string[]]$Palette,[int]$Index)
@@ -361,11 +367,19 @@ function New-DomeniaKpiTile {
     [void]$head.Children.Add((New-DomeniaChartText -Text $Title -Size 12 -Weight Medium -Key 'MutedColor' -OneLine))
     [void]$grid.Children.Add($head)
 
-    # One line each: a long value gets a smaller font, then an ellipsis with the full text as tooltip.
-    $length = ([string]$Value).Length
-    $valueSize = if ($length -gt 22) { 15 } elseif ($length -gt 16) { 18 } elseif ($length -gt 11) { 21 } else { 27 }
+    # One size per kind of value (decision David 2026-10-08, DS-13): 27 px for a figure, 18 px for a text on two
+    # lines at most, then an ellipsis with the full text as tooltip. The size never depends on the length.
     $valueKey = if ($State -in @('Warn','Alert')) { Get-DomeniaStateTextKey $State } else { 'TextColor' }
-    $valueText = New-DomeniaChartText -Text $Value -Size $valueSize -Weight SemiBold -Key $valueKey -Display -OneLine
+    if (Test-DomeniaBoardNumberText $Value) {
+        $valueText = New-DomeniaChartText -Text $Value -Size 27 -Weight SemiBold -Key $valueKey -Display -OneLine
+    } else {
+        $valueText = New-DomeniaChartText -Text $Value -Size 18 -Weight SemiBold -Key $valueKey -Display
+        $valueText.LineStackingStrategy = [System.Windows.LineStackingStrategy]::BlockLineHeight
+        $valueText.LineHeight = 22
+        $valueText.MaxHeight = 44
+        $valueText.TextTrimming = [System.Windows.TextTrimming]::CharacterEllipsis
+        if ($Value) { $valueText.ToolTip = $Value }
+    }
     $valueText.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
     $valueText.Margin = [System.Windows.Thickness]::new(0, 2, 0, 0)
     [System.Windows.Controls.Grid]::SetRow($valueText, 1)
@@ -541,7 +555,8 @@ function New-DomeniaDonutChart {
         [object[]]$Items,
         [double]$Width = 340,
         [double]$Height = 240,
-        [string]$CenterText = ''
+        [string]$CenterText = '',
+        [string]$Subtitle = ''
     )
     $valid = @($Items | Where-Object { $_ -and $_.Value -ne $null -and [double]$_.Value -gt 0 })
     if ($valid.Count -eq 0) { return New-DomeniaChartEmpty -Width $Width -Height $Height -Title $Title }
@@ -557,7 +572,7 @@ function New-DomeniaDonutChart {
     if ($total -le 0) { return New-DomeniaChartEmpty -Width $Width -Height $Height -Title $Title }
 
     $palette = Get-DomeniaChartPalette
-    $size = [Math]::Floor([Math]::Min([Math]::Min($Width * 0.44, $Height - 76), 168))
+    $size = [Math]::Floor([Math]::Min([Math]::Min($Width * 0.44, $Height - 76 - $(if ($Subtitle) { 16 } else { 0 })), 168))
     $thickness = [Math]::Round($size * 0.13)
     $radius = ($size - $thickness - 8) / 2.0
     $center = $size / 2.0
@@ -585,7 +600,7 @@ function New-DomeniaDonutChart {
         $arc.Path.Stroke = ConvertTo-DomeniaChartBrush $hex
         $arc.Path.Cursor = [System.Windows.Input.Cursors]::Hand
         $arc.Path.Tag = @{ State = $state; Index = $index }
-        $arc.Path.ToolTip = [string]$it.Label + ' : ' + (Format-DomeniaChartNumber ([Math]::Round([double]$it.Value, 1)))
+        $arc.Path.ToolTip = [string]$it.Label + ' : ' + $(if (($null -ne $it.PSObject.Properties['Display']) -and [string]$it.Display) { [string]$it.Display } else { Format-DomeniaChartNumber ([Math]::Round([double]$it.Value, 1)) })
         $arc.Path.Add_MouseEnter({ param($s,$e) Set-DomeniaDonutFocus $s.Tag.State $s.Tag.Index })
         $arc.Path.Add_MouseLeave({ param($s,$e) Set-DomeniaDonutFocus $s.Tag.State -1 })
         [void]$canvas.Children.Add($arc.Path)
@@ -653,7 +668,7 @@ function New-DomeniaDonutChart {
     }
 
     $body = New-Object System.Windows.Controls.DockPanel
-    $header = New-DomeniaChartHeader -Title $Title -Width $Width
+    $header = New-DomeniaChartHeader -Title $Title -Width $Width -Subtitle $Subtitle
     [System.Windows.Controls.DockPanel]::SetDock($header, [System.Windows.Controls.Dock]::Top)
     [void]$body.Children.Add($header)
     $content = New-Object System.Windows.Controls.StackPanel
@@ -665,7 +680,9 @@ function New-DomeniaDonutChart {
     return New-DomeniaChartCard -Width $Width -Height $Height -Content $body
 }
 function New-DomeniaGauge {
-    # Three-quarter ring with round ends; the colour turns amber then red past 80 % and 90 % (reversed with -LowIsBad).
+    # Three-quarter ring with round ends. Its colour is the state of the entry (decision David 2026-10-08, CO-14): the
+    # thresholds live once in Get-DomeniaBoardThresholds, so the ring, the tile and the attention point agree.
+    # -LowIsBad is kept for the callers; the state already tells which side is bad.
     param(
         [string]$Title,
         [double]$Value,
@@ -674,7 +691,8 @@ function New-DomeniaGauge {
         [double]$Height = 250,
         [string]$Unit = '',
         [switch]$LowIsBad,
-        [string]$Caption = ''
+        [string]$Caption = '',
+        [ValidateSet('','Ok','Warn','Alert','Off')][string]$State = ''
     )
     if ($Maximum -le 0) { $Maximum = 100 }
     $pct = [Math]::Min(1.0, [Math]::Max(0.0, $Value / $Maximum))
@@ -693,8 +711,7 @@ function New-DomeniaGauge {
     $track.Path.SetResourceReference([System.Windows.Shapes.Shape]::StrokeProperty, 'BorderColor')
     $track.Path.Opacity = 0.45
     [void]$canvas.Children.Add($track.Path)
-    $alert = if ($LowIsBad) { 1 - $pct } else { $pct }
-    $level = if ($alert -gt 0.9) { 'Alert' } elseif ($alert -gt 0.8) { 'Warn' } else { '' }
+    $level = if ($State -in @('Warn','Alert')) { $State } else { '' }
     if ($pct -gt 0.004) {
         $arc = New-DomeniaArcPath -Center $center -Radius $radius -Start 225 -Sweep (270.0 * $pct) -Thickness $thickness -Round
         $arc.Path.Stroke = ConvertTo-DomeniaChartBrush $(if ($level) { Get-DomeniaStateColor $level } else { Get-DomeniaBoardColor 'Info' })
@@ -711,7 +728,20 @@ function New-DomeniaGauge {
     $big.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Center
     [void]$middle.Children.Add($big)
     Register-DomeniaCountUp $big
-    if ($caption.Trim()) { $small = New-DomeniaChartText -Text $caption.Trim() -Size 11 -Key 'MutedColor'; $small.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Center; [void]$middle.Children.Add($small) }
+    if ($caption.Trim()) {
+        # CO-15 and DS-13: the caption stays inside the ring, about 1.5 x the inner radius wide, on two lines at most.
+        $innerRadius = $radius - $thickness / 2.0
+        $small = New-DomeniaChartText -Text $caption.Trim() -Size 11 -Key 'MutedColor'
+        $small.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Center
+        $small.TextAlignment = [System.Windows.TextAlignment]::Center
+        $small.MaxWidth = [Math]::Max(40, [Math]::Floor(1.5 * $innerRadius))
+        $small.LineStackingStrategy = [System.Windows.LineStackingStrategy]::BlockLineHeight
+        $small.LineHeight = 14
+        $small.MaxHeight = 28
+        $small.TextTrimming = [System.Windows.TextTrimming]::CharacterEllipsis
+        $small.ToolTip = $caption.Trim()
+        [void]$middle.Children.Add($small)
+    }
     [void]$ring.Children.Add($middle)
 
     $body = New-Object System.Windows.Controls.StackPanel
@@ -730,14 +760,16 @@ function New-DomeniaBarChart {
         [double]$Width = 380,
         [double]$Height = 260,
         [int]$Top = 10,
-        [string]$Unit = ''
+        [string]$Unit = '',
+        [string]$Subtitle = ''
     )
     $valid = @($Items | Where-Object { $_ -and $_.Value -ne $null -and [double]$_.Value -gt 0 })
     if ($valid.Count -eq 0) { return New-DomeniaChartEmpty -Width $Width -Height $Height -Title $Title }
     $sorted = @($valid | Sort-Object { [double]$_.Value } -Descending)
     # A fixed height holds as many rows as fit (26 px each under the title); without one the card fits its bars.
     if (-not $PSBoundParameters.ContainsKey('Height')) { $Height = 0 }
-    if ($Height -gt 0) { $Top = [Math]::Max(1, [Math]::Min($Top, [int][Math]::Floor(($Height - 28 - 30) / 26))) }
+    $headerHeight = 28 + $(if ($Subtitle) { 16 } else { 0 })
+    if ($Height -gt 0) { $Top = [Math]::Max(1, [Math]::Min($Top, [int][Math]::Floor(($Height - $headerHeight - 30) / 26))) }
     if ($Top -gt 0 -and $sorted.Count -gt $Top) { $sorted = @($sorted | Select-Object -First $Top) }
 
     $palette = Get-DomeniaChartPalette
@@ -745,7 +777,8 @@ function New-DomeniaBarChart {
     foreach ($it in $sorted) { if ([double]$it.Value -gt $max) { $max = [double]$it.Value } }
     if ($max -le 0) { $max = 1.0 }
     $inner = $Width - 32 - 14
-    $labelWidth = [Math]::Floor([Math]::Min(150, $inner * 0.36))
+    # CO-16: names as wide as Min(260, 42 % of the card), so a wide card shows them whole.
+    $labelWidth = [Math]::Floor([Math]::Min(260, $Width * 0.42))
     $valueWidth = 64
     $barWidth = [Math]::Max(40, $inner - $labelWidth - $valueWidth - 12)
     $single = -not @($sorted | Where-Object { $null -ne $_.PSObject.Properties['Color'] }).Count
@@ -756,7 +789,7 @@ function New-DomeniaBarChart {
         $row = New-Object System.Windows.Controls.Grid
         $row.Height = 26
         $row.Background = [System.Windows.Media.Brushes]::Transparent
-        $row.ToolTip = [string]$it.Label + ' : ' + (Format-DomeniaChartNumber $it.Value) + $Unit
+        $row.ToolTip = [string]$it.Label + ' : ' + (Get-DomeniaChartValueText -Item $it -Unit $Unit)
         foreach ($w in @($labelWidth, $barWidth, $valueWidth)) { $col = New-Object System.Windows.Controls.ColumnDefinition; $col.Width = [System.Windows.GridLength]::new($w); [void]$row.ColumnDefinitions.Add($col) }
         $label = New-DomeniaChartText -Text ([string]$it.Label) -Size 12 -Key 'TextColor' -OneLine
         $label.Margin = [System.Windows.Thickness]::new(0, 0, 10, 0)
@@ -779,7 +812,7 @@ function New-DomeniaBarChart {
         [System.Windows.Controls.Grid]::SetColumn($bar, 1)
         [void]$row.Children.Add($bar)
         Register-DomeniaIntro -Visual $bar -Target $scale -Property ([System.Windows.Media.ScaleTransform]::ScaleXProperty) -From 0 -To 1 -Ms 700 -DelayMs (45 * $i)
-        $value = New-DomeniaChartText -Text ((Format-DomeniaChartNumber $it.Value) + $Unit) -Size 12 -Weight SemiBold -Key 'TextColor' -OneLine
+        $value = New-DomeniaChartText -Text (Get-DomeniaChartValueText -Item $it -Unit $Unit) -Size 12 -Weight SemiBold -Key 'TextColor' -OneLine
         $value.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Right
         [System.Windows.Controls.Grid]::SetColumn($value, 2)
         [void]$row.Children.Add($value)
@@ -788,7 +821,7 @@ function New-DomeniaBarChart {
     }
     # In a card of fixed height, a short list sits in the middle of the free space rather than at the top.
     $body = New-Object System.Windows.Controls.DockPanel
-    $header = New-DomeniaChartHeader -Title $Title -Width $Width
+    $header = New-DomeniaChartHeader -Title $Title -Width $Width -Subtitle $Subtitle
     [System.Windows.Controls.DockPanel]::SetDock($header, [System.Windows.Controls.Dock]::Top)
     [void]$body.Children.Add($header)
     if ($Height -gt 0) { $list.VerticalAlignment = [System.Windows.VerticalAlignment]::Center }
@@ -796,9 +829,16 @@ function New-DomeniaBarChart {
     return New-DomeniaChartCard -Width $Width -Height $Height -Content $body
 }
 function New-DomeniaChartGrid {
-    # Horizontal guides with their values (0, half, max) for columns and lines.
-    param($Canvas,[double]$Left,[double]$Top,[double]$PlotWidth,[double]$PlotHeight,[double]$Max)
-    foreach ($fraction in @(0.0, 0.5, 1.0)) {
+    # Horizontal guides at rounded graduations (1, 2 or 5 x 10^n, whole steps for counts; decision David 2026-10-08,
+    # CO-16) for columns and lines. Returns the value drawn at the top of the plot. -NoLabels: the base line alone,
+    # when every bar carries its own value (no axis then).
+    param($Canvas,[double]$Left,[double]$Top,[double]$PlotWidth,[double]$PlotHeight,[double]$Max,[switch]$Integer,[switch]$NoLabels)
+    $scaleTop = $Max
+    $ticks = @(0.0)
+    if (-not $NoLabels) { $scale = Get-DomeniaChartTicks -Maximum $Max -Integer:$Integer; $scaleTop = [double]$scale.Top; $ticks = @($scale.Ticks) }
+    if ($scaleTop -le 0) { $scaleTop = 1.0 }
+    foreach ($tick in $ticks) {
+        $fraction = [double]$tick / $scaleTop
         $y = $Top + $PlotHeight * (1 - $fraction)
         $line = New-Object System.Windows.Shapes.Line
         $line.X1 = $Left; $line.X2 = $Left + $PlotWidth; $line.Y1 = $y; $line.Y2 = $y
@@ -806,20 +846,23 @@ function New-DomeniaChartGrid {
         $line.SetResourceReference([System.Windows.Shapes.Shape]::StrokeProperty, 'BorderColor')
         if ($fraction -gt 0) { $dash = New-Object System.Windows.Media.DoubleCollection; [void]$dash.Add(3); [void]$dash.Add(4); $line.StrokeDashArray = $dash; $line.Opacity = 0.8 }
         [void]$Canvas.Children.Add($line)
-        $label = New-DomeniaChartText -Text (Format-DomeniaChartNumber ([Math]::Round($Max * $fraction, 1))) -Size 10 -Key 'MutedColor'
-        $label.Width = $Left - 6
+        if ($NoLabels) { continue }
+        $label = New-DomeniaChartText -Text (Format-DomeniaChartNumber $tick) -Size 10 -Key 'MutedColor'
+        $label.Width = [Math]::Max(10, $Left - 6)
         $label.TextAlignment = [System.Windows.TextAlignment]::Right
         [System.Windows.Controls.Canvas]::SetLeft($label, 0)
         [System.Windows.Controls.Canvas]::SetTop($label, $y - 7)
         [void]$Canvas.Children.Add($label)
     }
+    return $scaleTop
 }
 function New-DomeniaColumnChart {
     param(
         [string]$Title,
         [object[]]$Items,
         [double]$Width = 420,
-        [double]$Height = 260
+        [double]$Height = 260,
+        [string]$Subtitle = ''
     )
     # Zero buckets stay on the axis: they show the shape of the distribution.
     $valid = @($Items | Where-Object { $_ -and $_.Value -ne $null -and [double]$_.Value -ge 0 })
@@ -827,25 +870,29 @@ function New-DomeniaColumnChart {
     $max = 0.0
     foreach ($it in $valid) { if ([double]$it.Value -gt $max) { $max = [double]$it.Value } }
     if ($max -le 0) { $max = 1.0 }
+    $n = $valid.Count
+    # Every column carries its value up to 12 columns: no axis is drawn then (CO-16); counts get whole graduations.
+    $labelled = ($n -le 12)
+    $integer = (@($valid | Where-Object { [double]$_.Value -ne [Math]::Floor([double]$_.Value) }).Count -eq 0)
 
-    $innerW = $Width - 32 - 14; $innerH = $Height - 28 - 14 - 34
-    $left = 34; $top = 16; $plotW = [Math]::Max(40, $innerW - $left - 4); $plotH = [Math]::Max(40, $innerH - $top - 24)
+    $innerW = $Width - 32 - 14; $innerH = $Height - 28 - 14 - 34 - $(if ($Subtitle) { 16 } else { 0 })
+    $left = if ($labelled) { 6 } else { 34 }
+    $top = 16; $plotW = [Math]::Max(40, $innerW - $left - 4); $plotH = [Math]::Max(40, $innerH - $top - 24)
     $canvas = New-Object System.Windows.Controls.Canvas
     $canvas.Width = $innerW; $canvas.Height = $innerH
-    New-DomeniaChartGrid $canvas $left $top $plotW $plotH $max
+    $scaleTop = [double](New-DomeniaChartGrid $canvas $left $top $plotW $plotH $max -Integer:$integer -NoLabels:$labelled)
 
-    $n = $valid.Count
     $slot = $plotW / $n
     $barW = [Math]::Min(46.0, $slot * 0.62)
     $i = 0
     foreach ($it in $valid) {
-        $h = if ([double]$it.Value -gt 0) { [Math]::Max(3.0, $plotH * ([double]$it.Value / $max)) } else { 0.0 }
+        $h = if ([double]$it.Value -gt 0) { [Math]::Max(3.0, $plotH * ([double]$it.Value / $scaleTop)) } else { 0.0 }
         $x = $left + $slot * $i + ($slot - $barW) / 2.0
         $bar = New-Object System.Windows.Controls.Border
         $bar.Width = $barW; $bar.Height = $h
         $bar.CornerRadius = [System.Windows.CornerRadius]::new([Math]::Min(6, $barW / 3), [Math]::Min(6, $barW / 3), 0, 0)
         $bar.Background = ConvertTo-DomeniaChartBrush (Get-DomeniaChartItemColor $it @(Get-DomeniaBoardColor 'Info') 0)
-        $bar.ToolTip = [string]$it.Label + ' : ' + (Format-DomeniaChartNumber $it.Value)
+        $bar.ToolTip = [string]$it.Label + ' : ' + (Get-DomeniaChartValueText -Item $it)
         $bar.RenderTransformOrigin = [System.Windows.Point]::new(0.5, 1.0)
         $scale = New-Object System.Windows.Media.ScaleTransform
         $bar.RenderTransform = $scale
@@ -853,8 +900,8 @@ function New-DomeniaColumnChart {
         [System.Windows.Controls.Canvas]::SetTop($bar, $top + $plotH - $h)
         [void]$canvas.Children.Add($bar)
         Register-DomeniaIntro -Visual $bar -Target $scale -Property ([System.Windows.Media.ScaleTransform]::ScaleYProperty) -From 0 -To 1 -Ms 720 -DelayMs (50 * $i) -Ease 'Back'
-        if ($n -le 12 -and [double]$it.Value -gt 0) {
-            $value = New-DomeniaChartText -Text (Format-DomeniaChartNumber $it.Value) -Size 10.5 -Weight SemiBold -Key 'TextColor'
+        if ($labelled -and [double]$it.Value -gt 0) {
+            $value = New-DomeniaChartText -Text (Get-DomeniaChartValueText -Item $it) -Size 10.5 -Weight SemiBold -Key 'TextColor'
             $value.Width = $slot; $value.TextAlignment = [System.Windows.TextAlignment]::Center
             [System.Windows.Controls.Canvas]::SetLeft($value, $left + $slot * $i)
             [System.Windows.Controls.Canvas]::SetTop($value, $top + $plotH - $h - 16)
@@ -872,7 +919,7 @@ function New-DomeniaColumnChart {
         $i++
     }
     $body = New-Object System.Windows.Controls.StackPanel
-    [void]$body.Children.Add((New-DomeniaChartHeader -Title $Title -Width $Width))
+    [void]$body.Children.Add((New-DomeniaChartHeader -Title $Title -Width $Width -Subtitle $Subtitle))
     [void]$body.Children.Add($canvas)
     return New-DomeniaChartCard -Width $Width -Height $Height -Content $body
 }
@@ -881,19 +928,22 @@ function New-DomeniaLineChart {
         [string]$Title,
         [object[]]$Points,
         [double]$Width = 420,
-        [double]$Height = 260
+        [double]$Height = 260,
+        [string]$Subtitle = ''
     )
     $valid = @($Points | Where-Object { $_ -and $_.Value -ne $null })
     if ($valid.Count -eq 0) { return New-DomeniaChartEmpty -Width $Width -Height $Height -Title $Title }
     $max = 0.0
     foreach ($p in $valid) { if ([double]$p.Value -gt $max) { $max = [double]$p.Value } }
     if ($max -le 0) { $max = 1.0 }
+    $integer = (@($valid | Where-Object { [double]$_.Value -ne [Math]::Floor([double]$_.Value) }).Count -eq 0)
 
-    $innerW = $Width - 32 - 14; $innerH = $Height - 28 - 14 - 34
+    $innerW = $Width - 32 - 14; $innerH = $Height - 28 - 14 - 34 - $(if ($Subtitle) { 16 } else { 0 })
     $left = 34; $top = 10; $plotW = [Math]::Max(40, $innerW - $left - 8); $plotH = [Math]::Max(40, $innerH - $top - 24)
     $canvas = New-Object System.Windows.Controls.Canvas
     $canvas.Width = $innerW; $canvas.Height = $innerH
-    New-DomeniaChartGrid $canvas $left $top $plotW $plotH $max
+    # The curve is drawn against the top of the rounded scale (CO-16).
+    $max = [double](New-DomeniaChartGrid $canvas $left $top $plotW $plotH $max -Integer:$integer)
 
     $n = $valid.Count
     $step = if ($n -gt 1) { $plotW / ($n - 1) } else { 0 }
@@ -954,7 +1004,7 @@ function New-DomeniaLineChart {
     [void]$canvas.Children.Add($dot)
 
     $body = New-Object System.Windows.Controls.StackPanel
-    [void]$body.Children.Add((New-DomeniaChartHeader -Title $Title -Width $Width))
+    [void]$body.Children.Add((New-DomeniaChartHeader -Title $Title -Width $Width -Subtitle $Subtitle))
     [void]$body.Children.Add($canvas)
     return New-DomeniaChartCard -Width $Width -Height $Height -Content $body
 }
@@ -963,10 +1013,16 @@ function New-DomeniaLineChart {
 # 4. Health score and value list
 # ---------------------------------------------------------------------------
 function New-DomeniaHealthCard {
-    # Full ring with the score in the middle and the verdict below; colour from the verdict.
-    param([string]$Title,[double]$Score,[string]$Verdict,[string]$Detail = '',[ValidateSet('','Ok','Warn','Alert','Off')][string]$State = 'Ok',[double]$Width = 230,[double]$Height = 250)
+    # Full ring with the score in the middle and the verdict below; colour and verdict both come from the state (CO-10).
+    # -Badge: short warning under the verdict ('Partiel : sécurité non vérifiée', UX-23); -Action {Id; Text; Tip}: a
+    # button inside the card, handled by Invoke-DomeniaBoardEntryAction and run only on its click.
+    param([string]$Title,[double]$Score,[string]$Verdict,[string]$Detail = '',[ValidateSet('','Ok','Warn','Alert','Off')][string]$State = 'Ok',[double]$Width = 230,[double]$Height = 250,[string]$Badge = '',$Action = $null,[string]$Board = '')
     $pct = [Math]::Min(1.0, [Math]::Max(0.0, $Score / 100.0))
-    $size = [Math]::Floor([Math]::Min($Width - 40, $Height - 100))
+    # The badge and its button take their room from the ring, so the card keeps the height of its row.
+    $extra = 0
+    if ($Badge) { $extra += 20 }
+    if (($null -ne $Action) -and [string]$Action.Id) { $extra += 34 }
+    $size = [Math]::Floor([Math]::Max(60, [Math]::Min($Width - 40, $Height - 100 - $extra)))
     $thickness = [Math]::Round($size * 0.11)
     $radius = ($size - $thickness - 6) / 2.0
     $center = $size / 2.0
@@ -1005,6 +1061,33 @@ function New-DomeniaHealthCard {
     $verdictText.Margin = [System.Windows.Thickness]::new(0, 8, 0, 0)
     [void]$body.Children.Add($verdictText)
     if ($Detail) { $sub = New-DomeniaChartText -Text $Detail -Size 11.5 -Key 'MutedColor' -OneLine; $sub.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Center; [void]$body.Children.Add($sub) }
+    if ($Badge) {
+        $pill = New-Object System.Windows.Controls.Border
+        $pill.CornerRadius = [System.Windows.CornerRadius]::new(9)
+        $pill.Padding = [System.Windows.Thickness]::new(8, 1, 8, 2)
+        $pill.Margin = [System.Windows.Thickness]::new(0, 4, 0, 0)
+        $pill.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Center
+        $pill.Background = ConvertTo-DomeniaChartBrush (Get-DomeniaStateDotColor 'Warn') 0.16
+        $badgeText = New-DomeniaChartText -Text $Badge -Size 11 -Weight SemiBold -Key (Get-DomeniaStateTextKey 'Warn') -OneLine
+        $badgeText.MaxWidth = [Math]::Max(60, $Width - 48)
+        $pill.Child = $badgeText
+        [System.Windows.Automation.AutomationProperties]::SetName($pill, $Badge)
+        [void]$body.Children.Add($pill)
+    }
+    if (($null -ne $Action) -and [string]$Action.Id) {
+        $button = New-Object System.Windows.Controls.Button
+        $button.SetResourceReference([System.Windows.Controls.Control]::StyleProperty, 'SecondaryButton')
+        $button.MinHeight = 28
+        $button.Padding = [System.Windows.Thickness]::new(10, 2, 10, 2)
+        $button.Margin = [System.Windows.Thickness]::new(0, 6, 0, 0)
+        $button.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Center
+        $button.Content = [string]$Action.Text
+        $button.ToolTip = [string]$Action.Tip
+        [System.Windows.Automation.AutomationProperties]::SetName($button, [string]$Action.Text)
+        $button.Tag = @{ Board = $Board; Action = 'EntryAction'; Value = [string]$Action.Id }
+        $button.Add_Click({ param($s,$e) Invoke-DomeniaBoardAction -Tag $s.Tag })
+        [void]$body.Children.Add($button)
+    }
     return New-DomeniaChartCard -Width $Width -Height $Height -Content $body
 }
 function New-DomeniaListCard {
@@ -1023,7 +1106,7 @@ function New-DomeniaListCard {
         $first = $false
         $dock = New-Object System.Windows.Controls.DockPanel
         if ($null -ne $item.PSObject.Properties['Value'] -and [string]$item.Value -ne '') {
-            $figure = New-DomeniaChartText -Text ((Format-DomeniaChartNumber $item.Value) + $(if ($Unit) { ' ' + $Unit } else { '' })) -Size 12 -Weight SemiBold -Key 'MutedColor'
+            $figure = New-DomeniaChartText -Text (Get-DomeniaChartValueText -Item $item -Unit $(if ($Unit) { ' ' + $Unit } else { '' })) -Size 12 -Weight SemiBold -Key 'MutedColor'
             $figure.Margin = [System.Windows.Thickness]::new(10, 0, 0, 0)
             [System.Windows.Controls.DockPanel]::SetDock($figure, [System.Windows.Controls.Dock]::Right)
             [void]$dock.Children.Add($figure)

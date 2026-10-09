@@ -228,10 +228,17 @@ try{
     if($null -ne $Payload.PSObject.Properties['Probes'] -and @($Payload.Probes).Count){
         $since=@{'{SINCE_24H}'=(Get-Date).AddHours(-24).ToUniversalTime().ToString('yyyyMMddHHmmss.000000+000');'{SINCE_7D}'=(Get-Date).AddDays(-7).ToUniversalTime().ToString('yyyyMMddHHmmss.000000+000')}
         $probeResults=[ordered]@{}
+        $productType=$null;$productTypeRead=$false
         foreach($probe in @($Payload.Probes)){
             $entry=[ordered]@{Rows=@();Count=0;Error='';CheckedUtc=[datetime]::UtcNow.ToString('o')}
             try{
                 if([string]$probe.Class -notmatch '^[A-Za-z0-9_]+$' -or [string]$probe.Namespace -notmatch '^[A-Za-z0-9_\\]+$'){throw 'Requete refusee.'}
+                # FI-17: a query flagged for the controllers never runs on one (ProductType 2), where it would walk the directory.
+                if([string]$probe.Skip -eq 'DomainController'){
+                    if(-not $productTypeRead){$productTypeRead=$true;try{$productType=[int]@(Get-CimInstance -CimSession $cim -ClassName Win32_OperatingSystem -Property ProductType -OperationTimeoutSec $timeout -ErrorAction Stop)[0].ProductType}catch{$productType=$null}}
+                    if($null -eq $productType){throw 'Type de systeme non lu : requete ignoree par prudence.'}
+                    if($productType -eq 2){$entry.Skipped='DomainController';$probeResults[[string]$probe.Id]=[pscustomobject]$entry;continue}
+                }
                 $properties=@(@($probe.Properties)|Where-Object{[string]$_ -match '^[A-Za-z0-9_]+$'})
                 $filter=[string]$probe.Filter;foreach($token in $since.Keys){$filter=$filter.Replace($token,$since[$token])}
                 $query=@{CimSession=$cim;Namespace=[string]$probe.Namespace;ClassName=[string]$probe.Class;OperationTimeoutSec=[Math]::Max(10,$timeout);ErrorAction='Stop'}

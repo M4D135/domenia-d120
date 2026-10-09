@@ -183,3 +183,180 @@ Test-Case 'BRD-013' 'Ancienne disposition livree du parc migree, disposition per
     $titled = @($old | ForEach-Object { $_.PSObject.Copy() }); $titled[3].Title = 'Mes inactifs'
     Assert-Equal 17 @(ConvertTo-DomeniaBoardLayout -Board Fleet -Json (ConvertTo-Json -InputObject $titled -Depth 3 -Compress)).Count 'titre change : conservee'
 }
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Lot L06 (TE-07) : tableau du poste, seuils partages, verdicts et graduations. Le fournisseur du poste
+# (Domenia-BoardComputer.UI.ps1, sans WPF) lit l inventaire par deux aides de Domenia-Dashboard.UI.ps1 : seules ces
+# deux fonctions en sont lues, par l AST, sans rien charger de l interface.
+# ---------------------------------------------------------------------------------------------------------------------
+. (Join-Path $modules 'Domenia-BoardComputer.UI.ps1')
+. (Join-Path $modules 'Domenia-Probes.Model.ps1')
+# The catalog cache of Probes.Model starts empty (StrictMode of this runner: the variable must exist).
+$script:DomeniaProbeCatalog = $null
+$script:BrdDashboardAst = [Management.Automation.Language.Parser]::ParseFile((Join-Path $modules 'Domenia-Dashboard.UI.ps1'), [ref]$null, [ref]$null)
+foreach ($script:BrdName in @('Get-DomeniaInventoryValue','Get-DomeniaCategorySummary','Get-DomeniaEntryFileTimeUtc')) {
+    $script:BrdNode = @($script:BrdDashboardAst.FindAll({ param($n) ($n -is [Management.Automation.Language.FunctionDefinitionAst]) -and ($n.Name -eq $script:BrdName) }, $true))[0]
+    . ([scriptblock]::Create($script:BrdNode.Extent.Text))
+}
+# Directory entry read by the object card (core function): a plain table of attributes in these tests.
+function Get-DomeniaEntryFirstString { param($Entry,[string]$Name) if (($Entry -is [hashtable]) -and $Entry.ContainsKey($Name)) { return [string]$Entry[$Name] }; return '' }
+function New-BrdRow { param([string]$Category,[string]$Item,[string]$Value) return [pscustomobject]@{ Category = $Category; Item = $Item; Value = $Value; Source = 'test' } }
+function New-BrdInventory {
+    # Inventory result shaped like the ComputerInventory worker (rows and CIM measures), fictitious values only.
+    param([object[]]$Rows = @(),[double]$FreePercent = 50,[double]$MemoryUsedPercent = 40,$ClockSkew = $null,[string]$ClockReference = '',[double]$Battery = -1)
+    $metrics = [pscustomobject]@{ MemoryTotal = [double]16GB; MemoryFree = [double](16GB * (100 - $MemoryUsedPercent) / 100); LastBoot = ''; CpuLoad = 35.0; Battery = $Battery; ClockSkewSeconds = $ClockSkew; ClockReference = $ClockReference
+        Disks = @([pscustomobject]@{ Name = 'C:'; Size = [double]100GB; Free = [double](100GB * $FreePercent / 100) }); Hotfixes = @(); Processes = @(); Services = @{ 'En cours' = 100; 'Arretes (automatiques)' = 2; 'Arretes (manuels)' = 50; 'Desactives' = 5 } }
+    return [pscustomobject]@{ Rows = @($Rows); Metrics = $metrics }
+}
+function Get-BrdTexts { param($Data) return @(@($Data.Attention) | ForEach-Object { [string]$_.Level + ':' + [string]$_.Text }) }
+function Get-BrdSecureRows {
+    # A security reading that raises nothing: firewall forced by the policy, BitLocker on, antivirus declared.
+    return @((New-BrdRow 'Pare-feu' 'Profil domaine' 'Active (strategie)'), (New-BrdRow 'Pare-feu' 'Profil prive' 'Active (strategie)'), (New-BrdRow 'Pare-feu' 'Profil public' 'Active (strategie)'), (New-BrdRow 'BitLocker' 'Volume C:' 'Protection Active'), (New-BrdRow 'Antivirus' 'Defender' 'Actif, A jour'))
+}
+
+Test-Case 'BRD-014' 'TE-07 : un seul point a surveiller donne le verdict A surveiller, de la couleur de son etat' {
+    $one = Get-DomeniaBoardHealth -Attention @([pscustomobject]@{ Level = 'Warn'; Text = 'x' })
+    Assert-Equal 90 $one.Score
+    Assert-Equal ([string][char]0x00C0 + ' surveiller') $one.Verdict 'verdict tire de l etat, jamais Bon etat en orange'
+    Assert-Equal 'Warn' $one.State
+    Assert-Equal ('Bon ' + [char]0x00E9 + 'tat') (Get-DomeniaBoardHealth -Attention @([pscustomobject]@{ Level = 'Info'; Text = 'i' })).Verdict 'une information ne compte pas'
+    Assert-Equal 'Ok' (Get-DomeniaBoardHealth).State
+    Assert-Equal 'Critique' (Get-DomeniaBoardHealth -Attention @([pscustomobject]@{ Level = 'Alert'; Text = 'a' })).Verdict
+    $many = Get-DomeniaBoardHealth -Attention @(1..5 | ForEach-Object { [pscustomobject]@{ Level = 'Warn'; Text = 'w' } })
+    Assert-Equal ('D' + [char]0x00E9 + 'grad' + [char]0x00E9) $many.Verdict 'score sous 60'
+    Assert-Equal 'Alert' $many.State
+    $data = Get-DomeniaComputerBoardData -Result (New-BrdInventory -Rows (Get-BrdSecureRows) -FreePercent 13)
+    $health = $data.Entries['computer.health']
+    Assert-Equal 'Warn' ([string]$health.State)
+    Assert-Equal ([string][char]0x00C0 + ' surveiller') ([string]$health.Value) 'poste avec un seul point : verdict et couleur concordent'
+}
+Test-Case 'BRD-015' 'TE-07 : libelle du disque Peu d espace sur C: (13 % libre), sans double deux-points' {
+    $data = Get-DomeniaComputerBoardData -Result (New-BrdInventory -Rows (Get-BrdSecureRows) -FreePercent 13)
+    $texts = Get-BrdTexts $data
+    Assert-True ($texts -contains ('Warn:Peu d' + [char]0x02BC + 'espace sur C: (13 % libre).')) ($texts -join ' | ')
+    Assert-Equal 0 @($texts | Where-Object { $_ -like '*: :*' }).Count 'double deux-points'
+    $full = Get-DomeniaComputerBoardData -Result (New-BrdInventory -Rows (Get-BrdSecureRows) -FreePercent 8)
+    Assert-True ((Get-BrdTexts $full) -contains 'Alert:C: presque plein (8 % libre).') ((Get-BrdTexts $full) -join ' | ')
+    Assert-Equal 'Alert' ([string]$full.Entries['computer.disk.system'].State)
+}
+Test-Case 'BRD-016' 'TE-07 : seuils partages par la jauge, la tuile et l alerte, sur le poste et le parc' {
+    $limits = Get-DomeniaBoardThresholds
+    Assert-Equal 'Warn' (Get-DomeniaThresholdState -Measure DiskFree -Percent ($limits.DiskFreeWarn - 1))
+    Assert-Equal 'Alert' (Get-DomeniaThresholdState -Measure DiskFree -Percent ($limits.DiskFreeAlert - 1))
+    Assert-Equal 'Ok' (Get-DomeniaThresholdState -Measure DiskFree -Percent $limits.DiskFreeWarn)
+    # Memory used between 81 and 90 %: no point, so no orange ring either; past 90 %: the point and the Warn state.
+    $calm = Get-DomeniaComputerBoardData -Result (New-BrdInventory -Rows (Get-BrdSecureRows) -MemoryUsedPercent 85)
+    Assert-Equal '' ([string]$calm.Entries['computer.memory.usage'].State) 'jauge sans couleur sans point'
+    Assert-Equal 0 @(Get-BrdTexts $calm | Where-Object { $_ -like '*moire*' }).Count
+    $busy = Get-DomeniaComputerBoardData -Result (New-BrdInventory -Rows (Get-BrdSecureRows) -MemoryUsedPercent 95)
+    Assert-Equal 'Warn' ([string]$busy.Entries['computer.memory.usage'].State)
+    Assert-Equal 1 @(Get-BrdTexts $busy | Where-Object { $_ -like 'Warn:M*moire utilis*' }).Count
+    $battery = Get-DomeniaComputerBoardData -Result (New-BrdInventory -Rows (Get-BrdSecureRows) -Battery 12)
+    Assert-Equal 'Warn' ([string]$battery.Entries['computer.battery'].State)
+    # The ring of free space takes the colour of the same state.
+    $disk = (Get-DomeniaComputerBoardData -Result (New-BrdInventory -Rows (Get-BrdSecureRows) -FreePercent 13)).Entries['computer.disk.system']
+    Assert-Equal (Get-DomeniaBoardColor 'Warn') ([string]@($disk.Items)[1].Color)
+}
+Test-Case 'BRD-017' 'TE-07 : pare-feu, etat effectif par profil, la strategie prime sur la cle locale' {
+    # Older rows: policy key 1 and local key 0 on the domain profile, no false alert.
+    $old = @((New-BrdRow 'Pare-feu' 'Profil domaine (strategie)' 'Active'), (New-BrdRow 'Pare-feu' 'Profil prive (strategie)' 'Active'), (New-BrdRow 'Pare-feu' 'Profil public (strategie)' 'Active'), (New-BrdRow 'Pare-feu' 'Profil domaine' 'Desactive'), (New-BrdRow 'Pare-feu' 'Profil prive' 'Desactive'), (New-BrdRow 'Pare-feu' 'Profil public' 'Active'))
+    $data = Get-DomeniaComputerBoardData -Result (New-BrdInventory -Rows $old)
+    $entry = $data.Entries['computer.firewall']
+    Assert-Equal ('3 profils sur 3 actifs (strat' + [char]0x00E9 + 'gie)') ([string]$entry.Value)
+    Assert-Equal 'Ok' ([string]$entry.State)
+    Assert-Equal 0 @(Get-BrdTexts $data | Where-Object { $_ -like '*Pare-feu*' }).Count 'cle locale a 0 sous une strategie a 1 : aucune alerte'
+    # Current rows of the worker, one per profile.
+    $current = Get-DomeniaComputerBoardData -Result (New-BrdInventory -Rows @((New-BrdRow 'Pare-feu' 'Profil domaine' 'Active (strategie)'), (New-BrdRow 'Pare-feu' 'Profil prive' 'Active (local)'), (New-BrdRow 'Pare-feu' 'Profil public' 'Desactive (local)')))
+    Assert-Equal '2 profils sur 3 actifs' ([string]$current.Entries['computer.firewall'].Value)
+    Assert-True ((Get-BrdTexts $current) -contains ('Warn:Pare-feu d' + [char]0x00E9 + 'sactiv' + [char]0x00E9 + ' : Public.')) ((Get-BrdTexts $current) -join ' | ')
+    # Values are compared exactly: an unknown word is not counted as an active profile.
+    $odd = Get-DomeniaComputerBoardData -Result (New-BrdInventory -Rows @((New-BrdRow 'Pare-feu' 'Profil domaine' 'Inconnu'), (New-BrdRow 'Pare-feu' 'Profil prive' 'Active (local)')))
+    Assert-Equal '1 profil sur 1 actif (local)' ([string]$odd.Entries['computer.firewall'].Value)
+}
+Test-Case 'BRD-018' 'UX-23 : score partiel sans lecture de la securite, badge et bouton Inventaire complet' {
+    $partial = Get-DomeniaComputerBoardData -Result (New-BrdInventory -Rows @())
+    $health = $partial.Entries['computer.health']
+    Assert-Equal ('Partiel : s' + [char]0x00E9 + 'curit' + [char]0x00E9 + ' non v' + [char]0x00E9 + 'rifi' + [char]0x00E9 + 'e') ([string]$health.Badge)
+    Assert-Equal 'InventoryFull' ([string]$health.Action.Id) 'inventaire complet propose, lance seulement au clic'
+    $read = Get-DomeniaComputerBoardData -Result (New-BrdInventory -Rows (Get-BrdSecureRows))
+    Assert-Equal '' ([string]$read.Entries['computer.health'].Badge)
+    Assert-True ($null -eq $read.Entries['computer.health'].Action) 'pas de bouton quand la securite est lue'
+    # SP-17: an empty section offers the existing action that fills it, never run by the rule.
+    $task = Get-DomeniaComputerBoardData -Result ([pscustomobject]@{ Rows = @(Get-BrdSecureRows); Metrics = $null })
+    Assert-True ($task.HintActions.ContainsKey('Activite')) 'section Activite vide sans action'
+    Assert-Equal 'InventoryFull' ([string]$task.HintActions['Activite'].Id)
+    Assert-Equal 'OpenCard' ([string]$task.HintActions['Compte machine dans Active Directory'].Id)
+    Assert-False ($task.HintActions.ContainsKey('Ressources')) 'mesures indisponibles : aucun bouton qui ne les donnerait pas'
+    Assert-False ($read.HintActions.ContainsKey('Activite')) 'section remplie : aucun bouton'
+    $none = Get-DomeniaComputerBoardData
+    Assert-Equal 'InventoryQuick' ([string]$none.HintActions['Identite du poste'].Id)
+}
+Test-Case 'BRD-019' 'MO-06 : erreurs connues ignorees, disque NTFS et Kernel-Power 41 a surveiller, services sur declencheur' {
+    $rows = @(Get-BrdSecureRows) + @(
+        (New-BrdRow 'Evenements systeme' 'DCOM ID 10016' '01/10/2026 : autorisation'),
+        (New-BrdRow 'Evenements systeme' 'disk ID 7' '01/10/2026 : bloc defectueux'),
+        (New-BrdRow 'Evenements systeme' 'Microsoft-Windows-Kernel-Power ID 41' '02/10/2026 : arret inattendu'),
+        (New-BrdRow 'Evenements systeme' 'Service Control Manager ID 7000' '02/10/2026 : service'),
+        (New-BrdRow 'Services en defaut' 'Google Update' 'Demarrage automatique mais arrete. Nom : gupdate'),
+        (New-BrdRow 'Services en defaut' 'Optimisation .NET' 'Demarrage automatique mais arrete. Nom : clr_optimization_v4.0.30319_64'),
+        (New-BrdRow 'Services en defaut' 'Spouleur' 'Demarrage automatique mais arrete. Nom : Spooler'))
+    $data = Get-DomeniaComputerBoardData -Result (New-BrdInventory -Rows $rows)
+    $texts = Get-BrdTexts $data
+    Assert-True (@($texts | Where-Object { $_ -like 'Warn:2 erreur(s) critique(s)*' }).Count -eq 1) ($texts -join ' | ')
+    Assert-True (@($texts | Where-Object { $_ -like 'Info:1 autre(s) erreur(s)*' }).Count -eq 1) ($texts -join ' | ')
+    $events = $data.Entries['computer.events']
+    Assert-Equal 3 @($events.Items).Count 'DCOM 10016 ignore'
+    Assert-Equal 'Warn' ([string]$events.State)
+    Assert-Equal '1' ([string]$data.Entries['computer.services.stopped'].Value) 'services sur declencheur ou differes ignores'
+    Assert-True (@($texts | Where-Object { $_ -like 'Warn:1 service(s) automatique(s)*' }).Count -eq 1) ($texts -join ' | ')
+    Assert-Equal 'Ignore' (Get-DomeniaSystemEventLevel -Source 'DCOM' -EventId '10016')
+    Assert-Equal 'Info' (Get-DomeniaSystemEventLevel -Source 'Microsoft-Windows-Kernel-Power' -EventId '42')
+    Assert-Equal 'Warn' (Get-DomeniaSystemEventLevel -Source 'Ntfs' -EventId '55')
+    Assert-True (Test-DomeniaServiceStopExpected -Name 'OneSyncSvc_1a2b3') 'service par utilisateur'
+    Assert-False (Test-DomeniaServiceStopExpected -Name 'Spooler')
+    $quiet = Get-DomeniaComputerBoardData -Result (New-BrdInventory -Rows (@(Get-BrdSecureRows) + @(New-BrdRow 'Evenements systeme' 'DCOM ID 10016' 'x')))
+    Assert-Equal 'Ok' ([string]$quiet.Entries['computer.events'].State) 'seulement du bruit connu'
+    Assert-Equal ('Bon ' + [char]0x00E9 + 'tat') ([string]$quiet.Entries['computer.health'].Value)
+}
+Test-Case 'BRD-020' 'CO-09 : horloge comparee au controleur, libelles du compte machine' {
+    $object = [pscustomobject]@{ Entry = @{ userAccountControl = '4096'; whenCreated = '2020-01-15T10:00:00Z' }; DN = 'CN=PC-1,OU=Postes,DC=example,DC=test' }
+    $dc = Get-DomeniaComputerBoardData -Result (New-BrdInventory -Rows (Get-BrdSecureRows) -ClockSkew 14 -ClockReference 'Controleur') -Object $object
+    Assert-Equal ([string][char]0x00C9 + 'cart avec le contr' + [char]0x00F4 + 'leur de domaine') ([string]$dc.Entries['computer.ad.clock'].Detail)
+    Assert-Equal '+14 s' ([string]$dc.Entries['computer.ad.clock'].Value)
+    $late = Get-DomeniaComputerBoardData -Result (New-BrdInventory -Rows (Get-BrdSecureRows) -ClockSkew 400 -ClockReference 'Controleur') -Object $object
+    Assert-True (@(Get-BrdTexts $late | Where-Object { $_ -like 'Alert:Horloge d*cal*e de 400 s par rapport au contr*leur*Kerberos*' }).Count -eq 1) ((Get-BrdTexts $late) -join ' | ')
+    $admin = Get-DomeniaComputerBoardData -Result (New-BrdInventory -Rows (Get-BrdSecureRows) -ClockSkew 0) -Object $object
+    Assert-Equal ([string][char]0x00C0 + ' l' + [char]0x02BC + 'heure') ([string]$admin.Entries['computer.ad.clock'].Value)
+    Assert-Equal 'Actif' ([string]$admin.Entries['computer.ad.account'].Value)
+    Assert-True ([string]$admin.Entries['computer.ad.clock'].Detail -like '*poste d*administration (contr*leur non lu)') ([string]$admin.Entries['computer.ad.clock'].Detail)
+}
+Test-Case 'BRD-021' 'CO-16 : graduations 1, 2 ou 5 x 10^n, entieres pour les comptes' {
+    Assert-Equal '0,1,2' ((Get-DomeniaChartTicks -Maximum 1.5 -Integer).Ticks -join ',') 'jamais 1,5 poste'
+    Assert-Equal '0,10,20,30,40' ((Get-DomeniaChartTicks -Maximum 37 -Integer).Ticks -join ',')
+    Assert-Equal 2 (Get-DomeniaChartTicks -Maximum 7 -Integer).Step
+    Assert-Equal 8 (Get-DomeniaChartTicks -Maximum 7 -Integer).Top
+    Assert-Equal 50 (Get-DomeniaChartTicks -Maximum 100).Step
+    Assert-Equal 0.5 (Get-DomeniaChartTicks -Maximum 1.5).Step 'demi-graduation seulement hors comptes'
+    foreach ($max in @(1, 3, 7, 12, 37, 99, 101, 250, 999, 1234, 0.37)) {
+        $scale = Get-DomeniaChartTicks -Maximum $max -Integer
+        Assert-True ($scale.Top -ge $max) ('sommet sous le maximum : ' + $max)
+        $mantissa = [double]$scale.Step / [Math]::Pow(10, [Math]::Floor([Math]::Log10([double]$scale.Step)))
+        Assert-True ([Math]::Round($mantissa, 6) -in @(1.0, 2.0, 5.0)) ('pas non arrondi : ' + $scale.Step + ' pour ' + $max)
+        Assert-True ([double]$scale.Step -eq [Math]::Floor([double]$scale.Step)) ('pas non entier : ' + $max)
+        Assert-True (@($scale.Ticks).Count -le 6) ('trop de graduations : ' + $max)
+    }
+}
+Test-Case 'BRD-022' 'DS-13 : chiffres en grand, textes en taille de lecture' {
+    foreach ($text in @('16 Go', '35 %', '+12 s', '128 postes', '0', '1 234', '3,5 Go')) { Assert-True (Test-DomeniaBoardNumberText $text) ('chiffre : ' + $text) }
+    foreach ($text in @('Intel Core i5-1345U', 'il y a 3 j', 'Windows 11 24H2', 'Service informatique', '3 j 4 h', '', '24H2')) { Assert-False (Test-DomeniaBoardNumberText $text) ('texte : ' + $text) }
+}
+Test-Case 'BRD-023' 'CO-16 : requete mesuree titree par son nom, nombre de postes en sous-titre' {
+    $probe = Get-DomeniaProbe 'disk.cfree'
+    $measured = [pscustomobject]@{ Machines = 19; Items = @([pscustomobject]@{ Label = 'x'; Value = 19 }); Summary = ''; Numeric = $true; Values = @('40') }
+    $entry = ConvertFrom-DomeniaProbeMeasure -Probe $probe -Measured $measured -Board Fleet
+    Assert-Equal 'Espace libre sur C: (%)' ([string]$entry.Title) 'jamais Nom (%) (19 postes)'
+    Assert-Equal '19 postes' ([string]$entry.Subtitle)
+    $skipped = ConvertFrom-DomeniaProbeMeasure -Probe (Get-DomeniaProbe 'sec.localusers') -Measured ([pscustomobject]@{ Machines = 0; Items = @(); Summary = ''; Numeric = $false; Values = @(); Skipped = 1 }) -Board Computer
+    Assert-Equal 'Non lu' ([string]$skipped.Value) 'requete ignoree sur un controleur'
+    Assert-Equal 'Off' ([string]$skipped.State)
+}
