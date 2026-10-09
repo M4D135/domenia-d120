@@ -4591,7 +4591,7 @@ function Get-MainXaml {
               <StackPanel Margin="8,8,0,14" x:Name="UxBrandExpanded">
                 <TextBlock FontSize="27" FontWeight="Bold">
                   <Run Text="Domenia"/>
-
+                  
                 </TextBlock>
                 <TextBlock Text="Votre console d’assistance" FontSize="11" Foreground="{DynamicResource MutedColor}" Margin="0,5,0,0"/>
               </StackPanel>
@@ -20643,9 +20643,17 @@ function Wire-Events {
     if ($script:Ctrl.ContainsKey("ChkReadOnlyMode")) {
         # DS-02 / SE-06 (L08): leaving read-only is confirmed by one sentence in a panel of the page, never a window;
         # the switch stays on read-only until the answer. Going back to read-only is immediate and never asks.
-        # C2: in demonstration the read-only lock cannot be lifted (Request-DomeniaWriteMode refuses it).
         $script:Ctrl["ChkReadOnlyMode"].Add_Checked({ Enter-DomeniaReadOnlyMode })
-        $script:Ctrl["ChkReadOnlyMode"].Add_Unchecked({ Request-DomeniaWriteMode })
+        $script:Ctrl["ChkReadOnlyMode"].Add_Unchecked({
+            # C2: in demonstration the read-only lock cannot be lifted (no request, no write mode).
+            if ([bool]$script:DemoMode) {
+                $script:ReadOnlyMode = $true
+                $script:Ctrl["ChkReadOnlyMode"].IsChecked = $true
+                Set-Status "Écritures désactivées en démonstration : la lecture seule reste active." "WARN"
+                return
+            }
+            Request-DomeniaWriteMode
+        })
     }
     if ($script:Ctrl.ContainsKey("BtnReadOnlyResume")) { $script:Ctrl["BtnReadOnlyResume"].Add_Click({ Exit-DomeniaWriteMode -Reason Manual }) }
     if ($script:Ctrl.ContainsKey("BtnDashSelfCheck")) { $script:Ctrl["BtnDashSelfCheck"].Add_Click({ Select-DomeniaWorkspace -Workspace "TabApplicationTools"; try { $script:Ctrl["ApplicationToolTabs"].SelectedItem=$script:Ctrl["TabSelfCheck"] } catch { }; Start-SelfCheck -Full }) }

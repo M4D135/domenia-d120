@@ -611,7 +611,7 @@ try{
             try{$switch.IsChecked=$false;Pump $main;Expect ([bool]$switch.IsChecked -and -not $panel.IsVisible) 'Demande proposee en demonstration'}finally{$script:DemoMode=$false}
             Expect ($script:L08.Dialogs -eq 0) 'Une fenetre de confirmation a ete ouverte'
             $wire=@($coreAst.FindAll({param($n)$n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Wire-Events'},$true))[0].Extent.Text
-            Expect (($wire -match 'Add_Unchecked\(\{ Request-DomeniaWriteMode \}\)') -and ($wire -match 'Add_Checked\(\{ Enter-DomeniaReadOnlyMode \}\)') -and -not ($wire -match 'Confirm-WarningAction')) 'Wire-Events ne branche pas l interrupteur de la page'
+            Expect (($wire -match '(?s)\["ChkReadOnlyMode"\]\.Add_Unchecked\(\{.*?Request-DomeniaWriteMode') -and ($wire -match 'Add_Checked\(\{ Enter-DomeniaReadOnlyMode \}\)') -and -not ($wire -match 'Confirm-WarningAction')) 'Wire-Events ne branche pas l interrupteur de la page'
         }
 
         Case 'L08 : titre de fenetre « Fiche · nom — Domenia », puce du sujet et desinscription' {
