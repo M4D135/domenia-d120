@@ -85,7 +85,7 @@ function Update-GuideLayout {
     $script:Window = [pscustomobject]@{ ActualWidth = [double]$Width; ActualHeight = $h; Width = [double]$Width; Height = $h }
     try { Update-DomeniaUxLayout } finally { $script:Window = $real }
     Sync-DomeniaUxNavigation
-    (Get-DomeniaControl 'LblUxDomain').Text = 'Session AD · example.local'
+    (Get-DomeniaControl 'LblUxDomain').Text = 'Connecté à example.local'
     Invoke-GuideMeasure
     Invoke-GuideMeasure
 }
