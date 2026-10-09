@@ -749,11 +749,11 @@ Rien ne part avant la confirmation « Périmètre à confirmer avant toute lectu
 - « Qualification » est une puce : Déclaré (bleu), Observé (vert), Importé ou Indice (gris), Contradictoire (orange). L'infobulle donne la règle et la provenance. « Date » est affichée en heure locale (« 08/10 09:15 », avec l'année si elle diffère) et le tri suit l'instant réel.
 - Les associations sont locales : la case « Lecture seule » ne les bloque pas. Elles sont perdues avec la base si aucune sauvegarde n'existe (chapitre 18).
 
-### Suppression et restauration
+**Suppression et restauration**
 
 Une suppression est confirmée dans la page, journalisée et restaurable. Le bouton « Restaurer » nomme l'association qu'il remet (par exemple « Restaurer jdupont → PC01 ») et reste grisé quand rien n'est à restaurer. Il remet une association par clic, la plus récente d'abord ; il est présent dans « Associations » et dans « Toutes les associations ».
 
-### Import CSV
+**Import CSV**
 
 « Importer » lit le fichier et l'affiche dans un aperçu, sans rien enregistrer. Chaque enregistrement est numéroté (« N° » : les lignes vides du fichier ne comptent pas) et reçoit un résultat : « À importer », « Ignorée » (compte ou poste manquant, poste en double, association déjà connue, poste déjà associé à un autre compte) ou « Inconnue » (compte ou poste absent de l'index local). Les comptes et les postes sont vérifiés dans l'index local de l'annuaire, sans accès réseau ; tant que la vérification n'est pas finie, « Importer » reste grisé. Si l'index est vide ou illisible, l'aperçu le dit et la présence dans Active Directory n'est pas vérifiée.
 
@@ -761,11 +761,11 @@ Une suppression est confirmée dans la page, journalisée et restaurable. Le bou
 - Un import ajoute 64 associations au plus. Les suivantes sont marquées « Ignorée » : importez à nouveau le même fichier, les lignes déjà importées sont reconnues.
 - « Annuler l'import » retire les associations du dernier import après une confirmation dans la page qui en donne le nombre. Chaque retrait est journalisé et restaurable.
 
-### Associations orphelines
+**Associations orphelines**
 
 « Nettoyer » vérifie en lecture seule que les comptes et les postes des associations automatiques existent encore dans Active Directory. Les orphelines sont listées dans la page avec leur motif (« Compte absent d'Active Directory (supprimé ou renommé). », etc.) et une case à cocher. Les associations déclarées et importées ne sont jamais proposées. « Retirer la sélection » demande une confirmation dans le panneau ; chaque retrait est journalisé et restaurable. Un retrait porte sur 64 associations au plus : les 64 premières sont cochées, puis les suivantes après le retrait.
 
-### Dates enregistrées
+**Dates enregistrées**
 
 Depuis la version 1.0 RC1.14, chaque date d'association est enregistrée en UTC (« 2026-10-08T07:15:00.0000000Z ») et affichée en heure locale. Une ancienne date « 2026-10-08 09:15:00 » est lue comme une heure locale ; elle prend la forme UTC quand l'association est actualisée par une nouvelle observation ou restaurée. Les autres lignes gardent leur texte : le stockage ne réécrit pas toutes les lignes d'un coup (64 modifications au plus par enregistrement).
 
