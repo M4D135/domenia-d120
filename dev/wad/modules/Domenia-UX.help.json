@@ -1428,8 +1428,8 @@
   },
   {
     "Name": "BtnImportLinks",
-    "Title": "Importer des liens",
-    "Text": "Importe des associations locales depuis un CSV choisi.",
+    "Title": "Importer des associations",
+    "Text": "Lit un fichier CSV et montre un aperçu dans la page (à importer, ignorées, inconnues de l’index local) avant tout ajout. Les lignes importées portent toujours la source « Import CSV » et l’import peut être annulé.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -1442,15 +1442,15 @@
   },
   {
     "Name": "BtnPruneLinks",
-    "Title": "Nettoyer les liens",
-    "Text": "Lance le contrôle existant des liens orphelins. Ne supprime pas un objet AD.",
+    "Title": "Associations orphelines",
+    "Text": "Vérifie en lecture seule que les comptes et postes des associations automatiques existent encore dans Active Directory, puis liste les orphelines dans la page avec leur motif. Rien n’est retiré sans confirmation.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "DgLinks",
-    "Title": "Associations enregistrees",
-    "Text": "Associations enregistrees. Clic droit pour copier ou ouvrir.",
+    "Title": "Associations de la sélection",
+    "Text": "Associations enregistrées de l’utilisateur ou du poste sélectionné, avec leur qualification et leur date en heure locale.",
     "Kind": "DataGrid",
     "Source": "existing-help"
   },
@@ -3158,16 +3158,16 @@
   {
     "Name": "DgAllLinks",
     "Title": "Toutes les associations",
-    "Text": "Liens locaux du domaine courant. La vue sélectionnée reste séparée.",
+    "Text": "Liens locaux du domaine courant, avec filtre et compteur. Double-clic : fiche de l’utilisateur ou du poste cliqué ; clic droit : ouvrir l’un ou l’autre.",
     "Kind": "DataGrid",
     "Source": "RC1.8-relations"
   },
   {
-    "Name": "TabLinksAssociate",
-    "Title": "Associer un poste",
-    "Text": "Pour l’utilisateur sélectionné : détecter des postes ou en rechercher un explicitement dans tout le domaine. Aucune fenêtre séparée.",
-    "Kind": "TabItem",
-    "Source": "RC1.10-relations"
+    "Name": "RelationAddPanel",
+    "Title": "Ajouter une association",
+    "Text": "À côté des associations du sujet : Détecter ou Rechercher un poste (depuis un utilisateur) ou un utilisateur (depuis un poste). La confirmation reste dans la page.",
+    "Kind": "Control",
+    "Source": "L04-relations"
   },
   {
     "Name": "TabRelationDetect",
@@ -3246,8 +3246,8 @@
   },
   {
     "Name": "BtnRestoreLink",
-    "Title": "Restaurer la suppression",
-    "Text": "Remet la dernière association supprimée localement, depuis le journal des relations. Aucun objet Active Directory nʼest lu ni modifié.",
+    "Title": "Restaurer une association",
+    "Text": "Nomme et remet l’association supprimée localement le plus récemment, depuis le journal des relations. Inactif quand il n’y a rien à restaurer. Aucun objet Active Directory nʼest lu ni modifié.",
     "Kind": "Control",
     "Source": "d120-relations"
   },
@@ -3614,5 +3614,110 @@
     "Text": "Présent seulement si lʼadministrateur lʼa activé : relit dans lʼannuaire les objets listés, par petits lots, tant que la page est affichée. Décochez pour lʼarrêter pendant cette session.",
     "Kind": "CheckBox",
     "Source": "L03"
+  },
+  {
+    "Name": "BtnRelationsHelp",
+    "Title": "Précautions des relations",
+    "Text": "Affiche ou masque les précautions de la page et l’état de la détection du parc.",
+    "Kind": "Button",
+    "Source": "L04-relations"
+  },
+  {
+    "Name": "TxtAllLinksFilter",
+    "Title": "Filtrer les associations",
+    "Text": "Filtre la vue globale sur l’utilisateur, le poste, la source ou les détails. Aucune lecture réseau.",
+    "Kind": "TextBox",
+    "Source": "L04-relations"
+  },
+  {
+    "Name": "ChkAllLinksDeclared",
+    "Title": "Filtre Déclaré",
+    "Text": "N’affiche que les associations déclarées par un opérateur.",
+    "Kind": "Control",
+    "Source": "L04-relations"
+  },
+  {
+    "Name": "ChkAllLinksObserved",
+    "Title": "Filtre Observé",
+    "Text": "N’affiche que les sessions observées sur les postes.",
+    "Kind": "Control",
+    "Source": "L04-relations"
+  },
+  {
+    "Name": "ChkAllLinksConflict",
+    "Title": "Filtre Contradictoire",
+    "Text": "N’affiche que les postes où les sources désignent des comptes différents.",
+    "Kind": "Control",
+    "Source": "L04-relations"
+  },
+  {
+    "Name": "BtnUndoImport",
+    "Title": "Annuler l’import",
+    "Text": "Retire les associations ajoutées par le dernier import, si elles sont encore présentes, après une confirmation dans la page qui en donne le nombre. Chaque retrait est journalisé ; « Restaurer » les remet une par une.",
+    "Kind": "Button",
+    "Source": "L04-relations"
+  },
+  {
+    "Name": "BtnRestoreLinkAll",
+    "Title": "Restaurer la suppression",
+    "Text": "Remet la dernière association retirée localement (suppression, annulation d’import ou orpheline), une par clic, depuis le journal. Le bouton nomme l’association. Aucun objet Active Directory n’est lu ni modifié.",
+    "Kind": "Button",
+    "Source": "L04-relations"
+  },
+  {
+    "Name": "DgLinkImportPreview",
+    "Title": "Aperçu de l’import",
+    "Text": "Chaque enregistrement du fichier et ce que l’import en fera : à importer, ignoré ou inconnu dans l’index local (comptes et postes vérifiés sans accès réseau). 64 associations au plus par import ; rien n’est enregistré avant « Importer ».",
+    "Kind": "DataGrid",
+    "Source": "L04-relations"
+  },
+  {
+    "Name": "BtnLinkImportApply",
+    "Title": "Importer les lignes retenues",
+    "Text": "Ajoute les lignes « À importer » au stockage local, chacune journalisée, avec la source « Import CSV ».",
+    "Kind": "Button",
+    "Source": "L04-relations"
+  },
+  {
+    "Name": "BtnLinkImportCancel",
+    "Title": "Abandonner l’import",
+    "Text": "Ferme l’aperçu sans rien ajouter.",
+    "Kind": "Button",
+    "Source": "L04-relations"
+  },
+  {
+    "Name": "DgLinkOrphans",
+    "Title": "Associations orphelines",
+    "Text": "Associations dont le compte ou le poste n’est plus trouvé dans Active Directory, avec leur motif. Cochez celles à retirer.",
+    "Kind": "DataGrid",
+    "Source": "L04-relations"
+  },
+  {
+    "Name": "BtnLinkOrphanRemove",
+    "Title": "Retirer les orphelines cochées",
+    "Text": "Demande une confirmation dans le panneau, puis retire les associations cochées du stockage local. Chaque retrait est journalisé et restaurable.",
+    "Kind": "Button",
+    "Source": "L04-relations"
+  },
+  {
+    "Name": "BtnLinkOrphanClose",
+    "Title": "Fermer la liste des orphelines",
+    "Text": "Ferme la liste sans rien retirer.",
+    "Kind": "Button",
+    "Source": "L04-relations"
+  },
+  {
+    "Name": "BtnLinkOrphanConfirmApply",
+    "Title": "Confirmer le retrait",
+    "Text": "Retire les associations orphelines cochées du stockage local. Active Directory n’est pas modifié.",
+    "Kind": "Button",
+    "Source": "L04-relations"
+  },
+  {
+    "Name": "BtnLinkOrphanConfirmCancel",
+    "Title": "Annuler le retrait",
+    "Text": "Revient à la liste sans rien retirer.",
+    "Kind": "Button",
+    "Source": "L04-relations"
   }
 ]

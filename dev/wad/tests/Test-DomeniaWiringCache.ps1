@@ -216,7 +216,8 @@ Test-Case 'D028 : Merge-DomeniaLiveLinkMemory (RelationsSymmetry) demande la per
     Assert-Equal 0 @($script:UserMachineLinks).Count
 }
 
-Test-Case 'D028 : Merge-DomeniaLiveLinkMemory (repli) demande la persistance a la fin' {
+Test-Case 'D028 / CD-06 : Merge-DomeniaLiveLinkMemory ignore l ancien interrupteur et passe toujours par la regle de relation' {
+    # CD-06 (L04): the RC1.10.7 fallback (overwrite of the workstation row, fixed score) is removed; the switch is no longer read.
     Set-Item function:script:Request-DomeniaLinkPersistence { $script:RequestCalls++ }
     $script:FeatureFlagValue = $false
     $obs = [pscustomobject]@{
@@ -226,7 +227,8 @@ Test-Case 'D028 : Merge-DomeniaLiveLinkMemory (repli) demande la persistance a l
     }
     Merge-DomeniaLiveLinkMemory $obs
     Assert-Equal 1 $script:RequestCalls
-    Assert-Equal 1 @($script:UserMachineLinks).Count
+    Assert-Equal 1 $script:RelationCalls
+    Assert-Equal 0 @($script:UserMachineLinks).Count
 }
 
 Test-Case 'D028 : parcours explicite sans parametre refuse toujours plus de 64 ecarts' {
@@ -3173,24 +3175,25 @@ Test-Case 'D029 : admission centrale bloque les nouveaux producteurs pendant pur
         Assert-True ($message -match 'purge locale est encore active') ($operation+': '+$message)
     }
 }
-Test-Case 'D029 : nettoyage des orphelins conserve les sources declarees et une promotion tardive' {
+Test-Case 'D029 / UX-40 : le controle des orphelins ne propose que les sources automatiques et ne retire rien sans confirmation' {
+    # UX-40 (L04): the result is listed in Relations (Show-DomeniaOrphanLinks); the confirmed, journaled and restorable
+    # removal and the late promotion are proven in Test-DomeniaWiringRelations.ps1.
     . ([scriptblock]::Create($script:OrphanPruneDefinition))
     function Start-UiTask {param($Name,$OperationId,$Code,$Payload,$ReplaceKey,$DisableControls,$TimeoutSeconds,$StatusText,$OnSuccess,$OnError) $script:OrphanPayload=$Payload;$script:OrphanComplete=$OnSuccess}
-    function Confirm-Action {param($Message) return $true}
+    function Confirm-Action {param($Message) $script:OrphanConfirms++;return $true}
     function Save-UserMachineLinks {$script:OrphanSaves++;return $true}
     function Show-ErrorBox {param($Message) throw $Message}
-    $script:OrphanSaves=0
+    function Show-DomeniaOrphanLinks {param($Result) $script:OrphanShown=$Result}
+    $script:OrphanSaves=0;$script:OrphanConfirms=0;$script:OrphanShown=$null
     $script:UserMachineLinks=@(foreach($source in @('Manual',' Saisie manuelle ','import csv','Journal du controleur')){[pscustomobject]@{UserLogin='user';Computer=$source;Source=$source;When='old'}})
     Start-PruneOrphanLinks
     Assert-Equal 1 @($script:OrphanPayload.Links).Count
     $auto=$script:OrphanPayload.Links[0]
+    Assert-Equal 'Journal du controleur' ([string]$auto.Source)
     $result=[pscustomobject]@{Checked=1;Rows=@([pscustomobject]@{UserLogin=$auto.UserLogin;Computer=$auto.Computer;When=$auto.When;UserExists=$false;ComputerExists=$false})}
-    $auto.Source='Import CSV'
     & $script:OrphanComplete $result
-    Assert-Equal 4 $script:UserMachineLinks.Count;Assert-Equal 0 $script:OrphanSaves
-    $auto.Source='Journal du controleur'
-    & $script:OrphanComplete $result
-    Assert-Equal 3 $script:UserMachineLinks.Count;Assert-Equal 1 $script:OrphanSaves
+    Assert-True ([object]::ReferenceEquals($script:OrphanShown,$result)) 'Resultat non transmis a la liste de la page'
+    Assert-Equal 4 $script:UserMachineLinks.Count;Assert-Equal 0 $script:OrphanSaves;Assert-Equal 0 $script:OrphanConfirms
 }
 Test-Case 'D029 : vrais evenements WPF de simulation et confirmation raccordes au coeur' {
     . ([scriptblock]::Create($script:PurgeFixtureDefinitions))
@@ -3278,6 +3281,27 @@ Test-Case 'Parc : utilisateur recree connu sous le meme DN ou login invalide le 
 Test-Case 'Parc : resultat vide reste vide et aucune expansion implicite' {
     $root=New-LegacySandbox
     try{$read=Invoke-ParkTargetsFixture -Scope Results;Assert-Equal 0 $read.Rows.Count}finally{Remove-Item $root -Recurse -Force}
+}
+Test-Case 'CO-08 : LocalIndexRead ResolveNames lit en lecture seule les comptes et postes d un import' {
+    # L04 review: the import preview checks the accounts and workstations of the file in the SQLite index through the
+    # pinned worker (never $script:IndexRows, which the application does not fill). Exact names only, no network.
+    $root=New-LegacySandbox
+    try{
+        $Payload=[pscustomobject]@{Action='ResolveNames';Path=$script:TestDbPath;BusyTimeoutMs=250;Users=@('carol','zed');Computers=@('PC-NEW','PC-ZED')}
+        $empty=& ([scriptblock]::Create((Get-DomeniaLocalIndexReadWorkerCode)))
+        Assert-Equal 0 ([int]$empty.IndexCount) 'Index vide';Assert-Equal 0 @($empty.Users).Count;Assert-False ([bool]$empty.Busy)
+        $db=Open-DomeniaDatabase -Path $script:TestDbPath
+        try{[void](Invoke-DomeniaDbExec "INSERT INTO ad_objects(object_key,object_guid,object_type,name,login,state,distinguished_name) VALUES('u1','user-guid','Utilisateur','Carol','CAROL','Actif','CN=Carol,DC=example,DC=invalid'); INSERT INTO ad_objects(object_key,object_guid,object_type,name,login,state,distinguished_name) VALUES('m1','machine-guid','Machine','pc-new','PC-NEW$','Actif','CN=PC-NEW,DC=example,DC=invalid'); INSERT INTO ad_objects(object_key,object_guid,object_type,name,login,state,distinguished_name) VALUES('u2','other-guid','Utilisateur','PC-ZED','pc-zed','Actif','CN=PC-ZED,DC=example,DC=invalid');" $db)}finally{Close-DomeniaDatabase $db}
+        $found=& ([scriptblock]::Create((Get-DomeniaLocalIndexReadWorkerCode)))
+        Assert-Equal 3 ([int]$found.IndexCount)
+        Assert-Equal 1 @($found.Users).Count 'Compte trouve par son identifiant, sans tenir compte de la casse'
+        Assert-Equal 'user-guid' ([string]@($found.Users)[0].object_guid)
+        Assert-Equal 1 @($found.Computers).Count 'Poste trouve par son nom, un utilisateur homonyme ignore'
+        Assert-Equal 'machine-guid' ([string]@($found.Computers)[0].object_guid)
+        $Payload=[pscustomobject]@{Action='ResolveNames';Path=$script:TestDbPath;BusyTimeoutMs=250;Users=@("x' OR 1=1 --");Computers=@()}
+        Assert-Equal 0 @((& ([scriptblock]::Create((Get-DomeniaLocalIndexReadWorkerCode)))).Users).Count 'Nom non echappe'
+        Assert-Equal 0 ([int](Get-LegacyCount 'user_machine_links')) 'Lecture qui ecrit'
+    }finally{Remove-Item $root -Recurse -Force}
 }
 Test-Case 'Parc : cache durable fait partie de la mesure et de la purge explicite' {
     $root=New-LegacySandbox

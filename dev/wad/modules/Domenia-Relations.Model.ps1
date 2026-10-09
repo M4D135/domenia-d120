@@ -155,6 +155,85 @@ function Resolve-DomeniaRelationUpsert {
     return [pscustomobject]@{Action='Add';Replace=$null;Reason='Nouvelle relation ajoutee sans retirer les relations existantes.'}
 }
 
+# ---------------------------------------------------------------- CO-29 relation dates
+# Instants already read, by stored text, for the session: the same few thousand dates are sorted, qualified and shown
+# on every refresh (review L04: three nested calls per date cost about one second for 3000 associations). A date
+# text gives the same instant for the whole session (time zone of the workstation).
+$script:DomeniaRelationWhenMemo = $null
+
+function ConvertTo-DomeniaRelationUtcDate {
+    # Date of a relation as a UTC DateTime, or $null. Relation dates are stored as UTC ISO 8601 ("o"). A date
+    # without offset was written in local time before RC1.14 (manual and imported rows "yyyy-MM-dd HH:mm:ss",
+    # Live rows "s"): it is read as local time, never as UTC. Texts are parsed once (same rules as
+    # ConvertTo-DomeniaUtcDate -AssumeLocal) and kept in a bounded session memo.
+    param($Value)
+    if ($null -ne $Value -and $Value -isnot [string]) { return (ConvertTo-DomeniaUtcDate $Value -AssumeLocal) }
+    $text = [string]$Value
+    $memo = $script:DomeniaRelationWhenMemo
+    if ($null -eq $memo -or $memo.Count -ge 50000) {
+        $memo = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([StringComparer]::Ordinal)
+        $script:DomeniaRelationWhenMemo = $memo
+    }
+    $known = $null
+    if ($memo.TryGetValue($text,[ref]$known)) { return $known }
+    $utc = $null
+    $trimmed = $text.Trim()
+    if ($trimmed) {
+        # An AD FILETIME written as digits keeps the general reader; every relation date is a date text.
+        if ($trimmed -match '^\d{12,19}$') { $utc = ConvertTo-DomeniaUtcDate $trimmed -AssumeLocal }
+        else {
+            $parsed = [datetime]::MinValue
+            $styles = [Globalization.DateTimeStyles]::AssumeLocal -bor [Globalization.DateTimeStyles]::AdjustToUniversal
+            if ([datetime]::TryParse($trimmed,[Globalization.CultureInfo]::InvariantCulture,$styles,[ref]$parsed)) { $utc = $parsed }
+        }
+    }
+    $memo[$text] = $utc
+    return $utc
+}
+
+function Get-DomeniaRelationWhenTicks {
+    # CO-29: UTC ticks of many relation dates in one call (0 when unreadable), for sorting without one call per row.
+    param([AllowEmptyCollection()][string[]]$Values=@())
+    $list = @($Values)
+    $ticks = New-Object 'long[]' $list.Count
+    for ($i = 0; $i -lt $list.Count; $i++) {
+        $utc = ConvertTo-DomeniaRelationUtcDate ([string]$list[$i])
+        if ($null -ne $utc) { $ticks[$i] = $utc.Ticks }
+    }
+    return ,$ticks
+}
+
+function ConvertTo-DomeniaRelationWhenText {
+    # Storage form of a relation date: UTC ISO 8601 ("o"). An unreadable value gives '' (the caller decides).
+    param($Value)
+    $utc = ConvertTo-DomeniaRelationUtcDate $Value
+    if ($null -eq $utc) { return '' }
+    return $utc.ToString('o',[Globalization.CultureInfo]::InvariantCulture)
+}
+
+function Format-DomeniaRelationWhen {
+    # Local display of a relation date: "08/10 09:15" this year, "08/10/2025 09:15" for another year, '' when unreadable.
+    param($Value,$NowUtc=$null)
+    $utc = $Value
+    if ($Value -isnot [datetime] -or $Value.Kind -ne [DateTimeKind]::Utc) { $utc = ConvertTo-DomeniaRelationUtcDate $Value }
+    if ($null -eq $utc) { return '' }
+    $now = $null
+    if ($null -ne $NowUtc) { $now = ConvertTo-DomeniaUtcDate $NowUtc }
+    if ($null -eq $now) { $now = [datetime]::UtcNow }
+    $local = $utc.ToLocalTime()
+    $format = 'dd/MM HH:mm'
+    if ($local.Year -ne $now.ToLocalTime().Year) { $format = 'dd/MM/yyyy HH:mm' }
+    return $local.ToString($format,[Globalization.CultureInfo]::InvariantCulture)
+}
+
+function Get-DomeniaRelationWhenSortKey {
+    # Sort key of the Date columns: the UTC instant; an unreadable date sorts as the oldest.
+    param($Value)
+    $utc = ConvertTo-DomeniaRelationUtcDate $Value
+    if ($null -eq $utc) { return [datetime]::MinValue }
+    return $utc
+}
+
 function Select-DomeniaPrimaryRelation {
     # The relation shown first for a workstation: a declared assignment, otherwise the most recent relation.
     param([object[]]$Relations=@())
@@ -164,7 +243,7 @@ function Select-DomeniaPrimaryRelation {
         $kind = [string](Get-DomeniaMember $relation 'Kind' '')
         if (-not $kind) { $kind = Get-DomeniaRelationKind ([string](Get-DomeniaMember $relation 'Source' '')) }
         $declared = ($kind -eq 'Affectation')
-        $when = ConvertTo-DomeniaUtcDate (Get-DomeniaMember $relation 'When' $null)
+        $when = ConvertTo-DomeniaRelationUtcDate (Get-DomeniaMember $relation 'When' $null)
         if ($null -eq $best) { $best = $relation; $bestDeclared = $declared; $bestWhen = $when; continue }
         if ($declared -and -not $bestDeclared) { $best = $relation; $bestDeclared = $true; $bestWhen = $when; continue }
         if ($declared -ne $bestDeclared) { continue }
@@ -192,8 +271,8 @@ function Resolve-DomeniaRelationStoragePlacement {
     if ($incomingKind -eq 'Affectation') {
         return [pscustomobject]@{Placement='Replace';Demoted=$Stored;Reason='Affectation declaree enregistree ; la relation observee precedente reste visible pour la session.'}
     }
-    $storedWhen = ConvertTo-DomeniaUtcDate (Get-DomeniaMember $Stored 'When' $null)
-    $incomingWhen = ConvertTo-DomeniaUtcDate (Get-DomeniaMember $Incoming 'When' $null)
+    $storedWhen = ConvertTo-DomeniaRelationUtcDate (Get-DomeniaMember $Stored 'When' $null)
+    $incomingWhen = ConvertTo-DomeniaRelationUtcDate (Get-DomeniaMember $Incoming 'When' $null)
     if ($null -ne $incomingWhen -and ($null -eq $storedWhen -or $incomingWhen -gt $storedWhen)) {
         return [pscustomobject]@{Placement='Replace';Demoted=$Stored;Reason='Observation plus recente enregistree ; la precedente reste visible pour la session.'}
     }
@@ -227,26 +306,45 @@ function Get-DomeniaEvidenceKind {
     }
 }
 
+function Get-DomeniaEvidenceLabel {
+    # DS-17: display label of an internal qualification key. The key (Badge) stays stable for filters, tests and logs.
+    param([AllowEmptyString()][AllowNull()][string]$Badge)
+    switch ([string]$Badge) {
+        'Declare'           { return 'Déclaré' }
+        'Observe'           { return 'Observé' }
+        'Importe'           { return 'Importé' }
+        'Indice'            { return 'Indice' }
+        'Contradictoire'    { return 'Contradictoire' }
+        'Source a verifier' { return 'À vérifier' }
+    }
+    return [string]$Badge
+}
+
 function Get-DomeniaEvidenceBadge {
     # A badge with the rule that produced it. No percentage: no reliability rate has ever been measured.
+    # Badge is the internal key; Label is the text shown on the chip (DS-17).
     param($Relation,[bool]$Contradicted=$false)
     $source = [string](Get-DomeniaMember $Relation 'Source' '')
     $kind = [string](Get-DomeniaMember $Relation 'Kind' '')
     if (-not $kind) { $kind = Get-DomeniaRelationKind $source }
     $when = [string](Get-DomeniaMember $Relation 'When' '')
-    $badge = 'Source a verifier'; $rule = 'Origine non reconnue : a verifier avant de s y fier.'
+    $badge = 'Source a verifier'; $rule = 'Origine non reconnue : à vérifier avant de sʼy fier.'
     switch ($kind) {
-        'Affectation' { $badge = 'Declare'; $rule = 'Association declaree par un operateur dans Domenia.' }
-        'Console'     { $badge = 'Observe'; $rule = 'Session console lue sur le poste a la date indiquee. Une observation ne vaut pas affectation.' }
-        'SessionRdp'  { $badge = 'Observe'; $rule = 'Session distante lue sur le poste a la date indiquee. Une observation ne vaut pas affectation.' }
-        'Historique'  { $badge = 'Observe'; $rule = 'Ouverture de session ancienne relevee dans un journal. Historique, pas presence actuelle.' }
-        'Importe'     { $badge = 'Importe'; $rule = 'Ligne reprise d un fichier importe. Exactitude dependante du fichier source.' }
-        'Indice'      { $badge = 'Indice'; $rule = 'Attribut AD ou inventaire qui suggere un lien, sans observation de session.' }
+        'Affectation' { $badge = 'Declare'; $rule = 'Association déclarée par un opérateur dans Domenia.' }
+        'Console'     { $badge = 'Observe'; $rule = 'Session console lue sur le poste à la date indiquée. Une observation ne vaut pas affectation.' }
+        'SessionRdp'  { $badge = 'Observe'; $rule = 'Session distante lue sur le poste à la date indiquée. Une observation ne vaut pas affectation.' }
+        'Historique'  { $badge = 'Observe'; $rule = 'Ouverture de session ancienne relevée dans un journal. Historique, pas présence actuelle.' }
+        'Importe'     { $badge = 'Importe'; $rule = 'Ligne reprise dʼun fichier importé. Exactitude dépendante du fichier source.' }
+        'Indice'      { $badge = 'Indice'; $rule = 'Attribut AD ou inventaire qui suggère un lien, sans observation de session.' }
     }
-    if ($Contradicted) { $badge = 'Contradictoire'; $rule = 'Des sources differentes designent des comptes differents pour ce poste. Aucune fusion automatique.' }
+    if ($Contradicted) { $badge = 'Contradictoire'; $rule = 'Des sources différentes désignent des comptes différents pour ce poste. Aucune fusion automatique.' }
     $provenance = $source
-    if ($when) { $provenance = ($source + ' · ' + $when).Trim(' ','·') }
-    return [pscustomobject]@{Badge=$badge;Rule=$rule;Provenance=$provenance;Kind=$kind}
+    if ($when) {
+        $whenText = Format-DomeniaRelationWhen $when
+        if (-not $whenText) { $whenText = $when }
+        $provenance = ($source + ' · ' + $whenText).Trim(' ','·')
+    }
+    return [pscustomobject]@{Badge=$badge;Label=(Get-DomeniaEvidenceLabel $badge);Rule=$rule;Provenance=$provenance;Kind=$kind}
 }
 
 # ---------------------------------------------------------------- D045 in-page association
@@ -266,8 +364,36 @@ function Step-DomeniaAssociationState {
         'Verified'       { if ($State -eq 'Verifying') { $next = 'Saved' } }
         'VerifyFailed'   { if ($State -eq 'Verifying') { $next = 'Failed' } }
     }
-    if ($null -eq $next) { return [pscustomobject]@{State=$State;Accepted=$false;Reason=('Action « ' + $Event + ' » impossible dans l etat « ' + $State + ' ».')} }
-    return [pscustomobject]@{State=$next;Accepted=$true;Reason=''}
+    # CO-30: Reason is shown to the operator; Detail, with the internal names, is for the log only.
+    if ($null -eq $next) { return [pscustomobject]@{State=$State;Accepted=$false;Reason=(Get-DomeniaAssociationRefusal $State $Event);Detail=('Transition ' + $Event + ' refusée depuis ' + $State + '.')} }
+    return [pscustomobject]@{State=$next;Accepted=$true;Reason='';Detail=''}
+}
+
+function Get-DomeniaAssociationRefusal {
+    # CO-30: one French sentence per refused step of the association; no internal state or event name.
+    param([AllowEmptyString()][string]$State,[AllowEmptyString()][string]$Event)
+    switch ($Event) {
+        'Pick' {
+            if ($State -eq 'Pending') { return 'Une association attend déjà sa confirmation : confirmez-la ou annulez-la avant dʼen choisir une autre.' }
+            if ($State -eq 'Verifying') { return 'Vérification en cours : attendez son résultat avant de choisir une autre ligne.' }
+            if ($State -eq 'Searching') { return 'Recherche en cours : attendez les résultats avant de choisir une ligne.' }
+            # Idle with rows still listed: the detection was stopped or interrupted, its list is no longer active.
+            return 'Cette liste nʼest plus active (détection arrêtée, interrompue ou aucune lancée) : relancez la détection ou la recherche, puis choisissez une ligne.'
+        }
+        'Confirm' {
+            if ($State -eq 'Verifying') { return 'Vérification déjà en cours : attendez son résultat.' }
+            return 'Confirmation impossible : choisissez dʼabord une ligne dans les résultats.'
+        }
+        'Search' {
+            if ($State -in @('Pending','Verifying')) { return 'Une association attend sa confirmation : confirmez-la ou annulez-la avant une nouvelle recherche.' }
+            if ($State -eq 'Searching') { return 'Une recherche est déjà en cours : attendez son résultat ou arrêtez-la.' }
+        }
+        'Results' { return 'Résultats ignorés : aucune recherche nʼest en cours.' }
+        'Verified' { return 'Résultat de vérification ignoré : aucune vérification nʼest en cours.' }
+        'VerifyFailed' { return 'Résultat de vérification ignoré : aucune vérification nʼest en cours.' }
+        'Cancel' { return 'Rien à annuler : aucune association en cours.' }
+    }
+    return 'Action impossible à cette étape de lʼassociation.'
 }
 
 # ---------------------------------------------------------------- D046 candidates from several proofs
@@ -506,4 +632,110 @@ function Get-DomeniaLinkConflicts {
             Relations=@($declared + $others)
         }
     }
+}
+
+function Get-DomeniaRelationRestoreLabel {
+    # CO-28: the restore button names the association it puts back ("Restaurer jdupont → PC01").
+    param($Entry)
+    $relation = Get-DomeniaMember $Entry 'Relation' $null
+    $user = [string](Get-DomeniaMember $relation 'UserLogin' ''); $computer = [string](Get-DomeniaMember $relation 'Computer' '')
+    if (-not $user -or -not $computer) { return 'Restaurer la suppression' }
+    $label = 'Restaurer ' + $user + ' → ' + $computer
+    if ($label.Length -gt 48) { $label = $label.Substring(0,47) + [string][char]0x2026 }
+    return $label
+}
+
+# ---------------------------------------------------------------- UX-40 orphans, FO-14 filter
+function Get-DomeniaOrphanReason {
+    # UX-40: why a stored association is listed as orphan, in words. The check reads names in the directory:
+    # an absent name is a deleted or renamed object, never a proven deletion.
+    param([bool]$UserExists,[bool]$ComputerExists)
+    if (-not $UserExists -and -not $ComputerExists) { return 'Compte et poste absents dʼActive Directory (supprimés ou renommés).' }
+    if (-not $UserExists) { return 'Compte absent dʼActive Directory (supprimé ou renommé).' }
+    if (-not $ComputerExists) { return 'Poste absent dʼActive Directory (supprimé ou renommé).' }
+    return ''
+}
+
+function Test-DomeniaRelationMatchesFilter {
+    # FO-14: text filter (user, workstation, source, details, label) and qualification chips of Toutes les associations.
+    param($Relation,[AllowEmptyString()][string]$Text='',[string[]]$Badges=@())
+    if ($null -eq $Relation) { return $false }
+    $wanted = @(@($Badges) | Where-Object { $_ })
+    if ($wanted.Count -gt 0 -and ([string](Get-DomeniaMember $Relation 'Badge' '')) -notin $wanted) { return $false }
+    $needle = ([string]$Text).Trim()
+    if (-not $needle) { return $true }
+    foreach ($name in @('UserLogin','Computer','Source','Details','BadgeLabel')) {
+        if (([string](Get-DomeniaMember $Relation $name '')).IndexOf($needle,[StringComparison]::OrdinalIgnoreCase) -ge 0) { return $true }
+    }
+    return $false
+}
+
+# ---------------------------------------------------------------- CO-08 CSV import with preview
+function ConvertFrom-DomeniaLinkCsvRow {
+    # Reads the columns of one CSV row. Source, Confidence and VerifiedInAD are never taken from the file:
+    # an imported row must not pass for a declaration, and the file source is only kept as a detail.
+    param($Row)
+    $values = [ordered]@{User='';Computer='';FileSource='';Details='';When=''}
+    if ($null -ne $Row) {
+        $columns = [ordered]@{User=@('UserLogin','User','Username','LastUser','SamAccountName');Computer=@('Computer','ComputerName','Hostname','Host','Machine','Name');FileSource=@('Source');Details=@('Details');When=@('When')}
+        foreach ($key in @($columns.Keys)) {
+            foreach ($name in @($columns[$key])) {
+                $property = $Row.PSObject.Properties[$name]
+                if ($null -ne $property -and -not [string]::IsNullOrWhiteSpace([string]$property.Value)) { $values[$key] = ([string]$property.Value).Trim(); break }
+            }
+        }
+    }
+    return [pscustomobject]$values
+}
+
+function Get-DomeniaLinkImportStatus {
+    # CO-08: what the import preview says about one row. Nothing here reads the directory: the local index
+    # lookups are given by the caller. A workstation that already has a stored association is never replaced.
+    # -Unverified says why the presence in Active Directory is not checked (index empty, unreadable or being read).
+    # -ReadyBefore: rows already retained above; the storage takes 64 changes per request (Queue-DomeniaLinkChanges),
+    # so the rows beyond -BatchLimit are left for a second import of the same file.
+    param([AllowEmptyString()][string]$User='',[AllowEmptyString()][string]$Computer='',[AllowEmptyString()][string]$StoredLogin='',[bool]$DuplicateInFile=$false,[bool]$IndexAvailable=$false,[bool]$UserKnown=$false,[bool]$ComputerKnown=$false,[AllowEmptyString()][string]$Unverified='',[int]$ReadyBefore=0,[int]$BatchLimit=64)
+    if (-not $User -or -not $Computer) { return [pscustomobject]@{Status='Ignorée';Import=$false;Verified=$false;Reason='Utilisateur ou poste manquant ou illisible.'} }
+    if ($DuplicateInFile) { return [pscustomobject]@{Status='Ignorée';Import=$false;Verified=$false;Reason='Poste déjà présent plus haut dans le fichier.'} }
+    if ($StoredLogin) {
+        if ((ConvertTo-DomeniaRelationLoginKey $StoredLogin) -eq (ConvertTo-DomeniaRelationLoginKey $User)) { return [pscustomobject]@{Status='Ignorée';Import=$false;Verified=$false;Reason='Association déjà connue.'} }
+        return [pscustomobject]@{Status='Ignorée';Import=$false;Verified=$false;Reason=('Poste déjà associé à ' + $StoredLogin + ' : aucune association remplacée.')}
+    }
+    if ($IndexAvailable -and (-not $UserKnown -or -not $ComputerKnown)) {
+        $missing = 'poste absent'
+        if (-not $UserKnown -and -not $ComputerKnown) { $missing = 'compte et poste absents' } elseif (-not $UserKnown) { $missing = 'compte absent' }
+        return [pscustomobject]@{Status='Inconnue';Import=$false;Verified=$false;Reason=('Inconnue dans lʼannuaire : ' + $missing + ' de lʼindex local. Ligne non importée.')}
+    }
+    if ($BatchLimit -gt 0 -and $ReadyBefore -ge $BatchLimit) {
+        return [pscustomobject]@{Status='Ignorée';Import=$false;Verified=$false;Reason=('Au-delà de ' + $BatchLimit + ' associations par import : importez à nouveau le même fichier ensuite, les lignes déjà importées seront reconnues.')}
+    }
+    if (-not $IndexAvailable) {
+        $why = ([string]$Unverified).Trim()
+        if (-not $why) { $why = 'index local non lu' }
+        return [pscustomobject]@{Status='À importer';Import=$true;Verified=$false;Reason=('Présence dans Active Directory non vérifiée : ' + $why + '.')}
+    }
+    return [pscustomobject]@{Status='À importer';Import=$true;Verified=$true;Reason='Compte et poste connus de lʼindex local.'}
+}
+
+function New-DomeniaImportedRelation {
+    # CO-08: an imported relation always carries Source "Import CSV" (badge Importé), no score and a UTC date.
+    # Only an ISO date (yyyy-MM-dd...) of the file is kept: "08/10/2026" is ambiguous and the import date is used.
+    param([string]$User,[string]$Computer,[AllowEmptyString()][string]$FileName='',[int]$Line=0,[AllowEmptyString()][string]$FileSource='',[AllowEmptyString()][string]$FileDetails='',[AllowEmptyString()][string]$When='',[bool]$Verified=$false,[string]$UserGuid='',[string]$ComputerGuid='',[string]$UserDn='',[string]$ComputerDn='',$NowUtc=$null)
+    $whenText = ''
+    $note = ''
+    if ($When -match '^\s*\d{4}-\d{2}-\d{2}([ T]\d{2}:\d{2}(:\d{2}(\.\d+)?)?)?(Z|[+-]\d{2}:?\d{2})?\s*$') { $whenText = ConvertTo-DomeniaRelationWhenText $When }
+    elseif ($When) { $note = ' Date du fichier non reconnue (' + $When + ') : date de lʼimport retenue.' }
+    if (-not $whenText) {
+        $now = ConvertTo-DomeniaUtcDate $NowUtc
+        if ($null -eq $now) { $now = [datetime]::UtcNow }
+        $whenText = $now.ToString('o',[Globalization.CultureInfo]::InvariantCulture)
+    }
+    # Import-Csv skips blank lines and joins quoted multi-line fields: the number is the record of the file, not its line.
+    $details = 'Importé depuis ' + $FileName
+    if ($Line -gt 0) { $details += ', enregistrement ' + $Line }
+    $details += '.' + $note
+    if ($FileSource) { $details += ' Source indiquée dans le fichier : ' + $FileSource + ' (non reprise).' }
+    if ($FileDetails) { $details += ' ' + $FileDetails }
+    if ($details.Length -gt 400) { $details = $details.Substring(0,399) + [string][char]0x2026 }
+    return [pscustomobject]@{UserLogin=$User;Computer=$Computer;Source='Import CSV';Confidence=0;VerifiedInAD=$Verified;When=$whenText;Details=$details;UserGuid=$UserGuid;ComputerGuid=$ComputerGuid;UserDn=$UserDn;ComputerDn=$ComputerDn;Kind='Importe'}
 }

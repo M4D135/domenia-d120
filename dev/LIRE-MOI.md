@@ -106,3 +106,20 @@ Les contrôles de construction vérifient les manifestes, les empreintes, le con
 Aucun accès AD réel n'a été testé. Les archives restent des **candidates** : la qualification formelle liée aux SHA-256
 des deux ZIP n'est pas acquise. Le suivi D001-D120 conserve explicitement ses points restants ; cette livraison ne prétend
 pas les clôturer tous. Le lanceur natif est conservé à l'octet et reste non signé.
+
+## Notes de version : relations utilisateur / poste (lot L04, RC1.14)
+
+- Page Relations en deux zones (associations du sujet, panneau « Ajouter une association » avec Détecter | Rechercher),
+  un seul statut, précautions derrière « ? » ; qualification en puces (Déclaré, Observé, Contradictoire) ; filtre, puces
+  et compteur dans « Toutes les associations », double-clic et clic droit vers la fiche.
+- Dates des associations enregistrées en UTC et affichées en heure locale, y compris sur la fiche du poste ; une ancienne
+  date sans fuseau est lue comme une heure locale.
+- Import CSV avec aperçu dans la page : comptes et postes vérifiés dans l'index local (sans réseau), source forcée
+  « Import CSV », 64 associations au plus par import, « Annuler l'import » confirmé dans la page.
+- « Restaurer » nomme l'association remise et n'est actif que s'il y a quelque chose à restaurer ; associations orphelines
+  listées avec leur motif, retirées après confirmation (64 au plus par retrait), journalisées et restaurables.
+- Ancien chemin RC1.10.7 retiré : clés Features.RelationsSymmetry, Features.DetectionPreview et
+  UserMachineLink.LinkStaleHours supprimées de la configuration par défaut.
+- Opérations worker épinglées modifiées : **LegacyMigration** (reprise des anciennes données : une date d'association
+  sans fuseau est lue comme une heure locale pour choisir l'association la plus récente) et **LocalIndexRead** (nouvelle
+  lecture `ResolveNames` de l'aperçu d'import, en lecture seule).

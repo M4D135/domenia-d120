@@ -5679,129 +5679,254 @@ function Get-MainXaml {
               <TabItem x:Name="TabRelations" ToolTip="Associations du compte ou du poste sélectionné. Les recherches et confirmations restent dans cette page." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Relations utilisateur et poste" AutomationProperties.HelpText="Associations du compte ou du poste sélectionné. Les recherches et confirmations restent dans cette page." Header="Relations">
                 <Border Style="{StaticResource Card}" Margin="4">
                   <Grid>
-                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                    <StackPanel Grid.Row="0" Margin="0,0,0,12">
-                      <TextBlock Text="Relations utilisateur / poste" FontSize="18" FontWeight="SemiBold"/>
-                      <TextBlock x:Name="LblRelationsSelection" Text="Sélectionnez un utilisateur ou un poste depuis Rechercher." FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource AccentText}" Margin="0,6,0,4" TextWrapping="Wrap"/>
-                      <TextBlock Text="Une association mémorisée n'est pas une preuve de session ouverte. La détection réseau reste volontaire." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap"/>
-                      <TextBlock Text="Détection des utilisateurs connectés : dans Rechercher, filtrez la liste puis « Détecter la liste ». Aucune détection sur tout le parc." Foreground="{DynamicResource MutedColor}" Margin="0,6,0,4" TextWrapping="Wrap"/>
-                      <TextBlock x:Name="LblParkDetectionStatus" Text="Cache conserve ; detection uniquement sur demande." TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
-                      <TextBlock x:Name="LblLinkProbeStatus" Text="Aucune recherche complémentaire en cours." Foreground="{DynamicResource MutedColor}" Margin="0,6,0,0" TextWrapping="Wrap"/>
-                    </StackPanel>
+                    <Grid.Resources>
+                      <!-- DS-17 : puce de qualification. Badge est la clé interne, BadgeLabel le libellé, BadgeRule la règle en infobulle. -->
+                      <DataTemplate x:Key="RelationBadgeChip">
+                        <Border CornerRadius="9" Padding="8,1" Margin="0,2" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTip="{Binding BadgeRule}">
+                          <Border.Style>
+                            <Style TargetType="Border">
+                              <Setter Property="Background" Value="#E5E7EB"/>
+                              <Style.Triggers>
+                                <DataTrigger Binding="{Binding Badge}" Value="Declare"><Setter Property="Background" Value="#DBEAFE"/></DataTrigger>
+                                <DataTrigger Binding="{Binding Badge}" Value="Observe"><Setter Property="Background" Value="#DCFCE7"/></DataTrigger>
+                                <DataTrigger Binding="{Binding Badge}" Value="Contradictoire"><Setter Property="Background" Value="#FFEDD5"/></DataTrigger>
+                              </Style.Triggers>
+                            </Style>
+                          </Border.Style>
+                          <TextBlock Text="{Binding BadgeLabel}" FontSize="12" FontWeight="SemiBold">
+                            <TextBlock.Style>
+                              <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="#374151"/>
+                                <Style.Triggers>
+                                  <DataTrigger Binding="{Binding Badge}" Value="Declare"><Setter Property="Foreground" Value="#1E3A8A"/></DataTrigger>
+                                  <DataTrigger Binding="{Binding Badge}" Value="Observe"><Setter Property="Foreground" Value="#14532D"/></DataTrigger>
+                                  <DataTrigger Binding="{Binding Badge}" Value="Contradictoire"><Setter Property="Foreground" Value="#7C2D12"/></DataTrigger>
+                                </Style.Triggers>
+                              </Style>
+                            </TextBlock.Style>
+                          </TextBlock>
+                        </Border>
+                      </DataTemplate>
+                      <!-- FO-14 : puce de filtre ; la couleur cochée est donnée par Tag. -->
+                      <Style x:Key="RelationChipToggle" TargetType="ToggleButton">
+                        <Setter Property="Margin" Value="0,0,6,0"/>
+                        <Setter Property="Cursor" Value="Hand"/>
+                        <Setter Property="Foreground" Value="{DynamicResource TextColor}"/>
+                        <Setter Property="Background" Value="{DynamicResource BgInput}"/>
+                        <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
+                        <Setter Property="Template">
+                          <Setter.Value>
+                            <ControlTemplate TargetType="ToggleButton">
+                              <Border x:Name="Chip" CornerRadius="11" Padding="10,3" BorderThickness="1" BorderBrush="{DynamicResource BorderColor}" Background="{TemplateBinding Background}" SnapsToDevicePixels="True">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                              </Border>
+                              <ControlTemplate.Triggers>
+                                <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Chip" Property="BorderBrush" Value="{DynamicResource AccentColor}"/></Trigger>
+                              </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                          </Setter.Value>
+                        </Setter>
+                        <Style.Triggers>
+                          <Trigger Property="IsChecked" Value="True">
+                            <Setter Property="Background" Value="{Binding Tag, RelativeSource={RelativeSource Self}}"/>
+                            <Setter Property="Foreground" Value="#1F2937"/>
+                          </Trigger>
+                        </Style.Triggers>
+                      </Style>
+                    </Grid.Resources>
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                    <!-- UI-09 : un seul statut dans l'en-tête ; les précautions sont derrière « ? ». -->
+                    <Grid Grid.Row="0" Margin="0,0,0,10">
+                      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                      <StackPanel>
+                        <TextBlock Text="Relations utilisateur / poste" FontSize="18" FontWeight="SemiBold"/>
+                        <TextBlock x:Name="LblRelationsSelection" Text="Sélectionnez un utilisateur ou un poste depuis Rechercher." FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource AccentText}" Margin="0,6,0,2" TextWrapping="Wrap"/>
+                        <TextBlock x:Name="LblLinkProbeStatus" Text="Aucune recherche complémentaire en cours." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap"/>
+                      </StackPanel>
+                      <Button x:Name="BtnRelationsHelp" Grid.Column="1" Content="?" Width="34" Height="34" MinHeight="34" Padding="0" Margin="10,0,0,0" FontWeight="Bold" VerticalAlignment="Top" ToolTip="Affiche ou masque les précautions de cette page et lʼétat de la détection du parc." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Précautions des relations" AutomationProperties.HelpText="Affiche ou masque les précautions de cette page et lʼétat de la détection du parc."/>
+                    </Grid>
+                    <Border x:Name="RelationsHelpPanel" Grid.Row="1" Visibility="Collapsed" Background="{DynamicResource InfoBg}" BorderBrush="{DynamicResource InfoBorder}" BorderThickness="1" CornerRadius="10" Padding="12" Margin="0,0,0,10">
+                      <StackPanel>
+                        <TextBlock Text="Une association mémorisée nʼest pas une preuve de session ouverte. La détection réseau reste volontaire." Foreground="{DynamicResource InfoFg}" TextWrapping="Wrap"/>
+                        <TextBlock Text="Détection des utilisateurs connectés : dans Rechercher, filtrez la liste puis « Détecter la liste ». Aucune détection sur tout le parc." Foreground="{DynamicResource InfoFg}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                        <TextBlock Text="Les associations déclarées restent distinctes des observations automatiques ; aucune association ne modifie Active Directory." Foreground="{DynamicResource InfoFg}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                        <TextBlock x:Name="LblParkDetectionStatus" Text="Cache conservé ; détection uniquement sur demande." Foreground="{DynamicResource InfoFg}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                      </StackPanel>
+                    </Border>
 
-                    <TabControl x:Name="RelationTabs" Grid.Row="1" ToolTip="Associations du sujet sélectionné, ajout guidé, vue globale et diagnostic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vues des relations" AutomationProperties.HelpText="Associations du sujet sélectionné, ajout guidé, vue globale et diagnostic.">
-                      <TabItem x:Name="TabLinksSelected" Header="Associations" ToolTip="Associations mémorisées pour l'utilisateur ou le poste sélectionné.">
+                    <TabControl x:Name="RelationTabs" Grid.Row="2" ToolTip="Associations du sujet sélectionné avec le panneau Ajouter, vue globale et diagnostic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vues des relations" AutomationProperties.HelpText="Associations du sujet sélectionné avec le panneau Ajouter, vue globale et diagnostic.">
+                      <TabItem x:Name="TabLinksSelected" Header="Associations" ToolTip="Associations de lʼutilisateur ou du poste sélectionné, et panneau Ajouter.">
+                        <!-- UI-09 : deux zones, les associations du sujet à gauche, le panneau Ajouter (Détecter | Rechercher) à droite. -->
                         <Grid Margin="2,8,2,2">
-                          <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                          <Grid Grid.Row="0" Margin="0,0,0,10">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel>
+                          <Grid.ColumnDefinitions><ColumnDefinition Width="3*" MinWidth="320"/><ColumnDefinition Width="12"/><ColumnDefinition Width="2*" MinWidth="340"/></Grid.ColumnDefinitions>
+                          <Grid Grid.Column="0">
+                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                            <StackPanel Grid.Row="0" Margin="0,0,0,10">
                               <TextBlock x:Name="LblLinkContext" Text="Aucune sélection." Foreground="{DynamicResource AccentText}" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                              <TextBlock Text="Les liens manuels restent distincts des observations automatiques." Foreground="{DynamicResource MutedColor}" Margin="0,3,0,0" TextWrapping="Wrap"/>
+                              <WrapPanel Margin="0,8,0,0">
+                                <Button x:Name="BtnRemoveLink" Content="Supprimer lʼassociation" Style="{StaticResource DangerButton}" Margin="0,0,8,6" ToolTip="Retire uniquement le lien sélectionné, jamais lʼobjet Active Directory. La suppression est journalisée et restaurable."/>
+                                <Button x:Name="BtnRestoreLink" Content="Restaurer la suppression" IsEnabled="False" Margin="0,0,8,6" ToolTipService.ShowOnDisabled="True" ToolTip="Aucune suppression locale à restaurer."/>
+                                <Button x:Name="BtnOpenLinksCsv" Content="Exporter" Margin="0,0,8,6" ToolTip="Exporte les associations visibles dans cet onglet."/>
+                              </WrapPanel>
                             </StackPanel>
-                            <WrapPanel Grid.Column="1" HorizontalAlignment="Right">
-                              <Button x:Name="BtnRemoveLink" Content="Supprimer l'association" Style="{StaticResource DangerButton}" Margin="0,0,8,0" ToolTip="Retire uniquement le lien sélectionné, jamais l'objet Active Directory. La suppression est journalisée et restaurable."/>
-                              <Button x:Name="BtnRestoreLink" Content="Restaurer la suppression" IsEnabled="False" Margin="0,0,8,0" ToolTipService.ShowOnDisabled="True" ToolTip="Remet la dernière association supprimée localement, depuis le journal. Aucun objet Active Directory n'est lu ni modifié."/>
-                              <Button x:Name="BtnOpenLinksCsv" Content="Exporter" Margin="0,0,8,0" ToolTip="Exporte les associations visibles dans cet onglet."/>
-                            </WrapPanel>
+                            <Grid Grid.Row="1">
+                              <DataGrid x:Name="DgLinks" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" EnableRowVirtualization="True" VirtualizingPanel.VirtualizationMode="Recycling" MinRowHeight="31" ScrollViewer.HorizontalScrollBarVisibility="Auto" ToolTip="Associations mémorisées pour la sélection actuelle.">
+                                <DataGrid.Columns>
+                                  <DataGridTextColumn Header="Utilisateur" Binding="{Binding UserLogin}" SortMemberPath="UserLogin" Width="130"/>
+                                  <DataGridTextColumn Header="Machine" Binding="{Binding Computer}" SortMemberPath="Computer" Width="120"/>
+                                  <DataGridTemplateColumn Header="Qualification" Width="120" SortMemberPath="BadgeLabel" CellTemplate="{StaticResource RelationBadgeChip}"/>
+                                  <DataGridTextColumn Header="Date" Binding="{Binding WhenDisplay}" SortMemberPath="WhenSort" Width="100"/>
+                                  <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="150"/>
+                                  <DataGridTextColumn Header="Conservation" Binding="{Binding Persistence}" Width="115"/>
+                                  <DataGridTemplateColumn Header="Détails" Width="*" MinWidth="160"><DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding Details}" Style="{StaticResource WrappedCellText}" ToolTip="{Binding Details}"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                              </DataGrid>
+                              <Border x:Name="LinkEmptyPanel" Background="{DynamicResource BgCard}" Margin="1,32,1,1" Visibility="Collapsed" IsHitTestVisible="False"><TextBlock x:Name="LblLinkEmpty" Text="" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" TextAlignment="Center" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="520" Margin="24"/></Border>
+                            </Grid>
                           </Grid>
-                          <Grid Grid.Row="1">
-                            <DataGrid x:Name="DgLinks" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" EnableRowVirtualization="True" VirtualizingPanel.VirtualizationMode="Recycling" MinRowHeight="31" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ToolTip="Associations mémorisées pour la sélection actuelle.">
-                              <DataGrid.Columns>
-                                <DataGridTextColumn Header="Utilisateur" Binding="{Binding UserLogin}" Width="170"/>
-                                <DataGridTextColumn Header="Machine" Binding="{Binding Computer}" Width="170"/>
-                                <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="170"/>
-                                <DataGridTemplateColumn Header="Qualification" Width="115"><DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding Badge}" ToolTip="{Binding BadgeRule}" Style="{StaticResource WrappedCellText}"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
-                                <DataGridTextColumn Header="Conservation" Binding="{Binding Persistence}" Width="125"/>
-                                <DataGridTextColumn Header="Date" Binding="{Binding When}" Width="145"/>
-                                <DataGridTemplateColumn Header="Détails" Width="*"><DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding Details}" Style="{StaticResource WrappedCellText}" ToolTip="{Binding Details}"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
-                              </DataGrid.Columns>
-                            </DataGrid>
-                            <Border x:Name="LinkEmptyPanel" Background="{DynamicResource BgCard}" Margin="1,32,1,1" Visibility="Collapsed" IsHitTestVisible="False"><TextBlock x:Name="LblLinkEmpty" Text="" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" TextAlignment="Center" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="620" Margin="24"/></Border>
-                          </Grid>
-                        </Grid>
-                      </TabItem>
 
-                      <TabItem x:Name="TabLinksAssociate" Header="Associer" ToolTipService.ShowOnDisabled="True" ToolTip="Depuis un utilisateur : détecter ou rechercher ses postes. Depuis un poste : lire sa session ou rechercher un utilisateur. Tout reste dans cette page.">
-                        <Grid Margin="2,8,2,2">
-                          <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                          <Border Grid.Row="0" Background="{DynamicResource InfoBg}" BorderBrush="{DynamicResource InfoBorder}" BorderThickness="1" CornerRadius="10" Padding="12" Margin="0,0,0,10">
-                            <TextBlock x:Name="LblRelationAssociateHint" Text="Sélectionnez d'abord un utilisateur ou un poste dans Rechercher. Ensuite choisissez Détecter ou Rechercher." Foreground="{DynamicResource InfoFg}" TextWrapping="Wrap"/>
-                          </Border>
-                          <TabControl x:Name="RelationAssociateModeTabs" Grid.Row="1">
-                            <TabItem x:Name="TabRelationDetect" Header="Détecter" ToolTip="Utilisateur : associations connues et indices AD, puis aperçu du périmètre avant toute lecture de poste. Poste : lecture de sa session.">
-                              <Grid Margin="2,8,2,2">
-                                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                                <StackPanel Grid.Row="0" Margin="0,0,0,10">
-                                  <WrapPanel>
-                                    <Button x:Name="BtnDetectUserComputers" Content="Détecter les postes" Style="{StaticResource RunButton}" Margin="0,0,8,8" ToolTipService.ShowOnDisabled="True" ToolTip="Utilisateur : associations connues et indices AD, puis périmètre à confirmer avant toute lecture de poste. Poste : lit la session de ce poste."/>
-                                    <Button x:Name="BtnRelationsStop" Content="Arrêter" Visibility="Hidden" Margin="0,0,8,8" ToolTip="Demande l'arrêt de la recherche en cours."/>
-                                    <Button x:Name="BtnRelationOpenCandidate" Content="Ouvrir le poste" Margin="0,0,8,8" ToolTip="Ouvre la fiche du poste sélectionné dans les résultats."/>
-                                    <Button x:Name="BtnRelationAdopt" Content="Associer ce poste" Margin="0,0,8,8" ToolTip="Prépare l'association du poste détecté à l'utilisateur courant. La confirmation reste intégrée ci-dessous."/>
-                                  </WrapPanel>
-                                  <Expander x:Name="ExpRelationOptions" Header="Options de détection" IsExpanded="False" Margin="0,0,0,8" ToolTip="Options facultatives. Aucun accès réseau n'est lancé à l'ouverture.">
-                                    <StackPanel Margin="4,10,4,6">
-                                      <CheckBox x:Name="ChkUserScanPark" Content="Vérifier les consoles" IsChecked="True" Visibility="Collapsed"/>
-                                      <TextBlock Text="Détecter vérifie réellement les consoles du périmètre choisi. Lecture CIM/DCOM bornée, sans script distant." Foreground="{DynamicResource TextMuted}" Margin="0,0,0,10" TextWrapping="Wrap"/>
+                          <Border x:Name="RelationAddPanel" Grid.Column="2" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="10" Padding="10" ToolTipService.ShowOnDisabled="True" ToolTip="Depuis un utilisateur : détecter ou rechercher ses postes. Depuis un poste : lire sa session ou rechercher un utilisateur. Tout reste dans cette page." AutomationProperties.Name="Ajouter une association">
+                            <Grid>
+                              <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                              <TextBlock Grid.Row="0" Text="Ajouter une association" FontSize="14" FontWeight="SemiBold"/>
+                              <TextBlock x:Name="LblRelationAssociateHint" Grid.Row="1" Text="Sélectionnez dʼabord un utilisateur ou un poste dans Rechercher. Ensuite choisissez Détecter ou Rechercher." Foreground="{DynamicResource MutedColor}" Margin="0,4,0,8" TextWrapping="Wrap"/>
+                              <TabControl x:Name="RelationAssociateModeTabs" Grid.Row="2">
+                                <TabItem x:Name="TabRelationDetect" Header="Détecter" ToolTip="Utilisateur : associations connues et indices AD, puis aperçu du périmètre avant toute lecture de poste. Poste : lecture de sa session.">
+                                  <Grid Margin="2,8,2,2">
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                                    <StackPanel Grid.Row="0" Margin="0,0,0,10">
                                       <WrapPanel>
-                                        <StackPanel Margin="0,0,12,8"><TextBlock Text="Périmètre" Margin="0,0,0,4"/><ComboBox x:Name="CmbRelationScanScope" Width="300" SelectedIndex="0"><ComboBoxItem Content="Postes connus et candidats AD" Tag="Candidates"/><ComboBoxItem Content="Machines de la liste chargée" Tag="Loaded"/><ComboBoxItem Content="OU sélectionnée dans Rechercher" Tag="OU"/></ComboBox></StackPanel>
-                                        <StackPanel Margin="0,0,12,8"><TextBlock Text="Maximum de postes (1 à 50)" Margin="0,0,0,4"/><TextBox x:Name="TxtRelationScanLimit" Width="170" Text="20"/></StackPanel>
+                                        <Button x:Name="BtnDetectUserComputers" Content="Détecter les postes" Style="{StaticResource RunButton}" Margin="0,0,8,8" ToolTipService.ShowOnDisabled="True" ToolTip="Utilisateur : associations connues et indices AD, puis périmètre à confirmer avant toute lecture de poste. Poste : lit la session de ce poste."/>
+                                        <Button x:Name="BtnRelationsStop" Content="Arrêter" Visibility="Hidden" Margin="0,0,8,8" ToolTip="Demande l'arrêt de la recherche en cours."/>
+                                        <Button x:Name="BtnRelationOpenCandidate" Content="Ouvrir le poste" Margin="0,0,8,8" ToolTip="Ouvre la fiche du poste sélectionné dans les résultats."/>
+                                        <Button x:Name="BtnRelationAdopt" Content="Associer ce poste" Margin="0,0,8,8" ToolTip="Prépare l'association du poste détecté à l'utilisateur courant. La confirmation reste intégrée ci-dessous."/>
                                       </WrapPanel>
-                                      <CheckBox x:Name="ChkRelationEvents" Content="Lire aussi les indices Kerberos du contrôleur (7 jours)" IsChecked="False" Margin="0,4,0,6"/>
-                                      <CheckBox x:Name="ChkRelationRdp" Content="Inclure les sessions RDP (option séparée, non disponible : seule la console est lue)" IsChecked="False" IsEnabled="False" Margin="0,0,0,6" ToolTipService.ShowOnDisabled="True" ToolTip="La lecture actuelle porte sur la console (Win32_ComputerSystem). Une console vide ne prouve pas l'absence de session RDP."/>
-                                      <TextBlock Text="Les indices AD et Kerberos restent des indices. Seule une console confirmée peut créer automatiquement un lien." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap"/>
+                                      <Expander x:Name="ExpRelationOptions" Header="Options de détection" IsExpanded="False" Margin="0,0,0,8" ToolTip="Options facultatives. Aucun accès réseau n'est lancé à l'ouverture.">
+                                        <StackPanel Margin="4,10,4,6">
+                                          <CheckBox x:Name="ChkUserScanPark" Content="Vérifier les consoles" IsChecked="True" Visibility="Collapsed"/>
+                                          <TextBlock Text="Détecter vérifie réellement les consoles du périmètre choisi. Lecture CIM/DCOM bornée, sans script distant." Foreground="{DynamicResource TextMuted}" Margin="0,0,0,10" TextWrapping="Wrap"/>
+                                          <WrapPanel>
+                                            <StackPanel Margin="0,0,12,8"><TextBlock Text="Périmètre" Margin="0,0,0,4"/><ComboBox x:Name="CmbRelationScanScope" Width="280" SelectedIndex="0"><ComboBoxItem Content="Postes connus et candidats AD" Tag="Candidates"/><ComboBoxItem Content="Machines de la liste chargée" Tag="Loaded"/><ComboBoxItem Content="OU sélectionnée dans Rechercher" Tag="OU"/></ComboBox></StackPanel>
+                                            <StackPanel Margin="0,0,12,8"><TextBlock Text="Maximum de postes (1 à 50)" Margin="0,0,0,4"/><TextBox x:Name="TxtRelationScanLimit" Width="170" Text="20"/></StackPanel>
+                                          </WrapPanel>
+                                          <CheckBox x:Name="ChkRelationEvents" Content="Lire aussi les indices Kerberos du contrôleur (7 jours)" IsChecked="False" Margin="0,4,0,6"/>
+                                          <CheckBox x:Name="ChkRelationRdp" Content="Inclure les sessions RDP (option séparée, non disponible : seule la console est lue)" IsChecked="False" IsEnabled="False" Margin="0,0,0,6" ToolTipService.ShowOnDisabled="True" ToolTip="La lecture actuelle porte sur la console (Win32_ComputerSystem). Une console vide ne prouve pas l'absence de session RDP."/>
+                                          <TextBlock Text="Les indices AD et Kerberos restent des indices. Seule une console confirmée peut créer automatiquement un lien." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                      </Expander>
+                                      <Border x:Name="RelationPlanPanel" Visibility="Collapsed" Background="{DynamicResource InfoBg}" BorderBrush="{DynamicResource InfoBorder}" BorderThickness="1" CornerRadius="10" Padding="12" Margin="0,0,0,8">
+                                        <StackPanel>
+                                          <TextBlock Text="Périmètre à confirmer avant toute lecture des postes" FontWeight="SemiBold" Foreground="{DynamicResource InfoFg}"/>
+                                          <TextBlock x:Name="LblRelationPlan" Text="" Foreground="{DynamicResource InfoFg}" Margin="0,3,0,8" TextWrapping="Wrap"/>
+                                          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><Button x:Name="BtnRelationPlanCancel" Content="Annuler" Margin="0,0,8,0" ToolTip="Abandonne ce périmètre. Aucun poste n'est contacté."/><Button x:Name="BtnRelationPlanRun" Content="Lancer la détection" Style="{StaticResource RunButton}" Margin="0" ToolTipService.ShowOnDisabled="True" ToolTip="Lit la console des seuls postes listés, dans la limite affichée."/></StackPanel>
+                                        </StackPanel>
+                                      </Border>
                                     </StackPanel>
-                                  </Expander>
-                                  <Border x:Name="RelationPlanPanel" Visibility="Collapsed" Background="{DynamicResource InfoBg}" BorderBrush="{DynamicResource InfoBorder}" BorderThickness="1" CornerRadius="10" Padding="12" Margin="0,0,0,8">
-                                    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                      <StackPanel Grid.Column="0"><TextBlock Text="Périmètre à confirmer avant toute lecture des postes" FontWeight="SemiBold" Foreground="{DynamicResource InfoFg}"/><TextBlock x:Name="LblRelationPlan" Text="" Foreground="{DynamicResource InfoFg}" Margin="0,3,12,0" TextWrapping="Wrap"/></StackPanel>
-                                      <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"><Button x:Name="BtnRelationPlanCancel" Content="Annuler" Margin="0,0,8,0" ToolTip="Abandonne ce périmètre. Aucun poste n'est contacté."/><Button x:Name="BtnRelationPlanRun" Content="Lancer la détection" Style="{StaticResource RunButton}" Margin="0" ToolTipService.ShowOnDisabled="True" ToolTip="Lit la console des seuls postes listés, dans la limite affichée."/></StackPanel>
-                                    </Grid>
-                                  </Border>
-                                </StackPanel>
-                                <DataGrid Grid.Row="1" x:Name="DgRelationCandidates" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" EnableRowVirtualization="True" MinRowHeight="32" ScrollViewer.HorizontalScrollBarVisibility="Auto" ToolTip="Postes trouvés par détection et nature de l'indice.">
-                                  <DataGrid.Columns><DataGridTextColumn Header="Poste / IP indicative" Binding="{Binding Computer}" Width="175"/><DataGridTemplateColumn Header="Qualification" Width="115"><DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding Badge}" ToolTip="{Binding BadgeRule}" Style="{StaticResource WrappedCellText}"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn><DataGridTemplateColumn Header="Pourquoi" Width="260"><DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding Why}" ToolTip="{Binding Blocker}" Style="{StaticResource WrappedCellText}"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn><DataGridTextColumn Header="État / indice" Binding="{Binding Status}" Width="190"/><DataGridTextColumn Header="Compte console" Binding="{Binding CurrentUser}" Width="190"/><DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="175"/><DataGridTextColumn Header="Date" Binding="{Binding ObservedUtc}" Width="160"/><DataGridTextColumn Header="Détail" Binding="{Binding Detail}" Width="*" MinWidth="220"/></DataGrid.Columns>
-                                </DataGrid>
-                              </Grid>
-                            </TabItem>
-
-                            <TabItem x:Name="TabRelationSearch" Header="Rechercher" ToolTip="Recherche explicitement un poste (depuis un utilisateur) ou un utilisateur (depuis un poste) dans tout le domaine, sans utiliser le filtre OU.">
-                              <Grid Margin="2,8,2,2">
-                                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                                <Grid Grid.Row="0" Margin="0,0,0,10">
-                                  <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                  <TextBox x:Name="TxtRelationComputerSearch" Grid.Column="0" MaxLength="160" MinHeight="38" Margin="0,0,8,0" ToolTip="Nom, identifiant ou DNS de la cible. Recherche sur tout le domaine."/>
-                                  <Button x:Name="BtnRelationComputerSearch" Grid.Column="1" Content="Rechercher" Style="{StaticResource RunButton}" Width="120" Height="38" Margin="0" ToolTip="Recherche la cible dans tout le domaine, sans filtre OU."/>
-                                </Grid>
-                                <Grid Grid.Row="1">
-                                  <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                                  <DataGrid x:Name="DgRelationComputerSearch" Grid.Row="0" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" EnableRowVirtualization="True" MinRowHeight="32" ScrollViewer.HorizontalScrollBarVisibility="Auto" ToolTip="Objets trouvés dans Active Directory.">
-                                    <DataGrid.Columns><DataGridTextColumn Header="Poste" Binding="{Binding Name}" Width="190"/><DataGridTextColumn Header="DNS" Binding="{Binding Second}" Width="240"/><DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*" MinWidth="240"/></DataGrid.Columns>
-                                  </DataGrid>
-                                  <Grid Grid.Row="1" Margin="0,10,0,0">
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                    <TextBlock x:Name="LblRelationComputerSearchStatus" Grid.Column="0" Text="Saisissez au moins deux caractères." Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,10,0"/>
-                                    <Button x:Name="BtnRelationAssociateSearchResult" Grid.Column="1" Content="Associer ce poste" IsEnabled="False" Margin="0" ToolTipService.ShowOnDisabled="True" ToolTip="Prépare l'association de la ligne choisie. La confirmation reste dans cette page."/>
+                                    <DataGrid Grid.Row="1" x:Name="DgRelationCandidates" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" EnableRowVirtualization="True" MinRowHeight="32" ScrollViewer.HorizontalScrollBarVisibility="Auto" ToolTip="Postes trouvés par détection et nature de l'indice.">
+                                      <DataGrid.Columns><DataGridTextColumn Header="Poste / IP indicative" Binding="{Binding Computer}" Width="150"/><DataGridTemplateColumn Header="Qualification" Width="120" SortMemberPath="BadgeLabel" CellTemplate="{StaticResource RelationBadgeChip}"/><DataGridTemplateColumn Header="Pourquoi" Width="230"><DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding Why}" ToolTip="{Binding Blocker}" Style="{StaticResource WrappedCellText}"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn><DataGridTextColumn Header="État / indice" Binding="{Binding Status}" Width="160"/><DataGridTextColumn Header="Compte console" Binding="{Binding CurrentUser}" Width="160"/><DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="160"/><DataGridTextColumn Header="Date" Binding="{Binding WhenDisplay}" SortMemberPath="WhenSort" Width="100"/><DataGridTextColumn Header="Détail" Binding="{Binding Detail}" Width="*" MinWidth="200"/></DataGrid.Columns>
+                                    </DataGrid>
                                   </Grid>
-                                </Grid>
-                              </Grid>
-                            </TabItem>
-                          </TabControl>
+                                </TabItem>
 
-                          <Border x:Name="RelationConfirmPanel" Grid.Row="2" Visibility="Collapsed" Background="{DynamicResource InfoBg}" BorderBrush="{DynamicResource InfoBorder}" BorderThickness="1" CornerRadius="10" Padding="12" Margin="0,10,0,0">
-                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                              <StackPanel Grid.Column="0"><TextBlock Text="Confirmer l'association" FontWeight="SemiBold" Foreground="{DynamicResource InfoFg}"/><TextBlock x:Name="LblRelationConfirm" Text="" Foreground="{DynamicResource InfoFg}" Margin="0,3,12,0" TextWrapping="Wrap"/></StackPanel>
-                              <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"><Button x:Name="BtnRelationConfirmCancel" Content="Annuler" Margin="0,0,8,0"/><Button x:Name="BtnRelationConfirmApply" Content="Associer" Style="{StaticResource RunButton}" Margin="0"/></StackPanel>
+                                <TabItem x:Name="TabRelationSearch" Header="Rechercher" ToolTip="Recherche explicitement un poste (depuis un utilisateur) ou un utilisateur (depuis un poste) dans tout le domaine, sans utiliser le filtre OU.">
+                                  <Grid Margin="2,8,2,2">
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                                    <Grid Grid.Row="0" Margin="0,0,0,10">
+                                      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                      <TextBox x:Name="TxtRelationComputerSearch" Grid.Column="0" MaxLength="160" MinHeight="38" Margin="0,0,8,0" ToolTip="Nom, identifiant ou DNS de la cible. Recherche sur tout le domaine."/>
+                                      <Button x:Name="BtnRelationComputerSearch" Grid.Column="1" Content="Rechercher" Style="{StaticResource RunButton}" Width="120" Height="38" Margin="0" ToolTip="Recherche la cible dans tout le domaine, sans filtre OU."/>
+                                    </Grid>
+                                    <Grid Grid.Row="1">
+                                      <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                      <DataGrid x:Name="DgRelationComputerSearch" Grid.Row="0" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" EnableRowVirtualization="True" MinRowHeight="32" ScrollViewer.HorizontalScrollBarVisibility="Auto" ToolTip="Objets trouvés dans Active Directory.">
+                                        <DataGrid.Columns><DataGridTextColumn Header="Poste" Binding="{Binding Name}" Width="160"/><DataGridTextColumn Header="DNS" Binding="{Binding Second}" Width="200"/><DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*" MinWidth="200"/></DataGrid.Columns>
+                                      </DataGrid>
+                                      <Grid Grid.Row="1" Margin="0,10,0,0">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                        <TextBlock x:Name="LblRelationComputerSearchStatus" Grid.Column="0" Text="Saisissez au moins deux caractères." Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,10,0"/>
+                                        <Button x:Name="BtnRelationAssociateSearchResult" Grid.Column="1" Content="Associer ce poste" IsEnabled="False" Margin="0" ToolTipService.ShowOnDisabled="True" ToolTip="Prépare l'association de la ligne choisie. La confirmation reste dans cette page."/>
+                                      </Grid>
+                                    </Grid>
+                                  </Grid>
+                                </TabItem>
+                              </TabControl>
+
+                              <Border x:Name="RelationConfirmPanel" Grid.Row="3" Visibility="Collapsed" Background="{DynamicResource InfoBg}" BorderBrush="{DynamicResource InfoBorder}" BorderThickness="1" CornerRadius="10" Padding="12" Margin="0,10,0,0">
+                                <StackPanel>
+                                  <TextBlock Text="Confirmer l'association" FontWeight="SemiBold" Foreground="{DynamicResource InfoFg}"/>
+                                  <TextBlock x:Name="LblRelationConfirm" Text="" Foreground="{DynamicResource InfoFg}" Margin="0,3,0,8" TextWrapping="Wrap"/>
+                                  <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><Button x:Name="BtnRelationConfirmCancel" Content="Annuler" Margin="0,0,8,0"/><Button x:Name="BtnRelationConfirmApply" Content="Associer" Style="{StaticResource RunButton}" Margin="0"/></StackPanel>
+                                </StackPanel>
+                              </Border>
                             </Grid>
                           </Border>
                         </Grid>
                       </TabItem>
 
                       <TabItem x:Name="TabLinksAll" Header="Toutes les associations" ToolTip="Vue globale des liens mémorisés dans le domaine courant.">
-                        <Grid Margin="2,8,2,2"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                          <WrapPanel Grid.Row="0" Margin="0,0,0,10"><Button x:Name="BtnImportLinks" Content="Importer" Margin="0,0,8,0"/><Button x:Name="BtnPruneLinks" Content="Nettoyer" Margin="0,0,8,0"/><Button x:Name="BtnExportAllLinks" Content="Exporter tout" Margin="0"/></WrapPanel>
-                          <DataGrid Grid.Row="1" x:Name="DgAllLinks" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" EnableRowVirtualization="True" VirtualizingPanel.VirtualizationMode="Recycling" MinRowHeight="31" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                            <DataGrid.Columns><DataGridTextColumn Header="Utilisateur" Binding="{Binding UserLogin}" Width="170"/><DataGridTextColumn Header="Machine" Binding="{Binding Computer}" Width="170"/><DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="170"/><DataGridTemplateColumn Header="Qualification" Width="115"><DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding Badge}" ToolTip="{Binding BadgeRule}" Style="{StaticResource WrappedCellText}"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn><DataGridTextColumn Header="Conservation" Binding="{Binding Persistence}" Width="125"/><DataGridTextColumn Header="Date" Binding="{Binding When}" Width="145"/><DataGridTemplateColumn Header="Détails" Width="*"><DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding Details}" Style="{StaticResource WrappedCellText}" ToolTip="{Binding Details}"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn></DataGrid.Columns>
+                        <Grid Margin="2,8,2,2">
+                          <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                          <WrapPanel Grid.Row="0" Margin="0,0,0,8">
+                            <Button x:Name="BtnImportLinks" Content="Importer" Margin="0,0,8,6" ToolTipService.ShowOnDisabled="True" ToolTip="Lit un fichier CSV et montre un aperçu dans cette page avant tout ajout. Les lignes importées portent la source « Import CSV »."/>
+                            <Button x:Name="BtnUndoImport" Content="Annuler lʼimport" Visibility="Collapsed" Margin="0,0,8,6" ToolTipService.ShowOnDisabled="True" ToolTip="Retire les associations ajoutées par le dernier import, après confirmation dans la page. Chaque retrait est journalisé et restaurable."/>
+                            <Button x:Name="BtnRestoreLinkAll" Content="Restaurer la suppression" IsEnabled="False" Margin="0,0,8,6" ToolTipService.ShowOnDisabled="True" ToolTip="Aucune suppression locale à restaurer." AutomationProperties.Name="Restaurer la dernière suppression"/>
+                            <Button x:Name="BtnPruneLinks" Content="Nettoyer" Margin="0,0,8,6" ToolTipService.ShowOnDisabled="True" ToolTip="Vérifie en lecture seule que les comptes et postes des associations automatiques existent encore dans Active Directory, puis liste les orphelines dans cette page."/>
+                            <Button x:Name="BtnExportAllLinks" Content="Exporter tout" Margin="0,0,0,6"/>
+                          </WrapPanel>
+                          <Grid Grid.Row="1" Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" MaxWidth="320"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <TextBox x:Name="TxtAllLinksFilter" Grid.Column="0" MinHeight="32" Margin="0,0,10,0" VerticalContentAlignment="Center" ToolTip="Filtre sur lʼutilisateur, le poste, la source ou les détails." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Filtrer les associations" AutomationProperties.HelpText="Filtre sur lʼutilisateur, le poste, la source ou les détails."/>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                              <ToggleButton x:Name="ChkAllLinksDeclared" Content="Déclaré" Style="{StaticResource RelationChipToggle}" Tag="#DBEAFE" ToolTip="Nʼafficher que les associations déclarées par un opérateur." AutomationProperties.Name="Filtre Déclaré"/>
+                              <ToggleButton x:Name="ChkAllLinksObserved" Content="Observé" Style="{StaticResource RelationChipToggle}" Tag="#DCFCE7" ToolTip="Nʼafficher que les sessions observées sur les postes." AutomationProperties.Name="Filtre Observé"/>
+                              <ToggleButton x:Name="ChkAllLinksConflict" Content="Contradictoire" Style="{StaticResource RelationChipToggle}" Tag="#FFEDD5" ToolTip="Nʼafficher que les postes où les sources désignent des comptes différents." AutomationProperties.Name="Filtre Contradictoire"/>
+                            </StackPanel>
+                            <TextBlock x:Name="LblAllLinksCount" Grid.Column="2" Text="" Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" Margin="10,0,0,0" TextTrimming="CharacterEllipsis"/>
+                          </Grid>
+                          <!-- CO-08 : aperçu de l'import dans la page, avant tout ajout. -->
+                          <Border x:Name="LinkImportPanel" Grid.Row="2" Visibility="Collapsed" Background="{DynamicResource InfoBg}" BorderBrush="{DynamicResource InfoBorder}" BorderThickness="1" CornerRadius="10" Padding="12" Margin="0,0,0,8">
+                            <Grid>
+                              <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                              <TextBlock Grid.Row="0" Text="Aperçu de lʼimport : rien nʼest encore enregistré" FontWeight="SemiBold" Foreground="{DynamicResource InfoFg}"/>
+                              <TextBlock x:Name="LblLinkImportSummary" Grid.Row="1" Text="" Foreground="{DynamicResource InfoFg}" Margin="0,3,0,8" TextWrapping="Wrap"/>
+                              <Grid Grid.Row="2">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <DataGrid x:Name="DgLinkImportPreview" Grid.Column="0" MaxHeight="220" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" EnableRowVirtualization="True" MinRowHeight="28" ScrollViewer.HorizontalScrollBarVisibility="Auto" ToolTip="Chaque enregistrement du fichier (N° : rang de lʼenregistrement, les lignes vides ne comptent pas) et ce que lʼimport en fera.">
+                                  <DataGrid.Columns><DataGridTextColumn Header="N°" Binding="{Binding Record}" Width="60"/><DataGridTextColumn Header="Utilisateur" Binding="{Binding User}" Width="140"/><DataGridTextColumn Header="Poste" Binding="{Binding Computer}" Width="130"/><DataGridTextColumn Header="Résultat" Binding="{Binding Status}" Width="100"/><DataGridTemplateColumn Header="Motif" Width="*" MinWidth="200"><DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding Reason}" Style="{StaticResource WrappedCellText}" ToolTip="{Binding Reason}"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn></DataGrid.Columns>
+                                </DataGrid>
+                                <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Top">
+                                  <Button x:Name="BtnLinkImportApply" Content="Importer" Style="{StaticResource RunButton}" Margin="0,0,0,8" ToolTipService.ShowOnDisabled="True" ToolTip="Ajoute les lignes « À importer » au stockage local, chacune journalisée. Aucun objet Active Directory nʼest modifié."/>
+                                  <Button x:Name="BtnLinkImportCancel" Content="Annuler" Margin="0" ToolTip="Abandonne cet import : aucune association nʼest ajoutée."/>
+                                </StackPanel>
+                              </Grid>
+                            </Grid>
+                          </Border>
+                          <!-- UX-40 : associations orphelines listées avec leur motif, retrait confirmé dans la page. -->
+                          <Border x:Name="LinkOrphanPanel" Grid.Row="3" Visibility="Collapsed" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="10" Padding="12" Margin="0,0,0,8">
+                            <Grid>
+                              <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                              <TextBlock Grid.Row="0" Text="Associations orphelines" FontWeight="SemiBold"/>
+                              <TextBlock x:Name="LblLinkOrphanSummary" Grid.Row="1" Text="" Foreground="{DynamicResource MutedColor}" Margin="0,3,0,8" TextWrapping="Wrap"/>
+                              <Grid Grid.Row="2">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <DataGrid x:Name="DgLinkOrphans" Grid.Column="0" MaxHeight="220" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" EnableRowVirtualization="True" MinRowHeight="28" ScrollViewer.HorizontalScrollBarVisibility="Auto" ToolTip="Cochez les associations à retirer du stockage local.">
+                                  <DataGrid.Columns><DataGridTemplateColumn Header="Retirer" Width="70"><DataGridTemplateColumn.CellTemplate><DataTemplate><CheckBox IsChecked="{Binding Selected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" VerticalAlignment="Center" AutomationProperties.Name="Retirer cette association"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn><DataGridTextColumn Header="Utilisateur" Binding="{Binding UserLogin}" Width="130"/><DataGridTextColumn Header="Poste" Binding="{Binding Computer}" Width="120"/><DataGridTemplateColumn Header="Motif" Width="*" MinWidth="220"><DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding Reason}" Style="{StaticResource WrappedCellText}" ToolTip="{Binding Reason}"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn><DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="140"/><DataGridTextColumn Header="Date" Binding="{Binding WhenDisplay}" SortMemberPath="WhenSort" Width="100"/></DataGrid.Columns>
+                                </DataGrid>
+                                <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Top">
+                                  <Button x:Name="BtnLinkOrphanRemove" Content="Retirer la sélection" Style="{StaticResource DangerButton}" Margin="0,0,0,8" ToolTipService.ShowOnDisabled="True" ToolTip="Retire les associations cochées du stockage local, après confirmation dans ce panneau. Chaque retrait est journalisé et restaurable."/>
+                                  <Button x:Name="BtnLinkOrphanClose" Content="Fermer" Margin="0" ToolTip="Ferme cette liste sans rien retirer."/>
+                                </StackPanel>
+                              </Grid>
+                              <Border x:Name="LinkOrphanConfirm" Grid.Row="3" Visibility="Collapsed" Background="{DynamicResource InfoBg}" BorderBrush="{DynamicResource InfoBorder}" BorderThickness="1" CornerRadius="10" Padding="12" Margin="0,10,0,0">
+                                <StackPanel>
+                                  <TextBlock x:Name="LblLinkOrphanConfirm" Text="" Foreground="{DynamicResource InfoFg}" Margin="0,0,0,8" TextWrapping="Wrap"/>
+                                  <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><Button x:Name="BtnLinkOrphanConfirmCancel" Content="Annuler" Margin="0,0,8,0"/><Button x:Name="BtnLinkOrphanConfirmApply" Content="Retirer" Style="{StaticResource DangerButton}" Margin="0"/></StackPanel>
+                                </StackPanel>
+                              </Border>
+                            </Grid>
+                          </Border>
+                          <DataGrid Grid.Row="4" x:Name="DgAllLinks" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" EnableRowVirtualization="True" VirtualizingPanel.VirtualizationMode="Recycling" MinRowHeight="31" ScrollViewer.HorizontalScrollBarVisibility="Auto" ToolTip="Double-clic : fiche de lʼutilisateur ou du poste cliqué. Clic droit : ouvrir lʼun ou lʼautre.">
+                            <DataGrid.Columns><DataGridTextColumn Header="Utilisateur" Binding="{Binding UserLogin}" SortMemberPath="UserLogin" Width="150"/><DataGridTextColumn Header="Machine" Binding="{Binding Computer}" SortMemberPath="Computer" Width="140"/><DataGridTemplateColumn Header="Qualification" Width="120" SortMemberPath="BadgeLabel" CellTemplate="{StaticResource RelationBadgeChip}"/><DataGridTextColumn Header="Date" Binding="{Binding WhenDisplay}" SortMemberPath="WhenSort" Width="100"/><DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="160"/><DataGridTextColumn Header="Conservation" Binding="{Binding Persistence}" Width="115"/><DataGridTemplateColumn Header="Détails" Width="*" MinWidth="200"><DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding Details}" Style="{StaticResource WrappedCellText}" ToolTip="{Binding Details}"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn></DataGrid.Columns>
                           </DataGrid>
                         </Grid>
                       </TabItem>
@@ -7965,7 +8090,11 @@ function Fill-ComputerObject {
             $script:Ctrl["TxtCompLinkedUser"].Text = [string]$link.UserLogin
             # D043: badge of the link (relation model), never a percentage.
             $confidenceText = $(if($null -ne (Get-Command Get-DomeniaLinkQualification -CommandType Function -ErrorAction SilentlyContinue)){(Get-DomeniaLinkQualification $link).Suffix}elseif($null -ne $link.PSObject.Properties['Confidence'] -and -not [string]::IsNullOrWhiteSpace([string]$link.Confidence)){'  confiance '+[string]$link.Confidence+'%'}else{''})
-            $script:Ctrl["TxtCompLinkSource"].Text = "$($link.Source)$confidenceText  $($link.When)"
+            # CO-29: the date of the link in local time (stored in UTC since RC1.14).
+            $whenText = ''
+            if ($null -ne (Get-Command Format-DomeniaRelationWhen -CommandType Function -ErrorAction SilentlyContinue)) { $whenText = Format-DomeniaRelationWhen ([string]$link.When) }
+            if (-not $whenText) { $whenText = [string]$link.When }
+            $script:Ctrl["TxtCompLinkSource"].Text = "$($link.Source)$confidenceText  $whenText"
         } else {
             $script:Ctrl["TxtCompLinkedUser"].Text = "Non detecte"
             $script:Ctrl["TxtCompLinkSource"].Text = "Detection manuelle disponible"
@@ -8358,99 +8487,32 @@ function Move-DomeniaSelectedComputerWithOuPicker {
 }
 
 function Add-SelectedLink {
-    # Aucune fenêtre de sélection : l'association se prépare dans l'onglet Relations > Associer.
+    # Aucune fenêtre de sélection : l'association se prépare dans le panneau Ajouter de Relations (UI-09).
     try {
         if(Test-DomeniaAccessBusyWrite){return}
         $s=Get-DomeniaRelationsSubject
         if($null -eq $s -and $null -ne $script:SelectedObject){Set-DomeniaRelationsSelection -Object $script:SelectedObject;$s=Get-DomeniaRelationsSubject}
-        if($null -eq $s){Set-Status 'Sélectionnez un utilisateur ou un poste dans Rechercher avant d associer.' 'WARN';return}
-        # D041: with the relation model a workstation is a subject too (search for the user in the page).
-        $symmetric=[bool](Get-DomeniaFeatureFlag 'RelationsSymmetry' $true)
-        if($s.Type -ne 'Utilisateur' -and -not ($symmetric -and $s.Type -eq 'Machine')){Set-Status 'L association guidée part de l utilisateur : sélectionnez un utilisateur puis ouvrez Relations > Associer.' 'INFO';return}
+        if($null -eq $s){Set-Status 'Sélectionnez un utilisateur ou un poste dans Rechercher avant dʼassocier.' 'WARN';return}
+        # D041: a workstation is a subject too (search for the user in the page).
+        if($s.Type -notin @('Utilisateur','Machine')){Set-Status 'Seul un utilisateur ou un poste peut porter des associations.' 'INFO';return}
         $workspace=Get-DomeniaControl 'WorkspaceTabs';$relations=Get-DomeniaControl 'TabRelations';if($null -ne $workspace -and $null -ne $relations){$workspace.SelectedItem=$relations}
-        $tabs=Get-DomeniaControl 'RelationTabs';$associate=Get-DomeniaControl 'TabLinksAssociate';if($null -ne $tabs -and $null -ne $associate){$tabs.SelectedItem=$associate}
-        $modes=Get-DomeniaControl 'RelationAssociateModeTabs';$search=Get-DomeniaControl 'TabRelationSearch';if($null -ne $modes -and $null -ne $search){$modes.SelectedItem=$search}
+        Show-DomeniaRelationsAddPanel -Mode Search
         $box=Get-DomeniaControl 'TxtRelationComputerSearch';if($null -ne $box){[void]$box.Focus()}
-        if($s.Type -eq 'Machine'){Set-Status ('Association pour le poste '+$s.Name+' : lisez sa session ou recherchez l utilisateur dans l onglet Associer.')}
-        else{Set-Status ('Association de poste pour '+$s.Login+' : détectez un poste ou recherchez-le dans l onglet Associer.')}
+        if($s.Type -eq 'Machine'){Set-Status ('Association pour le poste '+$s.Name+' : lisez sa session ou recherchez lʼutilisateur dans le panneau Ajouter.')}
+        else{Set-Status ('Association de poste pour '+$s.Login+' : détectez un poste ou recherchez-le dans le panneau Ajouter.')}
     }
     catch { Set-Status ('Association : '+$_.Exception.Message) 'ERROR' }
 }
 
 function Import-LinksCsv {
+    # CO-08: the chosen file is shown in Relations > Toutes les associations before any change (Show-DomeniaLinkImportPreview).
+    # Its rows are imported only after « Importer », always with Source « Import CSV », and the import can be undone.
     try {
+        if (Test-DomeniaAccessBusyWrite) { return }
         $dlg = New-DomeniaFileRequest -Mode Open
         $dlg.Filter = "CSV (*.csv)|*.csv|Tous les fichiers (*.*)|*.*"
         if (-not $dlg.ShowDialog()) { return }
-
-        # CO-04: Domenia exports use a semicolon; older exports and other tools keep the comma.
-        $items = @(Import-Csv -LiteralPath $dlg.FileName -Encoding UTF8 -Delimiter (Get-DomeniaCsvDelimiter -Path $dlg.FileName))
-        $existingComputers = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-        foreach ($link in @($script:UserMachineLinks)) {
-            $computerKey = Normalize-LinkComputer ([string]$link.Computer)
-            if (-not [string]::IsNullOrWhiteSpace($computerKey)) { [void]$existingComputers.Add($computerKey) }
-        }
-
-        $additions = [System.Collections.ArrayList]::new()
-        $skipped = 0
-        $invalid = 0
-        foreach ($item in $items) {
-            $userValue = ""
-            foreach ($propertyName in @("UserLogin","User","Username","LastUser","SamAccountName")) {
-                if ($item.PSObject.Properties.Name -contains $propertyName) {
-                    $candidate = [string]$item.$propertyName
-                    if (-not [string]::IsNullOrWhiteSpace($candidate)) { $userValue = $candidate; break }
-                }
-            }
-
-            $computerValue = ""
-            foreach ($propertyName in @("Computer","ComputerName","Hostname","Host","Machine","Name")) {
-                if ($item.PSObject.Properties.Name -contains $propertyName) {
-                    $candidate = [string]$item.$propertyName
-                    if (-not [string]::IsNullOrWhiteSpace($candidate)) { $computerValue = $candidate; break }
-                }
-            }
-
-            $user = Normalize-LinkUser $userValue
-            $computer = Normalize-LinkComputer $computerValue
-            if ([string]::IsNullOrWhiteSpace($user) -or [string]::IsNullOrWhiteSpace($computer)) { $invalid++; continue }
-            if ($existingComputers.Contains($computer)) { $skipped++; continue }
-
-            $source = if ($item.PSObject.Properties.Name -contains "Source" -and -not [string]::IsNullOrWhiteSpace([string]$item.Source)) { [string]$item.Source } else { "Import CSV" }
-            $details = if ($item.PSObject.Properties.Name -contains "Details") { [string]$item.Details } else { "Import depuis $([System.IO.Path]::GetFileName($dlg.FileName))" }
-            $confidence = 80
-            if ($item.PSObject.Properties.Name -contains "Confidence") { [void][int]::TryParse([string]$item.Confidence, [ref]$confidence) }
-            $verified = $false
-            if ($item.PSObject.Properties.Name -contains "VerifiedInAD") { [void][bool]::TryParse([string]$item.VerifiedInAD, [ref]$verified) }
-            $when = if ($item.PSObject.Properties.Name -contains "When" -and -not [string]::IsNullOrWhiteSpace([string]$item.When)) { [string]$item.When } else { Get-Date -Format "yyyy-MM-dd HH:mm:ss" }
-
-            [void]$additions.Add([pscustomobject]@{
-                UserLogin   = $user
-                Computer    = $computer
-                Source      = $source
-                Confidence  = $confidence
-                VerifiedInAD = $verified
-                When        = $when
-                Details     = $details
-            })
-            [void]$existingComputers.Add($computer)
-        }
-
-        if ($additions.Count -gt 0) {
-            $previousLinks = @($script:UserMachineLinks)
-            $script:UserMachineLinks = @($script:UserMachineLinks) + [object[]]$additions.ToArray()
-            if (-not (Save-UserMachineLinks)) {
-                $script:UserMachineLinks = $previousLinks
-                Rebuild-UserMachineLinkIndex
-                Refresh-LinkGrid
-                return
-            }
-            Refresh-LinkGrid
-        }
-
-        $message = "Import liens termine : $($additions.Count) ajoute(s), $skipped deja present(s), $invalid ligne(s) invalide(s)."
-        Set-Status $message
-        Write-AppLog $message "INFO"
+        Show-DomeniaLinkImportPreview -Path ([string]$dlg.FileName)
     }
     catch { Show-ErrorBox "Erreur import CSV : $($_.Exception.Message)" }
 }
@@ -17263,11 +17325,11 @@ catch {
 '@
         [void](Set-DomeniaControlText -Name "LblLinkProbeStatus" -Text "Rafraichissement distant de $computerNorm en arriere-plan...")
         Add-DomeniaUiLog -Area "Association" -Text ("Resolver user-machine lance pour {0} : cache conserve, confirmation distante en arriere-plan." -f $computerNorm)
-        # D041/D044/D049: with the relation model, the result is checked by exact identity and by nature, and is
-        # attached to the Relations subject captured here (Features.RelationsSymmetry, RC1.10.7 handlers otherwise).
+        # D041/D044/D049: the result is checked by exact identity and by nature, and is attached to the Relations
+        # subject captured here (CD-06: the RC1.10.7 handlers remain only when the Relations module is absent).
         $successHandler = "Complete-DomeniaComputerUserProbeUi"
         $errorHandler = "Fail-DomeniaComputerUserProbeUi"
-        if ($null -ne (Get-Command -Name 'Complete-DomeniaRelationsComputerProbe' -CommandType Function -ErrorAction SilentlyContinue) -and (Get-DomeniaFeatureFlag 'RelationsSymmetry' $true)) {
+        if ($null -ne (Get-Command -Name 'Complete-DomeniaRelationsComputerProbe' -CommandType Function -ErrorAction SilentlyContinue)) {
             $successHandler = "Complete-DomeniaRelationsComputerProbe"
             $errorHandler = "Fail-DomeniaRelationsComputerProbe"
         }
@@ -18908,7 +18970,7 @@ function Stop-DomeniaLoginAuth {
 function Start-PruneOrphanLinks {
     try {
         $links = @($script:UserMachineLinks | Where-Object {-not (Test-DomeniaProtectedAssociationSource ([string]$_.Source))})
-        if ($links.Count -eq 0) { Set-Status "Aucun lien automatique a verifier ; associations declarees conservees." "WARN"; return }
+        if ($links.Count -eq 0) { Set-Status "Aucune association automatique à vérifier ; associations déclarées et importées conservées." "WARN"; return }
         $payload = [pscustomobject]@{ Links=$links }
         $code = @'
 $foundUsers = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
@@ -18934,30 +18996,12 @@ $rows=foreach($l in @($Payload.Links)) {
 }
 [pscustomobject]@{ Rows=@($rows); Checked=$rows.Count }
 '@
-        Start-UiTask -Name "Controle liens user-machine" -OperationId "PruneLinks" -Code $code -Payload $payload -ReplaceKey "prunelinks" -DisableControls @("BtnPruneLinks") -TimeoutSeconds 90 -StatusText "Verification des liens user-machine en lecture seule..." -OnSuccess {
+        # UX-40: the orphans are listed in Relations with their reason and a box each (Show-DomeniaOrphanLinks); the
+        # removal is confirmed in the page, journaled and restorable (Remove-DomeniaRelations). Nothing is removed here.
+        Start-UiTask -Name "Controle liens user-machine" -OperationId "PruneLinks" -Code $code -Payload $payload -ReplaceKey "prunelinks" -DisableControls @("BtnPruneLinks") -TimeoutSeconds 90 -StatusText "Vérification des associations en lecture seule..." -OnSuccess {
             param($result)
-            $protected=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
-            foreach($link in @($script:UserMachineLinks)){if(Test-DomeniaProtectedAssociationSource ([string]$link.Source)){[void]$protected.Add((Normalize-LinkComputer ([string]$link.Computer)))}}
-            $orphans = @($result.Rows | Where-Object {(-not $_.UserExists -or -not $_.ComputerExists) -and -not $protected.Contains((Normalize-LinkComputer ([string]$_.Computer)))})
-            if ($orphans.Count -eq 0) { Set-Status "$($result.Checked) lien(s) verifie(s), aucun orphelin."; return }
-            $preview = ($orphans | Select-Object -First 15 | ForEach-Object { "$($_.UserLogin) -> $($_.Computer) (user=$($_.UserExists), pc=$($_.ComputerExists))" }) -join "`n"
-            if (-not (Confirm-Action "$($orphans.Count) lien(s) local(aux) orphelin(s) detecte(s) :`n`n$preview`n`nSupprimer uniquement ces liens du stockage local ?")) { Set-Status "Nettoyage des liens annule." "WARN"; return }
-            $keys = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-            foreach($o in $orphans) { [void]$keys.Add("$($o.UserLogin)|$($o.Computer)|$($o.When)") }
-            $previousLinks = @($script:UserMachineLinks)
-            $script:UserMachineLinks = @($script:UserMachineLinks | Where-Object { (Test-DomeniaProtectedAssociationSource ([string]$_.Source)) -or -not $keys.Contains("$($_.UserLogin)|$($_.Computer)|$($_.When)") })
-            $removedCount=$previousLinks.Count-$script:UserMachineLinks.Count
-            if($removedCount -eq 0){Set-Status "Aucun lien supprime ; associations declarees conservees.";return}
-            if (-not (Save-UserMachineLinks)) {
-                $script:UserMachineLinks = $previousLinks
-                Rebuild-UserMachineLinkIndex
-                Refresh-LinkGrid
-                return
-            }
-            Refresh-LinkGrid
-            Write-AppLog "$removedCount lien(s) user-machine orphelin(s) supprime(s) du stockage local."
-            Set-Status "$removedCount lien(s) orphelin(s) supprime(s)."
-        } -OnError { param($message) Set-Status "Controle des liens : $message" "ERROR" } | Out-Null
+            Show-DomeniaOrphanLinks -Result $result
+        } -OnError { param($message) Set-Status "Contrôle des associations : $message" "ERROR" } | Out-Null
     }
     catch { Show-ErrorBox "Erreur controle des liens : $($_.Exception.Message)" }
 }
@@ -19015,7 +19059,11 @@ function Get-SelectedAssociationSummary {
             if ($links.Count -eq 0) { return "Aucun utilisateur lie" }
             $l = $links[0]
             $confidence = $(if($null -ne (Get-Command Get-DomeniaLinkQualification -CommandType Function -ErrorAction SilentlyContinue)){(Get-DomeniaLinkQualification $l).Suffix}elseif($null -ne $l.PSObject.Properties['Confidence'] -and -not [string]::IsNullOrWhiteSpace([string]$l.Confidence)){'  confiance '+[string]$l.Confidence+'%'}else{''})
-            return "$($l.UserLogin)  $($l.Source)$confidence  $($l.When)"
+            # CO-29: local time of the stored UTC date.
+            $whenText = ''
+            if ($null -ne (Get-Command Format-DomeniaRelationWhen -CommandType Function -ErrorAction SilentlyContinue)) { $whenText = Format-DomeniaRelationWhen ([string]$l.When) }
+            if (-not $whenText) { $whenText = [string]$l.When }
+            return "$($l.UserLogin)  $($l.Source)$confidence  $whenText"
         }
         if ($script:SelectedObject.Type -eq "Utilisateur") {
             $user = ""
@@ -19040,7 +19088,11 @@ function Update-SelectedAssociationFields {
                 $l = $links[0]
                 $script:Ctrl["TxtCompLinkedUser"].Text = [string]$l.UserLogin
                 $confidence = $(if($null -ne (Get-Command Get-DomeniaLinkQualification -CommandType Function -ErrorAction SilentlyContinue)){(Get-DomeniaLinkQualification $l).Suffix}elseif($null -ne $l.PSObject.Properties['Confidence'] -and -not [string]::IsNullOrWhiteSpace([string]$l.Confidence)){'  confiance '+[string]$l.Confidence+'%'}else{''})
-                $script:Ctrl["TxtCompLinkSource"].Text = "$($l.Source)$confidence  $($l.When)"
+                # CO-29: local time of the stored UTC date.
+                $whenText = ''
+                if ($null -ne (Get-Command Format-DomeniaRelationWhen -CommandType Function -ErrorAction SilentlyContinue)) { $whenText = Format-DomeniaRelationWhen ([string]$l.When) }
+                if (-not $whenText) { $whenText = [string]$l.When }
+                $script:Ctrl["TxtCompLinkSource"].Text = "$($l.Source)$confidence  $whenText"
             }
             else {
                 $script:Ctrl["TxtCompLinkedUser"].Text = "Non detecte"
@@ -19202,7 +19254,8 @@ function Get-AssociationSummaryForObject {
         if ($null -ne (Get-Command -Name Get-DomeniaLinkQualification -CommandType Function -ErrorAction SilentlyContinue)) {
             # D043: badge and rule of the link, never a percentage (relation model).
             $qualification = Get-DomeniaLinkQualification $l
-            if ($qualification.Label -eq 'Qualification') { return "Utilisateur : $($l.UserLogin)`r`nSource : $($l.Source)`r`nQualification : $($qualification.Value) ($($qualification.Rule))`r`nDate : $($l.When)" }
+            # CO-29: Date in local time (Get-DomeniaLinkQualification), the stored text only when unreadable.
+            if ($qualification.Label -eq 'Qualification') { return "Utilisateur : $($l.UserLogin)`r`nSource : $($l.Source)`r`nQualification : $($qualification.Value) ($($qualification.Rule))`r`nDate : $($qualification.When)" }
         }
         return "Utilisateur : $($l.UserLogin)`r`nSource : $($l.Source)`r`nConfiance : $($l.Confidence)`r`nDate : $($l.When)"
     }
@@ -19223,10 +19276,8 @@ function Set-RowAssociationMetadata {
     # Elle ne doit jamais empecher l'affichage d'un resultat AD.
     $result = New-Object System.Collections.ArrayList
     $enrichmentErrors = 0
-    # D043: the LinkConfidence column carries the badge of the link with the relation model (read once per call).
+    # D043/DS-17: the LinkConfidence column carries the qualification label of the link (Get-DomeniaLinkQualification).
     $qualify = ($null -ne (Get-Command -Name Get-DomeniaLinkQualification -CommandType Function -ErrorAction SilentlyContinue))
-    $symmetric = $false
-    if ($qualify) { $symmetric = [bool](Get-DomeniaFeatureFlag 'RelationsSymmetry' $true) }
 
     foreach ($row in @($Rows)) {
         if ($null -eq $row) { continue }
@@ -19244,7 +19295,7 @@ function Set-RowAssociationMetadata {
                 if ($links.Count -gt 0) {
                     $association = [string]$links[0].UserLogin
                     $source = [string]$links[0].Source
-                    $confidence = if ($qualify) { [string](Get-DomeniaLinkQualification $links[0] $symmetric).Value } else { [string]$links[0].Confidence }
+                    $confidence = if ($qualify) { [string](Get-DomeniaLinkQualification $links[0]).Value } else { [string]$links[0].Confidence }
                 }
             }
             elseif ([string]$row.Type -eq "Utilisateur") {
@@ -19256,8 +19307,8 @@ function Set-RowAssociationMetadata {
                     $association = (@($links | ForEach-Object { [string]$_.Computer } | Where-Object { $_ } | Sort-Object -Unique) -join ", ")
                     $source = (@($links | ForEach-Object { [string]$_.Source } | Where-Object { $_ } | Sort-Object -Unique) -join ", ")
                     if ($qualify) {
-                        $bestLink = Select-DomeniaBestLink $links $symmetric
-                        if ($null -ne $bestLink) { $confidence = [string](Get-DomeniaLinkQualification $bestLink $symmetric).Value }
+                        $bestLink = Select-DomeniaBestLink $links
+                        if ($null -ne $bestLink) { $confidence = [string](Get-DomeniaLinkQualification $bestLink).Value }
                     }
                     else {
                         $bestLink = $links | Sort-Object `
@@ -19453,7 +19504,11 @@ function Refresh-AssociationContext {
                 $script:Ctrl["TxtCompLinkedUser"].Text = [string]$link.UserLogin
                 $script:Ctrl["TxtCompLinkSource"].Text = [string]$link.Source
                 $script:Ctrl["TxtCompLinkConfidence"].Text = if ($null -ne (Get-Command -Name Get-DomeniaLinkQualification -CommandType Function -ErrorAction SilentlyContinue)) { [string](Get-DomeniaLinkQualification $link).Value } else { [string]$link.Confidence }
-                $script:Ctrl["TxtCompLinkWhen"].Text = [string]$link.When
+                # CO-29: local time of the stored UTC date.
+                $whenText = ''
+                if ($null -ne (Get-Command Format-DomeniaRelationWhen -CommandType Function -ErrorAction SilentlyContinue)) { $whenText = Format-DomeniaRelationWhen ([string]$link.When) }
+                if (-not $whenText) { $whenText = [string]$link.When }
+                $script:Ctrl["TxtCompLinkWhen"].Text = $whenText
             }
             else {
                 $activeProbe = Get-DomeniaRunningComputerUserProbe -Computer $computer
@@ -19576,79 +19631,19 @@ function Add-UserMachineLinkIfMissing {
         $computerDn = if ($ComputerDn) { $ComputerDn } elseif ($null -ne $computerRow) { [string]$computerRow.DN } else { "" }
         if ($null -ne $userRow -and $null -ne $computerRow) { $VerifiedInAD = $true }
 
-        if (Get-DomeniaFeatureFlag 'RelationsSymmetry' $true) {
-            # D042/D049/D050: one relation per user, workstation and nature (Resolve-DomeniaRelationUpsert in
-            # Add-DomeniaRelation). Another account on the same workstation never overwrites a relation, a declared
-            # assignment is never replaced by an observation, and no fixed score is stored (Confidence=0, unmeasured).
-            $incoming = [pscustomobject]@{ UserLogin=$u; Computer=$c; Source=$Source; Confidence=0; VerifiedInAD=$VerifiedInAD; When=(Get-Date -Format "yyyy-MM-dd HH:mm:ss"); Details=$Details; UserGuid=$userGuid; ComputerGuid=$computerGuid; UserDn=$userDn; ComputerDn=$computerDn; Kind=(Get-DomeniaRelationKind $Source) }
-            $outcome = Add-DomeniaRelation -Relation $incoming -Declarant $Declarant
-            $badge = Get-DomeniaEvidenceBadge $incoming
-            if ($outcome.SaveFailed) { $msg = "Lien non enregistre : $u -> $c. $($outcome.Reason)"; Set-Status $msg "WARN"; Write-AppLog $msg "WARN"; return $false }
-            if ($outcome.Action -eq 'Refresh') { Write-AppLog "Lien actualise : $u -> $c ($Source, $($badge.Badge))." "INFO"; Refresh-AssociationContext; return $false }
-            if ($outcome.Placement -eq 'Session') { $msg = "Relation $u -> $c ($Source, $($badge.Badge)) conservee pour la session. $($outcome.Reason)"; Set-Status $msg; Write-AppLog $msg "INFO"; Refresh-AssociationContext; return $false }
-            $msg = "Lien ajoute : $u -> $c ($Source, $($badge.Badge))."
-            if ($outcome.Placement -eq 'Replace' -and $null -ne $outcome.Demoted) { $msg += " Relation precedente ($([string]$outcome.Demoted.UserLogin)) conservee pour la session." }
-            Set-Status $msg; [void](Set-DomeniaControlText -Name "LblLinkProbeStatus" -Text $msg); Write-AppLog $msg
-            return $true
-        }
-
-        $existing=Get-ExistingLinkForComputer $c
-        if ($null -ne $existing) {
-            $sameUser = ((Normalize-LinkUser ([string]$existing.UserLogin)) -ieq $u)
-            $existingConfidence = 0
-            try { $existingConfidence = [int]$existing.Confidence } catch { }
-            $existingSource = [string]$existing.Source
-            $isManualExisting = ($existingSource -match '^(?i:Saisie manuelle|Manual)')
-            $isManualNew = ([string]$Source -match '^(?i:Saisie manuelle|Manual)')
-            $ageHours = 99999.0
-            try { $ageHours = ((Get-Date) - [datetime]([string]$existing.When)).TotalHours } catch { }
-            $staleHours = [double](Get-CfgValue "UserMachineLink" "LinkStaleHours" 24)
-            $mayReplace = $isManualNew -or ((-not $isManualExisting) -and ($Confidence -ge $existingConfidence -or $ageHours -ge $staleHours))
-
-            if($isManualExisting -and -not $isManualNew){
-                Write-AppLog ("Association manuelle conservée pour "+$c+" ; observation distincte non substituée.") 'INFO'
-                return $false
-            }
-            if ($sameUser) {
-                if ($Confidence -ge $existingConfidence -or $ageHours -ge $staleHours -or $isManualNew) {
-                    $existing.Source=$Source; $existing.Confidence=$Confidence; $existing.VerifiedInAD=$VerifiedInAD; $existing.When=(Get-Date -Format "yyyy-MM-dd HH:mm:ss"); $existing.Details=$Details
-                    foreach ($pair in @(@('UserGuid',$userGuid),@('ComputerGuid',$computerGuid),@('UserDn',$userDn),@('ComputerDn',$computerDn))) {
-                        if ($existing.PSObject.Properties.Name -notcontains $pair[0]) { $existing | Add-Member -NotePropertyName $pair[0] -NotePropertyValue $pair[1] } else { $existing.PSObject.Properties[[string]$pair[0]].Value = $pair[1] }
-                    }
-                    [void](Save-UserMachineLinks)
-                    Write-AppLog "Lien actualise : $u -> $c ($Source, confiance $Confidence)." "INFO"
-                }
-                Refresh-AssociationContext
-                return $false
-            }
-
-            if (-not $mayReplace) {
-                $msg="Lien conserve pour $c : $($existing.UserLogin) ($existingSource, confiance $existingConfidence). Nouvelle observation $u ignoree car moins fiable ou lien manuel."
-                Set-Status $msg; Write-AppLog $msg "INFO"; Refresh-AssociationContext
-                return $false
-            }
-
-            $oldUser=[string]$existing.UserLogin
-            $existing.UserLogin=$u; $existing.Source=$Source; $existing.Confidence=$Confidence; $existing.VerifiedInAD=$VerifiedInAD; $existing.When=(Get-Date -Format "yyyy-MM-dd HH:mm:ss"); $existing.Details=$Details
-            foreach ($pair in @(@('UserGuid',$userGuid),@('ComputerGuid',$computerGuid),@('UserDn',$userDn),@('ComputerDn',$computerDn))) {
-                if ($existing.PSObject.Properties.Name -notcontains $pair[0]) { $existing | Add-Member -NotePropertyName $pair[0] -NotePropertyValue $pair[1] } else { $existing.PSObject.Properties[[string]$pair[0]].Value = $pair[1] }
-            }
-            [void](Save-UserMachineLinks)
-            $msg="Lien mis a jour : $c passe de $oldUser a $u ($Source, confiance $Confidence)."
-            Set-Status $msg; Write-AppLog $msg "INFO"
-            return $true
-        }
-
-        $item=[pscustomobject]@{ UserLogin=$u; Computer=$c; Source=$Source; Confidence=$Confidence; VerifiedInAD=$VerifiedInAD; When=(Get-Date -Format "yyyy-MM-dd HH:mm:ss"); Details=$Details; UserGuid=$userGuid; ComputerGuid=$computerGuid; UserDn=$userDn; ComputerDn=$computerDn }
-        $previousLinks = @($script:UserMachineLinks)
-        $script:UserMachineLinks=@($script:UserMachineLinks)+$item
-        if (-not (Save-UserMachineLinks)) {
-            $script:UserMachineLinks = $previousLinks
-            Rebuild-UserMachineLinkIndex
-            return $false
-        }
-        $msg="Lien ajoute : $u -> $c ($Source, confiance $Confidence)."
-        Set-Status $msg; try { $script:Ctrl["LblLinkProbeStatus"].Text=$msg } catch { }; Write-AppLog $msg
+        # D042/D049/D050: one relation per user, workstation and nature (Resolve-DomeniaRelationUpsert in
+        # Add-DomeniaRelation). Another account on the same workstation never overwrites a relation, a declared
+        # assignment is never replaced by an observation, and no fixed score is stored (Confidence=0, unmeasured).
+        # CO-29: the date is stored in UTC ISO 8601. CD-06: the RC1.10.7 replacement path is removed.
+        $incoming = [pscustomobject]@{ UserLogin=$u; Computer=$c; Source=$Source; Confidence=0; VerifiedInAD=$VerifiedInAD; When=[datetime]::UtcNow.ToString('o'); Details=$Details; UserGuid=$userGuid; ComputerGuid=$computerGuid; UserDn=$userDn; ComputerDn=$computerDn; Kind=(Get-DomeniaRelationKind $Source) }
+        $outcome = Add-DomeniaRelation -Relation $incoming -Declarant $Declarant
+        $badge = Get-DomeniaEvidenceBadge $incoming
+        if ($outcome.SaveFailed) { $msg = "Lien non enregistré : $u -> $c. $($outcome.Reason)"; Set-Status $msg "WARN"; Write-AppLog $msg "WARN"; return $false }
+        if ($outcome.Action -eq 'Refresh') { Write-AppLog "Lien actualisé : $u -> $c ($Source, $($badge.Label))." "INFO"; Refresh-AssociationContext; return $false }
+        if ($outcome.Placement -eq 'Session') { $msg = "Relation $u -> $c ($Source, $($badge.Label)) conservée pour la session. $($outcome.Reason)"; Set-Status $msg; Write-AppLog $msg "INFO"; Refresh-AssociationContext; return $false }
+        $msg = "Lien ajouté : $u -> $c ($Source, $($badge.Label))."
+        if ($outcome.Placement -eq 'Replace' -and $null -ne $outcome.Demoted) { $msg += " Relation précédente ($([string]$outcome.Demoted.UserLogin)) conservée pour la session." }
+        Set-Status $msg; [void](Set-DomeniaControlText -Name "LblLinkProbeStatus" -Text $msg); Write-AppLog $msg
         return $true
     }
     catch {
@@ -19665,23 +19660,10 @@ function Remove-SelectedLink {
         if(Test-DomeniaAccessBusyWrite){return}
         $activeGrid=Get-DomeniaRelationsActiveGrid
         $row=if($null -ne $activeGrid){$activeGrid.SelectedItem}else{$null}
-        if ($null -eq $row) { Set-Status "Selectionne un lien a supprimer." "WARN"; return }
-        if (Get-DomeniaFeatureFlag 'RelationsSymmetry' $true) {
-            # D050: the removal is journaled (declarant, source, dates) and can be restored; AD is never touched.
-            # The exact row is removed, not every row sharing its login, workstation and date.
-            Request-DomeniaRelationRemoval -Relation $row
-            return
-        }
-        if (-not (Confirm-Action "Supprimer ce lien user-machine ?`n$($row.UserLogin) -> $($row.Computer)")) { return }
-        $previousLinks = @($script:UserMachineLinks)
-        $script:UserMachineLinks = @($script:UserMachineLinks | Where-Object { -not (($_.UserLogin -eq $row.UserLogin) -and ($_.Computer -eq $row.Computer) -and ($_.When -eq $row.When)) })
-        if (-not (Save-UserMachineLinks)) {
-            $script:UserMachineLinks = $previousLinks
-            Rebuild-UserMachineLinkIndex
-            Refresh-LinkGrid
-            return
-        }
-        Set-Status "Lien user-machine supprime."
+        if ($null -eq $row) { Set-Status "Sélectionnez une association à supprimer." "WARN"; return }
+        # D050: the removal is journaled (declarant, source, dates) and can be restored; AD is never touched.
+        # The exact row is removed, not every row sharing its login, workstation and date (CD-06: no other path).
+        Request-DomeniaRelationRemoval -Relation $row
     }
     catch { Show-ErrorBox "Erreur suppression lien : $($_.Exception.Message)" }
 }
@@ -20275,6 +20257,7 @@ function Wire-Events {
             catch { }
         })
     }
+    if ($script:Ctrl.ContainsKey("DgAllLinks")) { $script:Ctrl["DgAllLinks"].Add_MouseDoubleClick({ param($sender,$e) Open-DomeniaAllLinksCell -Source $e.OriginalSource }) }
     $script:Ctrl["BtnImportLinks"].Add_Click({ Import-LinksCsv })
     $script:Ctrl["BtnOpenLinksCsv"].Add_Click({ Export-DomeniaLinksCsv })
     $script:Ctrl["BtnLoadCmdlets"].Add_Click({ Load-AdCmdlets })
@@ -20563,8 +20546,6 @@ function New-DefaultConfig {
             BitLockerKeySelection = $true
             SecretSingleCopy = $true
             ScopedLocks = $true
-            RelationsSymmetry = $true
-            DetectionPreview = $true
             SearchSyntax = $true
             SearchRanking = $true
             ColumnProfiles = $true
@@ -20733,7 +20714,6 @@ function New-DefaultConfig {
             ScanProbes = 250
             ProbeBudgetMs = 120000
             ScanBudgetMs = 300000
-            LinkStaleHours = 24
         }
         Modules = [ordered]@{
             ActiveDirectoryPath = ""
@@ -21599,8 +21579,8 @@ function Export-DomeniaLinksCsv {
 
 function ConvertTo-DomeniaCanonicalLinks {
     param($Links)
-    $relationModel = $false
-    if ($null -ne (Get-Command -Name 'Get-DomeniaRelationKind' -CommandType Function -ErrorAction SilentlyContinue)) { $relationModel = [bool](Get-DomeniaFeatureFlag 'RelationsSymmetry' $true) }
+    # CD-06: the relation model applies whenever the Relations module is loaded (always in the application).
+    $relationModel = ($null -ne (Get-Command -Name 'Get-DomeniaRelationKind' -CommandType Function -ErrorAction SilentlyContinue))
     if ($relationModel) {
         # D042/D049: deduplicate by relation (user, workstation, nature) instead of keeping the most recent row per
         # workstation, which let an observed console evict a declared assignment. While the local store keeps one row
@@ -21609,7 +21589,18 @@ function ConvertTo-DomeniaCanonicalLinks {
         # Each row carries Kind and StorageKey (Get-DomeniaRelationStorageKey) for the storage queue.
         $multi = [bool]$script:DomeniaLinkStoreMultiRelation
         $groups = [ordered]@{}
-        foreach ($link in @($Links | Where-Object { $null -ne $_ } | Sort-Object When -Descending)) {
+        # CO-29: most recent first by instant, whatever the stored form (UTC ISO or older local text). Review L04: the
+        # instants are read once for all rows (Get-DomeniaRelationWhenTicks, memoized) and sorted natively; equal
+        # instants keep their order (the row position is part of the key). [Array]::Sort(keys,items) is not used: under
+        # Windows PowerShell 5.1 it receives a converted copy of the items and leaves them unsorted.
+        $items = New-Object 'System.Collections.Generic.List[object]'
+        foreach ($link in @($Links)) { if ($null -ne $link) { $items.Add($link) } }
+        $texts = New-Object 'string[]' $items.Count
+        for ($i = 0; $i -lt $items.Count; $i++) { $texts[$i] = [string]$items[$i].When }
+        $ticks = Get-DomeniaRelationWhenTicks -Values $texts
+        $ordered = New-Object 'System.Collections.Generic.SortedDictionary[decimal,object]'
+        for ($i = 0; $i -lt $items.Count; $i++) { $ordered.Add((([decimal]$ticks[$i]) * -1000000) + $i,$items[$i]) }
+        foreach ($link in @($ordered.Values)) {
             $user = Normalize-LinkUser ([string]$link.UserLogin)
             $computer = Normalize-LinkComputer ([string]$link.Computer)
             if ([string]::IsNullOrWhiteSpace($user) -or [string]::IsNullOrWhiteSpace($computer)) { continue }
@@ -21618,7 +21609,7 @@ function ConvertTo-DomeniaCanonicalLinks {
             $confidence = 0
             try { if ($null -ne $link.PSObject.Properties['Confidence']) { $confidence = [int]$link.Confidence } } catch { }
             $when = [string]$link.When
-            if ([string]::IsNullOrWhiteSpace($when)) { $when = Get-Date -Format 'yyyy-MM-dd HH:mm:ss' }
+            if ([string]::IsNullOrWhiteSpace($when)) { $when = [datetime]::UtcNow.ToString('o') }
             $row = [pscustomobject]@{
                 UserLogin=$user; Computer=$computer; Source=[string]$link.Source; Confidence=$confidence; VerifiedInAD=$verified; When=$when; Details=[string]$link.Details
                 UserGuid=[string]$link.UserGuid; ComputerGuid=[string]$link.ComputerGuid; UserDn=[string]$link.UserDn; ComputerDn=[string]$link.ComputerDn

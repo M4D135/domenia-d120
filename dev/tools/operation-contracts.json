@@ -452,7 +452,7 @@
     "File": "wad/modules/Domenia-Migration.Worker.ps1",
     "Function": "Get-DomeniaMigrationWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "9F9E86E2BD40130C8E8726DC065112CB0F770D04063ADB1EB890AFBB45C303F3"
+    "Sha256": "A6F739B31CDD39F30B5EA07FF3A2DBE4171CE453E083F9816551E4EFE4D41E5D"
   },
   {
     "Operation": "StorageUsage",
