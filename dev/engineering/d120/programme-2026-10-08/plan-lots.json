@@ -1,0 +1,1309 @@
+{
+ "lots": [
+  {
+   "id": "L01",
+   "titre": "Accueil : vue du parc tirée de l'annuaire, exacte et sans poste contacté",
+   "items": [
+    "FI-04",
+    "FI-11",
+    "MO-01",
+    "CO-11",
+    "CO-13",
+    "CO-26",
+    "FO-08",
+    "FO-10",
+    "FO-11",
+    "UI-03",
+    "UX-10",
+    "UX-20",
+    "PF-03",
+    "PF-11",
+    "PF-21"
+   ],
+   "fichiers": [
+    "dev/wad/Domenia-Core.ps1:4421-4560 (XAML Accueil : en-tête UI-03, carte Premiers pas, PnlFleetDashboard, UxSessionDetails) ; les cartes 4360-4420 ne sont pas touchées (4393-4405 : L21, 4406-4414 : L14)",
+    "dev/wad/Domenia-Core.ps1:7064-7081 (Get-ObjectsStatsText), 9250-9260 (fin d'Update-TaskUi), 24146-24212 (Request-DomeniaDashboardRefresh, Update-Dashboard) : PF-11",
+    "dev/wad/Domenia-Core.ps1:14595-14640 (lignes d'index : formule search_key unique, CO-26 et FO-11)",
+    "dev/wad/Domenia-Core.ps1:15259-15295 (Complete-DomeniaIndexBuildUi) et 15325-15340 (texte « Parc incomplet ? » remplacé par des liens)",
+    "dev/wad/Domenia-Core.ps1:15403-15570 (Get-DomeniaIndexWorkerCode, opération épinglée IndexBuild : operatingSystemVersion, whenCreated, pwdLastSet, ms-Mcs-AdmPwdExpirationTime, msLAPS-PasswordExpirationTime ; aucun attribut de la liste sensible de Core:9333)",
+    "dev/wad/Domenia-Core.ps1:19713-19940 (New-DefaultConfig : une clé Dashboard.ObservationMaxAgeDays)",
+    "dev/wad/Domenia-Core.ps1:20484-20530 (script de schéma d'Initialize-DomeniaDatabase : CREATE TABLE IF NOT EXISTS ad_computer_facts et fleet_snapshots, schema_info inchangé en 11/1)",
+    "dev/wad/modules/Domenia-BoardFleet.Model.ps1 (entier)",
+    "dev/wad/modules/Domenia-Boards.Model.ps1:50-135 (catalogue Fleet, Get-DomeniaWindowsRelease), 171-196 (score proportionnel), 257-310 (disposition par défaut et migration), 414-448 (âge des mesures)",
+    "dev/wad/modules/Domenia-Dashboard.UI.ps1 (entier)",
+    "dev/wad/modules/Domenia-Engine.Worker.ps1:130-175 (FleetStats : filtre SQL par suffixe de DN, jointure GUID avec les postes actifs, agrégats GROUP BY ; opération épinglée LocalIndexRead)",
+    "dev/wad/modules/Domenia-Widgets.UI.ps1:29-76 (annulation séparée des données) et 836-872 (Get-DomeniaWidgetResults : croisement GUID et âge)",
+    "dev/wad/modules/Domenia-Storage.UI.ps1:230-250 et 575-590 (déclencheurs de recalcul de l'Accueil)",
+    "dev/wad/modules/Domenia-Storage.Worker.ps1:266-340 (Index/IndexBulk : search_key, faits ordinateur, nouveau type FleetSnapshot ; LocalStore), 491-505 (catégories de StorageUsage), ~715-740 (cibles admises par StoragePurge)",
+    "dev/wad/modules/Domenia-Cache.Model.ps1:395-440 (cibles de purge : ad_computer_facts dans Index, fleet_snapshots dans History ; secret_state jamais cible d'Index)",
+    "dev/wad/modules/Domenia-Secrets.Worker.ps1 : nouvelle opération épinglée BitLockerPresence (name, distinguishedName, whenCreated seulement) ; résultat écrit dans la table existante secret_state par le type SecretMeta de LocalStore",
+    "dev/wad/modules/Domenia-Charts.UI.ps1:382-434 (New-DomeniaAttentionCard : lignes dépliables et liens de route)",
+    "dev/wad/modules/Domenia-BoardComputer.UI.ps1:88-100 (version et fin de service via la table FO-08)",
+    "dev/wad/modules/Domenia-Demo.Worker.ps1 et Domenia-Demo.Model.ps1 (valeurs de démonstration des nouveaux attributs, opération épinglée DemoDirectory)",
+    "nouveau dev/wad/modules/Domenia-WindowsLifecycle.json (FO-08 ; 82 fichiers runtime aujourd'hui, plafond 100 relevé par FI-14 en L05)",
+    "dev/wad/tests/rules/BoardFleet.Tests.ps1, Boards.Tests.ps1, Release.Tests.ps1 ; dev/wad/tests/Test-DomeniaBoards.ps1 ; dev/wad/tests/Test-DomeniaWiringCache.ps1 (ajouts en fin de fichier)",
+    "intégration, régénérés et jamais édités à la main : dev/tools/operation-contracts.json, Domenia-Core.ps1:20889-20970 (empreintes), Domenia-Modules.ps1 (listes de fonctions), dev/wad/package-manifest.json, dev/tools/preload-baseline.json"
+   ],
+   "risque": "high — six opérations épinglées modifiées (IndexBuild, LocalIndexRead, LocalStore, StorageUsage, StoragePurge, DemoDirectory) et une nouvelle (BitLockerPresence), migration des dispositions enregistrées, lisibilité LAPS et BitLocker qui dépend des droits du compte. Aucune migration de schéma : deux tables additives.",
+   "tests": [
+    "VM : Test-DomeniaRules.ps1 (rules/BoardFleet, Boards, Release), Test-DomeniaBoards.ps1, Test-DomeniaWiringCache.ps1, Test-DomeniaWiringMoteur.ps1, Test-DomeniaStreaming.ps1, Test-DomeniaSearchScope.ps1, Test-DomeniaStableUi.ps1, Test-DomeniaPreload.ps1, Test-DomeniaModules.ps1, Test-DomeniaRelease.ps1",
+    "À ajouter (BoardFleet.Tests) : même LinkUser sur 2 postes = 1 utilisateur ; observation dont le GUID n'est pas un poste actif du périmètre ignorée ; observation de plus de 30 j écartée, de plus de 7 j marquée ; LTSC 2019/2021, LTSB 2016 et IoT non critiques avec leur date ; table de fin de service absente → « date de fin inconnue », jamais Critique ; comptes désactivés comptés à part ; 0 expiration LAPS ou 0 clé BitLocker visible sur M postes → « non déterminé », jamais « M postes sans … » ; texte de couverture « N postes analysés sur M »",
+    "À ajouter (Boards.Tests) : score proportionnel (22 sur 26) et paliers ; ancienne disposition livrée migrée, disposition personnalisée conservée",
+    "À ajouter (Release.Tests, Test-DomeniaWiringCache) : base 11/1 existante → ad_computer_facts et fleet_snapshots créées au démarrage, schema_info inchangé, aucune sauvegarde de migration demandée ; une base ainsi complétée reste ouverte par le code RC1.13.0 ; faits dont read_at est antérieur à sync_state(directory).last_sync ignorés (« à relire ») ; IndexBulk ReplaceAll vide aussi ad_computer_facts ; purge Index vide ad_computer_facts et jamais secret_state ; search_key identique (avec Extra) pour Index et IndexBulk ; PropertiesToLoad d'IndexBuild et de BitLockerPresence sans aucun attribut de la liste sensible",
+    "À ajouter (Test-DomeniaBoards) : disposition par défaut de l'Accueil sans widget d'observation ni requête WMI ; BitLockerPresence refusée à la racine du domaine et limitée à l'OU affichée ; clic sur un point d'attention déplie les postes sans démarrer de tâche ; annulation conservée après un recalcul de fond ; détails masqués non recalculés expander fermé"
+   ],
+   "decisions": [
+    "Règles communes à tous les lots : (1) numéros de ligne de RC1.13.0 (commit 6246304), la fonction nommée fait foi ; (2) fichiers générés jamais édités dans un lot, régénérés par l'intégrateur après chaque fusion : update_worker_contracts.py --apply (operation-contracts.json et Core 20889-20970), integrate_lots.py --refresh-functions (Domenia-Modules.ps1), build_packages.py (manifestes), audit_preload.py --rebaseline avec décision écrite ; (3) tables partagées GuiElementPolicy (Core 421-789), Wire-Events (19212-19712), New-DefaultConfig (19713-19940) et Domenia-UX.help.json : chaque lot n'ajoute ou ne modifie que ses propres entrées ; (4) fusion séquentielle dans la vague, L05 toujours en premier dans la vague 1 (outils CD-14, plafond FI-14 et audit TE-01 utilisés par l'intégrateur), puis campagne Invoke-LabRun en VM comparée à la référence 1215/79 ; (5) aucun changement de schema_info (11/1) dans ce plan : les tables nouvelles sont additives (CREATE TABLE IF NOT EXISTS dans le script de schéma existant) ; un changement incompatible exigerait la révision domenia_schema, OldestUpgradable explicite et la mise à jour des contrôles codés en dur (Engine.Worker:77, Storage.Worker:267-269, 493, 710, Live.Model:419, Migration.Worker:333, 469, 819) — hors plan ; (6) les fonctions mortes de CD-02 et CD-04 (Ensure-LinkProbeTimer, Stop-UiTask, Load-DomeniaIndex, Upsert-DomeniaIndexEntryRow, Get-DomeniaIndexSuggestionText, Queue-LiveGlobalSearch, Initialize-DomeniaSupportUi…) ne sont ni modifiées ni migrées par les autres lots : L21 les supprime ; (7) les API utilisées par un lot parallèle gardent une signature compatible (paramètres nouveaux facultatifs) : Request-DomeniaInlineConfirmation (L07), Get-DomeniaUxOuDisplay et Update-DomeniaSearchScopeUi (L03), Clear-DomeniaGlobalSearch (L16), noms de route d'Invoke-DomeniaUxRoute (L15 résout les anciens noms).",
+    "Stockage : ad_objects n'a aucune colonne libre ; extra (operatingSystem / location) entre dans search_key et dans le découpage « système / emplacement » de FleetStats, description est la description AD indexée pour la recherche : ni l'un ni l'autre n'est réutilisable. Nouvelle table ad_computer_facts(object_guid clé, object_key, os_version, when_created, pwd_last_set, laps_kind, laps_expiry, read_at), vidée et remplie dans la transaction IndexBulk ReplaceAll, mise à jour ligne à ligne par le delta de L13. BitLocker : table existante secret_state (bitlocker_keys, bitlocker_last, checked_at, verdict) écrite par le type SecretMeta de LocalStore, sans nouvelle colonne. Comptes désactivés : colonne state existante (« Desactive »).",
+    "Schéma : pas de passage en version 12. Test-DomeniaSchemaCompatibility prend OldestUpgradable = ApplicationVersion par défaut (une base 11 serait refusée « trop ancienne » par une application 12), le cœur écrit la version par INSERT OR IGNORE (jamais mise à jour) et huit contrôles 11/1 sont codés en dur dans des workers épinglés. Les deux tables sont créées comme les tables actuelles par le script de schéma (CREATE TABLE IF NOT EXISTS, transaction existante) ; une RC1.13 les ignore ; garde de retour arrière : des faits plus anciens que sync_state(directory).last_sync sont affichés « à relire ».",
+    "Lecture AD seulement sur geste : expiration LAPS lue avec IndexBuild au geste « Mettre à jour » (aucune requête de plus), jamais le mot de passe ; BitLocker par un bouton du widget « Lire la présence des clés BitLocker de cette OU » : une recherche paginée sur l'OU affichée (objectClass=msFVE-RecoveryInformation ; name, distinguishedName, whenCreated), refusée à la racine du domaine, jamais msFVE-RecoveryPassword. Si aucun objet n'est visible pour M postes, le widget dit « Aucune clé visible avec ce compte (droits ou clés non sauvegardées dans AD) » et non « M postes sans clé » ; même règle pour LAPS.",
+    "Disposition par défaut de l'Accueil : retirer Présence réseau, Utilisateurs détectés, Dernière analyse et toute la section Relevés WMI ; garder Postes et Sans connexion depuis 90 j (lastLogonTimestamp, « à 14 jours près ») ; ajouter Versions de Windows (operatingSystemVersion), Fin de service, Comptes ordinateur désactivés encore dans l'OU, Créés ces 30 jours, Mot de passe machine de plus de 60 j, Sans LAPS, Sans clé BitLocker (non lu tant que le bouton n'a pas servi). Une disposition enregistrée identique à l'ancienne disposition livrée est migrée ; une disposition personnalisée est conservée et ses widgets d'observation portent la mention de couverture.",
+    "Couverture : tout widget fondé sur une observation affiche « N postes analysés sur M, le jj/MM » ; observations rattachées par GUID aux postes actifs du périmètre, écartées au-delà de 30 j (réglable), grisées au-delà de 7 j, y compris côté poste.",
+    "PF-03 et PF-21 : l'agrégation lourde est faite en SQL dans LocalIndexRead (suffixe de DN COLLATE NOCASE, jointure GUID, GROUP BY build, édition et état, cibles limitées à 200 par point) ; BoardFleet.Model garde les règles (verdicts, seuils, fin de service) appliquées à ces agrégats et testées dans rules/ ; aucune règle recopiée dans le worker épinglé ; rappel sous 120 ms mesuré en démonstration sur 5 000 postes.",
+    "MO-01 : score = part des postes sans point critique ni à surveiller ; verdict Critique si un point Alert, sinon Bon état à partir de 90 %, À surveiller à partir de 75 %, Dégradé en dessous ; détail « 22 postes sur 26 sans problème ».",
+    "CO-11 : utilisateurs distincts (sans casse) ; le widget sort de la disposition par défaut. CO-12 (pare-feu du poste) est en L06.",
+    "FO-08 : table JSON livrée (build, famille d'édition, date de fin) avec LTSC, LTSB et IoT, lue une fois par l'interface et passée en paramètre aux fonctions Model (un Model ne lit pas le disque) ; « À surveiller » 90 j avant la date, « Critique » après ; mise à jour par livraison uniquement, jamais par téléchargement.",
+    "FO-10 : instantané quotidien local des chiffres tirés de l'annuaire pour l'OU affichée seulement, pris au premier calcul de l'Accueil du jour (aucune tâche planifiée, aucun réseau), écrit par LocalStore (type FleetSnapshot) dans fleet_snapshots, rétention 400 j (purge History) ; « Courbe » retirée des données non temporelles en attendant 90 j d'historique.",
+    "UX-10 : côté parc, un clic déplie les postes concernés à partir des cibles déjà en mémoire, avec « Copier » et « Afficher dans Rechercher » (lignes de la base locale, sans requête) ; côté poste, chaque point porte un nom de route stable (Redémarrer, disque C, Secrets) ouvert par Invoke-DomeniaUxRoute ; rien n'est exécuté.",
+    "UX-20 : carte « Premiers pas » locale ; chaque étape ouvre l'écran concerné sans lancer d'action ; masquée après les 4 étapes (préférence locale).",
+    "UX-30 (politique d'inactivité) est déplacé en L09 : L01 ne touche plus Engine.Model ni Engine.UI."
+   ],
+   "dependances": []
+  },
+  {
+   "id": "L02",
+   "titre": "Journal, erreurs et bandeaux dans la page",
+   "items": [
+    "FI-01",
+    "FI-02",
+    "FI-07",
+    "FI-08",
+    "FI-09",
+    "FI-10",
+    "FI-15",
+    "FI-22",
+    "UI-02",
+    "UI-22",
+    "UX-01",
+    "UX-02",
+    "UX-06",
+    "PF-09",
+    "PF-13",
+    "CO-04"
+   ],
+   "fichiers": [
+    "dev/wad/Domenia-Core.ps1:200-250 (ConvertTo-DomeniaSpreadsheetSafeRow) et 355-370 (écriture de journal)",
+    "dev/wad/Domenia-Core.ps1:1557-1671 et 1693-2106 (Set-Status, fenêtres hôtes, Show-InfoBox, Show-ErrorBox, gestionnaire global d'erreurs, Show-DomeniaOperationError) — 1672-1692 réservé à L20",
+    "dev/wad/Domenia-Core.ps1:2156-2290 (format du journal de session)",
+    "dev/wad/Domenia-Core.ps1:6203-6212 (TabLog, TxtLog) et 6300-6345 (LogPanel, DomeniaDialogLayer : hôte des bandeaux)",
+    "dev/wad/Domenia-Core.ps1:17133-17165 (Write-AppLog : file asynchrone, échappement)",
+    "dev/wad/Domenia-Core.ps1:19941-19975 (Initialize-DomeniaDataStore : repli du journal)",
+    "dev/wad/Domenia-Core.ps1:21134-21145 (erreur du minuteur d'Initialize-AsyncEngine : dédoublonnage, arrêt après 3 échecs)",
+    "dev/wad/Domenia-Core.ps1:25840-25884 (try principal, FI-22)",
+    "dev/wad/Domenia-Core.ps1, appels Export-Csv seulement, remplacés par une fonction d'export commune : 10660-10672, 12157-12175, 13610-13620, 13865-13870, 19530-19540, 20660-20671, 20755-20767, 24092-24130",
+    "dev/wad/modules/Domenia-Embedded.UI.ps1:92-211 (Show-DomeniaEmbeddedWindow : erreurs pendant l'affichage, bandeau)",
+    "dev/wad/modules/Domenia-UX.UI.ps1:222-349 et 410-423 (journal replié, Switch-DomeniaUxLog)",
+    "dev/wad/modules/Domenia-Experience.UI.ps1:1-25 (lignes exportées) et 128-187 (lecture et disposition du journal)",
+    "dev/wad/modules/Domenia-Access.UI.ps1:145-160 (Request-DomeniaAccessRecovery)"
+   ],
+   "risque": "medium — le gestionnaire global d'erreurs et le remplacement des fenêtres d'information par des bandeaux touchent tous les parcours ; un dédoublonnage trop large peut masquer une erreur ; le journal écrit hors du fil de l'interface doit être vidé à la fermeture.",
+   "tests": [
+    "VM : Test-DomeniaFaults.ps1, Test-DomeniaEmbeddedUi.ps1, Test-DomeniaExperience.ps1, Test-DomeniaRegressions.ps1, Test-Domenia.ps1, Test-DomeniaStartupLogin.ps1, Test-DomeniaWiringSuites.ps1, Test-DomeniaPreload.ps1",
+    "À ajouter (Test-DomeniaFaults) : exception levée pendant l'affichage d'une erreur journalisée et comptée ; minuteur en panne arrêté après 3 échecs sans boucle de fenêtres ; même erreur du moteur limitée à 1 ligne par minute ; code incident identique à l'écran et dans Domenia.log ; erreur après affichage annoncée comme arrêt inattendu",
+    "À ajouter : ligne Domenia.log avec CR, LF et TAB échappés et pile en lignes « | » ; WARN/ERROR de Set-Status présents dans Domenia.log ; repli LOCALAPPDATA puis TEMP ; CSV en « ; » avec colonnes visibles et en-têtes français ; un clic sur une ligne puis Exporter = toute la liste ; FI-15 reproduit en VM avant correction ; accès fichier refusé sans proposition de changer de compte AD ; Show-InfoBox et Show-ErrorBox n'ouvrent plus de fenêtre quand la fenêtre principale existe"
+   ],
+   "decisions": [
+    "UX-06 : Show-InfoBox et Show-ErrorBox deviennent des bandeaux hébergés dans DomeniaDialogLayer (aucune nouvelle Window) : information et succès 5 s avec « Voir le détail », erreurs non bloquantes jusqu'à fermeture avec « Copier le détail » et « Ouvrir le journal ». Confirm-WarningAction et Confirm-Action restent des décisions jusqu'à leur remplacement par le panneau intégré dans les lots propriétaires (L07 pour toutes les écritures, L08 pour la lecture seule, L15 pour le redémarrage, L18 pour la revue des reçus) ; le modal ne sert plus qu'en repli sans fenêtre principale (démarrage, connexion).",
+    "FI-07 : code court « INC-XXXX » écrit dans le bandeau, Domenia.log et l'incident Support, bouton « Copier pour le support ».",
+    "FI-02 : dédoublonnage par signature (type, message, source) avec compteur « même erreur ×N » ; minuteur d'Initialize-AsyncEngine arrêté après 3 échecs (la fabrique générale FI-05 viendra en L09) ; 1 ligne par minute pour une même erreur du moteur.",
+    "FI-08 et PF-09 : WARN et ERROR de Set-Status écrits dans Domenia.log via une file mémoire vidée toutes les 500 ms et à la fermeture ; contrôle de taille toutes les 200 lignes.",
+    "FI-10 : même chaîne de repli que la trace de connexion (LOCALAPPDATA puis TEMP) et pastille « Journal indisponible ».",
+    "UX-01 et UI-22 : barre repliée avec la dernière ligne (heure, icône, phrase) et pastille rouge jusqu'à lecture ; en Essentiel, vue lisible par défaut (HH:mm, couleur par niveau, filtre « Erreurs seulement ») ; format brut et « État du moteur » en Expert.",
+    "PF-13 : TxtLog passe au même tampon circulaire de 5 000 lignes que le journal de session (onglet Journal conservé en Expert).",
+    "CO-04 et UX-02 : une fonction d'export commune remplace les huit appels Export-Csv : séparateur « ; », UTF-8 avec BOM, colonnes visibles dans l'ordre avec en-têtes français, nom « Domenia-<OU ou poste>-AAAAMMJJ-HHmm.csv » dans le dossier d'export par défaut ; sélection exportée seulement à partir de 2 lignes, nombre de lignes toujours annoncé ; confirmation dans la page avec « Ouvrir le dossier ».",
+    "FI-15 (à confirmer en VM) : reproduire d'abord ; si confirmé, reprise de compte proposée seulement si l'erreur vient d'une tâche dont l'opération exige un compte (Get-DomeniaOperationCredentialNeeds) ; sinon, constat documenté sans changement.",
+    "FI-22 et UI-02 : avant affichage « initialisation impossible » ; après affichage « Domenia s'est arrêté de façon inattendue » avec code incident et chemins des journaux ; message .NET brut seulement au journal et en Expert."
+   ],
+   "dependances": []
+  },
+  {
+   "id": "L03",
+   "titre": "Rechercher : arbre des OU, périmètre et vues de travail",
+   "items": [
+    "DS-07",
+    "UI-16",
+    "PF-14",
+    "FO-04",
+    "UX-33",
+    "CO-20",
+    "CO-21",
+    "UX-25",
+    "SE-13",
+    "FI-21"
+   ],
+   "fichiers": [
+    "dev/wad/Domenia-Core.ps1:4561-4617 (XAML colonne des OU : arbre à pleine hauteur, filtre des OU, menu d'en-tête)",
+    "dev/wad/Domenia-Core.ps1:5961-5964 (bloc caché des recherches enregistrées de TabGuard, retiré)",
+    "dev/wad/Domenia-Core.ps1:6660-6883 (nœuds de l'arbre, Set-SelectedBranch) et 6911-6935 (Update-DomeniaSearchScopeUi, signature conservée) — 6884-6910 réservé à L16",
+    "dev/wad/Domenia-Core.ps1:9554-9620 (Load-TreeChildren, opération épinglée TreeChildren)",
+    "dev/wad/Domenia-Core.ps1:16666-16672 (Refresh-SelectedObject)",
+    "dev/wad/Domenia-Core.ps1:19318-19330 (Wire-Events : sélection dans l'arbre) et 19755-19765 (New-DefaultConfig : RevalidateListedObjects)",
+    "dev/wad/modules/Domenia-Continuity.UI.ps1:56-299 (signets d'arbre, Invoke-DomeniaObjectChanges, revalidation)",
+    "dev/wad/modules/Domenia-Guard.UI.ps1:113-162 et 215-221 (favoris d'OU)",
+    "dev/wad/modules/Domenia-Search.Model.ps1:376-500 (vues de travail, DN)",
+    "dev/wad/modules/Domenia-Search.UI.ps1 (entier : vues de travail, instantané d'historique)",
+    "dev/wad/modules/Domenia-Live.UI.ps1:391-394 (marque « liste de l'historique »)",
+    "dev/wad/modules/Domenia-UX.UI.ps1:570-636 (affichage du périmètre d'OU ; Get-DomeniaUxOuDisplay lu par l'Accueil de L01, signature conservée)",
+    "dev/wad/tests/rules/Search.Tests.ps1"
+   ],
+   "risque": "medium — l'arbre et le périmètre alimentent l'Accueil et Rechercher ; opération épinglée TreeChildren ; migration des favoris depuis SavedSearches ; couper la revalidation de fond change un défaut.",
+   "tests": [
+    "VM : Test-DomeniaSearchScope.ps1, Test-DomeniaWiringRecherche.ps1, Test-DomeniaWiringCache.ps1, Test-DomeniaSelection.ps1, Test-DomeniaStableUi.ps1, Test-DomeniaRules.ps1 (rules/Search), Test-DomeniaPreload.ps1",
+    "À ajouter : « Postes sans connexion » inclut les jamais connectés ; vue de travail appliquée à l'OU par défaut, relevé refusé en domaine entier ; parcours clavier temporisé (300 ms) sans requête par nœud ; favoris repris de SavedSearches ; conteneurs système regroupés et chevron absent sans sous-OU ; RevalidateListedObjects faux par défaut (aucune lecture AD sans geste) ; « Relire l'objet » n'invalide que le GUID et ne relance pas la liste ; un favori ne remplit plus de champ caché ; le périmètre lu par l'Accueil reste celui de l'OU choisie"
+   ],
+   "decisions": [
+    "DS-07 : carte Périmètre et « Afficher cette OU » supprimées ; « Inclure les sous-OU » et « Voir le chemin » dans un menu d'en-tête ; champ « Filtrer les OU » limité aux nœuds déjà chargés, sans requête.",
+    "UI-16 : System, Program Data, ForeignSecurityPrincipals, LostAndFound… regroupés sous « Conteneurs système » replié ; Users et Computers restent visibles ; chevron retiré d'un nœud chargé sans enfant ; petite roue au lieu du grisé.",
+    "PF-14 : temporisation de 300 ms au clavier et pour les changements de type ; immédiat à la souris.",
+    "FO-04 : favoris épinglés en haut de l'arbre, repris une fois des SavedSearches (données conservées) ; le bloc caché de TabGuard est retiré dans ce lot.",
+    "CO-21 : plus de terme invisible : un favori ou l'historique remet son terme dans le filtre local visible ; le contrôle caché TxtBranchSearch est supprimé du XAML par L21 (CD-04).",
+    "UX-33 : chaque vue de travail s'applique à l'OU choisie (puce « Dans : Postes ») ; le domaine entier n'est qu'un choix secondaire explicite, sans relevé possible.",
+    "CO-20 : filtre (|(lastLogonTimestamp<=X)(!(lastLogonTimestamp=*))) et « Jamais » à l'affichage.",
+    "UX-25 : bandeau « Liste de l'historique · Actualiser » ; l'instantané mémorise aussi type, présence et filtre local.",
+    "SE-13 : revalidation de fond désactivée par défaut (rien sur le réseau sans geste) ; si l'administrateur la réactive, « Liste vérifiée à HH:mm » et interrupteur dans la page.",
+    "FI-21 : « Relire l'objet » invalide seulement les clés du GUID (logique d'Invoke-DomeniaObjectChanges), sans relancer la liste."
+   ],
+   "dependances": []
+  },
+  {
+   "id": "L04",
+   "titre": "Relations utilisateur-poste : dates, import, restauration et mise en page",
+   "items": [
+    "CO-08",
+    "CO-28",
+    "CO-29",
+    "CO-30",
+    "UI-09",
+    "DS-17",
+    "FO-14",
+    "UX-40",
+    "CD-06",
+    "PF-16"
+   ],
+   "fichiers": [
+    "dev/wad/Domenia-Core.ps1:5271-5413 (XAML Relations : deux zones, puces, filtre des associations)",
+    "dev/wad/Domenia-Core.ps1:7520-7640 (normalisation des liens ; Ensure-LinkProbeTimer à 7594 est mort, laissé à L21) et 7829-7907 (Import-LinksCsv : aperçu, source forcée)",
+    "dev/wad/Domenia-Core.ps1:18085-18725 et 18748-18871 (nettoyage des associations, index, liens manuels) — Copy-DashboardSummary 18726-18747 exclu",
+    "dev/wad/Domenia-Core.ps1:19450-19458 (Wire-Events : double-clic de Toutes les associations)",
+    "dev/wad/modules/Domenia-Relations.UI.ps1 (entier ; le worker épinglé UserComputerProbe n'est modifié que si CD-06 l'exige)",
+    "dev/wad/modules/Domenia-Relations.Model.ps1 (entier)",
+    "dev/wad/modules/Domenia-Common.Model.ps1:160-176 (ConvertTo-DomeniaUtcDate)",
+    "dev/wad/modules/Domenia-Live.UI.ps1:461-492 (Merge-DomeniaLiveLinkMemory : format de date)",
+    "dev/wad/tests/rules/Relations.Tests.ps1, dev/wad/tests/Test-DomeniaWiringRelations.ps1"
+   ],
+   "risque": "medium — normalisation de dates déjà enregistrées (choix du lien le plus récent et placement), import CSV qui écrit dans la base locale, suppression de l'ancien chemin RC1.10.7.",
+   "tests": [
+    "VM : Test-DomeniaWiringRelations.ps1, Test-DomeniaRelationsAlignment.ps1, Test-DomeniaLastUser.ps1, Test-DomeniaWiringCache.ps1, Test-DomeniaRules.ps1 (rules/Relations)",
+    "À ajouter : Import-LinksCsv avec aperçu, Source forcée « Import CSV » et « Annuler l'import » ; une Source « Saisie manuelle » dans le CSV n'est jamais classée Affectation ; anciennes dates locales relues en heure locale puis réécrites en UTC, tri juste ; « Restaurer » inactif après une restauration et libellé nommant le lien ; « Pick » depuis Pending donne un message français ; orphelins listés avec motif et restaurables"
+   ],
+   "decisions": [
+    "CO-08 : aperçu dans la page (valides, déjà présentes, inconnues de la base locale — aucune requête AD sans geste) ; Source forcée « Import CSV » (badge Importé), Confidence et VerifiedInAD du fichier ignorés ; chaque ligne journalisée ; « Annuler l'import » s'appuie sur le journal de restauration existant. La sauvegarde avant import est ajoutée par L13 (FI-13).",
+    "CO-29 : toutes les sources stockées en UTC ISO « o » ; à la lecture, une valeur « yyyy-MM-dd HH:mm:ss » est interprétée comme locale (et non AssumeUniversal) puis réécrite en UTC à la sauvegarde suivante ; affichage local « 08/10 09:15 », tri sur la date.",
+    "CO-28 : disponibilité calculée par Get-DomeniaRelationsRestorableEntry, en cache invalidé à chaque suppression ou restauration ; libellé « Restaurer jdupont → PC01 ».",
+    "CO-30 : un message français par cas d'action impossible ; noms d'états internes seulement au journal.",
+    "UI-09 : deux zones (associations du sujet à gauche, panneau Ajouter avec Détecter | Rechercher à droite), un seul statut, avertissements derrière « ? ».",
+    "DS-17 : clé interne séparée du libellé ; puces Déclaré bleu, Observé vert, Indice gris, Contradictoire orange, règle en infobulle.",
+    "UX-40 : orphelins listés dans l'onglet avec motif clair et cases à cocher ; suppression journalisée et restaurable, confirmée dans la page (panneau intégré, pas de Confirm-WarningAction).",
+    "CD-06 : les deux drapeaux RC1.10.7 fixés à vrai, branches « -not $model » et élargissement automatique supprimés ; écarts de tests documentés.",
+    "PF-16 : rafraîchissement noté « à faire » tant que la page est cachée, exécuté à l'ouverture."
+   ],
+   "dependances": []
+  },
+  {
+   "id": "L05",
+   "titre": "Paquet, installateur, démarrage, références de tests et contrôle d'orthographe",
+   "items": [
+    "FI-06",
+    "FI-14",
+    "PF-19",
+    "UX-29",
+    "FO-20",
+    "SE-15",
+    "SP-09",
+    "CD-14",
+    "TE-02",
+    "TE-08",
+    "TE-01"
+   ],
+   "fichiers": [
+    "dev/INSTALLER-MISE-A-JOUR.ps1 (entier)",
+    "dev/wad/Domenia-Start.ps1 (plafond de fichiers lu dans le contrat au lieu de 100 en dur ligne 22, contrôle d'empreintes)",
+    "dev/tools/build_packages.py (exclusions du ZIP DEV, --stage-dir), dev/tools/release_contract.py et dev/tools/release-contract.json (plafond), dev/tools/update_worker_contracts.py (--add, --remove)",
+    "nouveau dev/tools/audit_wording.py et sa référence dev/tools/baselines/wording-baseline.json (TE-01)",
+    "nouveau dev/tools/Test-DomeniaSignature.ps1 ; dev/VERIFIER-PACK.cmd et son script de vérification (appel)",
+    "dev/engineering/d120/lab/lab.sh:15-21 (hôte du labo par variable d'environnement)",
+    "dev/wad/modules/Domenia-Release.Model.ps1:1228-1280 (Get-DomeniaSignatureVerdict, usage hors ligne)",
+    "dev/wad/tests/Test-DomeniaWiringCache.ps1:2810-2825 (TE-02), dev/wad/tests/Test-DomeniaGeometry.ps1:110-120 et dev/wad/maintenance/Preview-DomeniaUi.ps1:349-356 (TE-08), dev/wad/tests/Test-DomeniaInstaller.ps1"
+   ],
+   "risque": "medium — l'installateur agit sur des postes de production (plus aucun test lancé, exigence d'un rapport de qualification VM) ; Domenia-Start refuse de démarrer si le plafond ou la liste requise sont faux ; les outils d'intégration changent pendant la vague 1, d'où la fusion de ce lot en premier.",
+   "tests": [
+    "VM : Test-DomeniaInstaller.ps1, Test-DomeniaRelease.ps1, Test-DomeniaInterface.ps1, Test-DomeniaGeometry.ps1, Test-DomeniaWiringCache.ps1, Test-DomeniaModules.ps1",
+    "Hors Windows (non qualifiant) : python -m unittest engineering/d120/test_release_guard.py ; build_packages.py vers un dossier hors arbre (absence de lab et docs/history dans le ZIP DEV) ; update_worker_contracts.py --add/--remove sans --apply ; tools/audit_wording.py contre sa référence",
+    "À ajouter : installateur sans rapport de qualification lié au hash du ZIP → refus ; mode -Install vers un dossier vide ; rotation de 5 sauvegardes et -RestoreLatest ; plafond lu dans release-contract.json avec alerte à 80 % ; D029 prouve que le Dispatcher a réellement tourné (plafond 60 s) ; test d'interface dans un conteneur de taille fixe, indépendant du 1024×768 de la VM ; Test-DomeniaSignature.ps1 rend intégrité et éditeur séparément ; audit_wording échoue si le compte dépasse la référence"
+   ],
+   "decisions": [
+    "Ce lot est fusionné le premier de la vague 1 : CD-14, le plafond FI-14 et l'audit TE-01 servent à l'intégrateur pour les lots suivants.",
+    "TE-01 : tools/audit_wording.py lit Content, Text, Header et ToolTip du XAML, Set-Status, Set-DomeniaContextHint et help.json ; mots interdits (« Etat », « Derniere », « Detecter », « Perimetre »…), « d », « l », « n » sans apostrophe, impératifs tutoyés ; référence initiale = RC1.13.0, en cliquet (elle ne peut que baisser) dès la fusion de L05, de sorte qu'aucun lot n'ajoute de texte fautif ; L23 la ramène à zéro.",
+    "FI-06 : l'installateur ne lance plus aucune suite sur le poste cible ; il exige le rapport de qualification VM lié au hash du ZIP (release_guard) et le -CheckOnly de la version préparée ; il est livré dans le paquet PROD.",
+    "UX-29 : « Installer ces N fichiers ? (O/N) », dossier prepared supprimé après succès, 5 dernières sauvegardes gardées, -RestoreLatest, messages accentués et vouvoyés, résumé version avant/après.",
+    "FO-20 : mode -Install vers un dossier vide (copie contrôlée par empreintes, déblocage, --check) ; raccourcis Bureau et menu Démarrer proposés, jamais créés sans réponse.",
+    "SE-15 : engineering/d120/lab et wad/docs/history exclus du ZIP DEV et livrés à part ; hôte et compte du labo lus dans une variable d'environnement, rien dans le dépôt.",
+    "SP-09 : signature d'une copie préparée et vérification hors ligne (intégrité par le manifeste, éditeur épinglé par empreinte de certificat) ; aucune vérification en ligne CRL/OCSP ; signature optionnelle tant que David n'a pas fourni de certificat.",
+    "FI-14 : plafond lu dans release-contract.json (250 par défaut, 82 fichiers runtime aujourd'hui) avec test qui alerte à 80 % ; prérequis de CD-01 (L24).",
+    "PF-19 : une seule instance SHA256 en lecture séquentielle, cache des dossiers contrôlés, liste requise dérivée de Get-DomeniaRuntimeModulePlan, durée dans la trace de démarrage.",
+    "CD-14 : --add OP FONCTION et --remove OP mettent à jour les trois endroits, affichent le diff et exigent --apply."
+   ],
+   "dependances": []
+  },
+  {
+   "id": "L06",
+   "titre": "Tableau du poste : seuils, verdicts, graphiques justes et tests de règles",
+   "items": [
+    "CO-09",
+    "CO-10",
+    "CO-12",
+    "CO-14",
+    "CO-15",
+    "CO-16",
+    "UX-23",
+    "MO-06",
+    "DS-13",
+    "FI-17",
+    "SP-17",
+    "SP-18",
+    "TE-06",
+    "TE-07"
+   ],
+   "fichiers": [
+    "dev/wad/Domenia-Core.ps1:11520-11540 (écart d'horloge mesuré contre le contrôleur) et 11655-11685 (pare-feu : état effectif par profil), dans Get-DomeniaInventoryWorkerCode — opération épinglée ComputerInventory",
+    "dev/wad/modules/Domenia-BoardComputer.UI.ps1 (entier sauf 88-100 traité par L01)",
+    "dev/wad/modules/Domenia-Boards.Model.ps1 : nouvelle Get-DomeniaBoardThresholds, 171-196 (verdict tiré de l'état, score partiel), 399-470 (mesures et titres)",
+    "dev/wad/modules/Domenia-Charts.UI.ps1:340-380 (tuile chiffre), 606-664 (jauge et légende), 665-817 (barres, graduations, colonnes), 904-948 (carte santé)",
+    "dev/wad/modules/Domenia-BoardFleet.Model.ps1:180-240 (tranches mémoire, seuil disque aligné)",
+    "dev/wad/modules/Domenia-BoardSoftware.Model.ps1:145-160 (tailles via Format-DomeniaDashboardSize)",
+    "dev/wad/modules/Domenia-Probes.Model.ps1 (entier sauf 40-81, code mort laissé à L21 : requêtes FI-17, tranches avec unités, catalogue autorisé)",
+    "dev/wad/modules/Domenia-Widgets.UI.ps1:90-126 et 423-445 (sections vides, emplacement « Non lu par cet inventaire »)",
+    "dev/wad/modules/Domenia-Workstation.Model.ps1 (table d'exclusions MO-06 ajoutée)",
+    "nouveaux dev/wad/tests/rules/Probes.Tests.ps1 et Live.Tests.ps1 inscrits dans Test-DomeniaRules ; dev/wad/tests/rules/Boards.Tests.ps1 et BoardFleet.Tests.ps1 (TE-07)"
+   ],
+   "risque": "medium — opération épinglée ComputerInventory modifiée ; nouvelles classes WMI (root\\wmi WmiMonitorID, MSFT_NetAdapter) à valider en VM et à inscrire au catalogue autorisé ; changements visibles de couleurs et de verdicts.",
+   "tests": [
+    "VM : Test-DomeniaRules.ps1 (rules/Boards, BoardFleet, Probes, Live), Test-DomeniaBoards.ps1, Test-DomeniaRemote.ps1, Test-DomeniaGeometry.ps1, Test-DomeniaPreload.ps1",
+    "TE-07 (Boards.Tests, BoardFleet.Tests) : un seul point à surveiller → verdict « À surveiller » cohérent avec la couleur ; pare-feu stratégie=1 et local=0 sans alerte ; libellé « Peu d'espace sur C: (13 % libre) » ; reprise des cas de L01 (utilisateur unique, GUID hors périmètre, LTSC) dans la même suite",
+    "À ajouter : mêmes seuils pour jauge, tuile et alerte, poste et parc ; graduations 1/2/5×10^n et entières pour des comptes ; légende de jauge bornée (géométrie) ; chaque transformation de Probes.Model (valeur vide, erreur, Map inconnue) ; Live.Tests sur les vues de présence et d'observation"
+   ],
+   "decisions": [
+    "CO-14 : une seule table de seuils (Get-DomeniaBoardThresholds) ; disque À surveiller sous 20 % et Critique sous 10 % pour le poste comme pour le parc ; la jauge se colore selon l'état de l'entrée ; mémoire À surveiller à partir de 90 % ; la charge processeur instantanée devient une tuile chiffrée.",
+    "CO-10 : verdict tiré de l'état : au moins un point à surveiller = « À surveiller ».",
+    "CO-12 : état effectif par profil (la stratégie prime sur la clé locale), « 3 profils sur 3 actifs (stratégie) », alerte seulement sur l'état effectif.",
+    "CO-09 : écart d'horloge comparé à l'heure du contrôleur connecté (currentTime du RootDSE, pendant l'inventaire demandé, aucun autre poste) ; libellés « Peu d'espace sur C: (13 % libre) », « Mot de passe machine ancien : prévenir l'administrateur », « date approximative, à 14 jours près ».",
+    "UX-23 : badge « Partiel : sécurité non vérifiée » sous le score et bouton « Inventaire complet » dans la carte (lancé seulement au clic).",
+    "MO-06 : exclusions (ID d'événements, services sur déclencheur) en données dans Domenia-Workstation.Model.ps1, sans nouveau fichier runtime ; erreurs génériques en Information, À surveiller pour disque, NTFS et Kernel-Power 41.",
+    "FI-17 : WmiMonitorID (root\\wmi), PhysicalAdapter=TRUE, MSFT_NetAdapter NdisPhysicalMedium=9, PCSystemTypeEx, sessions DWM et UMFD exclues, comptes locaux ignorés sur un contrôleur (ProductType 2), requêtes lentes signalées dans l'éditeur ; classes ajoutées au catalogue autorisé (garde SE-03 en L10).",
+    "CO-15 et DS-13 : légende de jauge bornée à environ 1,5 × rayon intérieur sur 2 lignes ; 27 px pour les nombres, 18 px sur 2 lignes au plus pour les textes, puis points de suspension.",
+    "CO-16 : graduations arrondies, entières pour les comptes, sans axe quand les barres sont étiquetées ; tranches « ≤ 4 Go », « 5 à 8 Go » ; « 19 postes » en sous-titre ; libellés larges de Min(260, 42 % de la carte).",
+    "SP-17 : sous une section vide, bouton qui déclenche l'action existante, jamais sans clic ; sur l'Accueil seulement un lien « Aller dans Rechercher ».",
+    "SP-18 : emplacement « Non lu par cet inventaire » seulement si le tableau a déjà des données ; masquage conservé avant toute lecture.",
+    "TE-07 est placé ici et non en L01 : la moitié de ses cas (CO-09, CO-10, CO-12) n'existe qu'après ce lot ; L01 écrit déjà les tests de ses propres corrections."
+   ],
+   "dependances": [
+    "L01"
+   ]
+  },
+  {
+   "id": "L07",
+   "titre": "Écritures AD : gardes branchées et confirmations en clair",
+   "items": [
+    "SE-02",
+    "SE-09",
+    "SE-12",
+    "UX-07",
+    "UX-08"
+   ],
+   "fichiers": [
+    "dev/wad/Domenia-Core.ps1:20716-20754 (Confirm-DomeniaOperationImpact → panneau dans la page)",
+    "dev/wad/Domenia-Core.ps1:21822-21962 (WorkerCommon d'écriture : Test-WRawAttributeAllowed appelé)",
+    "dev/wad/Domenia-Core.ps1:22584-24067 (Invoke-DomeniaWritePostAction, Fail-DomeniaWriteTaskUi, confirmation intégrée 22864-22885, Start-DomeniaWriteTask, Resolve-WGroupDn et Resolve-WObjectDn, Start-DomeniaAttributeWrite, Set-OrClearRawAttribute, et les appels Confirm-Action des fonctions d'écriture 23285-24018) — opérations épinglées WriteAttributes et Write* concernées",
+    "dev/wad/modules/Domenia-Safety.Model.ps1 (entier) et Domenia-Insight.Model.ps1 (entier, New-DomeniaTicketReport et ses appelés conservés pour L18)",
+    "dev/wad/modules/Domenia-Inline.UI.ps1 (entier, signature de Request-DomeniaInlineConfirmation compatible) et Domenia-Inline.xaml",
+    "dev/wad/modules/Domenia-Shell.Model.ps1:255-382 (règles de la demande intégrée)",
+    "dev/wad/tests/rules/Safety.Tests.ps1, Insight.Tests.ps1 ; dev/wad/tests/Test-DomeniaWiringEcritures.ps1, Test-DomeniaWiringInline.ps1"
+   ],
+   "risque": "high — chemin d'écriture AD : verrou par cible, codes LDAP ≥ 81, préconditions et garde Raw côté worker ; toutes les opérations d'écriture épinglées changent d'empreinte ; une erreur peut bloquer ou laisser passer une écriture.",
+   "tests": [
+    "VM : Test-DomeniaWiringEcritures.ps1, Test-DomeniaWiringInline.ps1, Test-DomeniaAcl.ps1, Test-DomeniaFaults.ps1, Test-DomeniaRegressions.ps1, Test-DomeniaRules.ps1 (rules/Safety, Insight), Test-DomeniaPreload.ps1",
+    "À ajouter : le worker refuse un attribut Raw bloqué même si l'interface est contournée ; DN hors BaseDn ou sous CN=Configuration refusé avant envoi et réaffiché par son nom ; deux écritures sur la même cible → la seconde refusée proprement ; code LDAP ≥ 81 → reçu « à vérifier », jamais rejoué ; panneau avant/après sans DN ni GUID hors « Détails techniques » ; confirmation d'impact sans « worker », « RPC » ni « req/s » ; New-DomeniaTicketReport et Test-DomeniaInsightPseudonymKey toujours chargés"
+   ],
+   "decisions": [
+    "SE-09 : brancher d'abord Test-DomeniaOperationAllowed (verrou par GUID cible) et Resolve-DomeniaConditionalWrite (code LDAP ≥ 81 = issue à vérifier, jamais rejouée, en remplacement de la règle recodée en ligne 23341-23343), puis Test-DomeniaPreconditionCurrent avant envoi ; Get-DomeniaCompensation seulement affiché, aucune compensation automatique ; les 16 fonctions de Safety.Model sans appel en production et les fonctions d'Insight.Model jamais appelées sont supprimées avec leurs tests, liste jointe au lot pour David ; New-DomeniaTicketReport (SP-23, L18) est conservé avec sa fermeture d'appels (Test-DomeniaInsightPseudonymKey et toute fonction qu'elle appelle).",
+    "SE-02 : garde appelée dans le worker WriteAttributes pour chaque changement Raw ; l'interface applique la même règle (AllowRawAttributeWrite et BlockSensitiveRawAttributes).",
+    "SE-12 : DN validé par Split-DomeniaDn, suffixe BaseDn exigé, résolu vers le GUID et réaffiché en nom lisible dans la confirmation.",
+    "UX-08 : un seul panneau intégré (Request-DomeniaInlineConfirmation, nouveaux paramètres facultatifs pour que L08 l'appelle tel quel dans la même vague) avec avant/après en clair (« Compte : verrouillé → déverrouillé ») ; GUID, DN, contrôleur et empreinte dans « Détails techniques » replié ; plus aucune fenêtre pour une écriture.",
+    "UX-07 : panneau dans la page avec une phrase (« Environ 2 min · 238 objets lus dans l'annuaire · aucun poste contacté ») puis Lancer et Annuler ; chiffres techniques dans un volet replié en Expert."
+   ],
+   "dependances": [
+    "L02"
+   ]
+  },
+  {
+   "id": "L08",
+   "titre": "Bandeau, en-tête de page, menu latéral, profil et lecture seule",
+   "items": [
+    "UI-01",
+    "UI-05",
+    "UI-13",
+    "UI-29",
+    "UI-30",
+    "DS-01",
+    "DS-02",
+    "DS-10",
+    "DS-12",
+    "DS-21",
+    "CO-06",
+    "SE-06",
+    "UX-09",
+    "FO-03",
+    "PF-28",
+    "SP-01",
+    "SP-03",
+    "SP-04",
+    "SP-10",
+    "SP-13"
+   ],
+   "fichiers": [
+    "dev/wad/Domenia-Core.ps1:4154-4355 (XAML menu latéral, bandeau du haut, barre de recherche 4255-4272, en-tête de page) et 6339-6343 (halo d'écriture retiré)",
+    "dev/wad/Domenia-Core.ps1 XAML : état vide ajouté en tête de la page Fiche (avant 4765) et de la page Poste (avant 5414), conservé ensuite par L11 et L15",
+    "dev/wad/Domenia-Core.ps1:2290-2340 (profil d'interface), 3480-3520 (glyphe de thème), 8204-8208 (titre de fenêtre), 9403-9434 (Select-DomeniaWorkspace : plus d'Apply-DomeniaUiProfile 'Admin')",
+    "dev/wad/Domenia-Core.ps1:15770-15776 (Register-DomeniaShortcuts : Ctrl+L déplie le journal) et ≈12882 (Build-DomeniaObjectsContextMenu : entrée Explorateur WMI sans changement de profil)",
+    "dev/wad/Domenia-Core.ps1:19335-19350 et 19610-19660 (Wire-Events : barre de recherche, interrupteur de lecture seule) ; 19713-19940 (New-DefaultConfig : délai de retour en lecture seule, Ui.AllowExpertProfile)",
+    "dev/wad/Domenia-Core.ps1:22381-22583 (classification des contrôles et Apply-CurrentPermissionUi : état d'écriture, AD injoignable) — 22469-22475 (raisons de désactivation) laissé à L16 pour FI-16",
+    "dev/wad/Domenia-Core.ps1:25270-25315 (icône de thème et LiveSetting de la connexion)",
+    "dev/wad/modules/Domenia-UX.UI.ps1:121-236, 350-391, 488-570 (routes, navigation, plan de hauteur et de disposition, menu replié)",
+    "dev/wad/modules/Domenia-Shell.Model.ps1:1-130, 435-453, 739-855 (pages, titre de page, changement de profil, aides de désactivation)",
+    "dev/wad/modules/Domenia-Experience.UI.ps1:247-289 (thème de la connexion)",
+    "dev/wad/tests/rules/Shell.Tests.ps1, dev/wad/tests/Test-DomeniaWiringInterface.ps1"
+   ],
+   "risque": "medium — interrupteur de lecture seule et retour automatique (sécurité), emplacements fixes D082 de la barre d'activité à préserver, routes et géométrie testées par plusieurs suites ; Ctrl+L et le guide administrateur.md:808 changent de sens.",
+   "tests": [
+    "VM : Test-DomeniaWiringInterface.ps1, Test-DomeniaActivityLayout.ps1, Test-DomeniaStableUi.ps1, Test-DomeniaCompactUi.ps1, Test-DomeniaGeometry.ps1, Test-DomeniaInterface.ps1, Test-DomeniaTheme.ps1, Test-DomeniaAcl.ps1, Test-DomeniaSelection.ps1, Test-DomeniaRules.ps1 (rules/Shell)",
+    "À ajouter : Ctrl+L, menu Explorateur WMI ou palette ne modifient jamais le profil enregistré ; retour en lecture seule après le délai sans écriture, jamais pendant une écriture ; titre de fenêtre « Fiche · nom — Domenia » ; à 960 px au moins 280 px pour la recherche, emplacements fixes inchangés, rien de rogné à 150 % ; rubriques Fiche et Poste actives avec page vide ; badge « AD injoignable » puis retour seul ; ItemStatus « Page actuelle » sur la rubrique active ; suggestions de la barre sans requête AD ; confirmation de sortie de lecture seule dans la page, sans fenêtre"
+   ],
+   "decisions": [
+    "CO-06 : aucun changement de profil depuis un raccourci, un menu ou la palette (Select-DomeniaWorkspace ne bascule plus en Admin) ; en Essentiel, un onglet Expert demandé s'affiche pour la session sans modifier le profil enregistré ; Ctrl+L déplie le journal ; guide administrateur.md:808 corrigé dans le lot.",
+    "SE-06 : retour automatique en lecture seule après 15 min sans écriture (réglable de 5 à 120 min), compte à rebours dans l'interrupteur et « Repasser en lecture » ; une écriture en cours n'est jamais interrompue.",
+    "DS-02 : interrupteur avec cadenas « Lecture seule » ↔ « Écriture active », cadre plein de 3 px sans flou, couleurs du thème ; confirmation en une phrase vouvoyée par Request-DomeniaInlineConfirmation (signature actuelle) dans un petit panneau sous le bandeau, en remplacement de Confirm-WarningAction (19636), pas de fenêtre.",
+    "SP-13 : réglage Ui.AllowExpertProfile ajouté, vrai par défaut (aucun changement visible) ; à faux, entrée Expert masquée et Ctrl+L neutralisé.",
+    "UI-30 : contrôle segmenté « Essentiel | Expert » dans le pied du menu, plus dans chaque en-tête ; message de bascule accentué.",
+    "DS-12 et SP-10 : rubriques de travail en haut, Comptes et Outils en bas ; « Assistance poste » devient « Poste », « Relations » devient « Utilisateurs et postes » ; version dans « À propos » ; pied avec compte et domaine connectés.",
+    "UI-05, DS-01, DS-21 et SP-03 : sous 1280 px le menu se replie sans toucher la préférence ; boutons-icônes de 40 px avec pastille au-dessus de zéro ; bouton « Ctrl + K » remplacé par l'indication « Ctrl K » dans la barre ; flèches Précédent/Suivant à gauche du titre ; 280 px garantis à la recherche, rognage vérifié à 960 px, emplacements D082 inchangés.",
+    "FO-03 et SP-01 : loupe, effacement, 8 recherches et fiches récentes (mémoire locale), suggestions tirées de la base locale ; Entrée reste le seul geste qui interroge AD ; texte d'attente « Personne, poste ou groupe, dans tout le domaine… » (L16 l'adapte à la puce de portée) ; Queue-LiveGlobalSearch (recherche AD pendant la frappe, désactivée par défaut) n'est pas étendue et sera supprimée par L21.",
+    "SP-04 : badge « AD injoignable depuis HH:MM · données déjà lues seulement », retour seul au prochain succès, aucune relance automatique.",
+    "UX-09 : Fiche et Poste restent actives sans sélection et affichent une page vide (recherche et dernières fiches en mémoire locale, aucun réseau).",
+    "UI-01, UI-29 et UI-13 : puce « Poste · nom » avec ✕ près du titre ; titre de page = libellé du menu suivi du sujet ; badge « Connecté à example.local » ; ItemStatus « Page actuelle » et LiveSetting=Polite sur le titre, la dernière ligne du journal et l'état d'écriture.",
+    "DS-10 : icônes Path soleil et lune ; partout l'icône du thème vers lequel on bascule.",
+    "PF-28 : boutons de navigation et aides mis en cache par Sync-DomeniaUxNavigation."
+   ],
+   "dependances": [
+    "L02"
+   ]
+  },
+  {
+   "id": "L09",
+   "titre": "Moteur : admission, pulsation unique, minuteurs protégés, inactivité et opérations",
+   "items": [
+    "CO-02",
+    "FI-03",
+    "FI-05",
+    "PF-01",
+    "PF-04",
+    "PF-05",
+    "PF-06",
+    "PF-10",
+    "PF-12",
+    "PF-23",
+    "MO-03",
+    "MO-05",
+    "UX-04",
+    "UX-30",
+    "UX-32",
+    "CD-12",
+    "TE-03",
+    "TE-05"
+   ],
+   "fichiers": [
+    "dev/wad/Domenia-Core.ps1:270-330 (santé du moteur, Restart-DomeniaSecretLifetime), 6520-6526 et 24150-24170 (Get-Command retiré)",
+    "minuteurs migrés vers New-DomeniaTimer (29 sur 32 créations) — cœur : 324 Restart-DomeniaSecretLifetime, 2977 Save-DomeniaSettings, 6690 (arbre), 10323 Queue-DomeniaSelectedObjectOpen, 11016 Toggle-SecretsVisibility, 11036 Start-SecretClipboardAutoClear, 14657 Request-DomeniaIndexFlush, 17929 Ensure-DomeniaAuthCleanupTimer, 20086 New-DomeniaStartupWindow, 21134 Initialize-AsyncEngine, 24161 Request-DomeniaDashboardRefresh, 25026 et 25104 (connexion) ; exclus car retirés par L21 : 7596 Ensure-LinkProbeTimer (mort), 16678 Queue-LiveGlobalSearch, Domenia-Support.UI.ps1:303 Initialize-DomeniaSupportUi (jamais appelée)",
+    "minuteurs migrés — modules : Domenia-Accounts.Async.ps1:14, Domenia-Access.UI.ps1:258 et 535, Domenia-Charts.UI.ps1:170, Domenia-Engine.UI.ps1:469, Domenia-Guard.UI.ps1:187, Domenia-Experience.UI.ps1:217, Domenia-Reconcile.UI.ps1:154, Domenia-Continuity.UI.ps1:310, Domenia-Secrets.UI.ps1:75, Domenia-Embedded.UI.ps1:191, Domenia-Park.UI.ps1:109, Domenia-Live.UI.ps1:46, Domenia-Relations.UI.ps1:976, Domenia-Storage.UI.ps1:10 et 82",
+    "dev/wad/Domenia-Core.ps1:5971-5980 (XAML TabExperience retiré)",
+    "dev/wad/Domenia-Core.ps1:9200-9249 (Update-TaskUi : progression de la tâche de premier plan)",
+    "dev/wad/Domenia-Core.ps1:19805-19812 (limites du moteur dans New-DefaultConfig)",
+    "dev/wad/Domenia-Core.ps1:21000-21821 (runspaces et pools, pulsation, Start-UiTask, Request-UiTaskStop, Stop-LatestUiTask, Complete-UiTasks, contexte worker en cache) ; Stop-UiTask (21422, mort) laissé à L21",
+    "dev/wad/modules/Domenia-Engine.Model.ps1 (entier, dont 515-560 politique d'inactivité UX-30) et Domenia-Engine.UI.ps1 (entier, dont 409-465)",
+    "dev/wad/modules/Domenia-Storage.UI.ps1:1-175 (file de sauvegarde)",
+    "dev/wad/modules/Domenia-Live.UI.ps1:1-98 et 742-851 (signal d'identité du tick, minuteur)",
+    "dev/wad/modules/Domenia-Experience.UI.ps1:26-127 et Domenia-Experience.Model.ps1:100-135 (panneau Opérations, grille mise à jour sur place)",
+    "dev/wad/modules/Domenia-Common.Model.ps1:177-217 (drapeaux en cache)",
+    "dev/wad/tests/Test-DomeniaWiringMoteur.ps1:503-534 et 928-933 (TE-03) ; nouveau dev/wad/tests/Test-DomeniaEngineLoad.ps1 (TE-05)"
+   ],
+   "risque": "high — ordonnanceur, admission, pools de runspaces et pulsation partagés par toutes les opérations ; régression possible de débit ou blocage de l'interface ; 29 minuteurs migrés dans 16 fichiers.",
+   "tests": [
+    "VM : Test-DomeniaWiringMoteur.ps1, Test-DomeniaRules.ps1 (rules/Engine, Races), Test-DomeniaFaults.ps1, Test-DomeniaWiringCache.ps1, Test-DomeniaStreaming.ps1, Test-DomeniaExperience.ps1, Test-DomeniaStartupLogin.ps1, Test-DomeniaPreload.ps1",
+    "À ajouter : Test-DomeniaEngineLoad.ps1 en démonstration (Demo.LatencyMs=200 : 40 lectures, 1 écriture refusée proprement, durée totale, attente maximale en file, p95 du Dispatcher, moins de 3 réveils par seconde au repos) ; écriture admise malgré 12 lectures détachées ; « Annuler » vise la recherche, jamais l'enregistrement local ; minuteur arrêté après 3 erreurs ; candidats saturés gardés en file ; erreur d'une tâche analysée une seule fois ; recalcul de l'Accueil poursuivi fenêtre inactive mais visible, suspendu fenêtre réduite ; aucune DispatcherTimer créée hors New-DomeniaTimer (contrôle statique) ; seuils en ms remplacés par des preuves structurelles ou une médiane de 5 essais"
+   ],
+   "decisions": [
+    "FI-03 : une place physique réservée aux écritures et une aux actions explicites, hors plafond des lectures ; message « Des lectures se terminent ; l'écriture partira dans un instant ».",
+    "PF-04 : promotions en boucle tant que l'admission dit Start, budget d'environ 25 ms par tick, priorité Write > Explicit > Selection > Background ; attente en file mesurée.",
+    "PF-05 : pools étendus à OpenAdObject, TreeChildren, ComputerPing, SelectedPresence, LocalIndexRead et LocalStore ; objectif p95 RunspaceOpen sous 5 ms, mesuré en VM.",
+    "PF-06 et FI-05 : une pulsation possédée par le moteur avec intervalle par abonné, New-DomeniaTimer -Owner -IntervalMs -Tick (enregistrement, try/catch, une ligne par erreur, arrêt au changement d'époque et après 3 échecs) ; les minuteurs d'avant moteur (fenêtre de démarrage, connexion) passent par la même fabrique protégée hors pulsation ; moins de 3 réveils par seconde au repos.",
+    "UX-30 (repris de L01, même politique que PF-06) : recalcul de vue suspendu seulement fenêtre réduite ou masquée ; les lectures réseau de fond restent soumises à la fenêtre active.",
+    "CO-02 : LatestTaskId seulement pour Write, Explicit et Selection ; pour une tâche locale « Enregistrement local : il se termine seul. ».",
+    "MO-03 et MO-05 : minuterie de sauvegarde armée à la mise en file et arrêtée file vide, dictionnaire ordonné, regroupement 1 à 2 s ; candidats d'un fournisseur saturé sautés mais gardés en file, erreur seulement sur refus durable.",
+    "UX-04 : deux niveaux, Trace (fichier) et Session (visible) ; « Préparation… », « Lecture identique partagée… » et « Demande sortie de la file… » passent en Trace.",
+    "UX-32 et PF-12 : panneau déroulant sous le bouton Opérations (dans DomeniaDialogLayer) : tâches en cours et en attente, durée, Arrêter par ligne, zone Santé en clair, grille mise à jour sur place ; la densité rejoint les réglages et TabExperience disparaît.",
+    "PF-23 : partie statique du contexte en cache par génération de configuration, identités calculées par opération, contexte minimal (sans secret) pour les opérations locales.",
+    "PF-01 et PF-10 : compteur de génération des comptes ; booléens $script:Has… résolus après chargement et règle d'audit interdisant Get-Command dans les minuteries.",
+    "CD-12 : l'erreur d'une tâche est convertie une seule fois (ConvertTo-DomeniaErrorInfo) et l'objet est transmis aux rappels."
+   ],
+   "dependances": [
+    "L01",
+    "L02"
+   ]
+  },
+  {
+   "id": "L10",
+   "titre": "Inventaire, logiciels et lectures du poste",
+   "items": [
+    "CO-03",
+    "CO-24",
+    "UI-08",
+    "FO-07",
+    "FO-09",
+    "FO-15",
+    "PF-22",
+    "MO-09",
+    "SE-03",
+    "SE-07",
+    "UX-17",
+    "UX-37",
+    "UX-39",
+    "SP-06"
+   ],
+   "fichiers": [
+    "dev/wad/Domenia-Core.ps1:344-350 (Assert-DomeniaWmiReadQuery : garde MSI)",
+    "dev/wad/Domenia-Core.ps1:1480-1491 (Convert-FileTimeLabel, Convert-DateLabel : sortie inchangée) et 8333-8341 (dates du WorkerCommon) : valeurs de tri ajoutées à côté",
+    "dev/wad/Domenia-Core.ps1:4743-4746 (colonnes de dates de DgObjects : SortMemberPath)",
+    "dev/wad/Domenia-Core.ps1:5551-5781 (XAML Sessions, Diagnostic, Inventaire, Logiciels)",
+    "dev/wad/Domenia-Core.ps1:11129-12180 (Get-DomeniaInventoryWorkerCode et interface de l'inventaire ; épinglé ComputerInventory ; repli 11386 et 11413)",
+    "dev/wad/Domenia-Core.ps1:13061-13890 (logiciels et explorateur WMI ; épinglés SoftwareInventory, WmiQuery ; needTask 13441-13448)",
+    "dev/wad/Domenia-Core.ps1:15834-16180 (diagnostic ; épinglé ComputerDiagnostics)",
+    "dev/wad/modules/Domenia-Access.Model.ps1:418-454 (Get-DomeniaTransportPolicy, Test-DomeniaTransportFallbackAllowed branché, texte de la règle 426 corrigé) — 1-254 à L14, 255-417 à L18",
+    "dev/wad/modules/Domenia-Live.Types.cs (propriétés de tri typées, C# 5)",
+    "dev/wad/modules/Domenia-Workstation.Model.ps1 (table de traduction, Test-DomeniaMsiProviderClass branché)",
+    "dev/wad/modules/Domenia-Live.Model.ps1:225-240 (garde du worker des widgets ; épinglé LiveConsole, catalogue passé dans la charge utile)",
+    "dev/wad/modules/Domenia-BoardSoftware.Model.ps1:40-100 et Domenia-BoardComputer.UI.ps1:345-364 (textes de l'inventaire rapide)",
+    "dev/wad/modules/Domenia-Charts.UI.ps1:477-605 (anneau cliquable) et Domenia-Dashboard.UI.ps1:206-217",
+    "dev/wad/modules/Domenia-Sessions.UI.ps1 et Domenia-Sessions.Native.cs (épinglé SessionsList)",
+    "dev/wad/tests/rules/Workstation.Tests.ps1, BoardSoftware.Tests.ps1"
+   ],
+   "risque": "high — jusqu'à six opérations épinglées (ComputerInventory, SoftwareInventory, WmiQuery, ComputerDiagnostics, SessionsList, LiveConsole), politique de repli SYSTEM modifiée (sécurité), nouvelle lecture HKU par StdRegProv, C# 5 dans Live.Types.cs.",
+   "tests": [
+    "VM : Test-DomeniaRemote.ps1, Test-DomeniaFaults.ps1, Test-DomeniaWiringMoteur.ps1, Test-DomeniaBoards.ps1, Test-DomeniaStreaming.ps1, Test-DomeniaLastUser.ps1, Test-DomeniaRules.ps1 (rules/Workstation, BoardSoftware, Access), Test-DomeniaPreload.ps1",
+    "À ajouter : CIM_Product et Win32_SoftwareFeature refusés par les deux gardes, classe hors catalogue refusée par le worker des widgets ; CIM en échec → aucun repli PsExec ou tâche planifiée sans accord explicite pour cette lecture ; portée utilisateur vide ≠ échec ; tri 01/12/2025 avant 02/01/2026, « Jamais » en tête, tailles numériques ; Convert-DateLabel et Convert-FileTimeLabel rendent le même texte qu'avant ; onglet Logiciels rempli depuis l'inventaire sans seconde lecture ; table de traduction (valeur inconnue conservée) ; sessions sans compte masquées et heure locale"
+   ],
+   "decisions": [
+    "SE-07 : aucun transport intrusif pour une lecture sans demande pour cette lecture précise : bandeau dans la page « CIM ne répond pas. Lire par tâche planifiée sur ce poste ? » (défaut Non) ; Test-DomeniaTransportFallbackAllowed branché et texte de la règle (Access.Model:426) corrigé ; une portée utilisateur vide n'est plus un échec. Le lot n'édite pas Access.Model hors 418-454 (L14 dans la même vague).",
+    "SE-03 : Test-DomeniaMsiProviderClass appelé dans les deux gardes ; le worker des widgets refuse toute classe absente de Get-DomeniaProbeCatalog (catalogue transmis dans la charge utile, aucune règle recopiée).",
+    "PF-22 : l'onglet Logiciels se remplit avec l'inventaire (« Liste de l'inventaire de HH:mm · Actualiser ») ; une seule lecture.",
+    "MO-09 : HKU lu par StdRegProv (0x80000003) sur la session DCOM déjà ouverte, utilisateurs connectés seulement ; échec = « non lu », sans repli WinRM.",
+    "FO-07 : dernier inventaire de chaque poste gardé en mémoire pour la session seulement, réaffiché avec son âge, sans persistance disque.",
+    "UI-08 et FO-09 : sélecteur « Liste | Synthèse », Liste par défaut, colonnes techniques derrière « Colonnes » ; un clic sur une part ou une barre filtre la liste (pastille « Filtré : Adobe ✕ »).",
+    "FO-15 : « Installés ces 30 derniers jours », « Composants d'exécution », « Navigateurs et versions » ; tuiles à 0 réduites à une coche.",
+    "CO-03 : SortMemberPath sur des valeurs typées (DateTime, SizeKb) ajoutées à côté du texte ; « Jamais » = valeur minimale ; affichage court dans les grilles avec date complète en infobulle ; Convert-DateLabel et Convert-FileTimeLabel gardent leur sortie car la fiche (L11, même vague) les utilise.",
+    "CO-24 et SP-06 : textes alignés sur la collecte réelle (le complet ajoute processus, événements, tâches, certificats) ; boutons « Inventaire rapide (≈1 min) » et « Inventaire complet (≈3 min) » ; la progression par source reste hors lot.",
+    "UX-17 : une phrase de verdict en tête ; contrôles optionnels en Information ; lignes de transport en Expert.",
+    "UX-37 et UX-39 : table de traduction pure et testée, colonne Source en Expert ; sessions sans compte masquées, « Ouverte à », « Inactive depuis », heure locale, message dans la page."
+   ],
+   "dependances": [
+    "L06",
+    "L02"
+   ]
+  },
+  {
+   "id": "L11",
+   "titre": "Fiche objet : utilisateur, groupes, compte et unités d'organisation",
+   "items": [
+    "CO-01",
+    "CO-22",
+    "CO-23",
+    "CO-27",
+    "UI-06",
+    "UX-05",
+    "UX-13",
+    "UX-14",
+    "UX-27",
+    "UX-36",
+    "SE-10",
+    "FO-06",
+    "PF-27"
+   ],
+   "fichiers": [
+    "dev/wad/Domenia-Core.ps1:4765-5125 (XAML Fiche : Résumé, Utilisateur, Coordonnées, Compte, Groupe, Unité d'organisation, Appartenances, Attributs ; état vide posé par L08 conservé)",
+    "dev/wad/Domenia-Core.ps1:7112-7440 (Reset-DomeniaSelectionBoundViews, Fill-UserObject, Fill-ComputerObject, Fill-GroupObject) — l'appel synchrone Get-DomeniaSecretIndexSummary (7222) est laissé à FI-19 (L20)",
+    "dev/wad/Domenia-Core.ps1:7642-7828 (sélecteurs d'objet et d'OU, réutilisés pour l'utilisateur et le responsable)",
+    "dev/wad/Domenia-Core.ps1:8439-8475 (lecture des membres par plages ; OpenAdObject)",
+    "dev/wad/Domenia-Core.ps1:9465-9480 (onglet ouvert selon le type) et 12954-12995 (Build-DomeniaTreeContextMenu : créer une OU)",
+    "dev/wad/Domenia-Core.ps1:19405-19428 (Wire-Events de la fiche)",
+    "dev/wad/Domenia-Core.ps1:21963-21975 (Confirm-TextAction) et 22136-22275 (Show-AdObjectResult : mode édition)",
+    "dev/wad/Domenia-Core.ps1:23396-23440, 23505-23660, 23751-23990 (workers épinglés du profil, WriteResetPassword, WriteAccountOptions, WriteMoveObject, WriteObjectGroup, WriteGroupMember, WriteCreateOu)",
+    "dev/wad/modules/Domenia-Directory.Model.ps1 (entier), Domenia-Embedded.UI.ps1:275-340 (sélecteur intégré), Domenia-Guard.UI.ps1:61-104 (brouillon, champs modifiés)",
+    "dev/wad/Domenia-UX.help.json (entrées des champs de la fiche) ; dev/wad/tests/audit_ui.py (règle « deux contrôles dans la même cellule »)"
+   ],
+   "risque": "high — parcours d'écriture (mot de passe généré, options de sécurité, déplacement, groupes, création d'OU, suppression) et sept opérations épinglées ; le mode édition change la façon d'enregistrer.",
+   "tests": [
+    "VM : Test-DomeniaWiringEcritures.ps1, Test-DomeniaWiringInline.ps1, Test-DomeniaEmbeddedUi.ps1, Test-DomeniaSelection.ps1, Test-DomeniaGeometry.ps1, Test-DomeniaRegressions.ps1, Test-Domenia.ps1, Test-DomeniaRules.ps1 (rules/Directory), Test-DomeniaPreload.ps1",
+    "À ajouter : audit_ui.py refuse deux contrôles dans la même cellule ; userAccountControl traduit (66048 → libellé) ; mot de passe généré conforme à la stratégie et jamais journalisé ; options avancées repliées et réservées à Expert ; champ modifié surligné et alerte dans la page en changeant d'objet ; responsable affiché par son nom, aucun DN saisi ; création d'OU sans fenêtre ni mot à taper ; member lu une seule fois par plages de 1500"
+   ],
+   "decisions": [
+    "CO-01 : état du compte et Dernière connexion dans deux cellules distinctes de la grille.",
+    "UX-13 : champs verrouillés en lecture seule ; hors lecture seule, crayon « Modifier » qui ouvre l'édition (champs modifiés surlignés, Enregistrer et Annuler) et alerte dans la page si l'on quitte sans enregistrer.",
+    "UX-36 : « Changer au prochain logon » coché par défaut (réglable) ; « Générer » crée un mot de passe temporaire conforme à Resolve-DomeniaPasswordPolicy, montré une fois, copie protégée, effacement après 30 s, jamais journalisé.",
+    "SE-10 : 2 ou 3 options courantes visibles ; « Options de sécurité avancées » repliées, réservées à Expert, avec avertissement rouge et avant/après.",
+    "UX-27 : utilisateur ouvert sur l'onglet Utilisateur, poste sur sa vue d'ensemble ; Classe et GUID en Expert ; « Supprimer » dans « Plus… » avec saisie du nom dans la page (seul cas où une saisie reste exigée).",
+    "CO-27 : un seul parcours dans l'onglet Unité d'organisation, OU parente en clair, confirmation intégrée sans mot à taper ; la protection contre la suppression n'est annoncée que si elle est réellement posée (voie ADSI : non annoncée).",
+    "UX-05 et UX-14 : sélecteur d'OU intégré (Show-DomeniaInlinePicker) pour déplacer un utilisateur ; responsable et groupes choisis par recherche ciblée sur Entrée ou bouton (jamais pendant la frappe), 20 résultats au plus ; le DN reste interne et le nom lisible s'affiche avec « Ouvrir ».",
+    "UI-06 : grille Nom / Type / OU avec filtre local et compteur ; « Pourquoi membre ? » via Find-DomeniaMembershipPath, lecture complémentaire seulement au clic.",
+    "FO-06 : bandeau d'état (verrouillé depuis, expiration du mot de passe, mauvais essais) avec action contextuelle soumise à la lecture seule.",
+    "CO-22 et CO-23 : bits traduits ; « Login » devient « Identifiant », « UPN » « Nom de connexion », « Pwd last set » « Mot de passe changé le » avec aide de date et nom accessible propre.",
+    "PF-27 : member et memberOf exclus du premier RefreshCache, lus par plages de 1500."
+   ],
+   "dependances": [
+    "L07",
+    "L08"
+   ]
+  },
+  {
+   "id": "L12",
+   "titre": "Rechercher : relevés de la liste et menu contextuel",
+   "items": [
+    "UI-23",
+    "UX-12",
+    "UX-24",
+    "UX-26",
+    "CO-19",
+    "CO-35",
+    "SE-05",
+    "MO-08",
+    "FI-18",
+    "FO-18",
+    "SP-05",
+    "SP-15"
+   ],
+   "fichiers": [
+    "dev/wad/Domenia-Core.ps1:4691-4703 (XAML zone des relevés et mode de sélection de DgObjects)",
+    "dev/wad/Domenia-Core.ps1:10222-10310 (sélection et ouverture : « Revérifier ce poste » reste dans Rechercher)",
+    "dev/wad/Domenia-Core.ps1:12590-12953 (menus contextuels de la liste et copies ; l'entrée Explorateur WMI corrigée par L08 conservée) — Build-DomeniaTreeContextMenu 12954+ à L11",
+    "dev/wad/Domenia-Core.ps1:19713-19940 (New-DefaultConfig : Park.MaxTargets)",
+    "dev/wad/modules/Domenia-Park.UI.ps1 (entier sauf 103-113 migré par L09), dont le nouveau worker épinglé Get-DomeniaParkPingWorkerCode (pas de nouveau fichier runtime)",
+    "dev/wad/modules/Domenia-Live.UI.ps1:99-160 et 369-460 (états des actions, intention de sonde, Vérifier au clic)",
+    "dev/wad/modules/Domenia-Widgets.UI.ps1:874-892 (requêtes du poste : relevé distinct)",
+    "dev/wad/tests/Test-DomeniaParkDetection.ps1, Test-DomeniaSearchPresence.ps1"
+   ],
+   "risque": "medium — garde « jamais tout le domaine » (plafond, refus de la racine), nouvelle opération épinglée de ping parallèle, deux relevés simultanés au lieu d'un.",
+   "tests": [
+    "VM : Test-DomeniaParkDetection.ps1, Test-DomeniaSearchPresence.ps1, Test-DomeniaWiringRecherche.ps1, Test-DomeniaWiringMoteur.ps1, Test-DomeniaSelection.ps1, Test-DomeniaPreload.ps1",
+    "À ajouter : plus de 500 postes → refus avec message ; OU racine sans autre filtre → refus ; compteurs En ligne, Sans réponse, Erreur distincts (erreur DNS ≠ sans réponse) ; relevé du poste pendant un relevé de liste ; menu de la liste sans aucune écriture ; « Pour un ticket » sans GUID et masqué ; clic simple sans ping quand « Vérifier au clic » est décoché ; ping de 200 postes en parallèle sous le délai cible"
+   ],
+   "decisions": [
+    "SE-05 : plafond réglable Park.MaxTargets (500 par défaut) ; relevé refusé si l'OU est la racine sans autre filtre ; confirmation « liste limitée à N : les autres postes ne sont pas concernés ».",
+    "UI-23 : un bouton « Vérifier la liste ▾ » (Qui répond ? / Qui est connecté ? / Matériel et widgets) ; le dernier choix devient l'action par défaut pour la session seulement.",
+    "UX-12 et UX-24 : barre fine « 12/48 · 9 joignables », indicateur par ligne, bouton « Arrêter (12/48) » pendant le relevé ; confirmation en trois lignes avec nombre, contenu lu et durée estimée ; nombre dans le bouton.",
+    "MO-08 : nouvelle opération épinglée (ajoutée par update_worker_contracts.py --add de L05) qui envoie les échos en parallèle (SendPingAsync, une instance Ping par écho, 32 à la fois, délai 1 s, attente par Task.WaitAll) ; 4 en parallèle conservés pour les lectures WMI.",
+    "FI-18 : un relevé par portée (Liste, Poste) ; état et « Arrêter » à côté du bouton qui a lancé.",
+    "CO-19 : En ligne, Sans réponse et Erreur comptés à part ; en fin de relevé, trois pastilles cliquables qui filtrent.",
+    "SP-15 : « Vérifier au clic » décoché par défaut (un clic précharge seulement la fiche AD, sans ping) ; sous-option « + utilisateur connecté ».",
+    "UX-26 et CO-35 : 8 entrées sans écriture (Ouvrir la fiche, Poste, Revérifier, Rechercher l'utilisateur associé, Ouvrir l'OU parente, Copier ▸, Exporter) ; « Revérifier ce poste » appelle Request-DomeniaLiveRecheck sans quitter la liste.",
+    "SP-05 et FO-18 : « Pour un ticket » (Type · Nom · Compte · Présence · Utilisateur · OU) passé par Protect-DomeniaSecretText ; barre contextuelle à partir de 2 lignes sélectionnées, même confirmation et même plafond."
+   ],
+   "dependances": [
+    "L09",
+    "L03",
+    "L02"
+   ]
+  },
+  {
+   "id": "L13",
+   "titre": "Base autonome : mise à jour, sauvegardes et couche SQLite",
+   "items": [
+    "SE-04",
+    "MO-02",
+    "PF-17",
+    "DS-09",
+    "DS-16",
+    "UI-19",
+    "FO-12",
+    "SP-08",
+    "FI-12",
+    "FI-13",
+    "PF-07",
+    "PF-26"
+   ],
+   "fichiers": [
+    "dev/wad/Domenia-Core.ps1:6015-6083 (XAML Base autonome : tuiles, grille à pleine hauteur, un bouton principal)",
+    "dev/wad/Domenia-Core.ps1:14471-14500 (Start-DomeniaIndexRefresh) et 14854-14870 (Start-DomeniaLogonHarvest : geste séparé)",
+    "dev/wad/Domenia-Core.ps1:15296-15402 (Start-DomeniaIndexBuild, statistiques ; Get-DomeniaIndexSuggestionText 15395, mort, laissé à L21) et 15403-15570 (worker épinglé IndexBuild : delta par OU, comptes)",
+    "dev/wad/Domenia-Core.ps1:19470-19510 (Wire-Events : Mettre à jour, journal du contrôleur, import, nettoyer, oublier les relevés) et 19930-19940 (délai SQLite dans New-DefaultConfig)",
+    "dev/wad/Domenia-Core.ps1:20231-20310 (couche SQLite du cœur et type natif : requêtes préparées, délai), 20455-20554 (schéma : park_session_cache créée dans le script, restauration au démarrage)",
+    "dev/wad/Domenia-Core.ps1:21704-21740 (contexte worker statique : délai SQLite transmis)",
+    "dev/wad/modules/Domenia-Storage.UI.ps1:590-649 et Domenia-Storage.Worker.ps1 (entier ; épinglés LocalStore, StorageUsage, StoragePurge, StorageBackup ; delta d'ad_computer_facts)",
+    "dev/wad/modules/Domenia-Live.Model.ps1:318-420 (épinglé LiveCache), Domenia-Migration.Worker.ps1:30-60 (épinglé LegacyMigration)",
+    "dev/wad/modules/Domenia-Engine.Worker.ps1 : copie SQLite d'Invoke-IdxWQuery seulement (délai et requêtes préparées) ; les nouvelles actions LocalIndexRead de FI-19 sont en L20"
+   ],
+   "risque": "high — base persistante : restauration d'une sauvegarde au démarrage, requêtes préparées via le type natif C# 5, copies de la couche SQLite touchées, sauvegarde automatique, portée de « Mettre à jour » à arbitrer ; aucune migration de schéma.",
+   "tests": [
+    "VM : Test-DomeniaWiringCache.ps1, Test-DomeniaStreaming.ps1, Test-DomeniaRelease.ps1, Test-DomeniaWiringMoteur.ps1, Test-DomeniaStartupLogin.ps1, Test-DomeniaRules.ps1 (rules/Cache, Release), Test-DomeniaPreload.ps1",
+    "À ajouter : « Mettre à jour » ne lit plus le journal du contrôleur ; « Mettre à jour cette OU » ne lit que l'OU de Rechercher ; le delta met à jour ad_computer_facts sans vider la table ; sauvegarde avant les 4 gestes ; sauvegarde automatique à l'ouverture au-delà de 24 h faite par StorageBackup après l'affichage, jamais sur le Dispatcher ; restauration au prochain démarrage avec base actuelle mise de côté, refusée si le contrôle d'intégrité échoue ; délai SQLITE_BUSY lu dans la configuration par tous les workers et SQLITE_BUSY compté ; requêtes préparées (mêmes lignes, durée mesurée) ; park_session_cache créée par le schéma et plus par observation ; purge d'operation_runs seulement au-delà de 11 000 lignes"
+   ],
+   "decisions": [
+    "MO-02 (à arbitrer par David, défaut proposé sans réglage caché) : « Mettre à jour » = changements par delta uSNChanged sur le domaine (annuaire seul, aucun poste contacté), bouton principal, car « Partout » et les suggestions locales reposent sur l'index du domaine ; « Mettre à jour cette OU » = delta limité à l'OU de Rechercher, bouton secondaire explicite ; « Tout relire » en Expert avec nombre d'objets estimé. David choisit lequel devient le bouton principal ; aucune option désactivée ajoutée (elle serait une clé trompeuse au sens de SE-14).",
+    "Le delta met à jour ad_computer_facts ligne à ligne (L01) ; les clés BitLocker ne sont jamais rafraîchies par le delta (un objet msFVE-RecoveryInformation ne change pas l'uSNChanged du poste) : seul le bouton du widget de L01 les relit.",
+    "SE-04 : enchaînement retiré ; la lecture du journal Sécurité du contrôleur est un geste séparé, jamais proposé coché.",
+    "FI-13 et SP-08 : sauvegarde StorageBackup avant Mettre à jour, import CSV, Nettoyer et Oublier les relevés, annoncée dans la confirmation ; sauvegarde après chaque mise à jour réussie et à l'ouverture si la dernière a plus de 24 h, lancée en tâche de fond après l'affichage (règle de démarrage d'Initialize-DomeniaDatabase : aucune copie sur le fil de l'interface) ; rotation existante de 7 copies ; aucune tâche planifiée Windows.",
+    "FO-12 : sauvegardes listées (date, taille, contrôle) avec « Restaurer au prochain démarrage » ; au lancement suivant, la base actuelle est mise de côté (jamais supprimée) après contrôle d'intégrité de la copie.",
+    "FI-12 : DatabaseBusyTimeoutMs (2 500 ms documentés) transmis dans le contexte et utilisé par tous les workers.",
+    "PF-07 : sqlite3_bind_text, sqlite3_bind_int64 et sqlite3_reset ajoutés au type natif en C# 5, un INSERT préparé par table dans la transaction.",
+    "PF-26 : la table visée est park_session_cache, aujourd'hui créée par LocalStore à chaque observation : elle passe dans le script de schéma (CREATE TABLE IF NOT EXISTS, déjà présente sur les bases en service, aucun changement de schema_info) ; purge d'operation_runs seulement après insertion et au-delà de 11 000 lignes ; schema_info lu une fois par session de worker.",
+    "DS-09, DS-16, UI-19 et PF-17 : 4 tuiles (Comptes, Postes, Associations, Dernière mise à jour), encadrés repliables, grille en largeurs relatives ; un seul bouton principal ; « Base du domaine … · 4,2 Mo · sauvegardée il y a 2 h » avec « Copier le chemin » ; USN, RAM et ms au journal ; comptes renvoyés par le worker.",
+    "FI-19 (lectures SQLite hors interface) est déplacé en L20 : ses appelants sont dans Fill-ComputerObject (L11) et Start-DomeniaAccountRelogin (L14), de la même vague."
+   ],
+   "dependances": [
+    "L01",
+    "L09",
+    "L04",
+    "L02",
+    "L07"
+   ]
+  },
+  {
+   "id": "L14",
+   "titre": "Comptes et connexion",
+   "items": [
+    "CO-31",
+    "UI-20",
+    "UI-27",
+    "UX-28",
+    "SE-16",
+    "FO-19",
+    "CD-10",
+    "SP-12",
+    "TE-04"
+   ],
+   "fichiers": [
+    "dev/wad/Domenia-Core.ps1:1127-1138 (ConvertTo-DomeniaSecureString) et 8243-8249 (identifiants du WorkerCommon)",
+    "dev/wad/Domenia-Core.ps1:2107-2155 (Get-LoginXamlLegacy, unifié dans un seul gabarit)",
+    "dev/wad/Domenia-Core.ps1:4406-4414 (carte « Gérer les comptes » de l'Accueil) et 5157-5270 (XAML Comptes)",
+    "dev/wad/Domenia-Core.ps1:17300-17330 (messages du diagnostic de connexion)",
+    "dev/wad/Domenia-Core.ps1:19024-19211 (comptes ; l'appel Load-DomeniaIndexMetadata de Start-DomeniaAccountRelogin 19182-19183 laissé à FI-19, L20) et 19212-19270 (Wire-Events : boutons Comptes)",
+    "dev/wad/Domenia-Core.ps1:24467-25520 (connexion rapide et fenêtres de connexion)",
+    "dev/wad/modules/Domenia-Accounts.Async.ps1:31-67, Domenia-Access.UI.ps1:460-578 (comptes temporaires), Domenia-Access.Model.ps1:1-254 (portées, décisions d'erreur, baux ; 255-417 à L18, 418-454 à L10), Domenia-Experience.UI.ps1:188-246 et 277-289, Domenia-UX.UI.ps1:637-667",
+    "dev/wad/tests/Test-DomeniaLogin.ps1, Test-DomeniaAccounts.ps1, Test-DomeniaTheme.ps1:29 et 154 (TE-04) ; dev/engineering/d120/lab/compare_runs.py ; CLAUDE.md (référence de tests)"
+   ],
+   "risque": "high — connexion et manipulation du mot de passe (SecureString, révélation), suppression de deux gabarits de connexion, nouveau bouton principal en session de domaine.",
+   "tests": [
+    "VM : Test-DomeniaLogin.ps1, Test-DomeniaStartupLogin.ps1, Test-DomeniaAccounts.ps1, Test-DomeniaWiringAcces.ps1, Test-DomeniaTheme.ps1, Test-DomeniaRules.ps1 (rules/Access), Test-DomeniaPreload.ps1",
+    "À ajouter : PSCredential construit depuis SecurePassword, chaîne en clair seulement à la frontière DirectoryEntry documentée ; révélation masquée après 5 s sans copie ni historique ; aucune écriture de Settings.LastLogin ; en session de domaine « Continuer en tant que … » ; compte verrouillé : message vouvoyé sans code AD ; « Essayer sur le poste sélectionné » = une lecture sur un poste ; un seul gabarit de connexion (Debug = volet en plus) ; suite Thème sans Get-LoginXamlLegacy"
+   ],
+   "decisions": [
+    "CO-31 : carte en lecture seule (identité, contrôleur) avec « Changer de compte » qui préremplit la connexion ; champ Identifiant, bouton Tester et écriture de LastLogin supprimés.",
+    "UX-28 : en session de domaine, bouton principal « Continuer en tant que DOMAINE\\nom », formulaire en second (« Utiliser un autre compte ») ; « Se souvenir de mon identifiant » décoché par défaut.",
+    "SE-16 : PSCredential depuis SecurePassword ; « Afficher » en superposition lecture seule masquée après 5 s, sans copie ni TextBox éditable ; pseudo-effacements retirés et limite réelle documentée.",
+    "CD-10 et TE-04 : un seul gabarit de connexion, le mode Debug n'ajoute que le volet de diagnostic ; Get-LoginXamlLegacy retiré avec sa suite Thème ; référence de tests figée par nom (compare_runs.py) après la campagne VM et citée dans CLAUDE.md.",
+    "UI-20 : messages accentués, vouvoyés, avec action (« Compte verrouillé. Demandez son déverrouillage puis réessayez. ») ; code AD seulement dans « Copier le diagnostic ».",
+    "FO-19 : un seul bouton « Activer » ; « Essayer sur le poste sélectionné » = lecture WMI légère sur un seul poste, au clic.",
+    "UI-27 : section « En ce moment » : compte utilisé par ressource, comptes temporaires avec durée restante et « Oublier » ; aucune valeur secrète affichée.",
+    "SP-12 : carte « Identités de connexion », sous-titre « Comptes utilisés par Domenia : annuaire, postes, secrets » ; menu « Comptes » conservé, sans « Mes accès »."
+   ],
+   "dependances": [
+    "L08",
+    "L09",
+    "L02"
+   ]
+  },
+  {
+   "id": "L15",
+   "titre": "Poste : cinq vues, en-tête fixe et actions en cartes",
+   "items": [
+    "UX-21",
+    "DS-08",
+    "DS-22",
+    "UI-07",
+    "UI-17",
+    "UI-26",
+    "UX-15",
+    "UX-16",
+    "UX-38",
+    "UX-42",
+    "CO-25",
+    "SE-08",
+    "CD-11",
+    "SP-16"
+   ],
+   "fichiers": [
+    "dev/wad/Domenia-Core.ps1:5414-5875 (XAML Assistance poste : 5 vues, en-tête fixe, cartes d'actions, pastilles compte poste et autorisation ; état vide de L08 conservé) — 5876-5921 Secrets réservé à L18",
+    "dev/wad/Domenia-Core.ps1:7377-7437 (Fill-ComputerObject : association en une ligne, alignements)",
+    "dev/wad/Domenia-Core.ps1:8645-8655 (message d'autorisation d'intervention)",
+    "dev/wad/Domenia-Core.ps1:11100-11128 (Set-MachineCredentialFromUi : compte poste)",
+    "dev/wad/Domenia-Core.ps1:16744-17132 (outils du poste : ping, Rimotte → panneau, disque C, services, GPUpdate, redémarrage ; épinglés ComputerPing, ComputerGpUpdate, ComputerRestart, RimotteRun, ComputerAdminShare)",
+    "dev/wad/Domenia-Core.ps1:18600-18725 (Update-DomeniaLinkActionUi)",
+    "dev/wad/Domenia-Core.ps1:19428-19449 (Wire-Events des boutons du poste) et 19713-19940 (New-DefaultConfig : délai de redémarrage)",
+    "dev/wad/modules/Domenia-Guard.UI.ps1:100-112 (état de l'autorisation exposé à la pastille, message corrigé) — le reste de Guard.UI à L18",
+    "dev/wad/modules/Domenia-Sessions.UI.ps1 (sessions lues avant redémarrage)",
+    "dev/wad/modules/Domenia-UX.UI.ps1:121-141 (routes vers les vues, anciens noms résolus)",
+    "dev/wad/Domenia-UX.help.json (entrées des vues)"
+   ],
+   "risque": "high — 8 onglets restructurés en 5 vues (routes, aides et tests liés aux x:Name), opérations distantes épinglées (redémarrage différé, suppression du repli), Rimotte remplacé par un panneau.",
+   "tests": [
+    "VM : Test-DomeniaWiringInterface.ps1, Test-DomeniaGeometry.ps1, Test-DomeniaInterface.ps1, Test-DomeniaRemote.ps1, Test-DomeniaWiringEcritures.ps1, Test-DomeniaWiringInline.ps1, Test-DomeniaSelection.ps1, Test-DomeniaEmbeddedUi.ps1, Test-DomeniaWiringAcces.ps1, Test-DomeniaPreload.ps1",
+    "À ajouter : routes vers les 5 vues (anciens noms d'onglet et routes de UX-10 résolus) ; redémarrage par défaut « dans 5 min avec message », sessions affichées avant, refusé en lecture seule ; échec GPUpdate ou Redémarrage sans repli par tâche ; ping « Répond en 3 ms (10.0.0.5) » avec mise à jour de la présence ; Exécuter un programme dans la page, aucune Window ; services lus seulement au clic ; commande PowerShell copiée avec -Credential sans mot de passe ; pastille d'autorisation visible sans TabGuard"
+   ],
+   "decisions": [
+    "UX-21 : 5 vues (Vue d'ensemble, Intervenir, Détails, Diagnostic, Secrets) ; les x:Name des anciens TabItem restent comme sections pour les routes, les aides et les tests ; WMI en Expert dans Détails.",
+    "DS-08 : en-tête fixe (nom, système, pastille de présence avec âge, utilisateur associé en lien, âge du dernier inventaire) et 3 actions rapides (Bureau à distance, Ouvrir le disque C, Ping), chacune au clic.",
+    "UI-07 : 4 cartes (Se connecter, Vérifier, Intervenir avec Redémarrer isolé, Compte AD) ; un seul bouton Activer ou Désactiver selon l'état ; paragraphe technique supprimé.",
+    "SE-08 : panneau dans la page, sessions ouvertes lues au clic (worker SessionsList), puis « Dans 5 min avec message à l'utilisateur » (défaut) ou « Maintenant » ; confirmation intégrée au lieu de Confirm-WarningAction (17095, 17106) ; écriture jamais rejouée, refusée en lecture seule.",
+    "CD-11 : repli par tâche planifiée supprimé pour GPUpdate et Redémarrage ; message « Non envoyé : le poste n'accepte pas la commande à distance ».",
+    "UI-26 : panneau intégré aux couleurs du thème, deux choix (« En arrière-plan (compte système) », « Dans la session de l'utilisateur ») ; option abandonnée et nom Rimotte retirés, journal compris.",
+    "UX-15 et UX-16 : pastille « Compte poste : session Windows ▾ » qui ouvre un panneau latéral dans la page ; pastille « Intervention autorisée 4:59 · Retirer » dans Intervenir, message d'erreur corrigé (plus de renvoi à « Outils > Fiabilité ») ; l'ancien bloc de TabGuard est retiré par L18, en vague 5.",
+    "UX-38 : liste des services lue au clic (Win32_Service), filtre « automatiques arrêtés » ; démarrer ou redémarrer seulement hors lecture seule, avec confirmation intégrée.",
+    "CO-25, UX-42, SP-16 : 2 tentatives, résultat français et mise à jour de la présence ; « Commande copiée » dans la page, -Credential ajouté quand un compte poste est actif ; « Ouvrir le disque C » (C$ gardé en infobulle et nom accessible).",
+    "UI-17 et DS-22 : association en une ligne avec badge et actions ; styles champ gauche et champ droit au lieu des marges écrites à la main."
+   ],
+   "dependances": [
+    "L10",
+    "L07",
+    "L09",
+    "L08",
+    "L11"
+   ]
+  },
+  {
+   "id": "L16",
+   "titre": "Rechercher : liste, colonnes, filtres, recherche « contient » et états portés par des propriétés",
+   "items": [
+    "DS-03",
+    "DS-06",
+    "DS-15",
+    "DS-20",
+    "UI-15",
+    "CO-05",
+    "CO-34",
+    "UX-03",
+    "FO-01",
+    "FO-05",
+    "MO-07",
+    "PF-15",
+    "PF-25",
+    "SP-02",
+    "SP-14",
+    "SP-22",
+    "FI-16"
+   ],
+   "fichiers": [
+    "dev/wad/Domenia-Core.ps1:4124-4135 (style d'état vide), 4255-4275 (barre du haut : puce de portée et sélecteur de type, posés après FO-03 de L08), 4618-4690 (carte des filtres, barre de résultats, filtre local), 4704-4764 (colonnes de DgObjects, état vide)",
+    "dev/wad/Domenia-Core.ps1:1429-1445 (Escape-LdapValue -KeepWildcard : étoiles fusionnées) et 7019-7026 (Get-SearchLdapFilter, recherche dans l'OU)",
+    "dev/wad/Domenia-Core.ps1:2342-2386 (Get-DomeniaPresenceColor : pastilles calculées sur une clé d'état, FI-16)",
+    "dev/wad/Domenia-Core.ps1:3096-3124 (Restore-DomeniaUiSettings : filtre de présence non restauré)",
+    "dev/wad/Domenia-Core.ps1:6884-6910 (Set-DomeniaSearchMode : puce de portée)",
+    "dev/wad/Domenia-Core.ps1:9760-10221 (Clear-DomeniaGlobalSearch, signature conservée pour L17 ; Invoke-GlobalSearch ; épinglé GlobalSearch)",
+    "dev/wad/Domenia-Core.ps1:19295-19305 (Wire-Events : filtre de présence) et 22469-22475 (raisons de désactivation portées par une propriété, FI-16)",
+    "dev/wad/modules/Domenia-Live.UI.ps1:161-368, 493-741, 852-877 (recherche progressive, filtre local, tri, Charger la suite)",
+    "dev/wad/modules/Domenia-Live.Model.ps1:1-154 (clé de filtre, vue de présence avec clé d'état)",
+    "dev/wad/modules/Domenia-Continuity.UI.ps1:1-55 (disposition des colonnes)",
+    "dev/wad/modules/Domenia-Shell.Model.ps1:383-434 et 638-738 (colonnes par défaut, états vides)",
+    "dev/wad/modules/Domenia-Search.Model.ps1:1-220 (dont ConvertTo-DomeniaLdapLiteral, même correction qu'Escape-LdapValue) et 329-375 (filtre, plan global, reprise par nom)",
+    "dev/wad/modules/Domenia-UX.UI.ps1:50-65 (Get-DomeniaUxControlHelpText : raison lue dans la propriété, FI-16) et 237-349 (disposition courte des filtres)"
+   ],
+   "risque": "medium — préférences de colonnes déjà enregistrées à migrer, opération épinglée GlobalSearch, filtre local ouvert en mode global, nouvelle requête « contient » sur geste, couleur de présence et raison de désactivation qui ne dépendent plus du texte.",
+   "tests": [
+    "VM : Test-DomeniaWiringRecherche.ps1, Test-DomeniaSearchScope.ps1, Test-DomeniaSearchPresence.ps1, Test-DomeniaStreaming.ps1, Test-DomeniaCompactUi.ps1, Test-DomeniaStableUi.ps1, Test-DomeniaGeometry.ps1, Test-DomeniaRules.ps1 (rules/Search, Shell, Live), Test-DomeniaPreload.ps1",
+    "À ajouter : CO-34 reproduit en VM puis « jean** » donne un filtre valide dans les deux copies (cœur et Model), « *** » refusé avec message clair ; filtre local actif après une recherche globale et remis à zéro à la suivante ; « Toute présence » au démarrage ; 6 colonnes par défaut et choix de colonnes enregistré (ancienne préférence migrée) ; « Charger la suite » ne relit que la page suivante ; tri Nom par défaut en mode OU seulement ; la puce « contient » n'interroge AD qu'au clic ; un seul état vide en 3 variantes ; couleur de présence et raison de désactivation identiques avec des libellés accentués ou modifiés (FI-16)"
+   ],
+   "decisions": [
+    "FI-16 (repris de L23, prérequis de DS-15 et de la passe de langue) : état de présence et raison de désactivation portés par des propriétés dédiées (clé d'état de la vue Live.Model, raison à côté de l'infobulle), lues par la couleur, la pastille et l'aide ; plus aucune regex sur un libellé ; colonnes repérées par x:Name ou Tag.",
+    "SP-02 et DS-20 : 6 colonnes par défaut (Type, Nom, Utilisateur connecté, Association mémorisée, Présence réseau, État) ; « Colonnes… » au clic droit sur l'en-tête, choix enregistré avec largeur et position ; les trois colonnes d'association fusionnées en « Camille Martin · observé ».",
+    "DS-06 : une seule carte avec fil d'Ariane cliquable, filtres en menus compacts, filtre local, « Vérifier ▾ », menu « ⋯ » pour Exporter et Actualiser ; les 2 lignes d'aide supprimées.",
+    "CO-05 et SP-14 : filtre local autorisé sur toute liste (aucun réseau) et remis à zéro à chaque nouvelle recherche ; libellé « Filtrer la liste » avec exemple « nom, login, poste… (sans requête AD) ».",
+    "FO-01 : puce « Chercher aussi les noms qui contiennent « compta » » : geste explicite, même limite, même périmètre.",
+    "FO-05 et SP-01 : puce de portée « Partout | Dans « Postes » » et sélecteur « Tout · Personnes · Postes · Groupes » dans la barre du haut ; le texte d'attente posé par L08 suit la portée ; en global, filtres propres à l'OU masqués au lieu d'être grisés.",
+    "CO-34 (à confirmer en VM) : étoiles consécutives fusionnées et texte fait seulement d'étoiles refusé, de façon identique dans Escape-LdapValue (cœur) et ConvertTo-DomeniaLdapLiteral (Search.Model) ; CD-13 (L24) unifie ensuite les copies sans changer ce comportement ; aide selon le mode (« * » seulement dans une OU), vouvoyée.",
+    "UX-03 : le filtre de présence repart sur « Toute présence » à chaque démarrage ; état vide « Le filtre masque 48 lignes ».",
+    "MO-07 : reprise par nom branchée ; « Charger jusqu'à 1 000 » en un clic, plafond inchangé.",
+    "SP-22 : tri Nom ascendant par défaut en mode OU seulement, remplacé par un clic de colonne ; pertinence conservée en global.",
+    "DS-15 et UI-15 : pastilles pastel calculées sur la clé d'état, avec âge discret au lieu de « (cache) » ; un seul état vide (chargement, aucun résultat, tout masqué par le filtre) ; DS-03 : sens écrit dans les contrôles (« Tous les types », « 100 lignes max »).",
+    "PF-15 et PF-25 : clé de filtre calculée une fois par ligne ; disposition des colonnes enregistrée seulement si elle change."
+   ],
+   "dependances": [
+    "L12",
+    "L10",
+    "L03",
+    "L09",
+    "L02",
+    "L08"
+   ]
+  },
+  {
+   "id": "L17",
+   "titre": "Clavier, palette Ctrl+K et panneau d'aide",
+   "items": [
+    "CO-17",
+    "CO-32",
+    "UX-31",
+    "FO-02",
+    "FO-21",
+    "UI-11",
+    "UI-28",
+    "UX-41"
+   ],
+   "fichiers": [
+    "dev/wad/Domenia-Core.ps1:6213-6300 (XAML panneau d'aide : carte contextuelle en tête) et 6338 (DomeniaDialogLayer : palette et panneau des raccourcis)",
+    "dev/wad/Domenia-Core.ps1:15758-15833 (Register-DomeniaShortcuts : F1, Échap, F5, Ctrl+1 à Ctrl+7, Ctrl+/ ; Ctrl+L déjà corrigé par L08)",
+    "dev/wad/Domenia-Core.ps1:18872-18971 (Show-DomeniaCommandPalette ; cas « support » et « supportdiff » 18948-18949 laissés à L21)",
+    "dev/wad/modules/Domenia-UX.UI.ps1:24-49 et 66-120 (catalogue d'aide, aide au survol) — 50-65 à L16 pour FI-16 ; 373-460 (Switch-DomeniaUxHelp, surimpression) ; 488-502 (panneau fermé par défaut)",
+    "dev/wad/modules/Domenia-Shell.Model.ps1:55-70 (pages de la palette) et 795-810 (texte F1)",
+    "dev/wad/Domenia-UX.help.json"
+   ],
+   "risque": "low — raccourcis et palette sans écriture directe ; vigilance sur les conflits de touches et sur le comportement d'Échap décrit dans les guides.",
+   "tests": [
+    "VM : Test-DomeniaWiringInterface.ps1, Test-DomeniaExperience.ps1, Test-DomeniaStableUi.ps1, Test-DomeniaGeometry.ps1, Test-DomeniaCompactUi.ps1, Test-DomeniaRules.ps1 (rules/Shell)",
+    "À ajouter : F1 ouvre et ferme l'aide ; Échap n'efface que le texte puis ferme l'aide ou la palette ; F5 relit l'OU affichée ou la fiche, jamais le domaine ; palette filtrée par profil, action indisponible grisée avec raison, aucune écriture directe ; Ctrl+/ affiche les raccourcis ; aide en surimpression fermée par Échap et clic extérieur ; carte contextuelle en première position ; aide précédente gardée pour un contrôle inconnu"
+   ],
+   "decisions": [
+    "CO-32 : F1 ouvre ou ferme le panneau d'aide ; rubriques sur Ctrl+1 à Ctrl+7 (Outils compris).",
+    "CO-17 : Échap efface seulement le texte ; barre vide, il ferme l'aide en surimpression ou la palette ; seul « Effacer » vide la liste (Clear-DomeniaGlobalSearch, appelée sans changement de signature).",
+    "UX-31 : F5 actualise la page en cours (recalcul local de l'Accueil, relecture de l'OU affichée, relecture de la fiche) ; jamais le domaine entier, jamais de relevé de postes.",
+    "FO-02 : palette centrée en haut dans DomeniaDialogLayer, générée depuis Get-DomeniaShellPages et un catalogue d'actions, filtrée par profil, insensible aux accents, raccourci par ligne ; une action d'écriture ouvre seulement son écran et sa confirmation.",
+    "FO-21 : Ctrl+/ ouvre un panneau « Raccourcis clavier » dans la page ; raccourci affiché dans la palette et l'infobulle du menu ; la ligne de raccourcis du journal disparaît.",
+    "UI-11 : carte « À quoi sert cet élément ? » en tête, lien vers le chapitre du guide, étapes statiques et réassurance supprimées ; panneau fermé par défaut avec pastille sur « ? » au premier lancement.",
+    "UI-28 et UX-41 : bordure gauche ou ombre légère, fermeture par Échap et clic extérieur ; délai d'environ 400 ms au survol, immédiat au focus clavier, aide précédente gardée pour un contrôle inconnu (dans Show-DomeniaUxControlHelp, sans toucher Get-DomeniaUxControlHelpText)."
+   ],
+   "dependances": [
+    "L08",
+    "L02"
+   ]
+  },
+  {
+   "id": "L18",
+   "titre": "Outils : Fiabilité redistribuée, reçus, secrets et diagnostic",
+   "items": [
+    "UX-18",
+    "UX-19",
+    "UI-18",
+    "UI-31",
+    "CO-07",
+    "MO-04",
+    "SP-23"
+   ],
+   "fichiers": [
+    "dev/wad/Domenia-Core.ps1:4280-4300 (pastille « Opérations à vérifier » dans le bandeau)",
+    "dev/wad/Domenia-Core.ps1:5876-6137 (XAML Secrets, TabGuard supprimé, auto-diagnostic, Base autonome : Mesurer et Purger ajoutés, Charge et stats, Domaine) — 6138-6202 réservé à L21",
+    "dev/wad/Domenia-Core.ps1:10510-10855 (auto-diagnostic, grille et libellés des secrets) — Start-LoadComputerSecrets (10856+) et 15585-15660 (index des secrets) ne sont pas modifiés : L20 y travaille dans la même vague",
+    "dev/wad/Domenia-Core.ps1:11050-11080 (Copy-SelectedSecret : confirmation intégrée)",
+    "dev/wad/Domenia-Core.ps1:12178-12590 (worker épinglé DomainOverview : Dénombrer retiré) et 19555-19565 (Wire-Events)",
+    "dev/wad/Domenia-Core.ps1:22276-22340 (Update-DomeniaSecretActionUi) et 24092-24130 (Export-SelfCheckReport : rapport pseudonymisé)",
+    "dev/wad/modules/Domenia-Receipts.Worker.ps1 (entier ; épinglé ReceiptStore) et Domenia-Guard.UI.ps1:1-99, 113-239 hors parties déjà reprises (TabGuard, reçus, revue)",
+    "dev/wad/modules/Domenia-Secrets.UI.ps1, Domenia-Secrets.Worker.ps1 (épinglés ReadBitLockerList, ReadBitLockerKey ; BitLockerPresence de L01 inchangée), Domenia-Access.Model.ps1:255-417",
+    "dev/wad/modules/Domenia-Access.UI.ps1:380-400, Domenia-Cache.Model.ps1:350-370, Domenia-Park.UI.ps1:1-27, Domenia-Relations.UI.ps1:600-660, Domenia-Storage.UI.ps1:394-560 (routes au lieu de chemins écrits)",
+    "dev/wad/modules/Domenia-Insight.Model.ps1 (New-DomeniaTicketReport, conservé par L07)"
+   ],
+   "risque": "medium — archivage des reçus sous writer.lock (traçabilité des écritures), affichage de secrets (clé BitLocker, LAPS), suppression de l'onglet masqué Fiabilité et de ses chemins écrits.",
+   "tests": [
+    "VM : Test-DomeniaWiringSuites.ps1, Test-DomeniaWiringAcces.ps1, Test-DomeniaSupport.ps1, Test-DomeniaWiringEcritures.ps1, Test-DomeniaSelection.ps1, Test-DomeniaRules.ps1 (rules/Access, Insight), Test-DomeniaPreload.ps1",
+    "À ajouter : seuls les reçus résolus de plus de 30 j archivés sous writer.lock, aucun reçu non résolu déplacé, écriture possible au-delà de 512 reçus historiques ; DACL posée une fois par session ; états en français ; pastille « Opérations à vérifier » absente sans reçu en attente ; clé BitLocker en 8 blocs masquée à l'expiration ; « Copier tout » absent en mode valeur unique ; rapport pseudonymisé seulement si l'option est cochée ; totaux du domaine lus dans la base locale sans requête AD ; plus aucun texte « Outils > Fiabilité »"
+   ],
+   "decisions": [
+    "Placé en vague 5 (et non 4) : il retire TabGuard après que L15 (vague 4) a sorti l'autorisation d'intervention dans la vue Intervenir, et il partage Guard.UI avec L15.",
+    "CO-07 : sous writer.lock, déplacement des reçus terminés (Verified, NotSent, Reviewed, Delivered) de plus de 30 j vers Receipts/Archive/AAAA-MM ; jamais un reçu non résolu, jamais de suppression ; DACL posée une fois par session ; compteur dans Opérations.",
+    "UI-18 : états en français (« Envoyée, à vérifier », « Vérifiée », « Revue manuelle »), nom lisible de l'opération et de l'objet, DN en infobulle, puce par état ; revue dans un champ de la page (12 à 240 caractères conservés), sans Confirm-WarningAction.",
+    "UX-19 : TabGuard supprimé ; favoris déjà dans l'arbre (L03) ; Mesurer et Purger dans Base autonome ; « Opérations à vérifier » devient une pastille d'en-tête visible seulement s'il reste un reçu en attente ; boutons passant par la table des routes.",
+    "UX-18 : carte d'affichage en 8 blocs, police à chasse fixe, identifiant rappelé, anneau de compte à rebours et « Prolonger 30 s » ; colonne « Identifiant » renommée, DN retiré.",
+    "UI-31 : « Copier tout » masqué en mode valeur unique ; libellé du bouton posé à un seul endroit ; « Lister les clés BitLocker » et « Lire le mot de passe LAPS ».",
+    "SP-23 : New-DomeniaTicketReport branché en option, désactivé par défaut, sur « Exporter le diagnostic » et « Copier le rapport », clé de l'opérateur, aperçu à relire dans la page ; aucune purge programmée du journal d'audit.",
+    "MO-04 : bouton « Dénombrer » supprimé ; totaux du domaine lus dans la base locale avec leur date, sans requête AD."
+   ],
+   "dependances": [
+    "L15",
+    "L13",
+    "L08",
+    "L07",
+    "L03"
+   ]
+  },
+  {
+   "id": "L19",
+   "titre": "Tableaux de widgets : grille fluide, édition légère et catalogue",
+   "items": [
+    "DS-04",
+    "DS-05",
+    "UX-11",
+    "UX-22",
+    "UX-34",
+    "UX-35",
+    "UI-14",
+    "UI-24",
+    "UI-25",
+    "FO-13",
+    "FO-16",
+    "FO-17",
+    "PF-20",
+    "SP-07",
+    "SP-19"
+   ],
+   "fichiers": [
+    "dev/wad/modules/Domenia-Widgets.UI.ps1:1-28 et 77-835 (rendu, barre d'outils, édition, menu, glisser-déposer, éditeur, catalogue)",
+    "dev/wad/modules/Domenia-Boards.Model.ps1:198-256, 257-310 (disposition par défaut du poste et migration, sur le modèle de L01), 311-400 et 449-470 (tailles en colonnes, opérations de section, recherche du catalogue et synonymes)",
+    "dev/wad/modules/Domenia-Charts.UI.ps1:189-339 (cartes, entrée animée, soulèvement), 382-434 et 904-948 (carte Santé unique, DS-05)",
+    "dev/wad/modules/Domenia-Dashboard.UI.ps1:27-52 (sections)",
+    "dev/wad/modules/Domenia-Embedded.UI.ps1:125-140 (éditeur de widget)",
+    "dev/wad/Domenia-Core.ps1:19713-19940 (New-DefaultConfig : DefaultLayout par tableau, Réduire les animations)",
+    "aucun XAML : la grille est construite en code dans les panneaux existants"
+   ],
+   "risque": "medium — modèle de disposition (sections, tailles en colonnes) à garder compatible avec les dispositions enregistrées ; navigation clavier et accessibilité des widgets.",
+   "tests": [
+    "VM : Test-DomeniaBoards.ps1, Test-DomeniaGeometry.ps1, Test-DomeniaStableUi.ps1, Test-DomeniaRules.ps1 (rules/Boards)",
+    "À ajouter : 4, 3 ou 2 colonnes selon la largeur et rangées pleines ; environ 14 widgets par défaut sur le poste, ancienne disposition livrée migrée ; un arrêt de tabulation par widget, flèches et Ctrl+←/→ ; aucun retrait au survol hors édition ; glisser seulement en Personnaliser ; DefaultLayout de la configuration appliqué par « Par défaut » ; export et import JSON sans fenêtre ; seul le widget modifié est redessiné ; « RAM » trouve Mémoire dans le catalogue"
+   ],
+   "decisions": [
+    "DS-04 : nombre de colonnes calculé selon la largeur (4, 3 ou 2), Compacte, Moyenne et Large sur 1, 2 ou 3 colonnes, cartes étirées et hauteurs alignées ; sans modification du XAML.",
+    "DS-05 : une carte « Santé » (score à gauche, liste à droite), hauteur selon le contenu, teinte limitée à l'icône ; « 4 points à vérifier · 1 information » ; elle reprend New-DomeniaAttentionCard (lignes dépliables de L01) et la carte santé de L06.",
+    "UX-11 : environ 14 widgets par profil sur le poste ; représentation « Fiche » pour Identité et Compte machine ; widget « Liste d'état » à coches ; migration comme en L01 (ancienne disposition livrée remplacée, personnalisée conservée).",
+    "UI-24, UI-25 et UX-35 : hors édition, un bouton discret « Modifier » ; en édition, badge « – » par carte et « + » dans l'en-tête de section ; un arrêt de tabulation par widget, nom accessible « Titre : valeur, détail, état » ; glisser-déposer seulement en Personnaliser.",
+    "UX-22 : animation d'entrée une fois par tableau et par session ; réglage « Réduire les animations », activé d'office en session distante.",
+    "UX-34 : soulèvement réservé aux widgets cliquables ; un widget cliquable ouvre une page (fiche, Secrets, sous-OU) sans rien exécuter ; graphique des sous-OU masqué s'il n'y a qu'un groupe.",
+    "FO-13, FO-16, FO-17 : « Copier » par widget et « Copier le résumé » passés par Protect-DomeniaSecretText ; menu de section (Renommer, Monter/Descendre, Replier mémorisé, Supprimer avec annulation) ; clé facultative DefaultLayout par tableau dans la configuration déployée ; export JSON dans le dossier d'export par défaut avec confirmation dans la page, import par le sélecteur de chemin intégré (EmbeddedPathBrowse), jamais par une boîte de dialogue Windows.",
+    "UI-14, SP-07, SP-19 : « Lu sur le poste, à la demande » (classe en infobulle), badges « Déjà affiché » et « Interroge le poste », seulement Annuler et Ajouter ; filtres rapides par catégorie existante ; petite table de synonymes locale (RAM, SSD, Defender, reboot, IP, uptime, MAJ).",
+    "PF-20 : catalogue et modèles en cache, menu créé à l'ouverture, redessin du seul widget touché, ombre statique et effets coupés en session distante."
+   ],
+   "dependances": [
+    "L01",
+    "L06",
+    "L09"
+   ]
+  },
+  {
+   "id": "L20",
+   "titre": "Démarrage sans attente active, lectures locales hors interface et chemins LDAP sûrs",
+   "items": [
+    "FI-20",
+    "PF-02",
+    "PF-08",
+    "PF-18",
+    "CO-33",
+    "FI-19"
+   ],
+   "fichiers": [
+    "dev/wad/Domenia-Core.ps1:1090-1096 (Get-LdapPath) et 8211-8216 (Get-WLdapPath) : échappement de « / »",
+    "dev/wad/Domenia-Core.ps1:1672-1692 (Invoke-DomeniaUiPump) et 24213-24351 (Complete/Fail-DomeniaStartupWarmupUi, Invoke-DomeniaStartupCacheWarmup, Assert-DomeniaStartupReadiness)",
+    "dev/wad/Domenia-Core.ps1:6500-6600 (prévalidation XAML) et 25800-25830 (instance prévalidée conservée)",
+    "dev/wad/Domenia-Core.ps1:7680-7690, 7750-7760, 7794-7804 (sélecteurs ; attente de la fiche remplacée par un plan construit depuis la ligne)",
+    "dev/wad/Domenia-Core.ps1:9570-9576, 10885-10895, 15484-15492 (itération paresseuse ; épinglés TreeChildren, ReadBitLocker, IndexBuild) et 24267, 24279 (préchargement)",
+    "FI-19, fonctions lues : 14102 Load-DomeniaIndexMetadata, 20862 Load-UserMachineLinks, 14961 Load-DomeniaParkState, 15590-15620 Get-DomeniaSecretIndexEntry et Get-DomeniaSecretIndexSummary, 15036 Get-DomeniaParkCoverage",
+    "FI-19, appelants passés en rappels : 7222 (Fill-ComputerObject), 14137, 14422-14435, 15052, 15266, 15327, 19182-19183 (Start-DomeniaAccountRelogin), 20576, 22520, 24372-24445 (Initialize-Window), Domenia-Storage.UI.ps1:227",
+    "dev/wad/modules/Domenia-Engine.Worker.ps1 (nouvelles actions de l'opération épinglée LocalIndexRead) ; dev/tools/ui-blocking-debt-baseline.json",
+    "dev/wad/Domenia-Modules.ps1:1180-1291 (une seule analyse par module)",
+    "dev/wad/modules/Domenia-Startup.UI.ps1"
+   ],
+   "risque": "medium — chemin de démarrage (une seule fenêtre, plus de boucle d'attente), chargeur fermé des modules, Get-WLdapPath utilisé par toutes les lectures et écritures, lectures SQLite devenues asynchrones avec risque d'ordre au démarrage.",
+   "tests": [
+    "VM : Test-DomeniaPreload.ps1, Test-DomeniaStartupLogin.ps1, Test-DomeniaModules.ps1, Test-DomeniaRelease.ps1, Test-DomeniaWiringRecherche.ps1, Test-DomeniaWiringCache.ps1, Test-DomeniaEmbeddedUi.ps1, Test-DomeniaRegressions.ps1, Test-DomeniaFaults.ps1 ; dev/tools/Test-DomeniaUiBlockingDebt.ps1",
+    "À ajouter : ouvrir, chercher dans et modifier une OU « Compta/Paie » dans le labo ; SizeLimit = MaxObjects+1 et SearchResultCollection toujours disposée ; contrôleur muet → « Continuer sans cache » après 10 s, aucune boucle DoEvents ni Start-Sleep ; fenêtre principale chargée une seule fois (trace « Prevalidation interface ») ; chaque module analysé une seule fois, origine fichier conservée dans les erreurs ; zéro entrée « Stockage » dans la dette de blocage ; fiche poste affichée avant la synthèse des secrets puis complétée par rappel"
+   ],
+   "decisions": [
+    "Dépendance à L18 retirée : les plages sont disjointes (L18 ne modifie ni Start-LoadComputerSecrets ni 15585-15660), d'où la vague 5 en parallèle.",
+    "FI-19 (repris de L13) : Load-DomeniaIndexMetadata, Load-UserMachineLinks, Load-DomeniaParkState, Get-DomeniaSecretIndexEntry et Get-DomeniaParkCoverage passent par des actions LocalIndexRead avec rappels ; les appelants affichent d'abord l'état connu puis se complètent ; objectif : zéro entrée « Stockage » dans la dette.",
+    "CO-33 : « / » échappé en « \\/ » dans Get-LdapPath et Get-WLdapPath (contrat worker), sans double échappement d'un DN déjà échappé.",
+    "PF-02 : itération directe de la collection, SizeLimit à MaxObjects+1, Dispose systématique, limitée aux sites cités (15486, 7682, 7755, 9573, 10888) et aux sites du préchargement (24267, 24279) ; les autres @(FindAll()) (DomainOverview 12334-12506 de L18, écritures 23051 et 23061, relations 18104 et 18110) sont listés dans la note du lot pour L24.",
+    "FI-20 : rappels de fin de tâche au lieu des boucles ; option RequireReadyBeforeMainWindow retirée du code (sa clé, devenue non lue, est retirée par SE-14 en L21) ; « Continuer sans cache » après 10 s ; déplacement construit depuis le DN et le GUID de la ligne.",
+    "PF-08 : instance prévalidée gardée sur le même thread STA ; sonde complète réservée à -CheckOnly.",
+    "PF-18 : dot-sourcing du ScriptBlock issu de l'AST seulement si l'origine fichier reste visible dans les erreurs (vérifié en VM) ; sinon ParseFile réservé à -CheckOnly ; chargeur chronométré."
+   ],
+   "dependances": [
+    "L11",
+    "L03",
+    "L13",
+    "L09",
+    "L14",
+    "L02"
+   ]
+  },
+  {
+   "id": "L21",
+   "titre": "Nettoyage : code mort, contrôles cachés, Atelier et clés inutiles",
+   "items": [
+    "CD-02",
+    "CD-03",
+    "CD-04",
+    "SE-14",
+    "SP-11"
+   ],
+   "fichiers": [
+    "dev/wad/Domenia-Core.ps1, fonctions sans appel vérifiées : Merge-ConfigObject 983, Set-UacFlagValue 1348, Get-DomeniaBootThemeMap 3193, Find-GroupDn 7482, Ensure-LinkProbeTimer 7594, Load-DomeniaIndex 14080, Upsert-DomeniaIndexEntryRow 14533, Get-DomeniaIndexSuggestionText 15395, Invoke-AdModuleAction 16657, Stop-UiTask 21422 ; Start-DomeniaResultPresenceScan (opération PresenceScan) ; worker ParkSweep 15120-15139",
+    "dev/wad/Domenia-Core.ps1, XAML et gestionnaires cachés : 4214, 4329-4340, 4393-4405 (carte Atelier), 4657-4666 (TxtBranchSearch et contrôles hérités), 5332, 5339, 5409-5410, 6138-6202 (TabCmdlets), 6273 (BtnUxStep3), 16673-16690 (Queue-LiveGlobalSearch) et son abonnement TextChanged (≈19668), 18948-18949 (palette), 24366",
+    "dev/wad/Domenia-Core.ps1:2884-2931 (Get-DomeniaDefaultSettings) et 19713-19940 (New-DefaultConfig) : clés jamais lues retirées, dont Browser.AllowLiveGlobalSearch, LiveGlobalSearch, LiveSearchDelayMs et RequireReadyBeforeMainWindow",
+    "dev/wad/modules/Domenia-Probes.Model.ps1:40-81, Domenia-Park.UI.ps1:41-93, Domenia-Safety.Model.ps1:19-25, Domenia-UX.UI.ps1:122 et 161, Domenia-Shell.Model.ps1:1045-1082 (Get-DomeniaStatusGlyph, sans appel), Domenia-Relations.UI.ps1:757",
+    "dev/wad/modules/Domenia-Support.UI.ps1 et Domenia-Support.xaml (vue Atelier retirée ; fonctions Model et Session encore appelées conservées : Sync/Update-DomeniaSupportComparison, ConvertTo-DomeniaSupportText, Set-DomeniaSupportObjectSource, Add-DomeniaSupportIncidentFromLog)",
+    "dev/wad/Domenia-Modules.ps1 (1084 et listes), dev/tools/operation-contracts.json (ParkSweep, PresenceScan retirés par update_worker_contracts.py --remove), nouveaux dev/tools/audit_dead_functions.py et contrôle des clés de configuration",
+    "dev/wad/tests/Test-DomeniaSupport.ps1 (tests de la vue retirés et documentés)"
+   ],
+   "risque": "medium — suppressions transverses (chargeur fermé, contrats, tests) ; une fonction crue morte mais appelée dynamiquement (route, palette, Add_Click, chaîne) casserait un parcours.",
+   "tests": [
+    "VM : Test-DomeniaModules.ps1, Test-DomeniaPreload.ps1, Test-DomeniaSupport.ps1, Test-DomeniaParkDetection.ps1, Test-DomeniaRelease.ps1, Test-DomeniaWiringInterface.ps1, Test-DomeniaWiringSuites.ps1, Test-DomeniaRules.ps1, puis campagne Invoke-LabRun complète comparée à la référence",
+    "À ajouter : tools/audit_dead_functions.py dans les contrôles hors Windows ; contrôle qui échoue si une clé par défaut n'est lue nulle part ; registre réduit des opérations de balayage ; aucune référence restante à TxtBranchSearch, BtnUxHomeSupport, BtnUxStep3, TabCmdlets et Queue-LiveGlobalSearch"
+   ],
+   "decisions": [
+    "Lot placé seul en vague 6, après tous les lots fonctionnels : l'audit des fonctions mortes doit voir le code que ces lots ont rendu orphelin.",
+    "CD-02 et CD-04 : suppression seulement après vérification des appels (audit_function_names.py et nouvel audit des fonctions mortes, recherche des noms dans les chaînes de routes, de palette et d'abonnements) ; Get-DomeniaStatusGlyph supprimé (aucun appel en production, les pastilles de DS-15 l'ont remplacé) ; Queue-LiveGlobalSearch supprimée (requête AD pendant la frappe, contraire à FO-03).",
+    "CD-03 : opérations du balayage du parc retirées du registre, de leurs fonctions et des branches « tout le parc » ; chapitre 15 du guide réduit.",
+    "SP-11 : vue Atelier support retirée (bouton de menu, carte d'Accueil, étape 3 de l'aide, cas de palette, routes, Support.xaml, Initialize-DomeniaSupportUi et son minuteur), fonctions Model et Session encore appelées conservées ; tests retirés listés dans la note du lot.",
+    "SE-14 : les clés par défaut jamais lues (dont Security.NeverLogSecretValues, Security.MaskSecretsByDefault, Features.ScopedLocks, UI.ReadOnlyDefault, Async.MinThreads, RequireReadyBeforeMainWindow) sont retirées ; une configuration déployée qui les contient reste acceptée, clés ignorées et signalées par l'auto-diagnostic ; guide administrateur.md:1163-1165 mis à jour."
+   ],
+   "dependances": [
+    "L03",
+    "L04",
+    "L08",
+    "L09",
+    "L12",
+    "L14",
+    "L15",
+    "L16",
+    "L17",
+    "L18",
+    "L19",
+    "L20"
+   ]
+  },
+  {
+   "id": "L22",
+   "titre": "Socle visuel : aides en source unique, accessibilité, thème et palette",
+   "items": [
+    "PF-24",
+    "UI-10",
+    "UI-12",
+    "DS-11",
+    "DS-14",
+    "DS-18",
+    "DS-19",
+    "CD-05",
+    "FO-22",
+    "SP-21"
+   ],
+   "fichiers": [
+    "dev/wad/Domenia-Core.ps1:3164-3565 (thème d'amorçage et Apply-DomeniaTheme : table de couleurs supprimée au profit des jetons)",
+    "dev/wad/Domenia-Core.ps1:3566-6345 (XAML principal entier : styles, échelle typographique, ScrollBar, xml:lang=fr-FR, attributs ToolTip/HelpText retirés, glyphes remplacés par des Path)",
+    "dev/wad/Domenia-Core.ps1:25195-25380 (XAML de connexion : jetons, barre de titre sombre)",
+    "dev/wad/modules/Domenia-UX.UI.ps1:77-120 (Initialize-DomeniaUxControlHelp : nom accessible = libellé visible, aides lues dans help.json) et 459-479 (Set-DomeniaUxPalette)",
+    "dev/wad/modules/Domenia-Charts.UI.ps1:1-60 et glyphes de Charts/Widgets ; Domenia-Boards.Model.ps1:100-110 (couleurs)",
+    "dev/wad/modules/Domenia-Shell.Model.ps1:856-986 (contrastes) ; Domenia-Experience.UI.ps1:247-289 (thème Automatique)",
+    "dev/wad/modules/SupportSuite.UI.json (source unique des jetons et séries) et dev/wad/Domenia-UX.help.json (source unique des aides)",
+    "un .cs existant du dossier modules (DwmSetWindowAttribute en C# 5)",
+    "dev/wad/tests/audit_theme.py et audit_ui.py (nouvelles règles)"
+   ],
+   "risque": "medium — passe sur tout le XAML (d'où une vague seule) ; P/Invoke DWM ; aides déplacées vers help.json.",
+   "tests": [
+    "VM : Test-DomeniaTheme.ps1, Test-DomeniaGeometry.ps1, Test-DomeniaInterface.ps1, Test-DomeniaCompactUi.ps1, Test-DomeniaStableUi.ps1, Test-DomeniaBoards.ps1, Test-DomeniaWiringInterface.ps1, Test-DomeniaExperience.ps1, Test-DomeniaLogin.ps1, Test-DomeniaRules.ps1 (rules/Shell)",
+    "À ajouter : aucun ToolTip ni HelpText dans le XAML et chaque contrôle documenté dans help.json ; aucune infobulle sur un conteneur ni dans un style ; nom accessible contenant le libellé visible, sans doublon dans un même onglet ; bouton désactivé à 4,5:1 au moins en clair et en sombre ; séries de graphiques à 3:1 au moins et hors teintes d'état ; barre de titre sombre et ScrollBar fin ; thème Automatique suit AppsUseLightTheme"
+   ],
+   "decisions": [
+    "PF-24 : Domenia-UX.help.json devient la source unique ; un script retire les attributs d'aide du XAML et un test empêche leur retour.",
+    "UI-10 et UI-12 : aucune infobulle sur conteneur ni dans un style, une infobulle d'une ligne pour les boutons-icônes ; nom accessible = libellé visible (WCAG 2.5.3) calculé à partir du libellé, pour que la passe de langue de L23 ne le désynchronise pas ; titre du catalogue en HelpText.",
+    "CD-05 et DS-14 : SupportSuite.UI.json seule source des couleurs, jetons d'état et séries pastel catégorielles (bleu, violet, sarcelle, rose, ciel, pêche, lilas, sauge) ; jaune, vert et rouge réservés au sens ; contour de 1 px plus foncé pour atteindre 3:1.",
+    "DS-11 : style désactivé dédié (fond BgReadonly, texte à 4,5:1 au moins), « Arrêter » masqué quand rien ne tourne, BgCard sombre éclairci vers #1E2D44, survol par teinte, un seul anneau de focus.",
+    "DS-18 : DwmSetWindowAttribute (DWMWA_USE_IMMERSIVE_DARK_MODE, 20 puis 19 sur les anciens builds) en C# 5 dans un .cs existant ; ScrollBar fin de 6 à 8 px sans flèches, branché sur les jetons.",
+    "DS-19 : 5 styles de texte (Titre 22, Section 17, Corps 13, Légende 11,5, Chiffre 26), espacements 4/8/12/16/24, rayons 8/12/16, appliqués page par page.",
+    "FO-22 : choix « Automatique » lisant AppsUseLightTheme dans HKCU (lecture locale) ; en contraste élevé, couleurs système.",
+    "SP-21 : derniers glyphes emoji et symboles remplacés par des Path de 20 px au trait 1,7 ; flèches ← → laissées en texte."
+   ],
+   "dependances": [
+    "L01",
+    "L02",
+    "L03",
+    "L04",
+    "L07",
+    "L08",
+    "L09",
+    "L10",
+    "L11",
+    "L12",
+    "L13",
+    "L14",
+    "L15",
+    "L16",
+    "L17",
+    "L18",
+    "L19",
+    "L20",
+    "L21"
+   ]
+  },
+  {
+   "id": "L23",
+   "titre": "Passe de langue complète et glossaire d'interface",
+   "items": [
+    "UI-04",
+    "UI-21",
+    "SP-20",
+    "DO-01"
+   ],
+   "fichiers": [
+    "tout texte d'interface : dev/wad/Domenia-Core.ps1 (XAML et messages Set-Status), dev/wad/modules/*.ps1 (libellés, messages du moteur), dev/wad/Domenia-UX.help.json, dev/wad/modules/SupportSuite.UI.json",
+    "dev/wad/modules/Domenia-Boards.Model.ps1:261-310 (table ancien → nouveau nom de section dans ConvertTo-DomeniaBoardLayout)",
+    "dev/tools/audit_wording.py et sa référence (posés par L05) ; dev/wad/tests/*.ps1 qui figent des chaînes",
+    "guides/*.md et guides/captures/capture-guides.ps1:175, 231-234, 258-259 (DO-01)",
+    "nouveau glossaire d'interface dans dev/wad/docs"
+   ],
+   "risque": "high — toutes les chaînes et les tests qui les figent ; sections enregistrées à migrer sans doublon. FI-16 étant fait en L16, aucun état n'est plus déduit d'un libellé.",
+   "tests": [
+    "VM : campagne Invoke-LabRun complète (toutes les suites Test-*.ps1) comparée à la référence, en particulier Test-DomeniaRules.ps1, Test-DomeniaBoards.ps1, Test-DomeniaSearchPresence.ps1, Test-DomeniaWiringInterface.ps1, Test-DomeniaLogin.ps1, Test-DomeniaCompactUi.ps1, Test-DomeniaWiringMoteur.ps1",
+    "Hors Windows : tools/audit_wording.py à zéro ; référence supprimée ou fixée à zéro",
+    "À ajouter : section enregistrée « Vue d ensemble » migrée sans doublon ; captures du guide : valeur injectée égale à la sortie du formateur réel"
+   ],
+   "decisions": [
+    "UI-04 : une seule passe : accents, apostrophe ʼ (U+02BC, règle du dépôt), vouvoiement, pluriels par fonction, « Domenia » au lieu de « DOMENIA » ; la table de migration des sections avant tout changement de libellé ; tests figés mis à jour dans le même lot. FI-16 (L16) et TE-01 (L05) sont déjà en place.",
+    "UI-21 : glossaire court appliqué (« Tester la réponse » pour Ping, « Utilisateur connecté » pour Console, « Responsable indiqué dans l'annuaire » pour managedBy, « Emplacement », titres en casse normale, icônes dossier et conteneur dans l'arbre) ; DN, durées en ms, nom du serveur et transports réservés au journal et à Expert.",
+    "SP-20 : défaut recommandé, garder « Base autonome » (terme du glossaire) avec une phrase de définition sous le titre ; « Copie locale de l'annuaire » seulement sur décision de David, alors appliqué d'un coup à l'interface, aux guides et aux messages.",
+    "TE-01 : la référence posée par L05 doit atteindre zéro à la fin de ce lot.",
+    "DO-01 : captures du guide construites avec les formateurs réels (vues de présence et d'observation, formateurs de CO-22 et UX-14)."
+   ],
+   "dependances": [
+    "L22",
+    "L21",
+    "L19",
+    "L16",
+    "L15",
+    "L14",
+    "L05"
+   ]
+  },
+  {
+   "id": "L24",
+   "titre": "Découpage final du cœur et refactorisations lourdes",
+   "items": [
+    "CD-01",
+    "CD-07",
+    "CD-08",
+    "CD-09",
+    "CD-13"
+   ],
+   "fichiers": [
+    "dev/wad/Domenia-Core.ps1 (entier) vers : nouveau Domenia-Main.xaml (XAML sans logique), modules/Domenia-*.Worker.ps1 (WorkerCommon 8210-9178, 21822-21927, 23045-23195 et here-strings des workers, texte identique), modules/Domenia-Login.UI.ps1 (connexion), vues .xaml Outils, Comptes et Relations chargées au premier affichage",
+    "dev/wad/Domenia-Modules.ps1, dev/wad/Domenia-Start.ps1, dev/wad/package-manifest.json, dev/tools/operation-contracts.json (champ File seulement), dev/tools/update_worker_contracts.py",
+    "dev/wad/modules/Domenia-Engine.Model.ps1:115-362 et Domenia-Core.ps1:21066 (table déclarative des opérations)",
+    "dev/tools/update_migration_worker.py et les copies SQLite (Core 20289, Live.Model 329, Migration.Worker 40, Storage.Worker 34, 378, 584, 802, Engine.Worker Invoke-IdxWQuery) ; contrôles de schéma 11/1 codés en dur regroupés dans la source générée",
+    "tous les catch vides (environ 802 dans le cœur, 193 dans les modules) et nouvel audit Python de cette dette",
+    "dev/wad/modules/Domenia-Search.Model.ps1:6 (source unique de l'échappement LDAP) et ses copies Core 1429, 7725, 8364, 21910 ; Get-DomeniaParentDn et Get-WParentDn"
+   ],
+   "risque": "high — déplacement d'environ 10 000 lignes, chargeur fermé, manifestes et empreintes ; tout autre lot en parallèle serait en conflit ; les catch modifiés dans les workers épinglés changent leurs empreintes.",
+   "tests": [
+    "VM : campagne Invoke-LabRun complète (toutes les suites Test-*.ps1) comparée à la référence, plus Test-DomeniaModules.ps1, Test-DomeniaPreload.ps1, Test-DomeniaRelease.ps1, Test-DomeniaStartupLogin.ps1, Test-DomeniaGeometry.ps1, Test-DomeniaInterface.ps1, Test-NativeParser et Test-DomeniaPs51Compat",
+    "À ajouter : empreintes des workers inchangées après déplacement (seul File change) ; cœur sous 15 000 lignes ; fichiers runtime sous le plafond FI-14 ; copies SQLite identiques à la source générée ; test de référence des opérations généré depuis la table ; audit des catch vides avec référence décroissante ; une seule source d'échappement LDAP qui garde le comportement CO-34 (étoiles fusionnées)"
+   ],
+   "decisions": [
+    "CD-01 : ordre imposé : Domenia-Main.xaml sans logique ; WorkerCommon et workers dans Domenia-*.Worker.ps1 avec un texte identique (empreintes inchangées) ; connexion dans Domenia-Login.UI.ps1 ; Outils, Comptes et Relations en .xaml chargés au premier affichage comme Initialize-DomeniaSupportUi ; objectif un cœur sous 15 000 lignes ; un commit par étape, chacune validée en VM.",
+    "CD-07 : une table unique Opération → Classe, Fournisseur, Identités, Pool, Partage, Isolable, lue une fois, qui génère aussi le test de référence.",
+    "CD-08 : update_migration_worker.py génère toutes les copies de la couche SQLite depuis une source, avec un test qui échoue si deux copies diffèrent ; la version de schéma attendue (11/1) y devient une constante unique pour une future migration.",
+    "CD-09 : Write-DomeniaSwallowed 'contexte' $_ (DEBUG, échantillonné) là où l'erreur n'est pas attendue ; les catch des workers épinglés sont traités avec rafraîchissement relu des contrats ; les @(FindAll()) listés par L20 sont repris dans la même passe ; audit Python suivi comme la dette ui-blocking.",
+    "CD-13 : version Model utilisée côté interface (9 appels) et copie worker générée depuis le Model, en conservant la correction CO-34 de L16."
+   ],
+   "dependances": [
+    "L23",
+    "L22",
+    "L05",
+    "L09",
+    "L13",
+    "L20",
+    "L21"
+   ]
+  }
+ ],
+ "vagues": [
+  [
+   "L05",
+   "L01",
+   "L02",
+   "L03",
+   "L04"
+  ],
+  [
+   "L06",
+   "L07",
+   "L08",
+   "L09"
+  ],
+  [
+   "L10",
+   "L11",
+   "L12",
+   "L13",
+   "L14"
+  ],
+  [
+   "L15",
+   "L16",
+   "L17",
+   "L19"
+  ],
+  [
+   "L18",
+   "L20"
+  ],
+  [
+   "L21"
+  ],
+  [
+   "L22"
+  ],
+  [
+   "L23"
+  ],
+  [
+   "L24"
+  ]
+ ],
+ "changements": [
+  "Couverture vérifiée par script sur PISTES-AMELIORATION-2026-10-08.md hors « Écartés » : 270 identifiants (247 + SP-01 à SP-23), tous présents une seule fois dans le plan d'origine ; aucun manquant ni doublon. Après les déplacements ci-dessous, le total reste 270, chacun dans un seul lot.",
+  "L18 passe de la vague 4 à la vague 5 : il dépendait de L15, de la même vague. L15 sort l'autorisation d'intervention de TabGuard (UX-16) avant que L18 supprime TabGuard (UX-19), et les deux lots touchent Guard.UI.",
+  "L21 n'est plus dans la même vague que L20, dont il dépendait. Il passe en vague 6, seul, après tous les lots fonctionnels. L22, L23 et L24 deviennent les vagues 7, 8 et 9.",
+  "L20 ne dépend plus de L18 et tourne en parallèle avec lui en vague 5. Leurs plages sont disjointes : L18 ne touche ni Start-LoadComputerSecrets ni Core 15585-15660. L20 dépend en plus de L14, car un appelant de FI-19 est dans Start-DomeniaAccountRelogin.",
+  "FI-19 passe de L13 à L20. Ses appelants sont dans Fill-ComputerObject (Core:7222, lot L11) et dans Start-DomeniaAccountRelogin (Core:19182, lot L14), tous deux dans la même vague que L13. Il y aurait eu collision.",
+  "UX-30 passe de L01 à L09. La politique d'inactivité (Engine.Model 515-560, Engine.UI 409-465) relève de la pulsation du moteur (PF-06). L01 ne touche plus Engine.*.",
+  "TE-07 passe de L01 à L06. Une partie de ses cas (CO-09, CO-10, CO-12) n'existe qu'après L06.",
+  "TE-01 passe de L23 à L05, sous forme de cliquet actif dès la vague 1, pour que les 20 lots qui écrivent du français n'ajoutent pas de fautes. L05 est fusionné en premier dans la vague 1, car il fournit aussi CD-14 et le plafond FI-14 à l'intégrateur.",
+  "FI-16 passe de L23 à L16. DS-15 réécrit Get-DomeniaPresenceColor (Core 2342-2386) dans L16 : la couleur doit être calculée sur une clé d'état avant le changement des libellés. La plage UX.UI de L17 est réduite (24-49, 66-120) pour laisser 50-65 à L16.",
+  "Schéma : la « schema_version 12 » de L01 est retirée. Test-DomeniaSchemaCompatibility prend OldestUpgradable = ApplicationVersion par défaut : une application en version 12 refuserait toute base 11 comme « trop ancienne ». Le cœur écrit la version par INSERT OR IGNORE, donc sans jamais la mettre à jour. Et 8 contrôles 11/1 sont codés en dur dans des workers épinglés (Engine.Worker:77, Storage.Worker:267-269/493/710, Live.Model:419, Migration.Worker:333/469/819). Les tables sont donc créées de façon additive (CREATE TABLE IF NOT EXISTS dans le script de schéma existant), avec une garde de fraîcheur en cas de retour arrière. La règle commune 5 est réécrite, Release.Model sort de L01, StorageUsage et les cibles de purge de Cache.Model y entrent.",
+  "Stockage LAPS/BitLocker : extra et description sont écartés (extra entre dans search_key et dans le découpage de FleetStats). La table existante secret_state (bitlocker_keys, bitlocker_last, verdict, via le type SecretMeta de LocalStore) est réutilisée pour BitLocker, au lieu de recréer ces colonnes. ad_computer_facts est réduite aux faits de l'index. La colonne state existante sert pour les comptes désactivés.",
+  "BitLocker n'est plus une option domaine entier dans « Mettre à jour ». C'est un geste explicite sur le widget, limité à l'OU affichée et refusé à la racine (nouvelle opération épinglée BitLockerPresence), conformément à « jamais tout le domaine ». Avec 0 objet visible, le widget affiche « non déterminé », jamais « M postes sans clé ». Même règle pour LAPS.",
+  "PF-03/PF-21 : l'agrégation se fait en SQL dans LocalIndexRead et les règles restent dans BoardFleet.Model (aucune règle recopiée dans un worker épinglé). La table FO-08 est lue par l'interface et passée au Model, qui ne lit pas le disque. Les instantanés FO-10 sont écrits par LocalStore et non par une action de lecture, pour l'OU affichée seulement.",
+  "L13 PF-26 corrigé : la table visée est park_session_cache, que LocalStore crée aujourd'hui à chaque observation. Il ne s'agit pas d'une « table de maintenance ». Elle passe dans le script de schéma sans changement de version.",
+  "L13 MO-02 : plus d'option cachée désactivée, qui serait une clé trompeuse au sens de SE-14. Le bouton secondaire « Mettre à jour cette OU » est explicite. Le delta met à jour ad_computer_facts. Les clés BitLocker ne sont pas couvertes par le delta, car un objet enfant ne change pas l'uSNChanged du poste.",
+  "L13 SP-08 : la sauvegarde automatique à l'ouverture est lancée en tâche de fond après l'affichage, jamais sur le Dispatcher (règle de démarrage d'Initialize-DomeniaDatabase).",
+  "Contradiction L02/L07 sur les fenêtres modales levée : L02 ne convertit que Show-InfoBox et Show-ErrorBox. Les Confirm-* sont remplacés par le panneau intégré dans les lots propriétaires (L07, L08, L15, L18, L04). Le modal ne reste qu'en repli sans fenêtre principale.",
+  "L09 : liste des minuteurs complétée (32 créations repérées, 19 manquaient au plan). Trois minuteurs morts ou retirés par L21 sont exclus : Ensure-LinkProbeTimer, que le plan migrait alors qu'il est mort ; Queue-LiveGlobalSearch ; Initialize-DomeniaSupportUi. Les minuteurs d'avant moteur passent par la fabrique protégée, hors pulsation.",
+  "L07 : la suppression des fonctions inutilisées d'Insight.Model conserve New-DomeniaTicketReport et sa fermeture d'appels (Test-DomeniaInsightPseudonymKey), dont SP-23 (L18) a besoin. Request-DomeniaInlineConfirmation garde une signature compatible, car L08 l'appelle dans la même vague.",
+  "Listes de fichiers complétées ou bornées. L08 : Ctrl+L dans Register-DomeniaShortcuts, entrée WMI de Build-DomeniaObjectsContextMenu, états vides des pages Fiche et Poste. L10 : Access.Model 418-454 pour SE-07. L14 : Access.Model réduit à 1-254. L15 : Guard.UI 100-112. L16 : Get-SearchLdapFilter 7019-7026, barre du haut 4255-4275, Core 22469-22475. L19 : Boards.Model 257-310 et Charts.UI 382-434/904-948 pour DS-05. L18 : ses plages interdites.",
+  "CO-34 (L16) : la correction est appliquée de façon identique aux deux copies utilisées avec -KeepWildcard (Escape-LdapValue du cœur et ConvertTo-DomeniaLdapLiteral du Model). CD-13 (L24) doit garder ce comportement. FI-15 et CO-34 sont d'abord reproduits en VM.",
+  "L10 CO-03 : les valeurs de tri typées sont ajoutées sans changer la sortie de Convert-DateLabel et Convert-FileTimeLabel, que la fiche (L11) utilise dans la même vague.",
+  "L19 FO-17 : export et import JSON sans boîte de dialogue Windows. L'export va dans le dossier par défaut et l'import passe par le sélecteur de chemin intégré.",
+  "L20 PF-02 : limité aux sites cités et à ses propres sites de préchargement. Les autres @(FindAll()), dont DomainOverview (lot L18, même vague), sont listés pour L24.",
+  "Règles communes ajoutées : L05 fusionné en premier ; fonctions mortes ni modifiées ni migrées par les autres lots ; API stables entre lots parallèles. L11 dépend aussi de L08 (états vides, lecture seule), L13 de L07 (confirmation d'impact), L15 de L11 (Fill-ComputerObject), L16 de L08 (barre du haut). Les dépendances de L21, L22 et L23 sont alignées sur les nouvelles vagues.",
+  "Hors plan, sans changement : la section « Écartés » (SE-01, SE-11, CO-18 réfutés, idées du Spark déjà en place, propositions écartées à la fusion). Arbitrages laissés à David avec un défaut proposé : MO-02 (L13), SP-13 (L08), SP-20 (L23), SP-09 (L05)."
+ ],
+ "manquants_initiaux": []
+}
