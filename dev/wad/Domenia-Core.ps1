@@ -15339,7 +15339,8 @@ function Complete-DomeniaIndexRefreshUi {
             $summary = "Base autonome deja a jour : aucun objet modifie depuis la derniere passe, verifie en {0} ms." -f ([long]$effective.DurationMs)
         }
         elseif ([bool]$effective.Truncated) {
-            Set-DomeniaIndexPartial -BaseDn ([string]$effective.BaseDn) -Count $totalAfter
+            $cut = Get-DomeniaIndexCut -Effective $effective
+            Set-DomeniaIndexPartial -BaseDn ([string]$effective.BaseDn) -Count @($changed).Count -Reason $cut.Reason -Limit $cut.Limit
             $summary = "Base autonome actualisee partiellement : {0} fiche(s) modifiee(s)/ajoutee(s), {1} objet(s) au total, en {2} ms. Aucune suppression n a ete faite." -f `
                 @($changed).Count,$totalAfter,([long]$effective.DurationMs)
         }
@@ -16173,7 +16174,8 @@ function Complete-DomeniaIndexBuildUi {
         # everything again, and the Accueil warns that its figures may be underestimated.
         if ([int]$script:IndexDbCount -gt 0) { [void](Update-DomeniaIndexDatabaseRows -Rows $rows -Server ([string]$effective.Server) -BaseDn ([string]$effective.BaseDn) -HighestUsn 0 -TotalCount 0) }
         else { [void](Save-DomeniaIndex -Rows $rows -Server ([string]$effective.Server) -BaseDn ([string]$effective.BaseDn) -HighestUsn 0) }
-        Set-DomeniaIndexPartial -BaseDn ([string]$effective.BaseDn) -Count @($rows).Count
+        $cut = Get-DomeniaIndexCut -Effective $effective
+        Set-DomeniaIndexPartial -BaseDn ([string]$effective.BaseDn) -Count @($rows).Count -Reason $cut.Reason -Limit $cut.Limit
     } else {
         [void](Save-DomeniaIndex -Rows $rows -Server ([string]$effective.Server) -BaseDn ([string]$effective.BaseDn) -HighestUsn ([long]$effective.HighestUsn))
         Set-DomeniaIndexPartial -Clear
@@ -16215,15 +16217,37 @@ function Fail-DomeniaIndexBuildUi {
 function Get-DomeniaIndexLimits {
     # Large domains (national AD): the former defaults (60 000 objects, 4 minutes, task cut at 5 minutes) stopped the
     # local base half-way. A configured value still equal to a former default is read as the new default.
+    # $MaxCeiling is written twice on purpose: the pinned IndexBuild worker runs in its own runspace and cannot read
+    # this function, so it repeats the same literal. Raising one without the other leaves the key dead.
+    $MaxCeiling = 5000000
     $max = [int](Get-CfgValue "Index" "MaxObjects" 200000); if ($max -eq 60000) { $max = 200000 }
     $budget = [int](Get-CfgValue "Index" "BudgetMs" 1200000); if ($budget -eq 240000) { $budget = 1200000 }
+    $max = [Math]::Max(1000,[Math]::Min($MaxCeiling,$max))
+    $budget = [Math]::Max(30000,$budget)
     return [pscustomobject]@{ MaxObjects = $max; BudgetMs = $budget; TimeoutSeconds = [Math]::Max(300,[int]($budget / 1000) + 120) }
+}
+
+function Get-DomeniaIndexCut {
+    # The limit that cut the last pass, as the worker reported it: 'volume' names Index.MaxObjects, 'temps' names
+    # Index.BudgetMs. A pass that never hit a limit, or a worker older than these fields, answers an empty reason.
+    param($Effective)
+    if ($null -eq $Effective) { return [pscustomobject]@{ Reason = ''; Limit = 0 } }
+    $reason = ''
+    $reasonProperty = $Effective.PSObject.Properties['LimitReason']
+    if ($null -ne $reasonProperty) { $reason = [string]$reasonProperty.Value }
+    $limit = 0
+    if ($reason -eq 'temps') { try { $limit = [int]$Effective.LimitBudgetMs } catch { $limit = 0 } }
+    elseif ($reason -eq 'volume') { try { $limit = [int]$Effective.LimitMaxObjects } catch { $limit = 0 } }
+    else { $reason = '' }
+    return [pscustomobject]@{ Reason = $reason; Limit = $limit }
 }
 
 function Set-DomeniaIndexPartial {
     # Remembers that the last update of this domain stopped at its limit (the Accueil warns); cleared by a complete pass.
-    param([string]$BaseDn = '',[int]$Count = 0,[switch]$Clear)
-    $value = if ($Clear) { '' } else { $BaseDn + '|' + [datetime]::Now.ToString('dd/MM/yyyy HH:mm',[Globalization.CultureInfo]::InvariantCulture) + '|' + [string]$Count }
+    # $Count is what this pass read. $Reason and $Limit name the limit that cut it, so the warning points at the key to
+    # raise instead of only saying "limite". A marker written before these two fields still reads, with no limit named.
+    param([string]$BaseDn = '',[int]$Count = 0,[string]$Reason = '',[int]$Limit = 0,[switch]$Clear)
+    $value = if ($Clear) { '' } else { $BaseDn + '|' + [datetime]::Now.ToString('dd/MM/yyyy HH:mm',[Globalization.CultureInfo]::InvariantCulture) + '|' + [string]$Count + '|' + [string]$Reason + '|' + [string]$Limit }
     try { Set-DomeniaSetting 'Index.Partial' $value; Save-DomeniaSettings -Immediate } catch { }
 }
 
@@ -16232,7 +16256,11 @@ function Get-DomeniaIndexPartialText {
     if (-not $value) { return '' }
     $parts = $value -split '\|'
     if ($parts.Count -lt 3 -or $parts[0] -ine [string]$script:Conn.BaseDn) { return '' }
-    return ('la dernière mise à jour sʼest arrêtée à sa limite le ' + $parts[1] + ' (' + $parts[2] + ' objets lus).')
+    $detail = [string]$parts[2] + ' objet(s) relu(s) dans la passe'
+    if ($parts.Count -ge 5 -and [string]$parts[3]) {
+        $detail += ' sur une limite de ' + [string]$parts[4] + $(if ([string]$parts[3] -eq 'temps') { ' ms' } else { ' objets' })
+    }
+    return ('la dernière mise à jour sʼest arrêtée à sa limite le ' + $parts[1] + ' (' + $detail + ').')
 }
 
 function Start-DomeniaIndexScopeBuild {
@@ -16406,7 +16434,9 @@ if ($null -ne $scopeProperty -and -not [string]::IsNullOrWhiteSpace([string]$sco
     if (-not ($scopeText -ieq $baseDn -or $scopeText.EndsWith(',' + $baseDn,[StringComparison]::OrdinalIgnoreCase))) { throw 'OU hors du domaine : mise a jour refusee.' }
     $searchBase = $scopeText
 }
-$maxObjects = [Math]::Max(1000,[Math]::Min(200000,[int]$Payload.MaxObjects))
+# Ceiling of Index.MaxObjects, the same literal as in Get-DomeniaIndexLimits (this body runs in its own runspace).
+# It used to be 200 000 whatever the configuration asked for: a domain larger than that could never fill its base.
+$maxObjects = [Math]::Max(1000,[Math]::Min(5000000,[int]$Payload.MaxObjects))
 $budgetMs = [Math]::Max(30000,[int]$Payload.BudgetMs)
 
 # Le compteur uSNChanged est propre a chaque controleur. Il ne sert donc de
@@ -16489,6 +16519,8 @@ function ConvertTo-IdxUtcText {
 $rows = New-Object Collections.ArrayList
 $diagnostics = New-Object Collections.ArrayList
 $truncated = $false
+# Which limit cut this pass ('volume' for Index.MaxObjects, 'temps' for Index.BudgetMs), so the warning can name it.
+$limitReason = ''
 
 function Clean-Field {
     param($Value)
@@ -16507,7 +16539,9 @@ $plan = if ([bool]$Payload.ComputerFirst) { @($computerPlan,$userPlan) } else { 
 foreach ($entry in $plan) {
     if ($rows.Count -ge $maxObjects -or $watch.ElapsedMilliseconds -ge $budgetMs) {
         $truncated = $true
-        [void]$diagnostics.Add([string]$entry.Kind + ' : non indexe, limite atteinte.')
+        $cut = if ($rows.Count -ge $maxObjects) { 'volume' } else { 'temps' }
+        if (-not $limitReason) { $limitReason = $cut }
+        [void]$diagnostics.Add([string]$entry.Kind + ' : non indexe, limite de ' + $cut + ' atteinte.')
         continue
     }
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
@@ -16523,8 +16557,8 @@ foreach ($entry in $plan) {
         $searcher.ClientTimeout = [TimeSpan]::FromSeconds(150)
         $collection = $searcher.FindAll()
         foreach ($r in @($collection)) {
-            if ($rows.Count -ge $maxObjects) { $truncated = $true; break }
-            if ($watch.ElapsedMilliseconds -ge $budgetMs) { $truncated = $true; break }
+            if ($rows.Count -ge $maxObjects) { $truncated = $true; if (-not $limitReason) { $limitReason = 'volume' }; break }
+            if ($watch.ElapsedMilliseconds -ge $budgetMs) { $truncated = $true; if (-not $limitReason) { $limitReason = 'temps' }; break }
             $p = $r.Properties
             $name = Clean-Field (Get-WPropFirst $p 'name' '')
             if ([string]::IsNullOrWhiteSpace($name)) { continue }
@@ -16612,6 +16646,9 @@ $watch.Stop()
     Rows = @($rows)
     Diagnostics = @($diagnostics)
     Truncated = $truncated
+    LimitReason = $limitReason
+    LimitMaxObjects = $maxObjects
+    LimitBudgetMs = $budgetMs
     SearchBase = $searchBase
     Scoped = (-not [string]::Equals($searchBase,$baseDn,[StringComparison]::OrdinalIgnoreCase))
     Incremental = $incremental
@@ -22113,7 +22150,7 @@ function Get-DomeniaWorkerOperationHashes {
         SoftwareInventory     = "0F758A7DFEF27A63A230A3CD34FE45A5D7079691AB6C9D989C861ADE2A61E9D1"
         LogonHarvest          = "ED7FFF55506C7BCE5567D65F683E10E9F28EA9771947F12A8DEEE1435994119A"
         ParkSweep             = "134ED776E45640FA67B7F51659711C33B37834105375CC4B083342469F2C26A9"
-        IndexBuild            = "DD018A1D160AA2B2CFC05ED586C24B7E939DB5BFB49191E067B761CB62896467"
+        IndexBuild            = "8918C3C3D0FD376F5354D108185B88F8A3DF80A6D83F81F215DE022841DC5B32"
         UserComputerProbe     = "EB7C36419C1B8B91AFB9ECE6B98D4E3FE663B87E4011F7D264D8AEDE7735E775"
         ComputerInventory     = "41F162A5B0870C10F1BAE378DC365CCC83582D6003435A86624752362B18E159"
         ComputerDiagnostics   = "9A5535EB658FA19AFC0905D57B339CEE0C14CCD4DA81AE2E0A527A86B5046608"
@@ -22163,7 +22200,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "E8F0E0E093CDE0A2C89E7761B321F713631012EA75FF055E17B53DFAFFA75863"
+    $expectedFingerprint = "79935B12A21B9337BE06F8231BAAF5C0BCCD6C9098CC382B1CF56AD2F18153FC"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }

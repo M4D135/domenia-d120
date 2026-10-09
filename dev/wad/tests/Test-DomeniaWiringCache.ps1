@@ -3615,6 +3615,15 @@ Test-Case 'L01 : IndexBuild et BitLockerPresence ne demandent aucun attribut sen
     foreach ($name in @('operatingSystemVersion','whenCreated','pwdLastSet','ms-Mcs-AdmPwdExpirationTime','msLAPS-PasswordExpirationTime')) { Assert-True (@($computer.Properties) -contains $name) ('Attribut non lu : ' + $name) }
     foreach ($search in @($script:L01Searches)) { foreach ($name in @($search.Properties)) { Assert-False (Test-DomeniaSensitiveAttributeName -Name $name) ('Attribut sensible demande par IndexBuild : ' + $name) } }
     Assert-False ((Get-DomeniaIndexWorkerCode) -match '(?i)msLAPS-Password[^E]|ms-Mcs-AdmPwd[^E]|unicodePwd') 'Mot de passe LAPS demande.'
+    # Index.MaxObjects is honoured up to the worker ceiling. It used to be clamped to 200 000 whatever the
+    # configuration asked for, which left a domain larger than that unable to ever complete its local base.
+    Assert-Equal 1000 ([int]$index.LimitMaxObjects) ('Plafond rendu par la passe : ' + [string]$index.LimitMaxObjects)
+    $Payload = [pscustomobject]@{ MaxObjects = 300000; BudgetMs = 30000; LastUsn = 0; LastServer = ''; Since = ''; ComputerFirst = $true }
+    $above = & ([scriptblock]::Create((Get-DomeniaIndexWorkerCode)))
+    Assert-Equal 300000 ([int]$above.LimitMaxObjects) ('Index.MaxObjects au-dela de 200 000 encore ecrase : ' + [string]$above.LimitMaxObjects)
+    $Payload = [pscustomobject]@{ MaxObjects = 9000000; BudgetMs = 30000; LastUsn = 0; LastServer = ''; Since = ''; ComputerFirst = $true }
+    $ceiling = & ([scriptblock]::Create((Get-DomeniaIndexWorkerCode)))
+    Assert-Equal 5000000 ([int]$ceiling.LimitMaxObjects) ('Plafond d Index.MaxObjects non applique : ' + [string]$ceiling.LimitMaxObjects)
     $script:L01Searches.Clear()
     $Context = [pscustomobject]@{ BaseDn = 'DC=example,DC=invalid'; Server = 'dc.example.invalid'; OperationId = 'BitLockerPresence'; PageSize = 100 }
     $Payload = [pscustomobject]@{ DN = 'DC=example,DC=invalid' }
