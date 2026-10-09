@@ -292,7 +292,10 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaSuiteContextFields',
             'Get-DomeniaSuiteMemberNames',
             'Test-DomeniaSuiteContract',
-            'Get-DomeniaSuiteLaunchPlan'
+            'Get-DomeniaSuiteLaunchPlan',
+            'Get-DomeniaWorkstationNoiseRules',
+            'Get-DomeniaSystemEventLevel',
+            'Test-DomeniaServiceStopExpected'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Access.Model.ps1'); File='Domenia-Shell.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaShellFirstValue',
@@ -1113,6 +1116,10 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaBoardCatalogItem',
             'Get-DomeniaBoardColor',
             'Format-DomeniaDashboardSize',
+            'Get-DomeniaBoardThresholds',
+            'Get-DomeniaThresholdState',
+            'Get-DomeniaChartTicks',
+            'Test-DomeniaBoardNumberText',
             'ConvertFrom-DomeniaOsVersion',
             'Get-DomeniaWindowsFamily',
             'Get-DomeniaWindowsRelease',
@@ -1159,6 +1166,7 @@ function Get-DomeniaRuntimeModulePlan {
             'New-DomeniaChartText',
             'New-DomeniaChartIcon',
             'Get-DomeniaChartTruncated',
+            'Get-DomeniaChartValueText',
             'Get-DomeniaChartItemColor',
             'Test-DomeniaMotion',
             'New-DomeniaChartEase',
@@ -1192,6 +1200,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaProbeVisuals',
             'Get-DomeniaProbe',
             'ConvertTo-DomeniaProbePayload',
+            'ConvertTo-DomeniaProbeNumber',
             'Get-DomeniaProbeValues',
             'Measure-DomeniaWidgetData'
         ) }
@@ -1218,6 +1227,9 @@ function Get-DomeniaRuntimeModulePlan {
             'Show-DomeniaBoard',
             'Find-DomeniaBoardHolder',
             'Get-DomeniaBoardGroupSubtitle',
+            'Get-DomeniaBoardHintAction',
+            'New-DomeniaBoardHint',
+            'Get-DomeniaBoardActionControl',
             'New-DomeniaBoardButton',
             'New-DomeniaBoardToolbar',
             'New-DomeniaBoardAddTile',

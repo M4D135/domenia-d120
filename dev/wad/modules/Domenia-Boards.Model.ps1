@@ -21,7 +21,7 @@ computer.ad.account|Compte machine dans Active Directory|Compte ordinateur|Value
 computer.ad.ou|Compte machine dans Active Directory|Unite d organisation|Value|Kpi|S|OU qui contient le poste
 computer.ad.laps|Compte machine dans Active Directory|Mot de passe LAPS|Value|Kpi|S|Expiration du mot de passe administrateur local
 computer.ad.managedby|Compte machine dans Active Directory|Gere par|Value|Kpi|S|Attribut managedBy
-computer.ad.clock|Compte machine dans Active Directory|Horloge du poste|Value|Kpi|S|Ecart avec le poste d administration
+computer.ad.clock|Compte machine dans Active Directory|Horloge du poste|Value|Kpi|S|Écart avec le contrôleur de domaine connecté
 computer.memory.usage|Ressources|Memoire utilisee|Number|Gauge|S|Memoire occupee au moment de l inventaire
 computer.cpu.load|Ressources|Charge du processeur|Number|Gauge|S|Charge du processeur au moment de l inventaire
 computer.battery|Ressources|Batterie|Number|Gauge|S|Charge restante des postes portables
@@ -147,6 +147,44 @@ function Format-DomeniaDashboardSize {
     if ($Bytes -ge 1TB) { return ('{0:0.#} To' -f ($Bytes / 1TB)) }
     if ($Bytes -ge 1GB) { return ('{0:0.#} Go' -f ($Bytes / 1GB)) }
     return ('{0:0} Mo' -f ($Bytes / 1MB))
+}
+function Get-DomeniaBoardThresholds {
+    # One table for the drawing, the tile and the attention point, on the workstation and on the fleet (decision David
+    # 2026-10-08, CO-14): free space of a disk (percent), used memory (percent) and battery left (percent).
+    return [pscustomobject]@{ DiskFreeAlert = 10.0; DiskFreeWarn = 20.0; MemoryUsedWarn = 90.0; BatteryWarn = 20.0 }
+}
+function Get-DomeniaThresholdState {
+    # State of one measure against the shared thresholds: 'Alert', 'Warn' or 'Ok'.
+    param([ValidateSet('DiskFree','MemoryUsed','Battery')][string]$Measure,[double]$Percent)
+    $limits = Get-DomeniaBoardThresholds
+    switch ($Measure) {
+        'DiskFree' { if ($Percent -lt $limits.DiskFreeAlert) { return 'Alert' }; if ($Percent -lt $limits.DiskFreeWarn) { return 'Warn' }; return 'Ok' }
+        'MemoryUsed' { if ($Percent -gt $limits.MemoryUsedWarn) { return 'Warn' }; return 'Ok' }
+        'Battery' { if ($Percent -lt $limits.BatteryWarn) { return 'Warn' }; return 'Ok' }
+    }
+    return 'Ok'
+}
+function Get-DomeniaChartTicks {
+    # Rounded graduations (1, 2 or 5 x 10^n) from 0 to the first one at or above the maximum, whole steps for counts
+    # (decision David 2026-10-08, CO-16): a count never shows a half workstation.
+    param([double]$Maximum,[switch]$Integer,[int]$Count = 4)
+    if (($Maximum -le 0) -or [double]::IsNaN($Maximum) -or [double]::IsInfinity($Maximum)) { $Maximum = 1.0 }
+    $raw = $Maximum / [Math]::Max(1, $Count)
+    $power = [Math]::Pow(10, [Math]::Floor([Math]::Log10($raw)))
+    $step = 10 * $power
+    foreach ($factor in @(1, 2, 5, 10)) { $candidate = [Math]::Round($factor * $power, 10); if ($candidate -ge $raw) { $step = $candidate; break } }
+    if ($Integer -and ($step -lt 1)) { $step = 1.0 }
+    $top = [Math]::Round([Math]::Ceiling([Math]::Round($Maximum / $step, 9)) * $step, 10)
+    if ($top -le 0) { $top = $step }
+    $ticks = New-Object System.Collections.ArrayList
+    for ($i = 0; ($i * $step) -le ($top + $step / 2); $i++) { [void]$ticks.Add([Math]::Round($i * $step, 10)) }
+    return [pscustomobject]@{ Step = $step; Top = $top; Ticks = @($ticks) }
+}
+function Test-DomeniaBoardNumberText {
+    # A figure, with at most one short unit ('16 Go', '35 %', '+12 s', '128 postes'), as opposed to a text
+    # ('Intel Core i5-1345U', 'il y a 3 j'): figures get the large size, texts the reading size (DS-13).
+    param([string]$Text)
+    return ([string]$Text).Trim() -match '^[+\-]?\d[\d\s  ]*([.,]\d+)?(\s?(%|[A-Za-zÀ-ÿ/]{1,6}))?$'
 }
 function ConvertFrom-DomeniaOsVersion {
     # Build number of operatingSystemVersion ('10.0 (19045)') or of a CIM version ('10.0.19045'); '' when absent.
@@ -280,6 +318,7 @@ function New-DomeniaBoardEntry {
     # Measure: numeric values gathered in buckets. Series: ordered buckets. List: Level/Text lines. Health: score.
     # Timeline: values by date (daily local snapshots), the only data drawn as a curve.
     # Action: optional button of the widget {Id; Text; Tip} handled by the interface (never run by a rule).
+    # Subtitle: line under the title of a chart ('19 postes'). Badge: short warning under a score (UX-23).
     param(
         [Parameter(Mandatory=$true)][string]$Key,
         [Parameter(Mandatory=$true)][ValidateSet('Value','Number','Distribution','Measure','Series','List','Health','Timeline')][string]$Kind,
@@ -293,14 +332,18 @@ function New-DomeniaBoardEntry {
         [string]$Unit = '',
         [switch]$LowIsBad,
         [string]$CenterText = '',
-        $Action = $null
+        $Action = $null,
+        [string]$Subtitle = '',
+        [string]$Badge = ''
     )
-    return [pscustomobject]@{ Key = $Key; Kind = $Kind; Title = $Title; Value = $Value; Detail = $Detail; State = $State; Items = @($Items | Where-Object { $null -ne $_ }); Number = $Number; Maximum = $Maximum; Unit = $Unit; LowIsBad = [bool]$LowIsBad; CenterText = $CenterText; Action = $Action }
+    return [pscustomobject]@{ Key = $Key; Kind = $Kind; Title = $Title; Value = $Value; Detail = $Detail; State = $State; Items = @($Items | Where-Object { $null -ne $_ }); Number = $Number; Maximum = $Maximum; Unit = $Unit; LowIsBad = [bool]$LowIsBad; CenterText = $CenterText; Action = $Action; Subtitle = $Subtitle; Badge = $Badge }
 }
 function New-DomeniaBoardData {
     # What a provider returns: entries by key, attention points, hints for empty sections, a summary line.
+    # HintActions: section -> {Id; Text; Tip; Link} offered under its hint, run only on a click (SP-17).
+    # Partial: {Text; Action} when the score misses key checks (UX-23), shown as a badge under the score.
     param([Parameter(Mandatory=$true)][ValidateSet('Computer','Fleet','Software')][string]$Board)
-    return [pscustomobject]@{ Board = $Board; Entries = @{}; Attention = New-Object System.Collections.ArrayList; Hints = @{}; Summary = '' }
+    return [pscustomobject]@{ Board = $Board; Entries = @{}; Attention = New-Object System.Collections.ArrayList; Hints = @{}; HintActions = @{}; Partial = $null; Summary = '' }
 }
 function Add-DomeniaBoardEntry {
     param([Parameter(Mandatory=$true)]$Data,$Entry)
@@ -317,12 +360,14 @@ function Add-DomeniaBoardAttention {
 }
 function Get-DomeniaBoardHealth {
     # 100 minus 25 per critical point and 10 per point to watch; information lines do not count.
+    # One rule (decision David 2026-10-08, CO-10): the verdict follows the state, so its words always match its colour.
+    # Critique as soon as one point is critical, Dégradé below 60, À surveiller with one point to watch, else Bon état.
     param([object[]]$Attention = @())
-    $alerts = @($Attention | Where-Object { $null -ne $_ -and [string]$_.Level -eq 'Alert' }).Count
-    $warnings = @($Attention | Where-Object { $null -ne $_ -and [string]$_.Level -eq 'Warn' }).Count
+    $alerts = @($Attention | Where-Object { ($null -ne $_) -and ([string]$_.Level -eq 'Alert') }).Count
+    $warnings = @($Attention | Where-Object { ($null -ne $_) -and ([string]$_.Level -eq 'Warn') }).Count
     $score = [Math]::Max(0, 100 - 25 * $alerts - 10 * $warnings)
-    $verdict = if ($alerts) { 'Critique' } elseif ($score -ge 85) { 'Bon etat' } elseif ($score -ge 60) { 'A surveiller' } else { 'Degrade' }
-    $state = if ($alerts -or $score -lt 60) { 'Alert' } elseif ($warnings) { 'Warn' } else { 'Ok' }
+    $state = if ($alerts -or ($score -lt 60)) { 'Alert' } elseif ($warnings) { 'Warn' } else { 'Ok' }
+    $verdict = if ($alerts) { 'Critique' } elseif ($state -eq 'Alert') { 'Dégradé' } elseif ($state -eq 'Warn') { 'À surveiller' } else { 'Bon état' }
     return [pscustomobject]@{ Score = $score; Verdict = $verdict; State = $state; Alerts = $alerts; Warnings = $warnings }
 }
 function Get-DomeniaFleetHealth {
@@ -353,7 +398,15 @@ function Complete-DomeniaBoardData {
     $detail = if ($health.Alerts -or $health.Warnings) { @($(if ($health.Alerts) { [string]$health.Alerts + ' critique(s)' }), $(if ($health.Warnings) { [string]$health.Warnings + ' a surveiller' })) -join ' · ' } else { 'Aucun point a verifier' }
     $healthDetail = $detail
     if ($null -ne $population) { $healthDetail = [string]$health.Detail }
-    Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key ($prefix + '.health') -Kind Health -Value $health.Verdict -Detail $healthDetail.Trim(' ','·') -State $health.State -Number $health.Score -Maximum 100)
+    # UX-23: a score computed without its key checks says so under the score, with the button of the full reading.
+    $badge = ''; $badgeAction = $null
+    $partialProperty = $Data.PSObject.Properties['Partial']
+    if (($null -ne $partialProperty) -and ($null -ne $partialProperty.Value) -and [string]$partialProperty.Value.Text) {
+        $badge = [string]$partialProperty.Value.Text
+        $actionProperty = $partialProperty.Value.PSObject.Properties['Action']
+        if ($null -ne $actionProperty) { $badgeAction = $actionProperty.Value }
+    }
+    Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key ($prefix + '.health') -Kind Health -Value $health.Verdict -Detail $healthDetail.Trim(' ','·') -State $health.State -Number $health.Score -Maximum 100 -Badge $badge -Action $badgeAction)
     $sorted = @(@($attention | Where-Object { $_.Level -eq 'Alert' }) + @($attention | Where-Object { $_.Level -eq 'Warn' }) + @($attention | Where-Object { $_.Level -notin @('Alert','Warn') }))
     $title = if ($health.Alerts + $health.Warnings) { [string]($health.Alerts + $health.Warnings) + ' point(s) a verifier' } else { 'Rien a signaler' }
     Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key ($prefix + '.attention') -Kind List -Title $title -Value $title -Detail $detail.Trim(' ','·') -State $health.State -Items $sorted)
@@ -608,6 +661,11 @@ function ConvertFrom-DomeniaProbeMeasure {
     $kind = Get-DomeniaProbeKind -Probe $Probe -Board $Board
     $unit = Get-DomeniaProbeUnit -Probe $Probe
     if ($null -eq $Measured -or -not [int]$Measured.Machines) {
+        # A query guarded on the domain controllers (FI-17) and only skipped there says so instead of waiting.
+        $skippedProperty = if ($null -ne $Measured) { $Measured.PSObject.Properties['Skipped'] } else { $null }
+        if (($null -ne $skippedProperty) -and ([int]$skippedProperty.Value -gt 0)) {
+            return New-DomeniaBoardEntry -Key $Key -Kind $kind -Value 'Non lu' -Detail 'Requête ignorée sur un contrôleur de domaine : elle y parcourrait tout lʼannuaire' -State 'Off'
+        }
         # Fleet queries run from Rechercher on the displayed workstations (decision David 2026-10-08).
         $how = if ($Board -eq 'Fleet') { 'Dans Rechercher, Analyser la liste remplit ce widget' } else { 'Actualiser les requetes pour remplir ce widget' }
         return New-DomeniaBoardEntry -Key $Key -Kind $kind -Value 'En attente' -Detail $how -State 'Off'
@@ -623,18 +681,21 @@ function ConvertFrom-DomeniaProbeMeasure {
         $detail = if ($values.Count -gt 1) { [string]$values.Count + ' valeurs : ' + (($values | Select-Object -First 3) -join ', ') } else { [string]$Probe.Category + ' · ' + [string]$Probe.Name }
         return New-DomeniaBoardEntry -Key $Key -Kind Value -Value $value -Detail $detail -Items @($items | ForEach-Object { [pscustomobject]@{ Label = [string]$_.Label; Value = [double]$_.Value } })
     }
-    $title = [string]$Probe.Name + ' (' + [int]$Measured.Machines + ' postes)'
+    # The name stays the title; the number of workstations goes under it (CO-16: never 'Nom (%) (19 postes)').
+    $title = [string]$Probe.Name
+    $machines = [int]$Measured.Machines
+    $subtitle = [string]$machines + ' poste' + $(if ($machines -gt 1) { 's' } else { '' })
     if ($kind -eq 'Measure') {
         $sum = 0.0; $count = 0; $min = [double]::MaxValue; $max = [double]::MinValue
         foreach ($v in @($Measured.Values)) { $d = 0.0; if ([double]::TryParse([string]$v,[Globalization.NumberStyles]::Float,[Globalization.CultureInfo]::InvariantCulture,[ref]$d)) { $sum += $d; $count++; if ($d -lt $min) { $min = $d }; if ($d -gt $max) { $max = $d } } }
         $value = if ($count) { ([Math]::Round($sum / $count, 1)).ToString([Globalization.CultureInfo]::GetCultureInfo('fr-FR')) + $unit } else { 'Aucune valeur' }
         $detail = if ($count) { 'Moyenne · min ' + ([Math]::Round($min, 1)).ToString([Globalization.CultureInfo]::GetCultureInfo('fr-FR')) + ' · max ' + ([Math]::Round($max, 1)).ToString([Globalization.CultureInfo]::GetCultureInfo('fr-FR')) } else { [string]$Measured.Summary }
-        return New-DomeniaBoardEntry -Key $Key -Kind Measure -Title $title -Value $value -Detail $detail -Items $items -Unit $unit.Trim()
+        return New-DomeniaBoardEntry -Key $Key -Kind Measure -Title $title -Subtitle $subtitle -Value $value -Detail $detail -Items $items -Unit $unit.Trim()
     }
     $top = @($items | Sort-Object { [double]$_.Value } -Descending | Select-Object -First 1)
     $value = if ($top.Count) { [string]$top[0].Label } else { 'Aucune valeur' }
-    $detail = if ($top.Count) { [string][int]$top[0].Value + ' poste(s) sur ' + [int]$Measured.Machines } else { [string]$Measured.Summary }
-    return New-DomeniaBoardEntry -Key $Key -Kind Distribution -Title $title -Value $value -Detail $detail -Items $items -CenterText ([string][int]$Measured.Machines + ' postes')
+    $detail = if ($top.Count) { [string][int]$top[0].Value + ' poste(s) sur ' + $machines } else { [string]$Measured.Summary }
+    return New-DomeniaBoardEntry -Key $Key -Kind Distribution -Title $title -Subtitle $subtitle -Value $value -Detail $detail -Items $items -CenterText ([string]$machines + ' postes')
 }
 function ConvertTo-DomeniaSearchText {
     # Lower case without accents: 'Memoire' is found by 'mémoire' and the other way round.
@@ -654,7 +715,7 @@ function New-DomeniaBoardSample {
         'Measure' { return New-DomeniaBoardEntry -Key $Key -Kind Measure -Value '42' -Detail 'Moyenne · apercu' -Items $parts }
         'Series' { return New-DomeniaBoardEntry -Key $Key -Kind Series -Value '22' -Detail 'Apercu' -Items $parts }
         'List' { return New-DomeniaBoardEntry -Key $Key -Kind List -Value 'Apercu' -Items @([pscustomobject]@{ Level = 'Warn'; Text = 'Exemple de point a surveiller.' }, [pscustomobject]@{ Level = 'Info'; Text = 'Exemple d information.' }) }
-        'Health' { return New-DomeniaBoardEntry -Key $Key -Kind Health -Value 'Bon etat' -Detail 'Apercu' -State Ok -Number 90 -Maximum 100 }
+        'Health' { return New-DomeniaBoardEntry -Key $Key -Kind Health -Value 'Bon état' -Detail 'Apercu' -State Ok -Number 90 -Maximum 100 }
         'Timeline' { return New-DomeniaBoardEntry -Key $Key -Kind Timeline -Value '7' -Detail 'Aperçu' -Items @([pscustomobject]@{ Label = '01/07'; Value = 9 }, [pscustomobject]@{ Label = '01/08'; Value = 8 }, [pscustomobject]@{ Label = '01/09'; Value = 7 }) }
         default { return New-DomeniaBoardEntry -Key $Key -Kind Value -Value 'Exemple' -Detail 'Apercu : la valeur reelle apparait apres lecture' }
     }

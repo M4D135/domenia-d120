@@ -116,7 +116,8 @@ Test-Case -Id 'BF-003' -Name 'Parc : derniere connexion en tranches, tranches vi
     $board = Get-BfBoard
     $entry = $board.Entries['fleet.lastlogon']
     Assert-Equal 'Series' ([string]$entry.Kind)
-    Assert-Equal '<7j|7-30j|30-90j|90-180j|>180j|Jamais' (Get-BfJoined $entry 'Label')
+    # Lot L06 (CO-16): buckets named with their unit.
+    Assert-Equal 'moins de 7 j|7 à 30 j|30 à 90 j|90 à 180 j|plus de 180 j|jamais' (Get-BfJoined $entry 'Label')
     Assert-Equal '2|1|1|1|1|1' (Get-BfJoined $entry 'Value')
     Assert-Equal '2 poste(s) sur 7' ([string]$entry.Detail)
     Assert-Equal '2' ([string]$board.Entries['fleet.stale'].Value)
@@ -422,4 +423,31 @@ Test-Case -Id 'BF-021' -Name 'Serveurs / postes : tire de operatingSystem, au ca
     Assert-Equal '6 poste(s) de travail sur 9 comptes actifs' ([string]$entry.Detail)
     $item = Get-DomeniaBoardCatalogItem -Board Fleet -Key 'fleet.servers'
     Assert-True (($null -ne $item) -and (-not [bool]$item.Default)) 'Serveurs / postes au catalogue, hors disposition livree'
+}
+Test-Case -Id 'BF-022' -Name 'TE-07 : seuil disque du parc aligne sur le poste, tranches avec unites, cas du lot L01' -Body {
+    # One workstation at 15 % free on C: is to watch, as on its own board (critical under 10 %, to watch under 20 %).
+    $m = @{}; foreach ($machine in @(Get-BfMachines)) { $m[$machine.name] = $machine }
+    $rows = @(
+        (New-BfPresence $m['PC-L01'] 2 ([pscustomobject]@{ Presence = 'En ligne'; LinkUser = 'EX\jdupont'; Guid = 'guid-PC-L01'; Inventory = (New-BfInventory 'Latitude 5440' '26100' 12 100 15 2) }))
+        (New-BfPresence $m['PC-L02'] 2 ([pscustomobject]@{ Presence = 'En ligne'; LinkUser = 'ex\JDUPONT'; Guid = 'guid-PC-L02'; Inventory = (New-BfInventory 'Latitude 5440' '26100' 4 100 8 2) }))
+    )
+    $board = Get-BfBoard -Presence $rows
+    Assert-Equal ('moins de 10 %|10 à 20 %|20 à 50 %|50 % et plus') (Get-BfJoined $board.Entries['fleet.diskfree'] 'Label')
+    Assert-Equal '1|1|0|0' (Get-BfJoined $board.Entries['fleet.diskfree'] 'Value')
+    Assert-Equal (Get-DomeniaBoardColor 'Warn') ([string]@($board.Entries['fleet.diskfree'].Items)[1].Color) 'tranche a surveiller coloree comme sur le poste'
+    $texts = Get-BfTexts $board
+    Assert-True ($texts -contains ('Warn:1 poste(s) avec peu d' + [char]0x02BC + 'espace sur C: (moins de 20 % libre).')) ($texts -join ' | ')
+    Assert-True ($texts -contains 'Alert:1 poste(s) avec moins de 10 % libre sur C:.') ($texts -join ' | ')
+    Assert-Equal '1' ([string]$board.Entries['fleet.lowdisk'].Value) 'presque plein : sous 10 % seulement'
+    Assert-Equal 1 ([int]$board.Snapshot.Figures.LowDisk) 'instantane inchange : disques presque pleins'
+    # Memory buckets with their unit: 12 Go is in 9 to 16 Go, never in 16 Go.
+    Assert-Equal ([string][char]0x2264 + ' 4 Go|5 à 8 Go|9 à 16 Go|17 à 32 Go|> 32 Go') (Get-BfJoined $board.Entries['fleet.ram'] 'Label')
+    Assert-Equal '1|0|1|0|0' (Get-BfJoined $board.Entries['fleet.ram'] 'Value')
+    # Cases of lot L01 kept in this suite: one user seen on two workstations, an observation of a workstation outside the
+    # displayed perimeter, LTSC never critical.
+    Assert-Equal '1' ([string]$board.Entries['fleet.users'].Value) 'meme utilisateur sur deux postes = 1'
+    $outside = @(Get-BfPresenceRows | Where-Object { [string]$_.name -eq 'PC-P01' })
+    $alone = Get-BfBoard -Presence $outside
+    Assert-Equal '0' ([string]$alone.Entries['fleet.users'].Value) 'poste hors perimetre non compte'
+    Assert-Equal 0 @(Get-BfTexts (Get-BfBoard) | Where-Object { ($_ -like '*LTSC*') -and ($_ -like 'Alert:*') }).Count 'LTSC jamais critique'
 }

@@ -150,7 +150,8 @@ function Get-DomeniaSoftwareBoardData {
             $mo = $item.SizeKb / 1024
             $rounded = [Math]::Round($mo)
             if ($mo -lt 10) { $rounded = [Math]::Round($mo, 1) }
-            [void]$bars.Add([pscustomobject]@{ Label = $label; Value = [double]$rounded })
+            # The bar length stays in Mo; its text is the readable size ('2,3 Go', never '2354 Mo'; CO-16).
+            [void]$bars.Add([pscustomobject]@{ Label = $label; Value = [double]$rounded; Display = (Format-DomeniaDashboardSize ($item.SizeKb * 1KB)) })
         }
         Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'software.largest' -Kind Distribution -Value ([string]$bars[0].Label) -Detail (Format-DomeniaDashboardSize ($largest[0].SizeKb * 1KB)) -Items @($bars) -Unit 'Mo')
     }

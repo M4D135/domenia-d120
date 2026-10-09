@@ -120,8 +120,15 @@ function Show-DomeniaBoard {
         $wrap.Add_DragOver({ param($s,$e) Invoke-DomeniaBoardAutoScroll $s $e; if ($e.Data.GetDataPresent('DomeniaBoardWidget')) { $e.Effects = [System.Windows.DragDropEffects]::Move } else { $e.Effects = [System.Windows.DragDropEffects]::None }; $e.Handled = $true })
         $wrap.Add_Drop({ param($s,$e) $id = [string]$e.Data.GetData('DomeniaBoardWidget'); if ($id) { Request-DomeniaBoardDrop -Board $s.Tag.Board -Id $id -Group $s.Tag.Group }; $e.Handled = $true })
         $count = 0
-        foreach ($item in @($layout | Where-Object { [string]$_.Group -eq $group })) {
-            $element = New-DomeniaBoardWidget -Board $Board -Item $item -State $state
+        $groupItems = @($layout | Where-Object { [string]$_.Group -eq $group })
+        # SP-18: once the workstation board holds a reading, a section partly filled keeps a compact place for each
+        # widget this inventory did not fill. Before any reading, and for a section left empty, nothing changes.
+        $partial = $false
+        if (($Board -eq 'Computer') -and (-not $state.Editing) -and ($null -ne $state.Data) -and ($null -ne $state.Data.Entries)) {
+            $partial = (@($groupItems | Where-Object { ([string]$_.Source -eq 'Probe') -or $state.Data.Entries.ContainsKey([string]$_.Key) }).Count -gt 0)
+        }
+        foreach ($item in $groupItems) {
+            $element = New-DomeniaBoardWidget -Board $Board -Item $item -State $state -Placeholder:$partial
             if ($null -ne $element) { [void]$wrap.Children.Add($element); $count++ }
         }
         $hint = ''
@@ -129,8 +136,7 @@ function Show-DomeniaBoard {
         if ($state.Editing) { [void]$wrap.Children.Add((New-DomeniaBoardAddTile -Board $Board -Group $group)) }
         elseif (-not $count -and -not $hint) { continue }
         if (-not $count -and $hint) {
-            $note = New-DomeniaChartText -Text $hint -Size 12.5 -Key 'MutedColor'
-            $note.Margin = [System.Windows.Thickness]::new(7, 2, 7, 6)
+            $note = New-DomeniaBoardHint -Board $Board -Text $hint -Action (Get-DomeniaBoardHintAction -State $state -Group $group)
             $wrap.Parent.Children.Insert(1 + [int]($wrap.Parent.Children.Count -gt 2), $note)
         }
         Optimize-DomeniaBoardRow $wrap
@@ -188,6 +194,51 @@ function Get-DomeniaBoardGroupSubtitle {
     }
     if ($known.ContainsKey($Group)) { return $known[$Group] }
     return ''
+}
+function Get-DomeniaBoardHintAction {
+    # Action offered under the hint of an empty section ({Id; Text; Tip; Link}), $null when the provider gives none.
+    param($State,[string]$Group)
+    if (($null -eq $State) -or ($null -eq $State.Data)) { return $null }
+    $property = $State.Data.PSObject.Properties['HintActions']
+    if (($null -eq $property) -or ($null -eq $property.Value) -or (-not $property.Value.ContainsKey($Group))) { return $null }
+    return $property.Value[$Group]
+}
+function New-DomeniaBoardHint {
+    # Hint of an empty section and, under it, the button of the existing action that fills it (decision David
+    # 2026-10-08, SP-17): nothing runs without that click. On the home overview only a link to Rechercher is offered.
+    param([string]$Board,[string]$Text,$Action = $null)
+    $note = New-DomeniaChartText -Text $Text -Size 12.5 -Key 'MutedColor'
+    if (($null -eq $Action) -or (-not [string]$Action.Id)) { $note.Margin = [System.Windows.Thickness]::new(7, 2, 7, 6); return $note }
+    $panel = New-Object System.Windows.Controls.StackPanel
+    $panel.Margin = [System.Windows.Thickness]::new(7, 2, 7, 8)
+    [void]$panel.Children.Add($note)
+    if ([bool]$Action.Link) {
+        $line = New-Object System.Windows.Controls.TextBlock
+        $line.Margin = [System.Windows.Thickness]::new(0, 4, 0, 0); $line.FontSize = 12.5
+        $link = New-Object System.Windows.Documents.Hyperlink
+        [void]$link.Inlines.Add([string]$Action.Text)
+        $link.ToolTip = [string]$Action.Tip
+        $link.Tag = @{ Board = $Board; Id = [string]$Action.Id }
+        $link.Add_Click({ param($s,$e) Invoke-DomeniaBoardEntryAction -Board ([string]$s.Tag['Board']) -Id ([string]$s.Tag['Id']) })
+        [void]$line.Inlines.Add($link)
+        [System.Windows.Automation.AutomationProperties]::SetName($line, [string]$Action.Text)
+        [void]$panel.Children.Add($line)
+        return $panel
+    }
+    $button = New-DomeniaBoardButton '' ([string]$Action.Text) ([string]$Action.Tip) @{ Board = $Board; Action = 'EntryAction'; Value = [string]$Action.Id }
+    $button.Margin = [System.Windows.Thickness]::new(0, 6, 0, 0)
+    $button.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Left
+    # The state of the control it stands for (workstation selected, task running...) is checked on the click: the board
+    # is often drawn while a reading still holds that control disabled.
+    [void]$panel.Children.Add($button)
+    return $panel
+}
+function Get-DomeniaBoardActionControl {
+    # Existing button of the page that an action of a board stands for; $null for a route.
+    param([string]$Id)
+    $name = switch ($Id) { 'InventoryQuick' { 'BtnDashboardInventory' } 'InventoryFull' { 'BtnDashboardInventoryDeep' } 'LoadSoftware' { 'BtnLoadSoftware' } default { '' } }
+    if (-not $name) { return $null }
+    return (Get-DomeniaControl $name)
 }
 function New-DomeniaBoardButton {
     # Compact toolbar button: Fluent glyph and label.
@@ -358,6 +409,8 @@ function Resolve-DomeniaBoardEntry {
                 $coverage = Get-DomeniaWidgetCoverage -Board $Board -ProbeId ([string]$Item.Key)
                 if ($null -ne $coverage) {
                     $entry.Detail = (@([string]$entry.Detail, [string]$coverage.Text) | Where-Object { $_ }) -join ' · '
+                    # The coverage ('19 postes analysés sur 26, le 08/10') is the subtitle of a fleet chart (CO-16).
+                    if (($Board -eq 'Fleet') -and ($null -ne $entry.PSObject.Properties['Subtitle'])) { $entry.Subtitle = [string]$coverage.Text }
                     if ([bool]$coverage.Old) { $entry.State = 'Off' }
                 }
             }
@@ -386,6 +439,10 @@ function New-DomeniaWidgetVisual {
     }
     $unit = [string]$Entry.Unit
     $value = [string]$Entry.Value; $detail = [string]$Entry.Detail
+    # Line under the title of a chart ('19 postes', CO-16); entries made before it have none.
+    $subtitle = ''; $subtitleProperty = $Entry.PSObject.Properties['Subtitle']; if ($null -ne $subtitleProperty) { $subtitle = [string]$subtitleProperty.Value }
+    $badge = ''; $badgeProperty = $Entry.PSObject.Properties['Badge']; if ($null -ne $badgeProperty) { $badge = [string]$badgeProperty.Value }
+    $action = $null; $actionProperty = $Entry.PSObject.Properties['Action']; if ($null -ne $actionProperty) { $action = $actionProperty.Value }
     if (-not $value -and $items.Count -and [string]$Entry.Kind -ne 'List') {
         $top = @($items | Where-Object { $null -ne $_.PSObject.Properties['Value'] } | Sort-Object { [double]$_.Value } -Descending | Select-Object -First 1)
         if ($top.Count) { $value = [string]$top[0].Label; $total = 0.0; foreach ($i in $items) { try { $total += [double]$i.Value } catch { } }; if ($total -gt 0 -and -not $detail) { $detail = [string][Math]::Round(100.0 * [double]$top[0].Value / $total) + ' % du total' } }
@@ -393,12 +450,13 @@ function New-DomeniaWidgetVisual {
     switch ($Visual) {
         'Gauge' {
             $maximum = 100.0; if ($null -ne $Entry.Maximum -and [double]$Entry.Maximum -gt 0) { $maximum = [double]$Entry.Maximum }
-            return New-DomeniaGauge -Title $Title -Value ([double]$Entry.Number) -Maximum $maximum -Unit $unit -LowIsBad:([bool]$Entry.LowIsBad) -Width $w -Height $h -Caption $detail
+            # CO-14: the ring takes the state of the entry, computed with the shared thresholds.
+            return New-DomeniaGauge -Title $Title -Value ([double]$Entry.Number) -Maximum $maximum -Unit $unit -LowIsBad:([bool]$Entry.LowIsBad) -Width $w -Height $h -Caption $detail -State ([string]$Entry.State)
         }
         'Pie' { return New-DomeniaDonutChart -Title $Title -Items $items -Width $w -Height $h -CenterText ([string]$Entry.CenterText) }
-        'Bar' { return New-DomeniaBarChart -Title $Title -Items $items -Width $w -Height $h -Top 12 -Unit $(if ($unit) { ' ' + $unit } else { '' }) }
-        'Column' { return New-DomeniaColumnChart -Title $Title -Items $items -Width $w -Height $h }
-        'Line' { return New-DomeniaLineChart -Title $Title -Points $items -Width $w -Height $h }
+        'Bar' { return New-DomeniaBarChart -Title $Title -Items $items -Width $w -Height $h -Top 12 -Unit $(if ($unit) { ' ' + $unit } else { '' }) -Subtitle $subtitle }
+        'Column' { return New-DomeniaColumnChart -Title $Title -Items $items -Width $w -Height $h -Subtitle $subtitle }
+        'Line' { return New-DomeniaLineChart -Title $Title -Points $items -Width $w -Height $h -Subtitle $subtitle }
         'Text' {
             # One workstation: its values only (a count of 1 next to each value says nothing).
             $listed = if ([string]$Entry.Kind -eq 'List') { @() } elseif ([string]$Entry.Kind -eq 'Value') { @($items | ForEach-Object { [pscustomobject]@{ Label = [string]$_.Label } }) } else { $items }
@@ -406,7 +464,7 @@ function New-DomeniaWidgetVisual {
             return New-DomeniaListCard -Title $Title -Subtitle $detail -Items $listed -Width $w -Height $h -MinHeight $min -Unit $unit -Fallback $value
         }
         'List' { return New-DomeniaAttentionCard -Title $Title -Items $items -Width $w -MinHeight $min -Board $Board }
-        'Health' { return New-DomeniaHealthCard -Title $Title -Score ([double]$Entry.Number) -Verdict $value -Detail $detail -State $(if ([string]$Entry.State) { [string]$Entry.State } else { 'Ok' }) -Width $w -Height $h }
+        'Health' { return New-DomeniaHealthCard -Title $Title -Score ([double]$Entry.Number) -Verdict $value -Detail $detail -State $(if ([string]$Entry.State) { [string]$Entry.State } else { 'Ok' }) -Width $w -Height $h -Badge $badge -Action $action -Board $Board }
         default { return New-DomeniaKpiTile -Title $Title -Value $(if ($value) { $value } else { 'Non lu' }) -Detail $detail -Width $w -Height $h -State ([string]$Entry.State) }
     }
 }
@@ -479,16 +537,19 @@ function New-DomeniaBoardMenu {
     return $menu
 }
 function New-DomeniaBoardWidget {
-    param([string]$Board,$Item,$State)
+    # -Placeholder: the board already holds data and the section is partly filled (SP-18): a widget this reading did not
+    # fill keeps a compact place saying so instead of disappearing. Before any reading it stays hidden.
+    param([string]$Board,$Item,$State,[switch]$Placeholder)
     $resolved = Resolve-DomeniaBoardEntry -Board $Board -Item $Item -State $State
     $entry = $resolved.Entry
-    if ($null -eq $entry -and -not $State.Editing) { return $null }
+    if (($null -eq $entry) -and (-not $State.Editing) -and (-not $Placeholder)) { return $null }
     # Without data (shown only while customising) the widget keeps its real kind, representation and size.
     $kind = if ($null -ne $entry) { [string]$entry.Kind } else { [string]$resolved.Kind }
     $hasMaximum = if ($null -ne $entry) { ($null -ne $entry.Maximum -and [double]$entry.Maximum -gt 0) } else { $kind -in @('Number','Health') }
     $visual = Resolve-DomeniaBoardVisual -Visual ([string]$Item.Visual) -Kind $kind -HasMaximum:$hasMaximum
     $size = Get-DomeniaBoardSize -Visual $visual -Size ([string]$Item.Size)
     if ($null -ne $entry) { $card = New-DomeniaWidgetVisual -Entry $entry -Visual $visual -Title $resolved.Title -Size $size -Board $Board }
+    elseif (-not $State.Editing) { $compact = Get-DomeniaBoardSize -Visual Kpi -Size S; $card = New-DomeniaChartEmpty -Width $compact.Width -Height $compact.Height -Title $resolved.Title -Message 'Non lu par cet inventaire' }
     else { $card = New-DomeniaChartEmpty -Width $size.Width -Height $(if ($size.Height -gt 0) { $size.Height } elseif ($size.MinHeight -gt 0) { $size.MinHeight } else { 118 }) -Title $resolved.Title -Message 'Aucune donnee pour le moment' }
 
     $holder = New-Object System.Windows.Controls.Grid
@@ -498,7 +559,8 @@ function New-DomeniaBoardWidget {
     [System.Windows.Automation.AutomationProperties]::SetName($holder, $resolved.Title)
     [void]$holder.Children.Add($card)
     $actionProperty = if ($null -ne $entry) { $entry.PSObject.Properties['Action'] } else { $null }
-    if (($null -ne $actionProperty) -and ($null -ne $actionProperty.Value) -and (-not $State.Editing)) {
+    # The score card draws its own button inside the card (UX-23).
+    if (($null -ne $actionProperty) -and ($null -ne $actionProperty.Value) -and (-not $State.Editing) -and ($visual -ne 'Health')) {
         $action = $actionProperty.Value
         [void]$holder.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
         $actionRow = New-Object System.Windows.Controls.RowDefinition; $actionRow.Height = [System.Windows.GridLength]::Auto
@@ -664,7 +726,9 @@ function Get-DomeniaBoardSources {
         foreach ($probe in @(Get-DomeniaProbeCatalog)) {
             $shown = $present.ContainsKey('Probe|' + [string]$probe.Id)
             $kind = Get-DomeniaProbeKind -Probe $probe -Board $Board
-            [void]$rows.Add([pscustomobject]@{ Section = 'Requetes WMI · ' + [string]$probe.Category; Name = [string]$probe.Name; Description = ([string]$probe.Class + ' (' + [string]$probe.Namespace + ')'); Badge = $(if ($shown) { 'affiche' } else { '' }); Source = 'Probe'; Key = [string]$probe.Id; Kind = $kind; Visual = (Resolve-DomeniaBoardVisual -Visual ([string]$probe.Visual) -Kind $kind); Size = ''; Group = [string]$probe.Category; Search = (ConvertTo-DomeniaSearchText ([string]$probe.Name + ' ' + [string]$probe.Category + ' ' + [string]$probe.Class)) })
+            # FI-17: a slow query is flagged before it is added.
+            $slow = (($null -ne $probe.PSObject.Properties['Slow']) -and [bool]$probe.Slow)
+            [void]$rows.Add([pscustomobject]@{ Section = 'Requetes WMI · ' + [string]$probe.Category; Name = [string]$probe.Name; Description = ([string]$probe.Class + ' (' + [string]$probe.Namespace + ')' + $(if ($slow) { ' · requête lente' } else { '' })); Badge = $(if ($shown) { 'affiche' } else { '' }); Source = 'Probe'; Key = [string]$probe.Id; Kind = $kind; Visual = (Resolve-DomeniaBoardVisual -Visual ([string]$probe.Visual) -Kind $kind); Size = ''; Group = [string]$probe.Category; Slow = $slow; Search = (ConvertTo-DomeniaSearchText ([string]$probe.Name + ' ' + [string]$probe.Category + ' ' + [string]$probe.Class)) })
         }
     }
     # Screen readers and type-ahead read an item through ToString: its name, its section, and whether it is shown.
@@ -826,6 +890,7 @@ function Show-DomeniaBoardEditor {
         $bedState.Loading = $true
         $bedState.Source = [string]$Row.Source; $bedState.Key = [string]$Row.Key; $bedState.Kind = [string]$Row.Kind; $bedState.DefaultTitle = [string]$Row.Name
         $bedKindText.Text = [string]$bedKindNames[[string]$Row.Kind]
+        if (($null -ne $Row.PSObject.Properties['Slow']) -and [bool]$Row.Slow) { $bedKindText.Text += ' Requête lente : jusquʼà 10 s par poste, à réserver aux listes courtes.' }
         $bedVisual.Items.Clear()
         $bedHasMax = ([string]$Row.Kind -in @('Number','Health'))
         foreach ($bedV in @(Get-DomeniaBoardVisuals -Kind ([string]$Row.Kind) -HasMaximum:$bedHasMax)) { [void]$bedVisual.Items.Add([string]$bedNames[$bedV]) }
@@ -981,10 +1046,19 @@ function Get-DomeniaWidgetCoverage {
     return [pscustomobject]@{ Text = $text; Old = $old }
 }
 function Invoke-DomeniaBoardEntryAction {
-    # Buttons carried by a widget (Action of its entry), handled here: a rule never starts anything.
+    # Buttons carried by a widget (Action of its entry) or by the hint of an empty section, handled here: a rule never
+    # starts anything. An inventory or a software list goes through the existing button of the page (same checks,
+    # same confirmation); a route only opens a screen (SP-17, UX-23).
     param([string]$Board,[string]$Id)
     switch ($Id) {
         'BitLockerPresence' { [void](Start-DomeniaFleetBitLockerPresence) }
+        { $_ -in @('InventoryQuick','InventoryFull','LoadSoftware') } {
+            $target = Get-DomeniaBoardActionControl -Id $Id
+            if (($null -eq $target) -or (-not $target.IsEnabled)) { Set-Status 'Action indisponible pour le moment : aucun poste sélectionné ou lecture déjà en cours.' 'WARN'; return }
+            $target.RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent))
+        }
+        'OpenCard' { Invoke-DomeniaUxRoute -Route 'WsObject' }
+        'GoSearch' { Invoke-DomeniaUxRoute -Route 'WsSearch' }
         default { Set-Status ('Action de widget inconnue : ' + $Id) 'WARN' }
     }
 }

@@ -82,6 +82,7 @@ function Get-DomeniaFleetBoardData {
 
     $scope = ([string]$Scope).Trim()
     $data = New-DomeniaBoardData -Board Fleet
+    $searchLink = [pscustomobject]@{ Id = 'GoSearch'; Text = 'Aller dans Rechercher'; Tip = 'Ouvre Rechercher, sans lancer dʼanalyse.'; Link = $true }
     $lifecycleKnown = $false
     if ($null -ne $Lifecycle) {
         $entriesProperty = $Lifecycle.PSObject.Properties['Entries']
@@ -110,7 +111,8 @@ function Get-DomeniaFleetBoardData {
     $disabledGroups = @($groups | Where-Object { [string]$_.st -eq 'D' })
     $total = 0; foreach ($group in $active) { $total += [int]$group.n }
     $disabled = 0; foreach ($group in $disabledGroups) { $disabled += [int]$group.n }
-    $buckets = [ordered]@{ '<7j' = 0; '7-30j' = 0; '30-90j' = 0; '90-180j' = 0; '>180j' = 0; 'Jamais' = 0 }
+    # Buckets of the worker (lb 0 to 5) named with their unit (decision David 2026-10-08, CO-16).
+    $buckets = [ordered]@{ 'moins de 7 j' = 0; '7 à 30 j' = 0; '30 à 90 j' = 0; '90 à 180 j' = 0; 'plus de 180 j' = 0; 'jamais' = 0 }
     $bucketNames = @($buckets.Keys)
     $osCounts = @{}; $versions = @{}; $releaseCache = @{}
     $ended = @{}; $soon = @{}
@@ -199,6 +201,7 @@ function Get-DomeniaFleetBoardData {
     $users = @{}; $sessions = 0; $inventories = New-Object System.Collections.ArrayList; $lastCheck = $null; $oldest = $null
     $observations = @{}; $observed = 0
     $unreachable = New-Object System.Collections.ArrayList; $lowDiskMachines = New-Object System.Collections.ArrayList; $uptimeMachines = New-Object System.Collections.ArrayList
+    $tightDiskMachines = New-Object System.Collections.ArrayList
     $observedProblem = @{}
     # Figure of the daily snapshot: only when a disk size was read (otherwise unknown, never 0).
     $lowDiskFigure = $null
@@ -362,6 +365,8 @@ function Get-DomeniaFleetBoardData {
     if (-not $total) {
         $data.Hints['Répartition'] = 'Aucun poste actif indexé dans ce périmètre : mettez à jour la base autonome.'
         $data.Hints['Repartition'] = $data.Hints['Répartition']
+        # SP-17: on the home overview only a link to Rechercher, where the base and the analyses are run.
+        $data.HintActions['Répartition'] = $searchLink; $data.HintActions['Repartition'] = $searchLink
     }
 
     # Releves des postes (observations): presence, users, last analysis, light WMI inventory, with their coverage.
@@ -379,24 +384,34 @@ function Get-DomeniaFleetBoardData {
         $wmiHint = 'Dans Rechercher, Analyser la liste remplit cette section pour les postes affichés : modèles, mémoire, disques, versions et démarrages.'
         $data.Hints['Relevés des postes'] = $wmiHint
         $data.Hints['Releves WMI'] = $wmiHint
+        $data.HintActions['Relevés des postes'] = $searchLink; $data.HintActions['Releves WMI'] = $searchLink
     } else {
-        $models = @{}; $releases = @{}; $longUptime = 0; $lowDisk = 0; $bootSeen = 0
-        $ram = [ordered]@{ '4 Go et -' = 0; '8 Go' = 0; '16 Go' = 0; '32 Go' = 0; '+ de 32 Go' = 0 }
-        $disk = [ordered]@{ '< 10 %' = 0; '10-25 %' = 0; '25-50 %' = 0; '> 50 %' = 0 }
+        $models = @{}; $releases = @{}; $longUptime = 0; $lowDisk = 0; $tightDisk = 0; $bootSeen = 0
+        # CO-16: whole bounds with their unit (12 Go is in '9 à 16 Go'); the reported total sits a little under the
+        # nominal size, hence the half gigabyte of margin.
+        $ram = [ordered]@{ ([string][char]0x2264 + ' 4 Go') = 0; '5 à 8 Go' = 0; '9 à 16 Go' = 0; '17 à 32 Go' = 0; '> 32 Go' = 0 }
+        $ramNames = @($ram.Keys)
+        # CO-14: the fleet uses the thresholds of the workstation (critical under 10 %, to watch under 20 %).
+        $limits = Get-DomeniaBoardThresholds
+        $alertLimit = [string][int]$limits.DiskFreeAlert; $warnLimit = [string][int]$limits.DiskFreeWarn
+        $diskNames = @(('moins de ' + $alertLimit + ' %'), ($alertLimit + ' à ' + $warnLimit + ' %'), ($warnLimit + ' à 50 %'), '50 % et plus')
+        $disk = [ordered]@{}; foreach ($name in $diskNames) { $disk[$name] = 0 }
         foreach ($pair in $inventories) {
             $inventory = $pair.Inventory
             $model = ([string](& $member $inventory 'Model' '')).Trim(); if (-not $model) { $model = 'Modele inconnu' }
             $models[$model] = 1 + [int]$models[$model]
             $gb = 0.0; try { $gb = [double](& $member $inventory 'RamBytes' 0) / 1GB } catch { $gb = 0.0 }
-            $k = if ($gb -le 4.5) { '4 Go et -' } elseif ($gb -le 9) { '8 Go' } elseif ($gb -le 17) { '16 Go' } elseif ($gb -le 33) { '32 Go' } else { '+ de 32 Go' }
+            $k = if ($gb -le 4.5) { $ramNames[0] } elseif ($gb -le 8.5) { $ramNames[1] } elseif ($gb -le 16.5) { $ramNames[2] } elseif ($gb -le 32.5) { $ramNames[3] } else { $ramNames[4] }
             if ($gb -gt 0) { $ram[$k] = 1 + [int]$ram[$k] }
             $size = 0.0; try { $size = [double](& $member $inventory 'DiskSize' 0) } catch { $size = 0.0 }
             if ($size -gt 0) {
                 $freeBytes = 0.0; try { $freeBytes = [double](& $member $inventory 'DiskFree' 0) } catch { $freeBytes = 0.0 }
                 $free = 100.0 * $freeBytes / $size
-                $dk = if ($free -lt 10) { '< 10 %' } elseif ($free -lt 25) { '10-25 %' } elseif ($free -lt 50) { '25-50 %' } else { '> 50 %' }
+                $diskState = Get-DomeniaThresholdState -Measure DiskFree -Percent $free
+                $dk = if ($diskState -eq 'Alert') { $diskNames[0] } elseif ($diskState -eq 'Warn') { $diskNames[1] } elseif ($free -lt 50) { $diskNames[2] } else { $diskNames[3] }
                 $disk[$dk] = 1 + [int]$disk[$dk]
-                if ($free -lt 10) { $lowDisk++; [void]$lowDiskMachines.Add($pair.Target); $observedProblem[[string]$pair.Target.distinguished_name] = $pair.Target }
+                if ($diskState -eq 'Alert') { $lowDisk++; [void]$lowDiskMachines.Add($pair.Target); $observedProblem[[string]$pair.Target.distinguished_name] = $pair.Target }
+                elseif ($diskState -eq 'Warn') { $tightDisk++; [void]$tightDiskMachines.Add($pair.Target); $observedProblem[[string]$pair.Target.distinguished_name] = $pair.Target }
             }
             $build = ([string](& $member $inventory 'Build' '')).Trim()
             $release = (Get-DomeniaWindowsRelease -Build $build -Caption ([string](& $member $inventory 'OsCaption' '')) -Lifecycle $Lifecycle -Now $Now).Name
@@ -425,18 +440,21 @@ function Get-DomeniaFleetBoardData {
             $lead = & $share $ramItems $ramTotal
             Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.ram' -Kind Series -Value $lead.Value -Detail $observedText -State $observationState -Items $ramItems)
         }
-        $diskItems = @(foreach ($name in @($disk.Keys)) { [pscustomobject]@{ Label = [string]$name; Value = [double]$disk[$name] } })
+        # Coloured like the workstation disk: critical, to watch, then the neutral colour of one series.
+        $diskColors = @((Get-DomeniaBoardColor 'Alert'), (Get-DomeniaBoardColor 'Warn'), (Get-DomeniaBoardColor 'Info'), (Get-DomeniaBoardColor 'Info'))
+        $diskItems = @(for ($d = 0; $d -lt $diskNames.Count; $d++) { [pscustomobject]@{ Label = [string]$diskNames[$d]; Value = [double]$disk[$diskNames[$d]]; Color = [string]$diskColors[$d] } })
         $diskTotal = 0.0; foreach ($part in $diskItems) { $diskTotal += [double]$part.Value }
         if ($diskTotal -gt 0) {
             $lowDiskFigure = $lowDisk
             $lead = & $share $diskItems $diskTotal
             Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.diskfree' -Kind Series -Value $lead.Value -Detail $observedText -State $observationState -Items $diskItems)
             # Only when a disk size was read: a failed WMI probe stores DiskSize 0, which is no "0 full disk".
-            Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.lowdisk' -Kind Value -Value ([string]$lowDisk) -State $(if ($observedOld) { 'Off' } elseif ($lowDisk) { 'Alert' } else { 'Ok' }) -Detail ('Moins de 10 % libre · ' + $observedText))
+            Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.lowdisk' -Kind Value -Value ([string]$lowDisk) -State $(if ($observedOld) { 'Off' } elseif ($lowDisk) { 'Alert' } else { 'Ok' }) -Detail ('Moins de ' + $alertLimit + ' % libre · ' + $observedText))
         }
         # Only when a boot date was read (a failed probe stores LastBootUtc '').
         if ($bootSeen -gt 0) { Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.uptime' -Kind Value -Value ([string]$longUptime) -State $(if ($observedOld) { 'Off' } elseif ($longUptime) { 'Warn' } else { 'Ok' }) -Detail ('Redémarrage conseillé · ' + $observedText)) }
-        if ($lowDisk) { Add-DomeniaBoardAttention -Data $data -Level Alert -Text ([string]$lowDisk + ' poste(s) avec moins de 10 % libre sur C:.') -Point 'lowdisk' -Machines @($lowDiskMachines) }
+        if ($lowDisk) { Add-DomeniaBoardAttention -Data $data -Level Alert -Text ([string]$lowDisk + ' poste(s) avec moins de ' + $alertLimit + ' % libre sur C:.') -Point 'lowdisk' -Machines @($lowDiskMachines) }
+        if ($tightDisk) { Add-DomeniaBoardAttention -Data $data -Level Warn -Text ([string]$tightDisk + ' poste(s) avec peu dʼespace sur C: (moins de ' + $warnLimit + ' % libre).') -Point 'lowdisk.warn' -Machines @($tightDiskMachines) }
         if ($longUptime) { Add-DomeniaBoardAttention -Data $data -Level Warn -Text ([string]$longUptime + ' poste(s) non redémarré(s) depuis plus de 30 jours.') -Point 'uptime' -Machines @($uptimeMachines) }
     }
     # A workstation with an observed problem and no directory problem is one more workstation to treat.
