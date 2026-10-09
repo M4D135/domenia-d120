@@ -6759,7 +6759,7 @@ function Get-MainXaml {
                             <WrapPanel>
                               <Button x:Name="BtnIndexBuild" Content="Mettre a jour tout" Style="{StaticResource RunButton}" ToolTip="Relit tous les utilisateurs et postes, reconstruit la base autonome et resynchronise les associations connues. Peut durer plusieurs minutes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mettre a jour tout" AutomationProperties.HelpText="Relit tous les utilisateurs et postes, reconstruit la base autonome et resynchronise les associations connues. Peut durer plusieurs minutes."/>
                               <Button x:Name="BtnIndexRefresh" Content="Mettre a jour les changements" Style="{StaticResource RunButton}" ToolTip="Ne relit que les objets modifiés depuis la dernière passe grâce à uSNChanged/whenChanged. Beaucoup plus rapide." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mettre a jour les changements" AutomationProperties.HelpText="Ne relit que les objets modifies depuis la derniere passe grace a uSNChanged/whenChanged. Beaucoup plus rapide."/>
-                              <Button x:Name="BtnIndexWalk" Content="Tout relire (OU par OU)" Style="{StaticResource SecondaryButton}" ToolTip="Relit le domaine entier en une tache par OU et ajoute chaque OU a la base locale sans rien supprimer. Utile quand la base est annoncee incomplete : la limite de lecture ne porte plus que sur une seule OU a la fois. Lecture seule, a votre clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Tout relire OU par OU" AutomationProperties.HelpText="Relit le domaine entier en une tache par OU et ajoute chaque OU a la base locale sans rien supprimer."/>
+                              <Button x:Name="BtnIndexWalk" Content="Tout relire (OU par OU)" Style="{StaticResource SecondaryButton}" ToolTip="Relit le domaine entier en une tâche par OU et ajoute chaque OU à la base locale sans rien supprimer. Utile quand la base est annoncée incomplète : la limite de lecture ne porte plus que sur une seule OU à la fois. Lecture seule, à votre clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Tout relire OU par OU" AutomationProperties.HelpText="Relit le domaine entier en une tâche par OU et ajoute chaque OU à la base locale sans rien supprimer."/>
                               <Button x:Name="BtnIndexOpen" Content="Ouvrir l objet" ToolTip="Recherche dans l annuaire l objet selectionne ci-dessous." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ouvrir l objet" AutomationProperties.HelpText="Recherche dans l annuaire l objet selectionne ci-dessous."/>
                               <Button x:Name="BtnIndexExport" Content="Exporter CSV" ToolTip="Enregistre les resultats affiches au format CSV." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Exporter CSV" AutomationProperties.HelpText="Enregistre les resultats affiches au format CSV."/>
                             </WrapPanel>
@@ -16313,18 +16313,18 @@ function Complete-DomeniaIndexScopeUi {
 $script:IndexWalk = $null
 
 function Start-DomeniaIndexWalk {
-    # « Tout relire (OU par OU) » : le domaine entier est relu en une tache par OU, chacune fusionnee dans la base sans
+    # « Tout relire (OU par OU) » : le domaine entier est relu en une tâche par OU, chacune fusionnée dans la base sans
     # rien supprimer. La limite de lecture (Index.MaxObjects, Index.BudgetMs) ne porte plus que sur une seule OU, donc
-    # une grosse OU ne peut plus a elle seule empecher la base locale d'etre complete. Le repere du domaine n'avance pas
-    # (une passe ne couvre qu'une OU) : c'est « Mettre a jour les changements » qui le fait progresser.
+    # une grosse OU ne peut plus à elle seule empêcher la base locale d'être complète. Le repère du domaine n'avance pas
+    # (une passe ne couvre qu'une OU) : c'est « Mettre à jour les changements » qui le fait progresser.
     param([switch]$Confirmed)
     try {
         if (-not $Confirmed) {
             $run = { Start-DomeniaIndexWalk -Confirmed }
-            [void](Request-DomeniaInlineConfirmation -Title 'Relire tout le domaine OU par OU' -Message 'Le domaine entier est relu, une tache par OU, et chaque OU est ajoutee a la base locale sans rien supprimer. Long : la limite de lecture ne porte plus que sur une seule OU a la fois.' -Target 'base:tout-relire' -OnConfirm $run)
+            [void](Request-DomeniaInlineConfirmation -Title 'Relire tout le domaine OU par OU' -Message 'Le domaine entier est relu, une tâche par OU, et chaque OU est ajoutée à la base locale sans rien supprimer. Long : la limite de lecture ne porte plus que sur une seule OU à la fois.' -Target 'base:tout-relire' -OnConfirm $run)
             return
         }
-        if ($null -ne $script:IndexWalk) { Set-Status 'La passe par OU est deja en cours.' 'WARN'; return }
+        if ($null -ne $script:IndexWalk) { Set-Status 'La passe par OU est déjà en cours.' 'WARN'; return }
         $script:IndexWalk = [pscustomobject]@{ Queue = (New-Object 'System.Collections.Generic.Queue[string]'); Total = 0; Done = 0; Objects = 0; Limited = 0; Errors = 0; Started = (Get-Date) }
         Start-UiTask `
             -Name 'Passe par OU : liste des OU' `
@@ -16348,7 +16348,7 @@ function Complete-DomeniaIndexWalkPlanUi {
     $walk = $script:IndexWalk
     if ($null -eq $walk) { return }
     $effective = Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @("Rows")
-    if ($null -eq $effective) { Complete-DomeniaIndexWalkUi -Aborted -Detail 'Lecture des OU sans resultat exploitable.'; return }
+    if ($null -eq $effective) { Complete-DomeniaIndexWalkUi -Aborted -Detail 'Lecture des OU sans résultat exploitable.'; return }
     $root = [string]$script:Conn.BaseDn
     foreach ($row in @($effective.Rows)) {
         $dn = [string]$row.DN
@@ -16359,7 +16359,7 @@ function Complete-DomeniaIndexWalkPlanUi {
     # Les objets poses directement sur la racine du domaine ne sont dans aucune OU : une passe OneLevel les relit.
     $walk.Queue.Enqueue($root)
     $walk.Total = $walk.Queue.Count
-    $summary = 'Passe par OU : ' + $walk.Total + ' lecture(s) a lancer.'
+    $summary = 'Passe par OU : ' + $walk.Total + ' lecture(s) à lancer.'
     [void](Set-DomeniaControlText -Name "LblIndexStatus" -Text $summary)
     Set-Status $summary
     Start-DomeniaIndexWalkStep
@@ -16388,7 +16388,7 @@ function Start-DomeniaIndexWalkStep {
             -ErrorHandler 'Fail-DomeniaIndexWalkUi' | Out-Null
     }
     catch {
-        # Le moteur refuse d'admettre une tache de plus : la marche s'arrete la, sur un message, sans relancer en boucle.
+        # Le moteur refuse d'admettre une tâche de plus : la marche s'arrête là, sur un message, sans relancer en boucle.
         $walk.Queue.Clear()
         Complete-DomeniaIndexWalkUi -Aborted -Detail ([string]$_.Exception.Message)
     }
@@ -16400,9 +16400,9 @@ function Complete-DomeniaIndexWalkStepUi {
     $walk = $script:IndexWalk
     if ($null -eq $walk) { return }
     $effective = Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @("Rows")
-    if ($null -eq $effective) { Complete-DomeniaIndexWalkUi -Aborted -Detail 'Passe sans resultat exploitable.'; return }
+    if ($null -eq $effective) { Complete-DomeniaIndexWalkUi -Aborted -Detail 'Passe sans résultat exploitable.'; return }
     $rows = @($effective.Rows)
-    # Le repere du domaine (serveur, USN, identite du controleur) est conserve : cette passe ne couvre qu'une OU.
+    # Le repère du domaine (serveur, USN, identité du contrôleur) est conservé : cette passe ne couvre qu'une OU.
     $info = $script:IndexInfo
     $usn = if ($null -ne $info) { [long]$info.Usn } else { 0L }
     $server = if ($null -ne $info -and [string]$info.Server) { [string]$info.Server } else { [string]$effective.Server }
@@ -16415,9 +16415,9 @@ function Complete-DomeniaIndexWalkStepUi {
     }
     catch {
         # Une OU trop grosse pour la base (Update-DomeniaIndexDatabaseRows plafonne par passe) ne doit pas perdre les OU
-        # deja lues : elle est comptee a part et la marche continue.
+        # déjà lues : elle est comptée à part et la marche continue.
         $walk.Errors = $walk.Errors + 1
-        Add-DomeniaUiLog -Area "Index" -Level "WARN" -Text ('Passe par OU non ecrite : ' + [string]$effective.SearchBase + ' (' + $rows.Count + ' objet(s)) : ' + [string]$_.Exception.Message)
+        Add-DomeniaUiLog -Area "Index" -Level "WARN" -Text ('Passe par OU non écrite : ' + [string]$effective.SearchBase + ' (' + $rows.Count + ' objet(s)) : ' + [string]$_.Exception.Message)
     }
     $cut = Get-DomeniaIndexCut -Effective $effective
     if ($cut.Reason) { $walk.Limited = $walk.Limited + 1 }
@@ -16431,7 +16431,7 @@ function Fail-DomeniaIndexWalkUi {
     if ($null -ne $State -and [long]$State.Epoch -ne [long]$script:SessionEpoch) { return }
     $detail = ([string]$Message).Trim()
     if ([string]::IsNullOrWhiteSpace($detail)) { $detail = 'Erreur inconnue.' }
-    # Une passe qui echoue (annuaire injoignable, annulation) arrete la marche : le reste serait relu pour rien.
+    # Une passe qui échoue (annuaire injoignable, annulation) arrête la marche : le reste serait relu pour rien.
     Complete-DomeniaIndexWalkUi -Aborted -Detail $detail
 }
 
@@ -16441,14 +16441,14 @@ function Complete-DomeniaIndexWalkUi {
     $script:IndexWalk = $null
     if ($null -eq $walk) { return }
     $seconds = [int](((Get-Date) - $walk.Started).TotalSeconds)
-    $summary = 'Passe par OU {0} : {1} lecture(s) sur {2}, {3} objet(s) relu(s) en {4} s.' -f $(if ($Aborted) { 'interrompue' } else { 'terminee' }),$walk.Done,$walk.Total,$walk.Objects,$seconds
+    $summary = 'Passe par OU {0} : {1} lecture(s) sur {2}, {3} objet(s) relu(s) en {4} s.' -f $(if ($Aborted) { 'interrompue' } else { 'terminée' }),$walk.Done,$walk.Total,$walk.Objects,$seconds
     if ($Aborted -and $Detail) { $summary += ' ' + $Detail }
     if ($walk.Limited -gt 0) { $summary += ' ' + $walk.Limited + ' OU ont atteint leur limite : relisez-les une par une depuis Accueil.' }
-    if ($walk.Errors -gt 0) { $summary += ' ' + $walk.Errors + ' OU trop volumineuse(s) non ecrite(s).' }
+    if ($walk.Errors -gt 0) { $summary += ' ' + $walk.Errors + ' OU trop volumineuse(s) non écrite(s).' }
     if ((-not $Aborted) -and ($walk.Limited -eq 0) -and ($walk.Errors -eq 0)) {
-        # Toutes les OU ont ete relues sans coupure : la base autonome n'est plus incomplete.
+        # Toutes les OU ont été relues sans coupure : la base autonome n'est plus incomplète.
         Set-DomeniaIndexPartial -Clear
-        $summary += ' Base complete.'
+        $summary += ' Base complète.'
     }
     [void](Set-DomeniaControlText -Name "LblIndexStatus" -Text $summary)
     Set-Status $summary $(if ($Aborted -or $walk.Limited -gt 0 -or $walk.Errors -gt 0) { 'WARN' } else { 'INFO' })

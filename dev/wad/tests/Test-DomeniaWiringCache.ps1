@@ -852,6 +852,9 @@ Test-Case 'D026 : IndexBuild tronque ne remplace pas l index' {
     function Add-DomeniaUiLog { param($Area,$Text) }
     function Register-DomeniaOperationSample { param($Operation,$Mode,$ItemCount,$DurationMs,$BytesEstimated,$AdQueries,$SuccessCount) }
     function Update-DomeniaIndexStats { }
+    # Complete-DomeniaIndexRefreshUi classe la coupure par Get-DomeniaIndexCut : le banc charge le vrai
+    # helper (pur, sans etat) plutot qu'un doublon local qui masquerait une regression de sa garde.
+    . ([scriptblock]::Create((Get-FunctionTextFromFile $core 'Get-DomeniaIndexCut')))
 
     $script:SaveIndexCalls=0
     $script:UpdateIndexCalls=0
