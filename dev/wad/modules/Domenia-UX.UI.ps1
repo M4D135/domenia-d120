@@ -1015,15 +1015,11 @@ function Request-DomeniaUxLocalSuggestions {
     param([Parameter(Mandatory=$true)][string]$Text)
     $script:UxSuggestTerm = $Text
     if ($null -eq $script:UxSuggestTimer) {
-        $timer = New-Object System.Windows.Threading.DispatcherTimer
-        $timer.Interval = [TimeSpan]::FromMilliseconds(300)
-        $timer.Add_Tick({
-            param($sender,$eventArgs)
-            try { $sender.Stop() } catch { }
-            try { Start-DomeniaUxLocalSuggestions -Text ([string]$script:UxSuggestTerm) } catch { }
-        })
-        $script:UxSuggestTimer = $timer
-        if ($null -ne (Get-Command -Name Register-DomeniaOwnedTimer -CommandType Function -ErrorAction SilentlyContinue)) { try { [void](Register-DomeniaOwnedTimer -Owner 'Timer:SearchSuggest' -Timer $timer) } catch { } }
+        # FI-05: protected timer of the engine factory; one shot restarted on each keystroke (300 ms debounce).
+        $script:UxSuggestTimer = New-DomeniaTimer -Owner 'Timer:SearchSuggest' -IntervalMs 300 -Priority Normal -Standalone -Tick {
+            try { $script:UxSuggestTimer.Stop() } catch { }
+            Start-DomeniaUxLocalSuggestions -Text ([string]$script:UxSuggestTerm)
+        }
     }
     $script:UxSuggestTimer.Stop()
     $script:UxSuggestTimer.Start()
@@ -1285,11 +1281,8 @@ function Invoke-DomeniaReadOnlyReturnTick {
 
 function Start-DomeniaReadOnlyReturnTimer {
     if ($null -eq $script:UxReadOnlyTimer) {
-        $timer = New-Object System.Windows.Threading.DispatcherTimer
-        $timer.Interval = [TimeSpan]::FromSeconds(15)
-        $timer.Add_Tick({ try { [void](Invoke-DomeniaReadOnlyReturnTick) } catch { Write-AppLog ('Retour en lecture seule : ' + $_.Exception.Message) 'WARN' } })
-        $script:UxReadOnlyTimer = $timer
-        if ($null -ne (Get-Command -Name Register-DomeniaOwnedTimer -CommandType Function -ErrorAction SilentlyContinue)) { try { [void](Register-DomeniaOwnedTimer -Owner 'Timer:ReadOnlyReturn' -Timer $timer) } catch { } }
+        # FI-05: protected timer of the engine factory (errors journaled, stopped after repeated failures).
+        $script:UxReadOnlyTimer = New-DomeniaTimer -Owner 'Timer:ReadOnlyReturn' -IntervalMs 15000 -RunWhenHidden -Tick { [void](Invoke-DomeniaReadOnlyReturnTick) }
     }
     $script:UxReadOnlyTimer.Stop()
     $script:UxReadOnlyTimer.Start()

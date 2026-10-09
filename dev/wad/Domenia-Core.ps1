@@ -4636,7 +4636,7 @@ function Get-MainXaml {
                 </Button>
                 <Border x:Name="UxAboutPanel" Visibility="Collapsed" Margin="10,6,0,0">
                   <StackPanel>
-                    <TextBlock Text="DOMENIA 1.0 · RC1.14.0" Foreground="{DynamicResource MutedColor}" FontSize="11"/>
+                    <TextBlock Text="DOMENIA 1.0 · RC1.15.0" Foreground="{DynamicResource MutedColor}" FontSize="11"/>
                     <TextBlock Text="Les actions restent sous votre contrôle." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="11" Margin="0,4,0,0"/>
                   </StackPanel>
                 </Border>
@@ -20740,7 +20740,7 @@ function Wire-Events {
 # DOMENIA_MASTER_LAST_V1 = TRUE
 $script:Version = "1.0"
 $script:AppName = "Domenia"
-$script:MasterBuild = "2026.10.09-DOMENIA-1.0-RC1.14.0-D120"
+$script:MasterBuild = "2026.10.09-DOMENIA-1.0-RC1.15.0-D120"
 $script:ActiveWriteTaskId = ""
 $script:WriteState = "Idle"
 $script:UnknownWriteTargetDn = ""
@@ -23812,7 +23812,7 @@ function Initialize-DomeniaPresentation {
     Initialize-DomeniaGuard
     Initialize-DomeniaLive
     Initialize-DomeniaReconcile
-    Add-DomeniaUiLog -Area "Application" -Text "Domenia 1.0 RC1.14.0 pret."
+    Add-DomeniaUiLog -Area "Application" -Text "Domenia 1.0 RC1.15.0 pret."
 }
 
 function Assert-DomeniaCapability {
@@ -25964,7 +25964,7 @@ function Initialize-Window {
 # Le login effectue un bind LDAP reel, lit RootDSE et valide la base detectee
 # dans un runspace borne afin que le thread WPF ne soit jamais bloque.
 # =====================================================================
-$script:DomeniaBuild = "Domenia 1.0 RC1.14.0"
+$script:DomeniaBuild = "Domenia 1.0 RC1.15.0"
 $script:FastLoginUi = $null
 $script:FastLoginState = $null
 $script:FastLoginTimer = $null
@@ -27337,7 +27337,7 @@ try {
         Write-StartupTrace -Stage 'Stockage/Preferences' -Status 'WARN' -Detail $script:StoragePreferenceWarning
         Show-WarningBox -Message $script:StoragePreferenceWarning
     }
-    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 RC1.14.0 (2026.10.09-DOMENIA-1.0-RC1.14.0-D120)"
+    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 RC1.15.0 (2026.10.09-DOMENIA-1.0-RC1.15.0-D120)"
     # PF-19: duration of the package integrity check made by Domenia-Start.ps1 before the core (absent when launched otherwise).
     $startIntegrity = Get-Variable -Name DomeniaStartIntegrity -ValueOnly -ErrorAction SilentlyContinue
     if ($null -ne $startIntegrity) { Write-StartupTrace -Stage "Integrite du paquet" -Status "OK" -DurationMs ([long]$startIntegrity.DurationMs) -Detail ("{0} fichiers runtime controles (plafond {1}), {2} composants requis." -f $startIntegrity.Files,$startIntegrity.Limit,$startIntegrity.Required) }
