@@ -12,7 +12,7 @@ function Initialize-DomeniaRelationsState {
             AssociationState='Idle';PendingPlan=$null;PendingRemoval=$null;SubjectNotice='';LastOutcome=$null;Revision=0L
             Observations=[Collections.Generic.List[object]]::new();History=[Collections.Generic.List[object]]::new();RestoreKnown=$false;RestoreEntry=$null
             DirtyComputers=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
-            RefreshPending=$false;ImportPlan=$null;LastImport=$null;Orphans=@();OrphanConfirm=$false
+            RefreshPending=$false;ImportPlan=$null;LastImport=$null;Orphans=@();OrphanConfirm=$false;EvidenceMemo=$null;LastRefusal=''
         }
     }
     if($script:Relations.Epoch -ne [long]$script:SessionEpoch){
@@ -26,7 +26,16 @@ function Initialize-DomeniaRelationsState {
         $script:Relations.PendingPlan=$null;$script:Relations.PendingRemoval=$null;$script:Relations.SubjectNotice='';$script:Relations.LastOutcome=$null
         $script:Relations.Observations.Clear();$script:Relations.History.Clear();$script:Relations.DirtyComputers.Clear();$script:Relations.RestoreKnown=$false;$script:Relations.RestoreEntry=$null;$script:Relations.Revision++
         # An import preview, the last import and an orphan list belong to the former session and its store too.
+        # Their panels are hidden at once and the operator is told why (review L04: they stayed shown and inert).
+        $abandoned=($null -ne $script:Relations.ImportPlan -or $null -ne $script:Relations.LastImport -or @($script:Relations.Orphans).Count -gt 0)
         $script:Relations.ImportPlan=$null;$script:Relations.LastImport=$null;$script:Relations.Orphans=@();$script:Relations.OrphanConfirm=$false;$script:Relations.RefreshPending=$true
+        $script:Relations.EvidenceMemo=$null;$script:Relations.LastRefusal=''
+        if($abandoned){
+            try{
+                Update-DomeniaLinkImportUi;Update-DomeniaOrphanUi
+                Set-Status 'Session ou domaine modifié : aperçu dʼimport, « Annuler lʼimport » et liste des orphelines fermés. Rien nʼa été enregistré ni retiré.' 'INFO'
+            }catch{}
+        }
     }
 }
 function Set-DomeniaRelationsSelection {
@@ -218,13 +227,15 @@ function Update-DomeniaRelationsActions {
     $stop=Get-DomeniaControl 'BtnRelationsStop';if($null -ne $stop){$stop.IsEnabled=$busyDetect;$stop.Visibility=if($busyDetect){'Visible'}else{'Hidden'}}
     $remove=Get-DomeniaControl 'BtnRemoveLink';$grid=Get-DomeniaRelationsActiveGrid
     if($null -ne $remove){$remove.IsEnabled=($null -ne $grid -and $null -ne $grid.SelectedItem -and -not $locked)}
-    $restore=Get-DomeniaControl 'BtnRestoreLink'
-    if($null -ne $restore){
-        # CO-28: active only when a local removal can be put back, and named after it.
-        $entry=Get-DomeniaRelationsRestoreCandidate
+    # CO-28: active only when a local removal can be put back, and named after it. The same button sits in
+    # Associations and in Toutes les associations, where the import is undone and the orphans are removed.
+    $entry=$null;$entryRead=$false
+    foreach($name in @('BtnRestoreLink','BtnRestoreLinkAll')){
+        $restore=Get-DomeniaControl $name;if($null -eq $restore){continue}
+        if(-not $entryRead){$entry=Get-DomeniaRelationsRestoreCandidate;$entryRead=$true}
         $restore.IsEnabled=($null -ne $entry -and -not $locked)
         $restore.Content=Get-DomeniaRelationRestoreLabel $entry
-        $restore.ToolTip=if($null -ne $entry){'Remet lʼassociation '+[string]$entry.Relation.UserLogin+' → '+[string]$entry.Relation.Computer+' supprimée localement ('+(Format-DomeniaRelationWhen ([string]$entry.WhenUtc))+'), depuis le journal. Aucun objet Active Directory nʼest lu ni modifié.'}else{'Aucune suppression locale à restaurer.'}
+        $restore.ToolTip=if($null -ne $entry){'Remet lʼassociation '+[string]$entry.Relation.UserLogin+' → '+[string]$entry.Relation.Computer+' supprimée localement ('+(Format-DomeniaRelationWhen ([string]$entry.WhenUtc))+'), depuis le journal ; une association par clic. Aucun objet Active Directory nʼest lu ni modifié.'}else{'Aucune suppression locale à restaurer.'}
     }
     $d=Get-DomeniaControl 'DgRelationCandidates';$candidate=if($null -ne $d){$d.SelectedItem}else{$null}
     $associable=[bool](Get-DomeniaMember $candidate 'Associable' $false)
@@ -254,30 +265,74 @@ function Update-DomeniaRelationsActions {
 function Update-DomeniaRelationEvidence {
     # D043: a badge and the rule that produced it, never a percentage. D050: workstations where sources
     # designate different accounts are flagged Contradictoire; nothing is merged or removed.
-    # Only the workstations changed since the last pass, or rows never qualified, are recomputed.
+    # Only the workstations changed since the last pass, or rows never qualified, are recomputed. Review L04: after a
+    # save every stored row is a new canonical copy, so the qualification of identical content is kept for the session
+    # (EvidenceMemo) and the notes are set without Add-Member.
     param([object[]]$Rows=@())
     Initialize-DomeniaRelationsState
     $r=$script:Relations
     $dirty=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
     foreach($k in @($r.DirtyComputers)){[void]$dirty.Add([string]$k)}
     foreach($row in @($Rows)){if($null -ne $row -and $null -eq $row.PSObject.Properties['Badge']){$key=ConvertTo-DomeniaRelationComputerKey ([string]$row.Computer);if($key){[void]$dirty.Add($key)}}}
+    $r.DirtyComputers.Clear()
+    if(-not $dirty.Count){return}
     $session=$r.Observations.ToArray()
-    foreach($key in @($dirty)){
-        $group=@(@(Get-LinksForComputer $key)+@($session|Where-Object{(ConvertTo-DomeniaRelationComputerKey ([string]$_.Computer)) -eq $key})|Where-Object{$null -ne $_})
-        $contradicted=@();foreach($c in @(Get-DomeniaLinkConflicts $group)){$contradicted+=@($c.Relations)}
-        foreach($row in $group){
-            $b=Get-DomeniaEvidenceBadge $row (Test-DomeniaRelationsListContains $contradicted $row)
-            $row|Add-Member -NotePropertyName Badge -NotePropertyValue $b.Badge -Force
-            $row|Add-Member -NotePropertyName BadgeLabel -NotePropertyValue $b.Label -Force
-            $row|Add-Member -NotePropertyName BadgeRule -NotePropertyValue ($b.Rule+' Provenance : '+$b.Provenance+'.') -Force
-            # CO-29: the Date column shows local time and sorts on the instant, whatever the stored form.
-            $row|Add-Member -NotePropertyName WhenDisplay -NotePropertyValue (Format-DomeniaRelationWhen ([string](Get-DomeniaMember $row 'When' ''))) -Force
-            $row|Add-Member -NotePropertyName WhenSort -NotePropertyValue (Get-DomeniaRelationWhenSortKey ([string](Get-DomeniaMember $row 'When' ''))) -Force
-            $row|Add-Member -NotePropertyName Provenance -NotePropertyValue $b.Provenance -Force
-            $row|Add-Member -NotePropertyName Persistence -NotePropertyValue $(if(Test-DomeniaRelationsListContains $session $row){'Session uniquement'}else{'Enregistrée'}) -Force
+    $groups=[Collections.Generic.Dictionary[string,Collections.Generic.List[object]]]::new([StringComparer]::OrdinalIgnoreCase)
+    if($dirty.Count -gt 32){
+        # Many workstations: one pass over every relation instead of one index lookup per workstation.
+        foreach($l in @(Get-DomeniaRelationsAllRelations)){
+            $key=ConvertTo-DomeniaRelationComputerKey ([string]$l.Computer)
+            if(-not $key -or -not $dirty.Contains($key)){continue}
+            $list=$null;if(-not $groups.TryGetValue($key,[ref]$list)){$list=[Collections.Generic.List[object]]::new();$groups[$key]=$list}
+            $list.Add($l)
+        }
+    }else{
+        foreach($key in $dirty){
+            $list=[Collections.Generic.List[object]]::new()
+            foreach($l in @(Get-LinksForComputer $key)){if($null -ne $l){$list.Add($l)}}
+            foreach($o in $session){if($null -ne $o -and (ConvertTo-DomeniaRelationComputerKey ([string]$o.Computer)) -eq $key){$list.Add($o)}}
+            $groups[$key]=$list
         }
     }
-    $r.DirtyComputers.Clear()
+    $memo=$r.EvidenceMemo
+    if($null -eq $memo -or $memo.Count -gt 20000){$memo=[Collections.Generic.Dictionary[string,object]]::new([StringComparer]::Ordinal);$r.EvidenceMemo=$memo}
+    $separator=[string][char]31
+    foreach($group in $groups.Values){
+        $items=$group.ToArray()
+        # A conflict needs two relations of the same workstation.
+        $contradicted=@();if($items.Count -gt 1){foreach($c in @(Get-DomeniaLinkConflicts $items)){$contradicted+=@($c.Relations)}}
+        foreach($row in $items){
+            $isContradicted=($contradicted.Count -gt 0 -and (Test-DomeniaRelationsListContains $contradicted $row))
+            $isSession=($session.Count -gt 0 -and (Test-DomeniaRelationsListContains $session $row))
+            $props=$row.PSObject.Properties
+            $when='';$p=$props['When'];if($null -ne $p){$when=[string]$p.Value}
+            $source='';$p=$props['Source'];if($null -ne $p){$source=[string]$p.Value}
+            $kind='';$p=$props['Kind'];if($null -ne $p){$kind=[string]$p.Value}
+            $signature='row'+$separator+$source+$separator+$kind+$separator+$when+$separator+[string]$isContradicted
+            $q=$null
+            if(-not $memo.TryGetValue($signature,[ref]$q)){
+                # The badge depends on the source and the conflict only (few distinct values); the date is read once
+                # per text (ConvertTo-DomeniaRelationUtcDate). Provenance is written as in Get-DomeniaEvidenceBadge.
+                $badgeKey='badge'+$separator+$source+$separator+$kind+$separator+[string]$isContradicted;$b=$null
+                if(-not $memo.TryGetValue($badgeKey,[ref]$b)){$b=Get-DomeniaEvidenceBadge ([pscustomobject]@{Source=$source;Kind=$kind}) $isContradicted;$memo[$badgeKey]=$b}
+                # CO-29: the Date column shows local time and sorts on the instant, whatever the stored form.
+                $utc=ConvertTo-DomeniaRelationUtcDate $when
+                $display=Format-DomeniaRelationWhen $utc
+                $provenance=$source
+                if($when){$whenText=if($display){$display}else{$when};$provenance=($source+' · '+$whenText).Trim(' ','·')}
+                $q=[pscustomobject]@{Badge=$b.Badge;BadgeLabel=$b.Label;BadgeRule=($b.Rule+' Provenance : '+$provenance+'.');Provenance=$provenance;WhenDisplay=$display;WhenSort=$(if($null -ne $utc){$utc}else{[datetime]::MinValue})}
+                $memo[$signature]=$q
+            }
+            $persistence=if($isSession){'Session uniquement'}else{'Enregistrée'}
+            $p=$props['Badge'];if($null -eq $p){$props.Add([Management.Automation.PSNoteProperty]::new('Badge',$q.Badge))}else{$p.Value=$q.Badge}
+            $p=$props['BadgeLabel'];if($null -eq $p){$props.Add([Management.Automation.PSNoteProperty]::new('BadgeLabel',$q.BadgeLabel))}else{$p.Value=$q.BadgeLabel}
+            $p=$props['BadgeRule'];if($null -eq $p){$props.Add([Management.Automation.PSNoteProperty]::new('BadgeRule',$q.BadgeRule))}else{$p.Value=$q.BadgeRule}
+            $p=$props['WhenDisplay'];if($null -eq $p){$props.Add([Management.Automation.PSNoteProperty]::new('WhenDisplay',$q.WhenDisplay))}else{$p.Value=$q.WhenDisplay}
+            $p=$props['WhenSort'];if($null -eq $p){$props.Add([Management.Automation.PSNoteProperty]::new('WhenSort',$q.WhenSort))}else{$p.Value=$q.WhenSort}
+            $p=$props['Provenance'];if($null -eq $p){$props.Add([Management.Automation.PSNoteProperty]::new('Provenance',$q.Provenance))}else{$p.Value=$q.Provenance}
+            $p=$props['Persistence'];if($null -eq $p){$props.Add([Management.Automation.PSNoteProperty]::new('Persistence',$persistence))}else{$p.Value=$persistence}
+        }
+    }
 }
 function Update-DomeniaRelationCandidateEvidence {
     # D046: each candidate states why it is proposed and whether it can be associated. An IP address or a
@@ -581,9 +636,12 @@ function Add-DomeniaRelation {
     }
     $r.Revision++;[void]$r.DirtyComputers.Add($computerKey)
     if($result.StoredChanged -and -not $NoSave){
-        if(-not (Save-UserMachineLinks)){
+        # Review L04: a busy storage queue is named before the change is undone, instead of a generic refusal.
+        $why=Get-DomeniaRelationSaveRefusal -Changes 1
+        if($why -or -not (Save-UserMachineLinks)){
             $script:UserMachineLinks=$previousLinks;$r.Observations.Clear();foreach($o in $previousObservations){$r.Observations.Add($o)};Rebuild-UserMachineLinkIndex
-            $result.SaveFailed=$true;$result.StoredChanged=$false;$result.Reason='Stockage local refusé : relation non enregistrée.'
+            $result.SaveFailed=$true;$result.StoredChanged=$false
+            $result.Reason=if($why){'Relation non enregistrée : '+$why+'.'}else{'Stockage local refusé : relation non enregistrée (motif dans le message précédent).'}
         }
     }
     $r.LastOutcome=$result
@@ -592,41 +650,93 @@ function Add-DomeniaRelation {
 function Set-DomeniaRelationValue {
     param($Target,[string]$Name,$Value)
     if($null -eq $Target){return}
-    if($null -eq $Target.PSObject.Properties[$Name]){$Target|Add-Member -NotePropertyName $Name -NotePropertyValue $Value -Force}else{$Target.PSObject.Properties[$Name].Value=$Value}
+    $p=$Target.PSObject.Properties[$Name]
+    if($null -eq $p){$Target.PSObject.Properties.Add([Management.Automation.PSNoteProperty]::new($Name,$Value))}else{$p.Value=$Value}
+}
+function Get-DomeniaRelationSaveRefusal {
+    # Review L04: the storage queue (Queue-DomeniaLinkChanges) takes one request at a time and 64 changed workstations
+    # per request. Both limits are checked before any change, so that nothing is half applied and the operator reads
+    # the real reason instead of a generic refusal.
+    param([int]$Changes=1)
+    if($null -ne $script:Persistence -and [bool]$script:Persistence.LinkBusy){return 'lʼenregistrement précédent des associations est encore en cours ; réessayez dans quelques secondes'}
+    if($Changes -gt 64){return ([string]$Changes+' associations à modifier, 64 au plus par enregistrement')}
+    return ''
 }
 function Find-DomeniaRelationInstance {
     # The stored row or the session row that is this relation: the same object first, then the same user,
-    # workstation and nature (the storage queue replaces the stored objects by canonical copies).
+    # workstation and nature (the storage queue replaces the stored objects by canonical copies). Review L04: only the
+    # rows of the same workstation are compared (index by workstation), plus the few rows that carry its GUID.
     param($Relation)
     if($null -eq $Relation){return $null}
-    foreach($l in @($script:UserMachineLinks)){if([object]::ReferenceEquals($l,$Relation)){return [pscustomobject]@{Item=$l;Stored=$true}}}
-    foreach($l in @($script:UserMachineLinks)){if($null -ne $l -and (Test-DomeniaSameRelation $l $Relation)){return [pscustomobject]@{Item=$l;Stored=$true}}}
-    if($null -ne $script:Relations){foreach($o in @($script:Relations.Observations)){if([object]::ReferenceEquals($o,$Relation) -or (Test-DomeniaSameRelation $o $Relation)){return [pscustomobject]@{Item=$o;Stored=$false}}}}
+    $computer=[string](Get-DomeniaMember $Relation 'Computer' '')
+    $candidates=@(Get-LinksForComputer $computer|Where-Object{$null -ne $_})
+    foreach($l in $candidates){if([object]::ReferenceEquals($l,$Relation)){return [pscustomobject]@{Item=$l;Stored=$true}}}
+    foreach($l in $candidates){if(Test-DomeniaSameRelation $l $Relation){return [pscustomobject]@{Item=$l;Stored=$true}}}
+    # A GUID known on both sides decides even after a rename of the workstation.
+    $guid=([string](Get-DomeniaMember $Relation 'ComputerGuid' '')).Trim()
+    if($guid){
+        foreach($l in @($script:UserMachineLinks)){
+            if($null -eq $l -or ([string]$l.ComputerGuid).Trim() -ine $guid -or (Test-DomeniaRelationsListContains $candidates $l)){continue}
+            if([object]::ReferenceEquals($l,$Relation) -or (Test-DomeniaSameRelation $l $Relation)){return [pscustomobject]@{Item=$l;Stored=$true}}
+        }
+    }
+    if($null -ne $script:Relations){
+        $key=ConvertTo-DomeniaRelationComputerKey $computer
+        foreach($o in @($script:Relations.Observations)){
+            if($null -eq $o){continue}
+            if([object]::ReferenceEquals($o,$Relation)){return [pscustomobject]@{Item=$o;Stored=$false}}
+            $same=(((ConvertTo-DomeniaRelationComputerKey ([string]$o.Computer)) -eq $key) -or ($guid -and ([string]$o.ComputerGuid).Trim() -ieq $guid))
+            if($same -and (Test-DomeniaSameRelation $o $Relation)){return [pscustomobject]@{Item=$o;Stored=$false}}
+        }
+    }
     return $null
 }
 function Remove-DomeniaRelations {
     # D050, UX-40, CO-08: several local removals in one storage request. Each one is journaled and restorable;
-    # Active Directory is never touched. Returns the number removed, or -1 when the store refused (nothing removed).
+    # Active Directory is never touched. Returns the number removed, or -1 when nothing was removed because the store
+    # refused: LastRefusal then names the reason when it was known before the change (Get-DomeniaRelationSaveRefusal).
     param([object[]]$Relations=@(),[string]$Declarant='',[string[]]$Notes=@())
     Initialize-DomeniaRelationsState
-    $r=$script:Relations;$list=@($Relations);$noteList=@($Notes)
-    $previous=@($script:UserMachineLinks);$previousObservations=$r.Observations.ToArray()
-    $entries=[Collections.Generic.List[object]]::new();$stored=$false;$computers=[Collections.Generic.List[string]]::new()
+    $r=$script:Relations;$list=@($Relations);$noteList=@($Notes);$r.LastRefusal=''
+    $entries=[Collections.Generic.List[object]]::new();$computers=[Collections.Generic.List[string]]::new()
+    # Stored rows to remove, keyed by object identity (one pass over the store afterwards, not one per removal).
+    $storedTargets=[Collections.Generic.Dictionary[int,Collections.Generic.List[object]]]::new();$storedCount=0
+    $sessionTargets=[Collections.Generic.List[object]]::new()
     for($i=0;$i -lt $list.Count;$i++){
         $found=Find-DomeniaRelationInstance $list[$i]
         if($null -eq $found){continue}
-        $target=$found.Item
+        $target=$found.Item;$hash=[Runtime.CompilerServices.RuntimeHelpers]::GetHashCode($target)
+        $bucket=$null;$already=$false
+        if($found.Stored -and $storedTargets.TryGetValue($hash,[ref]$bucket)){$already=(Test-DomeniaRelationsListContains $bucket.ToArray() $target)}
+        if(-not $found.Stored){$already=(Test-DomeniaRelationsListContains $sessionTargets.ToArray() $target)}
+        if($already){continue}
         $note=if($i -lt $noteList.Count -and [string]$noteList[$i]){[string]$noteList[$i]+' '}else{''}
         $note+=$(if($found.Stored){'Retirée du stockage local.'}else{'Retirée de la liste de session.'})
         $entries.Add((New-DomeniaLinkHistoryEntry -Action Removed -Relation $target -Declarant $Declarant -Note $note))
         if($found.Stored){
-            $script:UserMachineLinks=@($script:UserMachineLinks|Where-Object{-not [object]::ReferenceEquals($_,$target)})
-            Update-DomeniaRelationLinkIndex -Link $target -Remove;$stored=$true
-        }else{for($j=0;$j -lt $r.Observations.Count;$j++){if([object]::ReferenceEquals($r.Observations[$j],$target)){$r.Observations.RemoveAt($j);break}}}
+            if($null -eq $bucket){$bucket=[Collections.Generic.List[object]]::new();$storedTargets[$hash]=$bucket}
+            $bucket.Add($target);$storedCount++
+        }else{$sessionTargets.Add($target)}
         $computers.Add((ConvertTo-DomeniaRelationComputerKey ([string]$target.Computer)))
     }
     if(-not $entries.Count){return 0}
-    if($stored -and -not (Save-UserMachineLinks)){
+    if($storedCount){
+        $why=Get-DomeniaRelationSaveRefusal -Changes $storedCount
+        if($why){$r.LastRefusal=$why;return -1}
+    }
+    $previous=@($script:UserMachineLinks);$previousObservations=$r.Observations.ToArray()
+    if($storedCount){
+        $kept=[Collections.Generic.List[object]]::new()
+        foreach($l in $previous){
+            $bucket=$null
+            if($null -ne $l -and $storedTargets.TryGetValue([Runtime.CompilerServices.RuntimeHelpers]::GetHashCode($l),[ref]$bucket) -and (Test-DomeniaRelationsListContains $bucket.ToArray() $l)){continue}
+            $kept.Add($l)
+        }
+        $script:UserMachineLinks=$kept.ToArray()
+        foreach($bucket in $storedTargets.Values){foreach($target in $bucket){Update-DomeniaRelationLinkIndex -Link $target -Remove}}
+    }
+    foreach($target in $sessionTargets){for($j=0;$j -lt $r.Observations.Count;$j++){if([object]::ReferenceEquals($r.Observations[$j],$target)){$r.Observations.RemoveAt($j);break}}}
+    if($storedCount -and -not (Save-UserMachineLinks)){
         $script:UserMachineLinks=$previous;$r.Observations.Clear();foreach($o in $previousObservations){$r.Observations.Add($o)};Rebuild-UserMachineLinkIndex;Refresh-DomeniaRelationViews
         return -1
     }
@@ -634,6 +744,13 @@ function Remove-DomeniaRelations {
     $r.Revision++;foreach($k in $computers){if($k){[void]$r.DirtyComputers.Add($k)}}
     Refresh-DomeniaRelationViews
     return $entries.Count
+}
+function Get-DomeniaRelationRefusalText {
+    # Message of a refused removal: the reason known before the change, otherwise the queue already said why.
+    param([string]$Prefix,[string]$Suffix)
+    $why=if($null -ne $script:Relations){[string]$script:Relations.LastRefusal}else{''}
+    if($why){return ($Prefix+' : '+$why+'. '+$Suffix)}
+    return ($Prefix+' : le stockage local a refusé la modification (motif dans le message précédent). '+$Suffix)
 }
 function Remove-DomeniaRelation {
     # D050: the removal touches only the local store or the session list. It is journaled and can be restored.
@@ -643,7 +760,7 @@ function Remove-DomeniaRelation {
     $label=[string]$Relation.UserLogin+' → '+[string]$Relation.Computer
     $n=Remove-DomeniaRelations -Relations @($Relation) -Declarant $Declarant
     if($n -eq 0){Set-Status 'Association introuvable : déjà retirée ou rechargée. Aucune modification.' 'WARN';return $false}
-    if($n -lt 0){Set-Status 'Suppression non enregistrée : le stockage local a refusé la modification. Association conservée.' 'WARN';return $false}
+    if($n -lt 0){Set-Status (Get-DomeniaRelationRefusalText 'Suppression non enregistrée' 'Association conservée.') 'WARN';return $false}
     Set-Status ('Association retirée localement : '+$label+'. Aucun objet Active Directory modifié ; « Restaurer '+$label+' » la remet en place.')
     return $true
 }
@@ -1037,7 +1154,7 @@ function Initialize-DomeniaRelationsUi {
     $apply=Get-DomeniaControl 'BtnRelationConfirmApply';if($null -ne $apply){$apply.Add_Click({Confirm-DomeniaRelationAssociation})}
     $planRun=Get-DomeniaControl 'BtnRelationPlanRun';if($null -ne $planRun){$planRun.Add_Click({Confirm-DomeniaRelationDetectionPlan})}
     $planCancel=Get-DomeniaControl 'BtnRelationPlanCancel';if($null -ne $planCancel){$planCancel.Add_Click({Cancel-DomeniaRelationDetectionPlan})}
-    $restore=Get-DomeniaControl 'BtnRestoreLink';if($null -ne $restore){$restore.Add_Click({[void](Restore-DomeniaRemovedLink)})}
+    foreach($name in @('BtnRestoreLink','BtnRestoreLinkAll')){$restore=Get-DomeniaControl $name;if($null -ne $restore){$restore.Add_Click({[void](Restore-DomeniaRemovedLink)})}}
     (Get-DomeniaControl 'BtnRelationsStop').Add_Click({Stop-DomeniaRelationsSearch})
     (Get-DomeniaControl 'BtnRelationOpenCandidate').Add_Click({Use-DomeniaRelationCandidate -Open})
     (Get-DomeniaControl 'BtnRelationAdopt').Add_Click({Use-DomeniaRelationCandidate})
@@ -1045,7 +1162,7 @@ function Initialize-DomeniaRelationsUi {
     $help=Get-DomeniaControl 'BtnRelationsHelp';if($null -ne $help){$help.Add_Click({Switch-DomeniaRelationsHelp})}
     $filter=Get-DomeniaControl 'TxtAllLinksFilter';if($null -ne $filter){$filter.Add_TextChanged({Update-DomeniaAllLinksView})}
     foreach($name in @('ChkAllLinksDeclared','ChkAllLinksObserved','ChkAllLinksConflict')){$chip=Get-DomeniaControl $name;if($null -ne $chip){$chip.Add_Click({Update-DomeniaAllLinksView})}}
-    foreach($pair in @(@('BtnLinkImportApply',{Confirm-DomeniaLinkImport}),@('BtnLinkImportCancel',{Cancel-DomeniaLinkImportPreview}),@('BtnUndoImport',{Undo-DomeniaLinkImport}),@('BtnLinkOrphanRemove',{Request-DomeniaOrphanRemoval}),@('BtnLinkOrphanClose',{Close-DomeniaOrphanLinks}),@('BtnLinkOrphanConfirmApply',{Complete-DomeniaOrphanRemoval}),@('BtnLinkOrphanConfirmCancel',{Cancel-DomeniaOrphanRemoval}))){$button=Get-DomeniaControl $pair[0];if($null -ne $button){$button.Add_Click($pair[1])}}
+    foreach($pair in @(@('BtnLinkImportApply',{Confirm-DomeniaLinkImport}),@('BtnLinkImportCancel',{Cancel-DomeniaLinkImportPreview}),@('BtnUndoImport',{Request-DomeniaLinkImportUndo}),@('BtnLinkOrphanRemove',{Request-DomeniaOrphanRemoval}),@('BtnLinkOrphanClose',{Close-DomeniaOrphanLinks}),@('BtnLinkOrphanConfirmApply',{Complete-DomeniaOrphanRemoval}),@('BtnLinkOrphanConfirmCancel',{Cancel-DomeniaOrphanRemoval}))){$button=Get-DomeniaControl $pair[0];if($null -ne $button){$button.Add_Click($pair[1])}}
     $allLinks=Get-DomeniaControl 'DgAllLinks'
     if($null -ne $allLinks){
         # FO-14: right click selects the row under the pointer, then offers the fiche of the user or of the workstation.
@@ -1182,10 +1299,12 @@ function Fail-DomeniaRelationAssociationVerify {
 function Get-DomeniaLinkQualification {
     # D043/DS-17: how a stored user/workstation link is qualified wherever it is shown outside Relations (fiche, lists,
     # summaries): its label and the rule behind it, never a percentage (no reliability rate was ever measured).
+    # CO-29: When is the local display of its date (« 08/10 09:15 »), the stored text when it cannot be read.
     param($Link)
-    if($null -eq $Link){return [pscustomobject]@{Value='';Suffix='';Rule='';Label='Qualification'}}
+    if($null -eq $Link){return [pscustomobject]@{Value='';Suffix='';Rule='';Label='Qualification';When=''}}
     $badge=Get-DomeniaEvidenceBadge $Link
-    return [pscustomobject]@{Value=[string]$badge.Label;Suffix=('  '+[string]$badge.Label);Rule=[string]$badge.Rule;Label='Qualification'}
+    $stored=[string](Get-DomeniaMember $Link 'When' '');$when=Format-DomeniaRelationWhen $stored;if(-not $when){$when=$stored}
+    return [pscustomobject]@{Value=[string]$badge.Label;Suffix=('  '+[string]$badge.Label);Rule=[string]$badge.Rule;Label='Qualification';When=$when}
 }
 function Select-DomeniaBestLink {
     # The link shown first for a user: a declared assignment, otherwise the most recent relation (D042/D043).
@@ -1194,16 +1313,6 @@ function Select-DomeniaBestLink {
     if(-not $items.Count){return $null}
     return (Select-DomeniaPrimaryRelation $items)
 }
-function Set-DomeniaRelationWhenUtc {
-    # CO-29: a stored row written again (synchronised with the index, refreshed) takes the UTC form of its date;
-    # an old local date is read as local time. Untouched rows keep their text until they change.
-    param($Link)
-    if($null -eq $Link){return}
-    $when=[string](Get-DomeniaMember $Link 'When' '')
-    $utc=ConvertTo-DomeniaRelationWhenText $when
-    if($utc -and $utc -cne $when){Set-DomeniaRelationValue $Link 'When' $utc}
-}
-
 # ---------------------------------------------------------------- FO-14 open the fiche from Toutes les associations
 function Get-DomeniaGridHit {
     # The DataGrid cell and row that contain a clicked element (visual tree, then logical tree for text runs).
@@ -1257,14 +1366,20 @@ function New-DomeniaAllLinksContextMenu {
 
 # ---------------------------------------------------------------- CO-08 CSV import: preview, forced source, undo
 function New-DomeniaLinkImportPlan {
-    # CO-08: every row of the file in a preview (to import, ignored, unknown in the local index). Nothing is written,
-    # nothing is read on the network: the local index answers for Active Directory.
-    param([object[]]$Items=@(),[string]$FileName='')
-    $indexAvailable=(@($script:IndexRows).Count -gt 0)
+    # CO-08: every record of the file in a preview (to import, ignored, unknown in the local index). Nothing is written,
+    # nothing is read on the network. -Index is the answer of the local index (LocalIndexRead, ResolveNames: State
+    # Verified, Empty or Unavailable, Users by login, Computers by name), or $null while it is being read: the presence
+    # in Active Directory is then not checked and the preview says why.
+    param([object[]]$Items=@(),[string]$FileName='',$Index=$null,[string]$Id='',[int]$Total=-1)
+    $state=if($null -ne $Index){[string]$Index.State}else{'Pending'}
+    $indexAvailable=($state -eq 'Verified')
+    $unverified=switch($state){'Pending'{'vérification dans lʼindex local en cours'}'Empty'{'index local vide'}'Unavailable'{[string]$Index.Detail}default{''}}
+    $users=@{};$computers=@{};if($indexAvailable){$users=$Index.Users;$computers=$Index.Computers}
     $seen=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
-    $rows=[Collections.Generic.List[object]]::new();$line=1
+    $rows=[Collections.Generic.List[object]]::new();$record=0;$ready=0
     foreach($item in @($Items)){
-        $line++
+        # Import-Csv skips blank lines and joins quoted multi-line fields: rows are numbered by record, not by line.
+        $record++
         $v=ConvertFrom-DomeniaLinkCsvRow $item
         $user=Normalize-LinkUser ([string]$v.User);$computer=Normalize-LinkComputer ([string]$v.Computer)
         $stored='';$duplicate=$false;$userRow=$null;$computerRow=$null
@@ -1272,20 +1387,20 @@ function New-DomeniaLinkImportPlan {
             $duplicate=(-not $seen.Add($computer))
             $existing=@(Get-LinksForComputer $computer|Where-Object{$null -ne $_}|Select-Object -First 1)
             if($existing.Count){$stored=[string]$existing[0].UserLogin}
-            if($indexAvailable){
-                try{$userRow=Find-DomeniaCachedUserRow -Login $user}catch{$userRow=$null}
-                try{$computerRow=Find-DomeniaCachedComputerRow -Computer $computer}catch{$computerRow=$null}
-            }
+            if($indexAvailable){$userRow=$users[$user.ToLowerInvariant()];$computerRow=$computers[$computer]}
         }
-        $status=Get-DomeniaLinkImportStatus -User $user -Computer $computer -StoredLogin $stored -DuplicateInFile $duplicate -IndexAvailable $indexAvailable -UserKnown ($null -ne $userRow) -ComputerKnown ($null -ne $computerRow)
+        $status=Get-DomeniaLinkImportStatus -User $user -Computer $computer -StoredLogin $stored -DuplicateInFile $duplicate -IndexAvailable $indexAvailable -UserKnown ($null -ne $userRow) -ComputerKnown ($null -ne $computerRow) -Unverified $unverified -ReadyBefore $ready
         $relation=$null
         if($status.Import){
-            $relation=New-DomeniaImportedRelation -User $user -Computer $computer -FileName $FileName -Line $line -FileSource ([string]$v.FileSource) -FileDetails ([string]$v.Details) -When ([string]$v.When) -Verified ([bool]$status.Verified) -UserGuid $(if($null -ne $userRow){[string]$userRow.Guid}else{''}) -ComputerGuid $(if($null -ne $computerRow){[string]$computerRow.Guid}else{''}) -UserDn $(if($null -ne $userRow){[string]$userRow.DN}else{''}) -ComputerDn $(if($null -ne $computerRow){[string]$computerRow.DN}else{''})
+            $ready++
+            $relation=New-DomeniaImportedRelation -User $user -Computer $computer -FileName $FileName -Line $record -FileSource ([string]$v.FileSource) -FileDetails ([string]$v.Details) -When ([string]$v.When) -Verified ([bool]$status.Verified) -UserGuid $(if($null -ne $userRow){[string]$userRow.Guid}else{''}) -ComputerGuid $(if($null -ne $computerRow){[string]$computerRow.Guid}else{''}) -UserDn $(if($null -ne $userRow){[string]$userRow.DN}else{''}) -ComputerDn $(if($null -ne $computerRow){[string]$computerRow.DN}else{''})
         }
-        $rows.Add([pscustomobject]@{Line=$line;User=$(if($user){$user}else{[string]$v.User});Computer=$(if($computer){$computer}else{[string]$v.Computer});Status=[string]$status.Status;Reason=[string]$status.Reason;Import=[bool]$status.Import;Relation=$relation})
+        $rows.Add([pscustomobject]@{Record=$record;User=$(if($user){$user}else{[string]$v.User});Computer=$(if($computer){$computer}else{[string]$v.Computer});UserKey=$user;ComputerKey=$computer;Status=[string]$status.Status;Reason=[string]$status.Reason;Import=[bool]$status.Import;Relation=$relation})
     }
     $all=$rows.ToArray()
-    return [pscustomobject]@{Id=[guid]::NewGuid().ToString('N');FileName=$FileName;Rows=$all;Ready=@($all|Where-Object{$_.Import}).Count;Unknown=@($all|Where-Object{$_.Status -eq 'Inconnue'}).Count;Ignored=@($all|Where-Object{-not $_.Import -and $_.Status -ne 'Inconnue'}).Count;IndexAvailable=$indexAvailable;Epoch=[long]$script:SessionEpoch;BaseDn=[string]$script:Conn.BaseDn}
+    if($Total -lt $all.Count){$Total=$all.Count}
+    if(-not $Id){$Id=[guid]::NewGuid().ToString('N')}
+    return [pscustomobject]@{Id=$Id;FileName=$FileName;Items=@($Items);Rows=$all;Total=$Total;Ready=$ready;Unknown=@($all|Where-Object{$_.Status -eq 'Inconnue'}).Count;Ignored=@($all|Where-Object{-not $_.Import -and $_.Status -ne 'Inconnue'}).Count;IndexAvailable=$indexAvailable;IndexState=$state;Unverified=$unverified;Epoch=[long]$script:SessionEpoch;BaseDn=[string]$script:Conn.BaseDn}
 }
 function Update-DomeniaLinkImportUi {
     Initialize-DomeniaRelationsState
@@ -1293,33 +1408,116 @@ function Update-DomeniaLinkImportUi {
     $panel=Get-DomeniaControl 'LinkImportPanel';if($null -ne $panel){$panel.Visibility=if($null -ne $p){'Visible'}else{'Collapsed'}}
     if($null -ne $p){
         $text=[string]$p.FileName+' : '+$p.Ready+' ligne(s) à importer, '+$p.Ignored+' ignorée(s), '+$p.Unknown+' inconnue(s) dans lʼindex local de lʼannuaire.'
-        if(-not $p.IndexAvailable){$text+=' Index local vide : la présence des comptes et des postes dans Active Directory nʼest pas vérifiée.'}
+        if([int]$p.Total -gt @($p.Rows).Count){$text+=' Aperçu limité aux '+@($p.Rows).Count+' premiers enregistrements sur '+$p.Total+'.'}
+        switch([string]$p.IndexState){
+            'Pending'{$text+=' Vérification des comptes et des postes dans lʼindex local en cours, sans accès réseau…'}
+            'Verified'{$text+=' Comptes et postes vérifiés dans lʼindex local, sans accès réseau.'}
+            default{$text+=' Présence des comptes et des postes dans Active Directory non vérifiée : '+[string]$p.Unverified+'.'}
+        }
+        if([int]$p.Ready -ge 64){$text+=' 64 associations au plus par import : importez à nouveau le même fichier pour les suivantes.'}
         $text+=' Les lignes importées portent la source « Import CSV » (Importé), quelle que soit la colonne Source du fichier ; aucun poste déjà associé nʼest remplacé.'
         [void](Set-DomeniaControlText 'LblLinkImportSummary' $text)
         [void](Set-DomeniaItemsSource 'DgLinkImportPreview' @($p.Rows))
-        $apply=Get-DomeniaControl 'BtnLinkImportApply';if($null -ne $apply){$apply.IsEnabled=([int]$p.Ready -gt 0 -and -not (Test-DomeniaAccessBusyWrite));$apply.Content=('Importer '+$p.Ready+' association(s)')}
+        $apply=Get-DomeniaControl 'BtnLinkImportApply'
+        if($null -ne $apply){
+            $pending=([string]$p.IndexState -eq 'Pending')
+            $apply.IsEnabled=([int]$p.Ready -gt 0 -and -not $pending -and -not (Test-DomeniaAccessBusyWrite))
+            $apply.Content=if($pending){'Vérification…'}else{'Importer '+$p.Ready+' association(s)'}
+        }
     }else{[void](Set-DomeniaItemsSource 'DgLinkImportPreview' @())}
     $undo=Get-DomeniaControl 'BtnUndoImport'
     if($null -ne $undo){
         $undo.Visibility=if($null -ne $r.LastImport){'Visible'}else{'Collapsed'}
-        if($null -ne $r.LastImport){$undo.ToolTip=('Retire les '+@($r.LastImport.Relations).Count+' association(s) importée(s) depuis '+[string]$r.LastImport.FileName+'. Chaque retrait est journalisé et restaurable ; Active Directory nʼest pas modifié.')}
+        if($null -ne $r.LastImport){$undo.ToolTip=('Retire les '+@($r.LastImport.Relations).Count+' association(s) importée(s) depuis '+[string]$r.LastImport.FileName+', après confirmation dans la page. Chaque retrait est journalisé et restaurable ; Active Directory nʼest pas modifié.')}
     }
 }
+function Set-DomeniaLinkImportPlan {
+    param($Plan)
+    Initialize-DomeniaRelationsState
+    $script:Relations.ImportPlan=$Plan
+    Update-DomeniaLinkImportUi
+}
 function Show-DomeniaLinkImportPreview {
-    # CO-08: the file is read and shown in the page before any change. Nothing is saved until « Importer ».
+    # CO-08: the file is read and shown in the page before any change. Nothing is saved until « Importer ». The
+    # accounts and workstations are then looked up in the local index by the LocalIndexRead worker (no network).
     param([Parameter(Mandatory=$true)][string]$Path)
     Initialize-DomeniaRelationsState
-    $items=@(Import-Csv -LiteralPath $Path -Encoding UTF8)
-    $plan=New-DomeniaLinkImportPlan -Items $items -FileName ([IO.Path]::GetFileName($Path))
-    $script:Relations.ImportPlan=$plan
-    Write-AppLog ('Import CSV : aperçu de '+[string]$plan.FileName+', '+$plan.Ready+' ligne(s) à importer, '+$plan.Ignored+' ignorée(s), '+$plan.Unknown+' inconnue(s). Rien nʼest encore enregistré.') 'INFO'
+    $records=@(Import-Csv -LiteralPath $Path -Encoding UTF8)
+    # At most 64 rows are imported at once; the preview stays short enough for the interface thread.
+    $items=if($records.Count -gt 1000){@($records[0..999])}else{$records}
+    $plan=New-DomeniaLinkImportPlan -Items $items -FileName ([IO.Path]::GetFileName($Path)) -Total $records.Count
+    Set-DomeniaLinkImportPlan $plan
+    Write-AppLog ('Import CSV : aperçu de '+[string]$plan.FileName+', '+$plan.Total+' enregistrement(s), vérification dans lʼindex local demandée. Rien nʼest encore enregistré.') 'INFO'
     $tabs=Get-DomeniaControl 'RelationTabs';$all=Get-DomeniaControl 'TabLinksAll';if($null -ne $tabs -and $null -ne $all){$tabs.SelectedItem=$all}
-    Update-DomeniaLinkImportUi
-    Set-Status ('Aperçu de lʼimport : '+$plan.Ready+' association(s) à importer. Vérifiez la liste, puis « Importer » ou « Annuler ».')
+    Start-DomeniaLinkImportIndexCheck $plan
+    Set-Status ('Aperçu de lʼimport : '+$plan.Total+' enregistrement(s) lus. Vérification dans lʼindex local, puis « Importer » ou « Annuler ».')
+}
+function Start-DomeniaLinkImportIndexCheck {
+    # CO-08: exact names of the file, looked up in the local index (read only, short busy timeout, never the network).
+    param($Plan)
+    if($null -eq $Plan){return}
+    $users=[Collections.Generic.List[string]]::new();$computers=[Collections.Generic.List[string]]::new()
+    $seenUsers=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase);$seenComputers=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach($row in @($Plan.Rows)){
+        if([string]$row.UserKey -and [string]$row.ComputerKey){
+            if($seenUsers.Add([string]$row.UserKey)){$users.Add(([string]$row.UserKey).ToLowerInvariant())}
+            if($seenComputers.Add([string]$row.ComputerKey)){$computers.Add([string]$row.ComputerKey)}
+        }
+    }
+    $state=[pscustomobject]@{PlanId=[string]$Plan.Id;Epoch=[long]$script:SessionEpoch;BaseDn=[string]$script:Conn.BaseDn}
+    # No row names both an account and a workstation: nothing to look up, nothing can be imported.
+    if(-not $users.Count){Set-DomeniaLinkImportPlan (New-DomeniaLinkImportPlan -Items @($Plan.Items) -FileName ([string]$Plan.FileName) -Index ([pscustomobject]@{State='Verified';Detail='';Users=@{};Computers=@{}}) -Id ([string]$Plan.Id) -Total ([int]$Plan.Total));return}
+    try{
+        $payload=[pscustomobject]@{Action='ResolveNames';Path=(Get-DomeniaLocalDatabasePathForRead);BusyTimeoutMs=250;Users=$users.ToArray();Computers=$computers.ToArray()}
+        [void](Start-UiTask -Name 'Import CSV : vérification dans lʼindex local' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload $payload -CallbackState $state -ReplaceKey 'link-import-index' -TimeoutSeconds 30 -SuccessHandler 'Complete-DomeniaLinkImportIndexCheck' -ErrorHandler 'Fail-DomeniaLinkImportIndexCheck' -TaskClass 'Explicit')
+    }catch{Fail-DomeniaLinkImportIndexCheck -Message $_.Exception.Message -State $state}
+}
+function Test-DomeniaLinkImportIndexState {
+    param($State)
+    Initialize-DomeniaRelationsState
+    $p=$script:Relations.ImportPlan
+    return ($null -ne $p -and $null -ne $State -and [string]$State.PlanId -eq [string]$p.Id -and [long]$State.Epoch -eq [long]$script:SessionEpoch -and [string]$State.BaseDn -ieq [string]$script:Conn.BaseDn)
+}
+function Complete-DomeniaLinkImportIndexCheck {
+    param($Result,$State)
+    if(-not (Test-DomeniaLinkImportIndexState $State)){return}
+    $p=$script:Relations.ImportPlan
+    $effective=Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @('Rows','Busy')
+    if($null -eq $effective){Fail-DomeniaLinkImportIndexCheck -Message 'réponse de lʼindex local illisible' -State $State;return}
+    $index=$null
+    if([bool]$effective.Busy){$index=[pscustomobject]@{State='Unavailable';Detail='base locale occupée, rouvrez lʼaperçu dans un instant pour la vérifier';Users=@{};Computers=@{}}}
+    elseif([bool](Get-DomeniaMember $effective 'Missing' $false)){$index=[pscustomobject]@{State='Unavailable';Detail='base locale absente';Users=@{};Computers=@{}}}
+    elseif([int](Get-DomeniaMember $effective 'IndexCount' 0) -le 0){$index=[pscustomobject]@{State='Empty';Detail='';Users=@{};Computers=@{}}}
+    else{
+        $users=@{};$computers=@{}
+        foreach($u in @(Get-DomeniaMember $effective 'Users' @())){
+            if($null -eq $u){continue}
+            $login=Normalize-LinkUser ([string]$u.login)
+            if($login){$users[$login.ToLowerInvariant()]=[pscustomobject]@{Guid=[string]$u.object_guid;DN=[string]$u.distinguished_name}}
+        }
+        foreach($c in @(Get-DomeniaMember $effective 'Computers' @())){
+            if($null -eq $c){continue}
+            $row=[pscustomobject]@{Guid=[string]$c.object_guid;DN=[string]$c.distinguished_name}
+            foreach($name in @([string]$c.name,[string]$c.login)){$key=Normalize-LinkComputer $name;if($key){$computers[$key]=$row}}
+        }
+        $index=[pscustomobject]@{State='Verified';Detail='';Users=$users;Computers=$computers}
+    }
+    $plan=New-DomeniaLinkImportPlan -Items @($p.Items) -FileName ([string]$p.FileName) -Index $index -Id ([string]$p.Id) -Total ([int]$p.Total)
+    Set-DomeniaLinkImportPlan $plan
+    Write-AppLog ('Import CSV : '+[string]$plan.FileName+', '+$plan.Ready+' ligne(s) à importer, '+$plan.Ignored+' ignorée(s), '+$plan.Unknown+' inconnue(s) dans lʼindex local ('+[string]$plan.IndexState+'). Rien nʼest encore enregistré.') 'INFO'
+}
+function Fail-DomeniaLinkImportIndexCheck {
+    param($Message,$State)
+    if(-not (Test-DomeniaLinkImportIndexState $State)){return}
+    $p=$script:Relations.ImportPlan
+    $detail=([string]$Message).Trim();if(-not $detail){$detail='erreur inconnue'}
+    Write-AppLog ('Import CSV : index local non lu ('+$detail+') ; présence dans Active Directory non vérifiée.') 'WARN'
+    $index=[pscustomobject]@{State='Unavailable';Detail=('index local non lu ('+$detail.TrimEnd('.')+')');Users=@{};Computers=@{}}
+    Set-DomeniaLinkImportPlan (New-DomeniaLinkImportPlan -Items @($p.Items) -FileName ([string]$p.FileName) -Index $index -Id ([string]$p.Id) -Total ([int]$p.Total))
 }
 function Cancel-DomeniaLinkImportPreview {
     Initialize-DomeniaRelationsState
-    if($null -eq $script:Relations.ImportPlan){return}
+    if($null -eq $script:Relations.ImportPlan){Update-DomeniaLinkImportUi;return}
     $script:Relations.ImportPlan=$null
     Update-DomeniaLinkImportUi
     Set-Status 'Import abandonné : aucune association ajoutée.'
@@ -1328,46 +1526,66 @@ function Confirm-DomeniaLinkImport {
     # CO-08: the rows to import join the store through Add-DomeniaRelation (one journal line each), in one save.
     Initialize-DomeniaRelationsState
     $r=$script:Relations;$p=$r.ImportPlan
-    if($null -eq $p -or (Test-DomeniaAccessBusyWrite)){return}
+    if($null -eq $p){Update-DomeniaLinkImportUi;return}
+    if(Test-DomeniaAccessBusyWrite){return}
     if($p.Epoch -ne [long]$script:SessionEpoch -or [string]$p.BaseDn -ine [string]$script:Conn.BaseDn){$r.ImportPlan=$null;Update-DomeniaLinkImportUi;Set-Status 'Session ou domaine modifié depuis lʼaperçu : import abandonné, rien nʼest enregistré.' 'WARN';return}
+    if([string]$p.IndexState -eq 'Pending'){Set-Status 'Vérification dans lʼindex local encore en cours : attendez la fin de lʼaperçu.' 'INFO';return}
+    # A workstation associated since the preview is not replaced.
+    $rows=@(@($p.Rows)|Where-Object{$_.Import -and $null -ne $_.Relation -and -not @(Get-LinksForComputer ([string]$_.Relation.Computer)|Where-Object{$null -ne $_}).Count})
+    $why=Get-DomeniaRelationSaveRefusal -Changes $rows.Count
+    if($why){Set-Status ('Import non enregistré : '+$why+'. Aucune association ajoutée ; lʼaperçu reste ouvert.') 'WARN';return}
     $previous=@($script:UserMachineLinks);$previousObservations=$r.Observations.ToArray()
     $added=[Collections.Generic.List[object]]::new();$stored=$false
-    foreach($row in @(@($p.Rows)|Where-Object{$_.Import -and $null -ne $_.Relation})){
-        # A workstation associated since the preview is not replaced.
-        if(@(Get-LinksForComputer ([string]$row.Relation.Computer)|Where-Object{$null -ne $_}).Count){continue}
+    foreach($row in $rows){
         $o=Add-DomeniaRelation -Relation $row.Relation -Declarant ([string]$script:Conn.BindUser) -NoSave
         if($o.Action -eq 'Add'){$added.Add($o.Relation);if($o.StoredChanged){$stored=$true}}
     }
     if($stored -and -not (Save-UserMachineLinks)){
         $script:UserMachineLinks=$previous;$r.Observations.Clear();foreach($o in $previousObservations){$r.Observations.Add($o)};Rebuild-UserMachineLinkIndex
-        $text='Import non enregistré : le stockage local a refusé la modification. Aucune association ajoutée.'
+        $text='Import non enregistré : le stockage local a refusé la modification (motif dans le message précédent). Aucune association ajoutée ; lʼaperçu reste ouvert.'
         Set-Status $text 'WARN';Write-AppLog ('Import CSV '+[string]$p.FileName+' : '+$text) 'WARN';Refresh-DomeniaRelationViews;return
     }
     $r.ImportPlan=$null
     if($added.Count){$r.LastImport=[pscustomobject]@{Id=[string]$p.Id;FileName=[string]$p.FileName;Relations=$added.ToArray();WhenUtc=[datetime]::UtcNow.ToString('o');Epoch=[long]$script:SessionEpoch}}
     $message='Import CSV '+[string]$p.FileName+' : '+$added.Count+' association(s) ajoutée(s) avec la source « Import CSV » (Importé)'
-    $notDone=@($p.Rows).Count-$added.Count
-    if($notDone -gt 0){$message+=', '+$notDone+' ligne(s) non importée(s)'}
+    $notDone=[int]$p.Total-$added.Count
+    if($notDone -gt 0){$message+=', '+$notDone+' enregistrement(s) non importé(s)'}
     $message+='. Aucun objet Active Directory modifié.'
     if($added.Count){$message+=' « Annuler lʼimport » retire ces associations.'}
     Set-Status $message;Write-AppLog $message 'INFO'
     Update-DomeniaLinkImportUi;Refresh-DomeniaRelationViews
 }
+function Request-DomeniaLinkImportUndo {
+    # Review L04: removing up to 64 associations in one click is confirmed in the page first, naming the count.
+    Initialize-DomeniaRelationsState
+    $last=$script:Relations.LastImport
+    if($null -eq $last){Update-DomeniaLinkImportUi;return}
+    if(Test-DomeniaAccessBusyWrite){return}
+    $n=@($last.Relations).Count
+    $message='Retirer les '+$n+' association(s) ajoutée(s) par lʼimport de '+[string]$last.FileName+' ? Chaque retrait est journalisé ; « Restaurer » les remet une par une. Aucun objet Active Directory nʼest modifié.'
+    $inline=Get-Command -Name 'Request-DomeniaInlineConfirmation' -CommandType Function -ErrorAction SilentlyContinue
+    if($null -ne $inline -and (Get-DomeniaFeatureFlag 'InlineConfirm' $true)){
+        [void](Request-DomeniaInlineConfirmation -Title 'Annuler lʼimport' -Message $message -Target ('relation-import:'+[string]$last.Id) -ConfirmText ('Retirer '+$n+' association(s)') -CancelText 'Conserver' -OnConfirm {Undo-DomeniaLinkImport} -OnCancel {Set-Status 'Annulation de lʼimport abandonnée : associations conservées.'} -Risk 'Danger')
+        return
+    }
+    if(Confirm-Action $message){Undo-DomeniaLinkImport}else{Set-Status 'Annulation de lʼimport abandonnée : associations conservées.'}
+}
 function Undo-DomeniaLinkImport {
     # CO-08: removes the associations added by the last import, if still present. Each removal is journaled and restorable.
     Initialize-DomeniaRelationsState
     $r=$script:Relations;$last=$r.LastImport
-    if($null -eq $last -or (Test-DomeniaAccessBusyWrite)){return}
+    if($null -eq $last){Update-DomeniaLinkImportUi;return}
+    if(Test-DomeniaAccessBusyWrite){return}
     $targets=@(@($last.Relations)|Where-Object{$null -ne $_})
     $notes=@($targets|ForEach-Object{'Import '+[string]$last.FileName+' annulé.'})
     $n=Remove-DomeniaRelations -Relations $targets -Declarant ([string]$script:Conn.BindUser) -Notes $notes
-    if($n -lt 0){Set-Status 'Annulation de lʼimport non enregistrée : le stockage local a refusé la modification. Associations conservées.' 'WARN';return}
+    if($n -lt 0){Set-Status (Get-DomeniaRelationRefusalText 'Annulation de lʼimport non enregistrée' 'Associations conservées ; « Annuler lʼimport » reste disponible.') 'WARN';return}
     $r.LastImport=$null
     $message='Import '+[string]$last.FileName+' annulé : '+$n+' association(s) importée(s) retirée(s) localement'
     if($n -lt $targets.Count){$message+=' ; '+($targets.Count-$n)+' déjà retirée(s) ou modifiée(s) depuis'}
-    $message+='. Chaque retrait est journalisé et restaurable ; Active Directory nʼest pas modifié.'
+    $message+='. Chaque retrait est journalisé ; « Restaurer » (onglets Associations et Toutes les associations) les remet une par une. Active Directory nʼest pas modifié.'
     Set-Status $message;Write-AppLog $message 'INFO'
-    Update-DomeniaLinkImportUi
+    Update-DomeniaLinkImportUi;Update-DomeniaRelationsActions
 }
 
 # ---------------------------------------------------------------- UX-40 orphan associations, listed and restorable
@@ -1376,9 +1594,17 @@ function Update-DomeniaOrphanUi {
     $r=$script:Relations;$rows=@($r.Orphans)
     $panel=Get-DomeniaControl 'LinkOrphanPanel';if($null -ne $panel){$panel.Visibility=if($rows.Count){'Visible'}else{'Collapsed'}}
     [void](Set-DomeniaItemsSource 'DgLinkOrphans' $rows)
-    [void](Set-DomeniaControlText 'LblLinkOrphanSummary' ([string]$rows.Count+' association(s) orpheline(s) : le compte ou le poste nʼest plus trouvé dans Active Directory. Les associations déclarées et importées ne sont jamais proposées ; rien nʼest retiré sans confirmation.'))
+    $text=[string]$rows.Count+' association(s) orpheline(s) : le compte ou le poste nʼest plus trouvé dans Active Directory. Les associations déclarées et importées ne sont jamais proposées ; rien nʼest retiré sans confirmation.'
+    # Review L04: the storage takes 64 changes per request.
+    if($rows.Count -gt 64){$text+=' 64 au plus par retrait : les premières sont cochées ; retirez-les, puis les suivantes.'}
+    [void](Set-DomeniaControlText 'LblLinkOrphanSummary' $text)
     $confirm=Get-DomeniaControl 'LinkOrphanConfirm';if($null -ne $confirm){$confirm.Visibility=if($r.OrphanConfirm){'Visible'}else{'Collapsed'}}
     $remove=Get-DomeniaControl 'BtnLinkOrphanRemove';if($null -ne $remove){$remove.IsEnabled=($rows.Count -gt 0 -and -not $r.OrphanConfirm -and -not (Test-DomeniaAccessBusyWrite))}
+}
+function Select-DomeniaOrphanBatch {
+    # The first 64 rows are checked (one storage request); the others wait for the next removal.
+    Initialize-DomeniaRelationsState
+    $i=0;foreach($row in @($script:Relations.Orphans)){$row.Selected=($i -lt 64);$i++}
 }
 function Show-DomeniaOrphanLinks {
     # UX-40: result of the read-only check (PruneLinks), listed in the page with a reason and a box per row.
@@ -1393,15 +1619,16 @@ function Show-DomeniaOrphanLinks {
         if($null -eq $o -or ([bool]$o.UserExists -and [bool]$o.ComputerExists)){continue}
         $key=[string]$o.UserLogin+'|'+[string]$o.Computer+'|'+[string]$o.When
         if(-not $byKey.ContainsKey($key)){continue}
-        $link=$byKey[$key]
-        $rows.Add([pscustomobject]@{Selected=$true;UserLogin=[string]$link.UserLogin;Computer=[string]$link.Computer;Source=[string]$link.Source;Reason=(Get-DomeniaOrphanReason ([bool]$o.UserExists) ([bool]$o.ComputerExists));WhenDisplay=(Format-DomeniaRelationWhen ([string]$link.When));WhenSort=(Get-DomeniaRelationWhenSortKey ([string]$link.When));Relation=$link})
+        $link=$byKey[$key];$utc=ConvertTo-DomeniaRelationUtcDate ([string]$link.When)
+        $rows.Add([pscustomobject]@{Selected=$false;UserLogin=[string]$link.UserLogin;Computer=[string]$link.Computer;Source=[string]$link.Source;Reason=(Get-DomeniaOrphanReason ([bool]$o.UserExists) ([bool]$o.ComputerExists));WhenDisplay=(Format-DomeniaRelationWhen $utc);WhenSort=$(if($null -ne $utc){$utc}else{[datetime]::MinValue});Relation=$link})
     }
-    $r.Orphans=$rows.ToArray();$r.OrphanConfirm=$false
+    $r.Orphans=$rows.ToArray();$r.OrphanConfirm=$false;Select-DomeniaOrphanBatch
     $checked=[int](Get-DomeniaMember $Result 'Checked' 0)
     if(-not $rows.Count){Update-DomeniaOrphanUi;Set-Status ([string]$checked+' association(s) vérifiée(s) dans Active Directory : aucune orpheline. Associations déclarées et importées non concernées.');return}
     $tabs=Get-DomeniaControl 'RelationTabs';$all=Get-DomeniaControl 'TabLinksAll';if($null -ne $tabs -and $null -ne $all){$tabs.SelectedItem=$all}
     Update-DomeniaOrphanUi
     $message=[string]$rows.Count+' association(s) orpheline(s) sur '+$checked+' vérifiée(s) : cochez celles à retirer du stockage local.'
+    if($rows.Count -gt 64){$message+=' Les 64 premières sont cochées (64 au plus par retrait).'}
     Set-Status $message;Write-AppLog $message 'INFO'
 }
 function Request-DomeniaOrphanRemoval {
@@ -1409,6 +1636,9 @@ function Request-DomeniaOrphanRemoval {
     Initialize-DomeniaRelationsState
     $r=$script:Relations;$selected=@(@($r.Orphans)|Where-Object{[bool]$_.Selected})
     if(-not $selected.Count){Set-Status 'Cochez au moins une association orpheline à retirer.' 'INFO';return}
+    # Review L04: checked before the confirmation, so that a confirmed removal is never refused by the storage.
+    $why=Get-DomeniaRelationSaveRefusal -Changes $selected.Count
+    if($why){Set-Status ('Retrait impossible pour lʼinstant : '+$why+'. Décochez des lignes ou réessayez ; rien nʼest retiré.') 'INFO';return}
     $r.OrphanConfirm=$true
     [void](Set-DomeniaControlText 'LblLinkOrphanConfirm' ('Retirer '+$selected.Count+' association(s) du stockage local ? Chaque retrait est journalisé et restaurable avec « Restaurer » ; aucun objet Active Directory nʼest modifié.'))
     Update-DomeniaOrphanUi
@@ -1423,7 +1653,8 @@ function Complete-DomeniaOrphanRemoval {
     # UX-40: removal through Remove-DomeniaRelations: journaled with its reason, restorable one by one.
     Initialize-DomeniaRelationsState
     $r=$script:Relations
-    if(-not $r.OrphanConfirm -or (Test-DomeniaAccessBusyWrite)){return}
+    if(-not $r.OrphanConfirm){Update-DomeniaOrphanUi;return}
+    if(Test-DomeniaAccessBusyWrite){return}
     $r.OrphanConfirm=$false
     $targets=[Collections.Generic.List[object]]::new();$notes=[Collections.Generic.List[string]]::new();$kept=0
     foreach($row in @(@($r.Orphans)|Where-Object{[bool]$_.Selected})){
@@ -1433,12 +1664,13 @@ function Complete-DomeniaOrphanRemoval {
         $targets.Add($found.Item);$notes.Add(('Orpheline : '+[string]$row.Reason))
     }
     $n=0;if($targets.Count){$n=Remove-DomeniaRelations -Relations $targets.ToArray() -Declarant ([string]$script:Conn.BindUser) -Notes $notes.ToArray()}
-    if($n -lt 0){Update-DomeniaOrphanUi;Set-Status 'Retrait non enregistré : le stockage local a refusé la modification. Associations conservées.' 'WARN';return}
-    $r.Orphans=@(@($r.Orphans)|Where-Object{-not [bool]$_.Selected})
+    if($n -lt 0){Update-DomeniaOrphanUi;Set-Status (Get-DomeniaRelationRefusalText 'Retrait non enregistré' 'Associations conservées ; la liste reste ouverte.') 'WARN';return}
+    $r.Orphans=@(@($r.Orphans)|Where-Object{-not [bool]$_.Selected});Select-DomeniaOrphanBatch
     $message=[string]$n+' association(s) orpheline(s) retirée(s) du stockage local. Chaque retrait est journalisé et restaurable ; Active Directory nʼest pas modifié.'
     if($kept){$message+=' '+$kept+' conservée(s) : déjà retirée(s), ou devenue(s) déclarée(s) ou importée(s).'}
+    if(@($r.Orphans).Count){$message+=' '+@($r.Orphans).Count+' restante(s) dans la liste, les suivantes sont cochées.'}
     Set-Status $message;Write-AppLog $message 'INFO'
-    Update-DomeniaOrphanUi
+    Update-DomeniaOrphanUi;Update-DomeniaRelationsActions
 }
 function Close-DomeniaOrphanLinks {
     Initialize-DomeniaRelationsState

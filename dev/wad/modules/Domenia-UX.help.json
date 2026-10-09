@@ -3539,14 +3539,21 @@
   {
     "Name": "BtnUndoImport",
     "Title": "Annuler l’import",
-    "Text": "Retire les associations ajoutées par le dernier import, si elles sont encore présentes. Chaque retrait est journalisé et restaurable.",
+    "Text": "Retire les associations ajoutées par le dernier import, si elles sont encore présentes, après une confirmation dans la page qui en donne le nombre. Chaque retrait est journalisé ; « Restaurer » les remet une par une.",
+    "Kind": "Button",
+    "Source": "L04-relations"
+  },
+  {
+    "Name": "BtnRestoreLinkAll",
+    "Title": "Restaurer la suppression",
+    "Text": "Remet la dernière association retirée localement (suppression, annulation d’import ou orpheline), une par clic, depuis le journal. Le bouton nomme l’association. Aucun objet Active Directory n’est lu ni modifié.",
     "Kind": "Button",
     "Source": "L04-relations"
   },
   {
     "Name": "DgLinkImportPreview",
     "Title": "Aperçu de l’import",
-    "Text": "Chaque ligne du fichier et ce que l’import en fera. Rien n’est enregistré avant « Importer ».",
+    "Text": "Chaque enregistrement du fichier et ce que l’import en fera : à importer, ignoré ou inconnu dans l’index local (comptes et postes vérifiés sans accès réseau). 64 associations au plus par import ; rien n’est enregistré avant « Importer ».",
     "Kind": "DataGrid",
     "Source": "L04-relations"
   },

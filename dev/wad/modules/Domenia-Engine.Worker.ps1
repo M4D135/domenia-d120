@@ -6,7 +6,7 @@ function Get-DomeniaLocalIndexReadWorkerCode {
     # never an empty answer presented as a result.
     return @'
 $action = [string]$Payload.Action
-if ($action -notin @('Search','ParkState','ParkTargets','FleetStats')) { throw 'Lecture locale non autorisee.' }
+if ($action -notin @('Search','ParkState','ParkTargets','FleetStats','ResolveNames')) { throw 'Lecture locale non autorisee.' }
 $path = [IO.Path]::GetFullPath([string]$Payload.Path)
 if ($path.StartsWith('\\')) { throw 'Base locale reseau non prise en charge.' }
 if (-not [IO.File]::Exists($path)) { return [pscustomobject]@{ Rows=@(); Busy=$false; Missing=$true; MachineCount=0 } }
@@ -72,6 +72,29 @@ try {
     finally { [Runtime.InteropServices.Marshal]::FreeHGlobal($pathPtr) }
     if ($rc -ne 0 -or $db -eq [IntPtr]::Zero) { throw ('Ouverture SQLite en lecture impossible (code ' + $rc + ').') }
     [void][Domenia.WinSqliteNative]::sqlite3_busy_timeout($db,$busyMs)
+    if ($action -eq 'ResolveNames') {
+        # CO-08 (L04): presence of the accounts and workstations of an import file in the local index, read only.
+        # Exact names only (login, workstation name or account), 1000 of each at most, queried by 200.
+        $count = [int](@(Invoke-IdxWQuery $db 'SELECT count(*) AS n FROM ad_objects;')[0].n)
+        $userNames = @(@($Payload.Users) | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ -and $_.Length -le 256 } | Select-Object -Unique -First 1000)
+        $computerNames = @(@($Payload.Computers) | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ -and $_.Length -le 256 } | Select-Object -Unique -First 1000)
+        $users = New-Object 'System.Collections.Generic.List[object]'
+        $computers = New-Object 'System.Collections.Generic.List[object]'
+        if ($count -gt 0) {
+            for ($i = 0; $i -lt $userNames.Count; $i += 200) {
+                $chunk = @($userNames[$i..([Math]::Min($i + 199,$userNames.Count - 1))] | ForEach-Object { Get-IdxWLiteral $_ })
+                foreach ($r in @(Invoke-IdxWQuery $db ("SELECT login,object_guid,distinguished_name FROM ad_objects WHERE object_type='Utilisateur' AND login IN (" + ($chunk -join ',') + ');'))) { $users.Add($r) }
+            }
+            for ($i = 0; $i -lt $computerNames.Count; $i += 200) {
+                $part = @($computerNames[$i..([Math]::Min($i + 199,$computerNames.Count - 1))])
+                $names = @($part | ForEach-Object { Get-IdxWLiteral $_ }) -join ','
+                $accounts = @($part | ForEach-Object { Get-IdxWLiteral ($_ + '$') }) -join ','
+                foreach ($r in @(Invoke-IdxWQuery $db ("SELECT name,login,object_guid,distinguished_name FROM ad_objects WHERE object_type='Machine' AND (name IN (" + $names + ') OR login IN (' + $accounts + '));'))) { $computers.Add($r) }
+            }
+        }
+        [pscustomobject]@{ Rows=@(); Busy=$false; Missing=$false; MachineCount=0; IndexCount=$count; Users=$users.ToArray(); Computers=$computers.ToArray() }
+        return
+    }
     if ($action -eq 'ParkTargets') {
         $schema=@(Invoke-IdxWQuery $db "SELECT key,value FROM schema_info WHERE key IN ('schema_version','domenia_schema');")
         if(@($schema|Where-Object{$_.key -eq 'schema_version' -and $_.value -ceq '11'}).Count -ne 1 -or @($schema|Where-Object{$_.key -eq 'domenia_schema' -and $_.value -ceq '1'}).Count -ne 1){throw 'Schema du parc incompatible.'}

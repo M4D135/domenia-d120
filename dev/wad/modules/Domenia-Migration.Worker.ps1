@@ -534,9 +534,31 @@ function Get-DomeniaRelationKind {
 function ConvertTo-DomeniaRelationUtcDate {
     # Date of a relation as a UTC DateTime, or $null. Relation dates are stored as UTC ISO 8601 ("o"). A date
     # without offset was written in local time before RC1.14 (manual and imported rows "yyyy-MM-dd HH:mm:ss",
-    # Live rows "s"): it is read as local time, never as UTC.
+    # Live rows "s"): it is read as local time, never as UTC. Texts are parsed once (same rules as
+    # ConvertTo-DomeniaUtcDate -AssumeLocal) and kept in a bounded session memo.
     param($Value)
-    return (ConvertTo-DomeniaUtcDate $Value -AssumeLocal)
+    if ($null -ne $Value -and $Value -isnot [string]) { return (ConvertTo-DomeniaUtcDate $Value -AssumeLocal) }
+    $text = [string]$Value
+    $memo = $script:DomeniaRelationWhenMemo
+    if ($null -eq $memo -or $memo.Count -ge 50000) {
+        $memo = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([StringComparer]::Ordinal)
+        $script:DomeniaRelationWhenMemo = $memo
+    }
+    $known = $null
+    if ($memo.TryGetValue($text,[ref]$known)) { return $known }
+    $utc = $null
+    $trimmed = $text.Trim()
+    if ($trimmed) {
+        # An AD FILETIME written as digits keeps the general reader; every relation date is a date text.
+        if ($trimmed -match '^\d{12,19}$') { $utc = ConvertTo-DomeniaUtcDate $trimmed -AssumeLocal }
+        else {
+            $parsed = [datetime]::MinValue
+            $styles = [Globalization.DateTimeStyles]::AssumeLocal -bor [Globalization.DateTimeStyles]::AdjustToUniversal
+            if ([datetime]::TryParse($trimmed,[Globalization.CultureInfo]::InvariantCulture,$styles,[ref]$parsed)) { $utc = $parsed }
+        }
+    }
+    $memo[$text] = $utc
+    return $utc
 }
 
 function Select-DomeniaPrimaryRelation {

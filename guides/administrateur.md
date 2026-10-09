@@ -709,47 +709,74 @@ L'onglet « Logiciels » de la page « Assistance poste » lit la liste des 
 
 Les associations entre utilisateurs et postes sont conservées dans la base autonome locale, pas dans AD. Les liens manuels restent distincts des observations automatiques. Une association mémorisée n'est pas la preuve d'une session ouverte ; la détection réseau reste volontaire.
 
+La page « Relations » a deux zones dans l'onglet « Associations » : à gauche, les associations de l'utilisateur ou du poste choisi dans « Rechercher » ; à droite, le panneau « Ajouter une association » avec « Détecter » et « Rechercher ». L'en-tête garde un seul statut ; le bouton « ? » affiche ou masque les précautions de la page et l'état de la détection du parc.
+
 ## Sources d'une association
 
 | Source | Comment elle arrive |
 |---|---|
-| Lien manuel | Onglet « Associer », bouton « Associer ce poste », puis « Associer » dans le panneau « Confirmer l'association ». |
-| Console observée | « Détecter la liste » et « Analyser la liste » lisent l'utilisateur console ; l'association est actualisée si elle change. |
-| Détection ciblée | Onglet « Associer », « Détecter les postes » propose des postes ; « Associer ce poste » prépare le lien, puis « Associer » dans « Confirmer l'association » l'enregistre. |
+| Lien manuel | Panneau « Ajouter une association », « Rechercher », « Associer ce poste », puis « Associer » dans « Confirmer l'association ». |
+| Console observée | « Détecter la liste » et « Analyser la liste » lisent l'utilisateur console ; l'association est actualisée si elle change. |
+| Détection ciblée | Panneau « Ajouter une association », « Détecter » : « Détecter les postes » propose des postes ; « Associer ce poste » prépare le lien, puis « Associer » dans « Confirmer l'association » l'enregistre. |
+| Import CSV | « Toutes les associations », « Importer » : aperçu dans la page, puis « Importer ». La source est toujours « Import CSV » (Importé). |
 
 ## Détection ciblée
 
-L'onglet « Associer » part d'un utilisateur ou d'un poste choisi dans « Rechercher ». Les « Options de détection » règlent la lecture :
+Le panneau « Ajouter une association » part d'un utilisateur ou d'un poste choisi dans « Rechercher ». Les « Options de détection » règlent la lecture :
 
-- Le volet rappelle : « Détecter vérifie réellement les consoles du périmètre choisi. Lecture CIM/DCOM bornée, sans script distant. »
-- « Périmètre » : « Postes connus et candidats AD », « Machines de la liste chargée » ou « OU sélectionnée dans Rechercher ».
-- « Maximum de postes (1 à 50) » : 20 par défaut.
-- « Lire aussi les indices Kerberos du contrôleur (7 jours) ».
+- Le volet rappelle : « Détecter vérifie réellement les consoles du périmètre choisi. Lecture CIM/DCOM bornée, sans script distant. »
+- « Périmètre » : « Postes connus et candidats AD », « Machines de la liste chargée » ou « OU sélectionnée dans Rechercher ».
+- « Maximum de postes (1 à 50) » : 20 par défaut.
+- « Lire aussi les indices Kerberos du contrôleur (7 jours) ».
 
-Rien ne part avant la confirmation « Périmètre à confirmer avant toute lecture des postes », bouton « Lancer la détection ».
+Rien ne part avant la confirmation « Périmètre à confirmer avant toute lecture des postes », bouton « Lancer la détection ». Depuis la version 1.0 RC1.14, cet aperçu du périmètre est toujours montré : les anciennes clés Features.RelationsSymmetry et Features.DetectionPreview n'existent plus.
 
 ## Journal du contrôleur
 
-« Lire le journal du controleur » (Outils, « Base autonome ») interroge une seule fois le journal Sécurité du contrôleur de domaine (événements 4768, 4769 et 4624) et en tire des couples utilisateur et poste pour le relevé du parc, sans contacter aucun poste. Une confirmation d'impact précède la lecture.
+« Lire le journal du controleur » (Outils, « Base autonome ») interroge une seule fois le journal Sécurité du contrôleur de domaine (événements 4768, 4769 et 4624) et en tire des couples utilisateur et poste pour le relevé du parc, sans contacter aucun poste. Une confirmation d'impact précède la lecture.
 
 - Période : ParkSweep.HarvestDays (7 jours, borné de 1 à 30).
 - Volume : ParkSweep.HarvestMaxEvents (5 000 événements, borné de 200 à 20 000).
-- Le compte AD doit pouvoir lire le journal Sécurité du contrôleur ; sinon : « Lecture du journal de securite du controleur refusee. ».
-- « Oublier les releves » efface l'état du parc : le prochain relevé repart de zéro.
+- Le compte AD doit pouvoir lire le journal Sécurité du contrôleur ; sinon : « Lecture du journal de securite du controleur refusee. ».
+- « Oublier les releves » efface l'état du parc : le prochain relevé repart de zéro.
 
-> [!NOTE] La case « Releve manuel uniquement » existe dans le code mais reste masquée. Aucun relevé n'est lancé au démarrage : si l'ancienne préférence ParkSweepEnabled est vraie, Domenia l'écrit seulement dans le journal.
+> [!NOTE] La case « Releve manuel uniquement » existe dans le code mais reste masquée. Aucun relevé n'est lancé au démarrage : si l'ancienne préférence ParkSweepEnabled est vraie, Domenia l'écrit seulement dans le journal.
 
 ## Gestion des associations
 
-- Onglet « Associations » : « Supprimer l'association », « Restaurer la suppression », « Exporter ». Colonnes « Source », « Qualification » et « Conservation ».
-- Onglet « Toutes les associations » : « Importer », « Nettoyer », « Exporter tout ».
-- Les associations sont locales : la case « Lecture seule » ne les bloque pas. Elles sont perdues avec la base si aucune sauvegarde n'existe (chapitre 18).
+- Onglet « Associations » : « Supprimer l'association », « Restaurer … », « Exporter ». Colonnes « Utilisateur », « Machine », « Qualification », « Date », « Source », « Conservation » et « Détails ».
+- Onglet « Toutes les associations » : « Importer », « Annuler l'import » (après un import), « Restaurer … », « Nettoyer », « Exporter tout ». Un champ filtre l'utilisateur, le poste, la source ou les détails ; les puces « Déclaré », « Observé » et « Contradictoire » filtrent la qualification ; un compteur donne le nombre affiché. Double-clic : fiche de l'utilisateur ou du poste cliqué ; clic droit : « Ouvrir l'utilisateur » ou « Ouvrir le poste ».
+- « Qualification » est une puce : Déclaré (bleu), Observé (vert), Importé ou Indice (gris), Contradictoire (orange). L'infobulle donne la règle et la provenance. « Date » est affichée en heure locale (« 08/10 09:15 », avec l'année si elle diffère) et le tri suit l'instant réel.
+- Les associations sont locales : la case « Lecture seule » ne les bloque pas. Elles sont perdues avec la base si aucune sauvegarde n'existe (chapitre 18).
+
+### Suppression et restauration
+
+Une suppression est confirmée dans la page, journalisée et restaurable. Le bouton « Restaurer » nomme l'association qu'il remet (par exemple « Restaurer jdupont → PC01 ») et reste grisé quand rien n'est à restaurer. Il remet une association par clic, la plus récente d'abord ; il est présent dans « Associations » et dans « Toutes les associations ».
+
+### Import CSV
+
+« Importer » lit le fichier et l'affiche dans un aperçu, sans rien enregistrer. Chaque enregistrement est numéroté (« N° » : les lignes vides du fichier ne comptent pas) et reçoit un résultat : « À importer », « Ignorée » (compte ou poste manquant, poste en double, association déjà connue, poste déjà associé à un autre compte) ou « Inconnue » (compte ou poste absent de l'index local). Les comptes et les postes sont vérifiés dans l'index local de l'annuaire, sans accès réseau ; tant que la vérification n'est pas finie, « Importer » reste grisé. Si l'index est vide ou illisible, l'aperçu le dit et la présence dans Active Directory n'est pas vérifiée.
+
+- La source est toujours « Import CSV » (Importé), quelle que soit la colonne Source du fichier ; aucun score n'est repris ; une date ISO du fichier est gardée, sinon la date de l'import.
+- Un import ajoute 64 associations au plus. Les suivantes sont marquées « Ignorée » : importez à nouveau le même fichier, les lignes déjà importées sont reconnues.
+- « Annuler l'import » retire les associations du dernier import après une confirmation dans la page qui en donne le nombre. Chaque retrait est journalisé et restaurable.
+
+### Associations orphelines
+
+« Nettoyer » vérifie en lecture seule que les comptes et les postes des associations automatiques existent encore dans Active Directory. Les orphelines sont listées dans la page avec leur motif (« Compte absent d'Active Directory (supprimé ou renommé). », etc.) et une case à cocher. Les associations déclarées et importées ne sont jamais proposées. « Retirer la sélection » demande une confirmation dans le panneau ; chaque retrait est journalisé et restaurable. Un retrait porte sur 64 associations au plus : les 64 premières sont cochées, puis les suivantes après le retrait.
+
+### Dates enregistrées
+
+Depuis la version 1.0 RC1.14, chaque date d'association est enregistrée en UTC (« 2026-10-08T07:15:00.0000000Z ») et affichée en heure locale. Une ancienne date « 2026-10-08 09:15:00 » est lue comme une heure locale ; elle prend la forme UTC quand l'association est actualisée par une nouvelle observation ou restaurée. Les autres lignes gardent leur texte : le stockage ne réécrit pas toutes les lignes d'un coup (64 modifications au plus par enregistrement).
 
 | Vous voyez | Sens |
 |---|---|
-| « Association introuvable : déjà retirée ou rechargée. Aucune modification. » | La ligne a changé entre-temps ; rien n'a été modifié. |
-| « Suppression annulée : aucune association modifiée. » | La suppression n'a pas été confirmée. |
-| « Aucune suppression locale à restaurer. » | Rien à restaurer dans cette session. |
+| « Association introuvable : déjà retirée ou rechargée. Aucune modification. » | La ligne a changé entre-temps ; rien n'a été modifié. |
+| « Suppression annulée : aucune association modifiée. » | La suppression n'a pas été confirmée. |
+| « Aucune suppression locale à restaurer. » | Rien à restaurer. |
+| « … l'enregistrement précédent des associations est encore en cours ; réessayez dans quelques secondes. » | Une écriture locale est en cours ; rien n'a été modifié. Recommencez dans un instant. |
+| « … 64 au plus par enregistrement. » | Trop de lignes à la fois ; décochez-en ou importez en deux fois. |
+| « Session ou domaine modifié : aperçu d'import, « Annuler l'import » et liste des orphelines fermés. » | Changement de compte ou de domaine : rien n'a été enregistré ni retiré. |
 
 # 13 Comptes et droits
 
@@ -1071,8 +1098,6 @@ Une clé absente, nulle ou vide prend la valeur par défaut du code. Une section
 | Features.IdlePolicy | true | Politique d'inactivité du moteur. |
 | Features.BitLockerKeySelection | true | BitLocker : métadonnées d'abord, puis une seule clé choisie. |
 | Features.SecretSingleCopy | true | Un seul secret révélé à la fois, sans copie groupée. |
-| Features.RelationsSymmetry | true | Association guidée depuis un poste comme depuis un utilisateur. |
-| Features.DetectionPreview | true | Plan du périmètre confirmé avant une détection ciblée. |
 | Features.SearchSyntax | true | Préfixes de recherche (chapitre 3). |
 | Features.SearchRanking | true | Classement des résultats de la recherche globale. |
 | Features.InlineConfirm | true | Confirmation dans la page avant de supprimer une association. |
@@ -1141,7 +1166,6 @@ Une clé absente, nulle ou vide prend la valeur par défaut du code. Une section
 | Inventory.PreferWinrm | false | Préférence WinRM pour l'inventaire. |
 | WAPT.Enabled, WaptGetPath, ServerUrl | false, vide, vide | Intégration WAPT, désactivée. |
 | UserMachineLink.MinimumConfidence | 60 | Score minimal d'une association. |
-| UserMachineLink.LinkStaleHours | 24 | Âge d'un lien jugé ancien. |
 | UserMachineLink.ObjectRefreshHours | 4 | Âge en heures sous lequel une association existante reste fraîche. |
 | UserMachineLink.ClassicProbeTimeoutSeconds, TaskFallbackProbeTimeoutSeconds, ProbeMethodTimeoutMs | 8, 30, 3000 | Délais des sondes de détection. |
 | ParkSweep.HarvestDays, HarvestMaxEvents | 7, 5000 | Lecture du journal du contrôleur (chapitre 12). |

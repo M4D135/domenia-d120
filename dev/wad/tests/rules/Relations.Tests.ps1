@@ -240,7 +240,7 @@ Test-Case 'CO-08' 'Import CSV : source forcee Import CSV, jamais une affectation
     Assert-False ((Get-DomeniaRelationKind $rel.Source) -eq 'Affectation') 'Source du fichier reprise'
     Assert-Equal 'Importe' (Get-DomeniaEvidenceBadge $rel).Badge
     Assert-Equal 0 ([int]$rel.Confidence);Assert-False $rel.VerifiedInAD 'VerifiedInAD repris du fichier'
-    Assert-True ($rel.Details -match 'Saisie manuelle' -and $rel.Details -match 'non reprise' -and $rel.Details -match 'ligne 2') $rel.Details
+    Assert-True ($rel.Details -match 'Saisie manuelle' -and $rel.Details -match 'non reprise' -and $rel.Details -match 'enregistrement 2' -and -not ($rel.Details -match 'ligne')) $rel.Details
     Assert-Equal (ConvertTo-DomeniaRelationWhenText '2026-10-08 09:15:00') $rel.When 'Date ISO du fichier non convertie en UTC'
     $ambiguous=New-DomeniaImportedRelation -User 'jdupont' -Computer 'PC-1' -FileName 'liens.csv' -When '08/10/2026 09:15' -NowUtc '2026-10-08T07:00:00Z'
     Assert-Equal '2026-10-08T07:00:00.0000000Z' $ambiguous.When 'Date ambigue reprise'
@@ -255,6 +255,27 @@ Test-Case 'CO-08' 'Import CSV : apercu ligne par ligne, poste deja associe jamai
     Assert-Equal 'Inconnue' $unknown.Status;Assert-False $unknown.Import;Assert-True ($unknown.Reason -match 'poste absent')
     $ok=Get-DomeniaLinkImportStatus -User 'jdupont' -Computer 'PC-1' -IndexAvailable $true -UserKnown $true -ComputerKnown $true;Assert-True ($ok.Import -and $ok.Verified)
     $blind=Get-DomeniaLinkImportStatus -User 'jdupont' -Computer 'PC-1';Assert-True ($blind.Import -and -not $blind.Verified -and $blind.Reason -match 'non vérifiée')
+    $empty=Get-DomeniaLinkImportStatus -User 'jdupont' -Computer 'PC-1' -Unverified 'index local vide';Assert-True ($empty.Import -and $empty.Reason -match 'non vérifiée : index local vide') $empty.Reason
+}
+Test-Case 'CO-08' 'Import CSV : 64 associations au plus par import, la suite reste pour un second import' {
+    $last=Get-DomeniaLinkImportStatus -User 'jdupont' -Computer 'PC-1' -ReadyBefore 63;Assert-True $last.Import '64e ligne refusee'
+    $over=Get-DomeniaLinkImportStatus -User 'jdupont' -Computer 'PC-1' -ReadyBefore 64
+    Assert-False $over.Import '65e ligne importee';Assert-Equal 'Ignorée' $over.Status;Assert-True ($over.Reason -match 'Au-delà de 64' -and $over.Reason -match 'même fichier') $over.Reason
+    # A row unknown in the index or already associated keeps its own reason, whatever the count.
+    Assert-Equal 'Inconnue' (Get-DomeniaLinkImportStatus -User 'jdupont' -Computer 'PC-1' -IndexAvailable $true -UserKnown $false -ComputerKnown $true -ReadyBefore 64).Status
+    Assert-True ((Get-DomeniaLinkImportStatus -User 'jdupont' -Computer 'PC-1' -StoredLogin 'jdupont' -ReadyBefore 64).Reason -match 'déjà connue')
+}
+Test-Case 'CO-29' 'Lecture memorisee des dates : meme instant, une seule lecture par texte, tri en un appel' {
+    $first=ConvertTo-DomeniaRelationUtcDate '2026-10-08 09:15:00'
+    Assert-Equal $first (ConvertTo-DomeniaRelationUtcDate '2026-10-08 09:15:00') 'Deuxieme lecture differente'
+    Assert-Equal ([DateTimeKind]::Utc) $first.Kind
+    Assert-True ($null -eq (ConvertTo-DomeniaRelationUtcDate 'illisible') -and $null -eq (ConvertTo-DomeniaRelationUtcDate 'illisible')) 'Texte illisible memorise comme une date'
+    Assert-Equal ([datetime]::SpecifyKind([datetime]'2026-10-08 07:15:00',[DateTimeKind]::Utc)) (ConvertTo-DomeniaRelationUtcDate ([datetime]::SpecifyKind([datetime]'2026-10-08 07:15:00',[DateTimeKind]::Utc))) 'DateTime UTC'
+    $ticks=Get-DomeniaRelationWhenTicks -Values @('2026-10-08T07:45:00.0000000Z','','2026-10-08 09:15:00')
+    Assert-Equal 3 $ticks.Length;Assert-Equal 0L $ticks[1]
+    Assert-Equal $first.Ticks $ticks[2];Assert-True ($ticks[0] -gt $ticks[2]) 'Ordre des instants'
+    Assert-Equal 0 (Get-DomeniaRelationWhenTicks -Values @()).Length
+    Assert-Equal (Format-DomeniaRelationWhen '2026-10-08 09:15:00' '2026-10-08T07:00:00Z') (Format-DomeniaRelationWhen $first '2026-10-08T07:00:00Z') 'Affichage depuis l instant deja lu'
 }
 Test-Case 'FO-14' 'Filtre texte et puces de Toutes les associations' {
     $a=[pscustomobject]@{UserLogin='jdupont';Computer='PC-1';Source='Saisie manuelle';Details='';Badge='Declare';BadgeLabel='Déclaré'}

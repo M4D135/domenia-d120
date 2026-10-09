@@ -420,8 +420,6 @@ Clés de `Domenia.config.json` réellement lues par le code (défaut effectif ; 
 | Features.IdlePolicy | true | Engine.UI:411 |
 | Features.BitLockerKeySelection | true | Secrets.UI:11 |
 | Features.SecretSingleCopy | true | Secrets.UI:11 |
-| Features.RelationsSymmetry | true | Core:7813 |
-| Features.DetectionPreview | true | Relations.UI:913 |
 | Features.SearchSyntax | true | Core:9838 |
 | Features.SearchRanking | true | Live.UI:178 |
 | Features.InlineConfirm | true | Relations.UI:561 |
@@ -480,7 +478,6 @@ Clés de `Domenia.config.json` réellement lues par le code (défaut effectif ; 
 | UserMachineLink.MinimumConfidence | 60 | Core:16254 |
 | UserMachineLink.ClassicProbeTimeoutSeconds / TaskFallbackProbeTimeoutSeconds / ProbeMethodTimeoutMs | 8 / 30 / 3000 | Core:16403-16405 |
 | UserMachineLink.ObjectRefreshHours | 4 (défaut d'appel) | Core:16383 |
-| UserMachineLink.LinkStaleHours | 24 | Core:18780 |
 | Modules.AutoLoad / PreferActiveDirectoryModule / UseCredential | true / true / true | Core:1314, 16653, 1339 |
 | Index.StartupDeltaMaxAgeMinutes | 5 | Core:14521 |
 | Index.MaxObjects / BudgetMs / ComputerFirst | 60000 / 240000 / true | Core:14492-14498 |

@@ -3269,6 +3269,27 @@ Test-Case 'Parc : resultat vide reste vide et aucune expansion implicite' {
     $root=New-LegacySandbox
     try{$read=Invoke-ParkTargetsFixture -Scope Results;Assert-Equal 0 $read.Rows.Count}finally{Remove-Item $root -Recurse -Force}
 }
+Test-Case 'CO-08 : LocalIndexRead ResolveNames lit en lecture seule les comptes et postes d un import' {
+    # L04 review: the import preview checks the accounts and workstations of the file in the SQLite index through the
+    # pinned worker (never $script:IndexRows, which the application does not fill). Exact names only, no network.
+    $root=New-LegacySandbox
+    try{
+        $Payload=[pscustomobject]@{Action='ResolveNames';Path=$script:TestDbPath;BusyTimeoutMs=250;Users=@('carol','zed');Computers=@('PC-NEW','PC-ZED')}
+        $empty=& ([scriptblock]::Create((Get-DomeniaLocalIndexReadWorkerCode)))
+        Assert-Equal 0 ([int]$empty.IndexCount) 'Index vide';Assert-Equal 0 @($empty.Users).Count;Assert-False ([bool]$empty.Busy)
+        $db=Open-DomeniaDatabase -Path $script:TestDbPath
+        try{[void](Invoke-DomeniaDbExec "INSERT INTO ad_objects(object_key,object_guid,object_type,name,login,state,distinguished_name) VALUES('u1','user-guid','Utilisateur','Carol','CAROL','Actif','CN=Carol,DC=example,DC=invalid'); INSERT INTO ad_objects(object_key,object_guid,object_type,name,login,state,distinguished_name) VALUES('m1','machine-guid','Machine','pc-new','PC-NEW$','Actif','CN=PC-NEW,DC=example,DC=invalid'); INSERT INTO ad_objects(object_key,object_guid,object_type,name,login,state,distinguished_name) VALUES('u2','other-guid','Utilisateur','PC-ZED','pc-zed','Actif','CN=PC-ZED,DC=example,DC=invalid');" $db)}finally{Close-DomeniaDatabase $db}
+        $found=& ([scriptblock]::Create((Get-DomeniaLocalIndexReadWorkerCode)))
+        Assert-Equal 3 ([int]$found.IndexCount)
+        Assert-Equal 1 @($found.Users).Count 'Compte trouve par son identifiant, sans tenir compte de la casse'
+        Assert-Equal 'user-guid' ([string]@($found.Users)[0].object_guid)
+        Assert-Equal 1 @($found.Computers).Count 'Poste trouve par son nom, un utilisateur homonyme ignore'
+        Assert-Equal 'machine-guid' ([string]@($found.Computers)[0].object_guid)
+        $Payload=[pscustomobject]@{Action='ResolveNames';Path=$script:TestDbPath;BusyTimeoutMs=250;Users=@("x' OR 1=1 --");Computers=@()}
+        Assert-Equal 0 @((& ([scriptblock]::Create((Get-DomeniaLocalIndexReadWorkerCode)))).Users).Count 'Nom non echappe'
+        Assert-Equal 0 ([int](Get-LegacyCount 'user_machine_links')) 'Lecture qui ecrit'
+    }finally{Remove-Item $root -Recurse -Force}
+}
 Test-Case 'Parc : cache durable fait partie de la mesure et de la purge explicite' {
     $root=New-LegacySandbox
     try{

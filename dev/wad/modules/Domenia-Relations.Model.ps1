@@ -156,12 +156,51 @@ function Resolve-DomeniaRelationUpsert {
 }
 
 # ---------------------------------------------------------------- CO-29 relation dates
+# Instants already read, by stored text, for the session: the same few thousand dates are sorted, qualified and shown
+# on every refresh (review L04: three nested calls per date cost about one second for 3000 associations). A date
+# text gives the same instant for the whole session (time zone of the workstation).
+$script:DomeniaRelationWhenMemo = $null
+
 function ConvertTo-DomeniaRelationUtcDate {
     # Date of a relation as a UTC DateTime, or $null. Relation dates are stored as UTC ISO 8601 ("o"). A date
     # without offset was written in local time before RC1.14 (manual and imported rows "yyyy-MM-dd HH:mm:ss",
-    # Live rows "s"): it is read as local time, never as UTC.
+    # Live rows "s"): it is read as local time, never as UTC. Texts are parsed once (same rules as
+    # ConvertTo-DomeniaUtcDate -AssumeLocal) and kept in a bounded session memo.
     param($Value)
-    return (ConvertTo-DomeniaUtcDate $Value -AssumeLocal)
+    if ($null -ne $Value -and $Value -isnot [string]) { return (ConvertTo-DomeniaUtcDate $Value -AssumeLocal) }
+    $text = [string]$Value
+    $memo = $script:DomeniaRelationWhenMemo
+    if ($null -eq $memo -or $memo.Count -ge 50000) {
+        $memo = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([StringComparer]::Ordinal)
+        $script:DomeniaRelationWhenMemo = $memo
+    }
+    $known = $null
+    if ($memo.TryGetValue($text,[ref]$known)) { return $known }
+    $utc = $null
+    $trimmed = $text.Trim()
+    if ($trimmed) {
+        # An AD FILETIME written as digits keeps the general reader; every relation date is a date text.
+        if ($trimmed -match '^\d{12,19}$') { $utc = ConvertTo-DomeniaUtcDate $trimmed -AssumeLocal }
+        else {
+            $parsed = [datetime]::MinValue
+            $styles = [Globalization.DateTimeStyles]::AssumeLocal -bor [Globalization.DateTimeStyles]::AdjustToUniversal
+            if ([datetime]::TryParse($trimmed,[Globalization.CultureInfo]::InvariantCulture,$styles,[ref]$parsed)) { $utc = $parsed }
+        }
+    }
+    $memo[$text] = $utc
+    return $utc
+}
+
+function Get-DomeniaRelationWhenTicks {
+    # CO-29: UTC ticks of many relation dates in one call (0 when unreadable), for sorting without one call per row.
+    param([AllowEmptyCollection()][string[]]$Values=@())
+    $list = @($Values)
+    $ticks = New-Object 'long[]' $list.Count
+    for ($i = 0; $i -lt $list.Count; $i++) {
+        $utc = ConvertTo-DomeniaRelationUtcDate ([string]$list[$i])
+        if ($null -ne $utc) { $ticks[$i] = $utc.Ticks }
+    }
+    return ,$ticks
 }
 
 function ConvertTo-DomeniaRelationWhenText {
@@ -175,9 +214,11 @@ function ConvertTo-DomeniaRelationWhenText {
 function Format-DomeniaRelationWhen {
     # Local display of a relation date: "08/10 09:15" this year, "08/10/2025 09:15" for another year, '' when unreadable.
     param($Value,$NowUtc=$null)
-    $utc = ConvertTo-DomeniaRelationUtcDate $Value
+    $utc = $Value
+    if ($Value -isnot [datetime] -or $Value.Kind -ne [DateTimeKind]::Utc) { $utc = ConvertTo-DomeniaRelationUtcDate $Value }
     if ($null -eq $utc) { return '' }
-    $now = ConvertTo-DomeniaUtcDate $NowUtc
+    $now = $null
+    if ($null -ne $NowUtc) { $now = ConvertTo-DomeniaUtcDate $NowUtc }
     if ($null -eq $now) { $now = [datetime]::UtcNow }
     $local = $utc.ToLocalTime()
     $format = 'dd/MM HH:mm'
@@ -650,7 +691,10 @@ function ConvertFrom-DomeniaLinkCsvRow {
 function Get-DomeniaLinkImportStatus {
     # CO-08: what the import preview says about one row. Nothing here reads the directory: the local index
     # lookups are given by the caller. A workstation that already has a stored association is never replaced.
-    param([AllowEmptyString()][string]$User='',[AllowEmptyString()][string]$Computer='',[AllowEmptyString()][string]$StoredLogin='',[bool]$DuplicateInFile=$false,[bool]$IndexAvailable=$false,[bool]$UserKnown=$false,[bool]$ComputerKnown=$false)
+    # -Unverified says why the presence in Active Directory is not checked (index empty, unreadable or being read).
+    # -ReadyBefore: rows already retained above; the storage takes 64 changes per request (Queue-DomeniaLinkChanges),
+    # so the rows beyond -BatchLimit are left for a second import of the same file.
+    param([AllowEmptyString()][string]$User='',[AllowEmptyString()][string]$Computer='',[AllowEmptyString()][string]$StoredLogin='',[bool]$DuplicateInFile=$false,[bool]$IndexAvailable=$false,[bool]$UserKnown=$false,[bool]$ComputerKnown=$false,[AllowEmptyString()][string]$Unverified='',[int]$ReadyBefore=0,[int]$BatchLimit=64)
     if (-not $User -or -not $Computer) { return [pscustomobject]@{Status='Ignorée';Import=$false;Verified=$false;Reason='Utilisateur ou poste manquant ou illisible.'} }
     if ($DuplicateInFile) { return [pscustomobject]@{Status='Ignorée';Import=$false;Verified=$false;Reason='Poste déjà présent plus haut dans le fichier.'} }
     if ($StoredLogin) {
@@ -662,7 +706,14 @@ function Get-DomeniaLinkImportStatus {
         if (-not $UserKnown -and -not $ComputerKnown) { $missing = 'compte et poste absents' } elseif (-not $UserKnown) { $missing = 'compte absent' }
         return [pscustomobject]@{Status='Inconnue';Import=$false;Verified=$false;Reason=('Inconnue dans lʼannuaire : ' + $missing + ' de lʼindex local. Ligne non importée.')}
     }
-    if (-not $IndexAvailable) { return [pscustomobject]@{Status='À importer';Import=$true;Verified=$false;Reason='Index local vide : présence dans Active Directory non vérifiée.'} }
+    if ($BatchLimit -gt 0 -and $ReadyBefore -ge $BatchLimit) {
+        return [pscustomobject]@{Status='Ignorée';Import=$false;Verified=$false;Reason=('Au-delà de ' + $BatchLimit + ' associations par import : importez à nouveau le même fichier ensuite, les lignes déjà importées seront reconnues.')}
+    }
+    if (-not $IndexAvailable) {
+        $why = ([string]$Unverified).Trim()
+        if (-not $why) { $why = 'index local non lu' }
+        return [pscustomobject]@{Status='À importer';Import=$true;Verified=$false;Reason=('Présence dans Active Directory non vérifiée : ' + $why + '.')}
+    }
     return [pscustomobject]@{Status='À importer';Import=$true;Verified=$true;Reason='Compte et poste connus de lʼindex local.'}
 }
 
@@ -679,8 +730,9 @@ function New-DomeniaImportedRelation {
         if ($null -eq $now) { $now = [datetime]::UtcNow }
         $whenText = $now.ToString('o',[Globalization.CultureInfo]::InvariantCulture)
     }
+    # Import-Csv skips blank lines and joins quoted multi-line fields: the number is the record of the file, not its line.
     $details = 'Importé depuis ' + $FileName
-    if ($Line -gt 0) { $details += ', ligne ' + $Line }
+    if ($Line -gt 0) { $details += ', enregistrement ' + $Line }
     $details += '.' + $note
     if ($FileSource) { $details += ' Source indiquée dans le fichier : ' + $FileSource + ' (non reprise).' }
     if ($FileDetails) { $details += ' ' + $FileDetails }

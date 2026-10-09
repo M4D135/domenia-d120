@@ -5460,7 +5460,8 @@ function Get-MainXaml {
                           <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                           <WrapPanel Grid.Row="0" Margin="0,0,0,8">
                             <Button x:Name="BtnImportLinks" Content="Importer" Margin="0,0,8,6" ToolTipService.ShowOnDisabled="True" ToolTip="Lit un fichier CSV et montre un aperçu dans cette page avant tout ajout. Les lignes importées portent la source « Import CSV »."/>
-                            <Button x:Name="BtnUndoImport" Content="Annuler lʼimport" Visibility="Collapsed" Margin="0,0,8,6" ToolTipService.ShowOnDisabled="True" ToolTip="Retire les associations ajoutées par le dernier import. Chaque retrait est journalisé et restaurable."/>
+                            <Button x:Name="BtnUndoImport" Content="Annuler lʼimport" Visibility="Collapsed" Margin="0,0,8,6" ToolTipService.ShowOnDisabled="True" ToolTip="Retire les associations ajoutées par le dernier import, après confirmation dans la page. Chaque retrait est journalisé et restaurable."/>
+                            <Button x:Name="BtnRestoreLinkAll" Content="Restaurer la suppression" IsEnabled="False" Margin="0,0,8,6" ToolTipService.ShowOnDisabled="True" ToolTip="Aucune suppression locale à restaurer." AutomationProperties.Name="Restaurer la dernière suppression"/>
                             <Button x:Name="BtnPruneLinks" Content="Nettoyer" Margin="0,0,8,6" ToolTipService.ShowOnDisabled="True" ToolTip="Vérifie en lecture seule que les comptes et postes des associations automatiques existent encore dans Active Directory, puis liste les orphelines dans cette page."/>
                             <Button x:Name="BtnExportAllLinks" Content="Exporter tout" Margin="0,0,0,6"/>
                           </WrapPanel>
@@ -5482,8 +5483,8 @@ function Get-MainXaml {
                               <TextBlock x:Name="LblLinkImportSummary" Grid.Row="1" Text="" Foreground="{DynamicResource InfoFg}" Margin="0,3,0,8" TextWrapping="Wrap"/>
                               <Grid Grid.Row="2">
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                <DataGrid x:Name="DgLinkImportPreview" Grid.Column="0" MaxHeight="220" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" EnableRowVirtualization="True" MinRowHeight="28" ScrollViewer.HorizontalScrollBarVisibility="Auto" ToolTip="Chaque ligne du fichier et ce que lʼimport en fera.">
-                                  <DataGrid.Columns><DataGridTextColumn Header="Ligne" Binding="{Binding Line}" Width="60"/><DataGridTextColumn Header="Utilisateur" Binding="{Binding User}" Width="140"/><DataGridTextColumn Header="Poste" Binding="{Binding Computer}" Width="130"/><DataGridTextColumn Header="Résultat" Binding="{Binding Status}" Width="100"/><DataGridTemplateColumn Header="Motif" Width="*" MinWidth="200"><DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding Reason}" Style="{StaticResource WrappedCellText}" ToolTip="{Binding Reason}"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn></DataGrid.Columns>
+                                <DataGrid x:Name="DgLinkImportPreview" Grid.Column="0" MaxHeight="220" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" EnableRowVirtualization="True" MinRowHeight="28" ScrollViewer.HorizontalScrollBarVisibility="Auto" ToolTip="Chaque enregistrement du fichier (N° : rang de lʼenregistrement, les lignes vides ne comptent pas) et ce que lʼimport en fera.">
+                                  <DataGrid.Columns><DataGridTextColumn Header="N°" Binding="{Binding Record}" Width="60"/><DataGridTextColumn Header="Utilisateur" Binding="{Binding User}" Width="140"/><DataGridTextColumn Header="Poste" Binding="{Binding Computer}" Width="130"/><DataGridTextColumn Header="Résultat" Binding="{Binding Status}" Width="100"/><DataGridTemplateColumn Header="Motif" Width="*" MinWidth="200"><DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding Reason}" Style="{StaticResource WrappedCellText}" ToolTip="{Binding Reason}"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn></DataGrid.Columns>
                                 </DataGrid>
                                 <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Top">
                                   <Button x:Name="BtnLinkImportApply" Content="Importer" Style="{StaticResource RunButton}" Margin="0,0,0,8" ToolTipService.ShowOnDisabled="True" ToolTip="Ajoute les lignes « À importer » au stockage local, chacune journalisée. Aucun objet Active Directory nʼest modifié."/>
@@ -7538,7 +7539,11 @@ function Fill-ComputerObject {
             $script:Ctrl["TxtCompLinkedUser"].Text = [string]$link.UserLogin
             # D043: badge of the link (relation model), never a percentage.
             $confidenceText = $(if($null -ne (Get-Command Get-DomeniaLinkQualification -CommandType Function -ErrorAction SilentlyContinue)){(Get-DomeniaLinkQualification $link).Suffix}elseif($null -ne $link.PSObject.Properties['Confidence'] -and -not [string]::IsNullOrWhiteSpace([string]$link.Confidence)){'  confiance '+[string]$link.Confidence+'%'}else{''})
-            $script:Ctrl["TxtCompLinkSource"].Text = "$($link.Source)$confidenceText  $($link.When)"
+            # CO-29: the date of the link in local time (stored in UTC since RC1.14).
+            $whenText = ''
+            if ($null -ne (Get-Command Format-DomeniaRelationWhen -CommandType Function -ErrorAction SilentlyContinue)) { $whenText = Format-DomeniaRelationWhen ([string]$link.When) }
+            if (-not $whenText) { $whenText = [string]$link.When }
+            $script:Ctrl["TxtCompLinkSource"].Text = "$($link.Source)$confidenceText  $whenText"
         } else {
             $script:Ctrl["TxtCompLinkedUser"].Text = "Non detecte"
             $script:Ctrl["TxtCompLinkSource"].Text = "Detection manuelle disponible"
@@ -7938,7 +7943,7 @@ function Add-SelectedLink {
         if($null -eq $s -and $null -ne $script:SelectedObject){Set-DomeniaRelationsSelection -Object $script:SelectedObject;$s=Get-DomeniaRelationsSubject}
         if($null -eq $s){Set-Status 'Sélectionnez un utilisateur ou un poste dans Rechercher avant dʼassocier.' 'WARN';return}
         # D041: a workstation is a subject too (search for the user in the page).
-        if($s.Type -notin @('Utilisateur','Machine')){Set-Status 'Seuls un utilisateur ou un poste portent des associations.' 'INFO';return}
+        if($s.Type -notin @('Utilisateur','Machine')){Set-Status 'Seul un utilisateur ou un poste peut porter des associations.' 'INFO';return}
         $workspace=Get-DomeniaControl 'WorkspaceTabs';$relations=Get-DomeniaControl 'TabRelations';if($null -ne $workspace -and $null -ne $relations){$workspace.SelectedItem=$relations}
         Show-DomeniaRelationsAddPanel -Mode Search
         $box=Get-DomeniaControl 'TxtRelationComputerSearch';if($null -ne $box){[void]$box.Focus()}
@@ -18237,7 +18242,11 @@ function Get-SelectedAssociationSummary {
             if ($links.Count -eq 0) { return "Aucun utilisateur lie" }
             $l = $links[0]
             $confidence = $(if($null -ne (Get-Command Get-DomeniaLinkQualification -CommandType Function -ErrorAction SilentlyContinue)){(Get-DomeniaLinkQualification $l).Suffix}elseif($null -ne $l.PSObject.Properties['Confidence'] -and -not [string]::IsNullOrWhiteSpace([string]$l.Confidence)){'  confiance '+[string]$l.Confidence+'%'}else{''})
-            return "$($l.UserLogin)  $($l.Source)$confidence  $($l.When)"
+            # CO-29: local time of the stored UTC date.
+            $whenText = ''
+            if ($null -ne (Get-Command Format-DomeniaRelationWhen -CommandType Function -ErrorAction SilentlyContinue)) { $whenText = Format-DomeniaRelationWhen ([string]$l.When) }
+            if (-not $whenText) { $whenText = [string]$l.When }
+            return "$($l.UserLogin)  $($l.Source)$confidence  $whenText"
         }
         if ($script:SelectedObject.Type -eq "Utilisateur") {
             $user = ""
@@ -18262,7 +18271,11 @@ function Update-SelectedAssociationFields {
                 $l = $links[0]
                 $script:Ctrl["TxtCompLinkedUser"].Text = [string]$l.UserLogin
                 $confidence = $(if($null -ne (Get-Command Get-DomeniaLinkQualification -CommandType Function -ErrorAction SilentlyContinue)){(Get-DomeniaLinkQualification $l).Suffix}elseif($null -ne $l.PSObject.Properties['Confidence'] -and -not [string]::IsNullOrWhiteSpace([string]$l.Confidence)){'  confiance '+[string]$l.Confidence+'%'}else{''})
-                $script:Ctrl["TxtCompLinkSource"].Text = "$($l.Source)$confidence  $($l.When)"
+                # CO-29: local time of the stored UTC date.
+                $whenText = ''
+                if ($null -ne (Get-Command Format-DomeniaRelationWhen -CommandType Function -ErrorAction SilentlyContinue)) { $whenText = Format-DomeniaRelationWhen ([string]$l.When) }
+                if (-not $whenText) { $whenText = [string]$l.When }
+                $script:Ctrl["TxtCompLinkSource"].Text = "$($l.Source)$confidence  $whenText"
             }
             else {
                 $script:Ctrl["TxtCompLinkedUser"].Text = "Non detecte"
@@ -18366,7 +18379,6 @@ function Sync-DomeniaLinksAgainstIndex {
     if (@($script:UserMachineLinks).Count -eq 0 -or @($script:IndexRows).Count -eq 0) { return 0 }
     $changed = 0
     foreach ($link in @($script:UserMachineLinks)) {
-        $changedBefore = $changed
         $userGuid = ""; $computerGuid = ""
         try { $userGuid = [string]$link.UserGuid } catch { }
         try { $computerGuid = [string]$link.ComputerGuid } catch { }
@@ -18388,8 +18400,6 @@ function Sync-DomeniaLinksAgainstIndex {
             try { $oldVerified = [bool]$link.VerifiedInAD } catch { }
             if ($oldVerified -ne $verified) { $link.VerifiedInAD = $verified; $changed++ }
         }
-        # CO-29: a row written again stores its date in UTC (an old local date is read as local time).
-        if ($changed -gt $changedBefore -and $null -ne (Get-Command -Name 'Set-DomeniaRelationWhenUtc' -CommandType Function -ErrorAction SilentlyContinue)) { Set-DomeniaRelationWhenUtc $link }
     }
     if ($changed -gt 0) { [void](Save-UserMachineLinks) } else { Rebuild-UserMachineLinkIndex }
     return $changed
@@ -18427,7 +18437,8 @@ function Get-AssociationSummaryForObject {
         if ($null -ne (Get-Command -Name Get-DomeniaLinkQualification -CommandType Function -ErrorAction SilentlyContinue)) {
             # D043: badge and rule of the link, never a percentage (relation model).
             $qualification = Get-DomeniaLinkQualification $l
-            if ($qualification.Label -eq 'Qualification') { return "Utilisateur : $($l.UserLogin)`r`nSource : $($l.Source)`r`nQualification : $($qualification.Value) ($($qualification.Rule))`r`nDate : $($l.When)" }
+            # CO-29: Date in local time (Get-DomeniaLinkQualification), the stored text only when unreadable.
+            if ($qualification.Label -eq 'Qualification') { return "Utilisateur : $($l.UserLogin)`r`nSource : $($l.Source)`r`nQualification : $($qualification.Value) ($($qualification.Rule))`r`nDate : $($qualification.When)" }
         }
         return "Utilisateur : $($l.UserLogin)`r`nSource : $($l.Source)`r`nConfiance : $($l.Confidence)`r`nDate : $($l.When)"
     }
@@ -18676,7 +18687,11 @@ function Refresh-AssociationContext {
                 $script:Ctrl["TxtCompLinkedUser"].Text = [string]$link.UserLogin
                 $script:Ctrl["TxtCompLinkSource"].Text = [string]$link.Source
                 $script:Ctrl["TxtCompLinkConfidence"].Text = if ($null -ne (Get-Command -Name Get-DomeniaLinkQualification -CommandType Function -ErrorAction SilentlyContinue)) { [string](Get-DomeniaLinkQualification $link).Value } else { [string]$link.Confidence }
-                $script:Ctrl["TxtCompLinkWhen"].Text = [string]$link.When
+                # CO-29: local time of the stored UTC date.
+                $whenText = ''
+                if ($null -ne (Get-Command Format-DomeniaRelationWhen -CommandType Function -ErrorAction SilentlyContinue)) { $whenText = Format-DomeniaRelationWhen ([string]$link.When) }
+                if (-not $whenText) { $whenText = [string]$link.When }
+                $script:Ctrl["TxtCompLinkWhen"].Text = $whenText
             }
             else {
                 $activeProbe = Get-DomeniaRunningComputerUserProbe -Computer $computer
@@ -20743,8 +20758,18 @@ function ConvertTo-DomeniaCanonicalLinks {
         # Each row carries Kind and StorageKey (Get-DomeniaRelationStorageKey) for the storage queue.
         $multi = [bool]$script:DomeniaLinkStoreMultiRelation
         $groups = [ordered]@{}
-        # CO-29: most recent first by instant, whatever the stored form (UTC ISO or older local text).
-        foreach ($link in @($Links | Where-Object { $null -ne $_ } | Sort-Object -Property @{Expression={Get-DomeniaRelationWhenSortKey ([string]$_.When)};Descending=$true})) {
+        # CO-29: most recent first by instant, whatever the stored form (UTC ISO or older local text). Review L04: the
+        # instants are read once for all rows (Get-DomeniaRelationWhenTicks, memoized) and sorted natively; equal
+        # instants keep their order (the row position is part of the key). [Array]::Sort(keys,items) is not used: under
+        # Windows PowerShell 5.1 it receives a converted copy of the items and leaves them unsorted.
+        $items = New-Object 'System.Collections.Generic.List[object]'
+        foreach ($link in @($Links)) { if ($null -ne $link) { $items.Add($link) } }
+        $texts = New-Object 'string[]' $items.Count
+        for ($i = 0; $i -lt $items.Count; $i++) { $texts[$i] = [string]$items[$i].When }
+        $ticks = Get-DomeniaRelationWhenTicks -Values $texts
+        $ordered = New-Object 'System.Collections.Generic.SortedDictionary[decimal,object]'
+        for ($i = 0; $i -lt $items.Count; $i++) { $ordered.Add((([decimal]$ticks[$i]) * -1000000) + $i,$items[$i]) }
+        foreach ($link in @($ordered.Values)) {
             $user = Normalize-LinkUser ([string]$link.UserLogin)
             $computer = Normalize-LinkComputer ([string]$link.Computer)
             if ([string]::IsNullOrWhiteSpace($user) -or [string]::IsNullOrWhiteSpace($computer)) { continue }
@@ -20860,11 +20885,11 @@ function Get-DomeniaWorkerOperationHashes {
         StorageBackup         = "E89924A7F04D958CFF4CD41847BFC2C9A838D6F242D4BD7242F2048FCCBDED79"
         ComputerAdminShare    = "051272FF57B277E19504F52BAC289ED8297A333393644B853FF4A80624347F70"
         StorageUsage          = "84D550654B883DB7DE1CD68904BDB99E1F817E12FB2C14A2CAE081F4B1BC4FDD"
-        LegacyMigration       = "DC641760CCBB63A35EEA28E7492FC25032052BCD74355F7E355CE1548A6B4EED"
+        LegacyMigration       = "A6F739B31CDD39F30B5EA07FF3A2DBE4171CE453E083F9816551E4EFE4D41E5D"
         ReadBitLockerList     = "B1456CEA5805D83C6BF48E9A4040206F18F3C3773ED250610D6890E8D1F4EEC9"
         ReadBitLockerKey      = "8A98EBCDC48AD572404E1566826035C84F34ACB87564330A7AA511FAAC01EE6F"
         DemoDirectory         = "F12481F3B254D64F9C5D870A98EA33BE6C69A67D4C99D28601CF292A1150EAE0"
-        LocalIndexRead        = "B2B40A190D73F07C02E95FC78A833C020AABF952D0904F53B492B67999130D86"
+        LocalIndexRead        = "439582DCDDA832CE750AAA91E9C9E923D9A3C6AB060DBD6272D7B503F228AD8A"
         ParkSharedSync        = "B3A64051813F12A24BD5E791D59CF7E2330FA84E965C9F44BD62366D4A81415E"
         IsolatedRead          = "4074D6ECAA620A9C80A5B6B535BB657E02DCE06A9DF97E35CA1EA47572D1060C"
         CmdletHelp            = "12505D0654AB0E97BD803A70B953BB0BBE2152836AAA1889744C1312EB215D62"
@@ -20932,7 +20957,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "7394EFCAAB688B52F84357CEF5B3F76BD26468266DD281EAEE9836B728B204EC"
+    $expectedFingerprint = "C23E4424F9BD315F361453223DE8F109918A9A6CD36E835C8E2504A52707072F"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
