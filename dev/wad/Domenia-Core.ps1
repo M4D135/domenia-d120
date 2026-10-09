@@ -27193,7 +27193,7 @@ function Invoke-DomeniaSelfTest {
             param($Operation,$Request,$Context)
             $demoPs = [System.Management.Automation.PowerShell]::Create()
             try {
-                $demoPs.Runspace = $demoWorker.Runspace
+                if ($null -ne $demoWorker.PSObject.Properties['Pool'] -and $null -ne $demoWorker.Pool) { $demoPs.RunspacePool = $demoWorker.Pool } else { $demoPs.Runspace = $demoWorker.Runspace }
                 [void]$demoPs.AddCommand([string]$demoWorker.CommandName)
                 [void]$demoPs.AddArgument($Context)
                 [void]$demoPs.AddArgument([pscustomobject]@{Operation=$Operation;Request=$Request;Directory=$demoDirectory})

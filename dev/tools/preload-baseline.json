@@ -633,7 +633,7 @@
     "Get-DomeniaStandardLoginXaml": "664A2BF64AB662660100EF9186F9AC06EB9AACAD1DFC0BB10CD5F50FEBF53A4A",
     "Get-DomeniaDebugLoginXaml": "4EF499E1436F12430B394D88C01FB3189E074E156C981F1F38BCAE6CAB1C8069",
     "Show-LoginWindow": "2DE31969C7AA42AA39ACB0329CD42097EBF54AD734CC74D21E7864A04D080C3A",
-    "Invoke-DomeniaSelfTest": "8187CD6097D0F6F7A198E00AB6D90C6351E2ACBC92443033AA96B7E6D9A620C1",
+    "Invoke-DomeniaSelfTest": "383C5D68688EE6758AF64B0B12E76C063BDC0AB93F632E0C47B221BB43C5D8A5",
     "Get-DomeniaFatalMessage": "2EC37B616FCA85C2A04F50104512B55BC64FCE68458D84456F25AC5A7D37CB10",
     "Register-DomeniaSessionShownHook": "6F56D0A3253F2E2D145BA91E64B152BEAB1FE306AA91F640F06AAA8FF976180C"
   },
@@ -2266,6 +2266,17 @@
       "ChangedCoreFunctions": [
         "Get-MainXaml",
         "Initialize-DomeniaPresentation"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": ".",
+      "Source": ".",
+      "Decision": "RC1.15.0 : autotest de l annuaire de demonstration compatible avec les pools de runspaces (PF-05).",
+      "ChangedCoreFunctions": [
+        "Invoke-DomeniaSelfTest"
       ],
       "AddedCoreFunctions": [],
       "RemovedCoreFunctions": [],
