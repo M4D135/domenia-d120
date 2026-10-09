@@ -3307,6 +3307,8 @@ function Get-DomeniaDefaultSettings {
         'Dashboard.Software.Layout' = ''
         'Widgets.Computer' = ''
         'Widgets.Fleet'    = ''
+        # The last update of this domain stopped at its limit: '<BaseDn>|<date>|<objects read>' (Accueil warning).
+        'Index.Partial'    = ''
         # Lot L01: the "Premiers pas" card of Accueil stays hidden once its four steps were done.
         'Home.FirstStepsDone' = $false
     }
@@ -4636,7 +4638,7 @@ function Get-MainXaml {
                 </Button>
                 <Border x:Name="UxAboutPanel" Visibility="Collapsed" Margin="10,6,0,0">
                   <StackPanel>
-                    <TextBlock Text="DOMENIA 1.0 · RC1.15.0" Foreground="{DynamicResource MutedColor}" FontSize="11"/>
+                    <TextBlock Text="DOMENIA 1.0 · RC1.16.0" Foreground="{DynamicResource MutedColor}" FontSize="11"/>
                     <TextBlock Text="Les actions restent sous votre contrôle." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="11" Margin="0,4,0,0"/>
                   </StackPanel>
                 </Border>
@@ -5000,6 +5002,7 @@ function Get-MainXaml {
                         <WrapPanel Margin="0,8,0,0">
                           <Button x:Name="BtnFleetScope" Content="Changer dʼOU" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" Margin="0,0,8,0" ToolTip="Ouvre lʼarbre des OU de Rechercher : lʼOU choisie filtre la recherche et cette vue dʼensemble." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Changer dʼOU dans Rechercher"/>
                           <Button x:Name="BtnFleetOpenSearch" Content="Analyser ces postes dans Rechercher" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" ToolTip="Affiche dans Rechercher les postes actifs de cette OU, depuis la base locale et sans requête. Pinger, détecter ou analyser se lancent ensuite depuis la liste, à votre clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Analyser ces postes dans Rechercher"/>
+                          <Button x:Name="BtnFleetIndexScope" Content="Mettre à jour cette OU" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" Margin="8,0,0,0" ToolTip="Relit dans lʼannuaire les seuls objets de cette OU et les ajoute à la base locale, sans rien supprimer. Utile quand la base autonome est incomplète. Lecture seule, à votre clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mettre à jour cette OU dans la base locale"/>
                         </WrapPanel>
                       </StackPanel>
                     </Border>
@@ -15314,18 +15317,19 @@ function Complete-DomeniaIndexRefreshUi {
         [void](Save-DomeniaIndex -Rows $changed -Server ([string]$effective.Server) -BaseDn ([string]$effective.BaseDn) -HighestUsn ([long]$effective.HighestUsn) -InvocationId ([string]$effective.InvocationId))
         $script:IndexRows = @()
         [void](Load-DomeniaIndexMetadata)
+        Set-DomeniaIndexPartial -Clear
         $summary = "Base autonome reconstruite : {0} objet(s), en {1} ms. Le repere de la passe precedente n etait pas utilisable." -f `
             @($changed).Count,([long]$effective.DurationMs)
     }
     else {
         if (@($script:IndexRows).Count -gt 0) {
             $merge = Merge-DomeniaIndexRows -Existing @($script:IndexRows) -Changed $changed
-            [void](Update-DomeniaIndexDatabaseRows -Rows $changed -Server ([string]$effective.Server) -BaseDn ([string]$effective.BaseDn) -HighestUsn ([long]$effective.HighestUsn) -TotalCount ([int]$merge.Total) -InvocationId ([string]$effective.InvocationId))
+            [void](Update-DomeniaIndexDatabaseRows -Rows $changed -Server ([string]$effective.Server) -BaseDn ([string]$effective.BaseDn) -HighestUsn $(if ([bool]$effective.Truncated) { 0L } else { [long]$effective.HighestUsn }) -TotalCount ([int]$merge.Total) -InvocationId ([string]$effective.InvocationId))
             $totalAfter = [int]$merge.Total
             $updated = [int]$merge.Updated
             $added = [int]$merge.Added
         } else {
-            [void](Update-DomeniaIndexDatabaseRows -Rows $changed -Server ([string]$effective.Server) -BaseDn ([string]$effective.BaseDn) -HighestUsn ([long]$effective.HighestUsn) -TotalCount 0 -InvocationId ([string]$effective.InvocationId))
+            [void](Update-DomeniaIndexDatabaseRows -Rows $changed -Server ([string]$effective.Server) -BaseDn ([string]$effective.BaseDn) -HighestUsn $(if ([bool]$effective.Truncated) { 0L } else { [long]$effective.HighestUsn }) -TotalCount 0 -InvocationId ([string]$effective.InvocationId))
             [void](Load-DomeniaIndexMetadata)
             $totalAfter = [int]$script:IndexDbCount
             $updated = @($changed).Count
@@ -15335,6 +15339,7 @@ function Complete-DomeniaIndexRefreshUi {
             $summary = "Base autonome deja a jour : aucun objet modifie depuis la derniere passe, verifie en {0} ms." -f ([long]$effective.DurationMs)
         }
         elseif ([bool]$effective.Truncated) {
+            Set-DomeniaIndexPartial -BaseDn ([string]$effective.BaseDn) -Count $totalAfter
             $summary = "Base autonome actualisee partiellement : {0} fiche(s) modifiee(s)/ajoutee(s), {1} objet(s) au total, en {2} ms. Aucune suppression n a ete faite." -f `
                 @($changed).Count,$totalAfter,([long]$effective.DurationMs)
         }
@@ -15392,8 +15397,8 @@ function Start-DomeniaIndexRefresh {
             -OperationId "IndexBuild" `
             -Code (Get-DomeniaIndexWorkerCode) `
             -Payload ([pscustomobject]@{
-                MaxObjects = [int](Get-CfgValue "Index" "MaxObjects" 60000)
-                BudgetMs = [int](Get-CfgValue "Index" "BudgetMs" 240000)
+                MaxObjects = (Get-DomeniaIndexLimits).MaxObjects
+                BudgetMs = (Get-DomeniaIndexLimits).BudgetMs
                 LastUsn = $lastUsn
                 LastServer = $lastServer
                 Since = $since
@@ -15403,7 +15408,7 @@ function Start-DomeniaIndexRefresh {
             -CallbackState ([pscustomobject]@{ Started=(Get-Date) }) `
             -ReplaceKey "index" `
             -DisableControls @("BtnIndexBuild","BtnIndexRefresh") `
-            -TimeoutSeconds 300 `
+            -TimeoutSeconds ((Get-DomeniaIndexLimits).TimeoutSeconds) `
             -StatusText "Recherche des objets modifies en arriere-plan..." `
             -SuccessHandler "Complete-DomeniaIndexRefreshUi" `
             -ErrorHandler "Fail-DomeniaIndexBuildUi" | Out-Null
@@ -16163,7 +16168,16 @@ function Complete-DomeniaIndexBuildUi {
     $effective = Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @("Rows")
     if ($null -eq $effective) { throw "Indexation sans resultat exploitable." }
     $rows = @($effective.Rows)
-    [void](Save-DomeniaIndex -Rows $rows -Server ([string]$effective.Server) -BaseDn ([string]$effective.BaseDn) -HighestUsn ([long]$effective.HighestUsn))
+    if ([bool]$effective.Truncated) {
+        # A pass stopped at its limit never replaces a fuller base and never moves the checkpoint: the next update reads
+        # everything again, and the Accueil warns that its figures may be underestimated.
+        if ([int]$script:IndexDbCount -gt 0) { [void](Update-DomeniaIndexDatabaseRows -Rows $rows -Server ([string]$effective.Server) -BaseDn ([string]$effective.BaseDn) -HighestUsn 0 -TotalCount 0) }
+        else { [void](Save-DomeniaIndex -Rows $rows -Server ([string]$effective.Server) -BaseDn ([string]$effective.BaseDn) -HighestUsn 0) }
+        Set-DomeniaIndexPartial -BaseDn ([string]$effective.BaseDn) -Count @($rows).Count
+    } else {
+        [void](Save-DomeniaIndex -Rows $rows -Server ([string]$effective.Server) -BaseDn ([string]$effective.BaseDn) -HighestUsn ([long]$effective.HighestUsn))
+        Set-DomeniaIndexPartial -Clear
+    }
     $script:IndexRows = @()
     [void](Load-DomeniaIndexMetadata)
     $linkChanges = 0
@@ -16198,6 +16212,74 @@ function Fail-DomeniaIndexBuildUi {
     Add-DomeniaUiLog -Area "Index" -Level "ERROR" -Text $detail
 }
 
+function Get-DomeniaIndexLimits {
+    # Large domains (national AD): the former defaults (60 000 objects, 4 minutes, task cut at 5 minutes) stopped the
+    # local base half-way. A configured value still equal to a former default is read as the new default.
+    $max = [int](Get-CfgValue "Index" "MaxObjects" 200000); if ($max -eq 60000) { $max = 200000 }
+    $budget = [int](Get-CfgValue "Index" "BudgetMs" 1200000); if ($budget -eq 240000) { $budget = 1200000 }
+    return [pscustomobject]@{ MaxObjects = $max; BudgetMs = $budget; TimeoutSeconds = [Math]::Max(300,[int]($budget / 1000) + 120) }
+}
+
+function Set-DomeniaIndexPartial {
+    # Remembers that the last update of this domain stopped at its limit (the Accueil warns); cleared by a complete pass.
+    param([string]$BaseDn = '',[int]$Count = 0,[switch]$Clear)
+    $value = if ($Clear) { '' } else { $BaseDn + '|' + [datetime]::Now.ToString('dd/MM/yyyy HH:mm',[Globalization.CultureInfo]::InvariantCulture) + '|' + [string]$Count }
+    try { Set-DomeniaSetting 'Index.Partial' $value; Save-DomeniaSettings -Immediate } catch { }
+}
+
+function Get-DomeniaIndexPartialText {
+    $value = [string](Get-DomeniaSetting 'Index.Partial' '')
+    if (-not $value) { return '' }
+    $parts = $value -split '\|'
+    if ($parts.Count -lt 3 -or $parts[0] -ine [string]$script:Conn.BaseDn) { return '' }
+    return ('la dernière mise à jour sʼest arrêtée à sa limite le ' + $parts[1] + ' (' + $parts[2] + ' objets lus).')
+}
+
+function Start-DomeniaIndexScopeBuild {
+    # « Mettre à jour cette OU » (Accueil): reads only the OU shown and merges it into the local base, without deleting
+    # anything and without moving the domain checkpoint. Explicit gesture; refused at the domain root.
+    param([string]$Dn)
+    try {
+        $target = ([string]$Dn).Trim()
+        if (-not $target -or $target -ieq [string]$script:Conn.BaseDn) { Set-Status 'Choisissez une OU : la base entière se met à jour avec Mettre à jour tout (Outils, Base autonome).' 'WARN'; return }
+        $limits = Get-DomeniaIndexLimits
+        [void](Set-DomeniaControlText -Name "LblFleetDashboard" -Text "Lecture de lʼOU dans lʼannuaire en arrière-plan...")
+        Start-UiTask `
+            -Name "Mise à jour de lʼOU dans la base autonome" `
+            -OperationId "IndexBuild" `
+            -Code (Get-DomeniaIndexWorkerCode) `
+            -Payload ([pscustomobject]@{ MaxObjects = $limits.MaxObjects; BudgetMs = $limits.BudgetMs; LastUsn = [long]0; LastServer = ""; Since = ""; ComputerFirst = $true; SearchBase = $target }) `
+            -CallbackState ([pscustomobject]@{ Started = (Get-Date); SearchBase = $target; Epoch = [long]$script:SessionEpoch }) `
+            -ReplaceKey "index" `
+            -DisableControls @("BtnIndexBuild","BtnIndexRefresh","BtnFleetIndexScope") `
+            -TimeoutSeconds $limits.TimeoutSeconds `
+            -StatusText "Lecture de lʼOU dans lʼannuaire en arrière-plan..." `
+            -SuccessHandler "Complete-DomeniaIndexScopeUi" `
+            -ErrorHandler "Fail-DomeniaIndexBuildUi" | Out-Null
+    } catch { Set-Status ('Mise à jour de lʼOU impossible : ' + $_.Exception.Message) 'WARN' }
+}
+
+function Complete-DomeniaIndexScopeUi {
+    param($Result,$State)
+    if ($null -ne $State -and [long]$State.Epoch -ne [long]$script:SessionEpoch) { return }
+    $effective = Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @("Rows")
+    if ($null -eq $effective) { throw "Mise à jour de lʼOU sans résultat exploitable." }
+    $rows = @($effective.Rows)
+    # The domain checkpoint (server, USN, controller identity) is kept: only this OU was read.
+    $info = $script:IndexInfo
+    $usn = if ($null -ne $info) { [long]$info.Usn } else { 0L }
+    $server = if ($null -ne $info -and [string]$info.Server) { [string]$info.Server } else { [string]$effective.Server }
+    $invocation = if ($null -ne $info) { [string]$info.InvocationId } else { '' }
+    [void](Update-DomeniaIndexDatabaseRows -Rows $rows -Server $server -BaseDn ([string]$effective.BaseDn) -HighestUsn $usn -TotalCount 0 -InvocationId $invocation)
+    $computers = @($rows | Where-Object { [string]$_.Type -eq "Machine" }).Count
+    $suffix = if ([bool]$effective.Truncated) { ' Limite atteinte : relancez sur une OU plus petite.' } else { '' }
+    $summary = ("OU mise à jour dans la base autonome : {0} objet(s), dont {1} poste(s), en {2} s.{3}" -f @($rows).Count,$computers,[int]([long]$effective.DurationMs / 1000),$suffix)
+    [void](Set-DomeniaControlText -Name "LblIndexStatus" -Text $summary)
+    Set-Status $summary
+    Add-DomeniaUiLog -Area "Index" -Text ($summary + " OU : " + [string]$effective.SearchBase)
+    $script:FleetStale = $true
+}
+
 function Start-DomeniaIndexBuild {
     param([switch]$UpdateLinks,[switch]$Confirmed)
     try {
@@ -16215,8 +16297,8 @@ function Start-DomeniaIndexBuild {
             -OperationId "IndexBuild" `
             -Code (Get-DomeniaIndexWorkerCode) `
             -Payload ([pscustomobject]@{
-                MaxObjects = [int](Get-CfgValue "Index" "MaxObjects" 60000)
-                BudgetMs = [int](Get-CfgValue "Index" "BudgetMs" 240000)
+                MaxObjects = (Get-DomeniaIndexLimits).MaxObjects
+                BudgetMs = (Get-DomeniaIndexLimits).BudgetMs
                 LastUsn = [long]0
                 LastServer = ""
                 Since = ""
@@ -16225,7 +16307,7 @@ function Start-DomeniaIndexBuild {
             -CallbackState ([pscustomobject]@{ Started=(Get-Date); StartedAt=(Get-Date).ToString("o"); UpdateLinks=[bool]$UpdateLinks }) `
             -ReplaceKey "index" `
             -DisableControls @("BtnIndexBuild","BtnIndexRefresh") `
-            -TimeoutSeconds 300 `
+            -TimeoutSeconds ((Get-DomeniaIndexLimits).TimeoutSeconds) `
             -StatusText "Mise a jour complete de la base autonome en arriere-plan..." `
             -SuccessHandler "Complete-DomeniaIndexBuildUi" `
             -ErrorHandler "Fail-DomeniaIndexBuildUi" | Out-Null
@@ -16316,6 +16398,14 @@ function Get-DomeniaIndexWorkerCode {
 $watch = [System.Diagnostics.Stopwatch]::StartNew()
 $baseDn = [string]$Context.BaseDn
 if ([string]::IsNullOrWhiteSpace($baseDn)) { throw 'Base DN vide : indexation impossible.' }
+# Scoped pass (« Mettre à jour cette OU »): only this OU subtree is read, and it must be inside the domain.
+$searchBase = $baseDn
+$scopeProperty = $Payload.PSObject.Properties['SearchBase']
+if ($null -ne $scopeProperty -and -not [string]::IsNullOrWhiteSpace([string]$scopeProperty.Value)) {
+    $scopeText = ([string]$scopeProperty.Value).Trim()
+    if (-not ($scopeText -ieq $baseDn -or $scopeText.EndsWith(',' + $baseDn,[StringComparison]::OrdinalIgnoreCase))) { throw 'OU hors du domaine : mise a jour refusee.' }
+    $searchBase = $scopeText
+}
 $maxObjects = [Math]::Max(1000,[Math]::Min(200000,[int]$Payload.MaxObjects))
 $budgetMs = [Math]::Max(30000,[int]$Payload.BudgetMs)
 
@@ -16427,7 +16517,7 @@ foreach ($entry in $plan) {
     try {
         $filter = [string]$entry.Filter
         if ($incremental) { $filter = '(&' + $filter + $deltaClause + ')' }
-        $searcher = New-WSearcher $Context $baseDn $filter @($entry.Props) 'Subtree' 0
+        $searcher = New-WSearcher $Context $searchBase $filter @($entry.Props) 'Subtree' 0
         $searcher.PageSize = 1000
         $searcher.ServerTimeLimit = [TimeSpan]::FromSeconds(120)
         $searcher.ClientTimeout = [TimeSpan]::FromSeconds(150)
@@ -16522,6 +16612,8 @@ $watch.Stop()
     Rows = @($rows)
     Diagnostics = @($diagnostics)
     Truncated = $truncated
+    SearchBase = $searchBase
+    Scoped = (-not [string]::Equals($searchBase,$baseDn,[StringComparison]::OrdinalIgnoreCase))
     Incremental = $incremental
     DeltaClause = $deltaClause
     HighestUsn = $highestUsn
@@ -20660,6 +20752,7 @@ function Wire-Events {
     # stay in Rechercher on the displayed list. It is recomputed when Accueil is shown and its OU or data changed.
     if ($script:Ctrl.ContainsKey("BtnFleetDashboardRefresh")) { $script:Ctrl["BtnFleetDashboardRefresh"].Add_Click({ try { Start-DomeniaFleetDashboard } catch { Set-Status ('Vue d ensemble non calculee : ' + $_.Exception.Message) 'WARN' } }) }
     if ($script:Ctrl.ContainsKey("BtnFleetScope")) { $script:Ctrl["BtnFleetScope"].Add_Click({ try { Show-DomeniaFleetScopeSource } catch { Set-Status ('Rechercher indisponible : ' + $_.Exception.Message) 'WARN' } }) }
+    if ($script:Ctrl.ContainsKey("BtnFleetIndexScope")) { $script:Ctrl["BtnFleetIndexScope"].Add_Click({ try { $fleetScope = Get-DomeniaFleetScope; Start-DomeniaIndexScopeBuild -Dn $(if ($null -ne $fleetScope) { [string]$fleetScope.Dn } else { '' }) } catch { Set-Status ('Mise à jour de lʼOU impossible : ' + $_.Exception.Message) 'WARN' } }) }
     if ($script:Ctrl.ContainsKey("BtnFleetOpenSearch")) { $script:Ctrl["BtnFleetOpenSearch"].Add_Click({ try { Show-DomeniaFleetAnalyzeSource } catch { Set-Status ('Rechercher indisponible : ' + $_.Exception.Message) 'WARN' } }) }
     # First steps (UX-20): each step opens its screen and starts nothing.
     foreach ($firstStep in @('Ou','Base','Account','Backup')) {
@@ -20740,7 +20833,7 @@ function Wire-Events {
 # DOMENIA_MASTER_LAST_V1 = TRUE
 $script:Version = "1.0"
 $script:AppName = "Domenia"
-$script:MasterBuild = "2026.10.09-DOMENIA-1.0-RC1.15.0-D120"
+$script:MasterBuild = "2026.10.09-DOMENIA-1.0-RC1.16.0-D120"
 $script:ActiveWriteTaskId = ""
 $script:WriteState = "Idle"
 $script:UnknownWriteTargetDn = ""
@@ -20987,8 +21080,8 @@ function New-DefaultConfig {
             StartupDeltaEnabled = $true
             StartupDeltaMaxAgeMinutes = 5
             FullRebuildDays = 7
-            MaxObjects = 60000
-            BudgetMs = 240000
+            MaxObjects = 200000
+            BudgetMs = 1200000
             ComputerFirst = $true
         }
         LocalStore = [ordered]@{
@@ -22020,7 +22113,7 @@ function Get-DomeniaWorkerOperationHashes {
         SoftwareInventory     = "0F758A7DFEF27A63A230A3CD34FE45A5D7079691AB6C9D989C861ADE2A61E9D1"
         LogonHarvest          = "ED7FFF55506C7BCE5567D65F683E10E9F28EA9771947F12A8DEEE1435994119A"
         ParkSweep             = "134ED776E45640FA67B7F51659711C33B37834105375CC4B083342469F2C26A9"
-        IndexBuild            = "C16101D0C74DC5DFA2B4572CB1D52381B58C1E74E28265E4916A6A4052466450"
+        IndexBuild            = "DD018A1D160AA2B2CFC05ED586C24B7E939DB5BFB49191E067B761CB62896467"
         UserComputerProbe     = "EB7C36419C1B8B91AFB9ECE6B98D4E3FE663B87E4011F7D264D8AEDE7735E775"
         ComputerInventory     = "41F162A5B0870C10F1BAE378DC365CCC83582D6003435A86624752362B18E159"
         ComputerDiagnostics   = "9A5535EB658FA19AFC0905D57B339CEE0C14CCD4DA81AE2E0A527A86B5046608"
@@ -22070,7 +22163,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "68355122431E9EEEC1A791B75F95C4693F315031E7D2EEEB1449C85F5A6D8728"
+    $expectedFingerprint = "E8F0E0E093CDE0A2C89E7761B321F713631012EA75FF055E17B53DFAFFA75863"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -23812,7 +23905,7 @@ function Initialize-DomeniaPresentation {
     Initialize-DomeniaGuard
     Initialize-DomeniaLive
     Initialize-DomeniaReconcile
-    Add-DomeniaUiLog -Area "Application" -Text "Domenia 1.0 RC1.15.0 pret."
+    Add-DomeniaUiLog -Area "Application" -Text "Domenia 1.0 RC1.16.0 pret."
 }
 
 function Assert-DomeniaCapability {
@@ -25964,7 +26057,7 @@ function Initialize-Window {
 # Le login effectue un bind LDAP reel, lit RootDSE et valide la base detectee
 # dans un runspace borne afin que le thread WPF ne soit jamais bloque.
 # =====================================================================
-$script:DomeniaBuild = "Domenia 1.0 RC1.15.0"
+$script:DomeniaBuild = "Domenia 1.0 RC1.16.0"
 $script:FastLoginUi = $null
 $script:FastLoginState = $null
 $script:FastLoginTimer = $null
@@ -27337,7 +27430,7 @@ try {
         Write-StartupTrace -Stage 'Stockage/Preferences' -Status 'WARN' -Detail $script:StoragePreferenceWarning
         Show-WarningBox -Message $script:StoragePreferenceWarning
     }
-    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 RC1.15.0 (2026.10.09-DOMENIA-1.0-RC1.15.0-D120)"
+    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 RC1.16.0 (2026.10.09-DOMENIA-1.0-RC1.16.0-D120)"
     # PF-19: duration of the package integrity check made by Domenia-Start.ps1 before the core (absent when launched otherwise).
     $startIntegrity = Get-Variable -Name DomeniaStartIntegrity -ValueOnly -ErrorAction SilentlyContinue
     if ($null -ne $startIntegrity) { Write-StartupTrace -Stage "Integrite du paquet" -Status "OK" -DurationMs ([long]$startIntegrity.DurationMs) -Detail ("{0} fichiers runtime controles (plafond {1}), {2} composants requis." -f $startIntegrity.Files,$startIntegrity.Limit,$startIntegrity.Required) }

@@ -948,11 +948,13 @@ function Add-DomeniaUxRecentObject {
 
 # ---------------------------------------------------------------- L08 search bar: clear, recent entries, local suggestions
 function Initialize-DomeniaUxSearchBar {
-    # FO-03 / SP-01: magnifier, ✕, the latest searches and fiches on focus, suggestions of the local base while typing.
+    # FO-03 / SP-01: magnifier, ✕, the latest searches and fiches on a click, suggestions of the local base while typing.
     # Typing never queries AD: Entrée (or Rechercher) remains the only gesture of the bar that reads the directory.
     $box = Get-DomeniaControl 'TxtGlobalSearch'
     if ($box -isnot [Windows.Controls.TextBox]) { return }
-    $box.Add_GotKeyboardFocus({ param($sender,$eventArgs) Update-DomeniaUxSearchSuggestions })
+    # The latest entries open on a gesture only (click in the field, typing, Down arrow), never when Domenia itself puts
+    # the focus in the bar (opening Rechercher, Ctrl+K, a route).
+    $box.Add_PreviewMouseLeftButtonUp({ param($sender,$eventArgs) Update-DomeniaUxSearchSuggestions })
     $box.Add_LostKeyboardFocus({ param($sender,$eventArgs) Hide-DomeniaUxSearchSuggestions })
     $box.Add_TextChanged({
         param($sender,$eventArgs)

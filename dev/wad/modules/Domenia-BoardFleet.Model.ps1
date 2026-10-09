@@ -54,7 +54,7 @@ function Get-DomeniaFleetBoardData {
     # interface ($null: end dates unknown, never critical). Also returns Observations (lower-cased DN -> observation of
     # the workstations returned by the worker), Last ({Scope; Subtree; Targets; Machines}) and Snapshot (figures of the
     # daily local snapshot; Taken tells whether today's one already exists).
-    param($Result,[string]$Scope = '',[bool]$Subtree = $true,[datetime]$Now = [datetime]::Now,$Lifecycle = $null,[int]$ObservationMaxAgeDays = 30)
+    param($Result,[string]$Scope = '',[bool]$Subtree = $true,[datetime]$Now = [datetime]::Now,$Lifecycle = $null,[int]$ObservationMaxAgeDays = 30,[string]$IndexPartial = '')
     $invariant = [Globalization.CultureInfo]::InvariantCulture
     $nowUtc = $Now.ToUniversalTime()
 
@@ -246,6 +246,8 @@ function Get-DomeniaFleetBoardData {
     }
     if ($stale) { Add-DomeniaBoardAttention -Data $data -Level Warn -Text ([string]$stale + ' poste(s) sans connexion au domaine depuis 90 jours ou plus (à 14 jours près) : à vérifier ou nettoyer.') -Point 'stale' -Groups @($staleGroups) }
     if ($never) { Add-DomeniaBoardAttention -Data $data -Level Warn -Text ([string]$never + ' compte(s) ordinateur jamais connecté(s).') -Point 'never' -Groups @($neverGroups) }
+    # The local base is incomplete (last update stopped at its limit): every figure of this board may be underestimated.
+    if ($IndexPartial) { Add-DomeniaBoardAttention -Data $data -Level Warn -Text ('Base locale incomplète : ' + $IndexPartial + ' Les chiffres peuvent être sous-estimés : utilisez Mettre à jour cette OU.') -Point 'index.partial' }
     if ($pwdOld) { Add-DomeniaBoardAttention -Data $data -Level Warn -Text ([string]$pwdOld + ' poste(s) avec un mot de passe machine de plus de 60 jours.') -Point 'pwdold' -Groups @($pwdGroups) }
     if (($lapsVisible -gt 0) -and [int]$laps['N']) { Add-DomeniaBoardAttention -Data $data -Level Warn -Text ([string]$laps['N'] + ' poste(s) sans expiration LAPS visible.') -Point 'laps.none' -Groups @($lapsGroups) }
     if ([int]$laps['E']) { Add-DomeniaBoardAttention -Data $data -Level Warn -Text ([string]$laps['E'] + ' poste(s) dont le mot de passe LAPS a expiré.') -Point 'laps.expired' -Groups @($lapsExpiredGroups) }

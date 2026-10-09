@@ -343,7 +343,7 @@ function Complete-DomeniaFleetDashboard {
     $script:FleetLastResult = $Result
     $scope = if ($null -ne $State) { [pscustomobject]@{ Dn = [string]$State.Scope; Subtree = [bool]$State.Subtree; Name = [string]$State.Name; Path = [string]$State.ScopePath; Key = [string]$State.Key } } else { Get-DomeniaFleetScope }
     if ($null -eq $scope) { $scope = [pscustomobject]@{ Dn = ''; Subtree = $true; Name = 'Tout le domaine'; Path = ''; Key = '*' } }
-    try { $board = Get-DomeniaFleetBoardData -Result $data -Scope ([string]$scope.Dn) -Subtree ([bool]$scope.Subtree) -Lifecycle (Get-DomeniaWindowsLifecycleTable) -ObservationMaxAgeDays (Get-DomeniaObservationMaxAgeDays) }
+    try { $board = Get-DomeniaFleetBoardData -Result $data -Scope ([string]$scope.Dn) -Subtree ([bool]$scope.Subtree) -Lifecycle (Get-DomeniaWindowsLifecycleTable) -ObservationMaxAgeDays (Get-DomeniaObservationMaxAgeDays) -IndexPartial (Get-DomeniaIndexPartialText) }
     catch { Fail-DomeniaFleetDashboard $_.Exception.Message $State; return }
     $script:FleetPendingKey = ''; $script:FleetJobId = ''; $script:FleetComputedKey = [string]$scope.Key
     $count = @($board.Last.Targets).Count
