@@ -852,12 +852,18 @@ Test-Case 'D026 : IndexBuild tronque ne remplace pas l index' {
     function Add-DomeniaUiLog { param($Area,$Text) }
     function Register-DomeniaOperationSample { param($Operation,$Mode,$ItemCount,$DurationMs,$BytesEstimated,$AdQueries,$SuccessCount) }
     function Update-DomeniaIndexStats { }
+    # Complete-DomeniaIndexRefreshUi marque la passe tronquee par Set-DomeniaIndexPartial (Domenia-Core.ps1) :
+    # le banc ne charge que des fonctions choisies, ce bouchon enregistre l'appel sans ecrire de reglage.
+    function Set-DomeniaIndexPartial { param($BaseDn,$Count,$Reason,$Limit,[switch]$Clear) $script:IndexPartialCalls++; $script:IndexPartialBaseDn=[string]$BaseDn; $script:IndexPartialCleared=[bool]$Clear }
     # Complete-DomeniaIndexRefreshUi classe la coupure par Get-DomeniaIndexCut : le banc charge le vrai
     # helper (pur, sans etat) plutot qu'un doublon local qui masquerait une regression de sa garde.
     . ([scriptblock]::Create((Get-FunctionTextFromFile $core 'Get-DomeniaIndexCut')))
 
     $script:SaveIndexCalls=0
     $script:UpdateIndexCalls=0
+    $script:IndexPartialCalls=0
+    $script:IndexPartialBaseDn=''
+    $script:IndexPartialCleared=$false
     $script:IndexRows=@([pscustomobject]@{DN='CN=old';Guid='11111111-1111-1111-1111-111111111111'})
     $script:IndexInfo=[pscustomobject]@{Server='dc1';BaseDn='DC=x';Usn=100;InvocationId='i1'}
     $effective=[pscustomobject]@{
@@ -874,6 +880,9 @@ Test-Case 'D026 : IndexBuild tronque ne remplace pas l index' {
     Complete-DomeniaIndexRefreshUi -Result $effective -State $null
     Assert-Equal 0 $script:SaveIndexCalls
     Assert-Equal 1 $script:UpdateIndexCalls
+    Assert-Equal 1 $script:IndexPartialCalls
+    Assert-Equal 'DC=x' ([string]$script:IndexPartialBaseDn)
+    Assert-Equal $false $script:IndexPartialCleared
 }
 
 Test-Case 'D027 : echec recent bloque sonde automatique mais pas manuelle' {

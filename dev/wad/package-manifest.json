@@ -2114,8 +2114,8 @@
     },
     {
       "Path": "wad/tests/Test-DomeniaWiringCache.ps1",
-      "Sha256": "9F12D18786D1B0A0C0189DFAEA4FEBB9B9A127A171CF9E90E908455E8F0F396D",
-      "Bytes": 256004,
+      "Sha256": "7C031DB260D0CB834FAAF7F09BD643869F4109994C9F450AC3D0D4CB1671392C",
+      "Bytes": 256691,
       "Runtime": false,
       "PreserveExisting": false
     },
