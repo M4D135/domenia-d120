@@ -125,7 +125,8 @@ try{
     foreach($n in @('Get-MainXaml','Get-DomeniaEffectiveWorkerResult','Get-DomeniaDefaultSettings')){Import-Function $ast $n}
     $parkAst=Parse-Text ([IO.File]::ReadAllText((Join-Path $wad 'modules\Domenia-Park.UI.ps1')));Import-Function $parkAst 'Start-DomeniaParkAnalysis'
     $script:TestScopeDn='';$script:TestScopeOneLevel=$false
-    foreach($m in @('Domenia-Embedded.UI.ps1','Domenia-Boards.Model.ps1','Domenia-Charts.UI.ps1','Domenia-Probes.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-BoardSoftware.Model.ps1','Domenia-BoardComputer.UI.ps1','Domenia-Widgets.UI.ps1','Domenia-Dashboard.UI.ps1')){. (Join-Path $wad ('modules\'+$m))}
+    # FI-05 / PF-06: Engine.UI holds the protected timer factory (banners, counters, park run).
+    foreach($m in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Engine.UI.ps1','Domenia-Embedded.UI.ps1','Domenia-Boards.Model.ps1','Domenia-Charts.UI.ps1','Domenia-Probes.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-BoardSoftware.Model.ps1','Domenia-BoardComputer.UI.ps1','Domenia-Widgets.UI.ps1','Domenia-Dashboard.UI.ps1')){. (Join-Path $wad ('modules\'+$m))}
     $reader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml));try{$w=[Windows.Markup.XamlReader]::Load($reader)}finally{$reader.Close()}
     $w.Width=1400;$w.Height=900;$w.ShowInTaskbar=$false
     $palette=(Get-Content -LiteralPath (Join-Path $wad 'modules\SupportSuite.UI.json') -Raw|ConvertFrom-Json).Palettes.Light

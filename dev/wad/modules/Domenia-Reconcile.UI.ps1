@@ -119,7 +119,7 @@ function Fail-DomeniaReconcile {
     if($State.Epoch -eq $script:SessionEpoch){Write-AppLog ('Reconciliation non confirmee, cache conserve : '+$Message) 'WARN';[void](Request-DomeniaAccessRecovery -Operation 'Reconciliation du perimetre' -OperationId 'GlobalSearch' -ErrorValue $Message)}
 }
 function Invoke-DomeniaReconcileTick {
-    if(@($script:AsyncJobs.Values|Where-Object{$_.OperationId -eq 'StoragePurge'}).Count -or @($script:DetachedReadJobs|Where-Object{$_.OperationId -eq 'StoragePurge'}).Count){return}
+    foreach($job in @($script:AsyncJobs.Values)+@($script:DetachedReadJobs)){if($null -ne $job -and [string]$job.OperationId -eq 'StoragePurge'){return}}
     if($null -eq $script:Reconcile -or $script:AsyncEngineClosing -or -not (Test-DomeniaLiveSearchActive) -or (Test-DomeniaAccessBusyWrite)){return}
     $s=$script:Live.Search;$r=$script:Reconcile;$grid=Get-DomeniaControl 'DgObjects'
     if(-not [object]::ReferenceEquals($r.Search,$s)){$r.Search=$s;$r.Events.Clear();$r.Next=[datetime]::UtcNow.AddSeconds(180)}
@@ -138,7 +138,8 @@ function Invoke-DomeniaReconcileTick {
     $enabled=Get-DomeniaControl 'ChkGuardReconcile';if($null -ne $enabled -and -not $enabled.IsChecked){return}
     if($script:DirectoryCredentialFaulted -or @($script:AsyncJobs.Keys).Count -ge 4){return}
     # D020 (C1): the idle policy may also hold the pass (write in flight, other page). Never more permissive than the window check above.
-    if($null -ne (Get-Command Test-DomeniaBackgroundWorkAllowed -CommandType Function -ErrorAction SilentlyContinue)){try{if(-not (Test-DomeniaBackgroundWorkAllowed -Source 'Reconcile')){return}}catch{}}
+    # PF-10: no command lookup in the tick; a missing rule keeps the window check above.
+    try{if(-not (Test-DomeniaBackgroundWorkAllowed -Source 'Reconcile')){return}}catch{}
     # The periodic background re-read stays for lists of 500 rows at most; a list of thousands is not re-read every few minutes.
     if([int]$s.State.Limit -gt 500){return}
     $filter=[string]$s.Final.FilterUsed;if(-not $filter){return}
@@ -151,9 +152,8 @@ function Invoke-DomeniaReconcileTick {
 function Initialize-DomeniaReconcile {
     if($null -ne $script:Reconcile){return}
     $script:Reconcile=[pscustomobject]@{Search=$null;Job='';Events=[Collections.Generic.Queue[object]]::new();Next=[datetime]::UtcNow.AddMinutes(3);Timer=$null;Checkpoint=$null}
-    $timer=[Windows.Threading.DispatcherTimer]::new([Windows.Threading.DispatcherPriority]::Background);$timer.Interval=[timespan]::FromMilliseconds(250)
-    $timer.Add_Tick({try{Invoke-DomeniaReconcileTick}catch{Write-AppLog ('Reconciliation : '+$_.Exception.Message) 'WARN'}});$timer.Start();$script:Reconcile.Timer=$timer
-    # D019: owned timer, stopped by the resource registry at shutdown.
-    if($null -ne (Get-Command Register-DomeniaOwnedTimer -CommandType Function -ErrorAction SilentlyContinue)){try{[void](Register-DomeniaOwnedTimer -Owner 'Timer:Reconcile' -Timer $timer)}catch{}}
+    # FI-05 / PF-06: protected heartbeat timer, owned and registered by the factory (D019): 250 ms while revalidation
+    # events wait to be shown, once per second at rest.
+    $script:Reconcile.Timer=New-DomeniaTimer -Owner 'Timer:Reconcile' -IntervalMs 250 -IdleIntervalMs 1000 -Busy {($null -ne $script:Reconcile) -and ($script:Reconcile.Events.Count -gt 0)} -Start -Tick {Invoke-DomeniaReconcileTick}
     $script:Window.Add_Closed({if($null -ne $script:Reconcile){$script:Reconcile.Timer.Stop();$script:Reconcile.Events.Clear()}})
 }

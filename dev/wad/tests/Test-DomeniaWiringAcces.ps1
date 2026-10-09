@@ -439,7 +439,8 @@ Test-Case 'D058 Ouvrir BitLocker lit les metadonnees, aucune cle' {
     Start-LoadComputerSecrets -Mode BitLocker
     Assert-True ($script:Tasks.Count -eq 1 -and $script:Tasks[0].OperationId -eq 'ReadBitLockerList') ('Operation : '+$script:Tasks[0].OperationId)
     Assert-True ($script:Tasks[0].Code -notmatch 'msFVE-RecoveryPassword') 'La liste demande les cles'
-    $script:Config['Features.BitLockerKeySelection']=$false;$script:Tasks.Clear()
+    # PF-10: the flags are kept per configuration object; a configuration changed in place starts a new generation.
+    $script:Config['Features.BitLockerKeySelection']=$false;$script:DomeniaFeatureFlagCache=$null;$script:Tasks.Clear()
     Start-LoadComputerSecrets -Mode BitLocker
     Assert-True ($script:Tasks[0].OperationId -eq 'ReadBitLocker') 'Interrupteur sans effet'
 }

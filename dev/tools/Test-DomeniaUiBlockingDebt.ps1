@@ -412,7 +412,23 @@ function Add-DomeniaUiBlockUnit {
     $assignments = @{}
     $Audit.Assignments[$Unit.Name] = $assignments
     foreach ($node in $nodes) {
-        if ($node -is [Management.Automation.Language.CommandAst]) { $Audit.Commands.Add([pscustomobject]@{ Unit = $Unit; Node = $node }); continue }
+        if ($node -is [Management.Automation.Language.CommandAst]) {
+            $Audit.Commands.Add([pscustomobject]@{ Unit = $Unit; Node = $node })
+            # FI-05: the -Tick and -Busy blocks of the timer factory are timer handlers, keyed by the timer owner.
+            if ([string]$node.GetCommandName() -eq 'New-DomeniaTimer') {
+                $elements = @($node.CommandElements); $timerOwner = ''
+                for ($i = 1; $i -lt $elements.Count - 1; $i++) {
+                    if (($elements[$i] -is [Management.Automation.Language.CommandParameterAst]) -and ([string]$elements[$i].ParameterName -eq 'Owner')) { $timerOwner = (Get-DomeniaUiBlockText $elements[$i + 1] 60).Trim("'",'"') }
+                }
+                for ($i = 1; $i -lt $elements.Count - 1; $i++) {
+                    if ($elements[$i] -isnot [Management.Automation.Language.CommandParameterAst]) { continue }
+                    $timerParameter = [string]$elements[$i].ParameterName
+                    if ($timerParameter -notin @('Tick','Busy')) { continue }
+                    $Audit.Registrations.Add([pscustomobject]@{ Unit = $Unit; Node = $node; Event = $timerParameter; Kind = 'Minuteur'; Handlers = @($elements[$i + 1]); Text = ('New-DomeniaTimer[' + $timerOwner + '].' + $timerParameter) })
+                }
+            }
+            continue
+        }
         if ($node -is [Management.Automation.Language.InvokeMemberExpressionAst]) {
             $Audit.Invokes.Add([pscustomobject]@{ Unit = $Unit; Node = $node })
             $member = Get-DomeniaUiBlockMemberName $node
@@ -438,6 +454,10 @@ function Add-DomeniaUiBlockUnit {
             if (-not $Audit.Functions.ContainsKey($key)) { $Audit.Functions[$key] = New-Object 'System.Collections.Generic.List[object]' }
             $Audit.Functions[$key].Add($owner)
             continue
+        }
+        # FI-05: a tick attached later to a factory timer ($timer.Tick = $handler) is a timer handler too.
+        if (($node.Left -is [Management.Automation.Language.MemberExpressionAst]) -and ($node.Left -isnot [Management.Automation.Language.InvokeMemberExpressionAst]) -and ((Get-DomeniaUiBlockText $node.Left.Member 20) -eq 'Tick') -and ((Get-DomeniaUiBlockText $node.Right 20) -ne '$null')) {
+            $Audit.Registrations.Add([pscustomobject]@{ Unit = $Unit; Node = $node; Event = 'Tick'; Kind = 'Minuteur'; Handlers = @($node.Right); Text = ((Get-DomeniaUiBlockText $node.Left.Expression 80) + '.Tick') })
         }
         # Assignment: index the right-hand side by variable name and scope.
         $left = $node.Left
@@ -476,9 +496,13 @@ function Resolve-DomeniaUiBlockRegistrations {
         $scope = Get-DomeniaUiBlockScope $registration.Node
         $items = New-Object 'System.Collections.Generic.List[object]'
         foreach ($candidate in @($registration.Handlers)) { Resolve-DomeniaUiBlockHandler $Audit $registration.Unit $candidate $scope 0 $items }
-        $text = Get-DomeniaUiBlockText $registration.Node.Expression 80
-        $member = Get-DomeniaUiBlockMemberName $registration.Node
-        $registrationText = $text + '.' + $member
+        $registrationText = ''
+        if ($null -ne $registration.PSObject.Properties['Text']) { $registrationText = [string]$registration.Text }
+        if (-not $registrationText) {
+            $text = Get-DomeniaUiBlockText $registration.Node.Expression 80
+            $member = Get-DomeniaUiBlockMemberName $registration.Node
+            $registrationText = $text + '.' + $member
+        }
         if ($items.Count -eq 0) {
             $Audit.Unresolved.Add([pscustomobject]@{ File = $registration.Unit.Name; Line = [int]$registration.Node.Extent.StartLineNumber; Event = $registration.Event; Text = (Get-DomeniaUiBlockText $registration.Node 160) })
             continue

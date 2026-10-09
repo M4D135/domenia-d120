@@ -257,8 +257,78 @@ Test-Case 'D019' 'Longue session avec annulations : retour a un niveau stable' {
 }
 Test-Case 'D020' 'Fenetre inactive ou reduite : aucun rafraichissement de fond' {
     $p=Get-DomeniaIdlePolicy -WindowActive $false -VisiblePage 'WsSearch'
-    Assert-False (Test-DomeniaIdleAllows $p 'Presence');Assert-False (Test-DomeniaIdleAllows $p 'Reconcile');Assert-False (Test-DomeniaIdleAllows $p 'ViewRebuild' 'WsSearch')
+    Assert-False (Test-DomeniaIdleAllows $p 'Presence');Assert-False (Test-DomeniaIdleAllows $p 'Reconcile')
     Assert-False (Test-DomeniaIdleAllows (Get-DomeniaIdlePolicy -Minimized $true) 'Dashboard')
+}
+Test-Case 'UX-30' 'Fenetre inactive mais visible : la vue affichee reste a jour, les lectures reseau de fond attendent' {
+    $p=Get-DomeniaIdlePolicy -WindowActive $false -VisiblePage 'TabDashboard'
+    Assert-True (Test-DomeniaIdleAllows $p 'ViewRebuild' 'TabDashboard') 'Accueil visible sur un second ecran non recalcule'
+    $dash=Get-DomeniaIdleActivityForSource 'Dashboard';Assert-True (Test-DomeniaIdleAllows $p $dash.Activity $dash.Page)
+    Assert-False (Test-DomeniaIdleAllows $p 'Presence') 'Lecture reseau de fond autorisee fenetre inactive'
+    Assert-True ([bool]$p.Visible -and -not [bool]$p.AllowBackgroundRefresh)
+}
+Test-Case 'UX-30' 'Fenetre reduite ou masquee : recalcul de vue suspendu' {
+    foreach($p in @((Get-DomeniaIdlePolicy -WindowActive $false -Minimized $true -VisiblePage 'TabDashboard'),(Get-DomeniaIdlePolicy -WindowActive $true -Hidden $true -VisiblePage 'TabDashboard'))){
+        Assert-False (Test-DomeniaIdleAllows $p 'ViewRebuild' 'TabDashboard');Assert-False (Test-DomeniaIdleAllows $p 'Presence')
+        Assert-True (Test-DomeniaIdleAllows $p 'Storage') 'Sauvegarde suspendue'
+    }
+}
+Test-Case 'FI-03' 'Ecriture admise malgre 12 lectures detachees, sur sa place reservee' {
+    $w=Test-DomeniaTaskAdmission -Class Write -Running 0 -Outstanding 12 -MaxConcurrent 6 -MaxOutstanding 12
+    Assert-Equal 'Start' $w.Decision;Assert-True ([string]$w.Reason -match 'partira') 'Message de place reservee absent'
+    Assert-Equal 'Start' (Test-DomeniaTaskAdmission -Class Write -Running 1 -Outstanding 13 -MaxConcurrent 6 -MaxOutstanding 12).Decision
+    Assert-Equal 'Reject' (Test-DomeniaTaskAdmission -Class Write -Running 0 -Outstanding 14 -MaxConcurrent 6 -MaxOutstanding 12).Decision
+    Assert-Equal '' ([string](Test-DomeniaTaskAdmission -Class Write -Running 0 -Outstanding 3 -MaxConcurrent 6 -MaxOutstanding 12).Reason)
+}
+Test-Case 'FI-03' 'Action explicite : une place reservee ; lectures de fond et de selection plafonnees' {
+    Assert-Equal 'Start' (Test-DomeniaTaskAdmission -Class Explicit -Running 0 -Outstanding 12 -MaxConcurrent 6 -MaxOutstanding 12).Decision
+    Assert-Equal 'Queue' (Test-DomeniaTaskAdmission -Class Explicit -Running 0 -Outstanding 13 -MaxConcurrent 6 -MaxOutstanding 12).Decision
+    Assert-Equal 'Queue' (Test-DomeniaTaskAdmission -Class Selection -Running 0 -Outstanding 12 -MaxConcurrent 6 -MaxOutstanding 12).Decision
+    Assert-Equal 'Queue' (Test-DomeniaTaskAdmission -Class Background -Running 0 -Outstanding 12 -MaxConcurrent 6 -MaxOutstanding 12).Decision
+}
+Test-Case 'MO-05' 'Fournisseur sature : candidat saute et garde en file, un autre fournisseur part' {
+    $q=@([pscustomobject]@{Id='cache';Class='Background';Sequence=1;Provider='Storage';ProviderTarget=''},[pscustomobject]@{Id='presence';Class='Background';Sequence=2;Provider='Network';ProviderTarget='pc1'})
+    $load=@{Storage=1}
+    Assert-Equal 'presence' (Select-DomeniaNextQueuedTask $q -Running 1 -Outstanding 1 -MaxConcurrent 6 -ProviderLoad $load -ProviderState (New-DomeniaProviderState)).Id
+    Assert-True ($null -eq (Select-DomeniaNextQueuedTask @($q[0]) -Running 1 -Outstanding 1 -MaxConcurrent 6 -ProviderLoad $load -ProviderState (New-DomeniaProviderState))) 'Candidat sature promu'
+    Assert-Equal 'cache' (Select-DomeniaNextQueuedTask @($q[0]) -Running 1 -Outstanding 1 -MaxConcurrent 6 -ProviderLoad @{} -ProviderState (New-DomeniaProviderState)).Id
+}
+Test-Case 'MO-05' 'Refus durable : le candidat est rendu pour que son depart signale l erreur' {
+    $s=New-DomeniaProviderState
+    [void](Register-DomeniaProviderOutcome $s 'Directory' '' 'CredentialRejected' $script:T0)
+    $q=@([pscustomobject]@{Id='read';Class='Background';Sequence=1;Provider='Directory';ProviderTarget=''})
+    $r=Test-DomeniaProviderAdmission $s 'Directory' '' 'Background' 0 $script:T0
+    Assert-False $r.Allowed;Assert-True ([bool]$r.Durable)
+    Assert-Equal 'read' (Select-DomeniaNextQueuedTask $q -Running 0 -Outstanding 0 -MaxConcurrent 6 -ProviderLoad @{} -ProviderState $s -NowUtc $script:T0).Id
+    foreach($i in 1..3){[void](Register-DomeniaProviderOutcome $s 'Cim' 'pc1' 'Failure' $script:T0)}
+    $b=Test-DomeniaProviderAdmission $s 'Cim' 'pc1' 'Background' 0 $script:T0.AddSeconds(1)
+    Assert-False $b.Allowed;Assert-False ([bool]$b.Durable) 'Une temporisation est un refus durable'
+}
+Test-Case 'PF-04' 'Ordre de traitement : ecriture, action explicite, selection, fond, puis arrivee' {
+    $jobs=@([pscustomobject]@{Id='b';Class='Background';Sequence=1},[pscustomobject]@{Id='s';Class='Selection';Sequence=2},[pscustomobject]@{Id='e2';Class='Explicit';Sequence=5},[pscustomobject]@{Id='w';Class='Write';Sequence=9},[pscustomobject]@{Id='e1';Class='Explicit';Sequence=3})
+    Assert-Equal 'w,e1,e2,s,b' ((@(Get-DomeniaTaskOrder -Jobs $jobs)|ForEach-Object{$_.Id}) -join ',')
+}
+Test-Case 'CO-02' 'Seules les taches de premier plan pilotent Annuler et la barre' {
+    foreach($c in @('Write','Explicit','Selection')){Assert-True (Test-DomeniaForegroundTaskClass $c) $c}
+    Assert-False (Test-DomeniaForegroundTaskClass 'Background');Assert-False (Test-DomeniaForegroundTaskClass '')
+    Assert-Equal 'Background' (Get-DomeniaTaskClass -OperationId 'LocalStore')
+}
+Test-Case 'PF-06' 'Pulsation : aucun abonne actif, aucun reveil ; fenetre reduite, seuls taches et sauvegardes' {
+    Assert-Equal -1 (Get-DomeniaPulseDelay -Subscribers @() -NowMs 100)
+    Assert-Equal -1 (Get-DomeniaPulseDelay -Subscribers @([pscustomobject]@{Enabled=$false;DueMs=150;IntervalMs=80;RunWhenHidden=$false}) -NowMs 100)
+    $live=[pscustomobject]@{Enabled=$true;DueMs=1100;IntervalMs=1000;RunWhenHidden=$false}
+    $async=[pscustomobject]@{Enabled=$true;DueMs=1350;IntervalMs=250;RunWhenHidden=$true}
+    Assert-Equal 100 (Get-DomeniaPulseDelay -Subscribers @($live,$async) -NowMs 1000)
+    Assert-Equal 350 (Get-DomeniaPulseDelay -Subscribers @($live,$async) -NowMs 1000 -Hidden $true)
+    Assert-Equal -1 (Get-DomeniaPulseDelay -Subscribers @($live) -NowMs 1000 -Hidden $true)
+    Assert-Equal 15 (Get-DomeniaPulseDelay -Subscribers @($live) -NowMs 1200 -MinimumMs 15)
+}
+Test-Case 'PF-06' 'Pulsation : un abonne proche de son echeance partage le reveil courant' {
+    $s=[pscustomobject]@{Enabled=$true;DueMs=1080;IntervalMs=1000;RunWhenHidden=$false}
+    Assert-True (Test-DomeniaPulseDue $s 1000) 'Echeance a 80 ms d un abonne de 1 s non regroupee'
+    Assert-False (Test-DomeniaPulseDue $s 900)
+    Assert-False (Test-DomeniaPulseDue ([pscustomobject]@{Enabled=$true;DueMs=1030;IntervalMs=80;RunWhenHidden=$false}) 1000) 'Abonne rapide regroupe trop tot'
+    Assert-False (Test-DomeniaPulseDue $s 1000 $true) 'Abonne suspendu fenetre reduite'
 }
 Test-Case 'D020' 'Recus et sauvegardes en cours restent suivis' {
     $p=Get-DomeniaIdlePolicy -WindowActive $false -WriteInFlight $true -PendingSaves 3

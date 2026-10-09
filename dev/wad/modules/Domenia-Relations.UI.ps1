@@ -1142,7 +1142,8 @@ function Use-DomeniaRelationCandidate {
 function Initialize-DomeniaRelationsUi {
     Initialize-DomeniaRelationsState
     if($script:Relations.Bound){return};$script:Relations.Bound=$true
-    $t=[Windows.Threading.DispatcherTimer]::new([Windows.Threading.DispatcherPriority]::Background);$t.Interval=[timespan]::FromMilliseconds(120);$t.Add_Tick({try{Invoke-DomeniaRelationsTick}catch{Write-AppLog ('Affichage des relations : '+$_.Exception.Message) 'WARN'}});$script:Relations.Timer=$t
+    # FI-05: protected heartbeat timer, owned and registered by the factory; it runs only while a detection is shown.
+    $script:Relations.Timer=New-DomeniaTimer -Owner 'Timer:Relations' -IntervalMs 120 -Tick {Invoke-DomeniaRelationsTick}
     $script:Window.Add_Closed({if($null -ne $script:Relations){$script:Relations.Timer.Stop();$script:Relations.Query=$null;$script:Relations.Subject=$null;$script:Relations.PendingConfirmed=$null;$script:Relations.PendingAssociation=$null;$script:Relations.PendingPlan=$null}})
     $tabs=Get-DomeniaControl 'RelationTabs';if($null -ne $tabs){$tabs.Add_SelectionChanged({param($sender,$e) if($e.OriginalSource -eq $sender){Update-DomeniaRelationsActions}})}
     foreach($name in @('DgAllLinks','DgRelationCandidates','DgRelationComputerSearch','DgLinks')){$g=Get-DomeniaControl $name;if($null -ne $g){$g.Add_SelectionChanged({Update-DomeniaRelationsActions})}}

@@ -6,10 +6,15 @@ function Initialize-DomeniaPersistence {
     # D028: InFlight counts the items of the batch being written (they have left Pending); Conflicts holds the link keys
     # refused by the writer because another console changed them, until the associations are reloaded.
     # D113: LegacyImportJob marks an import that has left Pending but is not confirmed yet.
-    $script:Persistence=[pscustomobject]@{Pending=@{};Job='';Next=[datetime]::MinValue;Fault='';Failures=0;LinkBusy=$false;Timer=$null;LinkRequestTimer=$null;LinkPersistenceMore=$false;InFlight=0;Conflicts=@{};LegacyImportJob=''}
-    $timer=[Windows.Threading.DispatcherTimer]::new([Windows.Threading.DispatcherPriority]::Background)
-    $timer.Interval=[timespan]::FromMilliseconds(350);$timer.Add_Tick({Start-DomeniaStorageWork});$script:Persistence.Timer=$timer;$timer.Start()
-    if($null -ne (Get-Command Register-DomeniaOwnedTimer -CommandType Function -ErrorAction SilentlyContinue)){try{[void](Register-DomeniaOwnedTimer -Owner 'Timer:Storage' -Timer $timer)}catch{}}
+    # MO-03: Pending is an ordered dictionary (first queued, first written); LastSavedAt feeds the Santé zone (UX-32).
+    $script:Persistence=[pscustomobject]@{Pending=([ordered]@{});Job='';Next=[datetime]::MinValue;Fault='';Failures=0;LinkBusy=$false;Timer=$null;LinkRequestTimer=$null;LinkPersistenceMore=$false;InFlight=0;Conflicts=@{};LegacyImportJob='';LastSavedAt=$null}
+    # MO-03 / FI-05: protected heartbeat timer, armed when an item is queued (Request-DomeniaStorageWork) and stopped
+    # when nothing is left to write: a batch groups what arrives within about one second. It also runs minimized.
+    $script:Persistence.Timer=New-DomeniaTimer -Owner 'Timer:Storage' -IntervalMs 1000 -RunWhenHidden -Tick {
+        param($sender,$eventArgs)
+        Start-DomeniaStorageWork
+        if(-not (Test-DomeniaStorageWorkPending)){$sender.Stop()}
+    }
     $script:Window.Add_Closed({
         if($null -ne $script:Persistence){
             try{$script:Persistence.Timer.Stop()}catch{}
@@ -23,6 +28,22 @@ function Add-DomeniaIndexPersistence {
     if($script:Persistence.Pending.Count -ge 256){Set-Status 'Cache en attente sature. Les donnees restent visibles mais non enregistrees.' 'WARN';return $false}
     $key='Index|'+[string]$script:DatabaseScopedPath+'|'+[string]$Row.Guid+'|'+[string]$Row.DN
     $script:Persistence.Pending[$key]=[pscustomobject]@{QueueKey=$key;Kind='Index';Path=[string]$script:DatabaseScopedPath;Row=$Row;Server=[string]$script:Conn.Server;At=[datetime]::UtcNow.ToString('o');Epoch=[long]$script:SessionEpoch}
+    Request-DomeniaStorageWork
+    return $true
+}
+function Request-DomeniaStorageWork {
+    # MO-03: arms the save timer after a queued item; it stops by itself once the queue is written.
+    if($null -eq $script:Persistence -or $null -eq $script:Persistence.Timer){return}
+    try{if(-not [bool]$script:Persistence.Timer.IsEnabled){$script:Persistence.Timer.Start()}}catch{}
+}
+function Test-DomeniaStorageWorkPending {
+    # MO-03: the save timer keeps running while an item waits or a batch is being written, unless the writer is
+    # suspended after three failures (Reprendre les sauvegardes re-arms it).
+    $p=$script:Persistence
+    if($null -eq $p){return $false}
+    if($p.Job -or $p.LegacyImportJob){return $true}
+    if($p.Pending.Count -eq 0){return $false}
+    if([int]$p.Failures -ge 3){foreach($v in @($p.Pending.Values)){if($v.Kind -eq 'LegacyImport'){return $true}};return $false}
     return $true
 }
 function Reset-DomeniaLinkBaseline {
@@ -71,6 +92,7 @@ function Queue-DomeniaLinkChanges {
     $script:Persistence.LinkBusy=($queued -gt 0)
     $script:UserMachineLinks=[object[]]$valid;Rebuild-UserMachineLinkIndex;Refresh-LinkGrid;Refresh-AssociationContext -SkipResultRefresh
     if((-not $Quiet) -and $queued){Set-Status ($queued.ToString()+' lien(s) en memoire, enregistrement en arriere-plan en attente.')}
+    if($queued){Request-DomeniaStorageWork}
     return $true
 }
 function Request-DomeniaLinkPersistence {
@@ -79,9 +101,8 @@ function Request-DomeniaLinkPersistence {
     if ($null -eq $script:Persistence) { Initialize-DomeniaPersistence }
     $timer = $script:Persistence.LinkRequestTimer
     if ($null -eq $timer) {
-        $timer = [Windows.Threading.DispatcherTimer]::new([Windows.Threading.DispatcherPriority]::Background)
-        $timer.Interval = [TimeSpan]::FromMilliseconds(1500)
-        $timer.Add_Tick({
+        # FI-05: protected heartbeat timer, owned and registered by the factory; it also runs minimized.
+        $timer = New-DomeniaTimer -Owner 'Timer:LinkPersistence' -IntervalMs 1500 -RunWhenHidden -Tick {
             param($sender,$eventArgs)
             $sender.Stop()
             if ($null -eq $script:Persistence) { return }
@@ -89,11 +110,8 @@ function Request-DomeniaLinkPersistence {
             if ($script:Persistence.LinkBusy) { $sender.Start(); return }
             $ok = Queue-DomeniaLinkChanges -Quiet -MaxItems 64
             if ((-not $ok) -or [bool]$script:Persistence.LinkPersistenceMore) { $sender.Start() }
-        })
-        $script:Persistence.LinkRequestTimer = $timer
-        if ($null -ne (Get-Command Register-DomeniaOwnedTimer -CommandType Function -ErrorAction SilentlyContinue)) {
-            try { [void](Register-DomeniaOwnedTimer -Owner 'Timer:LinkPersistence' -Timer $timer) } catch { }
         }
+        $script:Persistence.LinkRequestTimer = $timer
     }
     if (-not $timer.IsEnabled) { $timer.Start() }
 }
@@ -102,7 +120,7 @@ function Start-DomeniaStorageWork {
     # Same liveness rule as the receipts: a save that left the engine without a callback frees the slot.
     # D113: keep the lock while a detached worker still runs; a lost completion never replays an import.
     if($null -ne $script:Persistence -and $script:Persistence.Job -and $null -ne $script:AsyncJobs -and -not $script:AsyncJobs.Contains([string]$script:Persistence.Job)){
-        if(@($script:DetachedReadJobs | Where-Object { $_.Id -eq $script:Persistence.Job }).Count){return}
+        foreach($detached in @($script:DetachedReadJobs)){if($null -ne $detached -and [string]$detached.Id -eq [string]$script:Persistence.Job){return}}
         if($script:Persistence.LegacyImportJob){
             $script:Persistence.LegacyImportJob=''
             Set-Status 'Resultat reprise des anciennes donnees non recu. Verifiez le stockage puis refaites la simulation avant toute nouvelle demande.' 'WARN'
@@ -121,8 +139,13 @@ function Start-DomeniaStorageWork {
     if(-not $canStartImport){
         if($script:Persistence.Failures -ge 3 -or [datetime]::UtcNow -lt $script:Persistence.Next){return}
     }
-    if(@($script:AsyncJobs.Values|Where-Object{$_.OperationId -in @('LocalStore','LiveCache','IndexBuild','LegacyMigration','StoragePurge')}).Count -or @($script:DetachedReadJobs|Where-Object{$_.OperationId -in @('LocalStore','LiveCache','IndexBuild','LegacyMigration','StoragePurge')}).Count){return}
-    if(@($script:AsyncJobs.Keys).Count -ge 4){return}
+    # MO-03: one pass over the tasks (no pipeline per tick); the threshold follows the engine limits: the places left
+    # to background work (MaxThreads minus the places kept for explicit actions, 4 by default).
+    $storageBusy=@('LocalStore','LiveCache','IndexBuild','LegacyMigration','StoragePurge')
+    foreach($job in @($script:AsyncJobs.Values)+@($script:DetachedReadJobs)){if($null -ne $job -and [string]$job.OperationId -in $storageBusy){return}}
+    $threshold=4
+    try{$limits=Get-DomeniaEngineLimits;$threshold=[Math]::Max(1,[int]$limits.MaxConcurrent-[int]$limits.ReservedForeground)}catch{$threshold=4}
+    if(@($script:AsyncJobs.Keys).Count -ge $threshold){return}
     if($canStartImport){
         $item=$import[0]
         $path=[string]$item.Path
@@ -179,7 +202,7 @@ function Complete-DomeniaStorageWork {
     if($null -eq $r -or -not $r.Saved){Fail-DomeniaStorageWork 'Resultat stockage non confirme.' $State;return}
     $items=@();if($null -ne $State){$items=@($State.Items)}
     $isImport=@($items|Where-Object{$_.Kind -eq 'LegacyImport'}).Count -gt 0
-    if(-not $isImport){$script:Persistence.Fault='';$script:Persistence.Failures=0}
+    if(-not $isImport){$script:Persistence.Fault='';$script:Persistence.Failures=0;$script:Persistence.LastSavedAt=Get-Date}
     if($isImport){$script:Persistence.LegacyImportJob=''}
     foreach($i in $items){
         if($i.Kind -eq 'LegacyImport'){
@@ -256,7 +279,7 @@ function Fail-DomeniaStorageWork {
     if($isImport){
         $script:Persistence.Job='';$script:Persistence.InFlight=0
         $script:Persistence.LegacyImportJob=''
-        foreach($i in $items){if($script:Persistence.Pending.ContainsKey($i.QueueKey)){[void]$script:Persistence.Pending.Remove($i.QueueKey)}}
+        foreach($i in $items){if($script:Persistence.Pending.Contains($i.QueueKey)){[void]$script:Persistence.Pending.Remove($i.QueueKey)}}
         $script:Persistence.Fault=[string]$Message
         Set-Status ('Reprise des anciennes donnees echoue, sans rejeu automatique. Refaites la simulation avant une nouvelle demande : '+[string]$Message) 'ERROR'
         Add-DomeniaUiLog -Area 'Import' -Text ('Reprise des anciennes donnees echoue : '+[string]$Message) -Level 'ERROR'
@@ -267,7 +290,8 @@ function Fail-DomeniaStorageWork {
         return
     }
     $script:Persistence.Failures++;$script:Persistence.Job='';$script:Persistence.InFlight=0;$script:Persistence.Fault=[string]$Message;$script:Persistence.Next=[datetime]::UtcNow.AddSeconds(15)
-    foreach($i in $items){if(-not $script:Persistence.Pending.ContainsKey($i.QueueKey)){$script:Persistence.Pending[$i.QueueKey]=$i}}
+    foreach($i in $items){if(-not $script:Persistence.Pending.Contains($i.QueueKey)){$script:Persistence.Pending[$i.QueueKey]=$i}}
+    Request-DomeniaStorageWork
     if($script:Persistence.Failures -ge 3){Set-Status 'Cache non enregistre : trois echecs. Les donnees restent en memoire ; corrigez le stockage puis Reprendre les sauvegardes dans Fiabilite.' 'WARN';return}
     Set-Status 'Cache non enregistre sur disque. Les observations sont encore en memoire ; une nouvelle tentative bornee sera faite.' 'WARN'
 }
@@ -286,16 +310,18 @@ function Queue-DomeniaMetadata {
         foreach($v in @($script:Persistence.Pending.Values)){if($v.Kind -eq 'Link' -or $v.Kind -eq 'LegacyImport'){Set-Status 'Reprise des anciennes donnees impossible : modifications de liens en attente.' 'WARN';return $false}}
         if(-not $Key){$Key=$marker}
         $queueKey='LegacyImport|'+[string]$script:DatabaseScopedPath+'|'+$Key
-        if($script:Persistence.Pending.Count -ge 256 -and -not $script:Persistence.Pending.ContainsKey($queueKey)){Set-Status 'File locale pleine : reprise des anciennes donnees non enregistre.' 'WARN';return $false}
+        if($script:Persistence.Pending.Count -ge 256 -and -not $script:Persistence.Pending.Contains($queueKey)){Set-Status 'File locale pleine : reprise des anciennes donnees non enregistre.' 'WARN';return $false}
         $script:Persistence.Pending[$queueKey]=[pscustomobject]@{QueueKey=$queueKey;Kind=$Kind;Path=[string]$script:DatabaseScopedPath;Row=$Row;Epoch=[long]$script:SessionEpoch}
         $script:Persistence.LinkBusy=$true
+        Request-DomeniaStorageWork
         return $true
     }
     if(-not $Key){$Key=[guid]::NewGuid().ToString('N')}
     if($Kind -eq 'SecretMeta' -and $null -eq $Row.PSObject.Properties['Rows']){$Key+='|'+$(if([string]$Row.LapsScheme){'LAPS'}else{'BitLocker'})}
     $queueKey=$Kind+'|'+[string]$script:DatabaseScopedPath+'|'+$Key
-    if($script:Persistence.Pending.Count -ge 256 -and -not $script:Persistence.Pending.ContainsKey($queueKey)){Set-Status 'File locale pleine : les dernieres informations sont en memoire, pas encore enregistrees.' 'WARN';return $false}
+    if($script:Persistence.Pending.Count -ge 256 -and -not $script:Persistence.Pending.Contains($queueKey)){Set-Status 'File locale pleine : les dernieres informations sont en memoire, pas encore enregistrees.' 'WARN';return $false}
     $script:Persistence.Pending[$queueKey]=[pscustomobject]@{QueueKey=$queueKey;Kind=$Kind;Path=[string]$script:DatabaseScopedPath;Row=$Row;Epoch=[long]$script:SessionEpoch}
+    Request-DomeniaStorageWork
     return $true
 }
 function Get-DomeniaPersistenceState {

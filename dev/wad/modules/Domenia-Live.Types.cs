@@ -47,4 +47,25 @@ namespace Domenia.Live {
         public string Rank { get { return Read("Rank"); } set { Set("Rank", value); } }
         public string Admin { get { return Read("Admin"); } set { Set("Admin", value); } }
     }
+    // UX-32 / PF-12: one row of the operations panel, updated in place (state, duration) instead of rebuilding the grid,
+    // so that the selection, the scroll position and the focus stay where the operator left them.
+    public sealed class OperationRow : INotifyPropertyChanged {
+        private string id = String.Empty, name = String.Empty, kind = String.Empty, state = String.Empty, duration = String.Empty, detail = String.Empty;
+        private bool canCancel, detached;
+        public event PropertyChangedEventHandler PropertyChanged;
+        private void Raise(string property) { var handler = PropertyChanged; if (handler != null) handler(this, new PropertyChangedEventArgs(property)); }
+        private bool Change(ref string field, string value, string property) {
+            value = value ?? String.Empty;
+            if (String.Equals(field, value, StringComparison.Ordinal)) return false;
+            field = value; Raise(property); return true;
+        }
+        public string Id { get { return id; } set { Change(ref id, value, "Id"); } }
+        public string Name { get { return name; } set { Change(ref name, value, "Name"); } }
+        public string Kind { get { return kind; } set { Change(ref kind, value, "Kind"); } }
+        public string State { get { return state; } set { Change(ref state, value, "State"); } }
+        public string Duration { get { return duration; } set { Change(ref duration, value, "Duration"); } }
+        public string Detail { get { return detail; } set { Change(ref detail, value, "Detail"); } }
+        public bool CanCancel { get { return canCancel; } set { if (canCancel == value) return; canCancel = value; Raise("CanCancel"); } }
+        public bool Detached { get { return detached; } set { if (detached == value) return; detached = value; Raise("Detached"); } }
+    }
 }

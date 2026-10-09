@@ -108,9 +108,8 @@ function Start-DomeniaParkRunTimer {
     if($null -eq $r -or $r.Id -cne $RunId -or $r.Stopping -or $r.Completed -or $r.Epoch -ne [long]$script:SessionEpoch -or $r.Path -cne [string]$script:DatabaseScopedPath){return}
     if($null -ne $r.Timer){return}
     $r.Approved=$true
-    $timer=[Windows.Threading.DispatcherTimer]::new([Windows.Threading.DispatcherPriority]::Background)
-    $timer.Interval=[timespan]::FromMilliseconds(250);$timer.Add_Tick({Invoke-DomeniaParkRunTick});$r.Timer=$timer
-    [void](Register-DomeniaOwnedTimer -Owner 'Timer:ParkRun' -Timer $timer)
+    # FI-05: protected heartbeat timer, owned and registered by the factory; it also runs minimized (an approved run).
+    $timer=New-DomeniaTimer -Owner 'Timer:ParkRun' -IntervalMs 250 -RunWhenHidden -Tick {Invoke-DomeniaParkRunTick};$r.Timer=$timer
     $timer.Start();Update-DomeniaParkRunStatus
 }
 function Stop-DomeniaOnlinePark {

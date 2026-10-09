@@ -183,17 +183,32 @@ function ConvertTo-DomeniaUtcDate {
 
 function Get-DomeniaFeatureFlag {
     # Reads Features.<Name> from the application configuration when the core is loaded.
+    # PF-10: no command lookup. The answer is kept per configuration object: Load-AppConfig builds a new one, so a
+    # flag is read once per configuration generation instead of once per call (timers, every task start).
     param([Parameter(Mandatory=$true)][string]$Name,[bool]$Default=$true)
-    $reader = Get-Command -Name Get-CfgValue -CommandType Function -ErrorAction SilentlyContinue
-    if ($null -eq $reader) { return $Default }
+    $config = $null; $cache = $null
+    try { $config = $script:Config } catch { $config = $null }
+    $key = $Name + '|' + [string]$Default
+    if ($null -ne $config) {
+        try { $cache = $script:DomeniaFeatureFlagCache } catch { $cache = $null }
+        if (($null -eq $cache) -or (-not [object]::ReferenceEquals($cache.Config,$config))) {
+            $cache = [pscustomobject]@{Config=$config;Values=@{}}
+            $script:DomeniaFeatureFlagCache = $cache
+        }
+        if ($cache.Values.ContainsKey($key)) { return [bool]$cache.Values[$key] }
+    }
+    $result = $Default
     try {
         $value = Get-CfgValue 'Features' $Name $Default
-        if ($value -is [bool]) { return $value }
-        $text = ([string]$value).Trim()
-        if ($text -match '^(?i:true|1|oui|yes|on)$') { return $true }
-        if ($text -match '^(?i:false|0|non|no|off)$') { return $false }
-    } catch { }
-    return $Default
+        if ($value -is [bool]) { $result = $value }
+        else {
+            $text = ([string]$value).Trim()
+            if ($text -match '^(?i:true|1|oui|yes|on)$') { $result = $true }
+            elseif ($text -match '^(?i:false|0|non|no|off)$') { $result = $false }
+        }
+    } catch { $result = $Default }
+    if ($null -ne $cache) { $cache.Values[$key] = [bool]$result }
+    return [bool]$result
 }
 
 function New-DomeniaFact {

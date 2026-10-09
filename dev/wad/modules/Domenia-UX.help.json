@@ -2437,7 +2437,7 @@
   {
     "Name": "BtnRuntimeHealth",
     "Title": "État du moteur",
-    "Text": "Mémoire, workers actifs, annulations et cache utilisé. Aucune sonde réseau.",
+    "Text": "Ouvre le panneau des opérations : tâches en cours et santé du moteur (mémoire, réactivité de lʼinterface, dernière sauvegarde). Aucune sonde réseau.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -2857,8 +2857,8 @@
   },
   {
     "Name": "BtnSuiteActivity",
-    "Title": "Suivi des opérations",
-    "Text": "Ouvre le suivi des opérations. Le badge indique leur nombre, y compris les lectures en nettoyage. Survolez pour voir le nombre exact. Aucun accès AD supplémentaire.",
+    "Title": "Opérations",
+    "Text": "Affiche sous ce bouton les opérations en cours et en attente, leur durée, Arrêter par ligne et la santé du moteur. Aucun accès AD supplémentaire.",
     "Kind": "Experience"
   },
   {
@@ -2880,33 +2880,15 @@
     "Kind": "Experience"
   },
   {
-    "Name": "TabExperience",
-    "Title": "Opérations et confort",
-    "Text": "Suit les opérations actives et règle la densité des résultats. Ce panneau n’est pas un historique de réussites.",
-    "Kind": "Experience"
-  },
-  {
-    "Name": "BtnSuiteRefreshActivity",
-    "Title": "Actualiser le suivi",
-    "Text": "Relit les états des workers déjà en mémoire. Ne relance aucune opération.",
-    "Kind": "Experience"
-  },
-  {
-    "Name": "BtnSuiteCancelRead",
-    "Title": "Demander l’arrêt",
-    "Text": "Demande l’arrêt d’une lecture annulable de cette session. Une écriture envoyée ne peut pas être annulée ici.",
-    "Kind": "Experience"
-  },
-  {
     "Name": "DgSuiteActivity",
     "Title": "Opérations en cours",
-    "Text": "États réels des workers : en cours, arrêt demandé, à vérifier ou nettoyage. Aucun résultat métier n’est déduit de leur disparition.",
+    "Text": "Opérations de cette session : en cours, en attente, arrêt demandé, à vérifier ou nettoyage. Arrêter agit sur une lecture de la ligne ; une ligne qui disparaît ne prouve pas un résultat.",
     "Kind": "Experience"
   },
   {
     "Name": "CmbSuiteDensity",
     "Title": "Densité des résultats",
-    "Text": "Confort : lignes de 36 unités. Compact : 28 unités. Ce réglage visuel est mémorisé.",
+    "Text": "Réglage dʼaffichage : Confort, lignes de 36 unités ; Compact, lignes de 28 unités. Mémorisé. Ne change ni les filtres AD ni vos droits.",
     "Kind": "Experience"
   },
   {
@@ -3719,5 +3701,19 @@
     "Text": "Revient à la liste sans rien retirer.",
     "Kind": "Button",
     "Source": "L04-relations"
+  },
+  {
+    "Name": "BtnOperationsClose",
+    "Title": "Fermer le panneau des opérations",
+    "Text": "Ferme ce panneau. Les opérations continuent et restent comptées sur le bouton Opérations.",
+    "Kind": "Button",
+    "Source": "d120-L09"
+  },
+  {
+    "Name": "LblOperationsHealth",
+    "Title": "Santé du moteur",
+    "Text": "Mesures locales de cette session : mémoire, réactivité de lʼinterface, dernière sauvegarde locale. Aucune sonde réseau.",
+    "Kind": "TextBlock",
+    "Source": "d120-L09"
   }
 ]

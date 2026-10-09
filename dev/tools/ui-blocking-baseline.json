@@ -352,6 +352,14 @@
       "Owner": "interface",
       "Reason": "Chargement paresseux, une seule fois par session, du fichier XAML local du paquet (Domenia-Inline.xaml), meme modele que Initialize-DomeniaSupportUi ; jamais un chemin reseau.",
       "Chain": "wad\\Domenia-Core.ps1:19043 $script:Ctrl[\"BtnRemoveLink\"].Add_Click > Remove-SelectedLink > Request-DomeniaRelationRemoval > Request-DomeniaInlineConfirmation > Initialize-DomeniaInlineUi"
+    },
+    {
+      "Function": "Initialize-DomeniaOperationsPanel",
+      "Pattern": ".ReadAllText",
+      "Status": "Justifie",
+      "Owner": "moteur",
+      "Reason": "UX-32 : chargement paresseux, une seule fois par session, du fichier XAML local du paquet (Domenia-Operations.xaml), meme modele que Initialize-DomeniaInlineUi et Initialize-DomeniaSupportUi ; jamais un chemin reseau.",
+      "Chain": "wad\\Domenia-Core.ps1:464 $health.Add_Click > Show-DomeniaOperationsPanel > Initialize-DomeniaOperationsPanel"
     }
   ]
 }

@@ -190,11 +190,12 @@ function Show-DomeniaEmbeddedWindow {
         if($PreserveTheme -and $null -ne $fnCapsLock -and $null -ne $Window.FindName('LblSuiteCapsLock')){& $fnCapsLock $Window}
     }.GetNewClosure()
     $layer.Add_PreviewKeyUp($keyUp)
-    $tick=[Windows.Threading.DispatcherTimer]::new([Windows.Threading.DispatcherPriority]::Background);$tick.Interval=[timespan]::FromMilliseconds(150)
+    # FI-05: protected heartbeat timer of the sheet; it also runs minimized or hidden (it closes a stale sheet).
+    $tick=New-DomeniaTimer -Owner 'Timer:EmbeddedSheet' -IntervalMs 150 -RunWhenHidden
     $guard={
         $current=& $fnContext
         if(-not $main.IsVisible -or $current.Closing -or $current.Epoch -ne $epoch -or $current.BaseDn -ine $base){$r.Accepted=$false;$Window.Close()}
-    }.GetNewClosure();$tick.Add_Tick($guard)
+    }.GetNewClosure();$tick.Tick=$guard
     $script:DomeniaSurfaceState=$r;$watch=[Diagnostics.Stopwatch]::StartNew()
     try{
         $tick.Start()
@@ -203,7 +204,7 @@ function Show-DomeniaEmbeddedWindow {
         if(-not $r.Done){[Windows.Threading.Dispatcher]::PushFrame($r.Frame)}
         return [bool]$r.Accepted
     }finally{
-        $tick.Stop();$tick.Remove_Tick($guard);$layer.Remove_KeyDown($keys);$layer.Remove_PreviewKeyUp($keyUp);$Window.Remove_Closed($onClosed)
+        $tick.Stop();$tick.Tick=$null;$layer.Remove_KeyDown($keys);$layer.Remove_PreviewKeyUp($keyUp);$Window.Remove_Closed($onClosed)
         & $r.Cleanup
         foreach($c in @(Get-DomeniaLogicalControls $body)){if($c -is [Windows.Controls.PasswordBox]){$c.Clear()}}
         $watch.Stop();$script:ModalBlockedMs=[long]$script:ModalBlockedMs+$watch.ElapsedMilliseconds
@@ -304,8 +305,8 @@ function Show-DomeniaBanner {
     # Three banners at most: the oldest leaves first; its text stays in the session journal.
     while(@($script:DomeniaBanners|Where-Object{-not $_.Closed}).Count -gt 3){Close-DomeniaBanner -Record @($script:DomeniaBanners|Where-Object{-not $_.Closed})[0]}
     if([int]$plan.AutoCloseSeconds -gt 0){
-        $timer=[Windows.Threading.DispatcherTimer]::new();$timer.Interval=[TimeSpan]::FromSeconds([int]$plan.AutoCloseSeconds);$timer.Tag=$record
-        $timer.Add_Tick({param($sender,$eventArgs) Close-DomeniaBanner -Record $sender.Tag})
+        # FI-05: protected one-shot heartbeat timer; a closed banner leaves the registry (-Transient).
+        $timer=New-DomeniaTimer -Owner ('Timer:Banner:'+[guid]::NewGuid().ToString('N')) -IntervalMs ([int]$plan.AutoCloseSeconds*1000) -Transient -Tag $record -Tick {param($sender,$eventArgs) Close-DomeniaBanner -Record $sender.Tag}
         $record.Timer=$timer
         # Pointer over the banner: it stays while it is read.
         $border.Add_MouseEnter({param($sender,$eventArgs) $r=$sender.Tag;if(($null -ne $r) -and ($null -ne $r.Timer)){$r.Timer.Stop()}})

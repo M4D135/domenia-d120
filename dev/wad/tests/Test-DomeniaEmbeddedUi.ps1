@@ -178,6 +178,8 @@ namespace Domenia.EmbeddedTests {
     $script:Trace=[Collections.Generic.List[string]]::new();$script:Submissions=[Collections.Generic.List[object]]::new();$script:Stops=[Collections.Generic.List[string]]::new()
     $coreText=[IO.File]::ReadAllText((Join-Path $wad 'Domenia-Core.ps1'));$ast=Parse-Text $coreText
     . (Join-Path $wad 'modules\Domenia-Embedded.UI.ps1')
+    # FI-05 / PF-06: every Dispatcher timer comes from the protected factory of the engine (Domenia-Engine.UI.ps1).
+    foreach($engineModule in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Engine.UI.ps1')){. (Join-Path $wad ('modules\'+$engineModule))}
     foreach($n in @('Get-MainXaml','Get-DomeniaEffectiveWorkerResult','Show-InfoBox','Show-ErrorBox','Show-WarningBox','Show-DomeniaPageBanner','Test-DomeniaMainHostAvailable',
         'Add-DomeniaErrorIncidentCode','Register-DomeniaErrorOccurrence','New-DomeniaIncidentCode')){Import-Function $ast $n}
     $m=[regex]::Match($coreText,'(?ms)^\$script:WorkerCommon\s*=\s*@''\r?\n(.*?)\r?\n''@')

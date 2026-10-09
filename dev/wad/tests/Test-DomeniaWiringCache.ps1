@@ -85,7 +85,8 @@ function Set-DomeniaLiveRowValue {
 }
 
 # Real rule modules.
-foreach ($file in @('Domenia-Common.Model.ps1','Domenia-Cache.Model.ps1')) {
+# FI-05 / PF-06: Engine.UI holds the protected timer factory used by the persistence and the progressive search.
+foreach ($file in @('Domenia-Common.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Engine.UI.ps1')) {
     $path = Join-Path $modules $file
     if (-not [IO.File]::Exists($path)) { throw ('Module absent : ' + $file) }
     . $path

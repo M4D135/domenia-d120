@@ -33,21 +33,27 @@ function Get-DomeniaEngineLimits {
     $maxQueued = [Math]::Max(0,[Math]::Min(256,[int](Get-CfgValue 'Async' 'MaxQueued' 32)))
     $reserved = [Math]::Max(0,[Math]::Min(8,[int](Get-CfgValue 'Async' 'ReservedForeground' 2)))
     $maxWait = [Math]::Max(5,[Math]::Min(3600,[int](Get-CfgValue 'Async' 'MaxQueueWaitSeconds' 120)))
-    return [pscustomobject]@{MaxConcurrent=$maxConcurrent;MaxOutstanding=$maxOutstanding;MaxQueued=$maxQueued;ReservedForeground=$reserved;MaxQueueWaitSeconds=$maxWait}
+    # PF-04: time budget of one engine tick for promotions and for completions (replaces MaxCompletionsPerTick).
+    $budget = [Math]::Max(5,[Math]::Min(250,[int](Get-CfgValue 'Async' 'TickBudgetMs' 25)))
+    return [pscustomobject]@{MaxConcurrent=$maxConcurrent;MaxOutstanding=$maxOutstanding;MaxQueued=$maxQueued;ReservedForeground=$reserved;MaxQueueWaitSeconds=$maxWait;TickBudgetMs=$budget}
 }
 
 function Get-DomeniaEngineLoad {
     # A queued entry holds no thread. A detached read still holds one until its native call really ends.
+    # MO-05: ProviderLoad counts the started workers of each provider, as the provider budget of the dispatch does.
     $queued = New-Object 'System.Collections.Generic.List[object]'
-    $running = 0; $active = 0
+    $running = 0; $active = 0; $providers = @{}
     foreach ($job in @($script:AsyncJobs.Values)) {
         if ($null -eq $job) { continue }
         if ([string]$job.State -eq 'Queued') { $queued.Add($job); continue }
         $active++
         if (-not [bool]$job.CancelRequested) { $running++ }
+        $provider = [string](Get-DomeniaMember $job 'Provider' '')
+        if ($provider) { $providers[$provider] = [int]$providers[$provider] + 1 }
     }
-    $detached = @(@($script:DetachedReadJobs) | Where-Object { $null -ne $_ }).Count
-    return [pscustomobject]@{Queued=$queued.ToArray();QueuedCount=$queued.Count;Running=$running;Active=$active;Detached=$detached;Outstanding=($active + $detached)}
+    $detached = 0
+    foreach ($job in @($script:DetachedReadJobs)) { if ($null -ne $job) { $detached++ } }
+    return [pscustomobject]@{Queued=$queued.ToArray();QueuedCount=$queued.Count;Running=$running;Active=$active;Detached=$detached;Outstanding=($active + $detached);ProviderLoad=$providers}
 }
 
 function Get-DomeniaUiTaskAdmission {
@@ -260,6 +266,273 @@ function Register-DomeniaWorkerPool {
     return (Register-DomeniaResource -Registry $script:DomeniaResources -Owner ('Pool:' + $OperationId) -Kind 'RunspacePool' -Resource $Pool -Release {param($p) try { [void]$p.BeginClose($null,$null) } catch { }})
 }
 
+# ---------------------------------------------------------------- FI-05 / PF-06: protected timers and the engine heartbeat
+function New-DomeniaTimer {
+    # FI-05: the only factory of Dispatcher timers. Each timer has an owner (D019 registry), runs its tick inside a
+    # try/catch, writes one journal line per error, stops after MaxFailures consecutive errors and, with -SessionBound,
+    # as soon as the session epoch changes. PF-06: by default it subscribes to the engine heartbeat (one Dispatcher
+    # timer, one interval per subscriber, nothing at all when no subscriber is enabled); -Standalone keeps its own
+    # protected DispatcherTimer for what runs before the engine (startup window, login) or needs another priority.
+    # The returned object behaves like a DispatcherTimer for its callers: Start(), Stop(), IsEnabled, Interval, Tag.
+    # Start() on an enabled timer changes nothing; Stop() then Start() restarts the countdown, as for a DispatcherTimer.
+    # -IdleIntervalMs with -Busy: when the Busy script block answers $false after a tick, the next one waits
+    # IdleIntervalMs; any heartbeat wake-up that finds it busy again brings it back to IntervalMs.
+    param(
+        [Parameter(Mandatory=$true)][string]$Owner,
+        [Parameter(Mandatory=$true)][int]$IntervalMs,
+        [scriptblock]$Tick=$null,
+        [switch]$Standalone,
+        [ValidateSet('Background','Normal','Input','Loaded','Render','ContextIdle','ApplicationIdle')][string]$Priority='Background',
+        [int]$IdleIntervalMs=0,
+        [scriptblock]$Busy=$null,
+        [switch]$SessionBound,
+        [switch]$RunWhenHidden,
+        [switch]$Transient,
+        [int]$MaxFailures=3,
+        [switch]$Start,
+        $Tag=$null
+    )
+    $timer = [pscustomobject]@{
+        Owner=$Owner;IntervalMs=[Math]::Max(1,$IntervalMs);IdleIntervalMs=[Math]::Max(0,$IdleIntervalMs);Tick=$Tick;Busy=$Busy
+        Standalone=[bool]$Standalone;SessionBound=[bool]$SessionBound;RunWhenHidden=[bool]$RunWhenHidden;Transient=[bool]$Transient
+        MaxFailures=[Math]::Max(1,$MaxFailures);Enabled=$false;DueMs=[double]0;Epoch=[long]$script:SessionEpoch;Failures=0;FaultStopped=$false
+        Runs=[long]0;Errors=[long]0;LastError='';LateMs=[double]0;InTick=$false;Native=$null;Tag=$Tag
+    }
+    $timer.PSObject.TypeNames.Insert(0,'Domenia.Timer')
+    Add-Member -InputObject $timer -MemberType ScriptMethod -Name Start -Value { Start-DomeniaTimer -Timer $this }
+    Add-Member -InputObject $timer -MemberType ScriptMethod -Name Stop -Value { Stop-DomeniaTimer -Timer $this }
+    Add-Member -InputObject $timer -MemberType ScriptProperty -Name IsEnabled -Value { [bool]$this.Enabled }
+    Add-Member -InputObject $timer -MemberType ScriptProperty -Name Interval -Value { [TimeSpan]::FromMilliseconds([double]$this.IntervalMs) } -SecondValue { param($value) Set-DomeniaTimerInterval -Timer $this -Interval ([TimeSpan]$value) }
+    if ($Standalone) {
+        $native = New-Object System.Windows.Threading.DispatcherTimer ([System.Windows.Threading.DispatcherPriority]$Priority)
+        $native.Interval = [TimeSpan]::FromMilliseconds([double]$timer.IntervalMs)
+        $native.Tag = $timer
+        $native.Add_Tick({ param($sender,$eventArgs) $script:DomeniaStandaloneTicks = [long]$script:DomeniaStandaloneTicks + 1; Invoke-DomeniaTimerTick -Timer $sender.Tag })
+        $timer.Native = $native
+    }
+    [void](Register-DomeniaOwnedTimer -Owner $Owner -Timer $timer)
+    if ($Start) { $timer.Start() }
+    return $timer
+}
+
+function Get-DomeniaPulse {
+    # PF-06: the heartbeat owned by the engine, created on the first subscriber. Its interval is always the delay
+    # until the next due subscriber: no subscriber enabled, no wake-up at all.
+    if ($null -ne $script:DomeniaPulse) { return $script:DomeniaPulse }
+    $native = New-Object System.Windows.Threading.DispatcherTimer ([System.Windows.Threading.DispatcherPriority]::Background)
+    $native.Interval = [TimeSpan]::FromMilliseconds(250)
+    $native.Add_Tick({ param($sender,$eventArgs) Invoke-DomeniaPulse })
+    $script:DomeniaPulse = [pscustomobject]@{Timer=$native;Active=([ordered]@{});Clock=[Diagnostics.Stopwatch]::StartNew();Wakeups=[long]0;Runs=[long]0}
+    if ($null -eq $script:DomeniaResources) { $script:DomeniaResources = New-DomeniaResourceRegistry }
+    [void](Register-DomeniaResource -Registry $script:DomeniaResources -Owner 'Timer:Pulse' -Kind 'Timer' -Resource $native -Release {param($t) try { $t.Stop() } catch { }})
+    return $script:DomeniaPulse
+}
+
+function Get-DomeniaPulseNow {
+    return [double](Get-DomeniaPulse).Clock.Elapsed.TotalMilliseconds
+}
+
+function Start-DomeniaTimer {
+    param($Timer)
+    if ($null -eq $Timer -or [bool]$Timer.Enabled) { return }
+    $Timer.Enabled = $true
+    $Timer.FaultStopped = $false
+    if ([bool]$Timer.SessionBound) { $Timer.Epoch = [long]$script:SessionEpoch }
+    # A one-shot timer left the registry when it stopped: it is registered again when it restarts.
+    if ([bool]$Timer.Transient) { try { [void](Register-DomeniaOwnedTimer -Owner ([string]$Timer.Owner) -Timer $Timer) } catch { } }
+    if ([bool]$Timer.Standalone) { $Timer.Native.Start(); return }
+    $pulse = Get-DomeniaPulse
+    $Timer.DueMs = [double]$pulse.Clock.Elapsed.TotalMilliseconds + [double]$Timer.IntervalMs
+    # D019: one owner, one live timer: a newer timer of the same owner takes the slot.
+    if ($pulse.Active.Contains([string]$Timer.Owner)) {
+        $previous = $pulse.Active[[string]$Timer.Owner]
+        if (-not [object]::ReferenceEquals($previous,$Timer)) { $previous.Enabled = $false }
+        $pulse.Active.Remove([string]$Timer.Owner)
+    }
+    $pulse.Active[[string]$Timer.Owner] = $Timer
+    Update-DomeniaPulseSchedule
+}
+
+function Stop-DomeniaTimer {
+    param($Timer)
+    if ($null -eq $Timer) { return }
+    $Timer.Enabled = $false
+    if ([bool]$Timer.Standalone) { try { $Timer.Native.Stop() } catch { } }
+    elseif ($null -ne $script:DomeniaPulse -and $script:DomeniaPulse.Active.Contains([string]$Timer.Owner)) {
+        if ([object]::ReferenceEquals($script:DomeniaPulse.Active[[string]$Timer.Owner],$Timer)) {
+            $script:DomeniaPulse.Active.Remove([string]$Timer.Owner)
+            Update-DomeniaPulseSchedule
+        }
+    }
+    if ([bool]$Timer.Transient -and $null -ne $script:DomeniaResources) {
+        # A one-shot timer (banner) leaves the registry once stopped: a long session does not accumulate them.
+        foreach ($item in @($script:DomeniaResources.Items.ToArray())) {
+            if ([object]::ReferenceEquals($item.Resource,$Timer)) { [void]$script:DomeniaResources.Items.Remove($item) }
+        }
+    }
+}
+
+function Set-DomeniaTimerInterval {
+    # Same rule as DispatcherTimer.Interval: a new interval restarts the countdown of an enabled timer.
+    param($Timer,[TimeSpan]$Interval)
+    if ($null -eq $Timer) { return }
+    $Timer.IntervalMs = [Math]::Max(1,[int][Math]::Round($Interval.TotalMilliseconds))
+    if ([bool]$Timer.Standalone) { $Timer.Native.Interval = [TimeSpan]::FromMilliseconds([double]$Timer.IntervalMs); return }
+    if ([bool]$Timer.Enabled -and $null -ne $script:DomeniaPulse) {
+        $Timer.DueMs = [double]$script:DomeniaPulse.Clock.Elapsed.TotalMilliseconds + [double]$Timer.IntervalMs
+        Update-DomeniaPulseSchedule
+    }
+}
+
+function Invoke-DomeniaTimerSoon {
+    # PF-06: work just arrived for a subscriber running at its idle pace: its next tick comes at its normal interval.
+    param([Parameter(Mandatory=$true)][string]$Owner)
+    $pulse = $script:DomeniaPulse
+    if ($null -eq $pulse -or -not $pulse.Active.Contains($Owner)) { return }
+    $timer = $pulse.Active[$Owner]
+    $soon = [double]$pulse.Clock.Elapsed.TotalMilliseconds + [double]$timer.IntervalMs
+    if ([double]$timer.DueMs -gt $soon) { $timer.DueMs = $soon; Update-DomeniaPulseSchedule }
+}
+
+function Invoke-DomeniaTimerTick {
+    # FI-05: one protected tick. One journal line per error; MaxFailures consecutive errors stop the timer with one
+    # more line; a tick of a stopped timer or of a former session does nothing.
+    param($Timer)
+    if ($null -eq $Timer -or -not [bool]$Timer.Enabled -or [bool]$Timer.InTick) { return }
+    if ([bool]$Timer.SessionBound -and [long]$Timer.Epoch -ne [long]$script:SessionEpoch) { Stop-DomeniaTimer -Timer $Timer; return }
+    if ($null -eq $Timer.Tick) { return }
+    $Timer.InTick = $true
+    try {
+        $Timer.Runs = [long]$Timer.Runs + 1
+        & $Timer.Tick $Timer ([EventArgs]::Empty)
+        $Timer.Failures = 0
+    }
+    catch {
+        $Timer.Failures = [int]$Timer.Failures + 1
+        $Timer.Errors = [long]$Timer.Errors + 1
+        $Timer.LastError = [string]$_.Exception.Message
+        try { Write-AppLog ('Minuteur ' + [string]$Timer.Owner + ' : ' + [string]$_.Exception.Message) 'WARN' } catch { }
+        if ([int]$Timer.Failures -ge [int]$Timer.MaxFailures) {
+            $Timer.FaultStopped = $true
+            Stop-DomeniaTimer -Timer $Timer
+            try { Write-AppLog ('Minuteur ' + [string]$Timer.Owner + ' arrêté après ' + [int]$Timer.Failures + ' erreurs consécutives ; aucun nouvel essai automatique.') 'ERROR' } catch { }
+        }
+    }
+    finally { $Timer.InTick = $false }
+}
+
+function Invoke-DomeniaPulse {
+    # PF-06: one wake-up of the heartbeat runs every subscriber that is due, then sleeps until the next one.
+    # The heartbeat is re-armed before the first tick runs: a tick that opens a nested Dispatcher frame (a sheet, a
+    # dialog) does not freeze the other subscribers, and a subscriber never runs twice at once (InTick).
+    $pulse = $script:DomeniaPulse
+    if ($null -eq $pulse) { return }
+    $now = [double]$pulse.Clock.Elapsed.TotalMilliseconds
+    $pulse.Wakeups = [long]$pulse.Wakeups + 1
+    $hidden = [bool]$script:DomeniaWindowSuspended
+    $due = New-Object 'System.Collections.Generic.List[object]'
+    foreach ($timer in @($pulse.Active.Values)) {
+        if ($null -eq $timer -or [bool]$timer.InTick) { continue }
+        if (-not (Test-DomeniaPulseDue -Subscriber $timer -NowMs $now -Hidden $hidden)) {
+            # A subscriber at its rest pace that has work again comes back to its normal pace.
+            if ([bool]$timer.Enabled -and [int]$timer.IdleIntervalMs -gt 0 -and $null -ne $timer.Busy -and ([double]$timer.DueMs - $now) -gt [double]$timer.IntervalMs) {
+                $busy = $true
+                try { $busy = [bool](& $timer.Busy) } catch { $busy = $true }
+                if ($busy) { $timer.DueMs = $now + [double]$timer.IntervalMs }
+            }
+            continue
+        }
+        $timer.LateMs = [Math]::Max([double]0,$now - [double]$timer.DueMs)
+        $timer.DueMs = $now + [double]$timer.IntervalMs
+        $due.Add([pscustomobject]@{Timer=$timer;Planned=[double]$timer.DueMs})
+    }
+    Update-DomeniaPulseSchedule
+    foreach ($entry in $due) {
+        $timer = $entry.Timer
+        # A nested wake-up (frame opened by an earlier tick) may already have run or restarted this subscriber.
+        if (-not [bool]$timer.Enabled -or [double]$timer.DueMs -ne [double]$entry.Planned) { continue }
+        $planned = [double]$timer.DueMs
+        $pulse.Runs = [long]$pulse.Runs + 1
+        Invoke-DomeniaTimerTick -Timer $timer
+        if ([bool]$timer.Enabled -and [int]$timer.IdleIntervalMs -gt 0 -and [double]$timer.DueMs -eq $planned) {
+            # Rest pace (no Busy block, or Busy answers $false): the next tick is aligned on a grid of IdleIntervalMs, so
+            # that every subscriber at rest shares the same wake-up.
+            $busy = $false
+            if ($null -ne $timer.Busy) { try { $busy = [bool](& $timer.Busy) } catch { $busy = $true } }
+            if (-not $busy) {
+                $idle = [double]$timer.IdleIntervalMs
+                $timer.DueMs = [Math]::Ceiling(($now + $idle / 2) / $idle) * $idle
+            }
+        }
+    }
+    Update-DomeniaPulseSchedule
+}
+
+function Update-DomeniaPulseSchedule {
+    # The heartbeat sleeps until the next due subscriber; it stops when none is enabled (or all are suspended).
+    $pulse = $script:DomeniaPulse
+    if ($null -eq $pulse) { return }
+    $now = [double]$pulse.Clock.Elapsed.TotalMilliseconds
+    $delay = Get-DomeniaPulseDelay -Subscribers @($pulse.Active.Values) -NowMs $now -Hidden ([bool]$script:DomeniaWindowSuspended) -MinimumMs 15
+    try {
+        $pulse.Timer.Stop()
+        if ($delay -lt 0) { return }
+        $pulse.Timer.Interval = [TimeSpan]::FromMilliseconds([double]$delay)
+        $pulse.Timer.Start()
+    } catch { }
+}
+
+function Get-DomeniaPulseState {
+    # Wake-ups of the heartbeat and of the standalone timers since the start of the process (TE-05, Santé).
+    $wakeups = [long]0; $runs = [long]0; $active = @()
+    if ($null -ne $script:DomeniaPulse) { $wakeups = [long]$script:DomeniaPulse.Wakeups; $runs = [long]$script:DomeniaPulse.Runs; $active = @($script:DomeniaPulse.Active.Keys | ForEach-Object { [string]$_ }) }
+    return [pscustomobject]@{Wakeups=$wakeups;Runs=$runs;Standalone=[long]$script:DomeniaStandaloneTicks;Active=$active}
+}
+
+function Resume-DomeniaAsyncPoll {
+    # PF-06: the engine poll runs only while the engine holds a task, a queued entry or a detached read.
+    # A poll stopped by three consecutive faults (FI-02) is never restarted here.
+    if ($null -eq $script:AsyncTimer -or [bool]$script:AsyncEngineFaultStopped -or [bool]$script:AsyncEngineClosing) { return }
+    try { if (-not [bool]$script:AsyncTimer.IsEnabled) { $script:AsyncTimer.Start() } } catch { }
+}
+
+# ---------------------------------------------------------------- C7 runtime metrics (PF-05, TE-05, UX-32)
+function Add-DomeniaRuntimeMetric {
+    # Bounded in-memory series (512 last values each): worker durations, RunspaceOpen on the Dispatcher, queue wait,
+    # heartbeat lateness. Nothing is written to disk and nothing leaves the process.
+    param([string]$Provenance='',[string]$OperationId='',[double]$DurationMs=0)
+    if ($null -eq $script:DomeniaRuntimeMetrics) { $script:DomeniaRuntimeMetrics = @{} }
+    $key = [string]$Provenance + '|' + [string]$OperationId
+    $series = $script:DomeniaRuntimeMetrics[$key]
+    if ($null -eq $series) { $series = New-Object 'System.Collections.Generic.Queue[double]'; $script:DomeniaRuntimeMetrics[$key] = $series }
+    $series.Enqueue([double]$DurationMs)
+    while ($series.Count -gt 512) { [void]$series.Dequeue() }
+}
+
+function Get-DomeniaRuntimeMetricSummary {
+    # p50, p95 and maximum of the series whose key starts with Provenance|Prefix.
+    param([string]$Provenance='',[string]$Prefix='')
+    $values = New-Object 'System.Collections.Generic.List[double]'
+    if ($null -ne $script:DomeniaRuntimeMetrics) {
+        $start = [string]$Provenance + '|' + [string]$Prefix
+        foreach ($key in @($script:DomeniaRuntimeMetrics.Keys)) {
+            if (-not ([string]$key).StartsWith($start,[StringComparison]::Ordinal)) { continue }
+            foreach ($value in $script:DomeniaRuntimeMetrics[$key]) { $values.Add([double]$value) }
+        }
+    }
+    if ($values.Count -eq 0) { return [pscustomobject]@{Count=0;P50=[double]0;P95=[double]0;Max=[double]0} }
+    $sorted = $values.ToArray(); [Array]::Sort($sorted)
+    $p50 = $sorted[[int][Math]::Min($sorted.Count - 1,[Math]::Max(0,[Math]::Ceiling(0.50 * $sorted.Count) - 1))]
+    $p95 = $sorted[[int][Math]::Min($sorted.Count - 1,[Math]::Max(0,[Math]::Ceiling(0.95 * $sorted.Count) - 1))]
+    return [pscustomobject]@{Count=$sorted.Count;P50=[Math]::Round($p50,2);P95=[Math]::Round($p95,2);Max=[Math]::Round($sorted[$sorted.Count - 1],2)}
+}
+
+function Write-DomeniaTrace {
+    # UX-04: the Trace level is written to Domenia.log only. The session journal keeps the facts useful to the operator.
+    param([string]$Text,[string]$Area='Tache')
+    try { Write-DomeniaAppLogFile -Text (Protect-DomeniaLogText ('[' + $Area + '] ' + [string]$Text)) -Level 'TRACE' -Source 'AppLog' } catch { }
+}
+
 # ---------------------------------------------------------------- sharing and queue (D015)
 function Add-DomeniaTaskSubscriber {
     # D015: a strictly identical read (same operation, reader, session, generation and payload) joins the
@@ -277,7 +550,8 @@ function Add-DomeniaTaskSubscriber {
         }
         if ($null -eq $job.Subscribers) { $job.Subscribers = New-Object System.Collections.ArrayList }
         [void]$job.Subscribers.Add([pscustomobject]@{SuccessHandler=$SuccessHandler;ErrorHandler=$ErrorHandler;OnSuccess=$OnSuccess;OnError=$OnError;CallbackState=$CallbackState})
-        try { Add-DomeniaUiLog -Area 'Tache' -Level 'INFO' -Text ('Lecture identique partagee : ' + [string]$job.Name + ' (' + [string]$job.OperationId + '), aucun second appel.') } catch { }
+        # UX-04: engine detail, Domenia.log only.
+        Write-DomeniaTrace ('Lecture identique partagée : ' + [string]$job.Name + ' (' + [string]$job.OperationId + '), aucun second appel.')
         return [string]$job.Id
     }
     return ''
@@ -315,11 +589,15 @@ function Remove-DomeniaQueuedTask {
 }
 
 function Invoke-DomeniaQueuedTaskPromotion {
-    # Called by Complete-UiTasks: withdraws stale or expired entries, then starts at most one entry per tick,
-    # explicit actions first. Returns $true when the engine content changed.
+    # Called by Complete-UiTasks: withdraws stale or expired entries, then (PF-04) starts queued entries by priority
+    # (Write, Explicit, Selection, Background) as long as the admission says Start and the tick budget lasts.
+    # MO-05: an entry whose provider is saturated or paused stays queued; only a durable refusal is reported.
+    # Returns $true when the engine content changed.
+    param([int]$BudgetMs=0)
     if (-not (Test-DomeniaSchedulerEnabled)) { return $false }
     $changed = $false
     $limits = Get-DomeniaEngineLimits
+    if ($BudgetMs -le 0) { $BudgetMs = [int]$limits.TickBudgetMs }
     foreach ($job in @($script:AsyncJobs.Values)) {
         if ($null -eq $job -or [string]$job.State -ne 'Queued') { continue }
         if ([bool]$script:AsyncEngineClosing -or [long]$job.SessionEpoch -ne [long]$script:SessionEpoch) {
@@ -334,43 +612,59 @@ function Invoke-DomeniaQueuedTaskPromotion {
         }
     }
     if ([bool]$script:AsyncEngineClosing) { return $changed }
-    $load = Get-DomeniaEngineLoad
-    if ($load.QueuedCount -eq 0) { return $changed }
-    $next = Select-DomeniaNextQueuedTask -Queued $load.Queued -Running $load.Running -Outstanding $load.Outstanding -MaxConcurrent $limits.MaxConcurrent -MaxOutstanding $limits.MaxOutstanding -ReservedForeground $limits.ReservedForeground
-    if ($null -eq $next) { return $changed }
-    try {
-        [void](Invoke-DomeniaUiTaskDispatch -Job $next)
-        $script:LatestTaskId = [string]$next.Id
-        try { Add-DomeniaUiLog -Area 'Tache' -Level 'INFO' -Text ('Demande sortie de la file : ' + [string]$next.Name + ' (' + [string]$next.Class + ').') } catch { }
+    $watch = [Diagnostics.Stopwatch]::StartNew()
+    while ($watch.ElapsedMilliseconds -lt $BudgetMs) {
+        $load = Get-DomeniaEngineLoad
+        if ($load.QueuedCount -eq 0) { break }
+        $next = Select-DomeniaNextQueuedTask -Queued $load.Queued -Running $load.Running -Outstanding $load.Outstanding -MaxConcurrent $limits.MaxConcurrent -MaxOutstanding $limits.MaxOutstanding -ReservedForeground $limits.ReservedForeground -ProviderLoad $load.ProviderLoad -ProviderState $script:DomeniaProviderState
+        if ($null -eq $next) { break }
+        $changed = $true
+        try {
+            [void](Invoke-DomeniaUiTaskDispatch -Job $next)
+            # CO-02: Annuler and the progress label follow the foreground task, never a local save or a background read.
+            if ([bool](Get-DomeniaMember $next 'Foreground' $true)) { $script:LatestTaskId = [string]$next.Id }
+            if ($null -ne $next.QueuedAt) { try { Add-DomeniaRuntimeMetric -Provenance 'Queue' -OperationId ('Wait:' + [string]$next.Class) -DurationMs ([double]((Get-Date) - [datetime]$next.QueuedAt).TotalMilliseconds) } catch { } }
+            Write-DomeniaTrace ('Demande sortie de la file : ' + [string]$next.Name + ' (' + [string]$next.Class + ').')
+        }
+        catch {
+            $message = [string]$_.Exception.Message
+            Remove-DomeniaQueuedTask -Job $next -Silent
+            try { Invoke-DomeniaJobErrorUi -Job $next -Message $message } catch { try { Set-Status ([string]$next.Name + ' : ' + $message) 'ERROR' } catch { } }
+            Invoke-DomeniaTaskSubscribers -Job $next -Output $null -ErrorMessage $message
+        }
     }
-    catch {
-        $message = [string]$_.Exception.Message
-        Remove-DomeniaQueuedTask -Job $next -Silent
-        try { Invoke-DomeniaJobErrorUi -Job $next -Message $message } catch { try { Set-Status ([string]$next.Name + ' : ' + $message) 'ERROR' } catch { } }
-        Invoke-DomeniaTaskSubscribers -Job $next -Output $null -ErrorMessage $message
-    }
-    return $true
+    return $changed
 }
 
 # ---------------------------------------------------------------- outcomes (D018)
 function Register-DomeniaTaskOutcome {
     # Records the end of one worker for its provider and target. Never decides a retry: an automatic retry
     # does not exist for a write, a refusal or a rejected account (Test-DomeniaAutoRetryAllowed).
-    param($Job,[string]$ErrorMessage='',[switch]$TimedOut,[switch]$Cancelled)
+    # CD-12: $ErrorInfo is the error analysed once by Complete-UiTasks (ConvertTo-DomeniaErrorInfo); without it the
+    # message is analysed here, once.
+    param($Job,[string]$ErrorMessage='',[switch]$TimedOut,[switch]$Cancelled,$ErrorInfo=$null)
     if($null -eq $Job){return $null}
+    $failed = (-not [string]::IsNullOrWhiteSpace($ErrorMessage))
+    $structured = $null; $category = ''
+    if ($failed) {
+        if ($null -ne $ErrorInfo) { $structured = Get-DomeniaMember $ErrorInfo 'Structured' $null; $category = [string](Get-DomeniaMember $ErrorInfo 'Category' '') }
+        if ($null -eq $structured) {
+            try { $structured = Get-DomeniaStructuredError $ErrorMessage -Phase ([string]$Job.OperationId) -Provider ([string]$Job.Provider) } catch { $structured = $null }
+        }
+        if (-not $category -and $null -ne $structured) {
+            try { $category = [string](Get-DomeniaErrorDecision -Structured $structured -Text $ErrorMessage -Step ([string]$Job.OperationId)).Category } catch { $category = '' }
+        }
+    }
     # This guard also runs when the scheduler is disabled. Ignore other providers, demos,
     # cancelled reads and a previous account/session. No retry or worker is started here.
     if([string]$Job.Provider -eq 'Directory' -and -not [bool]$Job.Demo -and -not [bool]$Cancelled -and
        ($null -eq $Job.PSObject.Properties['SessionEpoch'] -or [long]$Job.SessionEpoch -eq [long]$script:SessionEpoch)){
         try {
             Initialize-DomeniaEngineState
-            $category='Success'
-            if($TimedOut){$category='Timeout'}
-            elseif(-not [string]::IsNullOrWhiteSpace($ErrorMessage)){
-                $errorInfo=Get-DomeniaStructuredError $ErrorMessage -Phase ([string]$Job.OperationId) -Provider 'Directory'
-                $category=[string](Get-DomeniaErrorDecision -Structured $errorInfo -Text $ErrorMessage -Step ([string]$Job.OperationId)).Category
-            }
-            $next=Resolve-DomeniaDirectoryReachability $script:DirectoryReachability 'Directory' $category
+            $reach='Success'
+            if($TimedOut){$reach='Timeout'}
+            elseif($failed){$reach=$category;if(-not $reach){$reach='Unknown'}}
+            $next=Resolve-DomeniaDirectoryReachability $script:DirectoryReachability 'Directory' $reach
             $next | Add-Member -NotePropertyName Epoch -NotePropertyValue ([long]$script:SessionEpoch)
             $script:DirectoryReachability=$next
             if($next.Changed -and $null -ne $script:Ctrl){
@@ -383,19 +677,25 @@ function Register-DomeniaTaskOutcome {
     # The demonstration directory is not a provider: its answers never feed a budget.
     if ([bool]$Job.Demo) { return $null }
     $kind = ''
-    if (-not [string]::IsNullOrWhiteSpace($ErrorMessage)) {
-        try { $kind = [string](Get-DomeniaStructuredError $ErrorMessage -Phase ([string]$Job.OperationId) -Provider ([string]$Job.Provider)).Kind } catch { $kind = 'Unknown' }
-    }
-    $outcome = ConvertTo-DomeniaProviderOutcome -ErrorKind $kind -Cancelled ([bool]$Cancelled) -TimedOut ([bool]$TimedOut) -Failed (-not [string]::IsNullOrWhiteSpace($ErrorMessage))
+    if ($failed) { $kind = 'Unknown'; if ($null -ne $structured) { $kind = [string](Get-DomeniaMember $structured 'Kind' 'Unknown') } }
+    $outcome = ConvertTo-DomeniaProviderOutcome -ErrorKind $kind -Cancelled ([bool]$Cancelled) -TimedOut ([bool]$TimedOut) -Failed $failed
     return (Register-DomeniaProviderOutcome -State $script:DomeniaProviderState -Provider ([string]$Job.Provider) -Target ([string]$Job.ProviderTarget) -Outcome $outcome -Identity ([string]$Job.CredentialIdentity))
 }
 
+function ConvertTo-DomeniaTaskErrorInfo {
+    # CD-12: one analysis of a task error (ConvertTo-DomeniaErrorInfo: structured error, decision, operator text),
+    # kept on the job for the provider outcome, the breaker and the callbacks.
+    param($Job,[string]$Message)
+    $info = $null
+    try { $info = ConvertTo-DomeniaErrorInfo -ErrorRecordOrException $Message -Operation ([string]$Job.Name) -Phase ([string]$Job.OperationId) -Provider ([string]$Job.Provider) } catch { $info = $null }
+    try { if ($null -ne $Job.PSObject.Properties['ErrorInfo']) { $Job.ErrorInfo = $info } else { $Job | Add-Member -NotePropertyName ErrorInfo -NotePropertyValue $info -Force } } catch { }
+    return $info
+}
+
 function Add-DomeniaTaskRuntimeMetric {
-    # C7 is optional: the diagnostic lot provides Add-DomeniaRuntimeMetric; absent, nothing is measured.
+    # C7: Add-DomeniaRuntimeMetric keeps a bounded series per provider and operation (no command lookup, PF-10).
     param($Job)
     if ($null -eq $Job) { return }
-    $metric = Get-Command -Name Add-DomeniaRuntimeMetric -CommandType Function -ErrorAction SilentlyContinue
-    if ($null -eq $metric) { return }
     try {
         $duration = ((Get-Date) - [datetime]$Job.Started).TotalMilliseconds
         $provenance = 'Ldap'
@@ -425,7 +725,7 @@ function Test-DomeniaBackgroundWorkAllowed {
 
 function Update-DomeniaIdlePolicy {
     # Recomputes the policy from the real window. Saves, receipts and explicit work are never suspended.
-    if (-not (Test-DomeniaIdlePolicyEnabled)) { $script:DomeniaIdlePolicy = $null; return $null }
+    if (-not (Test-DomeniaIdlePolicyEnabled)) { $script:DomeniaIdlePolicy = $null; Set-DomeniaWindowSuspended -Suspended $false; return $null }
     $window = $script:Window
     if ($null -eq $window) { return $script:DomeniaIdlePolicy }
     $page = ''
@@ -434,15 +734,32 @@ function Update-DomeniaIdlePolicy {
     try { if ($null -ne $script:Persistence -and $null -ne $script:Persistence.Pending) { $pending += @($script:Persistence.Pending.Keys).Count } } catch { }
     try { if ($null -ne $script:Live -and $null -ne $script:Live.SaveQueue) { $pending += @($script:Live.SaveQueue).Count } } catch { }
     $writeInFlight = ((-not [string]::IsNullOrWhiteSpace([string]$script:ActiveWriteTaskId)) -or ([string]$script:WriteState -in @('Running','Unknown','UnknownPending')))
-    $minimized = $false
+    $minimized = $false; $hidden = $false
     try { $minimized = ([string]$window.WindowState -eq 'Minimized') } catch { }
-    $script:DomeniaIdlePolicy = Get-DomeniaIdlePolicy -WindowActive ([bool]$window.IsActive) -Minimized $minimized -VisiblePage $page -WriteInFlight $writeInFlight -PendingSaves $pending
+    try { $hidden = ($window.IsLoaded -and -not [bool]$window.IsVisible) } catch { }
+    $script:DomeniaIdlePolicy = Get-DomeniaIdlePolicy -WindowActive ([bool]$window.IsActive) -Minimized $minimized -VisiblePage $page -WriteInFlight $writeInFlight -PendingSaves $pending -Hidden $hidden
+    # PF-06: a minimized or hidden window suspends every heartbeat subscriber except tasks, saves and the journal.
+    Set-DomeniaWindowSuspended -Suspended ($minimized -or $hidden)
     # A dashboard skipped while hidden is rebuilt once when it becomes visible again.
     if ([bool]$script:DashboardDirty -and (Test-DomeniaBackgroundWorkAllowed -Source 'Dashboard')) {
         $script:DashboardDirty = $false
         try { Request-DomeniaDashboardRefresh } catch { }
     }
     return $script:DomeniaIdlePolicy
+}
+
+function Set-DomeniaWindowSuspended {
+    # PF-06: entering or leaving the suspension reschedules the heartbeat. On resume, the suspended subscribers are
+    # due at once: their next run measures the real Dispatcher delay, not the time spent minimized.
+    param([bool]$Suspended)
+    $was = [bool]$script:DomeniaWindowSuspended
+    $script:DomeniaWindowSuspended = $Suspended
+    if ($was -eq $Suspended -or $null -eq $script:DomeniaPulse) { return }
+    if (-not $Suspended) {
+        $now = [double]$script:DomeniaPulse.Clock.Elapsed.TotalMilliseconds
+        foreach ($timer in @($script:DomeniaPulse.Active.Values)) { if (-not [bool]$timer.RunWhenHidden -and [double]$timer.DueMs -lt $now) { $timer.DueMs = $now } }
+    }
+    Update-DomeniaPulseSchedule
 }
 
 function Initialize-DomeniaIdlePolicy {
@@ -453,6 +770,7 @@ function Initialize-DomeniaIdlePolicy {
     $Window.Add_Activated({ try { [void](Update-DomeniaIdlePolicy) } catch { } })
     $Window.Add_Deactivated({ try { [void](Update-DomeniaIdlePolicy) } catch { } })
     $Window.Add_StateChanged({ try { [void](Update-DomeniaIdlePolicy) } catch { } })
+    $Window.Add_IsVisibleChanged({ try { [void](Update-DomeniaIdlePolicy) } catch { } })
     $tabs = Get-DomeniaControl -Name 'WorkspaceTabs'
     if ($null -ne $tabs) {
         # SelectionChanged bubbles from every grid of the page: only the page selector itself counts.
@@ -466,16 +784,13 @@ function Initialize-DomeniaIdlePolicy {
 function Request-DomeniaIndexSearch {
     # TextChanged only re-arms a 250 ms timer: no SQLite access runs on the keystroke itself.
     if ($null -eq $script:DomeniaIndexSearchTimer) {
-        $timer = New-Object System.Windows.Threading.DispatcherTimer
-        $timer.Interval = [TimeSpan]::FromMilliseconds(250)
-        $timer.Add_Tick({
+        # FI-05: protected timer of the engine heartbeat, registered with its owner by the factory.
+        $script:DomeniaIndexSearchTimer = New-DomeniaTimer -Owner 'Timer:IndexSearch' -IntervalMs 250 -Tick {
             param($sender,$eventArgs)
             # Stop the timer that ticked, not the script variable (see Request-DomeniaDashboardRefresh).
             try { $sender.Stop() } catch { }
-            try { Search-DomeniaIndexUi } catch { }
-        })
-        $script:DomeniaIndexSearchTimer = $timer
-        [void](Register-DomeniaOwnedTimer -Owner 'Timer:IndexSearch' -Timer $timer)
+            Search-DomeniaIndexUi
+        }
     }
     $script:DomeniaIndexSearchTimer.Stop()
     $script:DomeniaIndexSearchTimer.Start()
