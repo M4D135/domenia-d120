@@ -253,6 +253,8 @@ function Add-DomeniaExperienceLogEntry {
         [Windows.Automation.AutomationProperties]::SetHelpText($last,$entry.Text)
         $key=switch($entry.Level){'ERROR'{'StatusError'}'WARN'{'StatusWarning'}default{'MutedColor'}}
         $last.SetResourceReference([Windows.Controls.TextBlock]::ForegroundProperty,$key)
+        # UI-13 (L08): the last line is a polite live region; warnings and errors are announced, routine lines are not.
+        if(($entry.Level -in @('WARN','ERROR')) -and ($null -ne (Get-Command -Name Send-DomeniaUxLiveChange -CommandType Function -ErrorAction SilentlyContinue))){Send-DomeniaUxLiveChange -Control $last}
     }
     if(($entry.Level -eq 'ERROR') -and [bool]$script:UiLogVisuallyCollapsed){
         $script:UiLogUnreadErrors=[int]$script:UiLogUnreadErrors+1
@@ -469,8 +471,24 @@ function Switch-DomeniaExperienceLoginTheme {
             $notice.Visibility=[Windows.Visibility]::Visible
         }
     }
+    Update-DomeniaExperienceLoginThemeIcon -Window $Window -Theme $theme
+}
+
+function Update-DomeniaExperienceLoginThemeIcon {
+    # DS-10 (L08): the login shows, like the main window, the Path icon of the theme the button switches TO (sun while
+    # dark, moon while light) and names it « Passer au thème clair / sombre ».
+    param($Window,[string]$Theme='Light')
+    if($null -eq $Window){return}
+    $toDark=($Theme -ne 'Dark')
+    $sun=$Window.FindName('LoginThemeSun');$moon=$Window.FindName('LoginThemeMoon')
+    if($null -ne $sun){$sun.Visibility=if($toDark){[Windows.Visibility]::Collapsed}else{[Windows.Visibility]::Visible}}
+    if($null -ne $moon){$moon.Visibility=if($toDark){[Windows.Visibility]::Visible}else{[Windows.Visibility]::Collapsed}}
     $button=$Window.FindName('BtnSuiteLoginTheme')
-    if($null -ne $button){$button.Content=if($theme -eq 'Dark'){'☀'}else{'☾'}}
+    if($null -ne $button){
+        $name=if($toDark){'Passer au thème sombre'}else{'Passer au thème clair'}
+        [Windows.Automation.AutomationProperties]::SetName($button,$name)
+        $button.ToolTip=$name+'. Le choix est mémorisé pour Domenia ; la connexion nʼest ni lancée ni modifiée.'
+    }
 }
 
 function Initialize-DomeniaExperienceLogin {
@@ -479,7 +497,7 @@ function Initialize-DomeniaExperienceLogin {
     $Window.Resources['Suite.Login.Attached']=$true
     $button=$Window.FindName('BtnSuiteLoginTheme')
     if($null -ne $button){
-        $button.Content=if((Get-DomeniaStoredTheme) -eq 'Dark'){'☀'}else{'☾'}
+        Update-DomeniaExperienceLoginThemeIcon -Window $Window -Theme ([string](Get-DomeniaStoredTheme))
         $button.Add_Click({param($s,$e) Switch-DomeniaExperienceLoginTheme -Window (Get-DomeniaOwningDialog $s)})
     }
     $Window.Add_Activated({param($s,$e) Update-DomeniaExperienceCapsLock $s})

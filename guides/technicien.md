@@ -7,17 +7,17 @@ Quand : avant toute intervention, vous devez retrouver un poste, un utilisateur 
 1. **Lancer Domenia.** Double-cliquez sur Domenia.exe. La fenêtre « Domenia · Connexion » s'ouvre.
 2. **Saisir le compte.** Dans « Compte Windows », tapez votre compte du domaine (DOMAINE\identifiant ou identifiant@domaine), puis le « Mot de passe ».
 3. **Se connecter.** Cliquez sur « Se connecter » ou appuyez sur Entrée. Si votre session Windows est ouverte avec votre compte du domaine, cliquez plutôt sur « Utiliser mon compte Windows ».
-4. **Attendre l'ouverture.** « Vérification du compte… » s'affiche, puis la fenêtre principale s'ouvre. Sous le titre de la page, le badge « Session AD · » donne le nom du domaine.
+4. **Attendre l'ouverture.** « Vérification du compte… » s'affiche, puis la fenêtre principale s'ouvre. Sous le titre de la page, le badge « Connecté à … » donne le nom du domaine ; le pied du menu rappelle le compte et le domaine utilisés.
 
 ![Fenêtre « Connexion à Domenia » : compte, mot de passe, « Se connecter » et « Utiliser mon compte Windows »](fig:connexion)
 
 > [!NOTE] Cochez « Mémoriser uniquement l’identifiant » pour retrouver votre identifiant la fois suivante. Le mot de passe n'est jamais enregistré.
 
-> [!RESULTAT] Domenia est ouvert avec la case « Lecture seule » cochée : vous consultez sans rien modifier.
+> [!RESULTAT] Domenia est ouvert avec l'interrupteur sur « Lecture seule » : vous consultez sans rien modifier.
 
 ## Rechercher dans tout le domaine
 
-1. **Placer le curseur.** Cliquez dans la barre du haut « Rechercher dans tout le domaine… », ou appuyez sur Ctrl+F.
+1. **Placer le curseur.** Cliquez dans la barre du haut « Personne, poste ou groupe, dans tout le domaine… », ou appuyez sur Ctrl+F. Vos dernières recherches et fiches s'affichent sous la barre ; pendant la frappe, des suggestions viennent de la base locale. La saisie seule n'interroge pas l'annuaire.
 2. **Taper le nom.** Saisissez au moins deux caractères : nom, identifiant, adresse mail ou nom de poste. Appuyez sur Entrée ou cliquez sur « Rechercher ». La page « Rechercher » affiche la liste « Résultats ».
 3. **Lire la liste.** Chaque ligne donne le « Type », le « Nom », l'« Utilisateur connecté (console) », l'« Association mémorisée » et la « Présence réseau ».
 4. **Affiner sans relancer.** Tapez quelques lettres dans « Dans les résultats » : seules les lignes qui les contiennent restent. « Effacer le filtre » réaffiche tout.
@@ -73,13 +73,13 @@ Avant de commencer :
 ## Ouvrir la fiche du poste
 
 1. **Ouvrir le poste.** Double-cliquez sur le poste dans les résultats. La page « Fiche » s'ouvre.
-2. **Passer à l'assistance.** Cliquez sur « Assistance poste » dans le menu de gauche. Cette rubrique reste grisée tant qu'aucun poste n'est sélectionné.
+2. **Passer à l'assistance.** Cliquez sur « Poste » dans le menu de gauche. Sans poste sélectionné, la page « Aucun poste ouvert » propose un champ de recherche et les derniers postes consultés.
 3. **Lire la fiche.** L'onglet « Machine » affiche la carte « Fiche du poste » : « Nom », « DNS », « Presence », « OS », « Etat », « Derniere connexion » et « Utilisateur associe ».
 4. **Trouver l'utilisateur.** Cliquez sur « Detecter l utilisateur » pour chercher le dernier utilisateur connu du poste, puis sur « Ouvrir l utilisateur » pour ouvrir sa fiche.
 
 ![Onglet « Machine » de PC-COMPTA-014 : système, présence en ligne et utilisateur associé Camille Martin](fig:fiche-poste)
 
-> [!RESULTAT] La fiche du poste est affichée dans « Assistance poste ».
+> [!RESULTAT] La fiche du poste est affichée dans « Poste ». Le titre de la page et la puce « Poste · nom » à côté du badge rappellent le poste ; ✕ le désélectionne.
 
 ## Utiliser les outils du poste
 
@@ -124,7 +124,7 @@ Quand : vous avez besoin du matériel, du système, des disques ou de la configu
 
 | Vous voyez | Que faire |
 |---|---|
-| « Assistance poste » est grisé dans le menu | L'objet sélectionné n'est pas un poste. Sélectionnez un poste dans « Rechercher ». |
+| « Poste » affiche « Aucun poste ouvert » | L'objet sélectionné n'est pas un poste. Sélectionnez un poste dans « Rechercher » ou dans « Derniers postes consultés ». |
 | Une erreur qui commence par « Ouvrir C$ de » | Lisez le motif. Poste injoignable : vérifiez-le avec « Ping ». Accès refusé : utilisez le compte fourni pour les postes. Sinon, prévenez l'administrateur. |
 | « Console ouverte avec la session Windows : » suivi d'un motif | La console utilise votre session Windows et peut être refusée par le poste. Saisissez le compte fourni pour les postes, puis rouvrez la console. |
 | « Inventaire impossible : » suivi d'un motif | Lancez « Ping ». Si le poste répond, prévenez l'administrateur (chapitre 8). |
@@ -133,7 +133,7 @@ Quand : vous avez besoin du matériel, du système, des disques ou de la configu
 
 Quand : vous voulez voir d'un coup d'œil l'état d'un poste et ses points à vérifier.
 
-1. **Ouvrir l'onglet.** Dans « Assistance poste », cliquez sur l'onglet « Tableau de bord ». La carte « Tableau de bord du poste » s'affiche.
+1. **Ouvrir l'onglet.** Dans « Poste », cliquez sur l'onglet « Tableau de bord ». La carte « Tableau de bord du poste » s'affiche.
 2. **Remplir le tableau.** Cliquez sur « Inventaire rapide ». Pour les processus les plus gourmands et les erreurs du journal Système, cliquez sur « Inventaire complet », plus long. Un inventaire de l'onglet « Inventaire » remplit aussi ce tableau.
 3. **Lire l'état général.** En haut, « Etat general » donne un score sur 100 et un verdict : « Bon etat », « A surveiller », « Degrade » ou « Critique ».
 4. **Lire les points d'attention.** « Points d attention » liste les problèmes trouvés, du plus grave au moins grave. « Rien a signaler » : aucun point à vérifier.
@@ -187,7 +187,7 @@ Quand : vous cherchez sur quel poste travaille un utilisateur, ou quels postes d
 
 > [!ASTUCE] Pour un seul poste, cliquez sur sa ligne, ou sur « Revérifier ce poste » pour recommencer. Décochez « Utilisateur au clic » pour un ping seul.
 
-> [!NOTE] Les sessions Bureau à distance ne sont pas recensées : utilisez l'onglet « Sessions Windows » de « Assistance poste », bouton « Lire les sessions ».
+> [!NOTE] Les sessions Bureau à distance ne sont pas recensées : utilisez l'onglet « Sessions Windows » de « Poste », bouton « Lire les sessions ».
 
 > [!RESULTAT] Pour chaque poste affiché, vous savez s'il répond et qui est connecté sur son écran.
 
@@ -309,7 +309,7 @@ Quand : vous voulez garder sous les yeux les informations utiles. Chaque tuile o
 
 Quand : vous devez savoir si un logiciel est installé sur un poste, dans quelle version et pour qui.
 
-1. **Ouvrir l'onglet.** Dans « Assistance poste », cliquez sur l'onglet « Logiciels ». La carte « Logiciels installes » s'affiche.
+1. **Ouvrir l'onglet.** Dans « Poste », cliquez sur l'onglet « Logiciels ». La carte « Logiciels installes » s'affiche.
 2. **Choisir l'étendue.** « Par utilisateur », cochée par défaut, ajoute les logiciels de chaque profil. Cochez « Applications Store » pour le Microsoft Store (plus long), « Mises a jour » pour les correctifs et composants système.
 3. **Charger.** Cliquez sur « Charger les logiciels ». Chaque ligne donne le « Nom », la « Version », l'« Editeur », « Installe le », la « Taille » et la « Portee ».
 4. **Chercher un logiciel.** Tapez une partie du nom, de l'éditeur ou de la version dans « Filtre ». « Portee » limite la liste à « Machine », « Utilisateur » ou « Store ».
@@ -361,13 +361,13 @@ Donnez-lui ces éléments :
 
 ## La fenêtre de Domenia
 
-- **Menu de gauche** : « Accueil », « Rechercher », « Fiche », « Assistance poste » (pour un poste), « Relations » (associations utilisateur et poste), « Comptes », « Outils ». « Réduire le menu » le replie en icônes.
-- **Bandeau** : flèches de navigation, barre « Rechercher dans tout le domaine… », « Ctrl + K » pour la palette des actions, thème clair ou sombre, « ? » pour l'aide.
-- **Case « Lecture seule »** : cochée à chaque démarrage. Les actions qui modifient l'annuaire ou les postes restent bloquées.
+- **Menu de gauche** : en haut « Accueil », « Rechercher », « Fiche », « Poste », « Utilisateurs et postes » (associations utilisateur et poste) ; en bas « Comptes », « Outils », le choix « Essentiel | Expert », le compte et le domaine connectés (menu « Changer de compte », « À propos ») et la petite icône qui replie le menu. Sous 1280 de large, le menu se replie seul sans changer votre choix.
+- **Bandeau** : barre « Personne, poste ou groupe, dans tout le domaine… » avec sa loupe, ✕ pour la vider et l'indication « Ctrl K » pour la palette des actions ; boutons-icônes « Accès » et « Opérations » (pastille au-dessus de zéro), thème (l'icône montre le thème obtenu), « ? » pour l'aide. Les flèches Précédent et Suivant sont à gauche du titre de la page.
+- **Interrupteur « Lecture seule »** : actif à chaque démarrage. Les actions qui modifient l'annuaire ou les postes restent bloquées.
 - **Aide** : « ? » ouvre l'« Aide contextuelle » à droite. Survolez un contrôle, ou passez dessus avec Tab, pour lire son rôle.
 - **Journal de session** : en bas de la fenêtre, messages, résultats et erreurs de la session ; « Copier » le copie.
 
-> [!ATTENTION] Le bandeau rouge « MODE ECRITURE AD ACTIF » signale que « Lecture seule » est décochée. Recochez-la si aucune intervention en écriture n'est prévue.
+> [!ATTENTION] L'interrupteur rouge « Écriture active · 12 min » et le cadre rouge de la fenêtre signalent que les modifications sont autorisées. Cliquez sur « Repasser en lecture » si aucune intervention en écriture n'est prévue ; sinon la lecture seule revient seule après 15 minutes sans écriture.
 
 ## Raccourcis clavier
 
@@ -377,12 +377,14 @@ Donnez-lui ces éléments :
 | Entrée | Dans la barre : lancer la recherche. Sur une ligne de résultat : ouvrir la fiche. |
 | Échap | Dans la barre : vider le texte et les résultats. Dans une demande de confirmation : répondre « Annuler ». |
 | Ctrl+D | Ouvrir l'« Accueil » |
+| Ctrl+K | Ouvrir la palette des actions |
+| Ctrl+L | Déplier le journal de session (profil Essentiel) ; ouvrir « Outils », onglet « Journal » (profil Expert). Le profil ne change jamais. |
 | Ctrl+I | Ouvrir « Outils », onglet « Base autonome » |
 
 ## Avant une intervention
 
 - Notez le nom du poste, l'utilisateur concerné et la référence du ticket.
-- Vérifiez le badge « Session AD · » : c'est le bon domaine.
+- Vérifiez le badge « Connecté à … » : c'est le bon domaine.
 - Vérifiez que le poste répond (« Ping ») avant d'ouvrir C$ ou une console.
 - Prévenez l'utilisateur avant de prendre la main en Bureau à distance.
 

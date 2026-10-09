@@ -922,15 +922,15 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnWindowsLogin" = "Default"
     "TxtLoginTechnical" = "Default"
     "BtnCopyLoginDiag" = "Default"
-    "CmbUiProfile" = "Default"
+    "LstUiProfile" = "Default"
     "CmbPresenceFilter" = "Default"
     "TxtUiLog" = "Default"
     "BtnClearUiLog" = "Default"
     "TxtCompPresence" = "Default"
     "TxtUserPresence" = "Default"
     "BtnThemeToggle" = "Default"
-    "ThemeIconCircle" = "Default"
-    "ThemeIconGlyph" = "Default"
+    "ThemeIconSun" = "Default"
+    "ThemeIconMoon" = "Default"
     "LogPanel" = "Default"
     "LogGridSplitter" = "Default"
     "LstUiLogReadable" = "Default"
@@ -940,6 +940,15 @@ $script:GuiElementPolicy = [ordered]@{
     "UiLogErrorBadge" = "Default"
     "UiLogUnavailableBadge" = "Default"
     "DomeniaBannerHost" = "Default"
+    # L08: search bar, header subject, read-only switch, menu foot and empty Fiche / Poste pages.
+    "BtnGlobalSearchClear" = "Default"
+    "UxSearchSuggest" = "Default"
+    "BtnUxSubjectClear" = "Default"
+    "BtnReadOnlyResume" = "Default"
+    "BtnUxNavAccount" = "Default"
+    "UxAboutPanel" = "Default"
+    "ObjectEmptyState" = "Default"
+    "ComputerEmptyState" = "Default"
 
 }
 
@@ -2646,22 +2655,25 @@ function Save-DomeniaUiProfile {
 }
 
 function Apply-DomeniaUiProfile {
+    # Explicit choice of the operator only (segmented choice of the menu foot, UI-30). L08 (CO-06): no shortcut, menu
+    # or palette calls it. SP-13: when UI.AllowExpertProfile is false, Expert is never applied.
     param([ValidateSet('Tech','Admin')][string]$Profile = $script:CurrentUiProfile)
+    if ($Profile -eq 'Admin' -and -not (Test-DomeniaUxExpertAllowed)) { $Profile = 'Tech' }
     Save-DomeniaUiProfile -Profile $Profile
     Update-DomeniaUxProfileVisibility
     # UI-22: readable journal in Essentiel, raw format and engine state in Expert.
     try { Update-DomeniaExperienceLogView } catch { }
-    $combo = Get-DomeniaControl -Name 'CmbUiProfile'
-    if ($null -ne $combo) {
-        foreach ($item in @($combo.Items)) {
-            if ([string]$item.Tag -eq $Profile) { $combo.SelectedItem=$item;break }
+    $segment = Get-DomeniaControl -Name 'LstUiProfile'
+    if ($null -ne $segment) {
+        foreach ($item in @($segment.Items)) {
+            if ([string]$item.Tag -eq $Profile) { $segment.SelectedItem=$item;break }
         }
     }
     Apply-DomeniaGuiElementPolicy
     Sync-DomeniaUxNavigation
     $profileLabel=if($Profile -eq 'Tech'){'Essentiel'}else{'Expert'}
     Add-DomeniaUiLog -Area 'Interface' -Text ('Profil interface : '+$profileLabel)
-    Set-Status ('Interface '+$profileLabel+' active. Les droits ne sont pas modifies.')
+    Set-Status ('Profil '+$profileLabel+' affiché. Les droits ne sont pas modifiés.')
 }
 
 function Get-DomeniaPingState {
@@ -3248,6 +3260,8 @@ function Get-DomeniaDefaultSettings {
         UxLogWrap = $false
         UxLogFontSize = 11
         UxDensity = "Confort"
+        # L08 (FO-03, UX-09): the 8 latest searches and fiches of the top bar, local memory only (JSON list, no secret).
+        UxRecentJson = '[]'
         Theme            = "Light"
         UiProfile        = "Tech"
         Workspace        = "TabDashboard"
@@ -3836,39 +3850,17 @@ function Apply-DomeniaTheme {
                 [System.Windows.Media.Brush]$window.Resources["BorderColor"]
         }
 
+        # DS-10 (L08): Path icons, the icon of the theme the button switches to (sun while dark, moon while light).
         $button = Get-DomeniaControl -Name "BtnThemeToggle"
-        $circle = Get-DomeniaControl -Name "ThemeIconCircle"
-        $glyph = Get-DomeniaControl -Name "ThemeIconGlyph"
-
-        if ($Theme -eq "Dark") {
-            if ($null -ne $circle) {
-                $circle.Fill = [System.Windows.Media.Brushes]::Transparent
-                $circle.Stroke = [System.Windows.Media.Brushes]::Transparent
-            }
-
-            if ($null -ne $glyph) {
-                $glyph.Text = "🌙"
-                $glyph.FontFamily = New-Object System.Windows.Media.FontFamily("Segoe UI Emoji")
-            }
-
-            if ($null -ne $button) {
-                $button.ToolTip = "Passer au theme clair."
-            }
-        }
-        else {
-            if ($null -ne $circle) {
-                $circle.Fill = [System.Windows.Media.Brushes]::Transparent
-                $circle.Stroke = [System.Windows.Media.Brushes]::Transparent
-            }
-
-            if ($null -ne $glyph) {
-                $glyph.Text = "🌞"
-                $glyph.FontFamily = New-Object System.Windows.Media.FontFamily("Segoe UI Emoji")
-            }
-
-            if ($null -ne $button) {
-                $button.ToolTip = "Passer au theme sombre."
-            }
+        $sun = Get-DomeniaControl -Name "ThemeIconSun"
+        $moon = Get-DomeniaControl -Name "ThemeIconMoon"
+        $toDark = ($Theme -ne "Dark")
+        if ($null -ne $sun) { $sun.Visibility = if ($toDark) { [System.Windows.Visibility]::Collapsed } else { [System.Windows.Visibility]::Visible } }
+        if ($null -ne $moon) { $moon.Visibility = if ($toDark) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed } }
+        if ($null -ne $button) {
+            $toggleName = if ($toDark) { "Passer au thème sombre" } else { "Passer au thème clair" }
+            $button.ToolTip = $toggleName + ". Le choix est enregistré pour Domenia."
+            [System.Windows.Automation.AutomationProperties]::SetName($button,$toggleName)
         }
 
         if ($null -ne $button) {
@@ -3921,7 +3913,7 @@ function Toggle-DomeniaTheme {
 
 function Get-MainXaml {
 @"
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Domenia 1.0" Height="960" Width="1600" MinHeight="500" MinWidth="960" WindowStartupLocation="CenterScreen" FontFamily="Segoe UI Variable, Segoe UI" FontSize="13" Background="{DynamicResource WindowBg}" Foreground="{DynamicResource TextColor}" UseLayoutRounding="True">
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Domenia" Height="960" Width="1600" MinHeight="500" MinWidth="960" WindowStartupLocation="CenterScreen" FontFamily="Segoe UI Variable, Segoe UI" FontSize="13" Background="{DynamicResource WindowBg}" Foreground="{DynamicResource TextColor}" UseLayoutRounding="True">
   <Window.Resources>
     <SolidColorBrush x:Key="UxSidebar" Color="#EEF3FA"/>
     <SolidColorBrush x:Key="BgCard" Color="#FFFFFF"/>
@@ -4454,15 +4446,20 @@ function Get-MainXaml {
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="Button">
-            <Border x:Name="UxNavBorder" CornerRadius="10" Background="{TemplateBinding Background}" BorderBrush="{DynamicResource AccentColor}" BorderThickness="0" Padding="{TemplateBinding Padding}">
-              <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center" TextElement.Foreground="{TemplateBinding Foreground}"/>
-            </Border>
+            <Grid>
+              <Border x:Name="UxNavBorder" CornerRadius="10" Background="{TemplateBinding Background}" BorderBrush="{DynamicResource AccentColor}" BorderThickness="0" Padding="{TemplateBinding Padding}">
+                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center" TextElement.Foreground="{TemplateBinding Foreground}"/>
+              </Border>
+              <!-- DS-12: accent bar on the left of the active page. -->
+              <Border x:Name="UxNavAccent" Width="3" CornerRadius="1.5" HorizontalAlignment="Left" Margin="0,10" Background="{DynamicResource AccentColor}" Visibility="Collapsed" IsHitTestVisible="False"/>
+            </Grid>
             <ControlTemplate.Triggers>
               <Trigger Property="IsMouseOver" Value="True">
                 <Setter TargetName="UxNavBorder" Property="Background" Value="{DynamicResource AccentSoft}"/>
               </Trigger>
               <Trigger Property="Tag" Value="Active">
                 <Setter TargetName="UxNavBorder" Property="Background" Value="{DynamicResource RowSelBg}"/>
+                <Setter TargetName="UxNavAccent" Property="Visibility" Value="Visible"/>
                 <Setter Property="Foreground" Value="{DynamicResource AccentText}"/>
                 <Setter Property="FontWeight" Value="SemiBold"/>
               </Trigger>
@@ -4474,6 +4471,79 @@ function Get-MainXaml {
               </Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <!-- L08: 40-unit icon buttons of the top bar (DS-01), borderless small buttons (clear, Ctrl K, menu fold) and the
+         Essentiel | Expert segmented choice of the menu foot (UI-30). -->
+    <Style x:Key="UxIconButton" TargetType="Button" BasedOn="{StaticResource BaseButton}">
+      <Setter Property="Width" Value="40"/>
+      <Setter Property="MinWidth" Value="40"/>
+      <Setter Property="Height" Value="40"/>
+      <Setter Property="MinHeight" Value="40"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="Margin" Value="0,0,6,0"/>
+    </Style>
+    <Style x:Key="UxGhostButton" TargetType="Button" BasedOn="{StaticResource BaseButton}">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderBrush" Value="Transparent"/>
+      <Setter Property="Foreground" Value="{DynamicResource MutedColor}"/>
+      <Setter Property="MinHeight" Value="24"/>
+      <Setter Property="Padding" Value="6,2"/>
+      <Setter Property="Margin" Value="0"/>
+    </Style>
+    <Style x:Key="UxSegment" TargetType="ListBox">
+      <Setter Property="Background" Value="{DynamicResource BgInput}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderColor}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Padding" Value="2"/>
+      <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+      <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ListBox">
+            <Border CornerRadius="9" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}">
+              <ItemsPresenter/>
+            </Border>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+      <Setter Property="ItemsPanel">
+        <Setter.Value>
+          <ItemsPanelTemplate>
+            <UniformGrid Rows="1"/>
+          </ItemsPanelTemplate>
+        </Setter.Value>
+      </Setter>
+      <Setter Property="ItemContainerStyle">
+        <Setter.Value>
+          <Style TargetType="ListBoxItem">
+            <Setter Property="Foreground" Value="{DynamicResource TextColor}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+              <Setter.Value>
+                <ControlTemplate TargetType="ListBoxItem">
+                  <Border x:Name="UxSegmentItem" CornerRadius="7" Background="Transparent" Padding="6,5" BorderThickness="0" BorderBrush="{DynamicResource AccentText}">
+                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" TextElement.Foreground="{TemplateBinding Foreground}"/>
+                  </Border>
+                  <ControlTemplate.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                      <Setter TargetName="UxSegmentItem" Property="Background" Value="{DynamicResource AccentSoft}"/>
+                    </Trigger>
+                    <Trigger Property="IsSelected" Value="True">
+                      <Setter TargetName="UxSegmentItem" Property="Background" Value="{DynamicResource AccentColor}"/>
+                      <Setter Property="Foreground" Value="White"/>
+                      <Setter Property="FontWeight" Value="SemiBold"/>
+                    </Trigger>
+                    <Trigger Property="IsKeyboardFocused" Value="True">
+                      <Setter TargetName="UxSegmentItem" Property="BorderThickness" Value="2"/>
+                    </Trigger>
+                  </ControlTemplate.Triggers>
+                </ControlTemplate>
+              </Setter.Value>
+            </Setter>
+          </Style>
         </Setter.Value>
       </Setter>
     </Style>
@@ -4514,6 +4584,8 @@ function Get-MainXaml {
           <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
         <Border x:Name="UxSidebar" Grid.Column="0" Background="{DynamicResource UxSidebar}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="0,0,1,0" Padding="10" ClipToBounds="True">
+          <!-- L08 (DS-12): work pages at the top, Comptes and Outils at the bottom, then the profile switch, the account
+               in use with its menu (change of account, À propos with the version) and the small fold toggle. -->
           <DockPanel LastChildFill="True">
             <StackPanel DockPanel.Dock="Top">
               <StackPanel Margin="8,8,0,14" x:Name="UxBrandExpanded">
@@ -4524,16 +4596,44 @@ function Get-MainXaml {
                 <TextBlock Text="Votre console d’assistance" FontSize="11" Foreground="{DynamicResource MutedColor}" Margin="0,5,0,0"/>
               </StackPanel>
               <TextBlock Text="D" FontSize="19" FontWeight="Bold" Foreground="{DynamicResource AccentText}" HorizontalAlignment="Center" Margin="0,10,0,10" Visibility="Collapsed" x:Name="UxBrandCompact"/>
-              <Button x:Name="BtnUxSidebarToggle" Height="36" MinHeight="36" Margin="0,0,0,12" Padding="9,4" HorizontalContentAlignment="Stretch" ToolTip="Replie le menu de gauche en icônes. Les rubriques, les aides au survol et la sélection restent accessibles. Cliquez à nouveau pour afficher les libellés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Réduire ou déployer le menu" AutomationProperties.HelpText="Replie le menu de gauche en icônes. Les rubriques, les aides au survol et la sélection restent accessibles. Cliquez à nouveau pour afficher les libellés.">
-                <StackPanel Orientation="Horizontal" x:Name="UxSidebarToggleContent">
-                  <Path x:Name="UxSidebarToggleGlyph" Data="M2,2 L20,2 20,18 2,18 Z M8,2 L8,18 M16,6 L12,10 16,14" Width="20" Height="20" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.6" Margin="0,0,10,0" VerticalAlignment="Center"/>
-                  <TextBlock x:Name="UxSidebarToggleLabel" Text="Réduire le menu" FontSize="12" VerticalAlignment="Center"/>
+            </StackPanel>
+            <StackPanel DockPanel.Dock="Bottom" x:Name="UxNavBottom">
+              <Border Height="1" Background="{DynamicResource BorderColor}" Margin="6,6,6,6" x:Name="UxNavBottomRule"/>
+              <Button Style="{StaticResource UxNavButton}" ToolTip="Ouvrir : Comptes." Uid="TabAccounts" x:Name="BtnUxNavAccounts" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Comptes" AutomationProperties.HelpText="Ouvrir : Comptes." Padding="10,10" MinHeight="44">
+                <StackPanel Orientation="Horizontal" x:Name="UxNavContentAccounts" HorizontalAlignment="Left">
+                  <Path Data="M2,5 L22,5 22,19 2,19 Z M11.5,10 A2.5,2.5 0 1 1 6.5,10 A2.5,2.5 0 1 1 11.5,10 M5,16.5 C5.5,13.5 12.5,13.5 13,16.5 M15,10 L19,10 M15,14 L19,14" Width="20" Height="20" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,10,0" IsHitTestVisible="False" x:Name="UxNavIconAccounts"/>
+                  <TextBlock Text="Comptes" VerticalAlignment="Center" x:Name="UxNavLabelAccounts" TextTrimming="CharacterEllipsis"/>
                 </StackPanel>
               </Button>
-            </StackPanel>
-            <StackPanel DockPanel.Dock="Bottom" Margin="8,12,0,6" x:Name="UxNavFooter">
-              <TextBlock Text="DOMENIA 1.0 · RC1.13.0" Foreground="{DynamicResource MutedColor}" FontSize="11"/>
-              <TextBlock Text="Les actions restent sous votre contrôle." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="11" Margin="0,6,0,0"/>
+              <Button Style="{StaticResource UxNavButton}" ToolTip="Ouvrir : Outils." Uid="TabApplicationTools" x:Name="BtnUxNavTools" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Outils" AutomationProperties.HelpText="Ouvrir : Outils." Padding="10,10" MinHeight="44">
+                <StackPanel Orientation="Horizontal" x:Name="UxNavContentTools" HorizontalAlignment="Left">
+                  <Path Data="M4,3 L9,8 7,12 3,10 Q1,18 10,18 L18,25 23,20 16,13 Q17,4 9,3" Width="20" Height="20" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,10,0" IsHitTestVisible="False" x:Name="UxNavIconTools"/>
+                  <TextBlock Text="Outils" VerticalAlignment="Center" x:Name="UxNavLabelTools" TextTrimming="CharacterEllipsis"/>
+                </StackPanel>
+              </Button>
+              <StackPanel x:Name="UxNavFooter" Margin="0,10,0,0">
+                <ListBox x:Name="LstUiProfile" Style="{StaticResource UxSegment}" Margin="2,0,2,0" ToolTip="Essentiel affiche les vues du quotidien. Expert ajoute les attributs, les permissions et WMI. Ce choix ne donne aucun droit supplémentaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Niveau de détail" AutomationProperties.HelpText="Essentiel affiche les vues du quotidien. Expert ajoute les attributs, les permissions et WMI. Ce choix ne donne aucun droit supplémentaire.">
+                  <ListBoxItem Content="Essentiel" Tag="Tech" IsSelected="True" x:Name="LstUiProfileTech" AutomationProperties.Name="Profil Essentiel"/>
+                  <ListBoxItem Content="Expert" Tag="Admin" x:Name="LstUiProfileExpert" AutomationProperties.Name="Profil Expert"/>
+                </ListBox>
+                <Button x:Name="BtnUxNavAccount" Style="{StaticResource UxNavButton}" Margin="0,8,0,0" Padding="10,6" MinHeight="44" ToolTip="Compte et domaine utilisés pour lʼannuaire. Cliquez pour changer de compte ou lire « À propos »." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Compte connecté" AutomationProperties.HelpText="Compte et domaine utilisés pour lʼannuaire. Cliquez pour changer de compte ou lire « À propos ».">
+                  <StackPanel IsHitTestVisible="False">
+                    <TextBlock x:Name="LblUxNavAccount" Text="Compte en préparation" FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock x:Name="LblUxNavDomain" Text="Domaine non connecté" FontSize="11" Foreground="{DynamicResource MutedColor}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
+                  </StackPanel>
+                </Button>
+                <Border x:Name="UxAboutPanel" Visibility="Collapsed" Margin="10,6,0,0">
+                  <StackPanel>
+                    <TextBlock Text="DOMENIA 1.0 · RC1.13.0" Foreground="{DynamicResource MutedColor}" FontSize="11"/>
+                    <TextBlock Text="Les actions restent sous votre contrôle." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="11" Margin="0,4,0,0"/>
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+              <Button x:Name="BtnUxSidebarToggle" Style="{StaticResource UxGhostButton}" Width="32" MinWidth="32" Height="32" MinHeight="32" Padding="0" Margin="4,8,0,2" HorizontalAlignment="Left" ToolTip="Replie le menu de gauche en icônes. Les rubriques, les aides au survol et la sélection restent accessibles. Cliquez à nouveau pour afficher les libellés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Réduire ou déployer le menu" AutomationProperties.HelpText="Replie le menu de gauche en icônes. Les rubriques, les aides au survol et la sélection restent accessibles. Cliquez à nouveau pour afficher les libellés.">
+                <StackPanel Orientation="Horizontal" x:Name="UxSidebarToggleContent">
+                  <Path x:Name="UxSidebarToggleGlyph" Data="M2,2 L20,2 20,18 2,18 Z M8,2 L8,18 M16,6 L12,10 16,14" Width="18" Height="18" Stretch="Uniform" Stroke="{DynamicResource MutedColor}" StrokeThickness="1.6" VerticalAlignment="Center"/>
+                </StackPanel>
+              </Button>
             </StackPanel>
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
               <StackPanel x:Name="UxNavigation">
@@ -4555,34 +4655,22 @@ function Get-MainXaml {
                     <TextBlock Text="Fiche" VerticalAlignment="Center" x:Name="UxNavLabelObject" TextTrimming="CharacterEllipsis"/>
                   </StackPanel>
                 </Button>
-                <Button Style="{StaticResource UxNavButton}" ToolTip="Ouvrir : Assistance poste." Uid="WsComputer" x:Name="BtnUxNavComputer" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Assistance poste" AutomationProperties.HelpText="Ouvrir : Assistance poste." Padding="10,10" MinHeight="44">
+                <Button Style="{StaticResource UxNavButton}" ToolTip="Ouvrir : Poste." Uid="WsComputer" x:Name="BtnUxNavComputer" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Poste" AutomationProperties.HelpText="Ouvrir : Poste." Padding="10,10" MinHeight="44">
                   <StackPanel Orientation="Horizontal" x:Name="UxNavContentComputer" HorizontalAlignment="Left">
                     <Path Data="M2,3 L23,3 23,18 2,18 Z M12,18 L12,23 M7,23 L18,23" Width="20" Height="20" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,10,0" IsHitTestVisible="False" x:Name="UxNavIconComputer"/>
-                    <TextBlock Text="Assistance poste" VerticalAlignment="Center" x:Name="UxNavLabelComputer" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Text="Poste" VerticalAlignment="Center" x:Name="UxNavLabelComputer" TextTrimming="CharacterEllipsis"/>
                   </StackPanel>
                 </Button>
-                <Button Style="{StaticResource UxNavButton}" ToolTip="Ouvrir : Relations." Uid="TabRelations" x:Name="BtnUxNavRelations" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Relations" AutomationProperties.HelpText="Ouvrir : Relations." Padding="10,10" MinHeight="44">
+                <Button Style="{StaticResource UxNavButton}" ToolTip="Ouvrir : Utilisateurs et postes." Uid="TabRelations" x:Name="BtnUxNavRelations" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Utilisateurs et postes" AutomationProperties.HelpText="Ouvrir : Utilisateurs et postes." Padding="10,10" MinHeight="44">
                   <StackPanel Orientation="Horizontal" x:Name="UxNavContentRelations" HorizontalAlignment="Left">
                     <Path Data="M10,8 L14,4 C19,-1 27,7 21,12 L16,17 M14,16 L10,21 C5,26 -3,18 3,12 L8,7 M8,16 L16,8" Width="20" Height="20" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,10,0" IsHitTestVisible="False" x:Name="UxNavIconRelations"/>
-                    <TextBlock Text="Relations" VerticalAlignment="Center" x:Name="UxNavLabelRelations" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Text="Utilisateurs et postes" VerticalAlignment="Center" x:Name="UxNavLabelRelations" TextTrimming="CharacterEllipsis"/>
                   </StackPanel>
                 </Button>
                 <Button Style="{StaticResource UxNavButton}" Visibility="Collapsed" ToolTip="Ouvrir : Atelier support." Uid="TabSupport" x:Name="BtnUxNavSupport" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Atelier support" AutomationProperties.HelpText="Ouvrir : Atelier support." Padding="10,10" MinHeight="44">
                   <StackPanel Orientation="Horizontal" x:Name="UxNavContentSupport" HorizontalAlignment="Left">
                     <Path Data="M4,7 L20,7 20,23 4,23 Z M8,7 L8,3 16,3 16,7 M8,12 L16,12 M8,16 L16,16" Width="20" Height="20" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,10,0" IsHitTestVisible="False" x:Name="UxNavIconSupport"/>
                     <TextBlock Text="Atelier support" VerticalAlignment="Center" x:Name="UxNavLabelSupport" TextTrimming="CharacterEllipsis"/>
-                  </StackPanel>
-                </Button>
-                <Button Style="{StaticResource UxNavButton}" ToolTip="Ouvrir : Comptes." Uid="TabAccounts" x:Name="BtnUxNavAccounts" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Comptes" AutomationProperties.HelpText="Ouvrir : Comptes." Padding="10,10" MinHeight="44">
-                  <StackPanel Orientation="Horizontal" x:Name="UxNavContentAccounts" HorizontalAlignment="Left">
-                    <Path Data="M12,2 L22,6 21,16 Q18,22 12,25 Q6,22 3,16 L2,6 Z M7,13 L11,17 18,9" Width="20" Height="20" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,10,0" IsHitTestVisible="False" x:Name="UxNavIconAccounts"/>
-                    <TextBlock Text="Comptes" VerticalAlignment="Center" x:Name="UxNavLabelAccounts" TextTrimming="CharacterEllipsis"/>
-                  </StackPanel>
-                </Button>
-                <Button Style="{StaticResource UxNavButton}" ToolTip="Ouvrir : Outils." Uid="TabApplicationTools" x:Name="BtnUxNavTools" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Outils" AutomationProperties.HelpText="Ouvrir : Outils." Padding="10,10" MinHeight="44">
-                  <StackPanel Orientation="Horizontal" x:Name="UxNavContentTools" HorizontalAlignment="Left">
-                    <Path Data="M4,3 L9,8 7,12 3,10 Q1,18 10,18 L18,25 23,20 16,13 Q17,4 9,3" Width="20" Height="20" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,10,0" IsHitTestVisible="False" x:Name="UxNavIconTools"/>
-                    <TextBlock Text="Outils" VerticalAlignment="Center" x:Name="UxNavLabelTools" TextTrimming="CharacterEllipsis"/>
                   </StackPanel>
                 </Button>
               </StackPanel>
@@ -4597,25 +4685,27 @@ function Get-MainXaml {
             <RowDefinition Height="8"/>
             <RowDefinition x:Name="UxLogRow" Height="142" MinHeight="42"/>
           </Grid.RowDefinitions>
-          <Grid x:Name="UxHeader" Grid.Row="0" Margin="0,0,0,10">
+          <!-- L08: above the page so that the suggestions of the search bar open over it without moving anything. -->
+          <Grid x:Name="UxHeader" Grid.Row="0" Margin="0,0,0,10" Panel.ZIndex="10">
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="*"/>
               <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <Grid Margin="0,0,12,0" HorizontalAlignment="Stretch">
               <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
+                <!-- UI-05: the search field keeps at least 280 units; the icon buttons on the right have fixed slots (D082). -->
+                <ColumnDefinition Width="*" MinWidth="280"/>
                 <ColumnDefinition Width="Auto"/>
               </Grid.ColumnDefinitions>
-              <Grid>
-                <TextBox x:Name="TxtGlobalSearch" ToolTip="Recherche globale dans tout le domaine : personne, compte, mail ou poste. L’OU et les filtres de la liste sont ignorés. La limite de résultats reste appliquée." Margin="0" MinHeight="42" Padding="12,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher" AutomationProperties.HelpText="Recherche globale dans tout le domaine : personne, compte, mail ou poste. L’OU et les filtres de la liste sont ignorés. La limite de résultats reste appliquée.">
+              <Grid x:Name="UxSearchBox">
+                <TextBox x:Name="TxtGlobalSearch" ToolTip="Recherche globale dans tout le domaine : personne, compte, mail ou poste. L’OU et les filtres de la liste sont ignorés. La limite de résultats reste appliquée." Margin="0" MinHeight="42" Padding="34,8,92,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher" AutomationProperties.HelpText="Recherche globale dans tout le domaine : personne, compte, mail ou poste. L’OU et les filtres de la liste sont ignorés. La limite de résultats reste appliquée.">
                   <TextBox.Template>
                     <ControlTemplate TargetType="TextBox">
                       <Border x:Name="UxSearchBorder" CornerRadius="7" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
                         <Grid ClipToBounds="True">
                           <ScrollViewer x:Name="PART_ContentHost" Margin="0"/>
                           <Border Margin="{TemplateBinding Padding}" IsHitTestVisible="False">
-                            <TextBlock x:Name="UxSearchPlaceholder" Text="Rechercher dans tout le domaine…" Visibility="Collapsed" Margin="{Binding Content.Margin, ElementName=PART_ContentHost}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" FontFamily="{TemplateBinding FontFamily}" FontSize="{TemplateBinding FontSize}" FontWeight="{TemplateBinding FontWeight}" FontStyle="{TemplateBinding FontStyle}" FontStretch="{TemplateBinding FontStretch}" TextAlignment="{TemplateBinding TextAlignment}" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" IsHitTestVisible="False"/>
+                            <TextBlock x:Name="UxSearchPlaceholder" Text="Personne, poste ou groupe, dans tout le domaine…" Visibility="Collapsed" Margin="{Binding Content.Margin, ElementName=PART_ContentHost}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" FontFamily="{TemplateBinding FontFamily}" FontSize="{TemplateBinding FontSize}" FontWeight="{TemplateBinding FontWeight}" FontStyle="{TemplateBinding FontStyle}" FontStretch="{TemplateBinding FontStretch}" TextAlignment="{TemplateBinding TextAlignment}" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" IsHitTestVisible="False"/>
                           </Border>
                         </Grid>
                       </Border>
@@ -4627,36 +4717,66 @@ function Get-MainXaml {
                     </ControlTemplate>
                   </TextBox.Template>
                 </TextBox>
+                <!-- FO-03: magnifier, clear button and the "Ctrl K" hint live inside the field; typing never queries AD. -->
+                <Path x:Name="UxSearchGlyph" Data="M17,17 L23,23 M20,11 A9,9 0 1 1 2,11 A9,9 0 1 1 20,11" Width="16" Height="16" Stretch="Uniform" Stroke="{DynamicResource MutedColor}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="12,0,0,0" IsHitTestVisible="False"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0">
+                  <Button x:Name="BtnGlobalSearchClear" Style="{StaticResource UxGhostButton}" Width="26" MinWidth="26" Height="26" MinHeight="26" Padding="0" Margin="0,0,4,0" Visibility="Collapsed" ToolTip="Vide le champ de recherche. Les résultats affichés et lʼOU restent inchangés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vider la recherche" AutomationProperties.HelpText="Vide le champ de recherche. Les résultats affichés et lʼOU restent inchangés.">
+                    <Path Data="M6,6 L18,18 M18,6 L6,18" Width="10" Height="10" Stretch="Uniform" Stroke="{DynamicResource MutedColor}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" IsHitTestVisible="False"/>
+                  </Button>
+                  <Button x:Name="BtnCommandPalette" Content="Ctrl K" Style="{StaticResource UxGhostButton}" Height="26" MinHeight="26" MinWidth="50" Padding="6,0" FontSize="11" ToolTip="Ouvre la palette des actions disponibles. Raccourci Windows : Ctrl+K." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Palette de commandes" AutomationProperties.HelpText="Ouvre la palette des actions disponibles. Raccourci Windows : Ctrl+K."/>
+                </StackPanel>
+                <Canvas x:Name="UxSearchSuggestHost" Height="0" VerticalAlignment="Bottom" ClipToBounds="False">
+                  <Border x:Name="UxSearchSuggest" Canvas.Top="4" Visibility="Collapsed" Width="{Binding ActualWidth, ElementName=UxSearchBox}" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="9" Padding="6" AutomationProperties.Name="Suggestions de recherche" AutomationProperties.HelpText="Recherches et fiches récentes, puis objets de la base locale. Aucune requête AD avant Entrée.">
+                    <StackPanel>
+                      <TextBlock x:Name="LblSearchSuggestTitle" Text="Recherches et fiches récentes" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource MutedColor}" Margin="6,2,6,4"/>
+                      <ListBox x:Name="LstSearchSuggest" MaxHeight="300" Focusable="False" BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Suggestions" AutomationProperties.HelpText="Flèches pour choisir, Entrée pour chercher dans lʼannuaire, Échap pour fermer.">
+                        <ListBox.ItemContainerStyle>
+                          <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                            <Setter Property="Focusable" Value="False"/>
+                          </Style>
+                        </ListBox.ItemContainerStyle>
+                        <ListBox.ItemTemplate>
+                          <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                              <TextBlock Text="{Binding Label}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                              <TextBlock Text="{Binding Detail}" Foreground="{DynamicResource MutedColor}" Margin="8,0,0,0" TextTrimming="CharacterEllipsis"/>
+                            </StackPanel>
+                          </DataTemplate>
+                        </ListBox.ItemTemplate>
+                      </ListBox>
+                      <TextBlock x:Name="LblSearchSuggestHint" Text="Entrée lance la recherche dans lʼannuaire ; les suggestions viennent de la mémoire et de la base locales." FontSize="11" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="6,4,6,2"/>
+                    </StackPanel>
+                  </Border>
+                </Canvas>
               </Grid>
               <Button x:Name="BtnGlobalSearch" Content="Rechercher" Style="{StaticResource RunButton}" Margin="8,0,0,0" ToolTip="Recherche dans tout le domaine, tous types, sans filtre OU, de présence ou de liste. Aucun poste sondé avant sélection." Grid.Column="1" Height="42" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher dans tout le domaine" AutomationProperties.HelpText="Recherche dans tout le domaine, tous types, sans filtre OU, de présence ou de liste. Aucun poste sondé avant sélection."/>
             </Grid>
-            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-              <Button x:Name="BtnNavBack" Content="&#x2190;" Width="40" MinWidth="40" Height="40" Padding="0" Margin="0,0,4,0" FontSize="16" IsEnabled="False" ToolTip="Revient à lʼétape précédente (Alt+Gauche) : page, recherche, OU et sélection restituées depuis la mémoire, sans nouvelle lecture ni sonde des postes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Précédent" AutomationProperties.HelpText="Revient à lʼétape précédente (Alt+Gauche) : page, recherche, OU et sélection restituées depuis la mémoire, sans nouvelle lecture ni sonde des postes."/>
-              <Button x:Name="BtnNavForward" Content="&#x2192;" Width="40" MinWidth="40" Height="40" Padding="0" Margin="0,0,6,0" FontSize="16" IsEnabled="False" ToolTip="Revient à lʼétape suivante (Alt+Droite), sans nouvelle lecture ni sonde des postes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Suivant" AutomationProperties.HelpText="Revient à lʼétape suivante (Alt+Droite), sans nouvelle lecture ni sonde des postes."/>
-              <Button x:Name="BtnAccessRecovery" Width="108" MinWidth="108" MaxWidth="108" Height="40" MinHeight="40" MaxHeight="40" Padding="10,6" Margin="0,0,6,0" ToolTip="Comptes temporaires et accès à revoir. Aucun changement de compte sans votre accord." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Accès" AutomationProperties.HelpText="Comptes temporaires et accès à revoir. Aucun changement de compte sans votre accord.">
-                <Grid Width="82" Height="24" IsHitTestVisible="False">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="44"/><ColumnDefinition Width="8"/><ColumnDefinition Width="30"/></Grid.ColumnDefinitions>
-                  <TextBlock Text="Accès" VerticalAlignment="Center" FontSize="12"/>
-                  <Border x:Name="BadgeAccessRecovery" Grid.Column="2" Width="30" Height="22" CornerRadius="8" Background="{DynamicResource AccentSoft}" VerticalAlignment="Center" Visibility="Hidden">
-                    <TextBlock x:Name="LblAccessRecoveryCount" Text="0" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource AccentText}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            <!-- DS-01: fixed 40-unit icon buttons; a counter pill shows above zero only (Hidden, never Collapsed: D082).
+                 SP-03: on a narrow window the read-only switch joins this row, before the icons (Set-DomeniaUxHeaderLayout). -->
+            <StackPanel x:Name="UxHeaderTools" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+              <Button x:Name="BtnAccessRecovery" Style="{StaticResource UxIconButton}" Width="40" MinWidth="40" MaxWidth="40" Height="40" MinHeight="40" MaxHeight="40" ToolTip="Accès : comptes temporaires et accès à revoir. Aucun changement de compte sans votre accord." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Accès" AutomationProperties.HelpText="Comptes temporaires et accès à revoir. Aucun changement de compte sans votre accord.">
+                <Grid Width="38" Height="38" IsHitTestVisible="False">
+                  <Path Data="M13,8 A5,5 0 1 1 3,8 A5,5 0 1 1 13,8 M11.5,11.5 L21,21 M17,17 L19.5,14.5 M19,19 L21.5,16.5" Width="18" Height="18" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                  <Border x:Name="BadgeAccessRecovery" Width="24" Height="16" CornerRadius="8" Background="{DynamicResource AccentColor}" HorizontalAlignment="Right" VerticalAlignment="Top" Visibility="Hidden">
+                    <TextBlock x:Name="LblAccessRecoveryCount" Text="0" FontSize="10" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                   </Border>
                 </Grid>
-              </Button><Button x:Name="BtnSuiteActivity" Width="144" MinWidth="144" MaxWidth="144" Height="40" MinHeight="40" MaxHeight="40" Padding="10,6" Margin="0,0,6,0" ToolTip="Ouvre le suivi des opérations. Le compteur inclut les lectures en nettoyage. Aucun accès AD supplémentaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Opérations" AutomationProperties.HelpText="Ouvre le suivi des opérations. Le compteur inclut les lectures en nettoyage. Aucun accès AD supplémentaire.">
-                <Grid Width="118" Height="24" IsHitTestVisible="False">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="80"/><ColumnDefinition Width="8"/><ColumnDefinition Width="30"/></Grid.ColumnDefinitions>
-                  <TextBlock Text="Opérations" VerticalAlignment="Center" FontSize="12"/>
-                  <Border x:Name="BadgeSuiteActivity" Grid.Column="2" Width="30" Height="22" CornerRadius="8" Background="{DynamicResource AccentSoft}" VerticalAlignment="Center" Visibility="Hidden">
-                    <TextBlock x:Name="LblSuiteActivityCount" Text="0" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource AccentText}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+              </Button><Button x:Name="BtnSuiteActivity" Style="{StaticResource UxIconButton}" Width="40" MinWidth="40" MaxWidth="40" Height="40" MinHeight="40" MaxHeight="40" ToolTip="Opérations : ouvre le suivi des opérations. Le compteur inclut les lectures en nettoyage. Aucun accès AD supplémentaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Opérations" AutomationProperties.HelpText="Ouvre le suivi des opérations. Le compteur inclut les lectures en nettoyage. Aucun accès AD supplémentaire.">
+                <Grid Width="38" Height="38" IsHitTestVisible="False">
+                  <Path Data="M2,12 L7,12 10,5 14,19 17,12 22,12" Width="18" Height="18" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                  <Border x:Name="BadgeSuiteActivity" Width="24" Height="16" CornerRadius="8" Background="{DynamicResource AccentColor}" HorizontalAlignment="Right" VerticalAlignment="Top" Visibility="Hidden">
+                    <TextBlock x:Name="LblSuiteActivityCount" Text="0" FontSize="10" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                   </Border>
-                </Grid>
-              </Button><Button x:Name="BtnCommandPalette" Content="Ctrl + K" Width="78" Height="40" MinWidth="78" Margin="0,0,6,0" ToolTip="Ouvre la palette des actions disponibles. Raccourci Windows : Ctrl+K." VerticalAlignment="Center" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Palette de commandes" AutomationProperties.HelpText="Ouvre la palette des actions disponibles. Raccourci Windows : Ctrl+K."/>
-              <Button x:Name="BtnThemeToggle" Width="42" Height="40" MinWidth="42" Padding="0" Margin="0,0,6,0" IsEnabled="True" IsHitTestVisible="True" Focusable="True" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTip="Bascule entre le thème clair et le thème sombre. Le choix est enregistré par le mécanisme existant." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Apparence" AutomationProperties.HelpText="Bascule entre le thème clair et le thème sombre. Le choix est enregistré par le mécanisme existant.">
-                <Grid Width="32" Height="30" Background="Transparent">
-                  <Ellipse x:Name="ThemeIconCircle" Fill="Transparent" Stroke="Transparent" StrokeThickness="0"/>
-                  <TextBlock x:Name="ThemeIconGlyph" Text="🌞" FontFamily="Segoe UI Emoji" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </Grid>
               </Button>
-              <Button Content="?" Width="40" Height="40" FontWeight="Bold" FontSize="18" Padding="0" Margin="0" ToolTip="Affiche ou masque les explications à droite. Sur une fenêtre étroite, l’aide s’ouvre au-dessus du contenu ; cliquez de nouveau sur ? pour la fermer." x:Name="BtnUxHelpToggle" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Panneau d’aide" AutomationProperties.HelpText="Affiche ou masque les explications à droite. Sur une fenêtre étroite, l’aide s’ouvre au-dessus du contenu ; cliquez de nouveau sur ? pour la fermer."/>
+              <Button x:Name="BtnThemeToggle" Style="{StaticResource UxIconButton}" IsEnabled="True" IsHitTestVisible="True" Focusable="True" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTip="Passer au thème sombre. Le choix est enregistré pour Domenia." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Passer au thème sombre" AutomationProperties.HelpText="Bascule entre le thème clair et le thème sombre. Le choix est enregistré pour Domenia.">
+                <!-- DS-10: the icon of the theme the button switches to (Get-DomeniaThemeToggleIcon). -->
+                <Grid Width="20" Height="20" IsHitTestVisible="False">
+                  <Path x:Name="ThemeIconSun" Data="M16,12 A4,4 0 1 1 8,12 A4,4 0 1 1 16,12 M12,2 L12,4 M12,20 L12,22 M2,12 L4,12 M20,12 L22,12 M4.9,4.9 L6.3,6.3 M17.7,17.7 L19.1,19.1 M4.9,19.1 L6.3,17.7 M17.7,6.3 L19.1,4.9" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Visibility="Collapsed"/>
+                  <Path x:Name="ThemeIconMoon" Data="M20,14.5 A8,8 0 1 1 9.5,4 A6.5,6.5 0 0 0 20,14.5 Z" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                </Grid>
+              </Button>
+              <Button Content="?" Style="{StaticResource UxIconButton}" FontWeight="Bold" FontSize="18" Margin="0" ToolTip="Affiche ou masque les explications à droite. Sur une fenêtre étroite, l’aide s’ouvre au-dessus du contenu ; cliquez de nouveau sur ? pour la fermer." x:Name="BtnUxHelpToggle" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Panneau d’aide" AutomationProperties.HelpText="Affiche ou masque les explications à droite. Sur une fenêtre étroite, l’aide s’ouvre au-dessus du contenu ; cliquez de nouveau sur ? pour la fermer."/>
             </StackPanel>
           </Grid>
           <Grid x:Name="UxPageHeader" Grid.Row="1" Margin="2,0,0,12">
@@ -4669,10 +4789,34 @@ function Get-MainXaml {
                 <ColumnDefinition Width="Auto"/>
               </Grid.ColumnDefinitions>
               <StackPanel x:Name="UxPageTitleStack">
-                <TextBlock Text="Accueil" FontSize="22" FontWeight="SemiBold" x:Name="LblUxPageTitle" TextTrimming="CharacterEllipsis"/>
-                <Border x:Name="UxDomainBadge" Background="{DynamicResource AccentSoft}" CornerRadius="12" Padding="8,3" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,5,0,0">
-                  <TextBlock Text="Session AD en préparation" FontSize="11" Foreground="{DynamicResource InfoFg}" x:Name="LblUxDomain" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
-                </Border>
+                <!-- DS-21: back and forward beside the page title they change; UI-01: the subject chip beside the session badge. -->
+                <Grid x:Name="UxPageTitleRow">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                  </Grid.ColumnDefinitions>
+                  <Button x:Name="BtnNavBack" Style="{StaticResource UxGhostButton}" Width="28" MinWidth="28" Height="28" MinHeight="28" Padding="0" Margin="0,0,2,0" IsEnabled="False" ToolTip="Revient à lʼétape précédente (Alt+Gauche) : page, recherche, OU et sélection restituées depuis la mémoire, sans nouvelle lecture ni sonde des postes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Précédent" AutomationProperties.HelpText="Revient à lʼétape précédente (Alt+Gauche) : page, recherche, OU et sélection restituées depuis la mémoire, sans nouvelle lecture ni sonde des postes.">
+                    <Path Data="M15,5 L8,12 15,19" Width="14" Height="14" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" IsHitTestVisible="False"/>
+                  </Button>
+                  <Button x:Name="BtnNavForward" Grid.Column="1" Style="{StaticResource UxGhostButton}" Width="28" MinWidth="28" Height="28" MinHeight="28" Padding="0" Margin="0,0,8,0" IsEnabled="False" ToolTip="Revient à lʼétape suivante (Alt+Droite), sans nouvelle lecture ni sonde des postes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Suivant" AutomationProperties.HelpText="Revient à lʼétape suivante (Alt+Droite), sans nouvelle lecture ni sonde des postes.">
+                    <Path Data="M9,5 L16,12 9,19" Width="14" Height="14" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" IsHitTestVisible="False"/>
+                  </Button>
+                  <TextBlock Grid.Column="2" Text="Accueil" FontSize="22" FontWeight="SemiBold" x:Name="LblUxPageTitle" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" AutomationProperties.LiveSetting="Polite" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                </Grid>
+                <StackPanel x:Name="UxPageSubRow" Orientation="Horizontal" Margin="0,5,0,0">
+                  <Border x:Name="UxDomainBadge" Background="{DynamicResource AccentSoft}" CornerRadius="12" Padding="8,3" HorizontalAlignment="Left" VerticalAlignment="Center">
+                    <TextBlock Text="Session AD en préparation" FontSize="11" Foreground="{DynamicResource InfoFg}" x:Name="LblUxDomain" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" AutomationProperties.LiveSetting="Polite" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                  </Border>
+                  <Border x:Name="UxSubjectChip" Visibility="Collapsed" Margin="8,0,0,0" CornerRadius="12" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" Background="{DynamicResource BgCard}" Padding="8,0,2,0" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal">
+                      <TextBlock x:Name="LblUxSubject" Text="" FontSize="11" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="260" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                      <Button x:Name="BtnUxSubjectClear" Style="{StaticResource UxGhostButton}" Width="22" MinWidth="22" Height="22" MinHeight="22" Padding="0" Margin="2,0,0,0" ToolTip="Désélectionne cet objet : sa fiche nʼest plus affichée. Rien nʼest modifié ni relu." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Désélectionner" AutomationProperties.HelpText="Désélectionne cet objet : sa fiche nʼest plus affichée. Rien nʼest modifié ni relu.">
+                        <Path Data="M6,6 L18,18 M18,6 L6,18" Width="8" Height="8" Stretch="Uniform" Stroke="{DynamicResource MutedColor}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" IsHitTestVisible="False"/>
+                      </Button>
+                    </StackPanel>
+                  </Border>
+                </StackPanel>
               </StackPanel>
               <!-- The activity strip always exists. Busy/idle only changes visibility inside its fixed slots (Hidden, never Collapsed). -->
               <Grid x:Name="UxActivityStrip" Grid.Column="1" Height="44" MinHeight="44" MaxHeight="44" Margin="12,0,0,0" VerticalAlignment="Center" ClipToBounds="True">
@@ -4684,23 +4828,53 @@ function Get-MainXaml {
                 </Grid.ColumnDefinitions>
                 <TextBlock x:Name="LblStatus" Text="" Visibility="Collapsed" Foreground="{DynamicResource MutedColor}" TextTrimming="CharacterEllipsis"/>
                 <TextBlock x:Name="LblPrivilegeTop" Text="" Visibility="Collapsed" Foreground="{DynamicResource PrivilegeFg}" FontSize="11" TextTrimming="CharacterEllipsis"/>
-                <Border x:Name="WriteModeBanner" Grid.Column="1" Width="240" Height="32" Background="#B91C1C" BorderBrush="#7F1D1D" BorderThickness="1" CornerRadius="10" Padding="8,4" Margin="0,0,12,0" Visibility="Collapsed" VerticalAlignment="Center">
-                  <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="🔴" FontFamily="Segoe UI Emoji" Foreground="White" FontSize="13" FontWeight="Bold" Margin="0,0,7,0"/>
-                    <TextBlock x:Name="LblWriteMode" Text="MODE ECRITURE AD ACTIF" Foreground="White" FontSize="11" FontWeight="Bold" VerticalAlignment="Center"/>
-                  </StackPanel>
+                <!-- DS-02 / SE-06: in write mode, the fixed state slot offers the return to read-only (theme colours, no emoji). -->
+                <Border x:Name="WriteModeBanner" Grid.Column="1" Width="240" Height="32" Background="Transparent" Margin="0,0,12,0" Visibility="Collapsed" VerticalAlignment="Center">
+                  <Button x:Name="BtnReadOnlyResume" Height="32" MinHeight="32" Padding="10,0" Margin="0" HorizontalAlignment="Left" BorderBrush="{DynamicResource DangerColor}" ToolTip="Repasse tout de suite en lecture seule : les modifications AD et les actions distantes modificatrices sont de nouveau bloquées." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Repasser en lecture seule" AutomationProperties.HelpText="Repasse tout de suite en lecture seule : les modifications AD et les actions distantes modificatrices sont de nouveau bloquées.">
+                    <StackPanel Orientation="Horizontal">
+                      <Path Data="M6,11 L18,11 18,21 6,21 Z M8.5,11 L8.5,8 A3.5,3.5 0 0 1 15.5,8 L15.5,11" Width="14" Height="14" Stretch="Uniform" Stroke="{DynamicResource TextColor}" StrokeThickness="1.7" StrokeLineJoin="Round" Margin="0,0,7,0" VerticalAlignment="Center" IsHitTestVisible="False"/>
+                      <TextBlock x:Name="LblWriteMode" Text="Repasser en lecture" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    </StackPanel>
+                  </Button>
                 </Border>
                 <TextBlock x:Name="LblTaskElapsed" Grid.Column="0" Text="" Visibility="Hidden" Height="24" MaxHeight="24" MinWidth="0" Foreground="{DynamicResource MutedColor}" FontSize="12" VerticalAlignment="Center" HorizontalAlignment="Stretch" TextAlignment="Left" Margin="0,0,12,0" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
                 <ProgressBar x:Name="PbTop" Grid.Column="2" Width="130" MinWidth="130" MaxWidth="130" Height="8" MinHeight="8" MaxHeight="8" Visibility="Hidden" IsIndeterminate="False" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="0,0,14,0" ToolTip="Indicateur d’activité. Une animation sans pourcentage ne mesure pas la progression exacte." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Indicateur d’activité" AutomationProperties.HelpText="Indicateur d’activité. Une animation sans pourcentage ne mesure pas la progression exacte."/>
                 <Button x:Name="BtnCancelTask" Grid.Column="3" Width="96" MinWidth="96" MaxWidth="96" Height="32" MinHeight="32" MaxHeight="32" Padding="10,4" ToolTip="Demande l’arrêt d’une lecture annulable. Une écriture ou un appel natif ne sont pas interrompus de force." Content="Annuler" Visibility="Hidden" Margin="0" VerticalAlignment="Center" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Annuler la lecture" AutomationProperties.HelpText="Demande l’arrêt d’une lecture annulable. Une écriture ou un appel natif ne sont pas interrompus de force."/>
                 <Button x:Name="BtnAccountsHeader" Content="Identites" Width="92" Height="42" MinWidth="82" Margin="0,0,6,0" ToolTip="Choisit les identites utilisees par l application pour l annuaire, les postes et les secrets." VerticalAlignment="Center" Visibility="Collapsed" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Identites" AutomationProperties.HelpText="Choisit les identites utilisees par l application pour l annuaire, les postes et les secrets."/>
               </Grid>
-              <WrapPanel Grid.Column="2" VerticalAlignment="Center" Margin="12,0,0,0">
-                <CheckBox x:Name="ChkReadOnlyMode" ToolTip="Coché : les écritures AD et les actions distantes classées comme modificatrices sont bloquées. Décocher ne donne pas de droits supplémentaires ; les confirmations restent nécessaires." Content="Lecture seule" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource AccentText}" VerticalAlignment="Center" Margin="0,6,14,6" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Protection des modifications" AutomationProperties.HelpText="Coché : les écritures AD et les actions distantes classées comme modificatrices sont bloquées. Décocher ne donne pas de droits supplémentaires ; les confirmations restent nécessaires."/>
-                <ComboBox x:Name="CmbUiProfile" ToolTip="Essentiel affiche les vues du quotidien. Expert ajoute les attributs, les permissions et WMI. Ce choix ne donne aucun droit supplémentaire." Width="116" SelectedIndex="0" IsEnabled="True" IsHitTestVisible="True" VerticalContentAlignment="Center" Margin="0" Height="34" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Niveau de détail" AutomationProperties.HelpText="Essentiel affiche les vues du quotidien. Expert ajoute les attributs, les permissions et WMI. Ce choix ne donne aucun droit supplémentaire.">
-                  <ComboBoxItem Content="Essentiel" Tag="Tech"/>
-                  <ComboBoxItem Content="Expert" Tag="Admin"/>
-                </ComboBox>
+              <!-- DS-02: a lock switch, « Lecture seule » (neutral) or « Écriture active · N min » (solid red); fixed width so that
+                   the activity strip never moves when it changes. The profile choice moved to the foot of the menu (UI-30). -->
+              <WrapPanel x:Name="UxReadOnlyHost" Grid.Column="2" VerticalAlignment="Center" Margin="12,0,0,0">
+                <CheckBox x:Name="ChkReadOnlyMode" Width="206" Height="34" IsChecked="True" ToolTip="Lecture seule : les modifications AD et les actions distantes modificatrices sont bloquées. Cliquez pour autoriser les modifications, après confirmation." Content="Lecture seule" FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center" Margin="0,5,0,5" Cursor="Hand" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Protection des modifications" AutomationProperties.LiveSetting="Polite" AutomationProperties.HelpText="Lecture seule : les modifications AD et les actions distantes modificatrices sont bloquées. Cliquez pour autoriser les modifications, après confirmation.">
+                  <CheckBox.Template>
+                    <ControlTemplate TargetType="CheckBox">
+                      <Border x:Name="UxReadOnlySwitch" CornerRadius="17" Background="{DynamicResource BgInput}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" Padding="12,0,12,0">
+                        <Grid>
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                          </Grid.ColumnDefinitions>
+                          <Grid Width="15" Height="15" Margin="0,0,8,0" VerticalAlignment="Center">
+                            <Path x:Name="UxLockClosed" Data="M6,11 L18,11 18,21 6,21 Z M8.5,11 L8.5,8 A3.5,3.5 0 0 1 15.5,8 L15.5,11" Stretch="Uniform" Stroke="{DynamicResource TextColor}" StrokeThickness="1.7" StrokeLineJoin="Round"/>
+                            <Path x:Name="UxLockOpen" Data="M6,11 L18,11 18,21 6,21 Z M8.5,11 L8.5,8 A3.5,3.5 0 0 1 15.4,6.6" Stretch="Uniform" Stroke="White" StrokeThickness="1.7" StrokeLineJoin="Round" Visibility="Collapsed"/>
+                          </Grid>
+                          <ContentPresenter x:Name="UxReadOnlyText" Grid.Column="1" VerticalAlignment="Center" RecognizesAccessKey="False" TextElement.Foreground="{DynamicResource TextColor}"/>
+                        </Grid>
+                      </Border>
+                      <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="False">
+                          <Setter TargetName="UxReadOnlySwitch" Property="Background" Value="{DynamicResource DangerColor}"/>
+                          <Setter TargetName="UxReadOnlySwitch" Property="BorderBrush" Value="{DynamicResource DangerColor}"/>
+                          <Setter TargetName="UxLockClosed" Property="Visibility" Value="Collapsed"/>
+                          <Setter TargetName="UxLockOpen" Property="Visibility" Value="Visible"/>
+                          <Setter TargetName="UxReadOnlyText" Property="TextElement.Foreground" Value="White"/>
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="UxReadOnlySwitch" Property="BorderThickness" Value="2"/></Trigger>
+                        <Trigger Property="IsEnabled" Value="False"><Setter TargetName="UxReadOnlySwitch" Property="Opacity" Value="0.6"/></Trigger>
+                      </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                  </CheckBox.Template>
+                </CheckBox>
               </WrapPanel>
             </Grid>
           </Grid>
@@ -5171,7 +5345,22 @@ function Get-MainXaml {
                 </Grid>
               </TabItem>
               <TabItem x:Name="WsObject" Header="Fiche" ToolTip="Fiche complete de l objet selectionne." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Fiche" AutomationProperties.HelpText="Fiche complete de l objet selectionne.">
-                <Grid x:Name="ObjectReadRoot"><Grid.RowDefinitions><RowDefinition Height="38"/><RowDefinition Height="*"/></Grid.RowDefinitions><Grid Margin="4,0,4,6"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions><TextBlock Text="Selectionnez un objet dans Rechercher." VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Foreground="{DynamicResource MutedColor}" FontSize="12" x:Name="LblObjectReadStatus"/><Button Content="Reessayer la lecture" Visibility="Hidden" Height="30" MinHeight="30" Padding="10,3" Margin="8,0,0,0" ToolTip="Relit uniquement cette fiche AD. Aucun ping, aucune sonde de poste et aucune ecriture." Grid.Column="1" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Reessayer la lecture AD" x:Name="BtnObjectReadRetry"/></Grid><Grid Visibility="Collapsed" IsEnabled="False" Grid.Row="1" x:Name="ObjectReadContent"><TabControl x:Name="DetailTabs" Margin="0,4,0,0" ToolTip="Affiche les informations et actions adaptées au type d’objet. Le mode Expert ajoute les vues techniques." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vues de la fiche" AutomationProperties.HelpText="Affiche les informations et actions adaptées au type d’objet. Le mode Expert ajoute les vues techniques.">
+                <Grid x:Name="ObjectReadRoot"><Grid.RowDefinitions><RowDefinition Height="38"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                <!-- UX-09 (L08): page shown while no fiche is open. Local memory only; Entrée in its field is the only AD query. -->
+                <Border x:Name="ObjectEmptyState" Grid.Row="0" Grid.RowSpan="2" Panel.ZIndex="5" Visibility="Collapsed" Background="{DynamicResource WindowBg}">
+                  <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <Border Style="{StaticResource Card}" Margin="4" Padding="24" VerticalAlignment="Top">
+                      <StackPanel MaxWidth="640" HorizontalAlignment="Left">
+                        <TextBlock x:Name="LblObjectEmptyTitle" Text="Aucune fiche ouverte" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextColor}" AutomationProperties.LiveSetting="Polite"/>
+                        <TextBlock Text="Cherchez une personne, un poste ou un groupe : Entrée lance la recherche dans tout le domaine. Rien nʼest lu sur le réseau avant." Margin="0,6,0,14" TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}"/>
+                        <TextBox x:Name="TxtObjectEmptySearch" MinHeight="38" Padding="10,6" VerticalContentAlignment="Center" ToolTip="Nom, identifiant, adresse mail ou poste. Entrée lance la recherche dans tout le domaine ; la saisie seule ne lit rien." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher une fiche" AutomationProperties.HelpText="Nom, identifiant, adresse mail ou poste. Entrée lance la recherche dans tout le domaine ; la saisie seule ne lit rien."/>
+                        <TextBlock Text="Dernières fiches consultées" FontWeight="SemiBold" Margin="0,18,0,6" Foreground="{DynamicResource TextColor}"/>
+                        <ListBox x:Name="LstObjectEmptyRecent" MaxHeight="260" BorderThickness="0" DisplayMemberPath="Label" ToolTip="Fiches ouvertes récemment, gardées dans la mémoire locale de ce poste. Un clic recopie le nom dans le champ ; Entrée lance la recherche." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Dernières fiches consultées" AutomationProperties.HelpText="Fiches ouvertes récemment, gardées dans la mémoire locale de ce poste. Un clic recopie le nom dans le champ ; Entrée lance la recherche."/>
+                        <TextBlock x:Name="LblObjectEmptyRecentNone" Text="Aucune fiche consultée récemment." TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource MutedColor}"/>
+                      </StackPanel>
+                    </Border>
+                  </ScrollViewer>
+                </Border><Grid Margin="4,0,4,6"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions><TextBlock Text="Selectionnez un objet dans Rechercher." VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Foreground="{DynamicResource MutedColor}" FontSize="12" x:Name="LblObjectReadStatus"/><Button Content="Reessayer la lecture" Visibility="Hidden" Height="30" MinHeight="30" Padding="10,3" Margin="8,0,0,0" ToolTip="Relit uniquement cette fiche AD. Aucun ping, aucune sonde de poste et aucune ecriture." Grid.Column="1" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Reessayer la lecture AD" x:Name="BtnObjectReadRetry"/></Grid><Grid Visibility="Collapsed" IsEnabled="False" Grid.Row="1" x:Name="ObjectReadContent"><TabControl x:Name="DetailTabs" Margin="0,4,0,0" ToolTip="Affiche les informations et actions adaptées au type d’objet. Le mode Expert ajoute les vues techniques." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vues de la fiche" AutomationProperties.HelpText="Affiche les informations et actions adaptées au type d’objet. Le mode Expert ajoute les vues techniques.">
                   <TabItem x:Name="TabGeneric" ToolTip="Type, nom, identifiant, dates de creation et emplacement." Header="Resume" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Resume" AutomationProperties.HelpText="Type, nom, identifiant, dates de creation et emplacement.">
                     <Border Style="{StaticResource Card}" Margin="4">
                       <Grid>
@@ -5676,7 +5865,7 @@ function Get-MainXaml {
                   </ScrollViewer>
                 </Border>
               </TabItem>
-              <TabItem x:Name="TabRelations" ToolTip="Associations du compte ou du poste sélectionné. Les recherches et confirmations restent dans cette page." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Relations utilisateur et poste" AutomationProperties.HelpText="Associations du compte ou du poste sélectionné. Les recherches et confirmations restent dans cette page." Header="Relations">
+              <TabItem x:Name="TabRelations" ToolTip="Associations du compte ou du poste sélectionné. Les recherches et confirmations restent dans cette page." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Utilisateurs et postes" AutomationProperties.HelpText="Associations du compte ou du poste sélectionné. Les recherches et confirmations restent dans cette page." Header="Utilisateurs et postes">
                 <Border Style="{StaticResource Card}" Margin="4">
                   <Grid>
                     <Grid.Resources>
@@ -5944,8 +6133,23 @@ function Get-MainXaml {
                   </Grid>
                 </Border>
               </TabItem>
-              <TabItem x:Name="WsComputer" Header="Assistance poste" ToolTip="Informations et actions sur le poste selectionne." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Assistance poste" AutomationProperties.HelpText="Informations et actions sur le poste selectionne.">
-                <Grid x:Name="ComputerReadRoot"><Grid.RowDefinitions><RowDefinition Height="38"/><RowDefinition Height="*"/></Grid.RowDefinitions><Grid Margin="4,0,4,6"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions><TextBlock Text="Selectionnez un objet dans Rechercher." VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Foreground="{DynamicResource MutedColor}" FontSize="12" x:Name="LblComputerReadStatus"/><Button Content="Reessayer la lecture" Visibility="Hidden" Height="30" MinHeight="30" Padding="10,3" Margin="8,0,0,0" ToolTip="Relit uniquement cette fiche AD. Aucun ping, aucune sonde de poste et aucune ecriture." Grid.Column="1" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Reessayer la lecture AD" x:Name="BtnComputerReadRetry"/></Grid><Grid Visibility="Collapsed" IsEnabled="False" Grid.Row="1" x:Name="ComputerReadContent"><TabControl x:Name="ComputerTabs" Margin="0,4,0,0" ToolTip="Choisissez les informations AD, les actions, le diagnostic, l’inventaire, les logiciels ou les secrets du poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vues d’assistance poste" AutomationProperties.HelpText="Choisissez les informations AD, les actions, le diagnostic, l’inventaire, les logiciels ou les secrets du poste.">
+              <TabItem x:Name="WsComputer" Header="Poste" ToolTip="Informations et actions sur le poste selectionne." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Poste" AutomationProperties.HelpText="Informations et actions sur le poste selectionne.">
+                <Grid x:Name="ComputerReadRoot"><Grid.RowDefinitions><RowDefinition Height="38"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                <!-- UX-09 (L08): page shown while no poste is open. Local memory only; Entrée in its field is the only AD query. -->
+                <Border x:Name="ComputerEmptyState" Grid.Row="0" Grid.RowSpan="2" Panel.ZIndex="5" Visibility="Collapsed" Background="{DynamicResource WindowBg}">
+                  <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <Border Style="{StaticResource Card}" Margin="4" Padding="24" VerticalAlignment="Top">
+                      <StackPanel MaxWidth="640" HorizontalAlignment="Left">
+                        <TextBlock x:Name="LblComputerEmptyTitle" Text="Aucun poste ouvert" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextColor}" AutomationProperties.LiveSetting="Polite"/>
+                        <TextBlock Text="Cherchez un poste par son nom : Entrée lance la recherche dans tout le domaine. Aucun poste nʼest sondé avant votre choix." Margin="0,6,0,14" TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}"/>
+                        <TextBox x:Name="TxtComputerEmptySearch" MinHeight="38" Padding="10,6" VerticalContentAlignment="Center" ToolTip="Nom du poste. Entrée lance la recherche dans tout le domaine ; la saisie seule ne lit rien et ne sonde aucun poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher un poste" AutomationProperties.HelpText="Nom du poste. Entrée lance la recherche dans tout le domaine ; la saisie seule ne lit rien et ne sonde aucun poste."/>
+                        <TextBlock Text="Derniers postes consultés" FontWeight="SemiBold" Margin="0,18,0,6" Foreground="{DynamicResource TextColor}"/>
+                        <ListBox x:Name="LstComputerEmptyRecent" MaxHeight="260" BorderThickness="0" DisplayMemberPath="Label" ToolTip="Postes ouverts récemment, gardés dans la mémoire locale de ce poste. Un clic recopie le nom dans le champ ; Entrée lance la recherche." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Derniers postes consultés" AutomationProperties.HelpText="Postes ouverts récemment, gardés dans la mémoire locale de ce poste. Un clic recopie le nom dans le champ ; Entrée lance la recherche."/>
+                        <TextBlock x:Name="LblComputerEmptyRecentNone" Text="Aucun poste consulté récemment." TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource MutedColor}"/>
+                      </StackPanel>
+                    </Border>
+                  </ScrollViewer>
+                </Border><Grid Margin="4,0,4,6"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions><TextBlock Text="Selectionnez un objet dans Rechercher." VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Foreground="{DynamicResource MutedColor}" FontSize="12" x:Name="LblComputerReadStatus"/><Button Content="Reessayer la lecture" Visibility="Hidden" Height="30" MinHeight="30" Padding="10,3" Margin="8,0,0,0" ToolTip="Relit uniquement cette fiche AD. Aucun ping, aucune sonde de poste et aucune ecriture." Grid.Column="1" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Reessayer la lecture AD" x:Name="BtnComputerReadRetry"/></Grid><Grid Visibility="Collapsed" IsEnabled="False" Grid.Row="1" x:Name="ComputerReadContent"><TabControl x:Name="ComputerTabs" Margin="0,4,0,0" ToolTip="Choisissez les informations AD, les actions, le diagnostic, l’inventaire, les logiciels ou les secrets du poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vues d’assistance poste" AutomationProperties.HelpText="Choisissez les informations AD, les actions, le diagnostic, l’inventaire, les logiciels ou les secrets du poste.">
                   <TabItem x:Name="TabComputer" ToolTip="Nom, systeme, etat du compte et utilisateur associe." Header="Machine" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Machine" AutomationProperties.HelpText="Nom, systeme, etat du compte et utilisateur associe.">
                     <Border Style="{StaticResource Card}" Margin="4">
                       <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -6843,7 +7047,7 @@ function Get-MainXaml {
                   <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Text="Journal de session" FontWeight="SemiBold" VerticalAlignment="Center" Margin="10,0"/>
-                <TextBlock Grid.Column="1" x:Name="LblUiLogLast" Visibility="Collapsed" VerticalAlignment="Center" Margin="4,0,8,0" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource MutedColor}" ToolTip="Dernier message de la session. Un clic sur la barre déplie le journal." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Dernier message du journal" AutomationProperties.HelpText="Dernier message de la session. Un clic sur la barre déplie le journal."/>
+                <TextBlock Grid.Column="1" x:Name="LblUiLogLast" AutomationProperties.LiveSetting="Polite" Visibility="Collapsed" VerticalAlignment="Center" Margin="4,0,8,0" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource MutedColor}" ToolTip="Dernier message de la session. Un clic sur la barre déplie le journal." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Dernier message du journal" AutomationProperties.HelpText="Dernier message de la session. Un clic sur la barre déplie le journal."/>
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="4,0,8,0">
                   <Border x:Name="UiLogErrorBadge" Visibility="Collapsed" Background="{DynamicResource DangerColor}" CornerRadius="10" Padding="8,2" Margin="2,0,6,0" VerticalAlignment="Center" ToolTip="Erreur non lue dans le journal. Dépliez le journal pour la lire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Erreur non lue" AutomationProperties.HelpText="Erreur non lue dans le journal. Dépliez le journal pour la lire.">
                     <TextBlock x:Name="LblUiLogErrorBadge" Text="1 erreur" Foreground="White" FontSize="11" FontWeight="SemiBold"/>
@@ -6890,11 +7094,8 @@ function Get-MainXaml {
     </ScrollViewer>
     <Grid x:Name="DomeniaDialogLayer" Visibility="Collapsed" Panel.ZIndex="2000"/>
     <StackPanel x:Name="DomeniaBannerHost" Visibility="Collapsed" VerticalAlignment="Top" HorizontalAlignment="Center" Margin="16,10,16,0" MaxWidth="760" Panel.ZIndex="2100" AutomationProperties.Name="Messages de Domenia" AutomationProperties.HelpText="Informations et erreurs affichées dans la page, sans fenêtre bloquante."/>
-    <Border x:Name="WriteModeHalo" Margin="3" BorderBrush="#DC2626" BorderThickness="6" CornerRadius="22" Visibility="Collapsed" IsHitTestVisible="False" Panel.ZIndex="1000">
-      <Border.Effect>
-        <DropShadowEffect Color="#DC2626" BlurRadius="34" ShadowDepth="0" Opacity="0.86"/>
-      </Border.Effect>
-    </Border>
+    <!-- DS-02: write mode frame, a solid 3-unit border in the theme danger colour; no blur effect (slow over RDP). -->
+    <Border x:Name="WriteModeHalo" Margin="0" BorderBrush="{DynamicResource DangerColor}" BorderThickness="3" Visibility="Collapsed" IsHitTestVisible="False" Panel.ZIndex="1000"/>
   </Grid>
 </Window>
 "@
@@ -8817,7 +9018,7 @@ $script:SuppressBranchAutoLoad = $false
 $script:CmdletReferenceRows = @()
 $script:CurrentCmdletHelp = ""
 $script:CurrentCmdletSyntax = ""
-$script:BaseWindowTitle = "Domenia 1.0"
+$script:BaseWindowTitle = "Domenia"
 
 
 
@@ -10033,9 +10234,25 @@ function Select-DomeniaWorkspace {
         $ws = Get-DomeniaControl -Name "WorkspaceTabs"
         $target = Get-DomeniaControl -Name $Workspace
         if ($null -eq $ws -or $null -eq $target -or -not $target.IsEnabled -or $target.Visibility -ne [System.Windows.Visibility]::Visible) { return }
-        # Explicit access from an existing shortcut/context menu reveals the requested expert view.
-        if ($Tab -in @('TabRaw','TabPermissions','TabWmi','TabSelfCheck','TabCmdlets','TabLog') -and $script:CurrentUiProfile -ne 'Admin') {
-            Apply-DomeniaUiProfile -Profile 'Admin'
+        # L08 (CO-06): a shortcut, a context menu or the palette never changes the profile. An Expert view asked from
+        # Essentiel is shown alone for this navigation (hidden again at the next profile or selection update), or
+        # refused with its reason; the saved profile is never touched here.
+        if ((-not [string]::IsNullOrWhiteSpace($Tab)) -and ($null -ne (Get-Command -Name Get-DomeniaExpertTabDecision -CommandType Function -ErrorAction SilentlyContinue))) {
+            $objectType = ''
+            try { $objectType = [string]$script:SelectedObject.Type } catch { $objectType = '' }
+            $allowExpert = $true
+            try { $allowExpert = [bool](Get-CfgValue 'UI' 'AllowExpertProfile' $true) } catch { $allowExpert = $true }
+            $decision = Get-DomeniaExpertTabDecision -Tab $Tab -Profile ([string]$script:CurrentUiProfile) -AllowExpert $allowExpert -ObjectType $objectType
+            if ([bool]$decision.Expert -and -not [bool]$decision.Show) {
+                Set-DomeniaContextHint -Title 'Vue non affichée' -Text ([string]$decision.Reason)
+                Set-Status ([string]$decision.Reason) 'WARN'
+                $Inner = ''; $Tab = ''
+            }
+            elseif ([bool]$decision.Temporary) {
+                $expertTab = Get-DomeniaControl -Name $Tab
+                if ($null -ne $expertTab) { $expertTab.Visibility = [System.Windows.Visibility]::Visible }
+                Set-DomeniaContextHint -Title 'Vue Expert ponctuelle' -Text ([string]$decision.Reason)
+            }
         }
         $ws.SelectedItem = $target
         if (-not [string]::IsNullOrWhiteSpace($Inner) -and -not [string]::IsNullOrWhiteSpace($Tab)) {
@@ -10068,8 +10285,10 @@ function Set-VisibleTabsForType {
     foreach ($t in @("TabGeneric","TabRaw")) { Set-TabVisibility $t $hasObject }
     Set-TabVisibility "TabMemberOf" ($Type -in @("Utilisateur","Machine","Groupe"))
     Set-TabVisibility "TabPermissions" $hasObject
-    Set-TabVisibility "WsObject" $hasObject
-    Set-TabVisibility "WsComputer" ($Type -eq "Machine")
+    # UX-09 (L08): Fiche and Poste stay reachable without a selection; their page then shows its empty state
+    # (search field and recent fiches from the local memory, no network), see Update-DomeniaUxEmptyStates.
+    Set-TabVisibility "WsObject" $true
+    Set-TabVisibility "WsComputer" $true
 
     switch ($Type) {
         "Utilisateur" {
@@ -16506,7 +16725,8 @@ function Register-DomeniaShortcuts {
             if ($null -ne $box) { [void]$box.Focus(); $box.SelectAll() }
         } },
         @{ Key="D"; Modifiers="Control"; Action={ Select-DomeniaWorkspace -Workspace "TabDashboard" } },
-        @{ Key="L"; Modifiers="Control"; Action={ Select-DomeniaWorkspace -Workspace "TabApplicationTools" -Inner "ApplicationToolTabs" -Tab "TabLog" } },
+        # L08 (CO-06): Ctrl+L never changes the profile. Essentiel unfolds the session journal; Expert opens Outils > Journal.
+        @{ Key="L"; Modifiers="Control"; Action={ Invoke-DomeniaJournalShortcut } },
         @{ Key="I"; Modifiers="Control"; Action={ Select-DomeniaWorkspace -Workspace "TabApplicationTools" -Inner "ApplicationToolTabs" -Tab "TabIndex" } },
         @{ Key="T"; Modifiers="Control"; Action={ Toggle-DomeniaTheme } },
         @{ Key="Escape"; Modifiers="None"; Action={
@@ -16561,7 +16781,7 @@ function Register-DomeniaShortcuts {
         }
     }
 
-    Add-DomeniaUiLog -Area "Interface" -Text ("{0} raccourci(s) clavier actifs : F5 arbre, Ctrl+K raccourcis, Ctrl+Shift+C résumé, F1 outils, Ctrl+F rechercher, Ctrl+D accueil, Ctrl+L journal, Ctrl+I index, Ctrl+T thème, Échap effacer." -f $poses)
+    Add-DomeniaUiLog -Area "Interface" -Text ("{0} raccourci(s) clavier actifs : F5 arbre, Ctrl+K raccourcis, Ctrl+Shift+C résumé, F1 outils, Ctrl+F rechercher, Ctrl+D accueil, Ctrl+L journal de session, Ctrl+I index, Ctrl+T thème, Échap effacer." -f $poses)
     return $poses
 }
 
@@ -18094,7 +18314,7 @@ function Get-DomeniaCriticalControlNames {
         # leurs evenements n etaient jamais branches, sans aucune erreur.
         # Les rendre critiques transforme une regression silencieuse en echec
         # de demarrage explicite.
-        "BtnThemeToggle","CmbUiProfile","CmbPresenceFilter","TxtUiLog","BtnClearUiLog",
+        "BtnThemeToggle","LstUiProfile","CmbPresenceFilter","TxtUiLog","BtnClearUiLog",
         "TxtCompPresence","TxtUserPresence"
     )
 }
@@ -20137,10 +20357,11 @@ function Wire-Events {
             catch { }
         })
     }
-    if ($script:Ctrl.ContainsKey("CmbUiProfile")) {
-        $script:Ctrl["CmbUiProfile"].Add_SelectionChanged({
+    if ($script:Ctrl.ContainsKey("LstUiProfile")) {
+        # UI-30: explicit Essentiel | Expert choice at the foot of the menu, the only place that changes the profile.
+        $script:Ctrl["LstUiProfile"].Add_SelectionChanged({
             try {
-                $item = $script:Ctrl["CmbUiProfile"].SelectedItem
+                $item = $script:Ctrl["LstUiProfile"].SelectedItem
                 $profile = if ($null -ne $item -and [string]$item.Tag -eq "Admin") { "Admin" } else { "Tech" }
                 if ($profile -ne $script:CurrentUiProfile) { Apply-DomeniaUiProfile -Profile $profile }
             }
@@ -20450,41 +20671,21 @@ function Wire-Events {
     $script:Ctrl["BtnSelfCheckCopy"].Add_Click({ Copy-SelfCheckReport })
     $script:Ctrl["BtnSelfCheckExport"].Add_Click({ Export-SelfCheckReport })
     if ($script:Ctrl.ContainsKey("ChkReadOnlyMode")) {
-        $script:Ctrl["ChkReadOnlyMode"].Add_Checked({ $script:ReadOnlyMode = $true; Apply-CurrentPermissionUi; Update-DomeniaWriteModeVisual; Set-Status "Mode lecture seule actif : ecritures AD, GPUpdate et redemarrage distant bloques." "WARN" })
+        # DS-02 / SE-06 (L08): leaving read-only is confirmed by one sentence in a panel of the page, never a window;
+        # the switch stays on read-only until the answer. Going back to read-only is immediate and never asks.
+        $script:Ctrl["ChkReadOnlyMode"].Add_Checked({ Enter-DomeniaReadOnlyMode })
         $script:Ctrl["ChkReadOnlyMode"].Add_Unchecked({
-            # C2: in demonstration the read-only lock cannot be lifted (no dialog, no write mode).
+            # C2: in demonstration the read-only lock cannot be lifted (no request, no write mode).
             if ([bool]$script:DemoMode) {
                 $script:ReadOnlyMode = $true
                 $script:Ctrl["ChkReadOnlyMode"].IsChecked = $true
-                Set-Status "Ecritures desactivees en demonstration : le mode lecture seule reste actif." "WARN"
+                Set-Status "Écritures désactivées en démonstration : la lecture seule reste active." "WARN"
                 return
             }
-            $warningMessage = @"
-Tu vas activer le mode ecriture Active Directory.
-
-Les actions autorisees pourront modifier des utilisateurs, ordinateurs, groupes, attributs ou unites d'organisation.
-
-Les controles de droits, les verifications prealables et les confirmations propres a chaque operation restent actifs.
-
-Activer le mode ecriture ?
-"@
-            $answer = Confirm-WarningAction -Message $warningMessage -Title "Attention : mode ecriture"
-
-            if (-not $answer) {
-                $script:ReadOnlyMode = $true
-                $script:Ctrl["ChkReadOnlyMode"].IsChecked = $true
-                Apply-CurrentPermissionUi
-                Update-DomeniaWriteModeVisual
-                Set-Status "Mode lecture seule conserve." "WARN"
-                return
-            }
-
-            $script:ReadOnlyMode = $false
-            Apply-CurrentPermissionUi
-            Update-DomeniaWriteModeVisual
-            Set-Status "MODE ECRITURE AD ACTIF : les garde-fous restent actifs et chaque action sensible demande confirmation." "WARN"
+            Request-DomeniaWriteMode
         })
     }
+    if ($script:Ctrl.ContainsKey("BtnReadOnlyResume")) { $script:Ctrl["BtnReadOnlyResume"].Add_Click({ Exit-DomeniaWriteMode -Reason Manual }) }
     if ($script:Ctrl.ContainsKey("BtnDashSelfCheck")) { $script:Ctrl["BtnDashSelfCheck"].Add_Click({ Select-DomeniaWorkspace -Workspace "TabApplicationTools"; try { $script:Ctrl["ApplicationToolTabs"].SelectedItem=$script:Ctrl["TabSelfCheck"] } catch { }; Start-SelfCheck -Full }) }
     if ($script:Ctrl.ContainsKey("BtnDashClearCache")) { $script:Ctrl["BtnDashClearCache"].Add_Click({ Clear-VisitCache }) }
     if ($script:Ctrl.ContainsKey("BtnDashOpenLog")) { $script:Ctrl["BtnDashOpenLog"].Add_Click({ Open-DomeniaAuditLog }) }
@@ -20629,6 +20830,8 @@ function New-DefaultConfig {
             ObjectListHeight = 360
             AppleLike = $true
             ReadOnlyDefault = $true
+            # SP-13 (L08): false hides the Expert profile (menu foot) and keeps Ctrl+L on the session journal.
+            AllowExpertProfile = $true
             ShowStartupMonitor = $true
             TreeRenderBatchSize = 16
             TreeRenderIntervalMs = 20
@@ -20682,6 +20885,9 @@ function New-DefaultConfig {
             RequireFreshObject = $true
             MaxObjectAgeMinutes = 15
             BlockProtectedObjects = $true
+            # SE-06 (L08): write mode goes back to read-only after this many minutes without a write (5 to 120);
+            # a write in progress is never interrupted.
+            ReadOnlyReturnMinutes = 15
             AllowProtectedObjectWrites = $false
             AllowContainerDelete = $false
             RequireTypedDeleteConfirmation = $true
@@ -23271,17 +23477,19 @@ function Update-DomeniaWriteModeVisual {
     $writeEnabled = -not [bool]$script:ReadOnlyMode
     try {
         $visibility = if ($writeEnabled) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed }
+        # DS-02 (L08): solid 3-unit frame and « Repasser en lecture » in the fixed state slot, theme colours only.
         foreach ($name in @("WriteModeHalo","WriteModeBanner")) {
             if ($script:Ctrl.ContainsKey($name)) { $script:Ctrl[$name].Visibility = $visibility }
         }
-        if ($script:Ctrl.ContainsKey("LblWriteMode")) { $script:Ctrl["LblWriteMode"].Text = "MODE ECRITURE AD ACTIF" }
-        if ($null -ne $script:Window) {
-            $script:Window.Title = if ($writeEnabled) { "$($script:BaseWindowTitle)  [ECRITURE AD ACTIVE]" } else { $script:BaseWindowTitle }
+        if ($script:Ctrl.ContainsKey("LblWriteMode")) { $script:Ctrl["LblWriteMode"].Text = "Repasser en lecture" }
+        # SE-06 / UI-01: switch label with its countdown, and the window title with the page and its subject.
+        $uxReady = ($null -ne (Get-Command -Name Update-DomeniaReadOnlySwitch -CommandType Function -ErrorAction SilentlyContinue))
+        if ($uxReady) { Update-DomeniaReadOnlySwitch; Update-DomeniaUxPageTitle }
+        elseif ($null -ne $script:Window) {
+            $script:Window.Title = if ($writeEnabled) { "$($script:BaseWindowTitle)  [ÉCRITURE AD ACTIVE]" } else { $script:BaseWindowTitle }
         }
         if ($script:Ctrl.ContainsKey("LblPrivilegeTop")) {
-            $converter = New-Object System.Windows.Media.BrushConverter
-            $brushValue = if ($writeEnabled) { "#DC2626" } else { "#7C3AED" }
-            $script:Ctrl["LblPrivilegeTop"].Foreground = $converter.ConvertFromString($brushValue)
+            $script:Ctrl["LblPrivilegeTop"].SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty,$(if ($writeEnabled) { "DangerColor" } else { "PrivilegeFg" }))
             $script:Ctrl["LblPrivilegeTop"].FontWeight = if ($writeEnabled) { [System.Windows.FontWeights]::Bold } else { [System.Windows.FontWeights]::Normal }
         }
     } catch { Write-AppLog "Indicateur mode ecriture : $($_.Exception.Message)" "WARN" }
@@ -23376,6 +23584,8 @@ function Apply-CurrentPermissionUi {
         $script:Ctrl["LblPrivilegeTop"].Text = $label
     } catch { }
     Update-DomeniaWriteModeVisual
+    # SP-04 (L08): « AD injoignable depuis HH:MM » while the directory does not answer, back by itself at the next success.
+    if ($null -ne (Get-Command -Name Update-DomeniaUxSessionBadge -CommandType Function -ErrorAction SilentlyContinue)) { try { Update-DomeniaUxSessionBadge } catch { } }
     Update-DomeniaSecretActionUi
     # Pendant le bootstrap, ne pas refaire tout le tableau de bord ni parcourir
     # les politiques GUI : ces operations sont purement visuelles et doivent
@@ -26166,7 +26376,13 @@ function Get-DomeniaStandardLoginXaml {
             <TextBlock Text="Connexion à Domenia" FontSize="22" FontWeight="SemiBold" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" ToolTipService.ShowOnDisabled="True"/>
             <TextBlock Text="Votre compte Active Directory" Style="{StaticResource Muted}" LineHeight="16" Margin="0,3,0,0" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" ToolTipService.ShowOnDisabled="True"/>
           </StackPanel>
-          <Button x:Name="BtnSuiteLoginTheme" Grid.Column="2" Width="36" Height="36" MinHeight="36" Padding="7" Margin="8,0,0,0" VerticalAlignment="Center" KeyboardNavigation.TabIndex="6" ToolTip="Bascule entre clair et sombre et mémorise le choix pour Domenia. Ne lance pas la connexion et ne lit pas le mot de passe." ToolTipService.ShowOnDisabled="True" ToolTipService.InitialShowDelay="400" ToolTipService.ShowDuration="30000" AutomationProperties.Name="Thème de la connexion" AutomationProperties.HelpText="Bascule entre clair et sombre et mémorise le choix pour Domenia. Ne lance pas la connexion et ne lit pas le mot de passe."/>
+          <Button x:Name="BtnSuiteLoginTheme" Grid.Column="2" Width="36" Height="36" MinHeight="36" Padding="7" Margin="8,0,0,0" VerticalAlignment="Center" KeyboardNavigation.TabIndex="6" ToolTip="Bascule entre clair et sombre et mémorise le choix pour Domenia. Ne lance pas la connexion et ne lit pas le mot de passe." ToolTipService.ShowOnDisabled="True" ToolTipService.InitialShowDelay="400" ToolTipService.ShowDuration="30000" AutomationProperties.Name="Thème de la connexion" AutomationProperties.HelpText="Bascule entre clair et sombre et mémorise le choix pour Domenia. Ne lance pas la connexion et ne lit pas le mot de passe.">
+            <!-- DS-10 (L08): same Path icons and convention as the main window, the theme the button switches to. -->
+            <Grid Width="18" Height="18" IsHitTestVisible="False">
+              <Path x:Name="LoginThemeSun" Data="M16,12 A4,4 0 1 1 8,12 A4,4 0 1 1 16,12 M12,2 L12,4 M12,20 L12,22 M2,12 L4,12 M20,12 L22,12 M4.9,4.9 L6.3,6.3 M17.7,17.7 L19.1,19.1 M4.9,19.1 L6.3,17.7 M17.7,6.3 L19.1,4.9" Stretch="Uniform" Stroke="{DynamicResource DomeniaBootAccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Visibility="Collapsed"/>
+              <Path x:Name="LoginThemeMoon" Data="M20,14.5 A8,8 0 1 1 9.5,4 A6.5,6.5 0 0 0 20,14.5 Z" Stretch="Uniform" Stroke="{DynamicResource DomeniaBootAccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+            </Grid>
+          </Button>
         </Grid>
 
         <ScrollViewer x:Name="LoginFormScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" CanContentScroll="False" Focusable="False" Padding="0">

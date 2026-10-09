@@ -125,7 +125,7 @@ La fiche d'un objet se prépare en arrière-plan dès le clic, et s'ouvre au dou
 | Utilisateur | « Utilisateur », « Coordonnees », « Compte ». |
 | Groupe | « Groupe ». |
 | OU ou conteneur | « Unite d organisation ». |
-| Poste | La page « Assistance poste » s'ajoute au menu (chapitre 5). |
+| Poste | La page « Poste » montre ce poste (chapitre 5). |
 
 L'onglet « Resume » donne le type, le nom, la classe, le GUID, les dates de création et de modification, le chemin complet et la présence. Pour un utilisateur, la présence est celle du poste qui lui est associé.
 
@@ -148,11 +148,11 @@ Les règles communes à toutes les écritures (objet relu récemment, objets pro
 
 # 5 Outils du poste et compte des opérations poste
 
-La page « Assistance poste » apparaît pour un poste. Ses outils ouvrent les consoles Windows sur ce poste avec le compte des opérations poste ; ceux qui modifient le poste sont bloqués en lecture seule. Domenia ne change aucun réglage Windows du poste ni du poste d'administration.
+La page « Poste » montre le poste sélectionné ; sans poste, elle affiche « Aucun poste ouvert ». Ses outils ouvrent les consoles Windows sur ce poste avec le compte des opérations poste ; ceux qui modifient le poste sont bloqués en lecture seule. Domenia ne change aucun réglage Windows du poste ni du poste d'administration.
 
 Onglets, dans l'ordre : « Machine », « Tableau de bord », « Actions », « Sessions Windows », « Diagnostic », « Inventaire », « Logiciels », « WMI » (profil Expert) et « Secrets ».
 
-![Onglet Machine de la page Assistance poste : carte Fiche du poste avec le DNS, la présence, le système, l'utilisateur associé et sa source](fig:fiche-poste)
+![Onglet Machine de la page Poste : carte Fiche du poste avec le DNS, la présence, le système, l'utilisateur associé et sa source](fig:fiche-poste)
 
 L'onglet « Machine » lit le compte ordinateur dans AD. « Detecter l utilisateur » recherche le dernier utilisateur connu ; un lien déjà enregistré n'est pas remplacé.
 
@@ -401,8 +401,8 @@ Les trois tableaux de bord sont faits de widgets : chaque tuile ou graphique se 
 | Tableau | Où | Données |
 |---|---|---|
 | Parc | Accueil, sous les boutons d'analyse. | Agrégats de la base autonome et observations en cache. |
-| Poste | Assistance poste, onglet « Tableau de bord ». | Dernier inventaire et attributs du compte ordinateur. |
-| Logiciels | Assistance poste, onglet « Logiciels », volet « Synthese en graphiques ». | Liste des logiciels chargée. |
+| Poste | Poste, onglet « Tableau de bord ». | Dernier inventaire et attributs du compte ordinateur. |
+| Logiciels | Poste, onglet « Logiciels », volet « Synthese en graphiques ». | Liste des logiciels chargée. |
 
 ## Barre d'outils
 
@@ -687,7 +687,7 @@ Toutes ces classes sont dans root\cimv2.
 
 # 11 Tableau des logiciels
 
-L'onglet « Logiciels » de la page « Assistance poste » lit la liste des logiciels installés sur le poste, à la demande. Le volet « Synthese en graphiques » résume la liste chargée en 8 widgets. Ce tableau ne lève aucun point d'attention et n'accepte pas de requêtes WMI.
+L'onglet « Logiciels » de la page « Poste » lit la liste des logiciels installés sur le poste, à la demande. Le volet « Synthese en graphiques » résume la liste chargée en 8 widgets. Ce tableau ne lève aucun point d'attention et n'accepte pas de requêtes WMI.
 
 ![Onglet Logiciels : options de lecture, volet Synthese en graphiques avec éditeurs, architecture, portée d'installation et plus gros logiciels, puis la liste](fig:logiciels)
 
@@ -709,7 +709,7 @@ L'onglet « Logiciels » de la page « Assistance poste » lit la liste des 
 
 Les associations entre utilisateurs et postes sont conservées dans la base autonome locale, pas dans AD. Les liens manuels restent distincts des observations automatiques. Une association mémorisée n'est pas la preuve d'une session ouverte ; la détection réseau reste volontaire.
 
-La page « Relations » a deux zones dans l'onglet « Associations » : à gauche, les associations de l'utilisateur ou du poste choisi dans « Rechercher » ; à droite, le panneau « Ajouter une association » avec « Détecter » et « Rechercher ». L'en-tête garde un seul statut ; le bouton « ? » affiche ou masque les précautions de la page et l'état de la détection du parc.
+La page « Utilisateurs et postes » a deux zones dans l'onglet « Associations » : à gauche, les associations de l'utilisateur ou du poste choisi dans « Rechercher » ; à droite, le panneau « Ajouter une association » avec « Détecter » et « Rechercher ». L'en-tête garde un seul statut ; le bouton « ? » affiche ou masque les précautions de la page et l'état de la détection du parc.
 
 ## Sources d'une association
 
@@ -832,15 +832,15 @@ La page « Comptes » applique la règle affichée sous « Regle d execution�
 
 ## Profils Essentiel et Expert
 
-La liste du bandeau propose « Essentiel » (livré, valeur Tech) et « Expert » (valeur Admin). Ce choix ne donne aucun droit supplémentaire. Le profil Essentiel masque « Attributs », « Droits effectifs », « WMI », « Verification », « Journal » et « Commandes ». Ctrl+L, qui ouvre le journal, bascule en profil Expert. Remettez le profil Essentiel aux techniciens.
+Le choix « Essentiel | Expert » du pied du menu propose « Essentiel » (livré, valeur Tech) et « Expert » (valeur Admin). Ce choix ne donne aucun droit supplémentaire. Le profil Essentiel masque « Attributs », « Droits effectifs », « WMI », « Verification », « Journal » et « Commandes ». Aucun raccourci, menu ou palette ne change le profil : en Essentiel, Ctrl+L déplie le journal de session, et une vue Expert demandée par un menu (« Explorateur WMI ») ou par la palette s'affiche seule, pour cette consultation. Remettez le profil Essentiel aux techniciens. Pour masquer le profil Expert, réglez UI.AllowExpertProfile à false dans wad\Domenia.config.json : l'entrée « Expert » disparaît et ces vues sont refusées avec leur raison.
 
 # 14 Lecture seule, démonstration et protection des écritures
 
-Domenia démarre toujours en lecture seule, y compris après un changement de compte. Passer en écriture demande une confirmation et reste signalé en rouge. Même en écriture, des garde-fous de configuration protègent l'annuaire et chaque action sensible demande une confirmation.
+Domenia démarre toujours en lecture seule, y compris après un changement de compte. Passer en écriture demande une confirmation dans la page, reste signalé en rouge et revient seul en lecture seule après 15 minutes sans écriture. Même en écriture, des garde-fous de configuration protègent l'annuaire et chaque action sensible demande une confirmation.
 
 ## Lecture seule
 
-La case « Lecture seule » du bandeau est cochée au démarrage et à chaque changement de compte. Elle n'est jamais mémorisée dans les préférences. Cochée, elle bloque :
+L'interrupteur « Lecture seule » de l'en-tête de page est actif au démarrage et à chaque changement de compte. Il n'est jamais mémorisé dans les préférences. Actif, il bloque :
 
 - toutes les écritures AD des fiches : enregistrements, attributs, déverrouillage, activation, désactivation, options de compte, expiration, mots de passe, groupes, déplacement, renommage, suppression, création d'OU ;
 - les actions distantes qui modifient un poste : « Actualiser les stratégies » et « Redemarrer » sont grisés, « Exécuter un programme » s'arrête au clic.
@@ -849,10 +849,10 @@ Restent disponibles : lectures, recherches, inventaires, détection, requêtes d
 
 ## Passer en écriture
 
-1. **Décocher.** Décochez « Lecture seule ». La fenêtre « Attention : mode ecriture » demande confirmation.
-2. **Confirmer.** « Oui » active l'écriture ; « Non » garde la lecture seule : « Mode lecture seule conserve. ».
-3. **Constater.** Le bandeau rouge « MODE ECRITURE AD ACTIF » s'affiche, un cadre rouge entoure la fenêtre et le titre se termine par « [ECRITURE AD ACTIVE] ».
-4. **Revenir.** Recochez la case dès la fin de l'intervention : « Mode lecture seule actif : ecritures AD, GPUpdate et redemarrage distant bloques. ».
+1. **Cliquer.** Cliquez sur l'interrupteur « Lecture seule ». Un panneau « Autoriser les modifications ? » s'ouvre sous l'en-tête, dans la page : aucune fenêtre.
+2. **Confirmer.** « Autoriser les modifications » active l'écriture ; « Rester en lecture seule » (ou Échap) la garde : « Lecture seule conservée. ».
+3. **Constater.** L'interrupteur passe au rouge « Écriture active · 15 min », un cadre rouge plein entoure la fenêtre, « Repasser en lecture » apparaît dans l'en-tête et le titre de la fenêtre se termine par « [ÉCRITURE AD ACTIVE] ».
+4. **Revenir.** Cliquez sur « Repasser en lecture » (ou sur l'interrupteur) dès la fin de l'intervention : « Lecture seule active : écritures AD, GPUpdate et redémarrage distant bloqués. ». Sinon, la lecture seule revient seule après 15 minutes sans écriture ; une écriture en cours n'est jamais interrompue et repousse ce retour à sa fin.
 
 > [!ATTENTION] Décocher ne donne aucun droit supplémentaire. Les confirmations de chaque action restent nécessaires.
 
@@ -862,6 +862,7 @@ Restent disponibles : lectures, recherches, inventaires, détection, requêtes d
 |---|---|---|
 | Security.RequireFreshObject et MaxObjectAgeMinutes | vrai, 15 | L'objet doit avoir été relu depuis moins de 15 minutes avant une écriture. |
 | Security.BlockProtectedObjects | vrai | Les objets protégés sont bloqués. |
+| Security.ReadOnlyReturnMinutes | 15 | Retour automatique en lecture seule après ce nombre de minutes sans écriture (5 à 120). |
 | Security.AllowProtectedObjectWrites | faux | Aucune écriture sur un objet protégé. |
 | Security.AllowContainerDelete | faux | Aucune suppression de conteneur. |
 | Security.AllowRawAttributeWrite | faux | Aucune écriture d'attribut brut. |
@@ -1139,6 +1140,7 @@ Une clé absente, nulle ou vide prend la valeur par défaut du code. Une section
 | Browser.SearchServerTimeLimitSeconds | 8 | Délai côté contrôleur. |
 | Browser.SearchClientTimeoutSeconds | 12 | Délai côté poste. |
 | UI.TreeRenderBatchSize, TreeRenderIntervalMs | 16, 20 | Affichage progressif de l'arbre. |
+| UI.AllowExpertProfile | true | false masque le profil Expert du pied du menu ; Ctrl+L reste sur le journal de session. |
 | Startup.ShowMonitor | true | Fenêtre « Domenia 1.0  Initialisation » pendant le chargement. |
 | SelfCheck.FullBenchmarkIterations | 3 | Répétitions de la vérification complète. |
 
