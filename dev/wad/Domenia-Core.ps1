@@ -497,7 +497,14 @@ function Assert-DomeniaWmiReadQuery {
     param([string]$ClassName,[string]$Namespace,[string]$Where,[int]$Limit)
     if ($ClassName -notmatch '^[A-Za-z_][A-Za-z0-9_]{0,127}$') { throw 'Nom de classe WMI invalide.' }
     if ($Namespace -notmatch '^root(?:\\[A-Za-z_][A-Za-z0-9_]*)*$') { throw 'Espace de noms WMI invalide.' }
-    if ($ClassName -ieq 'Win32_Product') { throw 'Win32_Product est bloque : sa lecture peut declencher des verifications/reparations MSI. Utilise le panneau Logiciels.' }
+    # SE-03 : le fournisseur MSI ne se reduit pas a Win32_Product. CIM_Product enumere les memes instances et
+    # Win32_SoftwareFeature est instancie par le meme fournisseur ; les 88 noms vivent dans
+    # Domenia-Workstation.Model.ps1, seule source, rien n'est recopie ici. Sans module Poste charge, la garde
+    # refuse la lecture au lieu de laisser passer une classe qu'elle n'a pas pu juger.
+    $msiRefusee = $false
+    try { $msiRefusee = [bool](Test-DomeniaMsiProviderClass $ClassName) }
+    catch { throw 'Garde MSI indisponible : module Poste non charge, lecture WMI refusee.' }
+    if ($msiRefusee) { throw 'Classe du fournisseur MSI bloquee : sa lecture peut declencher des verifications/reparations MSI. Utilise le panneau Logiciels.' }
     if (([string]$Where).Length -gt 2048 -or ([string]$Where).IndexOf([char]0) -ge 0) { throw 'Filtre WMI trop long ou contenant un caractere nul.' }
     if ($Limit -lt 1 -or $Limit -gt 500) { throw 'La limite WMI doit etre comprise entre 1 et 500.' }
 }
@@ -14549,7 +14556,10 @@ $r=Invoke-WRemoteTaskScript $Context $computer $local ([pscustomobject]@{Namespa
 
 function Get-DomeniaWmiQueryWorkerCode {
     return @'
-if ([string]$Payload.ClassName -ieq 'Win32_Product') { throw 'Win32_Product bloque : utiliser le panneau Logiciels.' }
+$msiNames=@();if($null-ne$Payload.PSObject.Properties['MsiClassNames']){foreach($msiName in @($Payload.MsiClassNames)){if(-not[string]::IsNullOrWhiteSpace([string]$msiName)){$msiNames+=[string]$msiName}}}
+if(-not$msiNames.Count){throw 'Garde MSI absente de la charge utile : lecture refusee.'}
+$msiStem=@(@([string]$Payload.ClassName) -split '[:\\]');$msiStem=@($msiStem[-1] -split '[.=]')[0].Trim()
+foreach($msiName in $msiNames){if($msiStem-ieq$msiName){throw 'Classe du fournisseur MSI bloquee : sa lecture peut declencher des verifications/reparations MSI. Utilise le panneau Logiciels.'}}
 if ([string]$Payload.ClassName -notmatch '^[A-Za-z_][A-Za-z0-9_]{0,127}$' -or [string]$Payload.Namespace -notmatch '^root(?:\\[A-Za-z_][A-Za-z0-9_]*)*$') { throw 'Classe ou namespace WMI invalide.' }
 if ([int]$Payload.Limit -lt 1 -or [int]$Payload.Limit -gt 500 -or ([string]$Payload.Where).Length -gt 2048 -or ([string]$Payload.Where).IndexOf([char]0) -ge 0) { throw 'Limite ou filtre WMI invalide.' }
 $computer=[string]$Payload.Computer;$namespace=[string]$Payload.Namespace;$className=[string]$Payload.ClassName;$where=([string]$Payload.Where).Trim();$limit=[Math]::Max(1,[Math]::Min(500,[int]$Payload.Limit));if($className-notmatch'^[A-Za-z_][A-Za-z0-9_]{0,127}$'){throw 'Nom de classe invalide.'};if($where-match'(?i)\b(insert|update|delete|drop|exec|call)\b'){throw 'Condition interdite.'};$query='SELECT * FROM '+$className;if($where){$query+=' WHERE '+$where}
@@ -14737,7 +14747,7 @@ function Start-DomeniaWmiQuery {
             -Name "Instances WMI" `
             -OperationId "WmiQuery" `
             -Code (Get-DomeniaWmiQueryWorkerCode) `
-            -Payload ([pscustomobject]@{ Computer=$computer; Namespace=$namespace; ClassName=$className; Where=$where; Limit=$limit }) `
+            -Payload ([pscustomobject]@{ Computer=$computer; Namespace=$namespace; ClassName=$className; Where=$where; Limit=$limit; MsiClassNames=@(Get-DomeniaMsiProviderClassNames) }) `
             -CallbackState ([pscustomobject]@{ Computer=$computer; ClassName=$className }) `
             -ReplaceKey "wmi" `
             -DisableControls @("BtnWmiNamespaces","BtnWmiClasses","BtnWmiQuery") `
@@ -22340,7 +22350,7 @@ function Get-DomeniaWorkerOperationHashes {
         BatchNetworkDiag      = "C3043A5234A626DD8E83E9DE0791D55005C81C5716C7BA5FD559204C1BC87815"
         WmiNamespaces         = "3F54C07FC76AABC9511861F7B13A2A97394B366C7C8702EAF0BB67D30E886E25"
         WmiClasses            = "D7BD82BD51A7C7FAA920CC549BDACCD37038C19FA2A5BF43B01C7CDBA0CB9556"
-        WmiQuery              = "CCF547839D0C78001741E9A278DDFC531166108188BE9AAB498E61F6EFB2313F"
+        WmiQuery              = "6BD3C58E349298A4B4909D51A9841B052E5B911D7563D6239550F0CC3DB146F0"
         SoftwareInventory     = "0F758A7DFEF27A63A230A3CD34FE45A5D7079691AB6C9D989C861ADE2A61E9D1"
         LogonHarvest          = "ED7FFF55506C7BCE5567D65F683E10E9F28EA9771947F12A8DEEE1435994119A"
         ParkSweep             = "134ED776E45640FA67B7F51659711C33B37834105375CC4B083342469F2C26A9"
@@ -22373,8 +22383,8 @@ function Get-DomeniaWorkerOperationHashes {
         PresenceScan          = "E7F81414C29C1C8F1E91453D9EC4BA48B6F92F0AA0E2674C9EBF5C88437F4486"
         SelectedPresence      = "4ECADF4F231390182A3BF091EF8636B3536D7B3F8A28EF3984DE1E2D524D5BFA"
         StartupWarmCache      = "864735012ED29EBAF1B094DA12C1D44266933DC9D3D2046BD1E5D68AE58CA1A3"
-        LiveSelectedPing     = "1096C61BB04511091B3F2CFE7731797EADFA74C8973B312E77AE7A793952125B"
-        LiveConsole          = "1096C61BB04511091B3F2CFE7731797EADFA74C8973B312E77AE7A793952125B"
+        LiveSelectedPing     = "E6C6A5D6C22D1A46937454909AF29E86360B94105BBBE9FFD80F7288791745A9"
+        LiveConsole          = "E6C6A5D6C22D1A46937454909AF29E86360B94105BBBE9FFD80F7288791745A9"
         LiveCache            = "DDE5FCD862785432F805D446F3E16A28D3D60282A50892354C01BB2ED147196E"
         LiveDirectoryCheck    = "49F6D4249F6465D6E461D3B04DD090F00477ABBD871683ECF3622714A2AB53CD"
         SessionsList         = "DD09187778C09CF31B0BDA41EAC88FF898D9484756AFDF2F3EE643E6B5318BF6"
@@ -22395,7 +22405,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "0573CCACB2274A0874987D74D1B8B7BB5EE92C1EE18079482736A204AF3E64E1"
+    $expectedFingerprint = "99ED9C6F835642918A7AE91C33FF6C998971B7633C07B9B9D1170DEDD07D2A2C"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }

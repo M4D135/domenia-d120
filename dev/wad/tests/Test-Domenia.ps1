@@ -59,6 +59,22 @@ foreach($name in $wanted) {
 . ([scriptblock]::Create(($definitions -join "`r`n")))
 # FI-05 / PF-06: every Dispatcher timer comes from the protected factory of the engine (Domenia-Engine.UI.ps1).
 foreach($engineModule in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Engine.UI.ps1')){. (Join-Path (Split-Path -Parent $PSScriptRoot) ('modules\'+$engineModule))}
+# SE-03 : les regles MSI et le catalogue ne sont pas recopies dans les gardes. Le banc les charge par AST, comme
+# les fonctions du coeur, pour juger les gardes avec la liste reelle du produit.
+$guardAst=[System.Management.Automation.Language.Parser]::ParseFile((Join-Path (Split-Path -Parent $PSScriptRoot) 'modules\Domenia-Workstation.Model.ps1'),[ref]$null,[ref]$null)
+$guardNodes=@($guardAst.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst]},$true))
+$guardDefinitions=@()
+foreach($guardName in @('Get-DomeniaMsiProviderClassNames','Test-DomeniaMsiProviderClass')){
+    $guardNode=@($guardNodes | Where-Object {$_.Name -eq $guardName})
+    if ($guardNode.Count -ne 1) { throw "Definition unique attendue : $guardName ($($guardNode.Count) trouvee)." }
+    $guardDefinitions+=$guardNode[0].Extent.Text
+}
+foreach($guardName in @('Get-DomeniaWmiQueryWorkerCode')){
+    $guardNode=@($nodes | Where-Object {$_.Name -eq $guardName})
+    if ($guardNode.Count -ne 1) { throw "Definition unique attendue : $guardName ($($guardNode.Count) trouvee)." }
+    $guardDefinitions+=$guardNode[0].Extent.Text
+}
+. ([scriptblock]::Create(($guardDefinitions -join "`r`n")))
 $testDirectory=Join-Path ([IO.Path]::GetTempPath()) ('Domenia-tests-'+[guid]::NewGuid().ToString('N'))
 [void][IO.Directory]::CreateDirectory($testDirectory)
 $script:DataDir=Join-Path $testDirectory 'data';[void][IO.Directory]::CreateDirectory($script:DataDir)
@@ -313,6 +329,42 @@ try {
         Assert-Throws {Assert-DomeniaWmiReadQuery 'Bad;Class' 'root\cimv2' '' 25}
         Assert-Throws {Assert-DomeniaWmiReadQuery Win32_Service 'root\cimv2' '' 501}
         Assert-Throws {Assert-DomeniaWmiReadQuery Win32_Service 'root\cimv2' ([string][char]0) 25}
+        # SE-03 : 88 classes passent par le fournisseur MSI, pas seulement Win32_Product.
+        Assert-Throws {Assert-DomeniaWmiReadQuery CIM_Product 'root\cimv2' '' 25}
+        Assert-Throws {Assert-DomeniaWmiReadQuery Win32_SoftwareFeature 'root\cimv2' '' 25}
+        Assert-Throws {Assert-DomeniaWmiReadQuery 'CIM_Product.ActsAsComponent' 'root\cimv2' '' 25}
+        Assert-Throws {Assert-DomeniaWmiReadQuery 'root\cimv2:Win32_Product' 'root\cimv2' '' 25}
+        Assert-Throws {Assert-DomeniaWmiReadQuery Win32_Patch 'root\cimv2' '' 25}
+        Assert-Throws {Assert-DomeniaWmiReadQuery CIM_Component 'root\cimv2' '' 25}
+        # Toute la liste du fournisseur est refusee, pas trois noms choisis a la main.
+        foreach($msiClass in @(Get-DomeniaMsiProviderClassNames)){ Assert-Throws {Assert-DomeniaWmiReadQuery $msiClass 'root\cimv2' '' 25} }
+        Assert-True ([bool](Test-DomeniaMsiProviderClass 'CIM_Product'))
+        Assert-True (-not [bool](Test-DomeniaMsiProviderClass 'Win32_Service'))
+    }
+    Test-Case 'WMI : le worker refuse le fournisseur MSI sans en recopier la liste' {
+        $msiNames=@(Get-DomeniaMsiProviderClassNames)
+        Assert-True ($msiNames.Count -ge 80)
+        $workerCode=[scriptblock]::Create((Get-DomeniaWmiQueryWorkerCode))
+        foreach($blocked in @('Win32_Product','CIM_Product','Win32_SoftwareFeature','CIM_Product.ActsAsComponent','Win32_Patch','CIM_Component')){
+            $Payload=[pscustomobject]@{Computer='pc-01.example.invalid';Namespace='root\cimv2';ClassName=$blocked;Where='';Limit=25;MsiClassNames=$msiNames}
+            $message=''
+            try{ & $workerCode }catch{ $message=[string]$_.Exception.Message }
+            Assert-True ($message -match 'fournisseur MSI') ('Classe '+$blocked+' non refusee par le worker : '+$message)
+        }
+        # Sans liste transmise, le worker ne peut rien juger : il refuse au lieu de laisser passer.
+        foreach($sansListe in @('absente','vide','nulle')){
+            $Payload=[pscustomobject]@{Computer='pc-01.example.invalid';Namespace='root\cimv2';ClassName='CIM_Product';Where='';Limit=25}
+            if($sansListe -eq 'vide'){ $Payload | Add-Member -NotePropertyName MsiClassNames -NotePropertyValue @() }
+            if($sansListe -eq 'nulle'){ $Payload | Add-Member -NotePropertyName MsiClassNames -NotePropertyValue @($null) }
+            $message=''
+            try{ & $workerCode }catch{ $message=[string]$_.Exception.Message }
+            Assert-True ($message -match 'Garde MSI absente') ('Worker laisse passer sans liste ('+$sansListe+') : '+$message)
+        }
+        # Controle positif : une classe saine franchit la garde ; l'echec vient ensuite du transport absent.
+        $Payload=[pscustomobject]@{Computer='pc-01.example.invalid';Namespace='root\cimv2';ClassName='Win32_Service';Where='';Limit=25;MsiClassNames=$msiNames}
+        $message=''
+        try{ & $workerCode }catch{ $message=[string]$_.Exception.Message }
+        Assert-True ($message -ne '' -and $message -notmatch 'fournisseur MSI') ('Classe saine refusee par la garde MSI : '+$message)
     }
     Test-Case 'Secrets : masque integral et absence de Value dans la grille' {
         $script:SecretRows=@([pscustomobject]@{Kind='LAPS';Account='test';Value='abcdSecret1234';Timestamp='';Source='test';Detail=''})
