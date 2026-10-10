@@ -344,6 +344,15 @@ function Complete-DomeniaFleetDashboard {
     $scope = if ($null -ne $State) { [pscustomobject]@{ Dn = [string]$State.Scope; Subtree = [bool]$State.Subtree; Name = [string]$State.Name; Path = [string]$State.ScopePath; Key = [string]$State.Key } } else { Get-DomeniaFleetScope }
     if ($null -eq $scope) { $scope = [pscustomobject]@{ Dn = ''; Subtree = $true; Name = 'Tout le domaine'; Path = ''; Key = '*' } }
     try { $board = Get-DomeniaFleetBoardData -Result $data -Scope ([string]$scope.Dn) -Subtree ([bool]$scope.Subtree) -Lifecycle (Get-DomeniaWindowsLifecycleTable) -ObservationMaxAgeDays (Get-DomeniaObservationMaxAgeDays) -IndexPartial (Get-DomeniaIndexPartialText) }
+    catch [System.Management.Automation.CommandNotFoundException] {
+        # Une fonction absente est un defaut de chargement (core ou module non charge), jamais un resultat
+        # metier. Le catch general la rendait en « Vue d'ensemble non calculee : The term ... » et
+        # Fail-DomeniaFleetDashboard effacait FleetComputedKey: la trace ne nommait plus sa propre cause.
+        $absente = [string]$_.Exception.Message
+        if ($absente -match "'([^']*)'") { $absente = $matches[1] } else { $absente = [string]$_.Exception.ErrorRecord.FullyQualifiedErrorId }
+        Add-DomeniaUiLog -Text ('Tableau de bord flotteur : fonction absente ' + $absente + ' | ' + [string]$_.Exception.Message) -Level "ERROR" -Area "Interface"
+        Fail-DomeniaFleetDashboard ('fonction absente du chargement : ' + $absente) $State; return
+    }
     catch { Fail-DomeniaFleetDashboard $_.Exception.Message $State; return }
     $script:FleetPendingKey = ''; $script:FleetJobId = ''; $script:FleetComputedKey = [string]$scope.Key
     $count = @($board.Last.Targets).Count
