@@ -566,3 +566,21 @@ Test-Case 'D080' 'Aucune ouverture par navigation, aucune commande shell' {
     foreach($arg in @($plan.ArgumentList)){Assert-False ($arg -match '[\s&|;<>^"%]') ('Caractere de shell : '+$arg)}
     Assert-False $plan.UsesShell
 }
+
+Test-Case 'UX-37' 'Inventaire du poste : les codes CIM rendent un libelle, une valeur inconnue reste brute' {
+    $e=[string][char]0x00E9;$c=[string][char]0x00E7;$p=[string][char]0x02BC
+    Assert-Equal 'Poste membre du domaine' (Get-DomeniaInventoryValueText 'Systeme' 'Role dans le domaine' '1') 'Role 1'
+    Assert-Equal ('Membre d'+$p+'un groupe de travail') (Get-DomeniaInventoryValueText 'Systeme' 'Role dans le domaine' '4') 'Role 4'
+    Assert-Equal 'Portable' (Get-DomeniaInventoryValueText 'Systeme' 'Type de chassis' '10') 'Chassis 10'
+    Assert-Equal 'Tour, Portable' (Get-DomeniaInventoryValueText 'Systeme' 'Type de chassis' '6, 10') 'Chassis 6, 10'
+    Assert-Equal ('Fran'+$c+'ais') (Get-DomeniaInventoryValueText 'Systeme d exploitation' 'Langue' '1036') 'Langue 1036'
+    Assert-Equal ('Fran'+$c+'ais') (Get-DomeniaInventoryValueText 'Systeme d exploitation' 'Langue' '01036') 'Un LANGID decimal avec son zero reste la meme cle'
+    Assert-Equal ('Connect'+$e+'e, 1 Gb/s') (Get-DomeniaInventoryValueText 'Cartes reseau' 'Ethernet 1' '2, 1000 Mb/s') 'Carte connectee a 1 Gb/s'
+    Assert-Equal ('D'+$e+'connect'+$e+'e, 100 Mb/s') (Get-DomeniaInventoryValueText 'Cartes reseau' 'Ethernet 2' '0, 100 Mb/s') 'Carte deconnectee a 100 Mb/s'
+    Assert-Equal ('Connect'+$e+'e') (Get-DomeniaInventoryValueText 'Cartes reseau' 'Ethernet 3' '2') 'Carte sans vitesse rendue'
+    Assert-Equal 'XTS-AES 256 bits' (Get-DomeniaInventoryValueText 'BitLocker' 'C: methode' '6') 'BitLocker 6'
+    Assert-Equal ('Panne annonc'+$e+'e') (Get-DomeniaInventoryValueText 'Disques physiques' 'DISK0 etat SMART' 'Pred Fail') 'SMART Pred Fail'
+    Assert-Equal '4242' (Get-DomeniaInventoryValueText 'Systeme' 'Role dans le domaine' '4242') 'Une valeur hors table ressort brute'
+    Assert-Equal 'Gadget' (Get-DomeniaInventoryValueText 'Divers' 'Note' 'Gadget') 'Un element sans table ressort brut'
+    Assert-Equal '' (Get-DomeniaInventoryValueText 'Systeme' 'Role dans le domaine' $null) 'Une valeur vide rend vide'
+}

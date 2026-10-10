@@ -546,6 +546,19 @@ try {
             Assert-True (([string]$tip.Groups[1].Value) -notlike '*correctif*') ('Infobulle du complet : ' + $tip.Groups[1].Value)
         }
     }
+    Test-Case 'UX-37 : la grille d inventaire affiche le libelle calcule, la valeur brute reste relisible' {
+        $xaml = Get-MainXaml
+        $texteCore = Get-Content $core -Raw -Encoding UTF8
+        $x = [regex]::Match($texteCore, '(?s)function Set-DomeniaItemsSource.*?\r?\n\}')
+        Assert-True ($x.Value.Contains('if ($Name -eq ''DgInventory'')')) 'Set-DomeniaItemsSource ne calcule pas ValueText pour DgInventory'
+        Assert-True ($x.Value.Contains('Get-DomeniaInventoryValueText')) 'Le libelle n est pas calcule par la table du module poste'
+        # Ce que l ecran montre : le libelle. Ce que le presse-papiers et l export emportent : la valeur
+        # que CIM a rendue, que l infobulle rappelle. Les deux sont ecrits dans le XAML, pas devines.
+        Assert-True ($xaml.Contains('Text="{Binding ValueText}" Style="{StaticResource WrappedCellText}" ToolTip="{Binding Value}"')) 'La colonne Valeur n affiche pas le libelle calcule'
+        Assert-True ($xaml.Contains('Header="Valeur" Width="*" ClipboardContentBinding="{Binding Value}"')) 'La valeur brute ne porte plus ce que copient le presse-papiers et l export'
+        $uxui = Get-Content (Join-Path (Split-Path $core -Parent) 'modules\Domenia-UX.UI.ps1') -Raw -Encoding UTF8
+        Assert-True ($uxui.Contains('if (([string]$column.Header) -eq ''Source'')')) 'La colonne Source de l inventaire n est pas reservee a l Expert'
+    }
     if ($WpfSmoke) {
         Test-Case 'WPF et moteur : autotest interne dans un processus dedie' {
             $selfReport=Join-Path $testDirectory 'self-test.json'

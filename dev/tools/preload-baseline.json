@@ -1,5 +1,5 @@
 {
-  "Archive": "lot/L10-spark CO-24-SP-06",
+  "Archive": "Lot UX-37 du programme 2026-10-08 (branche lot/L10-spark)",
   "ArchiveSHA256": "655ED21F90345B3C7667D4E777814C6A0595A5D5BE628AD587FB46CCA5241922",
   "CoreFunctions": {
     "Write-DomeniaAtomicText": "1C9A1583F52EB7BE80BE420662653E4AF886FE11DC4FDB3B1C4CDF19FD1C0EDA",
@@ -75,7 +75,7 @@
     "Get-DomeniaGridDateSortKey": "E7BF7E619847FE79456754E29C7FCD404964595B44B04B5EA585BD62BCD8D0A8",
     "Get-DomeniaGridDateShortText": "CEFE035B77E2F6E946C9409A569100558E64C7D641E9114B316EDC52B16193B8",
     "Add-DomeniaGridDateKeys": "905438D7D6F4CC007686BCE93623443CBB9029D65754362B1248D34BD7240C2E",
-    "Set-DomeniaItemsSource": "90DC7DEB7C39358583F27F18884B213C0C910B2F9043323D70D51C436DD7FFFA",
+    "Set-DomeniaItemsSource": "D5C958C857B1078A3EC709F48A6AC179F1E2D51A68BCE9419C87F78FB407EF50",
     "Set-DomeniaGridRows": "E8D2FDCCBAA350AADD89FE199B97072FF62EAFD32D04808D8989C8A8ABBDCC12",
     "Set-DomeniaControlEnabled": "9C79CD555B579C2B055B402B62E88F24416DB5A257639B3C04187F96E05B5FF3",
     "Invoke-DomeniaUiPump": "6326D1A68740CADD53B75F8BA49CBA91CE0308719979F11BBF900B98BA181A1C",
@@ -150,7 +150,7 @@
     "Set-DomeniaResourceColor": "27391F9046A85B14658803F03178045ABEDF0B1F4DD5364D7BA5575C5E4F11BE",
     "Apply-DomeniaTheme": "B0ECA10884F7B8D32279AD437EAB8C806D868256D7071B79511688468E2D02BE",
     "Toggle-DomeniaTheme": "EA7E0F31A78D8B4A0BFAB0C27D8028521C1C3A1A255DDA4BEA3B65B5F7C99F03",
-    "Get-MainXaml": "AFA6DF96EA63E040EC3152549170287B49676BC0102DE476484B8447ADAD4FA1",
+    "Get-MainXaml": "B309B629EC4838910345FC2C98E5CD9B596BAA142BE36252E162D58AEDC494C4",
     "Assert-DomeniaXamlPreflight": "20BB1DA04FD88D78E1A52C5610376467D5E9408437BC823DDC8EC8F40C0EAEB7",
     "Save-DomeniaXamlDiagnostic": "D648C9D6BD6F5F3A6613957D22A6A42EC1AAC0C1FA6218195A55D10EADF4DC67",
     "ConvertFrom-DomeniaXaml": "855E6CA9E56D62F77F5C22ACAC048293D24281B5B8FCC7FEB6806450BE561228",
@@ -2453,6 +2453,18 @@
       "Decision": "Textes alignes sur la collecte reelle du collecteur (bloc if deep du worker) et durees annoncees par les budgets reels 55 s et 150 s",
       "ChangedCoreFunctions": [
         "Get-MainXaml"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "lot/L10-spark CO-24-SP-06",
+      "Source": "Lot UX-37 du programme 2026-10-08 (branche lot/L10-spark)",
+      "Decision": "Set-DomeniaItemsSource calcule ValueText pour DgInventory ; table de traduction ajoutee au module poste",
+      "ChangedCoreFunctions": [
+        "Get-MainXaml",
+        "Set-DomeniaItemsSource"
       ],
       "AddedCoreFunctions": [],
       "RemovedCoreFunctions": [],

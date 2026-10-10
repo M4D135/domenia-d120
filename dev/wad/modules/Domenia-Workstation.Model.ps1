@@ -101,6 +101,169 @@ function Get-DomeniaWorkstationDurationText {
 }
 
 # ---------------------------------------------------------------- D071 quick diagnosis with an announced cost
+# --- UX-37 : la colonne Valeur de l inventaire du poste rend un libelle, pas le code CIM ---
+# Le collecteur recopie ce que CIM lui rend : role « 1 », chassis « 10 », langue « 1036 », carte
+# « 2, 1000 Mb/s », BitLocker « 6 », SMART « Pred Fail ». Ces codes se relisent dans une console WMI, pas
+# dans une grille d appui. Table fermee, comme celle des sondes (Get-DomeniaProbeValues) : une valeur
+# qu elle ne connait pas ressort telle quelle. Un libelle invente ne se verifie nulle part, un code si.
+# La valeur brute n est donc pas perdue : l infobulle de la grille la montre, le presse-papiers et
+# l export la gardent.
+$script:DomeniaInventoryRoleText = @{
+    '1' = 'Poste membre du domaine'
+    '2' = 'Contrôleur de domaine principal'
+    '3' = 'Contrôleur de domaine de sauvegarde'
+    '4' = 'Membre dʼun groupe de travail'
+    '5' = 'Contrôleur de domaine principal de confiance'
+    '6' = 'Contrôleur de domaine de sauvegarde de confiance'
+}
+# ChassisTypes (Win32_SystemEnclosure) : la liste SMBIOS est longue et les constructeurs n'en rendent
+# qu'une poignee. 9 et 10 sont ce que rendent les portables du parc ; le nom SMBIOS de 10 ne dirait rien
+# a un operateur, les deux portent le meme libelle.
+$script:DomeniaInventoryChassisText = @{
+    '1' = 'Autre'
+    '2' = 'Inconnu'
+    '3' = 'Bureau'
+    '4' = 'Bureau (profil bas)'
+    '5' = 'Bureau (format pizza)'
+    '6' = 'Tour'
+    '7' = 'Portable'
+    '8' = 'Portable'
+    '9' = 'Portable'
+    '10' = 'Portable'
+    '11' = 'Station dʼaccueil'
+    '12' = 'Bureau (tout-en-un)'
+    '13' = 'Portable (compact)'
+    '14' = 'Bureau (gain de place)'
+    '16' = 'Châssis principal'
+    '17' = 'Châssis dʼextension'
+    '18' = 'Sous-châssis'
+    '23' = 'Baie (rack)'
+    '26' = 'Portable'
+    '28' = 'Station dʼaccueil'
+    '32' = 'Mini PC'
+    '34' = 'Mini PC'
+    '37' = 'Serveur (densite faible)'
+    '38' = 'Serveur (densite moyenne)'
+    '39' = 'Serveur (densite elevee)'
+    '41' = 'Lame'
+}
+# OSLanguage est un LANGID : « 0409 » et « 409 » sont deux ecritures de la meme cle.
+$script:DomeniaInventoryLanguageText = @{
+    '1031' = 'Allemand'
+    '1033' = 'Anglais (États-Unis)'
+    '1036' = 'Français'
+    '1040' = 'Italien'
+    '1043' = 'Néerlandais'
+    '1044' = 'Norvégien'
+    '1046' = 'Portugais (Brésil)'
+    '1049' = 'Russe'
+    '1053' = 'Suédois'
+    '1055' = 'Turc'
+    '1058' = 'Ukrainien'
+    '2057' = 'Anglais (Royaume-Uni)'
+    '2060' = 'Français (Belgique)'
+    '2070' = 'Portugais'
+    '3082' = 'Espagnol'
+    '4105' = 'Anglais (Canada)'
+}
+# NetConnectionStatus (Win32_NetworkAdapter) : 2 = connectee, d'ou « Connectee, 1 Gb/s ».
+$script:DomeniaInventoryNetStatusText = @{
+    '0' = 'Déconnectée'
+    '1' = 'Connexion en cours'
+    '2' = 'Connectée'
+    '3' = 'Déconnexion en cours'
+    '4' = 'Matériel absent'
+    '5' = 'Matériel désactivé'
+    '6' = 'Panne matérielle'
+    '7' = 'Composant non installé'
+    '8' = 'Inconnu'
+}
+# EncryptionMethod (Win32_EncryptableVolume).
+$script:DomeniaInventoryBitLockerMethodText = @{
+    '0' = 'Inconnue'
+    '1' = 'AES 128 bits avec diffuseur'
+    '2' = 'AES 256 bits avec diffuseur'
+    '3' = 'AES 128 bits'
+    '4' = 'AES 256 bits'
+    '5' = 'XTS-AES 128 bits'
+    '6' = 'XTS-AES 256 bits'
+}
+# Status des disques physiques : CIM rend de l'anglais. Clefs en majuscules, la lookup normalise.
+$script:DomeniaInventorySmartText = @{
+    'OK' = 'Sain'
+    'PRED FAIL' = 'Panne annoncée'
+    'PREDICTIVE FAILURE' = 'Panne annoncée'
+    'UNKNOWN' = 'Inconnu'
+    'N/A' = 'Non applicable'
+    'BAD' = 'Hors service'
+    'SERVICE' = 'En maintenance'
+    'DEGRADED' = 'Dégradé'
+    'OFFLINE' = 'Hors ligne'
+    'STARTING' = 'Démarrage'
+    'STOPPING' = 'Arrêt'
+}
+
+function Get-DomeniaInventoryMapText {
+    # Cle numerique normalisee : « 0409 » et « 409 » sont la meme langue. Une cle hors table rend le brut.
+    param($Table, [string]$Key, [string]$Fallback)
+    $cle = ([string]$Key).Trim()
+    if ($cle -match '^\d+$') { $cle = $cle.TrimStart('0'); if ($cle -eq '') { $cle = '0' } }
+    if ($null -ne $Table -and $Table.ContainsKey($cle)) { return [string]$Table[$cle] }
+    return $Fallback
+}
+
+function Get-DomeniaInventoryValueText {
+    <#
+        UX-37 : le libelle que l operateur doit lire dans la colonne Valeur de l inventaire du poste, a
+        partir de la valeur brute rendue par CIM. Une valeur que la table ne connait pas ressort telle
+        quelle : rien n est invente. La table est branchee sur le nom de l element, pas sur sa ligne, pour
+        que le collecteur reste libre d ajouter une categorie sans toucher ici.
+    #>
+    param($Category, $Item, $Value)
+    $brut = ([string]$Value).Trim()
+    if ([string]::IsNullOrWhiteSpace($brut)) { return '' }
+    $nom = ([string]$Item).Trim().ToLowerInvariant()
+    $cat = ([string]$Category).Trim().ToLowerInvariant()
+    if ($nom -eq 'role dans le domaine') { return Get-DomeniaInventoryMapText -Table $script:DomeniaInventoryRoleText -Key $brut -Fallback $brut }
+    if ($nom -eq 'type de chassis') {
+        # ChassisTypes est une liste : « 6, 10 » rend deux libelles, pas une chaine recoupee.
+        $libelles = @()
+        foreach ($morceau in @($brut -split ',')) {
+            $code = $morceau.Trim()
+            if ($code -eq '') { continue }
+            $libelles += Get-DomeniaInventoryMapText -Table $script:DomeniaInventoryChassisText -Key $code -Fallback $code
+        }
+        if ($libelles.Count -eq 0) { return $brut }
+        return ($libelles -join ', ')
+    }
+    if ($nom -eq 'langue') { return Get-DomeniaInventoryMapText -Table $script:DomeniaInventoryLanguageText -Key $brut -Fallback $brut }
+    if ($cat -eq 'bitlocker' -and $nom.EndsWith('methode')) {
+        return Get-DomeniaInventoryMapText -Table $script:DomeniaInventoryBitLockerMethodText -Key $brut -Fallback $brut
+    }
+    if ($cat -eq 'disques physiques' -and $nom.EndsWith('etat smart')) {
+        return Get-DomeniaInventoryMapText -Table $script:DomeniaInventorySmartText -Key $brut.ToUpperInvariant() -Fallback $brut
+    }
+    if ($cat -eq 'cartes reseau') {
+        # Le collecteur colle le statut et la vitesse dans la meme valeur : « 2, 1000 Mb/s ».
+        $statut = $brut
+        $vitesse = ''
+        if ($brut -match '^(?<statut>.*?)[,;]\s*(?<vitesse>[\d.,]+)\s*(?<unite>Mb|Gb)/s$') {
+            $statut = [string]$matches['statut']
+            $nombre = 0.0
+            $chiffres = ([string]$matches['vitesse']) -replace ',', '.'
+            if ([double]::TryParse($chiffres, [ref]$nombre) -and $nombre -gt 0) {
+                if ($matches['unite'] -eq 'Mb' -and $nombre -ge 1000) { $nombre = $nombre / 1000.0; $unite = 'Gb' } else { $unite = $matches['unite'] }
+                $vitesse = (('{0:0.#}' -f $nombre) -replace '\.', ',') + ' ' + $unite + '/s'
+            }
+            else { $vitesse = [string]$matches['vitesse'] + ' ' + $matches['unite'] + '/s' }
+        }
+        $libelle = Get-DomeniaInventoryMapText -Table $script:DomeniaInventoryNetStatusText -Key $statut -Fallback $statut.Trim()
+        if ($vitesse -eq '') { return $libelle }
+        return $libelle + ', ' + $vitesse
+    }
+    return $brut
+}
+
 function Get-DomeniaQuickDiagPlan {
     # Five bounded read-only checks. The worker follows this plan; nothing is read here.
     # No intrusive fallback: a refused or unreachable check stays refused or unreachable.

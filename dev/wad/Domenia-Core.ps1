@@ -1830,6 +1830,14 @@ function Set-DomeniaItemsSource {
             $suffix=if($global){' · recherche globale sans filtre local'}else{' · filtre local, sans requête AD'}
             [void](Set-DomeniaControlText 'LblSuiteResultCount' ("$visible ligne(s) visible(s)"+$suffix))
         }
+        if ($Name -eq 'DgInventory') {
+            # UX-37 : la grille affiche un libelle, pas le code CIM. Calculee ici, sur le seul chemin par ou
+            # passent les lignes affichees. La valeur brute reste sur la ligne : c est elle que l infobulle
+            # montre, que le clic droit copie et que l export ecrit, pour relire la propriete WMI d origine.
+            foreach ($row in @($Rows | Where-Object { $null -ne $_ })) {
+                $row | Add-Member -MemberType NoteProperty -Name 'ValueText' -Force -Value ([string](Get-DomeniaInventoryValueText -Category $row.Category -Item $row.Item -Value $row.Value))
+            }
+        }
         # Ne jamais transmettre directement une List[T] PowerShell a WPF :
         # Windows PowerShell 5.1 peut lever  types des arguments incompatibles .
         $materialized = [System.Collections.ArrayList]::new()
@@ -6479,10 +6487,10 @@ function Get-MainXaml {
                             <DataGrid.Columns>
                               <DataGridTextColumn Header="Categorie" Binding="{Binding Category}" Width="190"/>
                               <DataGridTextColumn Header="Element" Binding="{Binding Item}" Width="260"/>
-                              <DataGridTemplateColumn Header="Valeur" Width="*">
+                              <DataGridTemplateColumn Header="Valeur" Width="*" ClipboardContentBinding="{Binding Value}">
                                 <DataGridTemplateColumn.CellTemplate>
                                   <DataTemplate>
-                                    <TextBlock Text="{Binding Value}" Style="{StaticResource WrappedCellText}" ToolTip="{Binding Value}"/>
+                                    <TextBlock Text="{Binding ValueText}" Style="{StaticResource WrappedCellText}" ToolTip="{Binding Value}"/>
                                   </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                               </DataGridTemplateColumn>

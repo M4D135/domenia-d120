@@ -258,6 +258,8 @@ function Get-DomeniaRuntimeModulePlan {
             'ConvertTo-DomeniaWorkstationNumber',
             'Get-DomeniaWorkstationNumberText',
             'Get-DomeniaWorkstationDurationText',
+            'Get-DomeniaInventoryMapText',
+            'Get-DomeniaInventoryValueText',
             'Get-DomeniaQuickDiagPlan',
             'Test-DomeniaQuickDiagAllowed',
             'ConvertTo-DomeniaQuickDiagFacts',
