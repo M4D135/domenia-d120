@@ -183,6 +183,55 @@ Test-Case 'UX-39' 'Sessions : heure locale, duree d inactivite, compte nu pour o
     Assert-Equal '' (Get-DomeniaSessionAccountName -Row $null) 'Pas de ligne : pas de compte'
 }
 
+Test-Case 'UX-17' 'Diagnostic : verdict en francais, transports facultatifs comptes a part' {
+    $e=[string][char]0x00E9;$a=[string][char]0x00E0
+    $rows=@(
+        [pscustomobject]@{Check='Resolution DNS';Status='OK';Method='Classique';DurationMs=12;Detail='10.0.0.7'},
+        [pscustomobject]@{Check='Ping';Status='OK';Method='Classique';DurationMs=31;Detail='1 ms'},
+        [pscustomobject]@{Check='TCP 445 Partage de fichiers SMB';Status='OK';Method='Classique';DurationMs=8;Detail='Ouvert'},
+        [pscustomobject]@{Check='TCP 5985 WinRM HTTP';Status='INJOIGNABLE';Method='Classique';DurationMs=402;Detail='Ferme ou filtre'},
+        [pscustomobject]@{Check='TCP 5986 WinRM HTTPS';Status='INJOIGNABLE';Method='Classique';DurationMs=401;Detail='Ferme ou filtre'},
+        [pscustomobject]@{Check='TCP 3389 Bureau a distance';Status='OK';Method='Classique';DurationMs=9;Detail='Ouvert'},
+        [pscustomobject]@{Check='Transport PsExec';Status='INDISPONIBLE';Method='PsExec';DurationMs=0;Detail='PsExec.exe absent du dossier Domenia.'},
+        [pscustomobject]@{Check='Transport Task Scheduler';Status='REFUSE';Method='TaskScheduler';DurationMs=88;Detail='Acces refuse'},
+        [pscustomobject]@{Check='Partage C$';Status='OK';Method='Classique';DurationMs=40;Detail='Monte'},
+        [pscustomobject]@{Check='Session CIM';Status='OK';Method='Dcom';DurationMs=120;Detail='Session ouverte.'},
+        [pscustomobject]@{Check='Systeme';Status='OK';Method='Classique';DurationMs=60;Detail='Poste membre du domaine'},
+        [pscustomobject]@{Check='Redemarrage en attente';Status='ERREUR';Method='Classique';DurationMs=15;Detail='Registre illisible'},
+        [pscustomobject]@{Check='Service de deploiement';Status='IGNORE';Method='Classique';DurationMs=0;Detail='Budget de temps epuise.'}
+    )
+    $v=ConvertTo-DomeniaDiagVerdict -Rows $rows -Computer 'W11-01'
+    # Le poste est sain : WinRM ferme et les deux replis absents ne sont pas des pannes. C est le
+    # constat du lot — la page comptait « 3 en echec » sur ce poste-la.
+    Assert-Equal 1 $v.Failed ('Un seul vrai echec attendu : '+$v.Verdict)
+    Assert-Equal 4 $v.Info 'Les deux ports WinRM et les deux transports de repli sont des informations'
+    Assert-Equal 7 $v.Ok 'Sept controles reussis sur ce poste'
+    Assert-Equal 1 $v.Skipped 'Le budget epuise reste non tente, ni reussi ni en echec'
+    Assert-True ($v.Verdict.StartsWith('W11-01 ')) $v.Verdict
+    Assert-True ($v.Verdict -match 'C\$ accessible') ('C$ accessible manque : '+$v.Verdict)
+    Assert-True ($v.Verdict -match ('Bureau '+$a+' distance ouvert')) ('Bureau a distance manque : '+$v.Verdict)
+    Assert-True ($v.Verdict -match 'Redemarrage en attente') ('Le vrai echec doit etre nomme : '+$v.Verdict)
+    Assert-True ($v.Verdict -match ('WinRM ferm'+$e)) ('Le cas WinRM doit etre explique : '+$v.Verdict)
+    Assert-True ($v.Verdict -match 'repli') ('Les transports de repli doivent etre distincts de WinRM : '+$v.Verdict)
+    Assert-True ($v.Verdict -notmatch 'INJOIGNABLE') ('Un code du worker remonte dans la phrase : '+$v.Verdict)
+    Assert-True ($v.Verdict -notmatch '5985') ('Un port facultatif ferme est enonce comme une panne : '+$v.Verdict)
+    $r=@($v.Rows)
+    Assert-Equal 'INJOIGNABLE' $r[3].Status 'Le code brut reste dans la ligne, pour la copie et le journal'
+    Assert-Equal 'Injoignable' $r[3].EtatLibelle 'L etat rendu est un mot francais'
+    Assert-Equal 'Information' $r[6].Severity 'PsExec absent est une information, pas une panne'
+    Assert-Equal 'Echec' $r[11].Severity 'La ligne qui echoue vraiment reste un echec'
+    Assert-Equal 'Non tent' ([string]$r[12].EtatLibelle).Substring(0,8) 'IGNORE se dit en francais'
+    Assert-Equal 'KO-CIM' (Get-DomeniaDiagStatusLabel -Status 'ko-cim') 'Un code inconnu ressort tel quel'
+    Assert-Equal 'Reussi' (Get-DomeniaDiagSeverity -Check 'Partage C$' -Status 'OK')
+    Assert-Equal 'Echec' (Get-DomeniaDiagSeverity -Check 'Partage C$' -Status 'REFUSE') 'C$ refuse est une panne : le produit en a besoin'
+    $vide=ConvertTo-DomeniaDiagVerdict -Rows @() -Computer 'W11-01'
+    Assert-Equal '' $vide.Verdict 'Pas de ligne : pas de verdict'
+    Assert-True ($vide.EmptyText -match 'Lancer le diagnostic') $vide.EmptyText
+    $muet=ConvertTo-DomeniaDiagVerdict -Rows @([pscustomobject]@{Check='Ping';Status='ERREUR';Method='Classique';DurationMs=1500;Detail='TimedOut'})
+    Assert-True ($muet.Verdict -match ('ne r'+$e+'pond pas')) ('Un poste eteint doit se dire ainsi : '+$muet.Verdict)
+    Assert-True ($muet.Verdict.StartsWith('Le poste')) 'Sans nom de poste, la phrase reste complete'
+}
+
 # ---------------------------------------------------------------- D073
 Test-Case 'D073' 'Sources de desinstallation 64 et 32 bits ; categories non couvertes indiquees' {
     $s=Get-DomeniaSoftwareSources

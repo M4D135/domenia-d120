@@ -1,5 +1,5 @@
 {
-  "Archive": "lot UX-39 (sessions Windows rendues par la vue testee)",
+  "Archive": "lot UX-17 (verdict du diagnostic en francais, Methode et Duree ms en Expert)",
   "ArchiveSHA256": "655ED21F90345B3C7667D4E777814C6A0595A5D5BE628AD587FB46CCA5241922",
   "CoreFunctions": {
     "Write-DomeniaAtomicText": "1C9A1583F52EB7BE80BE420662653E4AF886FE11DC4FDB3B1C4CDF19FD1C0EDA",
@@ -150,7 +150,7 @@
     "Set-DomeniaResourceColor": "27391F9046A85B14658803F03178045ABEDF0B1F4DD5364D7BA5575C5E4F11BE",
     "Apply-DomeniaTheme": "B0ECA10884F7B8D32279AD437EAB8C806D868256D7071B79511688468E2D02BE",
     "Toggle-DomeniaTheme": "EA7E0F31A78D8B4A0BFAB0C27D8028521C1C3A1A255DDA4BEA3B65B5F7C99F03",
-    "Get-MainXaml": "5E5B8ABAC169DE722D27423757F1F8FB278B2386B181CFB80DBAE04A06055DB6",
+    "Get-MainXaml": "FB8045EFCF9173C85ADDF82057E787393147C4A9E9B20405CC866B700C9CD0F5",
     "Assert-DomeniaXamlPreflight": "20BB1DA04FD88D78E1A52C5610376467D5E9408437BC823DDC8EC8F40C0EAEB7",
     "Save-DomeniaXamlDiagnostic": "D648C9D6BD6F5F3A6613957D22A6A42EC1AAC0C1FA6218195A55D10EADF4DC67",
     "ConvertFrom-DomeniaXaml": "855E6CA9E56D62F77F5C22ACAC048293D24281B5B8FCC7FEB6806450BE561228",
@@ -414,7 +414,7 @@
     "Ensure-DomeniaPermissions": "8DAA53B2A1C49AE68A4F57E22DE11B8FC0448A946F9D0AE22809AC2BD7679571",
     "Register-DomeniaDeferredViewHandlers": "68FF9E5E56FD29EC1AB8D88F02EF95D029E9A781E5F6290F4925E5D07A8604C4",
     "Register-DomeniaShortcuts": "FD189C01ECA7AE1265DC2593ED4ACB674775747291BC669F51B9C6D9F96DFA11",
-    "Start-ComputerDiagnostics": "361B8580A5EAE7FAF601CB7FD19E0DB7E353BA89F43A6C60D3D5D0EACC015155",
+    "Start-ComputerDiagnostics": "36A1AADBF2211338B2C3BF582A7984480B9A64CB420756885306BE1DE2127183",
     "Copy-ComputerDiagnostics": "A188275C51CFCAF2D55C5B9AC31B3F37B8B0437EA33B36A4BF243894D8F74E69",
     "Get-DomeniaRunningComputerUserProbe": "AAAEE5EFFB592A6489AD11D2D49938E509181AA78152D4A6E4F790A9DF7A9872",
     "Clear-DomeniaComputerUserProbeState": "CFB0566F82093241E0919721488D728C875C004989925DEA56BAD6D422F3302F",
@@ -2477,6 +2477,18 @@
       "ChangedCoreFunctions": [
         "Get-MainXaml",
         "Initialize-DomeniaPresentation"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "lot UX-39 (sessions Windows rendues par la vue testee)",
+      "Source": "lot UX-17 (verdict du diagnostic en francais, Methode et Duree ms en Expert)",
+      "Decision": "Get-MainXaml: la colonne Etat du diagnostic devient une puce en mots francais avec le code brut en infobulle. Start-ComputerDiagnostics: le rappel de fin passe par ConvertTo-DomeniaDiagVerdict et ne compte plus les transports facultatifs en echec; le corps du worker ComputerDiagnostics reste intact, son contrat SHA est verifie.",
+      "ChangedCoreFunctions": [
+        "Get-MainXaml",
+        "Start-ComputerDiagnostics"
       ],
       "AddedCoreFunctions": [],
       "RemovedCoreFunctions": [],

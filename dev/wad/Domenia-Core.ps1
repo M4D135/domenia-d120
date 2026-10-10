@@ -6437,7 +6437,37 @@ function Get-MainXaml {
                         <DataGrid x:Name="DgComputerDiag" ToolTip="Résultat de chaque contrôle. Clic droit pour copier." AutoGenerateColumns="False" IsReadOnly="True" MinRowHeight="31" ScrollViewer.HorizontalScrollBarVisibility="Disabled" CanUserResizeRows="False" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Resultat de chaque controle" AutomationProperties.HelpText="Resultat de chaque controle. Clic droit pour copier.">
                           <DataGrid.Columns>
                             <DataGridTextColumn Header="Controle" Binding="{Binding Check}" Width="210"/>
-                            <DataGridTextColumn Header="Etat" Binding="{Binding Status}" Width="95"/>
+                            <!-- UX-17 : l etat se lit en mots francais, la couleur porte le degre, pas la decorative.
+                                 L infobulle garde le code brut du worker (OK, REFUSE, INJOIGNABLE...), comme la colonne
+                                 Valeur de l inventaire garde le code CIM (UX-37). -->
+                            <DataGridTemplateColumn Header="Etat" Width="112">
+                              <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                  <Border CornerRadius="9" Padding="8,1" Margin="0,2" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTip="{Binding Status}">
+                                    <Border.Style>
+                                      <Style TargetType="Border">
+                                        <Setter Property="Background" Value="#E5E7EB"/>
+                                        <Style.Triggers>
+                                          <DataTrigger Binding="{Binding Severity}" Value="Reussi"><Setter Property="Background" Value="#DCFCE7"/></DataTrigger>
+                                          <DataTrigger Binding="{Binding Severity}" Value="Echec"><Setter Property="Background" Value="#FEE2E2"/></DataTrigger>
+                                          <DataTrigger Binding="{Binding Severity}" Value="Information"><Setter Property="Background" Value="#DBEAFE"/></DataTrigger>
+                                        </Style.Triggers>
+                                      </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="{Binding EtatLibelle}" FontSize="12" FontWeight="SemiBold">
+                                      <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                          <Setter Property="Foreground" Value="#374151"/>
+                                          <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Severity}" Value="Echec"><Setter Property="Foreground" Value="#991B1B"/></DataTrigger>
+                                          </Style.Triggers>
+                                        </Style>
+                                      </TextBlock.Style>
+                                    </TextBlock>
+                                  </Border>
+                                </DataTemplate>
+                              </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
                             <DataGridTextColumn Header="Methode" Binding="{Binding Method}" Width="120"/>
                             <DataGridTextColumn Header="Duree ms" Binding="{Binding DurationMs}" Width="90"/>
                             <DataGridTemplateColumn Header="Detail" Width="*">
@@ -17473,17 +17503,23 @@ $methodsUsed=@($rows | Where-Object { [string]$_.Status -eq 'OK' -and -not [stri
                     Write-AppLog "Diagnostic ignore : la selection a change pendant l execution." "INFO"
                     return
                 }
-                $script:ComputerDiagRows = @($result.Rows)
+                # UX-17 : la vue classe les lignes (reussi, echec, facultatif, non tente) et rend la phrase
+                # du haut. Les lignes gardees dans $script:ComputerDiagRows gardent Status, Method et
+                # DurationMs : la copie au presse-papiers et le journal de session restent en codes bruts.
+                $diagView = ConvertTo-DomeniaDiagVerdict -Rows @($result.Rows) -Computer ([string]$result.Computer)
+                $script:ComputerDiagRows = @($diagView.Rows)
                 [void](Set-DomeniaItemsSource -Name "DgComputerDiag" -Rows $script:ComputerDiagRows)
-                $ok = @($script:ComputerDiagRows | Where-Object { [string]$_.Status -eq "OK" }).Count
-                $skipped = @($script:ComputerDiagRows | Where-Object { [string]$_.Status -eq "IGNORE" }).Count
-                $failed = @($script:ComputerDiagRows).Count - $ok - $skipped
+                $ok = [int]$diagView.Ok
+                $skipped = [int]$diagView.Skipped
+                $failed = [int]$diagView.Failed
                 $account = $script:ProcessIdentityDisplay
                 $operationCredential = Get-DomeniaMachineOperationCredential
                 if ($null -ne $operationCredential) { $account = $operationCredential.UserName }
-                $summary = "{0} : {1} controle(s) reussi(s), {2} en echec, {3} non tente(s), en {4} ms. Compte utilise : {5}." -f `
-                    ([string]$result.Computer),$ok,$failed,$skipped,([long]$result.DurationMs),([string]$account)
-                [void](Set-DomeniaControlText -Name "LblComputerDiag" -Text $summary)
+                $summary = "{0} : {1} controle(s) reussi(s), {2} en echec, {3} non tente(s), {4} facultatif(s), en {5} ms. Compte utilise : {6}." -f `
+                    ([string]$result.Computer),$ok,$failed,$skipped,[int]$diagView.Info,([long]$result.DurationMs),([string]$account)
+                $diagText = [string]$diagView.Verdict
+                if ([string]::IsNullOrWhiteSpace($diagText)) { $diagText = [string]$diagView.EmptyText }
+                [void](Set-DomeniaControlText -Name "LblComputerDiag" -Text $diagText)
                 Set-Status $summary
                 Add-DomeniaUiLog -Area "Diagnostic" -Text $summary
                 $methods = ""

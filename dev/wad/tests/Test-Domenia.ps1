@@ -587,6 +587,24 @@ try {
         Assert-True ($native.Contains('LogonTicks=Ticks(server,s.SessionId,WTSLogonTime)')) 'L heure d ouverture n est pas lue'
         Assert-True ($native.Contains('IdleTicks=Ticks(server,s.SessionId,WTSIdleTime)')) 'La duree d inactivite n est pas lue'
     }
+    Test-Case 'UX-17 : le diagnostic rend sa phrase en francais et garde les codes pour la copie' {
+        $xaml = Get-MainXaml
+        $texteCore = Get-Content $core -Raw -Encoding UTF8
+        $diag = [regex]::Match($xaml, '(?s)<DataGrid x:Name="DgComputerDiag".*?</DataGrid>')
+        Assert-True ($diag.Value.Contains('Text="{Binding EtatLibelle}"')) 'La colonne Etat affiche encore le code brut du worker'
+        Assert-True ($diag.Value.Contains('<DataTrigger Binding="{Binding Severity}" Value="Echec">')) 'Les echecs ne se distinguent que par le texte'
+        Assert-True ($diag.Value.Contains('ToolTip="{Binding Status}"')) 'Le code brut a disparu de l infobulle de la ligne'
+        # Le worker est epingle par le contrat SHA de ComputerDiagnostics : il n est pas touche. Le lot
+        # ne porte que sur la vue, le rappel de fin et le profil Expert — le banc epingle ces trois-la.
+        Assert-True ($texteCore.Contains('ConvertTo-DomeniaDiagVerdict -Rows @($result.Rows) -Computer ([string]$result.Computer)')) 'La page ne passe pas par la vue du diagnostic'
+        Assert-True ($texteCore.Contains('-Name "LblComputerDiag" -Text $diagText')) 'Le verdict n est pas ecrit en haut de la page'
+        Assert-True (-not $texteCore.Contains('$script:ComputerDiagRows).Count - $ok - $skipped')) 'Les controles facultatifs comptent encore comme des echecs'
+        Assert-True ($texteCore.Contains('[int]$diagView.Info')) 'La ligne de statut ne dit pas ce qui etait facultatif'
+        $uxui = Get-Content (Join-Path (Split-Path $core -Parent) 'modules\Domenia-UX.UI.ps1') -Raw -Encoding UTF8
+        Assert-True ($uxui.Contains("Get-DomeniaControl 'DgComputerDiag'")) 'Methode et Duree ms ne dependent pas du profil Expert'
+        # Recherche litterale en chaine simple : en chaine double, $column etait interpole avant de chercher.
+        Assert-True ($uxui.Contains('-eq ''Methode'' -or ([string]$column.Header) -eq ''Duree ms''')) 'Les deux colonnes techniques ne sont pas reservees a l Expert'
+    }
     if ($WpfSmoke) {
         Test-Case 'WPF et moteur : autotest interne dans un processus dedie' {
             $selfReport=Join-Path $testDirectory 'self-test.json'

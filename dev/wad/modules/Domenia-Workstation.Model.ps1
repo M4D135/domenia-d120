@@ -100,6 +100,144 @@ function Get-DomeniaWorkstationDurationText {
     return ([string]$days + ' j ' + [string]$Span.Hours + ' h')
 }
 
+# ---------------------------------------------------------------- UX-17 : un verdict, pas un compte d'echecs
+# Le worker du diagnostic (Core, operation epinglee ComputerDiagnostics) rend des lignes
+# Check/Status/Method/DurationMs/Detail avec des codes : OK, ERREUR, REFUSE, INJOIGNABLE,
+# INDISPONIBLE, IGNORE. La page les additionnait tels quels : sur un poste sain ou WinRM HTTPS est
+# ferme et ou les deux transports de repli ne sont pas installes, elle affichait « 3 en echec ».
+# Un transport facultatif qui manque n'est pas une panne : Domenia lit par CIM, et PsExec comme le
+# planificateur ne servent que si CIM est refuse. Ces lignes passent donc en Information. Le code
+# reste dans la ligne et dans le rapport copie au presse-papiers : le libelle est ce que l operateur
+# lit, le code reste ce qu il transmet a un collegue qui rouvrira le journal.
+function Get-DomeniaDiagStatusLabel {
+    [CmdletBinding()]
+    param([AllowNull()][AllowEmptyString()][string]$Status = '')
+    $code = ([string]$Status).Trim().ToUpperInvariant()
+    $labels = @{
+        'OK' = 'Réussi'
+        'ERREUR' = 'Erreur'
+        'REFUSE' = 'Refusé'
+        'INJOIGNABLE' = 'Injoignable'
+        'INDISPONIBLE' = 'Non installé'
+        'IGNORE' = 'Non tenté'
+        'INFO' = 'Information'
+    }
+    if ($labels.ContainsKey($code)) { return [string]$labels[$code] }
+    # Un code que cette table ne connait pas ressort tel quel : il correspond a une ligne du
+    # rapport copie. Un libelle invente pour lui ne se verifierait nulle part.
+    return $code
+}
+
+function Get-DomeniaDiagSeverity {
+    [CmdletBinding()]
+    param([AllowNull()][AllowEmptyString()][string]$Check = '',
+          [AllowNull()][AllowEmptyString()][string]$Status = '')
+    $code = ([string]$Status).Trim().ToUpperInvariant()
+    if ($code -eq 'OK') { return 'Reussi' }
+    if ($code -eq 'IGNORE') { return 'Non tente' }
+    $name = ([string]$Check).Trim()
+    # Noms exacts produits par le worker. Les transports de repli (PsExec, planificateur) n en
+    # font pas partie : s ils echouent alors que CIM a deja echoue, le poste est vraiment en panne.
+    foreach ($prefix in @('WinRM', 'Transport PsExec', 'Transport Task Scheduler')) {
+        if ($name -eq $prefix) { return 'Information' }
+        if ($name.StartsWith($prefix + ' ', [StringComparison]::OrdinalIgnoreCase)) { return 'Information' }
+    }
+    if ($name.StartsWith('TCP 5985', [StringComparison]::OrdinalIgnoreCase) -or
+        $name.StartsWith('TCP 5986', [StringComparison]::OrdinalIgnoreCase)) { return 'Information' }
+    return 'Echec'
+}
+
+function ConvertTo-DomeniaDiagVerdict {
+    [CmdletBinding()]
+    param([AllowNull()]$Rows = $null, [AllowNull()][AllowEmptyString()][string]$Computer = '')
+    $list = @()
+    if ($null -ne $Rows) { $list = @($Rows) }
+    $out = New-Object Collections.ArrayList
+    $reussi = 0; $echec = 0; $info = 0; $nonTente = 0
+    foreach ($row in $list) {
+        if ($null -eq $row) { continue }
+        $check = [string]$row.Check
+        $status = [string]$row.Status
+        $severity = Get-DomeniaDiagSeverity -Check $check -Status $status
+        if ($severity -eq 'Reussi') { $reussi += 1 }
+        elseif ($severity -eq 'Echec') { $echec += 1 }
+        elseif ($severity -eq 'Information') { $info += 1 }
+        else { $nonTente += 1 }
+        [void]$out.Add([pscustomobject]@{
+            Check = $check
+            Status = $status
+            EtatLibelle = (Get-DomeniaDiagStatusLabel -Status $status)
+            Severity = $severity
+            Method = [string]$row.Method
+            DurationMs = [int]$row.DurationMs
+            Detail = [string]$row.Detail
+        })
+    }
+    $rowsOut = @($out.ToArray())
+    if ($rowsOut.Count -eq 0) {
+        return [pscustomobject]@{ Rows=@(); Verdict=''; Ok=0; Failed=0; Info=0; Skipped=0
+            EmptyText='Aucun contrôle exécuté : lancez « Lancer le diagnostic » pour lire le poste.' }
+    }
+    $subject = ([string]$Computer).Trim()
+    if ([string]::IsNullOrWhiteSpace($subject)) { $subject = 'Le poste' }
+    $echecs = @($rowsOut | Where-Object { $_.Severity -eq 'Echec' })
+    $points = @()
+    # Un poste injoignable ne se resume pas a un nombre : la premiere phrase doit le dire, sinon
+    # l operateur lit « 8 controles reussis » sur une machine eteinte.
+    $down = @($echecs | Where-Object { $_.Check -eq 'Resolution DNS' -or $_.Check -eq 'Ping' })
+    if ($down.Count -gt 0) {
+        if (@($echecs | Where-Object { $_.Check -eq 'Resolution DNS' }).Count -gt 0) {
+            $points += ($subject + ' ne répond pas : son nom ne se résout pas.')
+        }
+        else {
+            $points += ($subject + ' ne répond pas : aucun ping.')
+        }
+    }
+    else {
+        $positifs = @()
+        if (@($rowsOut | Where-Object { $_.Check -eq 'Partage C$' -and $_.Severity -eq 'Reussi' }).Count -gt 0) {
+            $positifs += 'C$ accessible'
+        }
+        if (@($rowsOut | Where-Object { $_.Check -eq 'Session CIM' -and $_.Severity -eq 'Reussi' }).Count -gt 0) {
+            $positifs += 'WMI lu'
+        }
+        if (@($rowsOut | Where-Object { $_.Check -like 'TCP 3389*' -and $_.Severity -eq 'Reussi' }).Count -gt 0) {
+            $positifs += 'Bureau à distance ouvert'
+        }
+        $head = $subject + ' répond'
+        if ($positifs.Count -gt 0) { $head += ' : ' + ($positifs -join ', ') }
+        $points += ($head + '.')
+    }
+    if ($echecs.Count -gt 0) {
+        $noms = @($echecs | ForEach-Object { [string]$_.Check } | Select-Object -First 3)
+        $phrase = [string]$echecs.Count + ' contrôle(s) en échec : ' + ($noms -join ', ')
+        if ($echecs.Count -gt 3) { $phrase += ' (et ' + [string]($echecs.Count - 3) + ' autre(s)).' }
+        else { $phrase += '.' }
+        $points += $phrase
+    }
+    $facultatifs = @($rowsOut | Where-Object { $_.Severity -eq 'Information' })
+    if ($facultatifs.Count -gt 0) {
+        # Deux absences n'ont pas le meme sens : WinRM ferme est le reglage normal d'un parc qui lit par
+        # DCOM, alors que les deux transports de repli qui manquent retirent le plan B de Domenia.
+        $winrm = @($facultatifs | Where-Object { $_.Check -like 'TCP 5985*' -or $_.Check -like 'TCP 5986*' -or $_.Check -eq 'WinRM' })
+        $replis = @($facultatifs | Where-Object { $_.Check -notlike 'TCP 5985*' -and $_.Check -notlike 'TCP 5986*' -and $_.Check -ne 'WinRM' })
+        if ($winrm.Count -gt 0) { $points += 'WinRM fermé : normal tant que le parc nʼutilise pas WinRM.' }
+        if ($replis.Count -gt 0) {
+            $noms = @($replis | ForEach-Object { [string]$_.Check } | Select-Object -First 3)
+            $points += ('Transports de repli non disponibles : ' + ($noms -join ', ') + '.')
+        }
+    }
+    return [pscustomobject]@{
+        Rows = $rowsOut
+        Verdict = ($points -join ' ')
+        Ok = $reussi
+        Failed = $echec
+        Info = $info
+        Skipped = $nonTente
+        EmptyText = ''
+    }
+}
+
 # ---------------------------------------------------------------- D071 quick diagnosis with an announced cost
 # --- UX-37 : la colonne Valeur de l inventaire du poste rend un libelle, pas le code CIM ---
 # Le collecteur recopie ce que CIM lui rend : role « 1 », chassis « 10 », langue « 1036 », carte
