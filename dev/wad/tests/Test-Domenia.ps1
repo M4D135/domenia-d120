@@ -525,6 +525,27 @@ try {
             Assert-True (([string]$tb.ToolTip) -ceq ('{Binding ' + $tpl[1] + '}')) ('Colonne ' + $tpl[0] + ' sans date complete en infobulle : ' + [string]$tb.ToolTip)
         }
     }
+    Test-Case 'SP-06 : les boutons de l inventaire annoncent la duree que le code paie' {
+        $xaml = Get-MainXaml
+        $approx = [string][char]0x2248
+        $rapide = 'Inventaire rapide (' + $approx + '1 min)'
+        $complet = 'Inventaire complet (' + $approx + '3 min)'
+        Assert-True ($xaml.Contains('x:Name="BtnRunInventory" Content="' + $rapide + '"')) ('Bouton Rapide : ' + $rapide + ' absent du XAML')
+        Assert-True ($xaml.Contains('x:Name="BtnRunInventoryDeep" Content="' + $complet + '"')) ('Bouton Complet : ' + $complet + ' absent du XAML')
+        # Le nom d automation porte le meme libelle que l ecran, sinon le lecteur d ecran dit autre chose.
+        Assert-True ($xaml.Contains('AutomationProperties.Name="' + $rapide + '"')) 'Nom d automation du bouton rapide fige sur l ancien libelle'
+        Assert-True ($xaml.Contains('AutomationProperties.Name="' + $complet + '"')) 'Nom d automation du bouton complet fige sur l ancien libelle'
+        # L annonce reste branchee sur le budget reel du worker : 55 s et 150 s. Les deux lignes sont
+        # cherchees dans le collecteur : le coeur porte d autres budgets (celui de l index, 1 200 s),
+        # et un test qui les compterait tous se plaindrait d une donnee qui n a rien a voir avec l inventaire.
+        $texteCore = Get-Content $core -Raw -Encoding UTF8
+        Assert-True ($texteCore.Contains('$budget = 55000')) 'Budget de l inventaire rapide (55 s) introuvable dans le collecteur'
+        Assert-True ($texteCore.Contains('if ($Deep) { $budget = 150000')) 'Budget de l inventaire complet (150 s) introuvable dans le collecteur'
+        # Les correctifs se lisent deja dans le rapide : le complet ne peut plus les promettre.
+        foreach ($tip in @([regex]::Matches($xaml, 'ToolTip="([^"]*[Ii]nventaire complet[^"]*)"'))) {
+            Assert-True (([string]$tip.Groups[1].Value) -notlike '*correctif*') ('Infobulle du complet : ' + $tip.Groups[1].Value)
+        }
+    }
     if ($WpfSmoke) {
         Test-Case 'WPF et moteur : autotest interne dans un processus dedie' {
             $selfReport=Join-Path $testDirectory 'self-test.json'

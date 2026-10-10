@@ -812,14 +812,14 @@
     },
     {
       "Path": "tools/preload-baseline.json",
-      "Sha256": "52697942F5D75AF8F226ED05A76FFCF61C3A3BC359B016792629135B9348669E",
-      "Bytes": 171800,
+      "Sha256": "B425A5A93B46A9BCC9BA1D68A11377B6AF522F27F5D38FB75E0CC6B2916C0A65",
+      "Bytes": 172634,
       "Runtime": false,
       "PreserveExisting": false
     },
     {
       "Path": "tools/prod-manifest.json",
-      "Sha256": "E027096BA148D0B1153C15E6182FA54697F522A47148F9EB01B41CDF3C5A93EB",
+      "Sha256": "C7408CA15A1ECBD5A54E9A4E8FB89CE5DFD68B26B767093EC3147A437A371006",
       "Bytes": 19333,
       "Runtime": false,
       "PreserveExisting": false
@@ -882,8 +882,8 @@
     },
     {
       "Path": "wad/Domenia-Core.ps1",
-      "Sha256": "8FBAAC239C857F151C6B0F840330D15A91367160229AD26788B78F1FA87E94B9",
-      "Bytes": 1920230,
+      "Sha256": "6134172BE3998353E6DEA5E4CCDBFAA49E79E20920FC4201DC2CB24F45B60F76",
+      "Bytes": 1920428,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -1421,8 +1421,8 @@
     },
     {
       "Path": "wad/modules/Domenia-BoardComputer.UI.ps1",
-      "Sha256": "9386EF6100E5B36D280A002B847A5D1333D82983B7EA8079C16EE757FD2CFCAE",
-      "Bytes": 42680,
+      "Sha256": "45377888036BC312AF9C1FAD3716D424E378CF4B4AE718E0A0DE490A2D2B288F",
+      "Bytes": 42860,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -1841,8 +1841,8 @@
     },
     {
       "Path": "wad/modules/Domenia-UX.help.json",
-      "Sha256": "5377418D63417EBF6F031545457B7B4CC370B2253CCCC2905AFB95F1BC17F772",
-      "Bytes": 125497,
+      "Sha256": "46A46CB4E63B3E3CDA811DDBD39D3F07F1167C95E65DAB5AFA5E50F34CFCF305",
+      "Bytes": 125541,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -1876,8 +1876,8 @@
     },
     {
       "Path": "wad/tests/Test-Domenia.ps1",
-      "Sha256": "3FEA68586052F9A2542F8E3BFFEE265A681042CD5B48F236DF87C13FD26C9F7A",
-      "Bytes": 47216,
+      "Sha256": "E59ED2E617F0E17E0E26013AA26D005B529A7B29A7482D43C11A78B6C4666502",
+      "Bytes": 49187,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -2296,8 +2296,8 @@
     },
     {
       "Path": "wad/tests/rules/Boards.Tests.ps1",
-      "Sha256": "F19C0C671EC98D5CEB345A16B2425DC066C30BFC3EA69C0571B65FA8106E961F",
-      "Bytes": 33963,
+      "Sha256": "B07C4F0B67D9F54050831D7BD20C956F7CF7A8D362E054FD83675809226FF45D",
+      "Bytes": 36197,
       "Runtime": false,
       "PreserveExisting": false
     },

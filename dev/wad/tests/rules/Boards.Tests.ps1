@@ -360,3 +360,28 @@ Test-Case 'BRD-023' 'CO-16 : requete mesuree titree par son nom, nombre de poste
     Assert-Equal 'Non lu' ([string]$skipped.Value) 'requete ignoree sur un controleur'
     Assert-Equal 'Off' ([string]$skipped.State)
 }
+
+Test-Case 'BRD-024' 'CO-24 : une section vide dit ce qui n a pas ete lu, sans promettre au complet ce que le rapide lit deja' {
+    # Le collecteur ne garde cinq sources que pour l inventaire complet (Core, bloc if ($deep)) : processus,
+    # erreurs systeme, taches planifiees, certificats machine, connexions reseau. Correctifs, antivirus,
+    # pare-feu et BitLocker se lisent des l inventaire rapide : aucune de ces deux sections ne peut les
+    # presenter comme le supplement du complet.
+    $metrics = [pscustomobject]@{ MemoryTotal = [double]16GB; MemoryFree = [double]8GB; LastBoot = ''; CpuLoad = 35.0; Battery = -1.0; ClockSkewSeconds = $null; ClockReference = ''
+        Disks = @([pscustomobject]@{ Name = 'C:'; Size = [double]100GB; Free = [double]50GB }); Hotfixes = @(); Processes = @(); Services = @{} }
+    $data = Get-DomeniaComputerBoardData -Result ([pscustomobject]@{ Rows = @(); Metrics = $metrics })
+    Assert-True ($data.Summary -notlike '*correctif*') ('resume : ' + [string]$data.Summary)
+    $e = [string][char]0x00E9; $a = [string][char]0x00E2; $g = [string][char]0x00E8
+    foreach ($ajout in @('processus', 'erreurs syst' + $g + 'me', 't' + $a + 'ches planifi' + $e + 'es', 'certificats', 'connexions r' + $e + 'seau')) {
+        Assert-True ($data.Summary -like ('*' + $ajout + '*')) ('resume muet sur ' + $ajout + ' : ' + [string]$data.Summary)
+    }
+    foreach ($section in @('Activite', 'Securite et etat')) {
+        Assert-True ($data.Hints.ContainsKey($section)) ('section vide sans indice : ' + $section)
+        $hint = [string]$data.Hints[$section]
+        Assert-True ($hint -like '*non lu*') ($section + ' : ' + $hint)
+        Assert-True ($hint -notlike '*correctif*') ($section + ' promet les correctifs au complet : ' + $hint)
+        Assert-True ($hint -notlike '*protection*') ($section + ' promet la protection au complet : ' + $hint)
+    }
+    # Ce que chaque section attend vraiment du complet, et rien d autre.
+    Assert-True ([string]$data.Hints['Activite'] -like '*processus*') ('Activite : ' + [string]$data.Hints['Activite'])
+    Assert-True ([string]$data.Hints['Securite et etat'] -like '*certificats*') ('Securite et etat : ' + [string]$data.Hints['Securite et etat'])
+}
