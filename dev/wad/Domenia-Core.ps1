@@ -1754,6 +1754,35 @@ function Set-DomeniaControlText {
     try { $control.Text = [string]$Text; return $true } catch { return $false }
 }
 
+function Get-DomeniaGridDateSortKey {
+    # CO-03 : cle de tri des colonnes datees. La valeur affichee est une chaine ; triee comme
+    # texte, 09/05/2026 passe avant 10/01/2026. Une date illegible ou absente (« Jamais », « »)
+    # trie comme la plus ancienne : la ligne descend d un tri croissant au lieu de se glisser au
+    # milieu du tableau par la chance de sa chaine.
+    param($Value)
+    $text = [string]$Value
+    if ([string]::IsNullOrWhiteSpace($text)) { return [datetime]::MinValue }
+    $parsed = [datetime]::MinValue
+    foreach ($format in @('dd/MM/yyyy HH:mm:ss','dd/MM/yyyy HH:mm','dd/MM/yyyy')) {
+        if ([datetime]::TryParseExact($text, $format, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::None, [ref]$parsed)) { return $parsed }
+    }
+    return [datetime]::MinValue
+}
+function Add-DomeniaGridSortKeys {
+    # CO-03 : la cle est portee par la ligne, pas par la colonne. Les grilles recoivent des objets
+    # varies (ResultRow, lignes restaurees du cache en pscustomobject) : une cle portee par la seule
+    # classe ResultRow laisserait les secondes trier a l aveugle, sans erreur visible.
+    param($Row,[string[]]$Fields=@())
+    if ($null -eq $Row -or -not $Fields.Count) { return $Row }
+    foreach ($field in $Fields) {
+        $name = [string]$field
+        if ([string]::IsNullOrWhiteSpace($name)) { continue }
+        $value = $null
+        try { $value = $Row.PSObject.Properties[$name].Value } catch { $value = $null }
+        $Row | Add-Member -NotePropertyName ($name + 'Sort') -NotePropertyValue (Get-DomeniaGridDateSortKey $value) -Force
+    }
+    return $Row
+}
 function Set-DomeniaItemsSource {
     param([Parameter(Mandatory=$true)][string]$Name,$Rows)
     $control = Get-DomeniaControl -Name $Name
@@ -1766,6 +1795,9 @@ function Set-DomeniaItemsSource {
             $filter=Get-DomeniaControl 'TxtSuiteResultFilter'
             $query=if($global -or $null -eq $filter){''}else{[string]$filter.Text}
             $Rows=if([string]::IsNullOrWhiteSpace($query)){$loaded}else{@($loaded | Where-Object { Test-DomeniaExperienceRow $_ $query })}
+            # CO-03 : calculee ici et non a la production de la ligne, parce que c est le seul chemin par
+            # ou passent toutes les lignes affichees : recherche, cache, enrichissement de la fiche.
+            foreach ($row in @($Rows | Where-Object { $null -ne $_ })) { [void](Add-DomeniaGridSortKeys -Row $row -Fields @('Changed','LastLogon')) }
             $visible=@($Rows | Where-Object { $null -ne $_ }).Count
             $suffix=if($global){' · recherche globale sans filtre local'}else{' · filtre local, sans requête AD'}
             [void](Set-DomeniaControlText 'LblSuiteResultCount' ("$visible ligne(s) visible(s)"+$suffix))
@@ -5345,10 +5377,10 @@ function Get-MainXaml {
                               </DataGridTemplateColumn>
                               <DataGridTextColumn Header="Etat" Binding="{Binding State}" Width="120"/>
                               <DataGridTextColumn Header="OS" Binding="{Binding OS}" Width="180"/>
-                              <DataGridTextColumn Header="Derniere connexion" Binding="{Binding LastLogon}" Width="145"/>
+                              <DataGridTextColumn Header="Derniere connexion" Binding="{Binding LastLogon}" SortMemberPath="LastLogonSort" Width="145"/>
                               <DataGridTextColumn Header="Mail" Binding="{Binding Mail}" Width="220"/>
                               <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="250"/>
-                              <DataGridTextColumn Header="Modifie" Binding="{Binding Changed}" Width="145"/>
+                              <DataGridTextColumn Header="Modifie" Binding="{Binding Changed}" SortMemberPath="ChangedSort" Width="145"/>
                               <DataGridTextColumn Header="Chemin complet" Binding="{Binding DN}" Width="520"/>
                             </DataGrid.Columns>
                           </DataGrid>
@@ -6505,8 +6537,8 @@ function Get-MainXaml {
                               <DataGridTextColumn Header="Nom" Binding="{Binding Name}" Width="330"/>
                               <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="130"/>
                               <DataGridTextColumn Header="Editeur" Binding="{Binding Publisher}" Width="220"/>
-                              <DataGridTextColumn Header="Installe le" Binding="{Binding InstallDate}" Width="105"/>
-                              <DataGridTextColumn Header="Taille" Binding="{Binding Size}" Width="95"/>
+                              <DataGridTextColumn Header="Installe le" Binding="{Binding InstallDate}" SortMemberPath="InstallDateSort" Width="105"/>
+                              <DataGridTextColumn Header="Taille" Binding="{Binding Size}" SortMemberPath="SizeKb" Width="95"/>
                               <DataGridTextColumn Header="Portee" Binding="{Binding Scope}" Width="105"/>
                               <DataGridTextColumn Header="Archi" Binding="{Binding Architecture}" Width="75"/>
                               <DataGridTextColumn Header="Type" Binding="{Binding Kind}" Width="110"/>
@@ -14401,6 +14433,9 @@ function Apply-DomeniaSoftwareFilter {
                 ([string]$_.Location -like ("*" + $filter + "*"))
             })
         }
+        # CO-03 : le worker Logiciels (corps epingle) publie InstallDate en texte et SizeKb en nombre.
+        # La cle datee est ajoutee a l entree de la grille, sans toucher au corps epingle.
+        foreach ($row in @($rows | Where-Object { $null -ne $_ })) { [void](Add-DomeniaGridSortKeys -Row $row -Fields @('InstallDate')) }
         [void](Set-DomeniaGridRows -Name "DgSoftware" -Rows $rows -KeyProperty "Name")
         $total = @($script:SoftwareRows).Count
         [void](Set-DomeniaControlText -Name "LblSoftwareStatus" -Text ("{0} logiciel(s) affiche(s) sur {1}." -f @($rows).Count,$total))

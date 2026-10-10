@@ -47,7 +47,9 @@ $wanted=@('Write-DomeniaAtomicText','Read-DomeniaPreference','Write-DomeniaPrefe
     # L02: Domenia.log writer (FI-08, FI-09, FI-10, PF-09) and the common CSV export (CO-04, UX-02).
     'ConvertTo-DomeniaLogFileLines','Get-DomeniaAppLogFallbackPaths','Write-DomeniaAppLogFile','Start-DomeniaAppLogFlushTimer','Stop-DomeniaAppLogQueue',
     'Invoke-DomeniaAppLogRotation','Flush-DomeniaAppLog','Invoke-DomeniaAppLogFlush','Set-DomeniaAppLogAvailability','Set-Status',
-    'Get-DomeniaGridExportColumns','ConvertTo-DomeniaExportRows','Get-DomeniaExportFileName','Export-DomeniaCsv','Get-DomeniaCsvDelimiter')
+    'Get-DomeniaGridExportColumns','ConvertTo-DomeniaExportRows','Get-DomeniaExportFileName','Export-DomeniaCsv','Get-DomeniaCsvDelimiter',
+    # CO-03 : cles de tri des colonnes datees, et le XAML ou elles sont designees.
+    'Get-DomeniaGridDateSortKey','Add-DomeniaGridSortKeys','Get-MainXaml')
 $definitions=New-Object 'System.Collections.Generic.List[string]'
 $nodes=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst]},$true))
 foreach($name in $wanted) {
@@ -453,6 +455,35 @@ try {
             $literal=@(Search-DomeniaDatabaseRows 'pc_01')
             Assert-True ($literal.Count -eq 1 -and $literal[0].Name -ceq 'pc_01')
             Assert-True (@(Search-DomeniaDatabaseRows 'pc%02').Count -eq 1)
+        }
+    }
+    Test-Case 'CO-03 : les dates et les tailles des grilles se trient par valeur' {
+        # Le tri par texte est la faute : il place 09/05/2026 avant 10/01/2026.
+        $dates = @('09/05/2026 08:00:00','03/06/2025 08:00:00','10/01/2026 08:00:00') | ForEach-Object {
+            [pscustomobject]@{ Name='x'; InstallDate=$_ }
+        }
+        $typed = @($dates | ForEach-Object { Add-DomeniaGridSortKeys -Row $_ -Fields @('InstallDate') } | Sort-Object InstallDateSort | ForEach-Object { $_.InstallDate })
+        Assert-True (($typed -join '|') -eq '03/06/2025 08:00:00|10/01/2026 08:00:00|09/05/2026 08:00:00') ('Ordre par valeur : ' + ($typed -join '|'))
+        $textual = @($dates | Sort-Object InstallDate | ForEach-Object { $_.InstallDate })
+        Assert-True (($textual -join '|') -eq '03/06/2025 08:00:00|09/05/2026 08:00:00|10/01/2026 08:00:00') ('Le tri par texte a change de sens : ' + ($textual -join '|'))
+        # Le poste publie aussi des dates sans heure (Win32_InstallDate) ; tout le reste tombe au plus ancien.
+        Assert-True ((Get-DomeniaGridDateSortKey '09/05/2026') -eq [datetime]::new(2026,5,9))
+        Assert-True ((Get-DomeniaGridDateSortKey '09/05/2026 08:00') -eq [datetime]::new(2026,5,9,8,0,0))
+        foreach ($sansDate in @('', '   ', 'Jamais', 'pas une date', $null)) {
+            Assert-True ((Get-DomeniaGridDateSortKey $sansDate) -eq [datetime]::MinValue) ('Date « ' + [string]$sansDate + ' » triee ailleurs qu au plus ancien')
+        }
+        # Une ligne sans la propriete ne leve pas : elle recoit la cle la plus ancienne.
+        $vide = Add-DomeniaGridSortKeys -Row ([pscustomobject]@{ Name='seul' }) -Fields @('Changed')
+        Assert-True ($vide.ChangedSort -eq [datetime]::MinValue) 'Cle absente sans lever'
+        # Taille : SizeKb est deja un nombre, c est la colonne qui doit le designer.
+        $sizes = @([pscustomobject]@{Name='a';SizeKb=9.0},[pscustomobject]@{Name='b';SizeKb=120.0},[pscustomobject]@{Name='c';SizeKb=1000.0})
+        Assert-True ((@($sizes | Sort-Object SizeKb | ForEach-Object { $_.Name }) -join '') -eq 'abc') 'Tailles triees par texte'
+        # Les colonnes du XAML reel designent la cle, pas le texte affiche.
+        $xaml = [xml](Get-MainXaml)
+        $cols = @($xaml.SelectNodes('//*[local-name()="DataGridTextColumn"]'))
+        foreach ($want in @(@('Derniere connexion','LastLogonSort'),@('Modifie','ChangedSort'),@('Installe le','InstallDateSort'),@('Taille','SizeKb'))) {
+            $hit = @($cols | Where-Object { $_.Header -eq $want[0] -and $_.SortMemberPath -eq $want[1] })
+            Assert-True ($hit.Count -ge 1) ('Colonne ' + $want[0] + ' sans SortMemberPath ' + $want[1])
         }
     }
     if ($WpfSmoke) {
