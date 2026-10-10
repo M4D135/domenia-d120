@@ -26,6 +26,33 @@ function Set-Status {param($Text,$Level);$script:Status=[string]$Text}
 function Write-AppLog {param($Text,$Level);[void]$script:Log.Add([string]$Text)}
 function Request-UiTaskStop {param([string]$Id,[switch]$Silent,[switch]$Force,[switch]$Superseded,[string]$Reason);$script:StoppedTasks.Add([pscustomobject]@{Id=$Id;Reason=$Reason})}
 function Stop-DomeniaSelectionOpenTimer {}
+# FI-05: les minuteries protegees viennent de Domenia-Engine.UI.ps1, que ce banc ne charge pas (il fait tourner le
+# produit sur des doubles inertes). Ce double rend le contrat annonce par la fabrique - Start, Stop, IsEnabled,
+# Interval, Tag - sans minuteur reel, comme les autres doubles de ce bloc.
+function New-DomeniaTimer {
+    param(
+        [Parameter(Mandatory=$true)][string]$Owner,
+        [Parameter(Mandatory=$true)][int]$IntervalMs,
+        [scriptblock]$Tick=$null,
+        [switch]$Standalone,
+        [ValidateSet('Background','Normal','Input','Loaded','Render','ContextIdle','ApplicationIdle')][string]$Priority='Background',
+        [int]$IdleIntervalMs=0,
+        [scriptblock]$Busy=$null,
+        [switch]$SessionBound,
+        [switch]$RunWhenHidden,
+        [switch]$Transient,
+        [int]$MaxFailures=3,
+        [switch]$Start,
+        $Tag=$null
+    )
+    $timer = [pscustomobject]@{ Owner=$Owner; IntervalMs=[Math]::Max(1,$IntervalMs); Tag=$Tag; Enabled=$false }
+    Add-Member -InputObject $timer -MemberType ScriptMethod -Name Start -Value { $this.Enabled=$true }
+    Add-Member -InputObject $timer -MemberType ScriptMethod -Name Stop -Value { $this.Enabled=$false }
+    Add-Member -InputObject $timer -MemberType ScriptProperty -Name IsEnabled -Value { [bool]$this.Enabled }
+    Add-Member -InputObject $timer -MemberType ScriptProperty -Name Interval -Value { [TimeSpan]::FromMilliseconds([double]$this.IntervalMs) }
+    if ($Start) { $timer.Start() }
+    return $timer
+}
 function Clear-DomeniaCurrentObjectRequest {param([string]$RequestId)}
 function Clear-Secrets {}
 function Clear-ObjectDetails {}

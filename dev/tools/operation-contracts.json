@@ -137,7 +137,7 @@
     "File": "wad/Domenia-Core.ps1",
     "Function": "Get-DomeniaIndexWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "DD018A1D160AA2B2CFC05ED586C24B7E939DB5BFB49191E067B761CB62896467"
+    "Sha256": "647DD166D5AD185DFDEAECE3FD091DF9F55195C98C4777DDB5A2970CDD892535"
   },
   {
     "Operation": "ComputerDiagnostics",
@@ -481,5 +481,12 @@
     "Function": "Get-DomeniaStorageBackupWorkerCode",
     "LiteralIndex": 0,
     "Sha256": "E89924A7F04D958CFF4CD41847BFC2C9A838D6F242D4BD7242F2048FCCBDED79"
+  },
+  {
+    "Operation": "IndexOuList",
+    "File": "wad/Domenia-Core.ps1",
+    "Function": "Get-DomeniaIndexOuListWorkerCode",
+    "LiteralIndex": 0,
+    "Sha256": "242B26E610F11F6B45580B6D669F1B32C9442229DD89B334DB023FD5C5CB2DD2"
   }
 ]

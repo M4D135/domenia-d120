@@ -300,6 +300,209 @@
       "PreserveExisting": false
     },
     {
+      "Path": "engineering/d120/programme-2026-10-08/ETAT.md",
+      "Sha256": "3368A75E7D9B2277E625A763FB6A4974439B44F045FE77E2E9F8198622CA8925",
+      "Bytes": 1358,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "engineering/d120/programme-2026-10-08/PISTES-AMELIORATION-2026-10-08.md",
+      "Sha256": "ECA0564BB3F57125BF520AE4E77DDEDB353D573F5742AE1984826821A2F99CAF",
+      "Bytes": 232512,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "engineering/d120/programme-2026-10-08/langue-corrections-a-relire.json",
+      "Sha256": "A8CA403D29E386273D661B1D99253D7D9AF38185DDF65B4836DB4C41A0050B1B",
+      "Bytes": 17988,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "engineering/d120/programme-2026-10-08/langue-corrections-sures.json",
+      "Sha256": "8F3945A90C9BF59F39E0CD5B084D37626D6A00525DFC60AD593B2AFBC10B2895",
+      "Bytes": 108403,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "engineering/d120/programme-2026-10-08/lots/L01.md",
+      "Sha256": "889C77592F1E22F84B04782649A3E8D088C63D8E438E23A86C31973CC8F6FA1C",
+      "Bytes": 25764,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "engineering/d120/programme-2026-10-08/lots/L02.md",
+      "Sha256": "E28AFB50012DC8AF72DDF4B40E01AAEA94482E3F107A06FC5E840DB62120C6D3",
+      "Bytes": 21917,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "engineering/d120/programme-2026-10-08/lots/L03.md",
+      "Sha256": "D64199884506404171BC4782C3007866B16BD738DFAF5E059C34B9B36E89F165",
+      "Bytes": 13544,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "engineering/d120/programme-2026-10-08/lots/L04.md",
+      "Sha256": "E3F6BA4C5E2247EB034F21C402929E706F15AD7ADBC372AC515F15BFE5D4D78D",
+      "Bytes": 13198,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "engineering/d120/programme-2026-10-08/lots/L05.md",
+      "Sha256": "70083728588A54117F516CC2F3E9D568DFF31D235ED3F5599576F1118565032B",
+      "Bytes": 15112,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "engineering/d120/programme-2026-10-08/lots/L06.md",
+      "Sha256": "495C34D0F6DF274CA67F480949F6139C138B88D4F0299AD10DBA88C8F0117F34",
+      "Bytes": 19763,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "engineering/d120/programme-2026-10-08/lots/L07.md",
+      "Sha256": "46C7928B903B38A1E034ACCD7DF2336A45B0D4320AEA5A305757E295E4A5494D",
+      "Bytes": 10375,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "engineering/d120/programme-2026-10-08/lots/L08.md",
+      "Sha256": "2468547C845BCB5832AD45B35950FE71B237AC46861A115EEE994F71DE546C8B",
+      "Bytes": 21889,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "engineering/d120/programme-2026-10-08/lots/L09.md",
+      "Sha256": "664BBDAC93A2A624C93394C5BD65503F17E9DB231D696F2433B58C159D683E5D",
+      "Bytes": 21349,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "engineering/d120/programme-2026-10-08/lots/L10.md",
+      "Sha256": "F4E95452C4AD77A2EAC07CD7549A0C97AADFFEF6E9FD738244122A4C96E3BE9B",
+      "Bytes": 17912,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "engineering/d120/programme-2026-10-08/lots/L11.md",
+      "Sha256": "CAB919CD8B8FFD4FFE9E3152FE831473B88B53A18F266EB70CB08BBED72EF7B6",
+      "Bytes": 16601,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "engineering/d120/programme-2026-10-08/lots/L12.md",
+      "Sha256": "34799BE3509596A4D954C8DF464A58804B2761BD4916CFA5B748A35DAAE22CA9",
+      "Bytes": 14579,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "engineering/d120/programme-2026-10-08/lots/L13.md",
+      "Sha256": "4829CB0697245FCD22F8639946D4A111D64C7E7E1CA18231673EC6F12763CFB7",
+      "Bytes": 16532,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "engineering/d120/programme-2026-10-08/lots/L14.md",
+      "Sha256": "D7EC09FF531C6051DAC79ECFFF0FE8F3C4365F6D3FB2F2605E3C84579AA5165E",
+      "Bytes": 12569,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "engineering/d120/programme-2026-10-08/lots/L15.md",
+      "Sha256": "C91A6798A38A2560D41D044CEFEB4F95A99BC29EA80850EF71C1A4DAAE59E226",
+      "Bytes": 15533,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "engineering/d120/programme-2026-10-08/lots/L16.md",
+      "Sha256": "18CDFC941339DAE6CD75C40CE9228ADF13A1833DB209E6C94232881B31920968",
+      "Bytes": 19693,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "engineering/d120/programme-2026-10-08/lots/L17.md",
+      "Sha256": "4CF3979F99516E02841B8C3A94F2B7232195FD4D6CC88EC51252711C6EF2B356",
+      "Bytes": 10437,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "engineering/d120/programme-2026-10-08/lots/L18.md",
+      "Sha256": "100BC0C2223AD43E2DBD367A99188F4B426BBD47AA5ABF091A30CABCE2AFDB7B",
+      "Bytes": 12156,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "engineering/d120/programme-2026-10-08/lots/L19.md",
+      "Sha256": "5991843F8DF3954C83DEF72F3448A03868B3C9A866DB48DA5E5ECB822500F127",
+      "Bytes": 16283,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "engineering/d120/programme-2026-10-08/lots/L20.md",
+      "Sha256": "CCD91A1A080FA28FFE6B282D3655C69BE2596F705FEA7AE9676CD534958FDA0D",
+      "Bytes": 11603,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "engineering/d120/programme-2026-10-08/lots/L21.md",
+      "Sha256": "82BD6F713DAE0C7866686DA63066C0C9369EBB9CE995EE0F8400449D616D7B16",
+      "Bytes": 11363,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "engineering/d120/programme-2026-10-08/lots/L22.md",
+      "Sha256": "EF59285D7DF860064F55D4ED030F9594C7F8729B2AE7AC782BDFB06CF15B4ED5",
+      "Bytes": 12575,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "engineering/d120/programme-2026-10-08/lots/L23.md",
+      "Sha256": "FDAC03B3A8AE8BA2D6B816454CD7A37B124CC4D680C0609624579D132FE0E308",
+      "Bytes": 9316,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "engineering/d120/programme-2026-10-08/lots/L24.md",
+      "Sha256": "9BB88EF8B177C3F0593BE5DDBB96281425CC5AEA13008B058EBBE3720EE9A515",
+      "Bytes": 8515,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "engineering/d120/programme-2026-10-08/plan-lots.json",
+      "Sha256": "9735050BB7FC1101692A131E977010FE159552024F6FBCB990302BC4A4C6D9A8",
+      "Bytes": 130997,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
       "Path": "engineering/d120/raccordement/carte-access.json",
       "Sha256": "71B48030D09B81E412EE2099E8FAD9A312B7F5348B32C20C5A5E4DDD3E39A313",
       "Bytes": 58942,
@@ -602,21 +805,21 @@
     },
     {
       "Path": "tools/operation-contracts.json",
-      "Sha256": "0D28952DC88117AD327CA037B9D08949B9452C180690694579E96EE8031FD700",
-      "Bytes": 16333,
+      "Sha256": "A11EBCB383685F7EB6F5BAF157585FE2FFD769F48BDED099EC1752210D330F4A",
+      "Bytes": 16566,
       "Runtime": false,
       "PreserveExisting": false
     },
     {
       "Path": "tools/preload-baseline.json",
-      "Sha256": "6C50A1044873FFA618405F722D121A130EA1E5C8DC4ADA7F8436DFF0F09B8B2F",
-      "Bytes": 166234,
+      "Sha256": "44CEB1AEAFE17789CB6DF6A73B5111E95B71F0CBAB58C8DE8DE71067E8CDD0C5",
+      "Bytes": 168558,
       "Runtime": false,
       "PreserveExisting": false
     },
     {
       "Path": "tools/prod-manifest.json",
-      "Sha256": "37D4CCBFAAC3926CF1DE8F72EA582F70FEE4EDB2437F40AD4C311487D806F709",
+      "Sha256": "E33A55B2192F89C63010A7F037FDE382023940CEEE8C836CE67300E41CA50DEB",
       "Bytes": 19333,
       "Runtime": false,
       "PreserveExisting": false
@@ -679,8 +882,8 @@
     },
     {
       "Path": "wad/Domenia-Core.ps1",
-      "Sha256": "522BE05DB872FF7E6FAD229AC1DFFE4865D36D406539B833E8B3AD7905A8697C",
-      "Bytes": 1898820,
+      "Sha256": "B1E497B5EC42A9D4B856BDD77DD7733388AE8694ACEDBB5F93CCA05656EB772F",
+      "Bytes": 1913696,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -1176,8 +1379,8 @@
     },
     {
       "Path": "wad/maintenance/Preview-DomeniaUi.ps1",
-      "Sha256": "2BD0B3FE90C00190D9CD4DBB8AEB77A6FC61A8694380EE77492DCC338D8A0B57",
-      "Bytes": 41174,
+      "Sha256": "57935823A6D187508F64FA7301CC90EC68B404C93FD660822D8C9963A7E73C93",
+      "Bytes": 42656,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -1288,8 +1491,8 @@
     },
     {
       "Path": "wad/modules/Domenia-Dashboard.UI.ps1",
-      "Sha256": "6F77F3E3A928988831B708BCA6BF1DE8EAC57E154D2D489F27C4304B58EFEF60",
-      "Bytes": 39526,
+      "Sha256": "5C7E938B9C946EBFA47366BFC03C14606672E0EDE156BEDA404C119EE2CA69D7",
+      "Bytes": 40367,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -1701,8 +1904,8 @@
     },
     {
       "Path": "wad/tests/Test-DomeniaBoards.ps1",
-      "Sha256": "00023D0511F28BCE29C6BC0E5C7A22E75518DF0A9E995C4B59ACE8FEF5447AE9",
-      "Bytes": 70151,
+      "Sha256": "F9AFADC6713253F33B0D4F867BC876A3A69D3634428840EADF47C86BBB8300E3",
+      "Bytes": 72657,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -1855,8 +2058,8 @@
     },
     {
       "Path": "wad/tests/Test-DomeniaSelection.ps1",
-      "Sha256": "58CC327214C30C0587C80CCA22FDBE3FC1103E49A081E0D9237EA80A8D7916A3",
-      "Bytes": 23130,
+      "Sha256": "DE2F0D87BB1930AF19779784107EA69F709F7E631B924239D84A98023ED58C3C",
+      "Bytes": 25360,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -1911,8 +2114,8 @@
     },
     {
       "Path": "wad/tests/Test-DomeniaWiringCache.ps1",
-      "Sha256": "98A9111145C7B67B3D6E03AA08282B639E06A010C6A7AA27015019811F4565BA",
-      "Bytes": 249339,
+      "Sha256": "1D84C2D83BC790135F0875C9B82C90AA2126E9098CA47CD05454E68F7F634F51",
+      "Bytes": 257006,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -1932,8 +2135,8 @@
     },
     {
       "Path": "wad/tests/Test-DomeniaWiringInterface.ps1",
-      "Sha256": "CD66302F101F0E154D4177547B79DAF1BC72A83DAFB2D8A76610D10FF1046A62",
-      "Bytes": 56334,
+      "Sha256": "BC72252D7E9AFD26079160955B39A5DF58341B012B045FFF4ADEDCFBED03FFE5",
+      "Bytes": 57838,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -1953,8 +2156,8 @@
     },
     {
       "Path": "wad/tests/Test-DomeniaWiringRelations.ps1",
-      "Sha256": "DF7D910EE48C4E8288ED4F4B1D77D56C0B7EA16204A804D6E2AB2538054890C3",
-      "Bytes": 99087,
+      "Sha256": "50B566A7B5F7B5E30E804C69D915619B4E21F3B23AEA74B9DD9EDC1D4426633A",
+      "Bytes": 99152,
       "Runtime": false,
       "PreserveExisting": false
     },

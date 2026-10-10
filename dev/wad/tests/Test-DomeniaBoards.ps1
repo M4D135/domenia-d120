@@ -8,7 +8,7 @@ param([string]$ReportPath='',[switch]$Quiet)
 $ErrorActionPreference='Stop'
 $wad=Split-Path -Parent $PSScriptRoot
 $script:Results=[Collections.Generic.List[object]]::new();$script:Finished=$false;$script:Window=$null
-$script:ExpectedCases=36
+$script:ExpectedCases=37
 function Expect {param([bool]$Value,[string]$Why='Assertion non verifiee');if(-not $Value){throw $Why}}
 function Case {param([string]$Name,[scriptblock]$Body)
     try {& $Body|Out-Null;$script:Results.Add([pscustomobject]@{Name=$Name;Passed=$true;Error=''})}
@@ -41,6 +41,15 @@ function Start-DomeniaOnlinePark {param([switch]$DisplayedResults,[switch]$PingO
 $script:StartCalls=[Collections.Generic.List[object]]::new();$script:AsyncJobs=@{}
 function Start-UiTask {param($Name,$OperationId,$Code,$Payload,$CallbackState,$ReplaceKey,$SuccessHandler,$ErrorHandler,$TimeoutSeconds,$TaskClass);$script:StartCalls.Add([pscustomobject]@{OperationId=$OperationId;Payload=$Payload;State=$CallbackState;ReplaceKey=$ReplaceKey;TaskClass=$TaskClass});return ('job-'+$script:StartCalls.Count)}
 function Initialize-DomeniaWinSqliteNative {return $true}
+# Le journal d'interface vient de Domenia-Core.ps1, que ce banc ne charge pas. Cette fixture enregistre
+# ce qui est journalise: le cas « fonction absente » verifie que la cause est nommee dans le journal.
+$script:UiLogLines=[Collections.Generic.List[string]]::new()
+function Add-DomeniaUiLog {param($Text,$Level='INFO',$Area='Application')$script:UiLogLines.Add([string]$Level+'|'+[string]$Area+'|'+[string]$Text)}
+# Complete-DomeniaFleetDashboard passe (Get-DomeniaIndexPartialText) dans Get-DomeniaFleetBoardData
+# (Domenia-Dashboard.UI.ps1). La fonction vit dans Domenia-Core.ps1, que ce banc ne charge pas: sans
+# fixture elle leve une CommandNotFoundException avalee par le catch, qui efface FleetComputedKey et
+# laisse les 7 widgets du tableau de bord flotteur vides. Texte vide = index partiel non renseigne.
+function Get-DomeniaIndexPartialText {return ''}
 function Get-DomeniaLocalIndexReadWorkerCode {return '# fixture'}
 function Get-DomeniaBitLockerPresenceWorkerCode {return '# fixture'}
 function Queue-DomeniaMetadata {param($Kind,$Row,$Key='');$script:Queued.Add([pscustomobject]@{Kind=$Kind;Row=$Row;Key=$Key});return $true}
@@ -715,6 +724,26 @@ try{
         Expect ($texts.Count -eq 1) 'Valeur finale du compteur'
         Expect (@($panel.Children|Where-Object{$_.Opacity -lt 0.999}).Count -eq 0) 'Carte restee transparente'
         $mw.Close();$script:DomeniaReduceMotion=$true
+    }
+    Case 'Tableau flotteur : une fonction absente est nommee, pas noyee dans un echec metier' {
+        # Le defaut qui a couté deux heures: Complete-DomeniaFleetDashboard doit nommer la fonction
+        # absente dans le journal et dans le libelle, au lieu d'afficher un echec metier muet.
+        $state=[pscustomobject]@{Epoch=[long]$script:SessionEpoch;Key='fleet-wiring';Scope='';Subtree=$true;Name='Tous les postes';ScopePath=''}
+        $script:FleetPendingKey='fleet-wiring';$script:FleetJobId='';$script:FleetComputedKey=''
+        $script:UiLogLines.Clear()
+        $d=$null
+        try{
+            $d=(Get-Item Function:\Get-DomeniaIndexPartialText).Definition
+            Set-Item Function:\Get-DomeniaIndexPartialText {Get-DomeniaFonctionSupprimeePourLeBanc}
+            Complete-DomeniaFleetDashboard -Result (New-FleetResult) -State $state
+        }finally{
+            if($null -ne $d){Set-Item Function:\Get-DomeniaIndexPartialText ([scriptblock]::Create([string]$d))}
+        }
+        $journal=@($script:UiLogLines|Where-Object{$_ -like '*Get-DomeniaFonctionSupprimeePourLeBanc*'})
+        Expect (@($journal).Count -ge 1) ('Fonction absente jamais nommee dans le journal : '+($script:UiLogLines -join ' // '))
+        Expect (@($journal|Where-Object{$_ -like 'ERROR|*'}).Count -ge 1) 'Fonction absente journalisee sans niveau ERROR'
+        Expect ([string](Get-DomeniaControl 'LblFleetDashboard').Text -like '*fonction absente*') ('Libelle : '+[string](Get-DomeniaControl 'LblFleetDashboard').Text)
+        Expect ([string]$script:FleetComputedKey -eq '') 'Cle calculee conservee sur un echec de chargement'
     }
     $script:Finished=$true
 }catch{Case 'Suite interrompue' {throw $_}}

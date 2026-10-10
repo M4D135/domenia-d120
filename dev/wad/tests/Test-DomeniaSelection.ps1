@@ -191,20 +191,41 @@ if($env:OS -eq 'Windows_NT' -and -not $SkipWpf){
             $window=[Windows.Markup.XamlReader]::Load($reader);$grid=$window.FindName('DgObjects')
             $window.ShowActivated=$false;$window.ShowInTaskbar=$false;$window.Show()
             $window.FindName('WorkspaceTabs').SelectedItem=$window.FindName('WsSearch')
+            # Le banc doit mesurer un rendu, pas une declaration. DgObjects porte EnableColumnVirtualization
+            # (Domenia-Core.ps1): WPF ne realise que les en-tetes qui recoupent le viewport. Or l'ecran de la
+            # VM de labo est en 1024x768 session 0 et la fenetre y est bornee a 1044x788 quelle que soit la
+            # taille demandee; l'onglet Resultats y ecrase la zone du DataGrid a 294x0, ou 3 en-tetes sur 18
+            # seulement existent. Verifier un en-tete realise dans ce viewport-la ne dirait rien du produit.
+            # On donne donc au DataGrid le viewport qu'il a sur un poste de travail et des lignes, sans
+            # toucher a la virtualisation: c'est elle qui est mesuree ici, pas coupee.
+            $grid.ItemsSource=@(1..30|ForEach-Object{[pscustomobject]@{Name="PC-$_";Type='Machine';Association='assoc';Etat='Actif'}})
+            $grid.Width=1200;$grid.Height=420
             $window.Measure([Windows.Size]::new(1280,800));$window.Arrange([Windows.Rect]::new(0,0,1280,800));$window.UpdateLayout()
+            # Garde-fou: sans viewport, la recherche d'un en-tete realise est vide de sens et le cas passerait
+            # sur un fantome. Il ne doit plus jamais mesurer un DataGrid ecrase comme celui de la VM.
+            Expect ($grid.ActualWidth -ge 1000 -and $grid.ActualHeight -ge 400) ('Viewport mesure par le banc trop petit pour rendre un en-tete : '+[Math]::Round($grid.ActualWidth,0)+'x'+[Math]::Round($grid.ActualHeight,0))
+            Expect ($grid.EnableColumnVirtualization) 'Le banc a perdu la virtualisation de colonnes du produit : il ne mesurerait plus le mecanisme qu il est cense verifier.'
             $association=@($grid.Columns|Where-Object{$_.SortMemberPath -eq 'Association'})[0]
             Expect ($association.Header -is [string] -and $association.Header -eq 'Association mémorisée')
             $association.DisplayIndex=2;$association.Width=150;$window.UpdateLayout()
             Expect ($association.Header -eq 'Association mémorisée')
-            $q=[Collections.Generic.Queue[Windows.DependencyObject]]::new();$q.Enqueue($grid);$found=$false;$budget=0
-            while($q.Count -gt 0 -and $budget++ -lt 10000){
+            $q=[Collections.Generic.Queue[Windows.DependencyObject]]::new();$q.Enqueue($grid);$found=$false;$budget=0;$porteurs=0
+            while($q.Count -gt 0 -and $budget++ -lt 20000){
                 $v=$q.Dequeue()
-                if($v -is [Windows.Controls.Primitives.DataGridColumnHeader] -and [object]::ReferenceEquals($v.Column,$association)){
-                    Expect ($v.ActualWidth -gt 0 -and $v.ActualHeight -gt 0 -and $v.IsVisible -and [string]$v.Content -eq 'Association mémorisée');$found=$true
+                if($v -is [Windows.Controls.Primitives.DataGridColumnHeader] -and [string]$v.Content -eq 'Association mémorisée'){
+                    $porteurs++
+                    if([object]::ReferenceEquals($v.Column,$association)){
+                        Expect ($v.ActualWidth -gt 0 -and $v.ActualHeight -gt 0 -and $v.IsVisible) ('En-tete realise mais non rendu : '+[Math]::Round($v.ActualWidth,0)+'x'+[Math]::Round($v.ActualHeight,0)+' visible='+$v.IsVisible)
+                        $found=$true
+                    }
                 }
                 for($i=0;$i -lt [Windows.Media.VisualTreeHelper]::GetChildrenCount($v);$i++){$q.Enqueue([Windows.Media.VisualTreeHelper]::GetChild($v,$i))}
             }
             Expect $found 'Association header was not realized.'
+            # Un seul en-tete doit porter ce libelle apres reorder: un second prouverait un en-tete fantome
+            # laisse par WPF sur l'ancienne position de la colonne.
+            Expect ($porteurs -eq 1) ("$porteurs en-tetes realises portent le libelle Association memorisee apres reorder, un seul est attendu.")
+            Expect ($budget -lt 20000) "Budget de parcours de l'arbre visuel epuise : la recherche d'en-tete n'a rien pu conclure."
             foreach($c in $grid.Columns){Expect (-not [string]::IsNullOrWhiteSpace([string]$c.Header))}
         }finally{$reader.Close();if($null -ne $window){$window.Close()}}
     }
