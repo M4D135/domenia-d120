@@ -189,6 +189,11 @@ if($env:OS -eq 'Windows_NT' -and -not $SkipWpf){
         $reader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml));$window=$null
         try{
             $window=[Windows.Markup.XamlReader]::Load($reader);$grid=$window.FindName('DgObjects')
+# DgObjects porte EnableColumnVirtualization (Domenia-Core.ps1): WPF ne realise les en-tetes que des
+# colonnes qui recoupent le viewport, et la mesure de ce banc fait 294 px de large pour 18 colonnes.
+# L'en-tete hors viewport n'est donc jamais realise, ce qui ne dit rien du produit: on coupe la
+# virtualisation pour verifier le contenu des en-tetes, pas le mecanisme de virtualisation de WPF.
+$grid.EnableColumnVirtualization=$false
             $window.ShowActivated=$false;$window.ShowInTaskbar=$false;$window.Show()
             $window.FindName('WorkspaceTabs').SelectedItem=$window.FindName('WsSearch')
             $window.Measure([Windows.Size]::new(1280,800));$window.Arrange([Windows.Rect]::new(0,0,1280,800));$window.UpdateLayout()

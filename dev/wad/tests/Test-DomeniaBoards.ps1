@@ -41,6 +41,11 @@ function Start-DomeniaOnlinePark {param([switch]$DisplayedResults,[switch]$PingO
 $script:StartCalls=[Collections.Generic.List[object]]::new();$script:AsyncJobs=@{}
 function Start-UiTask {param($Name,$OperationId,$Code,$Payload,$CallbackState,$ReplaceKey,$SuccessHandler,$ErrorHandler,$TimeoutSeconds,$TaskClass);$script:StartCalls.Add([pscustomobject]@{OperationId=$OperationId;Payload=$Payload;State=$CallbackState;ReplaceKey=$ReplaceKey;TaskClass=$TaskClass});return ('job-'+$script:StartCalls.Count)}
 function Initialize-DomeniaWinSqliteNative {return $true}
+# Complete-DomeniaFleetDashboard passe (Get-DomeniaIndexPartialText) dans Get-DomeniaFleetBoardData
+# (Domenia-Dashboard.UI.ps1). La fonction vit dans Domenia-Core.ps1, que ce banc ne charge pas: sans
+# fixture elle leve une CommandNotFoundException avalee par le catch, qui efface FleetComputedKey et
+# laisse les 7 widgets du tableau de bord flotteur vides. Texte vide = index partiel non renseigne.
+function Get-DomeniaIndexPartialText {return ''}
 function Get-DomeniaLocalIndexReadWorkerCode {return '# fixture'}
 function Get-DomeniaBitLockerPresenceWorkerCode {return '# fixture'}
 function Queue-DomeniaMetadata {param($Kind,$Row,$Key='');$script:Queued.Add([pscustomobject]@{Kind=$Kind;Row=$Row;Key=$Key});return $true}
