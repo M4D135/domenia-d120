@@ -1,10 +1,10 @@
 ﻿# D071-D080 : assistance des postes. Donnees fictives uniquement (domaine example.test, adresses de documentation).
 $script:WsNow=[datetime]::SpecifyKind([datetime]'2026-03-10T12:00:00',[DateTimeKind]::Utc)
 $script:WsSessions=[pscustomobject]@{Computer='PC-01';ObservedUtc='2026-03-10T12:00:00Z';Source='WTS, lecture a la demande';Identity='EX\support';Rows=@(
-    [pscustomobject]@{Id=0;Station='Services';User='';Domain='';State='Deconnectee';Protocol='Console';Detail='Lecture WTS'}
-    [pscustomobject]@{Id=1;Station='Console';User='';Domain='';State='Connectee';Protocol='Console';Detail='Lecture WTS'}
-    [pscustomobject]@{Id=2;Station='RDP-Tcp#3';User='jdupont';Domain='EX';State='Active';Protocol='RDP';Detail='Lecture WTS'}
-    [pscustomobject]@{Id=65536;Station='RDP-Tcp';User='';Domain='';State='Ecoute';Protocol='Indetermine';Detail='Lecture WTS'})}
+    [pscustomobject]@{Id=0;Station='Services';User='';Domain='';State='Deconnectee';Protocol='Console';Detail='Lecture WTS';LogonTicks=-1;IdleTicks=-1}
+    [pscustomobject]@{Id=1;Station='Console';User='';Domain='';State='Connectee';Protocol='Console';Detail='Lecture WTS';LogonTicks=134176140000000000;IdleTicks=72000000000}
+    [pscustomobject]@{Id=2;Station='RDP-Tcp#3';User='jdupont';Domain='EX';State='Active';Protocol='RDP';Detail='Lecture WTS';LogonTicks=134176140000000000;IdleTicks=3000000000}
+    [pscustomobject]@{Id=65536;Station='RDP-Tcp';User='';Domain='';State='Ecoute';Protocol='Indetermine';Detail='Lecture WTS';LogonTicks=-1;IdleTicks=-1})}
 $script:WsGpoA='aaaaaaaa-0000-4000-8000-00000000000a';$script:WsGpoB='bbbbbbbb-0000-4000-8000-00000000000b';$script:WsGpoC='cccccccc-0000-4000-8000-00000000000c'
 $script:WsGpoD='dddddddd-0000-4000-8000-00000000000d';$script:WsGpoE='eeeeeeee-0000-4000-8000-00000000000e';$script:WsGpoF='ffffffff-0000-4000-8000-00000000000f'
 $script:WsContainers=@(
@@ -156,6 +156,31 @@ Test-Case 'D072' 'Liste nulle, lecture partielle ou statut inconnu : jamais une 
     $odd=ConvertTo-DomeniaSessionView ([pscustomobject]@{ReadStatus='ETRANGE';Computer='PC-01';Rows=@()})
     Assert-Equal 'Inconnu' $odd.ReadState;Assert-True ($odd.EmptyText -match 'non reconnu') $odd.EmptyText;Assert-False ($odd.EmptyText -match 'bouton Lire')
     Assert-True ((ConvertTo-DomeniaSessionView $null).EmptyText -match 'bouton Lire') 'Non demande : seul cas du bouton Lire'
+}
+
+Test-Case 'UX-39' 'Sessions : heure locale, duree d inactivite, compte nu pour ouvrir la fiche' {
+    $e=[string][char]0x00E9;$a=[string][char]0x00E0
+    $v=ConvertTo-DomeniaSessionView $script:WsSessions
+    $row=@($v.Rows)[0]
+    $lu=ConvertTo-DomeniaUtcDate '2026-03-10T12:00:00Z'
+    $ouverte=[datetime]::FromFileTimeUtc(134176140000000000).ToLocalTime()
+    # La comparaison se fait sur le fuseau de la machine qui court le banc : ce que le banc attend est ce que
+    # la vue calcule, pas une heure de Paris ecrite en dur qui echouerait sur une machine d un autre fuseau.
+    $attendu=if($ouverte.Date -eq $lu.ToLocalTime().Date){$ouverte.ToString('HH:mm',[Globalization.CultureInfo]::InvariantCulture)}else{$ouverte.ToString('dd/MM HH:mm',[Globalization.CultureInfo]::InvariantCulture)}
+    Assert-Equal $attendu $row.Ouverte 'Ouverte a rend l heure locale de la machine qui affiche'
+    Assert-True ($row.Ouverte -notmatch 'T\d\d:') 'Ni ISO ni UTC dans la grille'
+    Assert-Equal '5 min' $row.Inactive 'WTSIdleTime est une duree, pas une date'
+    Assert-Equal 'jdupont' $row.User 'Le compte nu, seul format que connait le filtre AD'
+    Assert-Equal '' (Get-DomeniaSessionOpenedText -Ticks -1 -Reference $lu) 'Une horloge que le poste ne rend pas reste vide'
+    Assert-Equal '' (Get-DomeniaSessionIdleText -Ticks 0) 'Zero tick n est pas une inactivite de zero seconde'
+    Assert-Equal '2 h' (Get-DomeniaSessionIdleText -Ticks 72000000000) 'Deux heures d inactivite'
+    Assert-True ($v.StatusText.StartsWith('Lu '+$a+' ')) ('L etat commence par l heure locale : '+$v.StatusText)
+    Assert-True ($v.StatusText -match ('masqu'+$e+'e')) 'Les lignes sans compte masquees sont annoncees'
+    Assert-True ($v.StatusText -notmatch 'T12:00:00') 'L horodatage ISO n est plus affiche'
+    Assert-True ($v.StatusText -notmatch 'WTS') 'Le jargon du collecteur ne remonte plus a l operateur'
+    Assert-Equal 'jdupont' (Get-DomeniaSessionAccountName -Row $row) 'Le compte de la ligne, pret pour la fiche'
+    Assert-Equal '' (Get-DomeniaSessionAccountName -Row ([pscustomobject]@{Utilisateur='Compte non lu'})) 'Un compte non lu n a pas de fiche'
+    Assert-Equal '' (Get-DomeniaSessionAccountName -Row $null) 'Pas de ligne : pas de compte'
 }
 
 # ---------------------------------------------------------------- D073

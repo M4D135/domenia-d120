@@ -1,5 +1,5 @@
 {
-  "Archive": "Lot UX-37 du programme 2026-10-08 (branche lot/L10-spark)",
+  "Archive": "lot UX-39 (sessions Windows rendues par la vue testee)",
   "ArchiveSHA256": "655ED21F90345B3C7667D4E777814C6A0595A5D5BE628AD587FB46CCA5241922",
   "CoreFunctions": {
     "Write-DomeniaAtomicText": "1C9A1583F52EB7BE80BE420662653E4AF886FE11DC4FDB3B1C4CDF19FD1C0EDA",
@@ -150,7 +150,7 @@
     "Set-DomeniaResourceColor": "27391F9046A85B14658803F03178045ABEDF0B1F4DD5364D7BA5575C5E4F11BE",
     "Apply-DomeniaTheme": "B0ECA10884F7B8D32279AD437EAB8C806D868256D7071B79511688468E2D02BE",
     "Toggle-DomeniaTheme": "EA7E0F31A78D8B4A0BFAB0C27D8028521C1C3A1A255DDA4BEA3B65B5F7C99F03",
-    "Get-MainXaml": "B309B629EC4838910345FC2C98E5CD9B596BAA142BE36252E162D58AEDC494C4",
+    "Get-MainXaml": "5E5B8ABAC169DE722D27423757F1F8FB278B2386B181CFB80DBAE04A06055DB6",
     "Assert-DomeniaXamlPreflight": "20BB1DA04FD88D78E1A52C5610376467D5E9408437BC823DDC8EC8F40C0EAEB7",
     "Save-DomeniaXamlDiagnostic": "D648C9D6BD6F5F3A6613957D22A6A42EC1AAC0C1FA6218195A55D10EADF4DC67",
     "ConvertFrom-DomeniaXaml": "855E6CA9E56D62F77F5C22ACAC048293D24281B5B8FCC7FEB6806450BE561228",
@@ -585,7 +585,7 @@
     "Test-DomeniaActualCapabilityDenied": "7B1587596DF9FB74495E2E1719356E63C2A6447A0768ECF1588FEFD836D4062A",
     "Clear-DomeniaActualCapabilityDenials": "406426EE2A49F6ADE3D93F78FCDB88BB31C9013B510AF1A856068FD38C7BD9EF",
     "Apply-CurrentPermissionUi": "746770E261FF2EB3D2F13FB5BD9AF14F40DB7206F2F5FFAC29DCA5F2DD944977",
-    "Initialize-DomeniaPresentation": "8AF667C1FECA6620FBEE75822D000FDD274772E6CD8CB5E409EA2AFA8D38822C",
+    "Initialize-DomeniaPresentation": "1CCBABE7E14014E366A2223E6F9FECA926BA2D24B2D880682D2BB3CA4175FAD7",
     "Assert-DomeniaCapability": "F1F25727EF50BCD7B2349C382A57D66CB1D83373B28E8386B36F8D4ACCB2160F",
     "Invoke-DomeniaWritePostAction": "1F8DAA26A4FE81A1409A3548CE95E90F4B492BD480ACE3F23D476ED1864D9098",
     "Get-DomeniaWritePostcondition": "0B993663665A91761922DA37F25B966FF99F3783C48C77619580B57C72B0A37D",
@@ -2465,6 +2465,18 @@
       "ChangedCoreFunctions": [
         "Get-MainXaml",
         "Set-DomeniaItemsSource"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "Lot UX-37 du programme 2026-10-08 (branche lot/L10-spark)",
+      "Source": "lot UX-39 (sessions Windows rendues par la vue testee)",
+      "Decision": "2 fonctions du coeur touchees : Get-MainXaml (colonnes de DgSessions) et le raccordement des evements",
+      "ChangedCoreFunctions": [
+        "Get-MainXaml",
+        "Initialize-DomeniaPresentation"
       ],
       "AddedCoreFunctions": [],
       "RemovedCoreFunctions": [],

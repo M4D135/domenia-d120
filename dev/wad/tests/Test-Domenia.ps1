@@ -559,6 +559,34 @@ try {
         $uxui = Get-Content (Join-Path (Split-Path $core -Parent) 'modules\Domenia-UX.UI.ps1') -Raw -Encoding UTF8
         Assert-True ($uxui.Contains('if (([string]$column.Header) -eq ''Source'')')) 'La colonne Source de l inventaire n est pas reservee a l Expert'
     }
+    Test-Case 'UX-39 : la page des sessions rend la vue testee, plus les lignes brutes du poste' {
+        $xaml = Get-MainXaml
+        $texteCore = Get-Content $core -Raw -Encoding UTF8
+        $sessions = Get-Content (Join-Path (Split-Path $core -Parent) 'modules\Domenia-Sessions.UI.ps1') -Raw -Encoding UTF8
+        # La vue de D072 etait testee sans jamais etre appelee : le banc epingle l appel, pas la presence
+        # de la fonction — c est exactement ce qui avait laisse la page branchee sur les lignes brutes.
+        $complete = [regex]::Match($sessions, '(?s)function Complete-DomeniaSessionsRead.*?\r?\n\}')
+        Assert-True ($complete.Value.Contains('ConvertTo-DomeniaSessionView $r')) 'La page ne passe pas par la vue des sessions'
+        Assert-True ($complete.Value.Contains('@($view.Rows)')) 'La grille ne recoit pas les lignes de la vue'
+        Assert-True (-not $complete.Value.Contains('$r.ObservedUtc')) 'L horodatage ISO est encore ecrit dans la page'
+        $start = [regex]::Match($sessions, '(?s)function Start-DomeniaSessionsRead.*?\r?\n\}')
+        Assert-True (-not $start.Value.Contains('Show-InfoBox')) 'Sans poste choisi, une fenetre bloque encore la page'
+        Assert-True ($start.Value.Contains("Set-DomeniaControlText 'LblSessionsState'")) 'Sans poste choisi, la page ne dit rien'
+        $grid = [regex]::Match($xaml, '(?s)<DataGrid x:Name="DgSessions".*?</DataGrid>')
+        Assert-True ($grid.Value.Contains('Binding="{Binding Utilisateur}"')) 'La colonne Compte ne lie pas la vue'
+        Assert-True ($grid.Value.Contains('Header="Ouverte')) 'La colonne Ouverte a manque'
+        Assert-True ($grid.Value.Contains('Header="Inactive depuis')) 'La colonne Inactive depuis manque'
+        Assert-True (-not $grid.Value.Contains('Binding="{Binding Id}"')) 'La grille lie encore un champ brut du poste'
+        Assert-True ($texteCore.Contains('Open-DomeniaSessionFiche -Source $e.OriginalSource')) 'Le double-clic sur une session n ouvre pas la fiche'
+        Assert-True ($texteCore.Contains('$sessionGrid.ContextMenu=New-DomeniaSessionsContextMenu')) 'Le menu clic droit des sessions manque'
+        # Le collecteur est epingle par le contrat SHA de SessionsList : il n est pas touche. Les classes WTS
+        # lues par le transport, si — et c est la qu etait la faute.
+        $native = Get-Content (Join-Path (Split-Path $core -Parent) 'modules\Domenia-Sessions.Native.cs') -Raw -Encoding UTF8
+        Assert-True ($native.Contains('WTSClientProtocolType=15')) 'Le protocole de session n est pas la classe 15'
+        Assert-True ($native.Contains('WTSQuerySessionInformationW(server,s.SessionId,WTSClientProtocolType,out proto,out len)')) 'Le protocole est lu avec une autre classe que WTSClientProtocolType'
+        Assert-True ($native.Contains('LogonTicks=Ticks(server,s.SessionId,WTSLogonTime)')) 'L heure d ouverture n est pas lue'
+        Assert-True ($native.Contains('IdleTicks=Ticks(server,s.SessionId,WTSIdleTime)')) 'La duree d inactivite n est pas lue'
+    }
     if ($WpfSmoke) {
         Test-Case 'WPF et moteur : autotest interne dans un processus dedie' {
             $selfReport=Join-Path $testDirectory 'self-test.json'

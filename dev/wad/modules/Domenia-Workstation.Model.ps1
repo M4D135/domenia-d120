@@ -425,6 +425,45 @@ function Get-DomeniaSessionEmptyText {
     return ''
 }
 
+function Get-DomeniaSessionIdleText {
+    # UX-39 : WTSIdleTime est une duree, pas une date : sous une colonne « Inactive depuis », « 12 min » se
+    # lit mieux qu'une heure de dernière entrée. -1 ou 0 = le poste ne rend pas cette horloge : la cellule
+    # reste vide, rien n'est invente.
+    param($Ticks)
+    $raw = ConvertTo-DomeniaWorkstationNumber $Ticks
+    if ($null -eq $raw -or $raw -le 0) { return '' }
+    $seconds = [long][Math]::Floor($raw / 10000000.0)
+    if ($seconds -lt 1) { return '< 1 s' }
+    if ($seconds -lt 60) { return [string]$seconds + ' s' }
+    if ($seconds -lt 3600) { return [string][long][Math]::Floor($seconds / 60) + ' min' }
+    if ($seconds -lt 86400) { return [string][long][Math]::Floor($seconds / 3600) + ' h' }
+    return [string][long][Math]::Floor($seconds / 86400) + ' j'
+}
+function Get-DomeniaSessionOpenedText {
+    # UX-39 : « Ouverte à » en heure locale de la machine qui affiche, pas en UTC : l'operateur rappelle un
+    # poste et doit retrouver l'heure qu'on lui donne au telephone. La journee de comparaison est l'instant de
+    # la lecture ($Reference), jamais l'heure du banc : deux lectures du meme poste rendent la meme ligne.
+    # Une horloge non rendue (ou 0, qui veut dire « jamais » pour WTS) rend une cellule vide.
+    param($Ticks,$Reference)
+    $instant = ConvertTo-DomeniaUtcDate $Ticks
+    if ($null -eq $instant) { return '' }
+    $local = $instant.ToLocalTime()
+    $day = if ($null -ne $Reference) { $Reference.ToLocalTime().Date } else { [datetime]::Now.Date }
+    if ($local.Date -eq $day) { return $local.ToString('HH:mm',[Globalization.CultureInfo]::InvariantCulture) }
+    return $local.ToString('dd/MM HH:mm',[Globalization.CultureInfo]::InvariantCulture)
+}
+function Get-DomeniaSessionAccountName {
+    # UX-39 : « Ouvrir la fiche » cherche un compte AD par sAMAccountName. La vue rend « DOM\user » pour etre
+    # lisible ; le filtre LDAP veut le nom nu, et le domaine rendu par WTS n'y a rien a faire. Une ligne sans
+    # compte (service, ecouteur) n'a pas de fiche : elle rend vide, et la page le dit au lieu de lancer une
+    # recherche qui echouerait.
+    param($Row)
+    if ($null -eq $Row) { return '' }
+    $account = ([string](Get-DomeniaMember $Row 'Utilisateur' '')).Trim()
+    if (-not $account -or $account -eq 'Compte non lu') { return '' }
+    if ($account.Contains('\')) { return ($account.Split('\')[-1]).Trim() }
+    return $account
+}
 function ConvertTo-DomeniaSessionView {
     # $Result: output of the SessionsList worker {Rows=@({Id,Station,User,Domain,State,Protocol,Detail}), Computer,
     # ObservedUtc, Source, Identity}, or a failure {ReadStatus='AccessDenied'|'Timeout'|...}, or $null when not read.
@@ -459,11 +498,14 @@ function ConvertTo-DomeniaSessionView {
             $station = [string](Get-DomeniaMember $row 'Station' '')
             $label = [string](Get-DomeniaMember $row 'Id' '')
             if ($station) { $label = $label + ' (' + $station + ')' }
+            # Les deux horloges se calculent avant les branches : une ligne sans compte reste une ligne lue.
+            $opened = Get-DomeniaSessionOpenedText -Ticks (Get-DomeniaMember $row 'LogonTicks' $null) -Reference $observed
+            $idle = Get-DomeniaSessionIdleText -Ticks (Get-DomeniaMember $row 'IdleTicks' $null)
             if (-not $user) {
                 # A session whose account could not be read is listed as such: it is not an empty session.
                 if ($detail -match '(?i)partiel|partial') {
                     $unread++
-                    $rows.Add([pscustomobject]@{Session=$label;Utilisateur='Compte non lu';Etat=$sessionState;Protocole=$protocol;Source=$sourceText;Detail=$detail})
+                    $rows.Add([pscustomobject]@{Session=$label;Utilisateur='Compte non lu';Etat=$sessionState;Protocole=$protocol;Source=$sourceText;Detail=$detail;User='';Ouverte=$opened;Inactive=$idle})
                     continue
                 }
                 # Services session 0, logon screen and RDP listeners carry no account: counted, not listed.
@@ -476,16 +518,32 @@ function ConvertTo-DomeniaSessionView {
             if ($protocol -ieq 'Console' -and -not $consoleUser) { $consoleUser = $account }
             if ($protocol -ieq 'RDP') { $rdp++ }
             if ($sessionState -match '^(?i:deconnect|disconnect)') { $disconnected++ }
-            $rows.Add([pscustomobject]@{Session=$label;Utilisateur=$account;Etat=$sessionState;Protocole=$protocol;Source=$sourceText;Detail=$detail})
+            $rows.Add([pscustomobject]@{Session=$label;Utilisateur=$account;Etat=$sessionState;Protocole=$protocol;Source=$sourceText;Detail=$detail;User=$user;Ouverte=$opened;Inactive=$idle})
         }
     }
     $userCount = $rows.Count - $unread
     $empty = Get-DomeniaSessionEmptyText -ReadStatus $status -UserSessionCount $userCount -RdpSessionCount $rdp -ConsoleOccupied ([bool]$consoleUser) -Coverage Wts -UnreadSessionCount $unread
     $reader = [string](Get-DomeniaMember $Result 'Identity' '')
-    $statusText = $sourceText
-    if ($computer) { $statusText += ' ; ' + $computer }
-    if ($reader) { $statusText += ' ; compte : ' + $reader }
-    $statusText += '. Consultation seule : aucune déconnexion depuis cet écran.'
+    # UX-39 : l'etat de la page se lit avant la grille. Il commence par l'heure locale de la lecture, dit
+    # combien de lignes la grille montre et combien elle en masque, et nomme le compte qui a lu. Le texte
+    # brut de la source (« WTS, lecture a la demande ») ne remonte plus ici : c'est une constante du
+    # collecteur, pas une donnee du poste, et elle reste portee par la colonne Source de chaque ligne.
+    $statusParts = @()
+    if ($null -ne $observed) { $statusParts += ('Lu à ' + $observed.ToLocalTime().ToString('dd/MM/yyyy HH:mm',[Globalization.CultureInfo]::InvariantCulture)) }
+    if ($state -eq 'Constate') {
+        # Chaque segment porte un fait et rien d'autre. « 0 session(s) avec compte » se tait quand la page
+        # est vide : EmptyText le dit deja, et deux phrases qui repetent la meme absence se lisent comme un doute.
+        $segments = @()
+        if ($userCount -gt 0) { $segments += ([string]$userCount + ' session(s) avec compte') }
+        if ($unread -gt 0) { $segments += ([string]$unread + ' dont le compte nʼa pas pu être lu') }
+        if ($system -gt 0) { $segments += ([string]$system + ' ligne(s) sans compte masquée(s) : services, écran de connexion, écouteur RDP') }
+        if ($segments.Count -gt 0) { $statusParts += ($segments -join ', ') }
+    }
+    if ($computer) { $statusParts += $computer }
+    if ($reader) { $statusParts += ('lu par ' + $reader) }
+    $statusText = ($statusParts -join ' · ')
+    if ($statusText) { $statusText += '. ' }
+    $statusText += 'Consultation seule : aucune déconnexion depuis cet écran.'
     return [pscustomobject]@{
         Computer=$computer;ReadState=$state;Partial=$partial;Rows=$rows.ToArray();UserSessions=$userCount;UnreadSessions=$unread;SystemSessions=$system
         ConsoleUser=$consoleUser;ConsoleOccupied=([bool]$consoleUser);RdpSessions=$rdp;DisconnectedSessions=$disconnected

@@ -264,6 +264,9 @@ function Get-DomeniaRuntimeModulePlan {
             'Test-DomeniaQuickDiagAllowed',
             'ConvertTo-DomeniaQuickDiagFacts',
             'Get-DomeniaSessionEmptyText',
+            'Get-DomeniaSessionIdleText',
+            'Get-DomeniaSessionOpenedText',
+            'Get-DomeniaSessionAccountName',
             'ConvertTo-DomeniaSessionView',
             'Get-DomeniaMsiProviderClassNames',
             'Test-DomeniaMsiProviderClass',
@@ -927,6 +930,8 @@ function Get-DomeniaRuntimeModulePlan {
             'Start-DomeniaSessionsRead',
             'Complete-DomeniaSessionsRead',
             'Fail-DomeniaSessionsRead',
+            'Open-DomeniaSessionFiche',
+            'New-DomeniaSessionsContextMenu',
             'Get-DomeniaRemoteCredentialCheckCode',
             'Start-DomeniaRemoteCredentialSession',
             'Set-DomeniaTargetCredentialContext'

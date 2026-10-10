@@ -8,6 +8,9 @@ namespace Domenia.Sessions {
     public sealed class SessionRow {
         public int Id {get;set;} public string Station {get;set;} public string User {get;set;}
         public string Domain {get;set;} public string State {get;set;} public string Protocol {get;set;} public string Detail {get;set;}
+        // Horloges WTS rendues brutes, en ticks de 100 ns : -1 quand le poste ne les rend pas. C'est la page
+        // qui choisit le format ; une date inventee ici ne se verifierait nulle part.
+        public long LogonTicks {get;set;} public long IdleTicks {get;set;}
     }
     public static class Reader {
         [StructLayout(LayoutKind.Sequential)] private struct WTS_SESSION_INFO { public int SessionId; public IntPtr Name; public int State; }
@@ -18,6 +21,20 @@ namespace Domenia.Sessions {
         [DllImport("wtsapi32.dll")] static extern void WTSFreeMemory(IntPtr buffer);
         [DllImport("advapi32.dll", CharSet=CharSet.Unicode, SetLastError=true)] static extern bool LogonUserW(string user,string domain,IntPtr password,int type,int provider,out IntPtr token);
         [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr handle);
+        // WTSInfoClass, d'apres WTSAPI32.h. Le protocole de session est 15 : 16 est WTSIdleTime, une duree.
+        // Lire 16 et prendre ses deux premiers octets pour un protocole rendait un etat invente pour toute
+        // session, y compris la console, et le column « Protocole » de la page le affichait sans reserve.
+        private const int WTSUserName=5, WTSDomainName=7, WTSClientProtocolType=15, WTSIdleTime=16, WTSLogonTime=17;
+        // Une horloge que le poste ne remplit pas (session 0, ecran de connexion, ecouteur RDP) ressort -1 :
+        // la page ecrira « non lue ». Un tampon plus court que 8 octets n'est pas interprete.
+        private static long Ticks(IntPtr server,int id,int info) {
+            IntPtr p=IntPtr.Zero; int length=0;
+            try { if(!WTSQuerySessionInformationW(server,id,info,out p,out length))return -1;
+                if(p==IntPtr.Zero || length<8)return -1;
+                long raw=Marshal.ReadInt64(p);
+                return raw>0?raw:-1;
+            } finally { if(p!=IntPtr.Zero)WTSFreeMemory(p); }
+        }
         private static string Text(IntPtr server,int id,int info,ref int error) {
             IntPtr p=IntPtr.Zero; int length=0;
             try { if(!WTSQuerySessionInformationW(server,id,info,out p,out length)){error=Marshal.GetLastWin32Error();return "";}
@@ -43,10 +60,13 @@ namespace Domenia.Sessions {
                 string[] states={"Active","Connectee","Connexion","Miroir","Deconnectee","Inactive","Ecoute","Reinitialisation","Arretee","Initialisation"};
                 for(int i=0;i<count;i++) {
                     var s=(WTS_SESSION_INFO)Marshal.PtrToStructure(IntPtr.Add(buffer,i*stride),typeof(WTS_SESSION_INFO));
-                    int error=0;string account=Text(server,s.SessionId,5,ref error), dom=Text(server,s.SessionId,7,ref error);
+                    int error=0;string account=Text(server,s.SessionId,WTSUserName,ref error), dom=Text(server,s.SessionId,WTSDomainName,ref error);
                     IntPtr proto=IntPtr.Zero;int len=0;string protocol="Indetermine";
-                    try{if(WTSQuerySessionInformationW(server,s.SessionId,16,out proto,out len)&&proto!=IntPtr.Zero&&len>=2){short value=Marshal.ReadInt16(proto);protocol=value==0?"Console":value==2?"RDP":"Autre";}}finally{if(proto!=IntPtr.Zero)WTSFreeMemory(proto);}
-                    rows.Add(new SessionRow{Id=s.SessionId,Station=Marshal.PtrToStringUni(s.Name)??"",User=account,Domain=dom,State=(s.State>=0&&s.State<states.Length?states[s.State]:"Indetermine"),Protocol=protocol,Detail=(error==0?"Lecture WTS":("Information partielle, code Windows "+error))});
+                    try{if(WTSQuerySessionInformationW(server,s.SessionId,WTSClientProtocolType,out proto,out len)&&proto!=IntPtr.Zero&&len>=2){short value=Marshal.ReadInt16(proto);protocol=value==0?"Console":value==2?"RDP":"Autre";}}finally{if(proto!=IntPtr.Zero)WTSFreeMemory(proto);}
+                    // Les deux horloges se lisent pour chaque ligne, y compris sans compte : une session de
+                    // service inactive depuis trois jours se voit aussi. Leur echec ne touche pas Detail,
+                    // qui reste la trace de la lecture du compte.
+                    rows.Add(new SessionRow{Id=s.SessionId,Station=Marshal.PtrToStringUni(s.Name)??"",User=account,Domain=dom,State=(s.State>=0&&s.State<states.Length?states[s.State]:"Indetermine"),Protocol=protocol,Detail=(error==0?"Lecture WTS":("Information partielle, code Windows "+error)),LogonTicks=Ticks(server,s.SessionId,WTSLogonTime),IdleTicks=Ticks(server,s.SessionId,WTSIdleTime)});
                 }
                 return rows.ToArray();
             } finally {
