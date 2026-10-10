@@ -2058,8 +2058,8 @@
     },
     {
       "Path": "wad/tests/Test-DomeniaSelection.ps1",
-      "Sha256": "AB217BF76A6A94F5E6DBE8085FDF7BF32601DD9D7C61C97FFCF02E1EF273A533",
-      "Bytes": 23567,
+      "Sha256": "DE2F0D87BB1930AF19779784107EA69F709F7E631B924239D84A98023ED58C3C",
+      "Bytes": 25360,
       "Runtime": false,
       "PreserveExisting": false
     },
