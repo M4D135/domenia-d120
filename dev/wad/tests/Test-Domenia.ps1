@@ -605,6 +605,19 @@ try {
         # Recherche litterale en chaine simple : en chaine double, $column etait interpole avant de chercher.
         Assert-True ($uxui.Contains('-eq ''Methode'' -or ([string]$column.Header) -eq ''Duree ms''')) 'Les deux colonnes techniques ne sont pas reservees a l Expert'
     }
+    Test-Case 'PF-22 : l onglet Logiciels reprend la liste deja lue par l inventaire' {
+        $texteCore = Get-Content $core -Raw -Encoding UTF8
+        # En chaine simple : en chaine double, $script: et $name seraient interpoles avant la recherche.
+        Assert-True ($texteCore.Contains('ConvertTo-DomeniaSoftwareFromInventory -Items $script:InventoryRows -CompletedAt $script:InventoryCompletedAt')) 'L onglet ne passe pas par la vue qui reprend l inventaire'
+        Assert-True ($texteCore.Contains('$script:Ctrl["ComputerTabs"].Add_SelectionChanged({')) 'L ouverture de l onglet ne declenche rien'
+        Assert-True ($texteCore.Contains('([string]$onglet.Name) -eq ''TabSoftware''')) 'L ouverture d un autre onglet declencherait la reprise'
+        Assert-True ($texteCore.Contains('if ([string]$script:SoftwareSource -ne '''') { return }')) 'La reprise se declencherait pendant une lecture en cours'
+        Assert-True ($texteCore.Contains('Update-DomeniaSoftwareColumnProvenance -FromInventory $true')) 'Les colonnes que l inventaire ne remplit pas restent affichees vides'
+        Assert-True ($texteCore.Contains('-logiciels-inventaire')) 'Un CSV repris de l inventaire se revendique comme une lecture complete'
+        Assert-True ($texteCore.Contains('$script:SoftwareSource = "Poste"')) 'Une lecture complete ne rend pas les colonnes techniques'
+        $modele = Get-Content (Join-Path (Split-Path $core -Parent) 'modules\Domenia-Workstation.Model.ps1') -Raw -Encoding UTF8
+        Assert-True ($modele.Contains('if ($name -eq ''Nombre detecte'') { continue }')) 'La ligne « Nombre detecte » de l inventaire deviendrait un logiciel'
+    }
     if ($WpfSmoke) {
         Test-Case 'WPF et moteur : autotest interne dans un processus dedie' {
             $selfReport=Join-Path $testDirectory 'self-test.json'

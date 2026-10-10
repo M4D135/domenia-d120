@@ -238,6 +238,55 @@ function ConvertTo-DomeniaDiagVerdict {
     }
 }
 
+# ---------------------------------------------------------------- PF-22 : la liste deja lue sert une fois
+# L'inventaire rapide remplit deja la categorie « Logiciels installes » (une requete SCCM, un aller-retour
+# WinRM, ou jusqu'a 250 cles du registre Uninstall). L'onglet Logiciels repartait de zero avec sa propre
+# requete pour afficher les memes noms. Cette vue transforme les lignes de l'inventaire en lignes de la
+# grille Logiciels. Elle ne rend que ce que l'inventaire a vraiment lu : nom, version, portee machine.
+# L'éditeur, la date, la taille et la commande de desinstallation ne sortent pas de la, donc ils ne sont
+# pas inventes : la page les replie et le texte de provenance le dit.
+function ConvertTo-DomeniaSoftwareFromInventory {
+    [CmdletBinding()]
+    param([AllowNull()]$Items = $null, [AllowNull()]$CompletedAt = $null)
+    $list = @()
+    if ($null -ne $Items) { $list = @($Items) }
+    $rows = New-Object Collections.ArrayList
+    foreach ($item in $list) {
+        if ($null -eq $item) { continue }
+        if (([string]$item.Category) -ne 'Logiciels installes') { continue }
+        $name = ([string]$item.Item).Trim()
+        if ([string]::IsNullOrWhiteSpace($name)) { continue }
+        # Le collecteur publie egalement une ligne « Nombre detecte » : ce n'est pas un logiciel.
+        if ($name -eq 'Nombre detecte') { continue }
+        [void]$rows.Add([pscustomobject]@{
+            Name = $name
+            Version = [string]$item.Value
+            Publisher = ''
+            InstallDate = ''
+            InstallDateShort = ''
+            Size = ''
+            SizeKb = 0
+            Scope = 'Machine'
+            Architecture = ''
+            Kind = ''
+            Location = ''
+            UninstallString = ''
+            Source = ('Inventaire — ' + [string]$item.Source)
+        })
+    }
+    $rowsOut = @($rows.ToArray())
+    $heure = ''
+    if ($null -ne $CompletedAt) { try { $heure = ([datetime]$CompletedAt).ToString('HH:mm') } catch { } }
+    $de = ''
+    if ($heure -ne '') { $de = ' de ' + $heure }
+    return [pscustomobject]@{
+        Rows = $rowsOut
+        Count = $rowsOut.Count
+        ProvenanceText = ('Liste reprise de lʼinventaire' + $de + ' : nom et version, portée machine seulement. « Charger les logiciels » relit le poste en complet (éditeur, date, taille, désinstallation).')
+        DashboardText = 'Synthèse non calculée : la liste vient de lʼinventaire rapide, qui ne lit ni lʼéditeur, ni la date, ni la taille. Chargez les logiciels pour obtenir la synthèse.'
+    }
+}
+
 # ---------------------------------------------------------------- D071 quick diagnosis with an announced cost
 # --- UX-37 : la colonne Valeur de l inventaire du poste rend un libelle, pas le code CIM ---
 # Le collecteur recopie ce que CIM lui rend : role « 1 », chassis « 10 », langue « 1036 », carte

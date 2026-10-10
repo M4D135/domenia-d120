@@ -8155,6 +8155,10 @@ function Reset-DomeniaSelectionBoundViews {
         $script:InventoryAccess = @()
         $script:SoftwareRows = @()
         $script:SoftwareAccess = @()
+        $script:InventoryComputer = ''
+        $script:InventoryCompletedAt = $null
+        $script:SoftwareSource = ''
+        $script:SoftwareProvenance = ''
 
         foreach ($gridName in @(
             "DgLinks",
@@ -9086,6 +9090,10 @@ $script:SoftwareScope = "Toutes"
 $script:InventoryRows = @()
 $script:InventoryAccess = @()
 $script:InventoryCategory = "Toutes"
+$script:InventoryComputer = ""
+$script:InventoryCompletedAt = $null
+$script:SoftwareSource = ""
+$script:SoftwareProvenance = ""
 $script:SuppressInventoryCategoryEvent = $false
 $script:CurrentPresenceState = ""
 $script:CurrentPresenceTarget = ""
@@ -13068,6 +13076,9 @@ function Complete-DomeniaInventoryUi {
 
     $script:InventoryRows = @($effective.Rows)
     $script:InventoryAccess = @($effective.Access)
+    # PF-22 : l'onglet Logiciels a besoin de savoir de quel poste et de quelle heure vient cette liste.
+    $script:InventoryComputer = [string]$State.Computer
+    $script:InventoryCompletedAt = Get-Date
     try { Update-DomeniaComputerDashboard -Result $effective } catch { Add-DomeniaUiLog -Area "Tableau de bord" -Level "WARN" -Text ("Tableau de bord du poste non construit : " + $_.Exception.Message) }
     Update-DomeniaInventoryCategories
     Apply-DomeniaInventoryFilter
@@ -14504,7 +14515,13 @@ function Apply-DomeniaSoftwareFilter {
         foreach ($row in @($rows | Where-Object { $null -ne $_ })) { [void](Add-DomeniaGridDateKeys -Row $row -Fields @('InstallDate')) }
         [void](Set-DomeniaGridRows -Name "DgSoftware" -Rows $rows -KeyProperty "Name")
         $total = @($script:SoftwareRows).Count
-        [void](Set-DomeniaControlText -Name "LblSoftwareStatus" -Text ("{0} logiciel(s) affiche(s) sur {1}." -f @($rows).Count,$total))
+        $statusText = ("{0} logiciel(s) affiche(s) sur {1}." -f @($rows).Count,$total)
+        # La provenance se relit apres chaque filtre : une liste reprise de l'inventaire ne doit jamais
+        # se presenter comme le resultat d'une lecture des logiciels.
+        if (-not [string]::IsNullOrWhiteSpace([string]$script:SoftwareProvenance)) {
+            $statusText = $statusText + ' ' + [string]$script:SoftwareProvenance
+        }
+        [void](Set-DomeniaControlText -Name "LblSoftwareStatus" -Text $statusText)
     }
     catch { Add-DomeniaUiLog -Level "ERROR" -Area "Logiciels" -Text $_.Exception.Message }
 }
@@ -14515,6 +14532,10 @@ function Complete-DomeniaSoftwareUi {
     $effective = Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @("Access")
     if ($null -eq $effective) { throw "Resultat logiciels vide ou invalide." }
     $script:SoftwareRows = @($effective.Rows)
+    # Lecture complete : la provenance n'est plus l'inventaire, les colonnes reprennent leur place.
+    $script:SoftwareSource = "Poste"
+    $script:SoftwareProvenance = ""
+    Update-DomeniaSoftwareColumnProvenance -FromInventory $false
     try { Update-DomeniaSoftwareDashboard -Rows $script:SoftwareRows } catch { Add-DomeniaUiLog -Area "Tableau de bord" -Level "WARN" -Text ("Synthese des logiciels non construite : " + $_.Exception.Message) }
     $script:SoftwareAccess = @($effective.Access)
     [void](Set-DomeniaItemsSource -Name "DgSoftwareAccess" -Rows $script:SoftwareAccess)
@@ -14561,9 +14582,47 @@ function Fail-DomeniaSoftwareUi {
     param($Message,$State)
     $detail = ([string]$Message).Trim()
     if ([string]::IsNullOrWhiteSpace($detail)) { $detail = "Erreur inconnue." }
+    # Une lecture ratee reste ratee : l'onglet ne se remplit pas avec l'inventaire par-dessus l'echec.
+    $script:SoftwareSource = "Poste"
     [void](Set-DomeniaControlText -Name "LblSoftwareStatus" -Text ("Lecture impossible : " + $detail))
     Set-Status ("Lecture des logiciels impossible : " + $detail) "ERROR"
     Add-DomeniaUiLog -Area "Logiciels" -Level "ERROR" -Text $detail
+}
+
+function Update-DomeniaSoftwareColumnProvenance {
+    param([bool]$FromInventory = $false)
+    # Une liste reprise de l'inventaire ne connait que le nom et la version. Les colonnes qui resteraient
+    # vides se replient : une cellule vide dans « Desinstallation » se lirait « ce logiciel ne se
+    # desinstalle pas », alors que la reponse n'a simplement pas ete cherchee.
+    $grid = Get-DomeniaControl -Name 'DgSoftware'
+    if ($null -eq $grid) { return }
+    $techniques = @('Editeur','Installe le','Taille','Archi','Type','Emplacement','Desinstallation')
+    foreach ($column in @($grid.Columns)) {
+        $header = [string]$column.Header
+        if ($techniques -notcontains $header) { continue }
+        if ($FromInventory) { $column.Visibility = [System.Windows.Visibility]::Collapsed }
+        else { $column.Visibility = [System.Windows.Visibility]::Visible }
+    }
+}
+
+function Show-DomeniaSoftwareFromInventory {
+    # Appelle a l'ouverture de l'onglet, jamais pendant une lecture en cours : une liste qui se
+    # remplit sous les yeux de l'operateur ne se explique plus.
+    if ([string]$script:SoftwareSource -ne '') { return }
+    if (@($script:SoftwareRows).Count -gt 0) { return }
+    if (@($script:InventoryRows).Count -eq 0) { return }
+    if (([string]$script:InventoryComputer) -ine ([string](Get-CurrentSelectedComputerName))) { return }
+    $vue = ConvertTo-DomeniaSoftwareFromInventory -Items $script:InventoryRows -CompletedAt $script:InventoryCompletedAt
+    if ([int]$vue.Count -eq 0) { return }
+    $script:SoftwareRows = @($vue.Rows)
+    $script:SoftwareSource = 'Inventaire'
+    $script:SoftwareProvenance = [string]$vue.ProvenanceText
+    $panel = Get-DomeniaControl -Name 'PnlSoftwareDashboard'
+    if ($null -ne $panel) { $panel.Children.Clear() }
+    [void](Set-DomeniaControlText -Name 'LblSoftwareDashboard' -Text ([string]$vue.DashboardText))
+    Update-DomeniaSoftwareColumnProvenance -FromInventory $true
+    Apply-DomeniaSoftwareFilter
+    Add-DomeniaUiLog -Area 'Logiciels' -Text ("{0} logiciel(s) repris de l'inventaire du poste, sans nouvelle requete." -f [int]$vue.Count)
 }
 
 function Start-DomeniaSoftwareInventory {
@@ -14575,6 +14634,8 @@ function Start-DomeniaSoftwareInventory {
         $computer = Assert-DomeniaComputerTarget -Computer (Get-CurrentSelectedComputerName)
         $script:SoftwareRows = @()
         $script:SoftwareAccess = @()
+        $script:SoftwareSource = "Poste"
+        $script:SoftwareProvenance = ""
         [void](Set-DomeniaItemsSource -Name "DgSoftware" -Rows @())
         [void](Set-DomeniaItemsSource -Name "DgSoftwareAccess" -Rows @())
         [void](Set-DomeniaControlText -Name "LblSoftwareStatus" -Text ("Lecture des logiciels de " + $computer + "..."))
@@ -14615,13 +14676,21 @@ function Copy-DomeniaSoftware {
             [string]$r.Size,[string]$r.Scope,[string]$r.Architecture,[string]$r.Kind,[string]$r.Location))
     }
     Set-ClipboardSafe ([string]::Join([Environment]::NewLine,$lines.ToArray()))
-    Set-Status ("{0} logiciel(s) copie(s)." -f @($script:SoftwareRows).Count)
+    $copie = "{0} logiciel(s) copie(s)." -f @($script:SoftwareRows).Count
+    if (-not [string]::IsNullOrWhiteSpace([string]$script:SoftwareProvenance)) {
+        $copie += ' Liste reprise de lʼinventaire : nom et version seulement.'
+    }
+    Set-Status $copie
 }
 
 function Export-DomeniaSoftware {
     try {
         if (@($script:SoftwareRows).Count -eq 0) { Set-Status "Aucun logiciel a exporter." "WARN"; return }
-        $result = Export-DomeniaCsv -Rows @($script:SoftwareRows) -Grid (Get-DomeniaControl -Name 'DgSoftware') -Subject ((Get-DomeniaExportComputerName) + '-logiciels')
+        # Le nom du fichier porte la provenance : un CSV « -logiciels-inventaire » ne se revendique pas
+        # comme une lecture complete des logiciels du poste.
+        $sujet = '-logiciels'
+        if (-not [string]::IsNullOrWhiteSpace([string]$script:SoftwareProvenance)) { $sujet = '-logiciels-inventaire' }
+        $result = Export-DomeniaCsv -Rows @($script:SoftwareRows) -Grid (Get-DomeniaControl -Name 'DgSoftware') -Subject ((Get-DomeniaExportComputerName) + $sujet)
         Add-DomeniaUiLog -Area "Logiciels" -Text ("Export CSV : " + [string]$result.Path)
         Show-DomeniaExportResult -Result $result
     }
@@ -20676,6 +20745,8 @@ function Start-DomeniaAccountRelogin {
         $script:ParkState = @{}
         $script:InventoryRows = @(); $script:InventoryAccess = @()
         $script:SoftwareRows = @(); $script:SoftwareAccess = @()
+        $script:InventoryComputer = ''; $script:InventoryCompletedAt = $null
+        $script:SoftwareSource = ''; $script:SoftwareProvenance = ''
         $script:DomainRows = @(); $script:WmiNamespaces = @(); $script:WmiClasses = @(); $script:WmiSchema = @(); $script:WmiInstances = @()
         $script:WorkerContextStatic = $null
         $script:DirectoryCredentialFaulted = $false; $script:DirectoryCredentialFaultMessage = ''
@@ -21080,6 +21151,21 @@ function Wire-Events {
     if ($script:Ctrl.ContainsKey("LstWmiNamespaces")) { $script:Ctrl["LstWmiNamespaces"].Add_MouseDoubleClick({ Start-DomeniaWmiClasses }) }
     if ($script:Ctrl.ContainsKey("LstWmiClasses")) { $script:Ctrl["LstWmiClasses"].Add_MouseDoubleClick({ Start-DomeniaWmiQuery }) }
     if ($script:Ctrl.ContainsKey("BtnLoadSoftware")) { $script:Ctrl["BtnLoadSoftware"].Add_Click({ Start-DomeniaSoftwareInventory }) }
+    # PF-22 : a l'ouverture de l'onglet, la liste deja rapportee par l'inventaire du meme poste est
+    # affichee au lieu de repartir pour une seconde requete. Le geste complet reste le bouton.
+    # TabItem ne possede pas d'evenement Selected (sonde en invite : Add_Selected n'existe pas) ; le
+    # branchement se fait donc sur le TabControl, comme les onglets de workspace plus haut.
+    if ($script:Ctrl.ContainsKey("ComputerTabs")) {
+        $script:Ctrl["ComputerTabs"].Add_SelectionChanged({
+            param($sender,$e)
+            if ($sender -ne $e.OriginalSource) { return }
+            try {
+                $onglet = $sender.SelectedItem
+                if ($null -ne $onglet -and ([string]$onglet.Name) -eq 'TabSoftware') { Show-DomeniaSoftwareFromInventory }
+            }
+            catch { }
+        })
+    }
     if ($script:Ctrl.ContainsKey("BtnCopySoftware")) { $script:Ctrl["BtnCopySoftware"].Add_Click({ Copy-DomeniaSoftware }) }
     if ($script:Ctrl.ContainsKey("BtnExportSoftware")) { $script:Ctrl["BtnExportSoftware"].Add_Click({ Export-DomeniaSoftware }) }
     if ($script:Ctrl.ContainsKey("TxtSoftwareFilter")) { $script:Ctrl["TxtSoftwareFilter"].Add_TextChanged({ Apply-DomeniaSoftwareFilter }) }

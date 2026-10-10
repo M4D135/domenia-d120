@@ -232,6 +232,38 @@ Test-Case 'UX-17' 'Diagnostic : verdict en francais, transports facultatifs comp
     Assert-True ($muet.Verdict.StartsWith('Le poste')) 'Sans nom de poste, la phrase reste complete'
 }
 
+Test-Case 'PF-22' 'Logiciels : la liste deja lue par l inventaire sert sans seconde requete' {
+    $e=[string][char]0x00E9
+    $items=@(
+        [pscustomobject]@{Category='Systeme';Item='Constructeur';Value='Dell';Source='Win32_ComputerSystem'},
+        [pscustomobject]@{Category='Logiciels installes';Item='Nombre detecte';Value=3;Source='Registre Uninstall'},
+        [pscustomobject]@{Category='Logiciels installes';Item='7-Zip 23.01 (x64)';Value='23.01';Source='Registre Uninstall'},
+        [pscustomobject]@{Category='Logiciels installes';Item='VLC media player';Value='3.0.18';Source='Registre Uninstall'},
+        [pscustomobject]@{Category='Logiciels installes';Item=' ';Value='';Source='Registre Uninstall'},
+        [pscustomobject]@{Category='Logiciels installes';Item='Dell Command';Value='';Source='Win32Reg_AddRemovePrograms'}
+    )
+    $v=ConvertTo-DomeniaSoftwareFromInventory -Items $items -CompletedAt ([datetime]'2026-10-11 12:24')
+    # La ligne « Nombre detecte » du collecteur et la ligne sans nom ne sont pas des logiciels.
+    Assert-Equal 3 $v.Count ('Trois logiciels attendus : '+[string]$v.Count)
+    $r=@($v.Rows)
+    Assert-Equal '7-Zip 23.01 (x64)' $r[0].Name 'Le nom vient de la ligne de l inventaire'
+    Assert-Equal '23.01' $r[0].Version 'La version est la valeur de la ligne de l inventaire'
+    Assert-Equal 'Machine' $r[0].Scope 'L inventaire rapide ne lit que HKLM, donc la portee est machine'
+    Assert-True ($r[2].Source.StartsWith('Inventaire')) ('La source doit dire inventaire : '+[string]$r[2].Source)
+    # Ce que l inventaire n a pas lu reste vide : la page replie ces colonnes, elle ne les invente pas.
+    Assert-Equal '' ([string]$r[0].Publisher) 'Editeur lu par erreur'
+    Assert-Equal '' ([string]$r[0].UninstallString) 'Commande de desinstallation inventee'
+    Assert-Equal '' ([string]$r[0].InstallDate) 'Date d installation inventee'
+    Assert-True ($v.ProvenanceText -match 'inventaire') $v.ProvenanceText
+    Assert-True ($v.ProvenanceText -match '12:24') ('L heure de l inventaire doit etre dite : '+$v.ProvenanceText)
+    Assert-True ($v.ProvenanceText -match 'Charger les logiciels') ('Le geste complet doit etre nomme : '+$v.ProvenanceText)
+    Assert-True ($v.DashboardText -match ('non calcul'+$e+'e')) ('La synthese doit refuser de se calculer : '+$v.DashboardText)
+    $vide=ConvertTo-DomeniaSoftwareFromInventory -Items @()
+    Assert-Equal 0 $vide.Count 'Pas d inventaire : rien a reprendre'
+    $sansHeure=ConvertTo-DomeniaSoftwareFromInventory -Items @($items[2])
+    Assert-True ($sansHeure.ProvenanceText -notmatch ' de [0-9][0-9]:[0-9][0-9]') ('Heure inventee : '+$sansHeure.ProvenanceText)
+}
+
 # ---------------------------------------------------------------- D073
 Test-Case 'D073' 'Sources de desinstallation 64 et 32 bits ; categories non couvertes indiquees' {
     $s=Get-DomeniaSoftwareSources
