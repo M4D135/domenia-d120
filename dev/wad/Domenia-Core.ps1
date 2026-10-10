@@ -244,6 +244,13 @@ function Get-DomeniaGridExportColumns {
         if ($column.Visibility -ne [System.Windows.Visibility]::Visible) { continue }
         $property = ''
         try { if ($column -is [System.Windows.Controls.DataGridBoundColumn] -and $null -ne $column.Binding -and $null -ne $column.Binding.Path) { $property = [string]$column.Binding.Path.Path } } catch { }
+        # CO-03 : une colonne modele n'a pas de Binding, mais ClipboardContentBinding designe deja la
+        # valeur qu'elle represente — c'est ce que WPF copie dans le presse-papiers. Sans elle,
+        # SortMemberPath gagnerait et le CSV sortirait la cle de tri, un DateTime : « Jamais » y
+        # deviendrait 01/01/0001 00:00:00. Tag n'est pas une issue : DataGridColumn n'en porte pas.
+        if ((-not $property) -and ($column -is [System.Windows.Controls.DataGridTemplateColumn])) {
+            try { if ($null -ne $column.ClipboardContentBinding -and $null -ne $column.ClipboardContentBinding.Path) { $property = [string]$column.ClipboardContentBinding.Path.Path } } catch { }
+        }
         if (-not $property) { $property = [string]$column.SortMemberPath }
         if ((-not $property) -and ($column -is [System.Windows.Controls.DataGridTemplateColumn]) -and ($null -ne $column.CellTemplate)) {
             try {
@@ -1768,18 +1775,39 @@ function Get-DomeniaGridDateSortKey {
     }
     return [datetime]::MinValue
 }
-function Add-DomeniaGridSortKeys {
-    # CO-03 : la cle est portee par la ligne, pas par la colonne. Les grilles recoivent des objets
-    # varies (ResultRow, lignes restaurees du cache en pscustomobject) : une cle portee par la seule
-    # classe ResultRow laisserait les secondes trier a l aveugle, sans erreur visible.
-    param($Row,[string[]]$Fields=@())
+function Get-DomeniaGridDateShortText {
+    # CO-03 : l affiche court des colonnes datees. La date complete reste dans l infobulle et dans
+    # le CSV : « il y a 3 j » ne se relit pas six mois plus tard, et un export part en controle.
+    # Une valeur que le poste ne donne pas (« Jamais », « », une chaine inconnue) est rendue telle
+    # quelle : rien n est invente. $Now vient du banc pour que l ecart mesure reste deterministe.
+    param($Value,$Now)
+    $text = [string]$Value
+    if ([string]::IsNullOrWhiteSpace($text)) { return $text }
+    $instant = Get-DomeniaGridDateSortKey $text
+    if ($instant -eq [datetime]::MinValue) { return $text }
+    $reference = if ($null -ne $Now) { [datetime]$Now } else { [datetime]::Now }
+    $age = $reference - $instant
+    if ($age.TotalSeconds -lt 0) { return $instant.ToString('dd/MM/yyyy',[Globalization.CultureInfo]::InvariantCulture) }
+    if ($age.TotalMinutes -lt 1) { return "à l'instant" }
+    if ($age.TotalHours -lt 1) { return ('il y a {0} min' -f [int][Math]::Floor($age.TotalMinutes)) }
+    if ($age.TotalDays -lt 1) { return ('il y a {0} h' -f [int][Math]::Floor($age.TotalHours)) }
+    if ($age.TotalDays -lt 31) { return ('il y a {0} j' -f [int][Math]::Floor($age.TotalDays)) }
+    return $instant.ToString('dd/MM/yyyy',[Globalization.CultureInfo]::InvariantCulture)
+}
+function Add-DomeniaGridDateKeys {
+    # CO-03 : les cles sont portees par la ligne, pas par la colonne. Les grilles recoivent des
+    # objets varies (ResultRow, lignes restaurees du cache en pscustomobject) : une cle portee par la
+    # seule classe ResultRow laisserait les secondes trier et s afficher a l aveugle, sans erreur.
+    param($Row,[string[]]$Fields=@(),$Now)
     if ($null -eq $Row -or -not $Fields.Count) { return $Row }
     foreach ($field in $Fields) {
         $name = [string]$field
         if ([string]::IsNullOrWhiteSpace($name)) { continue }
         $value = $null
         try { $value = $Row.PSObject.Properties[$name].Value } catch { $value = $null }
-        $Row | Add-Member -NotePropertyName ($name + 'Sort') -NotePropertyValue (Get-DomeniaGridDateSortKey $value) -Force
+        $text = [string]$value
+        $Row | Add-Member -NotePropertyName ($name + 'Sort') -NotePropertyValue (Get-DomeniaGridDateSortKey $text) -Force
+        $Row | Add-Member -NotePropertyName ($name + 'Short') -NotePropertyValue (Get-DomeniaGridDateShortText -Value $text -Now $Now) -Force
     }
     return $Row
 }
@@ -1797,7 +1825,7 @@ function Set-DomeniaItemsSource {
             $Rows=if([string]::IsNullOrWhiteSpace($query)){$loaded}else{@($loaded | Where-Object { Test-DomeniaExperienceRow $_ $query })}
             # CO-03 : calculee ici et non a la production de la ligne, parce que c est le seul chemin par
             # ou passent toutes les lignes affichees : recherche, cache, enrichissement de la fiche.
-            foreach ($row in @($Rows | Where-Object { $null -ne $_ })) { [void](Add-DomeniaGridSortKeys -Row $row -Fields @('Changed','LastLogon')) }
+            foreach ($row in @($Rows | Where-Object { $null -ne $_ })) { [void](Add-DomeniaGridDateKeys -Row $row -Fields @('Changed','LastLogon')) }
             $visible=@($Rows | Where-Object { $null -ne $_ }).Count
             $suffix=if($global){' · recherche globale sans filtre local'}else{' · filtre local, sans requête AD'}
             [void](Set-DomeniaControlText 'LblSuiteResultCount' ("$visible ligne(s) visible(s)"+$suffix))
@@ -5377,10 +5405,10 @@ function Get-MainXaml {
                               </DataGridTemplateColumn>
                               <DataGridTextColumn Header="Etat" Binding="{Binding State}" Width="120"/>
                               <DataGridTextColumn Header="OS" Binding="{Binding OS}" Width="180"/>
-                              <DataGridTextColumn Header="Derniere connexion" Binding="{Binding LastLogon}" SortMemberPath="LastLogonSort" Width="145"/>
+                              <DataGridTemplateColumn Header="Derniere connexion" SortMemberPath="LastLogonSort" ClipboardContentBinding="{Binding LastLogon}" Width="145"><DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding LastLogonShort}" ToolTip="{Binding LastLogon}" VerticalAlignment="Center"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
                               <DataGridTextColumn Header="Mail" Binding="{Binding Mail}" Width="220"/>
                               <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="250"/>
-                              <DataGridTextColumn Header="Modifie" Binding="{Binding Changed}" SortMemberPath="ChangedSort" Width="145"/>
+                              <DataGridTemplateColumn Header="Modifie" SortMemberPath="ChangedSort" ClipboardContentBinding="{Binding Changed}" Width="145"><DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding ChangedShort}" ToolTip="{Binding Changed}" VerticalAlignment="Center"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
                               <DataGridTextColumn Header="Chemin complet" Binding="{Binding DN}" Width="520"/>
                             </DataGrid.Columns>
                           </DataGrid>
@@ -6537,7 +6565,7 @@ function Get-MainXaml {
                               <DataGridTextColumn Header="Nom" Binding="{Binding Name}" Width="330"/>
                               <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="130"/>
                               <DataGridTextColumn Header="Editeur" Binding="{Binding Publisher}" Width="220"/>
-                              <DataGridTextColumn Header="Installe le" Binding="{Binding InstallDate}" SortMemberPath="InstallDateSort" Width="105"/>
+                              <DataGridTemplateColumn Header="Installe le" SortMemberPath="InstallDateSort" ClipboardContentBinding="{Binding InstallDate}" Width="105"><DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding InstallDateShort}" ToolTip="{Binding InstallDate}" VerticalAlignment="Center"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
                               <DataGridTextColumn Header="Taille" Binding="{Binding Size}" SortMemberPath="SizeKb" Width="95"/>
                               <DataGridTextColumn Header="Portee" Binding="{Binding Scope}" Width="105"/>
                               <DataGridTextColumn Header="Archi" Binding="{Binding Architecture}" Width="75"/>
@@ -14435,7 +14463,7 @@ function Apply-DomeniaSoftwareFilter {
         }
         # CO-03 : le worker Logiciels (corps epingle) publie InstallDate en texte et SizeKb en nombre.
         # La cle datee est ajoutee a l entree de la grille, sans toucher au corps epingle.
-        foreach ($row in @($rows | Where-Object { $null -ne $_ })) { [void](Add-DomeniaGridSortKeys -Row $row -Fields @('InstallDate')) }
+        foreach ($row in @($rows | Where-Object { $null -ne $_ })) { [void](Add-DomeniaGridDateKeys -Row $row -Fields @('InstallDate')) }
         [void](Set-DomeniaGridRows -Name "DgSoftware" -Rows $rows -KeyProperty "Name")
         $total = @($script:SoftwareRows).Count
         [void](Set-DomeniaControlText -Name "LblSoftwareStatus" -Text ("{0} logiciel(s) affiche(s) sur {1}." -f @($rows).Count,$total))

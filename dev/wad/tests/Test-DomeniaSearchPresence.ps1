@@ -7,7 +7,7 @@ $wad=Split-Path -Parent $PSScriptRoot
 $tokens=$null;$errors=$null
 $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'Domenia-Core.ps1'),[ref]$tokens,[ref]$errors)
 if(@($errors).Count){throw $errors[0].Message}
-foreach($name in @('Get-MainXaml','Get-DomeniaControl','Set-DomeniaControlText','Get-DomeniaSearchMode','Set-DomeniaSearchMode','Get-DomeniaSearchText','Get-DomeniaSearchScope','Get-GlobalSelectedTypeFilter','Get-TypeLdapFilter','Test-DomeniaSearchStateCurrent','Invoke-GlobalSearch','Escape-LdapValue','Normalize-LinkComputer','Get-DomeniaEffectiveWorkerResult','Set-DomeniaItemsSource','Get-DomeniaGridDateSortKey','Add-DomeniaGridSortKeys')){
+foreach($name in @('Get-MainXaml','Get-DomeniaControl','Set-DomeniaControlText','Get-DomeniaSearchMode','Set-DomeniaSearchMode','Get-DomeniaSearchText','Get-DomeniaSearchScope','Get-GlobalSelectedTypeFilter','Get-TypeLdapFilter','Test-DomeniaSearchStateCurrent','Invoke-GlobalSearch','Escape-LdapValue','Normalize-LinkComputer','Get-DomeniaEffectiveWorkerResult','Set-DomeniaItemsSource','Get-DomeniaGridDateSortKey','Get-DomeniaGridDateShortText','Add-DomeniaGridDateKeys')){
     $nodes=@($ast.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true))
     if($nodes.Count -ne 1){throw ('Definition ambiguous: '+$name)}
     Invoke-Expression $nodes[0].Extent.Text
@@ -234,6 +234,10 @@ if($env:OS -eq 'Windows_NT' -and -not $SkipWpf){
         $connexion=@($grid.ItemsSource|Sort-Object LastLogonSort|ForEach-Object{[string]$_.Name}) -join ''
         Expect ($connexion -eq 'abc') ('Tri Derniere connexion par valeur, Jamais en premier : ordre '+$connexion)
         $a=@($grid.ItemsSource|Where-Object{[string]$_.Name -eq 'a'})[0]
+        # CO-03b : la ligne porte aussi ce que l'operateur voit, sans perdre la date complete.
+        Expect ($a.ChangedShort -eq '09/05/2026') ('Modifie raccourci : '+[string]$a.ChangedShort)
+        Expect ($a.Changed -eq '09/05/2026 08:00:00') ('Date complete perdue de la ligne : '+[string]$a.Changed)
+        Expect ($a.LastLogonShort -eq 'Jamais') ('Derniere connexion raccourcie : '+[string]$a.LastLogonShort)
         Expect ($a.ChangedSort -eq [datetime]::new(2026,5,9,8,0,0)) 'La cle Modifie ne convertit pas l heure affichee'
         Expect ($a.LastLogonSort -eq [datetime]::MinValue) 'Jamais ne tombe pas au plus ancien'
     }

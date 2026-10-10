@@ -49,7 +49,7 @@ $wanted=@('Write-DomeniaAtomicText','Read-DomeniaPreference','Write-DomeniaPrefe
     'Invoke-DomeniaAppLogRotation','Flush-DomeniaAppLog','Invoke-DomeniaAppLogFlush','Set-DomeniaAppLogAvailability','Set-Status',
     'Get-DomeniaGridExportColumns','ConvertTo-DomeniaExportRows','Get-DomeniaExportFileName','Export-DomeniaCsv','Get-DomeniaCsvDelimiter',
     # CO-03 : cles de tri des colonnes datees, et le XAML ou elles sont designees.
-    'Get-DomeniaGridDateSortKey','Add-DomeniaGridSortKeys','Get-MainXaml')
+    'Get-DomeniaGridDateSortKey','Get-DomeniaGridDateShortText','Add-DomeniaGridDateKeys','Get-MainXaml')
 $definitions=New-Object 'System.Collections.Generic.List[string]'
 $nodes=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst]},$true))
 foreach($name in $wanted) {
@@ -283,17 +283,25 @@ try {
         # A template column without sort path (Détail of DgSelfCheck): its binding is read from the cell template.
         $cell=[Windows.Markup.XamlReader]::Parse('<DataTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"><StackPanel Orientation="Horizontal"><TextBlock Text="{Binding Detail}"/></StackPanel></DataTemplate>')
         $detail=[Windows.Controls.DataGridTemplateColumn]::new();$detail.Header='Détail';$detail.CellTemplate=$cell;[void]$grid.Columns.Add($detail)
+        # CO-03b : une colonne modele qui affiche « il y a 3 j » doit exporter la date complete que
+        # son Tag designe, ni la cle de tri (un DateTime) que SortMemberPath lui designerait,
+        # ni le texte court que son modele affiche.
+        $dateCell=[Windows.Markup.XamlReader]::Parse('<DataTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"><TextBlock Text="{Binding ChangedShort}" ToolTip="{Binding Changed}"/></DataTemplate>')
+        $dateCol=[Windows.Controls.DataGridTemplateColumn]::new();$dateCol.Header='Modifie';$dateCol.SortMemberPath='ChangedSort';$dateCol.ClipboardContentBinding=[Windows.Data.Binding]::new('Changed');$dateCol.CellTemplate=$dateCell;[void]$grid.Columns.Add($dateCol)
         $columns=@(Get-DomeniaGridExportColumns -Grid $grid)
-        Assert-True ((($columns|ForEach-Object{$_.Header}) -join '|') -ceq 'Nom|Type|Présence réseau|Détail') ('Colonnes : '+(($columns|ForEach-Object{$_.Header}) -join '|'))
+        Assert-True ((($columns|ForEach-Object{$_.Header}) -join '|') -ceq 'Nom|Type|Présence réseau|Détail|Modifie') ('Colonnes : '+(($columns|ForEach-Object{$_.Header}) -join '|'))
         Assert-True ([string]$columns[3].Property -ceq 'Detail') ('Propriete du modele : '+[string]$columns[3].Property)
-        $rows=@([pscustomobject]@{Name='=2+2';Type='Machine';Guid='0a1b';Presence='En ligne';PresenceDetail="Multi`r`nligne";Detail='Contrôle réussi'},[pscustomobject]@{Name='PC-02';Type='Machine';Guid='0c1d';Presence='Hors ligne';PresenceDetail='';Detail='À vérifier'})
+        Assert-True ([string]$columns[4].Property -ceq 'Changed') ('Date courte exportee : '+[string]$columns[4].Property)
+        $rows=@([pscustomobject]@{Name='=2+2';Type='Machine';Guid='0a1b';Presence='En ligne';PresenceDetail="Multi`r`nligne";Detail='Contrôle réussi';Changed='09/05/2026 08:00:00';ChangedShort='il y a 3 j'},[pscustomobject]@{Name='PC-02';Type='Machine';Guid='0c1d';Presence='Hors ligne';PresenceDetail='';Detail='À vérifier';Changed='03/06/2025 08:00:00';ChangedShort='03/06/2025'})
         $out=Join-Path $testDirectory 'export-co04.csv'
         $result=Export-DomeniaCsv -Rows $rows -Grid $grid -Path $out
         $bytes=[IO.File]::ReadAllBytes($out)
         Assert-True (($bytes[0] -eq 0xEF) -and ($bytes[1] -eq 0xBB) -and ($bytes[2] -eq 0xBF)) 'UTF-8 sans BOM.'
         $text=[IO.File]::ReadAllText($out)
         $first=($text -split "\r?\n")[0]
-        Assert-True ($first -ceq '"Nom";"Type";"Présence réseau";"Détail"') ('En-tete : '+$first)
+        Assert-True ($first -ceq '"Nom";"Type";"Présence réseau";"Détail";"Modifie"') ('En-tete : '+$first)
+        # Le CSV garde la date complete : « il y a 3 j » ne se relit pas six mois plus tard.
+        Assert-True ($text.Contains('09/05/2026 08:00:00') -and (-not $text.Contains('il y a 3 j'))) 'Le CSV a exporte le texte court ou la cle de tri.'
         Assert-True ((-not $text.Contains('0a1b')) -and (-not $text.Contains('Multi'))) 'Colonne masquee ou propriete interne exportee.'
         Assert-True ($text.Contains("""'=2+2""") -and ($result.RowCount -eq 2)) $text
         $round=@(Import-Csv -LiteralPath $out -Delimiter ';' -Encoding UTF8)
@@ -462,7 +470,7 @@ try {
         $dates = @('09/05/2026 08:00:00','03/06/2025 08:00:00','10/01/2026 08:00:00') | ForEach-Object {
             [pscustomobject]@{ Name='x'; InstallDate=$_ }
         }
-        $typed = @($dates | ForEach-Object { Add-DomeniaGridSortKeys -Row $_ -Fields @('InstallDate') } | Sort-Object InstallDateSort | ForEach-Object { $_.InstallDate })
+        $typed = @($dates | ForEach-Object { Add-DomeniaGridDateKeys -Row $_ -Fields @('InstallDate') } | Sort-Object InstallDateSort | ForEach-Object { $_.InstallDate })
         Assert-True (($typed -join '|') -eq '03/06/2025 08:00:00|10/01/2026 08:00:00|09/05/2026 08:00:00') ('Ordre par valeur : ' + ($typed -join '|'))
         $textual = @($dates | Sort-Object InstallDate | ForEach-Object { $_.InstallDate })
         Assert-True (($textual -join '|') -eq '03/06/2025 08:00:00|09/05/2026 08:00:00|10/01/2026 08:00:00') ('Le tri par texte a change de sens : ' + ($textual -join '|'))
@@ -473,17 +481,48 @@ try {
             Assert-True ((Get-DomeniaGridDateSortKey $sansDate) -eq [datetime]::MinValue) ('Date « ' + [string]$sansDate + ' » triee ailleurs qu au plus ancien')
         }
         # Une ligne sans la propriete ne leve pas : elle recoit la cle la plus ancienne.
-        $vide = Add-DomeniaGridSortKeys -Row ([pscustomobject]@{ Name='seul' }) -Fields @('Changed')
+        $vide = Add-DomeniaGridDateKeys -Row ([pscustomobject]@{ Name='seul' }) -Fields @('Changed')
         Assert-True ($vide.ChangedSort -eq [datetime]::MinValue) 'Cle absente sans lever'
+        # CO-03b : l'affiche court, a horloge figee pour que l'ecart mesure reste deterministe.
+        $now = [datetime]::new(2026,10,10,12,0,0)
+        $courtes = @(
+            @('10/10/2026 11:59:30',"à l'instant"),
+            @('10/10/2026 11:30:00','il y a 30 min'),
+            @('10/10/2026 08:00:00','il y a 4 h'),
+            @('07/10/2026 12:00:00','il y a 3 j'),
+            @('01/09/2026 12:00:00','01/09/2026'),
+            @('11/10/2026 12:00:00','11/10/2026'),
+            @('Jamais','Jamais'),
+            @('',''),
+            @('Inconnu','Inconnu')
+        )
+        foreach ($courte in $courtes) {
+            Assert-True (([string](Get-DomeniaGridDateShortText $courte[0] $now)) -ceq $courte[1]) ('Date courte « ' + $courte[0] + ' » : ' + [string](Get-DomeniaGridDateShortText $courte[0] $now))
+        }
+        # La ligne emporte les deux : le texte court affiche et la date complete de l'infobulle.
+        $ligne = Add-DomeniaGridDateKeys -Row ([pscustomobject]@{ Changed='07/10/2026 12:00:00' }) -Fields @('Changed') -Now $now
+        Assert-True (([string]$ligne.ChangedShort) -ceq 'il y a 3 j') ('Texte court : ' + [string]$ligne.ChangedShort)
+        Assert-True (([string]$ligne.Changed) -ceq '07/10/2026 12:00:00') 'La date complete a quitte la ligne'
+        Assert-True ($ligne.ChangedSort -eq [datetime]::new(2026,10,7,12,0,0))
         # Taille : SizeKb est deja un nombre, c est la colonne qui doit le designer.
         $sizes = @([pscustomobject]@{Name='a';SizeKb=9.0},[pscustomobject]@{Name='b';SizeKb=120.0},[pscustomobject]@{Name='c';SizeKb=1000.0})
         Assert-True ((@($sizes | Sort-Object SizeKb | ForEach-Object { $_.Name }) -join '') -eq 'abc') 'Tailles triees par texte'
         # Les colonnes du XAML reel designent la cle, pas le texte affiche.
         $xaml = [xml](Get-MainXaml)
-        $cols = @($xaml.SelectNodes('//*[local-name()="DataGridTextColumn"]'))
+        $cols = @($xaml.SelectNodes('//*[local-name()="DataGridTextColumn" or local-name()="DataGridTemplateColumn"]'))
         foreach ($want in @(@('Derniere connexion','LastLogonSort'),@('Modifie','ChangedSort'),@('Installe le','InstallDateSort'),@('Taille','SizeKb'))) {
             $hit = @($cols | Where-Object { $_.Header -eq $want[0] -and $_.SortMemberPath -eq $want[1] })
             Assert-True ($hit.Count -ge 1) ('Colonne ' + $want[0] + ' sans SortMemberPath ' + $want[1])
+        }
+        # CO-03b : la colonne modele affiche le texte court et garde la date complete en infobulle.
+        foreach ($tpl in @(@('Derniere connexion','LastLogon','LastLogonSort'),@('Modifie','Changed','ChangedSort'),@('Installe le','InstallDate','InstallDateSort'))) {
+            $c = @($cols | Where-Object { $_.Header -eq $tpl[0] })
+            Assert-True ($c.Count -eq 1) ('Colonne ' + $tpl[0] + ' : ' + $c.Count + ' occurrence(s)')
+            Assert-True (([string]$c[0].ClipboardContentBinding) -ceq ('{Binding ' + $tpl[1] + '}')) ('Colonne ' + $tpl[0] + ' sans valeur exportable ' + $tpl[1] + ' : ' + [string]$c[0].ClipboardContentBinding)
+            $tb = $c[0].SelectSingleNode('*[local-name()="DataGridTemplateColumn.CellTemplate"]/*[local-name()="DataTemplate"]/*[local-name()="TextBlock"]')
+            Assert-True ($null -ne $tb) ('Colonne ' + $tpl[0] + ' sans TextBlock dans son modele')
+            Assert-True (([string]$tb.Text) -ceq ('{Binding ' + $tpl[1] + 'Short}')) ('Colonne ' + $tpl[0] + ' n affiche pas le texte court : ' + [string]$tb.Text)
+            Assert-True (([string]$tb.ToolTip) -ceq ('{Binding ' + $tpl[1] + '}')) ('Colonne ' + $tpl[0] + ' sans date complete en infobulle : ' + [string]$tb.ToolTip)
         }
     }
     if ($WpfSmoke) {
