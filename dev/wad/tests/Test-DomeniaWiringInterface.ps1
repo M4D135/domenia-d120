@@ -70,6 +70,7 @@ function Apply-DomeniaSoftwareFilter { [void](Set-DomeniaItemsSource -Name 'DgSo
 function Update-DomeniaSoftwareColumnVisibility {}
 function Update-DomeniaSoftwareSyntheseVisibility {}
 function Update-DomeniaSoftwareAccessSummary {}
+function Update-DomeniaSoftwareFilterChip {}
 function Get-DomeniaSoftwareAccessSummary {param($Rows);return ''}
 function Get-DomeniaSoftwareColumnVisibility {param($Headers,$FromInventory,$ShowTechnical);return @{}}
 function Register-DomeniaOperationSample {param([string]$Operation,[string]$Mode,[int]$ItemCount,[long]$DurationMs,[long]$BytesEstimated,[int]$RemoteAttempts,[int]$FallbackTasks,[int]$SuccessCount,[int]$FailureCount)}

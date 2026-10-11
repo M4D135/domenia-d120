@@ -272,3 +272,81 @@ Test-Case -Id 'BS-012' -Name 'Cles du catalogue uniquement, aucun point d attent
     Assert-Equal 100 ([int]$d.Entries['software.health'].Number)
     Assert-Equal 'Ok' $d.Entries['software.health'].State
 }
+
+Test-Case -Id 'FO-09a' -Name 'Clic sur une part : les quatre colonnes connues filtrent, une valeur inconnue ne laisse rien passer' -Body {
+    $row = New-DomeniaSoftwareBoardTestRow -Name 'Acme Reader' -Publisher 'Adobe' -Architecture '64 bits' -Scope 'Machine'
+    Assert-True (Test-DomeniaSoftwareRowMatchesSelect -Row $row -Select $null) 'Sans selection, la liste reste entiere'
+    Assert-True (Test-DomeniaSoftwareRowMatchesSelect -Row $row -Select ([pscustomobject]@{ Field = 'Publisher'; Value = 'adobe' })) 'Editeur : la casse ne compte pas'
+    Assert-True (Test-DomeniaSoftwareRowMatchesSelect -Row $row -Select ([pscustomobject]@{ Field = 'Scope'; Value = 'Machine' })) 'Portee'
+    Assert-True (Test-DomeniaSoftwareRowMatchesSelect -Row $row -Select ([pscustomobject]@{ Field = 'Name'; Value = '  Acme Reader  ' })) 'Nom : les espaces du libelle ne comptent pas'
+    Assert-False (Test-DomeniaSoftwareRowMatchesSelect -Row $row -Select ([pscustomobject]@{ Field = 'Publisher'; Value = 'Contoso' })) 'Un autre editeur laisse la ligne passer'
+    Assert-False (Test-DomeniaSoftwareRowMatchesSelect -Row $row -Select ([pscustomobject]@{ Field = 'Kind'; Value = 'Machine' })) 'Un champ que la liste na pas ne doit pas tout laisser passer'
+    Assert-False (Test-DomeniaSoftwareRowMatchesSelect -Row $row -Select ([pscustomobject]@{ Field = 'Publisher'; Value = '   ' })) 'Un libelle vide ne doit rien filtrer du tout'
+    Assert-False (Test-DomeniaSoftwareRowMatchesSelect -Row $null -Select ([pscustomobject]@{ Field = 'Publisher'; Value = 'Adobe' })) 'Une ligne vide est ecartee'
+    Assert-True (Test-DomeniaSoftwareRowMatchesSelect -Row (@{ Name = 'Acme Reader'; Publisher = 'Adobe' }) -Select ([pscustomobject]@{ Field = 'Publisher'; Value = 'Adobe' })) 'Une ligne lue en hashtable filtre comme un objet'
+    Assert-False (Test-DomeniaSoftwareRowMatchesSelect -Row (@{ Name = 'Sans editeur' }) -Select ([pscustomobject]@{ Field = 'Publisher'; Value = 'Adobe' })) 'Une ligne sans le champ est filtree'
+}
+
+Test-Case -Id 'FO-09b' -Name 'Pastille et bascule : le second clic retire le filtre, un autre critere le remplace' -Body {
+    $adobe = [pscustomobject]@{ Field = 'Publisher'; Value = 'Adobe' }
+    Assert-Equal ('Filtr' + [char]0x00E9 + ' : Adobe') (Get-DomeniaSoftwareSelectLabel -Select $adobe) 'Texte de la pastille'
+    Assert-Equal '' (Get-DomeniaSoftwareSelectLabel -Select $null) 'Sans filtre, la pastille ne se montre pas'
+    Assert-Equal '' (Get-DomeniaSoftwareSelectLabel -Select ([pscustomobject]@{ Field = 'Publisher'; Value = '   ' })) 'Un libelle vide ne se montre pas'
+    $first = Get-DomeniaSoftwareSelectToggle -Current $null -Incoming $adobe
+    Assert-Equal 'Publisher' ([string]$first.Field) 'Le premier clic installe le filtre'
+    Assert-Equal 'Adobe' ([string]$first.Value) 'Le filtre garde le critere clique'
+    Assert-True ($null -eq (Get-DomeniaSoftwareSelectToggle -Current $first -Incoming $adobe)) 'Le second clic sur la meme part retire le filtre'
+    Assert-True ($null -eq (Get-DomeniaSoftwareSelectToggle -Current $first -Incoming ([pscustomobject]@{ Field = 'Publisher'; Value = 'adobe' }))) 'La meme part ecrite autrement reste la meme part'
+    $replaced = Get-DomeniaSoftwareSelectToggle -Current $first -Incoming ([pscustomobject]@{ Field = 'Scope'; Value = 'Machine' })
+    Assert-Equal 'Scope' ([string]$replaced.Field) 'Un autre critere remplace le precedent'
+    Assert-True ($null -eq (Get-DomeniaSoftwareSelectToggle -Current $first -Incoming $null)) 'Un clic sans critere ne laisse aucun filtre'
+    Assert-True ($null -eq (Get-DomeniaSoftwareSelectToggle -Current $first -Incoming ([pscustomobject]@{ Field = ''; Value = 'Adobe' }))) 'Un critere sans champ ne filtre rien'
+}
+
+Test-Case -Id 'FO-09c' -Name 'Le fournisseur publie le critere de clic de chaque part, jamais sur la part Autres' -Body {
+    $rows = @(for ($p = 1; $p -le 8; $p++) { for ($n = 1; $n -le (9 - $p); $n++) { New-DomeniaSoftwareBoardTestRow -Name ('Produit ' + $p + '-' + $n) -Publisher ('Editeur ' + $p) -Architecture '64 bits' -Scope 'Machine' } })
+    $d = Get-DomeniaSoftwareBoardData -Rows $rows
+    $items = @($d.Entries['software.publishers'].Items)
+    Assert-Equal 'Publisher' ([string]$items[0].Select.Field) 'Un editeur cliquable porte le champ qui le filtre'
+    Assert-Equal 'Editeur 1' ([string]$items[0].Select.Value) 'Le critere est le libelle de la part'
+    Assert-True ($null -eq $items[6].PSObject.Properties['Select']) 'La part Autres ne porte aucun critere : elle melange plusieurs editeurs'
+    Assert-True (Test-DomeniaSoftwareRowMatchesSelect -Row $rows[0] -Select $items[0].Select) 'Le critere publie retrouve bien sa ligne'
+    $arch = @($d.Entries['software.architecture'].Items)
+    Assert-Equal 'Architecture' ([string]$arch[0].Select.Field) 'Lanneau Architecture filtre sur sa colonne'
+    Assert-Equal '64 bits' ([string]$arch[0].Select.Value)
+    $scopes = @($d.Entries['software.scope'].Items)
+    Assert-Equal 'Scope' ([string]$scopes[0].Select.Field) 'Lanneau Portee filtre sur sa colonne'
+    # Le libelle d'une barre peut porter une version et une portee ajoutees pour distinguer deux barres :
+    # le critere, lui, reste le nom du logiciel.
+    $twins = @(
+        (New-DomeniaSoftwareBoardTestRow -Name 'Double' -Publisher 'Adobe' -Version '1.0' -SizeKb 2048),
+        (New-DomeniaSoftwareBoardTestRow -Name 'Double' -Publisher 'Adobe' -Version '2.0' -SizeKb 1024)
+    )
+    $bars = @((Get-DomeniaSoftwareBoardData -Rows $twins).Entries['software.largest'].Items)
+    Assert-Equal 2 $bars.Count 'Deux barres'
+    Assert-Equal 'Name' ([string]$bars[0].Select.Field) 'La barre filtre sur le nom du logiciel'
+    Assert-Equal 'Double' ([string]$bars[0].Select.Value)
+    Assert-True ([string]$bars[0].Label -ne [string]$bars[0].Select.Value) 'Le libelle habille de la barre ne devient pas le critere'
+    Assert-True (Test-DomeniaSoftwareRowMatchesSelect -Row $twins[0] -Select $bars[0].Select) 'Le critere de la barre retrouve bien ses lignes'
+}
+
+Test-Case -Id 'FO-09d' -Name 'Les parts qui inventent une valeur ne publient aucun critere de clic' -Body {
+    $rows = @(
+        (New-DomeniaSoftwareBoardTestRow -Name 'Sans editeur' -Publisher '' -Architecture '' -Scope ''),
+        (New-DomeniaSoftwareBoardTestRow -Name 'Avec editeur' -Publisher 'Adobe' -Architecture '64 bits' -Scope 'Machine')
+    )
+    $d = Get-DomeniaSoftwareBoardData -Rows $rows
+    $pub = @($d.Entries['software.publishers'].Items | Where-Object { [string]$_.Label -eq 'Editeur non renseigne' })
+    Assert-Equal 1 $pub.Count 'La part de l editeur inconnu se montre'
+    Assert-True ($null -eq $pub[0].PSObject.Properties['Select']) 'Cliquer l editeur inconnu laisserait la liste vide : aucun critere ne doit la proposer'
+    $arch = @($d.Entries['software.architecture'].Items | Where-Object { [string]$_.Label -eq 'Non precise' })
+    Assert-Equal 1 $arch.Count 'La part de l architecture absente se montre'
+    Assert-True ($null -eq $arch[0].PSObject.Properties['Select']) 'Cliquer une architecture absente laisserait la liste vide'
+    $scope = @($d.Entries['software.scope'].Items | Where-Object { [string]$_.Label -eq 'Non precise' })
+    Assert-Equal 1 $scope.Count 'La part de la portee absente se montre'
+    Assert-True ($null -eq $scope[0].PSObject.Properties['Select']) 'Cliquer une portee absente laisserait la liste vide'
+    $reelle = @($d.Entries['software.publishers'].Items | Where-Object { [string]$_.Label -eq 'Adobe' })
+    Assert-Equal 1 $reelle.Count 'La part d un vrai editeur se montre'
+    Assert-Equal 'Publisher' ([string]$reelle[0].Select.Field) 'Une part qui porte une valeur des lignes reste cliquable'
+    Assert-True (Test-DomeniaSoftwareRowMatchesSelect -Row $rows[1] -Select $reelle[0].Select) 'Le critere publie retrouve bien sa ligne'
+}

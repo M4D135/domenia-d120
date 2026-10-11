@@ -899,6 +899,9 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnSoftwareColumns" = "Default"
     "LblSoftwareAccessSummary" = "Default"
     "ExpSoftwareAccess" = "Default"
+    "UxSoftwareFilterChip" = "Default"
+    "LblSoftwareFilterChip" = "Default"
+    "BtnSoftwareFilterClear" = "Default"
     "TabInventory" = "Default"
     "BtnRunInventory" = "Default"
     "BtnRunInventoryDeep" = "Default"
@@ -6601,6 +6604,12 @@ function Get-MainXaml {
                             </ComboBox>
                             <TextBlock Grid.Column="4" x:Name="LblSoftwareStatus" Text="Selectionne un poste, puis charge la liste." Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" TextWrapping="Wrap"/>
                           </Grid>
+                          <Border x:Name="UxSoftwareFilterChip" Visibility="Collapsed" HorizontalAlignment="Left" Margin="0,6,0,0" Padding="8,2" CornerRadius="10" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" ToolTip="Filtre appliqué à la liste par un clic sur un graphique." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Filtre appliqué à la liste" AutomationProperties.HelpText="Nom du filtre appliqué à la liste des logiciels par un clic sur un graphique ; le retirer avec le bouton Fermer.">
+                            <StackPanel Orientation="Horizontal">
+                              <TextBlock x:Name="LblSoftwareFilterChip" Text="" VerticalAlignment="Center" FontSize="12"/>
+                              <Button x:Name="BtnSoftwareFilterClear" Content="✕" Margin="6,0,0,0" Padding="4,0" MinWidth="22" MinHeight="20" FontSize="11" VerticalAlignment="Center" ToolTip="Retire le filtre appliqué à la liste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Retirer le filtre" AutomationProperties.HelpText="Retire le filtre appliqué à la liste des logiciels par un clic sur un graphique."/>
+                            </StackPanel>
+                          </Border>
                         </StackPanel>
                         <Grid>
                           <Grid.RowDefinitions>
@@ -8170,6 +8179,8 @@ function Reset-DomeniaSelectionBoundViews {
         $script:InventoryCompletedAt = $null
         $script:SoftwareSource = ''
         $script:SoftwareProvenance = ''
+        $script:SoftwareChartSelect = $null
+        Update-DomeniaSoftwareFilterChip
         Update-DomeniaSoftwareAccessSummary
 
         foreach ($gridName in @(
@@ -9106,6 +9117,7 @@ $script:InventoryComputer = ""
 $script:InventoryCompletedAt = $null
 $script:SoftwareSource = ""
 $script:SoftwareProvenance = ""
+$script:SoftwareChartSelect = $null
 $script:SuppressInventoryCategoryEvent = $false
 $script:CurrentPresenceState = ""
 $script:CurrentPresenceTarget = ""
@@ -14512,6 +14524,9 @@ function Apply-DomeniaSoftwareFilter {
         if (-not [string]::IsNullOrWhiteSpace($scope) -and $scope -ne "Toutes") {
             $rows = @($rows | Where-Object { [string]$_.Scope -eq $scope })
         }
+        # FO-09 : le critere venu d'un clic sur un graphique s'ajoute aux deux autres, il ne les remplace pas.
+        $select = $script:SoftwareChartSelect
+        if ($null -ne $select) { $rows = @($rows | Where-Object { Test-DomeniaSoftwareRowMatchesSelect -Row $_ -Select $select }) }
         $filter = ""
         try { $filter = ([string](Get-DomeniaControl -Name "TxtSoftwareFilter").Text).Trim() } catch { }
         if (-not [string]::IsNullOrWhiteSpace($filter)) {
@@ -14534,6 +14549,7 @@ function Apply-DomeniaSoftwareFilter {
             $statusText = $statusText + ' ' + [string]$script:SoftwareProvenance
         }
         [void](Set-DomeniaControlText -Name "LblSoftwareStatus" -Text $statusText)
+        Update-DomeniaSoftwareFilterChip
     }
     catch { Add-DomeniaUiLog -Level "ERROR" -Area "Logiciels" -Text $_.Exception.Message }
 }
@@ -14645,6 +14661,45 @@ function Update-DomeniaSoftwareAccessSummary {
     [void](Set-DomeniaControlText -Name 'LblSoftwareAccessSummary' -Text ([string](Get-DomeniaSoftwareAccessSummary -Rows $script:SoftwareAccess)))
 }
 
+function Update-DomeniaSoftwareFilterChip {
+    # La pastille est la seule trace du filtre venu d'un graphique : le selecteur de portee, lui, reste visible
+    # dans la barre d'outils. Pas de filtre, pas de pastille ; le texte de la pastille est une regle pure du modele.
+    $texte = [string](Get-DomeniaSoftwareSelectLabel -Select $script:SoftwareChartSelect)
+    [void](Set-DomeniaControlText -Name 'LblSoftwareFilterChip' -Text $texte)
+    $pastille = Get-DomeniaControl -Name 'UxSoftwareFilterChip'
+    if ($null -eq $pastille) { return }
+    if ($texte) { $pastille.Visibility = [System.Windows.Visibility]::Visible }
+    else { $pastille.Visibility = [System.Windows.Visibility]::Collapsed }
+}
+
+function Request-DomeniaSoftwareChartFilter {
+    # FO-09 : un clic sur une part ou une barre filtre la liste, un second clic sur la meme part le retire.
+    # La portee a deja son selecteur dans l'onglet : le clic le pilote au lieu d'empiler un second filtre sur le
+    # meme champ, qui viderait la grille sans que rien ne le dise. Les autres criteres n'ont pas de temoins
+    # visible : c'est la pastille qui les montre.
+    param($Select)
+    try {
+        if ($null -eq $Select) { return }
+        if (([string]$Select.Field) -eq 'Scope') {
+            $suivant = 'Toutes'
+            if (([string]$script:SoftwareScope) -ine ([string]$Select.Value)) { $suivant = [string]$Select.Value }
+            [void](Set-DomeniaComboByContent -Name 'CmbSoftwareScope' -Content $suivant)
+            return
+        }
+        $script:SoftwareChartSelect = Get-DomeniaSoftwareSelectToggle -Current $script:SoftwareChartSelect -Incoming $Select
+        Update-DomeniaSoftwareFilterChip
+        Apply-DomeniaSoftwareFilter
+    } catch { Add-DomeniaUiLog -Area 'Logiciels' -Level 'ERROR' -Text $_.Exception.Message }
+}
+
+function Clear-DomeniaSoftwareChartFilter {
+    # Le bouton « ✕ » de la pastille. Le filtre ne survit pas non plus a une nouvelle lecture ni a
+    # un nouveau poste : la liste qu'il decrivait n'existe plus.
+    $script:SoftwareChartSelect = $null
+    Update-DomeniaSoftwareFilterChip
+    Apply-DomeniaSoftwareFilter
+}
+
 function Show-DomeniaSoftwareFromInventory {
     # Appelle a l'ouverture de l'onglet, jamais pendant une lecture en cours : une liste qui se
     # remplit sous les yeux de l'operateur ne se explique plus.
@@ -14676,6 +14731,8 @@ function Start-DomeniaSoftwareInventory {
         $script:SoftwareAccess = @()
         $script:SoftwareSource = "Poste"
         $script:SoftwareProvenance = ""
+        $script:SoftwareChartSelect = $null
+        Update-DomeniaSoftwareFilterChip
         [void](Set-DomeniaItemsSource -Name "DgSoftware" -Rows @())
         [void](Set-DomeniaItemsSource -Name "DgSoftwareAccess" -Rows @())
         Update-DomeniaSoftwareAccessSummary
@@ -20788,6 +20845,7 @@ function Start-DomeniaAccountRelogin {
         $script:SoftwareRows = @(); $script:SoftwareAccess = @()
         $script:InventoryComputer = ''; $script:InventoryCompletedAt = $null
         $script:SoftwareSource = ''; $script:SoftwareProvenance = ''
+        $script:SoftwareChartSelect = $null; Update-DomeniaSoftwareFilterChip
         $script:DomainRows = @(); $script:WmiNamespaces = @(); $script:WmiClasses = @(); $script:WmiSchema = @(); $script:WmiInstances = @()
         $script:WorkerContextStatic = $null
         $script:DirectoryCredentialFaulted = $false; $script:DirectoryCredentialFaultMessage = ''
@@ -21217,6 +21275,7 @@ function Wire-Events {
     if ($script:Ctrl.ContainsKey("BtnCopySoftware")) { $script:Ctrl["BtnCopySoftware"].Add_Click({ Copy-DomeniaSoftware }) }
     if ($script:Ctrl.ContainsKey("BtnExportSoftware")) { $script:Ctrl["BtnExportSoftware"].Add_Click({ Export-DomeniaSoftware }) }
     if ($script:Ctrl.ContainsKey("TxtSoftwareFilter")) { $script:Ctrl["TxtSoftwareFilter"].Add_TextChanged({ Apply-DomeniaSoftwareFilter }) }
+    if ($script:Ctrl.ContainsKey("BtnSoftwareFilterClear")) { $script:Ctrl["BtnSoftwareFilterClear"].Add_Click({ Clear-DomeniaSoftwareChartFilter }) }
     if ($script:Ctrl.ContainsKey("CmbSoftwareScope")) {
         $script:Ctrl["CmbSoftwareScope"].Add_SelectionChanged({
             try {

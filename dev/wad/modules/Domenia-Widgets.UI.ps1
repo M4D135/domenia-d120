@@ -426,9 +426,17 @@ function Resolve-DomeniaBoardEntry {
     if (-not $title) { $title = $name }
     return [pscustomobject]@{ Entry = $entry; Kind = $kind; Title = $title; Name = $name }
 }
+function Get-DomeniaBoardSelectHandler {
+    # FO-09: a click on a ring part or a bar filters the list the board was drawn from. Only the software board
+    # offers that, because only it sits above a grid of the same rows; the workstation and fleet boards keep
+    # their charts decorative. The handler is a fixed scriptblock: it only names a function of the interface.
+    param([string]$Board)
+    if ($Board -ne 'Software') { return $null }
+    return { param($Select) Request-DomeniaSoftwareChartFilter -Select $Select }
+}
 function New-DomeniaWidgetVisual {
     # A board entry drawn with one representation at one size.
-    param($Entry,[string]$Visual,[string]$Title,$Size,[string]$Board = '')
+    param($Entry,[string]$Visual,[string]$Title,$Size,[string]$Board = '',[scriptblock]$OnSelect = $null)
     $w = [double]$Size.Width; $h = [double]$Size.Height; $min = [double]$Size.MinHeight
     $items = @($Entry.Items | Where-Object { $null -ne $_ })
     # Numeric buckets of a query: empty buckets before the first and after the last value are not drawn.
@@ -453,8 +461,8 @@ function New-DomeniaWidgetVisual {
             # CO-14: the ring takes the state of the entry, computed with the shared thresholds.
             return New-DomeniaGauge -Title $Title -Value ([double]$Entry.Number) -Maximum $maximum -Unit $unit -LowIsBad:([bool]$Entry.LowIsBad) -Width $w -Height $h -Caption $detail -State ([string]$Entry.State)
         }
-        'Pie' { return New-DomeniaDonutChart -Title $Title -Items $items -Width $w -Height $h -CenterText ([string]$Entry.CenterText) }
-        'Bar' { return New-DomeniaBarChart -Title $Title -Items $items -Width $w -Height $h -Top 12 -Unit $(if ($unit) { ' ' + $unit } else { '' }) -Subtitle $subtitle }
+        'Pie' { return New-DomeniaDonutChart -Title $Title -Items $items -Width $w -Height $h -CenterText ([string]$Entry.CenterText) -OnSelect $OnSelect }
+        'Bar' { return New-DomeniaBarChart -Title $Title -Items $items -Width $w -Height $h -Top 12 -Unit $(if ($unit) { ' ' + $unit } else { '' }) -Subtitle $subtitle -OnSelect $OnSelect }
         'Column' { return New-DomeniaColumnChart -Title $Title -Items $items -Width $w -Height $h -Subtitle $subtitle }
         'Line' { return New-DomeniaLineChart -Title $Title -Points $items -Width $w -Height $h -Subtitle $subtitle }
         'Text' {
@@ -548,7 +556,7 @@ function New-DomeniaBoardWidget {
     $hasMaximum = if ($null -ne $entry) { ($null -ne $entry.Maximum -and [double]$entry.Maximum -gt 0) } else { $kind -in @('Number','Health') }
     $visual = Resolve-DomeniaBoardVisual -Visual ([string]$Item.Visual) -Kind $kind -HasMaximum:$hasMaximum
     $size = Get-DomeniaBoardSize -Visual $visual -Size ([string]$Item.Size)
-    if ($null -ne $entry) { $card = New-DomeniaWidgetVisual -Entry $entry -Visual $visual -Title $resolved.Title -Size $size -Board $Board }
+    if ($null -ne $entry) { $card = New-DomeniaWidgetVisual -Entry $entry -Visual $visual -Title $resolved.Title -Size $size -Board $Board -OnSelect (Get-DomeniaBoardSelectHandler -Board $Board) }
     elseif (-not $State.Editing) { $compact = Get-DomeniaBoardSize -Visual Kpi -Size S; $card = New-DomeniaChartEmpty -Width $compact.Width -Height $compact.Height -Title $resolved.Title -Message 'Non lu par cet inventaire' }
     else { $card = New-DomeniaChartEmpty -Width $size.Width -Height $(if ($size.Height -gt 0) { $size.Height } elseif ($size.MinHeight -gt 0) { $size.MinHeight } else { 118 }) -Title $resolved.Title -Message 'Aucune donnee pour le moment' }
 

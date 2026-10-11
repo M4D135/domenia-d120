@@ -621,6 +621,21 @@ try {
         Assert-True ($texteCore.Contains('Update-DomeniaSoftwareAccessSummary')) 'Le resume du detail par portee n est jamais ecrit'
     }
 
+    Test-Case 'FO-09 : un clic sur une part ou une barre filtre la liste et la pastille le dit' {
+        $texteCore = Get-Content $core -Raw -Encoding UTF8
+        # En chaine simple : en chaine double, $script: serait interpole avant la recherche.
+        Assert-True ($texteCore.Contains('<Border x:Name="UxSoftwareFilterChip" Visibility="Collapsed"')) 'La pastille du filtre se montre avant qu un clic la demande'
+        Assert-True ($texteCore.Contains('<TextBlock x:Name="LblSoftwareFilterChip" Text=""')) 'La pastille n a pas de texte a remplir'
+        Assert-True ($texteCore.Contains('<Button x:Name="BtnSoftwareFilterClear"')) 'La pastille n a pas de bouton pour la retirer'
+        Assert-True ($texteCore.Contains('$script:Ctrl["BtnSoftwareFilterClear"].Add_Click({ Clear-DomeniaSoftwareChartFilter })')) 'Le bouton de la pastille ne declenche rien'
+        Assert-True ($texteCore.Contains('"UxSoftwareFilterChip" = "Default"')) 'La pastille echappe a la politique des elements graphiques'
+        Assert-True ($texteCore.Contains('Test-DomeniaSoftwareRowMatchesSelect -Row $_ -Select $select')) 'Le critere venu d un graphique ne filtre pas la liste'
+        Assert-True ($texteCore.Contains('Update-DomeniaSoftwareFilterChip')) 'La pastille ne se remet jamais a jour avec la liste'
+        Assert-True ($texteCore.Contains('Get-DomeniaSoftwareSelectToggle -Current $script:SoftwareChartSelect -Incoming $Select')) 'Le second clic sur la meme part ne retire pas le filtre'
+        Assert-True ($texteCore.Contains('Set-DomeniaComboByContent -Name ''CmbSoftwareScope'' -Content $suivant')) 'Le clic sur la portee ne pilote pas le selecteur deja dans l onglet'
+        Assert-True ($texteCore.Contains('$script:SoftwareChartSelect = $null')) 'Le filtre venu d un graphique survit a une nouvelle lecture'
+    }
+
     Test-Case 'PF-22 : l onglet Logiciels reprend la liste deja lue par l inventaire' {
         $texteCore = Get-Content $core -Raw -Encoding UTF8
         # En chaine simple : en chaine double, $script: et $name seraient interpoles avant la recherche.
