@@ -735,10 +735,10 @@
   },
   {
     "Name": "TxtUserPwdLastSet",
-    "Title": "Mot de passe",
-    "Text": "Saisie protégée : l’aide contextuelle ne lit jamais la valeur de ce champ.",
+    "Title": "Date du dernier changement du mot de passe",
+    "Text": "Date du dernier changement de mot de passe, lue dans pwdLastSet. Une valeur à zéro s’affiche « Jamais » et signifie qu’un changement est exigé à la prochaine ouverture de session. Le champ est en lecture seule : il n’affiche aucun mot de passe.",
     "Kind": "TextBox",
-    "Source": "specific-sensitive"
+    "Source": "L11"
   },
   {
     "Name": "TxtUserExpires",

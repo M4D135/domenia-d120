@@ -51,7 +51,7 @@ $wanted=@('Write-DomeniaAtomicText','Read-DomeniaPreference','Write-DomeniaPrefe
     # CO-03 : cles de tri des colonnes datees, et le XAML ou elles sont designees.
     'Get-DomeniaGridDateSortKey','Get-DomeniaGridDateShortText','Add-DomeniaGridDateKeys','Get-DomeniaInventoryAgeLabel','Get-DomeniaInventorySummaryText','Get-DomeniaSoftwareWorkerCode','Get-MainXaml',
     # CO-22 : decodage des options du compte affiche dans la fiche.
-    'Get-UacFlagsLabel')
+    'Get-UacFlagsLabel','Convert-FileTimeLabel','Convert-ADLargeIntegerToInt64')
 $definitions=New-Object 'System.Collections.Generic.List[string]'
 $nodes=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst]},$true))
 foreach($name in $wanted) {
@@ -526,6 +526,41 @@ try {
             Assert-True (([string]$tb.Text) -ceq ('{Binding ' + $tpl[1] + 'Short}')) ('Colonne ' + $tpl[0] + ' n affiche pas le texte court : ' + [string]$tb.Text)
             Assert-True (([string]$tb.ToolTip) -ceq ('{Binding ' + $tpl[1] + '}')) ('Colonne ' + $tpl[0] + ' sans date complete en infobulle : ' + [string]$tb.ToolTip)
         }
+    }
+    Test-Case 'CO-23 : la date du mot de passe est nommee et expliquee' {
+        # Le champ portait le nom d automation et l infobulle des vraies saisies de mot de passe :
+        # un lecteur d ecran annoncait « Mot de passe » la ou l operateur lit une date, et l aide
+        # jurait de ne jamais lire une valeur que l ecran affiche en clair.
+        $xaml = [xml](Get-MainXaml)
+        $XNS = 'http://schemas.microsoft.com/winfx/2006/xaml'
+        $champ = @($xaml.SelectNodes('//*[local-name()="TextBox"]') | Where-Object { $_.GetAttribute('Name',$XNS) -eq 'TxtUserPwdLastSet' })
+        Assert-True ($champ.Count -eq 1) ('TxtUserPwdLastSet : ' + $champ.Count + ' occurrence(s)')
+        $nom = [string]$champ[0].GetAttribute('AutomationProperties.Name')
+        Assert-True ($nom.Length -gt 0) 'Le champ a perdu son nom d automation'
+        Assert-True ($nom -cne 'Mot de passe') 'Le nom d automation est encore celui d une saisie de mot de passe'
+        $bulle = [string]$champ[0].GetAttribute('ToolTip')
+        Assert-True (-not $bulle.StartsWith('Saisie')) 'L infobulle parle encore de saisie protegee'
+        Assert-True ($bulle -ceq [string]$champ[0].GetAttribute('AutomationProperties.HelpText')) 'Infobulle et aide d automation divergent'
+        $texteXaml = Get-MainXaml
+        Assert-True (-not $texteXaml.Contains('Pwd last set')) 'Le libelle anglais est reste dans le XAML'
+        Assert-True ($texteXaml.Contains('Content="Mot de passe changé le"')) 'Le libelle en francais est absent du XAML'
+        # Le fichier d aide est indexe par x:Name : Titre = nom d automation, Text = infobulle.
+        # Windows PowerShell 5.1 emet un tableau JSON comme UN seul objet du pipeline : @(... |
+        # ConvertFrom-Json) emballe toute la liste dans un element, et les controles qui suivent
+        # croient lire une seule entree. Assigner d'abord, enumerer ensuite, comme dans
+        # Test-DomeniaStartupLogin.ps1.
+        $aideBrutee = Get-Content -LiteralPath (Join-Path (Split-Path $core -Parent) 'modules/Domenia-UX.help.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+        $aide = @($aideBrutee)
+        Assert-True (@($aide | Where-Object { $_.Name -ne 'TxtUserPwdLastSet' }).Count -gt 0) 'La lecture du fichier d aide rend un seul objet : le tableau JSON est niche'
+        $entree = @($aide | Where-Object { $_.Name -eq 'TxtUserPwdLastSet' })
+        Assert-True ($entree.Count -eq 1) ('Entree d aide TxtUserPwdLastSet : ' + $entree.Count + ' occurrence(s)')
+        Assert-True (([string]$entree[0].Title) -ceq $nom) ('Titre de l aide different du nom d automation : ' + [string]$entree[0].Title)
+        Assert-True (([string]$entree[0].Text) -ceq $bulle) 'Texte de l aide different de l infobulle'
+        Assert-True (([string]$entree[0].Source) -cne 'specific-sensitive') 'La date est encore classee donnee sensible'
+        Assert-True (([string]$entree[0].Text).Contains('pwdLastSet')) 'L aide ne dit pas d ou vient la date'
+        # « Jamais » vient de Convert-FileTimeLabel sur une valeur a zero : c est le cas que l aide
+        # doit expliquer, sinon l operateur croit a un compte qui n a jamais eu de mot de passe.
+        Assert-True (([string](Convert-FileTimeLabel 0)) -ceq 'Jamais') ('Valeur a zero rendue : ' + [string](Convert-FileTimeLabel 0))
     }
     Test-Case 'CO-22 : les options du compte se lisent, les identifiants se nomment' {
         # 66048 n'est pas une information, c'est un masque. Le decodage doit nommer les options que
