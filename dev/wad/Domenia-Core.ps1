@@ -701,6 +701,7 @@ $script:GuiElementPolicy = [ordered]@{
     "TxtUserConfirmVisible" = "Default"
     "BtnRevealUserConfirm" = "Default"
     "ChkMustChangeAtLogon" = "Default"
+    "BtnUserGenPassword" = "Default"
     "BtnUserResetPwd" = "Default"
     "ChkPwdNeverExpires" = "Default"
     "ChkPwdNotRequired" = "Default"
@@ -3665,6 +3666,10 @@ function Restore-DomeniaUiSettings {
             $control = Get-DomeniaControl -Name ([string]$pair.Name)
             if ($null -ne $control) { $control.IsChecked = [bool](Get-DomeniaSetting ([string]$pair.Key) $false) }
         }
+        # UX-36 : un mot de passe remis par le support doit revenir change par son utilisateur.
+        # Le reglage Security.ForcePasswordChangeOnReset laisse l operateur decider du contraire.
+        $chkMustChange = Get-DomeniaControl -Name "ChkMustChangeAtLogon"
+        if ($null -ne $chkMustChange) { $chkMustChange.IsChecked = [bool](Get-CfgValue "Security" "ForcePasswordChangeOnReset" $true) }
         $script:CurrentPresenceFilter = [string](Get-DomeniaSetting "PresenceFilter" "Tous")
         $script:SoftwareScope = [string](Get-DomeniaSetting "SoftwareScope" "Toutes")
     }
@@ -5774,7 +5779,8 @@ function Get-MainXaml {
                               <TextBox x:Name="TxtUserConfirmVisible" ToolTip="Saisie protégée : l’aide contextuelle ne lit jamais la valeur de ce champ." Visibility="Collapsed" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mot de passe" AutomationProperties.HelpText="Saisie protégée : l’aide contextuelle ne lit jamais la valeur de ce champ."/>
                             </Grid>
                             <Button Grid.Row="1" Grid.Column="2" x:Name="BtnRevealUserConfirm" Content="👁" Style="{StaticResource EyeButton}" Margin="4,0,4,8" ToolTip="Afficher la confirmation." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Afficher la confirmation" AutomationProperties.HelpText="Afficher la confirmation."/>
-                            <CheckBox Grid.Row="1" Grid.Column="3" x:Name="ChkMustChangeAtLogon" ToolTip="Lʼutilisateur devra choisir son propre mot de passe à la prochaine ouverture de session." Content="Changement obligatoire" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Changement obligatoire" AutomationProperties.HelpText="L utilisateur devra choisir son propre mot de passe a la prochaine ouverture de session."/>
+                            <CheckBox Grid.Row="1" Grid.Column="3" x:Name="ChkMustChangeAtLogon" ToolTip="Lʼutilisateur devra choisir son propre mot de passe à la prochaine ouverture de session." Content="Changement obligatoire" IsChecked="True" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Changement obligatoire" AutomationProperties.HelpText="Lʼutilisateur devra choisir son propre mot de passe à la prochaine ouverture de session."/>
+                            <Button Grid.Row="2" Grid.Column="1" x:Name="BtnUserGenPassword" ToolTip="Génère un mot de passe temporaire, le place dans les deux champs et le copie dans le presse-papiers, qui sʼefface à lʼéchéance réglée. Aucune écriture nʼest lancée par ce clic." Content="Générer" Style="{StaticResource SecondaryButton}" MinHeight="32" Padding="10,4" Margin="0,0,8,8" HorizontalAlignment="Left" MinWidth="112" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Générer un mot de passe temporaire" AutomationProperties.HelpText="Génère un mot de passe temporaire, le place dans les deux champs et le copie dans le presse-papiers, qui sʼefface à lʼéchéance réglée. Aucune écriture nʼest lancée par ce clic."/>
                             <Button Grid.Row="2" Grid.Column="3" x:Name="BtnUserResetPwd" ToolTip="Definit un nouveau mot de passe pour ce compte." Content="Reinitialiser le mot de passe" Style="{StaticResource DangerButton}" Margin="0,0,0,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mot de passe" AutomationProperties.HelpText="Definit un nouveau mot de passe pour ce compte."/>
                           </Grid>
                           <TextBlock Text="Options de compte" FontSize="16" FontWeight="SemiBold" Margin="0,4,0,8"/>
@@ -21440,6 +21446,7 @@ function Wire-Events {
     $script:Ctrl["BtnUserDisable"].Add_Click({ Set-AccountDisabled $true })
     $script:Ctrl["BtnRevealUserNew"].Add_Click({ Toggle-PasswordBox "PwdUserNew" "TxtUserNewVisible" "BtnRevealUserNew" "__UserNewReveal" })
     $script:Ctrl["BtnRevealUserConfirm"].Add_Click({ Toggle-PasswordBox "PwdUserConfirm" "TxtUserConfirmVisible" "BtnRevealUserConfirm" "__UserConfirmReveal" })
+    $script:Ctrl["BtnUserGenPassword"].Add_Click({ Show-DomeniaGeneratedPassword })
     $script:Ctrl["BtnUserResetPwd"].Add_Click({ Reset-UserPassword })
     $script:Ctrl["BtnApplyAccountOptions"].Add_Click({ Apply-UserAccountOptions })
     $script:Ctrl["BtnSetExpiration"].Add_Click({ Set-UserExpiration $false })
@@ -21886,6 +21893,11 @@ function New-DefaultConfig {
             BlockOnAclEstimate = $false
             DisableIndeterminateControls = $false
             AutoClearSecretClipboardSeconds = 30
+            # UX-36: a support-issued password must come back changed by its own user; the
+            # operator may turn this off, the page then leaves the box as the XAML sets it.
+            ForcePasswordChangeOnReset = $true
+            # UX-36: length of the password built by the generate button (floor 14, ceiling 64).
+            GeneratedPasswordLength = 16
             AlternateCredentialIdleMinutes = 30
             MaskSecretsByDefault = $true
             SecretMemorySeconds = 300
@@ -24497,7 +24509,7 @@ function Get-WriteControlMap {
         Edit = @("BtnUserSave","BtnUserSaveContact","BtnCompSave","BtnGroupSave")
         Raw = @("BtnRawSet","BtnRawClear")
         Account = @("BtnUserUnlock","BtnUserEnable","BtnUserDisable","BtnCompEnable","BtnCompDisable","BtnApplyAccountOptions","BtnSetExpiration","BtnNeverExpires","BtnExpirePwdNow")
-        Password = @("BtnUserResetPwd")
+        Password = @("BtnUserResetPwd","BtnUserGenPassword")
         Group = @("BtnUserAddGroup","BtnUserRemoveGroup","BtnCompAddGroup","BtnCompRemoveGroup","BtnGroupAddMember","BtnGroupRemoveMember")
         Move = @("BtnUserMove","BtnCompRename")
         Delete = @("BtnObjectMore")
@@ -25925,6 +25937,64 @@ $ReadUtc=[DateTime]::UtcNow.ToString('o')
 '@
         Start-DomeniaWriteTask -Name "Deverrouillage utilisateur" -OperationId "WriteUnlock" -Code $code -Payload $payload -Plan $plan -PlanChanges $changes -Capability "Account" -DisableControls @("BtnUserUnlock") -AfterSuccessAction "RefreshObject"
     } catch { Show-ErrorBox "Erreur deverrouillage : $($_.Exception.Message)" }
+}
+
+function Get-DomeniaRandomBelow {
+    # Un secret ne se tire pas dans Random-Object : quatre octets forts, reduits par modulo.
+    param([Parameter(Mandatory=$true)]$Rng,[Parameter(Mandatory=$true)][ValidateRange(1,2147483647)][int]$Maximum)
+    $buffer = New-Object byte[] 4
+    [void]$Rng.GetBytes($buffer)
+    $value = [int64]$buffer[0] * 16777216 + [int64]$buffer[1] * 65536 + [int64]$buffer[2] * 256 + [int64]$buffer[3]
+    return [int]($value % $Maximum)
+}
+
+function New-DomeniaTemporaryPassword {
+    # UX-36 : quatre classes obligatoires et aucun caractere ambigu (ni 0/O, ni 1/l/I), car le mot de
+    # passe se dicte au telephone. Le melange final empeche les quatre premiers de se ressembler.
+    param([int]$Length = 16)
+    if ($Length -lt 14) { $Length = 14 }
+    if ($Length -gt 64) { $Length = 64 }
+    $classes = @('ABCDEFGHJKLMNPQRSTUVWXYZ','abcdefghijkmnopqrstuvwxyz','23456789','!@#$%^&*()-_=+')
+    $alphabet = ($classes -join '')
+    $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+    try {
+        $chosen = New-Object 'System.Collections.Generic.List[char]'
+        foreach ($set in $classes) { $chosen.Add($set[(Get-DomeniaRandomBelow -Rng $rng -Maximum $set.Length)]) }
+        while ($chosen.Count -lt $Length) { $chosen.Add($alphabet[(Get-DomeniaRandomBelow -Rng $rng -Maximum $alphabet.Length)]) }
+        for ($i = $chosen.Count - 1; $i -gt 0; $i--) {
+            $j = Get-DomeniaRandomBelow -Rng $rng -Maximum ($i + 1)
+            $tmp = $chosen[$i]; $chosen[$i] = $chosen[$j]; $chosen[$j] = $tmp
+        }
+        return (-join $chosen.ToArray())
+    } finally { try { $rng.Dispose() } catch { } }
+}
+
+function Show-DomeniaGeneratedPassword {
+    # UX-36 : le mot de passe genere entre par les champs existants, pour que la revelation, la
+    # confirmation et la relecture a l enregistrement (UX-08) restent le seul chemin vers l ecriture.
+    $mot = ''
+    try {
+        Assert-WriteAllowed
+        if ($null -eq $script:SelectedObject -or $script:SelectedObject.Type -ne "Utilisateur") { return }
+        $longueur = 16
+        try { $longueur = [int](Get-CfgValue "Security" "GeneratedPasswordLength" 16) } catch { }
+        $mot = New-DomeniaTemporaryPassword -Length $longueur
+        $script:Ctrl["PwdUserNew"].Password = $mot
+        $script:Ctrl["PwdUserConfirm"].Password = $mot
+        # Il doit se lire une fois a l ecran, le temps de le noter ou de le dicter.
+        if (-not [bool](Get-Variable -Name '__UserNewReveal' -Scope Script -ValueOnly -ErrorAction SilentlyContinue)) {
+            Toggle-PasswordBox "PwdUserNew" "TxtUserNewVisible" "BtnRevealUserNew" "__UserNewReveal"
+        }
+        if (-not [bool](Get-Variable -Name '__UserConfirmReveal' -Scope Script -ValueOnly -ErrorAction SilentlyContinue)) {
+            Toggle-PasswordBox "PwdUserConfirm" "TxtUserConfirmVisible" "BtnRevealUserConfirm" "__UserConfirmReveal"
+        }
+        Set-ClipboardSafe $mot
+        Start-SecretClipboardAutoClear $mot
+        $script:Ctrl["ChkMustChangeAtLogon"].IsChecked = $true
+        Set-Status ('Mot de passe temporaire généré (' + [string]$mot.Length + ' caractères, quatre classes) et copié dans le presse-papiers. L' + [string][char]0x02BC + 'utilisateur devra le changer à sa prochaine ouverture de session.')
+    }
+    catch { Show-ErrorBox "Génération du mot de passe impossible : $($_.Exception.Message)" }
+    finally { $mot = $null }
 }
 
 function Reset-UserPassword {

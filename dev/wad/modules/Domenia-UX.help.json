@@ -1004,7 +1004,14 @@
     "Title": "Changement obligatoire",
     "Text": "Lʼutilisateur devra choisir son propre mot de passe à la prochaine ouverture de session.",
     "Kind": "CheckBox",
-    "Source": "existing-help"
+    "Source": "L11"
+  },
+  {
+    "Name": "BtnUserGenPassword",
+    "Title": "Générer un mot de passe temporaire",
+    "Text": "Génère un mot de passe temporaire, le place dans les deux champs et le copie dans le presse-papiers, qui sʼefface à lʼéchéance réglée. Aucune écriture nʼest lancée par ce clic.",
+    "Kind": "Button",
+    "Source": "L11"
   },
   {
     "Name": "BtnUserResetPwd",

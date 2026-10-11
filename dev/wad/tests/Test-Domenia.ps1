@@ -895,6 +895,62 @@ try {
         Assert-True ($corpsVider.Contains("Set-DomeniaManagerField -Target 'Machine' -Dn ''")) 'Le DN du poste survit a un changement d objet'
     }
 
+    # ------------------------------------------------------------ UX-36 : mot de passe temporaire
+    Test-Case 'UX-36 : le mot de passe remis par le support se genere et se change' {
+        # La case « Changement obligatoire » arrivait decochee et rien ne fabriquait un mot de passe :
+        # le support dictait une valeur qui restait valable indefiniment. Elle se coche des la fiche
+        # ouverte, et « Generer » place une valeur forte dans les champs existants, sans ecrire.
+        $texte = Get-MainXaml
+        $xaml = [xml]$texte
+        $XNS = 'http://schemas.microsoft.com/winfx/2006/xaml'
+        $texteCore = Get-Content $core -Raw -Encoding UTF8
+        $aideBrutee = Get-Content -LiteralPath (Join-Path (Split-Path $core -Parent) 'modules/Domenia-UX.help.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+        $aide = @($aideBrutee)
+        $cases = @($xaml.SelectNodes('//*[local-name()="CheckBox"]') | Where-Object { $_.GetAttribute('Name',$XNS) -eq 'ChkMustChangeAtLogon' })
+        Assert-True ($cases.Count -eq 1) ('ChkMustChangeAtLogon : ' + $cases.Count + ' occurrence(s)')
+        Assert-True (([string]$cases[0].GetAttribute('IsChecked')) -ceq 'True') 'Changement obligatoire arrive decoche'
+        Assert-True (([string]$cases[0].GetAttribute('AutomationProperties.HelpText')) -ceq [string]$cases[0].GetAttribute('ToolTip')) 'ChkMustChangeAtLogon : l aide d automation ne reprend pas l infobulle'
+        $btns = @($xaml.SelectNodes('//*[local-name()="Button"]') | Where-Object { $_.GetAttribute('Name',$XNS) -eq 'BtnUserGenPassword' })
+        Assert-True ($btns.Count -eq 1) ('BtnUserGenPassword : ' + $btns.Count + ' occurrence(s)')
+        Assert-True (-not ([string]$btns[0].GetAttribute('Style')).Contains('DangerButton')) 'Generer un mot de passe est un bouton rouge'
+        Assert-True (([string]$btns[0].GetAttribute('AutomationProperties.HelpText')) -ceq [string]$btns[0].GetAttribute('ToolTip')) 'BtnUserGenPassword : l aide d automation ne reprend pas l infobulle'
+        Assert-True ($texteCore.Contains('BtnUserGenPassword"].Add_Click({')) 'Generer n est pas cable'
+        Assert-True ($texteCore.Contains('Password = @("BtnUserResetPwd","BtnUserGenPassword")')) 'Generer reste cliquable quand la capacite Mot de passe est refusee'
+        $entree = @($aide | Where-Object { $_.Name -eq 'BtnUserGenPassword' })
+        Assert-True ($entree.Count -eq 1) ('Entree d aide BtnUserGenPassword : ' + $entree.Count + ' occurrence(s)')
+        Assert-True (([string]$entree[0].Title) -ceq [string]$btns[0].GetAttribute('AutomationProperties.Name')) 'Titre de l aide BtnUserGenPassword different du nom d automation'
+        Assert-True (([string]$entree[0].Text) -ceq [string]$btns[0].GetAttribute('ToolTip')) 'Texte de l aide BtnUserGenPassword different de l infobulle'
+        Assert-True (([string]$entree[0].Kind) -ceq 'Button') 'Nature de l aide BtnUserGenPassword differente de l element XAML'
+        $entreeCase = @($aide | Where-Object { $_.Name -eq 'ChkMustChangeAtLogon' })
+        Assert-True ($entreeCase.Count -eq 1) ('Entree d aide ChkMustChangeAtLogon : ' + $entreeCase.Count + ' occurrence(s)')
+        Assert-True (([string]$entreeCase[0].Text) -ceq [string]$cases[0].GetAttribute('ToolTip')) 'Texte de l aide ChkMustChangeAtLogon different de l infobulle'
+        # Le generateur : quatre octets forts, quatre classes, aucun caractere ambigu, et un plancher.
+        $gen = @($nodes | Where-Object { $_.Name -eq 'New-DomeniaTemporaryPassword' })
+        Assert-True ($gen.Count -eq 1) 'New-DomeniaTemporaryPassword introuvable dans le coeur'
+        $corpsGen = [string]$gen[0].Extent.Text
+        Assert-True ($corpsGen.Contains('[System.Security.Cryptography.RandomNumberGenerator]::Create()')) 'Le mot de passe ne se tire pas dans un generateur cryptographique'
+        Assert-True ($corpsGen.Contains('ABCDEFGHJKLMNPQRSTUVWXYZ')) 'Les caracteres ambigus ne sont pas ecartes'
+        Assert-True ($corpsGen.Contains('if ($Length -lt 14) { $Length = 14 }')) 'Aucun plancher de longueur'
+        $tire = @($nodes | Where-Object { $_.Name -eq 'Get-DomeniaRandomBelow' })
+        Assert-True ($tire.Count -eq 1) 'Get-DomeniaRandomBelow introuvable dans le coeur'
+        Assert-True (([string]$tire[0].Extent.Text).Contains('$Rng.GetBytes($buffer)')) 'Le tirage n utilise pas des octets forts'
+        # Generer ne doit rien ecrire : il remplit les champs, la relecture a l enregistrement fait le reste.
+        $show = @($nodes | Where-Object { $_.Name -eq 'Show-DomeniaGeneratedPassword' })
+        Assert-True ($show.Count -eq 1) 'Show-DomeniaGeneratedPassword introuvable dans le coeur'
+        $corpsShow = [string]$show[0].Extent.Text
+        Assert-True ($corpsShow.Contains('Assert-WriteAllowed')) 'Generer un mot de passe se tente en lecture seule'
+        Assert-True ($corpsShow.Contains('Set-ClipboardSafe $mot')) 'Le mot de passe genere ne part pas dans le presse-papiers'
+        Assert-True ($corpsShow.Contains('Start-SecretClipboardAutoClear $mot')) 'Le presse-papiers garde le mot de passe genere'
+        Assert-True ($corpsShow.Contains('ChkMustChangeAtLogon"].IsChecked = $true')) 'Generer laisse le changement obligatoire decoche'
+        Assert-True (-not $corpsShow.Contains('Start-DomeniaWriteTask')) 'Generer ecrit dans l annuaire'
+        # Le reglage : coche par defaut, et l operateur peut decider du contraire.
+        Assert-True ($texteCore.Contains('ForcePasswordChangeOnReset = $true')) 'Le reglage du changement obligatoire n a pas de defaut'
+        Assert-True ($texteCore.Contains('GeneratedPasswordLength = 16')) 'La longueur generee n a pas de defaut'
+        $resto = @($nodes | Where-Object { $_.Name -eq 'Restore-DomeniaUiSettings' })
+        Assert-True ($resto.Count -eq 1) 'Restore-DomeniaUiSettings introuvable dans le coeur'
+        Assert-True (([string]$resto[0].Extent.Text).Contains('ForcePasswordChangeOnReset')) 'Le reglage du changement obligatoire n est jamais applique'
+    }
+
     Test-Case 'SP-06 : les boutons de l inventaire annoncent la duree que le code paie' {
         $xaml = Get-MainXaml
         $approx = [string][char]0x2248
