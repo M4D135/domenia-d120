@@ -14,7 +14,7 @@ $ast=[Management.Automation.Language.Parser]::ParseInput($source,[ref]$tokens,[r
 if (@($errors).Count -gt 0) { throw ('Syntaxe du coeur : '+$errors[0].Message) }
 $names=@('Normalize-LinkComputer','Normalize-LinkUser','Get-DomeniaRunningComputerUserProbe',
  'Clear-DomeniaComputerUserProbeState','Receive-DomeniaComputerUserProbeProgress','Stop-DomeniaComputerUserProbeUi',
- 'Request-UiTaskStop','Start-ComputerUserLinkProbe','Queue-DomeniaSelectedObjectOpen',
+ 'Request-UiTaskStop','Start-ComputerUserLinkProbe','Queue-DomeniaSelectedObjectOpen','Get-DomeniaLandingView',
  'Complete-DomeniaComputerUserProbeUi','Fail-DomeniaComputerUserProbeUi')
 $nodes=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst]},$true))
 $definitions=New-Object 'System.Collections.Generic.List[string]'

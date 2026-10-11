@@ -559,7 +559,7 @@ try{
         Update-DomeniaWriteModeVisual
     }
     function Get-DomeniaCredentialUserName {param($Credential);return ''}
-    $coreNames=@('Get-MainXaml','Get-DomeniaXamlControlNames','Select-DomeniaWorkspace','Set-VisibleTabsForType','Set-TabVisibility','Assert-DomeniaWorkspaceSelection','Update-DomeniaWriteModeVisual','Apply-DomeniaUiProfile','Save-DomeniaUiProfile','Set-DomeniaContextHint')
+    $coreNames=@('Get-MainXaml','Get-DomeniaXamlControlNames','Select-DomeniaWorkspace','Set-VisibleTabsForType','Get-DomeniaLandingView','Set-TabVisibility','Assert-DomeniaWorkspaceSelection','Update-DomeniaWriteModeVisual','Apply-DomeniaUiProfile','Save-DomeniaUiProfile','Set-DomeniaContextHint')
     $parseTokens=$null;$parseErrors=$null
     $coreAst=[System.Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'Domenia-Core.ps1'),[ref]$parseTokens,[ref]$parseErrors)
     foreach($fn in @($coreAst.FindAll({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst]},$true))){

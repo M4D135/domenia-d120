@@ -57,7 +57,7 @@ try {
     . (Join-Path $wad 'Domenia-Modules.ps1')
     $script:CoreAst=Read-SourceAst (Join-Path $wad 'Domenia-Core.ps1')
     foreach($name in @('Get-DomeniaWorkerOperationHashes','ConvertTo-DomeniaCanonicalWorkerCode','Get-DomeniaWorkerCodeHash','Assert-DomeniaWorkerOperationCode','Assert-DomeniaWorkerRegistry','Get-DomeniaWorkerEngineSelfTestCode','Initialize-AsyncEngine',
-        'Get-DomeniaControl','Set-DomeniaControlText','Get-DomeniaSelectedGridRow','Test-DomeniaGridSelectionMatches','Queue-DomeniaSelectedObjectOpen','Invoke-DomeniaPendingSelectionOpen',
+        'Get-DomeniaControl','Set-DomeniaControlText','Get-DomeniaSelectedGridRow','Test-DomeniaGridSelectionMatches','Queue-DomeniaSelectedObjectOpen','Get-DomeniaLandingView','Invoke-DomeniaPendingSelectionOpen',
         'Stop-DomeniaSelectionOpenTimer','Clear-DomeniaCurrentObjectRequest','Test-DomeniaObjectCallbackIsCurrent','Open-AdObject','Complete-DomeniaOpenObjectTaskUi','Fail-DomeniaOpenObjectTaskUi')){
         . ([scriptblock]::Create((Get-FunctionText $script:CoreAst $name)))
     }

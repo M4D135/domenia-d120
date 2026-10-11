@@ -651,7 +651,9 @@ $script:GuiElementPolicy = [ordered]@{
     "TabGeneric" = "Default"
     "TxtObjType" = "Default"
     "TxtObjName" = "Default"
+    "LblObjClass" = "Default"
     "TxtObjClass" = "Default"
+    "LblObjGuid" = "Default"
     "TxtObjGuid" = "Default"
     "TxtObjCreated" = "Default"
     "TxtObjChanged" = "Default"
@@ -660,7 +662,7 @@ $script:GuiElementPolicy = [ordered]@{
     "TxtObjPresenceTarget" = "Default"
     "BtnCopyObjectSummary" = "Default"
     "BtnOpenParentBranch" = "Default"
-    "BtnDeleteObject" = "Default"
+    "BtnObjectMore" = "Default"
     "TabUser" = "Default"
     "TxtUserGivenName" = "Default"
     "TxtUserSurname" = "Default"
@@ -5558,9 +5560,9 @@ function Get-MainXaml {
                         <TextBox Grid.Row="1" Grid.Column="1" x:Name="TxtObjType" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,14,8" ToolTip="Utilisateur, machine, groupe ou conteneur : le type détermine les vues disponibles." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Type de l’objet" AutomationProperties.HelpText="Utilisateur, machine, groupe ou conteneur : le type détermine les vues disponibles."/>
                         <Label Grid.Row="1" Grid.Column="2" Content="Nom"/>
                         <TextBox Grid.Row="1" Grid.Column="3" x:Name="TxtObjName" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,0,8" ToolTip="Nom de l’objet chargé depuis l’annuaire. Ce champ ne modifie pas l’objet." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Nom de l’objet" AutomationProperties.HelpText="Nom de l’objet chargé depuis l’annuaire. Ce champ ne modifie pas l’objet."/>
-                        <Label Grid.Row="2" Grid.Column="0" Content="Classe"/>
+                        <Label x:Name="LblObjClass" Grid.Row="2" Grid.Column="0" Content="Classe"/>
                         <TextBox Grid.Row="2" Grid.Column="1" x:Name="TxtObjClass" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,14,8" ToolTip="Classe technique de l’objet lue dans l’annuaire. Cette information est en lecture seule." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Classe Active Directory" AutomationProperties.HelpText="Classe technique de l’objet lue dans l’annuaire. Cette information est en lecture seule."/>
-                        <Label Grid.Row="2" Grid.Column="2" Content="GUID"/>
+                        <Label x:Name="LblObjGuid" Grid.Row="2" Grid.Column="2" Content="GUID"/>
                         <TextBox Grid.Row="2" Grid.Column="3" x:Name="TxtObjGuid" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,0,8" ToolTip="Identifiant GUID de l’objet AD. Il distingue les objets même lorsqu’ils portent un nom identique." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Identifiant unique" AutomationProperties.HelpText="Identifiant GUID de l’objet AD. Il distingue les objets même lorsqu’ils portent un nom identique."/>
                         <Label Grid.Row="3" Grid.Column="0" Content="Cree"/>
                         <TextBox Grid.Row="3" Grid.Column="1" x:Name="TxtObjCreated" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,14,8" ToolTip="Date de création retournée par l’annuaire pour cet objet." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Date de création" AutomationProperties.HelpText="Date de création retournée par l’annuaire pour cet objet."/>
@@ -5575,7 +5577,7 @@ function Get-MainXaml {
                         <StackPanel Grid.Row="6" Grid.ColumnSpan="4" Orientation="Horizontal" Margin="0,8,0,0">
                           <Button x:Name="BtnCopyObjectSummary" Content="Copier le resume" ToolTip="Copie les informations principales de lʼobjet." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Copier le resume" AutomationProperties.HelpText="Copie les informations principales de l objet."/>
                           <Button x:Name="BtnOpenParentBranch" Content="Ouvrir le parent" ToolTip="Affiche le contenu du conteneur qui heberge cet objet." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ouvrir le parent" AutomationProperties.HelpText="Affiche le contenu du conteneur qui heberge cet objet."/>
-                          <Button x:Name="BtnDeleteObject" Content="Supprimer" Style="{StaticResource DangerButton}" ToolTip="Supprime définitivement lʼobjet. Deux confirmations sont demandées." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Supprimer" AutomationProperties.HelpText="Supprime definitivement l objet. Deux confirmations sont demandees."/>
+                          <Button x:Name="BtnObjectMore" Content="Plus…" ToolTip="Ouvre les actions lourdes de lʼobjet : la suppression y est rangée, séparée des boutons de lecture." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Plus dʼactions sur lʼobjet" AutomationProperties.HelpText="Ouvre les actions lourdes de lʼobjet : la suppression y est rangée, séparée des boutons de lecture."/>
                           <TextBlock Text="Clic droit sur le chemin pour copier le DN ou agir sur lʼobjet." Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" Margin="12,0,0,0"/>
                         </StackPanel>
                       </Grid>
@@ -10533,6 +10535,23 @@ function Select-DomeniaWorkspace {
     try { Sync-DomeniaUxNavigation } catch { }
 }
 
+function Get-DomeniaLandingView {
+    # UX-27 : ouvrir la fiche sur ce qui se lit. Le Resume (Type, Classe, GUID, DN) reste le point de chute
+    # des objets que l'application ne sait pas nommer ; un utilisateur, un poste, un groupe et une branche
+    # ont une page utile, et y tomber evite de deplier deux onglets pour lire la premiere information.
+    # Le poste n'habite pas la fiche : sa vue d'ensemble est un onglet de l'espace Poste, d'ou la destination
+    # complete (espace, onglets internes, onglet) plutot qu'un simple nom d'onglet.
+    param([AllowEmptyString()][AllowNull()][string]$Type='')
+    switch ($Type) {
+        'Utilisateur' { return [pscustomobject]@{Workspace='WsObject';Inner='DetailTabs';Tab='TabUser'} }
+        'Machine' { return [pscustomobject]@{Workspace='WsComputer';Inner='ComputerTabs';Tab='TabComputerDashboard'} }
+        'Groupe' { return [pscustomobject]@{Workspace='WsObject';Inner='DetailTabs';Tab='TabGroup'} }
+        'OU' { return [pscustomobject]@{Workspace='WsObject';Inner='DetailTabs';Tab='TabContainer'} }
+        'Conteneur' { return [pscustomobject]@{Workspace='WsObject';Inner='DetailTabs';Tab='TabContainer'} }
+        default { return [pscustomobject]@{Workspace='WsObject';Inner='DetailTabs';Tab='TabGeneric'} }
+    }
+}
+
 function Set-VisibleTabsForType {
     # Un utilisateur et un poste n ont pas les memes onglets. Les espaces et
     # les onglets sans objet a montrer sont masques plutot que laisses vides.
@@ -10572,7 +10591,8 @@ function Set-VisibleTabsForType {
         Select-DomeniaWorkspace -Workspace "TabDashboard"
     }
     elseif (-not $PreserveWorkspace) {
-        Select-DomeniaWorkspace -Workspace "WsObject" -Inner "DetailTabs" -Tab "TabGeneric"
+        $landing = Get-DomeniaLandingView -Type $Type
+        Select-DomeniaWorkspace -Workspace $landing.Workspace -Inner $landing.Inner -Tab $landing.Tab
     }
     Update-DomeniaUxProfileVisibility -ObjectType $Type
     Apply-DomeniaGuiElementPolicy
@@ -11445,7 +11465,8 @@ function Queue-DomeniaSelectedObjectOpen {
     if (-not $ReadOnlyRetry) { Select-DomeniaLiveResult }
     Update-DomeniaSelectionReadUi
     if ($Immediate -and -not $ReadOnlyRetry) {
-        Select-DomeniaWorkspace -Workspace 'WsObject' -Inner 'DetailTabs' -Tab 'TabGeneric'
+        $landing = Get-DomeniaLandingView -Type ([string]$context.Type)
+        Select-DomeniaWorkspace -Workspace $landing.Workspace -Inner $landing.Inner -Tab $landing.Tab
     }
     # Opening never means refreshing: share the outstanding read and keep its callback non-navigating.
     if ($script:CurrentObjectRequestDn -ieq $context.DN -and $script:CurrentObjectRequestId) { return }
@@ -21273,7 +21294,22 @@ function Wire-Events {
         $script:Ctrl["TxtObjDn"].ContextMenu = $dnMenu
     }
     $script:Ctrl["BtnOpenParentBranch"].Add_Click({ Open-SelectedParentBranch })
-    $script:Ctrl["BtnDeleteObject"].Add_Click({ Delete-SelectedObject })
+    # UX-27 : la suppression ne se clique plus a cote des boutons de lecture. Elle se choisit dans « Plus… »,
+    # et garde ses deux confirmations : le nom de l'objet a saisir, puis SUPPRIMER.
+    $more = $script:Ctrl["BtnObjectMore"]
+    if ($null -ne $more) {
+        $moreMenu = New-Object System.Windows.Controls.ContextMenu
+        [void]$moreMenu.Items.Add((New-DomeniaMenuItem -Header "Supprimer lʼobjet" -ToolTip "Supprime définitivement lʼobjet, sans récursivité. Le nom de lʼobjet est demandé pour confirmer." -Action { Delete-SelectedObject }))
+        $more.ContextMenu = $moreMenu
+        $more.Add_Click({
+            param($sender,$e)
+            if ($null -ne $sender.ContextMenu) {
+                $sender.ContextMenu.PlacementTarget = $sender
+                $sender.ContextMenu.Placement = [System.Windows.Controls.Primitives.PlacementMode]::Bottom
+                $sender.ContextMenu.IsOpen = $true
+            }
+        })
+    }
     $script:Ctrl["BtnUserSave"].Add_Click({ Save-UserProfile })
     $script:Ctrl["BtnUserUnlock"].Add_Click({ Unlock-UserAccount })
     $script:Ctrl["BtnUserEnable"].Add_Click({ Set-AccountDisabled $false })
@@ -24334,7 +24370,7 @@ function Get-WriteControlMap {
         Password = @("BtnUserResetPwd")
         Group = @("BtnUserAddGroup","BtnUserRemoveGroup","BtnCompAddGroup","BtnCompRemoveGroup","BtnGroupAddMember","BtnGroupRemoveMember")
         Move = @("BtnUserMove","BtnCompRename")
-        Delete = @("BtnDeleteObject")
+        Delete = @("BtnObjectMore")
         Create = @("BtnCreateOu")
     }
 }
@@ -26387,7 +26423,7 @@ $ReadUtc=[DateTime]::UtcNow.ToString('o')
         # UX-08: two confirmations in the page, as before in two windows: the name of the object, then SUPPRIMER.
         $send={
             param($s)
-            try { Start-DomeniaWriteTask -Name "Suppression objet AD" -OperationId "WriteDeleteObject" -Code $s.Code -Payload $s.Payload -Plan $s.Plan -PlanChanges @() -Capability "Delete" -DisableControls @("BtnDeleteObject") -AfterSuccessAction "DeleteObject" -AfterSuccessState $s.DeleteState }
+            try { Start-DomeniaWriteTask -Name "Suppression objet AD" -OperationId "WriteDeleteObject" -Code $s.Code -Payload $s.Payload -Plan $s.Plan -PlanChanges @() -Capability "Delete" -DisableControls @("BtnObjectMore") -AfterSuccessAction "DeleteObject" -AfterSuccessState $s.DeleteState }
             catch { Show-ErrorBox "Erreur suppression : $($_.Exception.Message)" }
         }
         $finalStep={

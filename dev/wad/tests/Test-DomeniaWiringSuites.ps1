@@ -47,7 +47,7 @@ try {
         . ([scriptblock]::Create((Get-FunctionText $commonAst $name)))
     }
     foreach($name in @('Get-DeProp','Get-DePropAll','Get-DomeniaEntryFirstString','Convert-GuidLabel',
-        'Get-DomeniaControl','Set-DomeniaControlText','Get-DomeniaSelectedGridRow','Test-DomeniaGridSelectionMatches','Queue-DomeniaSelectedObjectOpen',
+        'Get-DomeniaControl','Set-DomeniaControlText','Get-DomeniaSelectedGridRow','Test-DomeniaGridSelectionMatches','Queue-DomeniaSelectedObjectOpen','Get-DomeniaLandingView',
         'Invoke-DomeniaPendingSelectionOpen','Open-SelectedObject','Stop-DomeniaSelectionOpenTimer','Clear-DomeniaCurrentObjectRequest',
         'Test-DomeniaObjectCallbackIsCurrent','Open-AdObject','Complete-DomeniaOpenObjectTaskUi','Fail-DomeniaOpenObjectTaskUi')){
         . ([scriptblock]::Create((Get-FunctionText $script:CoreAst $name)))

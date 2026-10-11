@@ -608,11 +608,11 @@
     "Source": "existing-help"
   },
   {
-    "Name": "BtnDeleteObject",
-    "Title": "Supprimer",
-    "Text": "Supprime définitivement lʼobjet. Deux confirmations sont demandées.",
+    "Name": "BtnObjectMore",
+    "Title": "Plus dʼactions sur lʼobjet",
+    "Text": "Ouvre les actions lourdes de lʼobjet : la suppression y est rangée, séparée des boutons de lecture.",
     "Kind": "Button",
-    "Source": "existing-help"
+    "Source": "L11"
   },
   {
     "Name": "TabUser",

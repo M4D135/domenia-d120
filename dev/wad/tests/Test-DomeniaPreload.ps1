@@ -33,7 +33,7 @@ function Import-Function {param([string]$Name)
     # Dot-source in script scope so imported functions remain available after this helper.
     $script:ImportBody=$nodes[0].Extent.Text
 }
-foreach($name in @('Get-MainXaml','Get-DomeniaControl','Set-DomeniaControlText','Get-DomeniaSelectedGridRow','Test-DomeniaGridSelectionMatches','Queue-DomeniaSelectedObjectOpen','Invoke-DomeniaPendingSelectionOpen','Open-SelectedObject','Stop-DomeniaSelectionOpenTimer','Clear-DomeniaCurrentObjectRequest','Test-DomeniaObjectCallbackIsCurrent','Open-AdObject','Complete-DomeniaOpenObjectTaskUi','Fail-DomeniaOpenObjectTaskUi','ConvertTo-DomeniaCanonicalWorkerCode','Get-DomeniaWorkerCodeHash','Get-DomeniaWorkerOperationHashes','Assert-DomeniaWorkerRegistry')) {
+foreach($name in @('Get-MainXaml','Get-DomeniaControl','Set-DomeniaControlText','Get-DomeniaSelectedGridRow','Test-DomeniaGridSelectionMatches','Queue-DomeniaSelectedObjectOpen','Get-DomeniaLandingView','Invoke-DomeniaPendingSelectionOpen','Open-SelectedObject','Stop-DomeniaSelectionOpenTimer','Clear-DomeniaCurrentObjectRequest','Test-DomeniaObjectCallbackIsCurrent','Open-AdObject','Complete-DomeniaOpenObjectTaskUi','Fail-DomeniaOpenObjectTaskUi','ConvertTo-DomeniaCanonicalWorkerCode','Get-DomeniaWorkerCodeHash','Get-DomeniaWorkerOperationHashes','Assert-DomeniaWorkerRegistry')) {
     Import-Function $name
     . ([scriptblock]::Create($script:ImportBody))
 }

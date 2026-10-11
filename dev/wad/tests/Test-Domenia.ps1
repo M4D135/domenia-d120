@@ -51,7 +51,9 @@ $wanted=@('Write-DomeniaAtomicText','Read-DomeniaPreference','Write-DomeniaPrefe
     # CO-03 : cles de tri des colonnes datees, et le XAML ou elles sont designees.
     'Get-DomeniaGridDateSortKey','Get-DomeniaGridDateShortText','Add-DomeniaGridDateKeys','Get-DomeniaInventoryAgeLabel','Get-DomeniaInventorySummaryText','Get-DomeniaSoftwareWorkerCode','Get-MainXaml',
     # CO-22 : decodage des options du compte affiche dans la fiche.
-    'Get-UacFlagsLabel','Convert-FileTimeLabel','Convert-ADLargeIntegerToInt64')
+    'Get-UacFlagsLabel','Convert-FileTimeLabel','Convert-ADLargeIntegerToInt64',
+    # UX-27 : vue d atterrissage de la fiche selon le type d objet.
+    'Get-DomeniaLandingView')
 $definitions=New-Object 'System.Collections.Generic.List[string]'
 $nodes=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst]},$true))
 foreach($name in $wanted) {
@@ -707,6 +709,77 @@ try {
         # Le depliage se decide par le profil, pas par l operateur.
         $texteModule = Get-Content -LiteralPath (Join-Path (Split-Path $core -Parent) 'modules/Domenia-UX.UI.ps1') -Raw -Encoding UTF8
         Assert-True ($texteModule.Contains('ExpAccountSecurityOptions=$expert')) "Le bloc avance ne depend pas du profil Expert dans la regle d'affichage"
+    }
+
+    # ------------------------------------------------------------ UX-27 : la fiche s'ouvre sur ce qui se lit
+    Test-Case 'UX-27 : la fiche souvre sur la vue qui se lit et non sur le resume technique' {
+        # Le Resume etait le seul point de chute, quel que soit l objet : un utilisateur y ouvrait Type, Classe,
+        # GUID et DN avant de montrer son compte. Il reste la vue des objets que l application ne sait pas nommer.
+        foreach ($attendu in @(@('Utilisateur','WsObject','DetailTabs','TabUser'),
+                               @('Machine','WsComputer','ComputerTabs','TabComputerDashboard'),
+                               @('Groupe','WsObject','DetailTabs','TabGroup'),
+                               @('OU','WsObject','DetailTabs','TabContainer'),
+                               @('Conteneur','WsObject','DetailTabs','TabContainer'),
+                               @('','WsObject','DetailTabs','TabGeneric'),
+                               @('Inconnu','WsObject','DetailTabs','TabGeneric'))) {
+            $vue = Get-DomeniaLandingView -Type $attendu[0]
+            Assert-True (([string]$vue.Workspace) -ceq $attendu[1]) ('Type [' + $attendu[0] + '] : espace ' + [string]$vue.Workspace + ', attendu ' + $attendu[1])
+            Assert-True (([string]$vue.Inner) -ceq $attendu[2]) ('Type [' + $attendu[0] + '] : groupes d onglets ' + [string]$vue.Inner + ', attendu ' + $attendu[2])
+            Assert-True (([string]$vue.Tab) -ceq $attendu[3]) ('Type [' + $attendu[0] + '] : onglet ' + [string]$vue.Tab + ', attendu ' + $attendu[3])
+        }
+        # La destination doit exister telle quelle dans la fenetre : un onglet qui n est pas enfant du groupe
+        # demande ne se selectionne pas, et Select-DomeniaWorkspace passe alors sans rien signaler.
+        $xaml = [xml](Get-MainXaml)
+        $XNS = 'http://schemas.microsoft.com/winfx/2006/xaml'
+        foreach ($destination in @(@('WsObject','DetailTabs','TabUser'),@('WsComputer','ComputerTabs','TabComputerDashboard'),
+                                   @('WsObject','DetailTabs','TabGroup'),@('WsObject','DetailTabs','TabContainer'),
+                                   @('WsObject','DetailTabs','TabGeneric'))) {
+            $espace = @($xaml.SelectNodes('//*[local-name()="TabItem"]') | Where-Object { $_.GetAttribute('Name',$XNS) -eq $destination[0] })
+            Assert-True ($espace.Count -eq 1) ('Espace ' + $destination[0] + ' : ' + $espace.Count + ' occurrence(s)')
+            $interne = @($xaml.SelectNodes('//*[local-name()="TabControl"]') | Where-Object { $_.GetAttribute('Name',$XNS) -eq $destination[1] })
+            Assert-True ($interne.Count -eq 1) ('Groupes d onglets ' + $destination[1] + ' : ' + $interne.Count + ' occurrence(s)')
+            $enfant = @($interne[0].SelectNodes('.//*[local-name()="TabItem"]') | Where-Object { $_.GetAttribute('Name',$XNS) -eq $destination[2] })
+            Assert-True ($enfant.Count -eq 1) ('Onglet ' + $destination[2] + ' enfant de ' + $destination[1] + ' : ' + $enfant.Count + ' occurrence(s)')
+        }
+        # Les deux points d entree passent par le helper : sinon l un des deux ouvrirait encore le Resume.
+        $texteCore = Get-Content $core -Raw -Encoding UTF8
+        Assert-True ($texteCore.Contains('$landing = Get-DomeniaLandingView -Type $Type')) 'Set-VisibleTabsForType choisit encore sa vue en dur'
+        Assert-True ($texteCore.Contains('-Workspace $landing.Workspace -Inner $landing.Inner -Tab $landing.Tab')) 'Select-DomeniaWorkspace ne suit pas la destination du helper'
+        Assert-True ($texteCore.Contains('-Type ([string]$context.Type)')) 'L ouverture immediate choisit encore sa vue en dur'
+        # Classe et GUID ne regardent que l Expert : les quatre elements sont nommes et la regle existe.
+        foreach ($nom in @('LblObjClass','TxtObjClass','LblObjGuid','TxtObjGuid')) {
+            $noeud = @($xaml.SelectNodes('//*[local-name()="Label" or local-name()="TextBox"]') | Where-Object { $_.GetAttribute('Name',$XNS) -eq $nom })
+            Assert-True ($noeud.Count -eq 1) ($nom + ' : ' + $noeud.Count + ' occurrence(s)')
+        }
+        $texteModule = Get-Content -LiteralPath (Join-Path (Split-Path $core -Parent) 'modules/Domenia-UX.UI.ps1') -Raw -Encoding UTF8
+        Assert-True ($texteModule.Contains('LblObjClass=$expert;TxtObjClass=$expert;LblObjGuid=$expert;TxtObjGuid=$expert')) 'Classe et GUID ne dependent pas du profil Expert'
+        # Le bouton rouge a quitte la rangee : la suppression se choisit dans « Plus… », et n est plus rouge.
+        $texte = Get-MainXaml
+        Assert-True (-not $texte.Contains('x:Name="BtnDeleteObject"')) 'Le bouton Supprimer est reste dans la rangee des boutons de lecture'
+        $bouton = @($xaml.SelectNodes('//*[local-name()="Button"]') | Where-Object { $_.GetAttribute('Name',$XNS) -eq 'BtnObjectMore' })
+        Assert-True ($bouton.Count -eq 1) ('BtnObjectMore : ' + $bouton.Count + ' occurrence(s)')
+        Assert-True (-not ([string]$bouton[0].GetAttribute('Style')).Contains('DangerButton')) 'Le bouton d actions est encore un bouton rouge'
+        # La suppression garde ses deux confirmations, dont la saisie du nom de l objet.
+        $fonc = @($nodes | Where-Object { $_.Name -eq 'Delete-SelectedObject' })
+        Assert-True ($fonc.Count -eq 1) 'Delete-SelectedObject introuvable dans le coeur'
+        $corps = [string]$fonc[0].Extent.Text
+        Assert-True ($corps.Contains('-TypedConfirmation $expected')) 'La saisie du nom de l objet a disparu de la suppression'
+        Assert-True ($corps.Contains("-TypedConfirmation 'SUPPRIMER'")) 'La saisie SUPPRIMER a disparu de la suppression'
+        # Le menu se construit comme les autres menus de la fiche, et la carte des capacites suit le nouveau nom.
+        $apost = [string][char]0x02BC
+        Assert-True ($texteCore.Contains('-Header "Supprimer l' + $apost + 'objet"')) "L entree du menu Plus ne nomme pas la suppression"
+        Assert-True ($texteCore.Contains('Delete = @("BtnObjectMore")')) 'La capacite Delete ne pilote plus l acces a la suppression'
+        Assert-True ($texteCore.Contains('-DisableControls @("BtnObjectMore")')) 'La suppression en cours ne grise plus le bouton d actions'
+        Assert-True ($texteCore.Contains('"BtnObjectMore" = "Default"')) 'Le bouton d actions a quitte la politique des controles'
+        # Le fichier d aide suit le nom du bouton : Titre = nom d automation, Text = infobulle, Kind = element.
+        $aideBrutee = Get-Content -LiteralPath (Join-Path (Split-Path $core -Parent) 'modules/Domenia-UX.help.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+        $aide = @($aideBrutee)
+        $entree = @($aide | Where-Object { $_.Name -eq 'BtnObjectMore' })
+        Assert-True ($entree.Count -eq 1) ('Entree d aide BtnObjectMore : ' + $entree.Count + ' occurrence(s)')
+        Assert-True (@($aide | Where-Object { $_.Name -eq 'BtnDeleteObject' }).Count -eq 0) "L aide connait encore le bouton supprime"
+        Assert-True (([string]$entree[0].Title) -ceq [string]$bouton[0].GetAttribute('AutomationProperties.Name')) 'Titre de l aide different du nom d automation'
+        Assert-True (([string]$entree[0].Text) -ceq [string]$bouton[0].GetAttribute('ToolTip')) 'Texte de l aide different de l infobulle'
+        Assert-True (([string]$entree[0].Kind) -ceq 'Button') 'Nature de l aide BtnObjectMore differente de l element XAML'
     }
 
     Test-Case 'SP-06 : les boutons de l inventaire annoncent la duree que le code paie' {
