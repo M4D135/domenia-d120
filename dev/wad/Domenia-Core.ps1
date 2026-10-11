@@ -1724,6 +1724,49 @@ function Get-UacStatusLabel {
     return ($items -join ' / ')
 }
 
+function Get-UacFlagsLabel {
+    # Traduit userAccountControl en options lisibles. Les bits absents de cette table restent
+    # visibles en hexadecimal : un compte etrange ne doit jamais prendre l'air d'un compte ordinaire.
+    param($Uac)
+    $u = 0L
+    if ($null -eq $Uac -or [string]::IsNullOrWhiteSpace([string]$Uac)) { return 'Options non déterminées' }
+    if (-not [long]::TryParse([string]$Uac,[ref]$u)) { return 'Options non déterminées' }
+    $marques = @(
+        @(1,'Script de connexion'),
+        @(2,'Compte désactivé'),
+        @(8,'Répertoire personnel requis'),
+        @(16,'Compte verrouillé'),
+        @(32,'Mot de passe non requis'),
+        @(64,'Mot de passe non modifiable'),
+        @(128,'Mot de passe stocké en clair'),
+        @(256,'Compte temporaire'),
+        @(512,'Compte normal'),
+        @(2048,'Approbation entre forêts'),
+        @(4096,'Compte ordinateur'),
+        @(8192,'Contrôleur de domaine'),
+        @(65536,'Mot de passe jamais expiré'),
+        @(131072,'Compte de messagerie'),
+        @(262144,'Carte à puce obligatoire'),
+        @(524288,'Authentification déléguée'),
+        @(1048576,'Authentification non déléguable'),
+        @(2097152,'Chiffrement DES uniquement'),
+        @(4194304,'Pre-authentication Kerberos facultative'),
+        @(8388608,'Mot de passe expiré'),
+        @(16777216,'Authentification déléguée vers un service'),
+        @(67108864,'Contrôleur de domaine en lecture seule')
+    )
+    $items = [Collections.Generic.List[string]]::new()
+    $connu = 0L
+    foreach ($marque in $marques) {
+        $valeur = [long]$marque[0]
+        if (($u -band $valeur) -ne 0) { [void]$items.Add([string]$marque[1]); $connu = $connu -bor $valeur }
+    }
+    $reste = $u -band (-bnot $connu)
+    if ($reste -ne 0) { [void]$items.Add(('Bits non reconnus 0x{0:X}' -f $reste)) }
+    if ($items.Count -eq 0) { return 'Aucune option marquée' }
+    return ($items -join ' · ')
+}
+
 function Get-DomeniaControl {
     param([Parameter(Mandatory=$true)][string]$Name)
     try {
@@ -5568,9 +5611,9 @@ function Get-MainXaml {
                           <TextBox Grid.Row="1" Grid.Column="3" x:Name="TxtUserSurname" Margin="0,0,0,8" ToolTip="Nom de famille." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Nom" AutomationProperties.HelpText="Nom de famille."/>
                           <Label Grid.Row="2" Grid.Column="0" Content="Nom affiche"/>
                           <TextBox Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="3" x:Name="TxtUserDisplayName" Margin="0,0,0,8" ToolTip="Nom affiche dans les annuaires et la messagerie." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Nom affiche" AutomationProperties.HelpText="Nom affiche dans les annuaires et la messagerie."/>
-                          <Label Grid.Row="3" Grid.Column="0" Content="Login"/>
+                          <Label Grid.Row="3" Grid.Column="0" Content="Identifiant"/>
                           <TextBox Grid.Row="3" Grid.Column="1" x:Name="TxtUserSam" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,14,8" ToolTip="Nom de compte utilisé avec la forme DOMAINE\identifiant." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Identifiant court" AutomationProperties.HelpText="Nom de compte utilisé avec la forme DOMAINE\identifiant."/>
-                          <Label Grid.Row="3" Grid.Column="2" Content="UPN"/>
+                          <Label Grid.Row="3" Grid.Column="2" Content="Nom de connexion"/>
                           <TextBox Grid.Row="3" Grid.Column="3" x:Name="TxtUserUpn" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,0,8" ToolTip="Nom de connexion de forme utilisateur@domaine. Il peut différer de l’adresse mail." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Identifiant de connexion complet" AutomationProperties.HelpText="Nom de connexion de forme utilisateur@domaine. Il peut différer de l’adresse mail."/>
                           <Label Grid.Row="4" Grid.Column="0" Content="Mail"/>
                           <TextBox Grid.Row="4" Grid.Column="1" x:Name="TxtUserMail" ToolTip="Adresse de messagerie principale." Margin="0,0,14,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mail" AutomationProperties.HelpText="Adresse de messagerie principale."/>
@@ -8337,7 +8380,7 @@ function Fill-UserObject {
     $script:Ctrl["TxtUserLastLogon"].Text = Convert-FileTimeLabel (Get-DeProp $Entry "lastLogonTimestamp" 0)
     $script:Ctrl["TxtUserPwdLastSet"].Text = Convert-FileTimeLabel (Get-DeProp $Entry "pwdLastSet" 0)
     $script:Ctrl["TxtUserExpires"].Text = Convert-FileTimeLabel (Get-DeProp $Entry "accountExpires" 0)
-    $script:Ctrl["TxtUserUac"].Text = [string]$uac
+    $script:Ctrl["TxtUserUac"].Text = Get-UacFlagsLabel $uac
     try {
         if (-not $script:RenderingObjectWithoutProbes) { Update-DomeniaSelectedUserPresence -Login ([string](Get-DeProp $Entry "sAMAccountName" "")) }
         else { Set-DomeniaPresenceText -Name 'TxtUserPresence' -State 'Non verifie (fiche AD uniquement)'; Update-DomeniaObjectPresence -State 'Non verifie' -Target '' }
@@ -8439,7 +8482,7 @@ function Fill-ComputerObject {
     $script:Ctrl["TxtCompManagedBy"].Text = [string](Get-DeProp $Entry "managedBy" "")
     $script:Ctrl["TxtCompState"].Text = Get-UacStatusLabel $uac 0
     $script:Ctrl["TxtCompLastLogon"].Text = Convert-FileTimeLabel (Get-DeProp $Entry "lastLogonTimestamp" 0)
-    $script:Ctrl["TxtCompUac"].Text = [string]$uac
+    $script:Ctrl["TxtCompUac"].Text = Get-UacFlagsLabel $uac
     $script:Ctrl["TxtCompNewName"].Text = [string](Get-DeProp $Entry "name" "")
     try {
         $presenceName = [string](Get-DeProp $Entry "name" "")

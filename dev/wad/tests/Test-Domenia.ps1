@@ -49,7 +49,9 @@ $wanted=@('Write-DomeniaAtomicText','Read-DomeniaPreference','Write-DomeniaPrefe
     'Invoke-DomeniaAppLogRotation','Flush-DomeniaAppLog','Invoke-DomeniaAppLogFlush','Set-DomeniaAppLogAvailability','Set-Status',
     'Get-DomeniaGridExportColumns','ConvertTo-DomeniaExportRows','Get-DomeniaExportFileName','Export-DomeniaCsv','Get-DomeniaCsvDelimiter',
     # CO-03 : cles de tri des colonnes datees, et le XAML ou elles sont designees.
-    'Get-DomeniaGridDateSortKey','Get-DomeniaGridDateShortText','Add-DomeniaGridDateKeys','Get-DomeniaInventoryAgeLabel','Get-DomeniaInventorySummaryText','Get-DomeniaSoftwareWorkerCode','Get-MainXaml')
+    'Get-DomeniaGridDateSortKey','Get-DomeniaGridDateShortText','Add-DomeniaGridDateKeys','Get-DomeniaInventoryAgeLabel','Get-DomeniaInventorySummaryText','Get-DomeniaSoftwareWorkerCode','Get-MainXaml',
+    # CO-22 : decodage des options du compte affiche dans la fiche.
+    'Get-UacFlagsLabel')
 $definitions=New-Object 'System.Collections.Generic.List[string]'
 $nodes=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst]},$true))
 foreach($name in $wanted) {
@@ -524,6 +526,31 @@ try {
             Assert-True (([string]$tb.Text) -ceq ('{Binding ' + $tpl[1] + 'Short}')) ('Colonne ' + $tpl[0] + ' n affiche pas le texte court : ' + [string]$tb.Text)
             Assert-True (([string]$tb.ToolTip) -ceq ('{Binding ' + $tpl[1] + '}')) ('Colonne ' + $tpl[0] + ' sans date complete en infobulle : ' + [string]$tb.ToolTip)
         }
+    }
+    Test-Case 'CO-22 : les options du compte se lisent, les identifiants se nomment' {
+        # 66048 n'est pas une information, c'est un masque. Le decodage doit nommer les options que
+        # l'operateur vient chercher : expiration du mot de passe, carte a puce, compte desactive.
+        Assert-True (([string](Get-UacFlagsLabel 66048)) -ceq 'Compte normal · Mot de passe jamais expiré') ('66048 : ' + [string](Get-UacFlagsLabel 66048))
+        Assert-True (([string](Get-UacFlagsLabel 512)) -ceq 'Compte normal') ('512 : ' + [string](Get-UacFlagsLabel 512))
+        Assert-True (([string](Get-UacFlagsLabel 514)) -ceq 'Compte désactivé · Compte normal') ('514 : ' + [string](Get-UacFlagsLabel 514))
+        Assert-True (([string](Get-UacFlagsLabel 262144)) -ceq 'Carte à puce obligatoire') ('262144 : ' + [string](Get-UacFlagsLabel 262144))
+        # Un bit que la table ne connait pas doit rester visible : le rendre muet ferait paraitre
+        # ordinaire un compte qui ne l'est pas.
+        Assert-True (([string](Get-UacFlagsLabel 1024)) -ceq 'Bits non reconnus 0x400') ('1024 : ' + [string](Get-UacFlagsLabel 1024))
+        Assert-True (([string](Get-UacFlagsLabel 0)) -ceq 'Aucune option marquée') ('0 : ' + [string](Get-UacFlagsLabel 0))
+        Assert-True (([string](Get-UacFlagsLabel $null)) -ceq 'Options non déterminées') ('null : ' + [string](Get-UacFlagsLabel $null))
+        Assert-True (([string](Get-UacFlagsLabel 'abc')) -ceq 'Options non déterminées') ('abc : ' + [string](Get-UacFlagsLabel 'abc'))
+        # Le masque brut ne doit plus atteindre l'ecran, ni pour l'utilisateur ni pour l'ordinateur.
+        $texteCore = Get-Content $core -Raw -Encoding UTF8
+        Assert-True (-not $texteCore.Contains('["TxtUserUac"].Text = [string]$uac')) 'TxtUserUac recoit encore le masque brut'
+        Assert-True (-not $texteCore.Contains('["TxtCompUac"].Text = [string]$uac')) 'TxtCompUac recoit encore le masque brut'
+        # Les deux champs d'identite etaient libelles en anglais alors que tout le reste de la fiche
+        # est en francais, infobulle et nom d'automation compris.
+        $xaml = Get-MainXaml
+        Assert-True ($xaml.Contains('<Label Grid.Row="3" Grid.Column="0" Content="Identifiant"/>')) 'Le champ sAMAccountName est encore libelle en anglais'
+        Assert-True ($xaml.Contains('<Label Grid.Row="3" Grid.Column="2" Content="Nom de connexion"/>')) 'Le champ userPrincipalName est encore libelle en anglais'
+        Assert-True (-not $xaml.Contains('Content="Login"')) 'Un libelle « Login » est reste dans le XAML'
+        Assert-True (-not $xaml.Contains('Content="UPN"')) 'Un libelle « UPN » est reste dans le XAML'
     }
     Test-Case 'CO-01 : deux controles interactifs ne se partagent pas la meme cellule' {
         # Un controle place dans une cellule deja occupee en recouvre un autre a l ecran. « Etat » et
