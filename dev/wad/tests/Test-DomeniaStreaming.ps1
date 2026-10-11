@@ -264,6 +264,24 @@ Case 'Console vide ne déclenche pas de recherche de profils historique' {$r=Inv
 Case 'Refus de droits classé séparément du rejet de credential' {$r=Invoke-ProbeFixture -ErrorKind 'Denied';Assert-Live ($r.Outcome -eq 'Denied' -and $script:ProbeCalls.Sessions -eq 1)}
 Case 'Rejet de credential conserve son état sans autre essai' {$r=Invoke-ProbeFixture -ErrorKind 'Auth';Assert-Live ($r.Outcome -eq 'AuthRejected' -and $script:ProbeCalls.Sessions -eq 1 -and $script:ProbeCalls.Reads -eq 0)}
 Case 'Rejet LDAP ne transforme pas un compte console observé en absence' {$r=Invoke-ProbeFixture -AdError;Assert-Live ($r.Outcome -eq 'Observed' -and $r.DirectoryAuthRejected -and -not $r.LinkUser)}
+# SE-03 : le worker des widgets ne connait aucune classe interdite, il ne lit que le catalogue transmis.
+function Invoke-ProbeCatalogFixture {
+    param([string[]]$AllowedClasses=$null,[string]$Class='CIM_Product')
+    $script:CatalogCalls=@()
+    $Context=[pscustomobject]@{MachineCredential=$script:RemoteFixture;Credential=$script:AdFixture;Domain='example.invalid';Netbios='EXAMPLE';BaseDn='DC=example,DC=invalid';UseCim=$true}
+    $Payload=[pscustomobject]@{Computer='pc-01.example.invalid';Key=$observed.Key;Guid=$observed.Guid;MethodSeconds=4;ProbeUser=$true;Probes=@([pscustomobject]@{Id='sonde';Class=$Class;Namespace='root\cimv2';Properties=@('Name');Filter='';Skip=''})}
+    if($PSBoundParameters.ContainsKey('AllowedClasses')){$Payload | Add-Member -NotePropertyName AllowedClasses -NotePropertyValue @($AllowedClasses)}
+    function Get-WMachineCredential {param($Context) return $Context.MachineCredential}
+    function New-Object {param($TypeName) $o=[pscustomobject]@{};Add-Member -InputObject $o ScriptMethod Send {param($t,$ms) $null};Add-Member -InputObject $o ScriptMethod Dispose { };return $o}
+    function New-CimSessionOption {param($Protocol,$ErrorAction) return [pscustomobject]@{Protocol=$Protocol}}
+    function New-CimSession {param($ComputerName,$SessionOption,$OperationTimeoutSec,$Credential,$ErrorAction) return [pscustomobject]@{Fake=$true}}
+    function Get-CimInstance {param($CimSession,$ClassName,$Property,$OperationTimeoutSec,$ErrorAction,$Namespace,$Filter) $script:CatalogCalls+=[string]$ClassName;if($ClassName -eq 'Win32_ComputerSystem'){return [pscustomobject]@{UserName=''}};return [pscustomobject]@{Name='fixture'}}
+    function Remove-CimSession {param($CimSession,$ErrorAction) }
+    & ([scriptblock]::Create((Get-DomeniaLiveProbeCode)))
+}
+Case 'Sonde hors catalogue refusee par le worker des widgets' {$r=Invoke-ProbeCatalogFixture -AllowedClasses @('Win32_ComputerSystem');Assert-Live ($r.Probes.sonde.Error -match 'catalogue de sondes' -and $script:CatalogCalls -notcontains 'CIM_Product')}
+Case 'Sonde sans catalogue transmis refusee par le worker des widgets' {$r=Invoke-ProbeCatalogFixture;Assert-Live ($r.Probes.sonde.Error -match 'Catalogue de sondes absent' -and $script:CatalogCalls -notcontains 'CIM_Product')}
+Case 'Sonde du catalogue traverse la garde et atteint le poste' {$r=Invoke-ProbeCatalogFixture -Class 'Win32_BIOS' -AllowedClasses @('Win32_ComputerSystem','Win32_BIOS');Assert-Live ($r.Probes.sonde.Error -eq '' -and $script:CatalogCalls -contains 'Win32_BIOS')}
 
 Case 'Chemin de cache déjà résolu sans réinitialisation du stockage' {Reset-LiveFixture;$script:DatabaseScopeIdentity='dc=example,dc=invalid';$script:DatabaseScopedPath=Join-Path $testDirectory 'scope.db';Assert-Live ((Get-DomeniaLiveDatabasePath) -eq $script:DatabaseScopedPath)}
 Case 'Identité de consultation changée invalide les informations de session visibles' {Reset-LiveFixture;Feed-Live (New-FixtureRow);Invoke-DomeniaLiveTick;$oldRow=$script:Live.Search.Rows[0];$script:ProcessIdentity='EXAMPLE\autre';Invoke-DomeniaLiveTick;Assert-Live ($oldRow.SessionState -eq 'Compte changé · à revérifier')}

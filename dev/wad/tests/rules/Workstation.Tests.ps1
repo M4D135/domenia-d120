@@ -1,10 +1,10 @@
 ﻿# D071-D080 : assistance des postes. Donnees fictives uniquement (domaine example.test, adresses de documentation).
 $script:WsNow=[datetime]::SpecifyKind([datetime]'2026-03-10T12:00:00',[DateTimeKind]::Utc)
 $script:WsSessions=[pscustomobject]@{Computer='PC-01';ObservedUtc='2026-03-10T12:00:00Z';Source='WTS, lecture a la demande';Identity='EX\support';Rows=@(
-    [pscustomobject]@{Id=0;Station='Services';User='';Domain='';State='Deconnectee';Protocol='Console';Detail='Lecture WTS'}
-    [pscustomobject]@{Id=1;Station='Console';User='';Domain='';State='Connectee';Protocol='Console';Detail='Lecture WTS'}
-    [pscustomobject]@{Id=2;Station='RDP-Tcp#3';User='jdupont';Domain='EX';State='Active';Protocol='RDP';Detail='Lecture WTS'}
-    [pscustomobject]@{Id=65536;Station='RDP-Tcp';User='';Domain='';State='Ecoute';Protocol='Indetermine';Detail='Lecture WTS'})}
+    [pscustomobject]@{Id=0;Station='Services';User='';Domain='';State='Deconnectee';Protocol='Console';Detail='Lecture WTS';LogonTicks=-1;IdleTicks=-1}
+    [pscustomobject]@{Id=1;Station='Console';User='';Domain='';State='Connectee';Protocol='Console';Detail='Lecture WTS';LogonTicks=134176140000000000;IdleTicks=72000000000}
+    [pscustomobject]@{Id=2;Station='RDP-Tcp#3';User='jdupont';Domain='EX';State='Active';Protocol='RDP';Detail='Lecture WTS';LogonTicks=134176140000000000;IdleTicks=3000000000}
+    [pscustomobject]@{Id=65536;Station='RDP-Tcp';User='';Domain='';State='Ecoute';Protocol='Indetermine';Detail='Lecture WTS';LogonTicks=-1;IdleTicks=-1})}
 $script:WsGpoA='aaaaaaaa-0000-4000-8000-00000000000a';$script:WsGpoB='bbbbbbbb-0000-4000-8000-00000000000b';$script:WsGpoC='cccccccc-0000-4000-8000-00000000000c'
 $script:WsGpoD='dddddddd-0000-4000-8000-00000000000d';$script:WsGpoE='eeeeeeee-0000-4000-8000-00000000000e';$script:WsGpoF='ffffffff-0000-4000-8000-00000000000f'
 $script:WsContainers=@(
@@ -158,6 +158,144 @@ Test-Case 'D072' 'Liste nulle, lecture partielle ou statut inconnu : jamais une 
     Assert-True ((ConvertTo-DomeniaSessionView $null).EmptyText -match 'bouton Lire') 'Non demande : seul cas du bouton Lire'
 }
 
+Test-Case 'UX-39' 'Sessions : heure locale, duree d inactivite, compte nu pour ouvrir la fiche' {
+    $e=[string][char]0x00E9;$a=[string][char]0x00E0
+    $v=ConvertTo-DomeniaSessionView $script:WsSessions
+    $row=@($v.Rows)[0]
+    $lu=ConvertTo-DomeniaUtcDate '2026-03-10T12:00:00Z'
+    $ouverte=[datetime]::FromFileTimeUtc(134176140000000000).ToLocalTime()
+    # La comparaison se fait sur le fuseau de la machine qui court le banc : ce que le banc attend est ce que
+    # la vue calcule, pas une heure de Paris ecrite en dur qui echouerait sur une machine d un autre fuseau.
+    $attendu=if($ouverte.Date -eq $lu.ToLocalTime().Date){$ouverte.ToString('HH:mm',[Globalization.CultureInfo]::InvariantCulture)}else{$ouverte.ToString('dd/MM HH:mm',[Globalization.CultureInfo]::InvariantCulture)}
+    Assert-Equal $attendu $row.Ouverte 'Ouverte a rend l heure locale de la machine qui affiche'
+    Assert-True ($row.Ouverte -notmatch 'T\d\d:') 'Ni ISO ni UTC dans la grille'
+    Assert-Equal '5 min' $row.Inactive 'WTSIdleTime est une duree, pas une date'
+    Assert-Equal 'jdupont' $row.User 'Le compte nu, seul format que connait le filtre AD'
+    Assert-Equal '' (Get-DomeniaSessionOpenedText -Ticks -1 -Reference $lu) 'Une horloge que le poste ne rend pas reste vide'
+    Assert-Equal '' (Get-DomeniaSessionIdleText -Ticks 0) 'Zero tick n est pas une inactivite de zero seconde'
+    Assert-Equal '2 h' (Get-DomeniaSessionIdleText -Ticks 72000000000) 'Deux heures d inactivite'
+    Assert-True ($v.StatusText.StartsWith('Lu '+$a+' ')) ('L etat commence par l heure locale : '+$v.StatusText)
+    Assert-True ($v.StatusText -match ('masqu'+$e+'e')) 'Les lignes sans compte masquees sont annoncees'
+    Assert-True ($v.StatusText -notmatch 'T12:00:00') 'L horodatage ISO n est plus affiche'
+    Assert-True ($v.StatusText -notmatch 'WTS') 'Le jargon du collecteur ne remonte plus a l operateur'
+    Assert-Equal 'jdupont' (Get-DomeniaSessionAccountName -Row $row) 'Le compte de la ligne, pret pour la fiche'
+    Assert-Equal '' (Get-DomeniaSessionAccountName -Row ([pscustomobject]@{Utilisateur='Compte non lu'})) 'Un compte non lu n a pas de fiche'
+    Assert-Equal '' (Get-DomeniaSessionAccountName -Row $null) 'Pas de ligne : pas de compte'
+}
+
+Test-Case 'UX-17' 'Diagnostic : verdict en francais, transports facultatifs comptes a part' {
+    $e=[string][char]0x00E9;$a=[string][char]0x00E0
+    $rows=@(
+        [pscustomobject]@{Check='Resolution DNS';Status='OK';Method='Classique';DurationMs=12;Detail='10.0.0.7'},
+        [pscustomobject]@{Check='Ping';Status='OK';Method='Classique';DurationMs=31;Detail='1 ms'},
+        [pscustomobject]@{Check='TCP 445 Partage de fichiers SMB';Status='OK';Method='Classique';DurationMs=8;Detail='Ouvert'},
+        [pscustomobject]@{Check='TCP 5985 WinRM HTTP';Status='INJOIGNABLE';Method='Classique';DurationMs=402;Detail='Ferme ou filtre'},
+        [pscustomobject]@{Check='TCP 5986 WinRM HTTPS';Status='INJOIGNABLE';Method='Classique';DurationMs=401;Detail='Ferme ou filtre'},
+        [pscustomobject]@{Check='TCP 3389 Bureau a distance';Status='OK';Method='Classique';DurationMs=9;Detail='Ouvert'},
+        [pscustomobject]@{Check='Transport PsExec';Status='INDISPONIBLE';Method='PsExec';DurationMs=0;Detail='PsExec.exe absent du dossier Domenia.'},
+        [pscustomobject]@{Check='Transport Task Scheduler';Status='REFUSE';Method='TaskScheduler';DurationMs=88;Detail='Acces refuse'},
+        [pscustomobject]@{Check='Partage C$';Status='OK';Method='Classique';DurationMs=40;Detail='Monte'},
+        [pscustomobject]@{Check='Session CIM';Status='OK';Method='Dcom';DurationMs=120;Detail='Session ouverte.'},
+        [pscustomobject]@{Check='Systeme';Status='OK';Method='Classique';DurationMs=60;Detail='Poste membre du domaine'},
+        [pscustomobject]@{Check='Redemarrage en attente';Status='ERREUR';Method='Classique';DurationMs=15;Detail='Registre illisible'},
+        [pscustomobject]@{Check='Service de deploiement';Status='IGNORE';Method='Classique';DurationMs=0;Detail='Budget de temps epuise.'}
+    )
+    $v=ConvertTo-DomeniaDiagVerdict -Rows $rows -Computer 'W11-01'
+    # Le poste est sain : WinRM ferme et les deux replis absents ne sont pas des pannes. C est le
+    # constat du lot — la page comptait « 3 en echec » sur ce poste-la.
+    Assert-Equal 1 $v.Failed ('Un seul vrai echec attendu : '+$v.Verdict)
+    Assert-Equal 4 $v.Info 'Les deux ports WinRM et les deux transports de repli sont des informations'
+    Assert-Equal 7 $v.Ok 'Sept controles reussis sur ce poste'
+    Assert-Equal 1 $v.Skipped 'Le budget epuise reste non tente, ni reussi ni en echec'
+    Assert-True ($v.Verdict.StartsWith('W11-01 ')) $v.Verdict
+    Assert-True ($v.Verdict -match 'C\$ accessible') ('C$ accessible manque : '+$v.Verdict)
+    Assert-True ($v.Verdict -match ('Bureau '+$a+' distance ouvert')) ('Bureau a distance manque : '+$v.Verdict)
+    Assert-True ($v.Verdict -match 'Redemarrage en attente') ('Le vrai echec doit etre nomme : '+$v.Verdict)
+    Assert-True ($v.Verdict -match ('WinRM ferm'+$e)) ('Le cas WinRM doit etre explique : '+$v.Verdict)
+    Assert-True ($v.Verdict -match 'repli') ('Les transports de repli doivent etre distincts de WinRM : '+$v.Verdict)
+    Assert-True ($v.Verdict -notmatch 'INJOIGNABLE') ('Un code du worker remonte dans la phrase : '+$v.Verdict)
+    Assert-True ($v.Verdict -notmatch '5985') ('Un port facultatif ferme est enonce comme une panne : '+$v.Verdict)
+    $r=@($v.Rows)
+    Assert-Equal 'INJOIGNABLE' $r[3].Status 'Le code brut reste dans la ligne, pour la copie et le journal'
+    Assert-Equal 'Injoignable' $r[3].EtatLibelle 'L etat rendu est un mot francais'
+    Assert-Equal 'Information' $r[6].Severity 'PsExec absent est une information, pas une panne'
+    Assert-Equal 'Echec' $r[11].Severity 'La ligne qui echoue vraiment reste un echec'
+    Assert-Equal 'Non tent' ([string]$r[12].EtatLibelle).Substring(0,8) 'IGNORE se dit en francais'
+    Assert-Equal 'KO-CIM' (Get-DomeniaDiagStatusLabel -Status 'ko-cim') 'Un code inconnu ressort tel quel'
+    Assert-Equal 'Reussi' (Get-DomeniaDiagSeverity -Check 'Partage C$' -Status 'OK')
+    Assert-Equal 'Echec' (Get-DomeniaDiagSeverity -Check 'Partage C$' -Status 'REFUSE') 'C$ refuse est une panne : le produit en a besoin'
+    $vide=ConvertTo-DomeniaDiagVerdict -Rows @() -Computer 'W11-01'
+    Assert-Equal '' $vide.Verdict 'Pas de ligne : pas de verdict'
+    Assert-True ($vide.EmptyText -match 'Lancer le diagnostic') $vide.EmptyText
+    $muet=ConvertTo-DomeniaDiagVerdict -Rows @([pscustomobject]@{Check='Ping';Status='ERREUR';Method='Classique';DurationMs=1500;Detail='TimedOut'})
+    Assert-True ($muet.Verdict -match ('ne r'+$e+'pond pas')) ('Un poste eteint doit se dire ainsi : '+$muet.Verdict)
+    Assert-True ($muet.Verdict.StartsWith('Le poste')) 'Sans nom de poste, la phrase reste complete'
+}
+
+Test-Case 'UI-08' 'Logiciels : une seule regle pour les colonnes et un resume du detail par portee' {
+    $entetes = @('Nom','Version','Editeur','Installe le','Taille','Portee','Archi','Type','Emplacement','Desinstallation','Source')
+    $d = Get-DomeniaSoftwareColumnVisibility -Headers $entetes
+    Assert-True ($d['Nom'] -and $d['Version'] -and $d['Portee']) 'La liste elle-meme se replie'
+    Assert-True ($d['Editeur']) 'Editeur se replie alors qu une lecture complete le remplit'
+    Assert-True (-not $d['Emplacement']) 'Emplacement s affiche alors qu il deborde de l ecran'
+    Assert-True (-not $d['Desinstallation']) 'Desinstallation s affiche par defaut'
+    Assert-True (-not $d['Source']) 'Source s affiche par defaut'
+    $t = Get-DomeniaSoftwareColumnVisibility -Headers @('Emplacement','Desinstallation','Source') -ShowTechnical $true
+    Assert-True ($t['Emplacement'] -and $t['Desinstallation'] -and $t['Source']) 'Le bouton Colonnes ne rend pas les colonnes techniques'
+    $i = Get-DomeniaSoftwareColumnVisibility -Headers @('Editeur','Installe le','Taille','Archi','Type','Emplacement','Nom') -FromInventory $true
+    Assert-True (-not ($i['Editeur'] -or $i['Installe le'] -or $i['Taille'] -or $i['Archi'] -or $i['Type'] -or $i['Emplacement'])) 'Une colonne que l inventaire n a pas lue reste affichee vide'
+    Assert-True ($i['Nom']) 'Le nom disparait quand la liste vient de l inventaire'
+    Assert-True ((Get-DomeniaSoftwareColumnVisibility -Headers @('EnteteInconnu'))['EnteteInconnu']) 'Un entete inconnu est replie par devinette'
+
+    $lignes = @(
+        [pscustomobject]@{Category='Machine';Status='OK';Items=412},
+        [pscustomobject]@{Category='Utilisateur';Status='INDISPONIBLE';Items=0},
+        [pscustomobject]@{Category='Store';Status='VIDE';Items=0},
+        [pscustomobject]@{Category='';Status='OK';Items=3},
+        [pscustomobject]@{Category='Joignabilite';Status='BIZARRE';Items=0}
+    )
+    $e = [char]0x00E9
+    $resume = Get-DomeniaSoftwareAccessSummary -Rows $lignes
+    Assert-True ($resume.StartsWith('Machine : lu (412)')) ('Resume machine inattendu <' + $resume + '>')
+    Assert-True ($resume.Contains('Utilisateur : indisponible')) ('Resume utilisateur inattendu <' + $resume + '>')
+    Assert-True ($resume.Contains('Store : lu, rien trouv' + $e + 'e')) ('Resume store inattendu <' + $resume + '>')
+    Assert-True ($resume.Contains('Joignabilite : BIZARRE')) 'Un etat inconnu est traduit au lieu d etre rendu tel quel'
+    Assert-True (-not $resume.Contains(' : lu (3)')) 'Une portee sans nom deviendrait une portee lue'
+    Assert-True ((Get-DomeniaSoftwareAccessSummary -Rows @()) -eq ('Aucune port' + $e + 'e lue.')) 'Le resume invente une portee lue'
+}
+
+Test-Case 'PF-22' 'Logiciels : la liste deja lue par l inventaire sert sans seconde requete' {
+    $e=[string][char]0x00E9
+    $items=@(
+        [pscustomobject]@{Category='Systeme';Item='Constructeur';Value='Dell';Source='Win32_ComputerSystem'},
+        [pscustomobject]@{Category='Logiciels installes';Item='Nombre detecte';Value=3;Source='Registre Uninstall'},
+        [pscustomobject]@{Category='Logiciels installes';Item='7-Zip 23.01 (x64)';Value='23.01';Source='Registre Uninstall'},
+        [pscustomobject]@{Category='Logiciels installes';Item='VLC media player';Value='3.0.18';Source='Registre Uninstall'},
+        [pscustomobject]@{Category='Logiciels installes';Item=' ';Value='';Source='Registre Uninstall'},
+        [pscustomobject]@{Category='Logiciels installes';Item='Dell Command';Value='';Source='Win32Reg_AddRemovePrograms'}
+    )
+    $v=ConvertTo-DomeniaSoftwareFromInventory -Items $items -CompletedAt ([datetime]'2026-10-11 12:24')
+    # La ligne « Nombre detecte » du collecteur et la ligne sans nom ne sont pas des logiciels.
+    Assert-Equal 3 $v.Count ('Trois logiciels attendus : '+[string]$v.Count)
+    $r=@($v.Rows)
+    Assert-Equal '7-Zip 23.01 (x64)' $r[0].Name 'Le nom vient de la ligne de l inventaire'
+    Assert-Equal '23.01' $r[0].Version 'La version est la valeur de la ligne de l inventaire'
+    Assert-Equal 'Machine' $r[0].Scope 'L inventaire rapide ne lit que HKLM, donc la portee est machine'
+    Assert-True ($r[2].Source.StartsWith('Inventaire')) ('La source doit dire inventaire : '+[string]$r[2].Source)
+    # Ce que l inventaire n a pas lu reste vide : la page replie ces colonnes, elle ne les invente pas.
+    Assert-Equal '' ([string]$r[0].Publisher) 'Editeur lu par erreur'
+    Assert-Equal '' ([string]$r[0].UninstallString) 'Commande de desinstallation inventee'
+    Assert-Equal '' ([string]$r[0].InstallDate) 'Date d installation inventee'
+    Assert-True ($v.ProvenanceText -match 'inventaire') $v.ProvenanceText
+    Assert-True ($v.ProvenanceText -match '12:24') ('L heure de l inventaire doit etre dite : '+$v.ProvenanceText)
+    Assert-True ($v.ProvenanceText -match 'Charger les logiciels') ('Le geste complet doit etre nomme : '+$v.ProvenanceText)
+    Assert-True ($v.DashboardText -match ('non calcul'+$e+'e')) ('La synthese doit refuser de se calculer : '+$v.DashboardText)
+    $vide=ConvertTo-DomeniaSoftwareFromInventory -Items @()
+    Assert-Equal 0 $vide.Count 'Pas d inventaire : rien a reprendre'
+    $sansHeure=ConvertTo-DomeniaSoftwareFromInventory -Items @($items[2])
+    Assert-True ($sansHeure.ProvenanceText -notmatch ' de [0-9][0-9]:[0-9][0-9]') ('Heure inventee : '+$sansHeure.ProvenanceText)
+}
+
 # ---------------------------------------------------------------- D073
 Test-Case 'D073' 'Sources de desinstallation 64 et 32 bits ; categories non couvertes indiquees' {
     $s=Get-DomeniaSoftwareSources
@@ -170,6 +308,14 @@ Test-Case 'D073' 'Sources de desinstallation 64 et 32 bits ; categories non couv
     Assert-Equal 'Win32_Product' @($s.Excluded)[0].Id
     Assert-False (((@($s.Sources)|ForEach-Object{$_.Emplacement}) -join '|') -match '(?i)win32_product')
     Assert-Equal 1 @((Get-DomeniaSoftwareSources -Included @('Uninstall64','Win32_Product')).Refused).Count 'Win32_Product n est pas une source'
+}
+Test-Case 'MO-09' 'La portee utilisateur est lue par StdRegProv sur HKU et ne promet plus WinRM' {
+    $s=Get-DomeniaSoftwareSources -Included @('Uninstall64','Uninstall32','PerUser')
+    $byId=@{};foreach($row in @($s.Sources)){$byId[$row.Id]=$row}
+    Assert-True ($byId['PerUser'].Emplacement -match '^HKU\\') ('Emplacement de la source utilisateur : '+$byId['PerUser'].Emplacement)
+    Assert-True ($byId['PerUser'].Limite -match 'StdRegProv') ('La source ne dit pas par quoi elle lit : '+$byId['PerUser'].Limite)
+    Assert-False ($byId['PerUser'].Limite -match '(?i)winrm') ('La source utilisateur exige encore WinRM : '+$byId['PerUser'].Limite)
+    Assert-True ($byId['Appx'].Limite -match '(?i)WinRM') 'La source Appx ne dit plus ce qu elle exige'
 }
 Test-Case 'D073' 'Une source refusee ou partielle n est pas couverte' {
     $s=Get-DomeniaSoftwareSources -Included @('Uninstall64','Uninstall32','PerUser') -Outcomes @{Uninstall64='OK';Uninstall32='REFUSE';PerUser='PARTIEL'}
@@ -565,4 +711,22 @@ Test-Case 'D080' 'Aucune ouverture par navigation, aucune commande shell' {
     Assert-Equal '--computer PC-01' $plan.Arguments 'Une valeur qui ressemble a une option est refusee'
     foreach($arg in @($plan.ArgumentList)){Assert-False ($arg -match '[\s&|;<>^"%]') ('Caractere de shell : '+$arg)}
     Assert-False $plan.UsesShell
+}
+
+Test-Case 'UX-37' 'Inventaire du poste : les codes CIM rendent un libelle, une valeur inconnue reste brute' {
+    $e=[string][char]0x00E9;$c=[string][char]0x00E7;$p=[string][char]0x02BC
+    Assert-Equal 'Poste membre du domaine' (Get-DomeniaInventoryValueText 'Systeme' 'Role dans le domaine' '1') 'Role 1'
+    Assert-Equal ('Membre d'+$p+'un groupe de travail') (Get-DomeniaInventoryValueText 'Systeme' 'Role dans le domaine' '4') 'Role 4'
+    Assert-Equal 'Portable' (Get-DomeniaInventoryValueText 'Systeme' 'Type de chassis' '10') 'Chassis 10'
+    Assert-Equal 'Tour, Portable' (Get-DomeniaInventoryValueText 'Systeme' 'Type de chassis' '6, 10') 'Chassis 6, 10'
+    Assert-Equal ('Fran'+$c+'ais') (Get-DomeniaInventoryValueText 'Systeme d exploitation' 'Langue' '1036') 'Langue 1036'
+    Assert-Equal ('Fran'+$c+'ais') (Get-DomeniaInventoryValueText 'Systeme d exploitation' 'Langue' '01036') 'Un LANGID decimal avec son zero reste la meme cle'
+    Assert-Equal ('Connect'+$e+'e, 1 Gb/s') (Get-DomeniaInventoryValueText 'Cartes reseau' 'Ethernet 1' '2, 1000 Mb/s') 'Carte connectee a 1 Gb/s'
+    Assert-Equal ('D'+$e+'connect'+$e+'e, 100 Mb/s') (Get-DomeniaInventoryValueText 'Cartes reseau' 'Ethernet 2' '0, 100 Mb/s') 'Carte deconnectee a 100 Mb/s'
+    Assert-Equal ('Connect'+$e+'e') (Get-DomeniaInventoryValueText 'Cartes reseau' 'Ethernet 3' '2') 'Carte sans vitesse rendue'
+    Assert-Equal 'XTS-AES 256 bits' (Get-DomeniaInventoryValueText 'BitLocker' 'C: methode' '6') 'BitLocker 6'
+    Assert-Equal ('Panne annonc'+$e+'e') (Get-DomeniaInventoryValueText 'Disques physiques' 'DISK0 etat SMART' 'Pred Fail') 'SMART Pred Fail'
+    Assert-Equal '4242' (Get-DomeniaInventoryValueText 'Systeme' 'Role dans le domaine' '4242') 'Une valeur hors table ressort brute'
+    Assert-Equal 'Gadget' (Get-DomeniaInventoryValueText 'Divers' 'Note' 'Gadget') 'Un element sans table ressort brut'
+    Assert-Equal '' (Get-DomeniaInventoryValueText 'Systeme' 'Role dans le domaine' $null) 'Une valeur vide rend vide'
 }

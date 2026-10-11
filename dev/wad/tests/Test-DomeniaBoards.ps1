@@ -8,7 +8,7 @@ param([string]$ReportPath='',[switch]$Quiet)
 $ErrorActionPreference='Stop'
 $wad=Split-Path -Parent $PSScriptRoot
 $script:Results=[Collections.Generic.List[object]]::new();$script:Finished=$false;$script:Window=$null
-$script:ExpectedCases=37
+$script:ExpectedCases=38
 function Expect {param([bool]$Value,[string]$Why='Assertion non verifiee');if(-not $Value){throw $Why}}
 function Case {param([string]$Name,[scriptblock]$Body)
     try {& $Body|Out-Null;$script:Results.Add([pscustomobject]@{Name=$Name;Passed=$true;Error=''})}
@@ -744,6 +744,35 @@ try{
         Expect (@($journal|Where-Object{$_ -like 'ERROR|*'}).Count -ge 1) 'Fonction absente journalisee sans niveau ERROR'
         Expect ([string](Get-DomeniaControl 'LblFleetDashboard').Text -like '*fonction absente*') ('Libelle : '+[string](Get-DomeniaControl 'LblFleetDashboard').Text)
         Expect ([string]$script:FleetComputedKey -eq '') 'Cle calculee conservee sur un echec de chargement'
+    }
+    Case 'Clic sur une part ou une barre : le critere remonte au tableau de bord, une part sans critere ne fait rien (FO-09)' {
+        $script:Fo09Calls=[Collections.Generic.List[object]]::new()
+        $handler={param($Select);$script:Fo09Calls.Add($Select)}
+        $donut=New-DomeniaDonutChart -Title 'Editeurs' -Items @([pscustomobject]@{Label='Adobe';Value=3;Select=[pscustomobject]@{Field='Publisher';Value='Adobe'}},[pscustomobject]@{Label='Autres';Value=1}) -Width 340 -Height 240 -OnSelect $handler
+        $paths=@(Get-DomeniaLogicalControls $donut|Where-Object{$_ -is [Windows.Shapes.Path] -and $null -ne $_.Tag})
+        Expect ($paths.Count -eq 2) ('Segments trouves : '+$paths.Count)
+        $parts=@($paths|Where-Object{$_.Tag -is [System.Collections.IDictionary] -and $null -ne $_.Tag['Select']})
+        Expect ($parts.Count -eq 1) ('Parts avec critere : '+$parts.Count)
+        Expect ([string]$parts[0].Tag['Select'].Field -eq 'Publisher') 'Champ du critere perdu'
+        Invoke-DomeniaChartSelect -Tag $parts[0].Tag
+        Expect ($script:Fo09Calls.Count -eq 1) ('Clic sur une part non transmis : '+$script:Fo09Calls.Count)
+        Expect ([string]$script:Fo09Calls[0].Value -eq 'Adobe') 'Critere altere pendant la transmission'
+        $sans=@($paths|Where-Object{$_.Tag -is [System.Collections.IDictionary] -and $null -eq $_.Tag['Select']})
+        Expect ($sans.Count -eq 1) 'La part sans critere a recu un critere'
+        Invoke-DomeniaChartSelect -Tag $sans[0].Tag
+        Expect ($script:Fo09Calls.Count -eq 1) 'Une part sans critere filtre la liste'
+        Invoke-DomeniaChartSelect -Tag $null
+        Invoke-DomeniaChartSelect -Tag @{}
+        Expect ($script:Fo09Calls.Count -eq 1) 'Un Tag sans gestionnaire leve une erreur'
+        $bars=New-DomeniaBarChart -Title 'Plus gros logiciels' -Items @([pscustomobject]@{Label='Acme';Value=120;Select=[pscustomobject]@{Field='Name';Value='Acme'}},[pscustomobject]@{Label='Sans critere';Value=60}) -Width 420 -Height 200 -OnSelect $handler
+        $rowsBar=@(Get-DomeniaLogicalControls $bars|Where-Object{$_ -is [Windows.Controls.Grid] -and $_.Tag -is [System.Collections.IDictionary] -and $null -ne $_.Tag['Select']})
+        Expect ($rowsBar.Count -eq 1) ('Barres avec critere : '+$rowsBar.Count)
+        Expect ($rowsBar[0].Cursor -eq [Windows.Input.Cursors]::Hand) 'La barre qui filtre ne prend pas le curseur main'
+        Invoke-DomeniaChartSelect -Tag $rowsBar[0].Tag
+        Expect ($script:Fo09Calls.Count -eq 2) 'Clic sur une barre non transmis'
+        $plain=New-DomeniaDonutChart -Title 'Systemes' -Items @([pscustomobject]@{Label='A';Value=3})
+        $plainPath=@(Get-DomeniaLogicalControls $plain|Where-Object{$_ -is [Windows.Shapes.Path] -and $null -ne $_.Tag})[0]
+        Expect ($null -eq $plainPath.Tag['OnSelect']) 'Un graphique sans gestionnaire reste decoratif'
     }
     $script:Finished=$true
 }catch{Case 'Suite interrompue' {throw $_}}

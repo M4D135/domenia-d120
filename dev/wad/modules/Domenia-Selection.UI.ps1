@@ -298,6 +298,10 @@ function Enter-DomeniaSelectionContext {
     }
     Clear-Secrets
     Reset-DomeniaSelectionBoundViews -Dn ([string]$Context.DN) -Type ([string]$Context.Type) -Name ([string]$Context.Name)
+    # FO-07 : la vue vient d'etre videe pour le nouvel objet (D085). Si ce poste a deja ete inventorie dans
+    # cette session, sa derniere lecture est reprise ici, avec son age : les lignes rendues appartiennent
+    # au nouvel objet, jamais au precedent.
+    if (([string]$Context.Type) -eq 'Machine') { try { [void](Show-DomeniaCachedInventory -Computer ([string]$Context.Name)) } catch { } }
     # D012: the fiche keeps the immutable identity captured at selection time.
     $captured = $null
     if ($null -ne $Context.PSObject.Properties['SelectionIdentity']) { $captured = $Context.SelectionIdentity }

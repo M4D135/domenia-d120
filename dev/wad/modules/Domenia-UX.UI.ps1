@@ -220,6 +220,24 @@ function Update-DomeniaUxProfileVisibility {
             $tab = Get-DomeniaControl $name
             if ($null -ne $tab) { $tab.Visibility = if ($rules[$name]) { [Windows.Visibility]::Visible } else { [Windows.Visibility]::Collapsed } }
         }
+        # UX-37 : la colonne Source de l inventaire du poste nomme la propriete WMI d ou vient une valeur
+        # (Win32_ComputerSystem, Registre...). Elle sert a relire une valeur, pas a piloter : elle reste en
+        # Expert, et l export ne l emporte plus avec lui en mode Essentiel.
+        $gridInventory = Get-DomeniaControl 'DgInventory'
+        if ($null -ne $gridInventory) {
+            foreach ($column in @($gridInventory.Columns)) {
+                if (([string]$column.Header) -eq 'Source') { $column.Visibility = if ($expert) { [Windows.Visibility]::Visible } else { [Windows.Visibility]::Collapsed } }
+            }
+        }
+        # UX-17 : « par quel transport » et « en combien de millisecondes » repondent a une question
+        # d expert, pas a celle de l operateur qui appelle un poste. Elles prennent 210 px sur un ecran
+        # d appui et les meme informations se relisent dans le journal de session.
+        $gridDiag = Get-DomeniaControl 'DgComputerDiag'
+        if ($null -ne $gridDiag) {
+            foreach ($column in @($gridDiag.Columns)) {
+                if (([string]$column.Header) -eq 'Methode' -or ([string]$column.Header) -eq 'Duree ms') { $column.Visibility = if ($expert) { [Windows.Visibility]::Visible } else { [Windows.Visibility]::Collapsed } }
+            }
+        }
         # Never leave a hidden detail page selected. No AD read is performed.
         foreach ($name in @('DetailTabs','ComputerTabs','ApplicationToolTabs')) {
             $tabs = Get-DomeniaControl $name

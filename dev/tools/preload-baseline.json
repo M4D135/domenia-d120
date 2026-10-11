@@ -1,12 +1,12 @@
 {
-  "Archive": "source tree",
+  "Archive": "lot/L10-spark SE-07",
   "ArchiveSHA256": "655ED21F90345B3C7667D4E777814C6A0595A5D5BE628AD587FB46CCA5241922",
   "CoreFunctions": {
     "Write-DomeniaAtomicText": "1C9A1583F52EB7BE80BE420662653E4AF886FE11DC4FDB3B1C4CDF19FD1C0EDA",
     "Protect-DomeniaLogText": "0B08A39F432D2598637F919D6A977DFB1BC597D9202400DF85EC3AD0DEECE7B2",
     "ConvertTo-DomeniaSpreadsheetCell": "53E287DE0EA1D2F3E9156918B9BE88F77B0B62405C2E9016A64C98576F357FD1",
     "ConvertTo-DomeniaSpreadsheetSafeRow": "1B76EA44DEA0FD8DDBDEA690C9076082D0CBD9ECB1580D712200FD8F0CE5AB61",
-    "Get-DomeniaGridExportColumns": "68B62EAB3BDD87709F66006AC7E307F1938A8F2D893B4AF863F65A849FCC5BDB",
+    "Get-DomeniaGridExportColumns": "DAB70229BA609DBFD0629C8529EE6C61B454AFE13FFA6B3EB2357EB138CE6A02",
     "ConvertTo-DomeniaExportRows": "4E6BCC0A773F3919E7EC9AE328329D4E37E5072DE62BD5B800128D9CA01F1544",
     "Get-DomeniaExportDirectory": "DBB8CA02640D7D586DA0774B25E19B2ACD050DB380BC7E329D865D5E49026B1B",
     "Get-DomeniaExportFileName": "5B06610D067CC38AD217A23E40F1E25D20E2B52C37EB3870A48211F7CE121AD6",
@@ -23,7 +23,7 @@
     "Register-DomeniaReliabilityUi": "2B11221EF7C3072E5EBA7184282E71F1A5F6C681F2337B5B8201153035CA65ED",
     "Restart-DomeniaSecretLifetime": "ABB7BEBB7F0C183A5A0DBEF5846BE25C0AF0193AE0DB7E7C5B58482F1F1C6C6B",
     "Get-DomeniaSelectedSecretSource": "54304906A7CEB11EC7187B8E2AF20D1F0BC50557CDB24876101AC11A9C9BD746",
-    "Assert-DomeniaWmiReadQuery": "1DE73941D5D28F1801FD3B071A5B795220B35322AA754FAB3D73D14A5CF2BDDF",
+    "Assert-DomeniaWmiReadQuery": "9C2BBB5C09A3E72B66ED13B231053C9548B81184A4BABBA87CA9EF2534A0EE19",
     "Write-DomeniaBootstrapTrace": "8EBEFAA7C9EA3ACB5EF94BF8E36D3369F8E037BEFF524F3FC1EDE89C9AC8C6FA",
     "Ensure-DomeniaIcon": "B3CE3B97CF5FDF243C2828D417B7B810314DB0CDEE66170CC9ABDDDCB97FEDC6",
     "Get-RootDir": "5AA20EA33B9864B60B7928C474FB65B5EB58601A463D4578133752BA1C13FA0F",
@@ -72,7 +72,12 @@
     "Set-DomeniaContextHint": "B3E4E9AA1A9E99F8260D76E35D2D0F761F2DC0410057715E77144073DE178B1B",
     "Enable-DomeniaUxHints": "7A810180BD6AC95C597E70DEA6EA43E726B6BE8C9B545D241660E971BC98B2C2",
     "Set-DomeniaControlText": "2131726A0EDEED6418A5771E6E4A9F4C8E3965A66704E33FF00DE1E222CDD2FD",
-    "Set-DomeniaItemsSource": "FB7F8EDF05A3A662D1EE10854618E007E79E0B75B30D4C5371FEE078FAE87B28",
+    "Get-DomeniaGridDateSortKey": "E7BF7E619847FE79456754E29C7FCD404964595B44B04B5EA585BD62BCD8D0A8",
+    "Get-DomeniaGridDateShortText": "CEFE035B77E2F6E946C9409A569100558E64C7D641E9114B316EDC52B16193B8",
+    "Get-DomeniaInventoryAgeLabel": "98737AFD2F432BD1EEDC5E6374BA190A152EF4671E849F5E4B196FAF747B7635",
+    "Get-DomeniaInventorySummaryText": "4BE7DA342E3B5312584CC25697D6D3AFA9990A4566F805414A62A164DC005048",
+    "Add-DomeniaGridDateKeys": "905438D7D6F4CC007686BCE93623443CBB9029D65754362B1248D34BD7240C2E",
+    "Set-DomeniaItemsSource": "D5C958C857B1078A3EC709F48A6AC179F1E2D51A68BCE9419C87F78FB407EF50",
     "Set-DomeniaGridRows": "E8D2FDCCBAA350AADD89FE199B97072FF62EAFD32D04808D8989C8A8ABBDCC12",
     "Set-DomeniaControlEnabled": "9C79CD555B579C2B055B402B62E88F24416DB5A257639B3C04187F96E05B5FF3",
     "Invoke-DomeniaUiPump": "6326D1A68740CADD53B75F8BA49CBA91CE0308719979F11BBF900B98BA181A1C",
@@ -147,7 +152,7 @@
     "Set-DomeniaResourceColor": "27391F9046A85B14658803F03178045ABEDF0B1F4DD5364D7BA5575C5E4F11BE",
     "Apply-DomeniaTheme": "B0ECA10884F7B8D32279AD437EAB8C806D868256D7071B79511688468E2D02BE",
     "Toggle-DomeniaTheme": "EA7E0F31A78D8B4A0BFAB0C27D8028521C1C3A1A255DDA4BEA3B65B5F7C99F03",
-    "Get-MainXaml": "E5CB3AD09A6857B5FE9D72498E3E1F175728F1B98254650CA8A6D4E8E5D5F15E",
+    "Get-MainXaml": "295B3D31EFF6EB272894B1E4928B49FFACC4524135BBCE6AF5BA783385447BF8",
     "Assert-DomeniaXamlPreflight": "20BB1DA04FD88D78E1A52C5610376467D5E9408437BC823DDC8EC8F40C0EAEB7",
     "Save-DomeniaXamlDiagnostic": "D648C9D6BD6F5F3A6613957D22A6A42EC1AAC0C1FA6218195A55D10EADF4DC67",
     "ConvertFrom-DomeniaXaml": "855E6CA9E56D62F77F5C22ACAC048293D24281B5B8FCC7FEB6806450BE561228",
@@ -186,7 +191,7 @@
     "Get-ObjectsStatsText": "061A2EFD1285FFCB7E757ED5A65B82FA31F25049809849C995BDCCE4FF4361A2",
     "Go-RootBranch": "308883E730A3D8DE9AC124CBFF6D995D4748EFECD4448288B187BFF2A4FAB97F",
     "Clear-ObjectDetails": "10DCE6FAD096DD9F9D7F117660BC5F859F36A870E6EA888D91C5A95E922134F6",
-    "Reset-DomeniaSelectionBoundViews": "85F33B04D092DCF04E2182EFFC53470C82C46327DE754E3C1F72A8E122160688",
+    "Reset-DomeniaSelectionBoundViews": "789FC02AF13A8C4409D81CDA0F072164AE7CB09E48F537406AA4928F20521890",
     "Fill-GenericObject": "3DE26815176141F327EC0CDF4609D1BDA5AC61AA2058849E39E9BBF0100B9A20",
     "Fill-UserObject": "E684162B29361BC3631D138CC367574DCB6A918F45E01F8625F2C8ED211F2390",
     "Fill-DomeniaUserContact": "3E0B9B0F3152F050CA8E8CADC629DC9FF6D21FECD3E6DC8CDE24D95E84F958DE",
@@ -278,8 +283,10 @@
     "Get-DomeniaInventoryWorkerCode": "A9A0DDBA9DF9B08BA8946FC446E03C61DFA3589F123103E21904E8E2A29974B4",
     "Apply-DomeniaInventoryFilter": "1AB20D35307D9386DCD7FB6CEABAB4E4C3C6097FB8A4F5E0738FDAD3A778D041",
     "Update-DomeniaInventoryCategories": "9829F97A6E45FDBE1D8DE9BB030230433035A55F12444C7D124917D3E5F764EE",
-    "Complete-DomeniaInventoryUi": "567C52E389A6A71C42ABF26C5C9933BE09C340A9D5CFCC9CF796B31B339C3C53",
+    "Complete-DomeniaInventoryUi": "D978BF2A91022870708789F5E3041C44A61DE9D2263ED50E7546FD257D7D0E02",
     "Fail-DomeniaInventoryUi": "1AF1E17F7D22C226EECF02D0D0DA4E0B17D61F35EB3BECDE8B645798C020EA91",
+    "Update-DomeniaInventoryAgeLine": "E09299D8FF847F0A1B01E39449193BA69E32C42F1D4295F9F25354C66A4E1349",
+    "Show-DomeniaCachedInventory": "2D875DE65D8C115AF72B141CF795BA1796903BCE04AD6D0B5D28ED523B6BFBED",
     "Start-DomeniaComputerInventory": "51B2D511497CC9D7E9E591A75415BB368BAFDB19B6ABC11A685BC9F3E7E465CD",
     "Get-DomeniaInventoryReportText": "65F5AA07DE47D4B5D3BBE972E9CC6D2736554E9EA4F83C01CDFE00BF3F961D57",
     "Copy-DomeniaInventory": "E785E64EBB60067944B3FEBC2C45328EF84096658ADC98A0FF4B7995F933E4DC",
@@ -310,16 +317,23 @@
     "Build-DomeniaTreeContextMenu": "214C9EA4E72FE3E0D4BD68ED0BA363760ADD57023A4CFC1C418038B4604C8CAA",
     "New-DomeniaCopyContextMenu": "AB005DC113A94E7B67AE2849D319D3D848CC124B3361962F6FD87EA49ED2C561",
     "Register-DomeniaContextMenus": "D041C7EC62497FAA9CCFB8AD49634FC78F8F71531FE62D2D825BB7933E2E3AB7",
-    "Get-DomeniaSoftwareWorkerCode": "89D918FD6088659259CD0D4A015A8C47F570326532C575E54C7C763A92A4D91C",
-    "Apply-DomeniaSoftwareFilter": "819747C033E22B438FE8AACF6C75D4B573FA2A195D5BAE2593ED6C2E920C3BB1",
-    "Complete-DomeniaSoftwareUi": "2349D24D79CC812EB555DEEA79CA588D53C06450DFD1F64B2E3B83DDE75DA9FE",
-    "Fail-DomeniaSoftwareUi": "D8DAA294FB568D1C0A2A82B6E669FFF15A3BBFEC544C5EFCE115C4929697248B",
-    "Start-DomeniaSoftwareInventory": "8AFC605ECCCCB23F2A6ECE0EE35C3FA0451A04A809A8EEC0FED6E81C4F92E43B",
-    "Copy-DomeniaSoftware": "4CA8AF05BE9D014FC55E24523DF10096161F812DE60ED5FBA3E37E82C4D819BB",
-    "Export-DomeniaSoftware": "28205316DFC9C5E57BC99378153D1F4EB54180CF6407713EF1096E9E356BD5EA",
+    "Get-DomeniaSoftwareWorkerCode": "2C045E9590C375CB3DA2D00759B13AB748B21DEA7FE36D8A5699C2A7BAD8429E",
+    "Apply-DomeniaSoftwareFilter": "0AC00785A47F14ACF707D4021D68930542A610CD758D6D95359BB542180E1EBC",
+    "Complete-DomeniaSoftwareUi": "F49179264C76CAC85C03E86DB2F58FF29B22731EAAEA95A3EBE232DA28268435",
+    "Fail-DomeniaSoftwareUi": "3935C00C3CCB74F9EC0516AA62C36E5B54A4AA205050B26BE97D10AF9B8E83A8",
+    "Update-DomeniaSoftwareColumnVisibility": "EB188CE1D63C1FCEEDACE7451C7BAAF3BD9A4E04FA091546D4E124DCDBCA617E",
+    "Update-DomeniaSoftwareSyntheseVisibility": "87E238F22213D33E937345A50CE0B939AB4FB48D5FB050BE1AE4AECAD6BEE3CE",
+    "Update-DomeniaSoftwareAccessSummary": "396493ADEF12898EFD646379F667EA8CCA3A2D7A9AD6722E3CFC0C361074678E",
+    "Update-DomeniaSoftwareFilterChip": "2FEBB9560D41B3F7D48DF36304E029DCE2A7F86607E2E3B29E44AC2E0B38F1C9",
+    "Request-DomeniaSoftwareChartFilter": "34DDF393F0ECED3BA1634E321B038D91D8CC630311B19C65D5531926474FF3C5",
+    "Clear-DomeniaSoftwareChartFilter": "C7FA168474486E92BF1DB8E25F6950DFA02F9C4F0730438E4C76C516B63F9744",
+    "Show-DomeniaSoftwareFromInventory": "A7A9683E2D97F1D1E86AC60713055C701E1D1DD29F07161709CBFAC30359C277",
+    "Start-DomeniaSoftwareInventory": "D2DAEECD2B6FD6F357BD225AEBB059C7D08CE54468790E5229562CEF7F825666",
+    "Copy-DomeniaSoftware": "1C61CFDA36577C05FFA4E3C0151A55B35CEFB4BF68578E850B13DAB295A50B5C",
+    "Export-DomeniaSoftware": "8847C6F1B8A0C1542077BC53189D0B73D32FA3F2CBCA6AC720F6B3934BF5E383",
     "Get-DomeniaWmiNamespacesWorkerCode": "4AB6BF1EBD44124AA86DC381FAB466E3D2C7AAAEA5454D5CD8AB2574B71D4BDB",
     "Get-DomeniaWmiClassesWorkerCode": "C948D34471FBF898F6310FE474495D9C6FBC0607E5C0D2E172CFFE9EDA9B7A14",
-    "Get-DomeniaWmiQueryWorkerCode": "A20AD5F7A158CFAE7DA35A7B94249C8209AA27C713D3E1E4A5DA74A3B3CCC3A4",
+    "Get-DomeniaWmiQueryWorkerCode": "7A295022E917046111E35B6DB15FAEDF556759BD9272FC930884513ABD226277",
     "Get-DomeniaWmiComputer": "54383BA1D69B72D203CC949455146BD3C7A7D6591321A1FBF4549702E39FC28A",
     "Complete-DomeniaWmiNamespacesUi": "CD94EFEEE0FEC4F6B6644F45BB7CF5F17A0FADD4850C048F5A12C3667578B6EA",
     "Complete-DomeniaWmiClassesUi": "7E949C4FC7F4ED889D0CA8DF9F4909A5D594E7374033DF32354C56B2CADD39A0",
@@ -330,7 +344,7 @@
     "Get-DomeniaWmiSelectedClass": "27F86926E8C85C05F6F530AD7B8015CB497DE10D3AF3A57D924758AE0D535E98",
     "Start-DomeniaWmiNamespaces": "EB24465C9230C64310DD6211CE8BC81EFE2F7F1F4F11A3671E36226789605C6C",
     "Start-DomeniaWmiClasses": "45C2291BE1349A6B9BF32B18865B27A4292B5AA0B9E2CB0ADBAA9DE24249F3E5",
-    "Start-DomeniaWmiQuery": "22C55C2B65E936CE03844E4E6F888B7F2D346F8E369A14B3AD1FC8E7CD19C557",
+    "Start-DomeniaWmiQuery": "99C94B1D51D3BE37ACC37D38EFE88422B300A345FE4F92829B05C7045A5C3DCF",
     "Copy-DomeniaWmi": "88FD71AC73A6363DB0529E87E1D9C65F4B9B5B5E22D742CAAFC216B017500266",
     "Export-DomeniaWmi": "A2F940788A314522AB1263AFF1B6E8F34DA7379C779E55964024FE78B54A1292",
     "Get-DomeniaScanRecordPath": "EFFA52804D6CE296099D8255773609B8EBC4314B81325F76E59555C6C108F173",
@@ -411,7 +425,7 @@
     "Ensure-DomeniaPermissions": "8DAA53B2A1C49AE68A4F57E22DE11B8FC0448A946F9D0AE22809AC2BD7679571",
     "Register-DomeniaDeferredViewHandlers": "68FF9E5E56FD29EC1AB8D88F02EF95D029E9A781E5F6290F4925E5D07A8604C4",
     "Register-DomeniaShortcuts": "FD189C01ECA7AE1265DC2593ED4ACB674775747291BC669F51B9C6D9F96DFA11",
-    "Start-ComputerDiagnostics": "361B8580A5EAE7FAF601CB7FD19E0DB7E353BA89F43A6C60D3D5D0EACC015155",
+    "Start-ComputerDiagnostics": "36A1AADBF2211338B2C3BF582A7984480B9A64CB420756885306BE1DE2127183",
     "Copy-ComputerDiagnostics": "A188275C51CFCAF2D55C5B9AC31B3F37B8B0437EA33B36A4BF243894D8F74E69",
     "Get-DomeniaRunningComputerUserProbe": "AAAEE5EFFB592A6489AD11D2D49938E509181AA78152D4A6E4F790A9DF7A9872",
     "Clear-DomeniaComputerUserProbeState": "CFB0566F82093241E0919721488D728C875C004989925DEA56BAD6D422F3302F",
@@ -443,7 +457,7 @@
     "Complete-DomeniaAdminShareOpen": "AA2F2B0F5E5E5B5733652A8B9B6F64DA02253FBA9059FE0F257EF603D78319FF",
     "Fail-DomeniaAdminShareOpen": "41AA321C8D85C971A4F1B64DF80DD66AA83DE658280DC49275203AB4CB6116E8",
     "Start-DomeniaComputerToolProcess": "8C7F66EF9C9050BC3B76A790474FAFA71C043C4F32691934B1FBE3BBC7E96AE6",
-    "Invoke-ComputerTool": "D06798469587D5F2A51BA76E7CA9E359EEEBBAC0349682FC9DC280197CE326B0",
+    "Invoke-ComputerTool": "503B7EA8F49B25DD7A768747CFAF1E8F9E95003F0AF6B01CA79F0DE7308A60C5",
     "ConvertTo-DomeniaLogFileLines": "A2B83A6D6EDAF8D07A2C57065D8FBE158F525445C8F3B517A4EBD2D6FA440287",
     "Get-DomeniaAppLogFallbackPaths": "E68362BF3B7D4EE6A1FEEF43C3CC7E31A6749E0A407EEE566853515405D1414E",
     "Write-DomeniaAppLogFile": "F1957AD2F5F9A16E0D5E7B5B127032A3B52088977A67D2562927A95624281B85",
@@ -500,9 +514,9 @@
     "Update-DomeniaAccountUi": "F03D38506BDAAB6FF56FC6CFB55D30C6CAA5BD42F8931D309791D0A38CAC8658",
     "Save-DomeniaSecondaryCredential": "42B25C1774BFFA85D5131498FFBC5E6498BE89C31B8339991A974845C2DBACA1",
     "Clear-DomeniaSecondaryCredential": "DE60DE3B21A5B8D0E415E757B7F87FD95FAD27AE5B91CFDACA46D0B682003647",
-    "Start-DomeniaAccountRelogin": "D397EBD3337720384D5BCF5ECD2CEDEC21142918605BFFC510ABAE08775CB2CE",
+    "Start-DomeniaAccountRelogin": "22E9E3E258ED9B356421B4C78539E663B577E049E7034E919957D4A3DE056544",
     "Initialize-DomeniaAccountPanel": "05F251F380F8DF6C8E6DB91B2631449C8C6CCF4619709DA289F9BD1C7AD3273D",
-    "Wire-Events": "71FE373E3284351A8F95C51D779821E6D21441041F386B508F90542A16EF3372",
+    "Wire-Events": "4CC3B4FC3FEEA3316F1E68BCC96E368060A9DDF74EEB731EC046577BCA80F2AD",
     "New-DefaultConfig": "5A2EC1F0A6C807DAC66AA8E8EF163EFD5AC95357B9CA6837558437B55752B94F",
     "Initialize-DomeniaDataStore": "75C63F73149D4C8CACBAA107F9223E9140830F4F01360F1899E8D79DC6A51E5A",
     "Write-StartupTrace": "216F93F6D1D37A669438F904233E5819260B8DA5AD48CF8887D6C5A372435250",
@@ -541,8 +555,8 @@
     "Load-UserMachineLinks": "D588E9FAB3DB852FD760624C2A463CDEA8A5B97BAF550C273F8C7C1B2CB7776D",
     "ConvertTo-DomeniaCanonicalWorkerCode": "48A6A851309CF03C8AA4802B160FC0C9D3234B795C63D0BAED6923BF42FE2FAF",
     "Get-DomeniaWorkerCodeHash": "6B81660F207AAEB37BA076144EDD12F5A926F9F64858B03755C2567E335C0D16",
-    "Get-DomeniaWorkerOperationHashes": "F0DE36CAC102B4DBD5AA9F4A948AF1FC7FEDB7F68301D92E851650B12B0D2FC0",
-    "Assert-DomeniaWorkerRegistry": "2EE5EF0592F1FBB00D21DF6EBE46F945B9BAA19D86C222A79AD26A04D6F5FD1F",
+    "Get-DomeniaWorkerOperationHashes": "C99DA1B43B58B4EE00E4FCE80AA5AF2FD31B8C69D46BC7BF9791595A6D4ECDEF",
+    "Assert-DomeniaWorkerRegistry": "0913BA2B045D06565F8EDDC2097FD90E9B9EABB1C416573147F592CAF14EDF06",
     "Assert-DomeniaWorkerOperationCode": "41D63871EDC11F5765938E6DAF8004A01471CD63E9666E2569D6E43008032526",
     "Get-DomeniaWorkerEngineSelfTestCode": "7FB07491846A78A89C13351DC07ABCA7B150642EE02AA25FF430A19942001AF0",
     "New-DomeniaWorkerRunspace": "A523035FD91D666E9DC01C5D9AF17A13A8AB755B0C60592D83D6C752361CAB1B",
@@ -560,7 +574,7 @@
     "Complete-UiTasks": "4CE841153DC319485870C536427523AE2B98ACFBF8F97548FA5845F4A2008463",
     "Dispose-AsyncEngine": "064D0003B527B7DFCF15DC8EEAEC7C19754F9438BA0C870E874EEB372BE17B75",
     "Initialize-DomeniaWorkerContextCache": "8872C031C18B66835299AD08F54B9B7E1109482CA7C7AC470DADC59320AAE649",
-    "Get-WorkerContext": "36C81A9F9461508929ABFC1536AE0244C3E7A9A382BFE42481274E8BAFE86EB3",
+    "Get-WorkerContext": "34ACAEED67D444E1A84B5B9014545C1DE43AD8B120951B5D9D2587CF5648217A",
     "Get-DomeniaEntryFirstString": "8EA7D5A1F475CF886863D217A382875DA56CC2AF0C0D7A9B5FD5D42F2B25C192",
     "Get-DomeniaSafetyDescriptor": "FC5775C4C38AC851CEA87B13A39E7C30AF9D3FAD08B98677A5AD3EF5BB2A2DFC",
     "Confirm-TextAction": "82C77D240F4202BF1BF04AEAD4E8036E5C9A004EF15C0317D52BF803CFDEA0E0",
@@ -582,7 +596,7 @@
     "Test-DomeniaActualCapabilityDenied": "7B1587596DF9FB74495E2E1719356E63C2A6447A0768ECF1588FEFD836D4062A",
     "Clear-DomeniaActualCapabilityDenials": "406426EE2A49F6ADE3D93F78FCDB88BB31C9013B510AF1A856068FD38C7BD9EF",
     "Apply-CurrentPermissionUi": "746770E261FF2EB3D2F13FB5BD9AF14F40DB7206F2F5FFAC29DCA5F2DD944977",
-    "Initialize-DomeniaPresentation": "8AF667C1FECA6620FBEE75822D000FDD274772E6CD8CB5E409EA2AFA8D38822C",
+    "Initialize-DomeniaPresentation": "1CCBABE7E14014E366A2223E6F9FECA926BA2D24B2D880682D2BB3CA4175FAD7",
     "Assert-DomeniaCapability": "F1F25727EF50BCD7B2349C382A57D66CB1D83373B28E8386B36F8D4ACCB2160F",
     "Invoke-DomeniaWritePostAction": "1F8DAA26A4FE81A1409A3548CE95E90F4B492BD480ACE3F23D476ED1864D9098",
     "Get-DomeniaWritePostcondition": "0B993663665A91761922DA37F25B966FF99F3783C48C77619580B57C72B0A37D",
@@ -2362,6 +2376,281 @@
         "Start-DomeniaIndexWalk",
         "Start-DomeniaIndexWalkStep"
       ],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "source tree",
+      "Source": "lot/L10-spark SE-03",
+      "Decision": "SE-03 (lot L10) : Get-DomeniaWorkerOperationHashes et Assert-DomeniaWorkerRegistry ont change parce que update_worker_contracts.py a reecrit les empreintes de WmiQuery, LiveConsole et LiveSelectedPing, seules fonctions ablees a lire le poste. Les trois autres corps changes sont volontaires : Assert-DomeniaWmiReadQuery appelle Test-DomeniaMsiProviderClass, Get-DomeniaWmiQueryWorkerCode refuse le fournisseur MSI depuis la charge utile, Start-DomeniaWmiQuery transmet la liste. Aucun autre corps de coeur ni payload.",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWmiReadQuery",
+        "Assert-DomeniaWorkerRegistry",
+        "Get-DomeniaWmiQueryWorkerCode",
+        "Get-DomeniaWorkerOperationHashes",
+        "Start-DomeniaWmiQuery"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "lot/L10-spark SE-03",
+      "Source": "lot/L10-spark CO-03a",
+      "Decision": "CO-03 : les colonnes datees et taille trient par valeur ; cles portees par les lignes de DgObjects et DgSoftware",
+      "ChangedCoreFunctions": [
+        "Add-DomeniaGridSortKeys",
+        "Apply-DomeniaSoftwareFilter",
+        "Get-DomeniaGridDateSortKey",
+        "Get-MainXaml",
+        "Set-DomeniaItemsSource"
+      ],
+      "AddedCoreFunctions": [
+        "Add-DomeniaGridSortKeys",
+        "Get-DomeniaGridDateSortKey"
+      ],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "lot/L10-spark CO-03a",
+      "Source": "lot/L10-spark CO-03b",
+      "Decision": "CO-03 : les colonnes datees affichent court avec la date complete en infobulle et dans le CSV ; Add-DomeniaGridSortKeys devient Add-DomeniaGridDateKeys et porte aussi le texte court",
+      "ChangedCoreFunctions": [
+        "Add-DomeniaGridDateKeys",
+        "Apply-DomeniaSoftwareFilter",
+        "Get-DomeniaGridDateShortText",
+        "Get-DomeniaGridExportColumns",
+        "Get-MainXaml",
+        "Set-DomeniaItemsSource"
+      ],
+      "AddedCoreFunctions": [
+        "Add-DomeniaGridDateKeys",
+        "Get-DomeniaGridDateShortText"
+      ],
+      "RemovedCoreFunctions": [
+        "Add-DomeniaGridSortKeys"
+      ],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "lot/L10-spark CO-03b",
+      "Source": "lot/L10-spark CO-03b",
+      "Decision": "CO-03 : les colonnes datees affichent court avec la date complete en infobulle et dans le CSV ; la valeur exportee d une colonne modele vient de ClipboardContentBinding, Tag n existant pas sur DataGridColumn",
+      "ChangedCoreFunctions": [
+        "Add-DomeniaGridDateKeys",
+        "Get-DomeniaGridDateShortText",
+        "Get-DomeniaGridExportColumns",
+        "Get-MainXaml"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "lot/L10-spark CO-03b",
+      "Source": "lot/L10-spark CO-24-SP-06",
+      "Decision": "Textes alignes sur la collecte reelle du collecteur (bloc if deep du worker) et durees annoncees par les budgets reels 55 s et 150 s",
+      "ChangedCoreFunctions": [
+        "Get-MainXaml"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "lot/L10-spark CO-24-SP-06",
+      "Source": "lot/L10-spark CO-24-SP-06",
+      "Decision": "Textes alignes sur la collecte reelle du collecteur (bloc if deep du worker) et durees annoncees par les budgets reels 55 s et 150 s",
+      "ChangedCoreFunctions": [
+        "Get-MainXaml"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "lot/L10-spark CO-24-SP-06",
+      "Source": "Lot UX-37 du programme 2026-10-08 (branche lot/L10-spark)",
+      "Decision": "Set-DomeniaItemsSource calcule ValueText pour DgInventory ; table de traduction ajoutee au module poste",
+      "ChangedCoreFunctions": [
+        "Get-MainXaml",
+        "Set-DomeniaItemsSource"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "Lot UX-37 du programme 2026-10-08 (branche lot/L10-spark)",
+      "Source": "lot UX-39 (sessions Windows rendues par la vue testee)",
+      "Decision": "2 fonctions du coeur touchees : Get-MainXaml (colonnes de DgSessions) et le raccordement des evements",
+      "ChangedCoreFunctions": [
+        "Get-MainXaml",
+        "Initialize-DomeniaPresentation"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "lot UX-39 (sessions Windows rendues par la vue testee)",
+      "Source": "lot UX-17 (verdict du diagnostic en francais, Methode et Duree ms en Expert)",
+      "Decision": "Get-MainXaml: la colonne Etat du diagnostic devient une puce en mots francais avec le code brut en infobulle. Start-ComputerDiagnostics: le rappel de fin passe par ConvertTo-DomeniaDiagVerdict et ne compte plus les transports facultatifs en echec; le corps du worker ComputerDiagnostics reste intact, son contrat SHA est verifie.",
+      "ChangedCoreFunctions": [
+        "Get-MainXaml",
+        "Start-ComputerDiagnostics"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "lot UX-17 (verdict du diagnostic en francais, Methode et Duree ms en Expert)",
+      "Source": "lot PF-22 (programme 2026-10-08, L10) : l onglet Logiciels reprend la liste deja lue par l inventaire",
+      "Decision": "Dix fonctions du coeur modifiees, aucune ecrite, aucun worker touche : Start-DomeniaAccountRelogin et Reset-DomeniaSelectionBoundViews memorisent le poste et l heure de linventaire et reinitialisent la provenance ; Complete-DomeniaInventoryUi enregistre poste et heure ; Apply-DomeniaSoftwareFilter rend la provenance dans l etat ; Complete-DomeniaSoftwareUi, Start-DomeniaSoftwareInventory et Fail-DomeniaSoftwareUi marquent l origine de la liste et rendent les colonnes techniques ; Copy-DomeniaSoftware et Export-DomeniaSoftware nomment une liste reprise de l inventaire ; Wire-Events branche l ouverture de longlet. Deux fonctions ajoutees : Update-DomeniaSoftwareColumnProvenance et Show-DomeniaSoftwareFromInventory.",
+      "ChangedCoreFunctions": [
+        "Apply-DomeniaSoftwareFilter",
+        "Complete-DomeniaInventoryUi",
+        "Complete-DomeniaSoftwareUi",
+        "Copy-DomeniaSoftware",
+        "Export-DomeniaSoftware",
+        "Fail-DomeniaSoftwareUi",
+        "Reset-DomeniaSelectionBoundViews",
+        "Show-DomeniaSoftwareFromInventory",
+        "Start-DomeniaAccountRelogin",
+        "Start-DomeniaSoftwareInventory",
+        "Update-DomeniaSoftwareColumnProvenance",
+        "Wire-Events"
+      ],
+      "AddedCoreFunctions": [
+        "Show-DomeniaSoftwareFromInventory",
+        "Update-DomeniaSoftwareColumnProvenance"
+      ],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "lot PF-22 (programme 2026-10-08, L10) : l onglet Logiciels reprend la liste deja lue par l inventaire",
+      "Source": "lot PF-22 (programme 2026-10-08, L10) : l onglet Logiciels reprend la liste deja lue par l inventaire",
+      "Decision": "Dix fonctions du coeur modifiees, aucune ecrite, aucun worker touche : Start-DomeniaAccountRelogin et Reset-DomeniaSelectionBoundViews memorisent le poste et l heure de linventaire et reinitialisent la provenance ; Complete-DomeniaInventoryUi enregistre poste et heure ; Apply-DomeniaSoftwareFilter rend la provenance dans l etat ; Complete-DomeniaSoftwareUi, Start-DomeniaSoftwareInventory et Fail-DomeniaSoftwareUi marquent l origine de la liste et rendent les colonnes techniques ; Copy-DomeniaSoftware et Export-DomeniaSoftware nomment une liste reprise de l inventaire ; Wire-Events branche l ouverture de longlet. Deux fonctions ajoutees : Update-DomeniaSoftwareColumnProvenance et Show-DomeniaSoftwareFromInventory. Le banc de cablage complete son stub de collaboratrice, comme Apply-DomeniaSoftwareFilter.",
+      "ChangedCoreFunctions": [
+        "Update-DomeniaSoftwareColumnProvenance"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "lot PF-22 (programme 2026-10-08, L10) : l onglet Logiciels reprend la liste deja lue par l inventaire",
+      "Source": "lot PF-22 (programme 2026-10-08, L10) : l onglet Logiciels reprend la liste deja lue par l inventaire",
+      "Decision": "Dix fonctions du coeur modifiees, aucune ecrite, aucun worker touche : Start-DomeniaAccountRelogin et Reset-DomeniaSelectionBoundViews memorisent le poste et l heure de linventaire et reinitialisent la provenance ; Complete-DomeniaInventoryUi enregistre poste et heure ; Apply-DomeniaSoftwareFilter rend la provenance dans l etat ; Complete-DomeniaSoftwareUi, Start-DomeniaSoftwareInventory et Fail-DomeniaSoftwareUi marquent l origine de la liste et rendent les colonnes techniques ; Copy-DomeniaSoftware et Export-DomeniaSoftware nomment une liste reprise de l inventaire ; Wire-Events branche l ouverture de longlet sur le SelectionChanged du TabControl, TabItem ne possedant pas levenement Selected. Deux fonctions ajoutees : Update-DomeniaSoftwareColumnProvenance et Show-DomeniaSoftwareFromInventory.",
+      "ChangedCoreFunctions": [
+        "Wire-Events"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "lot PF-22 (programme 2026-10-08, L10) : l onglet Logiciels reprend la liste deja lue par l inventaire",
+      "Source": "UI-08 (L10) : onglet Logiciels, liste avant synthese",
+      "Decision": "Update-DomeniaSoftwareColumnProvenance devient Update-DomeniaSoftwareColumnVisibility : une seule fonction commande desormais la visibilite des colonnes, pour que le bouton Colonnes (UI-08) et la provenance de la liste (PF-22) ne se contredisent jamais. Deux fonctions ajoutees, Update-DomeniaSoftwareSyntheseVisibility et Update-DomeniaSoftwareAccessSummary, toutes deux commandees par des controles de la XAML. Trois fonctions du coeur modifiees par ces appels (Complete-DomeniaSoftwareUi, Show-DomeniaSoftwareFromInventory, Fail-DomeniaSoftwareUi) et deux par la remise a zero du resume (Reset-DomeniaSelectionBoundViews, Start-DomeniaSoftwareInventory). Aucun worker touche : le contrat SHA SoftwareInventory reste a 0F758A7D.",
+      "ChangedCoreFunctions": [
+        "Complete-DomeniaSoftwareUi",
+        "Fail-DomeniaSoftwareUi",
+        "Get-MainXaml",
+        "Reset-DomeniaSelectionBoundViews",
+        "Show-DomeniaSoftwareFromInventory",
+        "Start-DomeniaSoftwareInventory",
+        "Update-DomeniaSoftwareAccessSummary",
+        "Update-DomeniaSoftwareColumnVisibility",
+        "Update-DomeniaSoftwareSyntheseVisibility",
+        "Wire-Events"
+      ],
+      "AddedCoreFunctions": [
+        "Update-DomeniaSoftwareAccessSummary",
+        "Update-DomeniaSoftwareColumnVisibility",
+        "Update-DomeniaSoftwareSyntheseVisibility"
+      ],
+      "RemovedCoreFunctions": [
+        "Update-DomeniaSoftwareColumnProvenance"
+      ],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "UI-08 (L10) : onglet Logiciels, liste avant synthese",
+      "Source": "Lot L10 FO-09, clic sur une part ou une barre des graphiques logiciels",
+      "Decision": "Quatre fonctions ajoutees : trois regles pures du clic dans le modele du board logiciels et Invoke-DomeniaChartSelect dans les graphiques. Le contrat SHA des workers est intact (SoftwareInventory 0F758A7D).",
+      "ChangedCoreFunctions": [
+        "Apply-DomeniaSoftwareFilter",
+        "Clear-DomeniaSoftwareChartFilter",
+        "Get-MainXaml",
+        "Request-DomeniaSoftwareChartFilter",
+        "Reset-DomeniaSelectionBoundViews",
+        "Start-DomeniaAccountRelogin",
+        "Start-DomeniaSoftwareInventory",
+        "Update-DomeniaSoftwareFilterChip",
+        "Wire-Events"
+      ],
+      "AddedCoreFunctions": [
+        "Clear-DomeniaSoftwareChartFilter",
+        "Request-DomeniaSoftwareChartFilter",
+        "Update-DomeniaSoftwareFilterChip"
+      ],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "Lot L10 FO-09, clic sur une part ou une barre des graphiques logiciels",
+      "Source": "Lot L10 FO-07, derniere lecture du poste reprise de la session avec son age",
+      "Decision": "Quatre fonctions de coeur ajoutees, aucun contrat worker touche",
+      "ChangedCoreFunctions": [
+        "Complete-DomeniaInventoryUi",
+        "Get-DomeniaInventoryAgeLabel",
+        "Get-DomeniaInventorySummaryText",
+        "Get-MainXaml",
+        "Reset-DomeniaSelectionBoundViews",
+        "Show-DomeniaCachedInventory",
+        "Start-DomeniaAccountRelogin",
+        "Update-DomeniaInventoryAgeLine",
+        "Wire-Events"
+      ],
+      "AddedCoreFunctions": [
+        "Get-DomeniaInventoryAgeLabel",
+        "Get-DomeniaInventorySummaryText",
+        "Show-DomeniaCachedInventory",
+        "Update-DomeniaInventoryAgeLine"
+      ],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "Lot L10 FO-07, derniere lecture du poste reprise de la session avec son age",
+      "Source": "Lot L10 MO-09, logiciels par utilisateur lus par StdRegProv sur HKU",
+      "Decision": "Empreinte du worker SoftwareInventory et doigt du registre recalculs apres revue ; aucune fonction de coeur ajoutee ni retire",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Get-DomeniaSoftwareWorkerCode",
+        "Get-DomeniaWorkerOperationHashes",
+        "Get-MainXaml"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "Lot L10 MO-09, logiciels par utilisateur lus par StdRegProv sur HKU",
+      "Source": "lot/L10-spark SE-07",
+      "Decision": "Une lecture ne bascule plus seule sur PsExec ou une tache planifiee : le registre porte deux ecritures qui declarent -Purpose Write, le doigt du registre suit.",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Get-DomeniaWorkerOperationHashes",
+        "Get-MainXaml",
+        "Get-WorkerContext",
+        "Invoke-ComputerTool"
+      ],
+      "AddedCoreFunctions": [],
       "RemovedCoreFunctions": [],
       "ChangedPayloads": []
     }

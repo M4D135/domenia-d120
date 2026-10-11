@@ -88,7 +88,7 @@
     "File": "wad/Domenia-Core.ps1",
     "Function": "Get-DomeniaSoftwareWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "0F758A7DFEF27A63A230A3CD34FE45A5D7079691AB6C9D989C861ADE2A61E9D1"
+    "Sha256": "214DA1A24E26D30BB0529B539B80E8B183BB195FE610F3B8C124E94724CCF5CE"
   },
   {
     "Operation": "WmiNamespaces",
@@ -109,7 +109,7 @@
     "File": "wad/Domenia-Core.ps1",
     "Function": "Get-DomeniaWmiQueryWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "CCF547839D0C78001741E9A278DDFC531166108188BE9AAB498E61F6EFB2313F"
+    "Sha256": "6BD3C58E349298A4B4909D51A9841B052E5B911D7563D6239550F0CC3DB146F0"
   },
   {
     "Operation": "UserComputerProbe",
@@ -179,14 +179,14 @@
     "File": "wad/Domenia-Core.ps1",
     "Function": "Invoke-ComputerTool",
     "LiteralIndex": 1,
-    "Sha256": "834EF3F6318DFE7917FBA4926B53F0013987B258C6395012ECD03BEE874CFA17"
+    "Sha256": "AC0E30C53A5257A12378801A8B6831FFAAB183CBB0548CE9A768637B255AB1C0"
   },
   {
     "Operation": "ComputerRestart",
     "File": "wad/Domenia-Core.ps1",
     "Function": "Invoke-ComputerTool",
     "LiteralIndex": 2,
-    "Sha256": "CF11D2F7B15DC33E3C92BE72E496F12B80BBA2C76AFAFA21B7E1F3469C861B50"
+    "Sha256": "7895BE660A73963FF297989D640D7F47BCFB6D81D6B8E1F2D7E357A7C1E24B3F"
   },
   {
     "Operation": "PruneLinks",
@@ -319,7 +319,7 @@
     "File": "wad/modules/Domenia-Live.Model.ps1",
     "Function": "Get-DomeniaLiveProbeCode",
     "LiteralIndex": 0,
-    "Sha256": "1096C61BB04511091B3F2CFE7731797EADFA74C8973B312E77AE7A793952125B"
+    "Sha256": "E6C6A5D6C22D1A46937454909AF29E86360B94105BBBE9FFD80F7288791745A9"
   },
   {
     "Operation": "LiveCache",
@@ -382,7 +382,7 @@
     "File": "wad/modules/Domenia-Live.Model.ps1",
     "Function": "Get-DomeniaLiveProbeCode",
     "LiteralIndex": 0,
-    "Sha256": "1096C61BB04511091B3F2CFE7731797EADFA74C8973B312E77AE7A793952125B"
+    "Sha256": "E6C6A5D6C22D1A46937454909AF29E86360B94105BBBE9FFD80F7288791745A9"
   },
   {
     "Operation": "EmbeddedDirectoryLookup",

@@ -228,10 +228,15 @@ try{
     if($null -ne $Payload.PSObject.Properties['Probes'] -and @($Payload.Probes).Count){
         $since=@{'{SINCE_24H}'=(Get-Date).AddHours(-24).ToUniversalTime().ToString('yyyyMMddHHmmss.000000+000');'{SINCE_7D}'=(Get-Date).AddDays(-7).ToUniversalTime().ToString('yyyyMMddHHmmss.000000+000')}
         $probeResults=[ordered]@{}
+        $allowedClasses=@();if($null-ne$Payload.PSObject.Properties['AllowedClasses']){foreach($allowedClass in @($Payload.AllowedClasses)){if(-not[string]::IsNullOrWhiteSpace([string]$allowedClass)){$allowedClasses+=[string]$allowedClass}}}
         $productType=$null;$productTypeRead=$false
         foreach($probe in @($Payload.Probes)){
             $entry=[ordered]@{Rows=@();Count=0;Error='';CheckedUtc=[datetime]::UtcNow.ToString('o')}
             try{
+                # SE-03 : la classe doit appartenir au catalogue transmis par le client. Une charge utile fabriquee
+                # ailleurs ne peut pas faire lire CIM_Product au poste ; sans catalogue, aucune sonde ne part.
+                if(-not$allowedClasses.Count){throw 'Catalogue de sondes absent de la charge utile : lecture refusee.'}
+                if($allowedClasses -notcontains [string]$probe.Class){throw ('Classe absente du catalogue de sondes : '+[string]$probe.Class)}
                 if([string]$probe.Class -notmatch '^[A-Za-z0-9_]+$' -or [string]$probe.Namespace -notmatch '^[A-Za-z0-9_\\]+$'){throw 'Requete refusee.'}
                 # FI-17: a query flagged for the controllers never runs on one (ProductType 2), where it would walk the directory.
                 if([string]$probe.Skip -eq 'DomainController'){

@@ -47,7 +47,9 @@ $wanted=@('Write-DomeniaAtomicText','Read-DomeniaPreference','Write-DomeniaPrefe
     # L02: Domenia.log writer (FI-08, FI-09, FI-10, PF-09) and the common CSV export (CO-04, UX-02).
     'ConvertTo-DomeniaLogFileLines','Get-DomeniaAppLogFallbackPaths','Write-DomeniaAppLogFile','Start-DomeniaAppLogFlushTimer','Stop-DomeniaAppLogQueue',
     'Invoke-DomeniaAppLogRotation','Flush-DomeniaAppLog','Invoke-DomeniaAppLogFlush','Set-DomeniaAppLogAvailability','Set-Status',
-    'Get-DomeniaGridExportColumns','ConvertTo-DomeniaExportRows','Get-DomeniaExportFileName','Export-DomeniaCsv','Get-DomeniaCsvDelimiter')
+    'Get-DomeniaGridExportColumns','ConvertTo-DomeniaExportRows','Get-DomeniaExportFileName','Export-DomeniaCsv','Get-DomeniaCsvDelimiter',
+    # CO-03 : cles de tri des colonnes datees, et le XAML ou elles sont designees.
+    'Get-DomeniaGridDateSortKey','Get-DomeniaGridDateShortText','Add-DomeniaGridDateKeys','Get-DomeniaInventoryAgeLabel','Get-DomeniaInventorySummaryText','Get-DomeniaSoftwareWorkerCode','Get-MainXaml')
 $definitions=New-Object 'System.Collections.Generic.List[string]'
 $nodes=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst]},$true))
 foreach($name in $wanted) {
@@ -59,6 +61,22 @@ foreach($name in $wanted) {
 . ([scriptblock]::Create(($definitions -join "`r`n")))
 # FI-05 / PF-06: every Dispatcher timer comes from the protected factory of the engine (Domenia-Engine.UI.ps1).
 foreach($engineModule in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Engine.UI.ps1')){. (Join-Path (Split-Path -Parent $PSScriptRoot) ('modules\'+$engineModule))}
+# SE-03 : les regles MSI et le catalogue ne sont pas recopies dans les gardes. Le banc les charge par AST, comme
+# les fonctions du coeur, pour juger les gardes avec la liste reelle du produit.
+$guardAst=[System.Management.Automation.Language.Parser]::ParseFile((Join-Path (Split-Path -Parent $PSScriptRoot) 'modules\Domenia-Workstation.Model.ps1'),[ref]$null,[ref]$null)
+$guardNodes=@($guardAst.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst]},$true))
+$guardDefinitions=@()
+foreach($guardName in @('Get-DomeniaMsiProviderClassNames','Test-DomeniaMsiProviderClass')){
+    $guardNode=@($guardNodes | Where-Object {$_.Name -eq $guardName})
+    if ($guardNode.Count -ne 1) { throw "Definition unique attendue : $guardName ($($guardNode.Count) trouvee)." }
+    $guardDefinitions+=$guardNode[0].Extent.Text
+}
+foreach($guardName in @('Get-DomeniaWmiQueryWorkerCode')){
+    $guardNode=@($nodes | Where-Object {$_.Name -eq $guardName})
+    if ($guardNode.Count -ne 1) { throw "Definition unique attendue : $guardName ($($guardNode.Count) trouvee)." }
+    $guardDefinitions+=$guardNode[0].Extent.Text
+}
+. ([scriptblock]::Create(($guardDefinitions -join "`r`n")))
 $testDirectory=Join-Path ([IO.Path]::GetTempPath()) ('Domenia-tests-'+[guid]::NewGuid().ToString('N'))
 [void][IO.Directory]::CreateDirectory($testDirectory)
 $script:DataDir=Join-Path $testDirectory 'data';[void][IO.Directory]::CreateDirectory($script:DataDir)
@@ -265,17 +283,25 @@ try {
         # A template column without sort path (Détail of DgSelfCheck): its binding is read from the cell template.
         $cell=[Windows.Markup.XamlReader]::Parse('<DataTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"><StackPanel Orientation="Horizontal"><TextBlock Text="{Binding Detail}"/></StackPanel></DataTemplate>')
         $detail=[Windows.Controls.DataGridTemplateColumn]::new();$detail.Header='Détail';$detail.CellTemplate=$cell;[void]$grid.Columns.Add($detail)
+        # CO-03b : une colonne modele qui affiche « il y a 3 j » doit exporter la date complete que
+        # son Tag designe, ni la cle de tri (un DateTime) que SortMemberPath lui designerait,
+        # ni le texte court que son modele affiche.
+        $dateCell=[Windows.Markup.XamlReader]::Parse('<DataTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"><TextBlock Text="{Binding ChangedShort}" ToolTip="{Binding Changed}"/></DataTemplate>')
+        $dateCol=[Windows.Controls.DataGridTemplateColumn]::new();$dateCol.Header='Modifie';$dateCol.SortMemberPath='ChangedSort';$dateCol.ClipboardContentBinding=[Windows.Data.Binding]::new('Changed');$dateCol.CellTemplate=$dateCell;[void]$grid.Columns.Add($dateCol)
         $columns=@(Get-DomeniaGridExportColumns -Grid $grid)
-        Assert-True ((($columns|ForEach-Object{$_.Header}) -join '|') -ceq 'Nom|Type|Présence réseau|Détail') ('Colonnes : '+(($columns|ForEach-Object{$_.Header}) -join '|'))
+        Assert-True ((($columns|ForEach-Object{$_.Header}) -join '|') -ceq 'Nom|Type|Présence réseau|Détail|Modifie') ('Colonnes : '+(($columns|ForEach-Object{$_.Header}) -join '|'))
         Assert-True ([string]$columns[3].Property -ceq 'Detail') ('Propriete du modele : '+[string]$columns[3].Property)
-        $rows=@([pscustomobject]@{Name='=2+2';Type='Machine';Guid='0a1b';Presence='En ligne';PresenceDetail="Multi`r`nligne";Detail='Contrôle réussi'},[pscustomobject]@{Name='PC-02';Type='Machine';Guid='0c1d';Presence='Hors ligne';PresenceDetail='';Detail='À vérifier'})
+        Assert-True ([string]$columns[4].Property -ceq 'Changed') ('Date courte exportee : '+[string]$columns[4].Property)
+        $rows=@([pscustomobject]@{Name='=2+2';Type='Machine';Guid='0a1b';Presence='En ligne';PresenceDetail="Multi`r`nligne";Detail='Contrôle réussi';Changed='09/05/2026 08:00:00';ChangedShort='il y a 3 j'},[pscustomobject]@{Name='PC-02';Type='Machine';Guid='0c1d';Presence='Hors ligne';PresenceDetail='';Detail='À vérifier';Changed='03/06/2025 08:00:00';ChangedShort='03/06/2025'})
         $out=Join-Path $testDirectory 'export-co04.csv'
         $result=Export-DomeniaCsv -Rows $rows -Grid $grid -Path $out
         $bytes=[IO.File]::ReadAllBytes($out)
         Assert-True (($bytes[0] -eq 0xEF) -and ($bytes[1] -eq 0xBB) -and ($bytes[2] -eq 0xBF)) 'UTF-8 sans BOM.'
         $text=[IO.File]::ReadAllText($out)
         $first=($text -split "\r?\n")[0]
-        Assert-True ($first -ceq '"Nom";"Type";"Présence réseau";"Détail"') ('En-tete : '+$first)
+        Assert-True ($first -ceq '"Nom";"Type";"Présence réseau";"Détail";"Modifie"') ('En-tete : '+$first)
+        # Le CSV garde la date complete : « il y a 3 j » ne se relit pas six mois plus tard.
+        Assert-True ($text.Contains('09/05/2026 08:00:00') -and (-not $text.Contains('il y a 3 j'))) 'Le CSV a exporte le texte court ou la cle de tri.'
         Assert-True ((-not $text.Contains('0a1b')) -and (-not $text.Contains('Multi'))) 'Colonne masquee ou propriete interne exportee.'
         Assert-True ($text.Contains("""'=2+2""") -and ($result.RowCount -eq 2)) $text
         $round=@(Import-Csv -LiteralPath $out -Delimiter ';' -Encoding UTF8)
@@ -313,6 +339,42 @@ try {
         Assert-Throws {Assert-DomeniaWmiReadQuery 'Bad;Class' 'root\cimv2' '' 25}
         Assert-Throws {Assert-DomeniaWmiReadQuery Win32_Service 'root\cimv2' '' 501}
         Assert-Throws {Assert-DomeniaWmiReadQuery Win32_Service 'root\cimv2' ([string][char]0) 25}
+        # SE-03 : 88 classes passent par le fournisseur MSI, pas seulement Win32_Product.
+        Assert-Throws {Assert-DomeniaWmiReadQuery CIM_Product 'root\cimv2' '' 25}
+        Assert-Throws {Assert-DomeniaWmiReadQuery Win32_SoftwareFeature 'root\cimv2' '' 25}
+        Assert-Throws {Assert-DomeniaWmiReadQuery 'CIM_Product.ActsAsComponent' 'root\cimv2' '' 25}
+        Assert-Throws {Assert-DomeniaWmiReadQuery 'root\cimv2:Win32_Product' 'root\cimv2' '' 25}
+        Assert-Throws {Assert-DomeniaWmiReadQuery Win32_Patch 'root\cimv2' '' 25}
+        Assert-Throws {Assert-DomeniaWmiReadQuery CIM_Component 'root\cimv2' '' 25}
+        # Toute la liste du fournisseur est refusee, pas trois noms choisis a la main.
+        foreach($msiClass in @(Get-DomeniaMsiProviderClassNames)){ Assert-Throws {Assert-DomeniaWmiReadQuery $msiClass 'root\cimv2' '' 25} }
+        Assert-True ([bool](Test-DomeniaMsiProviderClass 'CIM_Product'))
+        Assert-True (-not [bool](Test-DomeniaMsiProviderClass 'Win32_Service'))
+    }
+    Test-Case 'WMI : le worker refuse le fournisseur MSI sans en recopier la liste' {
+        $msiNames=@(Get-DomeniaMsiProviderClassNames)
+        Assert-True ($msiNames.Count -ge 80)
+        $workerCode=[scriptblock]::Create((Get-DomeniaWmiQueryWorkerCode))
+        foreach($blocked in @('Win32_Product','CIM_Product','Win32_SoftwareFeature','CIM_Product.ActsAsComponent','Win32_Patch','CIM_Component')){
+            $Payload=[pscustomobject]@{Computer='pc-01.example.invalid';Namespace='root\cimv2';ClassName=$blocked;Where='';Limit=25;MsiClassNames=$msiNames}
+            $message=''
+            try{ & $workerCode }catch{ $message=[string]$_.Exception.Message }
+            Assert-True ($message -match 'fournisseur MSI') ('Classe '+$blocked+' non refusee par le worker : '+$message)
+        }
+        # Sans liste transmise, le worker ne peut rien juger : il refuse au lieu de laisser passer.
+        foreach($sansListe in @('absente','vide','nulle')){
+            $Payload=[pscustomobject]@{Computer='pc-01.example.invalid';Namespace='root\cimv2';ClassName='CIM_Product';Where='';Limit=25}
+            if($sansListe -eq 'vide'){ $Payload | Add-Member -NotePropertyName MsiClassNames -NotePropertyValue @() }
+            if($sansListe -eq 'nulle'){ $Payload | Add-Member -NotePropertyName MsiClassNames -NotePropertyValue @($null) }
+            $message=''
+            try{ & $workerCode }catch{ $message=[string]$_.Exception.Message }
+            Assert-True ($message -match 'Garde MSI absente') ('Worker laisse passer sans liste ('+$sansListe+') : '+$message)
+        }
+        # Controle positif : une classe saine franchit la garde ; l'echec vient ensuite du transport absent.
+        $Payload=[pscustomobject]@{Computer='pc-01.example.invalid';Namespace='root\cimv2';ClassName='Win32_Service';Where='';Limit=25;MsiClassNames=$msiNames}
+        $message=''
+        try{ & $workerCode }catch{ $message=[string]$_.Exception.Message }
+        Assert-True ($message -ne '' -and $message -notmatch 'fournisseur MSI') ('Classe saine refusee par la garde MSI : '+$message)
     }
     Test-Case 'Secrets : masque integral et absence de Value dans la grille' {
         $script:SecretRows=@([pscustomobject]@{Kind='LAPS';Account='test';Value='abcdSecret1234';Timestamp='';Source='test';Detail=''})
@@ -402,6 +464,240 @@ try {
             Assert-True ($literal.Count -eq 1 -and $literal[0].Name -ceq 'pc_01')
             Assert-True (@(Search-DomeniaDatabaseRows 'pc%02').Count -eq 1)
         }
+    }
+    Test-Case 'CO-03 : les dates et les tailles des grilles se trient par valeur' {
+        # Le tri par texte est la faute : il place 09/05/2026 avant 10/01/2026.
+        $dates = @('09/05/2026 08:00:00','03/06/2025 08:00:00','10/01/2026 08:00:00') | ForEach-Object {
+            [pscustomobject]@{ Name='x'; InstallDate=$_ }
+        }
+        $typed = @($dates | ForEach-Object { Add-DomeniaGridDateKeys -Row $_ -Fields @('InstallDate') } | Sort-Object InstallDateSort | ForEach-Object { $_.InstallDate })
+        Assert-True (($typed -join '|') -eq '03/06/2025 08:00:00|10/01/2026 08:00:00|09/05/2026 08:00:00') ('Ordre par valeur : ' + ($typed -join '|'))
+        $textual = @($dates | Sort-Object InstallDate | ForEach-Object { $_.InstallDate })
+        Assert-True (($textual -join '|') -eq '03/06/2025 08:00:00|09/05/2026 08:00:00|10/01/2026 08:00:00') ('Le tri par texte a change de sens : ' + ($textual -join '|'))
+        # Le poste publie aussi des dates sans heure (Win32_InstallDate) ; tout le reste tombe au plus ancien.
+        Assert-True ((Get-DomeniaGridDateSortKey '09/05/2026') -eq [datetime]::new(2026,5,9))
+        Assert-True ((Get-DomeniaGridDateSortKey '09/05/2026 08:00') -eq [datetime]::new(2026,5,9,8,0,0))
+        foreach ($sansDate in @('', '   ', 'Jamais', 'pas une date', $null)) {
+            Assert-True ((Get-DomeniaGridDateSortKey $sansDate) -eq [datetime]::MinValue) ('Date « ' + [string]$sansDate + ' » triee ailleurs qu au plus ancien')
+        }
+        # Une ligne sans la propriete ne leve pas : elle recoit la cle la plus ancienne.
+        $vide = Add-DomeniaGridDateKeys -Row ([pscustomobject]@{ Name='seul' }) -Fields @('Changed')
+        Assert-True ($vide.ChangedSort -eq [datetime]::MinValue) 'Cle absente sans lever'
+        # CO-03b : l'affiche court, a horloge figee pour que l'ecart mesure reste deterministe.
+        $now = [datetime]::new(2026,10,10,12,0,0)
+        $courtes = @(
+            @('10/10/2026 11:59:30',"à l'instant"),
+            @('10/10/2026 11:30:00','il y a 30 min'),
+            @('10/10/2026 08:00:00','il y a 4 h'),
+            @('07/10/2026 12:00:00','il y a 3 j'),
+            @('01/09/2026 12:00:00','01/09/2026'),
+            @('11/10/2026 12:00:00','11/10/2026'),
+            @('Jamais','Jamais'),
+            @('',''),
+            @('Inconnu','Inconnu')
+        )
+        foreach ($courte in $courtes) {
+            Assert-True (([string](Get-DomeniaGridDateShortText $courte[0] $now)) -ceq $courte[1]) ('Date courte « ' + $courte[0] + ' » : ' + [string](Get-DomeniaGridDateShortText $courte[0] $now))
+        }
+        # La ligne emporte les deux : le texte court affiche et la date complete de l'infobulle.
+        $ligne = Add-DomeniaGridDateKeys -Row ([pscustomobject]@{ Changed='07/10/2026 12:00:00' }) -Fields @('Changed') -Now $now
+        Assert-True (([string]$ligne.ChangedShort) -ceq 'il y a 3 j') ('Texte court : ' + [string]$ligne.ChangedShort)
+        Assert-True (([string]$ligne.Changed) -ceq '07/10/2026 12:00:00') 'La date complete a quitte la ligne'
+        Assert-True ($ligne.ChangedSort -eq [datetime]::new(2026,10,7,12,0,0))
+        # Taille : SizeKb est deja un nombre, c est la colonne qui doit le designer.
+        $sizes = @([pscustomobject]@{Name='a';SizeKb=9.0},[pscustomobject]@{Name='b';SizeKb=120.0},[pscustomobject]@{Name='c';SizeKb=1000.0})
+        Assert-True ((@($sizes | Sort-Object SizeKb | ForEach-Object { $_.Name }) -join '') -eq 'abc') 'Tailles triees par texte'
+        # Les colonnes du XAML reel designent la cle, pas le texte affiche.
+        $xaml = [xml](Get-MainXaml)
+        $cols = @($xaml.SelectNodes('//*[local-name()="DataGridTextColumn" or local-name()="DataGridTemplateColumn"]'))
+        foreach ($want in @(@('Derniere connexion','LastLogonSort'),@('Modifie','ChangedSort'),@('Installe le','InstallDateSort'),@('Taille','SizeKb'))) {
+            $hit = @($cols | Where-Object { $_.Header -eq $want[0] -and $_.SortMemberPath -eq $want[1] })
+            Assert-True ($hit.Count -ge 1) ('Colonne ' + $want[0] + ' sans SortMemberPath ' + $want[1])
+        }
+        # CO-03b : la colonne modele affiche le texte court et garde la date complete en infobulle.
+        foreach ($tpl in @(@('Derniere connexion','LastLogon','LastLogonSort'),@('Modifie','Changed','ChangedSort'),@('Installe le','InstallDate','InstallDateSort'))) {
+            $c = @($cols | Where-Object { $_.Header -eq $tpl[0] })
+            Assert-True ($c.Count -eq 1) ('Colonne ' + $tpl[0] + ' : ' + $c.Count + ' occurrence(s)')
+            Assert-True (([string]$c[0].ClipboardContentBinding) -ceq ('{Binding ' + $tpl[1] + '}')) ('Colonne ' + $tpl[0] + ' sans valeur exportable ' + $tpl[1] + ' : ' + [string]$c[0].ClipboardContentBinding)
+            $tb = $c[0].SelectSingleNode('*[local-name()="DataGridTemplateColumn.CellTemplate"]/*[local-name()="DataTemplate"]/*[local-name()="TextBlock"]')
+            Assert-True ($null -ne $tb) ('Colonne ' + $tpl[0] + ' sans TextBlock dans son modele')
+            Assert-True (([string]$tb.Text) -ceq ('{Binding ' + $tpl[1] + 'Short}')) ('Colonne ' + $tpl[0] + ' n affiche pas le texte court : ' + [string]$tb.Text)
+            Assert-True (([string]$tb.ToolTip) -ceq ('{Binding ' + $tpl[1] + '}')) ('Colonne ' + $tpl[0] + ' sans date complete en infobulle : ' + [string]$tb.ToolTip)
+        }
+    }
+    Test-Case 'SP-06 : les boutons de l inventaire annoncent la duree que le code paie' {
+        $xaml = Get-MainXaml
+        $approx = [string][char]0x2248
+        $rapide = 'Inventaire rapide (' + $approx + '1 min)'
+        $complet = 'Inventaire complet (' + $approx + '3 min)'
+        Assert-True ($xaml.Contains('x:Name="BtnRunInventory" Content="' + $rapide + '"')) ('Bouton Rapide : ' + $rapide + ' absent du XAML')
+        Assert-True ($xaml.Contains('x:Name="BtnRunInventoryDeep" Content="' + $complet + '"')) ('Bouton Complet : ' + $complet + ' absent du XAML')
+        # Le nom d automation porte le meme libelle que l ecran, sinon le lecteur d ecran dit autre chose.
+        Assert-True ($xaml.Contains('AutomationProperties.Name="' + $rapide + '"')) 'Nom d automation du bouton rapide fige sur l ancien libelle'
+        Assert-True ($xaml.Contains('AutomationProperties.Name="' + $complet + '"')) 'Nom d automation du bouton complet fige sur l ancien libelle'
+        # L annonce reste branchee sur le budget reel du worker : 55 s et 150 s. Les deux lignes sont
+        # cherchees dans le collecteur : le coeur porte d autres budgets (celui de l index, 1 200 s),
+        # et un test qui les compterait tous se plaindrait d une donnee qui n a rien a voir avec l inventaire.
+        $texteCore = Get-Content $core -Raw -Encoding UTF8
+        Assert-True ($texteCore.Contains('$budget = 55000')) 'Budget de l inventaire rapide (55 s) introuvable dans le collecteur'
+        Assert-True ($texteCore.Contains('if ($Deep) { $budget = 150000')) 'Budget de l inventaire complet (150 s) introuvable dans le collecteur'
+        # Les correctifs se lisent deja dans le rapide : le complet ne peut plus les promettre.
+        foreach ($tip in @([regex]::Matches($xaml, 'ToolTip="([^"]*[Ii]nventaire complet[^"]*)"'))) {
+            Assert-True (([string]$tip.Groups[1].Value) -notlike '*correctif*') ('Infobulle du complet : ' + $tip.Groups[1].Value)
+        }
+    }
+    Test-Case 'UX-37 : la grille d inventaire affiche le libelle calcule, la valeur brute reste relisible' {
+        $xaml = Get-MainXaml
+        $texteCore = Get-Content $core -Raw -Encoding UTF8
+        $x = [regex]::Match($texteCore, '(?s)function Set-DomeniaItemsSource.*?\r?\n\}')
+        Assert-True ($x.Value.Contains('if ($Name -eq ''DgInventory'')')) 'Set-DomeniaItemsSource ne calcule pas ValueText pour DgInventory'
+        Assert-True ($x.Value.Contains('Get-DomeniaInventoryValueText')) 'Le libelle n est pas calcule par la table du module poste'
+        # Ce que l ecran montre : le libelle. Ce que le presse-papiers et l export emportent : la valeur
+        # que CIM a rendue, que l infobulle rappelle. Les deux sont ecrits dans le XAML, pas devines.
+        Assert-True ($xaml.Contains('Text="{Binding ValueText}" Style="{StaticResource WrappedCellText}" ToolTip="{Binding Value}"')) 'La colonne Valeur n affiche pas le libelle calcule'
+        Assert-True ($xaml.Contains('Header="Valeur" Width="*" ClipboardContentBinding="{Binding Value}"')) 'La valeur brute ne porte plus ce que copient le presse-papiers et l export'
+        $uxui = Get-Content (Join-Path (Split-Path $core -Parent) 'modules\Domenia-UX.UI.ps1') -Raw -Encoding UTF8
+        Assert-True ($uxui.Contains('if (([string]$column.Header) -eq ''Source'')')) 'La colonne Source de l inventaire n est pas reservee a l Expert'
+    }
+    Test-Case 'UX-39 : la page des sessions rend la vue testee, plus les lignes brutes du poste' {
+        $xaml = Get-MainXaml
+        $texteCore = Get-Content $core -Raw -Encoding UTF8
+        $sessions = Get-Content (Join-Path (Split-Path $core -Parent) 'modules\Domenia-Sessions.UI.ps1') -Raw -Encoding UTF8
+        # La vue de D072 etait testee sans jamais etre appelee : le banc epingle l appel, pas la presence
+        # de la fonction — c est exactement ce qui avait laisse la page branchee sur les lignes brutes.
+        $complete = [regex]::Match($sessions, '(?s)function Complete-DomeniaSessionsRead.*?\r?\n\}')
+        Assert-True ($complete.Value.Contains('ConvertTo-DomeniaSessionView $r')) 'La page ne passe pas par la vue des sessions'
+        Assert-True ($complete.Value.Contains('@($view.Rows)')) 'La grille ne recoit pas les lignes de la vue'
+        Assert-True (-not $complete.Value.Contains('$r.ObservedUtc')) 'L horodatage ISO est encore ecrit dans la page'
+        $start = [regex]::Match($sessions, '(?s)function Start-DomeniaSessionsRead.*?\r?\n\}')
+        Assert-True (-not $start.Value.Contains('Show-InfoBox')) 'Sans poste choisi, une fenetre bloque encore la page'
+        Assert-True ($start.Value.Contains("Set-DomeniaControlText 'LblSessionsState'")) 'Sans poste choisi, la page ne dit rien'
+        $grid = [regex]::Match($xaml, '(?s)<DataGrid x:Name="DgSessions".*?</DataGrid>')
+        Assert-True ($grid.Value.Contains('Binding="{Binding Utilisateur}"')) 'La colonne Compte ne lie pas la vue'
+        Assert-True ($grid.Value.Contains('Header="Ouverte')) 'La colonne Ouverte a manque'
+        Assert-True ($grid.Value.Contains('Header="Inactive depuis')) 'La colonne Inactive depuis manque'
+        Assert-True (-not $grid.Value.Contains('Binding="{Binding Id}"')) 'La grille lie encore un champ brut du poste'
+        Assert-True ($texteCore.Contains('Open-DomeniaSessionFiche -Source $e.OriginalSource')) 'Le double-clic sur une session n ouvre pas la fiche'
+        Assert-True ($texteCore.Contains('$sessionGrid.ContextMenu=New-DomeniaSessionsContextMenu')) 'Le menu clic droit des sessions manque'
+        # Le collecteur est epingle par le contrat SHA de SessionsList : il n est pas touche. Les classes WTS
+        # lues par le transport, si — et c est la qu etait la faute.
+        $native = Get-Content (Join-Path (Split-Path $core -Parent) 'modules\Domenia-Sessions.Native.cs') -Raw -Encoding UTF8
+        Assert-True ($native.Contains('WTSClientProtocolType=15')) 'Le protocole de session n est pas la classe 15'
+        Assert-True ($native.Contains('WTSQuerySessionInformationW(server,s.SessionId,WTSClientProtocolType,out proto,out len)')) 'Le protocole est lu avec une autre classe que WTSClientProtocolType'
+        Assert-True ($native.Contains('LogonTicks=Ticks(server,s.SessionId,WTSLogonTime)')) 'L heure d ouverture n est pas lue'
+        Assert-True ($native.Contains('IdleTicks=Ticks(server,s.SessionId,WTSIdleTime)')) 'La duree d inactivite n est pas lue'
+    }
+    Test-Case 'UX-17 : le diagnostic rend sa phrase en francais et garde les codes pour la copie' {
+        $xaml = Get-MainXaml
+        $texteCore = Get-Content $core -Raw -Encoding UTF8
+        $diag = [regex]::Match($xaml, '(?s)<DataGrid x:Name="DgComputerDiag".*?</DataGrid>')
+        Assert-True ($diag.Value.Contains('Text="{Binding EtatLibelle}"')) 'La colonne Etat affiche encore le code brut du worker'
+        Assert-True ($diag.Value.Contains('<DataTrigger Binding="{Binding Severity}" Value="Echec">')) 'Les echecs ne se distinguent que par le texte'
+        Assert-True ($diag.Value.Contains('ToolTip="{Binding Status}"')) 'Le code brut a disparu de l infobulle de la ligne'
+        # Le worker est epingle par le contrat SHA de ComputerDiagnostics : il n est pas touche. Le lot
+        # ne porte que sur la vue, le rappel de fin et le profil Expert — le banc epingle ces trois-la.
+        Assert-True ($texteCore.Contains('ConvertTo-DomeniaDiagVerdict -Rows @($result.Rows) -Computer ([string]$result.Computer)')) 'La page ne passe pas par la vue du diagnostic'
+        Assert-True ($texteCore.Contains('-Name "LblComputerDiag" -Text $diagText')) 'Le verdict n est pas ecrit en haut de la page'
+        Assert-True (-not $texteCore.Contains('$script:ComputerDiagRows).Count - $ok - $skipped')) 'Les controles facultatifs comptent encore comme des echecs'
+        Assert-True ($texteCore.Contains('[int]$diagView.Info')) 'La ligne de statut ne dit pas ce qui etait facultatif'
+        $uxui = Get-Content (Join-Path (Split-Path $core -Parent) 'modules\Domenia-UX.UI.ps1') -Raw -Encoding UTF8
+        Assert-True ($uxui.Contains("Get-DomeniaControl 'DgComputerDiag'")) 'Methode et Duree ms ne dependent pas du profil Expert'
+        # Recherche litterale en chaine simple : en chaine double, $column etait interpole avant de chercher.
+        Assert-True ($uxui.Contains('-eq ''Methode'' -or ([string]$column.Header) -eq ''Duree ms''')) 'Les deux colonnes techniques ne sont pas reservees a l Expert'
+    }
+    Test-Case 'UI-08 : la liste des logiciels passe avant la synthese en graphiques' {
+        $texteCore = Get-Content $core -Raw -Encoding UTF8
+        # En chaine simple : en chaine double, $script: et $sender seraient interpoles avant la recherche.
+        Assert-True ($texteCore.Contains('<ComboBox x:Name="CmbSoftwareView" Width="130" SelectedIndex="0"')) 'Aucun selecteur Liste | Synthese sur la liste'
+        Assert-True ($texteCore.Contains('<StackPanel x:Name="PnlSoftwareSynthese" Visibility="Collapsed"')) 'La synthese s affiche avant que l operateur la demande'
+        Assert-True (-not $texteCore.Contains('x:Name="ExpSoftwareDashboard"')) 'L expander de synthese reste ouvert par defaut'
+        Assert-True ($texteCore.Contains('<ToggleButton x:Name="BtnSoftwareColumns"')) 'Les colonnes techniques n ont pas de bouton'
+        Assert-True ($texteCore.Contains('<TextBlock Grid.Row="1" x:Name="LblSoftwareAccessSummary"')) 'Le detail par portee ne tient pas en une ligne'
+        Assert-True (-not $texteCore.Contains('x:Name="UxSplitter1"')) 'Le detail par portee occupe encore une rangee de 150 pixels'
+        Assert-True ($texteCore.Contains('IsReadOnly="True" MaxHeight="180"')) 'Le detail replie peut avaler l onglet'
+        Assert-True ($texteCore.Contains('$script:Ctrl["CmbSoftwareView"].Add_SelectionChanged({')) 'Le selecteur Liste | Synthese ne declenche rien'
+        Assert-True ($texteCore.Contains('$script:Ctrl["BtnSoftwareColumns"].Add_Checked({')) 'Le bouton Colonnes ne declenche rien'
+        Assert-True (-not $texteCore.Contains('Update-DomeniaSoftwareColumnProvenance')) 'Deux regles distinctes commandent encore les colonnes'
+        Assert-True ($texteCore.Contains('Update-DomeniaSoftwareAccessSummary')) 'Le resume du detail par portee n est jamais ecrit'
+    }
+
+    Test-Case 'FO-09 : un clic sur une part ou une barre filtre la liste et la pastille le dit' {
+        $texteCore = Get-Content $core -Raw -Encoding UTF8
+        # En chaine simple : en chaine double, $script: serait interpole avant la recherche.
+        Assert-True ($texteCore.Contains('<Border x:Name="UxSoftwareFilterChip" Visibility="Collapsed"')) 'La pastille du filtre se montre avant qu un clic la demande'
+        Assert-True ($texteCore.Contains('<TextBlock x:Name="LblSoftwareFilterChip" Text=""')) 'La pastille n a pas de texte a remplir'
+        Assert-True ($texteCore.Contains('<Button x:Name="BtnSoftwareFilterClear"')) 'La pastille n a pas de bouton pour la retirer'
+        Assert-True ($texteCore.Contains('$script:Ctrl["BtnSoftwareFilterClear"].Add_Click({ Clear-DomeniaSoftwareChartFilter })')) 'Le bouton de la pastille ne declenche rien'
+        Assert-True ($texteCore.Contains('"UxSoftwareFilterChip" = "Default"')) 'La pastille echappe a la politique des elements graphiques'
+        Assert-True ($texteCore.Contains('Test-DomeniaSoftwareRowMatchesSelect -Row $_ -Select $select')) 'Le critere venu d un graphique ne filtre pas la liste'
+        Assert-True ($texteCore.Contains('Update-DomeniaSoftwareFilterChip')) 'La pastille ne se remet jamais a jour avec la liste'
+        Assert-True ($texteCore.Contains('Get-DomeniaSoftwareSelectToggle -Current $script:SoftwareChartSelect -Incoming $Select')) 'Le second clic sur la meme part ne retire pas le filtre'
+        Assert-True ($texteCore.Contains('Set-DomeniaComboByContent -Name ''CmbSoftwareScope'' -Content $suivant')) 'Le clic sur la portee ne pilote pas le selecteur deja dans l onglet'
+        Assert-True ($texteCore.Contains('$script:SoftwareChartSelect = $null')) 'Le filtre venu d un graphique survit a une nouvelle lecture'
+    }
+
+    Test-Case 'FO-07 : la derniere lecture du poste est reprise de la session avec son age' {
+        # Horloge figee, comme CO-03 : l'ecart mesure doit rester deterministe.
+        $now = [datetime]::new(2026,10,10,12,0,0)
+        $ages = @(
+            @([datetime]::new(2026,10,10,11,59,30),"Inventaire à lʼinstant"),
+            @([datetime]::new(2026,10,10,11,30,0),'Inventaire dʼil y a 30 min'),
+            @([datetime]::new(2026,10,10,8,0,0),'Inventaire dʼil y a 4 h'),
+            @([datetime]::new(2026,10,7,12,0,0),'Inventaire dʼil y a 3 j'),
+            @([datetime]::new(2026,9,1,12,0,0),'Inventaire du 01/09/2026')
+        )
+        foreach ($age in $ages) {
+            $lu = [string](Get-DomeniaInventoryAgeLabel -CompletedAt $age[0] -Now $now)
+            Assert-True ($lu -ceq $age[1]) ('Age « ' + [string]$age[0] + ' » : obtenu « ' + $lu + ' »')
+        }
+        Assert-True (([string](Get-DomeniaInventoryAgeLabel -CompletedAt $null -Now $now)) -ceq '') 'Une lecture inconnue affiche un age invente'
+        Assert-True (([string](Get-DomeniaInventoryAgeLabel -CompletedAt '10/10/2026 11:30:00' -Now $now)) -ceq '') 'Un age calcule sur une chaine serait un age invente'
+        $resume = Get-DomeniaInventorySummaryText -Computer 'POSTE-01' -Rows @([pscustomobject]@{Name='a'},[pscustomobject]@{Name='b'}) -Access @([pscustomobject]@{Status='OK'},[pscustomobject]@{Status='OK'},[pscustomobject]@{Status='REFUSE'},[pscustomobject]@{Status='INDISPONIBLE'},[pscustomobject]@{Status='AUTRE'}) -DurationMs 4210
+        Assert-True ($resume -ceq 'POSTE-01 : 2 element(s) sur 2 source(s) accessibles, 1 refusee(s), 1 indisponible(s), 1 autre(s), en 4210 ms.') ('Phrase de resume : ' + $resume)
+        $texteCore = Get-Content $core -Raw -Encoding UTF8
+        # En chaine simple : en chaine double, $script: serait interpole avant la recherche.
+        Assert-True ($texteCore.Contains('<StackPanel x:Name="TxtInventoryAge" Orientation="Horizontal" Visibility="Collapsed"')) 'La ligne d age se montre avant qu une lecture la remplisse'
+        Assert-True ($texteCore.Contains('<Hyperlink x:Name="LnkInventoryRefresh">Actualiser</Hyperlink>')) 'La ligne d age n a pas de quoi relancer la lecture'
+        Assert-True ($texteCore.Contains('$script:Ctrl["LnkInventoryRefresh"].Add_Click({ Start-DomeniaComputerInventory })')) 'Le lien Actualiser ne relance rien'
+        Assert-True ($texteCore.Contains('"TxtInventoryAge" = "Default"')) 'La ligne d age tombe sous la politique des elements graphiques'
+        Assert-True ($texteCore.Contains('$script:InventoryCacheByComputer = @{}')) 'Le cache de session n est jamais remis a zero'
+        Assert-True ($texteCore.Contains('Normalize-LinkComputer ([string]$State.Computer)')) 'La cle du cache invente sa propre regle de nom de poste'
+        $corps = ($texteCore -split 'function Show-DomeniaCachedInventory')[1]
+        Assert-True ($corps.Contains('Update-DomeniaInventoryAgeLine')) 'La liste reprise ne dit pas son age'
+        Assert-True (-not $corps.Contains('Update-DomeniaComputerDashboard')) 'La reprise rejoue le tableau de bord d une lecture fraiche'
+    }
+
+    Test-Case 'MO-09 : les logiciels par utilisateur se lisent par StdRegProv sur HKU, sans WinRM' {
+        $code = [string](Get-DomeniaSoftwareWorkerCode)
+        # Le corps du worker n'est pas interprete ici : il doit au moins se compiler sous PowerShell 5.1.
+        [void]([scriptblock]::Create($code))
+        # En chaine simple : en chaine double, $HKU serait interpole avant la recherche.
+        Assert-True ($code.Contains('$HKU = [uint32]2147483651')) 'La ruche HKU (0x80000003) n est pas declaree dans le worker'
+        Assert-True ($code.Contains('Get-RegSubKeys $HKU')) 'Les ruches chargees ne sont pas enumerees par StdRegProv'
+        Assert-True ($code.Contains("-Source 'HKU via StdRegProv'")) 'La portee utilisateur ne dit pas qu elle lit HKU par StdRegProv'
+        Assert-True ($code.Contains("'Non lu : '")) 'Un echec de la portee utilisateur ne se rend pas comme non lu'
+        Assert-True (-not ($code.Contains("'HKEY_USERS via WinRM'"))) 'La portee utilisateur pretend encore lire par WinRM'
+        Assert-True (-not ($code.Contains('La lecture par profil necessite WinRM'))) 'La portee utilisateur exige encore WinRM'
+        Assert-True (-not ($code.Contains("Get-ChildItem 'Registry::HKEY_USERS'"))) 'La portee utilisateur parcourt encore les ruches a distance par WinRM'
+        Assert-True (-not ($code.Contains('$includePerUser -and @($rows'))) 'Une portee utilisateur vide declenche encore la collecte locale SYSTEM'
+        $xaml = Get-MainXaml
+        Assert-True ($xaml.Contains('ToolTip="Ajoute les logiciels installés dans le profil des utilisateurs connectés."')) 'L infobulle promet toujours le profil de chaque utilisateur'
+        Assert-True (-not ($xaml.Contains('dans le profil de chaque utilisateur'))) 'L infobulle promet encore tous les utilisateurs'
+    }
+
+    Test-Case 'PF-22 : l onglet Logiciels reprend la liste deja lue par l inventaire' {
+        $texteCore = Get-Content $core -Raw -Encoding UTF8
+        # En chaine simple : en chaine double, $script: et $name seraient interpoles avant la recherche.
+        Assert-True ($texteCore.Contains('ConvertTo-DomeniaSoftwareFromInventory -Items $script:InventoryRows -CompletedAt $script:InventoryCompletedAt')) 'L onglet ne passe pas par la vue qui reprend l inventaire'
+        Assert-True ($texteCore.Contains('$script:Ctrl["ComputerTabs"].Add_SelectionChanged({')) 'L ouverture de l onglet ne declenche rien'
+        Assert-True ($texteCore.Contains('([string]$onglet.Name) -eq ''TabSoftware''')) 'L ouverture d un autre onglet declencherait la reprise'
+        Assert-True ($texteCore.Contains('if ([string]$script:SoftwareSource -ne '''') { return }')) 'La reprise se declencherait pendant une lecture en cours'
+        $corpsReprise = ($texteCore -split 'function Show-DomeniaSoftwareFromInventory')[1]
+        Assert-True ($corpsReprise.Contains('Update-DomeniaSoftwareColumnVisibility')) 'Les colonnes que l inventaire ne remplit pas restent affichees vides'
+        Assert-True ($texteCore.Contains('-logiciels-inventaire')) 'Un CSV repris de l inventaire se revendique comme une lecture complete'
+        Assert-True ($texteCore.Contains('$script:SoftwareSource = "Poste"')) 'Une lecture complete ne rend pas les colonnes techniques'
+        $modele = Get-Content (Join-Path (Split-Path $core -Parent) 'modules\Domenia-Workstation.Model.ps1') -Raw -Encoding UTF8
+        Assert-True ($modele.Contains('if ($name -eq ''Nombre detecte'') { continue }')) 'La ligne « Nombre detecte » de l inventaire deviendrait un logiciel'
     }
     if ($WpfSmoke) {
         Test-Case 'WPF et moteur : autotest interne dans un processus dedie' {

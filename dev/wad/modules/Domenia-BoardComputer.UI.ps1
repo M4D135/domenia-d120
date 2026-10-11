@@ -438,11 +438,11 @@ function Get-DomeniaComputerBoardData {
     # Hints for the sections left without data, summary, health and attention
     # -----------------------------------------------------------------------
     $hintTexts = [ordered]@{
-        'Identite du poste' = 'Lancez un inventaire (Rapide ou Complet) pour remplir cette section.'
+        'Identite du poste' = 'Lancez un inventaire (rapide ou complet) pour remplir cette section.'
         'Compte machine dans Active Directory' = 'Ouvrez la fiche du poste dans l annuaire pour lire son compte machine.'
         'Ressources' = $(if ($hasInventory -and ($null -eq $metrics)) { 'Mesures chiffrees indisponibles (inventaire par tache distante).' } elseif ($hasInventory) { 'Aucune mesure relevee pendant cet inventaire.' } else { 'Lancez un inventaire pour mesurer la memoire, le processeur et les disques.' })
-        'Activite' = 'Inventaire complet requis : correctifs, processus et evenements.'
-        'Securite et etat' = 'Inventaire complet requis : protection, correctifs et configuration.'
+        'Activite' = 'Non lu pendant cet inventaire : voir le détail par source. Lʼinventaire complet ajoute les processus et les erreurs système.'
+        'Securite et etat' = 'Non lu pendant cet inventaire : voir le détail par source. Lʼinventaire complet ajoute les certificats machine.'
     }
     # SP-17: under an empty section, the button of the existing action that fills it, run only on its click.
     $quick = [pscustomobject]@{ Id = 'InventoryQuick'; Text = 'Inventaire rapide'; Tip = 'Lance lʼinventaire rapide du poste sélectionné (lecture seule), comme le bouton du tableau de bord.'; Link = $false }
@@ -468,9 +468,9 @@ function Get-DomeniaComputerBoardData {
 
     if ($hasInventory) {
         $when = Get-Date; if ($At -is [datetime]) { $when = $At }
-        $Data.Summary = 'Tableau de bord de l inventaire du ' + $when.ToString('dd/MM/yyyy HH:mm', $invariant) + '. ' + $(if ($null -eq $metrics) { 'Mesures chiffrees indisponibles (inventaire par tache distante) : seules les tuiles sont remplies.' } else { 'Donnees lues par CIM, sans nouvelle requete. L inventaire complet ajoute correctifs, processus et evenements.' })
+        $Data.Summary = 'Tableau de bord de l inventaire du ' + $when.ToString('dd/MM/yyyy HH:mm', $invariant) + '. ' + $(if ($null -eq $metrics) { 'Mesures chiffrees indisponibles (inventaire par tache distante) : seules les tuiles sont remplies.' } else { 'Données lues par CIM, sans nouvelle requête. Lʼinventaire complet ajoute les processus, les erreurs système, les tâches planifiées, les certificats et les connexions réseau.' })
     } else {
-        $Data.Summary = 'Lancez un inventaire (Rapide ou Complet) : le tableau de bord se remplit avec ses resultats.'
+        $Data.Summary = 'Lancez un inventaire (rapide ou complet) : le tableau de bord se remplit avec ses résultats.'
     }
     Complete-DomeniaBoardData -Data $Data | Out-Null
     return $Data

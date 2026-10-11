@@ -244,6 +244,13 @@ function Get-DomeniaGridExportColumns {
         if ($column.Visibility -ne [System.Windows.Visibility]::Visible) { continue }
         $property = ''
         try { if ($column -is [System.Windows.Controls.DataGridBoundColumn] -and $null -ne $column.Binding -and $null -ne $column.Binding.Path) { $property = [string]$column.Binding.Path.Path } } catch { }
+        # CO-03 : une colonne modele n'a pas de Binding, mais ClipboardContentBinding designe deja la
+        # valeur qu'elle represente — c'est ce que WPF copie dans le presse-papiers. Sans elle,
+        # SortMemberPath gagnerait et le CSV sortirait la cle de tri, un DateTime : « Jamais » y
+        # deviendrait 01/01/0001 00:00:00. Tag n'est pas une issue : DataGridColumn n'en porte pas.
+        if ((-not $property) -and ($column -is [System.Windows.Controls.DataGridTemplateColumn])) {
+            try { if ($null -ne $column.ClipboardContentBinding -and $null -ne $column.ClipboardContentBinding.Path) { $property = [string]$column.ClipboardContentBinding.Path.Path } } catch { }
+        }
         if (-not $property) { $property = [string]$column.SortMemberPath }
         if ((-not $property) -and ($column -is [System.Windows.Controls.DataGridTemplateColumn]) -and ($null -ne $column.CellTemplate)) {
             try {
@@ -497,7 +504,14 @@ function Assert-DomeniaWmiReadQuery {
     param([string]$ClassName,[string]$Namespace,[string]$Where,[int]$Limit)
     if ($ClassName -notmatch '^[A-Za-z_][A-Za-z0-9_]{0,127}$') { throw 'Nom de classe WMI invalide.' }
     if ($Namespace -notmatch '^root(?:\\[A-Za-z_][A-Za-z0-9_]*)*$') { throw 'Espace de noms WMI invalide.' }
-    if ($ClassName -ieq 'Win32_Product') { throw 'Win32_Product est bloque : sa lecture peut declencher des verifications/reparations MSI. Utilise le panneau Logiciels.' }
+    # SE-03 : le fournisseur MSI ne se reduit pas a Win32_Product. CIM_Product enumere les memes instances et
+    # Win32_SoftwareFeature est instancie par le meme fournisseur ; les 88 noms vivent dans
+    # Domenia-Workstation.Model.ps1, seule source, rien n'est recopie ici. Sans module Poste charge, la garde
+    # refuse la lecture au lieu de laisser passer une classe qu'elle n'a pas pu juger.
+    $msiRefusee = $false
+    try { $msiRefusee = [bool](Test-DomeniaMsiProviderClass $ClassName) }
+    catch { throw 'Garde MSI indisponible : module Poste non charge, lecture WMI refusee.' }
+    if ($msiRefusee) { throw 'Classe du fournisseur MSI bloquee : sa lecture peut declencher des verifications/reparations MSI. Utilise le panneau Logiciels.' }
     if (([string]$Where).Length -gt 2048 -or ([string]$Where).IndexOf([char]0) -ge 0) { throw 'Filtre WMI trop long ou contenant un caractere nul.' }
     if ($Limit -lt 1 -or $Limit -gt 500) { throw 'La limite WMI doit etre comprise entre 1 et 500.' }
 }
@@ -881,6 +895,13 @@ $script:GuiElementPolicy = [ordered]@{
     "LblSoftwareStatus" = "Default"
     "DgSoftware" = "Default"
     "DgSoftwareAccess" = "Default"
+    "CmbSoftwareView" = "Default"
+    "BtnSoftwareColumns" = "Default"
+    "LblSoftwareAccessSummary" = "Default"
+    "ExpSoftwareAccess" = "Default"
+    "UxSoftwareFilterChip" = "Default"
+    "LblSoftwareFilterChip" = "Default"
+    "BtnSoftwareFilterClear" = "Default"
     "TabInventory" = "Default"
     "BtnRunInventory" = "Default"
     "BtnRunInventoryDeep" = "Default"
@@ -888,6 +909,9 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnExportInventory" = "Default"
     "CmbInventoryCategory" = "Default"
     "LblInventoryStatus" = "Default"
+    "TxtInventoryAge" = "Default"
+    "LblInventoryAge" = "Default"
+    "LnkInventoryRefresh" = "Default"
     "DgInventory" = "Default"
     "DgInventoryAccess" = "Default"
     "TabPermissions" = "Default"
@@ -1747,6 +1771,83 @@ function Set-DomeniaControlText {
     try { $control.Text = [string]$Text; return $true } catch { return $false }
 }
 
+function Get-DomeniaGridDateSortKey {
+    # CO-03 : cle de tri des colonnes datees. La valeur affichee est une chaine ; triee comme
+    # texte, 09/05/2026 passe avant 10/01/2026. Une date illegible ou absente (« Jamais », « »)
+    # trie comme la plus ancienne : la ligne descend d un tri croissant au lieu de se glisser au
+    # milieu du tableau par la chance de sa chaine.
+    param($Value)
+    $text = [string]$Value
+    if ([string]::IsNullOrWhiteSpace($text)) { return [datetime]::MinValue }
+    $parsed = [datetime]::MinValue
+    foreach ($format in @('dd/MM/yyyy HH:mm:ss','dd/MM/yyyy HH:mm','dd/MM/yyyy')) {
+        if ([datetime]::TryParseExact($text, $format, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::None, [ref]$parsed)) { return $parsed }
+    }
+    return [datetime]::MinValue
+}
+function Get-DomeniaGridDateShortText {
+    # CO-03 : l affiche court des colonnes datees. La date complete reste dans l infobulle et dans
+    # le CSV : « il y a 3 j » ne se relit pas six mois plus tard, et un export part en controle.
+    # Une valeur que le poste ne donne pas (« Jamais », « », une chaine inconnue) est rendue telle
+    # quelle : rien n est invente. $Now vient du banc pour que l ecart mesure reste deterministe.
+    param($Value,$Now)
+    $text = [string]$Value
+    if ([string]::IsNullOrWhiteSpace($text)) { return $text }
+    $instant = Get-DomeniaGridDateSortKey $text
+    if ($instant -eq [datetime]::MinValue) { return $text }
+    $reference = if ($null -ne $Now) { [datetime]$Now } else { [datetime]::Now }
+    $age = $reference - $instant
+    if ($age.TotalSeconds -lt 0) { return $instant.ToString('dd/MM/yyyy',[Globalization.CultureInfo]::InvariantCulture) }
+    if ($age.TotalMinutes -lt 1) { return "à l'instant" }
+    if ($age.TotalHours -lt 1) { return ('il y a {0} min' -f [int][Math]::Floor($age.TotalMinutes)) }
+    if ($age.TotalDays -lt 1) { return ('il y a {0} h' -f [int][Math]::Floor($age.TotalHours)) }
+    if ($age.TotalDays -lt 31) { return ('il y a {0} j' -f [int][Math]::Floor($age.TotalDays)) }
+    return $instant.ToString('dd/MM/yyyy',[Globalization.CultureInfo]::InvariantCulture)
+}
+function Get-DomeniaInventoryAgeLabel {
+    # FO-07 : l'age de la derniere lecture reprise de la session. Le texte court vient de la regle des
+    # colonnes datees (CO-03) pour que « il y a 3 j » veuille dire la meme chose partout ; l'heure
+    # complete reste dans l'infobulle, car un age relatif ne se relit pas une heure plus tard.
+    # $CompletedAt est une date, pas une chaine : elle est formatee a la culture invariante pour que
+    # l'heure lue sur un poste en culture francaise ne soit pas relue en mois/jour sur un autre.
+    param($CompletedAt,$Now)
+    if ($CompletedAt -isnot [datetime]) { return '' }
+    $text = $CompletedAt.ToString('dd/MM/yyyy HH:mm:ss',[Globalization.CultureInfo]::InvariantCulture)
+    $short = Get-DomeniaGridDateShortText $text $Now
+    if ([string]::IsNullOrWhiteSpace($short)) { return '' }
+    if ($short -eq "à l'instant") { return "Inventaire à lʼinstant" }
+    if ($short -like 'il y a *') { return ('Inventaire dʼ' + $short) }
+    return ('Inventaire du ' + $short)
+}
+function Get-DomeniaInventorySummaryText {
+    # FO-07 : une seule phrase pour la liste fraiche et pour la liste reprise de la session. Ecrite deux
+    # fois, elle divergerait, et l'operateur ne saurait plus laquelle des deux dit vrai.
+    param([string]$Computer,$Rows,$Access,[long]$DurationMs)
+    $all = @($Access)
+    $ok = @($all | Where-Object { [string]$_.Status -eq "OK" }).Count
+    $refused = @($all | Where-Object { [string]$_.Status -eq "REFUSE" }).Count
+    $unavailable = @($all | Where-Object { [string]$_.Status -eq "INDISPONIBLE" }).Count
+    $other = $all.Count - $ok - $refused - $unavailable
+    return "{0} : {1} element(s) sur {2} source(s) accessibles, {3} refusee(s), {4} indisponible(s), {5} autre(s), en {6} ms." -f `
+        $Computer,@($Rows).Count,$ok,$refused,$unavailable,$other,$DurationMs
+}
+function Add-DomeniaGridDateKeys {
+    # CO-03 : les cles sont portees par la ligne, pas par la colonne. Les grilles recoivent des
+    # objets varies (ResultRow, lignes restaurees du cache en pscustomobject) : une cle portee par la
+    # seule classe ResultRow laisserait les secondes trier et s afficher a l aveugle, sans erreur.
+    param($Row,[string[]]$Fields=@(),$Now)
+    if ($null -eq $Row -or -not $Fields.Count) { return $Row }
+    foreach ($field in $Fields) {
+        $name = [string]$field
+        if ([string]::IsNullOrWhiteSpace($name)) { continue }
+        $value = $null
+        try { $value = $Row.PSObject.Properties[$name].Value } catch { $value = $null }
+        $text = [string]$value
+        $Row | Add-Member -NotePropertyName ($name + 'Sort') -NotePropertyValue (Get-DomeniaGridDateSortKey $text) -Force
+        $Row | Add-Member -NotePropertyName ($name + 'Short') -NotePropertyValue (Get-DomeniaGridDateShortText -Value $text -Now $Now) -Force
+    }
+    return $Row
+}
 function Set-DomeniaItemsSource {
     param([Parameter(Mandatory=$true)][string]$Name,$Rows)
     $control = Get-DomeniaControl -Name $Name
@@ -1759,9 +1860,20 @@ function Set-DomeniaItemsSource {
             $filter=Get-DomeniaControl 'TxtSuiteResultFilter'
             $query=if($global -or $null -eq $filter){''}else{[string]$filter.Text}
             $Rows=if([string]::IsNullOrWhiteSpace($query)){$loaded}else{@($loaded | Where-Object { Test-DomeniaExperienceRow $_ $query })}
+            # CO-03 : calculee ici et non a la production de la ligne, parce que c est le seul chemin par
+            # ou passent toutes les lignes affichees : recherche, cache, enrichissement de la fiche.
+            foreach ($row in @($Rows | Where-Object { $null -ne $_ })) { [void](Add-DomeniaGridDateKeys -Row $row -Fields @('Changed','LastLogon')) }
             $visible=@($Rows | Where-Object { $null -ne $_ }).Count
             $suffix=if($global){' · recherche globale sans filtre local'}else{' · filtre local, sans requête AD'}
             [void](Set-DomeniaControlText 'LblSuiteResultCount' ("$visible ligne(s) visible(s)"+$suffix))
+        }
+        if ($Name -eq 'DgInventory') {
+            # UX-37 : la grille affiche un libelle, pas le code CIM. Calculee ici, sur le seul chemin par ou
+            # passent les lignes affichees. La valeur brute reste sur la ligne : c est elle que l infobulle
+            # montre, que le clic droit copie et que l export ecrit, pour relire la propriete WMI d origine.
+            foreach ($row in @($Rows | Where-Object { $null -ne $_ })) {
+                $row | Add-Member -MemberType NoteProperty -Name 'ValueText' -Force -Value ([string](Get-DomeniaInventoryValueText -Category $row.Category -Item $row.Item -Value $row.Value))
+            }
         }
         # Ne jamais transmettre directement une List[T] PowerShell a WPF :
         # Windows PowerShell 5.1 peut lever  types des arguments incompatibles .
@@ -5338,10 +5450,10 @@ function Get-MainXaml {
                               </DataGridTemplateColumn>
                               <DataGridTextColumn Header="Etat" Binding="{Binding State}" Width="120"/>
                               <DataGridTextColumn Header="OS" Binding="{Binding OS}" Width="180"/>
-                              <DataGridTextColumn Header="Derniere connexion" Binding="{Binding LastLogon}" Width="145"/>
+                              <DataGridTemplateColumn Header="Derniere connexion" SortMemberPath="LastLogonSort" ClipboardContentBinding="{Binding LastLogon}" Width="145"><DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding LastLogonShort}" ToolTip="{Binding LastLogon}" VerticalAlignment="Center"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
                               <DataGridTextColumn Header="Mail" Binding="{Binding Mail}" Width="220"/>
                               <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="250"/>
-                              <DataGridTextColumn Header="Modifie" Binding="{Binding Changed}" Width="145"/>
+                              <DataGridTemplateColumn Header="Modifie" SortMemberPath="ChangedSort" ClipboardContentBinding="{Binding Changed}" Width="145"><DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding ChangedShort}" ToolTip="{Binding Changed}" VerticalAlignment="Center"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
                               <DataGridTextColumn Header="Chemin complet" Binding="{Binding DN}" Width="520"/>
                             </DataGrid.Columns>
                           </DataGrid>
@@ -6243,10 +6355,10 @@ function Get-MainXaml {
                       <DockPanel>
                         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
                           <TextBlock Text="Tableau de bord du poste" FontSize="22" FontWeight="SemiBold" FontFamily="Segoe UI Variable Display, Segoe UI"/>
-                          <TextBlock x:Name="LblComputerDashboard" Text="Lancez un inventaire (Rapide ou Complet) : le tableau de bord se remplit avec ses résultats." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,4,0,8"/>
+                          <TextBlock x:Name="LblComputerDashboard" Text="Lancez un inventaire (rapide ou complet) : le tableau de bord se remplit avec ses résultats." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,4,0,8"/>
                           <WrapPanel>
-                            <Button x:Name="BtnDashboardInventory" Content="Inventaire rapide" Style="{StaticResource RunButton}" ToolTip="Lit lʼinventaire du poste (CIM) puis remplit ce tableau de bord." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Inventaire rapide pour le tableau de bord"/>
-                            <Button x:Name="BtnDashboardInventoryDeep" Content="Inventaire complet" ToolTip="Inventaire complet, plus long : ajoute correctifs, evenements et details." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Inventaire complet pour le tableau de bord"/>
+                            <Button x:Name="BtnDashboardInventory" Content="Inventaire rapide" Style="{StaticResource RunButton}" ToolTip="Lit lʼinventaire du poste (CIM) en environ 1 minute puis remplit ce tableau de bord." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Inventaire rapide pour le tableau de bord"/>
+                            <Button x:Name="BtnDashboardInventoryDeep" Content="Inventaire complet" ToolTip="Inventaire complet, plus long (environ 3 minutes) : ajoute les processus, les erreurs système, les tâches planifiées, les certificats et les connexions réseau." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Inventaire complet pour le tableau de bord"/>
                           </WrapPanel>
                         </StackPanel>
                         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="-7,0,0,0">
@@ -6303,7 +6415,7 @@ function Get-MainXaml {
                   </TabItem>
                   <TabItem x:Name="TabSessions" Header="Sessions Windows" ToolTip="Lecture à la demande des sessions console et RDP. Aucune fermeture de session." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Sessions Windows" AutomationProperties.HelpText="Lecture à la demande des sessions console et RDP. Aucune fermeture de session."><Border Style="{StaticResource Card}" Margin="4"><DockPanel>
 <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12"><TextBlock Text="Sessions Windows" FontSize="18" FontWeight="SemiBold"/><TextBlock x:Name="LblSessionsState" Text="Lecture à la demande, distincte du dernier utilisateur connu. Un accès refusé ne signifie pas absence de session." TextWrapping="Wrap" Margin="0,8,0,12" Foreground="{DynamicResource MutedColor}"/><Button x:Name="BtnSessionsRead" Content="Lire les sessions" HorizontalAlignment="Left" Style="{StaticResource RunButton}" ToolTip="Interroge WTS sur la machine sélectionnée. Utilise le compte poste indiqué ; aucune déconnexion ni écriture distante." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lire les sessions Windows" AutomationProperties.HelpText="Interrogation WTS à la demande, sans déconnexion."/></StackPanel>
-<DataGrid x:Name="DgSessions" IsReadOnly="True" AutoGenerateColumns="False" ToolTip="Sessions observées avec leur état. Certains comptes peuvent rester non lisibles faute de droits." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Sessions Windows" AutomationProperties.HelpText="Observation WTS, pas une association manuelle."><DataGrid.Columns><DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="55"/><DataGridTextColumn Header="Compte" Binding="{Binding User}" Width="180"/><DataGridTextColumn Header="Domaine" Binding="{Binding Domain}" Width="150"/><DataGridTextColumn Header="État" Binding="{Binding State}" Width="125"/><DataGridTextColumn Header="Protocole" Binding="{Binding Protocol}" Width="100"/><DataGridTextColumn Header="Information" Binding="{Binding Detail}" Width="*"/></DataGrid.Columns></DataGrid>
+<DataGrid x:Name="DgSessions" IsReadOnly="True" AutoGenerateColumns="False" ToolTip="Sessions avec un compte. Les lignes sans compte (services, écran de connexion, écouteur RDP) sont masquées et comptées dans lʼétat. Double-clic sur une ligne : ouvrir la fiche du compte." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Sessions Windows" AutomationProperties.HelpText="Observation WTS à la demande, consultation seule, sans déconnexion."><DataGrid.Columns><DataGridTextColumn Header="Session" Binding="{Binding Session}" Width="110"/><DataGridTextColumn Header="Compte" Binding="{Binding Utilisateur}" Width="170"/><DataGridTextColumn Header="État" Binding="{Binding Etat}" Width="105"/><DataGridTextColumn Header="Protocole" Binding="{Binding Protocole}" Width="85"/><DataGridTextColumn Header="Ouverte à" Binding="{Binding Ouverte}" Width="90"/><DataGridTextColumn Header="Inactive depuis" Binding="{Binding Inactive}" Width="105"/><DataGridTextColumn Header="Information" Binding="{Binding Detail}" Width="*"/></DataGrid.Columns></DataGrid>
 </DockPanel></Border></TabItem><TabItem x:Name="TabComputerHealth" ToolTip="Vérifie que le poste répond et que les services dʼadministration sont joignables." Header="Diagnostic" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Diagnostic" AutomationProperties.HelpText="Verifie que le poste repond et que les services d administration sont joignables.">
                     <Border Style="{StaticResource Card}" Margin="4">
                       <DockPanel>
@@ -6362,7 +6474,37 @@ function Get-MainXaml {
                         <DataGrid x:Name="DgComputerDiag" ToolTip="Résultat de chaque contrôle. Clic droit pour copier." AutoGenerateColumns="False" IsReadOnly="True" MinRowHeight="31" ScrollViewer.HorizontalScrollBarVisibility="Disabled" CanUserResizeRows="False" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Resultat de chaque controle" AutomationProperties.HelpText="Resultat de chaque controle. Clic droit pour copier.">
                           <DataGrid.Columns>
                             <DataGridTextColumn Header="Controle" Binding="{Binding Check}" Width="210"/>
-                            <DataGridTextColumn Header="Etat" Binding="{Binding Status}" Width="95"/>
+                            <!-- UX-17 : l etat se lit en mots francais, la couleur porte le degre, pas la decorative.
+                                 L infobulle garde le code brut du worker (OK, REFUSE, INJOIGNABLE...), comme la colonne
+                                 Valeur de l inventaire garde le code CIM (UX-37). -->
+                            <DataGridTemplateColumn Header="Etat" Width="112">
+                              <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                  <Border CornerRadius="9" Padding="8,1" Margin="0,2" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTip="{Binding Status}">
+                                    <Border.Style>
+                                      <Style TargetType="Border">
+                                        <Setter Property="Background" Value="#E5E7EB"/>
+                                        <Style.Triggers>
+                                          <DataTrigger Binding="{Binding Severity}" Value="Reussi"><Setter Property="Background" Value="#DCFCE7"/></DataTrigger>
+                                          <DataTrigger Binding="{Binding Severity}" Value="Echec"><Setter Property="Background" Value="#FEE2E2"/></DataTrigger>
+                                          <DataTrigger Binding="{Binding Severity}" Value="Information"><Setter Property="Background" Value="#DBEAFE"/></DataTrigger>
+                                        </Style.Triggers>
+                                      </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="{Binding EtatLibelle}" FontSize="12" FontWeight="SemiBold">
+                                      <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                          <Setter Property="Foreground" Value="#374151"/>
+                                          <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Severity}" Value="Echec"><Setter Property="Foreground" Value="#991B1B"/></DataTrigger>
+                                          </Style.Triggers>
+                                        </Style>
+                                      </TextBlock.Style>
+                                    </TextBlock>
+                                  </Border>
+                                </DataTemplate>
+                              </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
                             <DataGridTextColumn Header="Methode" Binding="{Binding Method}" Width="120"/>
                             <DataGridTextColumn Header="Duree ms" Binding="{Binding DurationMs}" Width="90"/>
                             <DataGridTemplateColumn Header="Detail" Width="*">
@@ -6384,8 +6526,8 @@ function Get-MainXaml {
                           <TextBlock Text="Inventaire du poste" FontSize="18" FontWeight="SemiBold"/>
                           <TextBlock Text="Matériel, système et configuration du poste. Le rapport du bas indique ce qui a pu être lu et ce qui a été refusé." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,8" TextWrapping="Wrap"/>
                           <WrapPanel>
-                            <Button x:Name="BtnRunInventory" Content="Rapide" Style="{StaticResource RunButton}" ToolTip="Matériel, système, disques, réseau, sécurité, correctifs, logiciels, services, comptes, partages et imprimantes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rapide" AutomationProperties.HelpText="Materiel, systeme, disques, reseau, securite, correctifs, logiciels, services, comptes, partages et imprimantes."/>
-                            <Button x:Name="BtnRunInventoryDeep" Content="Complet" ToolTip="Ajoute les processus, les taches planifiees, les certificats, les connexions reseau et les erreurs recentes. Plus long." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Complet" AutomationProperties.HelpText="Ajoute les processus, les taches planifiees, les certificats, les connexions reseau et les erreurs recentes. Plus long."/>
+                            <Button x:Name="BtnRunInventory" Content="Inventaire rapide (≈1 min)" Style="{StaticResource RunButton}" ToolTip="Matériel, système, disques, réseau, sécurité, correctifs, logiciels, services, comptes, partages et imprimantes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Inventaire rapide (≈1 min)" AutomationProperties.HelpText="Materiel, systeme, disques, reseau, securite, correctifs, logiciels, services, comptes, partages et imprimantes."/>
+                            <Button x:Name="BtnRunInventoryDeep" Content="Inventaire complet (≈3 min)" ToolTip="Ajoute les processus, les taches planifiees, les certificats, les connexions reseau et les erreurs recentes. Plus long." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Inventaire complet (≈3 min)" AutomationProperties.HelpText="Ajoute les processus, les taches planifiees, les certificats, les connexions reseau et les erreurs recentes. Plus long."/>
                             <Button x:Name="BtnCopyInventory" ToolTip="Copie l inventaire et le detail par source." Content="Copier" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Copier" AutomationProperties.HelpText="Copie l inventaire et le detail par source."/>
                             <Button x:Name="BtnExportInventory" ToolTip="Enregistre l inventaire et le detail par source au format CSV." Content="Exporter CSV" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Exporter CSV" AutomationProperties.HelpText="Enregistre l inventaire et le detail par source au format CSV."/>
                           </WrapPanel>
@@ -6401,6 +6543,10 @@ function Get-MainXaml {
                             </ComboBox>
                             <TextBlock Grid.Column="2" x:Name="LblInventoryStatus" Text="Selectionne un poste, puis lance l inventaire." Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" Margin="12,0,0,0" TextWrapping="Wrap"/>
                           </Grid>
+                          <StackPanel x:Name="TxtInventoryAge" Orientation="Horizontal" Visibility="Collapsed" Margin="0,4,0,0">
+                            <TextBlock x:Name="LblInventoryAge" Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Age de l inventaire" AutomationProperties.HelpText="Heure de la derniere lecture du poste gardee pour cette session."/>
+                            <TextBlock Margin="6,0,0,0" VerticalAlignment="Center"><Hyperlink x:Name="LnkInventoryRefresh">Actualiser</Hyperlink></TextBlock>
+                          </StackPanel>
                         </StackPanel>
                         <Grid>
                           <Grid.RowDefinitions>
@@ -6412,10 +6558,10 @@ function Get-MainXaml {
                             <DataGrid.Columns>
                               <DataGridTextColumn Header="Categorie" Binding="{Binding Category}" Width="190"/>
                               <DataGridTextColumn Header="Element" Binding="{Binding Item}" Width="260"/>
-                              <DataGridTemplateColumn Header="Valeur" Width="*">
+                              <DataGridTemplateColumn Header="Valeur" Width="*" ClipboardContentBinding="{Binding Value}">
                                 <DataGridTemplateColumn.CellTemplate>
                                   <DataTemplate>
-                                    <TextBlock Text="{Binding Value}" Style="{StaticResource WrappedCellText}" ToolTip="{Binding Value}"/>
+                                    <TextBlock Text="{Binding ValueText}" Style="{StaticResource WrappedCellText}" ToolTip="{Binding Value}"/>
                                   </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                               </DataGridTemplateColumn>
@@ -6453,20 +6599,26 @@ function Get-MainXaml {
                           <TextBlock Text="Logiciels installes sur le poste : pour tous les utilisateurs, par profil, et applications du Microsoft Store." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,8" TextWrapping="Wrap"/>
                           <WrapPanel>
                             <Button x:Name="BtnLoadSoftware" Content="Charger les logiciels" Style="{StaticResource RunButton}" ToolTip="Liste les logiciels installes pour tous les utilisateurs du poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Charger les logiciels" AutomationProperties.HelpText="Liste les logiciels installes pour tous les utilisateurs du poste."/>
-                            <CheckBox x:Name="ChkSoftwarePerUser" Content="Par utilisateur" IsChecked="True" VerticalAlignment="Center" Margin="4,0,14,0" ToolTip="Ajoute les logiciels installes dans le profil de chaque utilisateur." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Par utilisateur" AutomationProperties.HelpText="Ajoute les logiciels installes dans le profil de chaque utilisateur."/>
+                            <CheckBox x:Name="ChkSoftwarePerUser" Content="Par utilisateur" IsChecked="True" VerticalAlignment="Center" Margin="4,0,14,0" ToolTip="Ajoute les logiciels installés dans le profil des utilisateurs connectés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Par utilisateur" AutomationProperties.HelpText="Ajoute les logiciels installes dans le profil des utilisateurs connectes."/>
                             <CheckBox x:Name="ChkSoftwareStore" Content="Applications Store" VerticalAlignment="Center" Margin="0,0,14,0" ToolTip="Ajoute les applications du Microsoft Store. Plus long." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Applications Store" AutomationProperties.HelpText="Ajoute les applications du Microsoft Store. Plus long."/>
                             <CheckBox x:Name="ChkSoftwareUpdates" Content="Mises a jour" VerticalAlignment="Center" Margin="0,0,14,0" ToolTip="Affiche aussi les correctifs et composants systeme, masques par defaut." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mises a jour" AutomationProperties.HelpText="Affiche aussi les correctifs et composants systeme, masques par defaut."/>
                             <Button x:Name="BtnCopySoftware" ToolTip="Copie la liste complete des logiciels." Content="Copier" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Copier" AutomationProperties.HelpText="Copie la liste complete des logiciels."/>
                             <Button x:Name="BtnExportSoftware" ToolTip="Enregistre la liste des logiciels au format CSV." Content="Exporter CSV" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Exporter CSV" AutomationProperties.HelpText="Enregistre la liste des logiciels au format CSV."/>
+                            <ToggleButton x:Name="BtnSoftwareColumns" Content="Colonnes" VerticalAlignment="Center" Margin="0,0,14,0" ToolTip="Affiche les colonnes techniques : emplacement, commande de désinstallation, source. Masquées par défaut car elles débordent de lʼécran." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Colonnes" AutomationProperties.HelpText="Affiche ou masque les colonnes techniques de la liste des logiciels."/>
                           </WrapPanel>
-                          <Expander x:Name="ExpSoftwareDashboard" Header="Synthese en graphiques" IsExpanded="True" Margin="0,8,0,0" ToolTip="Éditeurs, architecture, portée dʼinstallation et plus gros logiciels, calculés sur la liste chargée." AutomationProperties.Name="Synthese des logiciels">
-                            <StackPanel Margin="0,6,0,0">
-                              <TextBlock x:Name="LblSoftwareDashboard" Text="Chargez les logiciels pour afficher la synthese." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap"/>
-                              <Border Background="{DynamicResource WindowBg}" CornerRadius="12" Padding="4" Margin="0,8,0,0">
-                                <StackPanel x:Name="PnlSoftwareDashboard"/>
-                              </Border>
-                            </StackPanel>
-                          </Expander>
+                          <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                            <Label Content="Affichage" Padding="0,0,6,0" VerticalAlignment="Center"/>
+                            <ComboBox x:Name="CmbSoftwareView" Width="130" SelectedIndex="0" VerticalAlignment="Center" ToolTip="Choisit ce que lʼonglet montre : la liste des logiciels, ou la synthèse en graphiques." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Affichage des logiciels" AutomationProperties.HelpText="Bascule entre la liste des logiciels et la synthèse en graphiques. La liste reste affichée par défaut.">
+                              <ComboBoxItem Content="Liste"/>
+                              <ComboBoxItem Content="Synthèse"/>
+                            </ComboBox>
+                          </StackPanel>
+                          <StackPanel x:Name="PnlSoftwareSynthese" Visibility="Collapsed" Margin="0,6,0,0">
+                            <TextBlock x:Name="LblSoftwareDashboard" Text="Chargez les logiciels pour afficher la synthese." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap"/>
+                            <Border Background="{DynamicResource WindowBg}" CornerRadius="12" Padding="4" Margin="0,8,0,0">
+                              <StackPanel x:Name="PnlSoftwareDashboard"/>
+                            </Border>
+                          </StackPanel>
                           <Grid Margin="0,8,0,0">
                             <Grid.ColumnDefinitions>
                               <ColumnDefinition Width="Auto"/>
@@ -6486,20 +6638,26 @@ function Get-MainXaml {
                             </ComboBox>
                             <TextBlock Grid.Column="4" x:Name="LblSoftwareStatus" Text="Selectionne un poste, puis charge la liste." Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" TextWrapping="Wrap"/>
                           </Grid>
+                          <Border x:Name="UxSoftwareFilterChip" Visibility="Collapsed" HorizontalAlignment="Left" Margin="0,6,0,0" Padding="8,2" CornerRadius="10" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" ToolTip="Filtre appliqué à la liste par un clic sur un graphique." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Filtre appliqué à la liste" AutomationProperties.HelpText="Nom du filtre appliqué à la liste des logiciels par un clic sur un graphique ; le retirer avec le bouton Fermer.">
+                            <StackPanel Orientation="Horizontal">
+                              <TextBlock x:Name="LblSoftwareFilterChip" Text="" VerticalAlignment="Center" FontSize="12"/>
+                              <Button x:Name="BtnSoftwareFilterClear" Content="✕" Margin="6,0,0,0" Padding="4,0" MinWidth="22" MinHeight="20" FontSize="11" VerticalAlignment="Center" ToolTip="Retire le filtre appliqué à la liste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Retirer le filtre" AutomationProperties.HelpText="Retire le filtre appliqué à la liste des logiciels par un clic sur un graphique."/>
+                            </StackPanel>
+                          </Border>
                         </StackPanel>
                         <Grid>
                           <Grid.RowDefinitions>
                             <RowDefinition Height="*" MinHeight="150"/>
-                            <RowDefinition Height="6"/>
-                            <RowDefinition Height="150" MinHeight="80"/>
+                              <RowDefinition Height="Auto"/>
+                              <RowDefinition Height="Auto"/>
                           </Grid.RowDefinitions>
                           <DataGrid Grid.Row="0" x:Name="DgSoftware" ToolTip="Logiciels détectés. Clic droit pour copier un nom ou une commande de désinstallation." AutoGenerateColumns="False" IsReadOnly="True" MinRowHeight="28" CanUserSortColumns="True" SelectionMode="Extended" ScrollViewer.HorizontalScrollBarVisibility="Auto" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Logiciels detectes" AutomationProperties.HelpText="Logiciels detectes. Clic droit pour copier un nom ou une commande de desinstallation.">
                             <DataGrid.Columns>
                               <DataGridTextColumn Header="Nom" Binding="{Binding Name}" Width="330"/>
                               <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="130"/>
                               <DataGridTextColumn Header="Editeur" Binding="{Binding Publisher}" Width="220"/>
-                              <DataGridTextColumn Header="Installe le" Binding="{Binding InstallDate}" Width="105"/>
-                              <DataGridTextColumn Header="Taille" Binding="{Binding Size}" Width="95"/>
+                              <DataGridTemplateColumn Header="Installe le" SortMemberPath="InstallDateSort" ClipboardContentBinding="{Binding InstallDate}" Width="105"><DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding InstallDateShort}" ToolTip="{Binding InstallDate}" VerticalAlignment="Center"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+                              <DataGridTextColumn Header="Taille" Binding="{Binding Size}" SortMemberPath="SizeKb" Width="95"/>
                               <DataGridTextColumn Header="Portee" Binding="{Binding Scope}" Width="105"/>
                               <DataGridTextColumn Header="Archi" Binding="{Binding Architecture}" Width="75"/>
                               <DataGridTextColumn Header="Type" Binding="{Binding Kind}" Width="110"/>
@@ -6508,10 +6666,10 @@ function Get-MainXaml {
                               <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="190"/>
                             </DataGrid.Columns>
                           </DataGrid>
-                          <GridSplitter Grid.Row="1" Height="6" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="{DynamicResource SplitterBg}" ShowsPreview="True" ResizeDirection="Rows" ResizeBehavior="PreviousAndNext" Cursor="SizeNS" x:Name="UxSplitter1" ToolTip="Faites glisser pour redimensionner les panneaux." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Faites glisser pour redimensionner les panneaux" AutomationProperties.HelpText="Faites glisser pour redimensionner les panneaux."/>
-                          <DockPanel Grid.Row="2">
-                            <TextBlock DockPanel.Dock="Top" Text="Detail par portee" FontWeight="SemiBold" Margin="0,4,0,6"/>
-                            <DataGrid x:Name="DgSoftwareAccess" ToolTip="Ce qui a pu être lu pour chaque portée." AutoGenerateColumns="False" IsReadOnly="True" MinRowHeight="28" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Detail par portee" AutomationProperties.HelpText="Ce qui a pu etre lu pour chaque portee.">
+                          <TextBlock Grid.Row="1" x:Name="LblSoftwareAccessSummary" Text="Aucune portée lue." Foreground="{DynamicResource MutedColor}" Margin="0,6,0,2" TextWrapping="Wrap" ToolTip="Ce qui a pu être lu pour chaque portée, en une ligne." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Resume du detail par portee" AutomationProperties.HelpText="Une ligne pour dire ce qui a été lu pour chaque portée ; ouvrir le détail pour le voir ligne par ligne."/>
+                          <Expander Grid.Row="2" x:Name="ExpSoftwareAccess" Header="Détail par portée" IsExpanded="False" Margin="0,2,0,0" ToolTip="Ce qui a pu être lu pour chaque portée, ligne par ligne." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Detail par portee" AutomationProperties.HelpText="Liste detaillee de ce qui a pu etre lu pour chaque portee.">
+                            <StackPanel>
+                            <DataGrid x:Name="DgSoftwareAccess" ToolTip="Ce qui a pu être lu pour chaque portée." AutoGenerateColumns="False" IsReadOnly="True" MaxHeight="180" MinRowHeight="28" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Detail par portee" AutomationProperties.HelpText="Ce qui a pu etre lu pour chaque portee.">
                               <DataGrid.Columns>
                                 <DataGridTextColumn Header="Portee" Binding="{Binding Category}" Width="170"/>
                                 <DataGridTextColumn Header="Acces" Binding="{Binding Status}" Width="110"/>
@@ -6527,7 +6685,8 @@ function Get-MainXaml {
                                 </DataGridTemplateColumn>
                               </DataGrid.Columns>
                             </DataGrid>
-                          </DockPanel>
+                            </StackPanel>
+                          </Expander>
                         </Grid>
                       </DockPanel>
                     </Border>
@@ -6710,7 +6869,8 @@ function Get-MainXaml {
 <TextBlock x:Name="LblGuardDraft" Text="Aucune modification de formulaire en attente." TextWrapping="Wrap" Margin="0,8,0,10"/>
 <Button AutomationProperties.Name="Comparer les saisies" AutomationProperties.HelpText="Compare les champs modifiés avec la première lecture et une éventuelle réponse plus récente. Aucun remplacement automatique." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardDraft" Content="Comparer les saisies" HorizontalAlignment="Left" ToolTip="Compare les champs modifiés avec la première lecture et une éventuelle réponse plus récente. Aucun remplacement automatique."/>
 <TextBlock x:Name="LblGuardRemote" Text="Les sondes ordinaires ne créent ni service ni tâche. Les anciens transports avec dépôts demandent une autorisation distincte." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,16,0,10"/>
-<WrapPanel><Button AutomationProperties.Name="Autoriser une intervention sur cette machine" AutomationProperties.HelpText="Autorisation de cinq minutes, pour la machine sélectionnée uniquement. Ne lance rien ; les droits restent obligatoires." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardRemote" Content="Autoriser une intervention sur cette machine" ToolTip="Autorisation de cinq minutes, pour la machine sélectionnée uniquement. Ne lance rien ; les droits restent obligatoires."/><Button AutomationProperties.Name="Retirer l'autorisation" AutomationProperties.HelpText="Les sondes déjà envoyées peuvent encore finir. Aucune nouvelle intervention avec dépôt ne sera autorisée." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardRemoteOff" Content="Retirer l'autorisation" ToolTip="Les sondes déjà envoyées peuvent encore finir. Aucune nouvelle intervention avec dépôt ne sera autorisée."/></WrapPanel>
+<TextBlock x:Name="LblGuardReadFallback" Text="Une lecture ne bascule jamais seule sur PsExec ou une tâche planifiée. Demandez-le pour la lecture qui en a besoin." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,16,0,10"/>
+<WrapPanel><Button AutomationProperties.Name="Autoriser une intervention sur cette machine" AutomationProperties.HelpText="Autorisation de cinq minutes, pour la machine sélectionnée uniquement. Ne lance rien ; les droits restent obligatoires." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardRemote" Content="Autoriser une intervention sur cette machine" ToolTip="Autorisation de cinq minutes, pour la machine sélectionnée uniquement. Ne lance rien ; les droits restent obligatoires."/><Button AutomationProperties.Name="Lire ce poste par tache planifiee" AutomationProperties.HelpText="Une seule lecture, pour la machine selectionnee. Le repli PsExec ou tache ne se declenche jamais sans cette demande." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardReadFallback" Content="Lire ce poste par tâche planifiée" ToolTip="A demander quand CIM ne répond pas : autorise une seule lecture par PsExec ou tâche planifiée, pour la machine sélectionnée."/><Button AutomationProperties.Name="Retirer l'autorisation" AutomationProperties.HelpText="Les sondes déjà envoyées peuvent encore finir. Aucune nouvelle intervention avec dépôt ne sera autorisée." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardRemoteOff" Content="Retirer l'autorisation" ToolTip="Les sondes déjà envoyées peuvent encore finir. Aucune nouvelle intervention avec dépôt ne sera autorisée."/></WrapPanel>
 </StackPanel></Border>
 <Border Style="{StaticResource Card}" Margin="0,0,0,12"><StackPanel><TextBlock Text="Suite support et mesures" FontSize="18" FontWeight="SemiBold"/>
 <WrapPanel Margin="0,6,0,10"><Button x:Name="BtnGuardStoreResume" Content="Reprendre les sauvegardes" ToolTip="Relance les lots de cache interrompus apres correction du stockage." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Reprendre les sauvegardes" AutomationProperties.HelpText="Relance les lots de cache interrompus apres correction du stockage."/><Button x:Name="BtnGuardLegacyImport" Content="Reprendre les anciennes données" ToolTip="Simule la reprise des fichiers historiques dans Domenia, puis demande confirmation." AutomationProperties.Name="Reprendre les anciennes données" AutomationProperties.HelpText="Vérifie le domaine et les données, affiche la simulation puis demande confirmation avant sauvegarde et import."/><Button x:Name="BtnGuardExport" Content="Dossier technique" ToolTip="Affiche puis exporte les seuls compteurs techniques, sans logs bruts ni identifiants." AutomationProperties.Name="Dossier technique" AutomationProperties.HelpText="Affiche puis exporte les seuls compteurs techniques, sans logs bruts ni identifiants."/><Button x:Name="BtnGuardWhy" Content="Pourquoi une action est indisponible ?" ToolTip="Explique les protections et preconditions actuelles sans modifier de droit." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Pourquoi une action est indisponible ?" AutomationProperties.HelpText="Explique les protections et preconditions actuelles sans modifier de droit."/></WrapPanel><ScrollViewer Height="96" VerticalScrollBarVisibility="Auto" Margin="0,0,0,8"><TextBlock x:Name="LblGuardMigration" Text="La simulation des anciennes données sera affichée ici avant confirmation." TextWrapping="Wrap" AutomationProperties.Name="Simulation de reprise des données"/></ScrollViewer><CheckBox x:Name="ChkGuardReconcile" Content="Reverifier le perimetre consulte en arriere-plan" IsChecked="True" Margin="0,0,0,8" ToolTip="Relit la dernière requête explicite, au plus toutes les trois minutes et dans sa limite de résultats. Aucun scan au démarrage." AutomationProperties.Name="Reverifier le perimetre consulte en arriere-plan" AutomationProperties.HelpText="Relit la derniere requete explicite, au plus toutes les trois minutes et dans sa limite de resultats. Aucun scan au demarrage."/><TextBlock x:Name="LblGuardMetrics" Text="Les mesures locales apparaîtront ici." TextWrapping="Wrap" Margin="0,8,0,12" Foreground="{DynamicResource MutedColor}"/>
@@ -8050,6 +8210,14 @@ function Reset-DomeniaSelectionBoundViews {
         $script:InventoryAccess = @()
         $script:SoftwareRows = @()
         $script:SoftwareAccess = @()
+        $script:InventoryComputer = ''
+        $script:InventoryCompletedAt = $null
+        Update-DomeniaInventoryAgeLine
+        $script:SoftwareSource = ''
+        $script:SoftwareProvenance = ''
+        $script:SoftwareChartSelect = $null
+        Update-DomeniaSoftwareFilterChip
+        Update-DomeniaSoftwareAccessSummary
 
         foreach ($gridName in @(
             "DgLinks",
@@ -8981,6 +9149,15 @@ $script:SoftwareScope = "Toutes"
 $script:InventoryRows = @()
 $script:InventoryAccess = @()
 $script:InventoryCategory = "Toutes"
+$script:InventoryComputer = ""
+$script:InventoryCompletedAt = $null
+# FO-07 : la derniere lecture de chaque poste, pour la session seulement. Jamais ecrite sur disque : un
+# inventaire porte les droits de lecture de celui qui l'a lance, et ces droits ne suivent pas l'operateur
+# d'une session a l'autre.
+$script:InventoryCacheByComputer = @{}
+$script:SoftwareSource = ""
+$script:SoftwareProvenance = ""
+$script:SoftwareChartSelect = $null
 $script:SuppressInventoryCategoryEvent = $false
 $script:CurrentPresenceState = ""
 $script:CurrentPresenceTarget = ""
@@ -9471,6 +9648,19 @@ function Assert-WRemoteArtifactPermission {
         throw 'Transport avec depot/service/tache non autorise pour cette cible (desactive par defaut). Autorisez-le explicitement dans Outils > Fiabilite, puis relancez votre action.'
     }
 }
+function Assert-DomeniaReadFallbackPermission {
+    # SE-07 : une lecture ne bascule jamais seule sur un transport intrusif. L autorisation
+    # d intervention de cinq minutes ne debloque que les interventions ; la lecture exige la
+    # sienne, demandee pour elle-meme et consommee par une seule lecture.
+    param($Context,[string]$Computer)
+    if(-not [bool]$Context.AllowReadFallback){
+        throw 'Repli vers PsExec ou une tache planifiee refuse pour cette lecture : une lecture ne bascule jamais sans demande. Autorisez « Lire ce poste par tache planifiee » dans Outils > Fiabilite, puis relancez la lecture.'
+    }
+    $allowed=@([string]$Context.ReadFallbackTarget)+@($Context.ReadFallbackAliases)
+    if(-not $Computer -or $allowed -notcontains $Computer){
+        throw ('Autorisation de lecture par tache refusee : elle ne couvre pas '+$Computer+'.')
+    }
+}
 function Get-WRemoteWindowsDirectory {
     param($Context,[string]$Computer)
     $session=$null
@@ -9800,7 +9990,10 @@ $ScriptText
     }
 }
 function Invoke-WRemoteTaskScript {
-    param($Context,[string]$Computer,[string]$ScriptText,$InputObject,[int]$TimeoutSeconds=75,[string]$ClassicError='')
+    param($Context,[string]$Computer,[string]$ScriptText,$InputObject,[int]$TimeoutSeconds=75,[string]$ClassicError='',[string]$Purpose='Read')
+    # SE-07 : par defaut cette entree sert une lecture, et le repli intrusif y est refuse tant que
+    # l operateur ne l a pas demande pour cette lecture. Une ecriture le dit par -Purpose 'Write'.
+    if($Purpose -ne 'Write'){ Assert-DomeniaReadFallbackPermission $Context $Computer }
     $TimeoutSeconds=[Math]::Max(15,[int]$TimeoutSeconds)
     $pxError=''
     $taskError=''
@@ -12963,18 +13156,21 @@ function Complete-DomeniaInventoryUi {
 
     $script:InventoryRows = @($effective.Rows)
     $script:InventoryAccess = @($effective.Access)
+    # PF-22 : l'onglet Logiciels a besoin de savoir de quel poste et de quelle heure vient cette liste.
+    $script:InventoryComputer = [string]$State.Computer
+    $script:InventoryCompletedAt = Get-Date
     try { Update-DomeniaComputerDashboard -Result $effective } catch { Add-DomeniaUiLog -Area "Tableau de bord" -Level "WARN" -Text ("Tableau de bord du poste non construit : " + $_.Exception.Message) }
     Update-DomeniaInventoryCategories
     Apply-DomeniaInventoryFilter
     [void](Set-DomeniaItemsSource -Name "DgInventoryAccess" -Rows $script:InventoryAccess)
 
-    $ok = @($script:InventoryAccess | Where-Object { [string]$_.Status -eq "OK" }).Count
-    $refused = @($script:InventoryAccess | Where-Object { [string]$_.Status -eq "REFUSE" }).Count
-    $unavailable = @($script:InventoryAccess | Where-Object { [string]$_.Status -eq "INDISPONIBLE" }).Count
-    $other = @($script:InventoryAccess).Count - $ok - $refused - $unavailable
-    $summary = "{0} : {1} element(s) sur {2} source(s) accessibles, {3} refusee(s), {4} indisponible(s), {5} autre(s), en {6} ms." -f `
-        ([string]$State.Computer),@($script:InventoryRows).Count,$ok,$refused,$unavailable,$other,([long]$effective.DurationMs)
+    # FO-07 : la lecture vient de finir, elle rejoint le cache de session du poste. La cle est la regle
+    # du depot pour nommer un poste, pas une seconde regle inventee ici.
+    $cacheKey = Normalize-LinkComputer ([string]$State.Computer)
+    if ($cacheKey) { $script:InventoryCacheByComputer[$cacheKey] = [pscustomobject]@{ Computer = [string]$State.Computer; Effective = $effective; CompletedAt = $script:InventoryCompletedAt } }
+    $summary = Get-DomeniaInventorySummaryText -Computer ([string]$State.Computer) -Rows $script:InventoryRows -Access $script:InventoryAccess -DurationMs ([long]$effective.DurationMs)
     [void](Set-DomeniaControlText -Name "LblInventoryStatus" -Text $summary)
+    Update-DomeniaInventoryAgeLine
     Set-Status $summary
     Add-DomeniaUiLog -Area "Inventaire" -Text $summary
     $inventoryMethods = New-Object System.Collections.Generic.List[string]
@@ -12996,6 +13192,47 @@ function Fail-DomeniaInventoryUi {
     [void](Set-DomeniaControlText -Name "LblInventoryStatus" -Text ("Inventaire impossible : " + $detail))
     Set-Status ("Inventaire impossible : " + $detail) "ERROR"
     Add-DomeniaUiLog -Area "Inventaire" -Level "ERROR" -Text $detail
+}
+
+function Update-DomeniaInventoryAgeLine {
+    # FO-07 : la ligne d'age suit l'etat courant de l'onglet, elle ne le devine jamais. Sans poste ou sans
+    # heure de lecture, elle se retire : une ligne figee a « il y a 0 min » serait un mensonge.
+    $line = Get-DomeniaControl "TxtInventoryAge"
+    if ($null -eq $line) { return }
+    $label = ''
+    if ($null -ne $script:InventoryCompletedAt) { $label = Get-DomeniaInventoryAgeLabel -CompletedAt $script:InventoryCompletedAt }
+    if ([string]::IsNullOrWhiteSpace($label) -or [string]::IsNullOrWhiteSpace([string]$script:InventoryComputer)) {
+        $line.Visibility = [Windows.Visibility]::Collapsed
+        return
+    }
+    [void](Set-DomeniaControlText -Name "LblInventoryAge" -Text $label)
+    $line.ToolTip = ("Dernière lecture de {0} : {1}. La liste vient de cette session, sans nouvelle requête." -f `
+        [string]$script:InventoryComputer, $script:InventoryCompletedAt.ToString('dd/MM/yyyy HH:mm:ss',[Globalization.CultureInfo]::InvariantCulture))
+    $line.Visibility = [Windows.Visibility]::Visible
+}
+
+function Show-DomeniaCachedInventory {
+    # FO-07 : le poste vient d'etre choisi, sa derniere lecture de la session est reprise telle quelle,
+    # avec son age. Rien n'est relance : l'operateur qui parcourt la meme machine d'un objet a l'autre
+    # retrouve ses lignes au lieu de les relancer. Le tableau de bord n'est pas rejoue, il appartient a la
+    # lecture fraiche.
+    param($Computer)
+    $key = Normalize-LinkComputer ([string]$Computer)
+    if (-not $key) { return $false }
+    if (-not $script:InventoryCacheByComputer.ContainsKey($key)) { return $false }
+    $entry = $script:InventoryCacheByComputer[$key]
+    if ($null -eq $entry -or $null -eq $entry.Effective) { return $false }
+    $script:InventoryRows = @($entry.Effective.Rows)
+    $script:InventoryAccess = @($entry.Effective.Access)
+    $script:InventoryComputer = [string]$entry.Computer
+    $script:InventoryCompletedAt = $entry.CompletedAt
+    Update-DomeniaInventoryCategories
+    Apply-DomeniaInventoryFilter
+    [void](Set-DomeniaItemsSource -Name "DgInventoryAccess" -Rows $script:InventoryAccess)
+    [void](Set-DomeniaControlText -Name "LblInventoryStatus" -Text (Get-DomeniaInventorySummaryText -Computer ([string]$entry.Computer) -Rows $script:InventoryRows -Access $script:InventoryAccess -DurationMs ([long]$entry.Effective.DurationMs)))
+    Update-DomeniaInventoryAgeLine
+    Add-DomeniaUiLog -Area "Inventaire" -Text ("{0} : liste reprise de la session, sans nouvelle requête." -f [string]$entry.Computer)
+    return $true
 }
 
 function Start-DomeniaComputerInventory {
@@ -14246,55 +14483,68 @@ try {
     # Portee utilisateur
     # -----------------------------------------------------------------
     if ($includePerUser) {
+        # HKU (0x80000003) par StdRegProv, sur la session CIM deja ouverte. Une ruche n'est montee que
+        # pour un profil en session : les ruches chargees sont les utilisateurs connectes, et c'est tout
+        # ce que cette portee promet. WinRM n'est pas exige ici ; un echec se rend « non lu », sans repli.
+        $HKU = [uint32]2147483651
         $userWatch = [System.Diagnostics.Stopwatch]::StartNew()
         $userBefore = $rows.Count
-        if (-not $winrmReady) {
+        if ($null -eq $session) {
             $userWatch.Stop()
-            Add-Access 'Utilisateur' 'INDISPONIBLE' 'La lecture par profil necessite WinRM, qui ne repond pas sur ce poste.' ([int]$userWatch.ElapsedMilliseconds) 0 'WinRM'
+            Add-Access 'Utilisateur' 'INDISPONIBLE' 'Non lu : aucune session CIM ouverte pour lire HKU.' ([int]$userWatch.ElapsedMilliseconds) 0 'CIM'
         }
         else {
             try {
-                $remote = Invoke-Remote -TimeoutSeconds 45 -ScriptBlock {
-                    $out = New-Object System.Collections.ArrayList
-                    foreach ($hive in (Get-ChildItem 'Registry::HKEY_USERS' -ErrorAction SilentlyContinue)) {
-                        $sid = $hive.PSChildName
-                        if ($sid -notmatch '^S-1-5-21-') { continue }
-                        if ($sid -match '_Classes$') { continue }
-                        $account = $sid
-                        try { $account = (New-Object System.Security.Principal.SecurityIdentifier($sid)).Translate([System.Security.Principal.NTAccount]).Value } catch { }
-                        $path = 'Registry::HKEY_USERS\' + $sid + '\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*'
-                        foreach ($p in (Get-ItemProperty -Path $path -ErrorAction SilentlyContinue)) {
-                            if (-not $p.DisplayName) { continue }
-                            [void]$out.Add([pscustomobject]@{
-                                DisplayName = $p.DisplayName
-                                DisplayVersion = $p.DisplayVersion
-                                Publisher = $p.Publisher
-                                InstallDate = $p.InstallDate
-                                EstimatedSize = $p.EstimatedSize
-                                InstallLocation = $p.InstallLocation
-                                UninstallString = $p.UninstallString
-                                Account = $account
-                            })
-                        }
+                $userHives = 0
+                $userScanned = 0
+                $userStopped = ''
+                foreach ($sid in @(Get-RegSubKeys $HKU '' | Where-Object { [string]$_ -match '^S-1-5-21-' })) {
+                    $userHives++
+                    $account = [string]$sid
+                    try {
+                        $acct = @(Get-CimInstance -CimSession $session -ClassName 'Win32_UserAccount' -Filter ('SID="' + [string]$sid + '"') -ErrorAction Stop | Select-Object -First 1)
+                        if (@($acct).Count -gt 0) { $account = [string]$acct[0].Domain + '\' + [string]$acct[0].Name }
+                    } catch { }
+                    $base = [string]$sid + '\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall'
+                    $subKeys = @()
+                    try { $subKeys = @(Get-RegSubKeys $HKU $base) } catch { }
+                    foreach ($sub in $subKeys) {
+                        if ($userScanned -ge $maxKeys) { $userStopped = 'Lecture arretee apres ' + [string]$maxKeys + ' cles.'; break }
+                        $userScanned++
+                        $key = $base + '\' + [string]$sub
+                        $display = ''
+                        try { $display = Get-RegString $HKU $key 'DisplayName' } catch { continue }
+                        if ([string]::IsNullOrWhiteSpace($display)) { continue }
+                        $version = ''
+                        $publisher = ''
+                        $installDate = ''
+                        $location = ''
+                        $uninstall = ''
+                        $size = 0
+                        try { $version = Get-RegString $HKU $key 'DisplayVersion' } catch { }
+                        try { $publisher = Get-RegString $HKU $key 'Publisher' } catch { }
+                        try { $installDate = Get-RegString $HKU $key 'InstallDate' } catch { }
+                        try { $location = Get-RegString $HKU $key 'InstallLocation' } catch { }
+                        try { $uninstall = Get-RegString $HKU $key 'UninstallString' } catch { }
+                        try { $size = Get-RegDword $HKU $key 'EstimatedSize' } catch { }
+                        Add-Software -Name $display -Version $version -Publisher $publisher -InstallDate $installDate `
+                            -SizeKb $size -Location $location -Architecture '' -Scope 'Utilisateur' -Kind $account `
+                            -UninstallString $uninstall -Source 'HKU via StdRegProv'
                     }
-                    return $out.ToArray()
-                }
-                foreach ($p in @($remote)) {
-                    Add-Software -Name ([string]$p.DisplayName) -Version ([string]$p.DisplayVersion) -Publisher ([string]$p.Publisher) `
-                        -InstallDate $p.InstallDate -SizeKb $p.EstimatedSize -Location ([string]$p.InstallLocation) `
-                        -Architecture '' -Scope 'Utilisateur' -Kind ([string]$p.Account) `
-                        -UninstallString ([string]$p.UninstallString) -Source 'HKEY_USERS via WinRM'
+                    if ($userStopped -ne '') { break }
                 }
                 $userWatch.Stop()
                 $count = $rows.Count - $userBefore
                 $status = 'OK'
                 if ($count -eq 0) { $status = 'VIDE' }
-                Add-Access 'Utilisateur' $status 'Ruches de profils charges parcourues.' ([int]$userWatch.ElapsedMilliseconds) $count 'WinRM'
+                $detail = 'Ruches chargees sous HKU : ' + [string]$userHives + ' profil(s) monte(s), ' + [string]$userScanned + ' cle(s) parcourue(s).'
+                if ($userStopped -ne '') { $status = 'PARTIEL'; $detail = $userStopped }
+                Add-Access 'Utilisateur' $status $detail ([int]$userWatch.ElapsedMilliseconds) $count ('CIM/' + $sessionProtocol)
             }
             catch {
                 $userWatch.Stop()
                 $message = [string]$_.Exception.Message
-                Add-Access 'Utilisateur' (Get-FailureStatus $message) $message ([int]$userWatch.ElapsedMilliseconds) ($rows.Count - $userBefore) 'WinRM'
+                Add-Access 'Utilisateur' (Get-FailureStatus $message) ('Non lu : ' + $message) ([int]$userWatch.ElapsedMilliseconds) ($rows.Count - $userBefore) ('CIM/' + $sessionProtocol)
             }
         }
     }
@@ -14344,7 +14594,9 @@ finally {
 # Si les transports classiques n'ont pas rendu les portees demandees,
 # une seule tache locale complete la collecte. Add-Software deduplique.
 $needTask = ($rows.Count -eq 0)
-if ($includePerUser -and @($rows | Where-Object {[string]$_.Scope -eq 'Utilisateur'}).Count -eq 0) { $needTask=$true }
+# MO-09 : une portee utilisateur vide n'est pas un echec, c'est souvent qu'aucun utilisateur n'est
+# connecte. Elle ne declenche plus la collecte locale SYSTEM ; seul un inventaire machine entierement
+# vide la declenche encore.
 if ($includeStore -and @($rows | Where-Object {[string]$_.Scope -eq 'Store'}).Count -eq 0) { $needTask=$true }
 if ($needTask) {
     try {
@@ -14384,6 +14636,9 @@ function Apply-DomeniaSoftwareFilter {
         if (-not [string]::IsNullOrWhiteSpace($scope) -and $scope -ne "Toutes") {
             $rows = @($rows | Where-Object { [string]$_.Scope -eq $scope })
         }
+        # FO-09 : le critere venu d'un clic sur un graphique s'ajoute aux deux autres, il ne les remplace pas.
+        $select = $script:SoftwareChartSelect
+        if ($null -ne $select) { $rows = @($rows | Where-Object { Test-DomeniaSoftwareRowMatchesSelect -Row $_ -Select $select }) }
         $filter = ""
         try { $filter = ([string](Get-DomeniaControl -Name "TxtSoftwareFilter").Text).Trim() } catch { }
         if (-not [string]::IsNullOrWhiteSpace($filter)) {
@@ -14394,9 +14649,19 @@ function Apply-DomeniaSoftwareFilter {
                 ([string]$_.Location -like ("*" + $filter + "*"))
             })
         }
+        # CO-03 : le worker Logiciels (corps epingle) publie InstallDate en texte et SizeKb en nombre.
+        # La cle datee est ajoutee a l entree de la grille, sans toucher au corps epingle.
+        foreach ($row in @($rows | Where-Object { $null -ne $_ })) { [void](Add-DomeniaGridDateKeys -Row $row -Fields @('InstallDate')) }
         [void](Set-DomeniaGridRows -Name "DgSoftware" -Rows $rows -KeyProperty "Name")
         $total = @($script:SoftwareRows).Count
-        [void](Set-DomeniaControlText -Name "LblSoftwareStatus" -Text ("{0} logiciel(s) affiche(s) sur {1}." -f @($rows).Count,$total))
+        $statusText = ("{0} logiciel(s) affiche(s) sur {1}." -f @($rows).Count,$total)
+        # La provenance se relit apres chaque filtre : une liste reprise de l'inventaire ne doit jamais
+        # se presenter comme le resultat d'une lecture des logiciels.
+        if (-not [string]::IsNullOrWhiteSpace([string]$script:SoftwareProvenance)) {
+            $statusText = $statusText + ' ' + [string]$script:SoftwareProvenance
+        }
+        [void](Set-DomeniaControlText -Name "LblSoftwareStatus" -Text $statusText)
+        Update-DomeniaSoftwareFilterChip
     }
     catch { Add-DomeniaUiLog -Level "ERROR" -Area "Logiciels" -Text $_.Exception.Message }
 }
@@ -14407,9 +14672,14 @@ function Complete-DomeniaSoftwareUi {
     $effective = Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @("Access")
     if ($null -eq $effective) { throw "Resultat logiciels vide ou invalide." }
     $script:SoftwareRows = @($effective.Rows)
+    # Lecture complete : la provenance n'est plus l'inventaire, les colonnes reprennent leur place.
+    $script:SoftwareSource = "Poste"
+    $script:SoftwareProvenance = ""
+    Update-DomeniaSoftwareColumnVisibility
     try { Update-DomeniaSoftwareDashboard -Rows $script:SoftwareRows } catch { Add-DomeniaUiLog -Area "Tableau de bord" -Level "WARN" -Text ("Synthese des logiciels non construite : " + $_.Exception.Message) }
     $script:SoftwareAccess = @($effective.Access)
     [void](Set-DomeniaItemsSource -Name "DgSoftwareAccess" -Rows $script:SoftwareAccess)
+    Update-DomeniaSoftwareAccessSummary
     Apply-DomeniaSoftwareFilter
 
     $machine = @($script:SoftwareRows | Where-Object { [string]$_.Scope -eq "Machine" }).Count
@@ -14453,9 +14723,113 @@ function Fail-DomeniaSoftwareUi {
     param($Message,$State)
     $detail = ([string]$Message).Trim()
     if ([string]::IsNullOrWhiteSpace($detail)) { $detail = "Erreur inconnue." }
+    # Une lecture ratee reste ratee : l'onglet ne se remplit pas avec l'inventaire par-dessus l'echec.
+    $script:SoftwareSource = "Poste"
+    Update-DomeniaSoftwareAccessSummary
     [void](Set-DomeniaControlText -Name "LblSoftwareStatus" -Text ("Lecture impossible : " + $detail))
     Set-Status ("Lecture des logiciels impossible : " + $detail) "ERROR"
     Add-DomeniaUiLog -Area "Logiciels" -Level "ERROR" -Text $detail
+}
+
+function Update-DomeniaSoftwareColumnVisibility {
+    # Une seule fonction decide de la visibilite des colonnes, pour que le bouton « Colonnes » et la
+    # provenance de la liste ne se contredisent jamais : ce que la lecture a vraiment fourni, et ce que
+    # l'operateur reclame. La table est dans le modele (Get-DomeniaSoftwareColumnVisibility), testee.
+    $grid = Get-DomeniaControl -Name 'DgSoftware'
+    if ($null -eq $grid) { return }
+    $technique = $false
+    try {
+        $bouton = Get-DomeniaControl -Name 'BtnSoftwareColumns'
+        if ($null -ne $bouton) { $technique = [bool]$bouton.IsChecked }
+    } catch { }
+    $entetes = @()
+    foreach ($column in @($grid.Columns)) { $entetes += [string]$column.Header }
+    $visibilites = Get-DomeniaSoftwareColumnVisibility -Headers $entetes -FromInventory ([bool](([string]$script:SoftwareSource) -eq 'Inventaire')) -ShowTechnical $technique
+    foreach ($column in @($grid.Columns)) {
+        $header = [string]$column.Header
+        if (-not $visibilites.ContainsKey($header)) { continue }
+        if ($visibilites[$header]) { $column.Visibility = [System.Windows.Visibility]::Visible }
+        else { $column.Visibility = [System.Windows.Visibility]::Collapsed }
+    }
+}
+
+function Update-DomeniaSoftwareSyntheseVisibility {
+    # Le selecteur « Liste | Synthese » est la seule commande de l'affichage de l'onglet : la liste reste
+    # ce que l'operateur voit par defaut, les graphiques ne se montrent que sur demande.
+    $panneau = Get-DomeniaControl -Name 'PnlSoftwareSynthese'
+    if ($null -eq $panneau) { return }
+    $synthese = $false
+    try {
+        $selecteur = Get-DomeniaControl -Name 'CmbSoftwareView'
+        if ($null -ne $selecteur) { $synthese = ([int]$selecteur.SelectedIndex -eq 1) }
+    } catch { }
+    if ($synthese) { $panneau.Visibility = [System.Windows.Visibility]::Visible }
+    else { $panneau.Visibility = [System.Windows.Visibility]::Collapsed }
+}
+
+function Update-DomeniaSoftwareAccessSummary {
+    # Le detail par portee tient en une ligne, reprise de ce que le worker a rapporte. Rien n'est invente
+    # quand aucune portee n'a ete lue : le texte par defaut est « Aucune portee lue. ».
+    [void](Set-DomeniaControlText -Name 'LblSoftwareAccessSummary' -Text ([string](Get-DomeniaSoftwareAccessSummary -Rows $script:SoftwareAccess)))
+}
+
+function Update-DomeniaSoftwareFilterChip {
+    # La pastille est la seule trace du filtre venu d'un graphique : le selecteur de portee, lui, reste visible
+    # dans la barre d'outils. Pas de filtre, pas de pastille ; le texte de la pastille est une regle pure du modele.
+    $texte = [string](Get-DomeniaSoftwareSelectLabel -Select $script:SoftwareChartSelect)
+    [void](Set-DomeniaControlText -Name 'LblSoftwareFilterChip' -Text $texte)
+    $pastille = Get-DomeniaControl -Name 'UxSoftwareFilterChip'
+    if ($null -eq $pastille) { return }
+    if ($texte) { $pastille.Visibility = [System.Windows.Visibility]::Visible }
+    else { $pastille.Visibility = [System.Windows.Visibility]::Collapsed }
+}
+
+function Request-DomeniaSoftwareChartFilter {
+    # FO-09 : un clic sur une part ou une barre filtre la liste, un second clic sur la meme part le retire.
+    # La portee a deja son selecteur dans l'onglet : le clic le pilote au lieu d'empiler un second filtre sur le
+    # meme champ, qui viderait la grille sans que rien ne le dise. Les autres criteres n'ont pas de temoins
+    # visible : c'est la pastille qui les montre.
+    param($Select)
+    try {
+        if ($null -eq $Select) { return }
+        if (([string]$Select.Field) -eq 'Scope') {
+            $suivant = 'Toutes'
+            if (([string]$script:SoftwareScope) -ine ([string]$Select.Value)) { $suivant = [string]$Select.Value }
+            [void](Set-DomeniaComboByContent -Name 'CmbSoftwareScope' -Content $suivant)
+            return
+        }
+        $script:SoftwareChartSelect = Get-DomeniaSoftwareSelectToggle -Current $script:SoftwareChartSelect -Incoming $Select
+        Update-DomeniaSoftwareFilterChip
+        Apply-DomeniaSoftwareFilter
+    } catch { Add-DomeniaUiLog -Area 'Logiciels' -Level 'ERROR' -Text $_.Exception.Message }
+}
+
+function Clear-DomeniaSoftwareChartFilter {
+    # Le bouton « ✕ » de la pastille. Le filtre ne survit pas non plus a une nouvelle lecture ni a
+    # un nouveau poste : la liste qu'il decrivait n'existe plus.
+    $script:SoftwareChartSelect = $null
+    Update-DomeniaSoftwareFilterChip
+    Apply-DomeniaSoftwareFilter
+}
+
+function Show-DomeniaSoftwareFromInventory {
+    # Appelle a l'ouverture de l'onglet, jamais pendant une lecture en cours : une liste qui se
+    # remplit sous les yeux de l'operateur ne se explique plus.
+    if ([string]$script:SoftwareSource -ne '') { return }
+    if (@($script:SoftwareRows).Count -gt 0) { return }
+    if (@($script:InventoryRows).Count -eq 0) { return }
+    if (([string]$script:InventoryComputer) -ine ([string](Get-CurrentSelectedComputerName))) { return }
+    $vue = ConvertTo-DomeniaSoftwareFromInventory -Items $script:InventoryRows -CompletedAt $script:InventoryCompletedAt
+    if ([int]$vue.Count -eq 0) { return }
+    $script:SoftwareRows = @($vue.Rows)
+    $script:SoftwareSource = 'Inventaire'
+    $script:SoftwareProvenance = [string]$vue.ProvenanceText
+    $panel = Get-DomeniaControl -Name 'PnlSoftwareDashboard'
+    if ($null -ne $panel) { $panel.Children.Clear() }
+    [void](Set-DomeniaControlText -Name 'LblSoftwareDashboard' -Text ([string]$vue.DashboardText))
+    Update-DomeniaSoftwareColumnVisibility
+    Apply-DomeniaSoftwareFilter
+    Add-DomeniaUiLog -Area 'Logiciels' -Text ("{0} logiciel(s) repris de l'inventaire du poste, sans nouvelle requete." -f [int]$vue.Count)
 }
 
 function Start-DomeniaSoftwareInventory {
@@ -14467,8 +14841,13 @@ function Start-DomeniaSoftwareInventory {
         $computer = Assert-DomeniaComputerTarget -Computer (Get-CurrentSelectedComputerName)
         $script:SoftwareRows = @()
         $script:SoftwareAccess = @()
+        $script:SoftwareSource = "Poste"
+        $script:SoftwareProvenance = ""
+        $script:SoftwareChartSelect = $null
+        Update-DomeniaSoftwareFilterChip
         [void](Set-DomeniaItemsSource -Name "DgSoftware" -Rows @())
         [void](Set-DomeniaItemsSource -Name "DgSoftwareAccess" -Rows @())
+        Update-DomeniaSoftwareAccessSummary
         [void](Set-DomeniaControlText -Name "LblSoftwareStatus" -Text ("Lecture des logiciels de " + $computer + "..."))
 
         $perUser = $false
@@ -14507,13 +14886,21 @@ function Copy-DomeniaSoftware {
             [string]$r.Size,[string]$r.Scope,[string]$r.Architecture,[string]$r.Kind,[string]$r.Location))
     }
     Set-ClipboardSafe ([string]::Join([Environment]::NewLine,$lines.ToArray()))
-    Set-Status ("{0} logiciel(s) copie(s)." -f @($script:SoftwareRows).Count)
+    $copie = "{0} logiciel(s) copie(s)." -f @($script:SoftwareRows).Count
+    if (-not [string]::IsNullOrWhiteSpace([string]$script:SoftwareProvenance)) {
+        $copie += ' Liste reprise de lʼinventaire : nom et version seulement.'
+    }
+    Set-Status $copie
 }
 
 function Export-DomeniaSoftware {
     try {
         if (@($script:SoftwareRows).Count -eq 0) { Set-Status "Aucun logiciel a exporter." "WARN"; return }
-        $result = Export-DomeniaCsv -Rows @($script:SoftwareRows) -Grid (Get-DomeniaControl -Name 'DgSoftware') -Subject ((Get-DomeniaExportComputerName) + '-logiciels')
+        # Le nom du fichier porte la provenance : un CSV « -logiciels-inventaire » ne se revendique pas
+        # comme une lecture complete des logiciels du poste.
+        $sujet = '-logiciels'
+        if (-not [string]::IsNullOrWhiteSpace([string]$script:SoftwareProvenance)) { $sujet = '-logiciels-inventaire' }
+        $result = Export-DomeniaCsv -Rows @($script:SoftwareRows) -Grid (Get-DomeniaControl -Name 'DgSoftware') -Subject ((Get-DomeniaExportComputerName) + $sujet)
         Add-DomeniaUiLog -Area "Logiciels" -Text ("Export CSV : " + [string]$result.Path)
         Show-DomeniaExportResult -Result $result
     }
@@ -14549,7 +14936,10 @@ $r=Invoke-WRemoteTaskScript $Context $computer $local ([pscustomobject]@{Namespa
 
 function Get-DomeniaWmiQueryWorkerCode {
     return @'
-if ([string]$Payload.ClassName -ieq 'Win32_Product') { throw 'Win32_Product bloque : utiliser le panneau Logiciels.' }
+$msiNames=@();if($null-ne$Payload.PSObject.Properties['MsiClassNames']){foreach($msiName in @($Payload.MsiClassNames)){if(-not[string]::IsNullOrWhiteSpace([string]$msiName)){$msiNames+=[string]$msiName}}}
+if(-not$msiNames.Count){throw 'Garde MSI absente de la charge utile : lecture refusee.'}
+$msiStem=@(@([string]$Payload.ClassName) -split '[:\\]');$msiStem=@($msiStem[-1] -split '[.=]')[0].Trim()
+foreach($msiName in $msiNames){if($msiStem-ieq$msiName){throw 'Classe du fournisseur MSI bloquee : sa lecture peut declencher des verifications/reparations MSI. Utilise le panneau Logiciels.'}}
 if ([string]$Payload.ClassName -notmatch '^[A-Za-z_][A-Za-z0-9_]{0,127}$' -or [string]$Payload.Namespace -notmatch '^root(?:\\[A-Za-z_][A-Za-z0-9_]*)*$') { throw 'Classe ou namespace WMI invalide.' }
 if ([int]$Payload.Limit -lt 1 -or [int]$Payload.Limit -gt 500 -or ([string]$Payload.Where).Length -gt 2048 -or ([string]$Payload.Where).IndexOf([char]0) -ge 0) { throw 'Limite ou filtre WMI invalide.' }
 $computer=[string]$Payload.Computer;$namespace=[string]$Payload.Namespace;$className=[string]$Payload.ClassName;$where=([string]$Payload.Where).Trim();$limit=[Math]::Max(1,[Math]::Min(500,[int]$Payload.Limit));if($className-notmatch'^[A-Za-z_][A-Za-z0-9_]{0,127}$'){throw 'Nom de classe invalide.'};if($where-match'(?i)\b(insert|update|delete|drop|exec|call)\b'){throw 'Condition interdite.'};$query='SELECT * FROM '+$className;if($where){$query+=' WHERE '+$where}
@@ -14737,7 +15127,7 @@ function Start-DomeniaWmiQuery {
             -Name "Instances WMI" `
             -OperationId "WmiQuery" `
             -Code (Get-DomeniaWmiQueryWorkerCode) `
-            -Payload ([pscustomobject]@{ Computer=$computer; Namespace=$namespace; ClassName=$className; Where=$where; Limit=$limit }) `
+            -Payload ([pscustomobject]@{ Computer=$computer; Namespace=$namespace; ClassName=$className; Where=$where; Limit=$limit; MsiClassNames=@(Get-DomeniaMsiProviderClassNames) }) `
             -CallbackState ([pscustomobject]@{ Computer=$computer; ClassName=$className }) `
             -ReplaceKey "wmi" `
             -DisableControls @("BtnWmiNamespaces","BtnWmiClasses","BtnWmiQuery") `
@@ -17392,17 +17782,23 @@ $methodsUsed=@($rows | Where-Object { [string]$_.Status -eq 'OK' -and -not [stri
                     Write-AppLog "Diagnostic ignore : la selection a change pendant l execution." "INFO"
                     return
                 }
-                $script:ComputerDiagRows = @($result.Rows)
+                # UX-17 : la vue classe les lignes (reussi, echec, facultatif, non tente) et rend la phrase
+                # du haut. Les lignes gardees dans $script:ComputerDiagRows gardent Status, Method et
+                # DurationMs : la copie au presse-papiers et le journal de session restent en codes bruts.
+                $diagView = ConvertTo-DomeniaDiagVerdict -Rows @($result.Rows) -Computer ([string]$result.Computer)
+                $script:ComputerDiagRows = @($diagView.Rows)
                 [void](Set-DomeniaItemsSource -Name "DgComputerDiag" -Rows $script:ComputerDiagRows)
-                $ok = @($script:ComputerDiagRows | Where-Object { [string]$_.Status -eq "OK" }).Count
-                $skipped = @($script:ComputerDiagRows | Where-Object { [string]$_.Status -eq "IGNORE" }).Count
-                $failed = @($script:ComputerDiagRows).Count - $ok - $skipped
+                $ok = [int]$diagView.Ok
+                $skipped = [int]$diagView.Skipped
+                $failed = [int]$diagView.Failed
                 $account = $script:ProcessIdentityDisplay
                 $operationCredential = Get-DomeniaMachineOperationCredential
                 if ($null -ne $operationCredential) { $account = $operationCredential.UserName }
-                $summary = "{0} : {1} controle(s) reussi(s), {2} en echec, {3} non tente(s), en {4} ms. Compte utilise : {5}." -f `
-                    ([string]$result.Computer),$ok,$failed,$skipped,([long]$result.DurationMs),([string]$account)
-                [void](Set-DomeniaControlText -Name "LblComputerDiag" -Text $summary)
+                $summary = "{0} : {1} controle(s) reussi(s), {2} en echec, {3} non tente(s), {4} facultatif(s), en {5} ms. Compte utilise : {6}." -f `
+                    ([string]$result.Computer),$ok,$failed,$skipped,[int]$diagView.Info,([long]$result.DurationMs),([string]$account)
+                $diagText = [string]$diagView.Verdict
+                if ([string]::IsNullOrWhiteSpace($diagText)) { $diagText = [string]$diagView.EmptyText }
+                [void](Set-DomeniaControlText -Name "LblComputerDiag" -Text $diagText)
                 Set-Status $summary
                 Add-DomeniaUiLog -Area "Diagnostic" -Text $summary
                 $methods = ""
@@ -18389,7 +18785,7 @@ $sw.Stop();[pscustomobject]@{Rows=@($rows);Message=(($rows|ForEach-Object{"#$($_
                 Assert-WriteAllowed
                 if(-not (Confirm-Action "Forcer immediatement la mise a jour des strategies sur $name ?")){return}
                 $code=@'
-$computer=[string]$Payload.Computer;$cred=Get-WMachineCredential $Context;$err='';try{$p=@{ComputerName=$computer;ScriptBlock={gpupdate.exe /force /wait:0 | Out-String};ErrorAction="Stop"};if($cred){$p.Credential=$cred};$DomeniaWriteDispatched=$true;$o=Invoke-Command @p;[pscustomobject]@{Message="GPUpdate lance sur $computer via WinRM : $($o -join ' ')";Transport="WinRM";Delivered=$true};return}catch{$err=$_.Exception.Message};if(-not $DomeniaWriteDispatched){$local='& "$env:SystemRoot\System32\gpupdate.exe" /force /wait:0 | Out-String | ForEach-Object { [pscustomobject]@{Message=("GPUpdate lance localement : "+$_);Transport="TaskFallback"} }';$DomeniaWriteDispatched=$true;$r=Invoke-WRemoteTaskScript $Context $computer $local ([pscustomobject]@{}) ([int]$Context.TaskFallbackTimeoutSeconds) $err;[pscustomobject]@{Message="GPUpdate via tache planifiée.";Transport="TaskFallback";Delivered=$true}}else{throw}
+$computer=[string]$Payload.Computer;$cred=Get-WMachineCredential $Context;$err='';try{$p=@{ComputerName=$computer;ScriptBlock={gpupdate.exe /force /wait:0 | Out-String};ErrorAction="Stop"};if($cred){$p.Credential=$cred};$DomeniaWriteDispatched=$true;$o=Invoke-Command @p;[pscustomobject]@{Message="GPUpdate lance sur $computer via WinRM : $($o -join ' ')";Transport="WinRM";Delivered=$true};return}catch{$err=$_.Exception.Message};if(-not $DomeniaWriteDispatched){$local='& "$env:SystemRoot\System32\gpupdate.exe" /force /wait:0 | Out-String | ForEach-Object { [pscustomobject]@{Message=("GPUpdate lance localement : "+$_);Transport="TaskFallback"} }';$DomeniaWriteDispatched=$true;$r=Invoke-WRemoteTaskScript $Context $computer $local ([pscustomobject]@{}) ([int]$Context.TaskFallbackTimeoutSeconds) $err -Purpose 'Write';[pscustomobject]@{Message="GPUpdate via tache planifiée.";Transport="TaskFallback";Delivered=$true}}else{throw}
 '@
                 $correlation = [guid]::NewGuid().ToString("N")
                 $payload = [pscustomobject]@{Computer=$name;Target=$name;DN=$name;CorrelationId=$correlation;SingleRequest=$true}
@@ -18400,7 +18796,7 @@ $computer=[string]$Payload.Computer;$cred=Get-WMachineCredential $Context;$err='
                 Assert-WriteAllowed
                 if(-not (Confirm-Action "Redemarrer immediatement $name ?")){return}
                 $code=@'
-$computer=[string]$Payload.Computer;$cred=Get-WMachineCredential $Context;$err='';try{$p=@{ComputerName=$computer;Force=$true;ErrorAction="Stop"};if($cred){$p.Credential=$cred};$DomeniaWriteDispatched=$true;Restart-Computer @p;[pscustomobject]@{Message="Demande de redemarrage envoyee a $computer.";Transport="Classic";Delivered=$true};return}catch{$err=$_.Exception.Message};if(-not $DomeniaWriteDispatched){$local='Start-Process -FilePath (Join-Path $env:SystemRoot "System32\shutdown.exe") -ArgumentList @("/r","/t","10","/f","/c","DOMENIA") -WindowStyle Hidden; [pscustomobject]@{Message="Redemarrage programme localement dans 10 secondes.";Transport="TaskFallback";Delivered=$true}';$DomeniaWriteDispatched=$true;$r=Invoke-WRemoteTaskScript $Context $computer $local ([pscustomobject]@{}) ([int]$Context.TaskFallbackTimeoutSeconds) $err;[pscustomobject]@{Message="Redemarrage via tache planifiée.";Transport="TaskFallback";Delivered=$true}}else{throw}
+$computer=[string]$Payload.Computer;$cred=Get-WMachineCredential $Context;$err='';try{$p=@{ComputerName=$computer;Force=$true;ErrorAction="Stop"};if($cred){$p.Credential=$cred};$DomeniaWriteDispatched=$true;Restart-Computer @p;[pscustomobject]@{Message="Demande de redemarrage envoyee a $computer.";Transport="Classic";Delivered=$true};return}catch{$err=$_.Exception.Message};if(-not $DomeniaWriteDispatched){$local='Start-Process -FilePath (Join-Path $env:SystemRoot "System32\shutdown.exe") -ArgumentList @("/r","/t","10","/f","/c","DOMENIA") -WindowStyle Hidden; [pscustomobject]@{Message="Redemarrage programme localement dans 10 secondes.";Transport="TaskFallback";Delivered=$true}';$DomeniaWriteDispatched=$true;$r=Invoke-WRemoteTaskScript $Context $computer $local ([pscustomobject]@{}) ([int]$Context.TaskFallbackTimeoutSeconds) $err -Purpose 'Write';[pscustomobject]@{Message="Redemarrage via tache planifiée.";Transport="TaskFallback";Delivered=$true}}else{throw}
 '@
                 $correlation = [guid]::NewGuid().ToString("N")
                 $payload = [pscustomobject]@{Computer=$name;Target=$name;DN=$name;CorrelationId=$correlation;SingleRequest=$true}
@@ -20559,6 +20955,10 @@ function Start-DomeniaAccountRelogin {
         $script:ParkState = @{}
         $script:InventoryRows = @(); $script:InventoryAccess = @()
         $script:SoftwareRows = @(); $script:SoftwareAccess = @()
+        $script:InventoryComputer = ''; $script:InventoryCompletedAt = $null
+        $script:InventoryCacheByComputer = @{}
+        $script:SoftwareSource = ''; $script:SoftwareProvenance = ''
+        $script:SoftwareChartSelect = $null; Update-DomeniaSoftwareFilterChip
         $script:DomainRows = @(); $script:WmiNamespaces = @(); $script:WmiClasses = @(); $script:WmiSchema = @(); $script:WmiInstances = @()
         $script:WorkerContextStatic = $null
         $script:DirectoryCredentialFaulted = $false; $script:DirectoryCredentialFaultMessage = ''
@@ -20963,9 +21363,33 @@ function Wire-Events {
     if ($script:Ctrl.ContainsKey("LstWmiNamespaces")) { $script:Ctrl["LstWmiNamespaces"].Add_MouseDoubleClick({ Start-DomeniaWmiClasses }) }
     if ($script:Ctrl.ContainsKey("LstWmiClasses")) { $script:Ctrl["LstWmiClasses"].Add_MouseDoubleClick({ Start-DomeniaWmiQuery }) }
     if ($script:Ctrl.ContainsKey("BtnLoadSoftware")) { $script:Ctrl["BtnLoadSoftware"].Add_Click({ Start-DomeniaSoftwareInventory }) }
+    # PF-22 : a l'ouverture de l'onglet, la liste deja rapportee par l'inventaire du meme poste est
+    # affichee au lieu de repartir pour une seconde requete. Le geste complet reste le bouton.
+    # TabItem ne possede pas d'evenement Selected (sonde en invite : Add_Selected n'existe pas) ; le
+    # branchement se fait donc sur le TabControl, comme les onglets de workspace plus haut.
+    # UI-08 : la liste est l'affichage par defaut de l'onglet ; les graphiques et les colonnes
+    # techniques ne se montrent que sur demande explicite de l'operateur.
+    if ($script:Ctrl.ContainsKey("CmbSoftwareView")) { $script:Ctrl["CmbSoftwareView"].Add_SelectionChanged({ param($sender,$e) if ($sender -eq $e.OriginalSource) { try { Update-DomeniaSoftwareSyntheseVisibility } catch { } } }) }
+    if ($script:Ctrl.ContainsKey("BtnSoftwareColumns")) {
+        $script:Ctrl["BtnSoftwareColumns"].Add_Checked({ param($sender,$e) try { Update-DomeniaSoftwareColumnVisibility } catch { } })
+        $script:Ctrl["BtnSoftwareColumns"].Add_Unchecked({ param($sender,$e) try { Update-DomeniaSoftwareColumnVisibility } catch { } })
+    }
+    if ($script:Ctrl.ContainsKey("ComputerTabs")) {
+        $script:Ctrl["ComputerTabs"].Add_SelectionChanged({
+            param($sender,$e)
+            if ($sender -ne $e.OriginalSource) { return }
+            try {
+                $onglet = $sender.SelectedItem
+                if ($null -ne $onglet -and ([string]$onglet.Name) -eq 'TabSoftware') { Show-DomeniaSoftwareFromInventory }
+            }
+            catch { }
+        })
+    }
     if ($script:Ctrl.ContainsKey("BtnCopySoftware")) { $script:Ctrl["BtnCopySoftware"].Add_Click({ Copy-DomeniaSoftware }) }
     if ($script:Ctrl.ContainsKey("BtnExportSoftware")) { $script:Ctrl["BtnExportSoftware"].Add_Click({ Export-DomeniaSoftware }) }
     if ($script:Ctrl.ContainsKey("TxtSoftwareFilter")) { $script:Ctrl["TxtSoftwareFilter"].Add_TextChanged({ Apply-DomeniaSoftwareFilter }) }
+    if ($script:Ctrl.ContainsKey("BtnSoftwareFilterClear")) { $script:Ctrl["BtnSoftwareFilterClear"].Add_Click({ Clear-DomeniaSoftwareChartFilter }) }
+    if ($script:Ctrl.ContainsKey("LnkInventoryRefresh")) { $script:Ctrl["LnkInventoryRefresh"].Add_Click({ Start-DomeniaComputerInventory }) }
     if ($script:Ctrl.ContainsKey("CmbSoftwareScope")) {
         $script:Ctrl["CmbSoftwareScope"].Add_SelectionChanged({
             try {
@@ -22340,8 +22764,8 @@ function Get-DomeniaWorkerOperationHashes {
         BatchNetworkDiag      = "C3043A5234A626DD8E83E9DE0791D55005C81C5716C7BA5FD559204C1BC87815"
         WmiNamespaces         = "3F54C07FC76AABC9511861F7B13A2A97394B366C7C8702EAF0BB67D30E886E25"
         WmiClasses            = "D7BD82BD51A7C7FAA920CC549BDACCD37038C19FA2A5BF43B01C7CDBA0CB9556"
-        WmiQuery              = "CCF547839D0C78001741E9A278DDFC531166108188BE9AAB498E61F6EFB2313F"
-        SoftwareInventory     = "0F758A7DFEF27A63A230A3CD34FE45A5D7079691AB6C9D989C861ADE2A61E9D1"
+        WmiQuery              = "6BD3C58E349298A4B4909D51A9841B052E5B911D7563D6239550F0CC3DB146F0"
+        SoftwareInventory     = "214DA1A24E26D30BB0529B539B80E8B183BB195FE610F3B8C124E94724CCF5CE"
         LogonHarvest          = "ED7FFF55506C7BCE5567D65F683E10E9F28EA9771947F12A8DEEE1435994119A"
         ParkSweep             = "134ED776E45640FA67B7F51659711C33B37834105375CC4B083342469F2C26A9"
         IndexBuild            = "647DD166D5AD185DFDEAECE3FD091DF9F55195C98C4777DDB5A2970CDD892535"
@@ -22351,8 +22775,8 @@ function Get-DomeniaWorkerOperationHashes {
         ComputerLastUser      = "8F79C42CE673CE98DBE30EB30B9DBF246D8819B08149A4FBA1C5F9BA894395F9"
         CmdletInventory       = "FA1105E9540BBC2AB373FC45037CC54FA11EB8BD9B058194CE44C422E812DF75"
         ComputerPing          = "BE1A5B70CCA9477571D839A85A1330334210DA891C53DBA257814486369F5887"
-        ComputerGpUpdate      = "834EF3F6318DFE7917FBA4926B53F0013987B258C6395012ECD03BEE874CFA17"
-        ComputerRestart       = "CF11D2F7B15DC33E3C92BE72E496F12B80BBA2C76AFAFA21B7E1F3469C861B50"
+        ComputerGpUpdate      = "AC0E30C53A5257A12378801A8B6831FFAAB183CBB0548CE9A768637B255AB1C0"
+        ComputerRestart       = "7895BE660A73963FF297989D640D7F47BCFB6D81D6B8E1F2D7E357A7C1E24B3F"
         RimotteRun            = "2834E90E1C51D9D4A16C98CBCA905DE6A9886E87875115DC0A44ADF3E75F665B"
         PruneLinks            = "0CDDB662FA027ED979FC9A44A7A66662DB540D5B562F9D33CCDD3BA86FF0819F"
         OpenLinkedObject      = "24863184FC8441FCE8F270A75B30736954AC066DBBC5A2DE99CDF1C5D7CAA6C2"
@@ -22373,8 +22797,8 @@ function Get-DomeniaWorkerOperationHashes {
         PresenceScan          = "E7F81414C29C1C8F1E91453D9EC4BA48B6F92F0AA0E2674C9EBF5C88437F4486"
         SelectedPresence      = "4ECADF4F231390182A3BF091EF8636B3536D7B3F8A28EF3984DE1E2D524D5BFA"
         StartupWarmCache      = "864735012ED29EBAF1B094DA12C1D44266933DC9D3D2046BD1E5D68AE58CA1A3"
-        LiveSelectedPing     = "1096C61BB04511091B3F2CFE7731797EADFA74C8973B312E77AE7A793952125B"
-        LiveConsole          = "1096C61BB04511091B3F2CFE7731797EADFA74C8973B312E77AE7A793952125B"
+        LiveSelectedPing     = "E6C6A5D6C22D1A46937454909AF29E86360B94105BBBE9FFD80F7288791745A9"
+        LiveConsole          = "E6C6A5D6C22D1A46937454909AF29E86360B94105BBBE9FFD80F7288791745A9"
         LiveCache            = "DDE5FCD862785432F805D446F3E16A28D3D60282A50892354C01BB2ED147196E"
         LiveDirectoryCheck    = "49F6D4249F6465D6E461D3B04DD090F00477ABBD871683ECF3622714A2AB53CD"
         SessionsList         = "DD09187778C09CF31B0BDA41EAC88FF898D9484756AFDF2F3EE643E6B5318BF6"
@@ -22395,7 +22819,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "0573CCACB2274A0874987D74D1B8B7BB5EE92C1EE18079482736A204AF3E64E1"
+    $expectedFingerprint = "49368F7D76F2259B130CFDAC2A834D2AFC4CCF7B9EFF26A87EEB57A112889F24"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -23301,6 +23725,11 @@ function Get-WorkerContext {
     $useRemoteAdminCredential = ([bool]$credentialNeeds.RemoteAdmin -and ($null -ne $script:RemoteAdminCredential -or ([bool]$script:Conn.UseCredential -and $null -ne $script:Conn.Credential)))
     $useSecretsCredential = ([bool]$credentialNeeds.Secrets -and ($null -ne $script:SecretsCredential -or ([bool]$script:Conn.UseCredential -and $null -ne $script:Conn.Credential)))
     $workerDirectoryCredential = if ($useSecretsCredential -and $null -ne $script:SecretsCredential) { $script:SecretsCredential } elseif ($useDirectoryCredential) { $script:Conn.Credential } elseif ($useSecretsCredential) { $script:Conn.Credential } else { $null }
+    # SE-07 : l autorisation de lecture par transport intrusif est distincte de celle d une
+    # intervention. Elle est lue ici, sur le fil UI ou le plan des modules est disponible, puis
+    # retiree : une demande ne vaut que pour la prochaine lecture de ce poste.
+    $readConsentActive = ($null -ne $script:ReadFallbackConsent -and $script:ReadFallbackConsent.Epoch -eq [long]$script:SessionEpoch -and $script:ReadFallbackConsent.Expires -gt [datetime]::UtcNow)
+    $readGate = Test-DomeniaTransportFallbackAllowed -Transport 'PsExec / Planificateur' -Intrusive $true -IsRead $true -ReadConsentGiven $readConsentActive
     $result=[pscustomobject]@{
         Server = [string]$script:Conn.Server
         BaseDn = [string]$script:Conn.BaseDn
@@ -23338,6 +23767,10 @@ function Get-WorkerContext {
         AllowRemoteArtifacts = ($null -ne $script:ArtifactConsent -and $script:ArtifactConsent.Epoch -eq $script:SessionEpoch -and $script:ArtifactConsent.Expires -gt [datetime]::UtcNow)
         ArtifactTarget = $(if($null -ne $script:ArtifactConsent){[string]$script:ArtifactConsent.Target}else{''})
         ArtifactAliases = $(if($null -ne $script:ArtifactConsent){[string[]]$script:ArtifactConsent.Aliases}else{@()})
+        ReadFallbackTarget = $(if($null -ne $script:ReadFallbackConsent){[string]$script:ReadFallbackConsent.Target}else{''})
+        ReadFallbackAliases = $(if($null -ne $script:ReadFallbackConsent){[string[]]$script:ReadFallbackConsent.Aliases}else{@()})
+        AllowReadFallback = $(if($readConsentActive -and [bool]$readGate.Allowed){$script:ReadFallbackConsent=$null;$true}else{$false})
+        ReadFallbackReason = $(if([bool]$readGate.Allowed){''}else{[string]$readGate.Reason})
         UseTaskFallback = [bool]$cfg.UseTaskFallback
         TaskFallbackTimeoutSeconds = [int]$cfg.TaskFallbackTimeoutSeconds
         ExpectedControls = if ($null -ne $script:Ctrl) { [int]$script:Ctrl.Count } else { 0 }
@@ -24134,6 +24567,8 @@ function Initialize-DomeniaPresentation {
     try { Select-DomeniaWorkspace -Workspace "TabDashboard" } catch { }
 
     $sessionButton=Get-DomeniaControl 'BtnSessionsRead';if($null -ne $sessionButton){$sessionButton.Add_Click({Start-DomeniaSessionsRead})}
+    # UX-39 : la grille des sessions se parcourt au double-clic et au clic droit, comme celle des associations.
+    $sessionGrid=Get-DomeniaControl 'DgSessions';if($null -ne $sessionGrid){$sessionGrid.ContextMenu=New-DomeniaSessionsContextMenu;$sessionGrid.Add_MouseDoubleClick({param($sender,$e) Open-DomeniaSessionFiche -Source $e.OriginalSource});$sessionGrid.Add_PreviewMouseRightButtonDown({param($sender,$e) $hit=Get-DomeniaGridHit $e.OriginalSource;if($null -ne $hit -and $null -ne $hit.Row){$sender.SelectedItem=$hit.Row.Item}})}
     Initialize-DomeniaGuard
     Initialize-DomeniaLive
     Initialize-DomeniaReconcile

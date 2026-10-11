@@ -221,7 +221,7 @@ La page « Comptes » affiche ce tableau sous « TRANSPORTS UTILISES ». Dom
 | Planificateur (COM) | Exécution ponctuelle d'une intervention | RPC | Autorisation explicite ; désactivable par Remote.UseTaskFallback. |
 | PsExec | Exécution ponctuelle d'une intervention | 445/TCP | Autorisation explicite ; désactivable par Remote.UsePsExecFallback. |
 
-> [!ATTENTION] Les transports intrusifs (ADMIN$, Planificateur, PsExec) restent inactifs sans autorisation explicite pour le poste. Cette autorisation se donne par « Autoriser une intervention sur cette machine » (onglet « Fiabilité », chapitre 18) et vaut 5 minutes pour la machine sélectionnée. Pendant ce délai, si CIM échoue, l'inventaire, la lecture des logiciels, l'explorateur WMI, le diagnostic et « Detecter l utilisateur » peuvent passer par PsExec puis par une tâche planifiée (Remote.UsePsExecFallback, Remote.UseTaskFallback), malgré la règle affichée « Jamais utilise par une lecture ou une detection. ». PsExec.exe est un composant tiers : faites revoir sa licence avant diffusion.
+> [!ATTENTION] Les transports intrusifs (ADMIN$, Planificateur, PsExec) restent inactifs sans autorisation explicite pour le poste. « Autoriser une intervention sur cette machine » (onglet « Fiabilité », chapitre 18) vaut 5 minutes pour la machine sélectionnée et ne couvre que les interventions : une lecture n'y bascule jamais seule. Quand CIM échoue, l'inventaire, la lecture des logiciels, l'explorateur WMI, le diagnostic et « Detecter l utilisateur » rendent un « non lu » et nomment la demande à faire, pour cette lecture seule : « Lire ce poste par tâche planifiée » (même onglet). Ce n'est qu'après cette demande que PsExec puis la tâche planifiée interviennent (Remote.UsePsExecFallback, Remote.UseTaskFallback). PsExec.exe est un composant tiers : faites revoir sa licence avant diffusion.
 
 # 6 Inventaire du poste
 
@@ -545,14 +545,17 @@ Dimensions en pixels, largeur × hauteur ; auto suit le contenu. Limites d'affic
 
 Les sections « Vue d ensemble », « Inventaire du perimetre » et « Repartition » viennent de la base autonome ; la section « Releves WMI » se remplit avec « Analyser la liste » dans « Rechercher ».
 
-## Catalogue du tableau des logiciels (8 widgets)
+## Catalogue du tableau des logiciels (11 widgets)
 
 | Titre | Clé | Section | Par défaut | Description |
 |---|---|---|---|---|
 | Logiciels | software.count | Synthese | Chiffre cle, Compacte | Nombre de logiciels et d editeurs |
 | Taille declaree | software.size | Synthese | Chiffre cle, Compacte | Somme des tailles connues |
+| Installés ces 30 derniers jours | software.recent | Synthese | Chiffre cle, Compacte | Date dʼinstallation déclarée par le logiciel, lue dans la liste |
 | Installes en plusieurs versions | software.multiversion | Synthese | Chiffre cle, Compacte | Logiciels presents en plusieurs versions |
 | Sans editeur declare | software.nopublisher | Synthese | Chiffre cle, Compacte | Logiciels sans editeur renseigne |
+| Composants dʼexécution | software.runtime | Synthese | Chiffre cle, Compacte | Socles Visual C++, .NET et WebView2 déclarés dans la liste |
+| Navigateurs et versions | software.browsers | Synthese | Chiffre cle, Compacte | Navigateurs détectés dans la liste, avec leur version |
 | Editeurs | software.publishers | Repartition | Anneau, Moyenne | Principaux editeurs |
 | Architecture | software.architecture | Repartition | Anneau, Moyenne | Logiciels 32 et 64 bits |
 | Portee d installation | software.scope | Repartition | Anneau, Moyenne | Installation machine ou utilisateur |
@@ -701,6 +704,7 @@ L'onglet « Logiciels » de la page « Poste » lit la liste des logiciels i
 ## Synthèse
 
 - La synthèse est calculée sur la liste chargée : nombre de logiciels et d'éditeurs, somme des tailles connues, logiciels en plusieurs versions, logiciels sans éditeur.
+- Trois tuiles répondent à « qu'est-ce qui a changé sur ce poste » : « Installés ces 30 derniers jours » (la date que la liste affiche déjà), « Composants dʼexécution » (Visual C++, .NET, WebView2) et « Navigateurs et versions ». Une tuile à zéro n'est plus un chiffre perdu : elle prend la coche verte quand vérifier était le but, et reste grise quand le poste ne déclare pas la donnée.
 - L'anneau « Editeurs » montre les six premiers éditeurs, puis « Autres ». « Architecture » et « Portee d installation » répartissent la liste. « Plus gros logiciels » montre les huit plus gros, en Mo.
 - Quand la liste est vide : « Aucun logiciel lu. ».
 
@@ -1180,7 +1184,7 @@ Une clé absente, nulle ou vide prend la valeur par défaut du code. Une section
 |---|---|---|
 | Remote.UseCim, UseWinRM | true, true | Lectures CIM, et repli WSMan si déjà en service. |
 | Remote.PortTimeoutMs, CommandTimeoutSeconds | 1200, 10 | Délai d'un test de port et d'une commande. |
-| Remote.UsePsExecFallback, UseTaskFallback, TaskFallbackTimeoutSeconds | true, true, 75 | PsExec puis tâche planifiée, seulement avec l'autorisation de 5 minutes pour le poste : interventions, et repli de lectures quand CIM échoue (chapitre 5). |
+| Remote.UsePsExecFallback, UseTaskFallback, TaskFallbackTimeoutSeconds | true, true, 75 | PsExec puis tâche planifiée : pour les interventions avec l'autorisation de 5 minutes, et pour une lecture seulement après « Lire ce poste par tâche planifiée » (chapitre 5). |
 | Remote.UseRemoteRegistry, UseProfilesShare, UseSecurityLog | true, true, false | Sources de la détection du dernier utilisateur : registre distant, partage des profils, journal Sécurité du poste. |
 | Remote.AllowUnboundedFallbacks | false | Replis sans limite, interdits. |
 | Inventory.PreferWinrm | false | Préférence WinRM pour l'inventaire. |

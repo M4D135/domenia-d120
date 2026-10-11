@@ -169,7 +169,7 @@ Quand : vous voulez voir d'un coup d'œil l'état d'un poste et ses points à v�
 | « Pas encore de donnees » | Cliquez sur « Inventaire rapide ». |
 | Une section indique « Inventaire complet requis : » | Cliquez sur « Inventaire complet ». |
 | Un widget affiche « Non lu » | L'information n'a pas pu être lue. Relancez l'inventaire. Si elle reste absente, prévenez l'administrateur. |
-| Le tableau se vide quand vous choisissez un autre objet | C'est normal : il montre toujours le poste sélectionné. Relancez l'inventaire sur le nouveau poste. |
+| Le tableau se vide quand vous choisissez un autre objet | C'est normal : il montre toujours le poste sélectionné. Si vous avez déjà lancé son inventaire pendant cette session, il réapparaît avec son âge (« Inventaire d'il y a 12 min · Actualiser ») ; sinon relancez l'inventaire sur le nouveau poste. |
 
 # 4 Savoir qui est connecté sur une liste de postes
 
@@ -313,7 +313,7 @@ Quand : vous devez savoir si un logiciel est installé sur un poste, dans quelle
 2. **Choisir l'étendue.** « Par utilisateur », cochée par défaut, ajoute les logiciels de chaque profil. Cochez « Applications Store » pour le Microsoft Store (plus long), « Mises a jour » pour les correctifs et composants système.
 3. **Charger.** Cliquez sur « Charger les logiciels ». Chaque ligne donne le « Nom », la « Version », l'« Editeur », « Installe le », la « Taille » et la « Portee ».
 4. **Chercher un logiciel.** Tapez une partie du nom, de l'éditeur ou de la version dans « Filtre ». « Portee » limite la liste à « Machine », « Utilisateur » ou « Store ».
-5. **Lire la synthèse.** Le volet « Synthese en graphiques » résume la liste : nombre, éditeurs, versions multiples, architecture, portée et plus gros logiciels.
+5. **Lire la synthèse.** Le volet « Synthese en graphiques » résume la liste : nombre, éditeurs, versions multiples, architecture, portée et plus gros logiciels, plus « Installés ces 30 derniers jours », « Composants dʼexécution » (Visual C++, .NET, WebView2) et « Navigateurs et versions ». Une tuile à zéro prend la coche verte plutôt qu'un chiffre, et « Sans date » signale qu'aucun logiciel lu ne déclare sa date.
 6. **Transmettre.** « Copier » copie la liste complète ; « Exporter CSV » l'enregistre dans un fichier dont le chemin s'affiche dans le « Journal de session » (« Logiciels exportes : … »).
 
 ![Onglet « Logiciels » : liste des logiciels du poste et volet « Synthese en graphiques » déplié](fig:logiciels)

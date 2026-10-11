@@ -129,6 +129,9 @@ Case 'Nouveaux types C# compilent sans appel Windows' {
     Add-Type -Path (Join-Path $wad 'modules\Domenia-Sessions.Native.cs')
     Add-Type -Path (Join-Path $wad 'modules\Domenia-Clipboard.Native.cs')
     Expect ($null -ne ('Domenia.Sessions.Reader' -as [type]))
+    # UX-39 : les deux horloges que la page affiche sortent du lecteur, pas d'une supposition du banc.
+    $rowType=('Domenia.Sessions.SessionRow' -as [type])
+    Expect ($null -ne $rowType -and $null -ne $rowType.GetProperty('LogonTicks') -and $null -ne $rowType.GetProperty('IdleTicks'))
 }
 if($Wpf){
     Case 'WPF principal : chargement natif sans demarrage' {

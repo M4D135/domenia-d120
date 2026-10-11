@@ -503,6 +503,18 @@ function New-DomeniaAttentionCard {
     return New-DomeniaChartCard -Width $Width -Height 0 -Content $panel -State $state -MinHeight $MinHeight
 }
 
+function Invoke-DomeniaChartSelect {
+    # FO-09: a ring part or a bar that carries a Select payload hands it to the handler of the board that drew the
+    # card. The handler is optional and comes from the board (only the software board offers one): a chart without
+    # one stays decorative, and this layer never decides what a filter is - it only forwards what it was given.
+    param($Tag)
+    if ($null -eq $Tag) { return }
+    $handler = $Tag['OnSelect']
+    $select = $Tag['Select']
+    if (($null -eq $handler) -or ($null -eq $select)) { return }
+    & $handler $select
+}
+
 # ---------------------------------------------------------------------------
 # 2. Rings: donut and gauge share the stroked-arc drawing
 # ---------------------------------------------------------------------------
@@ -554,7 +566,8 @@ function New-DomeniaDonutChart {
         [object[]]$Items,
         [double]$Width = 340,
         [double]$Height = 240,
-        [string]$CenterText = ''
+        [string]$CenterText = '',
+        [scriptblock]$OnSelect = $null
     )
     $valid = @($Items | Where-Object { $_ -and $_.Value -ne $null -and [double]$_.Value -gt 0 })
     if ($valid.Count -eq 0) { return New-DomeniaChartEmpty -Width $Width -Height $Height -Title $Title }
@@ -597,10 +610,15 @@ function New-DomeniaDonutChart {
         $arc = New-DomeniaArcPath -Center $center -Radius $radius -Start ($angle + $gap / 2) -Sweep ([Math]::Max(0.6, $sweep - $gap)) -Thickness $thickness
         $arc.Path.Stroke = ConvertTo-DomeniaChartBrush $hex
         $arc.Path.Cursor = [System.Windows.Input.Cursors]::Hand
-        $arc.Path.Tag = @{ State = $state; Index = $index }
+        $select = $null
+        $selectProperty = $it.PSObject.Properties['Select']
+        if ($null -ne $selectProperty) { $select = $selectProperty.Value }
+        $arc.Path.Tag = @{ State = $state; Index = $index; Select = $select; OnSelect = $OnSelect }
         $arc.Path.ToolTip = [string]$it.Label + ' : ' + (Format-DomeniaChartNumber ([Math]::Round([double]$it.Value, 1)))
         $arc.Path.Add_MouseEnter({ param($s,$e) Set-DomeniaDonutFocus $s.Tag.State $s.Tag.Index })
         $arc.Path.Add_MouseLeave({ param($s,$e) Set-DomeniaDonutFocus $s.Tag.State -1 })
+        # Path is a Shape, not a Button: it has no Click event, only the mouse ones (proved by a lab probe).
+        if (($null -ne $OnSelect) -and ($null -ne $select)) { $arc.Path.Add_MouseLeftButtonDown({ param($s,$e) Invoke-DomeniaChartSelect -Tag $s.Tag }) }
         [void]$canvas.Children.Add($arc.Path)
         [void]$state.Segments.Add($arc.Path)
         # Parts draw one after the other, clockwise, over about 0.8 s.
@@ -657,9 +675,14 @@ function New-DomeniaDonutChart {
         $share.Margin = [System.Windows.Thickness]::new(8, 0, 0, 0)
         [System.Windows.Controls.Grid]::SetColumn($share, 2)
         [void]$row.Children.Add($share)
-        $row.Tag = @{ State = $state; Index = $index }
+        $select = $null
+        $selectProperty = $it.PSObject.Properties['Select']
+        if ($null -ne $selectProperty) { $select = $selectProperty.Value }
+        $row.Tag = @{ State = $state; Index = $index; Select = $select; OnSelect = $OnSelect }
         $row.Add_MouseEnter({ param($s,$e) Set-DomeniaDonutFocus $s.Tag.State $s.Tag.Index })
         $row.Add_MouseLeave({ param($s,$e) Set-DomeniaDonutFocus $s.Tag.State -1 })
+        # A thin arc is hard to hit: the legend line of the same part is clickable too.
+        if (($null -ne $OnSelect) -and ($null -ne $select)) { $row.Add_MouseLeftButtonDown({ param($s,$e) Invoke-DomeniaChartSelect -Tag $s.Tag }) }
         [void]$legend.Children.Add($row)
         [void]$state.Rows.Add($row)
         $index++
@@ -759,7 +782,8 @@ function New-DomeniaBarChart {
         [double]$Height = 260,
         [int]$Top = 10,
         [string]$Unit = '',
-        [string]$Subtitle = ''
+        [string]$Subtitle = '',
+        [scriptblock]$OnSelect = $null
     )
     $valid = @($Items | Where-Object { $_ -and $_.Value -ne $null -and [double]$_.Value -gt 0 })
     if ($valid.Count -eq 0) { return New-DomeniaChartEmpty -Width $Width -Height $Height -Title $Title }
@@ -788,6 +812,15 @@ function New-DomeniaBarChart {
         $row.Height = 26
         $row.Background = [System.Windows.Media.Brushes]::Transparent
         $row.ToolTip = [string]$it.Label + ' : ' + (Get-DomeniaChartValueText -Item $it -Unit $Unit)
+        $select = $null
+        $selectProperty = $it.PSObject.Properties['Select']
+        if ($null -ne $selectProperty) { $select = $selectProperty.Value }
+        if (($null -ne $OnSelect) -and ($null -ne $select)) {
+            # The hand cursor is set here and not before: a bar that filters nothing must not promise a click.
+            $row.Cursor = [System.Windows.Input.Cursors]::Hand
+            $row.Tag = @{ Select = $select; OnSelect = $OnSelect }
+            $row.Add_MouseLeftButtonDown({ param($s,$e) Invoke-DomeniaChartSelect -Tag $s.Tag })
+        }
         foreach ($w in @($labelWidth, $barWidth, $valueWidth)) { $col = New-Object System.Windows.Controls.ColumnDefinition; $col.Width = [System.Windows.GridLength]::new($w); [void]$row.ColumnDefinitions.Add($col) }
         $label = New-DomeniaChartText -Text ([string]$it.Label) -Size 12 -Key 'TextColor' -OneLine
         $label.Margin = [System.Windows.Thickness]::new(0, 0, 10, 0)

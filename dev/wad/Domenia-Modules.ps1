@@ -258,10 +258,21 @@ function Get-DomeniaRuntimeModulePlan {
             'ConvertTo-DomeniaWorkstationNumber',
             'Get-DomeniaWorkstationNumberText',
             'Get-DomeniaWorkstationDurationText',
+            'Get-DomeniaDiagStatusLabel',
+            'Get-DomeniaDiagSeverity',
+            'ConvertTo-DomeniaDiagVerdict',
+            'ConvertTo-DomeniaSoftwareFromInventory',
+            'Get-DomeniaSoftwareColumnVisibility',
+            'Get-DomeniaSoftwareAccessSummary',
+            'Get-DomeniaInventoryMapText',
+            'Get-DomeniaInventoryValueText',
             'Get-DomeniaQuickDiagPlan',
             'Test-DomeniaQuickDiagAllowed',
             'ConvertTo-DomeniaQuickDiagFacts',
             'Get-DomeniaSessionEmptyText',
+            'Get-DomeniaSessionIdleText',
+            'Get-DomeniaSessionOpenedText',
+            'Get-DomeniaSessionAccountName',
             'ConvertTo-DomeniaSessionView',
             'Get-DomeniaMsiProviderClassNames',
             'Test-DomeniaMsiProviderClass',
@@ -925,6 +936,8 @@ function Get-DomeniaRuntimeModulePlan {
             'Start-DomeniaSessionsRead',
             'Complete-DomeniaSessionsRead',
             'Fail-DomeniaSessionsRead',
+            'Open-DomeniaSessionFiche',
+            'New-DomeniaSessionsContextMenu',
             'Get-DomeniaRemoteCredentialCheckCode',
             'Start-DomeniaRemoteCredentialSession',
             'Set-DomeniaTargetCredentialContext'
@@ -959,6 +972,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Keep-DomeniaDraftOnResult',
             'Show-DomeniaDraftComparison',
             'Set-DomeniaArtifactConsent',
+            'Set-DomeniaReadFallbackConsent',
             'Read-DomeniaOuFavouriteStore',
             'Write-DomeniaOuFavouriteStore',
             'Import-DomeniaFavouriteSearchesOnce',
@@ -1219,6 +1233,7 @@ function Get-DomeniaRuntimeModulePlan {
             'New-DomeniaKpiTile',
             'New-DomeniaRowButton',
             'New-DomeniaAttentionCard',
+            'Invoke-DomeniaChartSelect',
             'New-DomeniaArcPath',
             'Register-DomeniaArcDrawing',
             'Set-DomeniaDonutFocus',
@@ -1246,6 +1261,10 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaFleetBoardData'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Boards.Model.ps1'); File='Domenia-BoardSoftware.Model.ps1'; DotSource=$true; Functions=@(
+            'Test-DomeniaSoftwareRowMatchesSelect',
+            'Get-DomeniaSoftwareSelectLabel',
+            'Get-DomeniaSoftwareSelectToggle',
+            'Get-DomeniaSoftwareFamily',
             'Get-DomeniaSoftwareBoardData'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Boards.Model.ps1','Domenia-Charts.UI.ps1'); File='Domenia-BoardComputer.UI.ps1'; DotSource=$true; Functions=@(
@@ -1271,6 +1290,7 @@ function Get-DomeniaRuntimeModulePlan {
             'New-DomeniaBoardAddTile',
             'Optimize-DomeniaBoardRow',
             'Resolve-DomeniaBoardEntry',
+            'Get-DomeniaBoardSelectHandler',
             'New-DomeniaWidgetVisual',
             'New-DomeniaBoardChromeButton',
             'New-DomeniaBoardMenu',

@@ -20,7 +20,13 @@ function Get-DomeniaSelectedMachineName {
 }
 function Start-DomeniaSessionsRead {
     $name=Get-DomeniaSelectedMachineName
-    if(-not $name){Show-InfoBox 'Selectionnez une machine.';return}
+    if(-not $name){
+        # UX-39 : la page le dit. Une fenetre modale pendant qu'on cherche un poste dans l'arbre vole le focus,
+        # et elle revient a chaque clic rate sur un objet qui n'est pas une machine.
+        [void](Set-DomeniaItemsSource 'DgSessions' @())
+        [void](Set-DomeniaControlText 'LblSessionsState' 'Aucun poste choisi : sélectionnez une machine dans lʼarbre, puis « Lire les sessions ».')
+        return
+    }
     Start-UiTask -Name ('Sessions '+$name) -OperationId 'SessionsList' -Code (Get-DomeniaSessionsWorkerCode) -Payload ([pscustomobject]@{Computer=$name}) -CallbackState ([pscustomobject]@{Epoch=[long]$script:SessionEpoch;DN=[string]$script:SelectedObject.DN;Generation=[long]$script:SelectedObjectGeneration}) -SuccessHandler 'Complete-DomeniaSessionsRead' -ErrorHandler 'Fail-DomeniaSessionsRead' -TimeoutSeconds 20 -ReplaceKey 'sessions-selected' -DisableControls @('BtnSessionsRead') | Out-Null
 }
 function Complete-DomeniaSessionsRead {
@@ -28,8 +34,17 @@ function Complete-DomeniaSessionsRead {
     if($State.Epoch -ne $script:SessionEpoch -or $State.Generation -ne $script:SelectedObjectGeneration -or $State.DN -ine [string]$script:SelectedObject.DN){return}
     $r=Get-DomeniaEffectiveWorkerResult $Result @('Rows','Computer')
     if($null -eq $r){throw 'Resultat WTS absent.'}
-    [void](Set-DomeniaItemsSource 'DgSessions' @($r.Rows))
-    [void](Set-DomeniaControlText 'LblSessionsState' ($r.Source+' ; '+$r.Computer+' ; '+$r.ObservedUtc+' ; compte : '+$r.Identity+'. Aucune deconnexion possible depuis cet ecran.'))
+    # UX-39 : la vue de D072 est celle qui remplit la page. Elle masquait deja les lignes sans compte,
+    # comptait les sessions systeme et rendait l'heure locale ; rien n'etait branche. La grille recevait
+    # les lignes brutes du poste et l'etat son horodatage ISO.
+    $view=ConvertTo-DomeniaSessionView $r
+    [void](Set-DomeniaItemsSource 'DgSessions' @($view.Rows))
+    $texte=[string]$view.StatusText
+    # Page vide : EmptyText passe devant, car c'est lui qui dit ce que l'absence veut dire. L'etat reste
+    # derriere avec les lignes masquees — sans lui, un poste qui rend deux sessions sans compte se lit
+    # comme un poste sans activite, ce qui est exactement le mensonge que D072 devait empecher.
+    if(@($view.Rows).Count -eq 0 -and [string]$view.EmptyText){$texte=(([string]$view.EmptyText+' '+$texte).Trim())}
+    [void](Set-DomeniaControlText 'LblSessionsState' $texte)
 }
 function Fail-DomeniaSessionsRead {
     param($Message,$State)
@@ -37,6 +52,27 @@ function Fail-DomeniaSessionsRead {
     [void](Set-DomeniaControlText 'LblSessionsState' 'Lecture non confirmee : absence de resultat ne signifie pas absence de sessions.')
     [void](Request-DomeniaAccessRecovery -Operation 'Lecture des sessions' -OperationId 'SessionsList' -ErrorValue $Message -DN $State.DN -Interactive)
     Write-AppLog ('WTS : '+[string]$Message) 'WARN'
+}
+function Open-DomeniaSessionFiche {
+    # UX-39 : double-clic sur une ligne de session : la fiche de l'utilisateur, comme sur les associations
+    # (FO-14). Le compte est cherche par sAMAccountName : la session ne donne pas de DN, et un compte local
+    # du poste n'a pas de fiche dans l'annuaire — la recherche le dira.
+    param($Source)
+    $hit=Get-DomeniaGridHit $Source
+    if($null -eq $hit -or $null -eq $hit.Row -or $null -eq $hit.Row.Item){return}
+    $user=Get-DomeniaSessionAccountName -Row $hit.Row.Item
+    if(-not $user){Set-Status 'Aucun compte sur cette ligne : services, écran de connexion et écouteur RDP nʼont pas de fiche.' 'INFO';return}
+    Start-OpenLinkedObject -Type 'Utilisateur' -Identity $user
+}
+function New-DomeniaSessionsContextMenu {
+    # UX-39 : le meme geste au clic droit, pour celui qui ne devine pas le double-clic.
+    $menu=New-Object System.Windows.Controls.ContextMenu
+    $item=New-Object System.Windows.Controls.MenuItem
+    $item.Header='Ouvrir la fiche du compte'
+    $item.Add_Click({param($sender,$e) $grid=Get-DomeniaControl 'DgSessions';if($null -ne $grid -and $null -ne $grid.SelectedItem){$user=Get-DomeniaSessionAccountName -Row $grid.SelectedItem;if($user){Start-OpenLinkedObject -Type 'Utilisateur' -Identity $user}}})
+    [void]$menu.Items.Add($item)
+    $menu.Add_Opened({param($sender,$e) $grid=Get-DomeniaControl 'DgSessions';$has=($null -ne $grid -and $null -ne $grid.SelectedItem -and [bool](Get-DomeniaSessionAccountName -Row $grid.SelectedItem));foreach($i in @($sender.Items)){$i.IsEnabled=$has}})
+    return $menu
 }
 function Get-DomeniaRemoteCredentialCheckCode {
 return @'

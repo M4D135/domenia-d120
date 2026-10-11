@@ -53,7 +53,7 @@ function Get-CoreFunctionText {param([string]$Name)
     if($nodes.Count -ne 1){throw ('Fonction du coeur absente ou ambigue : '+$Name)}
     return $nodes[0].Extent.Text
 }
-$coreNames=@('Protect-DomeniaLogText','ConvertTo-DomeniaErrorInfo','Show-DomeniaOperationError','Write-AppLog','Get-MainXaml','Get-DomeniaControl','Set-DomeniaControlText','Set-DomeniaItemsSource','Get-DomeniaEffectiveWorkerResult',
+$coreNames=@('Protect-DomeniaLogText','ConvertTo-DomeniaErrorInfo','Show-DomeniaOperationError','Write-AppLog','Get-MainXaml','Get-DomeniaControl','Set-DomeniaControlText','Set-DomeniaItemsSource','Get-DomeniaGridDateSortKey','Get-DomeniaGridDateShortText','Add-DomeniaGridDateKeys','Get-DomeniaEffectiveWorkerResult',
     'Update-SecretsGrid','Get-DomeniaSelectedSecretSource','Test-DomeniaSecretCallbackCurrent','Clear-DomeniaSecretResultValues','Complete-DomeniaSecretLoadUi','Fail-DomeniaSecretLoadUi','Start-LoadComputerSecrets',
     'Toggle-SecretsVisibility','Copy-SelectedSecret','Copy-AllSecrets','Update-DomeniaSecretActionUi','Test-DomeniaControlIsBusy',
     'New-DomeniaWorkerRunspace','ConvertTo-DomeniaCanonicalWorkerCode','Get-DomeniaWorkerCodeHash','Get-DomeniaWorkerOperationHashes','Assert-DomeniaWorkerOperationCode',

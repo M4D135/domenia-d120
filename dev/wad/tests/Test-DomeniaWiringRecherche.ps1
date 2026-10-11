@@ -39,7 +39,7 @@ if($null -eq ('Domenia.Live.ResultRow' -as [type])){Add-Type -Path (Join-Path $m
 # Real application code.
 $coreNames=@('Get-MainXaml','Get-DomeniaControl','Set-DomeniaControlText','Get-DomeniaSearchMode','Set-DomeniaSearchMode','Get-DomeniaSearchText',
     'Get-DomeniaSearchScope','Get-GlobalSelectedTypeFilter','Get-TypeLdapFilter','Test-DomeniaSearchStateCurrent','Invoke-GlobalSearch','Escape-LdapValue',
-    'Set-DomeniaItemsSource','Get-BranchQueryData','Get-SearchLdapFilter','Start-DomeniaSearchFor','Get-DomeniaEffectiveWorkerResult',
+    'Set-DomeniaItemsSource','Get-DomeniaGridDateSortKey','Get-DomeniaGridDateShortText','Add-DomeniaGridDateKeys','Get-BranchQueryData','Get-SearchLdapFilter','Start-DomeniaSearchFor','Get-DomeniaEffectiveWorkerResult',
     'Invalidate-DomeniaSearchResults','Update-DomeniaSearchScopeUi','Get-DomeniaSelectedGridRow','Get-DomeniaSelectedGridRows','Select-DomeniaWorkspace',
     'Set-SelectedBranch','Invoke-DomeniaSearchFilterChanged','Clear-DomeniaCurrentObjectRequest','Test-DomeniaObjectCallbackIsCurrent',
     'Test-DomeniaGridSelectionMatches','Queue-DomeniaSelectedObjectOpen','Invoke-DomeniaPendingSelectionOpen','Open-AdObject',

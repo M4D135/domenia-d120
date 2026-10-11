@@ -100,7 +100,406 @@ function Get-DomeniaWorkstationDurationText {
     return ([string]$days + ' j ' + [string]$Span.Hours + ' h')
 }
 
+# ---------------------------------------------------------------- UX-17 : un verdict, pas un compte d'echecs
+# Le worker du diagnostic (Core, operation epinglee ComputerDiagnostics) rend des lignes
+# Check/Status/Method/DurationMs/Detail avec des codes : OK, ERREUR, REFUSE, INJOIGNABLE,
+# INDISPONIBLE, IGNORE. La page les additionnait tels quels : sur un poste sain ou WinRM HTTPS est
+# ferme et ou les deux transports de repli ne sont pas installes, elle affichait « 3 en echec ».
+# Un transport facultatif qui manque n'est pas une panne : Domenia lit par CIM, et PsExec comme le
+# planificateur ne servent que si CIM est refuse. Ces lignes passent donc en Information. Le code
+# reste dans la ligne et dans le rapport copie au presse-papiers : le libelle est ce que l operateur
+# lit, le code reste ce qu il transmet a un collegue qui rouvrira le journal.
+function Get-DomeniaDiagStatusLabel {
+    [CmdletBinding()]
+    param([AllowNull()][AllowEmptyString()][string]$Status = '')
+    $code = ([string]$Status).Trim().ToUpperInvariant()
+    $labels = @{
+        'OK' = 'Réussi'
+        'ERREUR' = 'Erreur'
+        'REFUSE' = 'Refusé'
+        'INJOIGNABLE' = 'Injoignable'
+        'INDISPONIBLE' = 'Non installé'
+        'IGNORE' = 'Non tenté'
+        'INFO' = 'Information'
+    }
+    if ($labels.ContainsKey($code)) { return [string]$labels[$code] }
+    # Un code que cette table ne connait pas ressort tel quel : il correspond a une ligne du
+    # rapport copie. Un libelle invente pour lui ne se verifierait nulle part.
+    return $code
+}
+
+function Get-DomeniaDiagSeverity {
+    [CmdletBinding()]
+    param([AllowNull()][AllowEmptyString()][string]$Check = '',
+          [AllowNull()][AllowEmptyString()][string]$Status = '')
+    $code = ([string]$Status).Trim().ToUpperInvariant()
+    if ($code -eq 'OK') { return 'Reussi' }
+    if ($code -eq 'IGNORE') { return 'Non tente' }
+    $name = ([string]$Check).Trim()
+    # Noms exacts produits par le worker. Les transports de repli (PsExec, planificateur) n en
+    # font pas partie : s ils echouent alors que CIM a deja echoue, le poste est vraiment en panne.
+    foreach ($prefix in @('WinRM', 'Transport PsExec', 'Transport Task Scheduler')) {
+        if ($name -eq $prefix) { return 'Information' }
+        if ($name.StartsWith($prefix + ' ', [StringComparison]::OrdinalIgnoreCase)) { return 'Information' }
+    }
+    if ($name.StartsWith('TCP 5985', [StringComparison]::OrdinalIgnoreCase) -or
+        $name.StartsWith('TCP 5986', [StringComparison]::OrdinalIgnoreCase)) { return 'Information' }
+    return 'Echec'
+}
+
+function ConvertTo-DomeniaDiagVerdict {
+    [CmdletBinding()]
+    param([AllowNull()]$Rows = $null, [AllowNull()][AllowEmptyString()][string]$Computer = '')
+    $list = @()
+    if ($null -ne $Rows) { $list = @($Rows) }
+    $out = New-Object Collections.ArrayList
+    $reussi = 0; $echec = 0; $info = 0; $nonTente = 0
+    foreach ($row in $list) {
+        if ($null -eq $row) { continue }
+        $check = [string]$row.Check
+        $status = [string]$row.Status
+        $severity = Get-DomeniaDiagSeverity -Check $check -Status $status
+        if ($severity -eq 'Reussi') { $reussi += 1 }
+        elseif ($severity -eq 'Echec') { $echec += 1 }
+        elseif ($severity -eq 'Information') { $info += 1 }
+        else { $nonTente += 1 }
+        [void]$out.Add([pscustomobject]@{
+            Check = $check
+            Status = $status
+            EtatLibelle = (Get-DomeniaDiagStatusLabel -Status $status)
+            Severity = $severity
+            Method = [string]$row.Method
+            DurationMs = [int]$row.DurationMs
+            Detail = [string]$row.Detail
+        })
+    }
+    $rowsOut = @($out.ToArray())
+    if ($rowsOut.Count -eq 0) {
+        return [pscustomobject]@{ Rows=@(); Verdict=''; Ok=0; Failed=0; Info=0; Skipped=0
+            EmptyText='Aucun contrôle exécuté : lancez « Lancer le diagnostic » pour lire le poste.' }
+    }
+    $subject = ([string]$Computer).Trim()
+    if ([string]::IsNullOrWhiteSpace($subject)) { $subject = 'Le poste' }
+    $echecs = @($rowsOut | Where-Object { $_.Severity -eq 'Echec' })
+    $points = @()
+    # Un poste injoignable ne se resume pas a un nombre : la premiere phrase doit le dire, sinon
+    # l operateur lit « 8 controles reussis » sur une machine eteinte.
+    $down = @($echecs | Where-Object { $_.Check -eq 'Resolution DNS' -or $_.Check -eq 'Ping' })
+    if ($down.Count -gt 0) {
+        if (@($echecs | Where-Object { $_.Check -eq 'Resolution DNS' }).Count -gt 0) {
+            $points += ($subject + ' ne répond pas : son nom ne se résout pas.')
+        }
+        else {
+            $points += ($subject + ' ne répond pas : aucun ping.')
+        }
+    }
+    else {
+        $positifs = @()
+        if (@($rowsOut | Where-Object { $_.Check -eq 'Partage C$' -and $_.Severity -eq 'Reussi' }).Count -gt 0) {
+            $positifs += 'C$ accessible'
+        }
+        if (@($rowsOut | Where-Object { $_.Check -eq 'Session CIM' -and $_.Severity -eq 'Reussi' }).Count -gt 0) {
+            $positifs += 'WMI lu'
+        }
+        if (@($rowsOut | Where-Object { $_.Check -like 'TCP 3389*' -and $_.Severity -eq 'Reussi' }).Count -gt 0) {
+            $positifs += 'Bureau à distance ouvert'
+        }
+        $head = $subject + ' répond'
+        if ($positifs.Count -gt 0) { $head += ' : ' + ($positifs -join ', ') }
+        $points += ($head + '.')
+    }
+    if ($echecs.Count -gt 0) {
+        $noms = @($echecs | ForEach-Object { [string]$_.Check } | Select-Object -First 3)
+        $phrase = [string]$echecs.Count + ' contrôle(s) en échec : ' + ($noms -join ', ')
+        if ($echecs.Count -gt 3) { $phrase += ' (et ' + [string]($echecs.Count - 3) + ' autre(s)).' }
+        else { $phrase += '.' }
+        $points += $phrase
+    }
+    $facultatifs = @($rowsOut | Where-Object { $_.Severity -eq 'Information' })
+    if ($facultatifs.Count -gt 0) {
+        # Deux absences n'ont pas le meme sens : WinRM ferme est le reglage normal d'un parc qui lit par
+        # DCOM, alors que les deux transports de repli qui manquent retirent le plan B de Domenia.
+        $winrm = @($facultatifs | Where-Object { $_.Check -like 'TCP 5985*' -or $_.Check -like 'TCP 5986*' -or $_.Check -eq 'WinRM' })
+        $replis = @($facultatifs | Where-Object { $_.Check -notlike 'TCP 5985*' -and $_.Check -notlike 'TCP 5986*' -and $_.Check -ne 'WinRM' })
+        if ($winrm.Count -gt 0) { $points += 'WinRM fermé : normal tant que le parc nʼutilise pas WinRM.' }
+        if ($replis.Count -gt 0) {
+            $noms = @($replis | ForEach-Object { [string]$_.Check } | Select-Object -First 3)
+            $points += ('Transports de repli non disponibles : ' + ($noms -join ', ') + '.')
+        }
+    }
+    return [pscustomobject]@{
+        Rows = $rowsOut
+        Verdict = ($points -join ' ')
+        Ok = $reussi
+        Failed = $echec
+        Info = $info
+        Skipped = $nonTente
+        EmptyText = ''
+    }
+}
+
+# ---------------------------------------------------------------- PF-22 : la liste deja lue sert une fois
+# L'inventaire rapide remplit deja la categorie « Logiciels installes » (une requete SCCM, un aller-retour
+# WinRM, ou jusqu'a 250 cles du registre Uninstall). L'onglet Logiciels repartait de zero avec sa propre
+# requete pour afficher les memes noms. Cette vue transforme les lignes de l'inventaire en lignes de la
+# grille Logiciels. Elle ne rend que ce que l'inventaire a vraiment lu : nom, version, portee machine.
+# L'éditeur, la date, la taille et la commande de desinstallation ne sortent pas de la, donc ils ne sont
+# pas inventes : la page les replie et le texte de provenance le dit.
+function ConvertTo-DomeniaSoftwareFromInventory {
+    [CmdletBinding()]
+    param([AllowNull()]$Items = $null, [AllowNull()]$CompletedAt = $null)
+    $list = @()
+    if ($null -ne $Items) { $list = @($Items) }
+    $rows = New-Object Collections.ArrayList
+    foreach ($item in $list) {
+        if ($null -eq $item) { continue }
+        if (([string]$item.Category) -ne 'Logiciels installes') { continue }
+        $name = ([string]$item.Item).Trim()
+        if ([string]::IsNullOrWhiteSpace($name)) { continue }
+        # Le collecteur publie egalement une ligne « Nombre detecte » : ce n'est pas un logiciel.
+        if ($name -eq 'Nombre detecte') { continue }
+        [void]$rows.Add([pscustomobject]@{
+            Name = $name
+            Version = [string]$item.Value
+            Publisher = ''
+            InstallDate = ''
+            InstallDateShort = ''
+            Size = ''
+            SizeKb = 0
+            Scope = 'Machine'
+            Architecture = ''
+            Kind = ''
+            Location = ''
+            UninstallString = ''
+            Source = ('Inventaire — ' + [string]$item.Source)
+        })
+    }
+    $rowsOut = @($rows.ToArray())
+    $heure = ''
+    if ($null -ne $CompletedAt) { try { $heure = ([datetime]$CompletedAt).ToString('HH:mm') } catch { } }
+    $de = ''
+    if ($heure -ne '') { $de = ' de ' + $heure }
+    return [pscustomobject]@{
+        Rows = $rowsOut
+        Count = $rowsOut.Count
+        ProvenanceText = ('Liste reprise de lʼinventaire' + $de + ' : nom et version, portée machine seulement. « Charger les logiciels » relit le poste en complet (éditeur, date, taille, désinstallation).')
+        DashboardText = 'Synthèse non calculée : la liste vient de lʼinventaire rapide, qui ne lit ni lʼéditeur, ni la date, ni la taille. Chargez les logiciels pour obtenir la synthèse.'
+    }
+}
+
+function Get-DomeniaSoftwareColumnVisibility {
+    # Une seule table dit ce que la grille Logiciels montre, pour que le bouton « Colonnes » et la
+    # provenance de la liste ne se contredisent jamais. Les colonnes techniques (emplacement, commande de
+    # desinstallation, source) restent derriere « Colonnes » : elles debordent de l'ecran et ne servent
+    # qu'a copier une commande. Une colonne que la lecture n'a pas renseignee ne s'affiche pas vide : une
+    # case « Desinstallation » vide se lirait « ce logiciel ne se desinstalle pas », alors que la reponse
+    # n'a simplement pas ete cherchee. Un entete inconnu reste visible : rien n'est replie par devinette.
+    [CmdletBinding()]
+    param([string[]]$Headers = @(), [bool]$FromInventory = $false, [bool]$ShowTechnical = $false)
+    $techniques = @('Emplacement','Desinstallation','Source')
+    $nonLues = @('Editeur','Installe le','Taille','Archi','Type')
+    $visibilites = @{}
+    foreach ($entete in @($Headers)) {
+        $nom = [string]$entete
+        $visible = $true
+        if ($FromInventory -and ($nonLues -contains $nom)) { $visible = $false }
+        if ((-not $ShowTechnical) -and ($techniques -contains $nom)) { $visible = $false }
+        $visibilites[$nom] = $visible
+    }
+    return $visibilites
+}
+
+function Get-DomeniaSoftwareAccessSummary {
+    # Le detail par portee tient en une ligne : ce qui a ete lu, portee par portee. Une portee que le
+    # worker n'a pas rapportee n'est pas mentionnee, et un etat inconnu est rendu tel quel au lieu d'être
+    # traduit — inventer « lu » pour un etat que le produit ne connait pas serait un faux rapport.
+    [CmdletBinding()]
+    param([object[]]$Rows = @())
+    $mots = @{ OK='lu'; VIDE=('lu, rien trouv' + [char]0x00E9 + 'e'); PARTIEL='lu en partie';
+               REFUSE=('refus' + [char]0x00E9); INJOIGNABLE='injoignable';
+               INDISPONIBLE='indisponible'; ERREUR=('en ' + [char]0x00E9 + 'chec') }
+    $parts = New-Object 'System.Collections.Generic.List[string]'
+    foreach ($row in @($Rows)) {
+        if ($null -eq $row) { continue }
+        $portee = ([string](Get-DomeniaMember $row 'Category' '')).Trim()
+        if ([string]::IsNullOrWhiteSpace($portee)) { continue }
+        $etat = ([string](Get-DomeniaMember $row 'Status' '')).Trim()
+        if ([string]::IsNullOrWhiteSpace($etat)) { $etat = 'sans ' + [char]0x00E9 + 'tat' }
+        $mot = $etat
+        if ($mots.ContainsKey($etat)) { $mot = [string]$mots[$etat] }
+        $combien = 0
+        try { $combien = [int](Get-DomeniaMember $row 'Items' 0) } catch { $combien = 0 }
+        if ($combien -gt 0) { $parts.Add($portee + ' : ' + $mot + ' (' + $combien + ')') }
+        else { $parts.Add($portee + ' : ' + $mot) }
+    }
+    if ($parts.Count -eq 0) { return 'Aucune port' + [char]0x00E9 + 'e lue.' }
+    return ($parts -join (' ' + [char]0x00B7 + ' '))
+}
+
 # ---------------------------------------------------------------- D071 quick diagnosis with an announced cost
+# --- UX-37 : la colonne Valeur de l inventaire du poste rend un libelle, pas le code CIM ---
+# Le collecteur recopie ce que CIM lui rend : role « 1 », chassis « 10 », langue « 1036 », carte
+# « 2, 1000 Mb/s », BitLocker « 6 », SMART « Pred Fail ». Ces codes se relisent dans une console WMI, pas
+# dans une grille d appui. Table fermee, comme celle des sondes (Get-DomeniaProbeValues) : une valeur
+# qu elle ne connait pas ressort telle quelle. Un libelle invente ne se verifie nulle part, un code si.
+# La valeur brute n est donc pas perdue : l infobulle de la grille la montre, le presse-papiers et
+# l export la gardent.
+$script:DomeniaInventoryRoleText = @{
+    '1' = 'Poste membre du domaine'
+    '2' = 'Contrôleur de domaine principal'
+    '3' = 'Contrôleur de domaine de sauvegarde'
+    '4' = 'Membre dʼun groupe de travail'
+    '5' = 'Contrôleur de domaine principal de confiance'
+    '6' = 'Contrôleur de domaine de sauvegarde de confiance'
+}
+# ChassisTypes (Win32_SystemEnclosure) : la liste SMBIOS est longue et les constructeurs n'en rendent
+# qu'une poignee. 9 et 10 sont ce que rendent les portables du parc ; le nom SMBIOS de 10 ne dirait rien
+# a un operateur, les deux portent le meme libelle.
+$script:DomeniaInventoryChassisText = @{
+    '1' = 'Autre'
+    '2' = 'Inconnu'
+    '3' = 'Bureau'
+    '4' = 'Bureau (profil bas)'
+    '5' = 'Bureau (format pizza)'
+    '6' = 'Tour'
+    '7' = 'Portable'
+    '8' = 'Portable'
+    '9' = 'Portable'
+    '10' = 'Portable'
+    '11' = 'Station dʼaccueil'
+    '12' = 'Bureau (tout-en-un)'
+    '13' = 'Portable (compact)'
+    '14' = 'Bureau (gain de place)'
+    '16' = 'Châssis principal'
+    '17' = 'Châssis dʼextension'
+    '18' = 'Sous-châssis'
+    '23' = 'Baie (rack)'
+    '26' = 'Portable'
+    '28' = 'Station dʼaccueil'
+    '32' = 'Mini PC'
+    '34' = 'Mini PC'
+    '37' = 'Serveur (densite faible)'
+    '38' = 'Serveur (densite moyenne)'
+    '39' = 'Serveur (densite elevee)'
+    '41' = 'Lame'
+}
+# OSLanguage est un LANGID : « 0409 » et « 409 » sont deux ecritures de la meme cle.
+$script:DomeniaInventoryLanguageText = @{
+    '1031' = 'Allemand'
+    '1033' = 'Anglais (États-Unis)'
+    '1036' = 'Français'
+    '1040' = 'Italien'
+    '1043' = 'Néerlandais'
+    '1044' = 'Norvégien'
+    '1046' = 'Portugais (Brésil)'
+    '1049' = 'Russe'
+    '1053' = 'Suédois'
+    '1055' = 'Turc'
+    '1058' = 'Ukrainien'
+    '2057' = 'Anglais (Royaume-Uni)'
+    '2060' = 'Français (Belgique)'
+    '2070' = 'Portugais'
+    '3082' = 'Espagnol'
+    '4105' = 'Anglais (Canada)'
+}
+# NetConnectionStatus (Win32_NetworkAdapter) : 2 = connectee, d'ou « Connectee, 1 Gb/s ».
+$script:DomeniaInventoryNetStatusText = @{
+    '0' = 'Déconnectée'
+    '1' = 'Connexion en cours'
+    '2' = 'Connectée'
+    '3' = 'Déconnexion en cours'
+    '4' = 'Matériel absent'
+    '5' = 'Matériel désactivé'
+    '6' = 'Panne matérielle'
+    '7' = 'Composant non installé'
+    '8' = 'Inconnu'
+}
+# EncryptionMethod (Win32_EncryptableVolume).
+$script:DomeniaInventoryBitLockerMethodText = @{
+    '0' = 'Inconnue'
+    '1' = 'AES 128 bits avec diffuseur'
+    '2' = 'AES 256 bits avec diffuseur'
+    '3' = 'AES 128 bits'
+    '4' = 'AES 256 bits'
+    '5' = 'XTS-AES 128 bits'
+    '6' = 'XTS-AES 256 bits'
+}
+# Status des disques physiques : CIM rend de l'anglais. Clefs en majuscules, la lookup normalise.
+$script:DomeniaInventorySmartText = @{
+    'OK' = 'Sain'
+    'PRED FAIL' = 'Panne annoncée'
+    'PREDICTIVE FAILURE' = 'Panne annoncée'
+    'UNKNOWN' = 'Inconnu'
+    'N/A' = 'Non applicable'
+    'BAD' = 'Hors service'
+    'SERVICE' = 'En maintenance'
+    'DEGRADED' = 'Dégradé'
+    'OFFLINE' = 'Hors ligne'
+    'STARTING' = 'Démarrage'
+    'STOPPING' = 'Arrêt'
+}
+
+function Get-DomeniaInventoryMapText {
+    # Cle numerique normalisee : « 0409 » et « 409 » sont la meme langue. Une cle hors table rend le brut.
+    param($Table, [string]$Key, [string]$Fallback)
+    $cle = ([string]$Key).Trim()
+    if ($cle -match '^\d+$') { $cle = $cle.TrimStart('0'); if ($cle -eq '') { $cle = '0' } }
+    if ($null -ne $Table -and $Table.ContainsKey($cle)) { return [string]$Table[$cle] }
+    return $Fallback
+}
+
+function Get-DomeniaInventoryValueText {
+    <#
+        UX-37 : le libelle que l operateur doit lire dans la colonne Valeur de l inventaire du poste, a
+        partir de la valeur brute rendue par CIM. Une valeur que la table ne connait pas ressort telle
+        quelle : rien n est invente. La table est branchee sur le nom de l element, pas sur sa ligne, pour
+        que le collecteur reste libre d ajouter une categorie sans toucher ici.
+    #>
+    param($Category, $Item, $Value)
+    $brut = ([string]$Value).Trim()
+    if ([string]::IsNullOrWhiteSpace($brut)) { return '' }
+    $nom = ([string]$Item).Trim().ToLowerInvariant()
+    $cat = ([string]$Category).Trim().ToLowerInvariant()
+    if ($nom -eq 'role dans le domaine') { return Get-DomeniaInventoryMapText -Table $script:DomeniaInventoryRoleText -Key $brut -Fallback $brut }
+    if ($nom -eq 'type de chassis') {
+        # ChassisTypes est une liste : « 6, 10 » rend deux libelles, pas une chaine recoupee.
+        $libelles = @()
+        foreach ($morceau in @($brut -split ',')) {
+            $code = $morceau.Trim()
+            if ($code -eq '') { continue }
+            $libelles += Get-DomeniaInventoryMapText -Table $script:DomeniaInventoryChassisText -Key $code -Fallback $code
+        }
+        if ($libelles.Count -eq 0) { return $brut }
+        return ($libelles -join ', ')
+    }
+    if ($nom -eq 'langue') { return Get-DomeniaInventoryMapText -Table $script:DomeniaInventoryLanguageText -Key $brut -Fallback $brut }
+    if ($cat -eq 'bitlocker' -and $nom.EndsWith('methode')) {
+        return Get-DomeniaInventoryMapText -Table $script:DomeniaInventoryBitLockerMethodText -Key $brut -Fallback $brut
+    }
+    if ($cat -eq 'disques physiques' -and $nom.EndsWith('etat smart')) {
+        return Get-DomeniaInventoryMapText -Table $script:DomeniaInventorySmartText -Key $brut.ToUpperInvariant() -Fallback $brut
+    }
+    if ($cat -eq 'cartes reseau') {
+        # Le collecteur colle le statut et la vitesse dans la meme valeur : « 2, 1000 Mb/s ».
+        $statut = $brut
+        $vitesse = ''
+        if ($brut -match '^(?<statut>.*?)[,;]\s*(?<vitesse>[\d.,]+)\s*(?<unite>Mb|Gb)/s$') {
+            $statut = [string]$matches['statut']
+            $nombre = 0.0
+            $chiffres = ([string]$matches['vitesse']) -replace ',', '.'
+            if ([double]::TryParse($chiffres, [ref]$nombre) -and $nombre -gt 0) {
+                if ($matches['unite'] -eq 'Mb' -and $nombre -ge 1000) { $nombre = $nombre / 1000.0; $unite = 'Gb' } else { $unite = $matches['unite'] }
+                $vitesse = (('{0:0.#}' -f $nombre) -replace '\.', ',') + ' ' + $unite + '/s'
+            }
+            else { $vitesse = [string]$matches['vitesse'] + ' ' + $matches['unite'] + '/s' }
+        }
+        $libelle = Get-DomeniaInventoryMapText -Table $script:DomeniaInventoryNetStatusText -Key $statut -Fallback $statut.Trim()
+        if ($vitesse -eq '') { return $libelle }
+        return $libelle + ', ' + $vitesse
+    }
+    return $brut
+}
+
 function Get-DomeniaQuickDiagPlan {
     # Five bounded read-only checks. The worker follows this plan; nothing is read here.
     # No intrusive fallback: a refused or unreachable check stays refused or unreachable.
@@ -262,6 +661,45 @@ function Get-DomeniaSessionEmptyText {
     return ''
 }
 
+function Get-DomeniaSessionIdleText {
+    # UX-39 : WTSIdleTime est une duree, pas une date : sous une colonne « Inactive depuis », « 12 min » se
+    # lit mieux qu'une heure de dernière entrée. -1 ou 0 = le poste ne rend pas cette horloge : la cellule
+    # reste vide, rien n'est invente.
+    param($Ticks)
+    $raw = ConvertTo-DomeniaWorkstationNumber $Ticks
+    if ($null -eq $raw -or $raw -le 0) { return '' }
+    $seconds = [long][Math]::Floor($raw / 10000000.0)
+    if ($seconds -lt 1) { return '< 1 s' }
+    if ($seconds -lt 60) { return [string]$seconds + ' s' }
+    if ($seconds -lt 3600) { return [string][long][Math]::Floor($seconds / 60) + ' min' }
+    if ($seconds -lt 86400) { return [string][long][Math]::Floor($seconds / 3600) + ' h' }
+    return [string][long][Math]::Floor($seconds / 86400) + ' j'
+}
+function Get-DomeniaSessionOpenedText {
+    # UX-39 : « Ouverte à » en heure locale de la machine qui affiche, pas en UTC : l'operateur rappelle un
+    # poste et doit retrouver l'heure qu'on lui donne au telephone. La journee de comparaison est l'instant de
+    # la lecture ($Reference), jamais l'heure du banc : deux lectures du meme poste rendent la meme ligne.
+    # Une horloge non rendue (ou 0, qui veut dire « jamais » pour WTS) rend une cellule vide.
+    param($Ticks,$Reference)
+    $instant = ConvertTo-DomeniaUtcDate $Ticks
+    if ($null -eq $instant) { return '' }
+    $local = $instant.ToLocalTime()
+    $day = if ($null -ne $Reference) { $Reference.ToLocalTime().Date } else { [datetime]::Now.Date }
+    if ($local.Date -eq $day) { return $local.ToString('HH:mm',[Globalization.CultureInfo]::InvariantCulture) }
+    return $local.ToString('dd/MM HH:mm',[Globalization.CultureInfo]::InvariantCulture)
+}
+function Get-DomeniaSessionAccountName {
+    # UX-39 : « Ouvrir la fiche » cherche un compte AD par sAMAccountName. La vue rend « DOM\user » pour etre
+    # lisible ; le filtre LDAP veut le nom nu, et le domaine rendu par WTS n'y a rien a faire. Une ligne sans
+    # compte (service, ecouteur) n'a pas de fiche : elle rend vide, et la page le dit au lieu de lancer une
+    # recherche qui echouerait.
+    param($Row)
+    if ($null -eq $Row) { return '' }
+    $account = ([string](Get-DomeniaMember $Row 'Utilisateur' '')).Trim()
+    if (-not $account -or $account -eq 'Compte non lu') { return '' }
+    if ($account.Contains('\')) { return ($account.Split('\')[-1]).Trim() }
+    return $account
+}
 function ConvertTo-DomeniaSessionView {
     # $Result: output of the SessionsList worker {Rows=@({Id,Station,User,Domain,State,Protocol,Detail}), Computer,
     # ObservedUtc, Source, Identity}, or a failure {ReadStatus='AccessDenied'|'Timeout'|...}, or $null when not read.
@@ -296,11 +734,14 @@ function ConvertTo-DomeniaSessionView {
             $station = [string](Get-DomeniaMember $row 'Station' '')
             $label = [string](Get-DomeniaMember $row 'Id' '')
             if ($station) { $label = $label + ' (' + $station + ')' }
+            # Les deux horloges se calculent avant les branches : une ligne sans compte reste une ligne lue.
+            $opened = Get-DomeniaSessionOpenedText -Ticks (Get-DomeniaMember $row 'LogonTicks' $null) -Reference $observed
+            $idle = Get-DomeniaSessionIdleText -Ticks (Get-DomeniaMember $row 'IdleTicks' $null)
             if (-not $user) {
                 # A session whose account could not be read is listed as such: it is not an empty session.
                 if ($detail -match '(?i)partiel|partial') {
                     $unread++
-                    $rows.Add([pscustomobject]@{Session=$label;Utilisateur='Compte non lu';Etat=$sessionState;Protocole=$protocol;Source=$sourceText;Detail=$detail})
+                    $rows.Add([pscustomobject]@{Session=$label;Utilisateur='Compte non lu';Etat=$sessionState;Protocole=$protocol;Source=$sourceText;Detail=$detail;User='';Ouverte=$opened;Inactive=$idle})
                     continue
                 }
                 # Services session 0, logon screen and RDP listeners carry no account: counted, not listed.
@@ -313,16 +754,32 @@ function ConvertTo-DomeniaSessionView {
             if ($protocol -ieq 'Console' -and -not $consoleUser) { $consoleUser = $account }
             if ($protocol -ieq 'RDP') { $rdp++ }
             if ($sessionState -match '^(?i:deconnect|disconnect)') { $disconnected++ }
-            $rows.Add([pscustomobject]@{Session=$label;Utilisateur=$account;Etat=$sessionState;Protocole=$protocol;Source=$sourceText;Detail=$detail})
+            $rows.Add([pscustomobject]@{Session=$label;Utilisateur=$account;Etat=$sessionState;Protocole=$protocol;Source=$sourceText;Detail=$detail;User=$user;Ouverte=$opened;Inactive=$idle})
         }
     }
     $userCount = $rows.Count - $unread
     $empty = Get-DomeniaSessionEmptyText -ReadStatus $status -UserSessionCount $userCount -RdpSessionCount $rdp -ConsoleOccupied ([bool]$consoleUser) -Coverage Wts -UnreadSessionCount $unread
     $reader = [string](Get-DomeniaMember $Result 'Identity' '')
-    $statusText = $sourceText
-    if ($computer) { $statusText += ' ; ' + $computer }
-    if ($reader) { $statusText += ' ; compte : ' + $reader }
-    $statusText += '. Consultation seule : aucune déconnexion depuis cet écran.'
+    # UX-39 : l'etat de la page se lit avant la grille. Il commence par l'heure locale de la lecture, dit
+    # combien de lignes la grille montre et combien elle en masque, et nomme le compte qui a lu. Le texte
+    # brut de la source (« WTS, lecture a la demande ») ne remonte plus ici : c'est une constante du
+    # collecteur, pas une donnee du poste, et elle reste portee par la colonne Source de chaque ligne.
+    $statusParts = @()
+    if ($null -ne $observed) { $statusParts += ('Lu à ' + $observed.ToLocalTime().ToString('dd/MM/yyyy HH:mm',[Globalization.CultureInfo]::InvariantCulture)) }
+    if ($state -eq 'Constate') {
+        # Chaque segment porte un fait et rien d'autre. « 0 session(s) avec compte » se tait quand la page
+        # est vide : EmptyText le dit deja, et deux phrases qui repetent la meme absence se lisent comme un doute.
+        $segments = @()
+        if ($userCount -gt 0) { $segments += ([string]$userCount + ' session(s) avec compte') }
+        if ($unread -gt 0) { $segments += ([string]$unread + ' dont le compte nʼa pas pu être lu') }
+        if ($system -gt 0) { $segments += ([string]$system + ' ligne(s) sans compte masquée(s) : services, écran de connexion, écouteur RDP') }
+        if ($segments.Count -gt 0) { $statusParts += ($segments -join ', ') }
+    }
+    if ($computer) { $statusParts += $computer }
+    if ($reader) { $statusParts += ('lu par ' + $reader) }
+    $statusText = ($statusParts -join ' · ')
+    if ($statusText) { $statusText += '. ' }
+    $statusText += 'Consultation seule : aucune déconnexion depuis cet écran.'
     return [pscustomobject]@{
         Computer=$computer;ReadState=$state;Partial=$partial;Rows=$rows.ToArray();UserSessions=$userCount;UnreadSessions=$unread;SystemSessions=$system
         ConsoleUser=$consoleUser;ConsoleOccupied=([bool]$consoleUser);RdpSessions=$rdp;DisconnectedSessions=$disconnected
@@ -388,7 +845,7 @@ function Get-DomeniaSoftwareSources {
         [pscustomobject]@{Id='Uninstall64';Category='Programmes 64 bits (machine)';Location='HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall';Limit=''}
         [pscustomobject]@{Id='Uninstall32';Category='Programmes 32 bits (machine)';Location='HKLM\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall';Limit=''}
         [pscustomobject]@{Id='Sccm';Category='Programmes 32 bits (machine)';Location='CIM Win32Reg_AddRemovePrograms (client SCCM)';Limit='Présente seulement avec le client SCCM ; sur un poste 64 bits, ne décrit que les programmes 32 bits (Win32Reg_AddRemovePrograms64 nʼest pas lue).'}
-        [pscustomobject]@{Id='PerUser';Category='Installations par utilisateur';Location='HKU\<SID>\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall';Limit='Profils chargés au moment de la lecture uniquement ; exige WinRM sur le poste.'}
+        [pscustomobject]@{Id='PerUser';Category='Installations par utilisateur';Location='HKU\<SID>\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall';Limit='Ruches chargées sous HKU, donc les profils ayant une session ouverte ; lues par StdRegProv sur la session CIM, sans repli en cas dʼéchec.'}
         [pscustomobject]@{Id='Appx';Category='Paquets Appx/MSIX';Location='Get-AppxPackage -AllUsers';Limit='Exige WinRM sur le poste.'}
     )
     $known = @($catalog | ForEach-Object { $_.Id })

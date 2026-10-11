@@ -1813,14 +1813,14 @@
   },
   {
     "Name": "BtnRunInventory",
-    "Title": "Rapide",
+    "Title": "Inventaire rapide (≈1 min)",
     "Text": "Matériel, système, disques, réseau, sécurité, correctifs, logiciels, services, comptes, partages et imprimantes.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnRunInventoryDeep",
-    "Title": "Complet",
+    "Title": "Inventaire complet (≈3 min)",
     "Text": "Ajoute les processus, les taches planifiees, les certificats, les connexions reseau et les erreurs recentes. Plus long.",
     "Kind": "Button",
     "Source": "existing-help"

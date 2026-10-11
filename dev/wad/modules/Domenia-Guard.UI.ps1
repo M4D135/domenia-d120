@@ -110,6 +110,17 @@ function Set-DomeniaArtifactConsent {
     $script:ArtifactConsent=[pscustomobject]@{Target=$target;Aliases=$aliases;Epoch=[long]$script:SessionEpoch;Expires=[datetime]::UtcNow.AddMinutes(5)}
     [void](Set-DomeniaControlText 'LblGuardRemote' ('Autorisation temporaire : '+$target+'. Relancez volontairement votre diagnostic.'))
 }
+function Set-DomeniaReadFallbackConsent {
+    # SE-07 : demande propre a une lecture. L'autorisation d'intervention ne dit rien d'une
+    # lecture ; sans cette demande, le worker rend un « non lu » au lieu de basculer.
+    if(Test-DomeniaAccessBusyWrite){Show-InfoBox 'Terminez la vérification de lʼécriture avant de modifier une autorisation.';return}
+    $target='';try{if($script:SelectedObject.Type -eq 'Machine'){$target=[string](Get-DomeniaEntryFirstString $script:SelectedObject.Entry 'dNSHostName');if(-not $target){$target=[string](Get-DomeniaEntryFirstString $script:SelectedObject.Entry 'name')}}}catch{}
+    if(-not $target){Show-InfoBox 'Sélectionnez une machine dans la recherche.';return}
+    if(-not (Confirm-Action -Message ('CIM ne répond pas sur '+$target+'. Lire ce poste par tâche planifiée ? Cette autorisation ne vaudra que pour la prochaine lecture de ce poste et sera retirée après elle. Le Planificateur utilise une API ; PsExec exige une session Windows intégrée autorisée. Aucun secret ne sera transmis dans les arguments.') -Title 'Lecture par tâche planifiée')){return}
+    $aliases=@($target);$short=[string](Get-DomeniaEntryFirstString $script:SelectedObject.Entry 'name');if($short -and $short -notmatch '[\/]'){$aliases+=@($short)}
+    $script:ReadFallbackConsent=[pscustomobject]@{Target=$target;Aliases=$aliases;Epoch=[long]$script:SessionEpoch;Expires=[datetime]::UtcNow.AddMinutes(5)}
+    [void](Set-DomeniaControlText 'LblGuardReadFallback' ('Autorisation de lecture accordée pour '+$target+'. Lancez la lecture : cette autorisation ne servira quʼà cette lecture.'))
+}
 function Read-DomeniaOuFavouriteStore {
     # FO-04: every OU favourite kept locally (all domains), as validated perimeters. Never a result or an account.
     $text=[string](Get-DomeniaSetting 'OuFavouritesJson' '[]')
@@ -262,7 +273,7 @@ function Initialize-DomeniaGuard {
     $script:Guard=[pscustomobject]@{ReceiptJob='';NextReceipt=[datetime]::MinValue;Samples=[Collections.Generic.List[double]]::new();Last=[datetime]::UtcNow;Epoch=[long]$script:SessionEpoch;Timer=$null}
     $actions=@{
         BtnGuardOpen={Show-DomeniaGuard};BtnGuardReceiptRefresh={Start-DomeniaReceiptRefresh};BtnGuardReceiptVerify={Invoke-DomeniaReceiptChoice Verify};BtnGuardReceiptReview={Invoke-DomeniaReceiptChoice Review}
-        BtnGuardDraft={Show-DomeniaDraftComparison};BtnGuardRemote={Set-DomeniaArtifactConsent};BtnGuardRemoteOff={$script:ArtifactConsent=$null;[void](Set-DomeniaControlText 'LblGuardRemote' 'Depots et services non autorises par defaut.')}
+        BtnGuardDraft={Show-DomeniaDraftComparison};BtnGuardRemote={Set-DomeniaArtifactConsent};BtnGuardRemoteOff={$script:ArtifactConsent=$null;[void](Set-DomeniaControlText 'LblGuardRemote' 'Depots et services non autorises par defaut.')};BtnGuardReadFallback={Set-DomeniaReadFallbackConsent}
         BtnGuardStoreResume={Resume-DomeniaStorage};BtnGuardLegacyImport={Request-DomeniaLegacyImport};BtnGuardWhy={Show-DomeniaUnavailableReasons};BtnGuardExport={Export-DomeniaTechnicalDossier}
         BtnGuardPesto={Open-DomeniaSuiteTool Pesto};BtnGuardFilPro={Open-DomeniaSuiteTool FilPro}
         # FO-04: the former saved searches block is gone; OU favourites are pinned above the tree (Rechercher).

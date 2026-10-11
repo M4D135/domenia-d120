@@ -4,8 +4,8 @@
 . (Join-Path $modules 'Domenia-Boards.Model.ps1')
 . (Join-Path $modules 'Domenia-BoardSoftware.Model.ps1')
 function New-DomeniaSoftwareBoardTestRow {
-    param([string]$Name,[string]$Publisher = '',[string]$Version = '1.0',[string]$Architecture = '64 bits',[string]$Scope = 'Machine',$SizeKb = 0)
-    return [pscustomobject]@{ Name = $Name; Publisher = $Publisher; Version = $Version; Architecture = $Architecture; Scope = $Scope; SizeKb = $SizeKb }
+    param([string]$Name,[string]$Publisher = '',[string]$Version = '1.0',[string]$Architecture = '64 bits',[string]$Scope = 'Machine',$SizeKb = 0,[string]$InstallDate = '')
+    return [pscustomobject]@{ Name = $Name; Publisher = $Publisher; Version = $Version; Architecture = $Architecture; Scope = $Scope; SizeKb = $SizeKb; InstallDate = $InstallDate }
 }
 function Get-DomeniaSoftwareBoardTestColored {
     # Items that carry their own colour property (the renderer keeps their order and colours).
@@ -20,7 +20,7 @@ Test-Case -Id 'BS-001' -Name 'Aucun logiciel : aucune tuile, sections expliquees
         Assert-False ($d -is [array]) 'Un seul objet attendu'
         Assert-Equal 'Software' $d.Board
         Assert-Equal 'Aucun logiciel lu.' $d.Summary
-        foreach ($key in @('software.count','software.size','software.multiversion','software.nopublisher','software.publishers','software.architecture','software.scope','software.largest')) {
+        foreach ($key in @('software.count','software.size','software.multiversion','software.nopublisher','software.publishers','software.architecture','software.scope','software.largest','software.recent','software.runtime','software.browsers')) {
             Assert-False $d.Entries.ContainsKey($key) ('Tuile sans donnees : ' + $key)
         }
         Assert-True ([string]$d.Hints['Synthese'] -match 'chargez les logiciels') 'Indication Synthese'
@@ -271,4 +271,165 @@ Test-Case -Id 'BS-012' -Name 'Cles du catalogue uniquement, aucun point d attent
     Assert-Equal 0 @($d.Attention).Count
     Assert-Equal 100 ([int]$d.Entries['software.health'].Number)
     Assert-Equal 'Ok' $d.Entries['software.health'].State
+}
+
+Test-Case -Id 'FO-09a' -Name 'Clic sur une part : les quatre colonnes connues filtrent, une valeur inconnue ne laisse rien passer' -Body {
+    $row = New-DomeniaSoftwareBoardTestRow -Name 'Acme Reader' -Publisher 'Adobe' -Architecture '64 bits' -Scope 'Machine'
+    Assert-True (Test-DomeniaSoftwareRowMatchesSelect -Row $row -Select $null) 'Sans selection, la liste reste entiere'
+    Assert-True (Test-DomeniaSoftwareRowMatchesSelect -Row $row -Select ([pscustomobject]@{ Field = 'Publisher'; Value = 'adobe' })) 'Editeur : la casse ne compte pas'
+    Assert-True (Test-DomeniaSoftwareRowMatchesSelect -Row $row -Select ([pscustomobject]@{ Field = 'Scope'; Value = 'Machine' })) 'Portee'
+    Assert-True (Test-DomeniaSoftwareRowMatchesSelect -Row $row -Select ([pscustomobject]@{ Field = 'Name'; Value = '  Acme Reader  ' })) 'Nom : les espaces du libelle ne comptent pas'
+    Assert-False (Test-DomeniaSoftwareRowMatchesSelect -Row $row -Select ([pscustomobject]@{ Field = 'Publisher'; Value = 'Contoso' })) 'Un autre editeur laisse la ligne passer'
+    Assert-False (Test-DomeniaSoftwareRowMatchesSelect -Row $row -Select ([pscustomobject]@{ Field = 'Kind'; Value = 'Machine' })) 'Un champ que la liste na pas ne doit pas tout laisser passer'
+    Assert-False (Test-DomeniaSoftwareRowMatchesSelect -Row $row -Select ([pscustomobject]@{ Field = 'Publisher'; Value = '   ' })) 'Un libelle vide ne doit rien filtrer du tout'
+    Assert-False (Test-DomeniaSoftwareRowMatchesSelect -Row $null -Select ([pscustomobject]@{ Field = 'Publisher'; Value = 'Adobe' })) 'Une ligne vide est ecartee'
+    Assert-True (Test-DomeniaSoftwareRowMatchesSelect -Row (@{ Name = 'Acme Reader'; Publisher = 'Adobe' }) -Select ([pscustomobject]@{ Field = 'Publisher'; Value = 'Adobe' })) 'Une ligne lue en hashtable filtre comme un objet'
+    Assert-False (Test-DomeniaSoftwareRowMatchesSelect -Row (@{ Name = 'Sans editeur' }) -Select ([pscustomobject]@{ Field = 'Publisher'; Value = 'Adobe' })) 'Une ligne sans le champ est filtree'
+}
+
+Test-Case -Id 'FO-09b' -Name 'Pastille et bascule : le second clic retire le filtre, un autre critere le remplace' -Body {
+    $adobe = [pscustomobject]@{ Field = 'Publisher'; Value = 'Adobe' }
+    Assert-Equal ('Filtr' + [char]0x00E9 + ' : Adobe') (Get-DomeniaSoftwareSelectLabel -Select $adobe) 'Texte de la pastille'
+    Assert-Equal '' (Get-DomeniaSoftwareSelectLabel -Select $null) 'Sans filtre, la pastille ne se montre pas'
+    Assert-Equal '' (Get-DomeniaSoftwareSelectLabel -Select ([pscustomobject]@{ Field = 'Publisher'; Value = '   ' })) 'Un libelle vide ne se montre pas'
+    $first = Get-DomeniaSoftwareSelectToggle -Current $null -Incoming $adobe
+    Assert-Equal 'Publisher' ([string]$first.Field) 'Le premier clic installe le filtre'
+    Assert-Equal 'Adobe' ([string]$first.Value) 'Le filtre garde le critere clique'
+    Assert-True ($null -eq (Get-DomeniaSoftwareSelectToggle -Current $first -Incoming $adobe)) 'Le second clic sur la meme part retire le filtre'
+    Assert-True ($null -eq (Get-DomeniaSoftwareSelectToggle -Current $first -Incoming ([pscustomobject]@{ Field = 'Publisher'; Value = 'adobe' }))) 'La meme part ecrite autrement reste la meme part'
+    $replaced = Get-DomeniaSoftwareSelectToggle -Current $first -Incoming ([pscustomobject]@{ Field = 'Scope'; Value = 'Machine' })
+    Assert-Equal 'Scope' ([string]$replaced.Field) 'Un autre critere remplace le precedent'
+    Assert-True ($null -eq (Get-DomeniaSoftwareSelectToggle -Current $first -Incoming $null)) 'Un clic sans critere ne laisse aucun filtre'
+    Assert-True ($null -eq (Get-DomeniaSoftwareSelectToggle -Current $first -Incoming ([pscustomobject]@{ Field = ''; Value = 'Adobe' }))) 'Un critere sans champ ne filtre rien'
+}
+
+Test-Case -Id 'FO-09c' -Name 'Le fournisseur publie le critere de clic de chaque part, jamais sur la part Autres' -Body {
+    $rows = @(for ($p = 1; $p -le 8; $p++) { for ($n = 1; $n -le (9 - $p); $n++) { New-DomeniaSoftwareBoardTestRow -Name ('Produit ' + $p + '-' + $n) -Publisher ('Editeur ' + $p) -Architecture '64 bits' -Scope 'Machine' } })
+    $d = Get-DomeniaSoftwareBoardData -Rows $rows
+    $items = @($d.Entries['software.publishers'].Items)
+    Assert-Equal 'Publisher' ([string]$items[0].Select.Field) 'Un editeur cliquable porte le champ qui le filtre'
+    Assert-Equal 'Editeur 1' ([string]$items[0].Select.Value) 'Le critere est le libelle de la part'
+    Assert-True ($null -eq $items[6].PSObject.Properties['Select']) 'La part Autres ne porte aucun critere : elle melange plusieurs editeurs'
+    Assert-True (Test-DomeniaSoftwareRowMatchesSelect -Row $rows[0] -Select $items[0].Select) 'Le critere publie retrouve bien sa ligne'
+    $arch = @($d.Entries['software.architecture'].Items)
+    Assert-Equal 'Architecture' ([string]$arch[0].Select.Field) 'Lanneau Architecture filtre sur sa colonne'
+    Assert-Equal '64 bits' ([string]$arch[0].Select.Value)
+    $scopes = @($d.Entries['software.scope'].Items)
+    Assert-Equal 'Scope' ([string]$scopes[0].Select.Field) 'Lanneau Portee filtre sur sa colonne'
+    # Le libelle d'une barre peut porter une version et une portee ajoutees pour distinguer deux barres :
+    # le critere, lui, reste le nom du logiciel.
+    $twins = @(
+        (New-DomeniaSoftwareBoardTestRow -Name 'Double' -Publisher 'Adobe' -Version '1.0' -SizeKb 2048),
+        (New-DomeniaSoftwareBoardTestRow -Name 'Double' -Publisher 'Adobe' -Version '2.0' -SizeKb 1024)
+    )
+    $bars = @((Get-DomeniaSoftwareBoardData -Rows $twins).Entries['software.largest'].Items)
+    Assert-Equal 2 $bars.Count 'Deux barres'
+    Assert-Equal 'Name' ([string]$bars[0].Select.Field) 'La barre filtre sur le nom du logiciel'
+    Assert-Equal 'Double' ([string]$bars[0].Select.Value)
+    Assert-True ([string]$bars[0].Label -ne [string]$bars[0].Select.Value) 'Le libelle habille de la barre ne devient pas le critere'
+    Assert-True (Test-DomeniaSoftwareRowMatchesSelect -Row $twins[0] -Select $bars[0].Select) 'Le critere de la barre retrouve bien ses lignes'
+}
+
+Test-Case -Id 'FO-09d' -Name 'Les parts qui inventent une valeur ne publient aucun critere de clic' -Body {
+    $rows = @(
+        (New-DomeniaSoftwareBoardTestRow -Name 'Sans editeur' -Publisher '' -Architecture '' -Scope ''),
+        (New-DomeniaSoftwareBoardTestRow -Name 'Avec editeur' -Publisher 'Adobe' -Architecture '64 bits' -Scope 'Machine')
+    )
+    $d = Get-DomeniaSoftwareBoardData -Rows $rows
+    $pub = @($d.Entries['software.publishers'].Items | Where-Object { [string]$_.Label -eq 'Editeur non renseigne' })
+    Assert-Equal 1 $pub.Count 'La part de l editeur inconnu se montre'
+    Assert-True ($null -eq $pub[0].PSObject.Properties['Select']) 'Cliquer l editeur inconnu laisserait la liste vide : aucun critere ne doit la proposer'
+    $arch = @($d.Entries['software.architecture'].Items | Where-Object { [string]$_.Label -eq 'Non precise' })
+    Assert-Equal 1 $arch.Count 'La part de l architecture absente se montre'
+    Assert-True ($null -eq $arch[0].PSObject.Properties['Select']) 'Cliquer une architecture absente laisserait la liste vide'
+    $scope = @($d.Entries['software.scope'].Items | Where-Object { [string]$_.Label -eq 'Non precise' })
+    Assert-Equal 1 $scope.Count 'La part de la portee absente se montre'
+    Assert-True ($null -eq $scope[0].PSObject.Properties['Select']) 'Cliquer une portee absente laisserait la liste vide'
+    $reelle = @($d.Entries['software.publishers'].Items | Where-Object { [string]$_.Label -eq 'Adobe' })
+    Assert-Equal 1 $reelle.Count 'La part d un vrai editeur se montre'
+    Assert-Equal 'Publisher' ([string]$reelle[0].Select.Field) 'Une part qui porte une valeur des lignes reste cliquable'
+    Assert-True (Test-DomeniaSoftwareRowMatchesSelect -Row $rows[1] -Select $reelle[0].Select) 'Le critere publie retrouve bien sa ligne'
+}
+
+Test-Case -Id 'FO-15a' -Name 'Installés ces 30 derniers jours : borne à 30 jours incluse, dates absentes comptées à part' -Body {
+    $now = [datetime]::new(2026, 10, 8)
+    $rows = @(
+        (New-DomeniaSoftwareBoardTestRow -Name 'Recent' -InstallDate '01/10/2026'),
+        (New-DomeniaSoftwareBoardTestRow -Name 'Borne' -InstallDate '08/09/2026'),
+        (New-DomeniaSoftwareBoardTestRow -Name 'Vieux' -InstallDate '07/09/2026'),
+        (New-DomeniaSoftwareBoardTestRow -Name 'Sans date')
+    )
+    $e = (Get-DomeniaSoftwareBoardData -Rows $rows -Now $now).Entries['software.recent']
+    Assert-Equal 'Value' $e.Kind
+    Assert-Equal '2' $e.Value
+    Assert-Equal 'Dernier : Recent, 01/10/2026 · dates connues pour 3 sur 4' $e.Detail
+    $seul = Get-DomeniaSoftwareBoardData -Rows @((New-DomeniaSoftwareBoardTestRow -Name 'Annoté' -InstallDate '02/01/2026')) -Now $now
+    Assert-Equal '0' $seul.Entries['software.recent'].Value
+    Assert-Equal 'Ok' $seul.Entries['software.recent'].State
+    Assert-Equal 'Rien dʼinstallé dans les 30 derniers jours' $seul.Entries['software.recent'].Detail
+    $aucune = Get-DomeniaSoftwareBoardData -Rows @((New-DomeniaSoftwareBoardTestRow -Name 'Sans date')) -Now $now
+    Assert-Equal 'Sans date' $aucune.Entries['software.recent'].Value
+    Assert-Equal 'Off' $aucune.Entries['software.recent'].State
+    Assert-Equal 'Aucun logiciel lu ne déclare de date dʼinstallation' $aucune.Entries['software.recent'].Detail
+    $date = Get-DomeniaSoftwareBoardData -Rows @((New-DomeniaSoftwareBoardTestRow -Name 'Format brut' -InstallDate ([datetime]::new(2026, 10, 1)))) -Now $now
+    Assert-Equal '1' $date.Entries['software.recent'].Value 'Une date rendue par le worker comme un objet se lit'
+}
+Test-Case -Id 'FO-15b' -Name 'Composants dʼexécution : familles comptées sur le nom déclaré, WebView2 compte comme composant' -Body {
+    $rows = @(
+        (New-DomeniaSoftwareBoardTestRow -Name 'Microsoft Visual C++ 2015-2022 Redistributable (x64) - 14.36.42' -Publisher 'Microsoft Corporation' -Version '14.36.42'),
+        (New-DomeniaSoftwareBoardTestRow -Name 'Microsoft Visual C++ 2013 Redistributable (x64) - 12.0.30501' -Publisher 'Microsoft Corporation' -Version '12.0.30501'),
+        (New-DomeniaSoftwareBoardTestRow -Name 'Microsoft .NET Runtime 8.0.10'),
+        (New-DomeniaSoftwareBoardTestRow -Name 'Microsoft Edge WebView2 Runtime' -Version '129.0.2792.89'),
+        (New-DomeniaSoftwareBoardTestRow -Name 'Outil metier' -Publisher 'Contoso')
+    )
+    $e = (Get-DomeniaSoftwareBoardData -Rows $rows).Entries['software.runtime']
+    Assert-Equal '4' $e.Value
+    Assert-Equal 'Visual C++ 2, .NET 1, WebView2 1' $e.Detail
+    Assert-Equal '' $e.State
+    $seul = (Get-DomeniaSoftwareBoardData -Rows @((New-DomeniaSoftwareBoardTestRow -Name 'Outil metier'))).Entries['software.runtime']
+    Assert-Equal 'Aucun' $seul.Value
+    Assert-Equal 'Off' $seul.State
+    Assert-Equal 'Aucun socle Visual C++, .NET ou WebView2 dans la liste lue' $seul.Detail
+    $doublon = (Get-DomeniaSoftwareBoardData -Rows @((New-DomeniaSoftwareBoardTestRow -Name 'Microsoft .NET Runtime 8.0.10' -Scope 'Machine'), (New-DomeniaSoftwareBoardTestRow -Name 'Microsoft .NET Runtime 8.0.10' -Scope 'Utilisateur'))).Entries['software.runtime']
+    Assert-Equal '1' $doublon.Value 'La meme version lue dans deux portees compte une fois'
+}
+Test-Case -Id 'FO-15c' -Name 'Navigateurs et versions : un nom par navigateur, version majeure et mineure seulement' -Body {
+    $rows = @(
+        (New-DomeniaSoftwareBoardTestRow -Name 'Google Chrome' -Version '129.0.6668.100'),
+        (New-DomeniaSoftwareBoardTestRow -Name 'Mozilla Firefox' -Version '130.0.1'),
+        (New-DomeniaSoftwareBoardTestRow -Name 'Microsoft Edge' -Version '129.0.2792.89'),
+        (New-DomeniaSoftwareBoardTestRow -Name 'Chromium' -Version '128.0.0.0'),
+        (New-DomeniaSoftwareBoardTestRow -Name 'Navigateur sans version')
+    )
+    $e = (Get-DomeniaSoftwareBoardData -Rows $rows).Entries['software.browsers']
+    Assert-Equal '4' $e.Value
+    Assert-Equal 'Chrome 129.0, Chromium 128.0, Edge 129.0, Firefox 130.0' $e.Detail
+    $seul = (Get-DomeniaSoftwareBoardData -Rows @((New-DomeniaSoftwareBoardTestRow -Name 'Outil metier'))).Entries['software.browsers']
+    Assert-Equal 'Aucun' $seul.Value
+    Assert-Equal 'Off' $seul.State
+    Assert-Equal 'Aucun navigateur reconnu dans la liste lue' $seul.Detail
+    $sansVersion = (Get-DomeniaSoftwareBoardData -Rows @((New-DomeniaSoftwareBoardTestRow -Name 'Mozilla Firefox' -Version ''))).Entries['software.browsers']
+    Assert-Equal 'Firefox' $sansVersion.Detail 'Une version absente ne fabrique pas un numero'
+}
+Test-Case -Id 'FO-15d' -Name 'Tuiles à 0 réduites à une coche ; famille inconnue rendue nulle, jamais devinée' -Body {
+    $propres = @((New-DomeniaSoftwareBoardTestRow -Name 'Alpha' -Publisher 'Contoso' -Version '1.0'))
+    $d = Get-DomeniaSoftwareBoardData -Rows $propres
+    Assert-Equal 'Ok' $d.Entries['software.multiversion'].State
+    Assert-Equal 'Ok' $d.Entries['software.nopublisher'].State
+    $doubles = @(
+        (New-DomeniaSoftwareBoardTestRow -Name 'Alpha' -Publisher 'Contoso' -Version '1.0'),
+        (New-DomeniaSoftwareBoardTestRow -Name 'Alpha' -Publisher 'Contoso' -Version '2.0'),
+        (New-DomeniaSoftwareBoardTestRow -Name 'Beta')
+    )
+    $d = Get-DomeniaSoftwareBoardData -Rows $doubles
+    Assert-Equal 'Warn' $d.Entries['software.multiversion'].State
+    Assert-Equal 'Warn' $d.Entries['software.nopublisher'].State
+    Assert-True ($null -eq (Get-DomeniaSoftwareFamily -Name 'Outil metier' -Publisher 'Contoso')) 'Hors famille : rien d invente'
+    Assert-True ($null -eq (Get-DomeniaSoftwareFamily -Name '' -Publisher '   ')) 'Nom vide : rien d invente'
+    $famille = Get-DomeniaSoftwareFamily -Name 'Mozilla Firefox'
+    Assert-Equal 'Browser' $famille.Family
+    Assert-Equal 'Firefox' $famille.Label
+    $famille = Get-DomeniaSoftwareFamily -Name 'Runtime' -Publisher 'Microsoft Visual C++ 2013 Redistributable'
+    Assert-Equal 'Runtime' $famille.Family
+    Assert-Equal 'Visual C++' $famille.Label
 }

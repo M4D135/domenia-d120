@@ -7,7 +7,7 @@ $wad=Split-Path -Parent $PSScriptRoot
 $tokens=$null;$errors=$null
 $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'Domenia-Core.ps1'),[ref]$tokens,[ref]$errors)
 if(@($errors).Count){throw $errors[0].Message}
-foreach($name in @('Get-MainXaml','Get-DomeniaControl','Set-DomeniaControlText','Get-DomeniaSearchMode','Set-DomeniaSearchMode','Get-DomeniaSearchText','Get-DomeniaSearchScope','Get-GlobalSelectedTypeFilter','Get-TypeLdapFilter','Test-DomeniaSearchStateCurrent','Invoke-GlobalSearch','Escape-LdapValue','Normalize-LinkComputer','Get-DomeniaEffectiveWorkerResult','Set-DomeniaItemsSource')){
+foreach($name in @('Get-MainXaml','Get-DomeniaControl','Set-DomeniaControlText','Get-DomeniaSearchMode','Set-DomeniaSearchMode','Get-DomeniaSearchText','Get-DomeniaSearchScope','Get-GlobalSelectedTypeFilter','Get-TypeLdapFilter','Test-DomeniaSearchStateCurrent','Invoke-GlobalSearch','Escape-LdapValue','Normalize-LinkComputer','Get-DomeniaEffectiveWorkerResult','Set-DomeniaItemsSource','Get-DomeniaGridDateSortKey','Get-DomeniaGridDateShortText','Add-DomeniaGridDateKeys')){
     $nodes=@($ast.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true))
     if($nodes.Count -ne 1){throw ('Definition ambiguous: '+$name)}
     Invoke-Expression $nodes[0].Extent.Text
@@ -212,6 +212,34 @@ if($env:OS -eq 'Windows_NT' -and -not $SkipWpf){
             $presence=@($window.FindName('DgObjects').Columns|Where-Object{$_.SortMemberPath -eq 'Presence'})
             Expect ($presence.Count -eq 1 -and $presence[0].Header -eq 'Présence réseau' -and $window.FindName('DgObjects').Columns.Count -eq 18)
         }finally{$reader.Close();if($null -ne $window){$window.Close()}}
+    }
+    Case 'CO-03 DgObjects : la grille recoit des cles de tri, pas seulement du texte affiche' {
+        Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
+        Set-DomeniaSearchMode 'OU';$script:Ctrl.TxtSuiteResultFilter.Text=''
+        $rows=@(
+            [pscustomobject]@{Type='Machine';Name='a';DN='CN=a';Presence='Inconnu';Changed='09/05/2026 08:00:00';LastLogon='Jamais'},
+            [pscustomobject]@{Type='Machine';Name='b';DN='CN=b';Presence='Inconnu';Changed='10/01/2026 08:00:00';LastLogon='01/02/2026 08:00:00'},
+            [pscustomobject]@{Type='Machine';Name='c';DN='CN=c';Presence='Inconnu';Changed='03/06/2025 08:00:00';LastLogon='03/03/2026 08:00:00'}
+        )
+        $grid=[Windows.Controls.DataGrid]::new();$grid.IsReadOnly=$true;$grid.CanUserAddRows=$false
+        $script:Ctrl.DgObjects=$grid
+        $affecte=Set-DomeniaItemsSource -Name 'DgObjects' -Rows $rows
+        Expect ([bool]$affecte) ('Le coeur a refuse d afficher les lignes de DgObjects')
+        $avecCle=@($grid.ItemsSource|Where-Object{$null -ne $_.PSObject.Properties['ChangedSort']}).Count
+        Expect ($avecCle -eq 3) ('Cle de tri absente : '+$avecCle+' ligne(s) sur 3 portent ChangedSort')
+        $parValeur=@($grid.ItemsSource|Sort-Object ChangedSort|ForEach-Object{[string]$_.Name}) -join ''
+        Expect ($parValeur -eq 'cba') ('Tri Modifie par valeur : ordre '+$parValeur)
+        $parTexte=@($grid.ItemsSource|Sort-Object Changed|ForEach-Object{[string]$_.Name}) -join ''
+        Expect ($parTexte -eq 'cab') ('Le tri par texte affiche ne devrait plus etre faux : ordre '+$parTexte)
+        $connexion=@($grid.ItemsSource|Sort-Object LastLogonSort|ForEach-Object{[string]$_.Name}) -join ''
+        Expect ($connexion -eq 'abc') ('Tri Derniere connexion par valeur, Jamais en premier : ordre '+$connexion)
+        $a=@($grid.ItemsSource|Where-Object{[string]$_.Name -eq 'a'})[0]
+        # CO-03b : la ligne porte aussi ce que l'operateur voit, sans perdre la date complete.
+        Expect ($a.ChangedShort -eq '09/05/2026') ('Modifie raccourci : '+[string]$a.ChangedShort)
+        Expect ($a.Changed -eq '09/05/2026 08:00:00') ('Date complete perdue de la ligne : '+[string]$a.Changed)
+        Expect ($a.LastLogonShort -eq 'Jamais') ('Derniere connexion raccourcie : '+[string]$a.LastLogonShort)
+        Expect ($a.ChangedSort -eq [datetime]::new(2026,5,9,8,0,0)) 'La cle Modifie ne convertit pas l heure affichee'
+        Expect ($a.LastLogonSort -eq [datetime]::MinValue) 'Jamais ne tombe pas au plus ancien'
     }
     Case 'Actual live filter ignores local controls in Global but applies them in OU' {
         Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
