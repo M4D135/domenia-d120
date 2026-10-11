@@ -909,6 +909,9 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnExportInventory" = "Default"
     "CmbInventoryCategory" = "Default"
     "LblInventoryStatus" = "Default"
+    "TxtInventoryAge" = "Default"
+    "LblInventoryAge" = "Default"
+    "LnkInventoryRefresh" = "Default"
     "DgInventory" = "Default"
     "DgInventoryAccess" = "Default"
     "TabPermissions" = "Default"
@@ -1800,6 +1803,33 @@ function Get-DomeniaGridDateShortText {
     if ($age.TotalDays -lt 1) { return ('il y a {0} h' -f [int][Math]::Floor($age.TotalHours)) }
     if ($age.TotalDays -lt 31) { return ('il y a {0} j' -f [int][Math]::Floor($age.TotalDays)) }
     return $instant.ToString('dd/MM/yyyy',[Globalization.CultureInfo]::InvariantCulture)
+}
+function Get-DomeniaInventoryAgeLabel {
+    # FO-07 : l'age de la derniere lecture reprise de la session. Le texte court vient de la regle des
+    # colonnes datees (CO-03) pour que « il y a 3 j » veuille dire la meme chose partout ; l'heure
+    # complete reste dans l'infobulle, car un age relatif ne se relit pas une heure plus tard.
+    # $CompletedAt est une date, pas une chaine : elle est formatee a la culture invariante pour que
+    # l'heure lue sur un poste en culture francaise ne soit pas relue en mois/jour sur un autre.
+    param($CompletedAt,$Now)
+    if ($CompletedAt -isnot [datetime]) { return '' }
+    $text = $CompletedAt.ToString('dd/MM/yyyy HH:mm:ss',[Globalization.CultureInfo]::InvariantCulture)
+    $short = Get-DomeniaGridDateShortText $text $Now
+    if ([string]::IsNullOrWhiteSpace($short)) { return '' }
+    if ($short -eq "à l'instant") { return "Inventaire à lʼinstant" }
+    if ($short -like 'il y a *') { return ('Inventaire dʼ' + $short) }
+    return ('Inventaire du ' + $short)
+}
+function Get-DomeniaInventorySummaryText {
+    # FO-07 : une seule phrase pour la liste fraiche et pour la liste reprise de la session. Ecrite deux
+    # fois, elle divergerait, et l'operateur ne saurait plus laquelle des deux dit vrai.
+    param([string]$Computer,$Rows,$Access,[long]$DurationMs)
+    $all = @($Access)
+    $ok = @($all | Where-Object { [string]$_.Status -eq "OK" }).Count
+    $refused = @($all | Where-Object { [string]$_.Status -eq "REFUSE" }).Count
+    $unavailable = @($all | Where-Object { [string]$_.Status -eq "INDISPONIBLE" }).Count
+    $other = $all.Count - $ok - $refused - $unavailable
+    return "{0} : {1} element(s) sur {2} source(s) accessibles, {3} refusee(s), {4} indisponible(s), {5} autre(s), en {6} ms." -f `
+        $Computer,@($Rows).Count,$ok,$refused,$unavailable,$other,$DurationMs
 }
 function Add-DomeniaGridDateKeys {
     # CO-03 : les cles sont portees par la ligne, pas par la colonne. Les grilles recoivent des
@@ -6513,6 +6543,10 @@ function Get-MainXaml {
                             </ComboBox>
                             <TextBlock Grid.Column="2" x:Name="LblInventoryStatus" Text="Selectionne un poste, puis lance l inventaire." Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" Margin="12,0,0,0" TextWrapping="Wrap"/>
                           </Grid>
+                          <StackPanel x:Name="TxtInventoryAge" Orientation="Horizontal" Visibility="Collapsed" Margin="0,4,0,0">
+                            <TextBlock x:Name="LblInventoryAge" Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Age de l inventaire" AutomationProperties.HelpText="Heure de la derniere lecture du poste gardee pour cette session."/>
+                            <TextBlock Margin="6,0,0,0" VerticalAlignment="Center"><Hyperlink x:Name="LnkInventoryRefresh">Actualiser</Hyperlink></TextBlock>
+                          </StackPanel>
                         </StackPanel>
                         <Grid>
                           <Grid.RowDefinitions>
@@ -8177,6 +8211,7 @@ function Reset-DomeniaSelectionBoundViews {
         $script:SoftwareAccess = @()
         $script:InventoryComputer = ''
         $script:InventoryCompletedAt = $null
+        Update-DomeniaInventoryAgeLine
         $script:SoftwareSource = ''
         $script:SoftwareProvenance = ''
         $script:SoftwareChartSelect = $null
@@ -9115,6 +9150,10 @@ $script:InventoryAccess = @()
 $script:InventoryCategory = "Toutes"
 $script:InventoryComputer = ""
 $script:InventoryCompletedAt = $null
+# FO-07 : la derniere lecture de chaque poste, pour la session seulement. Jamais ecrite sur disque : un
+# inventaire porte les droits de lecture de celui qui l'a lance, et ces droits ne suivent pas l'operateur
+# d'une session a l'autre.
+$script:InventoryCacheByComputer = @{}
 $script:SoftwareSource = ""
 $script:SoftwareProvenance = ""
 $script:SoftwareChartSelect = $null
@@ -13108,13 +13147,13 @@ function Complete-DomeniaInventoryUi {
     Apply-DomeniaInventoryFilter
     [void](Set-DomeniaItemsSource -Name "DgInventoryAccess" -Rows $script:InventoryAccess)
 
-    $ok = @($script:InventoryAccess | Where-Object { [string]$_.Status -eq "OK" }).Count
-    $refused = @($script:InventoryAccess | Where-Object { [string]$_.Status -eq "REFUSE" }).Count
-    $unavailable = @($script:InventoryAccess | Where-Object { [string]$_.Status -eq "INDISPONIBLE" }).Count
-    $other = @($script:InventoryAccess).Count - $ok - $refused - $unavailable
-    $summary = "{0} : {1} element(s) sur {2} source(s) accessibles, {3} refusee(s), {4} indisponible(s), {5} autre(s), en {6} ms." -f `
-        ([string]$State.Computer),@($script:InventoryRows).Count,$ok,$refused,$unavailable,$other,([long]$effective.DurationMs)
+    # FO-07 : la lecture vient de finir, elle rejoint le cache de session du poste. La cle est la regle
+    # du depot pour nommer un poste, pas une seconde regle inventee ici.
+    $cacheKey = Normalize-LinkComputer ([string]$State.Computer)
+    if ($cacheKey) { $script:InventoryCacheByComputer[$cacheKey] = [pscustomobject]@{ Computer = [string]$State.Computer; Effective = $effective; CompletedAt = $script:InventoryCompletedAt } }
+    $summary = Get-DomeniaInventorySummaryText -Computer ([string]$State.Computer) -Rows $script:InventoryRows -Access $script:InventoryAccess -DurationMs ([long]$effective.DurationMs)
     [void](Set-DomeniaControlText -Name "LblInventoryStatus" -Text $summary)
+    Update-DomeniaInventoryAgeLine
     Set-Status $summary
     Add-DomeniaUiLog -Area "Inventaire" -Text $summary
     $inventoryMethods = New-Object System.Collections.Generic.List[string]
@@ -13136,6 +13175,47 @@ function Fail-DomeniaInventoryUi {
     [void](Set-DomeniaControlText -Name "LblInventoryStatus" -Text ("Inventaire impossible : " + $detail))
     Set-Status ("Inventaire impossible : " + $detail) "ERROR"
     Add-DomeniaUiLog -Area "Inventaire" -Level "ERROR" -Text $detail
+}
+
+function Update-DomeniaInventoryAgeLine {
+    # FO-07 : la ligne d'age suit l'etat courant de l'onglet, elle ne le devine jamais. Sans poste ou sans
+    # heure de lecture, elle se retire : une ligne figee a « il y a 0 min » serait un mensonge.
+    $line = Get-DomeniaControl "TxtInventoryAge"
+    if ($null -eq $line) { return }
+    $label = ''
+    if ($null -ne $script:InventoryCompletedAt) { $label = Get-DomeniaInventoryAgeLabel -CompletedAt $script:InventoryCompletedAt }
+    if ([string]::IsNullOrWhiteSpace($label) -or [string]::IsNullOrWhiteSpace([string]$script:InventoryComputer)) {
+        $line.Visibility = [Windows.Visibility]::Collapsed
+        return
+    }
+    [void](Set-DomeniaControlText -Name "LblInventoryAge" -Text $label)
+    $line.ToolTip = ("Dernière lecture de {0} : {1}. La liste vient de cette session, sans nouvelle requête." -f `
+        [string]$script:InventoryComputer, $script:InventoryCompletedAt.ToString('dd/MM/yyyy HH:mm:ss',[Globalization.CultureInfo]::InvariantCulture))
+    $line.Visibility = [Windows.Visibility]::Visible
+}
+
+function Show-DomeniaCachedInventory {
+    # FO-07 : le poste vient d'etre choisi, sa derniere lecture de la session est reprise telle quelle,
+    # avec son age. Rien n'est relance : l'operateur qui parcourt la meme machine d'un objet a l'autre
+    # retrouve ses lignes au lieu de les relancer. Le tableau de bord n'est pas rejoue, il appartient a la
+    # lecture fraiche.
+    param($Computer)
+    $key = Normalize-LinkComputer ([string]$Computer)
+    if (-not $key) { return $false }
+    if (-not $script:InventoryCacheByComputer.ContainsKey($key)) { return $false }
+    $entry = $script:InventoryCacheByComputer[$key]
+    if ($null -eq $entry -or $null -eq $entry.Effective) { return $false }
+    $script:InventoryRows = @($entry.Effective.Rows)
+    $script:InventoryAccess = @($entry.Effective.Access)
+    $script:InventoryComputer = [string]$entry.Computer
+    $script:InventoryCompletedAt = $entry.CompletedAt
+    Update-DomeniaInventoryCategories
+    Apply-DomeniaInventoryFilter
+    [void](Set-DomeniaItemsSource -Name "DgInventoryAccess" -Rows $script:InventoryAccess)
+    [void](Set-DomeniaControlText -Name "LblInventoryStatus" -Text (Get-DomeniaInventorySummaryText -Computer ([string]$entry.Computer) -Rows $script:InventoryRows -Access $script:InventoryAccess -DurationMs ([long]$entry.Effective.DurationMs)))
+    Update-DomeniaInventoryAgeLine
+    Add-DomeniaUiLog -Area "Inventaire" -Text ("{0} : liste reprise de la session, sans nouvelle requête." -f [string]$entry.Computer)
+    return $true
 }
 
 function Start-DomeniaComputerInventory {
@@ -20844,6 +20924,7 @@ function Start-DomeniaAccountRelogin {
         $script:InventoryRows = @(); $script:InventoryAccess = @()
         $script:SoftwareRows = @(); $script:SoftwareAccess = @()
         $script:InventoryComputer = ''; $script:InventoryCompletedAt = $null
+        $script:InventoryCacheByComputer = @{}
         $script:SoftwareSource = ''; $script:SoftwareProvenance = ''
         $script:SoftwareChartSelect = $null; Update-DomeniaSoftwareFilterChip
         $script:DomainRows = @(); $script:WmiNamespaces = @(); $script:WmiClasses = @(); $script:WmiSchema = @(); $script:WmiInstances = @()
@@ -21276,6 +21357,7 @@ function Wire-Events {
     if ($script:Ctrl.ContainsKey("BtnExportSoftware")) { $script:Ctrl["BtnExportSoftware"].Add_Click({ Export-DomeniaSoftware }) }
     if ($script:Ctrl.ContainsKey("TxtSoftwareFilter")) { $script:Ctrl["TxtSoftwareFilter"].Add_TextChanged({ Apply-DomeniaSoftwareFilter }) }
     if ($script:Ctrl.ContainsKey("BtnSoftwareFilterClear")) { $script:Ctrl["BtnSoftwareFilterClear"].Add_Click({ Clear-DomeniaSoftwareChartFilter }) }
+    if ($script:Ctrl.ContainsKey("LnkInventoryRefresh")) { $script:Ctrl["LnkInventoryRefresh"].Add_Click({ Start-DomeniaComputerInventory }) }
     if ($script:Ctrl.ContainsKey("CmbSoftwareScope")) {
         $script:Ctrl["CmbSoftwareScope"].Add_SelectionChanged({
             try {

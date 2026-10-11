@@ -71,6 +71,9 @@ function Update-DomeniaSoftwareColumnVisibility {}
 function Update-DomeniaSoftwareSyntheseVisibility {}
 function Update-DomeniaSoftwareAccessSummary {}
 function Update-DomeniaSoftwareFilterChip {}
+function Update-DomeniaInventoryAgeLine { $script:Spy.Age++ }
+function Show-DomeniaCachedInventory { param($Computer); $script:Spy.Restore++; $script:Spy.LastRestoreComputer=[string]$Computer; return $false }
+function Normalize-LinkComputer { param([string]$Computer); return ([string]$Computer).Trim().ToUpperInvariant() }
 function Get-DomeniaSoftwareAccessSummary {param($Rows);return ''}
 function Get-DomeniaSoftwareColumnVisibility {param($Headers,$FromInventory,$ShowTechnical);return @{}}
 function Register-DomeniaOperationSample {param([string]$Operation,[string]$Mode,[int]$ItemCount,[long]$DurationMs,[long]$BytesEstimated,[int]$RemoteAttempts,[int]$FallbackTasks,[int]$SuccessCount,[int]$FailureCount)}
@@ -84,11 +87,13 @@ function Stop-DomeniaSecretReadTasks {}
 
 function Reset-Fixture {
     $script:Status='';$script:Log.Clear();$script:StoppedTasks.Clear();$script:Spy.Counter=0;$script:Spy.Preview=0;$script:Spy.LastPreview=$null
+    $script:Spy.Age=0;$script:Spy.Restore=0;$script:Spy.LastRestoreComputer=''
     $script:SelectedObject=$null;$script:SelectionLoad=$null;$script:SelectedObjectGeneration=0L
     $script:AsyncJobs=@{};$script:DetachedReadJobs=@();$script:AccessState=[pscustomobject]@{Pending=@()}
     $script:ExperienceInitialized=$true;$script:ExperienceActivitySignature='';$script:WriteState='Unknown'
     $script:InventoryRows=@();$script:InventoryAccess=@();$script:SoftwareRows=@();$script:SoftwareAccess=@()
     $script:ComputerDiagRows=@();$script:PermissionRows=@()
+    $script:InventoryCacheByComputer=@{}
     if ($null -ne $script:Window) {
         foreach ($name in @($script:Ctrl.Keys)) {
             $c=$script:Ctrl[$name]
@@ -107,7 +112,7 @@ $script:Ctrl=@{}
 $script:Status=''
 $script:Log=[Collections.ArrayList]::new()
 $script:StoppedTasks=[Collections.ArrayList]::new()
-$script:Spy=[pscustomobject]@{Counter=0;Preview=0;LastPreview=$null}
+$script:Spy=[pscustomobject]@{Counter=0;Preview=0;LastPreview=$null;Age=0;Restore=0;LastRestoreComputer=''}
 $script:SessionEpoch=7L
 $script:SelectedObjectGeneration=0L
 $script:SelectedObject=$null
@@ -132,6 +137,7 @@ $script:SoftwareRows=@()
 $script:SoftwareAccess=@()
 $script:ComputerDiagRows=@()
 $script:PermissionRows=@()
+$script:InventoryCacheByComputer=@{}
 $script:ActualSecretDeniedDn=''
 $script:ActiveSecretRequestId=''
 $script:LatestTaskId=''
@@ -184,6 +190,7 @@ try{
         'Reset-DomeniaSelectionBoundViews',
         'Enter-DomeniaSelectionContext',
         'Complete-DomeniaInventoryUi',
+        'Get-DomeniaInventorySummaryText',
         'Complete-DomeniaSoftwareUi',
         'Get-DomeniaSelectedGridRow'
     )
@@ -447,6 +454,23 @@ try{
             Complete-DomeniaSoftwareUi -Result $current -State ([pscustomobject]@{DN='CN=B';Computer='B'})
             Expect (@($script:Ctrl['DgSoftware'].ItemsSource).Count -gt 0) 'Resultat courant non affiche'
             Expect ($script:SoftwareRows.Count -eq 1) 'SoftwareRows'
+        }
+
+        Case 'FO-07 : la selection d un poste reprend sa derniere lecture de la session' {
+            Reset-Fixture;Pump $w
+            Enter-DomeniaSelectionContext -Context ([pscustomobject]@{DN='CN=PC1';Type='Machine';Name='PC-01'})
+            Expect ($script:Spy.Restore -eq 1) 'Aucune reprise tentee pour un poste'
+            Expect ($script:Spy.LastRestoreComputer -ceq 'PC-01') ('Reprise demandee pour un autre objet : '+$script:Spy.LastRestoreComputer)
+            Reset-Fixture;Pump $w
+            Enter-DomeniaSelectionContext -Context ([pscustomobject]@{DN='CN=U1';Type='User';Name='jean'})
+            Expect ($script:Spy.Restore -eq 0) 'Un utilisateur declenche une reprise d inventaire'
+            Reset-Fixture;Pump $w
+            $script:SelectedObject=[pscustomobject]@{DN='CN=PC1';Type='Machine';Name='PC-01'}
+            $fresh=[pscustomobject]@{Rows=@([pscustomobject]@{Name='a'});Access=@([pscustomobject]@{Status='OK';Category='';Detail=''});DurationMs=10;FallbackTasks=0;TaskBytes=0;Success=$true}
+            Complete-DomeniaInventoryUi -Result $fresh -State ([pscustomobject]@{DN='CN=PC1';Computer='PC-01'})
+            Expect ($script:Spy.Age -ge 1) 'La ligne d age ne suit pas une lecture fraiche'
+            Expect ($script:InventoryCacheByComputer.ContainsKey('PC-01')) 'La lecture fraiche n a pas ete gardee pour la session'
+            Expect (@($script:InventoryCacheByComputer['PC-01'].Effective.Rows).Count -eq 1) 'Le cache garde autre chose que la lecture'
         }
 
         Case 'D085 : Complete-DomeniaInventoryUi ignore un resultat tardif d un autre DN' {
@@ -784,7 +808,7 @@ try{
     $script:Tests.Add([pscustomobject]@{Name='Initialisation ou suite interrompue';Status='Failed';Detail=$_.Exception.ToString()})
 }
 
-$expected=19
+$expected=20
 $passed=@($script:Tests|Where-Object{$_.Status -eq 'Passed'}).Count
 $failed=@($script:Tests|Where-Object{$_.Status -eq 'Failed'}).Count
 $report=[ordered]@{

@@ -169,7 +169,7 @@ Quand : vous voulez voir d'un coup d'œil l'état d'un poste et ses points à v�
 | « Pas encore de donnees » | Cliquez sur « Inventaire rapide ». |
 | Une section indique « Inventaire complet requis : » | Cliquez sur « Inventaire complet ». |
 | Un widget affiche « Non lu » | L'information n'a pas pu être lue. Relancez l'inventaire. Si elle reste absente, prévenez l'administrateur. |
-| Le tableau se vide quand vous choisissez un autre objet | C'est normal : il montre toujours le poste sélectionné. Relancez l'inventaire sur le nouveau poste. |
+| Le tableau se vide quand vous choisissez un autre objet | C'est normal : il montre toujours le poste sélectionné. Si vous avez déjà lancé son inventaire pendant cette session, il réapparaît avec son âge (« Inventaire d'il y a 12 min · Actualiser ») ; sinon relancez l'inventaire sur le nouveau poste. |
 
 # 4 Savoir qui est connecté sur une liste de postes
 

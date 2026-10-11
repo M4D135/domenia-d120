@@ -812,14 +812,14 @@
     },
     {
       "Path": "tools/preload-baseline.json",
-      "Sha256": "55B3ECF5B3E344F618B335A8256C801A0BB8928CB9C3FCCEBF843F9B014231DD",
-      "Bytes": 182045,
+      "Sha256": "7EC1BFB3DB8B72A8846C0289FAB0C2862A056CCA2554916D279990B546BBBD90",
+      "Bytes": 183392,
       "Runtime": false,
       "PreserveExisting": false
     },
     {
       "Path": "tools/prod-manifest.json",
-      "Sha256": "5BBEBB3CF12CBF99E6F6DB994D037037FF1402E6C8F094DA6B6F2E523F3E0137",
+      "Sha256": "D280DE83157E445EFF078A3C06B96924720E473015F44C56C459AAFE64415212",
       "Bytes": 19333,
       "Runtime": false,
       "PreserveExisting": false
@@ -882,8 +882,8 @@
     },
     {
       "Path": "wad/Domenia-Core.ps1",
-      "Sha256": "5AAAE7DDDC5B331BE947536543F199D2E90C049DF68917AC3981A0A10D2B6B84",
-      "Bytes": 1937804,
+      "Sha256": "CE9B81B6F0A7B70EC1BBF62CA8B8516EB19671E739C646798E952C0CF693AEE8",
+      "Bytes": 1943514,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -1764,8 +1764,8 @@
     },
     {
       "Path": "wad/modules/Domenia-Selection.UI.ps1",
-      "Sha256": "C082F7FFC089FD63CA0C544C6DB77341C528D541A9912C3FFAC9F8474AA7FF16",
-      "Bytes": 20112,
+      "Sha256": "9F216FBE3765DC4F6AA929E0C017B2D91CA456AA2712203371D002799287FA80",
+      "Bytes": 20509,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -1876,8 +1876,8 @@
     },
     {
       "Path": "wad/tests/Test-Domenia.ps1",
-      "Sha256": "0BC481BE4DEE05DAA4245D406CC8CCE8D160380D31234EFAF6032528D317A1B3",
-      "Bytes": 61021,
+      "Sha256": "180D2D8108DFD6F4CBBD065C9E1A37261E65F086F0BDF4C2DE31A26FAE44EDB0",
+      "Bytes": 64230,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -2135,8 +2135,8 @@
     },
     {
       "Path": "wad/tests/Test-DomeniaWiringInterface.ps1",
-      "Sha256": "10FC3FE3BEC7D8C515D9A13D047C98B0608014FB7E05DB8C212E0C8245830D9C",
-      "Bytes": 58206,
+      "Sha256": "34DFBC606E6A16AF82C0277AF88D3A147648E21EC668E2EC14D98DC4A122E1C5",
+      "Bytes": 60194,
       "Runtime": false,
       "PreserveExisting": false
     },

@@ -49,7 +49,7 @@ $wanted=@('Write-DomeniaAtomicText','Read-DomeniaPreference','Write-DomeniaPrefe
     'Invoke-DomeniaAppLogRotation','Flush-DomeniaAppLog','Invoke-DomeniaAppLogFlush','Set-DomeniaAppLogAvailability','Set-Status',
     'Get-DomeniaGridExportColumns','ConvertTo-DomeniaExportRows','Get-DomeniaExportFileName','Export-DomeniaCsv','Get-DomeniaCsvDelimiter',
     # CO-03 : cles de tri des colonnes datees, et le XAML ou elles sont designees.
-    'Get-DomeniaGridDateSortKey','Get-DomeniaGridDateShortText','Add-DomeniaGridDateKeys','Get-MainXaml')
+    'Get-DomeniaGridDateSortKey','Get-DomeniaGridDateShortText','Add-DomeniaGridDateKeys','Get-DomeniaInventoryAgeLabel','Get-DomeniaInventorySummaryText','Get-MainXaml')
 $definitions=New-Object 'System.Collections.Generic.List[string]'
 $nodes=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst]},$true))
 foreach($name in $wanted) {
@@ -634,6 +634,37 @@ try {
         Assert-True ($texteCore.Contains('Get-DomeniaSoftwareSelectToggle -Current $script:SoftwareChartSelect -Incoming $Select')) 'Le second clic sur la meme part ne retire pas le filtre'
         Assert-True ($texteCore.Contains('Set-DomeniaComboByContent -Name ''CmbSoftwareScope'' -Content $suivant')) 'Le clic sur la portee ne pilote pas le selecteur deja dans l onglet'
         Assert-True ($texteCore.Contains('$script:SoftwareChartSelect = $null')) 'Le filtre venu d un graphique survit a une nouvelle lecture'
+    }
+
+    Test-Case 'FO-07 : la derniere lecture du poste est reprise de la session avec son age' {
+        # Horloge figee, comme CO-03 : l'ecart mesure doit rester deterministe.
+        $now = [datetime]::new(2026,10,10,12,0,0)
+        $ages = @(
+            @([datetime]::new(2026,10,10,11,59,30),"Inventaire à lʼinstant"),
+            @([datetime]::new(2026,10,10,11,30,0),'Inventaire dʼil y a 30 min'),
+            @([datetime]::new(2026,10,10,8,0,0),'Inventaire dʼil y a 4 h'),
+            @([datetime]::new(2026,10,7,12,0,0),'Inventaire dʼil y a 3 j'),
+            @([datetime]::new(2026,9,1,12,0,0),'Inventaire du 01/09/2026')
+        )
+        foreach ($age in $ages) {
+            $lu = [string](Get-DomeniaInventoryAgeLabel -CompletedAt $age[0] -Now $now)
+            Assert-True ($lu -ceq $age[1]) ('Age « ' + [string]$age[0] + ' » : obtenu « ' + $lu + ' »')
+        }
+        Assert-True (([string](Get-DomeniaInventoryAgeLabel -CompletedAt $null -Now $now)) -ceq '') 'Une lecture inconnue affiche un age invente'
+        Assert-True (([string](Get-DomeniaInventoryAgeLabel -CompletedAt '10/10/2026 11:30:00' -Now $now)) -ceq '') 'Un age calcule sur une chaine serait un age invente'
+        $resume = Get-DomeniaInventorySummaryText -Computer 'POSTE-01' -Rows @([pscustomobject]@{Name='a'},[pscustomobject]@{Name='b'}) -Access @([pscustomobject]@{Status='OK'},[pscustomobject]@{Status='OK'},[pscustomobject]@{Status='REFUSE'},[pscustomobject]@{Status='INDISPONIBLE'},[pscustomobject]@{Status='AUTRE'}) -DurationMs 4210
+        Assert-True ($resume -ceq 'POSTE-01 : 2 element(s) sur 2 source(s) accessibles, 1 refusee(s), 1 indisponible(s), 1 autre(s), en 4210 ms.') ('Phrase de resume : ' + $resume)
+        $texteCore = Get-Content $core -Raw -Encoding UTF8
+        # En chaine simple : en chaine double, $script: serait interpole avant la recherche.
+        Assert-True ($texteCore.Contains('<StackPanel x:Name="TxtInventoryAge" Orientation="Horizontal" Visibility="Collapsed"')) 'La ligne d age se montre avant qu une lecture la remplisse'
+        Assert-True ($texteCore.Contains('<Hyperlink x:Name="LnkInventoryRefresh">Actualiser</Hyperlink>')) 'La ligne d age n a pas de quoi relancer la lecture'
+        Assert-True ($texteCore.Contains('$script:Ctrl["LnkInventoryRefresh"].Add_Click({ Start-DomeniaComputerInventory })')) 'Le lien Actualiser ne relance rien'
+        Assert-True ($texteCore.Contains('"TxtInventoryAge" = "Default"')) 'La ligne d age tombe sous la politique des elements graphiques'
+        Assert-True ($texteCore.Contains('$script:InventoryCacheByComputer = @{}')) 'Le cache de session n est jamais remis a zero'
+        Assert-True ($texteCore.Contains('Normalize-LinkComputer ([string]$State.Computer)')) 'La cle du cache invente sa propre regle de nom de poste'
+        $corps = ($texteCore -split 'function Show-DomeniaCachedInventory')[1]
+        Assert-True ($corps.Contains('Update-DomeniaInventoryAgeLine')) 'La liste reprise ne dit pas son age'
+        Assert-True (-not $corps.Contains('Update-DomeniaComputerDashboard')) 'La reprise rejoue le tableau de bord d une lecture fraiche'
     }
 
     Test-Case 'PF-22 : l onglet Logiciels reprend la liste deja lue par l inventaire' {
