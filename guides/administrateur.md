@@ -221,7 +221,7 @@ La page « Comptes » affiche ce tableau sous « TRANSPORTS UTILISES ». Dom
 | Planificateur (COM) | Exécution ponctuelle d'une intervention | RPC | Autorisation explicite ; désactivable par Remote.UseTaskFallback. |
 | PsExec | Exécution ponctuelle d'une intervention | 445/TCP | Autorisation explicite ; désactivable par Remote.UsePsExecFallback. |
 
-> [!ATTENTION] Les transports intrusifs (ADMIN$, Planificateur, PsExec) restent inactifs sans autorisation explicite pour le poste. Cette autorisation se donne par « Autoriser une intervention sur cette machine » (onglet « Fiabilité », chapitre 18) et vaut 5 minutes pour la machine sélectionnée. Pendant ce délai, si CIM échoue, l'inventaire, la lecture des logiciels, l'explorateur WMI, le diagnostic et « Detecter l utilisateur » peuvent passer par PsExec puis par une tâche planifiée (Remote.UsePsExecFallback, Remote.UseTaskFallback), malgré la règle affichée « Jamais utilise par une lecture ou une detection. ». PsExec.exe est un composant tiers : faites revoir sa licence avant diffusion.
+> [!ATTENTION] Les transports intrusifs (ADMIN$, Planificateur, PsExec) restent inactifs sans autorisation explicite pour le poste. « Autoriser une intervention sur cette machine » (onglet « Fiabilité », chapitre 18) vaut 5 minutes pour la machine sélectionnée et ne couvre que les interventions : une lecture n'y bascule jamais seule. Quand CIM échoue, l'inventaire, la lecture des logiciels, l'explorateur WMI, le diagnostic et « Detecter l utilisateur » rendent un « non lu » et nomment la demande à faire, pour cette lecture seule : « Lire ce poste par tâche planifiée » (même onglet). Ce n'est qu'après cette demande que PsExec puis la tâche planifiée interviennent (Remote.UsePsExecFallback, Remote.UseTaskFallback). PsExec.exe est un composant tiers : faites revoir sa licence avant diffusion.
 
 # 6 Inventaire du poste
 
@@ -1180,7 +1180,7 @@ Une clé absente, nulle ou vide prend la valeur par défaut du code. Une section
 |---|---|---|
 | Remote.UseCim, UseWinRM | true, true | Lectures CIM, et repli WSMan si déjà en service. |
 | Remote.PortTimeoutMs, CommandTimeoutSeconds | 1200, 10 | Délai d'un test de port et d'une commande. |
-| Remote.UsePsExecFallback, UseTaskFallback, TaskFallbackTimeoutSeconds | true, true, 75 | PsExec puis tâche planifiée, seulement avec l'autorisation de 5 minutes pour le poste : interventions, et repli de lectures quand CIM échoue (chapitre 5). |
+| Remote.UsePsExecFallback, UseTaskFallback, TaskFallbackTimeoutSeconds | true, true, 75 | PsExec puis tâche planifiée : pour les interventions avec l'autorisation de 5 minutes, et pour une lecture seulement après « Lire ce poste par tâche planifiée » (chapitre 5). |
 | Remote.UseRemoteRegistry, UseProfilesShare, UseSecurityLog | true, true, false | Sources de la détection du dernier utilisateur : registre distant, partage des profils, journal Sécurité du poste. |
 | Remote.AllowUnboundedFallbacks | false | Replis sans limite, interdits. |
 | Inventory.PreferWinrm | false | Préférence WinRM pour l'inventaire. |

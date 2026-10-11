@@ -179,14 +179,14 @@
     "File": "wad/Domenia-Core.ps1",
     "Function": "Invoke-ComputerTool",
     "LiteralIndex": 1,
-    "Sha256": "834EF3F6318DFE7917FBA4926B53F0013987B258C6395012ECD03BEE874CFA17"
+    "Sha256": "AC0E30C53A5257A12378801A8B6831FFAAB183CBB0548CE9A768637B255AB1C0"
   },
   {
     "Operation": "ComputerRestart",
     "File": "wad/Domenia-Core.ps1",
     "Function": "Invoke-ComputerTool",
     "LiteralIndex": 2,
-    "Sha256": "CF11D2F7B15DC33E3C92BE72E496F12B80BBA2C76AFAFA21B7E1F3469C861B50"
+    "Sha256": "7895BE660A73963FF297989D640D7F47BCFB6D81D6B8E1F2D7E357A7C1E24B3F"
   },
   {
     "Operation": "PruneLinks",

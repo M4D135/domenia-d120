@@ -6869,7 +6869,8 @@ function Get-MainXaml {
 <TextBlock x:Name="LblGuardDraft" Text="Aucune modification de formulaire en attente." TextWrapping="Wrap" Margin="0,8,0,10"/>
 <Button AutomationProperties.Name="Comparer les saisies" AutomationProperties.HelpText="Compare les champs modifiés avec la première lecture et une éventuelle réponse plus récente. Aucun remplacement automatique." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardDraft" Content="Comparer les saisies" HorizontalAlignment="Left" ToolTip="Compare les champs modifiés avec la première lecture et une éventuelle réponse plus récente. Aucun remplacement automatique."/>
 <TextBlock x:Name="LblGuardRemote" Text="Les sondes ordinaires ne créent ni service ni tâche. Les anciens transports avec dépôts demandent une autorisation distincte." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,16,0,10"/>
-<WrapPanel><Button AutomationProperties.Name="Autoriser une intervention sur cette machine" AutomationProperties.HelpText="Autorisation de cinq minutes, pour la machine sélectionnée uniquement. Ne lance rien ; les droits restent obligatoires." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardRemote" Content="Autoriser une intervention sur cette machine" ToolTip="Autorisation de cinq minutes, pour la machine sélectionnée uniquement. Ne lance rien ; les droits restent obligatoires."/><Button AutomationProperties.Name="Retirer l'autorisation" AutomationProperties.HelpText="Les sondes déjà envoyées peuvent encore finir. Aucune nouvelle intervention avec dépôt ne sera autorisée." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardRemoteOff" Content="Retirer l'autorisation" ToolTip="Les sondes déjà envoyées peuvent encore finir. Aucune nouvelle intervention avec dépôt ne sera autorisée."/></WrapPanel>
+<TextBlock x:Name="LblGuardReadFallback" Text="Une lecture ne bascule jamais seule sur PsExec ou une tâche planifiée. Demandez-le pour la lecture qui en a besoin." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,16,0,10"/>
+<WrapPanel><Button AutomationProperties.Name="Autoriser une intervention sur cette machine" AutomationProperties.HelpText="Autorisation de cinq minutes, pour la machine sélectionnée uniquement. Ne lance rien ; les droits restent obligatoires." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardRemote" Content="Autoriser une intervention sur cette machine" ToolTip="Autorisation de cinq minutes, pour la machine sélectionnée uniquement. Ne lance rien ; les droits restent obligatoires."/><Button AutomationProperties.Name="Lire ce poste par tache planifiee" AutomationProperties.HelpText="Une seule lecture, pour la machine selectionnee. Le repli PsExec ou tache ne se declenche jamais sans cette demande." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardReadFallback" Content="Lire ce poste par tâche planifiée" ToolTip="A demander quand CIM ne répond pas : autorise une seule lecture par PsExec ou tâche planifiée, pour la machine sélectionnée."/><Button AutomationProperties.Name="Retirer l'autorisation" AutomationProperties.HelpText="Les sondes déjà envoyées peuvent encore finir. Aucune nouvelle intervention avec dépôt ne sera autorisée." ToolTipService.ShowOnDisabled="True" x:Name="BtnGuardRemoteOff" Content="Retirer l'autorisation" ToolTip="Les sondes déjà envoyées peuvent encore finir. Aucune nouvelle intervention avec dépôt ne sera autorisée."/></WrapPanel>
 </StackPanel></Border>
 <Border Style="{StaticResource Card}" Margin="0,0,0,12"><StackPanel><TextBlock Text="Suite support et mesures" FontSize="18" FontWeight="SemiBold"/>
 <WrapPanel Margin="0,6,0,10"><Button x:Name="BtnGuardStoreResume" Content="Reprendre les sauvegardes" ToolTip="Relance les lots de cache interrompus apres correction du stockage." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Reprendre les sauvegardes" AutomationProperties.HelpText="Relance les lots de cache interrompus apres correction du stockage."/><Button x:Name="BtnGuardLegacyImport" Content="Reprendre les anciennes données" ToolTip="Simule la reprise des fichiers historiques dans Domenia, puis demande confirmation." AutomationProperties.Name="Reprendre les anciennes données" AutomationProperties.HelpText="Vérifie le domaine et les données, affiche la simulation puis demande confirmation avant sauvegarde et import."/><Button x:Name="BtnGuardExport" Content="Dossier technique" ToolTip="Affiche puis exporte les seuls compteurs techniques, sans logs bruts ni identifiants." AutomationProperties.Name="Dossier technique" AutomationProperties.HelpText="Affiche puis exporte les seuls compteurs techniques, sans logs bruts ni identifiants."/><Button x:Name="BtnGuardWhy" Content="Pourquoi une action est indisponible ?" ToolTip="Explique les protections et preconditions actuelles sans modifier de droit." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Pourquoi une action est indisponible ?" AutomationProperties.HelpText="Explique les protections et preconditions actuelles sans modifier de droit."/></WrapPanel><ScrollViewer Height="96" VerticalScrollBarVisibility="Auto" Margin="0,0,0,8"><TextBlock x:Name="LblGuardMigration" Text="La simulation des anciennes données sera affichée ici avant confirmation." TextWrapping="Wrap" AutomationProperties.Name="Simulation de reprise des données"/></ScrollViewer><CheckBox x:Name="ChkGuardReconcile" Content="Reverifier le perimetre consulte en arriere-plan" IsChecked="True" Margin="0,0,0,8" ToolTip="Relit la dernière requête explicite, au plus toutes les trois minutes et dans sa limite de résultats. Aucun scan au démarrage." AutomationProperties.Name="Reverifier le perimetre consulte en arriere-plan" AutomationProperties.HelpText="Relit la derniere requete explicite, au plus toutes les trois minutes et dans sa limite de resultats. Aucun scan au demarrage."/><TextBlock x:Name="LblGuardMetrics" Text="Les mesures locales apparaîtront ici." TextWrapping="Wrap" Margin="0,8,0,12" Foreground="{DynamicResource MutedColor}"/>
@@ -9647,6 +9648,19 @@ function Assert-WRemoteArtifactPermission {
         throw 'Transport avec depot/service/tache non autorise pour cette cible (desactive par defaut). Autorisez-le explicitement dans Outils > Fiabilite, puis relancez votre action.'
     }
 }
+function Assert-DomeniaReadFallbackPermission {
+    # SE-07 : une lecture ne bascule jamais seule sur un transport intrusif. L autorisation
+    # d intervention de cinq minutes ne debloque que les interventions ; la lecture exige la
+    # sienne, demandee pour elle-meme et consommee par une seule lecture.
+    param($Context,[string]$Computer)
+    if(-not [bool]$Context.AllowReadFallback){
+        throw 'Repli vers PsExec ou une tache planifiee refuse pour cette lecture : une lecture ne bascule jamais sans demande. Autorisez « Lire ce poste par tache planifiee » dans Outils > Fiabilite, puis relancez la lecture.'
+    }
+    $allowed=@([string]$Context.ReadFallbackTarget)+@($Context.ReadFallbackAliases)
+    if(-not $Computer -or $allowed -notcontains $Computer){
+        throw ('Autorisation de lecture par tache refusee : elle ne couvre pas '+$Computer+'.')
+    }
+}
 function Get-WRemoteWindowsDirectory {
     param($Context,[string]$Computer)
     $session=$null
@@ -9976,7 +9990,10 @@ $ScriptText
     }
 }
 function Invoke-WRemoteTaskScript {
-    param($Context,[string]$Computer,[string]$ScriptText,$InputObject,[int]$TimeoutSeconds=75,[string]$ClassicError='')
+    param($Context,[string]$Computer,[string]$ScriptText,$InputObject,[int]$TimeoutSeconds=75,[string]$ClassicError='',[string]$Purpose='Read')
+    # SE-07 : par defaut cette entree sert une lecture, et le repli intrusif y est refuse tant que
+    # l operateur ne l a pas demande pour cette lecture. Une ecriture le dit par -Purpose 'Write'.
+    if($Purpose -ne 'Write'){ Assert-DomeniaReadFallbackPermission $Context $Computer }
     $TimeoutSeconds=[Math]::Max(15,[int]$TimeoutSeconds)
     $pxError=''
     $taskError=''
@@ -18768,7 +18785,7 @@ $sw.Stop();[pscustomobject]@{Rows=@($rows);Message=(($rows|ForEach-Object{"#$($_
                 Assert-WriteAllowed
                 if(-not (Confirm-Action "Forcer immediatement la mise a jour des strategies sur $name ?")){return}
                 $code=@'
-$computer=[string]$Payload.Computer;$cred=Get-WMachineCredential $Context;$err='';try{$p=@{ComputerName=$computer;ScriptBlock={gpupdate.exe /force /wait:0 | Out-String};ErrorAction="Stop"};if($cred){$p.Credential=$cred};$DomeniaWriteDispatched=$true;$o=Invoke-Command @p;[pscustomobject]@{Message="GPUpdate lance sur $computer via WinRM : $($o -join ' ')";Transport="WinRM";Delivered=$true};return}catch{$err=$_.Exception.Message};if(-not $DomeniaWriteDispatched){$local='& "$env:SystemRoot\System32\gpupdate.exe" /force /wait:0 | Out-String | ForEach-Object { [pscustomobject]@{Message=("GPUpdate lance localement : "+$_);Transport="TaskFallback"} }';$DomeniaWriteDispatched=$true;$r=Invoke-WRemoteTaskScript $Context $computer $local ([pscustomobject]@{}) ([int]$Context.TaskFallbackTimeoutSeconds) $err;[pscustomobject]@{Message="GPUpdate via tache planifiée.";Transport="TaskFallback";Delivered=$true}}else{throw}
+$computer=[string]$Payload.Computer;$cred=Get-WMachineCredential $Context;$err='';try{$p=@{ComputerName=$computer;ScriptBlock={gpupdate.exe /force /wait:0 | Out-String};ErrorAction="Stop"};if($cred){$p.Credential=$cred};$DomeniaWriteDispatched=$true;$o=Invoke-Command @p;[pscustomobject]@{Message="GPUpdate lance sur $computer via WinRM : $($o -join ' ')";Transport="WinRM";Delivered=$true};return}catch{$err=$_.Exception.Message};if(-not $DomeniaWriteDispatched){$local='& "$env:SystemRoot\System32\gpupdate.exe" /force /wait:0 | Out-String | ForEach-Object { [pscustomobject]@{Message=("GPUpdate lance localement : "+$_);Transport="TaskFallback"} }';$DomeniaWriteDispatched=$true;$r=Invoke-WRemoteTaskScript $Context $computer $local ([pscustomobject]@{}) ([int]$Context.TaskFallbackTimeoutSeconds) $err -Purpose 'Write';[pscustomobject]@{Message="GPUpdate via tache planifiée.";Transport="TaskFallback";Delivered=$true}}else{throw}
 '@
                 $correlation = [guid]::NewGuid().ToString("N")
                 $payload = [pscustomobject]@{Computer=$name;Target=$name;DN=$name;CorrelationId=$correlation;SingleRequest=$true}
@@ -18779,7 +18796,7 @@ $computer=[string]$Payload.Computer;$cred=Get-WMachineCredential $Context;$err='
                 Assert-WriteAllowed
                 if(-not (Confirm-Action "Redemarrer immediatement $name ?")){return}
                 $code=@'
-$computer=[string]$Payload.Computer;$cred=Get-WMachineCredential $Context;$err='';try{$p=@{ComputerName=$computer;Force=$true;ErrorAction="Stop"};if($cred){$p.Credential=$cred};$DomeniaWriteDispatched=$true;Restart-Computer @p;[pscustomobject]@{Message="Demande de redemarrage envoyee a $computer.";Transport="Classic";Delivered=$true};return}catch{$err=$_.Exception.Message};if(-not $DomeniaWriteDispatched){$local='Start-Process -FilePath (Join-Path $env:SystemRoot "System32\shutdown.exe") -ArgumentList @("/r","/t","10","/f","/c","DOMENIA") -WindowStyle Hidden; [pscustomobject]@{Message="Redemarrage programme localement dans 10 secondes.";Transport="TaskFallback";Delivered=$true}';$DomeniaWriteDispatched=$true;$r=Invoke-WRemoteTaskScript $Context $computer $local ([pscustomobject]@{}) ([int]$Context.TaskFallbackTimeoutSeconds) $err;[pscustomobject]@{Message="Redemarrage via tache planifiée.";Transport="TaskFallback";Delivered=$true}}else{throw}
+$computer=[string]$Payload.Computer;$cred=Get-WMachineCredential $Context;$err='';try{$p=@{ComputerName=$computer;Force=$true;ErrorAction="Stop"};if($cred){$p.Credential=$cred};$DomeniaWriteDispatched=$true;Restart-Computer @p;[pscustomobject]@{Message="Demande de redemarrage envoyee a $computer.";Transport="Classic";Delivered=$true};return}catch{$err=$_.Exception.Message};if(-not $DomeniaWriteDispatched){$local='Start-Process -FilePath (Join-Path $env:SystemRoot "System32\shutdown.exe") -ArgumentList @("/r","/t","10","/f","/c","DOMENIA") -WindowStyle Hidden; [pscustomobject]@{Message="Redemarrage programme localement dans 10 secondes.";Transport="TaskFallback";Delivered=$true}';$DomeniaWriteDispatched=$true;$r=Invoke-WRemoteTaskScript $Context $computer $local ([pscustomobject]@{}) ([int]$Context.TaskFallbackTimeoutSeconds) $err -Purpose 'Write';[pscustomobject]@{Message="Redemarrage via tache planifiée.";Transport="TaskFallback";Delivered=$true}}else{throw}
 '@
                 $correlation = [guid]::NewGuid().ToString("N")
                 $payload = [pscustomobject]@{Computer=$name;Target=$name;DN=$name;CorrelationId=$correlation;SingleRequest=$true}
@@ -22758,8 +22775,8 @@ function Get-DomeniaWorkerOperationHashes {
         ComputerLastUser      = "8F79C42CE673CE98DBE30EB30B9DBF246D8819B08149A4FBA1C5F9BA894395F9"
         CmdletInventory       = "FA1105E9540BBC2AB373FC45037CC54FA11EB8BD9B058194CE44C422E812DF75"
         ComputerPing          = "BE1A5B70CCA9477571D839A85A1330334210DA891C53DBA257814486369F5887"
-        ComputerGpUpdate      = "834EF3F6318DFE7917FBA4926B53F0013987B258C6395012ECD03BEE874CFA17"
-        ComputerRestart       = "CF11D2F7B15DC33E3C92BE72E496F12B80BBA2C76AFAFA21B7E1F3469C861B50"
+        ComputerGpUpdate      = "AC0E30C53A5257A12378801A8B6831FFAAB183CBB0548CE9A768637B255AB1C0"
+        ComputerRestart       = "7895BE660A73963FF297989D640D7F47BCFB6D81D6B8E1F2D7E357A7C1E24B3F"
         RimotteRun            = "2834E90E1C51D9D4A16C98CBCA905DE6A9886E87875115DC0A44ADF3E75F665B"
         PruneLinks            = "0CDDB662FA027ED979FC9A44A7A66662DB540D5B562F9D33CCDD3BA86FF0819F"
         OpenLinkedObject      = "24863184FC8441FCE8F270A75B30736954AC066DBBC5A2DE99CDF1C5D7CAA6C2"
@@ -22802,7 +22819,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "D546877BD582283FD47176D7D9A1846E083D12B8EC63BBA9A6DDFBC7B4493CD4"
+    $expectedFingerprint = "49368F7D76F2259B130CFDAC2A834D2AFC4CCF7B9EFF26A87EEB57A112889F24"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -23708,6 +23725,11 @@ function Get-WorkerContext {
     $useRemoteAdminCredential = ([bool]$credentialNeeds.RemoteAdmin -and ($null -ne $script:RemoteAdminCredential -or ([bool]$script:Conn.UseCredential -and $null -ne $script:Conn.Credential)))
     $useSecretsCredential = ([bool]$credentialNeeds.Secrets -and ($null -ne $script:SecretsCredential -or ([bool]$script:Conn.UseCredential -and $null -ne $script:Conn.Credential)))
     $workerDirectoryCredential = if ($useSecretsCredential -and $null -ne $script:SecretsCredential) { $script:SecretsCredential } elseif ($useDirectoryCredential) { $script:Conn.Credential } elseif ($useSecretsCredential) { $script:Conn.Credential } else { $null }
+    # SE-07 : l autorisation de lecture par transport intrusif est distincte de celle d une
+    # intervention. Elle est lue ici, sur le fil UI ou le plan des modules est disponible, puis
+    # retiree : une demande ne vaut que pour la prochaine lecture de ce poste.
+    $readConsentActive = ($null -ne $script:ReadFallbackConsent -and $script:ReadFallbackConsent.Epoch -eq [long]$script:SessionEpoch -and $script:ReadFallbackConsent.Expires -gt [datetime]::UtcNow)
+    $readGate = Test-DomeniaTransportFallbackAllowed -Transport 'PsExec / Planificateur' -Intrusive $true -IsRead $true -ReadConsentGiven $readConsentActive
     $result=[pscustomobject]@{
         Server = [string]$script:Conn.Server
         BaseDn = [string]$script:Conn.BaseDn
@@ -23745,6 +23767,10 @@ function Get-WorkerContext {
         AllowRemoteArtifacts = ($null -ne $script:ArtifactConsent -and $script:ArtifactConsent.Epoch -eq $script:SessionEpoch -and $script:ArtifactConsent.Expires -gt [datetime]::UtcNow)
         ArtifactTarget = $(if($null -ne $script:ArtifactConsent){[string]$script:ArtifactConsent.Target}else{''})
         ArtifactAliases = $(if($null -ne $script:ArtifactConsent){[string[]]$script:ArtifactConsent.Aliases}else{@()})
+        ReadFallbackTarget = $(if($null -ne $script:ReadFallbackConsent){[string]$script:ReadFallbackConsent.Target}else{''})
+        ReadFallbackAliases = $(if($null -ne $script:ReadFallbackConsent){[string[]]$script:ReadFallbackConsent.Aliases}else{@()})
+        AllowReadFallback = $(if($readConsentActive -and [bool]$readGate.Allowed){$script:ReadFallbackConsent=$null;$true}else{$false})
+        ReadFallbackReason = $(if([bool]$readGate.Allowed){''}else{[string]$readGate.Reason})
         UseTaskFallback = [bool]$cfg.UseTaskFallback
         TaskFallbackTimeoutSeconds = [int]$cfg.TaskFallbackTimeoutSeconds
         ExpectedControls = if ($null -ne $script:Ctrl) { [int]$script:Ctrl.Count } else { 0 }

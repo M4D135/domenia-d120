@@ -191,6 +191,9 @@ Test-Case 'D060' 'Politique de transport visible ; intrusif jamais en repli sile
     Assert-True (@($rows|Where-Object{$_.Transport -eq 'LDAP'}).Count -eq 1);Assert-True ((@($rows|Where-Object{$_.Transport -eq 'CIM / WSMan'})[0].Regle) -match 'jamais')
     Assert-True (@($rows|Where-Object{$_.Intrusif -and $_.Etat -match 'Inactif sans autorisation'}).Count -eq 3)
     Assert-False (Test-DomeniaTransportFallbackAllowed 'PsExec' $true $true $true).Allowed 'Pas pour une lecture, meme avec consentement'
+    Assert-True (Test-DomeniaTransportFallbackAllowed -Transport 'PsExec' -Intrusive $true -IsRead $true -ReadConsentGiven $true).Allowed 'La demande propre a la lecture ne debloque rien'
+    Assert-False (Test-DomeniaTransportFallbackAllowed -Transport 'PsExec' -Intrusive $true -ConsentGiven $true -IsRead $true).Allowed 'Le consentement d intervention debloque encore une lecture'
+    Assert-True (@($rows|Where-Object{$_.Transport -eq 'Partage ADMIN$' -and $_.Regle -match 'repli aux lectures'}).Count -eq 0) 'La politique affichee promet encore un repli pour les lectures'
     Assert-False (Test-DomeniaTransportFallbackAllowed 'PsExec' $true $false $false).Allowed;Assert-True (Test-DomeniaTransportFallbackAllowed 'PsExec' $true $true $false).Allowed
 }
 Test-Case 'D060' 'Aucun affaiblissement de Windows dans le code livre' {

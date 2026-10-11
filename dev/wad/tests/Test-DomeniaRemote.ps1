@@ -388,6 +388,32 @@ finally {
     foreach($name in $script:CreatedDriveNames) { Microsoft.PowerShell.Management\Remove-PSDrive -Name $name -Force -ErrorAction SilentlyContinue }
     Remove-Item -LiteralPath $testRoot -Recurse -Force -ErrorAction SilentlyContinue
 }
+
+Test-Case 'SE-07 : une lecture ne bascule jamais seule sur PsExec ou une tache planifiee' {
+    # Le banc definit ailleurs un bouchon de Invoke-WRemoteTaskScript : les deux fonctions sont
+    # re-extraites du code commun reel pour que ce cas teste la garde, pas le bouchon.
+    foreach($fonction in @('Assert-DomeniaReadFallbackPermission','Invoke-WRemoteTaskScript')){
+        $node=@($commonNodes | Where-Object {$_.Name -eq $fonction})
+        Assert-Test ($node.Count -eq 1) ('Fonction commune unique requise : '+$fonction)
+        . ([scriptblock]::Create($node[0].Extent.Text))
+    }
+    $script:Se07Tente=0
+    function Invoke-WRemotePsExecScript { param($Context,$Computer,$ScriptText,$InputObject,$TimeoutSeconds=45) $script:Se07Tente++; return [pscustomobject]@{DomeniaTransport='PsExec';Rows=@()} }
+    $sansAccord=[pscustomobject]@{AllowReadFallback=$false;ReadFallbackTarget='';ReadFallbackAliases=@();UsePsExecFallback=$true;UseTaskFallback=$true;TaskFallbackTimeoutSeconds=20}
+    $refus=''
+    try { [void](Invoke-WRemoteTaskScript -Context $sansAccord -Computer 'TESTPC' -ScriptText 'x' -InputObject ([pscustomobject]@{}) -TimeoutSeconds 20) } catch { $refus=[string]$_.Exception.Message }
+    Assert-Test ($refus -match 'refuse pour cette lecture') ('Aucun refus rendu pour une lecture non demandee : '+$refus)
+    Assert-Test ($script:Se07Tente -eq 0) 'Un transport a ete lance malgre le refus.'
+    $avecAccord=[pscustomobject]@{AllowReadFallback=$true;ReadFallbackTarget='TESTPC';ReadFallbackAliases=@();UsePsExecFallback=$true;UseTaskFallback=$true;TaskFallbackTimeoutSeconds=20}
+    $lu=Invoke-WRemoteTaskScript -Context $avecAccord -Computer 'TESTPC' -ScriptText 'x' -InputObject ([pscustomobject]@{}) -TimeoutSeconds 20
+    Assert-Test ([string]$lu.DomeniaTransport -eq 'PsExec') ('La lecture demandee n a pas ete servie par le repli.')
+    $autrePoste=''
+    try { [void](Invoke-WRemoteTaskScript -Context $avecAccord -Computer 'AUTREPC' -ScriptText 'x' -InputObject ([pscustomobject]@{}) -TimeoutSeconds 20) } catch { $autrePoste=[string]$_.Exception.Message }
+    Assert-Test ($autrePoste -match 'AUTREPC') ('L accord de lecture couvre un poste nomme, pas n importe lequel : '+$autrePoste)
+    $ecriture=[pscustomobject]@{AllowReadFallback=$false;ReadFallbackTarget='';ReadFallbackAliases=@();UsePsExecFallback=$true;UseTaskFallback=$true;TaskFallbackTimeoutSeconds=20}
+    $fait=Invoke-WRemoteTaskScript -Context $ecriture -Computer 'TESTPC' -ScriptText 'x' -InputObject ([pscustomobject]@{}) -TimeoutSeconds 20 -Purpose 'Write'
+    Assert-Test ([string]$fait.DomeniaTransport -eq 'PsExec') 'Une ecriture a perdu son repli.'
+}
 $failed=@($script:Results | Where-Object {$_.Status -ne 'PASS'}).Count
 $report=[ordered]@{Build='2026.09.21-R1.3-LASTUSER';Mode='NativePowerShellWithMocksAndLocalFiles';PowerShell=$PSVersionTable.PSVersion.ToString();Edition=$PSVersionTable.PSEdition;RunAt=(Get-Date).ToString('o');NoRemoteAccess=$true;Passed=($script:Results.Count-$failed);Failed=$failed;Tests=$script:Results.ToArray()}
 $fullReport=[IO.Path]::GetFullPath($ReportPath)

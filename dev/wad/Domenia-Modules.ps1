@@ -972,6 +972,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Keep-DomeniaDraftOnResult',
             'Show-DomeniaDraftComparison',
             'Set-DomeniaArtifactConsent',
+            'Set-DomeniaReadFallbackConsent',
             'Read-DomeniaOuFavouriteStore',
             'Write-DomeniaOuFavouriteStore',
             'Import-DomeniaFavouriteSearchesOnce',

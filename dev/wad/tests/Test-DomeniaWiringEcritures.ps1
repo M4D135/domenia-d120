@@ -184,7 +184,7 @@ function Write-DomeniaAtomicText {param($Path,$Text,$Encoding=''); return $true}
 function Set-ControlsBusy { param($Names,$Busy) if ($null -eq $Names) { return }; foreach($name in @($Names)) { if ($null -eq $name) { continue }; $ctrl=Get-DomeniaControl ([string]$name); if ($null -ne $ctrl) { $ctrl.IsEnabled=[bool]$Busy } } }
 function Get-WMachineCredential {param($Context) if ($null -ne $Context) { return $Context.MachineCredential }; return $null }
 function Restart-Computer { param([string]$ComputerName,[bool]$Force,[string]$ErrorAction,[object]$Credential) if ($null -eq $script:RestartCalls) { $script:RestartCalls=0 }; $script:RestartCalls++; if ($script:D094ReceiptRoot) { $script:D094ReceiptSeenBeforeSend = (@(Get-ChildItem -LiteralPath $script:D094ReceiptRoot -Filter '*.json' -File -ErrorAction SilentlyContinue).Count -gt 0) } }
-function Invoke-WRemoteTaskScript { param($Context,$Computer,$Local,$Payload,$TimeoutSeconds,$Err) return [pscustomobject]@{Message='Fallback simule';Transport='TaskFallback';Delivered=$true} }
+function Invoke-WRemoteTaskScript { param($Context,$Computer,$Local,$Payload,$TimeoutSeconds,$Err,[string]$Purpose='Read') return [pscustomobject]@{Message='Fallback simule';Transport='TaskFallback';Delivered=$true} }
 function Get-DomeniaErrorDecision {param($Structured,$Text); return [pscustomobject]@{Category='Other'}}
 function Get-DomeniaCancelStatusText {param($Name,$State,[bool]$IsWrite); return $Name}
 function Get-DomeniaOperationCredentialNeeds {param($OperationId); return [pscustomobject]@{Directory=$false;DirectoryBreaker=$false;Resource=''}}
