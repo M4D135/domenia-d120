@@ -782,6 +782,51 @@ try {
         Assert-True (([string]$entree[0].Kind) -ceq 'Button') 'Nature de l aide BtnObjectMore differente de l element XAML'
     }
 
+    # ------------------------------------------------------------ UX-05 : deplacer un compte
+    Test-Case 'UX-05 : la destination du deplacement se choisit dans le selecteur d OU' {
+        # Le compte etait le seul objet deplace par un champ ou l on tape le chemin complet de l OU,
+        # alors que le poste a deja un selecteur. Le champ disparait : une destination tapee n est pas
+        # une destination verifiee, et le selecteur commun cherche, montre l OU actuelle et confirme.
+        $texte = Get-MainXaml
+        $xaml = [xml]$texte
+        $XNS = 'http://schemas.microsoft.com/winfx/2006/xaml'
+        Assert-True (-not $texte.Contains('TxtUserMoveTarget')) 'Le champ libre du chemin complet est reste a l ecran'
+        $bouton = @($xaml.SelectNodes('//*[local-name()="Button"]') | Where-Object { $_.GetAttribute('Name',$XNS) -eq 'BtnUserMove' })
+        Assert-True ($bouton.Count -eq 1) ('BtnUserMove : ' + $bouton.Count + ' occurrence(s)')
+        Assert-True (([string]$bouton[0].GetAttribute('Content')) -ceq 'Choisir l' + [string][char]0x02BC + 'OU de destination…') ('Contenu du bouton : ' + [string]$bouton[0].GetAttribute('Content'))
+        Assert-True (-not ([string]$bouton[0].GetAttribute('Style')).Contains('DangerButton')) 'Le bouton de deplacement est un bouton rouge'
+        Assert-True (([string]$bouton[0].GetAttribute('AutomationProperties.HelpText')) -ceq [string]$bouton[0].GetAttribute('ToolTip')) 'L aide d automation ne reprend pas l infobulle'
+        $texteCore = Get-Content $core -Raw -Encoding UTF8
+        Assert-True (-not $texteCore.Contains('"TxtUserMoveTarget" = "Default"')) 'La politique des controles connait encore le champ supprime'
+        Assert-True ($texteCore.Contains('"BtnUserMove" = "Default"')) 'Le bouton a quitte la politique des controles'
+        # Le clic ouvre le selecteur, et le selecteur est celui du poste : une seule facon de choisir une OU.
+        Assert-True ($texteCore.Contains('Add_Click({ Move-DomeniaSelectedUserWithOuPicker })')) 'Le bouton ne passe pas par le selecteur'
+        Assert-True (-not $texteCore.Contains('Move-SelectedObject $script:Ctrl["TxtUserMoveTarget"]')) 'Le bouton relit encore un champ texte'
+        $fonc = @($nodes | Where-Object { $_.Name -eq 'Move-DomeniaSelectedUserWithOuPicker' })
+        Assert-True ($fonc.Count -eq 1) 'Move-DomeniaSelectedUserWithOuPicker introuvable dans le coeur'
+        $corps = [string]$fonc[0].Extent.Text
+        Assert-True ($corps.Contains('Show-DomeniaOuPicker -ObjectName $name -CurrentParentDn $currentParent -ObjectLabel')) 'Le selecteur commun n est pas employe'
+        Assert-True ($corps.Contains('Move-SelectedObject -TargetDn $targetDn')) 'Le deplacement ne passe plus par l ecriture unique'
+        Assert-True ($corps.Contains('Assert-WriteAllowed')) 'Le selecteur s ouvre sans verifier que l ecriture est permise'
+        $selecteur = @($nodes | Where-Object { $_.Name -eq 'Show-DomeniaOuPicker' })
+        Assert-True ($selecteur.Count -eq 1) 'Show-DomeniaOuPicker introuvable dans le coeur'
+        $corpsSelecteur = [string]$selecteur[0].Extent.Text
+        Assert-True ($corpsSelecteur.Contains("`$ObjectLabel='Poste'")) 'Le poste a perdu son etiquette par defaut'
+        Assert-True ($corpsSelecteur.Contains('-Kind OU')) 'Le selecteur n est plus celui des OU'
+        # L ecriture garde ses garde-fous : grisonnement du bouton et capacite.
+        Assert-True ($texteCore.Contains('-DisableControls @("BtnUserMove")')) 'Le bouton ne se grise plus pendant le deplacement'
+        Assert-True ($texteCore.Contains('Move = @("BtnUserMove","BtnCompRename")')) 'La capacite Move ne pilote plus le bouton'
+        # Le fichier d aide suit : plus d entree pour le champ, et le bouton reste fidele a son infobulle.
+        $aideBrutee = Get-Content -LiteralPath (Join-Path (Split-Path $core -Parent) 'modules/Domenia-UX.help.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+        $aide = @($aideBrutee)
+        Assert-True (@($aide | Where-Object { $_.Name -eq 'TxtUserMoveTarget' }).Count -eq 0) 'L aide connait encore le champ supprime'
+        $entree = @($aide | Where-Object { $_.Name -eq 'BtnUserMove' })
+        Assert-True ($entree.Count -eq 1) ('Entree d aide BtnUserMove : ' + $entree.Count + ' occurrence(s)')
+        Assert-True (([string]$entree[0].Title) -ceq [string]$bouton[0].GetAttribute('AutomationProperties.Name')) 'Titre de l aide different du nom d automation'
+        Assert-True (([string]$entree[0].Text) -ceq [string]$bouton[0].GetAttribute('ToolTip')) 'Texte de l aide different de l infobulle'
+        Assert-True (([string]$entree[0].Kind) -ceq 'Button') 'Nature de l aide BtnUserMove differente de l element XAML'
+    }
+
     Test-Case 'SP-06 : les boutons de l inventaire annoncent la duree que le code paie' {
         $xaml = Get-MainXaml
         $approx = [string][char]0x2248

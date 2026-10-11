@@ -1091,18 +1091,11 @@
     "Source": "specific-sensitive"
   },
   {
-    "Name": "TxtUserMoveTarget",
-    "Title": "Deplacer vers",
-    "Text": "Chemin complet de lʼunité dʼorganisation de destination.",
-    "Kind": "TextBox",
-    "Source": "existing-help"
-  },
-  {
     "Name": "BtnUserMove",
-    "Title": "Deplacer",
-    "Text": "Déplace le compte vers lʼunité dʼorganisation indiquée.",
+    "Title": "Choisir lʼOU de destination",
+    "Text": "Ouvre le sélecteur dʼunités dʼorganisation du domaine : la destination se cherche, se choisit, puis se confirme. Aucun déplacement nʼest lancé par ce clic.",
     "Kind": "Button",
-    "Source": "existing-help"
+    "Source": "L11"
   },
   {
     "Name": "TxtUserGroupTarget",

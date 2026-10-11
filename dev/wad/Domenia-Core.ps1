@@ -715,7 +715,6 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnSetExpiration" = "Default"
     "BtnNeverExpires" = "Default"
     "BtnExpirePwdNow" = "Default"
-    "TxtUserMoveTarget" = "Default"
     "BtnUserMove" = "Default"
     "TxtUserGroupTarget" = "Default"
     "BtnUserAddGroup" = "Default"
@@ -5799,9 +5798,8 @@ function Get-MainXaml {
                               <ColumnDefinition Width="*"/>
                               <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <Label Grid.Column="0" Content="Deplacer vers"/>
-                            <TextBox Grid.Column="1" x:Name="TxtUserMoveTarget" ToolTip="Chemin complet de lʼunité dʼorganisation de destination." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Deplacer vers" AutomationProperties.HelpText="Chemin complet de l unite d organisation de destination."/>
-                            <Button Grid.Column="2" x:Name="BtnUserMove" ToolTip="Déplace le compte vers lʼunité dʼorganisation indiquée." Content="Deplacer" Style="{StaticResource RunButton}" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Deplacer" AutomationProperties.HelpText="Deplace le compte vers l unite d organisation indiquee."/>
+                            <Label Grid.Column="0" Content="Déplacement"/>
+                            <Button Grid.Column="1" x:Name="BtnUserMove" Content="Choisir lʼOU de destination…" HorizontalAlignment="Left" Style="{StaticResource RunButton}" ToolTip="Ouvre le sélecteur dʼunités dʼorganisation du domaine : la destination se cherche, se choisit, puis se confirme. Aucun déplacement nʼest lancé par ce clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Choisir lʼOU de destination" AutomationProperties.HelpText="Ouvre le sélecteur dʼunités dʼorganisation du domaine : la destination se cherche, se choisit, puis se confirme. Aucun déplacement nʼest lancé par ce clic."/>
                           </Grid>
                           <Grid>
                             <Grid.ColumnDefinitions>
@@ -8884,9 +8882,9 @@ function Search-DomeniaOuPickerObjects {
 }
 
 function Show-DomeniaOuPicker {
-    param([string]$ObjectName,[string]$CurrentParentDn)
+    param([string]$ObjectName,[string]$CurrentParentDn,[string]$ObjectLabel='Poste')
     return (Show-DomeniaInlinePicker -Kind OU -Title 'Choisir la nouvelle OU' -Prompt (
-        'Poste : '+$ObjectName+"`r`nOU actuelle : "+$CurrentParentDn+"`r`nRecherchez une OU puis confirmez. Le déplacement n'est pas lancé par cette sélection."))
+        $ObjectLabel+' : '+$ObjectName+"`r`nOU actuelle : "+$CurrentParentDn+"`r`nRecherchez une OU puis confirmez. Le déplacement n'est pas lancé par cette sélection."))
 }
 
 function Move-DomeniaSelectedComputerWithOuPicker {
@@ -8921,6 +8919,28 @@ function Move-DomeniaSelectedComputerWithOuPicker {
         Move-SelectedObject -TargetDn $targetDn
     }
     catch { Show-ErrorBox "Deplacement impossible : $($_.Exception.Message)" }
+}
+
+function Move-DomeniaSelectedUserWithOuPicker {
+    # UX-05 : le chemin de l'OU de destination ne se tape plus. Le poste a son selecteur depuis le menu
+    # de l'arbre ; la fiche du compte l'emploie aussi. L'ecriture reste celle, unique, de
+    # Move-SelectedObject : verification de fraicheur, plan, confirmation, controle du DN cible.
+    try {
+        Assert-WriteAllowed
+        $o = $script:SelectedObject
+        if ($null -eq $o -or [string]$o.Type -ne "Utilisateur") { throw "Selectionne un utilisateur dans la liste." }
+        $dn = [string]$o.DN
+        $name = [string]$o.Name
+        if ([string]::IsNullOrWhiteSpace($dn)) { throw "DN du compte introuvable." }
+        $currentParent = Get-DomeniaParentDn -Dn $dn
+        $picked = Show-DomeniaOuPicker -ObjectName $name -CurrentParentDn $currentParent -ObjectLabel 'Utilisateur'
+        if ($null -eq $picked) { return }
+        $targetDn = [string]$picked.DN
+        if ([string]::IsNullOrWhiteSpace($targetDn)) { return }
+        if ($targetDn -ieq $currentParent) { Set-Status "Le compte est déjà dans cette OU. Aucune écriture AD."; return }
+        Move-SelectedObject -TargetDn $targetDn
+    }
+    catch { Show-ErrorBox "Déplacement impossible : $($_.Exception.Message)" }
 }
 
 function Add-SelectedLink {
@@ -21321,7 +21341,7 @@ function Wire-Events {
     $script:Ctrl["BtnSetExpiration"].Add_Click({ Set-UserExpiration $false })
     $script:Ctrl["BtnNeverExpires"].Add_Click({ Set-UserExpiration $true })
     $script:Ctrl["BtnExpirePwdNow"].Add_Click({ Expire-UserPasswordNow })
-    $script:Ctrl["BtnUserMove"].Add_Click({ Move-SelectedObject $script:Ctrl["TxtUserMoveTarget"].Text })
+    $script:Ctrl["BtnUserMove"].Add_Click({ Move-DomeniaSelectedUserWithOuPicker })
     $script:Ctrl["BtnUserAddGroup"].Add_Click({ AddOrRemoveObjectGroup $script:Ctrl["TxtUserGroupTarget"].Text $true })
     $script:Ctrl["BtnUserRemoveGroup"].Add_Click({ AddOrRemoveObjectGroup $script:Ctrl["TxtUserGroupTarget"].Text $false })
     $script:Ctrl["BtnCompSave"].Add_Click({ Save-ComputerProfile })
