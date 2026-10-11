@@ -313,7 +313,7 @@ Quand : vous devez savoir si un logiciel est installé sur un poste, dans quelle
 2. **Choisir l'étendue.** « Par utilisateur », cochée par défaut, ajoute les logiciels de chaque profil. Cochez « Applications Store » pour le Microsoft Store (plus long), « Mises a jour » pour les correctifs et composants système.
 3. **Charger.** Cliquez sur « Charger les logiciels ». Chaque ligne donne le « Nom », la « Version », l'« Editeur », « Installe le », la « Taille » et la « Portee ».
 4. **Chercher un logiciel.** Tapez une partie du nom, de l'éditeur ou de la version dans « Filtre ». « Portee » limite la liste à « Machine », « Utilisateur » ou « Store ».
-5. **Lire la synthèse.** Le volet « Synthese en graphiques » résume la liste : nombre, éditeurs, versions multiples, architecture, portée et plus gros logiciels.
+5. **Lire la synthèse.** Le volet « Synthese en graphiques » résume la liste : nombre, éditeurs, versions multiples, architecture, portée et plus gros logiciels, plus « Installés ces 30 derniers jours », « Composants dʼexécution » (Visual C++, .NET, WebView2) et « Navigateurs et versions ». Une tuile à zéro prend la coche verte plutôt qu'un chiffre, et « Sans date » signale qu'aucun logiciel lu ne déclare sa date.
 6. **Transmettre.** « Copier » copie la liste complète ; « Exporter CSV » l'enregistre dans un fichier dont le chemin s'affiche dans le « Journal de session » (« Logiciels exportes : … »).
 
 ![Onglet « Logiciels » : liste des logiciels du poste et volet « Synthese en graphiques » déplié](fig:logiciels)

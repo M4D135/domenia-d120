@@ -1264,6 +1264,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Test-DomeniaSoftwareRowMatchesSelect',
             'Get-DomeniaSoftwareSelectLabel',
             'Get-DomeniaSoftwareSelectToggle',
+            'Get-DomeniaSoftwareFamily',
             'Get-DomeniaSoftwareBoardData'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Boards.Model.ps1','Domenia-Charts.UI.ps1'); File='Domenia-BoardComputer.UI.ps1'; DotSource=$true; Functions=@(

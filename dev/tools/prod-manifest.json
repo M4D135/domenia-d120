@@ -28,8 +28,8 @@
     },
     {
       "Path": "wad/Domenia-Modules.ps1",
-      "Sha256": "00BFCDC6A29585CA945CD806515C57F0582236D96DBCEC82FD140C0F7A62C94F",
-      "Bytes": 70421,
+      "Sha256": "84C2205758FE581C80D2112B66E0E6FA86EC3BAF9317A6C4387F175BE98CAD10",
+      "Bytes": 70462,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -161,15 +161,15 @@
     },
     {
       "Path": "wad/modules/Domenia-BoardSoftware.Model.ps1",
-      "Sha256": "3130EC0856FD3800E8DED0C11220F3F129BCB8B58D408E5557A781C7B6E63423",
-      "Bytes": 14312,
+      "Sha256": "A237AEE00A6E5A071AFF2BA71DC5CEDC6A16AEFF9AC35F20F7D6CDE02FEB8718",
+      "Bytes": 22174,
       "Runtime": true,
       "PreserveExisting": false
     },
     {
       "Path": "wad/modules/Domenia-Boards.Model.ps1",
-      "Sha256": "7507ACD7EB9517CA58FD6156B7A8730A33BF289B3BE16B9B8230274D882CD15A",
-      "Bytes": 53211,
+      "Sha256": "C2A31B87EBFA576A37B51A2645D19C79FAFBD42CD0E8F157E878EE4568B706B9",
+      "Bytes": 53591,
       "Runtime": true,
       "PreserveExisting": false
     },

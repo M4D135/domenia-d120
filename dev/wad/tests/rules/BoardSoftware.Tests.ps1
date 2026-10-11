@@ -4,8 +4,8 @@
 . (Join-Path $modules 'Domenia-Boards.Model.ps1')
 . (Join-Path $modules 'Domenia-BoardSoftware.Model.ps1')
 function New-DomeniaSoftwareBoardTestRow {
-    param([string]$Name,[string]$Publisher = '',[string]$Version = '1.0',[string]$Architecture = '64 bits',[string]$Scope = 'Machine',$SizeKb = 0)
-    return [pscustomobject]@{ Name = $Name; Publisher = $Publisher; Version = $Version; Architecture = $Architecture; Scope = $Scope; SizeKb = $SizeKb }
+    param([string]$Name,[string]$Publisher = '',[string]$Version = '1.0',[string]$Architecture = '64 bits',[string]$Scope = 'Machine',$SizeKb = 0,[string]$InstallDate = '')
+    return [pscustomobject]@{ Name = $Name; Publisher = $Publisher; Version = $Version; Architecture = $Architecture; Scope = $Scope; SizeKb = $SizeKb; InstallDate = $InstallDate }
 }
 function Get-DomeniaSoftwareBoardTestColored {
     # Items that carry their own colour property (the renderer keeps their order and colours).
@@ -20,7 +20,7 @@ Test-Case -Id 'BS-001' -Name 'Aucun logiciel : aucune tuile, sections expliquees
         Assert-False ($d -is [array]) 'Un seul objet attendu'
         Assert-Equal 'Software' $d.Board
         Assert-Equal 'Aucun logiciel lu.' $d.Summary
-        foreach ($key in @('software.count','software.size','software.multiversion','software.nopublisher','software.publishers','software.architecture','software.scope','software.largest')) {
+        foreach ($key in @('software.count','software.size','software.multiversion','software.nopublisher','software.publishers','software.architecture','software.scope','software.largest','software.recent','software.runtime','software.browsers')) {
             Assert-False $d.Entries.ContainsKey($key) ('Tuile sans donnees : ' + $key)
         }
         Assert-True ([string]$d.Hints['Synthese'] -match 'chargez les logiciels') 'Indication Synthese'
@@ -349,4 +349,87 @@ Test-Case -Id 'FO-09d' -Name 'Les parts qui inventent une valeur ne publient auc
     Assert-Equal 1 $reelle.Count 'La part d un vrai editeur se montre'
     Assert-Equal 'Publisher' ([string]$reelle[0].Select.Field) 'Une part qui porte une valeur des lignes reste cliquable'
     Assert-True (Test-DomeniaSoftwareRowMatchesSelect -Row $rows[1] -Select $reelle[0].Select) 'Le critere publie retrouve bien sa ligne'
+}
+
+Test-Case -Id 'FO-15a' -Name 'Installés ces 30 derniers jours : borne à 30 jours incluse, dates absentes comptées à part' -Body {
+    $now = [datetime]::new(2026, 10, 8)
+    $rows = @(
+        (New-DomeniaSoftwareBoardTestRow -Name 'Recent' -InstallDate '01/10/2026'),
+        (New-DomeniaSoftwareBoardTestRow -Name 'Borne' -InstallDate '08/09/2026'),
+        (New-DomeniaSoftwareBoardTestRow -Name 'Vieux' -InstallDate '07/09/2026'),
+        (New-DomeniaSoftwareBoardTestRow -Name 'Sans date')
+    )
+    $e = (Get-DomeniaSoftwareBoardData -Rows $rows -Now $now).Entries['software.recent']
+    Assert-Equal 'Value' $e.Kind
+    Assert-Equal '2' $e.Value
+    Assert-Equal 'Dernier : Recent, 01/10/2026 · dates connues pour 3 sur 4' $e.Detail
+    $seul = Get-DomeniaSoftwareBoardData -Rows @((New-DomeniaSoftwareBoardTestRow -Name 'Annoté' -InstallDate '02/01/2026')) -Now $now
+    Assert-Equal '0' $seul.Entries['software.recent'].Value
+    Assert-Equal 'Ok' $seul.Entries['software.recent'].State
+    Assert-Equal 'Rien dʼinstallé dans les 30 derniers jours' $seul.Entries['software.recent'].Detail
+    $aucune = Get-DomeniaSoftwareBoardData -Rows @((New-DomeniaSoftwareBoardTestRow -Name 'Sans date')) -Now $now
+    Assert-Equal 'Sans date' $aucune.Entries['software.recent'].Value
+    Assert-Equal 'Off' $aucune.Entries['software.recent'].State
+    Assert-Equal 'Aucun logiciel lu ne déclare de date dʼinstallation' $aucune.Entries['software.recent'].Detail
+    $date = Get-DomeniaSoftwareBoardData -Rows @((New-DomeniaSoftwareBoardTestRow -Name 'Format brut' -InstallDate ([datetime]::new(2026, 10, 1)))) -Now $now
+    Assert-Equal '1' $date.Entries['software.recent'].Value 'Une date rendue par le worker comme un objet se lit'
+}
+Test-Case -Id 'FO-15b' -Name 'Composants dʼexécution : familles comptées sur le nom déclaré, WebView2 compte comme composant' -Body {
+    $rows = @(
+        (New-DomeniaSoftwareBoardTestRow -Name 'Microsoft Visual C++ 2015-2022 Redistributable (x64) - 14.36.42' -Publisher 'Microsoft Corporation' -Version '14.36.42'),
+        (New-DomeniaSoftwareBoardTestRow -Name 'Microsoft Visual C++ 2013 Redistributable (x64) - 12.0.30501' -Publisher 'Microsoft Corporation' -Version '12.0.30501'),
+        (New-DomeniaSoftwareBoardTestRow -Name 'Microsoft .NET Runtime 8.0.10'),
+        (New-DomeniaSoftwareBoardTestRow -Name 'Microsoft Edge WebView2 Runtime' -Version '129.0.2792.89'),
+        (New-DomeniaSoftwareBoardTestRow -Name 'Outil metier' -Publisher 'Contoso')
+    )
+    $e = (Get-DomeniaSoftwareBoardData -Rows $rows).Entries['software.runtime']
+    Assert-Equal '4' $e.Value
+    Assert-Equal 'Visual C++ 2, .NET 1, WebView2 1' $e.Detail
+    Assert-Equal '' $e.State
+    $seul = (Get-DomeniaSoftwareBoardData -Rows @((New-DomeniaSoftwareBoardTestRow -Name 'Outil metier'))).Entries['software.runtime']
+    Assert-Equal 'Aucun' $seul.Value
+    Assert-Equal 'Off' $seul.State
+    Assert-Equal 'Aucun socle Visual C++, .NET ou WebView2 dans la liste lue' $seul.Detail
+    $doublon = (Get-DomeniaSoftwareBoardData -Rows @((New-DomeniaSoftwareBoardTestRow -Name 'Microsoft .NET Runtime 8.0.10' -Scope 'Machine'), (New-DomeniaSoftwareBoardTestRow -Name 'Microsoft .NET Runtime 8.0.10' -Scope 'Utilisateur'))).Entries['software.runtime']
+    Assert-Equal '1' $doublon.Value 'La meme version lue dans deux portees compte une fois'
+}
+Test-Case -Id 'FO-15c' -Name 'Navigateurs et versions : un nom par navigateur, version majeure et mineure seulement' -Body {
+    $rows = @(
+        (New-DomeniaSoftwareBoardTestRow -Name 'Google Chrome' -Version '129.0.6668.100'),
+        (New-DomeniaSoftwareBoardTestRow -Name 'Mozilla Firefox' -Version '130.0.1'),
+        (New-DomeniaSoftwareBoardTestRow -Name 'Microsoft Edge' -Version '129.0.2792.89'),
+        (New-DomeniaSoftwareBoardTestRow -Name 'Chromium' -Version '128.0.0.0'),
+        (New-DomeniaSoftwareBoardTestRow -Name 'Navigateur sans version')
+    )
+    $e = (Get-DomeniaSoftwareBoardData -Rows $rows).Entries['software.browsers']
+    Assert-Equal '4' $e.Value
+    Assert-Equal 'Chrome 129.0, Chromium 128.0, Edge 129.0, Firefox 130.0' $e.Detail
+    $seul = (Get-DomeniaSoftwareBoardData -Rows @((New-DomeniaSoftwareBoardTestRow -Name 'Outil metier'))).Entries['software.browsers']
+    Assert-Equal 'Aucun' $seul.Value
+    Assert-Equal 'Off' $seul.State
+    Assert-Equal 'Aucun navigateur reconnu dans la liste lue' $seul.Detail
+    $sansVersion = (Get-DomeniaSoftwareBoardData -Rows @((New-DomeniaSoftwareBoardTestRow -Name 'Mozilla Firefox' -Version ''))).Entries['software.browsers']
+    Assert-Equal 'Firefox' $sansVersion.Detail 'Une version absente ne fabrique pas un numero'
+}
+Test-Case -Id 'FO-15d' -Name 'Tuiles à 0 réduites à une coche ; famille inconnue rendue nulle, jamais devinée' -Body {
+    $propres = @((New-DomeniaSoftwareBoardTestRow -Name 'Alpha' -Publisher 'Contoso' -Version '1.0'))
+    $d = Get-DomeniaSoftwareBoardData -Rows $propres
+    Assert-Equal 'Ok' $d.Entries['software.multiversion'].State
+    Assert-Equal 'Ok' $d.Entries['software.nopublisher'].State
+    $doubles = @(
+        (New-DomeniaSoftwareBoardTestRow -Name 'Alpha' -Publisher 'Contoso' -Version '1.0'),
+        (New-DomeniaSoftwareBoardTestRow -Name 'Alpha' -Publisher 'Contoso' -Version '2.0'),
+        (New-DomeniaSoftwareBoardTestRow -Name 'Beta')
+    )
+    $d = Get-DomeniaSoftwareBoardData -Rows $doubles
+    Assert-Equal 'Warn' $d.Entries['software.multiversion'].State
+    Assert-Equal 'Warn' $d.Entries['software.nopublisher'].State
+    Assert-True ($null -eq (Get-DomeniaSoftwareFamily -Name 'Outil metier' -Publisher 'Contoso')) 'Hors famille : rien d invente'
+    Assert-True ($null -eq (Get-DomeniaSoftwareFamily -Name '' -Publisher '   ')) 'Nom vide : rien d invente'
+    $famille = Get-DomeniaSoftwareFamily -Name 'Mozilla Firefox'
+    Assert-Equal 'Browser' $famille.Family
+    Assert-Equal 'Firefox' $famille.Label
+    $famille = Get-DomeniaSoftwareFamily -Name 'Runtime' -Publisher 'Microsoft Visual C++ 2013 Redistributable'
+    Assert-Equal 'Runtime' $famille.Family
+    Assert-Equal 'Visual C++' $famille.Label
 }

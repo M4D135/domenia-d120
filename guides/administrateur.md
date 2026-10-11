@@ -545,14 +545,17 @@ Dimensions en pixels, largeur × hauteur ; auto suit le contenu. Limites d'affic
 
 Les sections « Vue d ensemble », « Inventaire du perimetre » et « Repartition » viennent de la base autonome ; la section « Releves WMI » se remplit avec « Analyser la liste » dans « Rechercher ».
 
-## Catalogue du tableau des logiciels (8 widgets)
+## Catalogue du tableau des logiciels (11 widgets)
 
 | Titre | Clé | Section | Par défaut | Description |
 |---|---|---|---|---|
 | Logiciels | software.count | Synthese | Chiffre cle, Compacte | Nombre de logiciels et d editeurs |
 | Taille declaree | software.size | Synthese | Chiffre cle, Compacte | Somme des tailles connues |
+| Installés ces 30 derniers jours | software.recent | Synthese | Chiffre cle, Compacte | Date dʼinstallation déclarée par le logiciel, lue dans la liste |
 | Installes en plusieurs versions | software.multiversion | Synthese | Chiffre cle, Compacte | Logiciels presents en plusieurs versions |
 | Sans editeur declare | software.nopublisher | Synthese | Chiffre cle, Compacte | Logiciels sans editeur renseigne |
+| Composants dʼexécution | software.runtime | Synthese | Chiffre cle, Compacte | Socles Visual C++, .NET et WebView2 déclarés dans la liste |
+| Navigateurs et versions | software.browsers | Synthese | Chiffre cle, Compacte | Navigateurs détectés dans la liste, avec leur version |
 | Editeurs | software.publishers | Repartition | Anneau, Moyenne | Principaux editeurs |
 | Architecture | software.architecture | Repartition | Anneau, Moyenne | Logiciels 32 et 64 bits |
 | Portee d installation | software.scope | Repartition | Anneau, Moyenne | Installation machine ou utilisateur |
@@ -701,6 +704,7 @@ L'onglet « Logiciels » de la page « Poste » lit la liste des logiciels i
 ## Synthèse
 
 - La synthèse est calculée sur la liste chargée : nombre de logiciels et d'éditeurs, somme des tailles connues, logiciels en plusieurs versions, logiciels sans éditeur.
+- Trois tuiles répondent à « qu'est-ce qui a changé sur ce poste » : « Installés ces 30 derniers jours » (la date que la liste affiche déjà), « Composants dʼexécution » (Visual C++, .NET, WebView2) et « Navigateurs et versions ». Une tuile à zéro n'est plus un chiffre perdu : elle prend la coche verte quand vérifier était le but, et reste grise quand le poste ne déclare pas la donnée.
 - L'anneau « Editeurs » montre les six premiers éditeurs, puis « Autres ». « Architecture » et « Portee d installation » répartissent la liste. « Plus gros logiciels » montre les huit plus gros, en Mo.
 - Quand la liste est vide : « Aucun logiciel lu. ».
 
