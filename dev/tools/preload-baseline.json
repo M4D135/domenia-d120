@@ -1,5 +1,5 @@
 {
-  "Archive": "lot PF-22 (programme 2026-10-08, L10) : l onglet Logiciels reprend la liste deja lue par l inventaire",
+  "Archive": "UI-08 (L10) : onglet Logiciels, liste avant synthese",
   "ArchiveSHA256": "655ED21F90345B3C7667D4E777814C6A0595A5D5BE628AD587FB46CCA5241922",
   "CoreFunctions": {
     "Write-DomeniaAtomicText": "1C9A1583F52EB7BE80BE420662653E4AF886FE11DC4FDB3B1C4CDF19FD1C0EDA",
@@ -150,7 +150,7 @@
     "Set-DomeniaResourceColor": "27391F9046A85B14658803F03178045ABEDF0B1F4DD5364D7BA5575C5E4F11BE",
     "Apply-DomeniaTheme": "B0ECA10884F7B8D32279AD437EAB8C806D868256D7071B79511688468E2D02BE",
     "Toggle-DomeniaTheme": "EA7E0F31A78D8B4A0BFAB0C27D8028521C1C3A1A255DDA4BEA3B65B5F7C99F03",
-    "Get-MainXaml": "FB8045EFCF9173C85ADDF82057E787393147C4A9E9B20405CC866B700C9CD0F5",
+    "Get-MainXaml": "B763DD593969806EFD7696197C7A2325F319EBB08A7854789EEA1CAA3F30F569",
     "Assert-DomeniaXamlPreflight": "20BB1DA04FD88D78E1A52C5610376467D5E9408437BC823DDC8EC8F40C0EAEB7",
     "Save-DomeniaXamlDiagnostic": "D648C9D6BD6F5F3A6613957D22A6A42EC1AAC0C1FA6218195A55D10EADF4DC67",
     "ConvertFrom-DomeniaXaml": "855E6CA9E56D62F77F5C22ACAC048293D24281B5B8FCC7FEB6806450BE561228",
@@ -189,7 +189,7 @@
     "Get-ObjectsStatsText": "061A2EFD1285FFCB7E757ED5A65B82FA31F25049809849C995BDCCE4FF4361A2",
     "Go-RootBranch": "308883E730A3D8DE9AC124CBFF6D995D4748EFECD4448288B187BFF2A4FAB97F",
     "Clear-ObjectDetails": "10DCE6FAD096DD9F9D7F117660BC5F859F36A870E6EA888D91C5A95E922134F6",
-    "Reset-DomeniaSelectionBoundViews": "D516364072910DA7561215B9CDD574352BB497B54FB904C75A505109A6207ADF",
+    "Reset-DomeniaSelectionBoundViews": "EC5F93A31B9D43F0F53F84F0DF6D267EB161B313E97DA35A86BB32324B9FF328",
     "Fill-GenericObject": "3DE26815176141F327EC0CDF4609D1BDA5AC61AA2058849E39E9BBF0100B9A20",
     "Fill-UserObject": "E684162B29361BC3631D138CC367574DCB6A918F45E01F8625F2C8ED211F2390",
     "Fill-DomeniaUserContact": "3E0B9B0F3152F050CA8E8CADC629DC9FF6D21FECD3E6DC8CDE24D95E84F958DE",
@@ -315,11 +315,13 @@
     "Register-DomeniaContextMenus": "D041C7EC62497FAA9CCFB8AD49634FC78F8F71531FE62D2D825BB7933E2E3AB7",
     "Get-DomeniaSoftwareWorkerCode": "89D918FD6088659259CD0D4A015A8C47F570326532C575E54C7C763A92A4D91C",
     "Apply-DomeniaSoftwareFilter": "29B11251F083803A2CF6B99C4A812CB6819C60627B716B9AA41C3FC5FE17AD8E",
-    "Complete-DomeniaSoftwareUi": "5938EC558E77B3E6A94258B11A630D2C3FF0461DC7358675B2021D74D3D7C018",
-    "Fail-DomeniaSoftwareUi": "B17750BFFCECA3681FCCD0270BA20A37FC0A7623C8E2C37CE57024C723FEF96A",
-    "Update-DomeniaSoftwareColumnProvenance": "322F4772746D1719315A987FB99813F55BDC9B781B899FD76FC67121A5B058D6",
-    "Show-DomeniaSoftwareFromInventory": "BEAAC78F6FFB2A1ABE26085CD5BC414F9A557966CF9226683A165751006AF34C",
-    "Start-DomeniaSoftwareInventory": "6702A57CDBE76D3F99F8972E3BF081B777AE7A0FD8FD6989492B7EFCF2B98F4E",
+    "Complete-DomeniaSoftwareUi": "F49179264C76CAC85C03E86DB2F58FF29B22731EAAEA95A3EBE232DA28268435",
+    "Fail-DomeniaSoftwareUi": "3935C00C3CCB74F9EC0516AA62C36E5B54A4AA205050B26BE97D10AF9B8E83A8",
+    "Update-DomeniaSoftwareColumnVisibility": "EB188CE1D63C1FCEEDACE7451C7BAAF3BD9A4E04FA091546D4E124DCDBCA617E",
+    "Update-DomeniaSoftwareSyntheseVisibility": "87E238F22213D33E937345A50CE0B939AB4FB48D5FB050BE1AE4AECAD6BEE3CE",
+    "Update-DomeniaSoftwareAccessSummary": "396493ADEF12898EFD646379F667EA8CCA3A2D7A9AD6722E3CFC0C361074678E",
+    "Show-DomeniaSoftwareFromInventory": "A7A9683E2D97F1D1E86AC60713055C701E1D1DD29F07161709CBFAC30359C277",
+    "Start-DomeniaSoftwareInventory": "353357CCDF03711187F01E36D31780872A822E9B18DC1F04B2F17A5BA061F2BE",
     "Copy-DomeniaSoftware": "1C61CFDA36577C05FFA4E3C0151A55B35CEFB4BF68578E850B13DAB295A50B5C",
     "Export-DomeniaSoftware": "8847C6F1B8A0C1542077BC53189D0B73D32FA3F2CBCA6AC720F6B3934BF5E383",
     "Get-DomeniaWmiNamespacesWorkerCode": "4AB6BF1EBD44124AA86DC381FAB466E3D2C7AAAEA5454D5CD8AB2574B71D4BDB",
@@ -507,7 +509,7 @@
     "Clear-DomeniaSecondaryCredential": "DE60DE3B21A5B8D0E415E757B7F87FD95FAD27AE5B91CFDACA46D0B682003647",
     "Start-DomeniaAccountRelogin": "7C2EA503F1E1DABCC7DBC542A111E54CFDF3BCF201A9A6616F79178B8EC23C07",
     "Initialize-DomeniaAccountPanel": "05F251F380F8DF6C8E6DB91B2631449C8C6CCF4619709DA289F9BD1C7AD3273D",
-    "Wire-Events": "2E58FE47D1D8480B07047D6857C602C80C3E730DDE76B9DF66D05167916A2941",
+    "Wire-Events": "12D0A696C7E1D65AC5D5C4474BE813AF72938A69130060D73EE6F1F64674ED1F",
     "New-DefaultConfig": "5A2EC1F0A6C807DAC66AA8E8EF163EFD5AC95357B9CA6837558437B55752B94F",
     "Initialize-DomeniaDataStore": "75C63F73149D4C8CACBAA107F9223E9140830F4F01360F1899E8D79DC6A51E5A",
     "Write-StartupTrace": "216F93F6D1D37A669438F904233E5819260B8DA5AD48CF8887D6C5A372435250",
@@ -2541,6 +2543,32 @@
       ],
       "AddedCoreFunctions": [],
       "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "lot PF-22 (programme 2026-10-08, L10) : l onglet Logiciels reprend la liste deja lue par l inventaire",
+      "Source": "UI-08 (L10) : onglet Logiciels, liste avant synthese",
+      "Decision": "Update-DomeniaSoftwareColumnProvenance devient Update-DomeniaSoftwareColumnVisibility : une seule fonction commande desormais la visibilite des colonnes, pour que le bouton Colonnes (UI-08) et la provenance de la liste (PF-22) ne se contredisent jamais. Deux fonctions ajoutees, Update-DomeniaSoftwareSyntheseVisibility et Update-DomeniaSoftwareAccessSummary, toutes deux commandees par des controles de la XAML. Trois fonctions du coeur modifiees par ces appels (Complete-DomeniaSoftwareUi, Show-DomeniaSoftwareFromInventory, Fail-DomeniaSoftwareUi) et deux par la remise a zero du resume (Reset-DomeniaSelectionBoundViews, Start-DomeniaSoftwareInventory). Aucun worker touche : le contrat SHA SoftwareInventory reste a 0F758A7D.",
+      "ChangedCoreFunctions": [
+        "Complete-DomeniaSoftwareUi",
+        "Fail-DomeniaSoftwareUi",
+        "Get-MainXaml",
+        "Reset-DomeniaSelectionBoundViews",
+        "Show-DomeniaSoftwareFromInventory",
+        "Start-DomeniaSoftwareInventory",
+        "Update-DomeniaSoftwareAccessSummary",
+        "Update-DomeniaSoftwareColumnVisibility",
+        "Update-DomeniaSoftwareSyntheseVisibility",
+        "Wire-Events"
+      ],
+      "AddedCoreFunctions": [
+        "Update-DomeniaSoftwareAccessSummary",
+        "Update-DomeniaSoftwareColumnVisibility",
+        "Update-DomeniaSoftwareSyntheseVisibility"
+      ],
+      "RemovedCoreFunctions": [
+        "Update-DomeniaSoftwareColumnProvenance"
+      ],
       "ChangedPayloads": []
     }
   ]

@@ -605,6 +605,22 @@ try {
         # Recherche litterale en chaine simple : en chaine double, $column etait interpole avant de chercher.
         Assert-True ($uxui.Contains('-eq ''Methode'' -or ([string]$column.Header) -eq ''Duree ms''')) 'Les deux colonnes techniques ne sont pas reservees a l Expert'
     }
+    Test-Case 'UI-08 : la liste des logiciels passe avant la synthese en graphiques' {
+        $texteCore = Get-Content $core -Raw -Encoding UTF8
+        # En chaine simple : en chaine double, $script: et $sender seraient interpoles avant la recherche.
+        Assert-True ($texteCore.Contains('<ComboBox x:Name="CmbSoftwareView" Width="130" SelectedIndex="0"')) 'Aucun selecteur Liste | Synthese sur la liste'
+        Assert-True ($texteCore.Contains('<StackPanel x:Name="PnlSoftwareSynthese" Visibility="Collapsed"')) 'La synthese s affiche avant que l operateur la demande'
+        Assert-True (-not $texteCore.Contains('x:Name="ExpSoftwareDashboard"')) 'L expander de synthese reste ouvert par defaut'
+        Assert-True ($texteCore.Contains('<ToggleButton x:Name="BtnSoftwareColumns"')) 'Les colonnes techniques n ont pas de bouton'
+        Assert-True ($texteCore.Contains('<TextBlock Grid.Row="1" x:Name="LblSoftwareAccessSummary"')) 'Le detail par portee ne tient pas en une ligne'
+        Assert-True (-not $texteCore.Contains('x:Name="UxSplitter1"')) 'Le detail par portee occupe encore une rangee de 150 pixels'
+        Assert-True ($texteCore.Contains('IsReadOnly="True" MaxHeight="180"')) 'Le detail replie peut avaler l onglet'
+        Assert-True ($texteCore.Contains('$script:Ctrl["CmbSoftwareView"].Add_SelectionChanged({')) 'Le selecteur Liste | Synthese ne declenche rien'
+        Assert-True ($texteCore.Contains('$script:Ctrl["BtnSoftwareColumns"].Add_Checked({')) 'Le bouton Colonnes ne declenche rien'
+        Assert-True (-not $texteCore.Contains('Update-DomeniaSoftwareColumnProvenance')) 'Deux regles distinctes commandent encore les colonnes'
+        Assert-True ($texteCore.Contains('Update-DomeniaSoftwareAccessSummary')) 'Le resume du detail par portee n est jamais ecrit'
+    }
+
     Test-Case 'PF-22 : l onglet Logiciels reprend la liste deja lue par l inventaire' {
         $texteCore = Get-Content $core -Raw -Encoding UTF8
         # En chaine simple : en chaine double, $script: et $name seraient interpoles avant la recherche.
@@ -612,7 +628,8 @@ try {
         Assert-True ($texteCore.Contains('$script:Ctrl["ComputerTabs"].Add_SelectionChanged({')) 'L ouverture de l onglet ne declenche rien'
         Assert-True ($texteCore.Contains('([string]$onglet.Name) -eq ''TabSoftware''')) 'L ouverture d un autre onglet declencherait la reprise'
         Assert-True ($texteCore.Contains('if ([string]$script:SoftwareSource -ne '''') { return }')) 'La reprise se declencherait pendant une lecture en cours'
-        Assert-True ($texteCore.Contains('Update-DomeniaSoftwareColumnProvenance -FromInventory $true')) 'Les colonnes que l inventaire ne remplit pas restent affichees vides'
+        $corpsReprise = ($texteCore -split 'function Show-DomeniaSoftwareFromInventory')[1]
+        Assert-True ($corpsReprise.Contains('Update-DomeniaSoftwareColumnVisibility')) 'Les colonnes que l inventaire ne remplit pas restent affichees vides'
         Assert-True ($texteCore.Contains('-logiciels-inventaire')) 'Un CSV repris de l inventaire se revendique comme une lecture complete'
         Assert-True ($texteCore.Contains('$script:SoftwareSource = "Poste"')) 'Une lecture complete ne rend pas les colonnes techniques'
         $modele = Get-Content (Join-Path (Split-Path $core -Parent) 'modules\Domenia-Workstation.Model.ps1') -Raw -Encoding UTF8

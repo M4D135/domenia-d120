@@ -287,6 +287,55 @@ function ConvertTo-DomeniaSoftwareFromInventory {
     }
 }
 
+function Get-DomeniaSoftwareColumnVisibility {
+    # Une seule table dit ce que la grille Logiciels montre, pour que le bouton « Colonnes » et la
+    # provenance de la liste ne se contredisent jamais. Les colonnes techniques (emplacement, commande de
+    # desinstallation, source) restent derriere « Colonnes » : elles debordent de l'ecran et ne servent
+    # qu'a copier une commande. Une colonne que la lecture n'a pas renseignee ne s'affiche pas vide : une
+    # case « Desinstallation » vide se lirait « ce logiciel ne se desinstalle pas », alors que la reponse
+    # n'a simplement pas ete cherchee. Un entete inconnu reste visible : rien n'est replie par devinette.
+    [CmdletBinding()]
+    param([string[]]$Headers = @(), [bool]$FromInventory = $false, [bool]$ShowTechnical = $false)
+    $techniques = @('Emplacement','Desinstallation','Source')
+    $nonLues = @('Editeur','Installe le','Taille','Archi','Type')
+    $visibilites = @{}
+    foreach ($entete in @($Headers)) {
+        $nom = [string]$entete
+        $visible = $true
+        if ($FromInventory -and ($nonLues -contains $nom)) { $visible = $false }
+        if ((-not $ShowTechnical) -and ($techniques -contains $nom)) { $visible = $false }
+        $visibilites[$nom] = $visible
+    }
+    return $visibilites
+}
+
+function Get-DomeniaSoftwareAccessSummary {
+    # Le detail par portee tient en une ligne : ce qui a ete lu, portee par portee. Une portee que le
+    # worker n'a pas rapportee n'est pas mentionnee, et un etat inconnu est rendu tel quel au lieu d'être
+    # traduit — inventer « lu » pour un etat que le produit ne connait pas serait un faux rapport.
+    [CmdletBinding()]
+    param([object[]]$Rows = @())
+    $mots = @{ OK='lu'; VIDE=('lu, rien trouv' + [char]0x00E9 + 'e'); PARTIEL='lu en partie';
+               REFUSE=('refus' + [char]0x00E9); INJOIGNABLE='injoignable';
+               INDISPONIBLE='indisponible'; ERREUR=('en ' + [char]0x00E9 + 'chec') }
+    $parts = New-Object 'System.Collections.Generic.List[string]'
+    foreach ($row in @($Rows)) {
+        if ($null -eq $row) { continue }
+        $portee = ([string](Get-DomeniaMember $row 'Category' '')).Trim()
+        if ([string]::IsNullOrWhiteSpace($portee)) { continue }
+        $etat = ([string](Get-DomeniaMember $row 'Status' '')).Trim()
+        if ([string]::IsNullOrWhiteSpace($etat)) { $etat = 'sans ' + [char]0x00E9 + 'tat' }
+        $mot = $etat
+        if ($mots.ContainsKey($etat)) { $mot = [string]$mots[$etat] }
+        $combien = 0
+        try { $combien = [int](Get-DomeniaMember $row 'Items' 0) } catch { $combien = 0 }
+        if ($combien -gt 0) { $parts.Add($portee + ' : ' + $mot + ' (' + $combien + ')') }
+        else { $parts.Add($portee + ' : ' + $mot) }
+    }
+    if ($parts.Count -eq 0) { return 'Aucune port' + [char]0x00E9 + 'e lue.' }
+    return ($parts -join (' ' + [char]0x00B7 + ' '))
+}
+
 # ---------------------------------------------------------------- D071 quick diagnosis with an announced cost
 # --- UX-37 : la colonne Valeur de l inventaire du poste rend un libelle, pas le code CIM ---
 # Le collecteur recopie ce que CIM lui rend : role « 1 », chassis « 10 », langue « 1036 », carte

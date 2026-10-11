@@ -895,6 +895,10 @@ $script:GuiElementPolicy = [ordered]@{
     "LblSoftwareStatus" = "Default"
     "DgSoftware" = "Default"
     "DgSoftwareAccess" = "Default"
+    "CmbSoftwareView" = "Default"
+    "BtnSoftwareColumns" = "Default"
+    "LblSoftwareAccessSummary" = "Default"
+    "ExpSoftwareAccess" = "Default"
     "TabInventory" = "Default"
     "BtnRunInventory" = "Default"
     "BtnRunInventoryDeep" = "Default"
@@ -6563,15 +6567,21 @@ function Get-MainXaml {
                             <CheckBox x:Name="ChkSoftwareUpdates" Content="Mises a jour" VerticalAlignment="Center" Margin="0,0,14,0" ToolTip="Affiche aussi les correctifs et composants systeme, masques par defaut." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mises a jour" AutomationProperties.HelpText="Affiche aussi les correctifs et composants systeme, masques par defaut."/>
                             <Button x:Name="BtnCopySoftware" ToolTip="Copie la liste complete des logiciels." Content="Copier" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Copier" AutomationProperties.HelpText="Copie la liste complete des logiciels."/>
                             <Button x:Name="BtnExportSoftware" ToolTip="Enregistre la liste des logiciels au format CSV." Content="Exporter CSV" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Exporter CSV" AutomationProperties.HelpText="Enregistre la liste des logiciels au format CSV."/>
+                            <ToggleButton x:Name="BtnSoftwareColumns" Content="Colonnes" VerticalAlignment="Center" Margin="0,0,14,0" ToolTip="Affiche les colonnes techniques : emplacement, commande de désinstallation, source. Masquées par défaut car elles débordent de lʼécran." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Colonnes" AutomationProperties.HelpText="Affiche ou masque les colonnes techniques de la liste des logiciels."/>
                           </WrapPanel>
-                          <Expander x:Name="ExpSoftwareDashboard" Header="Synthese en graphiques" IsExpanded="True" Margin="0,8,0,0" ToolTip="Éditeurs, architecture, portée dʼinstallation et plus gros logiciels, calculés sur la liste chargée." AutomationProperties.Name="Synthese des logiciels">
-                            <StackPanel Margin="0,6,0,0">
-                              <TextBlock x:Name="LblSoftwareDashboard" Text="Chargez les logiciels pour afficher la synthese." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap"/>
-                              <Border Background="{DynamicResource WindowBg}" CornerRadius="12" Padding="4" Margin="0,8,0,0">
-                                <StackPanel x:Name="PnlSoftwareDashboard"/>
-                              </Border>
-                            </StackPanel>
-                          </Expander>
+                          <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                            <Label Content="Affichage" Padding="0,0,6,0" VerticalAlignment="Center"/>
+                            <ComboBox x:Name="CmbSoftwareView" Width="130" SelectedIndex="0" VerticalAlignment="Center" ToolTip="Choisit ce que lʼonglet montre : la liste des logiciels, ou la synthèse en graphiques." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Affichage des logiciels" AutomationProperties.HelpText="Bascule entre la liste des logiciels et la synthèse en graphiques. La liste reste affichée par défaut.">
+                              <ComboBoxItem Content="Liste"/>
+                              <ComboBoxItem Content="Synthèse"/>
+                            </ComboBox>
+                          </StackPanel>
+                          <StackPanel x:Name="PnlSoftwareSynthese" Visibility="Collapsed" Margin="0,6,0,0">
+                            <TextBlock x:Name="LblSoftwareDashboard" Text="Chargez les logiciels pour afficher la synthese." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap"/>
+                            <Border Background="{DynamicResource WindowBg}" CornerRadius="12" Padding="4" Margin="0,8,0,0">
+                              <StackPanel x:Name="PnlSoftwareDashboard"/>
+                            </Border>
+                          </StackPanel>
                           <Grid Margin="0,8,0,0">
                             <Grid.ColumnDefinitions>
                               <ColumnDefinition Width="Auto"/>
@@ -6595,8 +6605,8 @@ function Get-MainXaml {
                         <Grid>
                           <Grid.RowDefinitions>
                             <RowDefinition Height="*" MinHeight="150"/>
-                            <RowDefinition Height="6"/>
-                            <RowDefinition Height="150" MinHeight="80"/>
+                              <RowDefinition Height="Auto"/>
+                              <RowDefinition Height="Auto"/>
                           </Grid.RowDefinitions>
                           <DataGrid Grid.Row="0" x:Name="DgSoftware" ToolTip="Logiciels détectés. Clic droit pour copier un nom ou une commande de désinstallation." AutoGenerateColumns="False" IsReadOnly="True" MinRowHeight="28" CanUserSortColumns="True" SelectionMode="Extended" ScrollViewer.HorizontalScrollBarVisibility="Auto" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Logiciels detectes" AutomationProperties.HelpText="Logiciels detectes. Clic droit pour copier un nom ou une commande de desinstallation.">
                             <DataGrid.Columns>
@@ -6613,10 +6623,10 @@ function Get-MainXaml {
                               <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="190"/>
                             </DataGrid.Columns>
                           </DataGrid>
-                          <GridSplitter Grid.Row="1" Height="6" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="{DynamicResource SplitterBg}" ShowsPreview="True" ResizeDirection="Rows" ResizeBehavior="PreviousAndNext" Cursor="SizeNS" x:Name="UxSplitter1" ToolTip="Faites glisser pour redimensionner les panneaux." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Faites glisser pour redimensionner les panneaux" AutomationProperties.HelpText="Faites glisser pour redimensionner les panneaux."/>
-                          <DockPanel Grid.Row="2">
-                            <TextBlock DockPanel.Dock="Top" Text="Detail par portee" FontWeight="SemiBold" Margin="0,4,0,6"/>
-                            <DataGrid x:Name="DgSoftwareAccess" ToolTip="Ce qui a pu être lu pour chaque portée." AutoGenerateColumns="False" IsReadOnly="True" MinRowHeight="28" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Detail par portee" AutomationProperties.HelpText="Ce qui a pu etre lu pour chaque portee.">
+                          <TextBlock Grid.Row="1" x:Name="LblSoftwareAccessSummary" Text="Aucune portée lue." Foreground="{DynamicResource MutedColor}" Margin="0,6,0,2" TextWrapping="Wrap" ToolTip="Ce qui a pu être lu pour chaque portée, en une ligne." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Resume du detail par portee" AutomationProperties.HelpText="Une ligne pour dire ce qui a été lu pour chaque portée ; ouvrir le détail pour le voir ligne par ligne."/>
+                          <Expander Grid.Row="2" x:Name="ExpSoftwareAccess" Header="Détail par portée" IsExpanded="False" Margin="0,2,0,0" ToolTip="Ce qui a pu être lu pour chaque portée, ligne par ligne." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Detail par portee" AutomationProperties.HelpText="Liste detaillee de ce qui a pu etre lu pour chaque portee.">
+                            <StackPanel>
+                            <DataGrid x:Name="DgSoftwareAccess" ToolTip="Ce qui a pu être lu pour chaque portée." AutoGenerateColumns="False" IsReadOnly="True" MaxHeight="180" MinRowHeight="28" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Detail par portee" AutomationProperties.HelpText="Ce qui a pu etre lu pour chaque portee.">
                               <DataGrid.Columns>
                                 <DataGridTextColumn Header="Portee" Binding="{Binding Category}" Width="170"/>
                                 <DataGridTextColumn Header="Acces" Binding="{Binding Status}" Width="110"/>
@@ -6632,7 +6642,8 @@ function Get-MainXaml {
                                 </DataGridTemplateColumn>
                               </DataGrid.Columns>
                             </DataGrid>
-                          </DockPanel>
+                            </StackPanel>
+                          </Expander>
                         </Grid>
                       </DockPanel>
                     </Border>
@@ -8159,6 +8170,7 @@ function Reset-DomeniaSelectionBoundViews {
         $script:InventoryCompletedAt = $null
         $script:SoftwareSource = ''
         $script:SoftwareProvenance = ''
+        Update-DomeniaSoftwareAccessSummary
 
         foreach ($gridName in @(
             "DgLinks",
@@ -14535,10 +14547,11 @@ function Complete-DomeniaSoftwareUi {
     # Lecture complete : la provenance n'est plus l'inventaire, les colonnes reprennent leur place.
     $script:SoftwareSource = "Poste"
     $script:SoftwareProvenance = ""
-    Update-DomeniaSoftwareColumnProvenance -FromInventory $false
+    Update-DomeniaSoftwareColumnVisibility
     try { Update-DomeniaSoftwareDashboard -Rows $script:SoftwareRows } catch { Add-DomeniaUiLog -Area "Tableau de bord" -Level "WARN" -Text ("Synthese des logiciels non construite : " + $_.Exception.Message) }
     $script:SoftwareAccess = @($effective.Access)
     [void](Set-DomeniaItemsSource -Name "DgSoftwareAccess" -Rows $script:SoftwareAccess)
+    Update-DomeniaSoftwareAccessSummary
     Apply-DomeniaSoftwareFilter
 
     $machine = @($script:SoftwareRows | Where-Object { [string]$_.Scope -eq "Machine" }).Count
@@ -14584,25 +14597,52 @@ function Fail-DomeniaSoftwareUi {
     if ([string]::IsNullOrWhiteSpace($detail)) { $detail = "Erreur inconnue." }
     # Une lecture ratee reste ratee : l'onglet ne se remplit pas avec l'inventaire par-dessus l'echec.
     $script:SoftwareSource = "Poste"
+    Update-DomeniaSoftwareAccessSummary
     [void](Set-DomeniaControlText -Name "LblSoftwareStatus" -Text ("Lecture impossible : " + $detail))
     Set-Status ("Lecture des logiciels impossible : " + $detail) "ERROR"
     Add-DomeniaUiLog -Area "Logiciels" -Level "ERROR" -Text $detail
 }
 
-function Update-DomeniaSoftwareColumnProvenance {
-    param([bool]$FromInventory = $false)
-    # Une liste reprise de l'inventaire ne connait que le nom et la version. Les colonnes qui resteraient
-    # vides se replient : une cellule vide dans « Desinstallation » se lirait « ce logiciel ne se
-    # desinstalle pas », alors que la reponse n'a simplement pas ete cherchee.
+function Update-DomeniaSoftwareColumnVisibility {
+    # Une seule fonction decide de la visibilite des colonnes, pour que le bouton « Colonnes » et la
+    # provenance de la liste ne se contredisent jamais : ce que la lecture a vraiment fourni, et ce que
+    # l'operateur reclame. La table est dans le modele (Get-DomeniaSoftwareColumnVisibility), testee.
     $grid = Get-DomeniaControl -Name 'DgSoftware'
     if ($null -eq $grid) { return }
-    $techniques = @('Editeur','Installe le','Taille','Archi','Type','Emplacement','Desinstallation')
+    $technique = $false
+    try {
+        $bouton = Get-DomeniaControl -Name 'BtnSoftwareColumns'
+        if ($null -ne $bouton) { $technique = [bool]$bouton.IsChecked }
+    } catch { }
+    $entetes = @()
+    foreach ($column in @($grid.Columns)) { $entetes += [string]$column.Header }
+    $visibilites = Get-DomeniaSoftwareColumnVisibility -Headers $entetes -FromInventory ([bool](([string]$script:SoftwareSource) -eq 'Inventaire')) -ShowTechnical $technique
     foreach ($column in @($grid.Columns)) {
         $header = [string]$column.Header
-        if ($techniques -notcontains $header) { continue }
-        if ($FromInventory) { $column.Visibility = [System.Windows.Visibility]::Collapsed }
-        else { $column.Visibility = [System.Windows.Visibility]::Visible }
+        if (-not $visibilites.ContainsKey($header)) { continue }
+        if ($visibilites[$header]) { $column.Visibility = [System.Windows.Visibility]::Visible }
+        else { $column.Visibility = [System.Windows.Visibility]::Collapsed }
     }
+}
+
+function Update-DomeniaSoftwareSyntheseVisibility {
+    # Le selecteur « Liste | Synthese » est la seule commande de l'affichage de l'onglet : la liste reste
+    # ce que l'operateur voit par defaut, les graphiques ne se montrent que sur demande.
+    $panneau = Get-DomeniaControl -Name 'PnlSoftwareSynthese'
+    if ($null -eq $panneau) { return }
+    $synthese = $false
+    try {
+        $selecteur = Get-DomeniaControl -Name 'CmbSoftwareView'
+        if ($null -ne $selecteur) { $synthese = ([int]$selecteur.SelectedIndex -eq 1) }
+    } catch { }
+    if ($synthese) { $panneau.Visibility = [System.Windows.Visibility]::Visible }
+    else { $panneau.Visibility = [System.Windows.Visibility]::Collapsed }
+}
+
+function Update-DomeniaSoftwareAccessSummary {
+    # Le detail par portee tient en une ligne, reprise de ce que le worker a rapporte. Rien n'est invente
+    # quand aucune portee n'a ete lue : le texte par defaut est « Aucune portee lue. ».
+    [void](Set-DomeniaControlText -Name 'LblSoftwareAccessSummary' -Text ([string](Get-DomeniaSoftwareAccessSummary -Rows $script:SoftwareAccess)))
 }
 
 function Show-DomeniaSoftwareFromInventory {
@@ -14620,7 +14660,7 @@ function Show-DomeniaSoftwareFromInventory {
     $panel = Get-DomeniaControl -Name 'PnlSoftwareDashboard'
     if ($null -ne $panel) { $panel.Children.Clear() }
     [void](Set-DomeniaControlText -Name 'LblSoftwareDashboard' -Text ([string]$vue.DashboardText))
-    Update-DomeniaSoftwareColumnProvenance -FromInventory $true
+    Update-DomeniaSoftwareColumnVisibility
     Apply-DomeniaSoftwareFilter
     Add-DomeniaUiLog -Area 'Logiciels' -Text ("{0} logiciel(s) repris de l'inventaire du poste, sans nouvelle requete." -f [int]$vue.Count)
 }
@@ -14638,6 +14678,7 @@ function Start-DomeniaSoftwareInventory {
         $script:SoftwareProvenance = ""
         [void](Set-DomeniaItemsSource -Name "DgSoftware" -Rows @())
         [void](Set-DomeniaItemsSource -Name "DgSoftwareAccess" -Rows @())
+        Update-DomeniaSoftwareAccessSummary
         [void](Set-DomeniaControlText -Name "LblSoftwareStatus" -Text ("Lecture des logiciels de " + $computer + "..."))
 
         $perUser = $false
@@ -21155,6 +21196,13 @@ function Wire-Events {
     # affichee au lieu de repartir pour une seconde requete. Le geste complet reste le bouton.
     # TabItem ne possede pas d'evenement Selected (sonde en invite : Add_Selected n'existe pas) ; le
     # branchement se fait donc sur le TabControl, comme les onglets de workspace plus haut.
+    # UI-08 : la liste est l'affichage par defaut de l'onglet ; les graphiques et les colonnes
+    # techniques ne se montrent que sur demande explicite de l'operateur.
+    if ($script:Ctrl.ContainsKey("CmbSoftwareView")) { $script:Ctrl["CmbSoftwareView"].Add_SelectionChanged({ param($sender,$e) if ($sender -eq $e.OriginalSource) { try { Update-DomeniaSoftwareSyntheseVisibility } catch { } } }) }
+    if ($script:Ctrl.ContainsKey("BtnSoftwareColumns")) {
+        $script:Ctrl["BtnSoftwareColumns"].Add_Checked({ param($sender,$e) try { Update-DomeniaSoftwareColumnVisibility } catch { } })
+        $script:Ctrl["BtnSoftwareColumns"].Add_Unchecked({ param($sender,$e) try { Update-DomeniaSoftwareColumnVisibility } catch { } })
+    }
     if ($script:Ctrl.ContainsKey("ComputerTabs")) {
         $script:Ctrl["ComputerTabs"].Add_SelectionChanged({
             param($sender,$e)

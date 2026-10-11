@@ -232,6 +232,38 @@ Test-Case 'UX-17' 'Diagnostic : verdict en francais, transports facultatifs comp
     Assert-True ($muet.Verdict.StartsWith('Le poste')) 'Sans nom de poste, la phrase reste complete'
 }
 
+Test-Case 'UI-08' 'Logiciels : une seule regle pour les colonnes et un resume du detail par portee' {
+    $entetes = @('Nom','Version','Editeur','Installe le','Taille','Portee','Archi','Type','Emplacement','Desinstallation','Source')
+    $d = Get-DomeniaSoftwareColumnVisibility -Headers $entetes
+    Assert-True ($d['Nom'] -and $d['Version'] -and $d['Portee']) 'La liste elle-meme se replie'
+    Assert-True ($d['Editeur']) 'Editeur se replie alors qu une lecture complete le remplit'
+    Assert-True (-not $d['Emplacement']) 'Emplacement s affiche alors qu il deborde de l ecran'
+    Assert-True (-not $d['Desinstallation']) 'Desinstallation s affiche par defaut'
+    Assert-True (-not $d['Source']) 'Source s affiche par defaut'
+    $t = Get-DomeniaSoftwareColumnVisibility -Headers @('Emplacement','Desinstallation','Source') -ShowTechnical $true
+    Assert-True ($t['Emplacement'] -and $t['Desinstallation'] -and $t['Source']) 'Le bouton Colonnes ne rend pas les colonnes techniques'
+    $i = Get-DomeniaSoftwareColumnVisibility -Headers @('Editeur','Installe le','Taille','Archi','Type','Emplacement','Nom') -FromInventory $true
+    Assert-True (-not ($i['Editeur'] -or $i['Installe le'] -or $i['Taille'] -or $i['Archi'] -or $i['Type'] -or $i['Emplacement'])) 'Une colonne que l inventaire n a pas lue reste affichee vide'
+    Assert-True ($i['Nom']) 'Le nom disparait quand la liste vient de l inventaire'
+    Assert-True ((Get-DomeniaSoftwareColumnVisibility -Headers @('EnteteInconnu'))['EnteteInconnu']) 'Un entete inconnu est replie par devinette'
+
+    $lignes = @(
+        [pscustomobject]@{Category='Machine';Status='OK';Items=412},
+        [pscustomobject]@{Category='Utilisateur';Status='INDISPONIBLE';Items=0},
+        [pscustomobject]@{Category='Store';Status='VIDE';Items=0},
+        [pscustomobject]@{Category='';Status='OK';Items=3},
+        [pscustomobject]@{Category='Joignabilite';Status='BIZARRE';Items=0}
+    )
+    $e = [char]0x00E9
+    $resume = Get-DomeniaSoftwareAccessSummary -Rows $lignes
+    Assert-True ($resume.StartsWith('Machine : lu (412)')) ('Resume machine inattendu <' + $resume + '>')
+    Assert-True ($resume.Contains('Utilisateur : indisponible')) ('Resume utilisateur inattendu <' + $resume + '>')
+    Assert-True ($resume.Contains('Store : lu, rien trouv' + $e + 'e')) ('Resume store inattendu <' + $resume + '>')
+    Assert-True ($resume.Contains('Joignabilite : BIZARRE')) 'Un etat inconnu est traduit au lieu d etre rendu tel quel'
+    Assert-True (-not $resume.Contains(' : lu (3)')) 'Une portee sans nom deviendrait une portee lue'
+    Assert-True ((Get-DomeniaSoftwareAccessSummary -Rows @()) -eq ('Aucune port' + $e + 'e lue.')) 'Le resume invente une portee lue'
+}
+
 Test-Case 'PF-22' 'Logiciels : la liste deja lue par l inventaire sert sans seconde requete' {
     $e=[string][char]0x00E9
     $items=@(

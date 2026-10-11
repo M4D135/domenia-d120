@@ -67,7 +67,11 @@ function Update-DomeniaInventoryCategories {}
 function Apply-DomeniaInventoryFilter { [void](Set-DomeniaItemsSource -Name 'DgInventory' -Rows $script:InventoryRows) }
 function Set-DomeniaItemsSource {param([string]$Name,$Rows);$c=Get-DomeniaControl $Name;if($null -ne $c){$c.ItemsSource=@($Rows)};return $true}
 function Apply-DomeniaSoftwareFilter { [void](Set-DomeniaItemsSource -Name 'DgSoftware' -Rows $script:SoftwareRows) }
-function Update-DomeniaSoftwareColumnProvenance {param([bool]$FromInventory=$false)}
+function Update-DomeniaSoftwareColumnVisibility {}
+function Update-DomeniaSoftwareSyntheseVisibility {}
+function Update-DomeniaSoftwareAccessSummary {}
+function Get-DomeniaSoftwareAccessSummary {param($Rows);return ''}
+function Get-DomeniaSoftwareColumnVisibility {param($Headers,$FromInventory,$ShowTechnical);return @{}}
 function Register-DomeniaOperationSample {param([string]$Operation,[string]$Mode,[int]$ItemCount,[long]$DurationMs,[long]$BytesEstimated,[int]$RemoteAttempts,[int]$FallbackTasks,[int]$SuccessCount,[int]$FailureCount)}
 function Add-DomeniaUiLog {param([string]$Area,[string]$Text,[string]$Level)}
 function Set-DomeniaGridRows {param([string]$Name,$Rows,[string]$KeyProperty);return $true}

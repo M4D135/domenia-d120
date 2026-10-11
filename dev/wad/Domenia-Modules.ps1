@@ -262,6 +262,8 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaDiagSeverity',
             'ConvertTo-DomeniaDiagVerdict',
             'ConvertTo-DomeniaSoftwareFromInventory',
+            'Get-DomeniaSoftwareColumnVisibility',
+            'Get-DomeniaSoftwareAccessSummary',
             'Get-DomeniaInventoryMapText',
             'Get-DomeniaInventoryValueText',
             'Get-DomeniaQuickDiagPlan',
