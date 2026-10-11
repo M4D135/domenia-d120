@@ -845,7 +845,7 @@ function Get-DomeniaSoftwareSources {
         [pscustomobject]@{Id='Uninstall64';Category='Programmes 64 bits (machine)';Location='HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall';Limit=''}
         [pscustomobject]@{Id='Uninstall32';Category='Programmes 32 bits (machine)';Location='HKLM\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall';Limit=''}
         [pscustomobject]@{Id='Sccm';Category='Programmes 32 bits (machine)';Location='CIM Win32Reg_AddRemovePrograms (client SCCM)';Limit='Présente seulement avec le client SCCM ; sur un poste 64 bits, ne décrit que les programmes 32 bits (Win32Reg_AddRemovePrograms64 nʼest pas lue).'}
-        [pscustomobject]@{Id='PerUser';Category='Installations par utilisateur';Location='HKU\<SID>\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall';Limit='Profils chargés au moment de la lecture uniquement ; exige WinRM sur le poste.'}
+        [pscustomobject]@{Id='PerUser';Category='Installations par utilisateur';Location='HKU\<SID>\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall';Limit='Ruches chargées sous HKU, donc les profils ayant une session ouverte ; lues par StdRegProv sur la session CIM, sans repli en cas dʼéchec.'}
         [pscustomobject]@{Id='Appx';Category='Paquets Appx/MSIX';Location='Get-AppxPackage -AllUsers';Limit='Exige WinRM sur le poste.'}
     )
     $known = @($catalog | ForEach-Object { $_.Id })

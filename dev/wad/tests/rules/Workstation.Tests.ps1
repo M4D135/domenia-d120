@@ -309,6 +309,14 @@ Test-Case 'D073' 'Sources de desinstallation 64 et 32 bits ; categories non couv
     Assert-False (((@($s.Sources)|ForEach-Object{$_.Emplacement}) -join '|') -match '(?i)win32_product')
     Assert-Equal 1 @((Get-DomeniaSoftwareSources -Included @('Uninstall64','Win32_Product')).Refused).Count 'Win32_Product n est pas une source'
 }
+Test-Case 'MO-09' 'La portee utilisateur est lue par StdRegProv sur HKU et ne promet plus WinRM' {
+    $s=Get-DomeniaSoftwareSources -Included @('Uninstall64','Uninstall32','PerUser')
+    $byId=@{};foreach($row in @($s.Sources)){$byId[$row.Id]=$row}
+    Assert-True ($byId['PerUser'].Emplacement -match '^HKU\\') ('Emplacement de la source utilisateur : '+$byId['PerUser'].Emplacement)
+    Assert-True ($byId['PerUser'].Limite -match 'StdRegProv') ('La source ne dit pas par quoi elle lit : '+$byId['PerUser'].Limite)
+    Assert-False ($byId['PerUser'].Limite -match '(?i)winrm') ('La source utilisateur exige encore WinRM : '+$byId['PerUser'].Limite)
+    Assert-True ($byId['Appx'].Limite -match '(?i)WinRM') 'La source Appx ne dit plus ce qu elle exige'
+}
 Test-Case 'D073' 'Une source refusee ou partielle n est pas couverte' {
     $s=Get-DomeniaSoftwareSources -Included @('Uninstall64','Uninstall32','PerUser') -Outcomes @{Uninstall64='OK';Uninstall32='REFUSE';PerUser='PARTIEL'}
     $byId=@{};foreach($row in @($s.Sources)){$byId[$row.Id]=$row}

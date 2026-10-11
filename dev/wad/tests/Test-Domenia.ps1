@@ -49,7 +49,7 @@ $wanted=@('Write-DomeniaAtomicText','Read-DomeniaPreference','Write-DomeniaPrefe
     'Invoke-DomeniaAppLogRotation','Flush-DomeniaAppLog','Invoke-DomeniaAppLogFlush','Set-DomeniaAppLogAvailability','Set-Status',
     'Get-DomeniaGridExportColumns','ConvertTo-DomeniaExportRows','Get-DomeniaExportFileName','Export-DomeniaCsv','Get-DomeniaCsvDelimiter',
     # CO-03 : cles de tri des colonnes datees, et le XAML ou elles sont designees.
-    'Get-DomeniaGridDateSortKey','Get-DomeniaGridDateShortText','Add-DomeniaGridDateKeys','Get-DomeniaInventoryAgeLabel','Get-DomeniaInventorySummaryText','Get-MainXaml')
+    'Get-DomeniaGridDateSortKey','Get-DomeniaGridDateShortText','Add-DomeniaGridDateKeys','Get-DomeniaInventoryAgeLabel','Get-DomeniaInventorySummaryText','Get-DomeniaSoftwareWorkerCode','Get-MainXaml')
 $definitions=New-Object 'System.Collections.Generic.List[string]'
 $nodes=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst]},$true))
 foreach($name in $wanted) {
@@ -665,6 +665,24 @@ try {
         $corps = ($texteCore -split 'function Show-DomeniaCachedInventory')[1]
         Assert-True ($corps.Contains('Update-DomeniaInventoryAgeLine')) 'La liste reprise ne dit pas son age'
         Assert-True (-not $corps.Contains('Update-DomeniaComputerDashboard')) 'La reprise rejoue le tableau de bord d une lecture fraiche'
+    }
+
+    Test-Case 'MO-09 : les logiciels par utilisateur se lisent par StdRegProv sur HKU, sans WinRM' {
+        $code = [string](Get-DomeniaSoftwareWorkerCode)
+        # Le corps du worker n'est pas interprete ici : il doit au moins se compiler sous PowerShell 5.1.
+        [void]([scriptblock]::Create($code))
+        # En chaine simple : en chaine double, $HKU serait interpole avant la recherche.
+        Assert-True ($code.Contains('$HKU = [uint32]2147483651')) 'La ruche HKU (0x80000003) n est pas declaree dans le worker'
+        Assert-True ($code.Contains('Get-RegSubKeys $HKU')) 'Les ruches chargees ne sont pas enumerees par StdRegProv'
+        Assert-True ($code.Contains("-Source 'HKU via StdRegProv'")) 'La portee utilisateur ne dit pas qu elle lit HKU par StdRegProv'
+        Assert-True ($code.Contains("'Non lu : '")) 'Un echec de la portee utilisateur ne se rend pas comme non lu'
+        Assert-True (-not ($code.Contains("'HKEY_USERS via WinRM'"))) 'La portee utilisateur pretend encore lire par WinRM'
+        Assert-True (-not ($code.Contains('La lecture par profil necessite WinRM'))) 'La portee utilisateur exige encore WinRM'
+        Assert-True (-not ($code.Contains("Get-ChildItem 'Registry::HKEY_USERS'"))) 'La portee utilisateur parcourt encore les ruches a distance par WinRM'
+        Assert-True (-not ($code.Contains('$includePerUser -and @($rows'))) 'Une portee utilisateur vide declenche encore la collecte locale SYSTEM'
+        $xaml = Get-MainXaml
+        Assert-True ($xaml.Contains('ToolTip="Ajoute les logiciels installés dans le profil des utilisateurs connectés."')) 'L infobulle promet toujours le profil de chaque utilisateur'
+        Assert-True (-not ($xaml.Contains('dans le profil de chaque utilisateur'))) 'L infobulle promet encore tous les utilisateurs'
     }
 
     Test-Case 'PF-22 : l onglet Logiciels reprend la liste deja lue par l inventaire' {

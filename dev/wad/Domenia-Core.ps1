@@ -6599,7 +6599,7 @@ function Get-MainXaml {
                           <TextBlock Text="Logiciels installes sur le poste : pour tous les utilisateurs, par profil, et applications du Microsoft Store." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,8" TextWrapping="Wrap"/>
                           <WrapPanel>
                             <Button x:Name="BtnLoadSoftware" Content="Charger les logiciels" Style="{StaticResource RunButton}" ToolTip="Liste les logiciels installes pour tous les utilisateurs du poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Charger les logiciels" AutomationProperties.HelpText="Liste les logiciels installes pour tous les utilisateurs du poste."/>
-                            <CheckBox x:Name="ChkSoftwarePerUser" Content="Par utilisateur" IsChecked="True" VerticalAlignment="Center" Margin="4,0,14,0" ToolTip="Ajoute les logiciels installes dans le profil de chaque utilisateur." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Par utilisateur" AutomationProperties.HelpText="Ajoute les logiciels installes dans le profil de chaque utilisateur."/>
+                            <CheckBox x:Name="ChkSoftwarePerUser" Content="Par utilisateur" IsChecked="True" VerticalAlignment="Center" Margin="4,0,14,0" ToolTip="Ajoute les logiciels installés dans le profil des utilisateurs connectés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Par utilisateur" AutomationProperties.HelpText="Ajoute les logiciels installes dans le profil des utilisateurs connectes."/>
                             <CheckBox x:Name="ChkSoftwareStore" Content="Applications Store" VerticalAlignment="Center" Margin="0,0,14,0" ToolTip="Ajoute les applications du Microsoft Store. Plus long." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Applications Store" AutomationProperties.HelpText="Ajoute les applications du Microsoft Store. Plus long."/>
                             <CheckBox x:Name="ChkSoftwareUpdates" Content="Mises a jour" VerticalAlignment="Center" Margin="0,0,14,0" ToolTip="Affiche aussi les correctifs et composants systeme, masques par defaut." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mises a jour" AutomationProperties.HelpText="Affiche aussi les correctifs et composants systeme, masques par defaut."/>
                             <Button x:Name="BtnCopySoftware" ToolTip="Copie la liste complete des logiciels." Content="Copier" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Copier" AutomationProperties.HelpText="Copie la liste complete des logiciels."/>
@@ -14466,55 +14466,68 @@ try {
     # Portee utilisateur
     # -----------------------------------------------------------------
     if ($includePerUser) {
+        # HKU (0x80000003) par StdRegProv, sur la session CIM deja ouverte. Une ruche n'est montee que
+        # pour un profil en session : les ruches chargees sont les utilisateurs connectes, et c'est tout
+        # ce que cette portee promet. WinRM n'est pas exige ici ; un echec se rend « non lu », sans repli.
+        $HKU = [uint32]2147483651
         $userWatch = [System.Diagnostics.Stopwatch]::StartNew()
         $userBefore = $rows.Count
-        if (-not $winrmReady) {
+        if ($null -eq $session) {
             $userWatch.Stop()
-            Add-Access 'Utilisateur' 'INDISPONIBLE' 'La lecture par profil necessite WinRM, qui ne repond pas sur ce poste.' ([int]$userWatch.ElapsedMilliseconds) 0 'WinRM'
+            Add-Access 'Utilisateur' 'INDISPONIBLE' 'Non lu : aucune session CIM ouverte pour lire HKU.' ([int]$userWatch.ElapsedMilliseconds) 0 'CIM'
         }
         else {
             try {
-                $remote = Invoke-Remote -TimeoutSeconds 45 -ScriptBlock {
-                    $out = New-Object System.Collections.ArrayList
-                    foreach ($hive in (Get-ChildItem 'Registry::HKEY_USERS' -ErrorAction SilentlyContinue)) {
-                        $sid = $hive.PSChildName
-                        if ($sid -notmatch '^S-1-5-21-') { continue }
-                        if ($sid -match '_Classes$') { continue }
-                        $account = $sid
-                        try { $account = (New-Object System.Security.Principal.SecurityIdentifier($sid)).Translate([System.Security.Principal.NTAccount]).Value } catch { }
-                        $path = 'Registry::HKEY_USERS\' + $sid + '\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*'
-                        foreach ($p in (Get-ItemProperty -Path $path -ErrorAction SilentlyContinue)) {
-                            if (-not $p.DisplayName) { continue }
-                            [void]$out.Add([pscustomobject]@{
-                                DisplayName = $p.DisplayName
-                                DisplayVersion = $p.DisplayVersion
-                                Publisher = $p.Publisher
-                                InstallDate = $p.InstallDate
-                                EstimatedSize = $p.EstimatedSize
-                                InstallLocation = $p.InstallLocation
-                                UninstallString = $p.UninstallString
-                                Account = $account
-                            })
-                        }
+                $userHives = 0
+                $userScanned = 0
+                $userStopped = ''
+                foreach ($sid in @(Get-RegSubKeys $HKU '' | Where-Object { [string]$_ -match '^S-1-5-21-' })) {
+                    $userHives++
+                    $account = [string]$sid
+                    try {
+                        $acct = @(Get-CimInstance -CimSession $session -ClassName 'Win32_UserAccount' -Filter ('SID="' + [string]$sid + '"') -ErrorAction Stop | Select-Object -First 1)
+                        if (@($acct).Count -gt 0) { $account = [string]$acct[0].Domain + '\' + [string]$acct[0].Name }
+                    } catch { }
+                    $base = [string]$sid + '\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall'
+                    $subKeys = @()
+                    try { $subKeys = @(Get-RegSubKeys $HKU $base) } catch { }
+                    foreach ($sub in $subKeys) {
+                        if ($userScanned -ge $maxKeys) { $userStopped = 'Lecture arretee apres ' + [string]$maxKeys + ' cles.'; break }
+                        $userScanned++
+                        $key = $base + '\' + [string]$sub
+                        $display = ''
+                        try { $display = Get-RegString $HKU $key 'DisplayName' } catch { continue }
+                        if ([string]::IsNullOrWhiteSpace($display)) { continue }
+                        $version = ''
+                        $publisher = ''
+                        $installDate = ''
+                        $location = ''
+                        $uninstall = ''
+                        $size = 0
+                        try { $version = Get-RegString $HKU $key 'DisplayVersion' } catch { }
+                        try { $publisher = Get-RegString $HKU $key 'Publisher' } catch { }
+                        try { $installDate = Get-RegString $HKU $key 'InstallDate' } catch { }
+                        try { $location = Get-RegString $HKU $key 'InstallLocation' } catch { }
+                        try { $uninstall = Get-RegString $HKU $key 'UninstallString' } catch { }
+                        try { $size = Get-RegDword $HKU $key 'EstimatedSize' } catch { }
+                        Add-Software -Name $display -Version $version -Publisher $publisher -InstallDate $installDate `
+                            -SizeKb $size -Location $location -Architecture '' -Scope 'Utilisateur' -Kind $account `
+                            -UninstallString $uninstall -Source 'HKU via StdRegProv'
                     }
-                    return $out.ToArray()
-                }
-                foreach ($p in @($remote)) {
-                    Add-Software -Name ([string]$p.DisplayName) -Version ([string]$p.DisplayVersion) -Publisher ([string]$p.Publisher) `
-                        -InstallDate $p.InstallDate -SizeKb $p.EstimatedSize -Location ([string]$p.InstallLocation) `
-                        -Architecture '' -Scope 'Utilisateur' -Kind ([string]$p.Account) `
-                        -UninstallString ([string]$p.UninstallString) -Source 'HKEY_USERS via WinRM'
+                    if ($userStopped -ne '') { break }
                 }
                 $userWatch.Stop()
                 $count = $rows.Count - $userBefore
                 $status = 'OK'
                 if ($count -eq 0) { $status = 'VIDE' }
-                Add-Access 'Utilisateur' $status 'Ruches de profils charges parcourues.' ([int]$userWatch.ElapsedMilliseconds) $count 'WinRM'
+                $detail = 'Ruches chargees sous HKU : ' + [string]$userHives + ' profil(s) monte(s), ' + [string]$userScanned + ' cle(s) parcourue(s).'
+                if ($userStopped -ne '') { $status = 'PARTIEL'; $detail = $userStopped }
+                Add-Access 'Utilisateur' $status $detail ([int]$userWatch.ElapsedMilliseconds) $count ('CIM/' + $sessionProtocol)
             }
             catch {
                 $userWatch.Stop()
                 $message = [string]$_.Exception.Message
-                Add-Access 'Utilisateur' (Get-FailureStatus $message) $message ([int]$userWatch.ElapsedMilliseconds) ($rows.Count - $userBefore) 'WinRM'
+                Add-Access 'Utilisateur' (Get-FailureStatus $message) ('Non lu : ' + $message) ([int]$userWatch.ElapsedMilliseconds) ($rows.Count - $userBefore) ('CIM/' + $sessionProtocol)
             }
         }
     }
@@ -14564,7 +14577,9 @@ finally {
 # Si les transports classiques n'ont pas rendu les portees demandees,
 # une seule tache locale complete la collecte. Add-Software deduplique.
 $needTask = ($rows.Count -eq 0)
-if ($includePerUser -and @($rows | Where-Object {[string]$_.Scope -eq 'Utilisateur'}).Count -eq 0) { $needTask=$true }
+# MO-09 : une portee utilisateur vide n'est pas un echec, c'est souvent qu'aucun utilisateur n'est
+# connecte. Elle ne declenche plus la collecte locale SYSTEM ; seul un inventaire machine entierement
+# vide la declenche encore.
 if ($includeStore -and @($rows | Where-Object {[string]$_.Scope -eq 'Store'}).Count -eq 0) { $needTask=$true }
 if ($needTask) {
     try {
@@ -22733,7 +22748,7 @@ function Get-DomeniaWorkerOperationHashes {
         WmiNamespaces         = "3F54C07FC76AABC9511861F7B13A2A97394B366C7C8702EAF0BB67D30E886E25"
         WmiClasses            = "D7BD82BD51A7C7FAA920CC549BDACCD37038C19FA2A5BF43B01C7CDBA0CB9556"
         WmiQuery              = "6BD3C58E349298A4B4909D51A9841B052E5B911D7563D6239550F0CC3DB146F0"
-        SoftwareInventory     = "0F758A7DFEF27A63A230A3CD34FE45A5D7079691AB6C9D989C861ADE2A61E9D1"
+        SoftwareInventory     = "214DA1A24E26D30BB0529B539B80E8B183BB195FE610F3B8C124E94724CCF5CE"
         LogonHarvest          = "ED7FFF55506C7BCE5567D65F683E10E9F28EA9771947F12A8DEEE1435994119A"
         ParkSweep             = "134ED776E45640FA67B7F51659711C33B37834105375CC4B083342469F2C26A9"
         IndexBuild            = "647DD166D5AD185DFDEAECE3FD091DF9F55195C98C4777DDB5A2970CDD892535"
@@ -22787,7 +22802,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "99ED9C6F835642918A7AE91C33FF6C998971B7633C07B9B9D1170DEDD07D2A2C"
+    $expectedFingerprint = "D546877BD582283FD47176D7D9A1846E083D12B8EC63BBA9A6DDFBC7B4493CD4"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
