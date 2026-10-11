@@ -9491,7 +9491,10 @@ function Get-WAllProperties {
     param($Entry,[string[]]$PropertyNames=@())
     $h=@{};$requested=@($PropertyNames|Where-Object{-not [string]::IsNullOrWhiteSpace($_)}|Select-Object -Unique)
     if(-not $requested.Count){throw 'Liste explicite de proprietes AD requise.'}
-    $Entry.psbase.RefreshCache([string[]]$requested)
+    # PF-27 : les appartenances sont relues par plages plus bas ; les demander ici les telechargerait deux fois.
+    $initial=@($requested|Where-Object{$_ -notin @('member','memberOf')})
+    if(-not $initial.Count){$initial=@('distinguishedName')}
+    $Entry.psbase.RefreshCache([string[]]$initial)
     $properties=$Entry.psbase.get_Properties()
     if($null -eq $properties){throw 'Collection AD indisponible.'}
     foreach($name in $requested){
@@ -9507,7 +9510,7 @@ function Get-WAllProperties {
         try {
             for($page=0;$page -lt 64;$page++){
                 if($watch.Elapsed.TotalSeconds -gt 10 -or $values.Count -ge 50000){$reason='Limite de temps ou de volume atteinte.';break}
-                $range=$attribute+';range='+$start+'-'+($start+999)
+                $range=$attribute+';range='+$start+'-'+($start+1499)
                 $Entry.psbase.RefreshCache([string[]]@($range))
                 $properties=$Entry.psbase.get_Properties();$returned=''
                 foreach($n in $properties.PropertyNames){if([string]$n -match ('^(?i:'+[regex]::Escape($attribute)+');range='+$start+'-(\*|\d+)$')){$returned=[string]$n;break}}

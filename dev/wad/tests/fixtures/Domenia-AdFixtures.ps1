@@ -616,3 +616,123 @@ function Get-DomeniaFixtureCatalog {
         LogonUtc=[datetime]::new(2026,9,30,7,45,12,[DateTimeKind]::Utc)
     }
 }
+
+function New-DomeniaFixtureRangedDirectoryEntry {
+    # DirectoryEntry stand-in for the ranged reads of Get-WAllProperties, unlike New-DomeniaFixtureDirectoryEntry
+    # which only answers a flat Properties bag. It answers the way a directory answers a multi-valued attribute:
+    #   - a plain request for an attribute that fits is cached under its own name; a plain request for one that
+    #     does not fit is cached truncated, under 'attribute;range=0-1499', which is the trap the product reads;
+    #   - a requested range that does not cover the rest of the attribute is cached under that very key;
+    #   - a range that covers the rest is cached under its own name when it starts at 0, and as
+    #     'attribute;range=start-*' otherwise, which is how the server closes a ranged read;
+    #   - the last gather of an attribute replaces the previous ones, so the caller sees one key per attribute.
+    # RefreshCache(string[]) records every name it was asked for: one flat list in Refreshed, one entry per call
+    # in Batches, so a test can tell what the product asked for, and in which order.
+    param([hashtable]$Attributes=@{})
+    if($null -eq ('DomeniaFixture.DirectoryEntryRangedDouble' -as [type])){
+        Add-Type -Language CSharp -TypeDefinition @'
+namespace DomeniaFixture
+{
+    using System;
+    using System.Collections;
+    using System.Collections.Generic;
+    using System.Globalization;
+
+    public sealed class DirectoryRangedProperties
+    {
+        private readonly Hashtable values;
+        public DirectoryRangedProperties(Hashtable values) { this.values = values; }
+        public object this[string name] { get { return values.Contains(name) ? values[name] : null; } }
+        public bool Contains(string name) { return values.Contains(name); }
+        public string[] PropertyNames
+        {
+            get
+            {
+                string[] names = new string[values.Keys.Count];
+                values.Keys.CopyTo(names, 0);
+                return names;
+            }
+        }
+    }
+
+    public sealed class DirectoryEntryRangedDouble
+    {
+        private const int MaxValuesPerRead = 1500;
+        private readonly Hashtable source;
+        private readonly Hashtable cached = new Hashtable(StringComparer.OrdinalIgnoreCase);
+        private readonly List<string> refreshed = new List<string>();
+        private readonly List<string> batches = new List<string>();
+        public DirectoryEntryRangedDouble(Hashtable source) { this.source = source; }
+        public DirectoryRangedProperties Properties { get { return new DirectoryRangedProperties(cached); } }
+        public string[] Refreshed { get { return refreshed.ToArray(); } }
+        public string[] Batches { get { return batches.ToArray(); } }
+        public void RefreshCache(string[] names)
+        {
+            if (names == null) { return; }
+            batches.Add(string.Join(",", names));
+            foreach (string name in names)
+            {
+                refreshed.Add(name);
+                int marker = name.IndexOf(";range=");
+                if (marker < 0)
+                {
+                    if (!source.Contains(name)) { continue; }
+                    IList whole = source[name] as IList;
+                    if (whole == null) { continue; }
+                    if (whole.Count > MaxValuesPerRead) { cached[name + ";range=0-" + (MaxValuesPerRead - 1).ToString(CultureInfo.InvariantCulture)] = Slice(whole, 0, MaxValuesPerRead - 1); }
+                    else { cached[name] = whole; }
+                    continue;
+                }
+                string attribute = name.Substring(0, marker);
+                if (!source.Contains(attribute)) { continue; }
+                IList values = source[attribute] as IList;
+                if (values == null) { continue; }
+                string spec = name.Substring(marker + 7);
+                int dash = spec.IndexOf('-');
+                if (dash < 0) { continue; }
+                int start = int.Parse(spec.Substring(0, dash), CultureInfo.InvariantCulture);
+                string endText = spec.Substring(dash + 1);
+                int end = endText == "*" ? int.MaxValue : int.Parse(endText, CultureInfo.InvariantCulture);
+                cached.Remove(attribute);
+                foreach (string stale in StaleKeys(attribute)) { cached.Remove(stale); }
+                if (start >= values.Count) { cached[attribute + ";range=" + start + "-*"] = new ArrayList(); continue; }
+                if (end >= values.Count - 1)
+                {
+                    if (start == 0) { cached[attribute] = values; }
+                    else { cached[attribute + ";range=" + start + "-*"] = Slice(values, start, values.Count - 1); }
+                    continue;
+                }
+                cached[name] = Slice(values, start, end);
+            }
+        }
+        private static ArrayList Slice(IList values, int start, int end)
+        {
+            ArrayList slice = new ArrayList();
+            int stop = end >= values.Count - 1 ? values.Count - 1 : end;
+            for (int i = start; i <= stop; i++) { slice.Add(values[i]); }
+            return slice;
+        }
+        private List<string> StaleKeys(string attribute)
+        {
+            List<string> keys = new List<string>();
+            foreach (DictionaryEntry entry in cached)
+            {
+                string key = (string)entry.Key;
+                if (key.StartsWith(attribute + ";range=", StringComparison.OrdinalIgnoreCase)) { keys.Add(key); }
+            }
+            return keys;
+        }
+    }
+}
+'@
+    }
+    # Les valeurs traversent PowerShell emballees en PSObject : la table .NET recoit l'objet deballe, sinon
+    # le double ne voit qu'un wrapper et ne peut plus compter les valeurs.
+    $source=New-Object Collections.Hashtable ([StringComparer]::OrdinalIgnoreCase)
+    foreach($name in @($Attributes.Keys)){
+        $value=$Attributes[$name]
+        if($null -ne $value){$value=$value.psobject.BaseObject}
+        [void]$source.Add([string]$name,$value)
+    }
+    return New-Object DomeniaFixture.DirectoryEntryRangedDouble -ArgumentList @(,$source)
+}

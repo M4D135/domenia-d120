@@ -66,7 +66,7 @@ try {
     $literal=$assignment[0].Right.Find({param($n)$n -is [Management.Automation.Language.StringConstantExpressionAst]},$true)
     $ct=$null;$ce=$null;$script:CommonAst=[Management.Automation.Language.Parser]::ParseInput([string]$literal.Value,[ref]$ct,[ref]$ce)
     if(@($ce).Count){throw 'Code commun des workers non analysable.'}
-    foreach($name in @('Get-WRemoteComputerName','Assert-WRemoteArtifactPermission','Get-WPsExecPath','Get-WMachineCredential','Get-WRemoteAdminCredential','Format-WRemoteFailureDetail','Invoke-WRemotePsExecScript','Get-WPropFirst')){
+    foreach($name in @('Get-WRemoteComputerName','Assert-WRemoteArtifactPermission','Get-WPsExecPath','Get-WMachineCredential','Get-WRemoteAdminCredential','Format-WRemoteFailureDetail','Invoke-WRemotePsExecScript','Get-WPropFirst','Get-WAllProperties','Convert-WDirectoryValue','Convert-WGuid','Convert-WSid','Convert-WLargeInteger')){
         . ([scriptblock]::Create((Get-FunctionText $script:CommonAst $name)))
     }
     . (Join-Path $PSScriptRoot 'fixtures\Domenia-AdFixtures.ps1')
@@ -206,6 +206,33 @@ catch { [pscustomobject]@{Imported=$false;Reconcile=$false;Message=$_.Exception.
         $p=New-DomeniaFixtureProperties @{objectguid=(New-DomeniaFixtureSingleValue $bytes)}
         $fixed=Get-WPropFirst $p 'objectguid'
         Assert-True ($fixed -is [byte[]] -and $fixed.Length -eq 16) 'Le code livre deroule encore le GUID binaire.'
+    }
+
+    # ------------------------------------------------------------ PF-27 : appartenances telechargees deux fois
+    Test-Case 'PF-27 appartenances : premier RefreshCache et plage de 1000 reproduits, plage de 1500 livree' {
+        $livre=Get-FunctionText $script:CommonAst 'Get-WAllProperties'
+        $garde='$Entry.psbase.RefreshCache([string[]]$initial)'
+        Assert-True ($livre.Contains($garde)) 'Le premier RefreshCache du code livre ne filtre plus les appartenances.'
+        $fautif=$livre.Replace($garde,'$Entry.psbase.RefreshCache([string[]]$requested)').Replace("'-'+(`$start+1499)","'-'+(`$start+999)")
+        $fautif=$fautif.Replace('function Get-WAllProperties','function Get-WAllPropertiesFautive')
+        Assert-True ($fautif.Contains('($start+999)') -and $fautif.Contains('[string[]]$requested)')) 'Version fautive non reconstituee.'
+        . ([scriptblock]::Create($fautif))
+        $dns=@()
+        for($i=1;$i -le 2500;$i++){$dns+=('CN=Membre '+[string]$i+',OU=Groupes,DC=example,DC=invalid')}
+        foreach($variant in @(@{Nom='fautive';Commande='Get-WAllPropertiesFautive';Plage='memberOf;range=0-999';AllersRetours=3;Filtre=$false},
+                              @{Nom='livree';Commande='Get-WAllProperties';Plage='memberOf;range=0-1499';AllersRetours=2;Filtre=$true})){
+            $entree=New-DomeniaFixtureRangedDirectoryEntry @{name=(New-DomeniaFixtureSingleValue 'Groupe Demo');memberOf=(New-DomeniaFixtureValues $dns)}
+            $lu=& $variant.Commande -Entry $entree -PropertyNames @('name','memberOf')
+            $lots=@($entree.Batches)
+            Assert-True ($lots.Count -ge 2) ('Version '+$variant.Nom+' : '+$lots.Count+' RefreshCache.')
+            $filtre=(-not $lots[0].Contains('member') -and -not $lots[0].Contains('memberOf'))
+            Assert-True ($filtre -eq $variant.Filtre) ('Version '+$variant.Nom+' : le premier RefreshCache demande ['+$lots[0]+'].')
+            Assert-True ($lots[1] -eq $variant.Plage) ('Version '+$variant.Nom+' : la premiere plage demandee est ['+$lots[1]+'].')
+            $plages=@($entree.Refreshed|Where-Object{$_ -like '*;range=*'}).Count
+            Assert-True ($plages -eq $variant.AllersRetours) ('Version '+$variant.Nom+' : '+$plages+' plages demandees.')
+            $valeurs=@($lu['memberOf'])
+            Assert-True ($valeurs.Count -eq 2500 -and [bool]$lu['__memberOfComplete'][0] -and [string]$lu['__memberOfNote'][0] -eq '') ('Version '+$variant.Nom+' : '+$valeurs.Count+' valeurs, complete = '+[string]$lu['__memberOfComplete'][0]+', note = ['+[string]$lu['__memberOfNote'][0]+'].')
+        }
     }
 
     # ------------------------------------------------------------ RC1.10.6 -> RC1.10.7 : prechargement debranche
