@@ -827,6 +827,74 @@ try {
         Assert-True (([string]$entree[0].Kind) -ceq 'Button') 'Nature de l aide BtnUserMove differente de l element XAML'
     }
 
+    # ------------------------------------------------------------ UX-14 : le responsable
+    Test-Case 'UX-14 : le responsable se lit en nom et se choisit, il ne se tape plus' {
+        # Les deux champs Responsable etaient des zones libres remplies du DN brut et relues telles
+        # quelles a l enregistrement : une phrase saisie partait au DC comme DN. La fiche montre un
+        # nom, le DN reste dans la variable script, et le choix passe par le selecteur commun.
+        $texte = Get-MainXaml
+        $xaml = [xml]$texte
+        $XNS = 'http://schemas.microsoft.com/winfx/2006/xaml'
+        $texteCore = Get-Content $core -Raw -Encoding UTF8
+        $aideBrutee = Get-Content -LiteralPath (Join-Path (Split-Path $core -Parent) 'modules/Domenia-UX.help.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+        $aide = @($aideBrutee)
+        foreach ($couple in @(@('TxtUserManager','BtnUserManagerPick','BtnUserManagerOpen','BtnUserManagerClear'),
+                              @('TxtCompManagedBy','BtnCompManagedByPick','BtnCompManagedByOpen','BtnCompManagedByClear'))) {
+            $nomChamp = $couple[0]
+            $champs = @($xaml.SelectNodes('//*[local-name()="TextBox"]') | Where-Object { $_.GetAttribute('Name',$XNS) -eq $nomChamp })
+            Assert-True ($champs.Count -eq 1) ($nomChamp + ' : ' + $champs.Count + ' occurrence(s)')
+            Assert-True (([string]$champs[0].GetAttribute('IsReadOnly')) -ceq 'True') ($nomChamp + ' reste modifiable au clavier')
+            Assert-True (([string]$champs[0].GetAttribute('AutomationProperties.HelpText')) -ceq [string]$champs[0].GetAttribute('ToolTip')) ($nomChamp + ' : l aide d automation ne reprend pas l infobulle')
+            Assert-True (-not ([string]$champs[0].GetAttribute('ToolTip')).Contains('Chemin complet')) ($nomChamp + ' annonce encore un chemin a recopier')
+            Assert-True (-not $texteCore.Contains('([string]$script:Ctrl["' + $nomChamp + '"].Text)')) ($nomChamp + ' est encore relu a l ecriture')
+            foreach ($bouton in @($couple[1], $couple[2], $couple[3])) {
+                $btns = @($xaml.SelectNodes('//*[local-name()="Button"]') | Where-Object { $_.GetAttribute('Name',$XNS) -eq $bouton })
+                Assert-True ($btns.Count -eq 1) ($bouton + ' : ' + $btns.Count + ' occurrence(s)')
+                Assert-True (-not ([string]$btns[0].GetAttribute('Style')).Contains('DangerButton')) ($bouton + ' est un bouton rouge')
+                Assert-True (([string]$btns[0].GetAttribute('AutomationProperties.HelpText')) -ceq [string]$btns[0].GetAttribute('ToolTip')) ($bouton + ' : l aide d automation ne reprend pas l infobulle')
+                Assert-True ($texteCore.Contains($bouton + '"].Add_Click({')) ($bouton + ' n est pas cable')
+                $entree = @($aide | Where-Object { $_.Name -eq $bouton })
+                Assert-True ($entree.Count -eq 1) ('Entree d aide ' + $bouton + ' : ' + $entree.Count + ' occurrence(s)')
+                Assert-True (([string]$entree[0].Title) -ceq [string]$btns[0].GetAttribute('AutomationProperties.Name')) ('Titre de l aide ' + $bouton + ' different du nom d automation')
+                Assert-True (([string]$entree[0].Text) -ceq [string]$btns[0].GetAttribute('ToolTip')) ('Texte de l aide ' + $bouton + ' different de l infobulle')
+                Assert-True (([string]$entree[0].Kind) -ceq 'Button') ('Nature de l aide ' + $bouton + ' differente de l element XAML')
+            }
+            $entreeChamp = @($aide | Where-Object { $_.Name -eq $nomChamp })
+            Assert-True ($entreeChamp.Count -eq 1) ('Entree d aide ' + $nomChamp + ' : ' + $entreeChamp.Count + ' occurrence(s)')
+            Assert-True (([string]$entreeChamp[0].Text) -ceq [string]$champs[0].GetAttribute('ToolTip')) ('Texte de l aide ' + $nomChamp + ' different de l infobulle')
+            Assert-True (([string]$entreeChamp[0].Kind) -ceq 'TextBox') ('Nature de l aide ' + $nomChamp + ' differente de l element XAML')
+        }
+        # Le nom affiche vient de l annuaire, le DN reste interne : c est la tout l ecart avec avant.
+        Assert-True ($texteCore.Contains('Set-DomeniaManagerField -Target ' + [char]39 + 'Utilisateur' + [char]39 + ' -Dn ([string](Get-DeProp $Entry "manager" ""))')) 'La fiche du compte n affiche plus le nom du responsable'
+        Assert-True ($texteCore.Contains('Set-DomeniaManagerField -Target ' + [char]39 + 'Machine' + [char]39 + ' -Dn ([string](Get-DeProp $Entry "managedBy" ""))')) 'La fiche du poste n affiche plus le nom du responsable'
+        Assert-True ($texteCore.Contains('New-DomeniaAttributeChange "manager" ([string]$script:UserManagerDn)')) 'Le manager ne se lit plus dans le DN interne'
+        Assert-True ($texteCore.Contains('New-DomeniaAttributeChange "managedBy" ([string]$script:CompManagedByDn)')) 'Le managedBy ne se lit plus dans le DN interne'
+        $fonc = @($nodes | Where-Object { $_.Name -eq 'Set-DomeniaManagerField' })
+        Assert-True ($fonc.Count -eq 1) 'Set-DomeniaManagerField introuvable dans le coeur'
+        $corps = [string]$fonc[0].Extent.Text
+        Assert-True ($corps.Contains('Get-DomeniaCnFromDn $dn')) 'Le nom lisible n est pas calcule depuis le DN'
+        Assert-True ($corps.Contains('if (-not $nom) { $nom = $dn }')) 'Un DN sans nom lisible laisse la fiche vide'
+        Assert-True ($corps.Contains("$script:UserManagerDn = `$dn")) 'Le DN du compte ne reste pas dans la variable script'
+        Assert-True ($corps.Contains("$script:CompManagedByDn = `$dn")) 'Le DN du poste ne reste pas dans la variable script'
+        $choix = @($nodes | Where-Object { $_.Name -eq 'Show-DomeniaManagerPicker' })
+        Assert-True ($choix.Count -eq 1) 'Show-DomeniaManagerPicker introuvable dans le coeur'
+        $corpsChoix = [string]$choix[0].Extent.Text
+        Assert-True ($corpsChoix.Contains('Show-DomeniaObjectPicker -Kind Utilisateur')) 'Le responsable ne passe pas par le selecteur commun'
+        Assert-True ($corpsChoix.Contains('Assert-WriteAllowed')) 'Le selecteur s ouvre sans verifier que l ecriture est permise'
+        Assert-True (-not $corpsChoix.Contains('Move-SelectedObject')) 'Le choix du responsable ecrit autre chose que la fiche'
+        $retirer = @($nodes | Where-Object { $_.Name -eq 'Clear-DomeniaManagerSelection' })
+        Assert-True ($retirer.Count -eq 1) 'Clear-DomeniaManagerSelection introuvable dans le coeur'
+        Assert-True (([string]$retirer[0].Extent.Text).Contains('Set-DomeniaManagerField -Target $Target -Dn ' + [char]39 + [char]39)) 'Retirer le responsable n est plus possible'
+        $ouvrir = @($nodes | Where-Object { $_.Name -eq 'Open-DomeniaManagerObject' })
+        Assert-True ($ouvrir.Count -eq 1) 'Open-DomeniaManagerObject introuvable dans le coeur'
+        Assert-True (([string]$ouvrir[0].Extent.Text).Contains("Open-AdObject -Dn `$dn -Type 'Utilisateur'")) 'Ouvrir ne va pas chercher la fiche de l objet'
+        $vider = @($nodes | Where-Object { $_.Name -eq 'Clear-ObjectDetails' })
+        Assert-True ($vider.Count -eq 1) 'Clear-ObjectDetails introuvable dans le coeur'
+        $corpsVider = [string]$vider[0].Extent.Text
+        Assert-True ($corpsVider.Contains("Set-DomeniaManagerField -Target 'Utilisateur' -Dn ''")) 'Le DN survit a un changement d objet'
+        Assert-True ($corpsVider.Contains("Set-DomeniaManagerField -Target 'Machine' -Dn ''")) 'Le DN du poste survit a un changement d objet'
+    }
+
     Test-Case 'SP-06 : les boutons de l inventaire annoncent la duree que le code paie' {
         $xaml = Get-MainXaml
         $approx = [string][char]0x2248

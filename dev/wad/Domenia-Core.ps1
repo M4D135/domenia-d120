@@ -677,6 +677,9 @@ $script:GuiElementPolicy = [ordered]@{
     "TxtUserDepartment" = "Default"
     "TxtUserCompany" = "Default"
     "TxtUserManager" = "Default"
+    "BtnUserManagerPick" = "Default"
+    "BtnUserManagerOpen" = "Default"
+    "BtnUserManagerClear" = "Default"
     "TxtUserState" = "Default"
     "TxtUserLastLogon" = "Default"
     "TxtUserPwdLastSet" = "Default"
@@ -727,6 +730,9 @@ $script:GuiElementPolicy = [ordered]@{
     "TxtCompDescription" = "Default"
     "TxtCompLocation" = "Default"
     "TxtCompManagedBy" = "Default"
+    "BtnCompManagedByPick" = "Default"
+    "BtnCompManagedByOpen" = "Default"
+    "BtnCompManagedByClear" = "Default"
     "TxtCompState" = "Default"
     "TxtCompLastLogon" = "Default"
     "TxtCompUac" = "Default"
@@ -5634,7 +5640,18 @@ function Get-MainXaml {
                           <Label Grid.Row="7" Grid.Column="0" Content="Societe"/>
                           <TextBox Grid.Row="7" Grid.Column="1" x:Name="TxtUserCompany" ToolTip="Societe ou entite de rattachement." Margin="0,0,14,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Societe" AutomationProperties.HelpText="Societe ou entite de rattachement."/>
                           <Label Grid.Row="7" Grid.Column="2" Content="Responsable"/>
-                          <TextBox Grid.Row="7" Grid.Column="3" x:Name="TxtUserManager" ToolTip="Chemin complet du responsable hierarchique." Margin="0,0,0,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Responsable" AutomationProperties.HelpText="Chemin complet du responsable hierarchique."/>
+                          <Grid Grid.Row="7" Grid.Column="3" Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                              <ColumnDefinition Width="*"/>
+                              <ColumnDefinition Width="Auto"/>
+                              <ColumnDefinition Width="Auto"/>
+                              <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0" x:Name="TxtUserManager" IsReadOnly="True" Background="{DynamicResource BgReadonly}" VerticalContentAlignment="Center" Margin="0,0,8,0" ToolTip="Nom du responsable hiérarchique, lu dans lʼannuaire. Le chemin complet reste interne : il ne se tape plus." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Responsable" AutomationProperties.HelpText="Nom du responsable hiérarchique, lu dans lʼannuaire. Le chemin complet reste interne : il ne se tape plus."/>
+                            <Button Grid.Column="1" x:Name="BtnUserManagerPick" Content="Choisir…" Style="{StaticResource RunButton}" MinHeight="32" Padding="10,4" Margin="0,0,6,0" ToolTip="Ouvre le sélecteur dʼutilisateurs du domaine : la recherche se lance sur Entrée ou sur le bouton, jamais pendant la frappe. Le choix reste local, aucune écriture nʼest lancée par ce clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Choisir le responsable" AutomationProperties.HelpText="Ouvre le sélecteur dʼutilisateurs du domaine : la recherche se lance sur Entrée ou sur le bouton, jamais pendant la frappe. Le choix reste local, aucune écriture nʼest lancée par ce clic."/>
+                            <Button Grid.Column="2" x:Name="BtnUserManagerOpen" Content="Ouvrir" Style="{StaticResource SecondaryButton}" MinHeight="32" Padding="10,4" Margin="0,0,6,0" Visibility="Collapsed" ToolTip="Ouvre la fiche de lʼutilisateur choisi comme responsable. Aucune écriture, aucune sonde de poste lancée par ce clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ouvrir le responsable" AutomationProperties.HelpText="Ouvre la fiche de lʼutilisateur choisi comme responsable. Aucune écriture, aucune sonde de poste lancée par ce clic."/>
+                            <Button Grid.Column="3" x:Name="BtnUserManagerClear" Content="Retirer" Style="{StaticResource SecondaryButton}" MinHeight="32" Padding="10,4" Visibility="Collapsed" ToolTip="Retirer le responsable affiché de la fiche. Lʼeffacement de la valeur dans lʼannuaire ne se fait quʼà lʼenregistrement." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Retirer le responsable" AutomationProperties.HelpText="Retirer le responsable affiché de la fiche. Lʼeffacement de la valeur dans lʼannuaire ne se fait quʼà lʼenregistrement."/>
+                          </Grid>
                           <Label Grid.Row="8" Grid.Column="0" Content="Presence"/>
                           <TextBox Grid.Row="8" Grid.Column="1" x:Name="TxtUserPresence" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,14,8" ToolTip="État de joignabilité connu du poste associé. Cela ne prouve pas que l’utilisateur est actuellement connecté." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Présence du poste associé" AutomationProperties.HelpText="État de joignabilité connu du poste associé. Cela ne prouve pas que l’utilisateur est actuellement connecté."/>
                           <Label Grid.Row="8" Grid.Column="2" Content="Etat"/>
@@ -6374,7 +6391,18 @@ function Get-MainXaml {
                           <Label Grid.Row="3" Grid.Column="2" Content="Localisation"/>
                           <TextBox Grid.Row="3" Grid.Column="3" x:Name="TxtCompLocation" ToolTip="Emplacement physique du poste." Margin="0,0,0,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Localisation" AutomationProperties.HelpText="Emplacement physique du poste."/>
                           <Label Grid.Row="4" Grid.Column="0" Content="Responsable"/>
-                          <TextBox Grid.Row="4" Grid.Column="1" x:Name="TxtCompManagedBy" ToolTip="Chemin complet du responsable du poste." Margin="0,0,0,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Responsable" AutomationProperties.HelpText="Chemin complet du responsable du poste."/>
+                          <Grid Grid.Row="4" Grid.Column="1" Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                              <ColumnDefinition Width="*"/>
+                              <ColumnDefinition Width="Auto"/>
+                              <ColumnDefinition Width="Auto"/>
+                              <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0" x:Name="TxtCompManagedBy" IsReadOnly="True" Background="{DynamicResource BgReadonly}" VerticalContentAlignment="Center" Margin="0,0,8,0" ToolTip="Nom du responsable du poste, lu dans lʼannuaire. Le chemin complet reste interne : il ne se tape plus." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Responsable" AutomationProperties.HelpText="Nom du responsable du poste, lu dans lʼannuaire. Le chemin complet reste interne : il ne se tape plus."/>
+                            <Button Grid.Column="1" x:Name="BtnCompManagedByPick" Content="Choisir…" Style="{StaticResource RunButton}" MinHeight="32" Padding="10,4" Margin="0,0,6,0" ToolTip="Ouvre le sélecteur dʼutilisateurs du domaine : la recherche se lance sur Entrée ou sur le bouton, jamais pendant la frappe. Le choix reste local, aucune écriture nʼest lancée par ce clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Choisir le responsable" AutomationProperties.HelpText="Ouvre le sélecteur dʼutilisateurs du domaine : la recherche se lance sur Entrée ou sur le bouton, jamais pendant la frappe. Le choix reste local, aucune écriture nʼest lancée par ce clic."/>
+                            <Button Grid.Column="2" x:Name="BtnCompManagedByOpen" Content="Ouvrir" Style="{StaticResource SecondaryButton}" MinHeight="32" Padding="10,4" Margin="0,0,6,0" Visibility="Collapsed" ToolTip="Ouvre la fiche de lʼutilisateur choisi comme responsable du poste. Aucune écriture, aucune sonde de poste lancée par ce clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ouvrir le responsable" AutomationProperties.HelpText="Ouvre la fiche de lʼutilisateur choisi comme responsable du poste. Aucune écriture, aucune sonde de poste lancée par ce clic."/>
+                            <Button Grid.Column="3" x:Name="BtnCompManagedByClear" Content="Retirer" Style="{StaticResource SecondaryButton}" MinHeight="32" Padding="10,4" Visibility="Collapsed" ToolTip="Retirer le responsable affiché de la fiche. Lʼeffacement de la valeur dans lʼannuaire ne se fait quʼà lʼenregistrement." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Retirer le responsable" AutomationProperties.HelpText="Retirer le responsable affiché de la fiche. Lʼeffacement de la valeur dans lʼannuaire ne se fait quʼà lʼenregistrement."/>
+                          </Grid>
                           <Label Grid.Row="5" Grid.Column="0" Content="Etat"/>
                           <TextBox Grid.Row="5" Grid.Column="1" x:Name="TxtCompState" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,14,8" ToolTip="État du compte dans le domaine. Il ne décrit pas l’état de marche de Windows." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="État du compte ordinateur" AutomationProperties.HelpText="État du compte dans le domaine. Il ne décrit pas l’état de marche de Windows."/>
                           <Label Grid.Row="5" Grid.Column="2" Content="Derniere connexion"/>
@@ -8203,6 +8231,8 @@ function Clear-ObjectDetails {
         "TxtUserHomeDrive","TxtUserWorkstations","TxtCompName","TxtCompDns","TxtCompOs","TxtCompOsVersion","TxtCompDescription","TxtCompLocation","TxtCompManagedBy","TxtCompState","TxtCompLastLogon","TxtCompUac","TxtCompLinkedUser","TxtCompLinkSource","TxtGroupName","TxtGroupDescription")) {
         try { $script:Ctrl[$name].Text = "" } catch { }
     }
+    Set-DomeniaManagerField -Target 'Utilisateur' -Dn ''
+    Set-DomeniaManagerField -Target 'Machine' -Dn ''
     try { [void](Set-DomeniaItemsSource -Name "TxtUserLinkedComputers" -Rows @()) } catch { }
     try { $script:Ctrl["LstMemberOf"].ItemsSource=$null; $script:Ctrl["LstMemberOf"].Items.Clear() } catch { }
     try { $script:Ctrl["LstGroupMembers"].ItemsSource=$null; $script:Ctrl["LstGroupMembers"].Items.Clear() } catch { }
@@ -8390,7 +8420,7 @@ function Fill-UserObject {
     $script:Ctrl["TxtUserTitle"].Text = [string](Get-DeProp $Entry "title" "")
     $script:Ctrl["TxtUserDepartment"].Text = [string](Get-DeProp $Entry "department" "")
     $script:Ctrl["TxtUserCompany"].Text = [string](Get-DeProp $Entry "company" "")
-    $script:Ctrl["TxtUserManager"].Text = [string](Get-DeProp $Entry "manager" "")
+    Set-DomeniaManagerField -Target 'Utilisateur' -Dn ([string](Get-DeProp $Entry "manager" ""))
     $script:Ctrl["TxtUserState"].Text = Get-UacStatusLabel $uac $lockout (Get-DeProp $entry "msDS-User-Account-Control-Computed" $null)
     $script:Ctrl["TxtUserLastLogon"].Text = Convert-FileTimeLabel (Get-DeProp $Entry "lastLogonTimestamp" 0)
     $script:Ctrl["TxtUserPwdLastSet"].Text = Convert-FileTimeLabel (Get-DeProp $Entry "pwdLastSet" 0)
@@ -8494,7 +8524,7 @@ function Fill-ComputerObject {
     $script:Ctrl["TxtCompOsVersion"].Text = [string](Get-DeProp $Entry "operatingSystemVersion" "")
     $script:Ctrl["TxtCompDescription"].Text = [string](Get-DeProp $Entry "description" "")
     $script:Ctrl["TxtCompLocation"].Text = [string](Get-DeProp $Entry "location" "")
-    $script:Ctrl["TxtCompManagedBy"].Text = [string](Get-DeProp $Entry "managedBy" "")
+    Set-DomeniaManagerField -Target 'Machine' -Dn ([string](Get-DeProp $Entry "managedBy" ""))
     $script:Ctrl["TxtCompState"].Text = Get-UacStatusLabel $uac 0
     $script:Ctrl["TxtCompLastLogon"].Text = Convert-FileTimeLabel (Get-DeProp $Entry "lastLogonTimestamp" 0)
     $script:Ctrl["TxtCompUac"].Text = Get-UacFlagsLabel $uac
@@ -8942,6 +8972,80 @@ function Move-DomeniaSelectedUserWithOuPicker {
     }
     catch { Show-ErrorBox "Déplacement impossible : $($_.Exception.Message)" }
 }
+
+function Get-DomeniaManagerControls {
+    param([Parameter(Mandatory=$true)][ValidateSet('Utilisateur','Machine')][string]$Target)
+    # Une seule carte pour les deux fiches : le nom se montre, le DN ne vit que dans la variable script.
+    if ($Target -eq 'Utilisateur') {
+        return [pscustomobject]@{Txt='TxtUserManager'; Pick='BtnUserManagerPick'; Open='BtnUserManagerOpen'; Clear='BtnUserManagerClear'}
+    }
+    return [pscustomobject]@{Txt='TxtCompManagedBy'; Pick='BtnCompManagedByPick'; Open='BtnCompManagedByOpen'; Clear='BtnCompManagedByClear'}
+}
+
+function Get-DomeniaManagerDn {
+    param([Parameter(Mandatory=$true)][ValidateSet('Utilisateur','Machine')][string]$Target)
+    if ($Target -eq 'Utilisateur') { return [string]$script:UserManagerDn }
+    return [string]$script:CompManagedByDn
+}
+
+function Set-DomeniaManagerField {
+    # UX-14 : la fiche affiche un nom, jamais un DN. Le DN choisi reste la seule valeur transmise a
+    # l'ecriture ; Ouvrir et Retirer ne paraissent que quand un responsable est pose.
+    param([Parameter(Mandatory=$true)][ValidateSet('Utilisateur','Machine')][string]$Target,[AllowEmptyString()][string]$Dn='')
+    $dn = [string]$Dn
+    if ($Target -eq 'Utilisateur') { $script:UserManagerDn = $dn } else { $script:CompManagedByDn = $dn }
+    $nom = ''
+    if ($dn) { $nom = [string](Get-DomeniaCnFromDn $dn); if (-not $nom) { $nom = $dn } }
+    $c = Get-DomeniaManagerControls -Target $Target
+    try { $script:Ctrl[$c.Txt].Text = $nom } catch { }
+    $visible = if ($dn) { 'Visible' } else { 'Collapsed' }
+    try { $script:Ctrl[$c.Open].Visibility = $visible } catch { }
+    try { $script:Ctrl[$c.Clear].Visibility = $visible } catch { }
+}
+
+function Show-DomeniaManagerPicker {
+    # Le responsable se cherche dans le domaine, il ne se tape pas : c'est le selecteur commun, en kind
+    # Utilisateur, recherche declenchee sur Entree ou sur le bouton. Le choix reste local, l'ecriture
+    # se fait a l'enregistrement de la fiche, avec le controle de fraicheur et la confirmation usuels.
+    param([Parameter(Mandatory=$true)][ValidateSet('Utilisateur','Machine')][string]$Target)
+    try {
+        Assert-WriteAllowed
+        $actuel = Get-DomeniaManagerDn -Target $Target
+        $titre = if ($Target -eq 'Utilisateur') { 'Choisir le responsable du compte' } else { 'Choisir le responsable du poste' }
+        $picked = Show-DomeniaObjectPicker -Kind Utilisateur -Title $titre -Prompt (
+            'Recherchez un utilisateur par nom, puis confirmez. Le responsable choisi reste local : il ne sera écrit dans l' + [string][char]0x02BC + 'annuaire qu' + [string][char]0x02BC + 'à l' + [string][char]0x02BC + 'enregistrement.')
+        if ($null -eq $picked) { return }
+        $nouveau = [string]$picked.DN
+        if ([string]::IsNullOrWhiteSpace($nouveau)) { return }
+        if ($nouveau -ieq $actuel) { Set-Status 'Le responsable choisi est déjà celui de la fiche. Aucune modification.'; return }
+        Set-DomeniaManagerField -Target $Target -Dn $nouveau
+        Set-Status ('Responsable choisi : ' + [string]$picked.Name + '. Enregistrez la fiche pour l' + [string][char]0x02BC + 'écrire dans l' + [string][char]0x02BC + 'annuaire.')
+    }
+    catch { Show-ErrorBox "Choix du responsable impossible : $($_.Exception.Message)" }
+}
+
+function Clear-DomeniaManagerSelection {
+    # Retirer le responsable reste possible : c'est la valeur vide, ecrite plus tard, pas une suppression immediate.
+    param([Parameter(Mandatory=$true)][ValidateSet('Utilisateur','Machine')][string]$Target)
+    try {
+        Assert-WriteAllowed
+        if (-not (Get-DomeniaManagerDn -Target $Target)) { return }
+        Set-DomeniaManagerField -Target $Target -Dn ''
+        Set-Status ('Responsable retiré de la fiche. Enregistrez pour effacer la valeur dans l' + [string][char]0x02BC + 'annuaire.')
+    }
+    catch { Show-ErrorBox "Retrait du responsable impossible : $($_.Exception.Message)" }
+}
+
+function Open-DomeniaManagerObject {
+    param([Parameter(Mandatory=$true)][ValidateSet('Utilisateur','Machine')][string]$Target)
+    try {
+        $dn = Get-DomeniaManagerDn -Target $Target
+        if ([string]::IsNullOrWhiteSpace($dn)) { Set-Status 'Aucun responsable sur cette fiche.' 'WARN'; return }
+        Open-AdObject -Dn $dn -Type 'Utilisateur'
+    }
+    catch { Show-ErrorBox "Ouverture du responsable impossible : $($_.Exception.Message)" }
+}
+
 
 function Add-SelectedLink {
     # Aucune fenêtre de sélection : l'association se prépare dans le panneau Ajouter de Relations (UI-09).
@@ -21342,9 +21446,15 @@ function Wire-Events {
     $script:Ctrl["BtnNeverExpires"].Add_Click({ Set-UserExpiration $true })
     $script:Ctrl["BtnExpirePwdNow"].Add_Click({ Expire-UserPasswordNow })
     $script:Ctrl["BtnUserMove"].Add_Click({ Move-DomeniaSelectedUserWithOuPicker })
+    $script:Ctrl["BtnUserManagerPick"].Add_Click({ Show-DomeniaManagerPicker -Target 'Utilisateur' })
+    $script:Ctrl["BtnUserManagerOpen"].Add_Click({ Open-DomeniaManagerObject -Target 'Utilisateur' })
+    $script:Ctrl["BtnUserManagerClear"].Add_Click({ Clear-DomeniaManagerSelection -Target 'Utilisateur' })
     $script:Ctrl["BtnUserAddGroup"].Add_Click({ AddOrRemoveObjectGroup $script:Ctrl["TxtUserGroupTarget"].Text $true })
     $script:Ctrl["BtnUserRemoveGroup"].Add_Click({ AddOrRemoveObjectGroup $script:Ctrl["TxtUserGroupTarget"].Text $false })
     $script:Ctrl["BtnCompSave"].Add_Click({ Save-ComputerProfile })
+    $script:Ctrl["BtnCompManagedByPick"].Add_Click({ Show-DomeniaManagerPicker -Target 'Machine' })
+    $script:Ctrl["BtnCompManagedByOpen"].Add_Click({ Open-DomeniaManagerObject -Target 'Machine' })
+    $script:Ctrl["BtnCompManagedByClear"].Add_Click({ Clear-DomeniaManagerSelection -Target 'Machine' })
     $script:Ctrl["BtnCompEnable"].Add_Click({ Set-AccountDisabled $false })
     $script:Ctrl["BtnCompDisable"].Add_Click({ Set-AccountDisabled $true })
     $script:Ctrl["BtnCompPing"].Add_Click({ Invoke-ComputerTool "Ping" })
@@ -25715,7 +25825,7 @@ function Save-UserProfile {
             New-DomeniaAttributeChange "title" ([string]$script:Ctrl["TxtUserTitle"].Text)
             New-DomeniaAttributeChange "department" ([string]$script:Ctrl["TxtUserDepartment"].Text)
             New-DomeniaAttributeChange "company" ([string]$script:Ctrl["TxtUserCompany"].Text)
-            New-DomeniaAttributeChange "manager" ([string]$script:Ctrl["TxtUserManager"].Text)
+            New-DomeniaAttributeChange "manager" ([string]$script:UserManagerDn)
         )
         Start-DomeniaAttributeWrite -OperationName "Enregistrement utilisateur" -Changes $changes -Capability "Edit" -DisableControls @("BtnUserSave")
     }
@@ -25728,7 +25838,7 @@ function Save-ComputerProfile {
         $changes = @(
             New-DomeniaAttributeChange "description" ([string]$script:Ctrl["TxtCompDescription"].Text)
             New-DomeniaAttributeChange "location" ([string]$script:Ctrl["TxtCompLocation"].Text)
-            New-DomeniaAttributeChange "managedBy" ([string]$script:Ctrl["TxtCompManagedBy"].Text)
+            New-DomeniaAttributeChange "managedBy" ([string]$script:CompManagedByDn)
         )
         Start-DomeniaAttributeWrite -OperationName "Enregistrement machine" -Changes $changes -Capability "Edit" -DisableControls @("BtnCompSave")
     }

@@ -708,10 +708,31 @@
   {
     "Name": "TxtUserManager",
     "Title": "Responsable",
-    "Text": "Chemin complet du responsable hierarchique.",
+    "Text": "Nom du responsable hiérarchique, lu dans lʼannuaire. Le chemin complet reste interne : il ne se tape plus.",
     "Kind": "TextBox",
-    "Source": "existing-help"
+    "Source": "L11"
+  },  {
+    "Name": "BtnUserManagerPick",
+    "Title": "Choisir le responsable",
+    "Text": "Ouvre le sélecteur dʼutilisateurs du domaine : la recherche se lance sur Entrée ou sur le bouton, jamais pendant la frappe. Le choix reste local, aucune écriture nʼest lancée par ce clic.",
+    "Kind": "Button",
+    "Source": "L11"
   },
+  {
+    "Name": "BtnUserManagerOpen",
+    "Title": "Ouvrir le responsable",
+    "Text": "Ouvre la fiche de lʼutilisateur choisi comme responsable. Aucune écriture, aucune sonde de poste lancée par ce clic.",
+    "Kind": "Button",
+    "Source": "L11"
+  },
+  {
+    "Name": "BtnUserManagerClear",
+    "Title": "Retirer le responsable",
+    "Text": "Retirer le responsable affiché de la fiche. Lʼeffacement de la valeur dans lʼannuaire ne se fait quʼà lʼenregistrement.",
+    "Kind": "Button",
+    "Source": "L11"
+  },
+
   {
     "Name": "TxtUserPresence",
     "Title": "Présence du poste associé",
@@ -1534,10 +1555,31 @@
   {
     "Name": "TxtCompManagedBy",
     "Title": "Responsable",
-    "Text": "Chemin complet du responsable du poste.",
+    "Text": "Nom du responsable du poste, lu dans lʼannuaire. Le chemin complet reste interne : il ne se tape plus.",
     "Kind": "TextBox",
-    "Source": "existing-help"
+    "Source": "L11"
+  },  {
+    "Name": "BtnCompManagedByPick",
+    "Title": "Choisir le responsable",
+    "Text": "Ouvre le sélecteur dʼutilisateurs du domaine : la recherche se lance sur Entrée ou sur le bouton, jamais pendant la frappe. Le choix reste local, aucune écriture nʼest lancée par ce clic.",
+    "Kind": "Button",
+    "Source": "L11"
   },
+  {
+    "Name": "BtnCompManagedByOpen",
+    "Title": "Ouvrir le responsable",
+    "Text": "Ouvre la fiche de lʼutilisateur choisi comme responsable du poste. Aucune écriture, aucune sonde de poste lancée par ce clic.",
+    "Kind": "Button",
+    "Source": "L11"
+  },
+  {
+    "Name": "BtnCompManagedByClear",
+    "Title": "Retirer le responsable",
+    "Text": "Retirer le responsable affiché de la fiche. Lʼeffacement de la valeur dans lʼannuaire ne se fait quʼà lʼenregistrement.",
+    "Kind": "Button",
+    "Source": "L11"
+  },
+
   {
     "Name": "TxtCompState",
     "Title": "État du compte ordinateur",
