@@ -951,6 +951,67 @@ try {
         Assert-True (([string]$resto[0].Extent.Text).Contains('ForcePasswordChangeOnReset')) 'Le reglage du changement obligatoire n est jamais applique'
     }
 
+    # ------------------------------------------------------------ FO-06 : bandeau d'etat du compte
+    Test-Case 'FO-06 : la fiche annonce verrouillage, echeance et echecs de mot de passe' {
+        # Le modele savait dire ces trois-la depuis D061-D063, l'interface ne les a jamais demandés.
+        $texte = Get-MainXaml
+        $xaml = [xml]$texte
+        $XNS = 'http://schemas.microsoft.com/winfx/2006/xaml'
+        $texteCore = Get-Content $core -Raw -Encoding UTF8
+        $aideBrutee = Get-Content -LiteralPath (Join-Path (Split-Path $core -Parent) 'modules/Domenia-UX.help.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+        $aide = @($aideBrutee)
+        $bandes = @($xaml.SelectNodes('//*[local-name()="Border"]') | Where-Object { $_.GetAttribute('Name',$XNS) -eq 'PnlUserSupportBand' })
+        Assert-True ($bandes.Count -eq 1) ('PnlUserSupportBand : ' + $bandes.Count + ' occurrence(s)')
+        Assert-True (([string]$bandes[0].GetAttribute('Visibility')) -ceq 'Collapsed') 'Le bandeau parait avant meme la lecture du compte'
+        Assert-True (([string]$bandes[0].GetAttribute('AutomationProperties.HelpText')) -ceq [string]$bandes[0].GetAttribute('ToolTip')) 'PnlUserSupportBand : l aide d automation ne reprend pas l infobulle'
+        $titres = @($xaml.SelectNodes('//*[local-name()="TextBlock"]') | Where-Object { $_.GetAttribute('Name',$XNS) -eq 'TxtUserSupportBand' })
+        Assert-True ($titres.Count -eq 1) ('TxtUserSupportBand : ' + $titres.Count + ' occurrence(s)')
+        Assert-True (([string]$titres[0].GetAttribute('TextWrapping')) -ceq 'Wrap') 'Le bandeau tronque ce que le controleur a repondu'
+        Assert-True (([string]$titres[0].GetAttribute('AutomationProperties.HelpText')).Length -gt 40) 'TxtUserSupportBand : aucune aide d automation'
+        $details = @($xaml.SelectNodes('//*[local-name()="TextBlock"]') | Where-Object { $_.GetAttribute('Name',$XNS) -eq 'TxtUserSupportDetail' })
+        Assert-True ($details.Count -eq 1) ('TxtUserSupportDetail : ' + $details.Count + ' occurrence(s)')
+        Assert-True (([string]$details[0].GetAttribute('Visibility')) -ceq 'Collapsed') 'Les limites s affichent sans rien a limiter'
+        $btns = @($xaml.SelectNodes('//*[local-name()="Button"]') | Where-Object { $_.GetAttribute('Name',$XNS) -eq 'BtnUserSupportUnlock' })
+        Assert-True ($btns.Count -eq 1) ('BtnUserSupportUnlock : ' + $btns.Count + ' occurrence(s)')
+        Assert-True (([string]$btns[0].GetAttribute('Visibility')) -ceq 'Collapsed') 'Le bouton de deverrouillage parait sur un compte qui ne lest pas'
+        Assert-True (-not ([string]$btns[0].GetAttribute('Style')).Contains('DangerButton')) 'Deverrouiller depuis le bandeau est un bouton rouge'
+        Assert-True (([string]$btns[0].GetAttribute('AutomationProperties.HelpText')) -ceq [string]$btns[0].GetAttribute('ToolTip')) 'BtnUserSupportUnlock : l aide d automation ne reprend pas l infobulle'
+        Assert-True ($texteCore.Contains('BtnUserSupportUnlock"].Add_Click({ Unlock-UserAccount })')) 'Le bouton du bandeau ne mene a aucune action'
+        Assert-True ($texteCore.Contains('Account = @("BtnUserUnlock","BtnUserSupportUnlock"')) 'Le bouton du bandeau reste cliquable en lecture seule'
+        # L echeance et les echecs ne se lisent que si la fiche les demande au controleur.
+        Assert-True ($texteCore.Contains('"msDS-UserPasswordExpiryTimeComputed"')) 'La liste d attributs lus ignore l echeance calculee'
+        Assert-True ($texteCore.Contains('"badPasswordTime"')) 'La liste d attributs lus ignore la date du dernier echec'
+        # Le bandeau appelle le modele : c est la raison d etre de ces trois fonctions.
+        $maj = @($nodes | Where-Object { $_.Name -eq 'Update-DomeniaUserSupportBand' })
+        Assert-True ($maj.Count -eq 1) 'Update-DomeniaUserSupportBand introuvable dans le coeur'
+        $corps = [string]$maj[0].Extent.Text
+        foreach ($app in @('Get-DomeniaLockoutDiagnosis','Resolve-DomeniaPasswordPolicy','Get-DomeniaUserSupportSummary')) {
+            Assert-True ($corps.Contains($app)) ('Le bandeau n appelle pas ' + $app)
+        }
+        Assert-True ($corps.Contains('-EventReadState ' + [char]39 + 'NotRequested' + [char]39)) 'Le bandeau lit le journal sans que personne le lui demande'
+        Assert-True (-not $corps.Contains('Start-DomeniaWriteTask')) 'Le bandeau ecrit dans l annuaire de sa propre initiative'
+        $fill = @($nodes | Where-Object { $_.Name -eq 'Fill-UserObject' })
+        Assert-True ($fill.Count -eq 1) 'Fill-UserObject introuvable dans le coeur'
+        Assert-True (([string]$fill[0].Extent.Text).Contains('Update-DomeniaUserSupportBand -Entry $Entry')) 'Le bandeau ne se remplit pas a la lecture de la fiche'
+        $clear = @($nodes | Where-Object { $_.Name -eq 'Clear-ObjectDetails' })
+        Assert-True ($clear.Count -eq 1) 'Clear-ObjectDetails introuvable dans le coeur'
+        Assert-True (([string]$clear[0].Extent.Text).Contains('Update-DomeniaUserSupportBand -Entry $null')) 'Le bandeau survit a un changement d objet'
+        # Fiche d aide : une entree par controle nouveau, titre = nom d automation, texte = infobulle.
+        foreach ($pair in @(@('PnlUserSupportBand','Border'), @('TxtUserSupportBand','TextBlock'), @('TxtUserSupportDetail','TextBlock'), @('BtnUserSupportUnlock','Button'))) {
+            $trouvees = @($aide | Where-Object { $_.Name -eq $pair[0] })
+            Assert-True ($trouvees.Count -eq 1) ('Entree d aide ' + $pair[0] + ' : ' + $trouvees.Count + ' occurrence(s)')
+            Assert-True (([string]$trouvees[0].Kind) -ceq $pair[1]) ('Nature de l aide ' + $pair[0] + ' differente de l element XAML')
+        }
+        $entreeBtn = @($aide | Where-Object { $_.Name -eq 'BtnUserSupportUnlock' })
+        Assert-True (([string]$entreeBtn[0].Title) -ceq [string]$btns[0].GetAttribute('AutomationProperties.Name')) 'Titre de l aide BtnUserSupportUnlock different du nom d automation'
+        Assert-True (([string]$entreeBtn[0].Text) -ceq [string]$btns[0].GetAttribute('ToolTip')) 'Texte de l aide BtnUserSupportUnlock different de l infobulle'
+        $entreeBand = @($aide | Where-Object { $_.Name -eq 'PnlUserSupportBand' })
+        Assert-True (([string]$entreeBand[0].Text) -ceq [string]$bandes[0].GetAttribute('ToolTip')) 'Texte de l aide PnlUserSupportBand different de l infobulle'
+        $entreeTitre = @($aide | Where-Object { $_.Name -eq 'TxtUserSupportBand' })
+        Assert-True (([string]$entreeTitre[0].Title) -ceq [string]$titres[0].GetAttribute('AutomationProperties.Name')) 'Titre de l aide TxtUserSupportBand different du nom d automation'
+        Assert-True (([string]$entreeTitre[0].Text) -ceq [string]$titres[0].GetAttribute('AutomationProperties.HelpText')) 'Texte de l aide TxtUserSupportBand different de son aide d automation'
+    }
+
     Test-Case 'SP-06 : les boutons de l inventaire annoncent la duree que le code paie' {
         $xaml = Get-MainXaml
         $approx = [string][char]0x2248

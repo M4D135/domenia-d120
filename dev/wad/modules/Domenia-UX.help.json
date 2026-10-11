@@ -1014,6 +1014,34 @@
     "Source": "L11"
   },
   {
+    "Name": "PnlUserSupportBand",
+    "Title": "État du compte pour le support",
+    "Text": "Ce que le contrôleur a répondu sur ce compte : verrouillage, échéance du mot de passe, échecs de connexion. Rien nʼest déduit dʼune stratégie non lue.",
+    "Kind": "Border",
+    "Source": "L11"
+  },
+  {
+    "Name": "TxtUserSupportBand",
+    "Title": "État du compte relevé sur le contrôleur",
+    "Text": "État relevé à la lecture de la fiche : verrouillage, échéance du mot de passe, échecs de connexion. Le bandeau ne parait que quand le contrôleur a quelque chose à signaler.",
+    "Kind": "TextBlock",
+    "Source": "L11"
+  },
+  {
+    "Name": "TxtUserSupportDetail",
+    "Title": "Limites de lʼétat du compte",
+    "Text": "Rappelle ce que la valeur affichée ne prouve pas : un compteur dʼhecs nʼest pas répliqué, une échéance calculée ne remplace pas la strégie.",
+    "Kind": "TextBlock",
+    "Source": "L11"
+  },
+  {
+    "Name": "BtnUserSupportUnlock",
+    "Title": "Déverrouiller maintenant le compte verrouillé",
+    "Text": "Efface lʼhorodatage de verrouillage sur le contrôleur interrogé, avec la valeur avant et la valeur après.",
+    "Kind": "Button",
+    "Source": "L11"
+  },
+  {
     "Name": "BtnUserResetPwd",
     "Title": "Mot de passe",
     "Text": "Definit un nouveau mot de passe pour ce compte.",

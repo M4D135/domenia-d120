@@ -691,6 +691,10 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnUserSave" = "Default"
     "TabUserAdmin" = "Default"
     "BtnUserUnlock" = "Default"
+    "PnlUserSupportBand" = "Default"
+    "TxtUserSupportBand" = "Default"
+    "TxtUserSupportDetail" = "Default"
+    "BtnUserSupportUnlock" = "Default"
     "BtnUserEnable" = "Default"
     "BtnUserDisable" = "Default"
     "PwdUserNew" = "Default"
@@ -5596,6 +5600,14 @@ function Get-MainXaml {
                   <TabItem x:Name="TabUser" ToolTip="Identité, coordonnées professionnelles et état du compte." Header="Utilisateur" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Utilisateur" AutomationProperties.HelpText="Identite, coordonnees professionnelles et etat du compte.">
                     <Border Style="{StaticResource Card}" Margin="4">
                       <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                        <Border x:Name="PnlUserSupportBand" Visibility="Collapsed" Background="{DynamicResource BgReadonly}" BorderBrush="{DynamicResource AccentColor}" BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,0,0,10" ToolTip="Ce que le contrôleur a répondu sur ce compte : verrouillage, échéance du mot de passe, échecs de connexion. Rien nʼest déduit dʼune stratégie non lue." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="État du compte pour le support" AutomationProperties.HelpText="Ce que le contrôleur a répondu sur ce compte : verrouillage, échéance du mot de passe, échecs de connexion. Rien nʼest déduit dʼune stratégie non lue.">
+                          <StackPanel>
+                            <TextBlock x:Name="TxtUserSupportBand" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" AutomationProperties.Name="État du compte relevé sur le contrôleur" AutomationProperties.HelpText="État relevé à la lecture de la fiche : verrouillage, échéance du mot de passe, échecs de connexion. Le bandeau ne parait que quand le contrôleur a quelque chose à signaler."/>
+                            <TextBlock x:Name="TxtUserSupportDetail" FontSize="13" TextWrapping="Wrap" Margin="0,4,0,0" Visibility="Collapsed" AutomationProperties.Name="Limites de lʼétat du compte" AutomationProperties.HelpText="Rappelle ce que la valeur affichée ne prouve pas : un compteur dʼhecs nʼest pas répliqué, une échéance calculée ne remplace pas la strégie."/>
+                            <Button x:Name="BtnUserSupportUnlock" Content="Déverrouiller maintenant" Style="{StaticResource SecondaryButton}" MinHeight="32" Padding="10,4" Margin="0,8,0,0" HorizontalAlignment="Left" MinWidth="170" Visibility="Collapsed" ToolTip="Efface lʼhorodatage de verrouillage sur le contrôleur interrogé, avec la valeur avant et la valeur après." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Déverrouiller maintenant le compte verrouillé" AutomationProperties.HelpText="Efface lʼhorodatage de verrouillage sur le contrôleur interrogé, avec la valeur avant et la valeur après."/>
+                          </StackPanel>
+                        </Border>
                         <Grid>
                           <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="150"/>
@@ -5675,6 +5687,7 @@ function Get-MainXaml {
                           <TextBlock Grid.Row="12" Grid.ColumnSpan="4" x:Name="LblUserLinkSummary" Text="Aucun poste associé." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,0,0,8"/>
                           <Button Grid.Row="13" Grid.Column="1" x:Name="BtnUserSave" Content="Enregistrer" Style="{StaticResource RunButton}" HorizontalAlignment="Left" ToolTip="Enregistre les modifications de la fiche dans Active Directory." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Enregistrer" AutomationProperties.HelpText="Enregistre les modifications de la fiche dans Active Directory."/>
                         </Grid>
+                        </StackPanel>
                       </ScrollViewer>
                     </Border>
                   </TabItem>
@@ -8237,6 +8250,7 @@ function Clear-ObjectDetails {
         "TxtUserHomeDrive","TxtUserWorkstations","TxtCompName","TxtCompDns","TxtCompOs","TxtCompOsVersion","TxtCompDescription","TxtCompLocation","TxtCompManagedBy","TxtCompState","TxtCompLastLogon","TxtCompUac","TxtCompLinkedUser","TxtCompLinkSource","TxtGroupName","TxtGroupDescription")) {
         try { $script:Ctrl[$name].Text = "" } catch { }
     }
+    Update-DomeniaUserSupportBand -Entry $null
     Set-DomeniaManagerField -Target 'Utilisateur' -Dn ''
     Set-DomeniaManagerField -Target 'Machine' -Dn ''
     try { [void](Set-DomeniaItemsSource -Name "TxtUserLinkedComputers" -Rows @()) } catch { }
@@ -8410,6 +8424,81 @@ function Fill-GenericObject {
     $script:Ctrl["TxtObjDn"].Text = [string](Get-DeProp $Entry "distinguishedName" "")
 }
 
+function Update-DomeniaUserSupportBand {
+    # FO-06 : la fiche laissait au support deviner qu un compte est verrouille ou que son mot de passe
+    # est mort. Le bandeau ne dit que ce que le controleur a repondu, et reste muet sinon.
+    param($Entry)
+    $bande = Get-DomeniaControl -Name "PnlUserSupportBand"
+    if ($null -eq $bande) { return }
+    $titre = Get-DomeniaControl -Name "TxtUserSupportBand"
+    $detail = Get-DomeniaControl -Name "TxtUserSupportDetail"
+    $deverrouiller = Get-DomeniaControl -Name "BtnUserSupportUnlock"
+    foreach ($c in @($bande, $titre, $detail, $deverrouiller)) {
+        if ($null -ne $c) { $c.Visibility = [System.Windows.Visibility]::Collapsed }
+    }
+    try {
+        if ($null -eq $Entry) { return }
+        if ($null -eq $script:SelectedObject -or $script:SelectedObject.Type -ne "Utilisateur") { return }
+        foreach ($n in @('Get-DomeniaUserSupportSummary','Get-DomeniaLockoutDiagnosis','Resolve-DomeniaPasswordPolicy','ConvertTo-DomeniaAdDate')) {
+            if (-not (Get-Command $n -ErrorAction SilentlyContinue)) { return }
+        }
+        $props = @{}
+        foreach ($nom in @('userAccountControl','msDS-User-Account-Control-Computed','lockoutTime','pwdLastSet','accountExpires','badPwdCount','badPasswordTime','msDS-UserPasswordExpiryTimeComputed')) {
+            $props[$nom] = Get-DeProp $Entry $nom $null
+        }
+        $maintenant = [datetime]::UtcNow
+        $alertes = New-Object 'System.Collections.Generic.List[string]'
+        $limites = New-Object 'System.Collections.Generic.List[string]'
+        $diag = Get-DomeniaLockoutDiagnosis -User $props -EventReadState 'NotRequested' -NowUtc $maintenant
+        $verrouille = ($null -ne $diag) -and (([string]$diag.Verdict) -ceq 'Verrouille')
+        if ($verrouille) {
+            $instant = ConvertTo-DomeniaAdDate (Get-DeProp $Entry 'lockoutTime' $null)
+            if ($null -ne $instant) { $alertes.Add('Verrouillé depuis le ' + $instant.ToLocalTime().ToString('dd/MM HH:mm')) }
+            else { $alertes.Add('Verrouillé') }
+            $limites.Add('Heure du dernier verrouillage relevée sur le contrôleur interrogé.')
+        }
+        $resume = @(Get-DomeniaUserSupportSummary -Properties $props -NowUtc $maintenant)
+        $etat = @($resume | Where-Object { [string]$_.Fait -ceq 'Etat du compte' })
+        if ($etat.Count -gt 0 -and [string]$etat[0].Limite) {
+            $alertes.Add('État du compte non confirmé par le contrôleur')
+            $limites.Add('Sans lʼétat calculé par le contrôleur, un verrouillage ne peut être ni affirmé ni nié.')
+        }
+        $pol = Resolve-DomeniaPasswordPolicy -User $props -ResultantPsoState 'Unreadable' -NowUtc $maintenant
+        $echeance = $null
+        if ($null -ne $pol) { $echeance = $pol.ExpiresUtc }
+        $montree = $false
+        if ($null -ne $echeance) {
+            $jours = [int][math]::Ceiling(($echeance.ToUniversalTime() - $maintenant).TotalDays)
+            if ($jours -le 0) {
+                $alertes.Add('Mot de passe expiré depuis le ' + $echeance.ToLocalTime().ToString('dd/MM HH:mm'))
+                $montree = $true
+            }
+            elseif ($jours -le 14) {
+                $alertes.Add('Mot de passe expire dans ' + [string]$jours + ' j')
+                $montree = $true
+            }
+        }
+        if ($montree) { $limites.Add('Échéance calculée par le contrôleur : la stratégie du domaine nʼest pas lue avec ce compte.') }
+        $echecs = 0L
+        if ([long]::TryParse([string](Get-DeProp $Entry 'badPwdCount' ''), [ref]$echecs) -and $echecs -gt 0) {
+            $alertes.Add([string]$echecs + ' mauvais mots de passe')
+            $limites.Add('Compteur dʼhecs propre au contrôleur interrogé : il nʼest pas répliqué.')
+        }
+        if ($alertes.Count -eq 0) { return }
+        if ($null -ne $titre) { $titre.Text = ($alertes -join '   ·   ') }
+        if ($null -ne $detail -and $limites.Count -gt 0) {
+            $detail.Text = ($limites -join ' ')
+            $detail.Visibility = [System.Windows.Visibility]::Visible
+        }
+        $bande.Visibility = [System.Windows.Visibility]::Visible
+        if ($verrouille -and $null -ne $deverrouiller) { $deverrouiller.Visibility = [System.Windows.Visibility]::Visible }
+    }
+    catch {
+        # Un bandeau qui n a pas pu se construire ne doit pas vider la fiche : il reste masque.
+        try { $bande.Visibility = [System.Windows.Visibility]::Collapsed } catch { }
+    }
+}
+
 function Fill-UserObject {
     param($Entry)
     $uac = Get-DeProp $Entry "userAccountControl" $null
@@ -8432,6 +8521,7 @@ function Fill-UserObject {
     $script:Ctrl["TxtUserPwdLastSet"].Text = Convert-FileTimeLabel (Get-DeProp $Entry "pwdLastSet" 0)
     $script:Ctrl["TxtUserExpires"].Text = Convert-FileTimeLabel (Get-DeProp $Entry "accountExpires" 0)
     $script:Ctrl["TxtUserUac"].Text = Get-UacFlagsLabel $uac
+    Update-DomeniaUserSupportBand -Entry $Entry
     try {
         if (-not $script:RenderingObjectWithoutProbes) { Update-DomeniaSelectedUserPresence -Login ([string](Get-DeProp $Entry "sAMAccountName" "")) }
         else { Set-DomeniaPresenceText -Name 'TxtUserPresence' -State 'Non verifie (fiche AD uniquement)'; Update-DomeniaObjectPresence -State 'Non verifie' -Target '' }
@@ -10563,7 +10653,7 @@ function Get-DomeniaSafeObjectPropertyNames {
         "facsimileTelephoneNumber","ipPhone","wWWHomePage","employeeID","employeeNumber",
         "division","profilePath","scriptPath","homeDirectory","homeDrive","userWorkstations",
         "info","directReports","servicePrincipalName","operatingSystemServicePack",
-        "msDS-SupportedEncryptionTypes","lastLogoff","badPwdCount","logonCount","userCertificate"
+        "msDS-SupportedEncryptionTypes","lastLogoff","badPwdCount","badPasswordTime","msDS-UserPasswordExpiryTimeComputed","logonCount","userCertificate"
     )
 }
 
@@ -21447,6 +21537,7 @@ function Wire-Events {
     $script:Ctrl["BtnRevealUserNew"].Add_Click({ Toggle-PasswordBox "PwdUserNew" "TxtUserNewVisible" "BtnRevealUserNew" "__UserNewReveal" })
     $script:Ctrl["BtnRevealUserConfirm"].Add_Click({ Toggle-PasswordBox "PwdUserConfirm" "TxtUserConfirmVisible" "BtnRevealUserConfirm" "__UserConfirmReveal" })
     $script:Ctrl["BtnUserGenPassword"].Add_Click({ Show-DomeniaGeneratedPassword })
+    $script:Ctrl["BtnUserSupportUnlock"].Add_Click({ Unlock-UserAccount })
     $script:Ctrl["BtnUserResetPwd"].Add_Click({ Reset-UserPassword })
     $script:Ctrl["BtnApplyAccountOptions"].Add_Click({ Apply-UserAccountOptions })
     $script:Ctrl["BtnSetExpiration"].Add_Click({ Set-UserExpiration $false })
@@ -24508,7 +24599,7 @@ function Get-WriteControlMap {
     [ordered]@{
         Edit = @("BtnUserSave","BtnUserSaveContact","BtnCompSave","BtnGroupSave")
         Raw = @("BtnRawSet","BtnRawClear")
-        Account = @("BtnUserUnlock","BtnUserEnable","BtnUserDisable","BtnCompEnable","BtnCompDisable","BtnApplyAccountOptions","BtnSetExpiration","BtnNeverExpires","BtnExpirePwdNow")
+        Account = @("BtnUserUnlock","BtnUserSupportUnlock","BtnUserEnable","BtnUserDisable","BtnCompEnable","BtnCompDisable","BtnApplyAccountOptions","BtnSetExpiration","BtnNeverExpires","BtnExpirePwdNow")
         Password = @("BtnUserResetPwd","BtnUserGenPassword")
         Group = @("BtnUserAddGroup","BtnUserRemoveGroup","BtnCompAddGroup","BtnCompRemoveGroup","BtnGroupAddMember","BtnGroupRemoveMember")
         Move = @("BtnUserMove","BtnCompRename")
