@@ -215,6 +215,8 @@ function Update-DomeniaUxProfileVisibility {
         $rules = @{
             TabRaw=($expert -and $hasObject);TabPermissions=($expert -and $hasObject)
             TabWmi=($expert -and $ObjectType -eq 'Machine');TabSelfCheck=$expert;TabCmdlets=$false;TabLog=$expert
+            # SE-10 : les options de compte a haut risque ne se proposent qu'en Expert.
+            ExpAccountSecurityOptions=$expert
         }
         foreach ($name in $rules.Keys) {
             $tab = Get-DomeniaControl $name

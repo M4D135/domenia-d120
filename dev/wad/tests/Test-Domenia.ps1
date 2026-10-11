@@ -648,6 +648,67 @@ try {
         }
         Assert-True (@($cellules).Count -eq 0) ('Controles superposes : ' + ((@($cellules) | Select-Object -First 4) -join ' | '))
     }
+    # ------------------------------------------------------------ SE-10 : options a haut risque repliees
+    Test-Case 'SE-10 : les options a haut risque sont repliees et reservees a Expert' {
+        # Les six options qui affaiblissent le compte etaient alignees avec les trois autres, a portee de clic
+        # en profil Essentiel. Elles restent dans le meme bloc, repliees dans un Expander que le profil Expert
+        # est seul a deplier. L etat du compte reste lisible en Essentiel : Get-UacFlagsLabel les nomme toutes.
+        $xaml = [xml](Get-MainXaml)
+        $XNS = 'http://schemas.microsoft.com/winfx/2006/xaml'
+        $expander = @($xaml.SelectNodes('//*[local-name()="Expander"]') | Where-Object { $_.GetAttribute('Name',$XNS) -eq 'ExpAccountSecurityOptions' })
+        Assert-True ($expander.Count -eq 1) ('Expander des options avancees : ' + $expander.Count + ' occurrence(s)')
+        Assert-True (([string]$expander[0].GetAttribute('IsExpanded')) -ceq 'False') "Le bloc des options avancees s'ouvre deploye"
+        Assert-True (([string]$expander[0].GetAttribute('Visibility')) -ceq 'Collapsed') "Le bloc des options avancees est visible avant le profil Expert"
+        $avancees = @('ChkPwdNotRequired','ChkReversiblePwd','ChkNoPreAuth','ChkUseDesOnly','ChkTrustedForDelegation','ChkTrustedToAuthDelegation')
+        $courantes = @('ChkPwdNeverExpires','ChkSmartcardRequired','ChkAccountNotDelegated')
+        $dedans = @($expander[0].SelectNodes('.//*[local-name()="CheckBox"]') | ForEach-Object { [string]$_.GetAttribute('Name',$XNS) })
+        foreach ($nom in $avancees) {
+            Assert-True (@($dedans | Where-Object { $_ -ceq $nom }).Count -eq 1) ($nom + ' n est pas repliee dans le bloc avance')
+        }
+        foreach ($nom in $courantes) {
+            Assert-True (@($dedans | Where-Object { $_ -ceq $nom }).Count -eq 0) ($nom + ' est repliee alors qu elle doit rester visible')
+        }
+        # Le bouton qui enregistre ne doit jamais disparaitre avec le bloc qu il applique.
+        Assert-True (@($expander[0].SelectNodes('.//*[local-name()="Button"]')).Count -eq 0) 'Le bouton Appliquer est replie avec les options avancees'
+        # Les six cases repliees sont exactement celles qu'Apply-UserAccountOptions classe a haut risque :
+        # le bloc masque ne cache rien qui ne soit deja confirme en page avant ecriture.
+        $fonc = @($nodes | Where-Object { $_.Name -eq 'Apply-UserAccountOptions' })
+        Assert-True ($fonc.Count -eq 1) 'Apply-UserAccountOptions introuvable dans le coeur'
+        $corps = [string]$fonc[0].Extent.Text
+        foreach ($cle in @('PasswordNotRequired','AllowReversiblePasswordEncryption','DoesNotRequirePreAuth','UseDESKeyOnly','TrustedForDelegation','TrustedToAuthForDelegation')) {
+            Assert-True ($corps.Contains('"' + $cle + '"')) ('Le garde-fou a haut risque ne nomme plus ' + $cle)
+        }
+        # Un compte garde ces bits qu on les voie ou non : la table de decodage doit continuer a les nommer.
+        foreach ($masque in @(@{V=32;L='Mot de passe non requis'},@{V=128;L='Mot de passe stocké en clair'},@{V=4194304;L='Pre-authentication Kerberos facultative'},@{V=2097152;L='Chiffrement DES uniquement'},@{V=524288;L='Authentification déléguée'},@{V=16777216;L='Authentification déléguée vers un service'})) {
+            Assert-True (([string](Get-UacFlagsLabel $masque.V)).Contains($masque.L)) ([string]$masque.V + ' : ' + [string](Get-UacFlagsLabel $masque.V))
+        }
+        # Avertissement rouge dans le bloc replie, avec la ressource rouge du theme.
+        $avert = @($expander[0].SelectNodes('.//*[local-name()="TextBlock"]'))
+        Assert-True ($avert.Count -eq 1) ('Avertissement du bloc avance : ' + $avert.Count + ' occurrence(s)')
+        Assert-True (([string]$avert[0].GetAttribute('Foreground')) -ceq '{DynamicResource DangerColor}') "L'avertissement du bloc avance n'est pas rouge"
+        Assert-True ((Get-MainXaml).Contains('x:Key="DangerColor"')) 'La ressource DangerColor a disparu du theme'
+        # Le fichier d aide est indexe par x:Name : Titre = nom d automation, Text = infobulle, Kind = element.
+        $aideBrutee = Get-Content -LiteralPath (Join-Path (Split-Path $core -Parent) 'modules/Domenia-UX.help.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+        $aide = @($aideBrutee)
+        foreach ($noeud in @($expander[0],$avert[0])) {
+            $nom = [string]$noeud.GetAttribute('Name',$XNS)
+            $entree = @($aide | Where-Object { $_.Name -eq $nom })
+            Assert-True ($entree.Count -eq 1) ('Entree d aide ' + $nom + ' : ' + $entree.Count + ' occurrence(s)')
+            Assert-True (([string]$entree[0].Title) -ceq [string]$noeud.GetAttribute('AutomationProperties.Name')) ('Titre de l aide ' + $nom + ' different du nom d automation')
+            Assert-True (([string]$entree[0].Text) -ceq [string]$noeud.GetAttribute('ToolTip')) ('Texte de l aide ' + $nom + ' different de l infobulle')
+            Assert-True (([string]$entree[0].Kind) -ceq [string]$noeud.LocalName) ('Nature de l aide ' + $nom + ' differente de l element XAML')
+            Assert-True (([string]$noeud.GetAttribute('AutomationProperties.HelpText')) -ceq [string]$noeud.GetAttribute('ToolTip')) ("L aide d automation ne reprend pas l infobulle pour " + $nom)
+        }
+        # Les deux nouveaux noms sont declares en Default : la politique ne force pas leur visibilite.
+        $texteCore = Get-Content $core -Raw -Encoding UTF8
+        foreach ($nom in @('ExpAccountSecurityOptions','LblAccountSecurityWarning')) {
+            Assert-True ($texteCore.Contains('"' + $nom + '" = "Default"')) ($nom + ' n est pas declare dans la politique des controles')
+        }
+        # Le depliage se decide par le profil, pas par l operateur.
+        $texteModule = Get-Content -LiteralPath (Join-Path (Split-Path $core -Parent) 'modules/Domenia-UX.UI.ps1') -Raw -Encoding UTF8
+        Assert-True ($texteModule.Contains('ExpAccountSecurityOptions=$expert')) "Le bloc avance ne depend pas du profil Expert dans la regle d'affichage"
+    }
+
     Test-Case 'SP-06 : les boutons de l inventaire annoncent la duree que le code paie' {
         $xaml = Get-MainXaml
         $approx = [string][char]0x2248

@@ -3785,5 +3785,18 @@
     "Text": "Mesures locales de cette session : mémoire, réactivité de lʼinterface, dernière sauvegarde locale. Aucune sonde réseau.",
     "Kind": "TextBlock",
     "Source": "d120-L09"
-  }
-]
+  },
+  {
+    "Name": "ExpAccountSecurityOptions",
+    "Title": "Options de sécurité avancées",
+    "Text": "Six options qui affaiblissent la sécurité du compte. Elles ne sont proposées quʼen profil Expert et chaque changement passe par une confirmation qui affiche la valeur avant et la valeur après.",
+    "Kind": "Expander",
+    "Source": "L11"
+  },
+  {
+    "Name": "LblAccountSecurityWarning",
+    "Title": "Avertissement de sécurité",
+    "Text": "Le moteur refuse dʼenregistrer lʼune de ces options sans une confirmation qui montre la valeur avant et la valeur après.",
+    "Kind": "TextBlock",
+    "Source": "L11"
+  }]
