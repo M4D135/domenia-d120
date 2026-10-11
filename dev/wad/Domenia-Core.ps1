@@ -762,6 +762,7 @@ $script:GuiElementPolicy = [ordered]@{
     "LblGroupMembers" = "Default"
     "LstGroupMembers" = "Default"
     "TabContainer" = "Default"
+    "TxtNewOuParent" = "Default"
     "TxtNewOuName" = "Default"
     "BtnCreateOu" = "Default"
     "TabMemberOf" = "Default"
@@ -5848,11 +5849,17 @@ function Get-MainXaml {
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                           </Grid.ColumnDefinitions>
-                          <Label Grid.Column="0" Content="Nom"/>
-                          <TextBox Grid.Column="1" x:Name="TxtNewOuName" ToolTip="Nom de la nouvelle unité dʼorganisation." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Nom" AutomationProperties.HelpText="Nom de la nouvelle unite d organisation."/>
-                          <Button Grid.Column="2" x:Name="BtnCreateOu" ToolTip="Crée lʼunité dʼorganisation sous la branche sélectionnée." Content="Creer" Style="{StaticResource RunButton}" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Creer" AutomationProperties.HelpText="Cree l unite d organisation sous la branche selectionnee."/>
+                          <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                          </Grid.RowDefinitions>
+                          <Label Grid.Row="0" Grid.Column="0" Content="OU parente"/>
+                          <TextBox Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2" x:Name="TxtNewOuParent" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,0,8" TextWrapping="Wrap" ToolTip="Branche qui recevra la nouvelle unité dʼorganisation : celle sélectionnée dans lʼarborescence, pas lʼobjet ouvert dans la fiche." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Unité dʼorganisation parente" AutomationProperties.HelpText="Branche qui recevra la nouvelle unité dʼorganisation : celle sélectionnée dans lʼarborescence, pas lʼobjet ouvert dans la fiche."/>
+                          <Label Grid.Row="1" Grid.Column="0" Content="Nom"/>
+                          <TextBox Grid.Row="1" Grid.Column="1" x:Name="TxtNewOuName" ToolTip="Nom de la nouvelle unité dʼorganisation." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Nom" AutomationProperties.HelpText="Nom de la nouvelle unite d organisation."/>
+                          <Button Grid.Row="1" Grid.Column="2" x:Name="BtnCreateOu" ToolTip="Crée lʼunité dʼorganisation sous la branche sélectionnée." Content="Creer" Style="{StaticResource RunButton}" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Creer" AutomationProperties.HelpText="Cree l unite d organisation sous la branche selectionnee."/>
                         </Grid>
-                        <TextBlock Text="La nouvelle unité dʼorganisation est créée sous la branche sélectionnée dans lʼarborescence." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap"/>
+                        <TextBlock Text="La nouvelle unité dʼorganisation est créée sous lʼunité parente affichée ci-dessus. Son nom doit être unique sous cette parente." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap"/>
                       </StackPanel>
                     </Border>
                   </TabItem>
@@ -7996,6 +8003,7 @@ function Update-DomeniaSearchScopeUi {
     $mode = Get-DomeniaSearchMode
     $ouScope = Get-DomeniaSearchScope -Mode OU
     [void](Set-DomeniaControlText -Name 'TxtBranchDn' -Text ([string]$ouScope.BaseDn))
+    Update-DomeniaNewOuParentUi
     if ($null -ne (Get-Command Update-DomeniaUxOuScope -CommandType Function -ErrorAction SilentlyContinue)) {
         Update-DomeniaUxOuScope -Scope $ouScope
     }
@@ -8549,6 +8557,7 @@ function Fill-GroupObject {
 function Fill-ContainerObject {
     param($Entry)
     $script:Ctrl["TxtNewOuName"].Text = ""
+    Update-DomeniaNewOuParentUi
 }
 
 function Set-DeStringProperty {
@@ -14155,10 +14164,17 @@ function Build-DomeniaTreeContextMenu {
     $create.IsEnabled = ($hasBranch -and -not $readOnly)
     if ($readOnly) { $create.ToolTip = "Le mode lecture seule est actif." }
     [void]$create.Items.Add((New-DomeniaMenuItem -Header "Unite d organisation" -Action {
-        $name = Show-DomeniaFormDialog -Title "Nouvelle unite d organisation" -Message ("Creation sous " + [string]$script:SelectedBranchDn) -Fields @(@{ Name="Nom"; Label="Nom de l OU"; Value="" })
-        if ($null -eq $name) { return }
-        [void](Set-DomeniaControlText -Name "TxtNewOuName" -Text ([string]$name["Nom"]))
-        Create-OuUnderSelected
+        # CO-27: un seul parcours. Le menu ne cueille plus le nom dans une fenetre modale, il amene
+        # l'operateur sur l'onglet, ou la branche parente s'affiche avant toute confirmation.
+        $tab = Get-DomeniaControl -Name 'TabContainer'
+        if ($null -ne $tab -and $tab.Visibility -ne [System.Windows.Visibility]::Visible) {
+            $tab.Visibility = [System.Windows.Visibility]::Visible
+        }
+        Select-DomeniaWorkspace -Workspace 'WsObject' -Inner 'DetailTabs' -Tab 'TabContainer'
+        Update-DomeniaNewOuParentUi
+        $box = Get-DomeniaControl -Name 'TxtNewOuName'
+        if ($null -ne $box) { [void]$box.Focus(); $box.SelectAll() }
+        Set-Status ('Nouvelle unité dʼorganisation sous ' + (Get-DomeniaOuDisplayPath ([string]$script:SelectedBranchDn)) + ' : saisissez son nom puis confirmez.')
     }))
     [void]$Menu.Items.Add($create)
     Add-DomeniaMenuSeparator -Menu $Menu
@@ -26201,6 +26217,17 @@ $ReadUtc=[DateTime]::UtcNow.ToString('o')
     } catch { Show-ErrorBox "Erreur renommage : $($_.Exception.Message)" }
 }
 
+function Update-DomeniaNewOuParentUi {
+    # CO-27: l'onglet affiche la branche ou la nouvelle OU sera reellement creee. C'est le noeud choisi
+    # dans l'arborescence, pas l'objet ouvert dans la fiche : les deux peuvent diverger, et c'est bien le
+    # DN de ce champ que Create-OuUnderSelected transmet au worker.
+    $box = Get-DomeniaControl -Name 'TxtNewOuParent'
+    if ($null -eq $box) { return }
+    $dn = ([string]$script:SelectedBranchDn).Trim()
+    if ([string]::IsNullOrWhiteSpace($dn)) { $box.Text = 'Aucune branche sélectionnée'; return }
+    $box.Text = Get-DomeniaOuDisplayPath $dn
+}
+
 function Create-OuUnderSelected {
     try {
         if ([string]::IsNullOrWhiteSpace([string]$script:SelectedBranchDn)) { throw "Selectionne une branche cible." }
@@ -26251,8 +26278,12 @@ $ReadUtc=[DateTime]::UtcNow.ToString('o')
             catch { Show-ErrorBox "Erreur creation OU : $($_.Exception.Message)" }
         }
         $where=Get-DomeniaOuDisplayPath $parentDn
-        $details='Parent : '+$parentDn+"`r`nNom relatif : OU="+$name+"`r`nProtection contre la suppression accidentelle : demandée (module AD requis)."
-        [void](Request-DomeniaWriteConfirmation -Title 'Créer une unité dʼorganisation' -Message ('Nouvelle unité dʼorganisation « '+$name+' » dans « '+$where+' », protégée contre la suppression accidentelle.') -Changes @('Unité dʼorganisation : création de « '+$name+' » dans « '+$where+' »') -Details $details -Target ('ad:branch:'+$parentDn.ToLowerInvariant()) -ConfirmText 'Créer' -TypedConfirmation 'CREER' -Send $send -State $state -CancelStatus 'Création de lʼOU annulée : rien nʼa été envoyé.')
+        # CO-27: la protection contre la suppression accidentelle n'est posee que par la voie module AD,
+        # et Get-WWriteBackend ne tranche que dans le worker (Import-WAdModule n'a rien a faire dans le
+        # thread GUI). Le message ne promet donc plus une protection qu'ADSI peut ne pas poser : il renvoie
+        # au resultat de l'operation, qui lui sait quelle voie a ete prise.
+        $details='Parent : '+$parentDn+"`r`nNom relatif : OU="+$name+"`r`nProtection contre la suppression accidentelle : posée par le module AD, pas par ADSI. Le résultat de l'opération indique la voie utilisée."
+        [void](Request-DomeniaWriteConfirmation -Title 'Créer une unité dʼorganisation' -Message ('Nouvelle unité dʼorganisation « '+$name+' » dans « '+$where+' ».') -Changes @('Unité dʼorganisation : création de « '+$name+' » dans « '+$where+' »') -Details $details -Target ('ad:branch:'+$parentDn.ToLowerInvariant()) -ConfirmText 'Créer' -Send $send -State $state -CancelStatus 'Création de lʼOU annulée : rien nʼa été envoyé.')
     }
     catch { Show-ErrorBox "Erreur creation OU : $($_.Exception.Message)" }
 }

@@ -527,6 +527,34 @@ try {
             Assert-True (([string]$tb.ToolTip) -ceq ('{Binding ' + $tpl[1] + '}')) ('Colonne ' + $tpl[0] + ' sans date complete en infobulle : ' + [string]$tb.ToolTip)
         }
     }
+    Test-Case 'CO-27 : creer une OU reste dans l onglet et ne promet pas la protection' {
+        # Le menu de l arbre ouvrait une fenetre pour le nom puis la confirmation demandait de taper
+        # CREER, et le message promettait une protection que la voie ADSI ne pose pas.
+        $fn = @($nodes | Where-Object { $_.Name -eq 'Create-OuUnderSelected' })
+        Assert-True ($fn.Count -eq 1) 'Create-OuUnderSelected introuvable dans le coeur'
+        $texte = [string]$fn[0].Extent.Text
+        Assert-True ($texte -notmatch 'TypedConfirmation') 'La creation d une OU exige encore de taper un mot'
+        Assert-True (-not $texte.Contains('protégée contre la suppression accidentelle')) 'Le message promet encore une protection que la voie ADSI ne pose pas'
+        Assert-True ($texte.Contains('suppression accidentelle')) 'La condition de la protection a disparu de la confirmation'
+        Assert-True ($texte.Contains('ADSI')) 'La confirmation ne dit plus quelle voie pose la protection'
+        $menu = @($nodes | Where-Object { $_.Name -eq 'Build-DomeniaTreeContextMenu' })
+        Assert-True ($menu.Count -eq 1) 'Build-DomeniaTreeContextMenu introuvable dans le coeur'
+        Assert-True (-not ([string]$menu[0].Extent.Text).Contains('Show-DomeniaFormDialog')) 'Le menu de l arbre ouvre encore une fenetre pour creer une OU'
+        # La branche cible doit se lire avant de confirmer, en lecture seule.
+        $xaml = [xml](Get-MainXaml)
+        $XNS = 'http://schemas.microsoft.com/winfx/2006/xaml'
+        $champ = @($xaml.SelectNodes('//*[local-name()="TextBox"]') | Where-Object { $_.GetAttribute('Name',$XNS) -eq 'TxtNewOuParent' })
+        Assert-True ($champ.Count -eq 1) ('TxtNewOuParent : ' + $champ.Count + ' occurrence(s)')
+        Assert-True (([string]$champ[0].GetAttribute('IsReadOnly')) -ceq 'True') 'La branche parente est modifiable'
+        Assert-True (-not ([string](Get-MainXaml)).Contains('est créée sous la branche sélectionnée dans lʼarborescence')) "Le texte muet renvoie encore a l arborescence sans montrer la branche"
+        # Le fichier d aide est indexe par x:Name : Titre = nom d automation, Text = infobulle.
+        $aideBrutee = Get-Content -LiteralPath (Join-Path (Split-Path $core -Parent) 'modules/Domenia-UX.help.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+        $aide = @($aideBrutee)
+        $entree = @($aide | Where-Object { $_.Name -eq 'TxtNewOuParent' })
+        Assert-True ($entree.Count -eq 1) 'Entree d aide TxtNewOuParent absente ou dupliquee'
+        Assert-True (([string]$entree[0].Title) -ceq [string]$champ[0].GetAttribute('AutomationProperties.Name')) 'Titre de l aide different du nom d automation'
+        Assert-True (([string]$entree[0].Text) -ceq [string]$champ[0].GetAttribute('ToolTip')) 'Texte de l aide different de l infobulle'
+    }
     Test-Case 'CO-23 : la date du mot de passe est nommee et expliquee' {
         # Le champ portait le nom d automation et l infobulle des vraies saisies de mot de passe :
         # un lecteur d ecran annoncait « Mot de passe » la ou l operateur lit une date, et l aide

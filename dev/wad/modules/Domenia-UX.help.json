@@ -1189,6 +1189,13 @@
     "Source": "existing-help"
   },
   {
+    "Name": "TxtNewOuParent",
+    "Title": "Unité dʼorganisation parente",
+    "Text": "Branche qui recevra la nouvelle unité dʼorganisation : celle sélectionnée dans lʼarborescence, pas lʼobjet ouvert dans la fiche.",
+    "Kind": "TextBox",
+    "Source": "L11"
+  },
+  {
     "Name": "TxtNewOuName",
     "Title": "Nom",
     "Text": "Nom de la nouvelle unité dʼorganisation.",
