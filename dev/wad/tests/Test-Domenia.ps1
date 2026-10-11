@@ -525,6 +525,39 @@ try {
             Assert-True (([string]$tb.ToolTip) -ceq ('{Binding ' + $tpl[1] + '}')) ('Colonne ' + $tpl[0] + ' sans date complete en infobulle : ' + [string]$tb.ToolTip)
         }
     }
+    Test-Case 'CO-01 : deux controles interactifs ne se partagent pas la meme cellule' {
+        # Un controle place dans une cellule deja occupee en recouvre un autre a l ecran. « Etat » et
+        # « Derniere connexion » etaient tous deux en ligne 8, colonne 3 : le second effacait le
+        # premier. La regle est celle de l audit : un controle masque (Collapsed ou Hidden) ne compte
+        # pas, un libelle non plus, et une etendue (RowSpan / ColumnSpan) occupe toutes ses cellules.
+        $xaml = [xml](Get-MainXaml)
+        $XNS = 'http://schemas.microsoft.com/winfx/2006/xaml'
+        $interactifs = @('TextBox','ComboBox','CheckBox','Button','PasswordBox','ListBox','DatePicker')
+        $cellules = @()
+        foreach ($grille in @($xaml.SelectNodes('//*[local-name()="Grid"]'))) {
+            $occu = @{}
+            foreach ($enfant in @($grille.ChildNodes)) {
+                if ($interactifs -notcontains [string]$enfant.LocalName) { continue }
+                if (@('Collapsed','Hidden') -contains $enfant.GetAttribute('Visibility')) { continue }
+                $l = $enfant.GetAttribute('Grid.Row'); $c = $enfant.GetAttribute('Grid.Column')
+                if (-not $l -and -not $c) { continue }
+                if (-not ($l -match '^[0-9]+$')) { $l = '0' }
+                if (-not ($c -match '^[0-9]+$')) { $c = '0' }
+                $lp = $enfant.GetAttribute('Grid.RowSpan'); $cp = $enfant.GetAttribute('Grid.ColumnSpan')
+                if (-not ($lp -match '^[0-9]+$')) { $lp = '1' }
+                if (-not ($cp -match '^[0-9]+$')) { $cp = '1' }
+                $nom = [string]$enfant.LocalName + '/' + $enfant.GetAttribute('Name',$XNS)
+                for ($i = [int]$l; $i -lt ([int]$l + [int]$lp); $i++) {
+                    for ($j = [int]$c; $j -lt ([int]$c + [int]$cp); $j++) {
+                        $cle = [string]$i + ',' + [string]$j
+                        if ($occu.ContainsKey($cle)) { $cellules += ($cle + ' : ' + $occu[$cle] + ' + ' + $nom) }
+                        else { $occu[$cle] = $nom }
+                    }
+                }
+            }
+        }
+        Assert-True (@($cellules).Count -eq 0) ('Controles superposes : ' + ((@($cellules) | Select-Object -First 4) -join ' | '))
+    }
     Test-Case 'SP-06 : les boutons de l inventaire annoncent la duree que le code paie' {
         $xaml = Get-MainXaml
         $approx = [string][char]0x2248

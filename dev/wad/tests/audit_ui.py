@@ -34,6 +34,39 @@ def assert_scoped_names(root):
         for child in node:visit(child,scope)
     visit(root)
 
+def cell_collisions(root):
+    """Deux controles interactifs places dans la meme cellule d'une Grid se recouvrent a l'ecran.
+
+    Seuls les controles interactifs sont compares : un libelle et son champ partagent legitimement une
+    ligne, et une zone de repli peut volontairement se superposer a un conteneur. Un controle declare
+    Collapsed ou Hidden ne compte pas : le journal brut et son pendant lisible se partagent une ligne,
+    un seul des deux est montre. Deux TextBox, deux ComboBox ou un bouton et une zone de texte visibles
+    dans la meme cellule ne sont jamais voulu.
+    """
+    hits = []
+    for grid in root.iter():
+        if local(grid) != 'Grid': continue
+        cells = {}
+        for child in grid:
+            if local(child) not in INTERACTIVE: continue
+            if (child.get('Visibility') or '') in ('Collapsed','Hidden'): continue
+            raw_row = child.get('Grid.Row'); raw_col = child.get('Grid.Column')
+            if raw_row is None and raw_col is None: continue
+            try:
+                row = int(raw_row or 0); col = int(raw_col or 0)
+                span_row = int(child.get('Grid.RowSpan') or 1); span_col = int(child.get('Grid.ColumnSpan') or 1)
+            except ValueError: continue
+            label = local(child) + '/' + (child.get(X+'Name') or '')
+            for r in range(row, row + span_row):
+                for c in range(col, col + span_col):
+                    if (r, c) in cells: hits.append((local(grid) + ' r' + str(r) + 'c' + str(c), cells[(r, c)], label))
+                    else: cells[(r, c)] = label
+    return hits
+
+def assert_no_cell_collision(root):
+    hits = cell_collisions(root)
+    if hits: raise AssertionError('Controls sharing one grid cell: ' + '; '.join(' + '.join(h[1:]) for h in hits))
+
 def outside(source,spans):
     result=[];previous=0
     for start,end in sorted(x[0] for x in spans.values()):
@@ -100,6 +133,17 @@ def main():
         except AssertionError: return True
         return False
     test('Audit still rejects duplicate controls in same scope',duplicate_rejected)
+    def cell_collision_rejected():
+        try: assert_no_cell_collision(ET.fromstring(base.format('<Grid><TextBox Grid.Row="8" Grid.Column="3"/><TextBox Grid.Row="8" Grid.Column="3"/></Grid>')))
+        except AssertionError: return True
+        return False
+    test('Audit rejects two interactive controls in one grid cell',cell_collision_rejected)
+    test('No interactive control pair shares a grid cell in main XAML',lambda:not cell_collisions(mainxml),str(cell_collisions(mainxml))[:400])
+    def collapsed_pair_accepted():
+        try: assert_no_cell_collision(ET.fromstring(base.format('<Grid><TextBox Grid.Row="2"/><ListBox Grid.Row="2" Visibility="Collapsed"/></Grid>')))
+        except AssertionError: return False
+        return True
+    test('Audit tolerates a collapsed control sharing a cell',collapsed_pair_accepted)
     test('Core native preflight mirrors namescope separation',"$scopedName=$scopeId+'|'+$controlName" in f('Assert-DomeniaXamlPreflight'))
     keys={e.get(X+'Key') for e in mainxml.iter() if e.get(X+'Key')}
     refs=re.findall(r'\{StaticResource\s+([^}]+)\}',xml)
