@@ -1,0 +1,6 @@
+detail layout has explicit width and height bounds
+At C:\DomeniaLab\codex-search-20261012\final\dev\wad\tests\Test-DomeniaIndexSorting.ps1:6 char:83
++ ... ol]$Good,[string]$Name);$script:checks++;if(-not $Good){throw $Name}}
++                                                             ~~~~~~~~~~~
+    + CategoryInfo          : OperationStopped: (detail layout h...d height bounds:String) [], RuntimeException
+    + FullyQualifiedErrorId : detail layout has explicit width and height bounds

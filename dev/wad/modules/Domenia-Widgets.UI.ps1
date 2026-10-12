@@ -2,7 +2,7 @@
 # software dashboards is a widget. Each one can be edited (title, representation allowed by its kind of data,
 # size, section), moved (drag and drop or menu), removed (with undo) and new ones come from the built-in catalog
 # or the ready-made WMI queries. Providers compute the data (Domenia-Board*.ps1), this module lays it out.
-# Handlers read their sender's Tag and never use GetNewClosure, so they can call the application functions.
+# Handlers read their sender's Tag or capture a callable explicitly before GetNewClosure.
 
 $script:DomeniaBoardStates = @{}
 $script:DomeniaBoardDrag = $null
@@ -438,11 +438,14 @@ function Resolve-DomeniaBoardEntry {
     return [pscustomobject]@{ Entry = $entry; Kind = $kind; Title = $title; Name = $name }
 }
 function Get-DomeniaBoardSelectHandler {
-    # FO-09: a click on a ring part or a bar filters the list the board was drawn from. Only the software board
-    # offers that, because only it sits above a grid of the same rows; the workstation and fleet boards keep
-    # their charts decorative. The handler is a fixed scriptblock: it only names a function of the interface.
+    # Fleet charts open the matching workshop rows; software charts filter their source list.
     param([string]$Board,$Item=$null)
-    if($Board -eq 'Fleet'){$detailItem=$Item;return {param($Select) Show-DomeniaFleetWidgetDetails -Item $detailItem -Selection $Select}.GetNewClosure()}
+    if($Board -eq 'Fleet'){
+        # Capture the callable before closing over the item: script-local functions are not visible by name
+        # inside a GetNewClosure dynamic module when WPF invokes the handler later.
+        $detailItem=$Item;$showDetails=${function:Show-DomeniaFleetWidgetDetails}
+        return {param($Select) & $showDetails -Item $detailItem -Selection $Select}.GetNewClosure()
+    }
     if ($Board -ne 'Software') { return $null }
     return { param($Select) Request-DomeniaSoftwareChartFilter -Select $Select }
 }

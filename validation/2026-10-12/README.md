@@ -1,9 +1,11 @@
 # Domenia 1.0 — bilan des améliorations
 
-Les [packs téléchargeables sur GitHub](../../packs/README.md) incluent le retrait de
-l’ancienne icône ADCC à la racine du DEV. Le [contrôle de cette distribution](github-packs.json)
-confirme les 91 fichiers runtime identiques aux essais ci-dessous ; PROD est inchangé.
-Les empreintes des anciennes campagnes sont conservées avec leurs preuves.
+Les [packs téléchargeables sur GitHub](../../packs/README.md) sont en **RC1.17.1** :
+ils corrigent les recherches vides, les filtres différés et le clic des graphiques Parc.
+La [preuve de cette correction](search-regression/README.md) est distincte de la campagne ci-dessous.
+Le retrait de l’ancienne icône ADCC à la racine du DEV est maintenu.
+Le [contrôle de distribution précédent](github-packs.json) et les empreintes des autres campagnes
+restent conservés avec les preuves correspondantes ; ils ne qualifient pas le nouveau runtime.
 
 Ce bilan couvre les 30 points du programme demandé et les ajouts de la session.
 Les détails, fichiers concernés, preuves et limites sont dans le

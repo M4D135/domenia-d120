@@ -1,0 +1,2 @@
+BENCH GUID census 5000 cached / 4999 identities: 4867 ms; local SQLite only
+PASS Index persistence and cache: 155 assertions; native local SQLite, no AD or VM

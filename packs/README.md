@@ -5,6 +5,8 @@
 | PROD | [Domenia_PROD.zip](https://github.com/M4D135/domenia-d120/raw/refs/heads/master/packs/Domenia_PROD.zip) | Extraire le dossier `prod`, puis lancer `Domenia.exe` en gardant `wad` à côté. |
 | DEV | [Domenia_DEV.zip](https://github.com/M4D135/domenia-d120/raw/refs/heads/master/packs/Domenia_DEV.zip) | Sources et outils ; `dev/FABRIQUER_PROD.cmd` reconstruit une distribution PROD. |
 
+Build actuel : **RC1.17.1** — [correction des recherches et validation Windows](../validation/2026-10-12/search-regression/README.md).
+
 Les deux ZIP contiennent le même runtime. La version et les empreintes sont dans
 [manifest.json](manifest.json) et [SHA256SUMS](SHA256SUMS).
 

@@ -1,0 +1,12 @@
+{
+  "PreviousDEV": "80893FB34665BEDE74D7FF3C5451B13C22B02A6B1A8F3C231032E1AB752CA19F",
+  "FinalDEV": "4773C36E0DBDFE31F2A0DDFEAA50845B21704102E81378305C9A52CDF644F3CB",
+  "PROD": "E5866BED490F81ABFF83A1A3B4022D67148E37F4B395083E87C6019BB07E7DAA",
+  "ChangedEntries": [
+    "dev/wad/tests/Test-DomeniaIndexSorting.ps1",
+    "dev/wad/package-manifest.json"
+  ],
+  "AllOtherEntriesIdentical": true,
+  "EntirePRODIdentical": true,
+  "Reason": "Assertion obsolete du test de mise en page Base: cellule compacte Description 28px/NoWrap/ellipsis et largeur260, runtime inchange."
+}

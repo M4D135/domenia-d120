@@ -192,7 +192,7 @@ function Begin-DomeniaLiveSearch {
         Identity=$script:Live.Identity;Epoch=[long]$script:SessionEpoch;State=$State;QueryKey=$key
         Rows=$rows;Map=@{};Fresh=@{};FreshOrder=[Collections.Generic.List[object]]::new();CacheKeys=[Collections.Generic.Queue[string]]::new();Progress=$queue;CacheProgress=$cacheQueue;Stop=$stop
         Stopped=$false;SelectionRestored=$false;Ended=$false;Final=$null;Error='';Finalized=$false;Prune=$null;CacheRequested=$false
-        Started=[Diagnostics.Stopwatch]::StartNew();FirstMs=-1L;CacheUtc='';RefreshNeeded=$false
+        Started=[Diagnostics.Stopwatch]::StartNew();FirstMs=-1L;CacheUtc='';RefreshNeeded=$false;FilterPending=$false
         Ranking=[bool]$ranking;SearchRules=[bool]$rules
     }
     $script:Live.Search=$s;$script:BranchObjects=$rows;$script:BranchCountLabel='Chargement progressif…'
@@ -261,7 +261,11 @@ function Stop-DomeniaLiveJob {
 function Update-DomeniaLiveFilter {
     if($null -eq $script:Live -or $null -eq $script:Live.Search){return}
     $s=$script:Live.Search;$grid=Get-DomeniaControl 'DgObjects'
-    if($null -eq $grid -or -not $grid.IsEnabled -or -not [object]::ReferenceEquals($grid.ItemsSource,$s.Rows)){return}
+    if($null -eq $grid -or -not [object]::ReferenceEquals($grid.ItemsSource,$s.Rows)){return}
+    # A write may disable the grid while the workshop changes its selection. Retry after it is enabled,
+    # including ClearSearch (there may then be no active local filter to trigger a normal refresh).
+    $s.FilterPending=$true
+    if(-not $grid.IsEnabled){return}
     $view=[Windows.Data.CollectionViewSource]::GetDefaultView($s.Rows)
     $filter=Get-DomeniaControl 'TxtSuiteResultFilter'
     $query=if($null -ne $filter){[string]$filter.Text}else{''}
@@ -270,9 +274,21 @@ function Update-DomeniaLiveFilter {
     # Capture values, not controls; filtering performs no network or database I/O.
     if($query.Length -gt 120){$query=$query.Substring(0,120)}
     $terms=@($query.Trim() -split '\s+'|Where-Object {$_})
+    # GetNewClosure runs in a dynamic module: application functions from the core script are not visible.
+    # Capture the explicit GUID selection along with the other filters; Apply/Clear rebuild this predicate.
+    # An active selection without a GUID map must stay empty, never silently admit every object.
+    $queryState=$script:DomeniaQueryState
+    $hasQuerySelection=($null -ne $queryState -and $null -ne $queryState.SearchRecipe)
+    $queryRecords=if($hasQuerySelection){$queryState.SearchRecords}else{$null}
     $predicate={
         param($row)
-        if(-not (Test-DomeniaSearchQueryRow $row)){return $false}
+        if($hasQuerySelection){
+            if([string]$row.Type -ne 'Machine'){return $false}
+            $guid=([string]$row.Guid).Trim().Trim('{','}').ToLowerInvariant()
+            if(-not $guid -or $null -eq $queryRecords -or -not $queryRecords.ContainsKey($guid)){return $false}
+        }
+        # Ordinary searches and GUID-only selections do not need per-row text allocations.
+        if($terms.Count -eq 0 -and (-not $presence -or $presence -eq 'Tous')){return $true}
         $network=([string]$row.Presence -replace ' \(cache\)$','').Trim()
         if($network -in @('','Inconnu')){$network='Non vérifié'}
         $wanted=$presence
@@ -280,6 +296,7 @@ function Update-DomeniaLiveFilter {
         if($wanted -eq 'Hors ligne'){$wanted='Sans réponse au ping'}
         if($network -eq 'Hors ligne'){$network='Sans réponse au ping'}
         if($wanted -and $wanted -ne 'Tous' -and $network -ne $wanted){return $false}
+        if($terms.Count -eq 0){return $true}
         $parts=[Collections.Generic.List[string]]::new()
         foreach($name in @('Type','Name','Login','UPN','Association','Presence','SessionDisplay','SessionState')){
             $value=[string]$row.$name;if($value.Length -gt 2048){$value=$value.Substring(0,2048)};[void]$parts.Add($value)
@@ -291,7 +308,7 @@ function Update-DomeniaLiveFilter {
     $old=$script:SuppressGridSelectionEvents;$script:SuppressGridSelectionEvents=$true
     try{$view.Filter=[Predicate[object]]$predicate;$view.Refresh()}finally{$script:SuppressGridSelectionEvents=$old}
     [void](Set-DomeniaControlText 'LblSuiteResultCount' ("$($grid.Items.Count) / $($s.Rows.Count) lignes visibles"+$(if((Get-DomeniaSearchMode) -eq 'Global'){' · recherche globale sans filtre local'}else{' · filtre local'})))
-    $script:Live.LastFilter=[datetime]::UtcNow;$s.RefreshNeeded=$false
+    $script:Live.LastFilter=[datetime]::UtcNow;$s.RefreshNeeded=$false;$s.FilterPending=$false
 }
 function Set-DomeniaLiveObservationOnRow {
     param($Row,$Observation,[switch]$Cached,[switch]$Pending)
@@ -842,7 +859,7 @@ function Invoke-DomeniaLiveTick {
                 [void](Set-DomeniaControlText 'LblBranchCount' $script:BranchCountLabel)
                 $filterBox=Get-DomeniaControl 'TxtSuiteResultFilter'
                 $hasFilter=((Get-DomeniaSearchMode) -ne 'Global' -and ($script:CurrentPresenceFilter -ne 'Tous' -or ($null -ne $filterBox -and -not [string]::IsNullOrWhiteSpace([string]$filterBox.Text))))
-                if(($hasFilter -or -not $script:Live.Notifying) -and $s.RefreshNeeded -and ([datetime]::UtcNow-$script:Live.LastFilter).TotalMilliseconds -ge 400){Update-DomeniaLiveFilter}
+                if(($s.FilterPending -or (($hasFilter -or -not $script:Live.Notifying) -and $s.RefreshNeeded)) -and ([datetime]::UtcNow-$script:Live.LastFilter).TotalMilliseconds -ge 400){Update-DomeniaLiveFilter}
                 [void](Set-DomeniaControlText 'LblSuiteResultCount' ("$($grid.Items.Count) / $($s.Rows.Count) lignes visibles"+$(if((Get-DomeniaSearchMode) -eq 'Global'){' · recherche globale sans filtre local'}else{' · filtre local'})))
             }
         }

@@ -1,5 +1,5 @@
 {
-  "Archive": "Domenia 1.0 login foreground 2026-10-12",
+  "Archive": "Domenia 1.0 RC1.17.1 filtre WPF final 2026-10-12",
   "ArchiveSHA256": "655ED21F90345B3C7667D4E777814C6A0595A5D5BE628AD587FB46CCA5241922",
   "CoreFunctions": {
     "Write-DomeniaAtomicText": "1C9A1583F52EB7BE80BE420662653E4AF886FE11DC4FDB3B1C4CDF19FD1C0EDA",
@@ -153,7 +153,7 @@
     "Set-DomeniaResourceColor": "27391F9046A85B14658803F03178045ABEDF0B1F4DD5364D7BA5575C5E4F11BE",
     "Apply-DomeniaTheme": "B0ECA10884F7B8D32279AD437EAB8C806D868256D7071B79511688468E2D02BE",
     "Toggle-DomeniaTheme": "EA7E0F31A78D8B4A0BFAB0C27D8028521C1C3A1A255DDA4BEA3B65B5F7C99F03",
-    "Get-MainXaml": "B3F1BDCF318D11AA6239C2EB60526BF9FBE7A977B19713146050F054F60F1D61",
+    "Get-MainXaml": "4889A90431E28A26D84FA9F544CB44D20640FA1557CBB53BDD9BCE8B979799A4",
     "Assert-DomeniaXamlPreflight": "20BB1DA04FD88D78E1A52C5610376467D5E9408437BC823DDC8EC8F40C0EAEB7",
     "Save-DomeniaXamlDiagnostic": "D648C9D6BD6F5F3A6613957D22A6A42EC1AAC0C1FA6218195A55D10EADF4DC67",
     "ConvertFrom-DomeniaXaml": "855E6CA9E56D62F77F5C22ACAC048293D24281B5B8FCC7FEB6806450BE561228",
@@ -936,7 +936,7 @@
     "wad/modules/Domenia-Guard.UI.ps1": "11ED5549BE999C0A7DC039386ECBFB0B424668AE8CF117C0F0AE03783F12917A",
     "wad/modules/Domenia-Live.Model.ps1": "6B2C5C145D2354DED32577F45D59945B397D6AFBA91A5BACBB61B0BF8221BE19",
     "wad/modules/Domenia-Live.Types.cs": "EA90657459EDAB05A25440C2EDDAB6D15577CB437FAEF95DA939767885F05F0E",
-    "wad/modules/Domenia-Live.UI.ps1": "168709C490CFDAAC867DC8381BA491CF69F0CA4112D29D99F989DE908BAB0E40",
+    "wad/modules/Domenia-Live.UI.ps1": "1514F0BE4CD88C60822660D0F4CDD44F643BD6F8DD6A8CD6951FE83323F599FA",
     "wad/modules/Domenia-Receipts.Worker.ps1": "72D43A96BABB55F6EB5C008018EB1C4AA1C0A1265402FBAD7294C1113735B68E",
     "wad/modules/Domenia-Reconcile.UI.ps1": "845F7531CCD8FB82BB4CECB5210E47E9C86E5E2C0913074D8BE460E814F52288",
     "wad/modules/Domenia-Relations.UI.ps1": "5F7C8E7B3608DF3AE7FF5B99517FE6556F4CD27F4074F165AFF956294A71ED11",
@@ -3166,6 +3166,41 @@
       "AddedCoreFunctions": [],
       "RemovedCoreFunctions": [],
       "ChangedPayloads": []
+    },
+    {
+      "Previous": "Domenia 1.0 login foreground 2026-10-12",
+      "Source": "Domenia 1.0 RC1.17.1 recherche WPF 2026-10-12",
+      "Decision": "Correction relue du filtre Live : la fermeture WPF capture les criteres et les GUID sans resolution de fonction du script applicatif. Le gestionnaire Fleet capture explicitement sa fonction. Seul Get-MainXaml change dans le coeur pour afficher RC1.17.1. Aucun worker modifie. Tests Windows de regression avant/apres requis avant livraison.",
+      "ChangedCoreFunctions": [
+        "Get-MainXaml"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": [
+        "wad/modules/Domenia-Live.UI.ps1"
+      ]
+    },
+    {
+      "Previous": "Domenia 1.0 RC1.17.1 recherche WPF 2026-10-12",
+      "Source": "Domenia 1.0 RC1.17.1 filtre differe relu 2026-10-12",
+      "Decision": "Revue finale du correctif de recherche : FilterPending preserve une demande ApplySearch ou ClearSearch quand la grille est desactivee, puis le tick la rejoue apres reactivation meme sans filtre texte/presence. Aucun worker, aucune E/S ni ecriture AD ajoutee. Validation dynamique Windows avant/apres obligatoire avant livraison.",
+      "ChangedCoreFunctions": [],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": [
+        "wad/modules/Domenia-Live.UI.ps1"
+      ]
+    },
+    {
+      "Previous": "Domenia 1.0 RC1.17.1 filtre differe relu 2026-10-12",
+      "Source": "Domenia 1.0 RC1.17.1 filtre WPF final 2026-10-12",
+      "Decision": "Optimisation relue dans le meme correctif : retour direct apres intersection GUID quand aucun filtre texte/presence est actif; apres filtre presence sans texte, eviter egalement la concatenation de huit champs. Criteres et limites inchanges, aucun appel reseau. Mesure et assertions5000 lignes dans la recette Windows finale.",
+      "ChangedCoreFunctions": [],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": [
+        "wad/modules/Domenia-Live.UI.ps1"
+      ]
     }
   ]
 }

@@ -1,0 +1,485 @@
+{
+  "Note": "Copies de rapports Windows avec encodage UTF-8, fins LF et espaces terminaux retires. Les JSON gardent les memes valeurs. Originaux conserves hors Git dans validation-Windows-20261012-search.",
+  "Files": [
+    {
+      "File": "before-after-f4f5e218/baseline-head-exit.txt",
+      "OriginalSHA256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "File": "before-after-f4f5e218/baseline-head-report.json",
+      "OriginalSHA256": "76449b10c1dcc573a68e2b33cf8af395f471e14fbf0d7a3bd163e8b63f29bfc7",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "dd22766279ca5e800a9f82e63ac646b912d65f197a0e41ece43dc552d7cd3fc9"
+    },
+    {
+      "File": "before-after-f4f5e218/baseline-head-test.log",
+      "OriginalSHA256": "a0b6260ef81fff1fa93e94b09a4e5a62b1027d203161f13a23636b4921b35c23",
+      "OriginalEncoding": "utf-16",
+      "VersionedSHA256": "ec5a0ae8e71d09152f805552ba84a979edc57871b986073be66c864c31c1f1df"
+    },
+    {
+      "File": "before-after-f4f5e218/correction-before-fastpath-exit.txt",
+      "OriginalSHA256": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "File": "before-after-f4f5e218/correction-before-fastpath-report.json",
+      "OriginalSHA256": "749a691c9cecca9ca569dab13ed7fe8e066fba1e353b985e04c6e3def8eab4dd",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "4bee7b49cf97eee90b1489aac2102ac01f2d350cc374dfd366b602611c610a78"
+    },
+    {
+      "File": "before-after-f4f5e218/correction-before-fastpath-test.log",
+      "OriginalSHA256": "2e59e6107f5d99cbeb2d2b961a0d5df0eadbfbf5009c3923119cfa1c28e4a6c8",
+      "OriginalEncoding": "utf-16",
+      "VersionedSHA256": "3bd38c03c86c6d2d820bd8825261713db807a3862b6b2fa04ea570ce49a8fb90"
+    },
+    {
+      "File": "before-after-f4f5e218/origin.json",
+      "OriginalSHA256": "76af4f46ba40ebfbf1857bd426df29ca4308818ebe772c4db2f9dcd4db58b2cd",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "76af4f46ba40ebfbf1857bd426df29ca4308818ebe772c4db2f9dcd4db58b2cd"
+    },
+    {
+      "File": "final-pack-80893/NativeParser.json",
+      "OriginalSHA256": "45f13da1435bfd8c90c4f560a5cebfe34632c9b2a31df2bafcf611e3fad46965",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "8f8a886e9eb31190fb548a292a4949774553632b8438209899f19e8720b81bb6"
+    },
+    {
+      "File": "final-pack-80893/NativeParser.stderr.txt",
+      "OriginalSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "File": "final-pack-80893/NativeParser.stdout.txt",
+      "OriginalSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "File": "final-pack-80893/ProdFactory.json",
+      "OriginalSHA256": "996c2eee2c8b3f021b40b6fce2e3c8559c0735434c2a44168c9e6e0bf7cdb269",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "9fcf373537fffc7023568b5d55803a5e8c4370fed178bc9c31a05bb68e637839"
+    },
+    {
+      "File": "final-pack-80893/ProdFactory.stderr.txt",
+      "OriginalSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "File": "final-pack-80893/ProdFactory.stdout.txt",
+      "OriginalSHA256": "36268a8ba151110d4bc552b28f454285d6bc8f2ee10c2ef19bcf7e961e113d80",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "2e3b8dee737e1e68535e9f8aa21986f840d16654b6a24919a2b140e7471a95d4"
+    },
+    {
+      "File": "final-pack-80893/Ps51Compat.json",
+      "OriginalSHA256": "b26fa35f82defa84fa3c784d6f2d8a0d89c69c5e03acb59f1e9514d014461843",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "c7287ed28ef69a95624662aaf5c30119c2ffeff4f44a6022226bb46590253781"
+    },
+    {
+      "File": "final-pack-80893/Ps51Compat.stderr.txt",
+      "OriginalSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "File": "final-pack-80893/Ps51Compat.stdout.txt",
+      "OriginalSHA256": "1b37e707f1898d26a18201a815787725c505ffdb6630b0fc85b97ffb24d2479e",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "1b37e707f1898d26a18201a815787725c505ffdb6630b0fc85b97ffb24d2479e"
+    },
+    {
+      "File": "final-pack-80893/StartupCheckOnly.stderr.txt",
+      "OriginalSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "File": "final-pack-80893/StartupCheckOnly.stdout.txt",
+      "OriginalSHA256": "9a6052c96a53a64b9bb62707464a87ff8bc8c2943541b0c370510008a9be3579",
+      "OriginalEncoding": "OEM437/850 (identical decoding for all bytes present)",
+      "VersionedSHA256": "8671db682ebd13ca31a7856675eb61af45a2db772cc3a0b238ca37c957569d02"
+    },
+    {
+      "File": "final-pack-80893/Test-Domenia.json",
+      "OriginalSHA256": "aa31f60164b6d15464f321a18c290e4b1ae17b2f4a20a83a8195cfb7155556e8",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "8cc44d27cfc62a1eb4ad1b9e84d7b978ab2484ddf27d1952ca2ebd1b72fcb502"
+    },
+    {
+      "File": "final-pack-80893/Test-Domenia.stderr.txt",
+      "OriginalSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "File": "final-pack-80893/Test-Domenia.stdout.txt",
+      "OriginalSHA256": "792394c3c85bc5c75765fc95cdd580623cd962fc96a1ee2138dbaaf10860a11e",
+      "OriginalEncoding": "OEM437/850 (identical decoding for all bytes present)",
+      "VersionedSHA256": "aba1bd532473d2882ad80dfdf890451a4373fe3578f30cba859a385388b802e4"
+    },
+    {
+      "File": "final-pack-80893/Test-DomeniaBoards.json",
+      "OriginalSHA256": "693e7720676e37838bac2af2b599920e2a52807d14a5a1f20d7decc931c8141b",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "5848c7e1d9b55ab352c741b02ccf6d29be96de83569a1c2233ceb221c67da478"
+    },
+    {
+      "File": "final-pack-80893/Test-DomeniaBoards.stderr.txt",
+      "OriginalSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "File": "final-pack-80893/Test-DomeniaBoards.stdout.txt",
+      "OriginalSHA256": "1373a52a2faf0becf21fb58a9336963c1fe442aba434b0d65d4b8bc6ea5c1456",
+      "OriginalEncoding": "OEM437/850 (identical decoding for all bytes present)",
+      "VersionedSHA256": "dec868768d35f350bccc1e6a04b145918f50344c37b980a46d4e3506e9ea72d3"
+    },
+    {
+      "File": "final-pack-80893/Test-DomeniaDnScopes.stderr.txt",
+      "OriginalSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "File": "final-pack-80893/Test-DomeniaDnScopes.stdout.txt",
+      "OriginalSHA256": "44b1efd2fd87083aac7cfc98669d16787ceb3e3bc434a717f367dd79c0b89231",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "c8a1b79b379a239647042a01925bce15bd3094aa95e0d259f8b0942ec7c2d98a"
+    },
+    {
+      "File": "final-pack-80893/Test-DomeniaEngineResilience.json",
+      "OriginalSHA256": "60f09234d8806f4b0b0ca119c763ecfca6eddb86784ce5f8a0e5699fc46c6f49",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "c1eb5ed14c56fa83ec545cf9abc4bf44fc56e263ee1faada5103c73d7d44ddb1"
+    },
+    {
+      "File": "final-pack-80893/Test-DomeniaEngineResilience.stderr.txt",
+      "OriginalSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "File": "final-pack-80893/Test-DomeniaEngineResilience.stdout.txt",
+      "OriginalSHA256": "e0d56d13df5792f1c3deeb5a7d50a566a418feaba80069a9775d36e7551cd120",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "e0d56d13df5792f1c3deeb5a7d50a566a418feaba80069a9775d36e7551cd120"
+    },
+    {
+      "File": "final-pack-80893/Test-DomeniaIndexActions.stderr.txt",
+      "OriginalSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "File": "final-pack-80893/Test-DomeniaIndexActions.stdout.txt",
+      "OriginalSHA256": "f82b05dff531dcf15f700dd81b59ad65cee91d68fe983f387bd08da8f72735f1",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "88bdd130ebe909710b656b815ce7388f6683ce361852b482ba1721f04429938c"
+    },
+    {
+      "File": "final-pack-80893/Test-DomeniaIndexPersistence.stderr.txt",
+      "OriginalSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "File": "final-pack-80893/Test-DomeniaIndexPersistence.stdout.txt",
+      "OriginalSHA256": "7cdcfdb6800d341465ffd54e8bfede7d6a0fa4acdcbc8b065c2ecf7e64b37b39",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "2683059e7b8ff06fe2db101a3381089646b9a19b00406c8b950b4ad1d915190b"
+    },
+    {
+      "File": "final-pack-80893/Test-DomeniaIndexSorting.stderr.txt",
+      "OriginalSHA256": "f8f8b385034e0935318eafe9fd7dc95dcc1a8fdc459b62e17248d04f886f65e0",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "340f66bec365f47f4dcf5695956691121142829d7c7bff4ee1225b7e3b10f8ce"
+    },
+    {
+      "File": "final-pack-80893/Test-DomeniaIndexSorting.stdout.txt",
+      "OriginalSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "File": "final-pack-80893/Test-DomeniaLiveSearchView.json",
+      "OriginalSHA256": "4a116bfe260bb0b6db5fce974c98754db1bbf93614b2504f5a093a894c22e269",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "c642a585d5862770f09524bd3631130a167d4256c1c3e2e75299086e90a15889"
+    },
+    {
+      "File": "final-pack-80893/Test-DomeniaLiveSearchView.stderr.txt",
+      "OriginalSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "File": "final-pack-80893/Test-DomeniaLiveSearchView.stdout.txt",
+      "OriginalSHA256": "3bd38c03c86c6d2d820bd8825261713db807a3862b6b2fa04ea570ce49a8fb90",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "3bd38c03c86c6d2d820bd8825261713db807a3862b6b2fa04ea570ce49a8fb90"
+    },
+    {
+      "File": "final-pack-80893/Test-DomeniaLoginForeground.json",
+      "OriginalSHA256": "5ec06f686f4a2261412e437fa2cadf9dff19ba674948438e984a375fa955e0a1",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "7c286df0e957f41d44d2958a1da6cb499031a7822f0792d854cdcae74db7b571"
+    },
+    {
+      "File": "final-pack-80893/Test-DomeniaLoginForeground.stderr.txt",
+      "OriginalSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "File": "final-pack-80893/Test-DomeniaLoginForeground.stdout.txt",
+      "OriginalSHA256": "849a80cd51cdb27e6bed9acd0f0f2171f7dbe2595d382c2fc374575fe22c4256",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "d9a7a157fb8e53052561320d2e490de0ba516ca51c59b640bf44a458b2cf7e01"
+    },
+    {
+      "File": "final-pack-80893/Test-DomeniaModules.json",
+      "OriginalSHA256": "d69a0d9258d1e2d9a85cd616b9d4e35f84c6781e6e3615fb97358e81e10fc7e7",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "fc7810924fb265cb485ddbaaf4f67eb6c8e370375e27f9caad94a29bbbe4dbe3"
+    },
+    {
+      "File": "final-pack-80893/Test-DomeniaModules.stderr.txt",
+      "OriginalSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "File": "final-pack-80893/Test-DomeniaModules.stdout.txt",
+      "OriginalSHA256": "a5b8a780234e79f69e7cf271bd1f74529242e75fb3bac2e5c308e36da2be86bf",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "a5b8a780234e79f69e7cf271bd1f74529242e75fb3bac2e5c308e36da2be86bf"
+    },
+    {
+      "File": "final-pack-80893/Test-DomeniaNative.stderr.txt",
+      "OriginalSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "File": "final-pack-80893/Test-DomeniaNative.stdout.txt",
+      "OriginalSHA256": "bee5c40a1f754f94a30264272ac75d4261646347ace96ca4924be05ee9565ec5",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "b768c4cf6bcf2a9e051b912ae0cb7ec30235c96951071d4496c0acbd5aaf1e63"
+    },
+    {
+      "File": "final-pack-80893/Test-DomeniaParkDetection.json",
+      "OriginalSHA256": "7235ebc690f0bc21412b0d6f298a7e8f6be64c5ac175ef88ed441d0eb33b9a93",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "ec9560a66eb4f194301be81211843079d5aacbc8bde1e6a6993d735b08baa524"
+    },
+    {
+      "File": "final-pack-80893/Test-DomeniaParkDetection.stderr.txt",
+      "OriginalSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "File": "final-pack-80893/Test-DomeniaParkDetection.stdout.txt",
+      "OriginalSHA256": "7883a3892f8668d498b7b9f2bafeea0c92804f599f27c274bb140fb54d5c9033",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "7883a3892f8668d498b7b9f2bafeea0c92804f599f27c274bb140fb54d5c9033"
+    },
+    {
+      "File": "final-pack-80893/Test-DomeniaQuery.stderr.txt",
+      "OriginalSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "File": "final-pack-80893/Test-DomeniaQuery.stdout.txt",
+      "OriginalSHA256": "8c56f0ec4db73431e97b88fe15855f5f8d6b4bbaa5fe06f5312975ef5f5e2bc9",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "fb4f0e45472e05be9c72a922e104ade99b6d18c1a77bada281306f20eda6a810"
+    },
+    {
+      "File": "final-pack-80893/Test-DomeniaRules.json",
+      "OriginalSHA256": "54aa5b49fd2343c497b453ef6f384776e2c6efa206dad2d2e324e7c2e20a5dd2",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "b6de7e926fec230daa370b6440d22c33a8b39ca7b1e00130fc3a8ef95fbad59d"
+    },
+    {
+      "File": "final-pack-80893/Test-DomeniaRules.stderr.txt",
+      "OriginalSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "File": "final-pack-80893/Test-DomeniaRules.stdout.txt",
+      "OriginalSHA256": "8af648aa2928e21dbbf93beb2933ab4d4e64753a709c0018c9495713bf0bdf1d",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "8af648aa2928e21dbbf93beb2933ab4d4e64753a709c0018c9495713bf0bdf1d"
+    },
+    {
+      "File": "final-pack-80893/Test-DomeniaWiringInterface.json",
+      "OriginalSHA256": "bc302250fdb440023b57bf2326855284273fda43d000fcd93412e72d3c873dd9",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "7f447c6334693923428783933cc026566c28fd55318863c6bd0b53e1d7db9bfc"
+    },
+    {
+      "File": "final-pack-80893/Test-DomeniaWiringInterface.stderr.txt",
+      "OriginalSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "File": "final-pack-80893/Test-DomeniaWiringInterface.stdout.txt",
+      "OriginalSHA256": "5b9a0a535ef8b335ae828dc08dfcf509cd535714bca7cd54d39aac1bcb86d64a",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "5b9a0a535ef8b335ae828dc08dfcf509cd535714bca7cd54d39aac1bcb86d64a"
+    },
+    {
+      "File": "final-pack-80893/_quick-ui.json",
+      "OriginalSHA256": "0d9c05485f2b3354330ebd803355f1f2ae8586df4303110577e092d257c5f0eb",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "a0fcdd09b6bd3d4b7686410753af6dfc63487707e9fd21c163203fb7fe3fe11c"
+    },
+    {
+      "File": "final-pack-80893/factory-startup.stderr.txt",
+      "OriginalSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "File": "final-pack-80893/factory-startup.stdout.txt",
+      "OriginalSHA256": "8667bd385c6309e0153f4aaab8438e929fa2466418489eca7cd2a9636fbb6b38",
+      "OriginalEncoding": "OEM437/850 (identical decoding for all bytes present)",
+      "VersionedSHA256": "a394ff266758970d3bf7e263e9b712e3968545e21d3c18e9793813f7edc8d01f"
+    },
+    {
+      "File": "final-pack-80893/package-origin.json",
+      "OriginalSHA256": "f3dc09966ee352df42af0dd5f90f41de5125a5ca1f4287ceb314df7a0f165fc8",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "c7bfe170694fc22e345ac34507bb463b9dddb46771293cd261bddfcdc90eee79"
+    },
+    {
+      "File": "final-pack-80893/runner-exit.txt",
+      "OriginalSHA256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "File": "final-pack-80893/runner.log",
+      "OriginalSHA256": "348e86e39c096a9c5612d0d5bb88758818e71798c4d00cd7114d8156440c639c",
+      "OriginalEncoding": "utf-16",
+      "VersionedSHA256": "7fa8ada6748155afd57afe91f730e69e22af0851034cf38ab340c8ad7a0d8b93"
+    },
+    {
+      "File": "final-pack-80893/runtime-source.json",
+      "OriginalSHA256": "5cccc88eecb669c746a04e134a087508a9e5c4d7cb13ca5fcbc1ff16ec8e49a8",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "9626eb613a537775d2908a6fb5f6076db69bda242d647da217f8a0111ded8639"
+    },
+    {
+      "File": "final-dev-4773/ProdFactory.json",
+      "OriginalSHA256": "4f8dfc514c7b577992ba57980378856cf576e2d8c205b1612ef500bd65e6c3b5",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "d76d4fa2e68d8d2cf0f646a9398ec266a644fb32a27c5b35487d22e9e3095a8b"
+    },
+    {
+      "File": "final-dev-4773/ProdFactory.stderr.txt",
+      "OriginalSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "File": "final-dev-4773/ProdFactory.stdout.txt",
+      "OriginalSHA256": "0ec9daebad7bbdd9a12dd20f93202c7133a739da0b3f07891d23846d38377aa9",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "b7e88dc1566ced2fab013e56322de3896af1e28d4aaca330ed56206b1712eb53"
+    },
+    {
+      "File": "final-dev-4773/StartupCheckOnly.stderr.txt",
+      "OriginalSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "File": "final-dev-4773/StartupCheckOnly.stdout.txt",
+      "OriginalSHA256": "ed873837367389e1392dc575fb33ba84d378ea5aef17df3a7693e5dfb6aa3a9d",
+      "OriginalEncoding": "OEM437/850 (identical decoding for all bytes present)",
+      "VersionedSHA256": "2edd4920716773494ccf31d08a9601c38cf223aa1c5b2e7c0afd1247e182ae6e"
+    },
+    {
+      "File": "final-dev-4773/Test-DomeniaIndexSorting.stderr.txt",
+      "OriginalSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "File": "final-dev-4773/Test-DomeniaIndexSorting.stdout.txt",
+      "OriginalSHA256": "af5b2a807818b5aaf802c971b50e0d08fb5405ce2312a8b031c9ece34daf9126",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "027c0879877a31cd4cc06083b11d534fe609357274026ab15ea552ca3b0f8980"
+    },
+    {
+      "File": "final-dev-4773/_quick-ui.json",
+      "OriginalSHA256": "a156aadf763a5eb437a9fffb08d369d204eed1d0a5a789a28a38894c02c5942e",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "74501117cfd7885b759d4bddffc158c32791cd425f840df53a554fbaa381b278"
+    },
+    {
+      "File": "final-dev-4773/factory-startup.stderr.txt",
+      "OriginalSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "File": "final-dev-4773/factory-startup.stdout.txt",
+      "OriginalSHA256": "37df9d651c26ba9aa9493ecff6876432fdd2673c86efd5262991f995db31f045",
+      "OriginalEncoding": "OEM437/850 (identical decoding for all bytes present)",
+      "VersionedSHA256": "969db7743f9c4dc22cbbecc5c37c3cff3096dd170cc0bd9a2ee3798d8efe4c74"
+    },
+    {
+      "File": "final-dev-4773/package-origin.json",
+      "OriginalSHA256": "802946542734eb2976fbcae2958df5dfc7ea4cbf04fc016e2e3aea1fdff2a44f",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "6df61ffb853de8d0bee3a526877e7c475bddba2cb94d62750d0ab9a7c3489ec0"
+    },
+    {
+      "File": "final-dev-4773/runner-exit.txt",
+      "OriginalSHA256": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "File": "final-dev-4773/runner.log",
+      "OriginalSHA256": "53d3840b18c3973149e84d4c3509705c5edcd7a02bd1490b39d4ab5d3af5d238",
+      "OriginalEncoding": "utf-16",
+      "VersionedSHA256": "c9dd7cd985670271afe2c9f2c90d97bc43582df6850f16f83a410334a2e75865"
+    },
+    {
+      "File": "final-dev-4773/runtime-source.json",
+      "OriginalSHA256": "ba0775a78ea418cff2dc4b074ce8cb47d36bdbec3c84c6ace9438acf2ceb0f90",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "36b62807e282d1d6479a73c1c09c4cb558851646b4684dbcbc412870349cfe5a"
+    },
+    {
+      "File": "qualification.json",
+      "OriginalSHA256": "95fb81a733d8716680f9eb329d3f09c977ab88206ddbd7f071a2c7fe039e88da",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "95fb81a733d8716680f9eb329d3f09c977ab88206ddbd7f071a2c7fe039e88da"
+    },
+    {
+      "File": "final-zip-comparison.json",
+      "OriginalSHA256": "1268327b7751e934d5fbdfc79aefe510853e2c0e49fca79610614066e6dfca1b",
+      "OriginalEncoding": "utf-8-sig",
+      "VersionedSHA256": "1268327b7751e934d5fbdfc79aefe510853e2c0e49fca79610614066e6dfca1b"
+    }
+  ]
+}

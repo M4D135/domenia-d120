@@ -1,0 +1,192 @@
+{
+  "Status": "PASS",
+  "UTC": "2026-10-12T20:21:19.310158+00:00",
+  "DevZipSHA256": "4773c36e0dbdfe31f2a0ddfeaa50845b21704102e81378305c9a52cdf644f3cb",
+  "ProdZipSHA256": "e5866bed490f81abff83a1a3b4022d67148e37f4b395083e87c6019bb07e7daa",
+  "TestSHA256": "f4f5e21863d9f654b9ef74d4bfb4a0ea7f773d96b0f7cd6ec75db97eb075f9b1",
+  "VM": "CNAMTS-W11-01",
+  "Guest": "W11-01",
+  "PowerShell": "5.1.26100.6584",
+  "Session": 0,
+  "Data": "Synthetic only; no AD, CIM or network operation requested by this qualification.",
+  "BeforeEvidence": "before-after-f4f5e218/baseline-head-report.json",
+  "BeforeProcessExit": 1,
+  "BeforeReproduction": "Real loader under the two launch scopes; Timer:Live Add fails with Test-DomeniaSearchQueryRow missing, 3 consecutive errors stop it, 3 rows received and 0 visible; delayed WPF widget click fails with Show-DomeniaFleetWidgetDetails missing.",
+  "AfterEvidence": "final-pack-80893/Test-DomeniaLiveSearchView.json",
+  "AfterProcessExit": 0,
+  "RegressionCases": 11,
+  "RegressionAssertions": 62,
+  "ScaleObjects": 5002,
+  "ScaleMachines": 5000,
+  "ScaleFilteredSelection": 2500,
+  "ScaleCaseMilliseconds": 64519,
+  "ScaleTimingScope": "Entire synthetic scale case (enqueue, progressive display, uniqueness checks, native GUID query, clear). Not an AD throughput benchmark.",
+  "EffectiveSuites": [
+    {
+      "Suite": "Ps51Compat",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 26495,
+      "ReportWritten": true,
+      "Evidence": "final-pack-80893/_quick-ui.json"
+    },
+    {
+      "Suite": "ProdFactory",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 37925,
+      "ReportWritten": true,
+      "Evidence": "final-dev-4773/_quick-ui.json"
+    },
+    {
+      "Suite": "NativeParser",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 2197,
+      "ReportWritten": true,
+      "Evidence": "final-pack-80893/_quick-ui.json"
+    },
+    {
+      "Suite": "StartupCheckOnly",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 4463,
+      "ReportWritten": false,
+      "Evidence": "final-dev-4773/_quick-ui.json"
+    },
+    {
+      "Suite": "Test-DomeniaModules",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 42340,
+      "ReportWritten": true,
+      "Evidence": "final-pack-80893/_quick-ui.json"
+    },
+    {
+      "Suite": "Test-Domenia",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 51462,
+      "ReportWritten": true,
+      "Evidence": "final-pack-80893/_quick-ui.json"
+    },
+    {
+      "Suite": "Test-DomeniaLiveSearchView",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 77900,
+      "ReportWritten": true,
+      "Evidence": "final-pack-80893/_quick-ui.json"
+    },
+    {
+      "Suite": "Test-DomeniaBoards",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 47337,
+      "ReportWritten": true,
+      "Evidence": "final-pack-80893/_quick-ui.json"
+    },
+    {
+      "Suite": "Test-DomeniaLoginForeground",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 13608,
+      "ReportWritten": true,
+      "Evidence": "final-pack-80893/_quick-ui.json"
+    },
+    {
+      "Suite": "Test-DomeniaWiringInterface",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 10030,
+      "ReportWritten": true,
+      "Evidence": "final-pack-80893/_quick-ui.json"
+    },
+    {
+      "Suite": "Test-DomeniaParkDetection",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 19435,
+      "ReportWritten": true,
+      "Evidence": "final-pack-80893/_quick-ui.json"
+    },
+    {
+      "Suite": "Test-DomeniaEngineResilience",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 3344,
+      "ReportWritten": true,
+      "Evidence": "final-pack-80893/_quick-ui.json"
+    },
+    {
+      "Suite": "Test-DomeniaQuery",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 4078,
+      "ReportWritten": false,
+      "Evidence": "final-pack-80893/_quick-ui.json"
+    },
+    {
+      "Suite": "Test-DomeniaIndexSorting",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 7204,
+      "ReportWritten": false,
+      "Evidence": "final-dev-4773/_quick-ui.json"
+    },
+    {
+      "Suite": "Test-DomeniaIndexActions",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 2595,
+      "ReportWritten": false,
+      "Evidence": "final-pack-80893/_quick-ui.json"
+    },
+    {
+      "Suite": "Test-DomeniaDnScopes",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 5106,
+      "ReportWritten": false,
+      "Evidence": "final-pack-80893/_quick-ui.json"
+    },
+    {
+      "Suite": "Test-DomeniaRules",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 52126,
+      "ReportWritten": true,
+      "Evidence": "final-pack-80893/_quick-ui.json"
+    },
+    {
+      "Suite": "Test-DomeniaNative",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 1618,
+      "ReportWritten": false,
+      "Evidence": "final-pack-80893/_quick-ui.json"
+    },
+    {
+      "Suite": "Test-DomeniaIndexPersistence",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 31701,
+      "ReportWritten": false,
+      "Evidence": "final-pack-80893/_quick-ui.json"
+    }
+  ],
+  "SuiteCount": 19,
+  "FailedEffectiveSuites": 0,
+  "RuntimeChangedByTests": [],
+  "ArchiveComparison": "final-zip-comparison.json",
+  "SupersededFailure": {
+    "Evidence": "final-pack-80893/Test-DomeniaIndexSorting.stderr.txt",
+    "Reason": "Stale test expected former MaxHeight48; runtime compact cell is28px/NoWrap. Only this test assertion and its generated DEV manifest entry changed.",
+    "Replacement": "final-dev-4773/Test-DomeniaIndexSorting.stdout.txt"
+  },
+  "ScopeLimits": [
+    "WPF is exercised natively in guest session 0, not an interactive desktop/Alt-Tab claim.",
+    "No real AD credentials, directory inventory or write operation were used.",
+    "No claim of improved AD collection speed from synthetic timing."
+  ]
+}

@@ -114,7 +114,10 @@ try{
  $source=[IO.File]::ReadAllText((Join-Path $wad 'Domenia-Core.ps1'))
  $start=$source.IndexOf('<DataGrid x:Name="DgIndex"');$end=$source.IndexOf('</DataGrid>',$start);$gridSource=$source.Substring($start,$end-$start)
  Expect ($gridSource -match 'CanUserSortColumns="True"' -and $gridSource -match 'Binding="\{Binding Association\}" CanUserSort="False"') 'real grid enables global sorting except computed association'
- Expect ($gridSource -match 'MinWidth="260"' -and $gridSource -match 'MaxHeight="48" TextTrimming="CharacterEllipsis"') 'detail layout has explicit width and height bounds'
+ # The compact Base grid uses a single-line 28px cell; assert its own attributes, not another column.
+ $detailColumn=[regex]::Match($gridSource,'<DataGridTemplateColumn\b(?=[^>]*\bSortMemberPath="Description")[^>]*>').Value
+ $detailCell=[regex]::Match($gridSource,'<TextBlock\b(?=[^>]*\bText="\{Binding Description\}")[^>]*>').Value
+ Expect ($detailColumn -match 'MinWidth="260"' -and $detailCell -match 'MaxHeight="28"' -and $detailCell -match 'TextWrapping="NoWrap"' -and $detailCell -match 'TextTrimming="CharacterEllipsis"') 'compact detail layout preserves width, single-line height and overflow bounds'
  $report=[ordered]@{Kind='IndexSorting';Passed=$script:checks;Failed=0;NativeWindowsPowerShell51=($env:OS -eq 'Windows_NT' -and $PSVersionTable.PSVersion.Major -eq 5);WpfExecuted=$false;NetworkAccessed=$false;Objects=503;Summary='Real SQLite all-page sorting, mixed typed dates, scope, whitelist, production callbacks, retry/generation and census UI timer.'}
  if($ReportPath){[IO.File]::WriteAllText([IO.Path]::GetFullPath($ReportPath),($report|ConvertTo-Json),[Text.UTF8Encoding]::new($false))}
  Write-Output ('PASS Base global sorting: '+$script:checks+' assertions; actual SQLite + inert UI callbacks, no WPF/AD')

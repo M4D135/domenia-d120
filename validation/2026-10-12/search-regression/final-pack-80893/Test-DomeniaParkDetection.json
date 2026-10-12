@@ -1,0 +1,122 @@
+{
+  "Kind": "ParkDetection",
+  "Expected": 22,
+  "Complete": true,
+  "NativeWindowsPowerShell51": true,
+  "LiveAD": false,
+  "MockedNetwork": true,
+  "Passed": 22,
+  "Failed": 0,
+  "Tests": [
+    {
+      "Name": "Parc : aucun demarrage ni mode silencieux ne contacte les postes",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Name": "Resultats : seuls les postes affiches apres filtre sont figes",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Name": "Resultats : vide ne retombe jamais sur tout le parc",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Name": "Parc : lecture locale avant confirmation et aucun poste sans confirmation",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Name": "Parc : timer ne peut pas commencer avant approbation du perimetre",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Name": "Parc : ancienne annulation ne peut pas arreter un nouveau releve",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Name": "Parc : quatre lectures au maximum et un depart par tick",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Name": "Parc : arret ne lance plus rien et garde le resultat en vol",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Name": "Parc : meme callback ne peut pas etre applique deux fois",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Name": "Parc : ancien contexte ignore sans ecriture ni association",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Name": "Parc : association manuelle ou importee protegee meme si changee pendant lecture",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Name": "Parc : utilisateur inchange ne reecrit pas association ni historique",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Name": "Parc : poste inaccessible conserve le dernier utilisateur et son instant",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Name": "Parc : compte refuse arrete les nouvelles lectures sans rejeu",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Name": "Parc : annulation centrale ou disparition du worker arrete la suite",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Name": "Parc : pression du stockage suspend les nouvelles lectures",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Name": "Parc : console reconfirmee maintenant meme si identite LDAP reutilisee",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Name": "Parc : fin attend aussi le timer de sauvegarde des associations",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Name": "Parc : arret attend la sauvegarde deja demandee",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Name": "Parc : nouveau releve attend une association encore dans le timer de sauvegarde",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Name": "Parc entier : retire, aucune lecture sans la liste affichee (decision 2026-10-05)",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Name": "Interface : detection et analyse de la liste et leur arret cables ; aucun bouton parc entier",
+      "Status": "Passed",
+      "Detail": ""
+    }
+  ]
+}
