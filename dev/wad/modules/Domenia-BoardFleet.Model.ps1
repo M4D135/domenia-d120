@@ -263,7 +263,12 @@ function Get-DomeniaFleetBoardData {
     foreach ($type in @($source.Types)) { if (($null -ne $type) -and ([string]$type.t -eq 'Utilisateur') -and ([string]$type.s -eq 'Actif')) { $activeUsers += [long]$type.n } }
     $links = 0
     try { $links = [int](& $member $source 'Links' 0) } catch { $links = 0 }
-    Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.machines' -Kind Value -Value ([string]$total) -Detail $(if ($scope) { $(if ($Subtree) { 'dans l OU et ses sous-OU' } else { 'directement dans l OU' }) } else { [string]$activeUsers + ' utilisateurs actifs au total' }))
+    # La tuile compte la base entiere du perimetre, desactives compris : c'est le seul chiffre comparable a la
+    # recherche, qui interroge l'annuaire en direct et ne filtre aucun etat. La ventilation est detaillee ici, la
+    # tuile fleet.disabled garde son role d'alerte, et les ratios (versions, LAPS, BitLocker) restent sur les actifs.
+    $machineCount = $total + $disabled
+    $machineDetail = $(if ($disabled) { 'dont ' + [string]$total + ' ' + (& $plural $total 'actif' 'actifs') + ' et ' + [string]$disabled + ' ' + (& $plural $disabled 'désactivé' 'désactivés') + ' · ' } else { '' }) + $(if ($scope) { $(if ($Subtree) { 'dans l OU et ses sous-OU' } else { 'directement dans l OU' }) } else { [string]$activeUsers + ' utilisateurs actifs au total' })
+    Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.machines' -Kind Value -Value ([string]$machineCount) -Detail $machineDetail)
     Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.stale' -Kind Value -Value ([string]$stale) -State $(if ($stale) { 'Warn' } else { 'Ok' }) -Detail 'Dernière connexion au domaine, à 14 jours près')
     $kindItems = @(foreach ($name in @($kinds.Keys)) { if ([int]$kinds[$name] -gt 0) { [pscustomobject]@{ Label = [string]$name; Value = [double]$kinds[$name] } } })
     if ($kindItems.Count) {

@@ -7035,6 +7035,8 @@ function Get-MainXaml {
                             <TextBlock Text="Base autonome DOMENIA" FontSize="18" FontWeight="SemiBold"/>
                             <TextBlock Text="Copie persistante des utilisateurs et postes, suivie par GUID et changements AD. Les associations utilisateur-poste sont conservées à côté et enrichissent les résultats." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,8" TextWrapping="Wrap"/>
                             <WrapPanel>
+                              <Button x:Name="BtnIndexScopeUpdate" Content="Mettre à jour la base de cette OU" Style="{StaticResource RunButton}" ToolTip="Relit dans lʼannuaire les seuls objets de lʼOU choisie ci-dessous, et les ajoute à la base locale sans rien supprimer. La mise à jour la plus courte quand on travaille sur une OU." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mettre à jour la base de cette OU" AutomationProperties.HelpText="Relit les objets de lʼOU choisie et les fusionne dans la base autonome."/>
+                              <Button x:Name="BtnIndexScopePick" Content="Choisir lʼOU..." Style="{StaticResource SecondaryButton}" ToolTip="Choisit lʼunité organisationnelle que la mise à jour doit relire. Sans choix, cʼest lʼOU sélectionnée dans lʼarbre de recherche." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Choisir lʼunité organisationnelle de la base" AutomationProperties.HelpText="Choisit lʼOU que la mise à jour de la base doit relire."/>
                               <Button x:Name="BtnIndexBuild" Content="Mettre a jour tout" Style="{StaticResource RunButton}" ToolTip="Relit tous les utilisateurs et postes, reconstruit la base autonome et resynchronise les associations connues. Peut durer plusieurs minutes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mettre a jour tout" AutomationProperties.HelpText="Relit tous les utilisateurs et postes, reconstruit la base autonome et resynchronise les associations connues. Peut durer plusieurs minutes."/>
                               <Button x:Name="BtnIndexRefresh" Content="Mettre a jour les changements" Style="{StaticResource RunButton}" ToolTip="Ne relit que les objets modifiés depuis la dernière passe grâce à uSNChanged/whenChanged. Beaucoup plus rapide." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mettre a jour les changements" AutomationProperties.HelpText="Ne relit que les objets modifies depuis la derniere passe grace a uSNChanged/whenChanged. Beaucoup plus rapide."/>
                               <Button x:Name="BtnIndexWalk" Content="Tout relire (OU par OU)" Style="{StaticResource SecondaryButton}" ToolTip="Relit le domaine entier en une tâche par OU et ajoute chaque OU à la base locale sans rien supprimer. Utile quand la base est annoncée incomplète : la limite de lecture ne porte plus que sur une seule OU à la fois. Lecture seule, à votre clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Tout relire OU par OU" AutomationProperties.HelpText="Relit le domaine entier en une tâche par OU et ajoute chaque OU à la base locale sans rien supprimer."/>
@@ -16980,7 +16982,8 @@ function Get-DomeniaIndexLimits {
 
 function Get-DomeniaIndexCut {
     # The limit that cut the last pass, as the worker reported it: 'volume' names Index.MaxObjects, 'temps' names
-    # Index.BudgetMs. A pass that never hit a limit, or a worker older than these fields, answers an empty reason.
+    # Index.BudgetMs, 'serveur' names the controller's own cut (ServerTimeLimit), which the worker cannot read back
+    # from the reply. A pass that never hit a limit, or a worker older than these fields, answers an empty reason.
     param($Effective)
     if ($null -eq $Effective) { return [pscustomobject]@{ Reason = ''; Limit = 0 } }
     $reason = ''
@@ -16989,6 +16992,7 @@ function Get-DomeniaIndexCut {
     $limit = 0
     if ($reason -eq 'temps') { try { $limit = [int]$Effective.LimitBudgetMs } catch { $limit = 0 } }
     elseif ($reason -eq 'volume') { try { $limit = [int]$Effective.LimitMaxObjects } catch { $limit = 0 } }
+    elseif ($reason -eq 'serveur') { try { $limit = [int]$Effective.LimitServerSeconds } catch { $limit = 0 } }
     else { $reason = '' }
     return [pscustomobject]@{ Reason = $reason; Limit = $limit }
 }
@@ -17009,7 +17013,10 @@ function Get-DomeniaIndexPartialText {
     if ($parts.Count -lt 3 -or $parts[0] -ine [string]$script:Conn.BaseDn) { return '' }
     $detail = [string]$parts[2] + ' objet(s) relu(s) dans la passe'
     if ($parts.Count -ge 5 -and [string]$parts[3]) {
-        $detail += ' sur une limite de ' + [string]$parts[4] + $(if ([string]$parts[3] -eq 'temps') { ' ms' } else { ' objets' })
+        $unit = ' objets'
+        if ([string]$parts[3] -eq 'temps') { $unit = ' ms' }
+        elseif ([string]$parts[3] -eq 'serveur') { $unit = ' s' }
+        $detail += ' sur une limite de ' + [string]$parts[4] + $unit
     }
     return ('la dernière mise à jour sʼest arrêtée à sa limite le ' + $parts[1] + ' (' + $detail + ').')
 }
@@ -17206,6 +17213,20 @@ function Complete-DomeniaIndexWalkUi {
     try { [void](Load-DomeniaIndexMetadata); Update-DomeniaIndexStats } catch { }
 }
 
+function Get-DomeniaIndexScope {
+    # Portée de la mise à jour de la base : l'OU choisie dans Outils > Base autonome, sinon la sélection de
+    # l'arbre Rechercher (la même que le tableau de bord et la recherche), sinon tout le domaine. Une OU hors
+    # du domaine de la session est ignorée. La lecture est toujours celle du sous-arbre : l'OU choisie et ses
+    # sous-OU, jamais un seul niveau -- une base incomplète se comprend mal quand le filtre dépend d'une case.
+    $dn = ''
+    try { $dn = ([string]$script:IndexScopeDn).Trim() } catch { $dn = '' }
+    $domainDn = ([string]$script:Conn.BaseDn).Trim()
+    if ($dn -and $dn -ieq $domainDn) { $dn = '' }
+    if ($dn -and -not $dn.EndsWith(',' + $domainDn,[StringComparison]::OrdinalIgnoreCase)) { $dn = '' }
+    if ($dn) { return [pscustomobject]@{ BaseDn = $dn; Scope = 'Subtree'; IsDomain = $false } }
+    try { return (Get-DomeniaSearchScope -Mode OU) } catch { return $null }
+}
+
 function Start-DomeniaIndexBuild {
     param([switch]$UpdateLinks,[switch]$Confirmed)
     try {
@@ -17269,8 +17290,19 @@ function Update-DomeniaIndexStats {
         $links = @($script:UserMachineLinks).Count
         $verifiedLinks = @($script:UserMachineLinks | Where-Object { ([string]$_.VerifiedInAD) -match "^(?i:true|1)$" }).Count
         $dbName = Split-Path (Get-DomeniaDatabasePath) -Leaf
-        $text = "Base autonome {0} : {1} objet(s), {2} compte(s), {3} poste(s), {4} association(s) user-machine ({5} verifiee(s)). Derniere passe le {6}{7} depuis {8}, {9}. Chargement complet RAM desactive." -f `
-            $dbName,$count,$users,$computers,$links,$verifiedLinks,$when,$age,$server,$repere
+        $scopeText = ""
+        try {
+            $ouScope = Get-DomeniaIndexScope
+            if ($null -ne $ouScope) {
+                if ([bool]$ouScope.IsDomain) { $scopeText = " Portée : tout le domaine." }
+                else {
+                    $leaf = (([string]$ouScope.BaseDn) -split '(?<!\\),')[0] -replace '^(OU|CN)=',''
+                    $scopeText = " Portée : " + $leaf + " (et ses sous-OU)."
+                }
+            }
+        } catch { }
+        $text = ("Base autonome {0} : {1} objet(s), {2} compte(s), {3} poste(s), {4} association(s) user-machine ({5} verifiee(s)). Derniere passe le {6}{7} depuis {8}, {9}. Chargement complet RAM desactive." -f `
+            $dbName,$count,$users,$computers,$links,$verifiedLinks,$when,$age,$server,$repere) + $scopeText
         [void](Set-DomeniaControlText -Name "LblIndexStats" -Text $text)
     } catch { }
     try { Update-DomeniaIndexLocation } catch { }
@@ -17478,8 +17510,16 @@ $userPlan = @{ Kind='Utilisateur'; Filter='(&(objectCategory=person)(objectClass
 $computerPlan = @{ Kind='Machine'; Filter='(objectCategory=computer)'; Props=@('name','sAMAccountName','dNSHostName','description','operatingSystem','location','distinguishedName','objectGUID','userAccountControl','whenChanged','uSNChanged','lastLogonTimestamp','operatingSystemVersion','whenCreated','pwdLastSet','ms-Mcs-AdmPwdExpirationTime','msLAPS-PasswordExpirationTime') }
 $plan = if ([bool]$Payload.ComputerFirst) { @($computerPlan,$userPlan) } else { @($userPlan,$computerPlan) }
 
+$serverTimeLimitSeconds = 120
+$plansLeft = @($plan).Count
 foreach ($entry in $plan) {
-    if ($rows.Count -ge $maxObjects -or $watch.ElapsedMilliseconds -ge $budgetMs) {
+    # Budget par plan : Index.BudgetMs était un plafond global sans réserve, donc le plan lu en premier pouvait
+    # tout le manger et le second était déclaré « non indexé » sans jamais démarrer -- une base à 60 000 postes
+    # et 0 compte. Chaque plan reçoit la part restante du budget ; un plan qui finit tôt rend son reste au
+    # suivant, et la passe ne peut jamais dépasser Index.BudgetMs.
+    $planDeadlineMs = $watch.ElapsedMilliseconds + [int][Math]::Ceiling([Math]::Max(1,($budgetMs - $watch.ElapsedMilliseconds)) / [Math]::Max(1,$plansLeft))
+    $plansLeft = [Math]::Max(0,$plansLeft - 1)
+    if ($rows.Count -ge $maxObjects -or $watch.ElapsedMilliseconds -ge $planDeadlineMs) {
         $truncated = $true
         $cut = if ($rows.Count -ge $maxObjects) { 'volume' } else { 'temps' }
         if (-not $limitReason) { $limitReason = $cut }
@@ -17495,12 +17535,12 @@ foreach ($entry in $plan) {
         if ($incremental) { $filter = '(&' + $filter + $deltaClause + ')' }
         $searcher = New-WSearcher $Context $searchBase $filter @($entry.Props) $searchScope 0
         $searcher.PageSize = 1000
-        $searcher.ServerTimeLimit = [TimeSpan]::FromSeconds(120)
-        $searcher.ClientTimeout = [TimeSpan]::FromSeconds(150)
+        $searcher.ServerTimeLimit = [TimeSpan]::FromSeconds($serverTimeLimitSeconds)
+        $searcher.ClientTimeout = [TimeSpan]::FromSeconds($serverTimeLimitSeconds + 30)
         $collection = $searcher.FindAll()
         foreach ($r in @($collection)) {
             if ($rows.Count -ge $maxObjects) { $truncated = $true; if (-not $limitReason) { $limitReason = 'volume' }; break }
-            if ($watch.ElapsedMilliseconds -ge $budgetMs) { $truncated = $true; if (-not $limitReason) { $limitReason = 'temps' }; break }
+            if ($watch.ElapsedMilliseconds -ge $planDeadlineMs) { $truncated = $true; if (-not $limitReason) { $limitReason = 'temps' }; break }
             $p = $r.Properties
             $name = Clean-Field (Get-WPropFirst $p 'name' '')
             if ([string]::IsNullOrWhiteSpace($name)) { continue }
@@ -17571,6 +17611,15 @@ foreach ($entry in $plan) {
             $added++
         }
         $sw.Stop()
+        # Le serveur borne lui-meme une recherche au maxDuration du controleur (ServerTimeLimit ci-dessus) et rend
+        # alors sa reponse partielle, sans exception et sans drapeau que ce code puisse lire. La passe passerait donc
+        # pour complete, et ReplaceAll viderait la base pour ne la remplir que de ce lot incomplet : a chaque mise a
+        # jour. Une passe qui a dure au moins ce delai est tenue pour coupee par le serveur, et ne remplace jamais.
+        if (-not $truncated -and $added -gt 0 -and $sw.Elapsed.TotalSeconds -ge $serverTimeLimitSeconds) {
+            $truncated = $true
+            if (-not $limitReason) { $limitReason = 'serveur' }
+            [void]$diagnostics.Add([string]$entry.Kind + ' : reponse du serveur coupee a ' + [string]$serverTimeLimitSeconds + ' s, lot tenu pour incomplet.')
+        }
         [void]$diagnostics.Add([string]$entry.Kind + ' : ' + $added + ' objet(s) en ' + [int]$sw.ElapsedMilliseconds + ' ms.')
     }
     catch {
@@ -17591,6 +17640,7 @@ $watch.Stop()
     LimitReason = $limitReason
     LimitMaxObjects = $maxObjects
     LimitBudgetMs = $budgetMs
+    LimitServerSeconds = $serverTimeLimitSeconds
     SearchBase = $searchBase
     Scoped = (-not [string]::Equals($searchBase,$baseDn,[StringComparison]::OrdinalIgnoreCase))
     Incremental = $incremental
@@ -21668,6 +21718,19 @@ function Wire-Events {
     $script:Ctrl["BtnClearMachineCredential"].Add_Click({ Clear-MachineCredential })
     $script:Ctrl["BtnRunComputerDiag"].Add_Click({ Start-ComputerDiagnostics })
     if ($script:Ctrl.ContainsKey("BtnUserSaveContact")) { $script:Ctrl["BtnUserSaveContact"].Add_Click({ Save-DomeniaUserContact }) }
+    if ($script:Ctrl.ContainsKey("BtnIndexScopePick")) { $script:Ctrl["BtnIndexScopePick"].Add_Click({
+        $picked = Show-DomeniaInlinePicker -Kind OU -Title ('Choisir lʼunité organisationnelle de la base') -Prompt ('La mise à jour ne relira que cette OU et ses sous-OU. La racine du domaine relit tout le domaine.')
+        if ($null -eq $picked) { return }
+        $pickedDn = ([string]$picked.DN).Trim()
+        if (-not $pickedDn) { return }
+        $script:IndexScopeDn = $pickedDn
+        Update-DomeniaIndexStats
+        Set-Status ('Portée de la base : ' + $pickedDn) 'INFO'
+    }) }
+    if ($script:Ctrl.ContainsKey("BtnIndexScopeUpdate")) { $script:Ctrl["BtnIndexScopeUpdate"].Add_Click({
+        $scope = Get-DomeniaIndexScope
+        Start-DomeniaIndexScopeBuild -Dn $(if ($null -ne $scope) { [string]$scope.BaseDn } else { '' })
+    }) }
     if ($script:Ctrl.ContainsKey("BtnIndexBuild")) { $script:Ctrl["BtnIndexBuild"].Add_Click({ Start-DomeniaIndexBuild -UpdateLinks }) }
     if ($script:Ctrl.ContainsKey("BtnIndexWalk")) { $script:Ctrl["BtnIndexWalk"].Add_Click({ Start-DomeniaIndexWalk }) }
     if ($script:Ctrl.ContainsKey("BtnStorageUsage")) { $script:Ctrl["BtnStorageUsage"].Add_Click({ Start-DomeniaStorageUsage }) }
@@ -23160,7 +23223,7 @@ function Get-DomeniaWorkerOperationHashes {
         SoftwareInventory     = "214DA1A24E26D30BB0529B539B80E8B183BB195FE610F3B8C124E94724CCF5CE"
         LogonHarvest          = "ED7FFF55506C7BCE5567D65F683E10E9F28EA9771947F12A8DEEE1435994119A"
         ParkSweep             = "134ED776E45640FA67B7F51659711C33B37834105375CC4B083342469F2C26A9"
-        IndexBuild            = "647DD166D5AD185DFDEAECE3FD091DF9F55195C98C4777DDB5A2970CDD892535"
+        IndexBuild            = "638CDEA339838836136F2B16E64298C61CF58DCA29E8066531E9F5B3355299B7"
         UserComputerProbe     = "EB7C36419C1B8B91AFB9ECE6B98D4E3FE663B87E4011F7D264D8AEDE7735E775"
         ComputerInventory     = "41F162A5B0870C10F1BAE378DC365CCC83582D6003435A86624752362B18E159"
         ComputerDiagnostics   = "9A5535EB658FA19AFC0905D57B339CEE0C14CCD4DA81AE2E0A527A86B5046608"
@@ -23211,7 +23274,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "49368F7D76F2259B130CFDAC2A834D2AFC4CCF7B9EFF26A87EEB57A112889F24"
+    $expectedFingerprint = "7F83A996CB13739C60473495AF7C82B2D12D39F92861FCB833CF8E5F743507AB"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }

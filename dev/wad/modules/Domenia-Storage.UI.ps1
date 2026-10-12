@@ -263,7 +263,11 @@ function Complete-DomeniaStorageWork {
     # again; single rows and observations only mark it out of date (the end of a run asks for the calculation).
     # The BitLocker presence of an OU (bulk of secret metadata) is shown as soon as it is saved. A daily snapshot of
     # the overview never asks for a new calculation.
-    if(@($items|Where-Object{($_.Kind -eq 'IndexBulk') -or (($_.Kind -eq 'SecretMeta') -and ($null -ne $_.Row.PSObject.Properties['Rows']))}).Count){try{Request-DomeniaFleetRefresh -Force}catch{}}
+    if(@($items|Where-Object{($_.Kind -eq 'IndexBulk') -or (($_.Kind -eq 'SecretMeta') -and ($null -ne $_.Row.PSObject.Properties['Rows']))}).Count){
+      # Les compteurs et l'âge « base à jour » se lisent dans IndexInfo, chargé avant cette écriture : sans relecture
+      # ici la page reste figée sur la passe précédente, des jours après une mise à jour réussie.
+      if(@($items|Where-Object{$_.Kind -eq 'IndexBulk'}).Count){try{[void](Load-DomeniaIndexMetadata);Update-DomeniaIndexStats}catch{}}
+      try{Request-DomeniaFleetRefresh -Force}catch{}}
     elseif(@($items|Where-Object{$_.Kind -in @('Index','ParkSession','SecretMeta')}).Count){$script:FleetStale=$true}
     $hasLinkWork=$false
     if($script:Persistence.LegacyImportJob){$hasLinkWork=$true}

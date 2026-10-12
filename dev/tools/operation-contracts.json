@@ -137,7 +137,7 @@
     "File": "wad/Domenia-Core.ps1",
     "Function": "Get-DomeniaIndexWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "647DD166D5AD185DFDEAECE3FD091DF9F55195C98C4777DDB5A2970CDD892535"
+    "Sha256": "638CDEA339838836136F2B16E64298C61CF58DCA29E8066531E9F5B3355299B7"
   },
   {
     "Operation": "ComputerDiagnostics",

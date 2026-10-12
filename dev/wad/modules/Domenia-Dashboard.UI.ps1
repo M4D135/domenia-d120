@@ -178,7 +178,7 @@ function Update-DomeniaFleetScopeText {
     if (-not [string]$Scope.Dn) { [void]$parts.Add('Tout le domaine indexé (consultation)') }
     elseif (-not [bool]$Scope.Subtree) { [void]$parts.Add('sans les sous-OU') }
     else { [void]$parts.Add('et ses sous-OU') }
-    if ($Count -ge 0) { [void]$parts.Add([string]$Count + ' poste' + $(if ($Count -gt 1) { 's' } else { '' })) }
+    if ($Count -ge 0) { [void]$parts.Add([string]$Count + ' poste' + $(if ($Count -gt 1) { 's' } else { '' }) + ' actif' + $(if ($Count -gt 1) { 's' } else { '' }) + ' dans la base') }
     $sync = ConvertFrom-DomeniaUtcText $LastSyncUtc
     if ($null -ne $sync) { [void]$parts.Add('base à jour ' + (Format-DomeniaAge -FromUtc $sync -NowUtc ([datetime]::UtcNow))) }
     elseif ($Count -ge 0) { [void]$parts.Add('base autonome jamais mise à jour') }
@@ -186,7 +186,7 @@ function Update-DomeniaFleetScopeText {
     $text = ($parts -join ' · ')
     if ([string]$Scope.Dn) { $text = ' · ' + $text }
     [void](Set-DomeniaControlText 'LblFleetScope' $text)
-    if ($null -ne $label) { $label.ToolTip = [string]$Scope.Path }
+    if ($null -ne $label) { $label.ToolTip = [string]$Scope.Path + "`r`n" + ('Ce nombre vient de la base locale : les postes désactivés et ceux que la base nʼa pas encore lus nʼy sont pas. La recherche, elle, interroge lʼannuaire en direct et compte tous les postes.') }
     $crumbs = Get-DomeniaControl 'PnlFleetCrumbs'
     if ($null -eq $crumbs) { return }
     $crumbs.Children.Clear()

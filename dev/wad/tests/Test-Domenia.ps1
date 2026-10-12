@@ -53,7 +53,10 @@ $wanted=@('Write-DomeniaAtomicText','Read-DomeniaPreference','Write-DomeniaPrefe
     # CO-22 : decodage des options du compte affiche dans la fiche.
     'Get-UacFlagsLabel','Convert-FileTimeLabel','Convert-ADLargeIntegerToInt64',
     # UX-27 : vue d atterrissage de la fiche selon le type d objet.
-    'Get-DomeniaLandingView')
+    'Get-DomeniaLandingView',
+    # Portée de la mise à jour de la base autonome : lʼOU choisie, sinon lʼarbre de recherche.
+    'Get-DomeniaIndexScope',
+    'Get-DomeniaIndexCut')
 $definitions=New-Object 'System.Collections.Generic.List[string]'
 $nodes=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst]},$true))
 foreach($name in $wanted) {
@@ -467,6 +470,44 @@ try {
             $literal=@(Search-DomeniaDatabaseRows 'pc_01')
             Assert-True ($literal.Count -eq 1 -and $literal[0].Name -ceq 'pc_01')
             Assert-True (@(Search-DomeniaDatabaseRows 'pc%02').Count -eq 1)
+        }
+    }
+    Test-Case 'Base autonome : la coupe du serveur est nommee avec sa propre limite' {
+        # Le controleur peut couper une recherche sans que le worker le sache : le motif doit porter le delai du
+        # serveur, jamais le budget local, sinon l alerte nomme la cle qu il ne faut pas lever.
+        $coupe = Get-DomeniaIndexCut -Effective ([pscustomobject]@{ LimitReason='serveur'; LimitServerSeconds=120; LimitBudgetMs=1200000; LimitMaxObjects=5000000 })
+        Assert-True ([string]$coupe.Reason -eq 'serveur') 'Le motif serveur est perdu'
+        Assert-True ([string]$coupe.Limit -eq '120') 'Le motif serveur nomme une autre limite que son delai'
+        $temps = Get-DomeniaIndexCut -Effective ([pscustomobject]@{ LimitReason='temps'; LimitServerSeconds=120; LimitBudgetMs=1200000; LimitMaxObjects=5000000 })
+        Assert-True ([string]$temps.Reason -eq 'temps') 'Le motif temps est perdu'
+        Assert-True ([string]$temps.Limit -eq '1200000') 'Le motif temps ne nomme plus Index.BudgetMs'
+        $aucune = Get-DomeniaIndexCut -Effective ([pscustomobject]@{ LimitReason='' })
+        Assert-True ([string]$aucune.Reason -eq '') 'Une passe sans limite doit rester sans motif'
+    }
+    Test-Case 'Base autonome : la portée de la mise à jour suit lʼOU choisie, sinon lʼarbre' {
+        # Une passe du domaine entier nʼest plus le seul chemin : la portée doit se résoudre exactement comme
+        # celle du tableau de bord et de la recherche, et une OU hors du domaine ne doit jamais être lue.
+        $script:Conn.BaseDn='DC=EX,DC=TEST'
+        $existait=$null -ne (Get-Command Get-DomeniaSearchScope -CommandType Function -ErrorAction SilentlyContinue)
+        $original=if($existait){(Get-Item Function:\Get-DomeniaSearchScope).Definition}else{$null}
+        try {
+            Set-Item Function:\Get-DomeniaSearchScope { [pscustomobject]@{ BaseDn='DC=EX,DC=TEST'; Scope='Subtree'; IsDomain=$true; Mode='OU' } }
+            $script:IndexScopeDn=''
+            Assert-True ([bool](Get-DomeniaIndexScope).IsDomain) 'Sans choix, la portée vient de lʼarbre'
+            $script:IndexScopeDn='OU=Ateliers,OU=Site,DC=EX,DC=TEST'
+            $s=Get-DomeniaIndexScope
+            Assert-True (-not [bool]$s.IsDomain) 'Une OU choisie reste une OU'
+            Assert-True ($s.BaseDn -ceq 'OU=Ateliers,OU=Site,DC=EX,DC=TEST') ('Portée : ' + $s.BaseDn)
+            Assert-True ($s.Scope -ceq 'Subtree') 'Le sous-arbre est relu, pas un seul niveau'
+            $script:IndexScopeDn='DC=EX,DC=TEST'
+            Assert-True ([bool](Get-DomeniaIndexScope).IsDomain) 'La racine choisie vaut tout le domaine'
+            $script:IndexScopeDn='OU=Autre,DC=AUTRE,DC=TEST'
+            Assert-True ([bool](Get-DomeniaIndexScope).IsDomain) 'Une OU hors du domaine est ignorée'
+        } finally {
+            $script:IndexScopeDn=''
+            $script:Conn.BaseDn=''
+            if($existait){Set-Item Function:\Get-DomeniaSearchScope ([scriptblock]::Create([string]$original))}
+            else{Remove-Item Function:\Get-DomeniaSearchScope -ErrorAction SilentlyContinue}
         }
     }
     Test-Case 'CO-03 : les dates et les tailles des grilles se trient par valeur' {
