@@ -30,7 +30,7 @@ Les copies textuelles des preuves finales sont normalisées en UTF-8/LF ; leurs 
 | PROD | `7da978504dacb9ee7312c463748727bfa7c9e009f1c093f2b12c610b3b88d881` |
 | DEV | `fd0fdfc6524843cd705252df82d50ffa34715af216fd8101ed2976cfb2322f0c` |
 
-Les résultats des campagnes précédentes ci-dessous restent datés et conservés. Ils ne sont pas recalculés ni attribués à la nouvelle archive. La publication GitHub du présent build sera attestée séparément après push.
+Les résultats des campagnes précédentes ci-dessous restent datés et conservés. Ils ne sont pas recalculés ni attribués à la nouvelle archive. La [vérification GitHub](query-ui/github-packs.json) confirme le push du commit `2cc6d27` sur `master` et les empreintes des deux ZIP retéléchargés depuis ce commit.
 <!-- /DOMENIA:CURRENT-QUERY-EVIDENCE -->
 
 ## Bilan détaillé et preuves conservées

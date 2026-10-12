@@ -1364,7 +1364,10 @@
     "runtime_files_identical": 93,
     "formal_windows_ad_release_qualification": "NOT_EVALUATED",
     "formal_publishable": false,
-    "publication_status": "Prepared locally; commit/push receipt is a separate subsequent action."
+    "publication_status": "Pushed to origin/master; exact GitHub archive downloads verified against SHA-256.",
+    "published_source_commit": "2cc6d273dd37b3308c2745eea1bc80f6374f3b10",
+    "github_verification": "query-ui/github-packs.json",
+    "github_verified_utc": "2026-10-12T22:37:43.366327+00:00"
   },
   "final_source_snapshot_sha256": {
     "DOC/Domenia-1.0-Guide-administrateur.docx": "979c6b31a160e655c7483c0f0274ebd3a8e1c88220b914213a9dbd751983530f",
