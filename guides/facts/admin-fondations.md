@@ -168,8 +168,19 @@ Tous lancent `%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe` (ou `
 - `wad\Support\DEBLOQUER_TOUT.cmd` (PROD et DEV) : vérifie l'empreinte de `Debloquer-Paquet.ps1` dans le manifeste,
   puis celui-ci vérifie l'empreinte de chaque fichier runtime et retire la marque de téléchargement (`Unblock-File`)
   seulement si tout est conforme ; messages « Runtime debloque. … » et « Aucune politique PowerShell, GPO,
-  AppLocker/WDAC ou protection antivirus modifiee. Le manifeste ne vaut pas signature. ». Refus : « Empreinte invalide :
-  <chemin>. Aucun deblocage en masse effectue. ».
+  AppLocker/WDAC ou protection antivirus modifiee. Le manifeste ne vaut pas signature. ». Refus : « Empreinte invalide
+  sur N fichier(s) du runtime. », puis pour chaque fichier en écart l'empreinte attendue et l'empreinte lue avec leurs
+  tailles, et le build et l'édition du manifeste. Tous les écarts sont listés d'un coup, au lieu du premier seulement.
+- Tolérance de fins de ligne (12/10/2026) : le manifeste est calculé sur les octets du dépôt, en LF. Un clone Windows
+  sorti avec `core.autocrlf=true` rend chaque `.ps1` différent de son empreinte sans rien changer à son exécution (le
+  premier fichier touché est `wad/Domenia-Core.ps1`, premier fichier texte de la liste runtime triée). Le débloquage
+  et le démarrage acceptent donc une différence portant **uniquement** sur les fins de ligne ou le BOM, et la signalent
+  (le débloquage l'affiche, le démarrage la compte dans `DomeniaStartIntegrity.Eol` et dans son rapport `-CheckOnly`).
+  Une différence de contenu reste un refus dans les deux gardes. `DEBLOQUER_TOUT.cmd FORCER` (ou
+  `Debloquer-Paquet.ps1 -PasserOutreEmpreintes`) débloque quand même une copie de laboratoire, en affichant l'écart ;
+  le lanceur, lui, ne connaît aucune échappatoire. Le dépôt porte désormais un `.gitattributes` (`text eol=lf` sur le
+  texte, `.cmd` et binaires intacts) pour que le cas ne se reproduise plus ; deux fichiers suivis étaient en CRLF et
+  ont été ramenés en LF (`dev/wad/Domenia.config.json`, `dev/wad/tests/fixtures/RC1.1-ModuleImports.ps1`).
 - `wad\maintenance\Sauvegarder-Cache.ps1 -DatabasePath <fichier .db>` : sauvegarde SQLite cohérente hors application
   (« preferably with DOMENIA closed »), 7 copies maximum dans `Backups`, affiche le chemin et le SHA-256 ; refuse
   PowerShell Core et le 32 bits.

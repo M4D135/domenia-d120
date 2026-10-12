@@ -1,0 +1,27 @@
+# Le manifeste d'empreintes (dev/wad/package-manifest.json, dev/tools/prod-manifest.json) est calcule
+# sur les octets du depot, en LF. Un clone Windows avec core.autocrlf=true sort chaque .ps1 en CRLF :
+# le fichier reste le meme script, mais son empreinte change et le garde d'integrite du demarrage
+# refuse de lancer Domenia. Ces regles figent les fins de ligne du texte et laissent intacts les
+# binaires et les .cmd (le depot en contient en CRLF : les convertir changerait leurs octets).
+*.ps1    text eol=lf
+*.psm1   text eol=lf
+*.psd1   text eol=lf
+*.ps1xml text eol=lf
+*.xaml   text eol=lf
+*.cs     text eol=lf
+*.cfg    text eol=lf
+*.json   text eol=lf
+*.md     text eol=lf
+*.txt    text eol=lf
+*.cmd    -text
+*.bat    -text
+*.lock   -text
+*.exe    binary
+*.dll    binary
+*.ico    binary
+*.png    binary
+*.jpg    binary
+*.zip    binary
+*.db     binary
+*.cer    binary
+*.pfx    binary

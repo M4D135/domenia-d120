@@ -1,5 +1,5 @@
 {
-  "Archive": "lot/L11-spark UX-13",
+  "Archive": "lot/L11-spark correction empreinte",
   "ArchiveSHA256": "655ED21F90345B3C7667D4E777814C6A0595A5D5BE628AD587FB46CCA5241922",
   "CoreFunctions": {
     "Write-DomeniaAtomicText": "1C9A1583F52EB7BE80BE420662653E4AF886FE11DC4FDB3B1C4CDF19FD1C0EDA",
@@ -746,8 +746,8 @@
     "wad/ActiveDirectoryPowerShellResources.dll": "E233D92238AA31EA1B3C60145D8811EDB2E517E1B9B53F4BC496883EE5D9973B",
     "wad/Domenia-Core.ps1": "33FFA39D156F3142BE32E6F1BDF52038740F45A22D3BC9E83573E2EE29F35530",
     "wad/Domenia-Modules.ps1": "8D694641BEB0DC3E0DF4F95BC72AD048C6AB299D813520BE7E9798241DF0EFA0",
-    "wad/Domenia-Start.ps1": "BB415642F380F42C5402FBD8FC041C8B593950C7154FC9E57F6FB2D6D6BEC590",
-    "wad/Domenia.config.json": "5F051A082799F9E39C54D78256E72FA37E1A797E6374BBEC0CEB7DDB932AE871",
+    "wad/Domenia-Start.ps1": "ECC1AF19420DB0BC8441970D40EE0468513D3184CE6D9CDBF073A74E4046024F",
+    "wad/Domenia.config.json": "766DBF8924F4EFC3641768E0C1B2C37E5936D681F002C3260E2FE6C8DA7680F8",
     "wad/Domenia.ico": "EC032BF6A14EAC2CC80073B376FE0364DDA62F25D452C8C783C926B0C28E837F",
     "wad/Domenia.login-mode.cfg": "EF6691545D2C5523EFED00424407CB261AEB0037D165CA5792F7F8BAC3381362",
     "wad/Domenia.theme.cfg": "DBCD5E7BB7A0F538810DE44C3EFBD813037EE3FA358747BB71FA58E157AF45F7",
@@ -755,8 +755,8 @@
     "wad/Microsoft.ActiveDirectory.Management.dll": "1A6AF7B8F8BCE5B35FF873E2528746480C980526D86E38CA5ACD04C2E9037157",
     "wad/PsExec.exe": "EDFAE1A69522F87B12C6DAC3225D930E4848832E3C551EE1E7D31736BF4525EF",
     "wad/Support/.lifecycle.lock": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
-    "wad/Support/DEBLOQUER_TOUT.cmd": "848B8464531E45B6FE908DFFA6717484F723EF4C6BFC6BEBF75ED3DE82B37A8F",
-    "wad/Support/Debloquer-Paquet.ps1": "420A91B2FCFCB7083A807E02F0F81CE6015696F4332B5D6AC78D98336A1EBF07",
+    "wad/Support/DEBLOQUER_TOUT.cmd": "EB9CA9BDA1174D07227DF29256B5A5B90C9514C7E120AA38A683A45016118B1D",
+    "wad/Support/Debloquer-Paquet.ps1": "A62BECF6CC25F85A0A21B6CE018FDC0826B43EC99D9897EB5E227967E8BA9454",
     "wad/docs/AUDIT-ACL-RC1.1.json": "1079A5E0C0E010DDB72ADDB8C6CFEBE4077AF2D54B16CE61407659F58ABFD612",
     "wad/docs/AUDIT-ACTIVITE-RC1.7.json": "186C0A8EAE2CE35CB43AE6E042A2C13A1BCC2A2681A1CFFE494EB65E271EB4DA",
     "wad/docs/AUDIT-DEMARRAGE-LOGIN-RC1.5.json": "E6DB21C8795121B3494ECB8D89D2F0F555C370381B145A06AB0A69CA88A54606",
@@ -2848,6 +2848,20 @@
       ],
       "RemovedCoreFunctions": [],
       "ChangedPayloads": []
+    },
+    {
+      "Previous": "lot/L11-spark UX-13",
+      "Source": "lot/L11-spark correction empreinte",
+      "Decision": "Quatre payloads changent de octets, volontairement : wad/Support/Debloquer-Paquet.ps1 (le refus liste desormais tous les ecarts avec empreinte attendue, empreinte lue, tailles, build et edition du manifeste, et accepte une difference portee uniquement sur les fins de ligne ou le BOM ; nouveau switch -PasserOutreEmpreintes non par defaut), wad/Support/DEBLOQUER_TOUT.cmd (meme tolerance pour sa propre verification du helper, et passage de FORCER), wad/Domenia-Start.ps1 (le garde de demarrage accepte la seule difference de fins de ligne et la compte, le refus donne attendu, lu et taille), wad/Domenia.config.json (ramene en LF par le .gitattributes ajoute a la racine, le manifeste etant calcule en LF). Aucune fonction du coeur ajoutee ni retiree, aucun corps d operation epingle touche, aucun fichier ajoute au runtime.",
+      "ChangedCoreFunctions": [],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": [
+        "wad/Domenia.config.json",
+        "wad/Domenia-Start.ps1",
+        "wad/Support/DEBLOQUER_TOUT.cmd",
+        "wad/Support/Debloquer-Paquet.ps1"
+      ]
     }
   ]
 }

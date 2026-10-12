@@ -1089,6 +1089,60 @@ try {
         }
     }
 
+    # ------------------------------------------------------------ Integrite : deblocage et fins de ligne
+    Test-Case 'Integrite : le deblocage tolere les fins de ligne et refuse un contenu modifie' {
+        # Le garde lit des octets, pas des scripts. Un clone Windows (core.autocrlf) rend le meme
+        # fichier different de son empreinte : le banc ecrit une copie de laboratoire reelle et
+        # verifie que cette difference passe, qu'un contenu modifie reste refuse, et que le refus
+        # dit quoi, contre quoi et depuis quel build.
+        $scriptDepot = Join-Path $root 'wad\Support\Debloquer-Paquet.ps1'
+        Assert-True (Test-Path -LiteralPath $scriptDepot) 'Script de deblocage absent du depot'
+        $utf8 = New-Object Text.UTF8Encoding($false)
+        function Get-EmpreinteOctets([byte[]]$Octets) { [BitConverter]::ToString(([Security.Cryptography.SHA256]::Create()).ComputeHash($Octets)).Replace('-','') }
+        $bac = Join-Path ([IO.Path]::GetTempPath()) ('domenia-deblocage-' + [guid]::NewGuid().ToString('N'))
+        $racine = Join-Path $bac 'dev'
+        try {
+            [void][IO.Directory]::CreateDirectory((Join-Path $racine 'wad\Support'))
+            # Le script se rattache a son propre dossier (il en deduit la racine du paquet) : sans cette
+            # copie, l'invoquer depuis le depot aurait valide le vrai arbre de labo et rien d'autre.
+            $scriptDeblocage = Join-Path $racine 'wad\Support\Debloquer-Paquet.ps1'
+            Copy-Item -LiteralPath $scriptDepot -Destination $scriptDeblocage
+            $corps = "#requires -Version 5.1`nWrite-Host 'paquet de test'`n"
+            $lf = $utf8.GetBytes($corps)
+            $crlf = $utf8.GetBytes($corps.Replace("`n", "`r`n"))
+            $modifie = $utf8.GetBytes($corps.Replace('paquet de test', 'paquet modifie'))
+            $cheminCore = Join-Path $racine 'wad\Domenia-Core.ps1'
+            $empreinteLf = Get-EmpreinteOctets $lf
+            $empreinteModifie = Get-EmpreinteOctets $modifie
+            $manifeste = [ordered]@{Format=1; Version='1.0'; Build='2026.10.12-TEST-EMPREINTE'; Edition='dev'; ReleaseStatus='test'; Files=@(
+                [pscustomobject]@{Path='wad/Domenia-Core.ps1'; Sha256=$empreinteLf; Bytes=$lf.Length; Runtime=$true; PreserveExisting=$false})}
+            [IO.File]::WriteAllText((Join-Path $racine 'wad\package-manifest.json'), ($manifeste | ConvertTo-Json -Depth 5), $utf8)
+            [IO.File]::WriteAllBytes($cheminCore, $lf)
+            $refus = ''
+            try { & $scriptDeblocage -WhatIf | Out-Null } catch { $refus = $_.Exception.Message }
+            Assert-True ($refus -eq '') ('Copie conforme refusee : ' + $refus)
+            [IO.File]::WriteAllBytes($cheminCore, $crlf)
+            $refus = ''
+            try { & $scriptDeblocage -WhatIf | Out-Null } catch { $refus = $_.Exception.Message }
+            Assert-True ($refus -eq '') ('Difference de fins de ligne refusee : ' + $refus)
+            [IO.File]::WriteAllBytes($cheminCore, $modifie)
+            $refus = ''
+            try { & $scriptDeblocage -WhatIf | Out-Null } catch { $refus = $_.Exception.Message }
+            $lu = Get-EmpreinteOctets ([IO.File]::ReadAllBytes($cheminCore))
+            Assert-True ($refus -ne '') ('Contenu modifie : le deblocage ne refuse pas (lu=' + $lu + ' attendu=' + $empreinteLf + ' octets=' + (Get-Item -LiteralPath $cheminCore).Length + ')')
+            Assert-True ($refus -match 'wad/Domenia-Core\.ps1') 'Le fichier en ecart n est pas nomme'
+            Assert-True ($refus -match [regex]::Escape($empreinteLf)) 'L empreinte attendue n est pas donnee'
+            Assert-True ($refus -match [regex]::Escape($empreinteModifie)) 'L empreinte lue n est pas donnee'
+            Assert-True ($refus -match '2026\.10\.12-TEST-EMPREINTE') 'Le build du manifeste n est pas donne'
+            Assert-True ($refus -match 'PasserOutreEmpreintes') 'L echappatoire n est pas annoncee'
+            $refus = ''
+            try { & $scriptDeblocage -WhatIf -PasserOutreEmpreintes | Out-Null } catch { $refus = $_.Exception.Message }
+            Assert-True ($refus -eq '') ('-PasserOutreEmpreintes refuse encore : ' + $refus)
+        } finally {
+            try { Remove-Item -LiteralPath $bac -Recurse -Force -ErrorAction Stop } catch { Write-Warning 'Bac de test de deblocage non retire.' }
+        }
+    }
+
     # ------------------------------------------------------------ FO-06 : bandeau d'etat du compte
     Test-Case 'FO-06 : la fiche annonce verrouillage, echeance et echecs de mot de passe' {
         # Le modele savait dire ces trois-la depuis D061-D063, l'interface ne les a jamais demandés.

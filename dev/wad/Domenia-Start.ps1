@@ -39,8 +39,22 @@ try {
         $stream=[IO.FileStream]::new($Path,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read,1048576,[IO.FileOptions]::SequentialScan)
         try{return [BitConverter]::ToString($integrityHasher.ComputeHash($stream)).Replace('-','')}finally{$stream.Dispose()}
     }
+    # Un clone Windows (core.autocrlf) ou un editeur peut rendre le meme script avec d'autres octets : le manifeste
+    # est calcule sur les octets du depot, en LF. Seule cette difference-la est acceptee ici, et elle est comptee.
+    $eolCandidates={
+        param([string]$Path)
+        if('ps1','psm1','psd1','ps1xml','json','xml','xaml','cs','cfg','md','txt' -notcontains [IO.Path]::GetExtension($Path).ToLowerInvariant()){return @()}
+        $texte=[Text.Encoding]::UTF8.GetString([IO.File]::ReadAllBytes($Path))
+        $texte=$texte.Replace([string][char]13+[char]10,[string][char]10).Replace([string][char]13,[string][char]10)
+        $resultat=@()
+        foreach($octets in @([Text.Encoding]::UTF8.GetBytes($texte),[Text.Encoding]::UTF8.GetBytes([string][char]0xFEFF+$texte))){
+            $resultat+=[BitConverter]::ToString($integrityHasher.ComputeHash($octets)).Replace('-','')
+        }
+        return ,$resultat
+    }
     $checkedFolders=New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
     $seen=@{}
+    $eolDifferences=New-Object 'System.Collections.Generic.List[string]'
     foreach($entry in $entries){
         $relative=[string]$entry.Path
         if(-not $relative -or [IO.Path]::IsPathRooted($relative) -or $relative -match '(^|[/\\])\.\.?([/\\]|$)|:|^wad[/\\]data([/\\]|$)' -or $seen.ContainsKey($relative)){throw 'Chemin de runtime invalide ou duplique.'}
@@ -57,7 +71,15 @@ try {
             $folder=$folder.Parent
         }
         # Hash immutable runtime on every startup. Configuration remains independently editable.
-        if(-not [bool]$entry.PreserveExisting -and (& $hashFile $path) -ine [string]$entry.Sha256){throw ('Composant modifie ou versions melangees : '+$relative)}
+        if(-not [bool]$entry.PreserveExisting){
+            $lue=& $hashFile $path
+            if($lue -ine [string]$entry.Sha256){
+                if(@(& $eolCandidates $path) -notcontains [string]$entry.Sha256){
+                    throw ('Composant modifie ou versions melangees : '+$relative+' (attendu '+[string]$entry.Sha256+', lu '+$lue+', '+$file.Length+' octets).')
+                }
+                [void]$eolDifferences.Add($relative)
+            }
+        }
         if($CheckOnly -and [IO.Path]::GetExtension($path) -ieq '.ps1'){
             $tokens=$null;$errors=$null;[void][Management.Automation.Language.Parser]::ParseFile($path,[ref]$tokens,[ref]$errors)
             if(@($errors).Count){throw ($relative+' ligne '+$errors[0].Extent.StartLineNumber+' : '+$errors[0].Message)}
@@ -108,7 +130,7 @@ try {
     }
     $integrityWatch.Stop()
     # Read by the core for the startup trace (stage Integrite du paquet); never used as a decision input.
-    $DomeniaStartIntegrity=[pscustomobject]@{Files=$entries.Count;Required=$required.Count;Limit=$runtimeLimit;DurationMs=[long]$integrityWatch.ElapsedMilliseconds}
+    $DomeniaStartIntegrity=[pscustomobject]@{Files=$entries.Count;Required=$required.Count;Limit=$runtimeLimit;DurationMs=[long]$integrityWatch.ElapsedMilliseconds;Eol=$eolDifferences.Count}
     if($CheckOnly){
         # Exercise the real imports in a disposable scope, never the application.
         # This loads definitions only; it does not start a timer/window or contact AD.
@@ -120,7 +142,9 @@ try {
         $expectedModules=[int]$importReport[0].Expected
         $importReport=@($importReport[0].Imports)
         if($importReport.Count -ne $expectedModules){throw 'Validation des modules incomplete.'}
-        Write-Host ('Runtime '+$manifest.Build+' : '+$entries.Count+' fichiers vérifiés en '+$DomeniaStartIntegrity.DurationMs+' ms (plafond '+$runtimeLimit+') ; '+$importReport.Count+' modules chargés et fonctions disponibles. Aucun accès AD.')
+        $noteEol=''
+        if($eolDifferences.Count -gt 0){$noteEol=' ; '+$eolDifferences.Count+' fichier(s) avec fins de ligne différentes du manifeste'}
+        Write-Host ('Runtime '+$manifest.Build+' : '+$entries.Count+' fichiers vérifiés en '+$DomeniaStartIntegrity.DurationMs+' ms (plafond '+$runtimeLimit+') ; '+$importReport.Count+' modules chargés et fonctions disponibles. Aucun accès AD.'+$noteEol)
         exit 0
     }
     & (Join-Path $PSScriptRoot 'Domenia-Core.ps1')
