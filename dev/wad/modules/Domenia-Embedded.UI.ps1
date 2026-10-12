@@ -400,12 +400,18 @@ $kind=[string]$Payload.Kind
 if($kind -notin @('Machine','Utilisateur','OU')){throw 'Type de recherche non autorisé.'}
 $term=([string]$Payload.Term).Trim()
 $verify=[bool]$Payload.Verify
-$properties=@('name','sAMAccountName','displayName','givenName','sn','mail','userPrincipalName','dNSHostName','description','distinguishedName','objectGUID')
+$mode=[string]$Payload.Mode;if(-not $mode){$mode='Search'}
+if($mode -notin @('Search','Children') -or ($mode -eq 'Children' -and $kind -ne 'OU')){throw 'Mode du sélecteur non autorisé.'}
+$properties=@('name','sAMAccountName','displayName','givenName','sn','mail','userPrincipalName','dNSHostName','description','distinguishedName','objectGUID','objectClass')
 $category=switch($kind){'Machine'{'(objectCategory=computer)'}'Utilisateur'{'(&(objectCategory=person)(objectClass=user))'}'OU'{'(objectClass=organizationalUnit)'}}
 $root=[string]$Context.BaseDn;$scope='Subtree';$maximum=100
 if($verify){
     $root=[string]$Payload.DN;$scope='Base';$maximum=2;$filter=$category
     if(-not $root.EndsWith(','+[string]$Context.BaseDn,[StringComparison]::OrdinalIgnoreCase)){throw 'Cible hors du domaine courant.'}
+}elseif($mode -eq 'Children'){
+    $root=([string]$Payload.DN).Trim();$scope='OneLevel';$maximum=1000
+    if(-not $root -or ($root -ine [string]$Context.BaseDn -and -not $root.EndsWith(','+[string]$Context.BaseDn,[StringComparison]::OrdinalIgnoreCase))){throw 'Branche hors du domaine courant.'}
+    $filter='(|(objectClass=organizationalUnit)(objectClass=container)(objectClass=builtinDomain))'
 }else{
     if($kind -ne 'OU' -and $term.Length -lt 2){throw 'Saisissez au moins deux caractères.'}
     if($term.Length -gt 160){throw 'Recherche trop longue (160 caractères maximum).'}
@@ -416,6 +422,9 @@ $s=$null;$owned=$null;$set=$null;$rows=[Collections.Generic.List[object]]::new()
 try{
     $s=New-WSearcher $Context $root $filter $properties $scope ($maximum+1);$owned=$s.SearchRoot
     $s.PageSize=40;$s.CacheResults=$false;$s.ServerTimeLimit=[timespan]::FromSeconds(8);$s.ClientTimeout=[timespan]::FromSeconds(10)
+    # AD supports server-side name sorting: the bounded page starts alphabetically, not in provider order.
+    # A refusal stays an explicit error; never turn a failed sorted query into an empty branch.
+    if($kind -eq 'OU' -and -not $verify){$s.Sort.PropertyName='name';$s.Sort.Direction='Ascending'}
     $set=$s.FindAll()
     foreach($item in $set){
         if($rows.Count -gt $maximum){break}
@@ -423,7 +432,9 @@ try{
         if(-not $guid){throw 'GUID AD non lisible ; aucun choix ne sera validé.'}
         $name=[string](Get-WPropFirst $p 'name' '');$dn=[string](Get-WPropFirst $p 'distinguishedname' '')
         $login=[string](Get-WPropFirst $p 'samaccountname' '');$second=if($kind -eq 'Utilisateur'){$login}elseif($kind -eq 'OU'){$dn}else{[string](Get-WPropFirst $p 'dnshostname' '')}
-        $rows.Add([pscustomobject]@{Type=$kind;Name=$name;Login=$login;Second=$second;DN=$dn;Guid=$guid;Description=[string](Get-WPropFirst $p 'description' '')})
+        $rowKind=$kind
+        if($kind -eq 'OU' -and $mode -eq 'Children' -and -not $verify){$rowKind=if(@($p['objectclass']) -contains 'organizationalUnit'){'OU'}else{'Conteneur'}}
+        $rows.Add([pscustomobject]@{Type=$rowKind;Name=$name;Login=$login;Second=$second;DN=$dn;Guid=$guid;Description=[string](Get-WPropFirst $p 'description' '')})
     }
     if($verify){
         if($rows.Count -ne 1 -or $rows[0].Guid -ine [string]$Payload.Guid -or $rows[0].DN -ine $root){throw 'Objet déplacé, recréé ou devenu inaccessible. Relancez la recherche.'}
@@ -435,6 +446,7 @@ try{
 function Complete-DomeniaEmbeddedLookup {
     param($Result,$State)
     $r=$State.Owner
+    if($r.Kind -eq 'OU' -and $null -ne $r.PSObject.Properties['Tree']){Complete-DomeniaOuPickerRead $Result $State;return}
     if($r.Closed -or $r.RequestId -cne $State.RequestId -or $State.Epoch -ne [long]$script:SessionEpoch -or $State.BaseDn -ine [string]$script:Conn.BaseDn){return}
     $data=Get-DomeniaEffectiveWorkerResult $Result @('Rows','RequestId','Verified')
     if($null -eq $data -or $data.RequestId -cne $State.RequestId){Fail-DomeniaEmbeddedLookup 'Retour de recherche incohérent.' $State;return}
@@ -445,7 +457,9 @@ function Complete-DomeniaEmbeddedLookup {
         if($verified.Count -ne 1 -or $verified[0].DN -ine $State.DN -or $verified[0].Guid -ine $State.Guid){Fail-DomeniaEmbeddedLookup 'Le choix vérifié ne correspond plus à la demande.' $State;return}
         $r.Selected=$verified[0];Set-DomeniaSurfaceResult $r.Window $true;return
     }
-    $list=[Collections.ArrayList]::new();foreach($row in @($data.Rows)){[void]$list.Add($row)};$r.Grid.ItemsSource=$list
+    $rows=@($data.Rows)
+    if($r.Kind -eq 'OU'){$rows=@($rows|Sort-Object -Property Name,DN -Culture 'fr-FR')}
+    $list=[Collections.ArrayList]::new();foreach($row in $rows){[void]$list.Add($row)};$r.Grid.ItemsSource=$list
     $r.Accept.IsEnabled=$false
     $r.Status.Text=if($list.Count){$list.Count.ToString()+' résultat(s). Sélectionnez une ligne, puis confirmez.'}else{'Aucun résultat dans le domaine. Les filtres de la page principale ne sont pas utilisés.'}
     if($data.Capped){$r.Status.Text+=' Limite atteinte : affinez la recherche.'}
@@ -453,12 +467,178 @@ function Complete-DomeniaEmbeddedLookup {
 function Fail-DomeniaEmbeddedLookup {
     param($Message,$State)
     $r=$State.Owner
+    if($r.Kind -eq 'OU' -and $null -ne $r.PSObject.Properties['Tree']){Fail-DomeniaOuPickerRead $Message $State;return}
     if($r.Closed -or $r.RequestId -cne $State.RequestId -or $State.Epoch -ne [long]$script:SessionEpoch){return}
     $r.Job='';$r.Go.IsEnabled=$true;$r.Box.IsEnabled=$true;$r.Grid.IsEnabled=$true;$r.Accept.IsEnabled=$false;$r.Busy.Visibility='Hidden'
     $r.Status.Text='Lecture non confirmée : '+[string]$Message
 }
+function New-DomeniaOuPickerNode {
+    param($Owner,[string]$Dn,[string]$Name,$Row=$null,[switch]$Context)
+    $node=[Windows.Controls.TreeViewItem]::new();$node.Header=$Name;$node.ToolTip=$Dn
+    $node.Tag=[pscustomobject]@{DN=$Dn;Row=$Row;Loaded=[bool]$Context;Context=[bool]$Context;Loading=$false}
+    [Windows.Automation.AutomationProperties]::SetName($node,$Name)
+    if(-not $Context){[void]$node.Items.Add('Développer pour lire les sous-branches…')}
+    $load=${function:Start-DomeniaOuPickerRead};$ownerState=$Owner;$item=$node
+    $node.Add_Expanded({param($sender,$eventArgs)
+        if($eventArgs.OriginalSource -ne $item -or $ownerState.Closed -or $ownerState.Mode -ne 'Navigation' -or $item.Tag.Context -or $item.Tag.Loaded -or $ownerState.Job){return}
+        & $load -Owner $ownerState -Mode Children -Node $item
+    }.GetNewClosure())
+    return $node
+}
+function Stop-DomeniaOuPickerRead {
+    param($Owner)
+    # Invalidate first: a completed callback racing cancellation cannot repopulate the tree.
+    $Owner.RequestId=[guid]::NewGuid().ToString('N')
+    $job=[string]$Owner.Job;$Owner.Job=''
+    if($null -ne $Owner.ActiveNode){$Owner.ActiveNode.Tag.Loading=$false;if(-not $Owner.ActiveNode.Tag.Loaded){$Owner.ActiveNode.IsExpanded=$false};$Owner.ActiveNode=$null}
+    if($job){Request-UiTaskStop -Id $job -Silent -Force -Superseded -Reason 'Périmètre du sélecteur modifié'|Out-Null}
+    $Owner.Busy.Visibility='Hidden';$Owner.Tree.IsEnabled=$true;$Owner.Go.IsEnabled=$true;$Owner.Accept.IsEnabled=$false
+}
+function Start-DomeniaOuPickerRead {
+    param($Owner,[ValidateSet('Children','Search','Verify')][string]$Mode,$Node=$null)
+    if($Owner.Closed -or $Owner.Job){return}
+    $ctx=Get-DomeniaEmbeddedContext
+    if($ctx.Closing -or $ctx.Epoch -ne $Owner.Epoch -or $ctx.BaseDn -ine $Owner.BaseDn){$Owner.Status.Text='La connexion a changé. Fermez puis rouvrez le sélecteur.';return}
+    $row=$null
+    if($Mode -eq 'Verify'){
+        $selected=$Owner.Tree.SelectedItem
+        if($null -eq $selected -or $null -eq $selected.Tag.Row -or [string]$selected.Tag.Row.Type -ne 'OU' -or -not [string]$selected.Tag.Row.Guid){return}
+        $row=$selected.Tag.Row
+    }
+    $term=([string]$Owner.Box.Text).Trim()
+    if($Mode -eq 'Search' -and -not $term){Show-DomeniaOuPickerNavigation $Owner;return}
+    $Owner.RequestId=[guid]::NewGuid().ToString('N');$Owner.Accept.IsEnabled=$false;$Owner.Tree.IsEnabled=$false;$Owner.Go.IsEnabled=$false;$Owner.Busy.Visibility='Visible'
+    $Owner.ActiveNode=$Node
+    if($null -ne $Node){$Node.Tag.Loading=$true}
+    if($Mode -eq 'Search'){$Owner.Mode='Search';$Owner.Tree.Items.Clear();$Owner.Path.Text=''}
+    $dn=if($Mode -eq 'Children'){[string]$Node.Tag.DN}elseif($null -ne $row){[string]$row.DN}else{''}
+    $Owner.Status.Text=switch($Mode){'Children'{'Lecture des sous-branches directes…'}'Search'{'Recherche des OU par nom…'}default{'Vérification de lʼOU sélectionnée…'}}
+    $state=[pscustomobject]@{Owner=$Owner;RequestId=$Owner.RequestId;Epoch=$ctx.Epoch;BaseDn=$ctx.BaseDn;Verify=($Mode -eq 'Verify');Mode=$Mode;Node=$Node;DN=$dn;Guid=$(if($null -ne $row){[string]$row.Guid}else{''})}
+    $payload=[pscustomobject]@{Kind='OU';Mode=$(if($Mode -eq 'Children'){'Children'}else{'Search'});Term=$term;Verify=($Mode -eq 'Verify');RequestId=$Owner.RequestId;DN=$dn;Guid=$state.Guid}
+    try{
+        $Owner.Job=Start-UiTask -Name 'Choisir une OU' -OperationId 'EmbeddedDirectoryLookup' -Code (Get-DomeniaEmbeddedLookupCode) -Payload $payload -CallbackState $state -ReplaceKey 'embedded:lookup' -TimeoutSeconds 18 -SuccessHandler 'Complete-DomeniaEmbeddedLookup' -ErrorHandler 'Fail-DomeniaEmbeddedLookup'
+        if(-not $Owner.Job){throw 'Lecture non admise ; réessayez.'}
+    }catch{Fail-DomeniaOuPickerRead $_.Exception.Message $state}
+}
+function Show-DomeniaOuPickerNavigation {
+    param($Owner)
+    if($Owner.Closed){return}
+    Stop-DomeniaOuPickerRead $Owner
+    $Owner.Mode='Navigation';$Owner.Tree.Items.Clear();$Owner.Path.Text=''
+    [void]$Owner.Tree.Items.Add($Owner.RootNode)
+    $Owner.Status.Text='Développez une branche, puis choisissez une OU. Les conteneurs servent uniquement à naviguer.'
+    if(-not $Owner.RootNode.Tag.Loaded){Start-DomeniaOuPickerRead -Owner $Owner -Mode Children -Node $Owner.RootNode}
+    $Owner.RootNode.IsExpanded=$true
+}
+function Complete-DomeniaOuPickerRead {
+    param($Result,$State)
+    $r=$State.Owner
+    if($r.Closed -or $r.RequestId -cne $State.RequestId -or $State.Epoch -ne [long]$script:SessionEpoch -or $State.BaseDn -ine [string]$script:Conn.BaseDn){return}
+    $data=Get-DomeniaEffectiveWorkerResult $Result @('Rows','RequestId','Verified')
+    if($null -eq $data -or $data.RequestId -cne $State.RequestId -or [bool]$data.Verified -ne [bool]$State.Verify){Fail-DomeniaOuPickerRead 'Retour du sélecteur incohérent.' $State;return}
+    $r.Job='';$r.ActiveNode=$null;$r.Go.IsEnabled=$true;$r.Tree.IsEnabled=$true;$r.Busy.Visibility='Hidden';$r.Accept.IsEnabled=$false
+    $rows=@($data.Rows|Sort-Object -Property Name,DN -Culture 'fr-FR')
+    if($State.Verify){
+        if($rows.Count -ne 1 -or $rows[0].Type -ne 'OU' -or $rows[0].DN -ine $State.DN -or $rows[0].Guid -ine $State.Guid){Fail-DomeniaOuPickerRead 'LʼOU choisie a changé ; relancez la recherche.' $State;return}
+        $r.Selected=$rows[0];Set-DomeniaSurfaceResult $r.Window $true;return
+    }
+    if($State.Mode -eq 'Children'){
+        $node=$State.Node;$node.Items.Clear();$node.Tag.Loading=$false;$node.Tag.Loaded=$true
+        foreach($row in $rows){
+            if([string]$row.Type -notin @('OU','Conteneur') -or (Get-DomeniaRawDnParent ([string]$row.DN)) -ine [string]$node.Tag.DN){continue}
+            [void]$node.Items.Add((New-DomeniaOuPickerNode -Owner $r -Dn ([string]$row.DN) -Name ([string]$row.Name) -Row $row))
+        }
+        $r.Status.Text=([string]$node.Items.Count+' sous-branche(s) directe(s), classées par nom. Choisissez une OU ou développez une branche.')
+        if(-not $node.Items.Count){$r.Status.Text='Aucune sous-branche lisible. Une OU déjà sélectionnée peut être choisie.'}
+        $selected=$r.Tree.SelectedItem
+        $r.Accept.IsEnabled=($null -ne $selected -and $null -ne $selected.Tag.Row -and [string]$selected.Tag.Row.Type -eq 'OU' -and [bool][string]$selected.Tag.Row.Guid)
+    }else{
+        # Ancestors provide context only. Only an actual OU search result has the GUID needed to choose it.
+        $r.Tree.Items.Clear();$nodes=@{};$matched=0
+        $domainNode=New-DomeniaOuPickerNode -Owner $r -Dn $r.BaseDn -Name $r.BaseDn -Context
+        $nodes[$r.BaseDn]=$domainNode;[void]$r.Tree.Items.Add($domainNode)
+        foreach($row in $rows){
+            if([string]$row.Type -ne 'OU' -or -not [string]$row.Guid){continue}
+            $chain=[Collections.Generic.List[string]]::new();$current=[string]$row.DN
+            while($current -and $current -ine $r.BaseDn){$chain.Add($current);$current=Get-DomeniaRawDnParent $current}
+            if($current -ine $r.BaseDn){continue}
+            for($i=$chain.Count-1;$i -ge 0;$i--){
+                $dn=$chain[$i];$parent=Get-DomeniaRawDnParent $dn
+                if(-not $nodes.ContainsKey($dn)){
+                    $rdn=@(Split-DomeniaRawDn $dn)[0];$label=ConvertFrom-DomeniaDnLabel (($rdn -split '=',2)[1])
+                    $new=New-DomeniaOuPickerNode -Owner $r -Dn $dn -Name $label -Context
+                    $nodes[$dn]=$new;[void]$nodes[$parent].Items.Add($new)
+                }
+            }
+            $nodes[[string]$row.DN].Tag.Row=$row;$nodes[[string]$row.DN].Header=[string]$row.Name;$nodes[[string]$row.DN].FontWeight='SemiBold';$matched++
+        }
+        foreach($node in $nodes.Values){
+            $children=@($node.Items|Sort-Object -Property @{Expression={[string]$_.Header}},@{Expression={[string]$_.Tag.DN}} -Culture 'fr-FR')
+            $node.Items.Clear();foreach($child in $children){[void]$node.Items.Add($child)}
+            $node.IsExpanded=$true
+        }
+        $r.Status.Text=([string]$matched+' OU trouvée(s). Choisissez un résultat ; ses parents donnent le contexte. Effacez la recherche pour naviguer.')
+    }
+    if($data.Capped){$r.Status.Text+=' Limite atteinte : recherchez un nom plus précis.'}
+}
+function Fail-DomeniaOuPickerRead {
+    param($Message,$State)
+    $r=$State.Owner
+    if($r.Closed -or $r.RequestId -cne $State.RequestId -or $State.Epoch -ne [long]$script:SessionEpoch -or $State.BaseDn -ine [string]$script:Conn.BaseDn){return}
+    $r.Job='';$r.ActiveNode=$null;$r.Go.IsEnabled=$true;$r.Tree.IsEnabled=$true;$r.Accept.IsEnabled=$false;$r.Busy.Visibility='Hidden'
+    if($null -ne $State.Node){$State.Node.Tag.Loading=$false;$State.Node.Tag.Loaded=$false;$State.Node.Items.Clear();[void]$State.Node.Items.Add('Lecture non confirmée ; repliez puis développez pour réessayer.')}
+    $r.Status.Text='Lecture non confirmée : '+[string]$Message
+}
+function Show-DomeniaOuTreePicker {
+    param([string]$Title,[string]$Prompt,[string]$InitialTerm='')
+    if(-not (Test-DomeniaEmbeddedHost)){throw 'Ouvrez la fenêtre principale avant de sélectionner une OU.'}
+    $ctx=Get-DomeniaEmbeddedContext
+    if(-not $ctx.BaseDn -or $ctx.Closing){throw 'Connectez-vous avant de sélectionner une OU.'}
+    $w=[Windows.Window]::new();$w.Title=$Title;$w.Width=820;$w.Height=640
+    $root=[Windows.Controls.Grid]::new();$root.Name='IntegratedObjectPicker'
+    foreach($height in @('Auto','Auto','*','Auto','Auto','Auto')){$rd=[Windows.Controls.RowDefinition]::new();$rd.Height=[Windows.GridLengthConverter]::new().ConvertFromInvariantString($height);[void]$root.RowDefinitions.Add($rd)}
+    $hint=[Windows.Controls.TextBlock]::new();$hint.Text=$Prompt;$hint.TextWrapping='Wrap';$hint.Margin='0,0,0,12';[void]$root.Children.Add($hint)
+    $search=[Windows.Controls.Grid]::new()
+    foreach($width in @('*','Auto','Auto')){$col=[Windows.Controls.ColumnDefinition]::new();$col.Width=[Windows.GridLengthConverter]::new().ConvertFromInvariantString($width);[void]$search.ColumnDefinitions.Add($col)}
+    $box=[Windows.Controls.TextBox]::new();$box.Name='EmbeddedObjectTerm';$box.Text=$InitialTerm;$box.MaxLength=160;$box.MinHeight=40;$box.Margin='0,0,8,0';$box.ToolTip='Nom dʼOU : Entrée lance la recherche. Vider ce champ retrouve lʼarbre.';[void]$search.Children.Add($box)
+    $go=[Windows.Controls.Button]::new();$go.Name='EmbeddedObjectSearch';$go.Content='Rechercher';$go.MinHeight=40;$go.MinWidth=112;$go.Margin='0,0,8,0';$go.ToolTip='Rechercher des OU et afficher leurs branches parentes.';[Windows.Controls.Grid]::SetColumn($go,1);[void]$search.Children.Add($go)
+    $clear=[Windows.Controls.Button]::new();$clear.Name='EmbeddedOuClear';$clear.Content='Effacer';$clear.MinHeight=40;$clear.MinWidth=84;$clear.Margin='0';$clear.ToolTip='Retrouver lʼarbre sans modifier lʼOU de la page principale.';[Windows.Controls.Grid]::SetColumn($clear,2);[void]$search.Children.Add($clear)
+    $search.Margin='0,0,0,10';[Windows.Controls.Grid]::SetRow($search,1);[void]$root.Children.Add($search)
+    $tree=[Windows.Controls.TreeView]::new();$tree.Name='EmbeddedObjectResults';$tree.MinHeight=180;$tree.MaxHeight=520;$tree.ToolTip='Développez les branches. Seules les OU peuvent être choisies ; les conteneurs servent à naviguer.'
+    [Windows.Controls.ScrollViewer]::SetVerticalScrollBarVisibility($tree,'Visible');[Windows.Controls.ScrollViewer]::SetHorizontalScrollBarVisibility($tree,'Auto');[Windows.Controls.ScrollViewer]::SetCanContentScroll($tree,$true)
+    [Windows.Controls.VirtualizingPanel]::SetIsVirtualizing($tree,$true);[Windows.Controls.VirtualizingPanel]::SetVirtualizationMode($tree,'Recycling')
+    [Windows.Controls.Grid]::SetRow($tree,2);[void]$root.Children.Add($tree)
+    $path=[Windows.Controls.TextBox]::new();$path.Name='EmbeddedOuPath';$path.IsReadOnly=$true;$path.MinHeight=30;$path.Margin='0,8,0,0';$path.ToolTip='Chemin AD complet de la branche sélectionnée ; copiable.';[Windows.Controls.Grid]::SetRow($path,3);[void]$root.Children.Add($path)
+    $status=[Windows.Controls.TextBlock]::new();$status.Name='EmbeddedObjectStatus';$status.TextWrapping='Wrap';$status.MaxHeight=68;$status.Margin='0,8,0,8';[Windows.Controls.Grid]::SetRow($status,4);[void]$root.Children.Add($status)
+    $foot=[Windows.Controls.Grid]::new();[void]$foot.ColumnDefinitions.Add([Windows.Controls.ColumnDefinition]::new());$col=[Windows.Controls.ColumnDefinition]::new();$col.Width='Auto';[void]$foot.ColumnDefinitions.Add($col)
+    $busy=[Windows.Controls.ProgressBar]::new();$busy.IsIndeterminate=$true;$busy.Width=120;$busy.Height=4;$busy.Visibility='Hidden';$busy.HorizontalAlignment='Left';[void]$foot.Children.Add($busy)
+    $buttons=[Windows.Controls.StackPanel]::new();$buttons.Orientation='Horizontal';[Windows.Controls.Grid]::SetColumn($buttons,1);[void]$foot.Children.Add($buttons)
+    $cancel=[Windows.Controls.Button]::new();$cancel.Name='EmbeddedObjectCancel';$cancel.Content='Annuler';$cancel.Width=108;$cancel.Height=40;$cancel.IsCancel=$true;$cancel.ToolTip='Fermer sans choisir dʼOU.';[void]$buttons.Children.Add($cancel)
+    $accept=[Windows.Controls.Button]::new();$accept.Name='EmbeddedObjectAccept';$accept.Content='Choisir';$accept.Width=130;$accept.Height=40;$accept.Margin='0';$accept.IsEnabled=$false;$accept.IsDefault=$true;$accept.ToolTip='Revérifier le DN et le GUID de cette OU avant de la choisir.';[void]$buttons.Children.Add($accept)
+    [Windows.Controls.Grid]::SetRow($foot,5);[void]$root.Children.Add($foot);$w.Content=$root
+    $r=[pscustomobject]@{Window=$w;Kind='OU';Tree=$tree;Grid=$tree;Box=$box;Go=$go;Accept=$accept;Busy=$busy;Path=$path;Status=$status;RequestId='';Closed=$false;Job='';Selected=$null;RootNode=$null;ActiveNode=$null;Mode='Navigation';Epoch=$ctx.Epoch;BaseDn=$ctx.BaseDn}
+    $r.RootNode=New-DomeniaOuPickerNode -Owner $r -Dn $ctx.BaseDn -Name $ctx.BaseDn
+    $read=${function:Start-DomeniaOuPickerRead};$navigate=${function:Show-DomeniaOuPickerNavigation};$stop=${function:Stop-DomeniaOuPickerRead}
+    $go.Add_Click({if(-not $r.Job){if(([string]$box.Text).Trim()){& $read -Owner $r -Mode Search}else{& $navigate $r}}}.GetNewClosure())
+    $accept.Add_Click({& $read -Owner $r -Mode Verify}.GetNewClosure())
+    $clear.Add_Click({if([string]$box.Text){$box.Text=''}else{& $navigate $r}}.GetNewClosure())
+    $box.Add_KeyDown({param($sender,$eventArgs)if($eventArgs.Key -eq 'Return'){$eventArgs.Handled=$true;if(-not $r.Job){if(([string]$box.Text).Trim()){& $read -Owner $r -Mode Search}else{& $navigate $r}}}}.GetNewClosure())
+    $box.Add_TextChanged({
+        & $stop $r;$r.Path.Text=''
+        if(-not ([string]$box.Text).Trim()){& $navigate $r}else{$r.Mode='Draft';$r.Tree.Items.Clear();$r.Status.Text='Appuyez sur Entrée ou Rechercher pour afficher les OU correspondantes.'}
+    }.GetNewClosure())
+    $tree.Add_SelectedItemChanged({param($sender,$eventArgs)
+        $item=$eventArgs.NewValue;$r.Path.Text=$(if($null -ne $item -and $null -ne $item.Tag){[string]$item.Tag.DN}else{''})
+        $r.Accept.IsEnabled=($null -ne $item -and $null -ne $item.Tag.Row -and [string]$item.Tag.Row.Type -eq 'OU' -and [bool][string]$item.Tag.Row.Guid -and -not $r.Job -and $r.Mode -ne 'Draft')
+        if($null -ne $item -and $r.Mode -eq 'Search' -and $null -eq $item.Tag.Row){$r.Status.Text='Branche de contexte : choisissez une OU en gras, ou effacez la recherche pour naviguer dans cette branche.'}
+    }.GetNewClosure())
+    Register-DomeniaSurfaceReady $w ({[void]$box.Focus();if(([string]$box.Text).Trim()){& $read -Owner $r -Mode Search}else{& $navigate $r}}.GetNewClosure())
+    try{[void](Show-DomeniaEmbeddedWindow $w);return $r.Selected}
+    finally{$r.Closed=$true;Stop-DomeniaOuPickerRead $r;$tree.Items.Clear();$w.Close()}
+}
 function Show-DomeniaInlinePicker {
     param([ValidateSet('Machine','Utilisateur','OU')][string]$Kind,[string]$Title,[string]$Prompt,[string]$InitialTerm='')
+    if($Kind -eq 'OU'){return (Show-DomeniaOuTreePicker -Title $Title -Prompt $Prompt -InitialTerm $InitialTerm)}
     if(-not (Test-DomeniaEmbeddedHost)){throw 'Ouvrez la fenêtre principale avant de sélectionner un objet.'}
     $w=[Windows.Window]::new();$w.Title=$Title;$w.Width=820;$w.Height=600
     $root=[Windows.Controls.Grid]::new();$root.Name='IntegratedObjectPicker'
@@ -470,9 +650,16 @@ function Show-DomeniaInlinePicker {
     $go=[Windows.Controls.Button]::new();$go.Name='EmbeddedObjectSearch';$go.ToolTip='Rechercher dans tout le domaine. La liste principale et ses filtres restent inchangés.';$go.Content='Rechercher';$go.Width=124;$go.Height=40;$go.Margin='0';[Windows.Controls.Grid]::SetColumn($go,1);[void]$search.Children.Add($go)
     $search.Margin='0,0,0,12';[Windows.Controls.Grid]::SetRow($search,1);[void]$root.Children.Add($search)
     $grid=[Windows.Controls.DataGrid]::new();$grid.Name='EmbeddedObjectResults';$grid.AutoGenerateColumns=$false;$grid.IsReadOnly=$true;$grid.SelectionMode='Single';$grid.EnableRowVirtualization=$true;$grid.CanUserAddRows=$false
+    # Explicit scrolling overrides application DataGrid defaults and keeps the footer reachable.
+    [Windows.Controls.ScrollViewer]::SetVerticalScrollBarVisibility($grid,'Visible')
+    [Windows.Controls.ScrollViewer]::SetHorizontalScrollBarVisibility($grid,'Auto')
+    [Windows.Controls.ScrollViewer]::SetCanContentScroll($grid,$true)
+    [Windows.Controls.VirtualizingPanel]::SetVirtualizationMode($grid,'Recycling')
+    $grid.EnableColumnVirtualization=$true;$grid.MaxHeight=520
     foreach($spec in @(@('Nom','Name','160'),@('Identifiant / DNS','Second','200'),@('Description','Description','*'))){$c=[Windows.Controls.DataGridTextColumn]::new();$c.Header=$spec[0];$c.Binding=[Windows.Data.Binding]::new($spec[1]);$c.Width=[Windows.Controls.DataGridLengthConverter]::new().ConvertFromInvariantString($spec[2]);[void]$grid.Columns.Add($c)}
+    if($Kind -eq 'OU'){$grid.Columns[1].Header='Chemin AD';$grid.Columns[1].Width=[Windows.Controls.DataGridLength]::new(1,'Star');$grid.Columns[0].SortDirection='Ascending'}
     [Windows.Controls.Grid]::SetRow($grid,2);[void]$root.Children.Add($grid)
-    $status=[Windows.Controls.TextBlock]::new();$status.Name='EmbeddedObjectStatus';$status.Text=if($Kind -eq 'OU'){'Rechercher affiche les OU ; saisir un nom permet d affiner.'}else{'Saisissez au moins deux caractères, puis Rechercher.'};$status.TextWrapping='Wrap';$status.Margin='0,10,0,6';$status.MaxHeight=52
+    $status=[Windows.Controls.TextBlock]::new();$status.Name='EmbeddedObjectStatus';$status.Text=if($Kind -eq 'OU'){'OU classées par nom. Rechercher affiche la liste ; saisissez un nom pour affiner.'}else{'Saisissez au moins deux caractères, puis Rechercher.'};$status.TextWrapping='Wrap';$status.Margin='0,10,0,6';$status.MaxHeight=52
     [Windows.Controls.Grid]::SetRow($status,3);[void]$root.Children.Add($status)
     $foot=[Windows.Controls.Grid]::new();[void]$foot.ColumnDefinitions.Add([Windows.Controls.ColumnDefinition]::new());$col=[Windows.Controls.ColumnDefinition]::new();$col.Width='Auto';[void]$foot.ColumnDefinitions.Add($col)
     $busy=[Windows.Controls.ProgressBar]::new();$busy.IsIndeterminate=$true;$busy.Width=120;$busy.Height=4;$busy.Visibility='Hidden';$busy.HorizontalAlignment='Left';[void]$foot.Children.Add($busy)

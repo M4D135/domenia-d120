@@ -1,0 +1,16 @@
+{
+    "Kind":  "Ps51StaticCompatibility",
+    "Host":  {
+                 "Platform":  "Windows",
+                 "PSVersion":  "5.1.26100.6584",
+                 "PSEdition":  "Desktop"
+             },
+    "Files":  163,
+    "Errors":  0,
+    "Warnings":  0,
+    "Status":  "PASS",
+    "Limitation":  "Controle de source. Ne remplace pas une execution sous Windows PowerShell 5.1.",
+    "Findings":  [
+
+                 ]
+}

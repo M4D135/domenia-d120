@@ -539,3 +539,27 @@ function Get-DomeniaFleetBoardData {
     [void](Complete-DomeniaBoardData -Data $data)
     return $data
 }
+
+function Get-DomeniaFleetFreshness {
+    # Successful ancestor coverage only. A child/sibling or failed attempt cannot rejuvenate the whole scope.
+    param([string]$ScopeDn,[string]$DomainDn,[Collections.IDictionary]$SyncStates)
+    $target=if($ScopeDn){$ScopeDn.Trim()}else{$DomainDn.Trim()}
+    $ancestors=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    $current=$target
+    while($current){[void]$ancestors.Add($current);$current=Get-DomeniaRawDnParent $current}
+    $at=$null;$source='';$attemptAt=$null;$partial=$false
+    if($null -ne $SyncStates){foreach($entry in $SyncStates.Values){
+        $key=[string]$entry.scope;$base=([string]$entry.base_dn).Trim()
+        if(-not $base -or -not $ancestors.Contains($base)){continue}
+        $stamp=ConvertFrom-DomeniaUtcText ([string]$entry.last_sync)
+        if($null -eq $stamp){continue}
+        # Legacy OU-walk stores its root OneLevel pass under ou:<domain>; it never covers descendant OUs.
+        if($key -like 'ou:*' -and $base -ieq $DomainDn.Trim()){continue}
+        if($key -eq 'directory' -or $key -like 'ou:*'){
+            if($null -eq $at -or $stamp -gt $at){$at=$stamp;$source=$base}
+        }elseif($key -like 'attempt:*' -and ($null -eq $attemptAt -or $stamp -gt $attemptAt)){
+            $attemptAt=$stamp;$partial=([string]$entry.details -eq 'partial')
+        }
+    }}
+    [pscustomobject]@{At=$at;SourceDn=$source;AttemptAt=$attemptAt;Partial=($partial -and ($null -eq $at -or $attemptAt -ge $at))}
+}

@@ -110,6 +110,7 @@ Expect ($selection.Count -eq 1 -and $selection.ContainsKey('g1') -and $selection
 $selection=Get-DomeniaQueryMatchIds -Records $many -Recipe (New-DomeniaQuerySegmentRecipe $visual $others.Select)
 Expect ($selection.Count -eq 6 -and -not $selection.ContainsKey('missing')) 'search selection respects segment and unknown values'
 . (Join-Path $modules 'Domenia-Query.UI.ps1')
+. (Join-Path $modules 'Domenia-QueryTargets.UI.ps1')
 $script:DomeniaQueryState=[pscustomobject]@{SearchRecipe=$compiled;SearchRecords=@{g1=$true};SearchAt=$now.AddDays(-1);SearchSnapshotKey='original'}
 $script:FleetQuerySnapshotKey='another-ou'
 Expect (Test-DomeniaSearchQueryRow ([pscustomobject]@{Type='Machine';Guid='{G1}'})) 'dated search selection survives elapsed TTL and another dashboard OU'

@@ -48,7 +48,7 @@ Quand : vous voulez voir tous les postes ou tous les utilisateurs d'un site ou d
 2. **Régler la portée.** Décochez « Inclure les sous-OU » pour ne voir que le premier niveau.
 3. **Filtrer.** Dans « Type d’objet », choisissez par exemple « Machines ». Dans « Présence réseau », choisissez « En ligne » ou « Sans réponse au ping ».
 4. **Compléter la liste.** Si le compteur indique une liste limitée, cliquez sur « Charger la suite ».
-5. **Revenir au domaine entier.** Cliquez sur « Tout le domaine ».
+5. **Changer de périmètre.** Choisissez une autre OU dans l’arbre. Pour chercher un objet par son nom dans le domaine, utilisez la barre du haut.
 
 > [!RESULTAT] La liste montre les objets de l'OU choisie.
 
@@ -57,7 +57,7 @@ Quand : vous voulez voir tous les postes ou tous les utilisateurs d'un site ou d
 | Vous voyez | Que faire |
 |---|---|
 | « Saisis au moins … caracteres, ou * pour un apercu. » | Tapez au moins deux caractères. |
-| « Aucun résultat affiché » | Vérifiez l'orthographe et les filtres, ou cliquez sur « Tout le domaine ». Une liste vide ne prouve pas l'absence de l'objet. |
+| « Aucun résultat affiché » | Vérifiez l’orthographe, l’OU et les filtres, ou cherchez le nom dans la barre du haut. Une liste vide ne prouve pas l'absence de l'objet. |
 | « La liste affichée nʼest plus la recherche courante : relancez la recherche. » | Relancez la recherche, puis cliquez de nouveau sur « Charger la suite ». |
 | « Fiche » est grisé dans le menu | Sélectionnez d'abord une ligne dans les résultats. |
 
@@ -212,22 +212,24 @@ L'Accueil présente les postes de la base locale et leurs derniers relevés. Son
 ## Choisir le périmètre
 
 1. **Ouvrir l'Accueil.** Cliquez sur Accueil ou appuyez sur Ctrl+D.
-2. **Choisir une OU (unité organisationnelle de l’annuaire).** Utilisez le sélecteur du parc. L’OU choisie inclut ses sous-OU. Le domaine entier permet de consulter tous les postes indexés ; le chemin cliquable permet de remonter vers une OU parente.
+2. **Choisir une OU (unité organisationnelle de l’annuaire).** Utilisez le sélecteur du parc. L’OU choisie inclut ses sous-OU. Le chemin cliquable permet de remonter vers une OU parente.
 3. **Vérifier la couverture.** Lisez le périmètre, la date de la base et les indications de fraîcheur. Un total local ne prouve pas que tous les objets du domaine ont été lus.
 4. **Actualiser l'affichage.** Actualiser recalcule les widgets depuis les données locales ; il ne relance pas à lui seul les sondes des postes.
 
+« Ouvrir dans Rechercher » transmet les postes recensés du périmètre, y compris les comptes désactivés, et retire les anciens filtres de cette liste. Cette action facultative donne accès aux commandes Pinger, Détecter et Analyser la liste.
+
 ![Accueil : périmètre du parc, couverture de la base et indicateurs des postes recensés ; données fictives](fig:accueil)
 
-Recherchez le nom de l’OU dans le sélecteur, puis relisez le site et le chemin avant de choisir. Plusieurs OU peuvent porter le même nom.
+Le sélecteur présente un arbre des OU, avec les branches classées par nom dans l’ordre alphabétique français. Dépliez une branche ou utilisez le champ de recherche, puis relisez le site et le chemin avant de choisir. Plusieurs OU peuvent porter le même nom.
 
-![Sélecteur intégré : trois OU Postes distinguées par leur description ; données fictives](fig:selecteur-ou)
+![Sélecteur intégré : arbre des OU, recherche et chemin de la sélection ; données fictives](fig:selecteur-ou)
 
 ## Afficher les postes derrière un chiffre
 
-1. **Cliquer sur un widget.** Le détail s'ouvre dans l'Atelier de requêtes de l'Accueil. Un segment de graphique ajoute le filtre correspondant.
-2. **Lire la liste.** Le compteur porte sur le résultat complet. La table affiche 200 postes par page ; utilisez les commandes de page pour parcourir la suite.
+1. **Ouvrir le détail.** Survolez le widget ou donnez-lui le focus avec le clavier, puis cliquez sur la petite icône de détail près du crayon. L’Atelier de requêtes s’ouvre dans sa propre page, avec le périmètre du tableau de bord. Un clic sur la carte ou sur un segment de graphique laisse le tableau affiché.
+2. **Lire la liste.** L’onglet « Résultats » affiche les postes correspondants. Le compteur porte sur le résultat complet. La table affiche 200 postes par page ; utilisez les commandes de page pour parcourir la suite.
 3. **Examiner un poste.** Sélectionnez sa ligne, ouvrez sa fiche ou les actions du poste. Vérifiez le nom et l'identité affichés avant une intervention.
-4. **Revenir au parc entier.** Effacez le segment pour retirer la restriction issue du widget.
+4. **Préciser ou revenir.** Dans « Composer la requête », ajoutez une condition, puis cliquez sur « Exécuter » pour revenir aux résultats. Le bouton « Retour » revient à l’écran précédent.
 
 ![Détail local du poste sélectionné dans l’Atelier ; données fictives](fig:atelier-fiche-locale)
 
@@ -237,85 +239,116 @@ Pour un point d'attention, le premier aperçu est volontairement court. « Déta
 
 ## Trouver tous les postes recensés
 
-Dans l'Atelier de requêtes, choisissez « Tous les postes recensés » puis appliquez la requête. Elle inclut les comptes actifs et désactivés du périmètre. Une recherche textuelle dans Rechercher peut donner moins de lignes à cause de sa limite et de ses filtres ; la base et l'Atelier servent à examiner le recensement complet.
+Ouvrez l’Atelier avec la petite icône de la barre du parc ou le bouton « Atelier de requêtes » de Rechercher. Votre brouillon est conservé. Choisissez « Tous les postes recensés », cliquez sur « Charger », puis sur « Exécuter ». Elle inclut les comptes actifs et désactivés du périmètre. Une recherche textuelle dans Rechercher peut donner moins de lignes à cause de sa limite et de ses filtres ; la base et l'Atelier servent à examiner le recensement complet.
 
-Ajoutez une condition en choisissant une information, un opérateur et une valeur. « Toutes les conditions » impose leur réunion ; « Au moins une condition » accepte un poste qui en remplit une. Pour repérer des mesures manquantes, utilisez « est absent ».
+Dans « Composer la requête », ajoutez une condition en choisissant une information, un opérateur et une valeur. « Toutes les conditions » impose leur réunion ; « Au moins une condition » accepte un poste qui en remplit une. Pour repérer des mesures manquantes, utilisez « est absent ».
 
 Vous pouvez sauvegarder la requête sous un nom clair, la retrouver dans la liste des requêtes et l'ajouter au tableau de bord. Une répartition par système, modèle ou autre champ donne les principaux groupes ; « Autres » rassemble les groupes restants et « Inconnu » les données non renseignées.
 
-![Atelier de requêtes : modèle Tous les postes recensés, conditions et liste paginée des résultats ; données fictives](fig:atelier-requetes)
+![Atelier de requêtes : onglet Résultats et liste paginée des postes recensés ; données fictives](fig:atelier-requetes)
 
 Pour vérifier les comptes désactivés, choisissez leur état dans le filtre de la table. L’exemple ci-dessous retrouve trois postes désactivés dans le même recensement. Remettez ensuite le filtre sur tous les états.
 
 ![Comptes désactivés : trois postes restent visibles dans l’Atelier ; données fictives](fig:atelier-desactives)
 
+## Partir d’un modèle prêt à utiliser
+
+L’onglet « Bibliothèque » présente 152 modèles livrés dans 14 catégories, ainsi que vos requêtes personnelles. Recherchez un sujet, filtrez par catégorie ou par source (« Modèles livrés » ou « Mes requêtes »), puis sélectionnez une ligne. Lisez sa description et les informations nécessaires avant de cliquer sur « Utiliser cette requête ». Ajustez les conditions dans « Composer la requête », puis cliquez sur « Exécuter » pour consulter les résultats locaux. Le sélecteur rapide et « Charger », en haut de l’Atelier, restent disponibles.
+
+Un modèle peut servir au parc ou au tableau d’un poste. Donnez un nom clair à votre adaptation pour l’enregistrer comme requête personnelle. Le modèle décrit les conditions ; les données nécessaires doivent déjà avoir été relevées ou faire l’objet d’une collecte explicite.
+
+Deux points de départ : « Comptes désactivés » utilise la copie AD de l’OU ; « C: moins de 20 % libre » utilise l’espace disque relevé dans l’inventaire léger. Une donnée manquante reste inconnue, même si le modèle est prêt à utiliser.
+
+![Bibliothèque : recherche d’un modèle, informations nécessaires et description avant utilisation ; données fictives](fig:atelier-modeles)
+
+## Choisir une information dans le catalogue
+
+L’onglet « Catalogue des informations » aide à trouver le champ utile : nom, matériel, sécurité, réseau ou autre information. Saisissez un mot et limitez au besoin la source ou la catégorie. La fiche explique l’usage, le type de valeur et la manière d’obtenir la donnée.
+
+Cliquez sur « Utiliser cette information » pour retrouver le champ dans « Composer la requête ». Choisissez ensuite l’opérateur et la valeur, puis cliquez sur « Ajouter ». Ouvrir le catalogue ou sélectionner un champ ne lance aucune collecte.
+
+![Catalogue des informations : recherche d’un champ et explication de sa source ; données fictives](fig:atelier-catalogue)
+
 ## Exemple : suivre les disques peu disponibles
 
-1. **Choisir l’information.** Sélectionnez l’espace libre du disque système en pourcentage.
+1. **Choisir l’information.** Ouvrez « Composer la requête » et sélectionnez l’espace libre du disque système en pourcentage.
 2. **Définir le seuil.** Choisissez l’opérateur inférieur à, saisissez 20 puis ajoutez la condition.
-3. **Lire le résultat.** Appliquez la requête, contrôlez le total et la date des mesures. Une valeur absente ne signifie pas que le disque est plein.
+3. **Lire le résultat.** Cliquez sur « Exécuter » : l’onglet « Résultats » s’ouvre. Contrôlez le total et la date des mesures. Une valeur absente ne signifie pas que le disque est plein.
 
 ![Condition numérique : espace libre du disque système inférieur à 20 % ; données fictives](fig:atelier-condition)
 
-4. **Nommer et enregistrer.** Donnez un nom explicite à la requête puis sauvegardez-la. Retrouvez-la dans la liste pour la réutiliser.
+4. **Nommer et enregistrer.** Revenez dans « Composer la requête », donnez un nom explicite à la requête puis cliquez sur « Enregistrer ». Retrouvez-la dans la liste pour la réutiliser.
 
 ![Requête nommée enregistrée dans la bibliothèque de l’Atelier ; données fictives](fig:atelier-bibliotheque)
 
-5. **Ajouter au tableau.** Utilisez l’action d’ajout au tableau de bord. Le widget reprend la requête ; un clic permet de revenir aux postes concernés.
+5. **Ajouter au tableau.** Dans « Composer la requête », choisissez la destination « Tableau de bord général », puis une présentation : Indicateur, Texte, Barres, Camembert ou Colonnes. Cliquez sur « Créer une sonde dashboard ». Le widget reprend la requête ; sa petite icône de détail permet de revenir aux postes concernés.
 
 ![Sonde du tableau de bord créée depuis la requête sur les disques ; données fictives](fig:accueil-sonde-requete)
 
-6. **Filtrer Rechercher.** Appliquez la requête comme filtre de recherche. Le filtre utilise les identités des postes trouvés ; relisez la restriction affichée et effacez-la pour revenir à la liste habituelle.
+6. **Filtrer Rechercher.** Dans « Composer la requête », cliquez sur « Appliquer aux résultats de Recherche ». Le filtre utilise les identités des postes trouvés ; relisez la restriction affichée et effacez-la pour revenir à la liste habituelle.
 
 ![Rechercher filtré par les postes trouvés dans l’Atelier ; données fictives](fig:recherche-requete)
 
+## Réutiliser une requête sur un poste
+
+Le bouton « Atelier » du tableau de bord du poste ouvre la même bibliothèque de requêtes. Dans « Composer la requête », choisissez « Tableau de bord du poste » et la présentation souhaitée, puis « Créer une sonde dashboard ». Le widget applique la recette au poste actuellement sélectionné ; il sera réévalué lorsque vous changerez de poste.
+
+« Tester sur le poste sélectionné » indique s’il correspond, ne correspond pas ou si le résultat reste inconnu. Ce test lit les données locales déjà disponibles, sans lancer de collecte. La grande liste « Résultats » de l’Atelier continue à afficher les postes de l’OU indiquée en haut ; elle ne se transforme pas en liste d’un seul poste.
+
+![Atelier : destination Poste et aperçu local de la requête sur le poste sélectionné ; données fictives](fig:atelier-poste)
+
+![Tableau du poste : widget créé depuis la même bibliothèque de requêtes ; données fictives](fig:poste-sonde-requete)
+
 ## Mettre à jour les relevés
 
-1. **Choisir le périmètre.** La collecte de l’Atelier concerne tous les comptes actifs de l’OU ou du domaine affiché, même si une condition réduit la table. Pour cibler un seul poste, utilisez l’action de sa fiche locale. Les comptes désactivés restent consultables et sont exclus de la collecte du parc.
-2. **Régler la collecte.** Commencez par 4 postes en parallèle. Le réglage propose 1, 2, 4, 6 ou 8 ; réduisez-le si le réseau ou les postes répondent mal.
+1. **Choisir le périmètre.** La collecte de l’Atelier concerne tous les comptes actifs de l’OU affichée et de ses sous-OU, même si une condition réduit la table. Pour cibler un seul poste, utilisez l’action de sa fiche locale. Les comptes désactivés restent consultables et sont exclus de la collecte du parc.
+2. **Régler la collecte.** Dans « Composer la requête », dépliez « Réglages de collecte ». Commencez par 4 postes en parallèle. Le réglage propose 1, 2, 4, 6 ou 8 ; réduisez-le si le réseau ou les postes répondent mal.
 3. **Choisir la fraîcheur.** Réutilisez les mesures de moins de 5, 15 ou 60 minutes, ou forcez une relecture. Certaines données volatiles restent soumises à un délai plus court.
-4. **Lancer et confirmer.** Lancez la collecte proposée et relisez le nombre de cibles avant confirmation. Suivez les réussites, les refus et les enregistrements en attente.
+4. **Lancer et confirmer.** Cliquez sur « Collecter les données requises… » et relisez le nombre de cibles avant confirmation. Suivez les réussites, les refus et les enregistrements en attente.
 
 ![Réglages de la collecte : parallélisme et durée de réutilisation des mesures ; données fictives](fig:atelier-collecte)
 5. **Arrêter si besoin.** Arrêter empêche de nouvelles lectures ; les résultats déjà obtenus sont conservés. Attendez la confirmation du stockage avant de quitter.
 
+La collecte lit les informations requises par la requête : présence, utilisateur console, inventaire léger ou sondes WMI. Si la recette utilise uniquement des données AD, Domenia invite à mettre à jour la base de l’OU. « Actualiser ce poste… » dans la fiche locale reste une demande d’inventaire léger sur ce seul poste. Dans l’aide du tableau de bord, « Relever ce périmètre » demande un inventaire léger des comptes actifs de l’OU choisie, indépendamment du brouillon de l’Atelier.
+
 ## Mettre à jour la base du parc
 
-Ouvrez Outils puis Base autonome. Pour la mise à jour courante d’un service, cliquez sur « Choisir une OU », sélectionnez son unité organisationnelle, puis relisez le chemin affiché. Cette cible est indépendante de Rechercher. Les sous-OU sont incluses ; les autres branches sont conservées.
+Ouvrez Outils puis Base autonome. Le choix d’OU, visible au-dessus des onglets, règle « Mise à jour » et « Données ». « Stockage » agit sur la base locale entière. Cliquez sur « Choisir une OU », sélectionnez son unité organisationnelle, puis relisez le chemin affiché. Ce choix est indépendant de Rechercher.
 
-| Votre besoin | Commande |
+| Votre besoin | Onglet et commande |
 |---|---|
-| Actualiser le service choisi et ses sous-OU | « Tout relire dans lʼOU choisie » ; une OU doit être sélectionnée |
-| Charger le parc pour la première fois ou refaire une lecture globale occasionnelle | « Tout relire dans le domaine » ; opération longue avec confirmation |
-| Rattraper les changements récents | Options avancées → « Synchroniser les changements » |
-| Relire tout le domaine par branches lorsque la lecture globale est trop longue | Options avancées → « Relire le domaine par étapes » |
+| Relire les objets du service et de ses sous-OU | Mise à jour → « Mettre à jour lʼOU choisie » ; une OU doit être sélectionnée |
+| Suivre la lecture et la fraîcheur | Mise à jour → « État de la copie locale » et progression |
+| Parcourir les utilisateurs et postes enregistrés | Données → « Afficher / actualiser les objets » |
+| Trouver la base ou en faire une copie | Stockage → « Emplacement et sauvegarde » |
 
-![Mise à jour de la base : choix de l’OU puis relecture ciblée ou du domaine ; données fictives](fig:base-commandes)
+![Mise à jour de la base : OU choisie et commande de relecture ciblée ; données fictives](fig:base-commandes)
 
-La relecture par étapes parcourt les OU et les conteneurs à la racine du domaine, puis les objets directement à sa racine. Réservez-la aux relectures globales ; elle ne remplace pas le suivi des changements.
+La mise à jour inclut les sous-OU et conserve les autres branches. Suivez séparément la lecture de l’annuaire et l’enregistrement local. Une passe partielle ne vaut pas un recensement terminé : la date de la dernière lecture complète reste visible avec la tentative partielle. Une lecture complète d’une OU parente peut couvrir l’OU affichée ; le chemin de cette couverture est indiqué.
 
-La zone supérieure présente les actions à gauche et « État de la copie locale » à droite, avec la fraîcheur et la progression. La recherche et les boutons de page restent avec la table. Faites glisser la séparation horizontale pour ajuster la place des réglages et des résultats.
-
-Suivez séparément la lecture de l'annuaire et l'enregistrement local. Une passe partielle ne vaut pas un recensement terminé : la date de la dernière lecture complète reste visible avec la tentative partielle.
-
-Le navigateur de la base dispose de son propre choix d'OU. « Afficher / actualiser les objets » recharge sa liste. Sans texte de recherche, il montre les objets du périmètre par pages de 200, avec le total correspondant. Comparez le même périmètre et les mêmes types d'objets avant de comparer deux compteurs.
+Dans l’onglet « Données », « Afficher / actualiser les objets » recharge la liste. Sans texte de recherche, elle montre les objets du périmètre par pages de 200, avec le total correspondant. Comparez le même périmètre et les mêmes types d’objets avant de comparer deux compteurs.
 
 Cliquez sur un en-tête pour trier le résultat complet, sur toutes les pages ; cliquez de nouveau pour inverser le sens. « Tri par pertinence » rétablit le classement initial. Les dates inconnues restent en fin de liste. La colonne Association ne se trie pas.
 
-![Base autonome : cible de mise à jour, fraîcheur des données et liste des objets ; données fictives](fig:base-autonome)
+![Base autonome : onglet Données et liste des objets du périmètre ; données fictives](fig:base-autonome)
 
-Dépliez « Détails du stockage et de la synchronisation » pour retrouver le fichier, le contrôleur et les informations du dernier suivi.
+Dans l’onglet « Mise à jour », dépliez « Détails du stockage et de la synchronisation » pour retrouver le fichier, le contrôleur et les informations du dernier suivi.
 
-![Base autonome : détails du stockage dépliés ; données fictives](fig:base-details)
+![Base autonome : détails de la copie locale dépliés ; données fictives](fig:base-details)
 
-![Relecture du domaine par étapes : phase en cours et compteurs ; données fictives](fig:base-progression)
+![Relecture de l’OU choisie : phase en cours et compteurs ; données fictives](fig:base-progression)
+
+L’onglet « Stockage » rassemble le chemin de la base et les sauvegardes. La sauvegarde porte sur la base entière ; la purge efface les catégories de données choisies dans toute cette base, après simulation et confirmation. Le guide administrateur décrit cette opération.
+
+![Stockage : emplacement, sauvegarde et maintenance locale ; données fictives](fig:base-stockage)
 
 ## Comprendre une différence
 
 | Vous voyez | Que faire |
 |---|---|
-| Un widget compte plus de postes que Rechercher | Vérifiez l'OU, les sous-OU, les comptes désactivés, le filtre et la limite de Rechercher. Ouvrez le widget pour sa liste exacte. |
+| Un widget compte plus de postes que Rechercher | Vérifiez l'OU, les sous-OU, les comptes désactivés, le filtre et la limite de Rechercher. Ouvrez sa petite icône de détail pour consulter la liste exacte. |
 | Une mesure est inconnue ou ancienne | Relisez son âge puis lancez une collecte ciblée. Un ping récent ne rafraîchit pas un ancien inventaire. |
+| Un inventaire échoue mais des valeurs restent affichées | Ce sont les dernières valeurs réussies, avec leur date. Consultez l’erreur et relancez une collecte adaptée ; leur présence ne signifie pas que le dernier essai a réussi. |
 | La base est partielle | Relancez la mise à jour selon le message affiché. Ne concluez pas à une suppression à partir d'une passe incomplète. |
 | La base est occupée | Attendez la fin de l'enregistrement, puis actualisez. |
 | Aucun poste n'apparaît | Effacez les conditions et le segment, puis vérifiez le périmètre et la couverture de la base. |
@@ -326,21 +359,21 @@ Quand : vous voulez garder sous les yeux les informations utiles. Chaque tuile o
 
 ## Ajouter un widget
 
-1. **Ouvrir la fenêtre.** Cliquez sur « Ajouter un widget » dans la barre du tableau. La fenêtre « Ajouter un widget » s'ouvre.
+1. **Ouvrir le panneau.** Cliquez sur « Ajouter un widget » dans la barre du tableau. Le panneau de réglage s’ouvre dans la fenêtre.
 2. **Chercher l'information.** Tapez un mot dans la recherche (disque, utilisateur, BitLocker…) : la liste des informations se réduit. Le badge « affiche » signale une information déjà sur le tableau.
 3. **Choisir.** Cliquez sur une ligne. L'« Apercu » montre le widget.
 4. **Régler.** Modifiez au besoin le « Titre », la « Représentation » (« Chiffre cle », « Jauge », « Anneau », « Barres »…), la « Taille » et la « Section ». Pour une nouvelle section, choisissez « + Nouvelle section... » et tapez son nom dans le champ qui apparaît.
 5. **Ajouter.** Cliquez sur « Ajouter » : le widget apparaît à la fin de sa section. Hors personnalisation, un widget encore sans données reste masqué et la barre affiche « Widget enregistre : il s affichera des que ses donnees seront lues. ». « Annuler » ne change rien.
 
-![Fenêtre « Ajouter un widget » : recherche, liste des informations, réglages à droite et aperçu du widget « Disque systeme »](fig:editeur-widget)
+![Panneau « Ajouter un widget » : recherche, liste des informations, réglages à droite et aperçu du widget « Disque systeme »](fig:editeur-widget)
 
-> [!NOTE] Une ligne « Requetes WMI · » interroge les postes. Sur le tableau du poste, cliquez sur « Actualiser les requetes », puis sur « Verifier les sessions » : le widget se remplit. Sur l’Accueil, lancez la collecte depuis l’Atelier pour les postes du périmètre.
+> [!NOTE] Une ligne « Requetes WMI · » interroge les postes. Sur le tableau du poste, cliquez sur « Actualiser les requetes », puis sur « Verifier les sessions » : le widget se remplit. Sur l’Accueil, ouvrez le détail de la sonde, puis collectez ses données dans l’Atelier.
 
 > [!RESULTAT] Le widget est enregistré sur le tableau, dans la section choisie.
 
 ## Déplacer redimensionner ou retirer
 
-1. **Passer en personnalisation.** Cliquez sur « Personnaliser ». Chaque widget porte deux boutons ronds, modifier et retirer ; une tuile « Ajouter ici » termine chaque section.
+1. **Passer en personnalisation.** Cliquez sur « Personnaliser ». Chaque widget porte les boutons ronds modifier et retirer ; une tuile « Ajouter ici » termine chaque section.
 2. **Déplacer.** Glissez un widget et lâchez-le sur un autre : il prend sa place, même dans une autre section. Le clic droit propose aussi « Déplacer ».
 3. **Changer la taille.** Clic droit sur le widget, « Taille », puis « Compacte », « Moyenne » ou « Large ». Le sous-menu « Représentation » change le type de graphique.
 4. **Retirer.** Cliquez sur le bouton rond dont l'infobulle commence par « Retirer : », ou faites un clic droit, « Retirer du tableau de bord ». Aucune confirmation n'est demandée.
@@ -348,7 +381,7 @@ Quand : vous voulez garder sous les yeux les informations utiles. Chaque tuile o
 
 ![Tableau du poste en personnalisation : boutons ronds sur chaque widget et tuiles « Ajouter ici » au bout des sections](fig:personnaliser)
 
-> [!ASTUCE] Le clic droit et le glisser-déposer marchent aussi hors personnalisation ; les boutons ronds apparaissent alors au survol.
+> [!ASTUCE] Hors personnalisation, le clic droit reste disponible et les boutons ronds apparaissent au survol ou au focus clavier. Pour déplacer une carte à la souris, activez « Personnaliser ».
 
 ## Revenir en arrière
 
@@ -364,7 +397,7 @@ Quand : vous voulez garder sous les yeux les informations utiles. Chaque tuile o
 | Vous voyez | Que faire |
 |---|---|
 | « Aucun widget » | Tous les widgets ont été retirés. Cliquez sur « Ajouter un widget », ou sur « Personnaliser » puis « Par defaut ». |
-| Un widget affiche « En attente » | Sur le tableau du poste, cliquez sur « Actualiser les requetes ». Sur l’Accueil, lancez la collecte depuis l’Atelier. |
+| Un widget affiche « En attente » | Sur le tableau du poste, cliquez sur « Actualiser les requetes ». Sur l’Accueil, ouvrez le détail de la sonde, puis collectez ses données dans l’Atelier. |
 | Un widget vide n'apparaît plus | Il réapparaît quand ses données sont lues ; « Personnaliser » le montre. |
 
 # 7 Consulter les logiciels du poste
@@ -427,6 +460,7 @@ Donnez-lui ces éléments :
 - **Bandeau** : barre « Personne, poste ou groupe, dans tout le domaine… » avec sa loupe, ✕ pour la vider et l'indication « Ctrl K » pour la palette des actions ; boutons-icônes « Accès » et « Opérations » (pastille au-dessus de zéro), thème (l'icône montre le thème obtenu), « ? » pour l'aide. Les flèches Précédent et Suivant sont à gauche du titre de la page.
 - **Interrupteur « Lecture seule »** : actif à chaque démarrage. Les actions qui modifient l'annuaire ou les postes restent bloquées.
 - **Aide** : « ? » ouvre l'« Aide contextuelle » à droite. Survolez un contrôle, ou passez dessus avec Tab, pour lire son rôle.
+- **Zoom** : les boutons − et + en bas de la fenêtre règlent la taille de l’interface de 80 à 150 %, par pas de 10. Cliquez sur le pourcentage pour revenir à 100 %. Votre choix est conservé.
 - **Journal de session** : en bas de la fenêtre, messages, résultats et erreurs de la session ; « Copier » le copie.
 
 > [!ATTENTION] L'interrupteur rouge « Écriture active · 12 min » et le cadre rouge de la fenêtre signalent que les modifications sont autorisées. Cliquez sur « Repasser en lecture » si aucune intervention en écriture n'est prévue ; sinon la lecture seule revient seule après 15 minutes sans écriture.

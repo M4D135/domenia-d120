@@ -1,0 +1,209 @@
+{
+    "UTC":  "2026-10-12T22:17:25.9393344Z",
+    "PowerShell":  "5.1.26100.6584",
+    "Session":  0,
+    "SourceManifestSHA256":  "E9A799E60B22E5B1470FBC09FAD4A9E07287F24A97757496BC3B8290DC807031",
+    "Rendering":  "Native WPF RenderTargetBitmap; off-screen host, no image upscaling",
+    "Fixture":  "example.local, synthetic directory and observations, no AD access",
+    "ToolTipsEnabled":  false,
+    "Images":  [
+                   {
+                       "File":  "accueil.png",
+                       "Width":  1920,
+                       "Height":  1240,
+                       "SHA256":  "6C797A5A0919CF026EF7BFF70599CB2048A54B6134A02F1C5923A65964D1C541"
+                   },
+                   {
+                       "File":  "selecteur-ou.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "1BA39BEE06AE0775BD0FA395EBA227933DAC32DC89F0D289A04B37AE03A4A464"
+                   },
+                   {
+                       "File":  "atelier-requetes.png",
+                       "Width":  1920,
+                       "Height":  1240,
+                       "SHA256":  "2815D2ECA10C497783F71D24C1E107A15182315FCEA44F785C73EEF3F57F85AF"
+                   },
+                   {
+                       "File":  "atelier-viewport-1920x1080.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "85E5F07A8D2A87593D51F30D3D6A05CF3D36223ABF0684177C2DD58EE4317D68"
+                   },
+                   {
+                       "File":  "atelier-viewport-1280x720.png",
+                       "Width":  1280,
+                       "Height":  720,
+                       "SHA256":  "125B4EB299827F1B9609DFA802D5CE8E0D07024CEAFBF8CBDF4071D26028B9F3"
+                   },
+                   {
+                       "File":  "atelier-catalogue.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "758597CC217CF01FFF0F339839B1B6E657C5F4623DFE891890921E9A61A85B29"
+                   },
+                   {
+                       "File":  "atelier-modeles.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "04B77596749DB9124A5FC9B9000BA8D50EA987F784B7B417AA6619D62A3DD3DF"
+                   },
+                   {
+                       "File":  "alerte-selection.png",
+                       "Width":  1920,
+                       "Height":  1240,
+                       "SHA256":  "68F6E29A59E7A508E26A74ED371F7ABF6D72A278F0A02DDD98E33C1C03B3AC9B"
+                   },
+                   {
+                       "File":  "atelier-condition.png",
+                       "Width":  1920,
+                       "Height":  1240,
+                       "SHA256":  "E612580DD366E0FA58808B1A5EE600D2AD87B6761C4A8C08C2777CCE4881A36C"
+                   },
+                   {
+                       "File":  "atelier-collecte.png",
+                       "Width":  1920,
+                       "Height":  1240,
+                       "SHA256":  "258BF14AB5777D59A4BB61018AE24A3E6711481CE36837D4FD0EE70B22CD9FBF"
+                   },
+                   {
+                       "File":  "atelier-fiche-locale.png",
+                       "Width":  1920,
+                       "Height":  1240,
+                       "SHA256":  "FCAFD666FBF3118F4EC24B1BFD5FB16B928E0515C04D64124A39AB3DEC81EDCA"
+                   },
+                   {
+                       "File":  "atelier-bibliotheque.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "1D85D55BC5762C60272F05B962B18AE8C76FABD35436303063EB5BEC93C54202"
+                   },
+                   {
+                       "File":  "accueil-sonde-requete.png",
+                       "Width":  1920,
+                       "Height":  1240,
+                       "SHA256":  "39F698CDD2B4FB888D0DF72C59D8FFB71910DF7519BDE92061E361AA54DFEC4B"
+                   },
+                   {
+                       "File":  "recherche-requete.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "96B4810E567A30281A83C1B3A1F3E3ED1DC322822B388EEA4B84D9B0635237DE"
+                   },
+                   {
+                       "File":  "atelier-desactives.png",
+                       "Width":  1920,
+                       "Height":  1240,
+                       "SHA256":  "3E33B3266AB94C7DAB9AB4204CA9D2EF9026429A02EE5242C7C5A707FBCCA300"
+                   },
+                   {
+                       "File":  "recherche.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "08FFD76C85999E086C0D7931CD182AB7272732C4F687F7121291CC14D7291B93"
+                   },
+                   {
+                       "File":  "recherche-actions.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "08FFD76C85999E086C0D7931CD182AB7272732C4F687F7121291CC14D7291B93"
+                   },
+                   {
+                       "File":  "fiche-poste.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "3615429C1CD4D0B7C4766C24615281ED02ED8C596408A373D1CB4420E1F00F37"
+                   },
+                   {
+                       "File":  "actions-poste.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "A6F3413B8EDA5041482AC5EFF50150ADDEB10A82CEAD021C9227AFE19C141406"
+                   },
+                   {
+                       "File":  "tableau-poste.png",
+                       "Width":  1920,
+                       "Height":  1840,
+                       "SHA256":  "A91CEC3C534DD916B9D9A6D722BAE09E875B536A48555FB2A86EBD8A61B12391"
+                   },
+                   {
+                       "File":  "personnaliser.png",
+                       "Width":  1920,
+                       "Height":  1100,
+                       "SHA256":  "F2A1599674DC1CA8B74216775FBB18246E839D28A87998DBA4EEA554A32BF703"
+                   },
+                   {
+                       "File":  "atelier-poste.png",
+                       "Width":  1920,
+                       "Height":  1240,
+                       "SHA256":  "DD7EA0DDBA947259ACA3DDC8BC93164A2072DFA8A8279E0D8D07C935E35DDB55"
+                   },
+                   {
+                       "File":  "poste-sonde-requete.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "EA8A25D28D207D4D6F7FC7F4427BA3CDD8DA8C409A28344EEA9A2431B89B0266"
+                   },
+                   {
+                       "File":  "editeur-widget.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "32CECE33A97492056C84F211701EBDAFE99792CF8AFA5B991FE29246BC5DFF94"
+                   },
+                   {
+                       "File":  "logiciels.png",
+                       "Width":  1920,
+                       "Height":  1560,
+                       "SHA256":  "47E76EB33892DBCFE28341AD30A8CA3A556D5523030ACF9231593C33786BD37A"
+                   },
+                   {
+                       "File":  "base-autonome.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "F06C5DBC40911D96F80243FA185FFF6B46F0998A9B1133B2DD6A6651C29ABB29"
+                   },
+                   {
+                       "File":  "base-details.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "9B0A9DC995DCD1B6A95F0868A39A594D3D38D9ECF307A6A1226A97A872FC5260"
+                   },
+                   {
+                       "File":  "base-mise-a-jour.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "1A0461416C0F0E5FF3A13C9955E7E71F788FD7B6E2810DC35F18F2C890AE14DC"
+                   },
+                   {
+                       "File":  "base-progression.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "3D46D056168B7B83EB3C4D6366BF70C089BD17A21813B86E1563881D67A76D90"
+                   },
+                   {
+                       "File":  "base-stockage.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "F01A50C3AA5C566ADA5E6C7506F08F884465CF4E33CF47ABB65A5D741F7102D6"
+                   },
+                   {
+                       "File":  "zoom-clair.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "183DAD74442A424AFD4170A11063F037ED7A6B84CFD805172931D6778C31AF23"
+                   },
+                   {
+                       "File":  "zoom-sombre.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "83742A602FAB3402C1F00E433EB5122EB6FAC227A36529712AD9F1414971F22A"
+                   },
+                   {
+                       "File":  "connexion.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "9C573914C9D8B985679CD286CDC8CA7321878C012390DCB63FD3AECBFD8C5D45"
+                   }
+               ]
+}

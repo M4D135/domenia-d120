@@ -30,6 +30,7 @@ function ConvertTo-DomeniaExperienceSettings {
         WindowWidth=@(0,10000);WindowHeight=@(0,10000);WindowLeft=@(-32768,32768);WindowTop=@(-32768,32768)
         TreeWidth=@(0,900);LogHeight=@(42,600);UxLogExpandedHeight=@(100,600);UxLogFontSize=@(10,18)
         SearchLimit=@(1,20000);WmiLimit=@(1,500)
+        'Ui.ZoomPercent'=@(80,150)
         'Collection.Concurrency'=@(1,8);'Collection.CacheMinutes'=@(0,1440)
     }
     foreach($key in $Defaults.Keys) {

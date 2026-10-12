@@ -1,0 +1,32 @@
+surface 1920x1080
+capture accueil 1920x1240
+capture atelier-requetes 1920x1240
+capture atelier-catalogue 1920x1080
+capture atelier-modeles 1920x1080
+capture alerte-selection 1920x1240
+capture atelier-condition 1920x1240
+capture atelier-collecte 1920x1240
+capture atelier-fiche-locale 1920x1240
+capture atelier-bibliotheque 1920x1080
+capture accueil-sonde-requete 1920x1240
+capture recherche-requete 1920x1080
+capture atelier-desactives 1920x1240
+capture recherche 1920x1080
+capture recherche-actions 1920x1080
+capture fiche-poste 1920x1080
+capture actions-poste 1920x1080
+capture tableau-poste 1920x1840
+capture personnaliser 1920x1100
+capture atelier-poste 1920x1240
+capture poste-sonde-requete 1920x1080
+capture editeur-widget 1920x1080
+capture logiciels 1920x1560
+capture base-autonome 1920x1080
+capture base-details 1920x1080
+capture base-mise-a-jour 1920x1080
+capture base-progression 1920x1080
+capture base-stockage 1920x1080
+capture zoom-clair 1920x1080
+capture zoom-sombre 1920x1080
+capture connexion 1920x1080
+ termine

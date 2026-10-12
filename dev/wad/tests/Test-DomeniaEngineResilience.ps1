@@ -4,7 +4,8 @@
 $ErrorActionPreference='Stop'
 $wad=Split-Path -Parent $PSScriptRoot
 $modules=Join-Path $wad 'modules'
-foreach($name in @('Common.Model','Live.Model','Live.UI','Storage.UI','Engine.UI','Park.Model','Park.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
+foreach($name in @('Common.Model','Probes.Model','Live.Model','Live.UI','Storage.UI','Engine.UI','Park.Model','Park.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
+if(-not ('Domenia.Native.ProbeResult' -as [type])){Add-Type -Path (Join-Path $modules 'Domenia.Native.dll')}
 $checks=[Collections.Generic.List[object]]::new()
 function Assert {param($Value,[string]$Why='Assertion fausse')if(-not $Value){throw $Why}}
 function Case {param([string]$Name,[scriptblock]$Body)try{& $Body|Out-Null;$checks.Add([pscustomobject]@{Name=$Name;Passed=$true;Error=''})}catch{$checks.Add([pscustomobject]@{Name=$Name;Passed=$false;Error=($_.Exception.Message+' '+$_.ScriptStackTrace)})}}
@@ -130,23 +131,24 @@ Case 'Memory query cache retains at most twenty small queries' {
  Assert ($cache.Count -eq 20 -and $cache.ContainsKey('q30') -and -not $cache.ContainsKey('q1'))
 }
 function Invoke-CollectionFixture {
- param([switch]$FailStream)
- $script:ReadCount=0;$script:Union=@();$script:Closed=0
+ param([switch]$FailStream,[object[]]$Probes=$null,[int]$Rows=10000,[switch]$LongDetail,[switch]$LongAfterFirst,[int]$ProductType=1)
+ $script:ProductTypeReads=0;$script:FixtureProductType=$ProductType;$script:ReadCount=0;$script:Union=@();$script:Closed=0;$script:Opened=0;$script:GroupCalls=[Collections.Generic.List[object]]::new()
  $Context=[pscustomobject]@{UseCim=$true;Domain='example.invalid';Netbios='EXAMPLE';BaseDn='DC=example,DC=invalid'}
  $Payload=[pscustomobject]@{Computer='127.0.0.1';Key='cn=fixture';Guid='g';MethodSeconds=4;ProbeUser=$true;Inventory=$true;AllowedClasses=@('Fixture_Class');Probes=@([pscustomobject]@{Id='count';Class='Fixture_Class';Namespace='root\cimv2';Properties=@('Name');Filter='';Mode='Count';Skip=''},[pscustomobject]@{Id='all';Class='Fixture_Class';Namespace='root\cimv2';Properties=@('Value');Filter='';Mode='All';Skip=''})}
+ if($null -ne $Probes){$Payload.Probes=$Probes}
  function Get-WMachineCredential {param($Context)return $null}
  function New-Object {param($TypeName)if($TypeName -ne 'Net.NetworkInformation.Ping'){throw 'Unexpected construction'};$o=[pscustomobject]@{};$o|Add-Member ScriptMethod Send {param($a,$b)return [pscustomobject]@{Status='TimedOut'}};$o|Add-Member ScriptMethod Dispose {};return $o}
  function New-CimSessionOption {param($Protocol,$ErrorAction)return [pscustomobject]@{Protocol=$Protocol}}
- function New-CimSession {param($ComputerName,$SessionOption,$OperationTimeoutSec,$ErrorAction)return [pscustomobject]@{Fixture=$true}}
+ function New-CimSession {param($ComputerName,$SessionOption,$OperationTimeoutSec,$ErrorAction)$script:Opened++;return [pscustomobject]@{Fixture=$true}}
  function Remove-CimSession {param($CimSession,$ErrorAction)$script:Closed++}
  function Get-CimInstance {
   param($CimSession,$ClassName,$Property,$OperationTimeoutSec,$ErrorAction,$Namespace,$Filter)
   if($ClassName -eq 'Win32_ComputerSystem'){return [pscustomobject]@{UserName='';Manufacturer='';Model='';TotalPhysicalMemory=$null}}
-  if($ClassName -eq 'Win32_OperatingSystem'){return [pscustomobject]@{Caption='';BuildNumber='';LastBootUpTime=$null}}
+  if($ClassName -eq 'Win32_OperatingSystem'){if(@($Property) -contains 'ProductType'){$script:ProductTypeReads++};return [pscustomobject]@{Caption='';BuildNumber='';LastBootUpTime=$null;ProductType=$script:FixtureProductType}}
   if($ClassName -eq 'Win32_LogicalDisk'){return $null}
   if($ClassName -ne 'Fixture_Class'){throw 'Unexpected provider'}
-  $script:ReadCount++;$script:Union=@($Property)
-  foreach($i in 1..10000){[pscustomobject]@{Name=('n'+$i);Value=$i};if($FailStream -and $i -eq 100){throw 'Synthetic interrupted enumeration'}}
+  $script:ReadCount++;$script:Union=@($Property);$script:GroupCalls.Add([pscustomobject]@{Filter=$Filter;Properties=@($Property);Session=$CimSession})
+  foreach($i in 1..$Rows){[pscustomobject]@{Name=$(if($LongDetail -and (-not $LongAfterFirst -or $i -gt 1)){'x'*300}else{'n'+$i});Value=$(if($LongDetail){@(1,2)}else{$i});DNSServerSearchOrder=@('192.0.2.10','192.0.2.20')};if($FailStream -and $i -eq 100){throw 'Synthetic interrupted enumeration'}}
  }
  return (& ([scriptblock]::Create((Get-DomeniaLiveProbeCode))))
 }
@@ -155,13 +157,71 @@ Case 'Shared CIM stream counts 10000 instances and retains twenty detail rows' {
  Assert ($result.Probes.count.Error -eq '' -and $result.Probes.all.Error -eq '')
  Assert ($result.Probes.count.Count -eq 10000 -and $result.Probes.count.Rows.Count -eq 20 -and -not $result.Probes.count.Truncated)
  Assert ($result.Probes.all.Count -eq 10000 -and $result.Probes.all.Rows.Count -eq 20 -and $result.Probes.all.Truncated)
- Assert ($script:ReadCount -eq 1 -and $script:Union.Count -eq 2 -and $script:Closed -eq 1)
+ Assert ($script:ReadCount -eq 1 -and $script:Union.Count -eq 2 -and $script:Closed -eq 1 -and $script:Opened -eq 1)
  Assert ($null -eq $result.Inventory.RamBytes -and $null -eq $result.Inventory.DiskSize -and $null -eq $result.Inventory.DiskFree)
 }
 Case 'Interrupted CIM enumeration never becomes a successful partial count' {
  $result=Invoke-CollectionFixture -FailStream
  Assert ($result.Probes.count.Error -like '*Synthetic interrupted*' -and $result.Probes.all.Error -like '*Synthetic interrupted*')
  Assert ($result.Probes.count.Count -eq 0 -and $result.Probes.count.Rows.Count -eq 0 -and $script:ReadCount -eq 1)
+}
+function New-CollectionProbe {
+ param([string]$Id,[string[]]$Properties=@('Name'),[string]$Filter='', [string]$Skip='', [string]$Class='Fixture_Class',[string]$Namespace='root\cimv2',[string]$Mode='All')
+ return [pscustomobject]@{Id=$Id;Class=$Class;Namespace=$Namespace;Properties=$Properties;Filter=$Filter;Mode=$Mode;Skip=$Skip}
+}
+Case 'Shared probe plan deduplicates case-insensitive names and preserves case-sensitive filter literals' {
+ $probes=@((New-CollectionProbe a @('Name') "Name='a'"),(New-CollectionProbe b @('name','Value') "Name='a'" -Class 'fixture_class' -Namespace 'ROOT\CIMV2'),(New-CollectionProbe c @('Value') "Name='A'"),(New-CollectionProbe d @('Value') "Name='b'"))
+ $r=Invoke-CollectionFixture -Probes $probes -Rows 2
+ Assert ($script:ReadCount -eq 3 -and $script:Opened -eq 1 -and $script:Closed -eq 1)
+ Assert ($script:GroupCalls[0].Properties.Count -eq 2 -and $script:GroupCalls[1].Filter -ceq "Name='A'")
+ foreach($id in @('a','b','c','d')){Assert ($r.Probes.$id.Count -eq 2 -and -not $r.Probes.$id.Error)}
+ Assert ([object]::ReferenceEquals($script:GroupCalls[0].Session,$script:GroupCalls[2].Session))
+ Assert ($r.Probes.a.CheckedUtc -eq $r.Probes.b.CheckedUtc)
+}
+Case 'Shared stream errors are recorded once with one session and no successful partial count' {
+ $r=Invoke-CollectionFixture -FailStream
+ Assert ($script:ReadCount -eq 1 -and $script:Opened -eq 1 -and $script:Closed -eq 1)
+ Assert ($r.Probes.count.Error -eq $r.Probes.all.Error -and $r.Probes.count.CheckedUtc -eq $r.Probes.all.CheckedUtc)
+ Assert ($r.Probes.count.Count -eq 0 -and $r.Probes.all.Count -eq 0)
+}
+Case 'Complete Count is not marked truncated by clipped text or array details' {
+ $p=@((New-CollectionProbe count @('Name','Value') -Mode Count),(New-CollectionProbe all @('Name','Value')))
+ $r=Invoke-CollectionFixture -Probes $p -Rows 2 -LongDetail
+ Assert ($r.Probes.count.Count -eq 2 -and -not $r.Probes.count.Truncated -and $r.Probes.all.Truncated)
+ Assert ($r.Probes.count.Rows[0][0].Length -eq 200 -and $r.Probes.count.Rows[0][1] -eq '1')
+}
+Case 'First DNS selects the first array value without losing a valid observation' {
+ $first=New-CollectionProbe first @('DNSServerSearchOrder') -Mode First
+ $all=New-CollectionProbe all @('DNSServerSearchOrder') -Mode All
+ $r=Invoke-CollectionFixture -Probes @($first,$all) -Rows 2
+ Assert ($script:ReadCount -eq 1 -and $r.Probes.first.Count -eq 2 -and $r.Probes.first.Rows.Count -eq 1)
+ Assert (-not $r.Probes.first.Truncated -and -not $r.Probes.first.Error)
+ $values=@(Get-DomeniaProbeValues $first $r.Probes.first)
+ Assert ($values.Count -eq 1 -and $values[0] -eq '192.0.2.10')
+ Assert ($r.Probes.all.Truncated -and @(Get-DomeniaProbeValues $all $r.Probes.all).Count -eq 0)
+}
+Case 'First ignores later instances but keeps the selected text length guard' {
+ $first=New-CollectionProbe first @('Name') -Mode First
+ $r=Invoke-CollectionFixture -Probes @($first) -Rows 2 -LongDetail -LongAfterFirst
+ Assert ($r.Probes.first.Count -eq 2 -and $r.Probes.first.Rows.Count -eq 1 -and -not $r.Probes.first.Truncated)
+ Assert (@(Get-DomeniaProbeValues $first $r.Probes.first)[0] -eq 'n1')
+ $r=Invoke-CollectionFixture -Probes @($first) -Rows 2 -LongDetail
+ Assert ($r.Probes.first.Truncated -and $r.Probes.first.Rows[0][0].Length -eq 200)
+ Assert (@(Get-DomeniaProbeValues $first $r.Probes.first).Count -eq 0)
+}
+Case 'Rejected and controller-skipped probes never widen the property union' {
+ $p=@((New-CollectionProbe ok @('Name')),(New-CollectionProbe dc @('Sensitive') -Skip DomainController),(New-CollectionProbe empty @('bad-name')),(New-CollectionProbe missing @('Other') -Class 'Unlisted_Class'),(New-CollectionProbe ns @('Other') -Namespace 'root;bad'))
+ $r=Invoke-CollectionFixture -Probes $p -Rows 2 -ProductType 2
+ Assert ($script:ReadCount -eq 1 -and $script:Union.Count -eq 1 -and $script:Union[0] -eq 'Name')
+ Assert ($r.Probes.dc.Skipped -eq 'DomainController' -and -not $r.Probes.dc.Error)
+ foreach($id in @('empty','missing','ns')){Assert ([bool]$r.Probes.$id.Error)}
+ Assert ($r.Probes.ok.Count -eq 2)
+}
+Case 'Unknown controller type refuses only protected probes and reads the guard once' {
+ $p=@((New-CollectionProbe ok @('Name')),(New-CollectionProbe dc1 @('Sensitive') -Skip DomainController),(New-CollectionProbe dc2 @('Other') -Skip DomainController))
+ $r=Invoke-CollectionFixture -Probes $p -Rows 2 -ProductType 0
+ Assert ($script:ReadCount -eq 1 -and $script:ProductTypeReads -eq 1 -and $script:Union.Count -eq 1)
+ Assert ($r.Probes.dc1.Error -like '*Type de systeme non lu*' -and $r.Probes.dc2.Error -eq $r.Probes.dc1.Error -and $r.Probes.ok.Count -eq 2)
 }
 Case 'Backup export cannot target the active database or any SQLite journal' {
  $root=[IO.Path]::GetTempPath();$path=Join-Path $root 'active.db'
@@ -274,6 +334,25 @@ Case 'Park without a search map scans once and retains DN and GUID identity guar
  Invoke-ParkRowMapFixture -MapAvailable $false -InMap $false
  Assert ($script:ParkGridReads -eq 1 -and $script:ParkUpdated.Count -eq 1)
  Assert ($script:ParkUpdated[0] -eq '00000000-0000-0000-0000-000000000001')
+}
+Case 'Park partial measurements count as failed while complete observations are queued' {
+ foreach($kind in @('InventoryError','ProbeError','Truncated','Success')){
+  Reset-Fixture;$script:SelectedObject=$null;$script:FleetLast=$null;$script:FleetObservations=@{};$script:QueuedObservation=$null
+  $target=[pscustomobject]@{Key='dn';Guid='g';Computer='PC';Previous=$null;PreviousJson=''}
+  $script:ParkRun=[pscustomobject]@{Id='r';Pending=@{j=$true};PingOnly=$false;CachedMeasurements=0;Done=0;Online=0;Failed=0;Stopping=$false;Reused=0;Changed=0}
+  $state=[pscustomobject]@{RunId='r';Epoch=7L;Path=$script:DatabaseScopedPath;Job='j';Target=$target}
+  $probe=[pscustomobject]@{Error=$(if($kind -eq 'ProbeError'){'failed'}else{''});Truncated=($kind -eq 'Truncated');Rows=@(,@('raw'));CheckedUtc=[datetime]::UtcNow.ToString('o')}
+  $packet=[pscustomobject]@{Key='dn';Guid='g';Computer='PC';Outcome='NoConsole';Presence='En ligne';InventoryError=$(if($kind -eq 'InventoryError'){'denied'}else{''});Probes=[pscustomobject]@{fixture=$probe}}
+  function Queue-DomeniaMetadata {param($Kind,$Key,$Row)$script:QueuedObservation=$Row;return $true}
+  function Get-ExistingLinkForComputer {param($Computer)return $null}
+  function Update-DomeniaParkResultRows {param($Packet,$Observation)}
+  function Update-DomeniaParkRunStatus {}
+  Complete-DomeniaParkSession $packet $state
+  Assert ($script:ParkRun.Done -eq 1 -and $script:ParkRun.Online -eq 1 -and $script:ParkRun.Pending.Count -eq 0) $kind
+  Assert ($script:ParkRun.Failed -eq $(if($kind -eq 'Success'){0}else{1})) ('failure count '+$kind)
+  Assert ($null -ne $script:QueuedObservation -and $script:QueuedObservation.Probes.fixture.Rows[0][0] -eq 'raw') ('full persisted observation '+$kind)
+  if($kind -eq 'InventoryError'){Assert ($script:QueuedObservation.InventoryError -eq 'denied' -and $script:QueuedObservation.InventoryAttemptUtc)}
+ }
 }
 $failed=@($checks|Where-Object{-not $_.Passed}).Count
 $report=[ordered]@{Kind='EngineResilience';Passed=$checks.Count-$failed;Failed=$failed;NativeWindowsPowerShell51=($env:OS -eq 'Windows_NT' -and $PSVersionTable.PSVersion.Major -eq 5);WpfExecuted=$false;NetworkAccessed=$false;Tests=$checks.ToArray()}

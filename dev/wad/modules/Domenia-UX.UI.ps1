@@ -1315,3 +1315,33 @@ function Start-DomeniaReadOnlyReturnTimer {
 function Stop-DomeniaReadOnlyReturnTimer {
     if ($null -ne $script:UxReadOnlyTimer) { try { $script:UxReadOnlyTimer.Stop() } catch { } }
 }
+
+function Set-DomeniaUiZoom {
+    param([int]$Percent=100,[switch]$Persist)
+    $percent=[Math]::Max(80,[Math]::Min(150,$Percent))
+    $script:DomeniaUiZoomPercent=$percent
+    $shell=Get-DomeniaControl 'UxShellGrid';$scroll=Get-DomeniaControl 'RootScroll'
+    if($null -eq $shell -or $null -eq $scroll){return}
+    $scale=[double]$percent/100.0
+    if($shell.LayoutTransform -isnot [Windows.Media.ScaleTransform] -or $shell.LayoutTransform.ScaleX -ne $scale){$shell.LayoutTransform=[Windows.Media.ScaleTransform]::new($scale,$scale)}
+    # Divide by scale before layout: WPF scrollbars expose any remaining minimum-size overflow.
+    if($scroll.ViewportWidth -gt 0){$shell.Width=[Math]::Max(900,$scroll.ViewportWidth/$scale)}
+    if($scroll.ViewportHeight -gt 0){$shell.Height=[Math]::Max(450,$scroll.ViewportHeight/$scale)}
+    $minus=Get-DomeniaControl 'BtnUiZoomOut';$plus=Get-DomeniaControl 'BtnUiZoomIn';$reset=Get-DomeniaControl 'BtnUiZoomReset'
+    if($null -ne $minus){$minus.IsEnabled=($percent -gt 80)}
+    if($null -ne $plus){$plus.IsEnabled=($percent -lt 150)}
+    if($null -ne $reset){$reset.Content=([string]$percent+' %')}
+    if($Persist){Set-DomeniaSetting 'Ui.ZoomPercent' $percent;Save-DomeniaSettings}
+}
+function Initialize-DomeniaUiZoom {
+    $reset=Get-DomeniaControl 'BtnUiZoomReset'
+    if($null -eq $reset -or [string]$reset.Tag -eq 'ZoomBound'){return}
+    $reset.Tag='ZoomBound'
+    (Get-DomeniaControl 'BtnUiZoomOut').Add_Click({Set-DomeniaUiZoom -Percent ($script:DomeniaUiZoomPercent-10) -Persist})
+    (Get-DomeniaControl 'BtnUiZoomIn').Add_Click({Set-DomeniaUiZoom -Percent ($script:DomeniaUiZoomPercent+10) -Persist})
+    $reset.Add_Click({Set-DomeniaUiZoom -Percent 100 -Persist})
+    (Get-DomeniaControl 'RootScroll').Add_ScrollChanged({param($s,$e)if([object]::ReferenceEquals($s,$e.OriginalSource) -and ($e.ViewportWidthChange -ne 0 -or $e.ViewportHeightChange -ne 0)){Set-DomeniaUiZoom -Percent $script:DomeniaUiZoomPercent}})
+    $percent=100
+    try{$percent=[int](Get-DomeniaSetting 'Ui.ZoomPercent' '100')}catch{$percent=100}
+    Set-DomeniaUiZoom -Percent $percent
+}

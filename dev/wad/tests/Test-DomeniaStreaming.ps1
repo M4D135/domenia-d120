@@ -201,10 +201,10 @@ Case 'Transaction SQLite annulée si observation invalide' {$before=@(Read-Fixtu
 Case 'Cache expire sans supprimer une table métier' {Exec-FixtureSql "CREATE TABLE business_fixture(id INTEGER); INSERT INTO business_fixture VALUES(1); UPDATE adcc_live_queries SET observed_utc='2000-01-01T00:00:00Z';";Invoke-FixtureCache ([pscustomobject]@{Mode='Write';Path=$dbPath;Scope=$scope;Query=$null;Observations=@()});Assert-Live (@(Read-FixtureSql 'SELECT * FROM adcc_live_queries;').Count -eq 0 -and @(Read-FixtureSql 'SELECT * FROM business_fixture;').Count -eq 1)}
 # These doubles intercept every network boundary, including the optional ping.
 function Invoke-ProbeFixture {
-    param([string]$User='EXAMPLE\alice',[string]$ErrorKind='', [switch]$AdError,$Previous=$null)
+    param([string]$User='EXAMPLE\alice',[string]$ErrorKind='', [switch]$AdError,$Previous=$null,[bool]$AllowIdentityCache=$true)
     $script:ProbeCalls=@{Sessions=0;Reads=0;Closes=0;Ldap=0;Credential=$null}
     $Context=[pscustomobject]@{MachineCredential=$script:RemoteFixture;Credential=$script:AdFixture;Domain='example.invalid';Netbios='EXAMPLE';BaseDn='DC=example,DC=invalid';UseCim=$true}
-    $Payload=[pscustomobject]@{Computer='pc-01.example.invalid';Key=$observed.Key;Guid=$observed.Guid;MethodSeconds=4;Previous=$Previous}
+    $Payload=[pscustomobject]@{Computer='pc-01.example.invalid';Key=$observed.Key;Guid=$observed.Guid;MethodSeconds=4;Previous=$Previous;AllowIdentityCache=$AllowIdentityCache}
     function Get-WMachineCredential {param($Context) return $Context.MachineCredential}
     function New-Object {
         param($TypeName)
@@ -243,16 +243,28 @@ $script:AdFixture=[pscustomobject]@{UserName='EXAMPLE\annuaire'}
 Case 'Sonde réelle sur doubles : un compte poste, un transport et nettoyage' {$r=Invoke-ProbeFixture;Assert-Live ($r.Outcome -eq 'Observed' -and $r.User -eq 'EXAMPLE\alice' -and $script:ProbeCalls.Sessions -eq 1 -and $script:ProbeCalls.Reads -eq 1 -and $script:ProbeCalls.Closes -eq 1 -and [object]::ReferenceEquals($script:ProbeCalls.Credential,$script:RemoteFixture))}
 Case 'L utilisateur AD vérifié devient une association, pas un compte local deviné' {$r=Invoke-ProbeFixture;Assert-Live ($r.LinkUser -eq 'alice' -and $r.UserDn -eq 'CN=Alice,DC=example,DC=invalid')}
 Case 'Parc incremental : meme console une lecture legere et aucune requete LDAP' {
- $previous=[pscustomobject]@{Version=1;Key=$observed.Key;Guid=$observed.Guid;RawAccount='EXAMPLE\alice';LinkUser='alice';UserDn='CN=Alice,DC=example,DC=invalid';UserGuid='cached-guid';UserUsn='5';DirectoryChanged=$false}
+ $previous=[pscustomobject]@{Version=1;Key=$observed.Key;Guid=$observed.Guid;RawAccount='EXAMPLE\alice';LinkUser='alice';UserDn='CN=Alice,DC=example,DC=invalid';UserGuid='cached-guid';UserUsn='5';DirectoryChanged=$false;IdentityCheckedUtc=[datetime]::UtcNow.ToString('o')}
  $r=Invoke-ProbeFixture -Previous $previous
- Assert-Live ($r.CacheReused -and $script:ProbeCalls.Ldap -eq 0 -and $script:ProbeCalls.Reads -eq 1 -and $r.UserGuid -eq 'cached-guid')
+ Assert-Live ($r.CacheReused -and $script:ProbeCalls.Ldap -eq 0 -and $script:ProbeCalls.Reads -eq 1 -and $r.UserGuid -eq 'cached-guid' -and $r.IdentityCheckedUtc -ceq $previous.IdentityCheckedUtc)
 }
 Case 'Parc incremental : identite modifiee ou machine recreee oblige une resolution' {
  foreach($change in @('RawAccount','Guid','Key','DirectoryChanged','UserGuid')){
-  $p=[pscustomobject]@{Version=1;Key=$observed.Key;Guid=$observed.Guid;RawAccount='EXAMPLE\alice';LinkUser='alice';UserDn='CN=Alice,DC=example,DC=invalid';UserGuid='cached-guid';UserUsn='5';DirectoryChanged=$false}
+  $p=[pscustomobject]@{Version=1;Key=$observed.Key;Guid=$observed.Guid;RawAccount='EXAMPLE\alice';LinkUser='alice';UserDn='CN=Alice,DC=example,DC=invalid';UserGuid='cached-guid';UserUsn='5';DirectoryChanged=$false;IdentityCheckedUtc=[datetime]::UtcNow.ToString('o')}
   switch($change){RawAccount{$p.RawAccount='EXAMPLE\bob'}Guid{$p.Guid='recreated'}Key{$p.Key='another-domain'}DirectoryChanged{$p.DirectoryChanged=$true}UserGuid{$p.UserGuid=''}}
   $r=Invoke-ProbeFixture -Previous $p;Assert-Live (-not $r.CacheReused -and $script:ProbeCalls.Ldap -eq 1) $change
  }
+}
+Case 'Parc incremental : identite absente, invalide, expiree ou future relue dans AD' {
+ foreach($stamp in @('', 'broken', [datetime]::UtcNow.AddMinutes(-6).ToString('o'), [datetime]::UtcNow.AddMinutes(2).ToString('o'))){
+  $p=[pscustomobject]@{Version=1;Key=$observed.Key;Guid=$observed.Guid;RawAccount='EXAMPLE\alice';LinkUser='alice';UserDn='CN=Alice,DC=example,DC=invalid';UserGuid='cached-guid';UserUsn='5';DirectoryChanged=$false;IdentityCheckedUtc=$stamp}
+  $r=Invoke-ProbeFixture -Previous $p
+  Assert-Live (-not $r.CacheReused -and $script:ProbeCalls.Ldap -eq 1 -and $r.IdentityCheckedUtc -and $r.IdentityCheckedUtc -ne $stamp) ('Identity timestamp '+$stamp)
+ }
+}
+Case 'Parc incremental : Forcer contourne meme une identite recente' {
+ $p=[pscustomobject]@{Version=1;Key=$observed.Key;Guid=$observed.Guid;RawAccount='EXAMPLE\alice';LinkUser='alice';UserDn='CN=Alice,DC=example,DC=invalid';UserGuid='cached-guid';UserUsn='5';DirectoryChanged=$false;IdentityCheckedUtc=[datetime]::UtcNow.ToString('o')}
+ $r=Invoke-ProbeFixture -Previous $p -AllowIdentityCache $false
+ Assert-Live (-not $r.CacheReused -and $script:ProbeCalls.Ldap -eq 1)
 }
 Case 'Parc incremental : un cache ne transforme pas un compte local en compte AD' {
  $p=[pscustomobject]@{Version=1;Key=$observed.Key;Guid=$observed.Guid;RawAccount='PC-01\alice';LinkUser='alice';UserDn='CN=Alice,DC=example,DC=invalid';UserGuid='cached-guid'}

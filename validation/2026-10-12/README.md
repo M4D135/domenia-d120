@@ -1,7 +1,42 @@
 # Domenia 1.0 — bilan des améliorations
 
-Les [packs téléchargeables sur GitHub](../../packs/README.md) sont en **RC1.17.1** :
-ils corrigent les recherches vides, les filtres différés et le clic des graphiques Parc.
+<!-- DOMENIA:CURRENT-QUERY-EVIDENCE -->
+## Livraison actuelle — RC1.17.2
+
+Les [packs](../../packs/README.md) sont liés à la [campagne finale](query-ui/qualification.json) et à son [rapport de construction](query-ui/build-report.json).
+23 suites Windows passent sur les octets du DEV final ; 93 fichiers runtime sont identiques entre DEV et PROD. Les données sont fictives, en WPF natif session 0, sans qualification AD réelle.
+
+Les ajouts couvrent l’arbre OU, les onglets de Base, le zoom, le catalogue de 105 informations, les 152 modèles de 14 catégories, les widgets Général/Poste et la collecte sélective.
+
+La [QA documentaire](query-ui/documentation-qa.json) lie les guides DOCX/PDF aux nouvelles captures et à la relecture de toutes les pages.
+Guides : 26 pages technicien, 67 pages administrateur.
+
+| Contrôle final | Résultat |
+|---|---|
+| Campagne Windows PowerShell 5.1 x64 STA | 23 / 23 suites réussies, aucun timeout |
+| Transfert et câblage Recherche | 43 / 43 contrôles réussis |
+| Bibliothèque de 152 modèles | 1 516 / 1 516 contrôles réussis |
+| Tableaux / requêtes Poste | 41 / 37 contrôles réussis |
+| Affichage de 5 000 postes et 2 utilisateurs | 5 002 objets visibles, filtre ramenant à 2 500 postes, aucune erreur de timer |
+| Captures natives | 31 vues documentaires ≥ 1920×1080, sans infobulles ; 28 contrôles réussis |
+| Guides DOCX/PDF | 93 pages relues, 30 figures par guide |
+
+Les captures R7 correspondent au même programme que R8 : [comparaison des archives](query-ui/r8/archive-comparison.json).
+La [relecture ciblée du code](query-ui/code-review.json) et les [reprises corrigées](query-ui/reprises.json) sont conservées séparément.
+Les copies textuelles des preuves finales sont normalisées en UTF-8/LF ; leurs empreintes originales et exportées sont enregistrées, sans modifier les résultats. Une ancienne sortie console R1 conserve son encodage, indiqué dans le manifeste de conversion.
+
+| Pack | SHA-256 |
+|---|---|
+| PROD | `7da978504dacb9ee7312c463748727bfa7c9e009f1c093f2b12c610b3b88d881` |
+| DEV | `fd0fdfc6524843cd705252df82d50ffa34715af216fd8101ed2976cfb2322f0c` |
+
+Les résultats des campagnes précédentes ci-dessous restent datés et conservés. Ils ne sont pas recalculés ni attribués à la nouvelle archive. La publication GitHub du présent build sera attestée séparément après push.
+<!-- /DOMENIA:CURRENT-QUERY-EVIDENCE -->
+
+## Bilan détaillé et preuves conservées
+
+La précédente livraison **RC1.17.1** corrigeait les recherches vides,
+les filtres différés et le clic des graphiques Parc.
 La [preuve de cette correction](search-regression/README.md) est distincte de la campagne ci-dessous.
 Le retrait de l’ancienne icône ADCC à la racine du DEV est maintenu.
 Le [contrôle de distribution précédent](github-packs.json) et les empreintes des autres campagnes
@@ -15,11 +50,13 @@ Les détails, fichiers concernés, preuves et limites sont dans le
 
 - Mises à jour locales atomiques, checkpoints fiables, réconciliation des objets déplacés ou absents et fraîcheur explicite.
 - **Tout relire dans lʼOU choisie** est l’action principale et comprend ses sous-OU. Sans sélection valide, le sélecteur s’ouvre.
-- **Tout relire dans le domaine** est séparé, confirmé et annoncé long et occasionnel. Ces lectures actualisent la copie locale, sans écrire dans AD.
-- Atelier de requêtes, bibliothèque, filtres réutilisables en recherche et sondes de dashboard ; 78 définitions de sondes et 29 widgets Parc.
-- Comptages et listes partagent le périmètre, le filtre et l’identité des objets ; tri global avant pagination de 200 éléments.
-- Base autonome : réglages défilants, état/progression visibles, tableau redimensionnable, colonnes lisibles et détails compacts.
+- Les raccourcis de collecte sur tout le domaine sont retirés. Les lectures explicites de l’OU actualisent la copie locale, sans écrire dans AD.
+- Atelier de requêtes séparé, bibliothèque commune à Recherche et aux dashboards général/poste ; catalogue de 105 champs dont 78 définitions de sondes, avec origine et conditions de collecte. Un bouton dédié ouvre le détail, le crayon modifie le widget.
+- Comptages et listes partagent le périmètre, le filtre et l’identité des objets ; tri global avant pagination de 200 éléments. Le transfert Dashboard → Recherche inclut les comptes désactivés et retire les filtres masquants précédents.
+- Base autonome : onglets Mise à jour, Données et Stockage ; état/progression visibles, fraîcheur de la dernière synchronisation réussie couvrant l’OU et tableau redimensionnable. Le sélecteur d’OU utilise un arbre trié avec recherche et défilement vertical.
 - Connexion autonome Standard/Debug maintenue au-dessus des autres fenêtres jusqu’à sa fermeture ; remise à zéro après succès, annulation et erreur. La reconnexion embarquée ne promeut pas la fenêtre principale.
+- Zoom d’interface persistant de 80 à 150 %, commandes restant accessibles hors du contenu agrandi.
+- Collecte des champs nécessaires, union des propriétés WMI compatibles par classe/filtre, réutilisation datée du cache et anciennes valeurs conservées sans les dater à neuf après un échec.
 - Moteur Query partagé épinglé, noyau C# ciblé et deux distributions classiques. PROD reste `Domenia.exe` avec le dossier `wad`.
 
 ## Les 30 points
@@ -57,7 +94,7 @@ Les détails, fichiers concernés, preuves et limites sont dans le
 | 29 | Réduction de duplication et retrait de code abandonné | Implémenté |
 | 30 | Documentation DOCX/PDF V1.0 | Implémenté |
 
-## Contrôles exécutés
+## Contrôles de la campagne précédente
 
 Les [preuves Windows](windows/qualification.json) proviennent de la VM **CNAMTS-W11-01**,
 Windows PowerShell **5.1.26100.6584 x64 STA**. Les données sont fictives, sans accès à AD.

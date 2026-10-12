@@ -57,6 +57,7 @@ function Get-DomeniaShellPages {
     # global selection. Relations may search an association target, which is not a second subject picker.
     return @(
         [pscustomobject]@{Id='TabDashboard';Label='Accueil';Subject='Selection';SubjectPicker=$false;TargetPicker=$false}
+        [pscustomobject]@{Id='WsQueryWorkshop';Label='Atelier de requêtes';Subject='Selection';SubjectPicker=$false;TargetPicker=$false}
         [pscustomobject]@{Id='WsSearch';Label='Rechercher';Subject='Selection';SubjectPicker=$true;TargetPicker=$false}
         [pscustomobject]@{Id='TabDirectory';Label='Parcourir';Subject='Selection';SubjectPicker=$true;TargetPicker=$false}
         [pscustomobject]@{Id='WsObject';Label='Fiche';Subject='Selection';SubjectPicker=$false;TargetPicker=$false}

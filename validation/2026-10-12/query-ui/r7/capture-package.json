@@ -1,0 +1,14 @@
+{
+  "DEV_SHA256": "b2a0e5cfe3a632a4385dcd497b02ca687e4ae50d2bd1709be19c348aed633ac0",
+  "PROD_SHA256": "7da978504dacb9ee7312c463748727bfa7c9e009f1c093f2b12c610b3b88d881",
+  "CaptureHarnessSHA256": "8a2964e94498d4d39be1490b2b185898b7126d75e0692b0ed4488c060cf703d2",
+  "CaptureExitCode": 0,
+  "ChecksPassed": 28,
+  "Images": 33,
+  "DocumentaryImages": 31,
+  "DiagnosticImages": 2,
+  "Source": "Immutable R7 DEV archive; scripts fixtures only",
+  "Environment": "Windows PowerShell5.1 x64 STA, session0 WPF offscreen",
+  "NetworkEndpointsAccessed": false,
+  "ActualADQualified": false
+}

@@ -3471,6 +3471,7 @@ function Get-DomeniaDefaultSettings {
         SoftwareStore    = $false
         SoftwareUpdates  = $false
         WmiLimit         = "25"
+        'Ui.ZoomPercent' = 100
         WindowWidth      = 0
         WindowHeight     = 0
         WindowLeft       = -1
@@ -4779,6 +4780,7 @@ function Get-MainXaml {
     </Style>
   </Window.Resources>
   <Grid>
+    <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
     <ScrollViewer x:Name="RootScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Background="{DynamicResource WindowBg}">
       <Grid MinWidth="900" MinHeight="450" Width="{Binding ViewportWidth, RelativeSource={RelativeSource AncestorType=ScrollViewer}}" Height="{Binding ViewportHeight, RelativeSource={RelativeSource AncestorType=ScrollViewer}}" x:Name="UxShellGrid">
         <Grid.ColumnDefinitions>
@@ -4826,7 +4828,7 @@ function Get-MainXaml {
                 </Button>
                 <Border x:Name="UxAboutPanel" Visibility="Collapsed" Margin="10,6,0,0">
                   <StackPanel>
-                    <TextBlock Text="DOMENIA 1.0 · RC1.17.1" Foreground="{DynamicResource MutedColor}" FontSize="11"/>
+                    <TextBlock Text="DOMENIA 1.0 · RC1.17.2" Foreground="{DynamicResource MutedColor}" FontSize="11"/>
                     <TextBlock Text="Les actions restent sous votre contrôle." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="11" Margin="0,4,0,0"/>
                   </StackPanel>
                 </Border>
@@ -5180,6 +5182,7 @@ function Get-MainXaml {
                     <Border Style="{StaticResource Card}" Margin="0,0,0,12" Padding="18,12">
                       <StackPanel>
                         <DockPanel>
+                          <Button x:Name="BtnFleetShowMachines" DockPanel.Dock="Right" Content="&#xE8A1;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="13" Width="34" MinHeight="30" Padding="0" Margin="8,0,0,0" ToolTip="Ouvrir lʼatelier de requêtes et les postes du périmètre." AutomationProperties.Name="Ouvrir lʼatelier de requêtes"/>
                           <Button x:Name="BtnFleetDashboardRefresh" DockPanel.Dock="Right" Content="&#xE72C;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="13" Width="34" MinHeight="30" Padding="0" Margin="8,0,0,0" ToolTip="Recalcule la vue dʼensemble depuis la base autonome locale : aucune requête AD ni poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Actualiser la vue dʼensemble du parc"/>
                           <WrapPanel VerticalAlignment="Center">
                             <WrapPanel x:Name="PnlFleetCrumbs" VerticalAlignment="Center" AutomationProperties.Name="OU de la vue dʼensemble"/>
@@ -5189,94 +5192,10 @@ function Get-MainXaml {
                         <TextBlock x:Name="LblFleetDashboard" Text="Calculée depuis la base autonome locale." Foreground="{DynamicResource MutedColor}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0"/>
                         <WrapPanel Margin="0,8,0,0">
                           <Button x:Name="BtnFleetScope" Content="Choisir une OU" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" Margin="0,0,8,0" ToolTip="Choisit le périmètre local du tableau de bord. La recherche reste indépendante." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Choisir lʼOU du tableau de bord"/>
-                          <Button x:Name="BtnFleetScopeReset" Content="Tout le domaine" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" ToolTip="Réinitialise le tableau de bord au domaine entier, depuis la base locale." AutomationProperties.Name="Afficher tout le domaine dans le tableau de bord"/>
-                          <Button x:Name="BtnFleetShowMachines" Content="Lister les postes ici" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" ToolTip="Affiche la liste locale du périmètre, sans ouvrir Recherche et sans requête AD." AutomationProperties.Name="Lister les postes dans le tableau de bord"/>
-                          <Button x:Name="BtnFleetOpenSearch" Content="Ouvrir dans Rechercher" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" ToolTip="Action facultative : transmet les postes actifs de la base à Recherche pour lancer Pinger, Détecter ou Analyser la liste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ouvrir ces postes dans Rechercher"/>
-                          <Button x:Name="BtnFleetIndexScope" Content="Mettre à jour cette OU" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" Margin="8,0,0,0" ToolTip="Relit dans lʼannuaire les seuls objets de cette OU et les ajoute à la base locale, sans rien supprimer. Utile quand la base autonome est incomplète. Lecture seule, à votre clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mettre à jour cette OU dans la base locale"/>
+                          <Button x:Name="BtnFleetOpenSearch" Content="Ouvrir dans Rechercher" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" ToolTip="Action facultative : transmet tous les postes recensés de cette OU à Recherche, y compris les désactivés, pour lancer Pinger, Détecter ou Analyser la liste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ouvrir ces postes dans Rechercher"/>
+                          <Button x:Name="BtnFleetIndexScope" Content="Mettre à jour cette OU" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" Margin="8,0,0,0" ToolTip="Relit cette OU et ses sous-OU. Une lecture complète actualise la base locale et retire du cache les objets devenus absents ; une lecture partielle conserve les anciennes fiches. Aucun objet AD modifié." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mettre à jour cette OU dans la base locale"/>
                         </WrapPanel>
-                        <Expander x:Name="ExpFleetMachines" Header="Atelier de requêtes et postes du périmètre" IsExpanded="False" Margin="0,10,0,0" AutomationProperties.Name="Atelier de requêtes sur la base locale">
-                          <DockPanel Margin="0,8,0,0">
-                            <StackPanel DockPanel.Dock="Top">
-                              <TextBlock Text="Composez une requête sur les postes recensés et leurs relevés. Les résultats inconnus sont séparés. Aucune collecte réseau lors du calcul." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,0,0,8"/>
-                              <WrapPanel Margin="0,0,0,6">
-                                <ComboBox x:Name="CmbFleetQuery" Width="330" MinHeight="32" Margin="0,0,6,0" AutomationProperties.Name="Modèles et requêtes enregistrées" ToolTip="Choisir un modèle ou une requête puis Charger."/>
-                                <Button x:Name="BtnQueryLoad" Content="Charger" MinHeight="32" Margin="0,0,6,0"/><Button x:Name="BtnQueryNew" Content="Nouvelle" MinHeight="32" Margin="0,0,6,0"/>
-                                <Button x:Name="BtnQueryDelete" Content="Supprimer la sauvegarde" MinHeight="32" ToolTip="Supprime cette requête des préférences et son widget. Les données collectées sont conservées."/>
-                              </WrapPanel>
-                              <WrapPanel Margin="0,0,0,6">
-                                <TextBox x:Name="TxtFleetQueryName" Width="330" MaxLength="120" MinHeight="32" Margin="0,0,6,0" AutomationProperties.Name="Nom de la requête"/>
-                                <Button x:Name="BtnQuerySave" Content="Enregistrer" MinHeight="32" Margin="0,0,6,0"/>
-                                <Button x:Name="BtnQueryWidget" Content="Créer une sonde dashboard" MinHeight="32" ToolTip="Enregistre la requête et ajoute son compteur au tableau de bord. Un clic ouvre les postes correspondants."/>
-                              </WrapPanel>
-                              <WrapPanel Margin="0,0,0,6"><TextBlock Text="Visualisation" VerticalAlignment="Center" Margin="0,0,8,0"/><ComboBox x:Name="CmbQueryGroupField" Width="330" MinHeight="32" AutomationProperties.Name="Champ de répartition du widget" ToolTip="Compteur, ou répartition des postes correspondants par une information. Le graphique se personnalise ensuite dans le dashboard."/></WrapPanel>
-                              <WrapPanel Margin="0,0,0,6"><TextBlock x:Name="LblQuerySegment" MaxWidth="740" TextWrapping="Wrap" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}"/><Button x:Name="BtnQueryClearSegment" Content="Retirer le segment" MinHeight="30" Margin="8,0,0,0"/></WrapPanel>
-                              <ComboBox x:Name="CmbQueryJunction" Width="270" HorizontalAlignment="Left" SelectedIndex="0" MinHeight="32" Margin="0,0,0,6" AutomationProperties.Name="Combinaison des conditions">
-                                <ComboBoxItem Content="Toutes les conditions (ET)"/><ComboBoxItem Content="Au moins une condition (OU)"/>
-                              </ComboBox>
-                              <WrapPanel Margin="0,0,0,6">
-                                <ComboBox x:Name="CmbQueryField" Width="330" MinHeight="32" Margin="0,0,6,0" IsTextSearchEnabled="True" AutomationProperties.Name="Champ à interroger"/>
-                                <ComboBox x:Name="CmbQueryOperator" Width="190" MinHeight="32" Margin="0,0,6,0" AutomationProperties.Name="Opérateur du filtre"/>
-                                <TextBox x:Name="TxtQueryValue" Width="150" MaxLength="4096" MinHeight="32" Margin="0,0,6,0" ToolTip="Valeur : texte littéral, nombre avec virgule ou point, Oui ou Non." AutomationProperties.Name="Valeur de la condition"/>
-                                <Button x:Name="BtnQueryAddCondition" Content="Ajouter" MinHeight="32"/>
-                              </WrapPanel>
-                              <DataGrid x:Name="DgQueryConditions" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" MaxHeight="170" MinHeight="65" SelectionMode="Single" AutomationProperties.Name="Conditions de la requête">
-                                <DataGrid.Columns><DataGridTextColumn Header="Champ" Binding="{Binding FieldLabel}" Width="*"/><DataGridTextColumn Header="Condition" Binding="{Binding OperatorLabel}" Width="190"/><DataGridTextColumn Header="Valeur" Binding="{Binding Value}" Width="220"/></DataGrid.Columns>
-                              </DataGrid>
-                              <WrapPanel Margin="0,6,0,6">
-                                <Button x:Name="BtnQueryRemoveCondition" Content="Retirer la condition" MinHeight="32" Margin="0,0,6,0"/>
-                                <Button x:Name="BtnQueryRun" Content="Exécuter localement" Style="{StaticResource RunButton}" MinHeight="32" Margin="0,0,6,0"/>
-                                <Button x:Name="BtnQueryCollect" Content="Collecter les données requises…" MinHeight="32" Margin="0,0,6,0" ToolTip="Prépare une collecte confirmée sur les postes actifs du périmètre. Ne lance jamais toutes les sondes du catalogue."/>
-                                <Button x:Name="BtnQueryApplySearch" Content="Appliquer aux résultats de Recherche" MinHeight="32" ToolTip="Filtre les lignes déjà présentes dans Recherche. Aucune nouvelle recherche AD."/>
-                              </WrapPanel>
-                              <Expander Header="Réglages de collecte" Margin="0,6,0,6">
-                                <WrapPanel Margin="0,6,0,6">
-                                  <TextBlock Text="Postes en parallèle" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                  <ComboBox x:Name="CmbCollectionConcurrency" Width="80" MinHeight="32" Margin="0,0,18,0" AutomationProperties.Name="Nombre maximal de postes collectés en parallèle"/>
-                                  <TextBlock Text="Réutiliser les mesures fraîches" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                  <ComboBox x:Name="CmbCollectionCache" Width="210" MinHeight="32" AutomationProperties.Name="Durée de réutilisation des mesures" ToolTip="Les sondes volatiles sont relues après une minute, lʼinventaire après cinq minutes. Forcer relit toutes les mesures demandées."/>
-                                </WrapPanel>
-                              </Expander>
-                              <TextBlock x:Name="LblQueryStatus" Text="Choisissez un modèle, ou ajoutez des conditions." TextWrapping="Wrap" Margin="0,4,0,8" Foreground="{DynamicResource MutedColor}" AutomationProperties.LiveSetting="Polite"/>
-                            </StackPanel>
-                            <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,8">
-                              <TextBox x:Name="TxtFleetMachineFilter" Width="300" MinHeight="32" Margin="0,0,8,0" ToolTip="Filtre local par nom ou unité organisationnelle. Aucun accès réseau." AutomationProperties.Name="Filtrer les postes du tableau de bord"/>
-                              <ComboBox x:Name="CmbFleetMachineState" Width="160" MinHeight="32" SelectedIndex="0" ToolTip="Inclure tous les postes ou filtrer les comptes actifs et désactivés." AutomationProperties.Name="État des postes affichés">
-                                <ComboBoxItem Content="Tous les états"/><ComboBoxItem Content="Actifs"/><ComboBoxItem Content="Désactivés"/>
-                              </ComboBox>
-                              <ComboBox x:Name="CmbQueryResult" Width="160" MinHeight="32" Margin="8,0,0,0" SelectedIndex="0" AutomationProperties.Name="Type de résultat à afficher"><ComboBoxItem Content="Correspondants"/><ComboBoxItem Content="Inconnus"/><ComboBoxItem Content="Non correspondants"/></ComboBox>
-                              <TextBlock x:Name="LblFleetMachineCount" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="{DynamicResource MutedColor}"/>
-                            </WrapPanel>
-                            <WrapPanel DockPanel.Dock="Bottom" Margin="0,6,0,0"><Button x:Name="BtnQueryPrevious" Content="Page précédente" IsEnabled="False" MinHeight="30" Margin="0,0,6,0"/><Button x:Name="BtnQueryNext" Content="Page suivante" IsEnabled="False" MinHeight="30" Margin="0,0,6,0"/><Button x:Name="BtnQueryExport" Content="Exporter cette page (CSV)" MinHeight="30"/></WrapPanel>
-                            <Expander x:Name="ExpQueryObject" DockPanel.Dock="Bottom" Header="Objet sélectionné · fiche locale" IsExpanded="False" Margin="0,10,0,0">
-                              <StackPanel>
-                                <TextBlock x:Name="LblQueryObject" Text="Sélectionnez un poste pour consulter ses données." TextWrapping="Wrap" Margin="0,4,0,8"/>
-                                <WrapPanel Margin="0,0,0,6">
-                                  <Button x:Name="BtnQueryObjectOpen" Content="Fiche AD et actions…" MinHeight="32" Margin="0,0,6,0" ToolTip="Relit cet objet par son DN et vérifie son GUID avant dʼouvrir les actions protégées."/>
-                                  <Button x:Name="BtnQueryObjectCollect" Content="Actualiser ce poste…" MinHeight="32" Margin="0,0,6,0" ToolTip="Prépare une collecte sur ce seul poste, avec confirmation."/>
-                                  <Button x:Name="BtnQueryObjectCopy" Content="Copier le chemin AD" MinHeight="32"/>
-                                </WrapPanel>
-                                <DataGrid x:Name="DgQueryObjectFields" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" MaxHeight="280" EnableRowVirtualization="True" AutomationProperties.Name="Données locales de lʼobjet sélectionné">
-                                  <DataGrid.Columns><DataGridTextColumn Header="Information" Binding="{Binding Name}" Width="*"/><DataGridTextColumn Header="Valeur locale" Binding="{Binding Value}" Width="*"/></DataGrid.Columns>
-                                </DataGrid>
-                              </StackPanel>
-                            </Expander>
-                            <DataGrid x:Name="DgFleetMachines" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" CanUserDeleteRows="False" EnableRowVirtualization="True" EnableColumnVirtualization="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" MaxHeight="360" AutomationProperties.Name="Postes du périmètre depuis la base locale">
-                              <DataGrid.Columns>
-                                <DataGridTemplateColumn Header="Présence" Width="100" SortMemberPath="PresenceLabel">
-                                  <DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel Orientation="Horizontal" ToolTip="{Binding PresenceLabel}"><TextBlock Text="{Binding PresenceState}" Foreground="{Binding PresenceBrush}" Margin="4,0,6,0"/><TextBlock Text="{Binding PresenceLabel}"/></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate>
-                                </DataGridTemplateColumn>
-                                <DataGridTextColumn Header="Poste" Binding="{Binding name}" Width="180"/>
-                                <DataGridTextColumn Header="État" Binding="{Binding StateLabel}" Width="110"/>
-                                <DataGridTextColumn Header="Système AD" Binding="{Binding OS}" Width="220"/>
-                                <DataGridTextColumn Header="Version AD" Binding="{Binding Version}" Width="130"/>
-                                <DataGridTextColumn Header="Connexion AD (j)" Binding="{Binding LogonDays}" Width="120"/>
-                                <DataGridTextColumn Header="Âge du relevé" Binding="{Binding Observation}" Width="160"/>
-                                <DataGridTextColumn Header="Valeurs interrogées" Binding="{Binding QueryValues}" Width="260"/>
-                                <DataGridTextColumn Header="Unité organisationnelle" Binding="{Binding distinguished_name}" Width="*"/>
-                              </DataGrid.Columns>
-                            </DataGrid>
-                          </DockPanel>
-                        </Expander>
+
                       </StackPanel>
                     </Border>
                     <StackPanel x:Name="PnlFleetDashboard" Margin="-7,0,-7,12"/>
@@ -5284,7 +5203,6 @@ function Get-MainXaml {
                       <Border Style="{StaticResource Card}" Margin="0,10,0,0">
                         <StackPanel>
                           <WrapPanel>
-                            <Button x:Name="BtnDashRoot" Content="Racine du domaine" ToolTip="Revient à la racine du domaine." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Racine du domaine" AutomationProperties.HelpText="Revient a la racine du domaine."/>
                             <Button x:Name="BtnDashCopy" Content="Copier" ToolTip="Copie le contenu du tableau de bord." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Copier" AutomationProperties.HelpText="Copie le contenu du tableau de bord."/>
                             <Button x:Name="BtnDashSelfCheck" Content="Vérifier lʼapplication" ToolTip="Vérifie que lʼapplication fonctionne correctement. Aucune écriture dans Active Directory." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vérifier lʼapplication" AutomationProperties.HelpText="Vérifie que lʼapplication fonctionne correctement. Aucune écriture dans Active Directory."/>
                             <Button x:Name="BtnDashClearCache" Content="Vider le cache" ToolTip="Vide le cache dʼaffichage. Aucun objet Active Directory nʼest modifié." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vider le cache" AutomationProperties.HelpText="Vide le cache d affichage. Aucun objet Active Directory n est modifie."/>
@@ -5396,6 +5314,9 @@ function Get-MainXaml {
                   </StackPanel>
                 </ScrollViewer>
               </TabItem>
+              <TabItem x:Name="WsQueryWorkshop" Header="Atelier de requêtes" AutomationProperties.Name="Atelier de requêtes">
+                <ContentControl x:Name="QueryWorkshopHost" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
+              </TabItem>
               <TabItem x:Name="WsSearch" ToolTip="Choisissez une OU à gauche pour filtrer la recherche. Les résultats sont affichés à droite." Header="Rechercher" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher dans l’annuaire" AutomationProperties.HelpText="Choisissez une OU à gauche pour filtrer la recherche. Les résultats sont affichés à droite.">
                 <Grid Margin="0" x:Name="SearchBrowserLayout" Tag="OU">
                   <Grid.ColumnDefinitions>
@@ -5416,7 +5337,7 @@ function Get-MainXaml {
                           <Button Grid.Column="1" x:Name="BtnTreeRefresh" Width="34" MinWidth="34" Height="30" MinHeight="30" Padding="0" Margin="6,0,0,0" ToolTip="Recharge les branches de l’arbre. Le texte de recherche et le filtre OU courant sont conservés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Actualiser l’arbre" AutomationProperties.HelpText="Recharge les branches de l’arbre. Le texte de recherche et le filtre OU courant sont conservés.">
                             <TextBlock Text="↻" FontFamily="Segoe UI Symbol" FontSize="19" FontWeight="SemiBold" Foreground="{DynamicResource AccentText}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                           </Button>
-                          <Button Grid.Column="2" x:Name="BtnOuMenu" Width="34" MinWidth="34" Height="30" MinHeight="30" Padding="0" Margin="6,0,0,0" ToolTip="Options de lʼarbre : sous-OU, tout le domaine, favori et chemin LDAP. Ouvrir ce menu ne lance aucune lecture." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Options de lʼarbre des OU" AutomationProperties.HelpText="Options de lʼarbre : sous-OU, tout le domaine, favori et chemin LDAP. Ouvrir ce menu ne lance aucune lecture.">
+                          <Button Grid.Column="2" x:Name="BtnOuMenu" Width="34" MinWidth="34" Height="30" MinHeight="30" Padding="0" Margin="6,0,0,0" ToolTip="Options de lʼarbre : sous-OU, favori et chemin LDAP. Ouvrir ce menu ne lance aucune lecture." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Options de lʼarbre des OU" AutomationProperties.HelpText="Options de lʼarbre : sous-OU, favori et chemin LDAP. Ouvrir ce menu ne lance aucune lecture.">
                             <TextBlock Text="⋯" FontFamily="Segoe UI Symbol" FontSize="19" FontWeight="SemiBold" Foreground="{DynamicResource AccentText}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                           </Button>
                         </Grid>
@@ -5424,7 +5345,6 @@ function Get-MainXaml {
                           <StackPanel>
                             <CheckBox x:Name="ChkSubtree" IsChecked="True" ToolTip="Coché : recherche dans la branche et ses sous-branches. Décoché : seulement ses enfants directs." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Inclure les sous-OU" AutomationProperties.HelpText="Coché : recherche dans la branche et ses sous-branches. Décoché : seulement ses enfants directs." Content="Inclure les sous-OU" Margin="0,0,0,8"/>
                             <WrapPanel Margin="0,0,0,4">
-                              <Button Content="Tout le domaine" Margin="0,0,0,4" Padding="10,2" x:Name="BtnSearchAllDomain" ToolTip="Affiche le domaine dans le mode navigation OU. La recherche du bandeau reste indépendante." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Tout le domaine" AutomationProperties.HelpText="Affiche le domaine dans le mode navigation OU. La recherche du bandeau reste indépendante." MinHeight="30"/>
                               <Button x:Name="BtnOuFavouriteToggle" Content="Épingler cette OU" Margin="8,0,0,4" Padding="10,2" MinHeight="30" ToolTip="Ajoute lʼOU choisie aux favoris en haut de lʼarbre, ou lʼen retire. Préférence locale : rien nʼest lu ni modifié dans lʼannuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Épingler ou retirer lʼOU choisie" AutomationProperties.HelpText="Ajoute lʼOU choisie aux favoris en haut de lʼarbre, ou lʼen retire. Préférence locale : rien nʼest lu ni modifié dans lʼannuaire."/>
                             </WrapPanel>
                             <Expander x:Name="UxOuPathDetails" Header="Voir le chemin LDAP" IsExpanded="False" Margin="0" FontSize="12" Foreground="{DynamicResource MutedColor}" ToolTip="Déplie le DN exact utilisé par la recherche. Cela ne change pas le périmètre et ne lance aucune requête." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Chemin complet de l’OU" AutomationProperties.HelpText="Déplie le DN exact utilisé par la recherche. Cela ne change pas le périmètre et ne lance aucune requête.">
@@ -5473,9 +5393,8 @@ function Get-MainXaml {
                       <StackPanel>
                         <TextBlock x:Name="UxSearchScopeTitle" Text="Périmètre des résultats" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
                         <Grid x:Name="UxSearchScopeInfo"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="0"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                        <ComboBox x:Name="CmbWorkViewScope" Grid.Column="2" Grid.Row="0" VerticalAlignment="Top" SelectedIndex="0" MinWidth="0" MinHeight="0" Height="24" MaxWidth="210" Margin="8,0,0,2" Padding="6,0,4,0" FontSize="11.5" VerticalContentAlignment="Center" ToolTip="Périmètre des vues de travail : lʼOU choisie dans lʼarbre. Tout le domaine reste un choix explicite, sans ping, détection ni analyse des postes listés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Périmètre des vues de travail" AutomationProperties.HelpText="Périmètre des vues de travail : lʼOU choisie dans lʼarbre. Tout le domaine reste un choix explicite, sans ping, détection ni analyse des postes listés.">
+                        <ComboBox x:Name="CmbWorkViewScope" Grid.Column="2" Grid.Row="0" VerticalAlignment="Top" SelectedIndex="0" MinWidth="0" MinHeight="0" Height="24" MaxWidth="210" Margin="8,0,0,2" Padding="6,0,4,0" FontSize="11.5" VerticalContentAlignment="Center" ToolTip="Périmètre des vues de travail : lʼOU choisie dans lʼarbre. Les vues utilisent lʼOU choisie, sans ping, détection ni analyse des postes listés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Périmètre des vues de travail" AutomationProperties.HelpText="Périmètre des vues de travail : lʼOU choisie dans lʼarbre. Les vues utilisent lʼOU choisie, sans ping, détection ni analyse des postes listés.">
                           <ComboBoxItem Tag="OU" Content="Vues dans : OU choisie"/>
-                          <ComboBoxItem Tag="Domain" Content="Vues sur tout le domaine, sans relevé"/>
                         </ComboBox><TextBlock Text="Dans : tout le domaine | Sous-OU incluses" TextWrapping="NoWrap" Margin="0,0,0,4" Foreground="{DynamicResource AccentText}" FontSize="12" x:Name="LblSearchScope" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" TextTrimming="CharacterEllipsis"/>
                         <TextBlock x:Name="LblSearchHint" Grid.Row="1" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" Text="" Height="18" Margin="0,0,0,8" FontSize="11.5" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/></Grid>
                         <WrapPanel x:Name="UxSearchFilters">
@@ -5536,7 +5455,7 @@ function Get-MainXaml {
                           <!-- Result actions dock first on the right: a changing count only narrows the title, never moves them. -->
                           <StackPanel x:Name="UxResultActions" Orientation="Horizontal" DockPanel.Dock="Right" Margin="8,0,0,0">
                             <Button MinHeight="30" Padding="10,2" Margin="0,0,8,0" x:Name="BtnLoadBranch" Content="Actualiser" ToolTip="Actualise le mode affiché : recherche globale sans filtres, ou contenu de l’OU avec ses filtres." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Actualiser les résultats" AutomationProperties.HelpText="Actualise le mode affiché : recherche globale sans filtres, ou contenu de l’OU avec ses filtres."/>
-                            <Button MinHeight="30" Padding="10,2" Margin="0,0,8,0" x:Name="BtnGlobalClear" Content="Effacer" ToolTip="Efface le texte et les résultats sans modifier l’OU sélectionnée. Tout le domaine retire le filtre OU." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Effacer la recherche" AutomationProperties.HelpText="Efface le texte et les résultats sans modifier l’OU sélectionnée. Tout le domaine retire le filtre OU."/>
+                            <Button MinHeight="30" Padding="10,2" Margin="0,0,8,0" x:Name="BtnGlobalClear" Content="Effacer" ToolTip="Efface le texte et les résultats sans modifier l’OU sélectionnée." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Effacer la recherche" AutomationProperties.HelpText="Efface le texte et les résultats sans modifier l’OU sélectionnée."/>
                             <Button MinHeight="30" Padding="10,2" Margin="0" x:Name="BtnExportResults" Content="Exporter CSV" ToolTip="Exporte les résultats affichés, ou uniquement les lignes sélectionnées, au format CSV." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Exporter CSV" AutomationProperties.HelpText="Exporte les resultats affiches, ou uniquement les lignes selectionnees, au format CSV."/>
                           </StackPanel>
                           <Button x:Name="BtnSearchMore" Content="Charger la suite" DockPanel.Dock="Right" IsEnabled="False" MinHeight="30" Padding="10,2" Margin="8,0,0,0" ToolTip="Disponible quand la liste est limitée : relit la même recherche avec une limite doublée, jusquʼà 20 000 lignes, sans doublon ni ancien contexte." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Charger la suite" AutomationProperties.HelpText="Disponible quand la liste est limitée : relit la même recherche avec une limite doublée, jusquʼà 20 000 lignes, sans doublon ni ancien contexte."/>
@@ -7045,26 +6964,9 @@ function Get-MainXaml {
               <TabItem x:Name="TabApplicationTools" ToolTip="Vérification de lʼapplication, état du domaine, aide sur les commandes et journal." Header="Outils avances" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Outils avances" AutomationProperties.HelpText="Verification de l application, etat du domaine, aide sur les commandes et journal.">
                 <Border Style="{StaticResource Card}" Margin="4" Padding="10">
                   <DockPanel>
-                    <StackPanel DockPanel.Dock="Top" Margin="6,0,6,8">
-                      <TextBlock Text="Outils" FontSize="18" FontWeight="SemiBold"/>
-                      <TextBlock Text="Vérification de lʼapplication, vue du domaine, aide sur les commandes et journal. Sans rapport avec le poste sélectionné." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,0" TextWrapping="Wrap"/>
-                    </StackPanel>
                     <TabControl x:Name="ApplicationToolTabs" ToolTip="Choisissez un outil de vérification ou de gestion locale. Certaines vues sont disponibles en mode Expert." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Outils de l’application" AutomationProperties.HelpText="Choisissez un outil de vérification ou de gestion locale. Certaines vues sont disponibles en mode Expert.">
                       <TabItem x:Name="TabGuard" Visibility="Collapsed" Header="Fiabilité" ToolTip="Recus durables, saisies, autorisations temporaires et mesures locales." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Fiabilité" AutomationProperties.HelpText="Recus durables, saisies, autorisations temporaires et mesures locales."><ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel Margin="4">
-                            <Expander x:Name="ExpStorageMaintenance" Header="Stockage local" Margin="0,0,0,12" IsExpanded="False">
-                              <StackPanel Margin="0,8,0,0">
-                                <Button x:Name="BtnStorageUsage" Content="Mesurer" HorizontalAlignment="Left" MinHeight="32" Margin="0,0,0,6" ToolTip="Compte les lignes et mesure la base locale en lecture seule, sans contacter lʼannuaire ni les postes." AutomationProperties.Name="Mesurer le stockage local" AutomationProperties.HelpText="Mesure volontaire en arrière-plan ; aucune suppression."/>
-                                <TextBlock x:Name="LblStorageUsage" Text="Aucune mesure pour cette session." TextWrapping="Wrap" AutomationProperties.Name="Mesure du stockage local"/>
-                                <TextBlock Text="Purge volontaire" FontWeight="SemiBold" Margin="0,16,0,8"/>
-                                <CheckBox x:Name="ChkStoragePurgeObservations" Content="Toutes les observations et les relevés du parc" Margin="0,0,0,8" ToolTip="Données reconstructibles ; associations conservées." AutomationProperties.Name="Purger les observations"/>
-                                <CheckBox x:Name="ChkStoragePurgeSnapshots" Content="Tous les instantanés de recherche" Margin="0,0,0,8" ToolTip="Résultats déjà lus ; aucune suppression dans AD." AutomationProperties.Name="Purger les instantanés"/>
-                                <CheckBox x:Name="ChkStoragePurgeIndex" Content="Tout lʼindex local de lʼannuaire" Margin="0,0,0,8" ToolTip="La prochaine mise à jour explicite reconstruira lʼindex. Le domaine reste identifié." AutomationProperties.Name="Purger lʼindex local"/>
-                                <WrapPanel Margin="0,0,0,8"><CheckBox x:Name="ChkStoragePurgeHistory" Content="Historique de plus de" VerticalAlignment="Center" Margin="0,0,8,0" ToolTip="Conserve les associations déclarées et leur historique, ainsi que les dates illisibles." AutomationProperties.Name="Purger lʼhistorique ancien"/><TextBox x:Name="TxtStorageHistoryDays" Text="730" Width="70" VerticalContentAlignment="Center" ToolTip="De 1 à 36500 jours." AutomationProperties.Name="Âge minimal en jours"/><TextBlock Text="jours" VerticalAlignment="Center" Margin="8,0,0,0"/></WrapPanel>
-                                <TextBlock Text="Toujours conservés : associations et historique protégé, secrets, configuration, préférences, journaux et reçus." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,4,0,10"/>
-                                <WrapPanel><Button x:Name="BtnStoragePurgePreview" Content="Simuler la purge" MinHeight="32" Margin="0,0,8,8" ToolTip="Compte les lignes concernées sans suppression." AutomationProperties.Name="Simuler la purge"/><Button x:Name="BtnStoragePurge" Content="Purger…" IsEnabled="False" MinHeight="32" Margin="0,0,0,8" ToolTip="Demande confirmation de la simulation avant de supprimer les données locales choisies." AutomationProperties.Name="Confirmer la purge locale"/></WrapPanel>
-                                <TextBlock x:Name="LblStoragePurge" Text="Choisissez les données à oublier puis simulez." TextWrapping="Wrap" AutomationProperties.Name="Résultat de simulation ou de purge"/>
-                              </StackPanel>
-                            </Expander>
+
 <Border Style="{StaticResource Card}" Margin="0,0,0,12"><StackPanel>
 <TextBlock Text="Opérations à vérifier" FontSize="18" FontWeight="SemiBold"/>
 <TextBlock x:Name="LblGuardReceipts" Text="Lecture des reçus locaux en attente. Les écritures restent protégées." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,8,0,12"/>
@@ -7122,127 +7024,139 @@ function Get-MainXaml {
                           </DataGrid>
                         </Grid>
                       </TabItem>
-                      <TabItem x:Name="TabIndex" Header="Base autonome" ToolTip="Base autonome persistante : utilisateurs, postes, changements AD et associations user-machine." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Base autonome" AutomationProperties.HelpText="Base autonome persistante : utilisateurs, postes, changements AD et associations user-machine.">
-                        <Grid Margin="8">
-                          <Grid.RowDefinitions><RowDefinition Height="2*" MinHeight="80"/><RowDefinition Height="6"/><RowDefinition Height="3*" MinHeight="120"/></Grid.RowDefinitions>
-                          <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,8,0" AutomationProperties.Name="Réglages et mise à jour de la base">
-                          <StackPanel Margin="0,0,0,10">
-                            <TextBlock Text="Base autonome DOMENIA" FontSize="18" FontWeight="SemiBold"/>
-                            <TextBlock Text="Copie persistante des utilisateurs et postes, suivie par GUID et changements AD. Les associations utilisateur-poste sont conservées à côté et enrichissent les résultats." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,8" TextWrapping="Wrap"/>
-                            <Grid>
-                              <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                              <StackPanel Grid.Column="0" Margin="0,0,12,0">
-                            <Border Padding="10" CornerRadius="10" Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" Margin="0,0,0,8">
-                              <StackPanel>
-                                <TextBlock Text="Périmètre de mise à jour" FontWeight="SemiBold"/>
-                                <TextBlock x:Name="LblIndexScopeChoice" Text="Tout le domaine" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,3,0,8"/>
-                                <WrapPanel>
-                                  <Button x:Name="BtnIndexScopePick" Content="Choisir une OU" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" ToolTip="Choisit précisément lʼOU et ses sous-OU à relire. Recherche nʼest pas modifiée." AutomationProperties.Name="Choisir lʼOU de mise à jour"/>
-                                  <Button x:Name="BtnIndexScopeReset" Content="Tout le domaine" Style="{StaticResource SecondaryButton}" ToolTip="Réinitialise la cible de mise à jour au domaine courant." AutomationProperties.Name="Choisir tout le domaine pour la mise à jour"/>
-                                </WrapPanel>
-                              </StackPanel>
-                            </Border>
-                            <WrapPanel>
-                              <Button x:Name="BtnIndexScopeUpdate" Content="Tout relire dans lʼOU choisie" Style="{StaticResource RunButton}" ToolTip="Action recommandée : relit tous les utilisateurs et postes de lʼOU choisie et de ses sous-OU. Demande une sélection si aucune OU nʼest choisie. Les autres branches sont conservées." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Tout relire dans lʼOU choisie"/>
-                              <Button x:Name="BtnIndexBuild" Content="Tout relire dans le domaine" Style="{StaticResource SecondaryButton}" ToolTip="Opération longue et occasionnelle : relit tous les utilisateurs et postes du domaine pour mettre à jour la copie locale. Réservée au premier chargement ou à une remise à jour globale. Confirmation obligatoire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Tout relire dans le domaine, opération longue"/>
-                            </WrapPanel>
-                            <TextBlock Text="Privilégiez lʼOU choisie. Domaine complet : opération longue, à réserver au premier chargement ou à une remise à jour globale." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,6,0,8"/>
-                              </StackPanel>
-                              <StackPanel Grid.Column="1">
-                            <Border Padding="12" CornerRadius="10" Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" Margin="0,0,0,0">
-                              <StackPanel>
-                                <TextBlock Text="État de la copie locale" FontWeight="SemiBold"/>
-                                <TextBlock x:Name="LblIndexOverview" Text="Aucune base autonome." FontSize="14" Margin="0,6,0,0" TextWrapping="Wrap"/>
-                                <TextBlock x:Name="LblIndexFreshness" Foreground="{DynamicResource MutedColor}" Margin="0,6,0,0" TextWrapping="Wrap"/>
-                                <Expander Header="Détails du stockage et de la synchronisation" Margin="0,8,0,0">
-                                  <TextBlock x:Name="LblIndexStats" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,6,0,0"/>
-                                </Expander>
-                              </StackPanel>
-                            </Border>
-                            <ProgressBar x:Name="PbIndexProgress" Minimum="0" Maximum="100" Height="8" Margin="0,8,0,2" Visibility="Collapsed" AutomationProperties.Name="Progression de la mise à jour de la base"/>
-                            <TextBlock x:Name="LblIndexProgress" Text="" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap"/>
-                            <Expander Header="Options avancées" IsExpanded="False" Margin="0,0,0,6">
-                            <WrapPanel>
-                              <Button x:Name="BtnIndexRefresh" Content="Synchroniser les changements" Style="{StaticResource RunButton}" ToolTip="Relit les changements depuis le dernier repère uSNChanged. Les postes déjà connus sont conservés si une passe est partielle." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Synchroniser les changements de la base"/>
-                              <Button x:Name="BtnIndexWalk" Content="Relire le domaine par étapes" Style="{StaticResource SecondaryButton}" ToolTip="Relit les utilisateurs et postes de tout le domaine, une branche à la fois. Utile si une lecture globale est trop longue. Affiche la progression et les branches non terminées." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Relire le domaine par étapes"/>
-                            </WrapPanel>
-                            </Expander>
-                              </StackPanel>
-                            </Grid>
-                            <Grid>
-                              <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                            <Expander Grid.Column="0" Header="Emplacement et sauvegarde" IsExpanded="False" Margin="0,10,0,0" Padding="10" Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1">
-                              <StackPanel>
-                                <TextBox x:Name="TxtIndexLocation" IsReadOnly="True" Margin="0,6,0,6" MinHeight="32" ToolTip="Fichier de la base autonome de ce domaine. Le chemin peut être copié." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Emplacement de la base"/>
-                                <WrapPanel>
-                                  <Button x:Name="BtnIndexOpenFolder" Content="Ouvrir l emplacement" Margin="0,0,8,0" ToolTip="Ouvre le dossier de la base dans lʼexplorateur, fichier sélectionné." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ouvrir l emplacement de la base"/>
-                                  <Button x:Name="BtnIndexBackup" Content="Sauvegarder maintenant" Margin="0,0,8,0" ToolTip="Copie cohérente de la base (sauvegarde SQLite à chaud) dans son dossier Backups. Lʼoriginal nʼest pas modifié." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Sauvegarder la base maintenant"/>
-                                  <Button x:Name="BtnIndexBackupTo" Content="Copier une sauvegarde vers..." Margin="0,0,8,0" ToolTip="Sauvegarde la base puis copie cette sauvegarde vers le fichier de votre choix (cle USB, partage...)." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Copier une sauvegarde de la base"/>
-                                </WrapPanel>
-                                <TextBlock x:Name="LblIndexBackupStatus" Text="" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,6,0,0"/>
-                              </StackPanel>
-                            </Expander>
-                            <Expander Grid.Column="1" Header="Relevé du parc" IsExpanded="False" Margin="0,10,0,0" Padding="10" Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1">
-                              <StackPanel>
-                                <TextBlock Text="Le journal du contrôleur donne des milliers de couples utilisateur et poste en une requête, sans contacter aucune machine. La sonde poste par poste ne sert quʼà compléter." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,2,0,8"/>
-                                <WrapPanel>
-                                  <CheckBox x:Name="ChkParkSweepEnabled" Content="Releve manuel uniquement" IsEnabled="False" Visibility="Collapsed" VerticalAlignment="Center" Margin="0,0,14,8" ToolTip="Lance un lot de releves en arriere-plan a chaque ouverture. Ce sont les seules requetes qui touchent les postes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Relever au lancement" AutomationProperties.HelpText="Lance un lot de releves en arriere-plan a chaque ouverture. Ce sont les seules requetes qui touchent les postes."/>
-                                  <Button x:Name="BtnParkHarvest" Content="Lire le journal du controleur" Style="{StaticResource RunButton}" MinWidth="220" Margin="0,0,8,8" ToolTip="Une seule requete sur le controleur rend des milliers de couples utilisateur et poste, sans contacter aucune machine." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lire le journal du controleur" AutomationProperties.HelpText="Une seule requete sur le controleur rend des milliers de couples utilisateur et poste, sans contacter aucune machine."/>
-                                  <Button x:Name="BtnParkReset" Content="Oublier les releves" MinWidth="170" Margin="0,0,0,8" ToolTip="Efface lʼétat du parc. Le prochain relevé repartira de zéro." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Oublier les releves" AutomationProperties.HelpText="Efface l etat du parc. Le prochain releve repartira de zero."/>
-                                </WrapPanel>
-                                <TextBlock x:Name="LblParkStatus" Text="Aucun relevé." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap"/>
-                              </StackPanel>
-                            </Expander>
-                            </Grid>
-
-                          </StackPanel>
-                          </ScrollViewer>
-                          <GridSplitter Grid.Row="1" Height="6" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" ResizeDirection="Rows" ResizeBehavior="PreviousAndNext" ShowsPreview="True" Background="{DynamicResource SplitterBg}" ToolTip="Faites glisser pour répartir la hauteur entre les réglages et les résultats." AutomationProperties.Name="Redimensionner les réglages et résultats de la base"/>
-                          <DockPanel Grid.Row="2">
-                          <StackPanel DockPanel.Dock="Top">
-                            <Grid Margin="0,8,0,0">
-                              <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                              </Grid.ColumnDefinitions>
-                              <Label Grid.Column="0" Content="Rechercher"/>
-                              <TextBox Grid.Column="1" x:Name="TxtIndexSearch" Margin="0,0,10,0" ToolTip="Cherche dans la copie locale du périmètre choisi. Laissez vide pour parcourir tous les objets, par pages de 200." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher dans la base locale"/>
-                              <TextBlock Grid.Column="2" x:Name="LblIndexStatus" Text="Pret." Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" TextWrapping="Wrap"/>
-                            </Grid>
-                            <WrapPanel Margin="0,6,0,0">
-                              <Button x:Name="BtnIndexBrowse" Content="Afficher / actualiser les objets" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/>
-                              <Button x:Name="BtnIndexPrevious" Content="Page précédente" IsEnabled="False" Margin="0,0,8,0"/>
-                              <Button x:Name="BtnIndexNext" Content="Page suivante" IsEnabled="False" Margin="0,0,8,0"/>
-                              <Button x:Name="BtnIndexResetSort" Content="Tri par pertinence" ToolTip="Rétablit le tri par pertinence puis nom sur tous les résultats."/>
-                              <Button x:Name="BtnIndexOpen" Content="Ouvrir l objet" ToolTip="Recherche dans l annuaire l objet selectionne ci-dessous." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ouvrir l objet" AutomationProperties.HelpText="Recherche dans l annuaire l objet selectionne ci-dessous."/>
-                              <Button x:Name="BtnIndexExport" Content="Exporter CSV" ToolTip="Enregistre les resultats affiches au format CSV." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Exporter CSV" AutomationProperties.HelpText="Enregistre les resultats affiches au format CSV."/>
-                            </WrapPanel>
-                          </StackPanel>
-                          <DataGrid x:Name="DgIndex" AutoGenerateColumns="False" IsReadOnly="True" MinRowHeight="28" CanUserSortColumns="True" EnableRowVirtualization="True" EnableColumnVirtualization="True" VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.HorizontalScrollBarVisibility="Auto" ToolTip="Résultats de lʼindex local. Double-clic pour ouvrir lʼobjet dans lʼannuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Resultats de l index local" AutomationProperties.HelpText="Resultats de l index local. Double-clic pour ouvrir l objet dans l annuaire.">
-                            <DataGrid.Columns>
-                              <DataGridTextColumn Header="Type" Binding="{Binding Type}" SortMemberPath="Type" Width="100" MinWidth="80"/>
-                              <DataGridTextColumn Header="Nom" Binding="{Binding Name}" SortMemberPath="Name" Width="220" MinWidth="140"/>
-                              <DataGridTextColumn Header="Identifiant" Binding="{Binding Login}" SortMemberPath="Login" Width="150" MinWidth="120"/>
-                              <DataGridTextColumn Header="UPN ou DNS" Binding="{Binding Upn}" SortMemberPath="Upn" Width="220" MinWidth="160"/>
-                              <DataGridTextColumn Header="Etat" Binding="{Binding State}" SortMemberPath="State" Width="90" MinWidth="75"/>
-                              <DataGridTextColumn Header="Association" Binding="{Binding Association}" CanUserSort="False" Width="230" MinWidth="160"/>
-                              <DataGridTextColumn Header="Score" Binding="{Binding Score}" SortMemberPath="Score" Width="70" MinWidth="50"/>
-                              <DataGridTextColumn Header="Correspondance" Binding="{Binding Reason}" SortMemberPath="Reason" Width="200" MinWidth="130"/>
-                              <DataGridTemplateColumn SortMemberPath="Description" CanUserSort="True" Header="Détail" Width="*" MinWidth="260">
-                                <DataGridTemplateColumn.CellTemplate>
-                                  <DataTemplate>
-                                    <TextBlock Text="{Binding Description}" Style="{StaticResource WrappedCellText}" TextWrapping="NoWrap" Padding="6,2" MaxHeight="28" TextTrimming="CharacterEllipsis" ToolTip="{Binding DN}"/>
-                                  </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                              </DataGridTemplateColumn>
-                              <DataGridTextColumn Header="Connexion AD" Binding="{Binding LastLogon}" SortMemberPath="LastLogon" Width="155" MinWidth="135"/>
-                              <DataGridTextColumn Header="Modifié dans AD" Binding="{Binding WhenChanged}" SortMemberPath="WhenChanged" Width="155" MinWidth="135"/>
-                            </DataGrid.Columns>
-                          </DataGrid>
-                          </DockPanel>
-                        </Grid>
-                      </TabItem>
+                      <TabItem xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Name="TabIndex" Header="Base autonome" ToolTip="Base autonome persistante : utilisateurs, postes, changements AD et associations user-machine." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Base autonome" AutomationProperties.HelpText="Base autonome persistante : utilisateurs, postes, changements AD et associations user-machine.">
+  <DockPanel Margin="10">
+    <Border Padding="10" CornerRadius="10" Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" Margin="0,0,0,8" DockPanel.Dock="Top">
+      <DockPanel>
+        <Button x:Name="BtnIndexScopePick" DockPanel.Dock="Right" Content="Choisir une OU" Style="{StaticResource SecondaryButton}" Margin="12,0,0,0" VerticalAlignment="Center" ToolTip="Choisit précisément lʼOU et ses sous-OU à relire. Recherche nʼest pas modifiée." AutomationProperties.Name="Choisir lʼOU de mise à jour" />
+        <StackPanel VerticalAlignment="Center">
+          <TextBlock Text="Périmètre de mise à jour" FontWeight="SemiBold" />
+          <TextBlock x:Name="LblIndexScopeChoice" Text="Choisissez une OU" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="38" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" Margin="0,3,0,0" />
+        </StackPanel>
+      </DockPanel>
+    </Border>
+    <TabControl x:Name="IndexWorkspaceTabs" Margin="0,4,0,0">
+      <TabItem x:Name="TabIndexUpdate" Header="Mise à jour">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Margin="10">
+            <WrapPanel>
+              <Button x:Name="BtnIndexScopeUpdate" Content="Mettre à jour lʼOU choisie" Style="{StaticResource RunButton}" ToolTip="Action recommandée : relit tous les utilisateurs et postes de lʼOU choisie et de ses sous-OU. Demande une sélection si aucune OU nʼest choisie. Les autres branches sont conservées." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Tout relire dans lʼOU choisie" />
+            </WrapPanel>
+            <TextBlock Text="Choisissez une OU, puis mettez-la à jour. Ses sous-OU sont incluses ; les autres branches sont conservées." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,6,0,8" />
+            <StackPanel Margin="0,12,0,0">
+              <Border Padding="12" CornerRadius="10" Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" Margin="0,0,0,0">
+                <StackPanel>
+                  <TextBlock Text="État de la copie locale" FontWeight="SemiBold" />
+                  <TextBlock x:Name="LblIndexOverview" Text="Aucune base autonome." FontSize="14" Margin="0,6,0,0" TextWrapping="Wrap" />
+                  <TextBlock x:Name="LblIndexFreshness" Foreground="{DynamicResource MutedColor}" Margin="0,6,0,0" TextWrapping="Wrap" />
+                  <Expander Header="Détails du stockage et de la synchronisation" Margin="0,8,0,0">
+                    <TextBlock x:Name="LblIndexStats" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,6,0,0" />
+                  </Expander>
+                </StackPanel>
+              </Border>
+              <ProgressBar x:Name="PbIndexProgress" Minimum="0" Maximum="100" Height="8" Margin="0,8,0,2" Visibility="Collapsed" AutomationProperties.Name="Progression de la mise à jour de la base" />
+              <TextBlock x:Name="LblIndexProgress" Text="" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" />
+            </StackPanel>
+            <Expander Header="Relevé du parc" IsExpanded="False" Margin="0,10,0,0" Padding="10" Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1">
+              <StackPanel>
+                <TextBlock Text="Le journal du contrôleur donne des milliers de couples utilisateur et poste en une requête, sans contacter aucune machine. La sonde poste par poste ne sert quʼà compléter." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,2,0,8" />
+                <WrapPanel>
+                  <CheckBox x:Name="ChkParkSweepEnabled" Content="Releve manuel uniquement" IsEnabled="False" Visibility="Collapsed" VerticalAlignment="Center" Margin="0,0,14,8" ToolTip="Lance un lot de releves en arriere-plan a chaque ouverture. Ce sont les seules requetes qui touchent les postes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Relever au lancement" AutomationProperties.HelpText="Lance un lot de releves en arriere-plan a chaque ouverture. Ce sont les seules requetes qui touchent les postes." />
+                  <Button x:Name="BtnParkHarvest" Content="Lire le journal du controleur" Style="{StaticResource RunButton}" MinWidth="220" Margin="0,0,8,8" ToolTip="Une seule requete sur le controleur rend des milliers de couples utilisateur et poste, sans contacter aucune machine." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lire le journal du controleur" AutomationProperties.HelpText="Une seule requete sur le controleur rend des milliers de couples utilisateur et poste, sans contacter aucune machine." />
+                  <Button x:Name="BtnParkReset" Content="Oublier les releves" MinWidth="170" Margin="0,0,0,8" ToolTip="Efface lʼétat du parc. Le prochain relevé repartira de zéro." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Oublier les releves" AutomationProperties.HelpText="Efface l etat du parc. Le prochain releve repartira de zero." />
+                </WrapPanel>
+                <TextBlock x:Name="LblParkStatus" Text="Aucun relevé." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" />
+              </StackPanel>
+            </Expander>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+      <TabItem x:Name="TabIndexData" Header="Données">
+        <DockPanel Margin="8">
+          <StackPanel DockPanel.Dock="Top">
+            <Grid Margin="0,8,0,0">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <Label Grid.Column="0" Content="Rechercher" />
+              <TextBox Grid.Column="1" x:Name="TxtIndexSearch" Margin="0,0,10,0" ToolTip="Cherche dans la copie locale du périmètre choisi. Laissez vide pour parcourir tous les objets, par pages de 200." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher dans la base locale" />
+              <TextBlock Grid.Column="2" x:Name="LblIndexStatus" MaxWidth="340" Text="Prêt." Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" TextWrapping="Wrap" />
+            </Grid>
+            <WrapPanel Margin="0,6,0,0">
+              <Button x:Name="BtnIndexBrowse" Content="Afficher / actualiser les objets" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" />
+              <Button x:Name="BtnIndexPrevious" Content="Page précédente" IsEnabled="False" Margin="0,0,8,0" />
+              <Button x:Name="BtnIndexNext" Content="Page suivante" IsEnabled="False" Margin="0,0,8,0" />
+              <Button x:Name="BtnIndexResetSort" Content="Tri par pertinence" ToolTip="Rétablit le tri par pertinence puis nom sur tous les résultats." />
+              <Button x:Name="BtnIndexOpen" Content="Ouvrir l objet" ToolTip="Recherche dans l annuaire l objet selectionne ci-dessous." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ouvrir l objet" AutomationProperties.HelpText="Recherche dans l annuaire l objet selectionne ci-dessous." />
+              <Button x:Name="BtnIndexExport" Content="Exporter CSV" ToolTip="Enregistre les resultats affiches au format CSV." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Exporter CSV" AutomationProperties.HelpText="Enregistre les resultats affiches au format CSV." />
+            </WrapPanel>
+          </StackPanel>
+          <DataGrid x:Name="DgIndex" AutoGenerateColumns="False" IsReadOnly="True" MinRowHeight="28" CanUserSortColumns="True" EnableRowVirtualization="True" EnableColumnVirtualization="True" VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.HorizontalScrollBarVisibility="Auto" ToolTip="Résultats de lʼindex local. Double-clic pour ouvrir lʼobjet dans lʼannuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Resultats de l index local" AutomationProperties.HelpText="Resultats de l index local. Double-clic pour ouvrir l objet dans l annuaire.">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="Type" Binding="{Binding Type}" SortMemberPath="Type" Width="100" MinWidth="80" />
+              <DataGridTextColumn Header="Nom" Binding="{Binding Name}" SortMemberPath="Name" Width="220" MinWidth="140" />
+              <DataGridTextColumn Header="Identifiant" Binding="{Binding Login}" SortMemberPath="Login" Width="150" MinWidth="120" />
+              <DataGridTextColumn Header="UPN ou DNS" Binding="{Binding Upn}" SortMemberPath="Upn" Width="220" MinWidth="160" />
+              <DataGridTextColumn Header="Etat" Binding="{Binding State}" SortMemberPath="State" Width="90" MinWidth="75" />
+              <DataGridTextColumn Header="Association" Binding="{Binding Association}" CanUserSort="False" Width="230" MinWidth="160" />
+              <DataGridTextColumn Header="Score" Binding="{Binding Score}" SortMemberPath="Score" Width="70" MinWidth="50" />
+              <DataGridTextColumn Header="Correspondance" Binding="{Binding Reason}" SortMemberPath="Reason" Width="200" MinWidth="130" />
+              <DataGridTemplateColumn SortMemberPath="Description" CanUserSort="True" Header="Détail" Width="*" MinWidth="260">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding Description}" Style="{StaticResource WrappedCellText}" TextWrapping="NoWrap" Padding="6,2" MaxHeight="28" TextTrimming="CharacterEllipsis" ToolTip="{Binding DN}" />
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+              <DataGridTextColumn Header="Connexion AD" Binding="{Binding LastLogon}" SortMemberPath="LastLogon" Width="155" MinWidth="135" />
+              <DataGridTextColumn Header="Modifié dans AD" Binding="{Binding WhenChanged}" SortMemberPath="WhenChanged" Width="155" MinWidth="135" />
+            </DataGrid.Columns>
+          </DataGrid>
+        </DockPanel>
+      </TabItem>
+      <TabItem x:Name="TabIndexStorage" Header="Stockage">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel Margin="10">
+            <Expander Header="Emplacement et sauvegarde" IsExpanded="True" Margin="0,10,0,0" Padding="10" Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1">
+              <StackPanel>
+                <TextBox x:Name="TxtIndexLocation" IsReadOnly="True" Margin="0,6,0,6" MinHeight="32" ToolTip="Fichier de la base autonome de ce domaine. Le chemin peut être copié." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Emplacement de la base" />
+                <WrapPanel>
+                  <Button x:Name="BtnIndexOpenFolder" Content="Ouvrir l emplacement" Margin="0,0,8,0" ToolTip="Ouvre le dossier de la base dans lʼexplorateur, fichier sélectionné." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ouvrir l emplacement de la base" />
+                  <Button x:Name="BtnIndexBackup" Content="Sauvegarder maintenant" Margin="0,0,8,0" ToolTip="Copie cohérente de la base (sauvegarde SQLite à chaud) dans son dossier Backups. Lʼoriginal nʼest pas modifié." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Sauvegarder la base maintenant" />
+                  <Button x:Name="BtnIndexBackupTo" Content="Copier une sauvegarde vers..." Margin="0,0,8,0" ToolTip="Sauvegarde la base puis copie cette sauvegarde vers le fichier de votre choix (cle USB, partage...)." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Copier une sauvegarde de la base" />
+                </WrapPanel>
+                <TextBlock x:Name="LblIndexBackupStatus" Text="" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,6,0,0" />
+              </StackPanel>
+            </Expander>
+            <Expander x:Name="ExpStorageMaintenance" Header="Stockage local" Margin="0,0,0,12" IsExpanded="True">
+              <StackPanel Margin="0,8,0,0">
+                <Button x:Name="BtnStorageUsage" Content="Mesurer" HorizontalAlignment="Left" MinHeight="32" Margin="0,0,0,6" ToolTip="Compte les lignes et mesure la base locale en lecture seule, sans contacter lʼannuaire ni les postes." AutomationProperties.Name="Mesurer le stockage local" AutomationProperties.HelpText="Mesure volontaire en arrière-plan ; aucune suppression." />
+                <TextBlock x:Name="LblStorageUsage" Text="Aucune mesure pour cette session." TextWrapping="Wrap" AutomationProperties.Name="Mesure du stockage local" />
+                <TextBlock Text="Purge volontaire" FontWeight="SemiBold" Margin="0,16,0,8" />
+                <CheckBox x:Name="ChkStoragePurgeObservations" Content="Toutes les observations et les relevés du parc" Margin="0,0,0,8" ToolTip="Données reconstructibles ; associations conservées." AutomationProperties.Name="Purger les observations" />
+                <CheckBox x:Name="ChkStoragePurgeSnapshots" Content="Tous les instantanés de recherche" Margin="0,0,0,8" ToolTip="Résultats déjà lus ; aucune suppression dans AD." AutomationProperties.Name="Purger les instantanés" />
+                <CheckBox x:Name="ChkStoragePurgeIndex" Content="Tout lʼindex local de lʼannuaire" Margin="0,0,0,8" ToolTip="La prochaine mise à jour explicite reconstruira lʼindex. Le domaine reste identifié." AutomationProperties.Name="Purger lʼindex local" />
+                <WrapPanel Margin="0,0,0,8">
+                  <CheckBox x:Name="ChkStoragePurgeHistory" Content="Historique de plus de" VerticalAlignment="Center" Margin="0,0,8,0" ToolTip="Conserve les associations déclarées et leur historique, ainsi que les dates illisibles." AutomationProperties.Name="Purger lʼhistorique ancien" />
+                  <TextBox x:Name="TxtStorageHistoryDays" Text="730" Width="70" VerticalContentAlignment="Center" ToolTip="De 1 à 36500 jours." AutomationProperties.Name="Âge minimal en jours" />
+                  <TextBlock Text="jours" VerticalAlignment="Center" Margin="8,0,0,0" />
+                </WrapPanel>
+                <TextBlock Text="Toujours conservés : associations et historique protégé, secrets, configuration, préférences, journaux et reçus." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,4,0,10" />
+                <WrapPanel>
+                  <Button x:Name="BtnStoragePurgePreview" Content="Simuler la purge" MinHeight="32" Margin="0,0,8,8" ToolTip="Compte les lignes concernées sans suppression." AutomationProperties.Name="Simuler la purge" />
+                  <Button x:Name="BtnStoragePurge" Content="Purger…" IsEnabled="False" MinHeight="32" Margin="0,0,0,8" ToolTip="Demande confirmation de la simulation avant de supprimer les données locales choisies." AutomationProperties.Name="Confirmer la purge locale" />
+                </WrapPanel>
+                <TextBlock x:Name="LblStoragePurge" Text="Choisissez les données à oublier puis simulez." TextWrapping="Wrap" AutomationProperties.Name="Résultat de simulation ou de purge" />
+              </StackPanel>
+            </Expander>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+    </TabControl>
+  </DockPanel>
+</TabItem>
                       <TabItem x:Name="TabOperationStats" Header="Charge &amp; stats" ToolTip="Mesures réelles des opérations DOMENIA : durée, volume réseau estimé, fallback distant et taux de réussite." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Charge &amp; stats" AutomationProperties.HelpText="Mesures reelles des operations DOMENIA : duree, volume reseau estime, fallback distant et taux de reussite.">
                         <DockPanel Margin="8">
                           <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
@@ -7523,6 +7437,14 @@ function Get-MainXaml {
         </Grid>
       </Grid>
     </ScrollViewer>
+    <Border Grid.Row="1" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="0,1,0,0" Padding="10,3">
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" AutomationProperties.Name="Zoom de lʼinterface">
+        <TextBlock Text="Zoom" VerticalAlignment="Center" Margin="0,0,10,0" Foreground="{DynamicResource MutedColor}"/>
+        <Button x:Name="BtnUiZoomOut" Content="−" Width="30" MinHeight="28" Padding="0" Margin="0" ToolTip="Réduire lʼinterface de 10 %" AutomationProperties.Name="Réduire le zoom"/>
+        <Button x:Name="BtnUiZoomReset" Content="100 %" MinWidth="58" MinHeight="28" Padding="5,0" Margin="4,0" ToolTip="Revenir à 100 %" AutomationProperties.Name="Réinitialiser le zoom à 100 %"/>
+        <Button x:Name="BtnUiZoomIn" Content="+" Width="30" MinHeight="28" Padding="0" Margin="0" ToolTip="Agrandir lʼinterface de 10 %" AutomationProperties.Name="Agrandir le zoom"/>
+      </StackPanel>
+    </Border>
     <Grid x:Name="DomeniaDialogLayer" Visibility="Collapsed" Panel.ZIndex="2000"/>
     <StackPanel x:Name="DomeniaBannerHost" Visibility="Collapsed" VerticalAlignment="Top" HorizontalAlignment="Center" Margin="16,10,16,0" MaxWidth="760" Panel.ZIndex="2100" AutomationProperties.Name="Messages de Domenia" AutomationProperties.HelpText="Informations et erreurs affichées dans la page, sans fenêtre bloquante."/>
     <!-- DS-02: write mode frame, a solid 3-unit border in the theme danger colour; no blur effect (slow over RDP). -->
@@ -14614,7 +14536,6 @@ function Build-DomeniaTreeContextMenu {
 
     [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Afficher le contenu de cette branche" -Enabled $hasBranch -Action { Load-BranchObjects -Browse }))
     [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Actualiser l arborescence" -Action { Load-TreeRoot -ForceRefresh }))
-    [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Revenir a la racine du domaine" -Action { Go-RootBranch }))
     Add-DomeniaMenuSeparator -Menu $Menu
     [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Copier le chemin (DN)" -Enabled $hasBranch `
         -Action { if (-not [string]::IsNullOrWhiteSpace($script:SelectedBranchDn)) { Set-ClipboardSafe $script:SelectedBranchDn; Set-Status "DN copie." } }))
@@ -17199,19 +17120,19 @@ function Test-DomeniaIndexWriteReady {
     if ($null -ne $script:Persistence) {
         if ($script:Persistence.Job) { Set-Status 'Enregistrement local en cours : attendez sa confirmation avant une nouvelle lecture.' 'WARN'; return $false }
         foreach ($item in $script:Persistence.Pending.Values) {
-            if ($item.Kind -eq 'IndexBulk') { Set-Status 'Une mise à jour attend son enregistrement. Vérifiez le stockage dans Fiabilité.' 'WARN'; return $false }
+            if ($item.Kind -eq 'IndexBulk') { Set-Status 'Une mise à jour attend son enregistrement. Vérifiez lʼonglet Stockage de la base.' 'WARN'; return $false }
         }
     }
     return $true
 }
 
 function Start-DomeniaIndexScopeBuild {
-    # Une OU ciblée est fusionnée sans effacer les autres. La racine délègue à la reconstruction complète, avec confirmation.
+    # Reconcile this OU only. An empty scope or the domain root is refused.
     param([string]$Dn)
     if (-not (Test-DomeniaIndexWriteReady)) { return }
     try {
         $target = ([string]$Dn).Trim()
-        if (-not $target -or $target -ieq [string]$script:Conn.BaseDn) { Start-DomeniaIndexBuild; return }
+        if (-not $target -or $target -ieq [string]$script:Conn.BaseDn) { Set-Status 'Choisissez une OU avant de lancer sa mise à jour.' 'WARN'; return }
         $limits = Get-DomeniaIndexLimits
         Set-DomeniaIndexProgress -Mode Busy -Message ('Lecture de ' + $target + ' dans Active Directory… progression exacte indisponible pendant la requête.')
         [void](Set-DomeniaControlText -Name "LblFleetDashboard" -Text "Lecture de lʼOU dans lʼannuaire en arrière-plan...")
@@ -17424,14 +17345,14 @@ function Start-DomeniaSelectedIndexScopeBuild {
     # The primary action never silently expands a missing OU to the domain.
     $scope=Get-DomeniaIndexScope
     if($null -eq $scope -or [bool]$scope.IsDomain){
-        $picked=Show-DomeniaInlinePicker -Kind OU -Title 'Choisir lʼOU à relire' -Prompt 'Choisissez une OU et ses sous-OU. Pour tout le domaine, utilisez le bouton séparé.'
+        $picked=Show-DomeniaInlinePicker -Kind OU -Title 'Choisir lʼOU à relire' -Prompt 'Choisissez lʼOU à relire avec ses sous-OU.'
         if($null -eq $picked){return}
         $candidate=([string]$picked.DN).Trim()
         $previous=$script:IndexScopeDn;$script:IndexScopeDn=$candidate
         $scope=Get-DomeniaIndexScope
         if(-not $candidate -or $null -eq $scope -or [bool]$scope.IsDomain){
             $script:IndexScopeDn=$previous
-            Set-Status 'Choisissez une OU. La lecture du domaine complet se lance avec son bouton dédié.' 'WARN'
+            Set-Status 'Choisissez une OU valide pour limiter la lecture à cette branche.' 'WARN'
             return
         }
         Update-DomeniaIndexStats
@@ -17520,36 +17441,27 @@ function Update-DomeniaIndexStats {
         [void](Set-DomeniaControlText -Name 'LblIndexScopeChoice' -Text $targetText)
         if ($script:IndexMetadataError) {
             [void](Set-DomeniaControlText -Name 'LblIndexOverview' -Text 'La base locale ne peut pas être lue. Son contenu nʼest pas considéré comme vide.')
-            [void](Set-DomeniaControlText -Name 'LblIndexFreshness' -Text 'Vérifiez le stockage dans Fiabilité avant de reconstruire la base.')
+            [void](Set-DomeniaControlText -Name 'LblIndexFreshness' -Text 'Vérifiez lʼonglet Stockage avant de relire lʼOU choisie.')
             [void](Set-DomeniaControlText -Name 'LblIndexStats' -Text ([string]$script:IndexMetadataError))
             return
         }
         $count = [Math]::Max(0,[int]$script:IndexDbCount)
         $overview = if ($count -eq 0) { 'Aucun objet enregistré. Choisissez un périmètre, puis lancez sa mise à jour.' } else {
-            '{0:N0} objets · {1:N0} utilisateurs · {2:N0} postes ({3:N0} actifs, {4:N0} désactivés)' -f $count,[Math]::Max(0,[int]$script:IndexDbUsers),[Math]::Max(0,[int]$script:IndexDbComputers),[Math]::Max(0,[int]$script:IndexDbMachinesActive),[Math]::Max(0,[int]$script:IndexDbMachinesDisabled)
+            'Base locale entière : {0:N0} objets · {1:N0} utilisateurs · {2:N0} postes ({3:N0} actifs, {4:N0} désactivés)' -f $count,[Math]::Max(0,[int]$script:IndexDbUsers),[Math]::Max(0,[int]$script:IndexDbComputers),[Math]::Max(0,[int]$script:IndexDbMachinesActive),[Math]::Max(0,[int]$script:IndexDbMachinesDisabled)
         }
         [void](Set-DomeniaControlText -Name 'LblIndexOverview' -Text $overview)
         $freshness = New-Object 'System.Collections.Generic.List[string]'
         $when = ''; $server = ''; $usn = 0L
         if ($null -ne $script:IndexInfo) { $when = [string]$script:IndexInfo.Date; $server = [string]$script:IndexInfo.Server; $usn = [long]$script:IndexInfo.Usn }
-        if ($when) {
-            $date = [datetime]::Parse($when,[Globalization.CultureInfo]::InvariantCulture).ToLocalTime()
-            $days = [Math]::Floor(((Get-Date) - $date).TotalDays)
-            $age = if ($date -gt (Get-Date).AddMinutes(5)) { 'date future : vérifier lʼhorloge' } elseif ($days -ge 7) { 'à actualiser' } elseif ($days -ge 1) { 'à actualiser bientôt' } else { 'récent' }
-            $freshness.Add(('Dernière synchronisation complète du domaine : {0} ({1}).' -f $date.ToString('dd/MM/yyyy HH:mm'),$age))
-        } else { $freshness.Add('Aucune lecture complète du domaine enregistrée. Les fiches locales peuvent couvrir seulement certaines OU.') }
-        if ($null -ne $script:IndexSyncStates) {
-            if ($scopeKey -ne 'directory' -and $script:IndexSyncStates.ContainsKey($scopeKey)) {
-                $stamp = [datetime]::Parse([string]$script:IndexSyncStates[$scopeKey].last_sync,[Globalization.CultureInfo]::InvariantCulture).ToLocalTime().ToString('dd/MM/yyyy HH:mm')
-                $freshness.Add('Dernière lecture complète de lʼOU choisie : ' + $stamp + '.')
-            }
-            $attemptKey = 'attempt:' + $scopeKey
-            if ($script:IndexSyncStates.ContainsKey($attemptKey) -and [string]$script:IndexSyncStates[$attemptKey].details -eq 'partial') {
-                $attempt = $script:IndexSyncStates[$attemptKey]
-                $freshness.Add(('Dernière tentative sur cette cible : lecture partielle, {0:N0} fiches reçues. La date complète est conservée.' -f [int]$attempt.item_count))
-            }
-        }
-        $partial = [string](Get-DomeniaIndexPartialText)
+        $coverage=Get-DomeniaFleetFreshness -ScopeDn $(if($target.IsDomain){''}else{[string]$target.BaseDn}) -DomainDn ([string]$script:Conn.BaseDn) -SyncStates $script:IndexSyncStates
+        if($null -ne $coverage.At){
+            $date=$coverage.At.ToLocalTime()
+            $age=if($coverage.At -gt [datetime]::UtcNow.AddMinutes(5)){'date future : vérifier lʼhorloge'}else{Format-DomeniaAge -FromUtc $coverage.At -NowUtc ([datetime]::UtcNow)}
+            $freshness.Add(('Dernière lecture complète couvrant le périmètre : {0} ({1}).' -f $date.ToString('dd/MM/yyyy HH:mm'),$age))
+            $freshness.Add('Source de cette lecture : '+$coverage.SourceDn+'.')
+        }else{$freshness.Add('Aucune lecture complète couvrant ce périmètre. Choisissez une OU, puis mettez-la à jour.')}
+        if($coverage.Partial){$freshness.Add(('Dernière tentative incomplète le {0}. Les données reçues sont conservées ; la date de lecture complète reste inchangée.' -f $coverage.AttemptAt.ToLocalTime().ToString('dd/MM/yyyy HH:mm')))}
+        $partial = if($target.IsDomain){[string](Get-DomeniaIndexPartialText)}else{''}
         if ($partial) { $freshness.Add('À vérifier : ' + $partial) }
         [void](Set-DomeniaControlText -Name 'LblIndexFreshness' -Text ($freshness -join "`n"))
         $details = ('Fichier : {0}. Contrôleur : {1}. Repère : {2}. Associations utilisateur-poste : {3:N0}.' -f (Get-DomeniaDatabasePath),$server,$usn,@($script:UserMachineLinks).Count)
@@ -21469,7 +21381,6 @@ function Show-DomeniaCommandPalette {
     [void]$root.Children.Add($list)
     $items=@(
         [pscustomobject]@{Name="Rechercher dans Active Directory";Key="search"},
-        [pscustomobject]@{Name="Revenir a la racine du domaine";Key="root"},
         [pscustomobject]@{Name="Actualiser l'arborescence";Key="refresh"},
         [pscustomobject]@{Name="Copier le resume de l'objet";Key="summary"},
         [pscustomobject]@{Name="Ouvrir le conteneur parent";Key="parent"},
@@ -21502,7 +21413,6 @@ function Show-DomeniaCommandPalette {
         Set-DomeniaSurfaceResult $window $true
         switch([string]$item.Key){
             "search" { $c=Get-DomeniaControl -Name "TxtGlobalSearch"; if($null -ne $c){$c.Focus();$c.SelectAll()} }
-            "root" { Go-RootBranch }
             "refresh" { Load-TreeRoot -ForceRefresh }
             "summary" { Copy-ObjectSummary }
             "parent" { Open-SelectedParentBranch }
@@ -21892,7 +21802,6 @@ function Wire-Events {
     }
 
     $script:Ctrl["BtnTreeRefresh"].Add_Click({ Load-TreeRoot -ForceRefresh })
-    $script:Ctrl["BtnSearchAllDomain"].Add_Click({ Reset-DomeniaSearchScope })
     $script:Ctrl["ChkSubtree"].Add_Checked({ Invoke-DomeniaSearchFilterChanged })
     $script:Ctrl["ChkSubtree"].Add_Unchecked({ Invoke-DomeniaSearchFilterChanged })
     # PF-14: a change of object type waits 300 ms, so that scrolling through the list sends one request only.
@@ -21918,7 +21827,7 @@ function Wire-Events {
             }
         }
     })
-    $script:Ctrl["BtnDashRoot"].Add_Click({ Go-RootBranch })
+
     $script:Ctrl["BtnDashCopy"].Add_Click({ Copy-DashboardSummary })
     $script:Ctrl["TxtBranchSearch"].Add_KeyDown({ param($s,$e) if ($e.Key -eq "Enter") { Load-BranchObjects -Browse } })
     $script:Ctrl["CmbObjectFilter"].Add_SelectionChanged({ if ($script:Window -and $script:Conn.Connected -and -not [string]::IsNullOrWhiteSpace($script:SelectedBranchDn)) { Load-BranchObjects -Browse } })
@@ -22087,7 +21996,7 @@ function Wire-Events {
     $script:Ctrl["BtnRunComputerDiag"].Add_Click({ Start-ComputerDiagnostics })
     if ($script:Ctrl.ContainsKey("BtnUserSaveContact")) { $script:Ctrl["BtnUserSaveContact"].Add_Click({ Save-DomeniaUserContact }) }
     if ($script:Ctrl.ContainsKey("BtnIndexScopePick")) { $script:Ctrl["BtnIndexScopePick"].Add_Click({
-        $picked = Show-DomeniaInlinePicker -Kind OU -Title ('Choisir lʼunité organisationnelle de la base') -Prompt ('Choisissez une OU : la lecture couvrira cette branche et ses sous-OU. Le domaine complet dispose de son bouton séparé.')
+        $picked = Show-DomeniaInlinePicker -Kind OU -Title ('Choisir lʼunité organisationnelle de la base') -Prompt ('Choisissez une OU : la lecture couvrira cette branche et ses sous-OU.')
         if ($null -eq $picked) { return }
         $pickedDn = ([string]$picked.DN).Trim()
         if (-not $pickedDn) { return }
@@ -22095,12 +22004,6 @@ function Wire-Events {
         Update-DomeniaIndexStats
         Request-DomeniaIndexSearch
         Set-Status ('Portée de la base : ' + $pickedDn) 'INFO'
-    }) }
-    if ($script:Ctrl.ContainsKey("BtnIndexScopeReset")) { $script:Ctrl["BtnIndexScopeReset"].Add_Click({
-        $script:IndexScopeDn = ''
-        Update-DomeniaIndexStats
-        Request-DomeniaIndexSearch
-        Set-Status 'Périmètre de mise à jour : tout le domaine courant.' 'INFO'
     }) }
     if ($script:Ctrl.ContainsKey("BtnIndexScopeUpdate")) { $script:Ctrl["BtnIndexScopeUpdate"].Add_Click({
         Start-DomeniaSelectedIndexScopeBuild
@@ -22237,9 +22140,10 @@ function Wire-Events {
     if ($script:Ctrl.ContainsKey("BtnFleetDashboardRefresh")) { $script:Ctrl["BtnFleetDashboardRefresh"].Add_Click({ try { Start-DomeniaFleetDashboard } catch { Set-Status ('Vue d ensemble non calculee : ' + $_.Exception.Message) 'WARN' } }) }
     if ($script:Ctrl.ContainsKey("BtnFleetScope")) { $script:Ctrl["BtnFleetScope"].Add_Click({ try { Show-DomeniaFleetScopeSource } catch { Set-Status ('Sélecteur dʼOU indisponible : ' + $_.Exception.Message) 'WARN' } }) }
     if ($script:Ctrl.ContainsKey("BtnFleetScopeReset")) { $script:Ctrl["BtnFleetScopeReset"].Add_Click({ $script:FleetScopeDn = ''; $script:FleetStale = $true; Request-DomeniaFleetRefresh; Set-Status 'Tableau de bord : tout le domaine depuis la base locale.' }) }
+    Initialize-DomeniaUiZoom
     Initialize-DomeniaQueryWorkshop
-    if($script:Ctrl.ContainsKey('BtnSearchQueryWorkshop')){$script:Ctrl['BtnSearchQueryWorkshop'].Add_Click({Select-DomeniaWorkspace 'TabDashboard';$script:Ctrl['ExpFleetMachines'].IsExpanded=$true;Start-DomeniaQueryEvaluation})}
-    if ($script:Ctrl.ContainsKey("BtnFleetShowMachines")) { $script:Ctrl["BtnFleetShowMachines"].Add_Click({ $expander = $script:Ctrl['ExpFleetMachines']; if ($null -ne $expander) { $expander.IsExpanded = -not [bool]$expander.IsExpanded }; Update-DomeniaFleetMachineList }) }
+    if($script:Ctrl.ContainsKey('BtnSearchQueryWorkshop')){$script:Ctrl['BtnSearchQueryWorkshop'].Add_Click({Show-DomeniaQueryWorkshop -Evaluate})}
+    if ($script:Ctrl.ContainsKey("BtnFleetShowMachines")) { $script:Ctrl["BtnFleetShowMachines"].Add_Click({ Show-DomeniaQueryWorkshop -Evaluate }) }
     if ($script:Ctrl.ContainsKey("TxtFleetMachineFilter")) { $script:Ctrl["TxtFleetMachineFilter"].Add_TextChanged({ Update-DomeniaFleetMachineList }) }
     if ($script:Ctrl.ContainsKey("CmbFleetMachineState")) { $script:Ctrl["CmbFleetMachineState"].Add_SelectionChanged({ Update-DomeniaFleetMachineList }) }
     if ($script:Ctrl.ContainsKey("BtnFleetIndexScope")) { $script:Ctrl["BtnFleetIndexScope"].Add_Click({ try { $fleetScope = Get-DomeniaFleetScope; Start-DomeniaIndexScopeBuild -Dn $(if ($null -ne $fleetScope) { [string]$fleetScope.Dn } else { '' }) } catch { Set-Status ('Mise à jour de lʼOU impossible : ' + $_.Exception.Message) 'WARN' } }) }
@@ -22323,7 +22227,7 @@ function Wire-Events {
 # DOMENIA_MASTER_LAST_V1 = TRUE
 $script:Version = "1.0"
 $script:AppName = "Domenia"
-$script:MasterBuild = "2026.10.12-DOMENIA-1.0-RC1.17.1-D120"
+$script:MasterBuild = "2026.10.12-DOMENIA-1.0-RC1.17.2-D120"
 $script:ActiveWriteTaskId = ""
 $script:WriteState = "Idle"
 $script:UnknownWriteTargetDn = ""
@@ -23591,7 +23495,7 @@ function Get-DomeniaWorkerOperationHashes {
         ReadBitLockerKey      = "8A98EBCDC48AD572404E1566826035C84F34ACB87564330A7AA511FAAC01EE6F"
         BitLockerPresence     = "F1A7C8FD83BA659E7826DE2DDBDD01EE13BC185819FD9330656B77A99ACD6764"
         DemoDirectory         = "EA76156ECA8C5DADB7650C90D58C100B3CA2BCC184FC9E309CC1E56DC258A30D"
-        LocalIndexRead        = "CE4E9B56264D660EFD90BF99270FC9A5DB52C2F0215D15D291EA9407214B511C"
+        LocalIndexRead        = "CF34DF23789B0FB97759231B869D46E0281E29B4DF213B8CFE22E8D4E4F94C6F"
         ParkSharedSync        = "B3A64051813F12A24BD5E791D59CF7E2330FA84E965C9F44BD62366D4A81415E"
         IsolatedRead          = "4074D6ECAA620A9C80A5B6B535BB657E02DCE06A9DF97E35CA1EA47572D1060C"
         CmdletHelp            = "12505D0654AB0E97BD803A70B953BB0BBE2152836AAA1889744C1312EB215D62"
@@ -23638,8 +23542,8 @@ function Get-DomeniaWorkerOperationHashes {
         PresenceScan          = "E7F81414C29C1C8F1E91453D9EC4BA48B6F92F0AA0E2674C9EBF5C88437F4486"
         SelectedPresence      = "4ECADF4F231390182A3BF091EF8636B3536D7B3F8A28EF3984DE1E2D524D5BFA"
         StartupWarmCache      = "864735012ED29EBAF1B094DA12C1D44266933DC9D3D2046BD1E5D68AE58CA1A3"
-        LiveSelectedPing     = "30A1D683D40C65756DA9FF0EAD4BB2DDDF496A16A993CCEE2F95AF17DEBED391"
-        LiveConsole          = "30A1D683D40C65756DA9FF0EAD4BB2DDDF496A16A993CCEE2F95AF17DEBED391"
+        LiveSelectedPing     = "2485893678B6816F4E5DEAA5CF53346E37CB824AB6DBF712EF1F91F008FB2BCE"
+        LiveConsole          = "2485893678B6816F4E5DEAA5CF53346E37CB824AB6DBF712EF1F91F008FB2BCE"
         LiveCache            = "8E34CA87E392D94884B2DBA66443BD4E24252A20BC2B53441F555949EE3D9C88"
         LiveDirectoryCheck    = "49F6D4249F6465D6E461D3B04DD090F00477ABBD871683ECF3622714A2AB53CD"
         SessionsList         = "DD09187778C09CF31B0BDA41EAC88FF898D9484756AFDF2F3EE643E6B5318BF6"
@@ -23649,7 +23553,7 @@ function Get-DomeniaWorkerOperationHashes {
         DocumentStore        = "BFD83587CB1BA62BC141E5F0742C6C6453A561617ED157045F3B4E7AB11A14E7"
         LocalStore           = "3E1BC6AD69FAF9D2D4FE4AEE35FE3DF0726563FC6FEE8110E3F423DA3265B554"
         EngineSelfTest        = "40E2C89F858E22E1D221AC48DC04DD5BF627F1ACBC836AB48036C43DB9F7E1D1"
-            EmbeddedDirectoryLookup = "2B3A888C7E1A97B4D523B0B3A408EF03AA5C0D0F95D534984B8EB3D581CDDD17"
+            EmbeddedDirectoryLookup = "F43B3C78876A45E016E4B0ACBB7B30BA7DF114738BD8DCAB5249BC5B6E066689"
         EmbeddedPathBrowse = "B643D707E242EC4416AD63622847DD7C39E5B53ED47CF64FECD56E22B5A82271"
         IndexOuList           = "242B26E610F11F6B45580B6D669F1B32C9442229DD89B334DB023FD5C5CB2DD2"
     }
@@ -23660,7 +23564,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "ADFBCBFC220CC993A47AA1291CE072DE517B9672E07EB4395561212CD1C1F1BB"
+    $expectedFingerprint = "A8722A13AB4418CA22D4F1425E98683FA4C9F513E8D2102F438D66D35F865466"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -29215,7 +29119,7 @@ try {
         Write-StartupTrace -Stage 'Stockage/Preferences' -Status 'WARN' -Detail $script:StoragePreferenceWarning
         Show-WarningBox -Message $script:StoragePreferenceWarning
     }
-    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.12-DOMENIA-1.0-RC1.17.1-D120)"
+    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.12-DOMENIA-1.0-RC1.17.2-D120)"
     # PF-19: duration of the package integrity check made by Domenia-Start.ps1 before the core (absent when launched otherwise).
     $startIntegrity = Get-Variable -Name DomeniaStartIntegrity -ValueOnly -ErrorAction SilentlyContinue
     if ($null -ne $startIntegrity) { Write-StartupTrace -Stage "Integrite du paquet" -Status "OK" -DurationMs ([long]$startIntegrity.DurationMs) -Detail ("{0} fichiers runtime controles (plafond {1}), {2} composants requis." -f $startIntegrity.Files,$startIntegrity.Limit,$startIntegrity.Required) }

@@ -892,6 +892,133 @@
       "limits": [
         "Topmost et cycle de vie validés sur de vraies fenêtres WPF en session 0 ; aucun test interactif Alt-Tab entre applications d’un bureau utilisateur."
       ]
+    },
+    {
+      "id": "A08",
+      "title": "Navigation OU en arbre et recherche contextualisée",
+      "implementation_status": "done",
+      "related_initial_points": [
+        17,
+        24
+      ],
+      "source_files": [
+        "dev/wad/modules/Domenia-Embedded.UI.ps1"
+      ],
+      "implemented": [
+        "Navigation OneLevel à la demande, tri français, recherche explicite et contrôle de la requête, du DN, de la session et du contexte avant affichage."
+      ],
+      "evidence_ids": [
+        "query-ui-r8"
+      ],
+      "limits": [
+        "Accès AD réel et coûts de LDAP non qualifiés par les réponses fictives."
+      ],
+      "windows_ad_qualification": "Synthetic native Windows evidence only; real AD qualification not performed."
+    },
+    {
+      "id": "A09",
+      "title": "Atelier séparé, catalogue et bibliothèque de modèles",
+      "implementation_status": "done",
+      "related_initial_points": [
+        15,
+        21,
+        24
+      ],
+      "source_files": [
+        "dev/wad/modules/Domenia-Query.Model.ps1",
+        "dev/wad/modules/Domenia-Query.UI.ps1",
+        "dev/wad/modules/Domenia-Query.xaml"
+      ],
+      "implemented": [
+        "Quatre onglets, 105 champs réels dont 78 sondes ; 152 modèles classés en 14 catégories, descriptions et copie personnalisable."
+      ],
+      "evidence_ids": [
+        "query-ui-r8"
+      ],
+      "limits": [
+        "100 recettes personnelles ; choisir un champ ou un modèle ne déclenche aucune collecte."
+      ],
+      "windows_ad_qualification": "Synthetic native Windows evidence only; real AD qualification not performed."
+    },
+    {
+      "id": "A10",
+      "title": "Recettes communes Général, Poste et filtre Recherche",
+      "implementation_status": "done",
+      "related_initial_points": [
+        16,
+        19,
+        25
+      ],
+      "source_files": [
+        "dev/wad/modules/Domenia-QueryTargets.UI.ps1",
+        "dev/wad/modules/Domenia-Query.Model.ps1",
+        "dev/wad/modules/Domenia-Query.UI.ps1",
+        "dev/wad/modules/Domenia-Widgets.UI.ps1"
+      ],
+      "implemented": [
+        "Évaluation du poste sélectionné par GUID, cinq visuels, enregistrement par tableau ; centre des répartitions cohérent avec les segments."
+      ],
+      "evidence_ids": [
+        "query-ui-r8"
+      ],
+      "limits": [
+        "L’atelier liste le périmètre OU ; le tableau Poste évalue une seule identité à partir des données locales disponibles."
+      ],
+      "windows_ad_qualification": "Synthetic native Windows evidence only; real AD qualification not performed."
+    },
+    {
+      "id": "A11",
+      "title": "Collecte sélective, dates distinctes et regroupement CIM",
+      "implementation_status": "done",
+      "related_initial_points": [
+        6,
+        8,
+        10,
+        14
+      ],
+      "source_files": [
+        "dev/wad/modules/Domenia-Live.Model.ps1",
+        "dev/wad/modules/Domenia-Park.Model.ps1",
+        "dev/wad/modules/Domenia-Park.UI.ps1",
+        "dev/wad/modules/Domenia-Query.Model.ps1"
+      ],
+      "implemented": [
+        "Union des mesures requises, cache daté, identité AD à durée bornée, dernière réussite conservée après erreur."
+      ],
+      "evidence_ids": [
+        "query-ui-r8"
+      ],
+      "limits": [
+        "Un test synthétique ne garantit pas la disponibilité des fournisseurs CIM, droits ou performances sur le parc réel."
+      ],
+      "windows_ad_qualification": "Synthetic native Windows evidence only; real AD qualification not performed."
+    },
+    {
+      "id": "A12",
+      "title": "Base en onglets, zoom et filtres de transfert explicites",
+      "implementation_status": "done",
+      "related_initial_points": [
+        15,
+        16,
+        21,
+        23,
+        24
+      ],
+      "source_files": [
+        "dev/wad/modules/Domenia-Dashboard.UI.ps1",
+        "dev/wad/modules/Domenia-UX.UI.ps1",
+        "dev/wad/Domenia-Core.ps1"
+      ],
+      "implemented": [
+        "Mise à jour OU explicite, Base Mise à jour/Données/Stockage, zoom80–150%, transfert vers Recherche sans filtres masquants conservés."
+      ],
+      "evidence_ids": [
+        "query-ui-r8"
+      ],
+      "limits": [
+        "DPI dynamique multi-écrans et lecteur d’écran restent à qualifier manuellement."
+      ],
+      "windows_ad_qualification": "Synthetic native Windows evidence only; real AD qualification not performed."
     }
   ],
   "canceled_scope": [
@@ -1145,6 +1272,40 @@
       "source_commit": "b80718b24c1b12e9f5915bf1d25e4c7efb88cfa9",
       "master_verified": true,
       "merged_branches_deleted": 13
+    },
+    "query-ui-r8": {
+      "artifact": "query-ui/qualification.json",
+      "origin": "Final Windows quick suite reports with exact runtime source inventory and ZIP hashes",
+      "passed_suites": 23,
+      "failed_suites": 0,
+      "dev_zip_sha256": "fd0fdfc6524843cd705252df82d50ffa34715af216fd8101ed2976cfb2322f0c",
+      "prod_zip_sha256": "7da978504dacb9ee7312c463748727bfa7c9e009f1c093f2b12c610b3b88d881",
+      "platform": "Windows PowerShell 5.1.26100.6584 x64 STA, session 0",
+      "limits": [
+        "Synthetic data only; no real AD/CIM endpoint qualification.",
+        "Native WPF in session 0 does not establish an interactive user desktop or Alt-Tab behavior.",
+        "No network/AD throughput claim is inferred from these timings.",
+        "Formal WindowsQualification remains NOT_EVALUATED and Publishable remains false."
+      ]
+    },
+    "query-ui-r8-guides": {
+      "artifact": "query-ui/documentation-qa.json",
+      "status": "PASS",
+      "documents": [
+        {
+          "role": "technicien",
+          "pages": 26,
+          "figures": 30,
+          "visualReviewComplete": true
+        },
+        {
+          "role": "administrateur",
+          "pages": 67,
+          "figures": 30,
+          "visualReviewComplete": true
+        }
+      ],
+      "sha256": "dcdb8df31d853a621cda20b68c5b8caa9d8d09af72fc7db209cb47f6c6d2cd36"
     }
   },
   "source_snapshot_sha256": {
@@ -1194,15 +1355,16 @@
     "dev/wad/tests/Test-DomeniaIndexSorting.ps1": "0aa12fa9ed68c1d2b870eb511871d75e5d00247b968e5c19ed007fe5da028dbd"
   },
   "snapshot_note": "source_snapshot_sha256 conserve la première revue ; final_source_snapshot_sha256 lie les sources et documents finaux. Les rapports Windows indiquent leurs archives respectives et comparaisons de portée.",
-  "status_at_utc": "2026-10-12T19:38:16.614671+00:00",
+  "status_at_utc": "2026-10-12T22:35:44.821063+00:00",
   "delivery": {
-    "directory": "/Users/david/Documents/Projets/Domenia-D120/livraison-Domenia-1.0-20261012-validee",
-    "build_report": "build-report.json",
-    "dev_sha256": "47B21D448E2B4BAFE03E246B0B433725C1013DE628D19C1119E06954E71570F0",
-    "prod_sha256": "E323AAEDD5E3072C9FC24DA82A6959853136F80EC53143428A6AA2B04F890BE9",
-    "runtime_files_identical": 91,
+    "directory": "packs",
+    "build_report": "query-ui/build-report.json",
+    "dev_sha256": "fd0fdfc6524843cd705252df82d50ffa34715af216fd8101ed2976cfb2322f0c",
+    "prod_sha256": "7da978504dacb9ee7312c463748727bfa7c9e009f1c093f2b12c610b3b88d881",
+    "runtime_files_identical": 93,
     "formal_windows_ad_release_qualification": "NOT_EVALUATED",
-    "formal_publishable": false
+    "formal_publishable": false,
+    "publication_status": "Prepared locally; commit/push receipt is a separate subsequent action."
   },
   "final_source_snapshot_sha256": {
     "DOC/Domenia-1.0-Guide-administrateur.docx": "979c6b31a160e655c7483c0f0274ebd3a8e1c88220b914213a9dbd751983530f",
@@ -1254,5 +1416,205 @@
     "guides/build_guide.js": "5191483427e26073dfdcf8725c544a73b63b704bfcd5da79889e22b5bde8f00f",
     "guides/technicien.json": "50d28c7a05d99bb11b82ec02aa45dfc1f5488073d3a147d060870775210005db",
     "guides/technicien.md": "01167ae5d6510998624f581bf5015376ecd26b8d00016bd92e3135e602b04dab"
-  }
+  },
+  "source_base_commit": "3ae15df",
+  "previous_delivery_before_query_ui": {
+    "directory": "/Users/david/Documents/Projets/Domenia-D120/livraison-Domenia-1.0-20261012-validee",
+    "build_report": "build-report.json",
+    "dev_sha256": "47B21D448E2B4BAFE03E246B0B433725C1013DE628D19C1119E06954E71570F0",
+    "prod_sha256": "E323AAEDD5E3072C9FC24DA82A6959853136F80EC53143428A6AA2B04F890BE9",
+    "runtime_files_identical": 91,
+    "formal_windows_ad_release_qualification": "NOT_EVALUATED",
+    "formal_publishable": false
+  },
+  "query_ui_source_snapshot_sha256": {
+    "dev/Domenia.exe": "3535a6cbceea3baa0066d9024ea316a8dfa2992a463f8eb17cc8baa40b6be7ac",
+    "dev/wad/ActiveDirectoryPowerShellResources.dll": "e233d92238aa31ea1b3c60145d8811edb2e517e1b9b53f4bc496883ee5d9973b",
+    "dev/wad/Domenia-Core.ps1": "acd93b7a6c7f97e9990348a904b52b33b274222e75da254f131fd0c1885e7de4",
+    "dev/wad/Domenia-Modules.ps1": "aa0b98c90809f05795e5e3f0acc951a40e249a5a3f6ee90a3caf5b9a99197b7e",
+    "dev/wad/Domenia-Start.ps1": "d8aaae59b5baa81b079c6145e06dbef822ce7a43c99f08e8af20b16358d43e97",
+    "dev/wad/Domenia.config.json": "766dbf8924f4efc3641768e0c1b2c37e5936d681f002c3260e2fe6c8da7680f8",
+    "dev/wad/Domenia.ico": "ec032bf6a14eac2cc80073b376fe0364dda62f25d452c8c783c926b0c28e837f",
+    "dev/wad/Domenia.login-mode.cfg": "ef6691545d2c5523efed00424407cb261aeb0037d165ca5792f7f8bac3381362",
+    "dev/wad/Domenia.release.json": "81d57de67e2b02d685873141013f48a5e83669737d293d3b44433c7519a15aa3",
+    "dev/wad/Domenia.theme.cfg": "dbcd5e7bb7a0f538810de44c3efbd813037ee3fa358747bb71fa58e157af45f7",
+    "dev/wad/Domenia.ui-profile.cfg": "d0da7ab8bc927960b4ca3c6678137464baf9266c4fe3281f30e4769f6c4427db",
+    "dev/wad/Microsoft.ActiveDirectory.Management.dll": "1a6af7b8f8bce5b35ff873e2528746480c980526d86e38ca5acd04c2e9037157",
+    "dev/wad/PsExec.exe": "edfae1a69522f87b12c6dac3225d930e4848832e3c551ee1e7d31736bf4525ef",
+    "dev/wad/Support/.lifecycle.lock": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "dev/wad/Support/DEBLOQUER_TOUT.cmd": "eb9ca9bda1174d07227df29256b5a5b90c9514c7e120aa38a683a45016118b1d",
+    "dev/wad/Support/Debloquer-Paquet.ps1": "a62becf6cc25f85a0a21b6ce018fdc0826b43ec99d9897eb5e227967e8ba9454",
+    "dev/wad/Support/INSTALLER-MISE-A-JOUR.ps1": "8de2d1c4c8f3af56668412df44badb52166386514fed60991b42662aad13d8cd",
+    "dev/wad/modules/Domenia-Access.Model.ps1": "6c4cdda5e2d395d7824bca6f018061c66645a0012002e613de8f171f34781ae3",
+    "dev/wad/modules/Domenia-Access.UI.ps1": "d586df3becca3f804841816be122a3bbdea78e07aecb9b0adb186aad3c84b7ce",
+    "dev/wad/modules/Domenia-Accounts.Async.ps1": "91860b5746e5c356e3756793a494afd232bc6625400f0706d50daa73ad1c7d81",
+    "dev/wad/modules/Domenia-BoardComputer.UI.ps1": "5c7101fc3da5ef33a76922b1bced5726398885be5b15c4c7adffaace7b782ebd",
+    "dev/wad/modules/Domenia-BoardFleet.Model.ps1": "ef9d778b40d8b22e724212c4f4632e79fb8bec527016cd8d8df15a8c2f7b3dbd",
+    "dev/wad/modules/Domenia-BoardSoftware.Model.ps1": "a237aee00a6e5a071aff2ba71dc5cedc6a16aeff9ac35f20f7d6cde02feb8718",
+    "dev/wad/modules/Domenia-Boards.Model.ps1": "0299148739f6e7a2dddfeef16f5759fa04b5bd7c1379bd36a6fcb732a3ecd621",
+    "dev/wad/modules/Domenia-Cache.Model.ps1": "91eae39d0596f29779f7d9628c197b61098015db8e18c0385de317dc346a7054",
+    "dev/wad/modules/Domenia-Charts.UI.ps1": "6297f10d4c174db7deeca53b7848ec299ff3be30e53c7fb50059250c6635e70e",
+    "dev/wad/modules/Domenia-Clipboard.Native.cs": "172aac508c967e80b18ab427eda9157516d63c61315bf7a1febee62206e19adc",
+    "dev/wad/modules/Domenia-Common.Model.ps1": "db17c532a83a2f17d0218d4544b890431a3d1ebcd2e114dc0050a1d52626b3c7",
+    "dev/wad/modules/Domenia-CommonLibrary.json": "eb1f4941b72fd7a729d2ae4e99b4e103bfb8fd954a3094f930860e46229f4ef9",
+    "dev/wad/modules/Domenia-Continuity.Model.ps1": "74c3adbe8ccda07a3b5a05157813b57e545c623ba3b6cb9af9cceca6aa87073e",
+    "dev/wad/modules/Domenia-Continuity.UI.ps1": "910a5f75439a77eb5a396b49e11f30f200494508c8722669956a014ad4b14646",
+    "dev/wad/modules/Domenia-Dashboard.UI.ps1": "062da1094935988769f4e551419108663857ca7a1ea6a9b5e056ef84fb513089",
+    "dev/wad/modules/Domenia-Demo.Model.ps1": "b5bd808f5356bb2eb477b230067fe5cba981cffc997ca4ec46022ee074fa09b6",
+    "dev/wad/modules/Domenia-Demo.UI.ps1": "6717745c11ae231250fd4334359092f25c33f11a70cadcd0d1ee880bef634f7e",
+    "dev/wad/modules/Domenia-Demo.Worker.ps1": "4642d799e6ca86b459e4f8fb2ce186eb0b29c411e26216a23eff610d07018d0e",
+    "dev/wad/modules/Domenia-Directory.Model.ps1": "90a8f2f6685c7ff198c625d8ac245c58cc0b0921f55c93ba3ce815dd13327c92",
+    "dev/wad/modules/Domenia-Dossier.Model.ps1": "9d6d07cd0a9202d027139e022f7b34a7d05e0266401f6784570529f19ee4bcff",
+    "dev/wad/modules/Domenia-Dossier.UI.ps1": "620090e7ee794237f55e77442f2d41fe3d49d5b317459de808cb52a2277112fc",
+    "dev/wad/modules/Domenia-Embedded.UI.ps1": "7731a929fbe7baf96224c2c82dff7c5ee368c52eb07f079605e9661bec8b8b45",
+    "dev/wad/modules/Domenia-Engine.Model.ps1": "67ee24e9c67f0ea7fb08dbfa666e8a04107efc3d6677cc9644fc2a183a708db7",
+    "dev/wad/modules/Domenia-Engine.UI.ps1": "16097f29bf9c1af0f7b021e6379310548f6cfe541591acf11c048d86001d04f9",
+    "dev/wad/modules/Domenia-Engine.Worker.ps1": "bc77945fdeace25f3484399e0e000b89c70b103026d6d049962cf11e92e1670f",
+    "dev/wad/modules/Domenia-Experience.Model.ps1": "4b4397f5d6f358675d9a0018504b44e2b37345854aa677c7e299f1ed3503a239",
+    "dev/wad/modules/Domenia-Experience.UI.ps1": "f0dc58595e5484351e4f2f02e364b5f353194559829ef8663c24265f69dbaefc",
+    "dev/wad/modules/Domenia-Guard.Model.ps1": "cd305affcd81e9af750a4b20dcc4706e63ba3ca7ced54c18614673914f4b7b3f",
+    "dev/wad/modules/Domenia-Guard.UI.ps1": "210918db7f9463a78729d3e056b8fc2abe6c3793cd1b7d801247e021d0e34260",
+    "dev/wad/modules/Domenia-Identity.Types.cs": "25ec6fefe1bd669caffd81a9c10d7114722959e96d5e43677e08eeea4788ed1c",
+    "dev/wad/modules/Domenia-Inline.UI.ps1": "4c6d519ae76faddd4b1d5e26f40036c47b6699f7829facb2c5aef01baadb3685",
+    "dev/wad/modules/Domenia-Inline.xaml": "9fa6a241982efc6b48c4fdd0e2a8a0af025b0f3a88af241b0800eef537a2c0d1",
+    "dev/wad/modules/Domenia-Insight.Model.ps1": "6287ee0f3fe04f5d03e25e529bb1f4b056ece8f66c2de26872bcaa228c9de27a",
+    "dev/wad/modules/Domenia-Isolation.Worker.ps1": "dda9be0b91370ae8c23ca130198ff17c5bb3b4a0f584c8510588029d5c9e0a33",
+    "dev/wad/modules/Domenia-Live.Model.ps1": "f5e9b6c302a3d38f53461208521bba4a3e6081ea2f4fc3fa1d5251a84a01956b",
+    "dev/wad/modules/Domenia-Live.Types.cs": "4cfff3415e3e987475fd594e42d7dda9916b7a1d9d2aee17d597645c9421a126",
+    "dev/wad/modules/Domenia-Live.UI.ps1": "1514f0be4cd88c60822660d0f4cdd44f643bd6f8dd6a8cd6951fe83323f599fa",
+    "dev/wad/modules/Domenia-Migration.UI.ps1": "8998983aec38359c01d1877b52d2088696f5d2933faf6bacf2d26173d4365fcd",
+    "dev/wad/modules/Domenia-Migration.Worker.ps1": "6a361ec210dd38a269ad544980449c6d05e73dc4a6cc553ec4d3537f14a6ae5d",
+    "dev/wad/modules/Domenia-Operations.xaml": "160f370aed71dd74cdd87c3496fb7e4daccdbe461f53713539fff78f34705bec",
+    "dev/wad/modules/Domenia-Park.Model.ps1": "91a4cc09c315b45286cf1db3af62329f7cccb3ee46a0b222cf8f48141a822594",
+    "dev/wad/modules/Domenia-Park.UI.ps1": "6800d7276e0bc7926b5c33e2c2f46ef8414c3e9079379fa663bf142d574db6c9",
+    "dev/wad/modules/Domenia-Probes.Model.ps1": "9df125208a21b7ee474c8380047eda5ebfd96563e37d05b46c427e34314592bf",
+    "dev/wad/modules/Domenia-Query.Model.ps1": "a6086863c2477238fa854d76f1e3e6b46dbfd735b7a946b6e7b8a73eabedb7cd",
+    "dev/wad/modules/Domenia-Query.UI.ps1": "6fb267b47f986fc9ff2e50bb3154c9541f5eaf34d75637c568612bd930da3d06",
+    "dev/wad/modules/Domenia-Query.Worker.ps1": "0ba0a0a753e0eb6f9244b7584e8cc107ba459c5737256da4b9740d4f56643459",
+    "dev/wad/modules/Domenia-Query.xaml": "1b2b4577ce6c62e759279f3b9edcae77f2ee42bce379001bcd737b082875e8c2",
+    "dev/wad/modules/Domenia-QueryTargets.UI.ps1": "cad98fea95f3ff6e804b55ee320c45e6caa3128cf93b1aca29237150dabd2e10",
+    "dev/wad/modules/Domenia-Receipts.Worker.ps1": "d44a9dfb7b8eb7ab9db3f1806ce697c9236117121e2c5e054da1788c87b19a8d",
+    "dev/wad/modules/Domenia-Reconcile.UI.ps1": "3cf22706b2aca92bb71467bc1122ee155a2ebbc47c350cf5dc2aa8987021f9f7",
+    "dev/wad/modules/Domenia-Relations.Model.ps1": "a9a84746ae9e39a55b91c1ca4a015184b49dc43de3c43d61bbf22e4c6f2ed796",
+    "dev/wad/modules/Domenia-Relations.UI.ps1": "5f7c8e7b3608df3ae7ff5b99517fe6556f4cd27f4074f165aff956294a71ed11",
+    "dev/wad/modules/Domenia-Release.Model.ps1": "c47fcc6f008dbb513280bfee5b641e06d946360238eb95eccaef4f4bc2360545",
+    "dev/wad/modules/Domenia-Safety.Model.ps1": "00bcb6545d59458c727cc9dfb91f60a561d2a8dae01642fe438f9b6d3924d5e3",
+    "dev/wad/modules/Domenia-Search.Model.ps1": "496302678631db334c8fd6ae605405fac7fba2d770c0e4129abeaad9d3f479f8",
+    "dev/wad/modules/Domenia-Search.UI.ps1": "76753f075f072a06d48f8edee46ead04d8cfa6b01cb02c8641102a702ac987f1",
+    "dev/wad/modules/Domenia-Secrets.UI.ps1": "d885e02dde01d288f3f5f4c2bbf16851d5c675608fe3501005614d41726ee656",
+    "dev/wad/modules/Domenia-Secrets.Worker.ps1": "8f5b009eea769a9c81dc01b1ebd070f43dda1838908cc3476f8181165acb0f9e",
+    "dev/wad/modules/Domenia-Selection.UI.ps1": "9f216fbe3765dc4f6aa929e0c017b2d91ca456aa2712203371d002799287fa80",
+    "dev/wad/modules/Domenia-Sessions.Native.cs": "c70c809dba96d7651c90947e6af3c61f101c876c429ba7b0ff4ea884f21704f5",
+    "dev/wad/modules/Domenia-Sessions.UI.ps1": "61ff96da919dede8dbe956ccff814750fc2f986a3c61b597f9d869fae0f56809",
+    "dev/wad/modules/Domenia-Shell.Model.ps1": "685c73e9f81f2513800798ee2dc6b5d61c0b750bf6aa57f8becdde538aec9d74",
+    "dev/wad/modules/Domenia-Startup.UI.ps1": "a9f9d4c997b315c3d185cb6b62a2d80c4660c5cdee7d9cd3755d8f0765351805",
+    "dev/wad/modules/Domenia-Storage.UI.ps1": "c811e13f34df19d7de60bb8b20480a47bfa2c7cdd8871857eb7e217909215ea7",
+    "dev/wad/modules/Domenia-Storage.Worker.ps1": "9627d0dc9cf8c110898908db2fd94c8de25a0085b5f716efaa9354d272d2c134",
+    "dev/wad/modules/Domenia-Support.Model.ps1": "dc86fbe76c2a30663223b3ac11d29ccc38db3f6080d2e4be3569e25a8406b3a6",
+    "dev/wad/modules/Domenia-Support.UI.ps1": "4e468d6396eea16c46228a787733bbbf0e1d8378f7730289fd6640b8cd90dff2",
+    "dev/wad/modules/Domenia-Support.xaml": "8126bc5968458d7b2d81977b36f76c2be66c035cdf0e6ab9ad54855f83a62620",
+    "dev/wad/modules/Domenia-UX.UI.ps1": "fc7743569cd4e9932358a6986de979423499be43dfbf815e2b308e6b50dfb3ae",
+    "dev/wad/modules/Domenia-UX.help.json": "e0485b7f50adde61ea8db04fe72be37f13bf57a7044eca2d1678ddfab82aa51c",
+    "dev/wad/modules/Domenia-Widgets.UI.ps1": "7710277e0a1ea9c2edf6a0fc585da2e97ae7f3518e82ddf3a8b5b0a1d034ba24",
+    "dev/wad/modules/Domenia-WindowsLifecycle.json": "278fcb9733ddf1117ac984a99dfc98dc925abdd37e1edf6f999a9a8e7daaf50c",
+    "dev/wad/modules/Domenia-Workstation.Model.ps1": "f9bdf0580b09964af9bdc9d229b28e683c6691897399a97c68563395b2788cf3",
+    "dev/wad/modules/Domenia.Native.dll": "aa610389684a1415e0cefef0fc33fe0ce961b57b921c1a6319cae06f2eca1aad",
+    "dev/wad/modules/M4D.Admin.Common.Query.dll": "269b7d1cbdd6ab42062a75e0ca4a45876b3ff0eae4cbf730acf91a12828bd7ca",
+    "dev/wad/modules/SupportSuite.UI.json": "6344bce415c26cf50d725e6adc70bf669cc54746cc59482155a9c37e80e6e3be",
+    "dev/wad/tests/Test-Domenia.ps1": "106306e7ac1f2585bf18f33e585996156f546813793fc3f3a828085dfdc290f5",
+    "dev/wad/tests/Test-DomeniaAccounts.ps1": "50b00242b4217fa732d866506e619a216a5ea09d74084d83de60d46c49e9dcce",
+    "dev/wad/tests/Test-DomeniaAcl.ps1": "41e9d7a75d458486b3eef4903278a749451bcfefc4e6235ff64e4e927e1f9333",
+    "dev/wad/tests/Test-DomeniaActivityLayout.ps1": "44aa129146e9c4ae8b9ee35d51be6627ce629aa0296524a45ff15c7a56709109",
+    "dev/wad/tests/Test-DomeniaBoards.ps1": "5c88776eb284d608ac1e35c687149ecf8fac5eccaec92f4f10a183540e8979ac",
+    "dev/wad/tests/Test-DomeniaCandidate.ps1": "18f4ae0657947088e32ef168a3d73980bbb01866f7b9ac6e6802640632d5c6d1",
+    "dev/wad/tests/Test-DomeniaCompactUi.ps1": "f6addc77b9e03978c462e16bc60b33e6dfc6ea94b710f69d3fe36ee3bffb990e",
+    "dev/wad/tests/Test-DomeniaDnScopes.ps1": "4d5cfb9806b76d5c5020832952c1223cbe26e3d864a38406989881e7624f6085",
+    "dev/wad/tests/Test-DomeniaEmbeddedUi.ps1": "b13cc7041e602b18c9d810418b31142dbd7d05e78d120d0d4b27d9bd4b112e0a",
+    "dev/wad/tests/Test-DomeniaEngineLoad.ps1": "1f3899a71b8319052669158c89f6a046220b1cef63df6ade8abc3a601bc3ee91",
+    "dev/wad/tests/Test-DomeniaEngineResilience.ps1": "4e5cb21927562b26634f855352e0b58dfdb65e51fa9df37ac9af79b696145d81",
+    "dev/wad/tests/Test-DomeniaExperience.ps1": "7e560a4e5acacf4a12efd1d8d2a836a4b29866c3ff6dca4010b7ce3eefcb4e8f",
+    "dev/wad/tests/Test-DomeniaFaults.ps1": "f0a54f49c1be88a37a4206c4fbb8617c6d3690f3a460258254993eb7e8efed99",
+    "dev/wad/tests/Test-DomeniaGeometry.ps1": "6e00547a2d49b951c3c5e88ca3d654c2098f74d6f8635c778685ffc14959c6d8",
+    "dev/wad/tests/Test-DomeniaIndexActions.ps1": "952278b7da126fcdf932ea0f8dc18d5c46ad8e56d4d9d8a558caddde6b515d51",
+    "dev/wad/tests/Test-DomeniaIndexPersistence.ps1": "1f210fd693977427d82d5ecf46f67aa8c3f9dc4d93bbb3f77bd17a92b42b75f3",
+    "dev/wad/tests/Test-DomeniaIndexSorting.ps1": "7f0eceb43ddef315524654da9a5deb57bb80b2cb1053faacf41d24d8624a1035",
+    "dev/wad/tests/Test-DomeniaInstaller.ps1": "9d38b8792c3d64ca59ded0d4f5a1f7169ce86a00cedbe873505ed8e1c049a238",
+    "dev/wad/tests/Test-DomeniaInterface.ps1": "6a4984fd1681ac94fea89da791e6bdafa513b84661712ddec8ea6d92a1c83768",
+    "dev/wad/tests/Test-DomeniaLastUser.ps1": "ba24a2cd457bcc3d69545b3ec19aefe703c9cc1f6707212285034d2bff7b349d",
+    "dev/wad/tests/Test-DomeniaLiveSearchView.ps1": "2ce676a2f3f79df3127468856e94ba7ccd7d3cf6307fbeaf47b0a7292dd4e910",
+    "dev/wad/tests/Test-DomeniaLogin.ps1": "f306f888a1de498de6d17a7c58d869be1e06aacf8cddd74d5ec5019360299266",
+    "dev/wad/tests/Test-DomeniaLoginForeground.ps1": "6f99b746b3c164c2ba4ad2735c8f6d30daffac4e5f37e952f9ee821b418d89a1",
+    "dev/wad/tests/Test-DomeniaModules.ps1": "0b3a5eb84770cae9f44e042d1a843b78af3167384320a1d268ef0332487639f7",
+    "dev/wad/tests/Test-DomeniaNative.ps1": "81d9ea4a15455089699dd5971c4194e75d19517e09f34627a8c05b1c36308848",
+    "dev/wad/tests/Test-DomeniaParkDetection.ps1": "e3d67804a8da9e562574d0cf1f4b6fa1e28b39e7c4177da1b1cbb84212e0b798",
+    "dev/wad/tests/Test-DomeniaPreload.ps1": "45e6202ecd3afc2dca89395dfbaae920e763d4ae4071821e9c023ce0120789c2",
+    "dev/wad/tests/Test-DomeniaQuery.ps1": "15058c9977d0590e2b36534bccbcb77c0cdd22a0e692aea437beb218034be545",
+    "dev/wad/tests/Test-DomeniaQueryTargets.ps1": "70f11b0715d2831cf04bef84e93fab0a2c4b1c2f206cf4c7ec65d423533c39bd",
+    "dev/wad/tests/Test-DomeniaQueryTemplates.ps1": "329b4cc97ed73a31b60bdac08146b09fad8943760de9bf55d745c7001c03ad09",
+    "dev/wad/tests/Test-DomeniaRegressions.ps1": "8e5571ad7aef37bfac145b0bc27518a076137d069c2b3408a288f18c40be822e",
+    "dev/wad/tests/Test-DomeniaRelationsAlignment.ps1": "640475cfbd75dcf7c88f49e137530b47229bc8734b36db16f2fae36a402e66e2",
+    "dev/wad/tests/Test-DomeniaRelease.ps1": "f6b0469f5e6fb309a0edcac2f6cca7bff5cc81eb9dcd5a8b7cc45c0b440584d4",
+    "dev/wad/tests/Test-DomeniaRemote.ps1": "f8431b400754078ec451e4d13b455554a6bc4af536a794167091210d8b9194fd",
+    "dev/wad/tests/Test-DomeniaRules.ps1": "c12a6e7185a3ab30556a0c0c0c704dbbcdd8f594862ffaebfbc22d0717648272",
+    "dev/wad/tests/Test-DomeniaScale.ps1": "4407956ccfb6a20c14b93aec4ad8a55dc37e69fe63baf6d1614535a21c8dcb58",
+    "dev/wad/tests/Test-DomeniaSearchPresence.ps1": "67c40301da8aced53a7a911141cf5755e379a442d16ee1d4173c132439b8b403",
+    "dev/wad/tests/Test-DomeniaSearchScope.ps1": "26a3be8dcc769c46eede09d8b722ecc77d795793aaf5d1ee0e6a7b94517d2948",
+    "dev/wad/tests/Test-DomeniaSelection.ps1": "de2f0d87bb1930af19779784107ea69f709f7e631b924239d84a98023ed58c3c",
+    "dev/wad/tests/Test-DomeniaSelectionIdentity.ps1": "f999d55d53f1c13cc00065086e582d48a87575f950da16e39bcc5d20cace8f7c",
+    "dev/wad/tests/Test-DomeniaStableUi.ps1": "4894e307f4d44790ff2225f4a44cd0ebf1f637d7b6455c6ee40211c518199bac",
+    "dev/wad/tests/Test-DomeniaStartupLogin.ps1": "10ceb229e92426eba6894939c688ef78077062f77b950e31e767a9bf90bf5fa1",
+    "dev/wad/tests/Test-DomeniaStreaming.ps1": "3b4947cbc9834996ccbc30e52e163fda8f7571e2f223633efedefc718b5822e6",
+    "dev/wad/tests/Test-DomeniaSupport.ps1": "926a4e9085898882f0e7d77ac7bf031edeb929d7ef42a9a547304b16d7d34f8d",
+    "dev/wad/tests/Test-DomeniaTheme.ps1": "65dcafe0bccb0a29488e68912c26b5f13e99c7dc694afc4d43a5104c5f6ee86a",
+    "dev/wad/tests/Test-DomeniaUxRefinements.ps1": "597041a1a021795f33772b273a197cbd5fc9a64ddbfa02d6172e08c13b04896d",
+    "dev/wad/tests/Test-DomeniaWiringAcces.ps1": "869a0df8745ac6f82d070752143f6dde7a906485c3af660059d259ca6ac214ea",
+    "dev/wad/tests/Test-DomeniaWiringCache.ps1": "d850ba27fe35859c03d241ef016d9d9ae28dd3731e19eb7bec0d808ee5eae6a9",
+    "dev/wad/tests/Test-DomeniaWiringEcritures.ps1": "8473c62861c28966edfd4cbe93f7b371d064ddbd63c2a30b31a9704530c2f010",
+    "dev/wad/tests/Test-DomeniaWiringInline.ps1": "bbc19445880161eff5ab2ada331b9723b787a974a6d7e5b3ab55da7052195109",
+    "dev/wad/tests/Test-DomeniaWiringInterface.ps1": "1fcdfc6215a7dfe0c03fd9d0663c863a71428beb72691831a3539d98197ef0bd",
+    "dev/wad/tests/Test-DomeniaWiringMoteur.ps1": "98dc106a5114d29c49d33563b9bba4d41b55e4b6a66d7e7cce474332639cc83f",
+    "dev/wad/tests/Test-DomeniaWiringRecherche.ps1": "effe916bc5ebc708de013675c37ee8007f756a1312e54c63283922d372db0ed9",
+    "dev/wad/tests/Test-DomeniaWiringRelations.ps1": "50b566a7b5f7b5e30e804c69d915619b4e21f3b23aea74b9dd9edc1d4426633a",
+    "dev/wad/tests/Test-DomeniaWiringSuites.ps1": "8c12f28acd67e309879d408481ea93a0adb4eda55ca2b2ec19964a2ac45a2471",
+    "dev/wad/tests/audit_compact_ui.py": "46fe1b9b2ae42bcb958d2638d21cb4739be11bcaaf6a40776185d259a3757aa9",
+    "dev/wad/tests/audit_login.py": "9293579c3b571ae5c73bd06169fc1ee18bd155fd5daf66f78ed674051b7ddc09",
+    "dev/wad/tests/audit_login_native.py": "183924c7ef2b978357a3aa5446e523628a9258b8540571d81dd438b5c1992c26",
+    "dev/wad/tests/audit_project.py": "c7fca56c3d3535f49610a72861d547d353801ff4d0447c537e2a697f86f0e461",
+    "dev/wad/tests/audit_search_scope.py": "8dfecba001f56fb898103e3417a211dad9e393b42b578ac2e0e298afd3f43f1f",
+    "dev/wad/tests/audit_support.py": "d5591c85cc6fe6183fbdb04210e090074af43399f10391ff7633740e8bcbbec3",
+    "dev/wad/tests/audit_theme.py": "a81f926bb61f1c9cae0c7075f40af926bc1f63df844934de6619a157a49eafab",
+    "dev/wad/tests/audit_ui.py": "987249055003c1251b6dd1bf49cde56d82fe8dd22840a75b037ab761229aa3a0",
+    "dev/wad/tests/fixtures/AuthProbe-R1.7.1.ps1": "bf0ab379b1404d578ea0fc81611dcda2f89865df52a9d0c32769579b9600167c",
+    "dev/wad/tests/fixtures/AuthProbe-R1.7.ps1": "3ef4646a519b361efcbf3fb42a63ed2f9ce7ed50dff1bade24230c22a504d116",
+    "dev/wad/tests/fixtures/Domenia-AdFixtures.ps1": "fbb0d35480ce45e2a8f740710c2e30ca85d8421e5abf1b6241bec4bc2747d60f",
+    "dev/wad/tests/fixtures/RC1.1-ModuleImports.ps1": "7f8f402e3b28f9bda9731a93f9208e618e041d4818c9470f974ce535bd325c77",
+    "dev/wad/tests/fixtures/RC1.4-Initialize-AsyncEngine.txt": "25844ce132adc462dadba9efcfaa44395d3c457bafcbbdabf2d3d453559bc8f1",
+    "dev/wad/tests/fixtures/RC1.6-PageHeader.xaml.txt": "e7aefbe01ff9eda2f45b932a156185d9c56d8cd964d4be32788710b2449935ee",
+    "dev/wad/tests/powershell_lex.py": "bc5c7dd9df98a74a3f69b615f474202598302d8f5dab680af95e66f54beef78a",
+    "dev/wad/tests/rules/Access.Tests.ps1": "4c12c08deb6adcf0023966443ca16d4bb070f7768b6d167f583746d455ebe31e",
+    "dev/wad/tests/rules/BoardFleet.Tests.ps1": "3c59f5cb1946d320a2e631e85d2db18263c543d4b929c41000210d20932698e4",
+    "dev/wad/tests/rules/BoardSoftware.Tests.ps1": "715e7e15c5774969924d4644fc0cba4cde47d205dcf634eecd85dcc9d639a416",
+    "dev/wad/tests/rules/Boards.Tests.ps1": "8fc12fd286aacded804080c79c373169f8a7f698c5e5cce1ab174b92da5774d3",
+    "dev/wad/tests/rules/Cache.Tests.ps1": "53a751f63bf0844478f7ff060e88f1c58a1997bf8214a649acfb2a9b61f3037c",
+    "dev/wad/tests/rules/Directory.Tests.ps1": "e430cc0ce8f690667d3597bc3fb643e5d0f8b74b8f394668dbb270f7445282c8",
+    "dev/wad/tests/rules/Engine.Tests.ps1": "bf3cf7e486d895c4f53dcba7188c7f5ee74848cb3ceaab90c83b4f0d34ad459a",
+    "dev/wad/tests/rules/Fixtures.Tests.ps1": "2f19e812027c99adbb243c851b76a5149385bf69da3d8d7889989570d882e415",
+    "dev/wad/tests/rules/Insight.Tests.ps1": "23b4ca2de1dce79a69de4e8f1ffc71f3685015a631370ef5798de404c3bfa2ff",
+    "dev/wad/tests/rules/Live.Tests.ps1": "5d871e5170f93be2cf24a72507b70274612fddd29412af5d72c9047002fb77e2",
+    "dev/wad/tests/rules/Probes.Tests.ps1": "ac1fbe359f32cb04387aab50807e6385ffffa9b95e152c2df356943a0962b5b9",
+    "dev/wad/tests/rules/Races.Tests.ps1": "9053aef52ab3c679541cf1ccb8d066541da432de267ced5e057e3111456cbb48",
+    "dev/wad/tests/rules/Relations.Tests.ps1": "a5b373ec003417a8a6546feb5d8a1141de7dec9c0fd062d5417ee857d658c0ad",
+    "dev/wad/tests/rules/Release.Tests.ps1": "52cae2ec922b32134d905b9b8b1e5ba1c3730dc57bcd02db9af68f639607061e",
+    "dev/wad/tests/rules/Safety.Tests.ps1": "e50854b5d5a3c453f7f5cf893d0846d1faa01caae6fb3a54ee8447209c63f566",
+    "dev/wad/tests/rules/Search.Tests.ps1": "d58ccb1b5650eaa3e3d51e425d61e13b78e41597779cb0dd81969dc25156855b",
+    "dev/wad/tests/rules/Shell.Tests.ps1": "f7e851d90f3b011e2f914f26d5db2726295487b1904a77a6cef3f6ffce77a651",
+    "dev/wad/tests/rules/Workstation.Tests.ps1": "8899b6151821a748405ea55fe1d8eb7dbcf433ee5a3774b3110088973b9c0226"
+  },
+  "query_ui_document_snapshot_sha256": {
+    "DOC/Domenia-1.0-Guide-technicien.docx": "662e4696a60dd9a29bb5d4f7acfb952d57aa06e8157412b1cc8d9921376c2be4",
+    "DOC/Domenia-1.0-Guide-technicien.pdf": "9d8c0c106fb8a68475dd6cd77ea59d06f8e5b8113008bfa4995a2f2cbfa1912c",
+    "DOC/Domenia-1.0-Guide-administrateur.docx": "9ce02fb5b94d2f936b33355896561aeccf1198c81da380a6e15bd9232a8f6bc4",
+    "DOC/Domenia-1.0-Guide-administrateur.pdf": "44a71fd0b93754259bf7db925187be0bcfb13b4fa5cc80843a506e705f741162"
+  },
+  "query_ui_review_note": "Original 30 points, original counts, prior evidence and source snapshots remain unchanged. Additional A08–A12 and current delivery are tied to the final quick Windows campaign; historical GitHub publication is not a receipt for this new build."
 }

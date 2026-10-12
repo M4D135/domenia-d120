@@ -89,7 +89,7 @@ function Complete-DomeniaParkTargets {
         $r.Loading=$false;$r.Targets=@($packet.Rows|Where-Object{$null -ne $_})
         if($r.Stopping -or -not $r.Targets.Count){$r.Completed=$true;Update-DomeniaParkRunStatus;return}
         $start=${function:Start-DomeniaParkRunTimer};$stop=${function:Stop-DomeniaOnlinePark};$runId=$r.Id
-        $message=$r.Targets.Count.ToString()+$(if($r.Scope -eq 'Results'){' postes dans les resultats affiches.'}elseif($r.ScopeLabel){' postes de '+[string]$r.ScopeLabel+'.'}else{' postes du perimetre choisi.'})+' Lecture legere de la console Windows (CIM/DCOM), '+$r.Concurrency+' postes au maximum a la fois. Seuls les comptes nouveaux ou modifies sont resolus dans AD. Les sessions RDP ne sont pas recensees. Associations et cache conserves entre les lancements ; aucun inventaire complet, aucune tache distante.'
+        $message=$r.Targets.Count.ToString()+$(if($r.Scope -eq 'Results'){' postes dans les resultats affiches.'}elseif($r.ScopeLabel){' postes de '+[string]$r.ScopeLabel+'.'}else{' postes du perimetre choisi.'})+' Lecture legere de la console Windows (CIM/DCOM), '+$r.Concurrency+' postes au maximum a la fois. Identité AD revérifiée après cinq minutes, ou dès quʼun changement est connu. Les sessions RDP ne sont pas recensees. Associations et cache conserves entre les lancements ; aucun inventaire complet, aucune tache distante.'
         if($r.Inventory){$message=$r.Targets.Count.ToString()+' postes'+$(if($r.ScopeLabel){' de '+$r.ScopeLabel}else{' dans les resultats affiches'})+'. Ping, utilisateur console et releve WMI leger (modele, memoire, disque C:, build, demarrage)'+$(if(@($r.Probes).Count){', plus '+@($r.Probes).Count+' requete(s) WMI des widgets'}else{''})+', en lecture seule ; '+$r.Concurrency+' postes au maximum a la fois. Associations actualisees si l utilisateur change ; resultats conserves pour les tableaux de bord.'}
         elseif(@($r.Probes).Count){$message=$r.Targets.Count.ToString()+' postes'+$(if($r.ScopeLabel){' de '+$r.ScopeLabel}else{''})+'. '+@($r.Probes).Count+' requete(s) WMI des widgets en lecture seule, plus ping et utilisateur console ; '+$r.Concurrency+' postes au maximum a la fois. Resultats conserves pour les tableaux de bord.'}
         elseif($r.ScopeLabel){$message=$r.Targets.Count.ToString()+' postes de '+$r.ScopeLabel+'.'+$(if($r.PingOnly){' Ping ICMP seulement.'}else{' Ping puis utilisateur console ; associations actualisees si changement.'})}
@@ -150,7 +150,7 @@ function Invoke-DomeniaParkRunTick {
     $plan=New-DomeniaCollectionPlan -Previous $target.Previous -Guid $target.Guid -Key $target.Key -Probes @($r.Probes) -Inventory ([bool]$r.Inventory) -CacheMinutes ([int]$r.CacheMinutes)
     $state=[pscustomobject]@{RunId=$r.Id;Epoch=$r.Epoch;Path=$r.Path;Target=$target;Job='';Plan=$plan}
     try{
-        $id=Start-UiTask -Name ($(if($r.PingOnly){'Ping de la liste : '}else{'Console du parc : '})+$target.Computer) -OperationId 'LiveConsole' -Code (Get-DomeniaLiveProbeCode) -Payload ([pscustomobject]@{Computer=$target.Computer;Key=$target.Key;Guid=$target.Guid;Previous=$target.Previous;MethodSeconds=4;ProbeUser=(-not [bool]$r.PingOnly);Inventory=([bool]$plan.Inventory -and -not [bool]$r.PingOnly);Probes=$(if([bool]$r.PingOnly){@()}else{@($plan.Probes)});AllowedClasses=@(@(Get-DomeniaProbeCatalog)|ForEach-Object{[string]$_.Class})}) -CallbackState $state -SuccessHandler 'Complete-DomeniaParkSession' -ErrorHandler 'Fail-DomeniaParkSession' -TimeoutSeconds $(if(@($r.Probes).Count){[Math]::Min(150,20+8*@($r.Probes).Count)}else{20}) -TaskClass 'Explicit'
+        $id=Start-UiTask -Name ($(if($r.PingOnly){'Ping de la liste : '}else{'Console du parc : '})+$target.Computer) -OperationId 'LiveConsole' -Code (Get-DomeniaLiveProbeCode) -Payload ([pscustomobject]@{Computer=$target.Computer;Key=$target.Key;Guid=$target.Guid;Previous=$target.Previous;AllowIdentityCache=([int]$r.CacheMinutes -gt 0);MethodSeconds=4;ProbeUser=(-not [bool]$r.PingOnly);Inventory=([bool]$plan.Inventory -and -not [bool]$r.PingOnly);Probes=$(if([bool]$r.PingOnly){@()}else{@($plan.Probes)});AllowedClasses=@(@(Get-DomeniaProbeCatalog)|ForEach-Object{[string]$_.Class})}) -CallbackState $state -SuccessHandler 'Complete-DomeniaParkSession' -ErrorHandler 'Fail-DomeniaParkSession' -TimeoutSeconds $(if(@($r.Probes).Count){[Math]::Min(150,20+8*@($r.Probes).Count)}else{20}) -TaskClass 'Explicit'
         if(-not $id){throw 'Lecture non admise.'}
         $state.Job=[string]$id;$r.Pending[[string]$id]=$state;$r.Next++
     }catch{$r.Stopping=$true;[void](Set-DomeniaControlText 'LblParkStatus' ('Releve interrompu : '+$_.Exception.Message+' Les resultats precedents sont conserves.'))}
@@ -165,7 +165,13 @@ function Complete-DomeniaParkSession {
     if($null -eq $packet -or [string]$packet.Key -cne [string]$State.Target.Key -or [string]$packet.Guid -ine [string]$State.Target.Guid -or [string]$packet.Computer -ine [string]$State.Target.Computer){$r.Failed++;$r.Stopping=$true;Clear-DomeniaParkTargetBuffers @($State.Target);Update-DomeniaParkRunStatus;return}
     if(-not $r.PingOnly -and $null -ne $State.PSObject.Properties['Plan']){$r.CachedMeasurements += [int]$State.Plan.Reused}
     $r.Done++;if($packet.Presence -eq 'En ligne'){$r.Online++}
-    if(-not $r.PingOnly -and $packet.Outcome -notin @('Observed','NoConsole')){$r.Failed++}
+    $measurementFailed=[bool]([string](Get-DomeniaMemberValue $packet 'InventoryError'))
+    $probeResults=Get-DomeniaMemberValue $packet 'Probes'
+    if($null -ne $probeResults){foreach($property in $probeResults.PSObject.Properties){
+        $value=$property.Value
+        if([string](Get-DomeniaMemberValue $value 'Error') -or [bool](Get-DomeniaMemberValue $value 'Truncated')){$measurementFailed=$true;break}
+    }}
+    if(-not $r.PingOnly -and ($packet.Outcome -notin @('Observed','NoConsole') -or $measurementFailed)){$r.Failed++}
     if($packet.Outcome -eq 'AuthRejected' -or $packet.DirectoryAuthRejected){$r.Stopping=$true}
     if($packet.CacheReused){$r.Reused++}
     $observation=ConvertTo-DomeniaParkSession $packet $State.Target.Previous

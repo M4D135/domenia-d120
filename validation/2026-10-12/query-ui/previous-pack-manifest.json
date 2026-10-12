@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "product": "Domenia",
+  "version": "1.0",
+  "build": "2026.10.12-DOMENIA-1.0-RC1.17.1-D120",
+  "source_base_commit": "fc4b9560e5cee10dd3e1f3613dc8fedadccbee56",
+  "archives": [
+    {
+      "edition": "PROD",
+      "path": "packs/Domenia_PROD.zip",
+      "bytes": 2048573,
+      "sha256": "e5866bed490f81abff83a1a3b4022d67148e37f4b395083e87c6019bb07e7daa",
+      "files": 91,
+      "archive_root": "prod/"
+    },
+    {
+      "edition": "DEV",
+      "path": "packs/Domenia_DEV.zip",
+      "bytes": 4261196,
+      "sha256": "4773c36e0dbdfe31f2a0ddfeaa50845b21704102e81378305c9a52cdf644f3cb",
+      "files": 377,
+      "archive_root": "dev/"
+    }
+  ],
+  "runtime_files_identical": 91,
+  "qualification": {
+    "windows_proof": "validation/2026-10-12/search-regression/qualification.json",
+    "scope": "Windows PowerShell 5.1, données fictives, WPF session 0 ; qualification AD réelle non effectuée.",
+    "formal_windows_qualification": "NOT_EVALUATED",
+    "formal_publishable": false,
+    "windows_suites_passed": 19,
+    "regression_cases_passed": 11,
+    "regression_assertions_passed": 62,
+    "regression_test_sha256": "f4f5e21863d9f654b9ef74d4bfb4a0ea7f773d96b0f7cd6ec75db97eb075f9b1"
+  }
+}

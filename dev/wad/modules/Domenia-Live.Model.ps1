@@ -179,7 +179,7 @@ function Get-DomeniaLiveProbeCode {
     return @'
 $target=[string]$Payload.Computer
 if($target.Length -gt 253 -or $target -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$'){throw 'Cible distante invalide.'}
-$answer=[ordered]@{Key=[string]$Payload.Key;Guid=[string]$Payload.Guid;Computer=$target;Outcome='Unavailable';User='';Source='CIM/DCOM · Win32_ComputerSystem.UserName';Detail='';Presence='Non vérifié';PresenceCheckedUtc='';PresenceDetail='';LinkUser='';UserDn='';UserGuid='';UserUsn='';CacheReused=$false;DirectoryAuthRejected=$false}
+$answer=[ordered]@{Key=[string]$Payload.Key;Guid=[string]$Payload.Guid;Computer=$target;Outcome='Unavailable';User='';Source='CIM/DCOM · Win32_ComputerSystem.UserName';Detail='';Presence='Non vérifié';PresenceCheckedUtc='';PresenceDetail='';LinkUser='';UserDn='';UserGuid='';UserUsn='';IdentityCheckedUtc='';CacheReused=$false;DirectoryAuthRejected=$false}
 $cim=$null;$ping=$null
 function Get-NativeCode($ErrorValue){
     $ex=$ErrorValue.Exception
@@ -243,6 +243,7 @@ try{
             $os=Get-CimInstance -CimSession $cim -ClassName Win32_OperatingSystem -Property Caption,BuildNumber,LastBootUpTime -OperationTimeoutSec $timeout -ErrorAction Stop
             $system=Get-CimInstance -CimSession $cim -ClassName Win32_ComputerSystem -Property Manufacturer,Model,TotalPhysicalMemory -OperationTimeoutSec $timeout -ErrorAction Stop
             $disk=Get-CimInstance -CimSession $cim -ClassName Win32_LogicalDisk -Filter "DeviceID='C:'" -Property Size,FreeSpace -OperationTimeoutSec $timeout -ErrorAction Stop
+            if($null -eq $os -or $null -eq $system){throw 'Le fournisseur CIM nʼa pas retourné les informations système demandées.'}
             $answer.Inventory=[pscustomobject]@{OsCaption=[string]$os.Caption;Build=[string]$os.BuildNumber;LastBootUtc=$(try{([datetime]$os.LastBootUpTime).ToUniversalTime().ToString('o')}catch{''});Manufacturer=([string]$system.Manufacturer).Trim();Model=([string]$system.Model).Trim();RamBytes=$(if($null -ne $system -and $null -ne $system.TotalPhysicalMemory){[double]$system.TotalPhysicalMemory}else{$null});DiskSize=$(if($null -ne $disk -and $null -ne $disk.Size){[double]$disk.Size}else{$null});DiskFree=$(if($null -ne $disk -and $null -ne $disk.FreeSpace){[double]$disk.FreeSpace}else{$null});CheckedUtc=[datetime]::UtcNow.ToString('o')}
         }catch{$answer.InventoryError=[string]$_.Exception.Message}
     }
@@ -252,52 +253,68 @@ try{
         $since=@{'{SINCE_24H}'=(Get-Date).AddHours(-24).ToUniversalTime().ToString('yyyyMMddHHmmss.000000+000');'{SINCE_7D}'=(Get-Date).AddDays(-7).ToUniversalTime().ToString('yyyyMMddHHmmss.000000+000')}
         $probeResults=[ordered]@{}
         $allowedClasses=@();if($null-ne$Payload.PSObject.Properties['AllowedClasses']){foreach($allowedClass in @($Payload.AllowedClasses)){if(-not[string]::IsNullOrWhiteSpace([string]$allowedClass)){$allowedClasses+=[string]$allowedClass}}}
-        $productType=$null;$productTypeRead=$false;$probeReadCache=@{}
+        $productType=$null;$productTypeRead=$false
+        # Build the plan once. Namespace/class/property names are case-insensitive, but filter values
+        # must remain byte-for-byte identical: different string literals must not share a result.
+        $groups=[Collections.Generic.Dictionary[string,object]]::new([StringComparer]::Ordinal)
+        $planned=[Collections.Generic.List[object]]::new()
         foreach($probe in @($Payload.Probes)){
             $entry=[ordered]@{Rows=@();Count=0;Error='';Truncated=$false;CheckedUtc=[datetime]::UtcNow.ToString('o')}
             try{
-                # SE-03 : la classe doit appartenir au catalogue transmis par le client. Une charge utile fabriquee
-                # ailleurs ne peut pas faire lire CIM_Product au poste ; sans catalogue, aucune sonde ne part.
-                if(-not$allowedClasses.Count){throw 'Catalogue de sondes absent de la charge utile : lecture refusee.'}
+                # Only validated, eligible catalog probes contribute properties to a shared read.
+                if(-not $allowedClasses.Count){throw 'Catalogue de sondes absent de la charge utile : lecture refusee.'}
                 if($allowedClasses -notcontains [string]$probe.Class){throw ('Classe absente du catalogue de sondes : '+[string]$probe.Class)}
                 if([string]$probe.Class -notmatch '^[A-Za-z0-9_]+$' -or [string]$probe.Namespace -notmatch '^[A-Za-z0-9_\\]+$'){throw 'Requete refusee.'}
-                # FI-17: a query flagged for the controllers never runs on one (ProductType 2), where it would walk the directory.
+                $properties=@(@($probe.Properties)|Where-Object{[string]$_ -match '^[A-Za-z0-9_]+$'})
+                if(-not $properties.Count){throw 'Aucune propriete valide pour cette sonde : lecture refusee.'}
+                # Do not walk controller providers, and do not merge their properties into another probe.
                 if([string]$probe.Skip -eq 'DomainController'){
-                    if(-not $productTypeRead){$productTypeRead=$true;try{$productType=[int]@(Get-CimInstance -CimSession $cim -ClassName Win32_OperatingSystem -Property ProductType -OperationTimeoutSec $timeout -ErrorAction Stop)[0].ProductType}catch{$productType=$null}}
+                    if(-not $productTypeRead){$productTypeRead=$true;try{$observedProductType=[int]@(Get-CimInstance -CimSession $cim -ClassName Win32_OperatingSystem -Property ProductType -OperationTimeoutSec $timeout -ErrorAction Stop)[0].ProductType;if($observedProductType -in @(1,2,3)){$productType=$observedProductType}}catch{$productType=$null}}
                     if($null -eq $productType){throw 'Type de systeme non lu : requete ignoree par prudence.'}
                     if($productType -eq 2){$entry.Skipped='DomainController';$probeResults[[string]$probe.Id]=[pscustomobject]$entry;continue}
                 }
-                $properties=@(@($probe.Properties)|Where-Object{[string]$_ -match '^[A-Za-z0-9_]+$'})
                 $filter=[string]$probe.Filter;foreach($token in $since.Keys){$filter=$filter.Replace($token,$since[$token])}
-                $query=@{CimSession=$cim;Namespace=[string]$probe.Namespace;ClassName=[string]$probe.Class;OperationTimeoutSec=[Math]::Max(10,$timeout);ErrorAction='Stop'}
-                # Several widgets can read the same class/filter: one CIM read with the union of required properties.
-                $cacheKey=[string]$probe.Namespace+'|'+[string]$probe.Class+'|'+$filter
-                if(-not $probeReadCache.ContainsKey($cacheKey)){
-                    $union=[Collections.Generic.List[string]]::new()
-                    foreach($peer in @($Payload.Probes)){
-                        $peerFilter=[string]$peer.Filter;foreach($token in $since.Keys){$peerFilter=$peerFilter.Replace($token,$since[$token])}
-                        if([string]$peer.Namespace -ine [string]$probe.Namespace -or [string]$peer.Class -ine [string]$probe.Class -or $peerFilter -cne $filter){continue}
-                        foreach($property in @($peer.Properties)){if([string]$property -match '^[A-Za-z0-9_]+$' -and -not $union.Contains([string]$property)){$union.Add([string]$property)}}
-                    }
-                    if($union.Count){$query.Property=$union.ToArray()}
-                    if($filter){$query.Filter=$filter}
-                    # Count the complete CIM stream, retaining only the detail rows we can display.
-                    # Event logs/process providers may return hundreds of thousands of instances.
-                    try{
-                        $details=[Collections.Generic.List[object]]::new();$instanceCount=0L
-                        Get-CimInstance @query | ForEach-Object {
-                            if($null -ne $_){$instanceCount++;if($details.Count -lt 20){$details.Add($_)}}
-                        }
-                        $probeReadCache[$cacheKey]=[pscustomobject]@{Items=$details.ToArray();Count=$instanceCount;Error='';At=[datetime]::UtcNow.ToString('o')}
-                    }
-                    catch{$probeReadCache[$cacheKey]=[pscustomobject]@{Items=@();Count=0L;Error=$_.Exception.Message;At=[datetime]::UtcNow.ToString('o')}}
+                $cacheKey=([string]$probe.Namespace).ToUpperInvariant()+'|'+([string]$probe.Class).ToUpperInvariant()+'|'+$filter
+                if(-not $groups.ContainsKey($cacheKey)){
+                    $groups[$cacheKey]=[pscustomobject]@{Namespace=[string]$probe.Namespace;Class=[string]$probe.Class;Filter=$filter;Properties=[Collections.Generic.List[string]]::new();PropertyNames=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase);Read=$false;Items=@();Count=0L;Error='';At=''}
                 }
-                $cached=$probeReadCache[$cacheKey];$entry.CheckedUtc=$cached.At
+                $group=$groups[$cacheKey]
+                foreach($property in $properties){if($group.PropertyNames.Add([string]$property)){$group.Properties.Add([string]$property)}}
+                $planned.Add([pscustomobject]@{Probe=$probe;Properties=$properties;Group=$group;Entry=$entry})
+            }catch{$entry.Error=[string]$_.Exception.Message}
+            $probeResults[[string]$probe.Id]=[pscustomobject]$entry
+        }
+        foreach($plan in $planned){
+            $probe=$plan.Probe;$properties=$plan.Properties;$cached=$plan.Group;$entry=$plan.Entry
+            if(-not $cached.Read){
+                $cached.Read=$true
+                $query=@{CimSession=$cim;Namespace=$cached.Namespace;ClassName=$cached.Class;Property=$cached.Properties.ToArray();OperationTimeoutSec=[Math]::Max(10,$timeout);ErrorAction='Stop'}
+                if($cached.Filter){$query.Filter=$cached.Filter}
+                try{
+                    # Count the complete stream, retaining only the twenty rows the UI can display.
+                    $details=[Collections.Generic.List[object]]::new();$instanceCount=0L
+                    Get-CimInstance @query | ForEach-Object {if($null -ne $_){$instanceCount++;if($details.Count -lt 20){$details.Add($_)}}}
+                    $cached.Items=$details.ToArray();$cached.Count=$instanceCount
+                }catch{$cached.Error=[string]$_.Exception.Message}
+                $cached.At=[datetime]::UtcNow.ToString('o')
+            }
+            $entry.CheckedUtc=$cached.At
+            try{
                 if($cached.Error){throw $cached.Error}
-                $items=@($cached.Items)
                 $entry.Count=[long]$cached.Count
+                $isCount=([string]$probe.Mode -eq 'Count');$isFirst=([string]$probe.Mode -eq 'First')
                 $entry.Truncated=([string]$probe.Mode -eq 'All' -and $cached.Count -gt 20)
-                $entry.Rows=@($items|Select-Object -First 20|ForEach-Object{$instance=$_;,@($properties|ForEach-Object{$value=$instance.$_;if($value -is [datetime]){$value.ToUniversalTime().ToString('o')}elseif($value -is [array]){if(@($value).Count -gt 1){$entry.Truncated=$true};[string]@($value)[0]}else{$text=[string]$value;if($text.Length -gt 200){$entry.Truncated=$true;$text.Substring(0,200)}else{$text}}})})
+                # First is an intentional selection, not a partial enumeration. Other instances and
+                # additional array values cannot invalidate it; clipping its selected text still can.
+                $selectedItems=if($isFirst){@($cached.Items|Select-Object -First 1)}else{@($cached.Items)}
+                $entry.Rows=@($selectedItems|ForEach-Object{
+                    $instance=$_;,@($properties|ForEach-Object{
+                        $value=$instance.$_
+                        if($value -is [array]){if(-not $isCount -and -not $isFirst -and @($value).Count -gt 1){$entry.Truncated=$true};$value=@($value)[0]}
+                        $text=if($value -is [datetime]){$value.ToUniversalTime().ToString('o')}else{[string]$value}
+                        if($text.Length -gt 200){if(-not $isCount){$entry.Truncated=$true};$text.Substring(0,200)}else{$text}
+                    })
+                })
             }catch{$entry.Error=[string]$_.Exception.Message}
             $probeResults[[string]$probe.Id]=[pscustomobject]$entry
         }
@@ -329,8 +346,14 @@ if($answer.Outcome -eq 'Observed'){
     if($filter){
         # An explicit park run checks the raw console every time; only the unchanged LDAP identity is reused.
         $previous=$Payload.Previous
-        if($null -ne $previous -and [int]$previous.Version -eq 1 -and [string]$previous.Key -ieq $answer.Key -and [string]$previous.Guid -ieq $answer.Guid -and $answer.Guid -and [string]$previous.RawAccount -ieq $answer.User -and $previous.LinkUser -and $previous.UserDn -and $previous.UserGuid -and -not [bool]$previous.DirectoryChanged){
-            foreach($field in @('LinkUser','UserDn','UserGuid','UserUsn')){$answer[$field]=[string]$previous.$field}
+        $identityAt=[datetime]::MinValue
+        $identityText=if($null -ne $previous -and $null -ne $previous.PSObject.Properties['IdentityCheckedUtc']){[string]$previous.IdentityCheckedUtc}else{''}
+        $identityFresh=[datetime]::TryParse($identityText,[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::RoundtripKind,[ref]$identityAt)
+        $identityNow=[datetime]::UtcNow
+        $identityFresh=$identityFresh -and $identityAt.ToUniversalTime() -le $identityNow.AddMinutes(1) -and ($identityNow-$identityAt.ToUniversalTime()).TotalMinutes -lt 5
+        $allowIdentityCache=($null -eq $Payload.PSObject.Properties['AllowIdentityCache'] -or [bool]$Payload.AllowIdentityCache)
+        if($allowIdentityCache -and $identityFresh -and $null -ne $previous -and [int]$previous.Version -eq 1 -and [string]$previous.Key -ieq $answer.Key -and [string]$previous.Guid -ieq $answer.Guid -and $answer.Guid -and [string]$previous.RawAccount -ieq $answer.User -and $previous.LinkUser -and $previous.UserDn -and $previous.UserGuid -and -not [bool]$previous.DirectoryChanged){
+            foreach($field in @('LinkUser','UserDn','UserGuid','UserUsn','IdentityCheckedUtc')){$answer[$field]=[string]$previous.$field}
             $answer.CacheReused=$true
             [pscustomobject]$answer;return
         }
@@ -339,7 +362,7 @@ if($answer.Outcome -eq 'Observed'){
             $searcher=New-WSearcher $Context ([string]$Context.BaseDn) $filter @('sAMAccountName','distinguishedName','objectGUID','uSNChanged') 'Subtree' 2
             $root=$searcher.SearchRoot;$searcher.ServerTimeLimit=[TimeSpan]::FromSeconds(3);$searcher.ClientTimeout=[TimeSpan]::FromSeconds(4)
             $results=$searcher.FindAll();$found=@($results)
-            if($found.Count -eq 1){$answer.UserUsn=[string](Get-WPropFirst $found[0].Properties 'usnchanged' '');$answer.LinkUser=[string](Get-WPropFirst $found[0].Properties 'samaccountname' '');$answer.UserDn=[string](Get-WPropFirst $found[0].Properties 'distinguishedname' '');$g=Get-WPropFirst $found[0].Properties 'objectguid' $null;$answer.UserGuid=if($g -is [array] -and $g.Count -eq 16){([guid]([byte[]]$g)).ToString('D')}else{Convert-WGuid $g}}
+            if($found.Count -eq 1){$answer.IdentityCheckedUtc=[datetime]::UtcNow.ToString('o');$answer.UserUsn=[string](Get-WPropFirst $found[0].Properties 'usnchanged' '');$answer.LinkUser=[string](Get-WPropFirst $found[0].Properties 'samaccountname' '');$answer.UserDn=[string](Get-WPropFirst $found[0].Properties 'distinguishedname' '');$g=Get-WPropFirst $found[0].Properties 'objectguid' $null;$answer.UserGuid=if($g -is [array] -and $g.Count -eq 16){([guid]([byte[]]$g)).ToString('D')}else{Convert-WGuid $g}}
         }catch{
             $code=Get-NativeCode $_
             $answer.DirectoryAuthRejected=($code -in @(2147943726,2147944309,2147943730,2147943731,2147943732,2147943734))

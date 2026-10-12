@@ -546,8 +546,8 @@ function ConvertTo-DomeniaBoardLayout {
             $kind = Get-DomeniaProbeKind -Probe $probes[$key] -Board $Board
             $group = & $get 'Group'; if (-not $group) { $group = if ($probes.ContainsKey($key)) { [string]$probes[$key].Category } else { 'Requetes' } }
             $defaultSize = ''
-        } elseif ($source -eq 'Query' -and $Board -eq 'Fleet') {
-            $kind=if((& $get 'Visual') -in @('Bar','Donut','Column','Line','List')){'Distribution'}else{'Number'};$group=& $get 'Group';if(-not $group){$group='Mes sondes'};$defaultSize='M'
+        } elseif ($source -eq 'Query' -and $Board -in @('Fleet','Computer')) {
+            $kind=if((& $get 'Visual') -in @('Bar','Pie','Column')){'Distribution'}else{'Number'};$group=& $get 'Group';if(-not $group){$group='Mes sondes'};$defaultSize='M'
         } else { continue }
         $id = & $get 'Id'; if (-not $id -or $seen.ContainsKey($id)) { $id = New-DomeniaBoardItemId }
         $seen[$id] = $true

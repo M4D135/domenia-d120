@@ -20,12 +20,15 @@ et son manifeste. Si Windows bloque les fichiers téléchargés, utilisez
 
 La base locale conserve les objets recensés dans le périmètre choisi. La recherche, la consultation
 de la base et les tableaux de bord disposent de leur sélection de périmètre : contrôlez l'OU affichée
-avant de comparer des compteurs. Un poste désactivé reste recensé ; sa présence dans la base ne signifie
-pas qu'une collecte distante peut être lancée sur lui.
+avant de comparer des compteurs. Un poste désactivé reste recensé ; la collecte du périmètre dans
+l'Atelier retient ses comptes actifs. Les actions sur une liste ou un poste annoncent leurs propres cibles.
 
-Les tableaux de bord présentent les mesures disponibles, leur fraîcheur et leur couverture. Le détail
-d'un indicateur permet de consulter les postes correspondants. L'atelier de requêtes sert à filtrer
-les données locales, enregistrer des requêtes et alimenter des sondes. Les résultats sont paginés :
+Les tableaux de bord présentent les mesures disponibles, leur fraîcheur et leur couverture. La petite
+icône près du crayon d'un indicateur ouvre ses postes dans une page dédiée de l'atelier de requêtes.
+Les clics sur les cartes et les segments laissent le tableau affiché. L'atelier sert à filtrer les données
+locales, enregistrer des requêtes et alimenter des widgets dans le tableau général ou celui du poste.
+Sa bibliothèque propose 152 modèles dans 14 catégories et ses 105 champs sont décrits dans le catalogue.
+La même recette peut aussi filtrer Rechercher. Les résultats sont paginés :
 le nombre total concerne le filtre complet, même si une page n'affiche qu'une partie des objets.
 
 La mise à jour de l'index et la collecte des postes sont distinctes. L'index lit les objets de l'annuaire ;
@@ -33,12 +36,14 @@ la collecte récupère les observations distantes. La progression précise le p�
 traités et les erreurs. Une collecte partielle ne doit pas être interprétée comme un inventaire complet.
 Une donnée absente ou périmée reste signalée comme telle.
 
-Dans **Outils > Base**, privilégiez **Tout relire dans lʼOU choisie** : l'OU et ses sous-OU sont
-relues, les autres branches sont conservées. Sans OU choisie, un sélecteur s'ouvre.
-**Tout relire dans le domaine** est une opération longue et occasionnelle, réservée au premier
-chargement ou à une remise à jour globale ; une confirmation rappelle son coût. Ces deux actions
-mettent à jour la copie locale sans modifier Active Directory. Les options avancées donnent accès
-à la synchronisation des changements et à la lecture du domaine par étapes.
+Dans **Outils > Base autonome**, choisissez une OU, puis **Mise à jour > Mettre à jour lʼOU choisie** :
+l’OU et ses sous-OU sont relues, les autres branches sont conservées. Sans OU choisie, le sélecteur
+s’ouvre. Le sélecteur présente un arbre des OU classées par nom, avec un champ de recherche. **Données** affiche les objets de ce périmètre ; **Stockage**
+regroupe l’emplacement, les sauvegardes, la mesure et la purge volontaire de la base entière. La fraîcheur distingue la
+lecture complète qui couvre l’OU des tentatives partielles. Ces lectures ne modifient pas Active Directory.
+
+Le **Zoom**, en bas de la fenêtre, règle l’interface de 80 à 150 %. Cliquez sur le pourcentage pour
+revenir à 100 % ; le choix est conservé au prochain démarrage.
 
 Dans **Rechercher**, les actions **Pinger la liste**, **Détecter la liste** et **Analyser la liste**
 portent sur la sélection annoncée au clic. Vérifiez la confirmation avant lancement. La détection concerne

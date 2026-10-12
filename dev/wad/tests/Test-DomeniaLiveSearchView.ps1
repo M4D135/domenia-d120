@@ -57,7 +57,6 @@ $grid=[Windows.Controls.DataGrid]::new();$grid.AutoGenerateColumns=$true;$grid.I
 foreach($name in @('TxtSuiteResultFilter','TxtBranchSearch','TxtGlobalSearch','TxtFleetQueryName','TxtFleetMachineFilter')){$script:Ctrl[$name]=[Windows.Controls.TextBox]::new()}
 foreach($name in @('LblSuiteResultCount','LblBranchCount','LblLiveState','LblSearchQuery','LblQueryStatus','LblQuerySegment')){$script:Ctrl[$name]=[Windows.Controls.TextBlock]::new()}
 foreach($name in @('CmbQueryJunction','CmbQueryGroupField','CmbFleetMachineState','CmbQueryResult')){$script:Ctrl[$name]=[Windows.Controls.ComboBox]::new()}
-$script:Ctrl.ExpFleetMachines=[Windows.Controls.Expander]::new()
 $script:Window.Show()
 $script:Ids=@('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','33333333-3333-4333-8333-333333333333','44444444-4444-4444-8444-444444444444')
 function New-FixtureEvent {param([string]$Name,[string]$Guid,[string]$Type='Machine')
@@ -184,19 +183,22 @@ try {
    Snapshot-Fixture 'fresh-global-search'
   }
  }else{$script:Results.Add([pscustomobject]@{Name='Filter apply/refresh/clear scenarios';Passed=$false;Error='Blocked by reproduced Timer:Live failure; no success inferred.'})}
- Case 'Delayed Fleet WPF click invokes the real script-local query callback' {
-  Initialize-DomeniaQueryWorkshop;$script:EvaluationRequests=0;$script:Ctrl.ExpFleetMachines.IsExpanded=$false
-  $item=[pscustomobject]@{Source='Builtin';Key='fleet.disabled';Title='Disabled synthetic machines'}
-  $callback=Get-DomeniaBoardSelectHandler -Board Fleet -Item $item
-  $button=[Windows.Controls.Button]::new();$button.Tag=$callback
-  $button.Add_Click({param($sender,$e)& $sender.Tag $null})
+ Case 'Explicit Fleet chrome button opens the script-local workshop; chart click stays inert' {
+  Initialize-DomeniaQueryWorkshop;$script:EvaluationRequests=0
+  $item=New-DomeniaBoardItem -Source Builtin -Key 'fleet.disabled' -Visual Kpi -Size M -Group 'Synthese' -Title 'Disabled synthetic machines'
+  $state=Get-DomeniaBoardState Fleet;$state.Layout=@($item)
+  $script:TestFleetItem=$item
+  function script:Get-DomeniaBoardLayout {param($Board)return @($script:TestFleetItem)}
+  Expect ($null -eq (Get-DomeniaBoardSelectHandler -Board Fleet -Item $item)) 'Fleet charts still open the workshop'
+  $button=New-DomeniaBoardChromeButton ([string][char]0xE8A1) 'Ouvrir dans lʼatelier' @{Board='Fleet';Id=$item.Id;Action='Details'}
   [void]$panel.Children.Add($button);Pump-Fixture 50
   $button.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
-  Expect ($script:EvaluationRequests -eq 1) 'Delayed widget callback did not call real Show-DomeniaFleetWidgetDetails'
+  Expect ($script:EvaluationRequests -eq 1) 'Explicit chrome button did not call real Show-DomeniaFleetWidgetDetails'
   $clauses=@($script:DomeniaQueryState.Recipe.Clauses)
-  Expect ($clauses.Count -eq 1 -and $clauses[0].Field -eq 'active' -and $clauses[0].Operator -eq 'Equal' -and $clauses[0].Value -eq $false) 'Widget callback lost the captured item or generated wrong query'
-  Expect ($script:Ctrl.ExpFleetMachines.IsExpanded) 'Widget callback failed to open the local workshop'
+  Expect ($clauses.Count -eq 1 -and $clauses[0].Field -eq 'active' -and $clauses[0].Operator -eq 'Equal' -and $clauses[0].Value -eq $false) 'Wrong query after explicit details click'
+  Expect ($script:LastWorkspace -eq 'WsQueryWorkshop') 'The dedicated workshop did not open'
  }
+
 }finally{
  if($null -ne $script:Live){Stop-DomeniaLive -Closing}
  if($null -ne $script:DomeniaPulse){$script:DomeniaPulse.Timer.Stop()}

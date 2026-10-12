@@ -14,7 +14,7 @@ La base locale et les dernières observations permettent de consulter le parc sa
 
 ## Préparer une exploitation fiable
 
-Commencez par une copie complète de l'annuaire, puis contrôlez une OU pilote. Vérifiez que les comptes actifs et désactivés attendus figurent dans la base, que les résultats détaillés correspondent aux widgets et que les relevés disposent des droits distants. Ajustez ensuite le parallélisme à la capacité du réseau.
+Commencez par une lecture complète d’une OU pilote et de ses sous-OU, puis contrôlez son contenu. Vérifiez que les comptes actifs et désactivés attendus figurent dans la base, que les résultats détaillés correspondent aux widgets et que les relevés disposent des droits distants. Ajustez ensuite le parallélisme à la capacité du réseau.
 
 Les packs PROD et DEV utilisent tous deux des fichiers ordinaires : Domenia.exe et un dossier wad. Le DEV contient aussi les sources, les tests et les outils de reconstruction. La configuration et les préférences restent des fichiers JSON.
 
@@ -34,7 +34,7 @@ Ces étapes mettent Domenia 1.0 en service sur un poste d'administration. Chaque
 | 6 | Relire wad\Domenia.config.json : Auth.DemoProvider absent ou faux, connexion Standard, aucun marqueur wad\Domenia.login.debug. | 14 et 17 |
 | 7 | Choisir l'emplacement des données (LocalStore.Mode) : UserLocal dans le profil de l'utilisateur, ou Portable réservé à un support personnel. | 18 |
 | 8 | Lancer Domenia.exe, se connecter et vérifier que la case « Lecture seule » est cochée. | 13 et 14 |
-| 9 | Remplir la base autonome : Outils, onglet « Base autonome », « Tout relire dans le domaine ». | 18 |
+| 9 | Remplir la base autonome : Outils, « Base autonome », choisir une OU, puis « Mise à jour » et « Mettre à jour lʼOU choisie ». | 18 |
 | 10 | Choisir une OU pilote dans l’Accueil, vérifier ses postes dans l’Atelier de requêtes et lancer une collecte après confirmation. | 3 et 8 |
 | 11 | Faire une première sauvegarde de la base : « Sauvegarder maintenant ». | 18 |
 | 12 | Remettre aux techniciens le guide technicien et le profil « Essentiel ». | 13 |
@@ -94,14 +94,14 @@ La lecture de la console passe par CIM en DCOM, avec le compte des opérations p
 
 ## Pinger Détecter et Analyser la liste
 
-Ces trois boutons agissent sur les seuls postes affichés, après tous les filtres : OU, recherche, présence et filtre local. Ils sont grisés si la liste ne contient aucun poste. L'Atelier de requêtes de l'Accueil propose également une collecte sur un périmètre explicite (chapitre 8).
+Ces trois boutons agissent sur les seuls postes affichés, après tous les filtres : OU, recherche, présence et filtre local. Ils sont grisés si la liste ne contient aucun poste. L’Atelier de requêtes, ouvert par son icône depuis l’Accueil, propose également une collecte sur un périmètre explicite (chapitre 8).
 
 ![Barre d'actions des résultats : case Utilisateur au clic, Revérifier ce poste, Pinger la liste, Détecter la liste, Analyser la liste et Arrêter](fig:recherche-actions)
 
 | Bouton | Ce qui part | Confirmation |
 |---|---|---|
 | « Pinger la liste » | Ping ICMP seul, de 1 à 8 postes en parallèle selon le réglage. Met à jour la présence réseau, sans lecture de session ni association. | Nombre de postes, puis « Pinger » ou « Annuler ». |
-| « Détecter la liste » | Ping puis lecture légère de la console Windows (CIM/DCOM), de 1 à 8 postes en parallèle selon le réglage. Seuls les comptes nouveaux ou modifiés sont résolus dans AD. Associations et cache conservés. | Nombre de postes, puis « Verifier les sessions » ou « Annuler ». |
+| « Détecter la liste » | Ping puis lecture légère de la console Windows (CIM/DCOM), de 1 à 8 postes en parallèle selon le réglage. L’identité AD du compte peut être réutilisée pendant cinq minutes au plus ; un compte changé, absent de la base ou une relecture forcée exige une vérification. Associations protégées conservées. | Nombre de postes, puis « Verifier les sessions » ou « Annuler ». |
 | « Analyser la liste » | Comme « Détecter la liste », plus le relevé WMI léger (modèle, mémoire, disque C:, build, démarrage) et les requêtes WMI des widgets placés sur les tableaux du poste et du parc. Les résultats remplissent les tableaux de bord. | « Analyser les postes affiches », nombre de postes et de requêtes, puis « Analyser » ou « Annuler ». |
 | « Arrêter » | Arrête les nouvelles lectures ; les résultats déjà obtenus restent. | Aucune. |
 
@@ -330,15 +330,17 @@ La vue du parc se calcule depuis la base SQLite et les observations enregistrée
 
 Une OU est une unité organisationnelle de l’annuaire, utilisée pour organiser les objets par site, service ou usage.
 
-L’OU choisie et ses sous-OU limitent la vue. Le chemin cliquable permet de remonter vers une OU parente. Le domaine entier permet une consultation globale. Les comptes actifs et désactivés sont présents dans le recensement ; les indicateurs qui ne portent que sur les actifs le précisent. Les opérations de collecte excluent les comptes désactivés.
+L’OU choisie et ses sous-OU limitent la vue. Le chemin cliquable permet de remonter vers une OU parente. Les comptes actifs et désactivés sont présents dans le recensement ; les indicateurs qui ne portent que sur les actifs le précisent. La collecte du périmètre depuis l’Atelier retient ses comptes actifs ; les commandes de liste de Rechercher suivent les postes affichés annoncés à la confirmation.
 
 Vérifiez la couverture de la base, le nombre d'objets, la date de mise à jour et le statut complet ou partiel. L'absence d'un objet dans une liste limitée n'est pas une preuve de son absence de la base. La table locale présente 200 postes par page avec un total calculé sur tous les résultats.
 
 ![Accueil : périmètre autonome du parc, couverture de la base et indicateurs ; données fictives](fig:accueil)
 
-Le sélecteur intégré recherche les OU dans le domaine. Distinguez les homonymes par leur description et leur chemin avant de confirmer.
+Le sélecteur intégré présente un arbre des OU et un champ de recherche. Les branches sont classées par nom dans l’ordre alphabétique français ; la barre verticale permet de les parcourir. Dépliez les branches ou recherchez un nom, puis distinguez les homonymes par leur chemin avant de confirmer.
 
-![Choix du périmètre : OU homonymes dans le sélecteur intégré ; données fictives](fig:selecteur-ou)
+![Choix du périmètre : arbre des OU, recherche et chemin de la sélection ; données fictives](fig:selecteur-ou)
+
+« Ouvrir dans Rechercher » transmet les postes recensés du périmètre, y compris les comptes désactivés. Cette action retire les filtres résiduels de la liste de recherche, notamment une ancienne sélection de requête ; elle permet ensuite d’utiliser les commandes de liste sur la cible annoncée.
 
 ## Calculs en arrière plan
 
@@ -350,7 +352,7 @@ Les observations détaillées restent dans SQLite. La préparation d'une collect
 
 | Source | Informations | Actualisation |
 |---|---|---|
-| Annuaire indexé | Identité, OU, compte actif, système déclaré, dates AD | Mise à jour complète ou des changements dans Base autonome. |
+| Annuaire indexé | Identité, OU, compte actif, système déclaré, dates AD | « Mettre à jour lʼOU choisie » dans Base autonome. |
 | Présence et console | Ping, utilisateur ouvert sur l'écran physique | Collecte ciblée ou vérification explicite du poste. |
 | Inventaire | Modèle, mémoire, disque C, système mesuré, démarrage | Analyse du poste ou de la liste. |
 | Sondes | Informations du catalogue WMI | Actualiser les requêtes ou analyser la liste concernée. |
@@ -361,9 +363,9 @@ L'inactivité AD est approximative car lastLogonTimestamp est répliqué avec re
 
 ## Du widget à la liste exacte
 
-Un clic sur un indicateur ouvre sa requête dans l'Atelier. Un clic sur un segment conserve les conditions de la requête et ajoute ce segment. Les listes, exports et actions s'appuient sur les identifiants des objets, avec contrôle de l'identité au moment d'ouvrir ou d'agir.
+La petite icône de détail près du crayon d’un indicateur apparaît au survol ou au focus clavier ; elle ouvre sa requête dans une page dédiée de l’Atelier. L’icône affiche directement l’onglet « Résultats ». Le corps de la carte et les segments des graphiques ne changent pas de page. Le périmètre du tableau de bord reste visible dans l’Atelier ; les conditions permettent de préciser la sélection. « Retour » revient à l’écran précédent. Les listes, exports et actions s’appuient sur les identifiants des objets, avec contrôle de l’identité au moment d’ouvrir ou d’agir.
 
-Pour les sondes comportant plusieurs valeurs par poste, un poste peut appartenir à plusieurs catégories. Chaque catégorie compte ce poste une seule fois ; la somme des catégories peut donc dépasser le total de postes. Le segment Autres sélectionne les postes possédant au moins une valeur hors des catégories affichées.
+Pour les sondes comportant plusieurs valeurs par poste, un poste peut appartenir à plusieurs catégories. Chaque catégorie compte ce poste une seule fois ; la somme des catégories peut donc dépasser le total de postes. « Autres » regroupe les valeurs hors des catégories affichées.
 
 « Détailler les postes » d'un point d'attention ouvre une sélection figée des GUID concernés. L'aperçu initial de 20 noms n'est pas la limite du détail : celui-ci est paginé. Une sélection admet 20 000 identités au maximum et reste bornée au périmètre courant. La mention « Sélection figée » reste visible ; effacer le segment retire cette restriction. Une requête sauvegardée à partir de cette sélection garde les mêmes GUID, pas la règle d'alerte évolutive.
 
@@ -375,44 +377,103 @@ Sélectionnez une ligne pour consulter son détail local. Relisez l’identité,
 
 ## Construire une requête
 
-1. **Choisir une base.** Partez de Tous les postes recensés ou d'un modèle adapté.
+La petite icône de la barre du parc et le bouton « Atelier de requêtes » de Rechercher ouvrent l’Atelier en conservant le brouillon. L’atelier utilise le périmètre du tableau de bord, indiqué en haut de sa page. « Résultats » réserve la place au tableau et à la fiche locale ; « Composer la requête » regroupe les conditions, les sauvegardes, les sondes et les réglages de collecte. « Bibliothèque » présente les modèles et vos requêtes personnelles. « Catalogue des informations » aide à choisir un champ et à comprendre sa source.
+
+1. **Choisir une base.** Sélectionnez Tous les postes recensés ou un modèle adapté, puis « Charger ». « Nouvelle » prépare une requête vide. Ces deux commandes ouvrent « Composer la requête ».
 2. **Ajouter les conditions.** Choisissez le champ, l'opérateur proposé et la valeur. Les opérateurs sont adaptés au type texte, nombre ou booléen.
-3. **Choisir la combinaison.** Toutes les conditions correspond à ET ; Au moins une condition correspond à OU. Les raffinements issus d'un segment s'appliquent en plus.
-4. **Appliquer.** Lisez le total, le périmètre et les données absentes avant d'examiner les pages de résultats.
-5. **Regrouper si utile.** Choisissez un champ de répartition. Les dix principaux groupes s'affichent, complétés par Autres et Inconnu lorsque nécessaire.
-6. **Conserver.** Sauvegardez la recette, ajoutez-la en widget ou appliquez-la comme filtre de recherche.
+3. **Choisir la combinaison.** Toutes les conditions correspond à ET ; Au moins une condition correspond à OU. Une restriction de détail ou une sélection figée s’applique en plus lorsqu’elle est affichée.
+4. **Exécuter.** Cliquez sur « Exécuter » pour afficher « Résultats ». Lisez le total, le périmètre et les données absentes avant d’examiner les pages.
+5. **Regrouper si utile.** Dans « Composer la requête », choisissez un champ de répartition. Les dix principaux groupes s'affichent, complétés par Autres et Inconnu lorsque nécessaire.
+6. **Conserver.** Dans « Composer la requête », enregistrez la recette, créez une sonde dashboard ou appliquez-la aux résultats de Recherche.
 
-Le moteur est un langage de filtres typés ; la recette ne contient ni PowerShell ni SQL libre. Une requête admet 64 conditions en comptant ses raffinements. La bibliothèque accepte 100 recettes dans une enveloppe de 1 Mio. Les données des postes ne sont pas copiées dans chaque recette. Une sauvegarde refusée est signalée et ne doit pas être considérée comme enregistrée.
+Le moteur est un langage de filtres typés ; la recette ne contient ni PowerShell ni SQL libre. Une requête admet 64 conditions en comptant ses raffinements. Les requêtes personnelles enregistrées sont limitées à 100 recettes dans une enveloppe de 1 Mio ; les modèles livrés sont distincts. Les données des postes ne sont pas copiées dans chaque recette. Une sauvegarde refusée est signalée et ne doit pas être considérée comme enregistrée.
 
-![Atelier de requêtes : conditions typées, modèle Tous les postes recensés et résultats paginés ; données fictives](fig:atelier-requetes)
+![Atelier de requêtes : onglet Résultats et postes recensés paginés ; données fictives](fig:atelier-requetes)
 
-Le filtre d’état conserve l’accès aux comptes désactivés : ils appartiennent au recensement même si la collecte distante les exclut.
+Le filtre d’état conserve l’accès aux comptes désactivés : ils appartiennent au recensement même si la collecte du périmètre dans l’Atelier les exclut.
 
 ![Les trois comptes désactivés du périmètre restent consultables ; données fictives](fig:atelier-desactives)
 
+## Bibliothèque de modèles
+
+L’onglet « Bibliothèque » propose 152 modèles livrés dans 14 catégories, accompagnés d’une description. La recherche textuelle et les filtres de catégorie et de source (« Modèles livrés » ou « Mes requêtes ») réduisent la liste. Celle-ci indique le nom, la catégorie et les informations nécessaires. Sélectionnez une ligne, relisez sa description puis cliquez sur « Utiliser cette requête » pour ouvrir « Composer la requête ». Le sélecteur rapide et « Charger » restent disponibles en haut de l’Atelier. Les modèles partagent le même moteur et les mêmes champs que vos requêtes personnelles ; ils peuvent alimenter le tableau général ou celui du poste.
+
+| Catégories | Exemples d’usage |
+|---|---|
+| Inventaire général ; Comptes et activité AD | Recensement, comptes actifs ou désactivés, dates de connexion. |
+| Système et cycle Windows ; Protection AD | Versions, cycle de support, états LAPS et présence de clés AD. |
+| Matériel ; Disques et capacité | Mémoire, processeur, batterie, capacité et espace libre. |
+| Sécurité du poste ; Réseau | Protection relevée sur le poste, TPM, adaptateurs et configuration IP. |
+| Services et processus ; Présence et utilisateurs | Services, démarrage, profils et observations de console. |
+| Événements ; Qualité des données | Erreurs relevées, informations absentes ou anciennes. |
+| Répartitions ; Vérifications croisées | Regroupements et combinaisons de plusieurs critères. |
+
+Deux exemples : « Comptes désactivés » se calcule depuis la copie AD de l’OU ; « C: moins de 20 % libre » exige un inventaire léger exploitable. Le second seuil est modifiable dans Composer et n’assimile jamais une donnée absente à zéro.
+
+Le nombre de modèles est distinct des 105 champs du catalogue : un modèle combine des conditions sur ces champs. Les valeurs inconnues restent inconnues ; ouvrir ou exécuter un modèle calcule les données locales sans déclencher de collecte réseau. Nommez et enregistrez votre adaptation pour la conserver dans la bibliothèque personnelle.
+
+![Bibliothèque de modèles : recherche locale, informations nécessaires et description de la sélection ; données fictives](fig:atelier-modeles)
+
+## Catalogue des informations
+
+Le catalogue contient les 105 champs acceptés par le moteur : 27 informations du parc et 78 sondes WMI. La recherche ignore les accents et la casse ; elle porte sur le nom, l’usage et les détails techniques, dont les classes et propriétés. Les filtres Source et Catégorie réduisent la liste.
+
+La fiche précise l’usage, le type, l’unité, un exemple de valeur, la collecte nécessaire et les conditions de disponibilité. « Détails techniques » déplie les identifiants, classes et propriétés utiles au diagnostic. Une information présente au catalogue n’est pas une preuve de disponibilité sur tous les postes : les fournisseurs Windows et les droits peuvent varier.
+
+« Utiliser cette information » prépare le champ dans « Composer la requête ». L’opérateur, la valeur et le bouton « Ajouter » restent à choisir explicitement ; cette commande n’ajoute pas de condition et ne lance aucune collecte.
+
+![Catalogue des informations : champ sélectionné, usage, source et disponibilité ; données fictives](fig:atelier-catalogue)
+
 ## Exemple de requête réutilisable
 
-Choisissez l’espace libre du disque système en pourcentage, l’opérateur inférieur à et la valeur 20. Ajoutez la condition puis appliquez la requête. Les mesures absentes ne sont pas assimilées à zéro.
+Dans « Composer la requête », choisissez l’espace libre du disque système en pourcentage, l’opérateur inférieur à et la valeur 20. Ajoutez la condition puis cliquez sur « Exécuter ». Les mesures absentes ne sont pas assimilées à zéro.
 
 ![Requête numérique sur les disques ayant moins de 20 % d’espace libre ; données fictives](fig:atelier-condition)
 
-Nommez la recette, sauvegardez-la puis sélectionnez-la dans la bibliothèque. Son nom doit décrire le critère et rester compréhensible hors du contexte de création.
+Revenez dans « Composer la requête », nommez la recette, enregistrez-la puis sélectionnez-la dans la bibliothèque. Son nom doit décrire le critère et rester compréhensible hors du contexte de création.
 
 ![Bibliothèque : requête nommée sauvegardée et réutilisable ; données fictives](fig:atelier-bibliotheque)
 
-Ajoutez la requête au tableau de bord pour suivre son résultat. Le widget conserve les conditions et permet d’ouvrir les postes concernés.
+Dans « Composer la requête », choisissez « Tableau de bord général » et une présentation (Indicateur, Texte, Barres, Camembert ou Colonnes), puis « Créer une sonde dashboard » pour suivre le résultat dans le tableau de bord. Le widget conserve les conditions ; sa petite icône de détail ouvre les postes concernés.
 
 ![Widget du parc créé à partir de la requête enregistrée ; données fictives](fig:accueil-sonde-requete)
 
-L’action de filtre de recherche transmet les GUID des postes trouvés. Le résultat affiché dans Rechercher garde cette restriction tant qu’elle n’est pas effacée ; un nouveau nom ou un changement d’OU ne substitue pas un autre objet à cette identité.
+Dans « Composer la requête », « Appliquer aux résultats de Recherche » transmet les GUID des postes trouvés. Le résultat affiché dans Rechercher garde cette restriction tant qu’elle n’est pas effacée ; un nouveau nom ou un changement d’OU ne substitue pas un autre objet à cette identité.
 
 ![Filtre de l’Atelier appliqué à la liste Rechercher ; données fictives](fig:recherche-requete)
 
+## Réutiliser la recette sur le tableau du poste
+
+La bibliothèque est commune à l’Atelier, aux widgets du parc, aux widgets du poste et au filtre de Rechercher. Depuis le tableau du poste, le bouton « Atelier » ouvre « Composer la requête » avec la destination « Tableau de bord du poste ». Vous pouvez aussi choisir cette destination depuis une autre entrée de l’Atelier, puis la présentation et « Créer une sonde dashboard ».
+
+Le widget du poste évalue la recette sur l’objet sélectionné et ses données locales, avec ses états correspondant, inconnu ou non correspondant. Il utilise les mêmes conditions que le widget général, mais son périmètre est un seul poste. Changer de poste réévalue le widget. « Tester sur le poste sélectionné » fournit cet aperçu sans lecture réseau. La liste « Résultats » de l’Atelier garde le périmètre OU affiché dans son en-tête.
+
+Une nouvelle création avec la même recette et la même destination met à jour le widget existant. La disposition est conservée dans les préférences. L’enregistrement, la création du widget et l’aperçu n’exécutent pas les sondes : une collecte reste un geste distinct, avec confirmation.
+
+![Atelier : aperçu local sur le poste et destination du widget ; données fictives](fig:atelier-poste)
+
+![Tableau de bord du poste : requête réutilisable évaluée sur l’objet sélectionné ; données fictives](fig:poste-sonde-requete)
+
 ## Régler et suivre la collecte
 
-La commande de collecte confirme le nombre de postes et utilise le compte des opérations poste. Elle traite tous les comptes actifs du périmètre, indépendamment des conditions qui réduisent les résultats de la requête. Pour limiter la collecte, choisissez une OU plus précise ou l’action d’un seul poste dans sa fiche locale. Le réglage propose 1, 2, 4, 6 ou 8 postes simultanés, avec 4 par défaut. La réutilisation des mesures propose une ancienneté maximale de 5, 15 ou 60 minutes, ou une relecture forcée. Les mesures volatiles conservent leur délai propre ; le choix d'une heure n'impose pas une heure de cache à toutes les sondes.
+Dans « Composer la requête », « Collecter les données requises… » confirme le nombre de postes et utilise le compte des opérations poste. La collecte traite tous les comptes actifs du périmètre, indépendamment des conditions qui réduisent les résultats de la requête. Pour limiter la collecte, choisissez une OU plus précise ou l’action d’un seul poste dans sa fiche locale. L’encadré « Réglages de collecte » propose 1, 2, 4, 6 ou 8 postes simultanés, avec 4 par défaut. La réutilisation des mesures propose une ancienneté maximale de 5, 15 ou 60 minutes, ou une relecture forcée. Les mesures volatiles conservent leur délai propre ; le choix d'une heure n'impose pas une heure de cache à toutes les sondes.
 
-Le moteur réutilise les lectures de classes CIM communes aux sondes d'un même poste. Une lecture lente ou refusée n'empêche pas les autres créneaux d'avancer. L'arrêt interdit les nouveaux départs et conserve les résultats déjà obtenus. La progression distingue la collecte du stockage local : attendez les enregistrements avant de conclure que la passe est terminée.
+Le plan de collecte est calculé à partir des conditions, des restrictions et du champ de regroupement. « Collecter les données requises… » et l’actualisation des requêtes des widgets partagent ce plan.
+
+| Informations demandées | Lecture préparée |
+|---|---|
+| Attributs AD et calculs fondés seulement sur ces attributs | Invitation à mettre à jour la base de l’OU ; aucune sonde WMI. |
+| Présence, utilisateur console ou âge du relevé | Contrôle de présence et de console sans inventaire. |
+| Modèle, mémoire, disque C:, durée depuis le démarrage, âge de l’inventaire ou version Windows relevée | Inventaire léger. |
+| Sondes du catalogue | Union des sondes demandées, sans doublon. |
+
+« Actualiser ce poste… » dans la fiche locale d’un résultat reste une action distincte qui prépare un inventaire léger de ce poste après confirmation. « Relever ce périmètre », dans l’aide du tableau de bord, demande un inventaire léger des comptes actifs de l’OU choisie ; cette commande ne dépend pas du brouillon de l’Atelier. Les collectes du parc nécessitent une OU explicitement choisie et une vue locale correspondant à ce périmètre.
+
+Le moteur regroupe les sondes WMI d’un poste par classe et filtre, puis demande l’union de leurs propriétés pour réutiliser la lecture. Les filtres restent distincts. Un comptage porte sur toutes les instances lues même si le détail conservé est limité à vingt lignes ; l’inventaire et la lecture de la console conservent leurs lectures propres. Une lecture lente ou refusée n'empêche pas les autres créneaux d'avancer. L'arrêt interdit les nouveaux départs et conserve les résultats déjà obtenus. La progression distingue la collecte du stockage local : attendez les enregistrements avant de conclure que la passe est terminée.
+
+Un inventaire en échec conserve les dernières valeurs réussies avec leur date d’origine. L’échec et la date de tentative sont enregistrés séparément et comptés dans le bilan ; la prochaine collecte demandant un inventaire retente sa lecture.
+
+L’identité AD de l’utilisateur observé peut être réutilisée pendant cinq minutes au plus, avec une date propre à sa vérification. Un nouveau ping ne rajeunit pas cette identité. Un compte absent de la base exige une nouvelle vérification ; « Forcer la relecture » désactive aussi ce cache d’identité.
 
 ![Réglages de la collecte dans l’Atelier : parallélisme et réutilisation des observations ; données fictives](fig:atelier-collecte)
 
@@ -434,7 +495,7 @@ Les trois tableaux de bord sont faits de widgets : chaque tuile ou graphique se 
 
 | Bouton | Quand | Effet |
 |---|---|---|
-| « Actualiser les requetes » | Tableau du poste, si au moins un widget de requête est présent. | Exécute les requêtes WMI des widgets sur le poste sélectionné, en lecture seule, après confirmation (chapitre 10). Sur le parc, lancez la collecte de l’Atelier ou Analyser la liste. |
+| « Actualiser les requetes » | Tableau du poste, si au moins un widget de requête est présent. | Prépare les lectures requises par les widgets pour le poste sélectionné, en lecture seule et après confirmation. Une recette fondée uniquement sur AD renvoie vers la mise à jour de la base. Sur le parc, ouvrez le détail de la sonde puis collectez depuis l’Atelier, ou utilisez Analyser la liste. |
 | « Ajouter un widget » | Toujours. | Ouvre l'éditeur. |
 | « Personnaliser » | Hors personnalisation. | Passe en mode personnalisation. |
 | « Par defaut » | En personnalisation. | Revient à la disposition livrée, sans confirmation mais annulable. |
@@ -450,7 +511,7 @@ L'annulation n'a qu'un niveau. Elle est perdue quand de nouvelles données arriv
 - En personnalisation, chaque section se termine par une tuile en pointillés « Ajouter ici », qui ouvre l'éditeur avec la section choisie. Les boutons ronds de modification et de retrait restent visibles ; hors personnalisation, ils apparaissent au survol ou au clavier.
 - Les widgets sans donnée restent visibles en personnalisation (« Aucune donnee pour le moment »). Hors personnalisation, un widget intégré sans donnée est masqué.
 - Le menu clic droit d'un widget, toujours disponible, propose « Modifier... », « Représentation », « Taille » (« Compacte », « Moyenne », « Large »), « Déplacer » et « Retirer du tableau de bord ». Les déplacements du menu restent dans la section.
-- Le glisser-déposer est toujours actif. Lâché sur un autre widget, le widget prend sa place et sa section ; lâché dans une section hors d'un widget, il va à la fin de cette section. La page défile près des bords.
+- Le glisser-déposer est actif en mode « Personnaliser ». Lâché sur un autre widget, le widget prend sa place et sa section ; lâché dans une section hors d'un widget, il va à la fin de cette section. La page défile près des bords.
 
 ## Éditeur de widget
 
@@ -553,7 +614,7 @@ Le catalogue contient 29 widgets de parc. Les requêtes personnelles et les 78 s
 | Groupe | Widget | Information |
 |---|---|---|
 | Santé | État du parc | Part des postes sans point critique ni à surveiller |
-| Santé | Points dʼattention | Problèmes détectés sur le périmètre : un clic déplie les postes concernés |
+| Santé | Points dʼattention | Problèmes détectés sur le périmètre ; l’action de détail ouvre les postes concernés |
 | Inventaire du périmètre | Postes | Tous les comptes ordinateur recensés du périmètre, actifs et désactivés. |
 | Inventaire du périmètre | Sans connexion depuis 90 j | Attribut lastLogonTimestamp, à 14 jours près |
 | Inventaire du périmètre | Comptes désactivés encore dans lʼOU | Comptes ordinateur désactivés à déplacer ou supprimer |
@@ -800,7 +861,7 @@ Rien ne part avant la confirmation « Périmètre à confirmer avant toute lectu
 
 ## Journal du contrôleur
 
-« Lire le journal du controleur » (Outils, « Base autonome ») interroge une seule fois le journal Sécurité du contrôleur de domaine (événements 4768, 4769 et 4624) et en tire des couples utilisateur et poste pour le relevé du parc, sans contacter aucun poste. Une confirmation d'impact précède la lecture.
+« Lire le journal du controleur » (Outils, « Base autonome », « Mise à jour », puis « Relevé du parc ») interroge une seule fois le journal Sécurité du contrôleur de domaine (événements 4768, 4769 et 4624) et en tire des couples utilisateur et poste pour le relevé du parc, sans contacter aucun poste. Une confirmation d'impact précède la lecture.
 
 - Période : ParkSweep.HarvestDays (7 jours, borné de 1 à 30).
 - Volume : ParkSweep.HarvestMaxEvents (5 000 événements, borné de 200 à 20 000).
@@ -1292,13 +1353,15 @@ Les préférences ci-dessous sont conservées au redémarrage ; la lecture seule
 | Domaine | Clés |
 |---|---|
 | Recherche | SavedSearches, OuBookmarksJson, PresenceFilter, SearchType, SearchLimit (100), GridLayoutsJson |
-| Interface | Theme (Light), UiProfile (Tech), Workspace, UxDensity (Confort), UxNavCollapsed, UxHelpVisible, UxHelpCompactOpen, UxLogCollapsed, UxLogExpandedHeight, UxLogWrap, UxLogFontSize |
+| Interface | Theme (Light), UiProfile (Tech), Workspace, UxDensity (Confort), UxNavCollapsed, UxHelpVisible, UxHelpCompactOpen, UxLogCollapsed, UxLogExpandedHeight, UxLogWrap, UxLogFontSize, Ui.ZoomPercent (100) |
 | Fenêtre | WindowWidth, WindowHeight, WindowLeft, WindowTop, WindowMaximized, TreeWidth, LogHeight |
 | Tableaux de bord | Dashboard.Computer.Layout, Dashboard.Fleet.Layout, Dashboard.Software.Layout, Widgets.Computer, Widgets.Fleet. Le périmètre du parc et celui de la Base autonome sont indépendants de Rechercher. |
 | Comptes | RemoteCredentialUser, SecretsCredentialUser : noms des comptes « POSTES / WMI / DISTANT » et « SECRETS AD », jamais de mot de passe. |
 | Poste | InventoryScope, SoftwareScope, SoftwarePerUser, SoftwareStore, SoftwareUpdates, WmiLimit (25) |
 | Parc | IndexAutoBuild, ParkSweepEnabled, ParkHarvestEnabled, Collection.Concurrency (4), Collection.CacheMinutes (15) |
-| Requêtes | Query.Library : recettes sauvegardées, dans la limite de 100 recettes et 1 Mio. |
+| Requêtes | Query.Library : recettes personnelles sauvegardées, dans la limite de 100 recettes et 1 Mio ; modèles livrés distincts. |
+
+Le zoom reste accessible en bas de la fenêtre : − et + règlent l’interface de 80 à 150 %, par pas de 10. Le bouton affichant le pourcentage rétablit 100 %. Le réglage est conservé dans les préférences personnelles.
 
 # 18 Base autonome
 
@@ -1318,46 +1381,41 @@ La base autonome est une copie locale des utilisateurs et des postes, suivie par
 - La base doit être locale, sans repli silencieux. Chemin réseau : « Une base active SQLite doit etre locale. Choisissez UserLocal ; les sources existantes seront conservees. ». Dossier redirigé : « Stockage redirige par un lien : choisissez un dossier local non redirige. ». Dossier non inscriptible : « Stockage non inscriptible : » suivi du chemin et de « Aucun repli silencieux. Configurez UserLocal. ».
 - Une ancienne base à la racine du dossier n'est adoptée que si sa base DN correspond ; elle n'est jamais déplacée ni fusionnée.
 
-Dépliez « Emplacement et sauvegarde » pour afficher le chemin exact et les commandes de sauvegarde. « Ouvrir l emplacement » ouvre l’Explorateur sur le fichier.
+Dans l’onglet « Stockage », dépliez « Emplacement et sauvegarde » pour afficher le chemin exact et les commandes de sauvegarde. « Ouvrir l emplacement » ouvre l’Explorateur sur le fichier.
 
 ## Mettre à jour la base
 
-Pour la mise à jour d’un service, utilisez « Choisir une OU » puis « Tout relire dans lʼOU choisie ». Une unité organisationnelle doit être choisie ; ses sous-OU sont incluses. La cible de mise à jour est propre à cet outil et ne modifie pas Rechercher. Relisez le chemin affiché avant de lancer une opération.
+Le choix d’OU, placé au-dessus des onglets, règle « Mise à jour » et « Données ». « Stockage » agit sur la base locale entière : les sauvegardes et purges ne sont pas limitées à cette OU. Utilisez « Choisir une OU », puis « Mettre à jour lʼOU choisie » dans l’onglet « Mise à jour ». Une unité organisationnelle doit être choisie ; ses sous-OU sont incluses. La cible est propre à cet outil et ne modifie pas Rechercher. Relisez le chemin affiché avant de lancer une opération.
 
-Le second bouton, « Tout relire dans le domaine », sert au premier chargement ou à une relecture globale occasionnelle. Cette opération peut être longue et exige une confirmation. Les deux autres modes sont regroupés sous « Options avancées ».
+| Onglet | Usage |
+|---|---|
+| Mise à jour | Relire l’OU choisie, suivre la progression et la fraîcheur de la copie locale. |
+| Données | Chercher et parcourir les objets enregistrés dans le périmètre choisi, ouvrir leur fiche ou exporter la page. |
+| Stockage | Afficher l’emplacement, sauvegarder ou mesurer toute la base, puis préparer une purge par catégories sur cette base. |
 
-| Bouton | Effet | Quand |
-|---|---|---|
-| « Tout relire dans lʼOU choisie » | Relit tous les utilisateurs et postes de l’OU sélectionnée et de ses sous-OU. Demande une sélection si aucune OU n’est choisie. Les autres branches sont conservées. | Action recommandée pour actualiser un service précis. |
-| « Tout relire dans le domaine » | Relit tous les utilisateurs et postes. Le remplacement de la copie locale exige deux lectures complètes. Confirmation obligatoire. | Initialisation ou relecture globale occasionnelle, potentiellement longue. |
-| Options avancées → « Synchroniser les changements » | Relit les objets modifiés, puis recense les GUID et chemins pour rapprocher les suppressions locales. | Entre deux lectures complètes. |
-| Options avancées → « Relire le domaine par étapes » | Relit tout le domaine connecté, une branche racine à la fois (OU et conteneurs), puis les objets directement à la racine. Les étapes incomplètes restent signalées. | Quand une lecture globale est trop longue ; la synchronisation des changements reste adaptée au suivi quotidien. |
+![Mise à jour de la base : OU choisie et commande de relecture ciblée ; données fictives](fig:base-commandes)
 
-![Mise à jour de la base : choix de l’OU puis relecture ciblée ou du domaine ; données fictives](fig:base-commandes)
+La mise à jour n’est jamais automatique. Si la base est plus ancienne que Index.StartupDeltaMaxAgeMinutes, Domenia écrit seulement une recommandation dans le journal. Pour recenser plusieurs branches, choisissez et mettez à jour leurs OU successivement.
 
-La mise à jour n'est jamais automatique. Si la base est plus ancienne que Index.StartupDeltaMaxAgeMinutes, Domenia écrit seulement une recommandation dans le journal.
+![Base autonome : onglet Données et navigateur local ; données fictives](fig:base-autonome)
 
-![Base autonome : commandes de mise à jour, dates de fraîcheur et navigateur local ; données fictives](fig:base-autonome)
+Dans « Mise à jour », dépliez « Détails du stockage et de la synchronisation » pour relire le fichier local, le contrôleur et le repère de suivi.
 
-Dépliez « Détails du stockage et de la synchronisation » pour relire le fichier local, le contrôleur et le repère de suivi.
-
-![Stockage et synchronisation : panneau de détails déplié ; données fictives](fig:base-details)
+![Copie locale : détails du stockage et de la synchronisation dépliés ; données fictives](fig:base-details)
 
 ## Suivre la progression et la fraîcheur
 
-La zone supérieure regroupe les actions à gauche et « État de la copie locale » à droite, avec les dates et la progression. La table conserve ses filtres et boutons de pagination. Faites glisser la séparation horizontale pour ajuster la hauteur des deux panneaux. « Emplacement et sauvegarde » et « Relevé du parc » se déplient à la demande.
+L’onglet « Mise à jour » regroupe la commande, « État de la copie locale », les dates et la progression. L’onglet « Données » réserve la place aux résultats, avec ses filtres et boutons de pagination. Les sauvegardes et la maintenance sont accessibles dans « Stockage ».
 
-La lecture de l'annuaire et l'enregistrement dans SQLite sont deux phases distinctes. Les compteurs affichent les objets lus, les lots écrits et les éventuels refus ou délais dépassés. Le panneau sépare la dernière lecture complète du domaine, celle de l’OU choisie et les tentatives partielles. Une tentative partielle ne remplace pas la date d’une lecture complète. Attendez la confirmation finale du stockage avant de considérer la base à jour.
+La lecture de l’annuaire et l’enregistrement dans SQLite sont deux phases distinctes. Les compteurs affichent les objets lus, les lots écrits et les éventuels refus ou délais dépassés. La fraîcheur du périmètre repose sur sa dernière lecture complète ou celle d’une OU parente qui le couvre ; le chemin couvert reste indiqué. Une tentative partielle ne remplace pas cette date et demeure signalée. Attendez la confirmation finale du stockage avant de considérer la base à jour.
 
-La lecture est transférée dans un flux local contrôlé, puis intégrée par transactions de 256 objets. Les objets sont suivis par GUID : un renommage ou un déplacement conserve l’identité. La synchronisation des changements s’accompagne d’un recensement léger des GUID et chemins sur le même contrôleur. Seul un recensement complet permet de retirer de l’index local les objets devenus absents. Un recensement de domaine vide exige une reconstruction explicite.
+La lecture est transférée dans un flux local contrôlé, puis intégrée par transactions de 256 objets. Les objets sont suivis par GUID : un renommage ou un déplacement conserve l’identité. Une lecture complète d’OU rapproche les absences uniquement dans son sous-arbre ; les autres OU restent intactes. Si la lecture ou le recensement est partiel, les objets effectivement lus sont fusionnés, mais aucun absent n’est retiré et ni le repère ni la date complète ne progressent. Les fiches et mesures enregistrées plus récemment pendant la lecture sont préservées lors de la fusion. Ces retraits concernent l’index local : ils ne suppriment rien dans AD, ni les associations manuelles ou les relevés conservés.
 
-Une lecture complète d’OU rapproche les absences uniquement dans son sous-arbre ; la passe racine du parcours OU par OU ne concerne que son premier niveau. Les autres OU restent intactes. Si la lecture ou le recensement est partiel, les objets effectivement lus sont fusionnés, mais aucun absent n’est retiré et ni le repère ni la date complète ne progressent. Le repère utilisé précède les lectures pour ne pas perdre les changements intervenus pendant la passe. Les fiches et mesures enregistrées plus récemment pendant la lecture sont préservées lors de la fusion et de la reconstruction. Ces retraits concernent l’index local : ils ne suppriment rien dans AD, ni les associations manuelles ou les relevés conservés.
-
-Le navigateur local a son propre sélecteur d'OU, un filtre et des pages de 200 objets. « Afficher / actualiser les objets » recharge sa liste. Une recherche vide parcourt le périmètre complet. Vérifiez le total d'utilisateurs et de postes, les comptes actifs ou désactivés et les filtres avant d'interpréter l'absence d'une ligne.
+L’onglet « Données » utilise l’OU choisie en haut de l’outil, un filtre et des pages de 200 objets. « Afficher / actualiser les objets » recharge sa liste. Une recherche vide parcourt le périmètre complet. Vérifiez le total d’utilisateurs et de postes, les comptes actifs ou désactivés et les filtres avant d’interpréter l’absence d’une ligne.
 
 Un clic sur un en-tête trie tous les résultats du périmètre filtré avant la pagination ; un second clic inverse le sens. « Tri par pertinence » revient au classement initial. Les colonnes « Connexion AD » et « Modifié dans AD » suivent l’ordre chronologique, avec les dates inconnues en fin de liste. La colonne Association, calculée à l’affichage, ne se trie pas.
 
-![Relecture du domaine par étapes : compteurs et phase de progression ; données fictives](fig:base-progression)
+![Relecture de l’OU choisie : compteurs et phase de progression ; données fictives](fig:base-progression)
 
 ## Limites des caches et de la base
 
@@ -1367,8 +1425,9 @@ Un clic sur un en-tête trie tous les résultats du périmètre filtré avant la
 | Cache des recherches en mémoire | 20 requêtes et 20 000 lignes cumulées | Les instantanés anciens sont évincés ; la liste courante et l’index ne sont pas tronqués par cette éviction. |
 | Recherches persistées | 20 instantanés par périmètre ; 20 000 lignes et 32 Mio par instantané | Ce plafond porte sur chaque instantané JSON, pas sur la taille de toute la base. |
 | Cache des observations courtes | 20 000 entrées par périmètre | Conserve un ensemble borné de dernières observations. |
+| Identité AD de la console observée | Moins de 5 minutes après sa vérification | Date indépendante du ping ; relecture si le compte change, manque dans la base ou si la relecture est forcée. |
 | Rétention des caches persistés | 30 jours | Une entrée hors délai ne constitue pas une mesure actuelle. |
-| Recettes de l'Atelier | 100 recettes, 1 Mio | Les conditions sont conservées, sans recopier tous les résultats. |
+| Recettes personnelles de l'Atelier | 100 recettes, 1 Mio | Les conditions sont conservées, sans recopier tous les résultats. |
 | Sélection figée d'alerte | 20 000 GUID | Le détail est paginé ; la sélection reste explicite et bornée au périmètre. |
 
 Le panneau de cache affiche notamment les entrées fraîches ou expirées, le délai de validité, la réutilisation, les évictions et les erreurs. Ce cache de navigation est distinct de la base du parc. Purger un cache n'est pas la même opération que supprimer une base ; conservez une sauvegarde des associations et observations utiles.
@@ -1377,7 +1436,7 @@ Pour un parc de 5 000 postes ou plus, gardez les listes paginées, commencez ave
 
 ## Sauvegarder
 
-1. **Lancer.** Dépliez « Emplacement et sauvegarde », puis cliquez « Sauvegarder maintenant ». La barre d'état affiche « Sauvegarde de la base en cours... ».
+1. **Lancer.** Ouvrez « Stockage », dépliez « Emplacement et sauvegarde », puis cliquez « Sauvegarder maintenant ». La barre d'état affiche « Sauvegarde de la base en cours... ».
 2. **Copie à chaud.** Le worker StorageBackup copie la base par l'API de sauvegarde SQLite. L'original reste ouvert en lecture seule et n'est pas modifié.
 3. **Contrôle.** La copie est vérifiée (PRAGMA quick_check) dans le budget LocalStore.BackupTimeoutSeconds (30 s). Une copie partielle est supprimée.
 4. **Rotation.** Le fichier va dans le dossier Backups de la base, nommé Domenia-DATE-HEURE-ID.db. Seules les LocalStore.DatabaseBackupCount (7) plus récentes sont gardées.
@@ -1403,7 +1462,7 @@ Aucun outil de restauration n'est livré : la restauration est manuelle. Si la b
 3. **Choisir.** Prenez la sauvegarde la plus récente dans le dossier Backups de la base.
 4. **Remplacer.** Retirez du dossier de la base les anciens Domenia.db, -wal et -shm (déjà mis de côté), puis copiez la sauvegarde sous le nom Domenia.db.
 5. **Relancer.** Lancez Domenia, ouvrez Outils, « Base autonome », et vérifiez le chemin et le contenu.
-6. **Rattraper.** Cliquez « Synchroniser les changements » pour relire ce qui a changé dans AD depuis la sauvegarde.
+6. **Rattraper.** Choisissez l’OU utilisée, puis « Mise à jour » et « Mettre à jour lʼOU choisie » pour relire ses objets AD. Répétez pour les autres branches suivies.
 
 > [!ATTENTION] Validez cette procédure sur une copie avant de remplacer la base utilisée. Ne copiez jamais une sauvegarde à côté d'anciens fichiers -wal et -shm. Les associations et relevés postérieurs à la sauvegarde sont perdus ; les objets AD se relisent.
 
@@ -1413,7 +1472,13 @@ Le schéma de données est en version 11. Les migrations ne vont que vers l'avan
 
 ## Mesure et purge
 
-Les outils « Mesurer » et « Purge volontaire » existent dans l'onglet « Fiabilité », accessible selon le parcours et le profil. Cet onglet regroupe aussi les reçus, « Autoriser une intervention sur cette machine » et « Reprendre les sauvegardes ». Il ne s'affiche que lorsque Domenia y conduit : en usage normal, seul le bouton « Ouvrir : Outils > Fiabilite » de l'onglet « Secrets » du poste le fait, quand une écriture est en cours ou à vérifier. Les messages qui citent « Outils > Fiabilite » n'ouvrent pas l'onglet. Une purge garderait toujours les associations, l'historique protégé, les secrets, la configuration, les préférences, les journaux et les reçus, et ne compacterait pas le fichier.
+Dans Outils → Base autonome → Stockage, « Mesurer » compte les lignes et le volume de la base, en lecture seule. Dans « Purge volontaire », choisissez les données reconstructibles à oublier dans toute la base, indépendamment de l’OU affichée : observations, instantanés de recherche, index local ou anciennes traces selon l’âge indiqué. « Simuler la purge » compte les lignes concernées ; « Purger… » demande ensuite confirmation de cette sélection.
+
+La purge conserve toujours les associations et leurs traces protégées, les secrets, la configuration, les préférences, les journaux et les reçus. Elle ne compacte pas le fichier SQLite. Purger l’index impose une nouvelle mise à jour explicite des OU utiles pour retrouver leurs objets locaux.
+
+Les reçus d’écriture et les autorisations d’intervention restent dans « Fiabilité », lorsque Domenia y conduit. Les opérations de stockage se consultent dans la Base autonome.
+
+![Stockage : sauvegardes et préparation d’une purge locale ; données fictives](fig:base-stockage)
 
 # 19 Règles de sécurité
 
@@ -1422,7 +1487,7 @@ Domenia lit par défaut, n'envoie rien sur le réseau sans geste explicite et ne
 | Règle | Comment Domenia l'applique |
 |---|---|
 | Lecture par défaut | Démarrage toujours en lecture seule ; passage en écriture confirmé et signalé en rouge (chapitre 14). |
-| Aucune sonde sans geste | Pas de mise à jour de la base ni de relevé au démarrage. Un relevé exige un périmètre explicite et une confirmation du nombre de cibles ; il lit de 1 à 8 postes en parallèle selon le réglage. Dans l’Atelier, le périmètre peut être une OU ou le domaine connecté. |
+| Aucune sonde sans geste | Pas de mise à jour de la base ni de relevé au démarrage. Un relevé exige un périmètre explicite et une confirmation du nombre de cibles ; il lit de 1 à 8 postes en parallèle selon le réglage. Dans l’Atelier, le périmètre est l’OU affichée avec ses sous-OU. |
 | Pas de rejeu | Une écriture n'est jamais rejouée automatiquement ; les reçus servent à vérifier. |
 | Secrets en mémoire | Mots de passe jamais enregistrés, effacés à la fermeture ; seul l'identifiant peut être mémorisé. LAPS et BitLocker : une valeur à la fois, jamais journalisée ni mise en cache, presse-papiers vidé après 30 s. |
 | Windows intact | Aucun certificat accepté à l'aveugle ; WinRM, pare-feu, antivirus et stratégies jamais modifiés. Le déblocage du paquet ne change aucune stratégie. |
@@ -1551,7 +1616,7 @@ Ce chapitre donne les sources utiles pour maintenir Domenia 1.0 et reconstruire 
 | Cœur, fenêtres, configuration, workers du cœur | wad\Domenia-Core.ps1 |
 | Tableaux de bord et widgets | modules Domenia-Boards.Model, Domenia-Widgets.UI, Domenia-BoardComputer.UI, Domenia-BoardFleet.Model, Domenia-BoardSoftware.Model, Domenia-Charts.UI, Domenia-Dashboard.UI |
 | Requêtes WMI | module Domenia-Probes.Model |
-| Atelier de requêtes | modules Domenia-Query.Model, Domenia-Query.UI, Domenia-Query.Worker ; moteur partagé vendor\m4d-admin-common\src\Query |
+| Atelier de requêtes | modules Domenia-Query.Model, Domenia-Query.UI, Domenia-Query.Worker, Domenia-QueryTargets.UI ; vue Domenia-Query.xaml ; moteur partagé vendor\m4d-admin-common\src\Query |
 | Agrégations natives | native\ProbeAggregation.cs, native\ObservationReader.cs, tools\build_native.ps1 |
 | Parc et relevés | modules Domenia-Park.UI, Domenia-Park.Model, Domenia-Live.UI, Domenia-Live.Model |
 | Base autonome | module Domenia-Storage.UI et son worker |
@@ -1568,14 +1633,14 @@ Ce chapitre donne les sources utiles pour maintenir Domenia 1.0 et reconstruire 
 
 
 
-## Documents du pack DEV
+## Documents du dépôt et du pack DEV
 
 | Fichier | Contenu |
 |---|---|
 | LIRE-MOI.md | Démarrage, installation et repères du paquet. |
 | tools\release-contract.json | Identité de la livraison et empreintes des composants épinglés. |
 | tools\operation-contracts.json | Contrats des opérations exécutées en arrière-plan. |
-| guides | Sources des guides technicien et administrateur, au format Markdown et JSON. |
+| guides | Dans le dépôt source : sources des guides technicien et administrateur, au format Markdown et JSON. |
 | engineering\d120 | Garde de livraison, suivi technique et outils de vérification. |
 
 # 23 Mots à connaître

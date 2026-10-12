@@ -1,0 +1,262 @@
+{
+    "Suite":  "DomeniaLiveSearchView",
+    "Passed":  true,
+    "Failed":  0,
+    "Cases":  11,
+    "Assertions":  63,
+    "PowerShell":  "5.1.26100.6584",
+    "SessionId":  0,
+    "Sta":  "STA",
+    "SyntheticOnly":  true,
+    "RealDispatcher":  true,
+    "LoaderScope":  "-File launcher then \u0026 application script (same as Domenia-Start)",
+    "LoadedFunctions":  [
+                            {
+                                "Name":  "Initialize-DomeniaLive",
+                                "File":  "C:\\DomeniaLab\\codex-ux-20261012-r8\\source\\dev\\wad\\modules\\Domenia-Live.UI.ps1"
+                            },
+                            {
+                                "Name":  "Begin-DomeniaLiveSearch",
+                                "File":  "C:\\DomeniaLab\\codex-ux-20261012-r8\\source\\dev\\wad\\modules\\Domenia-Live.UI.ps1"
+                            },
+                            {
+                                "Name":  "Update-DomeniaLiveFilter",
+                                "File":  "C:\\DomeniaLab\\codex-ux-20261012-r8\\source\\dev\\wad\\modules\\Domenia-Live.UI.ps1"
+                            },
+                            {
+                                "Name":  "Add-DomeniaLiveRow",
+                                "File":  "C:\\DomeniaLab\\codex-ux-20261012-r8\\source\\dev\\wad\\modules\\Domenia-Live.UI.ps1"
+                            },
+                            {
+                                "Name":  "Invoke-DomeniaLiveTick",
+                                "File":  "C:\\DomeniaLab\\codex-ux-20261012-r8\\source\\dev\\wad\\modules\\Domenia-Live.UI.ps1"
+                            },
+                            {
+                                "Name":  "New-DomeniaTimer",
+                                "File":  "C:\\DomeniaLab\\codex-ux-20261012-r8\\source\\dev\\wad\\modules\\Domenia-Engine.UI.ps1"
+                            },
+                            {
+                                "Name":  "Invoke-DomeniaTimerTick",
+                                "File":  "C:\\DomeniaLab\\codex-ux-20261012-r8\\source\\dev\\wad\\modules\\Domenia-Engine.UI.ps1"
+                            },
+                            {
+                                "Name":  "Test-DomeniaSearchQueryRow",
+                                "File":  "C:\\DomeniaLab\\codex-ux-20261012-r8\\source\\dev\\wad\\modules\\Domenia-Query.UI.ps1"
+                            },
+                            {
+                                "Name":  "Get-DomeniaBoardSelectHandler",
+                                "File":  "C:\\DomeniaLab\\codex-ux-20261012-r8\\source\\dev\\wad\\modules\\Domenia-Widgets.UI.ps1"
+                            },
+                            {
+                                "Name":  "Show-DomeniaFleetWidgetDetails",
+                                "File":  "C:\\DomeniaLab\\codex-ux-20261012-r8\\source\\dev\\wad\\modules\\Domenia-Query.UI.ps1"
+                            }
+                        ],
+    "Hashes":  [
+                   {
+                       "Path":  "Domenia-Modules.ps1",
+                       "Sha256":  "AA0B98C90809F05795E5E3F0ACC951A40E249A5A3F6EE90A3CAF5B9A99197B7E"
+                   },
+                   {
+                       "Path":  "Domenia-Core.ps1",
+                       "Sha256":  "ACD93B7A6C7F97E9990348A904B52B33B274222E75DA254F131FD0C1885E7DE4"
+                   },
+                   {
+                       "Path":  "modules/Domenia-Live.UI.ps1",
+                       "Sha256":  "1514F0BE4CD88C60822660D0F4CDD44F643BD6F8DD6A8CD6951FE83323F599FA"
+                   },
+                   {
+                       "Path":  "modules/Domenia-Query.UI.ps1",
+                       "Sha256":  "6FB267B47F986FC9FF2E50BB3154C9541F5EAF34D75637C568612BD930DA3D06"
+                   },
+                   {
+                       "Path":  "modules/Domenia-Widgets.UI.ps1",
+                       "Sha256":  "7710277E0A1EA9C2EDF6A0FC585DA2E97AE7F3518E82DDF3A8B5B0A1D034BA24"
+                   }
+               ],
+    "Results":  [
+                    {
+                        "Name":  "Real loader keeps application functions private to the script",
+                        "Passed":  true,
+                        "Milliseconds":  11,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Progressive arrivals without query survive three timer ticks",
+                        "Passed":  true,
+                        "Milliseconds":  978,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Real ApplySearch intersects native matching GUIDs and object types",
+                        "Passed":  true,
+                        "Milliseconds":  247,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "GUID normalization and later arrivals use the active predicate",
+                        "Passed":  true,
+                        "Milliseconds":  563,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Reapply recomputes GUID selection and explicit refresh preserves it",
+                        "Passed":  true,
+                        "Milliseconds":  582,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Active selection with empty or missing map fails closed",
+                        "Passed":  true,
+                        "Milliseconds":  15,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Disabled grid defers ApplySearch and ClearSearch until the next real tick",
+                        "Passed":  true,
+                        "Milliseconds":  1451,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Real ClearSearch restores rows then local text and presence filters work",
+                        "Passed":  true,
+                        "Milliseconds":  43,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Five thousand machines plus other object types remain complete and filterable",
+                        "Passed":  true,
+                        "Milliseconds":  59515,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "A fresh global search restarts and ignores residual local text and presence",
+                        "Passed":  true,
+                        "Milliseconds":  581,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Explicit Fleet chrome button opens the script-local workshop; chart click stays inert",
+                        "Passed":  true,
+                        "Milliseconds":  135,
+                        "Error":  ""
+                    }
+                ],
+    "Snapshots":  [
+                      {
+                          "Stage":  "no-query-three-arrivals",
+                          "Rows":  3,
+                          "Visible":  3,
+                          "Queued":  0,
+                          "TimerRuns":  6,
+                          "TimerErrors":  0,
+                          "TimerFailures":  0,
+                          "TimerEnabled":  true,
+                          "FaultStopped":  false,
+                          "LastError":  "",
+                          "HeartbeatWakeups":  6,
+                          "Counter":  "3 / 3 lignes visibles · filtre local"
+                      },
+                      {
+                          "Stage":  "applied-query",
+                          "Rows":  3,
+                          "Visible":  1,
+                          "Queued":  0,
+                          "TimerRuns":  6,
+                          "TimerErrors":  0,
+                          "TimerFailures":  0,
+                          "TimerEnabled":  true,
+                          "FaultStopped":  false,
+                          "LastError":  "",
+                          "HeartbeatWakeups":  6,
+                          "Counter":  "1 / 3 lignes visibles · filtre local"
+                      },
+                      {
+                          "Stage":  "filtered-incremental-arrivals",
+                          "Rows":  5,
+                          "Visible":  2,
+                          "Queued":  0,
+                          "TimerRuns":  12,
+                          "TimerErrors":  0,
+                          "TimerFailures":  0,
+                          "TimerEnabled":  true,
+                          "FaultStopped":  false,
+                          "LastError":  "",
+                          "HeartbeatWakeups":  12,
+                          "Counter":  "2 / 5 lignes visibles · filtre local"
+                      },
+                      {
+                          "Stage":  "disabled-grid-apply-and-clear",
+                          "Rows":  5,
+                          "Visible":  5,
+                          "Queued":  0,
+                          "TimerRuns":  35,
+                          "TimerErrors":  0,
+                          "TimerFailures":  0,
+                          "TimerEnabled":  true,
+                          "FaultStopped":  false,
+                          "LastError":  "",
+                          "HeartbeatWakeups":  35,
+                          "Counter":  "5 / 5 lignes visibles · filtre local"
+                      },
+                      {
+                          "Stage":  "all-filters-cleared",
+                          "Rows":  5,
+                          "Visible":  5,
+                          "Queued":  0,
+                          "TimerRuns":  35,
+                          "TimerErrors":  0,
+                          "TimerFailures":  0,
+                          "TimerEnabled":  true,
+                          "FaultStopped":  false,
+                          "LastError":  "",
+                          "HeartbeatWakeups":  35,
+                          "Counter":  "5 / 5 lignes visibles · filtre local"
+                      },
+                      {
+                          "Stage":  "5000-machines-plus-user-and-group",
+                          "Rows":  5002,
+                          "Visible":  5002,
+                          "Queued":  0,
+                          "TimerRuns":  705,
+                          "TimerErrors":  0,
+                          "TimerFailures":  0,
+                          "TimerEnabled":  true,
+                          "FaultStopped":  false,
+                          "LastError":  "",
+                          "HeartbeatWakeups":  705,
+                          "Counter":  "5002 / 5002 lignes visibles · filtre local"
+                      },
+                      {
+                          "Stage":  "2500-of-5000-machine-query",
+                          "Rows":  5002,
+                          "Visible":  2500,
+                          "Queued":  0,
+                          "TimerRuns":  705,
+                          "TimerErrors":  0,
+                          "TimerFailures":  0,
+                          "TimerEnabled":  true,
+                          "FaultStopped":  false,
+                          "LastError":  "",
+                          "HeartbeatWakeups":  705,
+                          "Counter":  "2500 / 5002 lignes visibles · filtre local"
+                      },
+                      {
+                          "Stage":  "fresh-global-search",
+                          "Rows":  2,
+                          "Visible":  2,
+                          "Queued":  0,
+                          "TimerRuns":  711,
+                          "TimerErrors":  0,
+                          "TimerFailures":  0,
+                          "TimerEnabled":  true,
+                          "FaultStopped":  false,
+                          "LastError":  "",
+                          "HeartbeatWakeups":  711,
+                          "Counter":  "2 / 2 lignes visibles · recherche globale sans filtre local"
+                      }
+                  ],
+    "Logs":  [
+
+             ]
+}

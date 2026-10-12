@@ -25,15 +25,24 @@ Deux distributions sont prévues :
 - **DEV** : le même runtime, les sources, les outils de fabrication et les tests.
 
 Dans **Outils > Base autonome**, privilégiez **Tout relire dans lʼOU choisie**.
-Cette action inclut les sous-OU et conserve les autres branches. **Tout relire dans
-le domaine** est une opération longue et occasionnelle, avec confirmation : premier
-chargement ou remise à jour globale. Ces lectures mettent à jour la copie locale,
-sans modifier l'annuaire.
+Choisissez son emplacement dans l’arbre, avec recherche et chargement progressif.
+Cette action inclut les sous-OU et conserve les autres branches. Les onglets
+**Mise à jour**, **Données** et **Stockage** séparent les opérations et affichent
+leur progression. Ces lectures actualisent la copie locale, sans modifier l'annuaire.
 
 Les vues indiquent leur périmètre et la fraîcheur des données. Un objet recensé,
 un poste actif et un poste joignable sont trois informations distinctes. Les données
-absentes ou périmées restent inconnues. Cliquer sur un indicateur ouvre les objets
-ou le détail correspondant ; l'atelier permet d'enregistrer des filtres et des sondes.
+absentes ou périmées restent inconnues. L’icône de détail des indicateurs ouvre
+les objets ou la requête correspondante ; le crayon sert à modifier la présentation.
+Le zoom **− / 100 % / +** conserve la taille d’interface choisie.
+
+L’atelier partage une bibliothèque entre **Recherche**, le **tableau général** et
+le **tableau d’un poste**. L’onglet **Bibliothèque** propose **152 modèles prêts**
+classés en 14 catégories, avec recherche, description et origine des informations.
+Son catalogue décrit 105 champs pris en charge, dont
+78 sondes, avec leur origine et leurs conditions de collecte. Les requêtes évaluent
+les données locales ; la collecte distante reste une action explicite. Elle regroupe
+les propriétés WMI compatibles et réutilise les mesures encore fraîches.
 
 ## Documentation
 

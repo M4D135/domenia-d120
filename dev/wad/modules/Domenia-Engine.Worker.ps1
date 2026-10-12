@@ -167,7 +167,7 @@ try {
             if($null -ne $previous){
                 $user=$users[[string]$previous.UserGuid]
                 $oldUsn=0L;$validUsn=[long]::TryParse([string]$previous.UserUsn,[ref]$oldUsn)
-                $changed=(-not $validUsn -or ($null -ne $user -and ([string]$user.distinguished_name -ine [string]$previous.UserDn -or [long]$user.usn_changed -gt $oldUsn)))
+                $changed=(-not $validUsn -or $null -eq $user -or ($null -ne $user -and ([string]$user.distinguished_name -ine [string]$previous.UserDn -or [long]$user.usn_changed -gt $oldUsn)))
                 # A known reused DN or login belongs to a new user even if the old GUID is absent.
                 foreach($field in @('UserDn','LinkUser')){
                     $set=$null

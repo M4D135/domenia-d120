@@ -1,0 +1,229 @@
+<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Name="DomeniaQueryView">
+  <Grid Margin="12">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+    <DockPanel Margin="0,0,0,8">
+      <Button x:Name="BtnQueryBack" DockPanel.Dock="Left" Content="Retour" MinHeight="32" Margin="0,0,12,0" AutomationProperties.Name="Revenir à la vue précédente" />
+      <TextBlock x:Name="LblQueryScope" TextWrapping="Wrap" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}" />
+    </DockPanel>
+    <Border Style="{DynamicResource Card}" Grid.Row="1">
+      <DockPanel Margin="0,8,0,0">
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+          <WrapPanel Margin="0,0,0,6">
+            <ComboBox x:Name="CmbFleetQuery" Width="330" MinHeight="32" Margin="0,0,6,0" AutomationProperties.Name="Modèles et requêtes enregistrées" ToolTip="Choisir un modèle ou une requête puis Charger." />
+            <Button x:Name="BtnQueryLoad" Content="Charger" MinHeight="32" Margin="0,0,6,0" />
+            <Button x:Name="BtnQueryNew" Content="Nouvelle" MinHeight="32" Margin="0,0,6,0" />
+            <Button x:Name="BtnQueryRun" Content="Exécuter" Style="{DynamicResource RunButton}" MinHeight="32" Margin="8,0,0,0" />
+          </WrapPanel>
+          <TextBlock x:Name="LblQueryStatus" Text="Choisissez un modèle, ou ajoutez des conditions." TextWrapping="Wrap" Margin="0,4,0,8" Foreground="{DynamicResource MutedColor}" AutomationProperties.LiveSetting="Polite" />
+        </StackPanel>
+        <TabControl x:Name="QueryWorkspaceTabs" Margin="0,4,0,0">
+          <TabItem x:Name="TabQueryResults" Header="Résultats">
+            <DockPanel Margin="10">
+              <WrapPanel Margin="0,0,0,6" DockPanel.Dock="Top">
+                <TextBlock x:Name="LblQuerySegment" MaxWidth="740" TextWrapping="Wrap" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}" />
+                <Button x:Name="BtnQueryClearSegment" Content="Retirer le segment" MinHeight="30" Margin="8,0,0,0" />
+              </WrapPanel>
+              <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                <TextBox x:Name="TxtFleetMachineFilter" Width="220" MinHeight="32" Margin="0,0,8,0" ToolTip="Filtre local par nom ou unité organisationnelle. Aucun accès réseau." AutomationProperties.Name="Filtrer les postes de lʼatelier" />
+                <ComboBox x:Name="CmbFleetMachineState" Width="140" MinHeight="32" SelectedIndex="0" ToolTip="Inclure tous les postes ou filtrer les comptes actifs et désactivés." AutomationProperties.Name="État des postes affichés">
+                  <ComboBoxItem Content="Tous les états" />
+                  <ComboBoxItem Content="Actifs" />
+                  <ComboBoxItem Content="Désactivés" />
+                </ComboBox>
+                <ComboBox x:Name="CmbQueryResult" Width="150" MinHeight="32" Margin="8,0,0,0" SelectedIndex="0" AutomationProperties.Name="Type de résultat à afficher">
+                  <ComboBoxItem Content="Correspondants" />
+                  <ComboBoxItem Content="Inconnus" />
+                  <ComboBoxItem Content="Non correspondants" />
+                </ComboBox>
+                <TextBlock x:Name="LblFleetMachineCount" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="{DynamicResource MutedColor}" />
+              </WrapPanel>
+              <WrapPanel DockPanel.Dock="Bottom" Margin="0,6,0,0">
+                <Button x:Name="BtnQueryPrevious" Content="Page précédente" IsEnabled="False" MinHeight="30" Margin="0,0,6,0" />
+                <Button x:Name="BtnQueryNext" Content="Page suivante" IsEnabled="False" MinHeight="30" Margin="0,0,6,0" />
+                <Button x:Name="BtnQueryExport" Content="Exporter cette page (CSV)" MinHeight="30" />
+              </WrapPanel>
+              <Expander x:Name="ExpQueryObject" DockPanel.Dock="Bottom" Header="Objet sélectionné · fiche locale" IsExpanded="False" Margin="0,10,0,0">
+                <StackPanel>
+                  <TextBlock x:Name="LblQueryObject" Text="Sélectionnez un poste pour consulter ses données." TextWrapping="Wrap" Margin="0,4,0,8" />
+                  <WrapPanel Margin="0,0,0,6">
+                    <Button x:Name="BtnQueryObjectOpen" Content="Fiche AD et actions…" MinHeight="32" Margin="0,0,6,0" ToolTip="Relit cet objet par son DN et vérifie son GUID avant dʼouvrir les actions protégées." />
+                    <Button x:Name="BtnQueryObjectCollect" Content="Actualiser ce poste…" MinHeight="32" Margin="0,0,6,0" ToolTip="Prépare une collecte sur ce seul poste, avec confirmation." />
+                    <Button x:Name="BtnQueryObjectCopy" Content="Copier le chemin AD" MinHeight="32" />
+                  </WrapPanel>
+                  <DataGrid x:Name="DgQueryObjectFields" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" MaxHeight="280" EnableRowVirtualization="True" AutomationProperties.Name="Données locales de lʼobjet sélectionné">
+                    <DataGrid.Columns>
+                      <DataGridTextColumn Header="Information" Binding="{Binding Name}" Width="*" />
+                      <DataGridTextColumn Header="Valeur locale" Binding="{Binding Value}" Width="*" />
+                    </DataGrid.Columns>
+                  </DataGrid>
+                </StackPanel>
+              </Expander>
+              <DataGrid x:Name="DgFleetMachines" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" CanUserDeleteRows="False" EnableRowVirtualization="True" EnableColumnVirtualization="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" AutomationProperties.Name="Postes du périmètre depuis la base locale" MinHeight="100" ScrollViewer.VerticalScrollBarVisibility="Auto">
+                <DataGrid.Columns>
+                  <DataGridTemplateColumn Header="Présence" Width="100" SortMemberPath="PresenceLabel">
+                    <DataGridTemplateColumn.CellTemplate>
+                      <DataTemplate>
+                        <StackPanel Orientation="Horizontal" ToolTip="{Binding PresenceLabel}">
+                          <TextBlock Text="{Binding PresenceState}" Foreground="{Binding PresenceBrush}" Margin="4,0,6,0" />
+                          <TextBlock Text="{Binding PresenceLabel}" />
+                        </StackPanel>
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                  </DataGridTemplateColumn>
+                  <DataGridTextColumn Header="Poste" Binding="{Binding name}" Width="180" />
+                  <DataGridTextColumn Header="État" Binding="{Binding StateLabel}" Width="110" />
+                  <DataGridTextColumn Header="Système AD" Binding="{Binding OS}" Width="220" />
+                  <DataGridTextColumn Header="Version AD" Binding="{Binding Version}" Width="130" />
+                  <DataGridTextColumn Header="Connexion AD (j)" Binding="{Binding LogonDays}" Width="120" />
+                  <DataGridTextColumn Header="Âge du relevé" Binding="{Binding Observation}" Width="160" />
+                  <DataGridTextColumn Header="Valeurs interrogées" Binding="{Binding QueryValues}" Width="260" />
+                  <DataGridTextColumn Header="Unité organisationnelle" Binding="{Binding distinguished_name}" Width="*" />
+                </DataGrid.Columns>
+              </DataGrid>
+            </DockPanel>
+          </TabItem>
+          <TabItem x:Name="TabQueryCompose" Header="Composer la requête">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+              <StackPanel Margin="14">
+                <TextBlock Text="Composez une requête sur les postes recensés et leurs relevés. Les résultats inconnus sont séparés. Aucune collecte réseau lors du calcul." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,0,0,8" />
+                <ComboBox x:Name="CmbQueryJunction" Width="270" HorizontalAlignment="Left" SelectedIndex="0" MinHeight="32" Margin="0,0,0,6" AutomationProperties.Name="Combinaison des conditions">
+                  <ComboBoxItem Content="Toutes les conditions (ET)" />
+                  <ComboBoxItem Content="Au moins une condition (OU)" />
+                </ComboBox>
+                <WrapPanel Margin="0,0,0,6">
+                  <ComboBox x:Name="CmbQueryField" Width="330" MinHeight="32" Margin="0,0,6,0" IsTextSearchEnabled="True" AutomationProperties.Name="Champ à interroger" />
+                  <ComboBox x:Name="CmbQueryOperator" Width="190" MinHeight="32" Margin="0,0,6,0" AutomationProperties.Name="Opérateur du filtre" />
+                  <TextBox x:Name="TxtQueryValue" Width="150" MaxLength="4096" MinHeight="32" Margin="0,0,6,0" ToolTip="Valeur : texte littéral, nombre avec virgule ou point, Oui ou Non." AutomationProperties.Name="Valeur de la condition" />
+                  <Button x:Name="BtnQueryAddCondition" Content="Ajouter" MinHeight="32" />
+                  <Button x:Name="BtnQueryBrowseCatalog" Content="Parcourir le catalogue…" MinHeight="32" Margin="6,0,0,0" ToolTip="Rechercher une information et comprendre sa source avant de préparer une condition." />
+                </WrapPanel>
+                <DataGrid x:Name="DgQueryConditions" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" MaxHeight="170" MinHeight="65" SelectionMode="Single" AutomationProperties.Name="Conditions de la requête">
+                  <DataGrid.Columns>
+                    <DataGridTextColumn Header="Champ" Binding="{Binding FieldLabel}" Width="*" />
+                    <DataGridTextColumn Header="Condition" Binding="{Binding OperatorLabel}" Width="190" />
+                    <DataGridTextColumn Header="Valeur" Binding="{Binding Value}" Width="220" />
+                  </DataGrid.Columns>
+                </DataGrid>
+                <WrapPanel Margin="0,10,0,18">
+                  <Button x:Name="BtnQueryRemoveCondition" Content="Retirer la condition" MinHeight="32" Margin="0,0,6,0" />
+                  <Button x:Name="BtnQueryCollect" Content="Collecter les données requises…" MinHeight="32" Margin="0,0,6,0" ToolTip="Prépare une collecte confirmée sur les postes actifs du périmètre. Ne lance jamais toutes les sondes du catalogue." />
+                  <Button x:Name="BtnQueryApplySearch" Content="Appliquer aux résultats de Recherche" MinHeight="32" ToolTip="Filtre les lignes déjà présentes dans Recherche. Aucune nouvelle recherche AD." />
+                </WrapPanel>
+                <TextBlock Text="Enregistrer et réutiliser" FontWeight="SemiBold" FontSize="15" Margin="0,2,0,10" />
+                <WrapPanel Margin="0,0,0,6">
+                  <TextBox x:Name="TxtFleetQueryName" Width="330" MaxLength="120" MinHeight="32" Margin="0,0,6,0" AutomationProperties.Name="Nom de la requête" />
+                  <Button x:Name="BtnQuerySave" Content="Enregistrer" MinHeight="32" Margin="0,0,6,0" />
+                  <Button x:Name="BtnQueryWidget" Content="Créer une sonde dashboard" MinHeight="32" ToolTip="Enregistre la requête et ajoute sa visualisation au tableau de bord choisi. La petite icône près du crayon ouvre les postes correspondants dans lʼatelier." />
+                  <Button x:Name="BtnQueryDelete" Content="Supprimer la sauvegarde" MinHeight="32" ToolTip="Supprime cette requête des préférences et son widget. Les données collectées sont conservées." Margin="6,0,0,0" />
+                </WrapPanel>
+                <WrapPanel Margin="0,0,0,6">
+                  <TextBlock Text="Visualisation" VerticalAlignment="Center" Margin="0,0,8,0" />
+                  <ComboBox x:Name="CmbQueryGroupField" Width="330" MinHeight="32" AutomationProperties.Name="Champ de répartition du widget" ToolTip="Compteur, ou répartition des postes correspondants par une information. Le graphique se personnalise ensuite dans le dashboard." />
+                </WrapPanel>
+                <WrapPanel Margin="0,4,0,6">
+                  <TextBlock Text="Destination de la sonde" VerticalAlignment="Center" Margin="0,0,8,0" />
+                  <ComboBox x:Name="CmbQueryWidgetDestination" Width="245" MinHeight="32" SelectedIndex="0" Margin="0,0,8,0" AutomationProperties.Name="Tableau de bord de destination">
+                    <ComboBoxItem Content="Tableau de bord général" Tag="Fleet" />
+                    <ComboBoxItem Content="Tableau de bord du poste" Tag="Computer" />
+                  </ComboBox>
+                  <ComboBox x:Name="CmbQueryWidgetVisual" Width="160" MinHeight="32" SelectedIndex="0" AutomationProperties.Name="Présentation de la sonde">
+                    <ComboBoxItem Content="Indicateur" Tag="Kpi" />
+                    <ComboBoxItem Content="Texte" Tag="Text" />
+                    <ComboBoxItem Content="Barres" Tag="Bar" />
+                    <ComboBoxItem Content="Camembert" Tag="Pie" />
+                    <ComboBoxItem Content="Colonnes" Tag="Column" />
+                  </ComboBox>
+                </WrapPanel>
+                <TextBlock Text="Lʼatelier liste les postes de lʼOU. Un widget du tableau de bord Poste applique cette requête au poste sélectionné." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,2,0,8" />
+                <Button x:Name="BtnQueryPreviewComputer" Content="Tester sur le poste sélectionné" MinHeight="32" HorizontalAlignment="Left" ToolTip="Évalue la requête sur les données locales déjà enregistrées du poste sélectionné." />
+                <TextBlock x:Name="LblQueryComputerPreview" TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,4,0,8" />
+                <Expander Header="Réglages de collecte" Margin="0,6,0,6">
+                  <WrapPanel Margin="0,6,0,6">
+                    <TextBlock Text="Postes en parallèle" VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <ComboBox x:Name="CmbCollectionConcurrency" Width="80" MinHeight="32" Margin="0,0,18,0" AutomationProperties.Name="Nombre maximal de postes collectés en parallèle" />
+                    <TextBlock Text="Réutiliser les mesures fraîches" VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <ComboBox x:Name="CmbCollectionCache" Width="210" MinHeight="32" AutomationProperties.Name="Durée de réutilisation des mesures" ToolTip="Les sondes volatiles sont relues après une minute, lʼinventaire après cinq minutes. Forcer relit toutes les mesures demandées." />
+                  </WrapPanel>
+                </Expander>
+              </StackPanel>
+            </ScrollViewer>
+          </TabItem>
+          <TabItem x:Name="TabQueryLibrary" Header="Bibliothèque">
+            <DockPanel Margin="10">
+              <StackPanel DockPanel.Dock="Top">
+                <TextBlock Text="Requêtes prêtes à utiliser" FontSize="17" FontWeight="SemiBold" />
+                <TextBlock Text="Choisissez un modèle, adaptez ses conditions, puis utilisez-le dans Recherche ou dans un tableau de bord général ou Poste." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,4,0,10" />
+                <WrapPanel Margin="0,0,0,8">
+                  <TextBlock Text="Rechercher" VerticalAlignment="Center" Margin="0,0,8,6" />
+                  <TextBox x:Name="TxtQueryLibrarySearch" Width="280" MinHeight="32" MaxLength="256" Margin="0,0,8,6" ToolTip="Rechercher par nom, usage ou catégorie. Les accents et la casse sont ignorés." AutomationProperties.Name="Rechercher une requête prête à utiliser" />
+                  <ComboBox x:Name="CmbQueryLibraryCategory" Width="230" MinHeight="32" Margin="0,0,8,6" AutomationProperties.Name="Catégorie de requêtes" />
+                  <ComboBox x:Name="CmbQueryLibrarySource" Width="190" MinHeight="32" Margin="0,0,8,6" SelectedIndex="0" AutomationProperties.Name="Origine des requêtes">
+                    <ComboBoxItem Content="Toutes les requêtes" Tag="" />
+                    <ComboBoxItem Content="Modèles livrés" Tag="Template" />
+                    <ComboBoxItem Content="Mes requêtes" Tag="Saved" />
+                  </ComboBox>
+                  <TextBlock x:Name="LblQueryLibraryCount" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}" />
+                </WrapPanel>
+              </StackPanel>
+              <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
+                <TextBlock x:Name="LblQueryLibraryDescription" Text="Sélectionnez une requête pour consulter son usage." TextWrapping="Wrap" MaxHeight="76" />
+                <TextBlock x:Name="LblQueryLibraryCollection" TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,5,0,8" />
+                <Button x:Name="BtnQueryLibraryUse" Content="Utiliser cette requête" IsEnabled="False" MinHeight="32" HorizontalAlignment="Left" AutomationProperties.Name="Charger la requête sélectionnée dans le compositeur" />
+              </StackPanel>
+              <DataGrid x:Name="DgQueryLibrary" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" CanUserDeleteRows="False" SelectionMode="Single" MinHeight="100" EnableRowVirtualization="True" EnableColumnVirtualization="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.VerticalScrollBarVisibility="Auto" AutomationProperties.Name="Bibliothèque de requêtes pour le parc et les postes">
+                <DataGrid.Columns>
+                  <DataGridTextColumn Header="Requête" Binding="{Binding Name}" Width="2*" />
+                  <DataGridTextColumn Header="Catégorie" Binding="{Binding Category}" Width="190" />
+                  <DataGridTextColumn Header="Informations nécessaires" Binding="{Binding DataSource}" Width="210" />
+                </DataGrid.Columns>
+              </DataGrid>
+            </DockPanel>
+          </TabItem>
+          <TabItem x:Name="TabQueryCatalog" Header="Catalogue des informations">
+            <Grid Margin="12">
+              <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+              <TextBlock Text="Découvrez les informations prises en charge par Domenia. Ce catalogue décrit les capacités disponibles ; leur lecture dépend du poste, du fournisseur Windows et des droits." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,0,0,8" />
+              <StackPanel Grid.Row="1">
+                <WrapPanel>
+                  <TextBox x:Name="TxtQueryCatalogSearch" Width="280" MinHeight="32" MaxLength="256" Margin="0,0,8,6" ToolTip="Chercher un nom, une classe WMI, une propriété ou un usage. Les accents et la casse sont ignorés." AutomationProperties.Name="Rechercher une information dans le catalogue" />
+                  <ComboBox x:Name="CmbQueryCatalogSource" Width="170" MinHeight="32" Margin="0,0,8,6" AutomationProperties.Name="Filtrer le catalogue par source" />
+                  <ComboBox x:Name="CmbQueryCatalogCategory" Width="215" MinHeight="32" Margin="0,0,0,6" AutomationProperties.Name="Filtrer le catalogue par catégorie" />
+                </WrapPanel>
+                <TextBlock x:Name="LblQueryCatalogCount" TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,0,0,8" AutomationProperties.LiveSetting="Polite" />
+              </StackPanel>
+              <Grid Grid.Row="2">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="12" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                <DataGrid x:Name="DgQueryCatalog" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" CanUserDeleteRows="False" SelectionMode="Single" SelectionUnit="FullRow" EnableRowVirtualization="True" EnableColumnVirtualization="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.VerticalScrollBarVisibility="Visible" ScrollViewer.HorizontalScrollBarVisibility="Auto" AutomationProperties.Name="Informations disponibles pour les requêtes">
+                  <DataGrid.Columns>
+                    <DataGridTextColumn Header="Information" Binding="{Binding Name}" Width="*" MinWidth="200" />
+                    <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="115" />
+                    <DataGridTextColumn Header="Valeur" Binding="{Binding Unit}" Width="90" />
+                  </DataGrid.Columns>
+                </DataGrid>
+                <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                  <StackPanel Margin="2,0,10,0">
+                    <TextBlock x:Name="LblQueryCatalogTitle" FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,8" />
+                    <StackPanel x:Name="PnlQueryCatalogDetail">
+                      <TextBlock x:Name="LblQueryCatalogDescription" TextWrapping="Wrap" Margin="0,0,0,8" />
+                      <TextBlock x:Name="LblQueryCatalogValue" TextWrapping="Wrap" Margin="0,0,0,12" />
+                      <TextBlock Text="Comment obtenir cette information" FontWeight="SemiBold" Margin="0,0,0,4" />
+                      <TextBlock x:Name="LblQueryCatalogCollection" TextWrapping="Wrap" Margin="0,0,0,8" />
+                      <TextBlock x:Name="LblQueryCatalogAvailability" TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,0,0,12" />
+                      <Expander Header="Détails techniques" IsExpanded="False" Margin="0,0,0,12">
+                        <TextBlock x:Name="LblQueryCatalogTechnical" TextWrapping="Wrap" Margin="0,6,0,0" />
+                      </Expander>
+                    </StackPanel>
+                    <Button x:Name="BtnQueryCatalogUse" Content="Utiliser cette information" MinHeight="34" HorizontalAlignment="Left" IsEnabled="False" ToolTip="Prépare le champ dans Composer la requête. Vous choisissez ensuite la condition et cliquez sur Ajouter." />
+                  </StackPanel>
+                </ScrollViewer>
+              </Grid>
+            </Grid>
+          </TabItem>
+        </TabControl>
+      </DockPanel>
+    </Border>
+  </Grid>
+</UserControl>

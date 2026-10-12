@@ -18,6 +18,7 @@ $plans=@(
  @{Name='Test-DomeniaModules';Report=$true;Arguments=@()},
  @{Name='Test-Domenia';Report=$true;Arguments=@('-WpfSmoke')},
  @{Name='Test-DomeniaLiveSearchView';Report=$true;Arguments=@()},
+ @{Name='Test-DomeniaUxRefinements';Report=$true;Arguments=@()},
  @{Name='Test-DomeniaBoards';Report=$true;Arguments=@()},
  @{Name='Test-DomeniaLoginForeground';Report=$true;Arguments=@()},
  @{Name='Test-DomeniaWiringInterface';Report=$true;Arguments=@()},
@@ -28,7 +29,7 @@ $plans=@(
  @{Name='Test-DomeniaIndexActions';Report=$false;Arguments=@()},
  @{Name='Test-DomeniaDnScopes';Report=$false;Arguments=@()}
 )
-if($Extended){$plans+=@(@{Name='Test-DomeniaRules';Report=$true;Arguments=@()},@{Name='Test-DomeniaNative';Report=$false;Arguments=@()},@{Name='Test-DomeniaIndexPersistence';Report=$false;Arguments=@()})}
+if($Extended){$plans+=@(@{Name='Test-DomeniaQueryTemplates';Report=$true;Arguments=@()},@{Name='Test-DomeniaQueryTargets';Report=$true;Arguments=@()},@{Name='Test-DomeniaStreaming';Report=$true;Arguments=@()},@{Name='Test-DomeniaRules';Report=$true;Arguments=@()},@{Name='Test-DomeniaNative';Report=$false;Arguments=@()},@{Name='Test-DomeniaIndexPersistence';Report=$false;Arguments=@()})}
 if($Suites.Count){foreach($name in $Suites){if($name -notin @($plans|ForEach-Object{$_.Name})){throw ('Unknown suite: '+$name)}};$plans=@($plans|Where-Object{$_.Name -in $Suites})}
 foreach($plan in $plans){
  $name=$plan.Name;$relativePath=if($plan.RelativePath){$plan.RelativePath}else{'wad\tests\'+$name+'.ps1'};$script=Join-Path $dev $relativePath;$report=Join-Path $out ($name+'.json')

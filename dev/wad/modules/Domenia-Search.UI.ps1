@@ -47,7 +47,7 @@ function Update-DomeniaWorkViewList {
         $item.Tag = [string]$view.Id
         $tip = [string]$view.Note
         if (-not $tip) { $tip = 'Vue en lecture seule.' }
-        $tip += ' Périmètre : lʼOU choisie dans lʼarbre (puce Dans :) ; tout le domaine seulement sur choix explicite, sans relevé des postes.'
+        $tip += ' Périmètre : lʼOU choisie dans lʼarbre (puce Dans :) ; aucun relevé des postes.'
         $item.ToolTip = $tip
         [void]$combo.Items.Add($item)
     }

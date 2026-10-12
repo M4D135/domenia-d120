@@ -1,0 +1,328 @@
+{
+  "Status": "PASS",
+  "UTC": "2026-10-12T22:35:44.821063+00:00",
+  "SourceBaseCommit": "3ae15df",
+  "Build": "2026.10.12-DOMENIA-1.0-RC1.17.2-D120",
+  "DevZipSHA256": "fd0fdfc6524843cd705252df82d50ffa34715af216fd8101ed2976cfb2322f0c",
+  "ProdZipSHA256": "7da978504dacb9ee7312c463748727bfa7c9e009f1c093f2b12c610b3b88d881",
+  "SourceBinding": "Exact runtime-source inventory matched to DEV ZIP; includes the DEV package manifest binding all packaged tools and tests.",
+  "PowerShell": "5.1.26100.6584",
+  "VM": "W11-01",
+  "Session": 0,
+  "Apartment": "STA",
+  "Is64Bit": true,
+  "ADAccessed": false,
+  "Data": "Synthetic fixtures",
+  "Suites": [
+    {
+      "Suite": "Ps51Compat",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 24568,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "ProdFactory",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 32837,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "NativeParser",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 2058,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "StartupCheckOnly",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 3979,
+      "ReportWritten": false
+    },
+    {
+      "Suite": "Test-DomeniaModules",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 39946,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-Domenia",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 19507,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaLiveSearchView",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 71808,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaUxRefinements",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 12578,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaBoards",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 51060,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaLoginForeground",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 11659,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaWiringInterface",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 9488,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaParkDetection",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 8621,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaEngineResilience",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 3024,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaQuery",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 4486,
+      "ReportWritten": false
+    },
+    {
+      "Suite": "Test-DomeniaIndexSorting",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 7126,
+      "ReportWritten": false
+    },
+    {
+      "Suite": "Test-DomeniaIndexActions",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 2491,
+      "ReportWritten": false
+    },
+    {
+      "Suite": "Test-DomeniaDnScopes",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 4526,
+      "ReportWritten": false
+    },
+    {
+      "Suite": "Test-DomeniaQueryTemplates",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 3139,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaQueryTargets",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 2118,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaStreaming",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 48347,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaRules",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 39809,
+      "ReportWritten": true
+    },
+    {
+      "Suite": "Test-DomeniaNative",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 1482,
+      "ReportWritten": false
+    },
+    {
+      "Suite": "Test-DomeniaIndexPersistence",
+      "ExitCode": 0,
+      "TimedOut": false,
+      "Milliseconds": 17859,
+      "ReportWritten": false
+    }
+  ],
+  "SuiteCount": 23,
+  "FailedSuites": 0,
+  "SuiteSummaries": {
+    "Ps51Compat": {},
+    "ProdFactory": {
+      "Passed": true,
+      "PowerShell": "5.1.26100.6584",
+      "Session": 0,
+      "ADAccessed": false
+    },
+    "NativeParser": {
+      "DomainAccessed": false
+    },
+    "Test-DomeniaModules": {
+      "Passed": 114,
+      "Failed": 0,
+      "PowerShell": "5.1.26100.6584"
+    },
+    "Test-Domenia": {
+      "Passed": 213,
+      "Failed": 0,
+      "PowerShell": "5.1.26100.6584"
+    },
+    "Test-DomeniaLiveSearchView": {
+      "Passed": true,
+      "Failed": 0,
+      "Assertions": 63,
+      "PowerShell": "5.1.26100.6584"
+    },
+    "Test-DomeniaUxRefinements": {
+      "Passed": 9,
+      "Failed": 0,
+      "Assertions": 81,
+      "PowerShell": "5.1.26100.6584",
+      "Apartment": "STA",
+      "ADAccessed": false
+    },
+    "Test-DomeniaBoards": {
+      "Passed": 41,
+      "Failed": 0,
+      "NetworkAccessed": false
+    },
+    "Test-DomeniaLoginForeground": {
+      "Passed": 8,
+      "Failed": 0,
+      "Assertions": 74,
+      "PowerShell": "5.1.26100.6584",
+      "Session": 0,
+      "ADAccessed": false
+    },
+    "Test-DomeniaWiringInterface": {
+      "Passed": 20,
+      "Failed": 0
+    },
+    "Test-DomeniaParkDetection": {
+      "Passed": 22,
+      "Failed": 0
+    },
+    "Test-DomeniaEngineResilience": {
+      "Passed": 40,
+      "Failed": 0,
+      "NetworkAccessed": false
+    },
+    "Test-DomeniaQueryTemplates": {
+      "Pass": 1516,
+      "Fail": 0,
+      "Templates": 152,
+      "PowerShell": "5.1.26100.6584"
+    },
+    "Test-DomeniaQueryTargets": {
+      "Pass": 37,
+      "Fail": 0,
+      "PowerShell": "5.1.26100.6584"
+    },
+    "Test-DomeniaStreaming": {
+      "Passed": 72,
+      "Failed": 0
+    },
+    "Test-DomeniaRules": {
+      "Passed": 547,
+      "Failed": 0,
+      "DomainAccessed": false,
+      "NetworkAccessed": false
+    },
+    "Test-DomeniaWiringRecherche": {
+      "Passed": 43,
+      "Failed": 0
+    }
+  },
+  "RuntimeChanged": [],
+  "RuntimeFilesIdentical": 93,
+  "EvidenceDirectory": "validation/2026-10-12/query-ui/r8",
+  "EvidenceSha256": {
+    "validation/2026-10-12/query-ui/r8/NativeParser.json": "fe5350ec859540a3830b56fff4dcb9baa98e0a102db19d8cd1fcd5a116c996ce",
+    "validation/2026-10-12/query-ui/r8/ProdFactory.json": "3025d5d011fd6ce127886a155794d513c2a3da031a375a352c13fc364a32249a",
+    "validation/2026-10-12/query-ui/r8/Ps51Compat.json": "a2d8b3dab72c76d294ef79666b2a53c7b88f148ca27a754289813249808f3fff",
+    "validation/2026-10-12/query-ui/r8/StartupCheckOnly.stdout.txt": "4a02477de1769371ec11131ad8f153df860299d32660f44cd23454f006af20a5",
+    "validation/2026-10-12/query-ui/r8/Test-Domenia.json": "285629ceeb3b401c3f315c93d8dd1af5d082d1e7a416601320318bb9e76139cd",
+    "validation/2026-10-12/query-ui/r8/Test-DomeniaBoards.json": "66fb4d2b05fef09829ab253ee8e5994014e849189f7539a525aea3754972b6c5",
+    "validation/2026-10-12/query-ui/r8/Test-DomeniaDnScopes.stdout.txt": "c8a1b79b379a239647042a01925bce15bd3094aa95e0d259f8b0942ec7c2d98a",
+    "validation/2026-10-12/query-ui/r8/Test-DomeniaEngineResilience.json": "5a3149f7850e80423c6db368e8d1a026f89e816aecbfa8d5f9d228e70a39c34f",
+    "validation/2026-10-12/query-ui/r8/Test-DomeniaIndexActions.stdout.txt": "88bdd130ebe909710b656b815ce7388f6683ce361852b482ba1721f04429938c",
+    "validation/2026-10-12/query-ui/r8/Test-DomeniaIndexPersistence.stdout.txt": "55d989050be7481a894e5fa5be807afce6452b7f30b74d7e9a3d9d4bc76bdd0a",
+    "validation/2026-10-12/query-ui/r8/Test-DomeniaIndexSorting.stdout.txt": "027c0879877a31cd4cc06083b11d534fe609357274026ab15ea552ca3b0f8980",
+    "validation/2026-10-12/query-ui/r8/Test-DomeniaLiveSearchView.json": "49730ac84d6a8ae2286c0c9714961964d34ac821746a344bab3377913e7dd5a2",
+    "validation/2026-10-12/query-ui/r8/Test-DomeniaLoginForeground.json": "10fcee3c5a9ddef4f4e799fed2cf5b011cb6883b28ed80fe6e8b6f7a1a19d658",
+    "validation/2026-10-12/query-ui/r8/Test-DomeniaModules.json": "bbdbaf975440f609274e379452969235bc138e3ed50c02642398cd768c76ce9d",
+    "validation/2026-10-12/query-ui/r8/Test-DomeniaNative.stdout.txt": "e6559bbbb0ab49a3cb88ecaed0b1cfa6e849293106135bb53cec869897c6837e",
+    "validation/2026-10-12/query-ui/r8/Test-DomeniaParkDetection.json": "2e19be99c416fb8d6b7e7a19c8a432de647234acd11652ebe04f2eb81ff9889e",
+    "validation/2026-10-12/query-ui/r8/Test-DomeniaQuery.stdout.txt": "9fe6e0eacdace12b6eed649aba9fe8bf048fd23eb664b665dc1b926ecd4cd9ad",
+    "validation/2026-10-12/query-ui/r8/Test-DomeniaQueryTargets.json": "d89894fd0e6cc71351904767f0592dd3de5ffa4f8846e79ead633cca7be9b289",
+    "validation/2026-10-12/query-ui/r8/Test-DomeniaQueryTemplates.json": "90c25ff5c87d73a63a801d10078f9635a30fe6b88889e356d99c1eb205428b0a",
+    "validation/2026-10-12/query-ui/r8/Test-DomeniaRules.json": "1c3649508178a5532ae6ae0361b6de89cec5d914875a4254355a696079f02d96",
+    "validation/2026-10-12/query-ui/r8/Test-DomeniaStreaming.json": "33e86a6c0147ac621fe055bf1352cde5974fcba671ee995b4dddaae1bf73d44d",
+    "validation/2026-10-12/query-ui/r8/Test-DomeniaUxRefinements.json": "46eee228b807de54415ab965e7af0a6561c0b3bce012b6a2cdc3d39fda840d5d",
+    "validation/2026-10-12/query-ui/r8/Test-DomeniaWiringInterface.json": "3fd1765b414abb9949d958aebef257be97972aa147061b7c6a217f639401b0e8",
+    "validation/2026-10-12/query-ui/r8/Test-DomeniaWiringRecherche.exit.txt": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "validation/2026-10-12/query-ui/r8/Test-DomeniaWiringRecherche.json": "65242cc9774685052ea83fa055dc9b8dc4ffca871d6227a513403fb0b2467657",
+    "validation/2026-10-12/query-ui/r8/_quick-ui.json": "0ef95b7b355401e3910184df1a15fc05430b135eac8701936394dcecea89d706",
+    "validation/2026-10-12/query-ui/r8/archive-comparison.json": "58425074984327273a66f71771b85bccb30c5222e866d70d49ee6781151b82fd",
+    "validation/2026-10-12/query-ui/r8/package.json": "68c88dad8da399f862e4b55174a6f5ed9a72ec3cd838acad04a2f67a6cd2b73f",
+    "validation/2026-10-12/query-ui/r8/proof-export-manifest.json": "3b7315afe378871c83187696e4b82a468cf143128267c27f5a30ca4457e90a0c",
+    "validation/2026-10-12/query-ui/r8/qualification.json": "bf05407ff33cc13ef6eb666632e7b0710cd054a2638141ac8c7329ab0ebc0096",
+    "validation/2026-10-12/query-ui/r8/runtime-source.json": "4f9dee162323a72a7a69a44b7a359f4361f105b5fbce004f0514a87fcdbd2926",
+    "validation/2026-10-12/query-ui/r8/text-encodings.json": "63fb4df01c1663d99e767eae5db30dad00dbd7ec7d12a94a7b67a2fb8846fddd"
+  },
+  "BuildReport": "validation/2026-10-12/query-ui/build-report.json",
+  "DocumentationQA": "validation/2026-10-12/query-ui/documentation-qa.json",
+  "DocumentationSHA256": "dcdb8df31d853a621cda20b68c5b8caa9d8d09af72fc7db209cb47f6c6d2cd36",
+  "Documents": [
+    {
+      "role": "technicien",
+      "pages": 26,
+      "figures": 30,
+      "visualReviewComplete": true
+    },
+    {
+      "role": "administrateur",
+      "pages": 67,
+      "figures": 30,
+      "visualReviewComplete": true
+    }
+  ],
+  "Limits": [
+    "Synthetic data only; no real AD/CIM endpoint qualification.",
+    "Native WPF in session 0 does not establish an interactive user desktop or Alt-Tab behavior.",
+    "No network/AD throughput claim is inferred from these timings.",
+    "Formal WindowsQualification remains NOT_EVALUATED and Publishable remains false."
+  ]
+}

@@ -492,6 +492,13 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaEmbeddedLookupCode',
             'Complete-DomeniaEmbeddedLookup',
             'Fail-DomeniaEmbeddedLookup',
+            'New-DomeniaOuPickerNode',
+            'Stop-DomeniaOuPickerRead',
+            'Start-DomeniaOuPickerRead',
+            'Show-DomeniaOuPickerNavigation',
+            'Complete-DomeniaOuPickerRead',
+            'Fail-DomeniaOuPickerRead',
+            'Show-DomeniaOuTreePicker',
             'Show-DomeniaInlinePicker',
             'Select-DomeniaRelationsUser',
             'Get-DomeniaEmbeddedContext',
@@ -670,7 +677,9 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaUxReadOnlyPlan',
             'Invoke-DomeniaReadOnlyReturnTick',
             'Start-DomeniaReadOnlyReturnTimer',
-            'Stop-DomeniaReadOnlyReturnTimer'
+            'Stop-DomeniaReadOnlyReturnTimer',
+            'Set-DomeniaUiZoom',
+            'Initialize-DomeniaUiZoom'
         ) }
         [pscustomobject]@{ File='Domenia-Experience.Model.ps1'; DotSource=$false; Functions=@(
             'ConvertTo-SuiteFlag',
@@ -1272,7 +1281,8 @@ function Get-DomeniaRuntimeModulePlan {
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Boards.Model.ps1'); File='Domenia-BoardFleet.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaFleetQueryPlan',
             'Get-DomeniaFleetPointTargets',
-            'Get-DomeniaFleetBoardData'
+            'Get-DomeniaFleetBoardData',
+            'Get-DomeniaFleetFreshness'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Boards.Model.ps1'); File='Domenia-BoardSoftware.Model.ps1'; DotSource=$true; Functions=@(
             'Test-DomeniaSoftwareRowMatchesSelect',
@@ -1326,6 +1336,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Invoke-DomeniaBoardEntryAction',
             'Switch-DomeniaAttentionDetails',
             'Get-DomeniaBoardProbeIds',
+            'Get-DomeniaFleetCollectionContext',
             'Start-DomeniaWidgetProbe'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Charts.UI.ps1'); File='Domenia-Dashboard.UI.ps1'; DotSource=$true; Functions=@(
@@ -1384,6 +1395,8 @@ function Get-DomeniaRuntimeModulePlan {
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Probes.Model.ps1','Domenia-Boards.Model.ps1'); File='Domenia-Query.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaQueryFields',
+            'Get-DomeniaQueryCatalog',
+            'Find-DomeniaQueryCatalogEntries',
             'Get-DomeniaQueryOperators',
             'New-DomeniaQueryRecipe',
             'Get-DomeniaQueryIdentitySelection',
@@ -1393,6 +1406,7 @@ function Get-DomeniaRuntimeModulePlan {
             'ConvertFrom-DomeniaQueryLibrary',
             'ConvertTo-DomeniaQueryLibraryJson',
             'Get-DomeniaQueryProbeIds',
+            'Get-DomeniaQueryCollectionRequirements',
             'ConvertTo-DomeniaQueryRecords',
             'ConvertTo-DomeniaQueryGridRows',
             'Select-DomeniaQueryPopulation',
@@ -1403,10 +1417,27 @@ function Get-DomeniaRuntimeModulePlan {
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Query.Model.ps1'); File='Domenia-Query.Worker.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaQueryWorkerCode'
         ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Query.UI.ps1','Domenia-Widgets.UI.ps1'); File='Domenia-QueryTargets.UI.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaComputerQueryRecords',
+            'ConvertTo-DomeniaQueryCountEntry',
+            'Get-DomeniaComputerQueryBoardEntry',
+            'Show-DomeniaWorkshopComputerPreview',
+            'Show-DomeniaComputerQueryWorkshop',
+            'Add-DomeniaWorkshopWidget'
+        ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Query.Model.ps1','Domenia-Query.Worker.ps1'); File='Domenia-Query.UI.ps1'; DotSource=$true; Functions=@(
+            'Initialize-DomeniaQueryView',
+            'Show-DomeniaQueryWorkshop',
             'Initialize-DomeniaQueryWorkshop',
+            'Initialize-DomeniaQueryCatalog',
+            'Update-DomeniaQueryCatalog',
+            'Show-DomeniaQueryCatalogDetails',
+            'Use-DomeniaQueryCatalogField',
             'Update-DomeniaQueryOperators',
             'Update-DomeniaQueryLibraryControls',
+            'Update-DomeniaQueryLibrary',
+            'Show-DomeniaQueryLibraryDetails',
+            'Use-DomeniaQueryLibrarySelection',
             'Reset-DomeniaQueryResults',
             'Set-DomeniaQueryDraft',
             'Get-DomeniaQueryDraft',

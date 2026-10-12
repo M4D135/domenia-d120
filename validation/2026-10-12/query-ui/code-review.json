@@ -1,0 +1,22 @@
+{
+  "UTC": "2026-10-12T22:35:12.921061+00:00",
+  "kind": "Read-only review of final query changes",
+  "reviewer": "/root/classic_packaging",
+  "blocking_findings": 0,
+  "reviewed_areas": [
+    "Collection plan and OU/snapshot/session guards",
+    "Query generation, snapshot and scope callbacks",
+    "GUID-preserving transfer to Search",
+    "Selected computer GUID/DN and stale fleet session rejection",
+    "GroupBy centre uses matched identities",
+    "Template copying, saving and segment preservation",
+    "152 templates in 14 categories; grouping limit 10000"
+  ],
+  "source_sha256": {
+    "dev/wad/modules/Domenia-Query.Model.ps1": "a6086863c2477238fa854d76f1e3e6b46dbfd735b7a946b6e7b8a73eabedb7cd",
+    "dev/wad/modules/Domenia-QueryTargets.UI.ps1": "cad98fea95f3ff6e804b55ee320c45e6caa3128cf93b1aca29237150dabd2e10",
+    "dev/wad/modules/Domenia-Query.UI.ps1": "6fb267b47f986fc9ff2e50bb3154c9541f5eaf34d75637c568612bd930da3d06",
+    "dev/wad/modules/Domenia-Widgets.UI.ps1": "7710277e0a1ea9c2edf6a0fc585da2e97ae7f3518e82ddf3a8b5b0a1d034ba24"
+  },
+  "limits": "Targeted code review; no claim of exhaustive defect absence or real AD qualification. Windows and document evidence are recorded separately."
+}

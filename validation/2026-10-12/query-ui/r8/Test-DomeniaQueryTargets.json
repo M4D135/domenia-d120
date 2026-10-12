@@ -1,0 +1,194 @@
+{
+    "Suite":  "Domenia.QueryTargets",
+    "PowerShell":  "5.1.26100.6584",
+    "Pass":  37,
+    "Fail":  0,
+    "Scope":  "Actual common/native DLLs and PowerShell adapters; local materialized fixtures; no WPF, AD, WMI or network",
+    "Checks":  [
+                   {
+                       "Name":  "No selected object returns typed empty population",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "User context cannot become a computer query",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Invalid GUID context is refused",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Outside fleet computer remains one identity with unknown account state",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Outside fleet inventory accepts only matching GUID",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Reused DN rejects former object inventory",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Expired inventory remains unknown",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Matching fleet identity retains known disabled state",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Different GUID at same fleet DN cannot provide state",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Materialized UAC is authoritative",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Fresh selected OS recomputes derived family and release",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Outside fleet selected OS exposes supported derived fields",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Actual DLL evaluates one matching selected workstation",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Missing measurements produce unknown not false zero",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Preview states unknown and performs no remote or query job",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Frozen selection never broadens to selected computer",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "No selected computer prompts to open a record",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Pie representation survives Computer layout JSON round trip",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Every supported query visual persists for both boards",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Adding a Computer widget twice is idempotent and keeps visual",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Same recipe is usable on Fleet and Computer without duplicate recipe",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Deleting recipe removes its widgets from both boards and preserves others",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Query output follows replacement and in-place observation updates",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Query output follows selected identity change without board redraw",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Snapshot arrays and session changes invalidate bounded identity lookup",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Matching fleet scope keeps the same site grouping",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "New selected attributes never mutate shared fleet group",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "AD-only recipe never schedules endpoint inventory or probes",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Inventory field requests only required inventory profile",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Presence-only field requests a light observation without inventory",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Probe requests union direct widgets, conditions and grouping without duplicates",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Grouped inventory and presence refinement are included in collection plan",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Catalog lifecycle codes describe actual runtime values",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Explicit old session snapshot cannot supply selected computer state",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Missing or invalid selection releases retained fleet snapshot",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Grouped pie center counts only represented matching workstations",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Ungrouped pie center counts matches unknowns and nonmatches",
+                       "Pass":  true,
+                       "Error":  ""
+                   }
+               ]
+}

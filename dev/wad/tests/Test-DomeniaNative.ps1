@@ -1,4 +1,4 @@
-#requires -Version 5.1
+﻿#requires -Version 5.1
 # Decoder parity and aggregation edge cases. Pure local objects; no endpoint or VM.
 $ErrorActionPreference='Stop'
 $modules=Join-Path (Split-Path $PSScriptRoot -Parent) 'modules'
@@ -63,4 +63,24 @@ $result.Outcome='Unavailable';$merged=ConvertTo-DomeniaParkSession $result $targ
 Expect ($merged.UserGuid -eq 'ug' -and $merged.LinkUser -eq 'alice') 'failed reading preserves last confirmed identity'
 Clear-DomeniaParkTargetBuffers @($target)
 Expect ($null -eq $target.Previous -and -not $target.PreviousJson) 'completed target releases raw graph'
+# Failed inventory attempts retain successful values and their own age through persistence.
+$oldAt=$now.AddMinutes(-1).ToString('o');$failedAt=$now.ToString('o')
+$previous=[pscustomobject]@{Key='dn';Guid='g';IdentityCheckedUtc=$oldAt;Inventory=[pscustomobject]@{Model='confirmed';CheckedUtc=$oldAt}}
+$failure=[pscustomobject]@{Key='dn';Guid='g';Outcome='Unavailable';Computer='PC';Presence='En ligne';Detail='';Inventory=$null;InventoryError='denied'}
+$failed=ConvertTo-DomeniaParkSession $failure $previous $failedAt
+Expect ($failed.Inventory.Model -eq 'confirmed' -and $failed.Inventory.CheckedUtc -eq $oldAt -and $failed.InventoryError -eq 'denied' -and $failed.InventoryAttemptUtc -eq $failedAt -and $failed.IdentityCheckedUtc -eq $oldAt) 'inventory failure keeps successful values and distinct timestamp'
+$target=[pscustomobject]@{Key='dn';Guid='g';Previous=$null;PreviousJson=($failed|ConvertTo-Json -Depth 8 -Compress);DirectoryChanged=$false}
+Expand-DomeniaParkPrevious $target
+Expect ($target.Previous.InventoryError -eq 'denied' -and ([datetime]$target.Previous.InventoryAttemptUtc).ToUniversalTime() -eq ([datetime]$failedAt).ToUniversalTime() -and ([datetime]$target.Previous.Inventory.CheckedUtc).ToUniversalTime() -eq ([datetime]$oldAt).ToUniversalTime()) 'inventory failure survives full persistence roundtrip'
+# PS7 parses JSON dates automatically; PS5.1 keeps the original transport strings.
+$target.Previous.InventoryAttemptUtc=$failedAt;$target.Previous.Inventory.CheckedUtc=$oldAt
+$plan=New-DomeniaCollectionPlan -Previous $target.Previous -Guid 'g' -Key 'dn' -Inventory $true -NowUtc $now
+Expect ($plan.Inventory -and $plan.Reused -eq 0) 'failed inventory is retried despite recent successful values'
+$noInventory=[pscustomobject]@{Key='dn';Guid='g';Outcome='Unavailable';Computer='PC';Presence='En ligne';Detail=''}
+$kept=ConvertTo-DomeniaParkSession $noInventory $target.Previous
+Expect ($kept.InventoryError -eq 'denied' -and ([datetime]$kept.InventoryAttemptUtc).ToString('s') -eq ([datetime]$failedAt).ToString('s')) 'unrelated reading never clears failed inventory attempt'
+$success=[pscustomobject]@{Key='dn';Guid='g';Outcome='Unavailable';Computer='PC';Presence='En ligne';Detail='';Inventory=[pscustomobject]@{Model='fresh';CheckedUtc=$at};InventoryError=''}
+$restored=ConvertTo-DomeniaParkSession $success $kept $at
+$plan=New-DomeniaCollectionPlan -Previous $restored -Guid 'g' -Key 'dn' -Inventory $true -NowUtc $now
+Expect (-not $restored.InventoryError -and $restored.Inventory.Model -eq 'fresh' -and -not $plan.Inventory -and $plan.Reused -eq 1) 'successful inventory clears failure and becomes reusable'
 Write-Output ($script:checks.ToString()+' native assertions passed')

@@ -83,6 +83,9 @@ foreach($file in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domeni
     . (Join-Path $modules $file)
 }
 
+# The historical-list fallback also applies the workshop GUID filter through this real helper.
+. ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Query.UI.ps1') @('Test-DomeniaSearchQueryRow'))))
+
 # Explicit doubles: none can reach a directory, a workstation, the network, the database or a dialog window.
 function Get-CfgValue {param($Section,$Name,$Default) $key=[string]$Section+'/'+[string]$Name;if($script:CfgOverrides.ContainsKey($key)){return $script:CfgOverrides[$key]};return $Default}
 function Test-DomeniaAccessBusyWrite {return [bool]$script:WriteBlocked}
@@ -860,9 +863,11 @@ Case 'UX-25 Liste de lʼhistorique : bandeau, Actualiser, type, presence et filt
     Expect ([object]::ReferenceEquals($script:Ctrl.DgObjects.ItemsSource,$firstRows) -and $script:Tasks.Count -eq $tasks -and $null -eq $script:PendingFilterChange) 'Liste non restituee, relue, ou lecture differee lancee.'
     Expect ($script:Ctrl.UxHistoryBanner.Visibility -eq 'Visible') 'Bandeau Liste de lʼhistorique absent.'
     Expect ([string]$script:Ctrl.CmbGlobalType.SelectedItem.Content -eq 'Machines' -and $script:Ctrl.TxtSuiteResultFilter.Text -eq 'PC' -and $script:Ctrl.TxtBranchSearch.Text -eq '') ('Liste quittee par le type : type='+[string]$script:Ctrl.CmbGlobalType.SelectedItem.Content+' local='+$script:Ctrl.TxtSuiteResultFilter.Text)
-    # The local filter repaints the grid with a filtered copy: the list is still the history list.
+    # CollectionView filtering retains the historical source and banner, even when no row matches.
+    $script:Ctrl.TxtSuiteResultFilter.Text='no-synthetic-match';Apply-DomeniaPresenceFilter
+    Expect ($script:Ctrl.DgObjects.Items.Count -eq 0 -and $script:Ctrl.UxHistoryBanner.Visibility -eq 'Visible' -and (Test-DomeniaHistoryListShown)) 'Le filtre vide perd la liste historique.'
     $script:Ctrl.TxtSuiteResultFilter.Text='PC-0';Apply-DomeniaPresenceFilter
-    Expect (-not [object]::ReferenceEquals($script:Ctrl.DgObjects.ItemsSource,$firstRows) -and $script:Ctrl.UxHistoryBanner.Visibility -eq 'Visible' -and (Test-DomeniaHistoryListShown)) 'Le bandeau disparait au filtre local.'
+    Expect ($script:Ctrl.DgObjects.Items.Count -eq 1 -and $script:Ctrl.UxHistoryBanner.Visibility -eq 'Visible' -and (Test-DomeniaHistoryListShown)) 'Le bandeau disparait au filtre local.'
     $script:Ctrl.DgObjects.SelectedItem=@($script:Ctrl.DgObjects.Items)[0]
     Select-DomeniaLiveResult
     Expect ($script:LastStatus -match 'historique' -and $script:Tasks.Count -eq $tasks) ('Clic sur une liste de lʼhistorique : '+$script:LastStatus)
@@ -893,16 +898,16 @@ Case 'Main XAML carries the search controls wired by the code' {
         Expect ($script:Ctrl.CmbWorkView.SelectedIndex -eq 0 -and [string]$script:Ctrl.CmbWorkView.SelectedItem.Tag -eq '' -and ([string]$script:Ctrl.CmbWorkView.SelectedItem.Content).StartsWith('Vues prêtes')) 'Texte dʼattente des vues absent.'
         # DS-07: the tree fills the OU column; filter, header menu and favourites above it; the former scope card is gone.
         foreach($n in @('TxtOuFilter','BtnOuMenu','UxOuMenuPanel','PnlOuFavourites','UxOuFavourites','BtnOuFavouriteToggle','CmbWorkViewScope','UxHistoryBanner','BtnHistoryRefresh','ChkListRevalidation','LblListRevalidation','UxListRevalidation')){Expect ($null -ne $window.FindName($n)) ('Controle L03 absent : '+$n)}
-        foreach($n in @('BtnSearchInOu','UxOuScopeCard','LblOuScopeName','LblOuScopePath','UxOuIntro','LstGuardSearches','BtnGuardSaveSearch','BtnGuardLoadSearch')){Expect ($null -eq $window.FindName($n)) ('Controle retire encore present : '+$n)}
+        foreach($n in @('BtnSearchAllDomain','BtnSearchInOu','UxOuScopeCard','LblOuScopeName','LblOuScopePath','UxOuIntro','LstGuardSearches','BtnGuardSaveSearch','BtnGuardLoadSearch')){Expect ($null -eq $window.FindName($n)) ('Controle retire encore present : '+$n)}
         $tree=$window.FindName('TvDirectory');$dock=$tree.Parent
         Expect ($dock -is [Windows.Controls.DockPanel] -and [object]::ReferenceEquals($dock.Children[$dock.Children.Count-1],$tree) -and $dock.LastChildFill) 'Lʼarbre nʼoccupe pas toute la hauteur restante.'
         Expect ($window.FindName('UxOuMenuPanel').Visibility -eq 'Collapsed' -and $window.FindName('UxHistoryBanner').Visibility -eq 'Collapsed' -and $window.FindName('UxListRevalidation').Visibility -eq 'Collapsed') 'Un panneau L03 est ouvert par defaut.'
-        foreach($n in @('ChkSubtree','BtnSearchAllDomain','UxOuPathDetails','BtnOuFavouriteToggle')){
+        foreach($n in @('ChkSubtree','UxOuPathDetails','BtnOuFavouriteToggle')){
             $parent=$window.FindName($n);$inMenu=$false
             while($null -ne $parent){if([object]::ReferenceEquals($parent,$window.FindName('UxOuMenuPanel'))){$inMenu=$true;break};$parent=[Windows.LogicalTreeHelper]::GetParent($parent)}
             Expect $inMenu ('Hors du menu dʼen-tete : '+$n)
         }
-        Expect ($window.FindName('CmbWorkViewScope').SelectedIndex -eq 0 -and [string]$window.FindName('CmbWorkViewScope').Items[1].Tag -eq 'Domain') 'La vue ne sʼapplique pas a lʼOU par defaut.'
+        Expect ($window.FindName('CmbWorkViewScope').SelectedIndex -eq 0 -and $window.FindName('CmbWorkViewScope').Items.Count -eq 1 -and [string]$window.FindName('CmbWorkViewScope').SelectedItem.Tag -eq 'OU') 'La vue ne sʼapplique pas a lʼOU par defaut.'
         $script:Ctrl.BtnOuMenu.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Primitives.ButtonBase]::ClickEvent))
         Expect ($window.FindName('UxOuMenuPanel').Visibility -eq 'Visible' -and $script:Tasks.Count -eq 0) 'Le menu ne sʼouvre pas, ou lance une lecture.'
     }finally{$reader.Close();if($null -ne $window){$window.Close()}}
