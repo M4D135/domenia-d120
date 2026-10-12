@@ -689,6 +689,12 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnOpenLinkedComputer" = "Default"
     "LblUserLinkSummary" = "Default"
     "BtnUserSave" = "Default"
+    "BtnUserEdit" = "Default"
+    "BtnUserCancelEdit" = "Default"
+    "LblUserEditState" = "Default"
+    "BtnCompEdit" = "Default"
+    "BtnCompCancelEdit" = "Default"
+    "LblCompEditState" = "Default"
     "TabUserAdmin" = "Default"
     "BtnUserUnlock" = "Default"
     "PnlUserSupportBand" = "Default"
@@ -5630,32 +5636,33 @@ function Get-MainXaml {
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                           </Grid.RowDefinitions>
                           <TextBlock Grid.Row="0" Grid.ColumnSpan="4" Text="Fiche utilisateur" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
                           <Label Grid.Row="1" Grid.Column="0" Content="Prenom"/>
-                          <TextBox Grid.Row="1" Grid.Column="1" x:Name="TxtUserGivenName" Margin="0,0,14,8" ToolTip="Prénom de lʼutilisateur." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Prenom" AutomationProperties.HelpText="Prenom de l utilisateur."/>
+                          <TextBox Grid.Row="1" Grid.Column="1" x:Name="TxtUserGivenName" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,14,8" ToolTip="Prénom de lʼutilisateur." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Prenom" AutomationProperties.HelpText="Prenom de l utilisateur."/>
                           <Label Grid.Row="1" Grid.Column="2" Content="Nom"/>
-                          <TextBox Grid.Row="1" Grid.Column="3" x:Name="TxtUserSurname" Margin="0,0,0,8" ToolTip="Nom de famille." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Nom" AutomationProperties.HelpText="Nom de famille."/>
+                          <TextBox Grid.Row="1" Grid.Column="3" x:Name="TxtUserSurname" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,0,8" ToolTip="Nom de famille." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Nom" AutomationProperties.HelpText="Nom de famille."/>
                           <Label Grid.Row="2" Grid.Column="0" Content="Nom affiche"/>
-                          <TextBox Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="3" x:Name="TxtUserDisplayName" Margin="0,0,0,8" ToolTip="Nom affiche dans les annuaires et la messagerie." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Nom affiche" AutomationProperties.HelpText="Nom affiche dans les annuaires et la messagerie."/>
+                          <TextBox Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="3" x:Name="TxtUserDisplayName" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,0,8" ToolTip="Nom affiche dans les annuaires et la messagerie." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Nom affiche" AutomationProperties.HelpText="Nom affiche dans les annuaires et la messagerie."/>
                           <Label Grid.Row="3" Grid.Column="0" Content="Identifiant"/>
                           <TextBox Grid.Row="3" Grid.Column="1" x:Name="TxtUserSam" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,14,8" ToolTip="Nom de compte utilisé avec la forme DOMAINE\identifiant." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Identifiant court" AutomationProperties.HelpText="Nom de compte utilisé avec la forme DOMAINE\identifiant."/>
                           <Label Grid.Row="3" Grid.Column="2" Content="Nom de connexion"/>
                           <TextBox Grid.Row="3" Grid.Column="3" x:Name="TxtUserUpn" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,0,8" ToolTip="Nom de connexion de forme utilisateur@domaine. Il peut différer de l’adresse mail." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Identifiant de connexion complet" AutomationProperties.HelpText="Nom de connexion de forme utilisateur@domaine. Il peut différer de l’adresse mail."/>
                           <Label Grid.Row="4" Grid.Column="0" Content="Mail"/>
-                          <TextBox Grid.Row="4" Grid.Column="1" x:Name="TxtUserMail" ToolTip="Adresse de messagerie principale." Margin="0,0,14,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mail" AutomationProperties.HelpText="Adresse de messagerie principale."/>
+                          <TextBox Grid.Row="4" Grid.Column="1" x:Name="TxtUserMail" IsReadOnly="True" Background="{DynamicResource BgReadonly}" ToolTip="Adresse de messagerie principale." Margin="0,0,14,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mail" AutomationProperties.HelpText="Adresse de messagerie principale."/>
                           <Label Grid.Row="4" Grid.Column="2" Content="Telephone"/>
-                          <TextBox Grid.Row="4" Grid.Column="3" x:Name="TxtUserPhone" ToolTip="Telephone professionnel." Margin="0,0,0,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Telephone" AutomationProperties.HelpText="Telephone professionnel."/>
+                          <TextBox Grid.Row="4" Grid.Column="3" x:Name="TxtUserPhone" IsReadOnly="True" Background="{DynamicResource BgReadonly}" ToolTip="Telephone professionnel." Margin="0,0,0,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Telephone" AutomationProperties.HelpText="Telephone professionnel."/>
                           <Label Grid.Row="5" Grid.Column="0" Content="Bureau"/>
-                          <TextBox Grid.Row="5" Grid.Column="1" x:Name="TxtUserOffice" ToolTip="Bureau ou site dʼaffectation." Margin="0,0,14,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Bureau" AutomationProperties.HelpText="Bureau ou site d affectation."/>
+                          <TextBox Grid.Row="5" Grid.Column="1" x:Name="TxtUserOffice" IsReadOnly="True" Background="{DynamicResource BgReadonly}" ToolTip="Bureau ou site dʼaffectation." Margin="0,0,14,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Bureau" AutomationProperties.HelpText="Bureau ou site d affectation."/>
                           <Label Grid.Row="5" Grid.Column="2" Content="Description"/>
-                          <TextBox Grid.Row="5" Grid.Column="3" x:Name="TxtUserDescription" ToolTip="Description libre affichee dans la console Active Directory." Margin="0,0,0,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Description" AutomationProperties.HelpText="Description libre affichee dans la console Active Directory."/>
+                          <TextBox Grid.Row="5" Grid.Column="3" x:Name="TxtUserDescription" IsReadOnly="True" Background="{DynamicResource BgReadonly}" ToolTip="Description libre affichee dans la console Active Directory." Margin="0,0,0,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Description" AutomationProperties.HelpText="Description libre affichee dans la console Active Directory."/>
                           <Label Grid.Row="6" Grid.Column="0" Content="Fonction"/>
-                          <TextBox Grid.Row="6" Grid.Column="1" x:Name="TxtUserTitle" ToolTip="Intitule de poste." Margin="0,0,14,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Fonction" AutomationProperties.HelpText="Intitule de poste."/>
+                          <TextBox Grid.Row="6" Grid.Column="1" x:Name="TxtUserTitle" IsReadOnly="True" Background="{DynamicResource BgReadonly}" ToolTip="Intitule de poste." Margin="0,0,14,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Fonction" AutomationProperties.HelpText="Intitule de poste."/>
                           <Label Grid.Row="6" Grid.Column="2" Content="Service"/>
-                          <TextBox Grid.Row="6" Grid.Column="3" x:Name="TxtUserDepartment" ToolTip="Service ou direction." Margin="0,0,0,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Service" AutomationProperties.HelpText="Service ou direction."/>
+                          <TextBox Grid.Row="6" Grid.Column="3" x:Name="TxtUserDepartment" IsReadOnly="True" Background="{DynamicResource BgReadonly}" ToolTip="Service ou direction." Margin="0,0,0,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Service" AutomationProperties.HelpText="Service ou direction."/>
                           <Label Grid.Row="7" Grid.Column="0" Content="Societe"/>
-                          <TextBox Grid.Row="7" Grid.Column="1" x:Name="TxtUserCompany" ToolTip="Societe ou entite de rattachement." Margin="0,0,14,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Societe" AutomationProperties.HelpText="Societe ou entite de rattachement."/>
+                          <TextBox Grid.Row="7" Grid.Column="1" x:Name="TxtUserCompany" IsReadOnly="True" Background="{DynamicResource BgReadonly}" ToolTip="Societe ou entite de rattachement." Margin="0,0,14,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Societe" AutomationProperties.HelpText="Societe ou entite de rattachement."/>
                           <Label Grid.Row="7" Grid.Column="2" Content="Responsable"/>
                           <Grid Grid.Row="7" Grid.Column="3" Margin="0,0,0,8">
                             <Grid.ColumnDefinitions>
@@ -5686,6 +5693,9 @@ function Get-MainXaml {
                           <Button Grid.Row="11" Grid.Column="3" x:Name="BtnOpenLinkedComputer" Content="Ouvrir le poste" Margin="0,0,0,8" ToolTip="Ouvre la fiche du poste associé." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ouvrir le poste" AutomationProperties.HelpText="Ouvre la fiche du poste associe."/>
                           <TextBlock Grid.Row="12" Grid.ColumnSpan="4" x:Name="LblUserLinkSummary" Text="Aucun poste associé." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,0,0,8"/>
                           <Button Grid.Row="13" Grid.Column="1" x:Name="BtnUserSave" Content="Enregistrer" Style="{StaticResource RunButton}" HorizontalAlignment="Left" ToolTip="Enregistre les modifications de la fiche dans Active Directory." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Enregistrer" AutomationProperties.HelpText="Enregistre les modifications de la fiche dans Active Directory."/>
+                            <Button Grid.Row="13" Grid.Column="2" x:Name="BtnUserEdit" Content="Modifier" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,0,0,8" ToolTip="Déverrouille les champs de la fiche pour les modifier. Le crayon nʼécrit rien : il ouvre seulement la saisie, et « Enregistrer » reste seul à décider de ce qui part dans lʼannuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Modifier la fiche" AutomationProperties.HelpText="Déverrouille les champs de la fiche pour les modifier. Le crayon nʼécrit rien : il ouvre seulement la saisie, et « Enregistrer » reste seul à décider de ce qui part dans lʼannuaire."/>
+                            <Button Grid.Row="13" Grid.Column="3" x:Name="BtnUserCancelEdit" Content="Annuler" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,0,0,8" Visibility="Collapsed" ToolTip="Rejette les modifications non enregistrées : chaque champ reprend la valeur lue dans lʼannuaire et la fiche se verrouille de nouveau." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Annuler les modifications" AutomationProperties.HelpText="Rejette les modifications non enregistrées : chaque champ reprend la valeur lue dans lʼannuaire et la fiche se verrouille de nouveau."/>
+                            <TextBlock Grid.Row="14" Grid.ColumnSpan="4" x:Name="LblUserEditState" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,0,0,8" Visibility="Collapsed" AutomationProperties.Name="État des modifications de la fiche" AutomationProperties.HelpText="Dit ce que la fiche a en modification, et le signale quand une valeur non enregistrée a été abandonnée en changeant dʼobjet. Rien nʼest parti sans que la page le dise."/>
                         </Grid>
                         </StackPanel>
                       </ScrollViewer>
@@ -5717,39 +5727,39 @@ function Get-MainXaml {
                           </Grid.RowDefinitions>
                           <TextBlock Grid.Row="0" Grid.ColumnSpan="4" Text="Adresse" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
                           <Label Grid.Row="1" Grid.Column="0" Content="Rue"/>
-                          <TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" x:Name="TxtUserStreet" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="52" Margin="0,0,0,8" ToolTip="Numero et nom de rue." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rue" AutomationProperties.HelpText="Numero et nom de rue." VerticalContentAlignment="Top"/>
+                          <TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" x:Name="TxtUserStreet" IsReadOnly="True" Background="{DynamicResource BgReadonly}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="52" Margin="0,0,0,8" ToolTip="Numero et nom de rue." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rue" AutomationProperties.HelpText="Numero et nom de rue." VerticalContentAlignment="Top"/>
                           <Label Grid.Row="2" Grid.Column="0" Content="Ville"/>
-                          <TextBox Grid.Row="2" Grid.Column="1" x:Name="TxtUserCity" Margin="0,0,14,8" ToolTip="Ville." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ville" AutomationProperties.HelpText="Ville."/>
+                          <TextBox Grid.Row="2" Grid.Column="1" x:Name="TxtUserCity" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,14,8" ToolTip="Ville." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ville" AutomationProperties.HelpText="Ville."/>
                           <Label Grid.Row="2" Grid.Column="2" Content="Departement ou region"/>
-                          <TextBox Grid.Row="2" Grid.Column="3" x:Name="TxtUserState2" Margin="0,0,0,8" ToolTip="Département, région ou état." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Departement ou region" AutomationProperties.HelpText="Departement, region ou etat."/>
+                          <TextBox Grid.Row="2" Grid.Column="3" x:Name="TxtUserState2" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,0,8" ToolTip="Département, région ou état." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Departement ou region" AutomationProperties.HelpText="Departement, region ou etat."/>
                           <Label Grid.Row="3" Grid.Column="0" Content="Code postal"/>
-                          <TextBox Grid.Row="3" Grid.Column="1" x:Name="TxtUserPostalCode" Margin="0,0,14,8" ToolTip="Code postal." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Code postal" AutomationProperties.HelpText="Code postal."/>
+                          <TextBox Grid.Row="3" Grid.Column="1" x:Name="TxtUserPostalCode" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,14,8" ToolTip="Code postal." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Code postal" AutomationProperties.HelpText="Code postal."/>
                           <Label Grid.Row="3" Grid.Column="2" Content="Pays"/>
-                          <TextBox Grid.Row="3" Grid.Column="3" x:Name="TxtUserCountry" Margin="0,0,0,8" ToolTip="Nom complet du pays." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Pays" AutomationProperties.HelpText="Nom complet du pays."/>
+                          <TextBox Grid.Row="3" Grid.Column="3" x:Name="TxtUserCountry" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,0,8" ToolTip="Nom complet du pays." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Pays" AutomationProperties.HelpText="Nom complet du pays."/>
                           <TextBlock Grid.Row="4" Grid.ColumnSpan="4" Text="Telephonie" FontSize="16" FontWeight="SemiBold" Margin="0,10,0,10"/>
                           <Label Grid.Row="5" Grid.Column="0" Content="Domicile"/>
-                          <TextBox Grid.Row="5" Grid.Column="1" x:Name="TxtUserHomePhone" Margin="0,0,14,8" ToolTip="Telephone personnel." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Domicile" AutomationProperties.HelpText="Telephone personnel."/>
+                          <TextBox Grid.Row="5" Grid.Column="1" x:Name="TxtUserHomePhone" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,14,8" ToolTip="Telephone personnel." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Domicile" AutomationProperties.HelpText="Telephone personnel."/>
                           <Label Grid.Row="5" Grid.Column="2" Content="Mobile"/>
-                          <TextBox Grid.Row="5" Grid.Column="3" x:Name="TxtUserMobile" Margin="0,0,0,8" ToolTip="Telephone mobile." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mobile" AutomationProperties.HelpText="Telephone mobile."/>
+                          <TextBox Grid.Row="5" Grid.Column="3" x:Name="TxtUserMobile" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,0,8" ToolTip="Telephone mobile." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mobile" AutomationProperties.HelpText="Telephone mobile."/>
                           <Label Grid.Row="6" Grid.Column="0" Content="Telecopie"/>
-                          <TextBox Grid.Row="6" Grid.Column="1" x:Name="TxtUserFax" Margin="0,0,14,8" ToolTip="Numero de telecopie." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Telecopie" AutomationProperties.HelpText="Numero de telecopie."/>
+                          <TextBox Grid.Row="6" Grid.Column="1" x:Name="TxtUserFax" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,14,8" ToolTip="Numero de telecopie." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Telecopie" AutomationProperties.HelpText="Numero de telecopie."/>
                           <Label Grid.Row="6" Grid.Column="2" Content="Telephone IP"/>
-                          <TextBox Grid.Row="6" Grid.Column="3" x:Name="TxtUserIpPhone" Margin="0,0,0,8" ToolTip="Numero de telephone sur IP." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Telephone IP" AutomationProperties.HelpText="Numero de telephone sur IP."/>
+                          <TextBox Grid.Row="6" Grid.Column="3" x:Name="TxtUserIpPhone" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,0,8" ToolTip="Numero de telephone sur IP." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Telephone IP" AutomationProperties.HelpText="Numero de telephone sur IP."/>
                           <Label Grid.Row="7" Grid.Column="0" Content="Page web"/>
-                          <TextBox Grid.Row="7" Grid.Column="1" x:Name="TxtUserWebPage" Margin="0,0,14,8" ToolTip="Adresse de la page web personnelle." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Page web" AutomationProperties.HelpText="Adresse de la page web personnelle."/>
+                          <TextBox Grid.Row="7" Grid.Column="1" x:Name="TxtUserWebPage" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,14,8" ToolTip="Adresse de la page web personnelle." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Page web" AutomationProperties.HelpText="Adresse de la page web personnelle."/>
                           <Label Grid.Row="7" Grid.Column="2" Content="Matricule"/>
-                          <TextBox Grid.Row="7" Grid.Column="3" x:Name="TxtUserEmployeeId" Margin="0,0,0,8" ToolTip="Matricule interne de lʼemployé." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Matricule" AutomationProperties.HelpText="Matricule interne de l employe."/>
+                          <TextBox Grid.Row="7" Grid.Column="3" x:Name="TxtUserEmployeeId" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,0,8" ToolTip="Matricule interne de lʼemployé." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Matricule" AutomationProperties.HelpText="Matricule interne de l employe."/>
                           <TextBlock Grid.Row="8" Grid.ColumnSpan="4" Text="Profil et session" FontSize="16" FontWeight="SemiBold" Margin="0,10,0,10"/>
                           <Label Grid.Row="9" Grid.Column="0" Content="Chemin du profil"/>
-                          <TextBox Grid.Row="9" Grid.Column="1" x:Name="TxtUserProfilePath" Margin="0,0,14,8" ToolTip="Chemin réseau du profil itinérant. Vide : profil local." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Chemin du profil" AutomationProperties.HelpText="Chemin reseau du profil itinerant. Vide : profil local."/>
+                          <TextBox Grid.Row="9" Grid.Column="1" x:Name="TxtUserProfilePath" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,14,8" ToolTip="Chemin réseau du profil itinérant. Vide : profil local." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Chemin du profil" AutomationProperties.HelpText="Chemin reseau du profil itinerant. Vide : profil local."/>
                           <Label Grid.Row="9" Grid.Column="2" Content="Script de connexion"/>
-                          <TextBox Grid.Row="9" Grid.Column="3" x:Name="TxtUserScriptPath" Margin="0,0,0,8" ToolTip="Script exécuté à lʼouverture de session." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Script de connexion" AutomationProperties.HelpText="Script execute a l ouverture de session."/>
+                          <TextBox Grid.Row="9" Grid.Column="3" x:Name="TxtUserScriptPath" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,0,8" ToolTip="Script exécuté à lʼouverture de session." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Script de connexion" AutomationProperties.HelpText="Script execute a l ouverture de session."/>
                           <Label Grid.Row="10" Grid.Column="0" Content="Dossier de base"/>
-                          <TextBox Grid.Row="10" Grid.Column="1" x:Name="TxtUserHomeDirectory" Margin="0,0,14,8" ToolTip="Dossier personnel de lʼutilisateur sur le réseau." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Dossier de base" AutomationProperties.HelpText="Dossier personnel de l utilisateur sur le reseau."/>
+                          <TextBox Grid.Row="10" Grid.Column="1" x:Name="TxtUserHomeDirectory" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,14,8" ToolTip="Dossier personnel de lʼutilisateur sur le réseau." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Dossier de base" AutomationProperties.HelpText="Dossier personnel de l utilisateur sur le reseau."/>
                           <Label Grid.Row="10" Grid.Column="2" Content="Lecteur de base"/>
-                          <TextBox Grid.Row="10" Grid.Column="3" x:Name="TxtUserHomeDrive" Margin="0,0,0,8" ToolTip="Lettre du lecteur réseau, par exemple H:" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lecteur de base" AutomationProperties.HelpText="Lettre du lecteur reseau, par exemple H:"/>
+                          <TextBox Grid.Row="10" Grid.Column="3" x:Name="TxtUserHomeDrive" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,0,8" ToolTip="Lettre du lecteur réseau, par exemple H:" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lecteur de base" AutomationProperties.HelpText="Lettre du lecteur reseau, par exemple H:"/>
                           <Label Grid.Row="11" Grid.Column="0" Content="Postes autorises"/>
-                          <TextBox Grid.Row="11" Grid.Column="1" x:Name="TxtUserWorkstations" Margin="0,0,14,8" ToolTip="Postes depuis lesquels lʼutilisateur peut ouvrir une session, séparés par des virgules. Vide : aucune restriction." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Postes autorises" AutomationProperties.HelpText="Postes depuis lesquels l utilisateur peut ouvrir une session, separes par des virgules. Vide : aucune restriction."/>
+                          <TextBox Grid.Row="11" Grid.Column="1" x:Name="TxtUserWorkstations" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,14,8" ToolTip="Postes depuis lesquels lʼutilisateur peut ouvrir une session, séparés par des virgules. Vide : aucune restriction." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Postes autorises" AutomationProperties.HelpText="Postes depuis lesquels l utilisateur peut ouvrir une session, separes par des virgules. Vide : aucune restriction."/>
                           <StackPanel Grid.Row="11" Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Right">
                             <Button x:Name="BtnUserSaveContact" Content="Enregistrer" Style="{StaticResource RunButton}" ToolTip="Enregistre lʼadresse, la téléphonie, le profil et les postes autorisés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Enregistrer" AutomationProperties.HelpText="Enregistre l adresse, la telephonie, le profil et les postes autorises."/>
                           </StackPanel>
@@ -6393,6 +6403,7 @@ function Get-MainXaml {
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                           </Grid.RowDefinitions>
                           <TextBlock Grid.Row="0" Grid.ColumnSpan="4" Text="Fiche du poste" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
                           <Label Grid.Row="1" Grid.Column="0" Content="Nom"/>
@@ -6406,9 +6417,9 @@ function Get-MainXaml {
                           <Label Grid.Row="2" Grid.Column="2" Content="Version"/>
                           <TextBox Grid.Row="2" Grid.Column="3" x:Name="TxtCompOsVersion" IsReadOnly="True" Background="{DynamicResource BgReadonly}" Margin="0,0,0,8" ToolTip="Version déclarée dans l’annuaire, pas nécessairement vérifiée en direct sur la machine." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Version du système" AutomationProperties.HelpText="Version déclarée dans l’annuaire, pas nécessairement vérifiée en direct sur la machine."/>
                           <Label Grid.Row="3" Grid.Column="0" Content="Description"/>
-                          <TextBox Grid.Row="3" Grid.Column="1" x:Name="TxtCompDescription" ToolTip="Description libre du poste." Margin="0,0,14,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Description" AutomationProperties.HelpText="Description libre du poste."/>
+                          <TextBox Grid.Row="3" Grid.Column="1" x:Name="TxtCompDescription" IsReadOnly="True" Background="{DynamicResource BgReadonly}" ToolTip="Description libre du poste." Margin="0,0,14,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Description" AutomationProperties.HelpText="Description libre du poste."/>
                           <Label Grid.Row="3" Grid.Column="2" Content="Localisation"/>
-                          <TextBox Grid.Row="3" Grid.Column="3" x:Name="TxtCompLocation" ToolTip="Emplacement physique du poste." Margin="0,0,0,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Localisation" AutomationProperties.HelpText="Emplacement physique du poste."/>
+                          <TextBox Grid.Row="3" Grid.Column="3" x:Name="TxtCompLocation" IsReadOnly="True" Background="{DynamicResource BgReadonly}" ToolTip="Emplacement physique du poste." Margin="0,0,0,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Localisation" AutomationProperties.HelpText="Emplacement physique du poste."/>
                           <Label Grid.Row="4" Grid.Column="0" Content="Responsable"/>
                           <Grid Grid.Row="4" Grid.Column="1" Margin="0,0,0,8">
                             <Grid.ColumnDefinitions>
@@ -6443,13 +6454,16 @@ function Get-MainXaml {
                                 <RowDefinition Height="Auto"/>
                               </Grid.RowDefinitions>
                               <TextBlock Grid.Row="0" Text="Actions" FontWeight="SemiBold" Foreground="{DynamicResource MutedColor}" Margin="0,0,0,8"/>
-                              <UniformGrid Grid.Row="1" Columns="3" Rows="1">
+                              <UniformGrid Grid.Row="1" Columns="5" Rows="1">
                                 <Button x:Name="BtnRefreshMachineLink" Content="Detecter l utilisateur" Style="{StaticResource RunButton}" Height="38" Margin="0,0,6,0" ToolTip="Recherche le dernier utilisateur connu du poste. Un lien déjà enregistré nʼest pas remplacé." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Detecter l utilisateur" AutomationProperties.HelpText="Recherche le dernier utilisateur connu du poste. Un lien deja enregistre n est pas remplace."/>
                                 <Button x:Name="BtnOpenLinkedUser" Content="Ouvrir l utilisateur" Height="38" Margin="3,0" ToolTip="Ouvre la fiche de lʼutilisateur associé." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ouvrir l utilisateur" AutomationProperties.HelpText="Ouvre la fiche de l utilisateur associe."/>
                                 <Button x:Name="BtnCompSave" ToolTip="Enregistre les modifications de la fiche dans Active Directory." Content="Enregistrer" Style="{StaticResource RunButton}" Height="38" Margin="6,0,0,0" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Enregistrer" AutomationProperties.HelpText="Enregistre les modifications de la fiche dans Active Directory."/>
+                                  <Button x:Name="BtnCompEdit" Content="Modifier" Style="{StaticResource SecondaryButton}" Height="38" Margin="6,0,0,0" ToolTip="Déverrouille la description et la localisation du poste. Le crayon nʼécrit rien : il ouvre seulement la saisie, et « Enregistrer » reste seul à décider de ce qui part dans lʼannuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Modifier la fiche" AutomationProperties.HelpText="Déverrouille la description et la localisation du poste. Le crayon nʼécrit rien : il ouvre seulement la saisie, et « Enregistrer » reste seul à décider de ce qui part dans lʼannuaire."/>
+                                  <Button x:Name="BtnCompCancelEdit" Content="Annuler" Style="{StaticResource SecondaryButton}" Height="38" Margin="6,0,0,0" Visibility="Collapsed" ToolTip="Rejette les modifications non enregistrées : chaque champ reprend la valeur lue dans lʼannuaire et la fiche se verrouille de nouveau." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Annuler les modifications" AutomationProperties.HelpText="Rejette les modifications non enregistrées : chaque champ reprend la valeur lue dans lʼannuaire et la fiche se verrouille de nouveau."/>
                               </UniformGrid>
                             </Grid>
                           </Border>
+                          <TextBlock Grid.Row="11" Grid.ColumnSpan="4" x:Name="LblCompEditState" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,8,0,0" Visibility="Collapsed" AutomationProperties.Name="État des modifications de la fiche" AutomationProperties.HelpText="Dit ce que la fiche a en modification, et le signale quand une valeur non enregistrée a été abandonnée en changeant dʼobjet. Rien nʼest parti sans que la page le dise."/>
                         </Grid>
                       </ScrollViewer>
                     </Border>
@@ -8242,6 +8256,22 @@ function Go-RootBranch {
 
 
 function Clear-ObjectDetails {
+    try {
+        # UX-13 : quitter une fiche en edition laisse des valeurs qui ne partiront jamais. La
+        # page le dira sur la fiche suivante, une fois, sans fenetre et sans bloquer la selection.
+        if ([bool]$script:FicheEdit["Edition"]) {
+            $modifies = @(Get-DomeniaFicheDirtyControls -Type ([string]$script:FicheEdit["Type"]))
+            $abandon = ""
+            if ($modifies.Count -gt 0) {
+                $nomObjet = ""
+                try { $nomObjet = [string]$script:SelectedObject.Name } catch { }
+                $abandon = "Modifications non enregistrées abandonnées"
+                if (-not [string]::IsNullOrWhiteSpace($nomObjet)) { $abandon = $abandon + " sur " + $nomObjet }
+                $abandon = $abandon + " en changeant dʼobjet."
+            }
+            Stop-DomeniaFicheEdit -Type ([string]$script:FicheEdit["Type"]) -Abandon $abandon
+        }
+    } catch { }
     [void](Set-DomeniaItemsSource 'DgSessions' @());[void](Set-DomeniaControlText 'LblSessionsState' 'Sessions non lues pour cette fiche.')
     foreach ($name in @("TxtObjType","TxtObjName","TxtObjClass","TxtObjGuid","TxtObjCreated","TxtObjChanged","TxtObjDn","TxtObjPresence","TxtObjPresenceTarget","TxtUserGivenName","TxtUserSurname","TxtUserDisplayName","TxtUserSam","TxtUserUpn","TxtUserMail","TxtUserPhone","TxtUserOffice","TxtUserDescription","TxtUserTitle","TxtUserDepartment","TxtUserCompany","TxtUserManager","TxtUserState","TxtUserLastLogon","TxtUserPwdLastSet","TxtUserExpires","TxtUserUac",
         "TxtUserStreet","TxtUserCity","TxtUserState2","TxtUserPostalCode","TxtUserCountry",
@@ -8551,6 +8581,7 @@ function Fill-UserObject {
     if ($script:Ctrl.ContainsKey("ChkTrustedForDelegation")) { $script:Ctrl["ChkTrustedForDelegation"].IsChecked = (($u -band 524288) -ne 0) }
     if ($script:Ctrl.ContainsKey("ChkTrustedToAuthDelegation")) { $script:Ctrl["ChkTrustedToAuthDelegation"].IsChecked = (($u -band 16777216) -ne 0) }
     Fill-DomeniaUserContact -Entry $Entry
+    Snapshot-DomeniaFicheEdit -Type 'Utilisateur'
     [void](Sync-DomeniaIndexEntry -Entry $Entry -Type "Utilisateur")
     Sync-DomeniaResultRowFromEntry -Entry $Entry -Type "Utilisateur"
     $script:Ctrl["LstMemberOf"].Items.Clear()
@@ -8620,6 +8651,7 @@ function Fill-ComputerObject {
     $script:Ctrl["TxtCompOsVersion"].Text = [string](Get-DeProp $Entry "operatingSystemVersion" "")
     $script:Ctrl["TxtCompDescription"].Text = [string](Get-DeProp $Entry "description" "")
     $script:Ctrl["TxtCompLocation"].Text = [string](Get-DeProp $Entry "location" "")
+    Snapshot-DomeniaFicheEdit -Type 'Machine'
     Set-DomeniaManagerField -Target 'Machine' -Dn ([string](Get-DeProp $Entry "managedBy" ""))
     $script:Ctrl["TxtCompState"].Text = Get-UacStatusLabel $uac 0
     $script:Ctrl["TxtCompLastLogon"].Text = Convert-FileTimeLabel (Get-DeProp $Entry "lastLogonTimestamp" 0)
@@ -9384,6 +9416,23 @@ $script:VisitCache = @{}
 $script:CacheStats = [ordered]@{ Hits = 0; Misses = 0; Writes = 0; Evictions = 0; Errors = 0 }
 $script:LastSelfCheckSummary = "Non execute"
 $script:ReadOnlyMode = $true
+
+# UX-13 : la fiche ne se saisit que sur un geste. La liste des champs est unique pour le
+# verrouillage, la surveillance et le surlignage : un champ qui ne s enregistre pas par un
+# bouton de fiche n a rien a faire en edition, et un champ deja ferme a la saisie par le
+# XAML n y revient pas. TxtUserUpn est dans ce cas : il s enregistre mais ne se tape pas.
+$script:FicheEditChamps = [ordered]@{
+    Utilisateur = @('TxtUserGivenName','TxtUserSurname','TxtUserDisplayName','TxtUserMail','TxtUserPhone','TxtUserOffice','TxtUserDescription','TxtUserTitle','TxtUserDepartment','TxtUserCompany')
+    Coordonnees = @('TxtUserStreet','TxtUserCity','TxtUserState2','TxtUserPostalCode','TxtUserCountry','TxtUserHomePhone','TxtUserMobile','TxtUserFax','TxtUserIpPhone','TxtUserWebPage','TxtUserEmployeeId','TxtUserProfilePath','TxtUserScriptPath','TxtUserHomeDirectory','TxtUserHomeDrive','TxtUserWorkstations')
+    Machine = @('TxtCompDescription','TxtCompLocation')
+}
+$script:FicheEdit = [ordered]@{
+    Dn = ''          # objet dont la fiche est ouverte, pour ne pas annoncer une perte sur une relecture
+    Type = ''        # Utilisateur ou Machine : l onglet Coordonnees appartient a l utilisateur
+    Edition = $false # le crayon a ete presse
+    Originaux = @{}  # valeur lue dans l annuaire, par nom de controle
+    Abandon = ''     # message a montrer a la fiche suivante, vide quand il n y a rien a dire
+}
 $script:LiveSearchTimer = $null
 $script:SelectionOpenTimer = $null
 $script:PendingObjectSelection = $null
@@ -21531,6 +21580,9 @@ function Wire-Events {
         })
     }
     $script:Ctrl["BtnUserSave"].Add_Click({ Save-UserProfile })
+    $script:Ctrl["BtnUserEdit"].Add_Click({ Start-DomeniaFicheEdit -Type "Utilisateur" })
+    $script:Ctrl["BtnUserCancelEdit"].Add_Click({ Stop-DomeniaFicheEdit -Type "Utilisateur" -Restaurer })
+    Register-DomeniaFicheEditWatch
     $script:Ctrl["BtnUserUnlock"].Add_Click({ Unlock-UserAccount })
     $script:Ctrl["BtnUserEnable"].Add_Click({ Set-AccountDisabled $false })
     $script:Ctrl["BtnUserDisable"].Add_Click({ Set-AccountDisabled $true })
@@ -21550,6 +21602,8 @@ function Wire-Events {
     $script:Ctrl["BtnUserAddGroup"].Add_Click({ AddOrRemoveObjectGroup $script:Ctrl["TxtUserGroupTarget"].Text $true })
     $script:Ctrl["BtnUserRemoveGroup"].Add_Click({ AddOrRemoveObjectGroup $script:Ctrl["TxtUserGroupTarget"].Text $false })
     $script:Ctrl["BtnCompSave"].Add_Click({ Save-ComputerProfile })
+    $script:Ctrl["BtnCompEdit"].Add_Click({ Start-DomeniaFicheEdit -Type "Machine" })
+    $script:Ctrl["BtnCompCancelEdit"].Add_Click({ Stop-DomeniaFicheEdit -Type "Machine" -Restaurer })
     $script:Ctrl["BtnCompManagedByPick"].Add_Click({ Show-DomeniaManagerPicker -Target 'Machine' })
     $script:Ctrl["BtnCompManagedByOpen"].Add_Click({ Open-DomeniaManagerObject -Target 'Machine' })
     $script:Ctrl["BtnCompManagedByClear"].Add_Click({ Clear-DomeniaManagerSelection -Target 'Machine' })
@@ -24597,7 +24651,7 @@ function Show-AdObjectResult {
 
 function Get-WriteControlMap {
     [ordered]@{
-        Edit = @("BtnUserSave","BtnUserSaveContact","BtnCompSave","BtnGroupSave")
+        Edit = @("BtnUserSave","BtnUserEdit","BtnUserSaveContact","BtnCompSave","BtnCompEdit","BtnGroupSave")
         Raw = @("BtnRawSet","BtnRawClear")
         Account = @("BtnUserUnlock","BtnUserSupportUnlock","BtnUserEnable","BtnUserDisable","BtnCompEnable","BtnCompDisable","BtnApplyAccountOptions","BtnSetExpiration","BtnNeverExpires","BtnExpirePwdNow")
         Password = @("BtnUserResetPwd","BtnUserGenPassword")
@@ -25911,6 +25965,183 @@ $ReadUtc=[DateTime]::UtcNow.ToString('o')
         $risk = 'Danger'
     }
     [void](Request-DomeniaWriteConfirmation -Plan $plan -Title $OperationName -Message $message -ConfirmText 'Enregistrer' -Risk $risk -TypedConfirmation $TypedConfirmation -Send $send -State $state)
+}
+
+function Get-DomeniaFicheEditControls {
+    # Les champs que la fiche d un objet ouvre en edition. Les coordonnees comptent avec l
+    # utilisateur : un seul crayon mene les deux onglets, sinon la moitie de la fiche resterait
+    # verrouillee pendant que l autre se saisit.
+    param([string]$Type)
+    $carte = $script:FicheEditChamps
+    if ($null -eq $carte) { return @() }
+    if ($Type -eq 'Utilisateur') { return @($carte['Utilisateur']) + @($carte['Coordonnees']) }
+    if ($Type -eq 'Machine') { return @($carte['Machine']) }
+    return @()
+}
+
+function Get-DomeniaFicheDirtyControls {
+    # Un champ est modifie quand son texte differe de ce que l annuaire a repondu, a la casse pres
+    # sur les noms : « jeaan » et « Jean » ne sont pas la meme saisie pour un operateur.
+    param([string]$Type)
+    $sortie = New-Object System.Collections.Generic.List[string]
+    try {
+        foreach ($nom in (Get-DomeniaFicheEditControls -Type $Type)) {
+            $c = Get-DomeniaControl -Name $nom
+            if ($null -eq $c) { continue }
+            $avant = [string]$script:FicheEdit['Originaux'][$nom]
+            if (-not [string]::Equals([string]$c.Text, $avant, [System.StringComparison]::Ordinal)) {
+                [void]$sortie.Add($nom)
+            }
+        }
+    } catch { }
+    return $sortie.ToArray()
+}
+
+function Set-DomeniaFicheFieldLock {
+    # Verrouille = saisie fermee et fond de lecture seule. En edition = saisie ouverte, et le
+    # champ qui a bouge prend le fond d accent : la difference se voit sans relire la fiche.
+    param([string]$Type, [bool]$Edition, [string[]]$Modifies = @())
+    $fond = $null
+    $alerte = $null
+    try {
+        $source = Get-DomeniaControl -Name 'TxtUserDisplayName'
+        if ($null -ne $source) {
+            $fond = $source.TryFindResource('BgReadonly')
+            $alerte = $source.TryFindResource('AccentSoft')
+        }
+    } catch { }
+    foreach ($nom in (Get-DomeniaFicheEditControls -Type $Type)) {
+        $c = Get-DomeniaControl -Name $nom
+        if ($null -eq $c) { continue }
+        try {
+            $c.IsReadOnly = (-not $Edition)
+            if ($Edition -and @($Modifies) -contains $nom) {
+                if ($null -ne $alerte) { $c.Background = $alerte }
+            } else {
+                # ClearValue, pas $null : $null laisserait un fond local qui ecrase le style.
+                [void]$c.ClearValue([System.Windows.Controls.Control]::BackgroundProperty)
+                if ((-not $Edition) -and ($null -ne $fond)) { $c.Background = $fond }
+            }
+        } catch { }
+    }
+}
+
+function Update-DomeniaFicheEditUi {
+    # Un seul endroit decide de ce que la fiche montre : verrouillee, en edition, ou en alerte.
+    param([string]$Type)
+    try {
+        if ([string]::IsNullOrWhiteSpace($Type)) { $Type = [string]$script:FicheEdit["Type"] }
+        if ([string]::IsNullOrWhiteSpace($Type)) { return }
+        $modifies = @(Get-DomeniaFicheDirtyControls -Type $Type)
+        $edition = [bool]$script:FicheEdit["Edition"]
+        Set-DomeniaFicheFieldLock -Type $Type -Edition $edition -Modifies ([string[]]$modifies)
+        $nomAlerte = if ($Type -eq 'Machine') { 'LblCompEditState' } else { 'LblUserEditState' }
+        $alerte = Get-DomeniaControl -Name $nomAlerte
+        $nomCrayon = if ($Type -eq 'Machine') { 'BtnCompEdit' } else { 'BtnUserEdit' }
+        $nomAnnuler = if ($Type -eq 'Machine') { 'BtnCompCancelEdit' } else { 'BtnUserCancelEdit' }
+        $crayon = Get-DomeniaControl -Name $nomCrayon
+        $annuler = Get-DomeniaControl -Name $nomAnnuler
+        if ($null -ne $crayon) {
+            $crayon.Visibility = if ($edition) { [System.Windows.Visibility]::Collapsed }
+            else { [System.Windows.Visibility]::Visible }
+        }
+        if ($null -ne $annuler) {
+            $annuler.Visibility = if ($edition) { [System.Windows.Visibility]::Visible }
+            else { [System.Windows.Visibility]::Collapsed }
+        }
+        if ($null -eq $alerte) { return }
+        $texte = ""
+        if ($edition) {
+            $texte = "Mode modification : " + [string]$modifies.Count + " champ(s) changes. Rien ne partira dans lʼannuaire avant Enregistrer."
+        }
+        elseif (-not [string]::IsNullOrWhiteSpace([string]$script:FicheEdit["Abandon"])) {
+            $texte = [string]$script:FicheEdit["Abandon"]
+            $script:FicheEdit["Abandon"] = ""
+        }
+        if ([string]::IsNullOrWhiteSpace($texte)) {
+            $alerte.Visibility = [System.Windows.Visibility]::Collapsed
+        } else {
+            $alerte.Text = $texte
+            $alerte.Visibility = [System.Windows.Visibility]::Visible
+        }
+    } catch { }
+}
+
+function Start-DomeniaFicheEdit {
+    # Le crayon. Il n ecrit rien et ne demande rien a l annuaire : il ouvre la saisie.
+    param([string]$Type)
+    try {
+        if ($script:ReadOnlyMode) {
+            Set-Status "La fiche reste verrouillée : la lecture seule est active." "WARN"
+            return
+        }
+        if ($null -eq $script:SelectedObject) { return }
+        $script:FicheEdit["Edition"] = $true
+        $script:FicheEdit["Type"] = $Type
+        $script:FicheEdit["Abandon"] = ""
+        Update-DomeniaFicheEditUi -Type $Type
+        Set-Status "Mode modification : les champs de la fiche sont ouverts, Annuler les reprend tels quʼils ont été lus."
+    }
+    catch { Show-ErrorBox "Mode modification indisponible : $($_.Exception.Message)" }
+}
+
+function Stop-DomeniaFicheEdit {
+    # Le crayon se rouvre par Annuler, qui remet chaque champ a la valeur lue. Abandon sert quand
+    # c est le changement d objet qui ferme la fiche : le message sera montre sur la fiche suivante.
+    param([string]$Type, [switch]$Restaurer, [string]$Abandon = "")
+    try {
+        if ([string]::IsNullOrWhiteSpace($Type)) { $Type = [string]$script:FicheEdit["Type"] }
+        if ($Restaurer) {
+            foreach ($nom in (Get-DomeniaFicheEditControls -Type $Type)) {
+                $c = Get-DomeniaControl -Name $nom
+                if ($null -eq $c) { continue }
+                $avant = [string]$script:FicheEdit['Originaux'][$nom]
+                if (-not [string]::Equals([string]$c.Text, $avant, [System.StringComparison]::Ordinal)) {
+                    $c.Text = $avant
+                }
+            }
+        }
+        $script:FicheEdit["Edition"] = $false
+        if (-not [string]::IsNullOrWhiteSpace($Abandon)) { $script:FicheEdit["Abandon"] = $Abandon }
+        Update-DomeniaFicheEditUi -Type $Type
+    } catch { }
+}
+
+function Snapshot-DomeniaFicheEdit {
+    # Apres un remplissage, ce que l annuaire a repondu devient la reference des differences.
+    # Une relecture du meme objet n est pas un abandon : le message en attente est purge.
+    param([string]$Type)
+    try {
+        $dn = ""
+        try { $dn = [string]$script:SelectedObject.DN } catch { }
+        if ((-not [string]::IsNullOrWhiteSpace($dn)) -and $dn -ceq [string]$script:FicheEdit["Dn"]) {
+            $script:FicheEdit["Abandon"] = ""
+        }
+        $script:FicheEdit["Type"] = $Type
+        $script:FicheEdit["Dn"] = $dn
+        $orig = @{}
+        foreach ($nom in (Get-DomeniaFicheEditControls -Type $Type)) {
+            $c = Get-DomeniaControl -Name $nom
+            if ($null -ne $c) { $orig[$nom] = [string]$c.Text }
+        }
+        $script:FicheEdit["Originaux"] = $orig
+        Update-DomeniaFicheEditUi -Type $Type
+    } catch { }
+}
+
+function Register-DomeniaFicheEditWatch {
+    # Une sonde par champ, posee a la construction : chaque frappe reevalue ce qui est modifie.
+    try {
+        foreach ($Type in @('Utilisateur','Machine')) {
+            foreach ($nom in (Get-DomeniaFicheEditControls -Type $Type)) {
+                $c = Get-DomeniaControl -Name $nom
+                if ($null -eq $c) { continue }
+                try { $c.Add_TextChanged({ Update-DomeniaFicheEditUi }) } catch { }
+            }
+        }
+        Update-DomeniaFicheEditUi -Type 'Utilisateur'
+        Update-DomeniaFicheEditUi -Type 'Machine'
+    } catch { }
 }
 
 function Save-UserProfile {

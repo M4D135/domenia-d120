@@ -1042,6 +1042,48 @@
     "Source": "L11"
   },
   {
+    "Name": "BtnUserEdit",
+    "Title": "Modifier la fiche",
+    "Text": "Déverrouille les champs de la fiche pour les modifier. Le crayon nʼécrit rien : il ouvre seulement la saisie, et « Enregistrer » reste seul à décider de ce qui part dans lʼannuaire.",
+    "Kind": "Button",
+    "Source": "L11"
+  },
+  {
+    "Name": "BtnUserCancelEdit",
+    "Title": "Annuler les modifications",
+    "Text": "Rejette les modifications non enregistrées : chaque champ reprend la valeur lue dans lʼannuaire et la fiche se verrouille de nouveau.",
+    "Kind": "Button",
+    "Source": "L11"
+  },
+  {
+    "Name": "BtnCompEdit",
+    "Title": "Modifier la fiche",
+    "Text": "Déverrouille la description et la localisation du poste. Le crayon nʼécrit rien : il ouvre seulement la saisie, et « Enregistrer » reste seul à décider de ce qui part dans lʼannuaire.",
+    "Kind": "Button",
+    "Source": "L11"
+  },
+  {
+    "Name": "BtnCompCancelEdit",
+    "Title": "Annuler les modifications",
+    "Text": "Rejette les modifications non enregistrées : chaque champ reprend la valeur lue dans lʼannuaire et la fiche se verrouille de nouveau.",
+    "Kind": "Button",
+    "Source": "L11"
+  },
+  {
+    "Name": "LblUserEditState",
+    "Title": "État des modifications de la fiche",
+    "Text": "Dit ce que la fiche a en modification, et le signale quand une valeur non enregistrée a été abandonnée en changeant dʼobjet. Rien nʼest parti sans que la page le dise.",
+    "Kind": "TextBlock",
+    "Source": "L11"
+  },
+  {
+    "Name": "LblCompEditState",
+    "Title": "État des modifications de la fiche",
+    "Text": "Dit ce que la fiche a en modification, et le signale quand une valeur non enregistrée a été abandonnée en changeant dʼobjet. Rien nʼest parti sans que la page le dise.",
+    "Kind": "TextBlock",
+    "Source": "L11"
+  },
+  {
     "Name": "BtnUserResetPwd",
     "Title": "Mot de passe",
     "Text": "Definit un nouveau mot de passe pour ce compte.",

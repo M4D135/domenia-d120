@@ -951,6 +951,144 @@ try {
         Assert-True (([string]$resto[0].Extent.Text).Contains('ForcePasswordChangeOnReset')) 'Le reglage du changement obligatoire n est jamais applique'
     }
 
+    # ------------------------------------------------------------ UX-13 : mode edition de la fiche
+    Test-Case 'UX-13 : la fiche se verrouille, un crayon la modifie, la page dit ce qui est abandonne' {
+        $texte = Get-MainXaml
+        $xaml = [xml]$texte
+        $XNS = 'http://schemas.microsoft.com/winfx/2006/xaml'
+        $texteCore = Get-Content $core -Raw -Encoding UTF8
+        $cheminAide = Join-Path (Split-Path $core -Parent) 'modules/Domenia-UX.help.json'
+        # ConvertFrom-Json emet son tableau d'objets sans l'enumerer : @() autour du tube en
+        # ferait un tableau d'un element, et les comparaisons d'aide porteraient sur ce tableau.
+        $aideBrutee = Get-Content -LiteralPath $cheminAide -Raw -Encoding UTF8 | ConvertFrom-Json
+        $aide = @($aideBrutee)
+        # Les controles nouveaux, un seul exemplaire chacun, et leur nom pour la suite.
+        $nouveaux = @(@('BtnUserEdit','Button'), @('BtnUserCancelEdit','Button'),
+                      @('BtnCompEdit','Button'), @('BtnCompCancelEdit','Button'),
+                      @('LblUserEditState','TextBlock'), @('LblCompEditState','TextBlock'))
+        foreach ($pair in $nouveaux) {
+            $chemin = '//*[local-name()="' + $pair[1] + '"]'
+            $trouves = @($xaml.SelectNodes($chemin) | Where-Object { $_.GetAttribute('Name',$XNS) -eq $pair[0] })
+            Assert-True ($trouves.Count -eq 1) ($pair[0] + ' : ' + $trouves.Count + ' occurrence(s)')
+        }
+        $nommes = @{}
+        foreach ($noeud in @($xaml.SelectNodes('//*'))) {
+            $nom = [string]$noeud.GetAttribute('Name', $XNS)
+            if ($nom) { $nommes[$nom] = $noeud }
+        }
+        # La fiche se presente fermee : Annuler et l'alerte ne paraissent qu'avec de quoi.
+        foreach ($nom in @('BtnUserCancelEdit','BtnCompCancelEdit','LblUserEditState','LblCompEditState')) {
+            Assert-True (([string]$nommes[$nom].GetAttribute('Visibility')) -ceq 'Collapsed') ($nom + ' parait sans modification en cours')
+        }
+        foreach ($nom in @('BtnUserEdit','BtnCompEdit','BtnUserCancelEdit','BtnCompCancelEdit')) {
+            Assert-True (-not ([string]$nommes[$nom].GetAttribute('Style')).Contains('DangerButton')) ($nom + ' est un bouton rouge')
+        }
+        foreach ($nom in @('BtnUserEdit','BtnCompEdit')) {
+            Assert-True (([string]$nommes[$nom].GetAttribute('Content')) -ceq 'Modifier') ($nom + ' ne dit pas Modifier')
+        }
+        foreach ($nom in @('BtnUserCancelEdit','BtnCompCancelEdit')) {
+            Assert-True (([string]$nommes[$nom].GetAttribute('Content')) -ceq 'Annuler') ($nom + ' ne dit pas Annuler')
+        }
+        foreach ($nom in @('LblUserEditState','LblCompEditState')) {
+            Assert-True (([string]$nommes[$nom].GetAttribute('TextWrapping')) -ceq 'Wrap') ($nom + ' tronque ce qui a ete abandonne')
+            $couleur = [string]$nommes[$nom].GetAttribute('Foreground')
+            Assert-True ($couleur.Contains('MutedColor')) ($nom + ' crie une information secondaire')
+        }
+        # Les 28 champs que les trois enregistrements de fiche ecrivent, et rien d autre.
+        $attendus = @('TxtUserGivenName', 'TxtUserSurname', 'TxtUserDisplayName',
+          'TxtUserMail', 'TxtUserPhone', 'TxtUserOffice',
+          'TxtUserDescription', 'TxtUserTitle', 'TxtUserDepartment',
+          'TxtUserCompany', 'TxtUserStreet', 'TxtUserCity',
+          'TxtUserState2', 'TxtUserPostalCode', 'TxtUserCountry',
+          'TxtUserHomePhone', 'TxtUserMobile', 'TxtUserFax',
+          'TxtUserIpPhone', 'TxtUserWebPage', 'TxtUserEmployeeId',
+          'TxtUserProfilePath', 'TxtUserScriptPath', 'TxtUserHomeDirectory',
+          'TxtUserHomeDrive', 'TxtUserWorkstations', 'TxtCompDescription',
+          'TxtCompLocation')
+        $i0 = $texteCore.IndexOf('$script:FicheEditChamps = [ordered]@{')
+        Assert-True ($i0 -ge 0) 'La carte des champs gouvernes est absente du coeur'
+        $i1 = $texteCore.IndexOf("`n}", $i0)
+        $bloc = $texteCore.Substring($i0, $i1 - $i0)
+        $gouvernes = @([regex]::Matches($bloc, "Txt[A-Za-z0-9]+") | ForEach-Object { $_.Value } | Select-Object -Unique)
+        Assert-True ($gouvernes.Count -eq 28) ('Champs gouvernes : ' + $gouvernes.Count + ' au lieu de 28')
+        foreach ($nom in $attendus) {
+            Assert-True ($gouvernes -contains $nom) ($nom + ' ne se saisit pas alors qu une fiche l enregistre')
+        }
+        foreach ($nom in $gouvernes) {
+            Assert-True ($attendus -contains $nom) ($nom + ' s ouvre alors qu aucune fiche ne l enregistre')
+        }
+        foreach ($nom in $attendus) {
+            $champ = $nommes[$nom]
+            Assert-True ($null -ne $champ) ($nom + ' absent du XAML')
+            Assert-True (([string]$champ.GetAttribute('IsReadOnly')) -ceq 'True') ($nom + ' s ouvre sans crayon')
+        }
+        Assert-True (([string]$nommes['TxtUserUpn'].GetAttribute('IsReadOnly')) -ceq 'True') 'L UPN s ouvre alors que personne ne le saisit'
+        # Le crayon est cable, et la carte des ecritures l eteint comme les autres boutons.
+        $clics = @('BtnUserEdit"].Add_Click({ Start-DomeniaFicheEdit -Type "Utilisateur" })',
+                  'BtnUserCancelEdit"].Add_Click({ Stop-DomeniaFicheEdit -Type "Utilisateur" -Restaurer })',
+                  'BtnCompEdit"].Add_Click({ Start-DomeniaFicheEdit -Type "Machine" })',
+                  'BtnCompCancelEdit"].Add_Click({ Stop-DomeniaFicheEdit -Type "Machine" -Restaurer })')
+        foreach ($clic in $clics) {
+            Assert-True ($texteCore.Contains($clic)) ('Cable absent : ' + $clic.Substring(0, $clic.IndexOf('"')))
+        }
+        Assert-True ($texteCore.Contains('Register-DomeniaFicheEditWatch')) 'Aucune sonde ne surveille ce qui est modifie'
+        $carte = 'Edit = @("BtnUserSave","BtnUserEdit","BtnUserSaveContact","BtnCompSave","BtnCompEdit","BtnGroupSave")'
+        Assert-True ($texteCore.Contains($carte)) 'Les crayons echappent a la carte des ecritures'
+        # La fiche prend sa reference en se remplissant et la perd en changeant d objet.
+        $snapU = "Snapshot-DomeniaFicheEdit -Type 'Utilisateur'"
+        $snapM = "Snapshot-DomeniaFicheEdit -Type 'Machine'"
+        $fill = @($nodes | Where-Object { $_.Name -eq 'Fill-UserObject' })
+        Assert-True ($fill.Count -eq 1) 'Fill-UserObject introuvable dans le coeur'
+        Assert-True (([string]$fill[0].Extent.Text).Contains($snapU)) 'La fiche utilisateur ne prend pas de reference'
+        $fillc = @($nodes | Where-Object { $_.Name -eq 'Fill-ComputerObject' })
+        Assert-True ($fillc.Count -eq 1) 'Fill-ComputerObject introuvable dans le coeur'
+        Assert-True (([string]$fillc[0].Extent.Text).Contains($snapM)) 'La fiche poste ne prend pas de reference'
+        $clear = @($nodes | Where-Object { $_.Name -eq 'Clear-ObjectDetails' })
+        Assert-True ($clear.Count -eq 1) 'Clear-ObjectDetails introuvable dans le coeur'
+        $corpsClear = [string]$clear[0].Extent.Text
+        Assert-True ($corpsClear.Contains('Stop-DomeniaFicheEdit')) 'Changer d objet laisse la fiche en edition'
+        Assert-True ($corpsClear.Contains('-Abandon')) 'Rien ne prevoit de dire ce qui a ete abandonne'
+        # Le crayon ouvre la saisie et rien d autre : aucun chemin d ecriture ne le traverse.
+        $fonctions = @('Get-DomeniaFicheEditControls','Get-DomeniaFicheDirtyControls',
+                       'Set-DomeniaFicheFieldLock','Update-DomeniaFicheEditUi',
+                       'Start-DomeniaFicheEdit','Stop-DomeniaFicheEdit',
+                       'Snapshot-DomeniaFicheEdit','Register-DomeniaFicheEditWatch')
+        foreach ($nom in $fonctions) {
+            $trouvees = @($nodes | Where-Object { $_.Name -eq $nom })
+            Assert-True ($trouvees.Count -eq 1) ($nom + ' introuvable dans le coeur')
+        }
+        $sansEcriture = @('Start-DomeniaFicheEdit','Stop-DomeniaFicheEdit',
+                            'Update-DomeniaFicheEditUi','Set-DomeniaFicheFieldLock')
+        $interdits = @('Start-DomeniaWriteTask','Start-DomeniaAttributeWrite',
+                        'Save-UserProfile','Save-ComputerProfile','Save-DomeniaUserContact')
+        foreach ($nom in $sansEcriture) {
+            $corps = [string](@($nodes | Where-Object { $_.Name -eq $nom })[0].Extent.Text)
+            foreach ($interdit in $interdits) {
+                Assert-True (-not $corps.Contains($interdit)) ($nom + ' ecrit : ' + $interdit)
+            }
+        }
+        $debut = [string](@($nodes | Where-Object { $_.Name -eq 'Start-DomeniaFicheEdit' })[0].Extent.Text)
+        Assert-True ($debut.Contains('$script:ReadOnlyMode')) 'Le crayon ouvre la saisie en lecture seule'
+        # Fiche d aide : une entree par controle, titre = nom d automation, texte = infobulle.
+        foreach ($pair in $nouveaux) {
+            $entrees = @($aide | Where-Object { $_.Name -eq $pair[0] })
+            Assert-True ($entrees.Count -eq 1) ('Entree d aide ' + $pair[0] + ' : ' + $entrees.Count + ' occurrence(s)')
+            Assert-True (([string]$entrees[0].Kind) -ceq $pair[1]) ('Nature de l aide ' + $pair[0] + ' differente de l element XAML')
+            $titre = [string]$nommes[$pair[0]].GetAttribute('AutomationProperties.Name')
+            Assert-True (([string]$entrees[0].Title) -ceq $titre) ('Titre de l aide ' + $pair[0] + ' different du nom d automation')
+        }
+        foreach ($nom in @('BtnUserEdit','BtnUserCancelEdit','BtnCompEdit','BtnCompCancelEdit')) {
+            $entrees = @($aide | Where-Object { $_.Name -eq $nom })
+            $attendu = [string]$nommes[$nom].GetAttribute('ToolTip')
+            Assert-True (([string]$entrees[0].Text) -ceq $attendu) ('Texte de l aide ' + $nom + ' different de l infobulle')
+        }
+        foreach ($nom in @('LblUserEditState','LblCompEditState')) {
+            $entrees = @($aide | Where-Object { $_.Name -eq $nom })
+            $attendu = [string]$nommes[$nom].GetAttribute('AutomationProperties.HelpText')
+            Assert-True (([string]$entrees[0].Text) -ceq $attendu) ('Texte de l aide ' + $nom + ' different de laide du controle')
+        }
+    }
+
     # ------------------------------------------------------------ FO-06 : bandeau d'etat du compte
     Test-Case 'FO-06 : la fiche annonce verrouillage, echeance et echecs de mot de passe' {
         # Le modele savait dire ces trois-la depuis D061-D063, l'interface ne les a jamais demandés.
