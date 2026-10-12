@@ -165,7 +165,7 @@ Test-Case -Id 'BF-005' -Name 'Parc : postes par sous-OU depuis les DN parents, p
     Assert-Equal 1 (Get-BfPart $ou 'Etage2')
     Assert-Equal 2 (Get-BfPart $ou 'Postes')
     Assert-Equal 1 (Get-BfPart $ou 'Hors OU')
-    Assert-Equal ('dont 7 actifs et 1 désactivé · ' + '40 utilisateurs actifs au total') ([string]$all.Entries['fleet.machines'].Detail)
+    Assert-Equal ('dont 9 actifs et 1 désactivé · ' + '40 utilisateurs actifs au total') ([string]$all.Entries['fleet.machines'].Detail)
     $many = @(foreach ($i in 1..12) { New-BfMachine ('PC-S' + $i) ('OU=Site' + ('{0:00}' -f $i) + ',' + $script:BfScope) 'Windows 11 Pro' '10.0 (26200)' 0 })
     $items = @((Get-BfBoard -Machines $many -Presence @()).Entries['fleet.ou'].Items)
     Assert-Equal 11 $items.Count
@@ -272,7 +272,7 @@ Test-Case -Id 'BF-014' -Name 'Parc : OU sans les sous-OU, profondeur gardee pour
     $direct = @(@(Get-BfMachines) | Where-Object { $_.name -eq 'PC-L05' })
     $board = Get-DomeniaFleetBoardData -Result (New-BfResult -Machines $direct) -Scope $script:BfScope -Subtree $false -Now $script:BfNow -Lifecycle $script:BfLifecycle
     Assert-Equal '1' ([string]$board.Entries['fleet.machines'].Value)
-    Assert-Equal ('dont 7 actifs et 1 désactivé · ' + 'directement dans l OU') ([string]$board.Entries['fleet.machines'].Detail)
+    Assert-Equal 'directement dans l OU' ([string]$board.Entries['fleet.machines'].Detail)
     Assert-False ([bool]$board.Last.Subtree) 'Profondeur conservee pour les widgets de requete'
 }
 Test-Case -Id 'BF-015' -Name 'Parc : un point deplie ses postes depuis la memoire, 200 au plus, par ordre de nom' -Body {

@@ -3476,7 +3476,8 @@ Test-Case 'L01 : FleetStats filtre l OU en SQL, rattache les observations par GU
         Assert-False ([bool]@($presence | Where-Object { $_.name -eq 'PC-3' })[0].in_scope) 'Poste selectionne hors OU compte dans l OU.'
         Assert-True ([string]@($presence | Where-Object { $_.name -eq 'PC-1' })[0].gid) 'Observation sans groupe.'
         $board = Get-DomeniaFleetBoardData -Result $result -Scope $lyon -Now ([datetime]::Now)
-        Assert-Equal '4' ([string]$board.Entries['fleet.machines'].Value)
+        Assert-Equal '5' ([string]$board.Entries['fleet.machines'].Value) 'La tuile exclurait encore les desactives.'
+        Assert-Equal ('dont 4 actifs et 1 désactivé · dans l OU et ses sous-OU') ([string]$board.Entries['fleet.machines'].Detail)
         Assert-Equal '1' ([string]$board.Entries['fleet.disabled'].Value)
         Assert-Equal '1' ([string]$board.Entries['fleet.users'].Value) 'Seul le releve rattache par GUID compte.'
         Assert-Equal 'En ligne|Non verifie' (@(@($board.Entries['fleet.presence'].Items) | ForEach-Object { [string]$_.Label }) -join '|')
@@ -3736,7 +3737,8 @@ COMMIT;
         $watch.Restart()
         $board = Get-DomeniaFleetBoardData -Result $result -Scope 'OU=Parc,DC=example,DC=invalid' -Now ([datetime]::Now) -Lifecycle $lifecycle
         $modelMs = $watch.ElapsedMilliseconds
-        Assert-Equal ([string](5000 - 51)) ([string]$board.Entries['fleet.machines'].Value)
+        Assert-Equal '5000' ([string]$board.Entries['fleet.machines'].Value) 'La tuile exclurait encore les desactives.'
+        Assert-Equal ('dont 4949 actifs et 51 désactivés · dans l OU et ses sous-OU') ([string]$board.Entries['fleet.machines'].Detail)
         Assert-True (@($result.Groups).Count -lt 400) ('Trop de groupes : ' + @($result.Groups).Count)
         $script:CaseDetail = 'Worker FleetStats ' + $workerMs + ' ms ; regles sur les agregats ' + $modelMs + ' ms ; ' + @($result.Groups).Count + ' groupes pour 5000 postes.'
         Assert-True ($modelMs -lt 120) ('Calcul des regles trop long : ' + $modelMs + ' ms')
