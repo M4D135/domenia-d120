@@ -868,11 +868,14 @@
     {
       "id": "A06",
       "title": "Publication finale master et nettoyage GitHub",
-      "implementation_status": "pending",
+      "implementation_status": "done",
       "source_files": [],
-      "evidence_ids": [],
+      "evidence_ids": [
+        "publication-final"
+      ],
       "limits": [
-        "L’utilisateur a demandé de ne pas pousser avant la fin. Aucun commit/push exécuté par cet agent ; clôture et publication relèvent du parent."
+        "Publication des sources, documents et preuves sur master ; aucune release GitHub formellement qualifiée AD créée.",
+        "13 branches distantes déjà fusionnées supprimées atomiquement, avec contrôle de leurs références exactes ; copies locales conservées."
       ]
     },
     {
@@ -1136,6 +1139,12 @@
       "failed": 0,
       "assertions": 74,
       "scope": "Standard/Debug : annulation, succès fictif, exception hôte et relogin embarqué ; aucune authentification ni écriture AD."
+    },
+    "publication-final": {
+      "artifact": "publication-receipt.json",
+      "source_commit": "b80718b24c1b12e9f5915bf1d25e4c7efb88cfa9",
+      "master_verified": true,
+      "merged_branches_deleted": 13
     }
   },
   "source_snapshot_sha256": {
@@ -1185,7 +1194,7 @@
     "dev/wad/tests/Test-DomeniaIndexSorting.ps1": "0aa12fa9ed68c1d2b870eb511871d75e5d00247b968e5c19ed007fe5da028dbd"
   },
   "snapshot_note": "source_snapshot_sha256 conserve la première revue ; final_source_snapshot_sha256 lie les sources et documents finaux. Les rapports Windows indiquent leurs archives respectives et comparaisons de portée.",
-  "status_at_utc": "2026-10-12T19:36:16.923621+00:00",
+  "status_at_utc": "2026-10-12T19:38:16.614671+00:00",
   "delivery": {
     "directory": "/Users/david/Documents/Projets/Domenia-D120/livraison-Domenia-1.0-20261012-validee",
     "build_report": "build-report.json",

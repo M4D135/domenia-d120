@@ -1,0 +1,27 @@
+{
+  "utc": "2026-10-12T19:37:51.523561+00:00",
+  "remote": "https://github.com/M4D135/domenia-d120.git",
+  "source_commit": "b80718b24c1b12e9f5915bf1d25e4c7efb88cfa9",
+  "master_verified": true,
+  "atomic": true,
+  "merged_branches_deleted": [
+    "refs/heads/claude/epic-newton-j5ir1w",
+    "refs/heads/fix/d120-index-maxobjects-20261009",
+    "refs/heads/lot/L10-spark",
+    "refs/heads/lot/L11-spark",
+    "refs/heads/lot/acces",
+    "refs/heads/lot/annuaire",
+    "refs/heads/lot/cache",
+    "refs/heads/lot/distribution",
+    "refs/heads/lot/interface",
+    "refs/heads/lot/moteur",
+    "refs/heads/lot/recherche",
+    "refs/heads/lot/relations",
+    "refs/heads/lot/suites"
+  ],
+  "remote_heads_verified": {
+    "refs/heads/master": "b80718b24c1b12e9f5915bf1d25e4c7efb88cfa9"
+  },
+  "local_worktrees_preserved": true,
+  "formal_github_release_created": false
+}

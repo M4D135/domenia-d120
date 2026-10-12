@@ -112,7 +112,9 @@ Le DEV contient `FABRIQUER_PROD.cmd` pour régénérer PROD sous Windows PowerSh
 
 ## GitHub
 
-La livraison des sources vise `master`. Le [plan de nettoyage](github-cleanup-plan.json)
-contient les 13 branches déjà fusionnées et leurs références exactes ; leurs commits restent
-accessibles dans l’ascendance de `master`. Les clones, worktrees et archives locaux sont conservés.
-Le reçu de publication, une fois exécutée, est conservé séparément.
+Sources, documents et preuves publiés sur **master** (commit applicatif `b80718b`).
+Les **13 branches distantes déjà fusionnées** ont été supprimées dans la même transaction,
+avec vérification de leur référence exacte ; leurs commits restent dans l’ascendance de master.
+Les clones, worktrees et archives locaux sont conservés. Voir le
+[reçu vérifié](publication-receipt.json) et le [plan de nettoyage](github-cleanup-plan.json).
+Aucune release GitHub formellement qualifiée sur AD n’a été créée.
