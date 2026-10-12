@@ -106,6 +106,7 @@ try {
         'wad/Domenia-Start.ps1',
         'wad/Domenia-Modules.ps1',
         'wad/Domenia.release.json',
+        'wad/modules/Domenia-CommonLibrary.json',
         'wad/Support/.lifecycle.lock'
     )){$required.Add($rel)}
     $tokens=$null;$errors=$null

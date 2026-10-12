@@ -61,7 +61,8 @@ Test-Case 'D024' 'Les cinq natures survivent au JSON et se copient sans partager
     $copy=[pscustomobject]@{Guid=$script:GA};[void](Copy-DomeniaObservationTimes $source $copy)
     foreach($nature in Get-DomeniaDataNatures){Assert-Equal $script:C0.ToString('o') (Get-DomeniaRecordFreshness $copy $nature $script:C0).ObservedUtc.ToString('o')}
     [void](Set-DomeniaObservationTime $copy 'Presence' $script:C0.AddHours(1) $false)
-    Assert-Equal $script:C0.ToString('o') $source.Times.Presence.LastAttemptUtc
+    # PowerShell 7 may decode ISO JSON strings as DateTime; compare the represented instant.
+    Assert-Equal $script:C0.ToString('o') (ConvertTo-DomeniaUtcDate $source.Times.Presence.LastAttemptUtc).ToString('o')
     Assert-Equal $script:C0.AddHours(1).ToString('o') $copy.Times.Presence.LastAttemptUtc
     [void](Set-DomeniaObservationTime $source 'Console' $script:C0.AddHours(1))
     Assert-Equal $script:C0.ToString('o') $copy.Times.Console.ObservedUtc

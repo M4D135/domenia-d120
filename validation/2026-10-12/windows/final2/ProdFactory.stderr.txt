@@ -1,0 +1,7 @@
+Operations worker differentes du contrat tools/operation-contracts.json.
+At C:\DomeniaLab\codex-ui-20261012-final2\source\dev\engineering\d120\quick-ui-20261012\Test-DomeniaProdFactory.ps1:41
+char:14
++ if($failure){throw $failure};'PASS: Windows PROD factory, runtime equ ...
++              ~~~~~~~~~~~~~~
+    + CategoryInfo          : OperationStopped: (Operations work...contracts.json.:String) [], RuntimeException
+    + FullyQualifiedErrorId : Operations worker differentes du contrat tools/operation-contracts.json.

@@ -3,11 +3,11 @@
   "output": "Domenia-1.0-Guide-administrateur",
   "product": "Domenia 1.0",
   "title": "Guide administrateur",
-  "subtitle": "Installer, configurer, exploiter et maintenir Domenia",
-  "edition": "Édition du 8 octobre 2026",
+  "subtitle": "Installer configurer exploiter et maintenir Domenia",
+  "edition": "Domenia 1.0",
   "author": "Domenia",
   "cover": "tableau-poste",
-  "coverCaption": "Tableau de bord d'un poste dans Domenia 1.0",
+  "coverCaption": "Exemple de tableau de bord d’un poste avec des données fictives",
   "info": [
     [
       "Pour qui",
@@ -15,26 +15,28 @@
     ],
     [
       "Ce que couvre ce guide",
-      "Règles de la recherche, des fiches, des outils du poste, de l'inventaire, des tableaux de bord, des widgets, des requêtes WMI et des relations ; puis comptes et droits, lecture seule, architecture, installation, configuration, base autonome, sécurité, journaux, tests et maintenance."
+      "Fonctions de Domenia, Atelier de requêtes, collecte, cache, base SQLite, installation, reconstruction des packs, droits, journaux et maintenance."
     ],
     [
       "Version décrite",
-      "Domenia 1.0 RC1.13.0 (Build du 8 octobre 2026), avec les lots des 7 et 8 octobre."
+      "Domenia 1.0"
     ],
     [
       "Captures",
-      "Rendus de la vraie fenêtre de Domenia avec des valeurs fictives (example.local) : ils montrent l'écran, ils ne prouvent pas une action réelle."
+      "Exemples de l’interface avec des valeurs fictives."
     ]
   ],
   "tocIntro": "Cliquez sur un chapitre pour y aller. Dans Word, le volet Navigation (Affichage > Volet de navigation) donne aussi accès aux chapitres et aux sections.",
   "figures": {
     "connexion": {
       "file": "images/connexion.png",
-      "width": 8.5
-    },
-    "accueil": {
-      "file": "images/accueil.png",
-      "width": 16
+      "width": 10,
+      "crop": {
+        "x": 743,
+        "y": 334,
+        "w": 434,
+        "h": 411
+      }
     },
     "recherche": {
       "file": "images/recherche.png",
@@ -42,19 +44,31 @@
     },
     "recherche-actions": {
       "file": "images/recherche-actions.png",
-      "width": 12
+      "width": 16,
+      "crop": {
+        "x": 520,
+        "y": 436,
+        "w": 694,
+        "h": 40
+      }
     },
     "fiche-poste": {
       "file": "images/fiche-poste.png",
-      "width": 15
+      "width": 16
     },
     "actions-poste": {
       "file": "images/actions-poste.png",
-      "width": 15
+      "width": 16,
+      "crop": {
+        "x": 238,
+        "y": 240,
+        "w": 837,
+        "h": 82
+      }
     },
     "tableau-poste": {
       "file": "images/tableau-poste.png",
-      "width": 13.5
+      "width": 16
     },
     "personnaliser": {
       "file": "images/personnaliser.png",
@@ -62,15 +76,153 @@
     },
     "editeur-widget": {
       "file": "images/editeur-widget.png",
-      "width": 14
+      "width": 16,
+      "crop": {
+        "x": 1108,
+        "y": 16,
+        "w": 796,
+        "h": 620
+      }
     },
     "logiciels": {
       "file": "images/logiciels.png",
-      "width": 12.5
+      "width": 16
+    },
+    "accueil": {
+      "file": "images/accueil.png",
+      "width": 16
+    },
+    "atelier-requetes": {
+      "file": "images/atelier-requetes.png",
+      "width": 16
+    },
+    "alerte-selection": {
+      "file": "images/alerte-selection.png",
+      "width": 16
     },
     "base-autonome": {
       "file": "images/base-autonome.png",
-      "width": 15
+      "width": 16
+    },
+    "base-progression": {
+      "file": "images/base-progression.png",
+      "width": 16,
+      "crop": {
+        "x": 1046,
+        "y": 295,
+        "w": 810,
+        "h": 165
+      }
+    },
+    "selecteur-ou": {
+      "file": "images/selecteur-ou.png",
+      "width": 16,
+      "crop": {
+        "x": 1084,
+        "y": 16,
+        "w": 820,
+        "h": 270
+      }
+    },
+    "atelier-condition": {
+      "file": "images/atelier-condition.png",
+      "width": 16,
+      "crop": {
+        "x": 238,
+        "y": 326,
+        "w": 780,
+        "h": 87
+      }
+    },
+    "atelier-collecte": {
+      "file": "images/atelier-collecte.png",
+      "width": 16,
+      "crop": {
+        "x": 238,
+        "y": 532,
+        "w": 632,
+        "h": 71
+      }
+    },
+    "atelier-fiche-locale": {
+      "file": "images/atelier-fiche-locale.png",
+      "width": 16,
+      "crop": {
+        "x": 238,
+        "y": 139,
+        "w": 800,
+        "h": 125
+      }
+    },
+    "atelier-bibliotheque": {
+      "file": "images/atelier-bibliotheque.png",
+      "width": 16,
+      "crop": {
+        "x": 238,
+        "y": 188,
+        "w": 704,
+        "h": 131
+      }
+    },
+    "accueil-sonde-requete": {
+      "file": "images/accueil-sonde-requete.png",
+      "width": 12,
+      "crop": {
+        "x": 218,
+        "y": 976,
+        "w": 359,
+        "h": 158
+      }
+    },
+    "recherche-requete": {
+      "file": "images/recherche-requete.png",
+      "width": 11,
+      "crop": {
+        "x": 1194,
+        "y": 232,
+        "w": 345,
+        "h": 114
+      }
+    },
+    "atelier-desactives": {
+      "file": "images/atelier-desactives.png",
+      "width": 13,
+      "crop": {
+        "x": 245,
+        "y": 643,
+        "w": 389,
+        "h": 100
+      }
+    },
+    "base-details": {
+      "file": "images/base-details.png",
+      "width": 16,
+      "crop": {
+        "x": 1047,
+        "y": 290,
+        "w": 811,
+        "h": 150
+      }
+    },
+    "base-commandes": {
+      "file": "images/base-autonome.png",
+      "width": 16,
+      "crop": {
+        "x": 245,
+        "y": 301,
+        "w": 804,
+        "h": 177
+      }
+    },
+    "actions-poste-avancees": {
+      "file": "images/actions-poste.png",
+      "width": 14,
+      "crop": {
+        "x": 1073,
+        "y": 276,
+        "w": 637,
+        "h": 45
+      }
     }
   }
 }

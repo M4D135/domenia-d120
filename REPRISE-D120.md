@@ -1,5 +1,10 @@
 # Reprise du lot D001-D120 de Domenia — prompt de passation
 
+> **État du 12 octobre 2026** : consulter d’abord le [bilan des 30 améliorations](validation/2026-10-12/README.md)
+> et le [README Domenia 1.0](README.md). La suite de ce fichier conserve la passation antérieure.
+> Le travail courant utilise Codex, des packs DEV/PROD classiques et le moteur Query commun épinglé.
+> Les contrôles Windows avec données fictives et la qualification complète sur AD restent deux preuves distinctes.
+
 > **Relais du 2026-10-04** : l'état courant, la procédure exacte par étape, le labo et le reste à faire sont dans
 > `RELAIS-D120-2026-10-04.md` (prompt de prise de relais complet). Lis-le en premier.
 

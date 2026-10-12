@@ -193,6 +193,7 @@ Test-Case 'D010' 'Les emplacements du coeur, le script de build, les archives et
     $parts=ConvertFrom-DomeniaBuildLabel $found['Source.MasterBuild'].Groups[1].Value
     Assert-True ($null -ne $parts) 'Build du coeur illisible'
     $current=& $script:RelContract;$current.Build=$parts.Build;$current.Version=$parts.Version;$current.Stage=$parts.Stage;$current.Date=$parts.Date
+    $current|Add-Member NoteProperty DisplayName ([string](& $script:RelReadJson 'tools\release-contract.json').DisplayName) -Force
     $obs=@($found.Keys|ForEach-Object{[pscustomobject]@{Surface=[string]$_;Value=$found[[string]$_].Groups[1].Value}})
     $obs+=[pscustomobject]@{Surface='Archive';Value=($archivePrefix.Groups[1].Value+'PROD.zip')}
     $obs+=[pscustomobject]@{Surface='Manifeste';Value=[string](& $script:RelReadJson 'tools\prod-manifest.json').Build}
@@ -632,7 +633,8 @@ Test-Case 'D116' 'SP-09 vraie composition PROD : scripts signes, binaires figes 
     $contract=& $script:RelReadJson 'tools\release-contract.json'
     Assert-True (@($prod.Files).Count -ge 80) ('Composition PROD lue : '+@($prod.Files).Count)
     $pins=@{};foreach($c in @($contract.Components|Where-Object{$_.Pinned -eq $true})){$pins[[string]$c.Path]=[string]$c.Sha256}
-    Assert-Equal 4 $pins.Count 'Composants figes epingles par le contrat'
+    $binaryCount=@($prod.Files|Where-Object{$_.Path -match '(?i)\.(exe|dll)$'}).Count
+    Assert-Equal $binaryCount $pins.Count 'Chaque binaire livre est epingle par le contrat'
     $vendorThumb=(Get-DomeniaTextHash 'certificat du fournisseur tiers').Substring(0,40)
     $build={
         param([scriptblock]$Edit=$null)
@@ -654,7 +656,7 @@ Test-Case 'D116' 'SP-09 vraie composition PROD : scripts signes, binaires figes 
     $v=Get-DomeniaSignatureVerdict $rows $script:RelPin -PinnedComponents $pins
     Assert-Equal 'Conforme' $v.IntegrityStatus;Assert-Equal 'Editeur verifie, manifeste non signe' $v.PublisherStatus
     Assert-Equal 'Conforme, code signe, manifeste non signe' $v.Overall;Assert-False $v.DistributionSignatureValid
-    Assert-Equal 4 @($v.PinnedFiles).Count;Assert-Equal $nonSignable @($v.ManifestOnlyFiles).Count
+    Assert-Equal $binaryCount @($v.PinnedFiles).Count;Assert-Equal $nonSignable @($v.ManifestOnlyFiles).Count
     Assert-True (@($v.ManifestOnlyFiles) -contains 'wad/modules/Domenia-Identity.Types.cs') 'Code C# compile couvert par le manifeste seul'
     Assert-Equal 'Composant fige epingle par son empreinte' @($v.Files|Where-Object{$_.Path -eq 'Domenia.exe'})[0].Publisher
     $full=Get-DomeniaSignatureVerdict $rows $script:RelPin $script:RelManifestSig -PinnedComponents $pins

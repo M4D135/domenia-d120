@@ -300,7 +300,8 @@ function Get-DomeniaReleaseIdentity {
         if ($path -ieq 'Domenia.exe') { $exeLabel = 'Domenia.exe ' + $componentVersion + ' (version de composant distincte, livraison ' + $build + ')' }
         $rows.Add([pscustomobject]@{Name=$name;Path=$path;Version=$componentVersion;Distinct=$isDistinct;Sha256=(ConvertTo-DomeniaSha256Text ([string](Get-DomeniaMember $component 'Sha256' '')));Label=$label})
     }
-    $display = $product + ' ' + $version + ' ' + $stage
+    $display = [string](Get-DomeniaMember $Contract 'DisplayName' '')
+    if(-not $display.Trim()){$display=$product + ' ' + $version + ' ' + $stage}
     $navigation = $product.ToUpperInvariant() + ' ' + $version + ' ' + [string][char]0x00B7 + ' ' + $stage
     $ready = $display + ' pret.'
     # Same form as the identity line of Get-DomeniaRuntimeHealthText in the core ("DOMENIA <version> / <build>").

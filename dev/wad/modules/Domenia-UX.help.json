@@ -711,7 +711,8 @@
     "Text": "Nom du responsable hiérarchique, lu dans lʼannuaire. Le chemin complet reste interne : il ne se tape plus.",
     "Kind": "TextBox",
     "Source": "L11"
-  },  {
+  },
+  {
     "Name": "BtnUserManagerPick",
     "Title": "Choisir le responsable",
     "Text": "Ouvre le sélecteur dʼutilisateurs du domaine : la recherche se lance sur Entrée ou sur le bouton, jamais pendant la frappe. Le choix reste local, aucune écriture nʼest lancée par ce clic.",
@@ -732,7 +733,6 @@
     "Kind": "Button",
     "Source": "L11"
   },
-
   {
     "Name": "TxtUserPresence",
     "Title": "Présence du poste associé",
@@ -1635,7 +1635,8 @@
     "Text": "Nom du responsable du poste, lu dans lʼannuaire. Le chemin complet reste interne : il ne se tape plus.",
     "Kind": "TextBox",
     "Source": "L11"
-  },  {
+  },
+  {
     "Name": "BtnCompManagedByPick",
     "Title": "Choisir le responsable",
     "Text": "Ouvre le sélecteur dʼutilisateurs du domaine : la recherche se lance sur Entrée ou sur le bouton, jamais pendant la frappe. Le choix reste local, aucune écriture nʼest lancée par ce clic.",
@@ -1656,7 +1657,6 @@
     "Kind": "Button",
     "Source": "L11"
   },
-
   {
     "Name": "TxtCompState",
     "Title": "État du compte ordinateur",
@@ -3911,4 +3911,5 @@
     "Text": "Le moteur refuse dʼenregistrer lʼune de ces options sans une confirmation qui montre la valeur avant et la valeur après.",
     "Kind": "TextBlock",
     "Source": "L11"
-  }]
+  }
+]

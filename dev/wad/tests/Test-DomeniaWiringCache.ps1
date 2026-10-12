@@ -3646,7 +3646,7 @@ Test-Case 'L01 : IndexBuild et BitLockerPresence ne demandent aucun attribut sen
     function New-WSearcher {
         param($Context,[string]$BaseDn,[string]$Filter,[string[]]$Properties,[string]$Scope = 'OneLevel',[int]$Limit = 0)
         [void]$script:L01Searches.Add([pscustomobject]@{ Base = $BaseDn; Filter = $Filter; Properties = @($Properties); Scope = $Scope })
-        $searcher = [pscustomobject]@{ PageSize = 0; ServerTimeLimit = $null; ClientTimeout = $null; Filter = $Filter }
+        $searcher = [pscustomobject]@{ PageSize = 0; CacheResults = $true; ServerTimeLimit = $null; ClientTimeout = $null; Filter = $Filter }
         $searcher | Add-Member -MemberType ScriptMethod -Name FindAll -Value { if ($this.Filter -like '*attributeSchema*' -or $this.Filter -like '*classSchema*') { return ,@([pscustomobject]@{ Properties = @{} }) }; return ,@() }
         $searcher | Add-Member -MemberType ScriptMethod -Name Dispose -Value { }
         return $searcher
@@ -3701,7 +3701,7 @@ Test-Case 'L01 : passe par OU — IndexOuList rend les OU enfants, IndexBuild re
         [void]$script:L01Searches.Add([pscustomobject]@{ Base = $BaseDn; Filter = $Filter; Properties = @($Properties); Scope = $Scope })
         $rows = @()
         if ($Filter -like '*organizationalUnit*') { $rows = $script:L01OuRows }
-        $searcher = [pscustomobject]@{ PageSize = 0; ServerTimeLimit = $null; ClientTimeout = $null; Filter = $Filter; Rows = $rows }
+        $searcher = [pscustomobject]@{ PageSize = 0; CacheResults = $true; ServerTimeLimit = $null; ClientTimeout = $null; Filter = $Filter; Rows = $rows }
         $searcher | Add-Member -MemberType ScriptMethod -Name FindAll -Value { if ($this.Filter -like '*attributeSchema*' -or $this.Filter -like '*classSchema*') { return ,@([pscustomobject]@{ Properties = @{} }) }; if (@($this.Rows).Count -gt 0) { return ,@($this.Rows) }; return ,@() }
         $searcher | Add-Member -MemberType ScriptMethod -Name Dispose -Value { }
         return $searcher

@@ -11,6 +11,11 @@ hw.maker|Materiel|Fabricant|root\cimv2|Win32_ComputerSystem|Manufacturer||First|
 hw.model|Materiel|Modele|root\cimv2|Win32_ComputerSystem|Model||First|Text|Bar
 hw.ram|Materiel|Memoire installee|root\cimv2|Win32_ComputerSystem|TotalPhysicalMemory||First|GB|Column
 hw.cpu|Materiel|Processeur|root\cimv2|Win32_Processor|Name||First|Text|Bar
+hw.cpuload|Materiel|Charge CPU du premier processeur (%)|root\cimv2|Win32_Processor|LoadPercentage||First|Number|Column
+hw.cpumhz|Materiel|Frequence maximale CPU (MHz)|root\cimv2|Win32_Processor|MaxClockSpeed||First|Number|Column
+hw.virtualization|Materiel|Virtualisation activee dans le firmware|root\cimv2|Win32_Processor|VirtualizationFirmwareEnabled||First|Map:True=Oui;False=Non|Pie
+hw.slat|Materiel|Traduction SLAT du processeur|root\cimv2|Win32_Processor|SecondLevelAddressTranslationExtensions||First|Map:True=Oui;False=Non|Pie
+hw.batterylevel|Materiel|Charge restante de la premiere batterie (%)|root\cimv2|Win32_Battery|EstimatedChargeRemaining||First|Number|Column
 hw.cores|Materiel|Coeurs du processeur|root\cimv2|Win32_Processor|NumberOfCores||First|Number|Column
 hw.threads|Materiel|Processeurs logiques|root\cimv2|Win32_ComputerSystem|NumberOfLogicalProcessors||First|Number|Column
 hw.bios|Materiel|Version du BIOS|root\cimv2|Win32_BIOS|SMBIOSBIOSVersion||First|Text|Bar
@@ -29,6 +34,10 @@ os.lang|Systeme|Langue du systeme|root\cimv2|Win32_OperatingSystem|OSLanguage||F
 os.tz|Systeme|Fuseau horaire|root\cimv2|Win32_TimeZone|Caption||First|Text|Bar
 os.pagefile|Systeme|Fichier d echange (Mo)|root\cimv2|Win32_PageFileUsage|AllocatedBaseSize||First|Number|Column
 os.freeram|Systeme|Memoire libre (Go)|root\cimv2|Win32_OperatingSystem|FreePhysicalMemory||First|GBfromKB|Column
+os.virtualfree|Systeme|Memoire virtuelle libre (Go)|root\cimv2|Win32_OperatingSystem|FreeVirtualMemory||First|GBfromKB|Column
+os.visiblememory|Systeme|Memoire visible par Windows (Go)|root\cimv2|Win32_OperatingSystem|TotalVisibleMemorySize||First|GBfromKB|Column
+os.users|Systeme|Utilisateurs declares connectes par Windows|root\cimv2|Win32_OperatingSystem|NumberOfUsers||First|Number|Column
+os.producttype|Systeme|Role Windows|root\cimv2|Win32_OperatingSystem|ProductType||First|Map:1=Poste;2=Controleur de domaine;3=Serveur|Pie
 disk.cfree|Disques|Espace libre sur C: (%)|root\cimv2|Win32_LogicalDisk|FreeSpace,Size|DeviceID='C:'|First|PercentFree|Column
 disk.csize|Disques|Taille de C: (Go)|root\cimv2|Win32_LogicalDisk|Size|DeviceID='C:'|First|GB|Column
 disk.count|Disques|Nombre de volumes locaux|root\cimv2|Win32_LogicalDisk|DeviceID|DriveType=3|Count|Number|Column
@@ -40,6 +49,16 @@ sec.av|Securite|Antivirus declare|root\SecurityCenter2|AntiVirusProduct|displayN
 sec.localusers|Securite|Comptes locaux actives|root\cimv2|Win32_UserAccount|Name|LocalAccount=TRUE AND Disabled=FALSE|Count|Number|Column|NoDC
 sec.shares|Securite|Partages hors administratifs|root\cimv2|Win32_Share|Name|Type=0|Count|Number|Column
 sec.uac|Securite|Contrôle de compte (EnableLUA)|root\cimv2|Win32_OperatingSystem|Caption||Count|Number|Text
+sec.defender|Securite|Antivirus Defender actif|root\Microsoft\Windows\Defender|MSFT_MpComputerStatus|AntivirusEnabled||First|Map:True=Oui;False=Non|Pie
+sec.realtime|Securite|Protection temps reel Defender|root\Microsoft\Windows\Defender|MSFT_MpComputerStatus|RealTimeProtectionEnabled||First|Map:True=Oui;False=Non|Pie
+sec.behavior|Securite|Surveillance comportementale Defender|root\Microsoft\Windows\Defender|MSFT_MpComputerStatus|BehaviorMonitorEnabled||First|Map:True=Oui;False=Non|Pie
+sec.signatures|Securite|Age signatures Defender (j, 65535 jamais)|root\Microsoft\Windows\Defender|MSFT_MpComputerStatus|AntivirusSignatureAge||First|Number|Column
+sec.quickscan|Securite|Age analyse rapide Defender (j, 65535 jamais)|root\Microsoft\Windows\Defender|MSFT_MpComputerStatus|QuickScanAge||First|Number|Column
+sec.fullscan|Securite|Age analyse complete Defender (j, 65535 jamais)|root\Microsoft\Windows\Defender|MSFT_MpComputerStatus|FullScanAge||First|Number|Column
+sec.defenderversion|Securite|Version du produit Defender|root\Microsoft\Windows\Defender|MSFT_MpComputerStatus|AMProductVersion||First|Text|Bar
+sec.tpmversion|Securite|Specification TPM|root\CIMV2\Security\MicrosoftTpm|Win32_Tpm|SpecVersion||First|Text|Pie
+sec.tpmenabled|Securite|TPM active au releve|root\CIMV2\Security\MicrosoftTpm|Win32_Tpm|IsEnabled_InitialValue||First|Map:True=Oui;False=Non|Pie
+sec.tpmactivated|Securite|TPM operationnel au releve|root\CIMV2\Security\MicrosoftTpm|Win32_Tpm|IsActivated_InitialValue||First|Map:True=Oui;False=Non|Pie
 net.adapter|Reseau|Carte reseau connectee|root\cimv2|Win32_NetworkAdapter|Name|NetConnectionStatus=2 AND PhysicalAdapter=TRUE|All|Text|Bar
 net.speed|Reseau|Vitesse du lien (Mbit/s)|root\cimv2|Win32_NetworkAdapter|Speed|NetConnectionStatus=2 AND PhysicalAdapter=TRUE|First|Mbps|Column
 net.dhcp|Reseau|Adresse DHCP|root\cimv2|Win32_NetworkAdapterConfiguration|DHCPEnabled|IPEnabled=TRUE|First|Map:True=DHCP;False=Fixe|Pie
@@ -53,6 +72,13 @@ soft.stoppedauto|Logiciels et services|Services automatiques arretes|root\cimv2|
 soft.running|Logiciels et services|Services en cours d execution|root\cimv2|Win32_Service|Name|State='Running'|Count|Number|Column
 soft.spooler|Logiciels et services|Service Spouleur d impression|root\cimv2|Win32_Service|State|Name='Spooler'|First|Text|Pie
 soft.wuauserv|Logiciels et services|Service Windows Update|root\cimv2|Win32_Service|State|Name='wuauserv'|First|Text|Pie
+soft.winrm|Logiciels et services|Service WinRM|root\cimv2|Win32_Service|State|Name='WinRM'|First|Text|Pie
+soft.bits|Logiciels et services|Service BITS|root\cimv2|Win32_Service|State|Name='BITS'|First|Text|Pie
+soft.w32time|Logiciels et services|Service Heure Windows|root\cimv2|Win32_Service|State|Name='W32Time'|First|Text|Pie
+soft.rdp|Logiciels et services|Service Bureau a distance|root\cimv2|Win32_Service|State|Name='TermService'|First|Text|Pie
+soft.firewall|Logiciels et services|Service Pare-feu Windows|root\cimv2|Win32_Service|State|Name='MpsSvc'|First|Text|Pie
+soft.defender|Logiciels et services|Service Antivirus Defender|root\cimv2|Win32_Service|State|Name='WinDefend'|First|Text|Pie
+soft.dnsclient|Logiciels et services|Service Client DNS|root\cimv2|Win32_Service|State|Name='Dnscache'|First|Text|Pie
 soft.hotfixcount|Logiciels et services|Nombre de correctifs installes|root\cimv2|Win32_QuickFixEngineering|HotFixID||Count|Number|Column
 soft.processes|Logiciels et services|Processus en cours|root\cimv2|Win32_Process|Name||Count|Number|Column
 user.console|Utilisateurs|Utilisateur de la console|root\cimv2|Win32_ComputerSystem|UserName||First|Text|Text
@@ -93,11 +119,19 @@ function ConvertTo-DomeniaProbePayload {
     param([string[]]$Ids)
     return @(foreach ($id in @($Ids | Select-Object -Unique)) { $probe = Get-DomeniaProbe $id; if ($null -ne $probe) { [pscustomobject]@{ Id=$probe.Id; Namespace=$probe.Namespace; Class=$probe.Class; Properties=@($probe.Properties); Filter=$probe.Filter; Mode=$probe.Mode; Skip=$(if ([bool]$probe.SkipOnDc) { 'DomainController' } else { '' }) } } })
 }
+function New-DomeniaObservationReader {
+    $definitions=[Collections.Generic.List[Domenia.Native.ProbeDefinition]]::new()
+    foreach($probe in @(Get-DomeniaProbeCatalog)){
+        $numeric=([string]$probe.Transform -notlike 'Map:*') -and ([string]$probe.Mode -eq 'Count' -or [string]$probe.Transform -match '^(GB|GBfromKB|MB|Mbps|Number|DaysSince|PercentFree|Year)$')
+        $definitions.Add([Domenia.Native.ProbeDefinition]@{Id=$probe.Id;Mode=$probe.Mode;Transform=$probe.Transform;QueryNumeric=$numeric})
+    }
+    return [Domenia.Native.ObservationReader]::new($definitions.ToArray())
+}
 function ConvertTo-DomeniaProbeNumber {
     # Invariant number of a raw WMI value, $null when the value is not a number (a bad reading is left out, never 0).
     param($Value)
     $number = 0.0
-    if ([double]::TryParse(([string]$Value).Trim(),[Globalization.NumberStyles]::Float,[Globalization.CultureInfo]::InvariantCulture,[ref]$number)) { return $number }
+    if ([double]::TryParse(([string]$Value).Trim(),[Globalization.NumberStyles]::Float,[Globalization.CultureInfo]::InvariantCulture,[ref]$number) -and -not [double]::IsNaN($number) -and -not [double]::IsInfinity($number)) { return $number }
     return $null
 }
 function Get-DomeniaProbeValues {
@@ -105,8 +139,10 @@ function Get-DomeniaProbeValues {
     # skipped on a domain controller or not readable gives no value: the workstation is then not counted.
     param($Probe,$Result)
     if ($null -eq $Probe -or $null -eq $Result -or [string]$Result.Error) { return @() }
+    if($Result -is [Domenia.Native.ProbeResult] -and $Result.Prepared){return @($Result.Values)}
     $skipped = $Result.PSObject.Properties['Skipped']
     if (($null -ne $skipped) -and [string]$skipped.Value) { return @() }
+    if([string]$Probe.Mode -ne 'Count' -and $null -ne $Result.PSObject.Properties['Truncated'] -and [bool]$Result.Truncated){return @()}
     $rows = @($Result.Rows)
     $transform = [string]$Probe.Transform
     $invariant = [Globalization.CultureInfo]::InvariantCulture
@@ -134,27 +170,29 @@ function Get-DomeniaProbeValues {
 function Measure-DomeniaWidgetData {
     # Aggregates one probe over workstations for a widget: categories counted, numbers bucketed or summarised.
     # Buckets carry their unit and whole bounds ('≤ 4 Go', '5 à 8 Go', '> 512 Go'; decision David 2026-10-08, CO-16).
-    param($Probe,[object[]]$Results,[string]$Visual)
-    $values = New-Object Collections.ArrayList; $machines = 0; $skipped = 0
-    foreach ($result in @($Results)) {
-        if (($null -ne $result) -and ($null -ne $result.PSObject.Properties['Skipped']) -and [string]$result.Skipped) { $skipped++; continue }
-        $v = @(Get-DomeniaProbeValues $Probe $result); if ($v.Count) { $machines++; foreach ($x in $v) { [void]$values.Add($x) } }
+    param($Probe,[object[]]$Results,[string]$Visual,$Samples=$null)
+    if($null -eq $Samples){
+        $Samples=[Domenia.Native.ProbeSamples]::new()
+        foreach($result in @($Results)){
+            if($null -ne $result -and [string](Get-DomeniaMember $result 'Skipped')){$Samples.Skip();continue}
+            if($Probe.Mode -eq 'All'){$Samples.AddUnique(@(Get-DomeniaProbeValues $Probe $result),[datetime]::UtcNow)}else{$Samples.Add(@(Get-DomeniaProbeValues $Probe $result),[datetime]::UtcNow)}
+        }
     }
-    $numeric = ($values.Count -gt 0 -and @($values | Where-Object { $_ -isnot [double] -and $_ -isnot [int] -and $_ -isnot [long] }).Count -eq 0)
+    $values=$Samples.Values;$machines=$Samples.Machines;$skipped=$Samples.Skipped;$numeric=$Samples.Numeric
     $fr = [Globalization.CultureInfo]::GetCultureInfo('fr-FR')
     $unit = Get-DomeniaProbeUnit -Probe $Probe
     $format = { param([double]$Number) return $Number.ToString('0.#', $fr) }
     $items = @()
     # Distinct numbers only once the values are known to be numeric (text such as a version or an address stays text).
-    $distinct = if ($numeric) { @($values | ForEach-Object { [double]$_ } | Sort-Object -Unique) } else { @() }
+    $distinct = if ($numeric) { @($Samples.Distinct) } else { @() }
     if ($numeric -and $Visual -ne 'Pie' -and $distinct.Count -le 8 -and [string]$Probe.Transform -match '^(Number|DaysSince)$') {
         # Few distinct values (screens, printers, cores...): one bar per value, in order.
-        $items = @(foreach ($d in $distinct) { [pscustomobject]@{ Label = ((& $format $d) + $unit); Value = [double]@($values | Where-Object { [double]$_ -eq $d }).Count } })
-        $sum = 0.0; foreach ($x in $values) { $sum += [double]$x }
+        $items = @(foreach ($d in $distinct) { [pscustomobject]@{ Label = ((& $format $d) + $unit); Value = [double]$Samples.CountEqual($d); ExactValue=[double]$d } })
+        $sum = $Samples.Sum
         $summary = 'Moyenne ' + (& $format ([Math]::Round($sum / $values.Count,1))) + ' · min ' + (& $format $distinct[0]) + ' · max ' + (& $format $distinct[-1])
     }
     elseif ($numeric -and $Visual -ne 'Pie') {
-        $sorted = @($values | Sort-Object)
+        $sorted = @($Samples.Min,$Samples.Max)
         $max = [double]$sorted[-1]
         # Rounded edges for a plain number (1, 2 or 5 x 10^n), fixed edges for sizes, ages, shares and speeds.
         $niceEdges = @((Get-DomeniaChartTicks -Maximum $max -Integer -Count 5).Ticks | Where-Object { ($_ -gt 0) -and ($_ -lt $max) })
@@ -164,17 +202,63 @@ function Measure-DomeniaWidgetData {
         $items = for ($i = 0; $i -le $edges.Count; $i++) {
             $low = if ($i -eq 0) { [double]::NegativeInfinity } else { [double]$edges[$i-1] }
             $high = if ($i -eq $edges.Count) { [double]::PositiveInfinity } else { [double]$edges[$i] }
-            $label = if ($i -eq 0) { [string][char]0x2264 + ' ' + (& $format $edges[0]) + $unit } elseif ($i -eq $edges.Count) { '> ' + (& $format $edges[$i-1]) + $unit } elseif (([double]$edges[$i] - [double]$edges[$i-1]) -le 1) { (& $format $edges[$i]) + $unit } else { (& $format ([double]$edges[$i-1] + 1)) + ' à ' + (& $format $edges[$i]) + $unit }
-            [pscustomobject]@{ Label = $label; Value = [double]@($values | Where-Object { [double]$_ -gt $low -and [double]$_ -le $high }).Count }
+            $label = if ($i -eq 0) { [string][char]0x2264 + ' ' + (& $format $edges[0]) + $unit } elseif ($i -eq $edges.Count) { '> ' + (& $format $edges[$i-1]) + $unit } elseif (([double]$edges[$i] - [double]$edges[$i-1]) -le 1) { (& $format $edges[$i]) + $unit } else { '> ' + (& $format $edges[$i-1]) + ' à ' + (& $format $edges[$i]) + $unit }
+            [pscustomobject]@{ Label = $label; Value = [double]$Samples.CountRange($low,$high); Low=$low; High=$high }
         }
-        $sum = 0.0; foreach ($x in $values) { $sum += [double]$x }
+        $sum = $Samples.Sum
         $summary = 'Moyenne ' + (& $format ([Math]::Round($sum / $values.Count,1))) + ' · min ' + (& $format $sorted[0]) + ' · max ' + (& $format $sorted[-1])
     } else {
-        $groups = @($values | Group-Object { [string]$_ } | Sort-Object -Property @{ Expression = 'Count'; Descending = $true }, @{ Expression = 'Name'; Descending = $false })
-        $items = @($groups | Select-Object -First 8 | ForEach-Object { [pscustomobject]@{ Label = [string]$_.Name; Value = [double]$_.Count } })
-        $others = 0; foreach ($g in @($groups | Select-Object -Skip 8)) { $others += $g.Count }
-        if ($others -gt 0) { $items += [pscustomobject]@{ Label = 'Autres'; Value = [double]$others } }
-        $summary = if ($groups.Count) { 'Le plus fréquent : ' + [string]$groups[0].Name + ' (' + $groups[0].Count + ')' } else { 'Aucune valeur' }
+        $groups = @($Samples.Groups())
+        $items = @($groups | Select-Object -First 8 | ForEach-Object { [pscustomobject]@{ Label = [string]$_.Label; Value = [double]$_.Value } })
+        $others = $Samples.CountOther([string[]]@($groups|Select-Object -First 8|ForEach-Object{$_.Label}))
+        if ($others -gt 0) { $items += [pscustomobject]@{ Label = 'Autres'; Value = [double]$others; Excluded=@($groups|Select-Object -First 8|ForEach-Object{$_.Label}) } }
+        $summary = if ($groups.Count) { 'Le plus fréquent : ' + [string]$groups[0].Label + ' (' + $groups[0].Value + ')' } else { 'Aucune valeur' }
     }
-    return [pscustomobject]@{ Items = @($items); Machines = $machines; Summary = $summary; Numeric = $numeric; Values = @($values); Skipped = $skipped }
+    return [pscustomobject]@{ Items = @($items); Machines = $machines; Summary = $summary; Numeric = $numeric; Values = $values.ToArray(); Skipped = $skipped; Samples=$Samples }
+}
+function Measure-DomeniaFleetProbeEntries {
+    # Pure worker aggregation. Identity checks and observation traversal are shared by all requested widgets.
+    param($Fleet,[hashtable]$Observations=@{},[object[]]$Requests=@(),[int]$MaxAgeDays=30,[datetime]$NowUtc=[datetime]::UtcNow)
+    if($null -eq $Observations){$Observations=@{}}
+    $buckets=@{};$entries=@{}
+    foreach($request in $Requests){
+        $id=[string]$request.Key
+        if($buckets.ContainsKey($id)){continue}
+        $probe=Get-DomeniaProbe $id;if($null -eq $probe){continue}
+        $buckets[$id]=[pscustomobject]@{Probe=$probe;Samples=[Domenia.Native.ProbeSamples]::new()}
+    }
+    if(-not $buckets.Count){return $entries}
+    $nativeBatch=[Domenia.Native.ProbeBatch]::new([string[]]@($buckets.Keys))
+    foreach($id in $buckets.Keys){$buckets[$id].Samples=$nativeBatch.Buckets[$id]}
+    $targets=Get-DomeniaMemberValue $Fleet 'Targets' @()
+    foreach($target in $targets){
+        $observation=$Observations[([string]$target.distinguished_name).ToLowerInvariant()]
+        $observedGuid=[string](Get-DomeniaMember $observation 'Guid');$expectedGuid=[string]$target.object_guid
+        if(-not $expectedGuid -or -not $observedGuid -or $expectedGuid.Trim().Trim('{','}').ToLowerInvariant() -ne $observedGuid.Trim().Trim('{','}').ToLowerInvariant()){continue}
+        $probes=Get-DomeniaMemberValue $observation 'Probes'
+        $ids=if($observation -is [Domenia.Native.Observation]){@($nativeBatch.Add($observation,$NowUtc,$MaxAgeDays))}else{@($buckets.Keys)}
+        foreach($id in $ids){
+            $result=Get-DomeniaMemberValue $probes $id;if($null -eq $result){continue}
+            $at=ConvertFrom-DomeniaUtcText ([string](Get-DomeniaMember $result 'CheckedUtc'))
+            if((Test-DomeniaObservationAge -CheckedUtc $at -NowUtc $NowUtc -MaxDays $MaxAgeDays) -eq 'Expired'){continue}
+            $bucket=$buckets[$id]
+            if([string](Get-DomeniaMember $result 'Skipped')){$bucket.Samples.Skip();continue}
+            if($bucket.Probe.Mode -eq 'All'){$bucket.Samples.AddUnique(@(Get-DomeniaProbeValues $bucket.Probe $result),$at)}else{$bucket.Samples.Add(@(Get-DomeniaProbeValues $bucket.Probe $result),$at)}
+        }
+    }
+    foreach($request in $Requests){
+        $id=[string]$request.Key;$visual=[string]$request.Visual;$key=$id+'|'+$visual
+        if($entries.ContainsKey($key) -or -not $buckets.ContainsKey($id)){continue}
+        $bucket=$buckets[$id]
+        $measure=Measure-DomeniaWidgetData -Probe $bucket.Probe -Samples $bucket.Samples -Visual $visual
+        $entry=ConvertFrom-DomeniaProbeMeasure -Probe $bucket.Probe -Measured $measure -Board Fleet -Key $id
+        if($measure.Machines){
+            $coverage=Get-DomeniaCoverageText -Analysed $measure.Machines -Total $targets.Count -LastUtc $bucket.Samples.Newest
+            $entry.Detail=([string]$entry.Detail+' · '+$coverage);$entry.Subtitle=$coverage
+            if($bucket.Probe.Mode -eq 'All'){$entry.Detail+=' · Un poste peut figurer dans plusieurs catégories.'}
+            if($null -ne $bucket.Samples.Oldest -and ($NowUtc-$bucket.Samples.Oldest).TotalDays -gt 7){$entry.State='Off'}
+        }
+        $entries[$key]=$entry
+    }
+    return $entries
 }

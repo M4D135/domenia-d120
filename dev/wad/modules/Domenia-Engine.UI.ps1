@@ -781,8 +781,33 @@ function Initialize-DomeniaIdlePolicy {
 }
 
 # ---------------------------------------------------------------- D014: index search and shared park file off the Dispatcher
+function Get-DomeniaIndexSearchSort {
+    if($null -eq $script:DomeniaIndexSort){return [pscustomobject]@{Field='';Descending=$false}}
+    return $script:DomeniaIndexSort
+}
+function Set-DomeniaIndexSearchSort {
+    param($Grid,$EventArgs,[switch]$Reset)
+    if($null -ne $EventArgs){$EventArgs.Handled=$true}
+    if($null -eq $Grid){$Grid=Get-DomeniaControl 'DgIndex'}
+    $field='';$descending=$false
+    if(-not $Reset){
+        if($null -eq $EventArgs -or $null -eq $EventArgs.Column){return}
+        $field=[string]$EventArgs.Column.SortMemberPath
+        if($field -notin @('Type','Name','Login','Upn','State','Description','Score','Reason','LastLogon','WhenChanged')){return}
+        $previous=Get-DomeniaIndexSearchSort
+        $descending=if($previous.Field -eq $field){-not $previous.Descending}else{$field -eq 'Score'}
+    }
+    $script:DomeniaIndexSort=[pscustomobject]@{Field=$field;Descending=$descending}
+    $script:DomeniaIndexSearchRetry=$null;$script:DomeniaIndexSearchPage=$null
+    if($null -ne $Grid){foreach($column in $Grid.Columns){$column.SortDirection=$null};if($field){$EventArgs.Column.SortDirection=if($descending){[ComponentModel.ListSortDirection]::Descending}else{[ComponentModel.ListSortDirection]::Ascending}}}
+    Request-DomeniaIndexSearch
+}
+
 function Request-DomeniaIndexSearch {
+    # Invalidate immediately: an older callback must not replace the list during the debounce.
+    $script:DomeniaIndexSearchGeneration = [long]$script:DomeniaIndexSearchGeneration + 1
     # TextChanged only re-arms a 250 ms timer: no SQLite access runs on the keystroke itself.
+    foreach($name in @('BtnIndexPrevious','BtnIndexNext')){$button=Get-DomeniaControl $name;if($null -ne $button){$button.IsEnabled=$false}}
     if ($null -eq $script:DomeniaIndexSearchTimer) {
         # FI-05: protected timer of the engine heartbeat, registered with its owner by the factory.
         $script:DomeniaIndexSearchTimer = New-DomeniaTimer -Owner 'Timer:IndexSearch' -IntervalMs 250 -Tick {
@@ -804,10 +829,16 @@ function Get-DomeniaLocalDatabasePathForRead {
 
 function Start-DomeniaIndexSearch {
     # The query runs in the LocalIndexRead worker with a short busy timeout; a newer term supersedes it.
-    param([Parameter(Mandatory=$true)][string]$Term,[int]$Limit=200,[int]$Attempt=0)
+    param([AllowEmptyString()][string]$Term='',[int]$Limit=200,[int]$Attempt=0,[int]$Offset=0,[string]$SortField='',[bool]$Descending=$false)
+    $Limit=[Math]::Max(1,[Math]::Min(500,$Limit));$Offset=[Math]::Max(0,$Offset)
+    if(-not $PSBoundParameters.ContainsKey('SortField')){$sort=Get-DomeniaIndexSearchSort;$SortField=[string]$sort.Field;$Descending=[bool]$sort.Descending}
+    $scope=Get-DomeniaIndexScope
+    $scopeDn=if($null -ne $scope -and -not $scope.IsDomain){[string]$scope.BaseDn}else{''}
+    if($null -ne $script:DomeniaIndexSearchTimer){$script:DomeniaIndexSearchTimer.Stop()}
     $script:DomeniaIndexSearchGeneration = [long]$script:DomeniaIndexSearchGeneration + 1
-    $state = [pscustomobject]@{Term=$Term;Limit=$Limit;Attempt=$Attempt;Generation=[long]$script:DomeniaIndexSearchGeneration;Epoch=[long]$script:SessionEpoch;Watch=[Diagnostics.Stopwatch]::StartNew()}
-    $payload = [pscustomobject]@{Action='Search';Path=(Get-DomeniaLocalDatabasePathForRead);Term=$Term;Limit=[Math]::Max(1,[Math]::Min(500,$Limit));BusyTimeoutMs=50}
+    $state = [pscustomobject]@{Term=$Term;Limit=$Limit;Offset=$Offset;Scope=$scopeDn;SortField=$SortField;Descending=$Descending;Attempt=$Attempt;Generation=[long]$script:DomeniaIndexSearchGeneration;Epoch=[long]$script:SessionEpoch;Watch=[Diagnostics.Stopwatch]::StartNew()}
+    $payload = [pscustomobject]@{Action='Search';Path=(Get-DomeniaLocalDatabasePathForRead);Term=$Term;Limit=[Math]::Max(1,[Math]::Min(500,$Limit));Offset=$Offset;Scope=$scopeDn;SortField=$SortField;Descending=$Descending;Browse=$true;BusyTimeoutMs=50}
+    foreach($name in @('BtnIndexPrevious','BtnIndexNext')){$button=Get-DomeniaControl $name;if($null -ne $button){$button.IsEnabled=$false}}
     [void](Set-DomeniaControlText -Name 'LblIndexStatus' -Text 'Recherche dans l index local en arriere-plan...')
     return (Start-UiTask -Name 'Recherche dans l index local' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload $payload -CallbackState $state -ReplaceKey 'index-search' -TimeoutSeconds 20 -SuccessHandler 'Complete-DomeniaIndexSearchUi' -ErrorHandler 'Fail-DomeniaIndexSearchUi' -TaskClass 'Explicit')
 }
@@ -821,7 +852,7 @@ function Complete-DomeniaIndexSearchUi {
         # A locked database is not an empty result: one short delayed retry, then a visible message.
         if ([int]$State.Attempt -lt 2) {
             [void](Set-DomeniaControlText -Name 'LblIndexStatus' -Text 'Base locale occupee : nouvel essai dans un instant.')
-            $script:DomeniaIndexSearchRetry = [pscustomobject]@{Term=[string]$State.Term;Attempt=([int]$State.Attempt + 1)}
+            $script:DomeniaIndexSearchRetry = [pscustomobject]@{Term=[string]$State.Term;Attempt=([int]$State.Attempt + 1);Offset=[int]$State.Offset;Scope=[string]$State.Scope;Epoch=[long]$State.Epoch;Limit=[int]$State.Limit;SortField=[string](Get-DomeniaMember $State 'SortField' '');Descending=[bool](Get-DomeniaMember $State 'Descending' $false);Generation=([long]$State.Generation+1)}
             Request-DomeniaIndexSearch
             return
         }
@@ -839,14 +870,30 @@ function Complete-DomeniaIndexSearchUi {
     [void](Set-DomeniaItemsSource -Name 'DgIndex' -Rows $rows.ToArray())
     $elapsed = 0
     try { $elapsed = [int]$State.Watch.ElapsedMilliseconds } catch { }
-    $message = '{0} resultat(s) en {1} ms, sans appel reseau.' -f $rows.Count,$elapsed
+    $total=[long](Get-DomeniaMember $effective 'Total' $rows.Count);$offset=[int](Get-DomeniaMember $effective 'Offset' 0)
+    $script:DomeniaIndexSearchPage=[pscustomobject]@{Term=[string]$State.Term;Scope=[string]$State.Scope;Offset=$offset;Limit=[int]$State.Limit;Total=$total;Epoch=[long]$State.Epoch;Generation=[long]$State.Generation;SortField=[string](Get-DomeniaMember $State 'SortField' '');Descending=[bool](Get-DomeniaMember $State 'Descending' $false)}
+    $previous=Get-DomeniaControl 'BtnIndexPrevious';if($null -ne $previous){$previous.IsEnabled=($offset -gt 0)}
+    $next=Get-DomeniaControl 'BtnIndexNext';if($null -ne $next){$next.IsEnabled=([bool](Get-DomeniaMember $effective 'HasMore' $false))}
+    $message = '{0} objet(s) affiché(s), {1} correspondant(s) dans la base · page {2} · {3} ms.' -f $rows.Count,$total,([int]($offset/[Math]::Max(1,[int]$State.Limit))+1),$elapsed
     if ($rows.Count -eq 0) { $message = 'Aucun objet de l index local ne correspond a ' + [char]39 + [string]$State.Term + [char]39 + '. L index peut etre incomplet.' }
     [void](Set-DomeniaControlText -Name 'LblIndexStatus' -Text $message)
+}
+function Move-DomeniaIndexSearchPage {
+    param([int]$Direction=1)
+    $page=$script:DomeniaIndexSearchPage
+    if($null -eq $page -or [long]$page.Epoch -ne [long]$script:SessionEpoch -or [long](Get-DomeniaMember $page 'Generation' -1) -ne [long]$script:DomeniaIndexSearchGeneration){return}
+    $term=([string](Get-DomeniaControl 'TxtIndexSearch').Text).Trim();$scope=Get-DomeniaIndexScope
+    $scopeDn=if($null -ne $scope -and -not $scope.IsDomain){[string]$scope.BaseDn}else{''}
+    $sort=Get-DomeniaIndexSearchSort
+    if($term -cne [string]$page.Term -or $scopeDn -ine [string]$page.Scope -or [string]$sort.Field -cne [string](Get-DomeniaMember $page 'SortField' '') -or [bool]$sort.Descending -ne [bool](Get-DomeniaMember $page 'Descending' $false)){Search-DomeniaIndexUi;return}
+    $offset=[Math]::Max(0,[int]$page.Offset+([Math]::Sign($Direction)*[int]$page.Limit))
+    if($offset -ge [long]$page.Total){return}
+    [void](Start-DomeniaIndexSearch -Term $term -Limit ([int]$page.Limit) -Offset $offset -SortField ([string]$sort.Field) -Descending ([bool]$sort.Descending))
 }
 
 function Fail-DomeniaIndexSearchUi {
     param($Message,$State)
-    if ($null -ne $State -and [long]$State.Generation -ne [long]$script:DomeniaIndexSearchGeneration) { return }
+    if ($null -ne $State -and ([long]$State.Generation -ne [long]$script:DomeniaIndexSearchGeneration -or [long]$State.Epoch -ne [long]$script:SessionEpoch)) { return }
     $detail = ([string]$Message).Trim()
     if (-not $detail) { $detail = 'Erreur inconnue.' }
     [void](Set-DomeniaControlText -Name 'LblIndexStatus' -Text ('Recherche locale non effectuee : ' + $detail))

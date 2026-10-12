@@ -3083,6 +3083,7 @@ function Apply-DomeniaPresenceFilter {
         if ((Get-DomeniaSearchMode) -ne "Global" -and $script:CurrentPresenceFilter -ne "Tous") {
             $rows = @($rows | Where-Object { Test-DomeniaPresenceMatch ([string]$_.Presence) $script:CurrentPresenceFilter })
         }
+        $rows=@($rows|Where-Object{Test-DomeniaSearchQueryRow $_})
         [void](Set-DomeniaGridRows -Name "DgObjects" -Rows $rows)
 
         # Le libelle du jeu de resultats est conserve tant qu aucun filtre
@@ -3375,12 +3376,13 @@ function Read-DomeniaPreference {
         try {
             if(-not (Test-Path -LiteralPath $candidate -PathType Leaf)){continue}
             $info=Get-Item -LiteralPath $candidate -Force
-            if($info.Length -gt 1MB -or ($info.Attributes -band [IO.FileAttributes]::ReparsePoint)){continue}
+            $limit=if($FileName -ceq 'Domenia.settings.json'){4MB}else{1MB}
+            if($info.Length -gt $limit -or ($info.Attributes -band [IO.FileAttributes]::ReparsePoint)){continue}
             $parent=$info.Directory;$redirected=$false
             while($null -ne $parent){if($parent.Attributes -band [IO.FileAttributes]::ReparsePoint){$redirected=$true;break};$parent=$parent.Parent}
             if($redirected){continue}
             $text=([IO.File]::ReadAllText($candidate)).Trim()
-            if($FileName.EndsWith('.json',[StringComparison]::OrdinalIgnoreCase)){$null=$text | ConvertFrom-Json -ErrorAction Stop}
+            if($FileName.EndsWith('.json',[StringComparison]::OrdinalIgnoreCase)){[void]($text | ConvertFrom-Json -ErrorAction Stop)}
             if($candidate -ine $paths.User -and $candidate -ine ($paths.User+'.bak')){
                 if($null -eq $script:PreferenceLegacyReads){$script:PreferenceLegacyReads=@{}}
                 if(-not $script:PreferenceLegacyReads.ContainsKey($candidate)){$script:PreferenceLegacyReads[$candidate]=$false}
@@ -3415,6 +3417,8 @@ function Write-DomeniaPreference {
                 if((Get-Item -LiteralPath $path -Force).Attributes -band [IO.FileAttributes]::ReparsePoint){throw ('Lien de preference refuse : '+$path)}
             }
         }
+        $limit=if($FileName -ceq 'Domenia.settings.json'){4MB}else{1MB}
+        if([Text.Encoding]::UTF8.GetByteCount($Value) -gt $limit){throw 'Préférences trop volumineuses ; version précédente conservée.'}
         Write-DomeniaAtomicText -LiteralPath $target -Value $Value -KeepBackup
         return $true
     } catch {
@@ -3477,13 +3481,15 @@ function Get-DomeniaDefaultSettings {
         # Account names only (never a password): accounts for workstations (POSTES) and secrets (SECRETS).
         RemoteCredentialUser  = ''
         SecretsCredentialUser = ''
-        # Dashboards (decision David 2026-10-07): only keys listed here survive Load-DomeniaSettings. The home
-        # overview has no OU of its own since 2026-10-08: it follows the OU chosen in Rechercher.
+        # Only declared keys survive reload. Query recipes and collection choices are durable.
         'Dashboard.Computer.Layout' = ''
         'Dashboard.Fleet.Layout'    = ''
         'Dashboard.Software.Layout' = ''
         'Widgets.Computer' = ''
         'Widgets.Fleet'    = ''
+        'Query.Library' = ''
+        'Collection.Concurrency' = '4'
+        'Collection.CacheMinutes' = '15'
         # The last update of this domain stopped at its limit: '<BaseDn>|<date>|<objects read>' (Accueil warning).
         'Index.Partial'    = ''
         # Lot L01: the "Premiers pas" card of Accueil stays hidden once its four steps were done.
@@ -3553,10 +3559,11 @@ function Save-DomeniaSettings {
     try {
         $json = ([pscustomobject]$script:Settings) | ConvertTo-Json -Depth 4
         $written=Write-DomeniaPreference -FileName "Domenia.settings.json" -Value $json
-        if(-not $written){throw 'Aucun emplacement de preferences inscriptible.'}
+        if(-not $written){throw 'Préférences non enregistrées. Vérifiez les droits du stockage et les journaux.'}
     }
     catch {
         try { Write-AppLog "Reglages non enregistres : $($_.Exception.Message)" "WARN" } catch { }
+        try { Set-Status ('Réglages non enregistrés : '+$_.Exception.Message) 'WARN' } catch { }
         if($ThrowOnFailure){throw}
     }
 }
@@ -4819,7 +4826,7 @@ function Get-MainXaml {
                 </Button>
                 <Border x:Name="UxAboutPanel" Visibility="Collapsed" Margin="10,6,0,0">
                   <StackPanel>
-                    <TextBlock Text="DOMENIA 1.0 · RC1.16.0" Foreground="{DynamicResource MutedColor}" FontSize="11"/>
+                    <TextBlock Text="DOMENIA 1.0 · RC1.17.0" Foreground="{DynamicResource MutedColor}" FontSize="11"/>
                     <TextBlock Text="Les actions restent sous votre contrôle." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="11" Margin="0,4,0,0"/>
                   </StackPanel>
                 </Border>
@@ -5159,8 +5166,8 @@ function Get-MainXaml {
                           <TextBlock x:Name="LblFirstStepOu" Grid.Row="0" Grid.Column="1" Text="Choisir le périmètre local du tableau de bord." TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
                           <Button x:Name="BtnFirstStepOu" Grid.Row="0" Grid.Column="2" Content="Choisir une OU" MinHeight="30" Padding="12,3" Margin="0,0,0,6" ToolTip="Choisit le périmètre du tableau de bord, sans changer Rechercher ni lancer de lecture." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Premiers pas : choisir lʼOU du tableau de bord"/>
                           <TextBlock x:Name="LblFirstStepBaseMark" Grid.Row="1" Grid.Column="0" Text="2" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource AccentText}"/>
-                          <TextBlock x:Name="LblFirstStepBase" Grid.Row="1" Grid.Column="1" Text="Construire la base autonome : Mettre à jour tout, dans Outils." TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                          <Button x:Name="BtnFirstStepBase" Grid.Row="1" Grid.Column="2" Content="Ouvrir la base autonome" MinHeight="30" Padding="12,3" Margin="0,0,0,6" ToolTip="Ouvre Outils, Base autonome. La mise à jour ne part quʼà votre clic sur Mettre à jour tout." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Premiers pas : ouvrir la base autonome"/>
+                          <TextBlock x:Name="LblFirstStepBase" Grid.Row="1" Grid.Column="1" Text="Construire la base locale : choisissez une OU dans Outils, puis relisez-la." TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                          <Button x:Name="BtnFirstStepBase" Grid.Row="1" Grid.Column="2" Content="Ouvrir la base autonome" MinHeight="30" Padding="12,3" Margin="0,0,0,6" ToolTip="Ouvre Outils, Base autonome. La lecture ne part quʼà votre demande ; privilégiez lʼOU choisie." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Premiers pas : ouvrir la base autonome"/>
                           <TextBlock x:Name="LblFirstStepAccountMark" Grid.Row="2" Grid.Column="0" Text="3" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource AccentText}"/>
                           <TextBlock x:Name="LblFirstStepAccount" Grid.Row="2" Grid.Column="1" Text="Enregistrer le compte des postes pour les analyses : Comptes et accès." TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
                           <Button x:Name="BtnFirstStepAccount" Grid.Row="2" Grid.Column="2" Content="Ouvrir Comptes et accès" MinHeight="30" Padding="12,3" Margin="0,0,0,6" ToolTip="Ouvre Comptes et accès. Aucun compte nʼest demandé ni vérifié par ce bouton." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Premiers pas : ouvrir Comptes et accès"/>
@@ -5183,9 +5190,93 @@ function Get-MainXaml {
                         <WrapPanel Margin="0,8,0,0">
                           <Button x:Name="BtnFleetScope" Content="Choisir une OU" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" Margin="0,0,8,0" ToolTip="Choisit le périmètre local du tableau de bord. La recherche reste indépendante." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Choisir lʼOU du tableau de bord"/>
                           <Button x:Name="BtnFleetScopeReset" Content="Tout le domaine" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" ToolTip="Réinitialise le tableau de bord au domaine entier, depuis la base locale." AutomationProperties.Name="Afficher tout le domaine dans le tableau de bord"/>
-                          <Button x:Name="BtnFleetOpenSearch" Content="Analyser ces postes dans Rechercher" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" ToolTip="Affiche dans Rechercher les postes actifs de cette OU, depuis la base locale et sans requête. Pinger, détecter ou analyser se lancent ensuite depuis la liste, à votre clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Analyser ces postes dans Rechercher"/>
+                          <Button x:Name="BtnFleetShowMachines" Content="Lister les postes ici" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" ToolTip="Affiche la liste locale du périmètre, sans ouvrir Recherche et sans requête AD." AutomationProperties.Name="Lister les postes dans le tableau de bord"/>
+                          <Button x:Name="BtnFleetOpenSearch" Content="Ouvrir dans Rechercher" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" ToolTip="Action facultative : transmet les postes actifs de la base à Recherche pour lancer Pinger, Détecter ou Analyser la liste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ouvrir ces postes dans Rechercher"/>
                           <Button x:Name="BtnFleetIndexScope" Content="Mettre à jour cette OU" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" Margin="8,0,0,0" ToolTip="Relit dans lʼannuaire les seuls objets de cette OU et les ajoute à la base locale, sans rien supprimer. Utile quand la base autonome est incomplète. Lecture seule, à votre clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mettre à jour cette OU dans la base locale"/>
                         </WrapPanel>
+                        <Expander x:Name="ExpFleetMachines" Header="Atelier de requêtes et postes du périmètre" IsExpanded="False" Margin="0,10,0,0" AutomationProperties.Name="Atelier de requêtes sur la base locale">
+                          <DockPanel Margin="0,8,0,0">
+                            <StackPanel DockPanel.Dock="Top">
+                              <TextBlock Text="Composez une requête sur les postes recensés et leurs relevés. Les résultats inconnus sont séparés. Aucune collecte réseau lors du calcul." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,0,0,8"/>
+                              <WrapPanel Margin="0,0,0,6">
+                                <ComboBox x:Name="CmbFleetQuery" Width="330" MinHeight="32" Margin="0,0,6,0" AutomationProperties.Name="Modèles et requêtes enregistrées" ToolTip="Choisir un modèle ou une requête puis Charger."/>
+                                <Button x:Name="BtnQueryLoad" Content="Charger" MinHeight="32" Margin="0,0,6,0"/><Button x:Name="BtnQueryNew" Content="Nouvelle" MinHeight="32" Margin="0,0,6,0"/>
+                                <Button x:Name="BtnQueryDelete" Content="Supprimer la sauvegarde" MinHeight="32" ToolTip="Supprime cette requête des préférences et son widget. Les données collectées sont conservées."/>
+                              </WrapPanel>
+                              <WrapPanel Margin="0,0,0,6">
+                                <TextBox x:Name="TxtFleetQueryName" Width="330" MaxLength="120" MinHeight="32" Margin="0,0,6,0" AutomationProperties.Name="Nom de la requête"/>
+                                <Button x:Name="BtnQuerySave" Content="Enregistrer" MinHeight="32" Margin="0,0,6,0"/>
+                                <Button x:Name="BtnQueryWidget" Content="Créer une sonde dashboard" MinHeight="32" ToolTip="Enregistre la requête et ajoute son compteur au tableau de bord. Un clic ouvre les postes correspondants."/>
+                              </WrapPanel>
+                              <WrapPanel Margin="0,0,0,6"><TextBlock Text="Visualisation" VerticalAlignment="Center" Margin="0,0,8,0"/><ComboBox x:Name="CmbQueryGroupField" Width="330" MinHeight="32" AutomationProperties.Name="Champ de répartition du widget" ToolTip="Compteur, ou répartition des postes correspondants par une information. Le graphique se personnalise ensuite dans le dashboard."/></WrapPanel>
+                              <WrapPanel Margin="0,0,0,6"><TextBlock x:Name="LblQuerySegment" MaxWidth="740" TextWrapping="Wrap" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}"/><Button x:Name="BtnQueryClearSegment" Content="Retirer le segment" MinHeight="30" Margin="8,0,0,0"/></WrapPanel>
+                              <ComboBox x:Name="CmbQueryJunction" Width="270" HorizontalAlignment="Left" SelectedIndex="0" MinHeight="32" Margin="0,0,0,6" AutomationProperties.Name="Combinaison des conditions">
+                                <ComboBoxItem Content="Toutes les conditions (ET)"/><ComboBoxItem Content="Au moins une condition (OU)"/>
+                              </ComboBox>
+                              <WrapPanel Margin="0,0,0,6">
+                                <ComboBox x:Name="CmbQueryField" Width="330" MinHeight="32" Margin="0,0,6,0" IsTextSearchEnabled="True" AutomationProperties.Name="Champ à interroger"/>
+                                <ComboBox x:Name="CmbQueryOperator" Width="190" MinHeight="32" Margin="0,0,6,0" AutomationProperties.Name="Opérateur du filtre"/>
+                                <TextBox x:Name="TxtQueryValue" Width="150" MaxLength="4096" MinHeight="32" Margin="0,0,6,0" ToolTip="Valeur : texte littéral, nombre avec virgule ou point, Oui ou Non." AutomationProperties.Name="Valeur de la condition"/>
+                                <Button x:Name="BtnQueryAddCondition" Content="Ajouter" MinHeight="32"/>
+                              </WrapPanel>
+                              <DataGrid x:Name="DgQueryConditions" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" MaxHeight="170" MinHeight="65" SelectionMode="Single" AutomationProperties.Name="Conditions de la requête">
+                                <DataGrid.Columns><DataGridTextColumn Header="Champ" Binding="{Binding FieldLabel}" Width="*"/><DataGridTextColumn Header="Condition" Binding="{Binding OperatorLabel}" Width="190"/><DataGridTextColumn Header="Valeur" Binding="{Binding Value}" Width="220"/></DataGrid.Columns>
+                              </DataGrid>
+                              <WrapPanel Margin="0,6,0,6">
+                                <Button x:Name="BtnQueryRemoveCondition" Content="Retirer la condition" MinHeight="32" Margin="0,0,6,0"/>
+                                <Button x:Name="BtnQueryRun" Content="Exécuter localement" Style="{StaticResource RunButton}" MinHeight="32" Margin="0,0,6,0"/>
+                                <Button x:Name="BtnQueryCollect" Content="Collecter les données requises…" MinHeight="32" Margin="0,0,6,0" ToolTip="Prépare une collecte confirmée sur les postes actifs du périmètre. Ne lance jamais toutes les sondes du catalogue."/>
+                                <Button x:Name="BtnQueryApplySearch" Content="Appliquer aux résultats de Recherche" MinHeight="32" ToolTip="Filtre les lignes déjà présentes dans Recherche. Aucune nouvelle recherche AD."/>
+                              </WrapPanel>
+                              <Expander Header="Réglages de collecte" Margin="0,6,0,6">
+                                <WrapPanel Margin="0,6,0,6">
+                                  <TextBlock Text="Postes en parallèle" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                  <ComboBox x:Name="CmbCollectionConcurrency" Width="80" MinHeight="32" Margin="0,0,18,0" AutomationProperties.Name="Nombre maximal de postes collectés en parallèle"/>
+                                  <TextBlock Text="Réutiliser les mesures fraîches" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                  <ComboBox x:Name="CmbCollectionCache" Width="210" MinHeight="32" AutomationProperties.Name="Durée de réutilisation des mesures" ToolTip="Les sondes volatiles sont relues après une minute, lʼinventaire après cinq minutes. Forcer relit toutes les mesures demandées."/>
+                                </WrapPanel>
+                              </Expander>
+                              <TextBlock x:Name="LblQueryStatus" Text="Choisissez un modèle, ou ajoutez des conditions." TextWrapping="Wrap" Margin="0,4,0,8" Foreground="{DynamicResource MutedColor}" AutomationProperties.LiveSetting="Polite"/>
+                            </StackPanel>
+                            <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                              <TextBox x:Name="TxtFleetMachineFilter" Width="300" MinHeight="32" Margin="0,0,8,0" ToolTip="Filtre local par nom ou unité organisationnelle. Aucun accès réseau." AutomationProperties.Name="Filtrer les postes du tableau de bord"/>
+                              <ComboBox x:Name="CmbFleetMachineState" Width="160" MinHeight="32" SelectedIndex="0" ToolTip="Inclure tous les postes ou filtrer les comptes actifs et désactivés." AutomationProperties.Name="État des postes affichés">
+                                <ComboBoxItem Content="Tous les états"/><ComboBoxItem Content="Actifs"/><ComboBoxItem Content="Désactivés"/>
+                              </ComboBox>
+                              <ComboBox x:Name="CmbQueryResult" Width="160" MinHeight="32" Margin="8,0,0,0" SelectedIndex="0" AutomationProperties.Name="Type de résultat à afficher"><ComboBoxItem Content="Correspondants"/><ComboBoxItem Content="Inconnus"/><ComboBoxItem Content="Non correspondants"/></ComboBox>
+                              <TextBlock x:Name="LblFleetMachineCount" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="{DynamicResource MutedColor}"/>
+                            </WrapPanel>
+                            <WrapPanel DockPanel.Dock="Bottom" Margin="0,6,0,0"><Button x:Name="BtnQueryPrevious" Content="Page précédente" IsEnabled="False" MinHeight="30" Margin="0,0,6,0"/><Button x:Name="BtnQueryNext" Content="Page suivante" IsEnabled="False" MinHeight="30" Margin="0,0,6,0"/><Button x:Name="BtnQueryExport" Content="Exporter cette page (CSV)" MinHeight="30"/></WrapPanel>
+                            <Expander x:Name="ExpQueryObject" DockPanel.Dock="Bottom" Header="Objet sélectionné · fiche locale" IsExpanded="False" Margin="0,10,0,0">
+                              <StackPanel>
+                                <TextBlock x:Name="LblQueryObject" Text="Sélectionnez un poste pour consulter ses données." TextWrapping="Wrap" Margin="0,4,0,8"/>
+                                <WrapPanel Margin="0,0,0,6">
+                                  <Button x:Name="BtnQueryObjectOpen" Content="Fiche AD et actions…" MinHeight="32" Margin="0,0,6,0" ToolTip="Relit cet objet par son DN et vérifie son GUID avant dʼouvrir les actions protégées."/>
+                                  <Button x:Name="BtnQueryObjectCollect" Content="Actualiser ce poste…" MinHeight="32" Margin="0,0,6,0" ToolTip="Prépare une collecte sur ce seul poste, avec confirmation."/>
+                                  <Button x:Name="BtnQueryObjectCopy" Content="Copier le chemin AD" MinHeight="32"/>
+                                </WrapPanel>
+                                <DataGrid x:Name="DgQueryObjectFields" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" MaxHeight="280" EnableRowVirtualization="True" AutomationProperties.Name="Données locales de lʼobjet sélectionné">
+                                  <DataGrid.Columns><DataGridTextColumn Header="Information" Binding="{Binding Name}" Width="*"/><DataGridTextColumn Header="Valeur locale" Binding="{Binding Value}" Width="*"/></DataGrid.Columns>
+                                </DataGrid>
+                              </StackPanel>
+                            </Expander>
+                            <DataGrid x:Name="DgFleetMachines" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" CanUserDeleteRows="False" EnableRowVirtualization="True" EnableColumnVirtualization="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" MaxHeight="360" AutomationProperties.Name="Postes du périmètre depuis la base locale">
+                              <DataGrid.Columns>
+                                <DataGridTemplateColumn Header="Présence" Width="100" SortMemberPath="PresenceLabel">
+                                  <DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel Orientation="Horizontal" ToolTip="{Binding PresenceLabel}"><TextBlock Text="{Binding PresenceState}" Foreground="{Binding PresenceBrush}" Margin="4,0,6,0"/><TextBlock Text="{Binding PresenceLabel}"/></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Header="Poste" Binding="{Binding name}" Width="180"/>
+                                <DataGridTextColumn Header="État" Binding="{Binding StateLabel}" Width="110"/>
+                                <DataGridTextColumn Header="Système AD" Binding="{Binding OS}" Width="220"/>
+                                <DataGridTextColumn Header="Version AD" Binding="{Binding Version}" Width="130"/>
+                                <DataGridTextColumn Header="Connexion AD (j)" Binding="{Binding LogonDays}" Width="120"/>
+                                <DataGridTextColumn Header="Âge du relevé" Binding="{Binding Observation}" Width="160"/>
+                                <DataGridTextColumn Header="Valeurs interrogées" Binding="{Binding QueryValues}" Width="260"/>
+                                <DataGridTextColumn Header="Unité organisationnelle" Binding="{Binding distinguished_name}" Width="*"/>
+                              </DataGrid.Columns>
+                            </DataGrid>
+                          </DockPanel>
+                        </Expander>
                       </StackPanel>
                     </Border>
                     <StackPanel x:Name="PnlFleetDashboard" Margin="-7,0,-7,12"/>
@@ -5195,7 +5286,7 @@ function Get-MainXaml {
                           <WrapPanel>
                             <Button x:Name="BtnDashRoot" Content="Racine du domaine" ToolTip="Revient à la racine du domaine." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Racine du domaine" AutomationProperties.HelpText="Revient a la racine du domaine."/>
                             <Button x:Name="BtnDashCopy" Content="Copier" ToolTip="Copie le contenu du tableau de bord." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Copier" AutomationProperties.HelpText="Copie le contenu du tableau de bord."/>
-                            <Button x:Name="BtnDashSelfCheck" Content="Verifier l application" ToolTip="Vérifie que lʼapplication fonctionne correctement. Aucune écriture dans Active Directory." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Verifier l application" AutomationProperties.HelpText="Verifie que l application fonctionne correctement. Aucune ecriture dans Active Directory."/>
+                            <Button x:Name="BtnDashSelfCheck" Content="Vérifier lʼapplication" ToolTip="Vérifie que lʼapplication fonctionne correctement. Aucune écriture dans Active Directory." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vérifier lʼapplication" AutomationProperties.HelpText="Vérifie que lʼapplication fonctionne correctement. Aucune écriture dans Active Directory."/>
                             <Button x:Name="BtnDashClearCache" Content="Vider le cache" ToolTip="Vide le cache dʼaffichage. Aucun objet Active Directory nʼest modifié." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vider le cache" AutomationProperties.HelpText="Vide le cache d affichage. Aucun objet Active Directory n est modifie."/>
                             <Button x:Name="BtnDashOpenLog" Content="Ouvrir le journal" ToolTip="Ouvre le journal dʼaudit. Aucun mot de passe ni clé nʼy figure." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ouvrir le journal" AutomationProperties.HelpText="Ouvre le journal d audit. Aucun mot de passe ni cle n y figure."/>
                           </WrapPanel>
@@ -5419,6 +5510,7 @@ function Get-MainXaml {
                               <ComboBox x:Name="CmbWorkView" MinWidth="0" MinHeight="36" ToolTip="Vues prêtes à lʼemploi : comptes expirants ou désactivés, objets modifiés récemment, postes dʼune OU ou sans connexion. Le choix seul ne lance rien." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vue de travail" AutomationProperties.HelpText="Vues prêtes à lʼemploi : comptes expirants ou désactivés, objets modifiés récemment, postes dʼune OU ou sans connexion. Le choix seul ne lance rien."/>
                             </DockPanel>
                           </StackPanel>
+                          <StackPanel Width="330" Margin="0,0,12,8"><TextBlock x:Name="LblSearchQuery" Text="Aucune requête enregistrée appliquée aux résultats." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}"/><WrapPanel><Button x:Name="BtnSearchQueryWorkshop" Content="Atelier de requêtes" MinHeight="30" Margin="0,4,6,0"/><Button x:Name="BtnQueryClearSearch" Content="Retirer le filtre de requête" MinHeight="30" Margin="0,4,0,0"/></WrapPanel></StackPanel>
                         </WrapPanel>
                         <Grid Grid.Row="1" Visibility="Collapsed" Height="0" Width="0">
                           <TextBox x:Name="TxtBranchSearch" Text="" ToolTip="Saisissez ou consultez cette information. Le champ seul ne lance pas une action de modification." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Saisissez ou consultez cette information" AutomationProperties.HelpText="Saisissez ou consultez cette information. Le champ seul ne lance pas une action de modification."/>
@@ -7031,22 +7123,56 @@ function Get-MainXaml {
                         </Grid>
                       </TabItem>
                       <TabItem x:Name="TabIndex" Header="Base autonome" ToolTip="Base autonome persistante : utilisateurs, postes, changements AD et associations user-machine." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Base autonome" AutomationProperties.HelpText="Base autonome persistante : utilisateurs, postes, changements AD et associations user-machine.">
-                        <DockPanel Margin="8">
-                          <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                        <Grid Margin="8">
+                          <Grid.RowDefinitions><RowDefinition Height="2*" MinHeight="80"/><RowDefinition Height="6"/><RowDefinition Height="3*" MinHeight="120"/></Grid.RowDefinitions>
+                          <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,8,0" AutomationProperties.Name="Réglages et mise à jour de la base">
+                          <StackPanel Margin="0,0,0,10">
                             <TextBlock Text="Base autonome DOMENIA" FontSize="18" FontWeight="SemiBold"/>
                             <TextBlock Text="Copie persistante des utilisateurs et postes, suivie par GUID et changements AD. Les associations utilisateur-poste sont conservées à côté et enrichissent les résultats." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,8" TextWrapping="Wrap"/>
-                            <WrapPanel>
-                              <Button x:Name="BtnIndexScopeUpdate" Content="Mettre à jour la base de cette OU" Style="{StaticResource RunButton}" ToolTip="Relit dans lʼannuaire les seuls objets de lʼOU choisie ci-dessous, et les ajoute à la base locale sans rien supprimer. La mise à jour la plus courte quand on travaille sur une OU." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mettre à jour la base de cette OU" AutomationProperties.HelpText="Relit les objets de lʼOU choisie et les fusionne dans la base autonome."/>
-                              <Button x:Name="BtnIndexScopePick" Content="Choisir lʼOU..." Style="{StaticResource SecondaryButton}" ToolTip="Choisit lʼunité organisationnelle que la mise à jour doit relire. Sans choix, cʼest lʼOU sélectionnée dans lʼarbre de recherche." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Choisir lʼunité organisationnelle de la base" AutomationProperties.HelpText="Choisit lʼOU que la mise à jour de la base doit relire."/>
-                              <Button x:Name="BtnIndexBuild" Content="Mettre a jour tout" Style="{StaticResource RunButton}" ToolTip="Relit tous les utilisateurs et postes, reconstruit la base autonome et resynchronise les associations connues. Peut durer plusieurs minutes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mettre a jour tout" AutomationProperties.HelpText="Relit tous les utilisateurs et postes, reconstruit la base autonome et resynchronise les associations connues. Peut durer plusieurs minutes."/>
-                              <Button x:Name="BtnIndexRefresh" Content="Mettre a jour les changements" Style="{StaticResource RunButton}" ToolTip="Ne relit que les objets modifiés depuis la dernière passe grâce à uSNChanged/whenChanged. Beaucoup plus rapide." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mettre a jour les changements" AutomationProperties.HelpText="Ne relit que les objets modifies depuis la derniere passe grace a uSNChanged/whenChanged. Beaucoup plus rapide."/>
-                              <Button x:Name="BtnIndexWalk" Content="Tout relire (OU par OU)" Style="{StaticResource SecondaryButton}" ToolTip="Relit le domaine entier en une tâche par OU et ajoute chaque OU à la base locale sans rien supprimer. Utile quand la base est annoncée incomplète : la limite de lecture ne porte plus que sur une seule OU à la fois. Lecture seule, à votre clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Tout relire OU par OU" AutomationProperties.HelpText="Relit le domaine entier en une tâche par OU et ajoute chaque OU à la base locale sans rien supprimer."/>
-                              <Button x:Name="BtnIndexOpen" Content="Ouvrir l objet" ToolTip="Recherche dans l annuaire l objet selectionne ci-dessous." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ouvrir l objet" AutomationProperties.HelpText="Recherche dans l annuaire l objet selectionne ci-dessous."/>
-                              <Button x:Name="BtnIndexExport" Content="Exporter CSV" ToolTip="Enregistre les resultats affiches au format CSV." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Exporter CSV" AutomationProperties.HelpText="Enregistre les resultats affiches au format CSV."/>
-                            </WrapPanel>
-                            <Border Margin="0,10,0,0" Padding="10" CornerRadius="10" Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1">
+                            <Grid>
+                              <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                              <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                            <Border Padding="10" CornerRadius="10" Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" Margin="0,0,0,8">
                               <StackPanel>
-                                <TextBlock Text="Emplacement et sauvegarde" FontWeight="SemiBold"/>
+                                <TextBlock Text="Périmètre de mise à jour" FontWeight="SemiBold"/>
+                                <TextBlock x:Name="LblIndexScopeChoice" Text="Tout le domaine" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,3,0,8"/>
+                                <WrapPanel>
+                                  <Button x:Name="BtnIndexScopePick" Content="Choisir une OU" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" ToolTip="Choisit précisément lʼOU et ses sous-OU à relire. Recherche nʼest pas modifiée." AutomationProperties.Name="Choisir lʼOU de mise à jour"/>
+                                  <Button x:Name="BtnIndexScopeReset" Content="Tout le domaine" Style="{StaticResource SecondaryButton}" ToolTip="Réinitialise la cible de mise à jour au domaine courant." AutomationProperties.Name="Choisir tout le domaine pour la mise à jour"/>
+                                </WrapPanel>
+                              </StackPanel>
+                            </Border>
+                            <WrapPanel>
+                              <Button x:Name="BtnIndexScopeUpdate" Content="Tout relire dans lʼOU choisie" Style="{StaticResource RunButton}" ToolTip="Action recommandée : relit tous les utilisateurs et postes de lʼOU choisie et de ses sous-OU. Demande une sélection si aucune OU nʼest choisie. Les autres branches sont conservées." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Tout relire dans lʼOU choisie"/>
+                              <Button x:Name="BtnIndexBuild" Content="Tout relire dans le domaine" Style="{StaticResource SecondaryButton}" ToolTip="Opération longue et occasionnelle : relit tous les utilisateurs et postes du domaine pour mettre à jour la copie locale. Réservée au premier chargement ou à une remise à jour globale. Confirmation obligatoire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Tout relire dans le domaine, opération longue"/>
+                            </WrapPanel>
+                            <TextBlock Text="Privilégiez lʼOU choisie. Domaine complet : opération longue, à réserver au premier chargement ou à une remise à jour globale." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,6,0,8"/>
+                              </StackPanel>
+                              <StackPanel Grid.Column="1">
+                            <Border Padding="12" CornerRadius="10" Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" Margin="0,0,0,0">
+                              <StackPanel>
+                                <TextBlock Text="État de la copie locale" FontWeight="SemiBold"/>
+                                <TextBlock x:Name="LblIndexOverview" Text="Aucune base autonome." FontSize="14" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                                <TextBlock x:Name="LblIndexFreshness" Foreground="{DynamicResource MutedColor}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                                <Expander Header="Détails du stockage et de la synchronisation" Margin="0,8,0,0">
+                                  <TextBlock x:Name="LblIndexStats" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                                </Expander>
+                              </StackPanel>
+                            </Border>
+                            <ProgressBar x:Name="PbIndexProgress" Minimum="0" Maximum="100" Height="8" Margin="0,8,0,2" Visibility="Collapsed" AutomationProperties.Name="Progression de la mise à jour de la base"/>
+                            <TextBlock x:Name="LblIndexProgress" Text="" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap"/>
+                            <Expander Header="Options avancées" IsExpanded="False" Margin="0,0,0,6">
+                            <WrapPanel>
+                              <Button x:Name="BtnIndexRefresh" Content="Synchroniser les changements" Style="{StaticResource RunButton}" ToolTip="Relit les changements depuis le dernier repère uSNChanged. Les postes déjà connus sont conservés si une passe est partielle." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Synchroniser les changements de la base"/>
+                              <Button x:Name="BtnIndexWalk" Content="Relire le domaine par étapes" Style="{StaticResource SecondaryButton}" ToolTip="Relit les utilisateurs et postes de tout le domaine, une branche à la fois. Utile si une lecture globale est trop longue. Affiche la progression et les branches non terminées." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Relire le domaine par étapes"/>
+                            </WrapPanel>
+                            </Expander>
+                              </StackPanel>
+                            </Grid>
+                            <Grid>
+                              <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <Expander Grid.Column="0" Header="Emplacement et sauvegarde" IsExpanded="False" Margin="0,10,0,0" Padding="10" Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1">
+                              <StackPanel>
                                 <TextBox x:Name="TxtIndexLocation" IsReadOnly="True" Margin="0,6,0,6" MinHeight="32" ToolTip="Fichier de la base autonome de ce domaine. Le chemin peut être copié." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Emplacement de la base"/>
                                 <WrapPanel>
                                   <Button x:Name="BtnIndexOpenFolder" Content="Ouvrir l emplacement" Margin="0,0,8,0" ToolTip="Ouvre le dossier de la base dans lʼexplorateur, fichier sélectionné." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ouvrir l emplacement de la base"/>
@@ -7055,10 +7181,9 @@ function Get-MainXaml {
                                 </WrapPanel>
                                 <TextBlock x:Name="LblIndexBackupStatus" Text="" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,6,0,0"/>
                               </StackPanel>
-                            </Border>
-                            <Border Margin="0,10,0,0" Padding="10" CornerRadius="10" Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1">
+                            </Expander>
+                            <Expander Grid.Column="1" Header="Relevé du parc" IsExpanded="False" Margin="0,10,0,0" Padding="10" Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1">
                               <StackPanel>
-                                <TextBlock Text="Relevé du parc" FontWeight="SemiBold"/>
                                 <TextBlock Text="Le journal du contrôleur donne des milliers de couples utilisateur et poste en une requête, sans contacter aucune machine. La sonde poste par poste ne sert quʼà compléter." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,2,0,8"/>
                                 <WrapPanel>
                                   <CheckBox x:Name="ChkParkSweepEnabled" Content="Releve manuel uniquement" IsEnabled="False" Visibility="Collapsed" VerticalAlignment="Center" Margin="0,0,14,8" ToolTip="Lance un lot de releves en arriere-plan a chaque ouverture. Ce sont les seules requetes qui touchent les postes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Relever au lancement" AutomationProperties.HelpText="Lance un lot de releves en arriere-plan a chaque ouverture. Ce sont les seules requetes qui touchent les postes."/>
@@ -7067,9 +7192,14 @@ function Get-MainXaml {
                                 </WrapPanel>
                                 <TextBlock x:Name="LblParkStatus" Text="Aucun relevé." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap"/>
                               </StackPanel>
-                            </Border>
+                            </Expander>
+                            </Grid>
 
-                            <TextBlock x:Name="LblIndexStats" Text="Aucune base autonome." Foreground="{DynamicResource MutedColor}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                          </StackPanel>
+                          </ScrollViewer>
+                          <GridSplitter Grid.Row="1" Height="6" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" ResizeDirection="Rows" ResizeBehavior="PreviousAndNext" ShowsPreview="True" Background="{DynamicResource SplitterBg}" ToolTip="Faites glisser pour répartir la hauteur entre les réglages et les résultats." AutomationProperties.Name="Redimensionner les réglages et résultats de la base"/>
+                          <DockPanel Grid.Row="2">
+                          <StackPanel DockPanel.Dock="Top">
                             <Grid Margin="0,8,0,0">
                               <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
@@ -7077,30 +7207,41 @@ function Get-MainXaml {
                                 <ColumnDefinition Width="Auto"/>
                               </Grid.ColumnDefinitions>
                               <Label Grid.Column="0" Content="Rechercher"/>
-                              <TextBox Grid.Column="1" x:Name="TxtIndexSearch" Margin="0,0,10,0" ToolTip="Cherche dans les noms, identifiants, descriptions et services. Les fautes de frappe sont rattrapees automatiquement." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher" AutomationProperties.HelpText="Cherche dans les noms, identifiants, descriptions et services. Les fautes de frappe sont rattrapees automatiquement."/>
+                              <TextBox Grid.Column="1" x:Name="TxtIndexSearch" Margin="0,0,10,0" ToolTip="Cherche dans la copie locale du périmètre choisi. Laissez vide pour parcourir tous les objets, par pages de 200." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher dans la base locale"/>
                               <TextBlock Grid.Column="2" x:Name="LblIndexStatus" Text="Pret." Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center" TextWrapping="Wrap"/>
                             </Grid>
+                            <WrapPanel Margin="0,6,0,0">
+                              <Button x:Name="BtnIndexBrowse" Content="Afficher / actualiser les objets" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/>
+                              <Button x:Name="BtnIndexPrevious" Content="Page précédente" IsEnabled="False" Margin="0,0,8,0"/>
+                              <Button x:Name="BtnIndexNext" Content="Page suivante" IsEnabled="False" Margin="0,0,8,0"/>
+                              <Button x:Name="BtnIndexResetSort" Content="Tri par pertinence" ToolTip="Rétablit le tri par pertinence puis nom sur tous les résultats."/>
+                              <Button x:Name="BtnIndexOpen" Content="Ouvrir l objet" ToolTip="Recherche dans l annuaire l objet selectionne ci-dessous." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ouvrir l objet" AutomationProperties.HelpText="Recherche dans l annuaire l objet selectionne ci-dessous."/>
+                              <Button x:Name="BtnIndexExport" Content="Exporter CSV" ToolTip="Enregistre les resultats affiches au format CSV." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Exporter CSV" AutomationProperties.HelpText="Enregistre les resultats affiches au format CSV."/>
+                            </WrapPanel>
                           </StackPanel>
-                          <DataGrid x:Name="DgIndex" AutoGenerateColumns="False" IsReadOnly="True" MinRowHeight="28" CanUserSortColumns="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" ToolTip="Résultats de lʼindex local. Double-clic pour ouvrir lʼobjet dans lʼannuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Resultats de l index local" AutomationProperties.HelpText="Resultats de l index local. Double-clic pour ouvrir l objet dans l annuaire.">
+                          <DataGrid x:Name="DgIndex" AutoGenerateColumns="False" IsReadOnly="True" MinRowHeight="28" CanUserSortColumns="True" EnableRowVirtualization="True" EnableColumnVirtualization="True" VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.HorizontalScrollBarVisibility="Auto" ToolTip="Résultats de lʼindex local. Double-clic pour ouvrir lʼobjet dans lʼannuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Resultats de l index local" AutomationProperties.HelpText="Resultats de l index local. Double-clic pour ouvrir l objet dans l annuaire.">
                             <DataGrid.Columns>
-                              <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="100"/>
-                              <DataGridTextColumn Header="Nom" Binding="{Binding Name}" Width="220"/>
-                              <DataGridTextColumn Header="Identifiant" Binding="{Binding Login}" Width="150"/>
-                              <DataGridTextColumn Header="UPN ou DNS" Binding="{Binding Upn}" Width="220"/>
-                              <DataGridTextColumn Header="Etat" Binding="{Binding State}" Width="90"/>
-                              <DataGridTextColumn Header="Association" Binding="{Binding Association}" Width="230"/>
-                              <DataGridTextColumn Header="Score" Binding="{Binding Score}" Width="70"/>
-                              <DataGridTextColumn Header="Correspondance" Binding="{Binding Reason}" Width="200"/>
-                              <DataGridTemplateColumn Header="Detail" Width="*">
+                              <DataGridTextColumn Header="Type" Binding="{Binding Type}" SortMemberPath="Type" Width="100" MinWidth="80"/>
+                              <DataGridTextColumn Header="Nom" Binding="{Binding Name}" SortMemberPath="Name" Width="220" MinWidth="140"/>
+                              <DataGridTextColumn Header="Identifiant" Binding="{Binding Login}" SortMemberPath="Login" Width="150" MinWidth="120"/>
+                              <DataGridTextColumn Header="UPN ou DNS" Binding="{Binding Upn}" SortMemberPath="Upn" Width="220" MinWidth="160"/>
+                              <DataGridTextColumn Header="Etat" Binding="{Binding State}" SortMemberPath="State" Width="90" MinWidth="75"/>
+                              <DataGridTextColumn Header="Association" Binding="{Binding Association}" CanUserSort="False" Width="230" MinWidth="160"/>
+                              <DataGridTextColumn Header="Score" Binding="{Binding Score}" SortMemberPath="Score" Width="70" MinWidth="50"/>
+                              <DataGridTextColumn Header="Correspondance" Binding="{Binding Reason}" SortMemberPath="Reason" Width="200" MinWidth="130"/>
+                              <DataGridTemplateColumn SortMemberPath="Description" CanUserSort="True" Header="Détail" Width="*" MinWidth="260">
                                 <DataGridTemplateColumn.CellTemplate>
                                   <DataTemplate>
-                                    <TextBlock Text="{Binding Description}" Style="{StaticResource WrappedCellText}" ToolTip="{Binding DN}"/>
+                                    <TextBlock Text="{Binding Description}" Style="{StaticResource WrappedCellText}" TextWrapping="NoWrap" Padding="6,2" MaxHeight="28" TextTrimming="CharacterEllipsis" ToolTip="{Binding DN}"/>
                                   </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                               </DataGridTemplateColumn>
+                              <DataGridTextColumn Header="Connexion AD" Binding="{Binding LastLogon}" SortMemberPath="LastLogon" Width="155" MinWidth="135"/>
+                              <DataGridTextColumn Header="Modifié dans AD" Binding="{Binding WhenChanged}" SortMemberPath="WhenChanged" Width="155" MinWidth="135"/>
                             </DataGrid.Columns>
                           </DataGrid>
-                        </DockPanel>
+                          </DockPanel>
+                        </Grid>
                       </TabItem>
                       <TabItem x:Name="TabOperationStats" Header="Charge &amp; stats" ToolTip="Mesures réelles des opérations DOMENIA : durée, volume réseau estimé, fallback distant et taux de réussite." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Charge &amp; stats" AutomationProperties.HelpText="Mesures reelles des operations DOMENIA : duree, volume reseau estime, fallback distant et taux de reussite.">
                         <DockPanel Margin="8">
@@ -9457,7 +9598,11 @@ $script:IndexRows = @()
 $script:IndexDbCount = -1
 $script:IndexDbUsers = -1
 $script:IndexDbComputers = -1
+$script:IndexDbMachinesActive = -1
+$script:IndexDbMachinesDisabled = -1
 $script:IndexInfo = $null
+$script:IndexSyncStates = @{}
+$script:IndexMetadataError = ''
 $script:IndexUsersByLogin = @{}
 $script:IndexUsersByGuid = @{}
 $script:IndexComputersByName = @{}
@@ -10624,7 +10769,10 @@ function Get-VisitCacheValue {
     try {
         if ($script:VisitCache.ContainsKey($Key)) {
             $item = $script:VisitCache[$Key]
-            if ($item.Expires -gt (Get-Date)) { $script:CacheStats.Hits++; return $item.Value }
+            if ($item.Expires -gt (Get-Date)) {
+                if ($null -ne $item.PSObject.Properties['Accessed']) { $item.Accessed = Get-Date }
+                $script:CacheStats.Hits++; return $item.Value
+            }
             $script:VisitCache.Remove($Key); $script:CacheStats.Evictions++
         }
         $script:CacheStats.Misses++
@@ -10639,12 +10787,21 @@ function Set-VisitCacheValue {
     if (-not [bool](Get-CfgValue "Cache" "Enabled" $true)) { return }
     try {
         if ($TtlSeconds -le 0) { $TtlSeconds = [int](Get-CfgValue "Cache" "TtlSeconds" 90) }
-        $max = [int](Get-CfgValue "Cache" "MaxEntries" 500)
+        $TtlSeconds = [Math]::Max(1,[Math]::Min(86400,$TtlSeconds))
+        $max = [Math]::Max(1,[Math]::Min(100000,[int](Get-CfgValue "Cache" "MaxEntries" 500)))
+        $now = Get-Date
         if ($script:VisitCache.Count -ge $max) {
-            $old = @($script:VisitCache.GetEnumerator() | Sort-Object { $_.Value.Created } | Select-Object -First ([Math]::Max(1,[int]($max * 0.1))))
-            foreach ($o in $old) { $script:VisitCache.Remove([string]$o.Key); $script:CacheStats.Evictions++ }
+            # Expired entries leave first. Updating an existing entry does not evict an unrelated live object.
+            foreach ($expired in @($script:VisitCache.Keys)) {
+                if ($script:VisitCache[$expired].Expires -le $now) { $script:VisitCache.Remove($expired); $script:CacheStats.Evictions++ }
+            }
+            $needed = $script:VisitCache.Count - $max + $(if ($script:VisitCache.ContainsKey($Key)) { 0 } else { 1 })
+            if ($needed -gt 0) {
+                $old = @($script:VisitCache.GetEnumerator() | Where-Object { [string]$_.Key -cne $Key } | Sort-Object { if ($null -ne $_.Value.PSObject.Properties['Accessed']) { $_.Value.Accessed } else { $_.Value.Created } } | Select-Object -First $needed)
+                foreach ($o in $old) { $script:VisitCache.Remove([string]$o.Key); $script:CacheStats.Evictions++ }
+            }
         }
-        $script:VisitCache[$Key] = [pscustomobject]@{ Created=Get-Date; Expires=(Get-Date).AddSeconds($TtlSeconds); Value=$Value }
+        $script:VisitCache[$Key] = [pscustomobject]@{ Created=$now; Accessed=$now; Expires=$now.AddSeconds($TtlSeconds); Value=$Value }
         $script:CacheStats.Writes++
     } catch { $script:CacheStats.Errors++ }
 }
@@ -11824,7 +11981,7 @@ if ($null -eq $security) {
         (New-CapRow "Gestion compte" "Indetermine" "ACL indisponible" $securityError),
         (New-CapRow "Reset mot de passe" "Indetermine" "ACL indisponible" $securityError),
         (New-CapRow "Gestion groupes" "Indetermine" "ACL indisponible" $securityError),
-        (New-CapRow "Deplacer ou renommer" "Indetermine" "ACL indisponible" $securityError),
+        (New-CapRow "Déplacer ou renommer" "Indetermine" "ACL indisponible" $securityError),
         (New-CapRow "Supprimer objet" "Indetermine" "ACL indisponible" $securityError),
         (New-CapRow "Creer enfant" "Indetermine" "ACL indisponible" $securityError),
         (New-CapRow "Lire secrets" "Indetermine" "ACL indisponible" $securityError),
@@ -11876,7 +12033,7 @@ $rows = @(
     (New-CapRow "Gestion compte" $account "DACL" "Activation, verrouillage, expiration et options"),
     (New-CapRow "Reset mot de passe" $password "DACL" "Extended Right Reset Password"),
     (New-CapRow "Gestion groupes" $group "DACL" "Modification de member / memberOf"),
-    (New-CapRow "Deplacer ou renommer" $move "DACL" "Necessite aussi des droits sur la cible"),
+    (New-CapRow "Déplacer ou renommer" $move "DACL" "Necessite aussi des droits sur la cible"),
     (New-CapRow "Supprimer objet" $delete "DACL" "Delete ou DeleteTree"),
     (New-CapRow "Creer enfant" $create "DACL" "CreateChild sur le conteneur"),
     (New-CapRow "Lire secrets" $secrets "DACL" "BitLocker et LAPS utilisent des attributs confidentiels"),
@@ -14426,7 +14583,7 @@ function Build-DomeniaObjectsContextMenu {
         [void]$write.Items.Add((New-DomeniaMenuItem -Header "Forcer le changement de mot de passe" -Action { Expire-UserPasswordNow }))
     }
     elseif ($isMachine) {
-        [void]$write.Items.Add((New-DomeniaMenuItem -Header "Deplacer / changer d'OU..." `
+        [void]$write.Items.Add((New-DomeniaMenuItem -Header "Déplacer / changer dʼOU…" `
             -ToolTip "Choisit explicitement l'unite d'organisation de destination avant toute ecriture." `
             -Action { Move-DomeniaSelectedComputerWithOuPicker }))
         [void]$write.Items.Add((New-Object System.Windows.Controls.Separator))
@@ -15715,17 +15872,22 @@ function Update-DomeniaIndexLookupEntry {
 function Get-DomeniaIndexPath { return (Get-DomeniaDatabasePath) }
 
 function Save-DomeniaIndex {
-    param([Parameter(Mandatory=$true)]$Rows,[string]$Server='', [string]$BaseDn='', [long]$HighestUsn=0,[int]$TotalCount=0,[string]$InvocationId='')
-    if(@($Rows).Count -gt 250000){throw 'Index trop volumineux (250000 objets maximum par reconstruction).'}
+    param([Parameter(Mandatory=$true)]$Rows,[string]$Server='', [string]$BaseDn='', [long]$HighestUsn=0,[int]$TotalCount=0,[string]$InvocationId='',[string]$SyncScope='directory',$Transfer=$null,$Reconcile=$null)
+    if(@($Rows).Count -gt 5000000){throw 'Index trop volumineux (5000000 objets maximum par reconstruction).'}
     $copy=[object[]]@($Rows)
-    return Queue-DomeniaMetadata -Kind IndexBulk -Key 'directory' -Row ([pscustomobject]@{Rows=$copy;Server=$Server;BaseDn=$BaseDn;HighestUsn=$HighestUsn;TotalCount=$TotalCount;ReplaceAll=$true;InvocationId=$InvocationId;At=[datetime]::UtcNow.ToString('o')})
+    $queued = Queue-DomeniaMetadata -Kind IndexBulk -Row ([pscustomobject]@{Rows=$copy;Transfer=$Transfer;RowCount=$(if($null -ne $Transfer){[long]$Transfer.RowCount}else{[long]$copy.Count});Server=$Server;BaseDn=$BaseDn;HighestUsn=$HighestUsn;TotalCount=$TotalCount;ReplaceAll=$true;InvocationId=$InvocationId;SyncScope=$SyncScope;Complete=$true;Reconcile=$Reconcile;At=[datetime]::UtcNow.ToString('o')})
+    if (-not $queued) { throw 'La reconstruction nʼa pas été mise en file : stockage indisponible ou saturé. La base précédente est conservée.' }
+    return $true
 }
 
 function Update-DomeniaIndexDatabaseRows {
-    param([Parameter(Mandatory=$true)]$Rows,[string]$Server='', [string]$BaseDn='', [long]$HighestUsn=0,[int]$TotalCount=0,[string]$InvocationId='')
-    if(@($Rows).Count -gt 250000){throw 'Index trop volumineux (250000 objets maximum par reconstruction).'}
+    param([Parameter(Mandatory=$true)]$Rows,[string]$Server='', [string]$BaseDn='', [long]$HighestUsn=0,[int]$TotalCount=0,[string]$InvocationId='',[string]$SyncScope='directory',[bool]$Complete=$true,[bool]$WalkStep=$false,$Transfer=$null,$Reconcile=$null)
+    if(@($Rows).Count -gt 5000000){throw 'Index trop volumineux (5000000 objets maximum par reconstruction).'}
     $copy=[object[]]@($Rows)
-    return Queue-DomeniaMetadata -Kind IndexBulk -Key 'directory' -Row ([pscustomobject]@{Rows=$copy;Server=$Server;BaseDn=$BaseDn;HighestUsn=$HighestUsn;TotalCount=$TotalCount;ReplaceAll=$false;InvocationId=$InvocationId;At=[datetime]::UtcNow.ToString('o')})
+    # Every batch owns its queue entry. Coalescing by domain used to discard an earlier OU while storage was busy.
+    $queued = Queue-DomeniaMetadata -Kind IndexBulk -Row ([pscustomobject]@{Rows=$copy;Transfer=$Transfer;RowCount=$(if($null -ne $Transfer){[long]$Transfer.RowCount}else{[long]$copy.Count});Server=$Server;BaseDn=$BaseDn;HighestUsn=$HighestUsn;TotalCount=$TotalCount;ReplaceAll=$false;InvocationId=$InvocationId;SyncScope=$SyncScope;Complete=$Complete;WalkStep=$WalkStep;Reconcile=$Reconcile;At=[datetime]::UtcNow.ToString('o')})
+    if (-not $queued) { throw 'Le lot nʼa pas été mis en file : stockage indisponible ou saturé. Relancez la mise à jour après résolution.' }
+    return $true
 }
 
 function Load-DomeniaIndex {
@@ -15751,7 +15913,10 @@ function Load-DomeniaIndexMetadata {
     # Seules les metadonnees et les compteurs necessaires a l'interface sont lus.
     try {
         Initialize-DomeniaDatabase | Out-Null
-        $s = @(Invoke-DomeniaDbQuery "SELECT server,base_dn,highest_usn,last_sync,item_count,details FROM sync_state WHERE scope='directory' LIMIT 1;")
+        $script:IndexMetadataError = ''
+        $script:IndexSyncStates = @{}
+        foreach ($syncRow in @(Invoke-DomeniaDbQuery "SELECT scope,server,base_dn,highest_usn,last_sync,item_count,details FROM sync_state WHERE scope='directory' OR scope LIKE 'ou:%' OR scope LIKE 'attempt:%';")) { $script:IndexSyncStates[[string]$syncRow.scope] = $syncRow }
+        $s = @(); if ($script:IndexSyncStates.ContainsKey('directory')) { $s = @($script:IndexSyncStates['directory']) }
         if ($s.Count -gt 0) {
             $inv = ''
             $details = [string]$s[0].details
@@ -15766,18 +15931,23 @@ function Load-DomeniaIndexMetadata {
             }
         } else { $script:IndexInfo = $null }
 
-        $c = @(Invoke-DomeniaDbQuery "SELECT count(*) AS total,sum(CASE WHEN object_type='Utilisateur' THEN 1 ELSE 0 END) AS users,sum(CASE WHEN object_type='Machine' THEN 1 ELSE 0 END) AS computers FROM ad_objects;")
+        $c = @(Invoke-DomeniaDbQuery "SELECT count(*) AS total,sum(CASE WHEN object_type='Utilisateur' THEN 1 ELSE 0 END) AS users,sum(CASE WHEN object_type='Machine' THEN 1 ELSE 0 END) AS computers,sum(CASE WHEN object_type='Machine' AND (state IS NULL OR state<>'Desactive') THEN 1 ELSE 0 END) AS machines_active,sum(CASE WHEN object_type='Machine' AND state='Desactive' THEN 1 ELSE 0 END) AS machines_disabled FROM ad_objects;")
         if ($c.Count -gt 0) {
             $script:IndexDbCount = [int]$c[0].total
             $script:IndexDbUsers = [int]$c[0].users
             $script:IndexDbComputers = [int]$c[0].computers
+            $script:IndexDbMachinesActive = [int]$c[0].machines_active
+            $script:IndexDbMachinesDisabled = [int]$c[0].machines_disabled
         } else {
             $script:IndexDbCount = 0; $script:IndexDbUsers = 0; $script:IndexDbComputers = 0
+            $script:IndexDbMachinesActive = 0; $script:IndexDbMachinesDisabled = 0
         }
         return [int]$script:IndexDbCount
     }
     catch {
-        $script:IndexDbCount = 0; $script:IndexDbUsers = 0; $script:IndexDbComputers = 0
+        $script:IndexMetadataError = [string]$_.Exception.Message
+        $script:IndexInfo = $null; $script:IndexSyncStates = @{}
+        $script:IndexDbCount = 0; $script:IndexDbUsers = 0; $script:IndexDbComputers = 0; $script:IndexDbMachinesActive = 0; $script:IndexDbMachinesDisabled = 0
         Write-AppLog "Metadonnees de la base autonome illisibles : $($_.Exception.Message)" "WARN"
         return 0
     }
@@ -16038,6 +16208,8 @@ function Complete-DomeniaIndexRefreshUi {
     $effective = Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @("Rows")
     if ($null -eq $effective) { throw "Actualisation sans resultat exploitable." }
     $changed = @($effective.Rows)
+    $transfer = $null; if ($null -ne $effective.PSObject.Properties['Transfer']) { $transfer = $effective.Transfer }
+    $rowCount = if ($null -ne $effective.PSObject.Properties['RowCount']) { [long]$effective.RowCount } else { [long]@($changed).Count }
 
     $checkpoint = $null
     try {
@@ -16068,62 +16240,61 @@ function Complete-DomeniaIndexRefreshUi {
     if ($canReplace) {
         # Le controleur a change ou l index n avait pas de repere : la passe
         # a tout relu sans troncature, on repart d un index neuf.
-        [void](Save-DomeniaIndex -Rows $changed -Server ([string]$effective.Server) -BaseDn ([string]$effective.BaseDn) -HighestUsn ([long]$effective.HighestUsn) -InvocationId ([string]$effective.InvocationId))
+        [void](Save-DomeniaIndex -Rows $changed -Transfer $transfer -Server ([string]$effective.Server) -BaseDn ([string]$effective.BaseDn) -HighestUsn ([long]$effective.HighestUsn) -InvocationId ([string]$effective.InvocationId) -Reconcile $effective.Reconcile)
         $script:IndexRows = @()
         [void](Load-DomeniaIndexMetadata)
-        Set-DomeniaIndexPartial -Clear
-        $summary = "Base autonome reconstruite : {0} objet(s), en {1} ms. Le repere de la passe precedente n etait pas utilisable." -f `
-            @($changed).Count,([long]$effective.DurationMs)
+        $summary = "Lecture complète terminée, enregistrement local en attente : {0} objet(s), en {1} ms. Le repere de la passe precedente n etait pas utilisable." -f `
+            $rowCount,([long]$effective.DurationMs)
     }
     else {
-        if (@($script:IndexRows).Count -gt 0) {
+        if ($null -eq $transfer -and @($script:IndexRows).Count -gt 0) {
             $merge = Merge-DomeniaIndexRows -Existing @($script:IndexRows) -Changed $changed
-            [void](Update-DomeniaIndexDatabaseRows -Rows $changed -Server ([string]$effective.Server) -BaseDn ([string]$effective.BaseDn) -HighestUsn $(if ([bool]$effective.Truncated) { 0L } else { [long]$effective.HighestUsn }) -TotalCount ([int]$merge.Total) -InvocationId ([string]$effective.InvocationId))
+            [void](Update-DomeniaIndexDatabaseRows -Rows $changed -Transfer $transfer -Server ([string]$effective.Server) -BaseDn ([string]$effective.BaseDn) -Complete (-not [bool]$effective.Truncated) -HighestUsn ([long]$effective.HighestUsn) -TotalCount ([int]$merge.Total) -InvocationId ([string]$effective.InvocationId) -Reconcile $effective.Reconcile)
             $totalAfter = [int]$merge.Total
             $updated = [int]$merge.Updated
             $added = [int]$merge.Added
         } else {
-            [void](Update-DomeniaIndexDatabaseRows -Rows $changed -Server ([string]$effective.Server) -BaseDn ([string]$effective.BaseDn) -HighestUsn $(if ([bool]$effective.Truncated) { 0L } else { [long]$effective.HighestUsn }) -TotalCount 0 -InvocationId ([string]$effective.InvocationId))
+            [void](Update-DomeniaIndexDatabaseRows -Rows $changed -Transfer $transfer -Server ([string]$effective.Server) -BaseDn ([string]$effective.BaseDn) -Complete (-not [bool]$effective.Truncated) -HighestUsn ([long]$effective.HighestUsn) -TotalCount 0 -InvocationId ([string]$effective.InvocationId) -Reconcile $effective.Reconcile)
             [void](Load-DomeniaIndexMetadata)
             $totalAfter = [int]$script:IndexDbCount
-            $updated = @($changed).Count
+            $updated = $rowCount
             $added = 0
         }
-        if (@($changed).Count -eq 0) {
+        if ([bool]$effective.Truncated) {
+            $cut = Get-DomeniaIndexCut -Effective $effective
+            Set-DomeniaIndexPartial -BaseDn ([string]$effective.BaseDn) -Count $rowCount -Reason $cut.Reason -Limit $cut.Limit
+            $reasonText = if ($cut.Reason -eq 'erreur') { ' Une lecture AD a échoué.' } else { ' La passe a atteint une limite.' }
+            $summary = ("Synchronisation partielle : {0} fiche(s) reçue(s), {1} objet(s) présents. Le repère nʼavance pas.{2}" -f $rowCount,$totalAfter,$reasonText)
+        }
+        elseif ($rowCount -eq 0) {
             $summary = "Base autonome deja a jour : aucun objet modifie depuis la derniere passe, verifie en {0} ms." -f ([long]$effective.DurationMs)
         }
-        elseif ([bool]$effective.Truncated) {
-            $cut = Get-DomeniaIndexCut -Effective $effective
-            Set-DomeniaIndexPartial -BaseDn ([string]$effective.BaseDn) -Count @($changed).Count -Reason $cut.Reason -Limit $cut.Limit
-            $summary = "Base autonome actualisee partiellement : {0} fiche(s) modifiee(s)/ajoutee(s), {1} objet(s) au total, en {2} ms. Aucune suppression n a ete faite." -f `
-                @($changed).Count,$totalAfter,([long]$effective.DurationMs)
-        }
         else {
-            $summary = "Base autonome actualisee : {0} fiche(s) modifiee(s)/ajoutee(s), {1} objet(s) au total, en {2} ms." -f `
-                @($changed).Count,$totalAfter,([long]$effective.DurationMs)
+            $summary = "Lecture terminée : {0} fiche(s) à enregistrer, {1} objet(s) avant validation, en {2} ms." -f `
+                $rowCount,$totalAfter,([long]$effective.DurationMs)
         }
     }
 
-    if ($sync.CheckpointAdvanced) {
-        try { $script:IndexInfo.InvocationId = [string]$sync.CheckpointNext.InvocationId } catch { }
-    }
+    # The committed storage receipt reloads InvocationId and the checkpoint together.
     if (@($sync.Moves).Count -gt 0) {
         Add-DomeniaUiLog -Area "Index" -Text ('Deplacements detectes : ' + @($sync.Moves).Count)
     }
 
     [void](Set-DomeniaControlText -Name "LblIndexStatus" -Text $summary)
+    Set-DomeniaIndexProgress -Mode Busy -Message ($summary + ' Validation de lʼécriture en cours…')
     Set-Status $summary
     $logText = $summary + " Filtre : " + [string]$effective.DeltaClause
     if (@($sync.Notes).Count -gt 0) { $logText += ' ' + [string]::Join(' ',$sync.Notes) }
     Add-DomeniaUiLog -Area "Index" -Text $logText
     $mode = "AD full fallback"
     if ([bool]$effective.Incremental) { $mode = "AD delta" }
-    try { Register-DomeniaOperationSample -Operation "IndexBuild" -Mode $mode -ItemCount ([Math]::Max(1,@($changed).Count)) -DurationMs ([long]$effective.DurationMs) -BytesEstimated ([long]([Math]::Max(1,@($changed).Count)*1800)) -AdQueries ([Math]::Max(1,[int][Math]::Ceiling([Math]::Max(1,@($changed).Count)/1000.0))) -SuccessCount @($changed).Count } catch { }
+    try { Register-DomeniaOperationSample -Operation "IndexBuild" -Mode $mode -ItemCount ([Math]::Max(1,$rowCount)) -DurationMs ([long]$effective.DurationMs) -BytesEstimated ([long]([Math]::Max(1,$rowCount)*1800)) -AdQueries ([Math]::Max(1,[int][Math]::Ceiling([Math]::Max(1,$rowCount)/1000.0))) -SuccessCount $rowCount } catch { }
     Update-DomeniaIndexStats
 }
 
 function Start-DomeniaIndexRefresh {
     param([switch]$Silent,[switch]$Confirmed)
+    if (-not (Test-DomeniaIndexWriteReady)) { return }
     try {
         $lastUsn = [long]0
         $lastServer = ""
@@ -16147,11 +16318,14 @@ function Start-DomeniaIndexRefresh {
             }
             [void](Set-DomeniaControlText -Name "LblIndexStatus" -Text "Recherche des objets modifies...")
         }
+        Set-DomeniaIndexProgress -Mode Busy -Message 'Synchronisation incrémentale avec Active Directory… progression exacte indisponible pendant la requête.'
         Start-UiTask `
             -Name "Mise a jour des changements" `
             -OperationId "IndexBuild" `
             -Code (Get-DomeniaIndexWorkerCode) `
             -Payload ([pscustomobject]@{
+                Path = [string]$script:DatabaseScopedPath
+                Progress = (New-DomeniaIndexProgressChannel)
                 MaxObjects = (Get-DomeniaIndexLimits).MaxObjects
                 BudgetMs = (Get-DomeniaIndexLimits).BudgetMs
                 LastUsn = $lastUsn
@@ -16168,7 +16342,7 @@ function Start-DomeniaIndexRefresh {
             -SuccessHandler "Complete-DomeniaIndexRefreshUi" `
             -ErrorHandler "Fail-DomeniaIndexBuildUi" | Out-Null
     }
-    catch { [void](Show-DomeniaOperationError -Operation "Mise a jour des changements" -ErrorRecordOrException $_) }
+    catch { Set-DomeniaIndexProgress -Mode Error -Message ('Synchronisation impossible : ' + $_.Exception.Message); [void](Show-DomeniaOperationError -Operation "Mise a jour des changements" -ErrorRecordOrException $_) }
 }
 
 function Request-DomeniaIndexAutoRefresh {
@@ -16923,23 +17097,23 @@ function Complete-DomeniaIndexBuildUi {
     $effective = Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @("Rows")
     if ($null -eq $effective) { throw "Indexation sans resultat exploitable." }
     $rows = @($effective.Rows)
+    $transfer = $null; if ($null -ne $effective.PSObject.Properties['Transfer']) { $transfer = $effective.Transfer }
+    $rowCount = if ($null -ne $effective.PSObject.Properties['RowCount']) { [long]$effective.RowCount } else { [long]@($rows).Count }
     if ([bool]$effective.Truncated) {
         # A pass stopped at its limit never replaces a fuller base and never moves the checkpoint: the next update reads
         # everything again, and the Accueil warns that its figures may be underestimated.
-        if ([int]$script:IndexDbCount -gt 0) { [void](Update-DomeniaIndexDatabaseRows -Rows $rows -Server ([string]$effective.Server) -BaseDn ([string]$effective.BaseDn) -HighestUsn 0 -TotalCount 0) }
-        else { [void](Save-DomeniaIndex -Rows $rows -Server ([string]$effective.Server) -BaseDn ([string]$effective.BaseDn) -HighestUsn 0) }
+        [void](Update-DomeniaIndexDatabaseRows -Rows $rows -Transfer $transfer -Server ([string]$effective.Server) -BaseDn ([string]$effective.BaseDn) -HighestUsn 0 -TotalCount 0 -Complete $false)
         $cut = Get-DomeniaIndexCut -Effective $effective
-        Set-DomeniaIndexPartial -BaseDn ([string]$effective.BaseDn) -Count @($rows).Count -Reason $cut.Reason -Limit $cut.Limit
+        Set-DomeniaIndexPartial -BaseDn ([string]$effective.BaseDn) -Count $rowCount -Reason $cut.Reason -Limit $cut.Limit
     } else {
-        [void](Save-DomeniaIndex -Rows $rows -Server ([string]$effective.Server) -BaseDn ([string]$effective.BaseDn) -HighestUsn ([long]$effective.HighestUsn))
-        Set-DomeniaIndexPartial -Clear
+        [void](Save-DomeniaIndex -Rows $rows -Transfer $transfer -Server ([string]$effective.Server) -BaseDn ([string]$effective.BaseDn) -HighestUsn ([long]$effective.HighestUsn) -InvocationId ([string]$effective.InvocationId) -Reconcile $effective.Reconcile)
     }
     $script:IndexRows = @()
     [void](Load-DomeniaIndexMetadata)
     $linkChanges = 0
 
-    $users = @($rows | Where-Object { [string]$_.Type -eq "Utilisateur" }).Count
-    $computers = @($rows | Where-Object { [string]$_.Type -eq "Machine" }).Count
+    $users = $(if ($null -ne $transfer) { [long]$effective.UserCount } else { @($rows | Where-Object { [string]$_.Type -eq "Utilisateur" }).Count })
+    $computers = $(if ($null -ne $transfer) { [long]$effective.ComputerCount } else { @($rows | Where-Object { [string]$_.Type -eq "Machine" }).Count })
     $suffix = ""
     if ([bool]$effective.Truncated) {
         $suffix = if ([string]$effective.LimitReason -eq 'erreur') { ' Index partiel : une lecture AD a échoué.' } else { ' Index partiel : limite atteinte.' }
@@ -16947,15 +17121,16 @@ function Complete-DomeniaIndexBuildUi {
     # Lot L01: the LAPS expiration is read with the computers; the schema tells whether it exists in this domain.
     $lapsSchemaProperty = $effective.PSObject.Properties['LapsSchema']
     if (($null -ne $lapsSchemaProperty) -and ([string]$lapsSchemaProperty.Value -eq 'Absent')) { $suffix += " Expiration LAPS non disponible dans ce domaine." }
-    $summary = "Base autonome reconstruite : {0} objet(s), dont {1} compte(s) et {2} poste(s), en {3} ms.{4}" -f `
-        @($rows).Count,$users,$computers,([long]$effective.DurationMs),$suffix
+    $summary = "Lecture terminée, enregistrement local en attente : {0} objet(s), dont {1} compte(s) et {2} poste(s), en {3} ms.{4}" -f `
+        $rowCount,$users,$computers,([long]$effective.DurationMs),$suffix
     [void](Set-DomeniaControlText -Name "LblIndexStatus" -Text $summary)
+    Set-DomeniaIndexProgress -Mode Busy -Message ($summary + ' Validation de lʼécriture en cours…')
     Set-Status $summary
     Add-DomeniaUiLog -Area "Index" -Text ($summary + " Associations resynchronisees : " + $linkChanges + ". " + ((@($effective.Diagnostics)) -join " | "))
     Update-DomeniaIndexStats
     # The home overview reads this base: out of date now, computed again once the queued index is saved (storage).
     $script:FleetStale = $true
-    try{Register-DomeniaOperationSample -Operation "IndexBuild" -Mode "AD" -ItemCount @($rows).Count -DurationMs ([long]$effective.DurationMs) -BytesEstimated ([long](@($rows).Count*1800)) -AdQueries ([Math]::Max(1,[int][Math]::Ceiling(@($rows).Count/1000.0))) -SuccessCount @($rows).Count -StartedAt $(if($null-ne$State.PSObject.Properties['StartedAt']){[string]$State.StartedAt}else{""})}catch{}
+    try{Register-DomeniaOperationSample -Operation "IndexBuild" -Mode "AD" -ItemCount $rowCount -DurationMs ([long]$effective.DurationMs) -BytesEstimated ([long]($rowCount*1800)) -AdQueries ([Math]::Max(1,[int][Math]::Ceiling($rowCount/1000.0))) -SuccessCount $rowCount -StartedAt $(if($null-ne$State.PSObject.Properties['StartedAt']){[string]$State.StartedAt}else{""})}catch{}
     if ($null -ne $State -and [bool]$State.UpdateLinks) {
         try { Start-DomeniaLogonHarvest -Silent } catch { Add-DomeniaUiLog -Area "Base autonome" -Level "WARN" -Text ("Mise a jour des associations via journal non lancee : " + $_.Exception.Message) }
     }
@@ -16966,19 +17141,16 @@ function Fail-DomeniaIndexBuildUi {
     $detail = ([string]$Message).Trim()
     if ([string]::IsNullOrWhiteSpace($detail)) { $detail = "Erreur inconnue." }
     [void](Set-DomeniaControlText -Name "LblIndexStatus" -Text ("Base autonome impossible : " + $detail))
+    Set-DomeniaIndexProgress -Mode Error -Message ("Échec de mise à jour : " + $detail)
     Set-Status ("Base autonome impossible : " + $detail) "ERROR"
     Add-DomeniaUiLog -Area "Index" -Level "ERROR" -Text $detail
 }
 
 function Get-DomeniaIndexLimits {
-    # Large domains (national AD): the former defaults (60 000 objects, 4 minutes, task cut at 5 minutes) stopped the
-    # local base half-way. A configured value still equal to a former default is read as the new default.
-    # $MaxCeiling is written twice on purpose: the pinned IndexBuild worker runs in its own runspace and cannot read
-    # this function, so it repeats the same literal. Raising one without the other leaves the key dead.
-    $MaxCeiling = 5000000
-    $max = [int](Get-CfgValue "Index" "MaxObjects" 200000); if ($max -eq 60000) { $max = 200000 }
+    # Zero means no object quota. Time budgets remain explicit; an interrupted pass never replaces the base.
+    $max = [long](Get-CfgValue "Index" "MaxObjects" 0)
+    if ($max -lt 0) { $max = 0 }
     $budget = [int](Get-CfgValue "Index" "BudgetMs" 1200000); if ($budget -eq 240000) { $budget = 1200000 }
-    $max = [Math]::Max(1000,[Math]::Min($MaxCeiling,$max))
     $budget = [Math]::Max(30000,$budget)
     return [pscustomobject]@{ MaxObjects = $max; BudgetMs = $budget; TimeoutSeconds = [Math]::Max(300,[int]($budget / 1000) + 120) }
 }
@@ -17021,28 +17193,41 @@ function Get-DomeniaIndexPartialText {
     return ('la dernière mise à jour était incomplète le ' + $parts[1] + ' (' + $detail + ').')
 }
 
+function Test-DomeniaIndexWriteReady {
+    # A new directory pass must observe the committed checkpoint of the previous one.
+    if ($null -ne $script:IndexWalk) { Set-Status 'Une passe par OU est déjà en cours.' 'WARN'; return $false }
+    if ($null -ne $script:Persistence) {
+        if ($script:Persistence.Job) { Set-Status 'Enregistrement local en cours : attendez sa confirmation avant une nouvelle lecture.' 'WARN'; return $false }
+        foreach ($item in $script:Persistence.Pending.Values) {
+            if ($item.Kind -eq 'IndexBulk') { Set-Status 'Une mise à jour attend son enregistrement. Vérifiez le stockage dans Fiabilité.' 'WARN'; return $false }
+        }
+    }
+    return $true
+}
+
 function Start-DomeniaIndexScopeBuild {
-    # « Mettre à jour cette OU » (Accueil): reads only the OU shown and merges it into the local base, without deleting
-    # anything and without moving the domain checkpoint. Explicit gesture; refused at the domain root.
+    # Une OU ciblée est fusionnée sans effacer les autres. La racine délègue à la reconstruction complète, avec confirmation.
     param([string]$Dn)
+    if (-not (Test-DomeniaIndexWriteReady)) { return }
     try {
         $target = ([string]$Dn).Trim()
-        if (-not $target -or $target -ieq [string]$script:Conn.BaseDn) { Set-Status 'Choisissez une OU : la base entière se met à jour avec Mettre à jour tout (Outils, Base autonome).' 'WARN'; return }
+        if (-not $target -or $target -ieq [string]$script:Conn.BaseDn) { Start-DomeniaIndexBuild; return }
         $limits = Get-DomeniaIndexLimits
+        Set-DomeniaIndexProgress -Mode Busy -Message ('Lecture de ' + $target + ' dans Active Directory… progression exacte indisponible pendant la requête.')
         [void](Set-DomeniaControlText -Name "LblFleetDashboard" -Text "Lecture de lʼOU dans lʼannuaire en arrière-plan...")
         Start-UiTask `
             -Name "Mise à jour de lʼOU dans la base autonome" `
             -OperationId "IndexBuild" `
             -Code (Get-DomeniaIndexWorkerCode) `
-            -Payload ([pscustomobject]@{ MaxObjects = $limits.MaxObjects; BudgetMs = $limits.BudgetMs; LastUsn = [long]0; LastServer = ""; Since = ""; ComputerFirst = $true; SearchBase = $target }) `
+            -Payload ([pscustomobject]@{ Path = [string]$script:DatabaseScopedPath; Progress = (New-DomeniaIndexProgressChannel); MaxObjects = $limits.MaxObjects; BudgetMs = $limits.BudgetMs; LastUsn = [long]0; LastServer = ""; Since = ""; ComputerFirst = $true; SearchBase = $target }) `
             -CallbackState ([pscustomobject]@{ Started = (Get-Date); SearchBase = $target; Epoch = [long]$script:SessionEpoch }) `
             -ReplaceKey "index" `
-            -DisableControls @("BtnIndexBuild","BtnIndexRefresh","BtnFleetIndexScope") `
+            -DisableControls @("BtnIndexBuild","BtnIndexRefresh","BtnIndexWalk","BtnIndexScopeUpdate","BtnFleetIndexScope") `
             -TimeoutSeconds $limits.TimeoutSeconds `
             -StatusText "Lecture de lʼOU dans lʼannuaire en arrière-plan..." `
             -SuccessHandler "Complete-DomeniaIndexScopeUi" `
             -ErrorHandler "Fail-DomeniaIndexBuildUi" | Out-Null
-    } catch { Set-Status ('Mise à jour de lʼOU impossible : ' + $_.Exception.Message) 'WARN' }
+    } catch { Set-DomeniaIndexProgress -Mode Error -Message ('Mise à jour de lʼOU impossible : ' + $_.Exception.Message); Set-Status ('Mise à jour de lʼOU impossible : ' + $_.Exception.Message) 'WARN' }
 }
 
 function Complete-DomeniaIndexScopeUi {
@@ -17051,20 +17236,20 @@ function Complete-DomeniaIndexScopeUi {
     $effective = Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @("Rows")
     if ($null -eq $effective) { throw "Mise à jour de lʼOU sans résultat exploitable." }
     $rows = @($effective.Rows)
-    # The domain checkpoint (server, USN, controller identity) is kept: only this OU was read.
-    $info = $script:IndexInfo
-    $usn = if ($null -ne $info) { [long]$info.Usn } else { 0L }
-    $server = if ($null -ne $info -and [string]$info.Server) { [string]$info.Server } else { [string]$effective.Server }
-    $invocation = if ($null -ne $info) { [string]$info.InvocationId } else { '' }
-    [void](Update-DomeniaIndexDatabaseRows -Rows $rows -Server $server -BaseDn ([string]$effective.BaseDn) -HighestUsn $usn -TotalCount 0 -InvocationId $invocation)
-    $computers = @($rows | Where-Object { [string]$_.Type -eq "Machine" }).Count
+    $transfer = $null; if ($null -ne $effective.PSObject.Properties['Transfer']) { $transfer = $effective.Transfer }
+    $rowCount = if ($null -ne $effective.PSObject.Properties['RowCount']) { [long]$effective.RowCount } else { [long]@($rows).Count }
+    # An OU pass has its own successful coverage date and never modifies the domain checkpoint.
+    $scopeKey = 'ou:' + ([string]$State.SearchBase).Trim().ToLowerInvariant()
+    [void](Update-DomeniaIndexDatabaseRows -Rows $rows -Transfer $transfer -Server ([string]$effective.Server) -BaseDn ([string]$State.SearchBase) -HighestUsn 0 -SyncScope $scopeKey -Complete (-not [bool]$effective.Truncated) -InvocationId ([string]$effective.InvocationId) -Reconcile $effective.Reconcile)
+    $computers = $(if ($null -ne $transfer) { [long]$effective.ComputerCount } else { @($rows | Where-Object { [string]$_.Type -eq "Machine" }).Count })
     if ([bool]$effective.Truncated) {
         $cut = Get-DomeniaIndexCut -Effective $effective
-        Set-DomeniaIndexPartial -BaseDn ([string]$script:Conn.BaseDn) -Count @($rows).Count -Reason $cut.Reason -Limit $cut.Limit
+        Set-DomeniaIndexPartial -BaseDn ([string]$script:Conn.BaseDn) -Count $rowCount -Reason $cut.Reason -Limit $cut.Limit
     }
-    $suffix = if ([bool]$effective.Truncated) { ' Limite atteinte : relancez sur une OU plus petite.' } else { '' }
-    $summary = ("OU mise à jour dans la base autonome : {0} objet(s), dont {1} poste(s), en {2} s.{3}" -f @($rows).Count,$computers,[int]([long]$effective.DurationMs / 1000),$suffix)
+    $suffix = if ([bool]$effective.Truncated) { ' Lecture incomplète : consultez le motif, puis relancez cette OU.' } else { '' }
+    $summary = ("OU lue, enregistrement local en attente : {0} objet(s), dont {1} poste(s), en {2} s.{3}" -f $rowCount,$computers,[int]([long]$effective.DurationMs / 1000),$suffix)
     [void](Set-DomeniaControlText -Name "LblIndexStatus" -Text $summary)
+    Set-DomeniaIndexProgress -Mode Busy -Message ($summary + ' Validation de lʼécriture en cours…')
     Set-Status $summary
     Add-DomeniaUiLog -Area "Index" -Text ($summary + " OU : " + [string]$effective.SearchBase)
     $script:FleetStale = $true
@@ -17073,33 +17258,35 @@ function Complete-DomeniaIndexScopeUi {
 $script:IndexWalk = $null
 
 function Start-DomeniaIndexWalk {
-    # « Tout relire (OU par OU) » : le domaine entier est relu en une tâche par OU, chacune fusionnée dans la base sans
-    # rien supprimer. La limite de lecture (Index.MaxObjects, Index.BudgetMs) ne porte plus que sur une seule OU, donc
-    # une grosse OU ne peut plus à elle seule empêcher la base locale d'être complète. Le repère du domaine n'avance pas
-    # (une passe ne couvre qu'une OU) : c'est « Mettre à jour les changements » qui le fait progresser.
+    # Reread top-level branches and the domain root in separate, bounded tasks.
+    # Complete branch reads reconcile that local scope; partial reads never prune.
+    # The domain checkpoint remains unchanged until a complete domain sync.
     param([switch]$Confirmed)
+    if (-not (Test-DomeniaIndexWriteReady)) { return }
     try {
         if (-not $Confirmed) {
             $run = { Start-DomeniaIndexWalk -Confirmed }
-            [void](Request-DomeniaInlineConfirmation -Title 'Relire tout le domaine OU par OU' -Message 'Le domaine entier est relu, une tâche par OU, et chaque OU est ajoutée à la base locale sans rien supprimer. Long : la limite de lecture ne porte plus que sur une seule OU à la fois.' -Target 'base:tout-relire' -OnConfirm $run)
+            [void](Request-DomeniaInlineConfirmation -Title 'Relire le domaine par étapes' -Message 'Le domaine entier est relu, une branche à la fois (unités dʼorganisation et conteneurs). Les lectures complètes retirent du cache les objets qui ne sont plus visibles dans cette OU ; une lecture partielle ne retire rien. Aucune suppression dans AD, les associations et relevés restent conservés. Long : la limite porte sur une seule OU à la fois.' -Target 'base:tout-relire' -OnConfirm $run)
             return
         }
         if ($null -ne $script:IndexWalk) { Set-Status 'La passe par OU est déjà en cours.' 'WARN'; return }
-        $script:IndexWalk = [pscustomobject]@{ Queue = (New-Object 'System.Collections.Generic.Queue[string]'); Total = 0; Done = 0; Objects = 0; Limited = 0; Errors = 0; Started = (Get-Date) }
-        Start-UiTask `
+        $script:IndexWalk = [pscustomobject]@{ Queue = (New-Object 'System.Collections.Generic.Queue[string]'); Total = 0; Done = 0; Saved = 0; Objects = 0; Limited = 0; Errors = 0; Started = (Get-Date) }
+        Set-DomeniaIndexProgress -Mode Busy -Message 'Inventaire des OU du domaine…'
+        $walkJob = Start-UiTask `
             -Name 'Passe par OU : liste des OU' `
             -OperationId 'IndexOuList' `
             -Code (Get-DomeniaIndexOuListWorkerCode) `
             -Payload ([pscustomobject]@{ SearchBase = '' }) `
             -CallbackState ([pscustomobject]@{ Epoch = [long]$script:SessionEpoch }) `
             -ReplaceKey "index" `
-            -DisableControls @("BtnIndexBuild","BtnIndexRefresh","BtnIndexWalk","BtnFleetIndexScope") `
+            -DisableControls @("BtnIndexBuild","BtnIndexRefresh","BtnIndexWalk","BtnIndexScopeUpdate","BtnFleetIndexScope") `
             -TimeoutSeconds 300 `
             -StatusText 'Passe par OU : lecture de la liste des OU...' `
             -SuccessHandler 'Complete-DomeniaIndexWalkPlanUi' `
-            -ErrorHandler 'Fail-DomeniaIndexWalkUi' | Out-Null
+            -ErrorHandler 'Fail-DomeniaIndexWalkUi'
+        if(-not $walkJob){throw 'Lecture des OU non admise, relancez la passe.'}
     }
-    catch { [void](Show-DomeniaOperationError -Operation 'Passe par OU dans la base autonome' -ErrorRecordOrException $_) }
+    catch { $script:IndexWalk=$null; Set-DomeniaIndexProgress -Mode Error -Message ('Passe par OU impossible : ' + $_.Exception.Message); [void](Show-DomeniaOperationError -Operation 'Passe par OU dans la base autonome' -ErrorRecordOrException $_) }
 }
 
 function Complete-DomeniaIndexWalkPlanUi {
@@ -17120,6 +17307,7 @@ function Complete-DomeniaIndexWalkPlanUi {
     $walk.Queue.Enqueue($root)
     $walk.Total = $walk.Queue.Count
     $summary = 'Passe par OU : ' + $walk.Total + ' lecture(s) à lancer.'
+    Set-DomeniaIndexProgress -Mode Walk -Current 0 -Total $walk.Total -Message $summary
     [void](Set-DomeniaControlText -Name "LblIndexStatus" -Text $summary)
     Set-Status $summary
     Start-DomeniaIndexWalkStep
@@ -17133,15 +17321,16 @@ function Start-DomeniaIndexWalkStep {
     $walk.Done = $walk.Done + 1
     $isRoot = $dn.Equals([string]$script:Conn.BaseDn,[StringComparison]::OrdinalIgnoreCase)
     $limits = Get-DomeniaIndexLimits
+    Set-DomeniaIndexProgress -Mode Walk -Current ($walk.Done - 1) -Total $walk.Total -Message ('Lecture de lʼOU ' + $walk.Done + '/' + $walk.Total + ' : ' + $dn + '…')
     try {
         Start-UiTask `
             -Name ('Passe par OU ' + $walk.Done + '/' + $walk.Total) `
             -OperationId 'IndexBuild' `
             -Code (Get-DomeniaIndexWorkerCode) `
-            -Payload ([pscustomobject]@{ MaxObjects = $limits.MaxObjects; BudgetMs = $limits.BudgetMs; LastUsn = [long]0; LastServer = ""; Since = ""; ComputerFirst = [bool](Get-CfgValue "Index" "ComputerFirst" $true); SearchBase = $dn; SearchScope = $(if ($isRoot) { 'OneLevel' } else { 'Subtree' }) }) `
+            -Payload ([pscustomobject]@{ Path = [string]$script:DatabaseScopedPath; Progress = (New-DomeniaIndexProgressChannel); MaxObjects = $limits.MaxObjects; BudgetMs = $limits.BudgetMs; LastUsn = [long]0; LastServer = ""; Since = ""; ComputerFirst = [bool](Get-CfgValue "Index" "ComputerFirst" $true); SearchBase = $dn; SearchScope = $(if ($isRoot) { 'OneLevel' } else { 'Subtree' }) }) `
             -CallbackState ([pscustomobject]@{ Epoch = [long]$script:SessionEpoch; SearchBase = $dn; Done = $walk.Done; Total = $walk.Total }) `
             -ReplaceKey "index" `
-            -DisableControls @("BtnIndexBuild","BtnIndexRefresh","BtnIndexWalk","BtnFleetIndexScope") `
+            -DisableControls @("BtnIndexBuild","BtnIndexRefresh","BtnIndexWalk","BtnIndexScopeUpdate","BtnFleetIndexScope") `
             -TimeoutSeconds $limits.TimeoutSeconds `
             -StatusText ('Passe par OU (' + $walk.Done + '/' + $walk.Total + ') : ' + $dn) `
             -SuccessHandler 'Complete-DomeniaIndexWalkStepUi' `
@@ -17162,28 +17351,26 @@ function Complete-DomeniaIndexWalkStepUi {
     $effective = Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @("Rows")
     if ($null -eq $effective) { Complete-DomeniaIndexWalkUi -Aborted -Detail 'Passe sans résultat exploitable.'; return }
     $rows = @($effective.Rows)
-    # Le repère du domaine (serveur, USN, identité du contrôleur) est conservé : cette passe ne couvre qu'une OU.
-    $info = $script:IndexInfo
-    $usn = if ($null -ne $info) { [long]$info.Usn } else { 0L }
-    $server = if ($null -ne $info -and [string]$info.Server) { [string]$info.Server } else { [string]$effective.Server }
-    $invocation = if ($null -ne $info) { [string]$info.InvocationId } else { '' }
+    $transfer = $null; if ($null -ne $effective.PSObject.Properties['Transfer']) { $transfer = $effective.Transfer }
+    $rowCount = if ($null -ne $effective.PSObject.Properties['RowCount']) { [long]$effective.RowCount } else { [long]@($rows).Count }
     try {
-        if ($rows.Count -gt 0) {
-            [void](Update-DomeniaIndexDatabaseRows -Rows $rows -Server $server -BaseDn ([string]$effective.BaseDn) -HighestUsn $usn -TotalCount 0 -InvocationId $invocation)
-        }
-        $walk.Objects = $walk.Objects + $rows.Count
+        $scopeKey = 'ou:' + ([string]$State.SearchBase).Trim().ToLowerInvariant()
+        [void](Update-DomeniaIndexDatabaseRows -Rows $rows -Transfer $transfer -Server ([string]$effective.Server) -BaseDn ([string]$State.SearchBase) -SyncScope $scopeKey -Complete (-not [bool]$effective.Truncated) -WalkStep $true -InvocationId ([string]$effective.InvocationId) -Reconcile $effective.Reconcile)
+        $walk.Objects = $walk.Objects + $rowCount
     }
     catch {
-        # Une OU trop grosse pour la base (Update-DomeniaIndexDatabaseRows plafonne par passe) ne doit pas perdre les OU
-        # déjà lues : elle est comptée à part et la marche continue.
         $walk.Errors = $walk.Errors + 1
-        Add-DomeniaUiLog -Area "Index" -Level "WARN" -Text ('Passe par OU non écrite : ' + [string]$effective.SearchBase + ' (' + $rows.Count + ' objet(s)) : ' + [string]$_.Exception.Message)
+        Complete-DomeniaIndexWalkUi -Aborted -Detail ('Lot non enregistré : ' + $_.Exception.Message)
+        return
     }
     $cut = Get-DomeniaIndexCut -Effective $effective
-    if ($cut.Reason) { $walk.Limited = $walk.Limited + 1 }
+    if ([bool]$effective.Truncated) { $walk.Limited = $walk.Limited + 1 }
     $script:FleetStale = $true
-    [void](Set-DomeniaControlText -Name "LblIndexStatus" -Text ('Passe par OU ' + $walk.Done + '/' + $walk.Total + ' : ' + $rows.Count + ' objet(s), ' + $walk.Objects + ' relu(s) au total.'))
-    Start-DomeniaIndexWalkStep
+    $summary = 'OU ' + $walk.Done + '/' + $walk.Total + ' lue : enregistrement de ' + $rowCount + ' objet(s)…'
+    [void](Set-DomeniaControlText -Name "LblIndexStatus" -Text $summary)
+    Set-DomeniaIndexProgress -Mode Walk -Current $walk.Saved -Total $walk.Total -Message $summary
+    # The storage receipt advances to the next OU. Memory stays bounded to one pending OU batch.
+
 }
 
 function Fail-DomeniaIndexWalkUi {
@@ -17208,9 +17395,13 @@ function Complete-DomeniaIndexWalkUi {
     if ((-not $Aborted) -and ($walk.Limited -eq 0) -and ($walk.Errors -eq 0)) {
         # Toutes les OU ont été relues sans coupure : la base autonome n'est plus incomplète.
         Set-DomeniaIndexPartial -Clear
-        $summary += ' Base complète.'
+        $summary += ' Tous les périmètres prévus sont enregistrés et réconciliés. La mise à jour du domaine réconcilie aussi les branches supprimées depuis la liste des OU.'
+    }
+    if ($Aborted -or $walk.Limited -gt 0 -or $walk.Errors -gt 0) {
+        Set-DomeniaIndexPartial -BaseDn ([string]$script:Conn.BaseDn) -Count $walk.Objects -Reason $(if ($Aborted -or $walk.Errors -gt 0) { 'erreur' } else { 'volume' })
     }
     [void](Set-DomeniaControlText -Name "LblIndexStatus" -Text $summary)
+    Set-DomeniaIndexProgress -Mode $(if ($Aborted -or $walk.Limited -gt 0 -or $walk.Errors -gt 0) { 'Error' } else { 'Complete' }) -Message $summary
     Set-Status $summary $(if ($Aborted -or $walk.Limited -gt 0 -or $walk.Errors -gt 0) { 'WARN' } else { 'INFO' })
     Add-DomeniaUiLog -Area "Index" -Text $summary
     $script:FleetStale = $true
@@ -17218,36 +17409,60 @@ function Complete-DomeniaIndexWalkUi {
 }
 
 function Get-DomeniaIndexScope {
-    # Portée de la mise à jour de la base : l'OU choisie dans Outils > Base autonome, sinon la sélection de
-    # l'arbre Rechercher (la même que le tableau de bord et la recherche), sinon tout le domaine. Une OU hors
-    # du domaine de la session est ignorée. La lecture est toujours celle du sous-arbre : l'OU choisie et ses
-    # sous-OU, jamais un seul niveau -- une base incomplète se comprend mal quand le filtre dépend d'une case.
+    # Outils owns its update scope. An invalid or absent OU resolves to the current domain.
+    # The selected OU includes its descendants; selections in Search and Dashboard stay independent.
     $dn = ''
     try { $dn = ([string]$script:IndexScopeDn).Trim() } catch { $dn = '' }
     $domainDn = ([string]$script:Conn.BaseDn).Trim()
     if ($dn -and $dn -ieq $domainDn) { return [pscustomobject]@{ BaseDn = $domainDn; Scope = 'Subtree'; IsDomain = $true; Mode = 'OU' } }
     if ($dn -and -not $dn.EndsWith(',' + $domainDn,[StringComparison]::OrdinalIgnoreCase)) { $dn = '' }
     if ($dn) { return [pscustomobject]@{ BaseDn = $dn; Scope = 'Subtree'; IsDomain = $false } }
-    try { return (Get-DomeniaSearchScope -Mode OU) } catch { return $null }
+    return [pscustomobject]@{ BaseDn = $domainDn; Scope = 'Subtree'; IsDomain = $true; Mode = 'OU' }
+}
+
+function Start-DomeniaSelectedIndexScopeBuild {
+    # The primary action never silently expands a missing OU to the domain.
+    $scope=Get-DomeniaIndexScope
+    if($null -eq $scope -or [bool]$scope.IsDomain){
+        $picked=Show-DomeniaInlinePicker -Kind OU -Title 'Choisir lʼOU à relire' -Prompt 'Choisissez une OU et ses sous-OU. Pour tout le domaine, utilisez le bouton séparé.'
+        if($null -eq $picked){return}
+        $candidate=([string]$picked.DN).Trim()
+        $previous=$script:IndexScopeDn;$script:IndexScopeDn=$candidate
+        $scope=Get-DomeniaIndexScope
+        if(-not $candidate -or $null -eq $scope -or [bool]$scope.IsDomain){
+            $script:IndexScopeDn=$previous
+            Set-Status 'Choisissez une OU. La lecture du domaine complet se lance avec son bouton dédié.' 'WARN'
+            return
+        }
+        Update-DomeniaIndexStats
+        Request-DomeniaIndexSearch
+    }
+    Start-DomeniaIndexScopeBuild -Dn ([string]$scope.BaseDn)
 }
 
 function Start-DomeniaIndexBuild {
     param([switch]$UpdateLinks,[switch]$Confirmed)
+    if (-not (Test-DomeniaIndexWriteReady)) { return }
     try {
         if (-not $Confirmed) {
             # UX-07: the estimate is confirmed in the page; the update starts again from the answer, once.
             $impact=Get-DomeniaOperationImpactEstimate -Operation "IndexBuild" -ItemCount @($script:IndexRows).Count
             $run = { Start-DomeniaIndexBuild -Confirmed }
             if ($UpdateLinks) { $run = { Start-DomeniaIndexBuild -UpdateLinks -Confirmed } }
-            [void](Request-DomeniaOperationImpact -Estimate $impact -Title "Mettre à jour toute la base autonome" -Target 'impact:IndexBuild' -OnConfirm $run)
+            $impactText=Format-DomeniaOperationImpact -Estimate $impact
+            $warning='Domaine complet : opération longue et occasionnelle, selon le volume et le réseau. À réserver au premier chargement ou à une remise à jour globale. Privilégiez lʼOU choisie au quotidien. Seule la copie locale est mise à jour ; aucune modification dans Active Directory. '
+            [void](Request-DomeniaInlineConfirmation -Title 'Tout relire dans le domaine' -Message ($warning+[string]$impactText.Sentence) -Target 'impact:IndexBuild' -ConfirmText 'Relire tout le domaine' -CancelText 'Annuler' -OnConfirm $run -Details ([string]$impactText.Details) -DetailsTitle 'Détails de lʼestimation' -DetailsExpertOnly)
             return
         }
         [void](Set-DomeniaControlText -Name "LblIndexStatus" -Text "Mise a jour complete de la base autonome en cours...")
+        Set-DomeniaIndexProgress -Mode Busy -Message 'Lecture complète du domaine vers la base locale… progression exacte indisponible pendant les lectures AD.'
         Start-UiTask `
             -Name "Mise a jour complete de la base autonome" `
             -OperationId "IndexBuild" `
             -Code (Get-DomeniaIndexWorkerCode) `
             -Payload ([pscustomobject]@{
+                Path = [string]$script:DatabaseScopedPath
+                Progress = (New-DomeniaIndexProgressChannel)
                 MaxObjects = (Get-DomeniaIndexLimits).MaxObjects
                 BudgetMs = (Get-DomeniaIndexLimits).BudgetMs
                 LastUsn = [long]0
@@ -17257,58 +17472,89 @@ function Start-DomeniaIndexBuild {
             }) `
             -CallbackState ([pscustomobject]@{ Started=(Get-Date); StartedAt=(Get-Date).ToString("o"); UpdateLinks=[bool]$UpdateLinks }) `
             -ReplaceKey "index" `
-            -DisableControls @("BtnIndexBuild","BtnIndexRefresh") `
+            -DisableControls @("BtnIndexBuild","BtnIndexRefresh","BtnIndexWalk","BtnIndexScopeUpdate","BtnFleetIndexScope") `
             -TimeoutSeconds ((Get-DomeniaIndexLimits).TimeoutSeconds) `
             -StatusText "Mise a jour complete de la base autonome en arriere-plan..." `
             -SuccessHandler "Complete-DomeniaIndexBuildUi" `
             -ErrorHandler "Fail-DomeniaIndexBuildUi" | Out-Null
     }
-    catch { [void](Show-DomeniaOperationError -Operation "Indexation de l annuaire" -ErrorRecordOrException $_) }
+    catch { Set-DomeniaIndexProgress -Mode Error -Message ('Démarrage impossible : ' + $_.Exception.Message); [void](Show-DomeniaOperationError -Operation "Indexation de l annuaire" -ErrorRecordOrException $_) }
+}
+
+function New-DomeniaIndexProgressChannel {
+    if($null -ne $script:IndexProgressTimer){$script:IndexProgressTimer.Stop()}
+    $script:IndexTransferProgress=[hashtable]::Synchronized(@{Phase='Lecture';Count=0L;Total=0L;Started=[datetime]::UtcNow;Epoch=[long]$script:SessionEpoch})
+    $script:IndexProgressTimer=New-DomeniaTimer -Owner 'Timer:IndexProgress' -IntervalMs 500 -SessionBound -Tick {
+        $p=$script:IndexTransferProgress
+        if($null -eq $p -or [long]$p.Epoch -ne [long]$script:SessionEpoch){$script:IndexProgressTimer.Stop();return}
+        if($p.Phase -notin @('Lecture','Recensement GUID','Empreinte','Enregistrement','Validation')){return}
+        $elapsed=[Math]::Max(1,([datetime]::UtcNow-[datetime]$p.Started).TotalSeconds)
+        $text=if($p.Phase -eq 'Lecture'){'Lecture AD : {0:N0} objets reçus · {1:N0} objets/s · {2:N0} s. Total inconnu avant la fin.' -f [long]$p.Count,([long]$p.Count/$elapsed),$elapsed}elseif($p.Phase -eq 'Recensement GUID'){'Vérification des identités : {0:N0} GUID reçus. Total inconnu avant la fin ; aucune absence validée pendant la lecture.' -f [long]$p.Count}elseif($p.Phase -eq 'Empreinte'){'Lecture terminée : {0:N0} objets. Vérification du transfert sur disque…' -f [long]$p.Count}elseif($p.Phase -eq 'Validation'){'Validation de lʼempreinte du lot avant écriture…'}else{'Écritures préparées : {0:N0}/{1:N0}. La transaction doit encore être confirmée.' -f [long]$p.Count,[long]$p.Total}
+        Set-DomeniaIndexProgress -Mode $(if($p.Phase -eq 'Enregistrement'){'Walk'}else{'Busy'}) -Current ([long]$p.Count) -Total ([long]$p.Total) -Message $text
+    }
+    $script:IndexProgressTimer.Start()
+    return $script:IndexTransferProgress
+}
+
+function Set-DomeniaIndexProgress {
+    param([ValidateSet('Busy','Walk','Complete','Error','Idle')][string]$Mode,[string]$Message='', [long]$Current=0,[long]$Total=0)
+    if($Mode -in @('Complete','Error','Idle') -and $null -ne $script:IndexTransferProgress){$script:IndexTransferProgress.Phase=$Mode;if($null -ne $script:IndexProgressTimer){$script:IndexProgressTimer.Stop()}}
+    $bar = Get-DomeniaControl 'PbIndexProgress'
+    $label = Get-DomeniaControl 'LblIndexProgress'
+    if ($null -ne $bar) {
+        $bar.Visibility = if ($Mode -in @('Busy','Walk')) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed }
+        $bar.IsIndeterminate = ($Mode -eq 'Busy')
+        if ($Mode -eq 'Walk') { $bar.Value = if ($Total -gt 0) { [Math]::Min(100,100.0 * $Current / $Total) } else { 0 } }
+        elseif ($Mode -eq 'Complete') { $bar.IsIndeterminate = $false; $bar.Value = 100 }
+        elseif ($Mode -in @('Error','Idle')) { $bar.Value = 0 }
+    }
+    if ($null -ne $label) { $label.Text = [string]$Message }
 }
 
 function Update-DomeniaIndexStats {
     try {
         if ([int]$script:IndexDbCount -lt 0) { [void](Load-DomeniaIndexMetadata) }
-        $count = [int]$script:IndexDbCount
-        if ($count -eq 0) {
-            [void](Set-DomeniaControlText -Name "LblIndexStats" -Text "Aucune base autonome : Mettre à jour tout crée la copie locale des utilisateurs, postes et associations.")
+        $target = Get-DomeniaIndexScope
+        $scopeKey = if ([bool]$target.IsDomain) { 'directory' } else { 'ou:' + ([string]$target.BaseDn).ToLowerInvariant() }
+        $targetText = if ([bool]$target.IsDomain) { 'Aucune OU choisie · sélectionnez une OU pour limiter la lecture' } else { [string]$target.BaseDn + ' et ses sous-OU' }
+        [void](Set-DomeniaControlText -Name 'LblIndexScopeChoice' -Text $targetText)
+        if ($script:IndexMetadataError) {
+            [void](Set-DomeniaControlText -Name 'LblIndexOverview' -Text 'La base locale ne peut pas être lue. Son contenu nʼest pas considéré comme vide.')
+            [void](Set-DomeniaControlText -Name 'LblIndexFreshness' -Text 'Vérifiez le stockage dans Fiabilité avant de reconstruire la base.')
+            [void](Set-DomeniaControlText -Name 'LblIndexStats' -Text ([string]$script:IndexMetadataError))
             return
         }
-        $users = [Math]::Max(0,[int]$script:IndexDbUsers)
-        $computers = [Math]::Max(0,[int]$script:IndexDbComputers)
-        $when = ""; $server = ""
-        try { $when = [string]$script:IndexInfo.Date } catch { }
-        try { $server = [string]$script:IndexInfo.Server } catch { }
-        $age = ""
-        try {
-            if (-not [string]::IsNullOrWhiteSpace($when)) {
-                $span = (Get-Date) - [datetime]$when
-                $days = [int]$span.TotalDays
-                if ($days -ge 1) { $age = ", soit " + $days + " jour(s)" }
-                else { $age = ", soit " + [int]$span.TotalHours + " heure(s)" }
+        $count = [Math]::Max(0,[int]$script:IndexDbCount)
+        $overview = if ($count -eq 0) { 'Aucun objet enregistré. Choisissez un périmètre, puis lancez sa mise à jour.' } else {
+            '{0:N0} objets · {1:N0} utilisateurs · {2:N0} postes ({3:N0} actifs, {4:N0} désactivés)' -f $count,[Math]::Max(0,[int]$script:IndexDbUsers),[Math]::Max(0,[int]$script:IndexDbComputers),[Math]::Max(0,[int]$script:IndexDbMachinesActive),[Math]::Max(0,[int]$script:IndexDbMachinesDisabled)
+        }
+        [void](Set-DomeniaControlText -Name 'LblIndexOverview' -Text $overview)
+        $freshness = New-Object 'System.Collections.Generic.List[string]'
+        $when = ''; $server = ''; $usn = 0L
+        if ($null -ne $script:IndexInfo) { $when = [string]$script:IndexInfo.Date; $server = [string]$script:IndexInfo.Server; $usn = [long]$script:IndexInfo.Usn }
+        if ($when) {
+            $date = [datetime]::Parse($when,[Globalization.CultureInfo]::InvariantCulture).ToLocalTime()
+            $days = [Math]::Floor(((Get-Date) - $date).TotalDays)
+            $age = if ($date -gt (Get-Date).AddMinutes(5)) { 'date future : vérifier lʼhorloge' } elseif ($days -ge 7) { 'à actualiser' } elseif ($days -ge 1) { 'à actualiser bientôt' } else { 'récent' }
+            $freshness.Add(('Dernière synchronisation complète du domaine : {0} ({1}).' -f $date.ToString('dd/MM/yyyy HH:mm'),$age))
+        } else { $freshness.Add('Aucune lecture complète du domaine enregistrée. Les fiches locales peuvent couvrir seulement certaines OU.') }
+        if ($null -ne $script:IndexSyncStates) {
+            if ($scopeKey -ne 'directory' -and $script:IndexSyncStates.ContainsKey($scopeKey)) {
+                $stamp = [datetime]::Parse([string]$script:IndexSyncStates[$scopeKey].last_sync,[Globalization.CultureInfo]::InvariantCulture).ToLocalTime().ToString('dd/MM/yyyy HH:mm')
+                $freshness.Add('Dernière lecture complète de lʼOU choisie : ' + $stamp + '.')
             }
-        } catch { }
-        $usn = 0; try { $usn = [long]$script:IndexInfo.Usn } catch { }
-        $repere = "sans repere de suivi"
-        if ($usn -gt 0) { $repere = "repere de suivi " + $usn }
-        $links = @($script:UserMachineLinks).Count
-        $verifiedLinks = @($script:UserMachineLinks | Where-Object { ([string]$_.VerifiedInAD) -match "^(?i:true|1)$" }).Count
-        $dbName = Split-Path (Get-DomeniaDatabasePath) -Leaf
-        $scopeText = ""
-        try {
-            $ouScope = Get-DomeniaIndexScope
-            if ($null -ne $ouScope) {
-                if ([bool]$ouScope.IsDomain) { $scopeText = " Portée : tout le domaine." }
-                else {
-                    $leaf = (([string]$ouScope.BaseDn) -split '(?<!\\),')[0] -replace '^(OU|CN)=',''
-                    $scopeText = " Portée : " + $leaf + " (et ses sous-OU)."
-                }
+            $attemptKey = 'attempt:' + $scopeKey
+            if ($script:IndexSyncStates.ContainsKey($attemptKey) -and [string]$script:IndexSyncStates[$attemptKey].details -eq 'partial') {
+                $attempt = $script:IndexSyncStates[$attemptKey]
+                $freshness.Add(('Dernière tentative sur cette cible : lecture partielle, {0:N0} fiches reçues. La date complète est conservée.' -f [int]$attempt.item_count))
             }
-        } catch { }
-        $text = ("Base autonome {0} : {1} objet(s), {2} compte(s), {3} poste(s), {4} association(s) user-machine ({5} verifiee(s)). Derniere passe le {6}{7} depuis {8}, {9}. Chargement complet RAM desactive." -f `
-            $dbName,$count,$users,$computers,$links,$verifiedLinks,$when,$age,$server,$repere) + $scopeText
-        [void](Set-DomeniaControlText -Name "LblIndexStats" -Text $text)
-    } catch { }
+        }
+        $partial = [string](Get-DomeniaIndexPartialText)
+        if ($partial) { $freshness.Add('À vérifier : ' + $partial) }
+        [void](Set-DomeniaControlText -Name 'LblIndexFreshness' -Text ($freshness -join "`n"))
+        $details = ('Fichier : {0}. Contrôleur : {1}. Repère : {2}. Associations utilisateur-poste : {3:N0}.' -f (Get-DomeniaDatabasePath),$server,$usn,@($script:UserMachineLinks).Count)
+        [void](Set-DomeniaControlText -Name 'LblIndexStats' -Text $details)
+    } catch { Write-AppLog ('État de la base non affiché : ' + $_.Exception.Message) 'WARN' }
     try { Update-DomeniaIndexLocation } catch { }
 }
 
@@ -17316,19 +17562,29 @@ function Search-DomeniaIndexUi {
     try {
         $term = ""
         try { $term = ([string](Get-DomeniaControl -Name "TxtIndexSearch").Text).Trim() } catch { }
-        if ($term.Length -lt 2) {
+        if ($term.Length -eq 1) {
             $script:DomeniaIndexSearchGeneration = [long]$script:DomeniaIndexSearchGeneration + 1
             [void](Set-DomeniaItemsSource -Name "DgIndex" -Rows @())
-            [void](Set-DomeniaControlText -Name "LblIndexStatus" -Text "Saisis au moins deux caracteres.")
+            [void](Set-DomeniaControlText -Name "LblIndexStatus" -Text "Saisissez au moins deux caractères, ou laissez vide pour tous les objets.")
             return
         }
         # D014: the SQLite query (busy timeout up to several seconds on a locked base) no longer runs on the
         # Dispatcher: the LocalIndexRead worker answers, Complete-DomeniaIndexSearchUi fills the grid.
-        $attempt = 0
+        $attempt = 0;$offset=0;$limit=200;$sort=Get-DomeniaIndexSearchSort
         $retry = $script:DomeniaIndexSearchRetry
         $script:DomeniaIndexSearchRetry = $null
-        if ($null -ne $retry -and [string]$retry.Term -ceq $term) { $attempt = [int]$retry.Attempt }
-        [void](Start-DomeniaIndexSearch -Term $term -Limit 200 -Attempt $attempt)
+        $scope=Get-DomeniaIndexScope
+        $scopeDn=if($null -ne $scope -and -not $scope.IsDomain){[string]$scope.BaseDn}else{''}
+        if ($null -ne $retry -and [string]$retry.Term -ceq $term -and
+            [long](Get-DomeniaMember $retry 'Epoch' -1) -eq [long]$script:SessionEpoch -and
+            [long](Get-DomeniaMember $retry 'Generation' -1) -eq [long]$script:DomeniaIndexSearchGeneration -and
+            [string]::Equals([string](Get-DomeniaMember $retry 'Scope' ''),$scopeDn,[StringComparison]::OrdinalIgnoreCase) -and
+            [string](Get-DomeniaMember $retry 'SortField' '') -ceq [string]$sort.Field -and
+            [bool](Get-DomeniaMember $retry 'Descending' $false) -eq [bool]$sort.Descending) {
+            $attempt = [int]$retry.Attempt;$offset=[int](Get-DomeniaMember $retry 'Offset' 0)
+            $limit=[Math]::Max(1,[Math]::Min(500,[int](Get-DomeniaMember $retry 'Limit' 200)))
+        }
+        [void](Start-DomeniaIndexSearch -Term $term -Limit $limit -Attempt $attempt -Offset $offset -SortField ([string]$sort.Field) -Descending ([bool]$sort.Descending))
     }
     catch {
         [void](Set-DomeniaControlText -Name "LblIndexStatus" -Text ("Recherche locale non lancee : " + $_.Exception.Message))
@@ -17340,9 +17596,9 @@ function Open-DomeniaIndexSelection {
     try {
         $grid = Get-DomeniaControl -Name "DgIndex"
         if ($null -eq $grid -or $null -eq $grid.SelectedItem) { Set-Status "Selectionne une ligne." "WARN"; return }
-        $name = [string]$grid.SelectedItem.Name
-        if ([string]::IsNullOrWhiteSpace($name)) { return }
-        Start-DomeniaSearchFor -Term $name
+        $row=$grid.SelectedItem
+        if (-not [string]$row.DN) { return }
+        Open-AdObject -Dn ([string]$row.DN) -Type ([string]$row.Type) -ObjectGuid ([string]$row.Guid) -SuppressRemoteProbes
     }
     catch { }
 }
@@ -17396,15 +17652,34 @@ return [pscustomobject]@{ Success = $true; Rows = $sorted; SearchBase = $searchB
 
 function Get-DomeniaIndexWorkerCode {
     return @'
+$startedUtc = [datetime]::UtcNow.ToString('o')
 $watch = [System.Diagnostics.Stopwatch]::StartNew()
+$progress=$null;if($null -ne $Payload.PSObject.Properties['Progress']){$progress=$Payload.Progress}
 $baseDn = [string]$Context.BaseDn
 if ([string]::IsNullOrWhiteSpace($baseDn)) { throw 'Base DN vide : indexation impossible.' }
+function Get-IdxParentDn {
+    param([string]$Dn)
+    $escaped=$false
+    for($n=0;$n -lt $Dn.Length;$n++){
+        if($escaped){$escaped=$false;continue}
+        if($Dn[$n] -eq [char]92){$escaped=$true;continue}
+        if($Dn[$n] -eq ','){return $Dn.Substring($n+1).Trim()}
+    }
+    return ''
+}
+function Test-IdxDnInScope {
+    param([string]$Dn,[string]$ScopeDn,[string]$SearchScope)
+    if($SearchScope -eq 'OneLevel'){return (Get-IdxParentDn $Dn) -ieq $ScopeDn}
+    $part=$Dn
+    while($part){if($part -ieq $ScopeDn){return $true};$part=Get-IdxParentDn $part}
+    return $false
+}
 # Scoped pass (« Mettre à jour cette OU »): only this OU subtree is read, and it must be inside the domain.
 $searchBase = $baseDn
 $scopeProperty = $Payload.PSObject.Properties['SearchBase']
 if ($null -ne $scopeProperty -and -not [string]::IsNullOrWhiteSpace([string]$scopeProperty.Value)) {
     $scopeText = ([string]$scopeProperty.Value).Trim()
-    if (-not ($scopeText -ieq $baseDn -or $scopeText.EndsWith(',' + $baseDn,[StringComparison]::OrdinalIgnoreCase))) { throw 'OU hors du domaine : mise a jour refusee.' }
+    if (-not (Test-IdxDnInScope $scopeText $baseDn 'Subtree')) { throw 'OU hors du domaine : mise a jour refusee.' }
     $searchBase = $scopeText
 }
 # Portée de la passe : la marche par OU relit chaque OU en Subtree ; le reste posé directement sur la
@@ -17412,9 +17687,8 @@ if ($null -ne $scopeProperty -and -not [string]::IsNullOrWhiteSpace([string]$sco
 $searchScope = 'Subtree'
 $scopeKindProperty = $Payload.PSObject.Properties['SearchScope']
 if ($null -ne $scopeKindProperty -and ([string]$scopeKindProperty.Value) -ieq 'OneLevel') { $searchScope = 'OneLevel' }
-# Ceiling of Index.MaxObjects, the same literal as in Get-DomeniaIndexLimits (this body runs in its own runspace).
-# It used to be 200 000 whatever the configuration asked for: a domain larger than that could never fill its base.
-$maxObjects = [Math]::Max(1000,[Math]::Min(5000000,[int]$Payload.MaxObjects))
+# Streaming runs have no artificial object ceiling; explicit positive quotas remain supported.
+$maxObjects = [Math]::Max(0L,[long]$Payload.MaxObjects)
 $budgetMs = [Math]::Max(30000,[int]$Payload.BudgetMs)
 
 # Le compteur uSNChanged est propre a chaque controleur. Il ne sert donc de
@@ -17495,6 +17769,20 @@ function ConvertTo-IdxUtcText {
 }
 
 $rows = New-Object Collections.ArrayList
+$rowCount = 0L; $userCount = 0L; $computerCount = 0L
+$censusCount=0L; $identities=[Collections.Generic.List[object]]::new()
+$rowGuids=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+$spoolPath = ''; $spoolWriter = $null; $spoolStream = $null
+# Compatibility test callers without Path retain the bounded in-memory path. Runtime always supplies Path.
+if ($null -ne $Payload.PSObject.Properties['Path'] -and [string]$Payload.Path) {
+    $folder = Join-Path ([IO.Path]::GetDirectoryName([IO.Path]::GetFullPath([string]$Payload.Path))) 'index-spool'
+    [void][IO.Directory]::CreateDirectory($folder)
+    if (([IO.File]::GetAttributes($folder) -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'Dossier temporaire redirige : indexation refusee.' }
+    $spoolPath = Join-Path $folder ([guid]::NewGuid().ToString('N') + '.jsonl')
+    $spoolStream = [IO.FileStream]::new($spoolPath,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None,65536)
+    $spoolWriter = [IO.StreamWriter]::new($spoolStream,[Text.UTF8Encoding]::new($false),65536)
+} elseif ($maxObjects -eq 0 -or $maxObjects -gt 5000000) { $maxObjects = 5000000 }
+
 $diagnostics = New-Object Collections.ArrayList
 $truncated = $false
 # Which limit cut this pass ('volume' for Index.MaxObjects, 'temps' for Index.BudgetMs), so the warning can name it.
@@ -17515,7 +17803,8 @@ $computerPlan = @{ Kind='Machine'; Filter='(objectCategory=computer)'; Props=@('
 $plan = if ([bool]$Payload.ComputerFirst) { @($computerPlan,$userPlan) } else { @($userPlan,$computerPlan) }
 
 $serverTimeLimitSeconds = 120
-$plansLeft = @($plan).Count
+$plansLeft = @($plan).Count + $(if($incremental){1}else{0})
+try {
 foreach ($entry in $plan) {
     # Budget par plan : Index.BudgetMs était un plafond global sans réserve, donc le plan lu en premier pouvait
     # tout le manger et le second était déclaré « non indexé » sans jamais démarrer -- une base à 60 000 postes
@@ -17523,9 +17812,9 @@ foreach ($entry in $plan) {
     # suivant, et la passe ne peut jamais dépasser Index.BudgetMs.
     $planDeadlineMs = $watch.ElapsedMilliseconds + [int][Math]::Ceiling([Math]::Max(1,($budgetMs - $watch.ElapsedMilliseconds)) / [Math]::Max(1,$plansLeft))
     $plansLeft = [Math]::Max(0,$plansLeft - 1)
-    if ($rows.Count -ge $maxObjects -or $watch.ElapsedMilliseconds -ge $planDeadlineMs) {
+    if (($maxObjects -gt 0 -and $rowCount -ge $maxObjects) -or $watch.ElapsedMilliseconds -ge $planDeadlineMs) {
         $truncated = $true
-        $cut = if ($rows.Count -ge $maxObjects) { 'volume' } else { 'temps' }
+        $cut = if (($maxObjects -gt 0 -and $rowCount -ge $maxObjects)) { 'volume' } else { 'temps' }
         if (-not $limitReason) { $limitReason = $cut }
         [void]$diagnostics.Add([string]$entry.Kind + ' : non indexe, limite de ' + $cut + ' atteinte.')
         continue
@@ -17539,15 +17828,16 @@ foreach ($entry in $plan) {
         if ($incremental) { $filter = '(&' + $filter + $deltaClause + ')' }
         $searcher = New-WSearcher $Context $searchBase $filter @($entry.Props) $searchScope 0
         $searcher.PageSize = 1000
+        $searcher.CacheResults = $false
         $searcher.ServerTimeLimit = [TimeSpan]::FromSeconds($serverTimeLimitSeconds)
         $searcher.ClientTimeout = [TimeSpan]::FromSeconds($serverTimeLimitSeconds + 30)
         $collection = $searcher.FindAll()
-        foreach ($r in @($collection)) {
-            if ($rows.Count -ge $maxObjects) { $truncated = $true; if (-not $limitReason) { $limitReason = 'volume' }; break }
+        foreach ($r in $collection) {
+            if (($maxObjects -gt 0 -and $rowCount -ge $maxObjects)) { $truncated = $true; if (-not $limitReason) { $limitReason = 'volume' }; break }
             if ($watch.ElapsedMilliseconds -ge $planDeadlineMs) { $truncated = $true; if (-not $limitReason) { $limitReason = 'temps' }; break }
             $p = $r.Properties
             $name = Clean-Field (Get-WPropFirst $p 'name' '')
-            if ([string]::IsNullOrWhiteSpace($name)) { continue }
+            if ([string]::IsNullOrWhiteSpace($name)) { throw 'Nom absent dans un objet : lecture tenue pour incomplete.' }
             $login = Clean-Field (Get-WPropFirst $p 'samaccountname' '')
             $upn = ''
             $extra = ''
@@ -17591,7 +17881,7 @@ foreach ($entry in $plan) {
                 elseif ($lapsSchema -eq 'Absent') { $lapsKind = 'NoSchema' }
                 elseif ($lapsSchema -eq 'Present') { $lapsKind = 'None' }
             }
-            [void]$rows.Add([pscustomobject]@{
+            $record = [pscustomobject]@{
                 Type = [string]$entry.Kind
                 WhenChanged = Clean-Field (Convert-WDate (Get-WPropFirst $p 'whenchanged' ''))
                 Usn = $usn
@@ -17611,7 +17901,15 @@ foreach ($entry in $plan) {
                 PwdLastSet = $pwdSet
                 LapsKind = $lapsKind
                 LapsExpiry = $lapsExpiry
-            })
+            }
+            $recordGuid=[guid]::Empty
+            if(-not [guid]::TryParse([string]$record.Guid,[ref]$recordGuid) -or $recordGuid -eq [guid]::Empty -or
+               -not (Test-IdxDnInScope ([string]$record.DN) $searchBase $searchScope)){throw 'GUID ou DN invalide dans un objet : lecture tenue pour incomplete.'}
+            $record.Guid=$recordGuid.ToString('D').ToLowerInvariant()
+            if(-not $rowGuids.Add([string]$record.Guid)){throw 'GUID duplique dans les objets : lecture tenue pour incomplete.'}
+            if ($null -ne $spoolWriter) { $spoolWriter.WriteLine((ConvertTo-Json -InputObject $record -Depth 3 -Compress)) }
+            else { [void]$rows.Add($record) }
+            $rowCount++; if($null -ne $progress -and ($rowCount % 1000) -eq 0){$progress.Count=$rowCount}; if ([string]$entry.Kind -eq 'Machine') { $computerCount++ } else { $userCount++ }
             $added++
         }
         $sw.Stop()
@@ -17640,9 +17938,68 @@ foreach ($entry in $plan) {
     }
 }
 
+# The USN above was captured BEFORE either read. The census never advances it to a
+# later rootDSE value: modifications concurrent with this pass are read next time.
+if($incremental -and -not $truncated){
+    $searcher=$null;$collection=$null;$sw=[Diagnostics.Stopwatch]::StartNew()
+    $seen=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    try{
+        if($watch.ElapsedMilliseconds -ge $budgetMs){throw 'Budget du recensement des identites depasse.'}
+        if($null -ne $progress){$progress.Phase='Recensement GUID';$progress.Count=0L}
+        $filter='(|(&(objectCategory=person)(objectClass=user))(objectCategory=computer))'
+        $searcher=New-WSearcher $Context $searchBase $filter @('objectGUID','distinguishedName') $searchScope 0
+        $searcher.PageSize=1000;$searcher.CacheResults=$false
+        $searcher.ServerTimeLimit=[TimeSpan]::FromSeconds($serverTimeLimitSeconds)
+        $searcher.ClientTimeout=[TimeSpan]::FromSeconds($serverTimeLimitSeconds+30)
+        $collection=$searcher.FindAll()
+        foreach($r in $collection){
+            if($watch.ElapsedMilliseconds -ge $budgetMs){throw 'Budget du recensement des identites depasse.'}
+            if($maxObjects -gt 0 -and $censusCount -ge $maxObjects){throw 'Limite du recensement des identites atteinte.'}
+            $guidText=Clean-Field (Convert-WGuid (Get-WPropFirst $r.Properties 'objectguid' ''))
+            $guid=[guid]::Empty
+            if(-not [guid]::TryParse($guidText,[ref]$guid) -or $guid -eq [guid]::Empty){throw 'GUID absent ou invalide dans le recensement.'}
+            $guidText=$guid.ToString('D').ToLowerInvariant()
+            if(-not $seen.Add($guidText)){throw 'GUID duplique dans le recensement.'}
+            $dn=Clean-Field (Get-WPropFirst $r.Properties 'distinguishedname' '')
+            if(-not (Test-IdxDnInScope $dn $searchBase $searchScope)){throw 'DN absent ou hors perimetre dans le recensement.'}
+            $identity=[pscustomobject]@{Kind='Identity';Guid=$guidText;DN=$dn}
+            if($null -ne $spoolWriter){$spoolWriter.WriteLine((ConvertTo-Json -InputObject $identity -Compress))}else{$identities.Add($identity)}
+            $censusCount++;if($null -ne $progress -and ($censusCount % 1000) -eq 0){$progress.Count=$censusCount}
+        }
+        if($sw.Elapsed.TotalSeconds -ge $serverTimeLimitSeconds){throw 'Recensement tenu pour incomplet apres la limite du serveur.'}
+        # An empty domain after an established checkpoint needs an explicit full rebuild.
+        if($censusCount -eq 0){throw 'Recensement vide : relancez une reconstruction complete pour confirmer une base vide.'}
+        [void]$diagnostics.Add(('Recensement : '+$censusCount+' identites verifiees, sans relecture des attributs.'))
+    }catch{
+        $truncated=$true;if(-not $limitReason){$limitReason='erreur'}
+        [void]$diagnostics.Add(('Recensement incomplet : '+$_.Exception.Message+' Aucune absence ni nouveau repere ne sont valides.'))
+    }finally{
+        if($null -ne $collection){try{$collection.Dispose()}catch{}}
+        if($null -ne $searcher){try{$searcher.Dispose()}catch{}}
+    }
+}
+if(-not $truncated -and $invocationId){
+    try{
+        if([string](Get-WDirectoryVersionSource $Context) -ine $versionSource){throw 'Instance du controleur changee pendant la lecture.'}
+    }catch{$truncated=$true;if(-not $limitReason){$limitReason='erreur'};[void]$diagnostics.Add(('Lecture non reconciliee : '+$_.Exception.Message))}
+}
+
+} finally { if ($null -ne $spoolWriter) { $spoolWriter.Dispose() } elseif ($null -ne $spoolStream) { $spoolStream.Dispose() } }
+$transfer = $null
+if ($spoolPath) {
+    if($null -ne $progress){$progress.Count=$rowCount;$progress.Phase='Empreinte'}
+    # The hash and count bind the receipt to the exact file. Storage verifies both before commit.
+    $hash = (Get-FileHash -LiteralPath $spoolPath -Algorithm SHA256 -ErrorAction Stop).Hash
+    $transfer = [pscustomobject]@{Path=$spoolPath;Sha256=$hash;RowCount=$rowCount;CensusRowCount=$censusCount;Progress=$progress}
+}
+if($null -ne $progress){$progress.Phase='Attente'}
 $watch.Stop()
 [pscustomobject]@{
     Rows = @($rows)
+    Transfer = $transfer
+    RowCount = $rowCount
+    UserCount = $userCount
+    ComputerCount = $computerCount
     Diagnostics = @($diagnostics)
     Truncated = $truncated
     LimitReason = $limitReason
@@ -17650,6 +18007,8 @@ $watch.Stop()
     LimitBudgetMs = $budgetMs
     LimitServerSeconds = $serverTimeLimitSeconds
     SearchBase = $searchBase
+    SearchScope = $searchScope
+    Reconcile = [pscustomobject]@{Mode=$(if($incremental){'Census'}else{'Rows'});ScopeDn=$searchBase;SearchScope=$searchScope;Complete=(-not $truncated);ExpectedCount=$(if($incremental){$censusCount}else{$rowCount});Identities=$identities.ToArray();StartedUtc=$startedUtc;Server=[string]$Context.Server;InvocationId=$invocationId}
     Scoped = (-not [string]::Equals($searchBase,$baseDn,[StringComparison]::OrdinalIgnoreCase))
     Incremental = $incremental
     DeltaClause = $deltaClause
@@ -21346,6 +21705,7 @@ function Start-DomeniaAccountRelogin {
         $script:SessionEpoch = [long]$script:SessionEpoch + 1
         # Fleet observations and analysis targets belong to the previous session.
         $script:FleetObservations = $null; $script:FleetLast = $null; $script:FleetComputedKey = ''; $script:FleetStale = $true
+        $script:FleetQuerySnapshotKey='';if($null -ne $script:DomeniaQueryState){$script:DomeniaQueryState.Generation++;$script:DomeniaQueryState.Records=$null;$script:DomeniaQueryState.Widgets=@{};$script:DomeniaQueryState.SearchRecipe=$null;$script:DomeniaQueryState.SearchRecords=@{}}
     try { Reset-DomeniaSupportSession } catch { }
         $script:GlobalSearchGeneration++
         $script:PresenceScanGeneration++
@@ -21727,17 +22087,23 @@ function Wire-Events {
     $script:Ctrl["BtnRunComputerDiag"].Add_Click({ Start-ComputerDiagnostics })
     if ($script:Ctrl.ContainsKey("BtnUserSaveContact")) { $script:Ctrl["BtnUserSaveContact"].Add_Click({ Save-DomeniaUserContact }) }
     if ($script:Ctrl.ContainsKey("BtnIndexScopePick")) { $script:Ctrl["BtnIndexScopePick"].Add_Click({
-        $picked = Show-DomeniaInlinePicker -Kind OU -Title ('Choisir lʼunité organisationnelle de la base') -Prompt ('La mise à jour ne relira que cette OU et ses sous-OU. La racine du domaine relit tout le domaine.')
+        $picked = Show-DomeniaInlinePicker -Kind OU -Title ('Choisir lʼunité organisationnelle de la base') -Prompt ('Choisissez une OU : la lecture couvrira cette branche et ses sous-OU. Le domaine complet dispose de son bouton séparé.')
         if ($null -eq $picked) { return }
         $pickedDn = ([string]$picked.DN).Trim()
         if (-not $pickedDn) { return }
         $script:IndexScopeDn = $pickedDn
         Update-DomeniaIndexStats
+        Request-DomeniaIndexSearch
         Set-Status ('Portée de la base : ' + $pickedDn) 'INFO'
     }) }
+    if ($script:Ctrl.ContainsKey("BtnIndexScopeReset")) { $script:Ctrl["BtnIndexScopeReset"].Add_Click({
+        $script:IndexScopeDn = ''
+        Update-DomeniaIndexStats
+        Request-DomeniaIndexSearch
+        Set-Status 'Périmètre de mise à jour : tout le domaine courant.' 'INFO'
+    }) }
     if ($script:Ctrl.ContainsKey("BtnIndexScopeUpdate")) { $script:Ctrl["BtnIndexScopeUpdate"].Add_Click({
-        $scope = Get-DomeniaIndexScope
-        Start-DomeniaIndexScopeBuild -Dn $(if ($null -ne $scope) { [string]$scope.BaseDn } else { '' })
+        Start-DomeniaSelectedIndexScopeBuild
     }) }
     if ($script:Ctrl.ContainsKey("BtnIndexBuild")) { $script:Ctrl["BtnIndexBuild"].Add_Click({ Start-DomeniaIndexBuild -UpdateLinks }) }
     if ($script:Ctrl.ContainsKey("BtnIndexWalk")) { $script:Ctrl["BtnIndexWalk"].Add_Click({ Start-DomeniaIndexWalk }) }
@@ -21808,7 +22174,12 @@ function Wire-Events {
         })
     }
     if ($script:Ctrl.ContainsKey("TxtIndexSearch")) { $script:Ctrl["TxtIndexSearch"].Add_TextChanged({ Request-DomeniaIndexSearch }) }
+    if ($script:Ctrl.ContainsKey('BtnIndexBrowse')) { $script:Ctrl['BtnIndexBrowse'].Add_Click({Search-DomeniaIndexUi}) }
+    if ($script:Ctrl.ContainsKey('BtnIndexPrevious')) { $script:Ctrl['BtnIndexPrevious'].Add_Click({Move-DomeniaIndexSearchPage -Direction -1}) }
+    if ($script:Ctrl.ContainsKey('BtnIndexNext')) { $script:Ctrl['BtnIndexNext'].Add_Click({Move-DomeniaIndexSearchPage -Direction 1}) }
     if ($script:Ctrl.ContainsKey("DgIndex")) { $script:Ctrl["DgIndex"].Add_MouseDoubleClick({ Open-DomeniaIndexSelection }) }
+    if ($script:Ctrl.ContainsKey("DgIndex")) { $script:Ctrl["DgIndex"].Add_Sorting({param($sender,$eventArgs)Set-DomeniaIndexSearchSort -Grid $sender -EventArgs $eventArgs}) }
+    if ($script:Ctrl.ContainsKey("BtnIndexResetSort")) { $script:Ctrl["BtnIndexResetSort"].Add_Click({Set-DomeniaIndexSearchSort -Reset}) }
     if ($script:Ctrl.ContainsKey("BtnLoadDomain")) { $script:Ctrl["BtnLoadDomain"].Add_Click({ Start-DomeniaDomainOverview }) }
     if ($script:Ctrl.ContainsKey("BtnCountDomain")) { $script:Ctrl["BtnCountDomain"].Add_Click({ Start-DomeniaDomainOverview -WithCounts }) }
     if ($script:Ctrl.ContainsKey("BtnCopyDomain")) { $script:Ctrl["BtnCopyDomain"].Add_Click({ Copy-DomeniaDomainReport }) }
@@ -21866,6 +22237,11 @@ function Wire-Events {
     if ($script:Ctrl.ContainsKey("BtnFleetDashboardRefresh")) { $script:Ctrl["BtnFleetDashboardRefresh"].Add_Click({ try { Start-DomeniaFleetDashboard } catch { Set-Status ('Vue d ensemble non calculee : ' + $_.Exception.Message) 'WARN' } }) }
     if ($script:Ctrl.ContainsKey("BtnFleetScope")) { $script:Ctrl["BtnFleetScope"].Add_Click({ try { Show-DomeniaFleetScopeSource } catch { Set-Status ('Sélecteur dʼOU indisponible : ' + $_.Exception.Message) 'WARN' } }) }
     if ($script:Ctrl.ContainsKey("BtnFleetScopeReset")) { $script:Ctrl["BtnFleetScopeReset"].Add_Click({ $script:FleetScopeDn = ''; $script:FleetStale = $true; Request-DomeniaFleetRefresh; Set-Status 'Tableau de bord : tout le domaine depuis la base locale.' }) }
+    Initialize-DomeniaQueryWorkshop
+    if($script:Ctrl.ContainsKey('BtnSearchQueryWorkshop')){$script:Ctrl['BtnSearchQueryWorkshop'].Add_Click({Select-DomeniaWorkspace 'TabDashboard';$script:Ctrl['ExpFleetMachines'].IsExpanded=$true;Start-DomeniaQueryEvaluation})}
+    if ($script:Ctrl.ContainsKey("BtnFleetShowMachines")) { $script:Ctrl["BtnFleetShowMachines"].Add_Click({ $expander = $script:Ctrl['ExpFleetMachines']; if ($null -ne $expander) { $expander.IsExpanded = -not [bool]$expander.IsExpanded }; Update-DomeniaFleetMachineList }) }
+    if ($script:Ctrl.ContainsKey("TxtFleetMachineFilter")) { $script:Ctrl["TxtFleetMachineFilter"].Add_TextChanged({ Update-DomeniaFleetMachineList }) }
+    if ($script:Ctrl.ContainsKey("CmbFleetMachineState")) { $script:Ctrl["CmbFleetMachineState"].Add_SelectionChanged({ Update-DomeniaFleetMachineList }) }
     if ($script:Ctrl.ContainsKey("BtnFleetIndexScope")) { $script:Ctrl["BtnFleetIndexScope"].Add_Click({ try { $fleetScope = Get-DomeniaFleetScope; Start-DomeniaIndexScopeBuild -Dn $(if ($null -ne $fleetScope) { [string]$fleetScope.Dn } else { '' }) } catch { Set-Status ('Mise à jour de lʼOU impossible : ' + $_.Exception.Message) 'WARN' } }) }
     if ($script:Ctrl.ContainsKey("BtnFleetOpenSearch")) { $script:Ctrl["BtnFleetOpenSearch"].Add_Click({ try { Show-DomeniaFleetAnalyzeSource } catch { Set-Status ('Rechercher indisponible : ' + $_.Exception.Message) 'WARN' } }) }
     # First steps (UX-20): each step opens its screen and starts nothing.
@@ -21947,7 +22323,7 @@ function Wire-Events {
 # DOMENIA_MASTER_LAST_V1 = TRUE
 $script:Version = "1.0"
 $script:AppName = "Domenia"
-$script:MasterBuild = "2026.10.09-DOMENIA-1.0-RC1.16.0-D120"
+$script:MasterBuild = "2026.10.12-DOMENIA-1.0-RC1.17.0-D120"
 $script:ActiveWriteTaskId = ""
 $script:WriteState = "Idle"
 $script:UnknownWriteTargetDn = ""
@@ -22199,7 +22575,7 @@ function New-DefaultConfig {
             StartupDeltaEnabled = $true
             StartupDeltaMaxAgeMinutes = 5
             FullRebuildDays = 7
-            MaxObjects = 200000
+            MaxObjects = 0
             BudgetMs = 1200000
             ComputerFirst = $true
         }
@@ -23205,8 +23581,9 @@ function Get-DomeniaWorkerCodeHash {
 function Get-DomeniaWorkerOperationHashes {
     # Registre ferme : seules ces operations internes, avec leur corps exact, peuvent entrer dans un runspace.
     return [ordered]@{
-        StoragePurge          = "4FB461802A90DB7DC858BC87C9D3BD83B3BCCE05182FEAB29FF6AE5219DC6F79"
-        StorageBackup         = "E89924A7F04D958CFF4CD41847BFC2C9A838D6F242D4BD7242F2048FCCBDED79"
+        LocalQuery            = "569C938D2E36CE9BD371253D1E4E9C3A42745D98C98E9C699528CDC19BCBFB3A"
+        StoragePurge          = "E3656CDC7BDC992E584E5A709DB33463F8260F78F04556F917637312FEDAF0A2"
+        StorageBackup         = "51BC92EAEB5B1BD68F0850D1336C9DA1A5E2E23CB6E2FB04CDE6ECE98C0D25F9"
         ComputerAdminShare    = "051272FF57B277E19504F52BAC289ED8297A333393644B853FF4A80624347F70"
         StorageUsage          = "181CE32EF4BC1D322300FB4D4BB7B41D3B4E98E1D5562898109ED1E1F6841E4C"
         LegacyMigration       = "A6F739B31CDD39F30B5EA07FF3A2DBE4171CE453E083F9816551E4EFE4D41E5D"
@@ -23214,13 +23591,13 @@ function Get-DomeniaWorkerOperationHashes {
         ReadBitLockerKey      = "8A98EBCDC48AD572404E1566826035C84F34ACB87564330A7AA511FAAC01EE6F"
         BitLockerPresence     = "F1A7C8FD83BA659E7826DE2DDBDD01EE13BC185819FD9330656B77A99ACD6764"
         DemoDirectory         = "EA76156ECA8C5DADB7650C90D58C100B3CA2BCC184FC9E309CC1E56DC258A30D"
-        LocalIndexRead        = "8D41D1BED4873EDDECA4145283DB0580DC514D2E49F67ABEBFED61E00CD31394"
+        LocalIndexRead        = "CE4E9B56264D660EFD90BF99270FC9A5DB52C2F0215D15D291EA9407214B511C"
         ParkSharedSync        = "B3A64051813F12A24BD5E791D59CF7E2330FA84E965C9F44BD62366D4A81415E"
         IsolatedRead          = "4074D6ECAA620A9C80A5B6B535BB657E02DCE06A9DF97E35CA1EA47572D1060C"
         CmdletHelp            = "12505D0654AB0E97BD803A70B953BB0BBE2152836AAA1889744C1312EB215D62"
         TreeChildren          = "64E2C2F8DCE64FBF68A3079937B7671039CA4E71EC00805A7E9195CC9C483141"
         GlobalSearch          = "DFCA576AEC76E948F20D4E51AC47F657C4482BACD992D4A384E8E9FEC65A2819"
-        PermissionAnalysis    = "664513B3CF363C35CA895100374950039EAE9B69DD288AD5AE53F862EC10A340"
+        PermissionAnalysis    = "79F87877EC7512EC07088C0FEADD022181873112A71510AA8E90AF76791FC9BB"
         SelfCheck             = "C73BA6DA41221073BF1B56DA687BC8CF2A3250B5151F3D996C37EAFAA8E572B3"
         ReadBitLocker         = "55F469517F1AD169F93E772DADFDAED51DDCCF12BCE2313194D667A8A69EA485"
         ReadLaps              = "51B8A2DA023D46E85199FEF76EFBEC0C14E820322B7DF67B672E2556341C851A"
@@ -23232,7 +23609,7 @@ function Get-DomeniaWorkerOperationHashes {
         SoftwareInventory     = "214DA1A24E26D30BB0529B539B80E8B183BB195FE610F3B8C124E94724CCF5CE"
         LogonHarvest          = "ED7FFF55506C7BCE5567D65F683E10E9F28EA9771947F12A8DEEE1435994119A"
         ParkSweep             = "134ED776E45640FA67B7F51659711C33B37834105375CC4B083342469F2C26A9"
-        IndexBuild            = "C2B4799DD5CD09677CA4CFE861F40327CDBCCCC724CF6E8E2DC59DB566222365"
+        IndexBuild            = "98CC4F2C574C47C6F403E77E2B4BD45D07804B1A36CD62B3F06FB413090908EF"
         UserComputerProbe     = "EB7C36419C1B8B91AFB9ECE6B98D4E3FE663B87E4011F7D264D8AEDE7735E775"
         ComputerInventory     = "41F162A5B0870C10F1BAE378DC365CCC83582D6003435A86624752362B18E159"
         ComputerDiagnostics   = "9A5535EB658FA19AFC0905D57B339CEE0C14CCD4DA81AE2E0A527A86B5046608"
@@ -23261,16 +23638,16 @@ function Get-DomeniaWorkerOperationHashes {
         PresenceScan          = "E7F81414C29C1C8F1E91453D9EC4BA48B6F92F0AA0E2674C9EBF5C88437F4486"
         SelectedPresence      = "4ECADF4F231390182A3BF091EF8636B3536D7B3F8A28EF3984DE1E2D524D5BFA"
         StartupWarmCache      = "864735012ED29EBAF1B094DA12C1D44266933DC9D3D2046BD1E5D68AE58CA1A3"
-        LiveSelectedPing     = "E6C6A5D6C22D1A46937454909AF29E86360B94105BBBE9FFD80F7288791745A9"
-        LiveConsole          = "E6C6A5D6C22D1A46937454909AF29E86360B94105BBBE9FFD80F7288791745A9"
-        LiveCache            = "DDE5FCD862785432F805D446F3E16A28D3D60282A50892354C01BB2ED147196E"
+        LiveSelectedPing     = "30A1D683D40C65756DA9FF0EAD4BB2DDDF496A16A993CCEE2F95AF17DEBED391"
+        LiveConsole          = "30A1D683D40C65756DA9FF0EAD4BB2DDDF496A16A993CCEE2F95AF17DEBED391"
+        LiveCache            = "8E34CA87E392D94884B2DBA66443BD4E24252A20BC2B53441F555949EE3D9C88"
         LiveDirectoryCheck    = "49F6D4249F6465D6E461D3B04DD090F00477ABBD871683ECF3622714A2AB53CD"
         SessionsList         = "DD09187778C09CF31B0BDA41EAC88FF898D9484756AFDF2F3EE643E6B5318BF6"
         RemoteCredentialCheck = "9070C7A5D9460D0FD129FD67CD5070595DE4DED7CA7EE7573C65AF102B0E515B"
         ReceiptStore         = "45FE35D694782ECB8B13D14C5B3CD637FD5CA1C4B0E6CD278EEE3AC5804121D1"
         ScopeReconcile       = "5917B0E2AB92BA626EF3621CCCE7B9A4988B318E62834EFD02FD6AFEF5C0B650"
         DocumentStore        = "BFD83587CB1BA62BC141E5F0742C6C6453A561617ED157045F3B4E7AB11A14E7"
-        LocalStore           = "0073EF8956CCECDEE06A9BF2C39552AC149747FD1BCC6EC1EE0F835794423792"
+        LocalStore           = "3E1BC6AD69FAF9D2D4FE4AEE35FE3DF0726563FC6FEE8110E3F423DA3265B554"
         EngineSelfTest        = "40E2C89F858E22E1D221AC48DC04DD5BF627F1ACBC836AB48036C43DB9F7E1D1"
             EmbeddedDirectoryLookup = "2B3A888C7E1A97B4D523B0B3A408EF03AA5C0D0F95D534984B8EB3D581CDDD17"
         EmbeddedPathBrowse = "B643D707E242EC4416AD63622847DD7C39E5B53ED47CF64FECD56E22B5A82271"
@@ -23283,7 +23660,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "3C86A196B2E7F4D9D75EF087B5244D7D9227D68E4358F43E28681C5B41A93D87"
+    $expectedFingerprint = "ADFBCBFC220CC993A47AA1291CE072DE517B9672E07EB4395561212CD1C1F1BB"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -23337,7 +23714,7 @@ function New-DomeniaWorkerRunspace {
     # PF-05: the reads opened most often reuse a pool of prepared runspaces (pinned body and worker helpers loaded once)
     # instead of opening a runspace on the Dispatcher at each task. A write never uses a pool.
     # DemoDirectory answers every read in demonstration (in-memory directory, no network): pooled the same way.
-    $pooledOperations = @('GlobalSearch','LiveConsole','LiveSelectedPing','LiveCache','LiveDirectoryCheck','OpenAdObject','TreeChildren','ComputerPing','SelectedPresence','LocalIndexRead','LocalStore','DemoDirectory')
+    $pooledOperations = @('GlobalSearch','LiveConsole','LiveSelectedPing','LiveCache','LiveDirectoryCheck','OpenAdObject','TreeChildren','ComputerPing','SelectedPresence','LocalIndexRead','LocalQuery','LocalStore','DemoDirectory')
     $pooled = ($OperationId -in $pooledOperations) -and -not $IsWrite
     if ($pooled) {
         if ($null -eq $script:LiveWorkerPools) { $script:LiveWorkerPools=@{} }
@@ -24531,14 +24908,15 @@ function Fail-DomeniaOpenObjectTaskUi {
 
 function Open-AdObject {
     [CmdletBinding()]
-    param([string]$Dn,[string]$Type,[switch]$Force,[switch]$SelectionBound,[switch]$NoNavigate,[switch]$SuppressRemoteProbes)
+    param([string]$Dn,[string]$Type,[switch]$Force,[switch]$SelectionBound,[switch]$NoNavigate,[switch]$SuppressRemoteProbes,[string]$ObjectGuid='')
     $requestId = ''
     try {
         if ([string]::IsNullOrWhiteSpace($Dn) -or (Test-DomeniaAccessBusyWrite)) { return }
         if (-not (Test-DomeniaDraftNavigation -DN $Dn -Refresh:$Force)) { return }
         if ($SelectionBound -and -not (Test-DomeniaSelectionLoadCurrent)) { return }
         $identity = Get-DomeniaObjectReadIdentity
-        $expectedGuid = ''
+        $expectedGuid = $ObjectGuid
+        if($expectedGuid){$parsedGuid=[guid]::Empty;if(-not [guid]::TryParse($expectedGuid,[ref]$parsedGuid)){throw 'GUID de l objet invalide.'};$expectedGuid=$parsedGuid.ToString('D')}
         $token = ''
         if ($SelectionBound) { $expectedGuid=$script:SelectionLoad.Context.Guid; $token=$script:SelectionLoad.Token }
         $active = $script:CurrentObjectRequestState
@@ -24546,7 +24924,7 @@ function Open-AdObject {
             if (-not $NoNavigate) { Select-DomeniaWorkspace -Workspace 'WsObject' }
             return
         }
-        if (-not $Force -and $null -ne $script:SelectedObject -and $script:SelectedObject.DN -ieq $Dn -and -not $script:CurrentObjectRequestId) {
+        if (-not $Force -and -not $ObjectGuid -and $null -ne $script:SelectedObject -and $script:SelectedObject.DN -ieq $Dn -and -not $script:CurrentObjectRequestId) {
             $ready = ($null -eq $script:SelectionLoad -or $script:SelectionLoad.Phase -eq 'Ready')
             if ($ready) { if (-not $NoNavigate) { Select-DomeniaWorkspace -Workspace 'WsObject' }; return }
         }
@@ -25036,7 +25414,7 @@ function Initialize-DomeniaPresentation {
     Initialize-DomeniaGuard
     Initialize-DomeniaLive
     Initialize-DomeniaReconcile
-    Add-DomeniaUiLog -Area "Application" -Text "Domenia 1.0 RC1.16.0 pret."
+    Add-DomeniaUiLog -Area "Application" -Text "Domenia 1.0 pret."
 }
 
 function Assert-DomeniaCapability {
@@ -27164,7 +27542,16 @@ function Update-Dashboard {
         $script:Ctrl["TxtDashSelected"].Text=if($null -ne $script:SelectedObject){"$($script:SelectedObject.Type)  $($script:SelectedObject.Name)"}else{"Aucun"}
         if($script:Ctrl.ContainsKey("TxtDashRights")){$script:Ctrl["TxtDashRights"].Text=if($script:CurrentCapabilities.Count -gt 0){($script:CurrentCapabilities.GetEnumerator()|ForEach-Object{"$($_.Key)=$($_.Value)"}) -join "  "}else{"Analyse a l ouverture de l objet"}}
         if($script:Ctrl.ContainsKey("TxtDashTasks")){$script:Ctrl["TxtDashTasks"].Text="$(@($script:AsyncJobs.Keys).Count) tache(s)  ecriture=$($script:WriteState)"}
-        if($script:Ctrl.ContainsKey("TxtDashCache")){$script:Ctrl["TxtDashCache"].Text="Cache visite borne : $(@($script:VisitCache.Keys).Count)  aucun scan global"}
+        if($script:Ctrl.ContainsKey("TxtDashCache")){
+            $limit=[Math]::Max(1,[Math]::Min(100000,[int](Get-CfgValue 'Cache' 'MaxEntries' 500)))
+            $ttl=[Math]::Max(1,[Math]::Min(86400,[int](Get-CfgValue 'Cache' 'TtlSeconds' 90)))
+            $fresh=0;$oldest=$null;$now=Get-Date
+            foreach($item in $script:VisitCache.Values){if($item.Expires -gt $now){$fresh++;if($null -eq $oldest -or $item.Created -lt $oldest){$oldest=$item.Created}}}
+            $reads=[long]$script:CacheStats.Hits+[long]$script:CacheStats.Misses
+            $ratio=if($reads){[Math]::Round(100.0*$script:CacheStats.Hits/$reads).ToString()+' % réutilisées'}else{'aucune lecture'}
+            $age=if($null -ne $oldest){[Math]::Floor(($now-$oldest).TotalSeconds).ToString()+' s'}else{'—'}
+            $script:Ctrl['TxtDashCache'].Text=$fresh.ToString()+'/'+$limit+' entrées fraîches · '+($script:VisitCache.Count-$fresh)+' expirées · durée par défaut '+$ttl+' s'+[Environment]::NewLine+$ratio+' · '+$script:CacheStats.Evictions+' évictions · '+$script:CacheStats.Errors+' erreurs · plus ancienne : '+$age+[Environment]::NewLine+'Cache de visite en mémoire ; la base locale et les relevés sont conservés séparément.'
+        }
         if($script:Ctrl.ContainsKey("TxtDashSelfCheck")){$script:Ctrl["TxtDashSelfCheck"].Text=[string]$script:LastSelfCheckSummary}
         if($script:Ctrl.ContainsKey("TxtDashLinks")){$script:Ctrl["TxtDashLinks"].Text=(Get-AssociationStatsText)}
     }
@@ -27438,7 +27825,7 @@ function Initialize-Window {
 # Le login effectue un bind LDAP reel, lit RootDSE et valide la base detectee
 # dans un runspace borne afin que le thread WPF ne soit jamais bloque.
 # =====================================================================
-$script:DomeniaBuild = "Domenia 1.0 RC1.16.0"
+$script:DomeniaBuild = "Domenia 1.0"
 $script:FastLoginUi = $null
 $script:FastLoginState = $null
 $script:FastLoginTimer = $null
@@ -28357,6 +28744,12 @@ function Show-LoginWindow {
     $loginXaml = if ($mode -eq "Debug") { Get-DomeniaDebugLoginXaml } else { Get-DomeniaStandardLoginXaml }
     Write-DomeniaFastLoginLog -Stage "WINDOW_CREATE" -Detail "Construction du login $($script:DomeniaBuild) Mode=$mode Source=$($script:LoginWindowModeSource)"
     $window = ConvertFrom-DomeniaXaml -XamlText $loginXaml -Context "Fenetre de connexion ($mode)"
+    # Keep the standalone credential prompt visible for its entire lifetime. An embedded relogin
+    # must never change the main window's z-order. The flag is released when the prompt exits.
+    if (-not (Test-DomeniaMainHostAvailable)) {
+        $window.Topmost = $true
+        $window.ShowActivated = $true
+    }
     Set-AppWindowIcon $window
     if ($mode -eq "Standard" -and $null -ne (Get-Command Initialize-DomeniaUxLoginPresentation -ErrorAction SilentlyContinue)) {
         Initialize-DomeniaUxLoginPresentation -Window $window
@@ -28471,8 +28864,12 @@ function Show-LoginWindow {
         if ([string]::IsNullOrWhiteSpace($displayIdentity)) { $displayIdentity = "indisponible (SYSTEM, compte local ou compte ordinateur)" }
         Add-DomeniaFastLoginDetail "Session Windows : $displayIdentity"
         Add-DomeniaFastLoginDetail "Journal : $(Get-DomeniaFastLoginLogPath)"
-        # D089: first launch only (stand-alone login window); a relogin panel inside the main window activates nothing.
-        if (-not (Test-DomeniaMainHostAvailable)) { try { [void](Request-DomeniaWindowActivation -Window $script:FastLoginUi.Window -Trigger 'Launch') } catch { } }
+        # Request focus once; then preserve the login-only topmost exception even when Windows
+        # refuses activation. No repeated focus grabbing, and no promotion of an embedded relogin.
+        if (-not (Test-DomeniaMainHostAvailable)) {
+            try { [void](Request-DomeniaWindowActivation -Window $script:FastLoginUi.Window -Trigger 'Launch') } catch { }
+            $script:FastLoginUi.Window.Topmost = $true
+        }
         if ([bool]$script:DemoMode) { $script:FastLoginUi.Connect.Focus() | Out-Null }
         elseif (-not [string]::IsNullOrWhiteSpace([string]$script:FastLoginUi.Login.Text)) { $script:FastLoginUi.Password.Focus() | Out-Null }
         else { $script:FastLoginUi.Login.Focus() | Out-Null }
@@ -28483,7 +28880,13 @@ function Show-LoginWindow {
     if (-not (Test-DomeniaMainHostAvailable)) { try { Register-DomeniaUserSwitchWatch -Window $window } catch { } }
 
     Write-DomeniaFastLoginLog -Stage "WINDOW_SHOW" -Detail "ShowDialog"
-    [void](Invoke-DomeniaHostWindow -Window $window -ManagedCancel -PreserveTheme)
+    try {
+        [void](Invoke-DomeniaHostWindow -Window $window -ManagedCancel -PreserveTheme)
+    }
+    finally {
+        # Success, cancellation and a failed host all release the login-only z-order override.
+        $window.Topmost = $false
+    }
     $ok = [bool]$script:FastLoginState.LoginOk
     if ($null -ne $script:FastLoginState.Session) { Reset-DomeniaFastLoginAttempt -Kill -KeepDiagnostics }
     $script:FastLoginState.Password = ""
@@ -28545,7 +28948,8 @@ function Invoke-DomeniaSelfTest {
         'Get-DomeniaAttributeWriteStrategy','Get-DomeniaAtomicStrategy',
         'Get-DomeniaPersistenceState','Get-DomeniaPersistenceLabel',
         'ConvertTo-DomeniaLegacyNumber','ConvertTo-DomeniaLegacyDate','Read-DomeniaLegacySource','Get-DomeniaLegacySnapshot','New-DomeniaLegacyImportPlan','Invoke-DomeniaLegacyImport','Request-DomeniaLegacyImport',
-        'Show-DomeniaLegacyImportPlan','Start-DomeniaLegacyImportWork','Complete-DomeniaLegacyImportWork','Fail-DomeniaLegacyImportWork','Get-DomeniaMigrationWorkerCode'
+        'Show-DomeniaLegacyImportPlan','Start-DomeniaLegacyImportWork','Complete-DomeniaLegacyImportWork','Fail-DomeniaLegacyImportWork','Get-DomeniaMigrationWorkerCode',
+        'ConvertTo-DomeniaCompiledQuery','ConvertTo-DomeniaQueryRecords','Start-DomeniaQueryEvaluation'
     )
     $missing = @($requiredFunctions | Where-Object { $null -eq (Get-Command -Name $_ -CommandType Function -ErrorAction SilentlyContinue) })
     Add-SelfTestResult -Name 'Fonctions critiques' -Success ($missing.Count -eq 0) -Detail $(if($missing.Count -eq 0){'Toutes presentes.'}else{"Absentes : $($missing -join ', ')"})
@@ -28811,7 +29215,7 @@ try {
         Write-StartupTrace -Stage 'Stockage/Preferences' -Status 'WARN' -Detail $script:StoragePreferenceWarning
         Show-WarningBox -Message $script:StoragePreferenceWarning
     }
-    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 RC1.16.0 (2026.10.09-DOMENIA-1.0-RC1.16.0-D120)"
+    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.12-DOMENIA-1.0-RC1.17.0-D120)"
     # PF-19: duration of the package integrity check made by Domenia-Start.ps1 before the core (absent when launched otherwise).
     $startIntegrity = Get-Variable -Name DomeniaStartIntegrity -ValueOnly -ErrorAction SilentlyContinue
     if ($null -ne $startIntegrity) { Write-StartupTrace -Stage "Integrite du paquet" -Status "OK" -DurationMs ([long]$startIntegrity.DurationMs) -Detail ("{0} fichiers runtime controles (plafond {1}), {2} composants requis." -f $startIntegrity.Files,$startIntegrity.Limit,$startIntegrity.Required) }

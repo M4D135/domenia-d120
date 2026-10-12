@@ -1,0 +1,46 @@
+{
+  "Schema": "DomeniaProductionLayout/1",
+  "RequiredFiles": [
+    "Domenia-Start.ps1",
+    "Domenia-Modules.ps1",
+    "Domenia-Core.ps1",
+    "Domenia.ico",
+    "Domenia.config.json",
+    "Domenia.release.json",
+    "Domenia.login-mode.cfg",
+    "Domenia.theme.cfg",
+    "Domenia.ui-profile.cfg",
+    "Microsoft.ActiveDirectory.Management.dll",
+    "ActiveDirectoryPowerShellResources.dll",
+    "PsExec.exe",
+    "Support/DEBLOQUER_TOUT.cmd",
+    "Support/Debloquer-Paquet.ps1",
+    "Support/INSTALLER-MISE-A-JOUR.ps1",
+    "Support/.lifecycle.lock"
+  ],
+  "RuntimeDirectories": [
+    "modules",
+    "assets"
+  ],
+  "ExcludedDirectoryNames": [
+    "tests",
+    "data",
+    "history",
+    "backups",
+    "__pycache__",
+    ".git"
+  ],
+  "ExcludedFileNames": [
+    ".DS_Store",
+    "Thumbs.db",
+    "desktop.ini"
+  ],
+  "ExcludedExtensions": [
+    ".pyc",
+    ".tmp",
+    ".db",
+    ".sqlite",
+    ".sqlite3",
+    ".log"
+  ]
+}

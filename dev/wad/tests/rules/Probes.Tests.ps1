@@ -97,17 +97,17 @@ Test-Case -Id 'PRB-007' -Name 'CO-16 : tranches avec unites et bornes entieres, 
     Assert-Equal 5 $measured.Machines
     $labels = @($measured.Items | ForEach-Object { [string]$_.Label })
     Assert-Equal ([string][char]0x2264 + ' 4 Go') $labels[0]
-    Assert-Equal '5 à 8 Go' $labels[1]
-    Assert-Equal '9 à 16 Go' $labels[2]
+    Assert-Equal '> 4 à 8 Go' $labels[1]
+    Assert-Equal '> 8 à 16 Go' $labels[2]
     Assert-Equal '> 512 Go' $labels[-1]
     Assert-Equal '1|2|1' ((@($measured.Items | Select-Object -First 3) | ForEach-Object { [string][int]$_.Value }) -join '|')
     $free = Measure-DomeniaWidgetData -Probe (New-PrbProbe 'PercentFree') -Results @((New-PrbResult -Rows @(,@('8','100'))), (New-PrbResult -Rows @(,@('60','100')))) -Visual 'Column'
-    Assert-Equal ([string][char]0x2264 + ' 10 %|11 à 25 %|26 à 50 %|51 à 75 %|> 75 %') ((@($free.Items) | ForEach-Object { [string]$_.Label }) -join '|')
+    Assert-Equal ([string][char]0x2264 + ' 10 %|> 10 à 25 %|> 25 à 50 %|> 50 à 75 %|> 75 %') ((@($free.Items) | ForEach-Object { [string]$_.Label }) -join '|')
     $days = Measure-DomeniaWidgetData -Probe (New-PrbProbe 'DaysSince') -Results @(foreach ($d in @(3, 3, 10)) { New-PrbResult -Rows @(,@([datetime]::UtcNow.AddDays(0 - $d).ToString('o'))) }) -Visual 'Column'
     Assert-Equal '3 j|10 j' ((@($days.Items) | ForEach-Object { [string]$_.Label }) -join '|') 'peu de valeurs : une barre par valeur, avec son unite'
     Assert-Equal '2|1' ((@($days.Items) | ForEach-Object { [string][int]$_.Value }) -join '|')
     $many = Measure-DomeniaWidgetData -Probe (New-PrbProbe 'Number') -Results @(foreach ($n in @(1, 2, 3, 4, 5, 6, 7, 8, 37)) { New-PrbResult -Rows @(,@([string]$n)) }) -Visual 'Column'
-    Assert-Equal ([string][char]0x2264 + ' 10|11 à 20|21 à 30|> 30') ((@($many.Items) | ForEach-Object { [string]$_.Label }) -join '|') 'bornes arrondies'
+    Assert-Equal ([string][char]0x2264 + ' 10|> 10 à 20|> 20 à 30|> 30') ((@($many.Items) | ForEach-Object { [string]$_.Label }) -join '|') 'bornes arrondies'
     $text = Measure-DomeniaWidgetData -Probe (New-PrbProbe 'Text') -Results @((New-PrbResult -Rows @(,@('B'))), (New-PrbResult -Rows @(,@('A'))), (New-PrbResult -Rows @(,@('B'))), (New-PrbResult -Failure 'refus'), (New-PrbResult -Skipped 'DomainController')) -Visual 'Pie'
     Assert-Equal 'B|A' ((@($text.Items) | ForEach-Object { [string]$_.Label }) -join '|')
     Assert-Equal 3 $text.Machines 'poste en erreur non compte'

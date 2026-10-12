@@ -1,0 +1,10 @@
+Compatibilite 5.1 : 157 fichiers, 9 erreur(s), 0 avertissement(s).
+  tools/build_native.ps1:1 [Requires.Version] #requires -Version 7.4 depasse 5.1.
+  wad/tests/Test-DomeniaDnScopes.ps1:14 [Variable.CoreOnly] $IsMacOS n existe pas sous Windows PowerShell 5.1.
+  wad/tests/Test-DomeniaDnScopes.ps1:14 [Variable.CoreOnly] $IsLinux n existe pas sous Windows PowerShell 5.1.
+  wad/tests/Test-DomeniaIndexPersistence.ps1:15 [Variable.CoreOnly] $IsMacOS n existe pas sous Windows PowerShell 5.1.
+  wad/tests/Test-DomeniaIndexPersistence.ps1:16 [Variable.CoreOnly] $IsLinux n existe pas sous Windows PowerShell 5.1.
+  wad/tests/Test-DomeniaIndexSorting.ps1:14 [Variable.CoreOnly] $IsMacOS n existe pas sous Windows PowerShell 5.1.
+  wad/tests/Test-DomeniaIndexSorting.ps1:14 [Variable.CoreOnly] $IsLinux n existe pas sous Windows PowerShell 5.1.
+  wad/tests/Test-DomeniaScale.ps1:13 [Variable.CoreOnly] $IsMacOS n existe pas sous Windows PowerShell 5.1.
+  wad/tests/Test-DomeniaScale.ps1:14 [Variable.CoreOnly] $IsLinux n existe pas sous Windows PowerShell 5.1.

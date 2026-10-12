@@ -1,0 +1,1249 @@
+{
+  "schema_version": 1,
+  "product": "Domenia",
+  "documented_version": "1.0",
+  "reviewed_at_utc": "2026-10-12T18:33:42.450196+00:00",
+  "scope": "Coverage ledger of the initial 30 improvements and subsequent requests. Implementation is separate from native Windows/AD qualification.",
+  "counts": {
+    "done": 30,
+    "partial": 0,
+    "pending": 0
+  },
+  "count_note": "30 points implémentés et documentation finale relue. Qualification formelle sur un domaine réel distincte et non effectuée.",
+  "points": [
+    {
+      "id": 1,
+      "title": "Lectures partielles et checkpoints fiables",
+      "implementation_status": "done",
+      "source_files": [
+        "dev/wad/Domenia-Core.ps1",
+        "dev/wad/modules/Domenia-Storage.Worker.ps1"
+      ],
+      "implemented": [
+        "Les résultats interrompus alimentent une tentative distincte et peuvent fusionner les objets lus.",
+        "Le retrait des absents et le checkpoint exigent une lecture complète ; le repère est capturé avant les lectures."
+      ],
+      "evidence_ids": [
+        "index-155",
+        "engine-32"
+      ],
+      "limits": [
+        "Un arrêt reprend depuis le dernier repère validé ; aucun cookie LDAP durable de reprise au milieu d’une page n’est livré."
+      ],
+      "remaining_work": [],
+      "windows_ad_qualification": "Not established by the local evidence cited here; see release qualification separately."
+    },
+    {
+      "id": 2,
+      "title": "Fraîcheur et couverture des données",
+      "implementation_status": "done",
+      "source_files": [
+        "dev/wad/Domenia-Core.ps1",
+        "dev/wad/modules/Domenia-BoardFleet.Model.ps1",
+        "dev/wad/modules/Domenia-Dashboard.UI.ps1"
+      ],
+      "implemented": [
+        "Dates du domaine, couverture OU et dernière tentative sont séparées.",
+        "Statistiques et messages distinguent base vide, inaccessible, incomplète et données anciennes."
+      ],
+      "evidence_ids": [
+        "index-155",
+        "board-22",
+        "scale-10000"
+      ],
+      "limits": [
+        "La date de lecture ne rend pas un attribut AD répliqué instantané ; les données visibles dépendent des droits du compte."
+      ],
+      "remaining_work": [],
+      "windows_ad_qualification": "Not established by the local evidence cited here; see release qualification separately."
+    },
+    {
+      "id": 3,
+      "title": "Objets déplacés, supprimés et désactivés",
+      "implementation_status": "done",
+      "source_files": [
+        "dev/wad/Domenia-Core.ps1",
+        "dev/wad/modules/Domenia-Storage.Worker.ps1",
+        "dev/wad/tests/Test-DomeniaIndexPersistence.ps1"
+      ],
+      "implemented": [
+        "Un delta complet est suivi d’un recensement GUID + DN léger sur la même instance de contrôleur ; les absents sont retirés du cache local.",
+        "Une lecture OU complète réconcilie exactement son sous-arbre ou son premier niveau ; les DN avec virgules et antislashs échappés sont pris en compte.",
+        "Les objets désactivés restent recensés ; déplacements, écritures locales plus récentes et faits associés sont préservés ou actualisés selon leur date."
+      ],
+      "evidence_ids": [
+        "index-155"
+      ],
+      "limits": [
+        "Un recensement partiel, invalide ou vide ne valide aucune absence ni checkpoint. Un domaine vide exige une reconstruction complète explicite.",
+        "Ce comportement concerne le cache visible au compte connecté, sans suppression dans AD ni dans les associations/historiques/relevés conservés."
+      ],
+      "remaining_work": [],
+      "windows_ad_qualification": "Not established by the local evidence cited here; see release qualification separately."
+    },
+    {
+      "id": 4,
+      "title": "SQLite atomique, lots isolés et arrêt/reprise",
+      "implementation_status": "done",
+      "source_files": [
+        "dev/wad/Domenia-Core.ps1",
+        "dev/wad/modules/Domenia-Storage.Worker.ps1",
+        "dev/wad/modules/Domenia-Storage.UI.ps1"
+      ],
+      "implemented": [
+        "Transaction unique pour objets, faits, réconciliation et repère ; annulation complète sur incohérence.",
+        "File FIFO, lots IndexBulk isolés, spool ancré au dossier de base et vérification SHA-256 + compteurs."
+      ],
+      "evidence_ids": [
+        "index-155",
+        "engine-32"
+      ],
+      "limits": [
+        "Pas de reprise d’un curseur LDAP interrompu ; le dernier checkpoint validé reste le point de reprise."
+      ],
+      "remaining_work": [],
+      "windows_ad_qualification": "Not established by the local evidence cited here; see release qualification separately."
+    },
+    {
+      "id": 5,
+      "title": "Sauvegarde vérifiée, restauration et corruption",
+      "implementation_status": "done",
+      "source_files": [
+        "dev/wad/Domenia-Core.ps1",
+        "dev/wad/modules/Domenia-Storage.Worker.ps1",
+        "guides/administrateur.md"
+      ],
+      "implemented": [
+        "API de sauvegarde SQLite, quick_check, copie finale atomique et protection de la base active/journaux.",
+        "Corruption refusée sans déplacement automatique ; procédure de restauration manuelle documentée, conservation préalable de la base et de ses journaux.",
+        "La copie exportée a été réouverte comme l’application et ses 601 objets ainsi que le checkpoint 70 relus."
+      ],
+      "evidence_ids": [
+        "index-155"
+      ],
+      "limits": [
+        "Pas d’assistant graphique de restauration ni de sauvegarde périodique automatique.",
+        "La relecture de restauration locale utilise l’ouverture normale SQLite ; le premier accès strictement ReadOnly à la copie WAL a échoué sur la bibliothèque Apple. Cela ne qualifie ni un support en lecture seule ni Windows."
+      ],
+      "remaining_work": [],
+      "windows_ad_qualification": "Not established by the local evidence cited here; see release qualification separately."
+    },
+    {
+      "id": 6,
+      "title": "Requêtes AD bornées, collecte groupée, inconnu distinct du négatif",
+      "implementation_status": "done",
+      "source_files": [
+        "dev/wad/Domenia-Core.ps1",
+        "dev/wad/modules/Domenia-Cache.Model.ps1",
+        "dev/wad/modules/Domenia-Park.Model.ps1",
+        "dev/wad/modules/Domenia-Park.UI.ps1",
+        "dev/wad/modules/Domenia-Engine.Worker.ps1"
+      ],
+      "implemented": [
+        "Pagination LDAP, budgets temps, quota optionnel et cache fournisseur désactivé.",
+        "Collecte limitée à 1–8 tâches concurrentes, lectures CIM partagées et résultats inconnus distincts des constats négatifs."
+      ],
+      "evidence_ids": [
+        "index-155",
+        "engine-32",
+        "rules-mac",
+        "scale-10000"
+      ],
+      "limits": [
+        "Un environnement AD/WMI réel reste nécessaire pour qualifier latences, droits et contrôleurs du parc."
+      ],
+      "remaining_work": [],
+      "windows_ad_qualification": "Not established by the local evidence cited here; see release qualification separately."
+    },
+    {
+      "id": 7,
+      "title": "Protection des opérations critiques",
+      "implementation_status": "done",
+      "source_files": [
+        "dev/wad/modules/Domenia-Safety.Model.ps1",
+        "dev/wad/Domenia-Core.ps1",
+        "dev/wad/modules/Domenia-Query.UI.ps1",
+        "dev/wad/tests/rules/Safety.Tests.ps1"
+      ],
+      "implemented": [
+        "Cible identifiée, revalidation des préconditions, confirmation, verrouillage et reçu durable avant action.",
+        "Résultat incertain conservé sans renvoi automatique d’une opération critique ; secrets expurgés des reçus."
+      ],
+      "evidence_ids": [
+        "rules-mac",
+        "query-105"
+      ],
+      "limits": [
+        "Les permissions et effets AD réels ne sont pas établis par ces tests locaux."
+      ],
+      "remaining_work": [],
+      "windows_ad_qualification": "Not established by the local evidence cited here; see release qualification separately."
+    },
+    {
+      "id": 8,
+      "title": "Clés de cache, TTL et invalidations",
+      "implementation_status": "done",
+      "source_files": [
+        "dev/wad/modules/Domenia-Cache.Model.ps1",
+        "dev/wad/modules/Domenia-Live.Model.ps1",
+        "dev/wad/modules/Domenia-Park.Model.ps1",
+        "dev/wad/Domenia-Core.ps1"
+      ],
+      "implemented": [
+        "Clés incluant contexte/identité, TTL par usage, péremption et invalidation lors des changements de GUID/USN.",
+        "Réutilisation des mesures selon leur coût et fraîcheur ; LRU mémoire borné."
+      ],
+      "evidence_ids": [
+        "index-155",
+        "engine-32",
+        "rules-mac"
+      ],
+      "limits": [
+        "Le cache reste fini : mémoire, budget disque et rétention sont explicitement bornés."
+      ],
+      "remaining_work": [],
+      "windows_ad_qualification": "Not established by the local evidence cited here; see release qualification separately."
+    },
+    {
+      "id": 9,
+      "title": "Métriques du cache et purge sûre",
+      "implementation_status": "done",
+      "source_files": [
+        "dev/wad/Domenia-Core.ps1",
+        "dev/wad/modules/Domenia-Cache.Model.ps1",
+        "dev/wad/modules/Domenia-Storage.UI.ps1",
+        "dev/wad/modules/Domenia-Storage.Worker.ps1"
+      ],
+      "implemented": [
+        "Âge, entrées fraîches/expirées, hits, erreurs et évictions visibles.",
+        "Purge préparée, catégories ciblées, confirmation liée à une empreinte de sélection et suppression transactionnelle."
+      ],
+      "evidence_ids": [
+        "rules-mac",
+        "engine-32"
+      ],
+      "limits": [
+        "La purge de cache ne vaut pas suppression des journaux, réglages ou associations manuelles."
+      ],
+      "remaining_work": [],
+      "windows_ad_qualification": "Not established by the local evidence cited here; see release qualification separately."
+    },
+    {
+      "id": 10,
+      "title": "Réduction des copies et relectures répétées",
+      "implementation_status": "done",
+      "source_files": [
+        "dev/wad/modules/Domenia-Engine.Worker.ps1",
+        "dev/wad/modules/Domenia-Park.Model.ps1",
+        "dev/native/ObservationReader.cs",
+        "dev/native/ProbeAggregation.cs"
+      ],
+      "implemented": [
+        "Décodage natif des identités, JSON conservé brut puis décodé seulement pour les tâches admises.",
+        "Libération des buffers obsolètes et lecture CIM partagée avec nombre total exact, détails bornés.",
+        "Une observation absente de la map de recherche ne parcourt plus toute la grille ; accès direct pour les identités présentes."
+      ],
+      "evidence_ids": [
+        "native-1099",
+        "engine-32",
+        "scale-10000"
+      ],
+      "limits": [
+        "Le dernier scénario synthétique de 10 000 objets et 78 sondes conservait 704,3 Mio de mémoire gérée au point de mesure ; aucune capacité infinie ni plafond de RAM garanti."
+      ],
+      "remaining_work": [],
+      "windows_ad_qualification": "Not established by the local evidence cited here; see release qualification separately."
+    },
+    {
+      "id": 11,
+      "title": "Lots SQLite, index et agrégats",
+      "implementation_status": "done",
+      "source_files": [
+        "dev/wad/Domenia-Core.ps1",
+        "dev/wad/modules/Domenia-Storage.Worker.ps1",
+        "dev/wad/modules/Domenia-Engine.Worker.ps1",
+        "dev/wad/modules/Domenia-BoardFleet.Model.ps1"
+      ],
+      "implemented": [
+        "Écriture en lots de 256 lignes, index des identités/champs de recherche et agrégats SQL.",
+        "Recensement et objets traités en flux depuis le spool ; tableaux temporaires dans la transaction de réconciliation."
+      ],
+      "evidence_ids": [
+        "index-155",
+        "scale-10000"
+      ],
+      "limits": [
+        "Le banc synthétique local mesure SQLite ; il ne prédit pas un stockage réseau ou un disque Windows différent."
+      ],
+      "remaining_work": [],
+      "windows_ad_qualification": "Not established by the local evidence cited here; see release qualification separately."
+    },
+    {
+      "id": 12,
+      "title": "Workers, réactivité UI, heartbeat et annulation",
+      "implementation_status": "done",
+      "source_files": [
+        "dev/wad/modules/Domenia-Engine.Model.ps1",
+        "dev/wad/modules/Domenia-Engine.UI.ps1",
+        "dev/wad/modules/Domenia-Engine.Worker.ps1",
+        "dev/wad/modules/Domenia-Query.UI.ps1",
+        "dev/wad/Domenia-Core.ps1"
+      ],
+      "implemented": [
+        "Travail asynchrone, budget de tick, annulation et protection contre callbacks d’un ancien contexte.",
+        "Réessais de recherche liés à la génération, admission du stockage suivie sans perte silencieuse des lots."
+      ],
+      "evidence_ids": [
+        "engine-32",
+        "live-5",
+        "persistence-rules-3",
+        "query-105",
+        "windows-native-final"
+      ],
+      "limits": [
+        "Contrôles WPF natifs exécutés en session 0 dans la VM ; fluidité avec un annuaire et réseau réels non mesurée."
+      ],
+      "remaining_work": [],
+      "windows_ad_qualification": "Not established by the local evidence cited here; see release qualification separately."
+    },
+    {
+      "id": 13,
+      "title": "Phases de collecte, progression, OU, quotas et erreurs",
+      "implementation_status": "done",
+      "source_files": [
+        "dev/wad/Domenia-Core.ps1",
+        "dev/wad/modules/Domenia-Storage.UI.ps1"
+      ],
+      "implemented": [
+        "Lecture, recensement GUID, empreinte, validation et écriture distingués.",
+        "Compte des objets séparé du compte des identités ; limites et erreurs conservent une indication de lecture partielle.",
+        "OU choisie prioritaire, demande de sélection si absente ; domaine complet séparé, avertissement long/occasionnel et confirmation explicite."
+      ],
+      "evidence_ids": [
+        "index-155",
+        "engine-32",
+        "index-sort-545",
+        "index-actions-18"
+      ],
+      "limits": [
+        "Un total n’est pas inventé lorsque le fournisseur ne le connaît pas avant la fin du parcours."
+      ],
+      "remaining_work": [],
+      "windows_ad_qualification": "Not established by the local evidence cited here; see release qualification separately."
+    },
+    {
+      "id": 14,
+      "title": "Attributs AD minimaux et lectures coûteuses ciblées",
+      "implementation_status": "done",
+      "source_files": [
+        "dev/wad/Domenia-Core.ps1",
+        "dev/wad/modules/Domenia-Probes.Model.ps1",
+        "dev/wad/modules/Domenia-Engine.Worker.ps1"
+      ],
+      "implemented": [
+        "Projections d’attributs dédiées par type ; le recensement ne relit que GUID et DN.",
+        "L’index utilise les métadonnées d’expiration LAPS sans mots de passe ; les sondes coûteuses restent sélectionnables."
+      ],
+      "evidence_ids": [
+        "index-155",
+        "rules-mac",
+        "engine-32"
+      ],
+      "limits": [
+        "Toutes les 78 sondes ne sont pas exécutées systématiquement à chaque rafraîchissement."
+      ],
+      "remaining_work": [],
+      "windows_ad_qualification": "Not established by the local evidence cited here; see release qualification separately."
+    },
+    {
+      "id": 15,
+      "title": "Dashboard autonome et consultation détaillée",
+      "implementation_status": "done",
+      "source_files": [
+        "dev/wad/modules/Domenia-Dashboard.UI.ps1",
+        "dev/wad/modules/Domenia-Query.UI.ps1",
+        "dev/wad/modules/Domenia-Widgets.UI.ps1",
+        "dev/wad/Domenia-Core.ps1"
+      ],
+      "implemented": [
+        "Détails de widgets consultables localement dans l’atelier avec liste des objets et fiche détaillée.",
+        "Périmètre et consultation du tableau de bord indépendants des écrans de recherche/navigation."
+      ],
+      "evidence_ids": [
+        "query-105",
+        "board-22",
+        "scale-10000"
+      ],
+      "limits": [
+        "Une action sur AD exige toujours une identité actuelle et les autorisations nécessaires."
+      ],
+      "remaining_work": [],
+      "windows_ad_qualification": "Not established by the local evidence cited here; see release qualification separately."
+    },
+    {
+      "id": 16,
+      "title": "Comptages cohérents avec portée, source et date",
+      "implementation_status": "done",
+      "source_files": [
+        "dev/wad/modules/Domenia-BoardFleet.Model.ps1",
+        "dev/wad/modules/Domenia-Dashboard.UI.ps1",
+        "dev/wad/modules/Domenia-Query.UI.ps1",
+        "dev/wad/Domenia-Core.ps1"
+      ],
+      "implemented": [
+        "Tous les postes recensés incluent les désactivés ; l’éligibilité à la collecte est distincte.",
+        "Portée OU, source locale/annuaire, date et inconnus sont explicités."
+      ],
+      "evidence_ids": [
+        "scale-10000",
+        "index-155",
+        "query-105"
+      ],
+      "limits": [
+        "Les nombres décrivent le périmètre visible et la date de lecture, pas un inventaire omniscient du domaine."
+      ],
+      "remaining_work": [],
+      "windows_ad_qualification": "Not established by the local evidence cited here; see release qualification separately."
+    },
+    {
+      "id": 17,
+      "title": "Sélecteurs OU indépendants et pratiques",
+      "implementation_status": "done",
+      "source_files": [
+        "dev/wad/Domenia-Core.ps1",
+        "dev/wad/modules/Domenia-Dashboard.UI.ps1",
+        "dev/wad/modules/Domenia-Query.UI.ps1"
+      ],
+      "implemented": [
+        "Portées propres à Recherche, Parc/atelier et Outils/Base.",
+        "Choix de racine, descendant et portée conservés dans le contexte approprié.",
+        "OU choisie prioritaire, demande de sélection si absente ; domaine complet séparé, avertissement long/occasionnel et confirmation explicite."
+      ],
+      "evidence_ids": [
+        "query-105",
+        "engine-32",
+        "scale-10000",
+        "index-actions-18"
+      ],
+      "limits": [
+        "Les sélecteurs conservent des périmètres distincts ; contrôlez la portée annoncée avant de comparer deux vues."
+      ],
+      "remaining_work": [],
+      "windows_ad_qualification": "Not established by the local evidence cited here; see release qualification separately."
+    },
+    {
+      "id": 18,
+      "title": "États vide, incomplet, ancien ou inconnu explicites",
+      "implementation_status": "done",
+      "source_files": [
+        "dev/wad/Domenia-Core.ps1",
+        "dev/wad/modules/Domenia-BoardFleet.Model.ps1",
+        "dev/wad/modules/Domenia-Probes.Model.ps1",
+        "dev/wad/modules/Domenia-Query.UI.ps1"
+      ],
+      "implemented": [
+        "Messages et données inconnues séparés des zéros ; freshness et tentatives partielles visibles.",
+        "Une base inaccessible n’est pas présentée comme vide, et une absence de droit n’est pas assimilée à un succès négatif."
+      ],
+      "evidence_ids": [
+        "index-155",
+        "rules-mac",
+        "query-105"
+      ],
+      "limits": [
+        "La qualité des messages réseau dépend aussi de l’erreur réellement remontée par le fournisseur."
+      ],
+      "remaining_work": [],
+      "windows_ad_qualification": "Not established by the local evidence cited here; see release qualification separately."
+    },
+    {
+      "id": 19,
+      "title": "Correspondance exacte entre tuile et objets",
+      "implementation_status": "done",
+      "source_files": [
+        "dev/wad/modules/Domenia-Widgets.UI.ps1",
+        "dev/wad/modules/Domenia-Query.UI.ps1",
+        "dev/wad/modules/Domenia-BoardFleet.Model.ps1",
+        "dev/wad/modules/Domenia-Probes.Model.ps1"
+      ],
+      "implemented": [
+        "Clic et Entrée ouvrent le détail sur les GUID/segments réellement comptés, y compris inconnus et catégories Autres.",
+        "Les filtres de sondes multivaluées dédupliquent les postes ; les compteurs d’attention ouvrent les cibles exactes.",
+        "Projection et agrégation alignées sur les séparateurs DN réels : virgules/antislashs échappés, hexadécimal et Unicode ; fonctions Search conservées sans collision de nom."
+      ],
+      "evidence_ids": [
+        "scale-10000",
+        "query-105",
+        "board-22",
+        "dn-284"
+      ],
+      "limits": [
+        "Les courbes historiques stockent des agrégats quotidiens ; leur détail présente ces agrégats, sans inventer les identités d’anciens postes."
+      ],
+      "remaining_work": [],
+      "windows_ad_qualification": "Not established by the local evidence cited here; see release qualification separately."
+    },
+    {
+      "id": 20,
+      "title": "Libellés français homogènes",
+      "implementation_status": "done",
+      "source_files": [
+        "dev/wad/Domenia-Core.ps1",
+        "dev/wad/modules/Domenia-Widgets.UI.ps1",
+        "dev/wad/modules/Domenia-Query.UI.ps1"
+      ],
+      "implemented": [
+        "Les nouveaux parcours, commandes, détails et exports utilisent des libellés français.",
+        "Les libellés hérités relevés dans cette revue ont été harmonisés ; clés techniques de compatibilité conservées.",
+        "Derniers libellés signalés corrigés : Vérifier lʼapplication, Représentation, Déplacer ; citations et tests adaptés."
+      ],
+      "evidence_ids": [
+        "source-review",
+        "windows-native-final"
+      ],
+      "limits": [
+        "Relecture visuelle de23 captures WPF natives ; les libellés d’erreurs non rencontrées dépendent des fournisseurs."
+      ],
+      "remaining_work": [],
+      "windows_ad_qualification": "Not established by the local evidence cited here; see release qualification separately."
+    },
+    {
+      "id": 21,
+      "title": "Résultats compacts et détails repliables",
+      "implementation_status": "done",
+      "source_files": [
+        "dev/wad/Domenia-Core.ps1",
+        "dev/wad/modules/Domenia-Query.UI.ps1",
+        "dev/wad/modules/Domenia-Widgets.UI.ps1"
+      ],
+      "implemented": [
+        "Pagination, densité des résultats, détails repliables et profils Essentiel/Expert.",
+        "Navigation, panneau latéral et en-têtes adaptés aux dimensions de fenêtre.",
+        "Base : Détail sur une ligne, ellipse et MaxHeight 28, largeur minimale 260 ; réglages défilants et table redimensionnable."
+      ],
+      "evidence_ids": [
+        "query-105",
+        "scale-10000",
+        "source-review",
+        "index-sort-545",
+        "windows-native-final"
+      ],
+      "limits": [
+        "Mesure native à 1080p :11 lignes entières ; à 720p :3 lignes entières. La hauteur des clips ancêtres est prise en compte."
+      ],
+      "remaining_work": [],
+      "windows_ad_qualification": "Not established by the local evidence cited here; see release qualification separately."
+    },
+    {
+      "id": 22,
+      "title": "Tri typé global des dates et tailles",
+      "implementation_status": "done",
+      "source_files": [
+        "dev/wad/Domenia-Core.ps1",
+        "dev/wad/modules/Domenia-Engine.Worker.ps1",
+        "dev/wad/modules/Domenia-Engine.UI.ps1",
+        "dev/wad/modules/Domenia-Query.UI.ps1",
+        "dev/wad/modules/Domenia-Query.Worker.ps1",
+        "dev/wad/tests/Test-DomeniaIndexSorting.ps1"
+      ],
+      "implemented": [
+        "Atelier : tri typé sur les résultats complets avant pagination.",
+        "Base : tri SQL global limité à une liste blanche de colonnes, dates FR/ISO chronologiques, inconnus en fin et ordre stable par identité.",
+        "En-têtes, pagination, réessais et génération utilisent le même état ; retour au tri par pertinence explicite."
+      ],
+      "evidence_ids": [
+        "index-sort-545",
+        "query-105",
+        "scale-10000",
+        "windows-native-final"
+      ],
+      "limits": [
+        "545 contrôles réussis sous Windows PowerShell 5.1 avec SQLite ; sans annuaire réel."
+      ],
+      "remaining_work": [],
+      "windows_ad_qualification": "Not established by the local evidence cited here; see release qualification separately."
+    },
+    {
+      "id": 23,
+      "title": "Virtualisation, colonnes et DPI",
+      "implementation_status": "done",
+      "source_files": [
+        "dev/wad/Domenia-Core.ps1",
+        "dev/tools/launcher/build.py",
+        "dev/wad/modules/Domenia-Query.UI.ps1"
+      ],
+      "implemented": [
+        "Virtualisation des lignes/colonnes et recyclage, pages de 200 objets, arrondi du layout.",
+        "Le manifeste du lanceur déclare dpiAware=true ; largeur et panneaux adaptatifs sont présents.",
+        "Colonne Détail : largeur minimale 260 et texte sur une ligne borné à 28 pixels ; largeurs minimales des autres colonnes et défilement horizontal.",
+        "Réglages défilants, état et progression prioritaires, maintenance repliable ; recherche/pagination fixées avec le tableau et répartition verticale redimensionnable."
+      ],
+      "evidence_ids": [
+        "scale-10000",
+        "source-review",
+        "windows-native-final"
+      ],
+      "limits": [
+        "1080p et720p contrôlés nativement en VM. Qualification multi-écrans et changements de DPI à chaud non établie ; le manifeste n’annonce pas PerMonitorV2."
+      ],
+      "remaining_work": [],
+      "windows_ad_qualification": "Not established by the local evidence cited here; see release qualification separately."
+    },
+    {
+      "id": 24,
+      "title": "Contraste, clavier et accessibilité",
+      "implementation_status": "done",
+      "source_files": [
+        "dev/wad/Domenia-Core.ps1",
+        "dev/wad/modules/Domenia-Widgets.UI.ps1",
+        "dev/wad/modules/Domenia-Query.UI.ps1",
+        "dev/wad/modules/Domenia-Charts.UI.ps1"
+      ],
+      "implemented": [
+        "Palettes de thème, focus clavier, accès Entrée aux widgets, raccourcis et noms/aides AutomationProperties."
+      ],
+      "evidence_ids": [
+        "rules-mac",
+        "query-105",
+        "source-review"
+      ],
+      "limits": [
+        "Aucune certification d’accessibilité, de lecteur d’écran ou de conformité WCAG n’est revendiquée.",
+        "Le comportement avec les thèmes de contraste élevé du système reste une qualification complémentaire."
+      ],
+      "remaining_work": [],
+      "windows_ad_qualification": "Not established by the local evidence cited here; see release qualification separately."
+    },
+    {
+      "id": 25,
+      "title": "Cartes, graphiques, confirmations et erreurs utiles",
+      "implementation_status": "done",
+      "source_files": [
+        "dev/wad/modules/Domenia-Widgets.UI.ps1",
+        "dev/wad/modules/Domenia-Charts.UI.ps1",
+        "dev/wad/modules/Domenia-Boards.Model.ps1",
+        "dev/wad/modules/Domenia-Safety.Model.ps1"
+      ],
+      "implemented": [
+        "Widgets configurables, graphiques, déplacement et dimensionnement, glisser-déposer et commandes clavier.",
+        "Disposition persistée, annulation, confirmations des actions critiques et erreurs explicites."
+      ],
+      "evidence_ids": [
+        "board-22",
+        "rules-mac",
+        "query-105",
+        "windows-native-final"
+      ],
+      "limits": [
+        "Widgets et déplacement contrôlés par événements WPF routés ; manipulation humaine dans une session interactive non qualifiée."
+      ],
+      "remaining_work": [],
+      "windows_ad_qualification": "Not established by the local evidence cited here; see release qualification separately."
+    },
+    {
+      "id": 26,
+      "title": "Exports français exploitables",
+      "implementation_status": "done",
+      "source_files": [
+        "dev/wad/Domenia-Core.ps1",
+        "dev/wad/modules/Domenia-Query.UI.ps1"
+      ],
+      "implemented": [
+        "En-têtes affichés français, CSV UTF-8 avec séparateur point-virgule et protection des cellules interprétables comme formules.",
+        "Le bouton de l’atelier annonce explicitement l’export de la page affichée."
+      ],
+      "evidence_ids": [
+        "query-105",
+        "rules-mac",
+        "source-review"
+      ],
+      "limits": [
+        "Pas de promesse d’export de tous les résultats lorsque le bouton indique « cette page »."
+      ],
+      "remaining_work": [],
+      "windows_ad_qualification": "Not established by the local evidence cited here; see release qualification separately."
+    },
+    {
+      "id": 27,
+      "title": "Tests et prévention des régressions",
+      "implementation_status": "done",
+      "source_files": [
+        "dev/wad/tests/Test-DomeniaIndexPersistence.ps1",
+        "dev/wad/tests/Test-DomeniaQuery.ps1",
+        "dev/wad/tests/Test-DomeniaNative.ps1",
+        "dev/wad/tests/Test-DomeniaScale.ps1",
+        "dev/tools/tests/test_classic_packaging.py"
+      ],
+      "implemented": [
+        "Tests des règles, workers réels, SQLite, cache, requêtes, contrôles d’opérations et packaging.",
+        "Les limites de plateforme sont indiquées séparément ; les résultats Mac ne sont pas renommés succès Windows."
+      ],
+      "evidence_ids": [
+        "index-155",
+        "query-105",
+        "native-1099",
+        "engine-32",
+        "rules-mac",
+        "classic-22",
+        "guard-50",
+        "windows-native-final"
+      ],
+      "limits": [
+        "Les 25 échecs COM/SID de l’ancien banc Mac sont distingués du banc natif Windows Rules 547/547 réussi.",
+        "Les suites Windows portent sur plusieurs archives liées par comparaison runtime/AST, puis reprises ciblées. Ce n’est pas une exécution exhaustive de toutes les suites sur chaque archive."
+      ],
+      "remaining_work": [],
+      "windows_ad_qualification": "Not established by the local evidence cited here; see release qualification separately."
+    },
+    {
+      "id": 28,
+      "title": "Mesures de performances et parc de 5 000 postes ou plus",
+      "implementation_status": "done",
+      "source_files": [
+        "dev/wad/tests/Test-DomeniaScale.ps1",
+        "dev/wad/tests/Test-DomeniaIndexPersistence.ps1"
+      ],
+      "implemented": [
+        "10 000 objets, 78 sondes, 29 widgets et toutes les pages de résultats vérifiés sur SQLite local.",
+        "Nouveau recensement de réconciliation exécuté sur 5 000 objets, avec validation du dernier GUID, du seul absent et du déplacement."
+      ],
+      "evidence_ids": [
+        "scale-10000",
+        "index-155"
+      ],
+      "limits": [
+        "Aucune latence AD/WMI réelle ou fluidité WPF déduite des chiffres locaux.",
+        "Limites mémoire/disque restent physiques ; le cache ne stocke pas une infinité d’objets."
+      ],
+      "remaining_work": [],
+      "windows_ad_qualification": "Not established by the local evidence cited here; see release qualification separately."
+    },
+    {
+      "id": 29,
+      "title": "Réduction de duplication et retrait de code abandonné",
+      "implementation_status": "done",
+      "source_files": [
+        "dev/vendor/m4d-admin-common/lock.json",
+        "dev/wad/modules/Domenia-Query.Model.ps1",
+        "dev/tools/Production.Source.ps1",
+        "dev/tools/update_migration_worker.py",
+        "dev/tools/migration-worker.json"
+      ],
+      "implemented": [
+        "Contrat Query commun versionné, code natif ciblé et template partagé de migration.",
+        "Packagers classiques alignés sur le même inventaire ; chemins d’archive MWAD abandonnés retirés des exécutables examinés."
+      ],
+      "evidence_ids": [
+        "classic-22",
+        "guard-50",
+        "source-review",
+        "common-provenance"
+      ],
+      "limits": [
+        "Il s’agit d’un nettoyage ciblé et vérifié ; le gros Core historique subsiste et aucun refactoring exhaustif n’est revendiqué."
+      ],
+      "remaining_work": [],
+      "windows_ad_qualification": "Not established by the local evidence cited here; see release qualification separately."
+    },
+    {
+      "id": 30,
+      "title": "Documentation DOCX/PDF V1.0",
+      "implementation_status": "done",
+      "source_files": [
+        "guides/technicien.md",
+        "guides/administrateur.md",
+        "guides/technicien.json",
+        "guides/administrateur.json",
+        "guides/build_guide.js"
+      ],
+      "implemented": [
+        "Guides Domenia 1.0 technicien24pages et administrateur63pages, sans historique produit ; DOCX et PDF livrés.",
+        "23 captures WPF natives au minimum1920×1080, sans infobulles ;25figures par guide,87pages relues visuellement, intégrité et empreintes vérifiées."
+      ],
+      "evidence_ids": [
+        "guides-status",
+        "windows-native-final"
+      ],
+      "limits": [
+        "Captures sur données fictives rendues nativement en session0 ; elles ne représentent pas un inventaire AD réel."
+      ],
+      "remaining_work": [],
+      "windows_ad_qualification": "Not established by the local evidence cited here; see release qualification separately."
+    }
+  ],
+  "additional_requests": [
+    {
+      "id": "A01",
+      "title": "Moteur Query commun et noyau natif",
+      "implementation_status": "done",
+      "source_files": [
+        "dev/vendor/m4d-admin-common/lock.json",
+        "dev/wad/modules/Domenia-Query.Model.ps1",
+        "dev/native/ObservationReader.cs",
+        "dev/native/ProbeAggregation.cs"
+      ],
+      "evidence_ids": [
+        "common-provenance",
+        "native-1099",
+        "query-105"
+      ],
+      "limits": [
+        "Le natif ciblé est C#/.NET Framework 4.7.2. Une réécriture en assembleur/C++ n’est ni nécessaire ni livrée."
+      ]
+    },
+    {
+      "id": "A02",
+      "title": "78 sondes et 29 widgets Parc",
+      "implementation_status": "done",
+      "source_files": [
+        "dev/wad/modules/Domenia-Probes.Model.ps1",
+        "dev/wad/modules/Domenia-Boards.Model.ps1",
+        "dev/wad/modules/Domenia-BoardFleet.Model.ps1"
+      ],
+      "evidence_ids": [
+        "scale-10000",
+        "board-22",
+        "query-105"
+      ],
+      "limits": [
+        "Le nombre de définitions ne garantit pas le succès de chaque mesure sur un poste réel : OS, droits et services comptent."
+      ]
+    },
+    {
+      "id": "A03",
+      "title": "Atelier de requêtes, bibliothèque, filtres et pagination 200",
+      "implementation_status": "done",
+      "source_files": [
+        "dev/wad/modules/Domenia-Query.Model.ps1",
+        "dev/wad/modules/Domenia-Query.Worker.ps1",
+        "dev/wad/modules/Domenia-Query.UI.ps1"
+      ],
+      "evidence_ids": [
+        "query-105",
+        "scale-10000"
+      ],
+      "limits": [
+        "Pagination et tri portent sur les résultats complets ; export explicitement limité à la page lorsque proposé ainsi."
+      ]
+    },
+    {
+      "id": "A04",
+      "title": "Deux packs classiques DEV et PROD et reconstruction autonome",
+      "implementation_status": "done",
+      "source_files": [
+        "dev/tools/Fabriquer-Prod.ps1",
+        "dev/tools/Production.Source.ps1",
+        "dev/tools/prod-layout.json",
+        "dev/FABRIQUER_PROD.cmd",
+        "dev/tools/build_packages.py",
+        "dev/LIRE-MOI.md"
+      ],
+      "evidence_ids": [
+        "classic-30",
+        "guard-50",
+        "dev-5",
+        "windows-native-final"
+      ],
+      "limits": [
+        "PROD contient Domenia.exe et le dossier wad ; DEV reste une arborescence éditable. Aucun fichier d’archive domenia.wad.",
+        "Fabriquer-Prod fonctionne en WindowsPowerShell5.1 ; compilation optionnelle C# distincte avec Roslyn compatible."
+      ]
+    },
+    {
+      "id": "A05",
+      "title": "Contrôles rapides enVM Windows",
+      "implementation_status": "done",
+      "source_files": [
+        "dev/wad/tests/Test-DomeniaIndexPersistence.ps1",
+        "dev/wad/tests/Test-DomeniaQuery.ps1"
+      ],
+      "evidence_ids": [
+        "windows-native-final"
+      ],
+      "limits": [
+        "Données fictives, WPF rendu hors écran en session0 ; pas de compte ni d’opération AD réelle qualifiés.",
+        "La campagne formelle complète de release reste NOT_EVALUATED ; le build ne devient pas Publishable à partir de ces seuls contrôles rapides."
+      ]
+    },
+    {
+      "id": "A06",
+      "title": "Publication finale master et nettoyage GitHub",
+      "implementation_status": "pending",
+      "source_files": [],
+      "evidence_ids": [],
+      "limits": [
+        "L’utilisateur a demandé de ne pas pousser avant la fin. Aucun commit/push exécuté par cet agent ; clôture et publication relèvent du parent."
+      ]
+    },
+    {
+      "id": "A07",
+      "title": "Fenêtre de connexion au-dessus des autres fenêtres",
+      "implementation_status": "done",
+      "source_files": [
+        "dev/wad/Domenia-Core.ps1",
+        "dev/wad/tests/Test-DomeniaLoginForeground.ps1"
+      ],
+      "evidence_ids": [
+        "login-foreground-8"
+      ],
+      "limits": [
+        "Topmost et cycle de vie validés sur de vraies fenêtres WPF en session 0 ; aucun test interactif Alt-Tab entre applications d’un bureau utilisateur."
+      ]
+    }
+  ],
+  "canceled_scope": [
+    {
+      "id": "WAD",
+      "status": "canceled_by_user",
+      "description": "Custom MWAD archive system explicitly abandoned; classic DEV and PROD are the target, not unfinished WAD work."
+    }
+  ],
+  "evidence": {
+    "index-155": {
+      "origin": "Executed by this reviewer",
+      "command": "/Users/david/Documents/Codex/2026-10-12/tu-x20/work/pesto-runtime/powershell-7.4.20/pwsh -NoProfile -File dev/wad/tests/Test-DomeniaIndexPersistence.ps1",
+      "result": "155 assertions PASS",
+      "stdout": [
+        "BENCH GUID census 5000 cached / 4999 identities: 960 ms; local SQLite only",
+        "PASS Index persistence and cache: 155 assertions; native local SQLite, no AD or VM"
+      ],
+      "platform": "macOS / PowerShell 7.4.20 / Apple SQLite ABI",
+      "covers_final_reconciliation": true,
+      "rerun_after_base_sort": "155 PASS; same 5000/4999 census 1293 ms during parallel local validation"
+    },
+    "scale-10000": {
+      "origin": "Actual local report",
+      "artifact": "domenia-scale-dn-final-10000.json",
+      "checks": 29122,
+      "passed": true,
+      "count": 10000,
+      "probes": 78,
+      "fleet_widgets": 29,
+      "managed_retained_mib": 704.3,
+      "database_mib": 98.0,
+      "timings_ms": {
+        "PrepareFixture": 687,
+        "IndexWrite": 3848,
+        "SeedObservations": 4382,
+        "CollectionPreparation": 2101,
+        "FleetRead": 2790,
+        "FleetRules": 3131,
+        "QueryProjection": 4586,
+        "AllPages": 212,
+        "ProbeWidgets": 1420,
+        "WidgetDrilldown": 52,
+        "ScopedRead": 743,
+        "BaseBrowserPages": 2275
+      },
+      "limitation": "Local synthetic SQLite and pure rules only; Windows/WPF/AD not evaluated"
+    },
+    "engine-29": {
+      "origin": "Read actual JSON and rerun by this reviewer after Base sorting change",
+      "artifact": "/tmp/domenia-engine-resilience-final.json",
+      "passed": 29,
+      "failed": 0,
+      "limitation": "No native Windows PowerShell 5.1, WPF or network."
+    },
+    "rules-mac": {
+      "origin": "Read actual JSON result",
+      "artifact": "/tmp/domenia-rules-final-mac.json",
+      "passed": 522,
+      "failed": 25,
+      "limitation": "All 25 reported failures are D004 COM/SID Windows platform dependencies. Not a complete PASS. Snapshot predates final reconciliation."
+    },
+    "query-83": {
+      "origin": "Parent execution report",
+      "passed": 83,
+      "failed": 0,
+      "limitation": "Latest parent-reported local run; not independently rerun here."
+    },
+    "native-1099": {
+      "origin": "Parent execution report",
+      "passed": 1099,
+      "failed": 0,
+      "limitation": "Local native library tests; Windows qualification separate."
+    },
+    "board-22": {
+      "origin": "Read actual JSON summary",
+      "artifact": "/tmp/domenia-boardfleet-final.json",
+      "passed": 22,
+      "failed": 0
+    },
+    "live-5": {
+      "origin": "Read actual JSON summary",
+      "artifact": "/tmp/domenia-engine-live-rules.json",
+      "passed": 5,
+      "failed": 0
+    },
+    "persistence-rules-3": {
+      "origin": "Read actual JSON summary",
+      "artifact": "/tmp/domenia-engine-persistence-rules.json",
+      "passed": 3,
+      "failed": 0
+    },
+    "classic-22": {
+      "origin": "Parent final rerun report; prior 21 scenarios executed by this reviewer",
+      "passed": 22,
+      "failed": 0,
+      "duration_seconds": 64.85,
+      "prior_report": "dev/engineering/d120/packaging-validation-20261012.json",
+      "limitation": "PS7.4 AST adaptation tests do not establish native PS5.1 execution."
+    },
+    "guard-50": {
+      "origin": "Executed earlier by this reviewer",
+      "passed": 50,
+      "failed": 0,
+      "report": "dev/engineering/d120/packaging-validation-20261012.json"
+    },
+    "dev-5": {
+      "origin": "Executed earlier by this reviewer",
+      "passed": 5,
+      "failed": 0,
+      "report": "dev/engineering/d120/packaging-validation-20261012.json"
+    },
+    "source-review": {
+      "origin": "Direct source inspection",
+      "scope": "Named files and implementations, not a UI execution"
+    },
+    "common-provenance": {
+      "origin": "Verified local Git pin and hashes",
+      "commit": "5ad02712e5c0eea6975b6ccb2c3e4343f93cc18b",
+      "source_sha256": "0dcd33942859ff3d75b514098b90ca6d5393b11bfdb503683b63cef2c41af972",
+      "query_dll_sha256": "269b7d1cbdd6ab42062a75e0ca4a45876b3ff0eae4cbf730acf91a12828bd7ca",
+      "native_dll_sha256": "aa610389684a1415e0cefef0fc33fe0ce961b57b921c1a6319cae06f2eca1aad",
+      "report": "dev/engineering/d120/packaging-validation-20261012.json"
+    },
+    "guides-status": {
+      "artifact": "documentation-qa.json",
+      "status": "PASS",
+      "technician_pages": 24,
+      "administrator_pages": 63,
+      "figures_per_guide": 25,
+      "source_captures": 23,
+      "pages_visually_reviewed": 87,
+      "source_images_minimum": "1920x1080",
+      "files": [
+        "DOC/Domenia-1.0-Guide-administrateur.docx",
+        "DOC/Domenia-1.0-Guide-administrateur.pdf",
+        "DOC/Domenia-1.0-Guide-technicien.docx",
+        "DOC/Domenia-1.0-Guide-technicien.pdf"
+      ]
+    },
+    "windows-status": {
+      "origin": "Actual VM quick report and suite reports",
+      "artifact": "/tmp/domenia-vm-final-progress2/_quick-ui.json",
+      "dev_zip_sha256": "D27AEE8D751FAA09A66CA4A242283AD2899A32B0F80FA4143DA3ECD3DE6E3997",
+      "suites_passed": 10,
+      "counts": {
+        "Core": 203,
+        "Boards": 38,
+        "Wiring": 20,
+        "Park": 22,
+        "EngineResilience": 29,
+        "Query": 83,
+        "Rules": 547,
+        "Native": 1099,
+        "Persistence": 155
+      },
+      "PowerShell": "5.1.26100.6584",
+      "Session": 0,
+      "ADAccessed": false,
+      "RuntimeChanged": false,
+      "limitation": "Precedes final global Base sort, bounded detail height, query widget cache invalidation and label changes. Final Compat, NativeParser and delta checks pending."
+    },
+    "index-sort-544": {
+      "origin": "Actual JSON report",
+      "artifact": "/tmp/domenia-index-sort-final.json",
+      "passed": 544,
+      "failed": 0,
+      "platform": "macOS PowerShell 7.4.20; actual SQLite; no WPF/network"
+    },
+    "query-87": {
+      "origin": "Root execution",
+      "passed": 87,
+      "failed": 0,
+      "platform": "macOS PowerShell7.4.20",
+      "scope": "Includes saved-widget invalidation and late callbacks; final Windows run pending"
+    },
+    "index-sort-545": {
+      "origin": "Actual local report",
+      "artifact": "domenia-index-sort-final.json",
+      "passed": 545,
+      "failed": 0,
+      "platform": "macOS PowerShell7.4.20; actual code with inert network transport"
+    },
+    "dn-284": {
+      "origin": "Actual local report",
+      "artifact": "domenia-dn-scopes-final.json",
+      "passed": 284,
+      "failed": 0,
+      "platform": "macOS PowerShell7.4.20; actual code with inert network transport"
+    },
+    "engine-32": {
+      "origin": "Actual local report",
+      "artifact": "domenia-engine-resilience-park-final.json",
+      "passed": 32,
+      "failed": 0,
+      "platform": "macOS PowerShell7.4.20; actual code with inert network transport"
+    },
+    "index-actions-18": {
+      "origin": "Actual local report",
+      "artifact": "domenia-index-actions-final.json",
+      "passed": 18,
+      "failed": 0,
+      "platform": "macOS PowerShell7.4.20; actual code with inert network transport"
+    },
+    "query-105": {
+      "origin": "Root execution of Test-DomeniaQuery.ps1",
+      "passed": 105,
+      "failed": 0,
+      "platform": "macOS PowerShell7.4.20",
+      "scope": "Numeric Add, typed cached records, exact query/widget selections, invalidation and result reset. Native PS5.1 confirmation separate."
+    },
+    "classic-30": {
+      "artifact": "packaging-30.log",
+      "passed": 30,
+      "failed": 0,
+      "duration_seconds": 195.226,
+      "scope": "Packaging Python et PowerShell7.4 local ; Factory Windows natif documenté séparément."
+    },
+    "windows-native-final": {
+      "artifact": "windows/qualification.json",
+      "state": "Final6 targeted checks PASS, final4 WPF captures and earlier runtime suites linked by file/AST comparisons.",
+      "counts": {
+        "Core": 207,
+        "Rules": 547,
+        "Query": 105,
+        "Resilience": 32,
+        "Park": 22,
+        "Boards": 40,
+        "Sorting": 545,
+        "DnScopes": 284,
+        "Persistence": 155,
+        "IndexActions": 18,
+        "Ps51StaticFiles": 158,
+        "Ps51StaticErrors": 0
+      },
+      "platform": "WindowsPowerShell5.1.26100.6584 x64STA, VM CNAMTS-W11-01, session0",
+      "ADAccessed": false,
+      "InteractiveDesktopVerified": false,
+      "dev_zip_sha256": "47B21D448E2B4BAFE03E246B0B433725C1013DE628D19C1119E06954E71570F0",
+      "prod_zip_sha256": "E323AAEDD5E3072C9FC24DA82A6959853136F80EC53143428A6AA2B04F890BE9"
+    },
+    "login-foreground-8": {
+      "artifact": "windows/final6/Test-DomeniaLoginForeground.json",
+      "passed": 8,
+      "failed": 0,
+      "assertions": 74,
+      "scope": "Standard/Debug : annulation, succès fictif, exception hôte et relogin embarqué ; aucune authentification ni écriture AD."
+    }
+  },
+  "source_snapshot_sha256": {
+    "dev/FABRIQUER_PROD.cmd": "cb35b3aeeb96d0345a2adea6d75e8221a7a83484443d906f80fde2164df5ce9a",
+    "dev/LIRE-MOI.md": "a64992f849d2c462b8c7e847be78c4319ab724c30bb5805b28fbc935e5734633",
+    "dev/native/ObservationReader.cs": "361dea7be559e3cbf25364ea73e5191838ac5e2fbd24ca073272cad1a69d86b0",
+    "dev/native/ProbeAggregation.cs": "81ee62b401d523a22769ca4abbeb63040586761f43a2ece36f540c891f309c75",
+    "dev/tools/Fabriquer-Prod.ps1": "00184761ad3b28151f1ce63730485d024a020a0fa78787fd813f5dbbe2d58b94",
+    "dev/tools/Production.Source.ps1": "be64c106e9ebd2510da29b530a01234a9ddb4cb1bc646332ac5228c832dd8474",
+    "dev/tools/build_packages.py": "c8546739053ac11bc10b77e74f951395c26c4266cf75fa4a361546854859884d",
+    "dev/tools/launcher/build.py": "db7ffe6f8ba03e3d2182509f08543c4c0cd7f8b6f44ef90877af5e1e2c228afb",
+    "dev/tools/migration-worker.json": "577b3967a68f1c268219817345e0ed6d64399ebe0ea0609a2063f66274ca429e",
+    "dev/tools/prod-layout.json": "ddba7e0be710f9468c93343683e591cd56c55f8ab5300fb0f9c60f18b1c301ff",
+    "dev/tools/tests/test_classic_packaging.py": "de4b4fec9aae0618031372289adc99205d2c299f9b7b0913c789e3c64229f9f0",
+    "dev/tools/update_migration_worker.py": "c974c69a356ff7e8cc8d0d637af45e5becfc0b831229414057a3bbf24a10deeb",
+    "dev/vendor/m4d-admin-common/lock.json": "eb1f4941b72fd7a729d2ae4e99b4e103bfb8fd954a3094f930860e46229f4ef9",
+    "dev/wad/Domenia-Core.ps1": "bfb94af02b9b1f5f049b936706b405c15b22542000e1384f63c710e883eb734f",
+    "dev/wad/modules/Domenia-BoardFleet.Model.ps1": "5da5a0d5e4847234e5a5e5bc3924abd7c0beecb720bf221a984f45cd66f68df7",
+    "dev/wad/modules/Domenia-Boards.Model.ps1": "372e9198071203ccc3d6961dc76bd00b234bc02a31465768d05aab7423402e04",
+    "dev/wad/modules/Domenia-Cache.Model.ps1": "91eae39d0596f29779f7d9628c197b61098015db8e18c0385de317dc346a7054",
+    "dev/wad/modules/Domenia-Charts.UI.ps1": "6297f10d4c174db7deeca53b7848ec299ff3be30e53c7fb50059250c6635e70e",
+    "dev/wad/modules/Domenia-Dashboard.UI.ps1": "a2a874c4661d2586b32f7a7e480cc5173d04d2a1d10c8eccaa3cfe69e9377d17",
+    "dev/wad/modules/Domenia-Engine.Model.ps1": "67ee24e9c67f0ea7fb08dbfa666e8a04107efc3d6677cc9644fc2a183a708db7",
+    "dev/wad/modules/Domenia-Engine.UI.ps1": "16097f29bf9c1af0f7b021e6379310548f6cfe541591acf11c048d86001d04f9",
+    "dev/wad/modules/Domenia-Engine.Worker.ps1": "d67e4b92d46851a9a0e5399a306e4ade9236efcbbe8e3b75a63c6fcb7db5ac02",
+    "dev/wad/modules/Domenia-Live.Model.ps1": "4fc10aee652ed3ad099bed7fe0bb3e393ae5bd7bfc73e7455bce9389c95cfad5",
+    "dev/wad/modules/Domenia-Park.Model.ps1": "009486b64f73fd9236019080e90bb00c0196b8a2f0f9892b8f9cbcbe44385465",
+    "dev/wad/modules/Domenia-Park.UI.ps1": "e0a9089fbb55270b6b2aa760f233c8b3d30a23fc9323e625de8a2280ac4683cd",
+    "dev/wad/modules/Domenia-Probes.Model.ps1": "9df125208a21b7ee474c8380047eda5ebfd96563e37d05b46c427e34314592bf",
+    "dev/wad/modules/Domenia-Query.Model.ps1": "aeb75a0875d5ee42abbf3aa4e1ade7f7648f3a104adf7620a21c3a7923ce9ec6",
+    "dev/wad/modules/Domenia-Query.UI.ps1": "53460df3ed75b58d6af0d1d8cd683b7e092ba522202b1f92375bb880001c4af8",
+    "dev/wad/modules/Domenia-Query.Worker.ps1": "0ba0a0a753e0eb6f9244b7584e8cc107ba459c5737256da4b9740d4f56643459",
+    "dev/wad/modules/Domenia-Safety.Model.ps1": "00bcb6545d59458c727cc9dfb91f60a561d2a8dae01642fe438f9b6d3924d5e3",
+    "dev/wad/modules/Domenia-Storage.UI.ps1": "c811e13f34df19d7de60bb8b20480a47bfa2c7cdd8871857eb7e217909215ea7",
+    "dev/wad/modules/Domenia-Storage.Worker.ps1": "9627d0dc9cf8c110898908db2fd94c8de25a0085b5f716efaa9354d272d2c134",
+    "dev/wad/modules/Domenia-Widgets.UI.ps1": "d1ebba2777936c983351e37b2366bee00e2731e35969b795a3813517382d28da",
+    "dev/wad/tests/Test-DomeniaIndexPersistence.ps1": "8f736483e4b2cb20586a177d2d8c3eac5cdaa21237ffca943fe0baa966255207",
+    "dev/wad/tests/Test-DomeniaNative.ps1": "ec69248b2633374e2da3a8438d40ba05df80d1e29fee52f41cb1fd0e5fc085ca",
+    "dev/wad/tests/Test-DomeniaQuery.ps1": "a423d741cd95e33ab894adb397426ba2285c78e66610ebe738b8e8896f0d6073",
+    "dev/wad/tests/Test-DomeniaScale.ps1": "95c192f80755f68a46f04ff15be9ed7e5ff8768ef446beb4684eadc7566e5d37",
+    "dev/wad/tests/rules/Safety.Tests.ps1": "e50854b5d5a3c453f7f5cf893d0846d1faa01caae6fb3a54ee8447209c63f566",
+    "guides/administrateur.json": "bd6fc944eb012c8796d7c6df9fe148adf6cc43eebfd667cba97eb69faab62286",
+    "guides/administrateur.md": "ba8f2c277022a78d6bacad8b15a69e3fa0210a672db9a8318c07131ceb2a25d6",
+    "guides/build_guide.js": "af2c565e6b451216858ff056f212ce5b75e34809d100ea2075bf5e64d3765f29",
+    "guides/technicien.json": "1c3a3db6d4ef7cbe4c91dce95bd2f377c4bc382c716932aa491349528f7f77bf",
+    "guides/technicien.md": "c473839528473c2d2f6a4198c5ab6642e82b70f99ba4a092373bd184531fefed",
+    "dev/wad/tests/Test-DomeniaIndexSorting.ps1": "0aa12fa9ed68c1d2b870eb511871d75e5d00247b968e5c19ed007fe5da028dbd"
+  },
+  "snapshot_note": "source_snapshot_sha256 conserve la première revue ; final_source_snapshot_sha256 lie les sources et documents finaux. Les rapports Windows indiquent leurs archives respectives et comparaisons de portée.",
+  "status_at_utc": "2026-10-12T19:36:16.923621+00:00",
+  "delivery": {
+    "directory": "/Users/david/Documents/Projets/Domenia-D120/livraison-Domenia-1.0-20261012-validee",
+    "build_report": "build-report.json",
+    "dev_sha256": "47B21D448E2B4BAFE03E246B0B433725C1013DE628D19C1119E06954E71570F0",
+    "prod_sha256": "E323AAEDD5E3072C9FC24DA82A6959853136F80EC53143428A6AA2B04F890BE9",
+    "runtime_files_identical": 91,
+    "formal_windows_ad_release_qualification": "NOT_EVALUATED",
+    "formal_publishable": false
+  },
+  "final_source_snapshot_sha256": {
+    "DOC/Domenia-1.0-Guide-administrateur.docx": "979c6b31a160e655c7483c0f0274ebd3a8e1c88220b914213a9dbd751983530f",
+    "DOC/Domenia-1.0-Guide-administrateur.pdf": "cbb1d5fc87b7246d7dc574e81ea861003e879d87149fa124d513fe01906aa690",
+    "DOC/Domenia-1.0-Guide-technicien.docx": "39f8b89fe0e6688d36ba75ace13536ed60e81ebf06ea1a26b34d714679f533ed",
+    "DOC/Domenia-1.0-Guide-technicien.pdf": "35c5f562146d0a40d502908a64747f55de4a9e24e5951d3586c5d74af740fbfd",
+    "dev/FABRIQUER_PROD.cmd": "cb35b3aeeb96d0345a2adea6d75e8221a7a83484443d906f80fde2164df5ce9a",
+    "dev/LIRE-MOI.md": "ff8a29c9b6a7b0d758e75123f1a9ff8785279e0a2de0c8e79743256340f606ac",
+    "dev/native/ObservationReader.cs": "361dea7be559e3cbf25364ea73e5191838ac5e2fbd24ca073272cad1a69d86b0",
+    "dev/native/ProbeAggregation.cs": "81ee62b401d523a22769ca4abbeb63040586761f43a2ece36f540c891f309c75",
+    "dev/tools/Fabriquer-Prod.ps1": "00184761ad3b28151f1ce63730485d024a020a0fa78787fd813f5dbbe2d58b94",
+    "dev/tools/Production.Source.ps1": "d49916845858b46c4a5387b321923b82431b5c768c9a054bdf4e00f813b869b3",
+    "dev/tools/build_packages.py": "c8546739053ac11bc10b77e74f951395c26c4266cf75fa4a361546854859884d",
+    "dev/tools/launcher/build.py": "db7ffe6f8ba03e3d2182509f08543c4c0cd7f8b6f44ef90877af5e1e2c228afb",
+    "dev/tools/migration-worker.json": "577b3967a68f1c268219817345e0ed6d64399ebe0ea0609a2063f66274ca429e",
+    "dev/tools/prod-layout.json": "ddba7e0be710f9468c93343683e591cd56c55f8ab5300fb0f9c60f18b1c301ff",
+    "dev/tools/tests/test_classic_packaging.py": "fb68cd023cdc04f1d0d27ba4663f12ceff9002da7f432b8d4c9aa5e4951a54ae",
+    "dev/tools/update_migration_worker.py": "c974c69a356ff7e8cc8d0d637af45e5becfc0b831229414057a3bbf24a10deeb",
+    "dev/vendor/m4d-admin-common/lock.json": "eb1f4941b72fd7a729d2ae4e99b4e103bfb8fd954a3094f930860e46229f4ef9",
+    "dev/wad/Domenia-Core.ps1": "f03eaef3c6438de677c4b6972879ddd926ba51d2f6efec5a65e9c990b45e6f54",
+    "dev/wad/modules/Domenia-BoardFleet.Model.ps1": "4a1e164a2d1579f706d0f70e477a01dcfb269d6889ba031327d9ead2e577e5ea",
+    "dev/wad/modules/Domenia-Boards.Model.ps1": "c67bd81a150be988d03db7b2acc604d30cbc0cb178ee0abdf5a44cdccbd4085e",
+    "dev/wad/modules/Domenia-Cache.Model.ps1": "91eae39d0596f29779f7d9628c197b61098015db8e18c0385de317dc346a7054",
+    "dev/wad/modules/Domenia-Charts.UI.ps1": "6297f10d4c174db7deeca53b7848ec299ff3be30e53c7fb50059250c6635e70e",
+    "dev/wad/modules/Domenia-Dashboard.UI.ps1": "a2a874c4661d2586b32f7a7e480cc5173d04d2a1d10c8eccaa3cfe69e9377d17",
+    "dev/wad/modules/Domenia-Engine.Model.ps1": "67ee24e9c67f0ea7fb08dbfa666e8a04107efc3d6677cc9644fc2a183a708db7",
+    "dev/wad/modules/Domenia-Engine.UI.ps1": "16097f29bf9c1af0f7b021e6379310548f6cfe541591acf11c048d86001d04f9",
+    "dev/wad/modules/Domenia-Engine.Worker.ps1": "eb5dc8d8ae58489c280db8c75e329598958d66fdd2de6de1091238d3b979afb5",
+    "dev/wad/modules/Domenia-Live.Model.ps1": "4fc10aee652ed3ad099bed7fe0bb3e393ae5bd7bfc73e7455bce9389c95cfad5",
+    "dev/wad/modules/Domenia-Park.Model.ps1": "009486b64f73fd9236019080e90bb00c0196b8a2f0f9892b8f9cbcbe44385465",
+    "dev/wad/modules/Domenia-Park.UI.ps1": "0c37d4651645b2a26f86dd798b6e7950ad67a5419a21965e02f3520d9fce2d41",
+    "dev/wad/modules/Domenia-Probes.Model.ps1": "9df125208a21b7ee474c8380047eda5ebfd96563e37d05b46c427e34314592bf",
+    "dev/wad/modules/Domenia-Query.Model.ps1": "978f6fcbaf7c154401f88444101d3e22c34f7e8551af26018ad8c7056b2f4292",
+    "dev/wad/modules/Domenia-Query.UI.ps1": "622802a75ab11323299b42175a90bbe529b4449015509b66a5f4f2867021b572",
+    "dev/wad/modules/Domenia-Query.Worker.ps1": "0ba0a0a753e0eb6f9244b7584e8cc107ba459c5737256da4b9740d4f56643459",
+    "dev/wad/modules/Domenia-Safety.Model.ps1": "00bcb6545d59458c727cc9dfb91f60a561d2a8dae01642fe438f9b6d3924d5e3",
+    "dev/wad/modules/Domenia-Storage.UI.ps1": "c811e13f34df19d7de60bb8b20480a47bfa2c7cdd8871857eb7e217909215ea7",
+    "dev/wad/modules/Domenia-Storage.Worker.ps1": "9627d0dc9cf8c110898908db2fd94c8de25a0085b5f716efaa9354d272d2c134",
+    "dev/wad/modules/Domenia-Widgets.UI.ps1": "d1ebba2777936c983351e37b2366bee00e2731e35969b795a3813517382d28da",
+    "dev/wad/tests/Test-DomeniaIndexPersistence.ps1": "1f210fd693977427d82d5ecf46f67aa8c3f9dc4d93bbb3f77bd17a92b42b75f3",
+    "dev/wad/tests/Test-DomeniaIndexSorting.ps1": "70ae9364fd83178ef93bc54b6e1c7c5b8ff360303edd6675b023129739cf7ca6",
+    "dev/wad/tests/Test-DomeniaLoginForeground.ps1": "6f99b746b3c164c2ba4ad2735c8f6d30daffac4e5f37e952f9ee821b418d89a1",
+    "dev/wad/tests/Test-DomeniaNative.ps1": "ec69248b2633374e2da3a8438d40ba05df80d1e29fee52f41cb1fd0e5fc085ca",
+    "dev/wad/tests/Test-DomeniaQuery.ps1": "ec9ff3ae1357b0878e5bcd68583266e82d323afca6157f204abe7940c1295f68",
+    "dev/wad/tests/Test-DomeniaScale.ps1": "4407956ccfb6a20c14b93aec4ad8a55dc37e69fe63baf6d1614535a21c8dcb58",
+    "dev/wad/tests/rules/Safety.Tests.ps1": "e50854b5d5a3c453f7f5cf893d0846d1faa01caae6fb3a54ee8447209c63f566",
+    "guides/administrateur.json": "d183ea0bc40f4d7d4887ef10482b00f87b5a6372fa2d96518d20e9d6cb71ee29",
+    "guides/administrateur.md": "0ce37322d5ae3ba8782ea268a3af87ebdb5702b48a679bba9091a39cb72f513c",
+    "guides/build_guide.js": "5191483427e26073dfdcf8725c544a73b63b704bfcd5da79889e22b5bde8f00f",
+    "guides/technicien.json": "50d28c7a05d99bb11b82ec02aa45dfc1f5488073d3a147d060870775210005db",
+    "guides/technicien.md": "01167ae5d6510998624f581bf5015376ecd26b8d00016bd92e3135e602b04dab"
+  }
+}

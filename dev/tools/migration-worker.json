@@ -1,0 +1,68 @@
+{
+  "Sources": [
+    {
+      "File": "modules/Domenia-Storage.Worker.ps1",
+      "Functions": [
+        "Initialize-DomeniaWinSqliteNative",
+        "New-DomeniaUtf8Ptr",
+        "ConvertFrom-DomeniaUtf8Ptr",
+        "Close-DomeniaDatabase",
+        "ConvertTo-DomeniaSqlLiteral",
+        "Open-DomeniaDatabase",
+        "Invoke-DomeniaDbQuery"
+      ]
+    },
+    {
+      "File": "modules/Domenia-Common.Model.ps1",
+      "Functions": [
+        "Test-DomeniaDictionaryKey",
+        "Get-DomeniaMember",
+        "Get-DomeniaCollectionItems",
+        "ConvertFrom-DomeniaLargeInteger",
+        "Get-DomeniaTextHash",
+        "ConvertTo-DomeniaUtcDate"
+      ]
+    },
+    {
+      "File": "modules/Domenia-Release.Model.ps1",
+      "Functions": [
+        "Test-DomeniaReleaseMapKey",
+        "Get-DomeniaReleaseMapValue",
+        "ConvertTo-DomeniaMigrationDomain",
+        "ConvertTo-DomeniaMigrationComputerKey",
+        "ConvertTo-DomeniaMigrationUserLogin",
+        "Get-DomeniaMigrationPlan",
+        "Get-DomeniaMigratedState",
+        "Test-DomeniaMigrationIdempotent"
+      ]
+    },
+    {
+      "File": "modules/Domenia-Relations.Model.ps1",
+      "Functions": [
+        "Get-DomeniaRelationKind",
+        "ConvertTo-DomeniaRelationUtcDate",
+        "Select-DomeniaPrimaryRelation"
+      ]
+    },
+    {
+      "File": "Domenia-Core.ps1",
+      "Functions": [
+        "Normalize-LinkComputer",
+        "Normalize-LinkUser",
+        "Get-DomeniaStoreBackupDirectory",
+        "Backup-DomeniaDatabase"
+      ]
+    },
+    {
+      "File": "modules/Domenia-Migration.UI.ps1",
+      "Functions": [
+        "ConvertTo-DomeniaLegacyNumber",
+        "ConvertTo-DomeniaLegacyDate",
+        "Read-DomeniaLegacySource",
+        "Get-DomeniaLegacySnapshot",
+        "New-DomeniaLegacyImportPlan"
+      ]
+    }
+  ],
+  "Tail": "\n\nfunction Get-DomeniaDatabasePath { return [string]$script:DatabaseScopedPath }\nfunction Get-CfgValue { param($Section,$Key,$Default) if ($Key -eq 'BackupTimeoutSeconds') { return $Payload.BackupTimeoutSeconds };return $Default }\n$script:DatabaseScopedPath=[string]$Payload.Path\n$script:DataDir=[string]$Payload.DataDir\n$script:SessionEpoch=[long]$Payload.Epoch\n$script:Conn=[pscustomobject]@{BaseDn=[string]$Payload.BaseDn}\n$plan=New-DomeniaLegacyImportPlan -LocalAppData ([string]$Payload.LocalAppData)\nif ($Payload.Mode -eq 'Prepare') {\n    if (-not $Payload.ExpectedFingerprint -or $plan.Fingerprint -cne [string]$Payload.ExpectedFingerprint) { throw 'Les donnees ou le contexte ont change. Refaites la simulation.' }\n    if (-not $plan.Allowed) { throw ($plan.Blockers -join [Environment]::NewLine) }\n    if ($plan.WriteCount -gt 0) {\n        $backup=Backup-DomeniaDatabase -Migration\n        if (-not $backup -or -not [IO.File]::Exists([string]$backup)) { throw 'Sauvegarde de migration non confirmee.' }\n        $plan | Add-Member -NotePropertyName BackupPath -NotePropertyValue ([string]$backup)\n    }\n} elseif ($Payload.Mode -ne 'Preview') { throw 'Mode de reprise inconnu.' }\nreturn $plan\n"
+}

@@ -288,7 +288,7 @@ try {
     if([int]$r.Version -ne 1 -or -not $r.Key -or -not $r.Guid){throw 'Observation du parc invalide.'}
     # Widget probe results (2026-10-07) need a deeper and larger observation; still bounded.
     $json=$r|ConvertTo-Json -Depth 7 -Compress
-    if($json.Length -gt 262144){throw 'Observation du parc trop volumineuse.'}
+    if([Text.Encoding]::UTF8.GetByteCount($json) -gt 262144){throw 'Observation du parc trop volumineuse.'}
     [void](Invoke-DomeniaDbExec 'CREATE TABLE IF NOT EXISTS park_session_cache(object_key TEXT PRIMARY KEY,checked_utc TEXT NOT NULL,payload TEXT NOT NULL);' $db)
     $values=@([string]$r.Key,[string]$r.CheckedUtc,$json)
     [void](Invoke-DomeniaDbExec ('INSERT OR REPLACE INTO park_session_cache(object_key,checked_utc,payload) VALUES('+(($values|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ',')+');') $db)
@@ -340,28 +340,169 @@ try {
     [void](Invoke-DomeniaDbExec ($verb+' INTO '+$table+'('+$columns+') VALUES('+(($values|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ',')+');') $db)
   }elseif($i.Kind -eq 'IndexBulk'){
     $bulk=$i.Row
-    if(@($bulk.Rows).Count -gt 250000){throw 'Lot index trop grand.'}
+    $reader=$null;$stream=$null;$hashAlgorithm=$null;$enumerator=$null;$readCount=0L;$identityCount=0L
+    $transfer=$null;if($null -ne $bulk.PSObject.Properties['Transfer']){$transfer=$bulk.Transfer}
+    $progress=$null;if($null -ne $transfer -and $null -ne $transfer.PSObject.Properties['Progress']){$progress=$transfer.Progress}
+    if($null -ne $progress){$progress.Phase='Validation';$progress.Count=0L;$progress.Total=[long]$transfer.RowCount}
+    try {
+    # Scope membership uses RDN boundaries, including escaped commas/backslashes. SQL LIKE
+    # would mistake a comma embedded in a name for a subtree boundary.
+    function Get-IndexParentDn {
+      param([string]$Dn)
+      $escaped=$false
+      for($n=0;$n -lt $Dn.Length;$n++){
+        $ch=$Dn[$n]
+        if($escaped){$escaped=$false;continue}
+        if($ch -eq [char]92){$escaped=$true;continue}
+        if($ch -eq ','){return $Dn.Substring($n+1).Trim()}
+      }
+      return ''
+    }
+    function Test-IndexDnInScope {
+      param([string]$Dn,[string]$ScopeDn,[string]$SearchScope)
+      if($SearchScope -eq 'OneLevel'){return (Get-IndexParentDn $Dn) -ieq $ScopeDn}
+      $part=$Dn
+      while($part){if($part -ieq $ScopeDn){return $true};$part=Get-IndexParentDn $part}
+      return $false
+    }
+    $reconcile=$null;if($null -ne $bulk.PSObject.Properties['Reconcile']){$reconcile=$bulk.Reconcile}
+    $syncScope='directory'
+    if($null -ne $bulk.PSObject.Properties['SyncScope'] -and -not [string]::IsNullOrWhiteSpace([string]$bulk.SyncScope)){$syncScope=[string]$bulk.SyncScope}
+    $isDirectoryScope=($syncScope -ceq 'directory')
+    $complete=($null -eq $bulk.PSObject.Properties['Complete'] -or [bool]$bulk.Complete)
+    $seenIdentities=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    if($null -ne $reconcile){
+      $started=[datetime]::MinValue
+      if([string]$reconcile.Mode -notin @('Census','Rows') -or [string]$reconcile.SearchScope -notin @('Subtree','OneLevel') -or
+         -not [string]$reconcile.ScopeDn -or [string]$reconcile.ScopeDn -ine [string]$bulk.BaseDn -or
+         [string]$reconcile.Server -ine [string]$bulk.Server -or [string]$reconcile.InvocationId -ine [string]$bulk.InvocationId -or
+         [bool]$reconcile.Complete -ne $complete -or [long]$reconcile.ExpectedCount -lt 0 -or
+         -not [datetime]::TryParse([string]$reconcile.StartedUtc,[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::RoundtripKind,[ref]$started)){
+        throw 'Recu de reconciliation incoherent : transaction annulee.'
+      }
+      if(($bulk.ReplaceAll -and ($reconcile.Mode -ne 'Rows' -or $reconcile.SearchScope -ne 'Subtree')) -or ($reconcile.Mode -eq 'Census' -and (-not $isDirectoryScope -or $reconcile.SearchScope -ne 'Subtree' -or -not [string]$reconcile.InvocationId))){throw 'Perimetre du recensement invalide.'}
+      if(-not $isDirectoryScope -and $syncScope -ine ('ou:'+([string]$reconcile.ScopeDn).ToLowerInvariant())){throw 'Couverture OU incoherente.'}
+      [void](Invoke-DomeniaDbExec 'DROP TABLE IF EXISTS temp.index_seen; DROP TABLE IF EXISTS temp.index_batch; CREATE TEMP TABLE index_seen(guid TEXT PRIMARY KEY,dn TEXT NOT NULL); CREATE TEMP TABLE index_batch(object_key TEXT PRIMARY KEY);' $db)
+    }
+    if($null -ne $transfer){
+      $folder=[IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetDirectoryName([IO.Path]::GetFullPath([string]$Payload.Path))) 'index-spool'))
+      $file=[IO.Path]::GetFullPath([string]$transfer.Path)
+      if([IO.Path]::GetDirectoryName($file) -cne $folder -or [IO.Path]::GetFileName($file) -notmatch '^[a-f0-9]{32}\.jsonl$'){throw 'Chemin du lot index non autorise.'}
+      if(([IO.File]::GetAttributes($folder) -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or ([IO.File]::GetAttributes($file) -band [IO.FileAttributes]::ReparsePoint) -ne 0){throw 'Lot index redirige : lecture refusee.'}
+      if([string]$transfer.Sha256 -notmatch '^[a-fA-F0-9]{64}$' -or [long]$transfer.RowCount -lt 0){throw 'Recu du lot index invalide.'}
+      $stream=[IO.FileStream]::new($file,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read,65536)
+      $hashAlgorithm=[Security.Cryptography.SHA256]::Create()
+      $hash=[BitConverter]::ToString($hashAlgorithm.ComputeHash($stream)).Replace('-','')
+      if($hash -ine [string]$transfer.Sha256){throw 'Lot index modifie depuis sa lecture : enregistrement refuse.'}
+      $stream.Position=0;$reader=[IO.StreamReader]::new($stream,[Text.UTF8Encoding]::new($false,$true),$true,65536)
+    }else{
+      if(@($bulk.Rows).Count -gt 5000000){throw 'Lot en memoire trop grand : utiliser le transfert sur disque.'}
+      $records=@($bulk.Rows)
+      if($null -ne $reconcile -and $reconcile.Mode -eq 'Census'){$records+=@($reconcile.Identities)}
+      $enumerator=$records.GetEnumerator()
+    }
+    if($null -ne $progress){$progress.Phase='Enregistrement'}
+    $sqlBatch=[Text.StringBuilder]::new()
+
     # Computer facts read with the index (decision David 2026-10-08): emptied with it, refilled in this transaction.
     [void](Invoke-DomeniaDbExec 'CREATE TABLE IF NOT EXISTS ad_computer_facts(object_guid TEXT PRIMARY KEY,object_key TEXT,os_version TEXT,when_created TEXT,pwd_last_set TEXT,laps_kind TEXT,laps_expiry TEXT,read_at TEXT);' $db)
-    $previousSync=@(Invoke-DomeniaDbQuery "SELECT COALESCE(last_sync,'') AS v FROM sync_state WHERE scope='directory';" $db)
-    if($bulk.ReplaceAll){[void](Invoke-DomeniaDbExec 'DELETE FROM ad_objects;' $db);[void](Invoke-DomeniaDbExec 'DELETE FROM ad_computer_facts;' $db)}
-    foreach($r in @($bulk.Rows)){
+    if($bulk.ReplaceAll -and (-not $complete -or -not $isDirectoryScope)){throw 'Reconstruction refusee : lecture complete du domaine requise.'}
+    $previousSync=@()
+    if($isDirectoryScope){$previousSync=@(Invoke-DomeniaDbQuery "SELECT COALESCE(last_sync,'') AS v FROM sync_state WHERE scope='directory';" $db)}
+    if($bulk.ReplaceAll){
+      # Modern full reads reconcile below as a transaction, preserving newer concurrent reads.
+      # The legacy in-memory import has no snapshot receipt and keeps its explicit replacement.
+      if($null -eq $reconcile){[void](Invoke-DomeniaDbExec 'DELETE FROM ad_objects;' $db);[void](Invoke-DomeniaDbExec 'DELETE FROM ad_computer_facts;' $db)}
+      [void](Invoke-DomeniaDbExec "DELETE FROM sync_state WHERE scope LIKE 'ou:%' OR scope LIKE 'attempt:%';" $db)
+    }
+    while($true){
+      if($null -ne $reader){
+        $line=$reader.ReadLine();if($null -eq $line){break}
+        if(-not $line -or $line.Length -gt 1048576){throw 'Enregistrement index invalide ou trop volumineux.'}
+        $r=ConvertFrom-Json -InputObject $line -ErrorAction Stop
+      }else{if(-not $enumerator.MoveNext()){break};$r=$enumerator.Current}
+      $isIdentity=($null -ne $r -and $null -ne $r.PSObject.Properties['Kind'] -and [string]$r.Kind -ceq 'Identity')
+      if($isIdentity -or $null -ne $reconcile){
+        if($null -eq $reconcile -or ($isIdentity -and $reconcile.Mode -ne 'Census')){throw 'Identite de recensement inattendue.'}
+        $guid=[guid]::Empty
+        if(-not [guid]::TryParse([string]$r.Guid,[ref]$guid) -or $guid -eq [guid]::Empty -or
+           -not (Test-IndexDnInScope ([string]$r.DN) ([string]$reconcile.ScopeDn) ([string]$reconcile.SearchScope))){throw 'GUID ou DN hors perimetre dans le lot de reconciliation.'}
+        $r.Guid=$guid.ToString('D').ToLowerInvariant()
+        if($isIdentity -or $reconcile.Mode -eq 'Rows'){
+          if(-not $seenIdentities.Add([string]$r.Guid)){throw 'GUID duplique dans le recensement.'}
+          [void]$sqlBatch.Append(('INSERT INTO temp.index_seen(guid,dn) VALUES('+(ConvertTo-DomeniaSqlLiteral ([string]$r.Guid))+','+(ConvertTo-DomeniaSqlLiteral ([string]$r.DN))+');'))
+        }
+        if($isIdentity){
+          $identityCount++
+          if(($identityCount % 256) -eq 0){[void](Invoke-DomeniaDbExec $sqlBatch.ToString() $db);[void]$sqlBatch.Clear()}
+          continue
+        }
+      }
+      if($null -eq $r -or [string]$r.Type -notin @('Machine','Utilisateur') -or -not [string]$r.DN -or -not [string]$r.Name){throw 'Identite manquante dans un enregistrement index.'}
+      $readCount++
       $key=([string]$r.Guid).ToLowerInvariant();if(-not $key){$key=([string]$r.Type+'|'+[string]$r.DN).ToLowerInvariant()}
+      $rowGuard=''
+      if($null -ne $reconcile){
+        $keySql=ConvertTo-DomeniaSqlLiteral $key
+        $cutoff=ConvertTo-DomeniaSqlLiteral ($started.ToUniversalTime().ToString('o'))
+        [void]$sqlBatch.Append(('INSERT INTO temp.index_batch(object_key) SELECT '+$keySql+' WHERE NOT EXISTS(SELECT 1 FROM ad_objects WHERE object_key='+$keySql+' AND julianday(synced_at)>julianday('+$cutoff+'));'))
+        $rowGuard=' WHERE '+$keySql+' IN (SELECT object_key FROM temp.index_batch)'
+      }
       $search=([string]$r.Name+' '+[string]$r.Login+' '+[string]$r.Upn+' '+[string]$r.Display+' '+[string]$r.Description+' '+[string]$r.Extra).ToLowerInvariant()
       $values=@($key,[string]$r.Guid,[string]$r.Type,[string]$r.Name,[string]$r.Login,[string]$r.Upn,[string]$r.Display,[string]$r.Description,[string]$r.Extra,[string]$r.State,[string]$r.DN,[string]$r.WhenChanged,[long]$r.Usn,[string]$r.LastLogon,$search,[string]$bulk.Server,[string]$bulk.At)
-      [void](Invoke-DomeniaDbExec ('INSERT OR REPLACE INTO ad_objects(object_key,object_guid,object_type,name,login,upn,display_name,description,extra,state,distinguished_name,when_changed,usn_changed,last_logon,search_key,source_dc,synced_at) VALUES('+(($values|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ',')+');') $db)
+      [void]$sqlBatch.Append(('INSERT OR REPLACE INTO ad_objects(object_key,object_guid,object_type,name,login,upn,display_name,description,extra,state,distinguished_name,when_changed,usn_changed,last_logon,search_key,source_dc,synced_at) SELECT '+(($values|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ',')+$rowGuard+';'))
       if([string]$r.Type -eq 'Machine' -and [string]$r.Guid -and $null -ne $r.PSObject.Properties['Facts'] -and [bool]$r.Facts){
         $facts=@(([string]$r.Guid).ToLowerInvariant(),$key,[string]$r.OsVersion,[string]$r.WhenCreated,[string]$r.PwdLastSet,[string]$r.LapsKind,[string]$r.LapsExpiry,[string]$bulk.At)
-        [void](Invoke-DomeniaDbExec ('INSERT OR REPLACE INTO ad_computer_facts(object_guid,object_key,os_version,when_created,pwd_last_set,laps_kind,laps_expiry,read_at) VALUES('+(($facts|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ',')+');') $db)
+        [void]$sqlBatch.Append(('INSERT OR REPLACE INTO ad_computer_facts(object_guid,object_key,os_version,when_created,pwd_last_set,laps_kind,laps_expiry,read_at) SELECT '+(($facts|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ',')+$rowGuard+';'))
       }
+      if(($readCount % 256) -eq 0){[void](Invoke-DomeniaDbExec $sqlBatch.ToString() $db);[void]$sqlBatch.Clear();if($null -ne $progress){$progress.Count=$readCount}}
     }
-    # A partial update starts from a consistent base: the facts still current stay current with the new date.
-    if(-not $bulk.ReplaceAll -and $previousSync.Count){[void](Invoke-DomeniaDbExec ('UPDATE ad_computer_facts SET read_at='+(ConvertTo-DomeniaSqlLiteral ([string]$bulk.At))+' WHERE COALESCE(read_at,'''')>='+(ConvertTo-DomeniaSqlLiteral ([string]$previousSync[0].v))+';') $db)}
-    $total=[int](@(Invoke-DomeniaDbQuery 'SELECT count(*) AS n FROM ad_objects;' $db)[0].n)
+    if($sqlBatch.Length){[void](Invoke-DomeniaDbExec $sqlBatch.ToString() $db)}
+    if($null -ne $transfer -and $readCount -ne [long]$transfer.RowCount){throw 'Nombre de lignes du lot index incoherent : transaction annulee.'}
+    if($null -ne $reconcile){
+      $expected=if($reconcile.Mode -eq 'Census'){$identityCount}else{$readCount}
+      if($expected -ne [long]$reconcile.ExpectedCount){throw 'Nombre d identites incoherent : transaction annulee.'}
+      if($null -ne $transfer){
+        $declared=0L;if($null -ne $transfer.PSObject.Properties['CensusRowCount']){$declared=[long]$transfer.CensusRowCount}
+        if($declared -ne $identityCount){throw 'Nombre de marqueurs du lot incoherent : transaction annulee.'}
+      }
+      # Never infer deletion from an interrupted read, a limited result or an empty domain.
+      # Newer concurrent local reads remain authoritative until the next reconciliation.
+      if($complete){
+        if($isDirectoryScope -and -not $bulk.ReplaceAll -and $expected -eq 0 -and [long](@(Invoke-DomeniaDbQuery 'SELECT count(*) AS n FROM ad_objects;' $db)[0].n) -gt 0){throw 'Recensement vide : reconstruction complete explicite requise.'}
+        $cutoff=ConvertTo-DomeniaSqlLiteral ($started.ToUniversalTime().ToString('o'))
+        $candidates=@(Invoke-DomeniaDbQuery ('SELECT a.object_key,a.object_guid,a.distinguished_name,s.dn AS current_dn FROM ad_objects a LEFT JOIN temp.index_seen s ON lower(a.object_guid)=s.guid WHERE COALESCE(a.synced_at,'''')='''' OR julianday(a.synced_at)<=julianday('+$cutoff+') OR a.object_key IN (SELECT object_key FROM temp.index_batch);') $db)
+        [void]$sqlBatch.Clear();$reconciled=0
+        foreach($candidate in $candidates){
+          $keySql=ConvertTo-DomeniaSqlLiteral ([string]$candidate.object_key)
+          if([string]$candidate.current_dn){
+            if($reconcile.Mode -eq 'Census' -and [string]$candidate.distinguished_name -ine [string]$candidate.current_dn){[void]$sqlBatch.Append(('UPDATE ad_objects SET distinguished_name='+(ConvertTo-DomeniaSqlLiteral ([string]$candidate.current_dn))+' WHERE object_key='+$keySql+';'))}
+          }elseif(Test-IndexDnInScope ([string]$candidate.distinguished_name) ([string]$reconcile.ScopeDn) ([string]$reconcile.SearchScope)){
+            [void]$sqlBatch.Append(('DELETE FROM ad_computer_facts WHERE object_key='+$keySql+';DELETE FROM ad_objects WHERE object_key='+$keySql+';'))
+          }
+          $reconciled++
+          if(($reconciled % 256) -eq 0 -and $sqlBatch.Length){[void](Invoke-DomeniaDbExec $sqlBatch.ToString() $db);[void]$sqlBatch.Clear()}
+        }
+        if($sqlBatch.Length){[void](Invoke-DomeniaDbExec $sqlBatch.ToString() $db)}
+      }
+    }elseif($null -ne $transfer -and $null -ne $transfer.PSObject.Properties['CensusRowCount'] -and [long]$transfer.CensusRowCount -ne 0){throw 'Recensement sans perimetre : transaction annulee.'}
+    # Only a complete domain delta can certify unchanged facts. An OU or interrupted pass cannot do so.
+    if(-not $bulk.ReplaceAll -and $complete -and $isDirectoryScope -and $previousSync.Count -and [string]$previousSync[0].v){[void](Invoke-DomeniaDbExec ('UPDATE ad_computer_facts SET read_at='+(ConvertTo-DomeniaSqlLiteral ([string]$bulk.At))+' WHERE COALESCE(read_at,'''')>='+(ConvertTo-DomeniaSqlLiteral ([string]$previousSync[0].v))+' AND julianday(read_at)<=julianday('+(ConvertTo-DomeniaSqlLiteral ([string]$bulk.At))+');') $db)}
+    $total=[long](@(Invoke-DomeniaDbQuery 'SELECT count(*) AS n FROM ad_objects;' $db)[0].n)
     $details='async'
     if (-not [string]::IsNullOrWhiteSpace([string]$bulk.InvocationId)) { $details='inv='+[string]$bulk.InvocationId }
-    $values=@('directory',[string]$bulk.Server,[string]$bulk.BaseDn,[long]$bulk.HighestUsn,[string]$bulk.At,$total,$details)
+    # Attempts are separate from successful coverage and its checkpoint. A failed attempt never rejuvenates it.
+    $attempt=@(('attempt:'+$syncScope),[string]$bulk.Server,[string]$bulk.BaseDn,[long]0,[string]$bulk.At,$readCount,$(if($complete){'complete'}else{'partial'}))
+    [void](Invoke-DomeniaDbExec ('INSERT OR REPLACE INTO sync_state(scope,server,base_dn,highest_usn,last_sync,item_count,details) VALUES('+(($attempt|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ',')+');') $db)
+    if(-not $complete){continue}
+    $scopeCount=if($isDirectoryScope){$total}else{$readCount}
+    $values=@($syncScope,[string]$bulk.Server,[string]$bulk.BaseDn,[long]$bulk.HighestUsn,[string]$bulk.At,$scopeCount,$details)
     [void](Invoke-DomeniaDbExec ('INSERT OR REPLACE INTO sync_state(scope,server,base_dn,highest_usn,last_sync,item_count,details) VALUES('+(($values|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ',')+');') $db)
+    } finally {
+      if($null -ne $progress){$progress.Count=$readCount;$progress.Phase='Attente'}
+      if($null -ne $reader){$reader.Dispose()}elseif($null -ne $stream){$stream.Dispose()}
+      if($null -ne $hashAlgorithm){$hashAlgorithm.Dispose()}
+    }
   }else{throw 'Type stockage non autorise.'}
  }
  [void](Invoke-DomeniaDbExec 'DELETE FROM operation_runs WHERE id NOT IN (SELECT id FROM operation_runs ORDER BY id DESC LIMIT 10000);' $db)
@@ -758,7 +899,7 @@ try {
             }
             Index {
                 foreach($table in @('ad_objects','domenia_provenance','ad_computer_facts')){$targets.Add([pscustomobject]@{Category=$category;Table=$table;Action='Delete';Where='1=1'})}
-                $targets.Add([pscustomobject]@{Category=$category;Table='sync_state';Action='Reset';Where="scope='directory'"})
+                $targets.Add([pscustomobject]@{Category=$category;Table='sync_state';Action='Reset';Where="scope='directory' OR scope LIKE 'ou:%' OR scope LIKE 'attempt:%'"})
             }
         }
     }
@@ -918,11 +1059,31 @@ function Get-DomeniaDatabasePath {throw 'Chemin de base explicite requis pour la
 # The original is opened read-only and never modified; a partial copy is removed on failure.
 $dbPath=[string]$Payload.Database;$backupDir=[string]$Payload.BackupDirectory;$copyTo=[string]$Payload.CopyTo
 $budget=[Math]::Max(5,[Math]::Min(120,[int]$Payload.BudgetSeconds));$keep=[Math]::Max(2,[Math]::Min(30,[int]$Payload.Keep))
+function Get-WBackupSafePath {
+    param([string]$Path)
+    if([string]::IsNullOrWhiteSpace($Path)){throw 'Chemin de sauvegarde vide.'}
+    $full=[IO.Path]::GetFullPath($Path);$part=$full
+    while($part){
+        if(Test-Path -LiteralPath $part){
+            if(([IO.File]::GetAttributes($part) -band [IO.FileAttributes]::ReparsePoint) -ne 0){throw 'Un chemin de sauvegarde ne peut pas traverser un lien symbolique ou une jonction.'}
+        }
+        $parent=[IO.Path]::GetDirectoryName($part);if($parent -eq $part){break};$part=$parent
+    }
+    return $full
+}
+$dbPath=Get-WBackupSafePath $dbPath;$backupDir=Get-WBackupSafePath $backupDir
+if($copyTo){
+    $copyTo=Get-WBackupSafePath $copyTo
+    foreach($suffix in @('','-wal','-shm','-journal')){
+        if([string]::Equals($copyTo,($dbPath+$suffix),[StringComparison]::OrdinalIgnoreCase)){throw 'Export refusé : la destination est la base active ou un de ses journaux.'}
+    }
+    if([IO.Directory]::Exists($copyTo) -or -not [IO.Directory]::Exists([IO.Path]::GetDirectoryName($copyTo))){throw 'Le dossier de destination de l export doit exister et la destination doit être un fichier.'}
+}
 if(-not [IO.File]::Exists($dbPath)){throw 'aucune base active a sauvegarder.'}
 [void][IO.Directory]::CreateDirectory($backupDir)
 $stamp=(Get-Date -Format 'yyyyMMdd-HHmmss-fff')+'-'+[guid]::NewGuid().ToString('N').Substring(0,8)
 $dest=Join-Path $backupDir ('Domenia-'+$stamp+'.db');$temporary=$dest+'.partial'
-$sourceDb=[IntPtr]::Zero;$targetDb=[IntPtr]::Zero;$backup=[IntPtr]::Zero;$mainPtr=[IntPtr]::Zero;$complete=$false
+$sourceDb=[IntPtr]::Zero;$targetDb=[IntPtr]::Zero;$backup=[IntPtr]::Zero;$mainPtr=[IntPtr]::Zero;$complete=$false;$exportTemporary=''
 try{
     $sourceDb=Open-DomeniaDatabase -Path $dbPath -ReadOnly
     $targetDb=Open-DomeniaDatabase -Path $temporary
@@ -945,13 +1106,29 @@ try{
     Close-DomeniaDatabase $sourceDb;$sourceDb=[IntPtr]::Zero
     [IO.File]::Move($temporary,$dest);$complete=$true
     Get-ChildItem -LiteralPath $backupDir -Filter 'Domenia-*.db' -File | Sort-Object LastWriteTime -Descending | Select-Object -Skip $keep | ForEach-Object { Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue }
-    if($copyTo){[IO.File]::Copy($dest,$copyTo,$true)}
+    if($copyTo){
+        try{
+            # Publish a fully flushed sibling copy atomically. A failed export leaves the
+            # previous destination and the verified local backup available.
+            $exportTemporary=$copyTo+'.'+[guid]::NewGuid().ToString('N')+'.partial'
+            $inputStream=$null;$outputStream=$null
+            try{
+                $inputStream=[IO.File]::Open($dest,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
+                $outputStream=[IO.File]::Open($exportTemporary,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+                $inputStream.CopyTo($outputStream);$outputStream.Flush($true)
+            }finally{if($null -ne $outputStream){$outputStream.Dispose()};if($null -ne $inputStream){$inputStream.Dispose()}}
+            [void](Get-WBackupSafePath $copyTo)
+            if([IO.File]::Exists($copyTo)){[IO.File]::Replace($exportTemporary,$copyTo,[System.Management.Automation.Language.NullString]::Value)}else{[IO.File]::Move($exportTemporary,$copyTo)}
+            $exportTemporary=''
+        }catch{throw ('Export non effectué ; sauvegarde locale vérifiée conservée dans '+$dest+' : '+$_.Exception.Message)}
+    }
     [pscustomobject]@{Backup=$dest;CopiedTo=$copyTo}
 }
 finally{
     if($backup -ne [IntPtr]::Zero){[void][Domenia.WinSqliteNative]::sqlite3_backup_finish($backup)}
     Close-DomeniaDatabase $targetDb;Close-DomeniaDatabase $sourceDb
     if($mainPtr -ne [IntPtr]::Zero){[Runtime.InteropServices.Marshal]::FreeHGlobal($mainPtr)}
+    if($exportTemporary){Remove-Item -LiteralPath $exportTemporary -Force -ErrorAction SilentlyContinue}
     if(-not $complete){foreach($suffix in @('','-wal','-shm','-journal')){Remove-Item -LiteralPath ($temporary+$suffix) -Force -ErrorAction SilentlyContinue}}
 }
 '@

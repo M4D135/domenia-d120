@@ -289,7 +289,7 @@ function New-DomeniaBoardToolbar {
         [void]$buttons.Children.Add((New-DomeniaBoardButton ([string][char]0xE777) 'Par defaut' 'Revient a la disposition livree (annulable).' @{ Board = $Board; Action = 'Reset' }))
         [void]$buttons.Children.Add((New-DomeniaBoardButton ([string][char]0xE73E) 'Terminer' 'Quitte la personnalisation.' @{ Board = $Board; Action = 'Customize' } 'RunButton'))
     } else {
-        [void]$buttons.Children.Add((New-DomeniaBoardButton ([string][char]0xE70F) 'Personnaliser' 'Deplacer, redimensionner, modifier ou retirer les widgets.' @{ Board = $Board; Action = 'Customize' }))
+        [void]$buttons.Children.Add((New-DomeniaBoardButton ([string][char]0xE70F) 'Personnaliser' 'Déplacer, redimensionner, modifier ou retirer les widgets.' @{ Board = $Board; Action = 'Customize' }))
     }
     [void]$bar.Children.Add($buttons)
     $left = New-Object System.Windows.Controls.StackPanel
@@ -397,11 +397,21 @@ function Resolve-DomeniaBoardEntry {
         $catalog = Get-DomeniaBoardCatalogItem -Board $Board -Key ([string]$Item.Key)
         if ($null -ne $catalog) { $kind = [string]$catalog.Kind; $name = [string]$catalog.Title }
         if ($null -ne $State.Data -and $null -ne $State.Data.Entries -and $State.Data.Entries.ContainsKey([string]$Item.Key)) { $entry = $State.Data.Entries[[string]$Item.Key] }
+    } elseif([string]$Item.Source -eq 'Query' -and $Board -eq 'Fleet') {
+        $entry=Get-DomeniaQueryBoardEntry ([string]$Item.Key);$kind=[string]$entry.Kind;$name=[string]$entry.Title
     } else {
         $probe = Get-DomeniaProbe -Id ([string]$Item.Key)
         $kind = Get-DomeniaProbeKind -Probe $probe -Board $Board
         if ($null -ne $probe) {
             $name = [string]$probe.Name
+            if($Board -eq 'Fleet'){
+                $queryState=$script:DomeniaQueryState;$cacheKey=[string]$Item.Key+'|'+[string]$Item.Visual
+                if($null -ne $queryState -and $queryState.SnapshotKey -eq [string]$script:FleetQuerySnapshotKey -and $null -ne $queryState.ProbeWidgets -and $queryState.ProbeWidgets.ContainsKey($cacheKey)){$entry=$queryState.ProbeWidgets[$cacheKey]}
+                else{
+                    $entry=New-DomeniaBoardEntry -Key ([string]$Item.Key) -Kind $kind -Value 'À calculer' -Detail 'Agrégation locale en arrière-plan.' -State Off
+                    if($null -ne $queryState -and -not $queryState.Busy){Request-DomeniaQueryEvaluation}
+                }
+            }else{
             $results = @(Get-DomeniaWidgetResults -Board $Board -ProbeId ([string]$Item.Key))
             $measured = if ($results.Count) { Measure-DomeniaWidgetData -Probe $probe -Results $results -Visual ([string]$Item.Visual) } else { $null }
             $entry = ConvertFrom-DomeniaProbeMeasure -Probe $probe -Measured $measured -Board $Board -Key ([string]$Item.Key)
@@ -413,6 +423,7 @@ function Resolve-DomeniaBoardEntry {
                     if (($Board -eq 'Fleet') -and ($null -ne $entry.PSObject.Properties['Subtitle'])) { $entry.Subtitle = [string]$coverage.Text }
                     if ([bool]$coverage.Old) { $entry.State = 'Off' }
                 }
+            }
             }
         } else {
             $name = 'Requete inconnue'
@@ -430,7 +441,8 @@ function Get-DomeniaBoardSelectHandler {
     # FO-09: a click on a ring part or a bar filters the list the board was drawn from. Only the software board
     # offers that, because only it sits above a grid of the same rows; the workstation and fleet boards keep
     # their charts decorative. The handler is a fixed scriptblock: it only names a function of the interface.
-    param([string]$Board)
+    param([string]$Board,$Item=$null)
+    if($Board -eq 'Fleet'){$detailItem=$Item;return {param($Select) Show-DomeniaFleetWidgetDetails -Item $detailItem -Selection $Select}.GetNewClosure()}
     if ($Board -ne 'Software') { return $null }
     return { param($Select) Request-DomeniaSoftwareChartFilter -Select $Select }
 }
@@ -463,7 +475,7 @@ function New-DomeniaWidgetVisual {
         }
         'Pie' { return New-DomeniaDonutChart -Title $Title -Items $items -Width $w -Height $h -CenterText ([string]$Entry.CenterText) -OnSelect $OnSelect }
         'Bar' { return New-DomeniaBarChart -Title $Title -Items $items -Width $w -Height $h -Top 12 -Unit $(if ($unit) { ' ' + $unit } else { '' }) -Subtitle $subtitle -OnSelect $OnSelect }
-        'Column' { return New-DomeniaColumnChart -Title $Title -Items $items -Width $w -Height $h -Subtitle $subtitle }
+        'Column' { return New-DomeniaColumnChart -Title $Title -Items $items -Width $w -Height $h -Subtitle $subtitle -OnSelect $OnSelect }
         'Line' { return New-DomeniaLineChart -Title $Title -Points $items -Width $w -Height $h -Subtitle $subtitle }
         'Text' {
             # One workstation: its values only (a count of 1 next to each value says nothing).
@@ -526,7 +538,7 @@ function New-DomeniaBoardMenu {
     $names = Get-DomeniaBoardVisualNames
     $visuals = @(Get-DomeniaBoardVisuals -Kind $Kind -HasMaximum:$HasMaximum)
     if ($visuals.Count -gt 1) {
-        $represent = New-Object System.Windows.Controls.MenuItem; $represent.Header = 'Representation'
+        $represent = New-Object System.Windows.Controls.MenuItem; $represent.Header = 'Représentation'
         foreach ($visual in $visuals) { & $add $represent ([string]$names[$visual]) 'Visual' $visual ($visual -eq [string]$Item.Visual) '' }
         [void]$menu.Items.Add($represent)
     }
@@ -534,7 +546,7 @@ function New-DomeniaBoardMenu {
     $sizes = Get-DomeniaBoardSizeNames
     foreach ($size in $sizes.Keys) { & $add $sizeMenu ([string]$sizes[$size]) 'Size' $size ($size -eq [string]$Item.Size) '' }
     [void]$menu.Items.Add($sizeMenu)
-    $move = New-Object System.Windows.Controls.MenuItem; $move.Header = 'Deplacer'
+    $move = New-Object System.Windows.Controls.MenuItem; $move.Header = 'Déplacer'
     & $add $move 'Au debut de la section' 'Move' 'First' $false ''
     & $add $move 'Vers la gauche' 'Move' 'Back' $false ''
     & $add $move 'Vers la droite' 'Move' 'Forward' $false ''
@@ -543,6 +555,23 @@ function New-DomeniaBoardMenu {
     [void]$menu.Items.Add((New-Object System.Windows.Controls.Separator))
     & $add $menu 'Retirer du tableau de bord' 'Remove' '' $false ([string][char]0xE74D)
     return $menu
+}
+function Set-DomeniaBoardSegmentSelection {
+    # Metadata consumed by both chart clicks and exact local query drilldowns.
+    param($Entry)
+    $partIndex=0
+    foreach($part in @($Entry.Items)){
+        if($null -ne $part -and $null -ne $part.PSObject.Properties['Label']){
+            $select=[pscustomobject]@{Label=[string]$part.Label;Index=$partIndex}
+            foreach($property in @('Low','High','ExactValue','Excluded')){
+                if($null -ne $part.PSObject.Properties[$property]){
+                    Add-Member -InputObject $select -MemberType NoteProperty -Name $property -Value $part.$property
+                }
+            }
+            Add-Member -InputObject $part -MemberType NoteProperty -Name Select -Value $select -Force
+        }
+        $partIndex++
+    }
 }
 function New-DomeniaBoardWidget {
     # -Placeholder: the board already holds data and the section is partly filled (SP-18): a widget this reading did not
@@ -556,7 +585,10 @@ function New-DomeniaBoardWidget {
     $hasMaximum = if ($null -ne $entry) { ($null -ne $entry.Maximum -and [double]$entry.Maximum -gt 0) } else { $kind -in @('Number','Health') }
     $visual = Resolve-DomeniaBoardVisual -Visual ([string]$Item.Visual) -Kind $kind -HasMaximum:$hasMaximum
     $size = Get-DomeniaBoardSize -Visual $visual -Size ([string]$Item.Size)
-    if ($null -ne $entry) { $card = New-DomeniaWidgetVisual -Entry $entry -Visual $visual -Title $resolved.Title -Size $size -Board $Board -OnSelect (Get-DomeniaBoardSelectHandler -Board $Board) }
+    if($Board -eq 'Fleet' -and $null -ne $entry -and $Item.Source -ne 'Query' -and $kind -ne 'Timeline'){
+        Set-DomeniaBoardSegmentSelection -Entry $entry
+    }
+    if ($null -ne $entry) { $card = New-DomeniaWidgetVisual -Entry $entry -Visual $visual -Title $resolved.Title -Size $size -Board $Board -OnSelect (Get-DomeniaBoardSelectHandler -Board $Board -Item $Item) }
     elseif (-not $State.Editing) { $compact = Get-DomeniaBoardSize -Visual Kpi -Size S; $card = New-DomeniaChartEmpty -Width $compact.Width -Height $compact.Height -Title $resolved.Title -Message 'Non lu par cet inventaire' }
     else { $card = New-DomeniaChartEmpty -Width $size.Width -Height $(if ($size.Height -gt 0) { $size.Height } elseif ($size.MinHeight -gt 0) { $size.MinHeight } else { 118 }) -Title $resolved.Title -Message 'Aucune donnee pour le moment' }
 
@@ -607,14 +639,28 @@ function New-DomeniaBoardWidget {
     [void]$chrome.Children.Add((New-DomeniaBoardChromeButton ([string][char]0xE711) ('Retirer : ' + $resolved.Title) @{ Board = $Board; Id = [string]$Item.Id; Action = 'Remove' } -Danger))
     $chrome.Opacity = if ($State.Editing) { 1 } else { 0 }
     [void]$holder.Children.Add($chrome)
-    $holder.Tag = @{ Board = $Board; Id = [string]$Item.Id; Chrome = $chrome; Mark = $mark; Editing = [bool]$State.Editing }
+    $holder.Tag = @{ Board = $Board; Id = [string]$Item.Id; Chrome = $chrome; Mark = $mark; Editing = [bool]$State.Editing; Item = $Item }
+    if($Board -eq 'Fleet'){
+        $holder.Focusable=$true;$holder.ToolTip='Cliquez ou appuyez sur Entrée pour ouvrir le détail local.'
+        $holder.Add_MouseLeftButtonUp({param($s,$e)
+            if($s.Tag.Editing){return}
+            $node=$e.OriginalSource
+            while($null -ne $node -and $node -ne $s){
+                if($node -is [Windows.Controls.Primitives.ButtonBase] -or $node -is [Windows.Controls.Primitives.Selector] -or $node -is [Windows.Controls.Expander]){return}
+                if($node -is [Windows.FrameworkElement] -and $node.Tag -is [hashtable] -and $node.Tag.ContainsKey('Select') -and $null -ne $node.Tag.Select){return}
+                try{$node=[Windows.Media.VisualTreeHelper]::GetParent($node)}catch{$node=$null}
+            }
+            Show-DomeniaFleetWidgetDetails -Item $s.Tag.Item;$e.Handled=$true
+        })
+        $holder.Add_KeyDown({param($s,$e)if(-not $s.Tag.Editing -and $e.Key -eq [Windows.Input.Key]::Enter -and $e.OriginalSource -eq $s){Show-DomeniaFleetWidgetDetails -Item $s.Tag.Item;$e.Handled=$true}})
+    }
     $holder.ContextMenu = New-DomeniaBoardMenu -Board $Board -Item $Item -Kind $kind -HasMaximum $hasMaximum
     # The two round buttons appear on hover or keyboard focus (always while customising).
     $holder.Add_MouseEnter({ param($s,$e) Set-DomeniaHoverValue $s.Tag.Chrome ([System.Windows.UIElement]::OpacityProperty) 1 })
     $holder.Add_MouseLeave({ param($s,$e) if (-not $s.Tag.Editing -and -not $s.IsKeyboardFocusWithin) { Set-DomeniaHoverValue $s.Tag.Chrome ([System.Windows.UIElement]::OpacityProperty) 0 } })
     $holder.Add_IsKeyboardFocusWithinChanged({ param($s,$e) $s.Tag.Chrome.BeginAnimation([System.Windows.UIElement]::OpacityProperty, $null); if ($s.IsKeyboardFocusWithin) { $s.Tag.Chrome.Opacity = 1 } elseif (-not $s.Tag.Editing -and -not $s.IsMouseOver) { $s.Tag.Chrome.Opacity = 0 } })
     # Drag and drop: a widget dropped on another one takes its place (and its section).
-    $holder.Add_PreviewMouseLeftButtonDown({ param($s,$e) $script:DomeniaBoardDrag = @{ Source = $s; Start = $e.GetPosition($s) } })
+    $holder.Add_PreviewMouseLeftButtonDown({ param($s,$e) if(-not $s.Tag.Editing){return}; $script:DomeniaBoardDrag = @{ Source = $s; Start = $e.GetPosition($s) } })
     $holder.Add_PreviewMouseMove({
         param($s,$e)
         $drag = $script:DomeniaBoardDrag
@@ -696,13 +742,13 @@ function Invoke-DomeniaBoardAction {
         }
         'EntryAction' { Invoke-DomeniaBoardEntryAction -Board $board -Id $value; return }
         'CopyTargets' { Copy-DomeniaFleetTargets -Targets @($Tag['Targets']); return }
-        'SearchTargets' { Show-DomeniaFleetTargetsInSearch -Targets @($Tag['Targets']) -Label ([string]$Tag['Label']); return }
+        'QueryTargets' { Show-DomeniaAttentionInWorkshop -Targets @($Tag['Targets']) -Label ([string]$Tag['Label']); return }
         'Reset' { Set-DomeniaBoardLayout -Board $board -Layout @(Get-DomeniaBoardDefaultLayout -Board $board) -Undo 'Disposition par defaut appliquee'; if ($keyboard) { Restore-DomeniaBoardFocus $board 'Undo' '' }; return }
     }
     $layout = @(Get-DomeniaBoardLayout -Board $board)
     switch ($action) {
         'Remove' { Set-DomeniaBoardLayout -Board $board -Layout @(Remove-DomeniaBoardItem -Layout $layout -Id $id) -Undo 'Widget retire'; if ($keyboard) { Restore-DomeniaBoardFocus $board 'Undo' '' } }
-        'Visual' { Set-DomeniaBoardLayout -Board $board -Layout @(Update-DomeniaBoardItem -Layout $layout -Id $id -Changes @{ Visual = $value }) -Undo 'Representation changee' -Highlight $id; if ($keyboard) { Restore-DomeniaBoardFocus $board 'Edit' $id } }
+        'Visual' { Set-DomeniaBoardLayout -Board $board -Layout @(Update-DomeniaBoardItem -Layout $layout -Id $id -Changes @{ Visual = $value }) -Undo 'Représentation modifiée' -Highlight $id; if ($keyboard) { Restore-DomeniaBoardFocus $board 'Edit' $id } }
         'Size' { Set-DomeniaBoardLayout -Board $board -Layout @(Update-DomeniaBoardItem -Layout $layout -Id $id -Changes @{ Size = $value }) -Undo 'Taille changee' -Highlight $id; if ($keyboard) { Restore-DomeniaBoardFocus $board 'Edit' $id } }
         'Move' { Set-DomeniaBoardLayout -Board $board -Layout @(Move-DomeniaBoardItem -Layout $layout -Id $id -Step $value) -Undo 'Widget deplace' -Highlight $id; if ($keyboard) { Restore-DomeniaBoardFocus $board 'Edit' $id } }
     }
@@ -739,6 +785,7 @@ function Get-DomeniaBoardSources {
             [void]$rows.Add([pscustomobject]@{ Section = 'Requetes WMI · ' + [string]$probe.Category; Name = [string]$probe.Name; Description = ([string]$probe.Class + ' (' + [string]$probe.Namespace + ')' + $(if ($slow) { ' · requête lente' } else { '' })); Badge = $(if ($shown) { 'affiche' } else { '' }); Source = 'Probe'; Key = [string]$probe.Id; Kind = $kind; Visual = (Resolve-DomeniaBoardVisual -Visual ([string]$probe.Visual) -Kind $kind); Size = ''; Group = [string]$probe.Category; Slow = $slow; Search = (ConvertTo-DomeniaSearchText ([string]$probe.Name + ' ' + [string]$probe.Category + ' ' + [string]$probe.Class)) })
         }
     }
+    if($Board -eq 'Fleet' -and $null -ne $script:DomeniaQueryState){foreach($recipe in @($script:DomeniaQueryState.Saved)){$rows.Add([pscustomobject]@{Section='Mes requêtes';Name=$recipe.Name;Description='Filtre enregistré sur les données locales du périmètre';Badge='';Source='Query';Key=$recipe.Id;Kind=$(if([string](Get-DomeniaMember $recipe 'GroupBy')){'Distribution'}else{'Number'});Visual=$(if([string](Get-DomeniaMember $recipe 'GroupBy')){'Bar'}else{'Kpi'});Size='M';Group='Mes sondes';Slow=$false;Search=(ConvertTo-DomeniaSearchText $recipe.Name)})|Out-Null}}
     # Screen readers and type-ahead read an item through ToString: its name, its section, and whether it is shown.
     foreach ($row in $rows) { Add-Member -InputObject $row -MemberType ScriptMethod -Name ToString -Value { $this.Name + ', ' + $this.Section + $(if ($this.Badge) { ', deja affiche' } else { '' }) } -Force }
     return @($rows)
@@ -830,7 +877,7 @@ function Show-DomeniaBoardEditor {
     foreach ($bedI in 0..4) { $bedRow = [Windows.Controls.RowDefinition]::new(); $bedRow.Height = [Windows.GridLength]::Auto; [void]$bedForm.RowDefinitions.Add($bedRow) }
     $bedPlace = { param($Element,[int]$Row,[int]$Column) [Windows.Controls.Grid]::SetRow($Element, $Row); [Windows.Controls.Grid]::SetColumn($Element, $Column); $Element.Margin = [Windows.Thickness]::new(0, 4, 0, 4); [void]$bedForm.Children.Add($Element) }
     $bedRowLabel = 0
-    foreach ($bedText in @('Titre','Representation','Taille','Section')) { $bedLabel = New-DomeniaChartText -Text $bedText -Size 12.5 -Weight Medium -Key 'TextColor'; & $bedPlace $bedLabel $bedRowLabel 0; $bedRowLabel++ }
+    foreach ($bedText in @('Titre','Représentation','Taille','Section')) { $bedLabel = New-DomeniaChartText -Text $bedText -Size 12.5 -Weight Medium -Key 'TextColor'; & $bedPlace $bedLabel $bedRowLabel 0; $bedRowLabel++ }
     $bedTitle = [Windows.Controls.TextBox]::new(); $bedTitle.MinHeight = 32; $bedTitle.Padding = [Windows.Thickness]::new(6, 4, 6, 4); & $bedPlace $bedTitle 0 1
     $bedVisual = [Windows.Controls.ComboBox]::new(); $bedVisual.MinHeight = 32; & $bedPlace $bedVisual 1 1
     $bedSize = [Windows.Controls.ComboBox]::new(); $bedSize.MinHeight = 32; & $bedPlace $bedSize 2 1
@@ -846,7 +893,7 @@ function Show-DomeniaBoardEditor {
     $bedNewGroup.ToolTip = 'Nom de la nouvelle section, cree a la fin du tableau de bord.'
     [Windows.Automation.AutomationProperties]::SetName($bedNewGroup, 'Nom de la nouvelle section')
     [Windows.Automation.AutomationProperties]::SetName($bedTitle, 'Titre du widget')
-    [Windows.Automation.AutomationProperties]::SetName($bedVisual, 'Representation')
+    [Windows.Automation.AutomationProperties]::SetName($bedVisual, 'Représentation')
     [Windows.Automation.AutomationProperties]::SetName($bedSize, 'Taille')
     [Windows.Automation.AutomationProperties]::SetName($bedGroup, 'Section')
     [void]$bedRight.Children.Add($bedForm)
@@ -1025,26 +1072,28 @@ function Get-DomeniaWidgetResults {
         [string]$Board,
         [string]$ProbeId
     )
-    $results = @()
-    foreach ($item in @(Get-DomeniaWidgetObservations -Board $Board)) {
-        $obs = $item.Observation
-        $probes = $obs.PSObject.Properties['Probes']
-        if (($null -eq $probes) -or ($null -eq $probes.Value)) { continue }
-        if ($probes.Value.PSObject.Properties.Name -contains $ProbeId) {
-            $res = $probes.Value.$ProbeId
-            if ($null -ne $res) { $results += $res }
-        }
+    return @(Get-DomeniaWidgetProbeObservations -Board $Board -ProbeId $ProbeId | ForEach-Object{$_.Result})
+}
+function Get-DomeniaWidgetProbeObservations {
+    param([string]$Board,[string]$ProbeId)
+    $probe=Get-DomeniaProbe $ProbeId
+    foreach($item in @(Get-DomeniaWidgetObservations -Board $Board)){
+        $probes=Get-DomeniaMemberValue $item.Observation 'Probes';$result=Get-DomeniaMemberValue $probes $ProbeId
+        if($null -eq $result){continue}
+        $at=ConvertFrom-DomeniaUtcText ([string](Get-DomeniaMember $result 'CheckedUtc'))
+        if((Test-DomeniaObservationAge -CheckedUtc $at -MaxDays (Get-DomeniaObservationMaxAgeDays)) -eq 'Expired'){continue}
+        $usable=@(Get-DomeniaProbeValues -Probe $probe -Result $result).Count -gt 0
+        [pscustomobject]@{Result=$result;CheckedUtc=$at;Key=$item.Key;Usable=$usable}
     }
-    return $results
 }
 function Get-DomeniaWidgetCoverage {
     # Coverage text of a query widget: 'N postes analysés sur M, le jj/MM' (Fleet), 'relevé il y a N j' (Computer).
     param([string]$Board,[string]$ProbeId)
-    $items = @(Get-DomeniaWidgetObservations -Board $Board | Where-Object { ($null -ne $_.Observation.PSObject.Properties['Probes']) -and ($null -ne $_.Observation.Probes) -and ($_.Observation.Probes.PSObject.Properties.Name -contains $ProbeId) })
+    $items = @(Get-DomeniaWidgetProbeObservations -Board $Board -ProbeId $ProbeId | Where-Object{$_.Usable})
     if (-not $items.Count) { return $null }
-    $newest = $null
-    foreach ($item in $items) { if (($null -ne $item.CheckedUtc) -and (($null -eq $newest) -or ($item.CheckedUtc -gt $newest))) { $newest = $item.CheckedUtc } }
-    $old = (($null -eq $newest) -or ((([datetime]::UtcNow) - $newest).TotalDays -gt 7))
+    $newest = $null;$oldest=$null
+    foreach ($item in $items) { if (($null -ne $item.CheckedUtc) -and (($null -eq $newest) -or ($item.CheckedUtc -gt $newest))) { $newest = $item.CheckedUtc };if($null -ne $item.CheckedUtc -and ($null -eq $oldest -or $item.CheckedUtc -lt $oldest)){$oldest=$item.CheckedUtc} }
+    $old = (($null -eq $oldest) -or ((([datetime]::UtcNow) - $oldest).TotalDays -gt 7))
     if ($Board -eq 'Fleet') {
         $total = 0
         if ($null -ne $script:FleetLast) { $total = @($script:FleetLast.Targets).Count }
@@ -1067,12 +1116,12 @@ function Invoke-DomeniaBoardEntryAction {
         }
         'OpenCard' { Invoke-DomeniaUxRoute -Route 'WsObject' }
         'GoSearch' { Invoke-DomeniaUxRoute -Route 'WsSearch' }
+        'CollectFleet' { Invoke-DomeniaQueryAction -Action Collect }
         default { Set-Status ('Action de widget inconnue : ' + $Id) 'WARN' }
     }
 }
 function Switch-DomeniaAttentionDetails {
-    # A point of the Fleet board unfolds its workstations (name, OU, date) from the rows already in memory, with Copier
-    # and Afficher dans Rechercher (decision David 2026-10-08, UX-10). Nothing is read nor run.
+    # A point unfolds a preview; the complete GUID-bound selection opens in the local workshop.
     param($Button)
     if (($null -eq $Button) -or ($Button.Tag -isnot [hashtable])) { return }
     $details = $Button.Tag['Details']
@@ -1102,8 +1151,7 @@ function Switch-DomeniaAttentionDetails {
             [void]$details.Children.Add($line)
             $shown++
         }
-        if ($targets.Count -gt $shown) { [void]$details.Children.Add((New-DomeniaChartText -Text ('et ' + [string]($targets.Count - $shown) + ' autre(s) poste(s) : Copier ou Afficher dans Rechercher pour la liste complète.') -Size 11.5 -Key 'MutedColor')) }
-        if ($targets.Count -ge 200) { [void]$details.Children.Add((New-DomeniaChartText -Text 'Liste limitée aux 200 premiers postes, par ordre alphabétique.' -Size 11.5 -Key 'MutedColor')) }
+        if ($targets.Count -gt $shown) { [void]$details.Children.Add((New-DomeniaChartText -Text ('et ' + [string]($targets.Count - $shown) + ' autre(s) poste(s) : Copier ou Détailler les postes pour la liste complète.') -Size 11.5 -Key 'MutedColor')) }
         if (-not $targets.Count) { [void]$details.Children.Add((New-DomeniaChartText -Text 'Postes non disponibles en mémoire : actualisez la vue dʼensemble.' -Size 11.5 -Key 'MutedColor')) }
         else {
             $actions = New-Object System.Windows.Controls.WrapPanel
@@ -1111,7 +1159,7 @@ function Switch-DomeniaAttentionDetails {
             $copy = New-DomeniaBoardButton ([string][char]0xE8C8) 'Copier' 'Copie les noms des postes concernés.' @{ Targets = $targets; Label = [string]$item.Text }
             $copy.Margin = [System.Windows.Thickness]::new(0, 0, 8, 0)
             $copy.Tag = @{ Board = 'Fleet'; Action = 'CopyTargets'; Targets = $targets; Label = [string]$item.Text }
-            $search = New-DomeniaBoardButton ([string][char]0xE721) 'Afficher dans Rechercher' 'Affiche ces postes dans la liste de Rechercher, depuis la base locale, sans requête.' @{ Board = 'Fleet'; Action = 'SearchTargets'; Targets = $targets; Label = [string]$item.Text }
+            $search = New-DomeniaBoardButton ([string][char]0xE721) 'Détailler les postes' 'Ouvre la sélection complète dans le tableau du dashboard, avec filtres, export et fiche par poste.' @{ Board = 'Fleet'; Action = 'QueryTargets'; Targets = $targets; Label = [string]$item.Text }
             $search.Margin = [System.Windows.Thickness]::new(0, 0, 0, 0)
             [void]$actions.Children.Add($copy)
             [void]$actions.Children.Add($search)
@@ -1123,16 +1171,19 @@ function Switch-DomeniaAttentionDetails {
 }
 function Get-DomeniaBoardProbeIds {
     # Queries placed on the workstation and fleet boards, run by Analyser la liste in Rechercher.
-    return @(foreach ($board in @('Fleet','Computer')) { Get-DomeniaBoardLayout -Board $board | Where-Object { [string]$_.Source -eq 'Probe' } | ForEach-Object { [string]$_.Key } }) | Select-Object -Unique
+    $ids=@(foreach ($board in @('Fleet','Computer')) { Get-DomeniaBoardLayout -Board $board | Where-Object { [string]$_.Source -eq 'Probe' } | ForEach-Object { [string]$_.Key } })
+    if($null -ne $script:DomeniaQueryState){foreach($item in @(Get-DomeniaBoardLayout Fleet|Where-Object{$_.Source -eq 'Query'})){foreach($recipe in @($script:DomeniaQueryState.Saved|Where-Object{$_.Id -eq $item.Key})){$ids+=@(Get-DomeniaQueryProbeIds $recipe)}}}
+    return @($ids|Select-Object -Unique)
 }
 function Start-DomeniaWidgetProbe {
     # Runs the queries of the workstation board on the selected workstation. The fleet board only displays: its
     # queries run from Rechercher on the displayed workstations (Analyser la liste, decision David 2026-10-08).
     param([string]$Board)
-    if ($Board -eq 'Fleet') { Set-Status 'Requetes du parc : dans Rechercher, affichez les postes puis Analyser la liste.' 'WARN'; return }
     $probeIds = @(Get-DomeniaBoardLayout -Board $Board | Where-Object { [string]$_.Source -eq 'Probe' } | ForEach-Object { [string]$_.Key } | Select-Object -Unique)
+    if($Board -eq 'Fleet' -and $null -ne $script:DomeniaQueryState){foreach($item in @(Get-DomeniaBoardLayout Fleet|Where-Object{$_.Source -eq 'Query'})){foreach($recipe in @($script:DomeniaQueryState.Saved|Where-Object{$_.Id -eq $item.Key})){$probeIds+=@(Get-DomeniaQueryProbeIds $recipe)}};$probeIds=@($probeIds|Select-Object -Unique)}
     if (-not $probeIds.Count) { Set-Status 'Aucune requete WMI sur ce tableau de bord : ajoutez un widget de requete.' 'WARN'; return }
     $probes = ConvertTo-DomeniaProbePayload -Ids $probeIds
+    if($Board -eq 'Fleet'){if($null -eq $script:FleetLast -or -not @($script:FleetLast.Targets).Count){Set-Status 'Aucun poste actif dans le périmètre chargé.' 'WARN';return};Start-DomeniaOnlinePark -ScopeTargets @($script:FleetLast.Targets) -ScopeLabel (Get-DomeniaFleetScope).Name -Probes $probes;return}
     if ($Board -eq 'Computer') {
         if ($null -eq $script:SelectedObject) { Set-Status 'Aucun poste selectionne.' 'WARN'; return }
         $so = $script:SelectedObject

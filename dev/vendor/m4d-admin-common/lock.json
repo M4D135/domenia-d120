@@ -1,0 +1,14 @@
+{
+  "Format": "Domenia.CommonLibrary/1",
+  "Repository": "https://github.com/M4D135/m4d-admin-common",
+  "Commit": "5ad02712e5c0eea6975b6ccb2c3e4343f93cc18b",
+  "Version": "0.1.1",
+  "SourceSHA256": "0dcd33942859ff3d75b514098b90ca6d5393b11bfdb503683b63cef2c41af972",
+  "Files": [
+    {
+      "Name": "M4D.Admin.Common.Query.dll",
+      "SHA256": "269b7d1cbdd6ab42062a75e0ca4a45876b3ff0eae4cbf730acf91a12828bd7ca"
+    }
+  ],
+  "RuntimeDownload": false
+}

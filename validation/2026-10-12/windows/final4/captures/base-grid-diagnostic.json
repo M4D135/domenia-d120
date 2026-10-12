@@ -1,0 +1,107 @@
+{
+    "Items":  200,
+    "Visible":  false,
+    "Loaded":  false,
+    "FirstName":  "PC-RH-011",
+    "Cells":  [
+                  {
+                      "Header":  "Type",
+                      "Text":  "Machine",
+                      "CellType":  "System.Windows.Controls.TextBlock",
+                      "Visibility":  "Visible",
+                      "Opacity":  1,
+                      "Width":  64,
+                      "Height":  17
+                  },
+                  {
+                      "Header":  "Nom",
+                      "Text":  "PC-RH-011",
+                      "CellType":  "System.Windows.Controls.TextBlock",
+                      "Visibility":  "Visible",
+                      "Opacity":  1,
+                      "Width":  176,
+                      "Height":  17
+                  },
+                  {
+                      "Header":  "Identifiant",
+                      "Text":  "PC-RH-011$",
+                      "CellType":  "System.Windows.Controls.TextBlock",
+                      "Visibility":  "Visible",
+                      "Opacity":  1,
+                      "Width":  106,
+                      "Height":  17
+                  },
+                  {
+                      "Header":  "UPN ou DNS",
+                      "Text":  "pc-rh-011.example.local",
+                      "CellType":  "System.Windows.Controls.TextBlock",
+                      "Visibility":  "Visible",
+                      "Opacity":  1,
+                      "Width":  176,
+                      "Height":  17
+                  },
+                  {
+                      "Header":  "Etat",
+                      "Text":  "Actif",
+                      "CellType":  "System.Windows.Controls.TextBlock",
+                      "Visibility":  "Visible",
+                      "Opacity":  1,
+                      "Width":  59,
+                      "Height":  17
+                  },
+                  {
+                      "Header":  "Association",
+                      "Text":  "",
+                      "CellType":  "System.Windows.Controls.TextBlock",
+                      "Visibility":  "Visible",
+                      "Opacity":  1,
+                      "Width":  186,
+                      "Height":  17
+                  },
+                  {
+                      "Header":  "Score",
+                      "Text":  "",
+                      "CellType":  "System.Windows.Controls.TextBlock",
+                      "Visibility":  "Visible",
+                      "Opacity":  1,
+                      "Width":  34,
+                      "Height":  17
+                  },
+                  {
+                      "Header":  "Correspondance",
+                      "Text":  "Périmètre local",
+                      "CellType":  "System.Windows.Controls.TextBlock",
+                      "Visibility":  "Visible",
+                      "Opacity":  1,
+                      "Width":  156,
+                      "Height":  17
+                  },
+                  {
+                      "Header":  "Détail",
+                      "Text":  "",
+                      "CellType":  "System.Windows.Controls.ContentPresenter",
+                      "Visibility":  "Visible",
+                      "Opacity":  1,
+                      "Width":  248,
+                      "Height":  22
+                  },
+                  {
+                      "Header":  "Connexion AD",
+                      "Text":  "",
+                      "CellType":  "System.Windows.Controls.TextBlock",
+                      "Visibility":  "Visible",
+                      "Opacity":  1,
+                      "Width":  119,
+                      "Height":  17
+                  },
+                  {
+                      "Header":  "Modifié dans AD",
+                      "Text":  "",
+                      "CellType":  "System.Windows.Controls.TextBlock",
+                      "Visibility":  "Visible",
+                      "Opacity":  1,
+                      "Width":  119,
+                      "Height":  17
+                  }
+              ]
+}

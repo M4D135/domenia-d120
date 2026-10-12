@@ -1,0 +1,1 @@
+PASS Base global sorting: 545 assertions; actual SQLite + inert UI callbacks, no WPF/AD

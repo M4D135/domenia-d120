@@ -8,6 +8,7 @@ $ErrorActionPreference='Stop'
 Set-StrictMode -Version 2.0
 $wad=Split-Path -Parent $PSScriptRoot
 $modules=Join-Path $wad 'modules'
+Add-Type -Path (Join-Path $modules 'Domenia.Native.dll') -ErrorAction Stop
 $edition=if($PSVersionTable.ContainsKey('PSEdition')){[string]$PSVersionTable.PSEdition}else{'Desktop'}
 $native=($env:OS -eq 'Windows_NT' -and $edition -eq 'Desktop' -and $PSVersionTable.PSVersion.Major -eq 5 -and $PSVersionTable.PSVersion.Minor -eq 1)
 $script:Checks=New-Object 'System.Collections.Generic.List[object]'

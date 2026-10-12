@@ -1,0 +1,78 @@
+{
+    "Kind":  "Ps51StaticCompatibility",
+    "Host":  {
+                 "Platform":  "Windows",
+                 "PSVersion":  "5.1.26100.6584",
+                 "PSEdition":  "Desktop"
+             },
+    "Files":  157,
+    "Errors":  9,
+    "Warnings":  0,
+    "Status":  "FAIL",
+    "Limitation":  "Controle de source. Ne remplace pas une execution sous Windows PowerShell 5.1.",
+    "Findings":  [
+                     {
+                         "File":  "tools/build_native.ps1",
+                         "Line":  1,
+                         "Rule":  "Requires.Version",
+                         "Severity":  "Error",
+                         "Detail":  "#requires -Version 7.4 depasse 5.1."
+                     },
+                     {
+                         "File":  "wad/tests/Test-DomeniaDnScopes.ps1",
+                         "Line":  14,
+                         "Rule":  "Variable.CoreOnly",
+                         "Severity":  "Error",
+                         "Detail":  "$IsMacOS n existe pas sous Windows PowerShell 5.1."
+                     },
+                     {
+                         "File":  "wad/tests/Test-DomeniaDnScopes.ps1",
+                         "Line":  14,
+                         "Rule":  "Variable.CoreOnly",
+                         "Severity":  "Error",
+                         "Detail":  "$IsLinux n existe pas sous Windows PowerShell 5.1."
+                     },
+                     {
+                         "File":  "wad/tests/Test-DomeniaIndexPersistence.ps1",
+                         "Line":  15,
+                         "Rule":  "Variable.CoreOnly",
+                         "Severity":  "Error",
+                         "Detail":  "$IsMacOS n existe pas sous Windows PowerShell 5.1."
+                     },
+                     {
+                         "File":  "wad/tests/Test-DomeniaIndexPersistence.ps1",
+                         "Line":  16,
+                         "Rule":  "Variable.CoreOnly",
+                         "Severity":  "Error",
+                         "Detail":  "$IsLinux n existe pas sous Windows PowerShell 5.1."
+                     },
+                     {
+                         "File":  "wad/tests/Test-DomeniaIndexSorting.ps1",
+                         "Line":  14,
+                         "Rule":  "Variable.CoreOnly",
+                         "Severity":  "Error",
+                         "Detail":  "$IsMacOS n existe pas sous Windows PowerShell 5.1."
+                     },
+                     {
+                         "File":  "wad/tests/Test-DomeniaIndexSorting.ps1",
+                         "Line":  14,
+                         "Rule":  "Variable.CoreOnly",
+                         "Severity":  "Error",
+                         "Detail":  "$IsLinux n existe pas sous Windows PowerShell 5.1."
+                     },
+                     {
+                         "File":  "wad/tests/Test-DomeniaScale.ps1",
+                         "Line":  13,
+                         "Rule":  "Variable.CoreOnly",
+                         "Severity":  "Error",
+                         "Detail":  "$IsMacOS n existe pas sous Windows PowerShell 5.1."
+                     },
+                     {
+                         "File":  "wad/tests/Test-DomeniaScale.ps1",
+                         "Line":  14,
+                         "Rule":  "Variable.CoreOnly",
+                         "Severity":  "Error",
+                         "Detail":  "$IsLinux n existe pas sous Windows PowerShell 5.1."
+                     }
+                 ]
+}

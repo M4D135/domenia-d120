@@ -1,0 +1,14 @@
+{
+    "Suite":  "Windows ordinary PROD factory",
+    "PowerShell":  "5.1.26100.6584",
+    "Session":  0,
+    "Source":  "C:\\DomeniaLab\\codex-ui-20261012-final2\\source\\dev",
+    "Output":  "C:\\DomeniaLab\\codex-ui-20261012-final2\\proofs\\factory-prod-41230e8923244e0a964508285f3c57ef",
+    "Synthetic":  true,
+    "ADAccessed":  false,
+    "Checks":  [
+
+               ],
+    "Failure":  "Operations worker differentes du contrat tools/operation-contracts.json.",
+    "Passed":  false
+}

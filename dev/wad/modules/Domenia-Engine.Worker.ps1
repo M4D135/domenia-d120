@@ -33,6 +33,25 @@ function Get-IdxWLiteral {
     if ($Value -is [int] -or $Value -is [long]) { return ([Convert]::ToString($Value,[Globalization.CultureInfo]::InvariantCulture)) }
     return "'" + (([string]$Value) -replace "'","''") + "'"
 }
+function Get-IdxWDnSeparators {
+    param([string]$Column)
+    # Keep character offsets while hiding escaped backslash pairs, then escaped
+    # commas. Only actual RDN separators survive, including after even slash runs.
+    if ($Column -notin @('dn','distinguished_name','a.distinguished_name')) { throw 'Colonne DN invalide.' }
+    return "replace(replace($Column,'\\','xx'),'\,','xx')"
+}
+function Get-IdxWDnScopeSql {
+    param([string]$Column,[string]$Scope,[bool]$Subtree=$true)
+    if (-not $Scope) { return '1=1' }
+    $separators=Get-IdxWDnSeparators $Column
+    $scopeLit=Get-IdxWLiteral $Scope; $suffixLit=Get-IdxWLiteral (','+$Scope)
+    # SQLite length counts Unicode code points. A .NET UTF-16 Length would cut a
+    # supplementary-character scope at the wrong position.
+    $length="length($suffixLit)"
+    $children="(substr($Column,-$length)=$suffixLit COLLATE NOCASE AND substr($separators,-$length,1)=','"
+    if (-not $Subtree) { return $children+" AND instr($separators,',')=length($Column)-$length+1)" }
+    return "($Column=$scopeLit COLLATE NOCASE OR "+$children+'))'
+}
 function Invoke-IdxWQuery {
     param([IntPtr]$Db,[string]$Sql)
     $sqlPtr = [IntPtr]::Zero; $stmt = [IntPtr]::Zero
@@ -110,11 +129,14 @@ try {
             if(-not $keys.Count){[pscustomobject]@{Rows=@();Busy=$false;Missing=$false;MachineCount=0};return}
             $cacheSql+=' WHERE object_key IN ('+($keys -join ',')+')'
         }
-        $cache=@{}
+        $cache=@{};$identityReader=[Domenia.Native.ObservationIdentityReader]::new()
         if(@(Invoke-IdxWQuery $db "SELECT name FROM sqlite_master WHERE type='table' AND name='park_session_cache';").Count){
             foreach($item in @(Invoke-IdxWQuery $db $cacheSql)){
                 if(([string]$item.payload).Length -gt 262144){continue}
-                try{$observation=([string]$item.payload)|ConvertFrom-Json -ErrorAction Stop;if([string]$observation.Key -ieq [string]$item.object_key){$cache[[string]$item.object_key]=$observation}}catch{}
+                try{
+                    $observation=$identityReader.Read([string]$item.payload)
+                    if([string]$observation.Key -ieq [string]$item.object_key){$cache[[string]$item.object_key]=[pscustomobject]@{Identity=$observation;Json=[string]$item.payload}}
+                }catch{}
             }
         }
         $users=@{};$usersByDn=@{};$usersByLogin=@{}
@@ -122,7 +144,7 @@ try {
             $conditions=New-Object 'System.Collections.Generic.List[string]'
             foreach($pair in @(@('UserGuid','object_guid'),@('UserDn','distinguished_name'),@('LinkUser','login'))){
                 $field=[string]$pair[0]
-                $values=@($cache.Values|Where-Object{$_.$field}|ForEach-Object{Get-IdxWLiteral ([string]$_.$field)})
+                $values=@($cache.Values|Where-Object{$_.Identity.$field}|ForEach-Object{Get-IdxWLiteral ([string]$_.Identity.$field)}|Select-Object -Unique)
                 if($values.Count){$conditions.Add($pair[1]+' COLLATE NOCASE IN ('+($values -join ',')+')')}
             }
             $usersSql+=if($conditions.Count){' AND ('+($conditions -join ' OR ')+')'}else{' AND 1=0'}
@@ -140,7 +162,7 @@ try {
         foreach($row in $source){
             $key=([string]$row.distinguished_name).ToLowerInvariant();$name=[string]$row.name;$guid=[string]$row.object_guid
             if(-not $key -or -not $guid -or $name -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,252}$' -or $seen.ContainsKey($key)){continue}
-            $seen[$key]=$true;$previous=$cache[$key]
+            $seen[$key]=$true;$cached=$cache[$key];$previous=if($null -ne $cached){$cached.Identity}else{$null};$changed=$false
             if($null -ne $previous -and [string]$previous.Guid -ine $guid){$previous=$null}
             if($null -ne $previous){
                 $user=$users[[string]$previous.UserGuid]
@@ -152,13 +174,17 @@ try {
                     if($field -eq 'UserDn'){$set=$usersByDn[[string]$previous.UserDn]}else{$set=$usersByLogin[[string]$previous.LinkUser]}
                     if($null -ne $set -and ($set.Count -ne 1 -or -not $set.Contains([string]$previous.UserGuid))){$changed=$true}
                 }
-                $previous|Add-Member -NotePropertyName DirectoryChanged -NotePropertyValue $changed -Force
             }
-            $targets.Add([pscustomobject]@{Key=$key;Computer=$name;Guid=$guid;Previous=$previous})
+            $targets.Add([pscustomobject]@{Key=$key;Computer=$name;Guid=$guid;Previous=$null;PreviousJson=$(if($null -ne $previous){$cached.Json}else{''});DirectoryChanged=$changed})
         }
         [pscustomobject]@{Rows=$targets.ToArray();Busy=$false;Missing=$false;MachineCount=$targets.Count};return
     }
     if ($action -eq 'FleetStats') {
+        if(-not (Get-Command New-DomeniaObservationReader -ErrorAction SilentlyContinue)){. (Join-Path ([string]$Payload.ModuleRoot) 'Domenia-Probes.Model.ps1')}
+        $observationReader=New-DomeniaObservationReader
+        $observationNow=[datetime]::UtcNow
+        $observationRejected=0
+        [void](Invoke-IdxWQuery $db 'BEGIN;')
         # Aggregates of the local index for the home dashboard, read only (decision David 2026-10-08, PF-03 and PF-21):
         # the OU is filtered in SQL (DN suffix, COLLATE NOCASE), the computer facts and the BitLocker presence are
         # joined by GUID and name, and the workstations are grouped by the boundaries of the payload plan (the rules
@@ -182,14 +208,7 @@ try {
         $coverage = [pscustomobject]@{ BitLockerRead = 0; BitLockerAt = ''; FactsFresh = 0; FactsStale = 0; FactsAt = '' }
         if (-not $observationsOnly) {
             $types = @(Invoke-IdxWQuery $db "SELECT object_type AS t, CASE WHEN state='Desactive' THEN 'Desactive' ELSE 'Actif' END AS s, count(*) AS n FROM ad_objects GROUP BY 1,2;")
-            $scopeSql = '1=1'
-            if ($scope) {
-                $suffix = ',' + $scope
-                $len = $suffix.Length
-                $scopeLit = Get-IdxWLiteral $scope; $suffixLit = Get-IdxWLiteral $suffix
-                if ($subtree) { $scopeSql = "(a.distinguished_name = $scopeLit COLLATE NOCASE OR (length(a.distinguished_name) > $len AND substr(a.distinguished_name,-$len) = $suffixLit COLLATE NOCASE))" }
-                else { $scopeSql = "(length(a.distinguished_name) > $len AND substr(a.distinguished_name,-$len) = $suffixLit COLLATE NOCASE AND replace(replace(substr(a.distinguished_name,1,length(a.distinguished_name) - $len),'\\',''),'\,','') NOT LIKE '%,%')" }
-            }
+            $scopeSql = Get-IdxWDnScopeSql -Column 'a.distinguished_name' -Scope $scope -Subtree $subtree
             $factsJoin = ''; $factsCols = "'N' AS fx, NULL AS fv, NULL AS fc, NULL AS fp, NULL AS fk, NULL AS fe, NULL AS fr"
             if ($tables.ContainsKey('ad_computer_facts')) {
                 $factsJoin = ' LEFT JOIN ad_computer_facts f ON f.object_guid = lower(a.object_guid)'
@@ -203,7 +222,7 @@ try {
                 " $factsCols, s.computer_key AS sk, s.bitlocker_keys AS sb, s.checked_at AS sc, s.verdict AS sv" +
                 " FROM ad_objects a$factsJoin LEFT JOIN secret_state s ON s.computer_key = upper(a.name) WHERE a.object_type='Machine' AND $scopeSql)," +
                 " g AS (SELECT name, dn, guid, st, os, ld, fx, sc, fr, CASE WHEN fx='F' THEN COALESCE(fv,'') ELSE '' END AS ver," +
-                " CASE WHEN ld='' THEN 5 WHEN ld >= $($b[0]) THEN 0 WHEN ld >= $($b[1]) THEN 1 WHEN ld >= $($b[2]) THEN 2 WHEN ld >= $($b[3]) THEN 3 ELSE 4 END AS lb," +
+                " CASE WHEN ld='' THEN 5 WHEN ld > $($b[0]) THEN 0 WHEN ld > $($b[1]) THEN 1 WHEN ld > $($b[2]) THEN 2 WHEN ld > $($b[3]) THEN 3 ELSE 4 END AS lb," +
                 " CASE WHEN fx<>'F' OR COALESCE(fc,'')='' THEN '' WHEN fc >= $created THEN 'R' ELSE 'O' END AS cr," +
                 " CASE WHEN fx<>'F' OR COALESCE(fp,'')='' THEN '' WHEN fp < $pwdBefore THEN 'O' ELSE 'R' END AS pw," +
                 " CASE WHEN fx<>'F' THEN '' WHEN fk='NoSchema' THEN 'X' WHEN fk IN ('Legacy','Windows') AND COALESCE(fe,'')<>'' THEN (CASE WHEN fe < $nowLit THEN 'E' ELSE 'O' END) WHEN fk='None' THEN 'N' ELSE '' END AS lk," +
@@ -225,7 +244,8 @@ try {
                 $machines.Add($row)
                 if ($cells[3] -ne 'D') { $targets.Add($row); $byDn[$cells[1].ToLowerInvariant()] = $row }
             }
-            $parents = @(Invoke-IdxWQuery $db ($cte + "SELECT substr(dn,instr(dn,',')+1) AS p, count(*) AS n FROM g WHERE st<>'D' GROUP BY 1;"))
+            $parentPosition="instr($(Get-IdxWDnSeparators 'dn'),',')"
+            $parents = @(Invoke-IdxWQuery $db ($cte + "SELECT CASE WHEN $parentPosition>0 THEN substr(dn,$parentPosition+1) ELSE '' END AS p, count(*) AS n FROM g WHERE st<>'D' GROUP BY 1;"))
             $coverageRow = @(Invoke-IdxWQuery $db ($cte + "SELECT sum(CASE WHEN bk<>'U' THEN 1 ELSE 0 END) AS br, max(CASE WHEN bk<>'U' THEN sc END) AS ba, sum(CASE WHEN fx='F' THEN 1 ELSE 0 END) AS ff, sum(CASE WHEN fx='S' THEN 1 ELSE 0 END) AS fs, max(fr) AS fa FROM g WHERE st<>'D';"))
             if ($coverageRow.Count) { $c0 = $coverageRow[0]; $coverage = [pscustomobject]@{ BitLockerRead = [int]$c0.br; BitLockerAt = [string]$c0.ba; FactsFresh = [int]$c0.ff; FactsStale = [int]$c0.fs; FactsAt = [string]$c0.fa } }
         }
@@ -250,15 +270,15 @@ try {
             for ($start = 0; $start -lt $wanted.Count; $start += 500) {
                 $chunk = @($wanted.GetRange($start,[Math]::Min(500,$wanted.Count - $start)) | ForEach-Object { Get-IdxWLiteral $_ })
                 foreach ($item in @(Invoke-IdxWQuery $db ('SELECT object_key, checked_utc, payload FROM park_session_cache WHERE checked_utc >= ' + $since + ' AND object_key IN (' + ($chunk -join ',') + ');'))) {
-                    if (([string]$item.payload).Length -gt 262144) { continue }
+                    if (([string]$item.payload).Length -gt 262144) { $observationRejected++;continue }
                     $owner = $byDn[([string]$item.object_key).ToLowerInvariant()]
                     if ($null -eq $owner) { continue }
                     $observation = $null
-                    try { $observation = ([string]$item.payload) | ConvertFrom-Json -ErrorAction Stop } catch { continue }
+                    try { $observation = $observationReader.Read([string]$item.payload,$observationNow) } catch { $observationRejected++;continue }
                     if ($null -eq $observation) { continue }
                     # A moved, deleted or recreated workstation does not inherit the observation of its DN.
                     $guidProperty = $observation.PSObject.Properties['Guid']
-                    if (($null -eq $guidProperty) -or (-not [string]$guidProperty.Value) -or ([string]$guidProperty.Value -ine [string]$owner.object_guid)) { continue }
+                    if (($null -eq $guidProperty) -or (-not [string]$guidProperty.Value) -or ([string]$guidProperty.Value -ine [string]$owner.object_guid)) { $observationRejected++;continue }
                     $outside = ($null -ne $owner.PSObject.Properties['outside'])
                     $presence.Add([pscustomobject]@{ object_key = ([string]$item.object_key).ToLowerInvariant(); checked_utc = [string]$item.checked_utc; observation = $observation; gid = [string]$owner.gid; name = [string]$owner.name; distinguished_name = [string]$owner.distinguished_name; object_guid = [string]$owner.object_guid; in_scope = (-not $outside) })
                 }
@@ -268,7 +288,15 @@ try {
         if ((-not $observationsOnly) -and $tables.ContainsKey('fleet_snapshots') -and [string]$Payload.ScopeKey) {
             $history = @(Invoke-IdxWQuery $db ('SELECT snapshot_day AS day, figures FROM fleet_snapshots WHERE scope_key = ' + (Get-IdxWLiteral ([string]$Payload.ScopeKey)) + ' AND snapshot_day >= ' + (Get-IdxWLiteral ([string]$plan.HistorySince)) + ' ORDER BY snapshot_day;'))
         }
-        [pscustomobject]@{ Rows=@(); Busy=$false; Missing=$false; MachineCount=$active; Scope=$scope; Subtree=$subtree; Types=$types; Groups=$groups.ToArray(); Machines=$machines.ToArray(); Targets=$targets.ToArray(); Parents=$parents; Coverage=$coverage; Links=$links; LinkSources=$sources; Presence=$presence.ToArray(); History=$history }
+        [void](Invoke-IdxWQuery $db 'COMMIT;')
+        $result=[pscustomobject]@{ Rows=@(); Busy=$false; Missing=$false; MachineCount=$active; ObservationRejected=$observationRejected; Scope=$scope; Subtree=$subtree; Types=$types; Groups=$groups.ToArray(); Machines=$machines.ToArray(); Targets=$targets.ToArray(); Parents=$parents; Coverage=$coverage; Links=$links; LinkSources=$sources; Presence=$presence.ToArray(); History=$history }
+        if(-not $observationsOnly -and $null -ne $Payload.PSObject.Properties['ComputeBoard'] -and [bool]$Payload.ComputeBoard){
+            # Aggregation over thousands of observations stays in the worker, never in the WPF callback.
+            foreach($module in @('Domenia-Common.Model.ps1','Domenia-Boards.Model.ps1','Domenia-BoardFleet.Model.ps1')){. (Join-Path ([string]$Payload.ModuleRoot) $module)}
+            $board=Get-DomeniaFleetBoardData -Result $result -Scope $scope -Subtree $subtree -Now ([datetime]::Parse([string]$plan.NowUtc,[Globalization.CultureInfo]::InvariantCulture)) -Lifecycle $Payload.Lifecycle -ObservationMaxAgeDays ([int]$Payload.ObservationMaxAgeDays) -IndexPartial ([string]$Payload.IndexPartial)
+            $result|Add-Member -NotePropertyName Board -NotePropertyValue $board
+        }
+        $result
         return
     }
     if ($action -eq 'ParkState') {
@@ -283,18 +311,49 @@ try {
     if ($clean.Contains([string][char]92)) { $clean = $clean.Split([char]92)[-1] }
     if ($clean.Contains('@')) { $clean = $clean.Split('@')[0] }
     $clean = $clean.Trim().TrimEnd([char]36).ToLowerInvariant()
-    if ($clean.Length -lt 2) { [pscustomobject]@{ Rows=@(); Busy=$false; Missing=$false; MachineCount=0 }; return }
+    $browse=($null -ne $Payload.PSObject.Properties['Browse'] -and [bool]$Payload.Browse -and -not $clean)
+    if ($clean.Length -lt 2 -and -not $browse) { [pscustomobject]@{ Rows=@(); Busy=$false; Missing=$false; MachineCount=0; Total=0; Offset=0; HasMore=$false }; return }
     $limit = [Math]::Max(1,[Math]::Min(500,[int]$Payload.Limit))
+    $offset=0;if($null -ne $Payload.PSObject.Properties['Offset']){$offset=[Math]::Max(0,[int]$Payload.Offset)}
     $like = $clean.Replace('!','!!').Replace('%','!%').Replace('_','!_')
     $termSql = Get-IdxWLiteral $clean
     $prefixSql = Get-IdxWLiteral ($like + '%')
     $containsSql = Get-IdxWLiteral ('%' + $like + '%')
+    $where=if($browse){'1=1'}else{"(name=$termSql COLLATE NOCASE OR login=$termSql COLLATE NOCASE OR upn=$termSql COLLATE NOCASE" +
+        " OR name LIKE $prefixSql ESCAPE '!' COLLATE NOCASE OR login LIKE $prefixSql ESCAPE '!' COLLATE NOCASE OR upn LIKE $prefixSql ESCAPE '!' COLLATE NOCASE OR search_key LIKE $containsSql ESCAPE '!')"}
+    $searchScope='';if($null -ne $Payload.PSObject.Properties['Scope']){$searchScope=([string]$Payload.Scope).Trim()}
+    if($searchScope){$where+=' AND '+(Get-IdxWDnScopeSql -Column 'distinguished_name' -Scope $searchScope)}
+    # Only these literal SQL expressions can be selected by a header. The sort covers the
+    # entire filtered population before LIMIT/OFFSET, with a stable identity tie-breaker.
+    $sortField='';if($null -ne $Payload.PSObject.Properties['SortField']){$sortField=[string]$Payload.SortField}
+    $descending=($null -ne $Payload.PSObject.Properties['Descending'] -and [bool]$Payload.Descending)
+    $sortColumns=@{
+        Type='NULLIF(object_type,'''') COLLATE NOCASE';Name='NULLIF(name,'''') COLLATE NOCASE'
+        Login='NULLIF(login,'''') COLLATE NOCASE';Upn='NULLIF(upn,'''') COLLATE NOCASE'
+        State='NULLIF(state,'''') COLLATE NOCASE';Description='NULLIF(description,'''') COLLATE NOCASE'
+        Score='match_score';Reason='CASE WHEN match_score>=100 THEN 1 WHEN match_score>=90 THEN 2 ELSE 0 END'
+    }
+    foreach($dateColumn in @(@('LastLogon','last_logon'),@('WhenChanged','when_changed'))){
+        $c=[string]$dateColumn[1]
+        # AD's displayed French dates and ISO timestamps compare as dates, never as text.
+        $sortColumns[[string]$dateColumn[0]]="julianday(CASE WHEN $c GLOB '[0-9][0-9]/[0-9][0-9]/[0-9][0-9][0-9][0-9]*' THEN substr($c,7,4)||'-'||substr($c,4,2)||'-'||substr($c,1,2)||substr($c,11) ELSE $c END)"
+    }
+    $order='match_score DESC,name COLLATE NOCASE,object_guid,distinguished_name,object_key'
+    if($sortField){
+        if(-not $sortColumns.ContainsKey($sortField)){throw 'Colonne de tri locale non autorisee.'}
+        $expression=[string]$sortColumns[$sortField];$direction=if($descending){'DESC'}else{'ASC'}
+        $order='('+ $expression+' IS NULL) ASC,'+$expression+' '+$direction+',name COLLATE NOCASE,object_guid,distinguished_name,object_key'
+    }
+    # Count and page use the same SQLite snapshot. Pagination is a display bound, never a population cap.
+    [void](Invoke-IdxWQuery $db 'BEGIN;')
+    $total=[long](@(Invoke-IdxWQuery $db ('SELECT count(*) AS n FROM ad_objects WHERE '+$where+';'))[0].n)
+    if($offset -ge $total){$offset=0}
+    $scoreSql=if($browse){'0'}else{
+        "CASE WHEN name=$termSql COLLATE NOCASE OR login=$termSql COLLATE NOCASE OR upn=$termSql COLLATE NOCASE THEN 100" +
+        " WHEN name LIKE $prefixSql ESCAPE '!' COLLATE NOCASE OR login LIKE $prefixSql ESCAPE '!' COLLATE NOCASE OR upn LIKE $prefixSql ESCAPE '!' COLLATE NOCASE THEN 90 ELSE 70 END"
+    }
     $sql = "SELECT object_type,name,login,upn,display_name,description,extra,state,distinguished_name,when_changed,usn_changed,last_logon,object_guid," +
-        " CASE WHEN name=$termSql COLLATE NOCASE OR login=$termSql COLLATE NOCASE OR upn=$termSql COLLATE NOCASE THEN 100" +
-        " WHEN name LIKE $prefixSql ESCAPE '!' COLLATE NOCASE OR login LIKE $prefixSql ESCAPE '!' COLLATE NOCASE OR upn LIKE $prefixSql ESCAPE '!' COLLATE NOCASE THEN 90" +
-        " ELSE 70 END AS match_score FROM ad_objects WHERE name=$termSql COLLATE NOCASE OR login=$termSql COLLATE NOCASE OR upn=$termSql COLLATE NOCASE" +
-        " OR name LIKE $prefixSql ESCAPE '!' COLLATE NOCASE OR login LIKE $prefixSql ESCAPE '!' COLLATE NOCASE OR upn LIKE $prefixSql ESCAPE '!' COLLATE NOCASE" +
-        " OR search_key LIKE $containsSql ESCAPE '!' ORDER BY match_score DESC,name COLLATE NOCASE LIMIT $limit;"
+        " $scoreSql AS match_score FROM ad_objects WHERE $where ORDER BY $order LIMIT $limit OFFSET $offset;"
     $seen = @{}
     $result = New-Object 'System.Collections.Generic.List[object]'
     foreach ($r in @(Invoke-IdxWQuery $db $sql)) {
@@ -303,7 +362,7 @@ try {
         if ($seen.ContainsKey($key)) { continue }
         $seen[$key] = $true
         $score = [int]$r.match_score
-        $reason = 'Contenu dans la fiche'
+        $reason = if($browse){'Perimetre local'}else{'Contenu dans la fiche'}
         if ($score -ge 100) { $reason = 'Correspondance exacte' } elseif ($score -ge 90) { $reason = 'Debut du nom' }
         $result.Add([pscustomobject]@{
             Type=[string]$r.object_type; Name=[string]$r.name; Login=[string]$r.login; Upn=[string]$r.upn; Display=[string]$r.display_name
@@ -313,7 +372,8 @@ try {
             NameKey=([string]$r.name).ToLowerInvariant(); LoginKey=([string]$r.login).ToLowerInvariant(); Score=$score; Reason=$reason
         })
     }
-    [pscustomobject]@{ Rows=$result.ToArray(); Busy=$false; Missing=$false; MachineCount=0 }
+    [void](Invoke-IdxWQuery $db 'COMMIT;')
+    [pscustomobject]@{ Rows=$result.ToArray(); Busy=$false; Missing=$false; MachineCount=0; Total=$total; Offset=$offset; SortField=$sortField; Descending=$descending; HasMore=(($offset+$result.Count) -lt $total) }
 }
 catch {
     if ([string]$_.Exception.Message -eq 'SQLITE_BUSY') { [pscustomobject]@{ Rows=@(); Busy=$true; Missing=$false; MachineCount=0 } }

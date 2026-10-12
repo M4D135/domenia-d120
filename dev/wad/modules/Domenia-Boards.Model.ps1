@@ -21,7 +21,7 @@ computer.ad.account|Compte machine dans Active Directory|Compte ordinateur|Value
 computer.ad.ou|Compte machine dans Active Directory|Unite d organisation|Value|Kpi|S|OU qui contient le poste
 computer.ad.laps|Compte machine dans Active Directory|Mot de passe LAPS|Value|Kpi|S|Expiration du mot de passe administrateur local
 computer.ad.managedby|Compte machine dans Active Directory|Gere par|Value|Kpi|S|Attribut managedBy
-computer.ad.clock|Compte machine dans Active Directory|Horloge du poste|Value|Kpi|S|Écart avec le contrôleur de domaine connecté
+computer.ad.clock|Compte machine dans Active Directory|Horloge du poste|Value|Kpi|S|Écart avec la référence disponible : contrôleur ou poste dʼadministration
 computer.memory.usage|Ressources|Memoire utilisee|Number|Gauge|S|Memoire occupee au moment de l inventaire
 computer.cpu.load|Ressources|Charge du processeur|Number|Gauge|S|Charge du processeur au moment de l inventaire
 computer.battery|Ressources|Batterie|Number|Gauge|S|Charge restante des postes portables
@@ -51,7 +51,7 @@ computer.hotfix|Securite et etat|Dernier correctif|Value|Kpi|S|Date du dernier c
     Fleet = @'
 fleet.health|Santé|État du parc|Health|Health|S|Part des postes sans point critique ni à surveiller
 fleet.attention|Santé|Points dʼattention|List|List|L|Problèmes détectés sur le périmètre : un clic déplie les postes concernés
-fleet.machines|Inventaire du périmètre|Postes|Value|Kpi|S|Comptes ordinateur actifs du périmètre
+fleet.machines|Inventaire du périmètre|Postes|Value|Kpi|S|Tous les comptes ordinateur du périmètre, actifs et désactivés
 fleet.stale|Inventaire du périmètre|Sans connexion depuis 90 j|Value|Kpi|S|Attribut lastLogonTimestamp, à 14 jours près
 fleet.disabled|Inventaire du périmètre|Comptes désactivés encore dans lʼOU|Value|Kpi|S|Comptes ordinateur désactivés à déplacer ou supprimer
 fleet.created|Inventaire du périmètre|Créés ces 30 jours|Value|Kpi|S|Attribut whenCreated
@@ -307,6 +307,7 @@ function Test-DomeniaObservationAge {
     param($CheckedUtc,[datetime]$NowUtc = [datetime]::UtcNow,[int]$MaxDays = 30,[int]$GreyDays = 7)
     $date = if ($CheckedUtc -is [datetime]) { $CheckedUtc.ToUniversalTime() } else { ConvertFrom-DomeniaUtcText ([string]$CheckedUtc) }
     if ($null -eq $date) { return 'Expired' }
+    if($date -gt $NowUtc.AddMinutes(5)){return 'Expired'}
     $days = ($NowUtc - $date).TotalDays
     if ($days -gt [Math]::Max(1,$MaxDays)) { return 'Expired' }
     if ($days -gt $GreyDays) { return 'Old' }
@@ -476,7 +477,7 @@ function New-DomeniaBoardItemId {
     return ([guid]::NewGuid().ToString('N')).Substring(0, 10)
 }
 function New-DomeniaBoardItem {
-    param([ValidateSet('Builtin','Probe')][string]$Source,[string]$Key,[string]$Visual,[string]$Size = '',[string]$Group = '',[string]$Title = '',[string]$Id = '')
+    param([ValidateSet('Builtin','Probe','Query')][string]$Source,[string]$Key,[string]$Visual,[string]$Size = '',[string]$Group = '',[string]$Title = '',[string]$Id = '')
     if (-not $Id) { $Id = New-DomeniaBoardItemId }
     return [pscustomobject]@{ Id = $Id; Source = $Source; Key = $Key; Visual = $Visual; Title = $Title; Size = $Size; Group = $Group }
 }
@@ -545,6 +546,8 @@ function ConvertTo-DomeniaBoardLayout {
             $kind = Get-DomeniaProbeKind -Probe $probes[$key] -Board $Board
             $group = & $get 'Group'; if (-not $group) { $group = if ($probes.ContainsKey($key)) { [string]$probes[$key].Category } else { 'Requetes' } }
             $defaultSize = ''
+        } elseif ($source -eq 'Query' -and $Board -eq 'Fleet') {
+            $kind=if((& $get 'Visual') -in @('Bar','Donut','Column','Line','List')){'Distribution'}else{'Number'};$group=& $get 'Group';if(-not $group){$group='Mes sondes'};$defaultSize='M'
         } else { continue }
         $id = & $get 'Id'; if (-not $id -or $seen.ContainsKey($id)) { $id = New-DomeniaBoardItemId }
         $seen[$id] = $true
@@ -670,7 +673,7 @@ function ConvertFrom-DomeniaProbeMeasure {
             return New-DomeniaBoardEntry -Key $Key -Kind $kind -Value 'Non lu' -Detail 'Requête ignorée sur un contrôleur de domaine : elle y parcourrait tout lʼannuaire' -State 'Off'
         }
         # Fleet queries run from Rechercher on the displayed workstations (decision David 2026-10-08).
-        $how = if ($Board -eq 'Fleet') { 'Dans Rechercher, Analyser la liste remplit ce widget' } else { 'Actualiser les requetes pour remplir ce widget' }
+        $how = if ($Board -eq 'Fleet') { 'Utilisez Relever dans le tableau de bord pour recueillir cette mesure.' } else { 'Actualiser les requetes pour remplir ce widget' }
         return New-DomeniaBoardEntry -Key $Key -Kind $kind -Value 'En attente' -Detail $how -State 'Off'
     }
     $items = @($Measured.Items)
@@ -690,7 +693,10 @@ function ConvertFrom-DomeniaProbeMeasure {
     $subtitle = [string]$machines + ' poste' + $(if ($machines -gt 1) { 's' } else { '' })
     if ($kind -eq 'Measure') {
         $sum = 0.0; $count = 0; $min = [double]::MaxValue; $max = [double]::MinValue
+        if($null -ne $Measured.PSObject.Properties['Samples']){$sum=$Measured.Samples.Sum;$count=$Measured.Samples.NumericCount;$min=$Measured.Samples.Min;$max=$Measured.Samples.Max}
+        else{
         foreach ($v in @($Measured.Values)) { $d = 0.0; if ([double]::TryParse([string]$v,[Globalization.NumberStyles]::Float,[Globalization.CultureInfo]::InvariantCulture,[ref]$d)) { $sum += $d; $count++; if ($d -lt $min) { $min = $d }; if ($d -gt $max) { $max = $d } } }
+        }
         $value = if ($count) { ([Math]::Round($sum / $count, 1)).ToString([Globalization.CultureInfo]::GetCultureInfo('fr-FR')) + $unit } else { 'Aucune valeur' }
         $detail = if ($count) { 'Moyenne · min ' + ([Math]::Round($min, 1)).ToString([Globalization.CultureInfo]::GetCultureInfo('fr-FR')) + ' · max ' + ([Math]::Round($max, 1)).ToString([Globalization.CultureInfo]::GetCultureInfo('fr-FR')) } else { [string]$Measured.Summary }
         return New-DomeniaBoardEntry -Key $Key -Kind Measure -Title $title -Subtitle $subtitle -Value $value -Detail $detail -Items $items -Unit $unit.Trim()

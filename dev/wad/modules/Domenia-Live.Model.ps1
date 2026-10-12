@@ -40,6 +40,21 @@ function ConvertTo-DomeniaLiveSnapshot {
     }
     return [pscustomobject]$values
 }
+function Add-DomeniaLiveMemoryQuery {
+    # The 20-query bound alone could retain 400 000 duplicated PSCustomObject rows.
+    # Bound the total snapshot rows too; this never truncates the current results or the SQLite index.
+    param([Collections.IDictionary]$Queries,$Query,[int]$MaxQueries=20,[int]$MaxRows=20000)
+    if($null -eq $Queries -or $null -eq $Query -or -not [string]$Query.QueryKey){return}
+    $MaxQueries=[Math]::Max(1,$MaxQueries);$MaxRows=[Math]::Max(1,$MaxRows)
+    $key=[string]$Query.QueryKey
+    if(@($Query.Rows).Count -gt $MaxRows){[void]$Queries.Remove($key);return}
+    $Queries[$key]=$Query
+    $rows=0L;foreach($value in $Queries.Values){$rows+=@($value.Rows).Count}
+    foreach($entry in @($Queries.Values|Where-Object{[string]$_.QueryKey -cne $key}|Sort-Object ObservedUtc,QueryKey)){
+        if($Queries.Count -le $MaxQueries -and $rows -le $MaxRows){break}
+        $rows-=@($entry.Rows).Count;[void]$Queries.Remove([string]$entry.QueryKey)
+    }
+}
 function Get-DomeniaLiveObjectKey {
     param($Row)
     # Full DN, not a short hostname shared by several domains/OU scopes.
@@ -148,7 +163,15 @@ function Test-DomeniaLiveRowInScope {
     if([string]$Scope -ieq 'OneLevel'){
         # Direct children only: the remaining part is a single RDN (no unescaped comma).
         $rest=$dn.Substring(0,$dn.Length-$base.Length-1)
-        return ($rest -notmatch '(?<!\\),')
+        # A comma is escaped only after an odd number of backslashes. A literal backslash
+        # (\\) before a comma must not hide a real RDN separator.
+        $escaped=$false
+        foreach($ch in $rest.ToCharArray()){
+            if($ch -eq [char]'\'){$escaped=-not $escaped;continue}
+            if($ch -eq [char]',' -and -not $escaped){return $false}
+            $escaped=$false
+        }
+        return $true
     }
     return $true
 }
@@ -220,7 +243,7 @@ try{
             $os=Get-CimInstance -CimSession $cim -ClassName Win32_OperatingSystem -Property Caption,BuildNumber,LastBootUpTime -OperationTimeoutSec $timeout -ErrorAction Stop
             $system=Get-CimInstance -CimSession $cim -ClassName Win32_ComputerSystem -Property Manufacturer,Model,TotalPhysicalMemory -OperationTimeoutSec $timeout -ErrorAction Stop
             $disk=Get-CimInstance -CimSession $cim -ClassName Win32_LogicalDisk -Filter "DeviceID='C:'" -Property Size,FreeSpace -OperationTimeoutSec $timeout -ErrorAction Stop
-            $answer.Inventory=[pscustomobject]@{OsCaption=[string]$os.Caption;Build=[string]$os.BuildNumber;LastBootUtc=$(try{([datetime]$os.LastBootUpTime).ToUniversalTime().ToString('o')}catch{''});Manufacturer=([string]$system.Manufacturer).Trim();Model=([string]$system.Model).Trim();RamBytes=[double]$system.TotalPhysicalMemory;DiskSize=[double]$disk.Size;DiskFree=[double]$disk.FreeSpace;CheckedUtc=[datetime]::UtcNow.ToString('o')}
+            $answer.Inventory=[pscustomobject]@{OsCaption=[string]$os.Caption;Build=[string]$os.BuildNumber;LastBootUtc=$(try{([datetime]$os.LastBootUpTime).ToUniversalTime().ToString('o')}catch{''});Manufacturer=([string]$system.Manufacturer).Trim();Model=([string]$system.Model).Trim();RamBytes=$(if($null -ne $system -and $null -ne $system.TotalPhysicalMemory){[double]$system.TotalPhysicalMemory}else{$null});DiskSize=$(if($null -ne $disk -and $null -ne $disk.Size){[double]$disk.Size}else{$null});DiskFree=$(if($null -ne $disk -and $null -ne $disk.FreeSpace){[double]$disk.FreeSpace}else{$null});CheckedUtc=[datetime]::UtcNow.ToString('o')}
         }catch{$answer.InventoryError=[string]$_.Exception.Message}
     }
     # Widget probes (decision David 2026-10-07): catalog queries run read-only in the same CIM session. Only class,
@@ -229,9 +252,9 @@ try{
         $since=@{'{SINCE_24H}'=(Get-Date).AddHours(-24).ToUniversalTime().ToString('yyyyMMddHHmmss.000000+000');'{SINCE_7D}'=(Get-Date).AddDays(-7).ToUniversalTime().ToString('yyyyMMddHHmmss.000000+000')}
         $probeResults=[ordered]@{}
         $allowedClasses=@();if($null-ne$Payload.PSObject.Properties['AllowedClasses']){foreach($allowedClass in @($Payload.AllowedClasses)){if(-not[string]::IsNullOrWhiteSpace([string]$allowedClass)){$allowedClasses+=[string]$allowedClass}}}
-        $productType=$null;$productTypeRead=$false
+        $productType=$null;$productTypeRead=$false;$probeReadCache=@{}
         foreach($probe in @($Payload.Probes)){
-            $entry=[ordered]@{Rows=@();Count=0;Error='';CheckedUtc=[datetime]::UtcNow.ToString('o')}
+            $entry=[ordered]@{Rows=@();Count=0;Error='';Truncated=$false;CheckedUtc=[datetime]::UtcNow.ToString('o')}
             try{
                 # SE-03 : la classe doit appartenir au catalogue transmis par le client. Une charge utile fabriquee
                 # ailleurs ne peut pas faire lire CIM_Product au poste ; sans catalogue, aucune sonde ne part.
@@ -247,11 +270,34 @@ try{
                 $properties=@(@($probe.Properties)|Where-Object{[string]$_ -match '^[A-Za-z0-9_]+$'})
                 $filter=[string]$probe.Filter;foreach($token in $since.Keys){$filter=$filter.Replace($token,$since[$token])}
                 $query=@{CimSession=$cim;Namespace=[string]$probe.Namespace;ClassName=[string]$probe.Class;OperationTimeoutSec=[Math]::Max(10,$timeout);ErrorAction='Stop'}
-                if($properties.Count){$query.Property=$properties}
-                if($filter){$query.Filter=$filter}
-                $items=@(Get-CimInstance @query)
-                $entry.Count=$items.Count
-                $entry.Rows=@($items|Select-Object -First 20|ForEach-Object{$instance=$_;,@($properties|ForEach-Object{$value=$instance.$_;if($value -is [datetime]){$value.ToUniversalTime().ToString('o')}elseif($value -is [array]){[string]@($value)[0]}else{$text=[string]$value;if($text.Length -gt 200){$text.Substring(0,200)}else{$text}}})})
+                # Several widgets can read the same class/filter: one CIM read with the union of required properties.
+                $cacheKey=[string]$probe.Namespace+'|'+[string]$probe.Class+'|'+$filter
+                if(-not $probeReadCache.ContainsKey($cacheKey)){
+                    $union=[Collections.Generic.List[string]]::new()
+                    foreach($peer in @($Payload.Probes)){
+                        $peerFilter=[string]$peer.Filter;foreach($token in $since.Keys){$peerFilter=$peerFilter.Replace($token,$since[$token])}
+                        if([string]$peer.Namespace -ine [string]$probe.Namespace -or [string]$peer.Class -ine [string]$probe.Class -or $peerFilter -cne $filter){continue}
+                        foreach($property in @($peer.Properties)){if([string]$property -match '^[A-Za-z0-9_]+$' -and -not $union.Contains([string]$property)){$union.Add([string]$property)}}
+                    }
+                    if($union.Count){$query.Property=$union.ToArray()}
+                    if($filter){$query.Filter=$filter}
+                    # Count the complete CIM stream, retaining only the detail rows we can display.
+                    # Event logs/process providers may return hundreds of thousands of instances.
+                    try{
+                        $details=[Collections.Generic.List[object]]::new();$instanceCount=0L
+                        Get-CimInstance @query | ForEach-Object {
+                            if($null -ne $_){$instanceCount++;if($details.Count -lt 20){$details.Add($_)}}
+                        }
+                        $probeReadCache[$cacheKey]=[pscustomobject]@{Items=$details.ToArray();Count=$instanceCount;Error='';At=[datetime]::UtcNow.ToString('o')}
+                    }
+                    catch{$probeReadCache[$cacheKey]=[pscustomobject]@{Items=@();Count=0L;Error=$_.Exception.Message;At=[datetime]::UtcNow.ToString('o')}}
+                }
+                $cached=$probeReadCache[$cacheKey];$entry.CheckedUtc=$cached.At
+                if($cached.Error){throw $cached.Error}
+                $items=@($cached.Items)
+                $entry.Count=[long]$cached.Count
+                $entry.Truncated=([string]$probe.Mode -eq 'All' -and $cached.Count -gt 20)
+                $entry.Rows=@($items|Select-Object -First 20|ForEach-Object{$instance=$_;,@($properties|ForEach-Object{$value=$instance.$_;if($value -is [datetime]){$value.ToUniversalTime().ToString('o')}elseif($value -is [array]){if(@($value).Count -gt 1){$entry.Truncated=$true};[string]@($value)[0]}else{$text=[string]$value;if($text.Length -gt 200){$entry.Truncated=$true;$text.Substring(0,200)}else{$text}}})})
             }catch{$entry.Error=[string]$_.Exception.Message}
             $probeResults[[string]$probe.Id]=[pscustomobject]$entry
         }
@@ -448,7 +494,7 @@ try{
         if(@($tables|Where-Object {$_.name -eq 'adcc_live_queries'}).Count -gt 0){
             $queryKey=ConvertTo-DomeniaSqlLiteral ([string]$Payload.QueryKey)
             $cached=@(Invoke-DomeniaDbQuery ("SELECT observed_utc,payload FROM adcc_live_queries WHERE scope_key=$qScope AND query_key=$queryKey AND observed_utc>=strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days') LIMIT 1;") $db)
-            if($cached.Count -eq 1 -and ([string]$cached[0].payload).Length -le 33554432){
+            if($cached.Count -eq 1 -and [Text.Encoding]::UTF8.GetByteCount([string]$cached[0].payload) -le 33554432){
                 $envelope=([string]$cached[0].payload)|ConvertFrom-Json -ErrorAction Stop
                 if([string]$envelope.QueryKey -cne [string]$Payload.QueryKey){throw 'Périmètre du cache incohérent.'}
                 $rowCount=0
@@ -462,9 +508,9 @@ try{
             }
         }
         if($Payload.LoadObservations -and @($tables|Where-Object {$_.name -eq 'adcc_live_observations'}).Count -gt 0){
-            $records=@(Invoke-DomeniaDbQuery ("SELECT object_key,payload FROM adcc_live_observations WHERE scope_key=$qScope AND checked_utc>=strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days') ORDER BY checked_utc DESC LIMIT 5000;") $db)
+            $records=@(Invoke-DomeniaDbQuery ("SELECT object_key,payload FROM adcc_live_observations WHERE scope_key=$qScope AND checked_utc>=strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days') ORDER BY checked_utc DESC LIMIT 20000;") $db)
             foreach($item in $records){
-                if(([string]$item.payload).Length -gt 16384){continue}
+                if([Text.Encoding]::UTF8.GetByteCount([string]$item.payload) -gt 16384){continue}
                 $entry=([string]$item.payload)|ConvertFrom-Json -ErrorAction Stop
                 if([string]$entry.Key -cne [string]$item.object_key){continue}
                 # Do not overwrite a newer live result that arrived while SQLite was read.
@@ -480,13 +526,15 @@ try{
     [void](Invoke-DomeniaDbExec @"
 CREATE TABLE IF NOT EXISTS adcc_live_queries(scope_key TEXT NOT NULL,query_key TEXT NOT NULL,observed_utc TEXT NOT NULL,payload TEXT NOT NULL,PRIMARY KEY(scope_key,query_key));
 CREATE TABLE IF NOT EXISTS adcc_live_observations(scope_key TEXT NOT NULL,object_key TEXT NOT NULL,checked_utc TEXT NOT NULL,payload TEXT NOT NULL,PRIMARY KEY(scope_key,object_key));
+CREATE INDEX IF NOT EXISTS idx_live_queries_retention ON adcc_live_queries(scope_key,observed_utc DESC);
+CREATE INDEX IF NOT EXISTS idx_live_observations_retention ON adcc_live_observations(scope_key,checked_utc DESC);
 BEGIN IMMEDIATE;
 "@ $db)
     $transaction=$true
     if($null -ne $Payload.Query){
         $query=$Payload.Query
         $json=$query|ConvertTo-Json -Depth 5 -Compress
-        if($json.Length -gt 33554432 -or @($query.Rows).Count -gt 20000){throw 'Cache de recherche trop volumineux.'}
+        if([Text.Encoding]::UTF8.GetByteCount($json) -gt 33554432 -or @($query.Rows).Count -gt 20000){throw 'Cache de recherche trop volumineux.'}
         $sql='INSERT OR REPLACE INTO adcc_live_queries(scope_key,query_key,observed_utc,payload) VALUES('+((@($scope,[string]$query.QueryKey,[string]$query.ObservedUtc,$json)|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ',')+');'
         [void](Invoke-DomeniaDbExec $sql $db)
     }
@@ -495,13 +543,13 @@ BEGIN IMMEDIATE;
         $checkedForRetention=[string]$observation.UserCheckedUtc
         if([string]::IsNullOrWhiteSpace($checkedForRetention)){$checkedForRetention=[string]$observation.CheckedUtc}
         $json=$observation|ConvertTo-Json -Depth 3 -Compress
-        if($json.Length -gt 16384){throw 'Observation trop volumineuse.'}
+        if([Text.Encoding]::UTF8.GetByteCount($json) -gt 16384){throw 'Observation trop volumineuse.'}
         $sql='INSERT OR REPLACE INTO adcc_live_observations(scope_key,object_key,checked_utc,payload) VALUES('+((@($scope,[string]$observation.Key,$checkedForRetention,$json)|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ',')+');'
         [void](Invoke-DomeniaDbExec $sql $db)
         # D028: user_machine_links is written only by the single LocalStore writer.
     }
     # Retention affects only these new cache tables, never the existing AD index/history.
-    [void](Invoke-DomeniaDbExec ("DELETE FROM adcc_live_queries WHERE scope_key=$qScope AND query_key IN (SELECT query_key FROM adcc_live_queries WHERE scope_key=$qScope ORDER BY observed_utc DESC LIMIT -1 OFFSET 20); DELETE FROM adcc_live_queries WHERE observed_utc<strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days'); DELETE FROM adcc_live_observations WHERE scope_key=$qScope AND object_key IN (SELECT object_key FROM adcc_live_observations WHERE scope_key=$qScope ORDER BY checked_utc DESC LIMIT -1 OFFSET 5000); DELETE FROM adcc_live_observations WHERE checked_utc<strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days'); COMMIT;") $db)
+    [void](Invoke-DomeniaDbExec ("DELETE FROM adcc_live_queries WHERE scope_key=$qScope AND query_key IN (SELECT query_key FROM adcc_live_queries WHERE scope_key=$qScope ORDER BY observed_utc DESC LIMIT -1 OFFSET 20); DELETE FROM adcc_live_queries WHERE observed_utc<strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days'); DELETE FROM adcc_live_observations WHERE scope_key=$qScope AND object_key IN (SELECT object_key FROM adcc_live_observations WHERE scope_key=$qScope ORDER BY checked_utc DESC LIMIT -1 OFFSET 20000); DELETE FROM adcc_live_observations WHERE checked_utc<strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days'); COMMIT;") $db)
     $transaction=$false
     [pscustomobject]@{Mode='Write';Saved=@($Payload.Observations).Count}
 }finally{

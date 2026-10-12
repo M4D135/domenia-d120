@@ -70,6 +70,28 @@ function Get-DomeniaFleetScope {
         Key = $(if ($whole) { '*' } else { $dn.ToLowerInvariant() + '|' + $(if ($subtree) { 'Subtree' } else { 'OneLevel' }) })
     }
 }
+function Update-DomeniaFleetMachineList {
+    if($null -ne $script:DomeniaQueryState -and $script:DomeniaQueryState.Bound){Request-DomeniaQueryEvaluation;return}
+    # A local view over FleetStats.Machines; it includes disabled accounts and never starts an AD or endpoint query.
+    $grid = Get-DomeniaControl 'DgFleetMachines'
+    if ($null -eq $grid) { return }
+    $all = @()
+    if ($null -ne $script:FleetLast -and $null -ne $script:FleetLast.PSObject.Properties['Machines']) { $all = @($script:FleetLast.Machines) }
+    $filterBox = Get-DomeniaControl 'TxtFleetMachineFilter'
+    $filter = if ($null -ne $filterBox) { ([string]$filterBox.Text).Trim().ToLowerInvariant() } else { '' }
+    $selector = Get-DomeniaControl 'CmbFleetMachineState'
+    $state = if ($null -ne $selector -and $null -ne $selector.SelectedItem) { [string]$selector.SelectedItem.Content } else { 'Tous les états' }
+    $rows = @(foreach ($machine in $all) {
+        $isDisabled = ([string]$machine.st -eq 'D')
+        if ($state -eq 'Actifs' -and $isDisabled) { continue }
+        if ($state -eq 'Désactivés' -and -not $isDisabled) { continue }
+        $name = [string]$machine.name; $dn = [string]$machine.distinguished_name
+        if ($filter -and $name.ToLowerInvariant().IndexOf($filter,[StringComparison]::Ordinal) -lt 0 -and $dn.ToLowerInvariant().IndexOf($filter,[StringComparison]::Ordinal) -lt 0) { continue }
+        [pscustomobject]@{ name = $name; StateLabel = $(if ($isDisabled) { 'Désactivé' } else { 'Actif' }); logon = [string]$machine.logon; distinguished_name = $dn }
+    })
+    $grid.ItemsSource = $rows
+    [void](Set-DomeniaControlText 'LblFleetMachineCount' ('{0} affiché(s) sur {1} — base locale' -f $rows.Count,$all.Count))
+}
 function Get-DomeniaWindowsLifecycleTable {
     # End-of-service table delivered with the modules (FO-08), read once and passed to the rules. Updated by a new
     # delivery only, never downloaded. Absent or unreadable: $null, the end dates are then unknown (never critical).
@@ -145,7 +167,7 @@ function Start-DomeniaFleetDashboard {
     $job = $null
     try {
         [void](Initialize-DomeniaWinSqliteNative)
-        $job = Start-UiTask -Name 'Vue d ensemble du parc' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload ([pscustomobject]@{ Action='FleetStats'; Path=$path; BusyTimeoutMs=250; Scope=[string]$scope.Dn; Subtree=[bool]$scope.Subtree; Plan=$plan; Keys=$keys; ScopeKey=[string]$scope.Key }) -CallbackState $state -ReplaceKey 'fleet:stats' -SuccessHandler 'Complete-DomeniaFleetDashboard' -ErrorHandler 'Fail-DomeniaFleetDashboard' -TimeoutSeconds 60 -TaskClass $(if ($Quiet) { 'Background' } else { 'Explicit' })
+        $job = Start-UiTask -Name 'Vue d ensemble du parc' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload ([pscustomobject]@{ Action='FleetStats'; Path=$path; BusyTimeoutMs=250; Scope=[string]$scope.Dn; Subtree=[bool]$scope.Subtree; Plan=$plan; Keys=$keys; ScopeKey=[string]$scope.Key; ComputeBoard=$true; ModuleRoot=$script:DashboardModuleRoot; Lifecycle=(Get-DomeniaWindowsLifecycleTable); ObservationMaxAgeDays=(Get-DomeniaObservationMaxAgeDays); IndexPartial=(Get-DomeniaIndexPartialText) }) -CallbackState $state -ReplaceKey 'fleet:stats' -SuccessHandler 'Complete-DomeniaFleetDashboard' -ErrorHandler 'Fail-DomeniaFleetDashboard' -TimeoutSeconds 120 -TaskClass $(if ($Quiet) { 'Background' } else { 'Explicit' })
     } catch {
         $script:FleetPendingKey = ''; $script:FleetJobId = ''
         [void](Set-DomeniaControlText 'LblFleetDashboard' ('Vue dʼensemble non calculée : ' + $_.Exception.Message))
@@ -249,10 +271,16 @@ function Show-DomeniaFleetAnalyzeSource {
 function Merge-DomeniaFleetObservations {
     # The base snapshot may be older than the observations read since (save still queued, analysis running): the most
     # recent observation of each workstation is kept, so the widgets never go back in time.
-    param($Stored,$Current)
+    param($Stored,$Current,[string[]]$RetainKeys=$null)
     if ($null -eq $Stored) { $Stored = @{} }
+    $allowed=$null
+    if($PSBoundParameters.ContainsKey('RetainKeys')){
+        $allowed=@{};foreach($key in $RetainKeys){if($key){$allowed[$key.ToLowerInvariant()]=$true}}
+        foreach($key in @($Stored.Keys)){if(-not $allowed.ContainsKey($key)){[void]$Stored.Remove($key)}}
+    }
     if ($null -eq $Current) { return $Stored }
     foreach ($key in @($Current.Keys)) {
+        if($null -ne $allowed -and -not $allowed.ContainsKey($key)){continue}
         $mine = $Current[$key]
         if ($null -eq $mine) { continue }
         $known = $Stored[$key]
@@ -281,7 +309,7 @@ function Request-DomeniaSelectedObservation {
     try {
         [void](Initialize-DomeniaWinSqliteNative)
         $plan = Get-DomeniaFleetQueryPlan -Now ([datetime]::Now) -ObservationMaxAgeDays (Get-DomeniaObservationMaxAgeDays)
-        $job = Start-UiTask -Name 'Relevés du poste sélectionné' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload ([pscustomobject]@{ Action = 'FleetStats'; Path = $path; BusyTimeoutMs = 250; Scope = ''; Subtree = $true; Plan = $plan; Keys = @($key); ObservationsOnly = $true }) -CallbackState $state -ReplaceKey 'fleet:selected' -SuccessHandler 'Complete-DomeniaSelectedObservation' -ErrorHandler 'Fail-DomeniaSelectedObservation' -TimeoutSeconds 30 -TaskClass 'Background'
+        $job = Start-UiTask -Name 'Relevés du poste sélectionné' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload ([pscustomobject]@{ Action = 'FleetStats'; Path = $path; BusyTimeoutMs = 250; Scope = ''; Subtree = $true; Plan = $plan; Keys = @($key); ObservationsOnly = $true; ModuleRoot=$script:DashboardModuleRoot }) -CallbackState $state -ReplaceKey 'fleet:selected' -SuccessHandler 'Complete-DomeniaSelectedObservation' -ErrorHandler 'Fail-DomeniaSelectedObservation' -TimeoutSeconds 30 -TaskClass 'Background'
     } catch { $job = $null }
     # Not started (engine busy or closing): tried again at the next display of the board.
     if (-not $job) { [void]$script:FleetSelectedReads.Remove($marker) }
@@ -298,7 +326,8 @@ function Complete-DomeniaSelectedObservation {
         $found[([string]$item.object_key).ToLowerInvariant()] = $item.observation
     }
     if (-not $found.Count) { return }
-    $script:FleetObservations = Merge-DomeniaFleetObservations -Stored $found -Current $script:FleetObservations
+    $retain=@(@($script:FleetLast.Targets)|ForEach-Object{[string]$_.distinguished_name})+@([string]$script:SelectedObject.DN)
+    $script:FleetObservations = Merge-DomeniaFleetObservations -Stored $found -Current $script:FleetObservations -RetainKeys $retain
     # The board of the selected workstation shows them at once while it is still that workstation.
     if (($null -ne $script:SelectedObject) -and $found.ContainsKey(([string]$script:SelectedObject.DN).ToLowerInvariant())) { try { Show-DomeniaBoard -Board Computer -Quiet } catch { } }
 }
@@ -337,7 +366,10 @@ function Complete-DomeniaFleetDashboard {
     $script:FleetLastResult = $Result
     $scope = if ($null -ne $State) { [pscustomobject]@{ Dn = [string]$State.Scope; Subtree = [bool]$State.Subtree; Name = [string]$State.Name; Path = [string]$State.ScopePath; Key = [string]$State.Key } } else { Get-DomeniaFleetScope }
     if ($null -eq $scope) { $scope = [pscustomobject]@{ Dn = ''; Subtree = $true; Name = 'Tout le domaine'; Path = ''; Key = '*' } }
-    try { $board = Get-DomeniaFleetBoardData -Result $data -Scope ([string]$scope.Dn) -Subtree ([bool]$scope.Subtree) -Lifecycle (Get-DomeniaWindowsLifecycleTable) -ObservationMaxAgeDays (Get-DomeniaObservationMaxAgeDays) -IndexPartial (Get-DomeniaIndexPartialText) }
+    try {
+        $board=Get-DomeniaMemberValue $data 'Board'
+        if($null -eq $board){throw 'Les indicateurs du parc nʼont pas été calculés. Actualisez la vue.'}
+    }
     catch [System.Management.Automation.CommandNotFoundException] {
         # Une fonction absente est un defaut de chargement (core ou module non charge), jamais un resultat
         # metier. Le catch general la rendait en « Vue d'ensemble non calculee : The term ... » et
@@ -354,8 +386,11 @@ function Complete-DomeniaFleetDashboard {
     try { if ($null -ne $script:IndexInfo) { $lastSync = [string]$script:IndexInfo.Date } } catch { $lastSync = '' }
     Update-DomeniaFleetScopeText $scope -Count $count -LastSyncUtc $lastSync
     # Observations (presence, console user, light WMI, queries) feed the query widgets of both boards.
-    $script:FleetObservations = Merge-DomeniaFleetObservations -Stored $board.Observations -Current $script:FleetObservations
+    $retain=@(@($board.Last.Targets)|ForEach-Object{[string]$_.distinguished_name})+@([string]$script:SelectedObject.DN)
+    $script:FleetObservations = Merge-DomeniaFleetObservations -Stored $board.Observations -Current $script:FleetObservations -RetainKeys $retain
     $script:FleetLast = $board.Last
+    $script:FleetQuerySnapshotKey = [guid]::NewGuid().ToString('N')
+    try { Update-DomeniaFleetMachineList } catch { Write-AppLog ('Liste locale du parc indisponible : ' + $_.Exception.Message) 'WARN' }
     Add-Member -InputObject $script:FleetLast -MemberType NoteProperty -Name 'Epoch' -Value ([long]$script:SessionEpoch) -Force
     # New data never removes the undo of a layout change (FI-11): Show-DomeniaBoard keeps the undo stack.
     Show-DomeniaBoard -Board Fleet -Data $board
@@ -372,7 +407,7 @@ function Get-DomeniaAttentionTargets {
     param($Item)
     $machines = @()
     if (($null -ne $script:FleetLast) -and ($null -ne $script:FleetLast.PSObject.Properties['Machines'])) { $machines = @($script:FleetLast.Machines) }
-    return @(Get-DomeniaFleetPointTargets -Machines $machines -Point $Item -Max 200)
+    return @(Get-DomeniaFleetPointTargets -Machines $machines -Point $Item -Max ([int]::MaxValue))
 }
 function Copy-DomeniaFleetTargets {
     # Names of the workstations of one point, one per line, to the clipboard.

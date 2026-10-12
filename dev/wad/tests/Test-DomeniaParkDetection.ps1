@@ -16,7 +16,8 @@ function Case {param($Name,[scriptblock]$Body)try{& $Body|Out-Null;$status='Pass
 function Set-Status {param($Text,$Level)$script:Status=$Text}
 function Add-DomeniaUiLog {param($Area,$Text,$Level)}
 function Initialize-DomeniaWinSqliteNative {}
-function Get-DomeniaSetting {param($Name,$Default)return $true}
+function Get-DomeniaSetting {param($Name,$Default)return $Default}
+function New-DomeniaObservationReader {return [pscustomobject]@{Fixture=$true}}
 function Request-DomeniaInlineConfirmation {param($Title,$Target,$Message,$ConfirmText,$CancelText,$OnConfirm,$OnCancel)$script:Confirm=$OnConfirm;$script:Cancel=$OnCancel;$script:Message=$Message}
 function Start-UiTask {
  param($Name,$OperationId,$Code,$Payload,$CallbackState,$SuccessHandler,$ErrorHandler,[switch]$NonCancellable,$TimeoutSeconds,$TaskClass)
@@ -30,7 +31,7 @@ function Add-DomeniaRelation {param($Relation,[switch]$NoSave,[switch]$Quiet)$sc
 function Set-RowAssociationMetadata {param($Rows)}
 function Reset-Fixture {
  if($null -ne $script:ParkRun -and $null -ne $script:ParkRun.Timer){$script:ParkRun.Timer.Stop()}
- $script:ParkRun=$null;$script:SessionEpoch=1L;$script:DatabaseScopedPath='C:\fixture\domain.db';$script:DemoMode=$false;$script:AsyncEngineClosing=$false;$script:WriteState='Idle';$script:ActiveWriteTaskId='';$script:Persistence=$null;$script:Live=$null;$script:Existing=$null
+ $script:ParkRun=$null;$script:SessionEpoch=1L;$script:DatabaseScopedPath='C:\fixture\domain.db';$script:DemoMode=$false;$script:AsyncEngineClosing=$false;$script:WriteState='Idle';$script:ActiveWriteTaskId='';$script:Persistence=$null;$script:Live=$null;$script:Existing=$null;$script:FleetLast=$null;$script:FleetObservations=@{};$script:SelectedObject=$null
  $script:Conn=[pscustomobject]@{Domain='example.invalid'};$script:AsyncJobs=[ordered]@{};$script:DetachedReadJobs=@()
  $script:Calls=[Collections.Generic.List[object]]::new();$script:Saves=[Collections.Generic.List[object]]::new();$script:RelationsAdded=[Collections.Generic.List[object]]::new();$script:LinkSaves=0;$script:Confirm=$null;$script:Cancel=$null
  $script:Ctrl=@{DgObjects=[Windows.Controls.DataGrid]::new();LblParkStatus=[Windows.Controls.TextBlock]::new();LblParkDetectionStatus=[Windows.Controls.TextBlock]::new()}

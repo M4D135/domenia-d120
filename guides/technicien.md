@@ -4,7 +4,7 @@ Quand : avant toute intervention, vous devez retrouver un poste, un utilisateur 
 
 ## Ouvrir Domenia
 
-1. **Lancer Domenia.** Double-cliquez sur Domenia.exe. La fenêtre « Domenia · Connexion » s'ouvre.
+1. **Lancer Domenia.** Double-cliquez sur Domenia.exe. La fenêtre « Connexion à Domenia » s'ouvre.
 2. **Saisir le compte.** Dans « Compte Windows », tapez votre compte du domaine (DOMAINE\identifiant ou identifiant@domaine), puis le « Mot de passe ».
 3. **Se connecter.** Cliquez sur « Se connecter » ou appuyez sur Entrée. Si votre session Windows est ouverte avec votre compte du domaine, cliquez plutôt sur « Utiliser mon compte Windows ».
 4. **Attendre l'ouverture.** « Vérification du compte… » s'affiche, puis la fenêtre principale s'ouvre. Sous le titre de la page, le badge « Connecté à … » donne le nom du domaine ; le pied du menu rappelle le compte et le domaine utilisés.
@@ -30,7 +30,7 @@ Quand : avant toute intervention, vous devez retrouver un poste, un utilisateur 
 
 > [!RESULTAT] L'objet cherché est dans la liste ; sa fiche s'ouvre d'un double-clic.
 
-## Trouver le poste d'un utilisateur
+## Trouver le poste associé à une personne
 
 1. **Rechercher l'utilisateur.** Tapez son nom ou son identifiant dans la barre du haut. Sur sa ligne, « Association mémorisée » indique déjà le poste lié, s'il est connu.
 2. **Ouvrir sa fiche.** Double-cliquez sur la ligne, puis cliquez sur l'onglet « Utilisateur ».
@@ -42,7 +42,7 @@ Quand : avant toute intervention, vous devez retrouver un poste, un utilisateur 
 
 ## Parcourir une OU
 
-Quand : vous voulez voir tous les postes ou tous les utilisateurs d'un site ou d'un service.
+Quand : vous voulez voir tous les postes ou tous les utilisateurs d'un site ou d'un service. Une OU est une unité organisationnelle : elle regroupe des objets dans l’annuaire.
 
 1. **Choisir l'OU.** À gauche de la page « Rechercher », dans « Parcourir les OU », dépliez l'arbre et cliquez sur une OU. Son contenu s'affiche dans la liste.
 2. **Régler la portée.** Décochez « Inclure les sous-OU » pour ne voir que le premier niveau.
@@ -61,7 +61,7 @@ Quand : vous voulez voir tous les postes ou tous les utilisateurs d'un site ou d
 | « La liste affichée nʼest plus la recherche courante : relancez la recherche. » | Relancez la recherche, puis cliquez de nouveau sur « Charger la suite ». |
 | « Fiche » est grisé dans le menu | Sélectionnez d'abord une ligne dans les résultats. |
 
-# 2 Ouvrir la fiche d'un poste et agir dessus
+# 2 Ouvrir la fiche du poste et agir dessus
 
 Quand : un utilisateur signale un problème sur son poste et vous devez l'examiner ou intervenir à distance.
 
@@ -92,7 +92,9 @@ Quand : vous voulez tester le poste, ouvrir son disque, une console d'administra
 5. **Prendre la main.** Cliquez sur « Bureau à distance ». La connexion Bureau à distance de Windows s'ouvre vers ce poste ; saisissez votre compte si Windows le demande.
 6. **Préparer PowerShell.** « Commande PowerShell » copie la commande de connexion à distance : collez-la dans votre console PowerShell.
 
-![Onglet « Actions » du poste : « Ping », « Bureau à distance », « Ouvrir C$ », consoles et « Commande PowerShell »](fig:actions-poste)
+![Actions du poste : état du compte, Ping, Bureau à distance, Ouvrir C$, consoles, journaux et services ; données fictives](fig:actions-poste)
+
+![Autres actions : commande PowerShell, programme, stratégies et redémarrage ; données fictives](fig:actions-poste-avancees)
 
 > [!RESULTAT] L'outil choisi est ouvert sur le poste, sans rien modifier sur le poste ni dans l'annuaire.
 
@@ -151,14 +153,14 @@ Quand : vous voulez voir d'un coup d'œil l'état d'un poste et ses points à v�
 
 > [!NOTE] Vert : rien à signaler ; orange : à surveiller ; rouge : critique. Une section vide indique ce qu'il faut lancer pour la remplir.
 
-## Que faire d'un point d'attention
+## Traiter un point nécessitant une attention
 
 | Point d'attention | Que faire |
 |---|---|
 | Pas de redémarrage depuis plus de 30 jours, ou redémarrage en attente | Convenez d'un redémarrage avec l'utilisateur. |
 | Disque système presque plein | Libérez de la place avec l'utilisateur (« Ouvrir C$ », chapitre 2). Sinon, prévenez l'administrateur. |
 | Horloge décalée, mot de passe machine ancien, compte ordinateur désactivé | Prévenez l'administrateur. |
-| Poste sous Windows 10 | Le poste est à migrer. Prévenez l'administrateur. |
+| Version de Windows signalée | Faites vérifier l’édition, son cycle de support et les dispositions de maintenance du parc par l’administrateur. |
 
 > [!RESULTAT] Vous savez si le poste est sain et quels points traiter en premier.
 
@@ -169,7 +171,7 @@ Quand : vous voulez voir d'un coup d'œil l'état d'un poste et ses points à v�
 | « Pas encore de donnees » | Cliquez sur « Inventaire rapide ». |
 | Une section indique « Inventaire complet requis : » | Cliquez sur « Inventaire complet ». |
 | Un widget affiche « Non lu » | L'information n'a pas pu être lue. Relancez l'inventaire. Si elle reste absente, prévenez l'administrateur. |
-| Le tableau se vide quand vous choisissez un autre objet | C'est normal : il montre toujours le poste sélectionné. Si vous avez déjà lancé son inventaire pendant cette session, il réapparaît avec son âge (« Inventaire d'il y a 12 min · Actualiser ») ; sinon relancez l'inventaire sur le nouveau poste. |
+| Le tableau se vide quand vous choisissez un autre objet | Le tableau suit le poste sélectionné. Un ancien inventaire peut réapparaître dans l’onglet « Inventaire » avec sa date ; relancez l’inventaire pour remplir le tableau du poste. |
 
 # 4 Savoir qui est connecté sur une liste de postes
 
@@ -179,7 +181,7 @@ Quand : vous cherchez sur quel poste travaille un utilisateur, ou quels postes d
 2. **Pinger la liste.** Pour savoir seulement quels postes répondent, cliquez sur « Pinger la liste ». La demande « Pinger les postes affiches » donne le nombre de postes. Cliquez sur « Pinger ».
 3. **Ou détecter les utilisateurs.** Pour savoir aussi qui est connecté, cliquez sur « Détecter la liste ». La demande « Detecter sur les resultats affiches » donne le nombre de postes. Cliquez sur « Verifier les sessions ».
 4. **Ou analyser les postes.** Pour connaître aussi leur matériel, cliquez sur « Analyser la liste ». La demande « Analyser les postes affiches » donne le nombre de postes. Cliquez sur « Analyser ». En plus de l'utilisateur, Domenia lit le modèle, la mémoire, le disque C:, la version de Windows et la date de démarrage de chaque poste.
-5. **Suivre l'avancement.** La ligne sous les boutons suit l'avancement, quatre postes au plus à la fois, jusqu'à « Ping termine » ou « Releve termine ».
+5. **Suivre l'avancement.** La ligne sous les boutons suit l'avancement, avec 1 à 8 postes en parallèle selon le réglage, jusqu'à « Ping termine » ou « Releve termine ».
 6. **Lire le résultat.** Après « Pinger la liste », seule « Présence réseau » est mise à jour ; après « Détecter la liste » ou « Analyser la liste », « Utilisateur connecté (console) » et « Vérification utilisateur » le sont aussi. Le matériel lu par « Analyser la liste » s'affiche dans la vue d'ensemble de l'Accueil (chapitre 5).
 7. **Arrêter si besoin.** Cliquez sur « Arrêter » : aucune nouvelle lecture ne démarre et les résultats déjà obtenus restent affichés.
 
@@ -203,59 +205,120 @@ Quand : vous cherchez sur quel poste travaille un utilisateur, ou quels postes d
 | « Accès refusé » ou « Compte distant refusé » | Le compte n'a pas les droits sur ce poste. Utilisez le compte fourni pour les postes (chapitre 2). Sinon, prévenez l'administrateur. |
 | « Délai dépassé » | Le poste a répondu trop lentement. Revérifiez-le plus tard avec « Revérifier ce poste ». |
 
-# 5 Voir l'état du parc depuis l'Accueil
+# 5 Voir et explorer le parc depuis Accueil
 
-Quand : vous voulez une vue d'ensemble des postes d'un site ou d'un service.
+L'Accueil présente les postes de la base locale et leurs derniers relevés. Son choix d'OU est indépendant de Rechercher : vous pouvez suivre un service dans le tableau de bord tout en cherchant un autre objet dans l'annuaire.
 
-La vue d'ensemble suit l'OU choisie dans « Rechercher » : il n'y a qu'un seul choix d'OU dans Domenia. Elle ne fait qu'afficher ; les pings, détections et analyses se lancent dans « Rechercher », sur la liste affichée.
+## Choisir le périmètre
 
-## Lire la vue d'ensemble
+1. **Ouvrir l'Accueil.** Cliquez sur Accueil ou appuyez sur Ctrl+D.
+2. **Choisir une OU (unité organisationnelle de l’annuaire).** Utilisez le sélecteur du parc. L’OU choisie inclut ses sous-OU. Le domaine entier permet de consulter tous les postes indexés ; le chemin cliquable permet de remonter vers une OU parente.
+3. **Vérifier la couverture.** Lisez le périmètre, la date de la base et les indications de fraîcheur. Un total local ne prouve pas que tous les objets du domaine ont été lus.
+4. **Actualiser l'affichage.** Actualiser recalcule les widgets depuis les données locales ; il ne relance pas à lui seul les sondes des postes.
 
-1. **Choisir l'OU.** Dans « Rechercher », cliquez sur l'OU de votre site ou de votre service dans l'arbre (chapitre 1). Depuis l'Accueil, le bouton « Changer dʼOU » ouvre directement cet arbre.
-2. **Ouvrir l'Accueil.** Cliquez sur « Accueil » dans le menu, ou appuyez sur Ctrl+D. La carte « Vue d ensemble du parc » se recalcule pour l'OU choisie, sans interroger les postes.
-3. **Vérifier le périmètre.** La ligne « Périmètre » affiche le nom de l'OU, avec ses sous-OU si la case « Inclure les sous-OU » est cochée dans « Rechercher ». Avec « Tout le domaine », elle affiche « Tout le domaine indexe (consultation) ».
-4. **Lire les widgets.** « Actualiser » recalcule la vue à la demande, toujours sans interroger les postes.
+![Accueil : périmètre du parc, couverture de la base et indicateurs des postes recensés ; données fictives](fig:accueil)
 
-![Accueil : vue d'ensemble du parc pour l'OU Postes de Lyon, choisie dans Rechercher, et widgets du parc](fig:accueil)
+Recherchez le nom de l’OU dans le sélecteur, puis relisez le site et le chemin avant de choisir. Plusieurs OU peuvent porter le même nom.
 
-| Section | Ce que vous y lisez |
-|---|---|
-| « Inventaire du perimetre » | « Postes actifs », « Postes inactifs (90 j et plus) », « Postes sous Windows 10 », « Utilisateurs detectes », « Derniere analyse ». |
-| « Repartition » | Systèmes, ancienneté de la dernière connexion au domaine, postes par OU, présence réseau. |
-| « Releves WMI » | Modèles, versions de Windows, mémoire installée, espace libre sur C:, postes non redémarrés depuis 30 jours. |
+![Sélecteur intégré : trois OU Postes distinguées par leur description ; données fictives](fig:selecteur-ou)
 
-> [!RESULTAT] La vue d'ensemble montre les postes de l'OU choisie dans « Rechercher ».
+## Afficher les postes derrière un chiffre
 
-## Mettre à jour les chiffres des postes
+1. **Cliquer sur un widget.** Le détail s'ouvre dans l'Atelier de requêtes de l'Accueil. Un segment de graphique ajoute le filtre correspondant.
+2. **Lire la liste.** Le compteur porte sur le résultat complet. La table affiche 200 postes par page ; utilisez les commandes de page pour parcourir la suite.
+3. **Examiner un poste.** Sélectionnez sa ligne, ouvrez sa fiche ou les actions du poste. Vérifiez le nom et l'identité affichés avant une intervention.
+4. **Revenir au parc entier.** Effacez le segment pour retirer la restriction issue du widget.
 
-Quand : vous voulez des chiffres à jour sur la présence, les utilisateurs et le matériel des postes de l'OU.
+![Détail local du poste sélectionné dans l’Atelier ; données fictives](fig:atelier-fiche-locale)
 
-1. **Afficher les postes.** Dans « Rechercher », choisissez l'OU et affichez ses postes, par exemple avec « Type d’objet » sur « Machines ».
-2. **Lancer.** Cliquez sur « Pinger la liste », « Détecter la liste » ou « Analyser la liste », puis confirmez (chapitre 4). « Analyser la liste » remplit aussi la section « Releves WMI ».
-3. **Revenir à l'Accueil.** À la fin du relevé, la vue d'ensemble se recalcule d'elle-même.
+Pour un point d'attention, le premier aperçu est volontairement court. « Détailler les postes » ouvre la sélection complète dans l'Atelier. La mention « Sélection figée » signifie que la liste conserve les identifiants des postes concernés au moment du clic ; elle ne découvre pas les nouvelles alertes apparues ensuite. Ouvrez à nouveau le point d'attention pour obtenir une nouvelle sélection.
 
-> [!RESULTAT] Les widgets du parc montrent l'état des postes analysés de l'OU.
+![Détail d’un point d’attention dans l’Atelier : mention Sélection figée et liste des postes concernés ; données fictives](fig:alerte-selection)
+
+## Trouver tous les postes recensés
+
+Dans l'Atelier de requêtes, choisissez « Tous les postes recensés » puis appliquez la requête. Elle inclut les comptes actifs et désactivés du périmètre. Une recherche textuelle dans Rechercher peut donner moins de lignes à cause de sa limite et de ses filtres ; la base et l'Atelier servent à examiner le recensement complet.
+
+Ajoutez une condition en choisissant une information, un opérateur et une valeur. « Toutes les conditions » impose leur réunion ; « Au moins une condition » accepte un poste qui en remplit une. Pour repérer des mesures manquantes, utilisez « est absent ».
+
+Vous pouvez sauvegarder la requête sous un nom clair, la retrouver dans la liste des requêtes et l'ajouter au tableau de bord. Une répartition par système, modèle ou autre champ donne les principaux groupes ; « Autres » rassemble les groupes restants et « Inconnu » les données non renseignées.
+
+![Atelier de requêtes : modèle Tous les postes recensés, conditions et liste paginée des résultats ; données fictives](fig:atelier-requetes)
+
+Pour vérifier les comptes désactivés, choisissez leur état dans le filtre de la table. L’exemple ci-dessous retrouve trois postes désactivés dans le même recensement. Remettez ensuite le filtre sur tous les états.
+
+![Comptes désactivés : trois postes restent visibles dans l’Atelier ; données fictives](fig:atelier-desactives)
+
+## Exemple : suivre les disques peu disponibles
+
+1. **Choisir l’information.** Sélectionnez l’espace libre du disque système en pourcentage.
+2. **Définir le seuil.** Choisissez l’opérateur inférieur à, saisissez 20 puis ajoutez la condition.
+3. **Lire le résultat.** Appliquez la requête, contrôlez le total et la date des mesures. Une valeur absente ne signifie pas que le disque est plein.
+
+![Condition numérique : espace libre du disque système inférieur à 20 % ; données fictives](fig:atelier-condition)
+
+4. **Nommer et enregistrer.** Donnez un nom explicite à la requête puis sauvegardez-la. Retrouvez-la dans la liste pour la réutiliser.
+
+![Requête nommée enregistrée dans la bibliothèque de l’Atelier ; données fictives](fig:atelier-bibliotheque)
+
+5. **Ajouter au tableau.** Utilisez l’action d’ajout au tableau de bord. Le widget reprend la requête ; un clic permet de revenir aux postes concernés.
+
+![Sonde du tableau de bord créée depuis la requête sur les disques ; données fictives](fig:accueil-sonde-requete)
+
+6. **Filtrer Rechercher.** Appliquez la requête comme filtre de recherche. Le filtre utilise les identités des postes trouvés ; relisez la restriction affichée et effacez-la pour revenir à la liste habituelle.
+
+![Rechercher filtré par les postes trouvés dans l’Atelier ; données fictives](fig:recherche-requete)
+
+## Mettre à jour les relevés
+
+1. **Choisir le périmètre.** La collecte de l’Atelier concerne tous les comptes actifs de l’OU ou du domaine affiché, même si une condition réduit la table. Pour cibler un seul poste, utilisez l’action de sa fiche locale. Les comptes désactivés restent consultables et sont exclus de la collecte du parc.
+2. **Régler la collecte.** Commencez par 4 postes en parallèle. Le réglage propose 1, 2, 4, 6 ou 8 ; réduisez-le si le réseau ou les postes répondent mal.
+3. **Choisir la fraîcheur.** Réutilisez les mesures de moins de 5, 15 ou 60 minutes, ou forcez une relecture. Certaines données volatiles restent soumises à un délai plus court.
+4. **Lancer et confirmer.** Lancez la collecte proposée et relisez le nombre de cibles avant confirmation. Suivez les réussites, les refus et les enregistrements en attente.
+
+![Réglages de la collecte : parallélisme et durée de réutilisation des mesures ; données fictives](fig:atelier-collecte)
+5. **Arrêter si besoin.** Arrêter empêche de nouvelles lectures ; les résultats déjà obtenus sont conservés. Attendez la confirmation du stockage avant de quitter.
 
 ## Mettre à jour la base du parc
 
-Quand : la vue d'ensemble semble incomplète, ou des postes récents n'y figurent pas.
+Ouvrez Outils puis Base autonome. Pour la mise à jour courante d’un service, cliquez sur « Choisir une OU », sélectionnez son unité organisationnelle, puis relisez le chemin affiché. Cette cible est indépendante de Rechercher. Les sous-OU sont incluses ; les autres branches sont conservées.
 
-1. **Ouvrir la base.** Cliquez sur « Outils » dans le menu, puis sur l'onglet « Base autonome », ou appuyez sur Ctrl+I. La carte « Base autonome DOMENIA » s'affiche.
-2. **Mettre à jour.** « Mettre a jour les changements » relit seulement les objets modifiés : c'est rapide. « Mettre a jour tout » relit tous les utilisateurs et les postes, parfois en plusieurs minutes.
-3. **Revenir à l'Accueil.** La vue d'ensemble se recalcule d'elle-même avec la base à jour.
+| Votre besoin | Commande |
+|---|---|
+| Actualiser le service choisi et ses sous-OU | « Tout relire dans lʼOU choisie » ; une OU doit être sélectionnée |
+| Charger le parc pour la première fois ou refaire une lecture globale occasionnelle | « Tout relire dans le domaine » ; opération longue avec confirmation |
+| Rattraper les changements récents | Options avancées → « Synchroniser les changements » |
+| Relire tout le domaine par branches lorsque la lecture globale est trop longue | Options avancées → « Relire le domaine par étapes » |
 
-![Outils, onglet « Base autonome » : boutons de mise à jour et cadre « Emplacement et sauvegarde »](fig:base-autonome)
+![Mise à jour de la base : choix de l’OU puis relecture ciblée ou du domaine ; données fictives](fig:base-commandes)
 
-> [!RESULTAT] La vue d'ensemble compte tous les postes actifs du périmètre.
+La relecture par étapes parcourt les OU et les conteneurs à la racine du domaine, puis les objets directement à sa racine. Réservez-la aux relectures globales ; elle ne remplace pas le suivi des changements.
 
-## Si ça ne se passe pas comme prévu
+La zone supérieure présente les actions à gauche et « État de la copie locale » à droite, avec la fraîcheur et la progression. La recherche et les boutons de page restent avec la table. Faites glisser la séparation horizontale pour ajuster la place des réglages et des résultats.
+
+Suivez séparément la lecture de l'annuaire et l'enregistrement local. Une passe partielle ne vaut pas un recensement terminé : la date de la dernière lecture complète reste visible avec la tentative partielle.
+
+Le navigateur de la base dispose de son propre choix d'OU. « Afficher / actualiser les objets » recharge sa liste. Sans texte de recherche, il montre les objets du périmètre par pages de 200, avec le total correspondant. Comparez le même périmètre et les mêmes types d'objets avant de comparer deux compteurs.
+
+Cliquez sur un en-tête pour trier le résultat complet, sur toutes les pages ; cliquez de nouveau pour inverser le sens. « Tri par pertinence » rétablit le classement initial. Les dates inconnues restent en fin de liste. La colonne Association ne se trie pas.
+
+![Base autonome : cible de mise à jour, fraîcheur des données et liste des objets ; données fictives](fig:base-autonome)
+
+Dépliez « Détails du stockage et de la synchronisation » pour retrouver le fichier, le contrôleur et les informations du dernier suivi.
+
+![Base autonome : détails du stockage dépliés ; données fictives](fig:base-details)
+
+![Relecture du domaine par étapes : phase en cours et compteurs ; données fictives](fig:base-progression)
+
+## Comprendre une différence
 
 | Vous voyez | Que faire |
 |---|---|
-| La vue ne montre pas la bonne OU | Choisissez l'OU dans l'arbre de « Rechercher », ou cliquez sur « Changer dʼOU ». |
-| « Vue d ensemble non calculee : base occupee, reessayez dans un instant. » | Attendez quelques secondes, puis cliquez sur « Actualiser ». |
-| « Aucune base autonome active : vue d ensemble indisponible. » | Prévenez l'administrateur. |
-| La section « Releves WMI » est vide | Dans « Rechercher », affichez les postes de l'OU, puis cliquez sur « Analyser la liste ». |
+| Un widget compte plus de postes que Rechercher | Vérifiez l'OU, les sous-OU, les comptes désactivés, le filtre et la limite de Rechercher. Ouvrez le widget pour sa liste exacte. |
+| Une mesure est inconnue ou ancienne | Relisez son âge puis lancez une collecte ciblée. Un ping récent ne rafraîchit pas un ancien inventaire. |
+| La base est partielle | Relancez la mise à jour selon le message affiché. Ne concluez pas à une suppression à partir d'une passe incomplète. |
+| La base est occupée | Attendez la fin de l'enregistrement, puis actualisez. |
+| Aucun poste n'apparaît | Effacez les conditions et le segment, puis vérifiez le périmètre et la couverture de la base. |
 
 # 6 Personnaliser un tableau de bord
 
@@ -266,20 +329,20 @@ Quand : vous voulez garder sous les yeux les informations utiles. Chaque tuile o
 1. **Ouvrir la fenêtre.** Cliquez sur « Ajouter un widget » dans la barre du tableau. La fenêtre « Ajouter un widget » s'ouvre.
 2. **Chercher l'information.** Tapez un mot dans la recherche (disque, utilisateur, BitLocker…) : la liste des informations se réduit. Le badge « affiche » signale une information déjà sur le tableau.
 3. **Choisir.** Cliquez sur une ligne. L'« Apercu » montre le widget.
-4. **Régler.** Modifiez au besoin le « Titre », la « Representation » (« Chiffre cle », « Jauge », « Anneau », « Barres »…), la « Taille » et la « Section ». Pour une nouvelle section, choisissez « + Nouvelle section... » et tapez son nom dans le champ qui apparaît.
+4. **Régler.** Modifiez au besoin le « Titre », la « Représentation » (« Chiffre cle », « Jauge », « Anneau », « Barres »…), la « Taille » et la « Section ». Pour une nouvelle section, choisissez « + Nouvelle section... » et tapez son nom dans le champ qui apparaît.
 5. **Ajouter.** Cliquez sur « Ajouter » : le widget apparaît à la fin de sa section. Hors personnalisation, un widget encore sans données reste masqué et la barre affiche « Widget enregistre : il s affichera des que ses donnees seront lues. ». « Annuler » ne change rien.
 
 ![Fenêtre « Ajouter un widget » : recherche, liste des informations, réglages à droite et aperçu du widget « Disque systeme »](fig:editeur-widget)
 
-> [!NOTE] Une ligne « Requetes WMI · » interroge les postes. Sur le tableau du poste, cliquez sur « Actualiser les requetes », puis sur « Verifier les sessions » : le widget se remplit. Sur l'Accueil, ces requêtes partent avec « Analyser la liste » dans « Rechercher ».
+> [!NOTE] Une ligne « Requetes WMI · » interroge les postes. Sur le tableau du poste, cliquez sur « Actualiser les requetes », puis sur « Verifier les sessions » : le widget se remplit. Sur l’Accueil, lancez la collecte depuis l’Atelier pour les postes du périmètre.
 
 > [!RESULTAT] Le widget est enregistré sur le tableau, dans la section choisie.
 
-## Déplacer, redimensionner ou retirer
+## Déplacer redimensionner ou retirer
 
 1. **Passer en personnalisation.** Cliquez sur « Personnaliser ». Chaque widget porte deux boutons ronds, modifier et retirer ; une tuile « Ajouter ici » termine chaque section.
-2. **Déplacer.** Glissez un widget et lâchez-le sur un autre : il prend sa place, même dans une autre section. Le clic droit propose aussi « Deplacer ».
-3. **Changer la taille.** Clic droit sur le widget, « Taille », puis « Compacte », « Moyenne » ou « Large ». Le sous-menu « Representation » change le type de graphique.
+2. **Déplacer.** Glissez un widget et lâchez-le sur un autre : il prend sa place, même dans une autre section. Le clic droit propose aussi « Déplacer ».
+3. **Changer la taille.** Clic droit sur le widget, « Taille », puis « Compacte », « Moyenne » ou « Large ». Le sous-menu « Représentation » change le type de graphique.
 4. **Retirer.** Cliquez sur le bouton rond dont l'infobulle commence par « Retirer : », ou faites un clic droit, « Retirer du tableau de bord ». Aucune confirmation n'est demandée.
 5. **Terminer.** Cliquez sur « Terminer ».
 
@@ -301,11 +364,10 @@ Quand : vous voulez garder sous les yeux les informations utiles. Chaque tuile o
 | Vous voyez | Que faire |
 |---|---|
 | « Aucun widget » | Tous les widgets ont été retirés. Cliquez sur « Ajouter un widget », ou sur « Personnaliser » puis « Par defaut ». |
-| Un widget affiche « En attente » | Sur le tableau du poste, cliquez sur « Actualiser les requetes ». Sur l'Accueil, lancez « Analyser la liste » dans « Rechercher ». |
-| « Requetes du parc : dans Rechercher, affichez les postes puis Analyser la liste. » | Les requêtes de l'Accueil partent de « Rechercher » : affichez les postes de l'OU, puis cliquez sur « Analyser la liste ». |
+| Un widget affiche « En attente » | Sur le tableau du poste, cliquez sur « Actualiser les requetes ». Sur l’Accueil, lancez la collecte depuis l’Atelier. |
 | Un widget vide n'apparaît plus | Il réapparaît quand ses données sont lues ; « Personnaliser » le montre. |
 
-# 7 Consulter les logiciels d'un poste
+# 7 Consulter les logiciels du poste
 
 Quand : vous devez savoir si un logiciel est installé sur un poste, dans quelle version et pour qui.
 
@@ -313,10 +375,10 @@ Quand : vous devez savoir si un logiciel est installé sur un poste, dans quelle
 2. **Choisir l'étendue.** « Par utilisateur », cochée par défaut, ajoute les logiciels de chaque profil. Cochez « Applications Store » pour le Microsoft Store (plus long), « Mises a jour » pour les correctifs et composants système.
 3. **Charger.** Cliquez sur « Charger les logiciels ». Chaque ligne donne le « Nom », la « Version », l'« Editeur », « Installe le », la « Taille » et la « Portee ».
 4. **Chercher un logiciel.** Tapez une partie du nom, de l'éditeur ou de la version dans « Filtre ». « Portee » limite la liste à « Machine », « Utilisateur » ou « Store ».
-5. **Lire la synthèse.** Le volet « Synthese en graphiques » résume la liste : nombre, éditeurs, versions multiples, architecture, portée et plus gros logiciels, plus « Installés ces 30 derniers jours », « Composants dʼexécution » (Visual C++, .NET, WebView2) et « Navigateurs et versions ». Une tuile à zéro prend la coche verte plutôt qu'un chiffre, et « Sans date » signale qu'aucun logiciel lu ne déclare sa date.
+5. **Lire la synthèse.** Dans « Affichage », choisissez « Synthèse ». Les graphiques résument la liste chargée : nombre, éditeurs, versions multiples, architecture, portée et plus gros logiciels, plus « Installés ces 30 derniers jours », « Composants dʼexécution » (Visual C++, .NET, WebView2) et « Navigateurs et versions ». Une tuile à zéro prend la coche verte plutôt qu'un chiffre, et « Sans date » signale qu'aucun logiciel lu ne déclare sa date.
 6. **Transmettre.** « Copier » copie la liste complète ; « Exporter CSV » l'enregistre dans un fichier dont le chemin s'affiche dans le « Journal de session » (« Logiciels exportes : … »).
 
-![Onglet « Logiciels » : liste des logiciels du poste et volet « Synthese en graphiques » déplié](fig:logiciels)
+![Onglet Logiciels, affichage Synthèse : indicateurs et graphiques calculés sur les logiciels chargés ; données fictives](fig:logiciels)
 
 > [!RESULTAT] Vous savez si le logiciel est présent, dans quelle version et s'il est installé pour tous ou pour un seul utilisateur.
 
@@ -346,7 +408,7 @@ Quand une opération échoue, Domenia écrit un message dans le « Journal de s
 | « En memoire uniquement : » sur la ligne d'état, sous « Pinger la liste » et « Détecter la liste » | Les observations ne sont plus enregistrées. Prévenez l'administrateur. |
 | Un bouton grisé | Survolez-le : l'infobulle dit ce qui manque, par exemple « Desactive : mode lecture seule actif. ». |
 
-## Prévenir l'administrateur
+## Contacter votre administrateur
 
 Donnez-lui ces éléments :
 
@@ -393,8 +455,8 @@ Donnez-lui ces éléments :
 | Terme | En clair |
 |---|---|
 | AD (Active Directory) | Annuaire de l'entreprise : comptes des utilisateurs, postes et groupes. |
-| OU (unité d'organisation) | Dossier de l'AD qui range les postes ou les comptes, par exemple par site ou par service. |
-| Périmètre | OU choisie dans l'arbre de « Rechercher » ; la vue d'ensemble du parc la suit. |
+| OU | Unité d’organisation, dossier de l'AD qui range les postes ou les comptes, par exemple par site ou par service. |
+| Périmètre | Zone de l’annuaire retenue dans une page. Accueil inclut les sous-OU ; Rechercher et Base autonome conservent leurs propres périmètres. |
 | Base autonome | Copie locale de l'annuaire, gardée par Domenia ; elle sert à la vue du parc et se met à jour depuis « Outils ». |
 | Ping | Test réseau : le poste répond-il ? Une absence de réponse ne prouve pas qu'il est éteint. |
 | Utilisateur console | Personne connectée sur l'écran du poste, hors Bureau à distance. |
@@ -405,4 +467,4 @@ Donnez-lui ces éléments :
 
 ## À propos de ce guide
 
-Le guide administrateur décrit l'installation, les comptes, la configuration, la base autonome et les cas particuliers.
+Ce guide accompagne Domenia 1.0 pour les gestes du support quotidien. Le guide administrateur détaille l'installation, les droits, les données, les limites et les contrôles de livraison. Les noms visibles dans les figures sont fictifs.

@@ -1,0 +1,26 @@
+{
+  "Count": 10000,
+  "ProbesPerObservedComputer": 78,
+  "Checks": 29122,
+  "Passed": true,
+  "PowerShell": "7.4.20",
+  "Host": "Unix 26.4.0",
+  "TimingsMs": {
+    "PrepareFixture": 687,
+    "IndexWrite": 3848,
+    "SeedObservations": 4382,
+    "CollectionPreparation": 2101,
+    "FleetRead": 2790,
+    "FleetRules": 3131,
+    "QueryProjection": 4586,
+    "AllPages": 212,
+    "ProbeWidgets": 1420,
+    "WidgetDrilldown": 52,
+    "ScopedRead": 743,
+    "BaseBrowserPages": 2275
+  },
+  "PeakWorkingSetMB": null,
+  "ManagedRetainedMB": 704.3,
+  "DatabaseMB": 98.0,
+  "Qualification": "Local synthetic SQLite and pure rules only; Windows/WPF/AD not evaluated"
+}

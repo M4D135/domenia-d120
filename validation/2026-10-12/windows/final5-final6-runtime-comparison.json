@@ -1,0 +1,464 @@
+{
+  "PreviousArchive": "/Users/david/Documents/Projets/Domenia-D120/livraison-Domenia-1.0-20261012-final/Domenia_1.0_RC1.17.0_DEV.zip",
+  "PreviousSHA256": "4CFD5E6E029D6B6DBF7892D1E509F8CEE585FC78C4ABE2953AF87109383E634C",
+  "FinalArchive": "/Users/david/Documents/Projets/Domenia-D120/livraison-Domenia-1.0-20261012-validee/Domenia_1.0_RC1.17.0_DEV.zip",
+  "FinalSHA256": "47B21D448E2B4BAFE03E246B0B433725C1013DE628D19C1119E06954E71570F0",
+  "RuntimeFiles": [
+    {
+      "Path": "Domenia.exe",
+      "SHA256": "3535A6CBCEEA3BAA0066D9024EA316A8DFA2992A463F8EB17CC8BAA40B6BE7AC",
+      "Identical": true
+    },
+    {
+      "Path": "wad/ActiveDirectoryPowerShellResources.dll",
+      "SHA256": "E233D92238AA31EA1B3C60145D8811EDB2E517E1B9B53F4BC496883EE5D9973B",
+      "Identical": true
+    },
+    {
+      "Path": "wad/Domenia-Core.ps1",
+      "SHA256": "F03EAEF3C6438DE677C4B6972879DDD926BA51D2F6EFEC5A65E9C990B45E6F54",
+      "Identical": true
+    },
+    {
+      "Path": "wad/Domenia-Modules.ps1",
+      "SHA256": "BC06F17A1D6A7DDBDA0DD3C91F26A8C7F392302F3B5693B89214B49FDC66E67F",
+      "Identical": true
+    },
+    {
+      "Path": "wad/Domenia-Start.ps1",
+      "SHA256": "D8AAAE59B5BAA81B079C6145E06DBEF822CE7A43C99F08E8AF20B16358D43E97",
+      "Identical": true
+    },
+    {
+      "Path": "wad/Domenia.config.json",
+      "SHA256": "766DBF8924F4EFC3641768E0C1B2C37E5936D681F002C3260E2FE6C8DA7680F8",
+      "Identical": true
+    },
+    {
+      "Path": "wad/Domenia.ico",
+      "SHA256": "EC032BF6A14EAC2CC80073B376FE0364DDA62F25D452C8C783C926B0C28E837F",
+      "Identical": true
+    },
+    {
+      "Path": "wad/Domenia.login-mode.cfg",
+      "SHA256": "EF6691545D2C5523EFED00424407CB261AEB0037D165CA5792F7F8BAC3381362",
+      "Identical": true
+    },
+    {
+      "Path": "wad/Domenia.release.json",
+      "SHA256": "0ED276F617774AF48A2C6C98B0CA3F50732B82C2231064552D394C4A6B7EBE22",
+      "Identical": true
+    },
+    {
+      "Path": "wad/Domenia.theme.cfg",
+      "SHA256": "DBCD5E7BB7A0F538810DE44C3EFBD813037EE3FA358747BB71FA58E157AF45F7",
+      "Identical": true
+    },
+    {
+      "Path": "wad/Domenia.ui-profile.cfg",
+      "SHA256": "D0DA7AB8BC927960B4CA3C6678137464BAF9266C4FE3281F30E4769F6C4427DB",
+      "Identical": true
+    },
+    {
+      "Path": "wad/Microsoft.ActiveDirectory.Management.dll",
+      "SHA256": "1A6AF7B8F8BCE5B35FF873E2528746480C980526D86E38CA5ACD04C2E9037157",
+      "Identical": true
+    },
+    {
+      "Path": "wad/PsExec.exe",
+      "SHA256": "EDFAE1A69522F87B12C6DAC3225D930E4848832E3C551EE1E7D31736BF4525EF",
+      "Identical": true
+    },
+    {
+      "Path": "wad/Support/.lifecycle.lock",
+      "SHA256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+      "Identical": true
+    },
+    {
+      "Path": "wad/Support/DEBLOQUER_TOUT.cmd",
+      "SHA256": "EB9CA9BDA1174D07227DF29256B5A5B90C9514C7E120AA38A683A45016118B1D",
+      "Identical": true
+    },
+    {
+      "Path": "wad/Support/Debloquer-Paquet.ps1",
+      "SHA256": "A62BECF6CC25F85A0A21B6CE018FDC0826B43EC99D9897EB5E227967E8BA9454",
+      "Identical": true
+    },
+    {
+      "Path": "wad/Support/INSTALLER-MISE-A-JOUR.ps1",
+      "SHA256": "8DE2D1C4C8F3AF56668412DF44BADB52166386514FED60991B42662AAD13D8CD",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Access.Model.ps1",
+      "SHA256": "6C4CDDA5E2D395D7824BCA6F018061C66645A0012002E613DE8F171F34781AE3",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Access.UI.ps1",
+      "SHA256": "D586DF3BECCA3F804841816BE122A3BBDEA78E07AECB9B0ADB186AAD3C84B7CE",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Accounts.Async.ps1",
+      "SHA256": "91860B5746E5C356E3756793A494AFD232BC6625400F0706D50DAA73AD1C7D81",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-BoardComputer.UI.ps1",
+      "SHA256": "5C7101FC3DA5EF33A76922B1BCED5726398885BE5B15C4C7ADFFAACE7B782EBD",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-BoardFleet.Model.ps1",
+      "SHA256": "4A1E164A2D1579F706D0F70E477A01DCFB269D6889BA031327D9EAD2E577E5EA",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-BoardSoftware.Model.ps1",
+      "SHA256": "A237AEE00A6E5A071AFF2BA71DC5CEDC6A16AEFF9AC35F20F7D6CDE02FEB8718",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Boards.Model.ps1",
+      "SHA256": "C67BD81A150BE988D03DB7B2ACC604D30CBC0CB178EE0ABDF5A44CDCCBD4085E",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Cache.Model.ps1",
+      "SHA256": "91EAE39D0596F29779F7D9628C197B61098015DB8E18C0385DE317DC346A7054",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Charts.UI.ps1",
+      "SHA256": "6297F10D4C174DB7DEECA53B7848EC299FF3BE30E53C7FB50059250C6635E70E",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Clipboard.Native.cs",
+      "SHA256": "172AAC508C967E80B18AB427EDA9157516D63C61315BF7A1FEBEE62206E19ADC",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Common.Model.ps1",
+      "SHA256": "DB17C532A83A2F17D0218D4544B890431A3D1EBCD2E114DC0050A1D52626B3C7",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-CommonLibrary.json",
+      "SHA256": "EB1F4941B72FD7A729D2AE4E99B4E103BFB8FD954A3094F930860E46229F4EF9",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Continuity.Model.ps1",
+      "SHA256": "74C3ADBE8CCDA07A3B5A05157813B57E545C623BA3B6CB9AF9CCECA6AA87073E",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Continuity.UI.ps1",
+      "SHA256": "910A5F75439A77EB5A396B49E11F30F200494508C8722669956A014AD4B14646",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Dashboard.UI.ps1",
+      "SHA256": "A2A874C4661D2586B32F7A7E480CC5173D04D2A1D10C8ECCAA3CFE69E9377D17",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Demo.Model.ps1",
+      "SHA256": "B5BD808F5356BB2EB477B230067FE5CBA981CFFC997CA4EC46022EE074FA09B6",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Demo.UI.ps1",
+      "SHA256": "6717745C11AE231250FD4334359092F25C33F11A70CADCD0D1EE880BEF634F7E",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Demo.Worker.ps1",
+      "SHA256": "4642D799E6CA86B459E4F8FB2CE186EB0B29C411E26216A23EFF610D07018D0E",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Directory.Model.ps1",
+      "SHA256": "90A8F2F6685C7FF198C625D8AC245C58CC0B0921F55C93BA3CE815DD13327C92",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Dossier.Model.ps1",
+      "SHA256": "9D6D07CD0A9202D027139E022F7B34A7D05E0266401F6784570529F19EE4BCFF",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Dossier.UI.ps1",
+      "SHA256": "620090E7EE794237F55E77442F2D41FE3D49D5B317459DE808CB52A2277112FC",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Embedded.UI.ps1",
+      "SHA256": "0F88740858F54632CCA11A0F0C04F9586393624FBF5983458FE6BC7E6CD7B9E9",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Engine.Model.ps1",
+      "SHA256": "67EE24E9C67F0EA7FB08DBFA666E8A04107EFC3D6677CC9644FC2A183A708DB7",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Engine.UI.ps1",
+      "SHA256": "16097F29BF9C1AF0F7B021E6379310548F6CFE541591ACF11C048D86001D04F9",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Engine.Worker.ps1",
+      "SHA256": "EB5DC8D8AE58489C280DB8C75E329598958D66FDD2DE6DE1091238D3B979AFB5",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Experience.Model.ps1",
+      "SHA256": "90736625C4D1F50A5282CA1E104BCADFEE30147F71086B1809E2688494FD9422",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Experience.UI.ps1",
+      "SHA256": "F0DC58595E5484351E4F2F02E364B5F353194559829EF8663C24265F69DBAEFC",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Guard.Model.ps1",
+      "SHA256": "CD305AFFCD81E9AF750A4B20DCC4706E63BA3CA7CED54C18614673914F4B7B3F",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Guard.UI.ps1",
+      "SHA256": "210918DB7F9463A78729D3E056B8FC2ABE6C3793CD1B7D801247E021D0E34260",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Identity.Types.cs",
+      "SHA256": "25EC6FEFE1BD669CAFFD81A9C10D7114722959E96D5E43677E08EEEA4788ED1C",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Inline.UI.ps1",
+      "SHA256": "4C6D519AE76FADDD4B1D5E26F40036C47B6699F7829FACB2C5AEF01BAADB3685",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Inline.xaml",
+      "SHA256": "9FA6A241982EFC6B48C4FDD0E2A8A0AF025B0F3A88AF241B0800EEF537A2C0D1",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Insight.Model.ps1",
+      "SHA256": "6287EE0F3FE04F5D03E25E529BB1F4B056ECE8F66C2DE26872BCAA228C9DE27A",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Isolation.Worker.ps1",
+      "SHA256": "DDA9BE0B91370AE8C23CA130198FF17C5BB3B4A0F584C8510588029D5C9E0A33",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Live.Model.ps1",
+      "SHA256": "4FC10AEE652ED3AD099BED7FE0BB3E393AE5BD7BFC73E7455BCE9389C95CFAD5",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Live.Types.cs",
+      "SHA256": "4CFFF3415E3E987475FD594E42D7DDA9916B7A1D9D2AEE17D597645C9421A126",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Live.UI.ps1",
+      "SHA256": "168709C490CFDAAC867DC8381BA491CF69F0CA4112D29D99F989DE908BAB0E40",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Migration.UI.ps1",
+      "SHA256": "8998983AEC38359C01D1877B52D2088696F5D2933FAF6BACF2D26173D4365FCD",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Migration.Worker.ps1",
+      "SHA256": "6A361EC210DD38A269AD544980449C6D05E73DC4A6CC553EC4D3537F14A6AE5D",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Operations.xaml",
+      "SHA256": "160F370AED71DD74CDD87C3496FB7E4DACCDBE461F53713539FFF78F34705BEC",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Park.Model.ps1",
+      "SHA256": "009486B64F73FD9236019080E90BB00C0196B8A2F0F9892B8F9CBCBE44385465",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Park.UI.ps1",
+      "SHA256": "0C37D4651645B2A26F86DD798B6E7950AD67A5419A21965E02F3520D9FCE2D41",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Probes.Model.ps1",
+      "SHA256": "9DF125208A21B7EE474C8380047EDA5EBFD96563E37D05B46C427E34314592BF",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Query.Model.ps1",
+      "SHA256": "978F6FCBAF7C154401F88444101D3E22C34F7E8551AF26018AD8C7056B2F4292",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Query.UI.ps1",
+      "SHA256": "622802A75AB11323299B42175A90BBE529B4449015509B66A5F4F2867021B572",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Query.Worker.ps1",
+      "SHA256": "0BA0A0A753E0EB6F9244B7584E8CC107BA459C5737256DA4B9740D4F56643459",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Receipts.Worker.ps1",
+      "SHA256": "D44A9DFB7B8EB7AB9DB3F1806CE697C9236117121E2C5E054DA1788C87B19A8D",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Reconcile.UI.ps1",
+      "SHA256": "3CF22706B2ACA92BB71467BC1122EE155A2EBBC47C350CF5DC2AA8987021F9F7",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Relations.Model.ps1",
+      "SHA256": "A9A84746AE9E39A55B91C1CA4A015184B49DC43DE3C43D61BBF22E4C6F2ED796",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Relations.UI.ps1",
+      "SHA256": "5F7C8E7B3608DF3AE7FF5B99517FE6556F4CD27F4074F165AFF956294A71ED11",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Release.Model.ps1",
+      "SHA256": "C47FCC6F008DBB513280BFEE5B641E06D946360238EB95ECCAEF4F4BC2360545",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Safety.Model.ps1",
+      "SHA256": "00BCB6545D59458C727CC9DFB91F60A561D2A8DAE01642FE438F9B6D3924D5E3",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Search.Model.ps1",
+      "SHA256": "496302678631DB334C8FD6AE605405FAC7FBA2D770C0E4129ABEAAD9D3F479F8",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Search.UI.ps1",
+      "SHA256": "AB04350B0F444188E88D4C70D735FE873FE91FC962AF2D6E78872DE24AFF6D8A",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Secrets.UI.ps1",
+      "SHA256": "D885E02DDE01D288F3F5F4C2BBF16851D5C675608FE3501005614D41726EE656",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Secrets.Worker.ps1",
+      "SHA256": "8F5B009EEA769A9C81DC01B1EBD070F43DDA1838908CC3476F8181165ACB0F9E",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Selection.UI.ps1",
+      "SHA256": "9F216FBE3765DC4F6AA929E0C017B2D91CA456AA2712203371D002799287FA80",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Sessions.Native.cs",
+      "SHA256": "C70C809DBA96D7651C90947E6AF3C61F101C876C429BA7B0FF4EA884F21704F5",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Sessions.UI.ps1",
+      "SHA256": "61FF96DA919DEDE8DBE956CCFF814750FC2F986A3C61B597F9D869FAE0F56809",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Shell.Model.ps1",
+      "SHA256": "632E374D8D3547E705348965DDBBFD9F716C52B77A5961D4295251BE431745FF",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Startup.UI.ps1",
+      "SHA256": "A9F9D4C997B315C3D185CB6B62A2D80C4660C5CDEE7D9CD3755D8F0765351805",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Storage.UI.ps1",
+      "SHA256": "C811E13F34DF19D7DE60BB8B20480A47BFA2C7CDD8871857EB7E217909215EA7",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Storage.Worker.ps1",
+      "SHA256": "9627D0DC9CF8C110898908DB2FD94C8DE25A0085B5F716EFAA9354D272D2C134",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Support.Model.ps1",
+      "SHA256": "DC86FBE76C2A30663223B3AC11D29CCC38DB3F6080D2E4BE3569E25A8406B3A6",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Support.UI.ps1",
+      "SHA256": "4E468D6396EEA16C46228A787733BBBF0E1D8378F7730289FD6640B8CD90DFF2",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Support.xaml",
+      "SHA256": "8126BC5968458D7B2D81977B36F76C2BE66C035CDF0E6AB9AD54855F83A62620",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-UX.UI.ps1",
+      "SHA256": "3345E3CB3BBF9373DC58B6AC81EA66CB76D5C1D99307D302797556E563EB808C",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-UX.help.json",
+      "SHA256": "E0485B7F50ADDE61EA8DB04FE72BE37F13BF57A7044ECA2D1678DDFAB82AA51C",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Widgets.UI.ps1",
+      "SHA256": "D1EBBA2777936C983351E37B2366BEE00E2731E35969B795A3813517382D28DA",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-WindowsLifecycle.json",
+      "SHA256": "278FCB9733DDF1117AC984A99DFC98DC925ABDD37E1EDF6F999A9A8E7DAAF50C",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia-Workstation.Model.ps1",
+      "SHA256": "F9BDF0580B09964AF9BDC9D229B28E683C6691897399A97C68563395B2788CF3",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/Domenia.Native.dll",
+      "SHA256": "AA610389684A1415E0CEFEF0FC33FE0CE961B57B921C1A6319CAE06F2ECA1AAD",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/M4D.Admin.Common.Query.dll",
+      "SHA256": "269B7D1CBDD6AB42062A75E0CA4A45876B3FF0EAE4CBF730ACF91A12828BD7CA",
+      "Identical": true
+    },
+    {
+      "Path": "wad/modules/SupportSuite.UI.json",
+      "SHA256": "6344BCE415C26CF50D725E6ADC70BF669CC54746CC59482155A9C37E80E6E3BE",
+      "Identical": true
+    }
+  ],
+  "Different": []
+}

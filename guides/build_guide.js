@@ -9,6 +9,7 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 const { pathToFileURL } = require('url');
 const d = require('docx');
+const JSZip = require('jszip');
 
 // Navigateur pour le PDF : variable CHROME, sinon emplacements habituels de Chrome, Chromium et Edge.
 function findChrome() {
@@ -30,7 +31,7 @@ function findChrome() {
   }
   return null;
 }
-const BLUE = '0B5CAD', INK = '1F2937', MUTED = '5B6573', LINE = 'C9D3DF', HEAD = 'E3EDF9';
+const BLUE = '0B5CAD', INK = '222222', MUTED = '555555', LINE = 'D9D9D9', HEAD = 'E3EDF9';
 const CALLOUTS = {
   ATTENTION: { label: 'Attention', bar: 'C2410C', fill: 'FFF4EC' },
   ASTUCE: { label: 'Astuce', bar: '15803D', fill: 'EEF8F0' },
@@ -139,6 +140,33 @@ function imageInfo(file) {
   throw new Error(`${file} : image PNG ou JPEG attendue`);
 }
 
+// A crop is a document framing instruction; the original PNG remains intact in the DOCX.
+// Coordinates are source pixels: {x,y,w,h}. Word uses a:srcRect; HTML uses an overflow viewport.
+function figureView(f, base) {
+  const img = imageInfo(path.join(base, f.file));
+  const c = f.crop || { x: 0, y: 0, w: img.w, h: img.h };
+  if (![c.x,c.y,c.w,c.h].every(Number.isFinite) || c.x < 0 || c.y < 0 || c.w <= 0 || c.h <= 0 || c.x+c.w > img.w || c.y+c.h > img.h)
+    throw new Error(`cadrage hors image : ${f.file}`);
+  return { img, c };
+}
+async function applyDocxFraming(buf, meta, base) {
+  if (!Object.values(meta.figures).some(f => f.crop)) return buf;
+  const zip = await JSZip.loadAsync(buf);
+  let xml = await zip.file('word/document.xml').async('string');
+  xml = xml.replace(/<w:drawing>[\s\S]*?<\/w:drawing>/g, drawing => {
+    const named = drawing.match(/<wp:docPr\b[^>]*\bname="([^"]+)"/);
+    const f = named && meta.figures[named[1]];
+    if (!f || !f.crop) return drawing;
+    const {img,c} = figureView(f,base);
+    const n = v => Math.round(v * 100000);
+    const rect = `<a:srcRect l="${n(c.x/img.w)}" t="${n(c.y/img.h)}" r="${n((img.w-c.x-c.w)/img.w)}" b="${n((img.h-c.y-c.h)/img.h)}"/>`;
+    if (!drawing.includes('<a:srcRect/>')) throw new Error('cadrage Word : structure inattendue');
+    return drawing.replace('<a:srcRect/>', rect);
+  });
+  zip.file('word/document.xml',xml);
+  return zip.generateAsync({type:'nodebuffer',compression:'DEFLATE'});
+}
+
 function chapterAnchor(i) { return `chapitre_${i + 1}`; }
 
 // Couverture : 17 cm de large et 10 cm de haut au plus (la page de garde porte aussi titres et informations).
@@ -147,6 +175,15 @@ const coverCm = img => Math.min(17, 10 * img.w / img.h);
 // Largeurs de colonnes (DXA) selon la longueur moyenne du texte, bornées.
 function columnWidths(rows, total) {
   const n = Math.max(...rows.map(r => r.length));
+  const header = rows[0].join('|');
+  let preset = null;
+  if (header === 'Clé|Défaut|Rôle') preset = [0.42, 0.16, 0.42];
+  if (header === 'LocalStore.Mode|Dossier des données|Protection') preset = [0.22, 0.39, 0.39];
+  if (header === 'Transport|Usage|Ports|Règle') preset = [0.16, 0.27, 0.18, 0.39];
+  if (header === 'Onglet|Écritures proposées') preset = [0.24, 0.76];
+  if (header === 'Bouton|Ce que fait Domenia|En lecture seule') preset = [0.24, 0.57, 0.19];
+  if (preset) { const a = preset.map(v => Math.round(v * total)); a[a.length - 1] += total - a.reduce((x,y) => x+y,0); return a; }
+
   const weights = [];
   for (let c = 0; c < n; c++) {
     const lens = rows.map(r => (r[c] || '').length);
@@ -173,43 +210,20 @@ function docxBlocks(blocks, meta, base, state) {
     if (b.type === 'h1') {
       chapter++;
       out.push(new d.Paragraph({
-        heading: d.HeadingLevel.HEADING_1, pageBreakBefore: true,
+        heading: d.HeadingLevel.HEADING_1, pageBreakBefore: chapter === 0, keepNext: true,
         children: [new d.Bookmark({ id: chapterAnchor(chapter), children: [new d.TextRun(b.text)] })],
       }));
     } else if (b.type === 'h2') out.push(new d.Paragraph({ heading: d.HeadingLevel.HEADING_2, keepNext: true, children: [new d.TextRun(b.text)] }));
-    else if (b.type === 'p') out.push(new d.Paragraph({ children: runs(b.text) }));
+    else if (b.type === 'p') out.push(new d.Paragraph({ children: runs(b.text), keepNext: /^\*\*[^*]+\*\*$/.test(b.text) }));
     else if (b.type === 'bullets') b.items.forEach(t => out.push(new d.Paragraph({ numbering: { reference: 'puces', level: 0 }, children: runs(t) })));
     else if (b.type === 'steps') {
-      const rows = b.items.map((it, k) => new d.TableRow({
-        cantSplit: true,
-        children: [
-          new d.TableCell({
-            width: { size: 760, type: d.WidthType.DXA }, borders: { top: NONE, left: NONE, right: NONE, bottom: k === b.items.length - 1 ? NONE : { style: d.BorderStyle.SINGLE, size: 4, color: 'E5E7EB' } },
-            margins: { top: 70, bottom: 70, left: 60, right: 60 },
-            children: [new d.Paragraph({ alignment: d.AlignmentType.CENTER, spacing: { after: 0 }, children: [new d.TextRun({ text: it.n, bold: true, size: 32, color: BLUE })] })],
-          }),
-          new d.TableCell({
-            width: { size: CONTENT - 760, type: d.WidthType.DXA }, borders: { top: NONE, left: NONE, right: NONE, bottom: k === b.items.length - 1 ? NONE : { style: d.BorderStyle.SINGLE, size: 4, color: 'E5E7EB' } },
-            margins: { top: 70, bottom: 70, left: 120, right: 60 },
-            children: [new d.Paragraph({ spacing: { after: 0 }, children: runs(it.text) })],
-          }),
-        ],
-      }));
-      out.push(new d.Table({ width: { size: CONTENT, type: d.WidthType.DXA }, columnWidths: [760, CONTENT - 760], borders: noBorders, rows }));
-      out.push(new d.Paragraph({ spacing: { after: 60 }, children: [] }));
+      b.items.forEach(it => out.push(new d.Paragraph({
+        indent: { left: 340, hanging: 340 },
+        children: [new d.TextRun({ text: it.n + '. ', bold: true }), ...runs(it.text)],
+      })));
     } else if (b.type === 'callout') {
       const c = CALLOUTS[b.kind];
-      out.push(new d.Table({
-        width: { size: CONTENT, type: d.WidthType.DXA }, columnWidths: [CONTENT],
-        rows: [new d.TableRow({ cantSplit: true, children: [new d.TableCell({
-          width: { size: CONTENT, type: d.WidthType.DXA },
-          shading: { type: d.ShadingType.CLEAR, color: 'auto', fill: c.fill },
-          borders: { top: NONE, bottom: NONE, right: NONE, left: { style: d.BorderStyle.SINGLE, size: 24, color: c.bar } },
-          margins: { top: 100, bottom: 100, left: 200, right: 160 },
-          children: [new d.Paragraph({ spacing: { after: 0 }, children: [new d.TextRun({ text: c.label + '. ', bold: true, color: c.bar }), ...runs(b.text)] })],
-        })] })],
-      }));
-      out.push(new d.Paragraph({ spacing: { after: 60 }, children: [] }));
+      out.push(new d.Paragraph({ children: [new d.TextRun({ text: c.label + '. ', bold: true }), ...runs(b.text)] }));
     } else if (b.type === 'table') {
       const widths = columnWidths(b.rows, CONTENT);
       const border = { style: d.BorderStyle.SINGLE, size: 4, color: LINE };
@@ -221,28 +235,21 @@ function docxBlocks(blocks, meta, base, state) {
           children: widths.map((w, ci) => new d.TableCell({
             width: { size: w, type: d.WidthType.DXA },
             shading: ri === 0 ? { type: d.ShadingType.CLEAR, color: 'auto', fill: HEAD } : undefined,
-            margins: { top: 70, bottom: 70, left: 110, right: 110 },
-            children: [new d.Paragraph({ spacing: { after: 0 }, children: runs(r[ci] || '', ri === 0 ? { bold: true } : {}) })],
+            verticalAlign: d.VerticalAlign.CENTER, margins: { top: 95, bottom: 95, left: 120, right: 120 },
+            children: [new d.Paragraph({ spacing: { after: 0 }, children: runs(r[ci] || '', { bold: ri === 0, size: 19, color: '000000' }) })],
           })),
         })),
       }));
       out.push(new d.Paragraph({ spacing: { after: 60 }, children: [] }));
     } else if (b.type === 'code') {
-      out.push(new d.Table({
-        width: { size: CONTENT, type: d.WidthType.DXA }, columnWidths: [CONTENT],
-        rows: [new d.TableRow({ cantSplit: true, children: [new d.TableCell({
-          width: { size: CONTENT, type: d.WidthType.DXA },
-          shading: { type: d.ShadingType.CLEAR, color: 'auto', fill: 'F3F4F6' },
-          borders: { top: NONE, bottom: NONE, right: NONE, left: { style: d.BorderStyle.SINGLE, size: 12, color: LINE } },
-          margins: { top: 80, bottom: 80, left: 160, right: 120 },
-          children: b.lines.map(l => new d.Paragraph({ spacing: { after: 0, line: 240 }, children: [new d.TextRun({ text: l.replace(/ /g, '\u00a0') || ' ', font: 'Consolas', size: 17 })] })),
-        })] })],
-      }));
-      out.push(new d.Paragraph({ spacing: { after: 60 }, children: [] }));
+      b.lines.forEach(l => out.push(new d.Paragraph({
+        spacing: { after: 30, line: 240 },
+        children: [new d.TextRun({ text: l || ' ', font: 'Courier New', size: 17 })],
+      })));
     } else if (b.type === 'fig') {
       const f = meta.figures[b.id];
-      const img = imageInfo(path.join(base, f.file));
-      const wpx = Math.round(f.width / 2.54 * 96), hpx = Math.round(wpx * img.h / img.w);
+      const {img,c} = figureView(f,base);
+      const wpx = Math.round(f.width / 2.54 * 96), hpx = Math.round(wpx * c.h / c.w);
       state.figure++;
       out.push(new d.Paragraph({ alignment: d.AlignmentType.CENTER, keepNext: true, spacing: { before: 120, after: 60 },
         children: [new d.ImageRun({ type: img.type, data: img.data, transformation: { width: wpx, height: hpx }, altText: { title: `Figure ${state.figure}`, description: b.caption, name: b.id } })] }));
@@ -256,10 +263,9 @@ function docxBlocks(blocks, meta, base, state) {
 function buildDocx(meta, blocks, base, outFile) {
   const chapters = blocks.filter(b => b.type === 'h1').map(b => b.text);
   const cover = [];
-  cover.push(new d.Paragraph({ spacing: { before: 600, after: 0 }, children: [new d.TextRun({ text: meta.product, size: 30, bold: true, color: BLUE })] }));
-  cover.push(new d.Paragraph({ spacing: { after: 120 }, children: [new d.TextRun({ text: meta.title, size: 64, bold: true, color: INK })] }));
-  cover.push(new d.Paragraph({ border: { bottom: { style: d.BorderStyle.SINGLE, size: 12, color: BLUE, space: 8 } }, spacing: { after: 360 },
-    children: [new d.TextRun({ text: meta.subtitle, size: 28, color: MUTED })] }));
+  cover.push(new d.Paragraph({ spacing: { before: 480, after: 80 }, children: [new d.TextRun({ text: meta.product, size: 30, bold: true, color: '000000' })] }));
+  cover.push(new d.Paragraph({ style: 'Title', spacing: { after: 140 }, children: [new d.TextRun({ text: meta.title, size: 60, bold: true, color: '000000' })] }));
+  cover.push(new d.Paragraph({ spacing: { after: 320 }, children: [new d.TextRun({ text: meta.subtitle, size: 26, color: '000000' })] }));
   if (meta.cover) {
     const f = meta.figures[meta.cover];
     const img = imageInfo(path.join(base, f.file));
@@ -268,16 +274,11 @@ function buildDocx(meta, blocks, base, outFile) {
   }
   const info = meta.info || [];
   if (info.length) {
-    const widths = [2600, CONTENT - 2600];
-    cover.push(new d.Table({ width: { size: CONTENT, type: d.WidthType.DXA }, columnWidths: widths, borders: noBorders,
-      rows: info.map(([k, v]) => new d.TableRow({ children: [
-        new d.TableCell({ width: { size: widths[0], type: d.WidthType.DXA }, margins: { top: 40, bottom: 40, left: 0, right: 120 }, children: [new d.Paragraph({ spacing: { after: 0 }, children: [new d.TextRun({ text: k, bold: true, color: MUTED, size: 19 })] })] }),
-        new d.TableCell({ width: { size: widths[1], type: d.WidthType.DXA }, margins: { top: 40, bottom: 40, left: 0, right: 0 }, children: [new d.Paragraph({ spacing: { after: 0 }, children: runs(v, { size: 19 }) })] }),
-      ] })) }));
+    info.forEach(([k, v]) => cover.push(new d.Paragraph({ spacing: { after: 110 }, children: [new d.TextRun({ text: k + '. ', bold: true, size: 20 }), ...runs(v, { size: 20 })] })));
   }
   const toc = [new d.Paragraph({ heading: d.HeadingLevel.HEADING_1, pageBreakBefore: true, children: [new d.TextRun('Sommaire')] })];
   if (meta.tocIntro) toc.push(new d.Paragraph({ children: runs(meta.tocIntro, { color: MUTED }) }));
-  chapters.forEach((t, i) => toc.push(new d.Paragraph({ spacing: { after: 90 }, border: { bottom: { style: d.BorderStyle.SINGLE, size: 2, color: 'E5E7EB', space: 4 } },
+  chapters.forEach((t, i) => toc.push(new d.Paragraph({ spacing: { after: 70 },
     children: [new d.InternalHyperlink({ anchor: chapterAnchor(i), children: [new d.TextRun({ text: t, color: BLUE, size: 23 })] })] })));
   const state = { figure: 0 };
   const body = docxBlocks(blocks, meta, base, state);
@@ -285,13 +286,14 @@ function buildDocx(meta, blocks, base, outFile) {
   const doc = new d.Document({
     creator: meta.author || meta.product, title: `${meta.product} – ${meta.title}`, description: meta.subtitle, language: 'fr-FR',
     styles: {
-      default: { document: { run: { font: 'Segoe UI', size: 21, color: INK }, paragraph: { spacing: { after: 120, line: 276 } } } },
+      default: { document: { run: { font: 'Calibri', size: 21, color: INK }, paragraph: { spacing: { after: 100, line: 260 }, widowControl: true } } },
       paragraphStyles: [
+        { id: 'Title', name: 'Title', basedOn: 'Normal', next: 'Normal', quickFormat: true, run: { color: '000000', size: 60, bold: true } },
         { id: 'Heading1', name: 'Heading 1', basedOn: 'Normal', next: 'Normal', quickFormat: true,
-          run: { font: 'Segoe UI Semibold', size: 38, bold: true, color: BLUE },
-          paragraph: { spacing: { before: 0, after: 240 }, outlineLevel: 0, border: { bottom: { style: d.BorderStyle.SINGLE, size: 8, color: LINE, space: 6 } } } },
+          run: { font: 'Calibri', size: 36, bold: true, color: '000000' },
+          paragraph: { spacing: { before: 0, after: 220 }, outlineLevel: 0, keepNext: true } },
         { id: 'Heading2', name: 'Heading 2', basedOn: 'Normal', next: 'Normal', quickFormat: true,
-          run: { font: 'Segoe UI Semibold', size: 26, bold: true, color: INK },
+          run: { font: 'Calibri', size: 26, bold: true, color: '000000' },
           paragraph: { spacing: { before: 300, after: 120 }, outlineLevel: 1 } },
       ],
       characterStyles: [{ id: 'Hyperlink', name: 'Hyperlink', basedOn: 'DefaultParagraphFont', run: { color: BLUE } }],
@@ -302,7 +304,7 @@ function buildDocx(meta, blocks, base, outFile) {
       properties: { page: { size: { width: PAGE_W, height: 16838 }, margin: { top: MARGIN, bottom: MARGIN, left: MARGIN, right: MARGIN, header: 567, footer: 567 } }, titlePage: true },
       headers: {
         first: new d.Header({ children: [new d.Paragraph('')] }),
-        default: new d.Header({ children: [new d.Paragraph({ alignment: d.AlignmentType.RIGHT, children: [new d.TextRun({ text: label, size: 16, color: MUTED })] })] }),
+        default: new d.Header({ children: [new d.Paragraph({ alignment: d.AlignmentType.RIGHT, children: [new d.TextRun({ text: label, size: 16, color: '000000' })] })] }),
       },
       footers: {
         first: new d.Footer({ children: [new d.Paragraph({ children: [new d.TextRun({ text: meta.edition, size: 16, color: MUTED })] })] }),
@@ -311,7 +313,7 @@ function buildDocx(meta, blocks, base, outFile) {
       children: [...cover, ...toc, ...body],
     }],
   });
-  return d.Packer.toBuffer(doc).then(buf => { fs.writeFileSync(outFile, buf); return state.figure; });
+  return d.Packer.toBuffer(doc).then(async buf => { fs.writeFileSync(outFile, await applyDocxFraming(buf,meta,base)); return state.figure; });
 }
 
 // ---------- HTML puis PDF ----------
@@ -337,7 +339,12 @@ function buildHtml(meta, blocks, base) {
     else if (b.type === 'fig') {
       figure++;
       const f = meta.figures[b.id];
-      html.push(`<figure><img src="${pathToFileURL(path.join(base, f.file)).href}" style="width:${f.width}cm" alt="${esc(b.caption)}"><figcaption><strong>Figure ${figure}.</strong> ${esc(b.caption)}</figcaption></figure>`);
+      const {img,c}=figureView(f,base);
+      const scale=f.width/c.w;
+      const visual=f.crop
+        ? `<div style="position:relative;overflow:hidden;width:${f.width}cm;height:${c.h*scale}cm;margin:auto"><img src="${pathToFileURL(path.join(base,f.file)).href}" style="position:absolute;width:${img.w*scale}cm;max-width:none;left:${-c.x*scale}cm;top:${-c.y*scale}cm" alt="${esc(b.caption)}"></div>`
+        : `<img src="${pathToFileURL(path.join(base,f.file)).href}" style="width:${f.width}cm" alt="${esc(b.caption)}">`;
+      html.push(`<figure>${visual}<figcaption><strong>Figure ${figure}.</strong> ${esc(b.caption)}</figcaption></figure>`);
     }
   }
   const chapters = blocks.filter(b => b.type === 'h1').map(b => b.text);
@@ -352,22 +359,22 @@ function buildHtml(meta, blocks, base) {
 html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 body { font: 10.5pt/1.45 "Segoe UI", "Avenir Next", "Helvetica Neue", Arial, sans-serif; color: #${INK}; margin: 0; background: #fff; }
 .cover { page-break-after: always; padding-top: 1.2cm; }
-.cover .product { color: #${BLUE}; font-weight: 700; font-size: 15pt; }
+.cover .product { color: #000000; font-weight: 700; font-size: 15pt; }
 .cover .title { font-size: 32pt; font-weight: 700; margin: 2pt 0 6pt; }
-.cover .subtitle { font-size: 14pt; color: #${MUTED}; border-bottom: 1.5pt solid #${BLUE}; padding-bottom: 8pt; margin-bottom: 18pt; }
+.cover .subtitle { font-size: 14pt; color: #000000; padding-bottom: 8pt; margin-bottom: 18pt; }
 .cover-img { max-width: 100%; box-sizing: border-box; display: block; margin-left: auto; margin-right: auto; border: 0.75pt solid #${LINE}; border-radius: 4pt; margin-bottom: 18pt; }
 .cover dl { display: grid; grid-template-columns: 4.6cm 1fr; gap: 3pt 0; font-size: 9.5pt; margin: 0; }
 .cover dt { font-weight: 700; color: #${MUTED}; } .cover dd { margin: 0; }
 .cover .edition { margin-top: 14pt; color: #${MUTED}; font-size: 8pt; }
-h1 { break-before: page; color: #${BLUE}; font-size: 19pt; margin: 0 0 12pt; padding-bottom: 5pt; border-bottom: 1pt solid #${LINE}; }
+h1 { break-before: page; color: #000000; font-size: 19pt; margin: 0 0 12pt; }
 h2 { font-size: 13pt; margin: 16pt 0 6pt; break-after: avoid; }
 p { margin: 0 0 6pt; } ul { margin: 0 0 8pt; padding-left: 16pt; } li { margin-bottom: 3pt; } ul li::marker { color: #${BLUE}; }
 ol.steps { list-style: none; padding: 0; margin: 0 0 10pt; }
 ol.steps li { display: flex; gap: 10pt; padding: 4pt 0; border-bottom: 0.5pt solid #E5E7EB; break-inside: avoid; }
 ol.steps li:last-child { border-bottom: none; }
 ol.steps .n { flex: 0 0 22pt; text-align: center; font-weight: 700; font-size: 16pt; line-height: 1.1; color: #${BLUE}; }
-.callout { background: var(--fill); border-left: 3pt solid var(--bar); padding: 6pt 9pt; margin: 4pt 0 10pt; break-inside: avoid; }
-.callout .lbl { color: var(--bar); }
+.callout { margin: 4pt 0 10pt; }
+.callout .lbl { color: #000000; }
 table { width: 100%; border-collapse: collapse; margin: 4pt 0 10pt; font-size: 9.5pt; }
 th, td { border: 0.5pt solid #${LINE}; padding: 4pt 6pt; text-align: left; vertical-align: top; }
 th { background: #${HEAD}; } tr { break-inside: avoid; } thead { display: table-header-group; }
@@ -396,7 +403,7 @@ async function main() {
   if (meta.cover && !meta.figures[meta.cover]) { console.error(`erreur : figure de couverture inconnue : ${meta.cover}`); process.exit(1); }
   for (const [id, f] of Object.entries(meta.figures)) {
     if (!f || !f.file || !(f.width > 0)) { console.error(`erreur : figure ${id} : file et width (cm, > 0) obligatoires`); process.exit(1); }
-    try { imageInfo(path.join(base, f.file)); } catch (e) { console.error('erreur : ' + e.message); process.exit(1); }
+    try { figureView(f,base); } catch (e) { console.error('erreur : ' + e.message); process.exit(1); }
   }
   const { blocks, problems } = parse(readText(path.join(base, meta.source)));
   const used = blocks.filter(b => b.type === 'fig').map(b => b.id);

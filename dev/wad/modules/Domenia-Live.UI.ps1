@@ -40,7 +40,7 @@ function Initialize-DomeniaLive {
             MemoryQueries=@{};Observations=[Collections.Concurrent.ConcurrentDictionary[string,object]]::new()
             Pending=[Collections.Generic.Queue[object]]::new();PendingKeys=@{};Busy=@{};Done=@{}
             ObservationsLoaded=$false;Refresh=[Collections.Generic.Queue[object]]::new()
-            SaveQueue=@{};QueryToSave=$null;SaveJob='';SaveAfter=[datetime]::MinValue;SaveFault='';SaveInFlight=0
+            SaveQueue=@{};QueryToSave=$null;SaveJob='';SaveAfter=[datetime]::MinValue;SaveFault='';SaveInFlight=0;SaveBatch=$null
             PresenceEvents=[Collections.Concurrent.ConcurrentQueue[object]]::new();PresenceSeen=@{};RemoteFaulted=$false;NextStart=[datetime]::MinValue;Timer=$null;InTick=$false;AutoDetect=$true;ProbeSelection=$null;LastFilter=[datetime]::MinValue;NegativeCache=(New-DomeniaNegativeCache)
         }
         Reset-DomeniaLiveIdentity
@@ -229,6 +229,9 @@ function Complete-DomeniaLiveSearch {
     $effective=Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @('Rows','BaseDn','Scope')
     if($null -eq $effective -or [string]$effective.BaseDn -ine [string]$State.BaseDn -or [string]$effective.Scope -ne [string]$State.Scope){throw 'Résultat de recherche sans périmètre valide.'}
     $s.Final=$effective;$s.Ended=$true
+    # Once AD completed, old cache rows can no longer contribute to the list. Detach the queue
+    # even if a cache reader still owns it, so idle ticks cannot retain/revisit thousands of stale rows.
+    if(-not $effective.Partial){$s.CacheProgress=[Collections.Concurrent.ConcurrentQueue[object]]::new()}
     if($effective.Partial){$s.Error=[string]$effective.Failure;if(-not $s.Error){$s.Error='Résultat LDAP partiel.'}}
     # The worker has already published the rows. Finalization waits for the UI queue.
 }
@@ -269,6 +272,7 @@ function Update-DomeniaLiveFilter {
     $terms=@($query.Trim() -split '\s+'|Where-Object {$_})
     $predicate={
         param($row)
+        if(-not (Test-DomeniaSearchQueryRow $row)){return $false}
         $network=([string]$row.Presence -replace ' \(cache\)$','').Trim()
         if($network -in @('','Inconnu')){$network='Non vérifié'}
         $wanted=$presence
@@ -617,7 +621,7 @@ function Complete-DomeniaLiveCache {
     param($Result,$State)
     Reset-DomeniaLiveIdentity
     # D028: one LiveCache worker at a time, so a write callback always ends the write in flight, whatever its identity.
-    if($null -ne $script:Live -and $State.Mode -eq 'Write'){$script:Live.SaveInFlight=0}
+    if($null -ne $script:Live -and $State.Mode -eq 'Write'){$script:Live.SaveInFlight=0;$script:Live.SaveJob='';$script:Live|Add-Member -NotePropertyName SaveBatch -NotePropertyValue $null -Force}
     if($null -eq $script:Live -or -not (Test-DomeniaLiveIdentity $State ([long]$script:SessionEpoch) $script:Live.Identity)){return}
     if($State.Mode -eq 'Read'){
         $script:Live.ObservationsLoaded=$true
@@ -630,7 +634,7 @@ function Complete-DomeniaLiveCache {
 function Fail-DomeniaLiveCache {
     param([string]$Message,$State)
     Reset-DomeniaLiveIdentity
-    if($null -ne $script:Live -and $State.Mode -eq 'Write'){$script:Live.SaveInFlight=0}
+    if($null -ne $script:Live -and $State.Mode -eq 'Write'){$script:Live.SaveInFlight=0;$script:Live.SaveJob='';$script:Live|Add-Member -NotePropertyName SaveBatch -NotePropertyValue $null -Force}
     if($null -eq $script:Live -or -not (Test-DomeniaLiveIdentity $State ([long]$script:SessionEpoch) $script:Live.Identity)){return}
     if($State.Mode -eq 'Write'){
         $script:Live.SaveJob='';$script:Live.SaveFault=$Message;$script:Live.SaveAfter=[datetime]::UtcNow.AddSeconds(10)
@@ -662,6 +666,10 @@ function Get-DomeniaLiveDatabasePath {
 }
 function Start-DomeniaLiveBackgroundWork {
     if((Get-DomeniaLiveWorkerCount 'StoragePurge') -gt 0){return}
+    if($script:Live.SaveJob -and (Get-DomeniaLiveWorkerCount 'LiveCache') -eq 0){
+        $lost=Get-DomeniaMemberValue $script:Live 'SaveBatch'
+        if($null -ne $lost){Fail-DomeniaLiveCache 'Résultat de cache non reçu ; lot conservé pour une nouvelle tentative.' $lost}
+    }
     if([datetime]::UtcNow -lt $script:Live.NextStart){return}
     # C2: no probe, cache read or cache write in demonstration. C1: the rest policy decides before any background work.
     if([bool]$script:DemoMode){return}
@@ -678,7 +686,9 @@ function Start-DomeniaLiveBackgroundWork {
             $state=[pscustomobject]@{Mode='Write';Identity=$script:Live.Identity;Epoch=[long]$script:SessionEpoch;Observations=$observations;Query=$query}
             $payload=[pscustomobject]@{Mode='Write';Path=Get-DomeniaLiveDatabasePath;Scope=$script:Live.Scope;Observations=$observations;Query=$query}
             $id=Start-UiTask -Name 'Mémorisation des observations' -OperationId 'LiveCache' -Code (Get-DomeniaLiveCacheCode) -Payload $payload -CallbackState $state -TimeoutSeconds 15 -SuccessHandler 'Complete-DomeniaLiveCache' -ErrorHandler 'Fail-DomeniaLiveCache' -NonCancellable -TaskClass 'Background'
+            if([string]::IsNullOrWhiteSpace([string]$id)){throw 'Enregistrement non admis : observations conservées en attente.'}
             $script:Live.SaveQueue=@{};$script:Live.QueryToSave=$null;$script:Live.SaveJob=$id
+            $script:Live|Add-Member -NotePropertyName SaveBatch -NotePropertyValue $state -Force
             # D028: the observations left SaveQueue but are not on disk yet; the save state keeps counting them.
             $script:Live.SaveInFlight=@($observations).Count+$(if($null -ne $query){1}else{0})
             return
@@ -686,7 +696,8 @@ function Start-DomeniaLiveBackgroundWork {
         if((Test-DomeniaLiveSearchActive) -and -not $s.CacheRequested){
             $state=[pscustomobject]@{Mode='Read';Identity=$s.Identity;Epoch=$s.Epoch}
             $payload=[pscustomobject]@{Mode='Read';Path=Get-DomeniaLiveDatabasePath;Scope=$script:Live.Scope;QueryKey=$s.QueryKey;Limit=$s.State.Limit;Progress=$s.CacheProgress;ObservationStore=$script:Live.Observations;LoadObservations=(-not $script:Live.ObservationsLoaded)}
-            [void](Start-UiTask -Name 'Lecture du cache de recherche' -OperationId 'LiveCache' -Code (Get-DomeniaLiveCacheCode) -Payload $payload -CallbackState $state -TimeoutSeconds 12 -SuccessHandler 'Complete-DomeniaLiveCache' -ErrorHandler 'Fail-DomeniaLiveCache' -TaskClass 'Background')
+            $cacheJob=Start-UiTask -Name 'Lecture du cache de recherche' -OperationId 'LiveCache' -Code (Get-DomeniaLiveCacheCode) -Payload $payload -CallbackState $state -TimeoutSeconds 12 -SuccessHandler 'Complete-DomeniaLiveCache' -ErrorHandler 'Fail-DomeniaLiveCache' -TaskClass 'Background'
+            if([string]::IsNullOrWhiteSpace([string]$cacheJob)){throw 'Lecture du cache non admise : nouvelle tentative différée.'}
             $s.CacheRequested=$true
             return
         }
@@ -733,6 +744,7 @@ function Start-DomeniaLiveBackgroundWork {
     $payload=[pscustomobject]@{Key=$item.Key;Computer=$item.Computer;Guid=$item.Guid;MethodSeconds=4;ProbeUser=$probeUser;PresenceProgress=$script:Live.PresenceEvents;PresenceState=$state}
     try{
         $id=Start-UiTask -Name ('Présence'+$(if($probeUser){' et utilisateur'}else{''})+' '+$item.Computer) -OperationId $operation -Code (Get-DomeniaLiveProbeCode) -Payload $payload -CallbackState $item -TimeoutSeconds 14 -SuccessHandler 'Complete-DomeniaLiveProbe' -ErrorHandler 'Fail-DomeniaLiveProbe'
+        if([string]::IsNullOrWhiteSpace([string]$id)){throw 'Vérification du poste non admise.'}
         $script:Live.Busy[[string]$item.Key]=$id;$item.Row.Presence='Vérification en cours'
         if($probeUser){$item.Row.SessionState='Vérification en cours'}
     }catch{
@@ -804,8 +816,7 @@ function Invoke-DomeniaLiveTick {
                         try{while($s.Prune.Count -gt 0 -and $count -lt 12){$key=$s.Prune.Dequeue();[void]$s.Rows.Remove($s.Map[$key]);[void]$s.Map.Remove($key);$count++}}finally{$script:SuppressGridSelectionEvents=$old}
                         if($s.Prune.Count -eq 0){
                             $query=[pscustomobject]@{QueryKey=$s.QueryKey;ObservedUtc=[datetime]::UtcNow.ToString('o');Rows=$s.FreshOrder.ToArray()}
-                            $script:Live.MemoryQueries[$s.QueryKey]=$query
-                            if($script:Live.MemoryQueries.Count -gt 20){$oldest=@($script:Live.MemoryQueries.Values|Sort-Object ObservedUtc|Select-Object -First 1);[void]$script:Live.MemoryQueries.Remove([string]$oldest[0].QueryKey)}
+                            Add-DomeniaLiveMemoryQuery -Queries $script:Live.MemoryQueries -Query $query
                             $script:Live.QueryToSave=$query;$s.Finalized=$true
                         }
                     }else{$s.Finalized=$true}

@@ -39,11 +39,12 @@ function New-BfResult {
 }
 function New-BfInventory {
     param([string]$Model,[string]$Build,[double]$RamGb,[double]$DiskGb,[double]$FreeGb,[double]$BootDays)
-    return [pscustomobject]@{ Model = $Model; Build = $Build; RamBytes = $RamGb * 1GB; DiskSize = $DiskGb * 1GB; DiskFree = $FreeGb * 1GB; LastBootUtc = $script:BfNow.ToUniversalTime().AddDays(0 - $BootDays).ToString('o') }
+    return [pscustomobject]@{ CheckedUtc=$script:BfNow.ToUniversalTime().AddHours(-2).ToString('o'); Model = $Model; Build = $Build; RamBytes = $RamGb * 1GB; DiskSize = $DiskGb * 1GB; DiskFree = $FreeGb * 1GB; LastBootUtc = $script:BfNow.ToUniversalTime().AddDays(0 - $BootDays).ToString('o') }
 }
 function New-BfPresence {
     # Observation already parsed and attached by GUID by the worker (in_scope false: selected workstation elsewhere).
     param($Machine,[double]$HoursAgo,$Observation,[bool]$InScope = $true)
+    $Observation|Add-Member NoteProperty ObservedUtc ($script:BfNow.ToUniversalTime().AddHours(0 - $HoursAgo).ToString('o')) -Force
     return [pscustomobject]@{ object_key = ([string]$Machine.distinguished_name).ToLowerInvariant(); checked_utc = $script:BfNow.ToUniversalTime().AddHours(0 - $HoursAgo).ToString('o'); observation = $Observation; gid = ''; name = $Machine.name; distinguished_name = $Machine.distinguished_name; object_guid = $Machine.object_guid; in_scope = $InScope }
 }
 function Get-BfMachines {
@@ -117,14 +118,14 @@ Test-Case -Id 'BF-003' -Name 'Parc : derniere connexion en tranches, tranches vi
     $entry = $board.Entries['fleet.lastlogon']
     Assert-Equal 'Series' ([string]$entry.Kind)
     # Lot L06 (CO-16): buckets named with their unit.
-    Assert-Equal 'moins de 7 j|7 à 30 j|30 à 90 j|90 à 180 j|plus de 180 j|jamais' (Get-BfJoined $entry 'Label')
+    Assert-Equal '0 à 6 j|7 à 29 j|30 à 89 j|90 à 179 j|180 j et plus|non renseignée' (Get-BfJoined $entry 'Label')
     Assert-Equal '2|1|1|1|1|1' (Get-BfJoined $entry 'Value')
     Assert-Equal '2 poste(s) sur 7' ([string]$entry.Detail)
     Assert-Equal '2' ([string]$board.Entries['fleet.stale'].Value)
     Assert-Equal 'Warn' ([string]$board.Entries['fleet.stale'].State)
     $texts = Get-BfTexts $board
     Assert-True ($texts -contains 'Warn:2 poste(s) sans connexion au domaine depuis 90 jours ou plus (à 14 jours près) : à vérifier ou nettoyer.') 'Inactifs signales'
-    Assert-True ($texts -contains 'Warn:1 compte(s) ordinateur jamais connecté(s).') 'Jamais connectes signales'
+    Assert-True ($texts -contains 'Warn:1 compte(s) ordinateur sans date de connexion AD renseignée.') 'Jamais connectes signales'
     Assert-True ($texts -contains 'Warn:2 poste(s) avec un mot de passe machine de plus de 60 jours.') 'Mot de passe machine ancien'
     Assert-True ($texts -contains 'Info:1 poste(s) créé(s) ces 30 derniers jours.') 'Postes recents'
     Assert-Equal '1' ([string]$board.Entries['fleet.created'].Value)
@@ -181,7 +182,7 @@ Test-Case -Id 'BF-006' -Name 'Parc : presence des postes analyses (moins de 30 j
     Assert-Equal '7 postes' ([string]$entry.CenterText)
     $expected = '4 postes analysés sur 7, le ' + $script:BfNow.AddHours(-2).ToString('dd/MM',$script:BfInvariant)
     Assert-Equal $expected ([string]$entry.Detail)
-    Assert-Equal '' ([string]$entry.State) 'Releve du jour : pas grise'
+    Assert-Equal 'Off' ([string]$entry.State) 'Le relevé récent ne masque pas celui datant de dix jours'
     Assert-True ((Get-BfTexts $board) -contains 'Info:1 poste(s) sans réponse au dernier relevé.') 'Sans reponse signale'
     $old = @(foreach ($row in @(Get-BfPresenceRows)) { $copy = $row.PSObject.Copy(); $copy.checked_utc = $script:BfNow.ToUniversalTime().AddDays(-10).ToString('o'); $copy })
     Assert-Equal 'Off' ([string](Get-BfBoard -Presence $old).Entries['fleet.presence'].State) 'Releves de plus de 7 jours grises'
@@ -216,7 +217,7 @@ Test-Case -Id 'BF-008' -Name 'Parc : releves WMI des postes analyses (modeles, m
 Test-Case -Id 'BF-009' -Name 'Parc : sans releve WMI, section remplacee par une indication et widgets omis' -Body {
     $rows = @(Get-BfPresenceRows)
     $board = Get-BfBoard -Presence @($rows[1])
-    Assert-True (([string]$board.Hints['Relevés des postes']).StartsWith('Dans Rechercher, Analyser la liste')) 'Indication de la section'
+    Assert-True (([string]$board.Hints['Relevés des postes']).StartsWith('Relever ce périmètre')) 'Indication de la section'
     Assert-Equal ([string]$board.Hints['Relevés des postes']) ([string]$board.Hints['Releves WMI']) 'Ancienne section des dispositions personnalisees'
     foreach ($key in @('fleet.models','fleet.releases','fleet.ram','fleet.diskfree','fleet.lowdisk','fleet.uptime')) { Assert-False ($board.Entries.ContainsKey($key)) ('Widget sans donnees emis : ' + $key) }
     $none = Get-BfBoard -Presence @()
@@ -450,4 +451,12 @@ Test-Case -Id 'BF-022' -Name 'TE-07 : seuil disque du parc aligne sur le poste, 
     $alone = Get-BfBoard -Presence $outside
     Assert-Equal '0' ([string]$alone.Entries['fleet.users'].Value) 'poste hors perimetre non compte'
     Assert-Equal 0 @(Get-BfTexts (Get-BfBoard) | Where-Object { ($_ -like '*LTSC*') -and ($_ -like 'Alert:*') }).Count 'LTSC jamais critique'
+}
+
+Test-Case -Id 'BF-023' -Name 'Parc : detail sante exact sans doublon, tous les actifs repartis' -Body {
+    $board=Get-BfBoard
+    Assert-Equal ([int]$board.Population.Healthy) @($board.Last.HealthyTargets).Count 'Detail des postes sans point'
+    Assert-Equal ([int]$board.Population.Total-[int]$board.Population.Healthy) @($board.Last.ProblemTargets).Count 'Detail des postes avec points'
+    $ids=@(@($board.Last.HealthyTargets)+@($board.Last.ProblemTargets)|ForEach-Object{$_.object_guid})
+    Assert-Equal @($board.Last.Targets).Count @($ids|Select-Object -Unique).Count 'Chaque actif une fois'
 }

@@ -5,18 +5,13 @@ The literal remains independently hash-pinned by update_worker_contracts.py.
 Changing a source helper requires regenerating and reviewing this literal.
 """
 import argparse
+import json
 import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCES = {
-    'modules/Domenia-Storage.Worker.ps1': ['Initialize-DomeniaWinSqliteNative', 'New-DomeniaUtf8Ptr', 'ConvertFrom-DomeniaUtf8Ptr', 'Close-DomeniaDatabase', 'ConvertTo-DomeniaSqlLiteral', 'Open-DomeniaDatabase', 'Invoke-DomeniaDbQuery'],
-    'modules/Domenia-Common.Model.ps1': ['Test-DomeniaDictionaryKey', 'Get-DomeniaMember', 'Get-DomeniaCollectionItems', 'ConvertFrom-DomeniaLargeInteger', 'Get-DomeniaTextHash', 'ConvertTo-DomeniaUtcDate'],
-    'modules/Domenia-Release.Model.ps1': ['Test-DomeniaReleaseMapKey', 'Get-DomeniaReleaseMapValue', 'ConvertTo-DomeniaMigrationDomain', 'ConvertTo-DomeniaMigrationComputerKey', 'ConvertTo-DomeniaMigrationUserLogin', 'Get-DomeniaMigrationPlan', 'Get-DomeniaMigratedState', 'Test-DomeniaMigrationIdempotent'],
-    'modules/Domenia-Relations.Model.ps1': ['Get-DomeniaRelationKind', 'ConvertTo-DomeniaRelationUtcDate', 'Select-DomeniaPrimaryRelation'],
-    'Domenia-Core.ps1': ['Normalize-LinkComputer', 'Normalize-LinkUser', 'Get-DomeniaStoreBackupDirectory', 'Backup-DomeniaDatabase'],
-    'modules/Domenia-Migration.UI.ps1': ['ConvertTo-DomeniaLegacyNumber', 'ConvertTo-DomeniaLegacyDate', 'Read-DomeniaLegacySource', 'Get-DomeniaLegacySnapshot', 'New-DomeniaLegacyImportPlan'],
-}
+SPEC = json.loads((ROOT / 'tools/migration-worker.json').read_text(encoding='utf-8-sig'))
+SOURCES = {row['File']: row['Functions'] for row in SPEC['Sources']}
 
 def render():
     bodies = []
@@ -36,26 +31,7 @@ def render():
                     continue
                 raise ValueError('Missing closing brace: ' + name)
             bodies.append(body[:end + 2])
-    body = '\n\n'.join(bodies) + '''
-
-function Get-DomeniaDatabasePath { return [string]$script:DatabaseScopedPath }
-function Get-CfgValue { param($Section,$Key,$Default) if ($Key -eq 'BackupTimeoutSeconds') { return $Payload.BackupTimeoutSeconds };return $Default }
-$script:DatabaseScopedPath=[string]$Payload.Path
-$script:DataDir=[string]$Payload.DataDir
-$script:SessionEpoch=[long]$Payload.Epoch
-$script:Conn=[pscustomobject]@{BaseDn=[string]$Payload.BaseDn}
-$plan=New-DomeniaLegacyImportPlan -LocalAppData ([string]$Payload.LocalAppData)
-if ($Payload.Mode -eq 'Prepare') {
-    if (-not $Payload.ExpectedFingerprint -or $plan.Fingerprint -cne [string]$Payload.ExpectedFingerprint) { throw 'Les donnees ou le contexte ont change. Refaites la simulation.' }
-    if (-not $plan.Allowed) { throw ($plan.Blockers -join [Environment]::NewLine) }
-    if ($plan.WriteCount -gt 0) {
-        $backup=Backup-DomeniaDatabase -Migration
-        if (-not $backup -or -not [IO.File]::Exists([string]$backup)) { throw 'Sauvegarde de migration non confirmee.' }
-        $plan | Add-Member -NotePropertyName BackupPath -NotePropertyValue ([string]$backup)
-    }
-} elseif ($Payload.Mode -ne 'Preview') { throw 'Mode de reprise inconnu.' }
-return $plan
-'''
+    body = '\n\n'.join(bodies) + SPEC['Tail']
     code = re.sub(r'(?m)^\s*#.*$', '', body)
     definitions = set(re.findall(r'^function (\S+)', code, re.M))
     references = set(re.findall(r'\b([A-Za-z]+-Domenia[A-Za-z0-9]+)\b', code))

@@ -1,9 +1,13 @@
 ﻿#requires -Version 5.1
-# Captures des guides Domenia 1.0 (edition du 8 octobre 2026). Vraie fenetre WPF du depot, valeurs fictives coherentes
-# (domaine example.local), rendue hors ecran a 1440 x 900. Aucun annuaire ni poste distant n est contacte.
+# Captures des guides Domenia 1.0. Vraie fenetre WPF du depot, valeurs fictives coherentes
+# (domaine example.local), rendue hors ecran a 1920 x 1080. Aucun annuaire ni poste distant n est contacte.
+# Ces illustrations ne constituent pas un test de connexion AD ni une qualification des transports.
 # A lancer dans la VM de test (powershell.exe -STA), jamais sur un poste de production.
-param([string]$Dev = 'C:\DomeniaLab\d120\dev',[string]$Out = 'C:\DomeniaLab\d120\guide-captures',[int]$Width = 1440,[int]$Height = 900)
+param([string]$Dev = 'C:\DomeniaLab\d120\dev',[string]$Out = 'C:\DomeniaLab\d120\guide-captures',[int]$Width = 1920,[int]$Height = 1080)
 $ErrorActionPreference = 'Stop'
+$script:GuideChecks = [Collections.Generic.List[object]]::new()
+$script:GuideImages = [Collections.Generic.List[object]]::new()
+function Assert-Guide { param([bool]$Condition,[string]$Name) $script:GuideChecks.Add([pscustomobject]@{Name=$Name;Passed=$Condition}); if(-not $Condition){throw ('Capture fixture: '+$Name)} }
 Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
 # The test VM desktop is 1024 x 768: the maximum window size is raised so the layout is the one of a usual screen.
 Add-Type -ReferencedAssemblies PresentationFramework,PresentationCore,WindowsBase,System.Xaml -TypeDefinition @'
@@ -29,6 +33,9 @@ public static class GuideCaptureHook {
 '@
 [void][IO.Directory]::CreateDirectory($Out)
 $wad = Join-Path $Dev 'wad'
+foreach ($library in @('M4D.Admin.Common.Query.dll','Domenia.Native.dll')) {
+    [void][Reflection.Assembly]::LoadFrom((Join-Path $wad ('modules\' + $library)))
+}
 $tokens = $null; $parseErrors = $null
 $ast = [Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'Domenia-Core.ps1'),[ref]$tokens,[ref]$parseErrors)
 if (@($parseErrors).Count) { throw ('Coeur illisible : ' + $parseErrors[0].Message) }
@@ -36,11 +43,11 @@ $coreNames = @(
     'Set-DomeniaControlText','Get-MainXaml','Assert-DomeniaXamlPreflight','Get-DomeniaXamlControlNames',
     'Get-DomeniaControl','Set-DomeniaContextHint','Get-DomeniaFriendlyControlLabel',
     'Get-DomeniaDefaultToolTip','Save-DomeniaUiProfile','Apply-DomeniaUiProfile',
-    'Set-TabVisibility','Set-VisibleTabsForType','Assert-DomeniaWorkspaceSelection',
+    'Get-DomeniaDefaultSettings','Apply-DomeniaPresenceFilter','Get-DomeniaLandingView','Set-TabVisibility','Set-VisibleTabsForType','Assert-DomeniaWorkspaceSelection',
     'Select-DomeniaWorkspace','Get-DomeniaSearchMode','Get-DomeniaSearchText','Set-DomeniaSearchMode','Get-DomeniaSearchScope','Update-DomeniaSearchScopeUi',
     'Set-SelectedBranch','Reset-DomeniaSearchScope','Set-DomeniaComboByContent',
-    'Set-DomeniaItemsSource','Set-DomeniaGridRows','Test-DomeniaSearchStateCurrent','Get-GlobalSelectedTypeFilter','Get-TypeLdapFilter','Get-DomeniaEffectiveWorkerResult','Normalize-LinkComputer',
-    'Get-DomeniaStandardLoginXaml','Convert-DomeniaXamlToBootTheme','Get-DomeniaBootThemePalette','Get-DomeniaBootThemeResources','Get-WriteControlMap'
+    'Get-DomeniaGridDateSortKey','Get-DomeniaGridDateShortText','Add-DomeniaGridDateKeys','Set-DomeniaItemsSource','Set-DomeniaGridRows','Test-DomeniaSearchStateCurrent','Get-GlobalSelectedTypeFilter','Get-TypeLdapFilter','Get-DomeniaEffectiveWorkerResult','Normalize-LinkComputer',
+    'Update-DomeniaSoftwareSyntheseVisibility','Set-DomeniaIndexProgress','Get-DomeniaStandardLoginXaml','Convert-DomeniaXamlToBootTheme','Get-DomeniaBootThemePalette','Get-DomeniaBootThemeResources','Get-WriteControlMap'
 )
 foreach ($name in $coreNames) {
     $nodes = @($ast.FindAll({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name},$true))
@@ -48,7 +55,7 @@ foreach ($name in $coreNames) {
     Invoke-Expression $nodes[0].Extent.Text
 }
 foreach ($module in @('Domenia-Common.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Access.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Embedded.UI.ps1','Domenia-UX.UI.ps1',
-    'Domenia-Boards.Model.ps1','Domenia-Charts.UI.ps1','Domenia-Probes.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-BoardSoftware.Model.ps1','Domenia-BoardComputer.UI.ps1','Domenia-Widgets.UI.ps1','Domenia-Dashboard.UI.ps1')) {
+    'Domenia-Workstation.Model.ps1','Domenia-Boards.Model.ps1','Domenia-Charts.UI.ps1','Domenia-Probes.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-BoardSoftware.Model.ps1','Domenia-BoardComputer.UI.ps1','Domenia-Widgets.UI.ps1','Domenia-Dashboard.UI.ps1','Domenia-Query.Model.ps1','Domenia-Query.Worker.ps1','Domenia-Query.UI.ps1')) {
     . (Join-Path $wad ('modules\' + $module))
 }
 # Local replacements: no settings, log, directory or workstation is touched.
@@ -58,14 +65,67 @@ $script:SelectedBranchDn = $script:Conn.BaseDn; $script:SearchMode = 'OU'; $scri
 $script:AsyncJobs = @{}; $script:DetachedReadJobs = @(); $script:SessionEpoch = 1; $script:WriteState = 'Idle'; $script:DomeniaReduceMotion = $true
 function Set-DomeniaSetting { param([string]$Name,$Value) $script:GuideSettings[$Name] = $Value }
 function Get-DomeniaSetting { param([string]$Name,$Default = $null) if ($script:GuideSettings.ContainsKey($Name)) { return $script:GuideSettings[$Name] }; return $Default }
-function Save-DomeniaSettings { param([switch]$Immediate) }
+function Save-DomeniaSettings { param([switch]$Immediate,[switch]$ThrowOnFailure) }
+function Test-DomeniaLiveSearchActive { return $false }
 function Add-DomeniaUiLog { param([string]$Area,[string]$Text,[string]$Level = 'INFO') }
 function Set-Status { param([string]$Text,[string]$Level = 'INFO') }
 function Write-AppLog { param([string]$Text,[string]$Level = 'INFO') }
 function Apply-DomeniaGuiElementPolicy { }
 function Update-Dashboard { }
 function Get-DomeniaCredentialUserName { param($Credential) return '' }
-function Start-UiTask { return 'guide' }
+# The capture harness only executes the pure local query worker, synchronously, on its fictitious rows.
+# All other worker calls are inert. The application scheduler is exercised by the separate UI test.
+function Start-UiTask {
+    param([string]$Name,[string]$OperationId,[string]$Code,$Payload,$CallbackState,[string]$ReplaceKey,[string]$SuccessHandler,[string]$ErrorHandler,[int]$TimeoutSeconds,[string]$TaskClass)
+    if ($OperationId -ne 'LocalQuery') { return 'guide-disabled' }
+    $result = & ([scriptblock]::Create($Code))
+    $script:GuideQueryCompletion = [pscustomobject]@{Result=$result;State=$CallbackState}
+    return 'guide-local-query'
+}
+# Layout-only timer contract; no timer callbacks execute in documentary captures.
+function New-DomeniaTimer {
+    param(
+        [Parameter(Mandatory=$true)][string]$Owner,
+        [Parameter(Mandatory=$true)][int]$IntervalMs,
+        [scriptblock]$Tick=$null,
+        [switch]$Standalone,
+        [ValidateSet('Background','Normal','Input','Loaded','Render','ContextIdle','ApplicationIdle')][string]$Priority='Background',
+        [int]$IdleIntervalMs=0,
+        [scriptblock]$Busy=$null,
+        [switch]$SessionBound,
+        [switch]$RunWhenHidden,
+        [switch]$Transient,
+        [int]$MaxFailures=3,
+        [switch]$Start,
+        $Tag=$null
+    )
+    $timer = [pscustomobject]@{ Owner=$Owner; IntervalMs=[Math]::Max(1,$IntervalMs); Tag=$Tag; Enabled=$false; Tick=$Tick }
+    Add-Member -InputObject $timer -MemberType ScriptMethod -Name Start -Value { $this.Enabled=$true }
+    Add-Member -InputObject $timer -MemberType ScriptMethod -Name Stop -Value { $this.Enabled=$false }
+    Add-Member -InputObject $timer -MemberType ScriptProperty -Name IsEnabled -Value { [bool]$this.Enabled }
+    Add-Member -InputObject $timer -MemberType ScriptProperty -Name Interval -Value { [TimeSpan]::FromMilliseconds([double]$this.IntervalMs) }
+    return $timer
+}
+
+function Request-DomeniaQueryEvaluation { }
+function Save-DomeniaFleetSnapshot { param($Scope,$Board) return $false }
+function Complete-GuideQuery {
+    param([switch]$FinishOnly)
+    if (-not $FinishOnly) { Start-DomeniaQueryEvaluation }
+    $pending = $script:GuideQueryCompletion
+    if ($null -eq $pending) { throw ('Le calcul local de la capture ne s est pas termine : '+[string](Get-DomeniaControl 'LblQueryStatus').Text) }
+    $script:GuideQueryCompletion = $null
+    Complete-DomeniaQueryEvaluation -Result $pending.Result -State $pending.State
+    if ($null -eq $script:DomeniaQueryState.Result) { throw 'Le resultat de capture a ete refuse.' }
+}
+function Move-GuideScrollTo {
+    param($Element)
+    Update-GuideLayout
+    $scroll = $Element
+    while ($null -ne $scroll -and $scroll -isnot [Windows.Controls.ScrollViewer]) { $scroll = [Windows.Media.VisualTreeHelper]::GetParent($scroll) }
+    if ($null -ne $scroll) { $top = $Element.TranslatePoint([Windows.Point]::new(0,0),$scroll).Y; $scroll.ScrollToVerticalOffset($scroll.VerticalOffset + $top - 8) }
+    Update-GuideLayout
+}
 function Start-DomeniaOnlinePark { }
 function Get-DeProp { param($Entry,[string]$Name,$Default = $null) if ($Entry -is [hashtable] -and $Entry.ContainsKey($Name)) { return $Entry[$Name] }; return $Default }
 function Get-DomeniaEntryFirstString { param($Entry,[string]$Name) $v = Get-DeProp $Entry $Name ''; return [string]$v }
@@ -89,17 +149,58 @@ function Update-GuideLayout {
     Invoke-GuideMeasure
     Invoke-GuideMeasure
 }
+function Disable-GuideToolTips {
+    param($Root)
+    foreach($control in @(@($Root)+@(Get-DomeniaLogicalControls $Root))){
+        if($control -is [Windows.DependencyObject]){
+            $tip=[Windows.Controls.ToolTipService]::GetToolTip($control)
+            if($tip -is [Windows.Controls.ToolTip]){$tip.IsOpen=$false}
+            [Windows.Controls.ToolTipService]::SetIsEnabled($control,$false)
+        }
+    }
+}
 function Save-GuideBitmap {
     param($Visual,[int]$W,[int]$H,[string]$Name)
+    Disable-GuideToolTips $Visual
     $bitmap = [Windows.Media.Imaging.RenderTargetBitmap]::new($W,$H,96,96,[Windows.Media.PixelFormats]::Pbgra32)
     $bitmap.Render($Visual)
     $encoder = [Windows.Media.Imaging.PngBitmapEncoder]::new(); $encoder.Frames.Add([Windows.Media.Imaging.BitmapFrame]::Create($bitmap))
     $path = Join-Path $Out ($Name + '.png'); $stream = [IO.File]::Create($path); try { $encoder.Save($stream) } finally { $stream.Dispose() }
+    $script:GuideImages.Add([pscustomobject]@{File=($Name+'.png');Width=$W;Height=$H;SHA256=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash})
     'capture ' + $Name + ' ' + $W + 'x' + $H
 }
 function Set-GuideHeight {
     param([int]$Value)
     $script:CaptureHeight = $Value; $script:GuideHost.Height = $Value
+}
+# WPF can arrange a control beyond the visible area of a clipping ancestor.
+# Count rendered rows against every visual clip, not just DataGrid.ActualHeight.
+function Get-GuideVisibleBounds {
+    param([Windows.FrameworkElement]$Element)
+    $visible=$Element.TransformToAncestor($script:GuideHost).TransformBounds([Windows.Rect]::new(0,0,$Element.ActualWidth,$Element.ActualHeight))
+    $parent=$Element
+    while($null -ne $parent){
+        $transform=$parent.TransformToAncestor($script:GuideHost)
+        $clip=[Windows.Media.VisualTreeHelper]::GetClip($parent)
+        if($null -ne $clip){$visible.Intersect($transform.TransformBounds($clip.Bounds))}
+        if($parent -is [Windows.FrameworkElement] -and $parent.ClipToBounds){$visible.Intersect($transform.TransformBounds([Windows.Rect]::new(0,0,$parent.ActualWidth,$parent.ActualHeight)))}
+        if($parent -eq $script:GuideHost){break}
+        $parent=[Windows.Media.VisualTreeHelper]::GetParent($parent)
+    }
+    $visible.Intersect([Windows.Rect]::new(0,0,$script:GuideHost.ActualWidth,$script:GuideHost.ActualHeight))
+    return $visible
+}
+function Get-GuideGridViewport {
+    param([Windows.Controls.DataGrid]$Grid)
+    $bounds=Get-GuideVisibleBounds $Grid
+    $rows=@(for($i=0;$i -lt $Grid.Items.Count;$i++){
+        $row=$Grid.ItemContainerGenerator.ContainerFromIndex($i)
+        if($null -ne $row -and $row.ActualHeight -gt 0){
+            $visible=Get-GuideVisibleBounds $row
+            [pscustomobject]@{Index=$i;Height=$row.ActualHeight;VisibleHeight=$(if($visible.IsEmpty){0}else{$visible.Height});FullyVisible=(-not $visible.IsEmpty -and $visible.Height -ge ($row.ActualHeight-0.5))}
+        }
+    })
+    [pscustomobject]@{Width=[int]$script:GuideHost.ActualWidth;Height=[int]$script:GuideHost.ActualHeight;GridHeight=$Grid.ActualHeight;VisibleGridHeight=$(if($bounds.IsEmpty){0}else{$bounds.Height});GridTop=$(if($bounds.IsEmpty){-1}else{$bounds.Top});GridBottom=$(if($bounds.IsEmpty){-1}else{$bounds.Bottom});BoundRows=$Grid.Items.Count;FullyVisibleRows=@($rows|Where-Object{$_.FullyVisible}).Count;PartlyVisibleRows=@($rows|Where-Object{$_.VisibleHeight -gt 0 -and -not $_.FullyVisible}).Count;MaterializedRows=$rows}
 }
 function Save-GuideWindow {
     param([string]$Name,[int]$Tall = 0)
@@ -112,6 +213,82 @@ function Save-GuideWindow {
     if ($reduced) { Switch-DomeniaUxLog }
     if ($Tall -gt 0) { Set-GuideHeight $Height; Update-GuideLayout }
 }
+# Documentary helpers for capture-guides.ps1. Dot-source after its functions.
+# Invoke Save-GuideOuPicker on Accueil; invoke Save-GuideBaseDetails on TabIndex.
+# All directory values are explicit fixtures; no AD worker is executed.
+function Save-GuideOuPicker {
+    $script:GuideOuOriginalStart = ${function:Start-UiTask}
+    $script:GuideOuShot = @{ Ticks=0; Phase=0; Done=$false; Failure=''; Lookup=$null }
+    function script:Start-UiTask {
+        param([string]$Name,[string]$OperationId,[string]$Code,$Payload,$CallbackState,[string]$ReplaceKey,[string]$SuccessHandler,[string]$ErrorHandler,[int]$TimeoutSeconds,[string]$TaskClass)
+        if ($OperationId -eq 'EmbeddedDirectoryLookup') {
+            $script:GuideOuShot.Lookup = [pscustomobject]@{ State=$CallbackState; Payload=$Payload }
+            return 'guide-ou-lookup'
+        }
+        return (& $script:GuideOuOriginalStart @PSBoundParameters)
+    }
+    $script:GuideOuTimer = [Windows.Threading.DispatcherTimer]::new()
+    $script:GuideOuTimer.Interval = [TimeSpan]::FromMilliseconds(250)
+    $script:GuideOuTimer.Add_Tick({
+        $shot=$script:GuideOuShot; $shot.Ticks++
+        $surface=$script:DomeniaSurfaceState
+        try {
+            if ($shot.Ticks -gt 40) { throw 'Le sélecteur OU n a pas atteint son état de capture.' }
+            if ($null -eq $surface -or $shot.Done -or $shot.Ticks -lt 3) { return }
+            $controls=@(Get-DomeniaLogicalControls $script:Window.FindName('DomeniaDialogLayer'))
+            $term=@($controls|Where-Object{$_.Name -eq 'EmbeddedObjectTerm'})[0]
+            if ($null -eq $term) { return }
+            if ($shot.Phase -eq 0) {
+                $term.Text='Postes'
+                $search=@($controls|Where-Object{$_.Name -eq 'EmbeddedObjectSearch'})[0]
+                $search.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
+                $lookup=$shot.Lookup
+                if ($null -eq $lookup) { throw 'Le bouton Rechercher n a pas déclenché la lecture OU.' }
+                $rows=@(
+                    [pscustomobject]@{Name='Postes';Second='';Description='Postes administrés du site de Lyon';DN='OU=Postes,OU=Lyon,DC=example,DC=local';Guid='00000000-0000-4000-8000-000000000201'},
+                    [pscustomobject]@{Name='Postes';Second='';Description='Postes administrés du site de Paris';DN='OU=Postes,OU=Paris,DC=example,DC=local';Guid='00000000-0000-4000-8000-000000000202'},
+                    [pscustomobject]@{Name='Postes';Second='';Description='Postes de démonstration du laboratoire';DN='OU=Postes,OU=Laboratoire,DC=example,DC=local';Guid='00000000-0000-4000-8000-000000000203'}
+                )
+                Complete-DomeniaEmbeddedLookup -Result ([pscustomobject]@{Rows=$rows;RequestId=$lookup.State.RequestId;Verified=$false;Capped=$false}) -State $lookup.State
+                $grid=@($controls|Where-Object{$_.Name -eq 'EmbeddedObjectResults'})[0]
+                $grid.SelectedItem=$grid.Items[0]
+                $shot.Phase=1; return
+            }
+            if ($shot.Phase -eq 1) {
+                $grid=@($controls|Where-Object{$_.Name -eq 'EmbeddedObjectResults'})[0]
+                $accept=@($controls|Where-Object{$_.Name -eq 'EmbeddedObjectAccept'})[0]
+                Assert-Guide ($grid.Items.Count -eq 3 -and $accept.IsEnabled) 'Sélecteur OU : trois résultats fictifs et choix disponible'
+                Save-GuideWindow 'selecteur-ou'
+                $shot.Done=$true; $script:GuideOuTimer.Stop(); $surface.Window.Close()
+            }
+        } catch {
+            $shot.Failure=$_.Exception.Message; $script:GuideOuTimer.Stop()
+            if($null -ne $shot.Lookup){$shot.Lookup.State.Owner.Job=''}
+            if($null -ne $surface){$surface.Window.Close()}
+        }
+    })
+    try {
+        $script:GuideOuTimer.Start()
+        [void](Show-DomeniaInlinePicker -Kind OU -Title 'Choisir le périmètre du tableau de bord' -Prompt 'Recherchez une unité organisationnelle, sélectionnez-la, puis choisissez le périmètre.' -InitialTerm 'Postes')
+        if ($script:GuideOuShot.Failure) { throw $script:GuideOuShot.Failure }
+        Assert-Guide $script:GuideOuShot.Done 'Sélecteur OU : capture réelle et fermeture sans modification du périmètre'
+    } finally {
+        $script:GuideOuTimer.Stop()
+        Set-Item -Path Function:script:Start-UiTask -Value $script:GuideOuOriginalStart
+    }
+}
+function Save-GuideBaseDetails {
+    $expander=@(Get-DomeniaLogicalControls $script:GuideHost | Where-Object {$_ -is [Windows.Controls.Expander] -and [string]$_.Header -eq 'Détails du stockage et de la synchronisation'})[0]
+    if($null -eq $expander){throw 'Expander des détails de la base introuvable.'}
+    $wasExpanded=$expander.IsExpanded
+    try {
+        $expander.IsExpanded=$true
+        Set-GuideHeight 1080;Update-GuideLayout;Move-GuideScrollTo $expander
+        Save-GuideWindow 'base-details' 1080
+        Assert-Guide ($expander.IsExpanded -and (Get-DomeniaControl 'LblIndexStats').ActualHeight -gt 0) 'Base : détails du stockage dépliés et lisibles'
+    } finally {$expander.IsExpanded=$wasExpanded; Update-GuideLayout}
+}
+
 function Save-GuideElement {
     # One part of the window, on the page background, with a small margin.
     param($Element,[string]$Name,[int]$Pad = 10)
@@ -137,25 +314,31 @@ function Set-GuideText { param([hashtable]$Values) foreach ($k in $Values.Keys) 
 $now = Get-Date
 $osList = @('Windows 11 Entreprise / 10.0 (26100)','Windows 11 Entreprise / 10.0 (26100)','Windows 11 Entreprise / 10.0 (26200)','Windows 10 Entreprise / 10.0 (19045)')
 $services = @('Compta','RH','Accueil','Direction')
-$machines = New-Object Collections.ArrayList; $presence = New-Object Collections.ArrayList
-for ($i = 1; $i -le 26; $i++) {
+$machines = New-Object Collections.ArrayList; $presence = New-Object Collections.ArrayList; $groups = New-Object Collections.ArrayList
+for ($i = 1; $i -le 226; $i++) {
     $service = $services[$i % 4]; $name = 'PC-' + $service.ToUpperInvariant() + '-' + ('{0:000}' -f (10 + $i))
     $dn = 'CN=' + $name + ',OU=' + $service + ',OU=Postes,OU=Lyon,DC=example,DC=local'
-    $days = @(1,2,3,5,8,12,20,35,2,1,4,6,95,3,1,2,9,15,1,3,40,2,1,7,200,3)[$i - 1]
-    $os = if ($i -in @(7,19)) { $osList[3] } else { $osList[$i % 3] }
-    [void]$machines.Add([pscustomobject]@{ name = $name; object_guid = ('g-' + $i); extra = $os; last_logon = $now.AddDays(-$days).ToString('dd/MM/yyyy HH:mm:ss',[Globalization.CultureInfo]::InvariantCulture); distinguished_name = $dn })
-    if ($i -le 22) {
-        $online = ($i % 6 -ne 0)
-        $inventory = if ($online) { [pscustomobject]@{ OsCaption = $(if ($os -like 'Windows 10*') { 'Microsoft Windows 10 Entreprise' } else { 'Microsoft Windows 11 Entreprise' }); Build = $(if ($os -like '*19045*') { '19045' } elseif ($os -like '*26200*') { '26200' } else { '26100' }); LastBootUtc = $now.AddDays(-@(1,2,3,40,4,1,2,6,33,1,2,5,1,3,2,8,1,2,4,1,2,3)[$i - 1]).ToUniversalTime().ToString('o'); Manufacturer = 'Constructeur'; Model = @('Latitude 5440','OptiPlex 7010','EliteBook 840 G10')[$i % 3]; RamBytes = [double](@(8,16,16,32)[$i % 4]) * 1GB; DiskSize = 476.0 * 1GB; DiskFree = $(if ($i -eq 9) { 31.0 } else { 120.0 + 9 * $i }) * 1GB } } else { $null }
-        $observation = [pscustomobject]@{ Key = $dn.ToLowerInvariant(); Presence = $(if ($online) { 'En ligne' } else { 'Sans reponse au ping' }); LinkUser = $(if ($online -and $i % 3 -ne 0) { 'EXAMPLE\user' + $i } else { '' }); Inventory = $inventory }
-        [void]$presence.Add([pscustomobject]@{ object_key = $dn.ToLowerInvariant(); checked_utc = $now.AddMinutes(-20).ToUniversalTime().ToString('o'); payload = ($observation | ConvertTo-Json -Depth 5 -Compress) })
+    $guid = '00000000-0000-4000-8000-' + ('{0:000000000000}' -f $i)
+    $days = @(1,2,3,5,8,12,20,35,2,1,4,6,95,3,1,2,9,15,1,3,40,2,1,7,200,3)[($i - 1) % 26]
+    $os = if ($i % 13 -eq 0) { $osList[3] } else { $osList[$i % 3] }
+    $state = if ($i -in @(11,22,33)) { 'D' } else { 'A' }
+    $bucket = if ($days -lt 7) {0} elseif ($days -lt 30) {1} elseif ($days -lt 90) {2} elseif ($days -lt 180) {3} else {4}
+    $version = if ($os -like '*19045*') {'10.0 (19045)'} elseif ($os -like '*26200*') {'10.0 (26200)'} else {'10.0 (26100)'}
+    [void]$groups.Add([pscustomobject]@{gid=('group-'+$i);st=$state;n=1;os=($os -split ' / ')[0];ver=$version;lb=$bucket;cr='O';pw=$(if($i % 23 -eq 0){'O'}else{'R'});lk=$(if($i % 17 -eq 0){'N'}else{'O'});bk='U'})
+    [void]$machines.Add([pscustomobject]@{name=$name;object_guid=$guid;distinguished_name=$dn;gid=('group-'+$i);st=$state;logon=$now.AddDays(-$days).ToString('yyyy-MM-dd');extra=$os})
+    if ($i -le 200 -and $state -eq 'A') {
+        $online = ($i % 6 -ne 0); $checked = $now.AddMinutes(-20).ToUniversalTime().ToString('o')
+        $inventory = if ($online) { [pscustomobject]@{CheckedUtc=$checked;OsCaption=$(if($os -like 'Windows 10*'){'Microsoft Windows 10 Entreprise'}else{'Microsoft Windows 11 Entreprise'});Build=$(if($os -like '*19045*'){'19045'}elseif($os -like '*26200*'){'26200'}else{'26100'});LastBootUtc=$now.AddDays($(if($i % 19 -eq 0){40}else{2})).ToUniversalTime().ToString('o');Manufacturer='Constructeur';Model=@('Latitude 5440','OptiPlex 7010','EliteBook 840 G10')[$i % 3];RamBytes=[double](@(8,16,16,32)[$i % 4])*1GB;DiskSize=476.0*1GB;DiskFree=$(if($i % 21 -eq 0){31.0}else{180.0})*1GB} } else {$null}
+        if ($null -ne $inventory) { $inventory.LastBootUtc=$now.AddDays(-$(if($i % 19 -eq 0){40}else{2})).ToUniversalTime().ToString('o') }
+        $observation = [pscustomobject]@{Key=$dn.ToLowerInvariant();Guid=$guid;CheckedUtc=$checked;ObservedUtc=$checked;Presence=$(if($online){'En ligne'}else{'Sans reponse au ping'});LinkUser=$(if($online -and $i % 3 -ne 0){'EXAMPLE\user'+$i}else{''});Inventory=$inventory}
+        [void]$presence.Add([pscustomobject]@{object_key=$dn.ToLowerInvariant();object_guid=$guid;name=$name;distinguished_name=$dn;gid=('group-'+$i);in_scope=$true;checked_utc=$checked;observation=$observation})
     }
 }
-$fleet = [pscustomobject]@{ Busy = $false; Links = 34; LinkSources = @(); Types = @([pscustomobject]@{ t = 'Machine'; s = 'Actif'; n = 26 },[pscustomobject]@{ t = 'Utilisateur'; s = 'Actif'; n = 212 }); Machines = @($machines); Presence = @($presence) }
+$fleet = [pscustomobject]@{Busy=$false;Links=34;LinkSources=@();Types=@([pscustomobject]@{t='Machine';s='Actif';n=223},[pscustomobject]@{t='Machine';s='Desactive';n=3},[pscustomobject]@{t='Utilisateur';s='Actif';n=212});Machines=@($machines);Groups=@($groups);Presence=@($presence);Coverage=[pscustomobject]@{FactsFresh=226;FactsStale=0;BitLockerRead=0;BitLockerAt=''}}
 
 $inventoryRows = @(
     @('Systeme d exploitation','Nom','Microsoft Windows 11 Entreprise'),@('Systeme d exploitation','Build','26100'),@('Systeme d exploitation','Version','10.0.26100'),
-    @('Systeme d exploitation','Duree de fonctionnement','34 j 5 h 14 min'),@('Systeme d exploitation','Dernier demarrage','04/09/2026 07:58:12'),
+    @('Systeme d exploitation','Duree de fonctionnement','34 j 5 h 14 min'),@('Systeme d exploitation','Dernier demarrage',$now.AddDays(-34).AddHours(-5).AddMinutes(-14).ToString('dd/MM/yyyy HH:mm:ss')),
     @('Systeme','Modele','Latitude 5440'),@('Systeme','Fabricant','Constructeur'),@('Systeme','Numero de serie chassis','5CD3104XKZ'),@('Systeme','Utilisateur connecte','EXAMPLE\cmartin'),
     @('Systeme','Domaine','example.local'),@('Systeme','Role dans le domaine','1'),@('Memoire','Total installe','16 Go'),@('Memoire','Barrette 1','8 Go a 5600 MHz, emplacement DIMM A'),@('Memoire','Barrette 2','8 Go a 5600 MHz, emplacement DIMM B'),
     @('Processeur','Processeur 1 modele','Intel(R) Core(TM) i5-1345U'),@('Processeur','Processeur 1 coeurs','10'),@('Processeur','Processeur 1 processeurs logiques','12'),
@@ -173,12 +356,13 @@ $inventory = [pscustomobject]@{ Rows = @($inventoryRows | ForEach-Object { [pscu
     Processes = @(@('Teams',612),@('msedge',488),@('Outlook',356),@('MsMpEng',241),@('explorer',138),@('OneDrive',96)) | ForEach-Object { [pscustomobject]@{ Name = $_[0]; Mb = [double]$_[1] } }
     Services = @{ 'En cours' = 118; 'Arretes (automatiques)' = 0; 'Arretes (manuels)' = 96; 'Desactives' = 14 } } }
 $entry = @{ pwdLastSet = [string]($now.AddDays(-12).ToFileTimeUtc()); lastLogonTimestamp = [string]($now.AddDays(-1).ToFileTimeUtc()); userAccountControl = '4096'; whenCreated = '2024-03-18 09:12:00'; 'msLAPS-PasswordExpirationTime' = [string]($now.AddDays(18).ToFileTimeUtc()); managedBy = 'CN=Service informatique,OU=Groupes,DC=example,DC=local' }
-$computer = [pscustomobject]@{ Type = 'Machine'; Name = 'PC-COMPTA-014'; DN = 'CN=PC-COMPTA-014,OU=Compta,OU=Postes,OU=Lyon,DC=example,DC=local'; Entry = $entry; Safety = [pscustomobject]@{ Guid = 'g-14' } }
+$computer = [pscustomobject]@{ Type = 'Machine'; Name = 'PC-COMPTA-014'; DN = 'CN=PC-COMPTA-014,OU=Compta,OU=Postes,OU=Lyon,DC=example,DC=local'; Entry = $entry; Safety = [pscustomobject]@{ Guid = '00000000-0000-4000-8000-000000000014' } }
 
 # ------------------------------------------------------------------ window
 $xamlText = Get-MainXaml
 $reader = [Xml.XmlNodeReader]::new([xml]$xamlText); try { $script:Window = [Windows.Markup.XamlReader]::Load($reader) } finally { $reader.Close() }
 foreach ($name in @(Get-DomeniaXamlControlNames -XamlText $xamlText)) { $c = $script:Window.FindName($name); if ($null -ne $c) { $script:Ctrl[$name] = $c } }
+[Windows.Controls.ToolTipService]::SetIsEnabled($script:Window,$false)
 $script:Window.ShowInTaskbar = $false; $script:Window.WindowStartupLocation = 'Manual'; $script:Window.Left = 0; $script:Window.Top = 0
 # A borderless, fixed-size window is not clamped to the 1024 x 768 desktop of the test VM (client area unchanged).
 $script:Window.WindowStyle = 'None'; $script:Window.ResizeMode = 'NoResize'
@@ -209,11 +393,14 @@ $script:UxHelpVisible = $false; $script:UxNavCollapsed = $false; $script:UxLayou
 Update-GuideLayout
 'surface ' + $script:GuideHost.ActualWidth + 'x' + $script:GuideHost.ActualHeight
 
-# 1. Accueil: fleet overview of the OU chosen in the Rechercher tree (decision David 2026-10-08).
+# 1. Accueil: independent OU, real aggregation rules on fictitious directory and observations.
 $script:SelectedBranchDn = 'OU=Postes,OU=Lyon,DC=example,DC=local'
+$script:FleetScopeDn = $script:SelectedBranchDn
+$script:IndexInfo = [pscustomobject]@{Date=$now.AddMinutes(-35).ToUniversalTime().ToString('o');Server='dc01.example.local';Usn=184522}
+$fleet | Add-Member -NotePropertyName Board -NotePropertyValue (Get-DomeniaFleetBoardData -Result $fleet -Scope $script:FleetScopeDn -Subtree $true -Lifecycle (Get-DomeniaWindowsLifecycleTable))
 try { Update-DomeniaSearchScopeUi } catch { }
 Complete-DomeniaFleetDashboard -Result $fleet -State $null
-Update-DomeniaFleetScopeText (Get-DomeniaFleetScope)
+Update-DomeniaFleetScopeText (Get-DomeniaFleetScope) -Count 223 -LastSyncUtc $script:IndexInfo.Date
 Show-GuideTab 'TabDashboard'
 Set-GuideHeight 1240; Update-GuideLayout
 $logRow = Get-DomeniaControl 'UxLogRow'; if ($null -ne $logRow -and $logRow.Height.Value -gt 60) { Switch-DomeniaUxLog; Update-GuideLayout }
@@ -221,6 +408,76 @@ $fleetCard = (Get-DomeniaControl 'BtnFleetDashboardRefresh').Parent.Parent.Paren
 $scroller = $fleetCard; while ($null -ne $scroller -and $scroller -isnot [Windows.Controls.ScrollViewer]) { $scroller = [Windows.Media.VisualTreeHelper]::GetParent($scroller) }
 if ($null -ne $scroller) { $top = $fleetCard.TranslatePoint([Windows.Point]::new(0,0),$scroller).Y; $scroller.ScrollToVerticalOffset($scroller.VerticalOffset + $top - 8) }
 Save-GuideWindow 'accueil' 1240
+Save-GuideOuPicker
+
+# 1b. Query workshop: real local query engine, 226 known accounts, including three disabled accounts.
+Initialize-DomeniaQueryWorkshop
+Assert-Guide ($null -ne (Get-DomeniaControl 'CmbQueryOperator').SelectedItem) 'Opérateur initial renseigné'
+(Get-DomeniaControl 'ExpFleetMachines').IsExpanded = $true
+Set-DomeniaQueryDraft (New-DomeniaQueryRecipe -Id 'template.all')
+Complete-GuideQuery
+Assert-Guide ($script:DomeniaQueryState.Result.ScopeTotal -eq 226 -and $script:DomeniaQueryState.Result.Matched -eq 226) 'Tous les postes recensés : 226, actifs et désactivés'
+Assert-Guide (@($script:DomeniaQueryState.Result.Rows).Count -eq 200 -and (Get-DomeniaControl 'BtnQueryNext').IsEnabled) 'Première page : 200 lignes et page suivante active'
+Move-GuideScrollTo (Get-DomeniaControl 'ExpFleetMachines')
+Save-GuideWindow 'atelier-requetes' 1240
+# 1c. The same route as the attention button: a frozen, GUID-bound list of stale active accounts.
+$staleIds = @($groups | Where-Object {$_.st -eq 'A' -and $_.lb -in @(3,4)} | ForEach-Object {$_.gid})
+$alertTargets = @($machines | Where-Object {$_.gid -in $staleIds})
+Show-DomeniaAttentionInWorkshop -Targets $alertTargets -Label 'Sans connexion depuis 90 jours'
+Complete-GuideQuery -FinishOnly
+Assert-Guide ($script:DomeniaQueryState.Result.Matched -eq $alertTargets.Count) "Le détail de l’alerte garde tous les GUID sélectionnés"
+Assert-Guide ([string](Get-DomeniaControl 'LblQuerySegment').Text -like '*Sélection figée*') 'Le segment sélectionné est explicite'
+Move-GuideScrollTo (Get-DomeniaControl 'ExpFleetMachines')
+Save-GuideWindow 'alerte-selection' 1240
+(Get-DomeniaControl 'ExpFleetMachines').IsExpanded = $false
+
+# Additional tutorials use actual workshop actions; only persistence and transports are replaced above.
+(Get-DomeniaControl 'ExpFleetMachines').IsExpanded=$true
+Set-DomeniaQueryDraft (New-DomeniaQueryRecipe -Name 'Disques libres sous 20 %')
+$fields=Get-DomeniaControl 'CmbQueryField'; $fields.SelectedItem=@($fields.ItemsSource|Where-Object{$_.Id -eq 'diskFreePercent'})[0]
+$operators=Get-DomeniaControl 'CmbQueryOperator'; $operators.SelectedItem=@($operators.ItemsSource|Where-Object{$_.Id -eq 'Less'})[0]
+(Get-DomeniaControl 'TxtQueryValue').Text='20'
+Invoke-DomeniaQueryAction 'Add'
+Assert-Guide ($script:DomeniaQueryState.Recipe.Clauses.Count -eq 1) ('Condition ajoutée : '+[string](Get-DomeniaControl 'LblQueryStatus').Text)
+Complete-GuideQuery
+[IO.File]::WriteAllText((Join-Path $Out 'condition-diagnostic.json'),([pscustomobject]@{Recipe=$script:DomeniaQueryState.Recipe;Matched=$script:DomeniaQueryState.Result.Matched;Unknown=$script:DomeniaQueryState.Result.Unknown;Sample=$script:DomeniaQueryState.Records[0].Values;WithDisk=@($script:DomeniaQueryState.Records|Where-Object{$_.Values.ContainsKey('diskFreePercent')}).Count;Status=[string](Get-DomeniaControl 'LblQueryStatus').Text}|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
+Assert-Guide ($script:DomeniaQueryState.Recipe.Clauses.Count -eq 1 -and $script:DomeniaQueryState.Result.Matched -gt 0) 'Condition numérique : le moteur trouve les disques sous 20 %'
+Move-GuideScrollTo (Get-DomeniaControl 'ExpFleetMachines'); Save-GuideWindow 'atelier-condition' 1240
+$collect=(Get-DomeniaControl 'CmbCollectionConcurrency').Parent.Parent
+$collect.IsExpanded=$true; Save-GuideWindow 'atelier-collecte' 1240; $collect.IsExpanded=$false
+(Get-DomeniaControl 'DgFleetMachines').SelectedIndex=0
+(Get-DomeniaControl 'ExpQueryObject').IsExpanded=$true; Show-DomeniaQueryObjectDetails
+Move-GuideScrollTo (Get-DomeniaControl 'ExpQueryObject'); Save-GuideWindow 'atelier-fiche-locale' 1240
+(Get-DomeniaControl 'ExpQueryObject').IsExpanded=$false
+Invoke-DomeniaQueryAction 'Save'
+Assert-Guide ($script:DomeniaQueryState.Saved.Count -eq 1) 'Requête nommée enregistrée dans les préférences fictives'
+(Get-DomeniaControl 'CmbFleetQuery').SelectedItem=$script:DomeniaQueryState.Saved[0]
+Complete-GuideQuery
+Move-GuideScrollTo (Get-DomeniaControl 'ExpFleetMachines'); Save-GuideWindow 'atelier-bibliotheque' 1240
+Invoke-DomeniaQueryAction 'Widget'; Complete-GuideQuery -FinishOnly
+Assert-Guide (@(Get-DomeniaBoardLayout Fleet|Where-Object{$_.Source -eq 'Query'}).Count -eq 1) 'La requête crée un widget de tableau de bord'
+(Get-DomeniaControl 'ExpFleetMachines').IsExpanded=$false
+$queryItem=@(Get-DomeniaBoardLayout Fleet|Where-Object{$_.Source -eq 'Query'})[0]
+$entry=Get-DomeniaQueryBoardEntry ([string]$queryItem.Key)
+Assert-Guide ([string]$entry.Value -eq '5') 'La sonde enregistrée affiche vraiment cinq postes correspondants'
+$queryHolder=@(Get-DomeniaLogicalControls (Get-DomeniaControl 'PnlFleetDashboard')|Where-Object{$_ -is [Windows.FrameworkElement] -and $_.Tag -is [hashtable] -and $_.Tag.ContainsKey('Id') -and [string]$_.Tag.Id -eq [string]$queryItem.Id})[0]
+if($null -ne $queryHolder){Move-GuideScrollTo $queryHolder}
+Save-GuideWindow 'accueil-sonde-requete' 1240
+# Filter the known fixture rows through the same immutable GUID selection used by Search.
+$script:BranchObjects=@(foreach($m in $machines){[pscustomobject]@{Type='Machine';Name=$m.name;DN=$m.distinguished_name;Guid=$m.object_guid;State=$(if($m.st -eq 'D'){'Désactivé'}else{'Actif'});OS=$m.extra;Presence='Non vérifié';Login=($m.name+'$');UPN=($m.name.ToLowerInvariant()+'.example.local');LastLogon='';Changed=''}})
+$script:CurrentPresenceFilter='Tous';$script:BranchCountLabel='226 postes fictifs recensés avant application du filtre'
+Complete-GuideQuery; Invoke-DomeniaQueryAction 'ApplySearch'
+Assert-Guide ((Get-DomeniaControl 'DgObjects').Items.Count -eq $script:DomeniaQueryState.Result.Matched) 'Le filtre appliqué à Recherche garde les mêmes identités'
+Show-GuideTab 'WsSearch'; Save-GuideWindow 'recherche-requete'
+Invoke-DomeniaQueryAction 'ClearSearch'
+Show-GuideTab 'TabDashboard'
+(Get-DomeniaControl 'ExpFleetMachines').IsExpanded=$true
+Set-DomeniaQueryDraft (New-DomeniaQueryRecipe -Id 'template.all')
+(Get-DomeniaControl 'CmbFleetMachineState').SelectedIndex=2;Complete-GuideQuery
+Assert-Guide ($script:DomeniaQueryState.Result.Matched -eq 3) 'Les trois postes désactivés restent consultables'
+Move-GuideScrollTo (Get-DomeniaControl 'ExpFleetMachines');Save-GuideWindow 'atelier-desactives' 1240
+(Get-DomeniaControl 'CmbFleetMachineState').SelectedIndex=0
+(Get-DomeniaControl 'ExpFleetMachines').IsExpanded=$false
 
 # 2. Rechercher: results of a search.
 $tree = Get-DomeniaControl 'TvDirectory'
@@ -237,7 +494,8 @@ $rows = @(
     [pscustomobject]@{ Type = 'Groupe'; Name = 'GG-Compta-Lyon'; Login = 'GG-Compta-Lyon'; UPN = ''; Presence = ''; PresenceDetail = ''; SessionDisplay = ''; SessionState = ''; DirectoryState = 'A jour'; Association = ''; LinkSource = ''; LinkConfidence = ''; State = ''; OS = ''; LastLogon = ''; DN = 'CN=GG-Compta-Lyon,OU=Groupes,DC=example,DC=local'; Admin = '' }
 )
 $script:BranchObjects = $rows
-[void](Set-DomeniaItemsSource 'DgObjects' $rows)
+Assert-Guide (Set-DomeniaItemsSource 'DgObjects' $rows) 'Recherche : les lignes de démonstration sont liées'
+Assert-Guide ((Get-DomeniaControl 'DgObjects').Items.Count -eq 7) 'Recherche : 7 résultats réellement présents'
 (Get-DomeniaControl 'TxtGlobalSearch').Text = 'compta'
 (Get-DomeniaControl 'LblBranchCount').Text = '7 résultat(s) · liste complète'
 foreach ($b in @('BtnParkPing','BtnParkResults','BtnParkAnalyze','BtnLiveRecheck','BtnExportResults')) { $c = Get-DomeniaControl $b; if ($null -ne $c) { $c.IsEnabled = $true } }
@@ -248,7 +506,7 @@ foreach ($pair in @(@('Utilisateur connecté (console)',190),@('Association mém
 Show-GuideTab 'WsSearch'
 $grid.SelectedIndex = 0
 Save-GuideWindow 'recherche'
-Save-GuideElement (Get-DomeniaControl 'BtnParkPing').Parent 'recherche-actions'
+Save-GuideWindow 'recherche-actions'
 
 # 3. Fiche of a workstation, its actions, dashboard and customise mode.
 $script:SelectedObject = $computer
@@ -302,14 +560,51 @@ $softRows = @($software | ForEach-Object { [pscustomobject]@{ Name = $_[0]; Vers
 [void](Set-DomeniaItemsSource 'DgSoftware' $softRows)
 Update-DomeniaSoftwareDashboard -Rows $softRows
 Show-GuideTab 'WsComputer' 'TabSoftware'
+(Get-DomeniaControl 'CmbSoftwareView').SelectedIndex=1; Update-DomeniaSoftwareSyntheseVisibility
 $exp = Get-DomeniaControl 'ExpSoftwareDashboard'; if ($null -ne $exp) { $exp.IsExpanded = $true; $exp.BringIntoView() }
 Save-GuideWindow 'logiciels' 1560
 
-# 6. Base autonome.
-Set-GuideText @{ TxtIndexLocation = 'C:\Users\tech.support\AppData\Local\Domenia\Data\Domains\716ab6f3adb11ba326cf5c8b0f24c2a3\Domenia.db'; LblIndexBackupStatus = 'Sauvegardes : C:\Users\tech.support\AppData\Local\Domenia\Data\Domains\716ab6f3adb11ba326cf5c8b0f24c2a3\Backups · derniere le 08/10/2026 08:15'
-    LblIndexStats = 'Base autonome Domenia.db : 238 objet(s), 212 compte(s), 26 poste(s), 34 association(s) user-machine (29 verifiee(s)). Derniere passe le 08/10/2026 07:30, soit 1 heure(s) depuis dc01.example.local, repere de suivi 184522. Chargement complet RAM desactive.' }
+# 6. Base autonome: displayed values are fictitious, no SQLite file is created or read.
+Set-GuideText @{
+    TxtIndexLocation='C:\Users\tech.support\AppData\Local\Domenia\Data\Domains\exemple\Domenia.db'
+    LblIndexBackupStatus=('Sauvegardes : dossier Backups · derniere le '+$now.AddMinutes(-15).ToString('dd/MM/yyyy HH:mm'))
+    LblIndexScopeChoice='OU=Postes,OU=Lyon,DC=example,DC=local et ses sous-OU'
+    LblIndexOverview='438 objets · 212 utilisateurs · 226 postes (223 actifs, 3 désactivés)'
+    LblIndexFreshness=('Dernière synchronisation complète du domaine : '+$now.AddMinutes(-35).ToString('dd/MM/yyyy HH:mm')+' (récent).')
+    LblIndexStats='Fichier local Domenia.db. Contrôleur : dc01.example.local. Repère : 184522. Associations utilisateur-poste : 34.'
+    LblIndexStatus='200 objets affichés sur 226 · page 1 · périmètre choisi ci-dessus'
+    LblParkStatus=('{0} observations mémorisées, dont {1} avec inventaire · données fictives' -f $presence.Count,@($presence | Where-Object { $null -ne $_.observation.Inventory }).Count)
+}
+$indexRows = @(foreach($m in @($machines | Select-Object -First 200)){[pscustomobject]@{Type='Machine';Name=$m.name;Login=($m.name+'$');Upn=($m.name.ToLowerInvariant()+'.example.local');State=$(if($m.st -eq 'D'){'Désactivé'}else{'Actif'});Association='';Score='';Reason='Périmètre local';Description=$m.distinguished_name;DN=$m.distinguished_name}})
+[void](Set-DomeniaItemsSource 'DgIndex' $indexRows)
+(Get-DomeniaControl 'BtnIndexNext').IsEnabled=$true
+Set-DomeniaIndexProgress -Mode Complete -Message 'Synchronisation terminée : 438 objets enregistrés. Date complète conservée.'
 Show-GuideTab 'TabApplicationTools' 'TabIndex'
-Save-GuideWindow 'base-autonome'
+# Column virtualization needs an on-screen viewport; materialize the same bound columns for the off-screen bitmap.
+$indexGrid=Get-DomeniaControl 'DgIndex'; $indexGrid.EnableColumnVirtualization=$false; $indexGrid.Items.Refresh(); $indexGrid.ScrollIntoView($indexGrid.Items[0]); $indexGrid.UpdateLayout()
+Assert-Guide ($indexGrid.Items.Count -eq 200 -and [string]$indexGrid.Items[0].Name -ne '') 'Base : 200 objets liés à la grille'
+Save-GuideWindow 'base-autonome' 1080
+Save-GuideBaseDetails
+$detailColumn=@($indexGrid.Columns|Where-Object{[string]$_.SortMemberPath -eq 'Description'})[0]; $detailCell=$detailColumn.GetCellContent($indexGrid.Items[0]); $firstIndexRow=$indexGrid.ItemContainerGenerator.ContainerFromIndex(0)
+Assert-Guide ($detailColumn.ActualWidth -ge 260 -and $detailCell.ActualHeight -le 48) 'Base : détail lisible et hauteur bornée'
+Assert-Guide ($null -ne $firstIndexRow -and $firstIndexRow.ActualHeight -le 80) 'Base : la première ligne reste visible dans le tableau'
+$boundCells=@(foreach($column in $indexGrid.Columns){$cell=$column.GetCellContent($indexGrid.Items[0]);[pscustomobject]@{Header=[string]$column.Header;Text=$(if($null -ne $cell -and $null -ne $cell.PSObject.Properties['Text']){[string]$cell.Text}else{''});CellType=$(if($null -ne $cell){$cell.GetType().FullName}else{'null'});Visibility=$(if($null -ne $cell){[string]$cell.Visibility}else{''});Opacity=$(if($null -ne $cell){$cell.Opacity}else{-1});Width=$(if($null -ne $cell){$cell.ActualWidth}else{-1});Height=$(if($null -ne $cell){$cell.ActualHeight}else{-1})}})
+[IO.File]::WriteAllText((Join-Path $Out 'base-grid-diagnostic.json'),([pscustomobject]@{Items=$indexGrid.Items.Count;Visible=$indexGrid.IsVisible;Loaded=$indexGrid.IsLoaded;FirstName=$indexGrid.Items[0].Name;Cells=$boundCells}|ConvertTo-Json -Depth 5),[Text.UTF8Encoding]::new($false))
+# Measure the actual application layout at common desktop resolutions, without upscaling a bitmap.
+$savedWidth=$Width;$savedHeight=[int]$script:GuideHost.Height
+$viewportMeasurements=@(foreach($size in @(@(1920,1080),@(1280,720))){
+    $Width=$size[0];$script:GuideHost.Width=$Width;Set-GuideHeight $size[1];Update-GuideLayout
+    $measurement=Get-GuideGridViewport $indexGrid
+    $minimumRows=if($size[1] -ge 1080){6}else{2}
+    Assert-Guide ($measurement.FullyVisibleRows -ge $minimumRows) ('Base : au moins '+$minimumRows+' lignes entièrement visibles à '+$size[0]+'×'+$size[1])
+    $measurement
+})
+$Width=$savedWidth;$script:GuideHost.Width=$Width;Set-GuideHeight $savedHeight;Update-GuideLayout
+[IO.File]::WriteAllText((Join-Path $Out 'viewport-checks.json'),($viewportMeasurements|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
+Set-DomeniaIndexProgress -Mode Walk -Current 3 -Total 4 -Message 'OU 3 sur 4 · Lecture puis stockage SQLite : 328 objets reçus, 256 enregistrés. Données fictives de démonstration.'
+Set-GuideHeight 1080;Update-GuideLayout;Move-GuideScrollTo (Get-DomeniaControl 'LblIndexOverview')
+Save-GuideWindow 'base-progression' 1080
+Set-DomeniaIndexProgress -Mode Complete -Message 'Synchronisation terminée.'
 
 # 7. Login window.
 $login = [Windows.Markup.XamlReader]::Load([Xml.XmlNodeReader]::new([xml](Get-DomeniaStandardLoginXaml)))
@@ -319,12 +614,15 @@ $pwd = $login.FindName('PwdLogin'); if ($null -ne $pwd) { $pwd.Password = 'exemp
 $login.Show(); $login.UpdateLayout(); $login.Dispatcher.Invoke([Action]{},[Windows.Threading.DispatcherPriority]::ApplicationIdle)
 $panel = $login.FindName('PanelLogin'); if ($null -eq $panel) { $panel = $login.Content }
 $panel.UpdateLayout()
-$w = [int][Math]::Ceiling($panel.ActualWidth) + 24; $h = [int][Math]::Ceiling($panel.ActualHeight) + 24
+$w = $Width; $h = [Math]::Max(1080,$Height)
+Disable-GuideToolTips $login
 $drawing = [Windows.Media.DrawingVisual]::new(); $ctx = $drawing.RenderOpen()
 $ctx.DrawRectangle([Windows.Media.Brushes]::White,$null,[Windows.Rect]::new(0,0,$w,$h))
 $vb = [Windows.Media.VisualBrush]::new($panel); $vb.Stretch = [Windows.Media.Stretch]::None
-$ctx.DrawRectangle($vb,$null,[Windows.Rect]::new(12,12,$panel.ActualWidth,$panel.ActualHeight)); $ctx.Close()
+$ctx.DrawRectangle($vb,$null,[Windows.Rect]::new([Math]::Floor(($w-$panel.ActualWidth)/2),[Math]::Floor(($h-$panel.ActualHeight)/2),$panel.ActualWidth,$panel.ActualHeight)); $ctx.Close()
 Save-GuideBitmap $drawing $w $h 'connexion'
 $login.Close()
 $script:Window.Close()
-'termine'
+[IO.File]::WriteAllText((Join-Path $Out 'capture-checks.json'),([pscustomobject]@{Fixture='example.local, 226 comptes postes fictifs (223 actifs, 3 désactivés)';Session=[Diagnostics.Process]::GetCurrentProcess().SessionId;Rendering='Real WPF layout, off-screen RenderTargetBitmap';Checks=$script:GuideChecks.ToArray()}|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
+[IO.File]::WriteAllText((Join-Path $Out 'capture-provenance.json'),([pscustomobject]@{UTC=[datetime]::UtcNow.ToString('o');PowerShell=$PSVersionTable.PSVersion.ToString();Session=[Diagnostics.Process]::GetCurrentProcess().SessionId;SourceManifestSHA256=(Get-FileHash -LiteralPath (Join-Path $wad 'package-manifest.json') -Algorithm SHA256).Hash;Rendering='Native WPF RenderTargetBitmap; off-screen host, no image upscaling';Fixture='example.local, synthetic directory and observations, no AD access';ToolTipsEnabled=$false;Images=$script:GuideImages.ToArray()}|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
+' termine'

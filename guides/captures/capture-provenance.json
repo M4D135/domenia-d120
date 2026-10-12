@@ -1,0 +1,149 @@
+{
+    "UTC":  "2026-10-12T19:21:26.5984176Z",
+    "PowerShell":  "5.1.26100.6584",
+    "Session":  0,
+    "SourceManifestSHA256":  "D993B8E8C72956DFDA1AB287F58FCD24389932669AE7FD658295DA55A325948E",
+    "Rendering":  "Native WPF RenderTargetBitmap; off-screen host, no image upscaling",
+    "Fixture":  "example.local, synthetic directory and observations, no AD access",
+    "ToolTipsEnabled":  false,
+    "Images":  [
+                   {
+                       "File":  "accueil.png",
+                       "Width":  1920,
+                       "Height":  1240,
+                       "SHA256":  "9BF52438890676EA9E3BBCC2EA23643915FE2F454111D4BEA87A7EC58E735FD5"
+                   },
+                   {
+                       "File":  "selecteur-ou.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "A034C7B9830DC8D03FA930B51E0D7CD1A6C51C809684E2B24D56EEC05E6A64D8"
+                   },
+                   {
+                       "File":  "atelier-requetes.png",
+                       "Width":  1920,
+                       "Height":  1240,
+                       "SHA256":  "F76C92D5CD8584511D21BA5B99A3CF39B4A33DE7737523F66EF78192E5EDEC46"
+                   },
+                   {
+                       "File":  "alerte-selection.png",
+                       "Width":  1920,
+                       "Height":  1240,
+                       "SHA256":  "829736089397A900592672358B994AC38E8627D26F7EDBF6E91B472AA9A6A02F"
+                   },
+                   {
+                       "File":  "atelier-condition.png",
+                       "Width":  1920,
+                       "Height":  1240,
+                       "SHA256":  "72762F5081C038BC6684A8E766932585D3918D56B3D88B9C839B62D1009867CD"
+                   },
+                   {
+                       "File":  "atelier-collecte.png",
+                       "Width":  1920,
+                       "Height":  1240,
+                       "SHA256":  "49A8FF9656FC6CA742169BBE10B7438E33B8B7D5E26F6564325865E7C023A20E"
+                   },
+                   {
+                       "File":  "atelier-fiche-locale.png",
+                       "Width":  1920,
+                       "Height":  1240,
+                       "SHA256":  "B120357CBDE73EBDC9610B12C7DFAF6BDD3711ECAAFDB62FF86B343D48CAC51E"
+                   },
+                   {
+                       "File":  "atelier-bibliotheque.png",
+                       "Width":  1920,
+                       "Height":  1240,
+                       "SHA256":  "1A2960DDD3403541F51191E6DAF909DE916C0C0DD511B8A571BF291AA739E831"
+                   },
+                   {
+                       "File":  "accueil-sonde-requete.png",
+                       "Width":  1920,
+                       "Height":  1240,
+                       "SHA256":  "D0BB29F8C2FE3824E458B5962FF04ED2799033708120A1DFBAFB4A673C8893BF"
+                   },
+                   {
+                       "File":  "recherche-requete.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "6B9C21ABEB624FC773F6FF7346C7F982E7524EFEA714AAEA7F6143A4263DA286"
+                   },
+                   {
+                       "File":  "atelier-desactives.png",
+                       "Width":  1920,
+                       "Height":  1240,
+                       "SHA256":  "B642703E0DF2E5F720265291EEEEA36623D772B88C5A26D2F4129B5813A1D052"
+                   },
+                   {
+                       "File":  "recherche.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "E0DE3562CB7E68B348B418B66F12D40F3E4C8E0033F00F0610F679FD6659A3B9"
+                   },
+                   {
+                       "File":  "recherche-actions.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "E0DE3562CB7E68B348B418B66F12D40F3E4C8E0033F00F0610F679FD6659A3B9"
+                   },
+                   {
+                       "File":  "fiche-poste.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "BAA3765205D7F06F91BDE4DB5EC046F7105F337743B94636D34E3078469143CE"
+                   },
+                   {
+                       "File":  "actions-poste.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "2336A6B182283DF8307646FB3A77150F21C347787013212C8968A9D177AAB582"
+                   },
+                   {
+                       "File":  "tableau-poste.png",
+                       "Width":  1920,
+                       "Height":  1840,
+                       "SHA256":  "37F64D30719D61F62E6A65C01381F1DEE6A345D3BC59191848A43FF9BD7B3148"
+                   },
+                   {
+                       "File":  "personnaliser.png",
+                       "Width":  1920,
+                       "Height":  1100,
+                       "SHA256":  "8EAA5FBA7A1917245C5BC632E6861355FC79A8050815EA6E2D480343E8804366"
+                   },
+                   {
+                       "File":  "editeur-widget.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "5E7E1512F2B0DA92970D7BDB49821015088A69455A329FBA9D7A6FF07B826797"
+                   },
+                   {
+                       "File":  "logiciels.png",
+                       "Width":  1920,
+                       "Height":  1560,
+                       "SHA256":  "D834751C6D4E0938AC614BC917F6B94AED02A3567789F8243B1F8E9744099FB1"
+                   },
+                   {
+                       "File":  "base-autonome.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "140400367ADC801D25D32465477F2959F5E03BC6D945B878F6898876A7FE484E"
+                   },
+                   {
+                       "File":  "base-details.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "95C949EBE4317F18BEB0A39DDB0A0CE41DF313A874E17E9AD21E3D1FBD4E768E"
+                   },
+                   {
+                       "File":  "base-progression.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "6794EA26DED328D07F36989A0FC0A341548F933114543FEEC3D18D2E8CC8E8B7"
+                   },
+                   {
+                       "File":  "connexion.png",
+                       "Width":  1920,
+                       "Height":  1080,
+                       "SHA256":  "9C573914C9D8B985679CD286CDC8CA7321878C012390DCB63FD3AECBFD8C5D45"
+                   }
+               ]
+}

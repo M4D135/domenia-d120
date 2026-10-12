@@ -574,7 +574,7 @@ function New-DomeniaDonutChart {
     # Eight parts at most: the smallest ones are gathered as "Autres".
     # Parts with a meaning colour keep their order (used / free); the others go from largest to smallest.
     if (-not @($valid | Where-Object { $null -ne $_.PSObject.Properties['Color'] }).Count) { $valid = @($valid | Sort-Object { [double]$_.Value } -Descending) }
-    if ($valid.Count -gt 8) {
+    if ($valid.Count -gt 8 -and -not @($valid|Where-Object{$null -ne $_.PSObject.Properties['Select']}).Count) {
         $rest = 0.0; foreach ($it in @($valid | Select-Object -Skip 7)) { $rest += [double]$it.Value }
         $valid = @(@($valid | Select-Object -First 7) + [pscustomobject]@{ Label = 'Autres'; Value = $rest; Color = '#94A3B8' })
     }
@@ -893,7 +893,8 @@ function New-DomeniaColumnChart {
         [object[]]$Items,
         [double]$Width = 420,
         [double]$Height = 260,
-        [string]$Subtitle = ''
+        [string]$Subtitle = '',
+        [scriptblock]$OnSelect = $null
     )
     # Zero buckets stay on the axis: they show the shape of the distribution.
     $valid = @($Items | Where-Object { $_ -and $_.Value -ne $null -and [double]$_.Value -ge 0 })
@@ -924,6 +925,7 @@ function New-DomeniaColumnChart {
         $bar.CornerRadius = [System.Windows.CornerRadius]::new([Math]::Min(6, $barW / 3), [Math]::Min(6, $barW / 3), 0, 0)
         $bar.Background = ConvertTo-DomeniaChartBrush (Get-DomeniaChartItemColor $it @(Get-DomeniaBoardColor 'Info') 0)
         $bar.ToolTip = [string]$it.Label + ' : ' + (Get-DomeniaChartValueText -Item $it)
+        if($null -ne $OnSelect -and $null -ne $it.PSObject.Properties['Select']){$bar.Cursor=[Windows.Input.Cursors]::Hand;$bar.Tag=@{Select=$it.Select;OnSelect=$OnSelect};$bar.Add_MouseLeftButtonDown({param($s,$e)Invoke-DomeniaChartSelect -Tag $s.Tag;$e.Handled=$true})}
         $bar.RenderTransformOrigin = [System.Windows.Point]::new(0.5, 1.0)
         $scale = New-Object System.Windows.Media.ScaleTransform
         $bar.RenderTransform = $scale

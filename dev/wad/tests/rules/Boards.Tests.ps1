@@ -329,6 +329,11 @@ Test-Case 'BRD-020' 'CO-09 : horloge comparee au controleur, libelles du compte 
     Assert-Equal ([string][char]0x00C0 + ' l' + [char]0x02BC + 'heure') ([string]$admin.Entries['computer.ad.clock'].Value)
     Assert-Equal 'Actif' ([string]$admin.Entries['computer.ad.account'].Value)
     Assert-True ([string]$admin.Entries['computer.ad.clock'].Detail -like '*poste d*administration (contr*leur non lu)') ([string]$admin.Entries['computer.ad.clock'].Detail)
+    $localLate = Get-DomeniaComputerBoardData -Result (New-BrdInventory -Rows (Get-BrdSecureRows) -ClockSkew 400 -ClockReference 'Poste') -Object $object
+    Assert-Equal 'Warn' ([string]$localLate.Entries['computer.ad.clock'].State) 'local comparison cannot establish domain authentication failure'
+    Assert-True ([string]$localLate.Entries['computer.ad.clock'].Detail -like '*poste d*administration (contr*leur non lu)')
+    Assert-False (@(Get-BrdTexts $localLate | Where-Object { $_ -like 'Alert:Horloge*' }).Count -gt 0) 'no domain-clock critical alert without controller comparison'
+
 }
 Test-Case 'BRD-021' 'CO-16 : graduations 1, 2 ou 5 x 10^n, entieres pour les comptes' {
     Assert-Equal '0,1,2' ((Get-DomeniaChartTicks -Maximum 1.5 -Integer).Ticks -join ',') 'jamais 1,5 poste'

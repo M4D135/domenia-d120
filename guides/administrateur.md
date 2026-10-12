@@ -1,32 +1,32 @@
-# 1 Ce qui change dans cette édition
+# 1 Administrer Domenia
 
-Cette édition du 8 octobre 2026 est la première des guides de Domenia 1.0. Elle décrit le code du 8 octobre et place en tête les changements des lots des 7 et 8 octobre, livrés en RC1.13.0 après la version candidate RC1.11.0 du 5 octobre (RC1.12.0, livrée le matin du 8 octobre, est remplacée le jour même : la vue d'ensemble du parc suit désormais l'OU de Rechercher). Le guide technicien donne les gestes du quotidien ; ce guide en donne les règles, les raisons, l'architecture et l'exploitation.
+Domenia réunit la recherche Active Directory, l'assistance sur les postes Windows, une base locale du parc et des tableaux de bord. Ce guide s'adresse aux administrateurs qui préparent les comptes, installent l'application, règlent la collecte et entretiennent les données. Le guide technicien décrit les gestes du quotidien.
 
-| Changement | Ce que l'administrateur doit faire ou savoir |
-|---|---|
-| Tableaux de bord en widgets (08/10) | Les tableaux du poste, du parc et des logiciels sont entièrement faits de widgets. Chaque tuile ou graphique se modifie, se déplace, change de taille ou se retire, avec un retour arrière par « Annuler ». Le catalogue intégré compte 67 widgets ; les requêtes WMI s'y ajoutent (chapitre 9). |
-| Vue d'ensemble du parc (07 et 08/10) | La carte « Vue d ensemble du parc » de l'Accueil suit l'OU choisie dans l'arbre de « Rechercher » : un seul filtre OU pour toute l'application. Elle ne fait qu'afficher ; son calcul part en arrière-plan, sur l'OU seulement (chapitre 8). |
-| Requêtes WMI prêtes à l'emploi (07/10) | 52 requêtes en lecture seule, réparties en 8 catégories, deviennent des widgets des tableaux du poste et du parc. Elles partent après confirmation : « Actualiser les requetes » pour le poste, « Analyser la liste » dans « Rechercher » pour le parc (chapitre 10). |
-| Pinger, Détecter et Analyser la liste (05 au 08/10) | Dans « Rechercher », le ping, la lecture de l'utilisateur console et le relevé WMI léger visent les seuls postes affichés, après confirmation. La détection sur tout le parc est retirée (chapitre 3). |
-| Ouvrir C$ et consoles (07 et 08/10) | « Ouvrir C$ » ouvre le partage avec le compte des opérations poste. Le contrôle du port 445 et la connexion SMB passent par le worker ComputerAdminShare, hors du fil de l'interface (chapitre 5). |
-| Base autonome (07 et 08/10) | L'encadré « Emplacement et sauvegarde » montre le fichier de la base et propose « Ouvrir l emplacement », « Sauvegarder maintenant » et « Copier une sauvegarde vers... ». La copie à chaud passe par le worker StorageBackup (chapitre 18). |
-| Retraits (07/10) | La rubrique « Atelier support » du menu est retirée. Les onglets « Fiabilité », « Opérations et confort » et « Commandes » de la page Outils sont masqués, y compris en profil Expert. |
-| Barre d'actions compacte (08/10) | Dans une fenêtre étroite, la barre des résultats tient sur une ligne : « Console au clic », « Revérifier », « Pinger » et « Détecter » remplacent « Utilisateur au clic » et les libellés longs. |
-| Registre des workers (07 et 08/10) | 68 opérations au lieu de 66 : ComputerAdminShare et StorageBackup sont ajoutées ; ComputerDiagnostics, ComputerInventory, DomainOverview, LiveConsole, LiveSelectedPing, LocalIndexRead, LocalStore et SoftwareInventory sont modifiées (chapitre 15). |
-| Corrections (08/10) | Dispositions des tableaux et OU du parc conservées au redémarrage ; Windows Server 2025 n'est plus pris pour Windows 11 24H2 ; redémarrage en attente et BitLocker lus correctement ; mémoire totale des machines virtuelles ; profils de pare-feu désactivés signalés ; périmètre des requêtes revérifié après une reconnexion. |
-| Nouvelle identité de livraison | Le contrat porte RC1.13.0 et le Build 2026.10.08-DOMENIA-1.0-RC1.13.0-D120 : l'installateur accepte la mise à jour d'un poste en RC1.11.0 ou RC1.12.0 ; il refuse seulement un Build déjà actif (chapitre 16). |
+La base locale et les dernières observations permettent de consulter le parc sans relancer une lecture distante. Les compteurs doivent toujours se lire avec leur périmètre, leur source et leur date. Une donnée absente ou trop ancienne reste inconnue ; elle ne doit pas être assimilée à un poste sain.
 
-> [!ATTENTION] Version candidate. Les lots des 7 et 8 octobre ont passé des tests d'intégration dans une VM de test, mais aucun point du suivi n'est encore clôturé. Une livraison n'est qualifiée qu'avec un rapport Windows PowerShell 5.1 lié à l'empreinte de ses ZIP (chapitre 21).
+## Organiser le travail
 
-> [!NOTE] Captures. Les figures de ce guide sont des rendus hors écran de la vraie fenêtre WPF de Domenia, chargée dans une VM Windows de test, avec des valeurs fictives : domaine example.local, postes PC-COMPTA-014, PC-ACCUEIL-002 et PC-RH-031, utilisatrice Camille Martin (cmartin). Aucun annuaire ni poste distant n'a été contacté pour les produire. Elles montrent l'écran ; elles ne prouvent pas une action réelle.
+- Utilisez l'Accueil pour suivre une OU (unité organisationnelle de l’annuaire) avec son propre sélecteur, consulter les widgets et ouvrir les postes qui composent un chiffre.
+- Utilisez l'Atelier de requêtes pour parcourir tous les postes recensés, affiner les conditions, sauvegarder une recherche et en faire un widget.
+- Utilisez Rechercher pour retrouver directement un objet de l'annuaire et ouvrir sa fiche.
+- Utilisez Outils puis Base autonome pour voir la fraîcheur, suivre une mise à jour, parcourir le contenu et sauvegarder les données.
+- Gardez la lecture seule pour la consultation. Une opération qui modifie le poste ou l'annuaire exige les droits nécessaires et sa confirmation.
+
+## Préparer une exploitation fiable
+
+Commencez par une copie complète de l'annuaire, puis contrôlez une OU pilote. Vérifiez que les comptes actifs et désactivés attendus figurent dans la base, que les résultats détaillés correspondent aux widgets et que les relevés disposent des droits distants. Ajustez ensuite le parallélisme à la capacité du réseau.
+
+Les packs PROD et DEV utilisent tous deux des fichiers ordinaires : Domenia.exe et un dossier wad. Le DEV contient aussi les sources, les tests et les outils de reconstruction. La configuration et les préférences restent des fichiers JSON.
+
+Les captures utilisent des données fictives dans l’interface Windows. Elles servent de repères visuels ; les noms de comptes, de domaines et de postes sont des exemples.
 
 # 2 Démarrage rapide
 
-Ces étapes mettent Domenia 1.0 en service sur un poste d'administration. Chaque ligne renvoie au chapitre qui la détaille. Ne sautez pas l'étape 1 : la qualification se fait dans une VM de test, jamais sur un poste de production.
+Ces étapes mettent Domenia 1.0 en service sur un poste d'administration. Chaque ligne renvoie au chapitre qui la détaille. Validez les parcours utilisés sur un poste Windows de test autorisé avant de déployer largement.
 
 | Étape | Action | Chapitre |
 |---|---|---|
-| 1 | Qualifier la livraison dans une VM Windows de test. | 21 |
+| 1 | Contrôler la livraison et valider les parcours nécessaires sur Windows. | 21 |
 | 2 | Vérifier les prérequis : Windows PowerShell 5.1 x64, WPF, module Active Directory ou DLL livrées, dossier local non redirigé. | 16 |
 | 3 | Préparer les comptes : lecture de l'annuaire, administration des postes, lecture LAPS et BitLocker, délégations AD pour les écritures. | 13 |
 | 4 | Extraire tout le ZIP PROD dans un dossier local ; si Windows bloque les fichiers, lancer wad\Support\DEBLOQUER_TOUT.cmd. | 16 |
@@ -34,14 +34,14 @@ Ces étapes mettent Domenia 1.0 en service sur un poste d'administration. Chaque
 | 6 | Relire wad\Domenia.config.json : Auth.DemoProvider absent ou faux, connexion Standard, aucun marqueur wad\Domenia.login.debug. | 14 et 17 |
 | 7 | Choisir l'emplacement des données (LocalStore.Mode) : UserLocal dans le profil de l'utilisateur, ou Portable réservé à un support personnel. | 18 |
 | 8 | Lancer Domenia.exe, se connecter et vérifier que la case « Lecture seule » est cochée. | 13 et 14 |
-| 9 | Remplir la base autonome : Outils, onglet « Base autonome », « Mettre a jour tout ». | 18 |
-| 10 | Choisir une OU pilote dans « Rechercher », afficher ses postes et lancer « Analyser la liste » ; vérifier la vue d'ensemble de l'Accueil. | 3 et 8 |
+| 9 | Remplir la base autonome : Outils, onglet « Base autonome », « Tout relire dans le domaine ». | 18 |
+| 10 | Choisir une OU pilote dans l’Accueil, vérifier ses postes dans l’Atelier de requêtes et lancer une collecte après confirmation. | 3 et 8 |
 | 11 | Faire une première sauvegarde de la base : « Sauvegarder maintenant ». | 18 |
 | 12 | Remettre aux techniciens le guide technicien et le profil « Essentiel ». | 13 |
 
-# 3 Rechercher : fonctionnement et règles
+# 3 Rechercher fonctionnement et règles
 
-La page « Rechercher » lit l'annuaire à la demande ; elle ne sonde aucun poste avant un geste explicite. Deux modes coexistent : la recherche globale du bandeau, qui ignore l'OU et les filtres, et le contenu d'une OU choisie dans l'arbre, avec ses filtres. Les relevés sur une liste partent après confirmation, quatre postes au plus à la fois.
+La page « Rechercher » lit l'annuaire à la demande ; elle ne sonde aucun poste avant un geste explicite. Deux modes coexistent : la recherche globale du bandeau, qui ignore l'OU et les filtres, et le contenu d'une OU choisie dans l'arbre, avec ses filtres. Les relevés sur une liste partent après confirmation, avec 1 à 8 postes en parallèle selon le réglage.
 
 ![Page Rechercher : l'arbre des OU à gauche, le périmètre et les filtres, puis la liste des postes et des utilisateurs avec leur présence réseau et l'utilisateur console](fig:recherche)
 
@@ -92,22 +92,22 @@ La lecture de la console passe par CIM en DCOM, avec le compte des opérations p
 | Vérification utilisateur | Console observée, Lecture réussie, Accès refusé, Compte distant refusé, Délai dépassé, Non confirmé, Utilisateur non vérifié, Vérification en cours, À vérifier. |
 | Présence réseau | En ligne, Sans réponse au ping, Non vérifié, Erreur de ping, Vérification en cours, avec (cache) pour une observation ancienne. |
 
-## Pinger, Détecter et Analyser la liste
+## Pinger Détecter et Analyser la liste
 
-Ces trois boutons agissent sur les seuls postes affichés, après tous les filtres : OU, recherche, présence et filtre local. Ils sont grisés si la liste ne contient aucun poste. Ce sont les seules analyses de postes en nombre : la vue d'ensemble de l'Accueil n'en lance aucune.
+Ces trois boutons agissent sur les seuls postes affichés, après tous les filtres : OU, recherche, présence et filtre local. Ils sont grisés si la liste ne contient aucun poste. L'Atelier de requêtes de l'Accueil propose également une collecte sur un périmètre explicite (chapitre 8).
 
 ![Barre d'actions des résultats : case Utilisateur au clic, Revérifier ce poste, Pinger la liste, Détecter la liste, Analyser la liste et Arrêter](fig:recherche-actions)
 
 | Bouton | Ce qui part | Confirmation |
 |---|---|---|
-| « Pinger la liste » | Ping ICMP seul, quatre postes au maximum à la fois. Met à jour la présence réseau, sans lecture de session ni association. | Nombre de postes, puis « Pinger » ou « Annuler ». |
-| « Détecter la liste » | Ping puis lecture légère de la console Windows (CIM/DCOM), quatre postes au maximum à la fois. Seuls les comptes nouveaux ou modifiés sont résolus dans AD. Associations et cache conservés. | Nombre de postes, puis « Verifier les sessions » ou « Annuler ». |
+| « Pinger la liste » | Ping ICMP seul, de 1 à 8 postes en parallèle selon le réglage. Met à jour la présence réseau, sans lecture de session ni association. | Nombre de postes, puis « Pinger » ou « Annuler ». |
+| « Détecter la liste » | Ping puis lecture légère de la console Windows (CIM/DCOM), de 1 à 8 postes en parallèle selon le réglage. Seuls les comptes nouveaux ou modifiés sont résolus dans AD. Associations et cache conservés. | Nombre de postes, puis « Verifier les sessions » ou « Annuler ». |
 | « Analyser la liste » | Comme « Détecter la liste », plus le relevé WMI léger (modèle, mémoire, disque C:, build, démarrage) et les requêtes WMI des widgets placés sur les tableaux du poste et du parc. Les résultats remplissent les tableaux de bord. | « Analyser les postes affiches », nombre de postes et de requêtes, puis « Analyser » ou « Annuler ». |
 | « Arrêter » | Arrête les nouvelles lectures ; les résultats déjà obtenus restent. | Aucune. |
 
 Les confirmations s'affichent dans la page, sans nouvelle fenêtre ; Échap choisit la réponse sûre. Un relevé s'arrête de lui-même sur des identifiants rejetés, après trois échecs d'enregistrement local, sur un conflit d'enregistrement, ou si une lecture est annulée ou ne correspond pas au poste attendu. Une lecture de poste en échec ne l'arrête pas : elle compte dans les « lectures non confirmees ». Il se met en pause tant que 64 enregistrements locaux attendent.
 
-> [!ATTENTION] La détection sur tout le parc est retirée (décision du 5 octobre). Toute demande aboutit à « Releve impossible : » suivi de « detection sur tout le parc retiree. Filtrez la liste dans Rechercher puis Detecter la liste. ». Filtrez d'abord, puis détectez.
+> [!ATTENTION] Préparez un périmètre explicite et relisez le nombre de cibles avant chaque collecte.
 
 ## Export et menu clic droit
 
@@ -138,7 +138,7 @@ L'onglet « Resume » donne le type, le nom, la classe, le GUID, les dates de 
 | Onglet | Écritures proposées |
 |---|---|
 | Utilisateur et Coordonnees | « Enregistrer » les champs modifiés. |
-| Compte | « Déverrouiller le compte », « Activer », « Desactiver », « Reinitialiser le mot de passe », « Options de compte » puis « Appliquer », « Fixer » ou « Jamais » pour l'expiration, « Expirer le mot de passe », « Deplacer », ajout ou retrait de groupe. |
+| Compte | « Déverrouiller le compte », « Activer », « Desactiver », « Reinitialiser le mot de passe », « Options de compte » puis « Appliquer », « Fixer » ou « Jamais » pour l'expiration, « Expirer le mot de passe », « Déplacer », ajout ou retrait de groupe. |
 | Groupe | « Enregistrer », « Ajouter membre », « Retirer membre ». |
 | Resume | « Supprimer » : deux confirmations sont demandées. |
 
@@ -158,7 +158,9 @@ L'onglet « Machine » lit le compte ordinateur dans AD. « Detecter l utilis
 
 ## Onglet Actions
 
-![Onglet Actions du poste : Ping, Bureau à distance, Ouvrir C$, consoles Windows, Commande PowerShell, puis les actions qui modifient le poste](fig:actions-poste)
+![Actions du poste : état du compte, Ping, Bureau à distance, Ouvrir C$, consoles, journaux et services ; données fictives](fig:actions-poste)
+
+![Autres actions : commande PowerShell, programme, stratégies et redémarrage ; données fictives](fig:actions-poste-avancees)
 
 | Bouton | Ce que fait Domenia | En lecture seule |
 |---|---|---|
@@ -175,9 +177,9 @@ L'onglet « Machine » lit le compte ordinateur dans AD. « Detecter l utilis
 
 > [!NOTE] « Exécuter un programme » exige aussi, pour ce poste, l'autorisation de 5 minutes « Autoriser une intervention sur cette machine » (onglet « Fiabilité », chapitre 18). Sans elle, Domenia refuse : « Transport avec depot/service/tache non autorise pour cette cible (desactive par defaut). Autorisez-le explicitement dans Outils > Fiabilite, puis relancez votre action. ».
 
-## Ouvrir C$ et les consoles
+## Ouvrir le partage administratif et les consoles
 
-Depuis le 8 octobre, le contrôle du port 445 et l'ouverture SMB se font dans le worker ComputerAdminShare, hors du fil de l'interface : la fenêtre ne se fige plus pendant l'attente. L'Explorateur ou la console s'ouvre quand le partage répond.
+Le contrôle du port 445 et l'ouverture SMB se font dans le worker ComputerAdminShare, hors du fil de l'interface : la fenêtre reste disponible pendant l’attente. L'Explorateur ou la console s'ouvre quand le partage répond.
 
 1. **Compte.** Domenia prend le compte des opérations poste (section suivante).
 2. **Port.** Il vérifie que le port 445 du poste répond. Sinon : « le partage du poste ne repond pas (port 445). ».
@@ -201,7 +203,7 @@ Ordre de choix pour une opération sur un poste :
 
 Le libellé sous les champs dit le compte en service : « Operations poste : compte saisi », « Operations poste : compte de connexion Domenia » ou « Operations poste : session Windows ».
 
-## Diagnostic, sessions et secrets
+## Diagnostic sessions et secrets
 
 - « Diagnostic » : « Lancer le diagnostic » contrôle le DNS, la joignabilité, les ports, SMB, WinRM, WMI, le système, le disque et la session. « Copier le rapport » copie le résultat pour un ticket.
 - « Sessions Windows » : « Lire les sessions » consulte les sessions par WTS, sans déconnexion. Un accès refusé ne signifie pas l'absence de session.
@@ -255,7 +257,7 @@ Le tableau du poste résume le dernier inventaire et les attributs du compte ord
 
 ![Tableau de bord du poste PC-COMPTA-014 : score État général, points d'attention, identité du poste, compte machine dans AD et ressources mesurées](fig:tableau-poste)
 
-## D'où viennent les données
+## Sources des données
 
 | Section | Source | Si vide |
 |---|---|---|
@@ -266,7 +268,7 @@ Le tableau du poste résume le dernier inventaire et les attributs du compte ord
 | Activite | Inventaire complet. | « Inventaire complet requis : correctifs, processus et evenements. » |
 | Securite et etat | Inventaire complet. | « Inventaire complet requis : protection, correctifs et configuration. » |
 
-Quand on sélectionne un autre objet, les tableaux du poste et des logiciels oublient leurs données et leur annulation.
+Quand on sélectionne un autre objet, les tableaux du poste et des logiciels sont réinitialisés, ainsi que leur annulation. La liste de l'onglet Inventaire peut être reprise du cache de la session avec son âge ; cette reprise ne rejoue pas le tableau de bord et ne lance aucune lecture.
 
 ## Score de santé
 
@@ -283,9 +285,10 @@ Quand on sélectionne un autre objet, les tableaux du poste et des logiciels oub
 | Dernière connexion au domaine (lastLogonTimestamp) | Plus de 90 jours | À surveiller | Aucune connexion au domaine depuis N jours. |
 | Compte ordinateur | Désactivé | Critique | Compte ordinateur desactive dans AD. |
 | Mot de passe LAPS | Expiration passée | À surveiller | Mot de passe LAPS expire (rotation en attente). |
-| Horloge du poste | Plus de 300 s d'écart | Critique | Horloge decalee de N s : Kerberos refusera l authentification. |
-| Horloge du poste | Plus de 60 s d'écart | À surveiller | Horloge decalee de N s. |
-| Windows 10 (builds 19043 à 19045) | Toujours | Critique | Version suivie de : fin de support depuis le 14/10/2025, poste a migrer. |
+| Horloge du poste | Plus de 300 s avec le contrôleur | Critique | Écart avec le contrôleur : risque d’échec de l’authentification Kerberos. |
+| Horloge du poste | Plus de 60 s ; référence contrôleur ou poste d’administration | À surveiller | Écart mesuré. Si le contrôleur n’a pas été lu, vérifier la synchronisation des deux postes. |
+| Version de Windows | Date de fin de service dépassée | Critique | Version et date de fin de service : poste à migrer. |
+| Version de Windows | Fin de service dans 90 jours ou moins | À surveiller | Version et date de fin de service à préparer. |
 | Durée de fonctionnement | Plus de 30 jours | À surveiller | Pas de redemarrage depuis N jours. |
 | Mémoire utilisée | Plus de 90 % | À surveiller | Memoire utilisee a plus de 90 %. |
 | Batterie | Moins de 20 % | À surveiller | Batterie a N %. |
@@ -299,7 +302,7 @@ Quand on sélectionne un autre objet, les tableaux du poste et des logiciels oub
 | Services automatiques arrêtés, périphériques en erreur, pilotes non signés | Au moins un | À surveiller | N services automatiques arretes. (et équivalents) |
 | Dernier correctif installé | Plus de 60 jours | À surveiller | Dernier correctif installe il y a N jours. |
 
-Les widgets « Administrateurs locaux », « Sessions et comptes locaux », « Demarrage automatique », « Partages », « Imprimantes » et « Certificats machine » comptent sans lever de point d'attention. L'horloge est comparée à celle du poste d'administration qui exécute Domenia.
+Les widgets « Administrateurs locaux », « Sessions et comptes locaux », « Demarrage automatique », « Partages », « Imprimantes » et « Certificats machine » comptent sans lever de point d'attention. L'horloge est comparée à celle du contrôleur de domaine lorsque cette référence peut être lue ; sinon Domenia utilise celle du poste d'administration. Relisez la référence indiquée avec le résultat.
 
 ## Versions de Windows reconnues
 
@@ -317,84 +320,107 @@ Les widgets « Administrateurs locaux », « Sessions et comptes locaux », 
 
 Un autre build s'affiche « Build » suivi du numéro. Le serveur est reconnu par le mot server dans la légende du système.
 
-# 8 Vue d'ensemble du parc
+Les dates viennent du fichier livré Domenia-WindowsLifecycle.json, selon le build et la famille (Pro, Entreprise, LTSC, LTSB, IoT ou Serveur). Sans date correspondante, la fin de service reste inconnue et ne crée pas d’alerte critique. Gardez cette table à jour et vérifiez les dispositions de maintenance applicables à votre parc.
 
-La carte « Vue d ensemble du parc » de l'Accueil se calcule depuis la base autonome locale et les derniers relevés, sans requête AD ni poste. Elle suit l'OU choisie dans l'arbre de « Rechercher » et ne lance aucune analyse : les pings, détections et analyses partent de « Rechercher », sur la liste affichée (chapitre 3).
+# 8 Tableau de bord et Atelier de requêtes
 
-![Accueil : périmètre suivi depuis Rechercher, bouton Changer dʼOU, rappel des analyses de Rechercher, puis les widgets du parc](fig:accueil)
+La vue du parc se calcule depuis la base SQLite et les observations enregistrées. Elle ne nécessite pas une recherche préalable dans l'annuaire. Le sélecteur de l'Accueil, celui de Rechercher et celui de la Base autonome sont indépendants : chacun conserve son usage et son périmètre explicite.
 
-## Périmètre
+## Périmètre et couverture
 
-- La vue reprend l'OU sélectionnée dans l'arbre de « Rechercher » et la case « Inclure les sous-OU » : cochée, l'OU et ses sous-OU ; décochée, ses postes directs seulement. Aucune préférence propre à l'Accueil n'est enregistrée ; l'OU est celle que « Rechercher » mémorise pour le domaine et le compte.
-- La ligne « Périmètre » affiche le nom de l'OU, suivi de « et ses sous-OU » ou de « (sans les sous-OU) » ; l'info-bulle donne le DN complet. Avec la racine du domaine : « Tout le domaine indexe (consultation) ».
-- « Changer dʼOU » ouvre « Rechercher » et place le focus sur l'arbre des OU.
-- « Actualiser » recalcule la vue depuis la base locale. Sans ce bouton, la vue se recalcule d'elle-même quand l'Accueil s'affiche et que l'OU ou les données ont changé : autre OU dans « Rechercher », fin d'un relevé, mise à jour de la base autonome une fois enregistrée, purge des observations, nouvelle session.
+Une OU est une unité organisationnelle de l’annuaire, utilisée pour organiser les objets par site, service ou usage.
 
-> [!NOTE] La vue n'est complète que si la base autonome l'est. Après l'installation, remplissez-la avec « Mettre a jour tout » (chapitre 18) ; le sous-titre de la carte le rappelle.
+L’OU choisie et ses sous-OU limitent la vue. Le chemin cliquable permet de remonter vers une OU parente. Le domaine entier permet une consultation globale. Les comptes actifs et désactivés sont présents dans le recensement ; les indicateurs qui ne portent que sur les actifs le précisent. Les opérations de collecte excluent les comptes désactivés.
 
-## Calcul en arrière-plan
+Vérifiez la couverture de la base, le nombre d'objets, la date de mise à jour et le statut complet ou partiel. L'absence d'un objet dans une liste limitée n'est pas une preuve de son absence de la base. La table locale présente 200 postes par page avec un total calculé sur tous les résultats.
 
-1. **Lecture.** Le worker LocalIndexRead (action FleetStats) lit la base locale en lecture seule. Il garde les comptes ordinateur actifs de l'OU, selon la profondeur choisie, et décode lui-même les observations enregistrées : présence, utilisateur console, relevé WMI et résultats des requêtes. Une observation de plus de 256 Ko est ignorée.
-2. **Un seul calcul à la fois.** Pour la même OU, Domenia attend la fin du calcul en cours ; pour une autre OU, le nouveau calcul remplace l'ancien, dont le résultat n'est pas affiché. Au démarrage, la vue attend que « Rechercher » ait retrouvé son OU mémorisée : « En attente de l OU memorisee dans Rechercher... ».
-3. **Affichage.** Le fil de l'interface ne fait que regrouper les postes de l'OU et dessiner les widgets.
+![Accueil : périmètre autonome du parc, couverture de la base et indicateurs ; données fictives](fig:accueil)
 
-Les observations de tous les postes restent en mémoire après le calcul : le tableau d'un poste affiche ses résultats de requêtes même s'il est hors de l'OU. Une observation lue depuis le dernier enregistrement l'emporte sur celle de la base, plus ancienne.
+Le sélecteur intégré recherche les OU dans le domaine. Distinguez les homonymes par leur description et leur chemin avant de confirmer.
 
-## Remplir la vue
+![Choix du périmètre : OU homonymes dans le sélecteur intégré ; données fictives](fig:selecteur-ou)
 
-| Section | Source | Comment la remplir |
+## Calculs en arrière plan
+
+Les workers lisent SQLite dans une transaction cohérente, projettent les données nécessaires et préparent les regroupements hors du fil WPF. Les bibliothèques C# réduisent le coût du décodage JSON, des sélections et des agrégations. Le résultat est appliqué seulement s'il correspond encore à la session, au périmètre et à la demande affichée.
+
+Les observations détaillées restent dans SQLite. La préparation d'une collecte conserve le JSON et une identité légère ; le décodage complet est limité aux postes admis dans les créneaux d'exécution. Le nombre de créneaux est borné, même si le parc contient plusieurs milliers de postes.
+
+## Chiffres et fraîcheur
+
+| Source | Informations | Actualisation |
 |---|---|---|
-| « Vue d ensemble », « Inventaire du perimetre », « Repartition » | Base autonome locale | « Mettre a jour tout » ou « Mettre a jour les changements » (chapitre 18). |
-| Présence, « Utilisateurs detectes », « Derniere analyse » | Observations des relevés | « Pinger la liste » ou « Détecter la liste » dans « Rechercher ». |
-| « Releves WMI » et widgets de requête du parc | Relevé WMI léger et requêtes | « Analyser la liste » dans « Rechercher ». |
+| Annuaire indexé | Identité, OU, compte actif, système déclaré, dates AD | Mise à jour complète ou des changements dans Base autonome. |
+| Présence et console | Ping, utilisateur ouvert sur l'écran physique | Collecte ciblée ou vérification explicite du poste. |
+| Inventaire | Modèle, mémoire, disque C, système mesuré, démarrage | Analyse du poste ou de la liste. |
+| Sondes | Informations du catalogue WMI | Actualiser les requêtes ou analyser la liste concernée. |
 
-Le relevé WMI léger lit Win32_OperatingSystem (Caption, BuildNumber, LastBootUpTime), Win32_ComputerSystem (Manufacturer, Model, TotalPhysicalMemory) et Win32_LogicalDisk filtré sur C: (Size, FreeSpace).
+Chaque famille conserve sa propre date. Un ping réussi ne rend pas frais l'inventaire matériel ; une erreur de console ne remplace pas une mesure par zéro. Une absence confirmée de session efface l'utilisateur courant, tandis qu'un échec de lecture garde l'observation précédente avec son contexte.
 
-## Ce que fait Domenia sur chaque poste
+L'inactivité AD est approximative car lastLogonTimestamp est répliqué avec retard. Les classes sont 0 à 6 jours, 7 à 29, 30 à 89, 90 à 179, 180 et plus, puis non renseigné. « Sans connexion depuis 90 j » porte sur les comptes actifs ayant une date connue âgée d'au moins 90 jours. Une date absente ne prouve pas que le poste ne s'est jamais connecté.
 
-1. **Nom.** Il contrôle le nom du poste : 253 caractères au plus, lettres, chiffres, point, tiret et tiret bas.
-2. **Ping.** Un seul ping ICMP de 900 ms, adresse IPv4 préférée.
-3. **Session CIM.** Il ouvre une session CIM en DCOM avec le compte des opérations poste, délai de 4 s, et lit Win32_ComputerSystem.UserName.
-4. **Lectures.** Seulement si la console a été lue : relevé WMI léger et requêtes des widgets pour « Analyser la liste », requêtes seules pour « Actualiser les requetes » du tableau du poste (chapitre 10).
-5. **Enregistrement.** L'observation est fusionnée avec la précédente et enregistrée dans la base locale.
+## Du widget à la liste exacte
 
-Le suivi s'affiche sous les boutons de « Rechercher » : « Ping en cours » ou « Releve en cours », avec les postes vérifiés, joignables, les identités en cache, les associations actualisées et les lectures non confirmées. En fin de relevé, la vue d'ensemble se recalcule seule. Si le stockage local est indisponible : « Observation en memoire seulement : stockage local indisponible. ».
+Un clic sur un indicateur ouvre sa requête dans l'Atelier. Un clic sur un segment conserve les conditions de la requête et ajoute ce segment. Les listes, exports et actions s'appuient sur les identifiants des objets, avec contrôle de l'identité au moment d'ouvrir ou d'agir.
 
-## Refus
+Pour les sondes comportant plusieurs valeurs par poste, un poste peut appartenir à plusieurs catégories. Chaque catégorie compte ce poste une seule fois ; la somme des catégories peut donc dépasser le total de postes. Le segment Autres sélectionne les postes possédant au moins une valeur hors des catégories affichées.
 
-| Vous voyez | Cause | Que faire |
-|---|---|---|
-| « Releve impossible : » puis « Un releve est deja en cours. » | Un relevé tourne déjà. | Attendre ou « Arrêter ». |
-| « Releve impossible : » puis « Attendez la confirmation des enregistrements locaux avant un nouveau releve. » | Enregistrements locaux en attente. | Attendre quelques secondes. |
-| « Vue d ensemble non calculee : » puis « base occupee, reessayez dans un instant. » | Base locale occupée. | « Actualiser » un peu plus tard. |
-| « Aucune base autonome active : vue d ensemble indisponible. » | Pas de base pour ce domaine. | Chapitre 18. |
+« Détailler les postes » d'un point d'attention ouvre une sélection figée des GUID concernés. L'aperçu initial de 20 noms n'est pas la limite du détail : celui-ci est paginé. Une sélection admet 20 000 identités au maximum et reste bornée au périmètre courant. La mention « Sélection figée » reste visible ; effacer le segment retire cette restriction. Une requête sauvegardée à partir de cette sélection garde les mêmes GUID, pas la règle d'alerte évolutive.
 
-## Règles du parc
+![Détail d’une alerte dans l’Atelier : sélection figée par GUID, périmètre explicite et résultats ; données fictives](fig:alerte-selection)
 
-| Vérification | Seuil | Niveau | Message (N = nombre de postes) |
-|---|---|---|---|
-| Système déclaré dans l'annuaire | Au moins un Windows 10 | Critique | N poste(s) sous Windows 10, fin de support depuis le 14/10/2025. |
-| Dernière connexion au domaine | 90 jours ou plus | À surveiller | N poste(s) sans connexion au domaine depuis 90 jours ou plus : a verifier ou nettoyer. |
-| Comptes jamais connectés | Au moins un | À surveiller | N compte(s) ordinateur jamais connecte(s). |
-| Présence au dernier relevé | Au moins un sans réponse | Information | N poste(s) sans reponse au dernier releve. |
-| Disque C: (relevé WMI) | Moins de 10 % libre | Critique | N poste(s) avec moins de 10 % libre sur C:. |
-| Démarrage (relevé WMI) | Plus de 30 jours | À surveiller | N poste(s) non redemarre(s) depuis plus de 30 jours. |
+Sélectionnez une ligne pour consulter son détail local. Relisez l’identité, la provenance et la fraîcheur avant d’utiliser les actions disponibles.
 
-Le score du parc suit la formule du chapitre 7. Les informations ne baissent pas le score.
+![Fiche locale du poste sélectionné dans l’Atelier ; données fictives](fig:atelier-fiche-locale)
 
-## Calculs des répartitions
+## Construire une requête
 
-- Dernière connexion : tranches « <7j », « 7-30j », « 30-90j », « 90-180j », « >180j » et « Jamais », toutes gardées même vides.
-- Systèmes : préfixe Microsoft retiré, Professionnel abrégé en Pro ; six premiers, puis « Autres ».
-- Postes par OU : avec une OU choisie, regroupement par sous-OU directe ; dix premières, puis « Autres ».
-- Présence : « En ligne », « Sans reponse » ou « Non verifie », y compris les postes jamais observés.
-- Mémoire : 4 Go et moins, 8, 16, 32, puis plus de 32 Go. Espace libre sur C: : moins de 10 %, 10 à 25 %, 25 à 50 %, plus de 50 %.
+1. **Choisir une base.** Partez de Tous les postes recensés ou d'un modèle adapté.
+2. **Ajouter les conditions.** Choisissez le champ, l'opérateur proposé et la valeur. Les opérateurs sont adaptés au type texte, nombre ou booléen.
+3. **Choisir la combinaison.** Toutes les conditions correspond à ET ; Au moins une condition correspond à OU. Les raffinements issus d'un segment s'appliquent en plus.
+4. **Appliquer.** Lisez le total, le périmètre et les données absentes avant d'examiner les pages de résultats.
+5. **Regrouper si utile.** Choisissez un champ de répartition. Les dix principaux groupes s'affichent, complétés par Autres et Inconnu lorsque nécessaire.
+6. **Conserver.** Sauvegardez la recette, ajoutez-la en widget ou appliquez-la comme filtre de recherche.
 
-## Détails de la session
+Le moteur est un langage de filtres typés ; la recette ne contient ni PowerShell ni SQL libre. Une requête admet 64 conditions en comptant ses raffinements. La bibliothèque accepte 100 recettes dans une enveloppe de 1 Mio. Les données des postes ne sont pas copiées dans chaque recette. Une sauvegarde refusée est signalée et ne doit pas être considérée comme enregistrée.
 
-La carte repliée « Détails de la session et outils de vérification » donne le domaine, le serveur, le compte d'exécution AD, le mode, la base DN et l'état des composants. Elle propose « Verifier l application », « Vider le cache » et « Ouvrir le journal » (chapitre 20).
+![Atelier de requêtes : conditions typées, modèle Tous les postes recensés et résultats paginés ; données fictives](fig:atelier-requetes)
 
-# 9 Widgets : fonctionnement et catalogue complet
+Le filtre d’état conserve l’accès aux comptes désactivés : ils appartiennent au recensement même si la collecte distante les exclut.
+
+![Les trois comptes désactivés du périmètre restent consultables ; données fictives](fig:atelier-desactives)
+
+## Exemple de requête réutilisable
+
+Choisissez l’espace libre du disque système en pourcentage, l’opérateur inférieur à et la valeur 20. Ajoutez la condition puis appliquez la requête. Les mesures absentes ne sont pas assimilées à zéro.
+
+![Requête numérique sur les disques ayant moins de 20 % d’espace libre ; données fictives](fig:atelier-condition)
+
+Nommez la recette, sauvegardez-la puis sélectionnez-la dans la bibliothèque. Son nom doit décrire le critère et rester compréhensible hors du contexte de création.
+
+![Bibliothèque : requête nommée sauvegardée et réutilisable ; données fictives](fig:atelier-bibliotheque)
+
+Ajoutez la requête au tableau de bord pour suivre son résultat. Le widget conserve les conditions et permet d’ouvrir les postes concernés.
+
+![Widget du parc créé à partir de la requête enregistrée ; données fictives](fig:accueil-sonde-requete)
+
+L’action de filtre de recherche transmet les GUID des postes trouvés. Le résultat affiché dans Rechercher garde cette restriction tant qu’elle n’est pas effacée ; un nouveau nom ou un changement d’OU ne substitue pas un autre objet à cette identité.
+
+![Filtre de l’Atelier appliqué à la liste Rechercher ; données fictives](fig:recherche-requete)
+
+## Régler et suivre la collecte
+
+La commande de collecte confirme le nombre de postes et utilise le compte des opérations poste. Elle traite tous les comptes actifs du périmètre, indépendamment des conditions qui réduisent les résultats de la requête. Pour limiter la collecte, choisissez une OU plus précise ou l’action d’un seul poste dans sa fiche locale. Le réglage propose 1, 2, 4, 6 ou 8 postes simultanés, avec 4 par défaut. La réutilisation des mesures propose une ancienneté maximale de 5, 15 ou 60 minutes, ou une relecture forcée. Les mesures volatiles conservent leur délai propre ; le choix d'une heure n'impose pas une heure de cache à toutes les sondes.
+
+Le moteur réutilise les lectures de classes CIM communes aux sondes d'un même poste. Une lecture lente ou refusée n'empêche pas les autres créneaux d'avancer. L'arrêt interdit les nouveaux départs et conserve les résultats déjà obtenus. La progression distingue la collecte du stockage local : attendez les enregistrements avant de conclure que la passe est terminée.
+
+![Réglages de la collecte dans l’Atelier : parallélisme et réutilisation des observations ; données fictives](fig:atelier-collecte)
+
+## Interpréter les erreurs
+
+Une base occupée appelle un nouvel essai après la fin de l'opération en cours. Une base absente doit être initialisée. Une donnée périmée nécessite la lecture de sa source. Un accès distant refusé nécessite de vérifier le compte et le transport ; aucun champ inconnu ne doit être transformé en succès par défaut.
+
+# 9 Widgets fonctionnement et catalogue complet
 
 Les trois tableaux de bord sont faits de widgets : chaque tuile ou graphique se modifie, se déplace, se redimensionne et se retire. On ajoute un widget depuis le catalogue intégré ou, pour le poste et le parc, depuis les requêtes WMI prêtes à l'emploi. Chaque utilisateur garde sa disposition dans ses préférences.
 
@@ -402,13 +428,13 @@ Les trois tableaux de bord sont faits de widgets : chaque tuile ou graphique se 
 |---|---|---|
 | Parc | Accueil, sous les boutons d'analyse. | Agrégats de la base autonome et observations en cache. |
 | Poste | Poste, onglet « Tableau de bord ». | Dernier inventaire et attributs du compte ordinateur. |
-| Logiciels | Poste, onglet « Logiciels », volet « Synthese en graphiques ». | Liste des logiciels chargée. |
+| Logiciels | Poste, onglet « Logiciels », choix « Affichage » puis « Synthèse ». | Liste des logiciels chargée. |
 
-## Barre d'outils
+## Commandes du tableau
 
 | Bouton | Quand | Effet |
 |---|---|---|
-| « Actualiser les requetes » | Tableau du poste, si au moins un widget de requête est présent. | Exécute les requêtes WMI des widgets sur le poste sélectionné, en lecture seule, après confirmation (chapitre 10). Sur le parc, les requêtes partent avec « Analyser la liste » dans « Rechercher ». |
+| « Actualiser les requetes » | Tableau du poste, si au moins un widget de requête est présent. | Exécute les requêtes WMI des widgets sur le poste sélectionné, en lecture seule, après confirmation (chapitre 10). Sur le parc, lancez la collecte de l’Atelier ou Analyser la liste. |
 | « Ajouter un widget » | Toujours. | Ouvre l'éditeur. |
 | « Personnaliser » | Hors personnalisation. | Passe en mode personnalisation. |
 | « Par defaut » | En personnalisation. | Revient à la disposition livrée, sans confirmation mais annulable. |
@@ -417,13 +443,13 @@ Les trois tableaux de bord sont faits de widgets : chaque tuile ou graphique se 
 
 L'annulation n'a qu'un niveau. Elle est perdue quand de nouvelles données arrivent et, pour le poste et les logiciels, quand on sélectionne un autre objet. « Retirer » ne demande pas de confirmation : « Annuler » sert de filet.
 
-## Personnaliser, menu et glisser-déposer
+## Personnaliser menu et glisser déposer
 
 ![Tableau du poste en mode Personnaliser : boutons Modifier et Retirer sur chaque widget, tuiles Ajouter ici en fin de section, boutons Par defaut et Terminer](fig:personnaliser)
 
 - En personnalisation, chaque section se termine par une tuile en pointillés « Ajouter ici », qui ouvre l'éditeur avec la section choisie. Les boutons ronds de modification et de retrait restent visibles ; hors personnalisation, ils apparaissent au survol ou au clavier.
 - Les widgets sans donnée restent visibles en personnalisation (« Aucune donnee pour le moment »). Hors personnalisation, un widget intégré sans donnée est masqué.
-- Le menu clic droit d'un widget, toujours disponible, propose « Modifier... », « Representation », « Taille » (« Compacte », « Moyenne », « Large »), « Deplacer » et « Retirer du tableau de bord ». Les déplacements du menu restent dans la section.
+- Le menu clic droit d'un widget, toujours disponible, propose « Modifier... », « Représentation », « Taille » (« Compacte », « Moyenne », « Large »), « Déplacer » et « Retirer du tableau de bord ». Les déplacements du menu restent dans la section.
 - Le glisser-déposer est toujours actif. Lâché sur un autre widget, le widget prend sa place et sa section ; lâché dans une section hors d'un widget, il va à la fin de cette section. La page défile près des bords.
 
 ## Éditeur de widget
@@ -432,13 +458,13 @@ L'annulation n'a qu'un niveau. Elle est perdue quand de nouvelles données arriv
 
 - À gauche, en ajout seulement : la recherche (« Rechercher : disque, utilisateur, BitLocker... ») et la liste des informations disponibles, groupée en « Tableau de bord » puis en « Requetes WMI » par catégorie. Le badge « affiche » marque ce qui est déjà sur le tableau.
 - La recherche ignore accents et casse ; tous les mots tapés doivent se trouver dans le nom, la description ou la section (pour une requête : le nom, la catégorie ou la classe).
-- À droite : « Titre », « Representation », « Taille », « Section » et l'aperçu. La liste « Section » propose les sections du tableau, puis « + Nouvelle section... », qui affiche un champ pour taper son nom ; laissé vide, ce nom devient « Mes widgets ».
+- À droite : « Titre », « Représentation », « Taille », « Section » et l'aperçu. La liste « Section » propose les sections du tableau, puis « + Nouvelle section... », qui affiche un champ pour taper son nom ; laissé vide, ce nom devient « Mes widgets ».
 - L'aperçu montre les vraies données si le tableau en a, sinon un exemple de même nature.
 - Un widget ajouté va à la fin de sa section. Sans donnée encore lue : « Widget enregistre : il s affichera des que ses donnees seront lues. ».
 
-## Natures, représentations et tailles
+## Natures représentations et tailles
 
-Chaque widget porte une nature de donnée. Elle fixe les représentations permises ; le sous-menu « Representation » n'apparaît que s'il y en a plusieurs. Une représentation enregistrée qui n'est plus permise est remplacée par la préférée.
+Chaque widget porte une nature de donnée. Elle fixe les représentations permises ; le sous-menu « Représentation » n'apparaît que s'il y en a plusieurs. Une représentation enregistrée qui n'est plus permise est remplacée par la préférée.
 
 | Nature | Représentations permises, la préférée d'abord |
 |---|---|
@@ -467,105 +493,116 @@ Dimensions en pixels, largeur × hauteur ; auto suit le contenu. Limites d'affic
 - Une clé par tableau dans les préférences de l'utilisateur : Dashboard.Computer.Layout, Dashboard.Fleet.Layout et Dashboard.Software.Layout. Chaque élément garde son identifiant, sa source (Builtin pour le catalogue, Probe pour une requête), sa clé, sa représentation, son titre, sa taille et sa section.
 - Rien d'enregistré donne la disposition livrée, c'est-à-dire tout le catalogue dans son ordre. Une liste vide enregistrée est un tableau vidé volontairement et reste vide.
 - À la lecture, un widget inconnu du catalogue est écarté, les identifiants sont rendus uniques, représentation et taille sont corrigées.
-- Les anciennes clés Widgets.Computer et Widgets.Fleet (première version des widgets de requête) sont reprises dans la disposition, puis vidées au premier enregistrement.
 - L'écriture est différée de 1,5 s pour regrouper les changements ; un changement sans effet n'est ni enregistré ni proposé à l'annulation.
 
 ## Animation
 
 À chaque nouvelle lecture, les cartes apparaissent l'une après l'autre, puis anneaux et barres se dessinent et les chiffres comptent depuis zéro. L'animation est coupée quand l'animation Windows est désactivée, par exemple pour l'accessibilité ou une session à distance. Aucun réglage Domenia ne la coupe.
 
-## Catalogue du tableau du poste (42 widgets)
+## Catalogue du tableau du poste
 
-| Titre | Clé | Section | Par défaut | Description |
-|---|---|---|---|---|
-| Etat general | computer.health | Vue d ensemble | Score, Compacte | Score calcule a partir des points d attention |
-| Points d attention | computer.attention | Vue d ensemble | Liste de points, Large | Problemes detectes, du plus grave au moins grave |
-| Systeme | computer.os | Identite du poste | Chiffre cle, Compacte | Version commerciale de Windows et build |
-| Modele | computer.model | Identite du poste | Chiffre cle, Compacte | Fabricant, modele et numero de serie |
-| Processeur | computer.cpu | Identite du poste | Chiffre cle, Compacte | Modele, coeurs et threads |
-| Memoire installee | computer.memory | Identite du poste | Chiffre cle, Compacte | Memoire physique et barrettes |
-| En service depuis | computer.uptime | Identite du poste | Chiffre cle, Compacte | Duree depuis le dernier demarrage |
-| Utilisateur connecte | computer.user | Identite du poste | Chiffre cle, Compacte | Session console au moment de l inventaire |
-| Adresse IP | computer.ip | Identite du poste | Chiffre cle, Compacte | Adresse IPv4 et passerelle |
-| Domaine | computer.domain | Identite du poste | Chiffre cle, Compacte | Domaine et role du poste |
-| Mot de passe machine | computer.ad.password | Compte machine dans Active Directory | Chiffre cle, Compacte | Age du mot de passe du compte ordinateur |
-| Derniere connexion au domaine | computer.ad.lastlogon | Compte machine dans Active Directory | Chiffre cle, Compacte | Attribut lastLogonTimestamp |
-| Compte ordinateur | computer.ad.account | Compte machine dans Active Directory | Chiffre cle, Compacte | Actif ou desactive, date de creation |
-| Unite d organisation | computer.ad.ou | Compte machine dans Active Directory | Chiffre cle, Compacte | OU qui contient le poste |
-| Mot de passe LAPS | computer.ad.laps | Compte machine dans Active Directory | Chiffre cle, Compacte | Expiration du mot de passe administrateur local |
-| Gere par | computer.ad.managedby | Compte machine dans Active Directory | Chiffre cle, Compacte | Attribut managedBy |
-| Horloge du poste | computer.ad.clock | Compte machine dans Active Directory | Chiffre cle, Compacte | Ecart avec le poste d administration |
-| Memoire utilisee | computer.memory.usage | Ressources | Jauge, Compacte | Memoire occupee au moment de l inventaire |
-| Charge du processeur | computer.cpu.load | Ressources | Jauge, Compacte | Charge du processeur au moment de l inventaire |
-| Batterie | computer.battery | Ressources | Jauge, Compacte | Charge restante des postes portables |
-| Disque systeme | computer.disk.system | Ressources | Anneau, Moyenne | Espace utilise et libre sur C: |
-| Autres volumes | computer.disk.volumes | Ressources | Barres, Moyenne | Espace libre des autres volumes, en pourcentage |
-| Services Windows | computer.services | Activite | Anneau, Moyenne | Services en cours, arretes et desactives |
-| Processus les plus gourmands | computer.processes | Activite | Barres, Large | Memoire utilisee par processus, en Mo |
-| Erreurs systeme par source | computer.events | Activite | Barres, Moyenne | Journal Systeme des 3 derniers jours |
-| Antivirus | computer.antivirus | Securite et etat | Chiffre cle, Compacte | Produit antivirus declare a Windows |
-| Pare-feu | computer.firewall | Securite et etat | Chiffre cle, Compacte | Profils du pare-feu actifs |
-| BitLocker | computer.bitlocker | Securite et etat | Chiffre cle, Compacte | Protection du volume systeme |
-| Windows Update | computer.wsus | Securite et etat | Chiffre cle, Compacte | Serveur WSUS configure |
-| Redemarrage en attente | computer.reboot | Securite et etat | Chiffre cle, Compacte | Redemarrage demande par une installation |
-| Services automatiques arretes | computer.services.stopped | Securite et etat | Chiffre cle, Compacte | Services automatiques a l arret |
-| Peripheriques en erreur | computer.devices | Securite et etat | Chiffre cle, Compacte | Peripheriques signales en erreur |
-| Pilotes non signes | computer.drivers | Securite et etat | Chiffre cle, Compacte | Pilotes sans signature numerique |
-| Administrateurs locaux | computer.admins | Securite et etat | Chiffre cle, Compacte | Membres du groupe Administrateurs |
-| Sessions et comptes locaux | computer.sessions | Securite et etat | Chiffre cle, Compacte | Comptes et sessions du poste |
-| Demarrage automatique | computer.autostart | Securite et etat | Chiffre cle, Compacte | Programmes lances au demarrage |
-| Partages | computer.shares | Securite et etat | Chiffre cle, Compacte | Dossiers partages par le poste |
-| Imprimantes | computer.printers | Securite et etat | Chiffre cle, Compacte | Imprimantes installees |
-| Affichage | computer.display | Securite et etat | Chiffre cle, Compacte | Carte graphique et resolution |
-| Disque physique | computer.physicaldisk | Securite et etat | Chiffre cle, Compacte | Modele et interface du disque |
-| Certificats machine | computer.certificates | Securite et etat | Chiffre cle, Compacte | Certificats du magasin ordinateur |
-| Dernier correctif | computer.hotfix | Securite et etat | Chiffre cle, Compacte | Date du dernier correctif installe |
+| Widget | Groupe | Affichage initial | Information |
+|---|---|---|---|
+| Etat general | Vue d ensemble | Oui | Score calcule a partir des points d attention |
+| Points d attention | Vue d ensemble | Oui | Problemes detectes, du plus grave au moins grave |
+| Systeme | Identite du poste | Oui | Version commerciale de Windows et build |
+| Modele | Identite du poste | Oui | Fabricant, modele et numero de serie |
+| Processeur | Identite du poste | Oui | Modele, coeurs et threads |
+| Memoire installee | Identite du poste | Oui | Memoire physique et barrettes |
+| En service depuis | Identite du poste | Oui | Duree depuis le dernier demarrage |
+| Utilisateur connecte | Identite du poste | Oui | Session console au moment de l inventaire |
+| Adresse IP | Identite du poste | Oui | Adresse IPv4 et passerelle |
+| Domaine | Identite du poste | Oui | Domaine et role du poste |
+| Mot de passe machine | Compte machine dans Active Directory | Oui | Age du mot de passe du compte ordinateur |
+| Derniere connexion au domaine | Compte machine dans Active Directory | Oui | Attribut lastLogonTimestamp |
+| Compte ordinateur | Compte machine dans Active Directory | Oui | Actif ou desactive, date de creation |
+| Unite d organisation | Compte machine dans Active Directory | Oui | OU qui contient le poste |
+| Mot de passe LAPS | Compte machine dans Active Directory | Oui | Expiration du mot de passe administrateur local |
+| Gere par | Compte machine dans Active Directory | Oui | Attribut managedBy |
+| Horloge du poste | Compte machine dans Active Directory | Oui | Écart avec la référence disponible : contrôleur ou poste d’administration |
+| Memoire utilisee | Ressources | Oui | Memoire occupee au moment de l inventaire |
+| Charge du processeur | Ressources | Oui | Charge du processeur au moment de l inventaire |
+| Batterie | Ressources | Oui | Charge restante des postes portables |
+| Disque systeme | Ressources | Oui | Espace utilise et libre sur C: |
+| Autres volumes | Ressources | Oui | Espace libre des autres volumes, en pourcentage |
+| Services Windows | Activite | Oui | Services en cours, arretes et desactives |
+| Processus les plus gourmands | Activite | Oui | Memoire utilisee par processus, en Mo |
+| Erreurs systeme par source | Activite | Oui | Journal Systeme des 3 derniers jours |
+| Antivirus | Securite et etat | Oui | Produit antivirus declare a Windows |
+| Pare-feu | Securite et etat | Oui | Profils du pare-feu actifs |
+| BitLocker | Securite et etat | Oui | Protection du volume systeme |
+| Windows Update | Securite et etat | Oui | Serveur WSUS configure |
+| Redemarrage en attente | Securite et etat | Oui | Redemarrage demande par une installation |
+| Services automatiques arretes | Securite et etat | Oui | Services automatiques a l arret |
+| Peripheriques en erreur | Securite et etat | Oui | Peripheriques signales en erreur |
+| Pilotes non signes | Securite et etat | Oui | Pilotes sans signature numerique |
+| Administrateurs locaux | Securite et etat | Oui | Membres du groupe Administrateurs |
+| Sessions et comptes locaux | Securite et etat | Oui | Comptes et sessions du poste |
+| Demarrage automatique | Securite et etat | Oui | Programmes lances au demarrage |
+| Partages | Securite et etat | Oui | Dossiers partages par le poste |
+| Imprimantes | Securite et etat | Oui | Imprimantes installees |
+| Affichage | Securite et etat | Oui | Carte graphique et resolution |
+| Disque physique | Securite et etat | Oui | Modele et interface du disque |
+| Certificats machine | Securite et etat | Oui | Certificats du magasin ordinateur |
+| Dernier correctif | Securite et etat | Oui | Date du dernier correctif installe |
 
-## Catalogue du tableau du parc (17 widgets)
+## Catalogue du tableau du parc
 
-| Titre | Clé | Section | Par défaut | Description |
-|---|---|---|---|---|
-| Etat du parc | fleet.health | Vue d ensemble | Score, Compacte | Score calcule a partir des points d attention |
-| Points d attention | fleet.attention | Vue d ensemble | Liste de points, Large | Problemes detectes sur le perimetre |
-| Postes actifs | fleet.machines | Inventaire du perimetre | Chiffre cle, Compacte | Comptes ordinateur actifs du perimetre |
-| Postes inactifs (90 j et plus) | fleet.stale | Inventaire du perimetre | Chiffre cle, Compacte | Sans connexion au domaine depuis 90 jours |
-| Postes sous Windows 10 | fleet.win10 | Inventaire du perimetre | Chiffre cle, Compacte | Fin de support le 14/10/2025 |
-| Utilisateurs detectes | fleet.users | Inventaire du perimetre | Chiffre cle, Compacte | Utilisateurs vus sur les postes |
-| Derniere analyse | fleet.lastcheck | Inventaire du perimetre | Chiffre cle, Compacte | Date du dernier releve des postes |
-| Systemes d exploitation | fleet.os | Repartition | Anneau, Moyenne | Systemes declares dans l annuaire |
-| Derniere connexion au domaine | fleet.lastlogon | Repartition | Histogramme, Moyenne | Anciennete de la derniere connexion |
-| Postes par unite d organisation | fleet.ou | Repartition | Barres, Moyenne | Postes par OU ou sous-OU |
-| Presence reseau | fleet.presence | Repartition | Anneau, Moyenne | Resultat des derniers releves |
-| Modeles | fleet.models | Releves WMI | Barres, Moyenne | Modeles des postes analyses |
-| Versions de Windows | fleet.releases | Releves WMI | Anneau, Moyenne | Versions commerciales relevees |
-| Memoire installee | fleet.ram | Releves WMI | Histogramme, Moyenne | Postes par quantite de memoire |
-| Espace libre sur C: | fleet.diskfree | Releves WMI | Histogramme, Moyenne | Postes par espace libre du disque systeme |
-| Disque C: presque plein | fleet.lowdisk | Releves WMI | Chiffre cle, Compacte | Postes avec moins de 10 % libre |
-| Non redemarres depuis 30 j | fleet.uptime | Releves WMI | Chiffre cle, Compacte | Postes a redemarrer |
+Le catalogue contient 29 widgets de parc. Les requêtes personnelles et les 78 sondes peuvent s’y ajouter.
 
-Les sections « Vue d ensemble », « Inventaire du perimetre » et « Repartition » viennent de la base autonome ; la section « Releves WMI » se remplit avec « Analyser la liste » dans « Rechercher ».
+| Groupe | Widget | Information |
+|---|---|---|
+| Santé | État du parc | Part des postes sans point critique ni à surveiller |
+| Santé | Points dʼattention | Problèmes détectés sur le périmètre : un clic déplie les postes concernés |
+| Inventaire du périmètre | Postes | Tous les comptes ordinateur recensés du périmètre, actifs et désactivés. |
+| Inventaire du périmètre | Sans connexion depuis 90 j | Attribut lastLogonTimestamp, à 14 jours près |
+| Inventaire du périmètre | Comptes désactivés encore dans lʼOU | Comptes ordinateur désactivés à déplacer ou supprimer |
+| Inventaire du périmètre | Créés ces 30 jours | Attribut whenCreated |
+| Inventaire du périmètre | Mot de passe machine de plus de 60 j | Attribut pwdLastSet |
+| Inventaire du périmètre | Serveurs / postes | Attribut operatingSystem : serveurs et postes de travail |
+| Sécurité | Sans LAPS | Expiration LAPS lue avec la base autonome, jamais le mot de passe |
+| Sécurité | Sans clé BitLocker | Présence des clés de récupération, lue sur demande pour lʼOU affichée |
+| Versions de Windows | Versions de Windows | Attribut operatingSystemVersion de tout le périmètre |
+| Versions de Windows | Fin de service | Versions plus maintenues ou bientôt (90 jours avant la date) |
+| Versions de Windows | Postes sous Windows 10 | Hors LTSC, LTSB et IoT |
+| Répartition | Systèmes dʼexploitation | Systèmes déclarés dans lʼannuaire |
+| Répartition | Dernière connexion au domaine | Ancienneté de la dernière connexion |
+| Répartition | Postes par unité dʼorganisation | Postes par OU ou sous-OU |
+| Relevés des postes | Présence réseau | Derniers relevés de moins de 30 jours |
+| Relevés des postes | Utilisateurs détectés | Utilisateurs distincts vus en session sur les postes |
+| Relevés des postes | Dernière analyse | Date du dernier relevé des postes |
+| Relevés des postes | Modèles | Modèles des postes analysés |
+| Relevés des postes | Versions relevées | Versions commerciales relevées par WMI |
+| Relevés des postes | Mémoire installée | Postes par quantité de mémoire |
+| Relevés des postes | Espace libre sur C: | Postes par espace libre du disque système |
+| Relevés des postes | Disque C: presque plein | Postes avec moins de 10 % libre |
+| Relevés des postes | Non redémarrés depuis 30 j | Postes à redémarrer |
+| Évolution | Postes à traiter sur 90 jours | Instantanés quotidiens locaux de lʼOU affichée |
+| Évolution | Windows 10 sur 90 jours | Postes sous Windows 10 hors LTSC, LTSB et IoT, instantanés quotidiens |
+| Évolution | Inactifs sur 90 jours | Postes sans connexion depuis 90 j, instantanés quotidiens |
+| Évolution | Disques C: presque pleins sur 90 jours | Postes analysés avec moins de 10 % libre, instantanés quotidiens |
 
-## Catalogue du tableau des logiciels (11 widgets)
+## Catalogue du tableau des logiciels
 
-| Titre | Clé | Section | Par défaut | Description |
-|---|---|---|---|---|
-| Logiciels | software.count | Synthese | Chiffre cle, Compacte | Nombre de logiciels et d editeurs |
-| Taille declaree | software.size | Synthese | Chiffre cle, Compacte | Somme des tailles connues |
-| Installés ces 30 derniers jours | software.recent | Synthese | Chiffre cle, Compacte | Date dʼinstallation déclarée par le logiciel, lue dans la liste |
-| Installes en plusieurs versions | software.multiversion | Synthese | Chiffre cle, Compacte | Logiciels presents en plusieurs versions |
-| Sans editeur declare | software.nopublisher | Synthese | Chiffre cle, Compacte | Logiciels sans editeur renseigne |
-| Composants dʼexécution | software.runtime | Synthese | Chiffre cle, Compacte | Socles Visual C++, .NET et WebView2 déclarés dans la liste |
-| Navigateurs et versions | software.browsers | Synthese | Chiffre cle, Compacte | Navigateurs détectés dans la liste, avec leur version |
-| Editeurs | software.publishers | Repartition | Anneau, Moyenne | Principaux editeurs |
-| Architecture | software.architecture | Repartition | Anneau, Moyenne | Logiciels 32 et 64 bits |
-| Portee d installation | software.scope | Repartition | Anneau, Moyenne | Installation machine ou utilisateur |
-| Plus gros logiciels | software.largest | Repartition | Barres, Large | Taille declaree, en Mo |
+| Widget | Groupe | Affichage initial | Information |
+|---|---|---|---|
+| Logiciels | Synthese | Oui | Nombre de logiciels et d editeurs |
+| Taille declaree | Synthese | Oui | Somme des tailles connues |
+| Installés ces 30 derniers jours | Synthese | Oui | Date dʼinstallation déclarée par le logiciel, lue dans la liste |
+| Installes en plusieurs versions | Synthese | Oui | Logiciels presents en plusieurs versions |
+| Sans editeur declare | Synthese | Oui | Logiciels sans editeur renseigne |
+| Composants dʼexécution | Synthese | Oui | Socles Visual C++, .NET et WebView2 déclarés dans la liste |
+| Navigateurs et versions | Synthese | Oui | Navigateurs détectés dans la liste, avec leur version |
+| Editeurs | Repartition | Oui | Principaux editeurs |
+| Architecture | Repartition | Oui | Logiciels 32 et 64 bits |
+| Portee d installation | Repartition | Oui | Installation machine ou utilisateur |
+| Plus gros logiciels | Repartition | Oui | Taille declaree, en Mo |
 
-# 10 Requêtes WMI prêtes à l'emploi
+# 10 Requêtes WMI du catalogue
 
-Le catalogue propose 52 requêtes WMI en lecture seule, en 8 catégories. On les ajoute comme widgets aux tableaux du poste et du parc depuis l'éditeur. Elles partent après confirmation, jamais sur le domaine entier : « Actualiser les requetes » sur le tableau du poste interroge le poste sélectionné ; « Analyser la liste » dans « Rechercher » interroge les postes affichés avec les requêtes des tableaux du poste et du parc.
+Le catalogue propose 78 sondes WMI en lecture seule, en 8 catégories. On les ajoute comme widgets aux tableaux du poste et du parc depuis l'éditeur. Elles partent après confirmation sur le périmètre annoncé : « Actualiser les requetes » sur le tableau du poste interroge le poste sélectionné ; « Analyser la liste » dans « Rechercher » interroge les postes affichés avec les requêtes des tableaux du poste et du parc.
 
-## Pourquoi c'est sûr
+## Protection des requêtes
 
 - Le worker ne reçoit jamais un texte de requête libre : seulement l'identifiant, l'espace de noms, la classe, les propriétés, le filtre et le mode, tirés du catalogue.
 - Avant l'appel, la classe et l'espace de noms sont contrôlés ; un nom non conforme donne « Requete refusee. » et une propriété non conforme est ignorée.
@@ -575,124 +612,150 @@ Le catalogue propose 52 requêtes WMI en lecture seule, en 8 catégories. On les
 
 ## Exécution
 
-1. **Lancer.** Poste : cliquez « Actualiser les requetes » sur son tableau ; il faut un poste sélectionné. Parc : dans « Rechercher », affichez les postes puis cliquez « Analyser la liste ». Les requêtes des widgets présents sont regroupées, sans doublon.
+1. **Lancer.** Poste : cliquez « Actualiser les requetes » sur son tableau ; il faut un poste sélectionné. Parc : préparez les postes dans l’Atelier et lancez la collecte, ou utilisez Analyser la liste dans Rechercher. Les requêtes des widgets présents sont regroupées, sans doublon.
 2. **Confirmer.** Poste : confirmation « Sonder pour les widgets », bouton « Verifier les sessions ». Parc : confirmation « Analyser les postes affiches », bouton « Analyser ». Les deux donnent le nombre de postes et de requêtes ; « Annuler » ne lance rien.
-3. **Suivre.** Quatre postes au plus à la fois. Délai par poste : 20 s plus 8 s par requête, plafonné à 150 s.
+3. **Suivre.** De 1 à 8 postes en parallèle selon le réglage. Délai par poste : 20 s plus 8 s par requête, plafonné à 150 s.
 4. **Lire.** En fin de relevé, les widgets se remplissent et la vue du parc se recalcule.
 
 | Vous voyez | Que faire |
 |---|---|
 | « Aucune requete WMI sur ce tableau de bord : ajoutez un widget de requete. » | Ajouter un widget de requête avec « Ajouter un widget ». |
-| « Requetes du parc : dans Rechercher, affichez les postes puis Analyser la liste. » | Le parc n'a pas de bouton de requête : utiliser « Analyser la liste ». |
 | « Aucun poste selectionne. » | Choisir un poste dans « Rechercher ». |
 
 ## Lecture des résultats
 
-- Résultats par poste : 20 instances au plus, textes coupés à 200 caractères, dates en UTC. Le dernier résultat de chaque requête est gardé dans l'observation du poste.
+- Résultats par poste : valeurs bornées, textes limités et dates en UTC. Une lecture tronquée est signalée et ne devient pas une mesure complète. Le dernier résultat de chaque requête est gardé dans l'observation du poste.
 - Tableau du poste : toujours une valeur (chiffre clé ou liste), avec la catégorie et le nom de la requête.
 - Tableau du parc : une requête de comptage ou à transformation numérique devient une mesure (moyenne, minimum, maximum, histogramme par tranches) ; les autres deviennent une répartition (valeur la plus fréquente, nombre de postes).
-- Sans résultat, le widget affiche « En attente » et, sur le poste, « Actualiser les requetes pour remplir ce widget » ; sur le parc, « Dans Rechercher, Analyser la liste remplit ce widget ».
+- Sans résultat, le widget affiche « En attente » et, sur le poste, « Actualiser les requetes pour remplir ce widget » ; sur le parc, collectez les mesures demandées depuis l’Atelier.
 
 Modes : First lit la première instance, Count compte les instances, All lit toutes les instances. Transformations : Text, GB (octets en Go), GBfromKB (Ko en Go), MB, Mbps, Number, DaysSince (jours écoulés), Year, PercentFree (pourcentage libre), Release (build en nom de version) et Map (table de correspondance). Dans les filtres, {SINCE_24H} et {SINCE_7D} sont remplacés par la date UTC d'il y a 24 heures ou 7 jours.
 
-> [!NOTE] La requête « Contrôle de compte (EnableLUA) » figure dans le code du catalogue mais en est retirée à la lecture : elle n'est pas proposée. Le catalogue compte donc 52 requêtes, pas 53.
+> [!NOTE] La requête « Contrôle de compte (EnableLUA) » figure dans le code du catalogue mais en est retirée à la lecture : elle n'est pas proposée. Le catalogue exploitable compte 78 sondes.
 
-## Catalogue : Materiel (13)
+## Sondes matériel
 
-Toutes ces classes sont dans root\cimv2.
+| Information | Classe | Propriétés |
+|---|---|---|
+| Fabricant | Win32_ComputerSystem | Manufacturer |
+| Modele | Win32_ComputerSystem | Model |
+| Memoire installee | Win32_ComputerSystem | TotalPhysicalMemory |
+| Processeur | Win32_Processor | Name |
+| Charge CPU du premier processeur (%) | Win32_Processor | LoadPercentage |
+| Frequence maximale CPU (MHz) | Win32_Processor | MaxClockSpeed |
+| Virtualisation activee dans le firmware | Win32_Processor | VirtualizationFirmwareEnabled |
+| Traduction SLAT du processeur | Win32_Processor | SecondLevelAddressTranslationExtensions |
+| Charge restante de la premiere batterie (%) | Win32_Battery | EstimatedChargeRemaining |
+| Coeurs du processeur | Win32_Processor | NumberOfCores |
+| Processeurs logiques | Win32_ComputerSystem | NumberOfLogicalProcessors |
+| Version du BIOS | Win32_BIOS | SMBIOSBIOSVersion |
+| Annee du BIOS | Win32_BIOS | ReleaseDate |
+| Carte graphique | Win32_VideoController | Name |
+| Nombre d ecrans | WmiMonitorID | InstanceName |
+| Batterie presente | Win32_Battery | Name |
+| Type de systeme | Win32_ComputerSystem | PCSystemTypeEx |
+| Numero de serie | Win32_BIOS | SerialNumber |
 
-| Nom | Classe et propriété | Filtre | Mode | Transformation |
-|---|---|---|---|---|
-| Fabricant | Win32_ComputerSystem.Manufacturer | — | First | Text |
-| Modele | Win32_ComputerSystem.Model | — | First | Text |
-| Memoire installee | Win32_ComputerSystem.TotalPhysicalMemory | — | First | GB |
-| Processeur | Win32_Processor.Name | — | First | Text |
-| Coeurs du processeur | Win32_Processor.NumberOfCores | — | First | Number |
-| Processeurs logiques | Win32_ComputerSystem.NumberOfLogicalProcessors | — | First | Number |
-| Version du BIOS | Win32_BIOS.SMBIOSBIOSVersion | — | First | Text |
-| Annee du BIOS | Win32_BIOS.ReleaseDate | — | First | Year |
-| Carte graphique | Win32_VideoController.Name | — | First | Text |
-| Nombre d ecrans | Win32_DesktopMonitor.Name | — | Count | Number |
-| Batterie presente | Win32_Battery.Name | — | Count | Map:0=Non;1=Oui;2=Oui |
-| Type de systeme | Win32_ComputerSystem.PCSystemType | — | First | Map:1=Bureau;2=Portable;3=Station;4=Serveur;5=Serveur;8=Tablette |
-| Numero de serie | Win32_BIOS.SerialNumber | — | First | Text |
+## Sondes système
 
-## Catalogue : Systeme (9)
+| Information | Classe | Propriétés |
+|---|---|---|
+| Edition de Windows | Win32_OperatingSystem | Caption |
+| Version de Windows | Win32_OperatingSystem | BuildNumber, ProductType |
+| Architecture | Win32_OperatingSystem | OSArchitecture |
+| Jours depuis le dernier demarrage | Win32_OperatingSystem | LastBootUpTime |
+| Annee d installation de Windows | Win32_OperatingSystem | InstallDate |
+| Langue du systeme | Win32_OperatingSystem | OSLanguage |
+| Fuseau horaire | Win32_TimeZone | Caption |
+| Fichier d echange (Mo) | Win32_PageFileUsage | AllocatedBaseSize |
+| Memoire libre (Go) | Win32_OperatingSystem | FreePhysicalMemory |
+| Memoire virtuelle libre (Go) | Win32_OperatingSystem | FreeVirtualMemory |
+| Memoire visible par Windows (Go) | Win32_OperatingSystem | TotalVisibleMemorySize |
+| Utilisateurs declares connectes par Windows | Win32_OperatingSystem | NumberOfUsers |
+| Role Windows | Win32_OperatingSystem | ProductType |
 
-| Nom | Classe et propriété | Filtre | Mode | Transformation |
-|---|---|---|---|---|
-| Edition de Windows | Win32_OperatingSystem.Caption | — | First | Text |
-| Version de Windows | Win32_OperatingSystem.BuildNumber, ProductType | — | First | Release |
-| Architecture | Win32_OperatingSystem.OSArchitecture | — | First | Text |
-| Jours depuis le dernier demarrage | Win32_OperatingSystem.LastBootUpTime | — | First | DaysSince |
-| Annee d installation de Windows | Win32_OperatingSystem.InstallDate | — | First | Year |
-| Langue du systeme | Win32_OperatingSystem.OSLanguage | — | First | Map:1036=Francais;1033=Anglais (US);2057=Anglais (UK);1031=Allemand;1034=Espagnol;1040=Italien |
-| Fuseau horaire | Win32_TimeZone.Caption | — | First | Text |
-| Fichier d echange (Mo) | Win32_PageFileUsage.AllocatedBaseSize | — | First | Number |
-| Memoire libre (Go) | Win32_OperatingSystem.FreePhysicalMemory | — | First | GBfromKB |
+## Sondes Disques
 
-## Catalogue : Disques (6)
+| Information | Classe | Propriétés |
+|---|---|---|
+| Espace libre sur C: (%) | Win32_LogicalDisk | FreeSpace, Size |
+| Taille de C: (Go) | Win32_LogicalDisk | Size |
+| Nombre de volumes locaux | Win32_LogicalDisk | DeviceID |
+| Type de disque physique | MSFT_PhysicalDisk | MediaType |
+| Sante du disque physique | MSFT_PhysicalDisk | HealthStatus |
+| Supports amovibles connectes | Win32_LogicalDisk | DeviceID |
 
-| Nom | Classe et propriété | Filtre | Mode | Transformation |
-|---|---|---|---|---|
-| Espace libre sur C: (%) | Win32_LogicalDisk.FreeSpace, Size | DeviceID='C:' | First | PercentFree |
-| Taille de C: (Go) | Win32_LogicalDisk.Size | DeviceID='C:' | First | GB |
-| Nombre de volumes locaux | Win32_LogicalDisk.DeviceID | DriveType=3 | Count | Number |
-| Type de disque physique | MSFT_PhysicalDisk.MediaType (root\Microsoft\Windows\Storage) | — | First | Map:3=Disque dur;4=SSD;5=SCM;0=Non precise |
-| Sante du disque physique | MSFT_PhysicalDisk.HealthStatus (root\Microsoft\Windows\Storage) | — | First | Map:0=Sain;1=Avertissement;2=Defaillant;5=Inconnu |
-| Supports amovibles connectes | Win32_LogicalDisk.DeviceID | DriveType=2 | Count | Number |
+## Sondes sécurité
 
-## Catalogue : Securite (4)
+| Information | Classe | Propriétés |
+|---|---|---|
+| Chiffrement BitLocker de C: | Win32_EncryptableVolume | ProtectionStatus |
+| Antivirus declare | AntiVirusProduct | displayName |
+| Comptes locaux actives | Win32_UserAccount | Name |
+| Partages hors administratifs | Win32_Share | Name |
+| Antivirus Defender actif | MSFT_MpComputerStatus | AntivirusEnabled |
+| Protection temps reel Defender | MSFT_MpComputerStatus | RealTimeProtectionEnabled |
+| Surveillance comportementale Defender | MSFT_MpComputerStatus | BehaviorMonitorEnabled |
+| Age signatures Defender (j, 65535 jamais) | MSFT_MpComputerStatus | AntivirusSignatureAge |
+| Age analyse rapide Defender (j, 65535 jamais) | MSFT_MpComputerStatus | QuickScanAge |
+| Age analyse complete Defender (j, 65535 jamais) | MSFT_MpComputerStatus | FullScanAge |
+| Version du produit Defender | MSFT_MpComputerStatus | AMProductVersion |
+| Specification TPM | Win32_Tpm | SpecVersion |
+| TPM active au releve | Win32_Tpm | IsEnabled_InitialValue |
+| TPM operationnel au releve | Win32_Tpm | IsActivated_InitialValue |
 
-| Nom | Classe et propriété | Filtre | Mode | Transformation |
-|---|---|---|---|---|
-| Chiffrement BitLocker de C: | Win32_EncryptableVolume.ProtectionStatus (root\cimv2\Security\MicrosoftVolumeEncryption) | DriveLetter='C:' | First | Map:0=Non protege;1=Protege;2=Inconnu |
-| Antivirus declare | AntiVirusProduct.displayName (root\SecurityCenter2) | — | All | Text |
-| Comptes locaux actives | Win32_UserAccount.Name | LocalAccount=TRUE AND Disabled=FALSE | Count | Number |
-| Partages hors administratifs | Win32_Share.Name | Type=0 | Count | Number |
+## Sondes réseau
 
-## Catalogue : Reseau (6)
+| Information | Classe | Propriétés |
+|---|---|---|
+| Carte reseau connectee | Win32_NetworkAdapter | Name |
+| Vitesse du lien (Mbit/s) | Win32_NetworkAdapter | Speed |
+| Adresse DHCP | Win32_NetworkAdapterConfiguration | DHCPEnabled |
+| Premier serveur DNS | Win32_NetworkAdapterConfiguration | DNSServerSearchOrder |
+| Passerelle | Win32_NetworkAdapterConfiguration | DefaultIPGateway |
+| Wi-Fi connecte | MSFT_NetAdapter | Name |
 
-| Nom | Classe et propriété | Filtre | Mode | Transformation |
-|---|---|---|---|---|
-| Carte reseau connectee | Win32_NetworkAdapter.Name | NetConnectionStatus=2 | All | Text |
-| Vitesse du lien (Mbit/s) | Win32_NetworkAdapter.Speed | NetConnectionStatus=2 | First | Mbps |
-| Adresse DHCP | Win32_NetworkAdapterConfiguration.DHCPEnabled | IPEnabled=TRUE | First | Map:True=DHCP;False=Fixe |
-| Premier serveur DNS | Win32_NetworkAdapterConfiguration.DNSServerSearchOrder | IPEnabled=TRUE | First | Text |
-| Passerelle | Win32_NetworkAdapterConfiguration.DefaultIPGateway | IPEnabled=TRUE | First | Text |
-| Wi-Fi connecte | Win32_NetworkAdapter.Name | NetConnectionStatus=2 AND Name LIKE '%Wi%Fi%' | Count | Map:0=Non;1=Oui;2=Oui |
+## Sondes Logiciels et services
 
-## Catalogue : Logiciels et services (9)
+| Information | Classe | Propriétés |
+|---|---|---|
+| Nombre d imprimantes | Win32_Printer | Name |
+| Imprimante par defaut | Win32_Printer | Name |
+| Programmes au demarrage | Win32_StartupCommand | Name |
+| Services automatiques arretes | Win32_Service | Name |
+| Services en cours d execution | Win32_Service | Name |
+| Service Spouleur d impression | Win32_Service | State |
+| Service Windows Update | Win32_Service | State |
+| Service WinRM | Win32_Service | State |
+| Service BITS | Win32_Service | State |
+| Service Heure Windows | Win32_Service | State |
+| Service Bureau a distance | Win32_Service | State |
+| Service Pare-feu Windows | Win32_Service | State |
+| Service Antivirus Defender | Win32_Service | State |
+| Service Client DNS | Win32_Service | State |
+| Nombre de correctifs installes | Win32_QuickFixEngineering | HotFixID |
+| Processus en cours | Win32_Process | Name |
 
-| Nom | Classe et propriété | Filtre | Mode | Transformation |
-|---|---|---|---|---|
-| Nombre d imprimantes | Win32_Printer.Name | — | Count | Number |
-| Imprimante par defaut | Win32_Printer.Name | Default=TRUE | First | Text |
-| Programmes au demarrage | Win32_StartupCommand.Name | — | Count | Number |
-| Services automatiques arretes | Win32_Service.Name | StartMode='Auto' AND State='Stopped' | Count | Number |
-| Services en cours d execution | Win32_Service.Name | State='Running' | Count | Number |
-| Service Spouleur d impression | Win32_Service.State | Name='Spooler' | First | Text |
-| Service Windows Update | Win32_Service.State | Name='wuauserv' | First | Text |
-| Nombre de correctifs installes | Win32_QuickFixEngineering.HotFixID | — | Count | Number |
-| Processus en cours | Win32_Process.Name | — | Count | Number |
+## Sondes Utilisateurs
 
-## Catalogue : Utilisateurs (3) et Evenements (2)
+| Information | Classe | Propriétés |
+|---|---|---|
+| Utilisateur de la console | Win32_ComputerSystem | UserName |
+| Profils utilisateurs sur le poste | Win32_UserProfile | LocalPath |
+| Sessions ouvertes | Win32_LogonSession | LogonId |
 
-| Nom | Classe et propriété | Filtre | Mode | Transformation |
-|---|---|---|---|---|
-| Utilisateur de la console | Win32_ComputerSystem.UserName | — | First | Text |
-| Profils utilisateurs sur le poste | Win32_UserProfile.LocalPath | Special=FALSE | Count | Number |
-| Sessions ouvertes | Win32_LogonSession.LogonId | LogonType=2 OR LogonType=10 | Count | Number |
-| Erreurs systeme (24 h) | Win32_NTLogEvent.EventCode | Logfile='System' AND EventType=1 AND TimeGenerated>='{SINCE_24H}' | Count | Number |
-| Arrets inattendus (7 j) | Win32_NTLogEvent.EventCode | Logfile='System' AND EventCode=6008 AND TimeGenerated>='{SINCE_7D}' | Count | Number |
+## Sondes événements
 
-> [!ASTUCE] Essayez une nouvelle requête sur un poste, puis sur une petite OU, avant une grande OU.
+| Information | Classe | Propriétés |
+|---|---|---|
+| Erreurs systeme (24 h) | Win32_NTLogEvent | EventCode |
+| Arrets inattendus (7 j) | Win32_NTLogEvent | EventCode |
 
 # 11 Tableau des logiciels
 
-L'onglet « Logiciels » de la page « Poste » lit la liste des logiciels installés sur le poste, à la demande. Le volet « Synthese en graphiques » résume la liste chargée en 8 widgets. Ce tableau ne lève aucun point d'attention et n'accepte pas de requêtes WMI.
+L'onglet « Logiciels » de la page « Poste » lit la liste des logiciels installés sur le poste, à la demande. Le sélecteur « Affichage » bascule entre « Liste » et « Synthèse ». La synthèse résume la liste chargée avec son catalogue de 11 widgets. Ce tableau ne lève aucun point d'attention et n'accepte pas de requêtes WMI.
 
-![Onglet Logiciels : options de lecture, volet Synthese en graphiques avec éditeurs, architecture, portée d'installation et plus gros logiciels, puis la liste](fig:logiciels)
+![Onglet Logiciels, affichage Synthèse : indicateurs, éditeurs, architecture et portée d’installation ; données fictives](fig:logiciels)
 
 ## Lecture
 
@@ -715,7 +778,7 @@ Les associations entre utilisateurs et postes sont conservées dans la base auto
 
 La page « Utilisateurs et postes » a deux zones dans l'onglet « Associations » : à gauche, les associations de l'utilisateur ou du poste choisi dans « Rechercher » ; à droite, le panneau « Ajouter une association » avec « Détecter » et « Rechercher ». L'en-tête garde un seul statut ; le bouton « ? » affiche ou masque les précautions de la page et l'état de la détection du parc.
 
-## Sources d'une association
+## Sources des associations
 
 | Source | Comment elle arrive |
 |---|---|
@@ -733,7 +796,7 @@ Le panneau « Ajouter une association » part d'un utilisateur ou d'un poste cho
 - « Maximum de postes (1 à 50) » : 20 par défaut.
 - « Lire aussi les indices Kerberos du contrôleur (7 jours) ».
 
-Rien ne part avant la confirmation « Périmètre à confirmer avant toute lecture des postes », bouton « Lancer la détection ». Depuis la version 1.0 RC1.14, cet aperçu du périmètre est toujours montré : les anciennes clés Features.RelationsSymmetry et Features.DetectionPreview n'existent plus.
+Rien ne part avant la confirmation « Périmètre à confirmer avant toute lecture des postes », bouton « Lancer la détection ». Cet aperçu du périmètre est toujours présenté avant la lecture.
 
 ## Journal du contrôleur
 
@@ -771,7 +834,7 @@ Une suppression est confirmée dans la page, journalisée et restaurable. Le bou
 
 **Dates enregistrées**
 
-Depuis la version 1.0 RC1.14, chaque date d'association est enregistrée en UTC (« 2026-10-08T07:15:00.0000000Z ») et affichée en heure locale. Une ancienne date « 2026-10-08 09:15:00 » est lue comme une heure locale ; elle prend la forme UTC quand l'association est actualisée par une nouvelle observation ou restaurée. Les autres lignes gardent leur texte : le stockage ne réécrit pas toutes les lignes d'un coup (64 modifications au plus par enregistrement).
+Chaque date d’association est enregistrée en UTC (« 2026-10-08T07:15:00.0000000Z ») et affichée en heure locale. Une ancienne date « 2026-10-08 09:15:00 » est lue comme une heure locale ; elle prend la forme UTC quand l'association est actualisée par une nouvelle observation ou restaurée. Les autres lignes gardent leur texte : le stockage ne réécrit pas toutes les lignes d'un coup (64 modifications au plus par enregistrement).
 
 | Vous voyez | Sens |
 |---|---|
@@ -838,7 +901,7 @@ La page « Comptes » applique la règle affichée sous « Regle d execution�
 
 Le choix « Essentiel | Expert » du pied du menu propose « Essentiel » (livré, valeur Tech) et « Expert » (valeur Admin). Ce choix ne donne aucun droit supplémentaire. Le profil Essentiel masque « Attributs », « Droits effectifs », « WMI », « Verification », « Journal » et « Commandes ». Aucun raccourci, menu ou palette ne change le profil : en Essentiel, Ctrl+L déplie le journal de session, et une vue Expert demandée par un menu (« Explorateur WMI ») ou par la palette s'affiche seule, pour cette consultation. Remettez le profil Essentiel aux techniciens. Pour masquer le profil Expert, réglez UI.AllowExpertProfile à false dans wad\Domenia.config.json : l'entrée « Expert » disparaît et ces vues sont refusées avec leur raison.
 
-# 14 Lecture seule, démonstration et protection des écritures
+# 14 Lecture seule démonstration et protection des écritures
 
 Domenia démarre toujours en lecture seule, y compris après un changement de compte. Passer en écriture demande une confirmation dans la page, reste signalé en rouge et revient seul en lecture seule après 15 minutes sans écriture. Même en écriture, des garde-fous de configuration protègent l'annuaire et chaque action sensible demande une confirmation.
 
@@ -860,7 +923,7 @@ Restent disponibles : lectures, recherches, inventaires, détection, requêtes d
 
 > [!ATTENTION] Décocher ne donne aucun droit supplémentaire. Les confirmations de chaque action restent nécessaires.
 
-## Garde-fous des écritures
+## Protection des écritures
 
 | Clé | Défaut | Effet |
 |---|---|---|
@@ -874,7 +937,7 @@ Restent disponibles : lectures, recherches, inventaires, détection, requêtes d
 | Security.SingleWriteChannel | vrai | Une seule écriture à la fois. |
 | Security.RequireTypedHighRiskConfirmation | vrai | Saisie du mot RISQUE pour les options à haut risque. |
 
-## Reçus et non-rejeu
+## Reçus et non rejeu
 
 Chaque écriture laisse un reçu dans %LOCALAPPDATA%\Domenia\Receipts. Une écriture n'est jamais rejouée automatiquement. Après un résultat incertain, Domenia affiche : « Une operation precedente reste a verifier. Consultez les recus, pas une relance automatique. ». Relisez l'objet dans AD avant toute nouvelle action. Les reçus se consultent dans l'onglet « Fiabilité » (chapitre 18).
 
@@ -899,7 +962,7 @@ Le mode Debug affiche une trace technique de la connexion en direct (titre « D
 
 # 15 Architecture
 
-Domenia est une application Windows PowerShell 5.1 et WPF, lancée par un exécutable natif. Chaque démarrage vérifie l'empreinte de tous les composants, charge une liste fermée de modules et n'admet en arrière-plan que 68 opérations dont le code est épinglé. Un composant modifié, ajouté ou manquant arrête le démarrage.
+Domenia est une application Windows PowerShell 5.1 et WPF, lancée par un exécutable natif. Chaque démarrage vérifie l'empreinte de tous les composants, charge une liste fermée de modules et n'admet en arrière-plan que 71 opérations dont le code est épinglé. Un composant modifié, ajouté ou manquant arrête le démarrage.
 
 | Couche | Rôle |
 |---|---|
@@ -910,7 +973,7 @@ Domenia est une application Windows PowerShell 5.1 et WPF, lancée par un exécu
 | wad\modules | Règles pures (Model), interface (UI), code d'arrière-plan (Worker), types C#, vues XAML. |
 | Workers | Opérations exécutées hors du fil de l'interface, chacune épinglée par SHA-256. |
 
-## Lanceur Domenia.exe
+## Lanceur de Domenia
 
 Le lanceur n'accepte que trois formes : sans argument (lancement normal, console cachée), --check (contrôle sans démarrage) et --diagnostic (console visible). Il lance powershell.exe du système avec -NoLogo -NoProfile -STA, sans -ExecutionPolicy : la stratégie d'exécution de la machine s'applique. Ses refus s'affichent dans la fenêtre « DOMENIA | Demarrage ».
 
@@ -921,15 +984,15 @@ Le lanceur n'accepte que trois formes : sans argument (lancement normal, console
 | 4 | « Windows PowerShell introuvable. » ou « Windows PowerShell 5.1 x64 est requis. » | PowerShell absent. |
 | 5 | « Arguments acceptes : --check ou --diagnostic. Le lancement normal ne prend aucun argument. » | Argument inconnu. |
 | 6 | « Commande trop longue. » | Chemin d'installation trop long. |
-| 7 | « Paquet absent, mise a jour en cours ou dossier inaccessible. Ne pas supprimer les verrous. Utiliser l installateur DEV. » | Verrou wad\Support\.lifecycle.lock inaccessible. Le lanceur est conservé à l'octet (F8) : l'installateur visé est wad\Support\INSTALLER-MISE-A-JOUR.ps1, livré dans PROD et DEV. |
+| 7 | « Paquet absent, mise a jour en cours ou dossier inaccessible. Ne pas supprimer les verrous. Utiliser l installateur DEV. » | Verrou wad\Support\.lifecycle.lock inaccessible. L’installateur visé par ce message est wad\Support\INSTALLER-MISE-A-JOUR.ps1, livré dans PROD et DEV. |
 | 8 | « Une installation interrompue doit etre restauree ou terminee avant de lancer Domenia. » | Marqueur wad\Support\.update.pending présent. |
-| Code d'erreur Windows | « Windows a refuse le lancement. Conserver les politiques de securite et faire verifier le paquet. » | Windows a refusé de démarrer powershell.exe ; le code de sortie est l'erreur Windows. N'assouplissez pas les stratégies : faites vérifier le paquet. |
+| Autre | « Windows a refuse le lancement. Conserver les politiques de securite et faire verifier le paquet. » | Windows a refusé de démarrer powershell.exe ; le code de sortie est l'erreur Windows. N'assouplissez pas les stratégies : faites vérifier le paquet. |
 
 Après un arrêt sur erreur en lancement normal, une fenêtre « DOMENIA » affiche : « DOMENIA s'est arrete sur une erreur. Lancer Domenia.exe --diagnostic pour la voir. Les journaux restent sous wad\data\Logs ou le dossier utilisateur. ».
 
 ## Contrôle au démarrage
 
-Domenia-Start.ps1 exige Windows PowerShell 5.1 Desktop, 64 bits, en STA. Il lit wad\package-manifest.json (83 fichiers runtime avec l'installateur, plafond RuntimeFileLimit du contrat de release, 250) et recalcule l'empreinte SHA-256 de chaque fichier à chaque démarrage. Les fichiers conservés (configuration et préférences du dossier wad) ne sont pas comparés.
+Domenia-Start.ps1 exige Windows PowerShell 5.1 Desktop, 64 bits, en STA. Il lit wad\package-manifest.json (fichiers runtime de la livraison, avec un plafond RuntimeFileLimit de 250) et recalcule l'empreinte SHA-256 de chaque fichier à chaque démarrage. Les fichiers conservés (configuration et préférences du dossier wad) ne sont pas comparés.
 
 | Message | Cause |
 |---|---|
@@ -944,7 +1007,7 @@ Avec --check, Domenia analyse aussi chaque script avec le vrai parseur, importe 
 
 ## Chargeur fermé et modules
 
-Domenia-Modules.ps1 déclare 58 modules et la liste exacte de leurs fonctions. Un script ajouté dans wad\modules n'est jamais chargé. Au démarrage, le chargeur vérifie l'existence et la syntaxe de chaque fichier, compile les types C#, contrôle le plan (phases, dépendances, cycles, doublons), importe les modules dans l'ordre, puis vérifie que chaque fonction existe et vient du bon fichier.
+Domenia-Modules.ps1 déclare les modules autorisés et la liste exacte de leurs fonctions. Un script ajouté dans wad\modules n'est jamais chargé. Au démarrage, le chargeur vérifie l'existence et la syntaxe de chaque fichier, charge les bibliothèques C# épinglées et les types déclarés, contrôle le plan (phases, dépendances, cycles, doublons), importe les modules dans l'ordre, puis vérifie que chaque fonction existe et vient du bon fichier.
 
 | Code d'erreur | Sens |
 |---|---|
@@ -956,9 +1019,11 @@ Domenia-Modules.ps1 déclare 58 modules et la liste exacte de leurs fonctions. U
 | DOMENIA_MODULE_EXPORT | Fonction déclarée introuvable. |
 | DOMENIA_MODULE_ORIGIN | Fonction venue d'un autre fichier que prévu. |
 
+Domenia.Native porte les projections et les agrégations adaptées au parc. M4D.Admin.Common.Query fournit le moteur commun de filtres typés. Ces deux bibliothèques sont chargées depuis le paquet ; leurs empreintes sont épinglées dans le registre des modules.
+
 Organisation : un domaine fonctionnel donne un fichier Model (règles pures, sans WPF, réseau ni disque), un fichier UI et un fichier Worker. Les parcours métier restent dans la fenêtre principale : composants dans la page, jamais de nouvelle fenêtre.
 
-## Workers épinglés et registre des 68 opérations
+## Workers épinglés et registre des 71 opérations
 
 Tout travail d'arrière-plan passe par un seul point d'entrée, Start-UiTask. Il n'admet que les opérations du registre fermé, chacune avec l'empreinte SHA-256 de son code exact.
 
@@ -966,7 +1031,7 @@ Tout travail d'arrière-plan passe par un seul point d'entrée, Start-UiTask. Il
 2. **À l'initialisation du moteur.** L'empreinte de la table entière est recalculée. Un écart donne « Registre worker non conforme » et demande de réinstaller un paquet cohérent.
 3. **Avant chaque tâche.** Le code de l'opération est recontrôlé : « Operation worker non autorisee : » ou « Integrite worker refusee pour » suivi de l'opération.
 
-Les 68 opérations : BatchNetworkDiag, CmdletHelp, CmdletInventory, ComputerAdminShare, ComputerDiagnostics, ComputerGpUpdate, ComputerInventory, ComputerLastUser, ComputerPing, ComputerRestart, DemoDirectory, DocumentStore, DomainOverview, EmbeddedDirectoryLookup, EmbeddedPathBrowse, EngineSelfTest, GlobalSearch, IndexBuild, IsolatedRead, LegacyMigration, LiveCache, LiveConsole, LiveDirectoryCheck, LiveSelectedPing, LocalIndexRead, LocalStore, LogonHarvest, OpenAdObject, OpenLinkedObject, ParkSharedSync, ParkSweep, PermissionAnalysis, PresenceScan, PruneLinks, ReadBitLocker, ReadBitLockerKey, ReadBitLockerList, ReadLaps, ReceiptStore, RemoteCredentialCheck, RimotteRun, ScopeReconcile, SelectedPresence, SelfCheck, SessionsList, SoftwareInventory, StartupWarmCache, StorageBackup, StoragePurge, StorageUsage, TreeChildren, UserComputerProbe, WmiClasses, WmiNamespaces, WmiQuery, WriteAccountDisabled, WriteAccountOptions, WriteAttributes, WriteCreateOu, WriteDeleteObject, WriteExpiration, WriteExpirePassword, WriteGroupMember, WriteMoveObject, WriteObjectGroup, WriteRenameComputer, WriteResetPassword, WriteUnlock.
+Les opérations admises sont déclarées dans tools\operation-contracts.json. Le registre couvre 71 opérations et se reconstruit avec les outils de développement.
 
 Limites du moteur : Async.MaxThreads (6 threads), Async.MaxOutstandingWorkers (12 tâches en cours), file d'attente Async.MaxQueued (32, dont 2 places réservées aux actions de premier plan), attente maximale de 120 s. Les écritures passent par un canal dédié. Si Async.Enabled est faux, aucune tâche ne part : « Moteur multithread desactive dans la configuration. ».
 
@@ -979,19 +1044,19 @@ Domenia s'installe dans un dossier local, par extraction du ZIP ou par l'install
 ## Prérequis
 
 - Windows PowerShell 5.1 Desktop, processus 64 bits, thread STA, et WPF.
-- winsqlite3.dll fourni par Windows, pour la base locale.
+- .NET Framework 4.7.2 ou version compatible plus récente, et winsqlite3.dll fourni par Windows pour la base locale.
 - Module Active Directory des outils RSAT, ou les deux DLL Microsoft livrées dans wad ; à défaut, Domenia lit l'annuaire en LDAP.
 - Un dossier local, sans jonction ni lien symbolique sur lui ou ses parents.
 - Les ports du chapitre 5 ouverts entre le poste d'administration, les contrôleurs et les postes.
 
-> [!NOTE] Non vérifié. Les versions de Windows prises en charge ne sont pas écrites dans le code ; les campagnes de test ont tourné sous Windows 11. L'effet de la stratégie d'exécution PowerShell sur le lanceur et sur l'installateur n'a pas été qualifié.
+La compatibilité doit être vérifiée sur les versions de Windows, les stratégies PowerShell et les outils RSAT réellement utilisés dans le parc. Un contrôle de syntaxe sur un autre système ne remplace pas cette validation.
 
 ## Paquets PROD et DEV
 
 | Paquet | Contenu |
 |---|---|
-| Domenia_1.0_RC1.13.0_PROD.zip | Domenia.exe et le dossier wad, installateur compris (wad\Support) : 83 fichiers runtime. À installer sur les postes. |
-| Domenia_1.0_RC1.13.0_DEV.zip | Le même runtime à l'octet, plus les sources, les outils, les tests et le suivi. Les outils du labo (engineering\d120\lab) et l'historique (wad\docs\history) restent dans le dépôt. Pour l'administrateur et la qualification. |
+| Pack PROD | Domenia.exe et le dossier wad, installateur compris dans wad\Support. Runtime à distribuer. |
+| Pack DEV | Le même runtime, plus les sources, les outils de reconstruction, les tests et la documentation. |
 
 Fichiers conservés par l'installateur, jamais remplacés : wad\Domenia.config.json, wad\Domenia.login-mode.cfg, wad\Domenia.theme.cfg et wad\Domenia.ui-profile.cfg. Configuration livrée : connexion Standard, vérification au clic active, thème clair, profil Essentiel.
 
@@ -1032,7 +1097,7 @@ Dans le paquet DEV, .\INSTALLER-MISE-A-JOUR.ps1 à la racine transmet les mêmes
 4. **Liste et question.** L'installateur affiche les versions active et préparée, « Fichiers à installer : » et la liste. Avec -WhatIf, il s'arrête là. Sinon il demande « Installer ces N fichiers ? (O/N) » ; -Confirm:$false supprime la question.
 5. **Copie préparée.** Il prépare une copie complète dans wad\maintenance\backups\DATE-ID\prepared et la démarre avec Domenia-Start.ps1 -CheckOnly (empreintes, syntaxe, chargement des modules, sans AD). Si elle ne démarre pas, le code actif reste inchangé. Aucune suite de tests n'est lancée sur le poste.
 6. **Remplacement.** Il prend le verrou wad\Support\.lifecycle.lock, sauvegarde tout l'ancien code, écrit le journal transaction.json et une copie RESTAURER-CODE.ps1 de l'installateur, pose le marqueur wad\Support\.update.pending, remplace les fichiers un à un en les vérifiant, contrôle l'ensemble, puis retire le marqueur.
-7. **Nettoyage.** La copie préparée est supprimée. Les cinq dernières sauvegardes complètes sont gardées ; les plus anciennes, et les copies prepared laissées par les anciens installateurs dans les sauvegardes gardées, sont retirées. Une sauvegarde d'installation inachevée n'est jamais touchée.
+7. **Nettoyage.** La copie préparée est supprimée. Les cinq dernières sauvegardes complètes sont gardées ; les plus anciennes, et les copies prepared restantes dans les sauvegardes gardées, sont retirées. Une sauvegarde d'installation inachevée n'est jamais touchée.
 
 > [!RESULTAT] « Mise à jour installée. Version avant : … ; version après : … », le dossier de sauvegarde, puis la commande de retour arrière.
 
@@ -1061,19 +1126,27 @@ La restauration relit la transaction, vérifie tout sans écrire, refuse d'écra
 
 > [!ATTENTION] Ne supprimez jamais wad\Support\.lifecycle.lock ni wad\Support\.update.pending à la main. Le marqueur bloque le lancement tant qu'une installation n'est ni terminée ni restaurée ; c'est voulu.
 
-## Identité de livraison et nouveau Build
+## Reconstruire un pack PROD
 
-L'identité tient dans un seul fichier, dev\tools\release-contract.json : produit, version 1.0, release RC1.13.0, Build 2026.10.08-DOMENIA-1.0-RC1.13.0-D120, schéma de données 11. Le pied du menu affiche « DOMENIA 1.0 · RC1.13.0 ».
+Le pack DEV contient FABRIQUER_PROD.cmd et tools\Fabriquer-Prod.ps1. Ils construisent un dossier PROD normal à partir d'un dossier wad complet. Le résultat contient Domenia.exe et le dossier wad avec ses fichiers runtime et ses manifestes. Le lanceur est repris du pack DEV ; le script ne télécharge rien et ne lance pas l’application. Le parcours FABRIQUER_PROD fonctionne sous Windows PowerShell 5.1 et ne demande ni Python ni Roslyn. Il ne compile pas : les DLL du dossier wad doivent déjà être prêtes.
 
-L'installateur refuse de mettre à jour un poste qui porte déjà le même Build. Pour chaque nouvelle livraison, changez la release et le Build dans le contrat, puis :
+1. **Conserver une source complète.** Gardez le pack DEV et modifiez votre copie du dossier wad. N'ajoutez jamais des données réelles, des mots de passe, la base ou les journaux au contenu à distribuer.
+2. **Construire.** Lancez FABRIQUER_PROD.cmd pour le parcours prévu, ou appelez le script avec les chemins explicites ci-dessous.
+3. **Choisir une sortie neuve.** Le dossier de destination doit être absent et situé hors du dossier DEV et des sources wad. Une installation utilisée n'est pas une destination de construction.
+4. **Lire le bilan.** Le script prépare les contrats et empreintes dans une copie de travail. Un échec laisse la source disponible pour correction.
+5. **Contrôler la livraison.** Vérifiez le manifeste, puis testez les parcours concernés sur Windows avant de distribuer. La réussite de la construction ne prouve ni les droits AD ni les transports du parc.
 
 ~~~
-python tools/release_contract.py --stamp
-python tools/release_contract.py --check
-python tools/build_packages.py --output C:\Livraisons\Domenia
+powershell -NoProfile -File .\tools\Fabriquer-Prod.ps1 `
+  -SourceWad 'C:\Sources\Domenia\wad' `
+  -OutputDirectory 'C:\Livraisons\Domenia-prod'
 ~~~
 
-La construction refuse un dossier de sortie dans l'arbre du code, et une configuration qui active la démonstration. Domenia.exe est conservé à l'octet : il n'est ni recompilé ni signé.
+Si vous modifiez les sources C#, reconstruisez d’abord les DLL avec tools\build_native.ps1. Cette étape utilise PowerShell 7.4 ou plus récent avec son compilateur Roslyn, ou un dossier Roslyn compatible fourni explicitement par -CompilerDirectory sous PowerShell 5.1. Les références ciblent .NET Framework 4.7.2. Reprenez ensuite le parcours FABRIQUER_PROD.
+
+L'identité de livraison est déclarée dans tools\release-contract.json. Chaque livraison à installer doit avoir son propre Build : l'installateur refuse un Build déjà actif. La version destinée aux utilisateurs reste Domenia 1.0.
+
+Pour la construction de référence du dépôt, tools\release_contract.py et tools\build_packages.py contrôlent le contrat et produisent les ZIP DEV et PROD. La configuration de démonstration est refusée dans une livraison destinée à l'exploitation.
 
 # 17 Réglages et configuration
 
@@ -1087,7 +1160,7 @@ La configuration de l'application tient dans wad\Domenia.config.json ; les choix
 | DOSSIER_DONNEES\Preferences\Domenia.settings.json | Préférences de l'utilisateur, avec une copie .bak ; écriture atomique différée de 1,5 s. |
 | wad\Domenia.login-mode.cfg | Mode de la fenêtre de connexion : Standard ou Debug. |
 | wad\Domenia.theme.cfg | Thème Light ou Dark, lu seulement sans choix valide dans les préférences. |
-| wad\Domenia.ui-profile.cfg | Profil ancien (Tech ou Admin), lu seulement sans choix valide dans les préférences. |
+| wad\Domenia.ui-profile.cfg | Profil de repli (Tech ou Admin), lu seulement sans choix valide dans les préférences. |
 | HKCU:\Software\DOMENIA | Identifiant mémorisé (RememberLogin, LastLogin). |
 
 > [!ATTENTION] Un Domenia.config.json illisible n'arrête pas Domenia : les valeurs par défaut s'appliquent sans message. Validez le JSON après chaque modification, puis contrôlez le comportement attendu.
@@ -1126,7 +1199,7 @@ Une clé absente, nulle ou vide prend la valeur par défaut du code. Une section
 | Features.InlineConfirm | true | Confirmation dans la page avant de supprimer une association. |
 | Features.IsolatedReads | false | Lectures isolées, désactivées. |
 
-## Recherche, liste et interface
+## Recherche liste et interface
 
 | Clé | Défaut | Rôle |
 |---|---|---|
@@ -1206,31 +1279,31 @@ Une clé absente, nulle ou vide prend la valeur par défaut du code. Une section
 | LocalStore.BackupTimeoutSeconds | 30 | Budget d'une sauvegarde (5 à 120 s). |
 | LocalStore.DatabaseBusyTimeoutMs, MutexTimeoutMilliseconds | 2500, 350 | Attente d'une base occupée. |
 | Index.StartupDeltaMaxAgeMinutes | 5 | Âge au-delà duquel le journal recommande une mise à jour. |
-| Index.MaxObjects, BudgetMs, ComputerFirst | 200000, 1200000, true | Taille, budget et ordre de la reconstruction de l'index. `Index.MaxObjects` est accepté jusqu'à 5 000 000 d'objets. Une passe qui l'atteint, ou le budget, s'arrête là, avertit sur l'accueil et ne déplace pas le repère de suivi : la passe suivante relit tout. L'application estime elle-même 1 800 octets par objet lu, et chaque objet relu repasse par l'interface : ne relevez ces clés que pour la taille réelle de votre domaine, OU par OU quand c'est possible. Le bouton « Tout relire (OU par OU) » relit le domaine en une passe par OU : la limite ne porte alors plus que sur une seule OU, les OU déjà lues sont conservées, et le marqueur d'incomplétude s'efface quand aucune OU n'a été coupée. |
+| Index.MaxObjects, BudgetMs, ComputerFirst | 0, 1200000, true | 0 désactive le quota d’objets de l’index ; le budget par passe reste de 20 minutes. Une limite positive ou un budget atteint rend la passe partielle : elle ne remplace pas une base complète et ne déplace pas le repère de suivi. La lecture est acheminée vers SQLite par lots de 256 objets. |
 
 ## Clés sans effet
 
 Ces clés figurent dans les valeurs par défaut ou dans le fichier livré, mais aucun code ne les lit. Ne les présentez pas comme réglables : Conf.UsersBase, Conf.ComputersBase, Auth.DetailedLoginTrace, Features.ScopedLocks, Features.ColumnProfiles, Features.WakeOnLan, Features.LocalAssistant, Features.ReadTrace, Browser.IncludeContainers, Browser.DefaultObjectFilter, Browser.DefaultScope, Dashboard.Enabled, UI.WindowWidth, UI.ReadOnlyDefault, Async.MinThreads, Security.MaskSecretsByDefault, Security.NeverLogSecretValues, Remote.AllowRemoteArtifacts, UserMachineLink.AutoProbeOnComputerSelect, Index.FullRebuildDays, LocalStore.KeepBackup et Streaming.AutoDetectLoggedUser, entre autres : 61 clés des valeurs par défaut, plus cette dernière clé du fichier livré.
 
-## Préférences de l'utilisateur
+## Préférences personnelles
 
-Seules ces clés survivent à un redémarrage ; la lecture seule n'en fait volontairement pas partie.
+Les préférences ci-dessous sont conservées au redémarrage ; la lecture seule n’en fait volontairement pas partie.
 
 | Domaine | Clés |
 |---|---|
 | Recherche | SavedSearches, OuBookmarksJson, PresenceFilter, SearchType, SearchLimit (100), GridLayoutsJson |
 | Interface | Theme (Light), UiProfile (Tech), Workspace, UxDensity (Confort), UxNavCollapsed, UxHelpVisible, UxHelpCompactOpen, UxLogCollapsed, UxLogExpandedHeight, UxLogWrap, UxLogFontSize |
 | Fenêtre | WindowWidth, WindowHeight, WindowLeft, WindowTop, WindowMaximized, TreeWidth, LogHeight |
-| Tableaux de bord | Dashboard.Computer.Layout, Dashboard.Fleet.Layout, Dashboard.Software.Layout, Widgets.Computer, Widgets.Fleet. Le périmètre du parc n'a plus de clé : c'est l'OU de « Rechercher ». |
+| Tableaux de bord | Dashboard.Computer.Layout, Dashboard.Fleet.Layout, Dashboard.Software.Layout, Widgets.Computer, Widgets.Fleet. Le périmètre du parc et celui de la Base autonome sont indépendants de Rechercher. |
 | Comptes | RemoteCredentialUser, SecretsCredentialUser : noms des comptes « POSTES / WMI / DISTANT » et « SECRETS AD », jamais de mot de passe. |
 | Poste | InventoryScope, SoftwareScope, SoftwarePerUser, SoftwareStore, SoftwareUpdates, WmiLimit (25) |
-| Parc | IndexAutoBuild, ParkSweepEnabled, ParkHarvestEnabled |
+| Parc | IndexAutoBuild, ParkSweepEnabled, ParkHarvestEnabled, Collection.Concurrency (4), Collection.CacheMinutes (15) |
+| Requêtes | Query.Library : recettes sauvegardées, dans la limite de 100 recettes et 1 Mio. |
 
 # 18 Base autonome
 
 La base autonome est une copie locale des utilisateurs et des postes, suivie par GUID, avec les associations utilisateur et poste et les derniers relevés. Elle alimente la vue du parc et les recherches locales, sans requête AD. Les associations et les relevés n'existent que là : sauvegardez la base.
 
-![Outils, Base autonome : boutons de mise à jour, encadré Emplacement et sauvegarde avec le chemin du fichier, Ouvrir l emplacement, Sauvegarder maintenant et Copier une sauvegarde vers](fig:base-autonome)
 
 ## Emplacement
 
@@ -1245,27 +1318,73 @@ La base autonome est une copie locale des utilisateurs et des postes, suivie par
 - La base doit être locale, sans repli silencieux. Chemin réseau : « Une base active SQLite doit etre locale. Choisissez UserLocal ; les sources existantes seront conservees. ». Dossier redirigé : « Stockage redirige par un lien : choisissez un dossier local non redirige. ». Dossier non inscriptible : « Stockage non inscriptible : » suivi du chemin et de « Aucun repli silencieux. Configurez UserLocal. ».
 - Une ancienne base à la racine du dossier n'est adoptée que si sa base DN correspond ; elle n'est jamais déplacée ni fusionnée.
 
-Le chemin exact s'affiche dans l'encadré « Emplacement et sauvegarde ». « Ouvrir l emplacement » ouvre l'Explorateur sur le fichier.
+Dépliez « Emplacement et sauvegarde » pour afficher le chemin exact et les commandes de sauvegarde. « Ouvrir l emplacement » ouvre l’Explorateur sur le fichier.
 
 ## Mettre à jour la base
 
+Pour la mise à jour d’un service, utilisez « Choisir une OU » puis « Tout relire dans lʼOU choisie ». Une unité organisationnelle doit être choisie ; ses sous-OU sont incluses. La cible de mise à jour est propre à cet outil et ne modifie pas Rechercher. Relisez le chemin affiché avant de lancer une opération.
+
+Le second bouton, « Tout relire dans le domaine », sert au premier chargement ou à une relecture globale occasionnelle. Cette opération peut être longue et exige une confirmation. Les deux autres modes sont regroupés sous « Options avancées ».
+
 | Bouton | Effet | Quand |
 |---|---|---|
-| « Mettre a jour tout » | Relit tous les utilisateurs et postes, reconstruit la base et resynchronise les associations connues. Peut durer plusieurs minutes. | Après l'installation, puis de temps en temps. |
-| « Mettre a jour les changements » | Ne relit que les objets modifiés depuis la dernière passe (uSNChanged et whenChanged). Beaucoup plus rapide. | Au quotidien. |
+| « Tout relire dans lʼOU choisie » | Relit tous les utilisateurs et postes de l’OU sélectionnée et de ses sous-OU. Demande une sélection si aucune OU n’est choisie. Les autres branches sont conservées. | Action recommandée pour actualiser un service précis. |
+| « Tout relire dans le domaine » | Relit tous les utilisateurs et postes. Le remplacement de la copie locale exige deux lectures complètes. Confirmation obligatoire. | Initialisation ou relecture globale occasionnelle, potentiellement longue. |
+| Options avancées → « Synchroniser les changements » | Relit les objets modifiés, puis recense les GUID et chemins pour rapprocher les suppressions locales. | Entre deux lectures complètes. |
+| Options avancées → « Relire le domaine par étapes » | Relit tout le domaine connecté, une branche racine à la fois (OU et conteneurs), puis les objets directement à la racine. Les étapes incomplètes restent signalées. | Quand une lecture globale est trop longue ; la synchronisation des changements reste adaptée au suivi quotidien. |
+
+![Mise à jour de la base : choix de l’OU puis relecture ciblée ou du domaine ; données fictives](fig:base-commandes)
 
 La mise à jour n'est jamais automatique. Si la base est plus ancienne que Index.StartupDeltaMaxAgeMinutes, Domenia écrit seulement une recommandation dans le journal.
 
+![Base autonome : commandes de mise à jour, dates de fraîcheur et navigateur local ; données fictives](fig:base-autonome)
+
+Dépliez « Détails du stockage et de la synchronisation » pour relire le fichier local, le contrôleur et le repère de suivi.
+
+![Stockage et synchronisation : panneau de détails déplié ; données fictives](fig:base-details)
+
+## Suivre la progression et la fraîcheur
+
+La zone supérieure regroupe les actions à gauche et « État de la copie locale » à droite, avec les dates et la progression. La table conserve ses filtres et boutons de pagination. Faites glisser la séparation horizontale pour ajuster la hauteur des deux panneaux. « Emplacement et sauvegarde » et « Relevé du parc » se déplient à la demande.
+
+La lecture de l'annuaire et l'enregistrement dans SQLite sont deux phases distinctes. Les compteurs affichent les objets lus, les lots écrits et les éventuels refus ou délais dépassés. Le panneau sépare la dernière lecture complète du domaine, celle de l’OU choisie et les tentatives partielles. Une tentative partielle ne remplace pas la date d’une lecture complète. Attendez la confirmation finale du stockage avant de considérer la base à jour.
+
+La lecture est transférée dans un flux local contrôlé, puis intégrée par transactions de 256 objets. Les objets sont suivis par GUID : un renommage ou un déplacement conserve l’identité. La synchronisation des changements s’accompagne d’un recensement léger des GUID et chemins sur le même contrôleur. Seul un recensement complet permet de retirer de l’index local les objets devenus absents. Un recensement de domaine vide exige une reconstruction explicite.
+
+Une lecture complète d’OU rapproche les absences uniquement dans son sous-arbre ; la passe racine du parcours OU par OU ne concerne que son premier niveau. Les autres OU restent intactes. Si la lecture ou le recensement est partiel, les objets effectivement lus sont fusionnés, mais aucun absent n’est retiré et ni le repère ni la date complète ne progressent. Le repère utilisé précède les lectures pour ne pas perdre les changements intervenus pendant la passe. Les fiches et mesures enregistrées plus récemment pendant la lecture sont préservées lors de la fusion et de la reconstruction. Ces retraits concernent l’index local : ils ne suppriment rien dans AD, ni les associations manuelles ou les relevés conservés.
+
+Le navigateur local a son propre sélecteur d'OU, un filtre et des pages de 200 objets. « Afficher / actualiser les objets » recharge sa liste. Une recherche vide parcourt le périmètre complet. Vérifiez le total d'utilisateurs et de postes, les comptes actifs ou désactivés et les filtres avant d'interpréter l'absence d'une ligne.
+
+Un clic sur un en-tête trie tous les résultats du périmètre filtré avant la pagination ; un second clic inverse le sens. « Tri par pertinence » revient au classement initial. Les colonnes « Connexion AD » et « Modifié dans AD » suivent l’ordre chronologique, avec les dates inconnues en fin de liste. La colonne Association, calculée à l’affichage, ne se trie pas.
+
+![Relecture du domaine par étapes : compteurs et phase de progression ; données fictives](fig:base-progression)
+
+## Limites des caches et de la base
+
+| Stockage | Limite | Conséquence |
+|---|---|---|
+| Index SQLite des objets | Pas de quota d'objets avec Index.MaxObjects à 0 | Capacité déterminée par l'espace disque, les temps de traitement et le budget de lecture. Ce n'est pas une mémoire infinie. |
+| Cache des recherches en mémoire | 20 requêtes et 20 000 lignes cumulées | Les instantanés anciens sont évincés ; la liste courante et l’index ne sont pas tronqués par cette éviction. |
+| Recherches persistées | 20 instantanés par périmètre ; 20 000 lignes et 32 Mio par instantané | Ce plafond porte sur chaque instantané JSON, pas sur la taille de toute la base. |
+| Cache des observations courtes | 20 000 entrées par périmètre | Conserve un ensemble borné de dernières observations. |
+| Rétention des caches persistés | 30 jours | Une entrée hors délai ne constitue pas une mesure actuelle. |
+| Recettes de l'Atelier | 100 recettes, 1 Mio | Les conditions sont conservées, sans recopier tous les résultats. |
+| Sélection figée d'alerte | 20 000 GUID | Le détail est paginé ; la sélection reste explicite et bornée au périmètre. |
+
+Le panneau de cache affiche notamment les entrées fraîches ou expirées, le délai de validité, la réutilisation, les évictions et les erreurs. Ce cache de navigation est distinct de la base du parc. Purger un cache n'est pas la même opération que supprimer une base ; conservez une sauvegarde des associations et observations utiles.
+
+Pour un parc de 5 000 postes ou plus, gardez les listes paginées, commencez avec 4 collectes simultanées et surveillez le temps d'enregistrement. Une donnée absente reste affichée comme telle ; augmenter une limite de cache ne résout pas un refus distant.
+
 ## Sauvegarder
 
-1. **Lancer.** Cliquez « Sauvegarder maintenant ». La barre d'état affiche « Sauvegarde de la base en cours... ».
+1. **Lancer.** Dépliez « Emplacement et sauvegarde », puis cliquez « Sauvegarder maintenant ». La barre d'état affiche « Sauvegarde de la base en cours... ».
 2. **Copie à chaud.** Le worker StorageBackup copie la base par l'API de sauvegarde SQLite. L'original reste ouvert en lecture seule et n'est pas modifié.
 3. **Contrôle.** La copie est vérifiée (PRAGMA quick_check) dans le budget LocalStore.BackupTimeoutSeconds (30 s). Une copie partielle est supprimée.
 4. **Rotation.** Le fichier va dans le dossier Backups de la base, nommé Domenia-DATE-HEURE-ID.db. Seules les LocalStore.DatabaseBackupCount (7) plus récentes sont gardées.
 
 > [!RESULTAT] « Sauvegarde de la base enregistree : » suivi du chemin. Sous l'encadré : « Sauvegardes : » avec le dossier et la date de la dernière.
 
-« Copier une sauvegarde vers... » fait la même sauvegarde puis la copie vers le fichier choisi (clé USB, partage), nom proposé Domenia-DATE-HEURE.db : « Sauvegarde de la base copiee : » suivi du chemin. Échec : « Sauvegarde de la base impossible : » suivi du motif.
+« Copier une sauvegarde vers... » fait la même sauvegarde puis la copie vers le fichier choisi (clé USB, partage), nom proposé Domenia-DATE-HEURE.db : « Sauvegarde de la base copiee : » suivi du chemin. La base active et ses journaux ne peuvent pas servir de destination. Un fichier temporaire précède le remplacement de l’export choisi pour préserver l’export existant si la copie échoue. Échec : « Sauvegarde de la base impossible : » suivi du motif.
 
 > [!ATTENTION] Il n'existe pas de sauvegarde périodique automatique. Seule une migration de schéma déclenche une sauvegarde d'elle-même, dans Backups\migrations, hors rotation. Planifiez une sauvegarde manuelle régulière et gardez-en une copie hors du poste.
 
@@ -1284,9 +1403,9 @@ Aucun outil de restauration n'est livré : la restauration est manuelle. Si la b
 3. **Choisir.** Prenez la sauvegarde la plus récente dans le dossier Backups de la base.
 4. **Remplacer.** Retirez du dossier de la base les anciens Domenia.db, -wal et -shm (déjà mis de côté), puis copiez la sauvegarde sous le nom Domenia.db.
 5. **Relancer.** Lancez Domenia, ouvrez Outils, « Base autonome », et vérifiez le chemin et le contenu.
-6. **Rattraper.** Cliquez « Mettre a jour les changements » pour relire ce qui a changé dans AD depuis la sauvegarde.
+6. **Rattraper.** Cliquez « Synchroniser les changements » pour relire ce qui a changé dans AD depuis la sauvegarde.
 
-> [!ATTENTION] Non vérifié. Procédure déduite du message de Domenia, non outillée et non jouée : répétez-la d'abord dans une VM de test. Ne copiez jamais une sauvegarde à côté d'anciens fichiers -wal et -shm. Les associations et relevés postérieurs à la sauvegarde sont perdus ; les objets AD se relisent.
+> [!ATTENTION] Validez cette procédure sur une copie avant de remplacer la base utilisée. Ne copiez jamais une sauvegarde à côté d'anciens fichiers -wal et -shm. Les associations et relevés postérieurs à la sauvegarde sont perdus ; les objets AD se relisent.
 
 ## Schéma et migrations
 
@@ -1294,7 +1413,7 @@ Le schéma de données est en version 11. Les migrations ne vont que vers l'avan
 
 ## Mesure et purge
 
-Les outils « Mesurer » et « Purge volontaire » existent dans l'onglet « Fiabilité », masqué depuis le 7 octobre. Cet onglet regroupe aussi les reçus, « Autoriser une intervention sur cette machine » et « Reprendre les sauvegardes ». Il ne s'affiche que lorsque Domenia y conduit : en usage normal, seul le bouton « Ouvrir : Outils > Fiabilite » de l'onglet « Secrets » du poste le fait, quand une écriture est en cours ou à vérifier. Les messages qui citent « Outils > Fiabilite » n'ouvrent pas l'onglet. Une purge garderait toujours les associations, l'historique protégé, les secrets, la configuration, les préférences, les journaux et les reçus, et ne compacterait pas le fichier.
+Les outils « Mesurer » et « Purge volontaire » existent dans l'onglet « Fiabilité », accessible selon le parcours et le profil. Cet onglet regroupe aussi les reçus, « Autoriser une intervention sur cette machine » et « Reprendre les sauvegardes ». Il ne s'affiche que lorsque Domenia y conduit : en usage normal, seul le bouton « Ouvrir : Outils > Fiabilite » de l'onglet « Secrets » du poste le fait, quand une écriture est en cours ou à vérifier. Les messages qui citent « Outils > Fiabilite » n'ouvrent pas l'onglet. Une purge garderait toujours les associations, l'historique protégé, les secrets, la configuration, les préférences, les journaux et les reçus, et ne compacterait pas le fichier.
 
 # 19 Règles de sécurité
 
@@ -1303,7 +1422,7 @@ Domenia lit par défaut, n'envoie rien sur le réseau sans geste explicite et ne
 | Règle | Comment Domenia l'applique |
 |---|---|
 | Lecture par défaut | Démarrage toujours en lecture seule ; passage en écriture confirmé et signalé en rouge (chapitre 14). |
-| Aucune sonde sans geste | Pas de mise à jour de la base à l'ouverture, pas de relevé au démarrage, pas de détection sur tout le parc, pas d'analyse sur le domaine entier. Chaque relevé passe par une confirmation et lit quatre postes au plus à la fois. |
+| Aucune sonde sans geste | Pas de mise à jour de la base ni de relevé au démarrage. Un relevé exige un périmètre explicite et une confirmation du nombre de cibles ; il lit de 1 à 8 postes en parallèle selon le réglage. Dans l’Atelier, le périmètre peut être une OU ou le domaine connecté. |
 | Pas de rejeu | Une écriture n'est jamais rejouée automatiquement ; les reçus servent à vérifier. |
 | Secrets en mémoire | Mots de passe jamais enregistrés, effacés à la fermeture ; seul l'identifiant peut être mémorisé. LAPS et BitLocker : une valeur à la fois, jamais journalisée ni mise en cache, presse-papiers vidé après 30 s. |
 | Windows intact | Aucun certificat accepté à l'aveugle ; WinRM, pare-feu, antivirus et stratégies jamais modifiés. Le déblocage du paquet ne change aucune stratégie. |
@@ -1312,7 +1431,7 @@ Domenia lit par défaut, n'envoie rien sur le réseau sans geste explicite et ne
 | Données locales | Base obligatoirement locale ; dossier protégé en mode UserLocal ; dossiers redirigés refusés. |
 | Journaux masqués | Mots de passe, jetons, en-têtes d'authentification et clés de récupération masqués avant écriture. |
 
-> [!ATTENTION] Le manifeste n'est pas une signature. Domenia.exe et le runtime livrés ne sont pas signés. Pour une diffusion qui exige une signature : tools\Signer-Distribution.ps1 signe les scripts de la copie préparée (build_packages.py --stage-dir) avec un certificat de signature de code approuvé, puis, après la construction, le catalogue du manifeste livré (-ManifestCatalog). Domenia.exe (F8) et les composants tiers ne sont pas re-signés : tools\Test-DomeniaSignature.ps1 les accepte pour leur empreinte épinglée dans tools\release-contract.json. Ce contrôle est hors ligne et rend séparément l'intégrité et l'éditeur ; -RequireSignature exige les scripts signés et les binaires épinglés, -RequireSignedManifest exige aussi le catalogue signé, seul à couvrir les fichiers non signables (.json, .xaml, .cs, .cmd, .ico, verrou).
+> [!ATTENTION] Le manifeste n'est pas une signature. Domenia.exe et le runtime livrés ne sont pas signés. Pour une diffusion qui exige une signature : tools\Signer-Distribution.ps1 signe les scripts de la copie préparée (build_packages.py --stage-dir) avec un certificat de signature de code approuvé, puis, après la construction, le catalogue du manifeste livré (-ManifestCatalog). Domenia.exe et les composants tiers ne sont pas re-signés : tools\Test-DomeniaSignature.ps1 les accepte pour leur empreinte épinglée dans tools\release-contract.json. Ce contrôle est hors ligne et rend séparément l'intégrité et l'éditeur ; -RequireSignature exige les scripts signés et les binaires épinglés, -RequireSignedManifest exige aussi le catalogue signé, seul à couvrir les fichiers non signables (.json, .xaml, .cs, .cmd, .ico, verrou).
 
 > [!NOTE] Données réelles. Les journaux, exports et diagnostics contiennent des noms de comptes, de postes, de domaines et des chemins internes : ils ne sont pas anonymisés. Relisez-les avant tout partage.
 
@@ -1331,7 +1450,7 @@ Domenia écrit un journal applicatif, une trace de démarrage et une trace de co
 | %TEMP%\Domenia-pack-ID.json | Rapport de VERIFIER-PACK.cmd. |
 | %LOCALAPPDATA%\Domenia\Receipts | Reçus des opérations. |
 
-## Dans l'interface
+## Dans les pages de Domenia
 
 - « Journal de session », en bas de la fenêtre : événements et erreurs de la session ; « Copier » ne masque pas les noms internes.
 - Accueil, « Détails de la session et outils de vérification », « Ouvrir le journal » : ouvre Domenia.log dans le Bloc-notes.
@@ -1339,7 +1458,7 @@ Domenia écrit un journal applicatif, une trace de démarrage et une trace de co
 - Outils, onglet « Charge & stats » : durée, volume réseau estimé, replis distants et taux de réussite des opérations.
 - Outils, onglet « Domaine » : rôles FSMO, niveaux fonctionnels, contrôleurs et stratégie du domaine.
 
-## Vérification de l'application
+## Vérification de Domenia
 
 Outils, onglet « Verification » (profil Expert) : « Verification rapide » contrôle la connexion et les composants ; « Verification complete » ajoute des mesures de performance. Aucune modification d'Active Directory.
 
@@ -1369,88 +1488,59 @@ Pour une connexion qui échoue sans cause claire, passez temporairement la fenê
 3. **Vérifier avant d'agir.** Après une écriture au résultat incertain, relisez l'objet dans AD et consultez les reçus ; ne relancez rien à l'aveugle.
 4. **Partager le nécessaire.** Relisez les fichiers : aucun mot de passe, aucune clé ; les noms internes restent des données internes.
 
-# 21 Tests et qualification
+# 21 Contrôles et qualification
 
-Les tests se jouent dans une VM Windows de test, jamais sur un poste de production ni sur la machine qui héberge les VM. Les contrôles faits hors Windows ne qualifient rien. Une livraison n'est qualifiée qu'avec un rapport Windows PowerShell 5.1 lié à l'empreinte de ses ZIP.
+Une construction réussie vérifie la cohérence des fichiers ; elle ne prouve pas le comportement de WPF, de Windows PowerShell 5.1 ou des accès du domaine. Validez les fonctions utilisées sur un poste Windows de test autorisé, avec des objets de test et les comptes représentatifs. Les opérations d'écriture demandent une vérification distincte de leurs délégations.
 
-> [!ATTENTION] N'exécutez jamais une suite de tests, un aperçu ou Domenia lui-même pour un essai sur un poste de production ou sur l'hôte des VM. Certaines suites chargent la vraie fenêtre et le moteur complet.
+## Contrôles locaux
 
-## Contrôles hors Windows
-
-Depuis le dossier dev du dépôt, avec Python. Ils sont utiles avant d'aller en VM, mais ne prouvent rien sous Windows PowerShell 5.1.
+Les contrôles statiques vérifient la syntaxe, les contrats du chargeur, les workers et les empreintes. Les tests de règles et de base synthétique vérifient les filtres, la pagination, la persistance et les agrégations sans interroger de domaine réel.
 
 ~~~
 python tools/release_contract.py --check
 python tools/validate_powershell_static.py
 python tools/audit_preload.py
 python tools/update_worker_contracts.py
-python tools/build_packages.py --output DOSSIER_HORS_DU_DEPOT
 ~~~
 
-Relevé du 8 octobre sur l'arbre courant : contrat conforme, 139 fichiers PowerShell analysés sans erreur, 168 contrôles de préchargement réussis, 68 opérations sans écart, 435 empreintes du manifeste DEV conformes.
+Les tests de charge utilisent des données synthétiques à 5 000 et 10 000 postes. Ils servent à détecter des omissions, des doublons et des coûts excessifs. Le temps réel dépend des contrôleurs, de SQLite, des droits distants et de la latence des postes ; ces mesures ne constituent pas un engagement de débit sur le parc.
 
-## Suites Windows
-
-Les suites sont dans wad\tests du paquet DEV. Chacune accepte -ReportPath pour un rapport JSON.
+## Suites du pack DEV
 
 | Suite | Objet |
 |---|---|
-| Test-DomeniaRules.ps1 | Règles pures des modules, sans WPF ni réseau ; option -Filter. |
-| Test-DomeniaModules.ps1 | Chargeur fermé et modules. |
-| Test-DomeniaPreload.ps1 | Préchargement des modules et du XAML (n'est plus lancée par l'installateur). |
-| Test-DomeniaBoards.ps1 | Tableaux de bord en widgets dans la vraie fenêtre, données fictives. |
-| Test-DomeniaGeometry.ps1 | Géométrie de la vraie fenêtre : thèmes, petit écran, session RDP 1024 × 768, échelles de 100 à 200 % simulées. |
-| Test-DomeniaParkDetection.ps1 | Relevés du parc et détection. |
-| Test-DomeniaInstaller.ps1 | Installation, restauration, interruption, verrouillage, corruption, modifications concurrentes. |
-| Test-DomeniaFaults.ps1 | Pannes injectées : DNS lent, refus AD, LAPS refusé, disque plein, base verrouillée, coupure après envoi. |
-| Test-DomeniaCandidate.ps1 | Contrôles de la version candidate (option -Wpf). |
-| Suites Test-DomeniaWiring | Preuves de raccordement par lot : accès, cache, écritures, confirmations, interface, moteur, recherche, relations, suites. |
+| Test-DomeniaRules.ps1 | Règles des modules et conversions, sans WPF ni réseau. |
+| Test-DomeniaNative.ps1 | Projections C#, observations et agrégations des sondes. |
+| Test-DomeniaQuery.ps1 | Recettes, types, conditions, sélections et sauvegarde. |
+| Test-DomeniaIndexPersistence.ps1 | Enregistrement, identité des objets et préparation des collectes. |
+| Test-DomeniaModules.ps1 | Plan de chargement et origine des fonctions. |
+| Test-DomeniaBoards.ps1 | Widgets et raccordement de l'interface avec des données fictives. |
+| Test-DomeniaGeometry.ps1 | Géométrie WPF, tailles d'écran et échelles. |
+| Test-DomeniaParkDetection.ps1 | Collecte, détection et orchestration. |
+| Test-DomeniaInstaller.ps1 | Mise à jour, restauration, verrouillage et interruptions. |
+| Test-DomeniaFaults.ps1 | Réaction aux refus, lenteurs et défauts de stockage. |
 
-## Jouer les suites dans une VM de test
+Les suites qui chargent WPF ou les API Windows doivent être exécutées sous Windows. Conservez les rapports, l'identité exacte du code et les empreintes des paquets. Une suite inapplicable à la plateforme doit être signalée comme non exécutée, jamais comptée comme une réussite.
 
-1. **Préparer la VM.** Une VM Windows 11 jointe à un domaine de test, avec Windows PowerShell 5.1. Aucune donnée de production.
-2. **Copier le paquet.** Extrayez le ZIP DEV dans un dossier local de la VM.
-3. **Lancer.** Depuis le dossier dev, dans Windows PowerShell 5.1, lancez les contrôles ci-dessous.
-4. **Comparer.** Comparez les résultats à la référence : aucun test qui passait ne doit échouer sans décision écrite.
-5. **Conserver.** Gardez les rapports JSON avec la date, le commit et l'empreinte du ZIP testé.
+## Parcours à valider sur Windows
 
-~~~
-powershell -NoProfile -STA -ExecutionPolicy Bypass -File wad\tests\Test-DomeniaRules.ps1
-powershell -NoProfile -ExecutionPolicy Bypass -File tools\Test-DomeniaPs51Compat.ps1 -Root .
-powershell -NoProfile -ExecutionPolicy Bypass -File engineering\d120\Test-NativeParser.ps1 -SourceRoot . -ReportPath $env:TEMP\parser.json -RequireWindows51
-powershell -NoProfile -ExecutionPolicy Bypass -File engineering\d120\lab\Invoke-LabRun.ps1 -DevRoot . -OutDir $env:TEMP\domenia-out
-~~~
+1. **Démarrer.** Contrôler le paquet puis ouvrir Domenia en lecture seule, sans modifier les stratégies de sécurité du poste.
+2. **Comparer les objets.** Sur une OU connue, rapprocher le total de la base, les widgets et leur détail, y compris les comptes désactivés et les données absentes.
+3. **Mettre à jour.** Vérifier une lecture complète, une mise à jour des changements et une interruption ; une passe partielle doit rester explicitement partielle.
+4. **Collecter.** Vérifier succès, refus, délai dépassé et arrêt, avec le parallélisme adapté.
+5. **Parcourir.** Tester les pages de résultats, les filtres, les recettes sauvegardées, les graphiques et l'ouverture des fiches.
+6. **Maintenir.** Vérifier une sauvegarde, une restauration sur copie et une mise à jour du code avec retour arrière.
+7. **Écrire si nécessaire.** Utiliser des objets de test pour les actions autorisées ; vérifier les confirmations, les reçus et l'état final dans l'annuaire.
 
-Invoke-LabRun.ps1 lance chaque suite dans son propre processus Windows PowerShell 5.1 en STA et écrit, par suite, un rapport JSON, les sorties et le code de retour, plus un résumé _summary.json.
+## Qualification du paquet
 
-> [!NOTE] -ExecutionPolicy Bypass ne vaut que pour le processus lancé : il ne change pas la stratégie de la machine. Réservez-le à la VM de test.
+La garde de livraison sépare l'intégrité et la qualification Windows. Le mode release_guard.py --require-windows exige un rapport Windows PowerShell 5.1 lié aux empreintes des ZIP. L'installateur peut exiger ce rapport avec -RequireQualification.
 
-## Scripts du paquet DEV
-
-| Script | Effet |
-|---|---|
-| VERIFIER-PACK.cmd | Empreintes et syntaxe de tout le manifeste, sans démarrage ni AD, puis rapport de signature hors ligne (outil pris dans l'arbre du vérificateur, lancé seulement sans fichier en erreur). |
-| TESTER-DOMENIA.cmd | Test-DomeniaModules.ps1, puis Test-DomeniaCandidate.ps1 -Wpf si le premier réussit. |
-| TESTER-PRECHARGEMENT.cmd | Test-DomeniaPreload.ps1, sur un poste de test. |
-| TESTER-MODULES.cmd, TESTER-DEMARRAGE-LOGIN.cmd, TESTER-SELECTION.cmd, TESTER-ACL.cmd | Suites ciblées correspondantes. |
-| APERCU-CONNEXION.cmd | Vraie fenêtre de connexion, sans authentification, identité fictive. |
-| APERCU-INTERFACE.cmd | Aperçu hors ligne de la vraie fenêtre principale, sans AD. |
-| APERCU-PROGRESSIF.cmd | Même aperçu avec 40 postes fictifs. |
-
-> [!NOTE] Les scripts TESTER et APERCU datent du 2 octobre ; leur résultat sur le code du 8 octobre n'a pas été rejoué. Certaines anciennes attentes d'interface ne sont plus des critères de livraison.
-
-## Qualification d'une livraison
-
-- Le suivi dev\engineering\d120\Suivi_D001_D120.json compte 120 points ; aucun n'est encore accepté.
-- Un point n'est accepté que sur un rapport Windows PowerShell 5.1 lié à l'empreinte SHA-256 des deux ZIP (release_guard.py --require-windows).
-- Derniers résultats déclarés : 2 365 réussites et 0 échec sur la campagne du 5 octobre ; pour le lot du 8 octobre, 495 règles des tableaux de bord sur 495, Test-DomeniaBoards 19 sur 19, Test-DomeniaModules 110 sur 110, Test-DomeniaGeometry 42 sur 42 en 960 × 516.
-- Ces résultats viennent de campagnes d'intégration dans une VM de test : ce ne sont pas des rapports qualifiants.
-
-> [!ATTENTION] Restent à qualifier avant un déploiement : la livraison avec un nouveau Build, la mise à jour par l'installateur sur ce Build, les droits AD exacts de chaque écriture, les versions de Windows du parc et la signature si elle est exigée.
+Un rapport doit décrire ce qui a été exécuté, la plateforme, les scénarios et leur résultat. Les contrôles locaux sur macOS, les analyses statiques et les bases synthétiques restent des preuves complémentaires ; ils ne constituent pas une qualification du logiciel sur Windows.
 
 # 22 Maintenance et sources
 
-Le comportement décrit ici vient du code de la branche de travail au 8 octobre 2026. Les documents historiques du paquet peuvent être en retard ; en cas de doute, le code fait foi. Ce chapitre indique où lire la source et liste les écarts connus.
+Ce chapitre donne les sources utiles pour maintenir Domenia 1.0 et reconstruire un paquet cohérent.
 
 ## Sources du comportement
 
@@ -1461,6 +1551,8 @@ Le comportement décrit ici vient du code de la branche de travail au 8 octobre 
 | Cœur, fenêtres, configuration, workers du cœur | wad\Domenia-Core.ps1 |
 | Tableaux de bord et widgets | modules Domenia-Boards.Model, Domenia-Widgets.UI, Domenia-BoardComputer.UI, Domenia-BoardFleet.Model, Domenia-BoardSoftware.Model, Domenia-Charts.UI, Domenia-Dashboard.UI |
 | Requêtes WMI | module Domenia-Probes.Model |
+| Atelier de requêtes | modules Domenia-Query.Model, Domenia-Query.UI, Domenia-Query.Worker ; moteur partagé vendor\m4d-admin-common\src\Query |
+| Agrégations natives | native\ProbeAggregation.cs, native\ObservationReader.cs, tools\build_native.ps1 |
 | Parc et relevés | modules Domenia-Park.UI, Domenia-Park.Model, Domenia-Live.UI, Domenia-Live.Model |
 | Base autonome | module Domenia-Storage.UI et son worker |
 | Comptes et transports | modules Domenia-Access.Model et Domenia-Access.UI |
@@ -1470,26 +1562,21 @@ Le comportement décrit ici vient du code de la branche de travail au 8 octobre 
 
 - Cible unique : Windows PowerShell 5.1 x64 STA. Le garde-fou tools\Test-DomeniaPs51Compat.ps1 doit rester à zéro erreur.
 - Scripts en UTF-8 avec BOM ; sans BOM, Windows PowerShell 5.1 casse les accents.
-- Après une modification d'un fichier runtime, régénérez les manifestes avec tools\build_packages.py, sinon Domenia-Start.ps1 refuse le démarrage.
-- Après une modification d'un worker, mettez à jour le registre (chapitre 15) et listez les opérations modifiées dans les notes de version.
+- Après une modification d’un fichier runtime, reconstruisez le PROD avec tools\Fabriquer-Prod.ps1, ou régénérez les paquets de référence avec tools\build_packages.py. Sans manifestes à jour, Domenia-Start.ps1 refuse le démarrage.
+- Après une modification d'un worker, mettez à jour le registre (chapitre 15) et vérifiez les opérations concernées avec les suites du pack DEV.
 - Chaque nouvelle livraison change le Build du contrat (chapitre 16).
 
-## Écarts connus au 8 octobre
 
-| Écart | Conséquence |
-|---|---|
-| Le suivi d'un relevé peut afficher « Stockage a verifier dans Fiabilite. ». | L'onglet « Fiabilité » est masqué ; il ne s'ouvre que par le renvoi décrit au chapitre 18. |
-| 61 clés de configuration et Streaming.AutoDetectLoggedUser ne sont lues par aucun code. | Sans effet (chapitre 17). |
 
-## Documents du paquet DEV
+## Documents du pack DEV
 
 | Fichier | Contenu |
 |---|---|
-| LIRE-MOI.md | Lancement, paquets, installateur ; en retard sur la détection du parc. |
-| CORRECTIF-*.md | Notes des correctifs des versions RC1.5 à RC1.10.5. |
-| engineering\d120\Suivi_D001_D120.json | Suivi des 120 points du lot et de leur statut. |
-| engineering\d120\README.md | Reprise des points D001 à D120 : garde de livraison et outils du lot. |
+| LIRE-MOI.md | Démarrage, installation et repères du paquet. |
 | tools\release-contract.json | Identité de la livraison et empreintes des composants épinglés. |
+| tools\operation-contracts.json | Contrats des opérations exécutées en arrière-plan. |
+| guides | Sources des guides technicien et administrateur, au format Markdown et JSON. |
+| engineering\d120 | Garde de livraison, suivi technique et outils de vérification. |
 
 # 23 Mots à connaître
 
@@ -1504,18 +1591,18 @@ Le comportement décrit ici vient du code de la branche de travail au 8 octobre 
 | DCOM, WinRM | Transports de CIM : DCOM par défaut, WinRM seulement s'il est déjà en service. |
 | Compte des opérations poste | Compte qui interroge les postes : CIM, C$, consoles, inventaire et requêtes. |
 | Lecture seule | État de départ : aucune écriture AD ni action modificatrice sur un poste. |
-| Relevé | Lecture de plusieurs postes après confirmation, quatre à la fois au plus. |
+| Relevé | Lecture de plusieurs postes après confirmation, de 1 à 8 à la fois. |
 | Widget | Tuile ou graphique d'un tableau de bord, modifiable, déplaçable et retirable. |
 | Requête WMI prête à l'emploi | Lecture d'une classe WMI tirée du catalogue, ajoutée comme widget. |
 | Score de santé | Note de 0 à 100 calculée sur les points d'attention. |
 | Worker | Code exécuté en arrière-plan, hors du fil de l'interface. |
-| Registre des opérations | Liste fermée des 68 opérations admises en arrière-plan, chacune épinglée par SHA-256. |
+| Registre des opérations | Liste fermée des 71 opérations admises en arrière-plan, chacune épinglée par SHA-256. |
 | Manifeste, empreinte | Liste des fichiers runtime avec leur SHA-256, contrôlée à chaque démarrage ; ce n'est pas une signature. |
 | Chargeur fermé | Liste exacte des modules et de leurs fonctions ; un script ajouté n'est jamais chargé. |
-| Paquet PROD, paquet DEV | Runtime seul à installer ; runtime plus installateur, sources, outils et tests. |
+| Paquet PROD, paquet DEV | PROD contient le runtime et l'installateur ; DEV ajoute les sources, les outils, les tests et la documentation. |
 | Build | Identifiant unique d'une livraison ; l'installateur refuse un Build déjà actif. |
 | Reçu | Trace locale d'une opération, utilisée pour vérifier sans rejouer. |
 | LAPS | Mot de passe administrateur local géré par AD. |
 | Profil Essentiel, Expert | Niveau de détail de l'interface ; aucun effet sur les droits. |
 | Démonstration | Mode de formation sans AD, avec des données fictives ; désactivé en service. |
-| VM de test | Machine virtuelle Windows réservée aux essais ; jamais de test en production. |
+| Poste Windows de test autorisé | Machine réservée aux essais, avec des données et des objets de test. |

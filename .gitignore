@@ -1,3 +1,11 @@
 __pycache__/
 *.pyc
 .claude/
+
+# Local build artifacts, VM evidence copies and nested worktrees stay outside source control.
+/build-*/
+/stage-*/
+/livraison-*/
+/vm-ui-*/
+/work/
+/validation-Windows-*/

@@ -7,7 +7,7 @@ function Initialize-DomeniaPersistence {
     # refused by the writer because another console changed them, until the associations are reloaded.
     # D113: LegacyImportJob marks an import that has left Pending but is not confirmed yet.
     # MO-03: Pending is an ordered dictionary (first queued, first written); LastSavedAt feeds the Santé zone (UX-32).
-    $script:Persistence=[pscustomobject]@{Pending=([ordered]@{});Job='';Next=[datetime]::MinValue;Fault='';Failures=0;LinkBusy=$false;Timer=$null;LinkRequestTimer=$null;LinkPersistenceMore=$false;InFlight=0;Conflicts=@{};LegacyImportJob='';LastSavedAt=$null}
+    $script:Persistence=[pscustomobject]@{Pending=([ordered]@{});Job='';Next=[datetime]::MinValue;Fault='';Failures=0;LinkBusy=$false;Timer=$null;LinkRequestTimer=$null;LinkPersistenceMore=$false;InFlight=0;InFlightItems=@();Conflicts=@{};LegacyImportJob='';LastSavedAt=$null}
     # MO-03 / FI-05: protected heartbeat timer, armed when an item is queued (Request-DomeniaStorageWork) and stopped
     # when nothing is left to write: a batch groups what arrives within about one second. It also runs minimized.
     $script:Persistence.Timer=New-DomeniaTimer -Owner 'Timer:Storage' -IntervalMs 1000 -RunWhenHidden -Tick {
@@ -25,8 +25,9 @@ function Initialize-DomeniaPersistence {
 function Add-DomeniaIndexPersistence {
     param($Row)
     if($null -eq $script:Persistence){Initialize-DomeniaPersistence}
-    if($script:Persistence.Pending.Count -ge 256){Set-Status 'Cache en attente sature. Les donnees restent visibles mais non enregistrees.' 'WARN';return $false}
+    if(-not $script:DatabaseScopedPath){return $false}
     $key='Index|'+[string]$script:DatabaseScopedPath+'|'+[string]$Row.Guid+'|'+[string]$Row.DN
+    if($script:Persistence.Pending.Count -ge 256 -and -not $script:Persistence.Pending.Contains($key)){Set-Status 'Cache en attente sature. Les donnees restent visibles mais non enregistrees.' 'WARN';return $false}
     $script:Persistence.Pending[$key]=[pscustomobject]@{QueueKey=$key;Kind='Index';Path=[string]$script:DatabaseScopedPath;Row=$Row;Server=[string]$script:Conn.Server;At=[datetime]::UtcNow.ToString('o');Epoch=[long]$script:SessionEpoch}
     Request-DomeniaStorageWork
     return $true
@@ -121,6 +122,15 @@ function Start-DomeniaStorageWork {
     # D113: keep the lock while a detached worker still runs; a lost completion never replays an import.
     if($null -ne $script:Persistence -and $script:Persistence.Job -and $null -ne $script:AsyncJobs -and -not $script:AsyncJobs.Contains([string]$script:Persistence.Job)){
         foreach($detached in @($script:DetachedReadJobs)){if($null -ne $detached -and [string]$detached.Id -eq [string]$script:Persistence.Job){return}}
+        if(-not $script:Persistence.LegacyImportJob){
+            $lost=@(Get-DomeniaMemberValue $script:Persistence 'InFlightItems')|Where-Object{$null -ne $_}
+            if(@($lost).Count){
+                # Unknown completion is not proof of a commit. Keep the exact lot and require explicit recovery.
+                $script:Persistence.Failures=[Math]::Max(2,[int]$script:Persistence.Failures)
+                Fail-DomeniaStorageWork 'Résultat de sauvegarde non reçu ; vérifiez la base puis reprenez les sauvegardes dans Fiabilité.' ([pscustomobject]@{Items=@($lost)})
+                return
+            }
+        }
         if($script:Persistence.LegacyImportJob){
             $script:Persistence.LegacyImportJob=''
             Set-Status 'Resultat reprise des anciennes donnees non recu. Verifiez le stockage puis refaites la simulation avant toute nouvelle demande.' 'WARN'
@@ -128,6 +138,7 @@ function Start-DomeniaStorageWork {
         }
         $script:Persistence.Job=''
         $script:Persistence.InFlight=0
+        $script:Persistence|Add-Member -NotePropertyName InFlightItems -NotePropertyValue @() -Force
         $hasLinkWork=$false
         if($script:Persistence.LegacyImportJob){$hasLinkWork=$true}
         foreach($v in @($script:Persistence.Pending.Values)){if($v.Kind -eq 'Link' -or $v.Kind -eq 'LegacyImport'){$hasLinkWork=$true;break}}
@@ -168,6 +179,7 @@ function Start-DomeniaStorageWork {
             $script:Persistence.LegacyImportJob=$id
             [void]$script:Persistence.Pending.Remove($item.QueueKey)
             $script:Persistence.InFlight=1
+            $script:Persistence|Add-Member -NotePropertyName InFlightItems -NotePropertyValue @($item) -Force
         } catch {
             [void]$script:Persistence.Pending.Remove($item.QueueKey)
             $script:Persistence.LegacyImportJob=''
@@ -186,21 +198,47 @@ function Start-DomeniaStorageWork {
     $path=[string]$items[0].Path
     $items=@($script:Persistence.Pending.Values|Where-Object{$_.Path -ceq $path -and $_.Kind -ne 'LegacyImport'}|Select-Object -First 64)
     if(-not $path){$script:Persistence.Fault='Base du contexte non disponible.';$script:Persistence.Next=[datetime]::UtcNow.AddSeconds(10);return}
+    # A bulk update owns one transaction and one worker; do not combine dozens of large snapshots.
+    $bulk=@($items|Where-Object{$_.Kind -eq 'IndexBulk'}|Select-Object -First 1)
+    if($bulk.Count){
+        if($items[0].Kind -eq 'IndexBulk'){$items=@($bulk[0])}
+        else{
+            # Preserve queue order: older individual rows must commit before a newer complete rebuild.
+            $prefix=[Collections.Generic.List[object]]::new()
+            foreach($item in $items){if($item.Kind -eq 'IndexBulk'){break};$prefix.Add($item)}
+            $items=$prefix.ToArray();$bulk=@()
+        }
+    }
+    $storageTimeout=120
+    if($bulk.Count){$storageTimeout=[Math]::Min(3600,[Math]::Max(120,60+[int]([long]$bulk[0].Row.RowCount/500)))}
+    if($bulk.Count -and $null -ne $script:IndexProgressTimer -and $null -ne $bulk[0].Row.PSObject.Properties['Transfer'] -and $null -ne $bulk[0].Row.Transfer -and $null -ne $bulk[0].Row.Transfer.PSObject.Properties['Progress'] -and [long]$bulk[0].Epoch -eq [long]$script:SessionEpoch){$script:IndexTransferProgress=$bulk[0].Row.Transfer.Progress;$script:IndexProgressTimer.Start()}
     $state=[pscustomobject]@{Items=$items;Epoch=[long]$script:SessionEpoch}
     try {
-        $script:Persistence.Job=Start-UiTask -Name 'Enregistrement cache et liens' -OperationId 'LocalStore' -Code (Get-DomeniaStorageWorkerCode) -Payload ([pscustomobject]@{Path=$path;Items=$items}) -CallbackState $state -SuccessHandler 'Complete-DomeniaStorageWork' -ErrorHandler 'Fail-DomeniaStorageWork' -NonCancellable -TimeoutSeconds 120
+        $script:Persistence.Job=Start-UiTask -Name 'Enregistrement cache et liens' -OperationId 'LocalStore' -Code (Get-DomeniaStorageWorkerCode) -Payload ([pscustomobject]@{Path=$path;Items=$items}) -CallbackState $state -SuccessHandler 'Complete-DomeniaStorageWork' -ErrorHandler 'Fail-DomeniaStorageWork' -NonCancellable -TimeoutSeconds $storageTimeout
+        if([string]::IsNullOrWhiteSpace([string]$script:Persistence.Job)){throw 'Admission du stockage non confirmee : lot conserve en attente.'}
         foreach($i in $items){[void]$script:Persistence.Pending.Remove($i.QueueKey)}
         # D028: the batch left Pending but is not on disk yet; the label keeps counting it until the callback.
         $script:Persistence.InFlight=@($items).Count
+        $script:Persistence|Add-Member -NotePropertyName InFlightItems -NotePropertyValue @($items) -Force
     }catch{$script:Persistence.Next=[datetime]::UtcNow.AddSeconds(5);$script:Persistence.Fault=$_.Exception.Message}
 }
 function Complete-DomeniaStorageWork {
     param($Result,$State)
     if($null -eq $script:Persistence){return}
     $script:Persistence.Job='';$script:Persistence.InFlight=0
+    $script:Persistence|Add-Member -NotePropertyName InFlightItems -NotePropertyValue @() -Force
     $r=Get-DomeniaEffectiveWorkerResult $Result @('Saved','Conflicts')
     if($null -eq $r -or -not $r.Saved){Fail-DomeniaStorageWork 'Resultat stockage non confirme.' $State;return}
     $items=@();if($null -ne $State){$items=@($State.Items)}
+    foreach($saved in $items){
+      if($saved.Kind -ne 'IndexBulk' -or $null -eq $saved.Row.PSObject.Properties['Transfer'] -or $null -eq $saved.Row.Transfer){continue}
+      try{
+        $folder=[IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetDirectoryName([IO.Path]::GetFullPath([string]$saved.Path))) 'index-spool'))
+        $file=[IO.Path]::GetFullPath([string]$saved.Row.Transfer.Path)
+        if([IO.Path]::GetDirectoryName($file) -ceq $folder -and [IO.Path]::GetFileName($file) -match '^[a-f0-9]{32}\.jsonl$'){[IO.File]::Delete($file)}
+      }catch{Add-DomeniaUiLog -Area 'Index' -Level 'WARN' -Text ('Lot enregistre, nettoyage temporaire differe : '+$_.Exception.Message)}
+    }
+
     $isImport=@($items|Where-Object{$_.Kind -eq 'LegacyImport'}).Count -gt 0
     if(-not $isImport){$script:Persistence.Fault='';$script:Persistence.Failures=0;$script:Persistence.LastSavedAt=Get-Date}
     if($isImport){$script:Persistence.LegacyImportJob=''}
@@ -266,7 +304,27 @@ function Complete-DomeniaStorageWork {
     if(@($items|Where-Object{($_.Kind -eq 'IndexBulk') -or (($_.Kind -eq 'SecretMeta') -and ($null -ne $_.Row.PSObject.Properties['Rows']))}).Count){
       # Les compteurs et l'âge « base à jour » se lisent dans IndexInfo, chargé avant cette écriture : sans relecture
       # ici la page reste figée sur la passe précédente, des jours après une mise à jour réussie.
-      if(@($items|Where-Object{$_.Kind -eq 'IndexBulk'}).Count){try{[void](Load-DomeniaIndexMetadata);Update-DomeniaIndexStats}catch{}}
+      $indexItems=@($items|Where-Object{$_.Kind -eq 'IndexBulk' -and $_.Epoch -eq [long]$script:SessionEpoch -and [string]$_.Path -ceq [string]$script:DatabaseScopedPath})
+      if($indexItems.Count){
+        foreach($saved in $indexItems){
+          $complete=($null -eq $saved.Row.PSObject.Properties['Complete'] -or [bool]$saved.Row.Complete)
+          $scope=if($null -ne $saved.Row.PSObject.Properties['SyncScope']){[string]$saved.Row.SyncScope}else{'directory'}
+          if($complete -and $scope -eq 'directory'){Set-DomeniaIndexPartial -Clear}
+        }
+        try{[void](Load-DomeniaIndexMetadata);Update-DomeniaIndexStats}catch{}
+        $walkSaved=@($indexItems|Where-Object{$null -ne $_.Row.PSObject.Properties['WalkStep'] -and [bool]$_.Row.WalkStep})
+        if($walkSaved.Count -and $null -ne $script:IndexWalk){
+          $script:IndexWalk.Saved += $walkSaved.Count
+          Start-DomeniaIndexWalkStep
+        }elseif($null -eq $script:IndexWalk){
+          $partial=@($indexItems|Where-Object{$null -ne $_.Row.PSObject.Properties['Complete'] -and -not [bool]$_.Row.Complete}).Count -gt 0
+          $savedCount=0;foreach($saved in $indexItems){$savedCount+=$(if($null -ne $saved.Row.PSObject.Properties['RowCount']){[long]$saved.Row.RowCount}else{@($saved.Row.Rows).Count})}
+          $summary=('{0} fiche(s) enregistrée(s) dans la base locale.' -f $savedCount)
+          if($partial){$summary+=' Lecture partielle : le dernier repère complet est conservé.'}else{$summary+=' La fraîcheur du périmètre lu est actualisée.'}
+          [void](Set-DomeniaControlText -Name 'LblIndexStatus' -Text $summary)
+          Set-DomeniaIndexProgress -Mode $(if($partial){'Error'}else{'Complete'}) -Message $summary
+        }
+      }
       try{Request-DomeniaFleetRefresh -Force}catch{}}
     elseif(@($items|Where-Object{$_.Kind -in @('Index','ParkSession','SecretMeta')}).Count){$script:FleetStale=$true}
     $hasLinkWork=$false
@@ -278,6 +336,7 @@ function Complete-DomeniaStorageWork {
 function Fail-DomeniaStorageWork {
     param($Message,$State)
     if($null -eq $script:Persistence){return}
+    $script:Persistence|Add-Member -NotePropertyName InFlightItems -NotePropertyValue @() -Force
     $items=@();if($null -ne $State){$items=@($State.Items)}
     $isImport=@($items|Where-Object{$_.Kind -eq 'LegacyImport'}).Count -gt 0
     if($isImport){
@@ -294,9 +353,16 @@ function Fail-DomeniaStorageWork {
         return
     }
     $script:Persistence.Failures++;$script:Persistence.Job='';$script:Persistence.InFlight=0;$script:Persistence.Fault=[string]$Message;$script:Persistence.Next=[datetime]::UtcNow.AddSeconds(15)
-    foreach($i in $items){if(-not $script:Persistence.Pending.Contains($i.QueueKey)){$script:Persistence.Pending[$i.QueueKey]=$i}}
+    # Retry older batches first; appending them could replay an old full rebuild after a newer OU update.
+    $retry=[ordered]@{}
+    foreach($i in $items){if(-not $script:Persistence.Pending.Contains($i.QueueKey)){$retry[$i.QueueKey]=$i}}
+    foreach($entry in $script:Persistence.Pending.GetEnumerator()){$retry[$entry.Key]=$entry.Value}
+    $script:Persistence.Pending=$retry
+    if(@($items|Where-Object{$_.Kind -eq 'IndexBulk'}).Count){Set-DomeniaIndexProgress -Mode Error -Message ('Enregistrement non confirmé : '+[string]$Message+'. Le lot reste en attente.')}
     Request-DomeniaStorageWork
-    if($script:Persistence.Failures -ge 3){Set-Status 'Cache non enregistre : trois echecs. Les donnees restent en memoire ; corrigez le stockage puis Reprendre les sauvegardes dans Fiabilite.' 'WARN';return}
+    if($script:Persistence.Failures -ge 3){
+        if($null -ne $script:IndexWalk){Complete-DomeniaIndexWalkUi -Aborted -Detail 'Stockage suspendu après trois échecs. Reprenez les sauvegardes avant de relancer les lectures.'}
+        Set-Status 'Cache non enregistre : trois echecs. Les donnees restent en memoire ; corrigez le stockage puis Reprendre les sauvegardes dans Fiabilite.' 'WARN';return}
     Set-Status 'Cache non enregistre sur disque. Les observations sont encore en memoire ; une nouvelle tentative bornee sera faite.' 'WARN'
 }
 function Queue-DomeniaMetadata {
@@ -601,8 +667,8 @@ function Complete-DomeniaStoragePurge {
             Reset-DomeniaStoragePurgePreview
             if($State.Selection -contains 'Index'){
                 # The committed transaction already confirms an empty index; no synchronous disk reread.
-                $script:IndexRows=@();$script:IndexInfo=$null
-                $script:IndexDbCount=0;$script:IndexDbUsers=0;$script:IndexDbComputers=0
+                $script:IndexRows=@();$script:IndexInfo=$null;$script:IndexSyncStates=@{};$script:IndexMetadataError=''
+                $script:IndexDbCount=0;$script:IndexDbUsers=0;$script:IndexDbComputers=0;$script:IndexDbMachinesActive=0;$script:IndexDbMachinesDisabled=0
                 Rebuild-DomeniaIndexLookup
             }
             if($State.Selection -contains 'Observations'){
@@ -651,6 +717,14 @@ function Open-DomeniaIndexLocation {
     if(-not $path -or -not [IO.File]::Exists($path)){Set-Status 'Aucune base active a afficher.' 'WARN';return}
     Start-Process -FilePath 'explorer.exe' -ArgumentList @('/select,"'+$path+'"')
 }
+function Assert-DomeniaBackupDestination {
+    param([string]$Database,[string]$Destination)
+    if(-not $Destination){return}
+    $source=[IO.Path]::GetFullPath($Database);$target=[IO.Path]::GetFullPath($Destination)
+    foreach($protected in @($source,($source+'-wal'),($source+'-shm'),($source+'-journal'))){
+        if([string]::Equals($target,$protected,[StringComparison]::OrdinalIgnoreCase)){throw 'Choisissez un autre fichier : la base active et ses journaux ne peuvent pas être remplacés par une exportation.'}
+    }
+}
 function Invoke-DomeniaIndexBackup {
     # Consistent hot copy through the SQLite backup API, run by the StorageBackup worker (no wait on the Dispatcher,
     # D014); the original is never modified.
@@ -666,17 +740,23 @@ function Invoke-DomeniaIndexBackup {
         }
         $path=Get-DomeniaDatabasePath
         if(-not [IO.File]::Exists($path)){throw 'aucune base active a sauvegarder.'}
+        Assert-DomeniaBackupDestination -Database $path -Destination $destination
         $payload=[pscustomobject]@{Database=$path;BackupDirectory=(Join-Path ([IO.Path]::GetDirectoryName($path)) 'Backups');BudgetSeconds=[int](Get-CfgValue 'LocalStore' 'BackupTimeoutSeconds' 30);Keep=[int](Get-CfgValue 'LocalStore' 'DatabaseBackupCount' 7);CopyTo=$destination}
-        [void](Start-UiTask -Name 'Sauvegarder la base' -OperationId 'StorageBackup' -Code (Get-DomeniaStorageBackupWorkerCode) -Payload $payload -CallbackState ([pscustomobject]@{CopyTo=$destination}) -ReplaceKey 'storage:backup' -TimeoutSeconds 150 -StatusText 'Sauvegarde de la base en cours...' -SuccessHandler 'Complete-DomeniaIndexBackupUi' -ErrorHandler 'Fail-DomeniaIndexBackupUi')
+        $id=Start-UiTask -Name 'Sauvegarder la base' -OperationId 'StorageBackup' -Code (Get-DomeniaStorageBackupWorkerCode) -Payload $payload -CallbackState ([pscustomobject]@{CopyTo=$destination;Path=[string]$path;Epoch=[long]$script:SessionEpoch}) -ReplaceKey 'storage:backup' -TimeoutSeconds 150 -StatusText 'Sauvegarde de la base en cours...' -SuccessHandler 'Complete-DomeniaIndexBackupUi' -ErrorHandler 'Fail-DomeniaIndexBackupUi'
+        if([string]::IsNullOrWhiteSpace([string]$id)){throw 'Sauvegarde non admise dans le moteur.'}
     }catch{Set-Status ('Sauvegarde de la base impossible : '+$_.Exception.Message) 'WARN'}
 }
 function Complete-DomeniaIndexBackupUi {
     param($Result,$State)
-    if([string]$Result.CopiedTo){Set-Status ('Sauvegarde de la base copiee : '+[string]$Result.CopiedTo)}
-    else{Set-Status ('Sauvegarde de la base enregistree : '+[string]$Result.Backup)}
+    if($null -eq $State -or [long]$State.Epoch -ne [long]$script:SessionEpoch -or [string]$State.Path -cne [string]$script:DatabaseScopedPath){return}
+    $packet=Get-DomeniaEffectiveWorkerResult $Result @('Backup','CopiedTo')
+    if($null -eq $packet -or -not [string]$packet.Backup -or [string]$packet.CopiedTo -cne [string]$State.CopyTo){Fail-DomeniaIndexBackupUi 'Résultat de sauvegarde non confirmé.' $State;return}
+    if([string]$packet.CopiedTo){Set-Status ('Sauvegarde de la base copiee : '+[string]$packet.CopiedTo)}
+    else{Set-Status ('Sauvegarde de la base enregistree : '+[string]$packet.Backup)}
     Update-DomeniaIndexLocation
 }
 function Fail-DomeniaIndexBackupUi {
     param([string]$Message,$State)
+    if($null -eq $State -or [long]$State.Epoch -ne [long]$script:SessionEpoch -or [string]$State.Path -cne [string]$script:DatabaseScopedPath){return}
     Set-Status ('Sauvegarde de la base impossible : '+$Message) 'WARN'
 }

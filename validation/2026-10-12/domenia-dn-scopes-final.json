@@ -1,0 +1,12 @@
+{
+  "Kind": "DnScopes",
+  "Passed": 284,
+  "Failed": 0,
+  "Objects": 17,
+  "Scopes": 15,
+  "RealSQLite": true,
+  "NativeWindowsPowerShell51": false,
+  "WpfExecuted": false,
+  "NetworkAccessed": false,
+  "Summary": "Actual SQLite parent/scope aggregation, common raw DN parser, escaped/hex/Unicode labels and compiled-query widget details. Escapes never broaden scope; disabled identities excluded from active OU widget."
+}

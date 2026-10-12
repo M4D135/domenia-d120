@@ -1,0 +1,134 @@
+{
+  "State": "Qualified final packages for Windows synthetic checks and documented WPF fixtures; all required scoped reruns passed",
+  "Platform": {
+    "VM": "CNAMTS-W11-01",
+    "Guest": "W11-01",
+    "PowerShell": "5.1.26100.6584 x64 STA",
+    "Session": 0,
+    "RealInteractiveConsoleValidated": false,
+    "ADAccessed": false
+  },
+  "CurrentQualifiedDEV_SHA256": "47B21D448E2B4BAFE03E246B0B433725C1013DE628D19C1119E06954E71570F0",
+  "CurrentQualifiedPROD_SHA256": "E323AAEDD5E3072C9FC24DA82A6959853136F80EC53143428A6AA2B04F890BE9",
+  "LatestWindowsRuntimeDelta": {
+    "Kind": "QuickWindowsUi",
+    "UTC": "2026-10-12T19:34:39.1570750Z",
+    "VM": "W11-01",
+    "PowerShell": "5.1.26100.6584",
+    "Apartment": "STA",
+    "Is64Bit": true,
+    "Session": 0,
+    "Data": "Synthetic fixtures",
+    "ADAccessed": false,
+    "RuntimeChanged": [],
+    "Suites": [
+      {
+        "Suite": "Ps51Compat",
+        "ExitCode": 0,
+        "TimedOut": false,
+        "Milliseconds": 31224,
+        "ReportWritten": true
+      },
+      {
+        "Suite": "StartupCheckOnly",
+        "ExitCode": 0,
+        "TimedOut": false,
+        "Milliseconds": 4702,
+        "ReportWritten": false
+      },
+      {
+        "Suite": "Test-DomeniaLoginForeground",
+        "ExitCode": 0,
+        "TimedOut": false,
+        "Milliseconds": 13625,
+        "ReportWritten": true
+      }
+    ],
+    "CaptureProvenance": "Real WPF layout rendered in Windows from current source with fictitious fixture values; no live AD inventory."
+  },
+  "DocumentationCaptures": {
+    "Files": 23,
+    "Checks": 22,
+    "Failed": [],
+    "MinimumWidth": 1920,
+    "MinimumHeight": 1080,
+    "HashesVerified": true,
+    "Provenance": "final4/captures/capture-provenance.json",
+    "Viewports": [
+      {
+        "Width": 1920,
+        "Height": 1080,
+        "GridHeight": 347,
+        "VisibleGridHeight": 347,
+        "FullyVisibleRows": 11,
+        "PartlyVisibleRows": 1
+      },
+      {
+        "Width": 1280,
+        "Height": 720,
+        "GridHeight": 140,
+        "VisibleGridHeight": 140,
+        "FullyVisibleRows": 3,
+        "PartlyVisibleRows": 1
+      }
+    ],
+    "FinalPackageApplicability": "Captured from final4. Final4 to final5 changed only Show-LoginWindow; capture XAML/factories and all other runtime files identical. Final5 to final6 runtime91 files identical. Source and image SHA proofs retained."
+  },
+  "PreviousValidatedDeltas": [
+    "final2/_quick-ui.json (runtime suites, initial failures retained for traceability)",
+    "final3/_quick-ui.json (all6 targeted suites pass, includes fixes to factory/compatibility/WPF fixture)",
+    "final4/_quick-ui.json (all3 steps pass, compact Base layout and final23screens)",
+    "final6/_quick-ui.json (all3 steps pass on delivered immutable archive; corrected default-path fixture,158 compatible files, login8/8)"
+  ],
+  "LatestCounts": {
+    "MainChecks": 207,
+    "Boards": 40,
+    "Query": 105,
+    "Park": 22,
+    "Resilience": 32,
+    "Rules": 547,
+    "IndexSorting": 545,
+    "IndexActions": 18,
+    "DnScopes": 284,
+    "IndexPersistence": 155,
+    "Ps51StaticFiles": 158,
+    "Ps51StaticErrors": 0,
+    "FactoryRuntimeFilesEqual": 91,
+    "LoginForegroundCases": 8,
+    "LoginForegroundAssertions": 74
+  },
+  "PersistenceCensus5000Milliseconds": 3757,
+  "Limits": [
+    "Fixtures use synthetic directory/cache data. No real AD account, OU, computer, transport or write operation qualified.",
+    "Session0 WPF is rendered natively off screen; clicks in tests are routed events, not human desktop input.",
+    "Older failing fixture reports retained; final3 and final4 targeted reruns resolve those failures."
+  ],
+  "LoginForeground": {
+    "Cases": 8,
+    "Assertions": 74,
+    "Failed": 0,
+    "Report": "final6/Test-DomeniaLoginForeground.json",
+    "RunnerCalledWithoutExplicitCorePath": true,
+    "StandaloneNativeHandleAndVisibilityVerified": true,
+    "RealEmbeddedHostVerified": true,
+    "TopmostRestoredAfterSuccessCancelAndHostFailure": true,
+    "MainAndStartupMonitorNeverPromoted": true,
+    "InteractiveCrossApplicationForegroundValidated": false,
+    "CoreSHA256": "F03EAEF3C6438DE677C4B6972879DDD926BA51D2F6EFEC5A65E9C990B45E6F54"
+  },
+  "FinalDEV": "/Users/david/Documents/Projets/Domenia-D120/livraison-Domenia-1.0-20261012-validee/Domenia_1.0_RC1.17.0_DEV.zip",
+  "FinalPROD": "/Users/david/Documents/Projets/Domenia-D120/livraison-Domenia-1.0-20261012-validee/Domenia_1.0_RC1.17.0_PROD.zip",
+  "RuntimeComparisonProofs": [
+    "final2-final3-runtime-equivalence.json",
+    "final3-final4-runtime-comparison.json",
+    "core-layout-delta.json",
+    "final4-final5-runtime-comparison.json",
+    "core-login-delta.json",
+    "final5-final6-runtime-comparison.json"
+  ],
+  "ResolvedHarnessIssues": [
+    "Boards case39 searched a DataTemplate in the logical tree; fixed to inspect the visual tree,40/40 Windows final4.",
+    "Login foreground default CorePath used PSScriptRoot during parameter defaults under PS5.1; now resolved after param,8/8 via final6 runner without explicit CorePath."
+  ],
+  "RemainingRequiredWork": []
+}

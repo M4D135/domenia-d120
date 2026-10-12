@@ -1,0 +1,95 @@
+{
+    "Fixture":  "example.local, 226 comptes postes fictifs (223 actifs, 3 désactivés)",
+    "Session":  0,
+    "Rendering":  "Real WPF layout, off-screen RenderTargetBitmap",
+    "Checks":  [
+                   {
+                       "Name":  "Sélecteur OU : trois résultats fictifs et choix disponible",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Sélecteur OU : capture réelle et fermeture sans modification du périmètre",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Opérateur initial renseigné",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Tous les postes recensés : 226, actifs et désactivés",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Première page : 200 lignes et page suivante active",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Le détail de l’alerte garde tous les GUID sélectionnés",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Le segment sélectionné est explicite",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Condition ajoutée : Prêt. Exécuter applique ces conditions aux données locales du périmètre courant.",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Condition numérique : le moteur trouve les disques sous 20 %",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Requête nommée enregistrée dans les préférences fictives",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "La requête crée un widget de tableau de bord",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "La sonde enregistrée affiche vraiment cinq postes correspondants",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Le filtre appliqué à Recherche garde les mêmes identités",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Les trois postes désactivés restent consultables",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Recherche : les lignes de démonstration sont liées",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Recherche : 7 résultats réellement présents",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Base : 200 objets liés à la grille",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Base : détails du stockage dépliés et lisibles",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Base : détail lisible et hauteur bornée",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Base : la première ligne reste visible dans le tableau",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Base : au moins 6 lignes entièrement visibles à 1920×1080",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Base : au moins 2 lignes entièrement visibles à 1280×720",
+                       "Passed":  true
+                   }
+               ]
+}

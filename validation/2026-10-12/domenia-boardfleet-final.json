@@ -1,0 +1,174 @@
+{
+  "Kind": "PureRules",
+  "Host": {
+    "PSVersion": "7.4.20",
+    "Platform": "NonWindows",
+    "PSEdition": "Core"
+  },
+  "NativeWindowsPowerShell51": false,
+  "WpfExecuted": false,
+  "DomainAccessed": false,
+  "NetworkAccessed": false,
+  "Passed": 22,
+  "Failed": 0,
+  "CoveredIds": [
+    "BF-001",
+    "BF-002",
+    "BF-003",
+    "BF-004",
+    "BF-005",
+    "BF-006",
+    "BF-007",
+    "BF-008",
+    "BF-009",
+    "BF-010",
+    "BF-011",
+    "BF-012",
+    "BF-014",
+    "BF-015",
+    "BF-016",
+    "BF-017",
+    "BF-018",
+    "BF-019",
+    "BF-020",
+    "BF-021",
+    "BF-022",
+    "BF-023"
+  ],
+  "Complete": true,
+  "Limitation": "Regles pures uniquement. Ne prouve ni le raccordement, ni WPF, ni un acces au domaine.",
+  "Tests": [
+    {
+      "Id": "BF-001",
+      "Name": "Parc : cles du catalogue Fleet, disposition livree remplie, fournisseur pur",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "BF-002",
+      "Name": "Parc : cibles = postes actifs du perimetre, comptes desactives a part, observations en minuscules",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "BF-003",
+      "Name": "Parc : derniere connexion en tranches, tranches vides gardees, inactifs a 14 jours pres et jamais connectes",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "BF-004",
+      "Name": "Parc : versions de Windows et fin de service, Windows 10 hors LTSC compte seul",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "BF-005",
+      "Name": "Parc : postes par sous-OU depuis les DN parents, par OU sur le domaine, dix au plus",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "BF-006",
+      "Name": "Parc : presence des postes analyses (moins de 30 j), couverture N sur M, jamais plus que les postes",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "BF-007",
+      "Name": "Parc : utilisateurs distincts sans la casse, meme utilisateur sur deux postes = 1",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "BF-008",
+      "Name": "Parc : releves WMI des postes analyses (modeles, memoire, disque plein, redemarrage)",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "BF-009",
+      "Name": "Parc : sans releve WMI, section remplacee par une indication et widgets omis",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "BF-010",
+      "Name": "Parc : perimetre vide, repartition remplacee par une indication et etat sain",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "BF-011",
+      "Name": "Parc : score proportionnel aux postes, points du plus grave au moins grave",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "BF-012",
+      "Name": "Parc : resultat du worker en tableau, base occupee et reponse incomplete",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "BF-014",
+      "Name": "Parc : OU sans les sous-OU, profondeur gardee pour les widgets de requete",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "BF-015",
+      "Name": "Parc : un point deplie ses postes depuis la memoire, 200 au plus, par ordre de nom",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "BF-016",
+      "Name": "Fin de service : LTSC 2019/2021, LTSB 2016 et IoT non critiques avec leur date, table absente jamais critique",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "BF-017",
+      "Name": "LAPS et BitLocker : rien de visible sur M postes = non determine, jamais M postes sans",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "BF-018",
+      "Name": "Couverture, age des observations et plan de calcul du worker",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "BF-019",
+      "Name": "Instantane quotidien : chiffres de l annuaire, courbe seulement apres 90 jours d historique",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "BF-020",
+      "Name": "Windows 10 : etat tire de la table des fins de service, sans table jamais critique",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "BF-021",
+      "Name": "Serveurs / postes : tire de operatingSystem, au catalogue seulement",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "BF-022",
+      "Name": "TE-07 : seuil disque du parc aligne sur le poste, tranches avec unites, cas du lot L01",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "BF-023",
+      "Name": "Parc : detail sante exact sans doublon, tous les actifs repartis",
+      "Status": "Passed",
+      "Detail": ""
+    }
+  ]
+}

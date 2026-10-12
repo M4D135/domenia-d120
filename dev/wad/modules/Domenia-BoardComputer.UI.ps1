@@ -60,9 +60,14 @@ function Add-DomeniaComputerBoardAdEntries {
         $referenceProperty = $Metrics.PSObject.Properties['ClockReference']
         $byController = (($null -ne $referenceProperty) -and ([string]$referenceProperty.Value -eq 'Controleur'))
         $against = if ($byController) { 'par rapport au contrôleur de domaine' } else { 'par rapport à ce poste dʼadministration' }
-        if ($gap -gt 300) { Add-DomeniaBoardAttention -Data $Data -Level Alert -Text ('Horloge décalée de ' + $skew + ' s ' + $against + ' : Kerberos refusera lʼauthentification.') } elseif ($gap -gt 60) { Add-DomeniaBoardAttention -Data $Data -Level Warn -Text ('Horloge décalée de ' + $skew + ' s ' + $against + '.') }
-        $clockDetail = if ($gap -gt 300) { 'Plus de 5 min : Kerberos refusera lʼauthentification' } elseif ($byController) { 'Écart avec le contrôleur de domaine' } else { 'Écart avec ce poste dʼadministration (contrôleur non lu)' }
-        Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.ad.clock' -Kind Value -Value $(if ($gap -lt 2) { 'À lʼheure' } else { ('{0:+0;-0} s' -f $skew) }) -Detail $clockDetail -State $(if ($gap -gt 300) { 'Alert' } elseif ($gap -gt 60) { 'Warn' } else { 'Ok' }))
+        # A local reference does not establish the offset from the domain controller.
+        if ($gap -gt 300 -and $byController) {
+            Add-DomeniaBoardAttention -Data $Data -Level Alert -Text ('Horloge décalée de ' + $skew + ' s ' + $against + ' : risque dʼéchec de lʼauthentification Kerberos.')
+        } elseif ($gap -gt 60) {
+            Add-DomeniaBoardAttention -Data $Data -Level Warn -Text ('Horloge décalée de ' + $skew + ' s ' + $against + '.' + $(if (-not $byController) { ' Vérifiez la synchronisation des deux postes ; le contrôleur nʼa pas été lu.' } else { '' }))
+        }
+        $clockDetail = if (-not $byController) { 'Écart avec ce poste dʼadministration (contrôleur non lu)' } elseif ($gap -gt 300) { 'Plus de 5 min avec le contrôleur : risque dʼéchec Kerberos' } else { 'Écart avec le contrôleur de domaine' }
+        Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.ad.clock' -Kind Value -Value $(if ($gap -lt 2) { 'À lʼheure' } else { ('{0:+0;-0} s' -f $skew) }) -Detail $clockDetail -State $(if ($gap -gt 300 -and $byController) { 'Alert' } elseif ($gap -gt 60) { 'Warn' } else { 'Ok' }))
     }
 }
 

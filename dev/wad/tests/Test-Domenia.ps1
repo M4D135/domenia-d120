@@ -33,6 +33,10 @@ if (@($parseErrors).Count -gt 0) { throw 'Le coeur ne passe pas le parseur natif
 foreach($file in @(Get-ChildItem -LiteralPath $root -Recurse -File -Filter '*.ps1' | Where-Object {$_.FullName -notmatch '[\\/]data[\\/]|[\\/]maintenance[\\/]backups[\\/]'})) {
     $filePath=$file.FullName
     Test-Case ('Parseur natif : '+$file.Name) {
+        $sourceBytes=[IO.File]::ReadAllBytes($filePath)
+        if(@($sourceBytes|Where-Object{$_ -gt 127}|Select-Object -First 1).Count){
+            Assert-True ($sourceBytes.Length -ge 3 -and $sourceBytes[0] -eq 239 -and $sourceBytes[1] -eq 187 -and $sourceBytes[2] -eq 191) ('UTF-8 avec BOM requis pour PowerShell 5.1 : '+$file.Name)
+        }
         $t=$null;$e=$null;[void][Management.Automation.Language.Parser]::ParseFile($filePath,[ref]$t,[ref]$e)
         Assert-True (@($e).Count -eq 0) (($e | ForEach-Object {$_.Message}) -join '; ')
     }
@@ -484,18 +488,13 @@ try {
         $aucune = Get-DomeniaIndexCut -Effective ([pscustomobject]@{ LimitReason='' })
         Assert-True ([string]$aucune.Reason -eq '') 'Une passe sans limite doit rester sans motif'
     }
-    Test-Case 'Base autonome : la portée de la mise à jour suit lʼOU choisie, sinon lʼarbre' {
-        # Une passe du domaine entier nʼest plus le seul chemin : la portée doit se résoudre exactement comme
-        # celle du tableau de bord et de la recherche, et une OU hors du domaine ne doit jamais être lue.
+    Test-Case 'Base autonome : le périmètre choisi est indépendant de Recherche' {
         $script:Conn.BaseDn='DC=EX,DC=TEST'
-        $existait=$null -ne (Get-Command Get-DomeniaSearchScope -CommandType Function -ErrorAction SilentlyContinue)
-        $original=if($existait){(Get-Item Function:\Get-DomeniaSearchScope).Definition}else{$null}
         try {
-            Set-Item Function:\Get-DomeniaSearchScope { [pscustomobject]@{ BaseDn='OU=Arbre,DC=EX,DC=TEST'; Scope='Subtree'; IsDomain=$false; Mode='OU' } }
             $script:IndexScopeDn=''
             $s=Get-DomeniaIndexScope
-            Assert-True (-not [bool]$s.IsDomain) 'Sans choix explicite, la portée vient de lʼarbre'
-            Assert-True ($s.BaseDn -ceq 'OU=Arbre,DC=EX,DC=TEST') 'La sélection de lʼarbre est conservée sans choix explicite'
+            Assert-True ([bool]$s.IsDomain) 'Sans choix explicite, la cible doit être tout le domaine'
+            Assert-True ($s.BaseDn -ceq 'DC=EX,DC=TEST') 'La cible domaine est mal définie'
             $script:IndexScopeDn='OU=Ateliers,OU=Site,DC=EX,DC=TEST'
             $s=Get-DomeniaIndexScope
             Assert-True (-not [bool]$s.IsDomain) 'Une OU choisie reste une OU'
@@ -504,16 +503,14 @@ try {
             $script:IndexScopeDn='DC=EX,DC=TEST'
             $s=Get-DomeniaIndexScope
             Assert-True ([bool]$s.IsDomain) 'La racine choisie vaut tout le domaine'
-            Assert-True ($s.BaseDn -ceq 'DC=EX,DC=TEST') 'La racine choisie ne retombe pas sur lʼOU sélectionnée dans lʼarbre'
+            Assert-True ($s.BaseDn -ceq 'DC=EX,DC=TEST') 'La racine ne reste pas filtrée'
             $script:IndexScopeDn='OU=Autre,DC=AUTRE,DC=TEST'
             $s=Get-DomeniaIndexScope
-            Assert-True (-not [bool]$s.IsDomain) 'Une OU hors du domaine est ignorée au profit de lʼOU de lʼarbre'
-            Assert-True ($s.BaseDn -ceq 'OU=Arbre,DC=EX,DC=TEST') 'La portée de remplacement vient de lʼarbre'
+            Assert-True ([bool]$s.IsDomain) 'Une OU hors domaine doit revenir au domaine courant'
+            Assert-True ($s.BaseDn -ceq 'DC=EX,DC=TEST') 'La cible invalide doit être neutralisée'
         } finally {
             $script:IndexScopeDn=''
             $script:Conn.BaseDn=''
-            if($existait){Set-Item Function:\Get-DomeniaSearchScope ([scriptblock]::Create([string]$original))}
-            else{Remove-Item Function:\Get-DomeniaSearchScope -ErrorAction SilentlyContinue}
         }
     }
     Test-Case 'CO-03 : les dates et les tailles des grilles se trient par valeur' {

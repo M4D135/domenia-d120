@@ -1,0 +1,24 @@
+{
+    "Kind":  "QuickWindowsUi",
+    "UTC":  "2026-10-12T19:31:56.4385978Z",
+    "VM":  "W11-01",
+    "PowerShell":  "5.1.26100.6584",
+    "Apartment":  "STA",
+    "Is64Bit":  true,
+    "Session":  0,
+    "Data":  "Synthetic fixtures",
+    "ADAccessed":  false,
+    "RuntimeChanged":  [
+
+                       ],
+    "Suites":  [
+                   {
+                       "Suite":  "Test-DomeniaLoginForeground",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  14191,
+                       "ReportWritten":  true
+                   }
+               ],
+    "CaptureProvenance":  "Real WPF layout rendered in Windows from current source with fictitious fixture values; no live AD inventory."
+}

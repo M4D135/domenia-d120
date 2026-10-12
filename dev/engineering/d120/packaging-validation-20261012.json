@@ -1,0 +1,397 @@
+{
+  "Schema": "DomeniaPackagingValidation/1",
+  "RecordedAtUTC": "2026-10-12T17:57:27.510722+00:00",
+  "Product": "Domenia 1.0",
+  "Scope": "Fabrication classique PROD depuis le DEV ; controles hors ligne en copies temporaires ; revue de provenance des deux DLL utilisees.",
+  "Overall": "PASS_LOCAL_WITH_WINDOWS_LIMITATION",
+  "QualifiesWindowsApplication": false,
+  "WindowsPowerShell51Executed": false,
+  "ApplicationExecuted": false,
+  "ActiveDirectoryAccessed": false,
+  "VirtualMachineUsed": false,
+  "FinalPackagesBuilt": false,
+  "CommitOrPushPerformed": false,
+  "Environment": {
+    "OS": "Darwin",
+    "Architecture": "arm64",
+    "Python": "3.14.7",
+    "PowerShell": "7.4.20",
+    "PowerShellEdition": "Core",
+    "PowerShellPath": "/Users/david/Documents/Codex/2026-10-12/tu-x20/work/pesto-runtime/powershell-7.4.20/pwsh"
+  },
+  "ReviewedFiles": [
+    {
+      "Path": "tools/Fabriquer-Prod.ps1",
+      "SHA256": "00184761ad3b28151f1ce63730485d024a020a0fa78787fd813f5dbbe2d58b94"
+    },
+    {
+      "Path": "tools/Production.Source.ps1",
+      "SHA256": "576f0ecb048b29d76ec06f438d980ff6d83373d44fe55ad16485010ef441c83b"
+    },
+    {
+      "Path": "tools/prod-layout.json",
+      "SHA256": "ddba7e0be710f9468c93343683e591cd56c55f8ab5300fb0f9c60f18b1c301ff"
+    },
+    {
+      "Path": "tools/migration-worker.json",
+      "SHA256": "577b3967a68f1c268219817345e0ed6d64399ebe0ea0609a2063f66274ca429e"
+    },
+    {
+      "Path": "tools/update_migration_worker.py",
+      "SHA256": "c974c69a356ff7e8cc8d0d637af45e5becfc0b831229414057a3bbf24a10deeb"
+    },
+    {
+      "Path": "tools/build_packages.py",
+      "SHA256": "a8756fe692296c115556b7f33f7d7dac9a68e47708b5d9cfa45099f0b321a469"
+    },
+    {
+      "Path": "tools/tests/test_classic_packaging.py",
+      "SHA256": "8de0a702b94be717783fdc3124b698ff5abd7bc6a7e28fa351d409ffa8d38234"
+    },
+    {
+      "Path": "FABRIQUER_PROD.cmd",
+      "SHA256": "cb35b3aeeb96d0345a2adea6d75e8221a7a83484443d906f80fde2164df5ce9a"
+    },
+    {
+      "Path": "LIRE-MOI.md",
+      "SHA256": "a64992f849d2c462b8c7e847be78c4319ab724c30bb5805b28fbc935e5734633"
+    }
+  ],
+  "ReviewedFilesNote": "Ces empreintes decrivent la revue finale. Les hashes des copies temporaires des deux campagnes precedentes n ont pas ete conserves ; ne pas les presenter comme une attestation des archives finales.",
+  "PackagingTests": {
+    "DistinctScenariosPassed": 21,
+    "Failed": 0,
+    "Skipped": 0,
+    "ExecutionNote": "21 methodes distinctes executees en deux invocations. La baseline a ete executee deux fois. La seconde invocation couvre le controle final des modules non declares, les fonctions dupliquees, les sources signees et les liens DEV ; les autres scenarios proviennent de la premiere invocation.",
+    "Runs": [
+      {
+        "Id": "packaging-initial",
+        "Command": "python3 dev/tools/tests/test_classic_packaging.py --powershell /Users/david/Documents/Codex/2026-10-12/tu-x20/work/pesto-runtime/powershell-7.4.20/pwsh",
+        "WorkingDirectory": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit",
+        "Passed": 17,
+        "Failed": 0,
+        "Skipped": 0,
+        "DurationSeconds": 63.608,
+        "ObservedOutput": "Ran 17 tests in 63.608s; OK",
+        "ToolSessionId": 67694
+      },
+      {
+        "Id": "packaging-targeted",
+        "Command": "python3 dev/tools/tests/test_classic_packaging.py --powershell /Users/david/Documents/Codex/2026-10-12/tu-x20/work/pesto-runtime/powershell-7.4.20/pwsh ClassicProductionTests.test_baseline_and_factory_layout_agree ClassicProductionTests.test_undeclared_module_is_refused ClassicProductionTests.test_duplicate_function_is_refused ClassicProductionTests.test_signed_source_is_refused_before_rewriting FactoryConfigurationTests.test_dev_symlink_file_is_not_packaged",
+        "WorkingDirectory": "/Users/david/Documents/Projets/Domenia-D120/work/domenia-audit",
+        "Passed": 5,
+        "Failed": 0,
+        "Skipped": 0,
+        "DurationSeconds": 22.894,
+        "ObservedOutput": "Ran 5 tests in 22.894s; OK",
+        "ToolSessionId": 70142
+      }
+    ],
+    "Scenarios": [
+      {
+        "Name": "ClassicProductionTests.test_array_configuration_is_refused",
+        "Result": "PASS",
+        "EvidenceRuns": [
+          "packaging-initial"
+        ]
+      },
+      {
+        "Name": "ClassicProductionTests.test_baseline_and_factory_layout_agree",
+        "Result": "PASS",
+        "EvidenceRuns": [
+          "packaging-initial",
+          "packaging-targeted"
+        ]
+      },
+      {
+        "Name": "ClassicProductionTests.test_case_collision_in_layout_is_refused",
+        "Result": "PASS",
+        "EvidenceRuns": [
+          "packaging-initial"
+        ]
+      },
+      {
+        "Name": "ClassicProductionTests.test_demo_configuration_is_refused",
+        "Result": "PASS",
+        "EvidenceRuns": [
+          "packaging-initial"
+        ]
+      },
+      {
+        "Name": "ClassicProductionTests.test_duplicate_function_is_refused",
+        "Result": "PASS",
+        "EvidenceRuns": [
+          "packaging-targeted"
+        ]
+      },
+      {
+        "Name": "ClassicProductionTests.test_invalid_configuration_rolls_back",
+        "Result": "PASS",
+        "EvidenceRuns": [
+          "packaging-initial"
+        ]
+      },
+      {
+        "Name": "ClassicProductionTests.test_invalid_module_json_is_refused",
+        "Result": "PASS",
+        "EvidenceRuns": [
+          "packaging-initial"
+        ]
+      },
+      {
+        "Name": "ClassicProductionTests.test_invalid_script_is_refused",
+        "Result": "PASS",
+        "EvidenceRuns": [
+          "packaging-initial"
+        ]
+      },
+      {
+        "Name": "ClassicProductionTests.test_missing_runtime_component_is_refused",
+        "Result": "PASS",
+        "EvidenceRuns": [
+          "packaging-initial"
+        ]
+      },
+      {
+        "Name": "ClassicProductionTests.test_modified_worker_function_dll_and_crlf_are_rebuilt_without_execution",
+        "Result": "PASS",
+        "EvidenceRuns": [
+          "packaging-initial"
+        ]
+      },
+      {
+        "Name": "ClassicProductionTests.test_output_existing_is_preserved",
+        "Result": "PASS",
+        "EvidenceRuns": [
+          "packaging-initial"
+        ]
+      },
+      {
+        "Name": "ClassicProductionTests.test_output_inside_sources_is_refused",
+        "Result": "PASS",
+        "EvidenceRuns": [
+          "packaging-initial"
+        ]
+      },
+      {
+        "Name": "ClassicProductionTests.test_runtime_assets_are_included_but_data_and_tests_are_excluded",
+        "Result": "PASS",
+        "EvidenceRuns": [
+          "packaging-initial"
+        ]
+      },
+      {
+        "Name": "ClassicProductionTests.test_signed_source_is_refused_before_rewriting",
+        "Result": "PASS",
+        "EvidenceRuns": [
+          "packaging-targeted"
+        ]
+      },
+      {
+        "Name": "ClassicProductionTests.test_symlink_asset_is_refused_before_traversal",
+        "Result": "PASS",
+        "EvidenceRuns": [
+          "packaging-initial"
+        ]
+      },
+      {
+        "Name": "ClassicProductionTests.test_symlink_output_parent_is_refused_before_mkdir",
+        "Result": "PASS",
+        "EvidenceRuns": [
+          "packaging-initial"
+        ]
+      },
+      {
+        "Name": "ClassicProductionTests.test_undeclared_module_is_refused",
+        "Result": "PASS",
+        "EvidenceRuns": [
+          "packaging-targeted"
+        ]
+      },
+      {
+        "Name": "ClassicProductionTests.test_unknown_migration_dependency_is_refused",
+        "Result": "PASS",
+        "EvidenceRuns": [
+          "packaging-initial"
+        ]
+      },
+      {
+        "Name": "ClassicProductionTests.test_windows_reserved_asset_name_is_refused",
+        "Result": "PASS",
+        "EvidenceRuns": [
+          "packaging-initial"
+        ]
+      },
+      {
+        "Name": "FactoryConfigurationTests.test_bad_config_and_demo_variants_are_refused",
+        "Result": "PASS",
+        "EvidenceRuns": [
+          "packaging-initial"
+        ]
+      },
+      {
+        "Name": "FactoryConfigurationTests.test_dev_symlink_file_is_not_packaged",
+        "Result": "PASS",
+        "EvidenceRuns": [
+          "packaging-targeted"
+        ]
+      }
+    ]
+  },
+  "AdditionalChecks": [
+    {
+      "Command": "python3 -m unittest discover -s dev/engineering/d120 -p test_release_guard.py -v",
+      "Result": "PASS",
+      "Tests": 50,
+      "ObservedOutput": "Ran 50 tests in 0.027s; OK"
+    },
+    {
+      "Command": "python3 -m unittest dev.engineering.d120.test_dev_tools.PackagingTests -v",
+      "Result": "PASS",
+      "Tests": 5,
+      "ObservedOutput": "Ran 5 tests in 0.013s; OK"
+    },
+    {
+      "Command": "python3 dev/tools/update_migration_worker.py",
+      "Result": "PASS",
+      "ObservedOutput": "PASS: migration worker matches its runtime helpers."
+    },
+    {
+      "Command": "python3 dev/tools/release_contract.py --check",
+      "Result": "PASS",
+      "ObservedProblems": [],
+      "ObservedWarnings": []
+    },
+    {
+      "Command": "python3 -m py_compile dev/tools/build_packages.py dev/tools/update_migration_worker.py dev/tools/tests/test_classic_packaging.py",
+      "Result": "PASS"
+    },
+    {
+      "Command": "git diff --check -- dev/tools/Production.Source.ps1 dev/tools/Fabriquer-Prod.ps1 dev/tools/prod-layout.json dev/tools/migration-worker.json dev/tools/update_migration_worker.py dev/tools/build_packages.py dev/FABRIQUER_PROD.cmd dev/LIRE-MOI.md dev/tools/tests/test_classic_packaging.py",
+      "Result": "PASS"
+    }
+  ],
+  "CancelledArchiveAudit": {
+    "Result": "PASS",
+    "CommandArguments": [
+      "rg",
+      "-n",
+      "-i",
+      "MWAD|domenia\\.wad|M4D.*Packaging|ProductionHost|PackagingHost|build_prod_wad|mwad_inspect|M4D_PROD_|Package\\.Model|lot-package|WadFile|build-production-pair|wad-editor",
+      "dev",
+      "--glob",
+      "!package-manifest.json",
+      "--glob",
+      "!prod-manifest.json",
+      "--glob",
+      "!preload-baseline.json",
+      "--glob",
+      "!packaging-validation-20261012.json",
+      "--glob",
+      "!*.docx",
+      "--glob",
+      "!*.pdf",
+      "--glob",
+      "!*.dll",
+      "--glob",
+      "!*.exe",
+      "--glob",
+      "!*.zip"
+    ],
+    "ExitCode": 1,
+    "MatchingLines": [],
+    "Interpretation": "Aucun appel ou composant du systeme archive annule dans le code et les outils examines. Le dossier ordinaire wad reste le repertoire du runtime. Les manifestes generes exclus doivent etre reconstruits par la fabrique finale."
+  },
+  "SharedQueryProvenance": {
+    "Result": "PASS",
+    "Repository": "https://github.com/M4D135/m4d-admin-common",
+    "Commit": "5ad02712e5c0eea6975b6ccb2c3e4343f93cc18b",
+    "Version": "0.1.1",
+    "AggregateSourceSHA256": "0dcd33942859ff3d75b514098b90ca6d5393b11bfdb503683b63cef2c41af972",
+    "ExpectedSourceSHA256": "0dcd33942859ff3d75b514098b90ca6d5393b11bfdb503683b63cef2c41af972",
+    "AggregateMethod": "SHA256 des lignes chemin relatif + NUL + SHA256 fichier, triees par chemin, jointes par LF avec LF final ; sources src/**/*.cs, version.json et tools/build.ps1 au commit verrouille.",
+    "VendoredFiles": [
+      {
+        "Path": "src/Query/QueryEngine.cs",
+        "SHA256": "533d6a5cc6cc0644a9c64c0261f54dd25f507f44a3c9a8c79acdb9934d996951",
+        "MatchesLockedCommit": true
+      },
+      {
+        "Path": "src/Query/README.md",
+        "SHA256": "ae3c252c046f56e1e0951c5f01e7eca7c008501de1d5da8474cad0ec6069e95f",
+        "MatchesLockedCommit": true
+      },
+      {
+        "Path": "tests/Query/QueryTests.cs",
+        "SHA256": "53764ea19025e91fe18d4fcc3a8e34d4e8c4080c17c70f3c615cbe592737fe61",
+        "MatchesLockedCommit": true
+      },
+      {
+        "Path": "tests/Query/Test-Query.ps1",
+        "SHA256": "69ac5b1c0c8530d13950b6c30792ca26d831b9e30d3bc7fb1a066c6d097337eb",
+        "MatchesLockedCommit": true
+      }
+    ],
+    "RuntimeDownload": false
+  },
+  "RuntimeBinaries": [
+    {
+      "Path": "wad/modules/M4D.Admin.Common.Query.dll",
+      "Bytes": 17408,
+      "SHA256": "269b7d1cbdd6ab42062a75e0ca4a45876b3ff0eae4cbf730acf91a12828bd7ca",
+      "LoaderPinMatches": true,
+      "ContractPins": {
+        "tools/release-contract.json": true,
+        "wad/Domenia.release.json": true
+      },
+      "Net472MarkerFound": true
+    },
+    {
+      "Path": "wad/modules/Domenia.Native.dll",
+      "Bytes": 20992,
+      "SHA256": "aa610389684a1415e0cefef0fc33fe0ce961b57b921c1a6319cae06f2eca1aad",
+      "LoaderPinMatches": true,
+      "ContractPins": {
+        "tools/release-contract.json": true,
+        "wad/Domenia.release.json": true
+      },
+      "Net472MarkerFound": true
+    }
+  ],
+  "NativeSources": [
+    {
+      "Path": "native/ObservationReader.cs",
+      "SHA256": "361dea7be559e3cbf25364ea73e5191838ac5e2fbd24ca073272cad1a69d86b0"
+    },
+    {
+      "Path": "native/ProbeAggregation.cs",
+      "SHA256": "81ee62b401d523a22769ca4abbeb63040586761f43a2ece36f540c891f309c75"
+    }
+  ],
+  "PowerShell51SourceReview": {
+    "Result": "NO_INCOMPATIBILITY_FOUND_BY_SOURCE_REVIEW",
+    "Files": [
+      "tools/Fabriquer-Prod.ps1",
+      "tools/Production.Source.ps1",
+      "FABRIQUER_PROD.cmd"
+    ],
+    "DeclaredMinimum": "5.1",
+    "ParserUsed": "PowerShell 7.4.20 System.Management.Automation.Language.Parser.ParseFile",
+    "ParserErrors": 0,
+    "ReviewedCompatibility": [
+      "Constructeurs ::new disponibles depuis PowerShell 5 ; collections generiques et API System.IO/System.Text/System.Security.Cryptography disponibles dans .NET Framework.",
+      "Get-FileHash, Get-ChildItem -File, ConvertFrom-Json et AST PowerShell disponibles en Windows PowerShell 5.1.",
+      "Pas de -AsHashtable, utf8NoBOM, ForEach-Object -Parallel, operateur ternaire, coalescence nulle, Path.GetRelativePath ni File.Move avec overwrite dans le builder.",
+      "FABRIQUER_PROD.cmd choisit Windows PowerShell via System32 ou Sysnative ; aucune invocation du compilateur C#, de Python ou du logiciel.",
+      "build_native.ps1 exige explicitement PowerShell 7.4 pour compiler des DLL depuis le C# ; cet outil developpeur est distinct et jamais appele pendant la fabrication classique."
+    ],
+    "Limitation": "La syntaxe declaree et les API ont ete revues ; une execution reelle de Fabriquer-Prod sous Windows PowerShell 5.1 reste a confirmer. Le parseur PS7 ne constitue pas une preuve d execution PS5.1."
+  },
+  "Limitations": [
+    "Aucune validation WPF, UAC, verrouillage de fichiers Windows, ACL Windows, junction Windows ou operation Active Directory reelle dans ces campagnes.",
+    "Les essais de liens ont utilise des symlinks macOS.",
+    "Les ZIP finaux et leurs SHA256 ne sont pas produits ni qualifies par ce rapport.",
+    "Les DLL sont lues et hachees ; aucune nouvelle compilation native ou execution de composant partage pendant cette revue.",
+    "Les tests modifient seulement leurs copies temporaires ; les assertions controlent que le dossier source de chaque fabrication reste identique."
+  ]
+}

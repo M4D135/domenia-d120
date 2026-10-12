@@ -1,125 +1,143 @@
-# Domenia 1.0 RC1.16.0 — livraison du 9 octobre 2026
+# Domenia 1.0
 
-Build : `2026.10.09-DOMENIA-1.0-RC1.16.0-D120`.
-Guides : `DOC/Domenia-1.0-Guide-technicien` et `DOC/Domenia-1.0-Guide-administrateur` (.docx et .pdf) dans la livraison.
-Cible : Windows PowerShell 5.1 x64, interface WPF. Lancer `Domenia.exe`.
+Administration Active Directory, inventaire local et tableaux de bord pour Windows.
+Cible : Windows PowerShell 5.1 x64, WPF et .NET Framework 4.7.2 ou ultérieur.
+Lancez `Domenia.exe` après avoir extrait entièrement le pack dans un dossier local.
+
+Guides dans la livraison : `DOC/Domenia-1.0-Guide-technicien` et
+`DOC/Domenia-1.0-Guide-administrateur`, chacun en DOCX et PDF.
 
 ## Les deux packs
 
-- **PROD** : `Domenia.exe` et `wad`, uniquement les composants nécessaires à l'application.
-- **DEV** : le même runtime à l'octet, l'installateur, les sources, les outils, les tests et le suivi D001-D120.
+- **PROD** : `Domenia.exe` et le dossier `wad`, avec les composants nécessaires à l'application.
+- **DEV** : le même runtime, les sources, les outils de fabrication, les tests et la documentation technique.
 
-Extraire le ZIP entièrement dans un dossier local. Si Windows bloque les fichiers, utiliser
-`wad/Support/DEBLOQUER_TOUT.cmd`. Ne pas déplacer le cœur sans les modules et leur manifeste.
+Le dossier `wad` reste un dossier ordinaire. Gardez ensemble le lanceur, ce dossier, ses modules
+et son manifeste. Si Windows bloque les fichiers téléchargés, utilisez
+`wad\Support\DEBLOQUER_TOUT.cmd` après avoir vérifié leur provenance.
 
-## Détection utilisateur / poste
+## Recherche, base et tableaux de bord
 
-La détection est déclenchée manuellement :
+La base locale conserve les objets recensés dans le périmètre choisi. La recherche, la consultation
+de la base et les tableaux de bord disposent de leur sélection de périmètre : contrôlez l'OU affichée
+avant de comparer des compteurs. Un poste désactivé reste recensé ; sa présence dans la base ne signifie
+pas qu'une collecte distante peut être lancée sur lui.
 
-- dans **Rechercher**, **Pinger la liste**, **Détecter la liste** et **Analyser la liste** traitent seulement les postes des résultats chargés après filtrage ; le périmètre est figé au clic ;
-- **Analyser la liste** ajoute le relevé WMI léger et les requêtes WMI des widgets des tableaux de bord ;
-- la vue d'ensemble du parc de l'**Accueil** suit l'OU choisie dans Rechercher et ne lance aucune analyse ; jamais le domaine entier.
+Les tableaux de bord présentent les mesures disponibles, leur fraîcheur et leur couverture. Le détail
+d'un indicateur permet de consulter les postes correspondants. L'atelier de requêtes sert à filtrer
+les données locales, enregistrer des requêtes et alimenter des sondes. Les résultats sont paginés :
+le nombre total concerne le filtre complet, même si une page n'affiche qu'une partie des objets.
 
-Une confirmation indique le périmètre. Aucun scan ne part au démarrage. Les postes hors ligne sont ignorés.
-Le relevé concerne l'utilisateur de la console, pas les sessions RDP. Chaque demande vérifie légèrement la console
-pour constater un changement ; l'identité LDAP en cache est réutilisée lorsqu'elle reste valide.
-Le cache persiste entre les lancements. Les associations automatiques sont actualisées avec leur historique ;
-les associations manuelles et importées restent protégées. Une absence de réponse n'efface pas le dernier utilisateur connu.
+La mise à jour de l'index et la collecte des postes sont distinctes. L'index lit les objets de l'annuaire ;
+la collecte récupère les observations distantes. La progression précise le périmètre, la phase, les éléments
+traités et les erreurs. Une collecte partielle ne doit pas être interprétée comme un inventaire complet.
+Une donnée absente ou périmée reste signalée comme telle.
 
-## Mise à jour et restauration
+Dans **Outils > Base**, privilégiez **Tout relire dans lʼOU choisie** : l'OU et ses sous-OU sont
+relues, les autres branches sont conservées. Sans OU choisie, un sélecteur s'ouvre.
+**Tout relire dans le domaine** est une opération longue et occasionnelle, réservée au premier
+chargement ou à une remise à jour globale ; une confirmation rappelle son coût. Ces deux actions
+mettent à jour la copie locale sans modifier Active Directory. Les options avancées donnent accès
+à la synchronisation des changements et à la lecture du domaine par étapes.
 
-Fermer Domenia après la fin des opérations. Conserver une sauvegarde de ses données. Extraire **PROD** (ou DEV) dans
-un dossier distinct, puis lancer dans Windows PowerShell 5.1 l'installateur livré dans `wad\Support` (dans DEV,
-`.\INSTALLER-MISE-A-JOUR.ps1` à la racine appelle le même script) :
+Dans **Rechercher**, les actions **Pinger la liste**, **Détecter la liste** et **Analyser la liste**
+portent sur la sélection annoncée au clic. Vérifiez la confirmation avant lancement. La détection concerne
+l'utilisateur de la console, pas les sessions RDP. Une absence de réponse n'efface pas le dernier utilisateur
+connu ; les associations manuelles et importées restent protégées.
+
+## Refaire un PROD après modification
+
+Le DEV contient un outil autonome de fabrication. Il utilise Windows PowerShell 5.1 déjà présent
+sur Windows ; aucun Python, téléchargement ou compilateur n'est requis.
+
+1. Modifiez les sources dans le dossier `wad` du DEV. Si vous modifiez du C#, compilez d'abord la DLL
+   correspondante : cet outil assemble des composants déjà construits.
+2. Double-cliquez sur **`FABRIQUER_PROD.cmd`**. Un dossier `prod-AAAAMMJJ-HHMMSS-identifiant` est créé
+   à côté du DEV. Le chemin complet est affiché à la fin.
+3. Contrôlez le fonctionnement de vos modifications sur le poste Windows prévu avant diffusion.
+
+Pour choisir les chemins :
+
+```powershell
+.\tools\Fabriquer-Prod.ps1 -SourceWad 'D:\Sources\wad' -OutputDirectory 'D:\Livraisons\prod'
+```
+
+Le dossier source doit être un `wad` complet, comprenant les scripts de démarrage, modules, DLL,
+ressources, configuration et dossier `Support`. `-LauncherPath` permet de choisir le `Domenia.exe`
+à placer dans la livraison ; par défaut, celui du DEV est utilisé.
+Un module PowerShell ajouté dans `wad/modules` doit être déclaré dans
+`Get-DomeniaRuntimeModulePlan` de `Domenia-Modules.ps1` ; les fichiers voisins ne sont jamais chargés automatiquement.
+
+La préparation se fait dans une copie temporaire. Elle régénère le worker de migration, les exports
+chargés par module, les empreintes des DLL et des opérations worker, le registre des opérations et les
+manifestes. Les scripts de l'application sont analysés sans être exécutés. Les tests, bases locales,
+sauvegardes et journaux sont exclus de PROD. Les sources ne sont pas modifiées.
+
+Un dossier de sortie existant est refusé. En cas d'erreur, aucun PROD partiel n'est publié et la copie
+temporaire est supprimée. Le mode démonstration, les fichiers manquants, les scripts ou JSON invalides,
+les chemins redirigés et les noms ambigus bloquent la fabrication. Une source signée doit être reconstruite
+à partir de sa version non signée, puis la distribution peut être signée après fabrication.
+
+La vérification du pack prouve sa cohérence et ses empreintes ; elle ne remplace pas la validation
+fonctionnelle Windows de vos modifications. La livraison fabriquée porte le statut de build local à valider.
+
+## Installer ou mettre à jour
+
+Fermez Domenia après la fin des opérations et conservez une sauvegarde de ses données. Extrayez le pack
+dans un dossier distinct, puis lancez l'installateur livré dans `wad\Support` :
 
 ```powershell
 .\wad\Support\INSTALLER-MISE-A-JOUR.ps1 -Destination 'C:\Domenia' -WhatIf
 .\wad\Support\INSTALLER-MISE-A-JOUR.ps1 -Destination 'C:\Domenia'
 ```
 
-L'installateur vérifie et prépare la livraison complète, contrôle la version préparée avec `Domenia-Start.ps1 -CheckOnly`,
-demande « Installer ces N fichiers ? (O/N) », sauvegarde le code précédent, verrouille le lancement, remplace les fichiers
-puis contrôle l'ensemble avant activation. Il ne lance aucune suite de tests sur le poste. Les données et les préférences
-existantes sont conservées. Le résumé final donne la version avant et après ; la copie préparée est supprimée et seules
-les cinq dernières sauvegardes complètes sont gardées. Une copie de Domenia ouverte dans un autre dossier n'empêche pas
-cette mise à jour. Les versions déjà actives ne sont pas réinstallées.
+L'installateur vérifie la livraison et prépare une copie, contrôle son démarrage avec `-CheckOnly`,
+présente les fichiers à installer et demande confirmation. Il sauvegarde le code, verrouille le lancement,
+remplace les composants et contrôle le résultat avant activation. Les données et préférences existantes
+sont conservées. Il ne lance aucune suite de tests sur le poste.
 
-Rapport de qualification : `-Package <ZIP livré> -QualificationReport <rapport>` vérifie hors ligne le rapport avec les règles
-de `release_guard` : Windows PowerShell 5.1, campagne réussie, même build, scénarios requis exécutés et liés aux archives,
-ZIP dont chaque fichier porte l'empreinte de son manifeste. Un rapport fourni mais refusé arrête l'installation avant toute
-écriture, avec la raison du refus. Sans rapport, un avertissement s'affiche et l'installation continue ;
-`-RequireQualification` refuse alors toute modification.
+Pour une première installation :
 
-Codes de sortie : 0 installation faite (ou `-WhatIf`), 1 erreur, 2 rien n'a été installé (réponse N ou aucune réponse).
-`-Confirm:$false` supprime toutes les questions, y compris celle des raccourcis : `-Shortcuts Oui` ou `Non` donne alors
-la réponse. Les chemins relatifs (`-Destination`, `-Package`, `-QualificationReport`) partent du dossier courant de
-PowerShell.
+```powershell
+.\wad\Support\INSTALLER-MISE-A-JOUR.ps1 -Install -Destination 'C:\Domenia'
+```
 
-Première installation dans un dossier vide : `-Install -Destination 'C:\Domenia'` copie les fichiers contrôlés par
-empreintes, les débloque et lance le contrôle de démarrage. Les raccourcis Bureau et menu Démarrer sont proposés et ne sont
-jamais créés sans réponse (`-Shortcuts Oui` ou `Non` pour répondre d'avance).
+Les raccourcis Bureau et menu Démarrer sont proposés. Les codes de sortie sont : `0`, opération réussie
+ou aperçu `-WhatIf` ; `1`, erreur ; `2`, installation non effectuée. Pour une installation sans question,
+utilisez `-Confirm:$false` et choisissez explicitement `-Shortcuts Oui` ou `-Shortcuts Non`.
 
-En cas d'interruption, le lancement reste bloqué jusqu'à restauration. `Domenia-Start.ps1` donne alors la commande complète :
-le script `RESTAURER-CODE.ps1` de la sauvegarde concernée, ou l'installateur avec `-RestoreLatest -Destination`. Le lanceur
-`Domenia.exe`, conservé à l'octet (F8), affiche encore « Utiliser l installateur DEV » : il s'agit de
-`wad\Support\INSTALLER-MISE-A-JOUR.ps1`, livré dans PROD et DEV. La dernière sauvegarde (ou celle de l'installation
-interrompue) se restaure sans chercher son chemin :
+Les chemins relatifs sont résolus depuis le dossier courant de PowerShell. Un rapport de qualification
+peut être fourni avec `-Package` et `-QualificationReport`. Un rapport fourni mais refusé arrête
+l'installation. `-RequireQualification` exige une preuve valable liée aux archives.
+
+## Restaurer le code
+
+En cas d'interruption, le lancement reste verrouillé et le contrôle de démarrage indique la commande
+de restauration. La dernière sauvegarde de code peut être restaurée ainsi :
 
 ```powershell
 .\wad\Support\INSTALLER-MISE-A-JOUR.ps1 -RestoreLatest -Destination 'C:\Domenia'
 .\wad\Support\INSTALLER-MISE-A-JOUR.ps1 -RestoreBackup 'C:\Domenia\wad\maintenance\backups\DOSSIER'
 ```
 
-La restauration contrôle les empreintes et refuse d'écraser un fichier modifié indépendamment. Elle ne touche pas aux données.
+La restauration vérifie les empreintes et refuse d'écraser un fichier modifié indépendamment.
+Elle ne restaure pas les données métier : conservez aussi leurs sauvegardes. L'installateur garde
+les cinq dernières sauvegardes complètes de code.
 
-## Signature et vérification hors ligne
+## Vérifier et signer
 
-`VERIFIER-PACK.cmd` contrôle les empreintes du manifeste, puis lance `tools\Test-DomeniaSignature.ps1` pris dans l'arbre du
-vérificateur (jamais dans la copie examinée) et seulement si aucun fichier n'est en erreur. Le rapport sépare l'intégrité et
-l'éditeur, sans accès réseau ni contrôle de révocation :
+Dans le DEV, `VERIFIER-PACK.cmd` contrôle les fichiers et empreintes du manifeste. La vérification
+de signature distingue l'intégrité des fichiers et l'identité de l'éditeur ; elle est hors ligne,
+sans accès réseau ni contrôle de révocation.
 
-- les scripts PowerShell sont signés par `tools\Signer-Distribution.ps1` sur la copie préparée (`build_packages.py
-  --stage-dir`) et acceptés pour le seul certificat épinglé (`-PublisherThumbprint`) ;
-- `Domenia.exe` (jamais re-signé, F8) et les composants tiers sont acceptés pour leur empreinte SHA-256 épinglée dans
-  `tools\release-contract.json` ;
-- les fichiers que Authenticode ne sait pas signer (`.json`, `.xaml`, `.cs`, `.cmd`, `.ico`, verrou) ne sont couverts que
-  par un catalogue signé du manifeste (`Signer-Distribution.ps1 -ManifestCatalog wad\package-manifest.json`, qui produit
-  `wad\package-manifest.cat`). Sans ce catalogue, le rapport les liste à part et l'éditeur vaut « Editeur verifie,
-  manifeste non signe ».
+La signature des scripts est disponible avec `tools\Signer-Distribution.ps1` sur une copie préparée.
+Les composants tiers et le lanceur sont contrôlés selon leurs empreintes épinglées. Les JSON, XAML,
+fichiers de configuration et autres formats non signables par Authenticode peuvent être couverts par
+un catalogue signé du manifeste. `-RequireSignature` et `-RequireSignedManifest` permettent d'exiger
+ces protections lors du contrôle. Consultez le guide administrateur pour la procédure complète.
 
-La signature reste facultative tant qu'aucun certificat n'est fourni. `-RequireSignature` exige les scripts signés et les
-binaires épinglés ; `-RequireSignedManifest` exige en plus le catalogue signé. À côté d'un manifeste PROD (copie installée,
-ou copie DEV mise à jour avec un paquet PROD), les fichiers de code laissés par une version précédente ne sont jamais
-chargés : ils sont signalés à part et ne rendent pas la copie « modifiée ». Les outils du labo et l'historique, absents du
-ZIP DEV, sont ignorés de la même façon.
+## Portée des contrôles
 
-## État de validation
-
-La campagne d'intégration Windows PowerShell 5.1 du commit `64e6b69` totalise **2 365 tests réussis, zéro échec**,
-avec un arbre propre lié à 423 fichiers et aucune régression par rapport à la campagne précédente.
-Elle couvre la détection manuelle, le cache, l'historique et les identités de sélection communes.
-L'installateur est vérifié séparément sur six scénarios ciblés réussis : installation, restauration, interruption, verrouillage,
-corruption et modifications concurrentes. Les empreintes du code testé sont contrôlées. Les premiers échecs et leurs corrections
-restent consignés dans le suivi ; aucune nouvelle campagne complète n'a été relancée.
-
-Les contrôles de construction vérifient les manifestes, les empreintes, le contenu des ZIP et l'identité du runtime DEV/PROD.
-Aucun accès AD réel n'a été testé. Les archives restent des **candidates** : la qualification formelle liée aux SHA-256
-des deux ZIP n'est pas acquise. Le suivi D001-D120 conserve explicitement ses points restants ; cette livraison ne prétend
-pas les clôturer tous. Le lanceur natif est conservé à l'octet et reste non signé.
-
-## Notes de version : relations utilisateur / poste (lot L04, RC1.14)
-
-- Page Relations en deux zones (associations du sujet, panneau « Ajouter une association » avec Détecter | Rechercher),
-  un seul statut, précautions derrière « ? » ; qualification en puces (Déclaré, Observé, Contradictoire) ; filtre, puces
-  et compteur dans « Toutes les associations », double-clic et clic droit vers la fiche.
-- Dates des associations enregistrées en UTC et affichées en heure locale, y compris sur la fiche du poste ; une ancienne
-  date sans fuseau est lue comme une heure locale.
-- Import CSV avec aperçu dans la page : comptes et postes vérifiés dans l'index local (sans réseau), source forcée
-  « Import CSV », 64 associations au plus par import, « Annuler l'import » confirmé dans la page.
-- « Restaurer » nomme l'association remise et n'est actif que s'il y a quelque chose à restaurer ; associations orphelines
-  listées avec leur motif, retirées après confirmation (64 au plus par retrait), journalisées et restaurables.
-- Ancien chemin RC1.10.7 retiré : clés Features.RelationsSymmetry, Features.DetectionPreview et
-  UserMachineLink.LinkStaleHours supprimées de la configuration par défaut.
-- Opérations worker épinglées modifiées : **LegacyMigration** (reprise des anciennes données : une date d'association
-  sans fuseau est lue comme une heure locale pour choisir l'association la plus récente) et **LocalIndexRead** (nouvelle
-  lecture `ResolveNames` de l'aperçu d'import, en lecture seule).
+Les contrôles de fabrication vérifient la syntaxe, les contrats internes, les manifestes, les empreintes
+et le contenu des packs. La qualification de l'interface WPF, des permissions et des opérations AD réelles
+sur Windows reste distincte. Un rapport valide doit désigner les fichiers exacts de la livraison examinée.

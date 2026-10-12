@@ -237,3 +237,74 @@ function ConvertTo-DomeniaFlatText {
     if ($Maximum -gt 3 -and $flat.Length -gt $Maximum) { return $flat.Substring(0,$Maximum - 1) + [string][char]0x2026 }
     return $flat
 }
+
+
+function Split-DomeniaRawDn {
+    # Canonical LDAP DN from AD, as stored in SQLite. Search.Model separately handles
+    # legacy quoted display paths; raw quotes are not a scope delimiter here.
+    # A comma separates RDNs only after an even number of backslashes. Keep escaped
+    # bytes verbatim: decoding before splitting would turn a label into a new scope.
+    param([AllowEmptyString()][string]$Dn)
+    if (-not $Dn) { return @() }
+    $start=0; $slashes=0
+    for ($i=0; $i -lt $Dn.Length; $i++) {
+        $c=$Dn[$i]
+        if ($c -eq ',' -and ($slashes % 2) -eq 0) { $Dn.Substring($start,$i-$start); $start=$i+1 }
+        if ($c -eq [char]92) { $slashes++ } else { $slashes=0 }
+    }
+    $Dn.Substring($start)
+}
+
+function Get-DomeniaRawDnParent {
+    param([AllowEmptyString()][string]$Dn)
+    $parts=@(Split-DomeniaRawDn $Dn)
+    if ($parts.Count -lt 2) { return '' }
+    return $parts[1..($parts.Count-1)] -join ','
+}
+
+function ConvertFrom-DomeniaDnLabel {
+    # Display only. Consecutive hexadecimal escapes encode UTF-8 bytes, not UTF-16
+    # characters. Invalid bytes stay visible verbatim instead of losing identity.
+    param([AllowEmptyString()][string]$Value)
+    $result=New-Object Text.StringBuilder
+    $utf8=New-Object Text.UTF8Encoding($false,$true)
+    for ($i=0; $i -lt $Value.Length; $i++) {
+        if ($Value[$i] -ne [char]92 -or $i+1 -ge $Value.Length) { [void]$result.Append($Value[$i]); continue }
+        $start=$i; $bytes=New-Object 'System.Collections.Generic.List[byte]'
+        while ($i+2 -lt $Value.Length -and $Value[$i] -eq [char]92 -and $Value.Substring($i+1,2) -match '^[0-9A-Fa-f]{2}$') {
+            $bytes.Add([Convert]::ToByte($Value.Substring($i+1,2),16)); $i+=3
+        }
+        if ($bytes.Count) {
+            try { [void]$result.Append($utf8.GetString($bytes.ToArray())) }
+            catch { [void]$result.Append($Value.Substring($start,$i-$start)) }
+            $i--; continue
+        }
+        $i++; [void]$result.Append($Value[$i])
+    }
+    return $result.ToString()
+}
+
+function Get-DomeniaDnSite {
+    # Same bucket for the SQL parent aggregate and the per-object query adapter.
+    # Scope comparison stays on raw RDNs; only the final human label is decoded.
+    param([AllowEmptyString()][string]$ParentDn,[AllowEmptyString()][string]$Scope='')
+    $parts=@(Split-DomeniaRawDn $ParentDn); $scopeParts=@(Split-DomeniaRawDn $Scope)
+    $relativeCount=$parts.Count
+    if ($scopeParts.Count -and $parts.Count -ge $scopeParts.Count) {
+        $matches=$true; $offset=$parts.Count-$scopeParts.Count
+        for ($i=0; $i -lt $scopeParts.Count; $i++) {
+            if (-not [string]::Equals($parts[$offset+$i],$scopeParts[$i],[StringComparison]::OrdinalIgnoreCase)) { $matches=$false; break }
+        }
+        if ($matches) { $relativeCount=$offset }
+    }
+    $site=''
+    for ($i=0; $i -lt $relativeCount; $i++) {
+        if ($parts[$i].StartsWith('OU=',[StringComparison]::OrdinalIgnoreCase)) {
+            $site=$parts[$i].Substring(3)
+            if (-not $Scope) { break }
+        }
+    }
+    if ($site) { return ConvertFrom-DomeniaDnLabel $site }
+    if ($Scope) { return '(directement dans l OU)' }
+    return 'Hors OU'
+}

@@ -14,7 +14,7 @@ signature is applied to the copy, never to the audited source; nothing is signed
 SE-15: the lab tools (engineering/d120/lab) and the historical documents (wad/docs/history) stay out of the DEV archive.
 """
 from pathlib import Path
-import argparse,hashlib,json,platform,re,struct,subprocess,sys,zipfile,zlib
+import argparse,hashlib,json,platform,re,stat,struct,subprocess,sys,zipfile,zlib
 ROOT=Path(__file__).resolve().parents[1]
 # D010: the release identity is read from the single contract, never written here.
 CONTRACT_PATH=ROOT/'tools/release-contract.json'
@@ -33,12 +33,63 @@ def writejson(path,data):
     with open(path,'w',encoding='utf-8',newline='\n') as handle:handle.write(json.dumps(data,ensure_ascii=False,indent=2)+'\n')
 def require(condition,message):
     if not condition:raise ValueError(message)
+def assert_ps51_encoding(path):
+    if Path(path).suffix.lower() != '.ps1':return
+    raw=Path(path).read_bytes()
+    if not raw.startswith(b'\xef\xbb\xbf') and any(byte>127 for byte in raw):
+        raise ValueError('UTF-8 avec BOM requis pour PowerShell 5.1 : '+str(path))
+def plain_path(path):
+    """Do not follow a symlink/junction into a different tree while collecting a release."""
+    path=Path(path).absolute()
+    for candidate in (path,*path.parents):
+        info=candidate.lstat()
+        if stat.S_ISLNK(info.st_mode) or getattr(info,'st_file_attributes',0)&0x400:
+            raise ValueError('Chemin redirige refuse : '+str(candidate))
+    return path
+
+def layout_child(root,relative):
+    """A portable, unambiguous Windows relative path, even on a case-sensitive build host."""
+    relative=str(relative).replace('\\','/')
+    parts=relative.split('/')
+    for part in parts:
+        if (not part or part in ('.','..') or re.search(r'[\x00-\x1f<>:"|?*]|[. ]$',part)
+            or re.match(r'^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$)',part,re.I)):
+            raise ValueError('Chemin Windows invalide : '+relative)
+    return Path(root).joinpath(*parts)
+
 def runtime_paths(root=ROOT):
-    paths=['Domenia.exe']+['wad/'+n for n in ['Domenia-Start.ps1','Domenia-Modules.ps1','Domenia-Core.ps1','Domenia.ico','Domenia.config.json','Domenia.release.json','Domenia.login-mode.cfg','Domenia.theme.cfg','Domenia.ui-profile.cfg','Microsoft.ActiveDirectory.Management.dll','ActiveDirectoryPowerShellResources.dll','PsExec.exe']]
-    # FI-06: the installer ships in PROD (wad/Support), so an update never needs the DEV package.
-    paths+=['wad/Support/DEBLOQUER_TOUT.cmd','wad/Support/Debloquer-Paquet.ps1','wad/Support/INSTALLER-MISE-A-JOUR.ps1','wad/Support/.lifecycle.lock']
-    paths+=[p.relative_to(root).as_posix() for p in (root/'wad/modules').iterdir() if p.is_file() and p.suffix in {'.ps1','.json','.cs','.xaml'} and p.name.lower() not in JUNK_NAMES]
-    return sorted(paths)
+    """Shared file policy with the PowerShell 5.1 DEV builder; no personal data."""
+    root=plain_path(root);wad=plain_path(root/'wad')
+    layout=json.loads((root/'tools/prod-layout.json').read_text(encoding='utf-8-sig'))
+    require(layout['Schema']=='DomeniaProductionLayout/1','Version du plan PROD inconnue')
+    names={}
+    def add(relative):
+        path=layout_child(wad,relative)
+        relative=path.relative_to(wad).as_posix()
+        key=relative.casefold()
+        require(key not in names,'Chemin PROD duplique ou casse ambigue : '+relative)
+        plain_path(path)
+        require(path.is_file(),'Composant PROD absent : '+relative)
+        assert_ps51_encoding(path)
+        names[key]=relative
+    for relative in layout['RequiredFiles']:add(relative)
+    excluded_dirs={str(x).casefold() for x in layout['ExcludedDirectoryNames']}
+    excluded_files={str(x).casefold() for x in layout['ExcludedFileNames']}
+    excluded_exts={str(x).casefold() for x in layout['ExcludedExtensions']}
+    for relative in layout['RuntimeDirectories']:
+        directory=layout_child(wad,relative)
+        if not directory.exists():continue
+        pending=[directory]
+        while pending:
+            current=plain_path(pending.pop())
+            for path in current.iterdir():
+                plain_path(path)
+                if path.is_dir():
+                    if path.name.casefold() not in excluded_dirs:pending.append(path)
+                elif path.name.casefold() not in excluded_files and path.suffix.casefold() not in excluded_exts:
+                    add(path.relative_to(wad).as_posix())
+    plain_path(root/'Domenia.exe')
+    return sorted(['Domenia.exe']+['wad/'+name for name in names.values()])
 def preserved(rel):return rel in ['wad/Domenia.config.json','wad/Domenia.login-mode.cfg','wad/Domenia.theme.cfg','wad/Domenia.ui-profile.cfg']
 
 def check_output(out,root=ROOT):
@@ -52,13 +103,17 @@ def select_members(root=ROOT,exclude=()):
     base=Path(root).resolve();skip=[Path(x).resolve() for x in exclude]
     members=[]
     for p in base.rglob('*'):
-        if not p.is_file():continue
         if any(s==p or s in p.parents for s in skip):continue
         rel=p.relative_to(base).as_posix()
         parts=rel.split('/')
         if rel=='wad/package-manifest.json' or any(x in SKIPPED_DIRS for x in parts[:-1]) or rel.startswith('wad/data/'):continue
         if rel.startswith(DEV_EXCLUDED_PREFIXES):continue
+        info=p.lstat()
+        if stat.S_ISLNK(info.st_mode) or getattr(info,'st_file_attributes',0)&0x400:
+            raise ValueError('Chemin DEV redirige refuse : '+rel)
+        if not p.is_file():continue
         if p.suffix in {'.pyc','.tmp'} or parts[-1].lower() in JUNK_NAMES:continue
+        assert_ps51_encoding(p)
         members.append(rel)
     return sorted(members)
 
@@ -66,9 +121,11 @@ def assert_config_not_demo(data):
     """D111 decision: the demonstration provider ships in PROD but is never enabled by the shipped configuration."""
     try:config=json.loads(data.decode('utf-8-sig'))
     except (UnicodeDecodeError,ValueError) as e:raise ValueError('wad/Domenia.config.json illisible : '+str(e))
-    auth=config.get('Auth') if isinstance(config,dict) else None
+    if not isinstance(config,dict):raise ValueError('wad/Domenia.config.json doit contenir un objet JSON.')
+    if len(data)>4*1024*1024:raise ValueError('wad/Domenia.config.json depasse 4 Mio.')
+    auth=config.get('Auth')
     value=auth.get('DemoProvider',False) if isinstance(auth,dict) else False
-    enabled=(value is True) or (isinstance(value,str) and value.strip().lower() in ('true','1','yes','oui','on'))
+    enabled=(value is True) or (isinstance(value,(int,float)) and value==1) or (isinstance(value,str) and value.strip().lower() in ('true','1','yes','oui','on'))
     if enabled:raise ValueError('wad/Domenia.config.json active Auth.DemoProvider : configuration de demonstration refusee dans une livraison.')
 
 def strip_signature(data):
