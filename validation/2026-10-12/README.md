@@ -1,5 +1,10 @@
 # Domenia 1.0 — bilan des améliorations
 
+Les [packs téléchargeables sur GitHub](../../packs/README.md) incluent le retrait de
+l’ancienne icône ADCC à la racine du DEV. Le [contrôle de cette distribution](github-packs.json)
+confirme les 91 fichiers runtime identiques aux essais ci-dessous ; PROD est inchangé.
+Les empreintes des anciennes campagnes sont conservées avec leurs preuves.
+
 Ce bilan couvre les 30 points du programme demandé et les ajouts de la session.
 Les détails, fichiers concernés, preuves et limites sont dans le
 [registre complet](completion-ledger-20261012.json).

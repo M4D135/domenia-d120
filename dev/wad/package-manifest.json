@@ -111,13 +111,6 @@
       "PreserveExisting": false
     },
     {
-      "Path": "Domenia.ico",
-      "Sha256": "931AF92EB1778934B22ACB4D9DCC3F97234EE5DABA8147E6CF7D7842DB0AD923",
-      "Bytes": 28568,
-      "Runtime": false,
-      "PreserveExisting": false
-    },
-    {
       "Path": "Domenia.ps1",
       "Sha256": "C88496443ED583A0EBA005ED6EE1803BD3462137B472573272EA4882CD1F4010",
       "Bytes": 142,

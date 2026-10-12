@@ -3,6 +3,15 @@
 Application Windows d'administration Active Directory : recherche d'objets, base locale,
 inventaire des postes, tableaux de bord et atelier de requêtes.
 
+## Télécharger
+
+| Pack | Téléchargement direct |
+|---|---|
+| **PROD** — utilisation | [Domenia_PROD.zip](https://github.com/M4D135/domenia-d120/raw/refs/heads/master/packs/Domenia_PROD.zip) |
+| **DEV** — sources et outils | [Domenia_DEV.zip](https://github.com/M4D135/domenia-d120/raw/refs/heads/master/packs/Domenia_DEV.zip) |
+
+[Contenu et reconstruction des packs](packs/README.md) · [Empreintes SHA-256](packs/SHA256SUMS)
+
 ## Utilisation
 
 Extrayez complètement le pack puis lancez **Domenia.exe**. Le lanceur et son dossier
