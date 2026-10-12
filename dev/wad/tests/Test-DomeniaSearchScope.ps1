@@ -8,6 +8,9 @@ $tokens=$null;$parseErrors=$null
 $ast=[Management.Automation.Language.Parser]::ParseFile($core,[ref]$tokens,[ref]$parseErrors)
 if(@($parseErrors).Count -gt 0){throw ('Syntaxe du coeur : '+$parseErrors[0].Message)}
 $names=@('Get-DomeniaControl','Set-DomeniaControlText','Get-DomeniaSearchMode','Get-DomeniaSearchText','Set-DomeniaSearchMode','Get-DomeniaSearchScope','Update-DomeniaSearchScopeUi',
+    # Get-DomeniaSearchScope appelle Update-DomeniaNewOuParentUi (CO-27) : non declaree ici, chaque cas qui resout
+    # une portee rend une erreur de resolution, pas une regle fausse (mesure campagne r8, 34 + 28 cas).
+    'Update-DomeniaNewOuParentUi',
     'Invalidate-DomeniaSearchResults','Test-DomeniaSearchStateCurrent','Invoke-DomeniaSearchFilterChanged',
     'Reset-DomeniaSearchScope','Set-SelectedBranch','Get-TypeLdapFilter','Get-GlobalSelectedTypeFilter',
     'Invoke-GlobalSearch','Complete-DomeniaGlobalSearchUi','Fail-DomeniaGlobalSearchUi','Clear-DomeniaGlobalSearch',

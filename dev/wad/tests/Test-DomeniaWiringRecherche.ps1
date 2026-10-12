@@ -40,7 +40,10 @@ if($null -eq ('Domenia.Live.ResultRow' -as [type])){Add-Type -Path (Join-Path $m
 $coreNames=@('Get-MainXaml','Get-DomeniaControl','Set-DomeniaControlText','Get-DomeniaSearchMode','Set-DomeniaSearchMode','Get-DomeniaSearchText',
     'Get-DomeniaSearchScope','Get-GlobalSelectedTypeFilter','Get-TypeLdapFilter','Test-DomeniaSearchStateCurrent','Invoke-GlobalSearch','Escape-LdapValue',
     'Set-DomeniaItemsSource','Get-DomeniaGridDateSortKey','Get-DomeniaGridDateShortText','Add-DomeniaGridDateKeys','Get-BranchQueryData','Get-SearchLdapFilter','Start-DomeniaSearchFor','Get-DomeniaEffectiveWorkerResult',
-    'Invalidate-DomeniaSearchResults','Update-DomeniaSearchScopeUi','Get-DomeniaSelectedGridRow','Get-DomeniaSelectedGridRows','Select-DomeniaWorkspace',
+    'Invalidate-DomeniaSearchResults','Update-DomeniaSearchScopeUi',
+    # Get-DomeniaSearchScope appelle Update-DomeniaNewOuParentUi (CO-27) : non declaree ici, chaque cas qui resout
+    # une portee rend une erreur de resolution, pas une regle fausse (mesure campagne r8, 34 + 28 cas).
+    'Update-DomeniaNewOuParentUi','Get-DomeniaSelectedGridRow','Get-DomeniaSelectedGridRows','Select-DomeniaWorkspace',
     'Set-SelectedBranch','Invoke-DomeniaSearchFilterChanged','Clear-DomeniaCurrentObjectRequest','Test-DomeniaObjectCallbackIsCurrent',
     'Test-DomeniaGridSelectionMatches','Queue-DomeniaSelectedObjectOpen','Get-DomeniaLandingView','Invoke-DomeniaPendingSelectionOpen','Open-AdObject',
     'Complete-DomeniaOpenObjectTaskUi','Fail-DomeniaOpenObjectTaskUi',
