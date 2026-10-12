@@ -491,18 +491,24 @@ try {
         $existait=$null -ne (Get-Command Get-DomeniaSearchScope -CommandType Function -ErrorAction SilentlyContinue)
         $original=if($existait){(Get-Item Function:\Get-DomeniaSearchScope).Definition}else{$null}
         try {
-            Set-Item Function:\Get-DomeniaSearchScope { [pscustomobject]@{ BaseDn='DC=EX,DC=TEST'; Scope='Subtree'; IsDomain=$true; Mode='OU' } }
+            Set-Item Function:\Get-DomeniaSearchScope { [pscustomobject]@{ BaseDn='OU=Arbre,DC=EX,DC=TEST'; Scope='Subtree'; IsDomain=$false; Mode='OU' } }
             $script:IndexScopeDn=''
-            Assert-True ([bool](Get-DomeniaIndexScope).IsDomain) 'Sans choix, la portée vient de lʼarbre'
+            $s=Get-DomeniaIndexScope
+            Assert-True (-not [bool]$s.IsDomain) 'Sans choix explicite, la portée vient de lʼarbre'
+            Assert-True ($s.BaseDn -ceq 'OU=Arbre,DC=EX,DC=TEST') 'La sélection de lʼarbre est conservée sans choix explicite'
             $script:IndexScopeDn='OU=Ateliers,OU=Site,DC=EX,DC=TEST'
             $s=Get-DomeniaIndexScope
             Assert-True (-not [bool]$s.IsDomain) 'Une OU choisie reste une OU'
             Assert-True ($s.BaseDn -ceq 'OU=Ateliers,OU=Site,DC=EX,DC=TEST') ('Portée : ' + $s.BaseDn)
             Assert-True ($s.Scope -ceq 'Subtree') 'Le sous-arbre est relu, pas un seul niveau'
             $script:IndexScopeDn='DC=EX,DC=TEST'
-            Assert-True ([bool](Get-DomeniaIndexScope).IsDomain) 'La racine choisie vaut tout le domaine'
+            $s=Get-DomeniaIndexScope
+            Assert-True ([bool]$s.IsDomain) 'La racine choisie vaut tout le domaine'
+            Assert-True ($s.BaseDn -ceq 'DC=EX,DC=TEST') 'La racine choisie ne retombe pas sur lʼOU sélectionnée dans lʼarbre'
             $script:IndexScopeDn='OU=Autre,DC=AUTRE,DC=TEST'
-            Assert-True ([bool](Get-DomeniaIndexScope).IsDomain) 'Une OU hors du domaine est ignorée'
+            $s=Get-DomeniaIndexScope
+            Assert-True (-not [bool]$s.IsDomain) 'Une OU hors du domaine est ignorée au profit de lʼOU de lʼarbre'
+            Assert-True ($s.BaseDn -ceq 'OU=Arbre,DC=EX,DC=TEST') 'La portée de remplacement vient de lʼarbre'
         } finally {
             $script:IndexScopeDn=''
             $script:Conn.BaseDn=''

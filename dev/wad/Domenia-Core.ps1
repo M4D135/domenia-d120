@@ -5151,13 +5151,13 @@ function Get-MainXaml {
                     <Border x:Name="CardFirstSteps" Style="{StaticResource Card}" Margin="0,0,0,12" Visibility="Collapsed" AutomationProperties.Name="Premiers pas">
                       <StackPanel>
                         <TextBlock Text="Premiers pas" FontSize="18" FontWeight="SemiBold"/>
-                        <TextBlock Text="Quatre étapes pour une vue du parc complète. Chaque bouton ouvre lʼécran concerné, sans rien lancer." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,4,0,10"/>
+                        <TextBlock Text="Quatre étapes pour une vue du parc complète. Le périmètre du tableau de bord est indépendant de Rechercher. Chaque bouton ouvre lʼécran concerné, sans rien lancer." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,4,0,10"/>
                         <Grid>
                           <Grid.ColumnDefinitions><ColumnDefinition Width="30"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                           <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                           <TextBlock x:Name="LblFirstStepOuMark" Grid.Row="0" Grid.Column="0" Text="1" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource AccentText}"/>
-                          <TextBlock x:Name="LblFirstStepOu" Grid.Row="0" Grid.Column="1" Text="Choisir mon OU dans lʼarbre de Rechercher : lʼaccueil la suit." TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                          <Button x:Name="BtnFirstStepOu" Grid.Row="0" Grid.Column="2" Content="Choisir mon OU" MinHeight="30" Padding="12,3" Margin="0,0,0,6" ToolTip="Ouvre lʼarbre des OU de Rechercher. Aucune lecture nʼest lancée." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Premiers pas : choisir mon OU"/>
+                          <TextBlock x:Name="LblFirstStepOu" Grid.Row="0" Grid.Column="1" Text="Choisir le périmètre local du tableau de bord." TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                          <Button x:Name="BtnFirstStepOu" Grid.Row="0" Grid.Column="2" Content="Choisir une OU" MinHeight="30" Padding="12,3" Margin="0,0,0,6" ToolTip="Choisit le périmètre du tableau de bord, sans changer Rechercher ni lancer de lecture." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Premiers pas : choisir lʼOU du tableau de bord"/>
                           <TextBlock x:Name="LblFirstStepBaseMark" Grid.Row="1" Grid.Column="0" Text="2" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource AccentText}"/>
                           <TextBlock x:Name="LblFirstStepBase" Grid.Row="1" Grid.Column="1" Text="Construire la base autonome : Mettre à jour tout, dans Outils." TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
                           <Button x:Name="BtnFirstStepBase" Grid.Row="1" Grid.Column="2" Content="Ouvrir la base autonome" MinHeight="30" Padding="12,3" Margin="0,0,0,6" ToolTip="Ouvre Outils, Base autonome. La mise à jour ne part quʼà votre clic sur Mettre à jour tout." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Premiers pas : ouvrir la base autonome"/>
@@ -5176,12 +5176,13 @@ function Get-MainXaml {
                           <Button x:Name="BtnFleetDashboardRefresh" DockPanel.Dock="Right" Content="&#xE72C;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="13" Width="34" MinHeight="30" Padding="0" Margin="8,0,0,0" ToolTip="Recalcule la vue dʼensemble depuis la base autonome locale : aucune requête AD ni poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Actualiser la vue dʼensemble du parc"/>
                           <WrapPanel VerticalAlignment="Center">
                             <WrapPanel x:Name="PnlFleetCrumbs" VerticalAlignment="Center" AutomationProperties.Name="OU de la vue dʼensemble"/>
-                            <TextBlock x:Name="LblFleetScope" Text="OU choisie dans Rechercher" FontSize="15" VerticalAlignment="Center" TextWrapping="Wrap" AutomationProperties.Name="Périmètre de la vue dʼensemble"/>
+                          <TextBlock x:Name="LblFleetScope" Text="Tout le domaine indexé" FontSize="15" VerticalAlignment="Center" TextWrapping="Wrap" AutomationProperties.Name="Périmètre de la vue dʼensemble"/>
                           </WrapPanel>
                         </DockPanel>
                         <TextBlock x:Name="LblFleetDashboard" Text="Calculée depuis la base autonome locale." Foreground="{DynamicResource MutedColor}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0"/>
                         <WrapPanel Margin="0,8,0,0">
-                          <Button x:Name="BtnFleetScope" Content="Changer dʼOU" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" Margin="0,0,8,0" ToolTip="Ouvre lʼarbre des OU de Rechercher : lʼOU choisie filtre la recherche et cette vue dʼensemble." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Changer dʼOU dans Rechercher"/>
+                          <Button x:Name="BtnFleetScope" Content="Choisir une OU" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" Margin="0,0,8,0" ToolTip="Choisit le périmètre local du tableau de bord. La recherche reste indépendante." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Choisir lʼOU du tableau de bord"/>
+                          <Button x:Name="BtnFleetScopeReset" Content="Tout le domaine" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" ToolTip="Réinitialise le tableau de bord au domaine entier, depuis la base locale." AutomationProperties.Name="Afficher tout le domaine dans le tableau de bord"/>
                           <Button x:Name="BtnFleetOpenSearch" Content="Analyser ces postes dans Rechercher" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" ToolTip="Affiche dans Rechercher les postes actifs de cette OU, depuis la base locale et sans requête. Pinger, détecter ou analyser se lancent ensuite depuis la liste, à votre clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Analyser ces postes dans Rechercher"/>
                           <Button x:Name="BtnFleetIndexScope" Content="Mettre à jour cette OU" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" Margin="8,0,0,0" ToolTip="Relit dans lʼannuaire les seuls objets de cette OU et les ajoute à la base locale, sans rien supprimer. Utile quand la base autonome est incomplète. Lecture seule, à votre clic." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mettre à jour cette OU dans la base locale"/>
                         </WrapPanel>
@@ -16940,7 +16941,9 @@ function Complete-DomeniaIndexBuildUi {
     $users = @($rows | Where-Object { [string]$_.Type -eq "Utilisateur" }).Count
     $computers = @($rows | Where-Object { [string]$_.Type -eq "Machine" }).Count
     $suffix = ""
-    if ([bool]$effective.Truncated) { $suffix = " Index partiel : limite atteinte." }
+    if ([bool]$effective.Truncated) {
+        $suffix = if ([string]$effective.LimitReason -eq 'erreur') { ' Index partiel : une lecture AD a échoué.' } else { ' Index partiel : limite atteinte.' }
+    }
     # Lot L01: the LAPS expiration is read with the computers; the schema tells whether it exists in this domain.
     $lapsSchemaProperty = $effective.PSObject.Properties['LapsSchema']
     if (($null -ne $lapsSchemaProperty) -and ([string]$lapsSchemaProperty.Value -eq 'Absent')) { $suffix += " Expiration LAPS non disponible dans ce domaine." }
@@ -16993,6 +16996,7 @@ function Get-DomeniaIndexCut {
     if ($reason -eq 'temps') { try { $limit = [int]$Effective.LimitBudgetMs } catch { $limit = 0 } }
     elseif ($reason -eq 'volume') { try { $limit = [int]$Effective.LimitMaxObjects } catch { $limit = 0 } }
     elseif ($reason -eq 'serveur') { try { $limit = [int]$Effective.LimitServerSeconds } catch { $limit = 0 } }
+    elseif ($reason -eq 'erreur') { $limit = 0 }
     else { $reason = '' }
     return [pscustomobject]@{ Reason = $reason; Limit = $limit }
 }
@@ -17012,13 +17016,9 @@ function Get-DomeniaIndexPartialText {
     $parts = $value -split '\|'
     if ($parts.Count -lt 3 -or $parts[0] -ine [string]$script:Conn.BaseDn) { return '' }
     $detail = [string]$parts[2] + ' objet(s) relu(s) dans la passe'
-    if ($parts.Count -ge 5 -and [string]$parts[3]) {
-        $unit = ' objets'
-        if ([string]$parts[3] -eq 'temps') { $unit = ' ms' }
-        elseif ([string]$parts[3] -eq 'serveur') { $unit = ' s' }
-        $detail += ' sur une limite de ' + [string]$parts[4] + $unit
-    }
-    return ('la dernière mise à jour sʼest arrêtée à sa limite le ' + $parts[1] + ' (' + $detail + ').')
+    if ($parts.Count -ge 5 -and [string]$parts[3] -eq 'erreur') { $detail += ' ; au moins une lecture AD a échoué' }
+    elseif ($parts.Count -ge 5 -and [string]$parts[3]) { $detail += ' sur une limite de ' + [string]$parts[4] + $(if ([string]$parts[3] -eq 'temps') { ' ms' } elseif ([string]$parts[3] -eq 'serveur') { ' s' } else { ' objets' }) }
+    return ('la dernière mise à jour était incomplète le ' + $parts[1] + ' (' + $detail + ').')
 }
 
 function Start-DomeniaIndexScopeBuild {
@@ -17058,6 +17058,10 @@ function Complete-DomeniaIndexScopeUi {
     $invocation = if ($null -ne $info) { [string]$info.InvocationId } else { '' }
     [void](Update-DomeniaIndexDatabaseRows -Rows $rows -Server $server -BaseDn ([string]$effective.BaseDn) -HighestUsn $usn -TotalCount 0 -InvocationId $invocation)
     $computers = @($rows | Where-Object { [string]$_.Type -eq "Machine" }).Count
+    if ([bool]$effective.Truncated) {
+        $cut = Get-DomeniaIndexCut -Effective $effective
+        Set-DomeniaIndexPartial -BaseDn ([string]$script:Conn.BaseDn) -Count @($rows).Count -Reason $cut.Reason -Limit $cut.Limit
+    }
     $suffix = if ([bool]$effective.Truncated) { ' Limite atteinte : relancez sur une OU plus petite.' } else { '' }
     $summary = ("OU mise à jour dans la base autonome : {0} objet(s), dont {1} poste(s), en {2} s.{3}" -f @($rows).Count,$computers,[int]([long]$effective.DurationMs / 1000),$suffix)
     [void](Set-DomeniaControlText -Name "LblIndexStatus" -Text $summary)
@@ -17221,7 +17225,7 @@ function Get-DomeniaIndexScope {
     $dn = ''
     try { $dn = ([string]$script:IndexScopeDn).Trim() } catch { $dn = '' }
     $domainDn = ([string]$script:Conn.BaseDn).Trim()
-    if ($dn -and $dn -ieq $domainDn) { $dn = '' }
+    if ($dn -and $dn -ieq $domainDn) { return [pscustomobject]@{ BaseDn = $domainDn; Scope = 'Subtree'; IsDomain = $true; Mode = 'OU' } }
     if ($dn -and -not $dn.EndsWith(',' + $domainDn,[StringComparison]::OrdinalIgnoreCase)) { $dn = '' }
     if ($dn) { return [pscustomobject]@{ BaseDn = $dn; Scope = 'Subtree'; IsDomain = $false } }
     try { return (Get-DomeniaSearchScope -Mode OU) } catch { return $null }
@@ -17615,7 +17619,7 @@ foreach ($entry in $plan) {
         # alors sa reponse partielle, sans exception et sans drapeau que ce code puisse lire. La passe passerait donc
         # pour complete, et ReplaceAll viderait la base pour ne la remplir que de ce lot incomplet : a chaque mise a
         # jour. Une passe qui a dure au moins ce delai est tenue pour coupee par le serveur, et ne remplace jamais.
-        if (-not $truncated -and $added -gt 0 -and $sw.Elapsed.TotalSeconds -ge $serverTimeLimitSeconds) {
+        if (-not $truncated -and $sw.Elapsed.TotalSeconds -ge $serverTimeLimitSeconds) {
             $truncated = $true
             if (-not $limitReason) { $limitReason = 'serveur' }
             [void]$diagnostics.Add([string]$entry.Kind + ' : reponse du serveur coupee a ' + [string]$serverTimeLimitSeconds + ' s, lot tenu pour incomplet.')
@@ -17624,6 +17628,10 @@ foreach ($entry in $plan) {
     }
     catch {
         $sw.Stop()
+        # Any AD read failure makes the class pass incomplete. In particular, a failed user query must never be
+        # mistaken for an empty directory and committed with ReplaceAll after the computer query succeeded.
+        $truncated = $true
+        if (-not $limitReason) { $limitReason = 'erreur' }
         [void]$diagnostics.Add([string]$entry.Kind + ' : ERREUR ' + [string]$_.Exception.Message)
     }
     finally {
@@ -21856,7 +21864,8 @@ function Wire-Events {
     # Home overview (decision David 2026-10-08): it follows the OU of Rechercher and only displays; the analyses
     # stay in Rechercher on the displayed list. It is recomputed when Accueil is shown and its OU or data changed.
     if ($script:Ctrl.ContainsKey("BtnFleetDashboardRefresh")) { $script:Ctrl["BtnFleetDashboardRefresh"].Add_Click({ try { Start-DomeniaFleetDashboard } catch { Set-Status ('Vue d ensemble non calculee : ' + $_.Exception.Message) 'WARN' } }) }
-    if ($script:Ctrl.ContainsKey("BtnFleetScope")) { $script:Ctrl["BtnFleetScope"].Add_Click({ try { Show-DomeniaFleetScopeSource } catch { Set-Status ('Rechercher indisponible : ' + $_.Exception.Message) 'WARN' } }) }
+    if ($script:Ctrl.ContainsKey("BtnFleetScope")) { $script:Ctrl["BtnFleetScope"].Add_Click({ try { Show-DomeniaFleetScopeSource } catch { Set-Status ('Sélecteur dʼOU indisponible : ' + $_.Exception.Message) 'WARN' } }) }
+    if ($script:Ctrl.ContainsKey("BtnFleetScopeReset")) { $script:Ctrl["BtnFleetScopeReset"].Add_Click({ $script:FleetScopeDn = ''; $script:FleetStale = $true; Request-DomeniaFleetRefresh; Set-Status 'Tableau de bord : tout le domaine depuis la base locale.' }) }
     if ($script:Ctrl.ContainsKey("BtnFleetIndexScope")) { $script:Ctrl["BtnFleetIndexScope"].Add_Click({ try { $fleetScope = Get-DomeniaFleetScope; Start-DomeniaIndexScopeBuild -Dn $(if ($null -ne $fleetScope) { [string]$fleetScope.Dn } else { '' }) } catch { Set-Status ('Mise à jour de lʼOU impossible : ' + $_.Exception.Message) 'WARN' } }) }
     if ($script:Ctrl.ContainsKey("BtnFleetOpenSearch")) { $script:Ctrl["BtnFleetOpenSearch"].Add_Click({ try { Show-DomeniaFleetAnalyzeSource } catch { Set-Status ('Rechercher indisponible : ' + $_.Exception.Message) 'WARN' } }) }
     # First steps (UX-20): each step opens its screen and starts nothing.
@@ -23223,7 +23232,7 @@ function Get-DomeniaWorkerOperationHashes {
         SoftwareInventory     = "214DA1A24E26D30BB0529B539B80E8B183BB195FE610F3B8C124E94724CCF5CE"
         LogonHarvest          = "ED7FFF55506C7BCE5567D65F683E10E9F28EA9771947F12A8DEEE1435994119A"
         ParkSweep             = "134ED776E45640FA67B7F51659711C33B37834105375CC4B083342469F2C26A9"
-        IndexBuild            = "638CDEA339838836136F2B16E64298C61CF58DCA29E8066531E9F5B3355299B7"
+        IndexBuild            = "C2B4799DD5CD09677CA4CFE861F40327CDBCCCC724CF6E8E2DC59DB566222365"
         UserComputerProbe     = "EB7C36419C1B8B91AFB9ECE6B98D4E3FE663B87E4011F7D264D8AEDE7735E775"
         ComputerInventory     = "41F162A5B0870C10F1BAE378DC365CCC83582D6003435A86624752362B18E159"
         ComputerDiagnostics   = "9A5535EB658FA19AFC0905D57B339CEE0C14CCD4DA81AE2E0A527A86B5046608"
@@ -23274,7 +23283,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "7F83A996CB13739C60473495AF7C82B2D12D39F92861FCB833CF8E5F743507AB"
+    $expectedFingerprint = "3C86A196B2E7F4D9D75EF087B5244D7D9227D68E4358F43E28681C5B41A93D87"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }

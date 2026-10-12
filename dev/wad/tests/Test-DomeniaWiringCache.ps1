@@ -888,6 +888,37 @@ Test-Case 'D026 : IndexBuild tronque ne remplace pas l index' {
     Assert-Equal $false $script:IndexPartialCleared
 }
 
+Test-Case 'D026 : lecture OU tronquee conserve l avertissement de base partielle' {
+    function Get-DomeniaEffectiveWorkerResult { param($Result,$RequiredProperties) return $Result }
+    function Update-DomeniaIndexDatabaseRows { param($Rows,$Server,$BaseDn,$HighestUsn,$TotalCount,$InvocationId) return $true }
+    function Set-DomeniaIndexPartial { param($BaseDn,$Count,$Reason,$Limit,[switch]$Clear) $script:PartialMarker=[pscustomobject]@{BaseDn=$BaseDn;Count=$Count;Reason=$Reason;Limit=$Limit;Clear=[bool]$Clear} }
+    function Set-DomeniaControlText { param($Name,$Text) return $true }
+    function Set-Status { param($Text) }
+    function Add-DomeniaUiLog { param($Area,$Text) }
+    . ([scriptblock]::Create((Get-FunctionTextFromFile $core 'Get-DomeniaIndexCut')))
+    . ([scriptblock]::Create((Get-FunctionTextFromFile $core 'Complete-DomeniaIndexScopeUi')))
+
+    $script:SessionEpoch=[long]1
+    $script:Conn=[pscustomobject]@{BaseDn='DC=x'}
+    $script:IndexInfo=[pscustomobject]@{Server='dc1';Usn=100;InvocationId='i1'}
+    $effective=[pscustomobject]@{
+        Rows=@([pscustomobject]@{Type='Machine'})
+        Truncated=$true
+        Server='dc1'
+        BaseDn='OU=Big,DC=x'
+        SearchBase='OU=Big,DC=x'
+        LimitReason='serveur'
+        LimitServerSeconds=120
+        DurationMs=120000
+    }
+    Complete-DomeniaIndexScopeUi -Result $effective -State ([pscustomobject]@{Epoch=[long]1})
+    Assert-Equal 'DC=x' ([string]$script:PartialMarker.BaseDn)
+    Assert-Equal 1 ([int]$script:PartialMarker.Count)
+    Assert-Equal 'serveur' ([string]$script:PartialMarker.Reason)
+    Assert-Equal 120 ([int]$script:PartialMarker.Limit)
+    Assert-Equal $false ([bool]$script:PartialMarker.Clear)
+}
+
 Test-Case 'D027 : echec recent bloque sonde automatique mais pas manuelle' {
     . ([scriptblock]::Create((Get-Content -Raw $cacheModel)))
 

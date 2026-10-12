@@ -53,18 +53,18 @@ function Get-DomeniaEntryFileTimeUtc {
     try { return [datetime]::FromFileTimeUtc($ticks) } catch { return $null }
 }
 function Get-DomeniaFleetScope {
-    # The home overview follows the OU chosen in the Rechercher tree (decision David 2026-10-08): one scope for the
-    # whole application, no picker of its own. The domain root means the whole indexed domain (consultation only).
-    $scope = $null
-    try { $scope = Get-DomeniaSearchScope -Mode OU } catch { return $null }
-    if ($null -eq $scope) { return $null }
-    $dn = ([string]$scope.BaseDn).Trim()
-    $whole = [bool]$scope.IsDomain
-    $subtree = ([string]$scope.Scope -ne 'OneLevel')
-    $name = if ($whole) { 'Tout le domaine' } else { (($dn -split '(?<!\\),')[0] -replace '^(OU|CN)=','') }
+    # The dashboard owns its scope. Empty means the whole current domain; a chosen OU never changes Search filters.
+    $base = ([string]$script:Conn.BaseDn).Trim()
+    if (-not $base) { return $null }
+    $dn = ([string]$script:FleetScopeDn).Trim()
+    if ($dn -and $dn -ine $base -and -not $dn.EndsWith(',' + $base,[StringComparison]::OrdinalIgnoreCase)) { $dn = '' }
+    $whole = (-not $dn -or $dn -ieq $base)
+    if ($whole) { $dn = '' }
+    $subtree = $true
+    $name = if ($whole) { 'Tout le domaine' } else { ((($dn -split '(?<!\\),')[0] -replace '^(OU|CN)=','') -replace '\\(.)','$1') }
     return [pscustomobject]@{
-        Dn = $(if ($whole) { '' } else { $dn })
-        Subtree = $(if ($whole) { $true } else { $subtree })
+        Dn = $dn
+        Subtree = $subtree
         Name = $name
         Path = $dn
         Key = $(if ($whole) { '*' } else { $dn.ToLowerInvariant() + '|' + $(if ($subtree) { 'Subtree' } else { 'OneLevel' }) })
@@ -186,7 +186,7 @@ function Update-DomeniaFleetScopeText {
     $text = ($parts -join ' · ')
     if ([string]$Scope.Dn) { $text = ' · ' + $text }
     [void](Set-DomeniaControlText 'LblFleetScope' $text)
-    if ($null -ne $label) { $label.ToolTip = [string]$Scope.Path + "`r`n" + ('Ce nombre vient de la base locale : les postes désactivés et ceux que la base nʼa pas encore lus nʼy sont pas. La recherche, elle, interroge lʼannuaire en direct et compte tous les postes.') }
+    if ($null -ne $label) { $label.ToolTip = [string]$Scope.Path + "`r`n" + ('Ce nombre compte les postes actifs présents dans la base locale. Les postes désactivés sont visibles dans la tuile Postes. Les objets AD pas encore lus par la base nʼy figurent pas. La recherche interroge lʼannuaire en direct.') }
     $crumbs = Get-DomeniaControl 'PnlFleetCrumbs'
     if ($null -eq $crumbs) { return }
     $crumbs.Children.Clear()
@@ -212,28 +212,22 @@ function Update-DomeniaFleetScopeText {
     }
 }
 function Show-DomeniaFleetScopeSource {
-    # The OU is chosen in the Rechercher tree, the only OU filter of the application.
-    Select-DomeniaWorkspace -Workspace 'WsSearch'
-    $tree = Get-DomeniaControl 'TvDirectory'
-    if ($null -ne $tree -and $tree.IsEnabled) { [void]$tree.Focus() }
-    Set-Status 'Choisissez lʼOU dans lʼarbre de Rechercher : la vue dʼensemble de lʼaccueil la suit.'
+    $picked = Show-DomeniaInlinePicker -Kind OU -Title 'Périmètre du tableau de bord' -Prompt 'Choisissez une OU dans le domaine courant. Le tableau de bord lira sa base locale; la recherche et ses filtres restent indépendants.'
+    if ($null -eq $picked -or -not [string]$picked.DN) { return }
+    $dn = ([string]$picked.DN).Trim()
+    $base = [string]$script:Conn.BaseDn
+    if (-not $dn.EndsWith(',' + $base,[StringComparison]::OrdinalIgnoreCase)) { Set-Status 'Cette OU nʼappartient pas au domaine courant.' 'WARN'; return }
+    $script:FleetScopeDn = $dn
+    $script:FleetStale = $true
+    Request-DomeniaFleetRefresh
+    Set-Status ('Périmètre du tableau de bord : ' + $dn + '. Recherche reste inchangée.')
 }
 function Select-DomeniaFleetScopeOu {
-    # A part of the OU path of Accueil selects that OU in the Rechercher tree, as a click on its node does: Rechercher
-    # lists that OU and the overview follows it. A node the tree does not show yet only opens the tree.
+    # Breadcrumb navigation stays inside the autonomous dashboard scope.
     param([string]$Dn)
-    $target = ([string]$Dn).Trim()
-    $node = $null
-    if ($target) {
-        # Get-DomeniaRealizedTreeNodes returns its array as one object (return ,$array): enumerated as Continuity does.
-        try { foreach ($candidate in (Get-DomeniaRealizedTreeNodes)) { if (($candidate -is [System.Windows.Controls.TreeViewItem]) -and ($null -ne $candidate.Tag) -and ([string]$candidate.Tag.DN -ieq $target)) { $node = $candidate; break } } } catch { $node = $null }
-    }
-    if (($null -eq $node) -or (-not $node.IsEnabled)) { Show-DomeniaFleetScopeSource; return }
-    Select-DomeniaWorkspace -Workspace 'WsSearch'
-    if (-not $node.IsSelected) { $node.IsSelected = $true }
-    try { $node.BringIntoView() } catch { }
-    $name = (([string]$target -split '(?<!\\),')[0] -replace '^(?i:OU|CN)=','') -replace '\\(.)','$1'
-    Set-Status ('OU ' + $name + ' choisie dans Rechercher : la vue dʼensemble de lʼaccueil la suit.')
+    $script:FleetScopeDn = ([string]$Dn).Trim()
+    $script:FleetStale = $true
+    Request-DomeniaFleetRefresh
 }
 function Show-DomeniaFleetAnalyzeSource {
     # "Analyser ces postes dans Rechercher" (UI-03): the active workstations of the OU shown on Accueil become the
