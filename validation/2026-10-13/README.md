@@ -1,5 +1,15 @@
 # Domenia 1.0 — améliorations et contrôles
 
+## Délai de recherche et liste partielle — RC1.17.5
+
+Le dépassement de 45 secondes observé dans le journal n’établit pas une panne AD. Le bandeau affiche désormais « Dernière requête AD : délai dépassé » en avertissement ; une véritable erreur réseau conserve le mode hors ligne et les protections associées. Une lecture AD réussie rétablit la connexion affichée.
+
+Le compteur des résultats distingue les lignes visibles/chargées d’une liste exhaustive : « Liste partielle » après interruption, « Chargement… » pendant la lecture, « Limite atteinte » lorsque le plafond est atteint. La cause de la lenteur du domaine de l’utilisateur reste à diagnostiquer.
+
+Contrôles locaux : 14 cas/58 assertions pour l’état AD et le callback, 12 cas/27 assertions pour les compteurs et callbacks de recherche, 8 cas de règles cache et 2 cas de badge. Tous réussis sous PowerShell 7.4.20. Audits statiques et fabrication des packs réussis ; 94 fichiers runtime identiques entre DEV et PROD. **Windows, WPF et AD réel non exécutés pour cette révision.**
+
+[Revue et retour utile](ad-timeout/REVIEW.md) · [Résultats](ad-timeout/qualification.json) · [Manifestes des packs](../../packs/manifest.json)
+
 ## Actualisation de l’OU — RC1.17.4
 
 | Action | Effet |

@@ -2466,7 +2466,7 @@ Test-Case 'D030 : panne AD sur une fiche prete garde la lecture visible et verro
 }
 Test-Case 'D030 : retour du reseau sans relecture ne rend pas la fiche modifiable' {
     . ([scriptblock]::Create($script:OfflineFixture))
-    [void](Register-DomeniaTaskOutcome $job -TimedOut)
+    [void](Register-DomeniaTaskOutcome $job -ErrorMessage '[DOMENIA:Unavailable;0;0x8007203A] Serveur indisponible')
     $outage=$script:DirectoryReachability.LastOutageUtc
     [void](Register-DomeniaTaskOutcome $job)
     Assert-False $script:DirectoryReachability.Offline
@@ -2491,7 +2491,7 @@ Test-Case 'D030 : ouverture directe depuis un cache recent reste historique' {
 Test-Case 'D030 : cache ou echec hors ligne reste visible grise et peut etre relu explicitement' {
     . ([scriptblock]::Create($script:OfflineFixture))
     $script:SelectionLoad.Phase='Cached';$script:SelectedObject.Times=@{}
-    [void](Register-DomeniaTaskOutcome $job -TimedOut)
+    [void](Register-DomeniaTaskOutcome $job -ErrorMessage '[DOMENIA:Unavailable;0;0x8007203A] Serveur indisponible')
     Update-DomeniaSelectionReadUi -Phase Failed -Message 'Serveur indisponible'
     Assert-Equal 'Visible' $script:Ctrl.ObjectReadContent.Visibility
     Assert-False $script:Ctrl.ObjectReadContent.IsEnabled
@@ -2503,17 +2503,30 @@ Test-Case 'D030 : cache ou echec hors ligne reste visible grise et peut etre rel
     Update-DomeniaSelectionReadUi
     Assert-False $script:Ctrl.BtnObjectReadRetry.IsEnabled
 }
-Test-Case 'D030 : delai CIM annulation demonstration et ancienne session ne declarent pas AD hors ligne' {
+Test-Case 'D030 : delai CIM annulation demonstration et ancienne session ne changent pas le badge AD' {
     . ([scriptblock]::Create($script:OfflineFixture))
-    $job.Provider='Cim';[void](Register-DomeniaTaskOutcome $job -TimedOut);Assert-False $script:DirectoryReachability.Offline
-    $job.Provider='Directory';[void](Register-DomeniaTaskOutcome $job -TimedOut -Cancelled);Assert-False $script:DirectoryReachability.Offline
-    $job.Demo=$true;[void](Register-DomeniaTaskOutcome $job -TimedOut);Assert-False $script:DirectoryReachability.Offline
-    $job.Demo=$false;$job.SessionEpoch=4L;[void](Register-DomeniaTaskOutcome $job -TimedOut);Assert-False $script:DirectoryReachability.Offline
-    $job.SessionEpoch=5L;[void](Register-DomeniaTaskOutcome $job -TimedOut);Assert-True $script:DirectoryReachability.Offline 'Le garde doit agir meme sans ordonnanceur'
+    $job.Provider='Cim';[void](Register-DomeniaTaskOutcome $job -TimedOut);Assert-False $script:DirectoryReachability.Offline;Assert-False $script:DirectoryReachability.Slow
+    $job.Provider='Directory';[void](Register-DomeniaTaskOutcome $job -TimedOut -Cancelled);Assert-False $script:DirectoryReachability.Offline;Assert-False $script:DirectoryReachability.Slow
+    $job.Demo=$true;[void](Register-DomeniaTaskOutcome $job -TimedOut);Assert-False $script:DirectoryReachability.Offline;Assert-False $script:DirectoryReachability.Slow
+    $job.Demo=$false;$job.SessionEpoch=4L;[void](Register-DomeniaTaskOutcome $job -TimedOut);Assert-False $script:DirectoryReachability.Offline;Assert-False $script:DirectoryReachability.Slow
+    $job.SessionEpoch=5L;[void](Register-DomeniaTaskOutcome $job -TimedOut)
+    Assert-False $script:DirectoryReachability.Offline;Assert-True $script:DirectoryReachability.Slow 'Le delai doit etre signale meme sans ordonnanceur'
+    Assert-Equal $null $script:DirectoryReachability.LastOutageUtc
+    Assert-True $script:Ctrl.BtnUserSave.IsEnabled 'Un delai seul ne bloque pas une fiche deja validee'
+}
+Test-Case 'D030 : un delai apres une panne ne leve aucune protection decriture' {
+    . ([scriptblock]::Create($script:OfflineFixture))
+    [void](Register-DomeniaTaskOutcome $job -ErrorMessage '[DOMENIA:Unavailable;0;0x8007203A] Serveur indisponible')
+    $outage=$script:DirectoryReachability.LastOutageUtc
+    [void](Register-DomeniaTaskOutcome $job -TimedOut)
+    Assert-True $script:DirectoryReachability.Offline;Assert-True $script:DirectoryReachability.Slow
+    Assert-Equal $outage $script:DirectoryReachability.LastOutageUtc
+    Assert-False $script:Ctrl.BtnUserSave.IsEnabled
+    Assert-False (Get-DomeniaSelectionCachePolicy).CanEdit
 }
 Test-Case 'D030 : les points entree AD et poste refusent hors ligne sans lancer de travail' {
     . ([scriptblock]::Create($script:OfflineFixture))
-    [void](Register-DomeniaTaskOutcome $job -TimedOut)
+    [void](Register-DomeniaTaskOutcome $job -ErrorMessage '[DOMENIA:Unavailable;0;0x8007203A] Serveur indisponible')
     foreach($action in @({Assert-DomeniaCapability Edit},{Assert-DomeniaRemoteWriteAllowed 'GPUpdate'})){
         $thrown=$false;try{& $action}catch{$thrown=$_.Exception.Message -match 'Hors ligne'};Assert-True $thrown
     }
@@ -2532,7 +2545,7 @@ Test-Case 'D030 : ancienne identite ou attributs expires bloquent les modificati
 Test-Case 'D030 : transition sans lecture disque ni worker et erreurs du raccordement tracees' {
     . ([scriptblock]::Create($script:OfflineFixture))
     function Apply-CurrentPermissionUi {param([switch]$StartupFastPath) throw 'erreur UI fictive'}
-    [void](Register-DomeniaTaskOutcome $job -TimedOut)
+    [void](Register-DomeniaTaskOutcome $job -ErrorMessage '[DOMENIA:Unavailable;0;0x8007203A] Serveur indisponible')
     Assert-True $script:DirectoryReachability.Offline
     Assert-True (@($script:Logs | Where-Object{$_ -match 'Etat de connexion AD non applique.*erreur UI fictive'}).Count -eq 1)
     $text=Get-FunctionTextFromFile (Join-Path $modules 'Domenia-Engine.UI.ps1') 'Register-DomeniaTaskOutcome'

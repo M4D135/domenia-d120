@@ -1,0 +1,69 @@
+{
+  "Kind": "PureRules",
+  "Host": {
+    "PSEdition": "Core",
+    "PSVersion": "7.4.20",
+    "Platform": "NonWindows"
+  },
+  "NativeWindowsPowerShell51": false,
+  "WpfExecuted": false,
+  "DomainAccessed": false,
+  "NetworkAccessed": false,
+  "Passed": 8,
+  "Failed": 0,
+  "CoveredIds": [
+    "D030"
+  ],
+  "Complete": true,
+  "Limitation": "Regles pures uniquement. Ne prouve ni le raccordement, ni WPF, ni un acces au domaine.",
+  "Tests": [
+    {
+      "Id": "D030",
+      "Name": "Hors ligne : consultation possible, aucune commande de modification",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "D030",
+      "Name": "Cache non relu : visible et historique, non modifiable ; identite differente : invisible",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "D030",
+      "Name": "Le catalogue du cache donne source, date, lecteur et usage",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "D030",
+      "Name": "Seul Directory declare une panne et le retour garde le repere de coupure",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "D030",
+      "Name": "Annulation et refus de droits ne sont pas une nouvelle panne reseau",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "D030",
+      "Name": "Une nouvelle panne reseau avance le repere exigeant une relecture",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "D030",
+      "Name": "Un delai AD ne declare pas une panne et conserve les dates de lecture et de coupure",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "D030",
+      "Name": "Un delai apres une panne conserve la protection et ne deplace pas le repere de coupure",
+      "Status": "Passed",
+      "Detail": ""
+    }
+  ]
+}

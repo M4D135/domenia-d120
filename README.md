@@ -54,6 +54,11 @@ Le périmètre est l’OU choisie dans Recherche, avec la profondeur affichée. 
 résultats locaux distinguent les correspondants, les inconnus et les non-correspondants ;
 leur compteur indique la population recensée et toute limite d’affichage.
 
+Pour une recherche AD, le compteur indique les lignes visibles parmi les lignes chargées.
+**Liste partielle** signale une lecture interrompue ; **Limite atteinte** indique le plafond demandé.
+Le bandeau **Dernière requête AD : délai dépassé** signale une attente expirée, sans conclure
+à une coupure générale. Une lecture AD réussie rétablit le bandeau de connexion.
+
 L’atelier se trouve dans **Outils > Atelier de requêtes** ; le petit crayon de
 Recherche y mène directement. Il partage une bibliothèque entre **Recherche**,
 le **tableau général** et le **tableau d’un poste**. L’onglet **Bibliothèque** propose **152 modèles prêts**

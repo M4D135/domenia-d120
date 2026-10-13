@@ -719,6 +719,26 @@ try{
             Expect ($script:L08.Tasks.Count -eq 0) 'Une relance a ete lancee'
         }
 
+        Case 'L08 : un delai AD utilise un avertissement sans annoncer une panne ni relancer une lecture' {
+            $script:L08.Tasks.Clear()
+            $script:DirectoryReachability=[pscustomobject]@{Epoch=7L;Offline=$false;Slow=$true;LastTimeoutUtc=[datetime]::UtcNow.ToString('o');LastOutageUtc=$null;LastSuccessUtc=$null}
+            Update-DomeniaUxSessionBadge;Pump $main
+            Expect ([string]$script:Ctrl['LblUxDomain'].Text -ceq 'Dernière requête AD : délai dépassé') 'Delai AD presente comme panne generale'
+            Expect ($script:Ctrl['LblUxDomain'].Foreground -eq $script:Ctrl['LblUxDomain'].FindResource('StatusWarning')) 'Delai AD sans couleur avertissement'
+            Expect ([string]$script:Ctrl['LblUxDomain'].ToolTip -match 'ne confirme pas.*coupure') 'Limite du diagnostic absente de l infobulle'
+            $script:DirectoryReachability.Offline=$true;$script:DirectoryReachability.LastOutageUtc=[datetime]::UtcNow.AddMinutes(-2).ToString('o')
+            Update-DomeniaUxSessionBadge;Pump $main
+            Expect ([string]$script:Ctrl['LblUxDomain'].Text -like 'AD injoignable*') 'Un delai a masque une panne etablie'
+            Expect ($script:Ctrl['LblUxDomain'].Foreground -eq $script:Ctrl['LblUxDomain'].FindResource('StatusError')) 'Panne etablie sans couleur erreur'
+            $script:DirectoryReachability.Epoch=6L
+            Update-DomeniaUxSessionBadge;Pump $main
+            Expect ([string]$script:Ctrl['LblUxDomain'].Text -ceq 'Connecté à example.local') 'Ancienne session reprise dans le badge'
+            $script:DirectoryReachability=[pscustomobject]@{Epoch=7L;Offline=$false;Slow=$false;LastTimeoutUtc=[datetime]::UtcNow.AddMinutes(-1).ToString('o');LastOutageUtc=$null;LastSuccessUtc=[datetime]::UtcNow.ToString('o')}
+            Update-DomeniaUxSessionBadge;Pump $main
+            Expect ([string]$script:Ctrl['LblUxDomain'].Text -ceq 'Connecté à example.local') 'Lecture reussie ne retablit pas le badge'
+            Expect ($script:L08.Tasks.Count -eq 0) 'Une relance a ete lancee'
+        }
+
         Case 'L08 : ItemStatus « Page actuelle » et regions annoncees' {
             Invoke-DomeniaUxRoute -Route 'WsSearch';Pump $main
             Expect ([Windows.Automation.AutomationProperties]::GetItemStatus($script:Ctrl['BtnUxNavSearch']) -eq 'Page actuelle') 'Rubrique active non annoncee'

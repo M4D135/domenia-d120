@@ -5,10 +5,10 @@
 | PROD | [Domenia_PROD.zip](https://github.com/M4D135/domenia-d120/raw/refs/heads/master/packs/Domenia_PROD.zip) | Extraire le dossier `prod`, puis lancer `Domenia.exe` en gardant `wad` à côté. |
 | DEV | [Domenia_DEV.zip](https://github.com/M4D135/domenia-d120/raw/refs/heads/master/packs/Domenia_DEV.zip) | Sources et outils ; `dev/FABRIQUER_PROD.cmd` reconstruit une distribution PROD. |
 
-Build actuel : **RC1.17.4** — [contrôles et portée de validation](../validation/2026-10-13/ou-refresh/qualification.json).
+Build actuel : **RC1.17.5** — [contrôles et portée de validation](../validation/2026-10-13/ad-timeout/qualification.json).
 
 Les contrôles locaux passent. Cette révision est livrée à la demande de l’utilisateur
-sans nouvelle campagne Windows : le PC de test est éteint. La recette Windows,
+sans nouvelle campagne Windows ; il effectuera les essais sur son poste. La recette Windows,
 le stockage SQLite natif et les parcours sur AD réel restent à vérifier.
 
 Les deux ZIP contiennent le même runtime. La version et les empreintes sont dans

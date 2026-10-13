@@ -4828,7 +4828,7 @@ function Get-MainXaml {
                 </Button>
                 <Border x:Name="UxAboutPanel" Visibility="Collapsed" Margin="10,6,0,0">
                   <StackPanel>
-                    <TextBlock Text="DOMENIA 1.0 · RC1.17.4" Foreground="{DynamicResource MutedColor}" FontSize="11"/>
+                    <TextBlock Text="DOMENIA 1.0 · RC1.17.5" Foreground="{DynamicResource MutedColor}" FontSize="11"/>
                     <TextBlock Text="Les actions restent sous votre contrôle." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="11" Margin="0,4,0,0"/>
                   </StackPanel>
                 </Border>
@@ -22302,7 +22302,7 @@ function Wire-Events {
 # DOMENIA_MASTER_LAST_V1 = TRUE
 $script:Version = "1.0"
 $script:AppName = "Domenia"
-$script:MasterBuild = "2026.10.13-DOMENIA-1.0-RC1.17.4-D120"
+$script:MasterBuild = "2026.10.13-DOMENIA-1.0-RC1.17.5-D120"
 $script:ActiveWriteTaskId = ""
 $script:WriteState = "Idle"
 $script:UnknownWriteTargetDn = ""
@@ -29197,7 +29197,7 @@ try {
         Write-StartupTrace -Stage 'Stockage/Preferences' -Status 'WARN' -Detail $script:StoragePreferenceWarning
         Show-WarningBox -Message $script:StoragePreferenceWarning
     }
-    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.13-DOMENIA-1.0-RC1.17.4-D120)"
+    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.13-DOMENIA-1.0-RC1.17.5-D120)"
     # PF-19: duration of the package integrity check made by Domenia-Start.ps1 before the core (absent when launched otherwise).
     $startIntegrity = Get-Variable -Name DomeniaStartIntegrity -ValueOnly -ErrorAction SilentlyContinue
     if ($null -ne $startIntegrity) { Write-StartupTrace -Stage "Integrite du paquet" -Status "OK" -DurationMs ([long]$startIntegrity.DurationMs) -Detail ("{0} fichiers runtime controles (plafond {1}), {2} composants requis." -f $startIntegrity.Files,$startIntegrity.Limit,$startIntegrity.Required) }

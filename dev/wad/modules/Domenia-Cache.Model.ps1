@@ -454,20 +454,25 @@ function Get-DomeniaPurgePlan {
 # ---------------------------------------------------------------- D030 offline consultation
 function Resolve-DomeniaDirectoryReachability {
     # Only a completed Directory request is evidence about directory reachability.
+    # A query deadline is not proof of a network outage. Keep it as a separate warning.
     # A network comeback does not erase the outage: cached fiches still require a new read.
     param($State,[string]$Provider,[string]$Category='Unknown',[bool]$Cancelled=$false,[datetime]$NowUtc=[datetime]::UtcNow)
     $offline=[bool](Get-DomeniaMember $State 'Offline' $false)
+    $slow=[bool](Get-DomeniaMember $State 'Slow' $false)
     $outage=Get-DomeniaMember $State 'LastOutageUtc' $null
     $success=Get-DomeniaMember $State 'LastSuccessUtc' $null
+    $timeout=Get-DomeniaMember $State 'LastTimeoutUtc' $null
     $changed=$false
     if($Provider -eq 'Directory' -and -not $Cancelled){
-        if($Category -in @('Network','Timeout')){
-            $offline=$true;$outage=$NowUtc.ToUniversalTime().ToString('o');$changed=$true
+        if($Category -eq 'Network'){
+            $offline=$true;$slow=$false;$outage=$NowUtc.ToUniversalTime().ToString('o');$changed=$true
+        } elseif($Category -eq 'Timeout'){
+            $changed=(-not $slow);$slow=$true;$timeout=$NowUtc.ToUniversalTime().ToString('o')
         } elseif($Category -eq 'Success'){
-            $changed=$offline;$offline=$false;$success=$NowUtc.ToUniversalTime().ToString('o')
+            $changed=($offline -or $slow);$offline=$false;$slow=$false;$success=$NowUtc.ToUniversalTime().ToString('o')
         }
     }
-    return [pscustomobject]@{Offline=$offline;LastOutageUtc=$outage;LastSuccessUtc=$success;Changed=$changed}
+    return [pscustomobject]@{Offline=$offline;Slow=$slow;LastOutageUtc=$outage;LastSuccessUtc=$success;LastTimeoutUtc=$timeout;Changed=$changed}
 }
 
 function Get-DomeniaCacheReadPolicy {

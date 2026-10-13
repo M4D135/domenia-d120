@@ -1161,14 +1161,15 @@ function Get-DomeniaThemeToggleIcon {
 }
 
 function Get-DomeniaSessionBadge {
-    # UI-29 / SP-04: « Connecté à example.local ». While the directory does not answer: « AD injoignable depuis HH:MM
-    # · données déjà lues seulement », back by itself at the next directory success. Nothing is retried from here.
+    # UI-29 / SP-04: distinguish a query deadline from a confirmed network failure.
+    # Both warnings clear at the next directory success. Nothing is retried from here.
     param(
         [AllowEmptyString()][AllowNull()][string]$Domain='',
         [bool]$Offline=$false,
         $OfflineSince=$null,
         [bool]$Demo=$false,
-        [AllowEmptyString()][AllowNull()][string]$DemoText=''
+        [AllowEmptyString()][AllowNull()][string]$DemoText='',
+        [bool]$Slow=$false
     )
     if ($Demo -and (-not [string]::IsNullOrWhiteSpace($DemoText))) {
         $text = ConvertTo-DomeniaFlatText $DemoText 120
@@ -1183,6 +1184,9 @@ function Get-DomeniaSessionBadge {
         $text += ' · données déjà lues seulement'
         $tip = 'Le contrôleur de domaine ne répond plus : seules les données déjà lues sont consultables et les modifications attendent son retour. Aucune relance automatique ; le badge revient seul à la prochaine lecture réussie.'
         return [pscustomobject]@{State='Offline';Text=$text;ToolTip=$tip}
+    }
+    if ($Slow) {
+        return [pscustomobject]@{State='Slow';Text='Dernière requête AD : délai dépassé';ToolTip='Une requête Active Directory a dépassé le délai prévu. Cela ne confirme pas une coupure de connexion. Ses résultats peuvent être incomplets ; consultez le journal. Le bandeau revient à la normale après une lecture AD réussie.'}
     }
     if ([string]::IsNullOrWhiteSpace($domainText)) {
         return [pscustomobject]@{State='Pending';Text='Session AD en préparation';ToolTip='La session AD nʼest pas encore établie.'}

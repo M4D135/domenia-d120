@@ -1,0 +1,41 @@
+{
+  "Status": "LOCAL_CHECKS_PASSED_WINDOWS_NOT_RUN",
+  "Build": "RC1.17.5",
+  "SourceBaseCommit": "68a3bfb43563c9dea276972490010307aa0123e1",
+  "StaticChecks": [
+    {
+      "Name": "static",
+      "ExitCode": 0,
+      "Output": "PASS: 178 PowerShell files; lexical state, delimiters, typographic executable quotes and boolean-command hazards checked.\nPASS: Dispatcher timers only from New-DomeniaTimer (FI-05); no Get-Command in timer ticks or heartbeat handlers (PF-10).\nNOTE: native Windows PowerShell parser was not executed on this host.\n"
+    },
+    {
+      "Name": "loader",
+      "ExitCode": 0,
+      "Output": "Noms de fonctions : PASS (63 modules, 2075 fonctions, 0 probleme(s))\n"
+    },
+    {
+      "Name": "wording",
+      "ExitCode": 0,
+      "Output": "{\n  \"Status\": \"PASS\",\n  \"Total\": 442,\n  \"Reference\": 458,\n  \"Fixed\": 16,\n  \"New\": []\n}\n"
+    },
+    {
+      "Name": "worker-contracts",
+      "ExitCode": 0,
+      "Output": "{\n  \"ReviewedChangesRequired\": [],\n  \"Applied\": false,\n  \"Count\": 71\n}\n"
+    },
+    {
+      "Name": "release-contract",
+      "ExitCode": 0,
+      "Output": "{\n  \"Build\": \"2026.10.13-DOMENIA-1.0-RC1.17.5-D120\",\n  \"Status\": \"PASS\",\n  \"Problems\": [],\n  \"Warnings\": []\n}\n"
+    },
+    {
+      "Name": "preload",
+      "ExitCode": 0,
+      "Output": "{\n  \"Build\": \"2026.10.13-DOMENIA-1.0-RC1.17.5-D120\",\n  \"SourceBase\": \"RC1.17.5-ad-timeout\",\n  \"Passed\": 175,\n  \"Failed\": 0,\n  \"CoreFunctions\": 688,\n  \"ChangedCoreFunctions\": [],\n  \"UnchangedCoreFunctions\": 688,\n  \"ModuleFiles\": 61,\n  \"ModuleExports\": 1320,\n  \"WindowsPowerShellExecuted\": false,\n  \"WpfExecuted\": false,\n  \"LiveADExecuted\": false,\n  \"Kind\": \"Source/XML and archive-level contract verification only\"\n}\n"
+    }
+  ],
+  "WindowsExecuted": false,
+  "WpfExecuted": false,
+  "RealDirectoryAccessed": false,
+  "Limits": "Local PS7 pure/inert adapter tests and static audits only; user will test Windows. Runtime network timing cause remains unknown."
+}

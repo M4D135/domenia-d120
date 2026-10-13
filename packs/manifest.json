@@ -2,14 +2,14 @@
   "schema": 1,
   "product": "Domenia",
   "version": "1.0",
-  "build": "2026.10.13-DOMENIA-1.0-RC1.17.4-D120",
-  "source_base_commit": "e9536c24c8e2eb0789ccb64b1f4d225603960691",
+  "build": "2026.10.13-DOMENIA-1.0-RC1.17.5-D120",
+  "source_base_commit": "68a3bfb43563c9dea276972490010307aa0123e1",
   "archives": [
     {
       "edition": "PROD",
       "path": "packs/Domenia_PROD.zip",
-      "bytes": 2097655,
-      "sha256": "8ca88099a10c8c5f02cf2d7bb99be131a1ff9b70002cc1737dabd2dc1a7888be",
+      "bytes": 2098079,
+      "sha256": "6a4fc581dcfd1222b5896dd06273841b1afb5081502a7f75c13382d7c0ff6841",
       "files": 94,
       "archive_files_including_manifest": 95,
       "archive_root": "prod/"
@@ -17,23 +17,22 @@
     {
       "edition": "DEV",
       "path": "packs/Domenia_DEV.zip",
-      "bytes": 4380691,
-      "sha256": "9e8e0d85d7be7cc2bda1c43bbfd9c8a41c655395ef0010e5196378b504bc8c3d",
-      "files": 392,
-      "archive_files_including_manifest": 393,
+      "bytes": 4388681,
+      "sha256": "8e3afa6b0e1c94db127922a3a8a347553b993b570b6555dfe95f9468a862cb1f",
+      "files": 394,
+      "archive_files_including_manifest": 395,
       "archive_root": "dev/"
     }
   ],
   "runtime_files_identical": 94,
   "qualification": {
     "status": "LOCAL_CHECKS_PASSED_WINDOWS_NOT_RUN",
-    "proof": "validation/2026-10-13/ou-refresh/qualification.json",
+    "proof": "validation/2026-10-13/ad-timeout/qualification.json",
     "windows_executed": false,
-    "windows_reason": "Windows relay unavailable; user confirms the PC is powered off. Mac locked.",
-    "delivery_decision": "User will perform Windows tests and accepts delivery without this campaign (2026-10-13).",
+    "delivery_decision": "User accepts delivery with local checks and will perform Windows tests.",
     "formal_windows_qualification": "NOT_EVALUATED",
     "formal_publishable": false,
-    "documentation_proof": "validation/2026-10-13/ou-refresh/documentation-qa.json",
-    "interactive_gui": "NOT_RUN_MAC_LOCKED"
+    "documentation_proof": "validation/2026-10-13/ad-timeout/documentation-qa.json",
+    "interactive_gui": "NOT_RUN"
   }
 }

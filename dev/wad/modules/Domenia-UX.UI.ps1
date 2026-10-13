@@ -948,15 +948,16 @@ function Update-DomeniaUxPageTitle {
 }
 
 function Update-DomeniaUxSessionBadge {
-    # UI-29 / SP-04: « Connecté à example.local », or « AD injoignable depuis HH:MM · données déjà lues seulement » while the
-    # last directory request did not get an answer; back by itself at the next directory success, nothing is retried.
+    # UI-29 / SP-04: network outage and query deadline are distinct session warnings.
+    # Back by itself at the next directory success; nothing is retried here.
     $label = Get-DomeniaControl 'LblUxDomain'
     if ($null -eq $label) { return }
     $offline = $false
+    $slow = $false
     $outage = $null
     try {
         $reach = $script:DirectoryReachability
-        if (($null -ne $reach) -and ([long]$reach.Epoch -eq [long]$script:SessionEpoch)) { $offline = [bool]$reach.Offline; $outage = $reach.LastOutageUtc }
+        if (($null -ne $reach) -and ([long]$reach.Epoch -eq [long]$script:SessionEpoch)) { $offline = [bool]$reach.Offline; $slow = [bool](Get-DomeniaMember $reach 'Slow' $false); $outage = $reach.LastOutageUtc }
     } catch { $offline = $false }
     if ($offline) {
         # « depuis » is the first failure of the outage, not the latest one.
@@ -972,12 +973,13 @@ function Update-DomeniaUxSessionBadge {
     $demo = [bool]$script:DemoMode
     $demoText = ''
     if ($demo -and ($null -ne (Get-Command -Name Get-DomeniaDemoBannerText -CommandType Function -ErrorAction SilentlyContinue))) { $demoText = [string](Get-DomeniaDemoBannerText) }
-    $badge = Get-DomeniaSessionBadge -Domain $domain -Offline $offline -OfflineSince $script:UxAdOfflineSince -Demo $demo -DemoText $demoText
+    $badge = Get-DomeniaSessionBadge -Domain $domain -Offline $offline -OfflineSince $script:UxAdOfflineSince -Demo $demo -DemoText $demoText -Slow $slow
     # A badge without a domain yet keeps its startup text (« Session AD en préparation ») or an offline preview text.
     if (([string]$badge.State -eq 'Pending') -and (-not [string]::IsNullOrWhiteSpace([string]$label.Text))) { return }
     if ([string]$label.Text -cne [string]$badge.Text) { $label.Text = [string]$badge.Text; Send-DomeniaUxLiveChange -Control $label }
+    $label.ToolTip = [string]$badge.ToolTip
     if ([string]$badge.State -ne 'Demo') {
-        $label.SetResourceReference([Windows.Controls.TextBlock]::ForegroundProperty,$(if ($offline) { 'StatusError' } else { 'InfoFg' }))
+        $label.SetResourceReference([Windows.Controls.TextBlock]::ForegroundProperty,$(if ($offline) { 'StatusError' } elseif ($slow) { 'StatusWarning' } else { 'InfoFg' }))
     }
 }
 

@@ -197,27 +197,49 @@ Test-Case 'D030' 'Le catalogue du cache donne source, date, lecteur et usage' {
 
 Test-Case 'D030' 'Seul Directory declare une panne et le retour garde le repere de coupure' {
     $s=Resolve-DomeniaDirectoryReachability $null 'Cim' 'Timeout' $false $script:C0
-    Assert-False $s.Offline;Assert-False $s.Changed
+    Assert-False $s.Offline;Assert-False $s.Slow;Assert-False $s.Changed
     $s=Resolve-DomeniaDirectoryReachability $s 'Directory' 'Network' $false $script:C0
-    Assert-True $s.Offline;Assert-True $s.Changed
+    Assert-True $s.Offline;Assert-False $s.Slow;Assert-True $s.Changed
     $back=Resolve-DomeniaDirectoryReachability $s 'Directory' 'Success' $false $script:C0.AddSeconds(10)
-    Assert-False $back.Offline;Assert-True $back.Changed
+    Assert-False $back.Offline;Assert-False $back.Slow;Assert-True $back.Changed
     Assert-Equal $script:C0.ToString('o') $back.LastOutageUtc
 }
 Test-Case 'D030' 'Annulation et refus de droits ne sont pas une nouvelle panne reseau' {
     $s=Resolve-DomeniaDirectoryReachability $null 'Directory' 'Timeout' $true $script:C0
-    Assert-False $s.Offline
+    Assert-False $s.Offline;Assert-False $s.Slow
     $s=Resolve-DomeniaDirectoryReachability $s 'Directory' 'AccessDenied' $false $script:C0
-    Assert-False $s.Offline
-    $s=Resolve-DomeniaDirectoryReachability $s 'Directory' 'Timeout' $false $script:C0
+    Assert-False $s.Offline;Assert-False $s.Slow
+    $s=Resolve-DomeniaDirectoryReachability $s 'Directory' 'Network' $false $script:C0
     Assert-True $s.Offline
     $s=Resolve-DomeniaDirectoryReachability $s 'Directory' 'CredentialsRejected' $false $script:C0.AddSeconds(1)
     Assert-True $s.Offline;Assert-False $s.Changed
 }
-Test-Case 'D030' 'Une nouvelle panne avance le repere exigeant une relecture' {
+Test-Case 'D030' 'Une nouvelle panne reseau avance le repere exigeant une relecture' {
     $s=Resolve-DomeniaDirectoryReachability $null 'Directory' 'Network' $false $script:C0
-    $s=Resolve-DomeniaDirectoryReachability $s 'Directory' 'Timeout' $false $script:C0.AddSeconds(10)
+    $s=Resolve-DomeniaDirectoryReachability $s 'Directory' 'Network' $false $script:C0.AddSeconds(10)
     Assert-True $s.Changed;Assert-Equal $script:C0.AddSeconds(10).ToString('o') $s.LastOutageUtc
+}
+Test-Case 'D030' 'Un delai AD ne declare pas une panne et conserve les dates de lecture et de coupure' {
+    $s=Resolve-DomeniaDirectoryReachability $null 'Directory' 'Success' $false $script:C0
+    $s=Resolve-DomeniaDirectoryReachability $s 'Directory' 'Timeout' $false $script:C0.AddSeconds(45)
+    Assert-False $s.Offline;Assert-True $s.Slow;Assert-True $s.Changed
+    Assert-Equal $null $s.LastOutageUtc
+    Assert-Equal $script:C0.ToString('o') $s.LastSuccessUtc
+    Assert-Equal $script:C0.AddSeconds(45).ToString('o') $s.LastTimeoutUtc
+    $s=Resolve-DomeniaDirectoryReachability $s 'Directory' 'Success' $false $script:C0.AddSeconds(60)
+    Assert-False $s.Offline;Assert-False $s.Slow;Assert-True $s.Changed
+    Assert-Equal $script:C0.AddSeconds(45).ToString('o') $s.LastTimeoutUtc
+    Assert-Equal $script:C0.AddSeconds(60).ToString('o') $s.LastSuccessUtc
+}
+Test-Case 'D030' 'Un delai apres une panne conserve la protection et ne deplace pas le repere de coupure' {
+    $s=Resolve-DomeniaDirectoryReachability $null 'Directory' 'Network' $false $script:C0
+    $s=Resolve-DomeniaDirectoryReachability $s 'Directory' 'Timeout' $false $script:C0.AddSeconds(45)
+    Assert-True $s.Offline;Assert-True $s.Slow
+    Assert-Equal $script:C0.ToString('o') $s.LastOutageUtc
+    Assert-Equal $script:C0.AddSeconds(45).ToString('o') $s.LastTimeoutUtc
+    $s=Resolve-DomeniaDirectoryReachability $s 'Directory' 'Network' $false $script:C0.AddSeconds(60)
+    Assert-True $s.Offline;Assert-False $s.Slow
+    Assert-Equal $script:C0.AddSeconds(60).ToString('o') $s.LastOutageUtc
 }
 
 Test-Case 'D029' 'Categories canoniques dedupliquees sans tenir compte de la casse' {

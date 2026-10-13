@@ -7,7 +7,7 @@
 function Initialize-DomeniaEngineState {
     # Idempotent. Called by Start-UiTask, Complete-UiTasks, Dispose-AsyncEngine and the window handlers.
     if($null -eq $script:DirectoryReachability -or [long]$script:DirectoryReachability.Epoch -ne [long]$script:SessionEpoch){
-        $script:DirectoryReachability=[pscustomobject]@{Epoch=[long]$script:SessionEpoch;Offline=$false;LastOutageUtc=$null;LastSuccessUtc=$null}
+        $script:DirectoryReachability=[pscustomobject]@{Epoch=[long]$script:SessionEpoch;Offline=$false;Slow=$false;LastOutageUtc=$null;LastSuccessUtc=$null;LastTimeoutUtc=$null}
     }
     if ($null -eq $script:DomeniaProviderState) { $script:DomeniaProviderState = New-DomeniaProviderState }
     if ($null -eq $script:DomeniaResources) { $script:DomeniaResources = New-DomeniaResourceRegistry }

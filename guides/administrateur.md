@@ -56,10 +56,12 @@ La barre du haut cherche dans tout le domaine, tous types d'objets, sans filtre 
 
 - Minimum de caractères : Browser.GlobalSearchMinChars (2). En dessous, Domenia affiche « Saisis au moins » suivi du minimum et de « caracteres, ou * pour un apercu. ».
 - Limite : celle du champ « Limite » (100 par défaut), retenue d'une session à l'autre dans la préférence SearchLimit. « Charger la suite » relit la même recherche avec une limite doublée, jusqu'à 20 000 lignes.
-- Délais : Browser.SearchServerTimeLimitSeconds (8 s, côté contrôleur) et Browser.SearchClientTimeoutSeconds (12 s, côté poste).
+- Délais LDAP : Browser.SearchServerTimeLimitSeconds (8 s, côté contrôleur) et Browser.SearchClientTimeoutSeconds (12 s, côté poste). Async.SearchTimeoutSeconds borne la recherche globale à 45 s par défaut.
 - Recherche à la frappe : désactivée par défaut (Browser.LiveGlobalSearch et Browser.AllowLiveGlobalSearch à faux).
 - Pendant une écriture, la recherche attend : « Recherche différée : écriture active ou à vérifier. ».
 - Classement : Features.SearchRanking (vrai) ordonne les résultats d'une recherche globale ; sans lui, ils restent dans l'ordre d'arrivée.
+
+Le badge orange « Dernière requête AD : délai dépassé » signale une requête trop longue, sans établir une panne réseau. Affinez la recherche et consultez le journal. « AD injoignable » en rouge correspond à une erreur réseau. La prochaine lecture AD réussie rétablit le badge normal.
 
 Des préfixes facultatifs limitent la recherche à un type (Features.SearchSyntax, vrai par défaut). Un préfixe inconnu est cherché comme du texte.
 
@@ -81,7 +83,7 @@ L'arbre « Parcourir les OU » affiche le contenu d'une OU. Le menu « ⋯ » 
 | Limite | 100 par défaut | 20 000 lignes au plus. |
 | Requêtes | Vues Annuaire, modèles locaux et recettes personnelles | Choisissez une OU, vérifiez la source, puis cliquez sur « Exécuter » ; voir la section Requêtes Annuaire et données locales. |
 
-Le champ « Dans les résultats » filtre la liste déjà chargée, sans appel AD : nom, login, type, présence et association. La limite LDAP ne change pas.
+« Dans les résultats » filtre les objets déjà chargés, sans appel AD ni changement de limite LDAP. Le compteur rapporte les lignes visibles aux objets chargés, pas au total du domaine. « Liste partielle » signale une lecture incomplète ou en erreur : même 746/746 ne certifie pas son exhaustivité.
 
 > [!NOTE] « Sans réponse au ping » ne prouve pas qu'un poste est éteint : l'ICMP peut être filtré. Une liste vide ne prouve pas non plus une absence dans AD.
 

@@ -1,0 +1,40 @@
+{
+  "reviewer": "root",
+  "document": "administrateur",
+  "status": "PASS",
+  "method": "Each changed page opened individually using view_image at original PNG resolution; text, tables, captions and page breaks visually inspected.",
+  "reviewedUtc": "2026-10-13T13:20:06.586683+00:00",
+  "pages": [
+    {
+      "page": 4,
+      "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ad-timeout/page-4.png",
+      "sha256": "8d25d5b7f4e339e0491558e10d145da51fcb6cc7792f059a8c1a11c5689a672c",
+      "status": "PASS"
+    },
+    {
+      "page": 5,
+      "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ad-timeout/page-5.png",
+      "sha256": "488d27b72f24c474692cbb00ddd24d1de36859a28da53b0174d64eed4b562997",
+      "status": "PASS"
+    },
+    {
+      "page": 6,
+      "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ad-timeout/page-6.png",
+      "sha256": "6a0e5cbccbed03627f02647912a7e423815bcbaf67f9a7ca8c332b8a15e3a8c8",
+      "status": "PASS"
+    },
+    {
+      "page": 7,
+      "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ad-timeout/page-7.png",
+      "sha256": "e3e4b8a1db4357598831d857e6b650390efbb7089fb534f42e3cb18aa56003e3",
+      "status": "PASS"
+    },
+    {
+      "page": 8,
+      "path": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-administrateur-ad-timeout/page-8.png",
+      "sha256": "87504c6a1119ea8158974ba60b1e50e3550e2a41370c2267c4705669e46a6e77",
+      "status": "PASS"
+    }
+  ],
+  "notes": "No clipping, overlap, missing glyph or illegible table text found. Timeout and partial-count explanations fit cleanly; existing figures retained."
+}

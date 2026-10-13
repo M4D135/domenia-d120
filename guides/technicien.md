@@ -19,7 +19,7 @@ Quand : avant toute intervention, vous devez retrouver un poste, un utilisateur 
 
 1. **Placer le curseur.** Cliquez dans la barre du haut « Personne, poste ou groupe, dans tout le domaine… », ou appuyez sur Ctrl+F. Vos dernières recherches et fiches s'affichent sous la barre ; pendant la frappe, des suggestions viennent de la base locale. La saisie seule n'interroge pas l'annuaire.
 2. **Taper le nom.** Saisissez au moins deux caractères : nom, identifiant, adresse mail ou nom de poste. Appuyez sur Entrée ou cliquez sur « Rechercher ». La page « Rechercher » affiche la liste « Résultats ».
-3. **Lire la liste.** Chaque ligne donne le « Type », le « Nom », l'« Utilisateur connecté (console) », l'« Association mémorisée » et la « Présence réseau ».
+3. **Lire la liste.** Le compteur indique les lignes visibles parmi les objets chargés, pas le total du domaine. « Liste partielle » signale une lecture incomplète : même 746/746 ne garantit pas que tout a été reçu.
 4. **Affiner sans relancer.** Tapez quelques lettres dans « Dans les résultats » : seules les lignes qui les contiennent restent. « Effacer le filtre » réaffiche tout.
 5. **Vérifier un poste.** Cliquez une fois sur la ligne d'un poste. Domenia le pingue et lit l'utilisateur ouvert sur son écran : « Présence réseau » et « Utilisateur connecté (console) » se mettent à jour.
 6. **Ouvrir la fiche.** Double-cliquez sur la ligne, ou appuyez sur Entrée. La page « Fiche » s'ouvre sur l'onglet « Resume ».
@@ -82,6 +82,8 @@ Dans une fenêtre étroite ou basse, la barre peut se replier : « Options de re
 > [!NOTE] Trois dates ont des rôles différents : la base AD indique quand les objets ont été recensés, les mesures indiquent quand les postes ont été interrogés, le calcul indique quand la vue a été préparée. Une couverture AD absente ou partielle appelle « Base locale » ou « Les deux » dans « Données de l’OU ». Un inventaire ancien appelle « Postes (ping/WMI) ». Réexécuter une requête locale ne rajeunit aucune de ces données.
 
 ## Si ça ne se passe pas comme prévu
+
+Le badge orange « Dernière requête AD : délai dépassé » indique une recherche trop longue, sans prouver une panne réseau. Affinez la recherche puis relancez-la. Une lecture AD réussie rétablit le badge normal. « AD injoignable » en rouge correspond à une erreur réseau ; vérifiez alors la connexion au domaine.
 
 | Vous voyez | Que faire |
 |---|---|

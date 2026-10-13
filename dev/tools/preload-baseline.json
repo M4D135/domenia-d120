@@ -1,5 +1,5 @@
 {
-  "Archive": "RC1.17.4 OU refresh source review",
+  "Archive": "RC1.17.5-ad-timeout",
   "ArchiveSHA256": "655ED21F90345B3C7667D4E777814C6A0595A5D5BE628AD587FB46CCA5241922",
   "CoreFunctions": {
     "Write-DomeniaAtomicText": "1C9A1583F52EB7BE80BE420662653E4AF886FE11DC4FDB3B1C4CDF19FD1C0EDA",
@@ -153,7 +153,7 @@
     "Set-DomeniaResourceColor": "27391F9046A85B14658803F03178045ABEDF0B1F4DD5364D7BA5575C5E4F11BE",
     "Apply-DomeniaTheme": "B0ECA10884F7B8D32279AD437EAB8C806D868256D7071B79511688468E2D02BE",
     "Toggle-DomeniaTheme": "EA7E0F31A78D8B4A0BFAB0C27D8028521C1C3A1A255DDA4BEA3B65B5F7C99F03",
-    "Get-MainXaml": "25DC226446D59451C04D961CA89FDBA8A58D81D74318396317AB010E11C5D7CC",
+    "Get-MainXaml": "0BC2B01EB445D6B48E23FB013A6E0F3BDFAE56795F8BDF63B49285F018778152",
     "Assert-DomeniaXamlPreflight": "20BB1DA04FD88D78E1A52C5610376467D5E9408437BC823DDC8EC8F40C0EAEB7",
     "Save-DomeniaXamlDiagnostic": "D648C9D6BD6F5F3A6613957D22A6A42EC1AAC0C1FA6218195A55D10EADF4DC67",
     "ConvertFrom-DomeniaXaml": "855E6CA9E56D62F77F5C22ACAC048293D24281B5B8FCC7FEB6806450BE561228",
@@ -936,7 +936,7 @@
     "wad/modules/Domenia-Guard.UI.ps1": "11ED5549BE999C0A7DC039386ECBFB0B424668AE8CF117C0F0AE03783F12917A",
     "wad/modules/Domenia-Live.Model.ps1": "6B2C5C145D2354DED32577F45D59945B397D6AFBA91A5BACBB61B0BF8221BE19",
     "wad/modules/Domenia-Live.Types.cs": "EA90657459EDAB05A25440C2EDDAB6D15577CB437FAEF95DA939767885F05F0E",
-    "wad/modules/Domenia-Live.UI.ps1": "1514F0BE4CD88C60822660D0F4CDD44F643BD6F8DD6A8CD6951FE83323F599FA",
+    "wad/modules/Domenia-Live.UI.ps1": "1A602836E1383E331FC44DCC6C3249B032A84DC39F13651F9427A6A692A4F695",
     "wad/modules/Domenia-Receipts.Worker.ps1": "72D43A96BABB55F6EB5C008018EB1C4AA1C0A1265402FBAD7294C1113735B68E",
     "wad/modules/Domenia-Reconcile.UI.ps1": "845F7531CCD8FB82BB4CECB5210E47E9C86E5E2C0913074D8BE460E814F52288",
     "wad/modules/Domenia-Relations.UI.ps1": "5F7C8E7B3608DF3AE7FF5B99517FE6556F4CD27F4074F165AFF956294A71ED11",
@@ -3311,6 +3311,19 @@
       "AddedCoreFunctions": [],
       "RemovedCoreFunctions": [],
       "ChangedPayloads": []
+    },
+    {
+      "Previous": "RC1.17.4 OU refresh source review",
+      "Source": "RC1.17.5-ad-timeout",
+      "Decision": "Revue du diff RC1.17.5 : seul le compteur Live ajoute les etats Chargement, Liste partielle et Limite atteinte aux deux rendus. Aucun worker LDAP, budget, filtre, route, evenement de selection ni garde de securite modifie. Version actualisee par release_contract. Tests portables sur expressions AST et callbacks reels, Windows non execute.",
+      "ChangedCoreFunctions": [
+        "Get-MainXaml"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": [
+        "wad/modules/Domenia-Live.UI.ps1"
+      ]
     }
   ]
 }

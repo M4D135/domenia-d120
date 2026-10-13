@@ -1,0 +1,70 @@
+{
+  "status": "LOCAL_CHECKS_PASSED_WINDOWS_NOT_RUN",
+  "build": "2026.10.13-DOMENIA-1.0-RC1.17.5-D120",
+  "tests": [
+    {
+      "name": "Directory state and production task callback with inert UI",
+      "cases": 14,
+      "assertions": 58,
+      "failed": 0,
+      "report": "directory-status-ps7.json"
+    },
+    {
+      "name": "Directory/cache pure rules D030",
+      "cases": 8,
+      "failed": 0,
+      "report": "rules-cache-ps7.json"
+    },
+    {
+      "name": "Session badge pure rules L08-SP04",
+      "cases": 2,
+      "failed": 0,
+      "report": "rules-badge-ps7.json"
+    },
+    {
+      "name": "Production result counter expressions and live search callbacks",
+      "cases": 12,
+      "assertions": 27,
+      "failed": 0,
+      "report": "search-counter-ps7.json"
+    }
+  ],
+  "PowerShellVersion": "7.4.20",
+  "staticChecks": "local-checks.json",
+  "sourceHashes": [
+    {
+      "path": "dev/wad/modules/Domenia-Cache.Model.ps1",
+      "sha256": "ed19688728f783cc2c65dd9f5482c1af7b962810ba276ec2fb2df8a351141d17"
+    },
+    {
+      "path": "dev/wad/modules/Domenia-Engine.UI.ps1",
+      "sha256": "445e68003234ea70626de7d7aaef512be26dd223b78b5c5fb9d4199010402419"
+    },
+    {
+      "path": "dev/wad/modules/Domenia-Shell.Model.ps1",
+      "sha256": "32f552c155edcb85e8faa8b0809bbcd65968e08c560c622f2f078a74d19fc442"
+    },
+    {
+      "path": "dev/wad/modules/Domenia-UX.UI.ps1",
+      "sha256": "233634b96e272fb145fa19d29a71f6ed595d363a84fc96484c1d0513e2fd7d8b"
+    },
+    {
+      "path": "dev/wad/modules/Domenia-Live.UI.ps1",
+      "sha256": "1a602836e1383e331fc44dcc6c3249b032a84dc39f13651f9427a6a692a4f695"
+    }
+  ],
+  "windowsExecuted": false,
+  "wpfExecuted": false,
+  "realAdExecuted": false,
+  "interactiveGuiExecuted": false,
+  "formalPublishable": false,
+  "formalWindowsQualification": "NOT_EVALUATED",
+  "deliveryDecision": "User accepts delivery with local checks and will run Windows tests. No new Windows qualification is claimed.",
+  "review": "REVIEW.md",
+  "documentationProof": "documentation-qa.json",
+  "limits": [
+    "The observed 45-second deadline is confirmed; its underlying network/server/query cause is unknown.",
+    "UI wiring regression fixtures were updated but not run under Windows.",
+    "No new runtime screenshots were captured."
+  ]
+}

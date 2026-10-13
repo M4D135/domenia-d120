@@ -530,6 +530,17 @@ Test-Case 'L08-SP04' 'Badge de session : connecte, AD injoignable depuis HH:MM, 
     Assert-Equal 'Pending' (Get-DomeniaSessionBadge).State
     Assert-Equal 'DÉMO' (Get-DomeniaSessionBadge -Domain 'x' -Demo $true -DemoText 'DÉMO').Text
 }
+Test-Case 'L08-SP04' 'Un delai AD a son propre badge sans annoncer une panne generale' {
+    $slow=Get-DomeniaSessionBadge -Domain 'example.local' -Slow $true
+    Assert-Equal 'Slow' $slow.State
+    Assert-Equal 'Dernière requête AD : délai dépassé' $slow.Text
+    Assert-True ($slow.ToolTip -match 'ne confirme pas.*coupure')
+    Assert-True ($slow.ToolTip -match 'incomplet')
+    Assert-True ($slow.ToolTip -match 'lecture.*réussie')
+    Assert-Equal 'Offline' (Get-DomeniaSessionBadge -Domain 'x' -Slow $true -Offline $true).State
+    Assert-Equal 'Demo' (Get-DomeniaSessionBadge -Domain 'x' -Slow $true -Offline $true -Demo $true -DemoText 'DÉMO').State
+    Assert-Equal 'Connected' (Get-DomeniaSessionBadge -Domain 'example.local' -Slow $false).State
+}
 Test-Case 'L08-FO03' 'Recherches et fiches recentes : 8 au plus, sans doublon, memoire locale lisible' {
     $list=@()
     for($i=1;$i -le 10;$i++){$list=@(Add-DomeniaRecentEntry -Entries $list -Kind Recherche -Text ('dupont'+$i))}
