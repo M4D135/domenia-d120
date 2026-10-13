@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "product": "Domenia",
+  "documented_version": "1.0",
+  "status": "OFFLINE_VALIDATED_PENDING_PUSH_AND_INTERACTIVE",
+  "source_base_commit": "443b999c61be5a2100e1f3fa4d18a55eb305456a",
+  "previous_ledger": "validation/2026-10-12/completion-ledger-20261012.json",
+  "previous_scope": {
+    "original_points": 30,
+    "additional_requests": 12,
+    "implementation_recorded_done": true,
+    "historical_evidence_preserved": true
+  },
+  "current_scope": [
+    {
+      "id": "B01",
+      "title": "Recherche centrée sur les requêtes, catalogue et favoris",
+      "status": "DONE_OFFLINE_VALIDATED",
+      "evidence": "validation/2026-10-13/query-navigation/qualification.json"
+    },
+    {
+      "id": "B02",
+      "title": "Résultats locaux asynchrones, états distincts et périmètre OU de Recherche",
+      "status": "DONE_OFFLINE_VALIDATED",
+      "evidence": "validation/2026-10-13/query-navigation/qualification.json"
+    },
+    {
+      "id": "B03",
+      "title": "Atelier dans Outils, crayon et retour au contexte précédent",
+      "status": "DONE_OFFLINE_VALIDATED",
+      "evidence": "validation/2026-10-13/query-navigation/qualification.json"
+    },
+    {
+      "id": "B04",
+      "title": "Rendu différé des tableaux masqués et catalogue indexé",
+      "status": "DONE_OFFLINE_VALIDATED",
+      "evidence": "validation/2026-10-13/query-navigation/qualification.json"
+    },
+    {
+      "id": "B05",
+      "title": "Mesures et avertissements de durée des callbacks UI",
+      "status": "DONE_OFFLINE_VALIDATED",
+      "evidence": "validation/2026-10-13/query-navigation/qualification.json"
+    },
+    {
+      "id": "B06",
+      "title": "Sélecteurs libérés après un lancement refusé et rejets des réponses anciennes",
+      "status": "DONE_OFFLINE_VALIDATED",
+      "evidence": "validation/2026-10-13/query-navigation/qualification.json"
+    },
+    {
+      "id": "B07",
+      "title": "Zoom stable et tableaux utilisables dans les petites surfaces",
+      "status": "DONE_OFFLINE_VALIDATED",
+      "evidence": "validation/2026-10-13/query-navigation/qualification.json"
+    },
+    {
+      "id": "B08",
+      "title": "Campagne exhaustive des suites Windows hors ligne",
+      "status": "DONE_OFFLINE_VALIDATED",
+      "evidence": "validation/2026-10-13/query-navigation/qualification.json"
+    },
+    {
+      "id": "B09",
+      "title": "Captures 1080p et guides Word/PDF v1.0",
+      "status": "DONE",
+      "evidence": "validation/2026-10-13/query-navigation/documentation-qa.json",
+      "pages": 96,
+      "figures_per_guide": 33
+    },
+    {
+      "id": "B10",
+      "title": "Packs classiques DEV/PROD, publication et vérification GitHub",
+      "status": "READY_TO_COMMIT_AND_PUSH"
+    },
+    {
+      "id": "B11",
+      "title": "Recette humaine à la souris dans la VM",
+      "status": "BLOCKED_MAC_LOCKED",
+      "evidence": "validation/2026-10-13/query-navigation/interactive-gui.json"
+    }
+  ],
+  "limits": [
+    "Les tests synthétiques et WPF hors ligne ne prouvent pas la qualification d’un domaine réel de 5000 postes.",
+    "La durée utilisateur de551ms ne suffit pas à identifier ou reproduire son opération précise.",
+    "CUA bloque les actions graphiques tant que le Mac est verrouillé ; aucune recette humaine revendiquée.",
+    "R5 : une erreur E_UNEXPECTED de chargement DLL avant les cas reste inexpliquée ; les diagnostics n’ont pas reproduit l’échec. La campagne distincte R6 a réussi63/63 sur les mêmes archives ; cette réussite ne prouve pas la correction de l’incident."
+  ],
+  "updated_utc": "2026-10-13T01:51:00.889196+00:00",
+  "delivery": {
+    "build": "2026.10.13-DOMENIA-1.0-RC1.17.3-D120",
+    "archives": [
+      {
+        "edition": "PROD",
+        "path": "packs/Domenia_PROD.zip",
+        "bytes": 2087747,
+        "sha256": "b91c950cb6f33cb848cc2afc4fc57468982ba59ddb2b84a7413ba717f52acc54",
+        "files": 93,
+        "archive_files_including_manifest": 94,
+        "archive_root": "prod/"
+      },
+      {
+        "edition": "DEV",
+        "path": "packs/Domenia_DEV.zip",
+        "bytes": 4357336,
+        "sha256": "fffc258b7715eac4d57d19817336262ff827ce455d90aea0e32a7cc35653dd44",
+        "files": 388,
+        "archive_files_including_manifest": 389,
+        "archive_root": "dev/"
+      }
+    ],
+    "windows_steps_passed": 63,
+    "document_pages_reviewed": 96,
+    "manual_gui": "BLOCKED_MAC_LOCKED",
+    "formal_ad_qualification": "NOT_EVALUATED"
+  }
+}

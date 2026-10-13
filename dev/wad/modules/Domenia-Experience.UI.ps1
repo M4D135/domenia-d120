@@ -195,6 +195,8 @@ function Get-DomeniaOperationsHealthText {
     $delay=$null;try{$delay=Get-DomeniaRuntimeMetricSummary -Provenance 'Dispatcher' -Prefix 'Pulse'}catch{$delay=$null}
     if($null -ne $delay -and [int]$delay.Count -gt 0){$lines.Add('Réactivité de lʼinterface : retard habituel '+[Math]::Round([double]$delay.P50)+' ms ; 95 % des mesures sous '+[Math]::Round([double]$delay.P95)+' ms.')}
     else{$lines.Add('Réactivité de lʼinterface : pas encore mesurée.')}
+    $callbacks=$null;try{$callbacks=Get-DomeniaRuntimeMetricSummary -Provenance 'Dispatcher' -Prefix 'Callback:'}catch{$callbacks=$null}
+    if($null -ne $callbacks -and [int]$callbacks.Count -gt 0){$lines.Add('Traitement des résultats dans lʼinterface : médiane '+[Math]::Round([double]$callbacks.P50)+' ms ; 95 % sous '+[Math]::Round([double]$callbacks.P95)+' ms ; maximum '+[Math]::Round([double]$callbacks.Max)+' ms.')}
     $saved=$null;try{if($null -ne $script:Persistence){$saved=$script:Persistence.LastSavedAt}}catch{$saved=$null}
     $save=if($null -ne $saved){'Dernière sauvegarde locale à '+([datetime]$saved).ToString('HH:mm:ss')+'.'}else{'Aucune sauvegarde locale dans cette session.'}
     try{$state=Get-DomeniaPersistenceState;if([string]$state.Label){$save+=' '+[string]$state.Label}}catch{}

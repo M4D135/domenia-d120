@@ -1,0 +1,249 @@
+{
+    "Build":  "2026.10.01-DOMENIA-1.0-RC1.4-SEARCH",
+    "HostVersion":  "5.1.26100.6584",
+    "OS":  "Microsoft Windows NT 10.0.26200.0",
+    "Passed":  47,
+    "Failed":  0,
+    "Skipped":  0,
+    "Complete":  true,
+    "LiveAD":  false,
+    "LiveCIM":  false,
+    "PersonalData":  false,
+    "Tests":  [
+                  {
+                      "Name":  "100 AD rows do not queue any probe",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Cached rows do not queue a probe",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Direct queue call without an explicit intent is refused",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "One selection queues exactly one machine",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "One selection starts only its own probe",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Duplicate event shares one intent",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Selection respects debounce",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Fast A then B discards unsent A",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Non-machine selection clears pending machine",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "No selection does not start anything",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Multiple selection never becomes a batch probe",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Programmatic selection is suppressed",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Disabled grid does not probe",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Write in progress blocks verification",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Unknown write blocks verification",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Unchecked user verification sends only one selected ping",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Manual recheck works for one selected row when unchecked",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Unselected manual recheck is harmless",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Cached selection waits for AD",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "AD confirmation serves a waiting selection only",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Different GUID does not reuse old intent",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Old search generation cannot start",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Old account identity cannot start",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Rejected remote identity permits one credential-free ping",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "An active same-machine probe is shared on recheck",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Completed intent is not replayed by later ticks",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Arriving new AD row cannot expand a selection probe",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Timeout keeps last observation with its old date",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "A console result updates cache even after selecting another row",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Restored OU schedules a single search",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Restoration is deferred while settings are applied",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Restoration is deferred during a write",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Restoration waits for live infrastructure",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Changed OU wins over a pending restoration",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Changed text wins over a pending restoration",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Global text does not cancel an OU restoration",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Changed subtree wins over a pending restoration",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Changed type wins over a pending restoration",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Changed generation cancels the pending restore",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Changed account cancels the pending restore",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Duplicate ContentRendered does not restart bookmark restore",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Missing bookmark does not trigger a domain scan",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Tree selection restores scope then loads without another click",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Other slow branches do not delay the restored OU search",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Expired missing bookmark has no broad fallback",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Every results column has a plain stable header",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Native WPF headers remain visible after reorder and narrow layout",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  }
+              ]
+}

@@ -45,12 +45,34 @@ Quand : avant toute intervention, vous devez retrouver un poste, un utilisateur 
 Quand : vous voulez voir tous les postes ou tous les utilisateurs d'un site ou d'un service. Une OU est une unité organisationnelle : elle regroupe des objets dans l’annuaire.
 
 1. **Choisir l'OU.** À gauche de la page « Rechercher », dans « Parcourir les OU », dépliez l'arbre et cliquez sur une OU. Son contenu s'affiche dans la liste.
-2. **Régler la portée.** Décochez « Inclure les sous-OU » pour ne voir que le premier niveau.
+2. **Régler la portée.** Ouvrez le menu « ⋯ » près de « Parcourir les OU ». Décochez « Inclure les sous-OU » pour ne voir que le premier niveau.
 3. **Filtrer.** Dans « Type d’objet », choisissez par exemple « Machines ». Dans « Présence réseau », choisissez « En ligne » ou « Sans réponse au ping ».
 4. **Compléter la liste.** Si le compteur indique une liste limitée, cliquez sur « Charger la suite ».
 5. **Changer de périmètre.** Choisissez une autre OU dans l’arbre. Pour chercher un objet par son nom dans le domaine, utilisez la barre du haut.
 
 > [!RESULTAT] La liste montre les objets de l'OU choisie.
+
+## Exécuter une requête prête à l’emploi
+
+La zone « Requêtes » de Rechercher propose les vues de l’annuaire, les modèles locaux et vos requêtes enregistrées. Le champ de cette zone filtre les noms de requêtes ; il ne recherche pas directement un poste.
+
+1. **Choisir l’OU.** Sélectionnez l’OU dans l’arbre de Rechercher et vérifiez « Inclure les sous-OU » dans son menu « ⋯ ». Ce périmètre est indépendant de celui du tableau de bord.
+2. **Trouver une requête.** Saisissez un sujet, par exemple disque, puis choisissez une ligne. Lisez la source et le périmètre sous la liste.
+3. **Reconnaître la source.** « Annuaire » lit AD au lancement. « Données locales » utilise les postes déjà recensés et leurs relevés datés, sans ping ni inventaire automatique.
+4. **Garder un favori.** Cliquez sur l’étoile. La case « Favoris » retrouve vos requêtes épinglées ; elle filtre seulement le catalogue.
+5. **Exécuter.** Cliquez sur « Exécuter ». Les filtres précédents de la liste sont retirés pour afficher la nouvelle requête. Lisez le nombre de lignes affichées et le total.
+
+![Rechercher : requête locale enregistrée, favori et périmètre de l’OU ; données fictives](fig:recherche-requetes)
+
+Pour une requête locale, choisissez « Correspondants », « Inconnus » ou « Non correspondants », puis cliquez sur « Exécuter ». Un poste inconnu manque d’une information nécessaire ; une mesure absente ou périmée ne devient pas zéro. Pour une liste locale limitée, augmentez la limite puis réexécutez, jusqu’à 20 000 lignes au maximum. Pour une requête Annuaire, utilisez « Charger la suite » lorsqu’il est disponible.
+
+![Requête locale : sélection des postes dont les données nécessaires restent inconnues ; données fictives](fig:recherche-inconnus)
+
+« Effacer la requête » annule la requête et efface ses résultats. Sur une liste de recherche ordinaire, il retire seulement le filtre de requête supplémentaire et conserve la liste. Aucune lecture ne se relance. Choisissez ensuite une OU, une autre requête ou la recherche de nom du bandeau. Le petit crayon ouvre Outils → Atelier de requêtes ; une recette locale sélectionnée se retrouve dans « Composer la requête ».
+
+Dans une fenêtre étroite ou basse, la barre peut se replier : « Options de requête » regroupe le filtre de modèles, les favoris, la source et le choix des résultats. Le bouton rappelle le choix, par exemple « Inconnus », et « Effacer » reste directement accessible. Ouvrez ou repliez ces options selon la place nécessaire ; vos choix sont conservés et aucune recherche ne se lance. Échap referme le volet.
+
+> [!NOTE] La date du calcul indique quand la requête a été évaluée. La dernière lecture complète couvrant l’OU indique la fraîcheur du recensement AD. Une couverture absente ou partielle peut expliquer des postes manquants ; mettez à jour l’OU dans Base autonome avant de conclure.
 
 ## Si ça ne se passe pas comme prévu
 
@@ -226,7 +248,7 @@ Le sélecteur présente un arbre des OU, avec les branches classées par nom dan
 
 ## Afficher les postes derrière un chiffre
 
-1. **Ouvrir le détail.** Survolez le widget ou donnez-lui le focus avec le clavier, puis cliquez sur la petite icône de détail près du crayon. L’Atelier de requêtes s’ouvre dans sa propre page, avec le périmètre du tableau de bord. Un clic sur la carte ou sur un segment de graphique laisse le tableau affiché.
+1. **Ouvrir le détail.** Survolez le widget ou donnez-lui le focus avec le clavier, puis cliquez sur la petite icône de détail près du crayon. L’Atelier de requêtes s’ouvre dans Outils, avec le périmètre du tableau de bord. Un clic sur la carte ou sur un segment de graphique laisse le tableau affiché.
 2. **Lire la liste.** L’onglet « Résultats » affiche les postes correspondants. Le compteur porte sur le résultat complet. La table affiche 200 postes par page ; utilisez les commandes de page pour parcourir la suite.
 3. **Examiner un poste.** Sélectionnez sa ligne, ouvrez sa fiche ou les actions du poste. Vérifiez le nom et l'identité affichés avant une intervention.
 4. **Préciser ou revenir.** Dans « Composer la requête », ajoutez une condition, puis cliquez sur « Exécuter » pour revenir aux résultats. Le bouton « Retour » revient à l’écran précédent.
@@ -239,7 +261,7 @@ Pour un point d'attention, le premier aperçu est volontairement court. « Déta
 
 ## Trouver tous les postes recensés
 
-Ouvrez l’Atelier avec la petite icône de la barre du parc ou le bouton « Atelier de requêtes » de Rechercher. Votre brouillon est conservé. Choisissez « Tous les postes recensés », cliquez sur « Charger », puis sur « Exécuter ». Elle inclut les comptes actifs et désactivés du périmètre. Une recherche textuelle dans Rechercher peut donner moins de lignes à cause de sa limite et de ses filtres ; la base et l'Atelier servent à examiner le recensement complet.
+Ouvrez Outils → Atelier de requêtes, ou utilisez la petite icône de la barre du parc. Le petit crayon de Rechercher ouvre également l’Atelier ; une recette locale sélectionnée y est préparée pour modification. Dans l’Atelier, relisez le périmètre du parc affiché en haut : il peut différer de l’OU de Rechercher. Choisissez « Tous les postes recensés », cliquez sur « Charger », puis sur « Exécuter ». Elle inclut les comptes actifs et désactivés du périmètre. Une recherche textuelle dans Rechercher peut donner moins de lignes à cause de sa limite et de ses filtres ; la base et l'Atelier servent à examiner le recensement complet.
 
 Dans « Composer la requête », ajoutez une condition en choisissant une information, un opérateur et une valeur. « Toutes les conditions » impose leur réunion ; « Au moins une condition » accepte un poste qui en remplit une. Pour repérer des mesures manquantes, utilisez « est absent ».
 
@@ -371,7 +393,7 @@ Quand : vous voulez garder sous les yeux les informations utiles. Chaque tuile o
 
 > [!RESULTAT] Le widget est enregistré sur le tableau, dans la section choisie.
 
-## Déplacer redimensionner ou retirer
+## Déplacer, redimensionner ou retirer
 
 1. **Passer en personnalisation.** Cliquez sur « Personnaliser ». Chaque widget porte les boutons ronds modifier et retirer ; une tuile « Ajouter ici » termine chaque section.
 2. **Déplacer.** Glissez un widget et lâchez-le sur un autre : il prend sa place, même dans une autre section. Le clic droit propose aussi « Déplacer ».
@@ -441,6 +463,14 @@ Quand une opération échoue, Domenia écrit un message dans le « Journal de s
 | « En memoire uniquement : » sur la ligne d'état, sous « Pinger la liste » et « Détecter la liste » | Les observations ne sont plus enregistrées. Prévenez l'administrateur. |
 | Un bouton grisé | Survolez-le : l'infobulle dit ce qui manque, par exemple « Desactive : mode lecture seule actif. ». |
 
+## Lire l’état du moteur
+
+Cliquez sur « Opérations » dans le bandeau, ou sur « État du moteur » dans le Journal de session déplié. Le panneau indique les tâches, la mémoire utilisée, la réactivité de l’interface et la dernière sauvegarde locale. La ligne « Traitement des résultats dans l’interface » montre la durée des retours traités pendant cette session, si des mesures sont disponibles.
+
+![Panneau des opérations et santé du moteur ; valeurs de démonstration](fig:etat-moteur)
+
+Ces mesures sont locales à Domenia. Elles ne testent ni le réseau ni les postes. Pour signaler un ralentissement, relevez l’heure, l’action et les valeurs affichées ; fermez le panneau avec son bouton ou Échap.
+
 ## Contacter votre administrateur
 
 Donnez-lui ces éléments :
@@ -460,7 +490,7 @@ Donnez-lui ces éléments :
 - **Bandeau** : barre « Personne, poste ou groupe, dans tout le domaine… » avec sa loupe, ✕ pour la vider et l'indication « Ctrl K » pour la palette des actions ; boutons-icônes « Accès » et « Opérations » (pastille au-dessus de zéro), thème (l'icône montre le thème obtenu), « ? » pour l'aide. Les flèches Précédent et Suivant sont à gauche du titre de la page.
 - **Interrupteur « Lecture seule »** : actif à chaque démarrage. Les actions qui modifient l'annuaire ou les postes restent bloquées.
 - **Aide** : « ? » ouvre l'« Aide contextuelle » à droite. Survolez un contrôle, ou passez dessus avec Tab, pour lire son rôle.
-- **Zoom** : les boutons − et + en bas de la fenêtre règlent la taille de l’interface de 80 à 150 %, par pas de 10. Cliquez sur le pourcentage pour revenir à 100 %. Votre choix est conservé.
+- **Zoom** : les boutons − et + en bas de la fenêtre règlent la taille de l’interface de 80 à 150 %, par pas de 10. Cliquez sur le pourcentage pour revenir à 100 %. Votre choix est conservé. Le menu et les espacements s’adaptent à la place restante après zoom ; les barres de défilement donnent accès aux zones qui dépassent.
 - **Journal de session** : en bas de la fenêtre, messages, résultats et erreurs de la session ; « Copier » le copie.
 
 > [!ATTENTION] L'interrupteur rouge « Écriture active · 12 min » et le cadre rouge de la fenêtre signalent que les modifications sont autorisées. Cliquez sur « Repasser en lecture » si aucune intervention en écriture n'est prévue ; sinon la lecture seule revient seule après 15 minutes sans écriture.

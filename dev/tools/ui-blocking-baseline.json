@@ -360,6 +360,14 @@
       "Owner": "moteur",
       "Reason": "UX-32 : chargement paresseux, une seule fois par session, du fichier XAML local du paquet (Domenia-Operations.xaml), meme modele que Initialize-DomeniaInlineUi et Initialize-DomeniaSupportUi ; jamais un chemin reseau.",
       "Chain": "wad\\Domenia-Core.ps1:464 $health.Add_Click > Show-DomeniaOperationsPanel > Initialize-DomeniaOperationsPanel"
+    },
+    {
+      "Function": "Initialize-DomeniaQueryView",
+      "Pattern": ".ReadAllText",
+      "Status": "Justifie",
+      "Owner": "interface",
+      "Reason": "Revue RC1.17.3 du 2026-10-13 : lecture du XAML du paquet, protegee par QueryWorkshopHost.Content ; une seule creation de la vue par session, deja appelee par Wire-Events au demarrage. Le raccourci de navigation rend ce chemin visible a l audit statique mais ne recharge pas le fichier. Aucun chemin choisi par l utilisateur, aucune collecte ni lecture AD. Meme contrat que les vues Inline et Operations.",
+      "Chain": "Show-DomeniaCommandPalette > Show-DomeniaQueryWorkshop > Initialize-DomeniaQueryWorkshop > Initialize-DomeniaQueryView"
     }
   ]
 }

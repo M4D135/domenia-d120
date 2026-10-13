@@ -44,7 +44,7 @@ function Update-DomeniaSearchMoreButton {param($Search)}
 function Get-DomeniaPersistenceState {return [pscustomobject]@{Label='Synthetic fixture: disk persistence disabled'}}
 function Write-AppLog {param($Text,$Level)$script:Logs.Add([pscustomobject]@{Level=[string]$Level;Text=[string]$Text})}
 function Set-Status {param($Text,$Level)Write-AppLog $Text $Level}
-function Select-DomeniaWorkspace {param($Workspace)$script:LastWorkspace=$Workspace}
+function Select-DomeniaWorkspace {param($Workspace,$Inner,$Tab);$script:LastWorkspace=$Workspace;$script:LastInner=$Inner;$script:LastTab=$Tab}
 function Start-DomeniaQueryEvaluation {$script:EvaluationRequests++}
 function Start-UiTask {throw 'No background task, AD, CIM or network operation is authorized by this fixture.'}
 $script:SessionEpoch=1;$script:GlobalSearchGeneration=1;$script:SearchMode='OU';$script:CurrentPresenceFilter='Tous'
@@ -196,7 +196,7 @@ try {
   Expect ($script:EvaluationRequests -eq 1) 'Explicit chrome button did not call real Show-DomeniaFleetWidgetDetails'
   $clauses=@($script:DomeniaQueryState.Recipe.Clauses)
   Expect ($clauses.Count -eq 1 -and $clauses[0].Field -eq 'active' -and $clauses[0].Operator -eq 'Equal' -and $clauses[0].Value -eq $false) 'Wrong query after explicit details click'
-  Expect ($script:LastWorkspace -eq 'WsQueryWorkshop') 'The dedicated workshop did not open'
+  Expect ($script:LastWorkspace -eq 'TabApplicationTools' -and $script:LastInner -eq 'ApplicationToolTabs' -and $script:LastTab -eq 'WsQueryWorkshop') 'The dedicated workshop did not open'
  }
 
 }finally{

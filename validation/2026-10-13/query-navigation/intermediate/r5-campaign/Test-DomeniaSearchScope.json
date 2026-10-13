@@ -1,0 +1,219 @@
+{
+    "Build":  "2026.10.01-DOMENIA-1.0-RC1.4-SEARCH",
+    "Runtime":  "5.1.26100.6584",
+    "Kind":  "PowerShell mocks; no LDAP/WPF",
+    "Passed":  42,
+    "Failed":  0,
+    "Checks":  [
+                   {
+                       "Name":  "OU explicite et sous-arbre",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "Aucune selection utilise la racine de session",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "Enfants directs respectes",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "DN echappe transmis sans transformation",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "Base de session absente refusee",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "Texte conserve dans la recherche OU",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "Recherche vide lit le contenu sans ajouter une etoile au champ",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "Groupes proposes et filtres cote requete",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "OU et conteneurs proposes",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "Limite bornee a 20000",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "Limite negative revient a 100",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "Pas d apercu local global sous une OU",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "Pas d apercu local global en OneLevel",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "Cache delegue au flux sans lecture SQL sur le thread appelant",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "Cle cache differente pour deux OU",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "Cle cache differente selon la profondeur",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "Etat courant accepte",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "Ancienne generation rejetee",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "OU differente rejette le retour tardif",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "Type modifie rejette le retour tardif",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "Texte modifie rejette le retour tardif",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "Profondeur modifiee rejette le retour tardif",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "Navigation dans une OU conserve la saisie",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "Initialisation de l arbre ne lance pas de recherche",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "Restauration des reglages sans recherche",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "Tout le domaine conserve le texte et inclut les sous-OU",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "Reset sans recherche utilisable en initialisation",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "Effacer conserve le filtre OU",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "Ancien chargeur de branche utilise le moteur commun",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "Annulation ne touche pas une ecriture",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "Terme OU trop court ne lance pas de requete",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "Empreinte worker recalculee et epinglee",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "Worker transmet la racine OU et OneLevel",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "Repli serveur garde la meme OU et profondeur",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "Worker refuse une base vide",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "Worker refuse une portee inconnue",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "Echec serveur reste une erreur, pas un resultat vide valide",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "Worker conserve les groupes et les conteneurs",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "Limite atteinte signalee dans le resultat worker",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "Racine inattendue dans le resultat refusee",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "Rafraichissement conserve uniquement une vraie selection",
+                       "Passed":  true,
+                       "Detail":  ""
+                   },
+                   {
+                       "Name":  "Nouvelle recherche ne reselecte pas la fiche precedente",
+                       "Passed":  true,
+                       "Detail":  ""
+                   }
+               ]
+}

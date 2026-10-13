@@ -248,8 +248,9 @@ if($env:OS -eq 'Windows_NT' -and -not $SkipWpf){
         # Fixture as the real DgObjects (IsReadOnly): a default DataGrid adds a NewItemPlaceholder to Items.Count.
         $grid=[Windows.Controls.DataGrid]::new();$grid.IsReadOnly=$true;$grid.CanUserAddRows=$false;$grid.ItemsSource=$rows;$script:Ctrl.DgObjects=$grid
         $state=[pscustomobject]@{Generation=9;BaseDn=$script:Conn.BaseDn;Scope='Subtree';TypeFilter=(Get-TypeLdapFilter 'Tous');Search='alex';SearchMode='Global';Limit=100}
-        $script:Live=[pscustomobject]@{Identity='r';LastFilter=[datetime]::MinValue;Search=[pscustomobject]@{Identity='r';Stopped=$false;State=$state;Rows=$rows;View=[Windows.Data.CollectionViewSource]::GetDefaultView($rows);LdapDone=$true;Finalized=$true;RefreshNeeded=$false;Fresh=@{};Map=@{}}}
+        $script:Live=[pscustomobject]@{Identity='r';LastFilter=[datetime]::MinValue;Search=[pscustomobject]@{Identity='r';Stopped=$false;State=$state;Rows=$rows;View=[Windows.Data.CollectionViewSource]::GetDefaultView($rows);LdapDone=$true;Finalized=$true;RefreshNeeded=$false;FilterPending=$false;Fresh=@{};Map=@{}}}
         Set-DomeniaSearchMode Global;Update-DomeniaLiveFilter
+        Expect (-not $script:Live.Search.FilterPending) 'The applied filter remained pending.'
         $names=@($grid.Items|Where-Object{$_ -ne [Windows.Data.CollectionView]::NewItemPlaceholder}|ForEach-Object{[string]$_.Name})
         Expect ($names -contains 'Alex' -and $names -contains 'PC-ONLY' -and $names.Count -eq 2) 'A global user was hidden by a local filter.'
         $state.SearchMode='OU';$state.BaseDn=$script:SelectedBranchDn;$state.Scope='OneLevel';$state.Search='';$state.TypeFilter=Get-TypeLdapFilter 'Machines';Set-DomeniaSearchMode OU

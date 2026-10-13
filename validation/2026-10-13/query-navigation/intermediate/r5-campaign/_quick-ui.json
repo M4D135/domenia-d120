@@ -1,0 +1,206 @@
+{
+    "Kind":  "QuickWindowsUi",
+    "UTC":  "2026-10-13T00:40:42.9122589Z",
+    "VM":  "W11-01",
+    "PowerShell":  "5.1.26100.6584",
+    "Apartment":  "STA",
+    "Is64Bit":  true,
+    "Session":  0,
+    "Data":  "Synthetic fixtures",
+    "ADAccessed":  false,
+    "RuntimeChanged":  [
+
+                       ],
+    "Suites":  [
+                   {
+                       "Suite":  "Ps51Compat",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  30834,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "ProdFactory",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  35156,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "NativeParser",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  2421,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "StartupCheckOnly",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  4180,
+                       "ReportWritten":  false
+                   },
+                   {
+                       "Suite":  "Test-DomeniaModules",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  43345,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-Domenia",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  20127,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaLiveSearchView",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  73008,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaUxRefinements",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  12976,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaBoards",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  38213,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaBoardRefresh",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  910,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaInterfaceTelemetry",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  1931,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaUxStateSafety",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  7867,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaSearchQueries",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  3286,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaLoginForeground",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  11137,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaWiringInterface",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  9007,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaParkDetection",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  7533,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaEngineResilience",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  3252,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaQuery",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  4279,
+                       "ReportWritten":  false
+                   },
+                   {
+                       "Suite":  "Test-DomeniaIndexSorting",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  6011,
+                       "ReportWritten":  false
+                   },
+                   {
+                       "Suite":  "Test-DomeniaIndexActions",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  2113,
+                       "ReportWritten":  false
+                   },
+                   {
+                       "Suite":  "Test-DomeniaDnScopes",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  4494,
+                       "ReportWritten":  false
+                   },
+                   {
+                       "Suite":  "Test-DomeniaQueryTemplates",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  3356,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaQueryTargets",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  2314,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaStreaming",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  36790,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaRules",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  38605,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaNative",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  1495,
+                       "ReportWritten":  false
+                   },
+                   {
+                       "Suite":  "Test-DomeniaIndexPersistence",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  17306,
+                       "ReportWritten":  false
+                   }
+               ],
+    "CaptureProvenance":  "Real WPF layout rendered in Windows from current source with fictitious fixture values; no live AD inventory."
+}

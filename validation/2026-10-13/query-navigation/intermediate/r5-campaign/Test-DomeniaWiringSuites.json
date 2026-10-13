@@ -1,0 +1,29 @@
+{
+    "Kind":  "WiringSuites",
+    "Lot":  "suites",
+    "Points":  [
+                   "D004",
+                   "D008",
+                   "D005",
+                   "D006",
+                   "D007"
+               ],
+    "Host":  {
+                 "Sta":  true,
+                 "PSVersion":  "5.1.26100.6584",
+                 "PSEdition":  "Desktop"
+             },
+    "NoADAccess":  true,
+    "NoNetwork":  true,
+    "NoWrite":  true,
+    "Passed":  0,
+    "Failed":  1,
+    "Complete":  false,
+    "Tests":  [
+                  {
+                      "Name":  "Infrastructure : Windows PowerShell 5.1, plan ferme et extraction AST",
+                      "Status":  "Failed",
+                      "Detail":  "System.InvalidOperationException: DOMENIA_MODULE_TYPES : echec de compilation de M4D.Admin.Common.Query.dll. Could not load file or assembly \u0027file:///C:\\DomeniaLab\\query-navigation-20261013-r5\\source\\dev\\wad\\modules\\M4D.Admin.Common.Query.dll\u0027 or one of its dependencies. Catastrophic failure (Exception from HRESULT: 0x8000FFFF (E_UNEXPECTED)) ---\u003e System.IO.FileLoadException: Could not load file or assembly \u0027file:///C:\\DomeniaLab\\query-navigation-20261013-r5\\source\\dev\\wad\\modules\\M4D.Admin.Common.Query.dll\u0027 or one of its dependencies. Catastrophic failure (Exception from HRESULT: 0x8000FFFF (E_UNEXPECTED)) ---\u003e System.Runtime.InteropServices.COMException: Catastrophic failure (Exception from HRESULT: 0x8000FFFF (E_UNEXPECTED))\r\n   --- End of inner exception stack trace ---\r\n   at System.Reflection.RuntimeAssembly._nLoad(AssemblyName fileName, String codeBase, Evidence assemblySecurity, RuntimeAssembly locationHint, StackCrawlMark\u0026 stackMark, IntPtr pPrivHostBinder, Boolean throwOnFileNotFound, Boolean forIntrospection, Boolean suppressSecurityChecks)\r\n   at System.Reflection.RuntimeAssembly.InternalLoadAssemblyName(AssemblyName assemblyRef, Evidence assemblySecurity, RuntimeAssembly reqAssembly, StackCrawlMark\u0026 stackMark, IntPtr pPrivHostBinder, Boolean throwOnFileNotFound, Boolean forIntrospection, Boolean suppressSecurityChecks)\r\n   at System.Reflection.RuntimeAssembly.InternalLoadFrom(String assemblyFile, Evidence securityEvidence, Byte[] hashValue, AssemblyHashAlgorithm hashAlgorithm, Boolean forIntrospection, Boolean suppressSecurityChecks, StackCrawlMark\u0026 stackMark)\r\n   at System.Reflection.Assembly.LoadFrom(String assemblyFile)\r\n   at System.Management.Automation.ClrFacade.LoadFrom(String assemblyPath)\r\n   at Microsoft.PowerShell.Commands.AddTypeCommand.LoadAssemblyFromPathOrName(List`1 generatedTypes)\r\n   at Microsoft.PowerShell.Commands.AddTypeCommand.EndProcessing()\r\n   at System.Management.Automation.CommandProcessorBase.Complete()\r\n   --- End of inner exception stack trace ---"
+                  }
+              ]
+}

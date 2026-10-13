@@ -12,6 +12,7 @@ $wad = Split-Path -Parent $PSScriptRoot
 $dev = Split-Path -Parent $wad
 $modules = Join-Path $wad 'modules'
 $checks = [Collections.Generic.List[object]]::new()
+$script:UiBlockingAudit = $null
 $native = ($PSVersionTable.PSEdition -eq 'Desktop' -and $PSVersionTable.PSVersion.Major -eq 5 -and $PSVersionTable.PSVersion.Minor -eq 1 -and [Environment]::Is64BitProcess)
 if (-not $native) { throw 'Windows PowerShell 5.1 x64 requis : une execution sous un autre moteur n est pas une preuve.' }
 if ([Threading.Thread]::CurrentThread.ApartmentState -ne 'STA') { throw 'Utiliser powershell.exe -STA.' }
@@ -50,7 +51,7 @@ $script:CoreFunctions = @('Start-UiTask','Complete-UiTasks','Request-UiTaskStop'
     'New-DomeniaWorkerRunspace','Assert-DomeniaWorkerOperationCode','Get-DomeniaWorkerCodeHash','ConvertTo-DomeniaCanonicalWorkerCode','Get-DomeniaWorkerOperationHashes',
     'Invoke-DomeniaJobSuccessUi','Invoke-DomeniaJobErrorUi','Invoke-DomeniaUiHandler','Set-ControlsBusy','Get-NewTaskId','Update-TaskUi','Get-WorkerContext',
     'Dispose-AsyncEngine','Request-DomeniaDashboardRefresh','Get-MainXaml','Get-DomeniaControl','Set-DomeniaControlText','New-DefaultConfig','Load-AppConfig','Get-CfgValue',
-    'Get-DomeniaEffectiveWorkerResult','Search-DomeniaIndexUi','Set-DomeniaFastLoginBusy','Complete-DomeniaFastLoginSuccess','Start-DomeniaFastLoginAttempt',
+    'Get-DomeniaEffectiveWorkerResult','Get-DomeniaIndexScope','Search-DomeniaIndexUi','Set-DomeniaFastLoginBusy','Complete-DomeniaFastLoginSuccess','Start-DomeniaFastLoginAttempt',
     'New-DomeniaFastLoginSession','Start-DomeniaFastLoginWorker','Update-DomeniaFastLoginAttempt','Reset-DomeniaFastLoginAttempt','Stop-DomeniaFastLoginWorker',
     'Invoke-DomeniaInProcessAuthProbe','Start-DomeniaLoginAuthRunspace','Read-DomeniaAuthRunspaceResult','Complete-DomeniaLoginAuthRunspaceCleanup',
     'Stop-DomeniaLoginAuthRunspace','Queue-DomeniaLoginAuthRunspaceCleanup','Ensure-DomeniaAuthCleanupTimer','Add-DomeniaFastLoginDetail',
@@ -209,7 +210,7 @@ function Reset-WiringState {
     $script:DirectoryCredentialFaulted = $false; $script:DirectoryCredentialFaultMessage = ''; $script:AccessState = $null; $script:RetryCredential = $null
     $script:DomeniaProviderState = $null; $script:DomeniaResources = $null; $script:DomeniaTaskSequence = $null; $script:DomeniaSchedulerEnabled = $null; $script:DomeniaRegisteredAsyncTimer = $null
     $script:DomeniaIdlePolicy = $null; $script:DomeniaIdlePolicyEnabled = $null; $script:DomeniaIdlePolicyWired = $false; $script:DashboardDirty = $false; $script:DashboardRefreshTimer = $null
-    $script:DomeniaIndexSearchTimer = $null; $script:DomeniaIndexSearchGeneration = 0; $script:DomeniaIndexSearchRetry = $null
+    $script:DomeniaIndexSearchTimer = $null; $script:DomeniaIndexSearchGeneration = 0; $script:DomeniaIndexSearchRetry = $null; $script:IndexScopeDn = ''
     $script:DomeniaParkSharedJob = $null; $script:DomeniaParkSharedPending = $false; $script:DomeniaParkDeferred = $null; $script:DomeniaParkStateReloadJob = $null
     $script:DomeniaActivationState = $null; $script:DomeniaActivationClosing = $false
     $script:DemoMode = $false; $script:DemoModeFixed = $false; $script:DemoDirectory = $null
@@ -570,7 +571,8 @@ Test-Case 'D014 : audit statique des attentes atteignables depuis le Dispatcher'
     $tool = Join-Path $dev 'tools\Test-DomeniaUiBlocking.ps1'
     $report = Join-Path ([IO.Path]::GetTempPath()) ('domenia-uib-' + [guid]::NewGuid().ToString('N') + '.json')
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tool -Root $dev -ReportPath $report -Quiet
-    Assert-True ($LASTEXITCODE -eq 0) 'Attente nouvelle atteignable depuis le Dispatcher (voir le rapport de l audit)'
+    $auditExit=$LASTEXITCODE;$script:UiBlockingAudit=Get-Content -LiteralPath $report -Raw -Encoding UTF8 | ConvertFrom-Json
+    Assert-True ($auditExit -eq 0) ('Attente nouvelle atteignable depuis le Dispatcher : ' + (@($script:UiBlockingAudit.New|ForEach-Object{$_.Function+' '+$_.Pattern+' : '+$_.Chain}) -join ' | '))
     # Mutation: a sleep injected in Search-DomeniaIndexUi of a copy of the core must be found.
     $fixture = Join-Path ([IO.Path]::GetTempPath()) ('domenia-core-' + [guid]::NewGuid().ToString('N') + '.ps1')
     $mutated = $script:CoreText.Replace("function Search-DomeniaIndexUi {`n    try {","function Search-DomeniaIndexUi {`n    try { Start-Sleep -Milliseconds 1")
@@ -757,15 +759,31 @@ Test-Case 'D002 : bandeau et verrou de lecture seule dans la fenetre principale'
 }
 
 # ---------------------------------------------------------------- D089
-Test-Case 'D089 : moniteur jamais Topmost et aucun Topmost permanent dans l application' {
+Test-Case 'D089 : aucun Topmost sauf le login autonome temporaire, nettoye en finally' {
     Assert-True ((Get-DomeniaStartupXaml) -match 'Topmost="False"') 'Moniteur de demarrage encore Topmost'
     foreach ($file in @(Get-ChildItem -LiteralPath $wad -Recurse -File -Include '*.ps1','*.xaml' | Where-Object { $_.FullName -notmatch '[\\/](tests|docs|maintenance)[\\/]' })) {
         $text = [IO.File]::ReadAllText($file.FullName)
-        Assert-True ($text -notmatch 'Topmost="True"' -and $text -notmatch '\.Topmost\s*=\s*\$true') ('Topmost force dans ' + $file.Name)
+        # User-requested standalone login is the sole exception. Its lifecycle is exercised by
+        # Test-DomeniaLoginForeground; every other function, monitor and XAML remains prohibited.
+        if ($file.FullName -eq (Join-Path $wad 'Domenia-Core.ps1')) { $text=$text.Replace((Get-CoreFunctionAst 'Show-LoginWindow').Extent.Text,'') }
+        Assert-True ($text -notmatch 'Topmost="True"' -and $text -notmatch '\.Topmost\s*=\s*\$true') ('Topmost force hors login autonome dans ' + $file.Name)
     }
     $monitor = (Get-CoreFunctionAst 'New-DomeniaStartupWindow').Extent.Text
     $render = (Get-CoreFunctionAst 'Initialize-Window').Extent.Text
     $login = (Get-CoreFunctionAst 'Show-LoginWindow').Extent.Text
+    $loginAst=Get-CoreFunctionAst 'Show-LoginWindow'
+    $promotions=@($loginAst.FindAll({param($n) $n -is [Management.Automation.Language.AssignmentStatementAst] -and $n.Extent.Text -match '\.Topmost\s*=\s*\$true'},$true))
+    Assert-True ($promotions.Count -eq 2) 'Exceptions Topmost du login inattendues'
+    foreach($promotion in $promotions){
+        $guarded=$false;$parent=$promotion.Parent
+        while($null -ne $parent -and $parent -ne $loginAst){
+            if($parent -is [Management.Automation.Language.IfStatementAst] -and $parent.Clauses[0].Item1.Extent.Text -match '-not\s*\(Test-DomeniaMainHostAvailable\)'){$guarded=$true;break}
+            $parent=$parent.Parent
+        }
+        Assert-True $guarded 'Une promotion Topmost du login peut toucher la fenetre principale'
+    }
+    $cleanup=@($loginAst.FindAll({param($n) $n -is [Management.Automation.Language.TryStatementAst] -and $null -ne $n.Finally -and $n.Finally.Extent.Text -match '\$window\.Topmost\s*=\s*\$false'},$true))
+    Assert-True ($cleanup.Count -eq 1) 'Le login ne libere pas Topmost dans son finally'
     Assert-True ($monitor -match "Trigger 'StartupMonitor'" -and $render -match "Trigger 'LoginToMain'" -and $login -match "Trigger 'Launch'") 'Moments d activation non branches'
     foreach ($name in @('Complete-UiTasks','Invoke-DomeniaJobSuccessUi','Invoke-DomeniaJobErrorUi','Update-TaskUi')) {
         Assert-True ((Get-CoreFunctionAst $name).Extent.Text -notmatch 'Request-DomeniaWindowActivation|\.Activate\(') ('Activation apres une tache dans ' + $name)
@@ -1323,6 +1341,7 @@ $passed = @($checks | Where-Object { $_.Status -eq 'Passed' }).Count
 $failed = @($checks | Where-Object { $_.Status -eq 'Failed' }).Count
 if (-not $ReportPath) { $ReportPath = Join-Path ([IO.Path]::GetTempPath()) ('Domenia-wiring-moteur-' + [guid]::NewGuid().ToString('N') + '.json') }
 $report = [ordered]@{
+    UiBlockingAudit = $script:UiBlockingAudit
     Kind='WiringMoteur';Host=$PSVersionTable.PSVersion.ToString();NativeWindowsPowerShell51=$native;Wpf=$true;MockedNetwork=$true;LiveAD=$false
     Points=@('D002','D003','D011','D014','D015','D016','D017','D018','D019','D020','D028','D089')
     Passed=$passed;Failed=$failed;Complete=($failed -eq 0 -and $passed -gt 0);Tests=$checks.ToArray()

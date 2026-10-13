@@ -1,0 +1,242 @@
+{
+    "Suite":  "Tableaux de bord en widgets",
+    "Host":  "5.1.26100.6584",
+    "Passed":  42,
+    "Failed":  0,
+    "Complete":  true,
+    "LiveADExecuted":  false,
+    "NetworkAccessed":  false,
+    "RenderTimings":  [
+                          {
+                              "Sample":  1,
+                              "FullHiddenRenderMs":  425.93850000000003,
+                              "DeferredHiddenUpdateMs":  0.7499,
+                              "WidgetCount":  16
+                          },
+                          {
+                              "Sample":  2,
+                              "FullHiddenRenderMs":  410.38140000000004,
+                              "DeferredHiddenUpdateMs":  0.92670000000000008,
+                              "WidgetCount":  16
+                          },
+                          {
+                              "Sample":  3,
+                              "FullHiddenRenderMs":  462.59360000000004,
+                              "DeferredHiddenUpdateMs":  0.6007,
+                              "WidgetCount":  16
+                          }
+                      ],
+    "RenderTimingScope":  "Same warmed synthetic board; synchronous full hidden render vs deferred hidden update; visible render still required and excluded",
+    "Results":  [
+                    {
+                        "Name":  "Les dispositions des tableaux survivent au filtre des reglages",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Logiciels : chaque information devient un widget sous sa section",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Retirer un widget puis Annuler le remet a sa place",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Representation et taille changent par le menu et restent permises",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Deplacer dans la section et par glisser-deposer",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Personnaliser montre les commandes, les emplacements libres et les widgets sans donnees",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Retablir revient a la disposition livree et reste annulable",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Un tableau vide volontairement reste vide et le dit",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Editeur : la recherche filtre et Ajouter enregistre le widget choisi",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Editeur : Modifier change le titre, et un titre remis par defaut redevient vide",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Editeur : Annuler ne change rien",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Poste sans inventaire : etat vide explicite, aucun widget invente",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Poste avec inventaire : sante, ressources et sections remplies",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Un widget sans donnee reste masque hors personnalisation",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Accueil : périmètre local indépendant de Rechercher",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Parc : tableau calcule sur le perimetre et serveurs reconnus",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Accueil : disposition livree sans widget d observation ni requete WMI",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Presence BitLocker : refusee a la racine du domaine, limitee a l OU affichee, sur geste",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Points d attention : un clic deplie les postes concernes sans lancer de tache",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Points du poste : le lien ouvre l onglet de l action utile (Actions, Secrets) sans rien lancer",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Poste hors de l OU de l accueil : ses releves lus une fois dans la base locale et gardes",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "En-tete de l accueil : fil local et périmètre indépendant de Rechercher",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Annuler une disposition survit a un recalcul de fond, pile d annulation et Ctrl+Z",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Actions explicites du parc depuis les vues locales",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Accueil : calcul seulement a l affichage, un a la fois, repris si les donnees changent ou si le calcul est perdu",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Widget de requete en attente : etat explicite, puis rempli par un resultat",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Details de la session : non recalcules expander ferme, a jour a l ouverture",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Premiers pas : quatre etapes qui ouvrent un ecran sans rien lancer, carte masquee une fois faites",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Anciens widgets repris une fois dans la disposition",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Jauge : legende bornee dans l anneau sur deux lignes, couleur tiree de l etat (CO-14, CO-15)",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Tuile : 27 px pour un chiffre, 18 px sur deux lignes au plus pour un texte (DS-13)",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Barres et histogramme : libelles larges, tailles lisibles, graduations entieres, sans axe si etiquete (CO-16)",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Score partiel : badge et bouton Inventaire complet dans la carte, lance seulement au clic (UX-23)",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Section vide : action existante et collecte locale seulement au clic (SP-17)",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Collection rejects domain, mismatched or stale snapshots before dispatch",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Widget non lu : emplacement Non lu par cet inventaire une fois le tableau rempli, masque avant (SP-18)",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Animation d entree : cartes, anneaux et compteurs vont au bout puis s arretent",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Tableau flotteur : une fonction absente est nommee, pas noyee dans un echec metier",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Clic sur une part ou une barre : le critere remonte au tableau de bord, une part sans critere ne fait rien (FO-09)",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Base locale : le detail long garde une largeur et une hauteur lisibles dans la vraie grille WPF",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Atelier : le vrai clic Ajouter accepte une condition numerique et conserve sa valeur decimale",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Un dashboard masque conserve le dernier resultat puis le rend une seule fois a sa reouverture",
+                        "Passed":  true,
+                        "Error":  ""
+                    }
+                ]
+}

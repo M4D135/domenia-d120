@@ -1,0 +1,663 @@
+{
+  "Status": "FAIL",
+  "OriginalEvidence": "/tmp/query-navigation-r5/proof",
+  "Entries": [
+    {
+      "File": "AdditionalRunner-process.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/AdditionalRunner-process.json",
+      "OriginalSHA256": "86d3c2d0900a51bc7aea4f3da14367054c4a0abb4b5f81f1254bf7d21e96b17a",
+      "ExportedSHA256": "d23cfb04cf1c9dc1583e93daaf45073e6bb9477b323474b6f26727a68bcd17ea",
+      "OriginalBytes": 211,
+      "ExportedBytes": 205,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "AllOfflineRunner-process.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/AllOfflineRunner-process.json",
+      "OriginalSHA256": "6315c8533307c7c05bcc6758371dda7994bd94c4b4b0f8aab4f59022255e590b",
+      "ExportedSHA256": "f35c49cf4db340e89dab722805b41c09f9ee492dcdd8acdf17cf06bedabb734d",
+      "OriginalBytes": 211,
+      "ExportedBytes": 205,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "ExtendedRunner-process.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/ExtendedRunner-process.json",
+      "OriginalSHA256": "24597d2a1900eb325867fc2533c7cdb153ec0d8d52a1deb0c65ff15b451550ee",
+      "ExportedSHA256": "8d41c39a5b45b945ea90077e478bc8ce9b75de58abd8eabe7aa88ebbfcac184b",
+      "OriginalBytes": 209,
+      "ExportedBytes": 203,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "GuideCaptures-process.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/GuideCaptures-process.json",
+      "OriginalSHA256": "8467671f39a9c9cb08ad59f9125a93559d3d55bed53db62026923bd88d4581c6",
+      "ExportedSHA256": "68d71803aa68af2c1d345e779eb523377c194321f7951e4da2bcdb0b03a6d00c",
+      "OriginalBytes": 207,
+      "ExportedBytes": 201,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "NativeParser.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/NativeParser.json",
+      "OriginalSHA256": "7d29c6c4c4847470d7f60bd1c9dd15e4cfa35feee5a3a96d526bd7c1d916f0f2",
+      "ExportedSHA256": "dc7d6b1c0699f11fda9484d11e8517e83e45aacc7a2eaf545abe9843a2f2aace",
+      "OriginalBytes": 59270,
+      "ExportedBytes": 57854,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "PROD-CheckOnly-process.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/PROD-CheckOnly-process.json",
+      "OriginalSHA256": "943e91be5dea8c8b750b683444abd3376ca0bf9e8e449ae6f650c29990be1b17",
+      "ExportedSHA256": "59774743288aa6386ab9e5f7bacbb02e39b123e493067eaf12050a749b878646",
+      "OriginalBytes": 270,
+      "ExportedBytes": 263,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "PRODArchiveCheck-process.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/PRODArchiveCheck-process.json",
+      "OriginalSHA256": "d4ca2233c5ead5cbe05d4e07c82cc061f06a64dd4cab6a50c462240286499fa8",
+      "ExportedSHA256": "0e3b9a76f150d4ef35a690d8c4821ed1ba69701346d343b46a1f8e999117df30",
+      "OriginalBytes": 210,
+      "ExportedBytes": 204,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "ProdFactory.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/ProdFactory.json",
+      "OriginalSHA256": "5514635435e6a0442be96672c805397ca829c629bf5fa255347adde2fa7ec937",
+      "ExportedSHA256": "9ba90d3017b4acfb65f448bf6a1ec0cd67f98370cd7ad628e47ae0167f2c5d84",
+      "OriginalBytes": 1280,
+      "ExportedBytes": 1248,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Ps51Compat.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Ps51Compat.json",
+      "OriginalSHA256": "d5a943543e03166d7755f90b3dc452788097c896bbc11bb4a9812f2fa33f1d6d",
+      "ExportedSHA256": "d431839895110ab991694c06dea2b1f20ad44538d0b77e18065a1aed9740662a",
+      "OriginalBytes": 440,
+      "ExportedBytes": 426,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-Domenia.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-Domenia.json",
+      "OriginalSHA256": "2da3857a413534629c0d55c54a942c4d6aae4019ed0276101cee9aed59f5aedb",
+      "ExportedSHA256": "2198ec1196d5fba5d8211d6d6d39bcd94bde742960dfde31ead62b79a06393db",
+      "OriginalBytes": 57599,
+      "ExportedBytes": 56274,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaAccounts.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaAccounts.json",
+      "OriginalSHA256": "5992cb6abd18df381eb9f63bebf4ad639b289226b249e57303915db98827d576",
+      "ExportedSHA256": "d3e7ed55a94d67e364a2901ee933d3c89186d2057aff4d0a31bc2ee9d305ef00",
+      "OriginalBytes": 6212,
+      "ExportedBytes": 6066,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaAcl.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaAcl.json",
+      "OriginalSHA256": "44cb513ed61c7a8cee46a64114ff8109702cf12547ef365715f0c45c0c357010",
+      "ExportedSHA256": "7cae1168da35bf131a083efd80ad3713ce4f44d7995f76d5b1a2869bc400adef",
+      "OriginalBytes": 8072,
+      "ExportedBytes": 7865,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaActivityLayout.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaActivityLayout.json",
+      "OriginalSHA256": "49c269730465c298b00d5346457d395e8e277aa78dfc7002982876f202b03b20",
+      "ExportedSHA256": "0d988f7e15b8d56a700bcded7beebc20abce0c031bbe487f02107b59c70692b4",
+      "OriginalBytes": 11857,
+      "ExportedBytes": 11586,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaBoardRefresh.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaBoardRefresh.json",
+      "OriginalSHA256": "6480574ffa78367085b8130da80d4f795ed7f49cb811a72f64f2c651769c4dac",
+      "ExportedSHA256": "d5604e3fe5e156660b1a006bf68fe64ac8e011a49958c438b9ffcc1188437cd3",
+      "OriginalBytes": 3675,
+      "ExportedBytes": 3584,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaBoards.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaBoards.json",
+      "OriginalSHA256": "17dced31bc7488daa81b534c78a778dff1129887eb3e4ace92a34e7f389d45dc",
+      "ExportedSHA256": "a59641f2e1361fdaca79d60acf381c09d4d6b94470f0655f91393aef3255f6d9",
+      "OriginalBytes": 11413,
+      "ExportedBytes": 11170,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaCandidate.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaCandidate.json",
+      "OriginalSHA256": "87d76526f81914c4d1a21abaf1ab91c535d445e25f506943c1f350d783ed0b17",
+      "ExportedSHA256": "0401081d989501f374b9363fa3c7e7fe0a23b2c3e6cb47749f15b67804df390e",
+      "OriginalBytes": 36720,
+      "ExportedBytes": 35749,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaCompactUi.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaCompactUi.json",
+      "OriginalSHA256": "e7eb82397b818d0a456adc15cddaf98809a2d90698df0d41d3a28b185132fb21",
+      "ExportedSHA256": "43825bce4d74ac40049df79e1101e4e9b4cc39739f5767030b47279cf7bbd8a5",
+      "OriginalBytes": 4330,
+      "ExportedBytes": 4212,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaEmbeddedUi.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaEmbeddedUi.json",
+      "OriginalSHA256": "979b7c622d82c22fb51451cebf0549f443b71c8be8e155fc5565b8c4e517fc16",
+      "ExportedSHA256": "5ce831b2c9a498f12e1c81b822824838924b997f3053f44faac0f163e47f7649",
+      "OriginalBytes": 19208,
+      "ExportedBytes": 18708,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaEngineLoad.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaEngineLoad.json",
+      "OriginalSHA256": "6096df5e5c36322547ecef3a17bdc65ed48259c27e6372384dcf3db4b27fec00",
+      "ExportedSHA256": "9f8bf437d38ce42a62843323f10b943210f108bbc976225d182b80b0307bb3a4",
+      "OriginalBytes": 2379,
+      "ExportedBytes": 2330,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaEngineResilience.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaEngineResilience.json",
+      "OriginalSHA256": "089bdba549f5d6dc1d89e3a1452b06c2c4896ee3a11a9921f2787ab77ac06a44",
+      "ExportedSHA256": "5a3149f7850e80423c6db368e8d1a026f89e816aecbfa8d5f9d228e70a39c34f",
+      "OriginalBytes": 9031,
+      "ExportedBytes": 8823,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaExperience.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaExperience.json",
+      "OriginalSHA256": "2b98338951dc601841b428870518045674cdfe941699c8583543ea71e91b3ae0",
+      "ExportedSHA256": "6675cb9ffb727df6063d2d3e414e171741e74c62fce354d1c58d9b0ffe3c50e5",
+      "OriginalBytes": 11471,
+      "ExportedBytes": 11172,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaFaults.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaFaults.json",
+      "OriginalSHA256": "5444acfd612a32855ed1dcacf5c2d01d3ab6f6dcca39b79838656a48b7065bbb",
+      "ExportedSHA256": "6825a2a8613684efdef81c6e685a1be5634a1f87a36d46842165c86361269cf1",
+      "OriginalBytes": 5723,
+      "ExportedBytes": 5596,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaGeometry.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaGeometry.json",
+      "OriginalSHA256": "41d6dddb986b8515b28e28c7ace10852a9b8abe2cfef5801e102189029af84f3",
+      "ExportedSHA256": "505b2f1149efc2c48ff2f3447ba82cda0f7c813215ced39aba8507266b89f41d",
+      "OriginalBytes": 22858,
+      "ExportedBytes": 22432,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaInstaller.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaInstaller.json",
+      "OriginalSHA256": "bbd52a882250dd8565f350dc178cabc5708a819c4492af2af7104168af8b95bd",
+      "ExportedSHA256": "7e3796c0f5b48a947760528ab4ffe807b3a84ec15348f81424efc183867a5cbf",
+      "OriginalBytes": 3972,
+      "ExportedBytes": 3884,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaInterface.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaInterface.json",
+      "OriginalSHA256": "ab2a5109b94b2472683282ba17d45960fd02661ee876f1c68999454489be64db",
+      "ExportedSHA256": "5727dd45e9bff4b1d61264a68e3249c2eeaf3d04adbaa3a541087cd427336f24",
+      "OriginalBytes": 10451,
+      "ExportedBytes": 10193,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaInterfaceTelemetry.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaInterfaceTelemetry.json",
+      "OriginalSHA256": "b9be666f2e9eab84375ccb1275b0541bd2854038dc952cdeb2f08504405d37fe",
+      "ExportedSHA256": "82210544ee3aa88b691a23751b367bf1d2f5d4313a8f14cef40c39a9ee164545",
+      "OriginalBytes": 1373,
+      "ExportedBytes": 1341,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaLastUser.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaLastUser.json",
+      "OriginalSHA256": "b2ff097434e82ae668ce09ca2e3ecd1d4d8b5dc473806981b7fabd0c381b845b",
+      "ExportedSHA256": "826ad02ec947287d363468a9603bd36fda6e4b0cd86d1b0b0bed33e0b1a0f68f",
+      "OriginalBytes": 4764,
+      "ExportedBytes": 4650,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaLiveSearchView.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaLiveSearchView.json",
+      "OriginalSHA256": "fc89f3ba7b9f5bbdc308db46c18db2a297cb44f846bf6fe1e17561826d695e10",
+      "ExportedSHA256": "03c99b8eb8ac994c7f5c0049b2a76bc0403d1adc1c61880c7111b1c3692bf689",
+      "OriginalBytes": 12671,
+      "ExportedBytes": 12411,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaLogin.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaLogin.json",
+      "OriginalSHA256": "2ba762d7764d7557efd56f7e0d81193ba6b0f046ca5174d694e222de8eb78c28",
+      "ExportedSHA256": "0808a19e41263b4fcedcea4e67935c61131149b1071437a9db0683261b622b91",
+      "OriginalBytes": 11884,
+      "ExportedBytes": 11604,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaLoginForeground.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaLoginForeground.json",
+      "OriginalSHA256": "92d39766880559af7f7cd864e42a6f2147d79982854895e928174ada8121efa1",
+      "ExportedSHA256": "25687c5a7cf277ce36e524dfc5e4d944b61f01aae5e331f28d9cd7116c807423",
+      "OriginalBytes": 5350,
+      "ExportedBytes": 5241,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaModules.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaModules.json",
+      "OriginalSHA256": "8a6e3d9364c47e123c07bb2cb6e1ed2e09c2d8981f83109d780c1fad8e4f7d22",
+      "ExportedSHA256": "bbdbaf975440f609274e379452969235bc138e3ed50c02642398cd768c76ce9d",
+      "OriginalBytes": 24727,
+      "ExportedBytes": 24144,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaParkDetection.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaParkDetection.json",
+      "OriginalSHA256": "7235ebc690f0bc21412b0d6f298a7e8f6be64c5ac175ef88ed441d0eb33b9a93",
+      "ExportedSHA256": "2e19be99c416fb8d6b7e7a19c8a432de647234acd11652ebe04f2eb81ff9889e",
+      "OriginalBytes": 5210,
+      "ExportedBytes": 5090,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaPreload.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaPreload.json",
+      "OriginalSHA256": "23894700ae65cd3f5af937f37dedf571ee0bfc82f21a8f034966cede3a0e487b",
+      "ExportedSHA256": "d79e858273081ea2b1fc476da2ac3a8d24076121f0caf57a39ee9fbe1b055a7d",
+      "OriginalBytes": 23912,
+      "ExportedBytes": 23319,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaQueryTargets.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaQueryTargets.json",
+      "OriginalSHA256": "11aaf208b64a2873a6de4cc3c76d6326041dca2f7bc523f9c4224e381de4bdb3",
+      "ExportedSHA256": "d89894fd0e6cc71351904767f0592dd3de5ffa4f8846e79ead633cca7be9b289",
+      "OriginalBytes": 8206,
+      "ExportedBytes": 8014,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaQueryTemplates.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaQueryTemplates.json",
+      "OriginalSHA256": "a70b9a7c38a0c0d83bc1f02a383dac1e1412adb3ed9339d1b5d8b5f6fa49c099",
+      "ExportedSHA256": "90c25ff5c87d73a63a801d10078f9635a30fe6b88889e356d99c1eb205428b0a",
+      "OriginalBytes": 260954,
+      "ExportedBytes": 254824,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaRegressions.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaRegressions.json",
+      "OriginalSHA256": "22c253104d70d812b94441d452ff0ab7c8e5656ef0899cfc4b1ee1e6cc832b2e",
+      "ExportedSHA256": "da1d74b5861a8c78ecfef95ffbae8b709b428762b70022b11ff0446a2f105187",
+      "OriginalBytes": 5223,
+      "ExportedBytes": 5109,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaRelationsAlignment.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaRelationsAlignment.json",
+      "OriginalSHA256": "9deb04df18355f7e9cc27df9b8b57403ab47f5e7da53ea371d014c864fd18f23",
+      "ExportedSHA256": "942731604129a5439c96c2d1ee6580ff0e614d134e1c7ab5ad70cefe8cafffd8",
+      "OriginalBytes": 13049,
+      "ExportedBytes": 12710,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaRelease.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaRelease.json",
+      "OriginalSHA256": "b581bf2361bb1c5dd0ae13ddb8fd304f44ddf8eb629580362ab2744b9b391387",
+      "ExportedSHA256": "b0b55c4b97d80b07e2fc41943a61830007bf527699173f2bbfa31d80a3a827e3",
+      "OriginalBytes": 10236,
+      "ExportedBytes": 9984,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaRemote.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaRemote.json",
+      "OriginalSHA256": "349d466d13b9ab73821596b499b74d725bfcbc18ec47c3aaef3fe32e2e9af354",
+      "ExportedSHA256": "073dc96a729d9bd79379e5d6a8138991bb48d5d25ea3565ee668e62167a22573",
+      "OriginalBytes": 9768,
+      "ExportedBytes": 9528,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaRules.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaRules.json",
+      "OriginalSHA256": "54aa5b49fd2343c497b453ef6f384776e2c6efa206dad2d2e324e7c2e20a5dd2",
+      "ExportedSHA256": "1c3649508178a5532ae6ae0361b6de89cec5d914875a4254355a696079f02d96",
+      "OriginalBytes": 153843,
+      "ExportedBytes": 150330,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaScale.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaScale.json",
+      "OriginalSHA256": "4cdbf85b60bdf2b633629ec16107289e5bfe06c7c4113775e47092eabd646f8e",
+      "ExportedSHA256": "0aba17f7e13a3cdbf4cd6932348682055fe1e5746818a336b0dc40aa44e26016",
+      "OriginalBytes": 994,
+      "ExportedBytes": 970,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaSearchPresence.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaSearchPresence.json",
+      "OriginalSHA256": "9db163a0426c9c38bfecf2daf3ef6b68cd7d75a7752fabd3b89a273d2d10c3ee",
+      "ExportedSHA256": "58e2ac5330f971bc0de6e8618dc49bf5697bea6d4e7be54e5a33c0708116eadb",
+      "OriginalBytes": 12947,
+      "ExportedBytes": 12625,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaSearchQueries.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaSearchQueries.json",
+      "OriginalSHA256": "4a6d18e0ea8a669f5cef205e6d3aa0b73109be6e884504d794354bd4730851f9",
+      "ExportedSHA256": "143d550672e5e36f619bfc592f6ee7b9eaa76529881f5fc35b6033a64a888d73",
+      "OriginalBytes": 10197,
+      "ExportedBytes": 9954,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaSearchScope.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaSearchScope.json",
+      "OriginalSHA256": "b1b47a2e43e284f83814e84dd8f62a4d5689a76e05021fbab55bda5a7d2b1875",
+      "ExportedSHA256": "888b2c863cf72dee410fa3c3ad9a75b58d31755034d0c916551d30fcb33ff87e",
+      "OriginalBytes": 8655,
+      "ExportedBytes": 8433,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaSelection.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaSelection.json",
+      "OriginalSHA256": "c15cb40872181e4f9775c9f92e47921743c11a8fa91799f947bfaf4c02e2dd55",
+      "ExportedSHA256": "8e4122c080f90e78b786fbd563880fad2e7d649a3afb874937e346b1973f4461",
+      "OriginalBytes": 9866,
+      "ExportedBytes": 9619,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaSelectionIdentity.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaSelectionIdentity.json",
+      "OriginalSHA256": "3839acc7d343d6ccf32b3875d7ada740e66bd925e1338e5cb239aee10a9e83aa",
+      "ExportedSHA256": "d0745750d87f0528da52c8dc26e417702a1cf50facbc5442e1f4bf38a82b806a",
+      "OriginalBytes": 3436,
+      "ExportedBytes": 3356,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaStableUi.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaStableUi.json",
+      "OriginalSHA256": "2cf6593368044e155808664ebd49633abf75305d517282ccd7e66359414f339c",
+      "ExportedSHA256": "aff05372468eb6cb3ef59d066bafef6f141274e0dcf3272dc0cd22893ab1658a",
+      "OriginalBytes": 10715,
+      "ExportedBytes": 10444,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaStartupLogin.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaStartupLogin.json",
+      "OriginalSHA256": "76c244cb24933d198fd60bf4d3e9e49c9ae7c546b47d82482125fabb8f48affb",
+      "ExportedSHA256": "bf0ae21cae5c498af00777348816e7acdb55c0a9ce73ccb47ce8829779c92162",
+      "OriginalBytes": 9311,
+      "ExportedBytes": 9080,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaStreaming.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaStreaming.json",
+      "OriginalSHA256": "53ab8f8ea2cf898769a7780ce29e0bf9be33eec7802ad22e354d92361ac59baf",
+      "ExportedSHA256": "cab97e953d8efdbbb8856930ca45ae5bee597e795d6c52053f073c7e63d630fa",
+      "OriginalBytes": 15721,
+      "ExportedBytes": 15352,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaSupport.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaSupport.json",
+      "OriginalSHA256": "524e2454d37806a5888fa97529abb690cae233079e8c269a611301c390884b2e",
+      "ExportedSHA256": "79a91e5f5a9d5714f3c4aae8fd544753fb4aabc756516ce6103629d840855bc1",
+      "OriginalBytes": 11916,
+      "ExportedBytes": 11641,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaTheme.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaTheme.json",
+      "OriginalSHA256": "8455e8673d6ae1ad636160d844425b41297cc78409af2397950d9b3694682ef1",
+      "ExportedSHA256": "27923c12baf9bef483c5872f366889fbc276290fafc74cde5da2526b7bcf551e",
+      "OriginalBytes": 6211,
+      "ExportedBytes": 6057,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaUxRefinements.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaUxRefinements.json",
+      "OriginalSHA256": "a40d8705bb72b360c60553516fa93e6ac9fe37f7abaafae4a4669d9dd8343e5b",
+      "ExportedSHA256": "77f273b7f915cff8b05ad95238f3a43f029e9f8fb1e0b73c5be3f9a047b391c6",
+      "OriginalBytes": 2920,
+      "ExportedBytes": 2856,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaUxStateSafety.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaUxStateSafety.json",
+      "OriginalSHA256": "b4827b3ed5f5fceabe8dbcc810bb2a32c0f23a23b448f415da37323facbda66a",
+      "ExportedSHA256": "a84e10ed70323a1d81a24a74c585de5236ce8396954bac58051c3b26a40913c6",
+      "OriginalBytes": 30575,
+      "ExportedBytes": 29893,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaWiringAcces.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaWiringAcces.json",
+      "OriginalSHA256": "0d8e2bd7e07a3215c18461e3f4628a609c9ca6d14a13b4dcd331020e6a3b9004",
+      "ExportedSHA256": "0535dc781288d58198461b4385e9766e3a3f8460f38e40460163f2b5ec04aca5",
+      "OriginalBytes": 8446,
+      "ExportedBytes": 8256,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaWiringCache.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaWiringCache.json",
+      "OriginalSHA256": "63f755d5fbddf2f9ee019706b6f07572e6df0823c6157e801e6ca503c86b02ba",
+      "ExportedSHA256": "5bccaefdf99a6c56fdca84670bede51667b480cb051109ea70effd6e6e63b39c",
+      "OriginalBytes": 37389,
+      "ExportedBytes": 36576,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaWiringEcritures.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaWiringEcritures.json",
+      "OriginalSHA256": "70ed608d2a46410dd6a7660118888786597402bd8b833e72a1fa8635aa432fb1",
+      "ExportedSHA256": "14a6664b0e043bec4452fae41384ba1ad434836c909b23bb2cff8d50b3da5073",
+      "OriginalBytes": 10206,
+      "ExportedBytes": 9967,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaWiringInline.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaWiringInline.json",
+      "OriginalSHA256": "3dc1c358f2a1faad17d79395612f9544810bb15a747510718007f84bf6582244",
+      "ExportedSHA256": "e6b3adcae6ee37a1579fd95658360f2d8719641e304fe9f9a5ccfecac969dd7e",
+      "OriginalBytes": 3713,
+      "ExportedBytes": 3624,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaWiringInterface.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaWiringInterface.json",
+      "OriginalSHA256": "fe6817daf18555262dc954e93d2956fc67b58593ddd5779fae4375113f30c160",
+      "ExportedSHA256": "c8c67ef7767d66be8c8834edb41d49f8b82162ec899e159295c953811375af7f",
+      "OriginalBytes": 5135,
+      "ExportedBytes": 5021,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaWiringMoteur.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaWiringMoteur.json",
+      "OriginalSHA256": "410337a9150019d38738a1d60dd43454581f42cc2dfa43a4d903eec6fbd24da0",
+      "ExportedSHA256": "abd749eba5dee3a7c1111042511a99de12a191fd7e5f3d760abe85a0302c011c",
+      "OriginalBytes": 46895,
+      "ExportedBytes": 46231,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaWiringRecherche-process.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaWiringRecherche-process.json",
+      "OriginalSHA256": "b0384bcdebb8165475c4059cdfb5be91d2f0853dc38f78e180435c639facc991",
+      "ExportedSHA256": "4a46263d249fb6e7be58d309ad0bc1bfd075d640125e83291e7555aa78e0fc18",
+      "OriginalBytes": 221,
+      "ExportedBytes": 215,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaWiringRecherche.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaWiringRecherche.json",
+      "OriginalSHA256": "c320ddd4bf9dda32c1fc2215c491dac74ada54febf7b3a8d1027ffa3626f2540",
+      "ExportedSHA256": "adbe4c88f66a2c6eb9b0a8a6b8fe33e8014edb5f620cc2e28e32974d896102fd",
+      "OriginalBytes": 11038,
+      "ExportedBytes": 10781,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaWiringRelations.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaWiringRelations.json",
+      "OriginalSHA256": "3e5766d08f2cb58a4638aa7d38c5e934e1806ce6c70aaa92f1a6530cbc5ebf1d",
+      "ExportedSHA256": "199751a0d97dbdd28754d5ccc3d1b3475f9617b50630667144519d3443af90d7",
+      "OriginalBytes": 13111,
+      "ExportedBytes": 12826,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "Test-DomeniaWiringSuites.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/Test-DomeniaWiringSuites.json",
+      "OriginalSHA256": "e72be9976a2a02370d41bbf19d1bd74611ab3023e851b2e1813bb598dd5aff9c",
+      "ExportedSHA256": "2ebb22913dfab9acd3aeede848ac3b9b81bc34ce9523e5a89baeed7764dd940f",
+      "OriginalBytes": 2892,
+      "ExportedBytes": 2865,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "_additional-ui.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/_additional-ui.json",
+      "OriginalSHA256": "4b652ec7687f2873018411aa4f36c2dcbdbe6b2a11072eb10489c23cf0a34e21",
+      "ExportedSHA256": "4aeff16b5c1f3f31ac4c027489f27e2fbd44399014182fafa6e7d2435e46b422",
+      "OriginalBytes": 3900,
+      "ExportedBytes": 3801,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "_all-offline-ui.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/_all-offline-ui.json",
+      "OriginalSHA256": "23b93b7ce766eed4cca837fe6dadd056e0f7914cea54cbd8620b6fbaca58a6cb",
+      "ExportedSHA256": "0afa6d03c1ccb55821d19d23193a6df1a92d025153dfd41304cac14ee4fc616f",
+      "OriginalBytes": 7082,
+      "ExportedBytes": 6906,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "_quick-ui.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/_quick-ui.json",
+      "OriginalSHA256": "18d853de78d3dfe18ed6007d9405f0e8397ba6caaab002238d4eb2ed98117fe1",
+      "ExportedSHA256": "4645bc46014b0f24dc126e8c0a3c8d4aab928f2f07b578d7af9235f28ad076f6",
+      "OriginalBytes": 8146,
+      "ExportedBytes": 7942,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "additional-runtime-source.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/additional-runtime-source.json",
+      "OriginalSHA256": "4ab27aeffb2f4ec091a6ba93ddf185dde0ea76ce690b935d4ec16cb8add92340",
+      "ExportedSHA256": "b52a01a1bc5442c265eaf12d3ad8ef6615122f83ebabb3eb016f1fc0b059b3e7",
+      "OriginalBytes": 20606,
+      "ExportedBytes": 20094,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "all-offline-runtime-source.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/all-offline-runtime-source.json",
+      "OriginalSHA256": "4ab27aeffb2f4ec091a6ba93ddf185dde0ea76ce690b935d4ec16cb8add92340",
+      "ExportedSHA256": "b52a01a1bc5442c265eaf12d3ad8ef6615122f83ebabb3eb016f1fc0b059b3e7",
+      "OriginalBytes": 20606,
+      "ExportedBytes": 20094,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "package.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/package.json",
+      "OriginalSHA256": "4532db3dda4edd23917db99fe8e4b97185fdc26a717422e419479946084e18b1",
+      "ExportedSHA256": "a6740cac1ca00d54c5bb2132b397a159bfed3673e828c7922e9692dae9f7136b",
+      "OriginalBytes": 332,
+      "ExportedBytes": 327,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "run-complete.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/run-complete.json",
+      "OriginalSHA256": "2abbbd7c83806fcf63d0ef7eb52aa2d44ad0ea0a28080290113eb460f91149f5",
+      "ExportedSHA256": "98f4387175445324e961a852a74db8a4caf90db89fb71697c8a38e4520e59635",
+      "OriginalBytes": 2468,
+      "ExportedBytes": 2416,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "runtime-source.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/runtime-source.json",
+      "OriginalSHA256": "4ab27aeffb2f4ec091a6ba93ddf185dde0ea76ce690b935d4ec16cb8add92340",
+      "ExportedSHA256": "b52a01a1bc5442c265eaf12d3ad8ef6615122f83ebabb3eb016f1fc0b059b3e7",
+      "OriginalBytes": 20606,
+      "ExportedBytes": 20094,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "text-encodings.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/text-encodings.json",
+      "OriginalSHA256": "6a2142deded7ccd7dff17225f654c13de021d9df35d89b16e3a38049bd8416c8",
+      "ExportedSHA256": "532acb491c9e0fb10a3d9bdafbd225f61df53e8baab303b0a5971e0ba91a4efc",
+      "OriginalBytes": 67,
+      "ExportedBytes": 65,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "vm-health-native-load.json",
+      "OriginalPath": "/tmp/query-navigation-r5/proof/vm-health-native-load.json",
+      "OriginalSHA256": "93c298d46c66917ef637f53e3d703367e9c99be476f144ddd08a2be7056abe6e",
+      "ExportedSHA256": "e406c037d6693d1d3ddf52b8f24e7b67c1d0b4a1306c6abc579bd44de749afe7",
+      "OriginalBytes": 5351,
+      "ExportedBytes": 5234,
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    }
+  ]
+}

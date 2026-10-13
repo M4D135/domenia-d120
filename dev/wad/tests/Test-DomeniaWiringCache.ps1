@@ -13,6 +13,9 @@ $native = (($PSVersionTable.PSEdition -eq 'Desktop') -and ($PSVersionTable.PSVer
 if (-not $native) { throw 'Windows PowerShell 5.1 x64 requis : une execution sous un autre moteur n est pas une preuve.' }
 if ([Threading.Thread]::CurrentThread.ApartmentState -ne 'STA') { throw 'Utiliser powershell.exe -STA.' }
 Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
+# Production workers receive the pinned native reader through the closed loader. This AST-only harness must
+# load the same assembly explicitly, rather than silently replacing its identity/observation implementation.
+if($null -eq ('Domenia.Native.ObservationIdentityReader' -as [type])){Add-Type -Path (Join-Path $modules 'Domenia.Native.dll') -ErrorAction Stop}
 
 function Assert-True { param($Value,[string]$Why = 'Assertion fausse') if (-not [bool]$Value) { throw $Why } }
 function Assert-False { param($Value,[string]$Why = 'Assertion fausse') if ([bool]$Value) { throw $Why } }
@@ -845,6 +848,10 @@ Test-Case 'D026 : meme instance complete marque Missing et Move' {
 }
 
 Test-Case 'D026 : IndexBuild tronque ne remplace pas l index' {
+    . ([scriptblock]::Create((Get-FunctionTextFromFile $core 'Set-DomeniaIndexProgress')))
+    $script:IndexTransferProgress=$null;$script:IndexProgressTimer=$null
+    $script:IndexProgressControls=@{PbIndexProgress=[Windows.Controls.ProgressBar]::new();LblIndexProgress=[Windows.Controls.TextBlock]::new()}
+    function Get-DomeniaControl {param($Name);return $script:IndexProgressControls[$Name]}
     function Get-DomeniaEffectiveWorkerResult { param($Result,$RequiredProperties) return $Result }
     function Save-DomeniaIndex { param($Rows,$Server,$BaseDn,$HighestUsn,$TotalCount,$InvocationId) $script:SaveIndexCalls++; return $true }
     function Update-DomeniaIndexDatabaseRows { param($Rows,$Server,$BaseDn,$HighestUsn,$TotalCount,$InvocationId) $script:UpdateIndexCalls++; return $true }
@@ -886,9 +893,14 @@ Test-Case 'D026 : IndexBuild tronque ne remplace pas l index' {
     Assert-Equal 1 $script:IndexPartialCalls
     Assert-Equal 'DC=x' ([string]$script:IndexPartialBaseDn)
     Assert-Equal $false $script:IndexPartialCleared
+    Assert-True ($script:IndexProgressControls.PbIndexProgress.IsIndeterminate -and $script:IndexProgressControls.LblIndexProgress.Text -match 'Validation') 'Progression terminee avant confirmation SQLite.'
 }
 
 Test-Case 'D026 : lecture OU tronquee conserve l avertissement de base partielle' {
+    . ([scriptblock]::Create((Get-FunctionTextFromFile $core 'Set-DomeniaIndexProgress')))
+    $script:IndexTransferProgress=$null;$script:IndexProgressTimer=$null
+    $script:IndexProgressControls=@{PbIndexProgress=[Windows.Controls.ProgressBar]::new();LblIndexProgress=[Windows.Controls.TextBlock]::new()}
+    function Get-DomeniaControl {param($Name);return $script:IndexProgressControls[$Name]}
     function Get-DomeniaEffectiveWorkerResult { param($Result,$RequiredProperties) return $Result }
     function Update-DomeniaIndexDatabaseRows { param($Rows,$Server,$BaseDn,$HighestUsn,$TotalCount,$InvocationId) return $true }
     function Set-DomeniaIndexPartial { param($BaseDn,$Count,$Reason,$Limit,[switch]$Clear) $script:PartialMarker=[pscustomobject]@{BaseDn=$BaseDn;Count=$Count;Reason=$Reason;Limit=$Limit;Clear=[bool]$Clear} }
@@ -911,12 +923,13 @@ Test-Case 'D026 : lecture OU tronquee conserve l avertissement de base partielle
         LimitServerSeconds=120
         DurationMs=120000
     }
-    Complete-DomeniaIndexScopeUi -Result $effective -State ([pscustomobject]@{Epoch=[long]1})
+    Complete-DomeniaIndexScopeUi -Result $effective -State ([pscustomobject]@{Epoch=[long]1;SearchBase='OU=Big,DC=x'})
     Assert-Equal 'DC=x' ([string]$script:PartialMarker.BaseDn)
     Assert-Equal 1 ([int]$script:PartialMarker.Count)
     Assert-Equal 'serveur' ([string]$script:PartialMarker.Reason)
     Assert-Equal 120 ([int]$script:PartialMarker.Limit)
     Assert-Equal $false ([bool]$script:PartialMarker.Clear)
+    Assert-True ($script:IndexProgressControls.PbIndexProgress.IsIndeterminate -and $script:IndexProgressControls.LblIndexProgress.Text -match 'Validation') 'Progression OU terminee avant confirmation SQLite.'
 }
 
 Test-Case 'D027 : echec recent bloque sonde automatique mais pas manuelle' {
@@ -1252,7 +1265,14 @@ Test-Case 'D023 : le vrai XAML virtualise 100, 500 et 2000 lignes et recycle apr
     function Set-DomeniaSetting { param($Name,$Value) throw 'Aucune preference ecrite par ce test' }
     $xaml=Get-MainXaml
     $reader=[Xml.XmlNodeReader]::new([xml]$xaml);$window=$null
-    $oldWindow=$script:Window;$oldCtrl=$script:Ctrl
+    $oldWindow=$script:Window;$oldCtrl=$script:Ctrl;$cacheHost=$null
+    function Settle-CacheLayout {
+        for($pass=0;$pass -lt 2;$pass++){
+            $cacheHost.Measure([Windows.Size]::new(1280,800))
+            $cacheHost.Arrange([Windows.Rect]::new(0,0,1280,800));$cacheHost.UpdateLayout()
+            $window.Dispatcher.Invoke([action]{},[Windows.Threading.DispatcherPriority]::ApplicationIdle)
+        }
+    }
     try {
         $window=[Windows.Markup.XamlReader]::Load($reader)
         $window.ShowActivated=$false;$window.ShowInTaskbar=$false;$window.WindowState='Normal';$window.Width=1280;$window.Height=800
@@ -1266,14 +1286,25 @@ Test-Case 'D023 : le vrai XAML virtualise 100, 500 et 2000 lignes et recycle apr
             $name=$match.Groups[1].Value;$control=$window.FindName($name)
             if($null -ne $control){$script:Ctrl[$name]=$control}
         }
-        # The application applies this real responsive layout after the window is shown.
-        $window.Show();$window.UpdateLayout();Update-DomeniaUxLayout;$window.UpdateLayout();Invoke-WiringPump 30
+        # Session-0 can cap the HWND below the requested window size. Arrange the same real XAML in a
+        # native WPF client host: real ScrollViewer clips and recycling, no substituted geometry or scaling.
+        $window.Show();$content=$window.Content;$window.Content=$null
+        $cacheHost=[Windows.Controls.Grid]::new();$cacheHost.Width=1280;$cacheHost.Height=800
+        $cacheHost.Resources=$window.Resources;$cacheHost.UseLayoutRounding=$true
+        $cacheHost.SetValue([Windows.Documents.TextElement]::FontFamilyProperty,$window.FontFamily)
+        $cacheHost.SetValue([Windows.Documents.TextElement]::FontSizeProperty,$window.FontSize)
+        [void]$cacheHost.Children.Add($content);$window.Content=[Windows.Controls.Grid]::new()
+        Settle-CacheLayout;Set-DomeniaUiZoom -Percent 100;Settle-CacheLayout
+        Assert-True ($cacheHost.ActualWidth -eq 1280 -and $cacheHost.ActualHeight -eq 800) 'Le host WPF doit atteindre le viewport demande.'
         Assert-True ($grid.ActualHeight -ge 68) ('Grille sans viewport utilisable : '+$grid.ActualHeight)
+        . ([scriptblock]::Create((Get-FunctionTextFromFile (Join-Path $modules 'Domenia-Search.UI.ps1') 'Get-DomeniaGridScrollViewer')))
+        $actualViewer=Get-DomeniaGridScrollViewer $grid
+        Assert-True ($null -ne $actualViewer) 'Barre de defilement native du DataGrid absente.'
         $counts=@{}
         foreach($n in @(100,500,2000)){
             $rows=[Collections.ObjectModel.ObservableCollection[object]]::new()
             for($i=0;$i -lt $n;$i++){[void]$rows.Add([pscustomobject]@{Type='Machine';Name=('PC-'+$i);DN=('CN=PC-'+$i+',DC=example,DC=invalid');Guid=[string]$i})}
-            $grid.ItemsSource=$rows;$grid.ScrollIntoView($rows[0]);$window.UpdateLayout();Invoke-WiringPump 30
+            $grid.ItemsSource=$rows;$grid.ScrollIntoView($rows[0]);Settle-CacheLayout
             $realized=0;for($i=0;$i -lt $n;$i++){if($null -ne $grid.ItemContainerGenerator.ContainerFromIndex($i)){$realized++}}
             $counts[$n]=$realized
             Assert-True ($realized -gt 0 -and $realized -le (3*[Math]::Ceiling($grid.ActualHeight/34)+8)) ("Virtualisation absente : $realized/$n, hauteur=$($grid.ActualHeight)")
@@ -1283,7 +1314,10 @@ Test-Case 'D023 : le vrai XAML virtualise 100, 500 et 2000 lignes et recycle apr
         # with the explicit selection before checking that the formerly current row is recycled.
         $grid.SelectedItem=$rows[1999]
         $grid.CurrentCell=[Windows.Controls.DataGridCellInfo]::new($rows[1999],$grid.Columns[0])
-        $grid.ScrollIntoView($rows[1999]);$window.UpdateLayout();Invoke-WiringPump 30
+        # ScrollIntoView is ignored when this detached session-0 host is not loaded/visible.
+        # Exercise the actual scrollbar instead; container recycling and the negative control stay strict.
+        $actualViewer.ScrollToEnd();Settle-CacheLayout
+        Assert-True ($actualViewer.VerticalOffset -gt 0) 'Le DataGrid n a pas reellement defile.'
         Assert-True ($null -eq $grid.ItemContainerGenerator.ContainerFromIndex(0)) 'La premiere ligne reste realisee apres defilement'
         Assert-True ($null -ne $grid.ItemContainerGenerator.ContainerFromIndex(1999)) 'La derniere ligne est inaccessible'
         # Negative control: an unbounded ancestor must make this test detect lost virtualization.
@@ -1291,10 +1325,11 @@ Test-Case 'D023 : le vrai XAML virtualise 100, 500 et 2000 lignes et recycle apr
         [Windows.Data.BindingOperations]::ClearBinding($shell,[Windows.FrameworkElement]::HeightProperty);$shell.Height=[double]::NaN
         $rows=[Collections.ObjectModel.ObservableCollection[object]]::new()
         for($i=0;$i -lt 300;$i++){[void]$rows.Add([pscustomobject]@{Type='Machine';Name=('NEG-'+$i)})}
-        $grid.ItemsSource=$rows;$window.UpdateLayout();Invoke-WiringPump 30
+        $grid.ItemsSource=$rows;Settle-CacheLayout
         $realized=0;for($i=0;$i -lt 300;$i++){if($null -ne $grid.ItemContainerGenerator.ContainerFromIndex($i)){$realized++}}
         Assert-Equal 300 $realized 'Le controle negatif ne detecte pas la perte de borne'
-    } finally {$reader.Close();if($null -ne $window){$window.Close()};$script:Window=$oldWindow;$script:Ctrl=$oldCtrl}
+        $script:CaseDetail='Detached WPF client host1280x800; native ScrollViewer.ScrollToEnd; virtualization100/500/2000 and negative control300; HWND='+$window.ActualWidth+'x'+$window.ActualHeight
+    } finally {$reader.Close();if($null -ne $cacheHost){$cacheHost.Children.Clear()};if($null -ne $window){$window.Close()};$script:Window=$oldWindow;$script:Ctrl=$oldCtrl}
 }
 
 Test-Case 'D022 : Complete-DomeniaReconcile n met en file que les lignes modifiees' {
@@ -3292,16 +3327,20 @@ Test-Case 'Parc : cache durable relu au redemarrage sans expiration ni limite 15
         $read=Invoke-ParkTargetsFixture
         Assert-Equal 151 $read.Rows.Count
         $target=@($read.Rows|Where-Object Computer -eq 'PC-1')[0]
+        Assert-True ($null -eq $target.Previous -and [bool]$target.PreviousJson) 'Le worker doit garder le cache en JSON, sans decoder tout le parc.'
+        Assert-Equal 0 @($read.Rows|Where-Object{$null -ne $_.Previous}).Count 'Le parc a materialise tous les anciens releves.'
+        Expand-DomeniaParkPrevious $target
         Assert-Equal 'EXAMPLE\alice' $target.Previous.RawAccount;Assert-False $target.Previous.DirectoryChanged
+        Assert-Equal '' $target.PreviousJson 'Le buffer JSON doit etre libere apres materialisation.'
         Assert-Equal 1 (Get-LegacyCount 'park_session_cache');Assert-Equal 1 (Get-LegacyCount 'park_state');Assert-Equal 0 (Get-LegacyCount 'user_machine_links')
         $read=Invoke-ParkTargetsFixture -Scope Results -Targets @([pscustomobject]@{name='PC-1';distinguished_name=$row.Key;object_guid='guid1'})
-        Assert-Equal 1 $read.Rows.Count;Assert-Equal 'alice' $read.Rows[0].Previous.LinkUser
+        Assert-Equal 1 $read.Rows.Count;Expand-DomeniaParkPrevious $read.Rows[0];Assert-Equal 'alice' $read.Rows[0].Previous.LinkUser
         $db=Open-DomeniaDatabase -Path $script:TestDbPath
         try{[void](Invoke-DomeniaDbExec "UPDATE ad_objects SET usn_changed=6 WHERE object_key='user';" $db)}finally{Close-DomeniaDatabase $db}
-        $read=Invoke-ParkTargetsFixture;Assert-True @($read.Rows|Where-Object Computer -eq 'PC-1')[0].Previous.DirectoryChanged
+        $read=Invoke-ParkTargetsFixture;Assert-True @($read.Rows|Where-Object Computer -eq 'PC-1')[0].DirectoryChanged
         $db=Open-DomeniaDatabase -Path $script:TestDbPath
         try{[void](Invoke-DomeniaDbExec "UPDATE ad_objects SET object_guid='recreated' WHERE object_key='machine1';" $db)}finally{Close-DomeniaDatabase $db}
-        $read=Invoke-ParkTargetsFixture;Assert-True ($null -eq @($read.Rows|Where-Object Computer -eq 'PC-1')[0].Previous)
+        $read=Invoke-ParkTargetsFixture;$recreated=@($read.Rows|Where-Object Computer -eq 'PC-1')[0];Assert-True ($null -eq $recreated.Previous -and -not [string]$recreated.PreviousJson) 'Un nouveau GUID reprendrait le cache de lʼancien poste.'
     }finally{Remove-Item $root -Recurse -Force}
 }
 Test-Case 'Parc : utilisateur recree connu sous le meme DN ou login invalide le cache' {
@@ -3312,16 +3351,16 @@ Test-Case 'Parc : utilisateur recree connu sous le meme DN ou login invalide le 
         $row=[pscustomobject]@{Version=1;Key='cn=pc-1,dc=example,dc=invalid';Guid='machine-guid';Computer='PC-1';CheckedUtc='2000-01-01T00:00:00Z';Outcome='Observed';RawAccount='EXAMPLE\alice';LinkUser='alice';UserDn='CN=Alice,DC=example,DC=invalid';UserGuid='old-user-guid';UserUsn='5';ObservedUtc='2000-01-01T00:00:00Z'}
         [void](Invoke-LegacyWorker ([pscustomobject]@{Path=$script:TestDbPath;Items=@([pscustomobject]@{Kind='ParkSession';Row=$row})}))
         $targets=@([pscustomobject]@{name='PC-1';distinguished_name=$row.Key;object_guid=$row.Guid})
-        foreach($scope in @('Results','Park')){Assert-False (Invoke-ParkTargetsFixture -Scope $scope -Targets $targets).Rows[0].Previous.DirectoryChanged}
+        foreach($scope in @('Results','Park')){Assert-False (Invoke-ParkTargetsFixture -Scope $scope -Targets $targets).Rows[0].DirectoryChanged}
         $db=Open-DomeniaDatabase -Path $script:TestDbPath
         try{[void](Invoke-DomeniaDbExec "UPDATE ad_objects SET object_guid='new-user-guid' WHERE object_key='user';" $db)}finally{Close-DomeniaDatabase $db}
-        foreach($scope in @('Results','Park')){Assert-True (Invoke-ParkTargetsFixture -Scope $scope -Targets $targets).Rows[0].Previous.DirectoryChanged 'Le meme DN avec un nouveau GUID doit etre revalide'}
+        foreach($scope in @('Results','Park')){Assert-True (Invoke-ParkTargetsFixture -Scope $scope -Targets $targets).Rows[0].DirectoryChanged 'Le meme DN avec un nouveau GUID doit etre revalide'}
         $db=Open-DomeniaDatabase -Path $script:TestDbPath
         try{[void](Invoke-DomeniaDbExec "UPDATE ad_objects SET distinguished_name='CN=Another,DC=example,DC=invalid' WHERE object_key='user';" $db)}finally{Close-DomeniaDatabase $db}
-        foreach($scope in @('Results','Park')){Assert-True (Invoke-ParkTargetsFixture -Scope $scope -Targets $targets).Rows[0].Previous.DirectoryChanged 'Le meme login avec un nouveau GUID doit etre revalide'}
+        foreach($scope in @('Results','Park')){Assert-True (Invoke-ParkTargetsFixture -Scope $scope -Targets $targets).Rows[0].DirectoryChanged 'Le meme login avec un nouveau GUID doit etre revalide'}
         $db=Open-DomeniaDatabase -Path $script:TestDbPath
         try{[void](Invoke-DomeniaDbExec "UPDATE ad_objects SET login='unrelated' WHERE object_key='user';" $db)}finally{Close-DomeniaDatabase $db}
-        foreach($scope in @('Results','Park')){Assert-False (Invoke-ParkTargetsFixture -Scope $scope -Targets $targets).Rows[0].Previous.DirectoryChanged 'Une absence dans un index partiel ne prouve pas un changement'}
+        foreach($scope in @('Results','Park')){Assert-True (Invoke-ParkTargetsFixture -Scope $scope -Targets $targets).Rows[0].DirectoryChanged 'Une identite absente de lʼindex exige une revalidation ; son ancien cache ne vaut pas confirmation.'}
     }finally{Remove-Item $root -Recurse -Force}
 }
 
@@ -3407,12 +3446,13 @@ function Invoke-L01Bulk {
 }
 function Invoke-L01Fleet {
     param([string]$Scope = '',[bool]$Subtree = $true,[object[]]$Keys = @(),[datetime]$Now = [datetime]::Now)
-    $Payload = [pscustomobject]@{ Action = 'FleetStats'; Path = $script:TestDbPath; BusyTimeoutMs = 250; Scope = $Scope; Subtree = $Subtree; Plan = (Get-DomeniaFleetQueryPlan -Now $Now); Keys = $Keys; ScopeKey = 'scope-l01' }
+    $Payload = [pscustomobject]@{ Action = 'FleetStats'; ModuleRoot = $modules; Path = $script:TestDbPath; BusyTimeoutMs = 250; Scope = $Scope; Subtree = $Subtree; Plan = (Get-DomeniaFleetQueryPlan -Now $Now); Keys = $Keys; ScopeKey = 'scope-l01' }
     return & ([scriptblock]::Create((Get-DomeniaLocalIndexReadWorkerCode)))
 }
 function Save-L01Observation {
     param([string]$Dn,[string]$Guid,[string]$Computer,[double]$DaysAgo,[string]$User = '')
-    $row = [pscustomobject]@{ Version = 1; Key = $Dn.ToLowerInvariant(); Guid = $Guid; Computer = $Computer; CheckedUtc = [datetime]::UtcNow.AddDays(0 - $DaysAgo).ToString('o'); Outcome = 'Observed'; Presence = 'En ligne'; LinkUser = $User }
+    $stamp=[datetime]::UtcNow.AddDays(0 - $DaysAgo).ToString('o')
+    $row = [pscustomobject]@{ Version = 1; Key = $Dn.ToLowerInvariant(); Guid = $Guid; Computer = $Computer; CheckedUtc = $stamp; ObservedUtc = $stamp; Outcome = 'Observed'; Presence = 'En ligne'; LinkUser = $User }
     return Invoke-LegacyWorker ([pscustomobject]@{ Path = $script:TestDbPath; Items = @([pscustomobject]@{ Kind = 'ParkSession'; Row = $row }) })
 }
 
@@ -3605,7 +3645,7 @@ Test-Case 'L01 : releves d un poste hors OU lus seuls (ObservationsOnly), groupe
         [void](Invoke-L01Bulk @((New-L01IndexRow 'PC-1' $lyon 'guid-0001' -Os 'Windows 11 Entreprise'), (New-L01IndexRow 'PC-2' $lyon 'guid-0002' -Os 'WINDOWS 11 Entreprise'), (New-L01IndexRow 'PC-3' 'OU=Paris,DC=example,DC=invalid' 'guid-0003')))
         [void](Save-L01Observation ('CN=PC-1,' + $lyon) 'guid-0001' 'PC-1' 1 'EX\alice')
         [void](Save-L01Observation 'CN=PC-3,OU=Paris,DC=example,DC=invalid' 'guid-0003' 'PC-3' 1 'EX\carl')
-        $Payload = [pscustomobject]@{ Action = 'FleetStats'; Path = $script:TestDbPath; BusyTimeoutMs = 250; Scope = ''; Subtree = $true; Plan = (Get-DomeniaFleetQueryPlan -Now ([datetime]::Now)); Keys = @('cn=pc-3,ou=paris,dc=example,dc=invalid'); ObservationsOnly = $true }
+        $Payload = [pscustomobject]@{ Action = 'FleetStats'; ModuleRoot = $modules; Path = $script:TestDbPath; BusyTimeoutMs = 250; Scope = ''; Subtree = $true; Plan = (Get-DomeniaFleetQueryPlan -Now ([datetime]::Now)); Keys = @('cn=pc-3,ou=paris,dc=example,dc=invalid'); ObservationsOnly = $true }
         $only = & ([scriptblock]::Create((Get-DomeniaLocalIndexReadWorkerCode)))
         Assert-Equal 0 @($only.Groups).Count 'Agregats calcules pour une lecture de releves.'
         Assert-Equal 0 @($only.Machines).Count

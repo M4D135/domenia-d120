@@ -26,9 +26,10 @@ $presentationNames = @(
     'Set-DomeniaControlText','Get-MainXaml','Assert-DomeniaXamlPreflight','Get-DomeniaXamlControlNames',
     'Get-DomeniaControl','Set-DomeniaContextHint','Get-DomeniaFriendlyControlLabel',
     'Get-DomeniaDefaultToolTip','Save-DomeniaUiProfile','Apply-DomeniaUiProfile',
-    'Set-TabVisibility','Set-VisibleTabsForType','Assert-DomeniaWorkspaceSelection',
+    'Set-TabVisibility','Set-VisibleTabsForType','Assert-DomeniaWorkspaceSelection','Get-DomeniaLandingView',
     'Select-DomeniaWorkspace','Get-DomeniaSearchMode','Get-DomeniaSearchText','Set-DomeniaSearchMode','Get-DomeniaSearchScope','Update-DomeniaSearchScopeUi',
-    'Set-SelectedBranch','Reset-DomeniaSearchScope','Set-DomeniaComboByContent',
+    'Set-SelectedBranch','Reset-DomeniaSearchScope','Set-DomeniaComboByContent','Update-DomeniaNewOuParentUi',
+    'Add-DomeniaGridDateKeys','Get-DomeniaGridDateSortKey','Get-DomeniaGridDateShortText',
     'Set-DomeniaItemsSource','Set-DomeniaGridRows','Test-DomeniaSearchStateCurrent','Get-GlobalSelectedTypeFilter','Get-TypeLdapFilter','Get-DomeniaEffectiveWorkerResult','Normalize-LinkComputer'
 )
 foreach ($name in $presentationNames) {
@@ -38,6 +39,7 @@ foreach ($name in $presentationNames) {
 }
 # D082/D085: counters and selection preview come from the shell rules (and their dependencies).
 . (Join-Path $wad 'modules\Domenia-Common.Model.ps1')
+. (Join-Path $wad 'modules\Domenia-Search.Model.ps1')
 . (Join-Path $wad 'modules\Domenia-Relations.Model.ps1')
 . (Join-Path $wad 'modules\Domenia-Access.Model.ps1')
 . (Join-Path $wad 'modules\Domenia-Shell.Model.ps1')
@@ -134,7 +136,7 @@ function Enter-PreviewWorkArea {
     # the real window, so every control is measured and arranged at the imposed size, stays in the visual tree (IsVisible,
     # TranslatePoint) and keeps the window resources. The UX layout reads its work area from $script:Window, which
     # stands for the container meanwhile (Width assignments resize it).
-    param([double]$Width=1600,[double]$Height=960)
+    param([double]$Width=1600,[double]$Height=1080)
     if ($null -ne $script:PreviewRealWindow) { return }
     $real = $script:Window
     $content = $real.Content
@@ -263,8 +265,6 @@ try {
     }
     $root.Add_Selected({param($sender,$event) if($event.OriginalSource -eq $sender){Set-SelectedBranch -Node $sender;$event.Handled=$true}})
     [void]$tree.Items.Add($root);$root.IsExpanded=$true
-    (Get-DomeniaControl 'BtnSearchAllDomain').IsEnabled=$true
-    (Get-DomeniaControl 'BtnSearchAllDomain').Add_Click({Reset-DomeniaSearchScope})
     (Get-DomeniaControl 'ChkSubtree').Add_Checked({Invoke-DomeniaSearchFilterChanged})
     (Get-DomeniaControl 'ChkSubtree').Add_Unchecked({Invoke-DomeniaSearchFilterChanged})
     (Get-DomeniaControl 'CmbGlobalType').Add_SelectionChanged({Invoke-DomeniaSearchFilterChanged})
@@ -298,6 +298,7 @@ try {
     (Get-DomeniaControl 'TxtUiLog').Text='APERÇU LOCAL. Aucun annuaire ni poste distant contacté. Les actions métier sont désactivées.'
     Set-VisibleTabsForType -Type ''
     Initialize-DomeniaUxShell
+    Initialize-DomeniaUiZoom
     Set-DomeniaUxPalette -Window $script:Window -Theme $Theme
     $script:Window.Add_ContentRendered({Update-PreviewLayout})
 
@@ -318,7 +319,7 @@ try {
         }
         Test-PreviewAssertion 'Chargement WPF de la vraie fenêtre' { $script:Window -is [Windows.Window] }
         Test-PreviewAssertion 'Navigation latérale et ancienne liste de fonctions présentes' {
-            @('BtnUxNavHome','BtnUxNavSearch','BtnUxHelpToggle','UxLogRow','WorkspaceTabs','SearchBrowserLayout','SearchOuPanel','BtnSearchAllDomain','ChkSubtree','TxtGlobalSearch','TvDirectory','TabAccounts','TabSupport','DgObjects') | ForEach-Object { if($null -eq (Get-DomeniaControl $_)){throw ('Controle absent : '+$_)} };$true
+            @('BtnUxNavHome','BtnUxNavSearch','BtnUxHelpToggle','UxLogRow','WorkspaceTabs','SearchBrowserLayout','SearchOuPanel','BtnSearchQueryWorkshop','CmbWorkView','BtnWorkView','ChkSubtree','TxtGlobalSearch','TvDirectory','TabAccounts','TabSupport','DgObjects') | ForEach-Object { if($null -eq (Get-DomeniaControl $_)){throw ('Controle absent : '+$_)} };$true
         }
         Test-PreviewAssertion 'Partie nommée du TextBox conservée' {
             $box=Get-DomeniaControl 'TxtGlobalSearch';$box.ApplyTemplate()|Out-Null;$null -ne $box.Template.FindName('PART_ContentHost',$box)
@@ -393,7 +394,7 @@ try {
             Invoke-DomeniaSearchFilterChanged
             (Get-DomeniaControl 'DgObjects').Items.Count -eq 1
         }
-        Test-PreviewAssertion 'Tout le domaine conserve le texte de recherche' {
+        Test-PreviewAssertion 'Retour explicite a la racine de l arbre conserve le texte de recherche' {
             (Get-DomeniaControl 'TxtGlobalSearch').Text='PC-DEMO'
             Reset-DomeniaSearchScope
             (Get-DomeniaControl 'TxtGlobalSearch').Text -eq 'PC-DEMO' -and
@@ -426,9 +427,11 @@ try {
             Apply-DomeniaUiProfile -Profile 'Admin';[bool](Get-DomeniaControl 'ChkReadOnlyMode').IsChecked
         }
         Test-PreviewAssertion 'Réduire le journal conserve son contenu' {
-            # Desktop work area: on a short screen the journal is folded for the session (D006), whatever the test machine.
+            # Desktop work area: its actual RootScroll viewport must exceed the 940-unit short-screen threshold.
+            # A 960-unit host has only 925 units after the footer and intentionally folds the journal (D006).
             Enter-PreviewWorkArea
             try {
+                if((Get-DomeniaUxAvailableSize).Height -lt 940){throw 'Le banc de bureau ne fournit pas le viewport requis pour le journal deploye.'}
                 $before=(Get-DomeniaControl 'TxtUiLog').Text;Switch-DomeniaUxLog
                 $ok=((Get-DomeniaControl 'UxLogRow').Height.Value -eq 42 -and (Get-DomeniaControl 'TxtUiLog').Text -ceq $before)
                 Switch-DomeniaUxLog;$ok
@@ -440,10 +443,10 @@ try {
             Set-DomeniaUxPalette -Window $script:Window -Theme 'Light'
             $dark -ne $script:Window.Resources['BgCard'].Color.ToString()
         }
-        # TE-08: the width-dependent checks below run in a fixed 1600x960 work area (Width assignments resize it), so they
+        # TE-08: the width-dependent checks below run in a fixed 1600x1080 work area (Width assignments resize it), so they
         # no longer depend on the screen of the test machine. The real window is always restored, even after a failure.
         try {
-        Enter-PreviewWorkArea -Width 1600 -Height 960
+        Enter-PreviewWorkArea -Width 1600 -Height 1080
         Test-PreviewAssertion 'Zone de travail fixe : contrôles mesurés à 1600 px dans la fenêtre réelle' {
             $tabs=Get-DomeniaControl 'WorkspaceTabs'
             $script:PreviewRealWindow.Content -is [Windows.Controls.Canvas] -and $script:Window.ActualWidth -eq 1600 -and

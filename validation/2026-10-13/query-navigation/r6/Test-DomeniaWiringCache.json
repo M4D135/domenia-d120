@@ -1,0 +1,815 @@
+{
+    "Kind":  "WiringCache",
+    "PowerShell":  "5.1.26100.6584",
+    "Host":  "5.1.26100.6584",
+    "NativeWindowsPowerShell51":  true,
+    "Wpf":  true,
+    "MockedNetwork":  true,
+    "LiveAD":  false,
+    "Points":  [
+                   "D029",
+                   "D118",
+                   "D030",
+                   "D023",
+                   "D025",
+                   "D028",
+                   "D115",
+                   "D113",
+                   "D024",
+                   "D026",
+                   "D027",
+                   "D021",
+                   "D022",
+                   "L01"
+               ],
+    "Passed":  157,
+    "Failed":  0,
+    "Complete":  true,
+    "Tests":  [
+                  {
+                      "Name":  "D028 : LiveCache ne contient plus le second ecrivain user_machine_links",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D028 : Merge-DomeniaLiveLinkMemory (RelationsSymmetry) demande la persistance et ne passe pas par l ancien chemin",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D028 / CD-06 : Merge-DomeniaLiveLinkMemory ignore l ancien interrupteur et passe toujours par la regle de relation",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D028 : parcours explicite sans parametre refuse toujours plus de 64 ecarts",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D028 : Queue-DomeniaLinkChanges -Quiet est silencieux quand LinkBusy",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D028 : 70 ecarts sont mis en file par lots de 64 puis 6",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D028 : N observations produisent une seule mise en file apres l echeance",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D028 : LinkBusy provoque un rearmement sans statut",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D028 : un lot partiel rearment le minuteur",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D025 : Get-DomeniaObjectCacheKey delegue a cache-v3 et refuse une cle sans GUID",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D025 : une cle vide ne lit ni n ecrit le cache de visite (garde centrale)",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D025 : domaine de la cle repris de la base DN, sinon inconnu, jamais vide",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D025 : Invoke-DomeniaObjectChanges invalide par GUID quand la ligne porte un GUID",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D025 : Invoke-DomeniaObjectChanges retombe sur DN quand la ligne n a pas de GUID",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D025 : audit_preload exige Get-DomeniaCacheKey au lieu de object-v2",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D028 : Request-DomeniaLinkPersistence est declaree dans le chargeur",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D115 : une base plus recente est refusee intacte, sans sauvegarde ni restauration",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D115 : base ADCC (sans revision) sauvegardee hors rotation puis migree",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D115 : le worker LiveCache n ecrit pas dans une base plus recente",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D024 : presence cache utilise Get-DomeniaFreshness et pas 120s en dur",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D024 : Set-DomeniaResultRowPresence stocke UpdatedUtc et file UTC",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D024 : Show-AdObjectResult depuis cache utilise Created comme LoadedAt",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D024 : LiveCache ecrit checked_utc depuis UserCheckedUtc",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D024 : un ping reel preserve les dates console et attributs",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D024 : le paquet presence intermediaire preserve la console puis la lecture la renouvelle",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D024 : erreur ping directe ou echec worker ne rajeunit aucune observation",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D024 : une lecture console refusee conserve son dernier succes",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D024 : details recalcules apres rechargement JSON sans dates inventees",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D024 : identite remplacee et date de ping invalide ne recuperent pas une ancienne fraicheur",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D024 : une console vide observee affiche sa fraicheur dans le statut selectionne",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D026 : changement de DC sans instance identique ne marque pas Missing",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D026 : meme instance complete marque Missing et Move",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D026 : IndexBuild tronque ne remplace pas l index",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D026 : lecture OU tronquee conserve l avertissement de base partielle",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D027 : echec recent bloque sonde automatique mais pas manuelle",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D027 : Complete-DomeniaLiveProbe enregistre Timeout",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D024/D026/D027 : aucune garde Get-Command autour des regles Cache.Model",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D021 : Invoke-GlobalSearch passe par Get-DomeniaProjection List",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D023 : le vrai XAML virtualise 100, 500 et 2000 lignes et recycle apres defilement",
+                      "Status":  "Passed",
+                      "Detail":  "Detached WPF client host1280x800; native ScrollViewer.ScrollToEnd; virtualization100/500/2000 and negative control300; HWND=1044x788"
+                  },
+                  {
+                      "Name":  "D022 : Complete-DomeniaReconcile n met en file que les lignes modifiees",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D028 : Fiabilite affiche le libelle de la regle",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D028 : un lot en cours d ecriture reste En memoire jusqu au rappel",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D028 : Live et Fiabilite affichent le meme etat",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D028 : conflit visible jusqu au rechargement",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D028 : le geste nomme par le libelle de conflit recharge les associations",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D028 : anciens libelles retires de Fiabilite et de la ligne Live",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D028 : demande differee de liens annoncee avant sa mise en file",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D028 : le chargeur declare l etat d enregistrement et ses dependances",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D113 : LegacyImport succes complet",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D113 : trigger ABORT secret_state provoque rollback entier",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D113 : chacune des 4 tables non vide est refusee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D113 : idempotence marqueur identique sans ecriture ni retention",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D113 : marqueur different refuse explicitement",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D113 : marqueur identique est idempotent avant garde tables vides",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D113 : sync_state directory existant preserve et refuse domaine different",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D113 : conflit lien conserve et ImportedLinks uniquement ajoutes",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D113 : payload LegacyImport melange refuse",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D113 : gardes Marker BaseDn et plafond tableau",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D113 : import legacy ne borne pas user_machine_history",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D029 : cap historique protege Manual Saisie manuelle Import CSV et association protegee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D113 : Queue LegacyImport refuse Marker ou BaseDn invalide",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D113 : Queue LegacyImport refuse si lien en attente",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D113 : Queue LegacyImport refuse si LinkBusy",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D113 : Queue LegacyImport met LinkBusy et bloque liens",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D113 : Start isole LegacyImport et exclut les lots ordinaires",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D113 : liveness attend un worker detache puis libere sans rejeu",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D113 : echec import ne requeue pas et ne suspend pas le stockage normal",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D113 : Start-UiTask qui leve avant depart ne reessaie pas import",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D113 : import peut demarrer malgre Failures ou Next ordinaire",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D113 : Complete ignore epoch ou chemin obsolette pour la memoire",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D113 : plus de 64 liens importes ne produisent aucun ecart apres Complete",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D113 : succes import ne remet pas a zero Failures ordinaire",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D113 : un rappel ordinaire conserve le verrou d un import en attente",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D113 : rappel Already ne fusionne rien dans la session",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D113 G2 : simulation des fichiers sans aucune ecriture, choix Relations et origine preservee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D113 G2 : import reel par un seul lot, sauvegarde, baseline puis second passage sans effet",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D113 G2 : associations existantes preservees dans le plan et sur disque",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D113 G2 : domaine absent ou different refuse et base non remplie",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D113 G2 : table deja peuplee refuse toute la reprise avant sauvegarde",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D113 G2 : nombres dates et lignes invalides comptes, metadonnees sans detail libre",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D113 G3 : Non ne sauvegarde ni ne met en file, Oui importe une seule fois",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D113 G3 : source changee entre simulation et confirmation refusee avant sauvegarde",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D113 G3 : contexte change ou blocage ne propose aucune ecriture",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D113 G2 : base absente ou ecriture en attente interdit la reprise",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D113 G3 : geste declare et aucune reprise au demarrage ni SQL direct du lecteur",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D113 G2 : DN avec espaces normalise et doublons de cache refuses avant sauvegarde",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D113 G3 : lecteur reel en runspace, Dispatcher vivant et base intacte",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D030 : panne AD sur une fiche prete garde la lecture visible et verrouille toutes les ecritures",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D030 : retour du reseau sans relecture ne rend pas la fiche modifiable",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D030 : ouverture directe depuis un cache recent reste historique",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D030 : cache ou echec hors ligne reste visible grise et peut etre relu explicitement",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D030 : delai CIM annulation demonstration et ancienne session ne declarent pas AD hors ligne",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D030 : les points entree AD et poste refusent hors ligne sans lancer de travail",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D030 : ancienne identite ou attributs expires bloquent les modifications",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D030 : transition sans lecture disque ni worker et erreurs du raccordement tracees",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D118 : copie reelle une fois, original intact et second passage sans ecriture",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D118 : preference existante jamais ecrasee par une migration",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D118 : DataDir refuse par ACE, aucun repli de preferences",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D118 : Preferences refuse par ACE, avertissement et aucune ecriture ailleurs",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D118 : DataDir vide donne un chemin vide et aucune sauvegarde alternative",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D118 : Preferences en jonction refuse a la lecture et a l ecriture",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D118 : droits observes transmis a la regle, recus non observes",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D118 : fichiers livres non copies et lecture historique tracee une fois",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D118 : journaux suivent la zone Logs du mode portable",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D118 : erreur du journal UI enregistree dans DataDir Logs",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D118 : UserLocal isole, chemins du coeur alignes avec la regle",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D118 : disposition absente ou incoherente refusee explicitement",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D118 : journal de secours TEMP si le profil refuse aussi les ecritures",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D118 : migration reelle ignore JSON invalide et source trop grande",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D118 : source verrouillee, erreur tracee et aucune copie annoncee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D029 : mesure native compte les six categories sans modifier la base",
+                      "Status":  "Passed",
+                      "Detail":  "SQLite natif ; dbstat=True ; base=176128 octets ; six categories ; SHA256 inchange."
+                  },
+                  {
+                      "Name":  "D029 : dbstat optionnel absent donne inconnu mais une erreur SQLite reste une erreur",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D029 : tables Live absentes restent inconnues et ne sont pas creees",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D029 : chemin absent et chemin reseau refuses avant ouverture",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D029 : mesure refuse une base derriere une jonction",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D029 : schema futur refuse intact sans migration",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D029 : mesure native en runspace et progression du Dispatcher WPF",
+                      "Status":  "Passed",
+                      "Detail":  "Runspace natif ; ticks Dispatcher pendant la mesure=9 ; tours=10 ; duree=208 ms (plafond 60000)."
+                  },
+                  {
+                      "Name":  "D029 : mesure UI transmet seulement le chemin et le contexte courant",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D029 : mesure UI refuse demonstration, base absente et travail encore actif",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D029 : resultat mesure affiche les inconnus et conserve les associations",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D029 : resultat et erreur tardifs ne remplacent pas le nouveau contexte",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D029 : paquet incomplet ou contexte incorrect ne confirme aucune mesure",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D029 : presentation de demonstration desactive le vrai bouton WPF",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D029 : simulation puis purge atomique, associations et fichiers proteges intacts",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D029 : categories protegees ou inconnues refusees avant toute suppression",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D029 : modification du comptage apres simulation refuse la purge sans effacer",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D029 : erreur apres une premiere suppression annule toute la transaction",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D029 : schema futur et declencheur SQLite refusent la purge intacts",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D029 : confirmation, date et chemin controles sans creation implicite",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D029 : simulation requise et annulation ne lance aucune purge",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D029 : confirmation reutilise exactement categories, date et empreinte simulees",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D029 : selection ou session changee invalide une ancienne confirmation",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D029 : purge refuse travaux actifs, detaches, attente de sauvegarde et demo",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D029 : resultat tardif et echec ne suppriment rien et ne rejouent pas",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D029 : succes invalide seulement les caches choisis et aucune relecture AD",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D029 : admission centrale bloque les nouveaux producteurs pendant purge detachee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D029 / UX-40 : le controle des orphelins ne propose que les sources automatiques et ne retire rien sans confirmation",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D029 : vrais evenements WPF de simulation et confirmation raccordes au coeur",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D029 : un paquet de purge mal forme ne devient jamais une confirmation",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Parc : cache durable relu au redemarrage sans expiration ni limite 150",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Parc : utilisateur recree connu sous le meme DN ou login invalide le cache",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Parc : resultat vide reste vide et aucune expansion implicite",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "CO-08 : LocalIndexRead ResolveNames lit en lecture seule les comptes et postes d un import",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Parc : cache durable fait partie de la mesure et de la purge explicite",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Parc : remplacement atomique conserve ancien et nouveau user et refuse le conflit",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "L01 : base 11/1 existante, tables additives creees, schema_info inchange, sans sauvegarde de migration, relue par RC1.13.0",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "L01 : IndexBulk ecrit les faits par GUID, ReplaceAll les vide ; Index et IndexBulk ont le meme search_key",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "L01 : faits anterieurs a la derniere mise a jour affiches a relire, mise a jour partielle conservee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "L01 : FleetStats filtre l OU en SQL, rattache les observations par GUID et ecarte les anciennes",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "L01 : instantane quotidien, premier du jour garde, retention 400 jours, purges Index et Historique",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "L01 : presence BitLocker en lot ecrite dans secret_state, lue par FleetStats, jamais une cle",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "L01 : lecture LAPS seule = BitLocker non lu ; presence d OU sans objet visible ne remplace jamais des cles lues",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "L01 : releves d un poste hors OU lus seuls (ObservationsOnly), groupes distincts par la casse",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "L01 : search_key sans Extra repare une seule fois par base au demarrage (CO-26)",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "L01 : IndexBuild et BitLockerPresence ne demandent aucun attribut sensible ; BitLockerPresence refusee a la racine",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "L01 : passe par OU — IndexOuList rend les OU enfants, IndexBuild relit une OU en Subtree et la racine en OneLevel",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "L01 : vue du parc sur 5 000 postes, agregats SQL et calcul des regles mesures",
+                      "Status":  "Passed",
+                      "Detail":  "Worker FleetStats 839 ms ; regles sur les agregats 70 ms ; 46 groupes pour 5000 postes."
+                  }
+              ]
+}

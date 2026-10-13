@@ -1,0 +1,153 @@
+{
+    "Build":  "2026.09.30-R1.11-SUITE",
+    "PowerShell":  "5.1.26100.6584",
+    "WpfRequested":  true,
+    "ActiveDirectoryExecuted":  false,
+    "Passed":  28,
+    "Failed":  0,
+    "Results":  [
+                    {
+                        "Name":  "JSON Dark prioritaire sur ancien Light",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "JSON Light prioritaire sur ancien Dark",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Migration sans JSON",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Theme invalide : repli historique",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "JSON illisible : repli historique",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Aucun reglage : Light",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Theme avec espaces et casse : canonicalise",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "JSON casse avec copie .bak valide",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Sauvegarde immediate Dark, cache de session et relecture a froid",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Retour Light avec ancien Dark : relecture a froid",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Sauvegarde isolee conserve les autres reglages",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "XML reel PowerShell : Light / Get-LoginXamlLegacy",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "WPF reel : Light / Get-LoginXamlLegacy",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "XML reel PowerShell : Light / Get-DomeniaStandardLoginXaml",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "WPF reel : Light / Get-DomeniaStandardLoginXaml",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "XML reel PowerShell : Light / Get-DomeniaDebugLoginXaml",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "WPF reel : Light / Get-DomeniaDebugLoginXaml",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "XML reel PowerShell : Light / Get-DomeniaStartupXaml",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "WPF reel : Light / Get-DomeniaStartupXaml",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "XML reel PowerShell : Dark / Get-LoginXamlLegacy",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "WPF reel : Dark / Get-LoginXamlLegacy",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "XML reel PowerShell : Dark / Get-DomeniaStandardLoginXaml",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "WPF reel : Dark / Get-DomeniaStandardLoginXaml",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "XML reel PowerShell : Dark / Get-DomeniaDebugLoginXaml",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "WPF reel : Dark / Get-DomeniaDebugLoginXaml",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "XML reel PowerShell : Dark / Get-DomeniaStartupXaml",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "WPF reel : Dark / Get-DomeniaStartupXaml",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Principale : Dark restaure sans modifier le fichier de preferences",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    }
+                ],
+    "Logs":  [
+
+             ]
+}

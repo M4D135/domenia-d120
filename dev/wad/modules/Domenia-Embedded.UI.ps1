@@ -468,7 +468,7 @@ function Fail-DomeniaEmbeddedLookup {
     param($Message,$State)
     $r=$State.Owner
     if($r.Kind -eq 'OU' -and $null -ne $r.PSObject.Properties['Tree']){Fail-DomeniaOuPickerRead $Message $State;return}
-    if($r.Closed -or $r.RequestId -cne $State.RequestId -or $State.Epoch -ne [long]$script:SessionEpoch){return}
+    if($r.Closed -or $r.RequestId -cne $State.RequestId -or $State.Epoch -ne [long]$script:SessionEpoch -or $State.BaseDn -ine [string]$script:Conn.BaseDn){return}
     $r.Job='';$r.Go.IsEnabled=$true;$r.Box.IsEnabled=$true;$r.Grid.IsEnabled=$true;$r.Accept.IsEnabled=$false;$r.Busy.Visibility='Hidden'
     $r.Status.Text='Lecture non confirmée : '+[string]$Message
 }
@@ -673,7 +673,7 @@ function Show-DomeniaInlinePicker {
     $fnContext=${function:Get-DomeniaEmbeddedContext};$fnStartTask=${function:Start-UiTask};$fnLookupCode=${function:Get-DomeniaEmbeddedLookupCode}
     $run={param([bool]$Verify=$false)
         try{
-            if($r.Job){return}
+            if($r.Closed -or $r.Job){return}
             $term=([string]$r.Box.Text).Trim();$row=$r.Grid.SelectedItem
             if(-not $Verify -and $r.Kind -ne 'OU' -and $term.Length -lt 2){$r.Status.Text='Saisissez au moins deux caractères.';return}
             if($Verify -and $null -eq $row){return}
@@ -684,6 +684,7 @@ function Show-DomeniaInlinePicker {
             $state=[pscustomobject]@{Owner=$r;RequestId=$r.RequestId;Epoch=$ctx.Epoch;BaseDn=$ctx.BaseDn;Verify=$Verify;DN=$(if($null -ne $row){[string]$row.DN}else{''});Guid=$(if($null -ne $row){[string]$row.Guid}else{''})}
             $payload=[pscustomobject]@{Kind=$r.Kind;Term=$term;Verify=$Verify;RequestId=$r.RequestId;DN=$(if($null -ne $row){[string]$row.DN}else{''});Guid=$(if($null -ne $row){[string]$row.Guid}else{''})}
             $r.Job=& $fnStartTask -Name 'Choix intégré dans AD' -OperationId 'EmbeddedDirectoryLookup' -Code (& $fnLookupCode) -Payload $payload -CallbackState $state -ReplaceKey 'embedded:lookup' -TimeoutSeconds 18 -SuccessHandler 'Complete-DomeniaEmbeddedLookup' -ErrorHandler 'Fail-DomeniaEmbeddedLookup'
+            if(-not [string]$r.Job){throw 'Lecture non admise ; réessayez lorsque les tâches en cours sont terminées.'}
         }catch{$r.Job='';$r.Go.IsEnabled=$true;$r.Box.IsEnabled=$true;$r.Grid.IsEnabled=$true;$r.Busy.Visibility='Hidden';$r.Status.Text='Recherche non confirmée : '+$_.Exception.Message}
     }.GetNewClosure()
     $go.Add_Click({& $run $false}.GetNewClosure());$accept.Add_Click({& $run $true}.GetNewClosure())

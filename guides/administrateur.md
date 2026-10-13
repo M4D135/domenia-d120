@@ -67,14 +67,14 @@ Des préfixes facultatifs limitent la recherche à un type (Features.SearchSynta
 
 ## Arbre des OU et filtres
 
-L'arbre « Parcourir les OU » affiche le contenu d'une OU. La case « Inclure les sous-OU » est cochée par défaut ; décochée, seuls les enfants directs sont lus. Le menu clic droit de l'arbre propose aussi « Analyser les droits sur cette branche » et « Nouveau dans cette branche » (écriture, grisé en lecture seule).
+L'arbre « Parcourir les OU » affiche le contenu d'une OU. Le menu « ⋯ » près du titre de l’arbre contient la case « Inclure les sous-OU », cochée par défaut ; décochée, seuls les enfants directs sont lus. Le menu clic droit de l'arbre propose aussi « Analyser les droits sur cette branche » et « Nouveau dans cette branche » (écriture, grisé en lecture seule).
 
 | Filtre | Valeurs | Remarque |
 |---|---|---|
 | Type d'objet | Tous, Utilisateurs, Machines, Groupes, OU et conteneurs | Grisé pendant une recherche globale. |
 | Présence réseau | Tous, En ligne, Sans réponse au ping, Non vérifié, Erreur de ping | Filtre les observations mémorisées ; aucun ping collectif. |
 | Limite | 100 par défaut | 20 000 lignes au plus. |
-| Vue de travail | Comptes expirant sous 30 jours, Comptes desactives, Objets modifies depuis 7 jours, Postes de cette OU, Postes sans connexion depuis 90 jours | « Postes de cette OU » exige une OU choisie dans l'arbre. |
+| Requêtes | Vues Annuaire, modèles locaux et recettes personnelles | Choisissez une OU, vérifiez la source, puis cliquez sur « Exécuter » ; voir la section Requêtes Annuaire et données locales. |
 
 Le champ « Dans les résultats » filtre la liste déjà chargée, sans appel AD : nom, login, type, présence et association. La limite LDAP ne change pas.
 
@@ -108,6 +108,37 @@ Ces trois boutons agissent sur les seuls postes affichés, après tous les filtr
 Les confirmations s'affichent dans la page, sans nouvelle fenêtre ; Échap choisit la réponse sûre. Un relevé s'arrête de lui-même sur des identifiants rejetés, après trois échecs d'enregistrement local, sur un conflit d'enregistrement, ou si une lecture est annulée ou ne correspond pas au poste attendu. Une lecture de poste en échec ne l'arrête pas : elle compte dans les « lectures non confirmees ». Il se met en pause tant que 64 enregistrements locaux attendent.
 
 > [!ATTENTION] Préparez un périmètre explicite et relisez le nombre de cibles avant chaque collecte.
+
+## Requêtes Annuaire et données locales
+
+La zone « Requêtes » réunit les vues LDAP de l’annuaire, les 152 modèles locaux et les recettes personnelles. Le champ de recherche ignore les accents et la casse. L’étoile épingle la sélection ; « Favoris » filtre le catalogue. Jusqu’à 200 favoris sont conservés dans les préférences personnelles. Choisir une ligne, filtrer le catalogue ou changer l’état proposé ne lance aucune lecture : cliquez sur « Exécuter ».
+
+| Source annoncée | Population et lecture | Points à vérifier |
+|---|---|---|
+| Annuaire en direct | Vues LDAP sur les types indiqués : utilisateurs, postes ou objets AD. | OU de Rechercher, niveau direct ou sous-OU, limite et droits de lecture. |
+| Base locale et relevés datés | Postes déjà recensés dans la base du domaine ; calcul des conditions sur les attributs AD copiés et les observations disponibles. | Couverture du recensement, fraîcheur propre à chaque mesure, état choisi et limite d’affichage. |
+
+Les deux sources utilisent l’OU choisie dans l’arbre de Rechercher et la profondeur affichée. Elles ne reprennent pas implicitement le périmètre du tableau de bord. L’exécution retire les anciennes intersections de la liste — type, présence, texte local et sélection de GUID — pour éviter qu’un filtre précédent ne masque le nouveau résultat.
+
+![Rechercher : recette locale, favori, source et périmètre explicites ; données fictives](fig:recherche-requetes)
+
+Pour une requête locale, choisissez l’état puis cliquez sur « Exécuter » :
+
+| État | Interprétation |
+|---|---|
+| Correspondants — Match | Les données disponibles satisfont la requête. |
+| Inconnus — Unknown | Les données ne suffisent pas à trancher ; une mesure manquante ou expirée reste inconnue. |
+| Non correspondants — NoMatch | Les données permettent d’écarter le poste pour cette requête. |
+
+![Sélection Inconnus dans Rechercher : les postes sans mesure exploitable restent consultables ; données fictives](fig:recherche-inconnus)
+
+Le compteur sépare les lignes affichées, le total de l’état choisi et les trois états. La limite est de 20 000 lignes au maximum. Une limite atteinte n’est pas un recensement complet : pour une requête locale, augmentez-la puis réexécutez. « Charger la suite » concerne les lectures Annuaire lorsque ce bouton est disponible. Le changement de session, de base ou d’OU invalide un ancien retour ; aucune ligne ne s’ouvre et aucune collecte ne part automatiquement à la réception du résultat.
+
+La date « calcul local » décrit l’évaluation. La « dernière lecture complète couvrante » décrit la copie AD de l’OU, éventuellement assurée par la lecture complète d’une OU parente. La mention d’une tentative incomplète reste visible. Ces dates ne rajeunissent pas les mesures des postes ; une couverture absente n’empêche pas le calcul sur les objets déjà connus, mais ne permet pas de conclure à leur exhaustivité.
+
+« Effacer la requête » annule la requête et efface ses résultats. Sur une liste de recherche ordinaire, il retire seulement le filtre de requête supplémentaire, dont une ancienne sélection de GUID, et conserve la liste sans relancer de lecture. Le crayon ouvre Outils → Atelier de requêtes. Une recette locale est chargée dans Composer ; une vue Annuaire conserve son filtre LDAP et ouvre la Bibliothèque, car le compositeur sert aux recettes locales des postes.
+
+Dans une fenêtre étroite ou basse, la barre peut se replier : « Options de requête » regroupe le filtre de modèles, les favoris, la source et le choix des résultats. Le bouton rappelle le choix, par exemple « Inconnus », et « Effacer » reste directement accessible. Ouvrez ou repliez ces options selon la place nécessaire ; vos choix sont conservés et aucune recherche ne se lance. Échap referme le volet.
 
 ## Export et menu clic droit
 
@@ -377,7 +408,7 @@ Sélectionnez une ligne pour consulter son détail local. Relisez l’identité,
 
 ## Construire une requête
 
-La petite icône de la barre du parc et le bouton « Atelier de requêtes » de Rechercher ouvrent l’Atelier en conservant le brouillon. L’atelier utilise le périmètre du tableau de bord, indiqué en haut de sa page. « Résultats » réserve la place au tableau et à la fiche locale ; « Composer la requête » regroupe les conditions, les sauvegardes, les sondes et les réglages de collecte. « Bibliothèque » présente les modèles et vos requêtes personnelles. « Catalogue des informations » aide à choisir un champ et à comprendre sa source.
+L’Atelier se trouve dans Outils → Atelier de requêtes. La petite icône de la barre du parc y ouvre le brouillon ; le crayon de Rechercher prépare la recette locale sélectionnée. L’Atelier utilise le périmètre du tableau de bord, indiqué en haut de sa page : relisez-le, car il peut différer de l’OU de Rechercher. « Résultats » réserve la place au tableau et à la fiche locale ; « Composer la requête » regroupe les conditions, les sauvegardes, les sondes et les réglages de collecte. « Bibliothèque » présente les modèles et vos requêtes personnelles. « Catalogue des informations » aide à choisir un champ et à comprendre sa source.
 
 1. **Choisir une base.** Sélectionnez Tous les postes recensés ou un modèle adapté, puis « Charger ». « Nouvelle » prépare une requête vide. Ces deux commandes ouvrent « Composer la requête ».
 2. **Ajouter les conditions.** Choisissez le champ, l'opérateur proposé et la valeur. Les opérateurs sont adaptés au type texte, nombre ou booléen.
@@ -1359,9 +1390,9 @@ Les préférences ci-dessous sont conservées au redémarrage ; la lecture seule
 | Comptes | RemoteCredentialUser, SecretsCredentialUser : noms des comptes « POSTES / WMI / DISTANT » et « SECRETS AD », jamais de mot de passe. |
 | Poste | InventoryScope, SoftwareScope, SoftwarePerUser, SoftwareStore, SoftwareUpdates, WmiLimit (25) |
 | Parc | IndexAutoBuild, ParkSweepEnabled, ParkHarvestEnabled, Collection.Concurrency (4), Collection.CacheMinutes (15) |
-| Requêtes | Query.Library : recettes personnelles sauvegardées, dans la limite de 100 recettes et 1 Mio ; modèles livrés distincts. |
+| Requêtes | Query.Library : recettes personnelles sauvegardées, dans la limite de 100 recettes et 1 Mio ; modèles livrés distincts. Search.QueryFavorites : jusqu’à 200 favoris de la barre Requêtes. |
 
-Le zoom reste accessible en bas de la fenêtre : − et + règlent l’interface de 80 à 150 %, par pas de 10. Le bouton affichant le pourcentage rétablit 100 %. Le réglage est conservé dans les préférences personnelles.
+Le zoom reste accessible en bas de la fenêtre : − et + règlent l’interface de 80 à 150 %, par pas de 10. Le bouton affichant le pourcentage rétablit 100 %. Le réglage est conservé dans les préférences personnelles. La disposition utilise la place disponible après application du zoom : menu, aide et espacements se compactent lorsque cette place diminue. Les barres de défilement gardent accessibles les zones qui dépassent les dimensions minimales.
 
 # 18 Base autonome
 
@@ -1522,6 +1553,16 @@ Domenia écrit un journal applicatif, une trace de démarrage et une trace de co
 - Outils, onglet « Journal » (profil Expert) : journal détaillé de l'application.
 - Outils, onglet « Charge & stats » : durée, volume réseau estimé, replis distants et taux de réussite des opérations.
 - Outils, onglet « Domaine » : rôles FSMO, niveaux fonctionnels, contrôleurs et stratégie du domaine.
+
+## Santé du moteur et réactivité de l’interface
+
+Ouvrez le panneau « Opérations » depuis le bandeau, ou « État du moteur » depuis le Journal de session déplié. Il présente les opérations actives, en attente ou en nettoyage, la mémoire privée du processus et la dernière sauvegarde locale.
+
+Deux mesures de session sont distinctes. « Réactivité de l’interface » indique le retard des impulsions du fil d’interface. « Traitement des résultats dans l’interface » indique la durée de traitement des retours de workers sur ce fil : médiane, seuil sous lequel se trouvent 95 % des mesures et maximum des mesures conservées. Cette seconde ligne apparaît lorsque des retours ont été mesurés.
+
+![État du moteur : tâches, réactivité, durées des retours et sauvegarde locale ; valeurs de démonstration](fig:etat-moteur)
+
+Ces valeurs décrivent l’activité locale de la session et ne sont pas une mesure du temps réseau ou une qualification de tout le parc. Un retour long peut signaler un rendu coûteux ; corrélez l’heure avec l’opération et le journal. Une interface momentanément disponible ne prouve pas qu’une écriture ou une sauvegarde est terminée. Le panneau se ferme avec son bouton ou Échap.
 
 ## Vérification de Domenia
 

@@ -1,0 +1,12 @@
+{
+  "Status": "PASS",
+  "UTC": "2026-10-13T00:27:48.265294+00:00",
+  "DevFilesIncludingManifest": 389,
+  "ProdFilesIncludingManifest": 94,
+  "RuntimeFilesIdentical": 93,
+  "DevSourceMismatches": [],
+  "RuntimeMismatches": [],
+  "DevZipSHA256": "fffc258b7715eac4d57d19817336262ff827ce455d90aea0e32a7cc35653dd44",
+  "ProdZipSHA256": "b91c950cb6f33cb848cc2afc4fc57468982ba59ddb2b84a7413ba717f52acc54",
+  "Scope": "Independent byte comparison of every DEV archive file with the current source tree, and every PROD runtime file with DEV. Windows execution is separate."
+}

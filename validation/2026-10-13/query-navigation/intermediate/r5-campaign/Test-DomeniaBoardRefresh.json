@@ -1,0 +1,93 @@
+{
+    "Passed":  true,
+    "Cases":  17,
+    "Failed":  0,
+    "Scope":  "In-memory contracts; no WPF, network or Active Directory",
+    "Checks":  [
+                   {
+                       "Name":  "Catalog order and fields: Fleet",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Catalog order and fields: Computer",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Catalog order and fields: Software",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Repeated lookups reuse one parsed index",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Public catalog and item mutations stay isolated",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Lookup remains case insensitive and missing key returns null",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Catalog source change invalidates its cache only",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Hidden board coalesces data, preserves undo and installs one handler",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Invisible notification does not draw; visible notification draws once",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Query refresh without Data retains latest hidden board snapshot",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Deferred render refuses changed Session",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Deferred render refuses changed OU",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Deferred render refuses changed Object",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Deferred render refuses changed Guid",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Hidden computer refresh starts no selected-observation read",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Render failure remains retryable and reported",
+                       "Pass":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Fleet context includes workshop only while its tools parent is selected",
+                       "Pass":  true,
+                       "Error":  ""
+                   }
+               ]
+}

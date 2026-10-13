@@ -30,7 +30,7 @@ function Get-DomeniaBoardState {
     param([string]$Board)
     if (-not $script:DomeniaBoardStates.ContainsKey($Board)) {
         # UndoStack: the last ten layout changes (FI-11); UndoLayout and UndoText mirror its top for the toolbar.
-        $script:DomeniaBoardStates[$Board] = @{ Board = $Board; Data = $null; Editing = $false; UndoLayout = $null; UndoText = ''; UndoStack = (New-Object System.Collections.ArrayList); Highlight = ''; EmptyText = ''; Notice = ''; LastId = '' }
+        $script:DomeniaBoardStates[$Board] = @{ Board = $Board; Data = $null; Editing = $false; UndoLayout = $null; UndoText = ''; UndoStack = (New-Object System.Collections.ArrayList); Highlight = ''; EmptyText = ''; Notice = ''; LastId = ''; RenderPending = $false; RenderContext = ''; RenderPanel = $null }
     }
     return $script:DomeniaBoardStates[$Board]
 }
@@ -89,19 +89,52 @@ function Set-DomeniaBoardLayout {
 # ---------------------------------------------------------------------------
 # Board
 # ---------------------------------------------------------------------------
+function Get-DomeniaBoardRenderContext {
+    # A deferred render belongs to one session and one object/OU, never to the next selection.
+    param([string]$Board)
+    if ($Board -eq 'Fleet') { return ([string]$script:SessionEpoch + '|Fleet|' + [string](Get-DomeniaFleetScope).Key) }
+    return ([string]$script:SessionEpoch + '|' + $Board + '|' + [string]$script:SelectedObject.Type + '|' + [string]$script:SelectedObject.DN + '|' + [string]$script:SelectedObject.Safety.Guid)
+}
+function Resume-DomeniaBoardRender {
+    param([string]$Board,$Panel)
+    if ($null -eq $Panel -or -not $Panel.IsVisible) { return }
+    $state = Get-DomeniaBoardState $Board
+    if (-not $state.RenderPending) { return }
+    $state.RenderPending = $false
+    if ([string]$state.RenderContext -cne (Get-DomeniaBoardRenderContext -Board $Board)) {
+        # The current selection will supply its own data. Never flash the previous OU/object.
+        $state.Data = $null
+        $Panel.Children.Clear()
+        return
+    }
+    try { Show-DomeniaBoard -Board $Board -Quiet }
+    catch { $state.RenderPending = $true; Write-AppLog ('Tableau de bord différé : ' + $_.Exception.Message) 'WARN' }
+}
 function Show-DomeniaBoard {
     # Draws a board from its layout and the last data of its provider. -Data replaces the data (new reading),
     # -Quiet skips the entrance motion (layout edits).
-    param([ValidateSet('Computer','Fleet','Software')][string]$Board,$Data = $null,[switch]$Quiet,[string]$EmptyText = '')
+    param([ValidateSet('Computer','Fleet','Software')][string]$Board,$Data = $null,[switch]$Quiet,[string]$EmptyText = '',[switch]$DeferIfHidden)
     $state = Get-DomeniaBoardState $Board
     # New data never removes the undo of a layout change (FI-11): a background recalculation of Accueil keeps
     # "Annuler"; Clear-DomeniaDashboards forgets it when another object is selected.
     if ($null -ne $Data) { $state.Data = $Data; $state.Notice = ''; $state.EmptyText = '' }
     if ($EmptyText) { $state.EmptyText = $EmptyText }
-    # FI-04: a selected workstation outside the OU of the overview gets its observations from the local base (once).
-    if ($Board -eq 'Computer') { $script:DomeniaComputerQueryRecords=$null; try { [void](Request-DomeniaSelectedObservation) } catch { } }
     $panel = Get-DomeniaControl (Get-DomeniaBoardPanelName $Board)
     if ($null -eq $panel) { return }
+    if ($DeferIfHidden -and -not $panel.IsVisible) {
+        $state.RenderPending = $true
+        $state.RenderContext = Get-DomeniaBoardRenderContext -Board $Board
+        if (-not [object]::ReferenceEquals($state.RenderPanel,$panel)) {
+            # Capture the callable: handlers execute outside the launcher's private script scope.
+            $resume = ${function:Resume-DomeniaBoardRender}; $boardName = $Board
+            $panel.Add_IsVisibleChanged(({ param($sender,$eventArgs) if ([bool]$eventArgs.NewValue) { & $resume -Board $boardName -Panel $sender } }.GetNewClosure()))
+            $state.RenderPanel = $panel
+        }
+        return
+    }
+    $state.RenderPending = $false
+    # FI-04: only the visible workstation board needs this local observation read.
+    if ($Board -eq 'Computer') { $script:DomeniaComputerQueryRecords=$null; try { [void](Request-DomeniaSelectedObservation) } catch { } }
     # Ctrl+Z on the board undoes the last layout change (text boxes keep their own undo).
     if (-not ($panel.Tag -is [hashtable] -and $panel.Tag.ContainsKey('UndoKey'))) {
         $panel.Tag = @{ UndoKey = $true; Board = $Board }

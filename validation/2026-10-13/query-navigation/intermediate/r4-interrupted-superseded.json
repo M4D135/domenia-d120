@@ -1,0 +1,16 @@
+{
+    "Status":  "INTERRUPTED_SUPERSEDED",
+    "UTC":  "2026-10-13T00:25:35.4312678Z",
+    "Reason":  "Superseded by corrected R5; keep current Quick27 running to normal completion",
+    "Qualified":  false,
+    "OrchestratorPID":  1132,
+    "OrchestratorCommand":  "\"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe\" -NoProfile -NonInteractive -STA -ExecutionPolicy Bypass -File C:\\DomeniaLab\\query-navigation-20261013-r4\\run.ps1 -ExpectedZip 61d96930bd080bb3877b2aa1133c7eece5475c00460af6ee8030047cd4f666c9 -ExpectedCapture 229a15c1017a92fafe1f69826bde123ff22d053345e778cb84e62d3e5e58de0b",
+    "ChildPID":  3576,
+    "ChildCommand":  "\"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe\" -NoLogo -NoProfile -NonInteractive -STA -ExecutionPolicy Bypass -File C:\\DomeniaLab\\query-navigation-20261013-r4\\source\\dev\\engineering\\d120\\quick-ui-20261012\\Invoke-DomeniaQuickUi.ps1 -DevRoot C:\\DomeniaLab\\query-navigation-20261013-r4\\source\\dev -OutDir C:\\DomeniaLab\\query-navigation-20261013-r4\\proof -SuiteTimeoutSeconds 300 -Extended ",
+    "TestProcessKilled":  false,
+    "VMStopped":  false,
+    "RuntimeChanged":  false,
+    "EndUTC":  "2026-10-13T00:31:16.8925656Z",
+    "CurrentQuickRunnerCompleted":  true,
+    "AdditionalAndAllOfflineStarted":  false
+}

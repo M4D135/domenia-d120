@@ -256,7 +256,7 @@ function Update-DomeniaUxProfileVisibility {
 }
 
 function Get-DomeniaUxHeightPlan {
-    # D006: under 940 WPF units of window height the search page folds secondary chrome so that the results grid
+    # D006: under 940 logical viewport units the search page folds secondary chrome so that the results grid
     # keeps its room. Pure plan; display state only: the saved journal, help and menu preferences never change.
     param([double]$Height=0,[double]$Width=0)
     $short = (($Height -gt 0) -and ($Height -lt 940))
@@ -265,12 +265,120 @@ function Get-DomeniaUxHeightPlan {
     # so that the top search keeps its room; the saved menu preference is never changed by a resize.
     $narrow = (($Width -gt 0) -and ($Width -lt 1280))
     return [pscustomobject]@{
-        LowHeight=$low;Short=$short;FoldJournal=$short;InlineDomainBadge=$short;CloseHelp=$short;HideFilterCaptions=$short
+        QueryOptionsCompact=((($Height -gt 0) -and ($Height -lt 560)) -or ($short -and ($Width -gt 0) -and ($Width -lt 1100)))
+        TinyHeight=(($Height -gt 0) -and ($Height -lt 560));LowHeight=$low;Short=$short;FoldJournal=$short;InlineDomainBadge=$short;CloseHelp=$short;HideFilterCaptions=$short
         FoldNavigation=($narrow -or ($short -and ($Width -gt 0) -and ($Width -lt 1200)));Narrow=$narrow
         WorkViewWidth=$(if ($short) { 230.0 } else { 250.0 })
-        FilterCardPadding=$(if ($low) { 4.0 } elseif ($short) { 12.0 } else { 16.0 });FilterCardBottom=$(if ($low) { 4.0 } elseif ($short) { 8.0 } else { 12.0 })
-        ResultBarBottom=$(if ($low) { 2.0 } elseif ($short) { 6.0 } else { 10.0 });ResultLiveTop=$(if ($low) { 2.0 } elseif ($short) { 4.0 } else { 10.0 });ResultCountTop=0.0
+        FilterCardPadding=$(if ($low) { 4.0 } else { 10.0 });FilterCardBottom=$(if ($low) { 4.0 } else { 8.0 })
+        ResultBarBottom=$(if ($low) { 2.0 } else { 4.0 });ResultLiveTop=$(if ($low) { 2.0 } elseif ($short) { 4.0 } else { 6.0 });ResultCountTop=0.0
     }
+}
+
+function Set-DomeniaSearchQueryOptionsLayout {
+    param([bool]$Compact)
+    $button=Get-DomeniaControl 'BtnSearchQueryOptions'
+    $layout=Get-DomeniaControl 'UxSearchFilterQueryLayout'
+    $panel=Get-DomeniaControl 'UxSearchQueryOptionsScroll'
+    $content=Get-DomeniaControl 'UxSearchQueryOptionsContent'
+    $query=Get-DomeniaControl 'UxSearchQueryBar'
+    if($null -eq $button -or $null -eq $layout -or $null -eq $panel -or $null -eq $content -or $null -eq $query){return}
+    $state=$button.Resources['Domenia.QueryOptions']
+    if($null -eq $state){
+        $items=New-Object 'System.Collections.Generic.List[object]'
+        foreach($name in @('UxSearchQueryHeader','LblSearchQueryDetails','UxSearchQueryResultBar','CmbWorkViewScope','BtnSearchQueryFavorite','BtnQueryClearSearch')){
+            $control=Get-DomeniaControl $name
+            if($null -ne $control -and $control.Parent -is [Windows.Controls.Panel]){
+                $items.Add([pscustomobject]@{Control=$control;Parent=$control.Parent;Index=$control.Parent.Children.IndexOf($control);Row=[Windows.Controls.Grid]::GetRow($control);Column=[Windows.Controls.Grid]::GetColumn($control);Margin=$control.Margin;Content=$(if($control -is [Windows.Controls.Button]){$control.Content}else{$null})})
+            }
+        }
+        $state=[pscustomobject]@{Compact=$false;Open=$false;Items=$items.ToArray()}
+        $button.Resources['Domenia.QueryOptions']=$state
+        $population=Get-DomeniaControl 'CmbSearchQueryResult';$label=Get-DomeniaControl 'LblSearchQuery'
+        # Capture controls and function bodies: closures run after the launcher's private script scope has returned.
+        $refresh={
+            $caption='Options de requête'
+            if($null -ne $population -and $population.Visibility -eq [Windows.Visibility]::Visible -and $null -ne $population.SelectedItem){$caption='Options · '+[string]$population.SelectedItem.Content}
+            elseif($null -ne $label -and -not [string]::IsNullOrWhiteSpace([string]$label.Text) -and [string]$label.Text -notlike 'Aucune requête*'){$caption='Options · Requête active'}
+            $button.Content=$caption
+            $button.ToolTip='Recherche de modèle, favoris, source et état des résultats. '+$(if($null -ne $label){[string]$label.Text}else{''})
+            [Windows.Automation.AutomationProperties]::SetItemStatus($button,$(if($state.Open){'Options développées'}else{'Options repliées'}))
+        }.GetNewClosure()
+        $state | Add-Member -NotePropertyName Refresh -NotePropertyValue $refresh
+        $button.Add_Click({
+            if(-not $state.Compact){return}
+            $state.Open=-not $state.Open
+            $panel.Visibility=if($state.Open){[Windows.Visibility]::Visible}else{[Windows.Visibility]::Collapsed}
+            & $refresh
+        }.GetNewClosure())
+        $panel.Add_PreviewKeyDown({
+            param($sender,$e)
+            if($state.Compact -and $state.Open -and $e.Key -eq [Windows.Input.Key]::Escape){
+                $state.Open=$false;$panel.Visibility=[Windows.Visibility]::Collapsed;[void]$button.Focus();& $refresh;$e.Handled=$true
+            }
+        }.GetNewClosure())
+        if($null -ne $population){
+            $population.Add_SelectionChanged({param($sender,$e)& $refresh}.GetNewClosure())
+            # IsVisibleChanged would miss a local Visibility change while the options parent is folded.
+            $visibilityDescriptor=[ComponentModel.DependencyPropertyDescriptor]::FromProperty([Windows.UIElement]::VisibilityProperty,[Windows.Controls.ComboBox])
+            $visibilityChanged=[EventHandler]({param($sender,$e)& $refresh}.GetNewClosure())
+            $visibilityDescriptor.AddValueChanged($population,$visibilityChanged)
+            if($null -ne $script:Window){$script:Window.Add_Closed({$visibilityDescriptor.RemoveValueChanged($population,$visibilityChanged)}.GetNewClosure())}
+        }
+        if($null -ne $label){
+            $descriptor=[ComponentModel.DependencyPropertyDescriptor]::FromProperty([Windows.Controls.TextBlock]::TextProperty,[Windows.Controls.TextBlock])
+            $labelChanged=[EventHandler]({param($sender,$e)& $refresh}.GetNewClosure())
+            $descriptor.AddValueChanged($label,$labelChanged)
+            if($null -ne $script:Window){$script:Window.Add_Closed({$descriptor.RemoveValueChanged($label,$labelChanged)}.GetNewClosure())}
+        }
+    }
+    if($Compact -ne [bool]$state.Compact){
+        if($Compact){
+            foreach($item in $state.Items){
+                $control=$item.Control;[void]$item.Parent.Children.Remove($control)
+                if($control.Name -eq 'BtnQueryClearSearch'){
+                    $scope=Get-DomeniaControl 'UxSearchScopeInfo';[void]$scope.Children.Add($control)
+                    [Windows.Controls.Grid]::SetColumn($control,3);[Windows.Controls.Grid]::SetRow($control,0)
+                    $control.Content='Effacer';$control.Margin=[Windows.Thickness]::new(6,0,0,2)
+                }
+                elseif($control.Name -eq 'BtnSearchQueryFavorite'){$header=Get-DomeniaControl 'UxSearchQueryHeader';[void]$header.Children.Add($control)}
+                else{[void]$content.Children.Add($control)}
+            }
+        }
+        else{
+            $restoreFocus=$null
+            if($panel.IsKeyboardFocusWithin){$restoreFocus=[Windows.Input.Keyboard]::FocusedElement}
+            foreach($item in $state.Items){
+                $control=$item.Control;[void]$control.Parent.Children.Remove($control)
+                $at=[Math]::Min([int]$item.Index,$item.Parent.Children.Count);$item.Parent.Children.Insert($at,$control)
+                [Windows.Controls.Grid]::SetColumn($control,[int]$item.Column);[Windows.Controls.Grid]::SetRow($control,[int]$item.Row)
+                if($control.Name -eq 'BtnQueryClearSearch'){$control.Margin=$item.Margin}
+                if($control.Name -eq 'BtnQueryClearSearch'){$control.Content=$item.Content}
+            }
+            if($null -ne $restoreFocus){
+                $restored=$false
+                try{$restored=[bool]$restoreFocus.Focus()}catch{}
+                if(-not $restored){[void](Get-DomeniaControl 'CmbWorkView').Focus()}
+            }
+        }
+        $state.Compact=$Compact
+    }
+    $button.Visibility=if($Compact){[Windows.Visibility]::Visible}else{[Windows.Visibility]::Collapsed}
+    $panel.Visibility=if($Compact -and $state.Open){[Windows.Visibility]::Visible}else{[Windows.Visibility]::Collapsed}
+    $layout.ColumnDefinitions[0].Width=if($Compact){[Windows.GridLength]::new(252)}else{[Windows.GridLength]::new(1,[Windows.GridUnitType]::Star)}
+    $layout.ColumnDefinitions[1].Width=if($Compact){[Windows.GridLength]::new(1,[Windows.GridUnitType]::Star)}else{[Windows.GridLength]::new(0)}
+    [Windows.Controls.Grid]::SetRow($query,$(if($Compact){0}else{1}));[Windows.Controls.Grid]::SetColumn($query,$(if($Compact){1}else{0}))
+    if($Compact){$query.Margin=[Windows.Thickness]::new(6,0,0,0)}
+    $widths=@{CmbGlobalType=94.0;CmbPresenceFilter=96.0;TxtGlobalLimit=44.0}
+    foreach($name in $widths.Keys){
+        $control=Get-DomeniaControl $name
+        if($null -eq $control){continue}
+        $control.MinHeight=if($Compact){28.0}else{36.0}
+        if($Compact){$control.Parent.Width=$widths[$name];$control.Parent.Margin=[Windows.Thickness]::new(0,0,6,0);$control.Padding=[Windows.Thickness]::new(4,1,4,1)}
+        elseif($control -is [Windows.Controls.ComboBox]){$control.ClearValue([Windows.Controls.Control]::PaddingProperty)}
+    }
+    $selector=Get-DomeniaControl 'CmbWorkView'
+    if($null -ne $selector){if($Compact){$selector.Padding=[Windows.Thickness]::new(4,1,4,1)}else{$selector.ClearValue([Windows.Controls.Control]::PaddingProperty)}}
+    & $state.Refresh
 }
 
 function Set-DomeniaUxShortLayout {
@@ -292,9 +400,6 @@ function Set-DomeniaUxShortLayout {
             }
         }
     }
-    # A slightly narrower work view selector keeps the filters on one line from about 1090 units wide.
-    $workView = Get-DomeniaControl 'CmbWorkView'
-    if ($null -ne $workView -and $workView.Parent -is [Windows.Controls.DockPanel] -and $workView.Parent.Parent -is [Windows.Controls.StackPanel]) { $workView.Parent.Parent.Width = [double]$Plan.WorkViewWidth }
     $card = Get-DomeniaControl 'UxSearchFilterCard'
     if ($null -ne $card) { $card.Padding = [Windows.Thickness]::new([double]$Plan.FilterCardPadding);$card.Margin = [Windows.Thickness]::new(0,0,0,[double]$Plan.FilterCardBottom) }
     $bar = Get-DomeniaControl 'UxResultBar';if ($null -ne $bar) { $bar.Margin = [Windows.Thickness]::new(0,0,0,[double]$Plan.ResultBarBottom) }
@@ -316,6 +421,8 @@ function Set-DomeniaUxShortLayout {
         $control=Get-DomeniaControl $name
         if($control){$control.Visibility=if($compact){[Windows.Visibility]::Collapsed}else{[Windows.Visibility]::Visible}}
     }
+    $scopeTitle=Get-DomeniaControl 'UxSearchScopeTitle'
+    if($scopeTitle){$scopeTitle.Margin=[Windows.Thickness]::new(0,0,0,4)}
     $scopeInfo=Get-DomeniaControl 'UxSearchScopeInfo';$hint=Get-DomeniaControl 'LblSearchHint'
     if($scopeInfo -and $hint){
         $scopeInfo.ColumnDefinitions[1].Width=if($compact){[Windows.GridLength]::new(1,[Windows.GridUnitType]::Star)}else{[Windows.GridLength]::new(0)}
@@ -331,9 +438,39 @@ function Set-DomeniaUxShortLayout {
             $control.Parent.Margin=if($compact){[Windows.Thickness]::new(0,0,6,0)}else{[Windows.Thickness]::new(0,0,12,8)}
         }
     }
-    if($workView -and $workView.Parent.Parent -is [Windows.Controls.StackPanel]){
-        $workView.Parent.Parent.Width=if($compact){190.0}else{[double]$Plan.WorkViewWidth}
-        $workView.Parent.Parent.Margin=if($compact){[Windows.Thickness]::new(0)}else{[Windows.Thickness]::new(0,0,12,8)}
+    # Queries have their own fluid Grid. Compact only its vertical rhythm, never the width of an ancestor.
+    $queryBar=Get-DomeniaControl 'UxSearchQueryBar'
+    if($queryBar){$queryBar.Margin=[Windows.Thickness]::new(0,$(if($compact){2}else{6}),0,0)}
+    $queryHeader=Get-DomeniaControl 'UxSearchQueryHeader'
+    if($queryHeader){$queryHeader.Margin=[Windows.Thickness]::new(0,0,0,$(if($compact){3}else{4}))}
+    foreach($name in @('LblSearchQueryDetails','UxSearchQueryResultBar')){
+        $control=Get-DomeniaControl $name
+        if($control){$control.Margin=[Windows.Thickness]::new(0,3,0,0)}
+    }
+    # The local catalog filter is a single-line command field. Its inherited TextBox padding
+    # otherwise consumes a result row together with the surrounding gaps, even at 1080p.
+    $queryFilter=Get-DomeniaControl 'TxtSearchQueryFilter'
+    if($queryFilter){$queryFilter.Padding=[Windows.Thickness]::new(6,2,6,2)}
+    # The workshop lives inside Tools. Reclaim nested card spacing on short viewports so rows remain visible.
+    $workshopCompact=[bool]$Plan.Short
+    foreach($name in @('UxQueryLayout','UxQueryResultsLayout')){
+        $control=Get-DomeniaControl $name
+        if($control){$normal=if($name -eq 'UxQueryLayout'){12.0}else{10.0};$control.Margin=[Windows.Thickness]::new($(if($workshopCompact){4.0}else{$normal}))}
+    }
+    $control=Get-DomeniaControl 'UxQueryCard'
+    if($control){$control.Padding=[Windows.Thickness]::new($(if($workshopCompact){6.0}else{18.0}))}
+    foreach($name in @('UxQueryScopeBar','UxQueryHeader')){
+        $control=Get-DomeniaControl $name
+        if($control){$normal=if($name -eq 'UxQueryScopeBar'){8.0}else{10.0};$control.Margin=[Windows.Thickness]::new(0,0,0,$(if($workshopCompact){4.0}else{$normal}))}
+    }
+    $control=Get-DomeniaControl 'UxQueryCardLayout'
+    if($control){$control.Margin=[Windows.Thickness]::new(0,$(if($workshopCompact){0.0}else{8.0}),0,0)}
+    $control=Get-DomeniaControl 'LblQueryStatus'
+    if($control){$control.Margin=if($workshopCompact){[Windows.Thickness]::new(0,2,0,2)}else{[Windows.Thickness]::new(0,4,0,8)}}
+    $queryHeights=@{TxtSearchQueryFilter=30.0;CmbWorkView=34.0;BtnWorkView=34.0;BtnSearchQueryFavorite=34.0;BtnSearchQueryWorkshop=34.0;CmbSearchQueryResult=30.0;BtnQueryClearSearch=30.0}
+    foreach($name in $queryHeights.Keys){
+        $control=Get-DomeniaControl $name
+        if($control){$control.MinHeight=if($compact){28.0}else{$queryHeights[$name]}}
     }
     foreach($name in @('TxtGlobalLimit','TxtSuiteResultFilter','BtnSuiteResultClear')){
         $control=Get-DomeniaControl $name
@@ -375,11 +512,25 @@ function Set-DomeniaUxShortLayout {
     $ouPanel=Get-DomeniaControl 'SearchOuPanel';if($ouPanel){$ouPanel.Padding=if($compact){[Windows.Thickness]::new(10)}else{[Windows.Thickness]::new(16)}}
     $scope=Get-DomeniaControl 'UxOuScopeCard'
     if($scope){$scope.Padding=if($compact){[Windows.Thickness]::new(6)}else{[Windows.Thickness]::new(12)};$scope.Margin=if($compact){[Windows.Thickness]::new(0,0,0,6)}else{[Windows.Thickness]::new(0,0,0,12)}}
-    # L03: 'Tout le domaine' sits in the WrapPanel of the OU tree menu, next to the pin button: its XAML margin is kept.
     # The 'Dans :' chip of the work views keeps a 24 px target, reduced to the scope line height on a short screen.
     $viewScope=Get-DomeniaControl 'CmbWorkViewScope'
     if($viewScope){$viewScope.Height=if($compact){18.0}else{24.0};$viewScope.Margin=if($compact){[Windows.Thickness]::new(8,0,0,0)}else{[Windows.Thickness]::new(8,0,0,2)}}
     $scopeName=Get-DomeniaControl 'LblOuScopeName';if($scopeName){$scopeName.MaxHeight=if($compact){40.0}else{[double]::PositiveInfinity}}
+    # A low or short-and-narrow viewport keeps the query command beside the filters.
+    # This choice is independent from tiny spacing and from the operator's saved OU width.
+    Set-DomeniaSearchQueryOptionsLayout -Compact ([bool]$Plan.QueryOptionsCompact)
+    if([bool]$Plan.TinyHeight){
+        if($title){$title.Orientation=[Windows.Controls.Orientation]::Horizontal}
+        if($subRow){$subRow.Margin=[Windows.Thickness]::new(10,0,0,0)}
+        # At the minimum viewport retain full-size controls and spend fewer pixels on empty gaps.
+        if($main){$main.Margin=[Windows.Thickness]::new(18,2,16,2)}
+        $topHeader=Get-DomeniaControl 'UxHeader';if($topHeader){$topHeader.Margin=[Windows.Thickness]::new(0,0,0,2)}
+        $pageHeader=Get-DomeniaControl 'UxPageHeader';if($pageHeader){$pageHeader.Margin=[Windows.Thickness]::new(2,0,0,2)}
+        if($card){$card.Padding=[Windows.Thickness]::new(3);$card.Margin=[Windows.Thickness]::new(0,0,0,2)}
+        if($results){$results.Padding=[Windows.Thickness]::new(3)}
+        if($bar){$bar.Margin=[Windows.Thickness]::new(0)}
+        if($actions){$actions.Margin=[Windows.Thickness]::new(0)}
+    }
     $script:UxCompactLayoutActive=$compact
 
     # Journal shown folded while the screen is short, unless the operator unfolds it; the saved state is untouched.
@@ -389,12 +540,28 @@ function Set-DomeniaUxShortLayout {
     elseif ([bool]$script:UxShortLogHeld) { Set-DomeniaExperienceJournalLayout -Collapsed ([bool]$script:UxLogCollapsed) -Transient;$script:UxShortLogHeld = $false }
 }
 
-function Update-DomeniaUxLayout {
-    if ($null -eq $script:Window) { return }
+function Get-DomeniaUxAvailableSize {
+    # Responsive breakpoints follow the same logical viewport as the zoomed shell.
+    # The footer and the window chrome stay outside that viewport.
     $width = [double]$script:Window.ActualWidth
     if ($width -le 0) { $width = [double]$script:Window.Width }
     $height = [double]$script:Window.ActualHeight
     if ($height -le 0) { $height = [double]$script:Window.Height }
+    $scroll = Get-DomeniaControl 'RootScroll'
+    if ($null -ne $scroll) {
+        if ($scroll.ViewportWidth -gt 0) { $width = [double]$scroll.ViewportWidth }
+        if ($scroll.ViewportHeight -gt 0) { $height = [double]$scroll.ViewportHeight }
+    }
+    $percent = [int]$script:DomeniaUiZoomPercent
+    if ($percent -lt 80 -or $percent -gt 150) { $percent = 100 }
+    $scale = [double]$percent / 100.0
+    return [pscustomobject]@{Width=[Math]::Max(900.0,$width/$scale);Height=[Math]::Max(450.0,$height/$scale)}
+}
+
+function Update-DomeniaUxLayout {
+    if ($null -eq $script:Window) { return }
+    $availableSize = Get-DomeniaUxAvailableSize
+    $width = [double]$availableSize.Width;$height = [double]$availableSize.Height
     $heightPlan = Get-DomeniaUxHeightPlan -Height $height -Width $width
     if ([bool]$heightPlan.Short -ne [bool]$script:UxShortScreen) {
         $script:UxShortScreen = [bool]$heightPlan.Short;$script:UxShortHelpOpen = $false;$script:UxShortLogReleased = $false;$script:UxShortNavReleased = $false
@@ -406,7 +573,7 @@ function Update-DomeniaUxLayout {
     $helpVisible = $script:UxHelpVisible;$compactOpen = $script:UxHelpCompactOpen
     if ([bool]$script:UxShortScreen) { $helpVisible = [bool]$script:UxShortHelpOpen;$compactOpen = [bool]$script:UxShortHelpOpen }
     $plan = Get-DomeniaUxLayoutPlan -Width $width -NavCollapsed (Test-DomeniaUxNavFolded) -HelpVisible $helpVisible -CompactHelpOpen $compactOpen
-    $signature = '{0}:{1}:{2}:{3}:{4}:{5}' -f $plan.Compact,$plan.HelpShown,$plan.NavWidth,$script:UxShortScreen,$heightPlan.LowHeight,$plan.HeaderStacked
+    $signature = '{0}:{1}:{2}:{3}:{4}:{5}:{6}:{7}' -f $plan.Compact,$plan.HelpShown,$plan.NavWidth,$script:UxShortScreen,$heightPlan.LowHeight,$plan.HeaderStacked,$heightPlan.TinyHeight,$heightPlan.QueryOptionsCompact
     if ($signature -eq $script:UxLayoutSignature) { return }
     $script:UxLayoutSignature=$signature
     Set-DomeniaUxHeaderLayout -Stacked ([bool]$plan.HeaderStacked)
@@ -440,8 +607,7 @@ function Switch-DomeniaUxHelp {
         Update-DomeniaUxLayout
         return
     }
-    $width=[double]$script:Window.ActualWidth
-    if($width -le 0){$width=[double]$script:Window.Width}
+    $width=[double](Get-DomeniaUxAvailableSize).Width
     $plan=Get-DomeniaUxLayoutPlan -Width $width -NavCollapsed $script:UxNavCollapsed -HelpVisible $script:UxHelpVisible -CompactHelpOpen $script:UxHelpCompactOpen
     # A deliberate toggle applies to both layout modes; resize must not undo it.
     $script:UxHelpVisible=-not $plan.HelpShown
@@ -1316,6 +1482,19 @@ function Stop-DomeniaReadOnlyReturnTimer {
     if ($null -ne $script:UxReadOnlyTimer) { try { $script:UxReadOnlyTimer.Stop() } catch { } }
 }
 
+function Get-DomeniaUiZoomLayoutSize {
+    # Align down before LayoutTransform: upward layout rounding can otherwise create an Auto
+    # scrollbar, shrink the viewport, remove the scrollbar and repeat indefinitely.
+    param([double]$ViewportWidth,[double]$ViewportHeight,[int]$Percent=100,[double]$DpiScaleX=1.0,[double]$DpiScaleY=1.0)
+    $scale=[double]([Math]::Max(80,[Math]::Min(150,$Percent)))/100.0
+    if([double]::IsNaN($DpiScaleX) -or [double]::IsInfinity($DpiScaleX) -or $DpiScaleX -le 0){$DpiScaleX=1.0}
+    if([double]::IsNaN($DpiScaleY) -or [double]::IsInfinity($DpiScaleY) -or $DpiScaleY -le 0){$DpiScaleY=1.0}
+    $width=900.0;$height=450.0
+    if($ViewportWidth -gt 0 -and -not [double]::IsInfinity($ViewportWidth)){$width=[Math]::Max(900.0,[Math]::Floor(($ViewportWidth/$scale)*$DpiScaleX)/$DpiScaleX)}
+    if($ViewportHeight -gt 0 -and -not [double]::IsInfinity($ViewportHeight)){$height=[Math]::Max(450.0,[Math]::Floor(($ViewportHeight/$scale)*$DpiScaleY)/$DpiScaleY)}
+    return [pscustomobject]@{Width=$width;Height=$height;Scale=$scale}
+}
+
 function Set-DomeniaUiZoom {
     param([int]$Percent=100,[switch]$Persist)
     $percent=[Math]::Max(80,[Math]::Min(150,$Percent))
@@ -1324,13 +1503,19 @@ function Set-DomeniaUiZoom {
     if($null -eq $shell -or $null -eq $scroll){return}
     $scale=[double]$percent/100.0
     if($shell.LayoutTransform -isnot [Windows.Media.ScaleTransform] -or $shell.LayoutTransform.ScaleX -ne $scale){$shell.LayoutTransform=[Windows.Media.ScaleTransform]::new($scale,$scale)}
-    # Divide by scale before layout: WPF scrollbars expose any remaining minimum-size overflow.
-    if($scroll.ViewportWidth -gt 0){$shell.Width=[Math]::Max(900,$scroll.ViewportWidth/$scale)}
-    if($scroll.ViewportHeight -gt 0){$shell.Height=[Math]::Max(450,$scroll.ViewportHeight/$scale)}
+    # Keep the fitted dimensions on the WPF layout pixel grid. The minimum-size overflow
+    # still scrolls normally; fitting a viewport must not manufacture a fractional overflow.
+    $dpiX=1.0;$dpiY=1.0
+    try{$dpi=[Windows.Media.VisualTreeHelper]::GetDpi($shell);$dpiX=$dpi.DpiScaleX;$dpiY=$dpi.DpiScaleY}catch{}
+    $size=Get-DomeniaUiZoomLayoutSize -ViewportWidth $scroll.ViewportWidth -ViewportHeight $scroll.ViewportHeight -Percent $percent -DpiScaleX $dpiX -DpiScaleY $dpiY
+    if($scroll.ViewportWidth -gt 0 -and $shell.Width -ne $size.Width){$shell.Width=$size.Width}
+    if($scroll.ViewportHeight -gt 0 -and $shell.Height -ne $size.Height){$shell.Height=$size.Height}
     $minus=Get-DomeniaControl 'BtnUiZoomOut';$plus=Get-DomeniaControl 'BtnUiZoomIn';$reset=Get-DomeniaControl 'BtnUiZoomReset'
     if($null -ne $minus){$minus.IsEnabled=($percent -gt 80)}
     if($null -ne $plus){$plus.IsEnabled=($percent -lt 150)}
     if($null -ne $reset){$reset.Content=([string]$percent+' %')}
+    # A zoom gesture does not resize the outer Window, so its SizeChanged cannot update the breakpoints.
+    Update-DomeniaUxLayout
     if($Persist){Set-DomeniaSetting 'Ui.ZoomPercent' $percent;Save-DomeniaSettings}
 }
 function Initialize-DomeniaUiZoom {

@@ -587,7 +587,7 @@ try{
     $script:Ctrl['ChkReadOnlyMode'].Add_Checked({ Enter-DomeniaReadOnlyMode })
     $script:Ctrl['ChkReadOnlyMode'].Add_Unchecked({ Request-DomeniaWriteMode })
     $script:Ctrl['BtnReadOnlyResume'].Add_Click({ Exit-DomeniaWriteMode -Reason Manual })
-    Initialize-DomeniaUxShell;Pump $main
+    Initialize-DomeniaUxShell;Initialize-DomeniaUiZoom;Pump $main
     try{
         Case 'L08 : Ctrl+L, menu Explorateur WMI et palette ne modifient jamais le profil enregistre' {
             $script:L08.SettingWrites.Clear();$script:CurrentUiProfile='Tech'
@@ -762,22 +762,26 @@ try{
         }
 
         # 1280 x 688 is the work area of a 1920 x 1080 screen at 150 %.
-        Case 'L08 : a 960 et 1280 de large la recherche garde 280, les emplacements fixes restent, rien n est rogne' {
+        Case 'L08 : a 960, 1280 et 1360 la recherche garde 280, le menu suit le viewport utile, rien n est rogne' {
             # Fixed work area (as Preview-DomeniaUi, TE-08): the lab screen (1024x768) would clamp a real 1280 window.
             $content=$main.Content
             $area=New-Object Windows.Controls.Border;$canvas=New-Object Windows.Controls.Canvas
             $main.Content=$null;$area.Child=$content;[void]$canvas.Children.Add($area);$main.Content=$canvas
             $realWindow=$script:Window;$script:Window=$area
             try{
-                foreach($size in @(@(960,700),@(1280,688))){
+                foreach($size in @(@(960,700),@(1280,688),@(1360,760))){
                     $area.Width=$size[0];$area.Height=$size[1]
                     $script:UxLayoutSignature='';$script:UxNavLayoutSignature='';$script:UxNavCollapsed=$false
                     $area.Measure([Windows.Size]::new($size[0],$size[1]));$area.Arrange([Windows.Rect]::new(0,0,$size[0],$size[1]))
                     Update-DomeniaUxLayout;Pump $main
                     $area.Measure([Windows.Size]::new($size[0],$size[1]));$area.Arrange([Windows.Rect]::new(0,0,$size[0],$size[1]));Pump $main
                     $label=[string]$size[0]+'x'+[string]$size[1]
-                    $navWanted=if($size[0] -lt 1280){68}else{204}
-                    Expect ($script:Ctrl['UxNavColumn'].Width.Value -eq $navWanted) ($label+' : largeur du menu '+$script:Ctrl['UxNavColumn'].Width.Value+' au lieu de '+$navWanted)
+                    # The shell uses the logical viewport, not outer-window chrome; verify both folded and expanded widths.
+                    $scroll=$script:Ctrl['RootScroll'];$logicalWidth=[Math]::Max(900.0,[double]$scroll.ViewportWidth)
+                    Expect ($script:DomeniaUiZoomPercent -eq 100) ($label+' : le banc doit verifier le layout a 100 %')
+                    Expect ($scroll.ViewportWidth -gt 0 -and $scroll.ViewportWidth -le $size[0]) ($label+' : viewport non mesure')
+                    $navWanted=if($logicalWidth -lt 1280){68}else{204}
+                    Expect ($script:Ctrl['UxNavColumn'].Width.Value -eq $navWanted) ($label+' : largeur du menu '+$script:Ctrl['UxNavColumn'].Width.Value+' au lieu de '+$navWanted+' ; viewport '+$scroll.ViewportWidth+' ; repli temporaire '+$script:UxShortNavFold)
                     Expect (-not [bool]$script:UxNavCollapsed) ($label+' : preference du menu modifiee')
                     Expect ($script:Ctrl['TxtGlobalSearch'].ActualWidth -ge 280) ($label+' : recherche a '+[Math]::Round($script:Ctrl['TxtGlobalSearch'].ActualWidth))
                     $measured=@{}
@@ -791,7 +795,7 @@ try{
                         Expect (($p.X -ge -0.5) -and ($p.Y -ge -0.5) -and (($p.X+$c.ActualWidth) -le ($size[0]+0.5)) -and ($c.ActualWidth -ge 8)) ($label+' : '+$name+' rogne ('+[Math]::Round($p.X)+'+'+[Math]::Round($c.ActualWidth)+')')
                     }
                     Expect ($script:Ctrl['ChkReadOnlyMode'].ActualWidth -ge 200) ($label+' : interrupteur rogne')
-                    $hostWanted=if($size[0] -lt 1280){'UxHeaderTools'}else{'UxPageHeaderBar'}
+                    $hostWanted=if(($logicalWidth-$navWanted-40.0) -lt 1000.0){'UxHeaderTools'}else{'UxPageHeaderBar'}
                     Expect ([string]$script:Ctrl['UxReadOnlyHost'].Parent.Name -eq $hostWanted) ($label+' : interrupteur dans '+[string]$script:Ctrl['UxReadOnlyHost'].Parent.Name+' au lieu de '+$hostWanted)
                     Expect ($script:Ctrl['LblUxPageTitle'].ActualWidth -ge 60) ($label+' : titre de page ecrase a '+[Math]::Round($script:Ctrl['LblUxPageTitle'].ActualWidth))
                 }

@@ -118,7 +118,10 @@ function Get-DomeniaObservationMaxAgeDays {
 function Test-DomeniaFleetDashboardShown {
     $tabs = Get-DomeniaControl 'WorkspaceTabs'
     if ($null -eq $tabs -or $null -eq $tabs.SelectedItem) { return $false }
-    return ([string]$tabs.SelectedItem.Name -in @('TabDashboard','WsQueryWorkshop'))
+    if ([string]$tabs.SelectedItem.Name -eq 'TabDashboard') { return $true }
+    if ([string]$tabs.SelectedItem.Name -ne 'TabApplicationTools') { return $false }
+    $tools = Get-DomeniaControl 'ApplicationToolTabs'
+    return ($null -ne $tools -and $null -ne $tools.SelectedItem -and [string]$tools.SelectedItem.Name -eq 'WsQueryWorkshop')
 }
 function Test-DomeniaFleetAwaitingScope {
     # At startup Rechercher restores its remembered OU a moment after the window opens. Until then the scope is the
@@ -350,7 +353,7 @@ function Complete-DomeniaSelectedObservation {
     $retain=@(@($script:FleetLast.Targets)|ForEach-Object{[string]$_.distinguished_name})+@([string]$script:SelectedObject.DN)
     $script:FleetObservations = Merge-DomeniaFleetObservations -Stored $found -Current $script:FleetObservations -RetainKeys $retain
     # The board of the selected workstation shows them at once while it is still that workstation.
-    if (($null -ne $script:SelectedObject) -and $found.ContainsKey(([string]$script:SelectedObject.DN).ToLowerInvariant())) { try { Show-DomeniaBoard -Board Computer -Quiet } catch { } }
+    if (($null -ne $script:SelectedObject) -and $found.ContainsKey(([string]$script:SelectedObject.DN).ToLowerInvariant())) { try { Show-DomeniaBoard -Board Computer -Quiet -DeferIfHidden } catch { } }
 }
 function Fail-DomeniaSelectedObservation {
     param($Message,$State)
@@ -412,9 +415,9 @@ function Complete-DomeniaFleetDashboard {
     try { Update-DomeniaFleetMachineList } catch { Write-AppLog ('Liste locale du parc indisponible : ' + $_.Exception.Message) 'WARN' }
     Add-Member -InputObject $script:FleetLast -MemberType NoteProperty -Name 'Epoch' -Value ([long]$script:SessionEpoch) -Force
     # New data never removes the undo of a layout change (FI-11): Show-DomeniaBoard keeps the undo stack.
-    Show-DomeniaBoard -Board Fleet -Data $board
+    Show-DomeniaBoard -Board Fleet -Data $board -DeferIfHidden
     # A query run on the selected workstation refreshes its widgets even without an inventory.
-    if ($null -ne $script:SelectedObject -or $null -ne $script:LastComputerDashboardResult) { try { Show-DomeniaBoard -Board Computer -Quiet } catch { } }
+    if ($null -ne $script:SelectedObject -or $null -ne $script:LastComputerDashboardResult) { try { Show-DomeniaBoard -Board Computer -Quiet -DeferIfHidden } catch { } }
     [void](Set-DomeniaControlText 'LblFleetDashboard' ('Calculée depuis la base autonome locale, sans requête AD ni poste, le ' + (Get-Date -Format 'dd/MM/yyyy HH:mm') + '.'))
     [void](Save-DomeniaFleetSnapshot -Scope $scope -Board $board)
     try { Update-DomeniaFirstSteps } catch { }

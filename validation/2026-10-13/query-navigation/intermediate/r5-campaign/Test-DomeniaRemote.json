@@ -1,0 +1,242 @@
+{
+    "Build":  "2026.09.21-R1.3-LASTUSER",
+    "Mode":  "NativePowerShellWithMocksAndLocalFiles",
+    "PowerShell":  "5.1.26100.6584",
+    "Edition":  "Desktop",
+    "RunAt":  "2026-10-13T02:51:33.8993455+02:00",
+    "NoRemoteAccess":  true,
+    "Passed":  46,
+    "Failed":  0,
+    "Tests":  [
+                  {
+                      "Name":  "Parseur natif: coeur, code commun et resolver",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Empreinte du vrai worker ComputerLastUser",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Reproduction de l ancienne concatenation incorrecte (aucun processus)",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Cible unique valide : TESTPC",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Cible unique valide : pc-01.example.test",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Cible unique valide : 192.0.2.10",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Cible invalide rejetee : ",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Cible invalide rejetee : *",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Cible invalide rejetee : PC1,PC2",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Cible invalide rejetee : PC1 -s",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Cible invalide rejetee : \\\\PC1",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Cible invalide rejetee : -accepteula",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Cible invalide rejetee : PC1;cmd",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Encodage argument natif : ",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Encodage argument natif : plain",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Encodage argument natif : EXAMPLE\\user",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Encodage argument natif : two words",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Encodage argument natif : ab\"cd",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Encodage argument natif : C:\\path with space\\",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "PsExec: cible et deux options distinctes, contexte Windows",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "PsExec: compte explicite refuse, aucun mot de passe en ligne de commande",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Depot distant refuse sans consentement explicite",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "PsExec: cible invalide ne lance aucun processus",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "PsExec: licence interpretee sans recopier son texte",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "PsExec: marqueur valide mais code non nul refuse",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Planificateur: identifiants en argument refuses",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Planificateur: seules les taches propres a l operation",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "ADMIN$: meme credential que PsExec/schtasks",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "ADMIN$: refus explicite sans repli silencieux sur un autre compte",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Contexte LastUser: conserve le compte AD et le compte distant distincts",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Contexte: ping ne recoit pas le credential LDAP",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Contexte LastUser: compte distant possible avec login Windows",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Contexte LastUser: canal AD suspendu reste bloque",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "LDAP: resultat vrai compatible avec les anciens appelants",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "LDAP: compte absent distinct d une erreur de lecture",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "LDAP: erreur Dispose ne detruit pas un resultat valide",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Resume des tentatives preserve DCOM et WinRM",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Staging: ecriture lecture et nettoyage par le PSDrive local",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Resolver: candidat CIM confirme, aucun fallback",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Resolver: erreur CIM exposee, WinRM desactive non sonde",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Resolver: verification LDAP refusee non confondue avec hors AD",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "R1.3: session fermee, LogonUI CIM lu et candidat verifie sans secours",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "R1.3: interrogation registre desactivee respectee",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "R1.3: refus de lecture LogonUI jamais transforme en resultat",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "R1.3: progression disponible avant le callback final",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "SE-07 : une lecture ne bascule jamais seule sur PsExec ou une tache planifiee",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  }
+              ]
+}

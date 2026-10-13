@@ -1,0 +1,666 @@
+{
+    "UiBlockingAudit":  {
+                            "Kind":  "UiBlockingAudit",
+                            "Static":  true,
+                            "Executed":  false,
+                            "Roots":  668,
+                            "Functions":  2056,
+                            "Findings":  [
+                                             {
+                                                 "Function":  "\u003cAdd_Click@wad/Domenia-Core.ps1\u003e",
+                                                 "Pattern":  ".WriteAllText",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:28781 $ui.OpenLog.Add_Click",
+                                                 "Line":  28784,
+                                                 "File":  "",
+                                                 "Roots":  1
+                                             },
+                                             {
+                                                 "Function":  "Add-DomeniaRelationHistory",
+                                                 "Pattern":  ".AppendAllText",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:8956 $timer.Add_Tick \u003e Complete-LinkProbeJobs \u003e Add-UserMachineLinkIfMissing \u003e Add-DomeniaRelation \u003e Add-DomeniaRelationHistory",
+                                                 "Line":  537,
+                                                 "File":  "wad\\modules\\Domenia-Relations.UI.ps1",
+                                                 "Roots":  14
+                                             },
+                                             {
+                                                 "Function":  "Complete-DomeniaDetachedReadJobs",
+                                                 "Pattern":  ".EndInvoke",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:3190 Start-UiTask \u003e Apply-DomeniaPresenceFilter \u003e Set-DomeniaGridRows \u003e Queue-DomeniaSelectedObjectOpen \u003e Invoke-DomeniaPendingSelectionOpen \u003e Open-AdObject \u003e Start-UiTask \u003e Complete-DomeniaDetachedReadJobs",
+                                                 "Line":  420,
+                                                 "File":  "wad\\Domenia-Core.ps1",
+                                                 "Roots":  215
+                                             },
+                                             {
+                                                 "Function":  "Complete-DomeniaLoginAuthRunspaceCleanup",
+                                                 "Pattern":  ".EndInvoke",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:20510 New-DomeniaTimer \u003e Complete-DomeniaLoginAuthRunspaceCleanup",
+                                                 "Line":  20490,
+                                                 "File":  "wad\\Domenia-Core.ps1",
+                                                 "Roots":  19
+                                             },
+                                             {
+                                                 "Function":  "Complete-LinkProbeJobs",
+                                                 "Pattern":  "Receive-Job",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:8956 $timer.Add_Tick \u003e Complete-LinkProbeJobs",
+                                                 "Line":  8969,
+                                                 "File":  "wad\\Domenia-Core.ps1",
+                                                 "Roots":  1
+                                             },
+                                             {
+                                                 "Function":  "Complete-UiTasks",
+                                                 "Pattern":  ".EndInvoke",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:23813 New-DomeniaTimer \u003e Complete-UiTasks",
+                                                 "Line":  24267,
+                                                 "File":  "wad\\Domenia-Core.ps1",
+                                                 "Roots":  2
+                                             },
+                                             {
+                                                 "Function":  "Dispose-AsyncEngine",
+                                                 "Pattern":  ".EndInvoke",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:27710 $script:Window.Add_Closed \u003e Dispose-AsyncEngine",
+                                                 "Line":  24409,
+                                                 "File":  "wad\\Domenia-Core.ps1",
+                                                 "Roots":  1
+                                             },
+                                             {
+                                                 "Function":  "Ensure-AppIconFile",
+                                                 "Pattern":  ".WriteAllBytes",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:459 $copy.Add_Click \u003e Show-ErrorBox \u003e Show-DomeniaDialog \u003e Set-AppWindowIcon \u003e Ensure-AppIconFile",
+                                                 "Line":  1112,
+                                                 "File":  "wad\\Domenia-Core.ps1",
+                                                 "Roots":  227
+                                             },
+                                             {
+                                                 "Function":  "Export-DomeniaCsv",
+                                                 "Pattern":  "Export-Csv",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:14308 $menu.Add_Opened \u003e Build-DomeniaObjectsContextMenu \u003e Export-CurrentResults \u003e Export-DomeniaCsv",
+                                                 "Line":  337,
+                                                 "File":  "wad\\Domenia-Core.ps1",
+                                                 "Roots":  11
+                                             },
+                                             {
+                                                 "Function":  "Export-SelfCheckReport",
+                                                 "Pattern":  ".CreateFromDirectory",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:22218 $script:Ctrl[\"BtnSelfCheckExport\"].Add_Click \u003e Export-SelfCheckReport",
+                                                 "Line":  27401,
+                                                 "File":  "wad\\Domenia-Core.ps1",
+                                                 "Roots":  1
+                                             },
+                                             {
+                                                 "Function":  "Export-SelfCheckReport",
+                                                 "Pattern":  "Set-Content",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:22218 $script:Ctrl[\"BtnSelfCheckExport\"].Add_Click \u003e Export-SelfCheckReport",
+                                                 "Line":  27392,
+                                                 "File":  "wad\\Domenia-Core.ps1",
+                                                 "Roots":  3
+                                             },
+                                             {
+                                                 "Function":  "Get-DomeniaDatabasePath",
+                                                 "Pattern":  "Invoke-DomeniaDbQuery",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:471 $health.Add_Click \u003e Get-DomeniaRuntimeHealthText \u003e Get-DomeniaDatabasePath",
+                                                 "Line":  22796,
+                                                 "File":  "wad\\Domenia-Core.ps1",
+                                                 "Roots":  91
+                                             },
+                                             {
+                                                 "Function":  "Get-DomeniaOperationHistoryModel",
+                                                 "Pattern":  "Initialize-DomeniaDatabase",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:22034 $script:Ctrl[\"BtnIndexBuild\"].Add_Click \u003e Start-DomeniaIndexBuild \u003e Get-DomeniaOperationImpactEstimate \u003e Get-DomeniaOperationHistoryModel",
+                                                 "Line":  23200,
+                                                 "File":  "wad\\Domenia-Core.ps1",
+                                                 "Roots":  4
+                                             },
+                                             {
+                                                 "Function":  "Get-DomeniaOperationHistoryModel",
+                                                 "Pattern":  "Invoke-DomeniaDbQuery",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:22034 $script:Ctrl[\"BtnIndexBuild\"].Add_Click \u003e Start-DomeniaIndexBuild \u003e Get-DomeniaOperationImpactEstimate \u003e Get-DomeniaOperationHistoryModel",
+                                                 "Line":  23202,
+                                                 "File":  "wad\\Domenia-Core.ps1",
+                                                 "Roots":  4
+                                             },
+                                             {
+                                                 "Function":  "Get-DomeniaParkCoverage",
+                                                 "Pattern":  "Invoke-DomeniaDbQuery",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:22050 $script:Ctrl[\"BtnParkReset\"].Add_Click \u003e Get-DomeniaParkCoverageText \u003e Get-DomeniaParkCoverage",
+                                                 "Line":  16814,
+                                                 "File":  "wad\\Domenia-Core.ps1",
+                                                 "Roots":  6
+                                             },
+                                             {
+                                                 "Function":  "Get-DomeniaRelationsRestorableEntry",
+                                                 "Pattern":  ".ReadAllLines",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:3190 Start-UiTask \u003e Apply-DomeniaPresenceFilter \u003e Set-DomeniaGridRows \u003e Queue-DomeniaSelectedObjectOpen \u003e Clear-DomeniaSelectionEverywhere \u003e Reset-DomeniaSelectionBoundViews \u003e Update-DomeniaLinkActionUi \u003e Update-DomeniaRelationsActions \u003e Get-DomeniaRelationsRestoreCandidate \u003e Get-DomeniaRelationsRestorableEntry",
+                                                 "Line":  549,
+                                                 "File":  "wad\\modules\\Domenia-Relations.UI.ps1",
+                                                 "Roots":  253
+                                             },
+                                             {
+                                                 "Function":  "Get-DomeniaSecretIndexEntry",
+                                                 "Pattern":  "Initialize-DomeniaDatabase",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:3190 Start-UiTask \u003e Apply-DomeniaPresenceFilter \u003e Set-DomeniaGridRows \u003e Queue-DomeniaSelectedObjectOpen \u003e Clear-DomeniaSelectionEverywhere \u003e Reset-DomeniaSelectionBoundViews \u003e Get-DomeniaSecretIndexSummary \u003e Get-DomeniaSecretIndexEntry",
+                                                 "Line":  17985,
+                                                 "File":  "wad\\Domenia-Core.ps1",
+                                                 "Roots":  94
+                                             },
+                                             {
+                                                 "Function":  "Get-DomeniaSecretIndexEntry",
+                                                 "Pattern":  "Invoke-DomeniaDbQuery",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:3190 Start-UiTask \u003e Apply-DomeniaPresenceFilter \u003e Set-DomeniaGridRows \u003e Queue-DomeniaSelectedObjectOpen \u003e Clear-DomeniaSelectionEverywhere \u003e Reset-DomeniaSelectionBoundViews \u003e Get-DomeniaSecretIndexSummary \u003e Get-DomeniaSecretIndexEntry",
+                                                 "Line":  17986,
+                                                 "File":  "wad\\Domenia-Core.ps1",
+                                                 "Roots":  94
+                                             },
+                                             {
+                                                 "Function":  "Get-DomeniaWindowsLifecycleTable",
+                                                 "Pattern":  ".ReadAllText",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:3190 Start-UiTask \u003e Apply-DomeniaPresenceFilter \u003e Set-DomeniaGridRows \u003e Queue-DomeniaSelectedObjectOpen \u003e Clear-DomeniaSelectionEverywhere \u003e Reset-DomeniaSelectionBoundViews \u003e Clear-DomeniaDashboards \u003e Show-DomeniaBoard \u003e New-DomeniaBoardWidget \u003e Resolve-DomeniaBoardEntry \u003e Get-DomeniaComputerQueryBoardEntry \u003e Get-DomeniaComputerQueryRecords \u003e Get-DomeniaWindowsLifecycleTable",
+                                                 "Line":  106,
+                                                 "File":  "wad\\modules\\Domenia-Dashboard.UI.ps1",
+                                                 "Roots":  93
+                                             },
+                                             {
+                                                 "Function":  "Get-SuiteDesign",
+                                                 "Pattern":  ".ReadAllText",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:21732 $script:Ctrl[\"BtnThemeToggle\"].Add_Click \u003e Toggle-DomeniaTheme \u003e Apply-DomeniaTheme \u003e Set-DomeniaUxPalette \u003e Get-SuitePalette \u003e Get-SuiteDesign",
+                                                 "Line":  55,
+                                                 "File":  "wad\\modules\\Domenia-Experience.Model.ps1",
+                                                 "Roots":  1
+                                             },
+                                             {
+                                                 "Function":  "Import-DomeniaUxHelpCatalogue",
+                                                 "Pattern":  ".ReadAllText",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:3190 Start-UiTask \u003e Apply-DomeniaPresenceFilter \u003e Set-DomeniaGridRows \u003e Queue-DomeniaSelectedObjectOpen \u003e Select-DomeniaWorkspace \u003e Sync-DomeniaUxNavigation \u003e Get-DomeniaUxNavButtons \u003e Get-DomeniaUxHelpEntry \u003e Import-DomeniaUxHelpCatalogue",
+                                                 "Line":  27,
+                                                 "File":  "wad\\modules\\Domenia-UX.UI.ps1",
+                                                 "Roots":  271
+                                             },
+                                             {
+                                                 "Function":  "Initialize-DomeniaInlineUi",
+                                                 "Pattern":  ".ReadAllText",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:14308 $menu.Add_Opened \u003e Build-DomeniaObjectsContextMenu \u003e Set-AccountDisabled \u003e Request-DomeniaWriteConfirmation \u003e Request-DomeniaInlineConfirmation \u003e Initialize-DomeniaInlineUi",
+                                                 "Line":  13,
+                                                 "File":  "wad\\modules\\Domenia-Inline.UI.ps1",
+                                                 "Roots":  35
+                                             },
+                                             {
+                                                 "Function":  "Initialize-DomeniaOperationsPanel",
+                                                 "Pattern":  ".ReadAllText",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:471 $health.Add_Click \u003e Show-DomeniaOperationsPanel \u003e Initialize-DomeniaOperationsPanel",
+                                                 "Line":  46,
+                                                 "File":  "wad\\modules\\Domenia-Experience.UI.ps1",
+                                                 "Roots":  2
+                                             },
+                                             {
+                                                 "Function":  "Initialize-DomeniaQueryView",
+                                                 "Pattern":  ".ReadAllText",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:21724 $script:Ctrl[\"BtnCommandPalette\"].Add_Click \u003e Show-DomeniaCommandPalette \u003e Show-DomeniaQueryWorkshop \u003e Initialize-DomeniaQueryWorkshop \u003e Initialize-DomeniaQueryView",
+                                                 "Line":  7,
+                                                 "File":  "wad\\modules\\Domenia-Query.UI.ps1",
+                                                 "Roots":  13
+                                             },
+                                             {
+                                                 "Function":  "Invoke-DomeniaAppLogFlush",
+                                                 "Pattern":  ".AppendAllText",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:459 $copy.Add_Click \u003e Set-Status \u003e Write-DomeniaAppLogFile \u003e Flush-DomeniaAppLog \u003e Invoke-DomeniaAppLogFlush",
+                                                 "Line":  19667,
+                                                 "File":  "wad\\Domenia-Core.ps1",
+                                                 "Roots":  1419
+                                             },
+                                             {
+                                                 "Function":  "Invoke-DomeniaUiPump",
+                                                 "Pattern":  ".DoEvents",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:14308 $menu.Add_Opened \u003e Build-DomeniaObjectsContextMenu \u003e Move-DomeniaSelectedComputerWithOuPicker \u003e Invoke-DomeniaUiPump",
+                                                 "Line":  2018,
+                                                 "File":  "wad\\Domenia-Core.ps1",
+                                                 "Roots":  9
+                                             },
+                                             {
+                                                 "Function":  "Invoke-DomeniaUiPump",
+                                                 "Pattern":  ".PushFrame",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:14308 $menu.Add_Opened \u003e Build-DomeniaObjectsContextMenu \u003e Move-DomeniaSelectedComputerWithOuPicker \u003e Invoke-DomeniaUiPump",
+                                                 "Line":  2031,
+                                                 "File":  "wad\\Domenia-Core.ps1",
+                                                 "Roots":  9
+                                             },
+                                             {
+                                                 "Function":  "Load-DomeniaIndexMetadata",
+                                                 "Pattern":  "Initialize-DomeniaDatabase",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:21735 $script:Ctrl[\"BtnAccountAdRelogin\"].Add_Click \u003e Start-DomeniaAccountRelogin \u003e Load-DomeniaIndexMetadata",
+                                                 "Line":  15857,
+                                                 "File":  "wad\\Domenia-Core.ps1",
+                                                 "Roots":  19
+                                             },
+                                             {
+                                                 "Function":  "Load-DomeniaIndexMetadata",
+                                                 "Pattern":  "Invoke-DomeniaDbQuery",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:21735 $script:Ctrl[\"BtnAccountAdRelogin\"].Add_Click \u003e Start-DomeniaAccountRelogin \u003e Load-DomeniaIndexMetadata",
+                                                 "Line":  15860,
+                                                 "File":  "wad\\Domenia-Core.ps1",
+                                                 "Roots":  38
+                                             },
+                                             {
+                                                 "Function":  "Load-DomeniaParkState",
+                                                 "Pattern":  "Initialize-DomeniaDatabase",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:22050 $script:Ctrl[\"BtnParkReset\"].Add_Click \u003e Get-DomeniaParkCoverageText \u003e Get-DomeniaParkCoverage \u003e Load-DomeniaParkState",
+                                                 "Line":  16739,
+                                                 "File":  "wad\\Domenia-Core.ps1",
+                                                 "Roots":  6
+                                             },
+                                             {
+                                                 "Function":  "Load-DomeniaParkState",
+                                                 "Pattern":  "Invoke-DomeniaDbQuery",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:22050 $script:Ctrl[\"BtnParkReset\"].Add_Click \u003e Get-DomeniaParkCoverageText \u003e Get-DomeniaParkCoverage \u003e Load-DomeniaParkState",
+                                                 "Line":  16739,
+                                                 "File":  "wad\\Domenia-Core.ps1",
+                                                 "Roots":  6
+                                             },
+                                             {
+                                                 "Function":  "Load-UserMachineLinks",
+                                                 "Pattern":  "Initialize-DomeniaDatabase",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:21735 $script:Ctrl[\"BtnAccountAdRelogin\"].Add_Click \u003e Start-DomeniaAccountRelogin \u003e Load-UserMachineLinks",
+                                                 "Line":  23493,
+                                                 "File":  "wad\\Domenia-Core.ps1",
+                                                 "Roots":  4
+                                             },
+                                             {
+                                                 "Function":  "Load-UserMachineLinks",
+                                                 "Pattern":  "Invoke-DomeniaDbQuery",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:21735 $script:Ctrl[\"BtnAccountAdRelogin\"].Add_Click \u003e Start-DomeniaAccountRelogin \u003e Load-UserMachineLinks",
+                                                 "Line":  23494,
+                                                 "File":  "wad\\Domenia-Core.ps1",
+                                                 "Roots":  4
+                                             },
+                                             {
+                                                 "Function":  "Move-DomeniaSelectedComputerWithOuPicker",
+                                                 "Pattern":  "Start-Sleep",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:14308 $menu.Add_Opened \u003e Build-DomeniaObjectsContextMenu \u003e Move-DomeniaSelectedComputerWithOuPicker",
+                                                 "Line":  9156,
+                                                 "File":  "wad\\Domenia-Core.ps1",
+                                                 "Roots":  1
+                                             },
+                                             {
+                                                 "Function":  "Open-DomeniaAuditLog",
+                                                 "Pattern":  ".WriteAllText",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:22237 $script:Ctrl[\"BtnDashOpenLog\"].Add_Click \u003e Open-DomeniaAuditLog",
+                                                 "Line":  19749,
+                                                 "File":  "wad\\Domenia-Core.ps1",
+                                                 "Roots":  1
+                                             },
+                                             {
+                                                 "Function":  "Read-DomeniaAuthRunspaceResult",
+                                                 "Pattern":  ".EndInvoke",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:28325 New-DomeniaTimer \u003e Update-DomeniaFastLoginAttempt \u003e Read-DomeniaAuthRunspaceResult",
+                                                 "Line":  20615,
+                                                 "File":  "wad\\Domenia-Core.ps1",
+                                                 "Roots":  3
+                                             },
+                                             {
+                                                 "Function":  "Read-DomeniaPreference",
+                                                 "Pattern":  ".ReadAllText",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:459 $copy.Add_Click \u003e Show-ErrorBox \u003e Show-DomeniaDialog \u003e Get-DomeniaStoredTheme \u003e Read-DomeniaPreference",
+                                                 "Line":  3384,
+                                                 "File":  "wad\\Domenia-Core.ps1",
+                                                 "Roots":  234
+                                             },
+                                             {
+                                                 "Function":  "Refresh-DomeniaOperationStatsUi",
+                                                 "Pattern":  "Initialize-DomeniaDatabase",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:22085 $script:Ctrl[\"BtnOperationStatsRefresh\"].Add_Click \u003e Refresh-DomeniaOperationStatsUi",
+                                                 "Line":  23219,
+                                                 "File":  "wad\\Domenia-Core.ps1",
+                                                 "Roots":  3
+                                             },
+                                             {
+                                                 "Function":  "Refresh-DomeniaOperationStatsUi",
+                                                 "Pattern":  "Invoke-DomeniaDbQuery",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:22085 $script:Ctrl[\"BtnOperationStatsRefresh\"].Add_Click \u003e Refresh-DomeniaOperationStatsUi",
+                                                 "Line":  23235,
+                                                 "File":  "wad\\Domenia-Core.ps1",
+                                                 "Roots":  3
+                                             },
+                                             {
+                                                 "Function":  "Save-DomeniaXamlDiagnostic",
+                                                 "Pattern":  ".WriteAllText",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:21735 $script:Ctrl[\"BtnAccountAdRelogin\"].Add_Click \u003e Start-DomeniaAccountRelogin \u003e Show-LoginWindow \u003e ConvertFrom-DomeniaXaml \u003e Save-DomeniaXamlDiagnostic",
+                                                 "Line":  7631,
+                                                 "File":  "wad\\Domenia-Core.ps1",
+                                                 "Roots":  5
+                                             },
+                                             {
+                                                 "Function":  "Set-DomeniaStartupStage",
+                                                 "Pattern":  ".DoEvents",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:22674 $script:StartupCtrl.Cancel.Add_Click \u003e Set-DomeniaStartupStage",
+                                                 "Line":  22713,
+                                                 "File":  "wad\\Domenia-Core.ps1",
+                                                 "Roots":  3
+                                             },
+                                             {
+                                                 "Function":  "Show-DomeniaEmbeddedWindow",
+                                                 "Pattern":  ".PushFrame",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:459 $copy.Add_Click \u003e Show-ErrorBox \u003e Show-DomeniaDialog \u003e Invoke-DomeniaHostWindow \u003e Show-DomeniaEmbeddedWindow",
+                                                 "Line":  204,
+                                                 "File":  "wad\\modules\\Domenia-Embedded.UI.ps1",
+                                                 "Roots":  233
+                                             },
+                                             {
+                                                 "Function":  "Write-DomeniaBootstrapTrace",
+                                                 "Pattern":  ".AppendAllText",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:459 $copy.Add_Click \u003e Show-ErrorBox \u003e Show-DomeniaDialog \u003e Set-AppWindowIcon \u003e Ensure-AppIconFile \u003e Write-DomeniaBootstrapTrace",
+                                                 "Line":  530,
+                                                 "File":  "wad\\Domenia-Core.ps1",
+                                                 "Roots":  222
+                                             },
+                                             {
+                                                 "Function":  "Write-DomeniaFastLoginLog",
+                                                 "Pattern":  ".AppendAllText",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:21735 $script:Ctrl[\"BtnAccountAdRelogin\"].Add_Click \u003e Start-DomeniaAccountRelogin \u003e Show-LoginWindow \u003e Write-DomeniaFastLoginLog",
+                                                 "Line":  27831,
+                                                 "File":  "wad\\Domenia-Core.ps1",
+                                                 "Roots":  11
+                                             },
+                                             {
+                                                 "Function":  "Write-StartupTrace",
+                                                 "Pattern":  ".AppendAllText",
+                                                 "Chain":  "wad\\Domenia-Core.ps1:459 $copy.Add_Click \u003e Show-ErrorBox \u003e Show-DomeniaDialog \u003e Get-DomeniaStoredTheme \u003e Read-DomeniaPreference \u003e Write-StartupTrace",
+                                                 "Line":  22624,
+                                                 "File":  "wad\\Domenia-Core.ps1",
+                                                 "Roots":  292
+                                             }
+                                         ],
+                            "New":  [
+
+                                    ],
+                            "Stale":  [
+
+                                      ],
+                            "Passed":  3,
+                            "Failed":  0,
+                            "Tests":  [
+                                          {
+                                              "Name":  "Analyse syntaxique des sources",
+                                              "Status":  "Passed",
+                                              "Detail":  ""
+                                          },
+                                          {
+                                              "Name":  "Racines trouvees (gestionnaires et rappels)",
+                                              "Status":  "Passed",
+                                              "Detail":  "668 racine(s)"
+                                          },
+                                          {
+                                              "Name":  "Aucune attente nouvelle atteignable depuis le Dispatcher",
+                                              "Status":  "Passed",
+                                              "Detail":  "45 constat(s), 0 hors ligne de base, 0 entree(s) de base sans constat"
+                                          }
+                                      ]
+                        },
+    "Kind":  "WiringMoteur",
+    "Host":  "5.1.26100.6584",
+    "NativeWindowsPowerShell51":  true,
+    "Wpf":  true,
+    "MockedNetwork":  true,
+    "LiveAD":  false,
+    "Points":  [
+                   "D002",
+                   "D003",
+                   "D011",
+                   "D014",
+                   "D015",
+                   "D016",
+                   "D017",
+                   "D018",
+                   "D019",
+                   "D020",
+                   "D028",
+                   "D089"
+               ],
+    "Passed":  49,
+    "Failed":  0,
+    "Complete":  true,
+    "Tests":  [
+                  {
+                      "Name":  "D011 : aucune fonction de module appelee au niveau script du coeur",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D011 : etat du moteur cree paresseusement au premier Start-UiTask",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D011 : le self-test exige le plan, les regles du moteur et la demonstration",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D011 : plan reel du chargeur valide par la regle de demarrage",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D015 : saturation =\u003e demande en file, aucune exception ni second appel",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D015 : a la liberation, l action explicite part avant le travail de fond",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D015 : une ecriture saturee est refusee, jamais mise en file",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D015 : deux lectures identiques partagent un seul appel et deux rappels",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D017 : un arret demande est annonce comme encore actif",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D017 : lecture detachee comptee et barre visible pendant le nettoyage",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D017 : une entree en file est affichee en attente puis retiree sans appel",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D017 : un echec de preparation ne reactive pas un controle tenu par une autre tache",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D018 : refus d identifiants poste =\u003e aucun nouvel essai sur la cible, autre cible et canal AD intacts",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D018 : un refus WTS (SessionsList) ne suspend pas le canal AD",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D018 : pannes repetees =\u003e fond suspendu, action explicite autorisee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D019 : 50 cycles demarrage, annulation et fin : registre revenu a son niveau",
+                      "Status":  "Passed",
+                      "Detail":  "Ressources 2 -\u003e 2 (pic 3) ; handles du processus 774 -\u003e 807 (mesure, sans seuil)."
+                  },
+                  {
+                      "Name":  "D019 : la fermeture arrete tous les minuteurs enregistres",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D020 : sans politique initialisee, repli ouvert (C1)",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D020 : fenetre desactivee ou reduite =\u003e aucun travail de fond",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D020 : accueil cache non reconstruit, reconstruit une fois quand il redevient visible",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D014 : frappe dans l index local sans SQLite sur le Dispatcher, base verrouillee comprise",
+                      "Status":  "Passed",
+                      "Detail":  "Frappe : mediane de 5 essais 1.6 ms (mesure, sans seuil). Frappe pendant le verrou : 2.1 ms (mesure)."
+                  },
+                  {
+                      "Name":  "D014 : synchronisation du releve partage hors Dispatcher (fichier verrouille)",
+                      "Status":  "Passed",
+                      "Detail":  "Rappel du releve : 96 ms (mesure, sans seuil)."
+                  },
+                  {
+                      "Name":  "D014 : audit statique des attentes atteignables depuis le Dispatcher",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D016 : desactive par defaut, la lecture reste dans le moteur",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D016 : processus auxiliaire arrete sans toucher l interface, sans donnee en argument",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D002 : commutateur strict et fixe une fois apres la configuration",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D002 : arbre reel (Load-TreeChildren) servi par DemoDirectory",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D002 : recherche globale par evenements Row et fiche a GUID texte",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D002 : ecritures et outils refuses, operation non disponible sans proposition de compte",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D003 : objet restreint refuse (0x80070005) puis autre compte de demonstration",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D002 : login de demonstration de bout en bout (vrai runspace d authentification, aucun mot de passe)",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D002 : bandeau et verrou de lecture seule dans la fenetre principale",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D089 : aucun Topmost sauf le login autonome temporaire, nettoye en finally",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D089 : une seule demande par moment, refus respecte, Alt-Tab respecte",
+                      "Status":  "Passed",
+                      "Detail":  "Premiere demande : refusee par Windows (session sans premier plan), sans nouvel essai"
+                  },
+                  {
+                      "Name":  "D028 : deux mises a jour independantes ne s ecrasent pas",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D028 : un verrou SQLite ne bloque pas WPF",
+                      "Status":  "Passed",
+                      "Detail":  "Start-DomeniaStorageWork (ouverture du runspace incluse) : 41 / 30,1 / 25 ms ; attente du verrou : 475,7 / 420,8 / 458,4 ms ; plus grand ecart du Dispatcher pendant cette attente : 60,6 / 55,3 / 50,8 ms ; apres reprise, premier essai differe par le moteur : Pannes repetees : nouvelles lectures de fond suspendues temporairement."
+                  },
+                  {
+                      "Name":  "D028 : consoles simultanees : verification et ecriture dans une seule transaction",
+                      "Status":  "Passed",
+                      "Detail":  "Verrou de B leve a 206 ms apres le depart du lot de A ; rappel a 343 ms ; arrivee du worker sur BEGIN IMMEDIATE bornee a 176 ms (cas verrou) ; entrelacement etabli : oui"
+                  },
+                  {
+                      "Name":  "FI-03 : ecriture admise malgre 12 lectures detachees, lectures de fond en file",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "CO-02 : Annuler vise la recherche, jamais l enregistrement local",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "FI-05 : minuteur protege arrete apres 3 erreurs, une ligne par erreur",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "MO-05 : candidat d un fournisseur sature saute et garde en file, sans erreur",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "CD-12 : erreur d une tache analysee une seule fois et transmise aux rappels",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "UX-30 : accueil recalcule fenetre inactive mais visible, suspendu fenetre reduite",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "PF-06 : moteur au repos, minuteur du moteur arrete puis relance par une tache",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "PF-04 : plusieurs demandes en file partent dans le meme tick, par priorite",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "PF-23 : partie statique du contexte en cache, operation locale sans secret",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "PF-05 : lectures frequentes servies par un pool, RunspaceOpen mesure",
+                      "Status":  "Passed",
+                      "Detail":  "RunspaceOpen OpenAdObject : p50 2.42 ms, p95 9.92 ms, max 9.92 ms (premiere ouverture du pool comprise ; mesure)."
+                  },
+                  {
+                      "Name":  "MO-03 : minuterie de sauvegarde armee a la mise en file, arretee file vide, ordre conserve",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "UX-32 / PF-12 : panneau Operations sous le bouton, lignes mises a jour sur place, Arreter par ligne",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  }
+              ]
+}

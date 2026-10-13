@@ -1,0 +1,254 @@
+{
+    "Build":  "2026.09.30-DOMENIA-1.0-RC1",
+    "Environment":  "Windows PowerShell 5.1 / WPF",
+    "NoNetwork":  true,
+    "Passed":  49,
+    "Failed":  0,
+    "Tests":  [
+                  {
+                      "Name":  "Parseur natif : scripts runtime et nouvelle suite",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Registre ferme conforme au contrat DEV",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Empreinte et syntaxe du worker de revalidation",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Syntaxe et empreintes des deux workers secrets",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Acces refuse reconnu en francais",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Acces refuse reconnu en anglais",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "HRESULT acces refuse sans texte connu",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "HRESULT mot de passe refuse sans texte connu",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D029 : mesure et purge locales ne recoivent aucun compte, meme de remplacement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D029 : erreur locale ne propose pas un compte AD",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Timeout ne signifie pas mauvais compte",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Refus de dechiffrement LAPS reconnu",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "LAPS et BitLocker ont des portees distinctes",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Diagnostics distant partage la portee remote",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Revalidation reutilise le compte de recherche",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Refus LAPS ne marque pas BitLocker refuse",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Autre cible ne reprend pas un refus local",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Compte LAPS conserve uniquement pour sa ressource",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ancienne session ne reutilise pas le credential",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Autre domaine ne reutilise pas le credential",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Remplacement distant ne remplace pas le compte LDAP",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Compte distant temporaire ne reactive pas un bind AD rejete",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Rejet global du canal AD renvoie au login principal",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Notification de fond sans fenetre automatique",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Un seul avis par ressource et cible",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Avis sans erreur brute ni mot de passe dans son modele",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Avis de droits limite a 16 cibles",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Valeur absente distinguee d un refus certain",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Annuler la proposition ne lance pas le login",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Annuler le login conserve le precedent credential",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Validation LAPS relance seulement la lecture et une fois",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ancienne selection ne relance pas sa lecture",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Action ecriture jamais rejouee par le login",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Etat d ecriture inconnu empeche le changement de compte",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Erreur d une ancienne session n ouvre pas un login",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Largeurs invalides ignorees et bornes appliquees",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Unites de largeur inconnues refusees",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Colonnes dupliquees ignorees",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "JSON de preferences trop grand ignore",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "JSON invalide ignore sans reinitialiser le programme",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "OU hors du domaine non restauree",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "OU exacte et branches conservees sans reconstruction LDAP",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "WPF : ordre et tailles font un aller retour JSON sans lignes",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "WPF : XAML principal charge et boutons conserves",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "WPF : dialogue credentials reel en clair et sombre sans authentification",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "FI-14 plafond du runtime lu dans le contrat, alerte a 80 %",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "SP-09 Test-DomeniaSignature rend integrite et editeur separement, hors ligne",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "SP-09 Verifier-Paquet : outil de signature du verificateur seulement, jamais lance sur une copie en erreur",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "SP-09 preuve reelle : copie signee de la composition PROD, certificat de test jamais approuve",
+                      "Passed":  true,
+                      "Detail":  ""
+                  }
+              ]
+}

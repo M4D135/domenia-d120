@@ -326,7 +326,17 @@ Case 'SP-09 preuve reelle : copie signee de la composition PROD, certificat de t
         Assert-Release (@($signedRows|Where-Object{$_.SignerThumbprint -cne $cert.Thumbprint}).Count -eq 0) 'Empreinte du signataire non lue sur un script signe.'
         Assert-Release (@($signedRows|Where-Object{$_.AuthenticodeStatus -eq 'Valid'}).Count -eq 0) 'Certificat de test approuve par le poste : il ne doit jamais etre dans Root.'
         Assert-Release ($v.Publisher.Status -eq 'Editeur non prouve') ('Editeur : '+$v.Publisher.Status)
-        Assert-Release (@($v.Publisher.PinnedComponents).Count -eq 4) 'Binaires figes non couverts par leur empreinte epinglee.'
+        $contract=[IO.File]::ReadAllText((Join-Path $root 'tools\release-contract.json'))|ConvertFrom-Json
+        $expectedPinned=@($contract.Components|Where-Object{$_.Pinned -eq $true})
+        $actualPinned=@($v.Publisher.PinnedComponents)
+        Assert-Release (($expectedPinned.Count -gt 0) -and ($actualPinned.Count -eq $expectedPinned.Count)) 'Nombre de binaires figes different du contrat de livraison.'
+        foreach($component in $expectedPinned){
+            $componentPath=([string]$component.Path).Replace('\','/')
+            Assert-Release (@($actualPinned|Where-Object{([string]$_).Replace('\','/') -ceq $componentPath}).Count -eq 1) ('Binaire fige absent ou duplique : '+$componentPath)
+            $componentRows=@($v.Files|Where-Object{([string]$_.Path).Replace('\','/') -ceq $componentPath})
+            $actualComponentSha=(Get-FileHash -LiteralPath (Join-Path $stage $componentPath) -Algorithm SHA256).Hash
+            Assert-Release (($componentRows.Count -eq 1) -and ($componentRows[0].Scope -ceq 'Empreinte epinglee') -and ($actualComponentSha -ieq [string]$component.Sha256)) ('Empreinte differente du contrat : '+$componentPath)
+        }
         Assert-Release (@($v.Files|Where-Object{($_.Scope -eq 'Empreinte epinglee') -and (-not $_.PublisherVerified)}).Count -eq 0) 'Binaire fige different de son empreinte epinglee.'
         Assert-Release (@($v.Publisher.ManifestOnly).Count -ge 8) 'Fichiers non signables non listes a part.'
         $null=@(& $tool -Root $stage -PublisherThumbprint $cert.Thumbprint -RequireSignature -PassThru -Quiet -ReportPath (Join-Path $stage 'r2.json'))

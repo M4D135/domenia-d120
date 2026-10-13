@@ -1,0 +1,209 @@
+{
+    "Build":  "2026.10.01-DOMENIA-1.0-RC1.1-ACL",
+    "Host":  "5.1.26100.6584",
+    "OS":  "Microsoft Windows NT 10.0.26200.0",
+    "ExpectedTests":  38,
+    "Complete":  true,
+    "Elevated":  true,
+    "Passed":  38,
+    "Failed":  0,
+    "NativeAclAttempted":  true,
+    "NativeAclSucceeded":  true,
+    "LiveSaclReadOrWrite":  false,
+    "WpfExecuted":  false,
+    "ADAccess":  false,
+    "RemoteAccess":  false,
+    "ProductionDataAccess":  false,
+    "Tests":  [
+                  {
+                      "Name":  "Analyse native du coeur, sans demarrage",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Analyse native du module recus",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Extraction du worker recus, sans mutation",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Analyse du worker distant assemble, sans acces reseau",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "DataStore : surcharge a deux arguments, Access seul",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "DataStore : DACL marquee modifiee",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "DataStore : audit non marque modifie",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "DataStore : proprietaire non marque modifie",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "DataStore : groupe non marque modifie",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "DataStore : DACL explicite et protegee",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "DataStore : SACL, proprietaire et groupe conserves en memoire",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Receipts : surcharge a deux arguments, Access seul",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Receipts : DACL marquee modifiee",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Receipts : audit non marque modifie",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Receipts : proprietaire non marque modifie",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Receipts : groupe non marque modifie",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Receipts : DACL explicite et protegee",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Receipts : SACL, proprietaire et groupe conserves en memoire",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Remote : surcharge a deux arguments, Access seul",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Remote : DACL marquee modifiee",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Remote : audit non marque modifie",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Remote : proprietaire non marque modifie",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Remote : groupe non marque modifie",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Remote : DACL explicite et protegee",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Remote : SACL, proprietaire et groupe conserves en memoire",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Regression RC1 : surcharge courte marque Audit, Owner et Group",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Permissions locales privees inchangees",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Permissions des recus privees inchangees",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Depot distant restreint a SYSTEM et Administrateurs",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Creation du bac a sable local unique",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Enregistrement natif DACL seulement sur dossier local de test",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Nouvelle application de la meme DACL sans privilege supplementaire",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Fichier enfant inscriptible apres protection",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Racine des recus : vraie fonction sur chemin de test",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Racine des recus : nouvelle ouverture idempotente",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Erreur de racine des recus non ignoree",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Le stockage ne doit pas etre valide si la protection echoue",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Nettoyage limite au bac a sable cree par ce test",
+                      "Passed":  true,
+                      "Error":  ""
+                  }
+              ]
+}

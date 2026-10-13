@@ -409,6 +409,39 @@ function Get-DomeniaWorkViewPlan {
     return [pscustomobject]@{SearchMode='OU';BaseDn=$base;WholeDomain=$whole;SurveyAllowed=(-not $whole);ChipText=('Dans : ' + $name);Reason=$(if ($whole) { $survey } else { '' })}
 }
 
+function Get-DomeniaSearchQueryCatalog {
+    # A shared selector, not a shared data source: LDAP views keep their original semantics.
+    param([object[]]$Saved=@(),[string[]]$Favorites=@(),[datetime]$NowUtc=[datetime]::UtcNow)
+    $favoriteSet=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    foreach($id in $Favorites){if($id){[void]$favoriteSet.Add($id)}}
+    foreach($view in @(Get-DomeniaWorkViews -NowUtc $NowUtc)){
+        $type=switch([string]$view.Type){'Utilisateur'{'Utilisateurs'};'Machine'{'Postes'};default{'Tous les objets AD'}}
+        $key='ad:'+$view.Id
+        [pscustomobject]@{Id=$key;Tag=$key;Name=$view.Name;DisplayName=('Annuaire · '+$type+' · '+$view.Name);SourceId='Ad';Source='Annuaire en direct';TypeLabel=$type;Category='Annuaire';Description=[string]$view.Note;SearchText=($view.Name+' Annuaire '+$type+' '+$view.Note);Favorite=$favoriteSet.Contains($key);ViewId=$view.Id;Recipe=$null}
+    }
+    foreach($recipe in @(@(Get-DomeniaQueryTemplates)+@($Saved))){
+        if($null -eq $recipe){continue}
+        $key='local:'+$recipe.Id;$category=[string](Get-DomeniaMember $recipe 'Category' 'Mes requêtes')
+        $description=[string](Get-DomeniaMember $recipe 'Description' 'Requête enregistrée, calculée sur les postes de la base locale.')
+        [pscustomobject]@{Id=$key;Tag=$key;Name=$recipe.Name;DisplayName=('Données locales · '+$recipe.Name);SourceId='Local';Source='Base locale et relevés datés';TypeLabel='Postes';Category=$category;Description=$description;SearchText=($recipe.Name+' '+$category+' '+$description+' Données locales postes');Favorite=$favoriteSet.Contains($key);ViewId='';Recipe=$recipe}
+    }
+}
+
+function Find-DomeniaSearchQuery {
+    param([object[]]$Entries=@(),[string]$Text='',[switch]$FavoritesOnly)
+    $rows=@($Entries|Where-Object{-not $FavoritesOnly -or $_.Favorite})
+    return @(Find-DomeniaQueryCatalogEntries -Entries $rows -Text $Text)
+}
+
+function ConvertTo-DomeniaSearchQueryRows {
+    # Materialized in the worker. A result is an identity, not a request to open or probe that identity.
+    param($Records)
+    foreach($record in $Records){
+        $v=$record.Values
+        [pscustomobject]@{Type='Machine';Name=[string]$v['name'];Login=[string]$v['name'];UPN='';Mail='';Description='Résultat de requête locale';Changed='';State=$(if($v.ContainsKey('active')){if($v['active']){'Actif'}else{'Désactivé'}}else{'Inconnu'});DN=[string]$v['dn'];Guid=[string]$record.Id;Presence=$(if($v.ContainsKey('presence')){[string]$v['presence']}else{'Non vérifiée'})}
+    }
+}
+
 function ConvertTo-DomeniaSavedView {
     # Whitelist: a saved view never carries a credential, a privileged account or a write permission.
     param($View)
@@ -524,7 +557,7 @@ function New-DomeniaNavHistory {
 function Get-DomeniaNavStateKey {
     param($State)
     if ($null -eq $State) { return '' }
-    return (@('Page','Tab','Mode','Text','OuDn','SelectionGuid') | ForEach-Object { [string](Get-DomeniaMember $State $_ '') }) -join '|'
+    return (@('Page','Tab','Mode','Text','OuDn','SelectionGuid','ViewId','QuerySelection') | ForEach-Object { [string](Get-DomeniaMember $State $_ '') }) -join '|'
 }
 
 function Push-DomeniaNavState {

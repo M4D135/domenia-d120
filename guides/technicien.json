@@ -47,9 +47,9 @@
       "width": 16,
       "crop": {
         "x": 520,
-        "y": 436,
+        "y": 534,
         "w": 694,
-        "h": 35
+        "h": 36
       }
     },
     "fiche-poste": {
@@ -128,19 +128,19 @@
       "file": "images/atelier-condition.png",
       "width": 16,
       "crop": {
-        "x": 265,
-        "y": 378,
-        "w": 952,
-        "h": 85
+        "x": 278,
+        "y": 473,
+        "w": 777,
+        "h": 52
       }
     },
     "atelier-collecte": {
       "file": "images/atelier-collecte.png",
       "width": 16,
       "crop": {
-        "x": 264,
-        "y": 847,
-        "w": 620,
+        "x": 280,
+        "y": 910,
+        "w": 624,
         "h": 73
       }
     },
@@ -148,20 +148,20 @@
       "file": "images/atelier-fiche-locale.png",
       "width": 16,
       "crop": {
-        "x": 265,
-        "y": 649,
-        "w": 790,
-        "h": 124
+        "x": 277,
+        "y": 635,
+        "w": 900,
+        "h": 125
       }
     },
     "atelier-bibliotheque": {
       "file": "images/atelier-bibliotheque.png",
       "width": 16,
       "crop": {
-        "x": 260,
-        "y": 405,
+        "x": 277,
+        "y": 410,
         "w": 870,
-        "h": 119
+        "h": 169
       }
     },
     "accueil-sonde-requete": {
@@ -176,22 +176,22 @@
     },
     "recherche-requete": {
       "file": "images/recherche-requete.png",
-      "width": 11,
+      "width": 16,
       "crop": {
-        "x": 1194,
-        "y": 232,
-        "w": 345,
-        "h": 114
+        "x": 516,
+        "y": 388,
+        "w": 748,
+        "h": 38
       }
     },
     "atelier-desactives": {
       "file": "images/atelier-desactives.png",
       "width": 13,
       "crop": {
-        "x": 265,
-        "y": 409,
-        "w": 388,
-        "h": 100
+        "x": 279,
+        "y": 464,
+        "w": 390,
+        "h": 107
       }
     },
     "base-details": {
@@ -238,30 +238,30 @@
       "file": "images/atelier-catalogue.png",
       "width": 16,
       "crop": {
-        "x": 250,
-        "y": 294,
-        "w": 1618,
-        "h": 650
+        "x": 264,
+        "y": 354,
+        "w": 1595,
+        "h": 578
       }
     },
     "atelier-modeles": {
       "file": "images/atelier-modeles.png",
       "width": 16,
       "crop": {
-        "x": 250,
-        "y": 294,
-        "w": 1618,
-        "h": 650
+        "x": 264,
+        "y": 354,
+        "w": 1595,
+        "h": 578
       }
     },
     "atelier-poste": {
       "file": "images/atelier-poste.png",
       "width": 16,
       "crop": {
-        "x": 262,
-        "y": 600,
+        "x": 278,
+        "y": 656,
         "w": 837,
-        "h": 256
+        "h": 250
       }
     },
     "poste-sonde-requete": {
@@ -272,6 +272,30 @@
         "y": 802,
         "w": 360,
         "h": 160
+      }
+    },
+    "recherche-requetes": {
+      "file": "images/recherche-requetes.png",
+      "width": 16
+    },
+    "recherche-inconnus": {
+      "file": "images/recherche-inconnus.png",
+      "width": 16,
+      "crop": {
+        "x": 516,
+        "y": 388,
+        "w": 950,
+        "h": 38
+      }
+    },
+    "etat-moteur": {
+      "file": "images/etat-moteur.png",
+      "width": 16,
+      "crop": {
+        "x": 16,
+        "y": 64,
+        "w": 620,
+        "h": 300
       }
     }
   }

@@ -7,8 +7,9 @@
 param([string]$ReportPath='',[switch]$Quiet)
 $ErrorActionPreference='Stop'
 $wad=Split-Path -Parent $PSScriptRoot
+$script:RenderTimings=[Collections.Generic.List[object]]::new()
 $script:Results=[Collections.Generic.List[object]]::new();$script:Finished=$false;$script:Window=$null
-$script:ExpectedCases=41
+$script:ExpectedCases=42
 function Expect {param([bool]$Value,[string]$Why='Assertion non verifiee');if(-not $Value){throw $Why}}
 function Case {param([string]$Name,[scriptblock]$Body)
     if(-not $Quiet){Write-Host ('START '+$Name)}
@@ -324,6 +325,7 @@ try{
         Expect ([string](Get-DomeniaControl 'LblFleetScope').Text -like 'Tout le domaine*') 'Libelle du perimetre'
     }
     Case 'Parc : tableau calcule sur le perimetre et serveurs reconnus' {
+        (Get-DomeniaControl 'WorkspaceTabs').SelectedItem=Get-DomeniaControl 'TabDashboard';$w.UpdateLayout()
         $script:FleetScopeDn=''
         Complete-DomeniaFleetDashboard -Result (New-FleetResult) -State $null
         $data=(Get-DomeniaBoardState 'Fleet').Data
@@ -891,7 +893,7 @@ try{
         Complete-DomeniaQueryEvaluation -Result $result -State $call.State
         $q=$script:DomeniaQueryState
         Expect ($null -ne $q.Result -and $q.Result.Matched -eq 4 -and @((Get-DomeniaControl 'DgFleetMachines').ItemsSource).Count -eq 4) 'Le detail du widget omet un des quatre postes, dont le desactive'
-        Expect ($script:SelectedBranchDn -eq $searchBefore -and [string](Get-DomeniaControl 'WorkspaceTabs').SelectedItem.Name -eq 'WsQueryWorkshop') 'Le detail local modifie Rechercher ou n ouvre pas l atelier'
+        Expect ($script:SelectedBranchDn -eq $searchBefore -and [string](Get-DomeniaControl 'WorkspaceTabs').SelectedItem.Name -eq 'TabApplicationTools' -and [string](Get-DomeniaControl 'ApplicationToolTabs').SelectedItem.Name -eq 'WsQueryWorkshop') 'Le detail local modifie Rechercher ou n ouvre pas l atelier'
         Expect ($script:ParkCalls.Count -eq $parks) 'Le detail lance une collecte distante'
         $targets=@($script:FleetLast.Machines|Where-Object{$_.name -eq 'PC-2'})
         Invoke-DomeniaBoardAction -Tag @{Board='Fleet';Action='QueryTargets';Targets=$targets;Label='Point fixture'}
@@ -970,12 +972,50 @@ try{
             if($null -ne $q.Timer){$q.Timer.Stop()}
         }
     }
+    Case 'Un dashboard masque conserve le dernier resultat puis le rend une seule fois a sa reouverture' {
+        $tabs=Get-DomeniaControl 'WorkspaceTabs';$oldTab=$tabs.SelectedItem
+        $panel=Get-DomeniaControl 'PnlFleetDashboard';$state=Get-DomeniaBoardState Fleet
+        $oldData=$state.Data;$oldScope=$script:FleetScopeDn;$oldEditing=$state.Editing
+        try{
+            $script:FleetScopeDn='OU=Postes,DC=example,DC=invalid';$state.Editing=$false
+            $tabs.SelectedItem=Get-DomeniaControl 'TabDashboard';$w.UpdateLayout();Invoke-Pump 50
+            $first=(New-FleetResult -Scope $script:FleetScopeDn).Board
+            Show-DomeniaBoard -Board Fleet -Data $first -Quiet
+            $oldChild=$panel.Children[0]
+            $tabs.SelectedItem=Get-DomeniaControl 'WsSearch';$w.UpdateLayout();Invoke-Pump 50
+            Expect (-not $panel.IsVisible) 'Le dashboard fixture doit etre masque'
+            # Same warmed code/data: isolate avoided hidden work, not network/AD throughput or
+            # total navigation latency. The deferred board is still drawn when it becomes visible.
+            foreach($sample in 1..3){
+                $watch=[Diagnostics.Stopwatch]::StartNew();Show-DomeniaBoard -Board Fleet -Data $first -Quiet;$watch.Stop()
+                $direct=$watch.Elapsed.TotalMilliseconds
+                $watch.Restart();Show-DomeniaBoard -Board Fleet -Data $first -Quiet -DeferIfHidden;$watch.Stop()
+                $script:RenderTimings.Add([pscustomobject]@{Sample=$sample;FullHiddenRenderMs=$direct;DeferredHiddenUpdateMs=$watch.Elapsed.TotalMilliseconds;WidgetCount=@(Get-Holders $panel).Count})
+            }
+            $oldChild=$panel.Children[0]
+            $latest=(New-FleetResult -Scope $script:FleetScopeDn).Board
+            Show-DomeniaBoard -Board Fleet -Data $first -DeferIfHidden
+            Show-DomeniaBoard -Board Fleet -Data $latest -DeferIfHidden
+            Expect ($state.RenderPending -and [object]::ReferenceEquals($state.Data,$latest)) 'Le dernier resultat masque est perdu'
+            Expect ([object]::ReferenceEquals($oldChild,$panel.Children[0])) 'Le panneau masque a ete reconstruit'
+            $tabs.SelectedItem=Get-DomeniaControl 'TabDashboard';$w.UpdateLayout();Invoke-Pump 100
+            Expect ($panel.IsVisible -and -not $state.RenderPending) 'Le rendu differe ne reprend pas a la reouverture'
+            Expect (-not [object]::ReferenceEquals($oldChild,$panel.Children[0])) 'Le panneau visible conserve ses anciens controles'
+            Expect (@(Get-Holders $panel).Count -gt 0) 'Aucun widget visible apres reprise'
+            $rendered=$panel.Children[0];Resume-DomeniaBoardRender Fleet $panel
+            Expect ([object]::ReferenceEquals($rendered,$panel.Children[0])) 'Un deuxieme signal reconstruit inutilement le panneau'
+        }finally{
+            $state.Editing=$oldEditing;$script:FleetScopeDn=$oldScope
+            $state.Data=$oldData;Show-DomeniaBoard -Board Fleet -Quiet
+            $tabs.SelectedItem=$oldTab;$w.UpdateLayout()
+        }
+    }
     $script:Finished=$true
 }catch{Case 'Suite interrompue' {throw $_}}
 finally{
     if($null -ne $script:Window){$script:Window.Close()}
     $fail=@($script:Results|Where-Object{-not $_.Passed}).Count
-    $report=[ordered]@{Suite='Tableaux de bord en widgets';Host=$PSVersionTable.PSVersion.ToString();Passed=($script:Results.Count-$fail);Failed=$fail;Complete=($script:Finished -and $script:Results.Count -eq $script:ExpectedCases);LiveADExecuted=$false;NetworkAccessed=$false;Results=@($script:Results)}
+    $report=[ordered]@{Suite='Tableaux de bord en widgets';Host=$PSVersionTable.PSVersion.ToString();Passed=($script:Results.Count-$fail);Failed=$fail;Complete=($script:Finished -and $script:Results.Count -eq $script:ExpectedCases);LiveADExecuted=$false;NetworkAccessed=$false;RenderTimings=$script:RenderTimings.ToArray();RenderTimingScope='Same warmed synthetic board; synchronous full hidden render vs deferred hidden update; visible render still required and excluded';Results=@($script:Results)}
     if($ReportPath){[IO.File]::WriteAllText($ReportPath,($report|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($true))}
     if(-not $Quiet){$report|ConvertTo-Json -Depth 6}
 }

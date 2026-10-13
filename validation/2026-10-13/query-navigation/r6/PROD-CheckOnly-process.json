@@ -1,0 +1,9 @@
+{
+    "PROD_SHA256":  "b91c950cb6f33cb848cc2afc4fc57468982ba59ddb2b84a7413ba717f52acc54",
+    "ExitCode":  0,
+    "TimedOut":  false,
+    "Milliseconds":  6377,
+    "Command":  "Domenia-Start.ps1 -CheckOnly",
+    "EXEStarted":  false,
+    "ADAccessed":  false
+}

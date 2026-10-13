@@ -4828,7 +4828,7 @@ function Get-MainXaml {
                 </Button>
                 <Border x:Name="UxAboutPanel" Visibility="Collapsed" Margin="10,6,0,0">
                   <StackPanel>
-                    <TextBlock Text="DOMENIA 1.0 · RC1.17.2" Foreground="{DynamicResource MutedColor}" FontSize="11"/>
+                    <TextBlock Text="DOMENIA 1.0 · RC1.17.3" Foreground="{DynamicResource MutedColor}" FontSize="11"/>
                     <TextBlock Text="Les actions restent sous votre contrôle." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="11" Margin="0,4,0,0"/>
                   </StackPanel>
                 </Border>
@@ -5314,9 +5314,6 @@ function Get-MainXaml {
                   </StackPanel>
                 </ScrollViewer>
               </TabItem>
-              <TabItem x:Name="WsQueryWorkshop" Header="Atelier de requêtes" AutomationProperties.Name="Atelier de requêtes">
-                <ContentControl x:Name="QueryWorkshopHost" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
-              </TabItem>
               <TabItem x:Name="WsSearch" ToolTip="Choisissez une OU à gauche pour filtrer la recherche. Les résultats sont affichés à droite." Header="Rechercher" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher dans l’annuaire" AutomationProperties.HelpText="Choisissez une OU à gauche pour filtrer la recherche. Les résultats sont affichés à droite.">
                 <Grid Margin="0" x:Name="SearchBrowserLayout" Tag="OU">
                   <Grid.ColumnDefinitions>
@@ -5392,11 +5389,13 @@ function Get-MainXaml {
                     <Border x:Name="UxSearchFilterCard" Style="{StaticResource Card}" Grid.Row="0" Margin="0,0,0,12" Padding="16">
                       <StackPanel>
                         <TextBlock x:Name="UxSearchScopeTitle" Text="Périmètre des résultats" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
-                        <Grid x:Name="UxSearchScopeInfo"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="0"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                        <ComboBox x:Name="CmbWorkViewScope" Grid.Column="2" Grid.Row="0" VerticalAlignment="Top" SelectedIndex="0" MinWidth="0" MinHeight="0" Height="24" MaxWidth="210" Margin="8,0,0,2" Padding="6,0,4,0" FontSize="11.5" VerticalContentAlignment="Center" ToolTip="Périmètre des vues de travail : lʼOU choisie dans lʼarbre. Les vues utilisent lʼOU choisie, sans ping, détection ni analyse des postes listés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Périmètre des vues de travail" AutomationProperties.HelpText="Périmètre des vues de travail : lʼOU choisie dans lʼarbre. Les vues utilisent lʼOU choisie, sans ping, détection ni analyse des postes listés.">
-                          <ComboBoxItem Tag="OU" Content="Vues dans : OU choisie"/>
+                        <Grid x:Name="UxSearchScopeInfo"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="0"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <Button x:Name="BtnSearchQueryOptions" Grid.Column="2" Visibility="Collapsed" Content="Options de requête" MinHeight="28" Padding="6,1" Margin="6,0,0,2" FontSize="11" AutomationProperties.Name="Options de requête" ToolTip="Afficher ou replier les options : recherche de modèle, favoris, source et état des résultats."/>
+                        <ComboBox x:Name="CmbWorkViewScope" Grid.Column="2" Grid.Row="0" VerticalAlignment="Top" SelectedIndex="0" MinWidth="0" MinHeight="0" Height="24" MaxWidth="210" Margin="8,0,0,2" Padding="6,0,4,0" FontSize="11.5" VerticalContentAlignment="Center" ToolTip="Périmètre des requêtes : lʼOU choisie dans lʼarbre. Les requêtes utilisent lʼOU choisie, sans ping, détection ni analyse des postes listés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Périmètre des requêtes" AutomationProperties.HelpText="Périmètre des requêtes : lʼOU choisie dans lʼarbre. Les requêtes utilisent lʼOU choisie, sans ping, détection ni analyse des postes listés.">
+                          <ComboBoxItem Tag="OU" Content="Requêtes · OU choisie"/>
                         </ComboBox><TextBlock Text="Dans : tout le domaine | Sous-OU incluses" TextWrapping="NoWrap" Margin="0,0,0,4" Foreground="{DynamicResource AccentText}" FontSize="12" x:Name="LblSearchScope" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" TextTrimming="CharacterEllipsis"/>
                         <TextBlock x:Name="LblSearchHint" Grid.Row="1" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" Text="" Height="18" Margin="0,0,0,8" FontSize="11.5" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/></Grid>
+                        <Grid x:Name="UxSearchFilterQueryLayout"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="0"/></Grid.ColumnDefinitions>
                         <WrapPanel x:Name="UxSearchFilters">
                           <StackPanel Width="148" Margin="0,0,12,8"><StackPanel.Style><Style TargetType="StackPanel"><Style.Triggers><DataTrigger Binding="{Binding Tag, ElementName=SearchBrowserLayout}" Value="Global"><Setter Property="IsEnabled" Value="False"/></DataTrigger></Style.Triggers></Style></StackPanel.Style>
                             <TextBlock Text="Type d’objet" Margin="0,0,0,6" FontSize="12" FontWeight="SemiBold"/>
@@ -5422,15 +5421,32 @@ function Get-MainXaml {
                             <TextBlock Text="Limite" Margin="0,0,0,6" FontSize="12" FontWeight="SemiBold" TextWrapping="NoWrap"/>
                             <TextBox x:Name="TxtGlobalLimit" Text="100" ToolTip="Nombre maximum de résultats affichés (20 000 au plus)." Margin="0" MinWidth="0" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Maximum de résultats" AutomationProperties.HelpText="Nombre maximum de resultats affiches." MinHeight="36"/>
                           </StackPanel>
-                          <StackPanel Width="250" Margin="0,0,12,8">
-                            <TextBlock Text="Vue de travail" Margin="0,0,0,6" FontSize="12" FontWeight="SemiBold"/>
-                            <DockPanel>
-                              <Button x:Name="BtnWorkView" DockPanel.Dock="Right" Content="Afficher" Margin="6,0,0,0" MinHeight="36" Padding="10,4" ToolTip="Lance la vue choisie en lecture seule : un filtre prêt à lʼemploi, sans compte, droit ni mode écriture. Le texte de recherche de ce mode est vidé." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Afficher la vue de travail" AutomationProperties.HelpText="Lance la vue choisie en lecture seule : un filtre prêt à lʼemploi, sans compte, droit ni mode écriture. Le texte de recherche de ce mode est vidé."/>
-                              <ComboBox x:Name="CmbWorkView" MinWidth="0" MinHeight="36" ToolTip="Vues prêtes à lʼemploi : comptes expirants ou désactivés, objets modifiés récemment, postes dʼune OU ou sans connexion. Le choix seul ne lance rien." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vue de travail" AutomationProperties.HelpText="Vues prêtes à lʼemploi : comptes expirants ou désactivés, objets modifiés récemment, postes dʼune OU ou sans connexion. Le choix seul ne lance rien."/>
-                            </DockPanel>
-                          </StackPanel>
-                          <StackPanel Width="330" Margin="0,0,12,8"><TextBlock x:Name="LblSearchQuery" Text="Aucune requête enregistrée appliquée aux résultats." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}"/><WrapPanel><Button x:Name="BtnSearchQueryWorkshop" Content="Atelier de requêtes" MinHeight="30" Margin="0,4,6,0"/><Button x:Name="BtnQueryClearSearch" Content="Retirer le filtre de requête" MinHeight="30" Margin="0,4,0,0"/></WrapPanel></StackPanel>
                         </WrapPanel>
+                        <Grid x:Name="UxSearchQueryBar" Grid.Row="1" Margin="0,6,0,0">
+                          <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                          <WrapPanel x:Name="UxSearchQueryHeader" Margin="0,0,0,6">
+                            <TextBlock Text="Requêtes" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                            <TextBox x:Name="TxtSearchQueryFilter" Width="190" MinWidth="0" MinHeight="30" Margin="0,0,12,0" ToolTip="Rechercher un modèle ou une requête enregistrée dans la liste. Aucune exécution automatique." AutomationProperties.Name="Rechercher dans les requêtes"/>
+                            <CheckBox x:Name="ChkSearchQueryFavorites" Content="Favoris" VerticalAlignment="Center" ToolTip="Afficher uniquement les requêtes épinglées." AutomationProperties.Name="Afficher les requêtes favorites"/>
+                          </WrapPanel>
+                          <Grid x:Name="UxSearchQueryExecute" Grid.Row="1">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <ComboBox x:Name="CmbWorkView" MinWidth="0" MinHeight="34" DisplayMemberPath="DisplayName" MaxDropDownHeight="420" ScrollViewer.VerticalScrollBarVisibility="Auto" ToolTip="Choisir une requête Annuaire ou Données locales, puis Exécuter. Le choix seul ne lance rien." AutomationProperties.Name="Requête à exécuter"/>
+                            <Button x:Name="BtnWorkView" Grid.Column="1" Content="Exécuter" Margin="6,0,0,0" MinHeight="34" Padding="10,3" ToolTip="Exécuter la requête choisie dans lʼOU de Recherche et selon la profondeur affichée." AutomationProperties.Name="Exécuter la requête sélectionnée"/>
+                            <Button x:Name="BtnSearchQueryFavorite" Grid.Column="2" Content="☆" Width="34" MinWidth="0" MinHeight="34" Padding="3" Margin="6,0,0,0" FontSize="18" ToolTip="Épingler ou retirer cette requête des favoris." AutomationProperties.Name="Épingler la requête"/>
+                            <Button x:Name="BtnSearchQueryWorkshop" Grid.Column="3" Content="&#xE70F;" FontFamily="Segoe MDL2 Assets" Width="34" MinWidth="0" MinHeight="34" Padding="6" Margin="6,0,0,0" ToolTip="Créer ou modifier une requête dans Outils, Atelier de requêtes." AutomationProperties.Name="Modifier dans lʼatelier de requêtes"/>
+                          </Grid>
+                          <TextBlock x:Name="LblSearchQueryDetails" Grid.Row="2" Margin="0,5,0,0" Text="Choisissez une requête pour voir sa source et son périmètre." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" FontSize="11.5" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                          <WrapPanel x:Name="UxSearchQueryResultBar" Grid.Row="3" Margin="0,5,0,0">
+                            <TextBlock x:Name="LblSearchQuery" Text="Aucune requête appliquée aux résultats." TextWrapping="Wrap" MaxWidth="640" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}" Margin="0,0,8,0"/>
+                            <ComboBox x:Name="CmbSearchQueryResult" Width="165" MinWidth="0" MinHeight="30" SelectedIndex="0" Margin="0,0,6,0" Visibility="Collapsed" AutomationProperties.Name="Résultats de la requête locale" ToolTip="Choisir Correspondants, Inconnus ou Non correspondants, puis cliquer sur Exécuter.">
+                              <ComboBoxItem Tag="Match" Content="Correspondants"/><ComboBoxItem Tag="Unknown" Content="Inconnus"/><ComboBoxItem Tag="NoMatch" Content="Non correspondants"/>
+                            </ComboBox>
+                            <Button x:Name="BtnQueryClearSearch" Content="Effacer la requête" MinHeight="30" Padding="8,3" ToolTip="Retirer la requête appliquée aux résultats." AutomationProperties.Name="Retirer le filtre de requête"/>
+                          </WrapPanel>
+                        </Grid>
+                        <ScrollViewer x:Name="UxSearchQueryOptionsScroll" Grid.Row="2" Grid.ColumnSpan="2" Visibility="Collapsed" MaxHeight="80" Margin="0,3,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" KeyboardNavigation.TabNavigation="Continue"><StackPanel x:Name="UxSearchQueryOptionsContent" Margin="0,0,4,0"/></ScrollViewer>
+                        </Grid>
                         <Grid Grid.Row="1" Visibility="Collapsed" Height="0" Width="0">
                           <TextBox x:Name="TxtBranchSearch" Text="" ToolTip="Saisissez ou consultez cette information. Le champ seul ne lance pas une action de modification." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Saisissez ou consultez cette information" AutomationProperties.HelpText="Saisissez ou consultez cette information. Le champ seul ne lance pas une action de modification."/>
                           <ComboBox x:Name="CmbObjectFilter" SelectedIndex="0" ToolTip="Choisissez une option dans la liste déroulante." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Choisissez une option dans la liste déroulante" AutomationProperties.HelpText="Choisissez une option dans la liste déroulante.">
@@ -6961,7 +6977,7 @@ function Get-MainXaml {
                   </TabItem>
                 </TabControl>
               </Grid><Border Style="{StaticResource Card}" Margin="4" Padding="24" VerticalAlignment="Top" Grid.Row="1" x:Name="ComputerReadPlaceholder"><StackPanel><TextBlock Text="La fiche se prepare en arriere-plan." FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap" Foreground="{DynamicResource TextColor}"/><TextBlock Text="Vous pouvez continuer à utiliser la recherche. Les données du précédent objet ne sont pas affichées ici." Margin="0,8,0,0" TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}"/></StackPanel></Border></Grid></TabItem>
-              <TabItem x:Name="TabApplicationTools" ToolTip="Vérification de lʼapplication, état du domaine, aide sur les commandes et journal." Header="Outils avances" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Outils avances" AutomationProperties.HelpText="Verification de l application, etat du domaine, aide sur les commandes et journal.">
+              <TabItem x:Name="TabApplicationTools" ToolTip="Vérification de lʼapplication, état du domaine, aide sur les commandes et journal." Header="Outils" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Outils" AutomationProperties.HelpText="Verification de l application, etat du domaine, aide sur les commandes et journal.">
                 <Border Style="{StaticResource Card}" Margin="4" Padding="10">
                   <DockPanel>
                     <TabControl x:Name="ApplicationToolTabs" ToolTip="Choisissez un outil de vérification ou de gestion locale. Certaines vues sont disponibles en mode Expert." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Outils de l’application" AutomationProperties.HelpText="Choisissez un outil de vérification ou de gestion locale. Certaines vues sont disponibles en mode Expert.">
@@ -7182,6 +7198,9 @@ function Get-MainXaml {
                             </DataGrid.Columns>
                           </DataGrid>
                         </DockPanel>
+                      </TabItem>
+                      <TabItem x:Name="WsQueryWorkshop" Header="Atelier de requêtes" ToolTip="Créer, modifier et enregistrer les requêtes communes à Recherche et aux tableaux de bord." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Atelier de requêtes" AutomationProperties.HelpText="Créer, modifier et enregistrer des requêtes. Choisir un modèle ne lance aucune collecte.">
+                        <ContentControl x:Name="QueryWorkshopHost" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
                       </TabItem>
                       <TabItem x:Name="TabDomain" ToolTip="Roles FSMO, niveaux fonctionnels, controleurs et strategie du domaine." Header="Domaine" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Domaine" AutomationProperties.HelpText="Roles FSMO, niveaux fonctionnels, controleurs et strategie du domaine.">
                         <DockPanel Margin="4">
@@ -10849,6 +10868,8 @@ function Select-DomeniaWorkspace {
         [string]$Tab = ""
     )
     if ($Workspace -eq 'TabDirectory') { $Workspace = 'WsSearch' }
+    # Keep previous widget/history routes valid after moving the workshop into Tools.
+    if ($Workspace -eq 'WsQueryWorkshop') { $Workspace = 'TabApplicationTools'; $Inner = 'ApplicationToolTabs'; $Tab = 'WsQueryWorkshop' }
     try {
         $ws = Get-DomeniaControl -Name "WorkspaceTabs"
         $target = Get-DomeniaControl -Name $Workspace
@@ -10915,7 +10936,7 @@ function Set-VisibleTabsForType {
     )) { Set-TabVisibility $t $false }
 
     # Commandes was removed from the tools (decision David 2026-10-07): it is never shown again here.
-    foreach ($t in @("TabDashboard","TabApplicationTools","TabSelfCheck","TabIndex","TabDomain","TabLog","WsSearch","TabRelations","TabAccounts")) { Set-TabVisibility $t $true }
+    foreach ($t in @("TabDashboard","TabApplicationTools","TabSelfCheck","TabIndex","WsQueryWorkshop","TabDomain","TabLog","WsSearch","TabRelations","TabAccounts")) { Set-TabVisibility $t $true }
 
     $hasObject = -not [string]::IsNullOrWhiteSpace($Type)
     foreach ($t in @("TabGeneric","TabRaw")) { Set-TabVisibility $t $hasObject }
@@ -11306,7 +11327,7 @@ function Invoke-GlobalSearch {
         $viewChoice = ''
         if (-not [string]::IsNullOrWhiteSpace($ViewId)) {
             $view = @(Get-DomeniaWorkViews | Where-Object { [string]$_.Id -ceq $ViewId } | Select-Object -First 1)
-            if ($view.Count -eq 0) { Set-Status 'Vue de travail inconnue : aucune recherche lancée.' 'WARN'; return }
+            if ($view.Count -eq 0) { Set-Status 'Requête inconnue : aucune recherche lancée.' 'WARN'; return }
             $view = $view[0]
             # UX-33: the view applies to the OU chosen in the tree; the whole domain only on the explicit secondary
             # choice of the 'Dans :' chip, and such a list never offers a survey of its workstations.
@@ -21388,7 +21409,8 @@ function Show-DomeniaCommandPalette {
         [pscustomobject]@{Name="Lancer l'auto-verification DOMENIA";Key="selfcheck"},
         [pscustomobject]@{Name="Ouvrir la gestion des comptes";Key="accounts"},
         [pscustomobject]@{Name="Ouvrir les relations utilisateur / poste";Key="relations"},
-        [pscustomobject]@{Name="Ouvrir le journal detaille";Key="log"}
+        [pscustomobject]@{Name="Ouvrir le journal detaille";Key="log"},
+        [pscustomobject]@{Name="Outils : atelier de requêtes";Key="queries"}
     )
     foreach($i in $items){[void]$list.Items.Add($i)}
     $list.DisplayMemberPath="Name"
@@ -21421,6 +21443,7 @@ function Show-DomeniaCommandPalette {
             "accounts" { Select-DomeniaWorkspace -Workspace "TabAccounts"; Update-DomeniaAccountUi }
             "relations" { Select-DomeniaWorkspace -Workspace "TabRelations"; Refresh-LinkGrid }
             "log" { Select-DomeniaWorkspace -Workspace "TabApplicationTools" -Inner "ApplicationToolTabs" -Tab "TabLog" }
+            "queries" { Show-DomeniaQueryWorkshop }
             "support" { Invoke-DomeniaSafeUiAction -Operation "Atelier" -Action { Select-DomeniaWorkspace -Workspace "TabSupport" -Inner "SupportTabs" -Tab "SupportAnalysisTab"; Update-DomeniaSupportView -Force } }
             "supportdiff" { Select-DomeniaWorkspace -Workspace "TabSupport" -Inner "SupportTabs" -Tab "SupportCompareTab" }
         }
@@ -22070,6 +22093,20 @@ function Wire-Events {
                 if ($sender.SelectedItem -eq $script:Ctrl["TabOperationStats"]) {
                     Refresh-DomeniaOperationStatsUi
                 }
+                elseif ($sender.SelectedItem -eq $script:Ctrl['WsQueryWorkshop']) {
+                    # A manual tool-tab change remembers the previous tool; programmatic routes retain their origin.
+                    if (-not [bool]$script:DomeniaQueryNavigating -and $null -ne $e -and $e.RemovedItems.Count -gt 0) {
+                        $previousTool = [string]$e.RemovedItems[0].Name
+                        if ($previousTool -and $previousTool -ne 'WsQueryWorkshop') {
+                            $script:DomeniaQueryReturnRoute = 'TabApplicationTools'
+                            $script:DomeniaQueryReturnInner = 'ApplicationToolTabs'
+                            $script:DomeniaQueryReturnTab = $previousTool
+                            $script:DomeniaQueryReturnFocus = $null
+                        }
+                    }
+                    # Direct tool-tab navigation updates the context only; execution stays explicit.
+                    Show-DomeniaQueryWorkshop
+                }
             }
             catch {
                 Write-AppLog ("Actualisation des statistiques ignoree : " + $_.Exception.Message) "WARN"
@@ -22142,7 +22179,6 @@ function Wire-Events {
     if ($script:Ctrl.ContainsKey("BtnFleetScopeReset")) { $script:Ctrl["BtnFleetScopeReset"].Add_Click({ $script:FleetScopeDn = ''; $script:FleetStale = $true; Request-DomeniaFleetRefresh; Set-Status 'Tableau de bord : tout le domaine depuis la base locale.' }) }
     Initialize-DomeniaUiZoom
     Initialize-DomeniaQueryWorkshop
-    if($script:Ctrl.ContainsKey('BtnSearchQueryWorkshop')){$script:Ctrl['BtnSearchQueryWorkshop'].Add_Click({Show-DomeniaQueryWorkshop -Evaluate})}
     if ($script:Ctrl.ContainsKey("BtnFleetShowMachines")) { $script:Ctrl["BtnFleetShowMachines"].Add_Click({ Show-DomeniaQueryWorkshop -Evaluate }) }
     if ($script:Ctrl.ContainsKey("TxtFleetMachineFilter")) { $script:Ctrl["TxtFleetMachineFilter"].Add_TextChanged({ Update-DomeniaFleetMachineList }) }
     if ($script:Ctrl.ContainsKey("CmbFleetMachineState")) { $script:Ctrl["CmbFleetMachineState"].Add_SelectionChanged({ Update-DomeniaFleetMachineList }) }
@@ -22227,7 +22263,7 @@ function Wire-Events {
 # DOMENIA_MASTER_LAST_V1 = TRUE
 $script:Version = "1.0"
 $script:AppName = "Domenia"
-$script:MasterBuild = "2026.10.12-DOMENIA-1.0-RC1.17.2-D120"
+$script:MasterBuild = "2026.10.13-DOMENIA-1.0-RC1.17.3-D120"
 $script:ActiveWriteTaskId = ""
 $script:WriteState = "Idle"
 $script:UnknownWriteTargetDn = ""
@@ -23485,7 +23521,7 @@ function Get-DomeniaWorkerCodeHash {
 function Get-DomeniaWorkerOperationHashes {
     # Registre ferme : seules ces operations internes, avec leur corps exact, peuvent entrer dans un runspace.
     return [ordered]@{
-        LocalQuery            = "569C938D2E36CE9BD371253D1E4E9C3A42745D98C98E9C699528CDC19BCBFB3A"
+        LocalQuery            = "0F9F8E8F55356949E7251DD1618E170DDABADE0888D1AAEBFC59AB29FAB08536"
         StoragePurge          = "E3656CDC7BDC992E584E5A709DB33463F8260F78F04556F917637312FEDAF0A2"
         StorageBackup         = "51BC92EAEB5B1BD68F0850D1336C9DA1A5E2E23CB6E2FB04CDE6ECE98C0D25F9"
         ComputerAdminShare    = "051272FF57B277E19504F52BAC289ED8297A333393644B853FF4A80624347F70"
@@ -23564,7 +23600,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "A8722A13AB4418CA22D4F1425E98683FA4C9F513E8D2102F438D66D35F865466"
+    $expectedFingerprint = "FCE373A813502CF0BD7495E9D6C6622EB40000B63C7A69486058DC486BAF3AFC"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -24288,8 +24324,10 @@ function Complete-UiTasks {
                 $modalMs = [long]$script:ModalBlockedMs - $modalBefore
                 $effectiveMs = [long]$callbackWatch.ElapsedMilliseconds - $modalMs
                 if ($effectiveMs -lt 0) { $effectiveMs = 0 }
+                # Keep UI completion costs distinct from worker/network duration in the local bounded metrics.
+                try { Add-DomeniaRuntimeMetric -Provenance 'Dispatcher' -OperationId ('Callback:' + [string]$job.OperationId) -DurationMs ([double]$effectiveMs) } catch { }
                 if ($effectiveMs -gt $callbackWarningMs) {
-                    Write-AppLog "[$($job.CorrelationId)] Callback UI lent : $($job.Name), $effectiveMs ms (hors $modalMs ms d'attente modale)." "WARN"
+                    Write-AppLog "[$($job.CorrelationId)] Callback UI lent : $($job.Name), $effectiveMs ms (hors $modalMs ms d'attente modale ; seuil $callbackWarningMs ms ; operation $($job.OperationId) ; traitement $($job.SuccessHandler))." "WARN"
                 }
             }
             # D015: each subscriber of a shared read gets its own callback (access inspection ran once above).
@@ -29119,7 +29157,7 @@ try {
         Write-StartupTrace -Stage 'Stockage/Preferences' -Status 'WARN' -Detail $script:StoragePreferenceWarning
         Show-WarningBox -Message $script:StoragePreferenceWarning
     }
-    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.12-DOMENIA-1.0-RC1.17.2-D120)"
+    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.13-DOMENIA-1.0-RC1.17.3-D120)"
     # PF-19: duration of the package integrity check made by Domenia-Start.ps1 before the core (absent when launched otherwise).
     $startIntegrity = Get-Variable -Name DomeniaStartIntegrity -ValueOnly -ErrorAction SilentlyContinue
     if ($null -ne $startIntegrity) { Write-StartupTrace -Stage "Integrite du paquet" -Status "OK" -DurationMs ([long]$startIntegrity.DurationMs) -Detail ("{0} fichiers runtime controles (plafond {1}), {2} composants requis." -f $startIntegrity.Files,$startIntegrity.Limit,$startIntegrity.Required) }

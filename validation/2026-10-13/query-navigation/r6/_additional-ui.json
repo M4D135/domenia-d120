@@ -1,0 +1,101 @@
+{
+    "Kind":  "AdditionalWindowsUi",
+    "UTC":  "2026-10-13T01:32:54.4209854Z",
+    "VM":  "W11-01",
+    "PowerShell":  "5.1.26100.6584",
+    "Apartment":  "STA",
+    "Is64Bit":  true,
+    "Session":  0,
+    "Data":  "Synthetic fixtures",
+    "ADAccessed":  false,
+    "RuntimeChanged":  [
+
+                       ],
+    "Suites":  [
+                   {
+                       "Suite":  "Test-DomeniaEmbeddedUi",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  15712,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaExperience",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  5935,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaSearchScope",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  18849,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaSearchPresence",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  38544,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaSelectionIdentity",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  6352,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaScale",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  49474,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaEngineLoad",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  38522,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaWiringCache",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  110864,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaWiringMoteur",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  203963,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaGeometry",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  27944,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaCompactUi",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  1306,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaStableUi",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  9118,
+                       "ReportWritten":  true
+                   }
+               ],
+    "Scope":  "Synthetic offline fixtures; actual WPF/engine, disposable SQLite; no live directory or remote endpoint"
+}

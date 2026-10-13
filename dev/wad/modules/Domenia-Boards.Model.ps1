@@ -3,6 +3,7 @@
 # built-in catalog or from the ready-made WMI queries. Pure rules: catalog, data contract, allowed
 # representations per kind of data, sizes and layout operations. No WPF, no network, no disk.
 
+$script:DomeniaBoardCatalogCache = @{}
 $script:DomeniaBoardCatalogText = @{
     Computer = @'
 computer.health|Vue d ensemble|Etat general|Health|Health|S|Score calcule a partir des points d attention
@@ -116,24 +117,38 @@ fleet.lowdisk|Releves WMI|Kpi|S
 fleet.uptime|Releves WMI|Kpi|S
 '@
 
-function Get-DomeniaBoardCatalog {
-    # Built-in widgets of a board, in their default order.
+function Get-DomeniaBoardCatalogCache {
+    # Cache only immutable catalog text and its parsed index, never a user's layout or live data.
+    # Public readers return copies: editing a picker item must not corrupt later cards.
     param([Parameter(Mandatory=$true)][ValidateSet('Computer','Fleet','Software')][string]$Board)
+    if ($null -eq $script:DomeniaBoardCatalogCache) { $script:DomeniaBoardCatalogCache = @{} }
+    $text = [string]$script:DomeniaBoardCatalogText[$Board]
+    $cached = $script:DomeniaBoardCatalogCache[$Board]
+    if ($null -ne $cached -and $cached.Text -ceq $text) { return $cached }
     $rows = New-Object System.Collections.ArrayList
-    foreach ($line in ([string]$script:DomeniaBoardCatalogText[$Board] -split "`n")) {
-        $text = $line.Trim()
-        if (-not $text) { continue }
-        $cells = $text -split '\|'
+    $index = @{}
+    foreach ($line in ($text -split "`n")) {
+        $lineText = $line.Trim()
+        if (-not $lineText) { continue }
+        $cells = $lineText -split '\|'
         if ($cells.Count -lt 7) { continue }
-        # Optional eighth cell: N = in the catalog only, left out of the delivered layout.
         $default = -not (($cells.Count -ge 8) -and ([string]$cells[7]).Trim() -eq 'N')
-        [void]$rows.Add([pscustomobject]@{ Key = $cells[0]; Group = $cells[1]; Title = $cells[2]; Kind = $cells[3]; Visual = $cells[4]; Size = $cells[5]; Description = $cells[6]; Default = $default })
+        $item = [pscustomobject]@{ Key = $cells[0]; Group = $cells[1]; Title = $cells[2]; Kind = $cells[3]; Visual = $cells[4]; Size = $cells[5]; Description = $cells[6]; Default = $default }
+        [void]$rows.Add($item)
+        if (-not $index.ContainsKey([string]$item.Key)) { $index[[string]$item.Key] = $item }
     }
-    return @($rows)
+    $cached = [pscustomobject]@{ Text = $text; Rows = @($rows); Index = $index }
+    $script:DomeniaBoardCatalogCache[$Board] = $cached
+    return $cached
+}
+function Get-DomeniaBoardCatalog {
+    param([Parameter(Mandatory=$true)][ValidateSet('Computer','Fleet','Software')][string]$Board)
+    foreach ($item in (Get-DomeniaBoardCatalogCache -Board $Board).Rows) { $item.PSObject.Copy() }
 }
 function Get-DomeniaBoardCatalogItem {
     param([string]$Board,[string]$Key)
-    foreach ($item in @(Get-DomeniaBoardCatalog -Board $Board)) { if ($item.Key -eq $Key) { return $item } }
+    $cached = Get-DomeniaBoardCatalogCache -Board $Board
+    if ($cached.Index.ContainsKey($Key)) { return $cached.Index[$Key].PSObject.Copy() }
     return $null
 }
 

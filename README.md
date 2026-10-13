@@ -24,7 +24,7 @@ Deux distributions sont prévues :
 - **PROD** : `Domenia.exe` et le dossier ordinaire `wad`.
 - **DEV** : le même runtime, les sources, les outils de fabrication et les tests.
 
-Dans **Outils > Base autonome**, privilégiez **Tout relire dans lʼOU choisie**.
+Dans **Outils > Base autonome**, privilégiez **Mettre à jour l’OU choisie**.
 Choisissez son emplacement dans l’arbre, avec recherche et chargement progressif.
 Cette action inclut les sous-OU et conserve les autres branches. Les onglets
 **Mise à jour**, **Données** et **Stockage** séparent les opérations et affichent
@@ -36,8 +36,15 @@ absentes ou périmées restent inconnues. L’icône de détail des indicateurs 
 les objets ou la requête correspondante ; le crayon sert à modifier la présentation.
 Le zoom **− / 100 % / +** conserve la taille d’interface choisie.
 
-L’atelier partage une bibliothèque entre **Recherche**, le **tableau général** et
-le **tableau d’un poste**. L’onglet **Bibliothèque** propose **152 modèles prêts**
+Dans **Recherche**, la barre **Requêtes** réunit les filtres Annuaire et les requêtes
+locales : filtrez la liste, épinglez vos favoris, puis cliquez sur **Exécuter**.
+Le périmètre est l’OU choisie dans Recherche, avec la profondeur affichée. Les
+résultats locaux distinguent les correspondants, les inconnus et les non-correspondants ;
+leur compteur indique la population recensée et toute limite d’affichage.
+
+L’atelier se trouve dans **Outils > Atelier de requêtes** ; le petit crayon de
+Recherche y mène directement. Il partage une bibliothèque entre **Recherche**,
+le **tableau général** et le **tableau d’un poste**. L’onglet **Bibliothèque** propose **152 modèles prêts**
 classés en 14 catégories, avec recherche, description et origine des informations.
 Son catalogue décrit 105 champs pris en charge, dont
 78 sondes, avec leur origine et leurs conditions de collecte. Les requêtes évaluent
@@ -53,7 +60,7 @@ les propriétés WMI compatibles et réutilise les mesures encore fraîches.
 
 [Installation, mise à jour et fabrication](dev/LIRE-MOI.md) ·
 [Sources des guides](guides/LIRE-KIT.md) ·
-[Bilan des améliorations et preuves](validation/2026-10-12/README.md)
+[Bilan des améliorations et preuves](validation/2026-10-13/README.md)
 
 ## Modifier et reconstruire
 

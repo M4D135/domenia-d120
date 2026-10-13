@@ -3403,17 +3403,17 @@
   },
   {
     "Name": "CmbWorkView",
-    "Title": "Vue de travail",
-    "Text": "Vues prêtes à lʼemploi en lecture seule : comptes expirants ou désactivés, objets modifiés récemment, postes dʼune OU ou sans connexion depuis 90 jours (jamais connectés inclus). Chaque vue sʼapplique à lʼOU choisie dans lʼarbre ; le choix seul ne lance rien.",
+    "Title": "Requête à exécuter",
+    "Text": "Choisir une requête Annuaire ou Données locales, puis Exécuter. La source, le type dʼobjet et lʼOU sont indiqués sous la liste. Le choix seul ne lance rien.",
     "Kind": "ComboBox",
-    "Source": "d120-recherche"
+    "Source": "query-navigation"
   },
   {
     "Name": "BtnWorkView",
-    "Title": "Afficher la vue de travail",
-    "Text": "Lance la vue choisie : un filtre et un type, sans compte, droit ni mode écriture. Le texte de recherche de ce mode est vidé.",
+    "Title": "Exécuter la requête",
+    "Text": "Exécuter la requête choisie dans lʼOU de Recherche, avec ou sans sous-OU selon le choix affiché. Les anciens filtres masquants sont retirés ; aucune collecte distante automatique.",
     "Kind": "Button",
-    "Source": "d120-recherche"
+    "Source": "query-navigation"
   },
   {
     "Name": "BtnNavBack",
@@ -3690,10 +3690,10 @@
   },
   {
     "Name": "CmbWorkViewScope",
-    "Title": "Périmètre des vues de travail",
-    "Text": "Les vues de travail sʼappliquent à lʼOU choisie dans lʼarbre, par défaut. Tout le domaine reste un choix explicite, sans ping, détection ni analyse des postes listés.",
+    "Title": "Périmètre des requêtes",
+    "Text": "Les requêtes utilisent lʼOU choisie dans lʼarbre de Recherche et sa profondeur. Ce choix ne lance aucune lecture.",
     "Kind": "ComboBox",
-    "Source": "L03"
+    "Source": "query-navigation"
   },
   {
     "Name": "UxHistoryBanner",
@@ -3911,5 +3911,54 @@
     "Text": "Le moteur refuse dʼenregistrer lʼune de ces options sans une confirmation qui montre la valeur avant et la valeur après.",
     "Kind": "TextBlock",
     "Source": "L11"
+  },
+  {
+    "Name": "TxtSearchQueryFilter",
+    "Title": "Rechercher dans les requêtes",
+    "Text": "Filtrer les noms et descriptions de la bibliothèque, sans exécuter de requête.",
+    "Kind": "TextBox",
+    "Source": "query-navigation"
+  },
+  {
+    "Name": "ChkSearchQueryFavorites",
+    "Title": "Requêtes favorites",
+    "Text": "Afficher uniquement les requêtes épinglées. Aucun résultat ni relevé nʼest modifié.",
+    "Kind": "CheckBox",
+    "Source": "query-navigation"
+  },
+  {
+    "Name": "BtnSearchQueryFavorite",
+    "Title": "Épingler la requête",
+    "Text": "Ajouter ou retirer la requête sélectionnée des favoris personnels.",
+    "Kind": "Button",
+    "Source": "query-navigation"
+  },
+  {
+    "Name": "BtnSearchQueryWorkshop",
+    "Title": "Modifier dans lʼatelier",
+    "Text": "Ouvrir Outils, Atelier de requêtes pour créer ou modifier une recette. Une lecture Annuaire reste identifiée séparément des requêtes sur données locales.",
+    "Kind": "Button",
+    "Source": "query-navigation"
+  },
+  {
+    "Name": "CmbSearchQueryResult",
+    "Title": "Résultats de la requête locale",
+    "Text": "Choisir les postes correspondants, inconnus ou non correspondants. Une information absente ou périmée reste inconnue.",
+    "Kind": "ComboBox",
+    "Source": "query-navigation"
+  },
+  {
+    "Name": "BtnQueryClearSearch",
+    "Title": "Effacer la requête appliquée",
+    "Text": "Retirer le filtre de requête des résultats affichés.",
+    "Kind": "Button",
+    "Source": "query-navigation"
+  },
+  {
+    "Name": "WsQueryWorkshop",
+    "Title": "Atelier de requêtes",
+    "Text": "Outils de création et de modification des requêtes partagées entre Recherche, le tableau général et le tableau dʼun poste.",
+    "Kind": "TabItem",
+    "Source": "query-navigation"
   }
 ]

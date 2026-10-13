@@ -1,0 +1,4027 @@
+[
+    {
+        "File":  "accueil.png",
+        "Width":  1920,
+        "Height":  1240,
+        "Controls":  [
+
+                     ]
+    },
+    {
+        "File":  "selecteur-ou.png",
+        "Width":  1920,
+        "Height":  1080,
+        "Controls":  [
+
+                     ]
+    },
+    {
+        "File":  "atelier-requetes.png",
+        "Width":  1920,
+        "Height":  1240,
+        "Controls":  [
+                         {
+                             "Name":  "CmbFleetQuery",
+                             "X":  270,
+                             "Y":  273,
+                             "Width":  330,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "ExpQueryObject",
+                             "X":  281,
+                             "Y":  1020,
+                             "Width":  1564,
+                             "Height":  23,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgFleetMachines",
+                             "X":  281,
+                             "Y":  468,
+                             "Width":  1564,
+                             "Height":  542,
+                             "Visible":  false
+                         }
+                     ]
+    },
+    {
+        "File":  "atelier-catalogue.png",
+        "Width":  1920,
+        "Height":  1080,
+        "Controls":  [
+                         {
+                             "Name":  "CmbFleetQuery",
+                             "X":  270,
+                             "Y":  273,
+                             "Width":  330,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "ExpQueryObject",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  23,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgFleetMachines",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  382,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryCatalog",
+                             "X":  283,
+                             "Y":  512,
+                             "Width":  774,
+                             "Height":  410,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "PnlQueryCatalogDetail",
+                             "X":  1071,
+                             "Y":  543,
+                             "Width":  762,
+                             "Height":  235,
+                             "Visible":  false
+                         }
+                     ]
+    },
+    {
+        "File":  "atelier-modeles.png",
+        "Width":  1920,
+        "Height":  1080,
+        "Controls":  [
+                         {
+                             "Name":  "CmbFleetQuery",
+                             "X":  270,
+                             "Y":  273,
+                             "Width":  330,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "ExpQueryObject",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  23,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgFleetMachines",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  382,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryCatalog",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  774,
+                             "Height":  410,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "PnlQueryCatalogDetail",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  762,
+                             "Height":  235,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryLibrary",
+                             "X":  281,
+                             "Y":  522,
+                             "Width":  1564,
+                             "Height":  310,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblQueryLibraryDescription",
+                             "X":  281,
+                             "Y":  842,
+                             "Width":  1564,
+                             "Height":  17,
+                             "Visible":  false
+                         }
+                     ]
+    },
+    {
+        "File":  "alerte-selection.png",
+        "Width":  1920,
+        "Height":  1240,
+        "Controls":  [
+                         {
+                             "Name":  "CmbFleetQuery",
+                             "X":  270,
+                             "Y":  273,
+                             "Width":  330,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "ExpQueryObject",
+                             "X":  281,
+                             "Y":  1020,
+                             "Width":  1564,
+                             "Height":  23,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgFleetMachines",
+                             "X":  281,
+                             "Y":  503,
+                             "Width":  1564,
+                             "Height":  507,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryCatalog",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  774,
+                             "Height":  410,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "PnlQueryCatalogDetail",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  762,
+                             "Height":  235,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryLibrary",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  310,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblQueryLibraryDescription",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  17,
+                             "Visible":  false
+                         }
+                     ]
+    },
+    {
+        "File":  "atelier-condition.png",
+        "Width":  1920,
+        "Height":  1240,
+        "Controls":  [
+                         {
+                             "Name":  "CmbQueryField",
+                             "X":  285,
+                             "Y":  478,
+                             "Width":  330,
+                             "Height":  43,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryAddCondition",
+                             "X":  973,
+                             "Y":  482,
+                             "Width":  74,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbFleetQuery",
+                             "X":  270,
+                             "Y":  273,
+                             "Width":  330,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryWidget",
+                             "X":  721,
+                             "Y":  691,
+                             "Width":  192,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "ExpQueryObject",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  23,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgFleetMachines",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  347,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryCatalog",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  774,
+                             "Height":  410,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "PnlQueryCatalogDetail",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  762,
+                             "Height":  235,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryLibrary",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  310,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblQueryLibraryDescription",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  17,
+                             "Visible":  false
+                         }
+                     ]
+    },
+    {
+        "File":  "atelier-collecte.png",
+        "Width":  1920,
+        "Height":  1240,
+        "Controls":  [
+                         {
+                             "Name":  "CmbQueryField",
+                             "X":  285,
+                             "Y":  478,
+                             "Width":  330,
+                             "Height":  43,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryAddCondition",
+                             "X":  973,
+                             "Y":  482,
+                             "Width":  74,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbFleetQuery",
+                             "X":  270,
+                             "Y":  273,
+                             "Width":  330,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryWidget",
+                             "X":  721,
+                             "Y":  691,
+                             "Width":  192,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbCollectionConcurrency",
+                             "X":  403,
+                             "Y":  941,
+                             "Width":  80,
+                             "Height":  32,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "ExpQueryObject",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  23,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgFleetMachines",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  347,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryCatalog",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  774,
+                             "Height":  410,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "PnlQueryCatalogDetail",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  762,
+                             "Height":  235,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryLibrary",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  310,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblQueryLibraryDescription",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  17,
+                             "Visible":  false
+                         }
+                     ]
+    },
+    {
+        "File":  "atelier-fiche-locale.png",
+        "Width":  1920,
+        "Height":  1240,
+        "Controls":  [
+                         {
+                             "Name":  "CmbQueryField",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  43,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryAddCondition",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  74,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbFleetQuery",
+                             "X":  270,
+                             "Y":  273,
+                             "Width":  330,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryWidget",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  192,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbCollectionConcurrency",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  80,
+                             "Height":  32,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "ExpQueryObject",
+                             "X":  281,
+                             "Y":  635,
+                             "Width":  1564,
+                             "Height":  408,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgFleetMachines",
+                             "X":  281,
+                             "Y":  468,
+                             "Width":  1564,
+                             "Height":  157,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryCatalog",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  774,
+                             "Height":  410,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "PnlQueryCatalogDetail",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  762,
+                             "Height":  235,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryLibrary",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  310,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblQueryLibraryDescription",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  17,
+                             "Visible":  false
+                         }
+                     ]
+    },
+    {
+        "File":  "atelier-bibliotheque.png",
+        "Width":  1920,
+        "Height":  1080,
+        "Controls":  [
+                         {
+                             "Name":  "CmbQueryField",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  43,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryAddCondition",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  74,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbFleetQuery",
+                             "X":  270,
+                             "Y":  273,
+                             "Width":  330,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryWidget",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  192,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbCollectionConcurrency",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  80,
+                             "Height":  32,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "ExpQueryObject",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  405,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgFleetMachines",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  100,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryCatalog",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  774,
+                             "Height":  410,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "PnlQueryCatalogDetail",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  762,
+                             "Height":  235,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryLibrary",
+                             "X":  281,
+                             "Y":  522,
+                             "Width":  1564,
+                             "Height":  310,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblQueryLibraryDescription",
+                             "X":  281,
+                             "Y":  842,
+                             "Width":  1564,
+                             "Height":  17,
+                             "Visible":  false
+                         }
+                     ]
+    },
+    {
+        "File":  "accueil-sonde-requete.png",
+        "Width":  1920,
+        "Height":  1240,
+        "Controls":  [
+                         {
+                             "Name":  "CmbQueryField",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  43,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryAddCondition",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  74,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbFleetQuery",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryWidget",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  192,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbCollectionConcurrency",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  80,
+                             "Height":  32,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "ExpQueryObject",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  405,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgFleetMachines",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  100,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryCatalog",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  774,
+                             "Height":  410,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "PnlQueryCatalogDetail",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  762,
+                             "Height":  235,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryLibrary",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  310,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblQueryLibraryDescription",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  17,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "queryHolder",
+                             "X":  218,
+                             "Y":  967,
+                             "Width":  359,
+                             "Height":  132,
+                             "Visible":  false
+                         }
+                     ]
+    },
+    {
+        "File":  "recherche-requete.png",
+        "Width":  1920,
+        "Height":  1080,
+        "Controls":  [
+                         {
+                             "Name":  "CmbQueryField",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  43,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryAddCondition",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  74,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbFleetQuery",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryWidget",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  192,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbCollectionConcurrency",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  80,
+                             "Height":  32,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "ExpQueryObject",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  405,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgFleetMachines",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  100,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryCatalog",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  774,
+                             "Height":  410,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "PnlQueryCatalogDetail",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  762,
+                             "Height":  235,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryLibrary",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  310,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblQueryLibraryDescription",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  17,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "UxSearchQueryBar",
+                             "X":  522,
+                             "Y":  299,
+                             "Width":  1370,
+                             "Height":  124,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "TxtSearchQueryFilter",
+                             "X":  588,
+                             "Y":  299,
+                             "Width":  190,
+                             "Height":  30,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbWorkView",
+                             "X":  522,
+                             "Y":  333,
+                             "Width":  1212,
+                             "Height":  34,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgObjects",
+                             "X":  524,
+                             "Y":  618,
+                             "Width":  1366,
+                             "Height":  351,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQueryDetails",
+                             "X":  522,
+                             "Y":  370,
+                             "Width":  1370,
+                             "Height":  15,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQuery",
+                             "X":  522,
+                             "Y":  388,
+                             "Width":  607,
+                             "Height":  35,
+                             "Visible":  false
+                         }
+                     ]
+    },
+    {
+        "File":  "recherche-requetes.png",
+        "Width":  1920,
+        "Height":  1080,
+        "Controls":  [
+                         {
+                             "Name":  "CmbQueryField",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  43,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryAddCondition",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  74,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbFleetQuery",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryWidget",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  192,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbCollectionConcurrency",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  80,
+                             "Height":  32,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "ExpQueryObject",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  405,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgFleetMachines",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  100,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryCatalog",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  774,
+                             "Height":  410,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "PnlQueryCatalogDetail",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  762,
+                             "Height":  235,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryLibrary",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  310,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblQueryLibraryDescription",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  17,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "UxSearchQueryBar",
+                             "X":  522,
+                             "Y":  299,
+                             "Width":  1370,
+                             "Height":  124,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "TxtSearchQueryFilter",
+                             "X":  588,
+                             "Y":  299,
+                             "Width":  190,
+                             "Height":  30,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbWorkView",
+                             "X":  522,
+                             "Y":  333,
+                             "Width":  1212,
+                             "Height":  34,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbSearchQueryResult",
+                             "X":  1169,
+                             "Y":  388,
+                             "Width":  165,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgObjects",
+                             "X":  524,
+                             "Y":  618,
+                             "Width":  1366,
+                             "Height":  351,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQueryDetails",
+                             "X":  522,
+                             "Y":  370,
+                             "Width":  1370,
+                             "Height":  15,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQuery",
+                             "X":  522,
+                             "Y":  388,
+                             "Width":  639,
+                             "Height":  35,
+                             "Visible":  false
+                         }
+                     ]
+    },
+    {
+        "File":  "recherche-inconnus.png",
+        "Width":  1920,
+        "Height":  1080,
+        "Controls":  [
+                         {
+                             "Name":  "CmbQueryField",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  43,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryAddCondition",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  74,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbFleetQuery",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryWidget",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  192,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbCollectionConcurrency",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  80,
+                             "Height":  32,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "ExpQueryObject",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  405,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgFleetMachines",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  100,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryCatalog",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  774,
+                             "Height":  410,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "PnlQueryCatalogDetail",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  762,
+                             "Height":  235,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryLibrary",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  310,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblQueryLibraryDescription",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  17,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "UxSearchQueryBar",
+                             "X":  522,
+                             "Y":  299,
+                             "Width":  1370,
+                             "Height":  124,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "TxtSearchQueryFilter",
+                             "X":  588,
+                             "Y":  299,
+                             "Width":  190,
+                             "Height":  30,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbWorkView",
+                             "X":  522,
+                             "Y":  333,
+                             "Width":  1212,
+                             "Height":  34,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbSearchQueryResult",
+                             "X":  1169,
+                             "Y":  388,
+                             "Width":  165,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgObjects",
+                             "X":  524,
+                             "Y":  618,
+                             "Width":  1366,
+                             "Height":  351,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQueryDetails",
+                             "X":  522,
+                             "Y":  370,
+                             "Width":  1370,
+                             "Height":  15,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQuery",
+                             "X":  522,
+                             "Y":  388,
+                             "Width":  639,
+                             "Height":  35,
+                             "Visible":  false
+                         }
+                     ]
+    },
+    {
+        "File":  "atelier-desactives.png",
+        "Width":  1920,
+        "Height":  1240,
+        "Controls":  [
+                         {
+                             "Name":  "CmbQueryField",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  43,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryAddCondition",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  74,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbFleetQuery",
+                             "X":  270,
+                             "Y":  273,
+                             "Width":  330,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryWidget",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  192,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbCollectionConcurrency",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  80,
+                             "Height":  32,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "ExpQueryObject",
+                             "X":  281,
+                             "Y":  1020,
+                             "Width":  1564,
+                             "Height":  23,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgFleetMachines",
+                             "X":  281,
+                             "Y":  468,
+                             "Width":  1564,
+                             "Height":  542,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryCatalog",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  774,
+                             "Height":  410,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "PnlQueryCatalogDetail",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  762,
+                             "Height":  235,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryLibrary",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  310,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblQueryLibraryDescription",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  17,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "UxSearchQueryBar",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1370,
+                             "Height":  124,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "TxtSearchQueryFilter",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  190,
+                             "Height":  30,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbWorkView",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1212,
+                             "Height":  34,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgObjects",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1366,
+                             "Height":  351,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQueryDetails",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1370,
+                             "Height":  15,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQuery",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  639,
+                             "Height":  35,
+                             "Visible":  false
+                         }
+                     ]
+    },
+    {
+        "File":  "recherche.png",
+        "Width":  1920,
+        "Height":  1080,
+        "Controls":  [
+                         {
+                             "Name":  "CmbQueryField",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  43,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryAddCondition",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  74,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbFleetQuery",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryWidget",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  192,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbCollectionConcurrency",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  80,
+                             "Height":  32,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "ExpQueryObject",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  23,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgFleetMachines",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  382,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryCatalog",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  774,
+                             "Height":  410,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "PnlQueryCatalogDetail",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  762,
+                             "Height":  235,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryLibrary",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  310,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblQueryLibraryDescription",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  17,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "UxSearchQueryBar",
+                             "X":  522,
+                             "Y":  299,
+                             "Width":  1370,
+                             "Height":  119,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "TxtSearchQueryFilter",
+                             "X":  588,
+                             "Y":  299,
+                             "Width":  190,
+                             "Height":  30,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbWorkView",
+                             "X":  522,
+                             "Y":  333,
+                             "Width":  1212,
+                             "Height":  34,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgObjects",
+                             "X":  524,
+                             "Y":  613,
+                             "Width":  1366,
+                             "Height":  356,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQueryDetails",
+                             "X":  522,
+                             "Y":  370,
+                             "Width":  1370,
+                             "Height":  15,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQuery",
+                             "X":  522,
+                             "Y":  394,
+                             "Width":  234,
+                             "Height":  17,
+                             "Visible":  false
+                         }
+                     ]
+    },
+    {
+        "File":  "recherche-actions.png",
+        "Width":  1920,
+        "Height":  1080,
+        "Controls":  [
+                         {
+                             "Name":  "CmbQueryField",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  43,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryAddCondition",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  74,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbFleetQuery",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryWidget",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  192,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbCollectionConcurrency",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  80,
+                             "Height":  32,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "ExpQueryObject",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  23,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgFleetMachines",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  382,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryCatalog",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  774,
+                             "Height":  410,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "PnlQueryCatalogDetail",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  762,
+                             "Height":  235,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryLibrary",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  310,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblQueryLibraryDescription",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  17,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "UxSearchQueryBar",
+                             "X":  522,
+                             "Y":  299,
+                             "Width":  1370,
+                             "Height":  119,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "TxtSearchQueryFilter",
+                             "X":  588,
+                             "Y":  299,
+                             "Width":  190,
+                             "Height":  30,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbWorkView",
+                             "X":  522,
+                             "Y":  333,
+                             "Width":  1212,
+                             "Height":  34,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgObjects",
+                             "X":  524,
+                             "Y":  613,
+                             "Width":  1366,
+                             "Height":  356,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQueryDetails",
+                             "X":  522,
+                             "Y":  370,
+                             "Width":  1370,
+                             "Height":  15,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQuery",
+                             "X":  522,
+                             "Y":  394,
+                             "Width":  234,
+                             "Height":  17,
+                             "Visible":  false
+                         }
+                     ]
+    },
+    {
+        "File":  "fiche-poste.png",
+        "Width":  1920,
+        "Height":  1080,
+        "Controls":  [
+                         {
+                             "Name":  "CmbQueryField",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  43,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryAddCondition",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  74,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbFleetQuery",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryWidget",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  192,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbCollectionConcurrency",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  80,
+                             "Height":  32,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "ExpQueryObject",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  23,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgFleetMachines",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  382,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryCatalog",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  774,
+                             "Height":  410,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "PnlQueryCatalogDetail",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  762,
+                             "Height":  235,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryLibrary",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  310,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblQueryLibraryDescription",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  17,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "UxSearchQueryBar",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1370,
+                             "Height":  119,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "TxtSearchQueryFilter",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  190,
+                             "Height":  30,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbWorkView",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1212,
+                             "Height":  34,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgObjects",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1366,
+                             "Height":  356,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQueryDetails",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1370,
+                             "Height":  15,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQuery",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  234,
+                             "Height":  17,
+                             "Visible":  false
+                         }
+                     ]
+    },
+    {
+        "File":  "actions-poste.png",
+        "Width":  1920,
+        "Height":  1080,
+        "Controls":  [
+                         {
+                             "Name":  "CmbQueryField",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  43,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryAddCondition",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  74,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbFleetQuery",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryWidget",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  192,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbCollectionConcurrency",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  80,
+                             "Height":  32,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "ExpQueryObject",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  23,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgFleetMachines",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  382,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryCatalog",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  774,
+                             "Height":  410,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "PnlQueryCatalogDetail",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  762,
+                             "Height":  235,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryLibrary",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  310,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblQueryLibraryDescription",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  17,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "UxSearchQueryBar",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1370,
+                             "Height":  119,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "TxtSearchQueryFilter",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  190,
+                             "Height":  30,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbWorkView",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1212,
+                             "Height":  34,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgObjects",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1366,
+                             "Height":  356,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQueryDetails",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1370,
+                             "Height":  15,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQuery",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  234,
+                             "Height":  17,
+                             "Visible":  false
+                         }
+                     ]
+    },
+    {
+        "File":  "tableau-poste.png",
+        "Width":  1920,
+        "Height":  1840,
+        "Controls":  [
+                         {
+                             "Name":  "CmbQueryField",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  43,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryAddCondition",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  74,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbFleetQuery",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryWidget",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  192,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbCollectionConcurrency",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  80,
+                             "Height":  32,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "ExpQueryObject",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  23,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgFleetMachines",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  382,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryCatalog",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  774,
+                             "Height":  410,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "PnlQueryCatalogDetail",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  762,
+                             "Height":  235,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryLibrary",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  310,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblQueryLibraryDescription",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  17,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "UxSearchQueryBar",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1370,
+                             "Height":  119,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "TxtSearchQueryFilter",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  190,
+                             "Height":  30,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbWorkView",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1212,
+                             "Height":  34,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgObjects",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1366,
+                             "Height":  356,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQueryDetails",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1370,
+                             "Height":  15,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQuery",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  234,
+                             "Height":  17,
+                             "Visible":  false
+                         }
+                     ]
+    },
+    {
+        "File":  "personnaliser.png",
+        "Width":  1920,
+        "Height":  1100,
+        "Controls":  [
+                         {
+                             "Name":  "CmbQueryField",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  43,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryAddCondition",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  74,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbFleetQuery",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryWidget",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  192,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbCollectionConcurrency",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  80,
+                             "Height":  32,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "ExpQueryObject",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  23,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgFleetMachines",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  382,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryCatalog",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  774,
+                             "Height":  410,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "PnlQueryCatalogDetail",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  762,
+                             "Height":  235,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryLibrary",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  310,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblQueryLibraryDescription",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  17,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "UxSearchQueryBar",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1370,
+                             "Height":  119,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "TxtSearchQueryFilter",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  190,
+                             "Height":  30,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbWorkView",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1212,
+                             "Height":  34,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgObjects",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1366,
+                             "Height":  356,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQueryDetails",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1370,
+                             "Height":  15,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQuery",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  234,
+                             "Height":  17,
+                             "Visible":  false
+                         }
+                     ]
+    },
+    {
+        "File":  "atelier-poste.png",
+        "Width":  1920,
+        "Height":  1240,
+        "Controls":  [
+                         {
+                             "Name":  "CmbQueryField",
+                             "X":  285,
+                             "Y":  481,
+                             "Width":  330,
+                             "Height":  43,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryAddCondition",
+                             "X":  973,
+                             "Y":  485,
+                             "Width":  74,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbFleetQuery",
+                             "X":  270,
+                             "Y":  276,
+                             "Width":  330,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryWidget",
+                             "X":  721,
+                             "Y":  694,
+                             "Width":  192,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbCollectionConcurrency",
+                             "X":  403,
+                             "Y":  944,
+                             "Width":  80,
+                             "Height":  32,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "ExpQueryObject",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  23,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgFleetMachines",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  382,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryCatalog",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  774,
+                             "Height":  410,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "PnlQueryCatalogDetail",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  762,
+                             "Height":  235,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryLibrary",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  310,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblQueryLibraryDescription",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  17,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "UxSearchQueryBar",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1370,
+                             "Height":  119,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "TxtSearchQueryFilter",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  190,
+                             "Height":  30,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbWorkView",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1212,
+                             "Height":  34,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgObjects",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1366,
+                             "Height":  356,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQueryDetails",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1370,
+                             "Height":  15,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQuery",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  234,
+                             "Height":  17,
+                             "Visible":  false
+                         }
+                     ]
+    },
+    {
+        "File":  "poste-sonde-requete.png",
+        "Width":  1920,
+        "Height":  1080,
+        "Controls":  [
+                         {
+                             "Name":  "CmbQueryField",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  43,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryAddCondition",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  74,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbFleetQuery",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryWidget",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  192,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbCollectionConcurrency",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  80,
+                             "Height":  32,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "ExpQueryObject",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  23,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgFleetMachines",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  382,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryCatalog",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  774,
+                             "Height":  410,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "PnlQueryCatalogDetail",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  762,
+                             "Height":  235,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryLibrary",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  310,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblQueryLibraryDescription",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  17,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "UxSearchQueryBar",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1370,
+                             "Height":  119,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "TxtSearchQueryFilter",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  190,
+                             "Height":  30,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbWorkView",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1212,
+                             "Height":  34,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgObjects",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1366,
+                             "Height":  356,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQueryDetails",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1370,
+                             "Height":  15,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQuery",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  234,
+                             "Height":  17,
+                             "Visible":  false
+                         }
+                     ]
+    },
+    {
+        "File":  "editeur-widget.png",
+        "Width":  1920,
+        "Height":  1080,
+        "Controls":  [
+                         {
+                             "Name":  "CmbQueryField",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  43,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryAddCondition",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  74,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbFleetQuery",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryWidget",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  192,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbCollectionConcurrency",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  80,
+                             "Height":  32,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "ExpQueryObject",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  23,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgFleetMachines",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  382,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryCatalog",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  774,
+                             "Height":  410,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "PnlQueryCatalogDetail",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  762,
+                             "Height":  235,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryLibrary",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  310,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblQueryLibraryDescription",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  17,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "UxSearchQueryBar",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1370,
+                             "Height":  119,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "TxtSearchQueryFilter",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  190,
+                             "Height":  30,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbWorkView",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1212,
+                             "Height":  34,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgObjects",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1366,
+                             "Height":  356,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQueryDetails",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1370,
+                             "Height":  15,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQuery",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  234,
+                             "Height":  17,
+                             "Visible":  false
+                         }
+                     ]
+    },
+    {
+        "File":  "logiciels.png",
+        "Width":  1920,
+        "Height":  1560,
+        "Controls":  [
+                         {
+                             "Name":  "CmbQueryField",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  43,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryAddCondition",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  74,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbFleetQuery",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryWidget",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  192,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbCollectionConcurrency",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  80,
+                             "Height":  32,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "ExpQueryObject",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  23,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgFleetMachines",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  382,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryCatalog",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  774,
+                             "Height":  410,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "PnlQueryCatalogDetail",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  762,
+                             "Height":  235,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryLibrary",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  310,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblQueryLibraryDescription",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  17,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "UxSearchQueryBar",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1370,
+                             "Height":  119,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "TxtSearchQueryFilter",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  190,
+                             "Height":  30,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbWorkView",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1212,
+                             "Height":  34,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgObjects",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1366,
+                             "Height":  356,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQueryDetails",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1370,
+                             "Height":  15,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQuery",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  234,
+                             "Height":  17,
+                             "Visible":  false
+                         }
+                     ]
+    },
+    {
+        "File":  "base-autonome.png",
+        "Width":  1920,
+        "Height":  1080,
+        "Controls":  [
+                         {
+                             "Name":  "CmbQueryField",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  43,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryAddCondition",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  74,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbFleetQuery",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryWidget",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  192,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbCollectionConcurrency",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  80,
+                             "Height":  32,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "ExpQueryObject",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  23,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgFleetMachines",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  382,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryCatalog",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  774,
+                             "Height":  410,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "PnlQueryCatalogDetail",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  762,
+                             "Height":  235,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryLibrary",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  310,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblQueryLibraryDescription",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  17,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgIndex",
+                             "X":  258,
+                             "Y":  420,
+                             "Width":  1610,
+                             "Height":  527,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblIndexOverview",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1580,
+                             "Height":  19,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "UxSearchQueryBar",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1370,
+                             "Height":  119,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "TxtSearchQueryFilter",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  190,
+                             "Height":  30,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbWorkView",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1212,
+                             "Height":  34,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgObjects",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1366,
+                             "Height":  356,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQueryDetails",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1370,
+                             "Height":  15,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQuery",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  234,
+                             "Height":  17,
+                             "Visible":  false
+                         }
+                     ]
+    },
+    {
+        "File":  "base-details.png",
+        "Width":  1920,
+        "Height":  1080,
+        "Controls":  [
+                         {
+                             "Name":  "CmbQueryField",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  43,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryAddCondition",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  74,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbFleetQuery",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryWidget",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  192,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbCollectionConcurrency",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  80,
+                             "Height":  32,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "ExpQueryObject",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  23,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgFleetMachines",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  382,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryCatalog",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  774,
+                             "Height":  410,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "PnlQueryCatalogDetail",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  762,
+                             "Height":  235,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryLibrary",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  310,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblQueryLibraryDescription",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  17,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgIndex",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1610,
+                             "Height":  527,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblIndexOverview",
+                             "X":  273,
+                             "Y":  444,
+                             "Width":  1580,
+                             "Height":  19,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "UxSearchQueryBar",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1370,
+                             "Height":  119,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "TxtSearchQueryFilter",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  190,
+                             "Height":  30,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbWorkView",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1212,
+                             "Height":  34,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgObjects",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1366,
+                             "Height":  356,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQueryDetails",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1370,
+                             "Height":  15,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQuery",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  234,
+                             "Height":  17,
+                             "Visible":  false
+                         }
+                     ]
+    },
+    {
+        "File":  "base-mise-a-jour.png",
+        "Width":  1920,
+        "Height":  1080,
+        "Controls":  [
+                         {
+                             "Name":  "CmbQueryField",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  43,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryAddCondition",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  74,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbFleetQuery",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryWidget",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  192,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbCollectionConcurrency",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  80,
+                             "Height":  32,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "ExpQueryObject",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  23,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgFleetMachines",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  382,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryCatalog",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  774,
+                             "Height":  410,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "PnlQueryCatalogDetail",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  762,
+                             "Height":  235,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryLibrary",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  310,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblQueryLibraryDescription",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  17,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgIndex",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1610,
+                             "Height":  527,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblIndexOverview",
+                             "X":  273,
+                             "Y":  444,
+                             "Width":  1580,
+                             "Height":  19,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "UxSearchQueryBar",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1370,
+                             "Height":  119,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "TxtSearchQueryFilter",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  190,
+                             "Height":  30,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbWorkView",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1212,
+                             "Height":  34,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgObjects",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1366,
+                             "Height":  356,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQueryDetails",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1370,
+                             "Height":  15,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQuery",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  234,
+                             "Height":  17,
+                             "Visible":  false
+                         }
+                     ]
+    },
+    {
+        "File":  "base-progression.png",
+        "Width":  1920,
+        "Height":  1080,
+        "Controls":  [
+                         {
+                             "Name":  "CmbQueryField",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  43,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryAddCondition",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  74,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbFleetQuery",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryWidget",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  192,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbCollectionConcurrency",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  80,
+                             "Height":  32,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "ExpQueryObject",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  23,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgFleetMachines",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  382,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryCatalog",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  774,
+                             "Height":  410,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "PnlQueryCatalogDetail",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  762,
+                             "Height":  235,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryLibrary",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  310,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblQueryLibraryDescription",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  17,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgIndex",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1610,
+                             "Height":  527,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblIndexOverview",
+                             "X":  273,
+                             "Y":  444,
+                             "Width":  1580,
+                             "Height":  19,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "UxSearchQueryBar",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1370,
+                             "Height":  119,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "TxtSearchQueryFilter",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  190,
+                             "Height":  30,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbWorkView",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1212,
+                             "Height":  34,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgObjects",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1366,
+                             "Height":  356,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQueryDetails",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1370,
+                             "Height":  15,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQuery",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  234,
+                             "Height":  17,
+                             "Visible":  false
+                         }
+                     ]
+    },
+    {
+        "File":  "base-stockage.png",
+        "Width":  1920,
+        "Height":  1080,
+        "Controls":  [
+                         {
+                             "Name":  "CmbQueryField",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  43,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryAddCondition",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  74,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbFleetQuery",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryWidget",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  192,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbCollectionConcurrency",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  80,
+                             "Height":  32,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "ExpQueryObject",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  23,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgFleetMachines",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  382,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryCatalog",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  774,
+                             "Height":  410,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "PnlQueryCatalogDetail",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  762,
+                             "Height":  235,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryLibrary",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  310,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblQueryLibraryDescription",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  17,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgIndex",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1610,
+                             "Height":  527,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblIndexOverview",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1580,
+                             "Height":  19,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "ExpStorageMaintenance",
+                             "X":  260,
+                             "Y":  516,
+                             "Width":  1606,
+                             "Height":  347,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "UxSearchQueryBar",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1370,
+                             "Height":  119,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "TxtSearchQueryFilter",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  190,
+                             "Height":  30,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbWorkView",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1212,
+                             "Height":  34,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgObjects",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1366,
+                             "Height":  356,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQueryDetails",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1370,
+                             "Height":  15,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQuery",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  234,
+                             "Height":  17,
+                             "Visible":  false
+                         }
+                     ]
+    },
+    {
+        "File":  "zoom-clair.png",
+        "Width":  1920,
+        "Height":  1080,
+        "Controls":  [
+                         {
+                             "Name":  "CmbQueryField",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  43,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryAddCondition",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  74,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbFleetQuery",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryWidget",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  192,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbCollectionConcurrency",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  80,
+                             "Height":  32,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "ExpQueryObject",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  23,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgFleetMachines",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  382,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryCatalog",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  774,
+                             "Height":  410,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "PnlQueryCatalogDetail",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  762,
+                             "Height":  235,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryLibrary",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  310,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblQueryLibraryDescription",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  17,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgIndex",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1610,
+                             "Height":  527,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblIndexOverview",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1580,
+                             "Height":  19,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "ExpStorageMaintenance",
+                             "X":  312,
+                             "Y":  602.4,
+                             "Width":  1269,
+                             "Height":  347,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "UxSearchQueryBar",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1370,
+                             "Height":  119,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "TxtSearchQueryFilter",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  190,
+                             "Height":  30,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbWorkView",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1212,
+                             "Height":  34,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgObjects",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1366,
+                             "Height":  356,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQueryDetails",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1370,
+                             "Height":  15,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQuery",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  234,
+                             "Height":  17,
+                             "Visible":  false
+                         }
+                     ]
+    },
+    {
+        "File":  "zoom-sombre.png",
+        "Width":  1920,
+        "Height":  1080,
+        "Controls":  [
+                         {
+                             "Name":  "CmbQueryField",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  43,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryAddCondition",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  74,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbFleetQuery",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryWidget",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  192,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbCollectionConcurrency",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  80,
+                             "Height":  32,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "ExpQueryObject",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  23,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgFleetMachines",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  382,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryCatalog",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  774,
+                             "Height":  410,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "PnlQueryCatalogDetail",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  762,
+                             "Height":  235,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryLibrary",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  310,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblQueryLibraryDescription",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  17,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgIndex",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1610,
+                             "Height":  527,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblIndexOverview",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1580,
+                             "Height":  19,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "ExpStorageMaintenance",
+                             "X":  312,
+                             "Y":  602.4,
+                             "Width":  1269,
+                             "Height":  347,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "UxSearchQueryBar",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1370,
+                             "Height":  119,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "TxtSearchQueryFilter",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  190,
+                             "Height":  30,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbWorkView",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1212,
+                             "Height":  34,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgObjects",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1366,
+                             "Height":  356,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQueryDetails",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1370,
+                             "Height":  15,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQuery",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  234,
+                             "Height":  17,
+                             "Visible":  false
+                         }
+                     ]
+    },
+    {
+        "File":  "etat-moteur.png",
+        "Width":  1920,
+        "Height":  1080,
+        "Controls":  [
+                         {
+                             "Name":  "CmbQueryField",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  43,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryAddCondition",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  74,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbFleetQuery",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  330,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "BtnQueryWidget",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  192,
+                             "Height":  35,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbCollectionConcurrency",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  80,
+                             "Height":  32,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "ExpQueryObject",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  23,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgFleetMachines",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  382,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryCatalog",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  774,
+                             "Height":  410,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "PnlQueryCatalogDetail",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  762,
+                             "Height":  235,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgQueryLibrary",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  310,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblQueryLibraryDescription",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1564,
+                             "Height":  17,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgIndex",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1610,
+                             "Height":  527,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblIndexOverview",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1580,
+                             "Height":  19,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "ExpStorageMaintenance",
+                             "X":  260,
+                             "Y":  516,
+                             "Width":  1606,
+                             "Height":  347,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "UxSearchQueryBar",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1370,
+                             "Height":  119,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "TxtSearchQueryFilter",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  190,
+                             "Height":  30,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "CmbWorkView",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1212,
+                             "Height":  34,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "DgObjects",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1366,
+                             "Height":  356,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQueryDetails",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  1370,
+                             "Height":  15,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblSearchQuery",
+                             "X":  0,
+                             "Y":  0,
+                             "Width":  234,
+                             "Height":  17,
+                             "Visible":  false
+                         },
+                         {
+                             "Name":  "LblOperationsHealth",
+                             "X":  43,
+                             "Y":  275,
+                             "Width":  566,
+                             "Height":  69,
+                             "Visible":  false
+                         }
+                     ]
+    }
+]

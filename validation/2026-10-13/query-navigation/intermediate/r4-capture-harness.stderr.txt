@@ -1,0 +1,7 @@
+Get-CfgValue : The term 'Get-CfgValue' is not recognized as the name of a cmdlet, function, script file, or operable
+program. Check the spelling of the name, or if a path was included, verify that the path is correct and try again.
+At C:\DomeniaLab\query-navigation-20261013-r4\source\dev\wad\modules\Domenia-Search.UI.ps1:30 char:40
++         $minimum = [Math]::Max(1,[int](Get-CfgValue 'Browser' 'Global ...
++                                        ~~~~~~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (Get-CfgValue:String) [], ParentContainsErrorRecordException
+    + FullyQualifiedErrorId : CommandNotFoundException

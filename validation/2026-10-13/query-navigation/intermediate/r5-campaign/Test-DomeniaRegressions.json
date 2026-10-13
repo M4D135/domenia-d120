@@ -1,0 +1,116 @@
+{
+    "Kind":  "Regressions",
+    "Point":  "D005",
+    "Rule":  "Chaque scenario echoue avec sa version fautive et reussit avec son correctif.",
+    "Host":  {
+                 "PSVersion":  "5.1.26100.6584",
+                 "PSEdition":  "Desktop"
+             },
+    "NoADAccess":  true,
+    "NoNetwork":  true,
+    "Passed":  20,
+    "Failed":  0,
+    "Complete":  true,
+    "Tests":  [
+                  {
+                      "Name":  "RC1.1 dependances non chargees : graphe fautif reproduit, chargeur ferme corrige",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "RC1.4 compteur 55 sur 54 : refus reproduit, registre epingle accepte sans compteur",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "RC1.10 expression invalide : commande nue apres -or refusee, forme parenthesee acceptee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "R1.2 concatenation PsExec : cible et options fusionnees reproduites, arguments distincts livres",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Tableau d octets renvoye sans la virgule : deroulement reproduit, valeur entiere livree",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "PF-27 appartenances : premier RefreshCache et plage de 1000 reproduits, plage de 1500 livree",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "RC1.10.6 prechargement debranche : clic console seul reproduit, gestionnaire reel raccorde",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Retour tardif : garde retiree reproduit A affiche sur B, garde livree le refuse",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Harnais 5.1 : tableau JSON lu en un seul objet reproduit, lecture en deux temps corrigee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Harnais : parametre $Name masquant $name reproduit, libelle $CaseLabel corrige",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Reproduction conservee : Regression RC1.1 reproduite : commande Initialize-DomeniaReconcile absente",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Reproduction conservee : Le vrai initialiseur RC1.4 reproduit le refus 55 sur 54",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Reproduction conservee : : reproduire le decalage de la ligne Auto RC1.6",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Reproduction conservee : R1.7 simulee : erreur de refresh masquee par NullArray",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Reproduction conservee : R1.7.1 : getter COM refusant masque par NATIVE_NULL",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Reproduction conservee : Reproduction de l ancienne concatenation incorrecte (aucun processus)",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Reproduction conservee : Real selection event calls preload, not only the console probe",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Reproduction conservee : Late A cannot fill B",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Reproduction conservee : bare-command-after-or",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Chaque fixture de regression est utilisee par au moins une suite",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  }
+              ]
+}

@@ -1,0 +1,30 @@
+{
+  "Status": "INTERRUPTED_SUPERSEDED",
+  "CandidateDEV_SHA256": "61d96930bd080bb3877b2aa1133c7eece5475c00460af6ee8030047cd4f666c9",
+  "CandidatePROD_SHA256": "92fb67b1592c2b6f148c67d418bf9928b965be15b92ddaa93460532a8a6c9440",
+  "Quick27": {
+    "Passed": 26,
+    "Failed": 1,
+    "RuntimeChanged": []
+  },
+  "WiringRecherche": "Executed; report preserved",
+  "PRODCheckOnly": "PASS",
+  "Additional12": "NOT_RUN",
+  "AllOffline23": "NOT_RUN",
+  "Reasons": [
+    {
+      "Kind": "Runtime",
+      "Detail": "Compact query state could interpret the cleared recipe message as active; Search.UI corrected in R5 and true Clear/details path added to regression test."
+    },
+    {
+      "Kind": "Capture harness",
+      "Detail": "Get-CfgValue absent in AST imports; capture process exited1 after19partial images. Real helper imported in harness1f8ac7b4."
+    },
+    {
+      "Kind": "Unexplained intermediate failure",
+      "Detail": "EngineResilience Add-Type Native.dll threw HRESULT0x8000FFFF E_UNEXPECTED before any case; same unchanged DLL loaded in later Native suite. Cause not established; verify reproduction in R5 without security/AV changes."
+    }
+  ],
+  "Stop": "Only owned orchestrator stopped after its Quick27 child finished normally; no test process killed, no VM/app/service stopped; receipt preserved.",
+  "Data": "Synthetic offline Windows PS5.1/WPF, no AD access"
+}

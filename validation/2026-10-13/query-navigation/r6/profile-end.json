@@ -1,0 +1,19 @@
+{
+    "UTC":  "2026-10-13T01:47:29.8362304Z",
+    "Stage":  "end",
+    "PID":  1948,
+    "SessionId":  0,
+    "SID":  "S-1-5-21-2348118763-2306653211-1344436245-500",
+    "GuestControlProfileOptionRequested":  false,
+    "ConcurrentGuestAuthenticatedOperations":  "Forbidden for this campaign; host COM process status only",
+    "HKCU":  8,
+    "HkuSidPresent":  false,
+    "Profile":  [
+                    {
+                        "SID":  "S-1-5-21-2348118763-2306653211-1344436245-500",
+                        "Loaded":  false,
+                        "Status":  0,
+                        "Special":  false
+                    }
+                ]
+}

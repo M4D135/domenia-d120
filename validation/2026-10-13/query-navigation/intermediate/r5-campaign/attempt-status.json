@@ -1,0 +1,31 @@
+{
+  "Status": "FAIL",
+  "Attempt": "R5",
+  "DEV_SHA256": "fffc258b7715eac4d57d19817336262ff827ce455d90aea0e32a7cc35653dd44",
+  "PROD_SHA256": "b91c950cb6f33cb848cc2afc4fc57468982ba59ddb2b84a7413ba717f52acc54",
+  "SuiteCount": 63,
+  "PassedQualificationSteps": 62,
+  "FailedQualificationSteps": 1,
+  "TimedOutSuites": 0,
+  "Quick27Passed": 27,
+  "Additional12Passed": 12,
+  "WiringRechercheCasesPassed": 44,
+  "AllOffline23Passed": 22,
+  "Failures": [
+    {
+      "Suite": "Test-DomeniaWiringSuites",
+      "ExitCode": 1,
+      "TimedOut": false,
+      "Milliseconds": 1358,
+      "ReportWritten": true
+    }
+  ],
+  "FailureReport": "Test-DomeniaWiringSuites.json",
+  "Cause": "Unestablished. Query.dll Add-Type failed with E_UNEXPECTED before any suite case. Same DLL hashes load in isolated diagnostics.",
+  "NoRewrittenFailure": true,
+  "RuntimeChanged": [],
+  "RawEvidence": "/tmp/query-navigation-r5/proof",
+  "Captures": "../../r5/capture-provenance.json",
+  "CapturesAndPRODCheckOnly": "PASS independently; they do not change campaign FAIL",
+  "OriginalToExportManifest": "proof-export-manifest.json"
+}

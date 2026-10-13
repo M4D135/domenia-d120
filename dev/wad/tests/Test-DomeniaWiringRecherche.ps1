@@ -79,7 +79,7 @@ foreach($name in @('Convert-WLargeInteger','Convert-WFileTime')){
     if($node.Count -ne 1){throw ('Fonction worker absente : '+$name)}
     . ([scriptblock]::Create($node[0].Extent.Text))
 }
-foreach($file in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Access.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Search.Model.ps1','Domenia-Experience.Model.ps1','Domenia-Live.Model.ps1','Domenia-Engine.UI.ps1','Domenia-Storage.UI.ps1','Domenia-Live.UI.ps1','Domenia-Continuity.Model.ps1','Domenia-Continuity.UI.ps1','Domenia-Selection.UI.ps1','Domenia-Search.UI.ps1')){
+foreach($file in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Access.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Probes.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-Query.Model.ps1','Domenia-Search.Model.ps1','Domenia-Experience.Model.ps1','Domenia-Live.Model.ps1','Domenia-Engine.UI.ps1','Domenia-Storage.UI.ps1','Domenia-Live.UI.ps1','Domenia-Continuity.Model.ps1','Domenia-Continuity.UI.ps1','Domenia-Selection.UI.ps1','Domenia-Search.UI.ps1')){
     . (Join-Path $modules $file)
 }
 
@@ -117,7 +117,7 @@ function Merge-DomeniaLiveLinkMemory {param($Observation)}
 function Get-DomeniaDatabasePath {return 'C:\DomeniaTest\aucune-base.db'}
 function Get-DomeniaSetting {param($Name,$Default) if($script:Settings.ContainsKey([string]$Name)){return $script:Settings[[string]$Name]};return $Default}
 function Set-DomeniaSetting {param($Name,$Value) $script:Settings[[string]$Name]=$Value}
-function Save-DomeniaSettings {param([switch]$Immediate)}
+function Save-DomeniaSettings {param([switch]$Immediate,[switch]$ThrowOnFailure)}
 function Clear-Secrets { }
 function Set-VisibleTabsForType {param($Type,[switch]$PreserveWorkspace)}
 function Set-DomeniaRelationsGridSelection { }
@@ -167,7 +167,7 @@ function New-TestControls {
     $c.ChkListRevalidation=[Windows.Controls.CheckBox]::new();$c.ChkListRevalidation.IsChecked=$true
     $c.LblListRevalidation=[Windows.Controls.TextBlock]::new()
     $c.CmbWorkViewScope=[Windows.Controls.ComboBox]::new()
-    foreach($pair in @(@('OU','Vues dans : OU choisie'),@('Domain','Vues sur tout le domaine, sans relevé'))){$i=[Windows.Controls.ComboBoxItem]::new();$i.Tag=$pair[0];$i.Content=$pair[1];[void]$c.CmbWorkViewScope.Items.Add($i)}
+    $i=[Windows.Controls.ComboBoxItem]::new();$i.Tag='OU';$i.Content='Requêtes · OU choisie';[void]$c.CmbWorkViewScope.Items.Add($i)
     $c.CmbWorkViewScope.SelectedIndex=0
     return $c
 }
@@ -188,7 +188,7 @@ function Reset-Fixture {
     $script:BranchObjects=@();$script:BranchCountLabel='';$script:LastObjectOpenError='';$script:OpenFailure=''
     $script:Tasks=[Collections.Generic.List[object]]::new();$script:OperationErrors=[Collections.Generic.List[string]]::new();$script:Stops=0
     $script:LastStatus='';$script:LastStatusLevel='';$script:DirtyFields=@();$script:CfgOverrides=@{};$script:Settings=@{}
-    $script:SearchUiInitialized=$false;$script:NavHistory=$null;$script:NavRestoring=$false;$script:NavSearchLaunching=$false
+    $script:SearchUiInitialized=$false;$script:SearchQuerySelectorBound=$false;$script:SearchQueryCatalogBusy=$false;$script:SearchQueryCatalog=@();$script:SearchQueryRun=$null;$script:DomeniaQueryState=$null;$script:IndexSyncStates=@{};$script:NavHistory=$null;$script:NavRestoring=$false;$script:NavSearchLaunching=$false
     $script:NavHistoryRows=$null;$script:NavHistoryState=$null;$script:NavListShape=$null;$script:OuTreeFilterStatus='';$script:TreeSelectionSource='Mouse';$script:WorkViewScopeOu='';$script:ListSurveyBlocked=$false;$script:ListRevalidationPaused=$false
     if($null -ne $script:FilterChangeTimer){$script:FilterChangeTimer.Stop()};$script:FilterChangeTimer=$null;$script:PendingFilterChange=$null
     if($null -ne $script:TreeRenderTimer){$script:TreeRenderTimer.Stop()};$script:TreeRenderTimer=$null;$script:TreeRenderJobs=@{}
@@ -438,21 +438,30 @@ Case 'D037 Limited list says so and offers the next load; a new load discards th
     Expect ($script:Ctrl.TxtGlobalLimit.Text -eq '1') 'La limite saisie par lʼoperateur a ete modifiee.'
     Expect (-not (Test-DomeniaSearchStateCurrent $t.CallbackState)) 'Lʼancien contexte reste accepte.'
 }
-# Unwired if 'Charger la suite' plans the view again with the chip as it is now: another perimeter would be read.
-Case 'D037 / UX-33 Charger la suite relit le perimetre de la vue, pas celui de la puce' {
+# Unwired if continuation drops the view, changes its OU/depth or accepts a now different search scope.
+Case 'D037 / UX-33 Charger la suite conserve la requete Annuaire et lʼOU directe' {
     Update-DomeniaSearchScopeUi
     $script:Ctrl.TxtGlobalLimit.Text='1'
-    $script:Ctrl.CmbWorkViewScope.SelectedIndex=1
-    Invoke-DomeniaWorkView -ViewId 'stalecomputers'
+    $script:Ctrl.ChkSubtree.IsChecked=$false
+    Invoke-DomeniaWorkView -ViewId 'ad:stalecomputers'
     $t=Get-LastTask 'GlobalSearch'
-    Expect ($t.CallbackState.SearchMode -eq 'Global' -and $t.CallbackState.ViewChoice -eq 'Domain') 'Vue sur tout le domaine non lancee.'
-    Feed-Live (New-ResultRow 'PC-OLD' 'pcold' 'Machine' '' 'OU=Lyon');Finish-Live $t $true
-    # The chip comes back to the OU (by hand, or another OU chosen): the continuation keeps the whole domain.
-    $script:Ctrl.CmbWorkViewScope.SelectedIndex=0
+    Expect ($t.CallbackState.SearchMode -eq 'OU' -and $t.CallbackState.ViewChoice -eq 'OU' -and $t.Payload.BaseDn -eq $script:SelectedBranchDn -and $t.Payload.Scope -eq 'OneLevel') 'La requete ne respecte pas lʼOU directe.'
+    Feed-Live (New-ResultRow 'PC-OLD' 'pcold' 'Machine' '' 'OU=Postes');Finish-Live $t $true
     Invoke-DomeniaSearchMore
     $next=Get-LastTask 'GlobalSearch'
     Expect (-not [object]::ReferenceEquals($next,$t) -and [int]$next.Payload.Limit -eq 2) 'Suite non lancee.'
-    Expect ($next.CallbackState.SearchMode -eq 'Global' -and $next.Payload.BaseDn -eq $script:Conn.BaseDn -and $next.Payload.Scope -eq 'Subtree' -and $next.CallbackState.ViewId -eq 'stalecomputers' -and -not [bool]$next.CallbackState.SurveyAllowed) ('La suite lit un autre perimetre : '+$next.Payload.BaseDn)
+    Expect ($next.CallbackState.SearchMode -eq 'OU' -and $next.Payload.BaseDn -eq $t.Payload.BaseDn -and $next.Payload.Scope -eq 'OneLevel' -and $next.CallbackState.ViewId -eq 'stalecomputers' -and [bool]$next.CallbackState.SurveyAllowed) ('La suite lit un autre perimetre : '+$next.Payload.BaseDn)
+    Expect (-not (Test-DomeniaSearchStateCurrent $t.CallbackState)) 'Ancienne generation encore acceptee.'
+}
+Case 'D037 / UX-33 Une profondeur modifiee interdit de continuer lʼancienne liste' {
+    $script:Ctrl.TxtGlobalLimit.Text='1'
+    Invoke-DomeniaWorkView -ViewId 'ad:stalecomputers'
+    $t=Get-LastTask 'GlobalSearch'
+    Feed-Live (New-ResultRow 'PC-OLD' 'pcold' 'Machine' '' 'OU=Postes');Finish-Live $t $true
+    $before=$script:Tasks.Count
+    $script:Ctrl.ChkSubtree.IsChecked=$true
+    Invoke-DomeniaSearchMore
+    Expect ($script:Tasks.Count -eq $before -and -not $script:Ctrl.BtnSearchMore.IsEnabled) 'La suite a relu une nouvelle profondeur sans nouvelle execution.'
 }
 Case 'D037 Complete list says so and offers nothing more' {
     $t=Search-Global 'alex'
@@ -466,7 +475,7 @@ Case 'D037 Complete list says so and offers nothing more' {
 # Unwired if the view is not applied by Invoke-GlobalSearch: the broad filter is the bare type filter.
 Case 'D038 A work view runs read-only, without account, right or write mode' {
     Update-DomeniaWorkViewList
-    $item=@($script:Ctrl.CmbWorkView.Items|Where-Object{[string]$_.Tag -eq 'disabled'})[0];$script:Ctrl.CmbWorkView.SelectedItem=$item
+    $item=@($script:Ctrl.CmbWorkView.Items|Where-Object{[string]$_.Tag -eq 'ad:disabled'})[0];$script:Ctrl.CmbWorkView.SelectedItem=$item
     Invoke-DomeniaWorkView
     $t=Get-LastTask 'GlobalSearch'
     Expect ($null -ne $t -and $t.Payload.BroadFilter.Contains('userAccountControl:1.2.840.113556.1.4.803:=2')) 'Vue non appliquee.'
@@ -657,37 +666,37 @@ Case 'CO-20 Postes sans connexion inclut les jamais connectes, affiches Jamais' 
     Expect ($null -ne $t -and $t.Payload.BroadFilter.Contains('(|(lastLogonTimestamp<=') -and $t.Payload.BroadFilter.Contains('(!(lastLogonTimestamp=*))')) ('Filtre : '+$t.Payload.BroadFilter)
     Expect ((Convert-WFileTime 0) -eq 'Jamais' -and (Convert-WFileTime $null) -eq 'Jamais') 'Un poste sans lastLogonTimestamp doit afficher Jamais.'
 }
-# Unwired if Invoke-GlobalSearch keeps NeedsOu or ignores the chip: the view reads the whole domain, or a survey is offered.
-Case 'UX-33 Vue de travail appliquee a lʼOU par defaut, releve refuse en domaine entier' {
+# The selector only offers the current OU. Explicit tree-root navigation keeps the whole-domain survey guard.
+Case 'UX-33 Requete dans lʼOU et profondeur choisies, releve refuse a la racine recursive' {
     Update-DomeniaSearchScopeUi
-    Expect ([string]$script:Ctrl.CmbWorkViewScope.Items[0].Content -eq 'Vues dans : Postes') ('Puce : '+[string]$script:Ctrl.CmbWorkViewScope.Items[0].Content)
-    Invoke-DomeniaWorkView -ViewId 'expiring'
+    Expect ($script:Ctrl.CmbWorkViewScope.Items.Count -eq 1 -and [string]$script:Ctrl.CmbWorkViewScope.Items[0].Tag -eq 'OU') 'Le selecteur propose encore un raccourci tout le domaine.'
+    Expect ([string]$script:Ctrl.CmbWorkViewScope.Items[0].Content -eq 'Requêtes · Postes') ('Puce : '+[string]$script:Ctrl.CmbWorkViewScope.Items[0].Content)
+    Invoke-DomeniaWorkView -ViewId 'ad:expiring'
     $ou=Get-LastTask 'GlobalSearch'
-    Expect ($ou.CallbackState.SearchMode -eq 'OU' -and $ou.Payload.BaseDn -eq 'OU=Postes,DC=example,DC=invalid' -and [bool]$ou.CallbackState.SurveyAllowed -and -not $script:ListSurveyBlocked) 'La vue ne sʼapplique pas a lʼOU choisie.'
+    Expect ($ou.CallbackState.SearchMode -eq 'OU' -and $ou.Payload.BaseDn -eq 'OU=Postes,DC=example,DC=invalid' -and $ou.Payload.Scope -eq 'OneLevel' -and [bool]$ou.CallbackState.SurveyAllowed -and -not $script:ListSurveyBlocked) 'La requete ne sʼapplique pas a lʼOU directe choisie.'
     Expect ($script:Ctrl.LblSearchHint.Text.Contains('Dans : Postes')) ('Indice : '+$script:Ctrl.LblSearchHint.Text)
-    $script:Ctrl.CmbWorkViewScope.SelectedIndex=1
-    Invoke-DomeniaWorkView -ViewId 'stalecomputers'
+    $script:Ctrl.ChkSubtree.IsChecked=$true
+    Invoke-DomeniaWorkView -ViewId 'ad:stalecomputers'
+    $recursive=Get-LastTask 'GlobalSearch'
+    Expect ($recursive.CallbackState.SearchMode -eq 'OU' -and $recursive.Payload.BaseDn -eq $script:SelectedBranchDn -and $recursive.Payload.Scope -eq 'Subtree') 'Les sous-OU choisies ne sont pas appliquees.'
+    # Choosing the root in the tree is explicit; it is not a second domain option in the query selector.
+    $script:SelectedBranchDn=$script:Conn.BaseDn;Update-DomeniaSearchScopeUi
+    Invoke-DomeniaWorkView -ViewId 'ad:stalecomputers'
     $domain=Get-LastTask 'GlobalSearch'
-    Expect ($domain.CallbackState.SearchMode -eq 'Global' -and $domain.Payload.BaseDn -eq $script:Conn.BaseDn -and $domain.Payload.Scope -eq 'Subtree') 'Le choix explicite du domaine entier nʼest pas applique.'
-    Expect (-not [bool]$domain.CallbackState.SurveyAllowed -and $script:ListSurveyBlocked -and $script:Ctrl.LblSearchHint.Text.Contains('aucun relev')) 'Le releve nʼest pas refuse sur le domaine entier.'
-    Expect ($script:SelectedBranchDn -eq 'OU=Postes,DC=example,DC=invalid') 'Une vue sur le domaine a change lʼOU choisie.'
+    Expect ($domain.CallbackState.SearchMode -eq 'OU' -and $domain.Payload.BaseDn -eq $script:Conn.BaseDn -and $domain.Payload.Scope -eq 'Subtree') 'La racine explicite nʼest pas conservee.'
+    Expect (-not [bool]$domain.CallbackState.SurveyAllowed -and $script:ListSurveyBlocked -and $script:Ctrl.LblSearchHint.Text.Contains('aucun relev')) 'Le releve nʼest pas refuse sur la racine recursive.'
     $script:SearchListHasMachine=$true
     Update-DomeniaSearchActionStates
     foreach($n in @('BtnParkResults','BtnParkPing','BtnParkAnalyze')){Expect (-not $script:Ctrl[$n].IsEnabled) ('Releve propose : '+$n)}
     $before=$script:Tasks.Count
     Start-DomeniaOnlinePark -DisplayedResults
     Expect ($script:Tasks.Count -eq $before -and $null -eq $script:ParkRun -and $script:LastStatus -match 'tout le domaine') ('Releve lance : '+$script:LastStatus)
-    # Choosing another OU in the tree brings the chip back to that OU.
     Set-SelectedBranch ([pscustomobject]@{Tag=[pscustomobject]@{DN='OU=Lyon,DC=example,DC=invalid'}})
-    Expect ($script:Ctrl.CmbWorkViewScope.SelectedIndex -eq 0 -and [string]$script:Ctrl.CmbWorkViewScope.Items[0].Content -eq 'Vues dans : Lyon' -and -not $script:ListSurveyBlocked) 'La puce ne suit pas lʼOU choisie.'
+    Expect ($script:Ctrl.CmbWorkViewScope.SelectedIndex -eq 0 -and [string]$script:Ctrl.CmbWorkViewScope.Items[0].Content -eq 'Requêtes · Lyon' -and -not $script:ListSurveyBlocked) 'La puce ne suit pas lʼOU choisie.'
     $script:SearchListHasMachine=$true
     Update-DomeniaSearchActionStates
     Expect ($script:Ctrl.BtnParkResults.IsEnabled) 'Le releve reste refuse sur une liste dʼOU.'
-    # DS-07: on the root with its sub-OU, the chip does not offer the same whole domain twice.
-    $script:SelectedBranchDn=$script:Conn.BaseDn;$script:Ctrl.ChkSubtree.IsChecked=$true;Update-DomeniaSearchScopeUi
-    Expect ($script:Ctrl.CmbWorkViewScope.Items[1].Visibility -eq 'Collapsed' -and [string]$script:Ctrl.CmbWorkViewScope.Items[0].Content -eq 'Vues dans : tout le domaine') 'Deux entrees disent tout le domaine a la racine.'
-    $script:Ctrl.ChkSubtree.IsChecked=$false;Update-DomeniaSearchScopeUi
-    Expect ($script:Ctrl.CmbWorkViewScope.Items[1].Visibility -eq 'Visible') 'Le domaine entier manque sous la racine sans sous-OU.'
+    Expect ($script:Ctrl.CmbWorkViewScope.Items.Count -eq 1) 'Une seconde portee a ete ajoutee implicitement.'
 }
 # Unwired if Set-SelectedBranch reads the OU at each arrow key (one request per node walked), if the tree no longer
 # records whether the keyboard or the mouse drives it, or if Wire-Events sends a change of type without the pause.
@@ -893,9 +902,20 @@ Case 'Main XAML carries the search controls wired by the code' {
         foreach($match in [regex]::Matches((Get-MainXaml),'x:Name="([^"]+)"')){$control=$window.FindName($match.Groups[1].Value);if($null -ne $control){$script:Ctrl[$match.Groups[1].Value]=$control}}
         $script:Window=$window
         Initialize-DomeniaSearchUi
-        # UX-33: a waiting entry 'Vues prêtes…' comes first and is selected; it starts nothing.
-        Expect ($script:Ctrl.CmbWorkView.Items.Count -eq (@(Get-DomeniaWorkViews).Count + 1) -and -not $script:Ctrl.BtnNavBack.IsEnabled)
-        Expect ($script:Ctrl.CmbWorkView.SelectedIndex -eq 0 -and [string]$script:Ctrl.CmbWorkView.SelectedItem.Tag -eq '' -and ([string]$script:Ctrl.CmbWorkView.SelectedItem.Content).StartsWith('Vues prêtes')) 'Texte dʼattente des vues absent.'
+        # Unified catalog: no preselected query, no implicit read or probe while choosing/filtering.
+        Expect ($script:Ctrl.CmbWorkView.Items.Count -eq (@(Get-DomeniaWorkViews).Count + @(Get-DomeniaQueryTemplates).Count) -and -not $script:Ctrl.BtnNavBack.IsEnabled) 'Catalogue incomplet.'
+        Expect ($script:Ctrl.CmbWorkView.SelectedIndex -eq -1 -and -not $script:Ctrl.BtnWorkView.IsEnabled -and $script:Tasks.Count -eq 0) 'Une requete est preselectionnee ou lancee au chargement.'
+        foreach($n in @('TxtSearchQueryFilter','LblSearchQueryDetails','CmbSearchQueryResult','BtnSearchQueryFavorite','ChkSearchQueryFavorites','BtnSearchQueryWorkshop','BtnQueryClearSearch')){Expect ($null -ne $window.FindName($n)) ('Controle Requetes absent : '+$n)}
+        $script:Ctrl.CmbWorkView.SelectedItem=@($script:Ctrl.CmbWorkView.Items|Where-Object{$_.Id -eq 'ad:disabled'})[0]
+        Expect ($script:Ctrl.BtnWorkView.IsEnabled -and $script:Ctrl.CmbSearchQueryResult.Visibility -eq 'Collapsed' -and $script:Tasks.Count -eq 0) 'Le choix Annuaire a lance une lecture ou propose un etat local.'
+        $script:Ctrl.CmbWorkView.SelectedItem=@($script:Ctrl.CmbWorkView.Items|Where-Object{$_.Id -eq 'local:template.all'})[0]
+        Expect ($script:Ctrl.CmbSearchQueryResult.Visibility -eq 'Visible' -and $script:Ctrl.LblSearchQueryDetails.Text.Contains($script:SelectedBranchDn) -and $script:Tasks.Count -eq 0) 'Le choix local ne montre pas son perimetre ou lance une lecture.'
+        $script:Ctrl.CmbSearchQueryResult.SelectedIndex=1
+        $script:Ctrl.TxtSearchQueryFilter.Text='desactives'
+        Expect ($script:Ctrl.CmbWorkView.Items.Count -gt 0 -and $script:Tasks.Count -eq 0) 'Filtrer ou choisir lʼetat lance une lecture.'
+        $script:Ctrl.ChkSearchQueryFavorites.IsChecked=$true
+        Expect ($script:Ctrl.CmbWorkView.Items.Count -eq 0 -and $script:Tasks.Count -eq 0) 'Favoris vides incorrects ou lecture implicite.'
+        $script:Ctrl.ChkSearchQueryFavorites.IsChecked=$false;$script:Ctrl.TxtSearchQueryFilter.Text=''
         # DS-07: the tree fills the OU column; filter, header menu and favourites above it; the former scope card is gone.
         foreach($n in @('TxtOuFilter','BtnOuMenu','UxOuMenuPanel','PnlOuFavourites','UxOuFavourites','BtnOuFavouriteToggle','CmbWorkViewScope','UxHistoryBanner','BtnHistoryRefresh','ChkListRevalidation','LblListRevalidation','UxListRevalidation')){Expect ($null -ne $window.FindName($n)) ('Controle L03 absent : '+$n)}
         foreach($n in @('BtnSearchAllDomain','BtnSearchInOu','UxOuScopeCard','LblOuScopeName','LblOuScopePath','UxOuIntro','LstGuardSearches','BtnGuardSaveSearch','BtnGuardLoadSearch')){Expect ($null -eq $window.FindName($n)) ('Controle retire encore present : '+$n)}

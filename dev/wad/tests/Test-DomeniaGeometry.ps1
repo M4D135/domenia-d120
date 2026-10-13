@@ -53,12 +53,40 @@ function Write-AppLog {param($Text,$Level) if([string]$Level -in @('WARN','ERROR
 function Set-DomeniaSetting {param($Name,$Value)}
 function Get-DomeniaSetting {param($Name,$Default);return $Default}
 function Invoke-GeometryPump {param($Window)
-    $Window.UpdateLayout()
-    $Window.Dispatcher.Invoke([Action]{},[Windows.Threading.DispatcherPriority]::ApplicationIdle)
-    $Window.UpdateLayout()
+    if($null -eq $script:GeometrySurface){
+        $Window.UpdateLayout();$Window.Dispatcher.Invoke([Action]{},[Windows.Threading.DispatcherPriority]::ApplicationIdle);$Window.UpdateLayout();return
+    }
+    # Keep the requested client viewport, including real window chrome deductions.
+    # The lab session-0 HWND is limited by its desktop; it is not the measured surface.
+    # Window.Width/Height can themselves be coerced by Show to the desktop size.
+    # Keep the scenario dimensions independently from that native HWND.
+    $w=[Math]::Max(1,$script:GeometryRequestedWidth-$script:GeometryChromeWidth)
+    $h=[Math]::Max(1,$script:GeometryRequestedHeight-$script:GeometryChromeHeight)
+    $script:GeometrySurface.Width=$w;$script:GeometrySurface.Height=$h
+    for($pass=0;$pass -lt 2;$pass++){
+        $script:GeometrySurface.Measure([Windows.Size]::new($w,$h))
+        $script:GeometrySurface.Arrange([Windows.Rect]::new(0,0,$w,$h))
+        $script:GeometrySurface.UpdateLayout()
+        $Window.Dispatcher.Invoke([Action]{},[Windows.Threading.DispatcherPriority]::ApplicationIdle)
+    }
+    Assert-True ([Math]::Abs($script:GeometrySurface.ActualWidth-$w) -le 0.5 -and [Math]::Abs($script:GeometrySurface.ActualHeight-$h) -le 0.5) 'La surface WPF ne correspond pas au viewport demande.'
+}
+function Test-GeometryVisible {param($Control)
+    # IsVisible requires a PresentationSource and is false for off-screen rendering.
+    # Effective Visibility must still be Visible through every real visual ancestor.
+    $node=$Control
+    while($null -ne $node){
+        if($node -is [Windows.UIElement] -and $node.Visibility -ne [Windows.Visibility]::Visible){return $false}
+        if([object]::ReferenceEquals($node,$script:GeometrySurface)){return $true}
+        $node=[Windows.Media.VisualTreeHelper]::GetParent($node)
+    }
+    return $false
 }
 function New-GeometryWindow {
     param([string]$Theme,[double]$Width,[double]$Height)
+    $script:GeometrySurface=$null
+    $script:GeometryRequestedWidth=$Width
+    $script:GeometryRequestedHeight=$Height
     $reader=[Xml.XmlNodeReader]::new([xml]$script:Xaml)
     try{$window=[Windows.Markup.XamlReader]::Load($reader)}finally{$reader.Close()}
     $window.ShowActivated=$false;$window.ShowInTaskbar=$false
@@ -80,7 +108,25 @@ function New-GeometryWindow {
     $script:ReadOnlyMode=$true;$script:BaseWindowTitle=$window.Title;$script:Window=$window
     # Real responsive layout of the UX module (navigation column, help panel), first-run defaults.
     $script:UxNavCollapsed=$false;$script:UxHelpVisible=$true;$script:UxHelpCompactOpen=$false;$script:UxLayoutSignature='';$script:UxNavLayoutSignature=''
+    $script:UxShortScreen=$false;$script:UxShortHelpOpen=$false;$script:UxShortLogHeld=$false;$script:UxShortLogReleased=$false;$script:UxShortNavFold=$false;$script:UxShortNavReleased=$false
+    $script:UxLogCollapsed=$false;$script:UxLogHeight=142.0
+    # Wire the real zoom/ScrollChanged path, as WireEvents does before showing the shell.
+    # Viewport changes must resize UxShellGrid and recompute the responsive plan.
+    Initialize-DomeniaUiZoom
     $window.Show();Invoke-GeometryPump $window
+    $content=$window.Content
+    $script:GeometryChromeWidth=[double]$window.ActualWidth-[double]$content.ActualWidth
+    $script:GeometryChromeHeight=[double]$window.ActualHeight-[double]$content.ActualHeight
+    $window.Content=$null
+    $script:GeometrySurface=[Windows.Controls.Grid]::new()
+    $script:GeometrySurface.Resources=$window.Resources
+    $script:GeometrySurface.SetValue([Windows.Documents.TextElement]::FontFamilyProperty,$window.FontFamily)
+    $script:GeometrySurface.SetValue([Windows.Documents.TextElement]::FontSizeProperty,$window.FontSize)
+    $script:GeometrySurface.UseLayoutRounding=$true
+    [void]$script:GeometrySurface.Children.Add($content)
+    $window.Content=[Windows.Controls.Grid]::new()
+    Invoke-GeometryPump $window
+    Update-DomeniaUxLayout;Invoke-GeometryPump $window
     Update-DomeniaUxLayout;Invoke-GeometryPump $window
     return $window
 }
@@ -92,8 +138,8 @@ function Set-FakeActivity {param([int]$Count,[string]$Name='Lecture fictive',[in
 }
 function Get-ClientRect {param($Window,[string]$Name)
     $c=$Window.FindName($Name);if($null -eq $c){throw ('Controle absent : '+$Name)}
-    $p=$c.TranslatePoint([Windows.Point]::new(0,0),$Window.Content)
-    return [pscustomobject]@{Name=$Name;X=[double]$p.X;Y=[double]$p.Y;W=[double]$c.ActualWidth;H=[double]$c.ActualHeight;Visible=[bool]$c.IsVisible}
+    $p=$c.TranslatePoint([Windows.Point]::new(0,0),$script:GeometrySurface)
+    return [pscustomobject]@{Name=$Name;X=[double]$p.X;Y=[double]$p.Y;W=[double]$c.ActualWidth;H=[double]$c.ActualHeight;Visible=(Test-GeometryVisible $c)}
 }
 function Get-Geometry {param($Window,[string[]]$Names)
     return ,@($Names|ForEach-Object{Get-ClientRect $Window $_})
@@ -131,19 +177,8 @@ if($infrastructure){
             try {
                 $script:PresentationErrors.Clear()
                 $window=New-GeometryWindow -Theme $theme -Width $workW -Height $workH
-                $fits=($window.ActualWidth -le $workW+0.5 -and $window.ActualHeight -le $workH+0.5)
-                $chromeW=[double]$window.ActualWidth-[double]$window.Content.ActualWidth
-                $chromeH=[double]$window.ActualHeight-[double]$window.Content.ActualHeight
-                $visibleW=$workW-$chromeW;$visibleH=$workH-$chromeH
-                if(-not $fits){
-                    # Reported, not hidden: the minimum window size exceeds the work area of this screen.
-                    $script:Observations.Add([pscustomobject]@{Configuration=$prefix;WorkArea=($workW.ToString()+'x'+$workH);Window=([string][Math]::Round($window.ActualWidth)+'x'+[Math]::Round($window.ActualHeight));Detail='Fenetre minimale plus grande que la zone de travail : le bas de la fenetre sort de l ecran.'})
-                }
-                if(($window.ActualWidth -lt $workW-0.5) -or ($window.ActualHeight -lt $workH-0.5)){
-                    # TE-08: Windows clamps a window to the screen of the test machine (1024x768 in the lab VM). The
-                    # configuration is then measured at the clamped size; say so instead of presenting it as covered.
-                    $script:Observations.Add([pscustomobject]@{Configuration=$prefix;WorkArea=($workW.ToString()+'x'+$workH);Window=([string][Math]::Round($window.ActualWidth)+'x'+[Math]::Round($window.ActualHeight));Detail='Ecran de test plus petit que la configuration : geometrie mesuree a la taille reelle de la fenetre.'})
-                }
+                $visibleW=[double]$script:GeometrySurface.ActualWidth;$visibleH=[double]$script:GeometrySurface.ActualHeight
+                $script:Observations.Add([pscustomobject]@{Configuration=$prefix;WorkArea=($workW.ToString()+'x'+$workH);Window=([string][Math]::Round($window.ActualWidth)+'x'+[Math]::Round($window.ActualHeight));ClientWidth=$visibleW;ClientHeight=$visibleH;ChromeWidth=$script:GeometryChromeWidth;ChromeHeight=$script:GeometryChromeHeight;ResultGridHeight=$window.FindName('DgObjects').ActualHeight;Detail='XAML reel arrange hors ecran a la taille client demandee ; HWND du bureau de test rapporte separement.'})
                 Test-Case ($prefix+' : champs essentiels visibles et atteignables') {
                     Set-FakeActivity 1;Invoke-GeometryPump $window
                     foreach($name in @($essentials+'BtnCancelTask')){
@@ -158,7 +193,7 @@ if($infrastructure){
                 }
                 Test-Case ($prefix+' : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons') {
                     Set-FakeActivity 0;Invoke-GeometryPump $window
-                    $measured=@(@('TxtGlobalSearch','BtnGlobalSearch','DgObjects')+@($resultButtons|Where-Object{$window.FindName($_).IsVisible}))
+                    $measured=@(@('TxtGlobalSearch','BtnGlobalSearch','DgObjects')+@($resultButtons|Where-Object{(Test-GeometryVisible $window.FindName($_))}))
                     Assert-True ($measured.Count -ge 6) ('Trop peu de boutons de resultats visibles : '+($measured -join ', '))
                     $stable=Get-Geometry $window $measured
                     foreach($count in @(1,10,100,0)){
@@ -185,7 +220,7 @@ if($infrastructure){
                 }
             }
             catch {$script:Checks.Add([pscustomobject]@{Name=($prefix+' : fenetre de test');Status='Failed';Detail=$_.Exception.ToString()})}
-            finally {if($null -ne $window){$window.Close()};$script:Window=$null;$script:Ctrl=@{}}
+            finally {if($null -ne $window){$window.Close()};if($null -ne $script:GeometrySurface){$script:GeometrySurface.Children.Clear();$script:GeometrySurface=$null};$script:Window=$null;$script:Ctrl=@{}}
         }
     }
 }
@@ -200,14 +235,15 @@ if($infrastructure){
             [void](Set-DomeniaControlText 'LblSearchHint' ('Prefixe inconnu traite comme texte litteral : '+('texte de recherche ' * 20)))
             Test-Case ($theme+' : redimensionnement vertical compact reversible, resultats et arbre utilisables') {
                 foreach($height in @(516,800,516)){
+                    $script:GeometryRequestedHeight=$height
                     $window.Height=$height;Invoke-GeometryPump $window;Update-DomeniaUxLayout;Invoke-GeometryPump $window
                     Set-FakeActivity 1;Invoke-GeometryPump $window
-                    Assert-True ($window.ActualHeight -le $height+0.5) 'Fenetre plus haute que la surface demandee.'
+                    Assert-True (($script:GeometrySurface.ActualHeight+$script:GeometryChromeHeight) -le $height+0.5) 'Surface plus haute que la surface demandee.'
                     Assert-True ($window.FindName('DgObjects').ActualHeight -ge 120) ('Resultats trop petits : '+$window.FindName('DgObjects').ActualHeight)
                     Assert-True ($window.FindName('TvDirectory').ActualHeight -ge 80) ('Arbre OU trop petit : '+$window.FindName('TvDirectory').ActualHeight)
                     foreach($name in @('CmbGlobalType','CmbPresenceFilter','TxtGlobalLimit','CmbWorkView','BtnWorkView','ChkLiveUsers','BtnLiveRecheck','TxtSuiteResultFilter','BtnSuiteResultClear','BtnGlobalClear','BtnExportResults','BtnCancelTask','LblUxDomain','TvDirectory','LblSearchScope','LblSearchHint','LblSelectionReadState','LblLiveState')){
                         $r=Get-ClientRect $window $name
-                        Assert-True ($r.Visible -and $r.W -ge 8 -and $r.H -ge 8 -and $r.X -ge 0 -and $r.Y -ge 0 -and $r.X+$r.W -le $window.Content.ActualWidth+0.5 -and $r.Y+$r.H -le $window.Content.ActualHeight+0.5) ($name+' inaccessible apres redimensionnement a '+$height)
+                        Assert-True ($r.Visible -and $r.W -ge 8 -and $r.H -ge 8 -and $r.X -ge 0 -and $r.Y -ge 0 -and $r.X+$r.W -le $script:GeometrySurface.ActualWidth+0.5 -and $r.Y+$r.H -le $script:GeometrySurface.ActualHeight+0.5) ($name+' inaccessible apres redimensionnement a '+$height)
                     }
                     if($height -eq 800){Assert-True ($column.Width.Value -eq 290) 'Largeur OU choisie perdue en quittant le mode compact.'}
                     else{Assert-True ($column.Width.Value -eq 230) 'Colonne OU non compacte.'}
@@ -216,7 +252,7 @@ if($infrastructure){
             }
         }
         catch {$script:Checks.Add([pscustomobject]@{Name=($theme+' : preparation du redimensionnement');Status='Failed';Detail=$_.Exception.ToString()})}
-        finally {if($window){$window.Close()};$script:Window=$null;$script:Ctrl=@{}}
+        finally {if($window){$window.Close()};if($null -ne $script:GeometrySurface){$script:GeometrySurface.Children.Clear();$script:GeometrySurface=$null};$script:Window=$null;$script:Ctrl=@{}}
     }
 }
 
@@ -227,7 +263,8 @@ if($infrastructure){
         try {
             $window=New-GeometryWindow -Theme $theme -Width 960 -Height 516
             $window.FindName('WorkspaceTabs').SelectedItem=$window.FindName('TabApplicationTools')
-            $window.FindName('ApplicationToolTabs').SelectedItem=$window.FindName('TabGuard')
+            $window.FindName('ApplicationToolTabs').SelectedItem=$window.FindName('TabIndex')
+            $window.FindName('IndexWorkspaceTabs').SelectedItem=$window.FindName('TabIndexStorage')
             $window.FindName('ExpStorageMaintenance').IsExpanded=$true
             $window.FindName('LblStorageUsage').Text=('Categorie mesuree : 123456 lignes ; taille inconnue.'+[Environment]::NewLine)*9
             $window.FindName('LblStoragePurge').Text=('Simulation : associations et recus conserves.'+[Environment]::NewLine)*8
@@ -236,14 +273,14 @@ if($infrastructure){
                 foreach($name in @('BtnStorageUsage','ChkStoragePurgeObservations','ChkStoragePurgeSnapshots','ChkStoragePurgeHistory','TxtStorageHistoryDays','ChkStoragePurgeIndex','BtnStoragePurgePreview','BtnStoragePurge')){
                     $control=$window.FindName($name);$control.BringIntoView();Invoke-GeometryPump $window
                     $r=Get-ClientRect $window $name
-                    Assert-True ($r.Visible -and $r.W -ge 20 -and $r.H -ge 15 -and $r.X -ge 0 -and $r.Y -ge 0 -and $r.X+$r.W -le $window.Content.ActualWidth+0.5 -and $r.Y+$r.H -le $window.Content.ActualHeight+0.5) ($name+' inaccessible dans le stockage deploye')
+                    Assert-True ($r.Visible -and $r.W -ge 20 -and $r.H -ge 15 -and $r.X -ge 0 -and $r.Y -ge 0 -and $r.X+$r.W -le $script:GeometrySurface.ActualWidth+0.5 -and $r.Y+$r.H -le $script:GeometrySurface.ActualHeight+0.5) ($name+' inaccessible dans le stockage deploye')
                     $node=$control;$hasScroll=$false
                     while($null -ne $node -and $node -isnot [Windows.Window]){if($node -is [Windows.Controls.ScrollViewer] -and $node.ScrollableHeight -gt 0){$hasScroll=$true};$node=[Windows.Media.VisualTreeHelper]::GetParent($node)}
                     Assert-True $hasScroll ('Defilement borne absent pour '+$name)
                 }
             }
         }catch{$script:Checks.Add([pscustomobject]@{Name=($theme+' : preparation stockage local');Status='Failed';Detail=$_.Exception.ToString()})}
-        finally {if($window){$window.Close()};$script:Window=$null;$script:Ctrl=@{}}
+        finally {if($window){$window.Close()};if($null -ne $script:GeometrySurface){$script:GeometrySurface.Children.Clear();$script:GeometrySurface=$null};$script:Window=$null;$script:Ctrl=@{}}
     }
 }
 
@@ -256,11 +293,11 @@ if($infrastructure){
                 foreach($page in @('WsSearch')){
                     $window.FindName('WorkspaceTabs').SelectedItem=$window.FindName($page);Invoke-GeometryPump $window
                     $names=@('BtnParkResults','BtnParkAnalyze','BtnParkResultsStop')
-                    foreach($name in $names){$a=Get-ClientRect $window $name;Assert-True ($a.Visible -and $a.W -gt 20 -and $a.H -ge 25 -and $a.X -ge 0 -and $a.Y -ge 0 -and $a.X+$a.W -le $window.Content.ActualWidth+0.5 -and $a.Y+$a.H -le $window.Content.ActualHeight+0.5) ($name+' hors vue')}
+                    foreach($name in $names){$a=Get-ClientRect $window $name;Assert-True ($a.Visible -and $a.W -gt 20 -and $a.H -ge 25 -and $a.X -ge 0 -and $a.Y -ge 0 -and $a.X+$a.W -le $script:GeometrySurface.ActualWidth+0.5 -and $a.Y+$a.H -le $script:GeometrySurface.ActualHeight+0.5) ($name+' hors vue')}
                 }
             }
         }catch{$script:Checks.Add([pscustomobject]@{Name=($theme+' : preparation detection');Status='Failed';Detail=$_.Exception.ToString()})}
-        finally{if($window){$window.Close()};$script:Window=$null;$script:Ctrl=@{}}
+        finally{if($window){$window.Close()};if($null -ne $script:GeometrySurface){$script:GeometrySurface.Children.Clear();$script:GeometrySurface=$null};$script:Window=$null;$script:Ctrl=@{}}
     }
 }
 
@@ -268,7 +305,7 @@ $failed=@($script:Checks|Where-Object{$_.Status -eq 'Failed'}).Count
 $passed=@($script:Checks|Where-Object{$_.Status -eq 'Passed'}).Count
 $report=[ordered]@{
     Kind='Geometry';Point='D006';Rule='Une operation ne deplace pas la recherche, les resultats ni leurs boutons ; aucun champ essentiel n est inaccessible.'
-    Method='Fenetre WPF reelle a la taille de la zone de travail en unites WPF ; echelle simulee, DPI systeme inchange.'
+    Method='XAML et controles WPF reels dans une surface hors ecran a la taille client demandee, chrome reel deduit ; HWND du bureau de test rapporte separement ; echelle simulee, DPI systeme inchange.'
     Host=@{PSEdition=[string]$PSVersionTable.PSEdition;PSVersion=$PSVersionTable.PSVersion.ToString();SessionId=[Diagnostics.Process]::GetCurrentProcess().SessionId;Interactive=[Environment]::UserInteractive}
     NoADAccess=$true;Passed=$passed;Failed=$failed;Complete=($failed -eq 0 -and $passed -gt 0)
     Observations=$script:Observations.ToArray();Tests=$script:Checks.ToArray()

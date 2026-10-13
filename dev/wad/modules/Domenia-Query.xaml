@@ -1,16 +1,16 @@
 <UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Name="DomeniaQueryView">
-  <Grid Margin="12">
+  <Grid x:Name="UxQueryLayout" Margin="12">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto" />
       <RowDefinition Height="*" />
     </Grid.RowDefinitions>
-    <DockPanel Margin="0,0,0,8">
+    <DockPanel x:Name="UxQueryScopeBar" Margin="0,0,0,8">
       <Button x:Name="BtnQueryBack" DockPanel.Dock="Left" Content="Retour" MinHeight="32" Margin="0,0,12,0" AutomationProperties.Name="Revenir à la vue précédente" />
       <TextBlock x:Name="LblQueryScope" TextWrapping="Wrap" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}" />
     </DockPanel>
-    <Border Style="{DynamicResource Card}" Grid.Row="1">
-      <DockPanel Margin="0,8,0,0">
-        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+    <Border x:Name="UxQueryCard" Style="{DynamicResource Card}" Grid.Row="1">
+      <DockPanel x:Name="UxQueryCardLayout" Margin="0,8,0,0">
+        <StackPanel x:Name="UxQueryHeader" DockPanel.Dock="Top" Margin="0,0,0,10">
           <WrapPanel Margin="0,0,0,6">
             <ComboBox x:Name="CmbFleetQuery" Width="330" MinHeight="32" Margin="0,0,6,0" AutomationProperties.Name="Modèles et requêtes enregistrées" ToolTip="Choisir un modèle ou une requête puis Charger." />
             <Button x:Name="BtnQueryLoad" Content="Charger" MinHeight="32" Margin="0,0,6,0" />
@@ -21,7 +21,7 @@
         </StackPanel>
         <TabControl x:Name="QueryWorkspaceTabs" Margin="0,4,0,0">
           <TabItem x:Name="TabQueryResults" Header="Résultats">
-            <DockPanel Margin="10">
+            <DockPanel x:Name="UxQueryResultsLayout" Margin="10">
               <WrapPanel Margin="0,0,0,6" DockPanel.Dock="Top">
                 <TextBlock x:Name="LblQuerySegment" MaxWidth="740" TextWrapping="Wrap" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}" />
                 <Button x:Name="BtnQueryClearSegment" Content="Retirer le segment" MinHeight="30" Margin="8,0,0,0" />

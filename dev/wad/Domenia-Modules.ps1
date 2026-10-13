@@ -127,6 +127,9 @@ function Get-DomeniaRuntimeModulePlan {
             'ConvertTo-DomeniaLdapTime',
             'Get-DomeniaWorkViews',
             'Get-DomeniaWorkViewPlan',
+            'Get-DomeniaSearchQueryCatalog',
+            'Find-DomeniaSearchQuery',
+            'ConvertTo-DomeniaSearchQueryRows',
             'ConvertTo-DomeniaSavedView',
             'Split-DomeniaDn',
             'ConvertFrom-DomeniaDnValue',
@@ -621,7 +624,9 @@ function Get-DomeniaRuntimeModulePlan {
             'Sync-DomeniaUxNavigation',
             'Update-DomeniaUxProfileVisibility',
             'Get-DomeniaUxHeightPlan',
+            'Set-DomeniaSearchQueryOptionsLayout',
             'Set-DomeniaUxShortLayout',
+            'Get-DomeniaUxAvailableSize',
             'Update-DomeniaUxLayout',
             'Switch-DomeniaUxHelp',
             'Switch-DomeniaUxLog',
@@ -678,6 +683,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Invoke-DomeniaReadOnlyReturnTick',
             'Start-DomeniaReadOnlyReturnTimer',
             'Stop-DomeniaReadOnlyReturnTimer',
+            'Get-DomeniaUiZoomLayoutSize',
             'Set-DomeniaUiZoom',
             'Initialize-DomeniaUiZoom'
         ) }
@@ -1102,9 +1108,23 @@ function Get-DomeniaRuntimeModulePlan {
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Search.Model.ps1','Domenia-Live.UI.ps1'); File='Domenia-Search.UI.ps1'; DotSource=$true; Functions=@(
             'Update-DomeniaSearchHint',
             'Update-DomeniaWorkViewList',
+            'Get-DomeniaSearchQueryFavorites',
+            'Initialize-DomeniaSearchQuerySelector',
+            'Update-DomeniaSearchQueryList',
+            'Update-DomeniaSearchQueryDetails',
+            'Get-DomeniaSearchQueryCoverageText',
+            'Switch-DomeniaSearchQueryFavorite',
+            'Reset-DomeniaSearchQueryFilters',
+            'Clear-DomeniaSearchQuery',
+            'Open-DomeniaSearchQueryWorkshop',
             'Get-DomeniaWorkViewScopeChoice',
             'Update-DomeniaOuScopeChoices',
             'Invoke-DomeniaWorkView',
+            'Test-DomeniaSearchLocalQueryCurrent',
+            'Start-DomeniaSearchLocalQuery',
+            'Complete-DomeniaSearchLocalRead',
+            'Complete-DomeniaSearchLocalQuery',
+            'Fail-DomeniaSearchLocalQuery',
             'Get-DomeniaGridScrollViewer',
             'Get-DomeniaNavSnapshot',
             'Get-DomeniaTypeLabelOfFilter',
@@ -1183,6 +1203,7 @@ function Get-DomeniaRuntimeModulePlan {
             'New-DomeniaCollectionPlan'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Boards.Model.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaBoardCatalogCache',
             'Get-DomeniaBoardCatalog',
             'Get-DomeniaBoardCatalogItem',
             'Get-DomeniaBoardColor',
@@ -1303,6 +1324,8 @@ function Get-DomeniaRuntimeModulePlan {
             'Sync-DomeniaBoardUndo',
             'Clear-DomeniaBoardUndo',
             'Set-DomeniaBoardLayout',
+            'Get-DomeniaBoardRenderContext',
+            'Resume-DomeniaBoardRender',
             'Show-DomeniaBoard',
             'Find-DomeniaBoardHolder',
             'Get-DomeniaBoardGroupSubtitle',
@@ -1427,6 +1450,7 @@ function Get-DomeniaRuntimeModulePlan {
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Query.Model.ps1','Domenia-Query.Worker.ps1'); File='Domenia-Query.UI.ps1'; DotSource=$true; Functions=@(
             'Initialize-DomeniaQueryView',
+            'Update-DomeniaQueryScopeLabel',
             'Show-DomeniaQueryWorkshop',
             'Initialize-DomeniaQueryWorkshop',
             'Initialize-DomeniaQueryCatalog',

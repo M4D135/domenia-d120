@@ -1,0 +1,7 @@
+{
+    "DEV":  "fffc258b7715eac4d57d19817336262ff827ce455d90aea0e32a7cc35653dd44",
+    "CaptureScriptSHA256":  "1f8ac7b4902a975c7c322396ccf912188c0480c0d439ed403ee5ce9ea34ca2f0",
+    "Data":  "Synthetic fixtures; no Active Directory, endpoint WMI or ping",
+    "Machine":  "W11-01",
+    "UTC":  "2026-10-13T01:16:44.1764003Z"
+}

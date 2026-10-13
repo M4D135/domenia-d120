@@ -1,0 +1,428 @@
+{
+    "Kind":  "Geometry",
+    "Point":  "D006",
+    "Rule":  "Une operation ne deplace pas la recherche, les resultats ni leurs boutons ; aucun champ essentiel n est inaccessible.",
+    "Method":  "XAML et controles WPF reels dans une surface hors ecran a la taille client demandee, chrome reel deduit ; HWND du bureau de test rapporte separement ; echelle simulee, DPI systeme inchange.",
+    "Host":  {
+                 "Interactive":  false,
+                 "PSVersion":  "5.1.26100.6584",
+                 "PSEdition":  "Desktop",
+                 "SessionId":  0
+             },
+    "NoADAccess":  true,
+    "Passed":  42,
+    "Failed":  0,
+    "Complete":  true,
+    "Observations":  [
+                         {
+                             "Configuration":  "Bureau 1920x1080 100 % clair",
+                             "WorkArea":  "1920x1032",
+                             "Window":  "1044x788",
+                             "ClientWidth":  1904,
+                             "ClientHeight":  993,
+                             "ChromeWidth":  16,
+                             "ChromeHeight":  39,
+                             "ResultGridHeight":  169,
+                             "Detail":  "XAML reel arrange hors ecran a la taille client demandee ; HWND du bureau de test rapporte separement."
+                         },
+                         {
+                             "Configuration":  "Bureau 1920x1080 100 % sombre",
+                             "WorkArea":  "1920x1032",
+                             "Window":  "1044x788",
+                             "ClientWidth":  1904,
+                             "ClientHeight":  993,
+                             "ChromeWidth":  16,
+                             "ChromeHeight":  39,
+                             "ResultGridHeight":  169,
+                             "Detail":  "XAML reel arrange hors ecran a la taille client demandee ; HWND du bureau de test rapporte separement."
+                         },
+                         {
+                             "Configuration":  "Ecran 1920x1080 125 % clair",
+                             "WorkArea":  "1536x825",
+                             "Window":  "1044x788",
+                             "ClientWidth":  1520,
+                             "ClientHeight":  786,
+                             "ChromeWidth":  16,
+                             "ChromeHeight":  39,
+                             "ResultGridHeight":  97,
+                             "Detail":  "XAML reel arrange hors ecran a la taille client demandee ; HWND du bureau de test rapporte separement."
+                         },
+                         {
+                             "Configuration":  "Ecran 1920x1080 125 % sombre",
+                             "WorkArea":  "1536x825",
+                             "Window":  "1044x788",
+                             "ClientWidth":  1520,
+                             "ClientHeight":  786,
+                             "ChromeWidth":  16,
+                             "ChromeHeight":  39,
+                             "ResultGridHeight":  97,
+                             "Detail":  "XAML reel arrange hors ecran a la taille client demandee ; HWND du bureau de test rapporte separement."
+                         },
+                         {
+                             "Configuration":  "Ecran 1920x1080 150 % clair",
+                             "WorkArea":  "1280x688",
+                             "Window":  "1044x688",
+                             "ClientWidth":  1264,
+                             "ClientHeight":  649,
+                             "ChromeWidth":  16,
+                             "ChromeHeight":  39,
+                             "ResultGridHeight":  146,
+                             "Detail":  "XAML reel arrange hors ecran a la taille client demandee ; HWND du bureau de test rapporte separement."
+                         },
+                         {
+                             "Configuration":  "Ecran 1920x1080 150 % sombre",
+                             "WorkArea":  "1280x688",
+                             "Window":  "1044x688",
+                             "ClientWidth":  1264,
+                             "ClientHeight":  649,
+                             "ChromeWidth":  16,
+                             "ChromeHeight":  39,
+                             "ResultGridHeight":  146,
+                             "Detail":  "XAML reel arrange hors ecran a la taille client demandee ; HWND du bureau de test rapporte separement."
+                         },
+                         {
+                             "Configuration":  "Ecran 1920x1080 175 % clair",
+                             "WorkArea":  "1097x589",
+                             "Window":  "1044x589",
+                             "ClientWidth":  1081,
+                             "ClientHeight":  550,
+                             "ChromeWidth":  16,
+                             "ChromeHeight":  39,
+                             "ResultGridHeight":  187,
+                             "Detail":  "XAML reel arrange hors ecran a la taille client demandee ; HWND du bureau de test rapporte separement."
+                         },
+                         {
+                             "Configuration":  "Ecran 1920x1080 175 % sombre",
+                             "WorkArea":  "1097x589",
+                             "Window":  "1044x589",
+                             "ClientWidth":  1081,
+                             "ClientHeight":  550,
+                             "ChromeWidth":  16,
+                             "ChromeHeight":  39,
+                             "ResultGridHeight":  187,
+                             "Detail":  "XAML reel arrange hors ecran a la taille client demandee ; HWND du bureau de test rapporte separement."
+                         },
+                         {
+                             "Configuration":  "Ecran 2560x1440 200 % clair",
+                             "WorkArea":  "1280x696",
+                             "Window":  "1044x696",
+                             "ClientWidth":  1264,
+                             "ClientHeight":  657,
+                             "ChromeWidth":  16,
+                             "ChromeHeight":  39,
+                             "ResultGridHeight":  154,
+                             "Detail":  "XAML reel arrange hors ecran a la taille client demandee ; HWND du bureau de test rapporte separement."
+                         },
+                         {
+                             "Configuration":  "Ecran 2560x1440 200 % sombre",
+                             "WorkArea":  "1280x696",
+                             "Window":  "1044x696",
+                             "ClientWidth":  1264,
+                             "ClientHeight":  657,
+                             "ChromeWidth":  16,
+                             "ChromeHeight":  39,
+                             "ResultGridHeight":  154,
+                             "Detail":  "XAML reel arrange hors ecran a la taille client demandee ; HWND du bureau de test rapporte separement."
+                         },
+                         {
+                             "Configuration":  "Ecran 1920x1080 200 % clair",
+                             "WorkArea":  "960x516",
+                             "Window":  "960x516",
+                             "ClientWidth":  944,
+                             "ClientHeight":  477,
+                             "ChromeWidth":  16,
+                             "ChromeHeight":  39,
+                             "ResultGridHeight":  122,
+                             "Detail":  "XAML reel arrange hors ecran a la taille client demandee ; HWND du bureau de test rapporte separement."
+                         },
+                         {
+                             "Configuration":  "Ecran 1920x1080 200 % sombre",
+                             "WorkArea":  "960x516",
+                             "Window":  "960x516",
+                             "ClientWidth":  944,
+                             "ClientHeight":  477,
+                             "ChromeWidth":  16,
+                             "ChromeHeight":  39,
+                             "ResultGridHeight":  122,
+                             "Detail":  "XAML reel arrange hors ecran a la taille client demandee ; HWND du bureau de test rapporte separement."
+                         },
+                         {
+                             "Configuration":  "Portable 1366x768 100 % clair",
+                             "WorkArea":  "1366x720",
+                             "Window":  "1044x720",
+                             "ClientWidth":  1350,
+                             "ClientHeight":  681,
+                             "ChromeWidth":  16,
+                             "ChromeHeight":  39,
+                             "ResultGridHeight":  178,
+                             "Detail":  "XAML reel arrange hors ecran a la taille client demandee ; HWND du bureau de test rapporte separement."
+                         },
+                         {
+                             "Configuration":  "Portable 1366x768 100 % sombre",
+                             "WorkArea":  "1366x720",
+                             "Window":  "1044x720",
+                             "ClientWidth":  1350,
+                             "ClientHeight":  681,
+                             "ChromeWidth":  16,
+                             "ChromeHeight":  39,
+                             "ResultGridHeight":  178,
+                             "Detail":  "XAML reel arrange hors ecran a la taille client demandee ; HWND du bureau de test rapporte separement."
+                         },
+                         {
+                             "Configuration":  "Portable 1366x768 125 % clair",
+                             "WorkArea":  "1092x576",
+                             "Window":  "1044x576",
+                             "ClientWidth":  1076,
+                             "ClientHeight":  537,
+                             "ChromeWidth":  16,
+                             "ChromeHeight":  39,
+                             "ResultGridHeight":  174,
+                             "Detail":  "XAML reel arrange hors ecran a la taille client demandee ; HWND du bureau de test rapporte separement."
+                         },
+                         {
+                             "Configuration":  "Portable 1366x768 125 % sombre",
+                             "WorkArea":  "1092x576",
+                             "Window":  "1044x576",
+                             "ClientWidth":  1076,
+                             "ClientHeight":  537,
+                             "ChromeWidth":  16,
+                             "ChromeHeight":  39,
+                             "ResultGridHeight":  174,
+                             "Detail":  "XAML reel arrange hors ecran a la taille client demandee ; HWND du bureau de test rapporte separement."
+                         },
+                         {
+                             "Configuration":  "Session RDP 1024x768 clair",
+                             "WorkArea":  "1024x720",
+                             "Window":  "1024x720",
+                             "ClientWidth":  1008,
+                             "ClientHeight":  681,
+                             "ChromeWidth":  16,
+                             "ChromeHeight":  39,
+                             "ResultGridHeight":  287,
+                             "Detail":  "XAML reel arrange hors ecran a la taille client demandee ; HWND du bureau de test rapporte separement."
+                         },
+                         {
+                             "Configuration":  "Session RDP 1024x768 sombre",
+                             "WorkArea":  "1024x720",
+                             "Window":  "1024x720",
+                             "ClientWidth":  1008,
+                             "ClientHeight":  681,
+                             "ChromeWidth":  16,
+                             "ChromeHeight":  39,
+                             "ResultGridHeight":  287,
+                             "Detail":  "XAML reel arrange hors ecran a la taille client demandee ; HWND du bureau de test rapporte separement."
+                         }
+                     ],
+    "Tests":  [
+                  {
+                      "Name":  "Bureau 1920x1080 100 % clair : champs essentiels visibles et atteignables",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Bureau 1920x1080 100 % clair : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Bureau 1920x1080 100 % sombre : champs essentiels visibles et atteignables",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Bureau 1920x1080 100 % sombre : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 125 % clair : champs essentiels visibles et atteignables",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 125 % clair : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 125 % sombre : champs essentiels visibles et atteignables",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 125 % sombre : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 150 % clair : champs essentiels visibles et atteignables",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 150 % clair : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 150 % sombre : champs essentiels visibles et atteignables",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 150 % sombre : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 175 % clair : champs essentiels visibles et atteignables",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 175 % clair : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 175 % sombre : champs essentiels visibles et atteignables",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 175 % sombre : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 2560x1440 200 % clair : champs essentiels visibles et atteignables",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 2560x1440 200 % clair : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 2560x1440 200 % sombre : champs essentiels visibles et atteignables",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 2560x1440 200 % sombre : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 200 % clair : champs essentiels visibles et atteignables",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 200 % clair : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 200 % sombre : champs essentiels visibles et atteignables",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 200 % sombre : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Portable 1366x768 100 % clair : champs essentiels visibles et atteignables",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Portable 1366x768 100 % clair : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Portable 1366x768 100 % sombre : champs essentiels visibles et atteignables",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Portable 1366x768 100 % sombre : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Portable 1366x768 125 % clair : champs essentiels visibles et atteignables",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Portable 1366x768 125 % clair : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Portable 1366x768 125 % sombre : champs essentiels visibles et atteignables",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Portable 1366x768 125 % sombre : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Session RDP 1024x768 clair : champs essentiels visibles et atteignables",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Session RDP 1024x768 clair : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Session RDP 1024x768 sombre : champs essentiels visibles et atteignables",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Session RDP 1024x768 sombre : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : redimensionnement vertical compact reversible, resultats et arbre utilisables",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : redimensionnement vertical compact reversible, resultats et arbre utilisables",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : stockage local deploye accessible par defilement a 960x516",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : stockage local deploye accessible par defilement a 960x516",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : detection des resultats accessible a 960x516",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : detection des resultats accessible a 960x516",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  }
+              ]
+}

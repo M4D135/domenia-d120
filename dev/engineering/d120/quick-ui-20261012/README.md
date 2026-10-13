@@ -20,3 +20,17 @@ Pour les illustrations des guides, `-CaptureScript` accepte `guides\captures\cap
 Une validation réussie de ces fixtures ne remplace pas une recette avec les droits, transports, données et volumes du domaine cible. Les erreurs ou délais dépassés doivent rester visibles et être résolus avant qualification du paquet.
 
 Le test `Test-DomeniaLoginForeground.ps1` ouvre les vrais dialogues standard/debug et le panneau de reconnexion intégré. Il vérifie le premier plan temporaire du login autonome, sa libération après succès fictif, annulation ou erreur, et l’absence de promotion de la fenêtre principale ou du moniteur. En session 0, cette preuve porte sur les propriétés WPF et leur cycle de vie ; elle ne prouve pas une interaction Alt-Tab entre applications d’une session utilisateur. Aucune authentification réseau n’est tentée.
+
+## Campagne hors ligne complète
+
+Trois recettes distinctes permettent de conserver les résultats par périmètre :
+
+- `Invoke-DomeniaQuickUi.ps1 -Extended` : 27 étapes de base.
+- `Invoke-DomeniaAdditionalUi.ps1` : 12 suites supplémentaires, dont le rendu, la géométrie, les périmètres et une base synthétique de 5 000 postes avec 78 sondes.
+- `Invoke-DomeniaAllOffline.ps1` : les 23 suites restantes, dont les comptes simulés, les ACL, les écrans d’assistance, l’installation et les mises à jour.
+
+Les trois recettes acceptent `-DevRoot`, `-OutDir` et `-Suites`. Exécuter aussi `wad\tests\Test-DomeniaWiringRecherche.ps1 -ReportPath CHEMIN` couvre ainsi les 59 fichiers `Test-*.ps1` ; les 18 fichiers `rules/*.Tests.ps1` sont déjà inclus dans `Test-DomeniaRules`.
+
+Les compléments conservent leurs résumés `_additional-ui.json` et `_all-offline-ui.json`, sans remplacer `_quick-ui.json`. Ils emploient des processus PS5.1 x64 STA séparés et des délais de garde de 300 à 900 secondes selon la suite. Ces délais sont des bornes de sécurité, pas des performances annoncées.
+
+Utiliser une session de laboratoire jetable pour la campagne complète : les fixtures ACL modifient seulement les droits de dossiers temporaires ; l’installation prépare des copies temporaires et peut créer un raccourci sur le Bureau, qu’elle retire si celui-ci n’existait pas. Les signatures de test utilisent une clé éphémère sans modifier le magasin de certificats. Aucun annuaire ou poste distant réel n’est interrogé.

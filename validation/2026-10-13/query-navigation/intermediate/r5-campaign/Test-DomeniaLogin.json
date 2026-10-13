@@ -1,0 +1,282 @@
+{
+    "Build":  "2026.09.22-R1.7.2-NATIVE",
+    "PowerShellVersion":  "5.1.26100.6584",
+    "Runtime":  "Microsoft Windows NT 10.0.26200.0",
+    "LiveDirectoryExecuted":  false,
+    "WpfExecuted":  false,
+    "Mode":  "AST-extracted source + throwing CLR getters before/after + inert ADSI fixtures + real MTA SelfTestOnly",
+    "Passed":  54,
+    "Failed":  0,
+    "Tests":  [
+                  {
+                      "Name":  "Flag optionnel : requete absente",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Flag optionnel : objet sans le membre",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Flag optionnel : dictionnaire vide",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Flag optionnel : valeur vraie conservee",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Attribut ADSI : entree absente, erreur explicite",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Attribut ADSI : collection absente, erreur explicite",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Attribut ADSI : valeur absente",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Attribut ADSI : premiere valeur lue",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Attribut ADSI : nom adapte ne masque pas PSBase",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Lecture base : acces refuse initial conserve",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Lecture base : metadata vide refusee",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Probe complet simule : succes, bind unique, nettoyage",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "R1.7 simulee : erreur de refresh masquee par NullArray",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Correctif actuel : vraie erreur de refresh conservee",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "R1.7 simulee : collision de membres, echec",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Correctif actuel : collision de membres, CLR utilise",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "RootDSE nul : erreur interne, aucun mot de passe envoye",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Refus simule : refuse, aucun repli Windows ni second DC",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Objet natif absent : jamais de faux succes",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "DN de base absent : jamais de faux succes",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Diagnostic : etape, erreur et ligne conserves sans credential",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Erreur interne francaise : aucun verdict mauvais mot de passe",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Erreur interne anglaise : aucun changement de compte suggere",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Categorie interne prioritaire sur texte approximatif",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Credentials reels : message de refus conserve",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Reseau : orientation reseau plutot que mot de passe",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Erreur inconnue : diagnostic plutot que changement de compte",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Refus de lecture : message distinct des identifiants",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Refus de lecture : orientation droits plutot que DNS",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "R1.7.1 : getter COM refusant masque par NATIVE_NULL",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "R1.7.2 : meme getter, erreur COM et HRESULT originaux conserves",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "CLR : acces propriete masque effectivement une exception de getter",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "CLR : appel de methode getter propage la meme exception",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "CLR Properties : exception du getter conservee",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "CLR indexeur : exception native conservee par get_Item",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Discovery getter : erreur avant utilisation du credential",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Bind refuse par droits : code numerique prime sur texte opaque",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Restriction poste : jamais presentee comme mauvais mot de passe",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Compte verrouille : restriction, aucune affirmation sur le mot de passe",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Serveur indisponible pendant bind : aucun second bind automatique",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Erreur bind inconnue : diagnostic sans verdict DNS ou credentials",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Identite canonique et DC du refus explicite traces sans changer le compte",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Secret dans message simule : retire du resultat et du diagnostic",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Un code dans le nom du DC ne cree pas de faux verrouillage",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Getter vraiment nul : garde fail-closed conservee apres le correctif",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Aucun diagnostic echec ne contient une requete ou un objet credential",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Transport MTA reel : SelfTestOnly sans dependance AD",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Code AD 52f : restriction de compte, jamais mot de passe incorrect",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Code AD 52e : identifiants refuses, message inchange",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Codes AD 530 531 533 775 : restrictions nommees ; sans code : rien",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Sans serveur configure : validation unique sur le controleur RootDSE, comme avant",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Mot de passe refuse sans serveur configure : un seul essai",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Fenetre maximisee : toujours activee, meme apres un Alt-Tab (contrainte WPF)",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Coeur : la fenetre principale repasse par la regle juste avant ShowDialog",
+                      "Status":  "PASS",
+                      "Detail":  ""
+                  }
+              ]
+}

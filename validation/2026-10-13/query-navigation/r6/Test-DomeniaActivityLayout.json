@@ -1,0 +1,273 @@
+{
+    "Build":  "2026.10.01-DOMENIA-1.0-RC1.7-FIXEDACTIVITY",
+    "Environment":  "Windows PowerShell 5.1 x64 STA / real WPF layout",
+    "Passed":  52,
+    "Failed":  0,
+    "Expected":  52,
+    "Skipped":  0,
+    "Complete":  true,
+    "NoADAccess":  true,
+    "NoProductionData":  true,
+    "Tests":  [
+                  {
+                      "Name":  "Windows PowerShell 5.1 x64 STA requis",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Extraire les vrais helpers de presentation sans executer le bootstrap",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : reproduire le decalage de la ligne Auto RC1.6",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light 1600x960 : emplacement reserve au repos",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light 1600x960 : cycles 0 1 9 10 100 0 sans aucun deplacement des voisins",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light 1600x960 : texte long et temps ecoule sans agrandissement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light 1600x960 : animation et valeurs 0 50 100 gardent le meme emplacement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light 1600x960 : masquer meme Collapsed un indicateur ne retire pas la ligne",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light 1600x960 : avertissement ecriture conserve sans faire sauter le contenu",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light 1600x960 : arrivee de statut ne recree ni grille ni selection",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light 1600x960 : bouton dans ses limites et inaccessible au repos",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light 1280x800 : emplacement reserve au repos",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light 1280x800 : cycles 0 1 9 10 100 0 sans aucun deplacement des voisins",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light 1280x800 : texte long et temps ecoule sans agrandissement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light 1280x800 : animation et valeurs 0 50 100 gardent le meme emplacement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light 1280x800 : masquer meme Collapsed un indicateur ne retire pas la ligne",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light 1280x800 : avertissement ecriture conserve sans faire sauter le contenu",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light 1280x800 : arrivee de statut ne recree ni grille ni selection",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light 1280x800 : bouton dans ses limites et inaccessible au repos",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light 960x640 : emplacement reserve au repos",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light 960x640 : cycles 0 1 9 10 100 0 sans aucun deplacement des voisins",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light 960x640 : texte long et temps ecoule sans agrandissement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light 960x640 : animation et valeurs 0 50 100 gardent le meme emplacement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light 960x640 : masquer meme Collapsed un indicateur ne retire pas la ligne",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light 960x640 : avertissement ecriture conserve sans faire sauter le contenu",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light 960x640 : arrivee de statut ne recree ni grille ni selection",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light 960x640 : bouton dans ses limites et inaccessible au repos",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : reproduire le decalage de la ligne Auto RC1.6",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark 1600x960 : emplacement reserve au repos",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark 1600x960 : cycles 0 1 9 10 100 0 sans aucun deplacement des voisins",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark 1600x960 : texte long et temps ecoule sans agrandissement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark 1600x960 : animation et valeurs 0 50 100 gardent le meme emplacement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark 1600x960 : masquer meme Collapsed un indicateur ne retire pas la ligne",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark 1600x960 : avertissement ecriture conserve sans faire sauter le contenu",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark 1600x960 : arrivee de statut ne recree ni grille ni selection",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark 1600x960 : bouton dans ses limites et inaccessible au repos",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark 1280x800 : emplacement reserve au repos",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark 1280x800 : cycles 0 1 9 10 100 0 sans aucun deplacement des voisins",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark 1280x800 : texte long et temps ecoule sans agrandissement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark 1280x800 : animation et valeurs 0 50 100 gardent le meme emplacement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark 1280x800 : masquer meme Collapsed un indicateur ne retire pas la ligne",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark 1280x800 : avertissement ecriture conserve sans faire sauter le contenu",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark 1280x800 : arrivee de statut ne recree ni grille ni selection",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark 1280x800 : bouton dans ses limites et inaccessible au repos",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark 960x640 : emplacement reserve au repos",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark 960x640 : cycles 0 1 9 10 100 0 sans aucun deplacement des voisins",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark 960x640 : texte long et temps ecoule sans agrandissement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark 960x640 : animation et valeurs 0 50 100 gardent le meme emplacement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark 960x640 : masquer meme Collapsed un indicateur ne retire pas la ligne",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark 960x640 : avertissement ecriture conserve sans faire sauter le contenu",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark 960x640 : arrivee de statut ne recree ni grille ni selection",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark 960x640 : bouton dans ses limites et inaccessible au repos",
+                      "Passed":  true,
+                      "Detail":  ""
+                  }
+              ]
+}

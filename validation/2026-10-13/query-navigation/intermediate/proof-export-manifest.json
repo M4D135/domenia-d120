@@ -1,0 +1,42 @@
+{
+  "Status": "INTERMEDIATE_NOT_QUALIFIED",
+  "R3DEV_SHA256": "28253e378e5bcd67a29251a6cc0e7f958d079503ee2b90bd6632d1cf4ef5ed50",
+  "R4DEV_SHA256": "61d96930bd080bb3877b2aa1133c7eece5475c00460af6ee8030047cd4f666c9",
+  "Entries": [
+    {
+      "File": "r3-causes.json",
+      "OriginalPath": "/tmp/query-navigation-r3/revision-causes.json",
+      "OriginalSHA256": "0bd9ebb119aa32d2143d5a7e65aa29bf4e7ec4687a544f26d5c469eb52ea9a26",
+      "ExportedSHA256": "0bd9ebb119aa32d2143d5a7e65aa29bf4e7ec4687a544f26d5c469eb52ea9a26",
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "r4-causes.json",
+      "OriginalPath": "/tmp/query-navigation-r4/revision-causes.json",
+      "OriginalSHA256": "edfff067ceb604905a8ce4a1550100fdcf6291306ac6c180afba01c06ec6a40b",
+      "ExportedSHA256": "edfff067ceb604905a8ce4a1550100fdcf6291306ac6c180afba01c06ec6a40b",
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "r4-interrupted-superseded.json",
+      "OriginalPath": "/tmp/query-navigation-r4-light/interrupted-superseded.json",
+      "OriginalSHA256": "3142617fabc169be5c54b5c80f6f86c9b1119716215d539567305eac7e50e06f",
+      "ExportedSHA256": "03685909ab0e69e9fbf409dee075ae9a0a753786da373cec1cadcdff8580de5b",
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "r4-native-load.stderr.txt",
+      "OriginalPath": "/tmp/query-navigation-r4/proof/Test-DomeniaEngineResilience.stderr.txt",
+      "OriginalSHA256": "d95ac47e723cc02032ded8e2ea8777ddbbeb6a178380c3c3885bda260c8baa94",
+      "ExportedSHA256": "6bed7ad766a1f137846f6e10159b6aa8d1867f37640688c019b7432a05823f91",
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "r4-capture-harness.stderr.txt",
+      "OriginalPath": "/tmp/query-navigation-r4/proof/GuideCaptures.stderr.txt",
+      "OriginalSHA256": "35d26ade542b67b87a954b31a6f7be1872f230cc221b6cc3672eae1b07550187",
+      "ExportedSHA256": "0b047c83ea03827af8513de6973e35f0b08c48d687c7d95470fe33b9324fa2e3",
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    }
+  ]
+}

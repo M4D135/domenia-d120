@@ -494,6 +494,6 @@
     "File": "wad/modules/Domenia-Query.Worker.ps1",
     "Function": "Get-DomeniaQueryWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "569C938D2E36CE9BD371253D1E4E9C3A42745D98C98E9C699528CDC19BCBFB3A"
+    "Sha256": "0F9F8E8F55356949E7251DD1618E170DDABADE0888D1AAEBFC59AB29FAB08536"
   }
 ]

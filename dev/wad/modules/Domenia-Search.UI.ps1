@@ -13,6 +13,11 @@ $script:TreeSelectionSource = 'Mouse'
 $script:PendingFilterChange = $null
 $script:FilterChangeTimer = $null
 $script:WorkViewScopeOu = ''
+$script:SearchQueryCatalog = @()
+$script:SearchQueryRun = $null
+$script:SearchQueryCatalogBusy = $false
+$script:SearchQueryModuleRoot = $PSScriptRoot
+$script:SearchQuerySelectorBound = $false
 
 function Update-DomeniaSearchHint {
     # D033/D036: explains what the upper bar will search (explicit tokens, pasted identifier, unknown prefix).
@@ -30,28 +35,101 @@ function Update-DomeniaSearchHint {
 }
 
 function Update-DomeniaWorkViewList {
-    # D038: ready-made read-only views. Choosing one in the list starts nothing.
-    # UX-33: a waiting entry is shown until a view is chosen; every view applies to the OU of the 'Dans :' chip.
     $combo = Get-DomeniaControl 'CmbWorkView'
     if ($null -eq $combo) { return }
-    $combo.Items.Clear()
-    $wait = [Windows.Controls.ComboBoxItem]::new()
-    $wait.Content = 'Vues prêtes' + [string][char]0x2026
-    $wait.Tag = ''
-    $wait.IsEnabled = $false
-    $wait.ToolTip = 'Choisissez une vue : le choix seul ne lance rien.'
-    [void]$combo.Items.Add($wait)
-    foreach ($view in @(Get-DomeniaWorkViews)) {
-        $item = [Windows.Controls.ComboBoxItem]::new()
-        $item.Content = [string]$view.Name
-        $item.Tag = [string]$view.Id
-        $tip = [string]$view.Note
-        if (-not $tip) { $tip = 'Vue en lecture seule.' }
-        $tip += ' Périmètre : lʼOU choisie dans lʼarbre (puce Dans :) ; aucun relevé des postes.'
-        $item.ToolTip = $tip
-        [void]$combo.Items.Add($item)
-    }
-    $combo.SelectedIndex = 0
+    $saved=@();$script:SearchQueryLibraryError=''
+    try{$saved=@(ConvertFrom-DomeniaQueryLibrary ([string](Get-DomeniaSetting 'Query.Library' '')))}catch{$script:SearchQueryLibraryError='Bibliothèque personnelle illisible : '+$_.Exception.Message}
+    $script:SearchQueryCatalog=@(Get-DomeniaSearchQueryCatalog -Saved $saved -Favorites @(Get-DomeniaSearchQueryFavorites))
+    Update-DomeniaSearchQueryList
+}
+
+function Get-DomeniaSearchQueryFavorites {
+    try{$decoded=ConvertFrom-Json -InputObject ([string](Get-DomeniaSetting 'Search.QueryFavorites' '[]')) -ErrorAction Stop;return @($decoded|Where-Object{$_ -is [string] -and $_ -match '^(ad|local):[a-zA-Z0-9_.-]{1,80}$'}|Select-Object -Unique -First 200)}catch{return @()}
+}
+function Initialize-DomeniaSearchQuerySelector {
+    if($script:SearchQuerySelectorBound){return}
+    Update-DomeniaWorkViewList
+    $queryChoice=Get-DomeniaControl 'CmbWorkView';if($null -ne $queryChoice){$queryChoice.Add_SelectionChanged({Update-DomeniaSearchQueryDetails})}
+    $queryFilter=Get-DomeniaControl 'TxtSearchQueryFilter';if($null -ne $queryFilter){$queryFilter.Add_TextChanged({Update-DomeniaSearchQueryList})}
+    $queryFavorites=Get-DomeniaControl 'ChkSearchQueryFavorites';if($null -ne $queryFavorites){$queryFavorites.Add_Checked({Update-DomeniaSearchQueryList});$queryFavorites.Add_Unchecked({Update-DomeniaSearchQueryList})}
+    $queryStar=Get-DomeniaControl 'BtnSearchQueryFavorite';if($null -ne $queryStar){$queryStar.Add_Click({try{Switch-DomeniaSearchQueryFavorite}catch{Set-Status ('Favori non enregistré : '+$_.Exception.Message) 'WARN'}})}
+    $queryWorkshop=Get-DomeniaControl 'BtnSearchQueryWorkshop';if($null -ne $queryWorkshop){$queryWorkshop.Add_Click({try{Open-DomeniaSearchQueryWorkshop}catch{Set-Status ('Atelier non ouvert : '+$_.Exception.Message) 'WARN'}})}
+    $queryRun=Get-DomeniaControl 'BtnWorkView';if($null -ne $queryRun){$queryRun.Add_Click({try{Invoke-DomeniaWorkView}catch{Write-AppLog ('Requête : '+$_.Exception.Message) 'ERROR';Set-Status ('Requête non exécutée : '+$_.Exception.Message) 'ERROR'}})}
+    $queryClear=Get-DomeniaControl 'BtnQueryClearSearch';if($null -ne $queryClear){$queryClear.Add_Click({try{Clear-DomeniaSearchQuery}catch{Set-Status ('Requête non retirée : '+$_.Exception.Message) 'WARN'}})}
+    $script:SearchQuerySelectorBound=$true
+}
+function Update-DomeniaSearchQueryList {
+    if($script:SearchQueryCatalogBusy){return}
+    $combo=Get-DomeniaControl 'CmbWorkView';if($null -eq $combo){return}
+    $selected=[string]$combo.SelectedItem.Id;$text=Get-DomeniaControl 'TxtSearchQueryFilter';$favorites=Get-DomeniaControl 'ChkSearchQueryFavorites'
+    $rows=@(Find-DomeniaSearchQuery -Entries $script:SearchQueryCatalog -Text ([string]$text.Text) -FavoritesOnly:($null -ne $favorites -and [bool]$favorites.IsChecked))
+    $script:SearchQueryCatalogBusy=$true
+    try{
+        $combo.ItemsSource=$rows;$combo.DisplayMemberPath='DisplayName';$combo.SelectedIndex=-1
+        foreach($row in $rows){if($row.Id -ceq $selected){$combo.SelectedItem=$row;break}}
+    }finally{$script:SearchQueryCatalogBusy=$false}
+    Update-DomeniaSearchQueryDetails
+}
+function Update-DomeniaSearchQueryDetails {
+    if($script:SearchQueryCatalogBusy){return}
+    $combo=Get-DomeniaControl 'CmbWorkView';if($null -eq $combo){return};$entry=$combo.SelectedItem
+    $scope=$null
+    if([string]$script:Conn.BaseDn -and [string]$script:SelectedBranchDn){try{$scope=Get-DomeniaSearchScope -Mode OU}catch{$scope=$null}}
+    $execute=Get-DomeniaControl 'BtnWorkView';if($null -ne $execute){$execute.IsEnabled=($null -ne $entry -and $null -ne $scope)}
+    $favorite=Get-DomeniaControl 'BtnSearchQueryFavorite';if($null -ne $favorite){$favorite.IsEnabled=($null -ne $entry)}
+    $selection=Get-DomeniaControl 'CmbSearchQueryResult';if($null -ne $selection){$local=($null -ne $entry -and $entry.SourceId -eq 'Local');$selection.IsEnabled=$local;$selection.Visibility=if($local){'Visible'}else{'Collapsed'}}
+    $star=Get-DomeniaControl 'BtnSearchQueryFavorite';if($null -ne $star){$star.Content=if($null -ne $entry -and $entry.Favorite){'★'}else{'☆'};$star.ToolTip=if($null -ne $entry -and $entry.Favorite){'Retirer des favoris'}else{'Ajouter aux favoris'}}
+    $perimeter=if($null -ne $scope){[string]$scope.BaseDn+$(if([string]$scope.Scope -eq 'Subtree'){' · sous-OU incluses'}else{' · niveau direct'})}else{'Connectez-vous puis choisissez une OU dans lʼarbre'}
+    $text=if($null -ne $entry){$entry.Source+' · '+$entry.TypeLabel+' · '+$perimeter+'. '+$entry.Description}else{'Choisissez une requête ; la sélection seule ne lance rien. '+$perimeter+'.'}
+    if($null -ne $scope -and $null -ne $entry -and $entry.SourceId -eq 'Local'){$text+=' '+(Get-DomeniaSearchQueryCoverageText -ScopeDn ([string]$scope.BaseDn))}
+    if($script:SearchQueryLibraryError){$text+=' '+$script:SearchQueryLibraryError}
+    [void](Set-DomeniaControlText 'LblSearchQueryDetails' $text)
+}
+function Get-DomeniaSearchQueryCoverageText {
+    param([string]$ScopeDn)
+    $coverage=Get-DomeniaFleetFreshness -ScopeDn $ScopeDn -DomainDn ([string]$script:Conn.BaseDn) -SyncStates $script:IndexSyncStates
+    $text=if($null -ne $coverage.At){'Dernière lecture complète couvrante : '+$coverage.At.ToLocalTime().ToString('dd/MM/yyyy HH:mm')+'.'}else{'Couverture AD complète non attestée : seuls les objets déjà recensés sont évalués.'}
+    if($coverage.Partial){$text+=' Dernière tentative incomplète ; la couverture peut manquer des objets.'}
+    return $text
+}
+function Switch-DomeniaSearchQueryFavorite {
+    $entry=(Get-DomeniaControl 'CmbWorkView').SelectedItem;if($null -eq $entry){return}
+    $ids=@(Get-DomeniaSearchQueryFavorites)
+    if($ids -ccontains [string]$entry.Id){$ids=@($ids|Where-Object{$_ -cne $entry.Id})}else{if($ids.Count -ge 200){throw '200 favoris de requête au maximum.'};$ids+=@([string]$entry.Id)}
+    $previous=[string](Get-DomeniaSetting 'Search.QueryFavorites' '[]')
+    try{Set-DomeniaSetting 'Search.QueryFavorites' (ConvertTo-Json -InputObject @($ids) -Compress);Save-DomeniaSettings -Immediate -ThrowOnFailure}
+    catch{Set-DomeniaSetting 'Search.QueryFavorites' $previous;throw}
+    Update-DomeniaWorkViewList
+}
+function Reset-DomeniaSearchQueryFilters {
+    # Replacing the query resets every list-level intersection, including a previous frozen GUID selection.
+    $wasSuppressed=$script:SuppressBranchAutoLoad;$script:SuppressBranchAutoLoad=$true
+    try{
+        Stop-DomeniaPendingFilterChange
+        $script:CurrentPresenceFilter='Tous'
+        foreach($name in @('CmbPresenceFilter','CmbGlobalType')){$control=Get-DomeniaControl $name;if($null -ne $control){$control.SelectedIndex=0}}
+        foreach($name in @('TxtSuiteResultFilter','TxtBranchSearch')){$control=Get-DomeniaControl $name;if($null -ne $control){$control.Text=''}}
+        if($null -ne $script:DomeniaQueryState){$script:DomeniaQueryState.SearchRecipe=$null;$script:DomeniaQueryState.SearchRefinement=$null;$script:DomeniaQueryState.SearchRecords=@{}}
+        Stop-DomeniaPendingFilterChange
+    }finally{$script:SuppressBranchAutoLoad=$wasSuppressed}
+    [void](Set-DomeniaControlText 'LblSearchQuery' 'Aucun filtre de requête supplémentaire.')
+}
+function Clear-DomeniaSearchQuery {
+    $queryList=[bool][string]$script:ActiveSearchViewId
+    if($queryList){Invalidate-DomeniaSearchResults;$script:ActiveSearchViewId='';$script:ListSurveyBlocked=$false}
+    $script:SearchQueryRun=$null
+    if($null -ne $script:DomeniaQueryState){$script:DomeniaQueryState.SearchRecipe=$null;$script:DomeniaQueryState.SearchRefinement=$null;$script:DomeniaQueryState.SearchRecords=@{}}
+    if(-not $queryList){Apply-DomeniaPresenceFilter}
+    $choice=Get-DomeniaControl 'CmbWorkView';if($null -ne $choice){$choice.SelectedIndex=-1}
+    [void](Set-DomeniaControlText 'LblSearchQuery' 'Aucune requête appliquée. Choisissez une requête puis Exécuter ; aucune recherche automatique.')
+    if($queryList){[void](Set-DomeniaControlText 'LblSearchHint' 'Requête annulée ou retirée ; ses résultats ont été effacés.');Update-DomeniaSearchMoreButton -Search $null}
+    Update-DomeniaSearchQueryDetails
+}
+function Open-DomeniaSearchQueryWorkshop {
+    $entry=(Get-DomeniaControl 'CmbWorkView').SelectedItem
+    Show-DomeniaQueryWorkshop
+    if($null -ne $entry -and $entry.SourceId -eq 'Local'){Set-DomeniaQueryDraft $entry.Recipe;(Get-DomeniaControl 'QueryWorkspaceTabs').SelectedItem=Get-DomeniaControl 'TabQueryCompose'}
+    elseif($null -ne $entry){[void](Set-DomeniaControlText 'LblQueryStatus' 'Cette requête Annuaire conserve son filtre LDAP dédié. Le compositeur crée les requêtes locales sur les postes.');(Get-DomeniaControl 'QueryWorkspaceTabs').SelectedItem=Get-DomeniaControl 'TabQueryLibrary'}
 }
 
 function Get-DomeniaWorkViewScopeChoice {
@@ -72,12 +150,12 @@ function Update-DomeniaOuScopeChoices {
     $combo = Get-DomeniaControl 'CmbWorkViewScope'
     if ($null -ne $combo -and $combo.Items.Count -gt 0) {
         $first = $combo.Items[0]
-        $text = 'Vues dans : ' + $name
+        $text = 'Requêtes · ' + $name
         $moved = ([string]$script:WorkViewScopeOu -ine [string]$Scope.BaseDn)
         $script:WorkViewScopeOu = [string]$Scope.BaseDn
         if ([string]$first.Content -cne $text -or ($moved -and $combo.SelectedIndex -ne 0)) {
             $first.Content = $text
-            $first.ToolTip = 'Applique la vue à ' + $name + ' (' + [string]$Scope.BaseDn + ').'
+            $first.ToolTip = 'Exécute la requête dans ' + $name + ' (' + [string]$Scope.BaseDn + ').'
             # The closed box shows the selected entry as it was selected: select it again to show the new name.
             $combo.SelectedIndex = -1
             $combo.SelectedIndex = 0
@@ -97,6 +175,7 @@ function Update-DomeniaOuScopeChoices {
         $pinned = ($null -ne $script:OuFavouriteKeys -and $script:OuFavouriteKeys.ContainsKey(([string]$Scope.BaseDn).ToLowerInvariant()))
         $toggle.Content = if ($pinned) { 'Retirer des favoris' } else { 'Épingler cette OU' }
     }
+    Update-DomeniaSearchQueryDetails
 }
 
 function Invoke-DomeniaWorkView {
@@ -106,8 +185,94 @@ function Invoke-DomeniaWorkView {
         $combo = Get-DomeniaControl 'CmbWorkView'
         if ($null -ne $combo -and $null -ne $combo.SelectedItem) { $ViewId = [string]$combo.SelectedItem.Tag }
     }
-    if (-not $ViewId) { Set-Status 'Choisissez dʼabord une vue de travail dans la liste.' 'WARN'; return }
-    Invoke-GlobalSearch -ViewId $ViewId
+    if (-not $ViewId) { Set-Status 'Choisissez dʼabord une requête dans la liste.' 'WARN'; return }
+    if($ViewId.StartsWith('local:',[StringComparison]::Ordinal)){
+        $entry=@($script:SearchQueryCatalog|Where-Object{$_.Id -ceq $ViewId}|Select-Object -First 1)
+        if(-not $entry.Count){throw 'Cette requête locale nʼest plus disponible.'}
+        Start-DomeniaSearchLocalQuery -Entry $entry[0]
+        return
+    }
+    if($ViewId.StartsWith('ad:',[StringComparison]::Ordinal)){$ViewId=$ViewId.Substring(3)}
+    if(-not @(Get-DomeniaWorkViews|Where-Object{$_.Id -ceq $ViewId}).Count){throw 'Requête Annuaire inconnue.'}
+    Reset-DomeniaSearchQueryFilters
+    $script:SearchQueryRun=$null
+    Invoke-GlobalSearch -ViewId $ViewId -ViewScope OU
+}
+
+function Test-DomeniaSearchLocalQueryCurrent {
+    param($State)
+    if($null -eq $State -or $null -eq $script:SearchQueryRun -or -not [object]::ReferenceEquals($State,$script:SearchQueryRun)){return $false}
+    if([long]$State.Epoch -ne [long]$script:SessionEpoch -or [int]$State.Generation -ne [int]$script:GlobalSearchGeneration -or [string]$State.Path -cne [string]$script:DatabaseScopedPath){return $false}
+    $scope=Get-DomeniaSearchScope -Mode OU
+    return ((Get-DomeniaSearchMode) -eq 'OU' -and [string]$State.BaseDn -ieq [string]$scope.BaseDn -and [string]$State.Scope -eq [string]$scope.Scope -and [string]$script:ActiveSearchViewId -ceq [string]$State.Id -and -not (Get-DomeniaSearchText -Mode OU))
+}
+function Start-DomeniaSearchLocalQuery {
+    param($Entry,[ValidateSet('','Match','Unknown','NoMatch')][string]$SelectionOverride='',[int]$LimitOverride=0)
+    if(Test-DomeniaAccessBusyWrite){Set-Status 'Requête différée : écriture active ou à vérifier.' 'WARN';return}
+    if(-not (Test-DomeniaDraftNavigation -DN '')){return}
+    $path=[string]$script:DatabaseScopedPath;$scope=Get-DomeniaSearchScope -Mode OU
+    if(-not $path){throw 'Aucune base locale active. Actualisez dʼabord lʼOU dans Base de données.'}
+    if(-not [string]$script:SelectedBranchDn -or -not [string]$scope.BaseDn){throw 'Choisissez une OU dans lʼarbre de Recherche.'}
+    [void](ConvertTo-DomeniaCompiledQuery $Entry.Recipe)
+    $limit=100;$control=Get-DomeniaControl 'TxtGlobalLimit';if($null -ne $control){[void][int]::TryParse([string]$control.Text,[ref]$limit)};$limit=[Math]::Max(1,[Math]::Min(20000,$limit))
+    $selection=[string](Get-DomeniaControl 'CmbSearchQueryResult').SelectedItem.Tag;if($selection -notin @('Match','Unknown','NoMatch')){$selection='Match'}
+    if($SelectionOverride){$selection=$SelectionOverride}
+    if($LimitOverride -gt 0){$limit=[Math]::Min(20000,$LimitOverride)}
+    Enter-DomeniaNavSearch
+    try{
+    Reset-DomeniaSearchQueryFilters
+    Invalidate-DomeniaSearchResults
+    Set-DomeniaSearchMode -Mode OU
+    $script:ActiveSearchViewId=[string]$Entry.Id;$script:ListSurveyBlocked=([string]$scope.BaseDn -ieq [string]$script:Conn.BaseDn)
+    $state=[pscustomobject]@{Id=$Entry.Id;Name=$Entry.Name;Recipe=$Entry.Recipe;Epoch=[long]$script:SessionEpoch;Generation=[int]$script:GlobalSearchGeneration;Path=$path;BaseDn=[string]$scope.BaseDn;Scope=[string]$scope.Scope;Selection=$selection;Limit=$limit;Coverage=(Get-DomeniaSearchQueryCoverageText ([string]$scope.BaseDn));Job=''}
+    $script:SearchQueryRun=$state
+    [void](Set-DomeniaControlText 'LblSearchQuery' ('Lecture locale : '+$state.Name+' · '+$state.BaseDn+' · '+$state.Coverage))
+    Update-DomeniaSearchMoreButton -Search $null
+    [void](Initialize-DomeniaWinSqliteNative)
+    $payload=[pscustomobject]@{Action='FleetStats';Path=$path;BusyTimeoutMs=250;Scope=$state.BaseDn;Subtree=($state.Scope -eq 'Subtree');Plan=(Get-DomeniaFleetQueryPlan -ObservationMaxAgeDays (Get-DomeniaObservationMaxAgeDays));Keys=@();ScopeKey='';ComputeBoard=$false;ModuleRoot=$script:SearchQueryModuleRoot}
+    $state.Job=Start-UiTask -Name 'Requête : lecture de la base locale' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload $payload -CallbackState $state -ReplaceKey 'global' -SuccessHandler 'Complete-DomeniaSearchLocalRead' -ErrorHandler 'Fail-DomeniaSearchLocalQuery' -TimeoutSeconds 120 -TaskClass Explicit
+    if(-not $state.Job){Fail-DomeniaSearchLocalQuery 'Lecture non admise, réessayez.' $state}
+    }catch{Fail-DomeniaSearchLocalQuery $_.Exception.Message $state}
+    finally{Exit-DomeniaNavSearch}
+}
+function Complete-DomeniaSearchLocalRead {
+    param($Result,$State)
+    if(-not (Test-DomeniaSearchLocalQueryCurrent $State)){return}
+    try{
+        $data=Get-DomeniaEffectiveWorkerResult $Result @('Busy','Missing')
+        if($null -eq $data){throw 'Réponse locale incomplète.'}
+        if($data.Busy){throw 'Base occupée ; réexécutez dans un instant.'}
+        if($data.Missing){throw 'Base locale absente. Actualisez lʼOU dans Base de données.'}
+        if($null -eq $data.PSObject.Properties['Machines'] -or $null -eq $data.PSObject.Properties['Groups'] -or [string]$data.Scope -ine [string]$State.BaseDn -or [bool]$data.Subtree -ne ($State.Scope -eq 'Subtree')){throw 'Le résultat ne correspond pas au périmètre demandé.'}
+        $payload=[pscustomobject]@{ModuleRoot=$script:SearchQueryModuleRoot;Lifecycle=(Get-DomeniaWindowsLifecycleTable);Fleet=$data;Observations=@{};Records=$null;Recipe=$State.Recipe;Saved=@();SortField='name';Descending=$false;Offset=0;Selection=$State.Selection;MaxAgeDays=(Get-DomeniaObservationMaxAgeDays);TextFilter='';StateFilter='';SearchOutput=$true;Limit=$State.Limit}
+        $State.Job=Start-UiTask -Name 'Requête : évaluation locale' -OperationId 'LocalQuery' -Code (Get-DomeniaQueryWorkerCode) -Payload $payload -CallbackState $State -ReplaceKey 'branch' -SuccessHandler 'Complete-DomeniaSearchLocalQuery' -ErrorHandler 'Fail-DomeniaSearchLocalQuery' -TimeoutSeconds 120 -TaskClass Explicit
+        if(-not $State.Job){throw 'Calcul non admis, réexécutez la requête.'}
+    }catch{Fail-DomeniaSearchLocalQuery $_.Exception.Message $State}
+}
+function Complete-DomeniaSearchLocalQuery {
+    param($Result,$State)
+    if(-not (Test-DomeniaSearchLocalQueryCurrent $State)){return}
+    $data=Get-DomeniaEffectiveWorkerResult $Result @('Rows','Matched','Unknown','NotMatched','ScopeTotal','Selection')
+    if($null -eq $data -or [string]$data.Scope -ine [string]$State.BaseDn -or [bool]$data.Subtree -ne ($State.Scope -eq 'Subtree')){Fail-DomeniaSearchLocalQuery 'Résultat local incomplet ou hors périmètre.' $State;return}
+    $total=switch([string]$State.Selection){'Unknown'{[long]$data.Unknown};'NoMatch'{[long]$data.NotMatched};default{[long]$data.Matched}}
+    $selectionLabel=switch([string]$State.Selection){'Unknown'{'Inconnus'};'NoMatch'{'Non correspondants'};default{'Correspondants'}}
+    $label=$selectionLabel+' : '+('{0} affiché(s) sur {1} dans cette sélection · {2} correspondants, {3} inconnus, {4} non correspondants / {5} postes recensés' -f @($data.Rows).Count,$total,$data.Matched,$data.Unknown,$data.NotMatched,$data.ScopeTotal)
+    if($total -gt @($data.Rows).Count){$label+=' · limite '+$State.Limit+' : augmentez la limite puis réexécutez'}
+    $State.Job=''
+    Show-ObjectRows -Rows @($data.Rows) -Label $label -SkipPresenceScan -NoAutoOpen
+    Update-DomeniaSearchMoreButton -Search $null
+    $depth=if($State.Scope -eq 'Subtree'){'sous-OU incluses'}else{'niveau direct'}
+    [void](Set-DomeniaControlText 'LblSearchQuery' ($State.Name+' · '+$selectionLabel+' · '+$State.BaseDn+' · '+$depth+' · calcul local du '+([datetime]$data.AtUtc).ToLocalTime().ToString('dd/MM/yyyy HH:mm:ss')+'. '+$State.Coverage))
+    [void](Set-DomeniaControlText 'LblSearchHint' 'Résultats locaux : aucune lecture AD, aucun ping ni relevé lancé. Les informations manquantes restent inconnues.')
+    Set-Status $label
+}
+function Fail-DomeniaSearchLocalQuery {
+    param($Message,$State)
+    if(-not (Test-DomeniaSearchLocalQueryCurrent $State)){return}
+    $State.Job=''
+    $script:SearchQueryRun=$null
+    [void](Set-DomeniaControlText 'LblSearchQuery' ('Requête locale non terminée : '+[string]$Message))
+    Set-Status ('Requête locale non terminée : '+[string]$Message) 'WARN'
 }
 
 function Get-DomeniaGridScrollViewer {
@@ -186,11 +351,12 @@ function Get-DomeniaNavSnapshot {
         if ($stateType) { $typeLabel = $stateType }
     }
     if (-not $viewChoice) { $viewChoice = $(if ($viewId -and $mode -eq 'Global') { 'Domain' } else { 'OU' }) }
-    $inner = ''
+    $inner = '';$innerControl=''
     if ($Page -eq 'WsObject') {
         $detail = Get-DomeniaControl 'DetailTabs'
-        try { if ($null -ne $detail -and $null -ne $detail.SelectedItem) { $inner = [string]$detail.SelectedItem.Name } } catch { }
+        try { if ($null -ne $detail -and $null -ne $detail.SelectedItem) { $inner = [string]$detail.SelectedItem.Name;$innerControl='DetailTabs' } } catch { }
     }
+    if($Page -eq 'TabApplicationTools'){$detail=Get-DomeniaControl 'ApplicationToolTabs';if($null -ne $detail -and $null -ne $detail.SelectedItem){$inner=[string]$detail.SelectedItem.Name;$innerControl='ApplicationToolTabs'}}
     $count = Get-DomeniaControl 'LblBranchCount'
     $selectionGuid = ''; $selectionDn = ''
     if ($null -ne $selected) {
@@ -211,13 +377,19 @@ function Get-DomeniaNavSnapshot {
         $localFilter = [string]$shape.LocalFilter; $presence = [string]$shape.Presence
     }
     else { $script:NavListShape = [pscustomobject]@{List=$script:BranchObjects;LocalFilter=$localFilter;Presence=$presence} }
+    $localQuery=$null
+    if($viewId -like 'local:*'){
+        if($null -ne $historyState){$localQuery=Get-DomeniaMemberValue $historyState 'LocalQuery'}
+        elseif($null -ne $script:SearchQueryRun -and $script:SearchQueryRun.Id -ceq $viewId){$run=$script:SearchQueryRun;$localQuery=[pscustomobject]@{Id=$run.Id;Name=$run.Name;Recipe=$run.Recipe;Selection=$run.Selection;Limit=$run.Limit}}
+    }
     return [pscustomobject]@{
-        Page=$Page;Tab=$inner;Mode=$mode;Text=$text;BranchText=$branchText;OuDn=$ouDn;Subtree=$subtree
+        Page=$Page;Tab=$inner;InnerControl=$innerControl;Mode=$mode;Text=$text;BranchText=$branchText;OuDn=$ouDn;Subtree=$subtree
         SelectionGuid=$selectionGuid;SelectionDn=$selectionDn;Rows=$rows;Scroll=$scroll
         CountLabel=$(if ($null -ne $count) { [string]$count.Text } else { '' })
         Generation=[int]$script:GlobalSearchGeneration;ViewId=$viewId
         TypeLabel=$typeLabel;Presence=$presence;LocalFilter=$localFilter
         SurveyBlocked=$surveyBlocked;ViewChoice=$viewChoice
+        LocalQuery=$localQuery;QuerySelection=[string](Get-DomeniaMember $localQuery 'Selection');QueryLabel=[string](Get-DomeniaControl 'LblSearchQuery').Text
         ObjectDn=$objectDn;At=[datetime]::UtcNow
     }
 }
@@ -301,6 +473,8 @@ function Restore-DomeniaNavState {
         if ($null -ne $check) { $check.IsChecked = [bool]$State.Subtree }
         Set-DomeniaSearchMode -Mode $(if ([string]$State.Mode -eq 'Global') { 'Global' } else { 'OU' })
         $script:ActiveSearchViewId = [string]$State.ViewId
+        $script:SearchQueryRun=$null
+        [void](Set-DomeniaControlText 'LblSearchQuery' ([string](Get-DomeniaMember $State 'QueryLabel' 'Aucune requête locale appliquée.')))
         Update-DomeniaSearchScopeUi
         if ($otherRows) {
             # UX-25: the type, the presence and the local filter that shaped the remembered list come back with it,
@@ -356,7 +530,7 @@ function Restore-DomeniaNavState {
             Update-DomeniaHistoryBanner
         }
         $inner = ''
-        if ([string]$State.Tab) { $inner = 'DetailTabs' }
+        if ([string]$State.Tab) { $inner = [string](Get-DomeniaMember $State 'InnerControl' 'DetailTabs');if(-not $inner){$inner='DetailTabs'} }
         Select-DomeniaWorkspace -Workspace ([string]$State.Page) -Inner $inner -Tab ([string]$State.Tab)
     }
     finally {
@@ -409,6 +583,12 @@ function Invoke-DomeniaHistoryRefresh {
     # filters, which the history step put back in the visible controls. No ping and no survey.
     if (-not (Test-DomeniaHistoryListShown)) { return }
     $viewId = [string]$script:ActiveSearchViewId
+    if($viewId -like 'local:*'){
+        $query=Get-DomeniaMemberValue $script:NavHistoryState 'LocalQuery'
+        if($null -eq $query){Set-Status 'La définition de cette requête locale nʼest plus disponible. Choisissez-la dans Requêtes puis exécutez-la.' 'WARN';return}
+        Start-DomeniaSearchLocalQuery -Entry $query -SelectionOverride ([string]$query.Selection) -LimitOverride ([int]$query.Limit)
+        return
+    }
     if ($viewId) {
         # The view is read again over its own perimeter (OU or whole domain), not the one the chip shows now.
         $viewScope = [string](Get-DomeniaMember $script:NavHistoryState 'ViewChoice' '')
@@ -552,7 +732,7 @@ function Initialize-DomeniaSearchUi {
     $script:OuTreeFilterStatus = ''
     $script:TreeSelectionSource = 'Mouse'
     $script:PendingFilterChange = $null
-    if ((Get-DomeniaControl 'CmbWorkView') -is [Windows.Controls.ComboBox]) { Update-DomeniaWorkViewList }
+    Initialize-DomeniaSearchQuerySelector
     $menuButton = Get-DomeniaControl 'BtnOuMenu'
     if ($menuButton -is [Windows.Controls.Primitives.ButtonBase]) { $menuButton.Add_Click({ Switch-DomeniaOuMenu }) }
     $ouFilter = Get-DomeniaControl 'TxtOuFilter'
@@ -583,8 +763,6 @@ function Initialize-DomeniaSearchUi {
     }
     $more = Get-DomeniaControl 'BtnSearchMore'
     if ($more -is [Windows.Controls.Primitives.ButtonBase]) { $more.Add_Click({ try { Invoke-DomeniaSearchMore } catch { Write-AppLog ('Charger la suite : '+$_.Exception.Message) 'ERROR'; Set-Status ('Suite non chargée : '+$_.Exception.Message) 'ERROR' } }) }
-    $viewButton = Get-DomeniaControl 'BtnWorkView'
-    if ($viewButton -is [Windows.Controls.Primitives.ButtonBase]) { $viewButton.Add_Click({ try { Invoke-DomeniaWorkView } catch { Write-AppLog ('Vue de travail : '+$_.Exception.Message) 'ERROR'; Set-Status ('Vue non affichée : '+$_.Exception.Message) 'ERROR' } }) }
     $back = Get-DomeniaControl 'BtnNavBack'
     if ($back -is [Windows.Controls.Primitives.ButtonBase]) { $back.Add_Click({ try { [void](Invoke-DomeniaNavStep -Direction Back) } catch { Write-AppLog ('Navigation précédente : '+$_.Exception.Message) 'WARN' } }) }
     $forward = Get-DomeniaControl 'BtnNavForward'
@@ -614,7 +792,7 @@ function Initialize-DomeniaSearchUi {
         $forwardBinding.Add_Executed({ try { [void](Invoke-DomeniaNavStep -Direction Forward) } catch { Write-AppLog ('Alt+Droite : '+$_.Exception.Message) 'WARN' } })
         [void]$script:Window.CommandBindings.Add($forwardBinding)
         [void]$script:Window.InputBindings.Add([Windows.Input.KeyBinding]::new($forwardCommand,[Windows.Input.KeyGesture]::new([Windows.Input.Key]::Right,[Windows.Input.ModifierKeys]::Alt)))
-        $script:Window.Add_Closed({ $script:SearchUiInitialized = $false; $script:NavHistory = $null; $script:NavRestoring = $false; $script:NavHistoryRows = $null; $script:NavHistoryState = $null; $script:NavListShape = $null; Stop-DomeniaPendingFilterChange })
+        $script:Window.Add_Closed({ $script:SearchUiInitialized = $false; $script:SearchQuerySelectorBound=$false; $script:SearchQueryRun=$null; $script:NavHistory = $null; $script:NavRestoring = $false; $script:NavHistoryRows = $null; $script:NavHistoryState = $null; $script:NavListShape = $null; Stop-DomeniaPendingFilterChange })
     }
     Update-DomeniaNavButtons
     Update-DomeniaSearchHint

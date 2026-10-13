@@ -1,0 +1,135 @@
+{
+  "ReviewedAtUtc": "2026-10-13T01:51:00.952820+00:00",
+  "SourceBase": "443b999c61be5a2100e1f3fa4d18a55eb305456a",
+  "Scope": [
+    "Search AD/local semantic separation, scope/generation/store guards, pagination",
+    "Nested Tools workshop routing and explicit execution",
+    "Hidden board rendering with session and identity guards",
+    "Immutable catalogue readers and invalidation on source text change",
+    "Zoom logical viewport and failed admission recovery",
+    "Bounded UI callback metrics, unchanged warning threshold and modal subtraction"
+  ],
+  "WorkerOperationsReviewed": [
+    "LocalQuery"
+  ],
+  "PinnedBinariesChanged": false,
+  "WindowsValidation": "Final qualification: 63/63 Windows offline steps passed on the exact delivered DEV/PROD archives. Earlier failed attempts remain separate evidence; interactive desktop walkthrough and real AD remain unqualified.",
+  "CrossReview": [
+    "Classic agent reviewed catalogue cache, hidden rendering, session/scope/identity guards; no further blocking defect found.",
+    "Classic agent reviewed Core workshop routing, callback metrics, zoom and picker admission recovery.",
+    "Compact workshop margins reviewed; responsive rules restore original spacing at larger sizes.",
+    "Final read-only cross-review: Search session/generation/store/scope guards, 10000+10000 same-population paging, workshop context refresh and responsive controls; no new blocking defect identified. Native Windows reruns and interactive testing remain separate evidence.",
+    "Release signature regression test now compares pinned component membership and on-disk SHA-256 with the reviewed release contract; no hardcoded component count and no dependence on absent verdict properties.",
+    "Small-window screenshots were visually inspected. They are diagnostic fixtures with synthetic counters and are excluded from user guides.",
+    "Final independent review found only misleading compact caption after Clear. The inactive label now begins Aucune requête appliquée; Reset remains active because it is called only immediately before AD/local execution. The real Clear path regression passed in both R5 and R6 UxStateSafety.",
+    "Independent delivery review verified current DEV/source bytes, all 93 shared runtime files, four guide hashes, 96-page visual QA and 34 capture identities. No new secret detected in the 32 examined changed text files; human GUI and real AD are not claimed.",
+    "Final R6 inventory: all 59 distinct Test-*.ps1 files and exactly four helpers passed, with PROD CheckOnly checked separately. Source bytes match the immutable archives; earlier R5 failure is retained separately."
+  ],
+  "SourceSha256": {
+    "dev/wad/Domenia-Core.ps1": "41b82e030868a1af6816d639328d218ed3f290a776ad069051a07015845b98fe",
+    "dev/wad/Domenia-Modules.ps1": "b7eb959844dd9fa405f5972f5a8a0278237a70c58ac151996b34ec569c2af135",
+    "dev/wad/Domenia.release.json": "62a682db21b6e99e18b2625df1167a341500e1b9f339321b9c339551ffb62a0c",
+    "dev/wad/modules/Domenia-Boards.Model.ps1": "07cddb312f1ecd0aebc25059788a63a0dfcfeb40182e1b31b8a46556dd19cbbf",
+    "dev/wad/modules/Domenia-Dashboard.UI.ps1": "e7d11b5ae7041970f4bc6c310efcaf6cce26c0183e8641b970c613269f6ea588",
+    "dev/wad/modules/Domenia-Embedded.UI.ps1": "754c33c2ea4cc3958c566b3a0b37e1f782047f432a95a1040bfba3314ff69c48",
+    "dev/wad/modules/Domenia-Experience.UI.ps1": "e39651d35b472930d77a56aa86b270a20fe502a457cd3f44ad91c3a8146b1cac",
+    "dev/wad/modules/Domenia-Query.UI.ps1": "55222edfa2be2ee20df918b4622fd3009d38e6954330095a545c36db6bda8ddb",
+    "dev/wad/modules/Domenia-Query.Worker.ps1": "8a40bca4b66c23b7b4c97a7d6a05a3e1f44e05d589f8130c2491570668093520",
+    "dev/wad/modules/Domenia-Search.Model.ps1": "5fb57090d4e4c3f58cd18bd46758e589f45ae0fb1bb238229902df781e4f6a0e",
+    "dev/wad/modules/Domenia-Search.UI.ps1": "267eb5d4b05afcabc9f5dee74fd632c0b5ea6bfd0aa15d4af8bc710a195b306a",
+    "dev/wad/modules/Domenia-UX.UI.ps1": "5e4d3db4cce3eefca6fc1e1de18680dfe91c923d5c264127ebe7a07bba24c6ea",
+    "dev/wad/modules/Domenia-UX.help.json": "189dff2628ac80e06f14e98a2b6066677d1fefd4f31df9bfbbeeab420d54627c",
+    "dev/wad/modules/Domenia-Widgets.UI.ps1": "55da60c9887d129411f9c5457fb8330c1b7f6d9fefb54883d606ae0087a61e38",
+    "dev/wad/package-manifest.json": "ceb9cbe8740930b21528937d4915148c3735c17ecab0b3862d909900206ab063",
+    "dev/wad/tests/Test-DomeniaBoards.ps1": "db887f58f0010d16cdb277e3acee3cdda45dcb00ff7a8f208ec6194029456eb1",
+    "dev/wad/tests/Test-DomeniaLiveSearchView.ps1": "75ea2ccd02788a8d4e877200aa2b31f6aeb6bc80c6fc434a3d3012cfc7e711b5",
+    "dev/wad/tests/Test-DomeniaUxRefinements.ps1": "6c9dc05201ba1bf20c68f04c3e8ef603fcd017da0cfe4ef6b35b24158eba9873",
+    "dev/wad/modules/Domenia-Query.xaml": "f660659d790f5c8a39e84308577d95f22a38de30f43500479acfbd5cceb53a30"
+  },
+  "WindowsIssuesObserved": [
+    {
+      "Issue": "No fully visible workshop row at 1280x720 after nesting Tools",
+      "Cause": "Nested navigation and card spacing consumed grid height",
+      "Fix": "Responsive workshop margins and padding; invalidate layout signature when attaching view",
+      "Status": "R3 native WPF capture passed: 3 fully visible rows at 1280x720 and 15 at 1920x1080; interactive GUI still pending"
+    },
+    {
+      "Issue": "Capture fixture missing saved query and OU consistency",
+      "Cause": "Separate simulated settings stores and incomplete fixture imports",
+      "Status": "Corrected. Final R5 capture harness SHA256 1f8ac7b4902a975c7c322396ccf912188c0480c0d439ed403ee5ce9ea34ca2f0; 37 capture checks pass and 34 guide views are at least 1920x1080. See documentation-qa.json and r5/capture-provenance.json."
+    },
+    {
+      "Issue": "WiringRecherche fixture imports and whole-domain expectations outdated",
+      "Status": "R5 native 44/44 cases passed on the immutable DEV archive."
+    },
+    {
+      "Issue": "Search query bar leaves five fully visible rows at true 1920x1080",
+      "Cause": "Combined query filter padding and Search card spacing",
+      "Fix": "Reduce redundant margins and padding, keep all actions and row heights",
+      "Status": "Fixed by reclaiming redundant margins. Native targeted UxStateSafety34/34 passed with six full rows before and after zoom."
+    },
+    {
+      "Issue": "UxStateSafety run exceeds time guard after earlier row failure fixed",
+      "Cause": "Confirmed fractional-size rounding and Auto scrollbar feedback loop at150% zoom",
+      "Status": "R5 native UxStateSafety 34/34 and Geometry 42/42 passed on the immutable DEV archive."
+    },
+    {
+      "Issue": "Zoom150 layout never reaches Dispatcher ApplicationIdle",
+      "Cause": "Fractional shell size plus layout rounding feeds Auto scrollbar/viewport changes",
+      "Fix": "Floor to DPI layout grid and avoid identical size assignments",
+      "Status": "R5 native UxStateSafety 34/34 and Geometry 42/42 passed on the immutable DEV archive."
+    },
+    {
+      "Issue": "D023 ScrollIntoView does not move the detached WPF host",
+      "Cause": "Fixture control IsLoaded=False and IsVisible=False; native scroll offset stayed zero",
+      "Fix": "Drive the real DataGrid ScrollViewer.ScrollToEnd and assert a nonzero offset",
+      "Status": "R5 full WiringCache suite passed 157 cases on the immutable DEV archive; criteria for recycling, last-row access and negative control preserved."
+    },
+    {
+      "Issue": "Narrow window at intermediate height leaves36px for results after restoring OU width290",
+      "Cause": "Normal query/filter layout takes275px and results toolbar191px at a main-pane width538; first tiny516px step passes122px",
+      "Fix": "Query options compact mode depends on both viewport width and height; OU width preference stays independent",
+      "Status": "R5 native Geometry 42/42, UxStateSafety 34/34 and WiringInterface 20/20 passed on the immutable DEV archive."
+    },
+    {
+      "Issue": "Compact summary still says active after Clear",
+      "Cause": "The cleared label did not use the inactive caption prefix consumed by the compact summary",
+      "Fix": "Normalize only Clear inactive label; preserve Reset immediately before an execution",
+      "Status": "Actual Clear path regression passed within R5 UxStateSafety 34/34."
+    }
+  ],
+  "ReviewLimits": [
+    "Static cross-review does not replace Windows execution.",
+    "Synthetic fixtures cannot prove real AD/CIM provider availability or fleet throughput.",
+    "A 551 ms warning without an operation name is not enough to reproduce the exact user event.",
+    "Callback metrics measure the primary completion handler, not later subscribers."
+  ],
+  "FindingsFixed": [
+    "Search result-state selector visibility",
+    "Clear query handling before workshop initialization",
+    "Empty-session startup guard",
+    "Workshop scope header refresh when returning through Tools without a new inner SelectionChanged event",
+    "Compact Options caption after Clear no longer states that the removed query is active."
+  ],
+  "IntermediateEnvironmentIssues": [
+    {
+      "Attempt": "R4, superseded",
+      "Suite": "Test-DomeniaEngineResilience",
+      "Stage": "Add-Type Domenia.Native.dll before test cases",
+      "Error": "0x8000FFFF E_UNEXPECTED FileLoadException",
+      "Status": "Not reproduced in R5 EngineResilience or the complete R6 campaign. The earlier failure is preserved; its cause remains unestablished.",
+      "Evidence": "intermediate/r4-native-load.stderr.txt"
+    },
+    {
+      "Attempt": "R5",
+      "Suite": "Test-DomeniaWiringSuites",
+      "Stage": "Add-Type M4D.Admin.Common.Query.dll before test cases",
+      "Error": "0x8000FFFF E_UNEXPECTED FileLoadException",
+      "Status": "R5 remains FAIL62/63. Seven isolated loads and the distinct complete R6 campaign passed; the cause remains unestablished. No invalidated HKCU or DLL failure was reproduced in the profile diagnostics. No automatic application retry or security configuration change was introduced.",
+      "Evidence": "intermediate/r5-campaign/attempt-status.json",
+      "DiagnosticEvidence": "intermediate/profile-diagnostic/diagnostic-summary.json"
+    }
+  ],
+  "FinalWindowsEvidence": "validation/2026-10-13/query-navigation/qualification.json",
+  "FinalWindowsEvidenceDirectory": "validation/2026-10-13/query-navigation/r6"
+}

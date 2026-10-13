@@ -1,0 +1,277 @@
+{
+    "Build":  "R1.5-ATELIER",
+    "PowerShell":  "5.1.26100.6584",
+    "Platform":  "Microsoft Windows NT 10.0.26200.0",
+    "Utc":  "2026-10-13T01:38:31.9395503Z",
+    "DomainContacted":  false,
+    "WpfRequested":  true,
+    "Passed":  53,
+    "Failed":  0,
+    "Results":  [
+                    {
+                        "Name":  "Allowlist excludes dedicated secrets and free-text notes",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Snapshot does not mutate source and does not retain its arrays",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Missing attribute and explicit empty attribute have different coverage",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Explicit empty values compare as known empty",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Dedicated credentials, secure strings and opaque bytes are excluded",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Truncated text is marked partial and bounded",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Accidental credential text is masked and never compared as complete",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Recovery password and bearer patterns are masked",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Multivalue capture is bounded to 128 values",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Ranged memberships are not treated as complete",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Group ordering and case are not a change",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Direct group additions and removals are separate",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Partial membership never yields a deletion claim",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Different domain scopes are refused",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Different object types are refused",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Object GUID preserves identity through DN changes",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Difference-only excludes identical fields",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Unknown UAC is not interpreted as enabled",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "ACCOUNTDISABLE uses bit 2, not any nonzero UAC",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Historical lockoutTime alone is not a current lock",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Computed lock and expiration flags are distinct",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "pwdLastSet zero accounts for DONT_EXPIRE_PASSWORD",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "accountExpires sentinel values are not expiration dates",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Past and upcoming account expirations are distinct",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Out-of-range expiration is unknown, not expired",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Fresh capture does not make cache a fresh AD read",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Old live read is signaled after local threshold",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Missing machine DNS is not called offline",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "adminCount is a review marker, not a privilege verdict",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Invalid numeric flags stay unknown",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Each incident rule recognizes a representative message",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Incident can keep multiple contributing observations",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Unrecognized incident is not assigned an invented cause",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Very long incident text stays bounded",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Bounded ring accepts empty ArrayList and keeps the newest 200",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Incident filtering is literal, not regex or wildcards",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Report excludes dedicated secrets and raw log details",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Different-object report is not labeled as object history",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "HTML escapes report markup, quotes and ampersands",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Session epoch resets captures even for the same account",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Account or domain changes clear local incidents and pins",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Capture refuses the stale object while another DN is loading",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Automatic local view can wait for another object without failing",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Manual A and B captures are distinct and stable",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Pinning an existing object deduplicates without a read",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Pins enforce their 24 item limit",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Only opening a selected pin invokes the existing read path",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Pin keeps its exact real DN, not the redacted display representation",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Capture provenance distinguishes cache from AD",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Adjacent duplicate warnings are coalesced, info is ignored",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Incident inclusion requires explicit manual selection",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "Clear workspace leaves the original selected object unchanged",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    },
+                    {
+                        "Name":  "WPF host and Atelier view load with native namescopes and both themes",
+                        "Status":  "PASS",
+                        "Detail":  ""
+                    }
+                ]
+}

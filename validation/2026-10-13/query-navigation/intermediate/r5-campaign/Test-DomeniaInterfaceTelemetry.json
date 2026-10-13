@@ -1,0 +1,34 @@
+{
+    "Passed":  5,
+    "Failed":  0,
+    "Assertions":  12,
+    "PowerShell":  "5.1.26100.6584",
+    "Data":  "Controlled clock, actual Core finally block and real in-memory metric functions; no AD/WPF",
+    "Cases":  [
+                  {
+                      "Name":  "551 ms is recorded separately and warns with threshold and handler",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Modal waits are subtracted and negative effective durations are clamped",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "The warning threshold is preserved, with strict greater-than semantics",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Callback, worker and heartbeat samples stay isolated and bounded",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Operations health exposes measured callback percentiles without claiming network performance",
+                      "Pass":  true,
+                      "Error":  ""
+                  }
+              ]
+}

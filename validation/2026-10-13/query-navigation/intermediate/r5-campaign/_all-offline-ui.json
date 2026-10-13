@@ -1,0 +1,178 @@
+{
+    "Kind":  "RemainingOfflineWindowsUi",
+    "UTC":  "2026-10-13T01:01:27.1618775Z",
+    "VM":  "W11-01",
+    "PowerShell":  "5.1.26100.6584",
+    "Apartment":  "STA",
+    "Is64Bit":  true,
+    "Session":  0,
+    "Data":  "Synthetic fixtures",
+    "ADAccessed":  false,
+    "RuntimeChanged":  [
+
+                       ],
+    "Suites":  [
+                   {
+                       "Suite":  "Test-DomeniaAccounts",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  6056,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaLastUser",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  5090,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaLogin",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  4009,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaPreload",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  70761,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaSelection",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  8995,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaStartupLogin",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  32635,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaRemote",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  6288,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaRegressions",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  20917,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaFaults",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  64077,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaAcl",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  2606,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaCandidate",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  55711,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaSupport",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  6831,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaTheme",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  4636,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaActivityLayout",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  9415,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaRelationsAlignment",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  6108,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaInterface",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  28486,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaWiringAcces",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  32532,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaWiringInline",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  1716,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaWiringRelations",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  24334,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaWiringSuites",
+                       "ExitCode":  1,
+                       "TimedOut":  false,
+                       "Milliseconds":  1358,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaWiringEcritures",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  53284,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaInstaller",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  228385,
+                       "ReportWritten":  true
+                   },
+                   {
+                       "Suite":  "Test-DomeniaRelease",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "Milliseconds":  45506,
+                       "ReportWritten":  true
+                   }
+               ],
+    "Scope":  "Synthetic offline fixtures; actual WPF, TEMP ACL/installer/package operations; existing desktop shortcut preserved; no live directory, remote endpoint or certificate-store mutation"
+}

@@ -17,26 +17,47 @@ function Initialize-DomeniaQueryView {
         $controls[$name]=$control
     }
     foreach($name in $controls.Keys){$script:Ctrl[$name]=$controls[$name]}
+    # Re-entering Tools can reveal the same selected inner tab without any SelectionChanged event.
+    # Refresh presentation only; scope ownership, navigation origin and evaluation remain untouched.
+    $refreshScope=${function:Update-DomeniaQueryScopeLabel};$queryView=$view
+    $view.Add_IsVisibleChanged({param($sender,$eventArgs)
+        if($queryView.IsVisible){& $refreshScope}
+    }.GetNewClosure())
     $hostControl.Content=$view
+    # Newly attached controls must receive the current compact/zoom layout even if the viewport did not change.
+    $script:UxLayoutSignature=''
+    if($null -ne (Get-Command Update-DomeniaUxLayout -CommandType Function -ErrorAction SilentlyContinue)){Update-DomeniaUxLayout}
     (Get-DomeniaControl 'BtnQueryBack').Add_Click({
         $route=[string]$script:DomeniaQueryReturnRoute
         if(-not $route){$route='TabDashboard'}
-        Select-DomeniaWorkspace -Workspace $route
+        Select-DomeniaWorkspace -Workspace $route -Inner ([string]$script:DomeniaQueryReturnInner) -Tab ([string]$script:DomeniaQueryReturnTab)
         $focus=$script:DomeniaQueryReturnFocus
         if($null -ne $focus -and $focus.IsVisible -and $focus.IsEnabled){[void]$focus.Focus()}
     })
+}
+function Update-DomeniaQueryScopeLabel {
+    # The workshop evaluates Fleetʼs explicit scope, independently of the OU used by Search.
+    $scope=Get-DomeniaFleetScope
+    $text=if($null -eq $scope){'Périmètre du tableau de bord : connectez-vous puis choisissez une OU.'}else{'Périmètre du tableau de bord : '+[string]$scope.Name+' · '+[string]$scope.Path}
+    [void](Set-DomeniaControlText 'LblQueryScope' $text)
 }
 function Show-DomeniaQueryWorkshop {
     param([switch]$Evaluate)
     Initialize-DomeniaQueryWorkshop
     $tabs=Get-DomeniaControl 'WorkspaceTabs'
-    if($null -ne $tabs -and $null -ne $tabs.SelectedItem -and $tabs.SelectedItem.Name -ne 'WsQueryWorkshop'){
+    $tools=Get-DomeniaControl 'ApplicationToolTabs'
+    $inWorkshop=($null -ne $tabs -and [string]$tabs.SelectedItem.Name -eq 'TabApplicationTools' -and $null -ne $tools -and [string]$tools.SelectedItem.Name -eq 'WsQueryWorkshop')
+    if($null -ne $tabs -and $null -ne $tabs.SelectedItem -and -not $inWorkshop){
         $script:DomeniaQueryReturnRoute=[string]$tabs.SelectedItem.Name
+        $script:DomeniaQueryReturnInner='';$script:DomeniaQueryReturnTab=''
+        if($script:DomeniaQueryReturnRoute -eq 'TabApplicationTools' -and $null -ne $tools -and $null -ne $tools.SelectedItem){$script:DomeniaQueryReturnInner='ApplicationToolTabs';$script:DomeniaQueryReturnTab=[string]$tools.SelectedItem.Name}
         $script:DomeniaQueryReturnFocus=[Windows.Input.Keyboard]::FocusedElement
     }
-    $scope=Get-DomeniaFleetScope
-    [void](Set-DomeniaControlText 'LblQueryScope' ('Périmètre du tableau de bord : '+[string]$scope.Name+' · '+[string]$scope.Path))
-    Select-DomeniaWorkspace -Workspace 'WsQueryWorkshop'
+    Update-DomeniaQueryScopeLabel
+    if(-not $inWorkshop){
+        $wasNavigating=$script:DomeniaQueryNavigating;$script:DomeniaQueryNavigating=$true
+        try{Select-DomeniaWorkspace -Workspace 'TabApplicationTools' -Inner 'ApplicationToolTabs' -Tab 'WsQueryWorkshop'}finally{$script:DomeniaQueryNavigating=$wasNavigating}
+    }
     if($Evaluate){$inner=Get-DomeniaControl 'QueryWorkspaceTabs';if($null -ne $inner){$inner.SelectedItem=Get-DomeniaControl 'TabQueryResults'};Start-DomeniaQueryEvaluation}
     $back=Get-DomeniaControl 'BtnQueryBack'
     if($null -ne $back){[void]$back.Focus()}
@@ -60,7 +81,7 @@ function Initialize-DomeniaQueryWorkshop {
         @('BtnQueryAddCondition','Add'),@('BtnQueryRemoveCondition','Remove'),@('BtnQueryRun','Run'),
         @('BtnQueryWidget','Widget'),@('BtnQueryCollect','Collect'),@('BtnQueryPrevious','Previous'),@('BtnQueryNext','Next'),
         @('BtnQueryClearSegment','ClearSegment'),@('BtnQueryObjectOpen','OpenObject'),@('BtnQueryObjectCollect','CollectObject'),@('BtnQueryObjectCopy','CopyObject'),
-        @('BtnQueryExport','Export'),@('BtnQueryApplySearch','ApplySearch'),@('BtnQueryClearSearch','ClearSearch')
+        @('BtnQueryExport','Export'),@('BtnQueryApplySearch','ApplySearch')
     )){$control=Get-DomeniaControl $entry[0];if($null -ne $control){$control.Tag=$entry[1];$control.Add_Click({param($s,$e)Invoke-DomeniaQueryAction ([string]$s.Tag)})}}
     (Get-DomeniaControl 'CmbQueryResult').Add_SelectionChanged({Request-DomeniaQueryEvaluation})
     (Get-DomeniaControl 'DgFleetMachines').Add_SelectionChanged({Show-DomeniaQueryObjectDetails})
@@ -171,6 +192,7 @@ function Update-DomeniaQueryLibraryControls {
         foreach($entry in $category.ItemsSource){if($entry.Id -eq $selectedCategory){$category.SelectedItem=$entry;break}}
     }finally{$script:DomeniaQueryLibraryRefreshing=$false}
     Update-DomeniaQueryLibrary
+    if($script:SearchUiInitialized -and $null -ne (Get-Command Update-DomeniaWorkViewList -CommandType Function -ErrorAction SilentlyContinue)){Update-DomeniaWorkViewList}
 }
 function Update-DomeniaQueryLibrary {
     if($script:DomeniaQueryLibraryRefreshing){return}
@@ -328,7 +350,7 @@ function Invoke-DomeniaQueryAction {
                 [void](Set-DomeniaControlText 'LblSearchQuery' ('Sélection locale du '+$q.At.ToLocalTime().ToString('dd/MM HH:mm:ss')+' : '+$recipe.Name+' · '+$q.SearchRecords.Count+' GUID correspondants, champs inconnus exclus. Réappliquez depuis lʼatelier pour actualiser cette sélection.'))
                 Select-DomeniaWorkspace 'WsSearch';return
             }
-            'ClearSearch'{$q.SearchRecipe=$null;$q.SearchRefinement=$null;$q.SearchRecords=@{};Apply-DomeniaPresenceFilter;[void](Set-DomeniaControlText 'LblSearchQuery' 'Aucune requête enregistrée appliquée aux résultats.');return}
+            'ClearSearch'{if($null -ne (Get-Command Clear-DomeniaSearchQuery -CommandType Function -ErrorAction SilentlyContinue)){Clear-DomeniaSearchQuery}else{$q.SearchRecipe=$null;$q.SearchRefinement=$null;$q.SearchRecords=@{};Apply-DomeniaPresenceFilter;[void](Set-DomeniaControlText 'LblSearchQuery' 'Aucune requête enregistrée appliquée aux résultats.')};return}
             default{Start-DomeniaQueryEvaluation}
         }
     }catch{[void](Set-DomeniaControlText 'LblQueryStatus' $_.Exception.Message);Set-Status ('Atelier : '+$_.Exception.Message) 'WARN'}
@@ -400,7 +422,7 @@ function Complete-DomeniaQueryEvaluation {
     (Get-DomeniaControl 'BtnQueryPrevious').IsEnabled=($q.Offset -gt 0)
     $count=switch([string]$r.Selection){'Match'{[long]$r.Matched};'Unknown'{[long]$r.Unknown};default{[long]$r.NotMatched}}
     (Get-DomeniaControl 'BtnQueryNext').IsEnabled=(($q.Offset+200) -lt $count)
-    if([bool](Get-DomeniaMember $State 'RefreshWidgets' $true)){Show-DomeniaBoard -Board Fleet -Quiet}
+    if([bool](Get-DomeniaMember $State 'RefreshWidgets' $true)){Show-DomeniaBoard -Board Fleet -Quiet -DeferIfHidden}
 }
 function Fail-DomeniaQueryEvaluation {
     param($Message,$State)

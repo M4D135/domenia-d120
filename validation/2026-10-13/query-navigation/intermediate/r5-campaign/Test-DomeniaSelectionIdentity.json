@@ -1,0 +1,82 @@
+{
+    "Kind":  "SelectionIdentity",
+    "Expected":  14,
+    "Complete":  true,
+    "NativeWindowsPowerShell51":  true,
+    "LiveAD":  false,
+    "MockedNetwork":  true,
+    "Passed":  14,
+    "Failed":  0,
+    "Tests":  [
+                  {
+                      "Name":  "D012 Assistance : les libelles modifies ne changent pas le poste",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D012 Assistance : une autre ligne de recherche ne remplace pas la fiche chargee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D012 Assistance : aucune cible sans fiche meme si les champs restent remplis",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D012 Assistance : une fiche utilisateur ne fournit pas une cible machine",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D012 Assistance : objet recree sous le meme DN refuse",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D012 Assistance : identite capturee dans une ancienne session refusee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D012 Assistance : changement de lecteur impose une nouvelle fiche",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D012 Assistance : autre fiche en chargement interdit une cible ancienne",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D012 Assistance : nom de compte invalide ne retombe pas sur un champ affiche",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D012 Relations : sujet immuable capture depuis la ligne",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D012 Relations : selection WPF consomme la meme identite commune",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D012 Relations : fiche chargee transmet son identite capturee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D012 Relations : ligne sans GUID ne devient pas un nouveau sujet",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D012 Relations : ancien contexte explicite refuse apres changement de session",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  }
+              ]
+}

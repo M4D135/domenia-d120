@@ -1,0 +1,1316 @@
+{
+    "Kind":  "ReadOnlyProfileLoadDiagnostic",
+    "Case":  "exposed",
+    "StartedUtc":  "2026-10-13T01:08:36.6892310Z",
+    "FinishedUtc":  "2026-10-13T01:08:53.8157130Z",
+    "NoRegistryOrSecurityChanges":  true,
+    "NoADAccess":  true,
+    "Stages":  [
+                   {
+                       "Stage":  "BeforeWait",
+                       "Utc":  "2026-10-13T01:08:36.6912633Z",
+                       "PID":  4720,
+                       "SessionId":  0,
+                       "SID":  "S-1-5-21-2348118763-2306653211-1344436245-500",
+                       "Cached":  {
+                                      "SoftwareExists":  true,
+                                      "Name":  "HKEY_CURRENT_USER",
+                                      "SubKeyCount":  8,
+                                      "Readable":  true
+                                  },
+                       "Fresh":  {
+                                     "SoftwareExists":  true,
+                                     "Name":  "HKEY_CURRENT_USER",
+                                     "SubKeyCount":  8,
+                                     "Readable":  true
+                                 },
+                       "Hku":  {
+                                   "Exists":  false,
+                                   "SubKeyCount":  0
+                               },
+                       "Profile":  [
+                                       {
+                                           "SID":  "S-1-5-21-2348118763-2306653211-1344436245-500",
+                                           "Loaded":  false,
+                                           "Status":  0,
+                                           "Special":  false,
+                                           "RefCount":  null
+                                       }
+                                   ]
+                   },
+                   {
+                       "Stage":  "AfterWaitBeforeLoad",
+                       "Utc":  "2026-10-13T01:08:53.5689784Z",
+                       "PID":  4720,
+                       "SessionId":  0,
+                       "SID":  "S-1-5-21-2348118763-2306653211-1344436245-500",
+                       "Cached":  {
+                                      "SoftwareExists":  true,
+                                      "Name":  "HKEY_CURRENT_USER",
+                                      "SubKeyCount":  8,
+                                      "Readable":  true
+                                  },
+                       "Fresh":  {
+                                     "SoftwareExists":  true,
+                                     "Name":  "HKEY_CURRENT_USER",
+                                     "SubKeyCount":  8,
+                                     "Readable":  true
+                                 },
+                       "Hku":  {
+                                   "Exists":  false,
+                                   "SubKeyCount":  0
+                               },
+                       "Profile":  [
+                                       {
+                                           "SID":  "S-1-5-21-2348118763-2306653211-1344436245-500",
+                                           "Loaded":  false,
+                                           "Status":  0,
+                                           "Special":  false,
+                                           "RefCount":  null
+                                       }
+                                   ]
+                   },
+                   {
+                       "Stage":  "AfterLoad",
+                       "Utc":  "2026-10-13T01:08:53.6821951Z",
+                       "PID":  4720,
+                       "SessionId":  0,
+                       "SID":  "S-1-5-21-2348118763-2306653211-1344436245-500",
+                       "Cached":  {
+                                      "SoftwareExists":  true,
+                                      "Name":  "HKEY_CURRENT_USER",
+                                      "SubKeyCount":  8,
+                                      "Readable":  true
+                                  },
+                       "Fresh":  {
+                                     "SoftwareExists":  true,
+                                     "Name":  "HKEY_CURRENT_USER",
+                                     "SubKeyCount":  8,
+                                     "Readable":  true
+                                 },
+                       "Hku":  {
+                                   "Exists":  false,
+                                   "SubKeyCount":  0
+                               },
+                       "Profile":  [
+                                       {
+                                           "SID":  "S-1-5-21-2348118763-2306653211-1344436245-500",
+                                           "Loaded":  false,
+                                           "Status":  0,
+                                           "Special":  false,
+                                           "RefCount":  null
+                                       }
+                                   ]
+                   }
+               ],
+    "Load":  {
+                 "Path":  "C:\\DomeniaLab\\query-navigation-20261013-r5\\source\\dev\\wad\\modules\\M4D.Admin.Common.Query.dll",
+                 "SHA256":  "269B7D1CBDD6AB42062A75E0CA4A45876B3FF0EAE4CBF730ACF91A12828BD7CA",
+                 "UTC":  "2026-10-13T01:08:53.6578039Z",
+                 "LoadedBefore":  0,
+                 "Passed":  true,
+                 "Assembly":  "M4D.Admin.Common.Query, Version=0.1.1.0, Culture=neutral, PublicKeyToken=null"
+             },
+    "Events":  [
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:08:51.6580037Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:08:51.6574059Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:08:51.6435346Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:08:36.2911065Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:08:36.2903714Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:08:36.2704829Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:08:29.7165438Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:08:29.7153534Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:08:29.6988449Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:07:33.6342686Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:07:33.6332724Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:07:33.5979278Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:07:33.3031243Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:07:33.3015925Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:07:33.2663076Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:03:11.9367001Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:03:11.9353561Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:03:11.8949904Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:03:10.5545231Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:03:10.5529826Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:03:10.5169625Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:01:00.2019512Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:01:00.2011213Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:01:00.1779935Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:00:59.9794844Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:00:59.9788466Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:00:59.9567119Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:00:59.7532414Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:00:59.7523405Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:00:59.7303250Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:00:59.5202120Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:00:59.5196107Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:00:59.4990647Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:00:59.3020225Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:00:59.3013155Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:00:59.2788089Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:00:59.0862438Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:00:59.0855487Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:00:59.0610795Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:00:58.7904367Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:00:58.7895284Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:00:58.7691289Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:00:58.5802201Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:00:58.5793483Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:00:58.5593811Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:00:58.0439108Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:00:58.0427933Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:00:58.0199134Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:00:57.8222671Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:00:57.8214291Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:00:57.7992920Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:00:57.5940435Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:00:57.5933469Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:00:57.5701457Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:00:57.2533242Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:00:57.2526532Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:00:57.2305010Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:00:57.0169925Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:00:57.0161354Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:00:56.9927741Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:00:56.5193980Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:00:56.5187671Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T01:00:56.4829628Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:59:14.6961442Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:59:14.6950806Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:59:14.6566581Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:59:14.2919189Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:59:14.2906856Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:59:14.2529882Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:51.2442384Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:51.2435078Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:51.2213102Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:50.3033455Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:50.3025563Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:50.2812160Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:43.4075048Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:43.4068806Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:43.3880438Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:43.1690774Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:43.1675515Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:43.1459449Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:42.9713094Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:42.9704952Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:42.9542772Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:42.7794971Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:42.7788457Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:42.7593641Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:42.5567788Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:42.5562107Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:42.5338015Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:42.3605250Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:42.3599469Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:42.3436183Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:42.1763166Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:42.1756856Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:42.1569613Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:41.9800437Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:41.9794243Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:41.9594886Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:41.7717120Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:41.7711952Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:41.7548525Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:41.5798111Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:41.5790875Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:41.5623664Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:41.3778045Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:41.3770188Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:41.3567864Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:41.1673916Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:41.1665467Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:41.1451740Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:40.9380765Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:40.9375408Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:57:40.9170168Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:56:24.7819512Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:56:24.7808579Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:56:24.7599026Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:56:23.8901619Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:56:23.8891980Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:56:23.8668565Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:56:14.7494499Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:56:14.7482158Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:56:14.7259306Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:56:14.5245409Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:56:14.5236200Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:56:14.5028082Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:56:14.2866862Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:56:14.2852936Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:56:14.2619479Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:56:14.0494375Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:56:14.0484734Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:56:14.0296230Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:56:13.8181848Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:56:13.8174834Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:56:13.7955378Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:56:13.5763937Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:56:13.5753040Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:56:13.5533129Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:56:13.3551803Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:56:13.3544166Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:56:13.3322610Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:56:13.1246804Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:56:13.1235477Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:56:13.1020708Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:56:12.8820212Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:56:12.8809714Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:56:12.8592385Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:56:12.6418464Z",
+                       "Id":  67,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Logon type: Regular \r\nLocal profile location: C:\\Users\\Administrateur \r\nProfile type: Regular"
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:56:12.6408412Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\AppData\\Local\\Microsoft\\Windows\\\\UsrClass.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500_Classes."
+                   },
+                   {
+                       "Log":  "Microsoft-Windows-User Profile Service/Operational",
+                       "UTC":  "2026-10-13T00:56:12.6182594Z",
+                       "Id":  5,
+                       "Provider":  "Microsoft-Windows-User Profiles Service",
+                       "Level":  "Information",
+                       "Message":  "Registry file C:\\Users\\Administrateur\\ntuser.dat is loaded at HKU\\S-1-5-21-2348118763-2306653211-1344436245-500."
+                   }
+               ]
+}

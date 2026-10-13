@@ -16,7 +16,7 @@ function Expect {param([bool]$Value,[string]$Why)$script:Checks++;if(-not $Value
 function Case {param([string]$Name,[scriptblock]$Body)try{&$Body;$script:Results.Add([pscustomobject]@{Name=$Name;Passed=$true;Error=''})}catch{$script:Results.Add([pscustomobject]@{Name=$Name;Passed=$false;Error=($_.Exception.Message+' '+$_.ScriptStackTrace)})}}
 function Get-DomeniaSetting {param($Name,$Default)if($script:SettingsFixture.ContainsKey($Name)){return $script:SettingsFixture[$Name]};return $Default}
 function Set-DomeniaSetting {param($Name,$Value)$script:SettingsFixture[$Name]=$Value}
-function Save-DomeniaSettings {param([switch]$Immediate)}
+function Save-DomeniaSettings {param([switch]$Immediate,[switch]$ThrowOnFailure)}
 function Set-Status {param($Text,$Level)}
 function Write-AppLog {param($Text,$Level)}
 function Add-DomeniaUiLog {param($Area,$Text,$Level)}
@@ -28,8 +28,12 @@ function Start-UiTask {param($Name,$OperationId,$Code,$Payload,$CallbackState,$R
 }
 function Initialize-DomeniaWinSqliteNative {return $true}
 function Get-DomeniaIndexPartialText {return ''}
+function Get-DomeniaSearchScope {param($Mode);if(-not [string]$script:Conn.BaseDn){throw 'No session base'};return [pscustomobject]@{BaseDn=[string]$script:SelectedBranchDn;Scope=$(if([bool](Get-DomeniaControl 'ChkSubtree').IsChecked){'Subtree'}else{'OneLevel'})}}
+function Invalidate-DomeniaSearchResults {param([switch]$KeepSelection);$script:GlobalSearchGeneration++;(Get-DomeniaControl 'DgObjects').ItemsSource=@()}
+function Apply-DomeniaPresenceFilter {}
+function Update-DomeniaSearchMoreButton {param($Search)}
 function Save-DomeniaFleetSnapshot {param($Scope,$Board)return $false}
-function Select-DomeniaWorkspace {param($Workspace)(Get-DomeniaControl 'WorkspaceTabs').SelectedItem=Get-DomeniaControl $Workspace}
+function Select-DomeniaWorkspace {param($Workspace,$Inner,$Tab);(Get-DomeniaControl 'WorkspaceTabs').SelectedItem=Get-DomeniaControl $Workspace;if($Inner -and $Tab){(Get-DomeniaControl $Inner).SelectedItem=Get-DomeniaControl $Tab}}
 $script:Conn=[pscustomobject]@{BaseDn='DC=example,DC=invalid';Connected=$false};$script:SessionEpoch=1
 $xaml=Get-MainXaml;$script:Window=[Windows.Markup.XamlReader]::Parse($xaml);foreach($name in @(Get-DomeniaXamlControlNames -XamlText $xaml)){$control=$script:Window.FindName($name);if($null -ne $control){$script:Ctrl[$name]=$control}};$script:Window.Width=1280;$script:Window.Height=720;$script:Window.ShowInTaskbar=$false
 try{
@@ -41,7 +45,7 @@ try{
   Expect ($null -ne $view -and -not $dashboard.IsAncestorOf($view)) 'Query editor remains in dashboard'
   (Get-DomeniaControl 'WorkspaceTabs').SelectedItem=Get-DomeniaControl 'WsSearch'
   Show-DomeniaQueryWorkshop
-  Expect ((Get-DomeniaControl 'WorkspaceTabs').SelectedItem.Name -eq 'WsQueryWorkshop') 'Workshop route failed'
+  Expect ((Get-DomeniaControl 'WorkspaceTabs').SelectedItem.Name -eq 'TabApplicationTools' -and (Get-DomeniaControl 'ApplicationToolTabs').SelectedItem.Name -eq 'WsQueryWorkshop') 'Workshop route failed'
   (Get-DomeniaControl 'BtnQueryBack').RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
   Expect ((Get-DomeniaControl 'WorkspaceTabs').SelectedItem.Name -eq 'WsSearch') 'Back did not restore origin'
   $before=$script:Ctrl.Count;Initialize-DomeniaQueryWorkshop;Expect ($script:Ctrl.Count -eq $before) 'Duplicate query initialization'
@@ -49,6 +53,30 @@ try{
   Expect ((Get-DomeniaControl 'QueryWorkspaceTabs').SelectedItem.Name -eq 'TabQueryCompose') 'New does not open composer'
   (Get-DomeniaControl 'BtnQueryRun').RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
   Expect ((Get-DomeniaControl 'QueryWorkspaceTabs').SelectedItem.Name -eq 'TabQueryResults') 'Run does not open results'
+ }
+ Case 'Returning to the already selected workshop refreshes only its current Fleet scope label' {
+  $oldFleet=$script:FleetScopeDn;$oldBranch=$script:SelectedBranchDn
+  try{
+   $script:FleetScopeDn='OU=Atelier-A,DC=example,DC=invalid';$script:SelectedBranchDn='OU=Recherche-A,DC=example,DC=invalid'
+   (Get-DomeniaControl 'WorkspaceTabs').SelectedItem=Get-DomeniaControl 'WsSearch'
+   Show-DomeniaQueryWorkshop;$script:Window.UpdateLayout()
+   Expect ((Get-DomeniaControl 'DomeniaQueryView').IsVisible -and (Get-DomeniaControl 'LblQueryScope').Text.Contains('OU=Atelier-A,')) 'Initial workshop scope absent'
+   (Get-DomeniaControl 'WorkspaceTabs').SelectedItem=Get-DomeniaControl 'WsSearch';$script:Window.UpdateLayout()
+   Expect (-not (Get-DomeniaControl 'DomeniaQueryView').IsVisible -and (Get-DomeniaControl 'ApplicationToolTabs').SelectedItem.Name -eq 'WsQueryWorkshop') 'Fixture did not hide the selected inner tab'
+   $script:FleetScopeDn='OU=Atelier-B,DC=example,DC=invalid';$script:SelectedBranchDn='OU=Recherche-B,DC=example,DC=invalid'
+   $route=$script:DomeniaQueryReturnRoute;$inner=$script:DomeniaQueryReturnInner;$tab=$script:DomeniaQueryReturnTab;$returnFocus=$script:DomeniaQueryReturnFocus
+   $recipe=$script:DomeniaQueryState.Recipe|ConvertTo-Json -Depth 10 -Compress;$before=$script:FixtureTasks.Count
+   # Direct outer-tab selection reproduces the sidebar route; the inner SelectionChanged does not run.
+   (Get-DomeniaControl 'WorkspaceTabs').SelectedItem=Get-DomeniaControl 'TabApplicationTools';$script:Window.UpdateLayout()
+   $label=[string](Get-DomeniaControl 'LblQueryScope').Text
+   Expect ((Get-DomeniaControl 'DomeniaQueryView').IsVisible -and $label.Contains('OU=Atelier-B,') -and -not $label.Contains('Recherche-B')) 'Visible workshop retained an old scope or adopted Search scope'
+   Expect ($script:FixtureTasks.Count -eq $before -and ($script:DomeniaQueryState.Recipe|ConvertTo-Json -Depth 10 -Compress) -eq $recipe) 'Visibility refreshed data or changed the draft'
+   Expect ($script:DomeniaQueryReturnRoute -ceq $route -and $script:DomeniaQueryReturnInner -ceq $inner -and $script:DomeniaQueryReturnTab -ceq $tab -and [object]::ReferenceEquals($script:DomeniaQueryReturnFocus,$returnFocus)) 'Visibility rewrote the return route/focus'
+   $focused=[Windows.Input.Keyboard]::FocusedElement;Update-DomeniaQueryScopeLabel
+   Expect ([object]::ReferenceEquals([Windows.Input.Keyboard]::FocusedElement,$focused)) 'Scope label stole keyboard focus'
+   (Get-DomeniaControl 'BtnQueryBack').RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
+   Expect ((Get-DomeniaControl 'WorkspaceTabs').SelectedItem.Name -eq 'WsSearch') 'Visibility broke the original return route'
+  }finally{$script:FleetScopeDn=$oldFleet;$script:SelectedBranchDn=$oldBranch;Update-DomeniaQueryScopeLabel}
  }
  Case 'Catalog is exhaustive, locally searchable and prepares a field without changing a recipe' {
   $entries=@(Get-DomeniaQueryCatalog);$fields=@(Get-DomeniaQueryFields)
@@ -97,6 +125,40 @@ try{
    Update-DomeniaQueryLibraryControls
   }
  }
+ Case 'Search selector unifies LDAP and local recipes without implicit execution' {
+  $beforeTasks=$script:FixtureTasks.Count;$oldBranch=$script:SelectedBranchDn;$oldSettings=$script:SettingsFixture.Clone()
+  try{
+   $script:SelectedBranchDn='OU=Recherche,DC=example,DC=invalid'
+   $saved=New-DomeniaQueryRecipe -Id 'fixture.searchselector' -Name 'Mémoire sélectionnée'
+   $script:SettingsFixture['Query.Library']=ConvertTo-DomeniaQueryLibraryJson @($saved)
+   (Get-DomeniaControl 'WorkspaceTabs').SelectedItem=Get-DomeniaControl 'WsSearch'
+   Initialize-DomeniaSearchQuerySelector
+   $combo=Get-DomeniaControl 'CmbWorkView';$filter=Get-DomeniaControl 'TxtSearchQueryFilter';$favorites=Get-DomeniaControl 'ChkSearchQueryFavorites'
+   Expect ($combo.Items.Count -eq 158 -and $combo.SelectedIndex -eq -1 -and -not (Get-DomeniaControl 'BtnWorkView').IsEnabled) 'Unified catalog count or empty initial selection differs'
+   $combo.SelectedItem=@($combo.Items|Where-Object Id -eq 'ad:disabled')[0]
+   Expect ((Get-DomeniaControl 'LblSearchQueryDetails').Text -like '*Annuaire en direct*Utilisateurs*OU=Recherche*') 'AD source, type or Search OU not visible'
+   Expect (-not (Get-DomeniaControl 'CmbSearchQueryResult').IsEnabled -and (Get-DomeniaControl 'CmbSearchQueryResult').Visibility -eq 'Collapsed') 'Unknown selection offered for LDAP view'
+   $filter.Text='MEMOIRE SELECTIONNEE'
+   Expect ($combo.Items.Count -eq 1 -and $combo.SelectedIndex -eq -1) 'Local text filter retains hidden former selection'
+   $combo.SelectedIndex=0
+   Expect ((Get-DomeniaControl 'CmbSearchQueryResult').IsEnabled -and (Get-DomeniaControl 'CmbSearchQueryResult').Visibility -eq 'Visible' -and (Get-DomeniaControl 'LblSearchQueryDetails').Text -like '*Base locale*Postes*') 'Local source/type/result selection missing'
+   $base=$script:Conn.BaseDn
+   try{$script:Conn.BaseDn='';Update-DomeniaSearchQueryDetails;Expect (-not (Get-DomeniaControl 'BtnWorkView').IsEnabled -and (Get-DomeniaControl 'LblSearchQueryDetails').Text -like '*Connectez-vous*') 'Selector fails or executes without a session'}finally{$script:Conn.BaseDn=$base;Update-DomeniaSearchQueryDetails}
+   (Get-DomeniaControl 'BtnSearchQueryFavorite').RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
+   $filter.Text='';$favorites.IsChecked=$true
+   Expect ($combo.Items.Count -eq 1 -and $combo.Items[0].Id -eq 'local:fixture.searchselector') 'Favorite persisted/filter failed'
+   $combo.SelectedIndex=0
+   (Get-DomeniaControl 'BtnSearchQueryWorkshop').RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
+   Expect ((Get-DomeniaControl 'WorkspaceTabs').SelectedItem.Name -eq 'TabApplicationTools' -and (Get-DomeniaControl 'ApplicationToolTabs').SelectedItem.Name -eq 'WsQueryWorkshop') 'Search edit did not open Tools/Workshop'
+   Expect ($script:DomeniaQueryState.Recipe.Id -eq 'fixture.searchselector' -and (Get-DomeniaControl 'QueryWorkspaceTabs').SelectedItem.Name -eq 'TabQueryCompose') 'Edit did not load selected recipe'
+   (Get-DomeniaControl 'BtnQueryBack').RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
+   Expect ((Get-DomeniaControl 'WorkspaceTabs').SelectedItem.Name -eq 'WsSearch') 'Search edit return failed'
+   $script:ActiveSearchViewId='local:fixture.searchselector';$script:SearchQueryRun=[pscustomobject]@{Id=$script:ActiveSearchViewId};$generation=[int]$script:GlobalSearchGeneration
+   (Get-DomeniaControl 'BtnQueryClearSearch').RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
+   Expect ($null -eq $script:SearchQueryRun -and -not $script:ActiveSearchViewId -and [int]$script:GlobalSearchGeneration -gt $generation -and $combo.SelectedIndex -eq -1) 'Real clear button did not invalidate local query'
+   Expect ($script:FixtureTasks.Count -eq $beforeTasks) 'Selection/filter/favorite/edit executed a query or collection'
+  }finally{$script:SelectedBranchDn=$oldBranch;$script:SettingsFixture=$oldSettings;(Get-DomeniaControl 'TxtSearchQueryFilter').Text='';(Get-DomeniaControl 'ChkSearchQueryFavorites').IsChecked=$false;Update-DomeniaWorkViewList}
+ }
  Case 'Selected computer preview and widget use the shared workshop through actual buttons' {
   $oldSelected=$script:SelectedObject;$oldRecipe=$script:DomeniaQueryState.Recipe;$oldSaved=$script:DomeniaQueryState.Saved;$before=$script:FixtureTasks.Count
   try{
@@ -105,7 +167,7 @@ try{
    $recipe.Clauses=@([pscustomobject]@{Field='active';Operator='Equal';Value=$true})
    Set-DomeniaQueryDraft $recipe
    Show-DomeniaComputerQueryWorkshop
-   Expect ((Get-DomeniaControl 'WorkspaceTabs').SelectedItem.Name -eq 'WsQueryWorkshop' -and (Get-DomeniaControl 'CmbQueryWidgetDestination').SelectedItem.Tag -eq 'Computer') 'Computer route/destination wrong'
+   Expect ((Get-DomeniaControl 'WorkspaceTabs').SelectedItem.Name -eq 'TabApplicationTools' -and (Get-DomeniaControl 'ApplicationToolTabs').SelectedItem.Name -eq 'WsQueryWorkshop' -and (Get-DomeniaControl 'CmbQueryWidgetDestination').SelectedItem.Tag -eq 'Computer') 'Computer route/destination wrong'
    (Get-DomeniaControl 'BtnQueryPreviewComputer').RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
    Expect ((Get-DomeniaControl 'LblQueryComputerPreview').Text -like 'PC-FIXTURE : correspond*') 'Real preview button did not evaluate the selected computer'
    $visual=Get-DomeniaControl 'CmbQueryWidgetVisual';$visual.SelectedItem=@($visual.Items|Where-Object{$_.Tag -eq 'Pie'})[0]

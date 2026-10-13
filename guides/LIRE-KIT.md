@@ -27,3 +27,31 @@ Texte et fiche en UTF-8 ; le programme refuse les écarts de syntaxe courants av
 
 La syntaxe du texte, les champs de la fiche et la méthode complète sont dans `PROMPT_GUIDES_AUTRE_LOGICIEL.md`
 (version à coller : `PROMPT_GUIDES_AUTRE_LOGICIEL.txt`). `exemple/` montre chaque élément de syntaxe.
+
+## Guides Domenia
+
+Les sources `technicien.md` et `administrateur.md` décrivent Domenia **1.0**. Leur fiche JSON associe
+les figures à des PNG natifs ; les livrables finaux sont copiés dans `../DOC/`. La référence interne
+de la passe est RC1.17.3, datée du 13 octobre 2026 ; les guides destinés aux utilisateurs conservent
+la version produit 1.0, sans journal des changements.
+
+    node build_guide.js technicien.json --no-pdf
+    node build_guide.js administrateur.json --no-pdf
+
+Le harnais `captures/capture-guides.ps1` se lance avec Windows PowerShell 5.1 x64 en STA, sur la
+copie de validation du pack DEV. Il charge le vrai XAML et les fonctions de présentation, puis
+emploie des données explicitement fictives. Il ne se connecte pas à l’annuaire et ne relève aucun
+poste. Les captures documentaires sont rendues à au moins 1920 × 1080, sans agrandissement d’image
+ni infobulles. Les images `*-viewport-*` de 720 pixels servent au contrôle de disposition et sont
+exclues des guides. Ces rendus WPF ne constituent pas une validation d’un parcours humain à la
+souris ; cette vérification doit rester décrite séparément.
+
+Les vues couvrent notamment Outils → Atelier de requêtes, la barre Requêtes de Rechercher avec
+ses sources et favoris, les résultats inconnus, la Base autonome et le panneau existant État du
+moteur. Les valeurs de performance de ce dernier sont illustratives, pas un benchmark.
+
+Avant livraison : conserver `capture-provenance.json`, `capture-layouts.json` et `capture-checks.json`,
+vérifier les empreintes des PNG, ajuster les cadrages JSON aux contrôles réellement capturés,
+produire le PDF depuis le DOCX et inspecter chaque page. Recalculer ensuite les empreintes des
+quatre fichiers finaux et le rapport de contrôle documentaire. Une compilation réussie seule
+ne remplace pas la relecture du rendu.

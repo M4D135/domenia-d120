@@ -1,0 +1,30 @@
+{
+  "CaptureStatus": "PASS",
+  "FullCampaignStatus": "FAIL",
+  "DEV_SHA256": "fffc258b7715eac4d57d19817336262ff827ce455d90aea0e32a7cc35653dd44",
+  "CaptureScriptSHA256": "1f8ac7b4902a975c7c322396ccf912188c0480c0d439ed403ee5ce9ea34ca2f0",
+  "Entries": [
+    {
+      "File": "capture-provenance.json",
+      "OriginalPath": "/tmp/query-navigation-r5-captures/captures/capture-provenance.json",
+      "OriginalSHA256": "a9fc879be702f5ff8b4c11626843e63c893ce1dee7acd119fb419802c53a6ab7",
+      "ExportedSHA256": "1705e4f1b675c6b547ce2443777249c8065beedcbf37ab08b3288896eff3f4d1",
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "capture-checks.json",
+      "OriginalPath": "/tmp/query-navigation-r5-captures/captures/capture-checks.json",
+      "OriginalSHA256": "ae9c76c4e669e05ec32ff8de979fbafed75ac7b7a98809699595af992f4a20fa",
+      "ExportedSHA256": "9fef71978669c6ac97da103d76dc95154be43b91fe771f65c63f1dfb9b35549b",
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    },
+    {
+      "File": "capture-layouts.json",
+      "OriginalPath": "/tmp/query-navigation-r5-captures/captures/capture-layouts.json",
+      "OriginalSHA256": "0c297dfc9e4a46460afb6e53e82cdc09e01a44e1d920ff964a6abac7edff5332",
+      "ExportedSHA256": "c716e467bd06b2b7bb171ae02488c00b47ab1af0d173f72eb706cd0296bd97bc",
+      "Normalization": "UTF-8 without BOM; LF; trim trailing whitespace; one final newline"
+    }
+  ],
+  "FullCampaignEvidence": "../intermediate/r5-campaign/attempt-status.json"
+}
