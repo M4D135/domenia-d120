@@ -156,6 +156,19 @@ function Invoke-DomeniaUiTaskDispatch {
             $Job.BusyApplied = $true
         }
         if (-not [string]::IsNullOrWhiteSpace([string]$Job.StatusText)) { Set-Status ([string]$Job.StatusText) }
+        if ($requested -eq 'GlobalSearch' -and -not $isWrite -and -not $demo -and -not $isolated) {
+            $searchProgress = Get-DomeniaMember $Job.Payload 'SearchReadProgress' $null
+            if ($searchProgress -is [Collections.IDictionary]) {
+                # Initialize only when dispatched: time spent queued does not consume either budget.
+                [Threading.Monitor]::Enter($searchProgress.SyncRoot)
+                try {
+                    $searchProgress.StartedTimestamp = [Diagnostics.Stopwatch]::GetTimestamp()
+                    $searchProgress.LastRowTimestamp = 0L
+                    $searchProgress.RowsRead = 0L
+                } finally { [Threading.Monitor]::Exit($searchProgress.SyncRoot) }
+                Add-Member -InputObject $Job -NotePropertyName SearchReadProgress -NotePropertyValue $searchProgress -Force
+            }
+        }
         $handle = $ps.BeginInvoke()
     }
     catch {

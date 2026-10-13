@@ -2,14 +2,14 @@
   "schema": 1,
   "product": "Domenia",
   "version": "1.0",
-  "build": "2026.10.13-DOMENIA-1.0-RC1.17.5-D120",
-  "source_base_commit": "68a3bfb43563c9dea276972490010307aa0123e1",
+  "build": "2026.10.13-DOMENIA-1.0-RC1.17.6-D120",
+  "source_base_commit": "ea3a543621eb1038f8dd9354454cfcbb0d4b4d4b",
   "archives": [
     {
       "edition": "PROD",
       "path": "packs/Domenia_PROD.zip",
-      "bytes": 2098079,
-      "sha256": "6a4fc581dcfd1222b5896dd06273841b1afb5081502a7f75c13382d7c0ff6841",
+      "bytes": 2100479,
+      "sha256": "9cc5dfc58614456cfcb328e139ee4d5e01d0b214bb31dad31f89629e20bc4517",
       "files": 94,
       "archive_files_including_manifest": 95,
       "archive_root": "prod/"
@@ -17,22 +17,22 @@
     {
       "edition": "DEV",
       "path": "packs/Domenia_DEV.zip",
-      "bytes": 4388681,
-      "sha256": "8e3afa6b0e1c94db127922a3a8a347553b993b570b6555dfe95f9468a862cb1f",
-      "files": 394,
-      "archive_files_including_manifest": 395,
+      "bytes": 4403845,
+      "sha256": "fcb09dfc3fca21c7dd626db826050d625a8ca08c77fa83b539b4943d33369481",
+      "files": 396,
+      "archive_files_including_manifest": 397,
       "archive_root": "dev/"
     }
   ],
   "runtime_files_identical": 94,
   "qualification": {
     "status": "LOCAL_CHECKS_PASSED_WINDOWS_NOT_RUN",
-    "proof": "validation/2026-10-13/ad-timeout/qualification.json",
+    "proof": "validation/2026-10-13/search-progress/qualification.json",
     "windows_executed": false,
     "delivery_decision": "User accepts delivery with local checks and will perform Windows tests.",
     "formal_windows_qualification": "NOT_EVALUATED",
     "formal_publishable": false,
-    "documentation_proof": "validation/2026-10-13/ad-timeout/documentation-qa.json",
+    "documentation_proof": "validation/2026-10-13/search-progress/documentation-qa.json",
     "interactive_gui": "NOT_RUN"
   }
 }

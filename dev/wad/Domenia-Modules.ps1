@@ -52,6 +52,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Test-DomeniaQueuedTaskExpired',
             'Get-DomeniaIsolationDecision',
             'Get-DomeniaProviderBudget',
+            'Get-DomeniaReadTimeoutState',
             'New-DomeniaProviderState',
             'Get-DomeniaProviderStateKey',
             'Register-DomeniaProviderOutcome',

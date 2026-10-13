@@ -1,7 +1,7 @@
 {
   "Format": 1,
   "Version": "1.0",
-  "Build": "2026.10.13-DOMENIA-1.0-RC1.17.5-D120",
+  "Build": "2026.10.13-DOMENIA-1.0-RC1.17.6-D120",
   "Edition": "prod",
   "ReleaseStatus": "CandidateRequiresWindowsValidation",
   "Files": [
@@ -21,15 +21,15 @@
     },
     {
       "Path": "wad/Domenia-Core.ps1",
-      "Sha256": "7197147F7DB5A5849BF5ACB6E6BB54245AD3598DF037D1D075B224A7F6F75657",
-      "Bytes": 2041267,
+      "Sha256": "AAA1383C7839AEBC4FFC12296783A25910CA4F7FD608C51E6B7775200FEACEB5",
+      "Bytes": 2043284,
       "Runtime": true,
       "PreserveExisting": false
     },
     {
       "Path": "wad/Domenia-Modules.ps1",
-      "Sha256": "7F800BE9A46308BFAD845CE76DA3FDB77E4F95CB2BDE46528A0484095098563B",
-      "Bytes": 78159,
+      "Sha256": "6C987E4D8135A0437AEE7CAE29DB970B33EDA067724246917AB6413A3BA6E4D9",
+      "Bytes": 78202,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -63,7 +63,7 @@
     },
     {
       "Path": "wad/Domenia.release.json",
-      "Sha256": "494B2E0436A0808ECC8FBD543D335D57F867C81D0A998098BA9AE25C1D000810",
+      "Sha256": "D9281907E61D42C9FDE3DC887F7ECA2CF085EAF5FCBB084EF9F749E8EFD18220",
       "Bytes": 2753,
       "Runtime": true,
       "PreserveExisting": false
@@ -280,15 +280,15 @@
     },
     {
       "Path": "wad/modules/Domenia-Engine.Model.ps1",
-      "Sha256": "67EE24E9C67F0EA7FB08DBFA666E8A04107EFC3D6677CC9644FC2A183A708DB7",
-      "Bytes": 40349,
+      "Sha256": "6DFCA009627D30294D0E80A8BF45DE0E8E7A11C9B99069D1B9D3F7C9B9A01276",
+      "Bytes": 46140,
       "Runtime": true,
       "PreserveExisting": false
     },
     {
       "Path": "wad/modules/Domenia-Engine.UI.ps1",
-      "Sha256": "445E68003234EA70626DE7D7AAEF512BE26DD223B78B5C5FB9D4199010402419",
-      "Bytes": 67019,
+      "Sha256": "BC7F3951D8EB8DF79635FDA7DF26E2F33B9C19B1D667914DE44EF2FBE2B38C2C",
+      "Bytes": 67897,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -378,8 +378,8 @@
     },
     {
       "Path": "wad/modules/Domenia-Live.UI.ps1",
-      "Sha256": "1A602836E1383E331FC44DCC6C3249B032A84DC39F13651F9427A6A692A4F695",
-      "Bytes": 70399,
+      "Sha256": "C2E2F4ECD514B3F0DDF9289B78E75266BB1458E1BF180D8BE8DD4BDAEB61D772",
+      "Bytes": 70488,
       "Runtime": true,
       "PreserveExisting": false
     },

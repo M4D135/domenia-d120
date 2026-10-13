@@ -57,7 +57,11 @@ leur compteur indique la population recensée et toute limite d’affichage.
 Pour une recherche AD, le compteur indique les lignes visibles parmi les lignes chargées.
 **Liste partielle** signale une lecture interrompue ; **Limite atteinte** indique le plafond demandé.
 Le bandeau **Dernière requête AD : délai dépassé** signale une attente expirée, sans conclure
-à une coupure générale. Une lecture AD réussie rétablit le bandeau de connexion.
+à une coupure générale. Une lecture AD réussie rétablit le bandeau de connexion. La recherche attend
+par défaut jusqu’à **2 minutes sans nouvelle ligne AD**, avec un plafond total de **15 minutes**.
+La lecture utilise des pages de **250 objets** ; les réglages des anciennes installations sont
+relevés automatiquement au minimum prévu. Le journal précise la durée et les lignes reçues
+en cas d’interruption.
 
 L’atelier se trouve dans **Outils > Atelier de requêtes** ; le petit crayon de
 Recherche y mène directement. Il partage une bibliothèque entre **Recherche**,

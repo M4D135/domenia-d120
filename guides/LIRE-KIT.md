@@ -32,7 +32,7 @@ La syntaxe du texte, les champs de la fiche et la méthode complète sont dans `
 
 Les sources `technicien.md` et `administrateur.md` décrivent Domenia **1.0**. Leur fiche JSON associe
 les figures à des PNG natifs ; les livrables finaux sont copiés dans `../DOC/`. La référence interne
-de la passe est RC1.17.5, datée du 13 octobre 2026 ; les guides destinés aux utilisateurs conservent
+de la passe est RC1.17.6, datée du 13 octobre 2026 ; les guides destinés aux utilisateurs conservent
 la version produit 1.0, sans journal des changements.
 
     node build_guide.js technicien.json --no-pdf

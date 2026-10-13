@@ -43,7 +43,7 @@ function Stop-DomeniaLiveSearch { }
 function Begin-DomeniaLiveSearch {
     param($State,$Payload)
     $script:StreamStarts++
-    Add-Member -InputObject $Payload -NotePropertyName StreamPageSize -NotePropertyValue 40 -Force
+    Add-Member -InputObject $Payload -NotePropertyName StreamPageSize -NotePropertyValue ([int](Get-DomeniaMember $Payload 'StreamPageSize' 250)) -Force
     Add-Member -InputObject $Payload -NotePropertyName Progress -NotePropertyValue ([Collections.Concurrent.ConcurrentQueue[object]]::new()) -Force
     Add-Member -InputObject $Payload -NotePropertyName StopToken -NotePropertyValue ([Threading.CancellationToken]::None) -Force
 }
@@ -56,6 +56,7 @@ function Request-UiTaskStop {param($Id,[switch]$Silent,[switch]$Force,[switch]$S
 function Set-DomeniaItemsSource {param($Name,$Rows) $script:Ctrl[$Name].ItemsSource=@($Rows);return $true}
 function Add-DomeniaUiLog {param($Area,$Level,$Text)}
 function Write-AppLog {param($Text,$Level)}
+function Write-DomeniaTrace {param($Area,$Text)}
 function Set-Status {param($Text,$Level) $script:LastStatus=$Text}
 function Update-Dashboard { }
 function Request-DomeniaDashboardRefresh { }
@@ -68,7 +69,7 @@ function Get-DomeniaDatabaseObjectCount {return 2}
 function Find-DomeniaIndexMatches {param($Term,$Limit) $script:LocalReads++;return @()}
 function Show-ObjectRows {param($Rows,$Label,[switch]$SkipPresenceScan,[switch]$NoAutoOpen,[string]$PreserveSelectionDn) $script:Rendered=@($Rows)}
 function Start-UiTask {
-    param($Name,$OperationId,$Code,$Payload,$CallbackState,$ReplaceKey,$DisableControls,$TimeoutSeconds,$StatusText,$SuccessHandler,$ErrorHandler)
+    param($Name,$OperationId,$Code,$Payload,$CallbackState,$ReplaceKey,$DisableControls,$TimeoutSeconds,$HardTimeoutSeconds,$StatusText,$SuccessHandler,$ErrorHandler)
     $script:LastTask=[pscustomobject]@{Code=$Code;Payload=$Payload;State=$CallbackState;OperationId=$OperationId;ReplaceKey=$ReplaceKey}
 }
 function Reset-TestState {
@@ -160,7 +161,8 @@ Test-Case 'Racine inattendue dans le resultat refusee' { Invoke-GlobalSearch -Se
 Test-Case 'Rafraichissement conserve uniquement une vraie selection' { $script:Ctrl.DgObjects.SelectedItem=[pscustomobject]@{DN='CN=PC,OU=Site,DC=example,DC=invalid'};Load-BranchObjects;Assert-Test ($script:LastTask.State.PreserveSelectionDn -eq 'CN=PC,OU=Site,DC=example,DC=invalid') }
 Test-Case 'Nouvelle recherche ne reselecte pas la fiche precedente' { $script:Ctrl.DgObjects.SelectedItem=[pscustomobject]@{DN='CN=PC,OU=Site,DC=example,DC=invalid'};Invoke-GlobalSearch -SearchMode OU;Assert-Test ($script:LastTask.State.PreserveSelectionDn -eq '') }
 $failed=@($script:Checks | Where-Object {-not $_.Passed}).Count
-$report=[pscustomobject]@{Build='2026.10.01-DOMENIA-1.0-RC1.4-SEARCH';Runtime=$PSVersionTable.PSVersion.ToString();Kind='PowerShell mocks; no LDAP/WPF';Passed=($script:Checks.Count-$failed);Failed=$failed;Checks=@($script:Checks)}
+$release=Get-Content -LiteralPath (Join-Path (Split-Path -Parent $PSScriptRoot) 'Domenia.release.json') -Raw | ConvertFrom-Json
+$report=[pscustomobject]@{Build=[string]$release.Build;CoreSha256=(Get-FileHash -LiteralPath $core -Algorithm SHA256).Hash.ToLowerInvariant();Runtime=$PSVersionTable.PSVersion.ToString();Kind='PowerShell mocks; no LDAP/WPF';Passed=($script:Checks.Count-$failed);Failed=$failed;Checks=@($script:Checks)}
 if([string]::IsNullOrWhiteSpace($ReportPath)){$ReportPath=Join-Path ([IO.Path]::GetTempPath()) ('Domenia-OU-search-'+[guid]::NewGuid().ToString('N')+'.json')}
 $report | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $ReportPath -Encoding UTF8
 if(-not $Quiet){Write-Host ('Tests : '+$report.Passed+' OK, '+$failed+' echec(s). Rapport : '+$ReportPath)}

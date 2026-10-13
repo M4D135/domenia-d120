@@ -631,3 +631,97 @@ function Test-DomeniaIdleAllows {
         }
     }
 }
+
+# ---------------------------------------------------------------- Directory read deadlines
+function Get-DomeniaReadTimeoutState {
+    # GlobalSearch receives a dispatch-owned monotonic clock. Only raw LDAP arrivals
+    # advance it: cached rows, queue draining and UI callbacks are not network progress.
+    # This function only decides; the existing caller retains cancellation/partial results.
+    param($Job,[double]$ElapsedSeconds,
+        [long]$NowTimestamp=[Diagnostics.Stopwatch]::GetTimestamp(),
+        [long]$TimestampFrequency=[Diagnostics.Stopwatch]::Frequency)
+    $elapsed = $ElapsedSeconds
+    if ([double]::IsNaN($elapsed) -or $elapsed -lt 0) { $elapsed = 0.0 }
+    $result = [pscustomobject]@{Expired=$false;Reason='';ElapsedSeconds=$elapsed;IdleSeconds=$elapsed;RowsRead=[long]0;Message=''}
+    if ($null -eq $Job) { return $result }
+    if ([bool](Get-DomeniaMember $Job 'IsWrite' $false) -or
+        [bool](Get-DomeniaMember $Job 'CancelRequested' $false) -or
+        [bool](Get-DomeniaMember $Job 'Superseded' $false) -or
+        [string](Get-DomeniaMember $Job 'State' '') -in @('Queued','Withdrawn','Completed','StopRequested','Cleanup','Cancelled','Canceled')) { return $result }
+
+    $isSearch = ([string](Get-DomeniaMember $Job 'OperationId' '') -eq 'GlobalSearch')
+    $timeout = if ($isSearch) { 120.0 } else { 60.0 }
+    try {
+        $configured = [double](Get-DomeniaMember $Job 'TimeoutSeconds' $timeout)
+        if (-not [double]::IsNaN($configured) -and -not [double]::IsInfinity($configured) -and $configured -gt 0) { $timeout = $configured }
+    } catch { }
+    $hardTimeout = 900.0
+    if ($isSearch) {
+        try {
+            $configured = [double](Get-DomeniaMember $Job 'HardTimeoutSeconds' $hardTimeout)
+            if (-not [double]::IsNaN($configured) -and -not [double]::IsInfinity($configured) -and $configured -gt 0) { $hardTimeout = $configured }
+        } catch { }
+    }
+
+    $validProgress = $false
+    if ($isSearch -and $TimestampFrequency -gt 0 -and $NowTimestamp -gt 0) {
+        $progress = Get-DomeniaMemberValue $Job 'SearchReadProgress' $null
+        if ($progress -is [Collections.IDictionary]) {
+            $syncRoot = $null; $locked = $false
+            try {
+                # The worker uses this same lock only for three primitive assignments.
+                # Snapshot first, release, then parse/compute outside the critical section.
+                $syncRoot = ([Collections.ICollection]$progress).SyncRoot
+                [Threading.Monitor]::Enter($syncRoot); $locked = $true
+                $startedValue = $progress['StartedTimestamp']
+                $lastValue = $progress['LastRowTimestamp']
+                $rowsValue = $progress['RowsRead']
+            } catch { $startedValue = $null; $lastValue = $null; $rowsValue = $null }
+            finally { if ($locked) { [Threading.Monitor]::Exit($syncRoot) } }
+            # A row can arrive between function entry and the locked snapshot. Sample
+            # the real clock afterwards, or that legitimate arrival looks future-dated.
+            # Explicit test clocks remain untouched so malformed timestamps stay testable.
+            if (-not $PSBoundParameters.ContainsKey('NowTimestamp')) { $NowTimestamp = [Diagnostics.Stopwatch]::GetTimestamp() }
+            $started = [long]0; $last = [long]0; $rows = [long]0
+            if ([long]::TryParse([string]$startedValue,[ref]$started) -and
+                [long]::TryParse([string]$lastValue,[ref]$last) -and
+                [long]::TryParse([string]$rowsValue,[ref]$rows) -and
+                $started -gt 0 -and $started -le $NowTimestamp -and $rows -ge 0 -and
+                (($last -eq 0 -and $rows -eq 0) -or ($rows -gt 0 -and $last -ge $started -and $last -le $NowTimestamp))) {
+                $validProgress = $true
+                $result.ElapsedSeconds = [double]($NowTimestamp - $started) / $TimestampFrequency
+                $idleStart = if ($last -gt 0) { $last } else { $started }
+                $result.IdleSeconds = [double]($NowTimestamp - $idleStart) / $TimestampFrequency
+                $result.RowsRead = $rows
+            }
+        }
+    }
+    # Invalid/missing clocks keep the former total-elapsed rule, never an open-ended
+    # progress extension. Even healthy row arrivals cannot exceed the search total cap.
+    if ($isSearch -and $result.ElapsedSeconds -gt $hardTimeout) {
+        $result.Expired = $true; $result.Reason = 'Total'
+    }
+    elseif ($validProgress -and $result.IdleSeconds -gt $timeout) {
+        $result.Expired = $true; $result.Reason = 'Idle'
+    }
+    elseif (-not $validProgress -and $result.ElapsedSeconds -gt $timeout) {
+        $result.Expired = $true; $result.Reason = 'Timeout'
+    }
+    if ($result.Expired) {
+        $displayElapsed = [int][Math]::Min([int]::MaxValue,$result.ElapsedSeconds)
+        $name = [string](Get-DomeniaMember $Job 'Name' '')
+        if (-not $isSearch) { $result.Message = "Timeout apres $($displayElapsed)s : $name" }
+        else {
+            $displayIdle = [int][Math]::Min([int]::MaxValue,$result.IdleSeconds)
+            $reason = switch ($result.Reason) {
+                'Total' { 'durée totale maximale atteinte' }
+                'Idle' { 'aucune nouvelle ligne AD reçue' }
+                default { 'délai atteint ; progression AD indisponible' }
+            }
+            $received = if ($validProgress) { "$($result.RowsRead) ligne(s) AD reçue(s)" } else { 'nombre de lignes AD reçues non confirmé' }
+            $idleText = if ($validProgress) { "$($displayIdle) s sans nouvelle ligne AD" } else { 'activité AD non confirmée' }
+            $result.Message = "Timeout : $name — $reason ; $($displayElapsed) s écoulées, $idleText, $received. Résultats partiels."
+        }
+    }
+    return $result
+}

@@ -1,0 +1,16 @@
+{
+  "reviewer": "query_docs",
+  "document": "technicien",
+  "status": "pass",
+  "reviewedUtc": "2026-10-13T13:47:38.747123+00:00",
+  "method": "Each listed page opened individually at original PNG resolution. Any page opened from the preceding candidate is byte-identical to this final render, verified separately.",
+  "pages": [
+    5
+  ],
+  "pageHashes": {
+    "5": "6c41c17bd28ed4362fa776165e86cbf52517aeaa94cecc97e5b65217f84f15e3"
+  },
+  "renderFolder": "/Users/david/Documents/Projets/Domenia-D120/guides/build/qa-technicien-search-progress",
+  "pagesOpenedFromByteIdenticalPrecedingCandidate": [],
+  "findings": "No clipping, overlap, missing glyph, overflowing table, orphan caption or stray tooltip observed. Existing large figures and repeated table headers remain legible. Some preceding section pages have space reserved because the next complete figure is kept on its own page."
+}

@@ -83,7 +83,7 @@ Dans une fenêtre étroite ou basse, la barre peut se replier : « Options de re
 
 ## Si ça ne se passe pas comme prévu
 
-Le badge orange « Dernière requête AD : délai dépassé » indique une recherche trop longue, sans prouver une panne réseau. Affinez la recherche puis relancez-la. Une lecture AD réussie rétablit le badge normal. « AD injoignable » en rouge correspond à une erreur réseau ; vérifiez alors la connexion au domaine.
+La recherche globale peut continuer tant que de nouveaux objets AD arrivent, pendant 15 minutes au plus par défaut. Elle s’arrête après 2 minutes sans nouvel objet ; vous pouvez l’annuler. Le badge orange « Dernière requête AD : délai dépassé » ne prouve pas une panne réseau. Affinez la recherche puis relancez-la. Une lecture AD réussie rétablit le badge normal. « AD injoignable » en rouge correspond à une erreur réseau ; vérifiez alors la connexion au domaine.
 
 | Vous voyez | Que faire |
 |---|---|

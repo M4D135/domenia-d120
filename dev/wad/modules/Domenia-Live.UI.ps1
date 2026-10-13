@@ -215,7 +215,7 @@ function Begin-DomeniaLiveSearch {
     Add-Member -InputObject $State -NotePropertyName LiveState -NotePropertyValue $s -Force
     Add-Member -InputObject $Payload -NotePropertyName Progress -NotePropertyValue $queue -Force
     Add-Member -InputObject $Payload -NotePropertyName StopToken -NotePropertyValue $stop.Token -Force
-    Add-Member -InputObject $Payload -NotePropertyName StreamPageSize -NotePropertyValue 40 -Force
+    Add-Member -InputObject $Payload -NotePropertyName StreamPageSize -NotePropertyValue ([Math]::Max(100,[Math]::Min(1000,[int](Get-DomeniaMember $Payload 'StreamPageSize' 250)))) -Force
     if($script:Live.MemoryQueries.ContainsKey($key)){
         $cached=$script:Live.MemoryQueries[$key]
         foreach($r in @($cached.Rows)){$cacheQueue.Enqueue([pscustomobject]@{Kind='CachedRow';Row=$r;ObservedUtc=[string]$cached.ObservedUtc})}

@@ -4828,7 +4828,7 @@ function Get-MainXaml {
                 </Button>
                 <Border x:Name="UxAboutPanel" Visibility="Collapsed" Margin="10,6,0,0">
                   <StackPanel>
-                    <TextBlock Text="DOMENIA 1.0 · RC1.17.5" Foreground="{DynamicResource MutedColor}" FontSize="11"/>
+                    <TextBlock Text="DOMENIA 1.0 · RC1.17.6" Foreground="{DynamicResource MutedColor}" FontSize="11"/>
                     <TextBlock Text="Les actions restent sous votre contrôle." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="11" Margin="0,4,0,0"/>
                   </StackPanel>
                 </Border>
@@ -11631,7 +11631,7 @@ foreach ($ctx in @($contexts)) {
             $searcher = New-WSearcher $ctx ([string]$Payload.BaseDn) $filterText @($Payload.Properties) ([string]$Payload.Scope) ([int]$Payload.Limit)
             $searcher.ServerTimeLimit = [TimeSpan]::FromSeconds([Math]::Max(3,[int]$Payload.ServerTimeLimitSeconds))
             $searcher.ClientTimeout = [TimeSpan]::FromSeconds([Math]::Max(5,[int]$Payload.ClientTimeoutSeconds))
-            $searcher.PageSize = [Math]::Max(1,[Math]::Min(100,[int]$Payload.StreamPageSize))
+            $searcher.PageSize = [Math]::Max(100,[Math]::Min(1000,[int]$Payload.StreamPageSize))
             $searcher.CacheResults = $false
             $searcher.Asynchronous = $true
             $rootEntry = $searcher.SearchRoot
@@ -11641,6 +11641,15 @@ foreach ($ctx in @($contexts)) {
 
             foreach ($result in $collection) {
                 if ($null -ne $Payload.StopToken -and $Payload.StopToken.IsCancellationRequested) { throw "Lecture remplacée ou arrêtée." }
+                # Only a result received from LDAP extends the inactivity budget. Cached rows,
+                # UI rendering and a retry without results never refresh this monotonic clock.
+                if ($null -ne $Payload.SearchReadProgress) {
+                    [Threading.Monitor]::Enter($Payload.SearchReadProgress.SyncRoot)
+                    try {
+                        $Payload.SearchReadProgress.RowsRead = [long]$Payload.SearchReadProgress.RowsRead + 1L
+                        $Payload.SearchReadProgress.LastRowTimestamp = [Diagnostics.Stopwatch]::GetTimestamp()
+                    } finally { [Threading.Monitor]::Exit($Payload.SearchReadProgress.SyncRoot) }
+                }
                 $rawCount++
                 $filterRaw++
                 $row = New-WBranchRow $result
@@ -11716,6 +11725,12 @@ $watch.Stop()
 }
 '@
 
+        # Large OUs may take several minutes while still returning rows. The former 45 s
+        # total setting now has a 120 s inactivity floor; a separate total cap remains finite.
+        $searchIdleSeconds = [Math]::Max(120,[Math]::Min(600,[int](Get-CfgValue 'Async' 'SearchTimeoutSeconds' 120)))
+        $searchMaxSeconds = [Math]::Max($searchIdleSeconds,[Math]::Min(3600,[int](Get-CfgValue 'Async' 'SearchMaxDurationSeconds' 900)))
+        $searchServerSeconds = [Math]::Max(60,[Math]::Min(300,[int](Get-CfgValue 'Browser' 'SearchServerTimeLimitSeconds' 60)))
+        $searchClientSeconds = [Math]::Max(($searchServerSeconds + 30),[Math]::Min(600,[int](Get-CfgValue 'Browser' 'SearchClientTimeoutSeconds' 90)))
         $payload = [pscustomobject]@{
             BaseDn = [string]$scope.BaseDn
             Scope = [string]$scope.Scope
@@ -11726,8 +11741,10 @@ $watch.Stop()
             BroadFilter = $broadFilter
             Limit = $limit
             Properties = $props
-            ServerTimeLimitSeconds = [Math]::Max(3,[Math]::Min(20,[int](Get-CfgValue "Browser" "SearchServerTimeLimitSeconds" 8)))
-            ClientTimeoutSeconds = [Math]::Max(5,[Math]::Min(25,[int](Get-CfgValue "Browser" "SearchClientTimeoutSeconds" 12)))
+            ServerTimeLimitSeconds = $searchServerSeconds
+            ClientTimeoutSeconds = $searchClientSeconds
+            StreamPageSize = [Math]::Max(100,[Math]::Min(1000,[int](Get-CfgValue 'Browser' 'SearchPageSize' 250)))
+            SearchReadProgress = [hashtable]::Synchronized(@{StartedTimestamp=0L;LastRowTimestamp=0L;RowsRead=0L})
         }
         $callbackState = [pscustomobject]@{
             SearchMode = $SearchMode
@@ -11758,10 +11775,11 @@ $watch.Stop()
         [void](Begin-DomeniaLiveSearch -State $callbackState -Payload $payload)
 
         Add-DomeniaUiLog -Area "Recherche" -Level "INFO" -Text "Recherche $SearchMode '$textValue' demandee, base=$($scope.BaseDn), portee=$($scope.Scope), limite=$limit."
+        Write-DomeniaTrace -Area 'Recherche' -Text "Budgets : sans progression=$($searchIdleSeconds)s, maximum=$($searchMaxSeconds)s, LDAP serveur=$($searchServerSeconds)s/client=$($searchClientSeconds)s, page=$($payload.StreamPageSize)."
         if ($generation -ne [int]$script:GlobalSearchGeneration) { return }
         if (-not $PreserveSelection) { Select-DomeniaWorkspace -Workspace 'WsSearch' }
         [void](Set-DomeniaControlText -Name 'LblBranchCount' -Text 'Recherche en cours...')
-        Start-UiTask -Name "Recherche dans l annuaire" -OperationId "GlobalSearch" -Code $code -Payload $payload -CallbackState $callbackState -ReplaceKey "global" -DisableControls @("BtnGlobalSearch") -TimeoutSeconds ([Math]::Max(15,[int](Get-CfgValue "Async" "SearchTimeoutSeconds" 45))) -StatusText "Recherche Active Directory en arriere-plan..." -SuccessHandler "Complete-DomeniaGlobalSearchUi" -ErrorHandler "Fail-DomeniaGlobalSearchUi" | Out-Null
+        Start-UiTask -Name "Recherche dans l annuaire" -OperationId "GlobalSearch" -Code $code -Payload $payload -CallbackState $callbackState -ReplaceKey "global" -DisableControls @("BtnGlobalSearch") -TimeoutSeconds $searchIdleSeconds -HardTimeoutSeconds $searchMaxSeconds -StatusText "Recherche Active Directory en arriere-plan..." -SuccessHandler "Complete-DomeniaGlobalSearchUi" -ErrorHandler "Fail-DomeniaGlobalSearchUi" | Out-Null
     }
     catch {
         if ($null -ne $callbackState -and $null -ne $callbackState.PSObject.Properties['LiveState']) { Fail-DomeniaLiveSearch -Message $_.Exception.Message -State $callbackState }
@@ -22302,7 +22320,7 @@ function Wire-Events {
 # DOMENIA_MASTER_LAST_V1 = TRUE
 $script:Version = "1.0"
 $script:AppName = "Domenia"
-$script:MasterBuild = "2026.10.13-DOMENIA-1.0-RC1.17.5-D120"
+$script:MasterBuild = "2026.10.13-DOMENIA-1.0-RC1.17.6-D120"
 $script:ActiveWriteTaskId = ""
 $script:WriteState = "Idle"
 $script:UnknownWriteTargetDn = ""
@@ -22394,6 +22412,9 @@ function New-DefaultConfig {
             DefaultLimit = 100
             GlobalSearchLimit = 100
             GlobalSearchMinChars = 2
+            SearchPageSize = 250
+            SearchServerTimeLimitSeconds = 60
+            SearchClientTimeoutSeconds = 90
             MaxPageSize = 300
             AutoLoadBranchOnSelect = $true
             SelectRootWithoutLoading = $false
@@ -22437,7 +22458,8 @@ function New-DefaultConfig {
             CallbackWarningMs = 120
             CancelGraceSeconds = 5
             DefaultTimeoutSeconds = 60
-            SearchTimeoutSeconds = 45
+            SearchTimeoutSeconds = 120
+            SearchMaxDurationSeconds = 900
             ObjectTimeoutSeconds = 35
             TreeTimeoutSeconds = 30
             RemoteTimeoutSeconds = 45
@@ -23575,7 +23597,7 @@ function Get-DomeniaWorkerOperationHashes {
         IsolatedRead          = "4074D6ECAA620A9C80A5B6B535BB657E02DCE06A9DF97E35CA1EA47572D1060C"
         CmdletHelp            = "12505D0654AB0E97BD803A70B953BB0BBE2152836AAA1889744C1312EB215D62"
         TreeChildren          = "64E2C2F8DCE64FBF68A3079937B7671039CA4E71EC00805A7E9195CC9C483141"
-        GlobalSearch          = "DFCA576AEC76E948F20D4E51AC47F657C4482BACD992D4A384E8E9FEC65A2819"
+        GlobalSearch          = "1E84A82E46AAFAB3AE0A96AA3251F42C59CD79F5A7259AEA665F69FF03029F61"
         PermissionAnalysis    = "79F87877EC7512EC07088C0FEADD022181873112A71510AA8E90AF76791FC9BB"
         SelfCheck             = "C73BA6DA41221073BF1B56DA687BC8CF2A3250B5151F3D996C37EAFAA8E572B3"
         ReadBitLocker         = "55F469517F1AD169F93E772DADFDAED51DDCCF12BCE2313194D667A8A69EA485"
@@ -23639,7 +23661,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "799A4E76C41829978DE514A0526761452C0AA3240EAAD5EB4927C7D6D5361119"
+    $expectedFingerprint = "03D37C459CBAA836E2DB73E0D326C622A7ED5247AF0897E53FE7C6ED714D6E0A"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -24271,16 +24293,19 @@ function Complete-UiTasks {
                     Request-UiTaskStop -Id $id -Silent -Force
                 }
             }
-            elseif ($elapsed -gt [int]$job.TimeoutSeconds -and -not [bool]$job.CancelRequested) {
-                $message = "Timeout apres $([int]$elapsed)s : $($job.Name)"
-                if (-not [bool]$job.TimeoutErrorDelivered) {
-                    try { Invoke-DomeniaJobErrorUi -Job $job -Message $message } catch { Set-Status $message "ERROR" }
-                    $job.TimeoutErrorDelivered = $true
-                    # D018: repeated outages of one provider pause its background reads, never the explicit ones.
-                    try { [void](Register-DomeniaTaskOutcome -Job $job -TimedOut) } catch { }
-                    try { Invoke-DomeniaTaskSubscribers -Job $job -Output $null -ErrorMessage $message } catch { }
+            elseif (-not [bool]$job.CancelRequested) {
+                $deadline = Get-DomeniaReadTimeoutState -Job $job -ElapsedSeconds $elapsed
+                if ($deadline.Expired) {
+                    $message = [string]$deadline.Message
+                    if (-not [bool]$job.TimeoutErrorDelivered) {
+                        try { Invoke-DomeniaJobErrorUi -Job $job -Message $message } catch { Set-Status $message "ERROR" }
+                        $job.TimeoutErrorDelivered = $true
+                        # D018: repeated outages of one provider pause its background reads, never the explicit ones.
+                        try { [void](Register-DomeniaTaskOutcome -Job $job -TimedOut) } catch { }
+                        try { Invoke-DomeniaTaskSubscribers -Job $job -Output $null -ErrorMessage $message } catch { }
+                    }
+                    Request-UiTaskStop -Id $id -Silent -Force -Reason 'Delai de lecture depasse'
                 }
-                Request-UiTaskStop -Id $id -Silent -Force -Reason 'Delai de lecture depasse'
             }
             continue
         }
@@ -29197,7 +29222,7 @@ try {
         Write-StartupTrace -Stage 'Stockage/Preferences' -Status 'WARN' -Detail $script:StoragePreferenceWarning
         Show-WarningBox -Message $script:StoragePreferenceWarning
     }
-    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.13-DOMENIA-1.0-RC1.17.5-D120)"
+    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.13-DOMENIA-1.0-RC1.17.6-D120)"
     # PF-19: duration of the package integrity check made by Domenia-Start.ps1 before the core (absent when launched otherwise).
     $startIntegrity = Get-Variable -Name DomeniaStartIntegrity -ValueOnly -ErrorAction SilentlyContinue
     if ($null -ne $startIntegrity) { Write-StartupTrace -Stage "Integrite du paquet" -Status "OK" -DurationMs ([long]$startIntegrity.DurationMs) -Detail ("{0} fichiers runtime controles (plafond {1}), {2} composants requis." -f $startIntegrity.Files,$startIntegrity.Limit,$startIntegrity.Required) }

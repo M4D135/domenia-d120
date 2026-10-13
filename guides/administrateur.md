@@ -56,7 +56,7 @@ La barre du haut cherche dans tout le domaine, tous types d'objets, sans filtre 
 
 - Minimum de caractères : Browser.GlobalSearchMinChars (2). En dessous, Domenia affiche « Saisis au moins » suivi du minimum et de « caracteres, ou * pour un apercu. ».
 - Limite : celle du champ « Limite » (100 par défaut), retenue d'une session à l'autre dans la préférence SearchLimit. « Charger la suite » relit la même recherche avec une limite doublée, jusqu'à 20 000 lignes.
-- Délais LDAP : Browser.SearchServerTimeLimitSeconds (8 s, côté contrôleur) et Browser.SearchClientTimeoutSeconds (12 s, côté poste). Async.SearchTimeoutSeconds borne la recherche globale à 45 s par défaut.
+- Recherche globale : 120 s sans nouvel objet AD, 900 s au total ; annulation possible. Délais LDAP : 60/90 s, pages de 250 objets. Réglages et bornes au chapitre 17.
 - Recherche à la frappe : désactivée par défaut (Browser.LiveGlobalSearch et Browser.AllowLiveGlobalSearch à faux).
 - Pendant une écriture, la recherche attend : « Recherche différée : écriture active ou à vérifier. ».
 - Classement : Features.SearchRanking (vrai) ordonne les résultats d'une recherche globale ; sans lui, ils restent dans l'ordre d'arrivée.
@@ -1346,14 +1346,16 @@ Une clé absente, nulle ou vide prend la valeur par défaut du code. Une section
 | Browser.LiveGlobalSearch, AllowLiveGlobalSearch | false | Recherche à la frappe. |
 | Browser.LiveSearchDelayMs | 900 | Attente avant une recherche à la frappe. |
 | Browser.SelectionDebounceMs | 180 | Attente avant le préchargement de la fiche après une sélection (80 à 500 ms). |
-| Browser.SearchServerTimeLimitSeconds | 8 | Délai côté contrôleur. |
-| Browser.SearchClientTimeoutSeconds | 12 | Délai côté poste. |
+| Browser.SearchPageSize | 250 | Objets par page de recherche LDAP (100 à 1 000). |
+| Browser.SearchServerTimeLimitSeconds, SearchClientTimeoutSeconds | 60, 90 | LDAP : serveur de 60 à 300 s ; client ≥ serveur + 30 s, jusqu’à 600 s. |
 | UI.TreeRenderBatchSize, TreeRenderIntervalMs | 16, 20 | Affichage progressif de l'arbre. |
 | UI.AllowExpertProfile | true | false masque le profil Expert du pied du menu ; Ctrl+L reste sur le journal de session. |
 | Startup.ShowMonitor | true | Fenêtre « Domenia 1.0  Initialisation » pendant le chargement. |
 | SelfCheck.FullBenchmarkIterations | 3 | Répétitions de la vérification complète. |
 
 ## Moteur et cache
+
+Pour la recherche globale, seuls les nouveaux objets reçus d’AD relancent le délai d’inactivité ; les lignes du cache et leur affichage ne comptent pas. Le plafond total reste fixe et la file d’attente est exclue. La taille de page LDAP ne change ni le périmètre ni la limite de résultats.
 
 | Clé | Défaut | Rôle |
 |---|---|---|
@@ -1363,7 +1365,8 @@ Une clé absente, nulle ou vide prend la valeur par défaut du code. Une section
 | Async.MaxQueued, ReservedForeground, MaxQueueWaitSeconds | 32, 2, 120 | File d'attente, places de premier plan, attente maximale. |
 | Async.PollIntervalMs, UiRefreshIntervalMs | 250, 500 | Rythme de suivi des tâches. |
 | Async.DefaultTimeoutSeconds | 60 | Délai par défaut d'une tâche. |
-| Async.SearchTimeoutSeconds, ObjectTimeoutSeconds, TreeTimeoutSeconds | 45, 35, 30 | Délais des recherches, fiches et arbre. |
+| Async.SearchTimeoutSeconds, SearchMaxDurationSeconds | 120, 900 | Recherche globale : inactivité AD de 120 à 600 s (plancher automatique) ; durée totale ≥ inactivité, jusqu’à 3 600 s, hors attente. |
+| Async.ObjectTimeoutSeconds, TreeTimeoutSeconds | 35, 30 | Délais des fiches et de l’arbre. |
 | Async.RemoteTimeoutSeconds | 45 | Délai des opérations distantes. |
 | Async.ComputerTimeoutSeconds | 90 | Délai du diagnostic réseau groupé. |
 | Async.SelfCheckTimeoutSeconds | 120 | Délai de la vérification de l'application. |

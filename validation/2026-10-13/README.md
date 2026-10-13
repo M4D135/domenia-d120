@@ -1,5 +1,15 @@
 # Domenia 1.0 — améliorations et contrôles
 
+## Recherche progressive et délais — RC1.17.6
+
+La recherche attend désormais 120 secondes **sans nouvelle ligne AD**, avec un plafond total de 900 secondes. Son horloge démarre au dispatch ; le cache et le rendu de la liste ne prolongent pas l’attente. Les pages LDAP passent de 40 à 250 objets, les attentes serveur/client à 60/90 secondes. Les anciens réglages trop courts sont relevés automatiquement. Les erreurs du fournisseur restent traitées et peuvent interrompre une lecture plus tôt.
+
+91 cas locaux réussis sous PowerShell 7.4.20 : 26 cas de délais (87 assertions), 23 cas de worker/câblage (39 assertions), 42 cas de périmètre OU et générations. Le worker et ses convertisseurs ont traité 5 000 objets synthétiques ; une course sur le snapshot de progression est couverte. Audits statiques réussis, 94 fichiers runtime identiques entre DEV/PROD et correspondance de tous les fichiers DEV avec les sources. **Aucun test Windows, WPF ou AD réel pour cette révision.**
+
+Guides v1.0 Word/PDF à jour : technicien 28 pages, administrateur 70 pages. 70 pages nouvellement relues, 28 inchangées et vérifiées par empreinte ; aucune nouvelle capture de l’application.
+
+[Revue et recette](search-progress/REVIEW.md) · [Résultats](search-progress/qualification.json) · [Contrôle documentaire](search-progress/documentation-qa.json) · [Manifestes des packs](../../packs/manifest.json)
+
 ## Délai de recherche et liste partielle — RC1.17.5
 
 Le dépassement de 45 secondes observé dans le journal n’établit pas une panne AD. Le bandeau affiche désormais « Dernière requête AD : délai dépassé » en avertissement ; une véritable erreur réseau conserve le mode hors ligne et les protections associées. Une lecture AD réussie rétablit la connexion affichée.
