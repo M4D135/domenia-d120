@@ -1,0 +1,63 @@
+{
+  "Status": "PASS_NONQUALIFYING",
+  "Host": "macOS",
+  "WindowsExecuted": false,
+  "Checks": [
+    {
+      "name": "static",
+      "exit_code": 0,
+      "log": "validation/2026-10-13/ou-refresh/static.stdout.txt"
+    },
+    {
+      "name": "loader",
+      "exit_code": 0,
+      "log": "validation/2026-10-13/ou-refresh/loader.stdout.txt"
+    },
+    {
+      "name": "wording",
+      "exit_code": 0,
+      "log": "validation/2026-10-13/ou-refresh/wording.stdout.txt"
+    },
+    {
+      "name": "worker-contracts",
+      "exit_code": 0,
+      "log": "validation/2026-10-13/ou-refresh/worker-contracts.stdout.txt"
+    },
+    {
+      "name": "release-contract",
+      "exit_code": 0,
+      "log": "validation/2026-10-13/ou-refresh/release-contract.stdout.txt"
+    },
+    {
+      "name": "preload",
+      "exit_code": 0,
+      "log": "validation/2026-10-13/ou-refresh/preload.stdout.txt"
+    }
+  ],
+  "ReleaseGuard": {
+    "Passed": 50,
+    "Failed": 0,
+    "Log": "release-guard.stdout.txt"
+  },
+  "PurePowerShell": {
+    "Version": "7.4.20",
+    "OuRefresh": {
+      "Passed": 43,
+      "Failed": 0,
+      "Report": "ou-refresh-ps7-nonqualifying.json"
+    },
+    "Freshness": {
+      "Passed": 16,
+      "Failed": 0,
+      "Assertions": 33,
+      "StorageExecuted": false,
+      "Report": "freshness-ps7-nonqualifying.json"
+    },
+    "IndexActions": {
+      "AssertionsPassed": 19,
+      "Failed": 0,
+      "Report": "index-actions-ps7-nonqualifying.json"
+    }
+  },
+  "Notes": "Static audits and pure/inert-adapter logic checks only. No new Windows, WPF, native SQLite, AD or remote workstation execution."
+}

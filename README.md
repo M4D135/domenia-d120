@@ -24,6 +24,18 @@ Deux distributions sont prévues :
 - **PROD** : `Domenia.exe` et le dossier ordinaire `wad`.
 - **DEV** : le même runtime, les sources, les outils de fabrication et les tests.
 
+Dans **Accueil** et sous l’arbre de **Recherche**, choisissez l’OU puis l’action :
+
+- **Base locale** : relire les objets dans AD et enregistrer la copie locale.
+- **Postes (ping/WMI)** : relire le ping, la console, l’inventaire léger des postes actifs déjà recensés et les sondes des widgets configurés.
+- **Les deux** : terminer l’enregistrement AD, puis relever les postes.
+
+Ces actions couvrent toujours **l’OU et ses sous-OU**, indépendamment des filtres et de la limite
+de la liste. Le nombre de postes est confirmé avant collecte ; **Arrêter** empêche la phase suivante.
+Les mesures demandées par **Postes** sont fraîchement relues ; les anciennes valeurs restent datées
+en cas d’échec. **Recalculer la vue** relit seulement les données locales : la date du calcul,
+la date AD et celles du ping/WMI restent distinctes.
+
 Dans **Outils > Base autonome**, privilégiez **Mettre à jour l’OU choisie**.
 Choisissez son emplacement dans l’arbre, avec recherche et chargement progressif.
 Cette action inclut les sous-OU et conserve les autres branches. Les onglets
@@ -49,7 +61,8 @@ classés en 14 catégories, avec recherche, description et origine des informati
 Son catalogue décrit 105 champs pris en charge, dont
 78 sondes, avec leur origine et leurs conditions de collecte. Les requêtes évaluent
 les données locales ; la collecte distante reste une action explicite. Elle regroupe
-les propriétés WMI compatibles et réutilise les mesures encore fraîches.
+les propriétés WMI compatibles. La collecte sélective de l’Atelier peut réutiliser les mesures
+encore fraîches selon son réglage ; les actions générales **Postes** et **Les deux** les relisent.
 
 ## Documentation
 

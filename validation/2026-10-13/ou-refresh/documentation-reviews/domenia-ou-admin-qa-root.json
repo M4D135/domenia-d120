@@ -1,0 +1,156 @@
+{
+  "document": "Domenia-1.0-Guide-administrateur",
+  "reviewer": "root",
+  "range": [
+    35,
+    52
+  ],
+  "status": "PASS",
+  "pages": [
+    {
+      "page": 35,
+      "sha256": "14ef9bc31a9a6c55d9f6ccaf8536c7fbedff2138b05b7dc7770074ca2fd79848",
+      "reviewed": true,
+      "method": "view_image original",
+      "result": "PASS",
+      "observations": "Text, tables and captions readable; no clipping, overlap or overflowing cells observed."
+    },
+    {
+      "page": 36,
+      "sha256": "90d8cd0dd8ee12223200ad1a7a88a65f5f1afc4d0c1beefc95070fc69a2390ba",
+      "reviewed": true,
+      "method": "view_image original",
+      "result": "PASS",
+      "observations": "Text, tables and captions readable; no clipping, overlap or overflowing cells observed."
+    },
+    {
+      "page": 37,
+      "sha256": "c5a67d929a49ad55f9948ed2764acfb87eadc50dae91baa09537e05dcd472eab",
+      "reviewed": true,
+      "method": "view_image original",
+      "result": "PASS",
+      "observations": "Text, tables and captions readable; no clipping, overlap or overflowing cells observed."
+    },
+    {
+      "page": 38,
+      "sha256": "e84f2376d969490fe48bdf03ae8372cd4b43280c1b48f8775ee913978c83e37e",
+      "reviewed": true,
+      "method": "view_image original",
+      "result": "PASS",
+      "observations": "Text, tables and captions readable; no clipping, overlap or overflowing cells observed."
+    },
+    {
+      "page": 39,
+      "sha256": "4e99532760636a416d6d231c9e995b0558c03b6b38c4ef2301e52d5599d268e6",
+      "reviewed": true,
+      "method": "view_image original",
+      "result": "PASS",
+      "observations": "Text, tables and captions readable; no clipping, overlap or overflowing cells observed."
+    },
+    {
+      "page": 40,
+      "sha256": "d96e4dfa4e2f7e16c55427ac44b7a5492213c66777b617739ba42c73a48abb61",
+      "reviewed": true,
+      "method": "view_image original",
+      "result": "PASS",
+      "observations": "Text, tables and captions readable; no clipping, overlap or overflowing cells observed."
+    },
+    {
+      "page": 41,
+      "sha256": "6dca8bde42aba76630d3dda9f209251f8fbd84bdd29cfa94c90f57d3d3dbdc78",
+      "reviewed": true,
+      "method": "view_image original",
+      "result": "PASS",
+      "observations": "Text, tables and captions readable; no clipping, overlap or overflowing cells observed."
+    },
+    {
+      "page": 42,
+      "sha256": "373690aa46a99f32b7e043e7f13ae67bc0e3026a848af18af4b6f517063c3b4e",
+      "reviewed": true,
+      "method": "view_image original",
+      "result": "PASS",
+      "observations": "Text, tables and captions readable; no clipping, overlap or overflowing cells observed."
+    },
+    {
+      "page": 43,
+      "sha256": "ce996df87d46a92bc313e86953ad2b77c7cf773754067c86cabc50702dd1c47a",
+      "reviewed": true,
+      "method": "view_image original",
+      "result": "PASS",
+      "observations": "Text, tables and captions readable; no clipping, overlap or overflowing cells observed."
+    },
+    {
+      "page": 44,
+      "sha256": "f12d02f76a2add2929751d47556f91a49fe2ac0938a120d6c6ef2ea54de2a641",
+      "reviewed": true,
+      "method": "view_image original",
+      "result": "PASS",
+      "observations": "Text, tables and captions readable; no clipping, overlap or overflowing cells observed."
+    },
+    {
+      "page": 45,
+      "sha256": "f93458a95ece96ebbc1579f99c0c1853765141319159a1f0a0a32a36f46328b8",
+      "reviewed": true,
+      "method": "view_image original",
+      "result": "PASS",
+      "observations": "Text, tables and captions readable; no clipping, overlap or overflowing cells observed."
+    },
+    {
+      "page": 46,
+      "sha256": "3e204fa2e2805492db7b9237536f854036f460e79c43eeee14603e1b9e06114f",
+      "reviewed": true,
+      "method": "view_image original",
+      "result": "PASS",
+      "observations": "Text, tables and captions readable; no clipping, overlap or overflowing cells observed."
+    },
+    {
+      "page": 47,
+      "sha256": "ea654ebd67c1885a49b2e8a0c407e3514e6f13a60a37d9bf4cf9eb71900123cd",
+      "reviewed": true,
+      "method": "view_image original",
+      "result": "PASS",
+      "observations": "Text, tables and captions readable; no clipping, overlap or overflowing cells observed."
+    },
+    {
+      "page": 48,
+      "sha256": "f483503099998bcb76981f2d02b84f4ce5ddc3ca7d34ff7e2d1af700ba8547d7",
+      "reviewed": true,
+      "method": "view_image original",
+      "result": "PASS",
+      "observations": "Text, tables and captions readable; no clipping, overlap or overflowing cells observed."
+    },
+    {
+      "page": 49,
+      "sha256": "e6cc1d42444807beec8f01def1c23b671df28251bf463764f45223720c5103ac",
+      "reviewed": true,
+      "method": "view_image original",
+      "result": "PASS",
+      "observations": "Text, tables and captions readable; no clipping, overlap or overflowing cells observed."
+    },
+    {
+      "page": 50,
+      "sha256": "b3bb5fbfd5059b34056c4215148c4097e6eee9c7dbe71f7ac54d6aff1ab55e32",
+      "reviewed": true,
+      "method": "view_image original",
+      "result": "PASS",
+      "observations": "Text, tables and captions readable; no clipping, overlap or overflowing cells observed."
+    },
+    {
+      "page": 51,
+      "sha256": "5a7b7529a4efb2fa3b408e1a6fc1ed63125086f86f006f64f32544e61c71feef",
+      "reviewed": true,
+      "method": "view_image original",
+      "result": "PASS",
+      "observations": "Text, tables and captions readable; no clipping, overlap or overflowing cells observed."
+    },
+    {
+      "page": 52,
+      "sha256": "ede453b1618e3a35384fea313743866a436fa3f6dda4e75eef040d8aacad86bd",
+      "reviewed": true,
+      "method": "view_image original",
+      "result": "PASS",
+      "observations": "Text, tables and captions readable; no clipping, overlap or overflowing cells observed."
+    }
+  ],
+  "scope": "Visual document review only; not Windows software validation."
+}

@@ -82,6 +82,17 @@ function Get-DomeniaFleetBoardData {
 
     $scope = ([string]$Scope).Trim()
     $data = New-DomeniaBoardData -Board Fleet
+    $domainDn=[string](& $member $source 'DomainDn' '')
+    if(-not $domainDn){
+        $domainDn=$scope
+        while($domainDn -and $domainDn -notmatch '^(?i:DC)='){$domainDn=Get-DomeniaRawDnParent $domainDn}
+    }
+    $snapshotAt=ConvertFrom-DomeniaUtcText ([string](& $member $source 'SnapshotAtUtc' ''))
+    $referenceAt=if($null -ne $snapshotAt){$snapshotAt}else{$nowUtc}
+    $syncStates=Get-DomeniaMemberValue $source 'SyncStates'
+    if($syncStates -isnot [Collections.IDictionary]){$syncStates=@{}}
+    $indexFreshness=Get-DomeniaFleetFreshness -ScopeDn $scope -DomainDn $domainDn -SyncStates $syncStates -Subtree $Subtree -NowUtc $referenceAt
+    if($null -ne $source.PSObject.Properties['SyncStates']){$IndexPartial=if($indexFreshness.Partial){'dernière tentative incomplète le '+$indexFreshness.AttemptAt.ToLocalTime().ToString('dd/MM/yyyy HH:mm')}else{''}}
     $searchLink = [pscustomobject]@{ Id = 'CollectFleet'; Text = 'Relever ce périmètre'; Tip = 'Prépare la collecte des postes actifs de ce tableau de bord, avec confirmation.'; Link = $true }
     $lifecycleKnown = $false
     if ($null -ne $Lifecycle) {
@@ -517,6 +528,8 @@ function Get-DomeniaFleetBoardData {
     if($rejected -gt 0){Add-DomeniaBoardAttention -Data $data -Level Warn -Text ([string]$rejected+' relevé(s) ignoré(s) : contenu illisible ou identité AD différente. Les postes restent dans la base et peuvent être relevés à nouveau.') -Point 'cache.invalid'}
     $data.Summary = [string]$total + ' ' + (& $plural $total 'poste' 'postes') + ' dans le périmètre.'
     Add-Member -InputObject $data -MemberType NoteProperty -Name 'Population' -Value ([pscustomobject]@{ Total = $total; Healthy = $healthy })
+    $measurementFreshness=Get-DomeniaOuObservationFreshness -Presence @(& $member $source 'Presence' @()) -Total $total -NowUtc $referenceAt -MaxDays $ObservationMaxAgeDays
+    Add-Member -InputObject $data -MemberType NoteProperty -Name 'Freshness' -Value ([pscustomobject]@{Version=1;ScopeDn=$scope;Subtree=$Subtree;Index=$indexFreshness;Observations=$measurementFreshness;SnapshotAtUtc=$snapshotAt;ComputedAtUtc=$nowUtc})
     Add-Member -InputObject $data -MemberType NoteProperty -Name 'Observations' -Value $observations
     # The worker rows are kept as they are, without copy nor pipeline: thousands of workstations stay cheap on the
     # interface thread (PF-21). Targets: the active workstations (name, distinguished_name, object_guid).
@@ -533,7 +546,7 @@ function Get-DomeniaFleetBoardData {
         if($problem.ContainsKey([string]$machine.gid) -or $observedProblem.ContainsKey([string]$machine.distinguished_name)){$problemTargets.Add($machine)}
         else{$healthyTargets.Add($machine)}
     }
-    Add-Member -InputObject $data -MemberType NoteProperty -Name 'Last' -Value ([pscustomobject]@{ Scope = $scope; Subtree = [bool]$Subtree; Targets = $targets; Machines = $machines; Groups = $groups; HealthyTargets=$healthyTargets.ToArray(); ProblemTargets=$problemTargets.ToArray() })
+    Add-Member -InputObject $data -MemberType NoteProperty -Name 'Last' -Value ([pscustomobject]@{ Scope = $scope; Subtree = [bool]$Subtree; Targets = $targets; Machines = $machines; Groups = $groups; HealthyTargets=$healthyTargets.ToArray(); ProblemTargets=$problemTargets.ToArray(); Freshness=$data.Freshness })
     $figures = [pscustomobject]@{ Machines = $total; Healthy = $healthy; Problems = ($total - $healthy); Stale = $stale; EndOfService = $endedCount; Disabled = $disabled; Windows10 = $windows10; LowDisk = $lowDiskFigure }
     Add-Member -InputObject $data -MemberType NoteProperty -Name 'Snapshot' -Value ([pscustomobject]@{ Day = $today; Taken = $taken; Figures = $figures })
     [void](Complete-DomeniaBoardData -Data $data)
@@ -541,25 +554,102 @@ function Get-DomeniaFleetBoardData {
 }
 
 function Get-DomeniaFleetFreshness {
-    # Successful ancestor coverage only. A child/sibling or failed attempt cannot rejuvenate the whole scope.
-    param([string]$ScopeDn,[string]$DomainDn,[Collections.IDictionary]$SyncStates)
+    # Only committed, complete coverage can date the base. Legacy OU markers do not prove their search depth.
+    param([string]$ScopeDn,[string]$DomainDn,[Collections.IDictionary]$SyncStates,[bool]$Subtree=$true,[datetime]$NowUtc=[datetime]::UtcNow)
     $target=if($ScopeDn){$ScopeDn.Trim()}else{$DomainDn.Trim()}
     $ancestors=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
     $current=$target
     while($current){[void]$ancestors.Add($current);$current=Get-DomeniaRawDnParent $current}
-    $at=$null;$source='';$attemptAt=$null;$partial=$false
+    $at=$null;$source='';$sourceScope='';$sourceDepth='';$attemptAt=$null;$partial=$false;$legacyAt=$null;$clockInvalid=$false
     if($null -ne $SyncStates){foreach($entry in $SyncStates.Values){
-        $key=[string]$entry.scope;$base=([string]$entry.base_dn).Trim()
+        $key=[string]$entry.scope;$base=([string]$entry.base_dn).Trim();$details=[string]$entry.details
         if(-not $base -or -not $ancestors.Contains($base)){continue}
+        $attempt=$key.StartsWith('attempt:',[StringComparison]::OrdinalIgnoreCase)
+        $coverageKey=if($attempt){$key.Substring(8)}else{$key}
+        $directory=($coverageKey -ieq 'directory')
+        if($directory){if(-not $DomainDn -or $base -ine $DomainDn.Trim()){continue}}
+        elseif($coverageKey -ine ('ou:'+$base) -and $coverageKey -ine ('ou:onelevel:'+$base)){continue}
         $stamp=ConvertFrom-DomeniaUtcText ([string]$entry.last_sync)
         if($null -eq $stamp){continue}
-        # Legacy OU-walk stores its root OneLevel pass under ou:<domain>; it never covers descendant OUs.
-        if($key -like 'ou:*' -and $base -ieq $DomainDn.Trim()){continue}
-        if($key -eq 'directory' -or $key -like 'ou:*'){
-            if($null -eq $at -or $stamp -gt $at){$at=$stamp;$source=$base}
-        }elseif($key -like 'attempt:*' -and ($null -eq $attemptAt -or $stamp -gt $attemptAt)){
-            $attemptAt=$stamp;$partial=([string]$entry.details -eq 'partial')
+        if($stamp -gt $NowUtc){$clockInvalid=$true;continue}
+        $depth='Unknown'
+        if($details -match '(?i)(?:^|;)depth=(Subtree|OneLevel)(?:;|$)'){$depth=[string]$matches[1]}
+        elseif($directory){$depth='Subtree'} # The directory checkpoint has always meant a complete domain census/delta.
+        if($coverageKey -ieq ('ou:onelevel:'+$base) -and $depth -ine 'OneLevel'){continue}
+        $covers=($depth -ieq 'Subtree' -or ($depth -ieq 'OneLevel' -and -not $Subtree -and $base -ieq $target))
+        if($attempt){
+            # A partial direct-children read can warn for this OU, but cannot cover its descendants.
+            $overlaps=($depth -ieq 'Subtree' -or $base -ieq $target)
+            if($overlaps -and ($null -eq $attemptAt -or $stamp -gt $attemptAt)){
+                $attemptAt=$stamp;$partial=($details -match '^(?i:partial)(?:;|$)')
+            }
+            continue
         }
+        if(-not $covers){
+            if($depth -eq 'Unknown' -and ($null -eq $legacyAt -or $stamp -gt $legacyAt)){$legacyAt=$stamp}
+            continue
+        }
+        if($null -eq $at -or $stamp -gt $at){$at=$stamp;$source=$base;$sourceScope=$coverageKey;$sourceDepth=$depth}
     }}
-    [pscustomobject]@{At=$at;SourceDn=$source;AttemptAt=$attemptAt;Partial=($partial -and ($null -eq $at -or $attemptAt -ge $at))}
+    $partial=($partial -and ($null -eq $at -or $attemptAt -ge $at))
+    $unknown=($null -ne $legacyAt -and ($null -eq $at -or $legacyAt -gt $at))
+    $status=if($partial){'Partial'}elseif($null -ne $at){'Complete'}elseif($unknown){'UnknownDepth'}else{'Missing'}
+    [pscustomobject]@{Version=1;At=$at;SourceDn=$source;SourceScope=$sourceScope;Depth=$sourceDepth;AttemptAt=$attemptAt;Partial=$partial;Status=$status;DepthUnknown=$unknown;LegacyAt=$legacyAt;ClockInvalid=$clockInvalid;ScopeDn=$target;Subtree=$Subtree}
+}
+
+function Get-DomeniaOuObservationFreshness {
+    # Count each active workstation once per measurement family; never replace a missing family date by AD/calculation time.
+    param([object[]]$Presence=@(),[int]$Total=0,[datetime]$NowUtc=[datetime]::UtcNow,[int]$MaxDays=30)
+    $families=@{Ping=@{};Inventory=@{}}
+    foreach($item in $Presence){
+        if($null -eq $item -or -not [bool](Get-DomeniaMember $item 'in_scope' $true)){continue}
+        $observation=Get-DomeniaMemberValue $item 'observation';$key=([string](Get-DomeniaMember $item 'object_key')).Trim()
+        if($null -eq $observation -or -not $key){continue}
+        $pingText=[string](Get-DomeniaMember $observation 'PresenceCheckedUtc' (Get-DomeniaMember $observation 'CheckedUtc'))
+        $ping=ConvertFrom-DomeniaUtcText $pingText
+        $state=[string](Get-DomeniaMember $observation 'Presence')
+        $inventory=Get-DomeniaMemberValue $observation 'Inventory'
+        $inventoryAt=ConvertFrom-DomeniaUtcText ([string](Get-DomeniaMember $inventory 'CheckedUtc'))
+        foreach($name in @('Ping','Inventory')){
+            $date=if($name -eq 'Ping'){$ping}else{$inventoryAt}
+            if($null -eq $date -or $date -gt $NowUtc -or (Test-DomeniaObservationAge -CheckedUtc $date -NowUtc $NowUtc -MaxDays $MaxDays) -eq 'Expired'){continue}
+            if($name -eq 'Ping' -and ($state -notmatch '^(En ligne|Sans|Hors|Erreur)')){continue}
+            $known=$families[$name]
+            if(-not $known.ContainsKey($key) -or $date -gt $known[$key]){$known[$key]=$date}
+        }
+    }
+    $result=[ordered]@{Version=1;Total=[Math]::Max(0,$Total)}
+    foreach($name in @('Ping','Inventory')){
+        $known=$families[$name];$oldest=$null;$newest=$null
+        foreach($date in $known.Values){if($null -eq $oldest -or $date -lt $oldest){$oldest=$date};if($null -eq $newest -or $date -gt $newest){$newest=$date}}
+        $result[$name]=[pscustomobject]@{Count=$known.Count;Total=$result.Total;Missing=[Math]::Max(0,$result.Total-$known.Count);OldestUtc=$oldest;NewestUtc=$newest}
+    }
+    return [pscustomobject]$result
+}
+
+function Format-DomeniaOuFreshnessSummary {
+    # Three clocks, three labels. Newest measurement is never presented as the freshness of the entire OU.
+    param($IndexFreshness,$Observations,$ComputedAtUtc=$null,[datetime]$NowUtc=[datetime]::UtcNow)
+    $dateText={param($At) if($At -is [datetime]){return $At.ToLocalTime().ToString('dd/MM/yyyy HH:mm',[Globalization.CultureInfo]::InvariantCulture)};return ''}
+    $at=Get-DomeniaMemberValue $IndexFreshness 'At'
+    $base='Base locale (AD) : '
+    if($at -is [datetime] -and $at -le $NowUtc){$base+='lecture complète le '+(& $dateText $at)+' ('+(Format-DomeniaAge -FromUtc $at -NowUtc $NowUtc)+')'}
+    else{$base+='aucune lecture complète couvrant ce périmètre'}
+    if([bool](Get-DomeniaMember $IndexFreshness 'Partial' $false)){$base+=' ; tentative incomplète le '+(& $dateText (Get-DomeniaMemberValue $IndexFreshness 'AttemptAt'))}
+    if([bool](Get-DomeniaMember $IndexFreshness 'DepthUnknown' $false)){$base+=' ; profondeur de lecture historique inconnue, relire lʼOU'}
+    if([bool](Get-DomeniaMember $IndexFreshness 'ClockInvalid' $false) -or ($at -is [datetime] -and $at -gt $NowUtc)){$base+=' ; date future ignorée, vérifier lʼhorloge'}
+    $families=[Collections.Generic.List[string]]::new()
+    foreach($name in @('Ping','Inventory')){
+        $family=Get-DomeniaMemberValue $Observations $name
+        $count=[int](Get-DomeniaMember $family 'Count' 0);$total=[int](Get-DomeniaMember $family 'Total' (Get-DomeniaMember $Observations 'Total' 0))
+        $text=$(if($name -eq 'Ping'){'ping '}else{'inventaire WMI '})+$count+'/'+$total
+        $oldest=Get-DomeniaMemberValue $family 'OldestUtc';$newest=Get-DomeniaMemberValue $family 'NewestUtc'
+        if($count -gt 0 -and $oldest -is [datetime] -and $newest -is [datetime]){
+            if($oldest -eq $newest){$text+=' (le '+(& $dateText $oldest)+')'}
+            else{$text+=' (du '+(& $dateText $oldest)+' au '+(& $dateText $newest)+')'}
+        }else{$text+=' (aucun relevé daté utilisable)'}
+        $families.Add($text)
+    }
+    $computed=if($ComputedAtUtc -is [datetime] -and $ComputedAtUtc -le $NowUtc){'Vue recalculée le '+(& $dateText $ComputedAtUtc)+' ; aucune lecture AD ou poste pendant ce calcul.'}else{'Vue locale : date de calcul non disponible.'}
+    [pscustomobject]@{BaseText=$base;ObservationsText=('Postes actifs : '+($families -join ' · '));ComputedText=$computed}
 }

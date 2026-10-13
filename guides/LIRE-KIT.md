@@ -32,7 +32,7 @@ La syntaxe du texte, les champs de la fiche et la méthode complète sont dans `
 
 Les sources `technicien.md` et `administrateur.md` décrivent Domenia **1.0**. Leur fiche JSON associe
 les figures à des PNG natifs ; les livrables finaux sont copiés dans `../DOC/`. La référence interne
-de la passe est RC1.17.3, datée du 13 octobre 2026 ; les guides destinés aux utilisateurs conservent
+de la passe est RC1.17.4, datée du 13 octobre 2026 ; les guides destinés aux utilisateurs conservent
 la version produit 1.0, sans journal des changements.
 
     node build_guide.js technicien.json --no-pdf
@@ -46,7 +46,7 @@ ni infobulles. Les images `*-viewport-*` de 720 pixels servent au contrôle de d
 exclues des guides. Ces rendus WPF ne constituent pas une validation d’un parcours humain à la
 souris ; cette vérification doit rester décrite séparément.
 
-Les vues couvrent notamment Outils → Atelier de requêtes, la barre Requêtes de Rechercher avec
+Les figures conservées couvrent notamment Outils → Atelier de requêtes, la barre Requêtes de Rechercher avec
 ses sources et favoris, les résultats inconnus, la Base autonome et le panneau existant État du
 moteur. Les valeurs de performance de ce dernier sont illustratives, pas un benchmark.
 
@@ -55,3 +55,10 @@ vérifier les empreintes des PNG, ajuster les cadrages JSON aux contrôles réel
 produire le PDF depuis le DOCX et inspecter chaque page. Recalculer ensuite les empreintes des
 quatre fichiers finaux et le rapport de contrôle documentaire. Une compilation réussie seule
 ne remplace pas la relecture du rendu.
+
+La logique d’actualisation de l’OU est décrite par des tableaux natifs dans les guides. Les vues
+générales montrant un ancien parcours de boutons ou de dates sont exclues de cette édition.
+Les captures conservées illustrent uniquement les contrôles encore applicables ; leurs PNG
+originaux et leur provenance sont préservés. Aucun nouveau rendu Windows n’est revendiqué pour
+RC1.17.4. Le harnais préparé et son plan restent dans
+`../validation/2026-10-13/ou-refresh/r1/` pour une future exécution Windows.

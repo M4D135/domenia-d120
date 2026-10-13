@@ -182,6 +182,9 @@ function columnWidths(rows, total) {
   if (header === 'Transport|Usage|Ports|Règle') preset = [0.16, 0.27, 0.18, 0.39];
   if (header === 'Onglet|Écritures proposées') preset = [0.24, 0.76];
   if (header === 'Bouton|Ce que fait Domenia|En lecture seule') preset = [0.24, 0.57, 0.19];
+  if (header === 'Votre besoin|Commande|Ce qui est lu') preset = [0.34, 0.22, 0.44];
+  if (header === 'Commande|Population|Travail effectué') preset = [0.22, 0.33, 0.45];
+  if (header === 'Source|Informations|Actualisation') preset = [0.20, 0.34, 0.46];
   if (preset) { const a = preset.map(v => Math.round(v * total)); a[a.length - 1] += total - a.reduce((x,y) => x+y,0); return a; }
 
   const weights = [];

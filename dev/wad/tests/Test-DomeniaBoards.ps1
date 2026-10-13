@@ -537,11 +537,13 @@ try{
         $script:AsyncJobs['job-1']=$true
         Request-DomeniaFleetRefresh;Request-DomeniaFleetRefresh -Force
         Expect ($script:StartCalls.Count -eq 1) 'Calcul relance pendant le calcul de la meme OU'
+        $previousFleet=$script:FleetLast;$previousScopeText=[string](Get-DomeniaControl 'LblFleetScope').Text
         Complete-DomeniaFleetDashboard -Result (New-FleetResult -Scope 'OU=Postes,DC=example,DC=invalid') -State $call.State
         $script:AsyncJobs.Remove('job-1')
-        Expect ([string]$script:FleetComputedKey -eq 'ou=postes,dc=example,dc=invalid|Subtree') ('Cle calculee : '+$script:FleetComputedKey)
+        Expect ([string]$script:FleetComputedKey -eq '' -and [object]::ReferenceEquals($previousFleet,$script:FleetLast) -and [string](Get-DomeniaControl 'LblFleetScope').Text -eq $previousScopeText) 'Un resultat anterieur au commit a remplace les dates ou les chiffres affiches'
         Expect ($script:StartCalls.Count -eq 2) 'Donnees changees pendant le calcul non recalculees'
         Complete-DomeniaFleetDashboard -Result (New-FleetResult -Scope 'OU=Postes,DC=example,DC=invalid') -State $script:StartCalls[1].State
+        Expect ([string]$script:FleetComputedKey -eq 'ou=postes,dc=example,dc=invalid|Subtree') ('Cle calculee : '+$script:FleetComputedKey)
         Request-DomeniaFleetRefresh
         Expect ($script:StartCalls.Count -eq 2) 'Recalcul sans changement'
         # Dashboard-local scope line and clickable OU path.

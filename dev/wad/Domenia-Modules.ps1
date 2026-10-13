@@ -1303,7 +1303,9 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaFleetQueryPlan',
             'Get-DomeniaFleetPointTargets',
             'Get-DomeniaFleetBoardData',
-            'Get-DomeniaFleetFreshness'
+            'Get-DomeniaFleetFreshness',
+            'Get-DomeniaOuObservationFreshness',
+            'Format-DomeniaOuFreshnessSummary'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Boards.Model.ps1'); File='Domenia-BoardSoftware.Model.ps1'; DotSource=$true; Functions=@(
             'Test-DomeniaSoftwareRowMatchesSelect',
@@ -1478,6 +1480,21 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaQuerySelectedRow',
             'Show-DomeniaQueryObjectDetails',
             'Show-DomeniaAttentionInWorkshop'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-BoardFleet.Model.ps1','Domenia-Park.UI.ps1','Domenia-Probes.Model.ps1','Domenia-Engine.UI.ps1','Domenia-Widgets.UI.ps1','Domenia-Query.Model.ps1'); File='Domenia-Refresh.UI.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaOuRefreshContext',
+            'Test-DomeniaOuRefreshCurrent',
+            'Update-DomeniaOuRefreshUi',
+            'Stop-DomeniaOuRefresh',
+            'Fail-DomeniaOuRefresh',
+            'Set-DomeniaOuRefreshAwaitingCommit',
+            'Complete-DomeniaOuRefreshCommit',
+            'Get-DomeniaOuRefreshProbePlan',
+            'Invoke-DomeniaOuRefresh',
+            'Invoke-DomeniaOuRefreshTick',
+            'Complete-DomeniaOuRefreshTargets',
+            'Fail-DomeniaOuRefreshTargets',
+            'Update-DomeniaOuRefreshFromPark'
         ) }
     )
 }

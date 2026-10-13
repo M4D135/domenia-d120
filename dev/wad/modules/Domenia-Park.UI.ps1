@@ -36,7 +36,7 @@ function Start-DomeniaOnlinePark {
     # -PingOnly (decision David 2026-10-07): ping of the listed workstations only, no console reading.
     # -ScopeTargets: explicit workstations (the selected one for the queries of its board). -Inventory adds the light
     # WMI reading (Analyser la liste, decision David 2026-10-08). The whole domain is still refused.
-    param([switch]$DisplayedResults,[switch]$PingOnly,[switch]$Inventory,[object[]]$ScopeTargets=$null,[string]$ScopeLabel='',[object[]]$Probes=$null)
+    param([switch]$DisplayedResults,[switch]$PingOnly,[switch]$Inventory,[object[]]$ScopeTargets=$null,[string]$ScopeLabel='',[object[]]$Probes=$null,[switch]$ForceRefresh,[string]$RefreshOperationId='',[switch]$PassThru)
     $started=$false
     try{
         # Decision David 2026-10-05: whole-park detection removed; only the displayed, filtered rows are read.
@@ -62,12 +62,16 @@ function Start-DomeniaOnlinePark {
         }
         $script:ParkRun=[pscustomobject]@{Id=[guid]::NewGuid().ToString('N');Epoch=[long]$script:SessionEpoch;Path=[string]$script:DatabaseScopedPath;Targets=@();Next=0;Pending=@{};Concurrency=([Math]::Max(1,[Math]::Min(8,[int](Get-DomeniaSetting 'Collection.Concurrency' '4'))));CacheMinutes=([Math]::Max(0,[Math]::Min(1440,[int](Get-DomeniaSetting 'Collection.CacheMinutes' '15'))));CachedMeasurements=0;Done=0;Online=0;Reused=0;Changed=0;Failed=0;Stopping=$false;Completed=$false;Loading=$true;Approved=$false;ObservationReader=(New-DomeniaObservationReader);Timer=$null;StatusText='';Generation=[long]$script:GlobalSearchGeneration;PingOnly=[bool]$PingOnly;Inventory=[bool]$Inventory;Probes=@($Probes|Where-Object{$null -ne $_});FleetRefresh=$true;ScopeLabel=[string]$ScopeLabel;Scope=$(if($DisplayedResults){'Results'}else{'Park'})}
         $started=$true
+        $script:ParkRun|Add-Member -NotePropertyName RefreshOperationId -NotePropertyValue $RefreshOperationId
+        $script:ParkRun|Add-Member -NotePropertyName FailureMessage -NotePropertyValue ''
+        if($ForceRefresh){$script:ParkRun.CacheMinutes=0}
         $r=$script:ParkRun;$state=[pscustomobject]@{RunId=$r.Id;Epoch=$r.Epoch;Path=$r.Path}
         $job=Start-UiTask -Name 'Preparer le releve du parc' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload ([pscustomobject]@{Action='ParkTargets';Path=$r.Path;BusyTimeoutMs=250;Scope=$r.Scope;Targets=$targets}) -CallbackState $state -SuccessHandler 'Complete-DomeniaParkTargets' -ErrorHandler 'Fail-DomeniaParkTargets' -NonCancellable -TimeoutSeconds 60 -TaskClass 'Explicit'
         if(-not $job){throw 'Lecture du parc non admise.'}
         [void](Set-DomeniaControlText 'LblParkStatus' 'Lecture des postes et des sessions conservees en cache...')
-    }catch{if($started -and $null -ne $script:ParkRun -and $script:ParkRun.Loading){$script:ParkRun.Completed=$true};Set-Status ('Releve impossible : '+$_.Exception.Message) 'WARN'}
+    }catch{if($started -and $null -ne $script:ParkRun -and $script:ParkRun.Loading){$script:ParkRun.Completed=$true;$script:ParkRun.FailureMessage=$_.Exception.Message};Set-Status ('Releve impossible : '+$_.Exception.Message) 'WARN'}
     Update-DomeniaParkControls
+    if($PassThru){if($started -and $null -ne $script:ParkRun -and -not $script:ParkRun.Completed){return [string]$script:ParkRun.Id};return ''}
 }
 function Start-DomeniaParkAnalysis {
     # Analyser la liste (decision David 2026-10-08): ping, console user and light WMI reading of the displayed
@@ -102,6 +106,7 @@ function Fail-DomeniaParkTargets {
     param($Message,$State)
     if(-not (Test-DomeniaParkRunCurrent $State)){return}
     $script:ParkRun.Completed=$true;$script:ParkRun.Loading=$false;Clear-DomeniaParkTargetBuffers $script:ParkRun.Targets
+    if($null -ne $script:ParkRun.PSObject.Properties['FailureMessage']){$script:ParkRun.FailureMessage=[string]$Message}
     [void](Set-DomeniaControlText 'LblParkStatus' ('Releve non lance : '+[string]$Message))
     Update-DomeniaParkControls
 }
@@ -109,6 +114,7 @@ function Start-DomeniaParkRunTimer {
     param([string]$RunId)
     $r=$script:ParkRun
     if($null -eq $r -or $r.Id -cne $RunId -or $r.Stopping -or $r.Completed -or $r.Epoch -ne [long]$script:SessionEpoch -or $r.Path -cne [string]$script:DatabaseScopedPath){return}
+    if($null -ne $r.PSObject.Properties['RefreshOperationId'] -and [string]$r.RefreshOperationId -and -not (Test-DomeniaOuRefreshCurrent ([string]$r.RefreshOperationId))){Stop-DomeniaOnlinePark -RunId $RunId;return}
     if($null -ne $r.Timer){return}
     $r.Approved=$true
     # FI-05: protected heartbeat timer, owned and registered by the factory; it also runs minimized (an approved run).
@@ -128,6 +134,7 @@ function Stop-DomeniaOnlinePark {
 function Invoke-DomeniaParkRunTick {
     $r=$script:ParkRun;if($null -eq $r){return}
     if($r.Epoch -ne [long]$script:SessionEpoch -or $r.Path -cne [string]$script:DatabaseScopedPath -or $script:AsyncEngineClosing){$r.Stopping=$true;$r.Completed=$true;Clear-DomeniaParkTargetBuffers $r.Targets;if($null -ne $r.Timer){$r.Timer.Stop()};return}
+    if($null -ne $r.PSObject.Properties['RefreshOperationId'] -and [string]$r.RefreshOperationId -and -not (Test-DomeniaOuRefreshCurrent ([string]$r.RefreshOperationId))){$r.Stopping=$true}
     # Cancelled workers never silently cause the rest of the fleet to start.
     foreach($id in @($r.Pending.Keys)){
         if(-not $script:AsyncJobs.Contains($id) -and -not @($script:DetachedReadJobs|Where-Object{$_.Id -eq $id}).Count){$r.Pending.Remove($id);$r.Stopping=$true;$r.Failed++}

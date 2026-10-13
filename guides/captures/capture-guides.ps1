@@ -58,7 +58,7 @@ foreach ($name in $coreNames) {
     Invoke-Expression $nodes[0].Extent.Text
 }
 foreach ($module in @('Domenia-Common.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Access.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Embedded.UI.ps1','Domenia-UX.UI.ps1',
-    'Domenia-Workstation.Model.ps1','Domenia-Boards.Model.ps1','Domenia-Charts.UI.ps1','Domenia-Probes.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-BoardSoftware.Model.ps1','Domenia-BoardComputer.UI.ps1','Domenia-Widgets.UI.ps1','Domenia-Dashboard.UI.ps1','Domenia-Query.Model.ps1','Domenia-Query.Worker.ps1','Domenia-Query.UI.ps1','Domenia-QueryTargets.UI.ps1','Domenia-Search.Model.ps1','Domenia-Search.UI.ps1')) {
+    'Domenia-Workstation.Model.ps1','Domenia-Boards.Model.ps1','Domenia-Charts.UI.ps1','Domenia-Probes.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-BoardSoftware.Model.ps1','Domenia-BoardComputer.UI.ps1','Domenia-Widgets.UI.ps1','Domenia-Dashboard.UI.ps1','Domenia-Query.Model.ps1','Domenia-Query.Worker.ps1','Domenia-Query.UI.ps1','Domenia-QueryTargets.UI.ps1','Domenia-Search.Model.ps1','Domenia-Search.UI.ps1','Domenia-Refresh.UI.ps1')) {
     . (Join-Path $wad ('modules\' + $module))
 }
 # Local replacements: no settings, log, directory or workstation is touched.
@@ -67,6 +67,8 @@ $script:GuideSettings = @{}; $script:Ctrl = @{}; $script:SelectedObject = $null;
 # The fixture getter/setter and those writes must share the same in-memory dictionary.
 $script:Settings=$script:GuideSettings
 $script:Config=@{} # No configuration file is read; the real getter uses documented defaults.
+$script:DatabaseScopedPath='C:\DomeniaGuideFixture\Domenia.db' # Context identity only; no file is created or opened.
+$script:DemoMode=$false; $script:DomeniaOuRefresh=$null
 $script:RootDir=$wad
 $script:Conn = [pscustomobject]@{ Connected = $true; BaseDn = 'DC=example,DC=local'; Domain = 'example.local'; Netbios = 'EXAMPLE' }
 $script:SelectedBranchDn = $script:Conn.BaseDn; $script:SearchMode = 'OU'; $script:SuppressBranchAutoLoad = $true; $script:RestoringSettings = $false
@@ -210,6 +212,12 @@ function Get-GuideGridViewport {
     })
     [pscustomobject]@{Width=[int]$script:GuideHost.ActualWidth;Height=[int]$script:GuideHost.ActualHeight;GridHeight=$Grid.ActualHeight;VisibleGridHeight=$(if($bounds.IsEmpty){0}else{$bounds.Height});GridTop=$(if($bounds.IsEmpty){-1}else{$bounds.Top});GridBottom=$(if($bounds.IsEmpty){-1}else{$bounds.Bottom});BoundRows=$Grid.Items.Count;FullyVisibleRows=@($rows|Where-Object{$_.FullyVisible}).Count;PartlyVisibleRows=@($rows|Where-Object{$_.VisibleHeight -gt 0 -and -not $_.FullyVisible}).Count;MaterializedRows=$rows}
 }
+function Assert-GuideControlVisible {
+    param([string]$Name,[string]$Context)
+    $control=Get-DomeniaControl $Name
+    $visible=Get-GuideVisibleBounds $control
+    Assert-Guide ($null -ne $control -and $control.ActualWidth -gt 0 -and $control.ActualHeight -gt 0 -and -not $visible.IsEmpty -and $visible.Width -ge $control.ActualWidth-0.5 -and $visible.Height -ge $control.ActualHeight-0.5) ($Context+' : '+$Name+' entièrement visible')
+}
 function Save-GuideWindow {
     param([string]$Name,[int]$Tall = 0)
     if ($Tall -gt 0) { Set-GuideHeight $Tall }
@@ -217,7 +225,7 @@ function Save-GuideWindow {
     $logRow = Get-DomeniaControl 'UxLogRow'; $reduced = $false
     if ($null -ne $logRow -and $logRow.Height.Value -gt 60) { Switch-DomeniaUxLog; $reduced = $true }
     Update-GuideLayout
-    $rectangles=@(foreach($id in @('CmbQueryField','BtnQueryAddCondition','CmbFleetQuery','BtnQueryWidget','CmbCollectionConcurrency','ExpQueryObject','DgFleetMachines','DgQueryCatalog','PnlQueryCatalogDetail','DgQueryLibrary','LblQueryLibraryDescription','DgIndex','LblIndexOverview','ExpStorageMaintenance','UxSearchQueryBar','TxtSearchQueryFilter','CmbWorkView','CmbSearchQueryResult','DgObjects','LblSearchQueryDetails','LblSearchQuery','LblOperationsHealth')){
+    $rectangles=@(foreach($id in @('CmbQueryField','BtnQueryAddCondition','CmbFleetQuery','BtnQueryWidget','CmbCollectionConcurrency','ExpQueryObject','DgFleetMachines','DgQueryCatalog','PnlQueryCatalogDetail','DgQueryLibrary','LblQueryLibraryDescription','DgIndex','LblIndexOverview','ExpStorageMaintenance','UxSearchQueryBar','TxtSearchQueryFilter','CmbWorkView','CmbSearchQueryResult','DgObjects','LblSearchQueryDetails','LblSearchQuery','LblOperationsHealth','TvDirectory','UxSearchOuRefresh','LblSearchOuRefreshScope','LblSearchOuRefreshStatus','BtnSearchRefreshBase','BtnSearchRefreshPostes','BtnSearchRefreshBoth','BtnSearchRefreshStop','LblFleetScope','LblFleetDashboard','LblFleetOuRefreshStatus','BtnFleetIndexScope','BtnFleetRefreshPostes','BtnFleetRefreshBoth','BtnFleetRefreshStop','BtnFleetDashboardRefresh','LblIndexFreshness')){
         $control=Get-DomeniaControl $id
         if($null -ne $control -and $control.ActualWidth -gt 0){try{$point=$control.TranslatePoint([Windows.Point]::new(0,0),$script:GuideHost);[pscustomobject]@{Name=$id;X=$point.X;Y=$point.Y;Width=$control.ActualWidth;Height=$control.ActualHeight;Visible=$control.IsVisible}}catch{}}
     })
@@ -321,6 +329,7 @@ function Show-GuideTab {
     Invoke-DomeniaUxRoute -Route $Route; if ($Tab) { (Get-DomeniaControl $Tab).IsSelected = $true }
     # Header of a loaded card, as after a real reading of the object.
     if ($null -ne $script:SelectedObject) { foreach ($label in @('LblComputerReadStatus','LblObjectReadStatus')) { $c = Get-DomeniaControl $label; if ($null -ne $c) { $c.Text = [string]$script:SelectedObject.Type + ' : ' + [string]$script:SelectedObject.Name + ' | Fiche AD chargee.' } } }
+    Update-DomeniaOuRefreshUi
     Update-GuideLayout
 }
 function Set-GuideText { param([hashtable]$Values) foreach ($k in $Values.Keys) { $c = Get-DomeniaControl $k; if ($null -ne $c) { $c.Text = [string]$Values[$k] } } }
@@ -353,6 +362,10 @@ function Save-GuideSearchQuery {
 
 # ------------------------------------------------------------------ fictitious directory
 $now = Get-Date
+$script:GuideScopeDn='OU=Postes,OU=Lyon,DC=example,DC=local'
+$script:IndexScopeDn=$script:GuideScopeDn
+$script:IndexInfo = [pscustomobject]@{Date=$now.AddMinutes(-35).ToUniversalTime().ToString('o');Server='dc01.example.local';Usn=184522}
+$script:IndexSyncStates=@{ou=[pscustomobject]@{scope=('ou:'+$script:GuideScopeDn);base_dn=$script:GuideScopeDn;last_sync=$script:IndexInfo.Date;details='complete;depth=Subtree'}}
 $osList = @('Windows 11 Entreprise / 10.0 (26100)','Windows 11 Entreprise / 10.0 (26100)','Windows 11 Entreprise / 10.0 (26200)','Windows 10 Entreprise / 10.0 (19045)')
 $services = @('Compta','RH','Accueil','Direction')
 $machines = New-Object Collections.ArrayList; $presence = New-Object Collections.ArrayList; $groups = New-Object Collections.ArrayList
@@ -368,14 +381,15 @@ for ($i = 1; $i -le 226; $i++) {
     [void]$groups.Add([pscustomobject]@{gid=('group-'+$i);st=$state;n=1;os=($os -split ' / ')[0];ver=$version;lb=$bucket;cr='O';pw=$(if($i % 23 -eq 0){'O'}else{'R'});lk=$(if($i % 17 -eq 0){'N'}else{'O'});bk='U'})
     [void]$machines.Add([pscustomobject]@{name=$name;object_guid=$guid;distinguished_name=$dn;gid=('group-'+$i);st=$state;logon=$now.AddDays(-$days).ToString('yyyy-MM-dd');extra=$os})
     if ($i -le 200 -and $state -eq 'A') {
-        $online = ($i % 6 -ne 0); $checked = $now.AddMinutes(-20).ToUniversalTime().ToString('o')
-        $inventory = if ($online) { [pscustomobject]@{CheckedUtc=$checked;OsCaption=$(if($os -like 'Windows 10*'){'Microsoft Windows 10 Entreprise'}else{'Microsoft Windows 11 Entreprise'});Build=$(if($os -like '*19045*'){'19045'}elseif($os -like '*26200*'){'26200'}else{'26100'});LastBootUtc=$now.AddDays($(if($i % 19 -eq 0){40}else{2})).ToUniversalTime().ToString('o');Manufacturer='Constructeur';Model=@('Latitude 5440','OptiPlex 7010','EliteBook 840 G10')[$i % 3];RamBytes=[double](@(8,16,16,32)[$i % 4])*1GB;DiskSize=476.0*1GB;DiskFree=$(if($i % 21 -eq 0){31.0}else{180.0})*1GB} } else {$null}
+        $online = ($i % 6 -ne 0); $checked = $now.AddMinutes(-10-($i % 11)).ToUniversalTime().ToString('o')
+        $inventoryChecked=$now.AddDays(-2).AddHours(-($i % 25)).ToUniversalTime().ToString('o')
+        $inventory = if ($online) { [pscustomobject]@{CheckedUtc=$inventoryChecked;OsCaption=$(if($os -like 'Windows 10*'){'Microsoft Windows 10 Entreprise'}else{'Microsoft Windows 11 Entreprise'});Build=$(if($os -like '*19045*'){'19045'}elseif($os -like '*26200*'){'26200'}else{'26100'});LastBootUtc=$now.AddDays($(if($i % 19 -eq 0){40}else{2})).ToUniversalTime().ToString('o');Manufacturer='Constructeur';Model=@('Latitude 5440','OptiPlex 7010','EliteBook 840 G10')[$i % 3];RamBytes=[double](@(8,16,16,32)[$i % 4])*1GB;DiskSize=476.0*1GB;DiskFree=$(if($i % 21 -eq 0){31.0}else{180.0})*1GB} } else {$null}
         if ($null -ne $inventory) { $inventory.LastBootUtc=$now.AddDays(-$(if($i % 19 -eq 0){40}else{2})).ToUniversalTime().ToString('o') }
-        $observation = [pscustomobject]@{Key=$dn.ToLowerInvariant();Guid=$guid;CheckedUtc=$checked;ObservedUtc=$checked;Presence=$(if($online){'En ligne'}else{'Sans reponse au ping'});LinkUser=$(if($online -and $i % 3 -ne 0){'EXAMPLE\user'+$i}else{''});Inventory=$inventory}
+        $observation = [pscustomobject]@{Key=$dn.ToLowerInvariant();Guid=$guid;CheckedUtc=$checked;PresenceCheckedUtc=$checked;ObservedUtc=$checked;Presence=$(if($online){'En ligne'}else{'Sans reponse au ping'});LinkUser=$(if($online -and $i % 3 -ne 0){'EXAMPLE\user'+$i}else{''});Inventory=$inventory}
         [void]$presence.Add([pscustomobject]@{object_key=$dn.ToLowerInvariant();object_guid=$guid;name=$name;distinguished_name=$dn;gid=('group-'+$i);in_scope=$true;checked_utc=$checked;observation=$observation})
     }
 }
-$fleet = [pscustomobject]@{Busy=$false;Links=34;LinkSources=@();Types=@([pscustomobject]@{t='Machine';s='Actif';n=223},[pscustomobject]@{t='Machine';s='Desactive';n=3},[pscustomobject]@{t='Utilisateur';s='Actif';n=212});Machines=@($machines);Groups=@($groups);Presence=@($presence);Coverage=[pscustomobject]@{FactsFresh=226;FactsStale=0;BitLockerRead=0;BitLockerAt=''}}
+$fleet = [pscustomobject]@{Busy=$false;DomainDn=$script:Conn.BaseDn;SnapshotAtUtc=$now.ToUniversalTime().ToString('o');SyncStates=$script:IndexSyncStates;Links=34;LinkSources=@();Types=@([pscustomobject]@{t='Machine';s='Actif';n=223},[pscustomobject]@{t='Machine';s='Desactive';n=3},[pscustomobject]@{t='Utilisateur';s='Actif';n=212});Machines=@($machines);Groups=@($groups);Presence=@($presence);Coverage=[pscustomobject]@{FactsFresh=226;FactsStale=0;BitLockerRead=0;BitLockerAt=''}}
 
 $inventoryRows = @(
     @('Systeme d exploitation','Nom','Microsoft Windows 11 Entreprise'),@('Systeme d exploitation','Build','26100'),@('Systeme d exploitation','Version','10.0.26100'),
@@ -437,7 +451,7 @@ Update-GuideLayout
 
 if($CaptureSet -eq 'All'){
 # 1. Accueil: independent OU, real aggregation rules on fictitious directory and observations.
-$script:SelectedBranchDn = 'OU=Postes,OU=Lyon,DC=example,DC=local'
+$script:SelectedBranchDn = $script:GuideScopeDn
 $script:FleetScopeDn = $script:SelectedBranchDn
 $tree = Get-DomeniaControl 'TvDirectory'
 $root = [Windows.Controls.TreeViewItem]::new(); $root.Header = 'example.local'; $root.IsExpanded = $true
@@ -447,12 +461,18 @@ foreach ($ou in @('Groupes','Lyon','Marseille','Utilisateurs')) {
     [void]$root.Items.Add($item)
 }
 [void]$tree.Items.Add($root)
-$script:IndexInfo = [pscustomobject]@{Date=$now.AddMinutes(-35).ToUniversalTime().ToString('o');Server='dc01.example.local';Usn=184522}
-$script:IndexSyncStates=@{ou=[pscustomobject]@{scope=('ou:'+$script:FleetScopeDn);base_dn=$script:FleetScopeDn;last_sync=$script:IndexInfo.Date;details='complete'}}
-$fleet | Add-Member -NotePropertyName Board -NotePropertyValue (Get-DomeniaFleetBoardData -Result $fleet -Scope $script:FleetScopeDn -Subtree $true -Lifecycle (Get-DomeniaWindowsLifecycleTable))
+# Both evaluations use the same immutable synthetic data. A newer calculation must not make
+# the AD coverage, ping dates or older WMI inventory look newer.
+$previousBoard=Get-DomeniaFleetBoardData -Result $fleet -Scope $script:FleetScopeDn -Subtree $true -Now $now.AddMinutes(-2) -Lifecycle (Get-DomeniaWindowsLifecycleTable)
+$board=Get-DomeniaFleetBoardData -Result $fleet -Scope $script:FleetScopeDn -Subtree $true -Now $now -Lifecycle (Get-DomeniaWindowsLifecycleTable)
+Assert-Guide ($previousBoard.Freshness.Index.At -eq $board.Freshness.Index.At -and $previousBoard.Freshness.Observations.Ping.OldestUtc -eq $board.Freshness.Observations.Ping.OldestUtc -and $previousBoard.Freshness.Observations.Inventory.NewestUtc -eq $board.Freshness.Observations.Inventory.NewestUtc -and $previousBoard.Freshness.ComputedAtUtc -lt $board.Freshness.ComputedAtUtc) 'Recalcul : les dates AD, ping et WMI restent inchangées ; seule la date de vue avance'
+Assert-Guide ($board.Freshness.Index.At -gt $board.Freshness.Observations.Inventory.NewestUtc -and $board.Freshness.Observations.Ping.OldestUtc -gt $board.Freshness.Index.At -and $board.Freshness.Observations.Total -eq 223) 'Fraîcheur : AD récente, ping récent et inventaire WMI plus ancien sont distincts sur 223 postes actifs'
+$fleet | Add-Member -NotePropertyName Board -NotePropertyValue $board
 try { Update-DomeniaSearchScopeUi } catch { }
 Complete-DomeniaFleetDashboard -Result $fleet -State $null
-Update-DomeniaFleetScopeText (Get-DomeniaFleetScope) -Count 226 -LastSyncUtc $script:IndexInfo.Date
+Update-DomeniaFleetScopeText (Get-DomeniaFleetScope) -Count 226 -Freshness $board.Freshness
+Update-DomeniaOuRefreshUi
+Assert-Guide ((Get-DomeniaControl 'LblFleetScope').Text -like '*Base locale (AD) : lecture complète*' -and (Get-DomeniaControl 'LblFleetDashboard').Text -like '*inventaire WMI*Vue recalculée*') 'Accueil : les trois horloges sont présentées par le formateur réel'
 Show-GuideTab 'TabDashboard'
 Set-GuideHeight 1240; Update-GuideLayout
 # The off-screen host cannot trigger IsVisibleChanged: render the computed board explicitly.
@@ -465,6 +485,11 @@ $fleetCard = (Get-DomeniaControl 'BtnFleetDashboardRefresh').Parent.Parent.Paren
 $scroller = $fleetCard; while ($null -ne $scroller -and $scroller -isnot [Windows.Controls.ScrollViewer]) { $scroller = [Windows.Media.VisualTreeHelper]::GetParent($scroller) }
 if ($null -ne $scroller) { $top = $fleetCard.TranslatePoint([Windows.Point]::new(0,0),$scroller).Y; $scroller.ScrollToVerticalOffset($scroller.VerticalOffset + $top - 8) }
 Save-GuideWindow 'accueil' 1240
+# Native 1080p view dedicated to the compact actions and three clocks, ready for a documented crop.
+Set-GuideHeight 1080;Update-GuideLayout;Move-GuideScrollTo $fleetCard
+foreach($id in @('BtnFleetIndexScope','BtnFleetRefreshPostes','BtnFleetRefreshBoth','BtnFleetRefreshStop','BtnFleetDashboardRefresh')){Assert-GuideControlVisible $id 'Accueil 1080p'}
+Assert-Guide ((Get-DomeniaControl 'BtnFleetIndexScope').IsEnabled -and (Get-DomeniaControl 'BtnFleetRefreshPostes').IsEnabled -and (Get-DomeniaControl 'BtnFleetRefreshBoth').IsEnabled -and -not (Get-DomeniaControl 'BtnFleetRefreshStop').IsEnabled) 'Accueil : actions disponibles pour lʼOU choisie, arrêt inactif au repos'
+Save-GuideWindow 'actualisation-ou' 1080
 Save-GuideOuPicker
 
 # 1b. Query workshop: real local query engine, 226 known accounts, including three disabled accounts.
@@ -613,6 +638,23 @@ Show-GuideTab 'WsSearch'
 $grid.SelectedIndex = 0
 Save-GuideWindow 'recherche'
 Save-GuideWindow 'recherche-actions'
+# The name search remains global while data refresh always uses the explicitly selected OU.
+# A deep, long OU exercises wrapping without replacing the displayed global-name results.
+$longDn='OU=Postes administratifs du site de Lyon,OU=Services administratifs,OU=Lyon,DC=example,DC=local'
+$lyon=@($root.Items|Where-Object{[string]$_.Header -eq 'Lyon'})[0]
+$longParent=[Windows.Controls.TreeViewItem]::new();$longParent.Header='Services administratifs';$longParent.IsExpanded=$true
+$longOu=[Windows.Controls.TreeViewItem]::new();$longOu.Header='Postes administratifs du site de Lyon';$longOu.Tag=[pscustomobject]@{DN=$longDn}
+[void]$longParent.Items.Add($longOu);[void]$lyon.Items.Add($longParent);$longOu.IsSelected=$true
+$script:SelectedBranchDn=$longDn;Update-DomeniaSearchScopeUi;Update-DomeniaOuRefreshUi;Update-GuideLayout
+foreach($id in @('BtnSearchRefreshBase','BtnSearchRefreshPostes','BtnSearchRefreshBoth','BtnSearchRefreshStop')){Assert-GuideControlVisible $id 'Recherche 1080p avec OU longue'}
+$treeBounds=Get-GuideVisibleBounds (Get-DomeniaControl 'TvDirectory')
+Assert-Guide (-not $treeBounds.IsEmpty -and $treeBounds.Height -ge 80) 'Recherche avec OU longue : au moins 80 pixels de hauteur dʼarbre réellement visibles'
+$refreshContext=Get-DomeniaOuRefreshContext Search
+Assert-Guide ($refreshContext.Dn -ceq $longDn -and $refreshContext.Subtree -and (Get-DomeniaSearchMode) -eq 'Global' -and $grid.Items.Count -eq 7) 'Recherche : les actions gardent lʼOU explicite et ses sous-OU, indépendamment des sept résultats globaux'
+Assert-Guide ((Get-DomeniaControl 'BtnSearchRefreshBase').IsEnabled -and (Get-DomeniaControl 'BtnSearchRefreshPostes').IsEnabled -and (Get-DomeniaControl 'BtnSearchRefreshBoth').IsEnabled) 'Recherche : les trois actions sont disponibles sur lʼOU longue'
+Save-GuideWindow 'recherche-actualisation-ou' 1080
+$script:SelectedBranchDn=$script:GuideScopeDn;$sub.IsSelected=$true;[void]$lyon.Items.Remove($longParent)
+Update-DomeniaSearchScopeUi;Update-DomeniaOuRefreshUi;Update-GuideLayout
 
 # 3. Fiche of a workstation, its actions, dashboard and customise mode.
 $script:SelectedObject = $computer
@@ -686,12 +728,14 @@ Save-GuideWindow 'logiciels' 1560
 
 }
 # 6. Base autonome: displayed values are fictitious, no SQLite file is created or read.
+$baseFreshness=Get-DomeniaFleetFreshness -ScopeDn $script:GuideScopeDn -DomainDn $script:Conn.BaseDn -SyncStates $script:IndexSyncStates -Subtree $true
+$baseSummary=Format-DomeniaOuFreshnessSummary -IndexFreshness $baseFreshness
 Set-GuideText @{
     TxtIndexLocation='C:\Users\tech.support\AppData\Local\Domenia\Data\Domains\exemple\Domenia.db'
     LblIndexBackupStatus=('Sauvegardes : dossier Backups · derniere le '+$now.AddMinutes(-15).ToString('dd/MM/yyyy HH:mm'))
     LblIndexScopeChoice='OU=Postes,OU=Lyon,DC=example,DC=local et ses sous-OU'
     LblIndexOverview='438 objets · 212 utilisateurs · 226 postes (223 actifs, 3 désactivés)'
-    LblIndexFreshness=('OU choisie et ses sous-OU relues : '+$now.AddMinutes(-35).ToString('dd/MM/yyyy HH:mm')+' · OU=Postes,OU=Lyon,DC=example,DC=local (récent).')
+    LblIndexFreshness=$baseSummary.BaseText
     LblIndexStats='Fichier local Domenia.db. Contrôleur : dc01.example.local. Repère : 184522. Associations utilisateur-poste : 34.'
     LblIndexStatus='200 objets affichés sur 226 · page 1 · périmètre choisi ci-dessus'
     LblParkStatus=('{0} observations mémorisées, dont {1} avec inventaire · données fictives' -f $presence.Count,@($presence | Where-Object { $null -ne $_.observation.Inventory }).Count)
@@ -770,7 +814,7 @@ Save-GuideBitmap $drawing $w $h 'connexion'
 $login.Close()
 $script:Window.Close()
 [IO.File]::WriteAllText((Join-Path $Out 'capture-checks.json'),([pscustomobject]@{Fixture='example.local, 226 comptes postes fictifs (223 actifs, 3 désactivés)';Session=[Diagnostics.Process]::GetCurrentProcess().SessionId;Rendering='Real WPF layout, off-screen RenderTargetBitmap';Checks=$script:GuideChecks.ToArray()}|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
-[IO.File]::WriteAllText((Join-Path $Out 'capture-provenance.json'),([pscustomobject]@{UTC=[datetime]::UtcNow.ToString('o');PowerShell=$PSVersionTable.PSVersion.ToString();Session=[Diagnostics.Process]::GetCurrentProcess().SessionId;SourceManifestSHA256=(Get-FileHash -LiteralPath (Join-Path $wad 'package-manifest.json') -Algorithm SHA256).Hash;Rendering='Native WPF RenderTargetBitmap; off-screen host, no image upscaling';Fixture='example.local, synthetic directory and observations, no AD access';ToolTipsEnabled=$false;Images=$script:GuideImages.ToArray()}|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
+[IO.File]::WriteAllText((Join-Path $Out 'capture-provenance.json'),([pscustomobject]@{UTC=[datetime]::UtcNow.ToString('o');PowerShell=$PSVersionTable.PSVersion.ToString();Session=[Diagnostics.Process]::GetCurrentProcess().SessionId;SourceManifestSHA256=(Get-FileHash -LiteralPath (Join-Path $wad 'package-manifest.json') -Algorithm SHA256).Hash;Rendering='Native WPF RenderTargetBitmap; off-screen host, no image upscaling';Fixture='example.local, synthetic directory and observations, no AD access';FreshnessFixture='AD 35 minutes old; ping 10 to 20 minutes old; WMI inventory 2 to 3 days old; local recalculation preserves measurement dates';ToolTipsEnabled=$false;Images=$script:GuideImages.ToArray()}|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
 [IO.File]::WriteAllText((Join-Path $Out 'capture-layouts.json'),($script:GuideLayouts.ToArray()|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
 if(@($script:GuideChecks|Where-Object{-not $_.Passed}).Count){throw 'Captures produites ; un contrôle de disposition reste en échec. Voir capture-checks.json.'}
 ' termine'

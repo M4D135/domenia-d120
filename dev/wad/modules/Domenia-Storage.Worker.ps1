@@ -491,12 +491,17 @@ try {
     $total=[long](@(Invoke-DomeniaDbQuery 'SELECT count(*) AS n FROM ad_objects;' $db)[0].n)
     $details='async'
     if (-not [string]::IsNullOrWhiteSpace([string]$bulk.InvocationId)) { $details='inv='+[string]$bulk.InvocationId }
+    # Search depth belongs to the committed checkpoint. A direct-children walk must not overwrite a Subtree success.
+    $depth=if($null -ne $reconcile){[string]$reconcile.SearchScope}elseif($isDirectoryScope){'Subtree'}else{'Unknown'}
+    $details+=';depth='+$depth
+    $checkpointScope=if(-not $isDirectoryScope -and $depth -eq 'OneLevel'){'ou:onelevel:'+([string]$bulk.BaseDn).ToLowerInvariant()}else{$syncScope}
     # Attempts are separate from successful coverage and its checkpoint. A failed attempt never rejuvenates it.
-    $attempt=@(('attempt:'+$syncScope),[string]$bulk.Server,[string]$bulk.BaseDn,[long]0,[string]$bulk.At,$readCount,$(if($complete){'complete'}else{'partial'}))
+    $attemptDetails=$(if($complete){'complete'}else{'partial'})+';depth='+$depth
+    $attempt=@(('attempt:'+$checkpointScope),[string]$bulk.Server,[string]$bulk.BaseDn,[long]0,[string]$bulk.At,$readCount,$attemptDetails)
     [void](Invoke-DomeniaDbExec ('INSERT OR REPLACE INTO sync_state(scope,server,base_dn,highest_usn,last_sync,item_count,details) VALUES('+(($attempt|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ',')+');') $db)
     if(-not $complete){continue}
     $scopeCount=if($isDirectoryScope){$total}else{$readCount}
-    $values=@($syncScope,[string]$bulk.Server,[string]$bulk.BaseDn,[long]$bulk.HighestUsn,[string]$bulk.At,$scopeCount,$details)
+    $values=@($checkpointScope,[string]$bulk.Server,[string]$bulk.BaseDn,[long]$bulk.HighestUsn,[string]$bulk.At,$scopeCount,$details)
     [void](Invoke-DomeniaDbExec ('INSERT OR REPLACE INTO sync_state(scope,server,base_dn,highest_usn,last_sync,item_count,details) VALUES('+(($values|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ',')+');') $db)
     } finally {
       if($null -ne $progress){$progress.Count=$readCount;$progress.Phase='Attente'}

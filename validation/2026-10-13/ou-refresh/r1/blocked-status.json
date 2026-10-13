@@ -1,0 +1,34 @@
+{
+  "Status": "NOT_RUN_PC_POWERED_OFF",
+  "Reason": "David confirmed the lab PC is powered off, will perform Windows tests himself, and authorized finalization without this Windows campaign.",
+  "UTC": "2026-10-13T12:02:51.059795+00:00",
+  "CandidateArchives": {
+    "DEV": {
+      "Path": "/Users/david/Documents/Projets/Domenia-builds/2026-10-13-ou-refresh-rc1174-r1/Domenia_1.0_RC1.17.4_DEV.zip",
+      "SHA256": "9e8e0d85d7be7cc2bda1c43bbfd9c8a41c655395ef0010e5196378b504bc8c3d"
+    },
+    "PROD": {
+      "Path": "/Users/david/Documents/Projets/Domenia-builds/2026-10-13-ou-refresh-rc1174-r1/Domenia_1.0_RC1.17.4_PROD.zip",
+      "SHA256": "8ca88099a10c8c5f02cf2d7bb99be131a1ff9b70002cc1737dabd2dc1a7888be"
+    }
+  },
+  "CaptureScriptSHA256": "fb8812dee1c6d420badd4bdb8c15bbf8abf7ec1188974de22954017a9165aec5",
+  "WindowsQualified": false,
+  "PlannedQualificationSteps": 65,
+  "PlannedTestFiles": 61,
+  "PlannedHelpers": 4,
+  "PRODCheckOnlySeparate": true,
+  "CapturesSeparate": true,
+  "GUI": "NOT_RUN_MAC_LOCKED",
+  "Evidence": "relay-connectivity.json",
+  "Resumption": "RESUME.md",
+  "Scripts": {
+    "guest-runner.ps1": "bd9f05b1b5553506859d9ab9e0803b59aa8cbfb7de029419e705c85bc94d9ff3",
+    "prod-check.ps1": "aae8986db9fcceb981de43f302244c73db0e3425221312908aab85820d8aa3db",
+    "lab-control.py": "81a8c0e39d2256db0e33f4fb8471e603b78780a98f1b965eb4b239c9715cd556"
+  },
+  "UserDecisionUTC": "2026-10-13T12:04:28.621535+00:00",
+  "WindowsTestsDeferredToUser": true,
+  "FurtherNetworkRetries": false,
+  "ResumptionSHA256": "9b5e9b66ced657c7f3d0a05c9dd9f7d08f1ad503f7ccfffe0c405881fcdde55d"
+}

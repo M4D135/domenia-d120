@@ -45,7 +45,7 @@ try{
     Expect ((Read-TestDb "SELECT read_at FROM ad_computer_facts WHERE object_guid='g1';")[0].read_at -eq '2026-10-01T00:00:00Z') 'OU cannot rejuvenate unrelated facts'
     Write-Batch @((New-IndexRow 'g4' 'PC-4')) '2026-10-03T00:00:00Z' -Complete $false -Usn 40
     Expect ((Read-TestDb "SELECT highest_usn FROM sync_state WHERE scope='directory';")[0].highest_usn -eq 10) 'partial checkpoint preserved'
-    Expect ((Read-TestDb "SELECT details FROM sync_state WHERE scope='attempt:directory';")[0].details -eq 'partial') 'partial attempt recorded'
+    Expect ((Read-TestDb "SELECT details FROM sync_state WHERE scope='attempt:directory';")[0].details -eq 'partial;depth=Subtree') 'partial attempt and explicit depth recorded'
     Expect ((Read-TestDb 'SELECT count(*) AS n FROM ad_objects;')[0].n -eq 4) 'partial merge preserves existing rows'
     Write-Batch @() '2026-10-04T00:00:00Z' -Usn 50
     Expect ((Read-TestDb "SELECT highest_usn FROM sync_state WHERE scope='directory';")[0].highest_usn -eq 50) 'empty complete delta advances checkpoint'
@@ -262,7 +262,7 @@ try{
         $b=New-ReconcileBulk -Scope 'DC=test' -SearchScope OneLevel -Mode Rows
         [void](Invoke-ReconcileBulk $b)
         Expect ((Read-TestDb 'SELECT count(*) AS n FROM ad_objects;')[0].n -eq 1) 'root OneLevel walk only removes direct root objects'
-        Expect ((Read-TestDb "SELECT count(*) AS n FROM sync_state WHERE scope='ou:dc=test';")[0].n -eq 1) 'root OneLevel coverage key accepted exactly'
+        Expect ((Read-TestDb "SELECT count(*) AS n FROM sync_state WHERE scope='ou:onelevel:dc=test';")[0].n -eq 1) 'root OneLevel checkpoint stored separately'
 
         # A full rebuild shares the same newer-row guard; it does not clear before merging.
         Write-Batch @($first,$gone) '2026-10-01T00:00:00Z' -Replace $true

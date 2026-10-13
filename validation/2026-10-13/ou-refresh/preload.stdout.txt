@@ -1,0 +1,15 @@
+{
+  "Build": "2026.10.13-DOMENIA-1.0-RC1.17.4-D120",
+  "SourceBase": "RC1.17.4 OU refresh source review",
+  "Passed": 175,
+  "Failed": 0,
+  "CoreFunctions": 688,
+  "ChangedCoreFunctions": [],
+  "UnchangedCoreFunctions": 688,
+  "ModuleFiles": 61,
+  "ModuleExports": 1320,
+  "WindowsPowerShellExecuted": false,
+  "WpfExecuted": false,
+  "LiveADExecuted": false,
+  "Kind": "Source/XML and archive-level contract verification only"
+}

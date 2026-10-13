@@ -261,21 +261,21 @@ try{
   Expect ([object]::ReferenceEquals($chosen,$late.State.Owner.Selected) -and $late.State.Owner.Closed) 'Closed picker accepted a late callback'
  }
  Case 'Freshness uses successful covering OU and excludes child, sibling, malformed and partial sync' {
-  $base='DC=example,DC=invalid';$ou='OU=Postes,'+$base
+  $base='DC=example,DC=invalid';$ou='OU=Postes,'+$base;$now=[datetimeoffset]::Parse('2026-10-13T00:00:00Z').UtcDateTime
   $states=@{
    directory=[pscustomobject]@{scope='directory';base_dn=$base;last_sync='2026-10-12T08:00:00Z';details='complete'}
-   ou=[pscustomobject]@{scope=('ou:'+$ou);base_dn=$ou;last_sync='2026-10-12T14:00:00Z';details='complete'}
-   child=[pscustomobject]@{scope=('ou:OU=Enfant,'+$ou);base_dn=('OU=Enfant,'+$ou);last_sync='2026-10-12T15:00:00Z';details='complete'}
-   sibling=[pscustomobject]@{scope=('ou:OU=Autre,'+$base);base_dn=('OU=Autre,'+$base);last_sync='2026-10-12T16:00:00Z';details='complete'}
-   partial=[pscustomobject]@{scope=('attempt:ou:'+$ou);base_dn=$ou;last_sync='2026-10-12T17:00:00Z';details='partial'}
+   ou=[pscustomobject]@{scope=('ou:'+$ou);base_dn=$ou;last_sync='2026-10-12T14:00:00Z';details='complete;depth=Subtree'}
+   child=[pscustomobject]@{scope=('ou:OU=Enfant,'+$ou);base_dn=('OU=Enfant,'+$ou);last_sync='2026-10-12T15:00:00Z';details='complete;depth=Subtree'}
+   sibling=[pscustomobject]@{scope=('ou:OU=Autre,'+$base);base_dn=('OU=Autre,'+$base);last_sync='2026-10-12T16:00:00Z';details='complete;depth=Subtree'}
+   partial=[pscustomobject]@{scope=('attempt:ou:'+$ou);base_dn=$ou;last_sync='2026-10-12T17:00:00Z';details='partial;depth=Subtree'}
   }
-  $f=Get-DomeniaFleetFreshness $ou $base $states;Expect ($f.SourceDn -eq $ou -and $f.At.Hour -eq 14 -and $f.Partial) 'OU success or partial warning wrong'
-  $f=Get-DomeniaFleetFreshness ('OU=Child,'+$ou) $base $states;Expect ($f.At.Hour -eq 14) 'Parent coverage not inherited'
-  $f=Get-DomeniaFleetFreshness '' $base $states;Expect ($f.At.Hour -eq 8 -and -not $f.Partial) 'OU pass rejuvenates whole domain'
+  $f=Get-DomeniaFleetFreshness $ou $base $states -NowUtc $now;Expect ($f.SourceDn -eq $ou -and $f.At.Hour -eq 14 -and $f.Partial) 'OU success or partial warning wrong'
+  $f=Get-DomeniaFleetFreshness ('OU=Child,'+$ou) $base $states -NowUtc $now;Expect ($f.At.Hour -eq 14) 'Parent coverage not inherited'
+  $f=Get-DomeniaFleetFreshness '' $base $states -NowUtc $now;Expect ($f.At.Hour -eq 8 -and -not $f.Partial) 'OU pass rejuvenates whole domain'
   $states.legacy=[pscustomobject]@{scope=('ou:'+$base);base_dn=$base;last_sync='2026-10-12T18:00:00Z';details='complete'}
-  $f=Get-DomeniaFleetFreshness $ou $base $states;Expect ($f.At.Hour -eq 14) 'Legacy root OneLevel read rejuvenates descendants'
-  $f=Get-DomeniaFleetFreshness '' $base $states;Expect ($f.At.Hour -eq 8) 'Legacy root OneLevel read replaces full directory success'
-  $states.ou.last_sync='broken';$f=Get-DomeniaFleetFreshness $ou $base $states;Expect ($f.At.Hour -eq 8) 'Malformed date accepted'
+  $f=Get-DomeniaFleetFreshness $ou $base $states -NowUtc $now;Expect ($f.At.Hour -eq 14) 'Legacy root OneLevel read rejuvenates descendants'
+  $f=Get-DomeniaFleetFreshness '' $base $states -NowUtc $now;Expect ($f.At.Hour -eq 8) 'Legacy root OneLevel read replaces full directory success'
+  $states.ou.last_sync='broken';$f=Get-DomeniaFleetFreshness $ou $base $states -NowUtc $now;Expect ($f.At.Hour -eq 8) 'Malformed date accepted'
  }
  Case 'Workshop refresh invalidates prepared records and receives a fresh local snapshot' {
   $script:FixtureTasks.Clear();$script:AsyncJobs=@{};$script:FleetJobId='';$script:FleetPendingKey='';$script:FleetScopeDn='OU=Postes,DC=example,DC=invalid'

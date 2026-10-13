@@ -481,15 +481,15 @@
   },
   {
     "Name": "ChkSubtree",
-    "Title": "Inclure les sous-OU",
-    "Text": "Coché : recherche dans la branche et ses sous-branches. Décoché : seulement ses enfants directs.",
+    "Title": "Inclure les sous-OU dans les résultats",
+    "Text": "Coché : recherche dans la branche et ses sous-branches. Décoché : seulement ses enfants directs. Les trois commandes Données de l’OU actualisent toujours toute l’OU et ses sous-OU.",
     "Kind": "CheckBox",
     "Source": "label-help"
   },
   {
     "Name": "BtnLoadBranch",
     "Title": "Actualiser les résultats",
-    "Text": "Actualise le mode affiché : recherche globale sans filtres, ou contenu de l’OU avec ses filtres.",
+    "Text": "Relance la lecture du mode affiché, avec son périmètre et ses filtres. Pour actualiser les données de toute l’OU, utilisez Base locale, Postes (ping/WMI) ou Les deux sous l’arbre ; ces commandes incluent toujours les sous-OU.",
     "Kind": "Button",
     "Source": "label-help",
     "Shortcut": ""
@@ -3615,8 +3615,8 @@
     "Name": "BtnFleetDashboardRefresh",
     "Kind": "Button",
     "Source": "lot-L01",
-    "Title": "Actualiser la vue dʼensemble",
-    "Text": "Recalcule la vue dʼensemble depuis la base autonome locale : aucune requête AD ni poste."
+    "Title": "Recalculer la vue sans collecte",
+    "Text": "Recalcule la vue depuis les données déjà enregistrées. Aucun accès AD, ping ou WMI. La date du calcul ne change pas les dates de lecture de la base ou des mesures."
   },
   {
     "Name": "LstUiLogReadable",
@@ -3960,5 +3960,96 @@
     "Text": "Outils de création et de modification des requêtes partagées entre Recherche, le tableau général et le tableau dʼun poste.",
     "Kind": "TabItem",
     "Source": "query-navigation"
+  },
+  {
+    "Name": "BtnFleetIndexScope",
+    "Kind": "Button",
+    "Source": "specific",
+    "Title": "Mettre à jour la base locale de l’OU",
+    "Text": "Relit Active Directory pour l’OU choisie du tableau de bord et ses sous-OU, puis enregistre la copie locale. Aucun ping ni WMI ; aucun objet AD modifié. Les filtres et la limite des résultats ne réduisent pas cette cible."
+  },
+  {
+    "Name": "BtnFleetRefreshPostes",
+    "Kind": "Button",
+    "Source": "specific",
+    "Title": "Actualiser les postes de l’OU par ping et WMI",
+    "Text": "Relit le ping, la console, l’inventaire léger et les sondes WMI des widgets Général/Poste sur les comptes ordinateur actifs recensés dans l’OU et ses sous-OU. L’OU est celle du tableau de bord. Nombre de cibles confirmé avant envoi. Le plan des sondes est figé au clic ; les mesures demandées sont relues sans réutilisation liée à leur âge. Les valeurs précédentes restent datées en cas d’échec."
+  },
+  {
+    "Name": "BtnFleetRefreshBoth",
+    "Kind": "Button",
+    "Source": "specific",
+    "Title": "Mettre à jour la base locale puis les postes",
+    "Text": "Relit AD pour l’OU et ses sous-OU. L’OU est celle du tableau de bord. Après lecture complète et enregistrement confirmé, prépare le ping, la console, l’inventaire léger et les sondes des widgets Général/Poste, figées au clic initial. Une lecture partielle, une erreur ou un arrêt empêche la phase suivante. Aucun filtre de la liste ne réduit cette cible."
+  },
+  {
+    "Name": "BtnFleetRefreshStop",
+    "Kind": "Button",
+    "Source": "specific",
+    "Title": "Arrêter l’actualisation de l’OU",
+    "Text": "Empêche les nouveaux départs et le lancement de la phase suivante. Conserve les données déjà enregistrées ; attendez le bilan de l’opération avant de fermer Domenia."
+  },
+  {
+    "Name": "BtnSearchRefreshBase",
+    "Kind": "Button",
+    "Source": "specific",
+    "Title": "Mettre à jour la base locale de l’OU",
+    "Text": "Relit Active Directory pour l’OU choisie dans l’arbre de Rechercher et toutes ses sous-OU, y compris pendant une recherche globale, puis enregistre la copie locale. Aucun ping ni WMI ; aucun objet AD modifié. Les filtres et la limite des résultats ne réduisent pas cette cible."
+  },
+  {
+    "Name": "BtnSearchRefreshPostes",
+    "Kind": "Button",
+    "Source": "specific",
+    "Title": "Actualiser les postes de l’OU par ping et WMI",
+    "Text": "Relit le ping, la console, l’inventaire léger et les sondes WMI des widgets Général/Poste sur les comptes ordinateur actifs recensés dans l’OU et ses sous-OU. L’OU est celle de l’arbre de Rechercher, même pendant une recherche globale. Nombre de cibles confirmé avant envoi. Le plan des sondes est figé au clic ; les mesures demandées sont relues sans réutilisation liée à leur âge. Les valeurs précédentes restent datées en cas d’échec."
+  },
+  {
+    "Name": "BtnSearchRefreshBoth",
+    "Kind": "Button",
+    "Source": "specific",
+    "Title": "Mettre à jour la base locale puis les postes",
+    "Text": "Relit AD pour l’OU et ses sous-OU. L’OU est celle de l’arbre de Rechercher, même pendant une recherche globale. Après lecture complète et enregistrement confirmé, prépare le ping, la console, l’inventaire léger et les sondes des widgets Général/Poste, figées au clic initial. Une lecture partielle, une erreur ou un arrêt empêche la phase suivante. Aucun filtre de la liste ne réduit cette cible."
+  },
+  {
+    "Name": "BtnSearchRefreshStop",
+    "Kind": "Button",
+    "Source": "specific",
+    "Title": "Arrêter l’actualisation de l’OU",
+    "Text": "Empêche les nouveaux départs et le lancement de la phase suivante. Conserve les données déjà enregistrées ; attendez le bilan de l’opération avant de fermer Domenia."
+  },
+  {
+    "Name": "LblSearchOuRefreshScope",
+    "Kind": "TextBlock",
+    "Source": "specific",
+    "Title": "Périmètre des données de l’OU",
+    "Text": "Ces commandes utilisent l’OU choisie dans l’arbre de Rechercher et toutes ses sous-OU. Elles ne sont pas limitées par les résultats affichés, leurs filtres ou la case Inclure les sous-OU. Sans OU explicite, choisissez d’abord une branche."
+  },
+  {
+    "Name": "LblSearchOuRefreshStatus",
+    "Kind": "TextBlock",
+    "Source": "specific",
+    "Title": "Progression de l’actualisation de l’OU",
+    "Text": "Distingue la lecture AD, l’enregistrement local et le relevé des postes. Une mesure en échec reste signalée avec sa date ; une erreur ou un arrêt empêche la phase suivante."
+  },
+  {
+    "Name": "LblFleetOuRefreshStatus",
+    "Kind": "TextBlock",
+    "Source": "specific",
+    "Title": "Progression de l’actualisation du périmètre",
+    "Text": "Base locale relit AD ; Postes relit le ping, la console, l’inventaire léger et les sondes des widgets configurés ; Les deux attend le stockage de la base avant le relevé. La cible est l’OU du tableau de bord avec ses sous-OU."
+  },
+  {
+    "Name": "LblFleetScope",
+    "Kind": "TextBlock",
+    "Source": "specific",
+    "Title": "Périmètre et fraîcheur AD",
+    "Text": "Nomme l’OU affichée et ses sous-OU. La date AD correspond à une lecture complète couvrant cette branche ; une tentative partielle ne remplace pas cette date."
+  },
+  {
+    "Name": "LblFleetDashboard",
+    "Kind": "TextBlock",
+    "Source": "specific",
+    "Title": "Dates des mesures et du calcul",
+    "Text": "Le ping et l’inventaire WMI conservent leurs dates propres. N/M compte les mesures utilisables parmi les postes actifs ; du… au… décrit leur intervalle de dates. Vue recalculée indique seulement la préparation locale de l’affichage, sans nouvelle collecte."
   }
 ]

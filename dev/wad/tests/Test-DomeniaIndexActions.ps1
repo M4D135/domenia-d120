@@ -20,7 +20,7 @@ function Show-DomeniaInlinePicker {param($Kind,$Title,$Prompt);$script:PickerCal
 function Set-Status {param($Text,$Level);$script:LastStatus=$Text}
 function Update-DomeniaIndexStats {}
 function Request-DomeniaIndexSearch {}
-function Start-DomeniaIndexScopeBuild {param($Dn);$script:ScopeCalls+=@($Dn)}
+function Invoke-DomeniaOuRefresh {param($Source,$Mode);$script:ScopeCalls+=@([pscustomobject]@{Source=$Source;Mode=$Mode;Dn=[string]$script:IndexScopeDn})}
 function Test-DomeniaIndexWriteReady {return $script:Ready}
 function Get-DomeniaOperationImpactEstimate {param($Operation,$ItemCount);return [pscustomobject]@{Kind='Synthetic'}}
 function Format-DomeniaOperationImpact {param($Estimate);return [pscustomobject]@{Sentence='Estimation locale.';Details='Local fixture'}}
@@ -32,7 +32,8 @@ Reset-ActionFixture
 $script:IndexScopeDn='OU=Paris,DC=example,DC=test'
 Start-DomeniaSelectedIndexScopeBuild
 Expect ($script:PickerCalls -eq 0) 'selected OU is favored without reprompt'
-Expect ($script:ScopeCalls.Count -eq 1 -and $script:ScopeCalls[0] -ceq $script:IndexScopeDn) 'primary action reads precisely the selected OU'
+Expect ($script:ScopeCalls.Count -eq 1 -and $script:ScopeCalls[0].Dn -ceq $script:IndexScopeDn) 'primary action reads precisely the selected OU'
+Expect ($script:ScopeCalls[0].Source -ceq 'Index' -and $script:ScopeCalls[0].Mode -ceq 'Base') 'primary action routes through the shared Base orchestrator with its own Index scope'
 Expect ($script:Confirmations.Count -eq 0 -and $script:WorkerCalls -eq 0) 'primary OU route cannot trigger a full-domain operation'
 Reset-ActionFixture
 Start-DomeniaSelectedIndexScopeBuild
@@ -40,7 +41,7 @@ Expect ($script:PickerCalls -eq 1 -and $script:ScopeCalls.Count -eq 0) 'missing 
 Reset-ActionFixture
 $script:Picked=[pscustomobject]@{DN='OU=Paris,DC=example,DC=test'}
 Start-DomeniaSelectedIndexScopeBuild
-Expect ($script:ScopeCalls.Count -eq 1 -and $script:ScopeCalls[0] -ceq $script:Picked.DN) 'picked OU becomes the only read target'
+Expect ($script:ScopeCalls.Count -eq 1 -and $script:ScopeCalls[0].Dn -ceq $script:Picked.DN -and $script:ScopeCalls[0].Source -ceq 'Index' -and $script:ScopeCalls[0].Mode -ceq 'Base') 'picked OU becomes the only read target through shared Base orchestration'
 Expect ($script:IndexScopeDn -ceq $script:Picked.DN) 'selected OU retained'
 foreach($dn in @('DC=example,DC=test','OU=Other,DC=elsewhere,DC=test','')){
  Reset-ActionFixture;$script:Picked=[pscustomobject]@{DN=$dn}

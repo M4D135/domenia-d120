@@ -1,0 +1,55 @@
+test_demo_config_refused_by_build (test_release_guard.BuildHelperTests.test_demo_config_refused_by_build) ... ok
+test_members_sorted_posix_without_junk_or_output (test_release_guard.BuildHelperTests.test_members_sorted_posix_without_junk_or_output) ... ok
+test_output_inside_source_refused (test_release_guard.BuildHelperTests.test_output_inside_source_refused) ... ok
+test_pe_version_read_from_bytes (test_release_guard.BuildHelperTests.test_pe_version_read_from_bytes) ... ok
+test_signed_stage_must_match_audited_source (test_release_guard.BuildHelperTests.test_signed_stage_must_match_audited_source) ... ok
+test_two_selections_identical (test_release_guard.BuildHelperTests.test_two_selections_identical) ... ok
+test_writejson_lf_only (test_release_guard.BuildHelperTests.test_writejson_lf_only) ... ok
+test_archive_changed_during_campaign (test_release_guard.GuardTests.test_archive_changed_during_campaign) ... ok
+test_bad_size (test_release_guard.GuardTests.test_bad_size) ... ok
+test_build_mismatch (test_release_guard.GuardTests.test_build_mismatch) ... ok
+test_case_collision (test_release_guard.GuardTests.test_case_collision) ... ok
+test_demo_config_refused (test_release_guard.GuardTests.test_demo_config_refused) ... ok
+test_demo_provider_module_allowed_in_prod (test_release_guard.GuardTests.test_demo_provider_module_allowed_in_prod) ... ok
+test_dev_tools_allowed_in_dev (test_release_guard.GuardTests.test_dev_tools_allowed_in_dev) ... ok
+test_duplicate (test_release_guard.GuardTests.test_duplicate) ... ok
+test_duplicate_scenario (test_release_guard.GuardTests.test_duplicate_scenario) ... ok
+test_evidence_dir_verified_and_tamper_detected (test_release_guard.GuardTests.test_evidence_dir_verified_and_tamper_detected) ... ok
+test_evidence_valid_local_not_signed (test_release_guard.GuardTests.test_evidence_valid_local_not_signed) ... ok
+test_extra (test_release_guard.GuardTests.test_extra) ... ok
+test_foreign_root (test_release_guard.GuardTests.test_foreign_root) ... ok
+test_hash_mismatch (test_release_guard.GuardTests.test_hash_mismatch) ... ok
+test_host_not_object_is_gate_error (test_release_guard.GuardTests.test_host_not_object_is_gate_error) ... ok
+test_inverted_timestamps_refused (test_release_guard.GuardTests.test_inverted_timestamps_refused) ... ok
+test_launcher_tool_refused_in_prod (test_release_guard.GuardTests.test_launcher_tool_refused_in_prod) ... ok
+test_linux_not_windows (test_release_guard.GuardTests.test_linux_not_windows) ... ok
+test_main_malformed_report_exit_2_json (test_release_guard.GuardTests.test_main_malformed_report_exit_2_json) ... ok
+test_main_require_windows_without_report (test_release_guard.GuardTests.test_main_require_windows_without_report) ... ok
+test_missing (test_release_guard.GuardTests.test_missing) ... ok
+test_missing_evidence_hash (test_release_guard.GuardTests.test_missing_evidence_hash) ... ok
+test_missing_scenario (test_release_guard.GuardTests.test_missing_scenario) ... ok
+test_no_evidence (test_release_guard.GuardTests.test_no_evidence) ... ok
+test_not_executed_not_pass (test_release_guard.GuardTests.test_not_executed_not_pass) ... ok
+test_not_executed_status_not_pass (test_release_guard.GuardTests.test_not_executed_status_not_pass) ... ok
+test_null_archive_sha_is_gate_error (test_release_guard.GuardTests.test_null_archive_sha_is_gate_error) ... ok
+test_prod_absent_refused (test_release_guard.GuardTests.test_prod_absent_refused) ... ok
+test_ps7_not_ps51 (test_release_guard.GuardTests.test_ps7_not_ps51) ... ok
+test_rebuilt_archive_needs_new_report (test_release_guard.GuardTests.test_rebuilt_archive_needs_new_report) ... ok
+test_report_not_object_is_gate_error (test_release_guard.GuardTests.test_report_not_object_is_gate_error) ... ok
+test_runtime_absent (test_release_guard.GuardTests.test_runtime_absent) ... ok
+test_scenario_edition_mismatch (test_release_guard.GuardTests.test_scenario_edition_mismatch) ... ok
+test_scenario_not_object_is_gate_error (test_release_guard.GuardTests.test_scenario_not_object_is_gate_error) ... ok
+test_scenario_unbound_in_two_archive_report (test_release_guard.GuardTests.test_scenario_unbound_in_two_archive_report) ... ok
+test_skip_not_pass (test_release_guard.GuardTests.test_skip_not_pass) ... ok
+test_standard_config_accepted (test_release_guard.GuardTests.test_standard_config_accepted) ... ok
+test_tamper (test_release_guard.GuardTests.test_tamper) ... ok
+test_tests_folder_refused_in_prod (test_release_guard.GuardTests.test_tests_folder_refused_in_prod) ... ok
+test_traversal (test_release_guard.GuardTests.test_traversal) ... ok
+test_two_archives_ok_for_dev_and_prod (test_release_guard.GuardTests.test_two_archives_ok_for_dev_and_prod) ... ok
+test_unreadable_timestamp_refused (test_release_guard.GuardTests.test_unreadable_timestamp_refused) ... ok
+test_valid (test_release_guard.GuardTests.test_valid) ... ok
+
+----------------------------------------------------------------------
+Ran 50 tests in 0.030s
+
+OK

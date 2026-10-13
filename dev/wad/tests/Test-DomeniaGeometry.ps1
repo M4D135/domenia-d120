@@ -191,6 +191,14 @@ if($infrastructure){
                     Set-FakeActivity 0;Invoke-GeometryPump $window
                     Assert-True ($script:PresentationErrors.Count -eq 0) ('Erreur de presentation : '+($script:PresentationErrors -join ' | '))
                 }
+                Test-Case ($prefix+' : commandes de donnees OU distinctes des filtres de resultats') {
+                    foreach($name in @('BtnSearchRefreshBase','BtnSearchRefreshPostes','BtnSearchRefreshBoth','BtnSearchRefreshStop','LblSearchOuRefreshScope')){
+                        $r=Get-ClientRect $window $name
+                        Assert-True ($r.Visible -and $r.W -ge 20 -and $r.H -ge 10 -and $r.X -ge 0 -and $r.Y -ge 0 -and $r.X+$r.W -le $script:GeometrySurface.ActualWidth+0.5 -and $r.Y+$r.H -le $script:GeometrySurface.ActualHeight+0.5) ($name+' hors de la surface de recherche')
+                    }
+                    Assert-True ($window.FindName('TvDirectory').ActualHeight -ge 80) 'Les commandes de mise a jour ont ecrase l arbre OU.'
+                    Assert-True ($window.FindName('BtnFleetDashboardRefresh').Content -ceq 'Recalculer la vue') 'Le recalcul local n est pas explicitement nomme.'
+                }
                 Test-Case ($prefix+' : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons') {
                     Set-FakeActivity 0;Invoke-GeometryPump $window
                     $measured=@(@('TxtGlobalSearch','BtnGlobalSearch','DgObjects')+@($resultButtons|Where-Object{(Test-GeometryVisible $window.FindName($_))}))

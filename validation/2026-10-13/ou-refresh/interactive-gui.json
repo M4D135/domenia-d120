@@ -1,0 +1,7 @@
+{
+  "kind": "InteractiveGuiAccess",
+  "status": "BLOCKED_MAC_LOCKED",
+  "observed": "CUA getState reported Mac locked and automatic unlock unavailable.",
+  "human_ui_test_executed": false,
+  "scope": "No interactive mouse testing or live AD validation claimed. Offline WPF results recorded separately."
+}

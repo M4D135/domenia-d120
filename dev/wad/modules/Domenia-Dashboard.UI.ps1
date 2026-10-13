@@ -135,6 +135,7 @@ function Request-DomeniaFleetRefresh {
     # Recomputes the overview when it is on screen and its OU or data changed; otherwise it is recomputed when Accueil
     # is shown again. -Force: the data changed (analysis finished, base saved, new session).
     param([switch]$Force)
+    try { Update-DomeniaOuRefreshUi } catch { }
     if ($Force) {
         $script:FleetStale = $true
         $q=$script:DomeniaQueryState
@@ -176,7 +177,7 @@ function Start-DomeniaFleetDashboard {
     $job = $null
     try {
         [void](Initialize-DomeniaWinSqliteNative)
-        $job = Start-UiTask -Name 'Vue d ensemble du parc' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload ([pscustomobject]@{ Action='FleetStats'; Path=$path; BusyTimeoutMs=250; Scope=[string]$scope.Dn; Subtree=[bool]$scope.Subtree; Plan=$plan; Keys=$keys; ScopeKey=[string]$scope.Key; ComputeBoard=$true; ModuleRoot=$script:DashboardModuleRoot; Lifecycle=(Get-DomeniaWindowsLifecycleTable); ObservationMaxAgeDays=(Get-DomeniaObservationMaxAgeDays); IndexPartial=$partialText }) -CallbackState $state -ReplaceKey 'fleet:stats' -SuccessHandler 'Complete-DomeniaFleetDashboard' -ErrorHandler 'Fail-DomeniaFleetDashboard' -TimeoutSeconds 120 -TaskClass $(if ($Quiet) { 'Background' } else { 'Explicit' })
+        $job = Start-UiTask -Name 'Vue d ensemble du parc' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload ([pscustomobject]@{ Action='FleetStats'; DomainDn=[string]$script:Conn.BaseDn; Path=$path; BusyTimeoutMs=250; Scope=[string]$scope.Dn; Subtree=[bool]$scope.Subtree; Plan=$plan; Keys=$keys; ScopeKey=[string]$scope.Key; ComputeBoard=$true; ModuleRoot=$script:DashboardModuleRoot; Lifecycle=(Get-DomeniaWindowsLifecycleTable); ObservationMaxAgeDays=(Get-DomeniaObservationMaxAgeDays); IndexPartial=$partialText }) -CallbackState $state -ReplaceKey 'fleet:stats' -SuccessHandler 'Complete-DomeniaFleetDashboard' -ErrorHandler 'Fail-DomeniaFleetDashboard' -TimeoutSeconds 120 -TaskClass $(if ($Quiet) { 'Background' } else { 'Explicit' })
     } catch {
         $script:FleetPendingKey = ''; $script:FleetJobId = ''
         [void](Set-DomeniaControlText 'LblFleetDashboard' ('Vue dʼensemble non calculée : ' + $_.Exception.Message))
@@ -202,24 +203,22 @@ function Fail-DomeniaFleetDashboard {
     [void](Set-DomeniaControlText 'LblFleetDashboard' ('Vue dʼensemble non calculée : ' + [string]$Message))
 }
 function Update-DomeniaFleetScopeText {
-    # One status line (UI-03): clickable OU path, number of workstations, age of the local base.
-    param($Scope,[int]$Count = -1,[string]$LastSyncUtc = '')
+    # The committed AD coverage has its own clock. LastSyncUtc is retained for callers but never used as a global fallback.
+    param($Scope,[int]$Count = -1,[string]$LastSyncUtc = '',$Freshness=$null,[datetime]$NowUtc=[datetime]::UtcNow)
     if ($null -eq $Scope) { return }
     $parts = New-Object System.Collections.ArrayList
     if (-not [string]$Scope.Dn) { [void]$parts.Add('Tout le domaine indexé (consultation)') }
     elseif (-not [bool]$Scope.Subtree) { [void]$parts.Add('sans les sous-OU') }
     else { [void]$parts.Add('et ses sous-OU') }
     if ($Count -ge 0) { [void]$parts.Add([string]$Count + ' poste' + $(if ($Count -gt 1) { 's' } else { '' }) + ' recensé(s) dans la base') }
-    $freshness=Get-DomeniaFleetFreshness -ScopeDn ([string]$Scope.Dn) -DomainDn ([string]$script:Conn.BaseDn) -SyncStates $script:IndexSyncStates
-    if($null -ne $freshness.At){
-        [void]$parts.Add('lecture couvrant ce périmètre : '+$freshness.At.ToLocalTime().ToString('dd/MM/yyyy HH:mm')+' ('+(Format-DomeniaAge -FromUtc $freshness.At -NowUtc ([datetime]::UtcNow))+')')
-    }elseif($Count -ge 0){[void]$parts.Add('aucune lecture complète couvrant ce périmètre')}
-    if($freshness.Partial){[void]$parts.Add('dernière tentative incomplète : '+$freshness.AttemptAt.ToLocalTime().ToString('dd/MM/yyyy HH:mm'))}
+    $indexFreshness=if($null -ne $Freshness){Get-DomeniaMemberValue $Freshness 'Index'}else{Get-DomeniaFleetFreshness -ScopeDn ([string]$Scope.Dn) -DomainDn ([string]$script:Conn.BaseDn) -SyncStates $script:IndexSyncStates -Subtree ([bool]$Scope.Subtree) -NowUtc $NowUtc}
+    $summary=Format-DomeniaOuFreshnessSummary -IndexFreshness $indexFreshness -NowUtc $NowUtc
+    [void]$parts.Add($summary.BaseText)
     $label = Get-DomeniaControl 'LblFleetScope'
     $text = ($parts -join ' · ')
     if ([string]$Scope.Dn) { $text = ' · ' + $text }
     [void](Set-DomeniaControlText 'LblFleetScope' $text)
-    if ($null -ne $label) { $label.ToolTip = ('Périmètre : '+[string]$Scope.Path+"`r`n"+'Dernière lecture complète : '+$(if($freshness.SourceDn){$freshness.SourceDn}else{'non disponible'})) + "`r`n" + ('Ce nombre inclut les postes actifs et désactivés de la base locale. La date correspond à la dernière synchronisation réussie couvrant ce périmètre ; une lecture partielle ne la remplace pas. Rechercher peut relire lʼannuaire en direct.') }
+    if ($null -ne $label) { $label.ToolTip = ('Périmètre : '+[string]$Scope.Path+"`r`n"+'Dernière lecture complète : '+$(if($indexFreshness.SourceDn){$indexFreshness.SourceDn}else{'non disponible'})) + "`r`n" + ('Ce nombre inclut les postes actifs et désactivés de la base locale. La date correspond à la dernière synchronisation réussie couvrant ce périmètre ; une lecture partielle ne la remplace pas. Rechercher peut relire lʼannuaire en direct.') }
     $crumbs = Get-DomeniaControl 'PnlFleetCrumbs'
     if ($null -eq $crumbs) { return }
     $crumbs.Children.Clear()
@@ -387,6 +386,12 @@ function Complete-DomeniaFleetDashboard {
     $data = Get-DomeniaEffectiveWorkerResult $Result @('Types','Machines')
     if ($null -eq $data) { Fail-DomeniaFleetDashboard 'reponse incomplete.' $State; return }
     if ([bool]$data.Busy) { Fail-DomeniaFleetDashboard 'base occupee, reessayez dans un instant.' $State; return }
+    # A commit or observation changed the base while this read was running. Do not briefly repaint old dates/counts.
+    if([bool]$script:FleetStale){
+        $script:FleetPendingKey='';$script:FleetJobId='';$script:FleetComputedKey=''
+        try { Request-DomeniaFleetRefresh } catch { }
+        return
+    }
     $script:FleetLastResult = $Result
     $scope = if ($null -ne $State) { [pscustomobject]@{ Dn = [string]$State.Scope; Subtree = [bool]$State.Subtree; Name = [string]$State.Name; Path = [string]$State.ScopePath; Key = [string]$State.Key } } else { Get-DomeniaFleetScope }
     if ($null -eq $scope) { $scope = [pscustomobject]@{ Dn = ''; Subtree = $true; Name = 'Tout le domaine'; Path = ''; Key = '*' } }
@@ -406,7 +411,7 @@ function Complete-DomeniaFleetDashboard {
     catch { Fail-DomeniaFleetDashboard $_.Exception.Message $State; return }
     $script:FleetPendingKey = ''; $script:FleetJobId = ''; $script:FleetComputedKey = [string]$scope.Key
     $count = @($board.Last.Machines).Count
-    Update-DomeniaFleetScopeText $scope -Count $count
+    Update-DomeniaFleetScopeText $scope -Count $count -Freshness (Get-DomeniaMemberValue $board 'Freshness')
     # Observations (presence, console user, light WMI, queries) feed the query widgets of both boards.
     $retain=@(@($board.Last.Targets)|ForEach-Object{[string]$_.distinguished_name})+@([string]$script:SelectedObject.DN)
     $script:FleetObservations = Merge-DomeniaFleetObservations -Stored $board.Observations -Current $script:FleetObservations -RetainKeys $retain
@@ -418,7 +423,9 @@ function Complete-DomeniaFleetDashboard {
     Show-DomeniaBoard -Board Fleet -Data $board -DeferIfHidden
     # A query run on the selected workstation refreshes its widgets even without an inventory.
     if ($null -ne $script:SelectedObject -or $null -ne $script:LastComputerDashboardResult) { try { Show-DomeniaBoard -Board Computer -Quiet -DeferIfHidden } catch { } }
-    [void](Set-DomeniaControlText 'LblFleetDashboard' ('Calculée depuis la base autonome locale, sans requête AD ni poste, le ' + (Get-Date -Format 'dd/MM/yyyy HH:mm') + '.'))
+    $freshness=Get-DomeniaMemberValue $board 'Freshness'
+    $summary=Format-DomeniaOuFreshnessSummary -IndexFreshness (Get-DomeniaMemberValue $freshness 'Index') -Observations (Get-DomeniaMemberValue $freshness 'Observations') -ComputedAtUtc (Get-DomeniaMemberValue $freshness 'ComputedAtUtc')
+    [void](Set-DomeniaControlText 'LblFleetDashboard' ($summary.ObservationsText+"`n"+$summary.ComputedText))
     [void](Save-DomeniaFleetSnapshot -Scope $scope -Board $board)
     try { Update-DomeniaFirstSteps } catch { }
     # Data changed while computing (analysis or base saved meanwhile): computed again while Accueil is shown.

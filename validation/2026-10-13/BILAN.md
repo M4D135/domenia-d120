@@ -106,3 +106,16 @@ Les identifiants de tests, fichiers sources, résultats et limites détaillées 
 - [Comparaison des archives et des sources](query-navigation/archive-source-review.json), [rapport de construction](query-navigation/build-report.json) et [revue de code](query-navigation/code-review.json).
 
 Les registres et rapports détaillés conservent les commandes, plateformes, limites et identités des archives. Le [reçu GitHub](query-navigation/github-packs.json) atteste la publication des deux packs ; les tentatives précédentes restent conservées.
+
+
+## Actualisation par OU — RC1.17.4
+
+| Point | État et preuve |
+|---|---|
+| Séparer AD local, relevé des postes et recalcul | Raccordé : trois actions identiques dans Accueil et Recherche, OU et sous-OU explicites. |
+| Fraîcheur sans rajeunissement artificiel | Raccordé : provenance du même instantané SQLite, horloges AD/ping/WMI/calcul distinctes, couverture N/M. |
+| Enchaînement fiable | Raccordé : reçu propre à l’opération, erreurs et annulations empêchent la suite. |
+| Réponse ancienne après sauvegarde | Corrigé : résultat périmé écarté avant rendu. |
+| Validation Windows de cette passe | Non exécutée : PC éteint, recette prise en charge par l’utilisateur. |
+
+[Contrôles locaux et limites](ou-refresh/qualification.json) · [Recette proposée](ou-refresh/RECETTE.md).

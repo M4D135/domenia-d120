@@ -43,7 +43,12 @@ Ces étapes mettent Domenia 1.0 en service sur un poste d'administration. Chaque
 
 La page « Rechercher » lit l'annuaire à la demande ; elle ne sonde aucun poste avant un geste explicite. Deux modes coexistent : la recherche globale du bandeau, qui ignore l'OU et les filtres, et le contenu d'une OU choisie dans l'arbre, avec ses filtres. Les relevés sur une liste partent après confirmation, avec 1 à 8 postes en parallèle selon le réglage.
 
-![Page Rechercher : l'arbre des OU à gauche, le périmètre et les filtres, puis la liste des postes et des utilisateurs avec leur présence réseau et l'utilisateur console](fig:recherche)
+| Zone de Rechercher | Utilisation |
+|---|---|
+| Arbre des OU | Choisissez la branche à parcourir et relisez son chemin. |
+| Données de l’OU, sous l’arbre | Base locale, Postes (ping/WMI) et Les deux actualisent toute l’OU choisie et ses sous-OU. |
+| Périmètre et Requêtes | Choisissez une source, des filtres ou une recette, puis lancez la recherche. |
+| Résultats | Triez, filtrez et ouvrez les objets affichés. Les actions de liste concernent cette liste. |
 
 ## Recherche globale
 
@@ -109,6 +114,12 @@ Les confirmations s'affichent dans la page, sans nouvelle fenêtre ; Échap choi
 
 > [!ATTENTION] Préparez un périmètre explicite et relisez le nombre de cibles avant chaque collecte.
 
+## Actualiser les données de l’OU
+
+Sous l’arbre de Rechercher, « Données de l’OU » reprend l’unité choisie dans cet arbre, même lorsque la liste montre une recherche globale. « Base locale », « Postes (ping/WMI) » et « Les deux » portent toujours sur cette OU et ses sous-OU. Les filtres, la limite de lignes et le réglage de profondeur de la liste ne changent pas leur cible. Le chemin annoncé fait foi ; sans OU explicite, aucune de ces actions ne démarre. Le chapitre 8 décrit leur enchaînement et les trois dates à distinguer.
+
+Pinger, Détecter et Analyser la liste gardent leur cible propre : les postes affichés après filtrage. « Actualiser » dans les résultats relance leur lecture ; cette commande ne remplace pas une mise à jour de la base ou un relevé WMI de toute l’OU.
+
 ## Requêtes Annuaire et données locales
 
 La zone « Requêtes » réunit les vues LDAP de l’annuaire, les 152 modèles locaux et les recettes personnelles. Le champ de recherche ignore les accents et la casse. L’étoile épingle la sélection ; « Favoris » filtre le catalogue. Jusqu’à 200 favoris sont conservés dans les préférences personnelles. Choisir une ligne, filtrer le catalogue ou changer l’état proposé ne lance aucune lecture : cliquez sur « Exécuter ».
@@ -120,7 +131,7 @@ La zone « Requêtes » réunit les vues LDAP de l’annuaire, les 152 modèles 
 
 Les deux sources utilisent l’OU choisie dans l’arbre de Rechercher et la profondeur affichée. Elles ne reprennent pas implicitement le périmètre du tableau de bord. L’exécution retire les anciennes intersections de la liste — type, présence, texte local et sélection de GUID — pour éviter qu’un filtre précédent ne masque le nouveau résultat.
 
-![Rechercher : recette locale, favori, source et périmètre explicites ; données fictives](fig:recherche-requetes)
+![Barre Requêtes : recherche locale du modèle, favoris, source et commande Exécuter ; données fictives](fig:recherche-requetes)
 
 Pour une requête locale, choisissez l’état puis cliquez sur « Exécuter » :
 
@@ -365,13 +376,30 @@ L’OU choisie et ses sous-OU limitent la vue. Le chemin cliquable permet de rem
 
 Vérifiez la couverture de la base, le nombre d'objets, la date de mise à jour et le statut complet ou partiel. L'absence d'un objet dans une liste limitée n'est pas une preuve de son absence de la base. La table locale présente 200 postes par page avec un total calculé sur tous les résultats.
 
-![Accueil : périmètre autonome du parc, couverture de la base et indicateurs ; données fictives](fig:accueil)
 
 Le sélecteur intégré présente un arbre des OU et un champ de recherche. Les branches sont classées par nom dans l’ordre alphabétique français ; la barre verticale permet de les parcourir. Dépliez les branches ou recherchez un nom, puis distinguez les homonymes par leur chemin avant de confirmer.
 
 ![Choix du périmètre : arbre des OU, recherche et chemin de la sélection ; données fictives](fig:selecteur-ou)
 
 « Ouvrir dans Rechercher » transmet les postes recensés du périmètre, y compris les comptes désactivés. Cette action retire les filtres résiduels de la liste de recherche, notamment une ancienne sélection de requête ; elle permet ensuite d’utiliser les commandes de liste sur la cible annoncée.
+
+## Trois commandes pour actualiser l’OU
+
+Accueil et Rechercher proposent les mêmes actions. Elles utilisent le choix d’OU de leur écran sans modifier les choix des autres pages. Chaque action couvre cette OU et ses sous-OU ; la profondeur et les filtres de la liste de Recherche restent inchangés. Une OU explicite est obligatoire : aucune expansion silencieuse à tout le domaine.
+
+| Commande | Population | Travail effectué |
+|---|---|---|
+| Base locale | Objets AD de l’OU et de ses sous-OU | Lecture de l’annuaire puis enregistrement local. Une lecture complète rapproche les absences uniquement dans ce sous-arbre ; les autres branches sont conservées. |
+| Postes (ping/WMI) | Comptes ordinateur actifs déjà recensés dans cette branche | Ping, console, inventaire léger et sondes WMI des widgets Général/Poste forcés, après confirmation du nombre de cibles. |
+| Les deux | Branche AD, puis comptes ordinateur actifs du recensement obtenu | Même mise à jour de la base, puis même relevé des postes après confirmation du stockage réussi. |
+
+Le relevé des postes ignore les filtres et limites de résultats. Il conserve le parallélisme borné configuré pour la collecte, mais relit les mesures demandées au lieu de les réutiliser à cause de leur âge. Les sondes des widgets configurés sur les tableaux Général et Poste sont dédoublonnées ; leur plan est fixé au clic initial, avant la phase AD et la confirmation. Modifier un widget pendant la passe ne change pas les lectures déjà préparées. Les comptes désactivés restent consultables et ne sont pas sondés. Si le recensement est ancien ou incomplet, « Les deux » permet de le relire avant de préparer les cibles.
+
+L’enchaînement de « Les deux » attend le reçu d’enregistrement complet de sa propre lecture AD. Un résultat LDAP reçu ne suffit pas. Une passe partielle, un échec de stockage, un arrêt ou un changement de session, de base ou d’OU cible empêche le lancement de la phase suivante. Une nouvelle tentative d’enregistrement automatique ne doit pas relancer la collecte annulée. Les données déjà validées restent conservées ; un échec de mesure conserve les dernières valeurs réussies et leur date, avec un état d’échec distinct.
+
+« Arrêter » coupe les nouveaux départs et l’enchaînement. La progression distingue la lecture AD, l’enregistrement et le relevé des postes. Relisez son bilan et les erreurs par poste avant de conclure que toute la branche est à jour.
+
+Le bouton « Recalculer la vue » prépare uniquement l’affichage depuis les données locales. Il ne contacte ni AD ni les postes et ne modifie aucune date de lecture.
 
 ## Calculs en arrière plan
 
@@ -383,10 +411,16 @@ Les observations détaillées restent dans SQLite. La préparation d'une collect
 
 | Source | Informations | Actualisation |
 |---|---|---|
-| Annuaire indexé | Identité, OU, compte actif, système déclaré, dates AD | « Mettre à jour lʼOU choisie » dans Base autonome. |
-| Présence et console | Ping, utilisateur ouvert sur l'écran physique | Collecte ciblée ou vérification explicite du poste. |
-| Inventaire | Modèle, mémoire, disque C, système mesuré, démarrage | Analyse du poste ou de la liste. |
-| Sondes | Informations du catalogue WMI | Actualiser les requêtes ou analyser la liste concernée. |
+| Annuaire indexé | Identité, OU, compte actif, système déclaré, dates AD | « Base locale », « Les deux » ou « Mettre à jour lʼOU choisie » dans Base autonome. |
+| Présence et console | Ping, utilisateur ouvert sur l'écran physique | « Postes (ping/WMI) », « Les deux », collecte ciblée ou vérification du poste. |
+| Inventaire | Modèle, mémoire, disque C, système mesuré, démarrage | « Postes (ping/WMI) », « Les deux » ou analyse ciblée. |
+| Sondes | Informations du catalogue WMI | Postes (ping/WMI) pour les sondes des widgets configurés, ou collecte ciblée. |
+
+Trois horloges restent distinctes : la dernière lecture complète AD couvrant l’OU, les dates réelles des mesures de chaque poste, et l’heure du calcul local de la vue. La date d’un calcul ou d’une mesure récente sur un seul poste ne décrit pas la fraîcheur de toute la branche. Une lecture AD partielle garde la date complète précédente et affiche séparément la tentative.
+
+Le bandeau « Postes actifs : ping N/M (du… au…) · inventaire WMI N/M (du… au…) » rapporte les observations utilisables au nombre de comptes actifs recensés. Chaque intervalle va de la plus ancienne à la plus récente des mesures utilisables de cette famille. Une mesure absente, expirée ou sans date exploitable ne reçoit pas la date AD ou celle du ping en remplacement. Une profondeur de couverture non attestée ou une date future reste signalée au lieu de faire paraître la base récente.
+
+Pour le ping, la date affichée correspond au relevé de présence qui comprend cette vérification. Le lecteur natif ne fournit pas d’horodatage séparé de la réponse ICMP ; cette date ne doit pas servir à mesurer cet instant précis.
 
 Chaque famille conserve sa propre date. Un ping réussi ne rend pas frais l'inventaire matériel ; une erreur de console ne remplace pas une mesure par zéro. Une absence confirmée de session efface l'utilisateur courant, tandis qu'un échec de lecture garde l'observation précédente avec son contexte.
 
@@ -487,6 +521,8 @@ Une nouvelle création avec la même recette et la même destination met à jour
 
 ## Régler et suivre la collecte
 
+Les réglages ci-dessous concernent la collecte sélective d’une requête. Les commandes générales « Postes (ping/WMI) » et « Les deux » forcent le ping, la console, l’inventaire léger de l’OU et les sondes des widgets configurés sans leur appliquer cette réutilisation des mesures.
+
 Dans « Composer la requête », « Collecter les données requises… » confirme le nombre de postes et utilise le compte des opérations poste. La collecte traite tous les comptes actifs du périmètre, indépendamment des conditions qui réduisent les résultats de la requête. Pour limiter la collecte, choisissez une OU plus précise ou l’action d’un seul poste dans sa fiche locale. L’encadré « Réglages de collecte » propose 1, 2, 4, 6 ou 8 postes simultanés, avec 4 par défaut. La réutilisation des mesures propose une ancienneté maximale de 5, 15 ou 60 minutes, ou une relecture forcée. Les mesures volatiles conservent leur délai propre ; le choix d'une heure n'impose pas une heure de cache à toutes les sondes.
 
 Le plan de collecte est calculé à partir des conditions, des restrictions et du champ de regroupement. « Collecter les données requises… » et l’actualisation des requêtes des widgets partagent ce plan.
@@ -498,7 +534,7 @@ Le plan de collecte est calculé à partir des conditions, des restrictions et d
 | Modèle, mémoire, disque C:, durée depuis le démarrage, âge de l’inventaire ou version Windows relevée | Inventaire léger. |
 | Sondes du catalogue | Union des sondes demandées, sans doublon. |
 
-« Actualiser ce poste… » dans la fiche locale d’un résultat reste une action distincte qui prépare un inventaire léger de ce poste après confirmation. « Relever ce périmètre », dans l’aide du tableau de bord, demande un inventaire léger des comptes actifs de l’OU choisie ; cette commande ne dépend pas du brouillon de l’Atelier. Les collectes du parc nécessitent une OU explicitement choisie et une vue locale correspondant à ce périmètre.
+« Actualiser ce poste… » dans la fiche locale d’un résultat reste une action distincte qui prépare un inventaire léger de ce poste après confirmation. « Postes (ping/WMI) » relit le ping, la console et l’inventaire léger des comptes actifs de l’OU et de ses sous-OU, ainsi que les sondes des widgets configurés. Son plan est figé au clic et ne dépend pas du brouillon de l’Atelier. Les collectes du parc nécessitent une OU explicitement choisie et une vue locale correspondant à ce périmètre.
 
 Le moteur regroupe les sondes WMI d’un poste par classe et filtre, puis demande l’union de leurs propriétés pour réutiliser la lecture. Les filtres restent distincts. Un comptage porte sur toutes les instances lues même si le détail conservé est limité à vingt lignes ; l’inventaire et la lecture de la console conservent leurs lectures propres. Une lecture lente ou refusée n'empêche pas les autres créneaux d'avancer. L'arrêt interdit les nouveaux départs et conserve les résultats déjà obtenus. La progression distingue la collecte du stockage local : attendez les enregistrements avant de conclure que la passe est terminée.
 
@@ -527,6 +563,8 @@ Les trois tableaux de bord sont faits de widgets : chaque tuile ou graphique se 
 | Bouton | Quand | Effet |
 |---|---|---|
 | « Actualiser les requetes » | Tableau du poste, si au moins un widget de requête est présent. | Prépare les lectures requises par les widgets pour le poste sélectionné, en lecture seule et après confirmation. Une recette fondée uniquement sur AD renvoie vers la mise à jour de la base. Sur le parc, ouvrez le détail de la sonde puis collectez depuis l’Atelier, ou utilisez Analyser la liste. |
+| « Recalculer la vue » | Tableau du parc. | Relit les données locales et recalcule les widgets ; aucune nouvelle lecture AD, ping ou WMI. |
+| « Base locale », « Postes (ping/WMI) », « Les deux » | Tableau du parc ou Données de l’OU dans Rechercher. | Actualisent la source choisie pour l’OU et ses sous-OU, selon le parcours du chapitre 8. |
 | « Ajouter un widget » | Toujours. | Ouvre l'éditeur. |
 | « Personnaliser » | Hors personnalisation. | Passe en mode personnalisation. |
 | « Par defaut » | En personnalisation. | Revient à la disposition livrée, sans confirmation mais annulable. |
@@ -1416,7 +1454,7 @@ Dans l’onglet « Stockage », dépliez « Emplacement et sauvegarde » pour af
 
 ## Mettre à jour la base
 
-Le choix d’OU, placé au-dessus des onglets, règle « Mise à jour » et « Données ». « Stockage » agit sur la base locale entière : les sauvegardes et purges ne sont pas limitées à cette OU. Utilisez « Choisir une OU », puis « Mettre à jour lʼOU choisie » dans l’onglet « Mise à jour ». Une unité organisationnelle doit être choisie ; ses sous-OU sont incluses. La cible est propre à cet outil et ne modifie pas Rechercher. Relisez le chemin affiché avant de lancer une opération.
+La même lecture AD peut être lancée avec « Base locale » depuis Accueil ou Rechercher pour l’OU annoncée sur cet écran. Elle ne relève ni le ping ni WMI. Dans Base autonome, le choix d’OU, placé au-dessus des onglets, règle « Mise à jour » et « Données ». « Stockage » agit sur la base locale entière : les sauvegardes et purges ne sont pas limitées à cette OU. Utilisez « Choisir une OU », puis « Mettre à jour lʼOU choisie » dans l’onglet « Mise à jour ». Une unité organisationnelle doit être choisie ; ses sous-OU sont incluses. La cible est propre à cet outil et ne modifie pas Rechercher. Relisez le chemin affiché avant de lancer une opération.
 
 | Onglet | Usage |
 |---|---|
@@ -1432,13 +1470,18 @@ La mise à jour n’est jamais automatique. Si la base est plus ancienne que Ind
 
 Dans « Mise à jour », dépliez « Détails du stockage et de la synchronisation » pour relire le fichier local, le contrôleur et le repère de suivi.
 
-![Copie locale : détails du stockage et de la synchronisation dépliés ; données fictives](fig:base-details)
+| Information de la base locale | Ce qu’il faut vérifier |
+|---|---|
+| Nombre d’objets | Utilisateurs et postes recensés dans le périmètre annoncé, y compris les comptes désactivés. |
+| Lecture complète AD | Date d’une lecture réussie couvrant l’OU et ses sous-OU. Une date d’OU parente peut couvrir ce périmètre. |
+| Tentative incomplète | L’avertissement reste distinct de la dernière date complète. Relisez le bilan avant de relancer. |
+| Détails du stockage | Fichier local et contrôleur utilisés ; ces repères ne décrivent pas l’âge des mesures des postes. |
 
 ## Suivre la progression et la fraîcheur
 
 L’onglet « Mise à jour » regroupe la commande, « État de la copie locale », les dates et la progression. L’onglet « Données » réserve la place aux résultats, avec ses filtres et boutons de pagination. Les sauvegardes et la maintenance sont accessibles dans « Stockage ».
 
-La lecture de l’annuaire et l’enregistrement dans SQLite sont deux phases distinctes. Les compteurs affichent les objets lus, les lots écrits et les éventuels refus ou délais dépassés. La fraîcheur du périmètre repose sur sa dernière lecture complète ou celle d’une OU parente qui le couvre ; le chemin couvert reste indiqué. Une tentative partielle ne remplace pas cette date et demeure signalée. Attendez la confirmation finale du stockage avant de considérer la base à jour.
+La lecture de l’annuaire et l’enregistrement dans SQLite sont deux phases distinctes. Les compteurs affichent les objets lus, les lots écrits et les éventuels refus ou délais dépassés. La fraîcheur AD du périmètre repose sur sa dernière lecture complète ou celle d’une OU parente qui le couvre ; le chemin couvert reste indiqué. Une tentative partielle ne remplace pas cette date et demeure signalée. Attendez la confirmation finale du stockage avant de considérer la base à jour. Cette date ne décrit ni le ping ni WMI ; « Les deux » attend précisément ce stockage avant de préparer le relevé des postes.
 
 La lecture est transférée dans un flux local contrôlé, puis intégrée par transactions de 256 objets. Les objets sont suivis par GUID : un renommage ou un déplacement conserve l’identité. Une lecture complète d’OU rapproche les absences uniquement dans son sous-arbre ; les autres OU restent intactes. Si la lecture ou le recensement est partiel, les objets effectivement lus sont fusionnés, mais aucun absent n’est retiré et ni le repère ni la date complète ne progressent. Les fiches et mesures enregistrées plus récemment pendant la lecture sont préservées lors de la fusion. Ces retraits concernent l’index local : ils ne suppriment rien dans AD, ni les associations manuelles ou les relevés conservés.
 
@@ -1446,7 +1489,12 @@ L’onglet « Données » utilise l’OU choisie en haut de l’outil, un filtre
 
 Un clic sur un en-tête trie tous les résultats du périmètre filtré avant la pagination ; un second clic inverse le sens. « Tri par pertinence » revient au classement initial. Les colonnes « Connexion AD » et « Modifié dans AD » suivent l’ordre chronologique, avec les dates inconnues en fin de liste. La colonne Association, calculée à l’affichage, ne se trie pas.
 
-![Relecture de l’OU choisie : compteurs et phase de progression ; données fictives](fig:base-progression)
+| Phase affichée | Ce qui se passe |
+|---|---|
+| Lecture AD | Les objets arrivent depuis l’annuaire ; le total définitif peut être encore inconnu. |
+| Enregistrement local | Les lots sont écrits dans la base. Recevoir un objet ne prouve pas encore son stockage. |
+| Terminé | Le bilan confirme les écritures. Avec Les deux, le relevé des postes peut ensuite être préparé. |
+| Partiel, interrompu ou erreur | La phase suivante ne démarre pas. Les données déjà enregistrées sont conservées. |
 
 ## Limites des caches et de la base
 
@@ -1671,7 +1719,6 @@ Ce chapitre donne les sources utiles pour maintenir Domenia 1.0 et reconstruire 
 - Après une modification d’un fichier runtime, reconstruisez le PROD avec tools\Fabriquer-Prod.ps1, ou régénérez les paquets de référence avec tools\build_packages.py. Sans manifestes à jour, Domenia-Start.ps1 refuse le démarrage.
 - Après une modification d'un worker, mettez à jour le registre (chapitre 15) et vérifiez les opérations concernées avec les suites du pack DEV.
 - Chaque nouvelle livraison change le Build du contrat (chapitre 16).
-
 
 
 ## Documents du dépôt et du pack DEV

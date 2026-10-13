@@ -310,6 +310,7 @@ function Complete-DomeniaStorageWork {
           $complete=($null -eq $saved.Row.PSObject.Properties['Complete'] -or [bool]$saved.Row.Complete)
           $scope=if($null -ne $saved.Row.PSObject.Properties['SyncScope']){[string]$saved.Row.SyncScope}else{'directory'}
           if($complete -and $scope -eq 'directory'){Set-DomeniaIndexPartial -Clear}
+          if($null -ne $saved.Row.PSObject.Properties['RefreshOperationId'] -and [string]$saved.Row.RefreshOperationId){Complete-DomeniaOuRefreshCommit -Item $saved}
         }
         try{[void](Load-DomeniaIndexMetadata);Update-DomeniaIndexStats}catch{}
         $walkSaved=@($indexItems|Where-Object{$null -ne $_.Row.PSObject.Properties['WalkStep'] -and [bool]$_.Row.WalkStep})
@@ -338,6 +339,8 @@ function Fail-DomeniaStorageWork {
     if($null -eq $script:Persistence){return}
     $script:Persistence|Add-Member -NotePropertyName InFlightItems -NotePropertyValue @() -Force
     $items=@();if($null -ne $State){$items=@($State.Items)}
+    # An automatic save retry may preserve the base, but must never launch a remote follow-up after a failed receipt.
+    foreach($item in $items){if($item.Kind -eq 'IndexBulk' -and $null -ne $item.Row -and $null -ne $item.Row.PSObject.Properties['RefreshOperationId'] -and [string]$item.Row.RefreshOperationId){Fail-DomeniaOuRefresh -OperationId ([string]$item.Row.RefreshOperationId) -Message ('Écriture locale non confirmée : '+[string]$Message)}}
     $isImport=@($items|Where-Object{$_.Kind -eq 'LegacyImport'}).Count -gt 0
     if($isImport){
         $script:Persistence.Job='';$script:Persistence.InFlight=0

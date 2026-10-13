@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "product": "Domenia",
+  "version": "1.0",
+  "build": "2026.10.13-DOMENIA-1.0-RC1.17.3-D120",
+  "source_base_commit": "443b999c61be5a2100e1f3fa4d18a55eb305456a",
+  "archives": [
+    {
+      "edition": "PROD",
+      "path": "packs/Domenia_PROD.zip",
+      "bytes": 2087747,
+      "sha256": "b91c950cb6f33cb848cc2afc4fc57468982ba59ddb2b84a7413ba717f52acc54",
+      "files": 93,
+      "archive_files_including_manifest": 94,
+      "archive_root": "prod/"
+    },
+    {
+      "edition": "DEV",
+      "path": "packs/Domenia_DEV.zip",
+      "bytes": 4357336,
+      "sha256": "fffc258b7715eac4d57d19817336262ff827ce455d90aea0e32a7cc35653dd44",
+      "files": 388,
+      "archive_files_including_manifest": 389,
+      "archive_root": "dev/"
+    }
+  ],
+  "runtime_files_identical": 93,
+  "qualification": {
+    "windows_proof": "validation/2026-10-13/query-navigation/qualification.json",
+    "scope": "Windows PowerShell 5.1 x64 STA, données fictives, WPF session 0 ; qualification AD réelle non effectuée.",
+    "formal_windows_qualification": "NOT_EVALUATED",
+    "formal_publishable": false,
+    "windows_suites_passed": 63,
+    "test_files": 59,
+    "additional_helpers": 4,
+    "documentation_proof": "validation/2026-10-13/query-navigation/documentation-qa.json",
+    "interactive_gui": "BLOCKED_MAC_LOCKED",
+    "interactive_proof": "validation/2026-10-13/query-navigation/interactive-gui.json"
+  }
+}

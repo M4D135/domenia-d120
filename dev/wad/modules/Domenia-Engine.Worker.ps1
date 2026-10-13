@@ -288,12 +288,18 @@ try {
         if ((-not $observationsOnly) -and $tables.ContainsKey('fleet_snapshots') -and [string]$Payload.ScopeKey) {
             $history = @(Invoke-IdxWQuery $db ('SELECT snapshot_day AS day, figures FROM fleet_snapshots WHERE scope_key = ' + (Get-IdxWLiteral ([string]$Payload.ScopeKey)) + ' AND snapshot_day >= ' + (Get-IdxWLiteral ([string]$plan.HistorySince)) + ' ORDER BY snapshot_day;'))
         }
+        # Dates and population come from the same SQLite snapshot, never from mutable UI metadata or computation time.
+        $syncStates=@{}
+        if($tables.ContainsKey('sync_state')){foreach($sync in @(Invoke-IdxWQuery $db "SELECT scope,base_dn,last_sync,details FROM sync_state WHERE scope='directory' OR scope LIKE 'ou:%' OR scope LIKE 'attempt:%';")){$syncStates[[string]$sync.scope]=$sync}}
+        $snapshotAtUtc=[datetime]::UtcNow.ToString('o')
         [void](Invoke-IdxWQuery $db 'COMMIT;')
-        $result=[pscustomobject]@{ Rows=@(); Busy=$false; Missing=$false; MachineCount=$active; ObservationRejected=$observationRejected; Scope=$scope; Subtree=$subtree; Types=$types; Groups=$groups.ToArray(); Machines=$machines.ToArray(); Targets=$targets.ToArray(); Parents=$parents; Coverage=$coverage; Links=$links; LinkSources=$sources; Presence=$presence.ToArray(); History=$history }
+        $domainDn=if($null -ne $Payload.PSObject.Properties['DomainDn']){[string]$Payload.DomainDn}else{''}
+        $result=[pscustomobject]@{ Rows=@(); Busy=$false; Missing=$false; MachineCount=$active; ObservationRejected=$observationRejected; Scope=$scope; Subtree=$subtree; Types=$types; Groups=$groups.ToArray(); Machines=$machines.ToArray(); Targets=$targets.ToArray(); Parents=$parents; Coverage=$coverage; Links=$links; LinkSources=$sources; Presence=$presence.ToArray(); History=$history; SyncStates=$syncStates; SnapshotAtUtc=$snapshotAtUtc; DomainDn=$domainDn }
         if(-not $observationsOnly -and $null -ne $Payload.PSObject.Properties['ComputeBoard'] -and [bool]$Payload.ComputeBoard){
             # Aggregation over thousands of observations stays in the worker, never in the WPF callback.
             foreach($module in @('Domenia-Common.Model.ps1','Domenia-Boards.Model.ps1','Domenia-BoardFleet.Model.ps1')){. (Join-Path ([string]$Payload.ModuleRoot) $module)}
             $board=Get-DomeniaFleetBoardData -Result $result -Scope $scope -Subtree $subtree -Now ([datetime]::Parse([string]$plan.NowUtc,[Globalization.CultureInfo]::InvariantCulture)) -Lifecycle $Payload.Lifecycle -ObservationMaxAgeDays ([int]$Payload.ObservationMaxAgeDays) -IndexPartial ([string]$Payload.IndexPartial)
+            $board.Freshness.ComputedAtUtc=[datetime]::UtcNow
             $result|Add-Member -NotePropertyName Board -NotePropertyValue $board
         }
         $result

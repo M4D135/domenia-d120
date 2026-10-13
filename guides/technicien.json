@@ -15,7 +15,7 @@
     ],
     [
       "Ce que couvre ce guide",
-      "Recherche, fiches, assistance, tableaux de bord, Atelier de requêtes, collecte et lecture des données."
+      "Recherche, fiches, assistance, tableaux de bord, Atelier de requêtes, actualisation de l’OU et lecture des dates AD et des mesures des postes."
     ],
     [
       "Version décrite",
@@ -37,10 +37,6 @@
         "w": 434,
         "h": 411
       }
-    },
-    "recherche": {
-      "file": "images/recherche.png",
-      "width": 16
     },
     "recherche-actions": {
       "file": "images/recherche-actions.png",
@@ -88,10 +84,6 @@
       "file": "images/logiciels.png",
       "width": 16
     },
-    "accueil": {
-      "file": "images/accueil.png",
-      "width": 16
-    },
     "atelier-requetes": {
       "file": "images/atelier-requetes.png",
       "width": 16
@@ -103,16 +95,6 @@
     "base-autonome": {
       "file": "images/base-autonome.png",
       "width": 16
-    },
-    "base-progression": {
-      "file": "images/base-progression.png",
-      "width": 16,
-      "crop": {
-        "x": 250,
-        "y": 408,
-        "w": 1625,
-        "h": 160
-      }
     },
     "selecteur-ou": {
       "file": "images/selecteur-ou.png",
@@ -194,16 +176,6 @@
         "h": 107
       }
     },
-    "base-details": {
-      "file": "images/base-details.png",
-      "width": 16,
-      "crop": {
-        "x": 260,
-        "y": 408,
-        "w": 1080,
-        "h": 147
-      }
-    },
     "base-commandes": {
       "file": "images/base-mise-a-jour.png",
       "width": 16,
@@ -276,7 +248,13 @@
     },
     "recherche-requetes": {
       "file": "images/recherche-requetes.png",
-      "width": 16
+      "width": 16,
+      "crop": {
+        "x": 516,
+        "y": 296,
+        "w": 1380,
+        "h": 72
+      }
     },
     "recherche-inconnus": {
       "file": "images/recherche-inconnus.png",
