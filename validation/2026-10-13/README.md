@@ -10,6 +10,8 @@ Guides v1.0 Word/PDF à jour : technicien 28 pages, administrateur 70 pages. 70 
 
 [Revue et recette](search-progress/REVIEW.md) · [Résultats](search-progress/qualification.json) · [Contrôle documentaire](search-progress/documentation-qa.json) · [Manifestes des packs](../../packs/manifest.json)
 
+Publication RC1.17.6 : commit `fb03e2b16a490d1145923629986f8cd76b0a5b53` poussé sur `master`. Les deux ZIP retéléchargés depuis ce commit correspondent aux tailles et SHA-256 livrés ([preuve GitHub](search-progress/github-packs.json)).
+
 ## Délai de recherche et liste partielle — RC1.17.5
 
 Le dépassement de 45 secondes observé dans le journal n’établit pas une panne AD. Le bandeau affiche désormais « Dernière requête AD : délai dépassé » en avertissement ; une véritable erreur réseau conserve le mode hors ligne et les protections associées. Une lecture AD réussie rétablit la connexion affichée.
