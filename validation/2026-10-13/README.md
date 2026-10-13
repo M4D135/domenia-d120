@@ -10,6 +10,8 @@ Contrôles locaux : 14 cas/58 assertions pour l’état AD et le callback, 12 ca
 
 [Revue et retour utile](ad-timeout/REVIEW.md) · [Résultats](ad-timeout/qualification.json) · [Manifestes des packs](../../packs/manifest.json)
 
+Publication : commit `638d0c9123271ca07e5db53fd519b7a1a7ce2df0` poussé sur `master`. Les ZIP retéléchargés depuis ce commit correspondent aux empreintes livrées ([preuve](ad-timeout/github-packs.json)). Les guides DOCX/PDF conservent 97 pages : dix pages modifiées relues, 87 identiques aux rendus précédemment vérifiés ([preuve documentaire](ad-timeout/documentation-qa.json)).
+
 ## Actualisation de l’OU — RC1.17.4
 
 | Action | Effet |
