@@ -23,6 +23,10 @@ Les dates AD, des relevés ping/WMI et du calcul sont distinctes. La couverture 
 
 [Résultats et limites](ou-refresh/qualification.json) · [Revue du code](ou-refresh/REVIEW.md) · [Manifeste des packs](../../packs/manifest.json)
 
+### Publication
+
+Le commit `d583a2db33e584410854548f19149ddbaedd24d4` a été poussé sur `master`. Les deux ZIP ont été retéléchargés depuis GitHub à ce commit : tailles et SHA-256 conformes au manifeste ([preuve](ou-refresh/github-packs.json)). Les guides technicien et administrateur DOCX/PDF sont inclus ; leurs 97 pages ont été relues ([preuve documentaire](ou-refresh/documentation-qa.json)).
+
 ### Validation Windows à effectuer
 
 Le PC de test étant éteint, l’utilisateur a choisi de tester lui-même cette révision. **Aucune nouvelle campagne Windows, WPF, SQLite natif ou AD réel n’est revendiquée.** Les contrôles PowerShell 7 ne valent pas qualification Windows PowerShell 5.1. La campagne préparée et les captures sont conservées dans [le dossier de reprise](ou-refresh/r1/).
