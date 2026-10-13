@@ -70,3 +70,7 @@ Les essais de charge utilisent des données fictives et les contrôles d’affic
 Ils ne remplacent pas une recette sur un domaine AD réel. Le callback de 551 ms fourni sans nom d’opération
 ne permet pas de reproduire exactement l’événement utilisateur : les corrections réduisent le travail inutile
 et ajoutent les informations nécessaires pour identifier les retours qui restent lents.
+
+## Publication vérifiée
+
+Le commit `abc400f93263dc4ec11691e7ac5f89bd3e2dde56` a été poussé sur `master`. Les deux archives DEV/PROD téléchargées depuis GitHub correspondent exactement au manifeste local par taille et SHA-256 : [reçu de vérification](query-navigation/github-packs.json). La recette humaine reste bloquée et le domaine réel non qualifié.

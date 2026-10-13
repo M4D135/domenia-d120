@@ -1,6 +1,6 @@
 # Domenia 1.0 — bilan des améliorations
 
-**État au 13 octobre 2026, après la réussite de la campagne R6 et avant publication.** Ce bilan reprend les titres des [30 points initiaux et 12 demandes complémentaires](../2026-10-12/completion-ledger-20261012.json), puis les [11 points de la passe actuelle](completion-ledger.json).
+**État au 13 octobre 2026, après publication sur `master` et vérification des archives GitHub au commit `abc400f`.** Ce bilan reprend les titres des [30 points initiaux et 12 demandes complémentaires](../2026-10-12/completion-ledger-20261012.json), puis les [11 points de la passe actuelle](completion-ledger.json).
 
 **Réalisé** signifie que le code ou le livrable existe. Cela ne signifie pas que le domaine réel, toutes les machines ou le parcours humain sont qualifiés. Les contrôles indiqués pour les points initiaux sont ceux référencés dans leur registre ; la campagne R6 apporte une validation Windows hors ligne distincte, sur données synthétiques.
 
@@ -13,7 +13,7 @@
 | B01 à B07 | Réalisés | Validés hors ligne par la campagne R6 ; domaine réel et parcours humain non qualifiés. |
 | B08 | Campagne exécutée | R6 : **63 étapes réussies sur 63**, sans dépassement de délai ni modification du runtime. R5 reste une campagne distincte en échec à 62/63, sur les mêmes ZIP. |
 | B09 | Quatre guides Word/PDF terminés | **96 pages relues** : 28 technicien et 68 administrateur ; 33 figures par guide. |
-| B10 | Packs classiques RC1.17.3 préparés | Packs stables et manifeste actualisés localement ; commit, push et vérification GitHub encore à effectuer. |
+| B10 | Packs classiques RC1.17.3 publiés | Commit `abc400f` poussé sur `master` ; les deux archives téléchargées depuis GitHub correspondent exactement aux SHA-256 testés. |
 | B11 | Parcours humain prévu | **Bloqué : 0 scénario réussi sur 9**, Mac verrouillé. |
 
 ## Les 30 points initiaux
@@ -83,7 +83,7 @@ Les identifiants de tests, fichiers sources, résultats et limites détaillées 
 | B07 | Zoom stable et tableaux utilisables dans les petites surfaces | Réalisé | Validé hors ligne en R6 : zoom 150 %, retour à 100 % et options compactes, avec contrôles de géométrie WPF. |
 | B08 | Campagne exhaustive des suites Windows hors ligne | Terminée ; validée hors ligne | **63/63 étapes réussies** : Quick 27, Additional 12, AllOffline 23 et WiringRecherche (44 cas). 59 fichiers `Test-*.ps1` et 4 étapes auxiliaires ; aucun dépassement de délai ni runtime modifié, contrôle PROD `-CheckOnly` réussi. R5 reste en échec à 62/63 ; R6 utilise les mêmes archives, sans collecte invitée concurrente. |
 | B09 | Captures 1080p et guides Word/PDF v1.0 | Terminé | Quatre documents, 96 pages relues, 33 figures par guide. 34 images documentaires natives et 37 contrôles de capture ; données fictives, pas de recette humaine déduite. |
-| B10 | Packs classiques DEV/PROD, publication et vérification GitHub | RC1.17.3 préparé ; publication en attente | 93 fichiers runtime identiques entre DEV et PROD. Packs stables et manifeste actualisés localement ; commit, push et vérification de la publication GitHub encore à effectuer. |
+| B10 | Packs classiques DEV/PROD, publication et vérification GitHub | RC1.17.3 publié et vérifié | 93 fichiers runtime identiques entre DEV et PROD. Commit `abc400f` poussé sur `master` ; deux ZIP récupérés depuis GitHub et vérifiés par taille et SHA-256. [Reçu de publication](query-navigation/github-packs.json). |
 | B11 | Recette humaine à la souris dans la VM | Bloqué par le verrouillage du Mac | Aucun des 9 scénarios applicatifs exécuté : 0 réussite. Les captures hors écran et événements WPF ne remplacent pas cette recette. |
 
 ## Limites et reste à faire
@@ -93,7 +93,7 @@ Les identifiants de tests, fichiers sources, résultats et limites détaillées 
 - **Campagne R6 : réussite distincte.** Les 63 étapes ont réussi sur les mêmes ZIP que R5, sans collecte invitée concurrente. Les essais R4/R5 restent conservés ; aucune reconstruction du logiciel ni fusion des campagnes ne masque leurs échecs.
 - **Durée des callbacks : qualification limitée.** L’avertissement de 551 ms ne contenait pas le nom de l’opération et l’événement exact n’a pas été reproduit. Des métriques ont été ajoutées et le rendu des tableaux masqués a été différé ; le rendu d’un tableau visible conserve un coût réel. Ces changements ne garantissent pas que tous les callbacks passent sous le seuil d’avertissement de 120 ms.
 - **Recette humaine : bloquée.** Le verrouillage du Mac empêche le parcours à la souris ; les 9 scénarios restent non exécutés.
-- **Publication actuelle : en attente.** Les packs RC1.17.3 et leur manifeste sont préparés localement ; le commit, le push et la vérification GitHub restent à effectuer. Le statut formel `WindowsQualification` et le booléen `Publishable` doivent rester distincts des contrôles synthétiques.
+- **Publication actuelle : effectuée et vérifiée.** Les packs RC1.17.3 sont présents sur `master` au commit `abc400f` ; le téléchargement GitHub confirme les deux SHA-256. Le statut formel `WindowsQualification=NOT_EVALUATED` et le booléen `Publishable=false` restent inchangés : cette publication ne qualifie pas un domaine réel.
 - **Cache et ergonomie : limites explicites.** Mémoire, espace disque et rétention sont finis. Restauration manuelle documentée, sans assistant graphique ; qualification multi-écrans/DPI à chaud, lecteur d’écran et accessibilité complète non revendiquée.
 - **MWAD : abandon volontaire.** Le format d’archive custom a été annulé à la demande de l’utilisateur. La cible est bien constituée de deux packs classiques DEV/PROD ; aucun `domenia.wad` n’est attendu.
 
@@ -105,4 +105,4 @@ Les identifiants de tests, fichiers sources, résultats et limites détaillées 
 - [Contrôles documentaires et empreintes](query-navigation/documentation-qa.json) et [recette humaine non exécutée](query-navigation/interactive-gui.json).
 - [Comparaison des archives et des sources](query-navigation/archive-source-review.json), [rapport de construction](query-navigation/build-report.json) et [revue de code](query-navigation/code-review.json).
 
-Les registres et rapports détaillés conservent les commandes, plateformes, limites et identités des archives. Ce bilan sera actualisé avec le reçu de publication, sans réécrire les tentatives précédentes.
+Les registres et rapports détaillés conservent les commandes, plateformes, limites et identités des archives. Le [reçu GitHub](query-navigation/github-packs.json) atteste la publication des deux packs ; les tentatives précédentes restent conservées.

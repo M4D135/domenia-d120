@@ -2,7 +2,7 @@
   "schema_version": 1,
   "product": "Domenia",
   "documented_version": "1.0",
-  "status": "OFFLINE_VALIDATED_PENDING_PUSH_AND_INTERACTIVE",
+  "status": "DELIVERED_OFFLINE_VALIDATED_WITH_LIMITS",
   "source_base_commit": "443b999c61be5a2100e1f3fa4d18a55eb305456a",
   "previous_ledger": "validation/2026-10-12/completion-ledger-20261012.json",
   "previous_scope": {
@@ -71,7 +71,9 @@
     {
       "id": "B10",
       "title": "Packs classiques DEV/PROD, publication et vérification GitHub",
-      "status": "READY_TO_COMMIT_AND_PUSH"
+      "status": "DONE",
+      "evidence": "validation/2026-10-13/query-navigation/github-packs.json",
+      "delivery_commit": "abc400f93263dc4ec11691e7ac5f89bd3e2dde56"
     },
     {
       "id": "B11",
@@ -82,11 +84,11 @@
   ],
   "limits": [
     "Les tests synthétiques et WPF hors ligne ne prouvent pas la qualification d’un domaine réel de 5000 postes.",
-    "La durée utilisateur de551ms ne suffit pas à identifier ou reproduire son opération précise.",
+    "La durée utilisateur de 551 ms ne suffit pas à identifier ou reproduire son opération précise.",
     "CUA bloque les actions graphiques tant que le Mac est verrouillé ; aucune recette humaine revendiquée.",
-    "R5 : une erreur E_UNEXPECTED de chargement DLL avant les cas reste inexpliquée ; les diagnostics n’ont pas reproduit l’échec. La campagne distincte R6 a réussi63/63 sur les mêmes archives ; cette réussite ne prouve pas la correction de l’incident."
+    "R5 : une erreur E_UNEXPECTED de chargement DLL avant les cas reste inexpliquée ; les diagnostics n’ont pas reproduit l’échec. La campagne distincte R6 a réussi 63/63 sur les mêmes archives ; cette réussite ne prouve pas la correction de l’incident."
   ],
-  "updated_utc": "2026-10-13T01:51:00.889196+00:00",
+  "updated_utc": "2026-10-13T01:58:24.456602+00:00",
   "delivery": {
     "build": "2026.10.13-DOMENIA-1.0-RC1.17.3-D120",
     "archives": [
@@ -112,6 +114,10 @@
     "windows_steps_passed": 63,
     "document_pages_reviewed": 96,
     "manual_gui": "BLOCKED_MAC_LOCKED",
-    "formal_ad_qualification": "NOT_EVALUATED"
+    "formal_ad_qualification": "NOT_EVALUATED",
+    "publication_status": "PUSHED_AND_REMOTE_ARCHIVES_VERIFIED",
+    "delivery_commit": "abc400f93263dc4ec11691e7ac5f89bd3e2dde56",
+    "github_verification": "validation/2026-10-13/query-navigation/github-packs.json",
+    "github_verification_sha256": "0274b9b7532d1454560ac68b3bd5907506f673a81165aa55ebfa883745ff4311"
   }
 }
