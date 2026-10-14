@@ -192,3 +192,30 @@ Test-Case 'COL-013' 'Le decompte par etat couvre toute la population sans compte
     Assert-Equal '' (Format-DomeniaMeasureStates $all.Counts) 'etat inconnu invente'
     Assert-Equal 'Refusé' (Get-DomeniaMeasureStateLabel 'Refused');Assert-Equal 'En erreur' (Get-DomeniaMeasureStateLabel 'Inattendu')
 }
+# Point 2 : populations comparees.
+Test-Case 'COL-014' 'Deux chiffres ne se comparent que sur le meme domaine, perimetre, profondeur, types, criteres et instantane' {
+    $base=New-DomeniaPopulationDescriptor -DomainDn $script:ColDomain -ScopeDn $script:ColOu -Subtree $true -Types @('Machine') -Criteria 'comptes recensés' -StoreId 'store-1' -SnapshotRevision 12
+    Assert-Equal 'dc=example,dc=test' $base.DomainDn;Assert-Equal 64 $base.Key.Length
+    Assert-True ($base.Text -like 'comptes ordinateur · OU=Postes,DC=example,DC=test et ses sous-OU · comptes recensés · base locale, révision 12') $base.Text
+    $same=New-DomeniaPopulationDescriptor -DomainDn 'dc=EXAMPLE,dc=test' -ScopeDn $script:ColOu -Subtree $true -Types @('Machine','Machine') -Criteria 'comptes recensés' -StoreId 'store-1' -SnapshotRevision 12
+    Assert-Equal $base.Key $same.Key 'casse du domaine ou doublon de type change la population'
+    Assert-True (Compare-DomeniaPopulation $base $same).Same
+    $variants=@{
+        'périmètre'=(New-DomeniaPopulationDescriptor -DomainDn $script:ColDomain -ScopeDn $script:ColChild -Subtree $true -Types @('Machine') -Criteria 'comptes recensés' -StoreId 'store-1' -SnapshotRevision 12)
+        'profondeur'=(New-DomeniaPopulationDescriptor -DomainDn $script:ColDomain -ScopeDn $script:ColOu -Subtree $false -Types @('Machine') -Criteria 'comptes recensés' -StoreId 'store-1' -SnapshotRevision 12)
+        'types dʼobjets'=(New-DomeniaPopulationDescriptor -DomainDn $script:ColDomain -ScopeDn $script:ColOu -Subtree $true -Types @('Machine','Utilisateur') -Criteria 'comptes recensés' -StoreId 'store-1' -SnapshotRevision 12)
+        'critères'=(New-DomeniaPopulationDescriptor -DomainDn $script:ColDomain -ScopeDn $script:ColOu -Subtree $true -Types @('Machine') -Criteria 'comptes activés' -StoreId 'store-1' -SnapshotRevision 12)
+        'instantané de la base'=(New-DomeniaPopulationDescriptor -DomainDn $script:ColDomain -ScopeDn $script:ColOu -Subtree $true -Types @('Machine') -Criteria 'comptes recensés' -StoreId 'store-1' -SnapshotRevision 13)
+    }
+    foreach($name in @($variants.Keys)){
+        $compare=Compare-DomeniaPopulation $base $variants[$name]
+        Assert-False $compare.Same ('difference non vue : '+$name);Assert-Equal $name ((@($compare.Differences)) -join ',') ('difference mal nommee : '+$name)
+        Assert-True ($base.Key -cne $variants[$name].Key) ('cle identique malgre : '+$name)
+    }
+    Assert-False (Compare-DomeniaPopulation $base $null).Same 'population absente presumee identique'
+    Assert-Throws {New-DomeniaPopulationDescriptor -DomainDn '' -ScopeDn $script:ColOu} 'domaine absent accepte'
+    Assert-Throws {New-DomeniaPopulationDescriptor -DomainDn $script:ColDomain -ScopeDn 'OU=X,DC=autre,DC=test'} 'perimetre hors domaine accepte'
+    Assert-Throws {New-DomeniaPopulationDescriptor -DomainDn $script:ColDomain -Types @('Imprimante')} 'type inconnu accepte'
+    $domain=New-DomeniaPopulationDescriptor -DomainDn $script:ColDomain
+    Assert-True ($domain.Text -like 'tous types dʼobjets · tout le domaine indexé · révision de la base non connue') $domain.Text
+}

@@ -1519,7 +1519,9 @@ function Get-DomeniaRuntimeModulePlan {
             'Test-DomeniaMeasureRefusal',
             'Get-DomeniaMeasureState',
             'Measure-DomeniaMeasureStates',
-            'Format-DomeniaMeasureStates'
+            'Format-DomeniaMeasureStates',
+            'New-DomeniaPopulationDescriptor',
+            'Compare-DomeniaPopulation'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Boards.Model.ps1','Domenia-Collection.Model.ps1'); File='Domenia-BoardFleet.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaFleetQueryPlan',
@@ -1757,7 +1759,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Add-DomeniaWorkshopWidget',
             'Complete-DomeniaWorkshopWidgetSave'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Query.Model.ps1','Domenia-Query.Worker.ps1','Domenia-QueryLibrary.Store.UI.ps1'); File='Domenia-Query.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Query.Model.ps1','Domenia-Query.Worker.ps1','Domenia-QueryLibrary.Store.UI.ps1','Domenia-Collection.Model.ps1','Domenia-BoardFleet.Model.ps1'); File='Domenia-Query.UI.ps1'; DotSource=$true; Functions=@(
             'Initialize-DomeniaQueryView',
             'Update-DomeniaQueryScopeLabel',
             'Show-DomeniaQueryWorkshop',
@@ -1785,6 +1787,8 @@ function Get-DomeniaRuntimeModulePlan {
             'Complete-DomeniaQueryEvaluation',
             'Fail-DomeniaQueryEvaluation',
             'Start-DomeniaQueryExport',
+            'Get-DomeniaQueryExportPopulation',
+            'Get-DomeniaQueryExportClocks',
             'Complete-DomeniaQueryExport',
             'Fail-DomeniaQueryExport',
             'Get-DomeniaQueryBoardEntry',

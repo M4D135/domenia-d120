@@ -632,7 +632,10 @@ function Get-DomeniaFleetBoardData {
     $widgetTargets['fleet.presence']=@($targets)
     foreach($label in $presenceTargets.Keys){$widgetTargets['fleet.presence|'+$label]=$presenceTargets[$label].ToArray()}
     foreach($entry in $data.Entries.Values){if($entry.Kind -in @('Distribution','Series')){foreach($part in @($entry.Items)){$key=[string]$entry.Key+'|'+[string]$part.Label;if(-not $widgetTargets.ContainsKey($key)){$widgetTargets[$key]=@()}}}}
-    Add-Member -InputObject $data -MemberType NoteProperty -Name 'Last' -Value ([pscustomobject]@{ Scope = $scope; Subtree = [bool]$Subtree; Targets = $targets; Machines = $machines; Groups = $groups; WidgetTargets=$widgetTargets; HealthyTargets=$healthyTargets.ToArray(); ProblemTargets=$problemTargets.ToArray(); Freshness=$data.Freshness })
+    # Point 2: the population every figure, widget click and export of this board refers to (same snapshot).
+    $population=$null
+    if($domainDn -match '(?i)(^|,)\s*DC='){$population=New-DomeniaPopulationDescriptor -DomainDn $domainDn -ScopeDn $scope -Subtree ([bool]$Subtree) -Types @('Machine') -Criteria 'comptes ordinateur recensés : activés, désactivés et état inconnu' -StoreId ([string](& $member $source 'StoreId' '')) -SnapshotRevision ([long](& $member $source 'SnapshotRevision' -1))}
+    Add-Member -InputObject $data -MemberType NoteProperty -Name 'Last' -Value ([pscustomobject]@{ Scope = $scope; Subtree = [bool]$Subtree; Targets = $targets; Machines = $machines; Groups = $groups; WidgetTargets=$widgetTargets; HealthyTargets=$healthyTargets.ToArray(); ProblemTargets=$problemTargets.ToArray(); Freshness=$data.Freshness; Population=$population })
     $figures = [pscustomobject]@{ Machines = $total; Healthy = $healthy; Problems = ($total - $healthy); Stale = $stale; EndOfService = $endedCount; Disabled = $disabled; Windows10 = $windows10; LowDisk = $lowDiskFigure }
     Add-Member -InputObject $data -MemberType NoteProperty -Name 'Snapshot' -Value ([pscustomobject]@{ Day = $today; Taken = $taken; Figures = $figures })
     if($null -ne $HealthPolicyBook -and @($HealthPolicyBook.Scopes).Count){Update-DomeniaFleetScopedHealth -Data $data -Book $HealthPolicyBook -NowUtc $nowUtc -Lifecycle $Lifecycle}

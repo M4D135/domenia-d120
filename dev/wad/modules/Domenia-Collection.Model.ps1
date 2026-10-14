@@ -507,3 +507,46 @@ function Format-DomeniaMeasureStates {
     }
     return ($parts -join ', ')
 }
+
+# ---------------------------------------------------------------- point 2: compared populations
+function New-DomeniaPopulationDescriptor {
+    # What a figure, a widget, a result list or an export counts. Two counts are comparable only when the domain,
+    # scope, depth, object types, criteria and committed snapshot are the same: the Key changes with any of them.
+    param([AllowEmptyString()][string]$DomainDn,[AllowEmptyString()][string]$ScopeDn='',[bool]$Subtree=$true,[string[]]$Types=@(),[AllowEmptyString()][string]$Criteria='',[AllowEmptyString()][string]$StoreId='',[long]$SnapshotRevision=-1)
+    $domain=([string]$DomainDn).Trim().ToLowerInvariant()
+    if($domain -notmatch '(^|,)\s*dc='){throw 'Domaine de population invalide.'}
+    $scope=([string]$ScopeDn).Trim()
+    if(($scope) -and ($scope -ine $domain) -and (-not $scope.EndsWith(','+$domain,[StringComparison]::OrdinalIgnoreCase))){throw 'Périmètre de population hors du domaine.'}
+    $typeList=@(@($Types)|ForEach-Object{([string]$_).Trim()}|Where-Object{$_}|Sort-Object -Unique)
+    $typeNames=@{Machine='comptes ordinateur';Utilisateur='comptes utilisateur';Groupe='groupes';OU='OU';Conteneur='conteneurs'}
+    foreach($type in $typeList){if(-not $typeNames.ContainsKey($type)){throw ('Type de population inconnu : '+$type)}}
+    $criteriaText=ConvertTo-DomeniaCollectionText $Criteria 4096
+    $criteriaHash=(Get-DomeniaTextHash $criteriaText).ToLowerInvariant()
+    $depth=if($Subtree){'subtree'}else{'onelevel'}
+    $canonical=@('population/1',$domain,$scope.ToLowerInvariant(),$depth,($typeList -join ','),$criteriaHash,([string]$StoreId).ToLowerInvariant(),[string]$SnapshotRevision) -join "`n"
+    $what=if($typeList.Count){@($typeList|ForEach-Object{$typeNames[$_]}) -join ', '}else{'tous types dʼobjets'}
+    $where=if($scope){$scope+$(if($Subtree){' et ses sous-OU'}else{' sans les sous-OU'})}else{'tout le domaine indexé'}
+    $text=$what+' · '+$where
+    if($criteriaText){$text+=' · '+$criteriaText}
+    $text+=' · '+$(if($SnapshotRevision -ge 0){'base locale, révision '+[string]$SnapshotRevision}else{'révision de la base non connue'})
+    return [pscustomobject]@{Version=1;DomainDn=$domain;ScopeDn=$scope;Subtree=[bool]$Subtree;Types=[string[]]$typeList;Criteria=$criteriaText;CriteriaHash=$criteriaHash;StoreId=[string]$StoreId;SnapshotRevision=$SnapshotRevision;Key=(Get-DomeniaTextHash $canonical).ToLowerInvariant();Text=$text}
+}
+
+function Compare-DomeniaPopulation {
+    # Names every difference between two populations; Same only when none exists. A missing description is never
+    # presumed identical.
+    param($Reference,$Candidate)
+    $differences=[Collections.Generic.List[string]]::new()
+    if(($null -eq $Reference) -or ($null -eq $Candidate)){$differences.Add('population non décrite')}
+    else{
+        $field={param($Object,[string]$Name) return [string](Get-DomeniaMember $Object $Name '')}
+        if((& $field $Reference 'DomainDn') -ine (& $field $Candidate 'DomainDn')){$differences.Add('domaine')}
+        if((& $field $Reference 'ScopeDn') -ine (& $field $Candidate 'ScopeDn')){$differences.Add('périmètre')}
+        if([bool](Get-DomeniaMember $Reference 'Subtree' $true) -ne [bool](Get-DomeniaMember $Candidate 'Subtree' $true)){$differences.Add('profondeur')}
+        if((@(Get-DomeniaMember $Reference 'Types' @()) -join ',') -cne (@(Get-DomeniaMember $Candidate 'Types' @()) -join ',')){$differences.Add('types dʼobjets')}
+        if((& $field $Reference 'CriteriaHash') -cne (& $field $Candidate 'CriteriaHash')){$differences.Add('critères')}
+        if(((& $field $Reference 'StoreId') -cne (& $field $Candidate 'StoreId')) -or ([long](Get-DomeniaMember $Reference 'SnapshotRevision' -1) -ne [long](Get-DomeniaMember $Candidate 'SnapshotRevision' -1))){$differences.Add('instantané de la base')}
+    }
+    $text=if($differences.Count){'Populations différentes : '+($differences -join ', ')+'.'}else{'Même population.'}
+    return [pscustomobject]@{Same=($differences.Count -eq 0);Differences=$differences.ToArray();Text=$text}
+}

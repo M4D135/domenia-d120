@@ -463,3 +463,21 @@ Test-Case -Id 'BF-023' -Name 'Parc : detail sante exact sans doublon, tous les a
     $ids=@(@($board.Last.HealthyTargets)+@($board.Last.ProblemTargets)+@($board.Last.UnknownTargets)|ForEach-Object{$_.object_guid})
     Assert-Equal @($board.Last.Targets).Count @($ids|Select-Object -Unique).Count 'Chaque actif une fois'
 }
+Test-Case -Id 'BF-024' -Name 'Point 2 : le tableau decrit sa population (domaine, OU, profondeur, types, instantane) pour les widgets et exports' -Body {
+    $board = Get-BfBoard
+    $population = $board.Last.Population
+    Assert-True ($null -ne $population) 'population absente du tableau'
+    Assert-Equal 'dc=example,dc=test' ([string]$population.DomainDn)
+    Assert-Equal $script:BfScope ([string]$population.ScopeDn)
+    Assert-Equal 'Machine' (@($population.Types) -join ',')
+    Assert-Equal ([long]-1) ([long]$population.SnapshotRevision) 'revision inventee'
+    Assert-Equal ([string]$population.Key) ([string](Get-BfBoard).Last.Population.Key) 'meme instantane, cle differente'
+    $direct = Get-DomeniaFleetBoardData -Result (New-BfResult -Machines @(Get-BfMachines) -Presence @(Get-BfPresenceRows)) -Scope $script:BfScope -Subtree $false -Now $script:BfNow -Lifecycle $script:BfLifecycle
+    Assert-Equal 'profondeur' ((@((Compare-DomeniaPopulation $population $direct.Last.Population).Differences)) -join ',') 'profondeur non distinguee'
+    $snapshot = New-BfResult -Machines @(Get-BfMachines) -Presence @(Get-BfPresenceRows)
+    $snapshot | Add-Member -NotePropertyName StoreId -NotePropertyValue 'store-fixture'
+    $snapshot | Add-Member -NotePropertyName SnapshotRevision -NotePropertyValue 77L
+    $revised = (Get-DomeniaFleetBoardData -Result $snapshot -Scope $script:BfScope -Now $script:BfNow -Lifecycle $script:BfLifecycle).Last.Population
+    Assert-Equal 77L ([long]$revised.SnapshotRevision)
+    Assert-True ($revised.Text -like '*révision 77') ([string]$revised.Text)
+}

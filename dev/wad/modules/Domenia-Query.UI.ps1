@@ -468,7 +468,15 @@ function Start-DomeniaQueryEvaluation {
         $state|Add-Member -NotePropertyName CoverageOnly -NotePropertyValue ([bool]$CoverageOnly)
         $payload|Add-Member -NotePropertyName ProbeRequests -NotePropertyValue $probeRequests
         $payload|Add-Member -NotePropertyName CachedProbeWidgets -NotePropertyValue $probeCache
-        $state|Add-Member -NotePropertyName ExportRequest -NotePropertyValue ([pscustomobject]@{SnapshotKey=$state.SnapshotKey;RecipeJson=(ConvertTo-Json -InputObject $recipe -Depth 32 -Compress);TextFilter=$payload.TextFilter;StateFilter=$payload.StateFilter;Selection=$selection;SortField=$payload.SortField;Descending=$payload.Descending;ExpectedRows=0L;EvaluatedAtUtc=$state.RecordsAt.ToUniversalTime().ToString('o');ScopeDn=[string]$scope.Dn;Subtree=[bool]$scope.Subtree})
+        $recipeJson=ConvertTo-Json -InputObject $recipe -Depth 32 -Compress
+        $exportRequest=[pscustomobject]@{SnapshotKey=$state.SnapshotKey;RecipeJson=$recipeJson;TextFilter=$payload.TextFilter;StateFilter=$payload.StateFilter;Selection=$selection;SortField=$payload.SortField;Descending=$payload.Descending;ExpectedRows=0L;EvaluatedAtUtc=$state.RecordsAt.ToUniversalTime().ToString('o');ScopeDn=[string]$scope.Dn;Subtree=[bool]$scope.Subtree}
+        # Point 2: the export names the exact population of this preview (domain, OU, depth, types, criteria and
+        # snapshot) and the clocks of its data; recalculating the view later does not change them.
+        $population=Get-DomeniaQueryExportPopulation -Base (Get-DomeniaMemberValue $script:FleetLast 'Population') -Recipe $recipe -RecipeJson $recipeJson -Selection $selection -TextFilter ([string]$payload.TextFilter) -StateFilter ([string]$payload.StateFilter)
+        $exportRequest|Add-Member -NotePropertyName Population -NotePropertyValue $population
+        $exportRequest|Add-Member -NotePropertyName BasePopulation -NotePropertyValue (Get-DomeniaMemberValue $script:FleetLast 'Population')
+        $exportRequest|Add-Member -NotePropertyName DataClocks -NotePropertyValue (Get-DomeniaQueryExportClocks (Get-DomeniaMemberValue $script:FleetLast 'Freshness'))
+        $state|Add-Member -NotePropertyName ExportRequest -NotePropertyValue $exportRequest
         $state|Add-Member -NotePropertyName ProbeLibrary -NotePropertyValue $probeLibrary
         $state|Add-Member -NotePropertyName RefreshWidgets -NotePropertyValue ($null -eq $widgetCache -or $null -eq $probeCache)
         Start-DomeniaQueryDetailRead -Payload $payload -State $state
@@ -547,6 +555,9 @@ function Start-DomeniaQueryExport {
     # The worker owns the immutable records reference and copied request. Editing the UI cannot change it.
     $frozen=ConvertFrom-Json -InputObject (ConvertTo-Json -InputObject $request -Depth 32 -Compress) -ErrorAction Stop
     $state=[pscustomobject]@{Epoch=[long]$script:SessionEpoch;ExportId=[guid]::NewGuid().ToString('N');Name=[string]$recipe.Name;Selection=$frozen.Selection}
+    # Point 2: the export always replays the frozen preview snapshot; say so when the view was recalculated since.
+    $since=Compare-DomeniaPopulation -Reference (Get-DomeniaMemberValue $request 'BasePopulation') -Candidate (Get-DomeniaMemberValue $script:FleetLast 'Population')
+    $state|Add-Member -NotePropertyName PopulationNote -NotePropertyValue $(if([bool]$since.Same){''}else{' Lʼexport reprend la population de lʼaperçu ('+[string](Get-DomeniaMember (Get-DomeniaMemberValue $request 'Population') 'Text' 'population non décrite')+') ; la vue a changé depuis : '+(@($since.Differences) -join ', ')+'.'})
     $q|Add-Member -NotePropertyName ExportBusy -NotePropertyValue $true -Force
     $q|Add-Member -NotePropertyName ExportId -NotePropertyValue $state.ExportId -Force
     (Get-DomeniaControl 'BtnQueryExport').IsEnabled=$false
@@ -556,6 +567,25 @@ function Start-DomeniaQueryExport {
         [void](Set-DomeniaControlText 'LblQueryStatus' ('Export de '+$frozen.ExpectedRows+' postes en cours ; vous pouvez continuer à consulter lʼatelier.'))
     }catch{Fail-DomeniaQueryExport $_.Exception.Message $state}
 }
+function Get-DomeniaQueryExportPopulation {
+    # Point 2: population of a query preview = the board population (domain, OU, depth, types, snapshot) narrowed by
+    # the recipe, the selected verdict and the list filters. $null when the board population is not described.
+    param($Base,$Recipe,[string]$RecipeJson,[string]$Selection,[string]$TextFilter,[string]$StateFilter)
+    if($null -eq $Base){return $null}
+    $verdict=switch($Selection){'Match'{'correspondants'};'Unknown'{'indéterminés'};default{'non correspondants'}}
+    $criteria='requête « '+[string](Get-DomeniaMember $Recipe 'Name' 'sans nom')+' » (définition '+(Get-DomeniaTextHash $RecipeJson).Substring(0,12).ToLowerInvariant()+') · postes '+$verdict
+    if($TextFilter.Trim()){$criteria+=' · filtre texte « '+$TextFilter.Trim()+' »'}
+    if($StateFilter -and $StateFilter -ne 'Tous'){$criteria+=' · comptes '+$StateFilter.ToLowerInvariant()}
+    return New-DomeniaPopulationDescriptor -DomainDn ([string]$Base.DomainDn) -ScopeDn ([string]$Base.ScopeDn) -Subtree ([bool]$Base.Subtree) -Types @($Base.Types) -Criteria ([string]$Base.Criteria+' · '+$criteria) -StoreId ([string]$Base.StoreId) -SnapshotRevision ([long]$Base.SnapshotRevision)
+}
+function Get-DomeniaQueryExportClocks {
+    # The three clocks of the exported data, as committed in the board snapshot: never the export time.
+    param($Freshness)
+    if($null -eq $Freshness){return $null}
+    $summary=Format-DomeniaOuFreshnessSummary -IndexFreshness (Get-DomeniaMemberValue $Freshness 'Index') -Observations (Get-DomeniaMemberValue $Freshness 'Observations') -ComputedAtUtc (Get-DomeniaMemberValue $Freshness 'ComputedAtUtc') -Runs (Get-DomeniaMemberValue $Freshness 'Runs')
+    $snapshot=Get-DomeniaMemberValue $Freshness 'SnapshotAtUtc'
+    return [pscustomobject]@{Directory=$summary.BaseText;Measures=$summary.ObservationsText;Runs=$summary.RunsText;Calculation=$summary.ComputedText;SnapshotAtUtc=$(if($snapshot -is [datetime]){$snapshot.ToUniversalTime().ToString('o')}else{''})}
+}
 function Complete-DomeniaQueryExport {
     param($Result,$State)
     $q=$script:DomeniaQueryState
@@ -563,7 +593,7 @@ function Complete-DomeniaQueryExport {
     $result=Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @('Path','RowCount','Complete','MetadataPath')
     if($null -eq $result -or -not $result.Complete){Fail-DomeniaQueryExport 'Lʼexport complet nʼa pas été confirmé.' $State;return}
     $q.ExportBusy=$false;(Get-DomeniaControl 'BtnQueryExport').IsEnabled=($null -ne $q.Result -and -not $q.Busy)
-    Show-DomeniaExportResult $result -Scope ('résultat complet : '+$State.Name+' · '+$State.Selection) -Also 'Critères, périmètre et empreinte SHA-256 dans le fichier metadata.json associé.'
+    Show-DomeniaExportResult $result -Scope ('résultat complet : '+$State.Name+' · '+$State.Selection) -Also ('Population, critères, dates des données et empreinte SHA-256 dans le fichier metadata.json associé.'+[string](Get-DomeniaMember $State 'PopulationNote' ''))
     [void](Set-DomeniaControlText 'LblQueryStatus' ($result.RowCount.ToString()+' postes exportés en '+$result.Pages+' page(s), sans modifier le périmètre de lʼaperçu.'))
 }
 function Fail-DomeniaQueryExport {
