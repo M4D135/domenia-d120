@@ -120,3 +120,40 @@ Test-Case 'X03-CO31' 'Sans connexion : le seul chemin propose est Changer de com
     Assert-Equal 'Aucune identité active.' $c.Identity
     Assert-True ($c.Detail.Contains('« Changer de compte »')) $c.Detail
 }
+
+# ---------------------------------------------------------------- UX-15 / UI-27 / FO-19 compte des postes
+Test-Case 'X03-FO19' 'Compte des postes nomme selon sa source, jamais de secret' {
+    Assert-Equal 'Compte poste : session Windows ▾' (Get-DomeniaMachineAccountLabel -Source 'Windows' -Account 'EXAMPLE\jdupont').Pill
+    Assert-Equal 'session Windows (EXAMPLE\jdupont)' (Get-DomeniaMachineAccountLabel -Source 'Windows' -Account 'EXAMPLE\jdupont').Long
+    $typed=Get-DomeniaMachineAccountLabel -Source 'Typed' -Account 'EXAMPLE\adm-poste'
+    Assert-Equal 'Compte poste : EXAMPLE\adm-poste ▾' $typed.Pill
+    Assert-Equal 'EXAMPLE\adm-poste (compte poste saisi, en mémoire seulement)' $typed.Long
+    Assert-Equal 'compte Postes de la page Comptes' (Get-DomeniaMachineAccountLabel -Source 'Remote' -Account 'x').Origin
+    Assert-Equal 'compte de connexion' (Get-DomeniaMachineAccountLabel -Source 'Connection' -Account 'x').Origin
+    Assert-Equal 'compte local temporaire de ce poste' (Get-DomeniaMachineAccountLabel -Source 'TemporaryLocal' -Account 'PC-01\admin').Origin
+    Assert-Equal 'Windows' (Get-DomeniaMachineAccountLabel -Source 'Inconnue').Source
+}
+Test-Case 'X03-FO19' 'Essai sur un poste : seul un succes explicite dit acces administrateur OK' {
+    $ok=Get-DomeniaRemoteAccessTrialVerdict -Outcome 'NotRequested' -Computer 'PC-01' -Account 'EXAMPLE\adm' -Caption 'Windows 11 Pro'
+    Assert-True $ok.Success 'Succes non reconnu'
+    Assert-Equal 'Accès administrateur OK sur PC-01 avec EXAMPLE\adm. Système : Windows 11 Pro.' $ok.Text
+    Assert-False (Get-DomeniaRemoteAccessTrialVerdict -Outcome 'NotRequested' -ErrorText 'Lecture du système non renvoyée par le poste.' -Computer 'PC-01').Success 'Lecture absente prise pour un succes'
+    Assert-False (Get-DomeniaRemoteAccessTrialVerdict -Outcome 'Unavailable' -Computer 'PC-01').Success 'Echec sans motif pris pour un succes'
+}
+Test-Case 'X03-FO19' 'Refus classes : droit administrateur, identifiants, etat du compte, poste injoignable' {
+    $denied=Get-DomeniaRemoteAccessTrialVerdict -Outcome 'Denied' -Computer 'PC-01' -Account 'EXAMPLE\adm'
+    Assert-Equal 'Denied' $denied.Verdict
+    Assert-Equal 'Accès refusé sur PC-01 avec EXAMPLE\adm : droit administrateur requis sur ce poste.' $denied.Text
+    Assert-Equal 'Denied' (Get-DomeniaRemoteAccessTrialVerdict -Outcome 'NotRequested' -ErrorText 'Accès refusé.' -Category 'AccessDenied').Verdict
+    Assert-Equal 'Rejected' (Get-DomeniaRemoteAccessTrialVerdict -Outcome 'AuthRejected').Verdict
+    Assert-Equal 'Rejected' (Get-DomeniaRemoteAccessTrialVerdict -Outcome 'Unavailable' -ErrorText 'Logon failure' -Category 'CredentialsRejected').Verdict
+    Assert-Equal 'AccountState' (Get-DomeniaRemoteAccessTrialVerdict -Outcome 'Unavailable' -Category 'AccountState').Verdict
+    foreach($case in @(@('Timeout',''),@('Unavailable','Network'),@('Unavailable',''))){
+        $text=if($case[1]){''}else{'The RPC server is unavailable. (0x800706BA)'}
+        $r=Get-DomeniaRemoteAccessTrialVerdict -Outcome $case[0] -Category $case[1] -ErrorText $text -Computer 'PC-01'
+        Assert-Equal 'Unreachable' $r.Verdict ($case -join '/')
+        Assert-True ($r.Text.StartsWith('Poste PC-01 injoignable')) $r.Text
+    }
+    $unknown=Get-DomeniaRemoteAccessTrialVerdict -Outcome 'Unavailable' -ErrorText ('x'*400) -Computer 'PC-01'
+    Assert-True ($unknown.Verdict -eq 'Unknown' -and $unknown.Text.Length -lt 220) 'Motif inconnu non borne'
+}

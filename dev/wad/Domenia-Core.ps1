@@ -601,6 +601,8 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnCancel" = "Default"
     "BtnLogin" = "Default"
     "BtnLoginOtherAccount" = "Default"
+    "BtnAccountRemoteTry" = "Default"
+    "LblAccountRemoteTry" = "Default"
     "LblStatus" = "Default"
     "LblPrivilegeTop" = "Default"
     "ChkReadOnlyMode" = "Default"
@@ -6013,8 +6015,12 @@ function Get-MainXaml {
                               <TextBlock Text="Mot de passe" Margin="0,0,0,6" FontSize="12" FontWeight="SemiBold"/>
                               <PasswordBox x:Name="PwdAccountRemote" Margin="0" ToolTip="Mot de passe destiné au compte d’accès aux postes. Sa valeur n’est jamais lue ni affichée par l’aide contextuelle." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Mot de passe du compte poste" AutomationProperties.HelpText="Mot de passe destiné au compte d’accès aux postes. Sa valeur n’est jamais lue ni affichée par l’aide contextuelle."/>
                             </StackPanel>
-                            <Button x:Name="BtnAccountRemoteTest" Content="Tester" Margin="0,24,8,10" ToolTip="Teste lʼauthentification du compte contre le domaine." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Tester" AutomationProperties.HelpText="Teste l authentification du compte contre le domaine."/>
                             <Button x:Name="BtnAccountRemoteSave" Content="Activer" Style="{StaticResource RunButton}" Margin="0,24,8,10" ToolTip="Charge ce compte en mémoire pour les opérations distantes." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Activer" AutomationProperties.HelpText="Charge ce compte en memoire pour les operations distantes."/>
+                          </WrapPanel>
+                          <!-- FO-19: a real trial on the workstation open in Assistance poste (one CIM read, explicit click). -->
+                          <WrapPanel Margin="0,0,0,8">
+                            <Button x:Name="BtnAccountRemoteTry" Content="Essayer sur le poste sélectionné" IsEnabled="False" Margin="0,0,12,0" ToolTip="Lit une seule fois le système du poste ouvert dans Assistance poste (WMI, Win32_OperatingSystem), avec le compte utilisé pour les postes, pour vérifier le droit administrateur. Un seul poste, aucun relevé, aucun repli intrusif." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Essayer sur le poste sélectionné" AutomationProperties.HelpText="Lit une seule fois le système du poste ouvert dans Assistance poste (WMI, Win32_OperatingSystem), avec le compte utilisé pour les postes, pour vérifier le droit administrateur. Un seul poste, aucun relevé, aucun repli intrusif."/>
+                            <TextBlock x:Name="LblAccountRemoteTry" Text="" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="640" Foreground="{DynamicResource MutedColor}" ToolTip="Résultat du dernier essai du compte poste : accès administrateur, accès refusé ou poste injoignable. Rien nʼest enregistré." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Résultat de lʼessai du compte poste" AutomationProperties.HelpText="Résultat du dernier essai du compte poste : accès administrateur, accès refusé ou poste injoignable. Rien nʼest enregistré." AutomationProperties.LiveSetting="Polite"/>
                           </WrapPanel>
                           <WrapPanel Margin="0,2,0,8">
                             <CheckBox x:Name="ChkAccountRemoteRemember" Content="Mémoriser sur ce PC" IsChecked="False" Margin="0,0,16,0" VerticalAlignment="Center" ToolTip="Après validation, conserve ce mot de passe dans le coffre de votre profil Windows sur ce PC. Aucune copie dans la base Domenia."/>
@@ -21650,6 +21656,7 @@ function Update-DomeniaAccountUi {
         if ($null -ne $secrets) { $secrets.Text = if ($secretName) { "$secretName  ·  compte Secrets actif" } else { 'Aucun compte Secrets : le compte de connexion lit LAPS et BitLocker.' } }
         if ($null -ne $secretsStatus) { $secretsStatus.Text = if ($secretName) { 'LAPS et BitLocker utilisent ce compte pendant cette session. Le coffre Windows reste facultatif.' } else { 'Saisissez un compte et son mot de passe puis « Activer » si les secrets exigent dʼautres droits.' } }
 
+        Update-DomeniaRemoteTrialUi
         try {
             $remoteClear = Get-DomeniaControl -Name "BtnAccountRemoteClear"
             $secretClear = Get-DomeniaControl -Name "BtnAccountSecretsClear"
@@ -21821,13 +21828,10 @@ function Wire-Events {
     if ($script:Ctrl.ContainsKey("BtnAccountAdRelogin")) {
         $script:Ctrl["BtnAccountAdRelogin"].Add_Click({ Start-DomeniaAccountRelogin })
     }
-    if ($script:Ctrl.ContainsKey("BtnAccountRemoteTest")) {
-        $script:Ctrl["BtnAccountRemoteTest"].Add_Click({
-            try {
-                $u = ([string]$script:Ctrl["TxtAccountRemoteUser"].Text).Trim()
-                $p = $script:Ctrl["PwdAccountRemote"].SecurePassword
-                [void](Test-DomeniaCredentialBind -UserName $u -Password $p -Operation "Test compte Remote")
-            } catch { [void](Show-DomeniaOperationError -Operation "Test compte Remote" -ErrorRecordOrException $_) }
+    if ($script:Ctrl.ContainsKey("BtnAccountRemoteTry")) {
+        # FO-19: Tester only repeated the AD authentication of Activer; the real question is the right on a workstation.
+        $script:Ctrl["BtnAccountRemoteTry"].Add_Click({
+            try { Start-DomeniaRemoteAccountTrial } catch { [void](Show-DomeniaOperationError -Operation "Essai du compte poste" -ErrorRecordOrException $_) }
         })
     }
     if ($script:Ctrl.ContainsKey("BtnAccountRemoteSave")) {

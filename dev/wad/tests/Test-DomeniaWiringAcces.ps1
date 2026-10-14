@@ -552,6 +552,61 @@ Test-Case 'D060 Bilan des indisponibilites : transports et absence de reglage Wi
     Assert-True (@($lines|Where-Object{$_ -match 'aucun reglage Windows modifie'}).Count -eq 1)
 }
 
+# ================================================================ FO-19 (lot X03) essayer le compte des postes sur un poste
+function New-TrialResult {param([string]$Outcome='NotRequested',[string]$ProbeError='',[string]$Caption='Windows 11 Pro',[string]$Computer='pc-01.example.invalid')
+    $instances=if($ProbeError){@()}else{@([pscustomobject]@{Id='1';Index=1;Values=[pscustomobject]@{Caption=$Caption};IncompleteProperties=@()})}
+    return [pscustomobject]@{Outcome=$Outcome;Computer=$Computer;Detail=$(if($Outcome -eq 'NotRequested'){''}else{'Lecture CIM/DCOM non confirmée. '+$ProbeError});Probes=[pscustomobject]@{'os.caption'=[pscustomobject]@{Error=$ProbeError;Instances=$instances;Count=$instances.Count}}}
+}
+Test-Case 'FO-19 Essayer sur le poste selectionne : une seule lecture CIM, un seul poste, compte des postes' {
+    $script:RemoteAdminCredential=New-TestCredential 'EXAMPLE\postes';$script:RemoteAccountTrial=$null;$script:Ctrl.LblAccountRemoteTry.Text=''
+    Update-DomeniaRemoteTrialUi
+    Assert-True ($script:Ctrl.BtnAccountRemoteTry.IsEnabled) 'Bouton grise alors qu un poste est ouvert'
+    Start-DomeniaRemoteAccountTrial
+    Assert-True ($script:Tasks.Count -eq 1 -and $script:Tasks[0].OperationId -eq 'LiveConsole') ('Operations : '+(@($script:Tasks|ForEach-Object{$_.OperationId}) -join ','))
+    $p=$script:Tasks[0].Payload
+    Assert-True ($p.Computer -eq 'pc-01.example.invalid' -and -not $p.CollectPing -and -not $p.ProbeUser -and -not $p.Inventory -and -not $p.ValidateConsoleIdentity) 'Charge utile plus large qu une lecture'
+    Assert-True (@($p.Probes).Count -eq 1 -and [string]@($p.Probes)[0].Class -eq 'Win32_OperatingSystem' -and (@($p.AllowedClasses) -join ',') -eq 'Win32_OperatingSystem') 'Requete WMI inattendue'
+    Assert-True ($script:Tasks[0].Code -ceq (Get-DomeniaLiveProbeCode)) 'Corps epingle LiveConsole non utilise'
+    Assert-True ([string]$script:Ctrl.LblAccountRemoteTry.Text -match 'EXAMPLE\\postes') ('Compte non annonce : '+$script:Ctrl.LblAccountRemoteTry.Text)
+    Start-DomeniaRemoteAccountTrial
+    Assert-True ($script:Tasks.Count -eq 1 -and -not $script:Ctrl.BtnAccountRemoteTry.IsEnabled) 'Second essai lance pendant le premier'
+    Complete-DomeniaRemoteAccountTrial (New-TrialResult) $script:Tasks[0].State
+    Assert-True ([string]$script:Ctrl.LblAccountRemoteTry.Text -ceq 'Accès administrateur OK sur pc-01.example.invalid avec EXAMPLE\postes (compte Postes de la page Comptes). Système : Windows 11 Pro.') ('Texte : '+$script:Ctrl.LblAccountRemoteTry.Text)
+    Assert-True ($script:Ctrl.BtnAccountRemoteTry.IsEnabled) 'Bouton non rendu apres l essai'
+}
+Test-Case 'FO-19 Refus classe par la regle Access : droit administrateur, identifiants, poste injoignable' {
+    $cases=@(
+        @('Denied','Accès refusé. (0x80070005)','Accès refusé sur pc-01.example.invalid'),
+        @('AuthRejected','Le nom d utilisateur ou le mot de passe est incorrect.','Identifiants refusés par pc-01.example.invalid'),
+        @('NotRequested','Access is denied.','Accès refusé sur pc-01.example.invalid'),
+        @('Timeout','Délai dépassé','Poste pc-01.example.invalid injoignable'))
+    foreach($c in $cases){
+        $script:RemoteAccountTrial=$null;$script:Tasks.Clear()
+        Start-DomeniaRemoteAccountTrial
+        Complete-DomeniaRemoteAccountTrial (New-TrialResult -Outcome $c[0] -ProbeError $c[1]) $script:Tasks[0].State
+        Assert-True (([string]$script:Ctrl.LblAccountRemoteTry.Text).StartsWith($c[2])) ($c[0]+' : '+$script:Ctrl.LblAccountRemoteTry.Text)
+        Assert-True ([string]$script:Ctrl.LblAccountRemoteTry.Text -notmatch 'Accès administrateur OK') 'Refus annonce comme un succes'
+    }
+    $script:RemoteAccountTrial=$null;$script:Tasks.Clear()
+    Start-DomeniaRemoteAccountTrial
+    Fail-DomeniaRemoteAccountTrial 'Le serveur RPC n est pas disponible. RPC indisponible' $script:Tasks[0].State
+    Assert-True (([string]$script:Ctrl.LblAccountRemoteTry.Text).StartsWith('Poste pc-01.example.invalid injoignable')) $script:Ctrl.LblAccountRemoteTry.Text
+}
+Test-Case 'FO-19 Sans poste ouvert ou apres un changement de session : aucune lecture, aucun resultat recopie' {
+    $script:RemoteAccountTrial=$null;$script:SelectedObject=$null
+    Update-DomeniaRemoteTrialUi
+    Assert-True (-not $script:Ctrl.BtnAccountRemoteTry.IsEnabled) 'Bouton actif sans poste'
+    Start-DomeniaRemoteAccountTrial
+    Assert-True ($script:Tasks.Count -eq 0 -and [string]$script:Ctrl.LblAccountRemoteTry.Text -match 'Ouvrez') 'Lecture lancee sans poste'
+    Reset-Fixture;$script:RemoteAccountTrial=$null
+    Start-DomeniaRemoteAccountTrial;$state=$script:Tasks[0].State;$script:Ctrl.LblAccountRemoteTry.Text='avant'
+    $script:SessionEpoch=8L
+    Complete-DomeniaRemoteAccountTrial (New-TrialResult) $state
+    Assert-True ([string]$script:Ctrl.LblAccountRemoteTry.Text -eq 'avant') 'Resultat d une session precedente affiche'
+    Assert-True ((@($script:CoreAst.FindAll({param($a)$a -is [Management.Automation.Language.FunctionDefinitionAst] -and $a.Name -eq 'Wire-Events'},$true))[0].Extent.Text).Contains('Start-DomeniaRemoteAccountTrial')) 'Bouton non raccorde'
+    Assert-True (-not $script:CoreText.Contains('x:Name="BtnAccountRemoteTest"')) 'Ancien bouton Tester encore present'
+}
+
 if($null -ne $script:SecretRevealTimer){try{$script:SecretRevealTimer.Stop()}catch{}}
 if($null -ne $script:MainWindow){try{$script:MainWindow.Close()}catch{}}
 $passed=@($script:Checks|Where-Object{$_.Status -eq 'Passed'}).Count;$failed=@($script:Checks|Where-Object{$_.Status -eq 'Failed'}).Count

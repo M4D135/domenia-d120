@@ -957,15 +957,25 @@ function Get-DomeniaRuntimeModulePlan {
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Accounts.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaLoginFailureText',
             'Get-DomeniaLoginChoice',
-            'Get-DomeniaDirectoryAccountText'
+            'Get-DomeniaDirectoryAccountText',
+            'Get-DomeniaMachineAccountLabel',
+            'Get-DomeniaRemoteAccessTrialVerdict'
         ) }
-        # X03: sign-in and accounts views (secret reveal, diagnostic panel); WPF only, no network.
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Accounts.Model.ps1'); File='Domenia-Accounts.UI.ps1'; DotSource=$true; Functions=@(
+        # X03: sign-in and accounts views (secret reveal, sign-in mode, workstation account trial); no network of its own.
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Accounts.Model.ps1','Domenia-Access.Model.ps1','Domenia-Guard.Model.ps1','Domenia-Access.UI.ps1','Domenia-Probes.Model.ps1','Domenia-Live.Model.ps1'); File='Domenia-Accounts.UI.ps1'; DotSource=$true; Functions=@(
             'Show-DomeniaSecretPeek',
             'Hide-DomeniaSecretPeek',
             'Show-DomeniaLoginDiagnosticPanel',
             'Set-DomeniaLoginChoicePresentation',
-            'Set-DomeniaLoginWindowsFirst'
+            'Set-DomeniaLoginWindowsFirst',
+            'Get-DomeniaMachineAccountInUse',
+            'Get-DomeniaRemoteTrialTarget',
+            'Set-DomeniaRemoteTrialText',
+            'Update-DomeniaRemoteTrialUi',
+            'Start-DomeniaRemoteAccountTrial',
+            'Test-DomeniaRemoteTrialStateCurrent',
+            'Complete-DomeniaRemoteAccountTrial',
+            'Fail-DomeniaRemoteAccountTrial'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Store.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaStoreValue',
