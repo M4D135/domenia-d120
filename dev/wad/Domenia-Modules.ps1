@@ -1406,6 +1406,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Add-DomeniaBoardEntry',
             'Add-DomeniaBoardAttention',
             'Get-DomeniaBoardHealth',
+            'Get-DomeniaHealthCoverage',
             'Get-DomeniaFleetHealth',
             'Complete-DomeniaBoardData',
             'Get-DomeniaBoardVisualNames',

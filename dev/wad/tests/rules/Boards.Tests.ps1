@@ -391,3 +391,25 @@ Test-Case 'BRD-024' 'CO-24 : une section vide dit ce qui n a pas ete lu, sans pr
     Assert-True ([string]$data.Hints['Activite'] -like '*processus*') ('Activite : ' + [string]$data.Hints['Activite'])
     Assert-True ([string]$data.Hints['Securite et etat'] -like '*certificats*') ('Securite et etat : ' + [string]$data.Hints['Securite et etat'])
 }
+Test-Case 'BRD-025' 'Point 74 : couverture a cote de la sante, aucune note rassurante pour un parc peu renseigne' {
+    $c = Get-DomeniaHealthCoverage -Total 26 -Assessed 12
+    Assert-Equal 46 ([int]$c.Percent); Assert-False $c.Sufficient
+    Assert-True (Get-DomeniaHealthCoverage -Total 26 -Assessed 13).Sufficient '50 % exactement'
+    Assert-Equal 49 ([int](Get-DomeniaHealthCoverage -Total 1000 -Assessed 499).Percent) 'arrondi vers le bas'
+    Assert-False (Get-DomeniaHealthCoverage -Total 0 -Assessed 0).Sufficient
+    $thin = Get-DomeniaFleetHealth -Total 100 -Healthy 5 -Unassessed 95
+    Assert-Equal $null $thin.Score 'aucun score sur 5 % du parc'
+    Assert-Equal 'Couverture insuffisante' ([string]$thin.Verdict); Assert-Equal 'Off' ([string]$thin.State)
+    Assert-True ([string]$thin.Detail -like '*couverture 5 % (5 évalué(s) sur 100)*') ([string]$thin.Detail)
+    $critical = Get-DomeniaFleetHealth -Total 100 -Healthy 4 -Unassessed 95 -Attention @([pscustomobject]@{ Level = 'Alert'; Text = 'x' })
+    Assert-Equal 'Critique' ([string]$critical.Verdict); Assert-Equal 'Alert' ([string]$critical.State); Assert-Equal $null $critical.Score
+    $partial = Get-DomeniaFleetHealth -Total 20 -Healthy 17 -Unassessed 2
+    Assert-Equal 94 ([int]$partial.Score); Assert-Equal 'Évaluation partielle' ([string]$partial.Verdict)
+    Assert-True ([string]$partial.Detail -like '*· couverture 90 % (18 évalué(s) sur 20)') ([string]$partial.Detail)
+    Assert-Equal '22 postes sur 26 évalués sans point détecté · 0 non évalué(s)' ([string](Get-DomeniaFleetHealth -Total 26 -Healthy 22).Detail) 'parc entierement evalue inchange'
+    $data = New-DomeniaBoardData -Board Fleet
+    Add-Member -InputObject $data -MemberType NoteProperty -Name 'Population' -Value ([pscustomobject]@{ Total = 40; Healthy = 3; Unassessed = 36 })
+    [void](Complete-DomeniaBoardData -Data $data)
+    Assert-Equal $null $data.Entries['fleet.health'].Number 'le widget ne montre aucun score'
+    Assert-Equal 'Couverture insuffisante' ([string]$data.Entries['fleet.health'].Value)
+}

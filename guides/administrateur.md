@@ -322,6 +322,7 @@ Quand on sélectionne un autre objet, les tableaux du poste et des logiciels son
 - Verdict : au moins un point critique donne « Critique » ; sinon 85 et plus « Bon etat », 60 et plus « A surveiller », en dessous « Degrade ».
 - Exemples : un point à surveiller donne 90 « Bon etat » ; un point critique donne 75 « Critique ».
 - Le score et la liste portent sur toutes les vérifications, que leur widget soit affiché ou non. La liste est triée : critiques, à surveiller, puis informations.
+- Parc : le score est la part des postes évalués sans point détecté. Les postes incomplets sont comptés à part, jamais comme sains. Dès qu’un poste n’est pas évalué, la couverture s’affiche à côté du score, par exemple « couverture 90 % (18 évalué(s) sur 20) ». Sous 50 % des comptes activés évalués, aucun score n’est affiché : « Couverture insuffisante », ou « Critique » si un point critique est établi.
 
 ## Règles du poste
 

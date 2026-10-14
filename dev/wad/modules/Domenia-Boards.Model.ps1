@@ -394,20 +394,40 @@ function Get-DomeniaBoardHealth {
     $verdict = if ($alerts) { 'Critique' } elseif ($state -eq 'Alert') { 'Dégradé' } elseif ($state -eq 'Warn') { 'À surveiller' } else { 'Bon état' }
     return [pscustomobject]@{ Score = $score; Verdict = $verdict; State = $state; Alerts = $alerts; Warnings = $warnings }
 }
+function Get-DomeniaHealthCoverage {
+    # Share of the enabled accounts actually evaluated by the health rules (point 74), as a whole percentage rounded
+    # down so that 49.9 % never reads as 50 %. Sufficient: at least MinimumPercent evaluated (bounded 1 to 100).
+    param([int]$Total,[int]$Assessed,[int]$MinimumPercent = 50)
+    $minimum = [Math]::Max(1, [Math]::Min(100, $MinimumPercent))
+    $total = [Math]::Max(0, $Total); $assessed = [Math]::Max(0, [Math]::Min($total, $Assessed))
+    $percent = if ($total -gt 0) { [int][Math]::Floor(100.0 * $assessed / $total) } else { 0 }
+    $text = if ($total -gt 0) { 'couverture ' + [string]$percent + ' % (' + [string]$assessed + ' évalué(s) sur ' + [string]$total + ')' } else { 'aucun poste à évaluer' }
+    return [pscustomobject]@{ Total = $total; Assessed = $assessed; Unassessed = ($total - $assessed); Percent = $percent; MinimumPercent = $minimum; Sufficient = (($total -gt 0) -and ((100 * $assessed) -ge ($minimum * $total))); Text = $text }
+}
 function Get-DomeniaFleetHealth {
     # Fleet score (decision David 2026-10-08, MO-01): share of the workstations without any critical point nor point
     # to watch. Critique as soon as one point is critical, otherwise Bon état from 90 %, À surveiller from 75 %,
     # Dégradé below. An empty or unassessed perimeter has no numeric score.
-    param([int]$Total,[int]$Healthy,[object[]]$Attention = @(),[int]$Unassessed=0)
+    # Point 74: a poorly covered perimeter gets no reassuring score. Below $MinimumCoveragePercent of the enabled
+    # accounts evaluated, the score is withheld (verdict Couverture insuffisante, or Critique when a point is
+    # critical); the unevaluated workstations stay counted apart and never as healthy.
+    param([int]$Total,[int]$Healthy,[object[]]$Attention = @(),[int]$Unassessed=0,[int]$MinimumCoveragePercent=50)
     $alerts = @($Attention | Where-Object { ($null -ne $_) -and ([string]$_.Level -eq 'Alert') }).Count
     $warnings = @($Attention | Where-Object { ($null -ne $_) -and ([string]$_.Level -eq 'Warn') }).Count
     $unassessed=[Math]::Max(0,[Math]::Min($Total,$Unassessed));$assessed=[Math]::Max(0,$Total-$unassessed)
     if($assessed -eq 0){return [pscustomobject]@{Score=$null;Verdict=$(if($Total){'Données insuffisantes'}else{'Aucun poste évalué'});State='Off';Alerts=$alerts;Warnings=$warnings;Detail=([string]$assessed+' évalué(s) sur '+$Total+' · '+$unassessed+' non évalué(s)');Healthy=0;Total=$Total;Unassessed=$unassessed}}
+    $coverage=Get-DomeniaHealthCoverage -Total $Total -Assessed $assessed -MinimumPercent $MinimumCoveragePercent
+    if(($unassessed -gt 0) -and (-not $coverage.Sufficient)){
+        $partialHealthy=[Math]::Max(0,[Math]::Min($assessed,$Healthy))
+        return [pscustomobject]@{Score=$null;Verdict=$(if($alerts){'Critique'}else{'Couverture insuffisante'});State=$(if($alerts){'Alert'}else{'Off'});Alerts=$alerts;Warnings=$warnings;Detail=([string]$partialHealthy+' sans point détecté sur '+$assessed+' évalué(s) · '+$coverage.Text+' : score affiché à partir de '+$coverage.MinimumPercent+' %');Healthy=$partialHealthy;Total=$Total;Unassessed=$unassessed}
+    }
     $healthy = [Math]::Max(0,[Math]::Min($assessed,$Healthy))
     $score = if ($assessed -gt 0) { [int][Math]::Floor(100.0 * $healthy / $assessed) } else { 100 }
     $verdict = if ($alerts) { 'Critique' } elseif ($score -ge 90 -and $unassessed) { 'Évaluation partielle' } elseif ($score -ge 90) { 'Bon état' } elseif ($score -ge 75) { 'À surveiller' } else { 'Dégradé' }
     $state = if ($alerts -or ($verdict -eq 'Dégradé')) { 'Alert' } elseif ($verdict -eq 'À surveiller') { 'Warn' } elseif($unassessed){'Off'} else { 'Ok' }
     $detail = if ($Total -gt 0) { [string]$healthy + ' poste' + $(if ($healthy -gt 1) { 's' } else { '' }) + ' sur ' + [string]$assessed + ' évalués sans point détecté · '+[string]$unassessed+' non évalué(s)' } else { 'Aucun poste dans le périmètre' }
+    # The share evaluated is shown beside the score as soon as one workstation is missing (point 74).
+    if (($Total -gt 0) -and $unassessed) { $detail += ' · ' + $coverage.Text }
     return [pscustomobject]@{ Score = $score; Verdict = $verdict; State = $state; Alerts = $alerts; Warnings = $warnings; Detail = $detail; Healthy = $healthy; Total = $Total }
 }
 function Complete-DomeniaBoardData {
