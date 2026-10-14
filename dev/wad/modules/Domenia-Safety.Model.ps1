@@ -520,24 +520,33 @@ function New-DomeniaCollectivePreview {
         if ($null -eq $item) { continue }
         $left.Add([pscustomobject]@{Name=[string](Get-DomeniaMember $item 'Name' '');DN=[string](Get-DomeniaMember $item 'DN' '');Reason=[string](Get-DomeniaMember $item 'Reason' 'Exclu')})
     }
+    # Up to 20 000 rows on the interface thread: direct property reads, no function call per field.
     foreach ($candidate in @($Candidates)) {
         if ($null -eq $candidate) { continue }
-        $name = ([string](Get-DomeniaMember $candidate 'Name' '')).Trim()
-        $dn = ([string](Get-DomeniaMember $candidate 'DN' '')).Trim()
-        $guid = ([string](Get-DomeniaMember $candidate 'Guid' '')).Trim().Trim('{','}')
-        $type = ([string](Get-DomeniaMember $candidate 'Type' '')).Trim()
+        $name = ''; $dn = ''; $guid = ''; $type = ''; $before = ''; $after = ''
+        if ($candidate -is [Collections.IDictionary]) {
+            $name = [string](Get-DomeniaMember $candidate 'Name' ''); $dn = [string](Get-DomeniaMember $candidate 'DN' ''); $guid = [string](Get-DomeniaMember $candidate 'Guid' '')
+            $type = [string](Get-DomeniaMember $candidate 'Type' ''); $before = [string](Get-DomeniaMember $candidate 'Before' ''); $after = [string](Get-DomeniaMember $candidate 'After' '')
+        } else {
+            $properties = $candidate.PSObject.Properties
+            $property = $properties['Name']; if ($null -ne $property) { $name = [string]$property.Value }
+            $property = $properties['DN']; if ($null -ne $property) { $dn = [string]$property.Value }
+            $property = $properties['Guid']; if ($null -ne $property) { $guid = [string]$property.Value }
+            $property = $properties['Type']; if ($null -ne $property) { $type = [string]$property.Value }
+            $property = $properties['Before']; if ($null -ne $property) { $before = [string]$property.Value }
+            $property = $properties['After']; if ($null -ne $property) { $after = [string]$property.Value }
+        }
+        $name = $name.Trim(); $dn = $dn.Trim(); $guid = $guid.Trim().Trim('{','}'); $type = $type.Trim()
         $label = $name
         if (-not $label) { $label = $dn }
         if (-not $label) { $label = '(sans nom)' }
         $reason = ''
-        if ($ExpectedType -and $type -and ($type -ne $ExpectedType)) { $reason = 'Type ' + $type + ' hors du périmètre de lʼopération' }
+        if (($ExpectedType) -and ($type) -and ($type -ne $ExpectedType)) { $reason = 'Type ' + $type + ' hors du périmètre de lʼopération' }
         elseif ((-not $dn) -or (-not $guid)) { $reason = 'Identité incomplète (DN ou GUID absent) : relisez la fiche' }
         elseif ($seen.ContainsKey($guid.ToLowerInvariant())) { $reason = 'Doublon dʼun objet déjà listé' }
         elseif ($targets.Count -ge $Limit) { $reason = 'Au-delà de la limite de ' + $Limit + ' cibles' }
         if ($reason) { $left.Add([pscustomobject]@{Name=$label;DN=$dn;Reason=$reason}); continue }
         $seen[$guid.ToLowerInvariant()] = $true
-        $before = [string](Get-DomeniaMember $candidate 'Before' '')
-        $after = [string](Get-DomeniaMember $candidate 'After' '')
         $text = $Change
         if ($before -or $after) { $text = $before + ' → ' + $after }
         $targets.Add([pscustomobject]@{Name=$label;DN=$dn;Guid=$guid;Type=$type;Change=$text})
