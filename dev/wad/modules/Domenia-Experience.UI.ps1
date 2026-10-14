@@ -201,6 +201,8 @@ function Get-DomeniaOperationsHealthText {
     $save=if($null -ne $saved){'Dernière sauvegarde locale à '+([datetime]$saved).ToString('HH:mm:ss')+'.'}else{'Aucune sauvegarde locale dans cette session.'}
     try{$state=Get-DomeniaPersistenceState;if([string]$state.Label){$save+=' '+[string]$state.Label}}catch{}
     $lines.Add($save)
+    # Points 12, 13, 16 and 160: queue waits, shared reads, CIM queries avoided and paused sources of this session.
+    try{foreach($line in @(Get-DomeniaCollectionHealthLines)){if([string]$line){$lines.Add([string]$line)}}}catch{}
     return ($lines.ToArray() -join "`r`n")
 }
 

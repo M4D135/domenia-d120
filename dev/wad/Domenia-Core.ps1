@@ -2955,7 +2955,9 @@ function Get-DomeniaCachedPresenceState {
                 elseif ($null -ne $entry.PSObject.Properties["Updated"]) {
                     $observedUtc = ConvertTo-DomeniaUtcDate $entry.Updated
                 }
-                $fresh = Get-DomeniaFreshness -Nature 'Presence' -ObservedUtc $observedUtc
+                $table = $null
+                try { $table = Get-DomeniaActiveFreshnessTable } catch { $table = $null }
+                $fresh = Get-DomeniaFreshness -Nature 'Presence' -ObservedUtc $observedUtc -Table $table
                 if ([string]$fresh.State -eq 'Fresh') { return [string]$entry.State }
                 [void]$script:PresenceCache.Remove($key)
             }
@@ -3438,6 +3440,11 @@ function Get-DomeniaDefaultSettings {
         'Query.Library' = ''
         'Collection.Concurrency' = '4'
         'Collection.CacheMinutes' = '15'
+        # Points 11 and 159: usage profile, then per profile the durations changed by the operator and the window of
+        # the background work (JSON texts, no secret).
+        'Collection.Profile' = 'Standard'
+        'Collection.FreshnessJson' = ''
+        'Collection.WindowsJson' = ''
         # The last update of this domain stopped at its limit: '<BaseDn>|<date>|<objects read>' (Accueil warning).
         'Index.Partial'    = ''
         # Lot L01: the "Premiers pas" card of Accueil stays hidden once its four steps were done.
@@ -16395,6 +16402,9 @@ function Complete-DomeniaIndexRefreshUi {
         ScopeComplete=(-not [bool]$effective.Truncated)
     }
     $sync = Resolve-DomeniaIncrementalSync $checkpoint $response
+    if ([string](Get-DomeniaMember $effective 'CheckpointRejected' '') -eq 'UsnAhead') {
+        Add-DomeniaUiLog -Area "Index" -Text 'Repère au-delà du dernier USN validé par ce contrôleur (restauration ou retour arrière) : lecture complète, aucun USN extrapolé.'
+    }
 
     $canReplace = ((-not [bool]$effective.Incremental) -and (-not [bool]$effective.Truncated))
     if ($canReplace) {
@@ -16468,6 +16478,15 @@ function Start-DomeniaIndexRefresh {
         if ($dbCount -eq 0) {
             if (-not $Silent) { Set-Status "Aucune base autonome : utilise  Mettre a jour tout  d abord." "WARN" }
             return
+        }
+        # Point 21: the checkpoint is reused only on its controller and instance, with the data it describes;
+        # otherwise the pass reads everything again and the journal says why. No USN goes to another controller.
+        if ($null -ne $script:IndexInfo) {
+            $checkpointCheck = Test-DomeniaSyncCheckpoint -Checkpoint $script:IndexInfo -Server ([string]$script:Conn.Server) -DomainDn ([string]$script:Conn.BaseDn) -ObjectCount ([long]$dbCount)
+            if (-not [bool]$checkpointCheck.Usable) {
+                $lastUsn = [long]0; $lastInvocationId = ''; $since = ''
+                Add-DomeniaUiLog -Area "Index" -Text ([string]$checkpointCheck.Reason)
+            }
         }
         if (-not $Silent) {
             if (-not $Confirmed) {
@@ -17809,6 +17828,14 @@ try {
     try { $schemaNc = [string]$rootDse.Properties['schemaNamingContext'].Value } catch { $schemaNc = '' }
 }
 catch { }
+# Point 21: a checkpoint above what this instance has committed cannot describe its data (restored or rolled back
+# controller): the pass becomes a complete read. No USN is ever extrapolated.
+$checkpointRejected = ''
+if ($incremental -and ($lastUsn -gt 0) -and ($highestUsn -gt 0) -and ($lastUsn -gt $highestUsn)) {
+    $incremental = $false
+    $deltaClause = ''
+    $checkpointRejected = 'UsnAhead'
+}
 
 # LAPS expiration (legacy and Windows LAPS) is read with the computers, never the password. One small read of the
 # schema tells "attribute absent from this domain" (NoSchema) from "not visible with this account" (None).
@@ -18090,6 +18117,7 @@ $watch.Stop()
     Scoped = (-not [string]::Equals($searchBase,$baseDn,[StringComparison]::OrdinalIgnoreCase))
     Incremental = $incremental
     DeltaClause = $deltaClause
+    CheckpointRejected = $checkpointRejected
     HighestUsn = $highestUsn
     Server = [string]$Context.Server
     BaseDn = $baseDn
@@ -24207,7 +24235,7 @@ try {
     if ([bool]$script:DemoMode -and $IsWrite) { throw 'DOMENIA_DEMO_WRITE : ecritures desactivees en demonstration. Aucune ecriture tentee.' }
 
     $scheduler = Test-DomeniaSchedulerEnabled
-    $taskClassValue = ''; $providerValue = ''; $providerTarget = ''; $dedupKey = ''
+    $taskClassValue = ''; $providerValue = ''; $providerTarget = ''; $providerGroup = ''; $dedupKey = ''
     # CO-02: only a foreground task (Write, Explicit, Selection) becomes the target of Annuler and of the progress label.
     $foregroundValue = $true
     try {
@@ -24227,11 +24255,17 @@ try {
             $secretResource = [string](Get-DomeniaOperationCredentialNeeds -OperationId $OperationId).Resource
             if ($secretResource -in @('Laps','BitLocker')) { $providerTarget = $secretResource }
         }
+        # Point 15: the controller of the session or the presumed subnet of the workstation has its own budget.
+        try { $providerGroup = [string](Get-DomeniaKnownTargetGroup -Provider $providerValue -Target $providerTarget) } catch { $providerGroup = '' }
         if (-not $IsWrite) {
-            # D015: a strictly identical read joins the one already queued or running (same reader, session, generation).
-            $readerValue = $ReaderIdentity
-            if ([string]::IsNullOrWhiteSpace($readerValue) -and $null -ne $script:Conn) { $readerValue = [string]$script:Conn.BindUser }
-            $dedupKey = Get-DomeniaTaskDedupKey -OperationId $OperationId -ReaderIdentity $readerValue -Epoch ([long]$script:SessionEpoch) -Generation $Generation -Payload $Payload
+            # D015 / point 12: a strictly identical read joins the one already queued or running: same operation and
+            # request, same accounts (reader, process identity, account generation), same session and generation, same
+            # requirements (delays, protection, class).
+            $bindUser = ''
+            if ($null -ne $script:Conn) { $bindUser = [string]$script:Conn.BindUser }
+            $readerValue = Get-DomeniaTaskReaderIdentity -Reader $ReaderIdentity -BindUser $bindUser -ProcessIdentity ([string]$script:ProcessIdentity) -AccountGeneration ([long]$script:DomeniaAccountGeneration)
+            $requirements = Get-DomeniaTaskRequirements -TimeoutSeconds $TimeoutSeconds -HardTimeoutSeconds $HardTimeoutSeconds -NonCancellable ([bool]$NonCancellable) -TaskClass $taskClassValue
+            $dedupKey = Get-DomeniaTaskDedupKey -OperationId $OperationId -ReaderIdentity $readerValue -Epoch ([long]$script:SessionEpoch) -Generation $Generation -Payload $Payload -Requirements $requirements
             if (-not [string]::IsNullOrWhiteSpace($dedupKey)) {
                 $sharedId = Add-DomeniaTaskSubscriber -DedupKey $dedupKey -ReplaceKey $ReplaceKey -SuccessHandler $SuccessHandler -ErrorHandler $ErrorHandler -OnSuccess $OnSuccess -OnError $OnError -CallbackState $CallbackState -DisableControls $DisableControls
                 if (-not [string]::IsNullOrWhiteSpace($sharedId)) { Update-TaskUi -Force; return $sharedId }
@@ -24283,7 +24317,7 @@ try {
         SuccessHandler=$SuccessHandler; ErrorHandler=$ErrorHandler; CallbackState=$CallbackState
         DisableControls=@($DisableControls); IsWrite=[bool]$IsWrite; NonCancellable=([bool]$NonCancellable -or [bool]$IsWrite)
         SessionEpoch=[long]$script:SessionEpoch; TimeoutNotified=$false; TimeoutErrorDelivered=$false; CancelRequested=$false; CancelRequestedAt=$null; Superseded=$false; CorrelationId=$CorrelationId
-        State='Starting'; Class=$taskClassValue; Provider=$providerValue; ProviderTarget=$providerTarget; Sequence=(Get-DomeniaNextTaskSequence); QueuedAt=$null
+        State='Starting'; Class=$taskClassValue; Provider=$providerValue; ProviderTarget=$providerTarget; ProviderGroup=$providerGroup; Sequence=(Get-DomeniaNextTaskSequence); QueuedAt=$null
         Subscribers=(New-Object System.Collections.ArrayList); BusyApplied=$false; Code=$Code; Payload=$Payload; StatusText=$StatusText
         ExecutedOperationId=''; Demo=$false; Isolated=$false; DedupKey=$dedupKey; SchedulerManaged=[bool]$scheduler; CredentialIdentity=''
         Foreground=[bool]$foregroundValue; ErrorInfo=$null
@@ -25255,7 +25289,9 @@ function Show-AdObjectResult {
     }
     $script:SelectedObjectGeneration = [int64]$script:SelectedObjectGeneration + 1
     [void](Set-DomeniaObservationTime $script:SelectedObject 'Attributes' $attributesObservedUtc -Succeeded:$isLiveRead)
-    $attributesFreshness = Get-DomeniaRecordFreshness $script:SelectedObject 'Attributes'
+    $freshnessTable = $null
+    try { $freshnessTable = Get-DomeniaActiveFreshnessTable } catch { $freshnessTable = $null }
+    $attributesFreshness = Get-DomeniaRecordFreshness $script:SelectedObject 'Attributes' -Table $freshnessTable
     $script:SelectedObject | Add-Member -NotePropertyName AttributesFreshness -NotePropertyValue $attributesFreshness -Force
     Set-DomeniaRelationsSelection -Object $script:SelectedObject
     # Rendering is read-only: the producer has already committed every attribute to SQLite.

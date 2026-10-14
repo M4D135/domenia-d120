@@ -561,6 +561,8 @@ function Complete-DomeniaLiveStored {
             elseif([string]$result.Outcome -ieq 'AuthRejected'){$failureKind='CredentialRejected'}
             if($failureKind){[void](Register-DomeniaFailure $script:Live.NegativeCache $target 'Cim' $failureKind)}
             elseif(([string]$result.Outcome -ieq 'Observed') -or ([string]$result.Outcome -ieq 'NoConsole')){Clear-DomeniaFailure $script:Live.NegativeCache $target 'Cim'}
+            # Point 15: the address seen by this ping places later reads of the workstation in its presumed subnet.
+            try{[void](Register-DomeniaTargetAddress -Computer $target -Text ([string]$result.PresenceDetail))}catch{}
         }
     }
     if($observation.Outcome -eq 'AuthRejected'){
@@ -586,7 +588,8 @@ function Complete-DomeniaLiveStored {
     }
     if([string]$result.Outcome -ne 'PresenceOnly' -and (Get-CurrentSelectedComputerName) -ieq (Normalize-LinkComputer ([string]$State.Computer))){
         $view=Get-DomeniaLiveObservationView $observation
-        [void](Set-DomeniaControlText 'LblLinkProbeStatus' -Text ($view.State+' : '+$view.Display+' · '+(Get-DomeniaRecordFreshness $observation 'Console').Label))
+        $freshnessTable=$null;try{$freshnessTable=Get-DomeniaActiveFreshnessTable}catch{$freshnessTable=$null}
+        [void](Set-DomeniaControlText 'LblLinkProbeStatus' -Text ($view.State+' : '+$view.Display+' · '+(Get-DomeniaRecordFreshness $observation 'Console' -Table $freshnessTable).Label))
         # Do not rebuild the complete associations grid for every background result.
         $link=Get-ExistingLinkForComputer ([string]$State.Computer)
         if($null -ne $link){

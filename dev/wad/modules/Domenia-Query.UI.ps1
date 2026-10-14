@@ -100,6 +100,8 @@ function Initialize-DomeniaQueryWorkshop {
     if($null -ne $parallel){$parallel.ItemsSource=@(1,2,4,6,8);$parallel.SelectedItem=[int](Get-DomeniaSetting 'Collection.Concurrency' '4');if($parallel.SelectedIndex -lt 0){$parallel.SelectedIndex=2};$parallel.Add_SelectionChanged({param($s,$e)if($null -ne $s.SelectedItem){Set-DomeniaSetting 'Collection.Concurrency' ([string]$s.SelectedItem);Save-DomeniaSettings}})}
     $cache=Get-DomeniaControl 'CmbCollectionCache'
     if($null -ne $cache){$cache.ItemsSource=@([pscustomobject]@{Name='Forcer la relecture';Minutes=0},[pscustomobject]@{Name='Au plus 5 minutes';Minutes=5},[pscustomobject]@{Name='Au plus 15 minutes';Minutes=15},[pscustomobject]@{Name='Au plus 60 minutes';Minutes=60});$cache.DisplayMemberPath='Name';$minutes=[int](Get-DomeniaSetting 'Collection.CacheMinutes' '15');$cache.SelectedIndex=2;foreach($entry in $cache.ItemsSource){if($entry.Minutes -eq $minutes){$cache.SelectedItem=$entry}};$cache.Add_SelectionChanged({param($s,$e)if($null -ne $s.SelectedItem){Set-DomeniaSetting 'Collection.CacheMinutes' ([string]$s.SelectedItem.Minutes);Save-DomeniaSettings}})}
+    # Points 11, 159 and 20: usage profile, durations per family, collection window and interrupted campaign.
+    try{Initialize-DomeniaCollectionSettingsUi}catch{Write-AppLog ('Réglages de collecte indisponibles : '+$_.Exception.Message) 'WARN'}
     $group=Get-DomeniaControl 'CmbQueryGroupField';if($null -ne $group){$group.ItemsSource=@(@([pscustomobject]@{Id='';Name='Compteur de postes'})+@(Get-DomeniaQueryFields));$group.DisplayMemberPath='Name';$group.SelectedIndex=0}
     Initialize-DomeniaQueryCatalog
     Initialize-DomeniaQueryAdvanced
