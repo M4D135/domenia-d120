@@ -856,6 +856,33 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnIndexWalk" = "Default"
     "BtnIndexOpen" = "Default"
     "BtnIndexExport" = "Default"
+    "TxtIndexLocation" = "Default"
+    "BtnIndexOpenFolder" = "Default"
+    "BtnIndexBackup" = "Default"
+    "BtnIndexBackupTo" = "Default"
+    "BtnStorageMove" = "Default"
+    "BtnStorageRestore" = "Default"
+    "BtnStorageResume" = "Default"
+    "BtnStorageRollback" = "Default"
+    "LblStorageMaintenance" = "Default"
+    "LblStorageSpace" = "Default"
+    "ChkStorageAutoBackup" = "Default"
+    "TxtStorageBackupHours" = "Default"
+    "TxtStorageBackupKeep" = "Default"
+    "LblStorageBackupSchedule" = "Default"
+    "TxtStoragePresenceDays" = "Default"
+    "TxtStorageConsoleDays" = "Default"
+    "TxtStorageInventoryDays" = "Default"
+    "TxtStorageProbeDays" = "Default"
+    "TxtStorageDetailDays" = "Default"
+    "TxtStorageLinkHistoryDays" = "Default"
+    "BtnStoragePolicySave" = "Default"
+    "BtnStorageRetentionPreview" = "Default"
+    "BtnStorageRetentionApply" = "Default"
+    "LblStorageRetention" = "Default"
+    "BtnStorageIntegrity" = "Default"
+    "LblStorageIntegrity" = "Default"
+    "LblStorageLimits" = "Default"
     "BtnStorageUsage" = "Default"
     "BtnStoragePurgePreview" = "Default"
     "BtnStoragePurge" = "Default"
@@ -7158,53 +7185,60 @@ function Get-MainXaml {
           <StackPanel Margin="10">
             <Expander Header="Emplacement et sauvegarde" IsExpanded="True" Margin="0,10,0,0" Padding="10" Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1">
               <StackPanel>
-                <TextBox x:Name="TxtIndexLocation" IsReadOnly="True" Margin="0,6,0,6" MinHeight="32" ToolTip="Fichier de la base autonome de ce domaine. Le chemin peut être copié." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Emplacement de la base" />
+                <TextBox x:Name="TxtIndexLocation" IsReadOnly="True" Margin="0,6,0,6" MinHeight="32" ToolTip="Fichier de la base autonome de ce domaine. Le chemin peut être copié." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Emplacement de la base" AutomationProperties.HelpText="Fichier de la base autonome de ce domaine. Le chemin peut être copié." />
                 <WrapPanel>
-                  <Button x:Name="BtnIndexOpenFolder" Content="Ouvrir l emplacement" Margin="0,0,8,0" ToolTip="Ouvre le dossier de la base dans lʼexplorateur, fichier sélectionné." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ouvrir l emplacement de la base" />
-                  <Button x:Name="BtnIndexBackup" Content="Sauvegarder maintenant" Margin="0,0,8,0" ToolTip="Copie cohérente de la base (sauvegarde SQLite à chaud) dans son dossier Backups. Lʼoriginal nʼest pas modifié." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Sauvegarder la base maintenant" />
-                  <Button x:Name="BtnIndexBackupTo" Content="Copier une sauvegarde vers..." Margin="0,0,8,0" ToolTip="Sauvegarde la base puis copie cette sauvegarde vers le fichier de votre choix (cle USB, partage...)." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Copier une sauvegarde de la base" />
+                  <Button x:Name="BtnIndexOpenFolder" Content="Ouvrir l emplacement" Margin="0,0,8,0" ToolTip="Ouvre le dossier de la base dans lʼexplorateur, fichier sélectionné." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ouvrir l emplacement de la base" AutomationProperties.HelpText="Ouvre le dossier de la base dans lʼexplorateur, fichier sélectionné." />
+                  <Button x:Name="BtnIndexBackup" Content="Sauvegarder maintenant" Margin="0,0,8,0" ToolTip="Copie cohérente de la base (sauvegarde SQLite à chaud) dans son dossier Backups. Lʼoriginal nʼest pas modifié." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Sauvegarder la base maintenant" AutomationProperties.HelpText="Copie cohérente de la base (sauvegarde SQLite à chaud) dans son dossier Backups. Lʼoriginal nʼest pas modifié." />
+                  <Button x:Name="BtnIndexBackupTo" Content="Copier une sauvegarde vers..." Margin="0,0,8,0" ToolTip="Sauvegarde la base puis copie cette sauvegarde vérifiée vers le fichier de votre choix (clé USB, partage…)." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Copier une sauvegarde de la base" AutomationProperties.HelpText="Sauvegarde la base puis copie cette sauvegarde vérifiée vers le fichier de votre choix (clé USB, partage…)." />
                 </WrapPanel>
                 <WrapPanel Margin="0,10,0,0">
-                  <Button x:Name="BtnStorageMove" Content="Déplacer la base…" Margin="0,0,8,6" AutomationProperties.Name="Déplacer la base vers un autre dossier local"/>
-                  <Button x:Name="BtnStorageRestore" Content="Restaurer une sauvegarde…" Margin="0,0,8,6" AutomationProperties.Name="Prévisualiser et restaurer une sauvegarde locale"/>
-                  <Button x:Name="BtnStorageResume" Content="Reprendre la bascule" Margin="0,0,8,6"/>
-                  <Button x:Name="BtnStorageRollback" Content="Revenir à la base précédente" Margin="0,0,8,6"/>
+                  <Button x:Name="BtnStorageMove" Content="Déplacer la base…" Margin="0,0,8,6" ToolTip="Déplace la base vers un nouveau fichier local : vérification de la destination, copie contrôlée puis bascule. Lʼoriginal est conservé en lecture seule." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Déplacer la base vers un autre dossier local" AutomationProperties.HelpText="Déplace la base vers un nouveau fichier local : vérification de la destination, copie contrôlée puis bascule. Lʼoriginal est conservé en lecture seule."/>
+                  <Button x:Name="BtnStorageRestore" Content="Restaurer une sauvegarde…" Margin="0,0,8,6" ToolTip="Restaure une sauvegarde vérifiée dans un nouveau fichier local, après aperçu du domaine, des dates et du contenu. Aucune base nʼest écrasée." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Prévisualiser et restaurer une sauvegarde locale" AutomationProperties.HelpText="Restaure une sauvegarde vérifiée dans un nouveau fichier local, après aperçu du domaine, des dates et du contenu. Aucune base nʼest écrasée."/>
+                  <Button x:Name="BtnStorageResume" Content="Reprendre la bascule" IsEnabled="False" Margin="0,0,8,6" ToolTip="Reprend une bascule interrompue après vérification de la copie. Les deux fichiers sont conservés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Reprendre la bascule interrompue" AutomationProperties.HelpText="Reprend une bascule interrompue après vérification de la copie. Les deux fichiers sont conservés."/>
+                  <Button x:Name="BtnStorageRollback" Content="Revenir à la base précédente" IsEnabled="False" Margin="0,0,8,6" ToolTip="Revient au fichier dʼorigine si la nouvelle base nʼa reçu aucune écriture. Les deux fichiers sont conservés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Revenir à la base précédente" AutomationProperties.HelpText="Revient au fichier dʼorigine si la nouvelle base nʼa reçu aucune écriture. Les deux fichiers sont conservés."/>
                 </WrapPanel>
-                <TextBlock x:Name="LblStorageMaintenance" Text="La base active reste sur un disque local. Chaque déplacement ou restauration conserve le fichier original." TextWrapping="Wrap" Margin="0,0,0,8" Foreground="{DynamicResource MutedColor}"/>
+                <TextBlock x:Name="LblStorageMaintenance" Text="La base active reste sur un disque local. Chaque déplacement ou restauration conserve le fichier dʼorigine." TextWrapping="Wrap" Margin="0,0,0,8" Foreground="{DynamicResource MutedColor}" ToolTip="Étape et résultat de lʼassistant de déplacement ou de restauration de la base." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Assistant de stockage" AutomationProperties.HelpText="Étape et résultat de lʼassistant de déplacement ou de restauration de la base."/>
                 <TextBlock x:Name="LblIndexBackupStatus" Text="" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,6,0,0" />
+                <TextBlock x:Name="LblStorageSpace" Text="Espace libre du volume de la base : non mesuré dans cette session." TextWrapping="Wrap" Margin="0,6,0,0" ToolTip="Espace libre mesuré du volume de la base, seuil de suspension des collectes et données encore en mémoire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Espace disque de la base" AutomationProperties.HelpText="Espace libre mesuré du volume de la base, seuil de suspension des collectes et données encore en mémoire." />
               </StackPanel>
             </Expander>
             <Expander Header="Sauvegardes automatiques et conservation" IsExpanded="False" Margin="0,8,0,12" Padding="10" Background="{DynamicResource TileBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1">
               <StackPanel>
                 <TextBlock Text="Les lectures alimentent la base automatiquement. Ces réglages concernent ses copies de sécurité et la durée de conservation des mesures." TextWrapping="Wrap" Margin="0,0,0,12"/>
-                <CheckBox x:Name="ChkStorageAutoBackup" Content="Sauvegarder automatiquement pendant que Domenia est ouvert" Margin="0,0,0,10"/>
+                <CheckBox x:Name="ChkStorageAutoBackup" Content="Sauvegarder automatiquement pendant que Domenia est ouvert" Margin="0,0,0,10" ToolTip="Sauvegarde cohérente automatique, contrôlée par SQLite et par empreinte, tant que Domenia est ouvert. Enregistrez les réglages pour lʼappliquer." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Sauvegarde automatique" AutomationProperties.HelpText="Sauvegarde cohérente automatique, contrôlée par SQLite et par empreinte, tant que Domenia est ouvert. Enregistrez les réglages pour lʼappliquer."/>
                 <WrapPanel Margin="0,0,0,14">
                   <TextBlock Text="Intervalle (heures)" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                  <TextBox x:Name="TxtStorageBackupHours" Width="65" Margin="0,0,16,0" AutomationProperties.Name="Intervalle entre sauvegardes en heures"/>
+                  <TextBox x:Name="TxtStorageBackupHours" Width="65" Margin="0,0,16,0" ToolTip="Intervalle entre deux sauvegardes automatiques, de 1 à 720 heures." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Intervalle entre sauvegardes en heures" AutomationProperties.HelpText="Intervalle entre deux sauvegardes automatiques, de 1 à 720 heures."/>
                   <TextBlock Text="Copies à conserver" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                  <TextBox x:Name="TxtStorageBackupKeep" Width="65" AutomationProperties.Name="Nombre de sauvegardes à conserver"/>
+                  <TextBox x:Name="TxtStorageBackupKeep" Width="65" ToolTip="Nombre de sauvegardes gardées dans le dossier Backups, de 2 à 30 ; les plus anciennes sont retirées." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Nombre de sauvegardes à conserver" AutomationProperties.HelpText="Nombre de sauvegardes gardées dans le dossier Backups, de 2 à 30 ; les plus anciennes sont retirées."/>
                 </WrapPanel>
-                <TextBlock Text="Conservation des mesures en jours" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                <TextBlock Text="Une valeur de 0 conserve la famille sans limite de durée. Aucune suppression automatique : prévisualisez puis confirmez. La base est sauvegardée avant application." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,0,0,10"/>
+                <TextBlock x:Name="LblStorageBackupSchedule" Text="État des sauvegardes : non calculé." TextWrapping="Wrap" Margin="0,0,0,14" ToolTip="Fréquence, prochaine sauvegarde, dernier succès vérifié et dernier échec de cette session." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="État des sauvegardes" AutomationProperties.HelpText="Fréquence, prochaine sauvegarde, dernier succès vérifié et dernier échec de cette session."/>
+                <TextBlock Text="Conservation par famille, en jours" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                <TextBlock Text="Une valeur de 0 conserve la famille sans limite de durée. Aucune suppression automatique : la prévisualisation annonce la perte de détail, puis vous confirmez. La base est sauvegardée avant application. Lʼhistorique des associations nʼest que résumé : chaque changement dʼutilisateur est gardé." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,0,0,10"/>
                 <WrapPanel>
-                  <StackPanel Margin="0,0,16,8"><TextBlock Text="Présence ping"/><TextBox x:Name="TxtStoragePresenceDays" Width="95" HorizontalAlignment="Left" AutomationProperties.Name="Conservation présence ping en jours"/></StackPanel>
-                  <StackPanel Margin="0,0,16,8"><TextBlock Text="Utilisateur connecté"/><TextBox x:Name="TxtStorageConsoleDays" Width="95" HorizontalAlignment="Left" AutomationProperties.Name="Conservation utilisateur connecté en jours"/></StackPanel>
-                  <StackPanel Margin="0,0,16,8"><TextBlock Text="Inventaire"/><TextBox x:Name="TxtStorageInventoryDays" Width="95" HorizontalAlignment="Left" AutomationProperties.Name="Conservation inventaire en jours"/></StackPanel>
-                  <StackPanel Margin="0,0,16,8"><TextBlock Text="Sondes"/><TextBox x:Name="TxtStorageProbeDays" Width="95" HorizontalAlignment="Left" AutomationProperties.Name="Conservation sondes en jours"/></StackPanel>
-                  <StackPanel Margin="0,0,16,8"><TextBlock Text="Détails"/><TextBox x:Name="TxtStorageDetailDays" Width="95" HorizontalAlignment="Left" AutomationProperties.Name="Conservation détails en jours"/></StackPanel>
+                  <StackPanel Margin="0,0,16,8"><TextBlock Text="Présence ping"/><TextBox x:Name="TxtStoragePresenceDays" Width="95" HorizontalAlignment="Left" ToolTip="Âge au-delà duquel le dernier relevé de présence ping dʼun poste peut être retiré. 0 conserve sans limite." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Conservation présence ping en jours" AutomationProperties.HelpText="Âge au-delà duquel le dernier relevé de présence ping dʼun poste peut être retiré. 0 conserve sans limite."/></StackPanel>
+                  <StackPanel Margin="0,0,16,8"><TextBlock Text="Utilisateur connecté"/><TextBox x:Name="TxtStorageConsoleDays" Width="95" HorizontalAlignment="Left" ToolTip="Âge au-delà duquel le dernier utilisateur connecté relevé peut être retiré. 0 conserve sans limite." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Conservation utilisateur connecté en jours" AutomationProperties.HelpText="Âge au-delà duquel le dernier utilisateur connecté relevé peut être retiré. 0 conserve sans limite."/></StackPanel>
+                  <StackPanel Margin="0,0,16,8"><TextBlock Text="Inventaire"/><TextBox x:Name="TxtStorageInventoryDays" Width="95" HorizontalAlignment="Left" ToolTip="Âge au-delà duquel le dernier inventaire léger dʼun poste peut être retiré. 0 conserve sans limite." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Conservation inventaire en jours" AutomationProperties.HelpText="Âge au-delà duquel le dernier inventaire léger dʼun poste peut être retiré. 0 conserve sans limite."/></StackPanel>
+                  <StackPanel Margin="0,0,16,8"><TextBlock Text="Sondes"/><TextBox x:Name="TxtStorageProbeDays" Width="95" HorizontalAlignment="Left" ToolTip="Âge au-delà duquel les résultats de sondes WMI peuvent être retirés. 0 conserve sans limite." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Conservation sondes en jours" AutomationProperties.HelpText="Âge au-delà duquel les résultats de sondes WMI peuvent être retirés. 0 conserve sans limite."/></StackPanel>
+                  <StackPanel Margin="0,0,16,8"><TextBlock Text="Détails"/><TextBox x:Name="TxtStorageDetailDays" Width="95" HorizontalAlignment="Left" ToolTip="Âge au-delà duquel les résultats détaillés peuvent être retirés. 0 conserve sans limite." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Conservation détails en jours" AutomationProperties.HelpText="Âge au-delà duquel les résultats détaillés peuvent être retirés. 0 conserve sans limite."/></StackPanel>
+                  <StackPanel Margin="0,0,16,8"><TextBlock Text="Historique des associations"/><TextBox x:Name="TxtStorageLinkHistoryDays" Width="95" HorizontalAlignment="Left" ToolTip="Âge au-delà duquel les observations identiques répétées de lʼhistorique des associations sont résumées ; chaque changement dʼutilisateur est gardé. 0 conserve tout." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Résumé de lʼhistorique des associations en jours" AutomationProperties.HelpText="Âge au-delà duquel les observations identiques répétées de lʼhistorique des associations sont résumées ; chaque changement dʼutilisateur est gardé. 0 conserve tout."/></StackPanel>
                 </WrapPanel>
                 <WrapPanel Margin="0,6,0,8">
-                  <Button x:Name="BtnStoragePolicySave" Content="Enregistrer les réglages" Margin="0,0,8,6"/>
-                  <Button x:Name="BtnStorageRetentionPreview" Content="Prévisualiser la conservation" Margin="0,0,8,6"/>
-                  <Button x:Name="BtnStorageRetentionApply" Content="Appliquer…" IsEnabled="False" Margin="0,0,8,6"/>
+                  <Button x:Name="BtnStoragePolicySave" Content="Enregistrer les réglages" Margin="0,0,8,6" ToolTip="Enregistre la fréquence des sauvegardes et la conservation par famille. Rien nʼest supprimé à lʼenregistrement." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Enregistrer les réglages de stockage" AutomationProperties.HelpText="Enregistre la fréquence des sauvegardes et la conservation par famille. Rien nʼest supprimé à lʼenregistrement."/>
+                  <Button x:Name="BtnStorageRetentionPreview" Content="Prévisualiser la conservation" Margin="0,0,8,6" ToolTip="Compte, sans rien supprimer, ce que la conservation retirerait par famille, et annonce la perte de détail." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Prévisualiser la conservation" AutomationProperties.HelpText="Compte, sans rien supprimer, ce que la conservation retirerait par famille, et annonce la perte de détail."/>
+                  <Button x:Name="BtnStorageRetentionApply" Content="Appliquer…" IsEnabled="False" Margin="0,0,8,6" ToolTip="Après la prévisualisation : sauvegarde vérifiée de la base, puis retrait des données annoncées. Confirmation demandée." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Appliquer la conservation" AutomationProperties.HelpText="Après la prévisualisation : sauvegarde vérifiée de la base, puis retrait des données annoncées. Confirmation demandée."/>
                 </WrapPanel>
-                <TextBlock x:Name="LblStorageRetention" Text="Enregistrez les réglages puis prévisualisez les données concernées." TextWrapping="Wrap"/>
+                <TextBlock x:Name="LblStorageRetention" Text="Enregistrez les réglages puis prévisualisez les données concernées." TextWrapping="Wrap" ToolTip="Résultat de la prévisualisation ou de lʼapplication de la conservation, famille par famille." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Résultat de la conservation" AutomationProperties.HelpText="Résultat de la prévisualisation ou de lʼapplication de la conservation, famille par famille."/>
               </StackPanel>
             </Expander>
             <Expander x:Name="ExpStorageMaintenance" Header="Stockage local" Margin="0,0,0,12" IsExpanded="True">
               <StackPanel Margin="0,8,0,0">
                 <Button x:Name="BtnStorageUsage" Content="Mesurer" HorizontalAlignment="Left" MinHeight="32" Margin="0,0,0,6" ToolTip="Compte les lignes et mesure la base locale en lecture seule, sans contacter lʼannuaire ni les postes." AutomationProperties.Name="Mesurer le stockage local" AutomationProperties.HelpText="Mesure volontaire en arrière-plan ; aucune suppression." />
                 <TextBlock x:Name="LblStorageUsage" Text="Aucune mesure pour cette session." TextWrapping="Wrap" AutomationProperties.Name="Mesure du stockage local" />
+                <Button x:Name="BtnStorageIntegrity" Content="Contrôler lʼintégrité" HorizontalAlignment="Left" MinHeight="32" Margin="0,12,0,6" ToolTip="Contrôle la base en lecture seule : schéma, tables, identité, reçus, structure SQLite et journal. Aucune réparation automatique." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Contrôler lʼintégrité de la base locale" AutomationProperties.HelpText="Contrôle la base en lecture seule : schéma, tables, identité, reçus, structure SQLite et journal. Aucune réparation automatique." />
+                <TextBlock x:Name="LblStorageIntegrity" Text="Aucun contrôle dʼintégrité dans cette session." TextWrapping="Wrap" ToolTip="Résultat du dernier contrôle dʼintégrité de cette session." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Résultat du contrôle dʼintégrité" AutomationProperties.HelpText="Résultat du dernier contrôle dʼintégrité de cette session." />
+                <TextBlock Text="Limites du stockage" FontWeight="SemiBold" Margin="0,16,0,8" />
+                <TextBlock x:Name="LblStorageLimits" Text="Limites non calculées." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" ToolTip="Limites explicites de mémoire, de disque et de conservation du stockage local." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Limites du stockage local" AutomationProperties.HelpText="Limites explicites de mémoire, de disque et de conservation du stockage local." />
                 <TextBlock Text="Purge volontaire" FontWeight="SemiBold" Margin="0,16,0,8" />
                 <CheckBox x:Name="ChkStoragePurgeObservations" Content="Toutes les observations et les relevés du parc" Margin="0,0,0,8" ToolTip="Données reconstructibles ; associations conservées." AutomationProperties.Name="Purger les observations" />
                 <CheckBox x:Name="ChkStoragePurgeSnapshots" Content="Tous les instantanés de recherche" Margin="0,0,0,8" ToolTip="Résultats déjà lus ; aucune suppression dans AD." AutomationProperties.Name="Purger les instantanés" />
@@ -17276,6 +17310,9 @@ function Get-DomeniaIndexPartialText {
 function Test-DomeniaIndexWriteReady {
     # A new directory pass must observe the committed checkpoint of the previous one.
     if ($null -ne $script:IndexWalk) { Set-Status 'Une passe par OU est déjà en cours.' 'WARN'; return $false }
+    # Points 32 and 35: no new directory pass during a base maintenance, a suspended writer or a nearly full disk.
+    $storageRefusal = Get-DomeniaStorageCollectionRefusal
+    if ($storageRefusal) { Set-Status $storageRefusal 'WARN'; return $false }
     if ($null -ne $script:Persistence) {
         if ($script:Persistence.Job) { Set-Status 'Enregistrement local en cours : attendez sa confirmation avant une nouvelle lecture.' 'WARN'; return $false }
         foreach ($item in $script:Persistence.Pending.Values) {
@@ -17404,6 +17441,9 @@ function Start-DomeniaIndexWalkStep {
     $walk = $script:IndexWalk
     if ($null -eq $walk) { return }
     if ($walk.Queue.Count -eq 0) { Complete-DomeniaIndexWalkUi; return }
+    # Points 32 and 35: the saved branches stay; the next branch is not read during a maintenance or on a full disk.
+    $storageRefusal = Get-DomeniaStorageCollectionRefusal
+    if ($storageRefusal) { $walk.Queue.Clear(); Complete-DomeniaIndexWalkUi -Aborted -Detail $storageRefusal; return }
     $dn = $walk.Queue.Dequeue()
     $walk.Done = $walk.Done + 1
     $isRoot = $dn.Equals([string]$script:Conn.BaseDn,[StringComparison]::OrdinalIgnoreCase)
@@ -22203,7 +22243,7 @@ function Wire-Events {
     }) }
     if ($script:Ctrl.ContainsKey("BtnIndexBuild")) { $script:Ctrl["BtnIndexBuild"].Add_Click({ Start-DomeniaIndexBuild -UpdateLinks }) }
     if ($script:Ctrl.ContainsKey("BtnIndexWalk")) { $script:Ctrl["BtnIndexWalk"].Add_Click({ Start-DomeniaIndexWalk }) }
-    foreach($name in @('BtnStorageMove','BtnStorageRestore','BtnStorageResume','BtnStorageRollback','BtnStoragePolicySave','BtnStorageRetentionPreview','BtnStorageRetentionApply')){
+    foreach($name in @('BtnStorageMove','BtnStorageRestore','BtnStorageResume','BtnStorageRollback','BtnStoragePolicySave','BtnStorageRetentionPreview','BtnStorageRetentionApply','BtnStorageIntegrity')){
         $button=Get-DomeniaControl $name
         if($null -ne $button){$button.Add_Click({param($sender,$eventArgs)
             switch([string]$sender.Name){
@@ -22214,6 +22254,7 @@ function Wire-Events {
                 'BtnStoragePolicySave'{Save-DomeniaStoragePolicy}
                 'BtnStorageRetentionPreview'{Start-DomeniaStorageRetention}
                 'BtnStorageRetentionApply'{Request-DomeniaStorageRetention}
+                'BtnStorageIntegrity'{Start-DomeniaStorageIntegrity}
             }
         })}
     }
@@ -23069,7 +23110,14 @@ function Initialize-DomeniaWinSqliteNative {
         @{N="sqlite3_column_text"; R=[IntPtr]; P=[Type[]]@([IntPtr],[int])},
         @{N="sqlite3_column_bytes"; R=[int]; P=[Type[]]@([IntPtr],[int])},
         @{N="sqlite3_column_int64"; R=[long]; P=[Type[]]@([IntPtr],[int])},
-        @{N="sqlite3_column_double"; R=[double]; P=[Type[]]@([IntPtr],[int])}
+        @{N="sqlite3_column_double"; R=[double]; P=[Type[]]@([IntPtr],[int])},
+        # Point 39: prepared statements reused with bound values (text as UTF-8 with SQLITE_TRANSIENT, int64, NULL).
+        @{N="sqlite3_bind_text"; R=[int]; P=[Type[]]@([IntPtr],[int],[IntPtr],[int],[IntPtr])},
+        @{N="sqlite3_bind_int64"; R=[int]; P=[Type[]]@([IntPtr],[int],[long])},
+        @{N="sqlite3_bind_null"; R=[int]; P=[Type[]]@([IntPtr],[int])},
+        @{N="sqlite3_bind_parameter_count"; R=[int]; P=[Type[]]@([IntPtr])},
+        @{N="sqlite3_reset"; R=[int]; P=[Type[]]@([IntPtr])},
+        @{N="sqlite3_clear_bindings"; R=[int]; P=[Type[]]@([IntPtr])}
     )
     foreach ($d in $defs) {
         $m = $typeBuilder.DefinePInvokeMethod([string]$d.N,"winsqlite3.dll",$attrs,[System.Reflection.CallingConventions]::Standard,[Type]$d.R,[Type[]]$d.P,$cdecl,$ansi)
@@ -23301,6 +23349,7 @@ CREATE INDEX IF NOT EXISTS ix_ad_objects_upn ON ad_objects(upn COLLATE NOCASE);
 CREATE INDEX IF NOT EXISTS ix_ad_objects_dn ON ad_objects(distinguished_name COLLATE NOCASE);
 CREATE INDEX IF NOT EXISTS ix_ad_objects_usn ON ad_objects(usn_changed);
 CREATE INDEX IF NOT EXISTS ix_ad_objects_type ON ad_objects(object_type);
+CREATE INDEX IF NOT EXISTS ix_ad_objects_type_name ON ad_objects(object_type,name COLLATE NOCASE);
 CREATE TABLE IF NOT EXISTS user_machine_links(
  computer_key TEXT PRIMARY KEY,user_login TEXT,computer TEXT,source TEXT,confidence INTEGER,
  verified_in_ad INTEGER,observed_at TEXT,details TEXT,user_guid TEXT,computer_guid TEXT,user_dn TEXT,computer_dn TEXT);
@@ -23355,6 +23404,7 @@ function Initialize-DomeniaDatabase {
     [void](Get-DomeniaDatabasePath)
     if ($script:DomeniaDatabaseReady) { return $true }
     Initialize-DomeniaDataStore | Out-Null
+    $migrationBackup = ''
     try {
         # D115/D113: forward-only schema decided by the pure rule (Release.Model). A newer, unreadable, too old or
         # interrupted base is refused untouched, with the rule's message; an older base is migrated only after a
@@ -23393,6 +23443,12 @@ function Initialize-DomeniaDatabase {
                     if($column -notin $columns){[void](Invoke-DomeniaDbExec ('ALTER TABLE '+$table+' ADD COLUMN '+$column+' TEXT;') $migrationDb)}
                 }
             }
+            # Point 36: targeted check of the result inside the same transaction. A missing table or column rolls the
+            # whole step back; the base stays as it was, with its migration backup when one was required.
+            $schemaTables=@(Invoke-DomeniaDbQuery "SELECT name FROM sqlite_master WHERE type='table';" $migrationDb|ForEach-Object{[string]$_.name})
+            $schemaColumns=@{};foreach($table in @((Get-DomeniaStorageSchemaExpectation).Columns.Keys)){$schemaColumns[[string]$table]=@(Invoke-DomeniaDbQuery ('PRAGMA table_info('+[string]$table+');') $migrationDb|ForEach-Object{[string]$_.name})}
+            $schemaGaps=@(Get-DomeniaStorageSchemaGaps -Tables $schemaTables -Columns $schemaColumns)
+            if($schemaGaps.Count){throw ('Schéma incomplet après mise à niveau, transaction annulée : '+($schemaGaps -join ', ')+'.')}
             [void](Invoke-DomeniaDbExec 'COMMIT;' $migrationDb)
         }catch{try{[void](Invoke-DomeniaDbExec 'ROLLBACK;' $migrationDb)}catch{};throw}finally{Close-DomeniaDatabase $migrationDb}
         $probe = @(Invoke-DomeniaDbQuery "SELECT value FROM schema_info WHERE key='schema_version' LIMIT 1;")
@@ -23408,6 +23464,7 @@ function Initialize-DomeniaDatabase {
             try { [void](Recover-DomeniaDatabase -Reason $msg); return (Initialize-DomeniaDatabase) }
             catch { $msg = $msg + " ; restauration impossible : " + $_.Exception.Message }
         }
+        if ([string]$migrationBackup) { $msg = $msg + ' Sauvegarde faite avant la migration, conservée : ' + [string]$migrationBackup + '.' }
         Write-AppLog "Base autonome indisponible : $msg" "ERROR"
         throw $msg
     }
@@ -24177,7 +24234,6 @@ function Start-UiTask {
         [long]$Generation = 0
     )
 try {
-        if($null -ne $script:StorageMaintenance -and $script:StorageMaintenance.Locked -and $OperationId -notin @('StorageMaintenance','StorageRetention')){throw 'Maintenance de la base en cours : terminez ou reprenez la bascule avant une nouvelle opération.'}
         $payloadCount = 0
         if ($null -ne $Payload) {
             try { $payloadCount = @($Payload).Count } catch { $payloadCount = 1 }
@@ -24192,6 +24248,10 @@ try {
 
     if (-not [bool](Get-CfgValue "Async" "Enabled" $true)) { throw "Moteur multithread desactive dans la configuration." }
     if ($script:AsyncEngineClosing) { throw "Le moteur multithread est en cours de fermeture." }
+    # Points 32 and 34: while a base maintenance holds its lock (copy, switch to finish, unreadable base), no other local
+    # writer is admitted; reads stay available and collected results wait in the single queue. This refusal used to sit
+    # inside the trace block above, whose empty catch swallowed it.
+    if(($null -ne $script:StorageMaintenance) -and [bool]$script:StorageMaintenance.Locked -and ($OperationId -notin @('StorageMaintenance','StorageRetention','StorageIntegrity')) -and ((Get-DomeniaOperationEffect $OperationId) -eq 'LocalWrite')){throw 'Maintenance de la base en cours : terminez ou reprenez la bascule avant une nouvelle écriture locale.'}
     if($OperationId -eq 'StoragePurge'){Assert-DomeniaStoragePurgeReady}
     if($OperationId -ne 'ReceiptStore' -and (@($script:AsyncJobs.Values|Where-Object{$_.OperationId -eq 'StoragePurge'}).Count -or @($script:DetachedReadJobs|Where-Object{$_.OperationId -eq 'StoragePurge'}).Count)){throw 'Une simulation ou purge locale est encore active. Attendez sa fin.'}
     # D094: durable receipt required before dispatch for known mutations only.
@@ -27849,9 +27909,21 @@ function Initialize-Window {
         Invoke-DomeniaStartupStage "Base autonome DOMENIA" {
             $dbBoot=[Diagnostics.Stopwatch]::StartNew()
             try{Initialize-DomeniaDatabase | Out-Null}catch{
-                if([string]$_.Exception.Message -notmatch 'StorageRedirected'){throw}
+                $bootError=[string]$_.Exception.Message
+                $redirected=($bootError -match 'StorageRedirected')
+                # Point 36: a proven corrupt base no longer stops the start. The UI stays reachable for the restore
+                # assistant; the file stays untouched and every collection waits behind the maintenance lock.
+                $unreadable=((-not $redirected) -and [bool](Test-DomeniaStorageUnreadableMessage $bootError) -and (-not [string]::IsNullOrWhiteSpace([string]$script:DatabaseScopedPath)))
+                if((-not $redirected) -and (-not $unreadable)){throw}
+                if($unreadable){
+                    $script:StorageMaintenance=[pscustomobject]@{Id='recovery-unreadable';Mode='Restore';Recovery=$true;Locked=$true;Hold=$true;Draining=$false;DrainNext='';DrainUntil=[datetime]::MinValue;Epoch=[long]$script:SessionEpoch;Path=[string]$script:DatabaseScopedPath;DomainDn=[string]$script:Conn.BaseDn;SourcePath='';TargetPath='';Fingerprint='';Job='';Receipt=$null}
+                    [void](Set-DomeniaControlText 'LblStorageMaintenance' ('Base locale illisible, laissée intacte : '+[string]$script:DatabaseScopedPath+'. Restaurez une sauvegarde vérifiée avec « Restaurer une sauvegarde… ». Détail : '+$bootError))
+                    Write-AppLog ('Base locale illisible au démarrage, mode restauration : '+$bootError) 'ERROR'
+                    Set-DomeniaStartupStage -Stage 'Base locale illisible' -Detail 'Restaurez une sauvegarde vérifiée dans Outils, Base locale, Stockage.'
+                    return
+                }
                 # Keep the UI reachable for recovery. Never silently write to an old copy after a move.
-                $script:StorageMaintenance=[pscustomobject]@{Id='recovery-pending';Locked=$true;Epoch=[long]$script:SessionEpoch;Path=[string]$script:DatabaseScopedPath;Job=''}
+                $script:StorageMaintenance=[pscustomobject]@{Id='recovery-pending';Locked=$true;Hold=$true;Draining=$false;Recovery=$false;Epoch=[long]$script:SessionEpoch;Path=[string]$script:DatabaseScopedPath;Job='';Receipt=$null}
                 [void](Request-DomeniaStorageRecovery -Path ([string]$script:DatabaseScopedPath) -DomainDn ([string]$script:Conn.BaseDn))
                 Set-DomeniaStartupStage -Stage 'Base locale en attente' -Detail 'Une bascule doit être reprise dans Outils, Base locale, Stockage.'
                 return
@@ -27886,7 +27958,8 @@ function Initialize-Window {
         Invoke-DomeniaStartupStage "Prechargement cache AD" { Invoke-DomeniaStartupCacheWarmup } | Out-Null
         Invoke-DomeniaStartupStage "Preparation arbre AD" {
             if($null -ne $script:StorageMaintenance -and $script:StorageMaintenance.Locked){
-                Set-Status 'Bascule locale à reprendre dans Outils > Base locale > Stockage. Les collectes sont suspendues.' 'WARN'
+                if([string]$script:StorageMaintenance.Id -ceq 'recovery-unreadable'){Set-Status 'Base locale illisible : restaurez une sauvegarde vérifiée dans Outils > Base locale > Stockage. Les collectes sont suspendues.' 'WARN'}
+                else{Set-Status 'Bascule locale à reprendre dans Outils > Base locale > Stockage. Les collectes sont suspendues.' 'WARN'}
             }else{Load-TreeRoot;Update-Dashboard}
         } | Out-Null
         Invoke-DomeniaStartupStage "Barriere de disponibilite" { Assert-DomeniaStartupReadiness } | Out-Null

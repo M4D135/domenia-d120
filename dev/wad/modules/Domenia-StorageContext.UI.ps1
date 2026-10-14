@@ -50,8 +50,12 @@ function Switch-DomeniaDatabaseContext {
     return $true
 }
 function Resume-DomeniaDatabaseViews {
+    # -Reload after a switch (point 32): the context switch emptied the associations and the index counters; they are
+    # read again from the new base exactly as at startup (local reads only, no directory or workstation access).
+    param([switch]$Reload)
     try{
         [void](Initialize-DomeniaDatabase)
+        if($Reload){[void](Load-DomeniaIndexMetadata);Load-UserMachineLinks;try{Update-DomeniaIndexStats}catch{Write-AppLog ('Compteurs de la base différés : '+$_.Exception.Message) 'WARN'}}
         [void](Initialize-DomeniaQueryLibraryStore -Force)
         Request-DomeniaFleetRefresh -Force
         Update-DomeniaIndexLocation

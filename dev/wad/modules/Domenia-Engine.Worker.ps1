@@ -11,6 +11,11 @@ $path = [IO.Path]::GetFullPath([string]$Payload.Path)
 if ($path.StartsWith('\\')) { throw 'Base locale reseau non prise en charge.' }
 if (-not [IO.File]::Exists($path)) { return [pscustomobject]@{ Rows=@(); Busy=$false; Missing=$true; MachineCount=0 } }
 $busyMs = [Math]::Max(10,[Math]::Min(1000,[int]$Payload.BusyTimeoutMs))
+# Point 39: measured reads. Every statement of this run is counted and timed (SqlStats in the answer). Statements with
+# bound values are prepared once per shape and reused; all are finalized before the base is closed.
+$IdxWStats = [pscustomobject]@{ Prepared = 0; Reused = 0; Executed = 0; Rows = 0L; SqlMs = [double]0 }
+$IdxWStatements = @{}
+$IdxWColumns = @{}
 function New-IdxWUtf8 {
     param([AllowEmptyString()][string]$Text)
     $bytes = [Text.Encoding]::UTF8.GetBytes(([string]$Text) + [char]0)
@@ -52,15 +57,49 @@ function Get-IdxWDnScopeSql {
     if (-not $Subtree) { return $children+" AND instr($separators,',')=length($Column)-$length+1)" }
     return "($Column=$scopeLit COLLATE NOCASE OR "+$children+'))'
 }
+function Set-IdxWBindings {
+    # Values bind in order to ?1..?N: $null as NULL, int/long as int64, anything else as UTF-8 text copied by SQLite
+    # (SQLITE_TRANSIENT), so the temporary buffer is released at once.
+    param([IntPtr]$Statement,[object[]]$Values)
+    if ($null -eq $Values) { return }
+    for ($index = 1; $index -le $Values.Count; $index++) {
+        $value = $Values[$index - 1]
+        if ($null -eq $value) { $rc = [Domenia.WinSqliteNative]::sqlite3_bind_null($Statement,$index) }
+        elseif (($value -is [int]) -or ($value -is [long])) { $rc = [Domenia.WinSqliteNative]::sqlite3_bind_int64($Statement,$index,[long]$value) }
+        else {
+            $bytes = [Text.Encoding]::UTF8.GetBytes([string]$value)
+            $ptr = [Runtime.InteropServices.Marshal]::AllocHGlobal([Math]::Max(1,$bytes.Length))
+            try {
+                if ($bytes.Length -gt 0) { [Runtime.InteropServices.Marshal]::Copy($bytes,0,$ptr,$bytes.Length) }
+                $rc = [Domenia.WinSqliteNative]::sqlite3_bind_text($Statement,$index,$ptr,$bytes.Length,[IntPtr]::new(-1))
+            }
+            finally { [Runtime.InteropServices.Marshal]::FreeHGlobal($ptr) }
+        }
+        if ($rc -ne 0) { throw ('SQLite bind code ' + $rc + ' (parametre ' + $index + ').') }
+    }
+}
 function Invoke-IdxWQuery {
-    param([IntPtr]$Db,[string]$Sql)
-    $sqlPtr = [IntPtr]::Zero; $stmt = [IntPtr]::Zero
+    # -Parameters binds values to ?1..?N; their number must match the statement exactly. -Cached keeps the prepared
+    # statement for this run (fixed-shape SQL only), reset and unbound after each use.
+    param([IntPtr]$Db,[string]$Sql,[object[]]$Parameters = $null,[switch]$Cached)
+    $stmt = [IntPtr]::Zero; $owned = $true
     $rows = New-Object 'System.Collections.Generic.List[object]'
+    $watch = [Diagnostics.Stopwatch]::StartNew()
     try {
-        $sqlPtr = New-IdxWUtf8 $Sql
-        $rc = [Domenia.WinSqliteNative]::sqlite3_prepare_v2($Db,$sqlPtr,-1,[ref]$stmt,[IntPtr]::Zero)
-        if ($rc -eq 5 -or $rc -eq 6) { throw 'SQLITE_BUSY' }
-        if ($rc -ne 0) { throw ('SQLite prepare code ' + $rc + ' : ' + (ConvertFrom-IdxWUtf8 ([Domenia.WinSqliteNative]::sqlite3_errmsg($Db)))) }
+        if ($Cached -and $IdxWStatements.ContainsKey($Sql)) { $stmt = [IntPtr]$IdxWStatements[$Sql]; $owned = $false; $IdxWStats.Reused++ }
+        else {
+            $sqlPtr = New-IdxWUtf8 $Sql
+            try { $rc = [Domenia.WinSqliteNative]::sqlite3_prepare_v2($Db,$sqlPtr,-1,[ref]$stmt,[IntPtr]::Zero) }
+            finally { [Runtime.InteropServices.Marshal]::FreeHGlobal($sqlPtr) }
+            if ($rc -eq 5 -or $rc -eq 6) { throw 'SQLITE_BUSY' }
+            if ($rc -ne 0) { throw ('SQLite prepare code ' + $rc + ' : ' + (ConvertFrom-IdxWUtf8 ([Domenia.WinSqliteNative]::sqlite3_errmsg($Db)))) }
+            $IdxWStats.Prepared++
+            if ($Cached) { $IdxWStatements[$Sql] = $stmt; $owned = $false }
+        }
+        $given = 0; if ($null -ne $Parameters) { $given = $Parameters.Count }
+        $expected = [Domenia.WinSqliteNative]::sqlite3_bind_parameter_count($stmt)
+        if ($expected -ne $given) { throw ('Parametres SQL incoherents : ' + $given + ' fourni(s), ' + $expected + ' attendu(s).') }
+        if ($given -gt 0) { Set-IdxWBindings $stmt $Parameters }
         $count = [Domenia.WinSqliteNative]::sqlite3_column_count($stmt)
         # Column names are read once per statement, not once per cell (thousands of rows for the overview).
         $names = New-Object 'string[]' ([Math]::Max(0,$count))
@@ -80,12 +119,38 @@ function Invoke-IdxWQuery {
         }
         if ($step -eq 5 -or $step -eq 6) { throw 'SQLITE_BUSY' }
         if ($step -ne 101) { throw ('SQLite step code ' + $step + ' : ' + (ConvertFrom-IdxWUtf8 ([Domenia.WinSqliteNative]::sqlite3_errmsg($Db)))) }
+        $IdxWStats.Executed++; $IdxWStats.Rows += $rows.Count
         return $rows.ToArray()
     }
     finally {
-        if ($stmt -ne [IntPtr]::Zero) { try { [void][Domenia.WinSqliteNative]::sqlite3_finalize($stmt) } catch { } }
-        if ($sqlPtr -ne [IntPtr]::Zero) { [Runtime.InteropServices.Marshal]::FreeHGlobal($sqlPtr) }
+        if ($stmt -ne [IntPtr]::Zero) {
+            if ($owned) { try { [void][Domenia.WinSqliteNative]::sqlite3_finalize($stmt) } catch { } }
+            else { try { [void][Domenia.WinSqliteNative]::sqlite3_reset($stmt); [void][Domenia.WinSqliteNative]::sqlite3_clear_bindings($stmt) } catch { } }
+        }
+        $watch.Stop(); $IdxWStats.SqlMs += $watch.Elapsed.TotalMilliseconds
     }
+}
+function Get-IdxWColumns {
+    # Column list of a constant table name, read once per run (the read transaction keeps the schema stable).
+    param([IntPtr]$Db,[string]$Table)
+    if (-not $IdxWColumns.ContainsKey($Table)) { $IdxWColumns[$Table] = @(Invoke-IdxWQuery $Db ('PRAGMA table_info(' + $Table + ');') | ForEach-Object { [string]$_.name }) }
+    # Unrolled: callers collect the names with @().
+    return $IdxWColumns[$Table]
+}
+function Get-IdxWGuidSlots {
+    # Up to 32 GUIDs use a fixed-shape list of 32 bound slots padded with NULL (NULL never matches IN): one prepared
+    # statement then serves every slice of a run. Larger pages keep their literal list (bounded variable count).
+    param([string[]]$Guids)
+    $unique = @($Guids | Select-Object -Unique)
+    if (($unique.Count -gt 0) -and ($unique.Count -le 32)) {
+        $slots = New-Object 'object[]' 32
+        for ($i = 0; $i -lt $unique.Count; $i++) { $slots[$i] = [string]$unique[$i] }
+        return [pscustomobject]@{ Sql = ((@(1..32) | ForEach-Object { '?' + $_ }) -join ','); Parameters = $slots; Cached = $true; Count = $unique.Count }
+    }
+    return [pscustomobject]@{ Sql = (@($unique | ForEach-Object { Get-IdxWLiteral $_ }) -join ','); Parameters = $null; Cached = $false; Count = $unique.Count }
+}
+function Get-IdxWStatsSnapshot {
+    return [pscustomobject]@{ Prepared = [int]$IdxWStats.Prepared; Reused = [int]$IdxWStats.Reused; Executed = [int]$IdxWStats.Executed; Rows = [long]$IdxWStats.Rows; SqlMs = [Math]::Round([double]$IdxWStats.SqlMs,1) }
 }
 function ConvertTo-DomeniaSqlLiteral { param($Value); return Get-IdxWLiteral $Value }
 function Invoke-DomeniaDbQuery { param([string]$Sql,[IntPtr]$DatabaseHandle); return Invoke-IdxWQuery $DatabaseHandle $Sql }
@@ -158,12 +223,13 @@ function Get-StoreWProjection {
     return [pscustomobject]$p
 }
 function Read-StoreWCommitted {
-    param([IntPtr]$Db,[string[]]$Guids,[bool]$IncludeDirectoryDetails=$true,[bool]$IncludeObservations=$true,[bool]$IncludeDetails=$true,[string]$DetailWhere='1=1',[string[]]$ObservationFamilies=$null,[ValidateSet('Full','QuerySummary')][string]$DetailProjection='Full',[ValidateSet('Full','Summary')][string]$ObservationProjection='Full')
-    $keys=@($Guids|Select-Object -Unique|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ','
+    # -SkipState: the caller already holds the snapshot revision of its read transaction (slices of one read).
+    param([IntPtr]$Db,[string[]]$Guids,[bool]$IncludeDirectoryDetails=$true,[bool]$IncludeObservations=$true,[bool]$IncludeDetails=$true,[string]$DetailWhere='1=1',[string[]]$ObservationFamilies=$null,[ValidateSet('Full','QuerySummary')][string]$DetailProjection='Full',[ValidateSet('Full','Summary')][string]$ObservationProjection='Full',[switch]$SkipState)
+    $in=Get-IdxWGuidSlots $Guids;$keys=$in.Sql
     $rows=[Collections.Generic.List[object]]::new();$observations=[Collections.Generic.List[object]]::new();$details=[Collections.Generic.List[object]]::new();$projections=[Collections.Generic.List[object]]::new()
-    if($keys){
+    if($in.Count -gt 0){
         $names=@{};$payloadColumn=if($IncludeDirectoryDetails){'d.payload'}else{'NULL'}
-        foreach($r in @(Invoke-DomeniaDbQuery ("SELECT a.*,$payloadColumn AS store_payload,d.field_times,d.revision AS store_revision FROM ad_objects a LEFT JOIN domenia_directory_data d ON d.object_guid=a.object_guid WHERE a.object_guid IN ($keys) ORDER BY a.name COLLATE NOCASE,a.object_guid;") $Db)){$rows.Add((Convert-StoreWDirectory $r));$names[[string]$r.object_guid]=[string]$r.name}
+        foreach($r in @(Invoke-IdxWQuery $Db ("SELECT a.*,$payloadColumn AS store_payload,d.field_times,d.revision AS store_revision FROM ad_objects a LEFT JOIN domenia_directory_data d ON d.object_guid=a.object_guid WHERE a.object_guid IN ($keys) ORDER BY a.name COLLATE NOCASE,a.object_guid;") -Parameters $in.Parameters -Cached:([bool]$in.Cached))){$rows.Add((Convert-StoreWDirectory $r));$names[[string]$r.object_guid]=[string]$r.name}
         $groups=@{};$familyWhere=''
         if($PSBoundParameters.ContainsKey('ObservationFamilies') -and $null -ne $ObservationFamilies){
             foreach($family in @($ObservationFamilies)){if($family -notmatch '^(Presence|Console|Inventory|Probe:[A-Za-z0-9_.-]{1,128})$'){throw 'Famille de lecture invalide.'}}
@@ -173,14 +239,14 @@ function Read-StoreWCommitted {
         if($IncludeObservations){
         $observationColumns='*'
         if($ObservationProjection -eq 'Summary'){
-            $available=@(Invoke-DomeniaDbQuery 'PRAGMA table_info(domenia_observations);' $Db|ForEach-Object{[string]$_.name})
+            $available=@(Get-IdxWColumns $Db 'domenia_observations')
             $successSummary=if($available -contains 'summary_payload'){'summary_payload'}else{'NULL'};$attemptSummary=if($available -contains 'attempt_summary'){'attempt_summary'}else{'NULL'}
             $successRead="CASE WHEN $successSummary IS NOT NULL AND length(CAST($successSummary AS BLOB))<=262144 THEN $successSummary WHEN $successSummary IS NULL AND length(CAST(payload AS BLOB))<=16384 THEN payload ELSE NULL END"
             $attemptRead="CASE WHEN $attemptSummary IS NOT NULL AND length(CAST($attemptSummary AS BLOB))<=262144 THEN $attemptSummary WHEN $attemptSummary IS NULL AND length(CAST(attempt_payload AS BLOB))<=16384 THEN attempt_payload ELSE NULL END"
             $missing="CASE WHEN payload IS NOT NULL AND payload<>'null' AND ($successRead) IS NULL THEN 1 ELSE 0 END"
             $observationColumns="object_guid,family,dn,definition_hash,attempt_at,status,error,success_at,revision,$successRead AS payload,$attemptRead AS attempt_payload,$missing AS summary_missing"
         }
-        foreach($r in @(Invoke-DomeniaDbQuery ("SELECT $observationColumns FROM domenia_observations WHERE object_guid IN ($keys)$familyWhere ORDER BY object_guid,family;") $Db)){
+        foreach($r in @(Invoke-IdxWQuery $Db ("SELECT $observationColumns FROM domenia_observations WHERE object_guid IN ($keys)$familyWhere ORDER BY object_guid,family;") -Parameters $in.Parameters -Cached:([bool]$in.Cached))){
             $o=Convert-StoreWObservation $r;$observations.Add($o)
             if(-not $groups.ContainsKey($o.Guid)){$groups[$o.Guid]=[Collections.Generic.List[object]]::new()};$groups[$o.Guid].Add($o)
         }
@@ -188,15 +254,17 @@ function Read-StoreWCommitted {
         if($IncludeDetails){
             $detailColumns='*'
             if($DetailProjection -eq 'QuerySummary'){
-                $available=@(Invoke-DomeniaDbQuery 'PRAGMA table_info(domenia_details);' $Db|ForEach-Object{[string]$_.name})
+                $available=@(Get-IdxWColumns $Db 'domenia_details')
                 $successColumn=if($available -contains 'summary_payload'){'summary_payload'}else{'NULL'};$attemptColumn=if($available -contains 'attempt_summary'){'attempt_summary'}else{'NULL'}
                 # No JSON extension and no full payload scan: old rows without a summary stay unknown.
                 $detailColumns="object_guid,result_kind,request_key,dn,attempt_at,status,error,success_at,revision,$successColumn AS payload,$attemptColumn AS attempt_payload"
             }
-            foreach($r in @(Invoke-DomeniaDbQuery ("SELECT $detailColumns FROM domenia_details WHERE object_guid IN ($keys) AND ($DetailWhere) ORDER BY object_guid,result_kind,request_key;") $Db)){$details.Add((Convert-StoreWObservation $r 'DetailResult'))}
+            foreach($r in @(Invoke-IdxWQuery $Db ("SELECT $detailColumns FROM domenia_details WHERE object_guid IN ($keys) AND ($DetailWhere) ORDER BY object_guid,result_kind,request_key;") -Parameters $in.Parameters -Cached:([bool]$in.Cached))){$details.Add((Convert-StoreWObservation $r 'DetailResult'))}
         }
     }
-    $state=@(Invoke-DomeniaDbQuery 'SELECT * FROM domenia_store_state WHERE id=1;' $Db)
+    # -SkipState answers -1: no revision was read here.
+    if($SkipState){return [pscustomobject]@{Rows=$rows.ToArray();Observations=$observations.ToArray();ObservationRows=$projections.ToArray();Details=$details.ToArray();SnapshotRevision=-1L}}
+    $state=@(Invoke-IdxWQuery $Db 'SELECT * FROM domenia_store_state WHERE id=1;' -Cached)
     return [pscustomobject]@{Rows=$rows.ToArray();Observations=$observations.ToArray();ObservationRows=$projections.ToArray();Details=$details.ToArray();SnapshotRevision=$(if($state.Count){[long]$state[0].revision}else{0L})}
 }
 function Invoke-StoreWLibraryQuery {
@@ -279,13 +347,13 @@ function Read-IdxWCanonicalObservations {
     for($offset=0;$offset -lt $guids.Count;$offset+=32){
         $slice=@($guids[$offset..([Math]::Min($offset+31,$guids.Count-1))]);$migrated=@{}
         if($Tables.Contains('domenia_legacy_observation_imports')){
-            $keys=@($slice|ForEach-Object{Get-IdxWLiteral $_}) -join ','
-            foreach($marker in @(Invoke-IdxWQuery $Db ("SELECT object_guid FROM domenia_legacy_observation_imports WHERE object_guid IN ($keys);"))){$migrated[[string]$marker.object_guid]=$true}
+            $markerSlots=Get-IdxWGuidSlots $slice
+            foreach($marker in @(Invoke-IdxWQuery $Db ('SELECT object_guid FROM domenia_legacy_observation_imports WHERE object_guid IN ('+$markerSlots.Sql+');') -Parameters $markerSlots.Parameters -Cached:([bool]$markerSlots.Cached))){$migrated[[string]$marker.object_guid]=$true}
         }
         $selected=[Collections.Generic.List[string]]::new()
         foreach($guid in $slice){$owner=$unique[$guid];$dn=([string]$owner.distinguished_name).ToLowerInvariant();if($migrated.ContainsKey($guid) -or -not $LegacyKeys.Contains($dn)){$selected.Add($guid);$replaced[$dn]=$true}}
         if(-not $selected.Count){continue}
-        $args=@{Db=$Db;Guids=$selected.ToArray();IncludeDirectoryDetails=$false;IncludeDetails=$false}
+        $args=@{Db=$Db;Guids=$selected.ToArray();IncludeDirectoryDetails=$false;IncludeDetails=$false;SkipState=$true}
         if($null -ne $Payload.PSObject.Properties['ObservationFamilies'] -and $null -ne $Payload.ObservationFamilies){$args.ObservationFamilies=@($Payload.ObservationFamilies)}
         # Fleet and Park only. StoreRead keeps the default Full payload.
         $args.ObservationProjection='Summary'
@@ -325,10 +393,12 @@ try {
         if($kind -eq 'QueryLibrary'){
             $library=Read-StoreWQueryLibrary -Db $db -Query $query -DomainDn ([string]$Payload.DomainDn) -SnapshotRevision $revision -StoreId ([string]$Payload.StoreId)
             [void](Invoke-IdxWQuery $db 'COMMIT;')
-            return [pscustomobject]@{DataSource='SQLite';SQLiteVersion=$sqliteVersion;StoreId=[string]$Payload.StoreId;Path=$path;DomainDn=[string]$Payload.DomainDn;Missing=$false;Busy=$false;Rows=@();Observations=@();ObservationRows=@();Details=@();AccountPreferences=@();QueryRecipes=$library.QueryRecipes;QueryDependencies=$library.QueryDependencies;QueryMigrations=$library.QueryMigrations;Total=$library.Total;Offset=$library.Offset;Limit=$library.Limit;Revision=$revision;SnapshotRevision=$library.SnapshotRevision}
+            return [pscustomobject]@{DataSource='SQLite';SQLiteVersion=$sqliteVersion;StoreId=[string]$Payload.StoreId;Path=$path;DomainDn=[string]$Payload.DomainDn;Missing=$false;Busy=$false;Rows=@();Observations=@();ObservationRows=@();Details=@();AccountPreferences=@();QueryRecipes=$library.QueryRecipes;QueryDependencies=$library.QueryDependencies;QueryMigrations=$library.QueryMigrations;Total=$library.Total;Offset=$library.Offset;Limit=$library.Limit;Revision=$revision;SnapshotRevision=$library.SnapshotRevision;SqlStats=(Get-IdxWStatsSnapshot)}
         }
         $limit=[Math]::Max(1,[Math]::Min(5000,$(if([int]$query.Limit -gt 0){[int]$query.Limit}else{250})));$offset=[Math]::Max(0,[int]$query.Offset)
-        $conditions=[Collections.Generic.List[string]]::new();$conditions.Add('1=1')
+        # Point 39: operator text (search term, family, result kind, request key, scope name) is bound to ?N, never
+        # spliced into the SQL; validated constants (types, GUID page, DN scope) keep their literal form.
+        $conditions=[Collections.Generic.List[string]]::new();$conditions.Add('1=1');$bound=[Collections.Generic.List[object]]::new()
         $guids=@($query.Guids|Where-Object{$_}|Select-Object -Unique)
         if($null -ne $query.PSObject.Properties['Guids'] -and -not $guids.Count){$conditions.Add('0=1')}
         if($guids.Count -gt 5000){throw 'Trop de GUID pour une page.'}
@@ -336,9 +406,9 @@ try {
         $guidSql=@($guids|ForEach-Object{Get-IdxWLiteral (([guid]$_).ToString('D'))}) -join ','
         $accountPreferences=@()
         if($kind -eq 'AccountPreference'){
-            $scope=[string]$query.Scope;$where='domain_dn='+(Get-IdxWLiteral ([string]$Payload.DomainDn))
-            if($scope){$where+=' AND scope='+(Get-IdxWLiteral $scope)}
-            $accountPreferences=@(Invoke-IdxWQuery $db ("SELECT scope AS Scope,user_name AS UserName,domain_dn AS DomainDn,updated_at AS UpdatedAtUtc,revision AS Revision FROM domenia_account_preferences WHERE $where ORDER BY scope;"))
+            $scope=[string]$query.Scope;$where='domain_dn=?1';$bound.Add([string]$Payload.DomainDn)
+            if($scope){$where+=' AND scope=?2';$bound.Add($scope)}
+            $accountPreferences=@(Invoke-IdxWQuery $db ("SELECT scope AS Scope,user_name AS UserName,domain_dn AS DomainDn,updated_at AS UpdatedAtUtc,revision AS Revision FROM domenia_account_preferences WHERE $where ORDER BY scope;") -Parameters $bound.ToArray())
             $read=[pscustomobject]@{Rows=@();Observations=@();ObservationRows=@();Details=@();SnapshotRevision=$revision};$total=$accountPreferences.Count
         }else{
             if($kind -eq 'Directory'){
@@ -346,28 +416,28 @@ try {
                 if([string]$query.ScopeDn){$conditions.Add((Get-IdxWDnScopeSql 'distinguished_name' ([string]$query.ScopeDn) ([bool]$query.Subtree)))}
                 $types=@($query.Types|Where-Object{$_});foreach($type in $types){if([string]$type -notin @('Machine','Utilisateur','Groupe','OU','Conteneur')){throw 'Type de lecture invalide.'}}
                 if($types.Count){$conditions.Add('object_type IN ('+(@($types|ForEach-Object{Get-IdxWLiteral $_}) -join ',')+')')}
-                if([string]$query.Term){$term=([string]$query.Term).Trim().ToLowerInvariant();if($term.Length -gt 1024){throw 'Filtre trop long.'};$conditions.Add("instr(COALESCE(search_key,''),"+(Get-IdxWLiteral $term)+')>0')}
+                if([string]$query.Term){$term=([string]$query.Term).Trim().ToLowerInvariant();if($term.Length -gt 1024){throw 'Filtre trop long.'};$bound.Add($term);$conditions.Add("instr(COALESCE(search_key,''),?"+$bound.Count+')>0')}
                 $order='name COLLATE NOCASE,object_guid'
             }else{
                 $table=if($kind -eq 'Observation'){'domenia_observations'}else{'domenia_details'};$column='object_guid';$order='object_guid'
                 if($guidSql){$conditions.Add("object_guid IN ($guidSql)")}
                 if([string]$query.ScopeDn){$conditions.Add((Get-IdxWDnScopeSql 'dn' ([string]$query.ScopeDn) ([bool]$query.Subtree)))}
-                if($kind -eq 'Observation' -and [string]$query.Family){$conditions.Add('family='+(Get-IdxWLiteral ([string]$query.Family)))}
-                if($kind -eq 'Detail' -and [string]$query.ResultKind){$conditions.Add('result_kind='+(Get-IdxWLiteral ([string]$query.ResultKind)))}
-                if($kind -eq 'Detail' -and [string]$query.RequestKey){$conditions.Add('request_key='+(Get-IdxWLiteral ([string]$query.RequestKey)))}
+                if($kind -eq 'Observation' -and [string]$query.Family){$bound.Add([string]$query.Family);$conditions.Add('family=?'+$bound.Count)}
+                if($kind -eq 'Detail' -and [string]$query.ResultKind){$bound.Add([string]$query.ResultKind);$conditions.Add('result_kind=?'+$bound.Count)}
+                if($kind -eq 'Detail' -and [string]$query.RequestKey){$bound.Add([string]$query.RequestKey);$conditions.Add('request_key=?'+$bound.Count)}
             }
-            $where=$conditions -join ' AND ';$total=[long](@(Invoke-IdxWQuery $db "SELECT count(DISTINCT $column) AS n FROM $table WHERE $where;")[0].n)
-            $page=@(Invoke-IdxWQuery $db "SELECT DISTINCT $column FROM $table WHERE $where ORDER BY $order LIMIT $limit OFFSET $offset;")
+            $where=$conditions -join ' AND ';$total=[long](@(Invoke-IdxWQuery $db "SELECT count(DISTINCT $column) AS n FROM $table WHERE $where;" -Parameters $bound.ToArray())[0].n)
+            $page=@(Invoke-IdxWQuery $db "SELECT DISTINCT $column FROM $table WHERE $where ORDER BY $order LIMIT $limit OFFSET $offset;" -Parameters $bound.ToArray())
             $detailWhere='1=1';if($kind -eq 'Detail'){if([string]$query.ResultKind){$detailWhere+=' AND result_kind='+(Get-IdxWLiteral ([string]$query.ResultKind))};if([string]$query.RequestKey){$detailWhere+=' AND request_key='+(Get-IdxWLiteral ([string]$query.RequestKey))}}
             $readArgs=@{Db=$db;Guids=@($page|ForEach-Object{[string]$_.object_guid});IncludeDirectoryDetails=([string]$query.Projection -ne 'List');IncludeObservations=($kind -eq 'Observation' -or [bool]$query.IncludeObservations);IncludeDetails=($kind -eq 'Detail');DetailWhere=$detailWhere}
             if($kind -eq 'Observation' -and [string]$query.Family){$readArgs.ObservationFamilies=@([string]$query.Family)}
             if($kind -eq 'Detail' -and $null -ne $query.PSObject.Properties['DetailProjection'] -and [string]$query.DetailProjection){$readArgs.DetailProjection=[string]$query.DetailProjection}
             $read=Read-StoreWCommitted @readArgs
-            if($kind -eq 'Observation' -and [string]$query.Family){$read.Observations=@($read.Observations|Where-Object{[string]$_.Family -ceq [string]$query.Family})}
-            if($kind -eq 'Detail'){$read.Details=@($read.Details|Where-Object{(-not [string]$query.ResultKind -or [string]$_.ResultKind -ceq [string]$query.ResultKind) -and (-not [string]$query.RequestKey -or [string]$_.RequestKey -ceq [string]$query.RequestKey)})}
+            # The family, result kind and request key filters above are applied by SQLite (BINARY, case-sensitive like -ceq);
+            # the former PowerShell re-filter of the returned rows was redundant and is gone.
         }
         [void](Invoke-IdxWQuery $db 'COMMIT;')
-        return [pscustomobject]@{DataSource='SQLite';SQLiteVersion=$sqliteVersion;StoreId=[string]$Payload.StoreId;Path=$path;DomainDn=[string]$Payload.DomainDn;Missing=$false;Busy=$false;Rows=$read.Rows;Observations=$read.Observations;ObservationRows=$read.ObservationRows;Details=$read.Details;AccountPreferences=$accountPreferences;Total=$total;Offset=$offset;Limit=$limit;Revision=$revision;SnapshotRevision=$read.SnapshotRevision}
+        return [pscustomobject]@{DataSource='SQLite';SQLiteVersion=$sqliteVersion;StoreId=[string]$Payload.StoreId;Path=$path;DomainDn=[string]$Payload.DomainDn;Missing=$false;Busy=$false;Rows=$read.Rows;Observations=$read.Observations;ObservationRows=$read.ObservationRows;Details=$read.Details;AccountPreferences=$accountPreferences;Total=$total;Offset=$offset;Limit=$limit;Revision=$revision;SnapshotRevision=$read.SnapshotRevision;SqlStats=(Get-IdxWStatsSnapshot)}
     }
     if ($action -eq 'ResolveNames') {
         # CO-08 (L04): presence of the accounts and workstations of an import file in the local index, read only.
@@ -468,7 +538,7 @@ try {
             $targets.Add([pscustomobject]@{Key=$key;Computer=$name;Guid=$guid;Previous=$null;PreviousJson=$(if($null -ne $previous){$cached.Json}else{''});DirectoryChanged=$changed})
         }
         [void](Invoke-IdxWQuery $db 'COMMIT;')
-        [pscustomobject]@{Rows=$targets.ToArray();Busy=$false;Missing=$false;MachineCount=$targets.Count};return
+        [pscustomobject]@{Rows=$targets.ToArray();Busy=$false;Missing=$false;MachineCount=$targets.Count;SqlStats=(Get-IdxWStatsSnapshot)};return
     }
     if ($action -eq 'FleetStats') {
         if(-not (Get-Command New-DomeniaObservationReader -ErrorAction SilentlyContinue)){. (Join-Path ([string]$Payload.ModuleRoot) 'Domenia-Probes.Model.ps1')}
@@ -599,6 +669,7 @@ try {
             $board.Freshness.ComputedAtUtc=[datetime]::UtcNow
             $result|Add-Member -NotePropertyName Board -NotePropertyValue $board
         }
+        $result|Add-Member -NotePropertyName SqlStats -NotePropertyValue (Get-IdxWStatsSnapshot) -Force
         $result
         return
     }
@@ -619,9 +690,12 @@ try {
     $limit = [Math]::Max(1,[Math]::Min(500,[int]$Payload.Limit))
     $offset=0;if($null -ne $Payload.PSObject.Properties['Offset']){$offset=[Math]::Max(0,[int]$Payload.Offset)}
     $like = $clean.Replace('!','!!').Replace('%','!%').Replace('_','!_')
-    $termSql = Get-IdxWLiteral $clean
-    $prefixSql = Get-IdxWLiteral ($like + '%')
-    $containsSql = Get-IdxWLiteral ('%' + $like + '%')
+    # Point 39: the typed term is bound (?1 exact, ?2 prefix, ?3 contains), never spliced into the SQL text.
+    $termSql = '?1'
+    $prefixSql = '?2'
+    $containsSql = '?3'
+    $searchParameters = @()
+    if (-not $browse) { $searchParameters = @($clean,($like + '%'),('%' + $like + '%')) }
     $where=if($browse){'1=1'}else{"(name=$termSql COLLATE NOCASE OR login=$termSql COLLATE NOCASE OR upn=$termSql COLLATE NOCASE" +
         " OR name LIKE $prefixSql ESCAPE '!' COLLATE NOCASE OR login LIKE $prefixSql ESCAPE '!' COLLATE NOCASE OR upn LIKE $prefixSql ESCAPE '!' COLLATE NOCASE OR search_key LIKE $containsSql ESCAPE '!')"}
     $searchScope='';if($null -ne $Payload.PSObject.Properties['Scope']){$searchScope=([string]$Payload.Scope).Trim()}
@@ -649,7 +723,7 @@ try {
     }
     # Count and page use the same SQLite snapshot. Pagination is a display bound, never a population cap.
     [void](Invoke-IdxWQuery $db 'BEGIN;')
-    $total=[long](@(Invoke-IdxWQuery $db ('SELECT count(*) AS n FROM ad_objects WHERE '+$where+';'))[0].n)
+    $total=[long](@(Invoke-IdxWQuery $db ('SELECT count(*) AS n FROM ad_objects WHERE '+$where+';') -Parameters $searchParameters)[0].n)
     if($offset -ge $total){$offset=0}
     $scoreSql=if($browse){'0'}else{
         "CASE WHEN name=$termSql COLLATE NOCASE OR login=$termSql COLLATE NOCASE OR upn=$termSql COLLATE NOCASE THEN 100" +
@@ -659,7 +733,7 @@ try {
         " $scoreSql AS match_score FROM ad_objects WHERE $where ORDER BY $order LIMIT $limit OFFSET $offset;"
     $seen = @{}
     $result = New-Object 'System.Collections.Generic.List[object]'
-    foreach ($r in @(Invoke-IdxWQuery $db $sql)) {
+    foreach ($r in @(Invoke-IdxWQuery $db $sql -Parameters $searchParameters)) {
         $dn = [string]$r.distinguished_name; $guid = [string]$r.object_guid
         $key = if (-not [string]::IsNullOrWhiteSpace($guid)) { $guid.ToLowerInvariant() } else { $dn.ToLowerInvariant() }
         if ($seen.ContainsKey($key)) { continue }
@@ -676,13 +750,18 @@ try {
         })
     }
     [void](Invoke-IdxWQuery $db 'COMMIT;')
-    [pscustomobject]@{ Rows=$result.ToArray(); Busy=$false; Missing=$false; MachineCount=0; Total=$total; Offset=$offset; SortField=$sortField; Descending=$descending; HasMore=(($offset+$result.Count) -lt $total) }
+    [pscustomobject]@{ Rows=$result.ToArray(); Busy=$false; Missing=$false; MachineCount=0; Total=$total; Offset=$offset; SortField=$sortField; Descending=$descending; HasMore=(($offset+$result.Count) -lt $total); SqlStats=(Get-IdxWStatsSnapshot) }
 }
 catch {
     if ([string]$_.Exception.Message -eq 'SQLITE_BUSY') { [pscustomobject]@{ Rows=@(); Busy=$true; Missing=$false; MachineCount=0 } }
     else { throw }
 }
-finally { if ($db -ne [IntPtr]::Zero) { try { [void][Domenia.WinSqliteNative]::sqlite3_close($db) } catch { } } }
+finally {
+    # Cached statements are finalized first: SQLite refuses to close a connection that still owns prepared statements.
+    foreach ($cached in @($IdxWStatements.Values)) { try { [void][Domenia.WinSqliteNative]::sqlite3_finalize([IntPtr]$cached) } catch { } }
+    $IdxWStatements.Clear()
+    if ($db -ne [IntPtr]::Zero) { try { [void][Domenia.WinSqliteNative]::sqlite3_close($db) } catch { } }
+}
 '@
 }
 

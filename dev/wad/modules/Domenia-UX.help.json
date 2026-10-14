@@ -4065,5 +4065,194 @@
     "Source": "specific",
     "Title": "Dates des mesures et du calcul",
     "Text": "Le ping et l’inventaire WMI conservent leurs dates propres. N/M compte les mesures utilisables parmi les postes actifs ; du… au… décrit leur intervalle de dates. Vue recalculée indique seulement la préparation locale de l’affichage, sans nouvelle collecte."
+  },
+  {
+    "Name": "TxtIndexLocation",
+    "Title": "Emplacement de la base",
+    "Text": "Fichier de la base autonome de ce domaine. Le chemin peut être copié.",
+    "Kind": "TextBox",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "BtnIndexOpenFolder",
+    "Title": "Ouvrir lʼemplacement de la base",
+    "Text": "Ouvre le dossier de la base dans lʼexplorateur, fichier sélectionné.",
+    "Kind": "Button",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "BtnIndexBackup",
+    "Title": "Sauvegarder la base maintenant",
+    "Text": "Copie cohérente de la base (sauvegarde SQLite à chaud) dans son dossier Backups. Lʼoriginal nʼest pas modifié.",
+    "Kind": "Button",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "BtnIndexBackupTo",
+    "Title": "Copier une sauvegarde de la base",
+    "Text": "Sauvegarde la base puis copie cette sauvegarde vérifiée vers le fichier de votre choix (clé USB, partage…).",
+    "Kind": "Button",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "BtnStorageMove",
+    "Title": "Déplacer la base locale",
+    "Text": "Déplace la base vers un nouveau fichier local : vérification de la destination, copie contrôlée puis bascule. Lʼoriginal est conservé en lecture seule.",
+    "Kind": "Button",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "BtnStorageRestore",
+    "Title": "Restaurer une sauvegarde",
+    "Text": "Restaure une sauvegarde vérifiée dans un nouveau fichier local, après aperçu du domaine, des dates et du contenu. Aucune base nʼest écrasée.",
+    "Kind": "Button",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "BtnStorageResume",
+    "Title": "Reprendre la bascule",
+    "Text": "Reprend une bascule interrompue après vérification de la copie. Les deux fichiers sont conservés.",
+    "Kind": "Button",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "BtnStorageRollback",
+    "Title": "Revenir à la base précédente",
+    "Text": "Revient au fichier dʼorigine si la nouvelle base nʼa reçu aucune écriture. Les deux fichiers sont conservés.",
+    "Kind": "Button",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "LblStorageMaintenance",
+    "Title": "Assistant de stockage",
+    "Text": "Étape et résultat de lʼassistant de déplacement ou de restauration de la base.",
+    "Kind": "TextBlock",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "LblStorageSpace",
+    "Title": "Espace disque de la base",
+    "Text": "Espace libre mesuré du volume de la base, seuil de suspension des collectes et données encore en mémoire.",
+    "Kind": "TextBlock",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "ChkStorageAutoBackup",
+    "Title": "Sauvegarde automatique",
+    "Text": "Sauvegarde cohérente automatique, contrôlée par SQLite et par empreinte, tant que Domenia est ouvert. Enregistrez les réglages pour lʼappliquer.",
+    "Kind": "CheckBox",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "TxtStorageBackupHours",
+    "Title": "Intervalle des sauvegardes",
+    "Text": "Intervalle entre deux sauvegardes automatiques, de 1 à 720 heures.",
+    "Kind": "TextBox",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "TxtStorageBackupKeep",
+    "Title": "Sauvegardes à conserver",
+    "Text": "Nombre de sauvegardes gardées dans le dossier Backups, de 2 à 30 ; les plus anciennes sont retirées.",
+    "Kind": "TextBox",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "LblStorageBackupSchedule",
+    "Title": "État des sauvegardes",
+    "Text": "Fréquence, prochaine sauvegarde, dernier succès vérifié et dernier échec de cette session.",
+    "Kind": "TextBlock",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "TxtStoragePresenceDays",
+    "Title": "Conservation : Présence ping",
+    "Text": "Âge au-delà duquel le dernier relevé de présence ping dʼun poste peut être retiré. 0 conserve sans limite.",
+    "Kind": "TextBox",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "TxtStorageConsoleDays",
+    "Title": "Conservation : Utilisateur connecté",
+    "Text": "Âge au-delà duquel le dernier utilisateur connecté relevé peut être retiré. 0 conserve sans limite.",
+    "Kind": "TextBox",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "TxtStorageInventoryDays",
+    "Title": "Conservation : Inventaire",
+    "Text": "Âge au-delà duquel le dernier inventaire léger dʼun poste peut être retiré. 0 conserve sans limite.",
+    "Kind": "TextBox",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "TxtStorageProbeDays",
+    "Title": "Conservation : Sondes",
+    "Text": "Âge au-delà duquel les résultats de sondes WMI peuvent être retirés. 0 conserve sans limite.",
+    "Kind": "TextBox",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "TxtStorageDetailDays",
+    "Title": "Conservation : Détails",
+    "Text": "Âge au-delà duquel les résultats détaillés peuvent être retirés. 0 conserve sans limite.",
+    "Kind": "TextBox",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "TxtStorageLinkHistoryDays",
+    "Title": "Conservation : historique des associations",
+    "Text": "Âge au-delà duquel les observations identiques répétées de lʼhistorique des associations sont résumées ; chaque changement dʼutilisateur est gardé. 0 conserve tout.",
+    "Kind": "TextBox",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "BtnStoragePolicySave",
+    "Title": "Enregistrer les réglages de stockage",
+    "Text": "Enregistre la fréquence des sauvegardes et la conservation par famille. Rien nʼest supprimé à lʼenregistrement.",
+    "Kind": "Button",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "BtnStorageRetentionPreview",
+    "Title": "Prévisualiser la conservation",
+    "Text": "Compte, sans rien supprimer, ce que la conservation retirerait par famille, et annonce la perte de détail.",
+    "Kind": "Button",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "BtnStorageRetentionApply",
+    "Title": "Appliquer la conservation",
+    "Text": "Après la prévisualisation : sauvegarde vérifiée de la base, puis retrait des données annoncées. Confirmation demandée.",
+    "Kind": "Button",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "LblStorageRetention",
+    "Title": "Résultat de la conservation",
+    "Text": "Résultat de la prévisualisation ou de lʼapplication de la conservation, famille par famille.",
+    "Kind": "TextBlock",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "BtnStorageIntegrity",
+    "Title": "Contrôler lʼintégrité de la base",
+    "Text": "Contrôle la base en lecture seule : schéma, tables, identité, reçus, structure SQLite et journal. Aucune réparation automatique.",
+    "Kind": "Button",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "LblStorageIntegrity",
+    "Title": "Contrôle dʼintégrité",
+    "Text": "Résultat du dernier contrôle dʼintégrité de cette session.",
+    "Kind": "TextBlock",
+    "Source": "W06-storage"
+  },
+  {
+    "Name": "LblStorageLimits",
+    "Title": "Limites du stockage local",
+    "Text": "Limites explicites de mémoire, de disque et de conservation du stockage local.",
+    "Kind": "TextBlock",
+    "Source": "W06-storage"
   }
 ]
