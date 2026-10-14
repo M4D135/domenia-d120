@@ -123,9 +123,11 @@ function Get-DomeniaRevealedBitLockerKey {
 function Update-DomeniaSecretRevealCountdown {
     # UX-18: seconds left and ring of the key shown in the card, once a second. Display only: the expiry timer hides
     # the value, and this tick hides it too if it ever finds the deadline past. $true while the key stays shown.
-    if(-not [bool]$script:SecretsVisible){return $false}
+    # Without a key in the card (LAPS, whole-grid reveal, nothing shown) it only stops itself.
+    $key=Get-DomeniaRevealedBitLockerKey
+    if($null -eq $key){try{if($null -ne $script:SecretCountdownTimer){$script:SecretCountdownTimer.Stop()}}catch{};return $false}
     $reveal=$script:SecretReveal
-    if($null -eq $reveal -or [int]$reveal.Index -ne [int]$script:RevealedSecretIndex){Hide-DomeniaRevealedSecret;return $false}
+    if($null -eq $reveal -or [int]$reveal.Index -ne [int]$key.Index){Hide-DomeniaRevealedSecret;return $false}
     $c=Get-DomeniaSecretRevealCountdown -DeadlineUtc $reveal.DeadlineUtc -NowUtc ([datetime]::UtcNow) -TotalSeconds ([int]$reveal.TotalSeconds) -Extended ([bool]$reveal.Extended)
     if([bool]$c.Expired){Hide-DomeniaRevealedSecret;return $false}
     [void](Set-DomeniaControlText 'LblBitLockerKeyCountdown' ([string]$c.Text))

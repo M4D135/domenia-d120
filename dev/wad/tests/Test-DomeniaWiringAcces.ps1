@@ -155,6 +155,9 @@ function Reset-Fixture {
     $script:CurrentCapabilities=@{};$script:ControlBusyRef=@{};$script:ArtifactConsent=$null;$script:Live=$null;$script:DomeniaSurfaceState=$null
     $script:SecretRows=@();$script:SecretsVisible=$false;$script:RevealedSecretIndex=-1;$script:BitLockerKeyList=@();$script:BitLockerKeyContext=$null;$script:ActiveSecretRequestId=''
     if($null -ne $script:SecretRevealTimer){try{$script:SecretRevealTimer.Stop()}catch{}};$script:SecretRevealTimer=$null
+    # UX-18: no countdown nor card left over from a previous case.
+    if($null -ne $script:SecretCountdownTimer){try{$script:SecretCountdownTimer.Stop()}catch{}};$script:SecretReveal=$null
+    $script:Ctrl=$script:MainControls;$script:Ctrl.BitLockerKeyCard.Visibility='Collapsed';$script:Ctrl.BitLockerKeyBlocks.ItemsSource=$null
     $script:AccessCurrentJob=$null;$script:DirectoryCredentialFaulted=$false
     $script:Ctrl=$script:MainControls
     $script:Window=$null;$script:CurrentTheme='Light'
@@ -795,6 +798,8 @@ Test-Case 'UI-18 Relecture proposee pour une modification de fiche, annulable, r
 }
 
 if($null -ne $script:SecretRevealTimer){try{$script:SecretRevealTimer.Stop()}catch{}}
+if($null -ne $script:SecretCountdownTimer){try{$script:SecretCountdownTimer.Stop()}catch{}}
+if($null -ne $script:Guard -and $null -ne $script:Guard.Timer){try{$script:Guard.Timer.Stop()}catch{}}
 if($null -ne $script:MainWindow){try{$script:MainWindow.Close()}catch{}}
 $passed=@($script:Checks|Where-Object{$_.Status -eq 'Passed'}).Count;$failed=@($script:Checks|Where-Object{$_.Status -eq 'Failed'}).Count
 if(-not $ReportPath){$ReportPath=Join-Path ([IO.Path]::GetTempPath()) ('Domenia-wiring-acces-'+[guid]::NewGuid().ToString('N')+'.json')}
