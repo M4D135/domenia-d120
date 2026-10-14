@@ -92,7 +92,7 @@ function Get-DomeniaSearchWorkspaceLabel {
     $parts=[Collections.Generic.List[string]]::new()
     $parts.Add([string]$View.Name)
     $parts.Add($place+$(if([bool]$View.Subtree){' et sous-OU'}else{' seulement'}))
-    if([string]$View.TypeLabel -and [string]$View.TypeLabel -ne 'Tous'){$parts.Add([string]$View.TypeLabel)}
+    if(([bool][string]$View.TypeLabel) -and ([string]$View.TypeLabel -ne 'Tous')){$parts.Add([string]$View.TypeLabel)}
     return ($parts.ToArray() -join ' · ')
 }
 
@@ -114,7 +114,7 @@ function Get-DomeniaSearchFilterChips {
         $subtree=[bool](Get-DomeniaMember $State 'Subtree' $true)
         $chips.Add([pscustomobject]@{Key='Scope';Scope='Annuaire';Label=('OU '+$leaf+' · '+$(if($subtree){'sous-OU incluses'}else{'niveau direct'}));Removable=$false;Effect=('Périmètre lu dans lʼannuaire : '+$(if($dn){Get-DomeniaOuDisplayPath $dn}else{'aucun'})+'. Changez-le dans lʼarbre ou le fil dʼAriane ; il nʼest jamais élargi au domaine en silence.')})
         $type=[string](Get-DomeniaMember $State 'TypeLabel' 'Tous')
-        if($type -and $type -ne 'Tous'){$chips.Add([pscustomobject]@{Key='Type';Scope='Annuaire';Label=('Type : '+$type);Removable=$true;Effect='Retirer ce critère relit lʼOU dans lʼannuaire avec tous les types dʼobjets.'})}
+        if(($type) -and ($type -ne 'Tous')){$chips.Add([pscustomobject]@{Key='Type';Scope='Annuaire';Label=('Type : '+$type);Removable=$true;Effect='Retirer ce critère relit lʼOU dans lʼannuaire avec tous les types dʼobjets.'})}
     }
     $query=ConvertTo-DomeniaFlatText ([string](Get-DomeniaMember $State 'QueryName' '')) 60
     if($query){
@@ -127,7 +127,7 @@ function Get-DomeniaSearchFilterChips {
     if($segment){$chips.Add([pscustomobject]@{Key='Segment';Scope='Base locale';Label=('Sélection de lʼatelier : '+$segment);Removable=$true;Effect='Retirer cette sélection réaffiche toutes les lignes chargées ; aucune lecture réseau.'})}
     if($mode -ne 'Global'){
         $presence=[string](Get-DomeniaMember $State 'Presence' 'Tous')
-        if($presence -and $presence -ne 'Tous'){$chips.Add([pscustomobject]@{Key='Presence';Scope='Liste chargée';Label=('Ping mémorisé : '+$presence);Removable=$true;Effect='Filtre local sur la dernière présence mémorisée ; retirer ce critère nʼenvoie aucun ping. Sans réponse ne prouve pas quʼun poste est éteint.'})}
+        if(($presence) -and ($presence -ne 'Tous')){$chips.Add([pscustomobject]@{Key='Presence';Scope='Liste chargée';Label=('Ping mémorisé : '+$presence);Removable=$true;Effect='Filtre local sur la dernière présence mémorisée ; retirer ce critère nʼenvoie aucun ping. Sans réponse ne prouve pas quʼun poste est éteint.'})}
         $local=ConvertTo-DomeniaFlatText ([string](Get-DomeniaMember $State 'LocalFilter' '')) 60
         if($local){$chips.Add([pscustomobject]@{Key='Local';Scope='Liste chargée';Label=('Contient : '+$local);Removable=$true;Effect='Filtre local sur les lignes déjà chargées ; retirer ce critère nʼappelle pas lʼannuaire.'})}
     }
@@ -184,7 +184,7 @@ function Get-DomeniaSearchSelectionPlan {
         # Same identity as Get-DomeniaNavRowKey, computed inline for long lists.
         $key='';$guid=[guid]::Empty
         if(([guid]::TryParse([string]$row.Guid,[ref]$guid)) -and ($guid -ne [guid]::Empty)){$key='g:'+$guid.ToString('D')}elseif([string]$row.DN){$key='d:'+([string]$row.DN).ToLowerInvariant()}
-        $isSelected=([bool]$key -and $selectedKeys.ContainsKey($key))
+        $isSelected=(([bool]$key) -and ($selectedKeys.ContainsKey($key)))
         if($isSelected){$shownSelected[$key]=$true}
         if(($Mode -eq 'Selected') -and (-not $isSelected)){continue}
         if($key){if($seen.ContainsKey($key)){continue};$seen[$key]=$true}
@@ -221,7 +221,7 @@ function ConvertTo-DomeniaComparisonText {
     if($text -eq ''){return 'Vide observé'}
     # Stored AD dates are ISO 8601 UTC texts: shown to the minute, in UTC, like every other date of these tables.
     if($text -match '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}'){$date=Format-DomeniaComparisonDate $text;if($date){return $date}}
-    if($Name -and (@(Get-DomeniaFileTimeAttributeNames) -contains $Name.ToLowerInvariant())){
+    if(([bool]$Name) -and (@(Get-DomeniaFileTimeAttributeNames) -contains $Name.ToLowerInvariant())){
         $ticks=0L
         if([long]::TryParse($text,[Globalization.NumberStyles]::Integer,[Globalization.CultureInfo]::InvariantCulture,[ref]$ticks)){
             if($ticks -le 0){return '0 (aucune date)'}
@@ -266,7 +266,7 @@ function Get-DomeniaComputerComparison {
     # values of different measures are never mixed, and a missing value is never 'Identique'. Each row says whether
     # the values differ (Difference: Different, Unknown, DateOnly, Same, Single for one object).
     param([AllowEmptyCollection()][object[]]$Rows,[AllowEmptyCollection()][object[]]$Observations,[string[]]$Guids,[ValidateRange(1,200)][int]$FieldsPerFamily=40)
-    if(@($Guids).Count -lt 1 -or @($Guids).Count -gt 8){throw 'Comparez de un à huit objets.'}
+    if((@($Guids).Count -lt 1) -or (@($Guids).Count -gt 8)){throw 'Comparez de un à huit objets.'}
     $byGuid=@{};foreach($row in @($Rows)){if($null -ne $row){$byGuid[([string]$row.Guid).ToLowerInvariant()]=$row}}
     $families=@{};foreach($row in @($Observations)){if($null -ne $row){$families[([string]$row.Guid).ToLowerInvariant()+'|'+[string]$row.Family]=$row}}
     $keys=@($Guids|ForEach-Object{([string]$_).ToLowerInvariant()})
@@ -315,7 +315,7 @@ function Get-DomeniaComputerComparison {
                 $entry=$perGuid[$key];$observation=$entry.Observation;$value=$null;$date='';$note=''
                 if($null -ne $observation){
                     $date=Format-DomeniaComparisonDate $observation.LastSuccessAtUtc
-                    if($fieldName -and $entry.Fields.ContainsKey($fieldName)){$value=$entry.Fields[$fieldName]}
+                    if(([bool]$fieldName) -and ($entry.Fields.ContainsKey($fieldName))){$value=$entry.Fields[$fieldName]}
                     if([string]$observation.Error){$note=' · tentative '+(Format-DomeniaComparisonDate $observation.LastAttemptAtUtc)+' : '+(ConvertTo-DomeniaFlatText ([string]$observation.Error) 120)}
                 }
                 [pscustomobject]@{Value=$value;Text=(ConvertTo-DomeniaComparisonText $value $fieldName);Date=$date;Note=$note}

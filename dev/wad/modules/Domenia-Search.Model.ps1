@@ -788,7 +788,7 @@ function Get-DomeniaOuDistinctLabels {
                 if ($labels.ContainsKey($fold)) { $labels[$fold]++ } else { $labels[$fold] = 1 }
             }
             $unique = (@($labels.Values | Where-Object { $_ -gt 1 }).Count -eq 0)
-            if ($unique -or $exhausted) { break }
+            if (($unique) -or ($exhausted)) { break }
         }
         # Same names up to the domain: the readable full path, domain included, is the remaining distinction.
         if (-not $unique) { foreach ($entry in $group) { $entry.Label = [string]$entry.Leaf + ' (' + [string]$entry.FullPath + ')' } }
@@ -836,7 +836,7 @@ function Get-DomeniaNavSortState {
         if ($null -eq $item) { continue }
         $field = [string](Get-DomeniaMember $item 'Field' '')
         $direction = [string](Get-DomeniaMember $item 'Direction' '')
-        if (($field -cnotmatch '^[A-Za-z][A-Za-z0-9_]{0,79}$') -or ($direction -notin @('Ascending','Descending')) -or $seen.ContainsKey($field)) { continue }
+        if (($field -cnotmatch '^[A-Za-z][A-Za-z0-9_]{0,79}$') -or ($direction -notin @('Ascending','Descending')) -or ($seen.ContainsKey($field))) { continue }
         if ($out.Count -ge 8) { break }
         $seen[$field] = $true
         $out.Add([pscustomobject]@{Field=$field;Direction=$direction})
@@ -865,7 +865,7 @@ function Get-DomeniaNavTreePlan {
         $isLoaded = [bool](Get-DomeniaMember $node 'Loaded' $false)
         $isExpanded = [bool](Get-DomeniaMember $node 'Expanded' $false)
         if ($isLoaded) { $loaded[$key] = $true }
-        if ($wanted.ContainsKey($key)) { if ($isLoaded -and (-not $isExpanded)) { $expand.Add($dn) } }
+        if ($wanted.ContainsKey($key)) { if (($isLoaded) -and (-not $isExpanded)) { $expand.Add($dn) } }
         elseif ($isExpanded) { $collapse.Add($dn) }
     }
     $unread = @($wanted.Keys | Where-Object { -not $loaded.ContainsKey($_) } | ForEach-Object { $wanted[$_] })
@@ -879,7 +879,7 @@ function Get-DomeniaOuChoiceSummary {
     $target = ([string]$Dn).Trim()
     $domain = ([string]$DomainDn).Trim()
     if (-not $target) { return 'Aucune OU choisie : développez une branche ou recherchez une OU, puis sélectionnez-la.' }
-    if ($domain -and ($target -ine $domain) -and (-not $target.EndsWith(',' + $domain,[StringComparison]::OrdinalIgnoreCase))) { return 'Cette OU nʼappartient pas au domaine de la session : elle ne peut pas être choisie.' }
+    if (([bool]$domain) -and ($target -ine $domain) -and (-not $target.EndsWith(',' + $domain,[StringComparison]::OrdinalIgnoreCase))) { return 'Cette OU nʼappartient pas au domaine de la session : elle ne peut pas être choisie.' }
     $parts = [Collections.Generic.List[string]]::new()
     $parts.Add('Choix : ' + (Get-DomeniaOuDisplayPath $target))
     if ($DepthMode -eq 'Subtree') { $parts.Add('Portée : cette OU et toutes ses sous-OU (imposée par cette page)') }
@@ -900,7 +900,7 @@ function Get-DomeniaOuFavouriteChoices {
         $favourite = ConvertTo-DomeniaOuFavourite $item $DomainDn
         if ($null -eq $favourite) { continue }
         $key = ([string]$favourite.DN).ToLowerInvariant()
-        if (([string]$favourite.DN -ieq $DomainDn) -or $seen.ContainsKey($key)) { continue }
+        if (([string]$favourite.DN -ieq $DomainDn) -or ($seen.ContainsKey($key))) { continue }
         if ($valid.Count -ge $Maximum) { break }
         $seen[$key] = $true
         $valid.Add($favourite)

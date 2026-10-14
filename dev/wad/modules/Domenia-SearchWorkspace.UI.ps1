@@ -457,11 +457,12 @@ function Invoke-DomeniaSearchWorkspaceRefresh {
     if($script:SearchPreviewPending){$script:SearchPreviewPending=$false;Request-DomeniaSearchPreview}
 }
 function Request-DomeniaSearchWorkspaceRefresh {
-    # Chips, scope and preview follow the list after a 200 ms pause: a list loading 20 000 rows refreshes them once.
+    # Chips, scope and preview follow the list at most every 200 ms: a list loading 20 000 rows refreshes them a few
+    # times while it loads, never once per row.
     param([switch]$Preview)
     if($Preview){$script:SearchPreviewPending=$true}
     if($null -eq $script:SearchWorkspaceTimer){$script:SearchWorkspaceTimer=New-DomeniaTimer -Owner 'Timer:SearchWorkspace' -IntervalMs 200 -Tick {Invoke-DomeniaSearchWorkspaceRefresh}}
-    $script:SearchWorkspaceTimer.Stop();$script:SearchWorkspaceTimer.Start()
+    if(-not [bool]$script:SearchWorkspaceTimer.IsEnabled){$script:SearchWorkspaceTimer.Start()}
 }
 function Invoke-DomeniaSearchWorkspaceListChanged {
     # A new list: the sort of a view just opened applies to it once, then the chips, scope and preview follow it.
@@ -508,6 +509,8 @@ function Initialize-DomeniaSearchWorkspace {
         $changed=[Collections.Specialized.INotifyCollectionChanged].GetEvent('CollectionChanged')
         $changed.AddEventHandler($grid.Items,[Collections.Specialized.NotifyCollectionChangedEventHandler]{param($sender,$eventArgs) try{Request-DomeniaSearchWorkspaceRefresh}catch{}})
     }
+    # A reopened main window brings new controls: binding again must be possible then.
+    if($script:Window -is [Windows.Window]){$script:Window.Add_Closed({$script:SearchWorkspaceBound=$false;$script:SearchPreviewToken='';$script:SearchWorkspacePendingSort=$null;if($null -ne $script:SearchWorkspaceTimer){$script:SearchWorkspaceTimer.Stop()}})}
     Update-DomeniaSearchWorkspaces
     Invoke-DomeniaSearchWorkspaceRefresh
 }
