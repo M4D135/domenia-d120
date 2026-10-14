@@ -397,8 +397,10 @@ function Get-DomeniaMeasureState {
     # or incoherent clock). Presence and the console user are instant facts: a newer failed attempt makes them
     # unknown now (the older success keeps its own date). Inventory and probe values stay usable with their date,
     # and the newer failed attempt is reported beside them.
-    param($Observation,[Parameter(Mandatory=$true)][string]$Family,[datetime]$NowUtc=[datetime]::UtcNow,[int]$MaxDays=30)
+    # ToleranceMinutes: clock skew accepted before a date counts as future (the collection limit by default).
+    param($Observation,[Parameter(Mandatory=$true)][string]$Family,[datetime]$NowUtc=[datetime]::UtcNow,[int]$MaxDays=30,[int]$ToleranceMinutes=-1)
     if($Family -notmatch '^(Presence|Console|Inventory|Probe:[A-Za-z0-9_.-]{1,128})$'){throw 'Famille de mesure invalide.'}
+    if($ToleranceMinutes -lt 0){$ToleranceMinutes=(Get-DomeniaCollectionLimits).ClockToleranceMinutes}
     $make={param([string]$State,[string]$Reason,$Success,$Attempt,[bool]$Failed,[string]$ErrorText)
         [pscustomobject]@{Family=$Family;State=$State;Label=(Get-DomeniaMeasureStateLabel $State);Reason=$Reason;LastSuccessUtc=$Success;LastAttemptUtc=$Attempt;LastAttemptFailed=$Failed;Error=$ErrorText}
     }
@@ -441,7 +443,7 @@ function Get-DomeniaMeasureState {
         if(-not $attemptText){$attemptText=[string](Get-DomeniaMember $time 'LastAttemptUtc' '')}
     }
     $success=ConvertTo-DomeniaUtcDate $successText;$attempt=ConvertTo-DomeniaUtcDate $attemptText
-    $latest=$NowUtc.ToUniversalTime().AddMinutes((Get-DomeniaCollectionLimits).ClockToleranceMinutes)
+    $latest=$NowUtc.ToUniversalTime().AddMinutes($ToleranceMinutes)
     $lastFailed=$false
     if($null -ne $time){$lastFailed=(-not [bool](Get-DomeniaMember $time 'Succeeded' $true))}
     elseif(($errorText) -and (($null -eq $success) -or (($null -ne $attempt) -and ($attempt -gt $success)))){$lastFailed=$true}
@@ -469,34 +471,35 @@ function Get-DomeniaMeasureState {
 function Measure-DomeniaMeasureStates {
     # Counts each target once per state for one family. A target without any record is Absent; Known never absorbs
     # an unknown state. Items are {Key; Observation}; the newest record of a duplicated key wins.
-    param([object[]]$Items=@(),[int]$Total=0,[Parameter(Mandatory=$true)][string]$Family,[datetime]$NowUtc=[datetime]::UtcNow,[int]$MaxDays=30)
+    param([object[]]$Items=@(),[int]$Total=0,[Parameter(Mandatory=$true)][string]$Family,[datetime]$NowUtc=[datetime]::UtcNow,[int]$MaxDays=30,[int]$ToleranceMinutes=-1)
     $byKey=@{}
     foreach($item in @($Items)){
         if($null -eq $item){continue}
         $key=([string](Get-DomeniaMember $item 'Key' '')).Trim().ToLowerInvariant();if(-not $key){continue}
-        $state=Get-DomeniaMeasureState -Observation (Get-DomeniaMemberValue $item 'Observation') -Family $Family -NowUtc $NowUtc -MaxDays $MaxDays
+        $state=Get-DomeniaMeasureState -Observation (Get-DomeniaMemberValue $item 'Observation') -Family $Family -NowUtc $NowUtc -MaxDays $MaxDays -ToleranceMinutes $ToleranceMinutes
         $previous=$byKey[$key]
         if(($null -eq $previous) -or (($state.State -eq 'Known') -and ($previous.State -ne 'Known')) -or (($state.State -eq $previous.State) -and ($null -ne $state.LastSuccessUtc) -and (($null -eq $previous.LastSuccessUtc) -or ($state.LastSuccessUtc -gt $previous.LastSuccessUtc)))){$byKey[$key]=$state}
     }
     $counts=[ordered]@{Known=0;Absent=0;NotRead=0;Refused=0;Expired=0;Incomplete=0;Error=0}
-    $failedAttempts=0;$oldest=$null;$newest=$null
+    $failedAttempts=0;$keptAfterFailure=0;$oldest=$null;$newest=$null
     foreach($state in $byKey.Values){
         $counts[[string]$state.State]=[int]$counts[[string]$state.State]+1
         if($state.LastAttemptFailed){$failedAttempts++}
         if($state.State -eq 'Known'){
+            if($state.LastAttemptFailed){$keptAfterFailure++}
             if(($null -eq $oldest) -or ($state.LastSuccessUtc -lt $oldest)){$oldest=$state.LastSuccessUtc}
             if(($null -eq $newest) -or ($state.LastSuccessUtc -gt $newest)){$newest=$state.LastSuccessUtc}
         }
     }
     $population=[Math]::Max([Math]::Max(0,$Total),$byKey.Count)
     $counts.Absent=[int]$counts.Absent+($population-$byKey.Count)
-    return [pscustomobject]@{Family=$Family;Total=$population;Known=[int]$counts.Known;Counts=[pscustomobject]$counts;FailedAttempts=$failedAttempts;OldestUtc=$oldest;NewestUtc=$newest}
+    return [pscustomobject]@{Family=$Family;Total=$population;Known=[int]$counts.Known;Counts=[pscustomobject]$counts;FailedAttempts=$failedAttempts;KnownWithFailedAttempt=$keptAfterFailure;OldestUtc=$oldest;NewestUtc=$newest}
 }
 
 function Format-DomeniaMeasureStates {
-    # "1 jamais relevé, 2 en erreur" for the unknown states only, largest wording first by fixed order.
-    param($Measure)
-    $counts=Get-DomeniaMemberValue $Measure 'Counts'
+    # "1 jamais relevé, 2 en erreur": the unknown states only, in a fixed order; '' when every target is known.
+    param($Counts)
+    $counts=$Counts
     $parts=[Collections.Generic.List[string]]::new()
     foreach($pair in @(@('Absent','jamais relevé','jamais relevés'),@('NotRead','non lu','non lus'),@('Refused','refusé','refusés'),@('Expired','périmé','périmés'),@('Incomplete','incomplet','incomplets'),@('Error','en erreur','en erreur'))){
         $n=[int](Get-DomeniaMember $counts $pair[0] 0)

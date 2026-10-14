@@ -182,7 +182,8 @@ Test-Case -Id 'BF-006' -Name 'Parc : presence des postes analyses (moins de 30 j
     Assert-Equal 'En ligne|Sans réponse|Non vérifié' (Get-BfJoined $entry 'Label')
     Assert-Equal '3|1|3' (Get-BfJoined $entry 'Value')
     Assert-Equal '7 postes' ([string]$entry.CenterText)
-    $expected = '4 postes analysés sur 7, le ' + $script:BfNow.AddHours(-2).ToString('dd/MM',$script:BfInvariant)
+    # Point 3: the three workstations counted as not verified keep their reason (two never pinged, one stale).
+    $expected = '4 postes analysés sur 7, le ' + $script:BfNow.AddHours(-2).ToString('dd/MM',$script:BfInvariant) + ' · sans mesure ping utilisable : 2 jamais relevés, 1 périmé'
     Assert-Equal $expected ([string]$entry.Detail)
     Assert-Equal 'Off' ([string]$entry.State) 'Le relevé récent ne masque pas celui datant de dix jours'
     Assert-True ((Get-BfTexts $board) -contains 'Info:1 poste(s) sans réponse au dernier relevé.') 'Sans reponse signale'

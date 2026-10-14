@@ -130,3 +130,65 @@ Test-Case 'COL-009' 'La provenance d une mesure nomme reussite, tentative, ecrit
     $result=Format-DomeniaObservationProvenance -Observation $bad -NowUtc $script:ColNow
     Assert-False $result.Coherent 'enregistrement anterieur a la mesure accepte';Assert-True ($result.Text -like '*Dates incohérentes*') $result.Text
 }
+# Point 3 : etats d une mesure. Absent, non lu, refuse, perime, incomplet et erreur ne deviennent jamais connus.
+function New-ColObservation {
+    param([hashtable]$Fields=@{},[hashtable]$Times=@{})
+    $o=[ordered]@{Guid='guid-1';Key='cn=pc-1,ou=postes,dc=example,dc=test'};foreach($k in $Fields.Keys){$o[$k]=$Fields[$k]}
+    $t=[ordered]@{};foreach($k in $Times.Keys){$t[$k]=$Times[$k]};$o.Times=[pscustomobject]$t
+    return [pscustomobject]$o
+}
+Test-Case 'COL-010' 'Une presence sans releve, non verifiee ou en echec n est jamais connue' {
+    Assert-Equal 'Absent' (Get-DomeniaMeasureState -Observation $null -Family Presence -NowUtc $script:ColNow).State
+    Assert-Equal 'Absent' (Get-DomeniaMeasureState -Observation (New-ColObservation) -Family Presence -NowUtc $script:ColNow).State 'famille absente'
+    $ok=New-ColObservation @{Presence='En ligne';PresenceCheckedUtc='2026-10-14T10:00:00Z'} @{Presence=[pscustomobject]@{ObservedUtc='2026-10-14T10:00:00Z';LastAttemptUtc='2026-10-14T10:00:00Z';Succeeded=$true}}
+    $known=Get-DomeniaMeasureState -Observation $ok -Family Presence -NowUtc $script:ColNow
+    Assert-Equal 'Known' $known.State;Assert-False $known.LastAttemptFailed
+    $notChecked=New-ColObservation @{Presence='Non vérifié';PresenceCheckedUtc='2026-10-14T10:00:00Z'}
+    Assert-Equal 'NotRead' (Get-DomeniaMeasureState -Observation $notChecked -Family Presence -NowUtc $script:ColNow).State
+    $failed=New-ColObservation @{Presence='Erreur de ping';PresenceCheckedUtc='2026-10-14T08:00:00Z';PresenceAttemptUtc='2026-10-14T11:00:00Z';PresenceError='Hôte introuvable'} @{Presence=[pscustomobject]@{ObservedUtc='2026-10-14T08:00:00Z';LastAttemptUtc='2026-10-14T11:00:00Z';Succeeded=$false}}
+    $state=Get-DomeniaMeasureState -Observation $failed -Family Presence -NowUtc $script:ColNow
+    Assert-Equal 'Error' $state.State 'ping en echec presente comme etat actuel'
+    Assert-Equal 8 $state.LastSuccessUtc.Hour 'derniere reussite perdue';Assert-True $state.LastAttemptFailed
+    $future=New-ColObservation @{Presence='En ligne';PresenceCheckedUtc='2026-10-14T13:00:00Z'}
+    Assert-Equal 'Error' (Get-DomeniaMeasureState -Observation $future -Family Presence -NowUtc $script:ColNow).State 'date future acceptee'
+    $old=New-ColObservation @{Presence='En ligne';PresenceCheckedUtc='2026-08-01T10:00:00Z'}
+    Assert-Equal 'Expired' (Get-DomeniaMeasureState -Observation $old -Family Presence -NowUtc $script:ColNow -MaxDays 30).State
+}
+Test-Case 'COL-011' 'Un inventaire garde sa valeur datee apres un echec ; un refus reste un refus' {
+    $kept=New-ColObservation @{Inventory=[pscustomobject]@{CheckedUtc='2026-10-13T10:00:00Z';Model='X'};InventoryAttemptUtc='2026-10-14T10:00:00Z';InventoryError='Délai dépassé'} @{Inventory=[pscustomobject]@{ObservedUtc='2026-10-13T10:00:00Z';LastAttemptUtc='2026-10-14T10:00:00Z';Succeeded=$false}}
+    $state=Get-DomeniaMeasureState -Observation $kept -Family Inventory -NowUtc $script:ColNow
+    Assert-Equal 'Known' $state.State 'valeur valide effacee par un echec';Assert-True $state.LastAttemptFailed;Assert-Equal 'Délai dépassé' $state.Error
+    $refused=New-ColObservation @{InventoryAttemptUtc='2026-10-14T10:00:00Z';InventoryError='Accès refusé (0x80070005)'} @{Inventory=[pscustomobject]@{ObservedUtc='';LastAttemptUtc='2026-10-14T10:00:00Z';Succeeded=$false}}
+    Assert-Equal 'Refused' (Get-DomeniaMeasureState -Observation $refused -Family Inventory -NowUtc $script:ColNow).State
+    $failed=New-ColObservation @{InventoryAttemptUtc='2026-10-14T10:00:00Z';InventoryError='RPC indisponible'}
+    Assert-Equal 'Error' (Get-DomeniaMeasureState -Observation $failed -Family Inventory -NowUtc $script:ColNow).State
+    $broken=New-ColObservation @{Inventory=[pscustomobject]@{CheckedUtc='pas une date'}}
+    Assert-Equal 'Error' (Get-DomeniaMeasureState -Observation $broken -Family Inventory -NowUtc $script:ColNow).State
+    $console=New-ColObservation @{Outcome='AuthRejected';ConsoleAttemptUtc='2026-10-14T10:00:00Z';ConsoleError='Compte distant refusé'} @{Console=[pscustomobject]@{ObservedUtc='';LastAttemptUtc='2026-10-14T10:00:00Z';Succeeded=$false}}
+    Assert-Equal 'Refused' (Get-DomeniaMeasureState -Observation $console -Family Console -NowUtc $script:ColNow).State
+}
+Test-Case 'COL-012' 'Une sonde non applicable, tronquee ou non confirmee reste distincte d une valeur' {
+    $probe={param($Entry) New-ColObservation @{Probes=[pscustomobject]@{'disk.cfree'=$Entry}}}
+    Assert-Equal 'NotRead' (Get-DomeniaMeasureState -Observation (& $probe ([pscustomobject]@{AttemptedUtc='2026-10-14T10:00:00Z';Skipped='DomainController';Error='Sonde non applicable au systeme.'})) -Family 'Probe:disk.cfree' -NowUtc $script:ColNow).State
+    Assert-Equal 'Incomplete' (Get-DomeniaMeasureState -Observation (& $probe ([pscustomobject]@{CheckedUtc='2026-10-14T10:00:00Z';Truncated=$true;Mode='First'})) -Family 'Probe:disk.cfree' -NowUtc $script:ColNow).State
+    Assert-Equal 'Known' (Get-DomeniaMeasureState -Observation (& $probe ([pscustomobject]@{CheckedUtc='2026-10-14T10:00:00Z';Truncated=$true;Mode='Count';CountComplete=$true})) -Family 'Probe:disk.cfree' -NowUtc $script:ColNow).State 'compte complet refuse'
+    Assert-Equal 'Error' (Get-DomeniaMeasureState -Observation (& $probe ([pscustomobject]@{AttemptedUtc='2026-10-14T10:00:00Z';Succeeded=$false})) -Family 'Probe:disk.cfree' -NowUtc $script:ColNow).State
+    Assert-Equal 'Absent' (Get-DomeniaMeasureState -Observation (& $probe ([pscustomobject]@{CheckedUtc='2026-10-14T10:00:00Z'})) -Family 'Probe:hw.ram' -NowUtc $script:ColNow).State 'autre sonde lue'
+    Assert-Throws {Get-DomeniaMeasureState -Observation $null -Family 'Probe:a b' -NowUtc $script:ColNow} 'famille invalide acceptee'
+}
+Test-Case 'COL-013' 'Le decompte par etat couvre toute la population sans compter un inconnu comme mesure' {
+    $items=@(
+        [pscustomobject]@{Key='A';Observation=(New-ColObservation @{Presence='En ligne';PresenceCheckedUtc='2026-10-14T10:00:00Z'})}
+        [pscustomobject]@{Key='a';Observation=(New-ColObservation @{Presence='En ligne';PresenceCheckedUtc='2026-10-14T09:00:00Z'})}
+        [pscustomobject]@{Key='B';Observation=(New-ColObservation @{Presence='En ligne';PresenceCheckedUtc='2026-08-01T10:00:00Z'})}
+        [pscustomobject]@{Key='C';Observation=(New-ColObservation @{Presence='Erreur de ping';PresenceCheckedUtc='';PresenceAttemptUtc='2026-10-14T10:00:00Z';PresenceError='DNS'})}
+    )
+    $measure=Measure-DomeniaMeasureStates -Items $items -Total 5 -Family Presence -NowUtc $script:ColNow -MaxDays 30
+    Assert-Equal 1 $measure.Known 'doublon compte deux fois';Assert-Equal 10 $measure.NewestUtc.Hour 'mesure la plus recente du doublon perdue'
+    Assert-Equal 1 ([int]$measure.Counts.Expired);Assert-Equal 1 ([int]$measure.Counts.Error);Assert-Equal 2 ([int]$measure.Counts.Absent) 'poste sans releve oublie'
+    Assert-Equal 5 $measure.Total
+    Assert-Equal '2 jamais relevés, 1 périmé, 1 en erreur' (Format-DomeniaMeasureStates $measure.Counts)
+    $all=Measure-DomeniaMeasureStates -Items @($items[0]) -Total 1 -Family Presence -NowUtc $script:ColNow
+    Assert-Equal '' (Format-DomeniaMeasureStates $all.Counts) 'etat inconnu invente'
+    Assert-Equal 'Refusé' (Get-DomeniaMeasureStateLabel 'Refused');Assert-Equal 'En erreur' (Get-DomeniaMeasureStateLabel 'Inattendu')
+}

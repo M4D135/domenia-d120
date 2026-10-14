@@ -305,6 +305,9 @@ function Get-DomeniaFleetBoardData {
     foreach($target in $enabledByDn.Values){if(-not $presenceSeen.ContainsKey(([string]$target.distinguished_name).ToLowerInvariant())){$presence['Non vérifié']++;$presenceTargets['Non vérifié'].Add($target)}}
     $observedOld = (($null -ne $oldest) -and (($nowUtc - $oldest).TotalDays -gt 7))
     $observedText = Get-DomeniaCoverageText -Analysed $observed -Total $total -LastUtc $lastCheck
+    # Measurement coverage of the same canonical snapshot, with the reason of every workstation left unknown (point 3).
+    $measurementFreshness=Get-DomeniaOuObservationFreshness -Presence $canonicalPresence.ToArray() -Total $total -NowUtc $referenceAt -MaxDays $ObservationMaxAgeDays
+    $pingUnknown=Format-DomeniaMeasureStates (Get-DomeniaMemberValue $measurementFreshness.Ping 'States')
 
     # ----------------------------------------------------------------------------------------------------------------
     # Points of attention, most serious first (the order of Complete-DomeniaBoardData)
@@ -453,7 +456,7 @@ function Get-DomeniaFleetBoardData {
     if ($presenceItems.Count) {
         $presenceTotal = [int]$presence['En ligne'] + [int]$presence['Sans réponse'] + [int]$presence['Non vérifié']
         $lead = & $share $presenceItems $presenceTotal
-        Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.presence' -Kind Distribution -Value $lead.Value -Detail $observedText -State $observationState -Items $presenceItems -CenterText ([string]$presenceTotal + ' postes'))
+        Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.presence' -Kind Distribution -Value $lead.Value -Detail ($observedText+$(if($pingUnknown){' · sans mesure ping utilisable : '+$pingUnknown}else{''})) -State $observationState -Items $presenceItems -CenterText ([string]$presenceTotal + ' postes'))
     }
     Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.users' -Kind Value -Value ([string]$users.Count) -State $observationState -Detail ('sur ' + [string]$sessions + ' poste(s) avec une session · ' + [string]$links + ' associations au total'))
     Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.lastcheck' -Kind Value -Value $(if ($null -ne $lastCheck) { $lastCheck.ToLocalTime().ToString('dd/MM HH:mm',$invariant) } else { 'Aucune' }) -State $observationState -Detail $observedText)
@@ -590,7 +593,6 @@ function Get-DomeniaFleetBoardData {
     if($rejected -gt 0){Add-DomeniaBoardAttention -Data $data -Level Warn -Text ([string]$rejected+' relevé(s) ignoré(s) : contenu illisible ou identité AD différente. Les postes restent dans la base et peuvent être relevés à nouveau.') -Point 'cache.invalid'}
     $data.Summary = [string]$machineCount+' comptes ordinateur dans le périmètre : '+$machineDetail+'.'
     Add-Member -InputObject $data -MemberType NoteProperty -Name 'Population' -Value ([pscustomobject]@{ Total = $total; Healthy = $healthy })
-    $measurementFreshness=Get-DomeniaOuObservationFreshness -Presence $canonicalPresence.ToArray() -Total $total -NowUtc $referenceAt -MaxDays $ObservationMaxAgeDays
     Add-Member -InputObject $data -MemberType NoteProperty -Name 'Freshness' -Value ([pscustomobject]@{Version=1;ScopeDn=$scope;Subtree=$Subtree;Index=$indexFreshness;Observations=$measurementFreshness;Runs=$collectionClocks;SnapshotAtUtc=$snapshotAt;ComputedAtUtc=$nowUtc})
     Add-Member -InputObject $data -MemberType NoteProperty -Name 'Observations' -Value $observations
     # The worker rows are kept as they are, without copy nor pipeline: thousands of workstations stay cheap on the
@@ -687,31 +689,22 @@ function Get-DomeniaFleetFreshness {
 }
 
 function Get-DomeniaOuObservationFreshness {
-    # Count each active workstation once per measurement family; never replace a missing family date by AD/calculation time.
+    # Count each active workstation once per measurement family; never replace a missing family date by AD/calculation
+    # time. Point 3: a workstation without a usable measure keeps its reason (never collected, not read, refused,
+    # stale, incomplete or error, Get-DomeniaMeasureState); a valid measure kept after a newer failed attempt is
+    # counted apart. A date after the snapshot is never usable (no clock tolerance here).
     param([object[]]$Presence=@(),[int]$Total=0,[datetime]$NowUtc=[datetime]::UtcNow,[int]$MaxDays=30)
-    $families=@{Ping=@{};Inventory=@{}}
+    $items=[Collections.Generic.List[object]]::new()
     foreach($item in $Presence){
         if($null -eq $item -or -not [bool](Get-DomeniaMember $item 'in_scope' $true)){continue}
         $observation=Get-DomeniaMemberValue $item 'observation';$key=([string](Get-DomeniaMember $item 'object_key')).Trim()
         if($null -eq $observation -or -not $key){continue}
-        $pingText=[string](Get-DomeniaMember $observation 'PresenceCheckedUtc' '')
-        $ping=ConvertFrom-DomeniaUtcText $pingText
-        $state=[string](Get-DomeniaMember $observation 'Presence')
-        $inventory=Get-DomeniaMemberValue $observation 'Inventory'
-        $inventoryAt=ConvertFrom-DomeniaUtcText ([string](Get-DomeniaMember $inventory 'CheckedUtc'))
-        foreach($name in @('Ping','Inventory')){
-            $date=if($name -eq 'Ping'){$ping}else{$inventoryAt}
-            if($null -eq $date -or $date -gt $NowUtc -or (Test-DomeniaObservationAge -CheckedUtc $date -NowUtc $NowUtc -MaxDays $MaxDays) -eq 'Expired'){continue}
-            if($name -eq 'Ping' -and ($state -notmatch '^(En ligne|Sans r[eé]ponse(?: au ping)?|Hors ligne)$')){continue}
-            $known=$families[$name]
-            if(-not $known.ContainsKey($key) -or $date -gt $known[$key]){$known[$key]=$date}
-        }
+        $items.Add([pscustomobject]@{Key=$key;Observation=$observation})
     }
     $result=[ordered]@{Version=1;Total=[Math]::Max(0,$Total)}
-    foreach($name in @('Ping','Inventory')){
-        $known=$families[$name];$oldest=$null;$newest=$null
-        foreach($date in $known.Values){if($null -eq $oldest -or $date -lt $oldest){$oldest=$date};if($null -eq $newest -or $date -gt $newest){$newest=$date}}
-        $result[$name]=[pscustomobject]@{Count=$known.Count;Total=$result.Total;Missing=[Math]::Max(0,$result.Total-$known.Count);OldestUtc=$oldest;NewestUtc=$newest}
+    foreach($pair in @(@('Ping','Presence'),@('Inventory','Inventory'))){
+        $measure=Measure-DomeniaMeasureStates -Items $items.ToArray() -Total $result.Total -Family $pair[1] -NowUtc $NowUtc -MaxDays $MaxDays -ToleranceMinutes 0
+        $result[$pair[0]]=[pscustomobject]@{Count=[int]$measure.Known;Total=$result.Total;Missing=[Math]::Max(0,$result.Total-[int]$measure.Known);OldestUtc=$measure.OldestUtc;NewestUtc=$measure.NewestUtc;States=$measure.Counts;KeptAfterFailure=[int]$measure.KnownWithFailedAttempt}
     }
     return [pscustomobject]$result
 }
@@ -735,10 +728,17 @@ function Format-DomeniaOuFreshnessSummary {
         $count=[int](Get-DomeniaMember $family 'Count' 0);$total=[int](Get-DomeniaMember $family 'Total' (Get-DomeniaMember $Observations 'Total' 0))
         $text=$(if($name -eq 'Ping'){'ping '}else{'inventaire WMI '})+$count+'/'+$total
         $oldest=Get-DomeniaMemberValue $family 'OldestUtc';$newest=Get-DomeniaMemberValue $family 'NewestUtc'
+        $details=[Collections.Generic.List[string]]::new()
         if($count -gt 0 -and $oldest -is [datetime] -and $newest -is [datetime]){
-            if($oldest -eq $newest){$text+=' (le '+(& $dateText $oldest)+')'}
-            else{$text+=' (du '+(& $dateText $oldest)+' au '+(& $dateText $newest)+')'}
-        }else{$text+=' (aucun relevé daté utilisable)'}
+            if($oldest -eq $newest){$details.Add('le '+(& $dateText $oldest))}
+            else{$details.Add('du '+(& $dateText $oldest)+' au '+(& $dateText $newest))}
+        }else{$details.Add('aucun relevé daté utilisable')}
+        # Point 3: the postes without a usable measure keep their reason; none of them is counted as measured.
+        $unknown=Format-DomeniaMeasureStates (Get-DomeniaMemberValue $family 'States')
+        if($unknown){$details.Add($unknown)}
+        $kept=[int](Get-DomeniaMember $family 'KeptAfterFailure' 0)
+        if($kept -gt 0){$details.Add([string]$kept+' mesure'+$(if($kept -gt 1){'s'}else{''})+' conservée'+$(if($kept -gt 1){'s'}else{''})+' après une tentative en échec')}
+        $text+=' ('+($details -join ' ; ')+')'
         $families.Add($text)
     }
     $computed=if($ComputedAtUtc -is [datetime] -and $ComputedAtUtc -le $NowUtc){'Vue recalculée le '+(& $dateText $ComputedAtUtc)+' ; aucune lecture AD ou poste pendant ce calcul.'}else{'Vue locale : date de calcul non disponible.'}
