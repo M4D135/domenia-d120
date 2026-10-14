@@ -38,7 +38,7 @@ if($null -eq ('Domenia.Live.ResultRow' -as [type])){Add-Type -Path (Join-Path $m
 
 # Real application code.
 $coreNames=@('Get-MainXaml','Get-DomeniaControl','Set-DomeniaControlText','Get-DomeniaSearchMode','Set-DomeniaSearchMode','Get-DomeniaSearchText',
-    'Get-DomeniaSearchScope','Get-GlobalSelectedTypeFilter','Get-TypeLdapFilter','Test-DomeniaSearchStateCurrent','Invoke-GlobalSearch','Escape-LdapValue',
+    'Get-DomeniaSearchScope','Get-GlobalSelectedTypeFilter','Get-TypeLdapFilter','Test-DomeniaSearchStateCurrent','Invoke-GlobalSearch','Escape-LdapValue','Get-LdapPath',
     'Set-DomeniaItemsSource','Get-DomeniaGridDateSortKey','Get-DomeniaGridDateShortText','Add-DomeniaGridDateKeys','Get-BranchQueryData','Get-SearchLdapFilter','Start-DomeniaSearchFor','Get-DomeniaEffectiveWorkerResult',
     'Invalidate-DomeniaSearchResults','Update-DomeniaSearchScopeUi',
     # Get-DomeniaSearchScope appelle Update-DomeniaNewOuParentUi (CO-27) : non declaree ici, chaque cas qui resout
@@ -74,7 +74,8 @@ $coreText=[IO.File]::ReadAllText((Join-Path $wad 'Domenia-Core.ps1'))
 $workerCommon=[regex]::Match($coreText,'(?ms)^\$script:WorkerCommon = @''\r?\n(.*?)\r?\n''@').Groups[1].Value
 $workerTokens=$null;$workerErrors=$null
 $workerAst=[Management.Automation.Language.Parser]::ParseInput($workerCommon,[ref]$workerTokens,[ref]$workerErrors)
-foreach($name in @('Convert-WLargeInteger','Convert-WFileTime')){
+# CD-13 / CO-33: the generated worker copies of the LDAP text rules are compared with the interface rules below.
+foreach($name in @('Convert-WLargeInteger','Convert-WFileTime','Escape-WLdap','ConvertTo-WAdsPathDn','Get-WLdapPath')){
     $node=@($workerAst.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true))
     if($node.Count -ne 1){throw ('Fonction worker absente : '+$name)}
     . ([scriptblock]::Create($node[0].Extent.Text))
@@ -396,6 +397,38 @@ Case 'D035 Runtime escaping equals the rule escaping for every byte' {
     }
     $t=Search-Global 'x)(objectClass=*'
     Expect (-not $t.Payload.BroadFilter.Contains('(objectClass=*)')) 'Injection de filtre.'
+}
+# CD-13: unwired if Escape-LdapValue or the worker common text keep their own copy of the rule.
+Case 'CD-13 / CO-34 Interface, worker and rule escape identically, consecutive asterisks merged' {
+    for($i=0;$i -le 255;$i++){
+        $ch=[string][char]$i
+        Expect ((Escape-WLdap $ch) -ceq (ConvertTo-DomeniaLdapLiteral $ch)) ('Ecart worker sans joker : '+$i)
+        Expect ((Escape-WLdap $ch -KeepWildcard) -ceq (ConvertTo-DomeniaLdapLiteral $ch -KeepWildcard)) ('Ecart worker avec joker : '+$i)
+    }
+    foreach($text in @('jean**','a**b','***','x)(**')){
+        $rule=ConvertTo-DomeniaLdapLiteral $text -KeepWildcard
+        Expect ((Escape-LdapValue -Value $text -KeepWildcard) -ceq $rule -and (Escape-WLdap $text -KeepWildcard) -ceq $rule) ('Copies divergentes : '+$text)
+        Expect (-not $rule.Contains('**')) ('Double joker : '+$rule)
+    }
+}
+# Unwired if Invoke-GlobalSearch keeps its former length test: '***' leaves for the whole domain.
+Case 'CO-34 Upper bar refuses asterisks only, nothing is sent; a doubled asterisk is merged' {
+    $before=Get-TaskCount 'GlobalSearch'
+    $script:Ctrl.TxtGlobalSearch.Text='***';Invoke-GlobalSearch -SearchMode Global
+    Expect ((Get-TaskCount 'GlobalSearch') -eq $before) 'Une recherche a ete envoyee pour des etoiles seules.'
+    Expect ($script:LastStatus -eq 'Saisissez au moins un caractère en plus de * : une étoile seule listerait tout le domaine.' -and $script:LastStatusLevel -eq 'WARN') ('Message : '+$script:LastStatus)
+    Expect ($script:Ctrl.LblSearchHint.Text -eq $script:LastStatus) 'Le motif doit rester visible sous la barre.'
+    $t=Search-Global 'jean**'
+    Expect ($null -ne $t -and $t.Payload.BroadFilter.Contains('(name=jean*)') -and -not $t.Payload.BroadFilter.Contains('**')) ('Filtre : '+$t.Payload.BroadFilter)
+}
+# CO-33: unwired if Get-LdapPath or Get-WLdapPath paste the DN as it is: an OU 'Compta/Paie' cannot be opened.
+Case 'CO-33 ADsPath of the interface and of the workers escape a slash once' {
+    $dn='OU=Compta/Paie,DC=example,DC=invalid'
+    Expect ((Get-LdapPath $dn) -ceq 'LDAP://dc.example.invalid/OU=Compta\/Paie,DC=example,DC=invalid') ('Chemin interface : '+(Get-LdapPath $dn))
+    $context=[pscustomobject]@{Server='dc.example.invalid';BaseDn='DC=example,DC=invalid'}
+    Expect ((Get-WLdapPath $context $dn) -ceq (Get-LdapPath $dn)) ('Chemin worker : '+(Get-WLdapPath $context $dn))
+    Expect ((Get-WLdapPath $context 'OU=Compta\/Paie,DC=example,DC=invalid') -ceq (Get-LdapPath $dn)) 'Double echappement d un DN deja echappe.'
+    Expect ((Get-LdapPath '') -ceq 'LDAP://dc.example.invalid/DC=example,DC=invalid') 'Racine de session modifiee.'
 }
 
 # ---------------------------------------------------------------- D036 pasted identifiers

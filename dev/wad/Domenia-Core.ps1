@@ -1310,6 +1310,8 @@ function Get-LdapPath {
     param([string]$Dn)
     $server = $script:Conn.Server
     if ([string]::IsNullOrWhiteSpace($Dn)) { $Dn = $script:Conn.BaseDn }
+    # CO-33: a '/' inside an RDN value ('OU=Compta/Paie') would split the ADsPath; it is written '\/' (Search.Model rule).
+    $Dn = ConvertTo-DomeniaAdsPathDn $Dn
     if ([string]::IsNullOrWhiteSpace($server)) { return "LDAP://$Dn" }
     return "LDAP://$server/$Dn"
 }
@@ -1646,20 +1648,10 @@ function Copy-RawAttributesToClipboard {
 }
 
 function Escape-LdapValue {
+    # CD-13: one RFC 4515 rule for the whole interface, ConvertTo-DomeniaLdapLiteral (Search.Model). With -KeepWildcard
+    # consecutive asterisks are merged (CO-34). The worker copy Escape-WLdap is generated from the same source.
     param([string]$Value, [switch]$KeepWildcard)
-    $sb = New-Object System.Text.StringBuilder
-    foreach ($ch in ($Value + "").ToCharArray()) {
-        # Numeric cases: under 5.1 a string case compares with the culture and U+00AD (soft hyphen) equals "`0".
-        switch ([int]$ch) {
-            92 { [void]$sb.Append("\5c") }
-            40 { [void]$sb.Append("\28") }
-            41 { [void]$sb.Append("\29") }
-            0 { [void]$sb.Append("\00") }
-            42 { if ($KeepWildcard) { [void]$sb.Append("*") } else { [void]$sb.Append("\2a") } }
-            default { [void]$sb.Append($ch) }
-        }
-    }
-    return $sb.ToString()
+    return (ConvertTo-DomeniaLdapLiteral -Value $Value -KeepWildcard:$KeepWildcard)
 }
 
 function Get-PropFirst {
@@ -9688,9 +9680,49 @@ $script:BaseWindowTitle = "Domenia"
 
 
 $script:WorkerCommon = @'
+# BEGIN generated LDAP text rules: tools/sync_worker_ldap_rules.py from modules/Domenia-Search.Model.ps1. Do not edit here.
+function Escape-WLdap {
+    param([AllowEmptyString()][AllowNull()][string]$Value,[switch]$KeepWildcard)
+    $builder = [Text.StringBuilder]::new()
+    $previousWildcard = $false
+    foreach ($character in ([string]$Value).ToCharArray()) {
+        $wildcard = $false
+        switch ([int]$character) {
+            0  { [void]$builder.Append('\00') }
+            40 { [void]$builder.Append('\28') }
+            41 { [void]$builder.Append('\29') }
+            42 {
+                if ($KeepWildcard) { $wildcard = $true; if (-not $previousWildcard) { [void]$builder.Append('*') } }
+                else { [void]$builder.Append('\2a') }
+            }
+            92 { [void]$builder.Append('\5c') }
+            default { [void]$builder.Append($character) }
+        }
+        $previousWildcard = $wildcard
+    }
+    return $builder.ToString()
+}
+function ConvertTo-WAdsPathDn {
+    param([AllowEmptyString()][AllowNull()][string]$Dn)
+    $text = [string]$Dn
+    if ($text.IndexOf([char]47) -lt 0) { return $text }
+    $builder = [Text.StringBuilder]::new($text.Length + 8)
+    $i = 0
+    while ($i -lt $text.Length) {
+        $c = $text[$i]
+        if (($c -eq [char]92) -and (($i + 1) -lt $text.Length)) { [void]$builder.Append($c).Append($text[$i + 1]); $i += 2; continue }
+        if ($c -eq [char]47) { [void]$builder.Append([char]92) }
+        [void]$builder.Append($c)
+        $i++
+    }
+    return $builder.ToString()
+}
+# END generated LDAP text rules
 function Get-WLdapPath {
     param($Context, [string]$Dn)
     if ([string]::IsNullOrWhiteSpace($Dn)) { $Dn = [string]$Context.BaseDn }
+    # CO-33: a '/' inside an RDN value is written '\/' in the ADsPath (generated copy of the Search.Model rule).
+    $Dn = ConvertTo-WAdsPathDn $Dn
     if ([string]::IsNullOrWhiteSpace([string]$Context.Server)) { return "LDAP://$Dn" }
     return "LDAP://$($Context.Server)/$Dn"
 }
@@ -9860,22 +9892,6 @@ function Convert-WGuid {
 function Convert-WSid {
     param($Value)
     try { if ($Value -is [byte[]]) { return (New-Object System.Security.Principal.SecurityIdentifier -ArgumentList @($Value,0)).Value }; return [string]$Value } catch { return "" }
-}
-function Escape-WLdap {
-    param([string]$Value, [switch]$KeepWildcard)
-    $sb = New-Object System.Text.StringBuilder
-    foreach ($ch in ($Value + "").ToCharArray()) {
-        # Numeric cases: under 5.1 a string case compares with the culture and U+00AD (soft hyphen) equals "`0".
-        switch ([int]$ch) {
-            92 { [void]$sb.Append("\5c") }
-            40 { [void]$sb.Append("\28") }
-            41 { [void]$sb.Append("\29") }
-            0 { [void]$sb.Append("\00") }
-            42 { if ($KeepWildcard) { [void]$sb.Append("*") } else { [void]$sb.Append("\2a") } }
-            default { [void]$sb.Append($ch) }
-        }
-    }
-    return $sb.ToString()
 }
 function Get-WObjectType {
     param($Props)
@@ -11480,12 +11496,16 @@ function Invoke-GlobalSearch {
             Set-Status 'Suite non chargée : le périmètre de la liste a changé. Relancez la recherche.' 'WARN'
             return
         }
-        $isBrowse = [string]::IsNullOrWhiteSpace($textValue)
         $minChars = [Math]::Max(1,[int](Get-CfgValue "Browser" "GlobalSearchMinChars" 2))
-        if (-not $isBrowse -and $textValue.Length -lt $minChars -and $textValue -ne "*") {
-            Set-Status "Saisis au moins $minChars caracteres, ou * pour un apercu." "WARN"
+        # CO-34: checked before any request and according to the mode. The upper bar refuses a text made only of
+        # asterisks (it would list the whole domain); in an OU such a text lists the OU, as browsing does.
+        $textCheck = Get-DomeniaSearchTextCheck -Text $textValue -Mode $SearchMode -MinimumLength $minChars
+        if (-not [bool]$textCheck.Valid) {
+            [void](Set-DomeniaControlText -Name 'LblSearchHint' -Text ([string]$textCheck.Reason))
+            Set-Status ([string]$textCheck.Reason) 'WARN'
             return
         }
+        $isBrowse = [bool]$textCheck.Browse
         # D033/D035/D036: optional explicit syntax, pasted identifiers and multi-word fallback (global bar only).
         $searchPlan = $null
         $searchHint = ''
@@ -11565,7 +11585,7 @@ function Invoke-GlobalSearch {
         $anrFilter = ""
         $broadFilter = ""
 
-        if ($isBrowse -or $textValue -eq "*") {
+        if ($isBrowse) {
             $broadFilter = $typeFilter
         }
         elseif ($textValue.Contains("*")) {

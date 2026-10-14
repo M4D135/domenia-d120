@@ -4,20 +4,62 @@
 
 # ---------------------------------------------------------------- D035 LDAP literals
 function ConvertTo-DomeniaLdapLiteral {
-    # RFC 4515 escaping. With -KeepWildcard an asterisk typed by the operator stays a wildcard.
+    # RFC 4515 escaping. With -KeepWildcard an asterisk typed by the operator stays a wildcard and consecutive
+    # asterisks are merged into one (CO-34: 'jean**' would be an invalid substring filter).
+    # CD-13: Escape-LdapValue (core) calls this function; Escape-WLdap (worker common code) is generated from it by
+    # tools/sync_worker_ldap_rules.py. Change it here, then regenerate the worker copy.
     param([AllowEmptyString()][AllowNull()][string]$Value,[switch]$KeepWildcard)
     $builder = [Text.StringBuilder]::new()
+    $previousWildcard = $false
     foreach ($character in ([string]$Value).ToCharArray()) {
+        $wildcard = $false
+        # Numeric cases: under 5.1 a string case compares with the culture and U+00AD (soft hyphen) equals "`0".
         switch ([int]$character) {
             0  { [void]$builder.Append('\00') }
             40 { [void]$builder.Append('\28') }
             41 { [void]$builder.Append('\29') }
-            42 { if ($KeepWildcard) { [void]$builder.Append('*') } else { [void]$builder.Append('\2a') } }
+            42 {
+                if ($KeepWildcard) { $wildcard = $true; if (-not $previousWildcard) { [void]$builder.Append('*') } }
+                else { [void]$builder.Append('\2a') }
+            }
             92 { [void]$builder.Append('\5c') }
             default { [void]$builder.Append($character) }
         }
+        $previousWildcard = $wildcard
     }
     return $builder.ToString()
+}
+
+function Test-DomeniaWildcardOnly {
+    # CO-34: a text made only of asterisks (spaces allowed) names no object: it would list the whole perimeter.
+    param([AllowEmptyString()][AllowNull()][string]$Text)
+    $value = ([string]$Text).Trim()
+    if (-not $value) { return $false }
+    return (($value -replace '[\s*]','').Length -eq 0)
+}
+
+function Get-DomeniaSearchTextCheck {
+    # CO-34: decides, before any request, whether a typed text can be searched. Global (upper bar): a text made only
+    # of asterisks is refused, a text shorter than the minimum too. OU: an empty or asterisk-only text lists the OU
+    # (same as browsing it). Valid=$false means nothing is sent; Reason is the message shown to the operator.
+    param([AllowEmptyString()][AllowNull()][string]$Text,[ValidateSet('Global','OU')][string]$Mode='Global',[int]$MinimumLength=2)
+    $value = ([string]$Text).Trim()
+    $minimum = [Math]::Max(1,$MinimumLength)
+    $result = [pscustomobject]@{Valid=$true;Browse=$false;Reason='';Hint=''}
+    if ($Mode -eq 'OU') { $result.Hint = 'Saisissez au moins ' + $minimum + ' caractères, ou * pour lister toute lʼOU.' }
+    else { $result.Hint = 'Saisissez au moins ' + $minimum + ' caractères : un nom, un identifiant, une adresse ou un poste.' }
+    if (-not $value) { $result.Browse = $true; return $result }
+    if (Test-DomeniaWildcardOnly $value) {
+        if ($Mode -eq 'OU') { $result.Browse = $true; return $result }
+        $result.Valid = $false
+        $result.Reason = 'Saisissez au moins un caractère en plus de * : une étoile seule listerait tout le domaine.'
+        return $result
+    }
+    if (($value -replace '\*','').Trim().Length -lt $minimum) {
+        $result.Valid = $false
+        $result.Reason = $result.Hint
+    }
+    return $result
 }
 
 function Split-DomeniaSearchWords {
@@ -457,6 +499,27 @@ function ConvertTo-DomeniaSavedView {
         Limit=[Math]::Max(1,[Math]::Min(20000,$limit))
         ViewId=[string](Get-DomeniaMember $View 'ViewId' '')
     }
+}
+
+# ---------------------------------------------------------------- CO-33 ADsPath
+function ConvertTo-DomeniaAdsPathDn {
+    # CO-33: in an ADsPath (LDAP://server/DN) the '/' separates the server from the DN, so a '/' inside an RDN value
+    # ('OU=Compta/Paie') must be written '\/'. A backslash escapes exactly one character (RFC 4514 pair or the first
+    # character of a hex pair): an escaped pair is copied as it is, so '\/' is never escaped twice and '\\/' (escaped
+    # backslash, then a slash) gets its slash escaped. Escape-WLdap's twin ConvertTo-WAdsPathDn is generated from it.
+    param([AllowEmptyString()][AllowNull()][string]$Dn)
+    $text = [string]$Dn
+    if ($text.IndexOf([char]47) -lt 0) { return $text }
+    $builder = [Text.StringBuilder]::new($text.Length + 8)
+    $i = 0
+    while ($i -lt $text.Length) {
+        $c = $text[$i]
+        if (($c -eq [char]92) -and (($i + 1) -lt $text.Length)) { [void]$builder.Append($c).Append($text[$i + 1]); $i += 2; continue }
+        if ($c -eq [char]47) { [void]$builder.Append([char]92) }
+        [void]$builder.Append($c)
+        $i++
+    }
+    return $builder.ToString()
 }
 
 # ---------------------------------------------------------------- D039 readable OU paths

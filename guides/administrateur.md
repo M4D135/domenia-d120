@@ -54,7 +54,7 @@ La page « Rechercher » lit l'annuaire à la demande ; elle ne sonde aucun po
 
 La barre du haut cherche dans tout le domaine, tous types d'objets, sans filtre d'OU, de présence ni de liste. Entrée ou le bouton « Rechercher » la lancent. Aucun poste n'est sondé avant une sélection.
 
-- Minimum de caractères : Browser.GlobalSearchMinChars (2). En dessous, Domenia affiche « Saisis au moins » suivi du minimum et de « caracteres, ou * pour un apercu. ».
+- Minimum de caractères : Browser.GlobalSearchMinChars (2), étoiles non comptées. En dessous, Domenia affiche « Saisissez au moins 2 caractères » et nʼenvoie rien. Une saisie faite seulement dʼétoiles est refusée dans la barre du haut (« Saisissez au moins un caractère en plus de * ») ; dans une OU, elle liste lʼOU comme un simple parcours. Plusieurs étoiles consécutives sont fusionnées en une seule avant lʼenvoi du filtre LDAP.
 - Limite : celle du champ « Limite » (100 par défaut), retenue d'une session à l'autre dans la préférence SearchLimit. « Charger la suite » relit la même recherche avec une limite doublée, jusqu'à 20 000 lignes.
 - Recherche globale : 120 s sans nouvel objet AD, 900 s au total ; annulation possible. Délais LDAP : 60/90 s, pages de 250 objets. Réglages et bornes au chapitre 17.
 - Recherche à la frappe : désactivée par défaut (Browser.LiveGlobalSearch et Browser.AllowLiveGlobalSearch à faux).

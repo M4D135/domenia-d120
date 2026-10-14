@@ -111,6 +111,8 @@ function Get-DomeniaRuntimeModulePlan {
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1'); File='Domenia-Search.Model.ps1'; DotSource=$true; Functions=@(
             'ConvertTo-DomeniaLdapLiteral',
+            'Test-DomeniaWildcardOnly',
+            'Get-DomeniaSearchTextCheck',
             'Split-DomeniaSearchWords',
             'Get-DomeniaTypeFilter',
             'ConvertFrom-DomeniaSearchSyntax',
@@ -139,6 +141,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Find-DomeniaSearchQuery',
             'ConvertTo-DomeniaSearchQueryRows',
             'ConvertTo-DomeniaSavedView',
+            'ConvertTo-DomeniaAdsPathDn',
             'Split-DomeniaDn',
             'ConvertFrom-DomeniaDnValue',
             'Get-DomeniaDnParent',

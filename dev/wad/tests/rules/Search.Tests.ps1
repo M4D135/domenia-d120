@@ -285,3 +285,34 @@ Test-Case 'FO-04' 'Le plafond de 50 favoris compte le seul domaine de l OU' {
     $same=@(1..50|ForEach-Object{[pscustomobject]@{DN=('OU=O'+$_+','+$script:DomainDn);Name=('O'+$_)}})
     Assert-Equal 0 (Import-DomeniaOuFavourites $same $saved).Imported 'Domaine deja plein : rien n est repris'
 }
+Test-Case 'CO-33' 'Une barre oblique dans un DN est echappee dans le chemin ADSI, sans double echappement' {
+    Assert-Equal 'OU=Compta\/Paie,DC=x' (ConvertTo-DomeniaAdsPathDn 'OU=Compta/Paie,DC=x')
+    Assert-Equal 'OU=Compta\/Paie,DC=x' (ConvertTo-DomeniaAdsPathDn 'OU=Compta\/Paie,DC=x') 'Un DN deja echappe reste inchange'
+    Assert-Equal ('OU=Lyon,'+$script:DomainDn) (ConvertTo-DomeniaAdsPathDn ('OU=Lyon,'+$script:DomainDn)) 'Un DN sans barre oblique reste inchange'
+    Assert-Equal 'CN=Dupont\, Jean\/RH,OU=A\/B\/C,DC=x' (ConvertTo-DomeniaAdsPathDn 'CN=Dupont\, Jean/RH,OU=A/B\/C,DC=x') 'Virgule echappee conservee, chaque barre echappee une fois'
+    Assert-Equal 'OU=Back\\\/x,DC=x' (ConvertTo-DomeniaAdsPathDn 'OU=Back\\/x,DC=x') 'Une contre-oblique echappee ne protege pas la barre qui suit'
+    Assert-Equal 'OU=\C3\89quipe\/Paie,DC=x' (ConvertTo-DomeniaAdsPathDn 'OU=\C3\89quipe/Paie,DC=x') 'Les paires hexadecimales restent intactes'
+    Assert-Equal '' (ConvertTo-DomeniaAdsPathDn $null);Assert-Equal '' (ConvertTo-DomeniaAdsPathDn '')
+}
+Test-Case 'CO-34' 'Etoiles consecutives fusionnees dans un litteral LDAP avec joker' {
+    Assert-Equal 'jean*' (ConvertTo-DomeniaLdapLiteral 'jean**' -KeepWildcard)
+    Assert-Equal 'a*b' (ConvertTo-DomeniaLdapLiteral 'a**b' -KeepWildcard)
+    Assert-Equal '*a*' (ConvertTo-DomeniaLdapLiteral '***a***' -KeepWildcard)
+    Assert-Equal '*\28*' (ConvertTo-DomeniaLdapLiteral '**(**' -KeepWildcard) 'Un caractere echappe separe deux jokers'
+    Assert-Equal 'a\2a\2ab' (ConvertTo-DomeniaLdapLiteral 'a**b') 'Sans joker, chaque etoile reste un caractere echappe'
+    $f=Get-DomeniaWordFilter 'jean**'
+    Assert-False ($f -match '\*\*') ('Double joker envoye : '+$f);Assert-True ($f.Contains('(cn=jean*)'))
+}
+Test-Case 'CO-34' 'Un texte fait seulement d etoiles est refuse en global et liste l OU en parcours' {
+    Assert-True (Test-DomeniaWildcardOnly '***');Assert-True (Test-DomeniaWildcardOnly ' * * ')
+    Assert-False (Test-DomeniaWildcardOnly '');Assert-False (Test-DomeniaWildcardOnly 'a*');Assert-False (Test-DomeniaWildcardOnly $null)
+    $g=Get-DomeniaSearchTextCheck '***' Global 2
+    Assert-False $g.Valid;Assert-Equal 'Saisissez au moins un caractère en plus de * : une étoile seule listerait tout le domaine.' $g.Reason
+    $o=Get-DomeniaSearchTextCheck '**' OU 2;Assert-True $o.Valid;Assert-True $o.Browse 'Dans une OU, des etoiles seules listent l OU'
+    Assert-False (Get-DomeniaSearchTextCheck 'a*' Global 2).Valid 'Les etoiles ne comptent pas dans le minimum'
+    Assert-True ((Get-DomeniaSearchTextCheck 'a' OU 2).Reason.Contains('ou * pour lister toute'))
+    Assert-False ((Get-DomeniaSearchTextCheck 'a' Global 2).Reason.Contains('*')) 'L aide globale ne propose pas l etoile'
+    $ok=Get-DomeniaSearchTextCheck 'jean**' Global 2;Assert-True $ok.Valid;Assert-False $ok.Browse
+    Assert-True (Get-DomeniaSearchTextCheck '' Global 2).Browse
+    Assert-False ((Get-DomeniaSearchTextCheck 'a' Global 2).Reason -match '\bSaisis\b') 'Message vouvoye'
+}

@@ -28,10 +28,14 @@ function Update-DomeniaSearchHint {
     if ($null -eq $box) { return }
     $text = ([string]$box.Text).Trim()
     $hint = ''
-    if ($text -and $text -ne '*') {
+    if ($text) {
         $minimum = [Math]::Max(1,[int](Get-CfgValue 'Browser' 'GlobalSearchMinChars' 2))
-        $plan = Get-DomeniaGlobalSearchPlan -Text $text -TypeFilter (Get-TypeLdapFilter -Type 'Tous') -MinimumLength $minimum -SyntaxEnabled (Get-DomeniaFeatureFlag -Name 'SearchSyntax' -Default $true)
-        $hint = [string]$plan.Hint
+        # CO-34: an asterisk-only text is refused by the upper bar; say so before Entrée rather than after.
+        if (Test-DomeniaWildcardOnly $text) { $hint = [string](Get-DomeniaSearchTextCheck -Text $text -Mode Global -MinimumLength $minimum).Reason }
+        else {
+            $plan = Get-DomeniaGlobalSearchPlan -Text $text -TypeFilter (Get-TypeLdapFilter -Type 'Tous') -MinimumLength $minimum -SyntaxEnabled (Get-DomeniaFeatureFlag -Name 'SearchSyntax' -Default $true)
+            $hint = [string]$plan.Hint
+        }
     }
     [void](Set-DomeniaControlText -Name 'LblSearchHint' -Text $hint)
 }
