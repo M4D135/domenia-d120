@@ -2,7 +2,7 @@
 
 Passation du 13 octobre 2026, préparée par Codex pour le prochain intervenant. **Le développement est en pause à la demande de David pour économiser les tokens. Les 160 points ne sont pas terminés. Le code local est en cours d’intégration, sans validation globale ni nouvelle livraison.**
 
-Mise à jour du 14 octobre 2026 : l'arbre de travail est commité sur `master`. Ce commit n'achève pas les 160 points ni les 270 pistes. Le gel des contrats, les DLL recompilées avec `csc` 4.8 et les baux d'authentification y sont inclus. La qualification Windows 10 000 / 20 000 postes n'a pas été exécutée. `EXECUTION.json` porte le statut `committed_windows_qualification_open`.
+Mise à jour du 14 octobre 2026 : l'arbre de travail est commité sur `master`. Ce commit n'achève pas les 160 points ni les 270 pistes. Le gel des contrats, les DLL recompilées avec `csc` 4.8 et les baux d'authentification y sont inclus. La qualification Windows 10 000 / 20 000 postes n'a pas été exécutée. `EXECUTION.json` porte le statut `committed_windows_qualification_open`. Le détail des points restants est dans [SUIVI-2026-10-14.md](SUIVI-2026-10-14.md).
 
 ## Point de départ
 
