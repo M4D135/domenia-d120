@@ -116,6 +116,11 @@ function Assert-WCredentialAllowed {
 }
 function Enter-WCredentialAttempt {
     # Serialize authentication, not the subsequent inventory queries. Never wait on the GUI thread.
+    # Point 41 rule: every worker call that sends an explicit account (LDAP bind, CIM session and its first query,
+    # WinRM, remote event log, Task Scheduler logon, SMB share, LDAP write bind) holds this lease until the first
+    # authenticated answer, and records a refusal with Register-WCredentialFailure. Queries reusing an authenticated
+    # connection do not take it again: the index pass, the park sweep and the query schema reads get it through
+    # New-WEntry, New-WRootDse and New-WDomeniaCimSession. Test-DomeniaCredentialGuard audits every such call.
     param($Context,[ValidateSet('All','Directory','Remote')][string]$Channel='All',[int]$WaitSeconds=120)
     $guard=$null
     if($Context -is [Collections.IDictionary]){$guard=$Context['CredentialGuard']}

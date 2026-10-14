@@ -134,6 +134,8 @@ function Invoke-RelationsWorkerFixture {
     $script:WiringPcB=[pscustomobject]@{Properties=@{name=@('PC-B');dnshostname=@('pc-b.example.invalid');distinguishedname=@('CN=PC-B,DC=example,DC=invalid');objectguid=@(,([guid]'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb').ToByteArray());description=@('Materiel');managedby=@('')}}
     $Payload=[pscustomobject]@{Login='alice';UserDn='CN=Alice,DC=example,DC=invalid';UserGuid='11111111-1111-1111-1111-111111111111';RequestId='fixture';BudgetMs=120000;MaxProbes=5;KnownLinks=@();ScanPark=$true;ScanScope='Loaded';ScanBaseDn='OU=Test,DC=example,DC=invalid';ScanDepth='Subtree';LoadedComputers=@('PC-B');LoadedTargets=@($Targets);UseSecurityLog=$false;Progress=[Collections.Concurrent.ConcurrentQueue[object]]::new()}
     . ([scriptblock]::Create($script:GuidHelpers))
+    # Point 41: the real guard helpers of the worker error contract (no guard map here: they let the call through).
+    . (Join-Path $wad 'modules\Domenia-Guard.Model.ps1')
     function Escape-WLdap {param($Value);return ([string]$Value).Replace('\','\5c').Replace('*','\2a').Replace('(','\28').Replace(')','\29')}
     function Get-WMachineCredential {param($Context);return $null}
     function Get-WAdCredential {param($Context);return $null}

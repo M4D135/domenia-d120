@@ -10200,8 +10200,14 @@ function Get-WRemoteWindowsDirectory {
         $opt=New-CimSessionOption -Protocol Dcom
         $a=@{ComputerName=$Computer;SessionOption=$opt;OperationTimeoutSec=5;ErrorAction='Stop'}
         $cred=Get-WMachineCredential $Context;if($null -ne $cred){$a.Credential=$cred}
-        $session=New-CimSession @a
-        $os=Get-CimInstance -CimSession $session -ClassName Win32_OperatingSystem -Property WindowsDirectory -OperationTimeoutSec 5 -ErrorAction Stop
+        # Point 41: the session and its first authenticated query hold the account lease; a refusal is shared.
+        Set-WCredentialAttemptIdentity -Context $Context -Credential $cred -Channel Remote -Target $Computer
+        $lease=Enter-WCredentialAttempt -Context $Context -Channel Remote
+        try{
+            $session=New-CimSession @a
+            $os=Get-CimInstance -CimSession $session -ClassName Win32_OperatingSystem -Property WindowsDirectory -OperationTimeoutSec 5 -ErrorAction Stop
+        }catch{[void](Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote);throw}
+        finally{Exit-WCredentialAttempt $lease}
         $path=[string]$os.WindowsDirectory
         if($path -notmatch '^[A-Za-z]:\\[^\r\n<>"|?*]+$' -or $path -match '[\x00-\x1f]' -or $path.Contains("'")){throw 'Chemin Windows distant non confirme.'}
         return $path.TrimEnd('\')
@@ -10299,10 +10305,16 @@ function Invoke-WSchtasksRemote {
     try{
         $service=New-Object -ComObject 'Schedule.Service'
         $cred=Get-WMachineCredential $Context
-        if($null -ne $cred){
-            $net=$cred.GetNetworkCredential();$secret=[string]$net.Password
-            try{$service.Connect($Computer,[string]$net.UserName,[string]$net.Domain,$secret)}finally{$secret='';$net=$null}
-        }else{$service.Connect($Computer)}
+        # Point 41: the Task Scheduler logon holds the account lease; a rejected account is shared with every job.
+        Set-WCredentialAttemptIdentity -Context $Context -Credential $cred -Channel Remote -Target $Computer
+        $lease=Enter-WCredentialAttempt -Context $Context -Channel Remote
+        try{
+            if($null -ne $cred){
+                $net=$cred.GetNetworkCredential();$secret=[string]$net.Password
+                try{$service.Connect($Computer,[string]$net.UserName,[string]$net.Domain,$secret)}finally{$secret='';$net=$null}
+            }else{$service.Connect($Computer)}
+        }catch{[void](Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote);throw}
+        finally{Exit-WCredentialAttempt $lease}
         $folder=$service.GetFolder('\')
         switch($verb){
             '/create' {
@@ -10366,12 +10378,16 @@ function New-WAdminShareDrive {
         $parameters['Credential']=$credential
         $identity=[string]$credential.UserName
     }
+    # Point 41: mapping ADMIN$ with an explicit account holds its lease; a rejected account is shared with every job.
+    Set-WCredentialAttemptIdentity -Context $Context -Credential $credential -Channel Remote -Target $Computer
+    $lease=Enter-WCredentialAttempt -Context $Context -Channel Remote
     try { return (New-PSDrive @parameters) }
     catch {
+        [void](Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote)
         $detail=Format-WRemoteFailureDetail -Text ([string]$_.Exception.Message) -MaxLength 450
         throw ('ADMIN$ inaccessible sur '+$Computer+' avec '+$identity+' : '+$detail+'. Aucun autre compte n a ete substitue automatiquement.')
     }
-    finally { $credential=$null; $parameters.Remove('Credential') }
+    finally { Exit-WCredentialAttempt $lease; $credential=$null; $parameters.Remove('Credential') }
 }
 function Remove-WAdminShareDrive {
     param($Drive)
@@ -18512,9 +18528,14 @@ if ([bool]$open[445]) {
             if (-not ('Domenia.NetUse' -as [type])) { try { Add-Type -TypeDefinition ([string]$Payload.NetUseSource) } catch { if (-not ('Domenia.NetUse' -as [type])) { throw } } }
             $net = $cred.GetNetworkCredential(); $user = if ($net.Domain) { $net.Domain + '\' + $net.UserName } else { $net.UserName }
             if (-not $net.Domain -and $user -notmatch '@' -and [string]$Payload.NetbiosDomain) { $user = [string]$Payload.NetbiosDomain + '\' + $user }
-            $rc = [Domenia.NetUse]::Connect($path,$user,$net.Password)
-            if ($rc -eq 1219) { [void][Domenia.NetUse]::Disconnect('\\' + $computer + '\IPC$'); [void][Domenia.NetUse]::Disconnect($path); $rc = [Domenia.NetUse]::Connect($path,$user,$net.Password) }
-            if ($rc -ne 0) { throw ('Refuse pour ' + $user + ' : ' + (New-Object ComponentModel.Win32Exception $rc).Message) }
+            # Point 41: the SMB logon holds the account lease; the native code travels with the refusal, which is shared.
+            Set-WCredentialAttemptIdentity -Context $Context -Credential $cred -Channel Remote -Target $computer
+            $shareLease = Enter-WCredentialAttempt -Context $Context -Channel Remote
+            try {
+                $rc = [Domenia.NetUse]::Connect($path,$user,$net.Password)
+                if ($rc -eq 1219) { [void][Domenia.NetUse]::Disconnect('\\' + $computer + '\IPC$'); [void][Domenia.NetUse]::Disconnect($path); $rc = [Domenia.NetUse]::Connect($path,$user,$net.Password) }
+            } finally { Exit-WCredentialAttempt $shareLease }
+            if ($rc -ne 0) { $failure = [ComponentModel.Win32Exception]::new([int]$rc,('Refuse pour ' + $user + ' : ' + (New-Object ComponentModel.Win32Exception $rc).Message)); [void](Register-WCredentialFailure -Context $Context -ErrorValue $failure -Channel Remote); throw $failure }
         }
         if (-not (Test-Path -LiteralPath $path)) { throw $(if ($null -ne $cred) { 'Inaccessible avec le compte des operations poste' } else { 'Inaccessible avec ta session Windows' }) }
         return $path
@@ -19093,8 +19114,11 @@ try {
         }}
         if($null -ne $cred){$params["Credential"]=$cred;$params["Authentication"]="Default"}
         if (-not $open5985 -and $open5986) { $params['UseSSL']=$true }
-        Assert-WCredentialAllowed -Context $Context -Channel Remote
-        $r=Invoke-Command @params;$sw.Stop()
+        # Point 41: the WinRM logon holds the account lease, like the CIM sessions of this probe.
+        Set-WCredentialAttemptIdentity -Context $Context -Credential $cred -Channel Remote -Target $computer
+        $winrmLease=Enter-WCredentialAttempt -Context $Context -Channel Remote
+        try{$r=Invoke-Command @params}finally{Exit-WCredentialAttempt $winrmLease}
+        $sw.Stop()
         # Each value keeps its own nature: current session, explorer owner, or LogonUI history (D042/D043).
         $winrmCandidates=@([pscustomobject]@{Method='WinRM utilisateur courant';Raw=[string]$r.Current;Detail='Win32_ComputerSystem.UserName'})
         foreach($owner in @($r.Explorer)){$winrmCandidates+=[pscustomobject]@{Method='WinRM session explorer';Raw=[string]$owner;Detail='Proprietaire explorer.exe'}}
@@ -19607,9 +19631,14 @@ if(-not ('Domenia.NetUse' -as [type])){try{Add-Type -TypeDefinition ([string]$Pa
 $remote='\\'+$computer+'\'+$share
 $net=$cred.GetNetworkCredential();$user=if($net.Domain){$net.Domain+'\'+$net.UserName}else{$net.UserName}
 if(-not $net.Domain -and $user -notmatch '@' -and [string]$Payload.NetbiosDomain){$user=[string]$Payload.NetbiosDomain+'\'+$user}
+# Point 41: the SMB logon holds the account lease; the native code travels with the refusal, which is shared.
+Set-WCredentialAttemptIdentity -Context $Context -Credential $cred -Channel Remote -Target $computer
+$shareLease=Enter-WCredentialAttempt -Context $Context -Channel Remote
+try{
 $rc=[Domenia.NetUse]::Connect($remote,$user,$net.Password)
 if($rc -eq 1219){foreach($existing in @(('\\'+$computer+'\IPC$'),$remote)){[void][Domenia.NetUse]::Disconnect($existing)};$rc=[Domenia.NetUse]::Connect($remote,$user,$net.Password)}
-if($rc -ne 0){throw ('acces a '+$remote+' refuse pour '+$user+' : '+(New-Object ComponentModel.Win32Exception $rc).Message)}
+}finally{Exit-WCredentialAttempt $shareLease}
+if($rc -ne 0){$failure=[ComponentModel.Win32Exception]::new([int]$rc,('acces a '+$remote+' refuse pour '+$user+' : '+(New-Object ComponentModel.Win32Exception $rc).Message));[void](Register-WCredentialFailure -Context $Context -ErrorValue $failure -Channel Remote);throw $failure}
 [pscustomobject]@{Connected=$true;Account=$user}
 '@
     Start-UiTask -Name ("Partage $Share de $Computer") -OperationId "ComputerAdminShare" -Code $code -Payload ([pscustomobject]@{ Computer=$Computer; Share=$Share; NetUseSource=(Get-DomeniaNetUseSource); NetbiosDomain=[string]$script:Conn.Netbios }) -CallbackState ([pscustomobject]@{ Computer=$Computer; Share=$Share; Tool=$Tool }) -ReplaceKey ("share:" + $Computer + ":" + $Tool) -TimeoutSeconds 30 -StatusText ("Ouverture du partage $Share de $Computer avec le compte des operations poste...") -SuccessHandler "Complete-DomeniaAdminShareOpen" -ErrorHandler "Fail-DomeniaAdminShareOpen" | Out-Null
@@ -19661,7 +19690,7 @@ function Invoke-ComputerTool {
                 Assert-WriteAllowed
                 if(-not (Confirm-Action "Forcer immediatement la mise a jour des strategies sur $name ?")){return}
                 $code=@'
-$computer=[string]$Payload.Computer;$cred=Get-WMachineCredential $Context;$err='';try{$p=@{ComputerName=$computer;ScriptBlock={gpupdate.exe /force /wait:0 | Out-String};ErrorAction="Stop"};if($cred){$p.Credential=$cred};$DomeniaWriteDispatched=$true;$o=Invoke-Command @p;[pscustomobject]@{Message="GPUpdate lance sur $computer via WinRM : $($o -join ' ')";Transport="WinRM";Delivered=$true};return}catch{$err=$_.Exception.Message};if(-not $DomeniaWriteDispatched){$local='& "$env:SystemRoot\System32\gpupdate.exe" /force /wait:0 | Out-String | ForEach-Object { [pscustomobject]@{Message=("GPUpdate lance localement : "+$_);Transport="TaskFallback"} }';$DomeniaWriteDispatched=$true;$r=Invoke-WRemoteTaskScript $Context $computer $local ([pscustomobject]@{}) ([int]$Context.TaskFallbackTimeoutSeconds) $err -Purpose 'Write';[pscustomobject]@{Message="GPUpdate via tache planifiée.";Transport="TaskFallback";Delivered=$true}}else{throw}
+$computer=[string]$Payload.Computer;$cred=Get-WMachineCredential $Context;$err='';try{$p=@{ComputerName=$computer;ScriptBlock={gpupdate.exe /force /wait:0 | Out-String};ErrorAction="Stop"};if($cred){$p.Credential=$cred};Set-WCredentialAttemptIdentity -Context $Context -Credential $cred -Channel Remote -Target $computer;$lease=Enter-WCredentialAttempt -Context $Context -Channel Remote;try{$DomeniaWriteDispatched=$true;$o=Invoke-Command @p}finally{Exit-WCredentialAttempt $lease};[pscustomobject]@{Message="GPUpdate lance sur $computer via WinRM : $($o -join ' ')";Transport="WinRM";Delivered=$true};return}catch{$err=$_.Exception.Message;if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw}};if(-not $DomeniaWriteDispatched){$local='& "$env:SystemRoot\System32\gpupdate.exe" /force /wait:0 | Out-String | ForEach-Object { [pscustomobject]@{Message=("GPUpdate lance localement : "+$_);Transport="TaskFallback"} }';$DomeniaWriteDispatched=$true;$r=Invoke-WRemoteTaskScript $Context $computer $local ([pscustomobject]@{}) ([int]$Context.TaskFallbackTimeoutSeconds) $err -Purpose 'Write';[pscustomobject]@{Message="GPUpdate via tache planifiée.";Transport="TaskFallback";Delivered=$true}}else{throw}
 '@
                 $correlation = [guid]::NewGuid().ToString("N")
                 $payload = [pscustomobject]@{Computer=$name;Target=$name;DN=$name;CorrelationId=$correlation;SingleRequest=$true}
@@ -26357,7 +26386,10 @@ function Invoke-WConditionalModify {
         $conn.Timeout = [TimeSpan]::FromSeconds(30)
         $request = New-Object System.DirectoryServices.Protocols.ModifyRequest -ArgumentList @([string]$Dn, $mods.ToArray())
         # Bind first: a failed bind sends nothing. From here on the request may reach the controller.
-        $conn.Bind()
+        # Point 41: the write bind holds the account lease; a rejected account is shared at once with every job.
+        Set-WCredentialAttemptIdentity -Context $Context -Credential $Context.Credential -Channel Directory -UserName $(if($Context.UseCredential){Get-WDirectoryBindUser $Context}else{[string]$Context.ProcessIdentity})
+        $bindLease=Enter-WCredentialAttempt -Context $Context -Channel Directory
+        try{$conn.Bind()}catch{[void](Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Directory);throw}finally{Exit-WCredentialAttempt $bindLease}
         $sent = $true
         $response = $conn.SendRequest($request)
         if ($null -eq $response) { return [pscustomobject]@{ResultCode=-1;Message='Reponse du controleur absente.';Sent=$true} }
