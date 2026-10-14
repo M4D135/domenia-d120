@@ -80,11 +80,14 @@ function Start-DomeniaOnlinePark {
 function Start-DomeniaParkAnalysis {
     # Analyser la liste (decision David 2026-10-08): ping, console user and light WMI reading of the displayed
     # workstations, plus the WMI queries of the dashboard widgets. Read only, confirmed with the count first.
+    # Point 60: -ScopeTargets limits it to the rows the operator selected, named by -ScopeLabel in the confirmation.
+    param([object[]]$ScopeTargets=$null,[string]$ScopeLabel='')
     $probes=$null
     try{
         $ids=@(Get-DomeniaBoardProbeIds)
         if($ids.Count){$probes=@(ConvertTo-DomeniaProbePayload -Ids $ids)}
     }catch{Set-Status ('Requetes des widgets ignorees : '+$_.Exception.Message) 'WARN';$probes=$null}
+    if($null -ne $ScopeTargets){Start-DomeniaOnlinePark -ScopeTargets $ScopeTargets -ScopeLabel $ScopeLabel -Inventory -Probes $probes;return}
     Start-DomeniaOnlinePark -DisplayedResults -Inventory -Probes $probes
 }
 function Complete-DomeniaParkTargets {
@@ -104,7 +107,11 @@ function Complete-DomeniaParkTargets {
         if($r.PingOnly -and -not $r.ScopeLabel){$message=$r.Targets.Count.ToString()+' postes dans les resultats affiches. Ping ICMP seulement, '+$r.Concurrency+' postes au maximum a la fois ; aucune lecture de session ni association.'}
         if($r.WmiOnly){$message=$r.Targets.Count.ToString()+' postes'+$(if($r.ScopeLabel){' de '+$r.ScopeLabel}else{' du perimetre choisi'})+'. Lecture WMI seulement : console'+$(if($r.Inventory){', inventaire leger'}else{''})+$(if(@($r.Probes).Count){' et sondes des widgets'}else{''})+'. Aucun ping ni validation AD supplementaire. '+$r.Concurrency+' lectures au maximum en parallele.'}
         if(-not $r.PingOnly){$message+=' '+$(if($r.CacheMinutes -gt 0){'Réutilisation des mesures encore fraîches, au plus '+$r.CacheMinutes+' min (1 min pour les sondes volatiles, 5 min pour l inventaire). Le ping et la console sont relus.'}else{'Relecture forcée de toutes les mesures demandées.'})}
-        Request-DomeniaInlineConfirmation -Title $(if($r.Inventory){'Analyser les postes affiches'}elseif(@($r.Probes).Count){'Sonder pour les widgets'}elseif($r.PingOnly){'Pinger les postes affiches'}elseif($r.Scope -eq 'Results'){'Detecter sur les resultats affiches'}else{'Detecter sur tout le parc'}) -Target ([string]$script:Conn.Domain) -Message $message -ConfirmText $(if($r.PingOnly){'Pinger'}elseif($r.Inventory){'Analyser'}else{'Verifier les sessions'}) -CancelText 'Annuler' -OnConfirm ({& $start $runId}.GetNewClosure()) -OnCancel ({& $stop -RunId $runId}.GetNewClosure())
+        # Point 60: explicit targets (a selection, the workstation of a board) are named as chosen, not as displayed.
+        $title=if($r.Inventory){'Analyser les postes affiches'}elseif(@($r.Probes).Count){'Sonder pour les widgets'}elseif($r.PingOnly){'Pinger les postes affiches'}elseif($r.Scope -eq 'Results'){'Detecter sur les resultats affiches'}else{'Detecter sur tout le parc'}
+        $widgetOnly=((@($r.Probes).Count -gt 0) -and (-not [bool]$r.Inventory))
+        if(([bool][string]$r.ScopeLabel) -and (-not $widgetOnly)){$title=if($r.Inventory){'Analyser les postes choisis'}elseif($r.PingOnly){'Pinger les postes choisis'}else{'Détecter sur les postes choisis'}}
+        Request-DomeniaInlineConfirmation -Title $title -Target ([string]$script:Conn.Domain) -Message $message -ConfirmText $(if($r.PingOnly){'Pinger'}elseif($r.Inventory){'Analyser'}else{'Verifier les sessions'}) -CancelText 'Annuler' -OnConfirm ({& $start $runId}.GetNewClosure()) -OnCancel ({& $stop -RunId $runId}.GetNewClosure())
     }catch{Fail-DomeniaParkTargets $_.Exception.Message $State}
 }
 function Fail-DomeniaParkTargets {

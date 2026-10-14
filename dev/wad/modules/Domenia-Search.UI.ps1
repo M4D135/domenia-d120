@@ -267,6 +267,9 @@ function Complete-DomeniaSearchLocalQuery {
     $label=$selectionLabel+' : '+('{0} affiché(s) sur {1} dans cette sélection · {2} correspondants, {3} inconnus, {4} non correspondants / {5} postes recensés' -f @($data.Rows).Count,$total,$data.Matched,$data.Unknown,$data.NotMatched,$data.ScopeTotal)
     if($total -gt @($data.Rows).Count){$label+=' · limite '+$State.Limit+' : augmentez la limite puis réexécutez'}
     $State.Job=''
+    # Point 60: the run keeps how many rows matched and how many are shown, so that a limited list is stated as such.
+    $State|Add-Member -NotePropertyName Total -NotePropertyValue ([long]$total) -Force
+    $State|Add-Member -NotePropertyName Shown -NotePropertyValue ([long]@($data.Rows).Count) -Force
     Show-ObjectRows -Rows @($data.Rows) -Label $label -SkipPresenceScan -NoAutoOpen
     Update-DomeniaSearchMoreButton -Search $null
     $depth=if($State.Scope -eq 'Subtree'){'sous-OU incluses'}else{'niveau direct'}

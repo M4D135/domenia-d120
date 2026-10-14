@@ -1,0 +1,93 @@
+﻿# W08 espace de recherche (points 56 a 60) : vues, criteres, portee collective, apercu et comparaison.
+# Donnees fictives uniquement.
+$script:WsDomain='DC=example,DC=invalid'
+function New-WsCandidate {param([string]$Name='Postes Lyon',[string]$Ou='OU=Postes,OU=Lyon,DC=example,DC=invalid')
+    [pscustomobject]@{Version=1;Id=[guid]::NewGuid().ToString('D');Name=$Name;DomainDn=$script:WsDomain;OuDn=$Ou;Subtree=$true;TypeLabel='Machines';Presence='Tous';LocalFilter='pc';Limit='500'
+        Columns=@([pscustomobject]@{Key='Name';Index=1;Width='260';Unit='Pixel'},[pscustomobject]@{Key='Type';Index=0;Width='1';Unit='Star'});Sort=@([pscustomobject]@{Field='Name';Direction='Descending'})}
+}
+Test-Case 'P57' 'Vue : colonnes et tri conserves sans imbrication, champs bornes' {
+    $view=ConvertTo-DomeniaSearchWorkspace (New-WsCandidate) $script:WsDomain
+    Assert-Equal 2 @($view.Columns).Count 'Les colonnes ne doivent pas etre imbriquees dans un tableau unique'
+    Assert-Equal 'Name' $view.Columns[0].Key;Assert-Equal 260 ([int]$view.Columns[0].Width);Assert-Equal 'Descending' $view.Sort[0].Direction
+    Assert-Throws {ConvertTo-DomeniaSearchWorkspace ((New-WsCandidate) | ForEach-Object {$_.Limit='20001';$_}) $script:WsDomain} 'Limite au-dela de 20 000 acceptee'
+    Assert-Throws {ConvertTo-DomeniaSearchWorkspace (New-WsCandidate -Ou 'OU=Postes,DC=autre,DC=invalid') $script:WsDomain} 'Vue hors domaine acceptee'
+    Assert-Throws {ConvertTo-DomeniaSearchWorkspace (New-WsCandidate -Ou $script:WsDomain) $script:WsDomain} 'Le domaine entier ne peut pas etre une vue'
+}
+Test-Case 'P57' 'Bibliotheque de vues : aller-retour JSON avec plusieurs vues, autre domaine conserve' {
+    $a=Add-DomeniaSearchWorkspaceRecord -Items @() -Candidate (New-WsCandidate 'Bravo') -DomainDn $script:WsDomain
+    $b=Add-DomeniaSearchWorkspaceRecord -Items $a.Items -Candidate (New-WsCandidate 'Alpha') -DomainDn $script:WsDomain
+    $foreign=[pscustomobject]@{Version=1;Id=[guid]::NewGuid().ToString('D');Name='Ailleurs';DomainDn='DC=autre,DC=invalid';OuDn='OU=X,DC=autre,DC=invalid';Subtree=$true;TypeLabel='Tous';Presence='Tous';LocalFilter='';Limit=100;Columns=@();Sort=@()}
+    $text=ConvertTo-DomeniaSearchWorkspaceStoreText -Items (@($b.Items)+@($foreign))
+    $store=ConvertFrom-DomeniaSearchWorkspaceStore -Text $text -DomainDn $script:WsDomain
+    Assert-Equal 3 @($store.All).Count 'Toutes les vues stockees, autre domaine compris';Assert-Equal 2 @($store.Views).Count
+    Assert-Equal 'Alpha' $store.Views[0].Name 'Vues triees par nom';Assert-Equal 2 @($store.Views[1].Columns).Count;Assert-Equal 0 $store.Rejected
+    Assert-Throws {Add-DomeniaSearchWorkspaceRecord -Items $store.All -Candidate (New-WsCandidate 'alpha') -DomainDn $script:WsDomain} 'Nom en double accepte'
+    $removed=Remove-DomeniaSearchWorkspaceRecord -Items $store.All -Id $store.Views[0].Id -DomainDn $script:WsDomain
+    Assert-Equal 1 $removed.Removed;Assert-Equal 2 @($removed.Items).Count
+    Assert-Equal '[]' (ConvertTo-DomeniaSearchWorkspaceStoreText -Items @());Assert-Equal 0 @((ConvertFrom-DomeniaSearchWorkspaceStore -Text '' -DomainDn $script:WsDomain).Views).Count
+}
+Test-Case 'P57' 'Bibliotheque de vues : entree illisible comptee, jamais reparee ni perdue' {
+    $good=ConvertTo-DomeniaSearchWorkspaceStoreText -Items @((Add-DomeniaSearchWorkspaceRecord -Items @() -Candidate (New-WsCandidate) -DomainDn $script:WsDomain).Items)
+    $text='[[],'+$good.Substring(1,$good.Length-2)+',{"Version":1,"Id":"x","Name":"Cassee","DomainDn":"DC=example,DC=invalid"}]'
+    $store=ConvertFrom-DomeniaSearchWorkspaceStore -Text $text -DomainDn $script:WsDomain
+    Assert-Equal 1 @($store.Views).Count;Assert-Equal 2 $store.Rejected;Assert-Equal 2 @($store.All).Count 'L entree cassee de ce domaine reste stockee'
+    Assert-Throws {ConvertFrom-DomeniaSearchWorkspaceStore -Text ('['+((1..101|ForEach-Object{'{}'}) -join ',')+']') -DomainDn $script:WsDomain} 'Plus de cent vues acceptees'
+    Assert-True ((Get-DomeniaSearchWorkspaceLabel $store.Views[0]) -ceq 'Postes Lyon · Postes et sous-OU · Machines')
+}
+Test-Case 'P56' 'Criteres visibles : portee, type, requete, presence et filtre local, avec leur lieu' {
+    $m=Get-DomeniaSearchFilterChips -State ([pscustomobject]@{Mode='OU';OuDn='OU=Postes,OU=Lyon,DC=example,DC=invalid';Subtree=$false;TypeLabel='Machines';Presence='En ligne';LocalFilter='pc-0';QueryName='Disques pleins';QueryKind='Local';QuerySelection='Inconnus';Shown=3;Loaded=40})
+    Assert-Equal 'Scope,Type,Query,Presence,Local' ((@($m.Chips)|ForEach-Object{$_.Key}) -join ',')
+    Assert-False $m.Chips[0].Removable 'La portee ne se retire pas';Assert-True ($m.Chips[0].Label.Contains('niveau direct'))
+    Assert-Equal 'Annuaire' $m.Chips[1].Scope;Assert-True ($m.Chips[1].Effect.Contains('relit'));Assert-Equal 'Base locale' $m.Chips[2].Scope;Assert-True ($m.Chips[2].Label.Contains('Inconnus'))
+    Assert-Equal 'Liste chargée' $m.Chips[3].Scope;Assert-True ($m.Chips[3].Effect.Contains('aucun ping'))
+    Assert-True ($m.Summary.Contains(' ET ') -and $m.Summary.Contains('3 ligne(s) affichée(s) sur 40 chargée(s)') -and $m.Summary.Contains('ne lisent rien au-delà')) $m.Summary
+}
+Test-Case 'P56' 'Criteres visibles : la recherche globale ignore les filtres de l OU, une requete annuaire est nommee' {
+    $g=Get-DomeniaSearchFilterChips -State ([pscustomobject]@{Mode='Global';GlobalText='dupont';TypeLabel='Machines';Presence='En ligne';LocalFilter='x';Shown=5;Loaded=5})
+    Assert-Equal 1 @($g.Chips).Count 'En mode global seuls le domaine et le texte comptent';Assert-True ($g.Chips[0].Label.Contains('dupont'))
+    $d=Get-DomeniaSearchFilterChips -State ([pscustomobject]@{Mode='OU';OuDn='OU=A,DC=example,DC=invalid';Subtree=$true;TypeLabel='Tous';Presence='Tous';LocalFilter='';QueryName='Comptes desactives';QueryKind='Directory';SegmentName='12 poste(s) retenu(s)'})
+    Assert-Equal 'Scope,Query,Segment' ((@($d.Chips)|ForEach-Object{$_.Key}) -join ',');Assert-Equal 'Annuaire' $d.Chips[1].Scope;Assert-True ($d.Chips[2].Label.Contains('12 poste'))
+}
+Test-Case 'P60' 'Portee collective : liste affichee, selection, lignes masquees et completude dites avant l action' {
+    $rows=@(1..5|ForEach-Object{[pscustomobject]@{Type=$(if($_ -eq 5){'Utilisateur'}else{'Machine'});Name=('PC-'+$_);Guid=('0000000'+$_+'-0000-4000-8000-000000000000');DN=('CN=PC-'+$_+',OU=P,DC=example,DC=invalid')}})
+    $visible=@($rows[0],$rows[1],$rows[2],$rows[4])
+    $all=Get-DomeniaSearchSelectionPlan -VisibleRows $visible -SelectedRows @() -Mode Visible -LoadedCount 5 -Completeness Limited -Limit 5
+    Assert-Equal 4 $all.Count;Assert-Equal 3 $all.Machines;Assert-Equal 1 $all.HiddenByLocalFilter
+    Assert-True ($all.Label.Contains('1 ligne(s) chargée(s) masquée(s)') -and $all.Label.Contains('limitée à 5')) $all.Label
+    $sel=Get-DomeniaSearchSelectionPlan -VisibleRows $visible -SelectedRows @($rows[2],$rows[0],$rows[3]) -Mode Selected -LoadedCount 5 -Completeness Complete
+    Assert-Equal 2 $sel.Count 'La ligne selectionnee mais masquee est exclue';Assert-Equal 'PC-1' $sel.Rows[0].Name 'Ordre affiche conserve';Assert-Equal 1 $sel.SelectedHidden
+    Assert-True ($sel.Label.Contains('2 sur 4') -and $sel.Label.Contains('exclue')) $sel.Label
+    $none=Get-DomeniaSearchSelectionPlan -VisibleRows $visible -SelectedRows @() -Mode Selected
+    Assert-Equal 0 $none.Count;Assert-True ($none.Label.StartsWith('Aucune ligne sélectionnée'))
+    $withSel=Get-DomeniaSearchSelectionPlan -VisibleRows $visible -SelectedRows @($rows[1]) -Mode Visible
+    Assert-Equal 4 $withSel.Count 'La liste affichee reste complete';Assert-True ($withSel.Label.Contains('sélection de 1 ligne(s) non utilisée') -and $withSel.Label.Contains('non déterminée'))
+}
+Test-Case 'P58' 'Comparaison : dates propres a chaque valeur, inconnu jamais identique, attributs par leur date' {
+    $g1='11111111-1111-4111-8111-111111111111';$g2='22222222-2222-4222-8222-222222222222'
+    $r1=[pscustomobject]@{Guid=$g1;Name='PC-1';DN='CN=PC-1,DC=example,DC=invalid';State='Actif';Description='';LastLogon='2026-10-01T08:00:00.0000000Z';ObservedAtUtc='2026-10-10T08:00:00Z';Details=[pscustomobject]@{operatingsystem=@('Windows 11 Pro');pwdlastset=@(133000000000000000)};FieldTimes=[pscustomobject]@{'Details.operatingsystem'='2026-10-09T07:00:00Z';State='2026-10-10T08:00:00Z'}}
+    $r2=[pscustomobject]@{Guid=$g2;Name='PC-2';DN='CN=PC-2,DC=example,DC=invalid';State='Actif';Description='';LastLogon='';ObservedAtUtc='2026-10-11T08:00:00Z';Details=[pscustomobject]@{operatingsystem=@('Windows 10 Pro')};FieldTimes=[pscustomobject]@{'Details.operatingsystem'='2026-10-11T07:00:00Z';State='2026-10-11T08:00:00Z'}}
+    $o1=[pscustomobject]@{Guid=$g1;Family='Inventory';LastSuccessAtUtc='2026-10-12T09:00:00Z';LastAttemptAtUtc='2026-10-12T09:00:00Z';Error='';Data=[pscustomobject]@{Model='HP 800';MemoryGb=16}}
+    $o2=[pscustomobject]@{Guid=$g2;Family='Inventory';LastSuccessAtUtc='2026-10-12T10:00:00Z';LastAttemptAtUtc='2026-10-13T10:00:00Z';Error='Accès refusé';Data=[pscustomobject]@{Model='HP 800'}}
+    $c=@(Get-DomeniaComputerComparison -Rows @($r1,$r2) -Observations @($o1,$o2) -Guids @($g1,$g2))
+    $os=@($c|Where-Object{$_.Property -eq 'Système'})[0]
+    Assert-Equal 'Windows 11 Pro' $os.V0 'Une valeur AD unique se lit sans crochets';Assert-Equal 'Different' $os.Difference;Assert-Equal '2026-10-09 07:00 UTC' $os.T0 'La date de l attribut est la sienne'
+    $state=@($c|Where-Object{$_.Property -eq 'Compte activé'})[0];Assert-Equal 'DateOnly' $state.Difference 'Memes valeurs, dates differentes'
+    $model=@($c|Where-Object{$_.Property -eq 'Inventaire · Model'})[0];Assert-Equal 'DateOnly' $model.Difference;Assert-True ($model.T1.Contains('tentative') -and $model.T1.Contains('Accès refusé')) $model.T1
+    $memory=@($c|Where-Object{$_.Property -eq 'Inventaire · MemoryGb'})[0];Assert-Equal 'Unknown' $memory.Difference;Assert-Equal 'Non lu' $memory.V1
+    $presence=@($c|Where-Object{$_.Property -eq 'Présence réseau'})[0];Assert-Equal 'Unknown' $presence.Difference 'Une famille jamais lue reste une ligne inconnue'
+    $pwd=@($c|Where-Object{$_.Property -eq 'Mot de passe machine modifié'})[0];Assert-True ($pwd.V0.EndsWith(' UTC')) $pwd.V0;Assert-Equal 'Non lu' $pwd.V1
+    Assert-Throws {Get-DomeniaComputerComparison -Rows @() -Observations @() -Guids @(1..9|ForEach-Object{[guid]::NewGuid().ToString()})} 'Neuf postes acceptes'
+}
+Test-Case 'P59' 'Apercu : fiche locale datee, attributs bornes, familles du poste, rien d invente' {
+    $g='33333333-3333-4333-8333-333333333333'
+    $row=[pscustomobject]@{Guid=$g;Name='PC-3';Type='Machine';DN='CN=PC-3,DC=example,DC=invalid';State='Actif';Description='';Login='PC-3';Upn='pc-3.example.invalid';LastLogon='2026-10-01T08:00:00Z';ObservedAtUtc='2026-10-10T08:00:00Z';Details=[pscustomobject]@{operatingsystem=@('Windows 11 Pro');whencreated=@('2025-01-02T03:04:05.0000000Z');a1=1;a2=2;a3=3};FieldTimes=[pscustomobject]@{Name='2026-10-10T08:00:00Z'}}
+    $obs=@([pscustomobject]@{Guid=$g;Family='Presence';LastSuccessAtUtc='2026-10-12T09:00:00Z';LastAttemptAtUtc='2026-10-12T09:00:00Z';Error='';Data=[pscustomobject]@{Presence='En ligne'}})
+    $p=@(Get-DomeniaSearchPreviewRows -Row $row -Observations $obs -MaximumAttributes 3)
+    Assert-Equal 'PC-3' ($p|Where-Object{$_.Property -eq 'Nom'})[0].Value;Assert-Equal '2026-10-10 08:00 UTC' ($p|Where-Object{$_.Property -eq 'Nom'})[0].Date
+    Assert-Equal 'Non renseigné dans la base locale' ($p|Where-Object{$_.Property -eq 'Description'})[0].Value 'Une colonne vide n est pas une valeur observee'
+    Assert-Equal 1 @($p|Where-Object{$_.Property -eq 'Attributs AD'}).Count 'La borne des attributs est annoncee'
+    Assert-Equal 'En ligne' ($p|Where-Object{$_.Property -eq 'Présence réseau · Presence'})[0].Value
+    Assert-Equal 'Non lu' ($p|Where-Object{$_.Property -eq 'Inventaire'})[0].Value 'Une famille absente reste non lue'
+    Assert-Equal '2025-01-02 03:04 UTC' (ConvertTo-DomeniaComparisonText '2025-01-02T03:04:05.0000000Z' 'whencreated')
+    Assert-Equal 'Jamais (valeur maximale)' (ConvertTo-DomeniaComparisonText ([long]::MaxValue) 'accountexpires');Assert-Equal 'Vide observé' (ConvertTo-DomeniaComparisonText @() 'x');Assert-Equal 'a ; b' (ConvertTo-DomeniaComparisonText @('a','b') 'x')
+}
