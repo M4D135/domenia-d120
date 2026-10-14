@@ -18131,6 +18131,10 @@ function Get-DomeniaSecretIndexEntry {
         $rows = @(Invoke-DomeniaDbQuery ("SELECT computer,checked_at,bitlocker_keys,bitlocker_last,laps_scheme,laps_expiry,verdict,detail FROM secret_state WHERE computer_key=" + (ConvertTo-DomeniaSqlLiteral $key) + " LIMIT 1;"))
         if ($rows.Count -eq 0) { return $null }
         $r = $rows[0]
+        # Point 9: metadata kept by name and written before the current computer of that name was created belongs to
+        # a previous holder of the name; it is not shown for the new object.
+        $created = @(Invoke-DomeniaDbQuery ("SELECT f.when_created FROM ad_objects a JOIN ad_computer_facts f ON f.object_guid=lower(a.object_guid) WHERE a.object_type='Machine' AND upper(a.name)=" + (ConvertTo-DomeniaSqlLiteral $key) + " LIMIT 1;"))
+        if (($created.Count -gt 0) -and (Test-DomeniaRecordPredatesObject -RecordedUtc ([string]$r.checked_at) -CreatedUtc ([string]$created[0].when_created))) { return $null }
         return [pscustomobject]@{
             Computer = [string]$r.computer; CheckedAt = [string]$r.checked_at; BitLockerKeys = [int]$r.bitlocker_keys; BitLockerLast = [string]$r.bitlocker_last
             LapsScheme = [string]$r.laps_scheme; LapsExpiry = [string]$r.laps_expiry; Verdict = [string]$r.verdict; Detail = [string]$r.detail
@@ -20882,12 +20886,12 @@ function Get-AssociationForRow {
     try {
         switch ([string]$Row.Type) {
             "Machine" {
-                $link = @(Get-LinksForComputer -Computer ([string]$Row.Name) | Select-Object -First 1)
+                $link = @(Get-LinksForComputer -Computer ([string]$Row.Name) -Guid ([string](Get-DomeniaMember $Row 'Guid' '')) | Select-Object -First 1)
                 if ($link.Count -gt 0) { return [string]$link[0].UserLogin }
                 return "Non detecte"
             }
             "Utilisateur" {
-                $links = @(Get-LinksForUser -UserLogin ([string]$Row.Login))
+                $links = @(Get-LinksForUser -UserLogin ([string]$Row.Login) -Guid ([string](Get-DomeniaMember $Row 'Guid' '')))
                 if ($links.Count -gt 0) { return (($links | ForEach-Object { [string]$_.Computer }) -join ", ") }
                 return "Aucun poste"
             }
@@ -20916,7 +20920,7 @@ function Get-SelectedAssociationSummary {
             $computer = ""
             try { $computer = [string]$script:Ctrl["TxtCompName"].Text } catch { }
             if ([string]::IsNullOrWhiteSpace($computer)) { $computer = [string]$script:SelectedObject.Name }
-            $links = @(Get-LinksForComputer -Computer $computer)
+            $links = @(Get-LinksForComputer -Computer $computer -Guid ([string](Get-DomeniaMember $script:SelectedObject 'Guid' '')))
             if ($links.Count -eq 0) { return "Aucun utilisateur lie" }
             $l = $links[0]
             $confidence = $(if($null -ne (Get-Command Get-DomeniaLinkQualification -CommandType Function -ErrorAction SilentlyContinue)){(Get-DomeniaLinkQualification $l).Suffix}elseif($null -ne $l.PSObject.Properties['Confidence'] -and -not [string]::IsNullOrWhiteSpace([string]$l.Confidence)){'  confiance '+[string]$l.Confidence+'%'}else{''})
@@ -20929,7 +20933,7 @@ function Get-SelectedAssociationSummary {
         if ($script:SelectedObject.Type -eq "Utilisateur") {
             $user = ""
             try { $user = [string]$script:Ctrl["TxtUserSam"].Text } catch { }
-            $links = @(Get-LinksForUser -UserLogin $user)
+            $links = @(Get-LinksForUser -UserLogin $user -Guid ([string](Get-DomeniaMember $script:SelectedObject 'Guid' '')))
             if ($links.Count -eq 0) { return "Aucun poste lie" }
             return (($links | ForEach-Object { "$($_.Computer) [$($_.Source)]" }) -join ", ")
         }
@@ -20944,7 +20948,7 @@ function Update-SelectedAssociationFields {
         if ($script:SelectedObject.Type -eq "Machine") {
             $computer = ""
             try { $computer = [string]$script:Ctrl["TxtCompName"].Text } catch { }
-            $links = @(Get-LinksForComputer -Computer $computer)
+            $links = @(Get-LinksForComputer -Computer $computer -Guid ([string](Get-DomeniaMember $script:SelectedObject 'Guid' '')))
             if ($links.Count -gt 0) {
                 $l = $links[0]
                 $script:Ctrl["TxtCompLinkedUser"].Text = [string]$l.UserLogin
@@ -20963,7 +20967,7 @@ function Update-SelectedAssociationFields {
         elseif ($script:SelectedObject.Type -eq "Utilisateur") {
             $user = ""
             try { $user = [string]$script:Ctrl["TxtUserSam"].Text } catch { }
-            $links = @(Get-LinksForUser -UserLogin $user)
+            $links = @(Get-LinksForUser -UserLogin $user -Guid ([string](Get-DomeniaMember $script:SelectedObject 'Guid' '')))
             $computers = @($links | ForEach-Object { [string]$_.Computer } | Where-Object { $_ } | Sort-Object -Unique)
             [void](Set-DomeniaItemsSource -Name "TxtUserLinkedComputers" -Rows $computers)
             if ($computers.Count -gt 0) { $script:Ctrl["TxtUserLinkedComputers"].SelectedIndex = 0 }
@@ -21009,18 +21013,22 @@ function Ensure-UserMachineLinkIndex {
 }
 
 function Get-LinksForComputer {
-    param([string]$Computer)
+    # Point 9: with the GUID of the displayed object, a recycled or reassigned name never shows the associations
+    # recorded for another object (Select-DomeniaLinksForIdentity). Without GUID the index answers by name.
+    param([string]$Computer,[string]$Guid='')
     $normalized = Normalize-LinkComputer $Computer
     if ([string]::IsNullOrWhiteSpace($normalized)) { return }
     Ensure-UserMachineLinkIndex
     if ($null -eq $script:LinkByComputer -or -not $script:LinkByComputer.ContainsKey($normalized)) { return }
     $list = $script:LinkByComputer[$normalized]
     if ($null -eq $list) { return }
+    if ($Guid) { foreach ($item in @(Select-DomeniaLinksForIdentity -Links @($list) -Kind Computer -Guid $Guid)) { Write-Output $item }; return }
     foreach ($item in $list) { Write-Output $item }
 }
 
 function Get-LinksForUser {
-    param([string]$UserLogin)
+    # Point 9: same identity rule as Get-LinksForComputer for an account recreated under a former login.
+    param([string]$UserLogin,[string]$Guid='')
     $normalized = Normalize-LinkUser $UserLogin
     if ([string]::IsNullOrWhiteSpace($normalized)) { return }
     Ensure-UserMachineLinkIndex
@@ -21028,6 +21036,7 @@ function Get-LinksForUser {
     if ($null -eq $script:LinksByUser -or -not $script:LinksByUser.ContainsKey($key)) { return }
     $list = $script:LinksByUser[$key]
     if ($null -eq $list) { return }
+    if ($Guid) { foreach ($item in @(Select-DomeniaLinksForIdentity -Links @($list) -Kind User -Guid $Guid)) { Write-Output $item }; return }
     foreach ($item in $list) { Write-Output $item }
 }
 
@@ -21060,8 +21069,10 @@ function Sync-DomeniaLinksAgainstIndex {
         $userGuid = ""; $computerGuid = ""
         try { $userGuid = [string]$link.UserGuid } catch { }
         try { $computerGuid = [string]$link.ComputerGuid } catch { }
-        $userRow = Find-DomeniaCachedUserRow -Login ([string]$link.UserLogin) -Guid $userGuid
-        $computerRow = Find-DomeniaCachedComputerRow -Computer ([string]$link.Computer) -Guid $computerGuid
+        # Point 9: a link carrying a GUID is matched by that GUID only. Once its object is gone, a namesake never
+        # adopts it (rename keeps the GUID; a recycled name gets a new one); the link then stays unverified.
+        $userRow = Find-DomeniaCachedUserRow -Login (Get-DomeniaLinkLookupName -Link $link -Kind User) -Guid $userGuid
+        $computerRow = Find-DomeniaCachedComputerRow -Computer (Get-DomeniaLinkLookupName -Link $link -Kind Computer) -Guid $computerGuid
         if ($null -ne $userRow) {
             if ([string]$link.UserLogin -ine [string]$userRow.Login -and -not [string]::IsNullOrWhiteSpace([string]$userRow.Login)) { $link.UserLogin = Normalize-LinkUser ([string]$userRow.Login); $changed++ }
             if ($link.PSObject.Properties.Name -notcontains "UserGuid") { $link | Add-Member -NotePropertyName UserGuid -NotePropertyValue ([string]$userRow.Guid); $changed++ } elseif ([string]$link.UserGuid -ne [string]$userRow.Guid) { $link.UserGuid=[string]$userRow.Guid; $changed++ }
@@ -21087,11 +21098,11 @@ function Get-DomeniaIndexAssociationText {
     param($Row)
     if ($null -eq $Row) { return "" }
     if ([string]$Row.Type -eq "Machine") {
-        $links = @(Get-LinksForComputer -Computer ([string]$Row.Name))
+        $links = @(Get-LinksForComputer -Computer ([string]$Row.Name) -Guid ([string](Get-DomeniaMember $Row 'Guid' '')))
         return (@($links | ForEach-Object { [string]$_.UserLogin } | Where-Object { $_ } | Sort-Object -Unique) -join ", ")
     }
     if ([string]$Row.Type -eq "Utilisateur") {
-        $links = @(Get-LinksForUser -UserLogin ([string]$Row.Login))
+        $links = @(Get-LinksForUser -UserLogin ([string]$Row.Login) -Guid ([string](Get-DomeniaMember $Row 'Guid' '')))
         return (@($links | ForEach-Object { [string]$_.Computer } | Where-Object { $_ } | Sort-Object -Unique) -join ", ")
     }
     return ""
@@ -21152,7 +21163,7 @@ function Set-RowAssociationMetadata {
                 $computerKey = [string]$row.UPN
                 if ([string]::IsNullOrWhiteSpace($computerKey)) { $computerKey = [string]$row.Name }
 
-                $links = @(Get-LinksForComputer -Computer $computerKey)
+                $links = @(Get-LinksForComputer -Computer $computerKey -Guid ([string](Get-DomeniaMember $row 'Guid' '')))
                 if ($links.Count -gt 0) {
                     $association = [string]$links[0].UserLogin
                     $source = [string]$links[0].Source
@@ -21163,7 +21174,7 @@ function Set-RowAssociationMetadata {
                 $userKey = [string]$row.Login
                 if ([string]::IsNullOrWhiteSpace($userKey)) { $userKey = [string]$row.Name }
 
-                $links = @(Get-LinksForUser -UserLogin $userKey)
+                $links = @(Get-LinksForUser -UserLogin $userKey -Guid ([string](Get-DomeniaMember $row 'Guid' '')))
                 if ($links.Count -gt 0) {
                     $association = (@($links | ForEach-Object { [string]$_.Computer } | Where-Object { $_ } | Sort-Object -Unique) -join ", ")
                     $source = (@($links | ForEach-Object { [string]$_.Source } | Where-Object { $_ } | Sort-Object -Unique) -join ", ")

@@ -296,3 +296,21 @@ Test-Case 'CO-28' 'Le bouton Restaurer nomme l association' {
     Assert-Equal 'Restaurer jdupont → PC01' (Get-DomeniaRelationRestoreLabel (New-DomeniaLinkHistoryEntry Removed $rel 'operateur'))
     Assert-Equal 'Restaurer la suppression' (Get-DomeniaRelationRestoreLabel $null)
 }
+Test-Case 'PT-09' 'Point 9 : le GUID garde l identite apres renommage et un nom reattribue ne reprend pas l historique' {
+    $old='11111111-aaaa-aaaa-aaaa-111111111111';$new='22222222-bbbb-bbbb-bbbb-222222222222'
+    $link=[pscustomobject]@{UserLogin='alice';Computer='PC-R';ComputerGuid=$old;UserGuid='';When='2026-03-01T08:00:00.0000000Z'}
+    Assert-Equal 'Same' (Test-DomeniaLinkIdentity -Link $link -Kind Computer -Guid $old.ToUpperInvariant()).Match 'casse du GUID'
+    Assert-Equal 'Different' (Test-DomeniaLinkIdentity -Link $link -Kind Computer -Guid $new).Match 'nom reattribue accepte'
+    Assert-Equal 'Unknown' (Test-DomeniaLinkIdentity -Link $link -Kind User -Guid $new).Match 'lien sans GUID utilisateur juge'
+    Assert-Equal 'Different' (Test-DomeniaLinkIdentity -Link $link -Kind User -Guid $new -CreatedUtc '2026-04-01T00:00:00Z').Match 'lien anterieur a la creation repris'
+    Assert-Equal 'Unknown' (Test-DomeniaLinkIdentity -Link $link -Kind User -Guid $new -CreatedUtc '2026-02-01T00:00:00Z').Match 'lien posterieur a la creation rejete'
+    $legacy=[pscustomobject]@{UserLogin='bob';Computer='PC-R';ComputerGuid='';When=''}
+    $kept=@(Select-DomeniaLinksForIdentity -Links @($link,$legacy,$null) -Kind Computer -Guid $new)
+    Assert-Equal 1 $kept.Count;Assert-Equal 'bob' ([string]$kept[0].UserLogin) 'ligne historique sans GUID perdue'
+    Assert-Equal 2 @(Select-DomeniaLinksForIdentity -Links @($link,$legacy) -Kind Computer -Guid '').Count 'filtre applique sans GUID'
+    Assert-Equal '' (Get-DomeniaLinkLookupName -Link $link -Kind Computer) 'lien avec GUID retrouve par son nom'
+    Assert-Equal 'alice' (Get-DomeniaLinkLookupName -Link $link -Kind User)
+    Assert-True (Test-DomeniaRecordPredatesObject -RecordedUtc '2026-01-01T00:00:00Z' -CreatedUtc '2026-02-01T00:00:00Z') 'metadonnee de l ancien titulaire reprise'
+    Assert-False (Test-DomeniaRecordPredatesObject -RecordedUtc '2026-03-01T00:00:00Z' -CreatedUtc '2026-02-01T00:00:00Z')
+    Assert-False (Test-DomeniaRecordPredatesObject -RecordedUtc '' -CreatedUtc '2026-02-01T00:00:00Z') 'date inconnue prise pour une preuve'
+}

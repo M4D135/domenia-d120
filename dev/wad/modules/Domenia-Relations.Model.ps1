@@ -582,6 +582,53 @@ function Test-DomeniaAccountIdentityMatch {
     return [pscustomobject]@{Match=$true;Certain=$false;Reason='Domaine et identifiant identiques ; SID non compare.'}
 }
 
+# ---------------------------------------------------------------- point 9: identity across renames and recycled names
+function Test-DomeniaLinkIdentity {
+    # An association recorded with a GUID belongs to that object only. The same name met on another GUID is a recreated
+    # or recycled object: its history is never given to the new object. Without a stored GUID the link is ambiguous
+    # (Unknown) unless it predates the creation of the object ($CreatedUtc), which proves another holder of the name.
+    param($Link,[Parameter(Mandatory=$true)][ValidateSet('Computer','User')][string]$Kind,[AllowEmptyString()][AllowNull()][string]$Guid='',$CreatedUtc=$null)
+    $field = if ($Kind -eq 'Computer') { 'ComputerGuid' } else { 'UserGuid' }
+    $expected = ConvertTo-DomeniaGuidText $Guid
+    $stored = ConvertTo-DomeniaGuidText (Get-DomeniaMember $Link $field '')
+    if ($expected -and $stored) {
+        if ($expected -eq $stored) { return [pscustomobject]@{Match='Same';Reason='GUID identique : même objet, même après renommage ou déplacement.'} }
+        return [pscustomobject]@{Match='Different';Reason='Même nom, autre GUID : objet recréé ou nom réattribué, historique non repris.'}
+    }
+    $created = ConvertTo-DomeniaUtcDate $CreatedUtc
+    $when = ConvertTo-DomeniaRelationUtcDate ([string](Get-DomeniaMember $Link 'When' ''))
+    if (($null -ne $created) -and ($null -ne $when) -and ($when -lt $created)) { return [pscustomobject]@{Match='Different';Reason='Association antérieure à la création de cet objet : nom réattribué, historique non repris.'} }
+    return [pscustomobject]@{Match='Unknown';Reason='Association sans GUID enregistré : identité non vérifiable.'}
+}
+
+function Select-DomeniaLinksForIdentity {
+    # Links of a name that may belong to the object of $Guid: those of another proven object are left out.
+    param([object[]]$Links=@(),[Parameter(Mandatory=$true)][ValidateSet('Computer','User')][string]$Kind,[AllowEmptyString()][AllowNull()][string]$Guid='',$CreatedUtc=$null)
+    foreach ($link in @($Links)) {
+        if ($null -eq $link) { continue }
+        if ((Test-DomeniaLinkIdentity -Link $link -Kind $Kind -Guid $Guid -CreatedUtc $CreatedUtc).Match -ne 'Different') { $link }
+    }
+}
+
+function Test-DomeniaRecordPredatesObject {
+    # A local record keyed by name (BitLocker or LAPS metadata, legacy rows) that was written before the current object
+    # of that name was created describes a previous holder of the name. Unknown dates prove nothing ($false).
+    param($RecordedUtc,$CreatedUtc)
+    $recorded = ConvertTo-DomeniaUtcDate $RecordedUtc
+    $created = ConvertTo-DomeniaUtcDate $CreatedUtc
+    return (($null -ne $recorded) -and ($null -ne $created) -and ($recorded -lt $created))
+}
+
+function Get-DomeniaLinkLookupName {
+    # Name used to look an association up in the local index: none when the link carries a GUID, so that a namesake
+    # never inherits it once its object is gone; the stored name otherwise (legacy row).
+    param($Link,[Parameter(Mandatory=$true)][ValidateSet('Computer','User')][string]$Kind)
+    $guidField = if ($Kind -eq 'Computer') { 'ComputerGuid' } else { 'UserGuid' }
+    $nameField = if ($Kind -eq 'Computer') { 'Computer' } else { 'UserLogin' }
+    if (ConvertTo-DomeniaGuidText (Get-DomeniaMember $Link $guidField '')) { return '' }
+    return [string](Get-DomeniaMember $Link $nameField '')
+}
+
 # ---------------------------------------------------------------- D050 history and conflicts
 function New-DomeniaLinkHistoryEntry {
     # Local journal only: nothing here reads or writes Active Directory.

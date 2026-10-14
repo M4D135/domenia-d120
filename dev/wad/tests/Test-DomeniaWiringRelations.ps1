@@ -189,7 +189,7 @@ try {
     [void][IO.Directory]::CreateDirectory($script:TempRoot)
     $core=Parse-Source (Join-Path $wad 'Domenia-Core.ps1')
     $definitions=[Collections.Generic.List[string]]::new()
-    foreach($name in @('Get-MainXaml','Normalize-LinkComputer','Normalize-LinkUser','Rebuild-UserMachineLinkIndex','Ensure-UserMachineLinkIndex','Get-LinksForComputer','Get-LinksForUser','Get-ExistingLinkForComputer','Find-DomeniaCachedUserRow','Find-DomeniaCachedComputerRow','Add-UserMachineLinkIfMissing','ConvertTo-DomeniaCanonicalLinks','Remove-SelectedLink','Start-ComputerUserLinkProbe','Import-LinksCsv','Get-DomeniaCsvDelimiter','Start-PruneOrphanLinks','Get-AssociationSummaryForObject','Get-SelectedAssociationSummary')){$definitions.Add((Get-SourceFunctionText $core $name))}
+    foreach($name in @('Get-MainXaml','Normalize-LinkComputer','Normalize-LinkUser','Rebuild-UserMachineLinkIndex','Ensure-UserMachineLinkIndex','Get-LinksForComputer','Get-LinksForUser','Get-ExistingLinkForComputer','Find-DomeniaCachedUserRow','Find-DomeniaCachedComputerRow','Add-UserMachineLinkIfMissing','ConvertTo-DomeniaCanonicalLinks','Remove-SelectedLink','Start-ComputerUserLinkProbe','Import-LinksCsv','Get-DomeniaCsvDelimiter','Start-PruneOrphanLinks','Get-AssociationSummaryForObject','Get-SelectedAssociationSummary','Sync-DomeniaLinksAgainstIndex','Get-AssociationForRow','Get-DomeniaIndexAssociationText')){$definitions.Add((Get-SourceFunctionText $core $name))}
     foreach($pair in @(@('modules\Domenia-Live.UI.ps1','Merge-DomeniaLiveLinkMemory'),@('modules\Domenia-Storage.UI.ps1','Queue-DomeniaLinkChanges'),@('modules\Domenia-Storage.UI.ps1','Reset-DomeniaLinkBaseline'),@('modules\Domenia-Storage.UI.ps1','Request-DomeniaStorageWork'),@('modules\Domenia-Guard.Model.ps1','ConvertTo-DomeniaLinkRecord'),@('modules\Domenia-Guard.Model.ps1','Get-DomeniaLinkFingerprint'),@('modules\Domenia-Live.Model.ps1','Get-DomeniaLiveHash'))){
         $definitions.Add((Get-SourceFunctionText (Parse-Source (Join-Path $wad $pair[0])) $pair[1]))
     }
@@ -234,6 +234,24 @@ try {
 
     # ------------------------------------------------------------ non-visual cases
     $script:Ctrl=@{}
+    Case 'Point 9 : un nom reattribue ne reprend ni l association ni le GUID d un autre objet' {
+        Reset-Fixture
+        $old='11111111-aaaa-aaaa-aaaa-111111111111';$new='22222222-bbbb-bbbb-bbbb-222222222222';$user='33333333-cccc-cccc-cccc-333333333333'
+        $script:UserMachineLinks=@([pscustomobject]@{UserLogin='alice';Computer='PC-R';Source='Saisie manuelle';Confidence=100;VerifiedInAD=$true;When='2026-01-01T08:00:00.0000000Z';Details='';UserGuid=$user;ComputerGuid=$old;UserDn='';ComputerDn=''})
+        Rebuild-UserMachineLinkIndex
+        Expect (@(Get-LinksForComputer 'PC-R').Count -eq 1) 'Lecture par nom sans GUID modifiee'
+        Expect (@(Get-LinksForComputer 'PC-R' -Guid $new).Count -eq 0) 'Nom reattribue : ancienne association reprise'
+        Expect (@(Get-LinksForComputer 'PC-R' -Guid $old).Count -eq 1) 'Meme GUID : association perdue'
+        Expect (@(Get-LinksForUser 'alice' -Guid '44444444-dddd-dddd-dddd-444444444444').Count -eq 0) 'Compte recree : ancienne association reprise'
+        Expect ((Get-AssociationForRow ([pscustomobject]@{Type='Machine';Name='PC-R';Guid=$new})) -eq 'Non detecte') 'Colonne association heritee par le nouveau poste'
+        Expect ((Get-DomeniaIndexAssociationText ([pscustomobject]@{Type='Machine';Name='PC-R';Guid=$old})) -eq 'alice') 'Association du meme objet perdue'
+        # The old computer has left the index; its namesake with another GUID must not adopt the association.
+        $script:IndexRows=@([pscustomobject]@{Type='Machine';Name='PC-R';Login='PC-R$';Upn='';Guid=$new;DN='CN=PC-R,OU=Test,DC=example,DC=invalid'},[pscustomobject]@{Type='Utilisateur';Name='Alice';Login='alice';Upn='';Guid=$user;DN='CN=Alice,OU=Test,DC=example,DC=invalid'})
+        $script:IndexComputersByGuid=@{$new=$script:IndexRows[0]};$script:IndexComputersByName=@{'PC-R'=$script:IndexRows[0]};$script:IndexUsersByGuid=@{$user=$script:IndexRows[1]};$script:IndexUsersByLogin=@{'alice'=$script:IndexRows[1]}
+        [void](Sync-DomeniaLinksAgainstIndex -Full)
+        $l=$script:UserMachineLinks[0]
+        Expect (([string]$l.ComputerGuid -eq $old) -and (-not [bool]$l.VerifiedInAD)) ('GUID adopte ou lien encore verifie : '+[string]$l.ComputerGuid)
+    }
     Case 'D042 Console d un autre compte : l affectation declaree reste, les deux relations restent visibles' {
         Reset-Fixture;$state=Begin-FakeQuery
         $r=New-WorkerResult -Candidates @([pscustomobject]@{Computer='PC-B';Guid='bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';DN='CN=PC-B,DC=example,DC=invalid';Confirmed=$true;ObservedUtc='2026-03-01T08:00:00Z';Source='Console CIM/DCOM';Detail='Console observee'})
