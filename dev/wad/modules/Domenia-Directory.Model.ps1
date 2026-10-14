@@ -683,3 +683,46 @@ function Compare-DomeniaDcReadings {
     $comparable = ($read.Count -ge 2)
     return [pscustomobject]@{Rows=$rows.ToArray();Differences=@($rows | Where-Object { -not $_.Identique }).Count;Comparable=$comparable;NotRead=$unreachable;Note=$note}
 }
+
+# ---------------------------------------------------------------- MO-04 domain totals from the local copy
+function Get-DomeniaLocalTotalsSummary {
+    # MO-04: the totals of the domain come from the local copy (ad_objects counted by type and state, as the
+    # LocalIndexRead FleetStats action returns them) with the date of its last directory synchronisation. No count of
+    # the whole directory is ever sent. $Types: rows {t; s; n}. $LastSyncUtc: sync_state.last_sync of the 'directory'
+    # scope, '' when the copy was never synchronised (the totals then say so instead of showing zeros).
+    param([object[]]$Types=@(),[AllowEmptyString()][AllowNull()][string]$LastSyncUtc='',$NowUtc=$null)
+    $culture = [Globalization.CultureInfo]::GetCultureInfo('fr-FR')
+    $order = @('Utilisateur','Machine','Groupe','OU','Conteneur')
+    $labels = @{Utilisateur=@('utilisateur','utilisateurs');Machine=@('poste','postes');Groupe=@('groupe','groupes');OU=@('OU','OU');Conteneur=@('conteneur','conteneurs')}
+    $counts = @{}; $disabled = @{}; $total = 0L
+    foreach ($row in @($Types)) {
+        if ($null -eq $row) { continue }
+        $type = [string](Get-DomeniaMember $row 't' '')
+        $count = 0L
+        try { $count = [long](Get-DomeniaMember $row 'n' 0) } catch { $count = 0L }
+        if ((-not $type) -or ($count -le 0)) { continue }
+        if (-not $counts.ContainsKey($type)) { $counts[$type] = 0L; $disabled[$type] = 0L }
+        $counts[$type] += $count; $total += $count
+        if ([string](Get-DomeniaMember $row 's' '') -eq 'Desactive') { $disabled[$type] += $count }
+    }
+    $when = ''
+    if ($LastSyncUtc) { $when = Format-DomeniaRelationWhen $LastSyncUtc $NowUtc }
+    $parts = New-Object 'System.Collections.Generic.List[string]'
+    $known = @($order) + @($counts.Keys | Where-Object { $order -notcontains $_ } | Sort-Object)
+    foreach ($type in $known) {
+        if (-not $counts.ContainsKey($type)) { continue }
+        $n = [long]$counts[$type]
+        $words = $labels[$type]
+        if ($null -eq $words) { $words = @($type,$type) }
+        $text = $n.ToString('N0',$culture) + ' ' + $(if ($n -gt 1) { $words[1] } else { $words[0] })
+        $off = [long]$disabled[$type]
+        if ($off -gt 0) { $text += ' (dont ' + $off.ToString('N0',$culture) + ' désactivé' + $(if ($off -gt 1) { 's' } else { '' }) + ')' }
+        $parts.Add($text)
+    }
+    if ($total -eq 0) {
+        return [pscustomobject]@{Known=$false;Total=0L;When=$when;Text='Totaux du domaine : la copie locale ne contient encore aucun objet. Mettez-la à jour depuis Base autonome ; aucun dénombrement nʼest lancé sur lʼannuaire.'}
+    }
+    $head = 'Totaux de la copie locale au ' + $when
+    if (-not $when) { $head = 'Totaux de la copie locale, date de synchronisation inconnue' }
+    return [pscustomobject]@{Known=[bool]$when;Total=$total;When=$when;Text=($head + ' : ' + ($parts.ToArray() -join ' · ') + '.')}
+}

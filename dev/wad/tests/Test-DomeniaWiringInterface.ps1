@@ -823,6 +823,45 @@ try{
                 $area.Child=$null;$main.Content=$null;$main.Content=$content;$script:Window=$realWindow;$script:UxLayoutSignature='';$script:UxNavLayoutSignature=''
             }
         }
+        # MO-04: unwired if the count button comes back, if the overview counts the directory again, or if the totals
+        # are not read from the local copy (LocalIndexRead, explicit gesture) with their date.
+        Case 'MO-04 : Analyser le domaine ne denombre plus l annuaire, les totaux viennent de la copie locale' {
+            Expect ($null -eq $main.FindName('BtnCountDomain')) 'Le bouton Analyser et denombrer est revenu.'
+            $label=$script:Ctrl['LblDomainLocalTotals']
+            Expect ($null -ne $label) 'Libelle des totaux absent de la fenetre principale.'
+            Expect ([string]$label.ToolTip -ceq [string][Windows.Automation.AutomationProperties]::GetHelpText($label)) 'Totaux : infobulle et aide divergent.'
+            $worker=@($coreAst.FindAll({param($n)$n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Get-DomeniaDomainWorkerCode'},$true))[0].Extent.Text
+            Expect ((-not $worker.Contains('Denombrement')) -and (-not $worker.Contains('$Payload.Count'))) 'Le worker DomainOverview denombre encore lʼannuaire.'
+            $overviewAst=@($coreAst.FindAll({param($n)$n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Start-DomeniaDomainOverview'},$true))
+            Expect ($overviewAst.Count -eq 1) 'Start-DomeniaDomainOverview absent.'
+            . ([scriptblock]::Create($overviewAst[0].Extent.Text))
+            $dashboardTokens=$null;$dashboardErrors=$null
+            $dashboardAst=[System.Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'modules\Domenia-Dashboard.UI.ps1'),[ref]$dashboardTokens,[ref]$dashboardErrors)
+            foreach($fn in @($dashboardAst.FindAll({param($n)$n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -like '*-DomeniaDomainLocalTotals*'},$true))){. ([scriptblock]::Create($fn.Extent.Text))}
+            . (Join-Path $wad 'modules\Domenia-Search.Model.ps1')
+            . (Join-Path $wad 'modules\Domenia-Directory.Model.ps1')
+            $tasks=New-Object 'System.Collections.ArrayList'
+            function Start-UiTask {param($Name,$OperationId,$Code,$Payload,$CallbackState,$ReplaceKey,$DisableControls,$TimeoutSeconds,$StatusText,$SuccessHandler,$ErrorHandler,$TaskClass);[void]$tasks.Add([pscustomobject]@{OperationId=[string]$OperationId;Payload=$Payload;State=$CallbackState;Disable=@($DisableControls)});return ('task-mo04-'+$tasks.Count)}
+            function Initialize-DomeniaWinSqliteNative {return $true}
+            function Get-DomeniaFleetQueryPlan {param($ObservationMaxAgeDays,$Now,$HealthPolicy);return [pscustomobject]@{Fixture=$true}}
+            function Get-DomeniaObservationMaxAgeDays {return 30}
+            function Get-DomeniaDomainWorkerCode {return 'fixture'}
+            function Show-DomeniaOperationError {param($Operation,$ErrorRecordOrException,[switch]$NoPopup);throw ([string]$ErrorRecordOrException)}
+            $script:DatabaseScopedPath='C:\DomeniaTest\Domenia.db';$script:DashboardModuleRoot=Join-Path $wad 'modules';$script:DomainTotalsState=$null
+            Start-DomeniaDomainOverview
+            $overview=@($tasks|Where-Object{$_.OperationId -eq 'DomainOverview'});$local=@($tasks|Where-Object{$_.OperationId -eq 'LocalIndexRead'})
+            Expect ($tasks.Count -eq 2) ('Lectures lancees : '+(@($tasks|ForEach-Object{$_.OperationId}) -join ', '))
+            Expect (($overview.Count -eq 1) -and ($null -eq $overview[0].Payload.PSObject.Properties['Count']) -and (-not ($overview[0].Disable -contains 'BtnCountDomain'))) 'Analyse : un comptage est encore demande.'
+            Expect (($local.Count -eq 1) -and ([string]$local[0].Payload.Action -eq 'FleetStats') -and ([string]$local[0].Payload.Scope -eq [string]$script:Conn.BaseDn) -and (-not [bool]$local[0].Payload.Subtree) -and (-not [bool]$local[0].Payload.ComputeBoard)) 'Totaux : lecture locale attendue.'
+            Expect ($label.Text -eq 'Totaux du domaine : lecture de la copie locale…') ('Etat de lecture : '+$label.Text)
+            $sync=@{directory=[pscustomobject]@{scope='directory';last_sync='2026-10-14T06:15:00.0000000Z'}}
+            $answer=[pscustomobject]@{Busy=$false;Missing=$false;Types=@([pscustomobject]@{t='Utilisateur';s='Actif';n=12},[pscustomobject]@{t='Machine';s='Actif';n=5});SyncStates=$sync}
+            Complete-DomeniaDomainLocalTotals -Result $answer -State $local[0].State
+            Expect (($label.Text.StartsWith('Totaux de la copie locale au ')) -and ($label.Text.EndsWith(' : 12 utilisateurs · 5 postes.'))) ('Libelle : '+$label.Text)
+            $old=$local[0].State;Start-DomeniaDomainOverview
+            Complete-DomeniaDomainLocalTotals -Result ([pscustomobject]@{Busy=$false;Missing=$false;Types=@();SyncStates=@{}}) -State $old
+            Expect ($label.Text -eq 'Totaux du domaine : lecture de la copie locale…') 'Un ancien resultat a remplace la lecture en cours.'
+        }
     }finally{
         Stop-DomeniaReadOnlyReturnTimer
         if($null -ne $script:UxSuggestTimer){$script:UxSuggestTimer.Stop()}
@@ -832,7 +871,7 @@ try{
     $script:Tests.Add([pscustomobject]@{Name='Initialisation ou suite interrompue';Status='Failed';Detail=$_.Exception.ToString()})
 }
 
-$expected=20
+$expected=22
 $passed=@($script:Tests|Where-Object{$_.Status -eq 'Passed'}).Count
 $failed=@($script:Tests|Where-Object{$_.Status -eq 'Failed'}).Count
 $report=[ordered]@{

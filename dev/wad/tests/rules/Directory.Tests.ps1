@@ -151,3 +151,17 @@ Test-Case 'D070' 'Differences datees par controleur, USN non compares, controleu
     Assert-True ($c.Note -match 'USN sont locaux')
     Assert-False (Compare-DomeniaDcReadings @($readings[0]) @('description')).Comparable
 }
+Test-Case 'MO-04' 'Totaux du domaine lus dans la copie locale, avec leur date, sans denombrer l annuaire' {
+    $now=[datetime]::SpecifyKind([datetime]'2026-10-14T12:00:00',[DateTimeKind]::Utc)
+    $types=@([pscustomobject]@{t='Utilisateur';s='Actif';n=120},[pscustomobject]@{t='Utilisateur';s='Desactive';n=3},[pscustomobject]@{t='Machine';s='Actif';n=1},[pscustomobject]@{t='Groupe';s='Inconnu';n=40},[pscustomobject]@{t='OU';s='Inconnu';n=0})
+    $r=Get-DomeniaLocalTotalsSummary -Types $types -LastSyncUtc '2026-10-14T06:15:00.0000000Z' -NowUtc $now
+    $when=Format-DomeniaRelationWhen '2026-10-14T06:15:00.0000000Z' $now
+    Assert-True $r.Known;Assert-Equal 164 $r.Total
+    Assert-Equal ('Totaux de la copie locale au '+$when+' : 123 utilisateurs (dont 3 désactivés) · 1 poste · 40 groupes.') $r.Text
+    $big=Get-DomeniaLocalTotalsSummary -Types @([pscustomobject]@{t='Machine';s='Actif';n=1234}) -LastSyncUtc '2026-10-14T06:15:00Z' -NowUtc $now
+    Assert-True ($big.Text -match ' : 1\D234 postes\.$') ('Separateur de milliers : '+$big.Text)
+    $unknown=Get-DomeniaLocalTotalsSummary -Types @([pscustomobject]@{t='Machine';s='Actif';n=2}) -LastSyncUtc ''
+    Assert-False $unknown.Known;Assert-True ($unknown.Text.StartsWith('Totaux de la copie locale, date de synchronisation inconnue : 2 postes'))
+    $empty=Get-DomeniaLocalTotalsSummary -Types @() -LastSyncUtc ''
+    Assert-False $empty.Known;Assert-Equal 0 $empty.Total;Assert-True ($empty.Text.Contains('aucun dénombrement'))
+}

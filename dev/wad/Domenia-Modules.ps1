@@ -265,7 +265,8 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaLifecycleNextStep',
             'Find-DomeniaDirectoryInconsistencies',
             'ConvertFrom-DomeniaReplMetadata',
-            'Compare-DomeniaDcReadings'
+            'Compare-DomeniaDcReadings',
+            'Get-DomeniaLocalTotalsSummary'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Access.Model.ps1'); File='Domenia-Workstation.Model.ps1'; DotSource=$true; Functions=@(
             'ConvertTo-DomeniaWorkstationFactState',
@@ -1604,7 +1605,11 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaBoardRouteTarget',
             'Invoke-DomeniaBoardRoute',
             'Update-DomeniaComputerDashboard',
-            'Update-DomeniaSoftwareDashboard'
+            'Update-DomeniaSoftwareDashboard',
+            'Start-DomeniaDomainLocalTotals',
+            'Test-DomeniaDomainLocalTotalsCurrent',
+            'Complete-DomeniaDomainLocalTotals',
+            'Fail-DomeniaDomainLocalTotals'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Park.Model.ps1','Domenia-Relations.UI.ps1','Domenia-Storage.UI.ps1','Domenia-Inline.UI.ps1','Domenia-Engine.Worker.ps1'); File='Domenia-Park.UI.ps1'; DotSource=$true; Functions=@(
             'Test-DomeniaParkRunCurrent',

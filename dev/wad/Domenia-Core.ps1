@@ -881,7 +881,7 @@ $script:GuiElementPolicy = [ordered]@{
     "DgIndex" = "Default"
     "TabDomain" = "Default"
     "BtnLoadDomain" = "Default"
-    "BtnCountDomain" = "Default"
+    "LblDomainLocalTotals" = "Default"
     "BtnCopyDomain" = "Default"
     "LblDomainStatus" = "Default"
     "DgDomain" = "Default"
@@ -7256,9 +7256,10 @@ function Get-MainXaml {
                             <TextBlock Text="État du domaine : rôles FSMO, niveaux fonctionnels, contrôleurs, sites, approbations, corbeille, stratégie de mot de passe et comptes à privilèges." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,8" TextWrapping="Wrap"/>
                             <WrapPanel>
                               <Button x:Name="BtnLoadDomain" ToolTip="Lit lʼétat du domaine et de ses contrôleurs." Content="Analyser le domaine" Style="{StaticResource RunButton}" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Analyser le domaine" AutomationProperties.HelpText="Lit l etat du domaine et de ses controleurs."/>
-                              <Button x:Name="BtnCountDomain" Content="Analyser et denombrer" ToolTip="Compte en plus les utilisateurs, machines, groupes et unités dʼorganisation. Plus long sur un grand annuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Analyser et denombrer" AutomationProperties.HelpText="Compte en plus les utilisateurs, machines, groupes et unites d organisation. Plus long sur un grand annuaire."/>
                               <Button x:Name="BtnCopyDomain" ToolTip="Copie le rapport sur le domaine." Content="Copier le rapport" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Copier le rapport" AutomationProperties.HelpText="Copie le rapport sur le domaine."/>
                             </WrapPanel>
+                            <!-- MO-04: domain totals come from the local copy with its date; no count is sent to the directory. -->
+                            <TextBlock x:Name="LblDomainLocalTotals" Text="Totaux du domaine : affichés depuis la copie locale à lʼanalyse." Margin="0,8,0,0" TextWrapping="Wrap" ToolTip="Totaux de la copie locale (base autonome) et date de sa dernière synchronisation. Aucun dénombrement nʼest lancé sur lʼannuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Totaux de la copie locale" AutomationProperties.HelpText="Totaux de la copie locale (base autonome) et date de sa dernière synchronisation. Aucun dénombrement nʼest lancé sur lʼannuaire."/>
                             <TextBlock x:Name="LblDomainStatus" Text="Pret." Foreground="{DynamicResource MutedColor}" Margin="0,8,0,0" TextWrapping="Wrap"/>
                           </StackPanel>
                           <DataGrid x:Name="DgDomain" ToolTip="Informations relevées. Clic droit pour copier." AutoGenerateColumns="False" IsReadOnly="True" MinRowHeight="28" CanUserSortColumns="True" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Informations relevees" AutomationProperties.HelpText="Informations relevees. Clic droit pour copier.">
@@ -13992,7 +13993,6 @@ function Get-DomeniaDomainWorkerCode {
     return @'
 $rows = New-Object Collections.ArrayList
 $watch = [System.Diagnostics.Stopwatch]::StartNew()
-$count = [bool]$Payload.Count
 $baseDn = [string]$Context.BaseDn
 if ([string]::IsNullOrWhiteSpace($baseDn)) { throw 'Base DN vide : analyse du domaine impossible.' }
 
@@ -14299,28 +14299,6 @@ Invoke-Section 'Comptes a surveiller' {
     catch { }
 }
 
-if ($count) {
-    Invoke-Section 'Denombrement' {
-        $definitions = @(
-            @{ Label='Utilisateurs'; Filter='(&(objectCategory=person)(objectClass=user))' },
-            @{ Label='Machines'; Filter='(objectCategory=computer)' },
-            @{ Label='Groupes'; Filter='(objectCategory=group)' },
-            @{ Label='Unites d organisation'; Filter='(objectCategory=organizationalUnit)' },
-            @{ Label='Contacts'; Filter='(objectCategory=contact)' }
-        )
-        foreach ($d in $definitions) {
-            $s = New-WSearcher $Context $baseDn ([string]$d.Filter) @('distinguishedName') 'Subtree' 0
-            $s.PageSize = 1000
-            $collection = $null
-            try {
-                $collection = $s.FindAll()
-                Add-Row 'Denombrement' ([string]$d.Label) (@($collection).Count)
-            }
-            finally { try { if ($null -ne $collection) { $collection.Dispose() } } catch { } }
-        }
-    }
-}
-
 $watch.Stop()
 [pscustomobject]@{
     Rows = @($rows)
@@ -14358,22 +14336,22 @@ function Fail-DomeniaDomainUi {
 }
 
 function Start-DomeniaDomainOverview {
-    param([switch]$WithCounts)
+    # MO-04: the directory is never counted as a whole. The overview reads the state of the domain; the totals come
+    # from the local copy with its date (Start-DomeniaDomainLocalTotals, local read in the background).
     try {
         $script:DomainRows = @()
         [void](Set-DomeniaItemsSource -Name "DgDomain" -Rows @())
         [void](Set-DomeniaControlText -Name "LblDomainStatus" -Text "Analyse du domaine en cours...")
-        $timeout = 90
-        if ($WithCounts) { $timeout = 240 }
+        Start-DomeniaDomainLocalTotals
         Start-UiTask `
             -Name "Analyse du domaine" `
             -OperationId "DomainOverview" `
             -Code (Get-DomeniaDomainWorkerCode) `
-            -Payload ([pscustomobject]@{ Count=[bool]$WithCounts }) `
-            -CallbackState ([pscustomobject]@{ WithCounts=[bool]$WithCounts }) `
+            -Payload ([pscustomobject]@{}) `
+            -CallbackState ([pscustomobject]@{}) `
             -ReplaceKey "domain" `
-            -DisableControls @("BtnLoadDomain","BtnCountDomain") `
-            -TimeoutSeconds $timeout `
+            -DisableControls @("BtnLoadDomain") `
+            -TimeoutSeconds 90 `
             -StatusText "Analyse du domaine en arriere-plan..." `
             -SuccessHandler "Complete-DomeniaDomainUi" `
             -ErrorHandler "Fail-DomeniaDomainUi" | Out-Null
@@ -22348,7 +22326,6 @@ function Wire-Events {
     if ($script:Ctrl.ContainsKey("DgIndex")) { $script:Ctrl["DgIndex"].Add_Sorting({param($sender,$eventArgs)Set-DomeniaIndexSearchSort -Grid $sender -EventArgs $eventArgs}) }
     if ($script:Ctrl.ContainsKey("BtnIndexResetSort")) { $script:Ctrl["BtnIndexResetSort"].Add_Click({Set-DomeniaIndexSearchSort -Reset}) }
     if ($script:Ctrl.ContainsKey("BtnLoadDomain")) { $script:Ctrl["BtnLoadDomain"].Add_Click({ Start-DomeniaDomainOverview }) }
-    if ($script:Ctrl.ContainsKey("BtnCountDomain")) { $script:Ctrl["BtnCountDomain"].Add_Click({ Start-DomeniaDomainOverview -WithCounts }) }
     if ($script:Ctrl.ContainsKey("BtnCopyDomain")) { $script:Ctrl["BtnCopyDomain"].Add_Click({ Copy-DomeniaDomainReport }) }
     if ($script:Ctrl.ContainsKey("BtnWmiNamespaces")) { $script:Ctrl["BtnWmiNamespaces"].Add_Click({ Start-DomeniaWmiNamespaces }) }
     if ($script:Ctrl.ContainsKey("BtnWmiClasses")) { $script:Ctrl["BtnWmiClasses"].Add_Click({ Start-DomeniaWmiClasses }) }

@@ -2421,11 +2421,11 @@
     "Source": "existing-help"
   },
   {
-    "Name": "BtnCountDomain",
-    "Title": "Analyser et denombrer",
-    "Text": "Compte en plus les utilisateurs, machines, groupes et unités dʼorganisation. Plus long sur un grand annuaire.",
-    "Kind": "Button",
-    "Source": "existing-help"
+    "Name": "LblDomainLocalTotals",
+    "Title": "Totaux de la copie locale",
+    "Text": "Totaux de la copie locale (base autonome) et date de sa dernière synchronisation. Aucun dénombrement nʼest lancé sur lʼannuaire.",
+    "Kind": "TextBlock",
+    "Source": "specific"
   },
   {
     "Name": "BtnCopyDomain",
