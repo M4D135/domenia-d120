@@ -122,6 +122,8 @@ function Start-DomeniaParkRunTimer {
     if($null -ne $r.PSObject.Properties['RefreshOperationId'] -and [string]$r.RefreshOperationId -and -not (Test-DomeniaOuRefreshCurrent ([string]$r.RefreshOperationId))){Stop-DomeniaOnlinePark -RunId $RunId;return}
     if($null -ne $r.Timer){return}
     $r.Approved=$true
+    # Start of the confirmed collection: the attempt time of its scope clocks (Refresh.UI), never a measure date.
+    $r|Add-Member -NotePropertyName ApprovedUtc -NotePropertyValue ([datetime]::UtcNow.ToString('o')) -Force
     # FI-05: protected heartbeat timer, owned and registered by the factory; it also runs minimized (an approved run).
     $timer=New-DomeniaTimer -Owner 'Timer:ParkRun' -IntervalMs 250 -RunWhenHidden -Tick {Invoke-DomeniaParkRunTick};$r.Timer=$timer
     $timer.Start();Update-DomeniaParkRunStatus

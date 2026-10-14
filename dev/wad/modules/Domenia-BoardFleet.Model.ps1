@@ -3,6 +3,11 @@
 # aggregates; the rules (verdicts, thresholds, end of service) are applied here to those aggregates (decision David
 # 2026-10-08, PF-03 and PF-21). Pure rules: no WPF, no AD, no network, no disk, no script state (the caller keeps the
 # returned Observations, Last and Snapshot).
+# The scope collection clocks and measure states come from Domenia-Collection.Model.ps1, loaded first by the closed
+# loader; a runner that dot-sources this file alone (worker, test) gets it from the same folder.
+if($null -eq (Get-Command Get-DomeniaCollectionClocks -CommandType Function -ErrorAction SilentlyContinue)){
+    . (Join-Path $PSScriptRoot 'Domenia-Collection.Model.ps1')
+}
 
 function Get-DomeniaFleetQueryPlan {
     # Boundaries given to the FleetStats worker, which only groups by them (no rule is copied into the pinned body).
@@ -96,6 +101,9 @@ function Get-DomeniaFleetBoardData {
     $syncStates=Get-DomeniaMemberValue $source 'SyncStates'
     if($syncStates -isnot [Collections.IDictionary]){$syncStates=@{}}
     $indexFreshness=Get-DomeniaFleetFreshness -ScopeDn $scope -DomainDn $domainDn -SyncStates $syncStates -Subtree $Subtree -NowUtc $referenceAt
+    # Clocks of the explicit OU collections, read with the same snapshot; absent when the reader did not ask for them.
+    $collectionClocks=$null;$runsProperty=$source.PSObject.Properties['CollectionRuns']
+    if($null -ne $runsProperty){$collectionClocks=Get-DomeniaCollectionClocks -Runs @($runsProperty.Value|Where-Object{$null -ne $_}) -ScopeDn $scope -DomainDn $domainDn -Subtree $Subtree -NowUtc $referenceAt}
     if($null -ne $source.PSObject.Properties['SyncStates']){$IndexPartial=if($indexFreshness.Partial){'dernière tentative incomplète le '+$indexFreshness.AttemptAt.ToLocalTime().ToString('dd/MM/yyyy HH:mm')}else{''}}
     $searchLink = [pscustomobject]@{ Id = 'CollectFleet'; Text = 'Relever ce périmètre'; Tip = 'Prépare la collecte des postes actifs de ce tableau de bord, avec confirmation.'; Link = $true }
     $lifecycleKnown = $false
@@ -583,7 +591,7 @@ function Get-DomeniaFleetBoardData {
     $data.Summary = [string]$machineCount+' comptes ordinateur dans le périmètre : '+$machineDetail+'.'
     Add-Member -InputObject $data -MemberType NoteProperty -Name 'Population' -Value ([pscustomobject]@{ Total = $total; Healthy = $healthy })
     $measurementFreshness=Get-DomeniaOuObservationFreshness -Presence $canonicalPresence.ToArray() -Total $total -NowUtc $referenceAt -MaxDays $ObservationMaxAgeDays
-    Add-Member -InputObject $data -MemberType NoteProperty -Name 'Freshness' -Value ([pscustomobject]@{Version=1;ScopeDn=$scope;Subtree=$Subtree;Index=$indexFreshness;Observations=$measurementFreshness;SnapshotAtUtc=$snapshotAt;ComputedAtUtc=$nowUtc})
+    Add-Member -InputObject $data -MemberType NoteProperty -Name 'Freshness' -Value ([pscustomobject]@{Version=1;ScopeDn=$scope;Subtree=$Subtree;Index=$indexFreshness;Observations=$measurementFreshness;Runs=$collectionClocks;SnapshotAtUtc=$snapshotAt;ComputedAtUtc=$nowUtc})
     Add-Member -InputObject $data -MemberType NoteProperty -Name 'Observations' -Value $observations
     # The worker rows are kept as they are, without copy nor pipeline: thousands of workstations stay cheap on the
     # interface thread (PF-21). Targets: the active workstations (name, distinguished_name, object_guid).
@@ -710,7 +718,9 @@ function Get-DomeniaOuObservationFreshness {
 
 function Format-DomeniaOuFreshnessSummary {
     # Three clocks, three labels. Newest measurement is never presented as the freshness of the entire OU.
-    param($IndexFreshness,$Observations,$ComputedAtUtc=$null,[datetime]$NowUtc=[datetime]::UtcNow)
+    # $Runs: committed clocks of the explicit OU collections (Get-DomeniaCollectionClocks). Their last failed attempt
+    # is shown beside their last success, which stays the reference; RunsText and RunsDetail are empty without them.
+    param($IndexFreshness,$Observations,$ComputedAtUtc=$null,[datetime]$NowUtc=[datetime]::UtcNow,$Runs=$null)
     $dateText={param($At) if($At -is [datetime]){return $At.ToLocalTime().ToString('dd/MM/yyyy HH:mm',[Globalization.CultureInfo]::InvariantCulture)};return ''}
     $at=Get-DomeniaMemberValue $IndexFreshness 'At'
     $base='Base locale (AD) : '
@@ -732,5 +742,17 @@ function Format-DomeniaOuFreshnessSummary {
         $families.Add($text)
     }
     $computed=if($ComputedAtUtc -is [datetime] -and $ComputedAtUtc -le $NowUtc){'Vue recalculée le '+(& $dateText $ComputedAtUtc)+' ; aucune lecture AD ou poste pendant ce calcul.'}else{'Vue locale : date de calcul non disponible.'}
-    [pscustomobject]@{BaseText=$base;ObservationsText=('Postes actifs : '+($families -join ' · '));ComputedText=$computed}
+    $runsText='';$runsDetail='';$runsWarning=$false
+    if($null -ne $Runs){
+        $clocks=Format-DomeniaCollectionClocks -Clocks $Runs -NowUtc $NowUtc
+        # A partial AD pass is already named by the committed coverage checkpoint above: say it once. A complete read
+        # committed at or after the failed attempt started supersedes it (the save of a stopped refresh may finish).
+        $directoryAttempt=Get-DomeniaMemberValue (Get-DomeniaMemberValue $Runs 'Directory') 'Attempt'
+        $partialNamed=(([bool](Get-DomeniaMember $IndexFreshness 'Partial' $false)) -and ([string](Get-DomeniaMember $directoryAttempt 'Status' '') -eq 'Partial'))
+        $attemptAt=Get-DomeniaMemberValue $directoryAttempt 'AtUtc'
+        $superseded=(($at -is [datetime]) -and ($attemptAt -is [datetime]) -and ($at -ge $attemptAt))
+        if(($clocks.DirectoryText) -and (-not $partialNamed) -and (-not $superseded)){$base+=' ; '+$clocks.DirectoryText}
+        $runsText=$clocks.RunsText;$runsDetail=$clocks.Detail;$runsWarning=[bool]$clocks.Warning
+    }
+    [pscustomobject]@{BaseText=$base;ObservationsText=('Postes actifs : '+($families -join ' · '));ComputedText=$computed;RunsText=$runsText;RunsDetail=$runsDetail;RunsWarning=$runsWarning}
 }

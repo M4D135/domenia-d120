@@ -54,8 +54,9 @@ function ConvertTo-DomeniaStoreBatch {
     $list=[Collections.Generic.List[object]]::new()
     foreach($change in $Changes){
         $kind=[string](Get-DomeniaStoreValue $change 'Kind');$guid=[guid]::Empty
-        if($kind -notin @('DirectoryObject','Observation','DetailResult','AccountPreference','QueryRecipe','QueryDependency','QueryMigration')){throw 'Type de changement interdit.'}
+        if($kind -notin @('DirectoryObject','Observation','DetailResult','AccountPreference','QueryRecipe','QueryDependency','QueryMigration','CollectionRun')){throw 'Type de changement interdit.'}
         if($kind -in @('QueryRecipe','QueryDependency','QueryMigration')){$list.Add((ConvertTo-DomeniaStoreQueryChange -Change $change -Context $contextCopy));continue}
+        if($kind -eq 'CollectionRun'){$list.Add((ConvertTo-DomeniaStoreCollectionRun -Change $change -Context $contextCopy));continue}
         if($kind -eq 'AccountPreference'){
             $scope=[string](Get-DomeniaStoreValue $change 'Scope');$user=([string](Get-DomeniaStoreValue $change 'UserName')).Trim()
             if($scope -notin @('Directory','Remote','Laps','BitLocker') -and $scope -notmatch '^AD:[A-Za-z][A-Za-z0-9_.-]{0,63}$' -and $scope -cnotmatch '^RemoteLocal:[a-z0-9][a-z0-9._-]{0,252}$'){throw 'Usage du compte invalide.'}
@@ -131,6 +132,37 @@ function ConvertTo-DomeniaStoreQueryChange {
         return [pscustomobject]@{Kind=$kind;SourceHash=$hash;RecipeIds=$ids}
     }
     throw 'Changement de bibliotheque inconnu.'
+}
+
+function ConvertTo-DomeniaStoreCollectionRun {
+    # Admission of one finished OU collection (table domenia_domain_metadata, points 4, 5 and 10). The scope must
+    # belong to the store domain and its key is recomputed here: a caller can neither date another scope or depth,
+    # nor record a success with an error, nor a run that ends before it starts or in the future.
+    param($Change,$Context)
+    $family=[string](Get-DomeniaStoreValue $Change 'Family')
+    if($family -cnotin @('Directory','Presence','Inventory')){throw 'Famille de collecte invalide.'}
+    $domain=[string](Get-DomeniaStoreValue $Context 'DomainDn')
+    if(([string](Get-DomeniaStoreValue $Change 'DomainDn')).Trim() -ine $domain){throw 'Domaine de collecte invalide.'}
+    $scope=([string](Get-DomeniaStoreValue $Change 'ScopeDn')).Trim()
+    if((-not $scope) -or ($scope.Length -gt 4096) -or ($scope -match '[\x00-\x1f]') -or (($scope -ine $domain) -and (-not $scope.EndsWith(','+$domain,[StringComparison]::OrdinalIgnoreCase)))){throw 'Périmètre de collecte invalide.'}
+    $subtree=Get-DomeniaStoreValue $Change 'Subtree'
+    if($subtree -isnot [bool]){throw 'Profondeur de collecte invalide.'}
+    $prefix=if($subtree){'subtree:'}else{'onelevel:'}
+    $key=$prefix+$scope.ToLowerInvariant()
+    if([string](Get-DomeniaStoreValue $Change 'RequestKey') -cne $key){throw 'Identité de périmètre de collecte incohérente.'}
+    $status=[string](Get-DomeniaStoreValue $Change 'Status')
+    if($status -cnotin @('Success','Partial','Error','Cancelled')){throw 'État de collecte invalide.'}
+    $attempt=ConvertTo-DomeniaStoreUtc (Get-DomeniaStoreValue $Change 'AttemptedAtUtc')
+    $finished=ConvertTo-DomeniaStoreUtc (Get-DomeniaStoreValue $Change 'FinishedAtUtc')
+    if([string]::CompareOrdinal($finished,$attempt) -lt 0){throw 'Fin de collecte antérieure à son début.'}
+    $message=[string](Get-DomeniaStoreValue $Change 'Error')
+    if($message.Length -gt 1024){$message=$message.Substring(0,1024)}
+    if(($status -eq 'Success') -and $message){throw 'Une collecte réussie ne porte pas dʼerreur.'}
+    if(($status -ne 'Success') -and (-not $message)){throw 'Une collecte non réussie doit porter son erreur.'}
+    $data=Get-DomeniaStoreValue $Change 'Data';Assert-DomeniaStoreSafeData $data
+    if([string](Get-DomeniaStoreValue $data 'Format') -cne 'Domenia.CollectionRun/1'){throw 'Format de collecte inconnu.'}
+    if([Text.Encoding]::UTF8.GetByteCount(($data|ConvertTo-Json -Depth 4 -Compress)) -gt 16384){throw 'Description de collecte trop volumineuse.'}
+    return [pscustomobject]@{Kind='CollectionRun';Family=$family;DomainDn=$domain;ScopeDn=$scope;Subtree=[bool]$subtree;RequestKey=$key;Status=$status;AttemptedAtUtc=$attempt;FinishedAtUtc=$finished;Error=$message;Data=$data}
 }
 
 function ConvertTo-DomeniaStoragePolicy {

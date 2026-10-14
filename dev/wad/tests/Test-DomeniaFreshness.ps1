@@ -89,6 +89,33 @@ Case 'Empty population has no fabricated coverage or timestamps' {
  $f=Get-DomeniaOuObservationFreshness @() 0 $Now
  Expect ($f.Ping.Count -eq 0 -and $f.Inventory.Count -eq 0 -and $null -eq $f.Ping.NewestUtc -and $null -eq $f.Inventory.OldestUtc) 'Empty date synthesized'
 }
+# Points 4, 5 and 10: committed clocks of the explicit OU collections complete the three-clock text.
+function Run([string]$Family,[string]$Status,[string]$Success,[string]$Attempt,[string]$ErrorText='',[int]$Done=10){
+ $successData=if($Success){[pscustomobject]@{Format='Domenia.CollectionRun/1';Family=$Family;ScopeDn=$Ou;Subtree=$true;Provider='CIM/DCOM';Controller='';CollectorVersion='fixture';StartedAtUtc=$Success;FinishedAtUtc=$Success;RecordedAtUtc=$Success;Targets=10;Done=10;Succeeded=10;Failed=0}}else{$null}
+ $attemptData=if($Status -ne 'Success'){[pscustomobject]@{Format='Domenia.CollectionRun/1';Family=$Family;ScopeDn=$Ou;Subtree=$true;Provider='CIM/DCOM';Controller='';CollectorVersion='fixture';StartedAtUtc=$Attempt;FinishedAtUtc=$Attempt;RecordedAtUtc=$Attempt;Targets=10;Done=$Done;Succeeded=$Done;Failed=0}}else{$null}
+ [pscustomobject]@{Kind='CollectionRun';DomainDn=$Domain.ToLowerInvariant();Family=$Family;RequestKey=(Get-DomeniaCollectionRunKey $Ou $true);LastAttemptAtUtc=$(if($Attempt){$Attempt}else{$Success});Status=$Status;Error=$ErrorText;LastSuccessAtUtc=$Success;Data=$successData;AttemptData=$attemptData;Revision=3}
+}
+Case 'OU collection clocks keep the last success beside a newer stopped run, with provenance' {
+ $run=Run Inventory Cancelled '2026-10-13T09:00:00.0000000Z' '2026-10-13T11:00:00.0000000Z' 'Relevé arrêté : 3/10 poste(s) traité(s).' 3
+ $clocks=Get-DomeniaCollectionClocks -Runs @($run) -ScopeDn $Ou -DomainDn $Domain -NowUtc $Now
+ $text=Format-DomeniaOuFreshnessSummary (Coverage @{ou=(Sync ('ou:'+$Ou) $Ou '2026-10-13T10:00:00Z')}) $null $Now -NowUtc $Now -Runs $clocks
+ Expect ($text.RunsText -like '*WMI relevé réussi le*(10/10 postes)*dernière tentative le*arrêté*3/10*la dernière réussite reste la référence*') ('Runs text: '+$text.RunsText)
+ Expect ($text.RunsDetail -like '*Inventaire WMI*fournisseur CIM/DCOM*version de collecte fixture*') 'Provenance missing from the tool tip'
+ Expect ($text.BaseText -notlike '*dernière tentative*') 'AD line invents a failed attempt'
+ $none=Format-DomeniaOuFreshnessSummary (Coverage @{}) $null $Now -NowUtc $Now
+ Expect (($none.RunsText -eq '') -and ($none.RunsDetail -eq '')) 'Clock text without any committed read'
+}
+Case 'A partial AD pass named by its coverage checkpoint is not repeated by its run clock' {
+ $states=@{ou=(Sync ('ou:'+$Ou) $Ou '2026-10-13T10:00:00Z');attempt=(Sync ('attempt:ou:'+$Ou) $Ou '2026-10-13T11:00:00Z' 'partial;depth=Subtree')}
+ $partial=Run Directory Partial '2026-10-13T10:00:00.0000000Z' '2026-10-13T11:00:00.0000000Z' 'Lecture AD partielle.'
+ $text=Format-DomeniaOuFreshnessSummary (Coverage $states) $null $Now -NowUtc $Now -Runs (Get-DomeniaCollectionClocks -Runs @($partial) -ScopeDn $Ou -DomainDn $Domain -NowUtc $Now)
+ Expect ([regex]::Matches($text.BaseText,'tentative').Count -eq 1) ('Partial AD said twice: '+$text.BaseText)
+ $failed=Run Directory Error '2026-10-13T10:00:00.0000000Z' '2026-10-13T11:30:00.0000000Z' 'Serveur indisponible.'
+ $text=Format-DomeniaOuFreshnessSummary (Coverage @{ou=(Sync ('ou:'+$Ou) $Ou '2026-10-13T10:00:00Z')}) $null $Now -NowUtc $Now -Runs (Get-DomeniaCollectionClocks -Runs @($failed) -ScopeDn $Ou -DomainDn $Domain -NowUtc $Now)
+ Expect (($text.BaseText -like '*lecture complète le*dernière tentative le*en échec*Serveur indisponible*') -and ($text.BaseText -like '*la dernière réussite reste la référence*')) ('AD failure not shown beside the success: '+$text.BaseText)
+ $later=Format-DomeniaOuFreshnessSummary (Coverage @{ou=(Sync ('ou:'+$Ou) $Ou '2026-10-13T11:45:00Z')}) $null $Now -NowUtc $Now -Runs (Get-DomeniaCollectionClocks -Runs @($failed) -ScopeDn $Ou -DomainDn $Domain -NowUtc $Now)
+ Expect ($later.BaseText -notlike '*dernière tentative*') ('A complete read committed after the failed attempt is hidden by it: '+$later.BaseText)
+}
 # Render the actual callback through inert UI ports: no WPF objects, timers or network tasks are needed.
 function Get-DomeniaControl([string]$Name){if($Name -eq 'PnlFleetCrumbs'){return $null};return $script:Controls[$Name]}
 function Set-DomeniaControlText([string]$Name,[string]$Text){$script:Labels[$Name]=$Text;return $true}

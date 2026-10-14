@@ -83,3 +83,26 @@ Test-Case -Id 'LIV-005' -Name 'Filtre de presence, perimetre de la recherche et 
     Assert-Equal ('cn=pc-1,' + $base.ToLowerInvariant()) (Get-DomeniaLiveObjectKey -Row $row)
     Assert-Equal 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad' (Get-DomeniaLiveHash 'abc')
 }
+Test-Case -Id 'LIV-006' -Name 'Point 5 : une tentative plus recente en echec garde la derniere reussite datee et montre son erreur' -Body {
+    # Committed projection: last success (PresenceCheckedUtc) and newer failed attempt (PresenceAttemptUtc, PresenceError).
+    $failed = New-LivObservation -Presence 'Erreur de ping' -PresenceCheckedUtc '2026-10-08T09:00:00.0000000Z' -PresenceDetail 'DNS'
+    $failed | Add-Member -NotePropertyName PresenceAttemptUtc -NotePropertyValue '2026-10-08T10:00:00.0000000Z'
+    $failed | Add-Member -NotePropertyName PresenceError -NotePropertyValue 'Nom introuvable'
+    $view = Get-DomeniaLivePresenceView -Observation $failed
+    Assert-True ([string]$view.Detail -like '*Derni*re tentative UTC : 2026-10-08T10:00:00*non confirm*e : Nom introuvable*') ([string]$view.Detail)
+    Assert-True ([string]$view.Detail -like '*Derni*re v*rification r*ussie UTC : 2026-10-08T09:00:00*conserv*e*') ([string]$view.Detail)
+    Assert-Equal '2026-10-08T09:00:00.0000000Z' ([string]$view.Checked) 'date de la derniere reussite remplacee'
+    $older = New-LivObservation -Presence 'En ligne' -PresenceCheckedUtc '2026-10-08T11:00:00.0000000Z'
+    $older | Add-Member -NotePropertyName PresenceAttemptUtc -NotePropertyValue '2026-10-08T10:00:00.0000000Z'
+    $older | Add-Member -NotePropertyName PresenceError -NotePropertyValue 'ancien echec'
+    Assert-False ([string](Get-DomeniaLivePresenceView -Observation $older).Detail -like '*ancien echec*') 'echec plus ancien affiche'
+    $console = New-LivObservation -Outcome 'Unavailable' -LastUser 'EX\ann'
+    $console.UserCheckedUtc = '2026-10-08T08:00:00.0000000Z'
+    $console | Add-Member -NotePropertyName ConsoleAttemptUtc -NotePropertyValue '2026-10-08T10:30:00.0000000Z'
+    $console | Add-Member -NotePropertyName ConsoleError -NotePropertyValue 'RPC indisponible'
+    $detail = [string](Get-DomeniaLiveObservationView -Observation $console).Detail
+    Assert-True ($detail -like '*Derni*re tentative UTC : 2026-10-08T10:30:00*non confirm*e : RPC indisponible*Derni*re lecture r*ussie UTC : 2026-10-08T08:00:00*') $detail
+    Assert-False (Test-DomeniaLiveAttemptAfter -Attempt 'pas une date' -Success '' -ErrorText 'x') 'date illisible jugee recente'
+    Assert-True (Test-DomeniaLiveAttemptAfter -Attempt '2026-10-08T10:00:00Z' -Success '' -ErrorText 'x') 'echec sans reussite masque'
+    Assert-False (Test-DomeniaLiveAttemptAfter -Attempt '2026-10-08T10:00:00Z' -Success '2026-10-08T09:00:00Z' -ErrorText '') 'tentative reussie prise pour un echec'
+}

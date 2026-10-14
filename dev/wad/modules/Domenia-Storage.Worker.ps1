@@ -175,6 +175,23 @@ function Convert-StoreWObservation {
     param($Row,[string]$Kind='Observation')
     return [pscustomobject]@{Kind=$Kind;SummaryMissing=([bool]$Row.summary_missing);Guid=[string]$Row.object_guid;DN=[string]$Row.dn;Family=[string]$Row.family;ResultKind=[string]$Row.result_kind;RequestKey=[string]$Row.request_key;LastAttemptAtUtc=[string]$Row.attempt_at;Status=[string]$Row.status;Error=[string]$Row.error;LastSuccessAtUtc=[string]$Row.success_at;Data=(Get-StoreWJson ([string]$Row.payload));AttemptData=(Get-StoreWJson ([string]$Row.attempt_payload));DefinitionHash=[string]$Row.definition_hash;Revision=[long]$Row.revision}
 }
+function Convert-StoreWCollectionRun {
+    # One committed scope clock (domenia_domain_metadata). 'null' payloads stay $null: no empty run is invented.
+    param($Row)
+    $success=[string]$Row.payload;$attempt=[string]$Row.attempt_payload
+    return [pscustomobject]@{Kind='CollectionRun';DomainDn=[string]$Row.domain_dn;Family=[string]$Row.family;RequestKey=[string]$Row.request_key;LastAttemptAtUtc=[string]$Row.attempt_at;Status=[string]$Row.status;Error=[string]$Row.error;LastSuccessAtUtc=[string]$Row.success_at;Data=$(if($success -and $success -cne 'null'){Get-StoreWJson $success}else{$null});AttemptData=$(if($attempt -and $attempt -cne 'null'){Get-StoreWJson $attempt}else{$null});Revision=[long]$Row.revision}
+}
+function Get-StoreWCollectionRunWhere {
+    param([object[]]$Changes)
+    return (@($Changes|Where-Object{$_.Kind -eq 'CollectionRun'}|ForEach-Object{'(domain_dn='+(ConvertTo-DomeniaSqlLiteral ([string]$_.DomainDn))+' AND family='+(ConvertTo-DomeniaSqlLiteral ([string]$_.Family))+' AND request_key='+(ConvertTo-DomeniaSqlLiteral ([string]$_.RequestKey))+')'}|Select-Object -Unique) -join ' OR ')
+}
+function Read-StoreWCollectionRuns {
+    # Read back after COMMIT, in the caller's read transaction: the receipt carries what SQLite holds.
+    param([IntPtr]$Db,[object[]]$Changes)
+    $where=Get-StoreWCollectionRunWhere $Changes
+    if(-not $where){return @()}
+    return @(Invoke-DomeniaDbQuery "SELECT * FROM domenia_domain_metadata WHERE $where ORDER BY family,request_key;" $Db|ForEach-Object{Convert-StoreWCollectionRun $_})
+}
 function Get-StoreWProjection {
     param([object[]]$Observations,[string]$Name='')
     if(-not $Observations.Count){return $null}
@@ -487,9 +504,37 @@ function Invoke-StoreWBatch {
     if($observationWhere){foreach($r in @(Invoke-DomeniaDbQuery "SELECT * FROM domenia_observations WHERE $observationWhere;" $Db)){$obs[[string]$r.object_guid+'|'+[string]$r.family]=$r}}
     if($detailWhere){foreach($r in @(Invoke-DomeniaDbQuery "SELECT * FROM domenia_details WHERE $detailWhere;" $Db)){$details[[string]$r.object_guid+'|'+[string]$r.result_kind+'|'+[string]$r.request_key]=$r}}
     if($factKeys){foreach($r in @(Invoke-DomeniaDbQuery "SELECT * FROM ad_computer_facts WHERE object_guid IN ($factKeys);" $Db)){$facts[[string]$r.object_guid]=$r}}
+    # Scope clocks (points 4, 5 and 10): one row per domain, family and scope; the commit time is their recorded time.
+    $recordedAt=[datetime]::UtcNow.ToString('o');$runs=@{};$runWhere=Get-StoreWCollectionRunWhere @($batch.Changes)
+    if($runWhere){
+        [void](Invoke-DomeniaDbExec 'CREATE TABLE IF NOT EXISTS domenia_domain_metadata(domain_dn TEXT NOT NULL,family TEXT NOT NULL,request_key TEXT NOT NULL,attempt_at TEXT NOT NULL,status TEXT NOT NULL,error TEXT NOT NULL DEFAULT '''',success_at TEXT NOT NULL DEFAULT '''',payload TEXT,attempt_payload TEXT,revision INTEGER NOT NULL,PRIMARY KEY(domain_dn,family,request_key));' $Db)
+        foreach($r in @(Invoke-DomeniaDbQuery "SELECT * FROM domenia_domain_metadata WHERE $runWhere;" $Db)){$runs[[string]$r.domain_dn+'|'+[string]$r.family+'|'+[string]$r.request_key]=$r}
+    }
     $sql=[Text.StringBuilder]::new()
     foreach($change in @($batch.Changes)){
         if($change.Kind -in @('QueryRecipe','QueryDependency','QueryMigration')){Write-StoreWQueryChange $Db $change $c $rev;continue}
+        if($change.Kind -eq 'CollectionRun'){
+            # Same clock rule as the measures: a newer attempt replaces the attempt fields only; a success replaces
+            # the success fields only when it is not older. A failure never erases the last successful run.
+            $runScope=[string]$change.ScopeDn;$runPrefix=if([bool]$change.Subtree){'subtree:'}else{'onelevel:'}
+            if(([string]$change.DomainDn -ine [string]$c.DomainDn) -or ([string]$change.Family -cnotin @('Directory','Presence','Inventory')) -or ([string]$change.Status -cnotin @('Success','Partial','Error','Cancelled')) -or ([string]$change.RequestKey -cne ($runPrefix+$runScope.ToLowerInvariant())) -or (($runScope -ine [string]$c.DomainDn) -and (-not $runScope.EndsWith(','+[string]$c.DomainDn,[StringComparison]::OrdinalIgnoreCase)))){throw 'Releve de perimetre incoherent.'}
+            $runKey=[string]$change.DomainDn+'|'+[string]$change.Family+'|'+[string]$change.RequestKey;$old=$runs[$runKey]
+            $newAttempt=(($null -eq $old) -or ([string]::CompareOrdinal([string]$change.AttemptedAtUtc,[string]$old.attempt_at) -ge 0))
+            $newSuccess=(([string]$change.Status -eq 'Success') -and (($null -eq $old) -or ([string]::CompareOrdinal([string]$change.AttemptedAtUtc,[string]$old.success_at) -ge 0)))
+            if((-not $newAttempt) -and (-not $newSuccess)){continue}
+            $runData=Get-StoreWMap $change.Data;$runData.RecordedAtUtc=$recordedAt
+            $runJson=([pscustomobject]$runData)|ConvertTo-Json -Depth 4 -Compress
+            $runAttempt=if($newAttempt){[string]$change.AttemptedAtUtc}else{[string]$old.attempt_at}
+            $runStatus=if($newAttempt){[string]$change.Status}else{[string]$old.status}
+            $runError=if($newAttempt){[string]$change.Error}else{[string]$old.error}
+            $runSuccess=if($newSuccess){[string]$change.AttemptedAtUtc}elseif($null -ne $old){[string]$old.success_at}else{''}
+            $runSuccessJson=if($newSuccess){$runJson}elseif($null -ne $old){[string]$old.payload}else{'null'}
+            $runAttemptJson=if($newAttempt){if($change.Status -eq 'Success'){'null'}else{$runJson}}else{[string]$old.attempt_payload}
+            $v=@([string]$change.DomainDn,[string]$change.Family,[string]$change.RequestKey,$runAttempt,$runStatus,$runError,$runSuccess,$runSuccessJson,$runAttemptJson,$rev)
+            [void]$sql.AppendLine('INSERT OR REPLACE INTO domenia_domain_metadata(domain_dn,family,request_key,attempt_at,status,error,success_at,payload,attempt_payload,revision) VALUES('+(($v|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ',')+');')
+            $runs[$runKey]=[pscustomobject]@{attempt_at=$runAttempt;status=$runStatus;error=$runError;success_at=$runSuccess;payload=$runSuccessJson;attempt_payload=$runAttemptJson}
+            continue
+        }
         if($change.Kind -eq 'AccountPreference'){
             $v=@($change.DomainDn,$change.Scope,$change.UserName,$change.UpdatedAtUtc,$rev)
             $domainLit=ConvertTo-DomeniaSqlLiteral ([string]$change.DomainDn);$scopeLit=ConvertTo-DomeniaSqlLiteral ([string]$change.Scope);$dateLit=ConvertTo-DomeniaSqlLiteral ([string]$change.UpdatedAtUtc)
@@ -577,7 +622,7 @@ function Invoke-StoreWBatch {
     Import-StoreWLegacyObservations $Db @($batch.Changes.Guid) ([string]$c.DomainDn) $rev
     # Canonical families are read after COMMIT. Do not re-serialize every WMI family for a presence update.
     # The immutable input batch is bounded; dashboard decoders prepare bounded families separately.
-    $at=[datetime]::UtcNow.ToString('o');$identities=@($batch.Changes|ForEach-Object{[pscustomobject]@{Kind=$_.Kind;Guid=$_.Guid;Family=$_.Family;ResultKind=$_.ResultKind;RequestKey=$_.RequestKey}})|ConvertTo-Json -Depth 4 -Compress
+    $at=$recordedAt;$identities=@($batch.Changes|ForEach-Object{[pscustomobject]@{Kind=$_.Kind;Guid=$_.Guid;Family=$_.Family;ResultKind=$_.ResultKind;RequestKey=$_.RequestKey}})|ConvertTo-Json -Depth 4 -Compress
     $v=@($batch.BatchId,$actual,$c.RequestId,[long]$batch.Sequence,$rev,$at,$identities)
     [void](Invoke-DomeniaDbExec ('UPDATE domenia_store_state SET revision='+$rev+' WHERE id=1;INSERT INTO domenia_store_batches(batch_id,payload_hash,request_id,sequence,revision,committed_at,changes_json) VALUES('+(($v|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ',')+');') $Db)
     # Compact only old descriptive identities, never the idempotence key/hash or its
@@ -760,6 +805,7 @@ try {
   # A second, read-only transaction observes committed rows, never in-memory collector objects.
   [void](Invoke-DomeniaDbExec 'BEGIN;' $db);$transaction=$true
   $read=Read-StoreWCommitted $db @($commit.Batch.Changes.Guid)
+  $collectionRuns=@(Read-StoreWCollectionRuns $db @($commit.Batch.Changes))
   $accountPreferences=@(Invoke-DomeniaDbQuery ('SELECT scope AS Scope,user_name AS UserName,domain_dn AS DomainDn,updated_at AS UpdatedAtUtc,revision AS Revision FROM domenia_account_preferences WHERE domain_dn='+(ConvertTo-DomeniaSqlLiteral ([string]$commit.Batch.Context.DomainDn))+' ORDER BY scope;') $db)
   $queryRead=[pscustomobject]@{QueryRecipes=@();QueryDependencies=@();QueryMigrations=@()}
   $queryChanges=@($commit.Batch.Changes|Where-Object{$_.Kind -in @('QueryRecipe','QueryDependency','QueryMigration')})
@@ -769,7 +815,7 @@ try {
     $queryRead=Read-StoreWQueryLibrary $db $query ([string]$commit.Batch.Context.DomainDn) ([long]$read.SnapshotRevision) ([string]$commit.Batch.Context.StoreId) -RecipeIds $queryIds
   }
   [void](Invoke-DomeniaDbExec 'COMMIT;' $db);$transaction=$false
-  [pscustomobject]@{Saved=$true;DataSource='SQLite';SQLiteVersion=$sqliteVersion;StoreId=[string]$commit.Batch.Context.StoreId;Path=$path;DomainDn=[string]$commit.Batch.Context.DomainDn;BatchId=[string]$commit.Batch.BatchId;RequestId=[string]$commit.Batch.Context.RequestId;Sequence=[long]$commit.Batch.Sequence;Revision=[long]$commit.Revision;SnapshotRevision=[long]$read.SnapshotRevision;CommittedAtUtc=[string]$commit.CommittedAtUtc;Already=[bool]$commit.Already;Rows=$read.Rows;Observations=$read.Observations;ObservationRows=$read.ObservationRows;Details=$read.Details;AccountPreferences=$accountPreferences;QueryRecipes=$queryRead.QueryRecipes;QueryDependencies=$queryRead.QueryDependencies;QueryMigrations=$queryRead.QueryMigrations;Count=@($commit.Batch.Changes).Count;Conflicts=@()}
+  [pscustomobject]@{Saved=$true;DataSource='SQLite';SQLiteVersion=$sqliteVersion;StoreId=[string]$commit.Batch.Context.StoreId;Path=$path;DomainDn=[string]$commit.Batch.Context.DomainDn;BatchId=[string]$commit.Batch.BatchId;RequestId=[string]$commit.Batch.Context.RequestId;Sequence=[long]$commit.Batch.Sequence;Revision=[long]$commit.Revision;SnapshotRevision=[long]$read.SnapshotRevision;CommittedAtUtc=[string]$commit.CommittedAtUtc;Already=[bool]$commit.Already;Rows=$read.Rows;Observations=$read.Observations;ObservationRows=$read.ObservationRows;Details=$read.Details;AccountPreferences=$accountPreferences;QueryRecipes=$queryRead.QueryRecipes;QueryDependencies=$queryRead.QueryDependencies;QueryMigrations=$queryRead.QueryMigrations;CollectionRuns=$collectionRuns;Count=@($commit.Batch.Changes).Count;Conflicts=@()}
   return
  }
  if($legacy.Count -gt 0){
