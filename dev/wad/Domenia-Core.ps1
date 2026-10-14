@@ -28164,7 +28164,7 @@ function Update-DomeniaFastLoginVaultUi {
     if($null -ne $ui.VaultUse){$ui.VaultUse.IsEnabled=(-not $Busy -and $null -ne $identity -and -not $blocked)}
     if($null -ne $ui.VaultForget){$ui.VaultForget.IsEnabled=(-not $Busy -and $null -ne $identity)}
     if($null -ne $ui.VaultRemember){$ui.VaultRemember.IsEnabled=(-not $Busy -and -not [bool]$script:DemoMode)}
-    if($null -ne $ui.VaultUse){$ui.VaultUse.ToolTip=if($blocked){'Cet identifiant du coffre a déjà été essayé. Corrige manuellement le mot de passe avant un nouvel usage.'}else{'Utilise une fois le compte exact affiché, sur ce PC. Aucune lecture automatique du coffre.'}}
+    if($null -ne $ui.VaultUse){$ui.VaultUse.ToolTip=if($blocked){'Cet identifiant du coffre a déjà été essayé. Corrigez manuellement le mot de passe avant un nouvel usage.'}else{'Utilise une fois le compte exact affiché, sur ce PC. Aucune lecture automatique du coffre.'}}
 }
 
 function Remove-DomeniaFastLoginVault {
@@ -28237,7 +28237,7 @@ function Set-DomeniaFastLoginBusy {
         }
     }
     Update-DomeniaFastLoginVaultUi -Busy $Busy
-    try { $ui.Cancel.Content = if ($Busy) { "Arreter" } else { "Annuler" } } catch { }
+    try { $ui.Cancel.Content = if ($Busy) { 'Arrêter' } else { 'Annuler' } } catch { }
     try { $ui.Progress.Visibility = if ($Busy) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed } } catch { }
 }
 
@@ -28352,8 +28352,8 @@ function Complete-DomeniaFastLoginSuccess {
 
     if(-not $windowsSession){Save-DomeniaFastLoginVaultPreference -Result $Result -Credential $script:Conn.Credential}
     $ui.Error.Foreground = (Get-DomeniaBootStatusColor -Kind "Success")
-    $ui.Error.Text = if ($windowsSession) { "Session Windows validee." } else { "Compte valide." }
-    $ui.Stage.Text = "Connexion terminee en $([Math]::Round(([long]$Result.DurationMs / 1000),2)) s."
+    $ui.Error.Text = if ($windowsSession) { 'Session Windows validée.' } else { 'Compte validé.' }
+    $ui.Stage.Text = "Connexion terminée en $([Math]::Round(([long]$Result.DurationMs / 1000),2)) s."
     $authMethod = if ($null -ne $Result.PSObject.Properties["AuthMethod"]) { [string]$Result.AuthMethod } else { "LDAP" }
     Add-DomeniaFastLoginDetail "Compte valide : $($Result.BindUser) ; mode=$($script:Conn.AuthMode) ; methode=$authMethod ; serveur=$($Result.Server) ; base=$($Result.BaseDn)."
     Write-DomeniaFastLoginLog -Stage "LOGIN_OK" -Status "OK" -Detail "Compte=$($Result.BindUser) Mode=$($script:Conn.AuthMode) Serveur=$($Result.Server) Base=$($Result.BaseDn)" -DurationMs ([long]$Result.DurationMs)
@@ -28366,52 +28366,6 @@ function Complete-DomeniaFastLoginSuccess {
     try { $ui.PasswordVisible.Text = "" } catch { }
     $state.Password = ""
     Set-DomeniaSurfaceResult $ui.Window $true
-}
-
-function Convert-DomeniaLoginFailureMessage {
-    param([AllowNull()][string]$Message,[AllowNull()][string]$Category="")
-    $m=([string]$Message).Trim()
-    $c=([string]$Category).Trim()
-    if ($c -eq 'Internal' -or $m -match '(?i)NullArray|Indexation impossible dans un tableau Null|Cannot index into a null array|DOMENIA_AUTH_(ENTRY|PROPERTIES|NATIVE)_NULL') {
-        return 'Erreur interne pendant la connexion. Consulte le diagnostic.'
-    }
-    if ($c -eq 'Metadata') { return 'Lecture des informations AD incomplete. Consulte le diagnostic.' }
-    if ($c -eq 'AccessDenied') { return 'Acces refuse par AD. Consulte le diagnostic.' }
-    if ($c -in @('AccountRestriction','Authentication')) { return $m }
-    if($m -match "(?i)((?:\bdata\s+52e\b)|\b(?:0x)?8007052e\b|logon failure|unknown user name or bad password|user name or password is incorrect|username or password is incorrect|nom d.?utilisateur.*mot de passe.*incorrect|identifiant.*mot de passe.*incorrect|mot de passe.*incorrect|invalid credentials|credentials.*invalid)") {
-        return "Identifiant ou mot de passe incorrect."
-    }
-    if($m -match "(?i)((?:\bdata\s+775\b)|\b(?:0x)?80070775\b|account.*locked|compte.*verrouill)") {
-        return "Ce compte est verrouille."
-    }
-    if($m -match "(?i)((?:\bdata\s+533\b)|\b(?:0x)?80070533\b|account.*disabled|compte.*desactiv|compte.*desactiv)") {
-        return "Ce compte est desactive."
-    }
-    if($m -match "(?i)((?:\bdata\s+532\b)|\b(?:0x)?80070532\b|password.*expired|mot de passe.*expir)") {
-        return "Le mot de passe de ce compte a expire."
-    }
-    if($c -eq "Credentials" -and -not [string]::IsNullOrWhiteSpace($m)) {
-        return $m
-    }
-    if([string]::IsNullOrWhiteSpace($m)){ return "Echec de validation du compte." }
-    return $m
-}
-
-function Get-DomeniaLoginFailureHint {
-    param([AllowNull()][string]$Category='', [AllowNull()][string]$Message='')
-    if ($Category -eq 'Internal' -or $Message -match '(?i)Erreur interne|NullArray|tableau Null|null array') {
-        return 'Ce defaut ne prouve pas un mauvais mot de passe. Ouvre le journal.'
-    }
-    if ($Category -eq 'Metadata') { return 'La lecture du domaine ou de la base a echoue. Ouvre le journal.' }
-    if ($Category -eq 'AccessDenied') { return 'Verifie le contexte, les droits du compte et les restrictions. Details dans le journal.' }
-    if ($Message -eq 'Identifiant ou mot de passe incorrect.') { return 'Verifie les identifiants avant tout nouvel essai.' }
-    if ($Category -eq 'Credentials') { return 'Compte refuse : lis le motif avant de refaire un essai.' }
-    if (($Category -eq 'AccountRestriction') -and ($Message -match 'code AD 52f')) { return 'Verifie d abord l expiration du mot de passe : change-le (Ctrl+Alt+Suppr, Modifier un mot de passe) puis reessaie.' }
-    if ($Category -eq 'AccountRestriction') { return 'Lis la restriction indiquee avant tout nouvel essai. Ne multiplie pas les tentatives.' }
-    if ($Category -eq 'Authentication') { return 'Le bind a echoue sans cause identifiee. Copie le diagnostic natif avant tout nouvel essai.' }
-    if ($Category -eq 'Input') { return 'Complete les informations demandees.' }
-    if ($Category -eq 'Timeout' -or $Category -eq 'DomainUnavailable') { return 'Verifie le reseau, le DNS ou le VPN. Details dans le journal.' }
-    return 'Ouvre le journal de connexion pour identifier l etape en echec.'
 }
 
 function Update-DomeniaFastLoginAttempt {
@@ -28438,7 +28392,7 @@ function Update-DomeniaFastLoginAttempt {
             }
         }
         else {
-            $ui.Stage.Text = "Validation Active Directory en memoire  ${elapsed}s"
+            $ui.Stage.Text = "Validation Active Directory en mémoire, ${elapsed} s"
         }
 
         if ($elapsed -ne [int]$session.LastHeartbeat) {
@@ -28451,8 +28405,8 @@ function Update-DomeniaFastLoginAttempt {
         if (-not $completed -and (Get-Date) -lt $session.Deadline) { return }
         if (-not $completed) {
             $ui.Error.Foreground = (Get-DomeniaBootStatusColor -Kind "Error")
-            $ui.Error.Text = "Delai depasse. La validation a ete arretee sans bloquer l interface."
-            $ui.Stage.Text = "Verifie le reseau, le VPN, le DNS ou le journal de connexion."
+            $ui.Error.Text = [string](Get-DomeniaLoginFailureText -Category 'Timeout').Text
+            $ui.Stage.Text = 'Validation arrêtée après le délai prévu, sans bloquer la fenêtre.'
             Write-DomeniaFastLoginLog -Stage "TIMEOUT" -Status "ERROR" -Detail "Runspace MTA interne ; delai depasse."
             Reset-DomeniaFastLoginAttempt -Kill
             return
@@ -28466,12 +28420,12 @@ function Update-DomeniaFastLoginAttempt {
         try { $result = Read-DomeniaAuthRunspaceResult -Session $session }
         catch {
             $detail = [string]$_.Exception.Message
-            $friendly = Convert-DomeniaLoginFailureMessage -Message $detail
+            $failure = Get-DomeniaLoginFailureText -Message $detail
             Write-DomeniaFastLoginLog -Stage "NO_RESULT" -Status "ERROR" -Detail $detail
             Add-DomeniaFastLoginDetail $detail
             $ui.Error.Foreground = (Get-DomeniaBootStatusColor -Kind "Error")
-            $ui.Error.Text = $friendly
-            $ui.Stage.Text = Get-DomeniaLoginFailureHint -Message $friendly
+            $ui.Error.Text = $failure.Text
+            $ui.Stage.Text = 'Résultat de validation illisible : ' + $failure.Message
             $state.Session = $null
             Complete-DomeniaLoginAuthRunspaceCleanup -Session $session
             Set-DomeniaFastLoginBusy $false
@@ -28486,15 +28440,19 @@ function Update-DomeniaFastLoginAttempt {
         Complete-DomeniaLoginAuthRunspaceCleanup -Session $session
 
         if ($null -eq $result -or -not [bool]$result.Success) {
-            $rawMessage = if ($null -ne $result -and -not [string]::IsNullOrWhiteSpace([string]$result.Error)) { [string]$result.Error } else { "Echec de validation du compte." }
+            $errorText = if ($null -ne $result -and -not [string]::IsNullOrWhiteSpace([string]$result.Error)) { [string]$result.Error } else { "" }
+            $rawMessage = if ($errorText) { $errorText } else { "Aucun motif renvoyé par la validation." }
             $errorCategory = ""
             try { $errorCategory = [string]$result.ErrorCategory } catch { }
-            $message = Convert-DomeniaLoginFailureMessage -Message $rawMessage -Category $errorCategory
+            # UI-20: a polite sentence with the next step on screen. The Active Directory code and the technical text
+            # only go to the diagnostic (Copier le diagnostic) and to the connection log.
+            $failure = Get-DomeniaLoginFailureText -Category $errorCategory -Message $errorText
             $ui.Error.Foreground = (Get-DomeniaBootStatusColor -Kind "Error")
-            $ui.Error.Text = $message
-            $ui.Stage.Text = Get-DomeniaLoginFailureHint -Category $errorCategory -Message $message
+            $ui.Error.Text = $failure.Text
+            $ui.Stage.Text = 'Motif : ' + $failure.Message + $(if ($failure.Code) { ' Code Active Directory : ' + $failure.Code + '.' } else { '' })
             # Keep the technical cause in the log, not only the shortened UI message.
             Add-DomeniaFastLoginDetail $rawMessage
+            if ($failure.Code) { Add-DomeniaFastLoginDetail ('Code Active Directory : ' + $failure.Code) }
             if ($null -ne $result) {
                 $diagnosticProperty = $result.PSObject.Properties['Diagnostic']
                 if ($null -ne $diagnosticProperty -and $null -ne $diagnosticProperty.Value) {
@@ -28514,19 +28472,16 @@ function Update-DomeniaFastLoginAttempt {
     }
     catch {
         $detail = $_.Exception.ToString()
-        $friendly = Convert-DomeniaLoginFailureMessage -Message $detail
         Write-DomeniaFastLoginLog -Stage "MONITOR_ERROR" -Status "ERROR" -Detail $detail
         Add-DomeniaFastLoginDetail $detail
         try {
+            # A refusal reported by the exception keeps its own wording; anything else is an internal error, never a
+            # verdict on the password. The exception text stays in the diagnostic.
+            $failure = Get-DomeniaLoginFailureText -Message $detail
+            if ($failure.Kind -ne 'BadCredentials') { $failure = Get-DomeniaLoginFailureText -Category 'Internal' -Message $detail }
             $ui.Error.Foreground = (Get-DomeniaBootStatusColor -Kind "Error")
-            if($friendly -eq "Identifiant ou mot de passe incorrect.") {
-                $ui.Error.Text = $friendly
-                $ui.Stage.Text = "Corrige l identifiant ou le mot de passe."
-            }
-            else {
-                $ui.Error.Text = "Erreur du moniteur de connexion : $($_.Exception.Message)"
-                $ui.Stage.Text = "Le GUI reste actif. Consulte Domenia-login.log."
-            }
+            $ui.Error.Text = $failure.Text
+            $ui.Stage.Text = 'La fenêtre reste utilisable ; détail dans Domenia-login.log.'
         }
         catch { }
         Reset-DomeniaFastLoginAttempt -Kill
@@ -28605,7 +28560,8 @@ function Start-DomeniaFastLoginAttempt {
         catch {
             Write-DomeniaFastLoginLog -Stage "START_ERROR" -Status "ERROR" -Detail $_.Exception.ToString()
             $ui.Error.Foreground = (Get-DomeniaBootStatusColor -Kind "Error")
-            $ui.Error.Text = "Impossible de demarrer la demonstration : $($_.Exception.Message)"
+            $ui.Error.Text = 'Impossible de démarrer la démonstration. Copiez le diagnostic ou ouvrez le journal.'
+            Add-DomeniaFastLoginDetail $_.Exception.ToString()
             Reset-DomeniaFastLoginAttempt -Kill -KeepDiagnostics
         }
         return
@@ -28620,7 +28576,7 @@ function Start-DomeniaFastLoginAttempt {
     $password='';$secret=$null;$vaultCredential=$null;$vaultIdentity=$null
     if($UseVault){
         $vaultIdentity=Get-DomeniaFastLoginVaultIdentity
-        if($null -eq $vaultIdentity -or ($null -ne $script:FastLoginVaultRejected -and $script:FastLoginVaultRejected.ContainsKey($vaultIdentity.Target))){$ui.Error.Text='Corrige manuellement les identifiants avant de réutiliser le coffre.';return}
+        if($null -eq $vaultIdentity -or ($null -ne $script:FastLoginVaultRejected -and $script:FastLoginVaultRejected.ContainsKey($vaultIdentity.Target))){$ui.Error.Text='Corrigez manuellement les identifiants avant de réutiliser le coffre.';return}
         try{$vaultCredential=Get-DomeniaCredentialVaultCredential -DomainDn $vaultIdentity.DomainDn -Scope Directory -UserName $vaultIdentity.UserName -Enabled}
         catch{$ui.Error.Text='Le coffre Windows est indisponible pour cet identifiant.';return}
         if($null -eq $vaultCredential){$ui.Error.Text='Aucun identifiant enregistré dans le coffre pour ce compte.';return}
@@ -28646,14 +28602,14 @@ function Start-DomeniaFastLoginAttempt {
     }
     if (-not $UseCurrentCredentials -and (Test-DomeniaComputerAccountIdentity -Identity $login)) {
         $ui.Error.Foreground = (Get-DomeniaBootStatusColor -Kind "Error")
-        $ui.Error.Text = "Ce compte correspond a un objet ordinateur Active Directory et ne peut pas servir de login interactif."
-        $ui.Stage.Text = "Saisis un compte utilisateur administrateur."
+        $ui.Error.Text = 'Ce compte est un compte dʼordinateur : il ne peut pas ouvrir de session dans Domenia. Saisissez un compte utilisateur.'
+        $ui.Stage.Text = 'Compte dʼordinateur refusé avant toute validation.'
         return
     }
     if ($UseCurrentCredentials -and [string]::IsNullOrWhiteSpace($login)) {
         $ui.Error.Foreground = (Get-DomeniaBootStatusColor -Kind "Error")
-        $ui.Error.Text = "La session Windows courante nest pas un compte utilisateur de domaine."
-        $ui.Stage.Text = "Lapplication semble etre lancee sous SYSTEM, un compte local ou un compte ordinateur."
+        $ui.Error.Text = 'La session Windows ouverte nʼest pas un compte utilisateur du domaine. Utilisez un autre compte.'
+        $ui.Stage.Text = 'Domenia semble lancé sous SYSTEM, un compte local ou un compte dʼordinateur.'
         return
     }
 
@@ -28676,8 +28632,8 @@ function Start-DomeniaFastLoginAttempt {
     $state.UseCurrentCredentials = [bool]$UseCurrentCredentials
     $ui.Technical.Clear()
     $ui.Error.Foreground = (Get-DomeniaBootStatusColor -Kind "Muted")
-    $ui.Error.Text = if ($UseCurrentCredentials) { "Verification de la session Windows courante." } else { "Verification du compte administrateur." }
-    $ui.Stage.Text = "Demarrage du controle Active Directory..."
+    $ui.Error.Text = if ($UseCurrentCredentials) { 'Vérification de la session Windows…' } else { 'Vérification du compte…' }
+    $ui.Stage.Text = 'Démarrage du contrôle Active Directory…'
     Set-DomeniaFastLoginBusy $true
 
     try {
@@ -28703,8 +28659,8 @@ function Start-DomeniaFastLoginAttempt {
         Write-DomeniaFastLoginLog -Stage "START_ERROR" -Status "ERROR" -Detail $detail
         Add-DomeniaFastLoginDetail $detail
         $ui.Error.Foreground = (Get-DomeniaBootStatusColor -Kind "Error")
-        $ui.Error.Text = "Impossible de demarrer la validation : $($_.Exception.Message)"
-        $ui.Stage.Text = "Consulte Domenia-login.log."
+        $ui.Error.Text = 'Impossible de lancer la validation. Copiez le diagnostic ou ouvrez le journal.'
+        $ui.Stage.Text = 'Détail dans Domenia-login.log.'
         Reset-DomeniaFastLoginAttempt -Kill -KeepDiagnostics
     }
     }finally{if($null -ne $secret){$secret.Dispose()};$vaultCredential=$null;$password=''}
@@ -29083,8 +29039,8 @@ function Show-LoginWindow {
             Write-DomeniaFastLoginLog -Stage "CANCEL" -Status "WARN" -Detail "Annulation de la validation en memoire par l utilisateur"
             Reset-DomeniaFastLoginAttempt -Kill -KeepDiagnostics
             $script:FastLoginUi.Error.Foreground = (Get-DomeniaBootStatusColor -Kind "Warning")
-            $script:FastLoginUi.Error.Text = "Verification annulee."
-            $script:FastLoginUi.Stage.Text = "Vous pouvez corriger les informations puis reessayer."
+            $script:FastLoginUi.Error.Text = 'Vérification annulée.'
+            $script:FastLoginUi.Stage.Text = 'Vous pouvez corriger les informations puis réessayer.'
             return
         }
         $script:FastLoginState.LoginOk = $false
@@ -29102,7 +29058,7 @@ function Show-LoginWindow {
         try {
             $text = "Domenia $($script:DomeniaBuild)`r`nScript=$($script:LaunchPath)`r`nLog=$(Get-DomeniaFastLoginLogPath)`r`nEtat=$($script:FastLoginUi.Stage.Text)`r`n`r`n$($script:FastLoginUi.Technical.Text)"
             [System.Windows.Clipboard]::SetText($text)
-            $script:FastLoginUi.Error.Text = "Diagnostic copie."
+            $script:FastLoginUi.Error.Text = 'Diagnostic copié. Relisez-le avant de le transmettre.'
         }
         catch { $script:FastLoginUi.Error.Text = "Copie impossible : $($_.Exception.Message)" }
     })

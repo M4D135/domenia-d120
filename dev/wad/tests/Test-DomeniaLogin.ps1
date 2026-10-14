@@ -22,10 +22,13 @@ function Get-TestDefinition {
     return [string]$found[0].Extent.Text
 }
 $wanted=@('Get-AuthOptionalFlag','Get-AuthAdsiAttributeFirst','Read-AuthAdsiBase','Get-DeepestException',
-          'Get-AuthNativeFailure','Protect-AuthDiagnosticText','Get-AuthFailureDiagnostic','Get-AuthFailureCategory','Convert-DomeniaLoginFailureMessage','Get-DomeniaLoginFailureHint',
+          'Get-AuthNativeFailure','Protect-AuthDiagnosticText','Get-AuthFailureDiagnostic','Get-AuthFailureCategory',
           'Start-DomeniaLoginAuthRunspace','Read-DomeniaAuthRunspaceResult','Complete-DomeniaLoginAuthRunspaceCleanup',
           'ConvertFrom-AuthLdapSubCode','Set-DomeniaWindowActivationPolicy')
 foreach ($name in $wanted) { . ([scriptblock]::Create((Get-TestDefinition $name))) }
+# UI-20 (lot X03): the operator wording of a refusal comes from the pure rule of the closed module plan.
+. (Join-Path $root 'wad\modules\Domenia-Accounts.Model.ps1')
+function Get-TestFailure { param([string]$Message,[string]$Category='') return (Get-DomeniaLoginFailureText -Category $Category -Message $Message) }
 $realProbe=Get-TestDefinition 'Invoke-DomeniaInProcessAuthProbe'
 $original=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'fixtures\AuthProbe-R1.7.ps1'))
 $previous=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'fixtures\AuthProbe-R1.7.1.ps1'))
@@ -260,36 +263,37 @@ Test-LoginCase 'Diagnostic : etape, erreur et ligne conserves sans credential' {
     Assert-Login (@($r.Diagnostic.PSObject.Properties.Name).Count -eq 13)
 }
 Test-LoginCase 'Erreur interne francaise : aucun verdict mauvais mot de passe' {
-    $m=Convert-DomeniaLoginFailureMessage -Message 'Indexation impossible dans un tableau Null. (LDAP=-1, serveur=test)'
-    Assert-Login ($m -like 'Erreur interne*')
-    Assert-Login ((Get-DomeniaLoginFailureHint -Message $m) -like '*ne prouve pas*')
+    $f=Get-TestFailure -Message 'Indexation impossible dans un tableau Null. (LDAP=-1, serveur=test)'
+    Assert-Login ($f.Message -like 'Erreur interne*')
+    Assert-Login ($f.Hint -like '*ne prouve pas*')
 }
 Test-LoginCase 'Erreur interne anglaise : aucun changement de compte suggere' {
-    $m=Convert-DomeniaLoginFailureMessage -Message 'Cannot index into a null array.'
-    Assert-Login ($m -like 'Erreur interne*')
-    Assert-Login ((Get-DomeniaLoginFailureHint -Message $m) -notmatch 'autre mode|Corrige')
+    $f=Get-TestFailure -Message 'Cannot index into a null array.'
+    Assert-Login ($f.Message -like 'Erreur interne*')
+    Assert-Login ($f.Text -notmatch 'autre mode|Corrige')
 }
 Test-LoginCase 'Categorie interne prioritaire sur texte approximatif' {
-    $m=Convert-DomeniaLoginFailureMessage -Message 'Mot de passe incorrect ? Diagnostic interne.' -Category Internal
-    Assert-Login ($m -like 'Erreur interne*')
+    $f=Get-TestFailure -Message 'Mot de passe incorrect ? Diagnostic interne.' -Category Internal
+    Assert-Login ($f.Message -like 'Erreur interne*')
 }
-Test-LoginCase 'Credentials reels : message de refus conserve' {
-    $m=Convert-DomeniaLoginFailureMessage -Message 'TEST invalid credentials' -Category Credentials
-    Assert-Login ($m -eq 'Identifiant ou mot de passe incorrect.')
+Test-LoginCase 'Credentials reels : message de refus vouvoye avec action' {
+    $f=Get-TestFailure -Message 'TEST invalid credentials' -Category Credentials
+    Assert-Login ($f.Text -ceq 'Identifiant ou mot de passe refusé. Vérifiez la saisie avant un nouvel essai.') $f.Text
 }
 Test-LoginCase 'Reseau : orientation reseau plutot que mot de passe' {
-    Assert-Login ((Get-DomeniaLoginFailureHint -Category DomainUnavailable -Message 'Controleur injoignable') -like '*reseau*')
+    Assert-Login ((Get-TestFailure -Category DomainUnavailable -Message 'Controleur injoignable').Hint -like '*réseau*')
 }
 Test-LoginCase 'Erreur inconnue : diagnostic plutot que changement de compte' {
-    Assert-Login ((Get-DomeniaLoginFailureHint -Message 'TEST unknown') -like 'Ouvre le journal*')
+    $f=Get-TestFailure -Message 'TEST unknown'
+    Assert-Login ($f.Kind -eq 'Unknown' -and $f.Hint -like 'Copiez le diagnostic*') $f.Text
 }
 Test-LoginCase 'Refus de lecture : message distinct des identifiants' {
-    $m=Convert-DomeniaLoginFailureMessage -Message 'TEST_REFRESH_ACCESS_DENIED' -Category AccessDenied
-    Assert-Login ($m -eq 'Acces refuse par AD. Consulte le diagnostic.')
+    $f=Get-TestFailure -Message 'TEST_REFRESH_ACCESS_DENIED' -Category AccessDenied
+    Assert-Login ($f.Message -ceq 'Accès refusé par lʼannuaire pendant la connexion.') $f.Message
 }
 Test-LoginCase 'Refus de lecture : orientation droits plutot que DNS' {
-    $m=Get-DomeniaLoginFailureHint -Category AccessDenied -Message 'Acces refuse par AD.'
-    Assert-Login ($m -match 'droits du compte' -and $m -notmatch 'DNS|mot de passe')
+    $f=Get-TestFailure -Category AccessDenied -Message 'TEST_REFRESH_ACCESS_DENIED'
+    Assert-Login ($f.Hint -match 'droits du compte' -and $f.Text -notmatch 'DNS|mot de passe')
 }
 Test-LoginCase 'R1.7.1 : getter COM refusant masque par NATIVE_NULL' {
     $r=Invoke-TestProbe -Previous -Scenario OpaqueLogon
@@ -339,12 +343,20 @@ Test-LoginCase 'Bind refuse par droits : code numerique prime sur texte opaque' 
 Test-LoginCase 'Restriction poste : jamais presentee comme mauvais mot de passe' {
     $r=Invoke-TestProbe -Scenario NativeWorkstation
     Assert-Login ($r.ErrorCategory -eq 'AccountRestriction' -and $r.Error -match 'depuis ce poste')
-    Assert-Login ((Convert-DomeniaLoginFailureMessage -Message $r.Error -Category $r.ErrorCategory) -notmatch 'mot de passe incorrect')
+    $f=Get-TestFailure -Message $r.Error -Category $r.ErrorCategory
+    Assert-Login ($f.Kind -eq 'Workstation' -and $f.Text -notmatch '(?i)incorrect|mot de passe refus') $f.Text
 }
 Test-LoginCase 'Compte verrouille : restriction, aucune affirmation sur le mot de passe' {
     $r=Invoke-TestProbe -Scenario NativeLocked
     Assert-Login ($r.ErrorCategory -eq 'AccountRestriction' -and $r.Error -match 'verrouill')
     Assert-Login ($r.Error -notmatch 'pas en cause')
+}
+Test-LoginCase 'UI-20 : compte verrouille, phrase vouvoyee a l ecran et code AD seulement dans le diagnostic' {
+    $r=Invoke-TestProbe -Scenario NativeLocked
+    $f=Get-TestFailure -Message $r.Error -Category $r.ErrorCategory
+    Assert-Login ($f.Text -ceq 'Compte verrouillé. Demandez son déverrouillage puis réessayez.') $f.Text
+    Assert-Login ($f.Code -ceq '0x80070775') ('Code : '+$f.Code)
+    Assert-Login ($f.Text -notmatch '775|HRESULT|serveur=') 'Code ou detail technique a l ecran'
 }
 Test-LoginCase 'Serveur indisponible pendant bind : aucun second bind automatique' {
     $r=Invoke-TestProbe -Scenario NativeServerDown
@@ -355,7 +367,7 @@ Test-LoginCase 'Erreur bind inconnue : diagnostic sans verdict DNS ou credential
     $r=Invoke-TestProbe -Scenario NativeUnknown
     Assert-Login (-not $r.Success -and $r.ErrorCategory -eq 'Authentication')
     Assert-Login ($r.Diagnostic.HResult -eq '0x80004005')
-    Assert-Login ((Get-DomeniaLoginFailureHint -Category $r.ErrorCategory -Message $r.Error) -match 'diagnostic natif')
+    Assert-Login ((Get-TestFailure -Category $r.ErrorCategory -Message $r.Error).Hint -match 'Copiez le diagnostic')
 }
 Test-LoginCase 'Identite canonique et DC du refus explicite traces sans changer le compte' {
     $r=Invoke-TestProbe -Scenario SelectedDcFailure
@@ -369,8 +381,8 @@ Test-LoginCase 'Secret dans message simule : retire du resultat et du diagnostic
     Assert-Login ($r.Diagnostic.NativeMessage -match '\[SECRET MASQUE\]')
 }
 Test-LoginCase 'Un code dans le nom du DC ne cree pas de faux verrouillage' {
-    $m='TEST serveur=dc775.example.test'
-    Assert-Login ((Convert-DomeniaLoginFailureMessage -Message $m) -eq $m)
+    $f=Get-TestFailure -Message 'TEST serveur=dc775.example.test'
+    Assert-Login ($f.Kind -eq 'Unknown' -and $f.Code -eq '' -and $f.Text -notmatch '(?i)verrouill') $f.Text
 }
 Test-LoginCase 'Getter vraiment nul : garde fail-closed conservee apres le correctif' {
     $r=Invoke-TestProbe -Scenario NullNative
@@ -407,16 +419,17 @@ Test-LoginCase 'Code AD 52f : restriction de compte, jamais mot de passe incorre
     Assert-Login ($sub.SubCode -ceq '52f' -and $sub.Category -eq 'AccountRestriction') ('Sous-code : '+$sub.SubCode+' / '+$sub.Category)
     Assert-Login ($sub.Summary.Contains('mot de passe expire')) ('Resume : '+$sub.Summary)
     $raw=$sub.Summary+' (HRESULT=0x8007052E; serveur=w-ro.example.test)'
-    $ui=Convert-DomeniaLoginFailureMessage -Message $raw -Category 'AccountRestriction'
-    Assert-Login ($ui -notmatch '(?i)incorrect') ('Message : '+$ui)
-    Assert-Login ($ui.Contains('serveur=w-ro.example.test')) 'Controleur absent du message.'
-    $hint=Get-DomeniaLoginFailureHint -Category 'AccountRestriction' -Message $ui
-    Assert-Login ($hint.Contains('expiration du mot de passe')) ('Indication : '+$hint)
+    $f=Get-TestFailure -Message $raw -Category 'AccountRestriction'
+    Assert-Login ($f.Kind -eq 'Restricted' -and $f.Text -notmatch '(?i)incorrect') ('Message : '+$f.Text)
+    # UI-20: the controller and the AD code stay in the diagnostic; the screen gives the next step.
+    Assert-Login ($f.Code -ceq '52f' -and $f.Text -notmatch '52f|serveur=') ('Code a l ecran : '+$f.Text)
+    Assert-Login ($f.Hint.Contains('Ctrl+Alt+Suppr')) ('Indication : '+$f.Hint)
 }
 Test-LoginCase 'Code AD 52e : identifiants refuses, message inchange' {
     $sub=ConvertFrom-AuthLdapSubCode -ExtendedMessage 'LdapErr: DSID-0C0905FE, comment: AcceptSecurityContext error, data 52e, v3839'
     Assert-Login ($sub.SubCode -ceq '52e' -and $sub.Category -eq 'Credentials')
-    Assert-Login ((Convert-DomeniaLoginFailureMessage -Message 'data 52e (HRESULT=0x8007052E)') -eq 'Identifiant ou mot de passe incorrect.')
+    $f=Get-TestFailure -Message 'data 52e (HRESULT=0x8007052E)'
+    Assert-Login ($f.Kind -eq 'BadCredentials' -and $f.Message -ceq 'Identifiant ou mot de passe refusé.') $f.Text
 }
 Test-LoginCase 'Codes AD 530 531 533 775 : restrictions nommees ; sans code : rien' {
     foreach ($c in @('530','531','533','775')) {

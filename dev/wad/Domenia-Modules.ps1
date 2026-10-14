@@ -953,6 +953,10 @@ function Get-DomeniaRuntimeModulePlan {
             'Complete-DomeniaAccountValidation',
             'Stop-DomeniaAccountValidation'
         ) }
+        # X03: pure sign-in and accounts presentation rules (no WPF, no network, no credential object).
+        [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Accounts.Model.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaLoginFailureText'
+        ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Store.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaStoreValue',
             'Get-DomeniaStoreHash',

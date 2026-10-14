@@ -8,8 +8,10 @@ function Import-Core {param([string]$Name)
  $nodes=@($ast.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $Name},$true));if($nodes.Count -ne 1){throw ('Function '+$Name)}
  . ([scriptblock]::Create(($nodes[0].Extent.Text -replace ('^function '+[regex]::Escape($Name)),('function script:'+$Name))))
 }
-foreach($name in @('New-DomeniaFastLoginSession','Complete-DomeniaLoginAuthRunspaceCleanup','Get-CfgValue','Convert-DomainToDn','Get-DomeniaFastLoginVaultIdentity','Update-DomeniaFastLoginVaultUi','Remove-DomeniaFastLoginVault','Save-DomeniaFastLoginVaultPreference','Start-DomeniaFastLoginAttempt','Complete-DomeniaFastLoginSuccess','Update-DomeniaFastLoginAttempt','Test-DomeniaComputerAccountIdentity','Save-AppConfig','Convert-DomeniaLoginFailureMessage','Get-DomeniaLoginFailureHint')){Import-Core $name}
+foreach($name in @('New-DomeniaFastLoginSession','Complete-DomeniaLoginAuthRunspaceCleanup','Get-CfgValue','Convert-DomainToDn','Get-DomeniaFastLoginVaultIdentity','Update-DomeniaFastLoginVaultUi','Remove-DomeniaFastLoginVault','Save-DomeniaFastLoginVaultPreference','Start-DomeniaFastLoginAttempt','Complete-DomeniaFastLoginSuccess','Update-DomeniaFastLoginAttempt','Test-DomeniaComputerAccountIdentity','Save-AppConfig')){Import-Core $name}
 . (Join-Path $wad 'modules/Domenia-CredentialVault.Model.ps1')
+# UI-20 (lot X03): wording of a refusal, read by Update-DomeniaFastLoginAttempt.
+. (Join-Path $wad 'modules/Domenia-Accounts.Model.ps1')
 $cases=[Collections.Generic.List[object]]::new();$script:Assertions=0
 function Assert {param([bool]$Value,[string]$Message);$script:Assertions++;if(-not $Value){throw $Message}}
 function Case {param([string]$Name,[scriptblock]$Body);try{& $Body|Out-Null;$cases.Add([pscustomobject]@{Name=$Name;Passed=$true;Error=''})}catch{$cases.Add([pscustomobject]@{Name=$Name;Passed=$false;Error=$_.Exception.Message+' '+$_.ScriptStackTrace+' Logs='+($script:Logs -join ' | ')})}}
