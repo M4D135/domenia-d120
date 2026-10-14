@@ -3007,6 +3007,34 @@
     "Kind": "Experience"
   },
   {
+    "Name": "UxSearchFilteredEmpty",
+    "Title": "Lignes masquées par le filtre",
+    "Text": "Toutes les lignes chargées sont masquées par le filtre de la liste (texte ou présence). Aucune requête AD nʼest relancée.",
+    "Kind": "Border",
+    "Source": "X02"
+  },
+  {
+    "Name": "LblSearchFilteredEmpty",
+    "Title": "Lignes masquées",
+    "Text": "Nombre de lignes chargées que le filtre de la liste masque. La recherche et sa limite restent inchangées.",
+    "Kind": "TextBlock",
+    "Source": "X02"
+  },
+  {
+    "Name": "LblSearchFilteredDetail",
+    "Title": "Filtre de la liste",
+    "Text": "Filtres de la liste appliqués aux lignes déjà chargées.",
+    "Kind": "TextBlock",
+    "Source": "X02"
+  },
+  {
+    "Name": "BtnSearchFilteredClear",
+    "Title": "Effacer le filtre de la liste",
+    "Text": "Vide le texte du filtre et remet la présence sur « Toute présence ». Les lignes déjà chargées réapparaissent, sans requête AD.",
+    "Kind": "Button",
+    "Source": "X02"
+  },
+  {
     "Name": "UxSuiteIdentities",
     "Title": "Comptes utilisés",
     "Text": "Affiche seulement les noms des identités configurées. Une identité active ne confirme pas ses droits sur une cible.",

@@ -708,6 +708,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-SuiteDesign',
             'Get-SuitePalette',
             'Test-DomeniaExperienceRow',
+            'Get-DomeniaFilteredEmptyState',
             'Test-DomeniaExperienceCanCancel',
             'Get-DomeniaExperienceTaskRow',
             'Find-SuiteLiteralText'
@@ -742,6 +743,8 @@ function Get-DomeniaRuntimeModulePlan {
             'ConvertTo-DomeniaMaskedLogText',
             'Get-DomeniaExperienceLogCopyText',
             'Save-DomeniaExperiencePreferences',
+            'Update-DomeniaFilteredEmptyState',
+            'Clear-DomeniaResultFilters',
             'Initialize-DomeniaExperience',
             'Update-DomeniaExperienceCapsLock',
             'Switch-DomeniaExperienceLoginTheme',

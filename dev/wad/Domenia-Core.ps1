@@ -626,6 +626,10 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnLoadBranch" = "Default"
     "BtnClearBranch" = "Default"
     "DgObjects" = "Default"
+    "UxSearchFilteredEmpty" = "Default"
+    "LblSearchFilteredEmpty" = "Default"
+    "LblSearchFilteredDetail" = "Default"
+    "BtnSearchFilteredClear" = "Default"
     "DetailTabs" = "Default"
     "TabDashboard" = "Default"
     "BtnDashRoot" = "Default"
@@ -1927,6 +1931,11 @@ function Set-DomeniaItemsSource {
             $visible=@($Rows | Where-Object { $null -ne $_ }).Count
             $suffix=if($global){' · recherche globale sans filtre local'}else{' · filtre local, sans requête AD'}
             [void](Set-DomeniaControlText 'LblSuiteResultCount' ("$visible ligne(s) visible(s)"+$suffix))
+            # UX-03: a repainted copy (presence, history) counts against the whole list it was taken from.
+            if ($null -ne (Get-Command Update-DomeniaFilteredEmptyState -CommandType Function -ErrorAction SilentlyContinue)) {
+                $whole=[Math]::Max($loaded.Count,@($script:BranchObjects).Count)
+                Update-DomeniaFilteredEmptyState -Loaded $whole -Visible $visible
+            }
         }
         if ($Name -eq 'DgInventory') {
             # UX-37 : la grille affiche un libelle, pas le code CIM. Calculee ici, sur le seul chemin par ou
@@ -3398,7 +3407,8 @@ function Get-DomeniaDefaultSettings {
         Theme            = "Light"
         UiProfile        = "Tech"
         Workspace        = "TabDashboard"
-        PresenceFilter   = "Tous"
+        # UX-03: no PresenceFilter preference. At start-up every workstation is « Non vérifié »: a remembered
+        # « En ligne » would show an empty list. The presence filter belongs to the session only.
         SearchType       = "Tous"
         SearchLimit      = "100"
         IndexAutoBuild   = "Ask"
@@ -3470,7 +3480,8 @@ function Load-DomeniaSettings {
     $script:Settings = $settings
     $script:CurrentTheme = [string]$settings["Theme"]
     $script:CurrentUiProfile = [string]$settings["UiProfile"]
-    $script:CurrentPresenceFilter = [string]$settings["PresenceFilter"]
+    # UX-03: the presence filter always starts on « Toute présence », whatever an older settings file says.
+    $script:CurrentPresenceFilter = "Tous"
     return $settings
 }
 
@@ -3607,7 +3618,8 @@ function Restore-DomeniaUiSettings {
     # pour ne pas declencher de recherche ni de collecte.
     $script:RestoringSettings = $true
     try {
-        [void](Set-DomeniaComboByContent -Name "CmbPresenceFilter" -Content ([string](Get-DomeniaSetting "PresenceFilter" "Tous")))
+        # UX-03: the presence filter is never restored from a previous session.
+        [void](Set-DomeniaComboByContent -Name "CmbPresenceFilter" -Content "Tous")
         # Le filtre de type ne doit jamais rester coince sur une valeur d une session precedente.
         # Chaque lancement repart volontairement sur Tous ; l operateur peut ensuite filtrer pour la session courante.
         [void](Set-DomeniaComboByContent -Name "CmbGlobalType" -Content "Tous")
@@ -3627,7 +3639,7 @@ function Restore-DomeniaUiSettings {
         # Le reglage Security.ForcePasswordChangeOnReset laisse l operateur decider du contraire.
         $chkMustChange = Get-DomeniaControl -Name "ChkMustChangeAtLogon"
         if ($null -ne $chkMustChange) { $chkMustChange.IsChecked = [bool](Get-CfgValue "Security" "ForcePasswordChangeOnReset" $true) }
-        $script:CurrentPresenceFilter = [string](Get-DomeniaSetting "PresenceFilter" "Tous")
+        $script:CurrentPresenceFilter = "Tous"
         $script:SoftwareScope = [string](Get-DomeniaSetting "SoftwareScope" "Toutes")
     }
     catch { try { Write-AppLog "Restauration des reglages partielle : $($_.Exception.Message)" "WARN" } catch { } }
@@ -5544,7 +5556,15 @@ function Get-MainXaml {
                           </Border>
                         <Border Background="{DynamicResource BgCard}" Margin="2,36,18,18" IsHitTestVisible="False">
 <Border.Style><Style TargetType="Border"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding HasItems, ElementName=DgObjects}" Value="False"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></Border.Style>
-<StackPanel VerticalAlignment="Center" Margin="24"><TextBlock Text="Aucune ligne à afficher" FontSize="18" FontWeight="SemiBold" TextAlignment="Center" TextWrapping="Wrap"/><TextBlock Text="Lancez une recherche, choisissez une OU ou ajustez les filtres. Le filtre local ne parcourt pas le domaine." TextAlignment="Center" TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,8,0,0"/></StackPanel></Border></Grid>
+<StackPanel VerticalAlignment="Center" Margin="24"><TextBlock Text="Aucune ligne à afficher" FontSize="18" FontWeight="SemiBold" TextAlignment="Center" TextWrapping="Wrap"/><TextBlock Text="Lancez une recherche, choisissez une OU ou ajustez les filtres. Le filtre local ne parcourt pas le domaine." TextAlignment="Center" TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,8,0,0"/></StackPanel></Border>
+                          <!-- UX-03: every loaded row hidden by the filter of the list (text or presence): say how many and offer to clear it. -->
+                          <Border x:Name="UxSearchFilteredEmpty" Visibility="Collapsed" Background="{DynamicResource BgCard}" Margin="2,36,18,18" ToolTip="Toutes les lignes chargées sont masquées par le filtre de la liste (texte ou présence). Aucune requête AD nʼest relancée." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lignes masquées par le filtre" AutomationProperties.HelpText="Toutes les lignes chargées sont masquées par le filtre de la liste (texte ou présence). Aucune requête AD nʼest relancée.">
+                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="440" Margin="24">
+                              <TextBlock x:Name="LblSearchFilteredEmpty" Text="Le filtre masque toutes les lignes" FontSize="18" FontWeight="SemiBold" TextAlignment="Center" TextWrapping="Wrap" ToolTip="Nombre de lignes chargées que le filtre de la liste masque. La recherche et sa limite restent inchangées." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lignes masquées" AutomationProperties.HelpText="Nombre de lignes chargées que le filtre de la liste masque. La recherche et sa limite restent inchangées."/>
+                              <TextBlock x:Name="LblSearchFilteredDetail" Text="" TextAlignment="Center" TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,8,0,12" ToolTip="Filtres de la liste appliqués aux lignes déjà chargées." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Filtre de la liste" AutomationProperties.HelpText="Filtres de la liste appliqués aux lignes déjà chargées."/>
+                              <Button x:Name="BtnSearchFilteredClear" Content="Effacer le filtre" HorizontalAlignment="Center" MinHeight="32" Padding="12,2" ToolTip="Vide le texte du filtre et remet la présence sur « Toute présence ». Les lignes déjà chargées réapparaissent, sans requête AD." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Effacer le filtre de la liste" AutomationProperties.HelpText="Vide le texte du filtre et remet la présence sur « Toute présence ». Les lignes déjà chargées réapparaissent, sans requête AD."/>
+                            </StackPanel>
+                          </Border></Grid>
                           <Grid x:Name="PnlSearchPreview" Grid.Row="3" Visibility="Collapsed" MaxHeight="120" Margin="0,4,0,0" Background="{DynamicResource BgReadonly}">
                             <Grid.RowDefinitions>
                               <RowDefinition Height="Auto"/>
@@ -21994,7 +22014,7 @@ function Wire-Events {
             try {
                 $item = $script:Ctrl["CmbPresenceFilter"].SelectedItem
                 $script:CurrentPresenceFilter = if ($null -ne $item) { [string]$item.Content } else { "Tous" }
-                if (-not $script:RestoringSettings) { Set-DomeniaSetting -Name "PresenceFilter" -Value $script:CurrentPresenceFilter }
+                # UX-03: a session filter, never saved in the preferences.
                 Apply-DomeniaPresenceFilter
                 # Presence is only filtered from known data; no implicit scan on a filter change.
                 Add-DomeniaUiLog -Area "Filtre" -Text "Presence : $($script:CurrentPresenceFilter)"

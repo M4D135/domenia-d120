@@ -51,7 +51,7 @@ Quand : vous voulez voir tous les postes ou tous les utilisateurs d'un site ou d
 
 1. **Choisir l'OU.** À gauche de la page « Rechercher », dans « Parcourir les OU », dépliez l'arbre et cliquez sur une OU. Son contenu s'affiche dans la liste.
 2. **Régler la portée.** Ouvrez le menu « ⋯ » près de « Parcourir les OU ». Décochez « Inclure les sous-OU » pour ne voir que le premier niveau.
-3. **Filtrer.** Dans « Type d’objet », choisissez par exemple « Machines ». Dans « Présence réseau », choisissez « En ligne » ou « Sans réponse au ping ».
+3. **Filtrer.** Dans « Type d’objet », choisissez par exemple « Machines ». Dans « Présence réseau », choisissez « En ligne » ou « Sans réponse au ping ». La présence repart sur « Toute présence » à chaque lancement de Domenia : au démarrage, aucun poste nʼest encore vérifié. Si le filtre masque toutes les lignes chargées, la liste lʼindique (« Le filtre masque 48 lignes ») avec un bouton « Effacer le filtre ».
 4. **Compléter la liste.** Si le compteur indique une liste limitée, cliquez sur « Charger la suite ».
 5. **Changer de périmètre.** Choisissez une autre OU dans l’arbre. Pour chercher un objet par son nom dans le domaine, utilisez la barre du haut.
 

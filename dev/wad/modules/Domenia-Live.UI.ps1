@@ -189,12 +189,14 @@ function Begin-DomeniaLiveSearch {
     $rules=($null -ne (Get-Command Get-DomeniaSearchRank -CommandType Function -ErrorAction SilentlyContinue))
     $ranking=($rules -and [string]$State.SearchMode -eq 'Global' -and -not [string]::IsNullOrWhiteSpace([string]$State.Search) -and -not $viewId)
     if($ranking -and $null -ne (Get-Command Get-DomeniaFeatureFlag -CommandType Function -ErrorAction SilentlyContinue)){$ranking=[bool](Get-DomeniaFeatureFlag -Name 'SearchRanking' -Default $true)}
+    # UX-03: resolved once per search, never in the tick (PF-10): the empty list explains a filter that hides every row.
+    $emptyState=($null -ne (Get-Command Update-DomeniaFilteredEmptyState -CommandType Function -ErrorAction SilentlyContinue))
     $s=[pscustomobject]@{
         Identity=$script:Live.Identity;Epoch=[long]$script:SessionEpoch;State=$State;QueryKey=$key
         Rows=$rows;Map=@{};Fresh=@{};FreshOrder=[Collections.Generic.List[object]]::new();CacheKeys=[Collections.Generic.Queue[string]]::new();Progress=$queue;CacheProgress=$cacheQueue;Stop=$stop
         Stopped=$false;SelectionRestored=$false;Ended=$false;Final=$null;Error='';Finalized=$false;Prune=$null;CacheRequested=$true
         Started=[Diagnostics.Stopwatch]::StartNew();FirstMs=-1L;CacheUtc='';RefreshNeeded=$false;FilterPending=$false
-        Ranking=[bool]$ranking;SearchRules=[bool]$rules
+        Ranking=[bool]$ranking;SearchRules=[bool]$rules;EmptyState=[bool]$emptyState
     }
     $script:Live.Search=$s;$script:BranchObjects=$rows;$script:BranchCountLabel='Chargement progressif…'
     # PF-06: the first rows are shown at the normal pace, not after the rest interval. A new search (explicit gesture)
@@ -319,6 +321,8 @@ function Update-DomeniaLiveFilter {
     # The fraction counts displayed/loaded rows, never the total AD population. Keep an incomplete
     # read visible beside that fraction even when the branch counter is outside the current viewport.
     [void](Set-DomeniaControlText 'LblSuiteResultCount' ($(if($s.Error){'Liste partielle · '}elseif(-not $s.Finalized){'Chargement… · '}elseif($null -ne $s.Final -and [bool]$s.Final.LimitReached){'Limite atteinte · '}else{''})+"$($grid.Items.Count) / $($s.Rows.Count) lignes visibles"+$(if((Get-DomeniaSearchMode) -eq 'Global'){' · recherche globale sans filtre local'}else{' · filtre local'})))
+    # UX-03: every loaded row hidden by the filter of the list: the empty list says how many and offers to clear it.
+    if([bool]$s.EmptyState){Update-DomeniaFilteredEmptyState -Loaded $s.Rows.Count -Visible $grid.Items.Count}
     $script:Live.LastFilter=[datetime]::UtcNow;$s.RefreshNeeded=$false;$s.FilterPending=$false
 }
 function Set-DomeniaLiveObservationOnRow {

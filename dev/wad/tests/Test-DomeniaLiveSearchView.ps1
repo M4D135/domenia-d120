@@ -62,7 +62,9 @@ $script:Ctrl=@{};$script:Window=[Windows.Window]::new();$script:Window.Title='Do
 $panel=[Windows.Controls.StackPanel]::new();$script:Window.Content=$panel
 $grid=[Windows.Controls.DataGrid]::new();$grid.AutoGenerateColumns=$true;$grid.IsReadOnly=$true;$grid.CanUserAddRows=$false;$grid.Height=420;$script:Ctrl.DgObjects=$grid;[void]$panel.Children.Add($grid)
 foreach($name in @('TxtSuiteResultFilter','TxtBranchSearch','TxtGlobalSearch','TxtFleetQueryName','TxtFleetMachineFilter')){$script:Ctrl[$name]=[Windows.Controls.TextBox]::new()}
-foreach($name in @('LblSuiteResultCount','LblBranchCount','LblLiveState','LblSearchQuery','LblQueryStatus','LblQuerySegment')){$script:Ctrl[$name]=[Windows.Controls.TextBlock]::new()}
+foreach($name in @('LblSuiteResultCount','LblBranchCount','LblLiveState','LblSearchQuery','LblQueryStatus','LblQuerySegment','LblSearchFilteredEmpty','LblSearchFilteredDetail')){$script:Ctrl[$name]=[Windows.Controls.TextBlock]::new()}
+# UX-03: the empty state of a list whose rows are all hidden by its filter.
+$script:Ctrl.UxSearchFilteredEmpty=[Windows.Controls.Border]::new();$script:Ctrl.UxSearchFilteredEmpty.Visibility='Collapsed'
 foreach($name in @('CmbQueryJunction','CmbQueryGroupField','CmbFleetMachineState','CmbQueryResult')){$script:Ctrl[$name]=[Windows.Controls.ComboBox]::new()}
 $script:Window.Show()
 $script:Ids=@('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','33333333-3333-4333-8333-333333333333','44444444-4444-4444-8444-444444444444')
@@ -184,6 +186,20 @@ try {
    $script:CurrentPresenceFilter='En ligne';Apply-DomeniaPresenceFilter;Expect ($grid.Items.Count -eq 0) 'Presence filter failed'
    $script:CurrentPresenceFilter='Tous';$script:Ctrl.TxtSuiteResultFilter.Text='';Apply-DomeniaPresenceFilter
    Expect ($grid.Items.Count -eq 5) 'Clearing local filters failed';Expect-HealthyTimer;Snapshot-Fixture 'all-filters-cleared'
+  }
+  # UX-03: unwired if the filter of the list hides every row without saying so, or if clearing it reads anything.
+  Case 'UX-03 A filter hiding every loaded row says how many and clears without any request' {
+   $s=$script:Live.Search;$panel=$script:Ctrl.UxSearchFilteredEmpty
+   Expect ([bool]$s.EmptyState) 'Empty state not resolved for this search'
+   $script:Ctrl.TxtSuiteResultFilter.Text='NO-SUCH-ROW';Apply-DomeniaPresenceFilter
+   Expect (($grid.Items.Count -eq 0) -and ($panel.Visibility -eq 'Visible')) 'Filtered empty state not shown'
+   Expect ($script:Ctrl.LblSearchFilteredEmpty.Text -eq ('Le filtre masque '+$s.Rows.Count+' lignes')) ('Counter: '+$script:Ctrl.LblSearchFilteredEmpty.Text)
+   Expect ($script:Ctrl.LblSearchFilteredDetail.Text.Contains('texte « NO-SUCH-ROW »')) ('Detail: '+$script:Ctrl.LblSearchFilteredDetail.Text)
+   $script:CurrentPresenceFilter='En ligne';$script:Ctrl.TxtSuiteResultFilter.Text='';Apply-DomeniaPresenceFilter
+   Expect (($grid.Items.Count -eq 0) -and ($panel.Visibility -eq 'Visible') -and $script:Ctrl.LblSearchFilteredDetail.Text.Contains('présence : En ligne')) 'Presence filter hiding every row not explained'
+   Clear-DomeniaResultFilters
+   Expect (($grid.Items.Count -eq $s.Rows.Count) -and ($panel.Visibility -eq 'Collapsed') -and ($script:CurrentPresenceFilter -eq 'Tous') -and ($script:Ctrl.TxtSuiteResultFilter.Text -eq '')) 'Effacer le filtre did not show the loaded rows again'
+   Expect-HealthyTimer;Snapshot-Fixture 'filtered-empty-state-cleared'
   }
   Case 'Five thousand machines plus other object types remain complete and filterable' {
    $s=$script:Live.Search;$clock=[Diagnostics.Stopwatch]::StartNew()
