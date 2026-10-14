@@ -2,7 +2,7 @@
 # here-string (ASCII body) pinned by SHA-256 in the closed worker registry. They receive $Context and $Payload.
 
 function Get-DomeniaLocalIndexReadWorkerCode {
-    # LocalIndexRead: read-only SQLite access with a short busy timeout. A locked base returns Busy=$true,
+    # LocalIndexRead: read-only SQLite access with a bounded busy timeout (FI-12). A locked base returns Busy=$true,
     # never an empty answer presented as a result.
     return @'
 $action = [string]$Payload.Action
@@ -10,7 +10,13 @@ if ($action -notin @('Search','ParkState','ParkTargets','FleetStats','ResolveNam
 $path = [IO.Path]::GetFullPath([string]$Payload.Path)
 if ($path.StartsWith('\\')) { throw 'Base locale reseau non prise en charge.' }
 if (-not [IO.File]::Exists($path)) { return [pscustomobject]@{ Rows=@(); Busy=$false; Missing=$true; MachineCount=0 } }
-$busyMs = [Math]::Max(10,[Math]::Min(1000,[int]$Payload.BusyTimeoutMs))
+# FI-12: an explicit short wait of the caller (type-ahead) wins; otherwise the configured lock wait of the worker
+# context (LocalStore.DatabaseBusyTimeoutMs, 2 500 ms documented) applies.
+$busyMs = 2500
+$workerContext = Get-Variable -Name Context -ValueOnly -ErrorAction SilentlyContinue
+if (($null -ne $Payload.PSObject.Properties['BusyTimeoutMs']) -and ([int]$Payload.BusyTimeoutMs -gt 0)) { $busyMs = [int]$Payload.BusyTimeoutMs }
+elseif (($null -ne $workerContext) -and ($null -ne $workerContext.PSObject.Properties['BusyTimeoutMs'])) { $busyMs = [int]$workerContext.BusyTimeoutMs }
+$busyMs = [Math]::Max(10,[Math]::Min(5000,$busyMs))
 function New-IdxWUtf8 {
     param([AllowEmptyString()][string]$Text)
     $bytes = [Text.Encoding]::UTF8.GetBytes(([string]$Text) + [char]0)

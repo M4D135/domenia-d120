@@ -107,7 +107,16 @@ function Get-DomeniaRuntimeModulePlan {
             'Resolve-DomeniaDirectoryReachability',
             'Get-DomeniaCacheReadPolicy',
             'Get-DomeniaCacheCatalogRows',
-            'Test-DomeniaProtectedAssociationSource'
+            'Test-DomeniaProtectedAssociationSource',
+            'Get-DomeniaSqliteBusyTimeoutMs',
+            'Test-DomeniaSqliteBusyText',
+            'Format-DomeniaSqliteBusySummary',
+            'Get-DomeniaGestureBackupLabel',
+            'Get-DomeniaGestureBackupDecision',
+            'Get-DomeniaGestureBackupNotice',
+            'Get-DomeniaElapsedText',
+            'Get-DomeniaDatabaseLocationSummary',
+            'Get-DomeniaIndexTiles'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1'); File='Domenia-Search.Model.ps1'; DotSource=$true; Functions=@(
             'ConvertTo-DomeniaLdapLiteral',
@@ -1042,6 +1051,8 @@ function Get-DomeniaRuntimeModulePlan {
             'Fail-DomeniaStorageWork',
             'Queue-DomeniaMetadata',
             'Get-DomeniaPersistenceState',
+            'Register-DomeniaSqliteBusyOutcome',
+            'Get-DomeniaSqliteBusyStatusText',
             'Get-DomeniaUserLocalRoot',
             'Invoke-DomeniaPreferenceMigration',
             'Format-DomeniaStorageUsage',
@@ -1057,11 +1068,18 @@ function Get-DomeniaRuntimeModulePlan {
             'Complete-DomeniaStoragePurge',
             'Fail-DomeniaStoragePurge',
             'Update-DomeniaIndexLocation',
+            'Copy-DomeniaIndexLocationPath',
+            'Set-DomeniaIndexTiles',
             'Open-DomeniaIndexLocation',
             'Assert-DomeniaBackupDestination',
             'Invoke-DomeniaIndexBackup',
             'Complete-DomeniaIndexBackupUi',
             'Fail-DomeniaIndexBackupUi',
+            'Get-DomeniaGestureBackupState',
+            'Invoke-DomeniaGestureBackup',
+            'Complete-DomeniaGestureBackup',
+            'Fail-DomeniaGestureBackup',
+            'Show-DomeniaGestureBackupFailure',
             'New-DomeniaStoreContext',
             'Submit-DomeniaStoreBatch',
             'Request-DomeniaStoreRead',
@@ -1642,7 +1660,10 @@ function Get-DomeniaRuntimeModulePlan {
             'Fail-DomeniaClassicCollected',
             'Test-DomeniaClassicResultCurrent',
             'Complete-DomeniaCachedInventoryRead',
-            'Fail-DomeniaCachedInventoryRead'
+            'Fail-DomeniaCachedInventoryRead',
+            'Request-DomeniaParkReset',
+            'Invoke-DomeniaParkReset',
+            'Clear-DomeniaParkRecords'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Probes.Model.ps1','Domenia-Boards.Model.ps1'); File='Domenia-Query.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaQueryFields',

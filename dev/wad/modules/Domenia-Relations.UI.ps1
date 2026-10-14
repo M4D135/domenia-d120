@@ -1418,6 +1418,8 @@ function Update-DomeniaLinkImportUi {
         }
         if([int]$p.Ready -ge 64){$text+=' 64 associations au plus par import : importez à nouveau le même fichier pour les suivantes.'}
         $text+=' Les lignes importées portent la source « Import CSV » (Importé), quelle que soit la colonne Source du fichier ; aucun poste déjà associé nʼest remplacé.'
+        # FI-13: the saved import is preceded by a verified backup of the local base.
+        $text+=' '+(Get-DomeniaGestureBackupNotice (Get-DomeniaGestureBackupState))
         [void](Set-DomeniaControlText 'LblLinkImportSummary' $text)
         [void](Set-DomeniaItemsSource 'DgLinkImportPreview' @($p.Rows))
         $apply=Get-DomeniaControl 'BtnLinkImportApply'
@@ -1527,6 +1529,9 @@ function Cancel-DomeniaLinkImportPreview {
 }
 function Confirm-DomeniaLinkImport {
     # CO-08: the rows to import join the store through Add-DomeniaRelation (one journal line each), in one save.
+    # FI-13: once the checks pass, a verified backup of the base (StorageBackup worker) comes first; the save runs from
+    # its success callback (-BackupDone), which checks the preview again.
+    param([switch]$BackupDone)
     Initialize-DomeniaRelationsState
     $r=$script:Relations;$p=$r.ImportPlan
     if($null -eq $p){Update-DomeniaLinkImportUi;return}
@@ -1537,6 +1542,7 @@ function Confirm-DomeniaLinkImport {
     $rows=@(@($p.Rows)|Where-Object{$_.Import -and $null -ne $_.Relation -and -not @(Get-LinksForComputer ([string]$_.Relation.Computer)|Where-Object{$null -ne $_}).Count})
     $why=Get-DomeniaRelationSaveRefusal -Changes $rows.Count
     if($why){Set-Status ('Import non enregistré : '+$why+'. Aucune association ajoutée ; lʼaperçu reste ouvert.') 'WARN';return}
+    if(-not $BackupDone){[void](Invoke-DomeniaGestureBackup -Gesture 'LinkImport' -Then {Confirm-DomeniaLinkImport -BackupDone});return}
     $previous=@($script:UserMachineLinks);$previousObservations=$r.Observations.ToArray()
     $added=[Collections.Generic.List[object]]::new();$stored=$false
     foreach($row in $rows){
@@ -1643,7 +1649,7 @@ function Request-DomeniaOrphanRemoval {
     $why=Get-DomeniaRelationSaveRefusal -Changes $selected.Count
     if($why){Set-Status ('Retrait impossible pour lʼinstant : '+$why+'. Décochez des lignes ou réessayez ; rien nʼest retiré.') 'INFO';return}
     $r.OrphanConfirm=$true
-    [void](Set-DomeniaControlText 'LblLinkOrphanConfirm' ('Retirer '+$selected.Count+' association(s) du stockage local ? Chaque retrait est journalisé et restaurable avec « Restaurer » ; aucun objet Active Directory nʼest modifié.'))
+    [void](Set-DomeniaControlText 'LblLinkOrphanConfirm' ('Retirer '+$selected.Count+' association(s) du stockage local ? Chaque retrait est journalisé et restaurable avec « Restaurer » ; aucun objet Active Directory nʼest modifié. '+(Get-DomeniaGestureBackupNotice (Get-DomeniaGestureBackupState))))
     Update-DomeniaOrphanUi
 }
 function Cancel-DomeniaOrphanRemoval {
@@ -1654,10 +1660,14 @@ function Cancel-DomeniaOrphanRemoval {
 }
 function Complete-DomeniaOrphanRemoval {
     # UX-40: removal through Remove-DomeniaRelations: journaled with its reason, restorable one by one.
+    # FI-13: a verified backup of the base comes first; the removal runs from its success callback (-BackupDone), and
+    # only while the confirmation is still open (« Annuler » during the backup removes nothing).
+    param([switch]$BackupDone)
     Initialize-DomeniaRelationsState
     $r=$script:Relations
     if(-not $r.OrphanConfirm){Update-DomeniaOrphanUi;return}
     if(Test-DomeniaAccessBusyWrite){return}
+    if(-not $BackupDone){[void](Invoke-DomeniaGestureBackup -Gesture 'LinkPrune' -Then {Complete-DomeniaOrphanRemoval -BackupDone});return}
     $r.OrphanConfirm=$false
     $targets=[Collections.Generic.List[object]]::new();$notes=[Collections.Generic.List[string]]::new();$kept=0
     foreach($row in @(@($r.Orphans)|Where-Object{[bool]$_.Selected})){

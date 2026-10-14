@@ -462,7 +462,10 @@ function Open-DomeniaDatabase {
         $flags = if ($ReadOnly) { 1 -bor 65536 } else { 2 -bor 4 -bor 65536 }
         $rc = [Domenia.WinSqliteNative]::sqlite3_open_v2($pathPtr,[ref]$db,$flags,[IntPtr]::Zero)
         if ($rc -ne 0 -or $db -eq [IntPtr]::Zero) { throw "Ouverture SQLite impossible (code $rc)." }
-        [void][Domenia.WinSqliteNative]::sqlite3_busy_timeout($db,300)
+        # FI-12: lock wait from the worker context (LocalStore.DatabaseBusyTimeoutMs), 2 500 ms without one.
+        $busyMs=2500;$workerContext=Get-Variable -Name Context -ValueOnly -ErrorAction SilentlyContinue
+        if(($null -ne $workerContext) -and ($null -ne $workerContext.PSObject.Properties['BusyTimeoutMs'])){$busyMs=[Math]::Max(100,[Math]::Min(5000,[int]$workerContext.BusyTimeoutMs))}
+        [void][Domenia.WinSqliteNative]::sqlite3_busy_timeout($db,$busyMs)
         if(-not $ReadOnly){
             Assert-StoreWDatabaseWritable -Db $db
             if($null -eq $script:DomeniaDatabaseLeases){$script:DomeniaDatabaseLeases=@{}}
