@@ -235,8 +235,12 @@ function Update-DomeniaOuFavouritesUi {
     $panel=Get-DomeniaControl 'PnlOuFavourites';$section=Get-DomeniaControl 'UxOuFavourites'
     if($null -eq $panel){return}
     $panel.Children.Clear()
+    # Point 52: two favourites of the same name carry their nearest differing parents in their label.
+    $distinct=@{}
+    try{foreach($entry in @(Get-DomeniaOuDistinctLabels -Dn @($favourites|ForEach-Object{[string]$_.DN}))){if([bool]$entry.Ambiguous){$distinct[([string]$entry.DN).ToLowerInvariant()]=[string]$entry.Label}}}catch{$distinct=@{}}
     foreach($f in $favourites){
         $path=[string]$f.DN;try{$path=[string](Get-DomeniaUxOuDisplay -DistinguishedName ([string]$f.DN)).FullPath}catch{}
+        $shown=[string]$f.Name;$key=([string]$f.DN).ToLowerInvariant();if($distinct.ContainsKey($key)){$shown=$distinct[$key]}
         $row=[Windows.Controls.DockPanel]::new();$row.Margin=[Windows.Thickness]::new(0,0,0,2)
         $remove=[Windows.Controls.Button]::new();$remove.Content=[string][char]0x00D7;$remove.Tag=[string]$f.DN;$remove.MinWidth=0;$remove.MinHeight=0;$remove.Padding=[Windows.Thickness]::new(6,0,6,0);$remove.Margin=[Windows.Thickness]::new(4,0,0,0)
         $remove.ToolTip='Retirer '+[string]$f.Name+' des favoris. Rien nʼest modifié dans lʼannuaire.'
@@ -244,10 +248,10 @@ function Update-DomeniaOuFavouritesUi {
         $remove.Add_Click({param($sender,$eventArgs) try{[void](Save-DomeniaFavouriteSearch -Dn ([string]$sender.Tag) -Remove)}catch{Write-AppLog ('Favori : '+$_.Exception.Message) 'WARN'}})
         [Windows.Controls.DockPanel]::SetDock($remove,[Windows.Controls.Dock]::Right)
         $open=[Windows.Controls.Button]::new();$open.Tag=[string]$f.DN;$open.HorizontalContentAlignment=[Windows.HorizontalAlignment]::Left;$open.MinHeight=0;$open.Padding=[Windows.Thickness]::new(8,2,8,2)
-        $label=[Windows.Controls.TextBlock]::new();$label.Text=[string][char]0x2605+' '+[string]$f.Name;$label.TextTrimming=[Windows.TextTrimming]::CharacterEllipsis;$open.Content=$label
+        $label=[Windows.Controls.TextBlock]::new();$label.Text=[string][char]0x2605+' '+$shown;$label.TextTrimming=[Windows.TextTrimming]::CharacterEllipsis;$open.Content=$label
         $tip='Affiche le contenu de '+$path+'.';if([string]$f.Term){$tip+=' Filtre local repris : '+[string]$f.Term+'.'}
         $open.ToolTip=$tip
-        [Windows.Automation.AutomationProperties]::SetName($open,'Favori '+[string]$f.Name)
+        [Windows.Automation.AutomationProperties]::SetName($open,'Favori '+$shown)
         $open.Add_Click({param($sender,$eventArgs) try{Load-DomeniaFavouriteSearch -Dn ([string]$sender.Tag)}catch{Write-AppLog ('Favori : '+$_.Exception.Message) 'WARN';Set-Status ('Favori non affiché : '+$_.Exception.Message) 'WARN'}})
         [void]$row.Children.Add($remove);[void]$row.Children.Add($open)
         [void]$panel.Children.Add($row)

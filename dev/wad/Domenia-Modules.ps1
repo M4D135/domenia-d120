@@ -156,7 +156,14 @@ function Get-DomeniaRuntimeModulePlan {
             'ConvertTo-DomeniaOuFavourite',
             'Get-DomeniaDnDomainKey',
             'Import-DomeniaOuFavourites',
-            'Set-DomeniaOuFavouriteState'
+            'Set-DomeniaOuFavouriteState',
+            'Get-DomeniaOuPathNames',
+            'Get-DomeniaOuDistinctLabels',
+            'Get-DomeniaNavRowKey',
+            'Get-DomeniaNavSelectionKeys',
+            'Get-DomeniaNavSortState',
+            'Get-DomeniaNavTreePlan',
+            'Get-DomeniaOuChoiceSummary'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1'); File='Domenia-Relations.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaRelationDirection',
@@ -1309,7 +1316,13 @@ function Get-DomeniaRuntimeModulePlan {
             'Update-DomeniaOuBreadcrumb',
             'Open-DomeniaOuBreadcrumb',
             'Stop-DomeniaOuTreeFilter',
-            'Invoke-DomeniaOuTreeFilterSlice'
+            'Invoke-DomeniaOuTreeFilterSlice',
+            'Get-DomeniaGridSort',
+            'Set-DomeniaGridSort',
+            'Select-DomeniaGridRowsByKey',
+            'Get-DomeniaTreeExpandedDns',
+            'Select-DomeniaRealizedTreeNode',
+            'Restore-DomeniaTreeNavState'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Secrets.Worker.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaBitLockerListWorkerCode',

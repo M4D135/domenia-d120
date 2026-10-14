@@ -307,11 +307,20 @@ function Get-DomeniaNavSnapshot {
         try { if ($null -ne $tabs -and $null -ne $tabs.SelectedItem) { $Page = [string]$tabs.SelectedItem.Name } } catch { }
     }
     $grid = Get-DomeniaControl 'DgObjects'
-    $selected = $null; $rows = $null; $scroll = -1.0
+    $selected = $null; $rows = $null; $scroll = -1.0; $hScroll = -1.0; $sort = @(); $selectionKeys = @()
     if ($null -ne $grid) {
         try { $selected = $grid.SelectedItem; $rows = $grid.ItemsSource } catch { }
-        try { $viewer = Get-DomeniaGridScrollViewer $grid; if ($null -ne $viewer) { $scroll = [double]$viewer.VerticalOffset } } catch { }
+        try { $viewer = Get-DomeniaGridScrollViewer $grid; if ($null -ne $viewer) { $scroll = [double]$viewer.VerticalOffset; $hScroll = [double]$viewer.HorizontalOffset } } catch { }
+        # Point 55: the sort and every selected row (by identity, 500 at most) come back with the list.
+        try { $sort = @(Get-DomeniaGridSort $grid) } catch { $sort = @() }
+        try {
+            $picked = [Collections.Generic.List[object]]::new()
+            foreach ($item in $grid.SelectedItems) { if ($picked.Count -ge 501) { break }; $picked.Add($item) }
+            $selectionKeys = @((Get-DomeniaNavSelectionKeys -Rows $picked.ToArray() -Maximum 500).Keys)
+        } catch { $selectionKeys = @() }
     }
+    $treeExpanded = @()
+    try { $treeExpanded = @(Get-DomeniaTreeExpandedDns) } catch { $treeExpanded = @() }
     # The list is described by the search that produced it, not by a text typed afterwards and not yet sent.
     $mode = Get-DomeniaSearchMode
     $text = Get-DomeniaSearchText -Mode Global
@@ -393,6 +402,7 @@ function Get-DomeniaNavSnapshot {
     return [pscustomobject]@{
         Page=$Page;Tab=$inner;InnerControl=$innerControl;Mode=$mode;Text=$text;BranchText=$branchText;OuDn=$ouDn;Subtree=$subtree
         SelectionGuid=$selectionGuid;SelectionDn=$selectionDn;Rows=$rows;Scroll=$scroll
+        HScroll=$hScroll;Sort=$sort;SelectionKeys=$selectionKeys;TreeExpanded=$treeExpanded
         CountLabel=$(if ($null -ne $count) { [string]$count.Text } else { '' })
         Generation=[int]$script:GlobalSearchGeneration;ViewId=$viewId
         TypeLabel=$typeLabel;Presence=$presence;LocalFilter=$localFilter
@@ -513,15 +523,23 @@ function Restore-DomeniaNavState {
                 $grid.ItemsSource = $State.Rows
                 try { Update-DomeniaLoginColumnFromRows $State.Rows } catch { }
                 $script:BranchObjects = $State.Rows
+                # Point 55: a new ItemsSource drops the sort of the grid; the remembered one is applied again.
+                try { Set-DomeniaGridSort -Grid $grid -Sort @(Get-DomeniaMember $State 'Sort' @()) } catch { }
                 $grid.SelectedItem = $null
                 $match = $null
-                if ($State.SelectionDn) { foreach ($row in @($grid.Items)) { if ([string]$row.DN -ieq [string]$State.SelectionDn) { $match = $row; break } } }
-                if ($null -ne $match) { $grid.SelectedItem = $match }
+                $keys = @(Get-DomeniaMember $State 'SelectionKeys' @())
+                if ($keys.Count) { $match = Select-DomeniaGridRowsByKey -Grid $grid -Keys $keys }
+                elseif ($State.SelectionDn) {
+                    foreach ($row in @($grid.Items)) { if ([string]$row.DN -ieq [string]$State.SelectionDn) { $match = $row; break } }
+                    if ($null -ne $match) { $grid.SelectedItem = $match }
+                }
                 try {
                     $grid.UpdateLayout()
                     $viewer = Get-DomeniaGridScrollViewer $grid
                     if ($null -ne $viewer -and [double]$State.Scroll -ge 0) { $viewer.ScrollToVerticalOffset([double]$State.Scroll) }
                     elseif ($null -ne $match) { $grid.ScrollIntoView($match) }
+                    $horizontal = [double](Get-DomeniaMember $State 'HScroll' -1)
+                    if (($null -ne $viewer) -and ($horizontal -ge 0)) { $viewer.ScrollToHorizontalOffset($horizontal) }
                 } catch { }
             }
             finally { $script:SuppressGridSelectionEvents = $suppressed }
@@ -536,6 +554,14 @@ function Restore-DomeniaNavState {
             $script:NavHistoryState = $State
             $script:NavListShape = [pscustomobject]@{List=$State.Rows;LocalFilter=$local;Presence=[string]$script:CurrentPresenceFilter}
             Update-DomeniaHistoryBanner
+        }
+        # Point 55: the branches open at that step, and its OU in the tree, without any read.
+        if ($null -ne $State.PSObject.Properties['TreeExpanded']) {
+            try {
+                $selectDn = if ([string]$State.Mode -eq 'Global') { '' } else { [string]$State.OuDn }
+                $treePlan = Restore-DomeniaTreeNavState -Expanded @($State.TreeExpanded) -SelectedDn $selectDn
+                if (($null -ne $treePlan) -and ([int]$treePlan.UnreadCount -gt 0)) { [void](Set-DomeniaControlText 'LblTreeStatus' ([string]$treePlan.UnreadCount + ' branche(s) ouverte(s) à cette étape ne sont plus lues : dépliez-les pour les relire.')) }
+            } catch { }
         }
         $inner = ''
         if ([string]$State.Tab) { $inner = [string](Get-DomeniaMember $State 'InnerControl' 'DetailTabs');if(-not $inner){$inner='DetailTabs'} }
@@ -683,7 +709,7 @@ function Update-DomeniaOuTreeFilter {
     Stop-DomeniaOuTreeFilter
     $stack=[Collections.Generic.List[object]]::new()
     $stack.Add([pscustomobject]@{Node=$null;Items=$tree.Items;Next=0;ChildMatch=$false;IsRoot=$false})
-    $script:OuTreeFilterWork=[pscustomobject]@{Tree=$tree;Stack=$stack;Filter=$filter;Epoch=[long]$script:SessionEpoch;Matched=$false}
+    $script:OuTreeFilterWork=[pscustomobject]@{Tree=$tree;Stack=$stack;Filter=$filter;Epoch=[long]$script:SessionEpoch;Matched=$false;MatchCount=0}
     Invoke-DomeniaOuTreeFilterSlice
     if($null -ne $script:OuTreeFilterWork){
         if($null -eq $script:OuTreeFilterTimer){$script:OuTreeFilterTimer=New-DomeniaTimer -Owner 'Timer:OuTreeFilter' -IntervalMs 25 -Tick {Invoke-DomeniaOuTreeFilterSlice}}
@@ -807,23 +833,32 @@ function Update-DomeniaOuBreadcrumb {
         $current=[string]$path[$index]
         $display=Get-DomeniaUxOuDisplay -DistinguishedName $current -IsDomain ($index -eq 0)
         if($index){$separator=[Windows.Controls.TextBlock]::new();$separator.Text='›';$separator.Margin=[Windows.Thickness]::new(3,2,3,2);$separator.VerticalAlignment='Center';[void]$panel.Children.Add($separator)}
-        $label=[Windows.Controls.TextBlock]::new();$label.Text=$(if($index -eq 0){$display.FullPath}else{$display.Name});$label.TextTrimming='CharacterEllipsis';$label.MaxWidth=220;$label.ToolTip=$display.FullPath
+        $label=[Windows.Controls.TextBlock]::new();$label.Text=$(if($index -eq 0){$display.FullPath}else{$display.Name});$label.TextTrimming='CharacterEllipsis';$label.MaxWidth=220
         if($index -eq 0 -or $index -eq $path.Count-1){
             # The domain is context text, never a whole-domain collection shortcut.
-            $label.Margin=[Windows.Thickness]::new(3,4,3,4)
+            $label.Margin=[Windows.Thickness]::new(3,4,3,4);$label.ToolTip=$display.FullPath
             if($index -eq $path.Count-1){$label.FontWeight='SemiBold'}
             [void]$panel.Children.Add($label)
         }else{
             $button=[Windows.Controls.Button]::new();$button.Content=$label;$button.Padding=[Windows.Thickness]::new(5,2,5,2);$button.Margin=[Windows.Thickness]::new(0,0,0,0);$button.MinWidth=0;$button.MinHeight=26
             $button.Tag=[pscustomobject]@{DN=$current;BaseDn=[string]$script:Conn.BaseDn;Epoch=[long]$script:SessionEpoch}
+            # Point 52: each level names its whole path, so that two OU of the same name are never confused.
+            $tip='Remonter à '+$display.FullPath+' : affiche le contenu de cette OU (une lecture de lʼannuaire).'
+            $button.ToolTip=$tip
             [Windows.Automation.AutomationProperties]::SetName($button,'Ouvrir la branche '+$display.FullPath)
+            [Windows.Automation.AutomationProperties]::SetHelpText($button,$tip)
             $button.Add_Click({param($sender,$eventArgs) try{Open-DomeniaOuBreadcrumb -Target $sender.Tag}catch{Set-Status ('Navigation : '+$_.Exception.Message) 'WARN'}})
             [void]$panel.Children.Add($button)
         }
     }
     if($path.Count){
         $copy=[Windows.Controls.Button]::new();$copy.Content='Copier le chemin';$copy.Padding=[Windows.Thickness]::new(6,2,6,2);$copy.Margin=[Windows.Thickness]::new(10,0,0,0);$copy.MinHeight=26;$copy.MinWidth=0
-        $copy.Add_Click({Copy-DomeniaUxOuPath});[void]$panel.Children.Add($copy)
+        # The copied DN is the one of this path, not a text box that another gesture may have changed since.
+        $copyTip='Copie le chemin LDAP exact de cette OU : '+$Dn+'. Rien nʼest lu ni modifié.'
+        $copy.Tag=$Dn;$copy.ToolTip=$copyTip
+        [Windows.Automation.AutomationProperties]::SetName($copy,'Copier le chemin LDAP de lʼOU affichée')
+        [Windows.Automation.AutomationProperties]::SetHelpText($copy,$copyTip)
+        $copy.Add_Click({param($sender,$eventArgs) Copy-DomeniaUxOuPath -Dn ([string]$sender.Tag)});[void]$panel.Children.Add($copy)
     }
 }
 function Open-DomeniaOuBreadcrumb {
@@ -865,7 +900,10 @@ function Invoke-DomeniaOuTreeFilterSlice {
         }
         $state.Stack.RemoveAt($state.Stack.Count-1)
         if($null -eq $frame.Node){$state.Matched=[bool]$frame.ChildMatch;continue}
-        $self=Test-DomeniaOuTreeMatch -Name (Get-DomeniaOuTreeNodeName $frame.Node) -Filter $state.Filter
+        # Point 53: the 'Conteneurs système' group is shown only for a matching container, never for its own label.
+        $group=$false;try{$group=([string]$frame.Node.Tag.Kind -eq 'SystemGroup')}catch{}
+        $self=((-not $group) -and (Test-DomeniaOuTreeMatch -Name (Get-DomeniaOuTreeNodeName $frame.Node) -Filter $state.Filter))
+        if($self -and $state.Filter){$state.MatchCount++}
         $match=($self -or $frame.ChildMatch)
         $wanted=if($frame.IsRoot -or -not $state.Filter -or $match){[Windows.Visibility]::Visible}else{[Windows.Visibility]::Collapsed}
         if($frame.Node.Visibility -ne $wanted){$frame.Node.Visibility=$wanted}
@@ -874,10 +912,112 @@ function Invoke-DomeniaOuTreeFilterSlice {
     }
     if($state.Stack.Count){return}
     if($state.Filter){
-        $message=if($state.Matched){'Filtre des OU : '+$state.Filter+' · branches déjà lues seulement'}else{'Aucune branche lue ne contient '+$state.Filter+' : dépliez une OU pour la parcourir.'}
+        $message=if($state.Matched){'Filtre des OU : '+$state.Filter+' · '+$state.MatchCount+' branche(s) lue(s) correspondent, avec leurs parents · branches déjà lues seulement'}else{'Aucune branche lue ne contient '+$state.Filter+' : dépliez une OU pour la parcourir.'}
         [void](Set-DomeniaControlText 'LblTreeStatus' $message);$script:OuTreeFilterStatus=$message
     }elseif($script:OuTreeFilterStatus){
         [void](Set-DomeniaControlText 'LblTreeStatus' 'Filtre effacé : toutes les branches lues sont affichées.');$script:OuTreeFilterStatus=''
     }
     Stop-DomeniaOuTreeFilter
+}
+
+# ---------------------------------------------------------------- Point 55: exact return to a history step
+function Get-DomeniaGridSort {
+    # The sort shown by a grid, in priority order (field and direction). Written to the pipeline.
+    param($Grid)
+    if ($null -eq $Grid) { return }
+    foreach ($description in $Grid.Items.SortDescriptions) { [pscustomobject]@{Field=[string]$description.PropertyName;Direction=[string]$description.Direction} }
+}
+
+function Set-DomeniaGridSort {
+    # Applies a remembered sort to the columns that still exist. An unknown field is ignored, never invented.
+    param($Grid,[AllowEmptyCollection()][object[]]$Sort)
+    if ($null -eq $Grid) { return }
+    $allowed = @{}
+    foreach ($column in $Grid.Columns) { if ([string]$column.SortMemberPath) { $allowed[[string]$column.SortMemberPath] = $column }; $column.SortDirection = $null }
+    $Grid.Items.SortDescriptions.Clear()
+    foreach ($item in @(Get-DomeniaNavSortState -Sort $Sort)) {
+        if (-not $allowed.ContainsKey([string]$item.Field)) { continue }
+        $direction = [ComponentModel.ListSortDirection]([string]$item.Direction)
+        $Grid.Items.SortDescriptions.Add([ComponentModel.SortDescription]::new([string]$item.Field,$direction))
+        $allowed[[string]$item.Field].SortDirection = $direction
+    }
+}
+
+function Select-DomeniaGridRowsByKey {
+    # Selects again the rows remembered by identity (GUID, else exact DN) and returns the first one found, or $null.
+    # The identity is computed inline: a function call per row would cost seconds on 20 000 rows.
+    param($Grid,[AllowEmptyCollection()][string[]]$Keys)
+    $wanted = @{}
+    foreach ($key in @($Keys)) { if ($key) { $wanted[[string]$key] = $true } }
+    if (($null -eq $Grid) -or (-not $wanted.Count)) { return $null }
+    $first = $null; $found = 0
+    foreach ($row in $Grid.Items) {
+        if ($found -ge $wanted.Count) { break }
+        if ($null -eq $row) { continue }
+        $key = ''; $guid = [guid]::Empty
+        if (([guid]::TryParse([string]$row.Guid,[ref]$guid)) -and ($guid -ne [guid]::Empty)) { $key = 'g:' + $guid.ToString('D') }
+        elseif ([string]$row.DN) { $key = 'd:' + ([string]$row.DN).ToLowerInvariant() }
+        if ((-not $key) -or (-not $wanted.ContainsKey($key))) { continue }
+        [void]$Grid.SelectedItems.Add($row); $found++
+        if ($null -eq $first) { $first = $row }
+    }
+    return $first
+}
+
+function Get-DomeniaTreeExpandedDns {
+    # The OU branches open now among the realized tree items, 128 at most. Written to the pipeline.
+    $count = 0
+    foreach ($node in (Get-DomeniaRealizedTreeNodes)) {
+        if ($count -ge 128) { break }
+        $dn = ''
+        try { $dn = [string]$node.Tag.DN } catch { $dn = '' }
+        if (($dn) -and ($node.IsExpanded)) { $dn; $count++ }
+    }
+}
+
+function Select-DomeniaRealizedTreeNode {
+    # Selects the tree item of an OU when it already exists, without reading anything. Otherwise the tree selection
+    # is cleared, so that the tree never shows another OU than the list. Returns $true when the item was found.
+    param([AllowEmptyString()][string]$Dn)
+    $tree = Get-DomeniaControl 'TvDirectory'
+    if ($null -eq $tree) { return $false }
+    $found = $null
+    if ($Dn) {
+        try { foreach ($node in (Get-DomeniaRealizedTreeNodes)) { if ([string]$node.Tag.DN -ieq $Dn) { $found = $node; break } } } catch { $found = $null }
+    }
+    $old = [bool]$script:SuppressBranchAutoLoad
+    $script:SuppressBranchAutoLoad = $true
+    try {
+        if ($null -ne $found) {
+            if (-not $found.IsSelected) { $found.IsSelected = $true }
+            try { $found.BringIntoView() } catch { }
+            return $true
+        }
+        $current = $tree.SelectedItem
+        if ($current -is [Windows.Controls.TreeViewItem]) { $current.IsSelected = $false }
+        return $false
+    } finally { $script:SuppressBranchAutoLoad = $old }
+}
+
+function Restore-DomeniaTreeNavState {
+    # Opens again the branches open at a history step when they are already read, folds the branches opened since,
+    # and selects the OU of the step when its item exists. Nothing is read: an unread branch is only counted.
+    param([AllowEmptyCollection()][string[]]$Expanded,[AllowEmptyString()][string]$SelectedDn='')
+    $states = [Collections.Generic.List[object]]::new()
+    foreach ($node in (Get-DomeniaRealizedTreeNodes)) {
+        $dn = ''; $loaded = $false
+        try { $dn = [string]$node.Tag.DN; $loaded = [bool]$node.Tag.Loaded } catch { }
+        if ($dn) { $states.Add([pscustomobject]@{DN=$dn;Loaded=$loaded;Expanded=[bool]$node.IsExpanded;Node=$node}) }
+    }
+    $plan = Get-DomeniaNavTreePlan -Remembered @($Expanded) -Nodes $states.ToArray()
+    $byDn = @{}
+    foreach ($state in $states) { $key = $state.DN.ToLowerInvariant(); if (-not $byDn.ContainsKey($key)) { $byDn[$key] = $state.Node } }
+    $old = [bool]$script:SuppressBranchAutoLoad
+    $script:SuppressBranchAutoLoad = $true
+    try {
+        foreach ($dn in @($plan.Collapse)) { $byDn[([string]$dn).ToLowerInvariant()].IsExpanded = $false }
+        foreach ($dn in @($plan.Expand)) { $byDn[([string]$dn).ToLowerInvariant()].IsExpanded = $true }
+    } finally { $script:SuppressBranchAutoLoad = $old }
+    [void](Select-DomeniaRealizedTreeNode -Dn $SelectedDn)
+    return $plan
 }
