@@ -1004,7 +1004,7 @@ function Update-DomeniaUxSessionBadge {
     $demo = [bool]$script:DemoMode
     $demoText = ''
     if ($demo -and ($null -ne (Get-Command -Name Get-DomeniaDemoBannerText -CommandType Function -ErrorAction SilentlyContinue))) { $demoText = [string](Get-DomeniaDemoBannerText) }
-    $badge = Get-DomeniaSessionBadge -Domain $domain -Offline $offline -OfflineSince $script:UxAdOfflineSince -Demo $demo -DemoText $demoText -Slow $slow
+    $badge = Get-DomeniaSessionBadge -Domain $domain -Server ([string]$script:Conn.Server) -Offline $offline -OfflineSince $script:UxAdOfflineSince -Demo $demo -DemoText $demoText -Slow $slow
     # A badge without a domain yet keeps its startup text (« Session AD en préparation ») or an offline preview text.
     if (([string]$badge.State -eq 'Pending') -and (-not [string]::IsNullOrWhiteSpace([string]$label.Text))) { return }
     if ([string]$label.Text -cne [string]$badge.Text) { $label.Text = [string]$badge.Text; Send-DomeniaUxLiveChange -Control $label }

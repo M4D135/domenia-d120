@@ -1,5 +1,5 @@
 {
-  "Archive": "2026-10-14 gardes CIM",
+  "Archive": ".",
   "ArchiveSHA256": "655ED21F90345B3C7667D4E777814C6A0595A5D5BE628AD587FB46CCA5241922",
   "CoreFunctions": {
     "Write-DomeniaAtomicText": "1C9A1583F52EB7BE80BE420662653E4AF886FE11DC4FDB3B1C4CDF19FD1C0EDA",
@@ -199,7 +199,8 @@
     "Fill-DomeniaUserContact": "3E0B9B0F3152F050CA8E8CADC629DC9FF6D21FECD3E6DC8CDE24D95E84F958DE",
     "Save-DomeniaUserContact": "51B25775AB5ADB43800E4C077F97C8689441AF63E82BB3ECABCEDFC69D3A2CC8",
     "Fill-ComputerObject": "4FC01AAD05E353B11AABBBACC52AFBA30992ADFD97FD59A5EA9E904C5E04DB21",
-    "Fill-GroupObject": "4687BC2098D1501D0E009A1DD024454553D5336AAF098878DE3FF19942AA5349",
+    "Get-DomeniaMembershipLabel": "D35BB0115538EB1601C9BD834098D75CC45344290120BDD242AE0EDACA61BE50",
+    "Fill-GroupObject": "6E996D8E432713F04976CC775DF299E57155468318565F0F04ADFDC15398530B",
     "Fill-ContainerObject": "AE908F82F86DF8B46616E453D946C9B75FC77B37138BF4626A6A627E246F7E21",
     "Set-DeStringProperty": "20DFFC4CB8381E848EB77995CD52B24EC118D1970B1B0E12FA26FC37C55E6062",
     "Get-PasswordPair": "276D6B3020AF543407187FD02737F49312A47C03CAA596630A9788151C683E6F",
@@ -3490,6 +3491,20 @@
         "Get-DomeniaWorkerOperationHashes"
       ],
       "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "2026-10-14 gardes CIM",
+      "Source": ".",
+      "Decision": "Points 25 et 26 : libelle des appartenances (total, affiches, motif de lecture partielle) et controleur interroge dans le badge de session.",
+      "ChangedCoreFunctions": [
+        "Fill-GroupObject",
+        "Get-DomeniaMembershipLabel"
+      ],
+      "AddedCoreFunctions": [
+        "Get-DomeniaMembershipLabel"
+      ],
       "RemovedCoreFunctions": [],
       "ChangedPayloads": []
     }

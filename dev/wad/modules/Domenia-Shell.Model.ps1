@@ -1165,6 +1165,8 @@ function Get-DomeniaSessionBadge {
     # Both warnings clear at the next directory success. Nothing is retried from here.
     param(
         [AllowEmptyString()][AllowNull()][string]$Domain='',
+        # Point 26: the domain controller actually queried is named in the tooltip.
+        [AllowEmptyString()][AllowNull()][string]$Server='',
         [bool]$Offline=$false,
         $OfflineSince=$null,
         [bool]$Demo=$false,
@@ -1191,7 +1193,10 @@ function Get-DomeniaSessionBadge {
     if ([string]::IsNullOrWhiteSpace($domainText)) {
         return [pscustomobject]@{State='Pending';Text='Session AD en préparation';ToolTip='La session AD nʼest pas encore établie.'}
     }
-    return [pscustomobject]@{State='Connected';Text=('Connecté à ' + $domainText);ToolTip=('Session Active Directory ouverte sur ' + $domainText + '.')}
+    $serverText = ConvertTo-DomeniaFlatText $Server 120
+    $tip = 'Session Active Directory ouverte sur ' + $domainText + '.'
+    if ($serverText) { $tip += ' Contrôleur interrogé : ' + $serverText + '. Un changement de contrôleur relit les repères de mise à jour au lieu de les extrapoler.' }
+    return [pscustomobject]@{State='Connected';Text=('Connecté à ' + $domainText);ToolTip=$tip}
 }
 
 function ConvertFrom-DomeniaRecentJson {

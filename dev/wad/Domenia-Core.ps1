@@ -8823,16 +8823,26 @@ function Fill-ComputerObject {
     catch { Write-AppLog "Probe automatique user-machine non lance : $($_.Exception.Message)" "WARN" }
 }
 
+function Get-DomeniaMembershipLabel {
+    # « 2 000 affichés sur 3 412 membre(s) direct(s) », with the reason when the AD reading stayed partial.
+    param([int]$Shown,[int]$Total,[bool]$Complete,[string]$Note,[string]$Noun)
+    $text = if ($Total -gt $Shown) { ([string]$Shown + ' affichés sur ' + [string]$Total + ' ' + $Noun) } else { ([string]$Total + ' ' + $Noun) }
+    if (-not $Complete) { $text += ' · lecture partielle' + $(if ($Note) { ' : ' + $Note } else { ', couverture non confirmée' }) }
+    return $text
+}
+
 function Fill-GroupObject {
     param($Entry)
     $script:Ctrl["TxtGroupName"].Text = [string](Get-DeProp $Entry "name" "")
     $script:Ctrl["TxtGroupDescription"].Text = [string](Get-DeProp $Entry "description" "")
+    # Point 25: the members are read by ranges (up to 50 000); the list shows 2 000 of them and says how many exist,
+    # and why a reading stayed partial.
     $members=@(Get-DePropAll $Entry "member")
     $script:Ctrl["LstGroupMembers"].ItemsSource=[string[]]@($members|Select-Object -First 2000)
-    $script:Ctrl["LblGroupMembers"].Text = "$($script:Ctrl["LstGroupMembers"].Items.Count) membre(s) directs visibles"
-    if($members.Count -gt 2000 -or -not [bool](Get-DeProp $Entry '__memberComplete' $false)){$script:Ctrl["LblGroupMembers"].Text += ' (lecture partielle ou couverture non confirmee)'}
-    $script:Ctrl["LstMemberOf"].ItemsSource=[string[]]@(Get-DePropAll $Entry "memberOf"|Select-Object -First 2000)
-    $script:Ctrl["LblMemberOf"].Text = "$($script:Ctrl["LstMemberOf"].Items.Count) groupe(s) directs visibles"
+    $script:Ctrl["LblGroupMembers"].Text = Get-DomeniaMembershipLabel -Shown $script:Ctrl["LstGroupMembers"].Items.Count -Total $members.Count -Complete ([bool](Get-DeProp $Entry '__memberComplete' $false)) -Note ([string](Get-DeProp $Entry '__memberNote' '')) -Noun 'membre(s) direct(s)'
+    $memberOf=@(Get-DePropAll $Entry "memberOf")
+    $script:Ctrl["LstMemberOf"].ItemsSource=[string[]]@($memberOf|Select-Object -First 2000)
+    $script:Ctrl["LblMemberOf"].Text = Get-DomeniaMembershipLabel -Shown $script:Ctrl["LstMemberOf"].Items.Count -Total $memberOf.Count -Complete ([bool](Get-DeProp $Entry '__memberOfComplete' $true)) -Note ([string](Get-DeProp $Entry '__memberOfNote' '')) -Noun 'groupe(s) direct(s)'
 }
 
 function Fill-ContainerObject {
