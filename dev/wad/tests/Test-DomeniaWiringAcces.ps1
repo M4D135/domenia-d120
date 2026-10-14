@@ -552,11 +552,37 @@ Test-Case 'D060 Bilan des indisponibilites : transports et absence de reglage Wi
     Assert-True (@($lines|Where-Object{$_ -match 'aucun reglage Windows modifie'}).Count -eq 1)
 }
 
+# ================================================================ Point 46 required right and three distinct causes
+Test-Case 'P46 Erreur affichee : refus d acces cite le droit, compte rejete et indisponibilite ne le citent pas' {
+    $previous=$script:AccessCurrentJob
+    try{
+        $script:AccessCurrentJob=[pscustomobject]@{OperationId='ReadLaps';SessionEpoch=[long]$script:SessionEpoch;IsWrite=$false;CallbackState=$null}
+        $denied=Show-DomeniaOperationError -Operation 'Lecture LAPS' -ErrorRecordOrException ([ComponentModel.Win32Exception]::new(5)) -NoPopup
+        Assert-True ([string]$denied.FailureFamily -eq 'AccessDenied') ('Famille : '+[string]$denied.FailureFamily)
+        Assert-True ([string]$denied.Friendly -match 'Droit requis') 'Le refus ne cite pas le droit requis'
+        Assert-True ([string]$denied.Friendly -match 'LAPS') 'Le droit cite n est pas celui de LAPS'
+        $rejected=Show-DomeniaOperationError -Operation 'Lecture LAPS' -ErrorRecordOrException ([ComponentModel.Win32Exception]::new(1326)) -NoPopup
+        Assert-True ([string]$rejected.FailureFamily -eq 'AccountRejected') ('Famille : '+[string]$rejected.FailureFamily)
+        Assert-True ([string]$rejected.Friendly -notmatch 'Droit requis') 'Un compte rejete est presente comme un droit manquant'
+        $script:AccessCurrentJob=$null
+        $network=Show-DomeniaOperationError -Operation 'Inventaire poste' -OperationId 'ComputerInventory' -ErrorRecordOrException ([ComponentModel.Win32Exception]::new(1722)) -NoPopup
+        Assert-True ([string]$network.FailureFamily -eq 'Unavailable') ('Famille : '+[string]$network.FailureFamily)
+        Assert-True ([string]$network.Friendly -match '135/TCP') 'L acces reseau necessaire n est pas cite'
+        Assert-True ([string]$network.Friendly -notmatch 'Droit requis')
+    }finally{$script:AccessCurrentJob=$previous}
+}
+Test-Case 'P46 Panneau des operations : chaque ligne annonce l acces requis' {
+    $job=[pscustomobject]@{Id='p46';Name='Inventaire';OperationId='ComputerInventory';IsWrite=$false;NonCancellable=$false;CancelRequested=$false;SessionEpoch=[long]$script:SessionEpoch;State='Running';Started=(Get-Date);TimeoutNotified=$false;TimeoutErrorDelivered=$false}
+    if($null -eq (Get-Command Get-DomeniaExperienceTaskRow -ErrorAction SilentlyContinue)){. (Join-Path (Join-Path $wad 'modules') 'Domenia-Experience.Model.ps1')}
+    $row=Get-DomeniaExperienceTaskRow $job -SessionEpoch ([long]$script:SessionEpoch)
+    Assert-True ([string]$row.Detail -match 'Accès requis : Administrateur local') ('Detail : '+[string]$row.Detail)
+}
+
 if($null -ne $script:SecretRevealTimer){try{$script:SecretRevealTimer.Stop()}catch{}}
 if($null -ne $script:MainWindow){try{$script:MainWindow.Close()}catch{}}
 $passed=@($script:Checks|Where-Object{$_.Status -eq 'Passed'}).Count;$failed=@($script:Checks|Where-Object{$_.Status -eq 'Failed'}).Count
 if(-not $ReportPath){$ReportPath=Join-Path ([IO.Path]::GetTempPath()) ('Domenia-wiring-acces-'+[guid]::NewGuid().ToString('N')+'.json')}
-$report=[ordered]@{Suite='Test-DomeniaWiringAcces';Lot='acces';Points=@('D051','D052','D053','D054','D055','D056','D057','D058','D059','D060');Host=$PSVersionTable.PSVersion.ToString();NativeWindowsPowerShell=$native;Wpf=$true;MockedNetwork=$true;LiveAD=$false;LiveCIM=$false;Passed=$passed;Failed=$failed;Complete=($failed -eq 0 -and $passed -gt 0);Tests=$script:Checks.ToArray()}
+$report=[ordered]@{Suite='Test-DomeniaWiringAcces';Lot='acces';Points=@('D051','D052','D053','D054','D055','D056','D057','D058','D059','D060','P46');Host=$PSVersionTable.PSVersion.ToString();NativeWindowsPowerShell=$native;Wpf=$true;MockedNetwork=$true;LiveAD=$false;LiveCIM=$false;Passed=$passed;Failed=$failed;Complete=($failed -eq 0 -and $passed -gt 0);Tests=$script:Checks.ToArray()}
 [IO.File]::WriteAllText([IO.Path]::GetFullPath($ReportPath),($report|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
 if(-not $Quiet){Write-Host ("$passed reussis, $failed en echec. Rapport : "+$ReportPath);$script:Checks|Where-Object{$_.Status -eq 'Failed'}|ForEach-Object{Write-Host ('  ECHEC '+$_.Name+' : '+$_.Detail)}}
 if(-not $report.Complete){exit 1}

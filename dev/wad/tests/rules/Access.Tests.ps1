@@ -205,3 +205,56 @@ Test-Case 'D060' 'Aucun affaiblissement de Windows dans le code livre' {
         Assert-True $check.Safe ($file.Name+' : '+($check.Findings -join ', '))
     }
 }
+# Point 46 : droit requis par operation et trois causes distinctes (refus d acces, compte rejete, ressource indisponible).
+$script:P46Pinned=@('BatchNetworkDiag','BitLockerPresence','CmdletHelp','CmdletInventory','ComputerAdminShare','ComputerDiagnostics','ComputerGpUpdate','ComputerInventory','ComputerLastUser','ComputerPing','ComputerRestart','DemoDirectory','DocumentStore','DomainOverview','EmbeddedDirectoryLookup','EmbeddedPathBrowse','EngineSelfTest','GlobalSearch','IndexBuild','IndexOuList','IsolatedRead','LegacyMigration','LiveCache','LiveConsole','LiveDirectoryCheck','LiveSelectedPing','LocalIndexRead','LocalQuery','LocalStore','LockoutDiagnosis','LogonHarvest','OpenAdObject','OpenLinkedObject','ParkSharedSync','ParkSweep','PermissionAnalysis','PresenceScan','PruneLinks','QueryExport','QueryLibrary','ReadBitLocker','ReadBitLockerKey','ReadBitLockerList','ReadLaps','ReceiptStore','RemoteCredentialCheck','RimotteRun','ScopeReconcile','SelectedPresence','SelfCheck','SessionsList','SoftwareInventory','StartupWarmCache','StorageBackup','StorageMaintenance','StoragePurge','StorageUsage','TreeChildren','UserComputerProbe','WmiClasses','WmiNamespaces','WmiQuery','WriteAccountDisabled','WriteAccountOptions','WriteAttributes','WriteCreateOu','WriteDeleteObject','WriteExpiration','WriteExpirePassword','WriteGroupMember','WriteMoveObject','WriteObjectGroup','WriteRenameComputer','WriteResetPassword','WriteUnlock','AccountAliasRead')
+Test-Case 'P46' 'Chaque operation epinglee annonce son compte, son droit et son acces reseau' {
+    foreach($op in $script:P46Pinned){
+        $r=Get-DomeniaOperationRequirement $op
+        Assert-True ([bool]$r.Known) ('Droit non documente : '+$op)
+        Assert-True (([string]$r.Right).Length -gt 20) ('Droit trop vague : '+$op)
+        Assert-True ([bool]([string]$r.Account)) ('Compte absent : '+$op)
+        Assert-True ([bool]([string]$r.Access)) ('Acces reseau absent : '+$op)
+    }
+    Assert-Equal 'Laps' (Get-DomeniaOperationRequirement 'ReadLaps').Resource
+    Assert-True ((Get-DomeniaOperationRequirement 'LockoutDiagnosis').Right -match 'Lecteurs des journaux')
+    Assert-True ((Get-DomeniaOperationRequirement 'WriteResetPassword').Right -match 'Réinitialiser le mot de passe')
+    Assert-Equal 'Aucun compte' (Get-DomeniaOperationRequirement 'ComputerPing').Account
+}
+Test-Case 'P46' 'Une operation inconnue ne recoit jamais un droit devine' {
+    foreach($op in @('OperationInventee','')){
+        $r=Get-DomeniaOperationRequirement $op
+        Assert-False ([bool]$r.Known) ('Droit devine pour <'+$op+'>')
+        Assert-True ($r.Right -match 'non documenté')
+        Assert-Equal '' $r.Account
+    }
+}
+Test-Case 'P46' 'Refus d acces, compte rejete et indisponibilite reseau ne se confondent jamais' {
+    $denied=Get-DomeniaOperationFailureGuidance 'ReadLaps' 'AccessDenied'
+    $rejected=Get-DomeniaOperationFailureGuidance 'ReadLaps' 'CredentialsRejected'
+    $locked=Get-DomeniaOperationFailureGuidance 'ReadLaps' 'AccountState'
+    $network=Get-DomeniaOperationFailureGuidance 'ReadLaps' 'Network'
+    $timeout=Get-DomeniaOperationFailureGuidance 'ComputerInventory' 'Timeout'
+    Assert-Equal 'AccessDenied' $denied.Family;Assert-Equal 'AccountRejected' $rejected.Family;Assert-Equal 'AccountRejected' $locked.Family
+    Assert-Equal 'Unavailable' $network.Family;Assert-Equal 'Unavailable' $timeout.Family
+    Assert-True ($denied.Text -match 'Droit requis') 'Un refus cite le droit requis'
+    Assert-False ($rejected.Text -match 'Droit requis') 'Un compte rejete ne suggere pas un droit manquant'
+    Assert-True ($rejected.Text -match 'Compte secrets') 'Un compte rejete nomme le compte de la ressource'
+    Assert-False ($network.Text -match 'Droit requis') 'Une indisponibilite ne suggere pas un droit manquant'
+    Assert-True ($network.Text -match '389/TCP') 'Une indisponibilite cite l acces reseau necessaire'
+    Assert-True ($timeout.Text -match '135/TCP')
+    Assert-Equal 'AccessDenied' (Get-DomeniaOperationFailureGuidance 'ReadLaps' 'DecryptionDenied').Family
+}
+Test-Case 'P46' 'La famille vient du code natif, en francais comme en anglais' {
+    $family={param($e,$t) (Get-DomeniaFailureFamily ((Get-DomeniaErrorDecision (Get-DomeniaStructuredError $e) $t).Category)).Family}
+    Assert-Equal 'AccessDenied' (& $family ([ComponentModel.Win32Exception]::new(5)) 'Accès refusé')
+    Assert-Equal 'AccessDenied' (& $family ([ComponentModel.Win32Exception]::new(5)) 'Access is denied')
+    Assert-Equal 'AccountRejected' (& $family ([ComponentModel.Win32Exception]::new(1326)) 'Nom d utilisateur ou mot de passe incorrect')
+    Assert-Equal 'AccountRejected' (& $family 'LDAP error 49 data 775' '')
+    Assert-Equal 'Unavailable' (& $family ([ComponentModel.Win32Exception]::new(1722)) 'Le serveur RPC n est pas disponible')
+}
+Test-Case 'P46' 'Une erreur non classee ou sans operation n invente aucune cause' {
+    Assert-Equal '' (Get-DomeniaOperationFailureGuidance 'GlobalSearch' 'Unknown').Text
+    Assert-Equal '' (Get-DomeniaOperationFailureGuidance 'GlobalSearch' 'Uncertain').Text
+    $g=Get-DomeniaOperationFailureGuidance '' 'AccessDenied'
+    Assert-Equal 'AccessDenied' $g.Family;Assert-False ($g.Text -match 'Droit requis') 'Sans operation connue, aucun droit n est cite'
+}

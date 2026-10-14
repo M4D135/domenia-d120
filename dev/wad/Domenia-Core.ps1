@@ -2559,8 +2559,16 @@ function Register-DomeniaErrorOccurrence {
 }
 
 function Show-DomeniaOperationError {
-    param([string]$Operation,$ErrorRecordOrException,[string]$CorrelationId="",[switch]$NoPopup)
+    param([string]$Operation,$ErrorRecordOrException,[string]$CorrelationId="",[switch]$NoPopup,[string]$OperationId='')
     $info = ConvertTo-DomeniaErrorInfo -ErrorRecordOrException $ErrorRecordOrException -Operation $Operation
+    # Point 46: the family of the failure (refused access, rejected account, unavailable resource) and what the
+    # operation needed. The operation is the one given, or the task whose error callback is running.
+    if ((-not $OperationId) -and ($null -ne $script:AccessCurrentJob)) { try { $OperationId = [string]$script:AccessCurrentJob.OperationId } catch { $OperationId = '' } }
+    try {
+        $guidance = Get-DomeniaOperationFailureGuidance -OperationId $OperationId -Category ([string]$info.Category)
+        if ([string]$guidance.Text) { $info.Friendly = ([string]$info.Friendly).TrimEnd() + ' ' + [string]$guidance.Text }
+        $info | Add-Member -NotePropertyName FailureFamily -NotePropertyValue ([string]$guidance.Family) -Force
+    } catch { }
     # FI-07: one code per error signature, identical on screen, in Domenia.log and in the Support incident.
     # FI-02: the technical line of a repeated error is written at most once a minute, with its counter.
     $occurrence = Register-DomeniaErrorOccurrence -Signature (Get-DomeniaErrorSignature -ErrorRecordOrException $ErrorRecordOrException -Source $Operation)
