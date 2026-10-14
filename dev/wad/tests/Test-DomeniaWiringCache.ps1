@@ -3544,6 +3544,7 @@ Test-Case 'FI-19 : associations lues pendant une modification : reference de la 
     $script:UserMachineLinks=@($script:UserMachineLinks)+@([pscustomobject]@{Computer='PC-3';UserLogin='dave';Source='Saisie manuelle';When='2026-10-06T08:00:00Z'})
     Assert-True (Queue-DomeniaLinkChanges) 'Enregistrement refuse.'
     Assert-True (@(@($script:Persistence.Pending.Values)|ForEach-Object{[string]$_.Key}) -contains 'PC-3') 'Une lecture perimee bloque les enregistrements.'
+    $script:LinkLoad=$null;Stop-TestTimers
 }
 Test-Case 'FI-19 : plus aucune lecture SQLite synchrone dans les chemins de l interface' {
     $coreText=[IO.File]::ReadAllText($core)
