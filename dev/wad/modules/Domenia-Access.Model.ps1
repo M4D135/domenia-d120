@@ -611,6 +611,35 @@ function Test-DomeniaTextHasSecret {
     return $false
 }
 
+function Protect-DomeniaExportRows {
+    # Point 50: an export never carries a secret. A column named after a secret attribute is withheld whatever it
+    # holds; every text cell goes through the masking rule of the journal (recovery passwords, key=value secrets,
+    # authorization headers). Numbers, dates and booleans are kept as they are. Returns the rows and what was masked.
+    param([object[]]$Rows=@())
+    $masked=0;$withheld=New-Object 'System.Collections.Generic.List[string]';$out=New-Object 'System.Collections.Generic.List[object]'
+    foreach($row in @($Rows)){
+        if($null -eq $row){continue}
+        $safe=[ordered]@{}
+        foreach($property in $row.PSObject.Properties){
+            if($property.MemberType -notin @('NoteProperty','Property','AliasProperty','ScriptProperty')){continue}
+            $name=[string]$property.Name;$value=$property.Value
+            if(Test-DomeniaSecretAttribute $name){
+                if(($null -ne $value) -and ([string]$value)){$masked++}
+                if(-not $withheld.Contains($name)){$withheld.Add($name)}
+                $safe[$name]='[valeur secrète non exportée]'
+                continue
+            }
+            if($value -is [string]){
+                $clean=Protect-DomeniaSecretText $value
+                if($clean -cne $value){$masked++}
+                $safe[$name]=$clean
+            }else{$safe[$name]=$value}
+        }
+        $out.Add([pscustomobject]$safe)
+    }
+    return [pscustomobject]@{Rows=$out.ToArray();Masked=$masked;Withheld=$withheld.ToArray()}
+}
+
 function Select-DomeniaAllowedFields {
     # Allow-list projection: a field that is not named is not exported, whatever it contains.
     param($Record,[Parameter(Mandatory=$true)][string[]]$Allowed)

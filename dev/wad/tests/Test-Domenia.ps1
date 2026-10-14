@@ -71,7 +71,9 @@ foreach($name in $wanted) {
 # Import definitions only. Never dot-source the application's startup path.
 . ([scriptblock]::Create(($definitions -join "`r`n")))
 # FI-05 / PF-06: every Dispatcher timer comes from the protected factory of the engine (Domenia-Engine.UI.ps1).
-foreach($engineModule in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Engine.UI.ps1')){. (Join-Path (Split-Path -Parent $PSScriptRoot) ('modules\'+$engineModule))}
+# Point 50: Export-DomeniaCsv masks secrets through Protect-DomeniaExportRows (Access.Model, with the secret attribute
+# rule of Safety.Model), exactly as the application loads them.
+foreach($engineModule in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Engine.UI.ps1','Domenia-Safety.Model.ps1','Domenia-Access.Model.ps1')){. (Join-Path (Split-Path -Parent $PSScriptRoot) ('modules\'+$engineModule))}
 # SE-03 : les regles MSI et le catalogue ne sont pas recopies dans les gardes. Le banc les charge par AST, comme
 # les fonctions du coeur, pour juger les gardes avec la liste reelle du produit.
 $guardAst=[System.Management.Automation.Language.Parser]::ParseFile((Join-Path (Split-Path -Parent $PSScriptRoot) 'modules\Domenia-Workstation.Model.ps1'),[ref]$null,[ref]$null)
@@ -319,6 +321,18 @@ try {
         Assert-True (($round.Count -eq 2) -and ($round[1].Nom -ceq 'PC-02')) 'Relecture point-virgule impossible.'
         Assert-True (($round[0].'Présence réseau' -ceq 'En ligne') -and ($round[1].'Présence réseau' -ceq 'Hors ligne')) 'Valeurs de la colonne modele absentes.'
         Assert-True (($round[0].'Détail' -ceq 'Contrôle réussi') -and ($round[1].'Détail' -ceq 'À vérifier')) 'Valeurs de la colonne sans chemin de tri absentes.'
+    }
+    Test-Case 'CSV point 50 : export expurge, colonne secrete retenue, texte secret masque, total annonce' {
+        $dir=Join-Path $testDirectory 'exports-p50';[void][IO.Directory]::CreateDirectory($dir)
+        $marker=[guid]::NewGuid().ToString('N')
+        $key=((1..8|ForEach-Object{'{0:D6}' -f (Get-Random -Minimum 100000 -Maximum 999999)}) -join '-')
+        $rows=@([pscustomobject]@{Nom='PC-01';Description=('mot de passe : '+$marker);Note=('cle '+$key);'ms-Mcs-AdmPwd'=$marker;Taille=12})
+        $result=Export-DomeniaCsv -Rows $rows -Directory $dir -Subject 'P50'
+        $text=[IO.File]::ReadAllText($result.Path)
+        Assert-True (-not $text.Contains($marker)) 'Valeur secrete exportee'
+        Assert-True (-not $text.Contains($key)) 'Cle de recuperation exportee'
+        Assert-True ($text.Contains('PC-01') -and $text.Contains('12')) 'Valeur ordinaire perdue'
+        Assert-True ([int]$result.Masked -eq 3 -and @($result.Withheld) -contains 'ms-Mcs-AdmPwd') ('Masquees : '+[string]$result.Masked)
     }
     Test-Case 'CSV UX-02 : nom Domenia-<OU ou poste>-AAAAMMJJ-HHmm, jamais d ecrasement' {
         $name=Get-DomeniaExportFileName -Subject 'Postes / Paris' -Time ([datetime]'2026-10-08T14:30:59')

@@ -327,6 +327,9 @@ function Export-DomeniaCsv {
     $exportColumns = @($Columns | Where-Object { $null -ne $_ })
     if (($exportColumns.Count -eq 0) -and ($null -ne $Grid)) { $exportColumns = @(Get-DomeniaGridExportColumns -Grid $Grid) }
     $projected = @(ConvertTo-DomeniaExportRows -Rows $Rows -Columns $exportColumns)
+    # Point 50: no secret leaves in an export: secret columns withheld, secret-looking text masked.
+    $redacted = Protect-DomeniaExportRows -Rows $projected
+    $projected = @($redacted.Rows)
     if (-not $Path) {
         if (-not $Directory) { $Directory = Get-DomeniaExportDirectory }
         $name = Get-DomeniaExportFileName -Subject $Subject
@@ -335,7 +338,7 @@ function Export-DomeniaCsv {
         while ([IO.File]::Exists($Path)) { $Path = Join-Path $Directory ([IO.Path]::GetFileNameWithoutExtension($name) + '-' + $suffix + '.csv'); $suffix++ }
     }
     $projected | ConvertTo-DomeniaSpreadsheetSafeRow | Export-Csv -LiteralPath $Path -Delimiter ';' -NoTypeInformation -Encoding UTF8
-    return [pscustomobject]@{ Path=$Path; RowCount=$projected.Count }
+    return [pscustomobject]@{ Path=$Path; RowCount=$projected.Count; Masked=[int]$redacted.Masked; Withheld=@($redacted.Withheld) }
 }
 
 function Show-DomeniaExportResult {
@@ -345,6 +348,10 @@ function Show-DomeniaExportResult {
     $label = if ($count -eq 1) { '1 ligne exportée' } else { "$count lignes exportées" }
     if ($Scope) { $label += " ($Scope)" }
     $sentence = $label + ' dans ' + [IO.Path]::GetFileName([string]$Result.Path) + '.'
+    # Point 50: what was kept out of the file is said, never silently dropped.
+    $masked = [int](Get-DomeniaMember $Result 'Masked' 0)
+    if ($masked -eq 1) { $sentence += ' 1 valeur ressemblant à un secret a été masquée.' }
+    elseif ($masked -gt 1) { $sentence += ' ' + $masked + ' valeurs ressemblant à un secret ont été masquées.' }
     if ($Also) { $sentence += ' ' + $Also }
     Set-Status ($label + ' : ' + [string]$Result.Path)
     [void](Show-DomeniaPageBanner -Kind Success -Message $sentence -ActionText 'Ouvrir le dossier' -ActionPath ([string]$Result.Path))

@@ -358,3 +358,18 @@ Test-Case 'P42' 'Usage visible : compte de connexion par defaut, compte specifiq
     Assert-True ($text.Contains('Postes : CORP\adm-postes (compte poste).'));Assert-True ($text -match 'indépendant')
     Assert-Equal 'session Windows' (@(Get-DomeniaAccountUsageRows -ConnectionUser 'CORP\jdupont' -ConnectionMode Windows -Domain 'corp.example' -Netbios 'CORP'))[0].Source
 }
+# Point 50 : exports expurges. Marqueurs generes a l execution, aucun secret reel.
+Test-Case 'P50' 'Export : colonne d attribut secret retenue, texte secret masque, valeurs ordinaires intactes' {
+    $marker=[guid]::NewGuid().ToString('N')
+    $key=((1..8|ForEach-Object{'{0:D6}' -f (100000+$_*111)}) -join '-')
+    $when=[datetime]::SpecifyKind([datetime]'2026-05-09T08:00:00',[DateTimeKind]::Utc)
+    $r=Protect-DomeniaExportRows @([pscustomobject]@{Nom='PC-01';Description=('password='+$marker);Note=('cle '+$key);'msFVE-RecoveryPassword'=$marker;Taille=12;Vu=$when;Actif=$true})
+    $row=$r.Rows[0]
+    Assert-False ((($row|ConvertTo-Json -Compress)).Contains($marker)) 'Secret exporte'
+    Assert-False (([string]$row.Note).Contains($key)) 'Cle de recuperation exportee'
+    Assert-Equal 'PC-01' $row.Nom;Assert-Equal 12 $row.Taille;Assert-Equal $when $row.Vu;Assert-Equal $true $row.Actif
+    Assert-Equal 3 ([int]$r.Masked);Assert-Equal 'msFVE-RecoveryPassword' (@($r.Withheld) -join ',')
+    $clean=Protect-DomeniaExportRows @([pscustomobject]@{Nom='PC-02';Description='Poste du hall'})
+    Assert-Equal 0 ([int]$clean.Masked);Assert-Equal 'Poste du hall' $clean.Rows[0].Description
+    Assert-Equal 0 @((Protect-DomeniaExportRows @()).Rows).Count
+}
