@@ -597,8 +597,10 @@ try {
         if($tables.ContainsKey('sync_state')){foreach($sync in @(Invoke-IdxWQuery $db "SELECT scope,base_dn,last_sync,details FROM sync_state WHERE scope='directory' OR scope LIKE 'ou:%' OR scope LIKE 'attempt:%';")){$syncStates[[string]$sync.scope]=$sync}}
         # Scope clocks of the explicit OU collections (points 4, 5 and 10), read in the same snapshot. The caller
         # names the exact scope and its enclosing subtrees; nothing else is read and nothing is written.
-        $collectionRuns=@();$runKeysProperty=$Payload.PSObject.Properties['RunKeys']
+        # $null: not requested, so unknown; an empty list: requested and none recorded.
+        $collectionRuns=$null;$runKeysProperty=$Payload.PSObject.Properties['RunKeys']
         if($null -ne $runKeysProperty -and $null -ne $runKeysProperty.Value){
+            $collectionRuns=@()
             $runKeys=@(@($runKeysProperty.Value)|ForEach-Object{[string]$_}|Where-Object{$_}|Select-Object -Unique)
             if($runKeys.Count -gt 128){throw 'Trop de perimetres de collecte demandes.'}
             foreach($runKey in $runKeys){if(($runKey.Length -gt 4200) -or ($runKey -cnotmatch '^(subtree|onelevel):') -or ($runKey -match '[\x00-\x1f]')){throw 'Perimetre de collecte invalide.'}}

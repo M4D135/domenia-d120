@@ -386,7 +386,7 @@ try{
   $text=Format-DomeniaOuFreshnessSummary -IndexFreshness $r.Board.Freshness.Index -Observations $r.Board.Freshness.Observations -ComputedAtUtc $r.Board.Freshness.ComputedAtUtc -Runs $runs
   Expect (($text.RunsText -like '*ping relevé réussi le *dernière tentative le *Identifiants refuses*') -and ($text.RunsDetail -like '*version de collecte fixture-build*')) 'three clocks text and provenance'
   $Payload.PSObject.Properties.Remove('RunKeys');$plain=& ([scriptblock]::Create($reader))
-  Expect ((@($plain.CollectionRuns).Count -eq 0) -and ($null -eq $plain.Board.Freshness.Runs)) 'clocks read without an explicit scope request'
+  Expect (($null -eq $plain.CollectionRuns) -and ($null -eq $plain.Board.Freshness.Runs)) 'clocks read or invented without an explicit scope request'
   Expect ((Read-TestDb 'SELECT count(*) n FROM domenia_domain_metadata;')[0].n -eq 2) 'read-only worker changed scope clocks'
  }
  if($Scale){Case ($ScaleObjects.ToString()+' objects committed in bounded batches and paginated exactly') {

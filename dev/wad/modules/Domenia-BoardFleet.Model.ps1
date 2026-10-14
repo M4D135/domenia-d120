@@ -103,7 +103,7 @@ function Get-DomeniaFleetBoardData {
     $indexFreshness=Get-DomeniaFleetFreshness -ScopeDn $scope -DomainDn $domainDn -SyncStates $syncStates -Subtree $Subtree -NowUtc $referenceAt
     # Clocks of the explicit OU collections, read with the same snapshot; absent when the reader did not ask for them.
     $collectionClocks=$null;$runsProperty=$source.PSObject.Properties['CollectionRuns']
-    if($null -ne $runsProperty){$collectionClocks=Get-DomeniaCollectionClocks -Runs @($runsProperty.Value|Where-Object{$null -ne $_}) -ScopeDn $scope -DomainDn $domainDn -Subtree $Subtree -NowUtc $referenceAt}
+    if(($null -ne $runsProperty) -and ($null -ne $runsProperty.Value)){$collectionClocks=Get-DomeniaCollectionClocks -Runs @($runsProperty.Value|Where-Object{$null -ne $_}) -ScopeDn $scope -DomainDn $domainDn -Subtree $Subtree -NowUtc $referenceAt}
     if($null -ne $source.PSObject.Properties['SyncStates']){$IndexPartial=if($indexFreshness.Partial){'dernière tentative incomplète le '+$indexFreshness.AttemptAt.ToLocalTime().ToString('dd/MM/yyyy HH:mm')}else{''}}
     $searchLink = [pscustomobject]@{ Id = 'CollectFleet'; Text = 'Relever ce périmètre'; Tip = 'Prépare la collecte des postes actifs de ce tableau de bord, avec confirmation.'; Link = $true }
     $lifecycleKnown = $false
