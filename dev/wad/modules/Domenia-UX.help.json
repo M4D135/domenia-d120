@@ -4086,5 +4086,54 @@
     "Text": "Longueur du motif saisi : 12 caractères au minimum, 240 au maximum.",
     "Kind": "TextBlock",
     "Source": "X05"
+  },
+  {
+    "Name": "BitLockerKeyCard",
+    "Title": "Clé de récupération BitLocker affichée",
+    "Text": "Clé de récupération affichée à votre demande, par blocs numérotés. Elle disparaît à lʼéchéance ; rien nʼest copié ni journalisé.",
+    "Kind": "Border",
+    "Source": "X05"
+  },
+  {
+    "Name": "LblBitLockerKeyCardId",
+    "Title": "Identifiant de récupération de la clé affichée",
+    "Text": "Comparez cet identifiant à celui affiché par lʼécran de récupération du poste avant de dicter la clé.",
+    "Kind": "TextBlock",
+    "Source": "X05"
+  },
+  {
+    "Name": "BitLockerKeyBlocks",
+    "Title": "Blocs de la clé de récupération",
+    "Text": "Les huit blocs de six chiffres, dans lʼordre où le poste les demande.",
+    "Kind": "Control",
+    "Source": "X05"
+  },
+  {
+    "Name": "BitLockerKeyRing",
+    "Title": "Temps restant",
+    "Text": "Temps restant avant que la clé soit masquée.",
+    "Kind": "Control",
+    "Source": "X05"
+  },
+  {
+    "Name": "LblBitLockerKeyCountdown",
+    "Title": "Secondes restantes",
+    "Text": "Secondes restantes avant que la clé soit masquée.",
+    "Kind": "TextBlock",
+    "Source": "X05"
+  },
+  {
+    "Name": "BtnBitLockerKeyExtend",
+    "Title": "Prolonger 30 s",
+    "Text": "Prolonge une seule fois lʼaffichage de la clé de 30 secondes. Rien nʼest relu ni copié.",
+    "Kind": "Button",
+    "Source": "X05"
+  },
+  {
+    "Name": "BtnBitLockerKeyHide",
+    "Title": "Masquer maintenant",
+    "Text": "Masque la clé tout de suite. Elle reste lisible à nouveau sur votre demande.",
+    "Kind": "Button",
+    "Source": "X05"
   }
 ]

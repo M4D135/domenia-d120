@@ -3,6 +3,8 @@
 $script:BitLockerKeyList=@()
 $script:BitLockerKeyContext=$null
 $script:RevealedSecretIndex=-1
+$script:SecretReveal=$null
+$script:SecretCountdownTimer=$null
 
 function Test-DomeniaBitLockerKeySelection {
     # Features.BitLockerKeySelection (default true): metadata first, then ONE chosen key. False = previous read.
@@ -72,16 +74,134 @@ function Start-DomeniaSecretReveal {
     if([string]::IsNullOrWhiteSpace([string]$script:SecretRows[$Index].Value)){return $false}
     $policy=Get-DomeniaSecretExposurePolicy
     try{if($null -ne $script:SecretRevealTimer){$script:SecretRevealTimer.Stop()}}catch{}
+    $seconds=[int]$policy.RevealSeconds
     $script:SecretsVisible=$true;$script:RevealedSecretIndex=$Index
-    # FI-05: protected heartbeat timer, owned and registered by the factory; it also runs minimized.
-    $script:SecretRevealTimer=New-DomeniaTimer -Owner 'Timer:SecretReveal' -IntervalMs ([int]$policy.RevealSeconds*1000) -RunWhenHidden -Start -Tick {
-        param($sender,$eventArgs)
-        try{$sender.Stop()}catch{}
-        $script:SecretsVisible=$false;$script:RevealedSecretIndex=-1
-        Update-SecretsGrid
-    }
+    # UX-18: deadline and single extension of this reveal; a new reveal starts a new count.
+    $script:SecretReveal=[pscustomobject]@{Index=$Index;DeadlineUtc=[datetime]::UtcNow.AddSeconds($seconds);TotalSeconds=$seconds;Extended=$false}
+    Start-DomeniaSecretRevealExpiry -Milliseconds ($seconds*1000)
     Update-SecretsGrid
     Select-DomeniaSecretRow -Index $Index
+    return $true
+}
+function Start-DomeniaSecretRevealExpiry {
+    # D059: the one-shot timer that hides the revealed value. FI-05: protected heartbeat timer, owned and registered
+    # by the factory, also running minimized; created again (same owner, the previous one is stopped) when the single
+    # extension moves the deadline.
+    param([int]$Milliseconds)
+    $script:SecretRevealTimer=New-DomeniaTimer -Owner 'Timer:SecretReveal' -IntervalMs ([Math]::Max(1,$Milliseconds)) -RunWhenHidden -Start -Tick {
+        param($sender,$eventArgs)
+        try{$sender.Stop()}catch{}
+        Hide-DomeniaRevealedSecret
+    }
+}
+function Hide-DomeniaRevealedSecret {
+    # D059 / UX-18: ends the reveal, whoever asks for it (expiry, Masquer maintenant, the countdown finding the
+    # deadline past). The grid and the card are redrawn masked; the value itself stays in memory only until the
+    # secret lifetime ends, as before.
+    try{if($null -ne $script:SecretRevealTimer){$script:SecretRevealTimer.Stop()}}catch{}
+    try{if($null -ne $script:SecretCountdownTimer){$script:SecretCountdownTimer.Stop()}}catch{}
+    $index=-1;if($null -ne $script:RevealedSecretIndex){$index=[int]$script:RevealedSecretIndex}
+    $script:SecretsVisible=$false;$script:RevealedSecretIndex=-1;$script:SecretReveal=$null
+    Update-SecretsGrid
+    # The line stays chosen, masked: showing it again is one explicit click, without reading anything again.
+    if($index -ge 0){Select-DomeniaSecretRow -Index $index}
+}
+function Get-DomeniaRevealedBitLockerKey {
+    # UX-18: the BitLocker row revealed alone, split into its eight blocks, or $null: nothing revealed, a LAPS value,
+    # the whole-grid reveal of Features.SecretSingleCopy off, or a value that is not a recovery password.
+    if(-not [bool]$script:SecretsVisible){return $null}
+    if(-not (Test-DomeniaSecretSingleExposure)){return $null}
+    $index=-1;if($null -ne $script:RevealedSecretIndex){$index=[int]$script:RevealedSecretIndex}
+    $rows=@($script:SecretRows)
+    if($index -lt 0 -or $index -ge $rows.Count){return $null}
+    $row=$rows[$index]
+    if([string](Get-DomeniaMember $row 'Kind' '') -notmatch '(?i)BitLocker'){return $null}
+    $blocks=@(ConvertTo-DomeniaBitLockerKeyBlocks ([string](Get-DomeniaMember $row 'Value' '')))
+    if($blocks.Count -ne 8){return $null}
+    return [pscustomobject]@{Index=$index;Blocks=$blocks;RecoveryId=[string](Get-DomeniaMember $row 'Account' '');KeyGuid=[string](Get-DomeniaMember $row 'KeyGuid' '')}
+}
+function Update-DomeniaSecretRevealCountdown {
+    # UX-18: seconds left and ring of the key shown in the card, once a second. Display only: the expiry timer hides
+    # the value, and this tick hides it too if it ever finds the deadline past. $true while the key stays shown.
+    if(-not [bool]$script:SecretsVisible){return $false}
+    $reveal=$script:SecretReveal
+    if($null -eq $reveal -or [int]$reveal.Index -ne [int]$script:RevealedSecretIndex){Hide-DomeniaRevealedSecret;return $false}
+    $c=Get-DomeniaSecretRevealCountdown -DeadlineUtc $reveal.DeadlineUtc -NowUtc ([datetime]::UtcNow) -TotalSeconds ([int]$reveal.TotalSeconds) -Extended ([bool]$reveal.Extended)
+    if([bool]$c.Expired){Hide-DomeniaRevealedSecret;return $false}
+    [void](Set-DomeniaControlText 'LblBitLockerKeyCountdown' ([string]$c.Text))
+    $ring=Get-DomeniaControl 'BitLockerKeyRing'
+    if($null -ne $ring){
+        # Dash lengths are counted in stroke thicknesses: the whole ring is pi*(diameter-thickness)/thickness.
+        $thickness=[Math]::Max(1.0,[double]$ring.StrokeThickness)
+        $units=[Math]::PI*([double]$ring.Width-$thickness)/$thickness
+        $dashes=New-Object Windows.Media.DoubleCollection
+        $dashes.Add($units*[double]$c.Fraction);$dashes.Add($units+1.0)
+        $ring.StrokeDashArray=$dashes
+        [Windows.Automation.AutomationProperties]::SetName($ring,('Clé masquée dans '+[string]$c.Remaining+' s'))
+    }
+    $extend=Get-DomeniaControl 'BtnBitLockerKeyExtend'
+    if($null -ne $extend){
+        $extend.IsEnabled=[bool]$c.CanExtend
+        $extend.Content=if([bool]$reveal.Extended){'Prolongation utilisée'}else{'Prolonger '+[string]$c.ExtensionSeconds+' s'}
+    }
+    return $true
+}
+function Update-DomeniaSecretsView {
+    # UX-18: what surrounds the rows of the secrets grid. The card shows the BitLocker key revealed alone, in eight
+    # numbered blocks with its recovery identifier and its countdown; the identity column is named after the rows
+    # (recovery identifier for BitLocker, account for LAPS). Called by Update-SecretsGrid and Clear-Secrets: whatever
+    # ends a reveal (expiry, Masquer, another selection, window deactivation, Vider) hides and empties the card here,
+    # before anything else can fail.
+    $card=Get-DomeniaControl 'BitLockerKeyCard'
+    if($null -ne $card){
+        $key=Get-DomeniaRevealedBitLockerKey
+        $blocksHost=Get-DomeniaControl 'BitLockerKeyBlocks'
+        if($null -eq $key){
+            $card.Visibility=[Windows.Visibility]::Collapsed
+            try{if($null -ne $script:SecretCountdownTimer){$script:SecretCountdownTimer.Stop()}}catch{}
+            if($null -ne $blocksHost){$blocksHost.ItemsSource=$null}
+            [void](Set-DomeniaControlText 'LblBitLockerKeyCardId' '')
+            [void](Set-DomeniaControlText 'LblBitLockerKeyCountdown' '')
+        }else{
+            if($null -ne $blocksHost){$items=[Collections.ArrayList]::new();foreach($block in @($key.Blocks)){[void]$items.Add($block)};$blocksHost.ItemsSource=$items}
+            $id=[string]$key.RecoveryId
+            if([string]$key.KeyGuid -and ([string]$key.KeyGuid -cne $id)){$id+=' ('+[string]$key.KeyGuid+')'}
+            if(-not $id){$id='non lu'}
+            [void](Set-DomeniaControlText 'LblBitLockerKeyCardId' ('Identifiant de récupération : '+$id+'. Vérifiez quʼil correspond à celui affiché par le poste avant de dicter les huit blocs.'))
+            $card.Visibility=[Windows.Visibility]::Visible
+            if((Update-DomeniaSecretRevealCountdown) -and ($null -eq $script:SecretCountdownTimer -or -not [bool]$script:SecretCountdownTimer.IsEnabled)){
+                # FI-05: protected heartbeat timer; display only, the expiry timer stays the one that hides the key.
+                $script:SecretCountdownTimer=New-DomeniaTimer -Owner 'Timer:SecretCountdown' -IntervalMs 1000 -Start -Tick {
+                    param($sender,$eventArgs)
+                    [void](Update-DomeniaSecretRevealCountdown)
+                }
+            }
+        }
+    }
+    $grid=Get-DomeniaControl 'DgSecrets'
+    if($null -eq $grid){return}
+    $header=Get-DomeniaSecretColumnHeader -Kinds @(@($script:SecretRows)|ForEach-Object{[string](Get-DomeniaMember $_ 'Kind' '')})
+    foreach($column in @($grid.Columns)){
+        if(($column -is [Windows.Controls.DataGridBoundColumn]) -and ($null -ne $column.Binding) -and ([string]$column.Binding.Path.Path -eq 'Account') -and ([string]$column.Header -cne $header)){$column.Header=$header}
+    }
+}
+function Invoke-DomeniaSecretRevealExtension {
+    # UX-18: one extension of the BitLocker key shown in the card, by the policy duration, on an explicit click and
+    # while the key is still shown. The deadline moves and the expiry timer is armed again for the time left; a second
+    # extension is refused. Nothing is read again and nothing is copied.
+    $key=Get-DomeniaRevealedBitLockerKey
+    $reveal=$script:SecretReveal
+    if($null -eq $key -or $null -eq $reveal -or [int]$reveal.Index -ne [int]$key.Index){return $false}
+    $now=[datetime]::UtcNow
+    $c=Get-DomeniaSecretRevealCountdown -DeadlineUtc $reveal.DeadlineUtc -NowUtc $now -TotalSeconds ([int]$reveal.TotalSeconds) -Extended ([bool]$reveal.Extended)
+    if(-not [bool]$c.CanExtend){Set-Status 'Prolongation déjà utilisée : la clé sera masquée à lʼéchéance.' 'WARN';[void](Update-DomeniaSecretRevealCountdown);return $false}
+    $extra=[int]$c.ExtensionSeconds
+    $reveal.DeadlineUtc=([datetime]$reveal.DeadlineUtc).AddSeconds($extra)
+    $reveal.TotalSeconds=[int]$reveal.TotalSeconds+$extra
+    $reveal.Extended=$true
+    Start-DomeniaSecretRevealExpiry -Milliseconds ([int][Math]::Ceiling((([datetime]$reveal.DeadlineUtc)-$now).TotalMilliseconds))
+    [void](Update-DomeniaSecretRevealCountdown)
+    Set-Status ('Affichage de la clé prolongé de '+[string]$extra+' s, une seule fois.')
     return $true
 }
 function Get-DomeniaSelectedSecretIndex {
@@ -113,7 +233,8 @@ function Complete-DomeniaBitLockerListUi {
     foreach($oldSecret in @($script:SecretRows)){try{$oldSecret.Value=''}catch{}}
     $rows=New-Object 'System.Collections.Generic.List[object]'
     foreach($key in $keys){
-        $rows.Add([pscustomobject]@{Kind='BitLocker';Account=[string]$key.RecoveryId;Value='';Timestamp=[string]$key.Created;Source='Metadonnees : cle non lue';Detail=[string]$key.DN;KeyDn=[string]$key.DN;KeyGuid=[string]$key.KeyGuid;Metadata=$true})
+        # UX-18: the DN stays in KeyDn for the read of the chosen key; the operator reads the full recovery identifier.
+        $rows.Add([pscustomobject]@{Kind='BitLocker';Account=[string]$key.RecoveryId;Value='';Timestamp=[string]$key.Created;Source='Métadonnées : clé non lue';Detail=('Identifiant complet : '+[string]$key.KeyGuid);KeyDn=[string]$key.DN;KeyGuid=[string]$key.KeyGuid;Metadata=$true})
     }
     $script:SecretRows=$rows.ToArray()
     $script:BitLockerKeyList=$keys
@@ -205,7 +326,7 @@ function Complete-DomeniaBitLockerKeyUi {
     for($i=0;$i -lt @($script:SecretRows).Count;$i++){
         if([string](Get-DomeniaMember $script:SecretRows[$i] 'KeyDn' '') -ieq [string]$State.KeyDn){
             $script:SecretRows[$i].Value=[string]$key.Value
-            $script:SecretRows[$i].Source='msFVE-RecoveryInformation : cle lue a la demande'
+            $script:SecretRows[$i].Source='Clé lue à votre demande'
             $index=$i;break
         }
     }
@@ -225,7 +346,9 @@ function Complete-DomeniaBitLockerKeyUi {
         finally{$value=''}
     }else{
         [void](Start-DomeniaSecretReveal -Index $index)
-        [void](Set-DomeniaControlText 'LblSecretsStatus' ('Cle '+[string]$script:SecretRows[$index].Account+' affichee pour '+[string](Get-DomeniaSecretExposurePolicy).RevealSeconds+' s. Les autres cles ne sont pas lues.'))
+        $policy=Get-DomeniaSecretExposurePolicy
+        $where=if($null -ne (Get-DomeniaRevealedBitLockerKey)){' dans la carte ci-dessus pendant '+[string]$policy.RevealSeconds+' s, prolongeable une fois de '+[string]$policy.RevealExtensionSeconds+' s.'}else{' pendant '+[string]$policy.RevealSeconds+' s.'}
+        [void](Set-DomeniaControlText 'LblSecretsStatus' ('Clé '+[string]$script:SecretRows[$index].Account+' affichée'+$where+' Les autres clés ne sont pas lues.'))
     }
     Update-DomeniaSecretActionUi
 }
@@ -255,6 +378,11 @@ function Initialize-DomeniaSecretsUi {
     $limit=Get-DomeniaControl 'LblSecretsExposure'
     if($null -ne $limit){
         $policy=Get-DomeniaSecretExposurePolicy
-        $limit.Text=('Une valeur a la fois, affichee '+[string]$policy.RevealSeconds+' s, jamais journalisee ni mise en cache. '+[string]$policy.ClipboardLimit)
+        $limit.Text=('Une valeur à la fois, affichée '+[string]$policy.RevealSeconds+' s (une clé BitLocker peut être prolongée une fois de '+[string]$policy.RevealExtensionSeconds+' s), jamais journalisée ni mise en cache. '+[string]$policy.ClipboardLimit)
     }
+    # UX-18: the two buttons of the BitLocker key card. Neither reads nor copies anything.
+    $extend=Get-DomeniaControl 'BtnBitLockerKeyExtend'
+    if($null -ne $extend){$extend.Add_Click({try{[void](Invoke-DomeniaSecretRevealExtension)}catch{Write-AppLog ('Prolongation de la cle : '+$_.Exception.Message) 'WARN'}})}
+    $hide=Get-DomeniaControl 'BtnBitLockerKeyHide'
+    if($null -ne $hide){$hide.Add_Click({try{Hide-DomeniaRevealedSecret;Set-Status 'Clé masquée.'}catch{Write-AppLog ('Masquage de la cle : '+$_.Exception.Message) 'WARN'}})}
 }

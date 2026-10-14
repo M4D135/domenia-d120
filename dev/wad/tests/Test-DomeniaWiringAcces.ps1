@@ -459,7 +459,9 @@ Test-Case 'D058 Recherche par identifiant de recuperation puis lecture d une seu
     $value=(1..8|ForEach-Object{Get-Random -Minimum 100000 -Maximum 999999}) -join '-'
     Complete-DomeniaBitLockerKeyUi ([pscustomobject]@{Mode='BitLockerKey';Success=$true;Rows=@([pscustomobject]@{Kind='BitLocker';Account='A1B2C3D4-1111-2222-3333-444455556666';Value=$value;Timestamp='';Source='x';Detail=$k1});KeyDn=$k1;KeyGuid='A1B2C3D4-1111-2222-3333-444455556666';ErrorKind='';ErrorMessage=''}) $script:Tasks[0].State
     $bound=@($script:Ctrl.DgSecrets.ItemsSource)
-    Assert-True ($bound[0].DisplayValue -ceq $value -and [string]$bound[1].DisplayValue -eq '') 'Seule la cle choisie doit etre lue et affichee'
+    # UX-18: the key read is shown in its card, by blocks; the narrow cell of the grid only points to it.
+    Assert-True ($bound[0].DisplayValue -ceq 'Affichée dans la carte ci-dessus' -and [string]$bound[1].DisplayValue -eq '') 'Seule la cle choisie doit etre lue et affichee'
+    Assert-True ((@($script:Ctrl.BitLockerKeyBlocks.ItemsSource|ForEach-Object{$_.Digits}) -join '-') -ceq $value) 'Cle absente de la carte'
     Assert-True ($script:SecretRevealTimer.Interval.TotalSeconds -eq 30)
 }
 Test-Case 'D058 Vrais workers : liste sans attribut de cle, cle unique controlee' {
@@ -598,6 +600,94 @@ Test-Case 'UI-31 Copier tout absent en mode valeur unique, libelles poses par un
     $script:SelectedObject=$null;Update-DomeniaSecretActionUi
     Assert-True ([string]$script:Ctrl.BtnLoadLaps.ToolTip -match '^Lire le mot de passe LAPS : ') ([string]$script:Ctrl.BtnLoadLaps.ToolTip)
     Assert-True ([string]$script:Ctrl.BtnLoadBitLocker.ToolTip -match '^Lister les clés BitLocker : ') ([string]$script:Ctrl.BtnLoadBitLocker.ToolTip)
+}
+
+# ================================================================ UX-18 BitLocker key card
+function New-TestRecoveryPassword {return ((1..8|ForEach-Object{'{0:D6}' -f (Get-Random -Minimum 0 -Maximum 999999)}) -join '-')}
+function Show-TestBitLockerKey {param([string]$Value)
+    # Real path: metadata list, choice of the line, explicit reveal, answer of the key worker.
+    $state=New-SecretState 'BitLocker'
+    $k1='CN=2025-03-01T10:22:33-00:00{A1B2C3D4-1111-2222-3333-444455556666},'+$script:Dn
+    $k2='CN=2025-06-01T08:00:00-00:00{B1B2FFFF-1111-2222-3333-444455556666},'+$script:Dn
+    Complete-DomeniaBitLockerListUi ([pscustomobject]@{Mode='BitLockerList';Success=$true;Entries=@([pscustomobject]@{Name=($k1.Split(',')[0].Substring(3));DN=$k1;RecoveryGuid='a1b2c3d4-1111-2222-3333-444455556666';WhenCreated=$null},[pscustomobject]@{Name=($k2.Split(',')[0].Substring(3));DN=$k2;RecoveryGuid='b1b2ffff-1111-2222-3333-444455556666';WhenCreated=$null});RecoveryObjectsFound=2;ErrorKind='';ErrorMessage='';Reader='EXAMPLE\lecteur'}) $state
+    $script:Ctrl.DgSecrets.SelectedItem=@($script:Ctrl.DgSecrets.Items)[0]
+    Toggle-SecretsVisibility
+    $task=@($script:Tasks|Where-Object{$_.OperationId -eq 'ReadBitLockerKey'})[-1]
+    Complete-DomeniaBitLockerKeyUi ([pscustomobject]@{Mode='BitLockerKey';Success=$true;Rows=@([pscustomobject]@{Kind='BitLocker';Account='A1B2C3D4-1111-2222-3333-444455556666';Value=$Value;Timestamp='';Source='x';Detail=$k1});KeyDn=$k1;KeyGuid='A1B2C3D4-1111-2222-3333-444455556666';ErrorKind='';ErrorMessage=''}) $task.State
+}
+Test-Case 'UX-18 Cle BitLocker en carte : huit blocs numerotes, identifiant rappele, compte a rebours, DN retire, aucune copie ni trace' {
+    $value=New-TestRecoveryPassword
+    Show-TestBitLockerKey $value
+    $card=$script:Ctrl.BitLockerKeyCard
+    Assert-True ($card.Visibility -eq [Windows.Visibility]::Visible) 'Carte absente'
+    $blocks=@($script:Ctrl.BitLockerKeyBlocks.ItemsSource)
+    Assert-True ($blocks.Count -eq 8 -and (@($blocks|ForEach-Object{$_.Digits}) -join '-') -ceq $value -and $blocks[0].Label -eq 'Bloc 1' -and $blocks[7].Label -eq 'Bloc 8') 'Huit blocs attendus dans l ordre'
+    $id=[string]$script:Ctrl.LblBitLockerKeyCardId.Text
+    Assert-True ($id -match 'A1B2C3D4' -and $id -match 'A1B2C3D4-1111-2222-3333-444455556666' -and $id -match 'Vérifiez') ('Identifiant : '+$id)
+    Assert-True ([string]$script:Ctrl.LblBitLockerKeyCountdown.Text -match '^(29|30) s$') ('Compte a rebours : '+[string]$script:Ctrl.LblBitLockerKeyCountdown.Text)
+    $dash=@($script:Ctrl.BitLockerKeyRing.StrokeDashArray)
+    Assert-True ($dash.Count -eq 2 -and [double]$dash[0] -gt 0) 'Anneau non dessine'
+    Assert-True ($null -ne $script:SecretCountdownTimer -and $script:SecretCountdownTimer.IsEnabled -and $script:SecretCountdownTimer.Interval.TotalSeconds -eq 1) 'Compte a rebours arrete'
+    Assert-True ($script:Ctrl.BtnBitLockerKeyExtend.IsEnabled -and [string]$script:Ctrl.BtnBitLockerKeyExtend.Content -eq 'Prolonger 30 s') 'Prolongation non proposee'
+    # The grid keeps the identifier, never the DN, and its cell points to the card instead of a truncated key.
+    $column=@($script:Ctrl.DgSecrets.Columns|Where-Object{$_ -is [Windows.Controls.DataGridBoundColumn] -and [string]$_.Binding.Path.Path -eq 'Account'})[0]
+    Assert-True ([string]$column.Header -eq 'Identifiant de récupération') ('Colonne : '+[string]$column.Header)
+    $bound=@($script:Ctrl.DgSecrets.ItemsSource)
+    Assert-True (@($bound|Where-Object{(($_|ConvertTo-Json -Depth 3) -match 'CN=')}).Count -eq 0) 'Un DN reste affiche dans la grille'
+    Assert-True ([string]$bound[1].Detail -eq 'Identifiant complet : B1B2FFFF-1111-2222-3333-444455556666') ('Detail : '+[string]$bound[1].Detail)
+    Assert-True (@($bound|Where-Object{[string]$_.DisplayValue -ceq $value}).Count -eq 0) 'Cle affichee dans la cellule etroite'
+    Assert-True ($script:Clipboard.Count -eq 0 -and $script:ClipboardTimers -eq 0) 'Copie implicite'
+    $journal='';if([IO.File]::Exists($script:AuditPath)){$journal=[IO.File]::ReadAllText($script:AuditPath)}
+    Assert-True (-not (Test-DomeniaTextHasSecret ($journal+"`n"+($script:UiLog -join "`n")+"`n"+($script:StatusLines -join "`n")+"`n"+[string]$script:Ctrl.TxtLog.Text+"`n"+[string]$script:Ctrl.LblSecretsStatus.Text) @($value))) 'Cle presente dans un journal ou un statut'
+}
+Test-Case 'UX-18 Prolongation unique de 30 s, puis carte videe et cle masquee a l echeance' {
+    $value=New-TestRecoveryPassword
+    Show-TestBitLockerKey $value
+    Assert-True ($script:SecretRevealTimer.Interval.TotalSeconds -eq 30) 'Duree initiale'
+    $script:Ctrl.BtnBitLockerKeyExtend.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Primitives.ButtonBase]::ClickEvent))
+    $first=$script:SecretRevealTimer.Interval.TotalSeconds
+    Assert-True ($first -gt 58 -and $first -le 60.01 -and [bool]$script:SecretReveal.Extended) ('Echeance prolongee : '+$first)
+    Assert-True ((-not $script:Ctrl.BtnBitLockerKeyExtend.IsEnabled) -and [string]$script:Ctrl.BtnBitLockerKeyExtend.Content -eq 'Prolongation utilisée') 'Seconde prolongation proposee'
+    Assert-True (-not (Invoke-DomeniaSecretRevealExtension)) 'Seconde prolongation acceptee'
+    Assert-True ($script:SecretRevealTimer.Interval.TotalSeconds -eq $first -and @($script:StatusLines|Where-Object{$_ -match 'déjà utilisée'}).Count -eq 1) 'Seconde prolongation appliquee'
+    # Expiry: the protected timer of the reveal runs its tick; the card is emptied and the value masked.
+    Invoke-DomeniaTimerTick -Timer $script:SecretRevealTimer
+    Assert-True ([long]$script:SecretRevealTimer.Errors -eq 0) ('Tick en erreur : '+[string]$script:SecretRevealTimer.LastError)
+    Assert-True ($script:Ctrl.BitLockerKeyCard.Visibility -eq [Windows.Visibility]::Collapsed -and $null -eq $script:Ctrl.BitLockerKeyBlocks.ItemsSource -and [string]$script:Ctrl.LblBitLockerKeyCardId.Text -eq '') 'Carte encore remplie apres l echeance'
+    Assert-True ((-not $script:SecretsVisible) -and (-not $script:SecretCountdownTimer.IsEnabled)) 'Revelation ou compte a rebours actifs apres l echeance'
+    Assert-True ([string]@($script:Ctrl.DgSecrets.ItemsSource)[0].DisplayValue -ceq '********') 'Valeur visible apres l echeance'
+    Assert-True ([int]$script:Ctrl.DgSecrets.SelectedItem.SecretIndex -eq 0) 'Ligne choisie perdue a l echeance'
+    # The countdown hides the key as well when it finds the deadline past (expiry timer delayed).
+    Toggle-SecretsVisibility
+    Assert-True ($script:Ctrl.BitLockerKeyCard.Visibility -eq [Windows.Visibility]::Visible) 'Nouvelle revelation absente'
+    $script:SecretReveal.DeadlineUtc=[datetime]::UtcNow.AddSeconds(-1)
+    Invoke-DomeniaTimerTick -Timer $script:SecretCountdownTimer
+    Assert-True ($script:Ctrl.BitLockerKeyCard.Visibility -eq [Windows.Visibility]::Collapsed -and -not $script:SecretsVisible) 'Echeance depassee sans masquage'
+    # Masquer maintenant and Vider empty the card too; nothing was copied on the way.
+    Toggle-SecretsVisibility
+    $script:Ctrl.BtnBitLockerKeyHide.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Primitives.ButtonBase]::ClickEvent))
+    Assert-True ($script:Ctrl.BitLockerKeyCard.Visibility -eq [Windows.Visibility]::Collapsed -and -not $script:SecretsVisible) 'Masquer maintenant sans effet'
+    Toggle-SecretsVisibility
+    Clear-Secrets
+    Assert-True ($script:Ctrl.BitLockerKeyCard.Visibility -eq [Windows.Visibility]::Collapsed -and $null -eq $script:Ctrl.BitLockerKeyBlocks.ItemsSource) 'Vider laisse la carte remplie'
+    Assert-True ($script:Clipboard.Count -eq 0 -and $script:ClipboardTimers -eq 0) 'Copie implicite'
+}
+Test-Case 'UX-18 Une valeur LAPS ou une cle au format inattendu ne passe jamais par la carte' {
+    $odd='12345-'+((1..7|ForEach-Object{'123456'}) -join '-')
+    $script:SecretRows=@([pscustomobject]@{Kind='BitLocker';Account='C1C2C3C4-1111-2222-3333-444455556666';Value=$odd;Timestamp='';Source='s';Detail=('CN=K,'+$script:Dn)},[pscustomobject]@{Kind='Windows LAPS';Account='Administrateur';Value=[guid]::NewGuid().ToString('N');Timestamp='';Source='s';Detail=''})
+    Update-SecretsGrid
+    Assert-True ([string]@($script:Ctrl.DgSecrets.ItemsSource)[0].Detail -eq '') 'DN affiche en detail'
+    $column=@($script:Ctrl.DgSecrets.Columns|Where-Object{$_ -is [Windows.Controls.DataGridBoundColumn] -and [string]$_.Binding.Path.Path -eq 'Account'})[0]
+    Assert-True ([string]$column.Header -eq 'Compte ou identifiant') ('Colonne : '+[string]$column.Header)
+    foreach($index in 0,1){
+        $script:Ctrl.DgSecrets.SelectedItem=@($script:Ctrl.DgSecrets.Items)[$index]
+        Toggle-SecretsVisibility
+        Assert-True ($script:Ctrl.BitLockerKeyCard.Visibility -eq [Windows.Visibility]::Collapsed) ('Carte affichee pour la ligne '+$index)
+        Assert-True ([string]@($script:Ctrl.DgSecrets.ItemsSource)[$index].DisplayValue -ceq [string]$script:SecretRows[$index].Value) 'Valeur hors carte non affichee'
+        Toggle-SecretsVisibility
+    }
+    $script:SecretRows=@([pscustomobject]@{Kind='Windows LAPS';Account='Administrateur';Value='x';Timestamp='';Source='s';Detail=''});Update-SecretsGrid
+    Assert-True ([string]$column.Header -eq 'Compte') ('Colonne LAPS : '+[string]$column.Header)
 }
 
 # ================================================================ UI-18 receipts in plain words, review in the page

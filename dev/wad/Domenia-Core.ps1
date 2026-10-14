@@ -821,6 +821,13 @@ $script:GuiElementPolicy = [ordered]@{
     "LblGuardReceiptSelection" = "Default"
     "TxtGuardReceiptReason" = "Default"
     "LblGuardReceiptReasonCount" = "Default"
+    "BitLockerKeyCard" = "Default"
+    "LblBitLockerKeyCardId" = "Default"
+    "BitLockerKeyBlocks" = "Default"
+    "BitLockerKeyRing" = "Default"
+    "LblBitLockerKeyCountdown" = "Default"
+    "BtnBitLockerKeyExtend" = "Default"
+    "BtnBitLockerKeyHide" = "Default"
     "LblSecretsStatus" = "Default"
     "DgSecrets" = "Default"
     "TabComputerHealth" = "Default"
@@ -6979,15 +6986,47 @@ function Get-MainXaml {
                             <TextBlock x:Name="LblBitLockerRecoveryHint" Text="Chargez BitLocker : les métadonnées sont listées sans aucune clé. Une seule clé est lue, à votre demande." Foreground="{DynamicResource MutedColor}" VerticalAlignment="Bottom" MaxWidth="520" TextWrapping="Wrap"/>
                           </WrapPanel>
                           <TextBlock x:Name="LblSecretsExposure" Text="Une valeur à la fois, affichée brièvement, jamais journalisée ni mise en cache." Foreground="{DynamicResource MutedColor}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                          <!-- UX-18 : cle BitLocker revelee seule, en huit blocs numerotes a dicter, avec son identifiant et un compte a rebours. -->
+                          <Border x:Name="BitLockerKeyCard" Visibility="Collapsed" Margin="0,12,0,0" Padding="16,12" CornerRadius="8" Background="{DynamicResource InfoBg}" BorderBrush="{DynamicResource InfoBorder}" BorderThickness="1" ToolTip="Clé de récupération affichée à votre demande, par blocs numérotés. Elle disparaît à lʼéchéance ; rien nʼest copié ni journalisé." ToolTipService.Placement="Top" AutomationProperties.Name="Clé de récupération BitLocker affichée" AutomationProperties.HelpText="Clé de récupération affichée à votre demande, par blocs numérotés. Elle disparaît à lʼéchéance ; rien nʼest copié ni journalisé.">
+                            <Grid>
+                              <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                              <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="Clé de récupération BitLocker" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource InfoFg}"/>
+                                <TextBlock x:Name="LblBitLockerKeyCardId" Text="" Margin="0,4,0,10" TextWrapping="Wrap" Foreground="{DynamicResource InfoFg}" ToolTip="Comparez cet identifiant à celui affiché par lʼécran de récupération du poste avant de dicter la clé." ToolTipService.Placement="Top" AutomationProperties.Name="Identifiant de récupération de la clé affichée" AutomationProperties.HelpText="Comparez cet identifiant à celui affiché par lʼécran de récupération du poste avant de dicter la clé."/>
+                                <ItemsControl x:Name="BitLockerKeyBlocks" Focusable="False" ToolTip="Les huit blocs de six chiffres, dans lʼordre où le poste les demande." ToolTipService.Placement="Bottom" AutomationProperties.Name="Blocs de la clé de récupération" AutomationProperties.HelpText="Les huit blocs de six chiffres, dans lʼordre où le poste les demande.">
+                                  <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                  <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                      <Border Margin="0,0,10,8" Padding="10,4" CornerRadius="6" Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource InfoBorder}" BorderThickness="1">
+                                        <StackPanel>
+                                          <TextBlock Text="{Binding Label}" FontSize="11" Foreground="{DynamicResource MutedColor}"/>
+                                          <TextBlock Text="{Binding Digits}" FontFamily="Consolas, Cascadia Mono, Courier New" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextColor}"/>
+                                        </StackPanel>
+                                      </Border>
+                                    </DataTemplate>
+                                  </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                              </StackPanel>
+                              <StackPanel Grid.Column="1" VerticalAlignment="Top" HorizontalAlignment="Center">
+                                <Grid Width="56" Height="56" HorizontalAlignment="Center">
+                                  <Ellipse Width="56" Height="56" Stroke="{DynamicResource BorderColor}" StrokeThickness="6"/>
+                                  <Ellipse x:Name="BitLockerKeyRing" Width="56" Height="56" Stroke="{DynamicResource AccentColor}" StrokeThickness="6" RenderTransformOrigin="0.5,0.5" ToolTip="Temps restant avant que la clé soit masquée." AutomationProperties.Name="Temps restant" AutomationProperties.HelpText="Temps restant avant que la clé soit masquée."><Ellipse.RenderTransform><RotateTransform Angle="-90"/></Ellipse.RenderTransform></Ellipse>
+                                  <TextBlock x:Name="LblBitLockerKeyCountdown" Text="" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold" ToolTip="Secondes restantes avant que la clé soit masquée." AutomationProperties.Name="Secondes restantes" AutomationProperties.HelpText="Secondes restantes avant que la clé soit masquée."/>
+                                </Grid>
+                                <Button x:Name="BtnBitLockerKeyExtend" Content="Prolonger 30 s" Style="{StaticResource SecondaryButton}" Margin="0,10,0,0" ToolTip="Prolonge une seule fois lʼaffichage de la clé de 30 secondes. Rien nʼest relu ni copié." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Prolonger 30 s" AutomationProperties.HelpText="Prolonge une seule fois lʼaffichage de la clé de 30 secondes. Rien nʼest relu ni copié."/>
+                                <Button x:Name="BtnBitLockerKeyHide" Content="Masquer maintenant" Style="{StaticResource SecondaryButton}" Margin="0,6,0,0" ToolTip="Masque la clé tout de suite. Elle reste lisible à nouveau sur votre demande." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Masquer maintenant" AutomationProperties.HelpText="Masque la clé tout de suite. Elle reste lisible à nouveau sur votre demande."/>
+                              </StackPanel>
+                            </Grid>
+                          </Border>
                         </StackPanel>
                         <DataGrid x:Name="DgSecrets" ToolTip="Clés et mots de passe récupérés. Clic droit pour copier." AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" MinRowHeight="31" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Cles et mots de passe recuperes" AutomationProperties.HelpText="Cles et mots de passe recuperes. Clic droit pour copier.">
                           <DataGrid.Columns>
                             <DataGridTextColumn Header="Type" Binding="{Binding Kind}" Width="150"/>
-                            <DataGridTextColumn Header="Compte" Binding="{Binding Account}" Width="190"/>
+                            <DataGridTextColumn Header="Compte ou identifiant" Binding="{Binding Account}" Width="190"/>
                             <DataGridTextColumn Header="Valeur" Binding="{Binding DisplayValue}" Width="260"/>
                             <DataGridTextColumn Header="Date / expiration" Binding="{Binding Timestamp}" Width="170"/>
                             <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="190"/>
-                            <DataGridTemplateColumn Header="Detail" Width="*">
+                            <DataGridTemplateColumn Header="Détail" Width="*">
                               <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                   <TextBlock Text="{Binding Detail}" Style="{StaticResource WrappedCellText}" ToolTip="{Binding Detail}"/>
@@ -12419,9 +12458,12 @@ function Clear-Secrets {
     $script:SecretRows = @()
     $script:SecretsVisible = $false
     $script:RevealedSecretIndex = -1
+    $script:SecretReveal = $null
     $script:BitLockerKeyList = @()
     $script:BitLockerKeyContext = $null
     try { $script:Ctrl["DgSecrets"].ItemsSource = $null; $script:Ctrl["LblSecretsStatus"].Text = "Aucun secret conservé en mémoire." } catch { }
+    # UX-18: the BitLocker key card is emptied and hidden with the grid.
+    try { Update-DomeniaSecretsView } catch { }
     try { Update-DomeniaSecretActionUi } catch { }
 }
 
@@ -12432,14 +12474,21 @@ function Update-SecretsGrid {
     # -1 keeps the previous whole-grid reveal (Features.SecretSingleCopy = false).
     $revealedIndex = -1
     if ($null -ne $script:RevealedSecretIndex) { $revealedIndex = [int]$script:RevealedSecretIndex }
+    # UX-18: a BitLocker key revealed alone is read in its card, by blocks, not in the narrow cell of the grid.
+    $cardIndex = -1
+    try { $cardKey = Get-DomeniaRevealedBitLockerKey; if ($null -ne $cardKey) { $cardIndex = [int]$cardKey.Index } } catch { $cardIndex = -1 }
     foreach ($r in @($script:SecretRows)) {
         $hasValue = -not [string]::IsNullOrWhiteSpace([string]$r.Value)
         $shown = ($script:SecretsVisible -and ($revealedIndex -lt 0 -or $revealedIndex -eq $index))
-        $display = if (-not $hasValue) { '' } elseif ($shown) { [string]$r.Value } else { '********' }
-        $rows.Add([pscustomobject]@{ Kind=$r.Kind; Account=$r.Account; DisplayValue=$display; Timestamp=$r.Timestamp; Source=$r.Source; Detail=$r.Detail; SecretIndex=$index; HasValue=$hasValue })
+        $display = if (-not $hasValue) { '' } elseif ($shown -and ($index -eq $cardIndex)) { 'Affichée dans la carte ci-dessus' } elseif ($shown) { [string]$r.Value } else { '********' }
+        # UX-18: the DN of a recovery object is not a detail for the operator; its identifier is.
+        $detail = [string]$r.Detail
+        if (([string]$r.Kind -match '(?i)BitLocker') -and ($detail -match '^(?i)(CN|OU|DC)=')) { $detail = '' }
+        $rows.Add([pscustomobject]@{ Kind=$r.Kind; Account=$r.Account; DisplayValue=$display; Timestamp=$r.Timestamp; Source=$r.Source; Detail=$detail; SecretIndex=$index; HasValue=$hasValue })
         $index++
     }
     [void](Set-DomeniaItemsSource -Name 'DgSecrets' -Rows $rows.ToArray())
+    try { Update-DomeniaSecretsView } catch { try { Write-AppLog ('Carte de la clé BitLocker : ' + $_.Exception.Message) 'WARN' } catch { } }
     # UI-31: the reveal button gets its label from Update-DomeniaSecretActionUi only.
     try { Update-DomeniaSecretActionUi } catch { }
 }
