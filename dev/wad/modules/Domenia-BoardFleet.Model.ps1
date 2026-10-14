@@ -149,6 +149,8 @@ function Get-DomeniaFleetBoardData {
     $bitlocker = @{ 'K' = 0; 'N' = 0; 'X' = 0; 'U' = 0 }
     $factsKnown = 0
     $problem = @{}
+    # Point 75: groups whose end-of-service date is determined, the data the eos rules need.
+    $eosKnownGroups = @{}
     foreach ($group in $active) {
         $n = [int]$group.n; $gid = [string]$group.gid
         $os = ([string]$group.os).Trim(); if (-not $os) { $os = 'Systeme non renseigne' }
@@ -158,6 +160,7 @@ function Get-DomeniaFleetBoardData {
         $releaseKey = $os + '|' + $ver
         if (-not $releaseCache.ContainsKey($releaseKey)) { $releaseCache[$releaseKey] = Get-DomeniaWindowsRelease -Build $ver -Caption $os -Lifecycle $Lifecycle -Now $Now }
         $release = $releaseCache[$releaseKey]
+        $eosKnownGroups[$gid] = [bool]([string]$release.End)
         # Serveurs / postes (FO-11): from operatingSystem, the family of the lifecycle table (no extra call per group).
         $kind = if (-not ([string]$group.os).Trim()) { 'Système non renseigné' } elseif ([string]$release.Family -eq 'Server') { 'Serveurs' } else { 'Postes de travail' }
         $kinds[$kind] = $n + [int]$kinds[$kind]
@@ -652,6 +655,8 @@ function Get-DomeniaFleetBoardData {
     Add-Member -InputObject $data -MemberType NoteProperty -Name 'Last' -Value ([pscustomobject]@{ Scope = $scope; Subtree = [bool]$Subtree; Targets = $targets; Machines = $machines; Groups = $groups; WidgetTargets=$widgetTargets; HealthyTargets=$healthyTargets.ToArray(); ProblemTargets=$problemTargets.ToArray(); Freshness=$data.Freshness })
     $figures = [pscustomobject]@{ Machines = $total; Healthy = $healthy; Problems = ($total - $healthy); Stale = $stale; EndOfService = $endedCount; Disabled = $disabled; Windows10 = $windows10; LowDisk = $lowDiskFigure }
     Add-Member -InputObject $data -MemberType NoteProperty -Name 'Snapshot' -Value ([pscustomobject]@{ Day = $today; Taken = $taken; Figures = $figures })
+    Add-Member -InputObject $data -MemberType NoteProperty -Name 'EosKnownGroups' -Value $eosKnownGroups
+    Add-Member -InputObject $data -MemberType NoteProperty -Name 'HealthEligibility' -Value (Get-DomeniaFleetRuleEligibility -Data $data -NowUtc $nowUtc)
     if($null -ne $HealthPolicyBook -and @($HealthPolicyBook.Scopes).Count){Update-DomeniaFleetScopedHealth -Data $data -Book $HealthPolicyBook -NowUtc $nowUtc -Lifecycle $Lifecycle}
     [void](Complete-DomeniaBoardData -Data $data)
     $data.Last.WidgetTargets['fleet.health']=@($targets);$data.Last.WidgetTargets['fleet.attention']=@($data.Last.ProblemTargets)

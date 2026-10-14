@@ -33,6 +33,7 @@ foreach($count in $Counts){
   $folded=Get-DomeniaChartCategoryGroups -Items $board.Entries['fleet.models'].Items -Maximum 8
   Expect ($folded.Count -eq 8 -and (($folded|Measure-Object Value -Sum).Sum) -eq $enabled -and $folded[-1].Items.Count -eq 53 -and $folded[-1].Select.Labels.Count -eq 53) 'Other categories lost values or original labels'
   $disk=@($board.HealthExplanation.Rows|Where-Object Id -eq lowdisk)[0];Expect ($disk.Machines -eq $enabled/20 -and $disk.Guids.Count -eq $enabled/20) 'Rule contribution count differs from exact targets'
+  Expect ([string]$disk.Eligible -eq ([string]$enabled+' / '+$enabled)) ('Eligible population '+$disk.Eligible)
   Expect (@($board.Last.WidgetTargets['fleet.reach|WMI répond, pas le ping']).Count -eq $enabled/40) 'Filtered ICMP with a WMI answer not kept apart at scale'
  }
 }

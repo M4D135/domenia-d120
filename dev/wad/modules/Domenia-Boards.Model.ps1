@@ -369,7 +369,8 @@ function New-DomeniaBoardData {
     # HintActions: section -> {Id; Text; Tip; Link} offered under its hint, run only on a click (SP-17).
     # Partial: {Text; Action} when the score misses key checks (UX-23), shown as a badge under the score.
     param([Parameter(Mandatory=$true)][ValidateSet('Computer','Fleet','Software')][string]$Board)
-    return [pscustomobject]@{ Board = $Board; Entries = @{}; Attention = New-Object System.Collections.ArrayList; Hints = @{}; HintActions = @{}; Partial = $null; Summary = ''; HealthPolicy=(ConvertTo-DomeniaHealthPolicy) }
+    # SuppressedAttention: points of disabled or suspended rules, never scored, kept for the explanation (point 75).
+    return [pscustomobject]@{ Board = $Board; Entries = @{}; Attention = New-Object System.Collections.ArrayList; SuppressedAttention = New-Object System.Collections.ArrayList; Hints = @{}; HintActions = @{}; Partial = $null; Summary = ''; HealthPolicy=(ConvertTo-DomeniaHealthPolicy) }
 }
 function Add-DomeniaBoardEntry {
     param([Parameter(Mandatory=$true)]$Data,$Entry)
@@ -381,8 +382,19 @@ function Add-DomeniaBoardAttention {
     # worker, or observed workstations), unfolded by a click from the data already in memory. -Route: workspace that
     # holds the useful action (workstation board), opened by Invoke-DomeniaUxRoute without running anything.
     param([Parameter(Mandatory=$true)]$Data,[ValidateSet('Alert','Warn','Info')][string]$Level,[string]$Text,[string]$Point = '',[object[]]$Groups = @(),[object[]]$Machines = @(),[string]$Route = '',[string]$RouteText = '')
-    if (-not $Text -or -not (Test-DomeniaHealthRuleEnabled $Data.HealthPolicy $Point)) { return }
-    [void]$Data.Attention.Add([pscustomobject]@{ Level = $Level; Text = $Text; Point = $Point; Groups = @($Groups | Where-Object { $null -ne $_ }); Machines = @($Machines | Where-Object { $null -ne $_ }); Route = $Route; RouteText = $RouteText })
+    if (-not $Text) { return }
+    $item = [pscustomobject]@{ Level = $Level; Text = $Text; Point = $Point; Groups = @($Groups | Where-Object { $null -ne $_ }); Machines = @($Machines | Where-Object { $null -ne $_ }); Route = $Route; RouteText = $RouteText }
+    if (-not (Test-DomeniaHealthRuleEnabled $Data.HealthPolicy $Point)) {
+        # A disabled or suspended rule never scores nor lists; what it would flag stays explainable (point 75).
+        if ($Level -in @('Alert','Warn')) {
+            $reason = Get-DomeniaHealthRuleState $Data.HealthPolicy $Point
+            $item | Add-Member -NotePropertyName Reason -NotePropertyValue $reason
+            if ($null -eq $Data.PSObject.Properties['SuppressedAttention']) { $Data | Add-Member -NotePropertyName SuppressedAttention -NotePropertyValue (New-Object System.Collections.ArrayList) }
+            [void]$Data.SuppressedAttention.Add($item)
+        }
+        return
+    }
+    [void]$Data.Attention.Add($item)
 }
 function Get-DomeniaBoardHealth {
     # 100 minus 25 per critical point and 10 per point to watch; information lines do not count.

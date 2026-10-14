@@ -51,6 +51,17 @@ Case 'Preference authority is separated by domain and stores only the explicit O
  $script:Conn.BaseDn='DC=other,DC=invalid';Expect ((Get-DomeniaStoredHealthPolicy 'OU=Office,DC=other,DC=invalid').Thresholds.StaleDays -eq 90) 'Foreign domain inherited saved policy'
  $script:Conn.BaseDn=$domain;Save-DomeniaHealthPolicy -ScopeDn $ou -RemoveOverride;Expect ((Get-DomeniaStoredHealthPolicy $ou).Thresholds.StaleDays -eq 90) 'Stored reset failed'
 }
+Case 'Point 76: the editor sees inherited origins, local exceptions and every exception scope' {
+ $p=Get-DomeniaStoredHealthPolicy $ou;$p.Thresholds.StaleDays=21;Save-DomeniaHealthPolicy $p $ou
+ $p=Get-DomeniaStoredHealthPolicy $child;$p.Thresholds.UptimeDays=9;Save-DomeniaHealthPolicy $p $child
+ $book=Get-DomeniaStoredHealthPolicyBook;$rows=@{};foreach($o in @(Get-DomeniaHealthPolicyOrigins -Book $book -ScopeDn $child)){$rows[$o.Kind+'|'+$o.Id]=$o}
+ Expect (($rows['Seuil|StaleDays'].Origin -eq 'Hérité de OU=Office') -and [bool]$rows['Seuil|UptimeDays'].Local -and ($rows['Seuil|DiskFreeAlert'].Origin -eq 'Règles par défaut du domaine')) 'Origins not visible'
+ $exceptions=@(Get-DomeniaHealthPolicyExceptions -Book $book)
+ Expect (($exceptions.Count -eq 2) -and ($exceptions[1].Changes -match 'Redémarrage ancien \(jours\) : 9 \(hérité : 30\)')) 'Exceptions not listed with their inherited value'
+ Expect ((@(Get-DomeniaHealthEditorScopes -Book $book -CurrentDn '')|ForEach-Object{$_.Dn}) -contains $child) 'Exception scope unreachable from the editor'
+ Save-DomeniaHealthPolicy -ScopeDn $child -RemoveOverride;Save-DomeniaHealthPolicy -ScopeDn $ou -RemoveOverride
+ Expect (@(Get-DomeniaHealthPolicyExceptions -Book (Get-DomeniaStoredHealthPolicyBook)).Count -eq 0) 'Removed exceptions still listed'
+}
 Case 'Computer and fleet explanations identify formula and disabled effects' {
  $d=New-DomeniaBoardData Computer;$d.HealthPolicy=ConvertTo-DomeniaHealthPolicy @{DisabledRules=@('memory')};Add-DomeniaBoardAttention $d Alert 'Disk critical' lowdisk;Complete-DomeniaBoardData $d|Out-Null
  Expect ($d.HealthExplanation.Summary -match '25' -and $d.HealthExplanation.DisabledRules -eq 1) 'Computer score unexplained'

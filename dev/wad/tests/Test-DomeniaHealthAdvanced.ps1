@@ -62,6 +62,16 @@ Case 'All cross-table cells keep exact unique GUIDs and include unread dimension
  foreach($key in @('OuWindows','ModelRam','SiteCoverage')){$pivot=$board.Pivots[$key];$ids=[Collections.Generic.HashSet[string]]::new();$total=0;foreach($cell in $pivot.Rows){Expect ($cell.Count -eq $cell.Targets.Count) ('Cell count mismatch '+$key);$total+=$cell.Count;foreach($target in $cell.Targets){Expect ($ids.Add([string]$target.object_guid)) ('GUID occurs in two cells '+$key)}};Expect ($total -eq 4 -and $ids.Count -eq 4 -and $pivot.Total -eq 4) ('Incomplete table '+$key)}
  Expect (@($board.Pivots.ModelRam.Rows|Where-Object{$_.Column -eq 'RAM non lue'}).Count -eq 1) 'Unknown RAM silently removed'
 }
+Case 'Point 75: per-OU explanation lists masked workstations without scoring them' {
+ $book=New-PolicyBook;$p=Resolve-DomeniaHealthPolicy $book $beta;$p.Thresholds.DiskFreeAlert=20;$p.DisabledRules=@(@($p.DisabledRules)+'lowdisk');$book=Set-DomeniaHealthScopePolicy $book $beta $p;$board=Board $book
+ Expect (($board.Last.ProblemTargets.Count -eq 0) -and ($board.Last.HealthyTargets.Count -eq 2) -and ($board.Last.UnknownTargets.Count -eq 2)) 'Masked rule entered the score'
+ $row=@($board.HealthExplanation.Rows|Where-Object{$_.Id -eq 'lowdisk'})[0]
+ Expect (($row.Status -eq 'Selon lʼOU') -and ([int]$row.Machines -eq 0) -and ([int]$row.Masked -eq 2)) ('Masked OU count wrong: '+$row.Status+' '+$row.Masked)
+ $betaIds=@($board.Last.Targets|Where-Object{$_.distinguished_name.EndsWith(','+$beta)}|ForEach-Object{[string]$_.object_guid}|Sort-Object)
+ Expect ((@($row.MaskedGuids|Sort-Object) -join ',') -eq ($betaIds -join ',')) 'Masked GUIDs are not the OU workstations'
+ Expect (@($board.SuppressedAttention|Where-Object{($_.Point -eq 'lowdisk') -and ($_.Reason -eq 'Disabled')}).Count -eq 1) 'Parent-policy masked points not replaced by the OU evaluation'
+ Expect ([string]$row.Eligible -eq '4 / 4') ('Eligible population '+$row.Eligible)
+}
 Case 'New GUI modules and worker body parse, keyboard and canonical hooks remain present' {
  foreach($n in @('HealthRules.Model','HealthRules.UI','Boards.Model','BoardFleet.Model','BoardComputer.UI','Charts.UI','Widgets.UI','Dashboard.UI','Engine.Worker','Refresh.UI')){$tokens=$null;$errors=$null;[void][Management.Automation.Language.Parser]::ParseFile((Join-Path $modules ('Domenia-'+$n+'.ps1')),[ref]$tokens,[ref]$errors);Expect (@($errors).Count -eq 0) ($n+' '+($errors|Out-String))}
  . (Join-Path $modules 'Domenia-Engine.Worker.ps1');$tokens=$null;$errors=$null;[void][Management.Automation.Language.Parser]::ParseInput((Get-DomeniaLocalIndexReadWorkerCode),[ref]$tokens,[ref]$errors);Expect (@($errors).Count -eq 0) ('Worker '+($errors|Out-String))
