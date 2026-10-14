@@ -6,7 +6,7 @@ function Get-DomeniaLocalIndexReadWorkerCode {
     # never an empty answer presented as a result.
     return @'
 $action = [string]$Payload.Action
-if ($action -notin @('Search','ParkState','ParkTargets','FleetStats','ResolveNames','StoreRead')) { throw 'Lecture locale non autorisee.' }
+if ($action -notin @('Search','ParkState','ParkTargets','FleetStats','ResolveNames','StoreRead','IndexMetadata','UserMachineLinks','SecretIndexEntry','OperationStats')) { throw 'Lecture locale non autorisee.' }
 $path = [IO.Path]::GetFullPath([string]$Payload.Path)
 if ($path.StartsWith('\\')) { throw 'Base locale reseau non prise en charge.' }
 if (-not [IO.File]::Exists($path)) { return [pscustomobject]@{ Rows=@(); Busy=$false; Missing=$true; MachineCount=0 } }
@@ -600,6 +600,60 @@ try {
             $result|Add-Member -NotePropertyName Board -NotePropertyValue $board
         }
         $result
+        return
+    }
+    # FI-19 (L20): the last synchronous SQLite reads of the Dispatcher. Each action answers what its former core
+    # reader read, in one snapshot; a table that the schema does not have yet answers empty, never with an error.
+    if ($action -in @('IndexMetadata','UserMachineLinks','SecretIndexEntry','OperationStats')) {
+        [void](Invoke-IdxWQuery $db 'BEGIN;')
+        $tables=@{};foreach($t in @(Invoke-IdxWQuery $db "SELECT name FROM sqlite_master WHERE type='table';")){$tables[[string]$t.name]=$true}
+        $answer=[pscustomobject]@{ Rows=@(); Busy=$false; Missing=$false; MachineCount=0 }
+        if ($action -eq 'IndexMetadata') {
+            # Directory checkpoint, per-OU coverage and failed attempts, plus the counters of the Outils page.
+            $sync=@()
+            if($tables.ContainsKey('sync_state')){$sync=@(Invoke-IdxWQuery $db "SELECT scope,server,base_dn,highest_usn,last_sync,item_count,details FROM sync_state WHERE scope='directory' OR scope LIKE 'ou:%' OR scope LIKE 'attempt:%';")}
+            $counts=[pscustomobject]@{ Total=0L; Users=0L; Computers=0L; MachinesActive=0L; MachinesDisabled=0L }
+            if($tables.ContainsKey('ad_objects')){
+                $c=@(Invoke-IdxWQuery $db "SELECT count(*) AS total,sum(CASE WHEN object_type='Utilisateur' THEN 1 ELSE 0 END) AS users,sum(CASE WHEN object_type='Machine' THEN 1 ELSE 0 END) AS computers,sum(CASE WHEN object_type='Machine' AND (state IS NULL OR state<>'Desactive') THEN 1 ELSE 0 END) AS machines_active,sum(CASE WHEN object_type='Machine' AND state='Desactive' THEN 1 ELSE 0 END) AS machines_disabled FROM ad_objects;")
+                if($c.Count){$counts=[pscustomobject]@{ Total=[long]$c[0].total; Users=[long]$c[0].users; Computers=[long]$c[0].computers; MachinesActive=[long]$c[0].machines_active; MachinesDisabled=[long]$c[0].machines_disabled }}
+            }
+            $answer|Add-Member -NotePropertyName SyncStates -NotePropertyValue $sync
+            $answer|Add-Member -NotePropertyName Counts -NotePropertyValue $counts
+            $answer.MachineCount=[int]$counts.MachinesActive
+        }
+        elseif ($action -eq 'UserMachineLinks') {
+            # User-workstation associations, newest first; the GUI applies the canonical relation rules.
+            $links=New-Object 'System.Collections.Generic.List[object]'
+            if($tables.ContainsKey('user_machine_links')){
+                foreach($r in @(Invoke-IdxWQuery $db 'SELECT user_login,computer,source,confidence,verified_in_ad,observed_at,details,user_guid,computer_guid,user_dn,computer_dn FROM user_machine_links ORDER BY observed_at DESC;')){
+                    $links.Add([pscustomobject]@{ UserLogin=[string]$r.user_login; Computer=[string]$r.computer; Source=[string]$r.source; Confidence=[int]$r.confidence; VerifiedInAD=([long]$r.verified_in_ad -ne 0); When=[string]$r.observed_at; Details=[string]$r.details; UserGuid=[string]$r.user_guid; ComputerGuid=[string]$r.computer_guid; UserDn=[string]$r.user_dn; ComputerDn=[string]$r.computer_dn })
+                }
+            }
+            $answer.Rows=$links.ToArray()
+        }
+        elseif ($action -eq 'SecretIndexEntry') {
+            # Non-secret metadata of one workstation (key count, dates, LAPS scheme, verdict): never a key or a password.
+            $key=([string]$Payload.Computer).Trim().ToUpperInvariant()
+            if((-not $key) -or ($key.Length -gt 256)){throw 'Poste de lecture invalide.'}
+            if($tables.ContainsKey('secret_state')){$answer.Rows=@(Invoke-IdxWQuery $db ('SELECT computer,checked_at,bitlocker_keys,bitlocker_last,laps_scheme,laps_expiry,verdict FROM secret_state WHERE computer_key='+(Get-IdxWLiteral $key)+' LIMIT 1;'))}
+            $answer|Add-Member -NotePropertyName Computer -NotePropertyValue $key
+        }
+        else {
+            # Measured samples per operation: the statistics grid and the history model of the impact estimates
+            # (samples with a duration only, as the former Get-DomeniaOperationHistoryModel).
+            if($tables.ContainsKey('operation_runs')){
+                $per='CASE WHEN duration_ms>0 AND item_count>0 THEN duration_ms*1.0/item_count ELSE NULL END'
+                $answer.Rows=@(Invoke-IdxWQuery $db ('SELECT operation,count(*) AS samples,avg(duration_ms) AS avg_duration_ms,avg(CASE WHEN item_count>0 THEN duration_ms*1.0/item_count ELSE NULL END) AS avg_ms_per_item,avg(bytes_estimated) AS avg_bytes,' +
+                    'sum(remote_attempts) AS remote_attempts,sum(fallback_tasks) AS fallback_tasks,sum(success_count) AS successes,sum(failure_count) AS failures,max(finished_at) AS last_run,' +
+                    'sum(CASE WHEN duration_ms>0 THEN 1 ELSE 0 END) AS n,avg('+$per+') AS ms_per_item,min('+$per+') AS min_ms_per_item,max('+$per+') AS max_ms_per_item,' +
+                    'avg(CASE WHEN duration_ms>0 AND item_count>0 THEN bytes_estimated*1.0/item_count ELSE NULL END) AS bytes_per_item,' +
+                    'avg(CASE WHEN duration_ms>0 AND remote_attempts>0 THEN fallback_tasks*1.0/remote_attempts ELSE NULL END) AS fallback_ratio,' +
+                    'avg(CASE WHEN duration_ms>0 AND item_count>0 THEN success_count*1.0/item_count ELSE NULL END) AS success_ratio' +
+                    ' FROM operation_runs GROUP BY operation ORDER BY samples DESC, operation COLLATE NOCASE;'))
+            }
+        }
+        [void](Invoke-IdxWQuery $db 'COMMIT;')
+        $answer
         return
     }
     if ($action -eq 'ParkState') {

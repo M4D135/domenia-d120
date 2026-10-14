@@ -62,7 +62,7 @@ $script:CoreFunctions = @('Start-UiTask','Complete-UiTasks','Request-UiTaskStop'
     'Close-DomeniaDatabase','Invoke-DomeniaDbExec','Get-DomeniaStartupXaml','Convert-DomeniaXamlToBootTheme','Get-DomeniaBootThemeResources',
     'Get-DomeniaBootThemePalette','Get-DomeniaStandardLoginXaml','Get-DomeniaBootStatusColor','Test-DomeniaMainHostAvailable',
     'Invoke-DomeniaDbQuery','ConvertTo-DomeniaSqlLiteral','Initialize-DomeniaDatabase','Backup-DomeniaDatabase','Get-DomeniaStoreBackupDirectory',
-    'Normalize-LinkComputer','Normalize-LinkUser','ConvertTo-DomeniaCanonicalLinks','Load-UserMachineLinks',
+    'Normalize-LinkComputer','Normalize-LinkUser','ConvertTo-DomeniaCanonicalLinks',
     # CD-12: the error of a task is analysed once by the real ConvertTo-DomeniaErrorInfo.
     'ConvertTo-DomeniaErrorInfo','Test-DomeniaInternalFault','Test-DomeniaOperatorMessage')
 $coreSource = New-Object 'System.Collections.Generic.List[string]'
@@ -815,7 +815,8 @@ Test-Case 'D089 : une seule demande par moment, refus respecte, Alt-Tab respecte
 # Real queue (Queue-DomeniaLinkChanges), real admission and callbacks (Start/Complete/Fail-DomeniaStorageWork), real
 # Resume-DomeniaStorage, real pinned LocalStore body in a real worker runspace (real Start-UiTask/Complete-UiTasks),
 # real schema (Initialize-DomeniaDatabase) in a temporary local file, real Get-DomeniaLinkFingerprint and real loader
-# Load-UserMachineLinks. No directory, no share, no AD write. Removing the optimistic check of the worker, its single
+# (FI-19: Request-DomeniaUserMachineLinks, pinned LocalIndexRead body in a real worker runspace, real callback
+# Complete-DomeniaUserMachineLinksUi). No directory, no share, no AD write. Removing the optimistic check of the worker, its single
 # transaction (BEGIN IMMEDIATE), the conflict state, the writer's own suspension or the off-Dispatcher writer makes a
 # case fail.
 function Get-WiringModuleFunctionText {
@@ -887,6 +888,15 @@ function Stop-WiringStorage {
 function Wait-WiringStoreIdle {
     return (Wait-WiringCondition -Complete -TimeoutMs 15000 { @($script:AsyncJobs.Values | Where-Object { $null -ne $_ -and $_.OperationId -eq 'LocalStore' }).Count -eq 0 })
 }
+function Invoke-WiringLinkReload {
+    # FI-19: the reload gesture (Comptes > Changer de compte) empties the associations of the session, then the pinned
+    # LocalIndexRead worker reads them from the base; its callback sets the reference of the single writer.
+    $before = @($script:Logs | Where-Object { $_ -match 'non relues' }).Count
+    $script:UserMachineLinks = @()
+    Request-DomeniaUserMachineLinks
+    Assert-True (Wait-WiringCondition -Complete -TimeoutMs 30000 { $null -eq $script:LinkLoad }) 'Relecture des associations sans rappel'
+    Assert-True (@($script:Logs | Where-Object { $_ -match 'non relues' }).Count -eq $before) ('Relecture des associations en echec : ' + (@($script:Logs) -join ' | '))
+}
 function Invoke-WiringStorageBatch {
     param([string]$Why = 'Lot')
     Assert-True (Wait-WiringStoreIdle) ($Why + ' : ecrivain precedent encore actif')
@@ -913,7 +923,7 @@ Test-Case 'D028 : deux mises a jour independantes ne s ecrasent pas' {
         Assert-True ([string]$script:LinkBaseline['PC1'].UserLogin -eq 'alice' -and [string]$script:LinkBaseline['PC2'].UserLogin -eq 'bob') 'Reference de A non mise a jour'
         # Console B reads the same base with the real loader, then changes PC1 to carol in its own LocalStore run.
         $consoleA = [pscustomobject]@{Links=$script:UserMachineLinks;Baseline=$script:LinkBaseline}
-        Load-UserMachineLinks
+        Invoke-WiringLinkReload
         $readByB = $script:LinkBaseline['PC1']
         $script:UserMachineLinks = $consoleA.Links; $script:LinkBaseline = $consoleA.Baseline
         Assert-True ($null -ne $readByB -and [string]$readByB.UserLogin -eq 'alice') 'Console B : PC1 non relu sur le disque'
@@ -953,7 +963,7 @@ Test-Case 'D028 : deux mises a jour independantes ne s ecrasent pas' {
         Invoke-WiringStorageBatch 'Console A, nouvel essai explicite'
         Assert-True ((Get-WiringStoredLinks)['PC1'] -eq 'carol') 'Le nouvel essai explicite a ecrase la version de B'
         Assert-True (@($script:Statuses | Where-Object { $_ -match 'Association modifiee ailleurs : PC1' }).Count -eq 1) 'Le chemin explicite n avertit pas'
-        Load-UserMachineLinks
+        Invoke-WiringLinkReload
         Assert-True ($script:Persistence.Conflicts.Count -eq 0) 'Le rechargement ne termine pas l etat de conflit'
         Assert-True (@($script:UserMachineLinks | Where-Object { [string]$_.Computer -eq 'PC1' -and [string]$_.UserLogin -eq 'carol' }).Count -eq 1) 'Rechargement : version du disque absente'
         $after = (Get-DomeniaPersistenceState).Label

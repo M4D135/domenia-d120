@@ -8525,15 +8525,10 @@ function Reset-DomeniaSelectionBoundViews {
         [void](Set-DomeniaControlText -Name "LblLinkProbeStatus" -Text "En attente du chargement complet de l'objet.")
         try { Update-DomeniaLinkActionUi -RowCount 0 } catch { }
         try { $script:LastLoadedEntry = $null; Reset-DomeniaDeferredViews } catch { }
-        $secretHint = "Aucun secret charge pour cette selection."
-        try {
-            if ($Type -eq "Machine") {
-                $known = Get-DomeniaSecretIndexSummary -Computer ([string]$Name)
-                if (-not [string]::IsNullOrWhiteSpace($known)) { $secretHint = $known }
-            }
-        }
-        catch { }
-        [void](Set-DomeniaControlText -Name "LblSecretsStatus" -Text $secretHint)
+        [void](Set-DomeniaControlText -Name "LblSecretsStatus" -Text "Aucun secret charge pour cette selection.")
+        # FI-19: the summary of the last BitLocker/LAPS reading of a workstation (metadata, never a value) is read off
+        # the Dispatcher and completes this hint; another selection, or another type of object, cancels the request.
+        try { Request-DomeniaSecretIndexSummary -Computer $(if ($Type -eq "Machine") { [string]$Name } else { '' }) } catch { }
         [void](Set-DomeniaControlText -Name "LblComputerDiag" -Text "Aucun diagnostic lance pour cette selection.")
         [void](Set-DomeniaControlText -Name "LblPermissionSummary" -Text "Droits non evalues pour cette selection.")
         [void](Set-DomeniaControlText -Name "LblInventoryStatus" -Text "Aucun inventaire charge pour cette selection.")
@@ -9606,6 +9601,17 @@ $script:IndexDbMachinesDisabled = -1
 $script:IndexInfo = $null
 $script:IndexSyncStates = @{}
 $script:IndexMetadataError = ''
+# FI-19: state of the local reads answered by the LocalIndexRead worker (Domenia-Engine.UI.ps1).
+$script:IndexMetadataGeneration = [long]0
+$script:IndexMetadataStartupChecks = $false
+$script:LinkLoad = $null
+$script:LinkLoadGeneration = [long]0
+$script:SecretIndexSummaryGeneration = [long]0
+$script:OperationStatsGeneration = [long]0
+$script:OperationStatsExportPending = $false
+$script:OperationHistoryModels = $null
+$script:OperationHistoryModelsEpoch = [long]-1
+$script:ParkMachineCount = $null
 $script:IndexUsersByLogin = @{}
 $script:IndexUsersByGuid = @{}
 $script:IndexComputersByName = @{}
@@ -16068,56 +16074,10 @@ function Load-DomeniaIndex {
 }
 
 
-function Load-DomeniaIndexMetadata {
-    # Ne charge jamais les dizaines de milliers de lignes au demarrage.
-    # Seules les metadonnees et les compteurs necessaires a l'interface sont lus.
-    try {
-        Initialize-DomeniaDatabase | Out-Null
-        $script:IndexMetadataError = ''
-        $script:IndexSyncStates = @{}
-        foreach ($syncRow in @(Invoke-DomeniaDbQuery "SELECT scope,server,base_dn,highest_usn,last_sync,item_count,details FROM sync_state WHERE scope='directory' OR scope LIKE 'ou:%' OR scope LIKE 'attempt:%';")) { $script:IndexSyncStates[[string]$syncRow.scope] = $syncRow }
-        $s = @(); if ($script:IndexSyncStates.ContainsKey('directory')) { $s = @($script:IndexSyncStates['directory']) }
-        if ($s.Count -gt 0) {
-            $inv = ''
-            $details = [string]$s[0].details
-            if ($details -match '(?i)inv=([0-9a-fA-F-]{36})') { $inv = $matches[1] }
-            $script:IndexInfo = [pscustomobject]@{
-                Server=[string]$s[0].server
-                BaseDn=[string]$s[0].base_dn
-                Date=[string]$s[0].last_sync
-                Count=[int]$s[0].item_count
-                Usn=[long]$s[0].highest_usn
-                InvocationId=$inv
-            }
-        } else { $script:IndexInfo = $null }
-
-        $c = @(Invoke-DomeniaDbQuery "SELECT count(*) AS total,sum(CASE WHEN object_type='Utilisateur' THEN 1 ELSE 0 END) AS users,sum(CASE WHEN object_type='Machine' THEN 1 ELSE 0 END) AS computers,sum(CASE WHEN object_type='Machine' AND (state IS NULL OR state<>'Desactive') THEN 1 ELSE 0 END) AS machines_active,sum(CASE WHEN object_type='Machine' AND state='Desactive' THEN 1 ELSE 0 END) AS machines_disabled FROM ad_objects;")
-        if ($c.Count -gt 0) {
-            $script:IndexDbCount = [int]$c[0].total
-            $script:IndexDbUsers = [int]$c[0].users
-            $script:IndexDbComputers = [int]$c[0].computers
-            $script:IndexDbMachinesActive = [int]$c[0].machines_active
-            $script:IndexDbMachinesDisabled = [int]$c[0].machines_disabled
-        } else {
-            $script:IndexDbCount = 0; $script:IndexDbUsers = 0; $script:IndexDbComputers = 0
-            $script:IndexDbMachinesActive = 0; $script:IndexDbMachinesDisabled = 0
-        }
-        return [int]$script:IndexDbCount
-    }
-    catch {
-        $script:IndexMetadataError = [string]$_.Exception.Message
-        $script:IndexInfo = $null; $script:IndexSyncStates = @{}
-        $script:IndexDbCount = 0; $script:IndexDbUsers = 0; $script:IndexDbComputers = 0; $script:IndexDbMachinesActive = 0; $script:IndexDbMachinesDisabled = 0
-        Write-AppLog "Metadonnees de la base autonome illisibles : $($_.Exception.Message)" "WARN"
-        return 0
-    }
-}
-
 function Get-DomeniaDatabaseObjectCount {
-    try {
-        if ([int]$script:IndexDbCount -lt 0) { [void](Load-DomeniaIndexMetadata) }
-        return [int]$script:IndexDbCount
-    } catch { return 0 }
+    # FI-19: objects of the local base as last read by Request-DomeniaIndexMetadata, never read here on the
+    # Dispatcher. -1 means not read yet: the caller says so instead of treating the base as empty.
+    return [int]$script:IndexDbCount
 }
 
 function Search-DomeniaDatabaseRows {
@@ -16402,7 +16362,8 @@ function Complete-DomeniaIndexRefreshUi {
         # a tout relu sans troncature, on repart d un index neuf.
         [void](Save-DomeniaIndex -Rows $changed -Transfer $transfer -Server ([string]$effective.Server) -BaseDn ([string]$effective.BaseDn) -HighestUsn ([long]$effective.HighestUsn) -InvocationId ([string]$effective.InvocationId) -Reconcile $effective.Reconcile)
         $script:IndexRows = @()
-        [void](Load-DomeniaIndexMetadata)
+        # FI-19: the figures are read again off the Dispatcher; the committed save reads them once more (storage).
+        Request-DomeniaIndexMetadata
         $summary = "Lecture complète terminée, enregistrement local en attente : {0} objet(s), en {1} ms. Le repere de la passe precedente n etait pas utilisable." -f `
             $rowCount,([long]$effective.DurationMs)
     }
@@ -16415,8 +16376,9 @@ function Complete-DomeniaIndexRefreshUi {
             $added = [int]$merge.Added
         } else {
             [void](Update-DomeniaIndexDatabaseRows -Rows $changed -Transfer $transfer -Server ([string]$effective.Server) -BaseDn ([string]$effective.BaseDn) -Complete (-not [bool]$effective.Truncated) -HighestUsn ([long]$effective.HighestUsn) -TotalCount 0 -InvocationId ([string]$effective.InvocationId) -Reconcile $effective.Reconcile)
-            [void](Load-DomeniaIndexMetadata)
-            $totalAfter = [int]$script:IndexDbCount
+            # The batch is only queued: the base still holds the count read before it (FI-19, read off the Dispatcher).
+            $totalAfter = [Math]::Max(0,[int]$script:IndexDbCount)
+            Request-DomeniaIndexMetadata
             $updated = $rowCount
             $added = 0
         }
@@ -16465,6 +16427,12 @@ function Start-DomeniaIndexRefresh {
         try { $since = [string]$script:IndexInfo.Date } catch { }
         try { $lastInvocationId = [string]$script:IndexInfo.InvocationId } catch { $lastInvocationId = "" }
         $dbCount = Get-DomeniaDatabaseObjectCount
+        if ($dbCount -lt 0) {
+            # FI-19: the figures of the base are being read off the Dispatcher; nothing is started on a guess.
+            if (-not $Silent) { Set-Status "État de la base locale en cours de lecture : relancez la mise à jour dans un instant." "WARN" }
+            try { Request-DomeniaIndexMetadata } catch { }
+            return
+        }
         if ($dbCount -eq 0) {
             if (-not $Silent) { Set-Status "Aucune base autonome : utilise  Mettre a jour tout  d abord." "WARN" }
             return
@@ -16510,7 +16478,8 @@ function Request-DomeniaIndexAutoRefresh {
     # Une mise a jour d'index peut charger le DC plusieurs minutes et doit passer
     # par l'estimation d'impact + confirmation de l'operateur.
     try {
-        if ((Get-DomeniaDatabaseObjectCount) -eq 0) { return }
+        # Unknown (-1, not read yet) or empty base: no notice on the age of the base.
+        if ((Get-DomeniaDatabaseObjectCount) -le 0) { return }
         $when = ""
         try { $when = [string]$script:IndexInfo.Date } catch { }
         $ageMinutes = 999999
@@ -16871,12 +16840,6 @@ $watch.Stop()
 
 function Get-DomeniaParkStatePath { return (Get-DomeniaDatabasePath) }
 
-function Load-DomeniaParkState {
-    $state=@{}
-    try{Initialize-DomeniaDatabase|Out-Null;foreach($r in @(Invoke-DomeniaDbQuery "SELECT computer_key,computer,last_probe,status,user_login,attempts FROM park_state;")){$state[[string]$r.computer_key]=[pscustomobject]@{Computer=[string]$r.computer;LastProbe=[string]$r.last_probe;Status=[string]$r.status;User=[string]$r.user_login;Attempts=[int]$r.attempts}}}catch{Write-AppLog "Etat du parc illisible : $($_.Exception.Message)" "WARN"}
-    $script:ParkState=$state;return $state.Count
-}
-
 function Save-DomeniaParkState {
     if($null -eq $script:ParkState){return $false}
     $ok=$true
@@ -16947,27 +16910,17 @@ function Get-DomeniaParkPriority {
 }
 
 function Get-DomeniaParkCoverage {
-    if ($null -eq $script:ParkState) { [void](Load-DomeniaParkState) }
-    $machines = if (@($script:IndexRows).Count -gt 0) { @($script:IndexRows | Where-Object { [string]$_.Type -eq "Machine" -and [string]$_.State -ne "Desactive" }).Count } else { try { [int](@(Invoke-DomeniaDbQuery "SELECT count(*) AS n FROM ad_objects WHERE object_type='Machine' AND (state IS NULL OR state<>'Desactive');")[0].n) } catch { 0 } }
-    $releves = 0
-    $avecSession = 0
-    $dernier = ""
-    foreach ($key in @($script:ParkState.Keys)) {
-        $e = $script:ParkState[$key]
-        $releves++
-        if ([string]$e.Status -eq "Session") { $avecSession++ }
-        $d = [string]$e.LastProbe
-        if ([string]::IsNullOrWhiteSpace($dernier)) { $dernier = $d; continue }
-        try { if ([datetime]$d -gt [datetime]$dernier) { $dernier = $d } } catch { }
-    }
-    return [pscustomobject]@{ Machines=$machines; Releves=$releves; AvecSession=$avecSession; Dernier=$dernier; Dormants=[int]$script:ParkDormants }
+    # FI-19: no SQLite read here. The stored survey and its active workstation count are read by the LocalIndexRead
+    # worker (Request-DomeniaParkStateReload); until then the survey in memory and the in-memory index are what is known.
+    if ($null -eq $script:ParkState) { Request-DomeniaParkStateReload }
+    return (Get-DomeniaParkCoverageFigures -State $script:ParkState -IndexRows @($script:IndexRows) -KnownMachineCount (Get-DomeniaParkMachineCount) -Dormants ([int]$script:ParkDormants))
 }
 
 function Get-DomeniaParkCoverageText {
     $c = Get-DomeniaParkCoverage
-    if ([int]$c.Machines -eq 0) { return "Aucun poste indexe : construis d abord l index." }
-    $pct = 0
-    if ([int]$c.Machines -gt 0) { $pct = [Math]::Round(100.0 * [int]$c.Releves / [int]$c.Machines,0) }
+    if ([int]$c.Machines -lt 0) { return ([string][int]$c.Releves + ' poste(s) relevé(s) en mémoire. Lecture du relevé enregistré en arrière-plan : la couverture du parc sʼaffiche ensuite.') }
+    if ([int]$c.Machines -eq 0) { return 'Aucun poste indexé : construisez dʼabord lʼindex.' }
+    $pct = [Math]::Round(100.0 * [int]$c.Releves / [int]$c.Machines,0)
     $age = ""
     if (-not [string]::IsNullOrWhiteSpace([string]$c.Dernier)) {
         try {
@@ -16978,8 +16931,8 @@ function Get-DomeniaParkCoverageText {
         catch { }
     }
     $dormants = ""
-    if ([int]$c.Dormants -gt 0) { $dormants = ", " + [int]$c.Dormants + " ecarte(s) faute d activite depuis le dernier releve" }
-    return ("{0} poste(s) actifs, {1} releve(s) soit {2} pour cent, {3} avec un utilisateur connu{4}{5}." -f `
+    if ([int]$c.Dormants -gt 0) { $dormants = ", " + [int]$c.Dormants + " écarté(s) faute dʼactivité depuis le dernier relevé" }
+    return ("{0} poste(s) actif(s), {1} relevé(s) soit {2} pour cent, {3} avec un utilisateur connu{4}{5}." -f `
         [int]$c.Machines,[int]$c.Releves,$pct,[int]$c.AvecSession,$dormants,$age)
 }
 
@@ -17188,7 +17141,8 @@ function Complete-DomeniaIndexBuildUi {
         [void](Save-DomeniaIndex -Rows $rows -Transfer $transfer -Server ([string]$effective.Server) -BaseDn ([string]$effective.BaseDn) -HighestUsn ([long]$effective.HighestUsn) -InvocationId ([string]$effective.InvocationId) -Reconcile $effective.Reconcile)
     }
     $script:IndexRows = @()
-    [void](Load-DomeniaIndexMetadata)
+    # FI-19: figures read again off the Dispatcher; Complete-DomeniaIndexMetadataUi updates the page.
+    Request-DomeniaIndexMetadata
     $linkChanges = 0
 
     $users = $(if ($null -ne $transfer) { [long]$effective.UserCount } else { @($rows | Where-Object { [string]$_.Type -eq "Utilisateur" }).Count })
@@ -17492,7 +17446,7 @@ function Complete-DomeniaIndexWalkUi {
     Set-Status $summary $(if ($Aborted -or $walk.Limited -gt 0 -or $walk.Errors -gt 0) { 'WARN' } else { 'INFO' })
     Add-DomeniaUiLog -Area "Index" -Text $summary
     $script:FleetStale = $true
-    try { [void](Load-DomeniaIndexMetadata); Update-DomeniaIndexStats } catch { }
+    try { Request-DomeniaIndexMetadata } catch { }
 }
 
 function Get-DomeniaIndexScope {
@@ -17599,8 +17553,8 @@ function Set-DomeniaIndexProgress {
 }
 
 function Update-DomeniaIndexStats {
+    # FI-19: shows the figures last read by Request-DomeniaIndexMetadata; it never reads the base itself.
     try {
-        if ([int]$script:IndexDbCount -lt 0) { [void](Load-DomeniaIndexMetadata) }
         $target = Get-DomeniaIndexScope
         $scopeKey = if ([bool]$target.IsDomain) { 'directory' } else { 'ou:' + ([string]$target.BaseDn).ToLowerInvariant() }
         $targetText = if ([bool]$target.IsDomain) { 'Aucune OU choisie · sélectionnez une OU pour limiter la lecture' } else { [string]$target.BaseDn + ' et ses sous-OU' }
@@ -17609,6 +17563,13 @@ function Update-DomeniaIndexStats {
             [void](Set-DomeniaControlText -Name 'LblIndexOverview' -Text 'La base locale ne peut pas être lue. Son contenu nʼest pas considéré comme vide.')
             [void](Set-DomeniaControlText -Name 'LblIndexFreshness' -Text 'Vérifiez lʼonglet Stockage avant de relire lʼOU choisie.')
             [void](Set-DomeniaControlText -Name 'LblIndexStats' -Text ([string]$script:IndexMetadataError))
+            return
+        }
+        if ([int]$script:IndexDbCount -lt 0) {
+            # Not read yet in this session: the base is not presented as empty. The answer calls this function again.
+            [void](Set-DomeniaControlText -Name 'LblIndexOverview' -Text 'Lecture de lʼétat de la base locale en arrière-plan…')
+            [void](Set-DomeniaControlText -Name 'LblIndexFreshness' -Text 'La fraîcheur du périmètre sʼaffiche dès que la base locale est lue.')
+            [void](Set-DomeniaControlText -Name 'LblIndexStats' -Text ('Fichier : {0}.' -f (Get-DomeniaDatabasePath)))
             return
         }
         $count = [Math]::Max(0,[int]$script:IndexDbCount)
@@ -18122,59 +18083,12 @@ function Get-DomeniaSecretIndexPath {
     return (Get-DomeniaDatabasePath)
 }
 
-function Get-DomeniaSecretIndexEntry {
-    param([Parameter(Mandatory=$true)][AllowEmptyString()][string]$Computer)
-    $key = ([string]$Computer).Trim().ToUpperInvariant()
-    if ([string]::IsNullOrWhiteSpace($key)) { return $null }
-    try {
-        Initialize-DomeniaDatabase | Out-Null
-        $rows = @(Invoke-DomeniaDbQuery ("SELECT computer,checked_at,bitlocker_keys,bitlocker_last,laps_scheme,laps_expiry,verdict,detail FROM secret_state WHERE computer_key=" + (ConvertTo-DomeniaSqlLiteral $key) + " LIMIT 1;"))
-        if ($rows.Count -eq 0) { return $null }
-        $r = $rows[0]
-        return [pscustomobject]@{
-            Computer = [string]$r.computer; CheckedAt = [string]$r.checked_at; BitLockerKeys = [int]$r.bitlocker_keys; BitLockerLast = [string]$r.bitlocker_last
-            LapsScheme = [string]$r.laps_scheme; LapsExpiry = [string]$r.laps_expiry; Verdict = [string]$r.verdict; Detail = [string]$r.detail
-        }
-    }
-    catch { return $null }
-}
-
 function Save-DomeniaSecretIndexEntry {
     param([Parameter(Mandatory=$true)][AllowEmptyString()][string]$Computer,[int]$BitLockerKeys=-1,[string]$BitLockerLast='', [string]$LapsScheme='', [string]$LapsExpiry='', [string]$Verdict='', [string]$Detail='')
     if(-not $Computer.Trim()){return $false}
     # Do not persist provider error details in the secrets index.
     $row=[pscustomobject]@{Computer=$Computer;BitLockerKeys=$BitLockerKeys;BitLockerLast=$BitLockerLast;LapsScheme=$LapsScheme;LapsExpiry=$LapsExpiry;Verdict=$Verdict;At=[datetime]::UtcNow.ToString('o')}
     return Queue-DomeniaMetadata -Kind SecretMeta -Key $Computer.ToUpperInvariant() -Row $row
-}
-
-function Get-DomeniaSecretIndexSummary {
-    param([Parameter(Mandatory=$true)][AllowEmptyString()][string]$Computer)
-    $entry = Get-DomeniaSecretIndexEntry -Computer $Computer
-    if ($null -eq $entry) { return "" }
-    $parts = New-Object System.Collections.Generic.List[string]
-    if ([int]$entry.BitLockerKeys -gt 0) {
-        $texte = "{0} cle(s) BitLocker" -f [int]$entry.BitLockerKeys
-        if (-not [string]::IsNullOrWhiteSpace([string]$entry.BitLockerLast)) { $texte = $texte + ", la plus recente du " + [string]$entry.BitLockerLast }
-        $parts.Add($texte)
-    }
-    elseif ([int]$entry.BitLockerKeys -eq 0) { $parts.Add("aucune cle BitLocker") }
-    if (-not [string]::IsNullOrWhiteSpace([string]$entry.LapsScheme)) {
-        $texte = [string]$entry.LapsScheme
-        if (-not [string]::IsNullOrWhiteSpace([string]$entry.LapsExpiry)) { $texte = $texte + ", expiration " + [string]$entry.LapsExpiry }
-        $parts.Add($texte)
-    }
-    if ($parts.Count -eq 0) { return "" }
-    $age = ""
-    try {
-        $span = (Get-Date) - [datetime]$entry.CheckedAt
-        if ([int]$span.TotalDays -ge 1) { $age = "il y a " + [int]$span.TotalDays + " jour(s)" }
-        else { $age = "il y a " + [int]$span.TotalHours + " heure(s)" }
-    }
-    catch { $age = "le " + [string]$entry.CheckedAt }
-    $verdict = ""
-    if (-not [string]::IsNullOrWhiteSpace([string]$entry.Verdict)) { $verdict = " " + [string]$entry.Verdict + "." }
-    return ("Releve {0} : {1}.{2} Les valeurs ne sont jamais conservees, il faut les recharger." -f `
-        $age,($parts.ToArray() -join ", "),$verdict)
 }
 
 function Update-DomeniaSecretIndexFromRows {
@@ -21849,8 +21763,23 @@ function Start-DomeniaAccountRelogin {
         }
         $script:RemoteAdminCredential = $null; $script:SecretsCredential = $null; $script:MachineCredential = $null
         Clear-DomeniaAccessAccounts
-        [void](Load-DomeniaIndexMetadata)
-        Load-UserMachineLinks
+        # The base of the new session is opened as at startup: schema created or migrated here (Initialize-DomeniaDatabase).
+        # Its content is read by the LocalIndexRead worker (FI-19): the figures and the associations complete the views
+        # when they arrive; the associations reloaded from the base also end a conflict state (D028).
+        $script:IndexDbCount = -1; $script:IndexMetadataError = ''
+        # No reference of the previous base survives the change of session (D028): the associations are empty here.
+        $script:LinkLoad = $null
+        Reset-DomeniaLinkBaseline
+        try {
+            [void](Initialize-DomeniaDatabase)
+            Request-DomeniaIndexMetadata
+            Request-DomeniaUserMachineLinks
+        }
+        catch {
+            $script:IndexMetadataError = [string]$_.Exception.Message
+            Write-AppLog ('Base locale de la nouvelle session indisponible : ' + $script:IndexMetadataError) 'ERROR'
+        }
+        Update-DomeniaIndexStats
         Load-TreeRoot
         Initialize-DomeniaAccountPanel
         Update-DomeniaAccountUi
@@ -22266,8 +22195,8 @@ function Wire-Events {
             catch { [void](Show-DomeniaOperationError -Operation "Export de l index" -ErrorRecordOrException $_) }
         })
     }
-    if ($script:Ctrl.ContainsKey("BtnOperationStatsRefresh")) { $script:Ctrl["BtnOperationStatsRefresh"].Add_Click({ Refresh-DomeniaOperationStatsUi }) }
-    if ($script:Ctrl.ContainsKey("BtnOperationStatsExport")) { $script:Ctrl["BtnOperationStatsExport"].Add_Click({ Export-DomeniaOperationStatsCsv }) }
+    if ($script:Ctrl.ContainsKey("BtnOperationStatsRefresh")) { $script:Ctrl["BtnOperationStatsRefresh"].Add_Click({ Request-DomeniaOperationStats }) }
+    if ($script:Ctrl.ContainsKey("BtnOperationStatsExport")) { $script:Ctrl["BtnOperationStatsExport"].Add_Click({ Request-DomeniaOperationStats -Export }) }
     if ($script:Ctrl.ContainsKey("ApplicationToolTabs") -and $script:Ctrl.ContainsKey("TabOperationStats")) {
         $script:Ctrl["ApplicationToolTabs"].Add_SelectionChanged({
             param($sender,$e)
@@ -22275,7 +22204,7 @@ function Wire-Events {
                 # SelectionChanged est un evenement route : ignorer ceux des controles enfants.
                 if ($null -ne $e -and $e.OriginalSource -ne $sender) { return }
                 if ($sender.SelectedItem -eq $script:Ctrl["TabOperationStats"]) {
-                    Refresh-DomeniaOperationStatsUi
+                    Request-DomeniaOperationStats
                 }
                 elseif ($sender.SelectedItem -eq $script:Ctrl['WsQueryWorkshop']) {
                     # A manual tool-tab change remembers the previous tool; programmatic routes retain their origin.
@@ -23434,7 +23363,7 @@ function Invoke-DomeniaDatabaseMaintenance {
             if ($check.Count -eq 0 -or [string]$check[0].quick_check -ne 'ok') { throw 'PRAGMA quick_check a signale une incoherence.' }
         }
         if ($Backup) { [void](Backup-DomeniaDatabase) }
-        [void](Load-DomeniaIndexMetadata)
+        try { Request-DomeniaIndexMetadata } catch { }
         $sw.Stop()
         try { Register-DomeniaOperationSample -Operation 'DatabaseMaintenance' -Mode 'Local SQLite' -ItemCount 1 -DurationMs $sw.ElapsedMilliseconds -SuccessCount 1 } catch {}
         return $true
@@ -23456,14 +23385,15 @@ function Register-DomeniaOperationSample {
 }
 
 function Get-DomeniaOperationHistoryModel {
+    # FI-19: the measured history comes from the last OperationStats reading kept in memory, never from SQLite on the
+    # Dispatcher. Each estimate also asks for a new reading, so that the next one includes the latest samples; until a
+    # first reading of this session arrives, the estimate uses its initial values (Confidence 'Initiale').
     param([string]$Operation)
-    try {
-        Initialize-DomeniaDatabase | Out-Null
-        $op=ConvertTo-DomeniaSqlLiteral $Operation
-        $rows=@(Invoke-DomeniaDbQuery "SELECT count(*) n,avg(CASE WHEN item_count>0 THEN duration_ms*1.0/item_count ELSE NULL END) ms_per_item,min(CASE WHEN item_count>0 THEN duration_ms*1.0/item_count ELSE NULL END) min_ms_per_item,max(CASE WHEN item_count>0 THEN duration_ms*1.0/item_count ELSE NULL END) max_ms_per_item,avg(CASE WHEN item_count>0 THEN bytes_estimated*1.0/item_count ELSE NULL END) bytes_per_item,avg(CASE WHEN remote_attempts>0 THEN fallback_tasks*1.0/remote_attempts ELSE NULL END) fallback_ratio,avg(CASE WHEN item_count>0 THEN success_count*1.0/item_count ELSE NULL END) success_ratio FROM operation_runs WHERE operation=$op AND duration_ms>0;")
-        if($rows.Count -gt 0){return $rows[0]}
-    } catch { }
-    return $null
+    $models = $script:OperationHistoryModels
+    $current = (($null -ne $models) -and ([long]$script:OperationHistoryModelsEpoch -eq [long]$script:SessionEpoch))
+    try { Request-DomeniaOperationStats -Quiet } catch { }
+    if ((-not $current) -or (-not $models.ContainsKey($Operation))) { return $null }
+    return $models[$Operation]
 }
 
 function Format-DomeniaByteEstimate {
@@ -23475,54 +23405,12 @@ function Format-DomeniaByteEstimate {
 }
 
 
-function Refresh-DomeniaOperationStatsUi {
-    try {
-        Initialize-DomeniaDatabase | Out-Null
-        $sql=@"
-SELECT operation,
-       count(*) AS samples,
-       avg(duration_ms) AS avg_duration_ms,
-       avg(CASE WHEN item_count>0 THEN duration_ms*1.0/item_count ELSE NULL END) AS avg_ms_per_item,
-       avg(bytes_estimated) AS avg_bytes,
-       sum(remote_attempts) AS remote_attempts,
-       sum(fallback_tasks) AS fallback_tasks,
-       sum(success_count) AS successes,
-       sum(failure_count) AS failures,
-       max(finished_at) AS last_run
-FROM operation_runs
-GROUP BY operation
-ORDER BY samples DESC, operation COLLATE NOCASE;
-"@
-        $raw=@(Invoke-DomeniaDbQuery $sql)
-        $rows=New-Object Collections.ArrayList
-        $total=0
-        foreach($r in $raw){
-            $samples=[int]$r.samples;$total+=$samples
-            $avgDuration=[double]$r.avg_duration_ms;$avgBytes=[double]$r.avg_bytes;$avgPer=[double]$r.avg_ms_per_item
-            $fallbackPct=0;if([double]$r.remote_attempts -gt 0){$fallbackPct=[Math]::Round(100*[double]$r.fallback_tasks/[double]$r.remote_attempts,1)}
-            $den=[double]$r.successes+[double]$r.failures;$successPct=0;if($den-gt0){$successPct=[Math]::Round(100*[double]$r.successes/$den,1)}
-            $bps=0;if($avgDuration-gt0){$bps=$avgBytes/($avgDuration/1000.0)}
-            $band=$(if($bps-ge125000){("{0:N2} Mbit/s" -f ($bps*8/1000000.0))}elseif($bps-gt0){("{0:N1} kbit/s" -f ($bps*8/1000.0))}else{"-"})
-            $last=[string]$r.last_run;try{if($last){$last=([datetime]$last).ToString("dd/MM/yyyy HH:mm")}}catch{}
-            [void]$rows.Add([pscustomobject]@{
-                Operation=[string]$r.operation;Samples=$samples;AvgPerItem=$(if($avgPer-gt0){("{0:N0} ms" -f $avgPer)}else{"-"});
-                AvgDuration=$(if($avgDuration-ge60000){("{0:N1} min" -f ($avgDuration/60000.0))}else{("{0:N1} s" -f ($avgDuration/1000.0))});
-                AvgNetwork=(Format-DomeniaByteEstimate ([long]$avgBytes));AvgBandwidth=$band;FallbackPct=("{0:N1} %" -f $fallbackPct);SuccessPct=$(if($den-gt0){("{0:N1} %" -f $successPct)}else{"-"});LastRun=$last
-            })
-        }
-        [void](Set-DomeniaItemsSource -Name "DgOperationStats" -Rows @($rows))
-        $db=Get-DomeniaDatabasePath
-        [void](Set-DomeniaControlText -Name "LblOperationStats" -Text ("{0} mesure(s) sur {1} type(s) d operation. Base : {2}" -f $total,$rows.Count,$db))
-    } catch {
-        [void](Set-DomeniaControlText -Name "LblOperationStats" -Text ("Statistiques indisponibles : " + $_.Exception.Message))
-    }
-}
-
 function Export-DomeniaOperationStatsCsv {
+    # Exports the statistics grid as Complete-DomeniaOperationStatsUi has just filled it (Request-DomeniaOperationStats
+    # -Export): the measures are never read on the Dispatcher (FI-19).
     try {
-        Refresh-DomeniaOperationStatsUi
         $grid=Get-DomeniaControl -Name "DgOperationStats"
-        if($null-eq$grid -or @($grid.ItemsSource).Count -eq 0){Set-Status "Aucune statistique a exporter." "WARN";return}
+        if(($null -eq $grid) -or (@($grid.ItemsSource).Count -eq 0)){Set-Status "Aucune statistique à exporter." "WARN";return}
         Show-DomeniaExportResult -Result (Export-DomeniaCsv -Rows @($grid.ItemsSource) -Grid $grid -Subject 'statistiques')
     } catch { [void](Show-DomeniaOperationError -Operation "Export statistiques" -ErrorRecordOrException $_) }
 }
@@ -23746,21 +23634,6 @@ function ConvertTo-DomeniaCanonicalLinks {
 
 function Save-UserMachineLinks {
     return Queue-DomeniaLinkChanges
-}
-
-function Load-UserMachineLinks {
-    $script:UserMachineLinks=@()
-    try {
-        Initialize-DomeniaDatabase | Out-Null
-        $rows=@(Invoke-DomeniaDbQuery "SELECT user_login,computer,source,confidence,verified_in_ad,observed_at,details,user_guid,computer_guid,user_dn,computer_dn FROM user_machine_links ORDER BY observed_at DESC;")
-        $links=New-Object Collections.ArrayList
-        foreach($r in $rows){[void]$links.Add([pscustomobject]@{UserLogin=[string]$r.user_login;Computer=[string]$r.computer;Source=[string]$r.source;Confidence=[int]$r.confidence;VerifiedInAD=([int]$r.verified_in_ad -ne 0);When=[string]$r.observed_at;Details=[string]$r.details;UserGuid=[string]$r.user_guid;ComputerGuid=[string]$r.computer_guid;UserDn=[string]$r.user_dn;ComputerDn=[string]$r.computer_dn})}
-        $script:UserMachineLinks=[object[]]@(ConvertTo-DomeniaCanonicalLinks -Links @($links))
-        Rebuild-UserMachineLinkIndex
-        Write-AppLog "$(@($script:UserMachineLinks).Count) lien(s) user-machine charge(s) depuis Domenia.db." "INFO"
-    } catch { $script:UserMachineLinks=@(); Rebuild-UserMachineLinkIndex; Write-AppLog "Lecture des liens impossible : $($_.Exception.Message)" "ERROR" }
-    Reset-DomeniaLinkBaseline
-    Refresh-LinkGrid
 }
 
 function ConvertTo-DomeniaCanonicalWorkerCode {
@@ -25585,9 +25458,8 @@ function Initialize-DomeniaPresentation {
     $script:PresentationInitialized = $true
 
     try { [void](Load-DomeniaSettings) } catch { }
-    # Demarrage non bloquant : seulement les metadonnees SQLite.
-    # Le parc et les lignes AD detaillees sont charges a la demande.
-    try { [void](Load-DomeniaIndexMetadata) } catch { }
+    # Non-blocking startup (FI-19): the page shows that the figures are being read; the LocalIndexRead worker reads
+    # them once the window is painted (ContentRendered). The park and the detailed AD rows are loaded on demand.
     try { Update-DomeniaIndexStats } catch { }
     try { Restore-DomeniaUiSettings } catch { }
     try { Register-DomeniaSettingsWatchers } catch { }
@@ -27856,12 +27728,12 @@ function Initialize-Window {
                 Set-DomeniaStartupStage -Stage 'Base locale en attente' -Detail 'Une bascule doit être reprise dans Outils, Base locale, Stockage.'
                 return
             }
-            Set-DomeniaStartupStage -Stage "Base autonome DOMENIA" -Detail ("SQLite pret en " + $dbBoot.ElapsedMilliseconds + " ms")
-            [void](Load-DomeniaIndexMetadata)
-            Set-DomeniaStartupStage -Stage "Base autonome DOMENIA" -Detail ("Metadonnees : " + (Get-DomeniaDatabaseObjectCount) + " objet(s)")
-            Load-UserMachineLinks
             $dbBoot.Stop()
-            Set-DomeniaStartupStage -Stage "Base autonome DOMENIA" -Detail ("Liens charges : " + @($script:UserMachineLinks).Count + " ; total " + $dbBoot.ElapsedMilliseconds + " ms")
+            Set-DomeniaStartupStage -Stage "Base autonome DOMENIA" -Detail ("SQLite pret en " + $dbBoot.ElapsedMilliseconds + " ms")
+            # FI-19: the content is read off the Dispatcher by the LocalIndexRead worker. The associations are asked now,
+            # the figures of the base once the window is painted (ContentRendered), followed by the startup notices.
+            Request-DomeniaUserMachineLinks
+            Set-DomeniaStartupStage -Stage "Base autonome DOMENIA" -Detail 'Associations et état de la base : lecture en arrière-plan.'
         } | Out-Null
         Invoke-DomeniaStartupStage 'Réglages du stockage local' {Initialize-DomeniaStoragePolicy} | Out-Null
         Invoke-DomeniaStartupStage "Etat initial de securite" {
@@ -27945,9 +27817,9 @@ function Initialize-Window {
                 [void]$script:Window.Dispatcher.BeginInvoke(
                     [System.Windows.Threading.DispatcherPriority]::ApplicationIdle,
                     [Action]{
-                        try { [void](Load-DomeniaIndexMetadata); Update-DomeniaIndexStats } catch { }
-                        try { Request-DomeniaIndexAutoRefresh } catch { }
-                        try { Request-DomeniaIndexFirstBuild } catch { }
+                        # FI-19: figures read off the Dispatcher; the notices on the age of the base and on its first
+                        # build follow the answer (Complete-DomeniaIndexMetadataUi).
+                        try { Request-DomeniaIndexMetadata -StartupChecks } catch { }
                         try { [void](Set-DomeniaControlText -Name "LblParkStatus" -Text "Etat du parc charge a la demande.") } catch { }
                         try { Request-DomeniaParkSweepAtStartup } catch { }
                         try { Add-DomeniaUiLog -Area "Demarrage" -Text "Politique V10.22 : aucune operation longue AD/reseau n'est lancee automatiquement ; recherche globale verifie toujours LDAP ; comptes editables sans reset." } catch { }

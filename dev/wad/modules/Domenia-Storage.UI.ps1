@@ -58,8 +58,8 @@ function Test-DomeniaStorageWorkPending {
 }
 function Reset-DomeniaLinkBaseline {
     $script:LinkBaseline=@{}
-    # D028: the associations were reloaded from disk (Load-UserMachineLinks, at startup or through Comptes > Changer de
-    # compte): the conflict state ends here.
+    # D028: the associations were reloaded from disk (Complete-DomeniaUserMachineLinksUi, at startup or through Comptes >
+    # Changer de compte): the conflict state ends here.
     if($null -ne $script:Persistence -and $null -ne $script:Persistence.PSObject.Properties['Conflicts']){$script:Persistence.Conflicts=@{}}
     foreach($l in @($script:UserMachineLinks)){$key=(Normalize-LinkComputer ([string]$l.Computer)).ToUpperInvariant();if($key){$script:LinkBaseline[$key]=ConvertTo-DomeniaLinkRecord $l}}
 }
@@ -68,6 +68,14 @@ function Queue-DomeniaLinkChanges {
     if($MaxItems -lt 0){$MaxItems=0}
     if($null -eq $script:Persistence){Initialize-DomeniaPersistence}
     $script:Persistence.LinkPersistenceMore=$false
+    # FI-19: while the associations of this session are read from the base (Request-DomeniaUserMachineLinks), the
+    # reference of the writer is not known yet. The change stays in memory and the end of that reading asks for its save.
+    if(($null -ne $script:LinkLoad) -and ([bool]$script:LinkLoad.Pending) -and ([long]$script:LinkLoad.Epoch -eq [long]$script:SessionEpoch)){
+        $script:LinkLoad.Deferred=$true
+        $script:UserMachineLinks=[object[]]@(ConvertTo-DomeniaCanonicalLinks -Links $script:UserMachineLinks);Rebuild-UserMachineLinkIndex;Refresh-LinkGrid;Refresh-AssociationContext -SkipResultRefresh
+        if(-not $Quiet){Set-Status 'Associations en cours de lecture dans la base locale : la modification reste en mémoire et sera enregistrée à la fin de la lecture.'}
+        return $true
+    }
     if($script:Persistence.LinkBusy){
         if(-not $Quiet){Set-Status 'Enregistrement des liens encore actif. Attendez son resultat avant une nouvelle modification.' 'WARN'}
         return $false
@@ -314,7 +322,7 @@ function Complete-DomeniaStorageWork {
             Rebuild-UserMachineLinkIndex
             Refresh-LinkGrid
             Refresh-AssociationContext -SkipResultRefresh
-            [void](Load-DomeniaIndexMetadata)
+            try{Request-DomeniaIndexMetadata}catch{}
             $summary='Reprise des anciennes donnees applique : '+[int]$r.Imported.Objects+' objet(s), '+[int]$r.Imported.Park+' poste(s), '+[int]$r.Imported.UserScans+' recherche(s), '+[int]$r.Imported.Secrets+' metadonnee(s), '+$links.Count+' lien(s), '+$conflicts.Count+' association(s) existante(s) conservee(s).'
             Set-Status $summary $(if($conflicts.Count){'WARN'}else{'INFO'})
             Add-DomeniaUiLog -Area 'Import' -Text $summary
@@ -341,7 +349,8 @@ function Complete-DomeniaStorageWork {
           if($complete -and $scope -eq 'directory'){Set-DomeniaIndexPartial -Clear}
           if($null -ne $saved.Row.PSObject.Properties['RefreshOperationId'] -and [string]$saved.Row.RefreshOperationId){Complete-DomeniaOuRefreshCommit -Item $saved}
         }
-        try{[void](Load-DomeniaIndexMetadata);Update-DomeniaIndexStats}catch{}
+        # FI-19: read again by the LocalIndexRead worker; Complete-DomeniaIndexMetadataUi updates the page.
+        try{Request-DomeniaIndexMetadata}catch{}
         $walkSaved=@($indexItems|Where-Object{$null -ne $_.Row.PSObject.Properties['WalkStep'] -and [bool]$_.Row.WalkStep})
         if($walkSaved.Count -and $null -ne $script:IndexWalk){
           $script:IndexWalk.Saved += $walkSaved.Count
@@ -714,7 +723,9 @@ function Complete-DomeniaStoragePurge {
         }else{
             Reset-DomeniaStoragePurgePreview
             if($State.Selection -contains 'Index'){
-                # The committed transaction already confirms an empty index; no synchronous disk reread.
+                # The committed transaction already confirms an empty index; no synchronous disk reread. A metadata reading
+                # still running from before the purge is discarded (FI-19, Complete-DomeniaIndexMetadataUi).
+                $script:IndexMetadataGeneration=[long]$script:IndexMetadataGeneration+1
                 $script:IndexRows=@();$script:IndexInfo=$null;$script:IndexSyncStates=@{};$script:IndexMetadataError=''
                 $script:IndexDbCount=0;$script:IndexDbUsers=0;$script:IndexDbComputers=0;$script:IndexDbMachinesActive=0;$script:IndexDbMachinesDisabled=0
                 Rebuild-DomeniaIndexLookup
