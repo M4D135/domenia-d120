@@ -23,6 +23,7 @@ function New-HrSource {
     return [pscustomobject]@{ Types = @(); Groups = @([pscustomobject]@{ gid = '1'; st = 'A'; n = 4; os = 'Windows 11 Enterprise'; ver = '10.0 (26100)'; lb = 0; cr = 'O'; pw = 'R'; lk = 'O'; bk = 'K' }); Machines = $rows; Targets = $rows; Presence = $presence; Parents = @([pscustomobject]@{ p = $script:HrScope; n = 4 }); Coverage = [pscustomobject]@{ FactsFresh = 4; FactsStale = 0; BitLockerRead = 4; BitLockerAt = $script:HrNow.ToString('o') }; History = @(); Links = 0; DomainDn = $script:HrDomain }
 }
 function Get-HrRow { param($Board,[string]$Id) return @(@($Board.HealthExplanation.Rows) | Where-Object { [string]$_.Id -ceq $Id })[0] }
+function New-HrTarget { param([string]$Id) return [pscustomobject]@{ object_guid = $Id; name = $Id } }
 
 Test-Case -Id 'HR-001' -Name 'Point 75 : contributions, population evaluable et consequences des regles desactivees ou suspendues' -Body {
     $suspension = [pscustomobject]@{ RuleId = 'stale'; Reason = 'Migration en cours'; UntilUtc = $script:HrNow.AddDays(1).ToString('o') }
@@ -111,4 +112,62 @@ Test-Case -Id 'HR-005' -Name 'Point 77 : suspension avec motif et echeance, reac
     Assert-Equal 1 @($suspended.CustomRules).Count 'Suspendre ne supprime pas la regle personnalisee'
     Assert-Equal 'Suspended' (Get-DomeniaHealthRuleState $suspended $custom.Id)
     Assert-Equal 'Disabled' (Get-DomeniaHealthRuleState (ConvertTo-DomeniaHealthPolicy @{ CustomRules = @() } -Strict) $custom.Id) 'Regle supprimee : plus rien a reactiver'
+}
+Test-Case -Id 'HR-006' -Name 'Point 78 : changement reel, perimetre, couverture et regles distingues, ordre chronologique' -Body {
+    $base = @{ Machines = 100; Assessed = 80; Unassessed = 20; Healthy = 60; Problems = 20; Score = 75; PingRead = 50; WmiRead = 80; PopulationHash = 'p'; AssessedHash = 'a'; CoverageHash = 'c'; PolicyHash = 'r'; ComputedUtc = '2026-10-01T08:00:00.0000000Z' }
+    $reading = { param([hashtable]$Changes,[string]$Label = 'Second',[string]$At = '2026-10-02T08:00:00.0000000Z') $f = @{}; foreach ($k in $base.Keys) { $f[$k] = $base[$k] }; foreach ($k in $Changes.Keys) { $f[$k] = $Changes[$k] }; $f['ComputedUtc'] = $At; [pscustomobject]@{ Label = $Label; Day = $At.Substring(0, 10); Figures = [pscustomobject]$f } }
+    $first = & $reading @{} 'Premier' '2026-10-01T08:00:00.0000000Z'
+    $same = Compare-DomeniaHealthSnapshots $first (& $reading @{})
+    Assert-Equal 'Stable' $same.Category; Assert-True $same.Comparable
+    $real = Compare-DomeniaHealthSnapshots $first (& $reading @{ Healthy = 55; Problems = 25; Score = 68 })
+    Assert-Equal 'Réel' $real.Category; Assert-True $real.Comparable
+    Assert-Equal 'Avec un problème : 20 → 25 (+5) · sans problème détecté : 60 → 55 (-5) · score : 75 → 68 (-7)' ([string]@($real.Factors)[3].Text)
+    $better = Compare-DomeniaHealthSnapshots $first (& $reading @{ Assessed = 90; Unassessed = 10; AssessedHash = 'a2'; CoverageHash = 'c2'; Healthy = 62; Problems = 28; Score = 68 })
+    Assert-Equal 'Couverture' $better.Category; Assert-False $better.Comparable
+    Assert-True ($better.Summary.StartsWith('Amélioration de la couverture')) $better.Summary
+    Assert-Equal 'Postes évalués : 80 → 90 (+10) · part évaluée : 80 % → 90 % (+10 %) ; des postes jusque-là non mesurés entrent dans le score' ([string]@($better.Factors)[1].Text)
+    $worse = Compare-DomeniaHealthSnapshots $first (& $reading @{ Assessed = 70; Unassessed = 30; AssessedHash = 'a3'; CoverageHash = 'c3' })
+    Assert-True ($worse.Summary.StartsWith('Couverture réduite')) $worse.Summary
+    Assert-Equal 'Périmètre' (Compare-DomeniaHealthSnapshots $first (& $reading @{ Machines = 104; PopulationHash = 'p2' })).Category
+    $moved = Compare-DomeniaHealthSnapshots $first (& $reading @{ PopulationHash = 'p3' })
+    Assert-True ([string]@($moved.Factors)[0].Text -match 'même nombre, composition différente') 'Entrees et sorties sans variation du nombre'
+    Assert-Equal 'Règles' (Compare-DomeniaHealthSnapshots $first (& $reading @{ PolicyHash = 'r2' })).Category
+    $mixed = Compare-DomeniaHealthSnapshots $first (& $reading @{ PolicyHash = 'r2'; PopulationHash = 'p2'; Machines = 90 })
+    Assert-Equal 'Mixte' $mixed.Category; Assert-True ($mixed.Summary -match 'périmètre, règles') $mixed.Summary
+    $legacy = Compare-DomeniaHealthSnapshots ([pscustomobject]@{ Label = 'Ancien'; Day = '2026-09-01'; Figures = [pscustomobject]@{ Machines = 100; Healthy = 60; Problems = 20 } }) $first
+    Assert-Equal 'Limitée' $legacy.Category; Assert-True (@($legacy.Limits) -contains 'Le premier relevé ne conserve pas lʼempreinte de la population : comparaison limitée aux compteurs.') 'Releve ancien sans empreinte'
+    $swapped = Compare-DomeniaHealthSnapshots (& $reading @{ Healthy = 55; Problems = 25 }) $first
+    Assert-True $swapped.Swapped; Assert-Equal 'Premier' $swapped.BeforeLabel; Assert-True (@($swapped.Limits) -contains 'Relevés remis dans lʼordre chronologique.')
+    Assert-Equal '+5' ([string]@($swapped.Rows | Where-Object { $_.Measure -eq 'Avec un problème' })[0].Delta) 'Variation dans le sens du temps'
+}
+Test-Case -Id 'HR-007' -Name 'Point 79 : matrice avec totaux coherents, ordre naturel des colonnes, filtre et colonnes regroupees' -Body {
+    $cell = { param([string]$Row,[string]$Column,[string[]]$Ids) [pscustomobject]@{ Row = $Row; Column = $Column; Count = $Ids.Count; Targets = @($Ids | ForEach-Object { New-HrTarget $_ }) } }
+    $table = [pscustomobject]@{ Rows = @((& $cell 'A' 'x' @('g1','g2')), (& $cell 'A' 'y' @('g3')), (& $cell 'B' 'x' @('g4')), (& $cell 'C' 'z' @('g5','g6','g7'))); Total = 7; ColumnOrder = @('z','y'); RowTitle = 'OU'; ColumnTitle = 'Version' }
+    $m = ConvertTo-DomeniaPivotMatrix -Table $table
+    Assert-Equal 'z,y,x' (@($m.Columns) -join ',') 'Ordre naturel puis taille'
+    Assert-Equal 'A,B,C' ((@($m.Rows) | ForEach-Object { $_.Label }) -join ',')
+    Assert-Equal '0,1,2' (@($m.Rows[0].Counts) -join ','); Assert-Equal '3,0,0' (@($m.Rows[2].Counts) -join ',')
+    Assert-Equal '3,1,3' (@($m.ColumnTotals) -join ','); Assert-Equal 7 $m.GrandTotal
+    $rowSum = 0; foreach ($row in @($m.Rows)) { $rowSum += $row.Total }; Assert-Equal 7 $rowSum 'Somme des lignes = total general'
+    Assert-Equal 'g1,g2' ((@($m.Rows[0].Targets[2]) | ForEach-Object { $_.object_guid }) -join ',') 'Cellule ouvrant ses postes'
+    Assert-Equal 3 @($m.ColumnTargets[0]).Count; Assert-Equal 3 @($m.Rows[0].AllTargets).Count
+    $filtered = ConvertTo-DomeniaPivotMatrix -Table $table -Filter 'a'
+    Assert-Equal 3 $filtered.GrandTotal; Assert-True $filtered.Filtered; Assert-Equal 7 $filtered.Total
+    $folded = ConvertTo-DomeniaPivotMatrix -Table $table -MaxColumns 2
+    Assert-Equal 'z,Autres colonnes (2)' (@($folded.Columns) -join ','); Assert-Equal 2 $folded.Folded
+    Assert-Equal '0,3' (@($folded.Rows[0].Counts) -join ','); Assert-Equal 7 $folded.GrandTotal 'Aucune colonne perdue'
+    $empty = ConvertTo-DomeniaPivotMatrix -Table ([pscustomobject]@{ Rows = @(); Total = 0 })
+    Assert-Equal 0 @($empty.Columns).Count; Assert-Equal 0 $empty.GrandTotal
+}
+Test-Case -Id 'HR-008' -Name 'Point 79 : tableaux croises du parc, chaque matrice retrouve tous les comptes actives' -Body {
+    $board = Get-DomeniaFleetBoardData -Result (New-HrSource) -Scope $script:HrScope -Now $script:HrNow -Lifecycle $script:HrLifecycle
+    foreach ($key in @('OuWindows','ModelRam','SiteCoverage')) {
+        $m = ConvertTo-DomeniaPivotMatrix -Table $board.Pivots[$key]
+        Assert-Equal 4 $m.GrandTotal ('Total ' + $key)
+        $columnSum = 0; foreach ($n in @($m.ColumnTotals)) { $columnSum += $n }; Assert-Equal 4 $columnSum ('Colonnes ' + $key)
+        $ids = @{}; foreach ($row in @($m.Rows)) { foreach ($t in @($row.AllTargets)) { $ids[[string]$t.object_guid] = $true } }; Assert-Equal 4 $ids.Count ('Postes uniques ' + $key)
+    }
+    $ram = ConvertTo-DomeniaPivotMatrix -Table $board.Pivots['ModelRam']
+    Assert-Equal '5 à 8 Go,RAM non lue' (@($ram.Columns) -join ',') 'Tranches de memoire dans leur ordre, inconnu en dernier'
+    Assert-Equal 'Modèle' $ram.RowTitle
 }

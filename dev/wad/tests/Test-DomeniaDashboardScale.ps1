@@ -35,6 +35,7 @@ foreach($count in $Counts){
   $disk=@($board.HealthExplanation.Rows|Where-Object Id -eq lowdisk)[0];Expect ($disk.Machines -eq $enabled/20 -and $disk.Guids.Count -eq $enabled/20) 'Rule contribution count differs from exact targets'
   Expect ([string]$disk.Eligible -eq ([string]$enabled+' / '+$enabled)) ('Eligible population '+$disk.Eligible)
   Expect (@($board.Last.WidgetTargets['fleet.reach|WMI répond, pas le ping']).Count -eq $enabled/40) 'Filtered ICMP with a WMI answer not kept apart at scale'
+  foreach($pivot in @('OuWindows','ModelRam','SiteCoverage')){$matrix=ConvertTo-DomeniaPivotMatrix -Table $board.Pivots[$pivot];$columnSum=0;foreach($n in @($matrix.ColumnTotals)){$columnSum+=$n};Expect (($matrix.GrandTotal -eq $enabled) -and ($columnSum -eq $enabled)) ('Cross table totals '+$pivot)}
  }
 }
 Case 'Grouping preserves original typed selections and supports an all-other single row' {

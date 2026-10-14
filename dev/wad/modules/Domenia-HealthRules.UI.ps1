@@ -228,41 +228,89 @@ function Show-DomeniaFleetAnalysis {
     $faTabs=[Windows.Controls.TabControl]::new()
     $faAddColumn={param($Grid,$Header,$Path,$Width)$column=[Windows.Controls.DataGridTextColumn]::new();$column.Header=$Header;$column.Binding=[Windows.Data.Binding]::new($Path);$column.Width=$Width;[void]$Grid.Columns.Add($column)}
     $faNewGrid={ $grid=[Windows.Controls.DataGrid]::new();$grid.AutoGenerateColumns=$false;$grid.IsReadOnly=$true;$grid.CanUserAddRows=$false;$grid.CanUserDeleteRows=$false;$grid.EnableRowVirtualization=$true;$grid.EnableColumnVirtualization=$true;$grid.SelectionMode='Single';return $grid }
-    # Daily comparison remains available before the long trend has 90 days of history.
+    # Point 78: daily comparison, readable before the long trend has 90 days of history.
     $faComparePanel=[Windows.Controls.DockPanel]::new();$faCompareTop=[Windows.Controls.StackPanel]::new();$faCompareTop.Margin='0,10,0,10';[Windows.Controls.DockPanel]::SetDock($faCompareTop,'Top')
-    $faBefore=[Windows.Controls.ComboBox]::new();$faBefore.ItemsSource=$faData.HealthHistory;$faBefore.DisplayMemberPath='Label';$faBefore.Margin='0,0,0,8'
-    $faAfter=[Windows.Controls.ComboBox]::new();$faAfter.ItemsSource=$faData.HealthHistory;$faAfter.DisplayMemberPath='Label';$faAfter.Margin='0,0,0,8'
+    $faBefore=[Windows.Controls.ComboBox]::new();$faBefore.ItemsSource=$faData.HealthHistory;$faBefore.DisplayMemberPath='Label';$faBefore.Margin='0,0,0,8';$faBefore.ToolTip='Relevé de départ ; les relevés sont remis dans lʼordre chronologique.'
+    $faAfter=[Windows.Controls.ComboBox]::new();$faAfter.ItemsSource=$faData.HealthHistory;$faAfter.DisplayMemberPath='Label';$faAfter.Margin='0,0,0,8';$faAfter.ToolTip='Relevé dʼarrivée, par exemple la vue actuelle.'
     foreach($pair in @(@('Premier relevé',$faBefore),@('Second relevé',$faAfter))){$label=[Windows.Controls.TextBlock]::new();$label.Text=$pair[0];[void]$faCompareTop.Children.Add($label);[void]$faCompareTop.Children.Add($pair[1])}
-    $faCompareSummary=[Windows.Controls.TextBlock]::new();$faCompareSummary.TextWrapping='Wrap';$faCompareSummary.Margin='0,8,0,0';[void]$faCompareTop.Children.Add($faCompareSummary);[void]$faComparePanel.Children.Add($faCompareTop)
+    $faCompareSummary=[Windows.Controls.TextBlock]::new();$faCompareSummary.TextWrapping='Wrap';$faCompareSummary.Margin='0,8,0,8';[void]$faCompareTop.Children.Add($faCompareSummary)
+    $faFactorGrid=& $faNewGrid;$faFactorGrid.ToolTip='Périmètre, couverture et règles sont comparés par empreinte ; seul un état observé sur la même base est un changement réel.';foreach($col in @(@('Cause possible','Factor',120),@('Entre les deux relevés','Status',110),@('Détail','Text','*'))){& $faAddColumn $faFactorGrid $col[0] $col[1] $col[2]};[void]$faCompareTop.Children.Add($faFactorGrid)
+    [void]$faComparePanel.Children.Add($faCompareTop)
     $faCompareGrid=& $faNewGrid;foreach($col in @(@('Indicateur','Measure','2*'),@('Premier','Before','*'),@('Second','After','*'),@('Variation','Delta','*'))){& $faAddColumn $faCompareGrid $col[0] $col[1] $col[2]};[void]$faComparePanel.Children.Add($faCompareGrid)
     $faUpdateComparison={
-        if($null -eq $faBefore.SelectedItem -or $null -eq $faAfter.SelectedItem){return}
-        $comparison=Compare-DomeniaHealthSnapshots $faBefore.SelectedItem $faAfter.SelectedItem;$faCompareSummary.Text=$comparison.Summary+$(if($comparison.Limits.Count){"`n"+($comparison.Limits -join "`n")}else{''});$faCompareGrid.ItemsSource=$comparison.Rows
+        if(($null -eq $faBefore.SelectedItem) -or ($null -eq $faAfter.SelectedItem)){return}
+        try{
+            $comparison=Compare-DomeniaHealthSnapshots $faBefore.SelectedItem $faAfter.SelectedItem
+            $faCompareSummary.Text=$comparison.Summary+$(if($comparison.Limits.Count){"`n"+($comparison.Limits -join "`n")}else{''})
+            $faFactorGrid.ItemsSource=$comparison.Factors;$faCompareGrid.ItemsSource=$comparison.Rows
+        }catch{$faCompareSummary.Text=$_.Exception.Message;$faFactorGrid.ItemsSource=@();$faCompareGrid.ItemsSource=@()}
     }
     $faBefore.Add_SelectionChanged({& $faUpdateComparison});$faAfter.Add_SelectionChanged({& $faUpdateComparison})
     if($faData.HealthHistory.Count -gt 1){$faBefore.SelectedIndex=$faData.HealthHistory.Count-2;$faAfter.SelectedIndex=$faData.HealthHistory.Count-1}else{$faCompareSummary.Text='Un seul relevé disponible. Une comparaison sera possible après le prochain instantané quotidien.'}
     $faCompareTab=[Windows.Controls.TabItem]::new();$faCompareTab.Header='Comparer deux relevés';$faCompareTab.Content=$faComparePanel;[void]$faTabs.Items.Add($faCompareTab)
-    # Virtualized non-empty cells avoid building a potentially enormous rectangular matrix.
+    # Point 79: matrix with row, column and grand totals, or the list of non-empty cells; every cell opens its workstations.
     $faPivotPanel=[Windows.Controls.DockPanel]::new();$faPivotTop=[Windows.Controls.StackPanel]::new();$faPivotTop.Margin='0,10,0,10';[Windows.Controls.DockPanel]::SetDock($faPivotTop,'Top')
-    $faPivotChoice=[Windows.Controls.ComboBox]::new();$faPivotChoice.ItemsSource=@([pscustomobject]@{Id='OuWindows';Name='OU × version de Windows'},[pscustomobject]@{Id='ModelRam';Name='Modèle × RAM'},[pscustomobject]@{Id='SiteCoverage';Name='OU / site × couverture ping et WMI'});$faPivotChoice.DisplayMemberPath='Name';$faPivotChoice.Margin='0,0,0,8';[void]$faPivotTop.Children.Add($faPivotChoice)
+    $faPivotChoice=[Windows.Controls.ComboBox]::new();$faPivotChoice.ItemsSource=@([pscustomobject]@{Id='OuWindows';Name='OU × version de Windows'},[pscustomobject]@{Id='ModelRam';Name='Modèle × RAM'},[pscustomobject]@{Id='SiteCoverage';Name='OU / site × couverture ping et WMI'});$faPivotChoice.DisplayMemberPath='Name';$faPivotChoice.Margin='0,0,0,8';$faPivotChoice.ToolTip='Tableau croisé à afficher.';[void]$faPivotTop.Children.Add($faPivotChoice)
+    $faViewChoice=[Windows.Controls.ComboBox]::new();$faViewChoice.ItemsSource=@([pscustomobject]@{Id='Matrix';Name='Matrice avec totaux'},[pscustomobject]@{Id='List';Name='Liste des cellules non vides'});$faViewChoice.DisplayMemberPath='Name';$faViewChoice.Margin='0,0,0,8';$faViewChoice.ToolTip='Présentation du tableau croisé.';[void]$faPivotTop.Children.Add($faViewChoice)
     $faFilterLabel=[Windows.Controls.TextBlock]::new();$faFilterLabel.Text='Filtrer les catégories';[void]$faPivotTop.Children.Add($faFilterLabel)
-    $faFilter=[Windows.Controls.TextBox]::new();$faFilter.MaxLength=256;$faFilter.Margin='0,0,0,8';[void]$faPivotTop.Children.Add($faFilter)
+    $faFilter=[Windows.Controls.TextBox]::new();$faFilter.MaxLength=256;$faFilter.Margin='0,0,0,8';$faFilter.ToolTip='Garde les cellules dont la ligne ou la colonne contient ce texte ; les totaux suivent le filtre.';[void]$faPivotTop.Children.Add($faFilter)
     $faPivotSummary=[Windows.Controls.TextBlock]::new();$faPivotSummary.TextWrapping='Wrap';[void]$faPivotTop.Children.Add($faPivotSummary);[void]$faPivotPanel.Children.Add($faPivotTop)
     $faFooter=[Windows.Controls.StackPanel]::new();$faFooter.Margin='0,10,0,0';[Windows.Controls.DockPanel]::SetDock($faFooter,'Bottom')
-    $faDetail=[Windows.Controls.Button]::new();$faDetail.Content='Afficher les postes de la cellule sélectionnée';$faDetail.HorizontalAlignment='Left';$faDetail.IsEnabled=$false;[void]$faFooter.Children.Add($faDetail)
+    $faDetail=[Windows.Controls.Button]::new();$faDetail.Content='Afficher les postes de la cellule sélectionnée';$faDetail.HorizontalAlignment='Left';$faDetail.IsEnabled=$false;$faDetail.ToolTip='Ouvrir dans lʼatelier les postes exacts de la cellule ou du total sélectionné.';[void]$faFooter.Children.Add($faDetail)
     $faError=[Windows.Controls.TextBlock]::new();$faError.TextWrapping='Wrap';$faError.Margin='0,6,0,0';[void]$faFooter.Children.Add($faError);[void]$faPivotPanel.Children.Add($faFooter)
-    $faGrid=& $faNewGrid;& $faAddColumn $faGrid 'Ligne' 'Row' '2*';& $faAddColumn $faGrid 'Colonne' 'Column' '2*';& $faAddColumn $faGrid 'Postes' 'Count' 100;[void]$faPivotPanel.Children.Add($faGrid)
-    $faUpdatePivot={
-        if($null -eq $faPivotChoice.SelectedItem){return};$table=$faData.Pivots[[string]$faPivotChoice.SelectedItem.Id];$filter=$faFilter.Text.Trim();$rows=@($table.Rows|Where-Object{-not $filter -or $_.Row.IndexOf($filter,[StringComparison]::OrdinalIgnoreCase) -ge 0 -or $_.Column.IndexOf($filter,[StringComparison]::OrdinalIgnoreCase) -ge 0})
-        $visible=0;foreach($cell in $rows){$visible+=[int]$cell.Count};$faGrid.ItemsSource=$rows;$faPivotSummary.Text=$visible.ToString()+' poste(s) dans '+$rows.Count+' cellule(s) affichée(s), sur '+$table.Total+' comptes activés. Chaque poste compte une fois. Couverture : relevés encore exploitables selon leur date propre.';$faDetail.IsEnabled=$false
+    $faHost=[Windows.Controls.Grid]::new()
+    $faGrid=& $faNewGrid;& $faAddColumn $faGrid 'Ligne' 'Row' '2*';& $faAddColumn $faGrid 'Colonne' 'Column' '2*';& $faAddColumn $faGrid 'Postes' 'Count' 100;[void]$faHost.Children.Add($faGrid)
+    $faMatrix=& $faNewGrid;$faMatrix.SelectionUnit='Cell';$faMatrix.CanUserSortColumns=$false;$faMatrix.FrozenColumnCount=1;$faMatrix.ToolTip='Sélectionnez une cellule, un total de ligne, un total de colonne ou le total général.';[void]$faHost.Children.Add($faMatrix)
+    [void]$faPivotPanel.Children.Add($faHost)
+    $faState=@{Matrix=$null;Selection=$null}
+    $faMatrixTargets={param($Info)
+        $m=$faState.Matrix;if(($null -eq $m) -or ($null -eq $Info) -or ($null -eq $Info.Column) -or ($null -eq $Info.Item)){return $null}
+        $path=[string]$Info.Column.SortMemberPath;$r=-1;try{$r=[int]$Info.Item['r']}catch{return $null}
+        $rowLabel=if($r -ge 0){[string]$m.Rows[$r].Label}else{'Total'}
+        if($path -match '^c(\d+)$'){
+            $c=[int]$matches[1];if($c -ge $m.Columns.Count){return $null}
+            $targets=if($r -ge 0){$m.Rows[$r].Targets[$c].ToArray()}else{$m.ColumnTargets[$c].ToArray()}
+            return [pscustomobject]@{Targets=$targets;Label=($rowLabel+' / '+[string]$m.Columns[$c])}
+        }
+        if($r -ge 0){return [pscustomobject]@{Targets=$m.Rows[$r].AllTargets.ToArray();Label=($rowLabel+' / tous')}}
+        $all=[Collections.Generic.List[object]]::new();foreach($list in $m.ColumnTargets){$all.AddRange($list)}
+        return [pscustomobject]@{Targets=$all.ToArray();Label='Total du tableau'}
     }
-    $faGrid.Add_SelectionChanged({$faDetail.IsEnabled=($null -ne $faGrid.SelectedItem)})
-    $faPivotChoice.Add_SelectionChanged({& $faUpdatePivot});$faFilter.Add_TextChanged({& $faUpdatePivot});$faPivotChoice.SelectedIndex=0
+    $faHeader={param([string]$Text)$block=[Windows.Controls.TextBlock]::new();$block.Text=$Text;$block.TextWrapping='Wrap';$block.MaxWidth=160;return $block}
+    $faUpdatePivot={
+        if($null -eq $faPivotChoice.SelectedItem){return};$table=$faData.Pivots[[string]$faPivotChoice.SelectedItem.Id];$filter=$faFilter.Text.Trim();$faDetail.IsEnabled=$false;$faState.Selection=$null;$faError.Text=''
+        $matrixView=([string](Get-DomeniaHealthValue $faViewChoice.SelectedItem 'Id' 'Matrix') -eq 'Matrix')
+        $faMatrix.Visibility=$(if($matrixView){'Visible'}else{'Collapsed'});$faGrid.Visibility=$(if($matrixView){'Collapsed'}else{'Visible'})
+        if(-not $matrixView){
+            $rows=@($table.Rows|Where-Object{(-not $filter) -or (([string]$_.Row).IndexOf($filter,[StringComparison]::OrdinalIgnoreCase) -ge 0) -or (([string]$_.Column).IndexOf($filter,[StringComparison]::OrdinalIgnoreCase) -ge 0)})
+            $visible=0;foreach($cell in $rows){$visible+=[int]$cell.Count};$faGrid.ItemsSource=$rows;$faPivotSummary.Text=$visible.ToString()+' poste(s) dans '+$rows.Count+' cellule(s) affichée(s), sur '+$table.Total+' comptes activés. Chaque poste compte une fois. Couverture : relevés encore exploitables selon leur date propre.'
+            return
+        }
+        $m=ConvertTo-DomeniaPivotMatrix -Table $table -Filter $filter -MaxColumns 24;$faState.Matrix=$m
+        $dt=[Data.DataTable]::new();[void]$dt.Columns.Add('r',[int]);[void]$dt.Columns.Add('label',[string])
+        for($i=0;$i -lt $m.Columns.Count;$i++){[void]$dt.Columns.Add(('c'+$i),[int])};[void]$dt.Columns.Add('total',[int])
+        for($r=0;$r -lt $m.Rows.Count;$r++){$line=$dt.NewRow();$line['r']=$r;$line['label']=[string]$m.Rows[$r].Label;for($i=0;$i -lt $m.Columns.Count;$i++){if($m.Rows[$r].Counts[$i]){$line[('c'+$i)]=[int]$m.Rows[$r].Counts[$i]}};$line['total']=[int]$m.Rows[$r].Total;[void]$dt.Rows.Add($line)}
+        $line=$dt.NewRow();$line['r']=-1;$line['label']='Total';for($i=0;$i -lt $m.Columns.Count;$i++){$line[('c'+$i)]=[int]$m.ColumnTotals[$i]};$line['total']=[int]$m.GrandTotal;[void]$dt.Rows.Add($line)
+        $faMatrix.ItemsSource=$null;$faMatrix.Columns.Clear()
+        $first=[Windows.Controls.DataGridTextColumn]::new();$first.Header=(& $faHeader $m.RowTitle);$first.Binding=[Windows.Data.Binding]::new('label');$first.SortMemberPath='label';$first.Width=220;[void]$faMatrix.Columns.Add($first)
+        for($i=0;$i -lt $m.Columns.Count;$i++){$col=[Windows.Controls.DataGridTextColumn]::new();$col.Header=(& $faHeader ([string]$m.Columns[$i]));$col.Binding=[Windows.Data.Binding]::new(('c'+$i));$col.SortMemberPath=('c'+$i);$col.MinWidth=70;[void]$faMatrix.Columns.Add($col)}
+        $last=[Windows.Controls.DataGridTextColumn]::new();$last.Header=(& $faHeader 'Total');$last.Binding=[Windows.Data.Binding]::new('total');$last.SortMemberPath='total';$last.MinWidth=70;[void]$faMatrix.Columns.Add($last)
+        $faMatrix.ItemsSource=$dt.DefaultView
+        $faPivotSummary.Text=[string]$m.GrandTotal+' poste(s) dans '+$m.Cells+' cellule(s) ; '+$m.Rows.Count+' ligne(s) × '+$m.Columns.Count+' colonne(s). Chaque poste compte une fois : la somme des totaux de lignes et celle des totaux de colonnes valent le total général'+$(if($m.Filtered){' du filtre, sur '+$m.Total+' comptes activés'}else{' ('+$m.Total+' comptes activés)'})+'.'+$(if($m.Folded){' '+$m.Folded+' colonne(s) regroupée(s) dans « Autres colonnes ».'}else{''})
+    }
+    $faGrid.Add_SelectionChanged({if($null -ne $faGrid.SelectedItem){$faState.Selection=[pscustomobject]@{Targets=@($faGrid.SelectedItem.Targets);Label=([string]$faGrid.SelectedItem.Row+' / '+[string]$faGrid.SelectedItem.Column)}}else{$faState.Selection=$null};$faDetail.IsEnabled=($null -ne $faState.Selection)})
+    $faMatrix.Add_SelectedCellsChanged({
+        $faState.Selection=$null
+        if($faMatrix.SelectedCells.Count -eq 1){$picked=& $faMatrixTargets $faMatrix.SelectedCells[0];if(($null -ne $picked) -and (@($picked.Targets).Count -gt 0)){$faState.Selection=$picked}}
+        $faDetail.IsEnabled=($null -ne $faState.Selection)
+    })
+    $faPivotChoice.Add_SelectionChanged({& $faUpdatePivot});$faViewChoice.Add_SelectionChanged({& $faUpdatePivot});$faFilter.Add_TextChanged({& $faUpdatePivot})
+    $faViewChoice.SelectedIndex=0;$faPivotChoice.SelectedIndex=0
     $faResult=@{Targets=$null;Label=''}
     $faDetail.Add_Click({
-        if($null -eq $faGrid.SelectedItem){return}
+        if($null -eq $faState.Selection){return}
         if(-not [object]::ReferenceEquals((Get-DomeniaBoardState Fleet).Data,$faData)){$faError.Text='La vue a été recalculée pendant cette consultation. Fermez puis rouvrez lʼanalyse pour utiliser ses nouvelles cellules.';return}
-        $row=$faGrid.SelectedItem;$faResult.Targets=$row.Targets;$faResult.Label=[string]$row.Row+' / '+[string]$row.Column;Set-DomeniaSurfaceResult $faWindow $true
+        $faResult.Targets=@($faState.Selection.Targets);$faResult.Label=[string]$faState.Selection.Label;Set-DomeniaSurfaceResult $faWindow $true
     })
     $faPivotTab=[Windows.Controls.TabItem]::new();$faPivotTab.Header='Tableaux croisés';$faPivotTab.Content=$faPivotPanel;[void]$faTabs.Items.Add($faPivotTab)
     [void]$faRoot.Children.Add($faTabs);$faWindow.Content=$faRoot

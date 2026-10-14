@@ -1442,7 +1442,8 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaHealthFingerprint',
             'Set-DomeniaHealthSnapshotMetadata',
             'Compare-DomeniaHealthSnapshots',
-            'Get-DomeniaFleetPivots'
+            'Get-DomeniaFleetPivots',
+            'ConvertTo-DomeniaPivotMatrix'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Charts.UI.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaChartPalette',
