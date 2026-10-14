@@ -144,6 +144,8 @@ function New-TestControls {
     foreach($n in @('BtnSearchMore','BtnNavBack','BtnNavForward','BtnWorkView','BtnOuRestoreRetry','BtnOuRestoreDismiss')){$c[$n]=[Windows.Controls.Button]::new()}
     $c.TxtGlobalLimit.Text='100'
     $c.ChkSubtree=[Windows.Controls.CheckBox]::new();$c.ChkSubtree.IsChecked=$false
+    # SP-15: « Vérifier au clic » and its user sub-option, read and saved by Initialize-DomeniaLive.
+    foreach($n in @('ChkLiveVerifyOnClick','ChkLiveUsersOnClick')){$c[$n]=[Windows.Controls.CheckBox]::new()}
     $c.CmbGlobalType=[Windows.Controls.ComboBox]::new()
     foreach($t in @('Tous','Utilisateurs','Machines','Groupes','OU et conteneurs')){$i=[Windows.Controls.ComboBoxItem]::new();$i.Content=$t;[void]$c.CmbGlobalType.Items.Add($i)}
     $c.CmbGlobalType.SelectedIndex=2
@@ -743,6 +745,30 @@ Case 'UX-26 / CO-35 / SP-05 Menu de la liste court et sans ecriture, Reverifier 
     $copy=@($menu.Items|Where-Object{$_ -is [Windows.Controls.MenuItem] -and [string]$_.Header -eq 'Copier'})[0]
     Expect (-not $open.IsEnabled -and $copy.IsEnabled) 'Selection multiple : ouverture non grisee ou copie indisponible.'
 }
+# Unwired if a simple click on a workstation sends a ping again while « Vérifier au clic » is unchecked (SP-15), if
+# Revérifier ce poste stops being the manual gesture, or if the check box is not read and saved.
+Case 'SP-15 Clic sans ping quand Verifier au clic est decoche ; Reverifier reste le geste manuel ; choix enregistre' {
+    Expect (-not [bool]$script:Live.VerifyOnClick -and -not [bool]$script:Ctrl.ChkLiveVerifyOnClick.IsChecked) 'Verifier au clic coche par defaut.'
+    $task=Search-Global 'pc-0042'
+    $pc=New-ResultRow -Name 'PC-0042' -Login 'PC-0042' -Type 'Machine' -Guid '33333333-3333-4333-8333-333333333333'
+    Feed-Live $pc;Pump-Live 10
+    $row=$script:Live.Search.Map[([string]$pc.DN).ToLowerInvariant()]
+    Expect ($null -ne $row) 'Ligne du poste absente.'
+    $grid=$script:Ctrl.DgObjects;$grid.SelectedItem=$row
+    Select-DomeniaLiveResult
+    Pump-Live 5
+    Expect ($null -eq $script:Live.ProbeSelection -and $script:Live.PendingKeys.Count -eq 0) 'Un clic simple a prepare un ping.'
+    Expect ((Get-TaskCount @('LiveConsole','LiveSelectedPing')) -eq 0) 'Un ping est parti sans geste.'
+    Request-DomeniaLiveRecheck
+    Expect ($null -ne $script:Live.ProbeSelection -and [bool]$script:Live.ProbeSelection.Manual) 'Reverifier ce poste nʼa pas prepare la verification.'
+    Clear-DomeniaLiveProbeIntent
+    $script:Ctrl.ChkLiveVerifyOnClick.IsChecked=$true
+    Expect ([bool]$script:Live.VerifyOnClick -and $script:Settings['LiveVerifyOnClick'] -eq $true) 'Le choix nʼest ni lu ni enregistre.'
+    Select-DomeniaLiveResult
+    Expect ($null -ne $script:Live.ProbeSelection -and -not [bool]$script:Live.ProbeSelection.Manual) 'Le clic coche ne prepare pas le ping.'
+    $script:Ctrl.ChkLiveVerifyOnClick.IsChecked=$false
+    Expect ($null -eq $script:Live.ProbeSelection -and $script:Settings['LiveVerifyOnClick'] -eq $false) 'Decocher garde une intention non envoyee.'
+}
 # Unwired if Set-SelectedBranch reads the OU at each arrow key (one request per node walked), if the tree no longer
 # records whether the keyboard or the mouse drives it, or if Wire-Events sends a change of type without the pause.
 Case 'PF-14 Parcours clavier temporise (300 ms) sans requete par noeud, souris immediate' {
@@ -984,7 +1010,7 @@ $passed=@($script:Checks|Where-Object{$_.Status -eq 'Passed'}).Count
 $failed=@($script:Checks|Where-Object{$_.Status -eq 'Failed'}).Count
 if(-not $ReportPath){$ReportPath=Join-Path ([IO.Path]::GetTempPath()) ('Domenia-wiring-recherche-'+[guid]::NewGuid().ToString('N')+'.json')}
 $report=[ordered]@{
-    Kind='Wiring';Lot='recherche';Points=@('D012','D031','D032','D033','D034','D035','D036','D037','D038','D039','D040','CO-20','CO-21','DS-07','FI-21','FO-04','PF-14','SE-13','UI-16','UX-25','UX-33','UX-26','CO-35','SP-05')
+    Kind='Wiring';Lot='recherche';Points=@('D012','D031','D032','D033','D034','D035','D036','D037','D038','D039','D040','CO-20','CO-21','DS-07','FI-21','FO-04','PF-14','SE-13','UI-16','UX-25','UX-33','UX-26','CO-35','SP-05','SP-15')
     Host=$PSVersionTable.PSVersion.ToString();NativeWindowsPowerShell51=$native;Wpf=$true;LiveAD=$false;LiveCIM=$false;LivePing=$false
     Passed=$passed;Failed=$failed;Complete=($failed -eq 0 -and $passed -gt 0)
     Limitation='Raccordement prouve par les vraies fonctions et de vrais controles WPF, reseau double. Ne prouve pas un acces a un domaine reel.'

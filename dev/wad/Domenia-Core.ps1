@@ -1001,6 +1001,9 @@ $script:GuiElementPolicy = [ordered]@{
     "UxAboutPanel" = "Default"
     "ObjectEmptyState" = "Default"
     "ComputerEmptyState" = "Default"
+    # X01 (SP-15): check on click and its user sub-option in Rechercher.
+    "ChkLiveVerifyOnClick" = "Default"
+    "ChkLiveUsersOnClick" = "Default"
 
 }
 
@@ -3251,7 +3254,8 @@ function Start-DomeniaSelectedMachinePresence {
     param([string]$Name,[string]$DnsName)
     if(Test-DomeniaLiveSearchActive){
         $row=Get-DomeniaSelectedGridRow
-        if($null -ne $row -and $row.Type -eq 'Machine' -and $null -ne $script:SelectedObject -and [string]$row.DN -ieq [string]$script:SelectedObject.DN){Select-DomeniaLiveResult;return}
+        # SP-15: a fiche rendered with its probes is an explicit opening, not a simple click on the list.
+        if($null -ne $row -and $row.Type -eq 'Machine' -and $null -ne $script:SelectedObject -and [string]$row.DN -ieq [string]$script:SelectedObject.DN){Select-DomeniaLiveResult -Explicit;return}
     }
     $target=if($DnsName){$DnsName}else{$Name}
     $guid=[string](Get-DomeniaMemberValue (Get-DomeniaMemberValue $script:SelectedObject 'Safety') 'Guid')
@@ -3452,6 +3456,10 @@ function Get-DomeniaDefaultSettings {
         'Index.Partial'    = ''
         # Lot L01: the "Premiers pas" card of Accueil stays hidden once its four steps were done.
         'Home.FirstStepsDone' = $false
+        # SP-15: a click on a workstation of Rechercher pings it only when the operator checked « Vérifier au clic ».
+        # The user read on click follows Streaming.VerifyUserOnSelection until the operator changes it ('' = not chosen).
+        LiveVerifyOnClick = $false
+        LiveUserOnClick = ''
     }
 }
 
@@ -5475,7 +5483,9 @@ function Get-MainXaml {
 <Button x:Name="BtnSuiteResultClear" Grid.Column="2" Content="Effacer le filtre" Margin="8,0,0,0" MinHeight="32" ToolTip="Réaffiche les lignes déjà chargées, en conservant le filtre OU, la présence et le texte de recherche AD." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Effacer le filtre local" AutomationProperties.HelpText="Réaffiche les lignes déjà chargées, en conservant le filtre OU, la présence et le texte de recherche AD." IsEnabled="{Binding IsEnabled, ElementName=DgObjects}"/>
 </Grid><Grid x:Name="UxResultLive" Margin="0,10,0,0"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="0"/></Grid.ColumnDefinitions>
                             <WrapPanel>
-                              <CheckBox x:Name="ChkLiveUsers" IsEnabled="{Binding IsEnabled, ElementName=DgObjects}" Content="Utilisateur au clic" IsChecked="True" VerticalAlignment="Center" Margin="0,0,14,4" ToolTip="Un clic lance un ping unique sur le poste. Cochée : lit aussi son utilisateur console. Décochée : ping seulement. Jamais de sondage collectif." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vérification sur sélection" AutomationProperties.HelpText="Vérifie uniquement la machine sélectionnée. Les autres lignes conservent leurs observations en cache, sans nouvel appel distant."/>
+                              <!-- SP-15: no ping on a simple click unless the operator asks for it; the user read is a sub-option. -->
+                              <CheckBox x:Name="ChkLiveVerifyOnClick" IsEnabled="{Binding IsEnabled, ElementName=DgObjects}" Content="Vérifier au clic" IsChecked="False" VerticalAlignment="Center" Margin="0,0,8,4" ToolTip="Décochée : un clic sur un poste précharge seulement sa fiche AD, sans aucun appel au poste. Cochée : le clic envoie aussi un seul ping au poste sélectionné. Revérifier ce poste reste le geste manuel. Jamais de sondage collectif." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vérifier au clic" AutomationProperties.HelpText="Décochée : un clic sur un poste précharge seulement sa fiche AD, sans aucun appel au poste. Cochée : le clic envoie aussi un seul ping au poste sélectionné. Revérifier ce poste reste le geste manuel. Jamais de sondage collectif."/>
+                              <CheckBox x:Name="ChkLiveUsersOnClick" IsEnabled="{Binding IsChecked, ElementName=ChkLiveVerifyOnClick}" Content="+ utilisateur connecté" IsChecked="True" VerticalAlignment="Center" Margin="0,0,14,4" ToolTip="Avec Vérifier au clic : lit aussi lʼutilisateur connecté à la console du poste cliqué (CIM). Revérifier ce poste le lit toujours. Les sessions RDP ne sont pas recensées." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vérifier aussi lʼutilisateur connecté" AutomationProperties.HelpText="Avec Vérifier au clic : lit aussi lʼutilisateur connecté à la console du poste cliqué (CIM). Revérifier ce poste le lit toujours. Les sessions RDP ne sont pas recensées."/>
                               <Button x:Name="BtnLiveRecheck" IsEnabled="False" Content="Revérifier ce poste" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" ToolTip="Poste sélectionné seulement : relance un ping unique et la lecture utilisateur. Grisé pour un autre type d objet ou une sélection multiple. Si le compte est refusé ou CIM désactivé, seul le ping reste disponible. Aucun balayage." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Revérifier ce poste" AutomationProperties.HelpText="Relance la vérification du compte console d’une seule machine sélectionnée."/>
                               <Button x:Name="BtnParkPing" Content="Pinger la liste" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" IsEnabled="False" ToolTip="Grisé si la liste ne contient aucun poste. Ping seul des postes affichés après vos filtres : met à jour la présence réseau, sans lecture de session ni association. Confirmation avant envoi." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Pinger les postes affiches"/>
                               <Button x:Name="BtnParkResults" Content="Détecter la liste" Style="{StaticResource RunButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" IsEnabled="False" ToolTip="Grisé si la liste ne contient aucun poste. Ping puis lecture de la console des seuls postes affichés, après vos filtres (OU, recherche, présence, filtre local). Confirmation avec le nombre de postes avant toute lecture. Cache et associations conservés." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Detecter les resultats affiches"/>
@@ -5486,7 +5496,7 @@ function Get-MainXaml {
                                 <TextBlock x:Name="LblListRevalidation" Text="" Margin="8,0,0,0" FontSize="11" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}"/>
                               </StackPanel>
                             </WrapPanel>
-                            <Grid x:Name="UxResultLiveStatuses" Grid.Row="1"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><TextBlock Text="Sélectionnez une ligne pour précharger sa fiche. Double-clic : ouvrir." Foreground="{DynamicResource MutedColor}" FontSize="11" Height="20" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" x:Name="LblSelectionReadState" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/><TextBlock x:Name="LblLiveState" Grid.Row="1" Text="Un clic : vérifier ce poste · Double-clic : ouvrir la fiche · Aucune sonde de liste" FontSize="11" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Height="18" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/></Grid>
+                            <Grid x:Name="UxResultLiveStatuses" Grid.Row="1"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><TextBlock Text="Sélectionnez une ligne pour précharger sa fiche. Double-clic : ouvrir." Foreground="{DynamicResource MutedColor}" FontSize="11" Height="20" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" x:Name="LblSelectionReadState" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/><TextBlock x:Name="LblLiveState" Grid.Row="1" Text="Un clic : fiche AD seulement, sans ping · Double-clic : ouvrir la fiche · Aucune sonde de liste" FontSize="11" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Height="18" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/></Grid>
                           </Grid></StackPanel>
                           <Grid Grid.Row="1" Height="30" Margin="0,0,0,4">
                             <Grid.ColumnDefinitions>
@@ -5509,7 +5519,7 @@ function Get-MainXaml {
                           </Grid>
                           <Grid Grid.Row="2">
                           
-                          <DataGrid x:Name="DgObjects" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Extended" SelectionUnit="FullRow" CanUserSortColumns="True" CanUserResizeColumns="True" EnableRowVirtualization="True" EnableColumnVirtualization="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.CanContentScroll="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" HeadersVisibility="Column" ToolTip="Un clic precharge la fiche AD sans changer de page. Pour un poste : un ping et la lecture utilisateur si activee. Double-clic ou Entree ouvre la fiche en reutilisant sa lecture. Aucun scan collectif." RowHeight="34" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Résultats : sélection et ouverture explicite" AutomationProperties.HelpText="Un clic precharge la fiche AD sans changer de page. Pour un poste : un ping et la lecture utilisateur si activee. Double-clic ou Entree ouvre la fiche en reutilisant sa lecture. Aucun scan collectif.">
+                          <DataGrid x:Name="DgObjects" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Extended" SelectionUnit="FullRow" CanUserSortColumns="True" CanUserResizeColumns="True" EnableRowVirtualization="True" EnableColumnVirtualization="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.CanContentScroll="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" HeadersVisibility="Column" ToolTip="Un clic précharge la fiche AD sans changer de page ; pour un poste, un ping seulement si Vérifier au clic est coché. Double-clic ou Entrée ouvre la fiche en réutilisant sa lecture. Clic droit : actions de la ligne, sans écriture. Aucun scan collectif." RowHeight="34" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Résultats : sélection et ouverture explicite" AutomationProperties.HelpText="Un clic précharge la fiche AD sans changer de page ; pour un poste, un ping seulement si Vérifier au clic est coché. Double-clic ou Entrée ouvre la fiche en réutilisant sa lecture. Clic droit : actions de la ligne, sans écriture. Aucun scan collectif.">
                             <DataGrid.RowStyle>
                               <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
                                 <Style.Triggers>
@@ -26183,7 +26193,7 @@ function Start-DomeniaWriteTask {
     }
     $correlation = [guid]::NewGuid().ToString("N")
     if ($null -eq $Payload.PSObject.Properties["CorrelationId"]) { $Payload | Add-Member -NotePropertyName CorrelationId -NotePropertyValue $correlation }
-    $allControls = @((Get-AllWriteControlNames) + @($DisableControls) + @("ChkLiveUsers","BtnLiveRecheck","TvDirectory","DgObjects","TxtGlobalSearch","BtnGlobalSearch","BtnGlobalClear","BtnTreeRefresh","BtnDashRoot","BtnSearchAllDomain","BtnSearchInOu","ChkSubtree","CmbGlobalType","BtnLoadBranch") | Select-Object -Unique)
+    $allControls = @((Get-AllWriteControlNames) + @($DisableControls) + @("ChkLiveVerifyOnClick","BtnLiveRecheck","TvDirectory","DgObjects","TxtGlobalSearch","BtnGlobalSearch","BtnGlobalClear","BtnTreeRefresh","BtnDashRoot","BtnSearchAllDomain","BtnSearchInOu","ChkSubtree","CmbGlobalType","BtnLoadBranch") | Select-Object -Unique)
     if ($TimeoutSeconds -le 0) { $TimeoutSeconds = [int](Get-CfgValue "Async" "WriteSoftTimeoutSeconds" 90) }
     $hard = [int](Get-CfgValue "Async" "WriteHardTimeoutSeconds" 300)
     Write-AppLog "[$correlation] DEBUT $Name sur $([string]$Payload.DN)" "INFO"

@@ -809,6 +809,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaLiveIdentityKey',
             'Get-DomeniaLiveIdentitySignal',
             'Initialize-DomeniaLive',
+            'Set-DomeniaLiveClickOptions',
             'Reset-DomeniaLiveIdentity',
             'Stop-DomeniaLiveSearch',
             'Stop-DomeniaLiveProbes',

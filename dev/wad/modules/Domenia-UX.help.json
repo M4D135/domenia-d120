@@ -504,7 +504,7 @@
   {
     "Name": "DgObjects",
     "Title": "Résultats : sélection et ouverture explicite",
-    "Text": "Un clic precharge la fiche AD sans changer de page. Pour un poste : un ping et la lecture utilisateur si activee. Double-clic ou Entree ouvre la fiche en reutilisant sa lecture. Aucun scan collectif.",
+    "Text": "Un clic précharge la fiche AD sans changer de page ; pour un poste, un ping seulement si Vérifier au clic est coché. Double-clic ou Entrée ouvre la fiche en réutilisant sa lecture. Clic droit : actions de la ligne, sans écriture. Aucun scan collectif.",
     "Kind": "DataGrid",
     "Source": "existing-help",
     "Shortcut": ""
@@ -3055,11 +3055,19 @@
     "Kind": "Experience"
   },
   {
-    "Name": "ChkLiveUsers",
-    "Title": "Vérification sur sélection",
-    "Text": "Un clic lance un ping unique sur le poste. Cochée : lit aussi son utilisateur console. Décochée : ping seulement. Jamais de sondage collectif.",
+    "Name": "ChkLiveVerifyOnClick",
+    "Title": "Vérifier au clic",
+    "Text": "Décochée : un clic sur un poste précharge seulement sa fiche AD, sans aucun appel au poste. Cochée : le clic envoie aussi un seul ping au poste sélectionné. Revérifier ce poste reste le geste manuel. Jamais de sondage collectif.",
     "Kind": "CheckBox",
-    "Source": "R1.12-static",
+    "Source": "X01",
+    "Shortcut": ""
+  },
+  {
+    "Name": "ChkLiveUsersOnClick",
+    "Title": "Vérifier aussi lʼutilisateur connecté",
+    "Text": "Avec Vérifier au clic : lit aussi lʼutilisateur connecté à la console du poste cliqué (CIM). Revérifier ce poste le lit toujours. Les sessions RDP ne sont pas recensées.",
+    "Kind": "CheckBox",
+    "Source": "X01",
     "Shortcut": ""
   },
   {

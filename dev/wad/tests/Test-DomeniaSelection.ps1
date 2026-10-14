@@ -45,6 +45,7 @@ function Get-DomeniaRealizedTreeNodes {return ,$script:FixtureNodes}
 function Get-DomeniaTreeContextKey {return $script:FixtureContext}
 function Get-GlobalSelectedTypeFilter {param($Mode);return $script:FixtureType}
 function Get-DomeniaSelectedGridRows {return @($script:Ctrl.DgObjects.SelectedItems)}
+function Set-DomeniaSetting {param($Name,$Value) $script:SavedSettings[[string]$Name]=$Value}
 function Request-UiTaskStop {param($Id,[switch]$Silent,[switch]$Force,[switch]$Superseded,$Reason);$script:Stopped.Add([string]$Id)}
 function Invoke-GlobalSearch {param([switch]$AllowEmpty,[switch]$SilentError,[switch]$PreserveSelection,[string]$SearchMode)
     $script:SearchCalls.Add([pscustomobject]@{DN=$script:SelectedBranchDn;Scope=(Get-DomeniaSearchScope).Scope;Preserve=[bool]$PreserveSelection})
@@ -63,7 +64,7 @@ function Reset-Fixture {
     $script:SuppressGridSelectionEvents=$false;$script:SuppressBranchAutoLoad=$false;$script:RestoringSettings=$false
     $script:AsyncEngineClosing=$false;$script:DirectoryCredentialFaulted=$false
     $script:AsyncJobs=@{};$script:DetachedReadJobs=@();$script:DetailedProbe=$null
-    $script:Calls=[Collections.Generic.List[object]]::new();$script:Stopped=[Collections.Generic.List[string]]::new();$script:SearchCalls=[Collections.Generic.List[object]]::new()
+    $script:Calls=[Collections.Generic.List[object]]::new();$script:Stopped=[Collections.Generic.List[string]]::new();$script:SearchCalls=[Collections.Generic.List[object]]::new();$script:SavedSettings=@{}
     $script:FixtureContext='test-domain-reader';$script:FixtureType='(objectClass=*)';$script:FixtureNodes=@()
     $script:Conn=[pscustomobject]@{BaseDn='DC=example,DC=invalid';Connected=$true}
     $script:SelectedBranchDn='OU=Test,DC=example,DC=invalid'
@@ -74,7 +75,7 @@ function Reset-Fixture {
     }
     $state=[pscustomobject]@{Limit=500;PreserveSelectionDn='';Generation=11}
     $script:Live=[pscustomobject]@{
-        PresenceEvents=[Collections.Concurrent.ConcurrentQueue[object]]::new();PresenceSeen=@{};Identity='reader-7';Epoch=7L;AutoDetect=$true;ProbeSelection=$null;RemoteFaulted=$false
+        PresenceEvents=[Collections.Concurrent.ConcurrentQueue[object]]::new();PresenceSeen=@{};Identity='reader-7';Epoch=7L;AutoDetect=$true;VerifyOnClick=$true;ProbeSelection=$null;RemoteFaulted=$false
         Pending=[Collections.Generic.Queue[object]]::new();PendingKeys=@{};Busy=@{};Done=@{}
         Observations=[Collections.Concurrent.ConcurrentDictionary[string,object]]::new();SaveQueue=@{};QueryToSave=$null;SaveJob='';SaveFault=''
         CacheReady=$false;NextStart=[datetime]::MinValue;SaveAfter=[datetime]::MinValue
@@ -117,6 +118,17 @@ Case 'Write in progress blocks verification' {$a=Add-FixtureRow 1;$script:Active
 Case 'Unknown write blocks verification' {$a=Add-FixtureRow 1;$script:WriteState='Unknown';Pick $a;Start-DomeniaLiveBackgroundWork;Expect ($script:Calls.Count -eq 0)}
 Case 'Unchecked user verification sends only one selected ping' {$a=Add-FixtureRow 1;$script:Live.AutoDetect=$false;Pick $a;Ready;Start-DomeniaLiveBackgroundWork;Expect ($script:Calls.Count -eq 1 -and $script:Calls[0].OperationId -eq 'LiveSelectedPing' -and -not $script:Calls[0].Payload.ProbeUser)}
 Case 'Manual recheck works for one selected row when unchecked' {$a=Add-FixtureRow 1;$null=Add-FixtureRow 2;$script:Live.AutoDetect=$false;Pick $a;Request-DomeniaLiveRecheck;Ready;Start-DomeniaLiveBackgroundWork;Expect ($script:Calls.Count -eq 1 -and $script:Calls[0].Payload.Computer -eq $a.UPN)}
+# SP-15: unchecked « Vérifier au clic » (the default) - a click preloads the AD fiche only; the ping needs a gesture.
+Case 'SP-15 Unchecked check on click: a click sends no ping' {$a=Add-FixtureRow 1;$script:Live.VerifyOnClick=$false;Pick $a;Ready;Start-DomeniaLiveBackgroundWork;Expect ($script:Calls.Count -eq 0 -and $null -eq $script:Live.ProbeSelection -and $script:Live.Pending.Count -eq 0 -and $a.SessionState -ne 'En attente de vérification')}
+Case 'SP-15 Unchecked check on click: Reverifier ce poste stays the manual gesture' {$a=Add-FixtureRow 1;$script:Live.VerifyOnClick=$false;Pick $a;Request-DomeniaLiveRecheck;Ready;Start-DomeniaLiveBackgroundWork;Expect ($script:Calls.Count -eq 1 -and $script:Calls[0].OperationId -eq 'LiveConsole' -and $script:Calls[0].Payload.Computer -eq $a.UPN)}
+Case 'SP-15 Unchecked check on click: an explicit fiche opening pings, user per its option' {$a=Add-FixtureRow 1;$script:Live.VerifyOnClick=$false;$script:Live.AutoDetect=$false;Pick $a;Select-DomeniaLiveResult -Explicit;Ready;Start-DomeniaLiveBackgroundWork;Expect ($script:Calls.Count -eq 1 -and $script:Calls[0].OperationId -eq 'LiveSelectedPing' -and -not $script:Calls[0].Payload.ProbeUser)}
+Case 'SP-15 Turning the option off keeps the preference and drops an unsent click intent' {
+    $a=Add-FixtureRow 1;Pick $a;Expect ($null -ne $script:Live.ProbeSelection) 'Le clic coche ne prepare pas le ping.'
+    $script:Ctrl.ChkLiveVerifyOnClick=[pscustomobject]@{IsChecked=$false};$script:Ctrl.ChkLiveUsersOnClick=[pscustomobject]@{IsChecked=$true}
+    Set-DomeniaLiveClickOptions;Ready;Start-DomeniaLiveBackgroundWork
+    Expect ($script:Calls.Count -eq 0 -and $null -eq $script:Live.ProbeSelection -and -not [bool]$script:Live.VerifyOnClick) 'Une intention non envoyee a survecu.'
+    Expect ($script:SavedSettings['LiveVerifyOnClick'] -eq $false -and $script:SavedSettings['LiveUserOnClick'] -eq $true) 'Preferences non enregistrees.'
+}
 Case 'Unselected manual recheck is harmless' {$null=Add-FixtureRow 1;Request-DomeniaLiveRecheck;Expect ($script:Calls.Count -eq 0 -and $script:Live.Pending.Count -eq 0)}
 Case 'Cached selection waits for AD' {$a=Add-FixtureRow 1 -Cached;Pick $a;Ready;Start-DomeniaLiveBackgroundWork;Expect ($null -ne $script:Live.ProbeSelection -and $script:Calls.Count -eq 0)}
 Case 'AD confirmation serves a waiting selection only' {$a=Add-FixtureRow 1 -Cached;Pick $a;$null=Add-FixtureRow 2;$null=Add-FixtureRow 1;Ready;Start-DomeniaLiveBackgroundWork;Expect ($script:Calls.Count -eq 1 -and $script:Calls[0].Payload.Computer -eq $a.UPN)}

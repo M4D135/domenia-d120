@@ -481,7 +481,9 @@ function Set-DomeniaUxShortLayout {
     }
     $results=Get-DomeniaControl 'UxResultsCard';if($results){$results.Padding=if($compact){[Windows.Thickness]::new(6)}else{[Windows.Thickness]::new(12)}}
     $actions=Get-DomeniaControl 'UxResultActionsRow';if($actions){$actions.Margin=if($compact){[Windows.Thickness]::new(0,0,0,4)}else{[Windows.Thickness]::new(0,0,0,8)}}
-    $consoleCheck=Get-DomeniaControl 'ChkLiveUsers';if($consoleCheck){$consoleCheck.Content=if($compact){'Console au clic'}else{'Utilisateur au clic'}}
+    # SP-15: check on click and its user sub-option keep a short wording in compact mode.
+    $consoleCheck=Get-DomeniaControl 'ChkLiveVerifyOnClick';if($consoleCheck){$consoleCheck.Content=if($compact){'Au clic'}else{'Vérifier au clic'}}
+    $userCheck=Get-DomeniaControl 'ChkLiveUsersOnClick';if($userCheck){$userCheck.Content=if($compact){'+ utilisateur'}else{'+ utilisateur connecté'}}
     $recheck=Get-DomeniaControl 'BtnLiveRecheck';if($recheck){$recheck.Content=if($compact){'Revérifier'}else{'Revérifier ce poste'}}
     # Ping and detection of the list (lot 2026-10-07) keep the action row on one line in compact mode: short labels
     # and tighter buttons; every action stays in view (Arreter included).
@@ -495,7 +497,8 @@ function Set-DomeniaUxShortLayout {
             $button.Margin=if($compact){[Windows.Thickness]::new(0,0,4,4)}else{[Windows.Thickness]::new(0,0,8,4)}
         }
     }
-    if($consoleCheck){$consoleCheck.Margin=if($compact){[Windows.Thickness]::new(0,0,8,4)}else{[Windows.Thickness]::new(0,0,14,4)}}
+    if($consoleCheck){$consoleCheck.Margin=if($compact){[Windows.Thickness]::new(0,0,4,4)}else{[Windows.Thickness]::new(0,0,8,4)}}
+    if($userCheck){$userCheck.Margin=if($compact){[Windows.Thickness]::new(0,0,8,4)}else{[Windows.Thickness]::new(0,0,14,4)}}
     $statuses=Get-DomeniaControl 'UxResultLiveStatuses'
     if($live -and $statuses){
         $live.ColumnDefinitions[0].Width=if($compact){[Windows.GridLength]::new(470)}else{[Windows.GridLength]::new(1,[Windows.GridUnitType]::Star)}

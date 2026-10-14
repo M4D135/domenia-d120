@@ -61,7 +61,7 @@ function Clear-Secrets {$script:SecretsCleared++}
 function Reset-DomeniaSelectionBoundViews {param($Dn,$Type,$Name) $script:BoundViewsReset++}
 function Clear-DomeniaLiveProbeIntent {$script:RemoteIntent=''}
 function Update-DomeniaSearchActionStates { }
-function Select-DomeniaLiveResult {param([switch]$Force,[switch]$Manual)
+function Select-DomeniaLiveResult {param([switch]$Force,[switch]$Manual,[switch]$Explicit)
     $r=Get-DomeniaSelectedGridRow
     if($null -ne $r -and $r.Type -eq 'Machine'){$script:RemoteIntent=[string]$r.DN}else{$script:RemoteIntent=''}
 }
