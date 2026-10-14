@@ -535,9 +535,60 @@ function New-DomeniaBoardItemId {
     return ([guid]::NewGuid().ToString('N')).Substring(0, 10)
 }
 function New-DomeniaBoardItem {
-    param([ValidateSet('Builtin','Probe','Query')][string]$Source,[string]$Key,[string]$Visual,[string]$Size = '',[string]$Group = '',[string]$Title = '',[string]$Id = '')
+    # -Paused (decision David 2026-10-14): the widget keeps its place, size and title, is drawn as paused and is left
+    # out of every collection (its own refresh, the board refresh, Analyser la liste, the WMI refresh of the OU).
+    param([ValidateSet('Builtin','Probe','Query')][string]$Source,[string]$Key,[string]$Visual,[string]$Size = '',[string]$Group = '',[string]$Title = '',[string]$Id = '',[switch]$Paused)
     if (-not $Id) { $Id = New-DomeniaBoardItemId }
-    return [pscustomobject]@{ Id = $Id; Source = $Source; Key = $Key; Visual = $Visual; Title = $Title; Size = $Size; Group = $Group }
+    return [pscustomobject]@{ Id = $Id; Source = $Source; Key = $Key; Visual = $Visual; Title = $Title; Size = $Size; Group = $Group; Paused = [bool]$Paused }
+}
+function Test-DomeniaBoardItemPaused {
+    # A layout item written before the pause existed has no Paused member: it is active.
+    param($Item)
+    if ($null -eq $Item) { return $false }
+    $property = $Item.PSObject.Properties['Paused']
+    if ($null -eq $property) { return $false }
+    return (($property.Value -is [bool]) -and [bool]$property.Value)
+}
+function Select-DomeniaActiveBoardItems {
+    # Widgets that take part in collections and local calculations: every widget except the paused ones.
+    param([object[]]$Layout = @())
+    return @($Layout | Where-Object { ($null -ne $_) -and (-not (Test-DomeniaBoardItemPaused -Item $_)) })
+}
+function Get-DomeniaBoardNextSize {
+    # Keyboard resizing (point 80): one step smaller (-1) or larger (+1), bounded to Compacte and Large.
+    param([string]$Size = 'M',[int]$Step = 1)
+    $order = @('S','M','L')
+    $index = [Array]::IndexOf($order, [string]$Size)
+    if ($index -lt 0) { $index = 1 }
+    return $order[[Math]::Max(0, [Math]::Min(2, $index + [Math]::Sign($Step)))]
+}
+function Get-DomeniaBoardFitScale {
+    # Point 80: at a high DPI or in a narrow window the board offers fewer device-independent pixels than a widget
+    # needs. Scale of that widget: 1 when it fits, else the ratio rounded down (so it always fits), never below
+    # Minimum (a widget that would become unreadable stays readable and is cut by the page edge, as before).
+    param([double]$Needed,[double]$Available,[double]$Minimum = 0.6)
+    if (($Needed -le 0) -or ($Available -le 0) -or ($Needed -le $Available)) { return 1.0 }
+    return [Math]::Max($Minimum, [Math]::Floor(1000.0 * $Available / $Needed) / 1000.0)
+}
+function Get-DomeniaBoardKeyGesture {
+    # Keyboard of a focused widget (point 80): {Action; Value}, or $null when the key means nothing to the board.
+    # F5 refreshes the widget at any time; moving (Alt+arrows, Alt+Home/End), resizing (Alt+Shift+arrows) and removing
+    # (Delete) change the layout and are offered while customising only, like the mouse gestures.
+    param([string]$Key,[bool]$Alt = $false,[bool]$Shift = $false,[bool]$Control = $false,[bool]$Editing = $false)
+    if ($Control) { return $null }
+    if ((-not $Alt) -and (-not $Shift) -and ($Key -eq 'F5')) { return [pscustomobject]@{ Action = 'Refresh'; Value = '' } }
+    if (-not $Editing) { return $null }
+    if ((-not $Alt) -and (-not $Shift) -and ($Key -eq 'Delete')) { return [pscustomobject]@{ Action = 'Remove'; Value = '' } }
+    if (-not $Alt) { return $null }
+    $value = ''
+    if ($Shift) {
+        switch ($Key) { 'Right' { $value = 'Grow' } 'Up' { $value = 'Grow' } 'Left' { $value = 'Shrink' } 'Down' { $value = 'Shrink' } }
+        if ($value) { return [pscustomobject]@{ Action = 'Size'; Value = $value } }
+        return $null
+    }
+    switch ($Key) { 'Left' { $value = 'Back' } 'Right' { $value = 'Forward' } 'Home' { $value = 'First' } 'End' { $value = 'Last' } }
+    if ($value) { return [pscustomobject]@{ Action = 'Move'; Value = $value } }
+    return $null
 }
 function Get-DomeniaBoardDefaultLayout {
     # Delivered layout: the catalog in its order, without the widgets marked catalog only (eighth cell N).
@@ -611,13 +662,18 @@ function ConvertTo-DomeniaBoardLayout {
         $seen[$id] = $true
         $visual = Resolve-DomeniaBoardVisual -Visual (& $get 'Visual') -Kind $kind -HasMaximum:($kind -in @('Number','Health'))
         $size = & $get 'Size'; if ($size -notin @('S','M','L')) { $size = if ($defaultSize) { $defaultSize } elseif ($visual -eq 'Kpi') { 'S' } else { 'M' } }
-        [void]$clean.Add((New-DomeniaBoardItem -Source $source -Key $key -Visual $visual -Size $size -Group $group -Title (& $get 'Title') -Id $id))
+        [void]$clean.Add((New-DomeniaBoardItem -Source $source -Key $key -Visual $visual -Size $size -Group $group -Title (& $get 'Title') -Id $id -Paused:(Test-DomeniaBoardItemPaused -Item $raw)))
     }
     return @($clean)
 }
 function ConvertTo-DomeniaBoardLayoutJson {
     param([object[]]$Layout = @())
-    $plain = @($Layout | Where-Object { $null -ne $_ } | ForEach-Object { [pscustomobject]@{ Id = [string]$_.Id; Source = [string]$_.Source; Key = [string]$_.Key; Visual = [string]$_.Visual; Title = [string]$_.Title; Size = [string]$_.Size; Group = [string]$_.Group } })
+    # Paused is written only for a paused widget: an active layout keeps the text it had before the pause existed.
+    $plain = @($Layout | Where-Object { $null -ne $_ } | ForEach-Object {
+        $row = [ordered]@{ Id = [string]$_.Id; Source = [string]$_.Source; Key = [string]$_.Key; Visual = [string]$_.Visual; Title = [string]$_.Title; Size = [string]$_.Size; Group = [string]$_.Group }
+        if (Test-DomeniaBoardItemPaused -Item $_) { $row['Paused'] = $true }
+        [pscustomobject]$row
+    })
     if (-not $plain.Count) { return '[]' }
     return (ConvertTo-Json -InputObject $plain -Depth 3 -Compress)
 }
@@ -649,13 +705,14 @@ function Remove-DomeniaBoardItem {
     return @($Layout | Where-Object { $null -ne $_ -and [string]$_.Id -ne $Id })
 }
 function Update-DomeniaBoardItem {
-    # Changes some fields (Visual, Title, Size, Group) of one widget; a widget moved to another section goes to its end.
+    # Changes some fields (Visual, Title, Size, Group, Paused) of one widget; a widget moved to another section goes to its end.
     param([object[]]$Layout = @(),[string]$Id,[hashtable]$Changes = @{})
     $target = $null
     foreach ($item in @($Layout)) { if ($null -ne $item -and [string]$item.Id -eq $Id) { $target = $item } }
     if ($null -eq $target) { return @($Layout) }
-    $updated = New-DomeniaBoardItem -Source ([string]$target.Source) -Key ([string]$target.Key) -Visual ([string]$target.Visual) -Size ([string]$target.Size) -Group ([string]$target.Group) -Title ([string]$target.Title) -Id ([string]$target.Id)
+    $updated = New-DomeniaBoardItem -Source ([string]$target.Source) -Key ([string]$target.Key) -Visual ([string]$target.Visual) -Size ([string]$target.Size) -Group ([string]$target.Group) -Title ([string]$target.Title) -Id ([string]$target.Id) -Paused:(Test-DomeniaBoardItemPaused -Item $target)
     foreach ($name in @('Visual','Title','Size','Group')) { if ($Changes.ContainsKey($name)) { $updated.$name = [string]$Changes[$name] } }
+    if ($Changes.ContainsKey('Paused')) { $updated.Paused = [bool]$Changes['Paused'] }
     if ([string]$updated.Group -ne [string]$target.Group) { return @(Add-DomeniaBoardItem -Layout @(Remove-DomeniaBoardItem -Layout $Layout -Id $Id) -Item $updated) }
     return @($Layout | ForEach-Object { if ($null -ne $_ -and [string]$_.Id -eq $Id) { $updated } else { $_ } })
 }
@@ -674,7 +731,7 @@ function Move-DomeniaBoardItem {
         if ($targetIndex -lt 0) { return @($items) }
         $target = $items[$targetIndex]
         $items.RemoveAt($index)
-        $moving = New-DomeniaBoardItem -Source ([string]$moving.Source) -Key ([string]$moving.Key) -Visual ([string]$moving.Visual) -Size ([string]$moving.Size) -Group ([string]$target.Group) -Title ([string]$moving.Title) -Id ([string]$moving.Id)
+        $moving = New-DomeniaBoardItem -Source ([string]$moving.Source) -Key ([string]$moving.Key) -Visual ([string]$moving.Visual) -Size ([string]$moving.Size) -Group ([string]$target.Group) -Title ([string]$moving.Title) -Id ([string]$moving.Id) -Paused:(Test-DomeniaBoardItemPaused -Item $moving)
         $place = $items.IndexOf($target)
         if ($index -lt $targetIndex) { $place++ }
         $items.Insert($place, $moving)
@@ -685,7 +742,7 @@ function Move-DomeniaBoardItem {
         $target = $null; foreach ($item in $items) { if ([string]$item.Id -eq $Before) { $target = $item } }
         if ($null -eq $target) { return @($items) }
         $items.RemoveAt($index)
-        $moving = New-DomeniaBoardItem -Source ([string]$moving.Source) -Key ([string]$moving.Key) -Visual ([string]$moving.Visual) -Size ([string]$moving.Size) -Group ([string]$target.Group) -Title ([string]$moving.Title) -Id ([string]$moving.Id)
+        $moving = New-DomeniaBoardItem -Source ([string]$moving.Source) -Key ([string]$moving.Key) -Visual ([string]$moving.Visual) -Size ([string]$moving.Size) -Group ([string]$target.Group) -Title ([string]$moving.Title) -Id ([string]$moving.Id) -Paused:(Test-DomeniaBoardItemPaused -Item $moving)
         $items.Insert($items.IndexOf($target), $moving)
         return @($items)
     }

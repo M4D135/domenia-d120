@@ -124,6 +124,32 @@ Case 'WMI seul : aucune presence ICMP ni validation LDAP implicite' {
  Invoke-DomeniaParkRunTick;$payload=$script:Calls[1].Payload
  Assert (-not $payload.CollectPing -and -not $payload.ValidateConsoleIdentity -and $payload.Inventory -and $payload.ProbeUser)
 }
+Case 'Widget : sondes seules, sans console ni ping, lancees au geste sous la limite ; poste deja mesure non contacte' {
+ Reset-Fixture
+ $probe=[pscustomobject]@{Id='disk.cfree';Namespace='root\cimv2';Class='Win32_LogicalDisk';Properties=@('FreeSpace','Size');Filter="DeviceID='C:'";Mode='First';Skip=''}
+ $id=Start-DomeniaOnlinePark -ScopeTargets @([pscustomobject]@{name='PC-1';distinguished_name='cn=pc-1,dc=example,dc=invalid';object_guid='00000000-0000-0000-0000-000000000001'},[pscustomobject]@{name='PC-2';distinguished_name='cn=pc-2,dc=example,dc=invalid';object_guid='00000000-0000-0000-0000-000000000002'}) -ScopeLabel 'Postes' -WmiOnly -NoConsole -Probes @($probe) -ReuseMaxAgeDays 30 -Preapproved -WidgetBoard 'Fleet' -WidgetIds @('w1') -PassThru
+ Assert ([string]$id -and $script:ParkRun.NoConsole -and $script:ParkRun.Preapproved -and $script:ParkRun.ReuseMaxAgeDays -eq 30) 'Releve du widget mal prepare'
+ Assert ((@($script:Calls[0].Payload.ObservationFamilies) -join ',') -eq 'Probe:disk.cfree') ('Familles relues : '+(@($script:Calls[0].Payload.ObservationFamilies) -join ','))
+ $fresh=New-Target 1;$hash=[string]@($script:ParkRun.Probes)[0].DefinitionHash
+ $fresh.Previous=[pscustomobject]@{Guid=$fresh.Guid;Key=$fresh.Key;Probes=[pscustomobject]@{'disk.cfree'=[pscustomobject]@{CheckedUtc=[datetime]::UtcNow.AddDays(-3).ToString('o');Error='';DefinitionHash=$hash}}}
+ Complete-DomeniaParkTargets ([pscustomobject]@{Rows=@($fresh,(New-Target 2));Busy=$false}) $script:Calls[0].State
+ $script:AsyncJobs.Remove($script:Calls[0].Id)
+ Assert ($script:ParkRun.Approved -and $null -eq $script:Confirm) 'Geste du widget redemande une confirmation sous la limite'
+ Invoke-DomeniaParkRunTick
+ Assert ($script:Calls.Count -eq 1 -and $script:ParkRun.AlreadyFresh -eq 1 -and $script:ParkRun.Done -eq 1) 'Poste deja mesure contacte'
+ Invoke-DomeniaParkRunTick
+ $payload=$script:Calls[1].Payload
+ Assert (-not $payload.CollectPing -and -not $payload.ProbeUser -and -not $payload.Inventory -and @($payload.Probes).Count -eq 1) 'Lecture du widget : console, ping ou inventaire en trop'
+ Fail-DomeniaParkSession 'delai fixture' $script:Calls[1].State
+ Assert (@($script:Saves[0].Changes).Count -eq 1 -and [string]$script:Saves[0].Changes[0].Family -eq 'Probe:disk.cfree' -and [string]$script:Saves[0].Changes[0].Status -eq 'Error') 'Echec de sonde non date ou console inventee'
+}
+Case 'Widget : au-dela de la limite, le nombre de postes est confirme avant toute lecture' {
+ Reset-Fixture
+ $targets=@(for($i=1;$i -le 201;$i++){[pscustomobject]@{name=('PC-'+$i);distinguished_name=('cn=pc-'+$i+',dc=example,dc=invalid');object_guid=(New-Target $i).Guid}})
+ [void](Start-DomeniaOnlinePark -ScopeTargets $targets -ScopeLabel 'Postes' -PingOnly -Preapproved -WidgetBoard 'Fleet' -WidgetIds @('w2') -PassThru)
+ Complete-DomeniaParkTargets ([pscustomobject]@{Rows=@(for($i=1;$i -le 201;$i++){New-Target $i});Busy=$false}) $script:Calls[0].State
+ Assert ($null -ne $script:Confirm -and -not $script:ParkRun.Approved -and [string]$script:Message -like '*Plus de 200 postes*') 'Grand perimetre lance sans confirmation'
+}
 Case 'Ping et WMI exclusifs : demande ambigue refusee avant cible' {
  Reset-Fixture;Add-DisplayedMachine;Start-DomeniaOnlinePark -DisplayedResults -PingOnly -WmiOnly
  Assert ($script:Calls.Count -eq 0 -and $null -eq $script:ParkRun)
@@ -142,7 +168,7 @@ Case 'Interface : detection et analyse de la liste et leur arret cables ; aucun 
 }
 if($null -ne $script:ParkRun -and $null -ne $script:ParkRun.Timer){$script:ParkRun.Timer.Stop()}
 $failed=@($checks|Where-Object Status -eq 'Failed').Count
-$report=[ordered]@{Kind='ParkDetection';Expected=24;Complete=($checks.Count -eq 24 -and $failed -eq 0);NativeWindowsPowerShell51=$true;LiveAD=$false;MockedNetwork=$true;Passed=$checks.Count-$failed;Failed=$failed;Tests=$checks.ToArray()}
+$report=[ordered]@{Kind='ParkDetection';Expected=26;Complete=($checks.Count -eq 26 -and $failed -eq 0);NativeWindowsPowerShell51=$true;LiveAD=$false;MockedNetwork=$true;Passed=$checks.Count-$failed;Failed=$failed;Tests=$checks.ToArray()}
 if(-not $ReportPath){$ReportPath=Join-Path $env:TEMP 'domenia-park-tests.json'}
 [IO.File]::WriteAllText([IO.Path]::GetFullPath($ReportPath),($report|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
 Write-Host ($report.Passed.ToString()+' reussis, '+$failed+' echecs. '+$ReportPath)

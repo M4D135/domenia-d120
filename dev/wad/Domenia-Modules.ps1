@@ -1416,6 +1416,11 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaBoardSize',
             'New-DomeniaBoardItemId',
             'New-DomeniaBoardItem',
+            'Test-DomeniaBoardItemPaused',
+            'Select-DomeniaActiveBoardItems',
+            'Get-DomeniaBoardNextSize',
+            'Get-DomeniaBoardFitScale',
+            'Get-DomeniaBoardKeyGesture',
             'Get-DomeniaBoardDefaultLayout',
             'Test-DomeniaFleetLegacyLayout',
             'ConvertTo-DomeniaBoardLayout',
@@ -1435,6 +1440,24 @@ function Get-DomeniaRuntimeModulePlan {
             'Set-DomeniaHealthSnapshotMetadata',
             'Compare-DomeniaHealthSnapshots',
             'Get-DomeniaFleetPivots'
+        ) }
+        # Per-widget collection and explanation (decision David 2026-10-14, points 6, 73, 74): pure rules.
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Boards.Model.ps1'); File='Domenia-WidgetCollect.Model.ps1'; DotSource=$true; Functions=@(
+            'Get-DomeniaWidgetSourceTable',
+            'Get-DomeniaWidgetSource',
+            'Get-DomeniaWidgetFieldNeeds',
+            'Get-DomeniaWidgetCollectionNeed',
+            'Get-DomeniaWidgetNeedText',
+            'Get-DomeniaWidgetPauseText',
+            'Get-DomeniaWidgetCollectAdmission',
+            'Test-DomeniaWidgetMeasureUsable',
+            'Select-DomeniaWidgetMissingTargets',
+            'Format-DomeniaWidgetCollectProgress',
+            'Get-DomeniaWidgetPlaceholder',
+            'Test-DomeniaComputerInventoryDeep',
+            'Format-DomeniaWidgetDetailLabel',
+            'Test-DomeniaWidgetSnapshotCurrent',
+            'Get-DomeniaWidgetExplanation'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Charts.UI.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaChartPalette',
@@ -1519,7 +1542,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Show-DomeniaHealthExplanation',
             'Show-DomeniaFleetAnalysis'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Boards.Model.ps1','Domenia-Charts.UI.ps1','Domenia-Probes.Model.ps1','Domenia-HealthRules.UI.ps1'); File='Domenia-Widgets.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Boards.Model.ps1','Domenia-Charts.UI.ps1','Domenia-Probes.Model.ps1','Domenia-HealthRules.UI.ps1','Domenia-WidgetCollect.Model.ps1'); File='Domenia-Widgets.UI.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaWidgetList',
             'Get-DomeniaBoardPanelName',
             'Get-DomeniaBoardState',
@@ -1530,6 +1553,8 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaBoardRenderContext',
             'Resume-DomeniaBoardRender',
             'Show-DomeniaBoard',
+            'Get-DomeniaBoardHolderList',
+            'Update-DomeniaBoardFit',
             'Find-DomeniaBoardHolder',
             'Get-DomeniaBoardGroupSubtitle',
             'Get-DomeniaBoardHintAction',
@@ -1545,6 +1570,7 @@ function Get-DomeniaRuntimeModulePlan {
             'New-DomeniaBoardChromeButton',
             'New-DomeniaBoardMenu',
             'Set-DomeniaBoardSegmentSelection',
+            'New-DomeniaWidgetStateCard',
             'New-DomeniaBoardWidget',
             'Invoke-DomeniaBoardAutoScroll',
             'Request-DomeniaBoardDrop',
@@ -1563,7 +1589,23 @@ function Get-DomeniaRuntimeModulePlan {
             'Switch-DomeniaAttentionDetails',
             'Get-DomeniaBoardProbeIds',
             'Get-DomeniaFleetCollectionContext',
-            'Start-DomeniaWidgetProbe'
+            'Start-DomeniaWidgetProbe',
+            'Get-DomeniaWidgetRecipe',
+            'Get-DomeniaWidgetNeed',
+            'Get-DomeniaBoardItemIdentity',
+            'Test-DomeniaWidgetOperationRunning',
+            'Register-DomeniaWidgetCollect',
+            'Get-DomeniaWidgetActivityText',
+            'Get-DomeniaWidgetCollectProgress',
+            'Update-DomeniaWidgetCollectProgress',
+            'Start-DomeniaQueuedWidgetCollect',
+            'Add-DomeniaWidgetCollectQueue',
+            'Get-DomeniaWidgetPopulation',
+            'Start-DomeniaWidgetRemoteCollect',
+            'Start-DomeniaWidgetRefresh',
+            'Set-DomeniaBoardItemPaused',
+            'Get-DomeniaWidgetExplanationData',
+            'Show-DomeniaWidgetExplanation'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Charts.UI.ps1'); File='Domenia-Dashboard.UI.ps1'; DotSource=$true; Functions=@(
             'Clear-DomeniaDashboards',
@@ -1604,7 +1646,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Update-DomeniaComputerDashboard',
             'Update-DomeniaSoftwareDashboard'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Park.Model.ps1','Domenia-Relations.UI.ps1','Domenia-Storage.UI.ps1','Domenia-Inline.UI.ps1','Domenia-Engine.Worker.ps1'); File='Domenia-Park.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Park.Model.ps1','Domenia-Relations.UI.ps1','Domenia-Storage.UI.ps1','Domenia-Inline.UI.ps1','Domenia-Engine.Worker.ps1','Domenia-WidgetCollect.Model.ps1'); File='Domenia-Park.UI.ps1'; DotSource=$true; Functions=@(
             'Test-DomeniaParkRunCurrent',
             'Update-DomeniaParkRunStatus',
             'Update-DomeniaParkControls',
@@ -1727,7 +1769,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Add-DomeniaWorkshopWidget',
             'Complete-DomeniaWorkshopWidgetSave'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Query.Model.ps1','Domenia-Query.Worker.ps1','Domenia-QueryLibrary.Store.UI.ps1'); File='Domenia-Query.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Query.Model.ps1','Domenia-Query.Worker.ps1','Domenia-QueryLibrary.Store.UI.ps1','Domenia-WidgetCollect.Model.ps1'); File='Domenia-Query.UI.ps1'; DotSource=$true; Functions=@(
             'Initialize-DomeniaQueryView',
             'Update-DomeniaQueryScopeLabel',
             'Show-DomeniaQueryWorkshop',

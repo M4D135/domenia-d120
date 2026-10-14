@@ -437,7 +437,7 @@ Quand : vous voulez garder sous les yeux les informations utiles. Chaque tuile o
 2. **Chercher l'information.** Tapez un mot dans la recherche (disque, utilisateur, BitLocker…) : la liste des informations se réduit. Le badge « affiche » signale une information déjà sur le tableau.
 3. **Choisir.** Cliquez sur une ligne. L'« Apercu » montre le widget.
 4. **Régler.** Modifiez au besoin le « Titre », la « Représentation » (« Chiffre cle », « Jauge », « Anneau », « Barres »…), la « Taille » et la « Section ». Pour une nouvelle section, choisissez « + Nouvelle section... » et tapez son nom dans le champ qui apparaît.
-5. **Ajouter.** Cliquez sur « Ajouter » : le widget apparaît à la fin de sa section. Hors personnalisation, un widget encore sans données reste masqué et la barre affiche « Widget enregistre : il s affichera des que ses donnees seront lues. ». « Annuler » ne change rien.
+5. **Ajouter.** Cliquez sur « Ajouter » : le widget apparaît à la fin de sa section et la collecte de ses données manquantes part aussitôt, pour le poste sélectionné ou les postes actifs de l’OU affichée. Le widget affiche « Collecte en cours » puis son chiffre. « Annuler » ne change rien.
 
 ![Panneau « Ajouter un widget » : recherche, liste des informations, réglages à droite et aperçu du widget « Disque systeme »](fig:editeur-widget)
 

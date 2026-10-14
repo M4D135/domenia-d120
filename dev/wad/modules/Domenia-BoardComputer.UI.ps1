@@ -210,6 +210,11 @@ function Get-DomeniaComputerBoardData {
             if ($lowBattery) { & $note 'Warn' ('Batterie à ' + $battery.ToString('0', $fr) + ' %.') 'battery' }
             Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.battery' -Kind Number -Value ($battery.ToString('0', $fr) + ' %') -Detail $(if ($lowBattery) { 'Moins de ' + $batteryLimit + ' % : poste à brancher' } else { 'Charge restante' }) -State $(if ($lowBattery) { 'Warn' } else { '' }) -Number $battery -Maximum 100.0 -Unit '%' -LowIsBad)
         }
+        else {
+            # The inventory answered that there is no battery (decision David 2026-10-14): said in words, never a 0 %.
+            $batteryState = Get-DomeniaCategorySummary $rows 'Batterie'
+            if ((-not $batteryState.Count) -and ([string]$batteryState.State -match '^Aucune batterie')) { Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.battery' -Kind Value -Value 'Aucune batterie' -Detail 'Poste fixe ou alimentation secteur uniquement, selon lʼinventaire') }
+        }
 
         # One system disk on the fleet workstations (decision David 2026-10-07): C: (else the first volume) as a ring,
         # every other volume as one bar of free space.
@@ -243,6 +248,10 @@ function Get-DomeniaComputerBoardData {
                 }
                 $volumesDetail = if ($others.Count -eq 1) { (Format-DomeniaDashboardSize $worst.Free) + ' libres sur ' + (Format-DomeniaDashboardSize $worst.Size) } else { 'Le moins libre des ' + $others.Count + ' volumes' }
                 Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.disk.volumes' -Kind Distribution -Value ([string]$worst.Name + ' ' + $worstPercent + ' % libre') -Detail $volumesDetail -State $(if ($worstState -eq 'Ok') { '' } else { $worstState }) -Items @($volumeItems) -Maximum 100.0 -Unit '%')
+            }
+            else {
+                # The logical disks were read and only the system disk exists: an answer, not a missing value.
+                Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key 'computer.disk.volumes' -Kind Value -Value 'Aucun autre volume' -Detail ('Seul ' + $diskName + ' est monté, selon lʼinventaire'))
             }
         }
     }

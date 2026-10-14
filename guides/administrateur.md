@@ -583,9 +583,19 @@ L'annulation n'a qu'un niveau. Elle est perdue quand de nouvelles données arriv
 ![Tableau du poste en mode Personnaliser : boutons Modifier et Retirer sur chaque widget, tuiles Ajouter ici en fin de section, boutons Par defaut et Terminer](fig:personnaliser)
 
 - En personnalisation, chaque section se termine par une tuile en pointillés « Ajouter ici », qui ouvre l'éditeur avec la section choisie. Les boutons ronds de modification et de retrait restent visibles ; hors personnalisation, ils apparaissent au survol ou au clavier.
-- Les widgets sans donnée restent visibles en personnalisation (« Aucune donnee pour le moment »). Hors personnalisation, un widget intégré sans donnée est masqué.
+- Un widget sans chiffre dit pourquoi, avec le bouton qui agit : « Pas encore collecté pour ce tableau. » (« Collecter »), « Absent du dernier relevé du … » (« Relire »), « Lu par l’inventaire complet seulement » (« Inventaire complet »). Il garde une place compacte dès que le tableau du poste a une lecture ; avant toute lecture, seuls les widgets suspendus ou en collecte sont affichés. En personnalisation, tous les widgets restent visibles à leur taille.
 - Le menu clic droit d'un widget, toujours disponible, propose « Modifier... », « Représentation », « Taille » (« Compacte », « Moyenne », « Large »), « Déplacer » et « Retirer du tableau de bord ». Les déplacements du menu restent dans la section.
 - Le glisser-déposer est actif en mode « Personnaliser ». Lâché sur un autre widget, le widget prend sa place et sa section ; lâché dans une section hors d'un widget, il va à la fin de cette section. La page défile près des bords.
+
+## Un widget à la fois
+
+- **Actualiser.** Le bouton rond d’actualisation, l’entrée « Actualiser ce widget » du menu ou la touche F5 sur le widget relisent seulement ce que ce widget affiche, pour le périmètre de son tableau : le poste sélectionné, ou les postes actifs de l’OU affichée sur l’Accueil, jamais tout le domaine. Une requête WMI relit ses seules sondes, sans console ni ping ; un widget du poste relance l’inventaire rapide ou complet qui le remplit ; un widget de l’annuaire relit les objets AD de l’OU ; un widget calculé est recalculé localement.
+- **Ajouter.** Ajouter un widget, depuis l’éditeur ou l’Atelier, est le geste explicite : la collecte de ce qui lui manque part aussitôt. Seuls les postes sans mesure exploitable de moins de 30 jours (durée de conservation) sont contactés ; un poste déjà mesuré n’est pas interrogé. Jusqu’à 200 postes, la collecte démarre sans confirmation ; au-delà, le nombre de postes est confirmé dans la page. Les budgets et le parallélisme du moteur s’appliquent.
+- **Suivre.** Pendant la collecte, le widget affiche « Collecte en cours · 3/40 poste(s) », avec les postes déjà à jour et les lectures non confirmées. Le chiffre reste le dernier enregistré jusqu’à la fin. Un relevé déjà en cours met le widget « En file » ; il démarre à la fin de ce relevé (20 widgets au plus en attente).
+- **Suspendre la mesure.** Le bouton rond pause ou l’entrée du menu suspend le widget : il garde sa place, sa taille et son titre et affiche « Mesure suspendue ». Il est exclu de toutes les collectes : son actualisation, celle du tableau, « Analyser la liste » et l’actualisation WMI de l’OU. Un relevé lancé pour lui seul est arrêté. Les lectures communes restent faites par leurs propres actions (inventaire du poste, ping et relevé WMI léger utilisés par la santé) ; le texte du widget le précise. « Reprendre la mesure » collecte ce qui lui manque. L’état est enregistré avec la disposition et s’annule comme elle.
+- **Comprendre ce chiffre.** Le bouton rond d’information ou l’entrée du menu ouvre, dans la page, la valeur affichée, la formule, le périmètre, les critères, les exclusions, la couverture, les dates et le nombre de postes du total. « Afficher les postes » ouvre la liste exacte des GUID du calcul affiché, nommée avec son compte et sa date ; si la vue a été recalculée entre-temps, le détail est refusé et le tableau redessiné. Rien n’est relu pour expliquer un chiffre.
+- **Clavier.** Tab place le focus sur un widget ; Maj+F10 ouvre son menu ; F5 l’actualise. En personnalisation, Alt+flèches et Alt+Début/Fin le déplacent, Alt+Maj+flèches changent sa taille d’un cran, Suppr le retire (annulable).
+- **Haute résolution.** Un widget plus large que la page (affichage à 150 ou 200 %, fenêtre étroite) est réduit proportionnellement, jamais sous 60 %, au lieu d’être coupé ; il reprend sa taille quand la page s’élargit.
 
 ## Éditeur de widget
 
@@ -595,7 +605,7 @@ L'annulation n'a qu'un niveau. Elle est perdue quand de nouvelles données arriv
 - La recherche ignore accents et casse ; tous les mots tapés doivent se trouver dans le nom, la description ou la section (pour une requête : le nom, la catégorie ou la classe).
 - À droite : « Titre », « Représentation », « Taille », « Section » et l'aperçu. La liste « Section » propose les sections du tableau, puis « + Nouvelle section... », qui affiche un champ pour taper son nom ; laissé vide, ce nom devient « Mes widgets ».
 - L'aperçu montre les vraies données si le tableau en a, sinon un exemple de même nature.
-- Un widget ajouté va à la fin de sa section. Sans donnée encore lue : « Widget enregistre : il s affichera des que ses donnees seront lues. ».
+- Un widget ajouté va à la fin de sa section et la collecte de ses données manquantes part aussitôt (voir « Un widget à la fois »). Sans poste ni OU utilisable, la barre affiche « Widget enregistre : il s affichera des que ses donnees seront lues. ».
 
 ## Natures représentations et tailles
 

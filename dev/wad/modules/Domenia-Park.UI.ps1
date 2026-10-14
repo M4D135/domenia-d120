@@ -10,6 +10,7 @@ function Update-DomeniaParkRunStatus {
     $status=if($r.Completed -and $r.Stopping){'Relevé arrêté'}elseif($r.Completed){$(if($r.PingOnly){'Ping termine'}else{'Releve termine'})}elseif($r.Stopping){'Arret demande'}else{$(if($r.PingOnly){'Ping en cours'}else{'Releve en cours'})}
     $text=if($r.PingOnly){$status+' : '+$r.Done+'/'+$r.Targets.Count+' postes pingues, '+$r.Online+' joignables, '+($r.Done-$r.Online)+' sans reponse.'}else{$status+' : '+$r.Done+'/'+$r.Targets.Count+' postes verifies, '+$r.Online+' joignables, '+$r.Reused+' identites en cache, '+$r.Changed+' associations actualisees, '+$r.Failed+' lectures non confirmees.'}
     $text+=' '+$r.CachedMeasurements+' mesures encore fraîches réutilisées ; '+$r.Pending.Count+'/'+$r.Concurrency+' lectures en parallèle.'
+    $fresh=[int](Get-DomeniaMember $r 'AlreadyFresh' 0);if($fresh -gt 0){$text+=' '+$fresh+' poste(s) déjà à jour, sans lecture.'}
     $save=Get-DomeniaPersistenceState
     if($save.Pending -gt 0){$text+=' Enregistrement local en attente.'}
     if($save.Suspended -or $save.Conflicts -gt 0){$text+=' Stockage a verifier dans Fiabilite.'}
@@ -26,6 +27,8 @@ function Update-DomeniaParkRunStatus {
     Update-DomeniaParkControls
     foreach($label in @('LblParkStatus','LblParkDetectionStatus')){[void](Set-DomeniaControlText $label $text)}
     if($r.Scope -eq 'Results'){[void](Set-DomeniaControlText 'LblLiveState' $text)}
+    # A run started by a widget shows its progress on that widget, and starts the next queued widget at its end.
+    if([string](Get-DomeniaMember $r 'WidgetBoard' '')){try{Update-DomeniaWidgetCollectProgress}catch{Write-AppLog ('Progression du widget non affichée : '+$_.Exception.Message) 'WARN'}}
 }
 function Update-DomeniaParkControls {
     # The stop button is active only while a detection is running.
@@ -36,7 +39,11 @@ function Start-DomeniaOnlinePark {
     # -PingOnly (decision David 2026-10-07): ping of the listed workstations only, no console reading.
     # -ScopeTargets: explicit workstations (the selected one for the queries of its board). -Inventory adds the light
     # WMI reading (Analyser la liste, decision David 2026-10-08). The whole domain is still refused.
-    param([switch]$DisplayedResults,[switch]$PingOnly,[switch]$WmiOnly,[switch]$Inventory,[object[]]$ScopeTargets=$null,[string]$ScopeLabel='',[object[]]$Probes=$null,[switch]$ForceRefresh,[string]$RefreshOperationId='',[switch]$PassThru)
+    # Widget collections (decision David 2026-10-14): -NoConsole reads no console user, -ReuseMaxAgeDays collects only
+    # what is missing (usable measurements of that age are kept), -Preapproved starts without the confirmation up to
+    # the limit of Get-DomeniaWidgetCollectAdmission (the add, resume or refresh click is the gesture), and
+    # -WidgetBoard/-WidgetIds name the widgets that show the progress of the run.
+    param([switch]$DisplayedResults,[switch]$PingOnly,[switch]$WmiOnly,[switch]$Inventory,[object[]]$ScopeTargets=$null,[string]$ScopeLabel='',[object[]]$Probes=$null,[switch]$ForceRefresh,[string]$RefreshOperationId='',[switch]$PassThru,[switch]$NoConsole,[int]$ReuseMaxAgeDays=0,[switch]$Preapproved,[string]$WidgetBoard='',[string[]]$WidgetIds=@())
     $started=$false
     try{
         if($PingOnly -and $WmiOnly){throw 'Choisissez Ping ou WMI, pas les deux modes exclusifs.'}
@@ -65,11 +72,12 @@ function Start-DomeniaOnlinePark {
         $started=$true
         $script:ParkRun|Add-Member -NotePropertyName RefreshOperationId -NotePropertyValue $RefreshOperationId
         $script:ParkRun|Add-Member -NotePropertyName FailureMessage -NotePropertyValue ''
+        foreach($pair in @(@('NoConsole',([bool]$NoConsole -and -not [bool]$PingOnly)),@('ReuseMaxAgeDays',$(if($ForceRefresh){0}else{[Math]::Max(0,[Math]::Min(3650,$ReuseMaxAgeDays))})),@('Preapproved',[bool]$Preapproved),@('WidgetBoard',[string]$WidgetBoard),@('WidgetIds',@($WidgetIds|Where-Object{$_})),@('AlreadyFresh',0))){$script:ParkRun|Add-Member -NotePropertyName $pair[0] -NotePropertyValue $pair[1]}
         if($ForceRefresh){$script:ParkRun.CacheMinutes=0}
         $r=$script:ParkRun;$state=[pscustomobject]@{RunId=$r.Id;Epoch=$r.Epoch;Path=$r.Path}
         # Read only the observation families used by this collection mode. No WMI payload is parsed for a ping refresh.
         $families=$null
-        if($r.PingOnly){$families=@('Presence')}elseif($r.WmiOnly){$families=@('Console','Inventory')+@($r.Probes|ForEach-Object{'Probe:'+([string]$_.Id)})}
+        if($r.PingOnly){$families=@('Presence')}elseif(([bool]$r.WmiOnly) -and ([bool]$r.NoConsole)){$families=@(if($r.Inventory){'Inventory'})+@($r.Probes|ForEach-Object{'Probe:'+([string]$_.Id)})}elseif($r.WmiOnly){$families=@('Console','Inventory')+@($r.Probes|ForEach-Object{'Probe:'+([string]$_.Id)})}
         $job=Start-UiTask -Name 'Preparer le releve du parc' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload ([pscustomobject]@{Action='ParkTargets';Path=$r.Path;BusyTimeoutMs=250;Scope=$r.Scope;Targets=$targets;ObservationFamilies=$families}) -CallbackState $state -SuccessHandler 'Complete-DomeniaParkTargets' -ErrorHandler 'Fail-DomeniaParkTargets' -NonCancellable -TimeoutSeconds 60 -TaskClass 'Explicit'
         if(-not $job){throw 'Lecture du parc non admise.'}
         [void](Set-DomeniaControlText 'LblParkStatus' 'Lecture des postes et des sessions conservees en cache...')
@@ -102,9 +110,19 @@ function Complete-DomeniaParkTargets {
         elseif(@($r.Probes).Count){$message=$r.Targets.Count.ToString()+' postes'+$(if($r.ScopeLabel){' de '+$r.ScopeLabel}else{''})+'. '+@($r.Probes).Count+' requete(s) WMI des widgets en lecture seule, plus ping et utilisateur console ; '+$r.Concurrency+' postes au maximum a la fois. Resultats conserves pour les tableaux de bord.'}
         elseif($r.ScopeLabel){$message=$r.Targets.Count.ToString()+' postes de '+$r.ScopeLabel+'.'+$(if($r.PingOnly){' Ping ICMP seulement.'}else{' Ping puis utilisateur console ; associations actualisees si changement.'})}
         if($r.PingOnly -and -not $r.ScopeLabel){$message=$r.Targets.Count.ToString()+' postes dans les resultats affiches. Ping ICMP seulement, '+$r.Concurrency+' postes au maximum a la fois ; aucune lecture de session ni association.'}
-        if($r.WmiOnly){$message=$r.Targets.Count.ToString()+' postes'+$(if($r.ScopeLabel){' de '+$r.ScopeLabel}else{' du perimetre choisi'})+'. Lecture WMI seulement : console'+$(if($r.Inventory){', inventaire leger'}else{''})+$(if(@($r.Probes).Count){' et sondes des widgets'}else{''})+'. Aucun ping ni validation AD supplementaire. '+$r.Concurrency+' lectures au maximum en parallele.'}
-        if(-not $r.PingOnly){$message+=' '+$(if($r.CacheMinutes -gt 0){'Réutilisation des mesures encore fraîches, au plus '+$r.CacheMinutes+' min (1 min pour les sondes volatiles, 5 min pour l inventaire). Le ping et la console sont relus.'}else{'Relecture forcée de toutes les mesures demandées.'})}
-        Request-DomeniaInlineConfirmation -Title $(if($r.Inventory){'Analyser les postes affiches'}elseif(@($r.Probes).Count){'Sonder pour les widgets'}elseif($r.PingOnly){'Pinger les postes affiches'}elseif($r.Scope -eq 'Results'){'Detecter sur les resultats affiches'}else{'Detecter sur tout le parc'}) -Target ([string]$script:Conn.Domain) -Message $message -ConfirmText $(if($r.PingOnly){'Pinger'}elseif($r.Inventory){'Analyser'}else{'Verifier les sessions'}) -CancelText 'Annuler' -OnConfirm ({& $start $runId}.GetNewClosure()) -OnCancel ({& $stop -RunId $runId}.GetNewClosure())
+        if($r.WmiOnly -and -not $r.NoConsole){$message=$r.Targets.Count.ToString()+' postes'+$(if($r.ScopeLabel){' de '+$r.ScopeLabel}else{' du perimetre choisi'})+'. Lecture WMI seulement : console'+$(if($r.Inventory){', inventaire leger'}else{''})+$(if(@($r.Probes).Count){' et sondes des widgets'}else{''})+'. Aucun ping ni validation AD supplementaire. '+$r.Concurrency+' lectures au maximum en parallele.'}
+        if($r.NoConsole){$read=@(@(if($r.Inventory){'relevé WMI léger'})+@(if(@($r.Probes).Count){[string]@($r.Probes).Count+' requête(s) WMI du widget'}));$message=$r.Targets.Count.ToString()+' poste(s)'+$(if($r.ScopeLabel){' de '+$r.ScopeLabel}else{''})+'. Lecture seule : '+($read -join ', ')+$(if($r.WmiOnly){'. Aucun ping'}else{', ping'})+', aucune lecture de la console ni validation AD. '+$r.Concurrency+' lectures au maximum en parallèle.'}
+        if(-not $r.PingOnly){
+            if([int]$r.ReuseMaxAgeDays -gt 0){$message+=' Seules les mesures absentes, en erreur ou de plus de '+$r.ReuseMaxAgeDays+' jours sont relues ; un poste déjà à jour nʼest pas contacté'+$(if($r.NoConsole){'.'}else{' pour ces mesures.'})}
+            else{$message+=' '+$(if($r.CacheMinutes -gt 0){'Réutilisation des mesures encore fraîches, au plus '+$r.CacheMinutes+' min (1 min pour les sondes volatiles, 5 min pour l inventaire).'+$(if($r.NoConsole){''}else{' Le ping et la console sont relus.'})}else{'Relecture forcée de toutes les mesures demandées.'})}
+        }
+        if($r.Preapproved){
+            # The widget gesture is the approval up to the configured limit; a larger population is confirmed first.
+            $admission=Get-DomeniaWidgetCollectAdmission -TargetCount $r.Targets.Count
+            if($admission.Direct){Set-Status ('Collecte du widget lancée : '+$message);& $start $runId;return}
+            $message+=' Plus de '+$admission.Limit+' postes : confirmation demandée avant toute lecture.'
+        }
+        Request-DomeniaInlineConfirmation -Title $(if($r.Preapproved){'Collecter pour le widget'}elseif($r.Inventory){'Analyser les postes affiches'}elseif(@($r.Probes).Count){'Sonder pour les widgets'}elseif($r.PingOnly){'Pinger les postes affiches'}elseif($r.Scope -eq 'Results'){'Detecter sur les resultats affiches'}else{'Detecter sur tout le parc'}) -Target ([string]$script:Conn.Domain) -Message $message -ConfirmText $(if($r.PingOnly){'Pinger'}elseif($r.Inventory){'Analyser'}else{'Verifier les sessions'}) -CancelText 'Annuler' -OnConfirm ({& $start $runId}.GetNewClosure()) -OnCancel ({& $stop -RunId $runId}.GetNewClosure())
     }catch{Fail-DomeniaParkTargets $_.Exception.Message $State}
 }
 function Fail-DomeniaParkTargets {
@@ -161,11 +179,18 @@ function Invoke-DomeniaParkRunTick {
     if($r.Pending.Count -ge $r.Concurrency -or $r.Next -ge $r.Targets.Count){return}
     $target=$r.Targets[$r.Next]
     try{Expand-DomeniaParkPrevious $target}catch{$r.Stopping=$true;Set-Status ('Cache du poste illisible : '+$target.Computer+'. Relancez le relevé après actualisation.') 'WARN';return}
-    $plan=New-DomeniaCollectionPlan -Previous $target.Previous -Guid $target.Guid -Key $target.Key -Probes @($r.Probes) -Inventory ([bool]$r.Inventory) -CacheMinutes ([int]$r.CacheMinutes)
-    $state=[pscustomobject]@{RunId=$r.Id;Epoch=$r.Epoch;Path=$r.Path;Target=$target;Job='';Plan=$plan;PingOnly=$r.PingOnly;WmiOnly=$r.WmiOnly;RemoteStartedUtc=[datetime]::UtcNow.ToString('o')}
+    $noConsole=[bool](Get-DomeniaMember $r 'NoConsole' $false)
+    $plan=New-DomeniaCollectionPlan -Previous $target.Previous -Guid $target.Guid -Key $target.Key -Probes @($r.Probes) -Inventory ([bool]$r.Inventory) -CacheMinutes ([int]$r.CacheMinutes) -ReuseMaxAgeDays ([int](Get-DomeniaMember $r 'ReuseMaxAgeDays' 0))
+    if($noConsole -and ([bool]$r.WmiOnly) -and (-not [bool]$plan.Inventory) -and (-not @($plan.Probes).Count)){
+        # Collect only what is missing: every measurement requested from this workstation is still usable, so it is
+        # not contacted at all (no ping, no console, no WMI session).
+        $r.Next++;$r.Done++;$r.AlreadyFresh++;$r.CachedMeasurements+=[int]$plan.Reused
+        Clear-DomeniaParkTargetBuffers @($target);Update-DomeniaParkRunStatus;return
+    }
+    $state=[pscustomobject]@{RunId=$r.Id;Epoch=$r.Epoch;Path=$r.Path;Target=$target;Job='';Plan=$plan;PingOnly=$r.PingOnly;WmiOnly=$r.WmiOnly;NoConsole=$noConsole;RemoteStartedUtc=[datetime]::UtcNow.ToString('o')}
     [void](Initialize-DomeniaRemoteStoreState -State $state -Guid $target.Guid -DN $target.Key -Generation $r.Generation)
     try{
-        $id=Start-UiTask -Name ($(if($r.PingOnly){'Ping de la liste : '}else{$(if($r.WmiOnly){'WMI du perimetre : '}else{'Console du parc : '})})+$target.Computer) -OperationId 'LiveConsole' -Code (Get-DomeniaLiveProbeCode) -Payload ([pscustomobject]@{Computer=$target.Computer;Key=$target.Key;Guid=$target.Guid;Previous=$target.Previous;AllowIdentityCache=([int]$r.CacheMinutes -gt 0);MethodSeconds=4;CollectPing=(-not [bool]$r.WmiOnly);ValidateConsoleIdentity=$false;ProbeUser=(-not [bool]$r.PingOnly);Inventory=([bool]$plan.Inventory -and -not [bool]$r.PingOnly);Probes=$(if([bool]$r.PingOnly){@()}else{@($plan.Probes)});AllowedClasses=@(@(Get-DomeniaProbeCatalog)|ForEach-Object{[string]$_.Class})}) -CallbackState $state -SuccessHandler 'Complete-DomeniaParkSession' -ErrorHandler 'Fail-DomeniaParkSession' -TimeoutSeconds $(if(@($r.Probes).Count){[Math]::Min(150,20+8*@($r.Probes).Count)}else{20}) -TaskClass 'Explicit'
+        $id=Start-UiTask -Name ($(if($r.PingOnly){'Ping de la liste : '}else{$(if($r.WmiOnly){'WMI du perimetre : '}else{'Console du parc : '})})+$target.Computer) -OperationId 'LiveConsole' -Code (Get-DomeniaLiveProbeCode) -Payload ([pscustomobject]@{Computer=$target.Computer;Key=$target.Key;Guid=$target.Guid;Previous=$target.Previous;AllowIdentityCache=([int]$r.CacheMinutes -gt 0);MethodSeconds=4;CollectPing=(-not [bool]$r.WmiOnly);ValidateConsoleIdentity=$false;ProbeUser=((-not [bool]$r.PingOnly) -and (-not $noConsole));Inventory=([bool]$plan.Inventory -and -not [bool]$r.PingOnly);Probes=$(if([bool]$r.PingOnly){@()}else{@($plan.Probes)});AllowedClasses=@(@(Get-DomeniaProbeCatalog)|ForEach-Object{[string]$_.Class})}) -CallbackState $state -SuccessHandler 'Complete-DomeniaParkSession' -ErrorHandler 'Fail-DomeniaParkSession' -TimeoutSeconds $(if(@($r.Probes).Count){[Math]::Min(150,20+8*@($r.Probes).Count)}else{20}) -TaskClass 'Explicit'
         if(-not $id){throw 'Lecture non admise.'}
         $state.Job=[string]$id;$r.Pending[[string]$id]=$state;$r.Next++
     }catch{$r.Stopping=$true;[void](Set-DomeniaControlText 'LblParkStatus' ('Releve interrompu : '+$_.Exception.Message+' Les resultats precedents sont conserves.'))}
@@ -216,7 +241,13 @@ function Fail-DomeniaParkStored {
 
 function Fail-DomeniaParkSession {
     param($Message,$State)
-    $packet=[pscustomobject]@{Outcome='Unavailable';Key=$State.Target.Key;Guid=$State.Target.Guid;Computer=$State.Target.Computer;Detail=[string]$Message;Presence='Erreur de ping';PresenceDetail=[string]$Message;PresenceCheckedUtc=$(if(-not $State.WmiOnly){$State.RemoteStartedUtc}else{''});ConsoleAttempted=(-not $State.PingOnly);ConsoleCheckedUtc=$(if(-not $State.PingOnly){$State.RemoteStartedUtc}else{''});InventoryAttempted=[bool]$State.Plan.Inventory;InventoryCheckedUtc=$State.RemoteStartedUtc;InventoryError=[string]$Message;CacheReused=$false;DirectoryAuthRejected=$false}
+    $console=((-not [bool]$State.PingOnly) -and (-not [bool](Get-DomeniaMember $State 'NoConsole' $false)))
+    $packet=[pscustomobject]@{Outcome='Unavailable';Key=$State.Target.Key;Guid=$State.Target.Guid;Computer=$State.Target.Computer;Detail=[string]$Message;Presence='Erreur de ping';PresenceDetail=[string]$Message;PresenceCheckedUtc=$(if(-not $State.WmiOnly){$State.RemoteStartedUtc}else{''});ConsoleAttempted=$console;ConsoleCheckedUtc=$(if($console){$State.RemoteStartedUtc}else{''});InventoryAttempted=[bool]$State.Plan.Inventory;InventoryCheckedUtc=$State.RemoteStartedUtc;InventoryError=[string]$Message;CacheReused=$false;DirectoryAuthRejected=$false}
+    if((-not $console) -and (-not [bool]$State.PingOnly) -and (@($State.Plan.Probes).Count -gt 0)){
+        # Without a console read, the failed probes themselves carry the dated attempt (never a measurement).
+        $failed=[ordered]@{};foreach($probe in @($State.Plan.Probes)){$failed[[string]$probe.Id]=[pscustomobject]@{Rows=@();Count=0;Error=[string]$Message;Truncated=$false;DefinitionHash=[string](Get-DomeniaMemberValue $probe 'DefinitionHash');CheckedUtc=[string]$State.RemoteStartedUtc}}
+        $packet|Add-Member -NotePropertyName Probes -NotePropertyValue ([pscustomobject]$failed)
+    }
     Complete-DomeniaParkSession $packet $State
 }
 

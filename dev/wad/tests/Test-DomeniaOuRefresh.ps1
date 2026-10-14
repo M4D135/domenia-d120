@@ -3,7 +3,7 @@
 param([string]$ReportPath='')
 $ErrorActionPreference='Stop'
 $wad=Split-Path -Parent $PSScriptRoot;$modules=Join-Path $wad 'modules'
-foreach($name in @('Common.Model','Storage.UI','Park.UI','Refresh.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
+foreach($name in @('Common.Model','Boards.Model','Storage.UI','Park.UI','Refresh.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
 $tokens=$null;$parseErrors=$null;$ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'Domenia-Core.ps1'),[ref]$tokens,[ref]$parseErrors)
 if($parseErrors.Count){throw 'Core parse failure'}
 foreach($name in @('Test-DomeniaIndexWriteReady','Start-DomeniaIndexScopeBuild','Update-DomeniaIndexDatabaseRows','Complete-DomeniaIndexScopeUi','Fail-DomeniaIndexBuildUi')){
@@ -139,6 +139,14 @@ foreach($failure in @('Unreadable','Missing','Duplicate')){Case ('Configured que
     if($failure -eq 'Duplicate'){$script:SavedRecipes=@([pscustomobject]@{Id='saved.one';ProbeIds=@()},[pscustomobject]@{Id='saved.one';ProbeIds=@()})}
     Invoke-DomeniaOuRefresh Search Both;Expect ($null -eq $script:DomeniaOuRefresh -and $script:Jobs.Count -eq 0 -and $script:Status.Contains('non lancée'))
 }}
+Case 'Paused query widget is left out of the WMI refresh of the OU (decision David 2026-10-14)' {
+    # Probe widgets come from Get-DomeniaBoardProbeIds (paused ones already left out there): none here.
+    $script:ProbeIds=@()
+    $script:BoardWidgets.Fleet=@([pscustomobject]@{Source='Query';Key='saved.one';Paused=$true});$script:BoardWidgets.Computer=@([pscustomobject]@{Source='Query';Key='saved.two'})
+    $script:SavedRecipes=@([pscustomobject]@{Id='saved.one';ProbeIds=@('fixture.os')},[pscustomobject]@{Id='saved.two';ProbeIds=@('fixture.disk')})
+    Invoke-DomeniaOuRefresh Search Both
+    Expect (($script:DomeniaOuRefresh.Probes.Count -eq 1) -and ([string]$script:DomeniaOuRefresh.Probes[0].Id -eq 'fixture.disk')) ('Sondes : '+(@($script:DomeniaOuRefresh.Probes|ForEach-Object{$_.Id}) -join ','))
+}
 Case 'Base-only refresh is independent of a damaged query library' {$script:BoardWidgets.Fleet=@([pscustomobject]@{Source='Query';Key='saved.one'});$script:BadLibrary=$true;Invoke-DomeniaOuRefresh Search Base;Expect ($script:Jobs.Count -eq 1 -and $script:LibraryReads -eq 0)}
 Case 'Failed workstation measurements never announce full ping and WMI success' {Invoke-DomeniaOuRefresh Search Postes;Invoke-DomeniaOuRefreshTick;Complete-Targets 1;$script:ParkRun.Completed=$true;$script:ParkRun.Approved=$true;$script:ParkRun.Done=1;$script:ParkRun.Failed=1;Invoke-DomeniaOuRefreshTick;Expect ($script:DomeniaOuRefresh.Phase -eq 'Partial' -and -not $script:DomeniaOuRefresh.Status.Contains('Ping et WMI relus'))}
 $failed=@($script:Checks|Where-Object{-not $_.Pass})

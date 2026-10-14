@@ -60,15 +60,27 @@ function Test-DomeniaParkLinkChanged {
 
 function New-DomeniaCollectionPlan {
     # Reuse only measurements of this object identity, each with its own timestamp. Errors are always retried.
-    param($Previous,[string]$Guid,[string]$Key,[object[]]$Probes=@(),[bool]$Inventory=$false,[int]$CacheMinutes=15,[datetime]$NowUtc=[datetime]::UtcNow)
+    # -ReuseMaxAgeDays (widget collections, decision David 2026-10-14): collect only what is missing, i.e. also reuse a
+    # usable measurement younger than that many days whatever the cache minutes (a probe skipped as not applicable
+    # is an answer). 0 keeps the cache-minute rule alone; a forced refresh passes CacheMinutes 0 and no reuse age.
+    param($Previous,[string]$Guid,[string]$Key,[object[]]$Probes=@(),[bool]$Inventory=$false,[int]$CacheMinutes=15,[datetime]$NowUtc=[datetime]::UtcNow,[int]$ReuseMaxAgeDays=0)
     $valid=($null -ne $Previous -and $Guid -and [string]$Previous.Guid -ieq $Guid -and [string]$Previous.Key -ieq $Key)
     $minutes=[Math]::Max(0,[Math]::Min(1440,$CacheMinutes));$reuse=0;$readInventory=$Inventory
+    $reuseDays=[Math]::Max(0,[Math]::Min(3650,$ReuseMaxAgeDays))
     $fresh={param($Value,[int]$Seconds)
         if($null -eq $Value -or $Seconds -le 0 -or [string](Get-DomeniaMember $Value 'Error') -or [string](Get-DomeniaMember $Value 'Skipped') -or [bool](Get-DomeniaMember $Value 'Truncated' $false)){return $false}
         $at=ConvertFrom-DomeniaUtcText ([string](Get-DomeniaMember $Value 'CheckedUtc'))
         return ($null -ne $at -and $at -le $NowUtc.AddMinutes(1) -and ($NowUtc-$at).TotalSeconds -lt $Seconds)
     }
-    if($valid -and $Inventory -and -not [string](Get-DomeniaMemberValue $Previous 'InventoryError') -and (& $fresh (Get-DomeniaMemberValue $Previous 'Inventory') ([Math]::Min(300,$minutes*60)))){$readInventory=$false;$reuse++}
+    $usable={param($Value)
+        if($reuseDays -le 0 -or $null -eq $Value -or [string](Get-DomeniaMember $Value 'Error') -or [bool](Get-DomeniaMember $Value 'Truncated' $false)){return $false}
+        $at=ConvertFrom-DomeniaUtcText ([string](Get-DomeniaMember $Value 'CheckedUtc'))
+        return ($null -ne $at -and $at -le $NowUtc.AddMinutes(1) -and ($NowUtc-$at).TotalDays -lt $reuseDays)
+    }
+    if($valid -and $Inventory -and -not [string](Get-DomeniaMemberValue $Previous 'InventoryError')){
+        $previousInventory=Get-DomeniaMemberValue $Previous 'Inventory'
+        if((& $fresh $previousInventory ([Math]::Min(300,$minutes*60))) -or (& $usable $previousInventory)){$readInventory=$false;$reuse++}
+    }
     $planned=[Collections.Generic.List[object]]::new();$seen=@{}
     foreach($probe in @($Probes)){
         if($null -eq $probe -or -not [string]$probe.Id -or $seen.ContainsKey([string]$probe.Id)){continue};$seen[[string]$probe.Id]=$true
@@ -76,7 +88,7 @@ function New-DomeniaCollectionPlan {
         # CPU, battery, memory, services, network and events vary quickly. Static inventory can live longer.
         if([string]$probe.Id -match '^(evt\.|svc\.|net\.)|load|battery|free|users|stopped|process'){$seconds=[Math]::Min(60,$seconds)}
         $previousProbe=if($valid){Get-DomeniaMemberValue (Get-DomeniaMemberValue $Previous 'Probes') ([string]$probe.Id)}else{$null}
-        if([string](Get-DomeniaMemberValue $probe 'DefinitionHash') -and [string](Get-DomeniaMemberValue $previousProbe 'DefinitionHash') -ceq [string](Get-DomeniaMemberValue $probe 'DefinitionHash') -and (& $fresh $previousProbe $seconds)){$reuse++;continue}
+        if([string](Get-DomeniaMemberValue $probe 'DefinitionHash') -and [string](Get-DomeniaMemberValue $previousProbe 'DefinitionHash') -ceq [string](Get-DomeniaMemberValue $probe 'DefinitionHash') -and ((& $fresh $previousProbe $seconds) -or (& $usable $previousProbe))){$reuse++;continue}
         $planned.Add($probe)
     }
     return [pscustomobject]@{Inventory=$readInventory;Probes=$planned.ToArray();Reused=$reuse;Requested=($seen.Count+$(if($Inventory){1}else{0}));CacheMinutes=$minutes}
