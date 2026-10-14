@@ -1,6 +1,9 @@
-﻿# Sign-in and accounts views (lot X03): short read-only reveal of a typed secret and diagnostic panel of the sign-in
-# window. No network call, no credential object kept, nothing written to the disk.
+﻿# Sign-in and accounts views (lot X03): short read-only reveal of a typed secret, diagnostic panel and layout of the
+# sign-in window, trial of the workstation account. No network call of its own (the trial goes through Start-UiTask
+# and the pinned LiveConsole worker), no credential object kept, nothing written to the disk.
 $script:DomeniaSecretPeeks=@{}
+$script:RemoteAccountTrial=$null
+$script:RemoteTrialHint='Ouvrez un poste dans Assistance poste pour essayer le compte.'
 
 function Show-DomeniaSecretPeek {
     # SE-16: shows the typed secret for a few seconds in a read-only TextBlock laid over its PasswordBox, then hides
@@ -108,4 +111,122 @@ function Set-DomeniaLoginWindowsFirst {
         $windows.ClearValue([Windows.FrameworkElement]::StyleProperty)
         $connect.Visibility=[Windows.Visibility]::Visible;$connect.IsDefault=$true
     }
+}
+
+function Get-DomeniaMachineAccountInUse {
+    # UX-15 / UI-27 / FO-19: the account the next workstation operation takes, in the order of the worker context:
+    # local account accepted for this workstation (Set-DomeniaTargetCredentialContext), temporary workstation account
+    # (Set-DomeniaRetryWorkerContext), account typed for the workstations, Postes account of the Comptes page, account
+    # of the connection, Windows session (Get-WorkerContext). Read only: no lease is used or removed here.
+    param([string]$Target='')
+    $access=$script:AccessState
+    $live=(($null -ne $access) -and ([long]$access.Epoch -eq [long]$script:SessionEpoch) -and ([string]$access.BaseDn -ieq [string]$script:Conn.BaseDn))
+    if($live -and $Target){
+        $key='RemoteLocal|'+(ConvertTo-DomeniaMachineKey $Target).ToUpperInvariant()
+        if($access.Credentials.ContainsKey($key) -and (Test-DomeniaAccessLeaseUsable -Key $key)){return (Get-DomeniaMachineAccountLabel -Source 'TemporaryLocal' -Account ([string]$access.Credentials[$key].UserName))}
+    }
+    if($live -and $access.Credentials.ContainsKey('Remote') -and (Test-DomeniaAccessLeaseUsable -Key 'Remote')){return (Get-DomeniaMachineAccountLabel -Source 'Temporary' -Account ([string]$access.Credentials['Remote'].UserName))}
+    if($null -ne $script:MachineCredential){return (Get-DomeniaMachineAccountLabel -Source 'Typed' -Account ([string]$script:MachineCredential.UserName))}
+    if($null -ne $script:RemoteAdminCredential){return (Get-DomeniaMachineAccountLabel -Source 'Remote' -Account ([string]$script:RemoteAdminCredential.UserName))}
+    if([bool]$script:Conn.UseCredential -and ($null -ne $script:Conn.Credential)){return (Get-DomeniaMachineAccountLabel -Source 'Connection' -Account ([string]$script:Conn.Credential.UserName))}
+    return (Get-DomeniaMachineAccountLabel -Source 'Windows' -Account ([string]$script:ProcessIdentity))
+}
+
+function Get-DomeniaOpenWorkstationTarget {
+    # FO-19 / UX-15: the workstation open in Assistance poste, never a list or a search result.
+    $object=$script:SelectedObject
+    if(($null -eq $object) -or ([string]$object.Type -ne 'Machine')){return $null}
+    $computer=''
+    try{$computer=[string](Get-DomeniaEntryFirstString $object.Entry 'dNSHostName')}catch{}
+    if(-not $computer){try{$computer=[string](Get-DomeniaEntryFirstString $object.Entry 'name')}catch{}}
+    if(-not $computer){$computer=[string]$object.Name}
+    if(-not $computer){return $null}
+    $guid='';try{$guid=[string]$object.Safety.Guid}catch{}
+    return [pscustomobject]@{Computer=$computer;Dn=[string]$object.DN;Guid=$guid}
+}
+
+function Set-DomeniaRemoteTrialText {
+    param([string]$Text)
+    [void](Set-DomeniaControlText 'LblAccountRemoteTry' $Text)
+}
+
+function Update-DomeniaRemoteTrialUi {
+    # FO-19: Essayer sur le poste sélectionné is greyed while no workstation is open or while a trial runs.
+    $button=Get-DomeniaControl 'BtnAccountRemoteTry'
+    if($null -eq $button){return}
+    $target=Get-DomeniaOpenWorkstationTarget
+    $running=(($null -ne $script:RemoteAccountTrial) -and (-not [bool]$script:RemoteAccountTrial.Done))
+    $enabled=(($null -ne $target) -and (-not $running) -and (-not (Test-DomeniaControlIsBusy -Name 'BtnAccountRemoteTry')))
+    if([bool]$button.IsEnabled -ne $enabled){$button.IsEnabled=$enabled}
+    # The hint only fills an empty result line and leaves as soon as a workstation is open; a verdict stays.
+    $label=Get-DomeniaControl 'LblAccountRemoteTry'
+    if(($null -ne $label) -and (-not $running)){
+        $text=[string]$label.Text
+        if(($null -eq $target) -and (-not $text)){$label.Text=$script:RemoteTrialHint}
+        elseif(($null -ne $target) -and ($text -ceq $script:RemoteTrialHint)){$label.Text=''}
+    }
+}
+
+function Start-DomeniaRemoteAccountTrial {
+    # FO-19: on an explicit click only, one light CIM/DCOM read (Win32_OperatingSystem.Caption) of the workstation
+    # open in Assistance poste, with the account the workstation operations use. One target, no sweep, no ping, no
+    # console or LDAP read, no intrusive fallback (the pinned LiveConsole operation never stages anything remotely).
+    $target=Get-DomeniaOpenWorkstationTarget
+    if($null -eq $target){Set-DomeniaRemoteTrialText 'Ouvrez dʼabord un poste dans Assistance poste.';Update-DomeniaRemoteTrialUi;return}
+    if(($null -ne $script:RemoteAccountTrial) -and (-not [bool]$script:RemoteAccountTrial.Done)){return}
+    $account=Get-DomeniaMachineAccountInUse -Target $target.Computer
+    $state=[pscustomobject]@{Id=[guid]::NewGuid().ToString('N');Epoch=[long]$script:SessionEpoch;Computer=[string]$target.Computer;Dn=[string]$target.Dn;Account=[string]$account.Long;Done=$false}
+    $payload=[pscustomobject]@{Computer=[string]$target.Computer;Key=[string]$target.Dn;Guid=[string]$target.Guid;CollectPing=$false;ProbeUser=$false;Inventory=$false;ValidateConsoleIdentity=$false;AllowIdentityCache=$false;MethodSeconds=6;Probes=@(ConvertTo-DomeniaProbePayload -Ids @('os.caption'));AllowedClasses=@('Win32_OperatingSystem')}
+    $script:RemoteAccountTrial=$state
+    Set-DomeniaRemoteTrialText ('Essai en cours sur '+$state.Computer+' avec '+$state.Account+'…')
+    try{
+        [void](Start-UiTask -Name ('Essai du compte poste sur '+$state.Computer) -OperationId 'LiveConsole' -Code (Get-DomeniaLiveProbeCode) -Payload $payload -CallbackState $state -SuccessHandler 'Complete-DomeniaRemoteAccountTrial' -ErrorHandler 'Fail-DomeniaRemoteAccountTrial' -DisableControls @('BtnAccountRemoteTry') -TimeoutSeconds 30 -TaskClass 'Explicit')
+    }catch{
+        $state.Done=$true
+        Set-DomeniaRemoteTrialText ('Essai non lancé : '+$_.Exception.Message)
+    }
+    Update-DomeniaRemoteTrialUi
+}
+
+function Test-DomeniaRemoteTrialStateCurrent {
+    param($State)
+    return (($null -ne $State) -and ([object]::ReferenceEquals($State,$script:RemoteAccountTrial)) -and ([long]$State.Epoch -eq [long]$script:SessionEpoch))
+}
+
+function Complete-DomeniaRemoteAccountTrial {
+    param($Result,$State)
+    if($null -ne $State){$State.Done=$true}
+    if(-not (Test-DomeniaRemoteTrialStateCurrent $State)){return}
+    try{
+        $r=Get-DomeniaEffectiveWorkerResult $Result @('Outcome','Computer')
+        if(($null -eq $r) -or ([string]$r.Computer -ine [string]$State.Computer)){throw 'Résultat absent ou provenant dʼun autre poste.'}
+        $probe=$null;$probes=Get-DomeniaMember $r 'Probes' $null
+        if($null -ne $probes){$probe=Get-DomeniaMember $probes 'os.caption' $null}
+        $probeError='';$caption=''
+        if($null -ne $probe){
+            $probeError=[string](Get-DomeniaMember $probe 'Error' '')
+            $first=@(Get-DomeniaMember $probe 'Instances' @())|Select-Object -First 1
+            if($null -ne $first){$caption=[string](Get-DomeniaMember (Get-DomeniaMember $first 'Values' $null) 'Caption' '')}
+        }elseif([string]$r.Outcome -eq 'NotRequested'){$probeError='Lecture du système non renvoyée par le poste.'}
+        $errorText=if($probeError){$probeError}else{[string](Get-DomeniaMember $r 'Detail' '')}
+        if((([string]$r.Outcome) -in @('NotRequested','Observed','NoConsole')) -and (-not $probeError)){$errorText=''}
+        $category=''
+        if($errorText){$category=[string](Get-DomeniaErrorDecision -Structured (Get-DomeniaStructuredError $errorText) -Text $errorText).Category}
+        $verdict=Get-DomeniaRemoteAccessTrialVerdict -Outcome ([string]$r.Outcome) -ErrorText $errorText -Category $category -Computer $State.Computer -Account $State.Account -Caption $caption
+        Set-DomeniaRemoteTrialText $verdict.Text
+        Add-DomeniaUiLog -Area 'Comptes' -Text $verdict.Text
+    }catch{Set-DomeniaRemoteTrialText ('Essai non exploitable : '+$_.Exception.Message)}
+    Update-DomeniaRemoteTrialUi
+}
+
+function Fail-DomeniaRemoteAccountTrial {
+    param($Message,$State)
+    if($null -ne $State){$State.Done=$true}
+    if(-not (Test-DomeniaRemoteTrialStateCurrent $State)){return}
+    $text=[string]$Message
+    $category=[string](Get-DomeniaErrorDecision -Structured (Get-DomeniaStructuredError $text) -Text $text).Category
+    $verdict=Get-DomeniaRemoteAccessTrialVerdict -Outcome 'Unavailable' -ErrorText $text -Category $category -Computer $State.Computer -Account $State.Account
+    Set-DomeniaRemoteTrialText $verdict.Text
+    Add-DomeniaUiLog -Area 'Comptes' -Text $verdict.Text
+    Update-DomeniaRemoteTrialUi
 }

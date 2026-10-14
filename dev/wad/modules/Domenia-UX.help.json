@@ -1448,18 +1448,25 @@
     "Source": "specific"
   },
   {
-    "Name": "BtnAccountRemoteTest",
-    "Title": "Tester",
-    "Text": "Teste lʼauthentification du compte contre le domaine.",
-    "Kind": "Button",
-    "Source": "existing-help"
-  },
-  {
     "Name": "BtnAccountRemoteSave",
     "Title": "Activer",
     "Text": "Charge ce compte en mémoire pour les opérations distantes.",
     "Kind": "Button",
     "Source": "existing-help"
+  },
+  {
+    "Name": "BtnAccountRemoteTry",
+    "Title": "Essayer sur le poste sélectionné",
+    "Text": "Lit une seule fois le système du poste ouvert dans Assistance poste (WMI, Win32_OperatingSystem), avec le compte utilisé pour les postes, pour vérifier le droit administrateur. Un seul poste, aucun relevé, aucun repli intrusif.",
+    "Kind": "Button",
+    "Source": "X03"
+  },
+  {
+    "Name": "LblAccountRemoteTry",
+    "Title": "Résultat de lʼessai du compte poste",
+    "Text": "Résultat du dernier essai du compte poste : accès administrateur, accès refusé ou poste injoignable. Rien nʼest enregistré.",
+    "Kind": "TextBlock",
+    "Source": "X03"
   },
   {
     "Name": "BtnAccountSecretsClear",

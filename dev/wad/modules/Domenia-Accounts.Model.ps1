@@ -105,3 +105,51 @@ function Get-DomeniaDirectoryAccountText {
     $dns=([string]$Domain).Trim();if($dns){$parts.Add('domaine '+$dns)}
     return [pscustomobject]@{Connected=$true;Identity=$identity;Mode=[string]$mode;Detail=($parts.ToArray() -join ' · ')}
 }
+
+# ---------------------------------------------------------------- UX-15 / UI-27 / FO-19 account used for the workstations
+function Get-DomeniaMachineAccountLabel {
+    # Names the account the next workstation operation takes, from the source found by Get-DomeniaMachineAccountInUse
+    # (same order as the worker context): TemporaryLocal, Temporary, Typed, Remote, Connection or Windows.
+    # Short feeds the pill of Assistance poste, Long the sentences and the Comptes page. Names only, never a secret.
+    param([AllowNull()][AllowEmptyString()][string]$Source='',[AllowNull()][AllowEmptyString()][string]$Account='')
+    $name=([string]$Account).Trim()
+    $origin=switch(([string]$Source).Trim()){
+        'TemporaryLocal' {'compte local temporaire de ce poste'}
+        'Temporary'      {'compte temporaire accepté après un refus'}
+        'Typed'          {'compte poste saisi, en mémoire seulement'}
+        'Remote'         {'compte Postes de la page Comptes'}
+        'Connection'     {'compte de connexion'}
+        default          {'session Windows'}
+    }
+    $isWindows=($origin -eq 'session Windows')
+    $short=if($isWindows){'session Windows'}elseif($name){$name}else{$origin}
+    $long=if($name){$name+' ('+$origin+')'}else{$origin}
+    if($isWindows -and $name){$long='session Windows ('+$name+')'}
+    return [pscustomobject]@{Source=$(if($isWindows){'Windows'}else{([string]$Source).Trim()});Account=$name;Origin=$origin;Short=$short;Long=$long;Pill=('Compte poste : '+$short+' '+[string][char]0x25BE)}
+}
+
+function Get-DomeniaRemoteAccessTrialVerdict {
+    # FO-19: what one light CIM read (Win32_OperatingSystem.Caption) on one workstation proves about the account used
+    # for the workstations. $Outcome is the LiveConsole answer, $ErrorText the error of the read, $Category its
+    # Get-DomeniaErrorDecision category. Only an explicit success says « Accès administrateur OK ».
+    param([AllowNull()][AllowEmptyString()][string]$Outcome='',[AllowNull()][AllowEmptyString()][string]$ErrorText='',[AllowNull()][AllowEmptyString()][string]$Category='',[AllowNull()][AllowEmptyString()][string]$Computer='',[AllowNull()][AllowEmptyString()][string]$Account='',[AllowNull()][AllowEmptyString()][string]$Caption='')
+    $o=([string]$Outcome).Trim();$e=([string]$ErrorText).Trim();$k=([string]$Category).Trim()
+    $target=([string]$Computer).Trim();if(-not $target){$target='ce poste'}
+    $who=([string]$Account).Trim();if(-not $who){$who='le compte utilisé pour les postes'}
+    $verdict='Unknown'
+    if(($o -eq 'AuthRejected') -or ($k -eq 'CredentialsRejected')){$verdict='Rejected'}
+    elseif($k -eq 'AccountState'){$verdict='AccountState'}
+    elseif(($o -eq 'Denied') -or ($k -in @('AccessDenied','DecryptionDenied'))){$verdict='Denied'}
+    elseif(($o -eq 'Timeout') -or ($k -in @('Timeout','Network'))){$verdict='Unreachable'}
+    elseif($e -match '(?i)RPC|0x800706BA|unavailable|indisponible|injoignable|not reachable|network path|chemin r[eé]seau'){$verdict='Unreachable'}
+    elseif((-not $e) -and ($o -in @('NotRequested','Observed','NoConsole'))){$verdict='AdminOk'}
+    $text=switch($verdict){
+        'AdminOk'      {'Accès administrateur OK sur '+$target+' avec '+$who+'.'+$(if(([string]$Caption).Trim()){' Système : '+([string]$Caption).Trim()+'.'}else{''})}
+        'Denied'       {'Accès refusé sur '+$target+' avec '+$who+' : droit administrateur requis sur ce poste.'}
+        'Rejected'     {'Identifiants refusés par '+$target+' pour '+$who+' : vérifiez le compte et son mot de passe.'}
+        'AccountState' {'Compte verrouillé, expiré ou restreint ('+$who+') : vérifiez son état avant un nouvel essai.'}
+        'Unreachable'  {'Poste '+$target+' injoignable (réseau, nom ou service WMI) : aucun droit nʼa pu être vérifié.'}
+        default        {'Essai non concluant sur '+$target+$(if($e){' : '+$(if($e.Length -gt 160){$e.Substring(0,160)+'…'}else{$e})}else{'.'})}
+    }
+    return [pscustomobject]@{Verdict=$verdict;Success=($verdict -eq 'AdminOk');Text=[string]$text}
+}
