@@ -2897,47 +2897,51 @@ function Get-DomeniaPingState {
 }
 
 function Get-DomeniaPresenceColor {
-    # Vert en ligne, rouge hors ligne, ambre pendant le test, gris sinon.
-    # Les teintes sont eclaircies en theme sombre pour rester lisibles.
-    param([AllowEmptyString()][string]$State)
+    # FI-16: the colour follows the state key (Online, NoReply, Error, Pending, Unknown, None), never the wording of
+    # the label. -State still accepts a label (fiche, older callers): its key is read once by the Live rule.
+    # Green online, red without reply, amber while checking or after a ping error, grey otherwise or for a value of an
+    # earlier session (-Cached). The tints are lighter on the dark theme to stay readable.
+    param([AllowEmptyString()][string]$State,[AllowEmptyString()][string]$PresenceState='',[switch]$Cached)
     $dark = ($script:CurrentTheme -eq "Dark")
-    $value = [string]$State
-    if ($value -like "*(cache)") { if($dark){return "#CBD5E1"}else{return "#64748B"} }
-    if ($value -like "En ligne*")   { if ($dark) { return "#34D399" } else { return "#047857" } }
-    if ($value -like "Hors ligne*" -or $value -like "Sans réponse au ping*") { if ($dark) { return "#F87171" } else { return "#DC2626" } }
-    if ($value -like "Test*" -or $value -like "Vérification*" -or $value -like "Erreur de ping*")       { if ($dark) { return "#FBBF24" } else { return "#B45309" } }
+    $key = if ($PresenceState) { ConvertTo-DomeniaPresenceStateKey $PresenceState } else { ConvertTo-DomeniaPresenceStateKey $State }
+    if ($Cached) { if($dark){return "#CBD5E1"}else{return "#64748B"} }
+    switch ($key) {
+        'Online'  { if ($dark) { return "#34D399" } else { return "#047857" } }
+        'NoReply' { if ($dark) { return "#F87171" } else { return "#DC2626" } }
+        'Pending' { if ($dark) { return "#FBBF24" } else { return "#B45309" } }
+        'Error'   { if ($dark) { return "#FBBF24" } else { return "#B45309" } }
+    }
     if ($dark) { return "#CBD5E1" }
     return "#64748B"
 }
 
 function Set-DomeniaPresenceText {
-    # Ecrit un etat de presence et lui applique la couleur correspondante.
-    param([Parameter(Mandatory=$true)][string]$Name,[AllowEmptyString()][string]$State)
+    # Ecrit un etat de presence et lui applique la couleur de sa cle d etat (FI-16). Le texte peut etre detaille
+    # (poste teste, confiance) : la couleur vient de -PresenceState quand l appelant la connait.
+    param([Parameter(Mandatory=$true)][string]$Name,[AllowEmptyString()][string]$State,[AllowEmptyString()][string]$PresenceState='')
     [void](Set-DomeniaControlText -Name $Name -Text ([string]$State))
-    Set-DomeniaControlForeground (Get-DomeniaControl -Name $Name) (Get-DomeniaPresenceColor -State $State)
+    $key = if ($PresenceState) { ConvertTo-DomeniaPresenceStateKey $PresenceState } else { ConvertTo-DomeniaPresenceStateKey $State }
+    if ($null -eq $script:PresenceTextStates) { $script:PresenceTextStates = @{} }
+    $script:PresenceTextStates[$Name] = $key
+    Set-DomeniaControlForeground (Get-DomeniaControl -Name $Name) (Get-DomeniaPresenceColor -State $State -PresenceState $key)
 }
 
 function Update-DomeniaObjectPresence {
     # Recopie l etat de presence dans l onglet Resume, quel que soit le type
     # d objet, et memorise l etat pour pouvoir le recolorer au changement
     # de theme.
-    param([AllowEmptyString()][string]$State,[AllowEmptyString()][string]$Target = "")
+    param([AllowEmptyString()][string]$State,[AllowEmptyString()][string]$Target = "",[AllowEmptyString()][string]$PresenceState='')
     $script:CurrentPresenceState = [string]$State
     $script:CurrentPresenceTarget = [string]$Target
-    Set-DomeniaPresenceText -Name "TxtObjPresence" -State $State
+    Set-DomeniaPresenceText -Name "TxtObjPresence" -State $State -PresenceState $PresenceState
     [void](Set-DomeniaControlText -Name "TxtObjPresenceTarget" -Text ([string]$Target))
 }
 
 function ConvertTo-DomeniaGridPresenceState {
     # La fiche peut afficher un libelle detaille (poste teste, confiance, etc.).
-    # La grille conserve un etat court et filtrable.
+    # La grille conserve un etat court et filtrable, issu de la cle d etat (FI-16).
     param([AllowEmptyString()][string]$State)
-    $value = ([string]$State).Trim()
-    if ($value -like "En ligne*") { return "En ligne" }
-    if ($value -like "Hors ligne*" -or $value -like "Sans réponse au ping*") { return "Sans réponse au ping" }
-    if ($value -like "Test*" -or $value -like "Vérification*") { return "Vérification en cours" }
-    if ($value -like "Erreur de ping*") { return "Erreur de ping" }
-    return "Non vérifié"
+    return (Get-DomeniaPresenceStateLabel (ConvertTo-DomeniaPresenceStateKey $State))
 }
 
 function Get-DomeniaCachedPresenceState {
@@ -2980,7 +2984,9 @@ function Set-DomeniaResultRowPresence {
         if ([string]::IsNullOrWhiteSpace($dnValue)) { return }
         # Rendering consumes a committed observation; it never creates a new observation or timestamp.
         if($null -eq $Observation -or [string]$Observation.Key -ine $dnValue -or -not [string]$Observation.Guid){return}
-        $shortState = ConvertTo-DomeniaGridPresenceState -State ([string]$Observation.Presence)
+        $stateKey = ConvertTo-DomeniaPresenceStateKey ([string]$Observation.Presence)
+        if ($stateKey -in @('Pending','None')) { $stateKey = 'Unknown' }
+        $shortState = Get-DomeniaPresenceStateLabel $stateKey
         $key = $dnValue.ToLowerInvariant()
         $observedUtc=ConvertTo-DomeniaUtcDate (Get-DomeniaMemberValue $Observation 'PresenceCheckedUtc')
         if($null -eq $observedUtc){return}
@@ -2991,6 +2997,10 @@ function Set-DomeniaResultRowPresence {
             try {
                 if ([string]$row.DN -ieq $dnValue -and [string]$row.Guid -ieq [string]$Observation.Guid) {
                     Set-DomeniaLiveRowValue $row "Presence" $shortState
+                    # FI-16 / DS-15: the pill reads the key; the age of this committed measure replaces '(cache)'.
+                    Set-DomeniaLiveRowValue $row "PresenceState" $stateKey
+                    Set-DomeniaLiveRowValue $row "PresenceAge" (Get-DomeniaLiveAgeText -CheckedUtc $observedUtc.ToString('o'))
+                    Set-DomeniaLiveRowValue $row "PresenceCached" ""
                     $changed = $true
                 }
             }
@@ -3085,7 +3095,7 @@ function Apply-DomeniaPresenceFilter {
     try {
         $rows = @($script:BranchObjects)
         if ((Get-DomeniaSearchMode) -ne "Global" -and $script:CurrentPresenceFilter -ne "Tous") {
-            $rows = @($rows | Where-Object { Test-DomeniaPresenceMatch ([string]$_.Presence) $script:CurrentPresenceFilter })
+            $rows = @($rows | Where-Object { Test-DomeniaPresenceMatch (Get-DomeniaRowPresenceState $_) $script:CurrentPresenceFilter })
         }
         $rows=@($rows|Where-Object{Test-DomeniaSearchQueryRow $_})
         [void](Set-DomeniaGridRows -Name "DgObjects" -Rows $rows)
@@ -4027,7 +4037,10 @@ function Apply-DomeniaTheme {
         foreach ($presenceControl in @("TxtObjPresence","TxtCompPresence","TxtUserPresence")) {
             $current = Get-DomeniaControl -Name $presenceControl
             if ($null -eq $current) { continue }
-            try { Set-DomeniaControlForeground $current (Get-DomeniaPresenceColor -State ([string]$current.Text)) } catch { }
+            # FI-16: the key stored when the state was written, not a new reading of the label.
+            $storedKey = ''
+            if ($null -ne $script:PresenceTextStates -and $script:PresenceTextStates.ContainsKey($presenceControl)) { $storedKey = [string]$script:PresenceTextStates[$presenceControl] }
+            try { Set-DomeniaControlForeground $current (Get-DomeniaPresenceColor -State ([string]$current.Text) -PresenceState $storedKey) } catch { }
         }
 
         # Restaurer l apparence au demarrage ne reecrit pas les preferences.
@@ -5516,7 +5529,18 @@ function Get-MainXaml {
                                 <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding SessionDisplay}" ToolTip="{Binding SessionDetail}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/></DataTemplate></DataGridTemplateColumn.CellTemplate>
                               </DataGridTemplateColumn>
                               <DataGridTextColumn Header="Vérification utilisateur" Binding="{Binding SessionState}" Width="175"/>
-                              <DataGridTextColumn Header="Fraîcheur AD" Binding="{Binding DirectoryState}" Width="135"/>
+                              <!-- DS-15: freshness of the directory values as an icon, its wording in the tooltip; the key DirectoryFresh drives the glyph (FI-16). -->
+                              <DataGridTemplateColumn Header="Fraîcheur AD" SortMemberPath="DirectoryState" ClipboardContentBinding="{Binding DirectoryState}" Width="72">
+                                <DataGridTemplateColumn.HeaderStyle><Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}"><Setter Property="ToolTip" Value="Coche : valeurs relues dans AD pour cette liste. Horloge : valeurs reprises du cache, à vérifier. Alerte : objet à revérifier. Survolez lʼicône pour le détail."/></Style></DataGridTemplateColumn.HeaderStyle>
+                                <DataGridTemplateColumn.CellTemplate><DataTemplate>
+                                  <TextBlock x:Name="DirectoryFreshGlyph" Text="" FontFamily="Segoe MDL2 Assets" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}" ToolTip="{Binding DirectoryState}" AutomationProperties.Name="{Binding DirectoryState}"/>
+                                  <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding DirectoryFresh}" Value="Verified"><Setter TargetName="DirectoryFreshGlyph" Property="Text" Value="&#xE73E;"/><Setter TargetName="DirectoryFreshGlyph" Property="Foreground" Value="{DynamicResource StatusSuccess}"/></DataTrigger>
+                                    <DataTrigger Binding="{Binding DirectoryFresh}" Value="Cached"><Setter TargetName="DirectoryFreshGlyph" Property="Text" Value="&#xE823;"/></DataTrigger>
+                                    <DataTrigger Binding="{Binding DirectoryFresh}" Value="Warning"><Setter TargetName="DirectoryFreshGlyph" Property="Text" Value="&#xE7BA;"/><Setter TargetName="DirectoryFreshGlyph" Property="Foreground" Value="{DynamicResource StatusWarning}"/></DataTrigger>
+                                  </DataTemplate.Triggers>
+                                </DataTemplate></DataGridTemplateColumn.CellTemplate>
+                              </DataGridTemplateColumn>
                               <DataGridTemplateColumn Header="Compte" SortMemberPath="Login" Width="150">
                                 <DataGridTemplateColumn.HeaderStyle><Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}"><Setter Property="ToolTip" Value="Utilisateur : son login. Poste : compte de l utilisateur associé. Groupe : nom de compte du groupe. OU et conteneur : sans objet."/></Style></DataGridTemplateColumn.HeaderStyle>
                                 <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock TextTrimming="CharacterEllipsis" VerticalAlignment="Center"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Text" Value="{Binding Login}"/><Style.Triggers><DataTrigger Binding="{Binding Type}" Value="Machine"><Setter Property="Text" Value="{Binding Association}"/></DataTrigger><DataTrigger Binding="{Binding Type}" Value="OU"><Setter Property="Text" Value=""/></DataTrigger><DataTrigger Binding="{Binding Type}" Value="Conteneur"><Setter Property="Text" Value=""/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></DataTemplate></DataGridTemplateColumn.CellTemplate>
@@ -5531,8 +5555,25 @@ function Get-MainXaml {
                               <DataGridTextColumn Header="Qualification" SortMemberPath="LinkConfidence" Binding="{Binding LinkConfidence}" Width="90">
                                 <DataGridTextColumn.HeaderStyle><Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}"><Setter Property="ToolTip" Value="Badge de la source du lien (Declare, Observe, Importe, Indice, Contradictoire) ; ce nʼest jamais une probabilité de connexion actuelle."/></Style></DataGridTextColumn.HeaderStyle>
                               </DataGridTextColumn>
-                              <DataGridTemplateColumn Header="Présence réseau" SortMemberPath="Presence" Width="175">
-                                <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding Presence}" ToolTip="{Binding PresenceDetail}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/></DataTemplate></DataGridTemplateColumn.CellTemplate>
+                              <!-- DS-15: presence as a pastel pill (dot from the state key PresenceState, FI-16), short label and discreet age; UX-12: ProbePending marks a row still to be read by the running survey. -->
+                              <DataGridTemplateColumn Header="Présence réseau" SortMemberPath="Presence" ClipboardContentBinding="{Binding Presence}" Width="200">
+                                <DataGridTemplateColumn.CellTemplate><DataTemplate>
+                                  <Border x:Name="PresencePill" CornerRadius="9" Padding="7,1,8,1" Background="{DynamicResource BgReadonly}" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTip="{Binding PresenceDetail}" AutomationProperties.Name="{Binding Presence}">
+                                    <StackPanel Orientation="Horizontal">
+                                      <Ellipse x:Name="PresenceDot" Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center" Fill="{DynamicResource MutedColor}"/>
+                                      <TextBlock Text="{Binding Presence}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                      <TextBlock x:Name="PresenceAgeText" Text="{Binding PresenceAge}" Margin="6,0,0,0" FontSize="11" Foreground="{DynamicResource MutedColor}" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                  </Border>
+                                  <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding PresenceState}" Value="Online"><Setter TargetName="PresenceDot" Property="Fill" Value="{DynamicResource StatusSuccess}"/></DataTrigger>
+                                    <DataTrigger Binding="{Binding PresenceState}" Value="NoReply"><Setter TargetName="PresenceDot" Property="Fill" Value="{DynamicResource StatusWarning}"/></DataTrigger>
+                                    <DataTrigger Binding="{Binding PresenceState}" Value="Error"><Setter TargetName="PresenceDot" Property="Fill" Value="{DynamicResource StatusError}"/></DataTrigger>
+                                    <DataTrigger Binding="{Binding PresenceState}" Value="None"><Setter TargetName="PresenceDot" Property="Visibility" Value="Collapsed"/><Setter TargetName="PresencePill" Property="Background" Value="Transparent"/></DataTrigger>
+                                    <DataTrigger Binding="{Binding PresenceCached}" Value="1"><Setter TargetName="PresenceDot" Property="Opacity" Value="0.5"/></DataTrigger>
+                                    <DataTrigger Binding="{Binding ProbePending}" Value="1"><Setter TargetName="PresenceDot" Property="Fill" Value="{DynamicResource AccentColor}"/><Setter TargetName="PresenceDot" Property="Opacity" Value="1"/><Setter TargetName="PresenceAgeText" Property="Text" Value="relevé en cours…"/></DataTrigger>
+                                  </DataTemplate.Triggers>
+                                </DataTemplate></DataGridTemplateColumn.CellTemplate>
                               </DataGridTemplateColumn>
                               <DataGridTextColumn Header="Etat" Binding="{Binding State}" Width="120"/>
                               <DataGridTextColumn Header="OS" Binding="{Binding OS}" Width="180"/>
@@ -8800,9 +8841,10 @@ function Fill-ComputerObject {
         if (-not $script:RenderingObjectWithoutProbes) { Start-DomeniaSelectedMachinePresence -Name $presenceName -DnsName $presenceDns }
         else {
             $row=Get-DomeniaSelectedGridRow
-            $state=if($null -ne $row -and [string]$row.DN -ieq [string]$script:SelectedObject.DN -and $row.Presence){[string]$row.Presence}else{'Non verifie'}
-            Set-DomeniaPresenceText -Name 'TxtCompPresence' -State $state
-            Update-DomeniaObjectPresence -State $state -Target $presenceDns
+            $state=if($null -ne $row -and [string]$row.DN -ieq [string]$script:SelectedObject.DN -and $row.Presence){[string]$row.Presence}else{'Non vérifié'}
+            $stateKey=if($null -ne $row -and [string]$row.DN -ieq [string]$script:SelectedObject.DN -and $row.Presence){Get-DomeniaRowPresenceState $row}else{'Unknown'}
+            Set-DomeniaPresenceText -Name 'TxtCompPresence' -State $state -PresenceState $stateKey
+            Update-DomeniaObjectPresence -State $state -Target $presenceDns -PresenceState $stateKey
         }
     }
     catch {
@@ -21229,6 +21271,9 @@ function Show-ObjectRows {
                     $initialPresence = if ([string]$row.Type -eq "Machine" -and -not $SkipPresenceScan) { "Test en cours..." } else { "Inconnu" }
                 }
                 Add-Member -InputObject $row -NotePropertyName Presence -NotePropertyValue $initialPresence -Force
+                # FI-16: the pill and the presence filter read this key, not the label above.
+                $initialState = if ([string]$row.Type -eq "Machine") { ConvertTo-DomeniaPresenceStateKey $initialPresence } else { 'None' }
+                Add-Member -InputObject $row -NotePropertyName PresenceState -NotePropertyValue $initialState -Force
                 $row
             }
         )

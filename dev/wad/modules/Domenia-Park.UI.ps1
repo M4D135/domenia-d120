@@ -355,8 +355,8 @@ function Publish-DomeniaCommittedPresence {
     $view=Get-DomeniaLivePresenceView $observation
     $label=[string]$view.Display
     if($State.DisplayKind -eq 'Utilisateur'){$label+='  '+[string]$State.Computer+[string]$State.Suffix}
-    Set-DomeniaPresenceText -Name $(if($State.DisplayKind -eq 'Utilisateur'){'TxtUserPresence'}else{'TxtCompPresence'}) -State $label
-    Update-DomeniaObjectPresence -State $label -Target $State.Computer
+    Set-DomeniaPresenceText -Name $(if($State.DisplayKind -eq 'Utilisateur'){'TxtUserPresence'}else{'TxtCompPresence'}) -State $label -PresenceState ([string]$view.PresenceState)
+    Update-DomeniaObjectPresence -State $label -Target $State.Computer -PresenceState ([string]$view.PresenceState)
     if($State.Explicit){Set-Status ($State.Computer+' : '+$view.Display+' · '+$view.Detail)}
 }
 function Fail-DomeniaCommittedPresenceStore {

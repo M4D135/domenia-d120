@@ -429,7 +429,7 @@ function Resolve-DomeniaColumnPreferences {
     # never rewritten here: a column hidden by one view keeps its width and position for the next view showing it.
     # $Preferences: dictionary id -> {Width, Order}. $Sort: {Column, Direction}.
     param([Parameter(Mandatory=$true)][ValidateSet('Utilisateur','Machine','Mixte')][string]$ColumnProfile,$Preferences=$null,$Sort=$null)
-    $defaults = @{Type=105;Name=260;SessionDisplay=230;SessionState=175;DirectoryState=135;Login=150;UPN=235;Association=230;LinkSource=155;LinkConfidence=90;Presence=175;State=120;OS=180;LastLogon=145;Mail=220;Description=250;Changed=145;DN=520}
+    $defaults = @{Type=105;Name=260;SessionDisplay=230;SessionState=175;DirectoryState=72;Login=150;UPN=235;Association=230;LinkSource=155;LinkConfidence=90;Presence=200;State=120;OS=180;LastLogon=145;Mail=220;Description=250;Changed=145;DN=520}
     $ids = @(Get-DomeniaResultColumns -ColumnProfile $ColumnProfile)
     $rows = New-Object 'System.Collections.Generic.List[object]'
     for ($i = 0; $i -lt $ids.Count; $i++) {

@@ -280,6 +280,12 @@ function Update-DomeniaLiveFilter {
     $query=if($null -ne $filter){[string]$filter.Text}else{''}
     $presence=[string]$script:CurrentPresenceFilter
     if((Get-DomeniaSearchMode) -eq 'Global'){$query='';$presence='Tous'}
+    # FI-16: the filter compares state keys. The key of the choice and the text-to-key table of rows built before the
+    # key existed are resolved here: core functions are not visible inside the closure below.
+    $wantedState=if(-not $presence -or $presence -eq 'Tous'){''}else{ConvertTo-DomeniaPresenceStateKey $presence}
+    $stateKeys=@(Get-DomeniaPresenceStateKeys)
+    $legacyStates=@{}
+    foreach($label in @('En ligne','Sans réponse au ping','Hors ligne','Erreur de ping','Non vérifié','Inconnu','Vérification en cours','Sans objet','')){$legacyStates[$label]=ConvertTo-DomeniaPresenceStateKey $label}
     # Capture values, not controls; filtering performs no network or database I/O.
     if($query.Length -gt 120){$query=$query.Substring(0,120)}
     $terms=@($query.Trim() -split '\s+'|Where-Object {$_})
@@ -297,14 +303,15 @@ function Update-DomeniaLiveFilter {
             if(-not $guid -or $null -eq $queryRecords -or -not $queryRecords.ContainsKey($guid)){return $false}
         }
         # Ordinary searches and GUID-only selections do not need per-row text allocations.
-        if($terms.Count -eq 0 -and (-not $presence -or $presence -eq 'Tous')){return $true}
-        $network=([string]$row.Presence -replace ' \(cache\)$','').Trim()
-        if($network -in @('','Inconnu')){$network='Non vérifié'}
-        $wanted=$presence
-        if($wanted -eq 'Inconnu'){$wanted='Non vérifié'}
-        if($wanted -eq 'Hors ligne'){$wanted='Sans réponse au ping'}
-        if($network -eq 'Hors ligne'){$network='Sans réponse au ping'}
-        if($wanted -and $wanted -ne 'Tous' -and $network -ne $wanted){return $false}
+        if($terms.Count -eq 0 -and -not $wantedState){return $true}
+        if($wantedState){
+            $network=[string]$row.PresenceState
+            if($stateKeys -notcontains $network){
+                $label=([string]$row.Presence -replace ' \(cache\)$','').Trim()
+                $network=if($legacyStates.ContainsKey($label)){[string]$legacyStates[$label]}else{'Unknown'}
+            }
+            if($network -cne $wantedState){return $false}
+        }
         if($terms.Count -eq 0){return $true}
         $parts=[Collections.Generic.List[string]]::new()
         foreach($name in @('Type','Name','Login','UPN','Association','Presence','SessionDisplay','SessionState')){
@@ -334,6 +341,10 @@ function Set-DomeniaLiveObservationOnRow {
     if($null -ne $script:Live -and $null -ne $script:Live.PresenceSeen -and $script:Live.PresenceSeen.ContainsKey($key)){$historical=$false}
     $network=Get-DomeniaLivePresenceView $Observation -Cached:$historical
     $Row.Presence=$network.Display;Set-DomeniaLiveRowValue $Row 'PresenceDetail' ($network.Detail+"`r`n"+(Get-DomeniaRecordFreshness $Observation 'Presence').Label)
+    # FI-16 / DS-15: the pill reads the state key; the age replaces the former '(cache)' suffix.
+    Set-DomeniaLiveRowValue $Row 'PresenceState' ([string]$network.PresenceState)
+    Set-DomeniaLiveRowValue $Row 'PresenceAge' ([string]$network.Age)
+    Set-DomeniaLiveRowValue $Row 'PresenceCached' $(if([bool]$network.IsCached){'1'}else{''})
 }
 function Add-DomeniaLiveRow {
     param($Event)
@@ -378,12 +389,14 @@ function Add-DomeniaLiveRow {
         if($adminRow){Set-DomeniaLiveRowValue $row 'Admin' 'Compte admin'}
     }
     $row.DirectoryState=if($fresh){'AD vérifié'}else{'Cache · à vérifier'}
+    Set-DomeniaLiveRowValue $row 'DirectoryFresh' $(if($fresh){'Verified'}else{'Cached'})
     $row.DirectoryChecked=[string]$Event.ObservedUtc
     if($fresh){if(-not $s.Fresh.ContainsKey($key)){[void]$s.FreshOrder.Add($snapshot)};$s.Fresh[$key]=$snapshot}
     if($isNew){
         [void](Set-RowAssociationMetadata -Rows @($row))
         if([string]$row.Type -eq 'Machine' -and [string]$row.Association -and -not [bool]$s.PSObject.Properties['LoginShown']){Set-DomeniaLoginColumnVisible $true;$s|Add-Member -NotePropertyName LoginShown -NotePropertyValue $true -Force}
         $row.Presence=$(if($row.Type -eq 'Machine'){'Non vérifié'}else{'Sans objet'})
+        Set-DomeniaLiveRowValue $row 'PresenceState' $(if($row.Type -eq 'Machine'){'Unknown'}else{'None'})
         if(-not $fresh){$s.CacheKeys.Enqueue($key)}
         $observation=$null
         [void]$script:Live.Observations.TryGetValue($key,[ref]$observation)
@@ -418,7 +431,7 @@ function Clear-DomeniaLiveProbeIntent {
     # Only an unsent request is discarded. Never pretend a native in-flight call stopped.
     foreach($item in @($script:Live.PendingKeys.Values)){
         if($null -eq $item.Row -or $script:Live.Busy.ContainsKey([string]$item.Key)){continue}
-        if([string]$item.Row.SessionState -eq 'En attente de vérification' -or [string]$item.Row.Presence -eq 'Vérification en cours'){
+        if([string]$item.Row.SessionState -eq 'En attente de vérification' -or (Get-DomeniaRowPresenceState $item.Row) -eq 'Pending'){
             $known=$null;[void]$script:Live.Observations.TryGetValue([string]$item.Key,[ref]$known)
             Set-DomeniaLiveObservationOnRow $item.Row $known -Cached
         }
@@ -576,8 +589,9 @@ function Complete-DomeniaLiveStored {
             if(-not $row.Guid -or -not $observation.Guid -or $row.Guid -ieq $observation.Guid){
                 Set-DomeniaLiveObservationOnRow $row $observation -Cached:([string]$result.Outcome -eq 'PresenceOnly')
                 if($null -ne $script:SelectedObject -and [string]$script:SelectedObject.DN -ieq [string]$row.DN){
-                    Set-DomeniaPresenceText 'TxtCompPresence' ([string]$row.Presence)
-                    Update-DomeniaObjectPresence -State ([string]$row.Presence) -Target ([string]$State.Computer)
+                    $rowState=Get-DomeniaRowPresenceState $row
+                    Set-DomeniaPresenceText 'TxtCompPresence' ([string]$row.Presence) -PresenceState $rowState
+                    Update-DomeniaObjectPresence -State ([string]$row.Presence) -Target ([string]$State.Computer) -PresenceState $rowState
                 }
                 [void](Set-RowAssociationMetadata -Rows @($row));$s.RefreshNeeded=$true
                 if([string]$row.Association){Set-DomeniaLoginColumnVisible $true}
