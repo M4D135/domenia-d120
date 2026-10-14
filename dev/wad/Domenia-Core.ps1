@@ -9091,7 +9091,8 @@ function Search-DomeniaPickerObjects {
         try { $searcher.ServerTimeLimit = [TimeSpan]::FromSeconds(8) } catch { }
         try { $searcher.ClientTimeout = [TimeSpan]::FromSeconds(10) } catch { }
         $collection = $searcher.FindAll()
-        foreach ($r in @($collection)) {
+        # PF-02: the paged collection is enumerated as it arrives; @() would read every page before the first row.
+        foreach ($r in $collection) {
             $p = $r.Properties
             $name = ""
             $second = ""
@@ -9164,7 +9165,8 @@ function Search-DomeniaOuPickerObjects {
         try { $searcher.ServerTimeLimit = [TimeSpan]::FromSeconds(10) } catch { }
         try { $searcher.ClientTimeout = [TimeSpan]::FromSeconds(12) } catch { }
         $collection = $searcher.FindAll()
-        foreach ($r in @($collection)) {
+        # PF-02: direct enumeration of the paged collection, bounded by SizeLimit ($Limit).
+        foreach ($r in $collection) {
             $name = [string](Get-PropFirst $r.Properties "name" "")
             $dn = [string](Get-PropFirst $r.Properties "distinguishedname" "")
             if ([string]::IsNullOrWhiteSpace($dn)) { continue }
@@ -12614,13 +12616,22 @@ function Start-LoadComputerSecrets {
 $s = New-WSearcher $Context ([string]$Payload.DN) "(objectClass=msFVE-RecoveryInformation)" @("name","distinguishedName","msFVE-RecoveryPassword","msFVE-RecoveryGuid","whenCreated","whenChanged") "OneLevel" 0
 $rows = New-Object Collections.ArrayList
 $objectCount = 0
-foreach ($r in @($s.FindAll())) {
-    $objectCount++
-    $p = $r.Properties
-    $value = [string](Get-WPropFirst $p "msfve-recoverypassword" "")
-    $rid = Convert-WGuid (Get-WPropFirst $p "msfve-recoveryguid" "")
-    if ([string]::IsNullOrWhiteSpace($rid)) { $rid = [string](Get-WPropFirst $p "name" "") }
-    if (-not [string]::IsNullOrWhiteSpace($value)) { [void]$rows.Add([pscustomobject]@{ Kind="BitLocker"; Account=$rid; Value=$value; Timestamp=(Convert-WDate (Get-WPropFirst $p "whencreated" "")); Source="msFVE-RecoveryInformation"; Detail=[string](Get-WPropFirst $p "distinguishedname" "") }) }
+$collection = $null;$rootEntry = $s.SearchRoot
+try {
+    $collection = $s.FindAll()
+    foreach ($r in $collection) {
+        $objectCount++
+        $p = $r.Properties
+        $value = [string](Get-WPropFirst $p "msfve-recoverypassword" "")
+        $rid = Convert-WGuid (Get-WPropFirst $p "msfve-recoveryguid" "")
+        if ([string]::IsNullOrWhiteSpace($rid)) { $rid = [string](Get-WPropFirst $p "name" "") }
+        if (-not [string]::IsNullOrWhiteSpace($value)) { [void]$rows.Add([pscustomobject]@{ Kind="BitLocker"; Account=$rid; Value=$value; Timestamp=(Convert-WDate (Get-WPropFirst $p "whencreated" "")); Source="msFVE-RecoveryInformation"; Detail=[string](Get-WPropFirst $p "distinguishedname" "") }) }
+    }
+}
+finally {
+    if ($null -ne $collection) { try { $collection.Dispose() } catch { } }
+    try { $s.Dispose() } catch { }
+    if ($null -ne $rootEntry) { try { $rootEntry.Dispose() } catch { } }
 }
 $readableCount = @($rows).Count
 $success = ($objectCount -eq 0 -or $readableCount -gt 0)
@@ -17726,13 +17737,15 @@ if ($null -ne $scopeProperty -and -not [string]::IsNullOrWhiteSpace([string]$sco
 $rows = New-Object Collections.ArrayList
 $searcher = $null
 $collection = $null
+$rootEntry = $null
 try {
     $searcher = New-WSearcher $Context $searchBase '(|(objectClass=organizationalUnit)(objectClass=container))' @('name','distinguishedName') 'OneLevel' 0
+    $rootEntry = $searcher.SearchRoot
     $searcher.PageSize = 200
     $searcher.ServerTimeLimit = [TimeSpan]::FromSeconds(60)
     $searcher.ClientTimeout = [TimeSpan]::FromSeconds(90)
     $collection = $searcher.FindAll()
-    foreach ($r in @($collection)) {
+    foreach ($r in $collection) {
         $dn = [string](Get-WPropFirst $r.Properties 'distinguishedName' '')
         if ([string]::IsNullOrWhiteSpace($dn)) { continue }
         if ($dn.Equals($searchBase,[StringComparison]::OrdinalIgnoreCase)) { continue }
@@ -17742,6 +17755,7 @@ try {
 finally {
     if ($null -ne $collection) { try { $collection.Dispose() } catch { } }
     if ($null -ne $searcher) { try { $searcher.Dispose() } catch { } }
+    if ($null -ne $rootEntry) { try { $rootEntry.Dispose() } catch { } }
 }
 $sorted = @($rows | Sort-Object @{Expression = {[string]$_.DN}; Descending = $false })
 return [pscustomobject]@{ Success = $true; Rows = $sorted; SearchBase = $searchBase; BaseDn = $baseDn; DurationMs = [int]$watch.ElapsedMilliseconds }
@@ -17924,7 +17938,10 @@ foreach ($entry in $plan) {
     try {
         $filter = [string]$entry.Filter
         if ($incremental) { $filter = '(&' + $filter + $deltaClause + ')' }
-        $searcher = New-WSearcher $Context $searchBase $filter @($entry.Props) $searchScope 0
+        # PF-02: the directory stops at the remaining volume plus one (that extra result proves the cut).
+        $sizeLimit = 0
+        if ($maxObjects -gt 0) { $sizeLimit = [Math]::Max(1,$maxObjects - $rowCount) + 1 }
+        $searcher = New-WSearcher $Context $searchBase $filter @($entry.Props) $searchScope $sizeLimit
         $searcher.PageSize = 1000
         $searcher.CacheResults = $false
         $searcher.ServerTimeLimit = [TimeSpan]::FromSeconds($serverTimeLimitSeconds)
@@ -18045,7 +18062,9 @@ if($incremental -and -not $truncated){
         if($watch.ElapsedMilliseconds -ge $budgetMs){throw 'Budget du recensement des identites depasse.'}
         if($null -ne $progress){$progress.Phase='Recensement GUID';$progress.Count=0L}
         $filter='(|(&(objectCategory=person)(objectClass=user))(objectCategory=computer))'
-        $searcher=New-WSearcher $Context $searchBase $filter @('objectGUID','distinguishedName') $searchScope 0
+        # PF-02: MaxObjects + 1 at most; the extra identity proves the limit and the census is then refused.
+        $censusLimit=0;if($maxObjects -gt 0){$censusLimit=$maxObjects+1}
+        $searcher=New-WSearcher $Context $searchBase $filter @('objectGUID','distinguishedName') $searchScope $censusLimit
         $searcher.PageSize=1000;$searcher.CacheResults=$false
         $searcher.ServerTimeLimit=[TimeSpan]::FromSeconds($serverTimeLimitSeconds)
         $searcher.ClientTimeout=[TimeSpan]::FromSeconds($serverTimeLimitSeconds+30)
@@ -20862,13 +20881,17 @@ for($i=0;$i -lt $users.Count;$i+=40) {
     $slice=@($users[$i..([Math]::Min($i+39,$users.Count-1))])
     $parts=@($slice | ForEach-Object { "(sAMAccountName=$(Escape-WLdap $_))" })
     $s=New-WSearcher $Context ([string]$Context.BaseDn) "(&(objectCategory=person)(objectClass=user)(|$($parts -join '')))" @("sAMAccountName") "Subtree" 0
-    foreach($r in @($s.FindAll())) { [void]$foundUsers.Add([string](Get-WPropFirst $r.Properties "samaccountname" "")) }
+    $all=$null;$root=$s.SearchRoot
+    try { $all=$s.FindAll(); foreach($r in $all) { [void]$foundUsers.Add([string](Get-WPropFirst $r.Properties "samaccountname" "")) } }
+    finally { if($null -ne $all){$all.Dispose()};$s.Dispose();if($null -ne $root){$root.Dispose()} }
 }
 for($i=0;$i -lt $computers.Count;$i+=40) {
     $slice=@($computers[$i..([Math]::Min($i+39,$computers.Count-1))])
     $parts=@($slice | ForEach-Object { "(name=$(Escape-WLdap $_))" })
     $s=New-WSearcher $Context ([string]$Context.BaseDn) "(&(objectCategory=computer)(|$($parts -join '')))" @("name") "Subtree" 0
-    foreach($r in @($s.FindAll())) { [void]$foundComputers.Add([string](Get-WPropFirst $r.Properties "name" "")) }
+    $all=$null;$root=$s.SearchRoot
+    try { $all=$s.FindAll(); foreach($r in $all) { [void]$foundComputers.Add([string](Get-WPropFirst $r.Properties "name" "")) } }
+    finally { if($null -ne $all){$all.Dispose()};$s.Dispose();if($null -ne $root){$root.Dispose()} }
 }
 $rows=foreach($l in @($Payload.Links)) {
     $u=Normalize-WUser ([string]$l.UserLogin)
@@ -24978,6 +25001,8 @@ function Test-WDirectMembership {
     } finally { if($null -ne $s){$s.Dispose()};if($null -ne $root){$root.Dispose()} }
 }
 function Get-WChildCount {
+    # PF-02, kept on purpose: the delete refusal states the exact number of children, so the one-level collection is
+    # counted in full. It is read once, for the single object an operator asked to delete, and released at once.
     param($Context,[string]$Dn)
     $s=$null;$root=$null;$results=$null
     try {
@@ -26262,7 +26287,9 @@ function Resolve-WGroupDn {
     if($Value -match "(?i)^\s*(CN|OU|DC)\s*="){return (Resolve-WDirectoryIdentityDn $Context $Value)}
     $e=Escape-WLdap $Value
     $s=New-WSearcher $Context ([string]$Context.BaseDn) "(&(objectCategory=group)(|(sAMAccountName=$e)(name=$e)))" @("distinguishedName") "Subtree" 2
-    $all=@($s.FindAll())
+    # PF-02: at most two results (SizeLimit 2 proves an ambiguity); the collection and its root are released at once.
+    $collection=$null;$root=$s.SearchRoot
+    try{$collection=$s.FindAll();$all=@($collection)}finally{if($null -ne $collection){$collection.Dispose()};$s.Dispose();if($null -ne $root){$root.Dispose()}}
     if($all.Count -eq 0){throw "Groupe introuvable : $Value"}
     if($all.Count -gt 1){throw "Groupe ambigu : $Value. Utilise son DN complet."}
     return (Resolve-WDirectoryIdentityDn $Context ([string](Get-WPropFirst $all[0].Properties "distinguishedname" "")))
@@ -26272,7 +26299,9 @@ function Resolve-WObjectDn {
     if($Value -match "(?i)^\s*(CN|OU|DC)\s*="){return (Resolve-WDirectoryIdentityDn $Context $Value)}
     $e=Escape-WLdap $Value
     $s=New-WSearcher $Context ([string]$Context.BaseDn) "(|(sAMAccountName=$e)(name=$e)(dNSHostName=$e)(userPrincipalName=$e))" @("distinguishedName") "Subtree" 2
-    $all=@($s.FindAll())
+    # PF-02: at most two results (SizeLimit 2 proves an ambiguity); the collection and its root are released at once.
+    $collection=$null;$root=$s.SearchRoot
+    try{$collection=$s.FindAll();$all=@($collection)}finally{if($null -ne $collection){$collection.Dispose()};$s.Dispose();if($null -ne $root){$root.Dispose()}}
     if($all.Count -eq 0){throw "Objet introuvable : $Value"}
     if($all.Count -gt 1){throw "Objet ambigu : $Value. Utilise son DN complet."}
     return (Resolve-WDirectoryIdentityDn $Context ([string](Get-WPropFirst $all[0].Properties "distinguishedname" "")))
@@ -27504,8 +27533,10 @@ $parent=Get-WObjectSnapshot $Context ([string]$Payload.ParentDn)
 if(-not [bool]$parent.Exists){throw "Branche parente introuvable."}
 if(-not (@($parent.Classes) -contains "organizationalUnit") -and -not (@($parent.Classes) -contains "container") -and -not (@($parent.Classes) -contains "domainDNS")){throw "La cible n est pas une OU, un conteneur ou la racine du domaine."}
 $escaped=Escape-WLdap ([string]$Payload.Name)
-$check=New-WSearcher $Context ([string]$Payload.ParentDn) "(&(objectClass=organizationalUnit)(name=$escaped))" @("distinguishedName") "OneLevel" 2
-if(@($check.FindAll()).Count -gt 0){throw "Une OU portant deja ce nom existe sous la branche cible."}
+$check=New-WSearcher $Context ([string]$Payload.ParentDn) "(&(objectClass=organizationalUnit)(name=$escaped))" @("distinguishedName") "OneLevel" 1
+$checkRoot=$check.SearchRoot;$existing=$null
+try{$existing=$check.FindOne()}finally{$check.Dispose();if($null -ne $checkRoot){$checkRoot.Dispose()}}
+if($null -ne $existing){throw "Une OU portant deja ce nom existe sous la branche cible."}
 $backend=Get-WWriteBackend $Context @("New-ADOrganizationalUnit")
 $dn=""
 $SentUtc=""

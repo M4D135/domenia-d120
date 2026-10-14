@@ -125,6 +125,30 @@ Case 'Parseur natif de tous les scripts du paquet' {
 Case 'Parseur natif des deux opérations nouvelles' {
     foreach($body in @((Get-DomeniaLiveProbeCode),(Get-DomeniaLiveCacheCode))){$t=$null;$e=$null;[void][Management.Automation.Language.Parser]::ParseInput($body,[ref]$t,[ref]$e);Assert-Live (@($e).Count -eq 0) (@($e)|Out-String)}
 }
+# PF-02: unwired if a treated site goes back to @(...) around a paged collection, or forgets its bound or its release.
+Case 'PF-02 : collections LDAP parcourues au fil des pages, bornées et libérées' {
+    $treated=@('Search-DomeniaPickerObjects','Search-DomeniaOuPickerObjects','Get-DomeniaIndexOuListWorkerCode','Get-DomeniaIndexWorkerCode','Start-PruneOrphanLinks','Start-LoadComputerSecrets','Invoke-GlobalSearch','Create-OuUnderSelected')
+    foreach($name in $treated){
+        $node=@($ast.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true))
+        Assert-Live ($node.Count -eq 1) ('Fonction absente : '+$name)
+        $text=$node[0].Extent.Text
+        Assert-Live (-not ($text -match 'in\s+@\(\s*\$(collection|all|results)\s*\)')) ('Collection matérialisée avant le premier tour : '+$name)
+        Assert-Live (-not ($text -match '@\(\s*\$\w+\.FindAll\(\)\s*\)')) ('FindAll matérialisé : '+$name)
+        $assigned=[regex]::Matches($text,'\$(\w+)\s*=\s*\$\w+\.FindAll\(\)')
+        Assert-Live ($assigned.Count -eq ([regex]::Matches($text,'\.FindAll\(\)')).Count) ('FindAll sans variable libérable : '+$name)
+        foreach($match in $assigned){$variable=$match.Groups[1].Value;Assert-Live ($text.Contains('$'+$variable+'.Dispose()')) ('Collection non libérée : '+$name+' / $'+$variable)}
+    }
+    $index=@($ast.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Get-DomeniaIndexWorkerCode'},$true))[0].Extent.Text
+    Assert-Live ($index.Contains('$sizeLimit = [Math]::Max(1,$maxObjects - $rowCount) + 1') -and $index.Contains('New-WSearcher $Context $searchBase $filter @($entry.Props) $searchScope $sizeLimit')) 'Index : SizeLimit non posé au volume restant + 1.'
+    Assert-Live ($index.Contains('$censusLimit=$maxObjects+1') -and $index.Contains('$searchScope $censusLimit')) 'Recensement : SizeLimit non posé à MaxObjects + 1.'
+    $global=@($ast.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Invoke-GlobalSearch'},$true))[0].Extent.Text
+    Assert-Live ($global.Contains('$ldapLimit=$resultLimit+1') -and $global.Contains('foreach ($result in $collection)')) 'Recherche : borne ou parcours direct perdu.'
+    $common=(@([regex]::Matches([IO.File]::ReadAllText((Join-Path $wad 'Domenia-Core.ps1')),"(?ms)^\`$script:WorkerCommon (?:=|\+=) @'\r?\n(.*?)\r?\n'@")|ForEach-Object{$_.Groups[1].Value}) -join "`n")
+    foreach($resolver in @('Resolve-WGroupDn','Resolve-WObjectDn')){
+        $body=[regex]::Match($common,'(?ms)^function '+$resolver+' \{.*?^\}').Value
+        Assert-Live ($body.Contains('$collection.Dispose()') -and -not $body.Contains('@($s.FindAll())')) ('Résolution non libérée : '+$resolver)
+    }
+}
 Case 'Registre fermé conforme au contrat DEV' {
     # Count derived from tools/operation-contracts.json (two-step parse for 5.1), never a constant (48 at R1.12).
     $c=[IO.File]::ReadAllText((Join-Path $root 'tools\operation-contracts.json'))|ConvertFrom-Json
