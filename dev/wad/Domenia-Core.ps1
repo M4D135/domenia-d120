@@ -700,6 +700,8 @@ $script:GuiElementPolicy = [ordered]@{
     "PnlUserSupportBand" = "Default"
     "TxtUserSupportBand" = "Default"
     "TxtUserSupportDetail" = "Default"
+    "BtnUserSupportLockouts" = "Default"
+    "TxtUserSupportLockouts" = "Default"
     "BtnUserSupportUnlock" = "Default"
     "BtnUserEnable" = "Default"
     "BtnUserDisable" = "Default"
@@ -5643,8 +5645,10 @@ function Get-MainXaml {
                         <Border x:Name="PnlUserSupportBand" Visibility="Collapsed" Background="{DynamicResource BgReadonly}" BorderBrush="{DynamicResource AccentColor}" BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,0,0,10" ToolTip="Ce que le contrôleur a répondu sur ce compte : verrouillage, échéance du mot de passe, échecs de connexion. Rien nʼest déduit dʼune stratégie non lue." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="État du compte pour le support" AutomationProperties.HelpText="Ce que le contrôleur a répondu sur ce compte : verrouillage, échéance du mot de passe, échecs de connexion. Rien nʼest déduit dʼune stratégie non lue.">
                           <StackPanel>
                             <TextBlock x:Name="TxtUserSupportBand" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" AutomationProperties.Name="État du compte relevé sur le contrôleur" AutomationProperties.HelpText="État relevé à la lecture de la fiche : verrouillage, échéance du mot de passe, échecs de connexion. Le bandeau ne parait que quand le contrôleur a quelque chose à signaler."/>
-                            <TextBlock x:Name="TxtUserSupportDetail" FontSize="13" TextWrapping="Wrap" Margin="0,4,0,0" Visibility="Collapsed" AutomationProperties.Name="Limites de lʼétat du compte" AutomationProperties.HelpText="Rappelle ce que la valeur affichée ne prouve pas : un compteur dʼhecs nʼest pas répliqué, une échéance calculée ne remplace pas la strégie."/>
+                            <TextBlock x:Name="TxtUserSupportDetail" FontSize="13" TextWrapping="Wrap" Margin="0,4,0,0" Visibility="Collapsed" AutomationProperties.Name="Limites de lʼétat du compte" AutomationProperties.HelpText="Rappelle ce que la valeur affichée ne prouve pas : un compteur dʼéchecs nʼest pas répliqué, une échéance calculée ne remplace pas la stratégie."/>
                             <Button x:Name="BtnUserSupportUnlock" Content="Déverrouiller maintenant" Style="{StaticResource SecondaryButton}" MinHeight="32" Padding="10,4" Margin="0,8,0,0" HorizontalAlignment="Left" MinWidth="170" Visibility="Collapsed" ToolTip="Efface lʼhorodatage de verrouillage sur le contrôleur interrogé, avec la valeur avant et la valeur après." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Déverrouiller maintenant le compte verrouillé" AutomationProperties.HelpText="Efface lʼhorodatage de verrouillage sur le contrôleur interrogé, avec la valeur avant et la valeur après."/>
+                            <Button x:Name="BtnUserSupportLockouts" Content="Lire les verrouillages (4740)" Style="{StaticResource SecondaryButton}" MinHeight="32" Padding="10,4" Margin="0,8,0,0" HorizontalAlignment="Left" MinWidth="170" Visibility="Collapsed" ToolTip="Lit les événements 4740 de ce compte sur lʼémulateur PDC (7 derniers jours) et les rapproche des refus dʼauthentification de Domenia." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lire les verrouillages du compte" AutomationProperties.HelpText="Lit les événements 4740 de ce compte sur lʼémulateur PDC (7 derniers jours) et les rapproche des refus dʼauthentification de Domenia."/>
+                            <TextBlock x:Name="TxtUserSupportLockouts" FontSize="13" TextWrapping="Wrap" Margin="0,6,0,0" Visibility="Collapsed" ToolTip="Verrouillages relevés dans le journal Sécurité, poste à lʼorigine et refus de Domenia juste avant. Le rapprochement horaire est une piste, pas une preuve." AutomationProperties.Name="Verrouillages journalisés du compte" AutomationProperties.HelpText="Verrouillages relevés dans le journal Sécurité, poste à lʼorigine et refus de Domenia juste avant. Le rapprochement horaire est une piste, pas une preuve."/>
                           </StackPanel>
                         </Border>
                         <Grid>
@@ -8578,9 +8582,13 @@ function Update-DomeniaUserSupportBand {
     $titre = Get-DomeniaControl -Name "TxtUserSupportBand"
     $detail = Get-DomeniaControl -Name "TxtUserSupportDetail"
     $deverrouiller = Get-DomeniaControl -Name "BtnUserSupportUnlock"
-    foreach ($c in @($bande, $titre, $detail, $deverrouiller)) {
+    $journal = Get-DomeniaControl -Name "BtnUserSupportLockouts"
+    $verrouillages = Get-DomeniaControl -Name "TxtUserSupportLockouts"
+    foreach ($c in @($bande, $titre, $detail, $deverrouiller, $journal, $verrouillages)) {
         if ($null -ne $c) { $c.Visibility = [System.Windows.Visibility]::Collapsed }
     }
+    if ($null -ne $verrouillages) { $verrouillages.Text = '' }
+    $script:UserSupportLockoutTarget = $null
     try {
         if ($null -eq $Entry) { return }
         if ($null -eq $script:SelectedObject -or $script:SelectedObject.Type -ne "Utilisateur") { return }
@@ -8594,6 +8602,12 @@ function Update-DomeniaUserSupportBand {
         $maintenant = [datetime]::UtcNow
         $alertes = New-Object 'System.Collections.Generic.List[string]'
         $limites = New-Object 'System.Collections.Generic.List[string]'
+        # Point 47: what the 4740 read needs, captured with the generation of this fiche.
+        $sam = [string](Get-DeProp $Entry 'sAMAccountName' '')
+        $script:UserSupportLockoutTarget = [pscustomobject]@{
+            Dn = [string](Get-DeProp $Entry 'distinguishedName' ''); Sid = (ConvertTo-DomeniaSidText (Get-DeProp $Entry 'objectSid' $null)); Sam = $sam
+            Properties = $props; AccountKeys = @(Get-DomeniaLockoutAccountKeys -Sam $sam -Upn ([string](Get-DeProp $Entry 'userPrincipalName' '')))
+        }
         $diag = Get-DomeniaLockoutDiagnosis -User $props -EventReadState 'NotRequested' -NowUtc $maintenant
         $verrouille = ($null -ne $diag) -and (([string]$diag.Verdict) -ceq 'Verrouille')
         if ($verrouille) {
@@ -8627,7 +8641,13 @@ function Update-DomeniaUserSupportBand {
         $echecs = 0L
         if ([long]::TryParse([string](Get-DeProp $Entry 'badPwdCount' ''), [ref]$echecs) -and $echecs -gt 0) {
             $alertes.Add([string]$echecs + ' mauvais mots de passe')
-            $limites.Add('Compteur dʼhecs propre au contrôleur interrogé : il nʼest pas répliqué.')
+            $limites.Add('Compteur dʼéchecs propre au contrôleur interrogé : il nʼest pas répliqué.')
+        }
+        $dernier = ConvertTo-DomeniaAdDate (Get-DeProp $Entry 'lockoutTime' $null)
+        $recent = ((-not $verrouille) -and ($null -ne $dernier) -and ($dernier.ToUniversalTime() -gt $maintenant.AddDays(-7)))
+        if ($recent) {
+            $alertes.Add('Verrouillé le ' + $dernier.ToLocalTime().ToString('dd/MM HH:mm') + ', plus maintenant')
+            $limites.Add('Le contrôleur a levé ce verrouillage ; le journal 4740 dit quel poste lʼa provoqué.')
         }
         if ($alertes.Count -eq 0) { return }
         if ($null -ne $titre) { $titre.Text = ($alertes -join '   ·   ') }
@@ -8637,6 +8657,7 @@ function Update-DomeniaUserSupportBand {
         }
         $bande.Visibility = [System.Windows.Visibility]::Visible
         if ($verrouille -and $null -ne $deverrouiller) { $deverrouiller.Visibility = [System.Windows.Visibility]::Visible }
+        if (($verrouille -or $recent -or ($echecs -gt 0)) -and ($null -ne $journal) -and ($null -ne $script:UserSupportLockoutTarget) -and ([string]$script:UserSupportLockoutTarget.Sid)) { $journal.Visibility = [System.Windows.Visibility]::Visible }
     }
     catch {
         # Un bandeau qui n a pas pu se construire ne doit pas vider la fiche : il reste masque.
@@ -22088,6 +22109,7 @@ function Wire-Events {
     $script:Ctrl["BtnRevealUserConfirm"].Add_Click({ Toggle-PasswordBox "PwdUserConfirm" "TxtUserConfirmVisible" "BtnRevealUserConfirm" "__UserConfirmReveal" })
     $script:Ctrl["BtnUserGenPassword"].Add_Click({ Show-DomeniaGeneratedPassword })
     $script:Ctrl["BtnUserSupportUnlock"].Add_Click({ Unlock-UserAccount })
+    $script:Ctrl["BtnUserSupportLockouts"].Add_Click({ Start-DomeniaLockoutEventRead })
     $script:Ctrl["BtnUserResetPwd"].Add_Click({ Reset-UserPassword })
     $script:Ctrl["BtnApplyAccountOptions"].Add_Click({ Apply-UserAccountOptions })
     $script:Ctrl["BtnSetExpiration"].Add_Click({ Set-UserExpiration $false })
@@ -23834,6 +23856,7 @@ function Get-DomeniaWorkerOperationHashes {
         StorageMaintenance    = "1305276DFF4DD0D7D3B45754226D37B21BFC3C0F6CF20172D3EEF4BC86D97156"
         QueryExport           = "33478747B91888D4ED0571AD805FBF09E289B992F28B6954D5C25DAB9A7F88AF"
         QueryLibrary          = "73B589ECA5FD4FE34B49113ECCB9AA43C0B0DF8635110F5DB124035A6AC4A08C"
+        LockoutDiagnosis      = "16A28EB41BE4F6A88BC7FD09E979D15731ABE1508171682B86C21B516C456D3C"
     }
 }
 
@@ -23842,7 +23865,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "25639C7486F7F13D9A6256430A2551F889532C8A1088ECC5FF6705F7DB7772E5"
+    $expectedFingerprint = "80C8F9B326D7659FF132D3A2BBDCDA7EF031F85513279794632BD5C0211FFC7F"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }

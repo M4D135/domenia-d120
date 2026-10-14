@@ -58,6 +58,25 @@ Test-Case 'D063' 'Aucune lecture de journal sans demande ; refus de lecture sans
     $events=@([pscustomobject]@{TimeUtc=$script:D0;CallerComputer='PC-1'},[pscustomobject]@{TimeUtc=$script:D0;CallerComputer='PC-1'},[pscustomobject]@{TimeUtc=$script:D0;CallerComputer='SRV-2'})
     $d=Get-DomeniaLockoutDiagnosis $u 'dc1' $events 'Read';Assert-Equal 3 $d.Recurrence;Assert-Equal 'PC-1 (2)' $d.Origins[0]
 }
+Test-Case 'P47' 'Verrouillages 4740 rapproches des refus de Domenia du meme compte, sans conclusion' {
+    $u=@{userAccountControl=@(512);'msDS-User-Account-Control-Computed'=@(16)}
+    $t0=[datetime]::new(2026,10,14,8,0,0,[DateTimeKind]::Utc)
+    $events=@([pscustomobject]@{TimeUtc=$t0.ToString('o');CallerComputer='PC-7';Dc='dc1'},[pscustomobject]@{TimeUtc=$t0.AddHours(2).ToString('o');CallerComputer='';Dc='dc1'})
+    $failures=@([pscustomobject]@{Key='jdupont@example.invalid';Kind='LogonFailure';AtUtc=$t0.AddSeconds(-40)},[pscustomobject]@{Key='autre@example.invalid';Kind='LogonFailure';AtUtc=$t0.AddHours(2).AddSeconds(-10)})
+    $line=Get-DomeniaLockoutTimeline -Events $events -DomeniaFailures $failures -AccountKeys @('JDUPONT@example.invalid')
+    Assert-Equal 1 $line.NearCount;Assert-Equal 1 $line.FailureCount
+    Assert-True ($line.Rows[0].TimeUtc -gt $line.Rows[1].TimeUtc) 'Ordre antichronologique attendu.'
+    Assert-True (-not $line.Rows[0].DomeniaProche -and $line.Rows[0].Poste -eq 'non renseigné') 'Refus d un autre compte rapproche a tort.'
+    Assert-True ($line.Rows[1].DomeniaProche -and $line.Rows[1].Domenia -match '40 s avant') ('Refus du compte non rapproche : '+$line.Rows[1].Domenia)
+    $late=Get-DomeniaLockoutTimeline -Events @($events[0]) -DomeniaFailures @([pscustomobject]@{Key='jdupont@example.invalid';Kind='LogonFailure';AtUtc=$t0.AddMinutes(5)}) -AccountKeys @('jdupont@example.invalid')
+    Assert-Equal 0 $late.NearCount
+    $amb=Get-DomeniaLockoutTimeline -Events @($events[0]) -DomeniaFailures @([pscustomobject]@{Key='';Kind='LogonFailure';AtUtc=$t0.AddSeconds(-3)}) -AccountKeys @('jdupont@example.invalid')
+    Assert-True ($amb.Rows[0].Domenia -match 'non attribu') 'Refus non attribue non signale.'
+    $d=Get-DomeniaLockoutDiagnosis -User $u -Dc 'dc1' -Events $events -EventReadState 'Read' -DomeniaFailures $failures -AccountKeys @('jdupont@example.invalid')
+    $fact=@($d.Facts|Where-Object{$_.Fait -eq 'Refus de Domenia avant un verrouillage'})
+    Assert-True ($fact.Count -eq 1 -and $fact[0].Valeur -eq '1 sur 2' -and $fact[0].Hypothese) 'Fait de rapprochement absent ou affirme comme preuve.'
+    Assert-Equal 0 @((Get-DomeniaLockoutDiagnosis $u 'dc1' $events 'Read').Facts|Where-Object{$_.Fait -eq 'Refus de Domenia avant un verrouillage'}).Count
+}
 Test-Case 'D064' 'Chemin direct, imbrique, cycle et limites' {
     $edges=@{'CN=U'=@('CN=G1');'CN=G1'=@('CN=G2','CN=G3');'CN=G2'=@('CN=G1','CN=Cible');'CN=G3'=@()}
     $p=Find-DomeniaMembershipPath $edges 'CN=U' 'CN=Cible';Assert-True $p.Found;Assert-Equal 4 $p.Path.Count;Assert-Equal 'CN=G2' $p.Path[2];Assert-False $p.Direct

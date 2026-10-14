@@ -98,11 +98,38 @@ function Get-DomeniaContextCredentialIdentity {
     return [string]$script:ProcessIdentity
 }
 
+function Get-DomeniaCredentialGuardFailures {
+    # Keys, kinds and times only: never the exception, the request or a credential.
+    param($Guard)
+    if($null -eq $Guard){return @()}
+    $out=[Collections.Generic.List[object]]::new()
+    [Threading.Monitor]::Enter($Guard.SyncRoot)
+    try{
+        if($null -ne $Guard.Faults){foreach($key in @($Guard.Faults.Keys)){$f=$Guard.Faults[$key];$out.Add([pscustomobject]@{Key=[string]$key;Kind=[string]$f.Kind;AtUtc=$f.AtUtc})}}
+        if($Guard.ContainsKey('AmbiguousOperations')){foreach($op in @($Guard.AmbiguousOperations.Keys)){$f=$Guard.AmbiguousOperations[$op];$out.Add([pscustomobject]@{Key='';Kind=[string]$f.Kind;AtUtc=$f.AtUtc})}}
+    }finally{[Threading.Monitor]::Exit($Guard.SyncRoot)}
+    return $out.ToArray()
+}
+function Add-DomeniaCredentialFailureHistory {
+    param([object[]]$Failures)
+    if($null -eq $script:DomeniaCredentialFailureHistory){$script:DomeniaCredentialFailureHistory=[Collections.Generic.List[object]]::new()}
+    foreach($f in @($Failures)){if($null -ne $f){$script:DomeniaCredentialFailureHistory.Add($f)}}
+    # Bounded: the last 64 refusals of this run are enough to date a lockout.
+    while($script:DomeniaCredentialFailureHistory.Count -gt 64){$script:DomeniaCredentialFailureHistory.RemoveAt(0)}
+}
+function Get-DomeniaCredentialFailureHistory {
+    $rows=[Collections.Generic.List[object]]::new()
+    if($null -ne $script:DomeniaCredentialFailureHistory){foreach($h in $script:DomeniaCredentialFailureHistory){$rows.Add($h)}}
+    foreach($f in @(Get-DomeniaCredentialGuardFailures $script:DomeniaCredentialGuard)){if($null -ne $f){$rows.Add($f)}}
+    return ,$rows.ToArray()
+}
 function Set-DomeniaCredentialGuardContext {
     # One shared breaker for every use of the same account, independent of target/provider/scheduler.
     # A new login session gets a new map; a successful unrelated read never clears an existing refusal.
     param($Context,[string]$OperationId)
     if($null -eq $script:DomeniaCredentialGuard -or [long]$script:DomeniaCredentialGuard.Epoch -ne [long]$script:SessionEpoch){
+        # Point 47: the refusals of the closing session stay available to the lockout diagnosis.
+        if($null -ne $script:DomeniaCredentialGuard){Add-DomeniaCredentialFailureHistory @(Get-DomeniaCredentialGuardFailures $script:DomeniaCredentialGuard)}
         $script:DomeniaCredentialGuard=[hashtable]::Synchronized(@{Epoch=[long]$script:SessionEpoch;Faults=@{};Revision=0L;NotifiedRevision=0L})
     }
     $needs=Get-DomeniaOperationCredentialNeeds $OperationId

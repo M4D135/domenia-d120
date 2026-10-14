@@ -261,7 +261,8 @@ function Resolve-DomeniaPasswordPolicy {
 # ---------------------------------------------------------------- D063 lockout diagnosis on demand
 function Get-DomeniaLockoutDiagnosis {
     # $User: attributes read on the controller named $Dc. $Events: lockout events {TimeUtc, CallerComputer} or $null when not read.
-    param($User,[string]$Dc='',[object[]]$Events=$null,[string]$EventReadState='NotRequested',[TimeSpan]$LockoutDuration=[TimeSpan]::Zero,[bool]$PolicyKnown=$false,[string]$Reader='',[datetime]$NowUtc=[datetime]::UtcNow)
+    # $DomeniaFailures: refusals recorded by the credential guard {Key, Kind, AtUtc}; $AccountKeys: aliases of $User.
+    param($User,[string]$Dc='',[object[]]$Events=$null,[string]$EventReadState='NotRequested',[TimeSpan]$LockoutDuration=[TimeSpan]::Zero,[bool]$PolicyKnown=$false,[string]$Reader='',[datetime]$NowUtc=[datetime]::UtcNow,[object[]]$DomeniaFailures=$null,[string[]]$AccountKeys=@())
     $facts = New-Object 'System.Collections.Generic.List[object]'
     $source = 'Controleur ' + $Dc
     $state = Get-DomeniaAccountState (Get-DomeniaAttr $User 'userAccountControl' $null) (Get-DomeniaAttr $User 'msDS-User-Account-Control-Computed' $null) (Get-DomeniaAttr $User 'lockoutTime' $null)
@@ -280,7 +281,7 @@ function Get-DomeniaLockoutDiagnosis {
     if ($badCount) { $facts.Add((New-DomeniaFact -Fait 'Echecs de mot de passe' -Valeur $badCount -Source $source -Limite 'Compteur propre a ce controleur : il n est pas replique.' -Lecteur $Reader)) }
     $badTime = ConvertTo-DomeniaAdDate (Get-DomeniaAttr $User 'badPasswordTime' $null)
     if ($null -ne $badTime) { $facts.Add((New-DomeniaFact -Fait 'Dernier echec' -Valeur $badTime.ToLocalTime().ToString('dd/MM/yyyy HH:mm:ss') -Source $source -Limite 'Valeur propre a ce controleur.' -Lecteur $Reader)) }
-    $recurrence = 0; $origins = @()
+    $recurrence = 0; $origins = @(); $timeline = $null
     switch ($EventReadState) {
         'Read' {
             $list = @(@($Events) | Where-Object { $null -ne $_ })
@@ -289,6 +290,14 @@ function Get-DomeniaLockoutDiagnosis {
             if ($recurrence) {
                 $facts.Add((New-DomeniaFact -Fait 'Verrouillages journalises' -Valeur ([string]$recurrence + ' evenement(s) 4740') -Source ('Journal Securite de ' + $Dc) -Limite 'Fenetre et volume bornes ; un journal recycle peut ne plus contenir les evenements anciens.' -Lecteur $Reader))
                 if ($origins.Count) { $facts.Add((New-DomeniaFact -Fait 'Postes a l origine' -Valeur ($origins -join ', ') -Source ('Journal Securite de ' + $Dc) -Hypothese 'Un poste recurrent suggere une session, un lecteur reseau ou un service utilisant un ancien mot de passe.' -Lecteur $Reader)) }
+                if ($null -ne $DomeniaFailures) {
+                    $timeline = Get-DomeniaLockoutTimeline -Events $list -DomeniaFailures $DomeniaFailures -AccountKeys $AccountKeys
+                    if ($timeline.NearCount) {
+                        $facts.Add((New-DomeniaFact -Fait 'Refus de Domenia avant un verrouillage' -Valeur ([string]$timeline.NearCount + ' sur ' + [string]$recurrence) -Source 'Protection des comptes de Domenia' -Hypothese 'Domenia a essuye un refus d authentification pour ce compte juste avant : verifier d abord le mot de passe saisi dans Domenia.' -Limite ('Rapprochement horaire a ' + [string]$timeline.ToleranceSeconds + ' s, horloges du poste et du controleur non comparees.') -Lecteur $Reader))
+                    } else {
+                        $facts.Add((New-DomeniaFact -Fait 'Refus de Domenia avant un verrouillage' -Valeur 'Aucun' -Source 'Protection des comptes de Domenia' -Limite 'Refus enregistres pendant cette execution de Domenia seulement.' -Lecteur $Reader))
+                    }
+                }
             } else {
                 $facts.Add((New-DomeniaFact -Fait 'Verrouillages journalises' -Valeur 'Aucun dans la fenetre lue' -Source ('Journal Securite de ' + $Dc) -Limite 'Absence dans la fenetre lue seulement.' -Lecteur $Reader))
             }
@@ -297,7 +306,61 @@ function Get-DomeniaLockoutDiagnosis {
         'Unavailable' { $facts.Add((New-DomeniaFact -Fait 'Verrouillages journalises' -Valeur 'Journal injoignable' -Etat Indisponible -Source ('Journal Securite de ' + $Dc) -Limite 'Aucune conclusion sur les verrouillages passes.' -Lecteur $Reader)) }
         default { $facts.Add((New-DomeniaFact -Fait 'Verrouillages journalises' -Valeur 'Non demandes' -Etat Inconnu -Source 'Journal Securite' -Limite 'La lecture du journal se demande explicitement.' -Lecteur $Reader)) }
     }
-    return [pscustomobject]@{Verdict=$verdict;Recurrence=$recurrence;Origins=$origins;Facts=$facts.ToArray()}
+    return [pscustomobject]@{Verdict=$verdict;Recurrence=$recurrence;Origins=$origins;Facts=$facts.ToArray();Timeline=$timeline}
+}
+
+function ConvertTo-DomeniaLockoutUtc {
+    param($Value)
+    if ($null -eq $Value) { return $null }
+    if ($Value -is [datetime]) { return $Value.ToUniversalTime() }
+    $parsed = [datetime]::MinValue
+    if ([datetime]::TryParse([string]$Value, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::RoundtripKind, [ref]$parsed)) { return $parsed.ToUniversalTime() }
+    return $null
+}
+
+function Get-DomeniaLockoutTimeline {
+    # Point 47: each 4740 event beside the authentication refusals Domenia itself recorded for the same account.
+    # A refusal just before a lockout is a lead to check, never proof that Domenia caused it.
+    param([object[]]$Events=@(),[object[]]$DomeniaFailures=@(),[string[]]$AccountKeys=@(),[ValidateRange(1,3600)][int]$ToleranceSeconds=120)
+    $keys = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+    foreach ($k in @($AccountKeys)) { if (-not [string]::IsNullOrWhiteSpace([string]$k)) { [void]$keys.Add(([string]$k).Trim()) } }
+    $own = New-Object 'System.Collections.Generic.List[object]'
+    foreach ($f in @($DomeniaFailures)) {
+        if ($null -eq $f) { continue }
+        $at = ConvertTo-DomeniaLockoutUtc (Get-DomeniaMember $f 'AtUtc' $null)
+        if ($null -eq $at) { continue }
+        $key = [string](Get-DomeniaMember $f 'Key' '')
+        # A refusal whose account could not be attributed stays a lead, flagged as such.
+        if ((-not $key) -or ($keys.Contains($key))) { $own.Add([pscustomobject]@{AtUtc=$at;Kind=[string](Get-DomeniaMember $f 'Kind' '');Ambiguous=(-not $key)}) }
+    }
+    $parsed = New-Object 'System.Collections.Generic.List[object]'
+    foreach ($e in @($Events)) {
+        if ($null -eq $e) { continue }
+        $t = ConvertTo-DomeniaLockoutUtc (Get-DomeniaMember $e 'TimeUtc' $null)
+        if ($null -ne $t) { $parsed.Add([pscustomobject]@{TimeUtc=$t;Event=$e}) }
+    }
+    $rows = New-Object 'System.Collections.Generic.List[object]'
+    $near = 0
+    foreach ($p in @($parsed | Sort-Object TimeUtc -Descending)) {
+        $best = $null
+        foreach ($f in $own) {
+            $delta = ($p.TimeUtc - $f.AtUtc).TotalSeconds
+            # The refusal precedes the lockout; 5 s of clock skew between this computer and the controller is tolerated.
+            if (($delta -ge -5) -and ($delta -le $ToleranceSeconds)) {
+                if (($null -eq $best) -or ([Math]::Abs($delta) -lt [Math]::Abs($best.Delta))) { $best = [pscustomobject]@{Delta=$delta;Failure=$f} }
+            }
+        }
+        $caller = [string](Get-DomeniaMember $p.Event 'CallerComputer' '')
+        if (-not $caller) { $caller = 'non renseigné' }
+        $domenia = 'aucun refus Domenia à ' + [string]$ToleranceSeconds + ' s'
+        if ($null -ne $best) {
+            $near++
+            $domenia = 'refus Domenia ' + [string][int][Math]::Round([Math]::Max(0,$best.Delta)) + ' s avant'
+            if ($best.Failure.Ambiguous) { $domenia += ' (compte non attribué)' }
+        }
+        $rows.Add([pscustomobject]@{TimeUtc=$p.TimeUtc;Heure=$p.TimeUtc.ToLocalTime().ToString('dd/MM/yyyy HH:mm:ss');Poste=$caller;Controleur=[string](Get-DomeniaMember $p.Event 'Dc' '');Domenia=$domenia;DomeniaProche=($null -ne $best)})
+    }
+    return [pscustomobject]@{Rows=$rows.ToArray();NearCount=$near;FailureCount=$own.Count;ToleranceSeconds=$ToleranceSeconds}
 }
 
 # ---------------------------------------------------------------- D064 membership paths

@@ -516,5 +516,12 @@
     "Function": "Get-DomeniaStorageMaintenanceWorkerCode",
     "LiteralIndex": 0,
     "Sha256": "1305276DFF4DD0D7D3B45754226D37B21BFC3C0F6CF20172D3EEF4BC86D97156"
+  },
+  {
+    "Operation": "LockoutDiagnosis",
+    "File": "wad/modules/Domenia-Lockout.Worker.ps1",
+    "Function": "Get-DomeniaLockoutEventWorkerCode",
+    "LiteralIndex": 0,
+    "Sha256": "16A28EB41BE4F6A88BC7FD09E979D15731ABE1508171682B86C21B516C456D3C"
   }
 ]

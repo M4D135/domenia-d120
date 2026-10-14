@@ -1030,7 +1030,7 @@
   {
     "Name": "TxtUserSupportDetail",
     "Title": "Limites de lʼétat du compte",
-    "Text": "Rappelle ce que la valeur affichée ne prouve pas : un compteur dʼhecs nʼest pas répliqué, une échéance calculée ne remplace pas la strégie.",
+    "Text": "Rappelle ce que la valeur affichée ne prouve pas : un compteur dʼéchecs nʼest pas répliqué, une échéance calculée ne remplace pas la stratégie.",
     "Kind": "TextBlock",
     "Source": "L11"
   },
@@ -1040,6 +1040,20 @@
     "Text": "Efface lʼhorodatage de verrouillage sur le contrôleur interrogé, avec la valeur avant et la valeur après.",
     "Kind": "Button",
     "Source": "L11"
+  },
+  {
+    "Name": "BtnUserSupportLockouts",
+    "Title": "Lire les verrouillages du compte",
+    "Text": "Lit les événements 4740 de ce compte sur lʼémulateur PDC (7 derniers jours) et les rapproche des refus dʼauthentification de Domenia.",
+    "Kind": "Button",
+    "Source": "P47"
+  },
+  {
+    "Name": "TxtUserSupportLockouts",
+    "Title": "Verrouillages journalisés du compte",
+    "Text": "Verrouillages relevés dans le journal Sécurité, poste à lʼorigine et refus de Domenia juste avant. Le rapprochement horaire est une piste, pas une preuve.",
+    "Kind": "TextBlock",
+    "Source": "P47"
   },
   {
     "Name": "BtnUserEdit",
