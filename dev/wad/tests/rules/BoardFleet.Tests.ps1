@@ -398,6 +398,9 @@ Test-Case -Id 'BF-019' -Name 'Instantane quotidien : chiffres de l annuaire, cou
     $curves = Get-BfBoard -History $rich
     Assert-Equal 90 @($curves.Entries['fleet.trend.win10'].Items).Count
     Assert-Equal 90 @($curves.Entries['fleet.trend.stale'].Items).Count
+    Assert-True ([string]$curves.Entries['fleet.trend.stale'].Detail -like '*au-delà du seuil (actuellement 90 j)') 'Periode d inactivite reglee, jamais 90 j fixes'
+    $tighter = Get-BfBoard -History $rich -HealthPolicy (ConvertTo-DomeniaHealthPolicy @{ Thresholds = @{ StaleDays = 45 } })
+    Assert-True ([string]$tighter.Entries['fleet.trend.stale'].Detail -like '*(actuellement 45 j)') 'Seuil personnalise annonce'
     Assert-Equal 45 @($curves.Entries['fleet.trend.lowdisk'].Items).Count 'Jours sans disque lu ecartes de la courbe'
     Assert-Equal '1' ([string]$curves.Entries['fleet.trend.lowdisk'].Value)
     foreach ($key in @('fleet.trend.win10','fleet.trend.stale','fleet.trend.lowdisk')) { Assert-Equal 'Timeline' ([string]$curves.Entries[$key].Kind) $key; Assert-True (@(Get-DomeniaBoardCatalog -Board Fleet | Where-Object { $_.Key -eq $key -and $_.Kind -eq 'Timeline' }).Count -eq 1) ('Courbe absente du catalogue : ' + $key) }

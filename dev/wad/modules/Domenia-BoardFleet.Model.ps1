@@ -581,7 +581,8 @@ function Get-DomeniaFleetBoardData {
         $curves = @(
             @('fleet.trend','Problems','postes à traiter'),
             @('fleet.trend.win10','Windows10','postes sous Windows 10'),
-            @('fleet.trend.stale','Stale','postes sans connexion depuis 90 j'),
+            # Point 71: the inactivity period is the configured one, never a fixed 90 days.
+            @('fleet.trend.stale','Stale',('postes sans connexion AD au-delà du seuil (actuellement '+[string]$data.HealthPolicy.Thresholds.StaleDays+' j)')),
             @('fleet.trend.lowdisk','LowDisk','postes analysés avec C: presque plein')
         )
         $parsedDays = New-Object System.Collections.ArrayList
