@@ -243,7 +243,7 @@ function Update-DomeniaUxProfileVisibility {
             }
         }
         # Never leave a hidden detail page selected. No AD read is performed.
-        foreach ($name in @('DetailTabs','ComputerTabs','ApplicationToolTabs')) {
+        foreach ($name in @('DetailTabs','ComputerTabs','ComputerDetailTabs','ComputerDiagTabs','ApplicationToolTabs')) {
             $tabs = Get-DomeniaControl $name
             if ($null -eq $tabs) { continue }
             if ($null -ne $tabs.SelectedItem -and $tabs.SelectedItem.Visibility -ne [Windows.Visibility]::Visible) {

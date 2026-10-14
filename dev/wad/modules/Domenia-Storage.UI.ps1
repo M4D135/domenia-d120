@@ -136,7 +136,7 @@ function Start-DomeniaStorageWork {
             if(@($lost).Count){
                 # Unknown completion is not proof of a commit. Keep the exact lot and require explicit recovery.
                 $script:Persistence.Failures=[Math]::Max(2,[int]$script:Persistence.Failures)
-                Fail-DomeniaStorageWork 'Résultat de sauvegarde non reçu ; vérifiez la base puis reprenez les sauvegardes dans Fiabilité.' ([pscustomobject]@{Items=@($lost)})
+                Fail-DomeniaStorageWork 'Résultat de sauvegarde non reçu ; vérifiez la base puis reprenez les sauvegardes.' ([pscustomobject]@{Items=@($lost)})
                 return
             }
         }
@@ -399,11 +399,11 @@ function Fail-DomeniaStorageWork {
     Request-DomeniaStorageWork
     if($diskFull){
         if($null -ne $script:IndexWalk){Complete-DomeniaIndexWalkUi -Aborted -Detail 'Stockage suspendu : espace disque insuffisant. Les lots non enregistres sont conserves en attente.'}
-        Set-Status 'Stockage suspendu : espace disque insuffisant. Les lots restent en mémoire ; liberez de la place puis Reprendre les sauvegardes dans Fiabilite.' 'WARN';return
+        [void](Show-DomeniaRouteNotice -Kind Warning -Text 'Stockage suspendu : espace disque insuffisant. Les lots restent en mémoire ; libérez de la place, puis reprenez les sauvegardes.' -RouteText 'Reprendre les sauvegardes' -Route 'StorageResume' -Key 'storage-suspended');return
     }
     if($script:Persistence.Failures -ge 3){
         if($null -ne $script:IndexWalk){Complete-DomeniaIndexWalkUi -Aborted -Detail 'Stockage suspendu après trois échecs. Reprenez les sauvegardes avant de relancer les lectures.'}
-        Set-Status 'Cache non enregistre : trois echecs. Les donnees restent en memoire ; corrigez le stockage puis Reprendre les sauvegardes dans Fiabilite.' 'WARN';return}
+        [void](Show-DomeniaRouteNotice -Kind Warning -Text 'Cache non enregistré après trois échecs : les données restent en mémoire. Corrigez le stockage, puis reprenez les sauvegardes.' -RouteText 'Reprendre les sauvegardes' -Route 'StorageResume' -Key 'storage-suspended');return}
     Set-Status 'Cache non enregistre sur disque. Les observations sont encore en memoire ; une nouvelle tentative bornee sera faite.' 'WARN'
 }
 function Queue-DomeniaMetadata {

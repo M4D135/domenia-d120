@@ -24,7 +24,7 @@ function Get-DomeniaAccessScope {
         if($resource -eq 'Laps'){return 'ReadLaps'}
         if($resource -eq 'BitLocker'){return 'ReadBitLocker'}
     }
-    if($OperationId -in @('SessionsList','LiveConsole','ComputerDiagnostics','ComputerLastUser','ComputerInventory','SoftwareInventory','WmiNamespaces','WmiClasses','WmiQuery','ComputerGpUpdate','ComputerRestart','RimotteRun','UserComputerProbe','BatchNetworkDiag','ParkSweep')){return 'Remote'}
+    if($OperationId -in @('SessionsList','LiveConsole','ComputerDiagnostics','ComputerLastUser','ComputerInventory','SoftwareInventory','WmiNamespaces','WmiClasses','WmiQuery','ComputerGpUpdate','ComputerRestart','RimotteRun','ComputerServiceControl','UserComputerProbe','BatchNetworkDiag','ParkSweep')){return 'Remote'}
     if($OperationId){return 'AD:'+ $OperationId}
     return 'Directory'
 }
@@ -444,7 +444,11 @@ function Resolve-DomeniaCapabilityRoute {
         'WsSearch'           { return [pscustomobject]@{Route=$Route;Workspace='WsSearch';Inner='';Tab='';Focus='TxtGlobalSearch';Label='Rechercher'} }
         'TabAccounts'        { return [pscustomobject]@{Route=$Route;Workspace='TabAccounts';Inner='';Tab='';Focus='';Label='Comptes'} }
         'TabPermissions'     { return [pscustomobject]@{Route=$Route;Workspace='WsObject';Inner='DetailTabs';Tab='TabPermissions';Focus='';Label='Fiche > Permissions'} }
-        'TabGuard'           { return [pscustomobject]@{Route=$Route;Workspace='TabApplicationTools';Inner='ApplicationToolTabs';Tab='TabGuard';Focus='';Label='Outils > Fiabilite'} }
+        # UX-19 (X04): the hidden Fiabilité tab is the destination of the receipts only, named by what it shows.
+        'TabGuard'           { return [pscustomobject]@{Route=$Route;Workspace='TabApplicationTools';Inner='ApplicationToolTabs';Tab='TabGuard';Focus='';Label='Opérations à vérifier'} }
+        'StorageResume'      { return [pscustomobject]@{Route=$Route;Workspace='TabApplicationTools';Inner='ApplicationToolTabs';Tab='TabIndex';Focus='BtnGuardStoreResume';Label='Base autonome > Stockage';Inner2='IndexWorkspaceTabs';Tab2='TabIndexStorage'} }
+        'LegacyImport'       { return [pscustomobject]@{Route=$Route;Workspace='TabApplicationTools';Inner='ApplicationToolTabs';Tab='TabIndex';Focus='BtnGuardLegacyImport';Label='Base autonome > Stockage';Inner2='IndexWorkspaceTabs';Tab2='TabIndexStorage'} }
+        'DraftCompare'       { return [pscustomobject]@{Route=$Route;Workspace='';Inner='';Tab='';Focus='';Label='Comparer les saisies';Panel='DraftCompare'} }
         'ChkReadOnlyMode'    { return [pscustomobject]@{Route=$Route;Workspace='';Inner='';Tab='';Focus='ChkReadOnlyMode';Label='Protection lecture seule'} }
         'BtnObjectReadRetry' { return [pscustomobject]@{Route=$Route;Workspace='WsObject';Inner='';Tab='';Focus='BtnObjectReadRetry';Label='Fiche > Relire'} }
         # UX-32: the operations panel under the Opérations button (TabExperience no longer exists).
@@ -458,7 +462,10 @@ function Invoke-DomeniaCapabilityRoute {
     $target=Resolve-DomeniaCapabilityRoute -Route $Route
     if($null -eq $target){return $false}
     if([string](Get-DomeniaMember $target 'Panel' '') -eq 'Operations'){return [bool](Show-DomeniaOperationsPanel)}
+    if([string](Get-DomeniaMember $target 'Panel' '') -eq 'DraftCompare'){Show-DomeniaDraftComparison;return $true}
     if($target.Workspace){Select-DomeniaWorkspace -Workspace $target.Workspace -Inner $target.Inner -Tab $target.Tab}
+    $inner2=[string](Get-DomeniaMember $target 'Inner2' '');$tab2=[string](Get-DomeniaMember $target 'Tab2' '')
+    if($inner2 -and $tab2){$tabs=Get-DomeniaControl $inner2;$page=Get-DomeniaControl $tab2;if(($null -ne $tabs) -and ($null -ne $page)){$tabs.SelectedItem=$page}}
     if($target.Focus){$control=Get-DomeniaControl $target.Focus;if($null -ne $control){try{[void]$control.Focus()}catch{}}}
     return $true
 }
@@ -565,7 +572,7 @@ function Update-DomeniaTransportPolicyView {
     if(-not $Force -and $signature -ceq $previous -and $null -ne $grid.ItemsSource){return $false}
     [void](Set-DomeniaItemsSource -Name 'DgTransportPolicy' -Rows $rows)
     $target='';if($null -ne $script:ArtifactConsent -and $script:ArtifactConsent.Expires -gt [datetime]::UtcNow){$target=[string]$script:ArtifactConsent.Target}
-    $note=if($target){'Autorisation explicite en cours pour '+$target+' (5 min au plus). Aucun autre poste n en beneficie.'}else{'Aucun transport intrusif sans autorisation explicite et ciblee (Outils > Fiabilite). Aucun reglage Windows n est modifie par Domenia.'}
+    $note=if($target){'Autorisation explicite en cours pour '+$target+' (5 min au plus). Aucun autre poste nʼen bénéficie.'}else{'Aucun transport intrusif sans autorisation explicite, accordée pour un seul poste et pour 5 minutes. Aucun réglage Windows nʼest modifié par Domenia.'}
     [void](Set-DomeniaControlText 'LblTransportPolicy' $note)
     if($null -ne $script:AccessState){$script:AccessState|Add-Member -NotePropertyName PolicySignature -NotePropertyValue $signature -Force}
     return $true
