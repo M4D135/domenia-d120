@@ -220,6 +220,53 @@ Test-Case ('Banc de charge en demonstration : ' + $Reads + ' lectures, latence '
     Assert-True (-not [bool]$script:AsyncTimer.IsEnabled) 'Minuteur du moteur encore actif sans tache'
 }
 
+Test-Case 'Point 16 : sous une rafale continue d actions explicites, la lecture de fond demarre apres son attente et repond' {
+    # Qualification of the visible priority under load: six places held by slow explicit reads (1.5 s each), a new
+    # explicit read every 100 ms during 8 s, and one background read submitted after the first ones. Measured: the wait
+    # of the background read, the p95 wait of the explicit reads and the number of aged promotions.
+    $savedDirectory = $script:DemoDirectory
+    $script:Config.Async['BackgroundAgingSeconds'] = 4
+    $script:DomeniaAgedPromotions = 0
+    $script:DomeniaRuntimeMetrics = @{}
+    $script:DemoDirectory = New-DomeniaDemoDirectory -LatencyMs 1500
+    $openCode = Get-PinnedBody -Operation 'OpenAdObject'
+    $targets = @($script:DemoDirectory.Objects | Where-Object { @($_.DeniedFor).Count -eq 0 -and ((@($_.Attributes.objectClass) -contains 'user') -or (@($_.Attributes.objectClass) -contains 'computer')) } | ForEach-Object { [string]$_.DN })
+    $script:Done.Clear()
+    $refusedCount = 0
+    try {
+        Initialize-AsyncEngine
+        for ($i = 0; $i -lt 6; $i++) { [void](Start-UiTask -Name ('Explicite ' + $i) -OperationId 'OpenAdObject' -Code $openCode -Payload ([pscustomobject]@{DN=$targets[$i % $targets.Count];Type='Utilisateur';Properties=@('name');Nonce=('x' + $i)}) -CallbackState ([pscustomobject]@{Index=$i}) -SuccessHandler 'Complete-LoadUi' -ErrorHandler 'Fail-LoadUi') }
+        $backgroundAt = $script:Clock.Elapsed.TotalMilliseconds
+        [void](Start-UiTask -Name 'Campagne de fond' -OperationId 'OpenAdObject' -Code $openCode -Payload ([pscustomobject]@{DN=$targets[0];Type='Utilisateur';Properties=@('name');Nonce='fond'}) -CallbackState ([pscustomobject]@{Index=-1}) -SuccessHandler 'Complete-LoadUi' -ErrorHandler 'Fail-LoadUi' -TaskClass 'Background')
+        $watch = [Diagnostics.Stopwatch]::StartNew(); $n = 6
+        while ($watch.Elapsed.TotalSeconds -lt 8) {
+            try { [void](Start-UiTask -Name ('Explicite ' + $n) -OperationId 'OpenAdObject' -Code $openCode -Payload ([pscustomobject]@{DN=$targets[$n % $targets.Count];Type='Utilisateur';Properties=@('name');Nonce=('x' + $n)}) -CallbackState ([pscustomobject]@{Index=$n}) -SuccessHandler 'Complete-LoadUi' -ErrorHandler 'Fail-LoadUi') } catch { $refusedCount++ }
+            $n++
+            Invoke-LoadPump 100
+        }
+        $wait = [Diagnostics.Stopwatch]::StartNew()
+        while (@($script:Done | Where-Object { [int]$_.Index -eq -1 }).Count -eq 0 -and $wait.Elapsed.TotalSeconds -lt 30) { Invoke-LoadPump 50 }
+        $background = @($script:Done | Where-Object { [int]$_.Index -eq -1 })
+        Assert-True ($background.Count -eq 1 -and [bool]$background[0].Ok) 'La lecture de fond n a pas repondu sous charge'
+        $backgroundWait = Get-DomeniaRuntimeMetricSummary -Provenance 'Queue' -Prefix 'Wait:Background'
+        $explicitWait = Get-DomeniaRuntimeMetricSummary -Provenance 'Queue' -Prefix 'Wait:Explicit'
+        $measures['P16FondAttenteMs'] = $backgroundWait.Max
+        $measures['P16FondReponduApresMs'] = [Math]::Round($background[0].At - $backgroundAt)
+        $measures['P16ExplicitesAttenteP95Ms'] = $explicitWait.P95
+        $measures['P16ExplicitesRefuseesFilePleine'] = $refusedCount
+        $measures['P16PromotionsApresAttente'] = [int]$script:DomeniaAgedPromotions
+        $script:CaseDetail = ('fond attendu {0} ms, repondu apres {1} ms ; explicites p95 {2} ms ; {3} refus file pleine ; {4} promotion(s) apres attente.' -f $backgroundWait.Max,$measures['P16FondReponduApresMs'],$explicitWait.P95,$refusedCount,$script:DomeniaAgedPromotions)
+        Assert-True ([int]$script:DomeniaAgedPromotions -ge 1) 'La charge n a pas exige de place reservee : banc non probant'
+        Assert-True ([double]$backgroundWait.Max -le 15000) ('Attente du fond trop longue : ' + $backgroundWait.Max + ' ms')
+    }
+    finally {
+        foreach ($id in @($script:AsyncJobs.Keys)) { try { Request-UiTaskStop -Id $id -Silent -Force } catch { } }
+        [void](Wait-LoadIdle)
+        $script:DemoDirectory = $savedDirectory
+        $script:Config.Async.Remove('BackgroundAgingSeconds')
+    }
+}
+
 Test-Case 'Repos : moins de 3 reveils par seconde avec les minuteries periodiques declarees dans le code' {
     # The periodic heartbeat subscribers are those declared with a rest pace (-IdleIntervalMs) in the application
     # sources. The others are one-shot or armed on demand (saves, journal, debounces) and do not run at rest.
@@ -263,7 +310,7 @@ $failedCount = @($checks | Where-Object { $_.Status -eq 'Failed' }).Count
 if (-not $ReportPath) { $ReportPath = Join-Path ([IO.Path]::GetTempPath()) ('Domenia-engine-load-' + [guid]::NewGuid().ToString('N') + '.json') }
 $report = [ordered]@{
     Kind='EngineLoad';Host=$PSVersionTable.PSVersion.ToString();NativeWindowsPowerShell51=$native;Demo=$true;LiveAD=$false
-    Points=@('TE-05','PF-04','PF-05','PF-06','FI-03','FI-05')
+    Points=@('TE-05','PF-04','PF-05','PF-06','FI-03','FI-05','P16')
     Passed=$passed;Failed=$failedCount;Complete=($failedCount -eq 0 -and $passed -gt 0);Measures=$measures;Tests=$checks.ToArray()
 }
 [IO.File]::WriteAllText([IO.Path]::GetFullPath($ReportPath),($report | ConvertTo-Json -Depth 6),(New-Object Text.UTF8Encoding($false)))
