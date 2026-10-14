@@ -316,3 +316,36 @@ Test-Case 'CO-34' 'Un texte fait seulement d etoiles est refuse en global et lis
     Assert-True (Get-DomeniaSearchTextCheck '' Global 2).Browse
     Assert-False ((Get-DomeniaSearchTextCheck 'a' Global 2).Reason -match '\bSaisis\b') 'Message vouvoye'
 }
+Test-Case 'FO-05' 'La puce de la barre ne nomme qu une OU du domaine, sous-OU incluses' {
+    $ou='OU=Postes,OU=Lyon,'+$script:DomainDn
+    $b=Get-DomeniaSearchBarScope -Choice Ou -OuDn $ou -DomainDn $script:DomainDn
+    Assert-True $b.Explicit;Assert-Equal $ou $b.BaseDn;Assert-Equal 'Subtree' $b.Scope;Assert-False $b.IsDomain
+    $root=Get-DomeniaSearchBarScope -Choice Ou -OuDn $script:DomainDn -DomainDn $script:DomainDn
+    Assert-False $root.Explicit 'La racine du domaine reste Partout';Assert-Equal $script:DomainDn $root.BaseDn;Assert-False $root.OuAvailable
+    $other=Get-DomeniaSearchBarScope -Choice Ou -OuDn 'OU=X,DC=autre,DC=invalid' -DomainDn $script:DomainDn
+    Assert-False $other.Explicit 'Une OU d un autre domaine est refusee';Assert-False $other.OuAvailable
+    $none=Get-DomeniaSearchBarScope -Choice Ou -OuDn '' -DomainDn $script:DomainDn;Assert-False $none.Explicit
+    $everywhere=Get-DomeniaSearchBarScope -Choice Everywhere -OuDn $ou -DomainDn $script:DomainDn
+    Assert-False $everywhere.Explicit;Assert-True $everywhere.OuAvailable 'Partout garde la possibilite de choisir Dans'
+}
+Test-Case 'FO-05' 'Le texte d attente et le resume disent le perimetre et le type' {
+    $a=Get-DomeniaSearchBarText -Choice Everywhere -Type Tous
+    Assert-Equal 'Personne, poste ou groupe, dans tout le domaine…' $a.Placeholder;Assert-Equal 'Partout' $a.Chip
+    Assert-Equal 'Recherche · Partout · Tous les types · Aucun filtre de liste' $a.Summary
+    $b=Get-DomeniaSearchBarText -Choice Ou -OuName 'Postes' -Type Machines
+    Assert-Equal 'Poste, dans « Postes » et ses sous-OU…' $b.Placeholder;Assert-Equal 'Dans « Postes »' $b.Chip
+    Assert-Equal 'Recherche · Dans « Postes » · Postes · Aucun filtre de liste' $b.Summary
+    Assert-Equal 'Personnes' (Get-DomeniaSearchBarText -Type Utilisateurs).TypeLabel
+    Assert-Equal 'Tout' (@(Get-DomeniaSearchBarTypes)[0]).Label;Assert-Equal 4 @(Get-DomeniaSearchBarTypes).Count
+}
+Test-Case 'FO-05' 'Le contrat global accepte une OU nommee par la puce et refuse une OU heritee' {
+    $ou='OU=Postes,'+$script:DomainDn
+    $r=New-DomeniaGlobalSearchRequest 'dupont' $script:DomainDn 100 'reader' 4 -ScopeDn $ou -OuName 'Postes' -Type Machines
+    Assert-Equal $ou $r.BaseDn;Assert-Equal $ou $r.ExplicitScopeDn;Assert-True (Test-DomeniaGlobalSearchRequest $r $script:DomainDn)
+    Assert-True ($r.ScopeLabel.Contains('Postes'));Assert-True ($r.Filter.Contains('(objectCategory=computer)')) 'Le type de la barre restreint le filtre'
+    $inherited=$r.PSObject.Copy();$inherited.ExplicitScopeDn='';Assert-False (Test-DomeniaGlobalSearchRequest $inherited $script:DomainDn) 'Une OU sans puce est heritee'
+    $outside=$r.PSObject.Copy();$outside.BaseDn='OU=X,DC=autre,DC=invalid';$outside.ExplicitScopeDn='OU=X,DC=autre,DC=invalid'
+    Assert-False (Test-DomeniaGlobalSearchRequest $outside $script:DomainDn) 'Une OU d un autre domaine est refusee'
+    $oneLevel=$r.PSObject.Copy();$oneLevel.Scope='OneLevel';Assert-False (Test-DomeniaGlobalSearchRequest $oneLevel $script:DomainDn)
+    $plain=New-DomeniaGlobalSearchRequest 'dupont' $script:DomainDn;Assert-Equal $script:DomainDn $plain.BaseDn;Assert-Equal '' $plain.ExplicitScopeDn
+}

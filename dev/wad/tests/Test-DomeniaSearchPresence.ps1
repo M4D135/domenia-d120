@@ -204,19 +204,20 @@ Case 'Global contract refuses an inherited OU perimeter' {
 Case 'Persistent observation round-trip retains separate times' {$v=ConvertTo-DomeniaLiveObservation (Ping-Observation) (Previous-Observation);$copy=$v|ConvertTo-Json -Depth 5|ConvertFrom-Json;Expect ($copy.UserCheckedUtc -eq $v.UserCheckedUtc -and $copy.PresenceCheckedUtc -eq $v.PresenceCheckedUtc)}
 
 if($env:OS -eq 'Windows_NT' -and -not $SkipWpf){
-    Case 'WPF global ancestor disables OU filters, keeps the filter of the list and the result grid (CO-05)' {
+    Case 'WPF global ancestor hides OU filters, keeps the filter of the list and the result grid (CO-05, FO-05)' {
         Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
         $reader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml));$window=$null
         try{
             $window=[Windows.Markup.XamlReader]::Load($reader);$window.ShowActivated=$false;$window.ShowInTaskbar=$false;$window.Show()
             $window.FindName('WorkspaceTabs').SelectedItem=$window.FindName('WsSearch');$layout=$window.FindName('SearchBrowserLayout')
             $layout.Tag='Global';$window.UpdateLayout()
-            foreach($name in @('CmbGlobalType','CmbPresenceFilter')){Expect (-not $window.FindName($name).IsEnabled) ('Global filter still enabled: '+$name)}
+            # FO-05: hidden, not greyed: in a global search they say nothing about the list.
+            foreach($name in @('CmbGlobalType','CmbPresenceFilter')){Expect (-not $window.FindName($name).IsVisible) ('Global filter still shown: '+$name)}
             Expect ($window.FindName('TxtSuiteResultFilter').IsEnabled) 'The filter of the list is greyed in global search'
             # L03 (DS-07): the OU is shown again by a click in the tree ('Afficher cette OU' is gone).
             Expect ($window.FindName('DgObjects').IsEnabled -and $window.FindName('TvDirectory').IsEnabled)
             $layout.Tag='OU';$window.UpdateLayout()
-            foreach($name in @('CmbGlobalType','CmbPresenceFilter','TxtSuiteResultFilter')){Expect ($window.FindName($name).IsEnabled) ('OU filter still disabled: '+$name)}
+            foreach($name in @('CmbGlobalType','CmbPresenceFilter','TxtSuiteResultFilter')){Expect ($window.FindName($name).IsEnabled -and $window.FindName($name).IsVisible) ('OU filter still hidden or disabled: '+$name)}
             $presence=@($window.FindName('DgObjects').Columns|Where-Object{$_.SortMemberPath -eq 'Presence'})
             Expect ($presence.Count -eq 1 -and $presence[0].Header -eq 'Présence réseau' -and $window.FindName('DgObjects').Columns.Count -eq 18)
         }finally{$reader.Close();if($null -ne $window){$window.Close()}}

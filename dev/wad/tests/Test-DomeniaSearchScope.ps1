@@ -97,6 +97,8 @@ function Reset-TestState {
     $script:BranchObjects=@();$script:BranchCountLabel=''
     $script:FakeRows=@();$script:FailBoundServer=$false;$script:FailEveryCall=$false
     $script:WorkerCalls=New-Object System.Collections.ArrayList
+    # FO-05: chip and type of the bar start on « Partout » and « Tout ».
+    $script:SearchBarScope='Everywhere';$script:SearchBarType='Tous'
 }
 function Assert-Test {param([bool]$Condition,[string]$Message='Condition non verifiee') if(-not $Condition){throw $Message}}
 $script:Checks=New-Object System.Collections.ArrayList
@@ -177,6 +179,24 @@ foreach($boundary in @(9999,10000,10001,19999,20000,20001)){
 Test-Case 'Racine inattendue dans le resultat refusee' { Invoke-GlobalSearch -SearchMode OU;$out=[pscustomobject]@{Rows=@();BaseDn=$script:Conn.BaseDn;Scope='Subtree'};$failed=$false;try{Complete-DomeniaGlobalSearchUi $out $script:LastTask.State}catch{$failed=$true};Assert-Test $failed }
 Test-Case 'Rafraichissement conserve uniquement une vraie selection' { $script:Ctrl.DgObjects.SelectedItem=[pscustomobject]@{DN='CN=PC,OU=Site,DC=example,DC=invalid'};Load-BranchObjects;Assert-Test ($script:LastTask.State.PreserveSelectionDn -eq 'CN=PC,OU=Site,DC=example,DC=invalid') }
 Test-Case 'Nouvelle recherche ne reselecte pas la fiche precedente' { $script:Ctrl.DgObjects.SelectedItem=[pscustomobject]@{DN='CN=PC,OU=Site,DC=example,DC=invalid'};Invoke-GlobalSearch -SearchMode OU;Assert-Test ($script:LastTask.State.PreserveSelectionDn -eq '') }
+# ---------------------------------------------------------------- FO-05 perimeter chip and type of the upper bar
+# Unwired if Get-DomeniaSearchScope ignores the chip, if the type of the OU list leaks into the bar, or if the contract
+# accepts an OU that the chip did not name.
+Test-Case 'FO-05 Partout cherche dans tout le domaine' { $script:Ctrl.TxtGlobalSearch.Text='alex';Invoke-GlobalSearch -SearchMode Global;Assert-Test (($script:LastTask.Payload.BaseDn -eq $script:Conn.BaseDn) -and ($script:LastTask.Payload.Scope -eq 'Subtree') -and ($script:LastTask.State.BarScope -eq 'Everywhere')) }
+Test-Case 'FO-05 Dans une OU cherche dans l OU et ses sous-OU avec le moteur global' { $script:SearchBarScope='Ou';$script:Ctrl.ChkSubtree.IsChecked=$false;$script:Ctrl.TxtGlobalSearch.Text='alex';Invoke-GlobalSearch -SearchMode Global;Assert-Test (($script:LastTask.Payload.BaseDn -eq $script:SelectedBranchDn) -and ($script:LastTask.Payload.Scope -eq 'Subtree') -and ($script:LastTask.State.SearchMode -eq 'Global') -and ($script:LastTask.State.BarScope -eq 'Ou') -and $script:LastTask.Payload.PrefixFilter.Contains('(anr=alex)')) }
+Test-Case 'FO-05 Dans a la racine du domaine reste Partout' { $script:SearchBarScope='Ou';$script:SelectedBranchDn=$script:Conn.BaseDn;$script:Ctrl.TxtGlobalSearch.Text='alex';Invoke-GlobalSearch -SearchMode Global;Assert-Test (($script:LastTask.Payload.BaseDn -eq $script:Conn.BaseDn) -and ($script:LastTask.State.BarScope -eq 'Everywhere')) }
+Test-Case 'FO-05 Le type de la barre restreint la requete globale' { $script:SearchBarType='Machines';$script:Ctrl.TxtGlobalSearch.Text='alex';Invoke-GlobalSearch -SearchMode Global;Assert-Test (($script:LastTask.State.TypeFilter -eq '(objectCategory=computer)') -and $script:LastTask.Payload.PrefixFilter.StartsWith('(&(objectCategory=computer)') -and ($script:LastTask.State.BarType -eq 'Machines')) }
+Test-Case 'FO-05 Le type de la liste d OU ne passe jamais dans la barre' { $script:Ctrl.CmbGlobalType.SelectedItem.Content='Groupes';$script:Ctrl.TxtGlobalSearch.Text='alex';Invoke-GlobalSearch -SearchMode Global;Assert-Test ($script:LastTask.State.TypeFilter -eq (Get-TypeLdapFilter 'Tous')) }
+Test-Case 'FO-05 Un retour tardif est rejete quand la puce change' { $script:SearchBarScope='Ou';$script:Ctrl.TxtGlobalSearch.Text='alex';Invoke-GlobalSearch -SearchMode Global;$a=$script:LastTask.State;Assert-Test (Test-DomeniaSearchStateCurrent $a);$script:SearchBarScope='Everywhere';Assert-Test (-not (Test-DomeniaSearchStateCurrent $a)) }
+Test-Case 'FO-05 Le contrat refuse une OU qui n est pas nommee par la puce' {
+    $real=${function:Get-DomeniaSearchScope}
+    try{
+        ${function:Get-DomeniaSearchScope}={param($Mode) [pscustomobject]@{BaseDn=$script:SelectedBranchDn;Scope='Subtree';IsDomain=$false;Mode='Global'}}
+        $script:Ctrl.TxtGlobalSearch.Text='alex';$failed=$false
+        try{Invoke-GlobalSearch -SearchMode Global}catch{$failed=($_.Exception.Message -match 'Contrat de recherche globale')}
+        Assert-Test ($failed -and ($null -eq $script:LastTask))
+    }finally{${function:Get-DomeniaSearchScope}=$real}
+}
 $failed=@($script:Checks | Where-Object {-not $_.Passed}).Count
 $release=Get-Content -LiteralPath (Join-Path (Split-Path -Parent $PSScriptRoot) 'Domenia.release.json') -Raw | ConvertFrom-Json
 $report=[pscustomobject]@{Build=[string]$release.Build;CoreSha256=(Get-FileHash -LiteralPath $core -Algorithm SHA256).Hash.ToLowerInvariant();Runtime=$PSVersionTable.PSVersion.ToString();Kind='PowerShell mocks; no LDAP/WPF';Passed=($script:Checks.Count-$failed);Failed=$failed;Checks=@($script:Checks)}

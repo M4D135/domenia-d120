@@ -19,10 +19,11 @@ Quand : avant toute intervention, vous devez retrouver un poste, un utilisateur 
 
 1. **Placer le curseur.** Cliquez dans la barre du haut « Personne, poste ou groupe, dans tout le domaine… », ou appuyez sur Ctrl+F. Vos dernières recherches et fiches s'affichent sous la barre ; pendant la frappe, des suggestions viennent de la base locale. La saisie seule n'interroge pas l'annuaire.
 2. **Taper le nom.** Saisissez au moins deux caractères : nom, identifiant, adresse mail ou nom de poste. Appuyez sur Entrée ou cliquez sur « Rechercher ». La page « Rechercher » affiche la liste « Résultats ».
-3. **Lire la liste.** Le compteur indique les lignes visibles parmi les objets chargés, pas le total du domaine. « Liste partielle » signale une lecture incomplète : même 746/746 ne garantit pas que tout a été reçu.
-4. **Affiner sans relancer.** Tapez quelques lettres dans « Filtrer la liste » : seules les lignes chargées qui les contiennent restent, aussi après une recherche globale, sans requête AD. « Effacer le filtre » réaffiche tout. Une nouvelle recherche repart avec un filtre vide.
-5. **Vérifier un poste.** Cliquez une fois sur la ligne d'un poste. Domenia le pingue et lit l'utilisateur ouvert sur son écran : « Présence réseau » et « Utilisateur connecté (console) » se mettent à jour.
-6. **Ouvrir la fiche.** Double-cliquez sur la ligne, ou appuyez sur Entrée. La page « Fiche » s'ouvre sur l'onglet « Resume ».
+3. **Choisir où et quoi chercher.** Sous la barre, la puce « Partout » cherche dans tout le domaine ; « Dans « Postes » » limite la recherche à l’OU choisie dans l’arbre de Rechercher, sous-OU incluses. Les choix « Tout », « Personnes », « Postes » et « Groupes » restreignent le type. Le texte gris de la barre rappelle ces choix ; changer une puce ne lance rien avant Entrée.
+4. **Lire la liste.** Le compteur indique les lignes visibles parmi les objets chargés, pas le total du domaine. « Liste partielle » signale une lecture incomplète : même 746/746 ne garantit pas que tout a été reçu.
+5. **Affiner sans relancer.** Tapez quelques lettres dans « Filtrer la liste » : seules les lignes chargées qui les contiennent restent, aussi après une recherche globale, sans requête AD. « Effacer le filtre » réaffiche tout. Une nouvelle recherche repart avec un filtre vide.
+6. **Vérifier un poste.** Cliquez une fois sur la ligne d'un poste. Domenia le pingue et lit l'utilisateur ouvert sur son écran : « Présence réseau » et « Utilisateur connecté (console) » se mettent à jour.
+7. **Ouvrir la fiche.** Double-cliquez sur la ligne, ou appuyez sur Entrée. La page « Fiche » s'ouvre sur l'onglet « Resume ».
 
 | Zone de Rechercher | Utilisation |
 |---|---|

@@ -128,18 +128,53 @@
   {
     "Name": "TxtGlobalSearch",
     "Title": "Rechercher",
-    "Text": "Personne, poste ou groupe, dans tout le domaine : lʼOU et les filtres de la liste sont ignorés. Au clic, les recherches et fiches récentes ; pendant la frappe, des suggestions de la base locale. Seule Entrée interroge lʼannuaire.",
+    "Text": "Recherche de la barre : personne, compte, mail ou poste, dans le périmètre de la puce (Partout : tout le domaine ; Dans : lʼOU choisie et ses sous-OU) et pour le type choisi. Au clic, les recherches et fiches récentes ; pendant la frappe, des suggestions de la base locale. Seule Entrée interroge lʼannuaire, sans filtre de présence ni de liste.",
     "Kind": "TextBox",
     "Source": "specific",
     "Shortcut": ""
   },
   {
     "Name": "BtnGlobalSearch",
-    "Title": "Rechercher dans tout le domaine",
-    "Text": "Recherche dans tout le domaine, tous types, sans filtre OU, de présence ou de liste. Aucun poste sondé avant sélection.",
+    "Title": "Rechercher",
+    "Text": "Lance la recherche de la barre dans le périmètre et pour le type choisis par ses puces, sans filtre de présence ni de liste. Aucun poste sondé avant sélection.",
     "Kind": "Button",
     "Source": "specific",
     "Shortcut": ""
+  },
+  {
+    "Name": "UxSearchBarScope",
+    "Title": "Périmètre de la recherche",
+    "Text": "Périmètre et type de la recherche de la barre. Changer une puce ne lance rien : Entrée ou Rechercher interroge lʼannuaire.",
+    "Kind": "StackPanel",
+    "Source": "X02"
+  },
+  {
+    "Name": "LstSearchBarScope",
+    "Title": "Où chercher",
+    "Text": "Partout : tout le domaine. Dans : lʼOU choisie dans lʼarbre de Rechercher, sous-OU incluses. Le choix ne lance aucune lecture.",
+    "Kind": "ListBox",
+    "Source": "X02"
+  },
+  {
+    "Name": "ItmSearchBarScopeOu",
+    "Title": "Dans lʼOU choisie",
+    "Text": "Recherche limitée à lʼOU choisie dans lʼarbre de Rechercher et à ses sous-OU. Indisponible tant quʼaucune OU nʼest choisie.",
+    "Kind": "ListBoxItem",
+    "Source": "X02"
+  },
+  {
+    "Name": "LblSearchBarScopeOu",
+    "Title": "OU de la recherche",
+    "Text": "Recherche limitée à lʼOU choisie dans lʼarbre de Rechercher et à ses sous-OU. Indisponible tant quʼaucune OU nʼest choisie.",
+    "Kind": "TextBlock",
+    "Source": "X02"
+  },
+  {
+    "Name": "LstSearchBarType",
+    "Title": "Type cherché",
+    "Text": "Type cherché par la barre : tout, personnes, postes ou groupes. Le choix ne lance aucune lecture.",
+    "Kind": "ListBox",
+    "Source": "X02"
   },
   {
     "Name": "BtnCommandPalette",

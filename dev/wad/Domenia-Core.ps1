@@ -617,6 +617,11 @@ $script:GuiElementPolicy = [ordered]@{
     "TxtGlobalLimit" = "Default"
     "LblGlobalLimitUnit" = "Default"
     "BtnGlobalSearch" = "Default"
+    "UxSearchBarScope" = "Default"
+    "LstSearchBarScope" = "Default"
+    "ItmSearchBarScopeOu" = "Default"
+    "LblSearchBarScopeOu" = "Default"
+    "LstSearchBarType" = "Default"
     "BtnGlobalClear" = "Default"
     "BtnExportResults" = "Default"
     "LblBranchCount" = "Default"
@@ -4852,15 +4857,20 @@ function Get-MainXaml {
                 <ColumnDefinition Width="*" MinWidth="280"/>
                 <ColumnDefinition Width="Auto"/>
               </Grid.ColumnDefinitions>
-              <Grid x:Name="UxSearchBox">
-                <TextBox x:Name="TxtGlobalSearch" ToolTip="Recherche globale dans tout le domaine : personne, compte, mail ou poste. L’OU et les filtres de la liste sont ignorés. La limite de résultats reste appliquée." Margin="0" MinHeight="42" Padding="34,8,92,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher" AutomationProperties.HelpText="Recherche globale dans tout le domaine : personne, compte, mail ou poste. L’OU et les filtres de la liste sont ignorés. La limite de résultats reste appliquée.">
+              <!-- FO-05: second row = perimeter chip and type selector of the bar; the suggestions of row 1 open above it. -->
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+              </Grid.RowDefinitions>
+              <Grid x:Name="UxSearchBox" Panel.ZIndex="1">
+                <TextBox x:Name="TxtGlobalSearch" Tag="Personne, poste ou groupe, dans tout le domaine…" ToolTip="Recherche de la barre : personne, compte, mail ou poste, dans le périmètre de la puce (Partout : tout le domaine ; Dans : lʼOU choisie et ses sous-OU) et pour le type choisi. Au clic, les recherches et fiches récentes ; pendant la frappe, des suggestions de la base locale. Seule Entrée interroge lʼannuaire, sans filtre de présence ni de liste." Margin="0" MinHeight="42" Padding="34,8,92,8" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher" AutomationProperties.HelpText="Recherche de la barre : personne, compte, mail ou poste, dans le périmètre de la puce (Partout : tout le domaine ; Dans : lʼOU choisie et ses sous-OU) et pour le type choisi. Au clic, les recherches et fiches récentes ; pendant la frappe, des suggestions de la base locale. Seule Entrée interroge lʼannuaire, sans filtre de présence ni de liste.">
                   <TextBox.Template>
                     <ControlTemplate TargetType="TextBox">
                       <Border x:Name="UxSearchBorder" CornerRadius="7" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
                         <Grid ClipToBounds="True">
                           <ScrollViewer x:Name="PART_ContentHost" Margin="0"/>
                           <Border Margin="{TemplateBinding Padding}" IsHitTestVisible="False">
-                            <TextBlock x:Name="UxSearchPlaceholder" Text="Personne, poste ou groupe, dans tout le domaine…" Visibility="Collapsed" Margin="{Binding Content.Margin, ElementName=PART_ContentHost}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" FontFamily="{TemplateBinding FontFamily}" FontSize="{TemplateBinding FontSize}" FontWeight="{TemplateBinding FontWeight}" FontStyle="{TemplateBinding FontStyle}" FontStretch="{TemplateBinding FontStretch}" TextAlignment="{TemplateBinding TextAlignment}" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" IsHitTestVisible="False"/>
+                            <TextBlock x:Name="UxSearchPlaceholder" Text="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" Visibility="Collapsed" Margin="{Binding Content.Margin, ElementName=PART_ContentHost}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" FontFamily="{TemplateBinding FontFamily}" FontSize="{TemplateBinding FontSize}" FontWeight="{TemplateBinding FontWeight}" FontStyle="{TemplateBinding FontStyle}" FontStretch="{TemplateBinding FontStretch}" TextAlignment="{TemplateBinding TextAlignment}" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" IsHitTestVisible="False"/>
                           </Border>
                         </Grid>
                       </Border>
@@ -4904,11 +4914,28 @@ function Get-MainXaml {
                   </Border>
                 </Canvas>
               </Grid>
-              <Button x:Name="BtnGlobalSearch" Content="Rechercher" Style="{StaticResource RunButton}" Margin="8,0,0,0" ToolTip="Recherche dans tout le domaine, tous types, sans filtre OU, de présence ou de liste. Aucun poste sondé avant sélection." Grid.Column="1" Height="42" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher dans tout le domaine" AutomationProperties.HelpText="Recherche dans tout le domaine, tous types, sans filtre OU, de présence ou de liste. Aucun poste sondé avant sélection."/>
+              <Button x:Name="BtnGlobalSearch" Content="Rechercher" Style="{StaticResource RunButton}" Margin="8,0,0,0" ToolTip="Lance la recherche de la barre dans le périmètre et pour le type choisis par ses puces, sans filtre de présence ni de liste. Aucun poste sondé avant sélection." Grid.Column="1" Height="42" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Rechercher" AutomationProperties.HelpText="Lance la recherche de la barre dans le périmètre et pour le type choisis par ses puces, sans filtre de présence ni de liste. Aucun poste sondé avant sélection."/>
+              <!-- FO-05: explicit perimeter (« Partout | Dans « Postes » ») and type of the bar. A chip never starts a read. -->
+              <WrapPanel x:Name="UxSearchBarScope" Grid.Row="1" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="2,6,0,0" ToolTip="Périmètre et type de la recherche de la barre. Changer une puce ne lance rien : Entrée ou Rechercher interroge lʼannuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Périmètre de la recherche" AutomationProperties.HelpText="Périmètre et type de la recherche de la barre. Changer une puce ne lance rien : Entrée ou Rechercher interroge lʼannuaire.">
+                <ListBox x:Name="LstSearchBarScope" Style="{StaticResource UxSegment}" SelectedIndex="0" MinHeight="0" Margin="0,0,8,2" ToolTip="Partout : tout le domaine. Dans : lʼOU choisie dans lʼarbre de Rechercher, sous-OU incluses. Le choix ne lance aucune lecture." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Où chercher" AutomationProperties.HelpText="Partout : tout le domaine. Dans : lʼOU choisie dans lʼarbre de Rechercher, sous-OU incluses. Le choix ne lance aucune lecture.">
+                  <ListBox.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ListBox.ItemsPanel>
+                  <ListBoxItem Tag="Everywhere" Content="Partout" AutomationProperties.Name="Partout : tout le domaine"/>
+                  <ListBoxItem x:Name="ItmSearchBarScopeOu" Tag="Ou" IsEnabled="False" ToolTip="Recherche limitée à lʼOU choisie dans lʼarbre de Rechercher et à ses sous-OU. Indisponible tant quʼaucune OU nʼest choisie." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Dans lʼOU choisie" AutomationProperties.HelpText="Recherche limitée à lʼOU choisie dans lʼarbre de Rechercher et à ses sous-OU. Indisponible tant quʼaucune OU nʼest choisie.">
+                    <TextBlock x:Name="LblSearchBarScopeOu" Text="Dans lʼOU choisie" MaxWidth="140" TextTrimming="CharacterEllipsis" ToolTip="Recherche limitée à lʼOU choisie dans lʼarbre de Rechercher et à ses sous-OU. Indisponible tant quʼaucune OU nʼest choisie." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="OU de la recherche" AutomationProperties.HelpText="Recherche limitée à lʼOU choisie dans lʼarbre de Rechercher et à ses sous-OU. Indisponible tant quʼaucune OU nʼest choisie."/>
+                  </ListBoxItem>
+                </ListBox>
+                <ListBox x:Name="LstSearchBarType" Style="{StaticResource UxSegment}" SelectedIndex="0" MinHeight="0" Margin="0,0,0,2" ToolTip="Type cherché par la barre : tout, personnes, postes ou groupes. Le choix ne lance aucune lecture." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Type cherché" AutomationProperties.HelpText="Type cherché par la barre : tout, personnes, postes ou groupes. Le choix ne lance aucune lecture.">
+                  <ListBox.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ListBox.ItemsPanel>
+                  <ListBoxItem Tag="Tous" Content="Tout"/>
+                  <ListBoxItem Tag="Utilisateurs" Content="Personnes"/>
+                  <ListBoxItem Tag="Machines" Content="Postes"/>
+                  <ListBoxItem Tag="Groupes" Content="Groupes"/>
+                </ListBox>
+              </WrapPanel>
             </Grid>
             <!-- DS-01: fixed 40-unit icon buttons; a counter pill shows above zero only (Hidden, never Collapsed: D082).
                  SP-03: on a narrow window the read-only switch joins this row, before the icons (Set-DomeniaUxHeaderLayout). -->
-            <StackPanel x:Name="UxHeaderTools" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+            <StackPanel x:Name="UxHeaderTools" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,1,0,0">
               <Button x:Name="BtnAccessRecovery" Style="{StaticResource UxIconButton}" Width="40" MinWidth="40" MaxWidth="40" Height="40" MinHeight="40" MaxHeight="40" ToolTip="Accès : comptes temporaires et accès à revoir. Aucun changement de compte sans votre accord." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Accès" AutomationProperties.HelpText="Comptes temporaires et accès à revoir. Aucun changement de compte sans votre accord.">
                 <Grid Width="38" Height="38" IsHitTestVisible="False">
                   <Path Data="M13,8 A5,5 0 1 1 3,8 A5,5 0 1 1 13,8 M11.5,11.5 L21,21 M17,17 L19.5,14.5 M19,19 L21.5,16.5" Width="18" Height="18" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -5369,7 +5396,7 @@ function Get-MainXaml {
                         <WrapPanel x:Name="PnlOuBreadcrumb" Margin="0,0,0,10" AutomationProperties.Name="Chemin de la branche choisie"/>
                         <Grid x:Name="UxSearchFilterQueryLayout"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="0"/></Grid.ColumnDefinitions>
                         <WrapPanel x:Name="UxSearchFilters">
-                          <StackPanel Width="148" Margin="0,0,12,8"><StackPanel.Style><Style TargetType="StackPanel"><Style.Triggers><DataTrigger Binding="{Binding Tag, ElementName=SearchBrowserLayout}" Value="Global"><Setter Property="IsEnabled" Value="False"/></DataTrigger></Style.Triggers></Style></StackPanel.Style>
+                          <StackPanel Width="148" Margin="0,0,12,8"><StackPanel.Style><Style TargetType="StackPanel"><Style.Triggers><DataTrigger Binding="{Binding Tag, ElementName=SearchBrowserLayout}" Value="Global"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></StackPanel.Style>
                             <ComboBox x:Name="CmbGlobalType" Margin="0" SelectedIndex="0" ToolTip="Type dʼobjet lu dans lʼOU choisie : tous les types, utilisateurs, machines, groupes, ou OU et conteneurs. Le filtre fait partie de la requête AD." MinWidth="0" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Type d’objet" AutomationProperties.HelpText="Type dʼobjet lu dans lʼOU choisie : tous les types, utilisateurs, machines, groupes, ou OU et conteneurs. Le filtre fait partie de la requête AD." MinHeight="36">
                               <!-- DS-03: the value stays « Tous » (rules, saved views, history); only its display says what it means. -->
                               <ComboBoxItem Content="Tous" AutomationProperties.Name="Tous les types"><ComboBoxItem.ContentTemplate><DataTemplate><TextBlock Text="Tous les types"/></DataTemplate></ComboBoxItem.ContentTemplate></ComboBoxItem>
@@ -5379,7 +5406,7 @@ function Get-MainXaml {
                               <ComboBoxItem Content="OU et conteneurs"/>
                             </ComboBox>
                           </StackPanel>
-                          <StackPanel Width="138" Margin="0,0,12,8"><StackPanel.Style><Style TargetType="StackPanel"><Style.Triggers><DataTrigger Binding="{Binding Tag, ElementName=SearchBrowserLayout}" Value="Global"><Setter Property="IsEnabled" Value="False"/></DataTrigger></Style.Triggers></Style></StackPanel.Style>
+                          <StackPanel Width="138" Margin="0,0,12,8"><StackPanel.Style><Style TargetType="StackPanel"><Style.Triggers><DataTrigger Binding="{Binding Tag, ElementName=SearchBrowserLayout}" Value="Global"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></StackPanel.Style>
                             <ComboBox x:Name="CmbPresenceFilter" Margin="0" SelectedIndex="0" ToolTip="Présence réseau mémorisée des postes de la liste : « Toute présence » les montre tous. « Sans réponse au ping » ne prouve pas quʼun poste est éteint. Aucun ping collectif ; le choix nʼest pas gardé dʼune session à lʼautre." MinWidth="0" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Présence réseau" AutomationProperties.HelpText="Présence réseau mémorisée des postes de la liste : « Toute présence » les montre tous. « Sans réponse au ping » ne prouve pas quʼun poste est éteint. Aucun ping collectif ; le choix nʼest pas gardé dʼune session à lʼautre." MinHeight="36">
                               <ComboBoxItem Content="Tous" AutomationProperties.Name="Toute présence"><ComboBoxItem.ContentTemplate><DataTemplate><TextBlock Text="Toute présence"/></DataTemplate></ComboBoxItem.ContentTemplate></ComboBoxItem>
                               <ComboBoxItem Content="En ligne"/>
@@ -8188,7 +8215,12 @@ function Get-DomeniaSearchScope {
     $domainDn = ([string]$script:Conn.BaseDn).Trim()
     if ([string]::IsNullOrWhiteSpace($domainDn)) { throw 'Recherche impossible : aucune base AD de session.' }
     if ($Mode -eq 'Global') {
-        return [pscustomobject]@{ BaseDn=$domainDn; Scope='Subtree'; IsDomain=$true; Mode='Global' }
+        # FO-05: the chip of the upper bar may narrow the search, explicitly, to the OU chosen in the tree (sub-OU included).
+        if ([string]$script:SearchBarScope -eq 'Ou') {
+            $bar = Get-DomeniaSearchBarScope -Choice Ou -OuDn ([string]$script:SelectedBranchDn) -DomainDn $domainDn
+            if ([bool]$bar.Explicit) { return [pscustomobject]@{ BaseDn=[string]$bar.BaseDn; Scope='Subtree'; IsDomain=$false; Mode='Global'; Explicit=$true } }
+        }
+        return [pscustomobject]@{ BaseDn=$domainDn; Scope='Subtree'; IsDomain=$true; Mode='Global'; Explicit=$false }
     }
     $baseDn = ([string]$script:SelectedBranchDn).Trim()
     if ([string]::IsNullOrWhiteSpace($baseDn)) { $baseDn = $domainDn }
@@ -8215,6 +8247,10 @@ function Update-DomeniaSearchScopeUi {
     if ($null -ne (Get-Command Update-DomeniaOuScopeChoices -CommandType Function -ErrorAction SilentlyContinue)) {
         try { Update-DomeniaOuScopeChoices -Scope $ouScope } catch { }
     }
+    # FO-05: the chip « Dans « Postes » » of the upper bar and its waiting text follow the OU chosen in the tree.
+    if ($null -ne (Get-Command Update-DomeniaSearchBarUi -CommandType Function -ErrorAction SilentlyContinue)) {
+        try { Update-DomeniaSearchBarUi } catch { }
+    }
     Set-DomeniaSearchMode -Mode $mode
     try { Update-DomeniaOuRefreshUi } catch { }
     # The home overview follows this OU: recomputed now if Accueil is on screen, otherwise when it is shown.
@@ -8222,8 +8258,12 @@ function Update-DomeniaSearchScopeUi {
     $summary = Get-DomeniaControl -Name 'LblSearchScope'
     if ($null -eq $summary) { return }
     if ($mode -eq 'Global') {
-        $summary.Text = 'Recherche globale · Domaine entier · Tous les types · Aucun filtre de liste'
-        $summary.ToolTip = 'Racine LDAP : '+[string]$script:Conn.BaseDn+"`r`nL’OU sélectionnée, la présence et le filtre local ne restreignent pas cette recherche. La limite de résultats reste appliquée."
+        # FO-05: the perimeter and the type of the bar are those of its chip and selector, written in full.
+        $globalScope = Get-DomeniaSearchScope -Mode Global
+        $barText = $null
+        if ($null -ne (Get-Command Get-DomeniaSearchBarState -CommandType Function -ErrorAction SilentlyContinue)) { $barText = Get-DomeniaSearchBarState }
+        $summary.Text = if ($null -ne $barText) { [string]$barText.Summary } else { 'Recherche globale · Domaine entier · Tous les types · Aucun filtre de liste' }
+        $summary.ToolTip = 'Racine LDAP : '+[string]$globalScope.BaseDn+' (sous-OU incluses)'+"`r`nLa présence et le filtre de la liste ne restreignent pas cette recherche ; le filtre de la liste affine ensuite les lignes chargées. La limite de résultats reste appliquée."
     } else {
         $term = Get-DomeniaSearchText -Mode OU
         if ($term) { $summary.Text += ' · Terme de la recherche enregistrée : '+$term }
@@ -8354,7 +8394,12 @@ function Result-ToBranchRow {
 
 function Get-GlobalSelectedTypeFilter {
     param([ValidateSet('Global','OU')][string]$Mode = (Get-DomeniaSearchMode))
-    if ($Mode -eq 'Global') { return (Get-TypeLdapFilter -Type 'Tous') }
+    if ($Mode -eq 'Global') {
+        # FO-05: the type selector of the upper bar (Tout, Personnes, Postes, Groupes); never the type of the OU list.
+        $barType = [string]$script:SearchBarType
+        if ($barType -notin @('Tous','Utilisateurs','Machines','Groupes')) { $barType = 'Tous' }
+        return (Get-TypeLdapFilter -Type $barType)
+    }
     $label = 'Tous'
     $control = Get-DomeniaControl -Name 'CmbGlobalType'
     if ($null -ne $control -and $null -ne $control.SelectedItem) { $label = [string]$control.SelectedItem.Content }
@@ -11544,7 +11589,7 @@ function Invoke-GlobalSearch {
             if (-not [bool]$viewPlan.SurveyAllowed) { $searchHint += ' · ' + [string]$viewPlan.Reason }
         }
         elseif ($SearchMode -eq 'Global' -and -not $isBrowse) {
-            $searchPlan = Get-DomeniaGlobalSearchPlan -Text $textValue -TypeFilter (Get-TypeLdapFilter -Type 'Tous') -MinimumLength $minChars -SyntaxEnabled (Get-DomeniaFeatureFlag -Name 'SearchSyntax' -Default $true)
+            $searchPlan = Get-DomeniaGlobalSearchPlan -Text $textValue -TypeFilter (Get-GlobalSelectedTypeFilter -Mode Global) -MinimumLength $minChars -SyntaxEnabled (Get-DomeniaFeatureFlag -Name 'SearchSyntax' -Default $true)
             $searchHint = [string]$searchPlan.Hint
             if (-not [bool]$searchPlan.Valid) {
                 [void](Set-DomeniaControlText -Name 'LblSearchHint' -Text $searchHint)
@@ -11616,6 +11661,9 @@ function Invoke-GlobalSearch {
         }
 
         $typeFilter = Get-GlobalSelectedTypeFilter -Mode $SearchMode
+        # FO-05: key of the type selector of the bar (same normalisation as Get-GlobalSelectedTypeFilter).
+        $barTypeKey = [string]$script:SearchBarType
+        if ($barTypeKey -notin @('Tous','Utilisateurs','Machines','Groupes')) { $barTypeKey = 'Tous' }
         # UX-25: the object type shown when this list is produced comes back with it from the history.
         $typeLabel = 'Tous'
         try { $typeItem = (Get-DomeniaControl -Name 'CmbGlobalType').SelectedItem; if ($null -ne $typeItem -and [string]$typeItem.Content) { $typeLabel = [string]$typeItem.Content } } catch { }
@@ -11959,13 +12007,19 @@ $final
             SurveyAllowed = (-not [bool]$script:ListSurveyBlocked)
             ViewChoice = [string]$viewChoice
             TypeLabel = $typeLabel
+            # FO-05: the chip and the type of the bar that produced a global list (history, continuation).
+            BarScope = $(if (($SearchMode -eq 'Global') -and ($null -ne $scope.PSObject.Properties['Explicit']) -and [bool]$scope.Explicit) { 'Ou' } else { 'Everywhere' })
+            BarType = $(if ($SearchMode -eq 'Global') { $barTypeKey } else { '' })
             StoreContext = (New-DomeniaStoreContext -RequestId ([guid]::NewGuid().ToString('D')) -Generation $generation -ScopeDn ([string]$scope.BaseDn) -Subtree ([string]$scope.Scope -eq 'Subtree'))
         }
 
-        # D031: the request actually sent by the upper bar is checked against the strict global contract.
+        # D031 / FO-05: the request actually sent by the upper bar is checked against the strict global contract. Only the
+        # chip of the bar may name an OU (explicit scope) and only its type selector may restrict the type.
         if ($SearchMode -eq 'Global') {
-            $contract = [pscustomobject]@{Mode='Global';BaseDn=[string]$payload.BaseDn;Scope=[string]$payload.Scope;PresenceFilter='';LocalFilter='';OuDn=''}
-            if (-not (Test-DomeniaGlobalSearchRequest $contract ([string]$script:Conn.BaseDn)) -or ($typeFilter -cne (Get-TypeLdapFilter -Type 'Tous'))) {
+            $explicitDn = ''
+            if (($null -ne $scope.PSObject.Properties['Explicit']) -and [bool]$scope.Explicit) { $explicitDn = [string]$scope.BaseDn }
+            $contract = [pscustomobject]@{Mode='Global';BaseDn=[string]$payload.BaseDn;Scope=[string]$payload.Scope;PresenceFilter='';LocalFilter='';OuDn='';ExplicitScopeDn=$explicitDn}
+            if ((-not (Test-DomeniaGlobalSearchRequest $contract ([string]$script:Conn.BaseDn))) -or ($typeFilter -cne (Get-TypeLdapFilter -Type $barTypeKey))) {
                 throw 'Contrat de recherche globale non respecte : perimetre herite refuse.'
             }
         }

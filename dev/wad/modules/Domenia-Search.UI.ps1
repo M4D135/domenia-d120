@@ -20,6 +20,10 @@ $script:SearchQueryRun = $null
 $script:SearchQueryCatalogBusy = $false
 $script:SearchQueryModuleRoot = $PSScriptRoot
 $script:SearchQuerySelectorBound = $false
+# FO-05: perimeter chip ('Everywhere' or 'Ou') and type key of the upper bar; session state only.
+$script:SearchBarScope = 'Everywhere'
+$script:SearchBarType = 'Tous'
+$script:SearchBarUpdating = $false
 
 function Update-DomeniaSearchHint {
     # D033/D036: explains what the upper bar will search (explicit tokens, pasted identifier, unknown prefix).
@@ -33,11 +37,88 @@ function Update-DomeniaSearchHint {
         # CO-34: an asterisk-only text is refused by the upper bar; say so before Entrée rather than after.
         if (Test-DomeniaWildcardOnly $text) { $hint = [string](Get-DomeniaSearchTextCheck -Text $text -Mode Global -MinimumLength $minimum).Reason }
         else {
-            $plan = Get-DomeniaGlobalSearchPlan -Text $text -TypeFilter (Get-TypeLdapFilter -Type 'Tous') -MinimumLength $minimum -SyntaxEnabled (Get-DomeniaFeatureFlag -Name 'SearchSyntax' -Default $true)
+            # FO-05: the plan uses the type chosen in the bar, as the search will.
+            $plan = Get-DomeniaGlobalSearchPlan -Text $text -TypeFilter (Get-GlobalSelectedTypeFilter -Mode Global) -MinimumLength $minimum -SyntaxEnabled (Get-DomeniaFeatureFlag -Name 'SearchSyntax' -Default $true)
             $hint = [string]$plan.Hint
         }
     }
     [void](Set-DomeniaControlText -Name 'LblSearchHint' -Text $hint)
+}
+
+# ---------------------------------------------------------------- FO-05 perimeter chip and type selector of the bar
+function Get-DomeniaSearchBarState {
+    # The chip, the type and what they mean now (waiting text, summary). Reads the session state only, no request.
+    $domain = ''
+    if ($null -ne $script:Conn) { $domain = [string]$script:Conn.BaseDn }
+    $ouDn = [string]$script:SelectedBranchDn
+    $choice = 'Everywhere'
+    if ([string]$script:SearchBarScope -eq 'Ou') { $choice = 'Ou' }
+    $bar = $null
+    if ($domain) { $bar = Get-DomeniaSearchBarScope -Choice $choice -OuDn $ouDn -DomainDn $domain }
+    $ouName = ''
+    if ($ouDn -and $domain) { try { $ouName = [string](Get-DomeniaUxOuDisplay -DistinguishedName $ouDn -IsDomain ($ouDn -ieq $domain)).Name } catch { $ouName = '' } }
+    $effective = 'Everywhere'
+    if (($null -ne $bar) -and [bool]$bar.Explicit) { $effective = 'Ou' }
+    $type = [string]$script:SearchBarType
+    if ($type -notin @('Tous','Utilisateurs','Machines','Groupes')) { $type = 'Tous' }
+    $text = Get-DomeniaSearchBarText -Choice $effective -OuName $ouName -Type $type
+    return [pscustomobject]@{
+        Choice=$effective;OuAvailable=(($null -ne $bar) -and [bool]$bar.OuAvailable);OuName=$ouName;Type=$type
+        Placeholder=[string]$text.Placeholder;Summary=[string]$text.Summary;Chip=[string]$text.Chip;TypeLabel=[string]$text.TypeLabel
+    }
+}
+
+function Update-DomeniaSearchBarUi {
+    # FO-05: « Dans « Postes » » follows the OU chosen in the tree; an OU that can no longer be used (none, the domain
+    # root, another domain) brings the chip back to « Partout ». The waiting text of the field states both choices.
+    $state = Get-DomeniaSearchBarState
+    if (($state.Choice -ne 'Ou') -and ([string]$script:SearchBarScope -eq 'Ou')) { $script:SearchBarScope = 'Everywhere' }
+    $old = [bool]$script:SearchBarUpdating
+    $script:SearchBarUpdating = $true
+    try {
+        $ouText = 'Dans lʼOU choisie'
+        if ([bool]$state.OuAvailable -and $state.OuName) { $ouText = 'Dans « ' + $state.OuName + ' »' }
+        $item = Get-DomeniaControl 'ItmSearchBarScopeOu'
+        if ($null -ne $item) {
+            $item.IsEnabled = [bool]$state.OuAvailable
+            [Windows.Automation.AutomationProperties]::SetName($item,$ouText)
+        }
+        $label = Get-DomeniaControl 'LblSearchBarScopeOu'
+        if ($null -ne $label) { $label.Text = $ouText }
+        $scopeList = Get-DomeniaControl 'LstSearchBarScope'
+        if ($null -ne $scopeList) {
+            $wanted = 0
+            if ($state.Choice -eq 'Ou') { $wanted = 1 }
+            if ($scopeList.SelectedIndex -ne $wanted) { $scopeList.SelectedIndex = $wanted }
+        }
+        $typeList = Get-DomeniaControl 'LstSearchBarType'
+        if ($null -ne $typeList) {
+            foreach ($entry in @($typeList.Items)) {
+                if (([string]$entry.Tag -eq $state.Type) -and (-not [object]::ReferenceEquals($typeList.SelectedItem,$entry))) { $typeList.SelectedItem = $entry }
+            }
+        }
+        $box = Get-DomeniaControl 'TxtGlobalSearch'
+        if ($null -ne $box) { $box.Tag = [string]$state.Placeholder }
+    }
+    finally { $script:SearchBarUpdating = $old }
+}
+
+function Set-DomeniaSearchBarChoice {
+    # FO-05: explicit choice of the operator on the chip or on the type selector. Nothing is read: the next Entrée (or
+    # Rechercher) searches with it. A list on screen keeps describing the search that produced it.
+    param([ValidateSet('Scope','Type')][string]$Kind,[AllowEmptyString()][string]$Value='')
+    if ([bool]$script:SearchBarUpdating) { return }
+    if ($Kind -eq 'Scope') {
+        $script:SearchBarScope = 'Everywhere'
+        if ($Value -eq 'Ou') { $script:SearchBarScope = 'Ou' }
+    }
+    else {
+        $script:SearchBarType = 'Tous'
+        if ($Value -in @('Tous','Utilisateurs','Machines','Groupes')) { $script:SearchBarType = $Value }
+    }
+    Update-DomeniaSearchBarUi
+    $state = Get-DomeniaSearchBarState
+    [void](Set-DomeniaControlText -Name 'LblSearchHint' -Text ('Recherche de la barre : ' + $state.Chip + ' · ' + $state.TypeLabel + '. Entrée lance la recherche ; rien nʼest lu avant.'))
 }
 
 function Update-DomeniaWorkViewList {
@@ -332,6 +413,9 @@ function Get-DomeniaNavSnapshot {
     $typeLabel = ''
     $typeBox = Get-DomeniaControl 'CmbGlobalType'
     try { if ($null -ne $typeBox -and $null -ne $typeBox.SelectedItem) { $typeLabel = [string]$typeBox.SelectedItem.Content } } catch { }
+    # FO-05: the chip and the type of the bar that produced a global list.
+    $barScope = [string]$script:SearchBarScope
+    $barType = [string]$script:SearchBarType
     $listState = $null
     if ($null -ne $script:Live -and $null -ne $script:Live.Search) {
         # A live list stays the same list while its local filter or presence repaints the grid ($script:BranchObjects).
@@ -351,6 +435,11 @@ function Get-DomeniaNavSnapshot {
         $stateType = [string](Get-DomeniaMember $listState 'TypeLabel' '')
         if (-not $stateType -and $mode -eq 'OU') { $stateType = Get-DomeniaTypeLabelOfFilter ([string]$listState.TypeFilter) }
         if ($stateType) { $typeLabel = $stateType }
+        if ($mode -eq 'Global') {
+            $barScope = [string](Get-DomeniaMember $listState 'BarScope' $barScope)
+            $barType = [string](Get-DomeniaMember $listState 'BarType' $barType)
+            if ($barScope -eq 'Ou') { $ouDn = [string]$listState.BaseDn }
+        }
     }
     elseif ($null -ne $historyState) {
         # A list shown from the history is described by its own remembered state, not by controls changed since.
@@ -361,6 +450,8 @@ function Get-DomeniaNavSnapshot {
         $viewChoice = [string](Get-DomeniaMember $historyState 'ViewChoice' '')
         $stateType = [string](Get-DomeniaMember $historyState 'TypeLabel' '')
         if ($stateType) { $typeLabel = $stateType }
+        $barScope = [string](Get-DomeniaMember $historyState 'BarScope' $barScope)
+        $barType = [string](Get-DomeniaMember $historyState 'BarType' $barType)
     }
     if (-not $viewChoice) { $viewChoice = $(if ($viewId -and $mode -eq 'Global') { 'Domain' } else { 'OU' }) }
     $inner = '';$innerControl=''
@@ -399,7 +490,7 @@ function Get-DomeniaNavSnapshot {
         SelectionGuid=$selectionGuid;SelectionDn=$selectionDn;Rows=$rows;Scroll=$scroll
         CountLabel=$(if ($null -ne $count) { [string]$count.Text } else { '' })
         Generation=[int]$script:GlobalSearchGeneration;ViewId=$viewId
-        TypeLabel=$typeLabel;Presence=$presence;LocalFilter=$localFilter
+        TypeLabel=$typeLabel;Presence=$presence;LocalFilter=$localFilter;BarScope=$barScope;BarType=$barType
         SurveyBlocked=$surveyBlocked;ViewChoice=$viewChoice
         LocalQuery=$localQuery;QuerySelection=[string](Get-DomeniaMember $localQuery 'Selection');QueryLabel=[string](Get-DomeniaControl 'LblSearchQuery').Text
         ObjectDn=$objectDn;At=[datetime]::UtcNow
@@ -484,6 +575,11 @@ function Restore-DomeniaNavState {
         $check = Get-DomeniaControl 'ChkSubtree'
         if ($null -ne $check) { $check.IsChecked = [bool]$State.Subtree }
         Set-DomeniaSearchMode -Mode $(if ([string]$State.Mode -eq 'Global') { 'Global' } else { 'OU' })
+        # FO-05: the chip and the type of the bar come back with the place (checked again by Update-DomeniaSearchBarUi).
+        $rememberedScope = [string](Get-DomeniaMember $State 'BarScope' '')
+        if ($rememberedScope) { $script:SearchBarScope = $(if ($rememberedScope -eq 'Ou') { 'Ou' } else { 'Everywhere' }) }
+        $rememberedType = [string](Get-DomeniaMember $State 'BarType' '')
+        if ($rememberedType -in @('Tous','Utilisateurs','Machines','Groupes')) { $script:SearchBarType = $rememberedType }
         $script:ActiveSearchViewId = [string]$State.ViewId
         $script:SearchQueryRun=$null
         [void](Set-DomeniaControlText 'LblSearchQuery' ([string](Get-DomeniaMember $State 'QueryLabel' 'Aucune requête locale appliquée.')))
@@ -771,6 +867,12 @@ function Initialize-DomeniaSearchUi {
     if ($forward -is [Windows.Controls.Primitives.ButtonBase]) { $forward.Add_Click({ try { [void](Invoke-DomeniaNavStep -Direction Forward) } catch { Write-AppLog ('Navigation suivante : '+$_.Exception.Message) 'WARN' } }) }
     $box = Get-DomeniaControl 'TxtGlobalSearch'
     if ($box -is [Windows.Controls.TextBox]) { $box.Add_TextChanged({ try { Update-DomeniaSearchHint } catch { } }) }
+    # FO-05: the chip and the type of the bar are explicit choices; they never start a read.
+    $barScope = Get-DomeniaControl 'LstSearchBarScope'
+    if ($barScope -is [Windows.Controls.ListBox]) { $barScope.Add_SelectionChanged({ param($sender,$eventArgs) $item = $sender.SelectedItem; if ($null -ne $item) { try { Set-DomeniaSearchBarChoice -Kind Scope -Value ([string]$item.Tag) } catch { Write-AppLog ('Puce de la recherche : '+$_.Exception.Message) 'WARN' } } }) }
+    $barType = Get-DomeniaControl 'LstSearchBarType'
+    if ($barType -is [Windows.Controls.ListBox]) { $barType.Add_SelectionChanged({ param($sender,$eventArgs) $item = $sender.SelectedItem; if ($null -ne $item) { try { Set-DomeniaSearchBarChoice -Kind Type -Value ([string]$item.Tag) } catch { Write-AppLog ('Type de la recherche : '+$_.Exception.Message) 'WARN' } } }) }
+    try { Update-DomeniaSearchBarUi } catch { Write-AppLog ('Puce de la recherche : '+$_.Exception.Message) 'WARN' }
     $tabs = Get-DomeniaControl 'WorkspaceTabs'
     if ($tabs -is [Windows.Controls.TabControl]) {
         $tabs.Add_SelectionChanged({

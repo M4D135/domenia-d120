@@ -166,28 +166,84 @@ function ConvertTo-DomeniaSearchFilter {
 
 # ---------------------------------------------------------------- D031 / D032 global search and browsing
 function New-DomeniaGlobalSearchRequest {
-    # The top bar always targets the connected domain. It never inherits an OU, a presence filter or a local filter.
+    # The top bar targets the connected domain. It never inherits an OU, a presence filter or a local filter.
+    # FO-05: the chip of the bar may narrow it explicitly to one OU of the domain (-ScopeDn, whole subtree), and its type
+    # selector to one object type (-Type); both are stated in the request (ExplicitScopeDn, ScopeLabel).
     # Only an unambiguous identifier (GUID, SID, DN) replaces the filter; UPN, DOMAINE\compte and FQDN stay explained only.
-    param([AllowEmptyString()][string]$Text,[Parameter(Mandatory=$true)][string]$DomainDn,[int]$Limit=100,[string]$Reader='',[long]$Generation=0)
+    param([AllowEmptyString()][string]$Text,[Parameter(Mandatory=$true)][string]$DomainDn,[int]$Limit=100,[string]$Reader='',[long]$Generation=0,[AllowEmptyString()][string]$ScopeDn='',[AllowEmptyString()][string]$OuName='',[string]$Type='Tous')
     $syntax = ConvertFrom-DomeniaSearchSyntax $Text
     $identifier = Get-DomeniaPastedIdentifier $Text
     $filter = $null
     if ($identifier.Kind -in @('Guid','Sid','DN')) { $filter = [pscustomobject]@{Filter=$identifier.Filter;Valid=$true;Reason='';Costly=$false} }
-    else { $filter = ConvertTo-DomeniaSearchFilter -Text $syntax.FreeText -Type $syntax.Type -Tokens $syntax.Tokens }
+    else {
+        $type = $syntax.Type
+        if ((-not $type) -and $Type -and ($Type -ne 'Tous')) { $type = $Type }
+        $filter = ConvertTo-DomeniaSearchFilter -Text $syntax.FreeText -Type $type -Tokens $syntax.Tokens
+    }
+    $bar = Get-DomeniaSearchBarScope -Choice $(if ($ScopeDn) { 'Ou' } else { 'Everywhere' }) -OuDn $ScopeDn -DomainDn $DomainDn
+    $explicit = ''
+    if ([bool]$bar.Explicit) { $explicit = [string]$bar.BaseDn }
     return [pscustomobject]@{
-        Mode='Global';BaseDn=$DomainDn;Scope='Subtree';PresenceFilter='';LocalFilter='';OuDn=''
+        Mode='Global';BaseDn=[string]$bar.BaseDn;Scope='Subtree';PresenceFilter='';LocalFilter='';OuDn='';ExplicitScopeDn=$explicit
         Text=([string]$Text).Trim();Limit=[Math]::Max(1,[Math]::Min(20000,$Limit))
         Filter=$filter.Filter;Valid=$filter.Valid;Reason=$filter.Reason
         Tokens=$syntax.Tokens;Notes=$syntax.Notes;Identifier=$identifier;Reader=$Reader;Generation=$Generation
-        ScopeLabel='Domaine entier'
+        ScopeLabel=$(if ($explicit) { Get-DomeniaScopeLabel -Mode Browse -OuName $OuName -Subtree $true } else { 'Domaine entier' })
     }
 }
 
 function Test-DomeniaGlobalSearchRequest {
+    # D031 / FO-05: Global, whole subtree, no presence, no local filter, no inherited OU. The base is the domain, or an
+    # OU of that domain chosen explicitly by the chip of the bar (ExplicitScopeDn equal to the base).
     param($Request,[Parameter(Mandatory=$true)][string]$DomainDn)
     if ($null -eq $Request) { return $false }
-    return (([string]$Request.Mode) -eq 'Global' -and ([string]$Request.BaseDn) -ieq $DomainDn -and ([string]$Request.Scope) -eq 'Subtree' -and
-        -not [string]$Request.PresenceFilter -and -not [string]$Request.LocalFilter -and -not [string]$Request.OuDn)
+    $base = [string](Get-DomeniaMember $Request 'BaseDn' '')
+    $explicit = [string](Get-DomeniaMember $Request 'ExplicitScopeDn' '')
+    $baseOk = ($base -ieq $DomainDn)
+    if ((-not $baseOk) -and $explicit) {
+        $baseOk = (($base -ieq $explicit) -and $base.EndsWith(',' + $DomainDn,[StringComparison]::OrdinalIgnoreCase))
+    }
+    return ((([string](Get-DomeniaMember $Request 'Mode' '')) -eq 'Global') -and $baseOk -and (([string](Get-DomeniaMember $Request 'Scope' '')) -eq 'Subtree') -and
+        (-not [string](Get-DomeniaMember $Request 'PresenceFilter' '')) -and (-not [string](Get-DomeniaMember $Request 'LocalFilter' '')) -and (-not [string](Get-DomeniaMember $Request 'OuDn' '')))
+}
+
+# ---------------------------------------------------------------- FO-05 perimeter and type of the upper bar
+function Get-DomeniaSearchBarScope {
+    # FO-05: « Partout » is the connected domain; « Dans « Postes » » is the OU chosen in the tree, sub-OU included. An OU
+    # outside the domain, the domain root itself or no OU leave the bar on the domain (the chip then offers nothing else).
+    param([ValidateSet('Everywhere','Ou')][string]$Choice='Everywhere',[AllowEmptyString()][AllowNull()][string]$OuDn='',[Parameter(Mandatory=$true)][string]$DomainDn)
+    $ou = ([string]$OuDn).Trim()
+    $inside = ([bool]$ou) -and ($ou -ine $DomainDn) -and $ou.EndsWith(',' + $DomainDn,[StringComparison]::OrdinalIgnoreCase)
+    if (($Choice -eq 'Ou') -and $inside) { return [pscustomobject]@{Choice='Ou';BaseDn=$ou;Scope='Subtree';IsDomain=$false;Explicit=$true;OuAvailable=$true} }
+    return [pscustomobject]@{Choice='Everywhere';BaseDn=$DomainDn;Scope='Subtree';IsDomain=$true;Explicit=$false;OuAvailable=$inside}
+}
+
+function Get-DomeniaSearchBarTypes {
+    # FO-05: the type selector of the bar. Key = Get-TypeLdapFilter label (same filters as the OU list).
+    return @(
+        [pscustomobject]@{Key='Tous';Label='Tout';Noun='personne, poste ou groupe'}
+        [pscustomobject]@{Key='Utilisateurs';Label='Personnes';Noun='personne ou compte'}
+        [pscustomobject]@{Key='Machines';Label='Postes';Noun='poste'}
+        [pscustomobject]@{Key='Groupes';Label='Groupes';Noun='groupe'}
+    )
+}
+
+function Get-DomeniaSearchBarText {
+    # FO-05 / L08: what the bar will search, written where the operator looks: the waiting text of the empty field, the
+    # summary above the results and the accessible label of the chip. Pure text, no request.
+    param([ValidateSet('Everywhere','Ou')][string]$Choice='Everywhere',[AllowEmptyString()][string]$OuName='',[string]$Type='Tous')
+    $entry = @(Get-DomeniaSearchBarTypes | Where-Object { $_.Key -eq $Type } | Select-Object -First 1)
+    if (-not $entry.Count) { $entry = @(Get-DomeniaSearchBarTypes)[0..0] }
+    $name = ([string]$OuName).Trim()
+    if (-not $name) { $name = 'OU choisie' }
+    $where = 'dans tout le domaine'
+    $chip = 'Partout'
+    if ($Choice -eq 'Ou') { $where = 'dans « ' + $name + ' » et ses sous-OU'; $chip = 'Dans « ' + $name + ' »' }
+    $noun = [string]$entry[0].Noun
+    $placeholder = $noun.Substring(0,1).ToUpperInvariant() + $noun.Substring(1) + ', ' + $where + '…'
+    $typeText = if ($entry[0].Key -eq 'Tous') { 'Tous les types' } else { [string]$entry[0].Label }
+    $summary = 'Recherche · ' + $chip + ' · ' + $typeText + ' · Aucun filtre de liste'
+    return [pscustomobject]@{Placeholder=$placeholder;Summary=$summary;Chip=$chip;Where=$where;TypeLabel=$typeText}
 }
 
 function New-DomeniaSearchState {
@@ -620,7 +676,8 @@ function New-DomeniaNavHistory {
 function Get-DomeniaNavStateKey {
     param($State)
     if ($null -eq $State) { return '' }
-    return (@('Page','Tab','Mode','Text','OuDn','SelectionGuid','ViewId','QuerySelection') | ForEach-Object { [string](Get-DomeniaMember $State $_ '') }) -join '|'
+    # FO-05: the same text searched « Partout » and « Dans « Postes » », or for another type, is another place.
+    return (@('Page','Tab','Mode','Text','OuDn','SelectionGuid','ViewId','QuerySelection','BarScope','BarType') | ForEach-Object { [string](Get-DomeniaMember $State $_ '') }) -join '|'
 }
 
 function Push-DomeniaNavState {

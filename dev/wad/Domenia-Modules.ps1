@@ -120,6 +120,9 @@ function Get-DomeniaRuntimeModulePlan {
             'ConvertTo-DomeniaSearchFilter',
             'New-DomeniaGlobalSearchRequest',
             'Test-DomeniaGlobalSearchRequest',
+            'Get-DomeniaSearchBarScope',
+            'Get-DomeniaSearchBarTypes',
+            'Get-DomeniaSearchBarText',
             'New-DomeniaSearchState',
             'Set-DomeniaBrowseOu',
             'Get-DomeniaScopeLabel',
@@ -1272,6 +1275,9 @@ function Get-DomeniaRuntimeModulePlan {
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Search.Model.ps1','Domenia-Live.UI.ps1'); File='Domenia-Search.UI.ps1'; DotSource=$true; Functions=@(
             'Update-DomeniaSearchHint',
+            'Get-DomeniaSearchBarState',
+            'Update-DomeniaSearchBarUi',
+            'Set-DomeniaSearchBarChoice',
             'Update-DomeniaWorkViewList',
             'Get-DomeniaSearchQueryFavorites',
             'Initialize-DomeniaSearchQuerySelector',
