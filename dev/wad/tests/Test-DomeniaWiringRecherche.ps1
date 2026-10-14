@@ -52,7 +52,9 @@ $coreNames=@('Get-MainXaml','Get-DomeniaControl','Set-DomeniaControlText','Get-D
     'Get-DomeniaTreeHeaderTemplate','New-DomeniaTreeLoadingItem','Add-DomeniaTreeRowsToNode','Queue-DomeniaTreeRowsToNode','Stop-DomeniaTreeRenderForNode',
     'Initialize-DomeniaTreeRenderTimer','Load-TreeChildren',
     # UX-25: the local filter and the presence repaint the grid with a filtered copy of the list.
-    'Apply-DomeniaPresenceFilter','Set-DomeniaGridRows')
+    'Apply-DomeniaPresenceFilter','Set-DomeniaGridRows',
+    # UX-26 / CO-35 / SP-05: the context menu of the list and its read-only helpers.
+    'Build-DomeniaObjectsContextMenu','New-DomeniaMenuItem','Add-DomeniaMenuSeparator','Copy-DomeniaSelectedRowsForTicket','Open-DomeniaResultRowSupport','Open-DomeniaResultRowParentOu')
 . ([scriptblock]::Create((Import-AstFunctions (Join-Path $wad 'Domenia-Core.ps1') $coreNames)))
 # PF-14 / UX-25: the real handler of the object type, as Wire-Events attaches it (no copy of its text in this file).
 function Get-WireEventsHandler {param([string]$Control,[string]$Event)
@@ -698,6 +700,49 @@ Case 'UX-33 Requete dans lʼOU et profondeur choisies, releve refuse a la racine
     Expect ($script:Ctrl.BtnParkResults.IsEnabled) 'Le releve reste refuse sur une liste dʼOU.'
     Expect ($script:Ctrl.CmbWorkViewScope.Items.Count -eq 1) 'Une seconde portee a ete ajoutee implicitement.'
 }
+# Unwired if the menu of the list offers a write, a remote tool or a collection again, if Revérifier ce poste goes
+# back to opening the fiche (CO-35), or if Pour un ticket copies GUID, DN or internal fields (SP-05).
+Case 'UX-26 / CO-35 / SP-05 Menu de la liste court et sans ecriture, Reverifier reste dans Rechercher, copie pour un ticket' {
+    $machine=New-ResultRow -Name 'PC-0042' -Login 'PC-0042' -Type 'Machine' -Ou 'OU=Postes,OU=Lyon'
+    foreach($pair in @(@('Association','jdupont'),@('Presence','En ligne'),@('PresenceState','Online'),@('PresenceAge','il y a 5 min'),@('SessionDisplay','EXAMPLE\jdupont'))){$machine|Add-Member -NotePropertyName $pair[0] -NotePropertyValue $pair[1] -Force}
+    $user=New-ResultRow -Name 'Jean Dupont' -Login 'jdupont'
+    $grid=$script:Ctrl.DgObjects;$grid.ItemsSource=@($machine,$user);$grid.SelectedItem=$machine
+    $menu=[Windows.Controls.ContextMenu]::new();Build-DomeniaObjectsContextMenu -Menu $menu
+    $top=@($menu.Items)
+    Expect ($top.Count -le 8) ('Menu trop long : '+$top.Count+' entrees.')
+    $headers=@($top|Where-Object{$_ -is [Windows.Controls.MenuItem]}|ForEach-Object{[string]$_.Header})
+    foreach($h in @('Ouvrir la fiche de PC-0042','Assistance poste','Revérifier ce poste','Rechercher lʼutilisateur associé','Ouvrir lʼOU parente','Copier','Exporter la liste en CSV')){Expect ($headers -contains $h) ('Entree absente : '+$h)}
+    # Every action of the menu, submenus included, and the helpers it calls stay read-only.
+    $all=[Collections.Generic.List[object]]::new();$queue=[Collections.Generic.Queue[object]]::new();foreach($i in $top){$queue.Enqueue($i)}
+    while($queue.Count){$i=$queue.Dequeue();if($i -isnot [Windows.Controls.MenuItem]){continue};$all.Add($i);foreach($child in @($i.Items)){$queue.Enqueue($child)}}
+    $texts=@($all|Where-Object{$_.Tag -is [scriptblock]}|ForEach-Object{[string]$_.Tag})+@([string]${function:Open-DomeniaResultRowSupport},[string]${function:Open-DomeniaResultRowParentOu},[string]${function:Copy-DomeniaSelectedRowsForTicket})
+    $forbidden='(?i)Delete-SelectedObject|Set-AccountDisabled|Unlock-UserAccount|Expire-UserPasswordNow|Move-Domenia|Invoke-ComputerTool|Add-SelectedLink|Start-DomeniaUserComputerProbe|Start-DomeniaComputerInventory|Start-DomeniaSoftwareInventory|Start-ComputerDiagnostics|Start-LoadComputerSecrets|Start-ProbeForSelectedComputer|Start-PermissionAnalysis|Invoke-\w*Write|Restart|Remove-|Set-ADAccount|Start-UiTask'
+    foreach($text in $texts){Expect ($text -notmatch $forbidden) ('Action interdite dans le menu : '+$text)}
+    foreach($i in $all){Expect ([string]$i.Header -notmatch '(?i)supprim|red.marr|d.sactiv|^activer|d.verrouill|d.plac|forcer|associer un|mot de passe|bitlocker|laps|wmi|inventaire|collecte|poste distant') ('Entree dʼecriture ou de collecte : '+[string]$i.Header)}
+    # CO-35: the recheck calls the live recheck of the selected workstation and stays in Rechercher.
+    $script:Ctrl.WorkspaceTabs.SelectedItem=$script:Ctrl.WsSearch
+    $recheck=@($all|Where-Object{[string]$_.Header -eq 'Revérifier ce poste'})[0]
+    Expect ([string]$recheck.Tag -match 'Request-DomeniaLiveRecheck' -and [string]$recheck.Tag -notmatch 'Queue-DomeniaSelectedObjectOpen') ('Action de Reverifier : '+[string]$recheck.Tag)
+    $script:Rechecks=0
+    function Request-DomeniaLiveRecheck {$script:Rechecks++}
+    & $recheck.Tag
+    Expect ($script:Rechecks -eq 1 -and [object]::ReferenceEquals($script:Ctrl.WorkspaceTabs.SelectedItem,$script:Ctrl.WsSearch)) 'Reverifier ce poste a quitte la liste.'
+    # SP-05: one readable line per selected row, without GUID nor DN.
+    $script:Clip=''
+    function Set-ClipboardSafe {param([string]$Text) $script:Clip=$Text}
+    [void]$grid.SelectedItems.Add($user)
+    $ticket=@($all|Where-Object{[string]$_.Header -eq 'Pour un ticket'})[0]
+    & $ticket.Tag
+    $lines=@($script:Clip -split "`r`n")
+    Expect ($lines.Count -eq 2) ('Lignes copiees : '+$lines.Count)
+    Expect ($lines[0] -eq 'Poste · PC-0042 · Compte : jdupont · Présence : En ligne (il y a 5 min) · Utilisateur console : EXAMPLE\jdupont · OU : Lyon / Postes') ('Ligne poste : '+$lines[0])
+    Expect ($script:Clip -notmatch [regex]::Escape([string]$machine.Guid) -and $script:Clip -notmatch 'DC=example') 'GUID ou DN copie pour un ticket.'
+    # Several selected rows: the single-row entries are greyed, copy and export stay available.
+    $menu=[Windows.Controls.ContextMenu]::new();Build-DomeniaObjectsContextMenu -Menu $menu
+    $open=@($menu.Items|Where-Object{$_ -is [Windows.Controls.MenuItem] -and [string]$_.Header -like 'Ouvrir la fiche de *'})[0]
+    $copy=@($menu.Items|Where-Object{$_ -is [Windows.Controls.MenuItem] -and [string]$_.Header -eq 'Copier'})[0]
+    Expect (-not $open.IsEnabled -and $copy.IsEnabled) 'Selection multiple : ouverture non grisee ou copie indisponible.'
+}
 # Unwired if Set-SelectedBranch reads the OU at each arrow key (one request per node walked), if the tree no longer
 # records whether the keyboard or the mouse drives it, or if Wire-Events sends a change of type without the pause.
 Case 'PF-14 Parcours clavier temporise (300 ms) sans requete par noeud, souris immediate' {
@@ -939,7 +984,7 @@ $passed=@($script:Checks|Where-Object{$_.Status -eq 'Passed'}).Count
 $failed=@($script:Checks|Where-Object{$_.Status -eq 'Failed'}).Count
 if(-not $ReportPath){$ReportPath=Join-Path ([IO.Path]::GetTempPath()) ('Domenia-wiring-recherche-'+[guid]::NewGuid().ToString('N')+'.json')}
 $report=[ordered]@{
-    Kind='Wiring';Lot='recherche';Points=@('D012','D031','D032','D033','D034','D035','D036','D037','D038','D039','D040','CO-20','CO-21','DS-07','FI-21','FO-04','PF-14','SE-13','UI-16','UX-25','UX-33')
+    Kind='Wiring';Lot='recherche';Points=@('D012','D031','D032','D033','D034','D035','D036','D037','D038','D039','D040','CO-20','CO-21','DS-07','FI-21','FO-04','PF-14','SE-13','UI-16','UX-25','UX-33','UX-26','CO-35','SP-05')
     Host=$PSVersionTable.PSVersion.ToString();NativeWindowsPowerShell51=$native;Wpf=$true;LiveAD=$false;LiveCIM=$false;LivePing=$false
     Passed=$passed;Failed=$failed;Complete=($failed -eq 0 -and $passed -gt 0)
     Limitation='Raccordement prouve par les vraies fonctions et de vrais controles WPF, reseau double. Ne prouve pas un acces a un domaine reel.'

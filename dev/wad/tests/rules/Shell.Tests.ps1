@@ -600,3 +600,21 @@ Test-Case 'L08-DS01' 'Boutons-icones de 40 et pastilles fixes dans les emplaceme
     Assert-Equal '*,252,144,96' ($slots.StripColumns -join ',') 'Bandeau d activite inchange'
     Assert-Equal 'Hidden' $slots.EmptySlotVisibility
 }
+Test-Case 'SP-05' 'Pour un ticket : une ligne lisible par objet, sans GUID ni DN, OU lisible et secret masque' {
+    $pc=[pscustomobject]@{Type='Machine';Name='PC-0042';Login='PC-0042';Association='jdupont';Presence='En ligne';PresenceAge='il y a 5 min';SessionDisplay='EXAMPLE\jdupont';DN='CN=PC-0042,OU=Postes,OU=Lyon,DC=example,DC=test';Guid='0f8fad5b-d9cb-469f-a165-70867728950e';PresenceDetail='Réponse ICMP · 3 ms · 10.0.0.5';PresenceState='Online';Rank='0';Admin=''}
+    $line=ConvertTo-DomeniaTicketLine $pc
+    Assert-Equal 'Poste · PC-0042 · Compte : jdupont · Présence : En ligne (il y a 5 min) · Utilisateur console : EXAMPLE\jdupont · OU : Lyon / Postes' $line
+    Assert-False ($line -match '0f8fad5b') 'Le GUID ne part pas dans un ticket'
+    Assert-False ($line -match 'CN=|DC=|OU=') 'Le DN brut ne part pas dans un ticket'
+    Assert-False ($line -match '10\.0\.0\.5|Online|Rank') 'Aucun champ interne de la grille'
+    $user=[pscustomobject]@{Type='Utilisateur';Name='Dupont, Jean';Login='jdupont';DN='CN=Dupont\, Jean,OU=Utilisateurs,DC=example,DC=test';Presence='Sans objet';SessionDisplay='Non déterminé'}
+    Assert-Equal 'Utilisateur · Dupont, Jean · Compte : jdupont · OU : Utilisateurs' (ConvertTo-DomeniaTicketLine $user)
+    $unknown=[pscustomobject]@{Type='Machine';Name='PC-0043';Presence='Non vérifié';SessionDisplay='Non déterminé';DN='CN=PC-0043,OU=Postes\2C Etage 2,DC=example,DC=test'}
+    Assert-Equal 'Poste · PC-0043 · Présence : Non vérifié · OU : Postes, Etage 2' (ConvertTo-DomeniaTicketLine $unknown)
+    $text=ConvertTo-DomeniaTicketText -Rows @($pc,$null,[pscustomobject]@{Type='Groupe';Name="GG`r`npassword=Secret123";Login='gg';DN='CN=GG,DC=example,DC=test'})
+    $lines=@($text -split "`r`n")
+    Assert-Equal 2 $lines.Count 'Une ligne par objet, jamais une valeur sur plusieurs lignes'
+    Assert-False ($text -match 'Secret123') 'Le texte passe par le masquage des secrets'
+    Assert-True ($lines[1].StartsWith('Groupe · GG password=***')) $lines[1]
+}
+

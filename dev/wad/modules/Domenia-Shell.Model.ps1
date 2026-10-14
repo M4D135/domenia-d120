@@ -1341,3 +1341,64 @@ function Get-DomeniaExpertTabDecision {
     }
     return [pscustomobject]@{Tab=$Tab;Expert=$true;Show=$true;Temporary=$true;ChangesProfile=$false;Reason='Vue Expert affichée pour cette consultation ; le profil Essentiel est conservé.'}
 }
+
+# ---------------------------------------------------------------- SP-05 copy of result rows for a ticket
+function ConvertTo-DomeniaTicketOuPath {
+    # Readable path of the container of an object, from the domain down ('Lyon / Postes'). Display only: never a
+    # search root. Escaped characters of the DN are decoded; the domain components are left out.
+    param([AllowEmptyString()][string]$Dn)
+    $parent = Get-DomeniaRawDnParent ([string]$Dn)
+    if (-not $parent) { return '' }
+    $names = New-Object 'System.Collections.Generic.List[string]'
+    foreach ($part in @(Split-DomeniaRawDn $parent)) {
+        $equals = $part.IndexOf('=')
+        if ($equals -lt 1) { continue }
+        if ($part.Substring(0,$equals).Trim() -ieq 'DC') { continue }
+        $names.Insert(0,(ConvertFrom-DomeniaDnLabel ($part.Substring($equals + 1).Trim())))
+    }
+    return ($names.ToArray() -join ' / ')
+}
+
+function ConvertTo-DomeniaTicketLine {
+    # SP-05: one readable line per object for a ticket: Type · Nom · Compte · Présence · Utilisateur console · OU.
+    # Allow-list projection: no GUID, no DN, no internal field of the grid. A value never spans several lines.
+    param($Row)
+    if ($null -eq $Row) { return '' }
+    $flat = { param($Value,[int]$Max=120) ConvertTo-DomeniaFlatText ([string]$Value) $Max }
+    $type = [string](Get-DomeniaMember $Row 'Type' '')
+    $machine = ($type -eq 'Machine')
+    $parts = New-Object 'System.Collections.Generic.List[string]'
+    $typeLabel = switch ($type) { 'Machine' { 'Poste' } 'Utilisateur' { 'Utilisateur' } 'Groupe' { 'Groupe' } 'OU' { 'OU' } 'Conteneur' { 'Conteneur' } default { 'Objet' } }
+    $parts.Add($typeLabel)
+    $name = & $flat (Get-DomeniaMember $Row 'Name' '')
+    if ($name) { $parts.Add($name) }
+    # The account column of the grid: the linked user of a workstation, the account name of a user or a group.
+    $account = if ($machine) { & $flat (Get-DomeniaMember $Row 'Association' '') } elseif ($type -in @('Utilisateur','Groupe')) { & $flat (Get-DomeniaMember $Row 'Login' '') } else { '' }
+    if ($account) { $parts.Add('Compte : ' + $account) }
+    if ($machine) {
+        $presence = & $flat (Get-DomeniaMember $Row 'Presence' '') 60
+        if ($presence) {
+            $age = & $flat (Get-DomeniaMember $Row 'PresenceAge' '') 30
+            if ($age) { $presence += ' (' + $age + ')' }
+            $parts.Add('Présence : ' + $presence)
+        }
+        $console = & $flat (Get-DomeniaMember $Row 'SessionDisplay' '')
+        if ($console -and $console -notin @('Non déterminé','Non determine')) { $parts.Add('Utilisateur console : ' + $console) }
+    }
+    $ou = ConvertTo-DomeniaTicketOuPath ([string](Get-DomeniaMember $Row 'DN' ''))
+    if ($ou) { $parts.Add('OU : ' + (& $flat $ou 240)) }
+    return ($parts.ToArray() -join ' · ')
+}
+
+function ConvertTo-DomeniaTicketText {
+    # SP-05: the text copied for a ticket, one line per selected row, masked by the secret rule before it leaves
+    # Domenia (a description or an account name can carry a pasted secret).
+    param([object[]]$Rows)
+    $lines = New-Object 'System.Collections.Generic.List[string]'
+    foreach ($row in @($Rows)) {
+        if ($null -eq $row) { continue }
+        $line = ConvertTo-DomeniaTicketLine $row
+        if ($line) { $lines.Add($line) }
+    }
+    return (Protect-DomeniaSecretText ($lines.ToArray() -join "`r`n"))
+}

@@ -375,7 +375,10 @@ function Get-DomeniaRuntimeModulePlan {
             'Add-DomeniaRecentEntry',
             'Select-DomeniaRecentEntries',
             'Get-DomeniaSearchSuggestionItems',
-            'Get-DomeniaExpertTabDecision'
+            'Get-DomeniaExpertTabDecision',
+            'ConvertTo-DomeniaTicketOuPath',
+            'ConvertTo-DomeniaTicketLine',
+            'ConvertTo-DomeniaTicketText'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Search.Model.ps1','Domenia-Access.Model.ps1','Domenia-Directory.Model.ps1'); File='Domenia-Safety.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaOperationEffect',

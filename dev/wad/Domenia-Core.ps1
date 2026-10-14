@@ -14633,133 +14633,112 @@ function Fail-DomeniaBatchNetworkReportUi {
     Set-Status ("Diagnostic reseau groupe en echec : " + [string]$Message) "ERROR"
 }
 
+function Copy-DomeniaSelectedRowsForTicket {
+    # SP-05: one readable line per selected row (Type · Nom · Compte · Présence · Utilisateur console · OU), without
+    # GUID nor internal field, masked by the secret rule before the clipboard.
+    $rows = @(Get-DomeniaSelectedGridRows)
+    if ($rows.Count -eq 0) { Set-Status 'Aucune ligne sélectionnée.' 'WARN'; return }
+    $text = ConvertTo-DomeniaTicketText -Rows $rows
+    if ([string]::IsNullOrWhiteSpace($text)) { Set-Status 'Rien à copier pour un ticket dans la sélection.' 'WARN'; return }
+    Set-ClipboardSafe $text
+    Set-Status ('{0} ligne(s) copiée(s) pour un ticket, sans identifiant interne.' -f $rows.Count)
+}
+
+function Open-DomeniaResultRowParentOu {
+    # UX-26: lists the OU (or container) of the clicked row in Rechercher. Read-only: the selected fiche, the tree
+    # and the other filters are left as they are.
+    param($Row)
+    if ($null -eq $Row) { Set-Status 'Aucune ligne sélectionnée.' 'WARN'; return }
+    $parent = Get-DomeniaRawDnParent ([string]$Row.DN)
+    if ([string]::IsNullOrWhiteSpace($parent)) { Set-Status 'Cette ligne nʼa pas de conteneur parent lisible.' 'WARN'; return }
+    $script:SelectedBranchDn = $parent
+    [void](Set-DomeniaControlText -Name 'TxtBranchDn' -Text $parent)
+    [void](Set-DomeniaControlText -Name 'TxtBranchSearch' -Text '')
+    Select-DomeniaWorkspace -Workspace 'WsSearch'
+    Load-BranchObjects -Browse
+    Set-Status ('OU parente affichée : ' + (Get-DomeniaOuDisplayPath $parent))
+}
+
+function Open-DomeniaResultRowSupport {
+    # UX-26: « Assistance poste » opens the workstation on its Actions tab, where the remote tools and the writes
+    # stay behind their own confirmation. The menu itself starts nothing on the workstation.
+    $row = Get-DomeniaSelectedGridRow
+    if ($null -eq $row -or [string]$row.Type -ne 'Machine') { Set-Status 'Sélectionnez un seul poste.' 'WARN'; return }
+    Queue-DomeniaSelectedObjectOpen -Immediate -Force
+    Select-DomeniaWorkspace -Workspace 'WsComputer' -Inner 'ComputerTabs' -Tab 'TabComputerAdmin'
+}
+
 function Build-DomeniaObjectsContextMenu {
+    # UX-26 / CO-35: a short menu without any write: open, support of the workstation, one-workstation recheck that
+    # stays in Rechercher, associated account, parent OU, copies and export. Writes, remote tools and collections
+    # live in the fiche and in Assistance poste, each with its own confirmation.
     param([Parameter(Mandatory=$true)]$Menu)
     $Menu.Items.Clear()
     $row = Get-DomeniaSelectedGridRow
-    if ($null -eq $row) {
-        [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Aucune ligne selectionnee" -Enabled $false))
+    $rows = @(Get-DomeniaSelectedGridRows)
+    if ($null -eq $row -or $rows.Count -eq 0) {
+        [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Aucune ligne sélectionnée" -Enabled $false))
         return
     }
     $type = ""
     $name = ""
-    $login = ""
-    $dn = ""
-    $upn = ""
     $association = ""
     try { $type = [string]$row.Type } catch { }
     try { $name = [string]$row.Name } catch { }
-    try { $login = [string]$row.Login } catch { }
-    try { $dn = [string]$row.DN } catch { }
-    try { $upn = [string]$row.UPN } catch { }
     try { $association = [string]$row.Association } catch { }
+    $single = ($rows.Count -eq 1)
     $isMachine = ($type -eq "Machine")
     $isUser = ($type -eq "Utilisateur")
-    $hasAssociation = (-not [string]::IsNullOrWhiteSpace($association)) -and ($association -notmatch "(?i)^(aucun|non detect|inconnu)")
-    $readOnly = [bool]$script:ReadOnlyMode
+    $hasAssociation = (-not [string]::IsNullOrWhiteSpace($association)) -and ($association -notmatch "(?i)^(aucun|non detect|non détect|inconnu)")
+    $grid = Get-DomeniaControl -Name "DgObjects"
+    $gridReady = ($null -ne $grid -and [bool]$grid.IsEnabled)
+    $singleTip = "Une seule ligne sélectionnée."
 
-    [void]$Menu.Items.Add((New-DomeniaMenuItem -Header ("Ouvrir la fiche de " + $name) -Action { Open-SelectedObject -Force }))
-
+    [void]$Menu.Items.Add((New-DomeniaMenuItem -Header ("Ouvrir la fiche de " + $name) -Enabled $single -ToolTip $(if ($single) { "" } else { $singleTip }) -Action { Open-SelectedObject -Force }))
     if ($isMachine) {
-        [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Rechercher l'utilisateur associe" -Enabled $hasAssociation `
-            -ToolTip "Lance une recherche globale sur le compte associe a ce poste." `
+        [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Assistance poste" -Enabled $single `
+            -ToolTip "Ouvre lʼonglet Actions du poste : Bureau à distance, partage C$, consoles et stratégies. Chaque action garde sa confirmation ; ce menu ne lance rien." `
+            -Action { Open-DomeniaResultRowSupport }))
+        # CO-35: one ping (and the console when allowed) of this workstation, without leaving the list.
+        [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Revérifier ce poste" -Enabled ($single -and $gridReady) `
+            -ToolTip "Un seul ping de ce poste, et son utilisateur connecté si lʼoption est cochée. La liste reste affichée." `
+            -Action { Request-DomeniaLiveRecheck }))
+        [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Rechercher lʼutilisateur associé" -Enabled ($single -and $hasAssociation) `
+            -ToolTip "Lance une recherche globale sur le compte associé à ce poste." `
             -Action { Start-DomeniaSearchAssociated -Row (Get-DomeniaSelectedGridRow) }))
     }
     elseif ($isUser) {
-        [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Associer un poste a ce compte" `
-            -ToolTip "Ouvre le selecteur de postes de l annuaire." `
-            -Action { Select-DomeniaWorkspace -Workspace "TabRelations"; Add-SelectedLink }))
-        [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Rechercher les postes de ce compte" `
-            -ToolTip "Interroge le responsable declare, la description des postes et le journal de securite." `
-            -Action { Select-DomeniaWorkspace -Workspace "TabRelations"; Start-DomeniaUserComputerProbe }))
-        [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Rechercher le poste associe" -Enabled $hasAssociation `
-            -ToolTip "Lance une recherche globale sur le poste associe a ce compte." `
+        [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Rechercher le poste associé" -Enabled ($single -and $hasAssociation) `
+            -ToolTip "Lance une recherche globale sur le poste associé à ce compte." `
             -Action { Start-DomeniaSearchAssociated -Row (Get-DomeniaSelectedGridRow) }))
     }
-    [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Ouvrir le conteneur parent" -Action { Open-SelectedParentBranch }))
-    Add-DomeniaMenuSeparator -Menu $Menu
-
-    if ($isMachine) {
-        $remote = New-Object System.Windows.Controls.MenuItem
-        $remote.Header = "Poste distant"
-        foreach ($entry in @(
-            @{ H="Ping"; A={ Invoke-ComputerTool "Ping" } },
-            @{ H="Bureau a distance"; A={ Invoke-ComputerTool "RDP" } },
-            @{ H="Partage C$"; A={ Invoke-ComputerTool "C" } },
-            @{ H="Gestion de l ordinateur"; A={ Invoke-ComputerTool "Manage" } },
-            @{ H="Observateur d evenements"; A={ Invoke-ComputerTool "Events" } },
-            @{ H="Copier une commande PSRemote"; A={ Invoke-ComputerTool "PSRemote" } }
-        )) { [void]$remote.Items.Add((New-DomeniaMenuItem -Header ([string]$entry.H) -Action ([scriptblock]$entry.A))) }
-        [void]$remote.Items.Add((New-Object System.Windows.Controls.Separator))
-        [void]$remote.Items.Add((New-DomeniaMenuItem -Header "Forcer la mise a jour des strategies" -Enabled (-not $readOnly) -Action { Invoke-ComputerTool "GpUpdate" }))
-        [void]$remote.Items.Add((New-DomeniaMenuItem -Header "Redemarrer le poste" -Enabled (-not $readOnly) -Action { Invoke-ComputerTool "Restart" }))
-        [void]$Menu.Items.Add($remote)
-
-        $collect = New-Object System.Windows.Controls.MenuItem
-        $collect.Header = "Collecte"
-        [void]$collect.Items.Add((New-DomeniaMenuItem -Header "Inventaire rapide" -Action { Select-DomeniaWorkspace -Workspace "WsComputer" -Inner "ComputerTabs" -Tab "TabInventory"; Start-DomeniaComputerInventory }))
-        [void]$collect.Items.Add((New-DomeniaMenuItem -Header "Inventaire complet" -Action { Select-DomeniaWorkspace -Workspace "WsComputer" -Inner "ComputerTabs" -Tab "TabInventory"; Start-DomeniaComputerInventory -Deep }))
-        [void]$collect.Items.Add((New-DomeniaMenuItem -Header "Logiciels installes" -Action { Select-DomeniaWorkspace -Workspace "WsComputer" -Inner "ComputerTabs" -Tab "TabSoftware"; Start-DomeniaSoftwareInventory }))
-        [void]$collect.Items.Add((New-DomeniaMenuItem -Header "Explorateur WMI" -Action { Select-DomeniaWorkspace -Workspace "WsComputer" -Inner "ComputerTabs" -Tab "TabWmi" }))
-        [void]$collect.Items.Add((New-DomeniaMenuItem -Header "Diagnostic distant" -Action { Select-DomeniaWorkspace -Workspace "WsComputer" -Inner "ComputerTabs" -Tab "TabComputerHealth"; Start-ComputerDiagnostics }))
-        [void]$collect.Items.Add((New-DomeniaMenuItem -Header "Detecter le dernier utilisateur" -Action { Start-ProbeForSelectedComputer -Force }))
-        [void]$collect.Items.Add((New-Object System.Windows.Controls.Separator))
-        [void]$collect.Items.Add((New-DomeniaMenuItem -Header "Charger BitLocker" -Action { Select-DomeniaWorkspace -Workspace "WsComputer" -Inner "ComputerTabs" -Tab "TabSecurity"; Start-LoadComputerSecrets -Mode "BitLocker" }))
-        [void]$collect.Items.Add((New-DomeniaMenuItem -Header "Charger LAPS" -Action { Select-DomeniaWorkspace -Workspace "WsComputer" -Inner "ComputerTabs" -Tab "TabSecurity"; Start-LoadComputerSecrets -Mode "LAPS" }))
-        [void]$Menu.Items.Add($collect)
-    }
-
-    $analyse = New-Object System.Windows.Controls.MenuItem
-    $analyse.Header = "Analyser"
-    [void]$analyse.Items.Add((New-DomeniaMenuItem -Header "Droits effectifs" -Action { Select-DomeniaWorkspace -Workspace "WsObject" -Inner "DetailTabs" -Tab "TabPermissions"; Start-PermissionAnalysis -UserInitiated }))
-    [void]$analyse.Items.Add((New-DomeniaMenuItem -Header "Relire l objet depuis AD" -Action { Refresh-SelectedObject }))
-    [void]$analyse.Items.Add((New-DomeniaMenuItem -Header "Tester la presence reseau" -Action { Queue-DomeniaSelectedObjectOpen -Immediate -Force }))
-    [void]$Menu.Items.Add($analyse)
+    [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Ouvrir lʼOU parente" -Enabled $single `
+        -ToolTip "Liste dans Rechercher le contenu de lʼOU ou du conteneur parent. Rien nʼest modifié." `
+        -Action { Open-DomeniaResultRowParentOu -Row (Get-DomeniaSelectedGridRow) }))
     Add-DomeniaMenuSeparator -Menu $Menu
 
     $copy = New-Object System.Windows.Controls.MenuItem
     $copy.Header = "Copier"
+    [void]$copy.Items.Add((New-DomeniaMenuItem -Header "Pour un ticket" `
+        -ToolTip "Une ligne lisible par objet sélectionné : type, nom, compte, présence, utilisateur console et OU. Sans GUID ni champ interne." `
+        -Action { Copy-DomeniaSelectedRowsForTicket }))
+    [void]$copy.Items.Add((New-Object System.Windows.Controls.Separator))
     foreach ($entry in @(
         @{ H="Le nom"; P="Name" },
-        @{ H="Le login"; P="Login" },
-        @{ H="L UPN ou le DNS"; P="UPN" },
-        @{ H="L association"; P="Association" },
-        @{ H="Le DN"; P="DN" }
+        @{ H="Le compte"; P="Login" },
+        @{ H="LʼUPN ou le DNS"; P="UPN" },
+        @{ H="Le chemin (DN)"; P="DN" }
     )) {
         $prop = [string]$entry.P
         $value = ""
         try { $value = [string]$row.$prop } catch { }
-        [void]$copy.Items.Add((New-DomeniaMenuItem -Header ([string]$entry.H) -Enabled (-not [string]::IsNullOrWhiteSpace($value)) `
+        [void]$copy.Items.Add((New-DomeniaMenuItem -Header ([string]$entry.H) -Enabled ($single -and (-not [string]::IsNullOrWhiteSpace($value))) `
             -Action ([scriptblock]::Create('Copy-DomeniaRowProperty -Row (Get-DomeniaSelectedGridRow) -Property "' + $prop + '"'))))
     }
-    [void]$copy.Items.Add((New-Object System.Windows.Controls.Separator))
-    [void]$copy.Items.Add((New-DomeniaMenuItem -Header "La ou les lignes selectionnees" -Action { Copy-DomeniaGridSelection -Name "DgObjects" }))
-    [void]$copy.Items.Add((New-DomeniaMenuItem -Header "Le resume complet" -Action { Copy-ObjectSummary }))
+    [void]$copy.Items.Add((New-DomeniaMenuItem -Header "Les lignes, toutes les valeurs" -ToolTip "Toutes les valeurs des lignes sélectionnées, séparées par des tabulations, pour un tableur." -Action { Copy-DomeniaGridSelection -Name "DgObjects" }))
+    [void]$copy.Items.Add((New-DomeniaMenuItem -Header "Le résumé de la fiche ouverte" -Enabled ($null -ne $script:SelectedObject) -Action { Copy-ObjectSummary }))
     [void]$Menu.Items.Add($copy)
-    [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Exporter la liste en CSV" -Action { Export-CurrentResults }))
-
-    Add-DomeniaMenuSeparator -Menu $Menu
-    $write = New-Object System.Windows.Controls.MenuItem
-    $write.Header = "Modifier"
-    $write.IsEnabled = (-not $readOnly)
-    if ($readOnly) { $write.ToolTip = "Le mode lecture seule est actif. Decoche la case du bandeau pour activer les ecritures." }
-    if ($isUser) {
-        [void]$write.Items.Add((New-DomeniaMenuItem -Header "Deverrouiller le compte" -Action { Unlock-UserAccount }))
-        [void]$write.Items.Add((New-DomeniaMenuItem -Header "Activer le compte" -Action { Set-AccountDisabled $false }))
-        [void]$write.Items.Add((New-DomeniaMenuItem -Header "Desactiver le compte" -Action { Set-AccountDisabled $true }))
-        [void]$write.Items.Add((New-DomeniaMenuItem -Header "Forcer le changement de mot de passe" -Action { Expire-UserPasswordNow }))
-    }
-    elseif ($isMachine) {
-        [void]$write.Items.Add((New-DomeniaMenuItem -Header "Déplacer / changer dʼOU…" `
-            -ToolTip "Choisit explicitement l'unite d'organisation de destination avant toute ecriture." `
-            -Action { Move-DomeniaSelectedComputerWithOuPicker }))
-        [void]$write.Items.Add((New-Object System.Windows.Controls.Separator))
-        [void]$write.Items.Add((New-DomeniaMenuItem -Header "Activer le compte machine" -Action { Set-AccountDisabled $false }))
-        [void]$write.Items.Add((New-DomeniaMenuItem -Header "Desactiver le compte machine" -Action { Set-AccountDisabled $true }))
-    }
-    [void]$write.Items.Add((New-Object System.Windows.Controls.Separator))
-    [void]$write.Items.Add((New-DomeniaMenuItem -Header "Supprimer l objet" -Action { Delete-SelectedObject }))
-    [void]$Menu.Items.Add($write)
+    [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Exporter la liste en CSV" -ToolTip "Exporte les résultats affichés, ou seulement les lignes sélectionnées." -Action { Export-CurrentResults }))
 }
 
 function New-DomeniaTreeContextMenu {
