@@ -196,7 +196,7 @@ function Test-DomeniaStorageUnreadableMessage {
 }
 function Get-DomeniaStorageSchemaExpectation {
     # Point 36. Tables and columns every opened base exposes after the forward-only schema step of this version. The
-    # StorageIntegrity worker carries the same constant lists (rule Storage.Tests compares both).
+    # StorageIntegrity worker carries the same constant lists (Test-DomeniaStorageMaintenance compares both).
     return [pscustomobject]@{
         Version='11';Revision='1'
         Tables=@('schema_info','ad_objects','user_machine_links','user_machine_history','park_state','presence_cache','sync_state','user_scan_history','secret_state','operation_runs','domenia_provenance','ad_computer_facts','fleet_snapshots','domenia_store_state','domenia_store_batches','domenia_directory_data','domenia_observations','domenia_legacy_observation_imports','domenia_account_preferences','domenia_details','domenia_domain_metadata','domenia_query_recipes','domenia_query_recipe_revisions','domenia_query_migrations','domenia_query_recipe_dependencies')

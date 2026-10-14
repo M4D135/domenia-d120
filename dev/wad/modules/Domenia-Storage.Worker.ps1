@@ -2002,7 +2002,7 @@ function Get-DomeniaStorageIntegrityWorkerCode {
     $position=$code.IndexOf($marker,[StringComparison]::Ordinal);if($position -lt 0){throw 'Preliminaire du controle d integrite absent.'}
     return $code.Substring(0,$position)+@'
 # Every identifier is a constant of this body; the payload only names the base and its domain. The two lists below are
-# those of Get-DomeniaStorageSchemaExpectation (Domenia-Store.Model.ps1); the rule Storage.Tests compares them.
+# those of Get-DomeniaStorageSchemaExpectation (Domenia-Store.Model.ps1); Test-DomeniaStorageMaintenance compares them.
 $path=Test-DomeniaStorageMeasurePath ([string]$Payload.Path)
 $domain=([string]$Payload.DomainDn).Trim().ToLowerInvariant();if($domain -notmatch '(^|,)dc='){throw 'Domaine du controle requis.'}
 $requiredTables=@('schema_info','ad_objects','user_machine_links','user_machine_history','park_state','presence_cache','sync_state','user_scan_history','secret_state','operation_runs','domenia_provenance','ad_computer_facts','fleet_snapshots','domenia_store_state','domenia_store_batches','domenia_directory_data','domenia_observations','domenia_legacy_observation_imports','domenia_account_preferences','domenia_details','domenia_domain_metadata','domenia_query_recipes','domenia_query_recipe_revisions','domenia_query_migrations','domenia_query_recipe_dependencies')
