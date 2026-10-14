@@ -297,3 +297,97 @@ Test-Case 'D029' 'Taille absente inconnue, mesure conservee sans estimation' {
     Assert-Equal 4096L $plan.Actions[0].CurrentBytes;Assert-Equal 12L $plan.Actions[0].CurrentRows
     Assert-Equal (-1L) $plan.Actions[1].CurrentBytes;Assert-Equal 'inconnu' (Format-DomeniaSize $plan.Actions[1].CurrentBytes)
 }
+
+# ---------------------------------------------------------------- Lot X06 : base locale (FI-12, FI-13, UI-19, DS-09)
+$script:X06Now=[datetime]::SpecifyKind([datetime]'2026-10-14T12:00:00',[DateTimeKind]::Utc)
+Test-Case 'FI-12' 'Le delai SQLite configure est borne et garde le defaut documente' {
+    Assert-Equal 2500 (Get-DomeniaSqliteBusyTimeoutMs $null)
+    Assert-Equal 2500 (Get-DomeniaSqliteBusyTimeoutMs 'illisible')
+    Assert-Equal 2500 (Get-DomeniaSqliteBusyTimeoutMs '')
+    Assert-Equal 1200 (Get-DomeniaSqliteBusyTimeoutMs '1200')
+    Assert-Equal 1200 (Get-DomeniaSqliteBusyTimeoutMs ' 1200 ')
+    Assert-Equal 100 (Get-DomeniaSqliteBusyTimeoutMs 10)
+    Assert-Equal 5000 (Get-DomeniaSqliteBusyTimeoutMs 99999)
+}
+Test-Case 'FI-12' 'Seules les attentes de verrou SQLite depassees sont reconnues' {
+    foreach($text in @('SQLite code 5 : database is locked','SQLite step code 6 : database table is locked','SQLite prepare code 5 : database is locked','SQLITE_BUSY','Erreur : database is locked')){Assert-True (Test-DomeniaSqliteBusyText $text) $text}
+    foreach($text in @('SQLite code 50 : x','SQLite code 13 : database or disk is full','StorageBusy : autre ecriture ou maintenance locale en cours.','Sauvegarde SQLite : code 5.','',$null)){Assert-False (Test-DomeniaSqliteBusyText $text) ([string]$text)}
+}
+Test-Case 'FI-12' 'Le resume des attentes dit le nombre, la derniere heure et le delai' {
+    Assert-Equal 'Base locale : aucune attente de verrou SQLite dépassée dans cette session (délai 2500 ms).' (Format-DomeniaSqliteBusySummary -Count 0)
+    $text=Format-DomeniaSqliteBusySummary -Count 3 -LastUtc $script:X06Now -TimeoutMs 1200
+    Assert-True ($text.StartsWith('Base locale occupée : 3 attente(s) de verrou SQLite dépassée(s) dans cette session, la dernière à ')) $text
+    Assert-True ($text.EndsWith(' (délai 1200 ms, réglage LocalStore.DatabaseBusyTimeoutMs).')) $text
+    Assert-True ((Format-DomeniaSqliteBusySummary -Count 1 -TimeoutMs 'x').Contains('délai 2500 ms')) 'Delai illisible non ramene au defaut'
+}
+Test-Case 'FI-13' 'Les quatre gestes qui modifient la base ont un libelle, un autre est refuse' {
+    Assert-Equal 'la mise à jour de lʼOU choisie' (Get-DomeniaGestureBackupLabel 'IndexUpdate')
+    Assert-Equal 'lʼimport CSV des associations' (Get-DomeniaGestureBackupLabel 'LinkImport')
+    Assert-Equal 'le retrait des associations orphelines' (Get-DomeniaGestureBackupLabel 'LinkPrune')
+    Assert-Equal 'lʼoubli des relevés du parc' (Get-DomeniaGestureBackupLabel 'ParkReset')
+    Assert-Throws {Get-DomeniaGestureBackupLabel 'StoragePurge'} 'Geste inconnu accepte'
+}
+Test-Case 'FI-13' 'Une copie verifiee de moins de 30 min sert de point de retour, sinon une copie est due' {
+    $none=Get-DomeniaGestureBackupDecision -LastSuccessUtc '' -NowUtc $script:X06Now
+    Assert-True $none.Due;Assert-Equal 'NoBackup' $none.Reason
+    $recent=Get-DomeniaGestureBackupDecision -LastSuccessUtc ($script:X06Now.AddMinutes(-10).ToString('o')) -NowUtc $script:X06Now
+    Assert-False $recent.Due;Assert-Equal 'Recent' $recent.Reason;Assert-Equal 30 $recent.ReuseMinutes
+    $stale=Get-DomeniaGestureBackupDecision -LastSuccessUtc ($script:X06Now.AddHours(-2).ToString('o')) -NowUtc $script:X06Now
+    Assert-True $stale.Due;Assert-Equal 'Stale' $stale.Reason
+    $future=Get-DomeniaGestureBackupDecision -LastSuccessUtc ($script:X06Now.AddHours(3).ToString('o')) -NowUtc $script:X06Now
+    Assert-True $future.Due;Assert-Equal 'InvalidClock' $future.Reason
+    $bad=Get-DomeniaGestureBackupDecision -LastSuccessUtc 'hier' -NowUtc $script:X06Now
+    Assert-True $bad.Due;Assert-Equal 'NoBackup' $bad.Reason
+    Assert-True (Get-DomeniaGestureBackupDecision -LastSuccessUtc ($script:X06Now.AddMinutes(-10).ToString('o')) -NowUtc $script:X06Now -ReuseMinutes 5).Due 'Fenetre de reutilisation ignoree'
+}
+Test-Case 'FI-13' 'La confirmation annonce la sauvegarde ou le point de retour reel' {
+    Assert-Equal 'Une sauvegarde vérifiée de la base sera faite avant.' (Get-DomeniaGestureBackupNotice $null)
+    Assert-Equal 'Une sauvegarde vérifiée de la base sera faite avant.' (Get-DomeniaGestureBackupNotice (Get-DomeniaGestureBackupDecision -NowUtc $script:X06Now))
+    $notice=Get-DomeniaGestureBackupNotice (Get-DomeniaGestureBackupDecision -LastSuccessUtc ($script:X06Now.AddMinutes(-10).ToString('o')) -NowUtc $script:X06Now)
+    Assert-True ($notice.StartsWith('Point de retour : la sauvegarde vérifiée de ')) $notice
+    Assert-True ($notice.EndsWith(' a moins de 30 min ; aucune nouvelle copie.')) $notice
+}
+Test-Case 'UI-19' 'Le temps ecoule se lit en minutes, heures ou jours' {
+    Assert-Equal 'à lʼinstant' (Get-DomeniaElapsedText -FromUtc $script:X06Now.AddSeconds(-30) -NowUtc $script:X06Now)
+    Assert-Equal 'il y a 5 min' (Get-DomeniaElapsedText -FromUtc $script:X06Now.AddMinutes(-5) -NowUtc $script:X06Now)
+    Assert-Equal 'il y a 3 h' (Get-DomeniaElapsedText -FromUtc $script:X06Now.AddHours(-3).AddMinutes(-20) -NowUtc $script:X06Now)
+    Assert-Equal 'il y a 2 j' (Get-DomeniaElapsedText -FromUtc $script:X06Now.AddDays(-2).AddHours(-5) -NowUtc $script:X06Now)
+    Assert-Equal 'à une date future (horloge à vérifier)' (Get-DomeniaElapsedText -FromUtc $script:X06Now.AddHours(1) -NowUtc $script:X06Now)
+}
+Test-Case 'UI-19' 'Le resume de la base donne domaine, taille et derniere sauvegarde, avec une alerte douce' {
+    $recent=Get-DomeniaDatabaseLocationSummary -Domain 'example.local' -Bytes 4404019 -LastBackupUtc $script:X06Now.AddHours(-2) -NowUtc $script:X06Now
+    Assert-Equal 'Base du domaine example.local · 4,2 Mo · sauvegardée il y a 2 h' $recent.Text
+    Assert-False $recent.Alert;Assert-Equal '' $recent.AlertText
+    $old=Get-DomeniaDatabaseLocationSummary -Domain 'example.local' -Bytes 4404019 -LastBackupUtc $script:X06Now.AddDays(-8) -NowUtc $script:X06Now
+    Assert-Equal 'Base du domaine example.local · 4,2 Mo · sauvegardée il y a 8 j' $old.Text
+    Assert-True $old.Alert;Assert-True ($old.AlertText.Contains('plus de 7 jours')) $old.AlertText
+    $never=Get-DomeniaDatabaseLocationSummary -Domain 'example.local' -Bytes 512 -NowUtc $script:X06Now
+    Assert-Equal 'Base du domaine example.local · 512 o · jamais sauvegardée' $never.Text
+    Assert-True $never.Alert
+    $demo=Get-DomeniaDatabaseLocationSummary -Domain 'demo.invalid' -Bytes 512 -NowUtc $script:X06Now -Demo
+    Assert-Equal 'Base de démonstration · 512 o · jamais sauvegardée' $demo.Text
+    Assert-False $demo.Alert 'Alerte de sauvegarde pour la base de demonstration'
+    $unknown=Get-DomeniaDatabaseLocationSummary -Domain '' -Bytes -1 -LastBackupUtc $script:X06Now.AddMinutes(-3) -NowUtc $script:X06Now
+    Assert-Equal 'Base locale · taille inconnue · sauvegardée il y a 3 min' $unknown.Text
+    $missing=Get-DomeniaDatabaseLocationSummary -Domain 'example.local' -Missing
+    Assert-Equal 'Aucune base locale pour ce domaine pour lʼinstant.' $missing.Text
+    Assert-False $missing.Alert
+}
+Test-Case 'DS-09' 'Les quatre tuiles de la base autonome, sans USN ni duree' {
+    $fr=[Globalization.CultureInfo]::GetCultureInfo('fr-FR')
+    $tiles=@(Get-DomeniaIndexTiles -Users 1000 -Computers 234 -Active 200 -Disabled 34 -Links 3 -LastUtc $script:X06Now.AddMinutes(-65) -NowUtc $script:X06Now)
+    Assert-Equal 4 $tiles.Count
+    Assert-Equal 'Accounts,Computers,Links,Updated' (($tiles|ForEach-Object{$_.Key}) -join ',')
+    Assert-Equal 'Comptes,Postes,Associations,Dernière mise à jour' (($tiles|ForEach-Object{$_.Caption}) -join ',')
+    Assert-Equal ((1000L).ToString('N0',$fr)) $tiles[0].Value
+    Assert-Equal '234' $tiles[1].Value;Assert-Equal '200 actifs · 34 désactivés' $tiles[1].Detail
+    Assert-Equal '3' $tiles[2].Value
+    Assert-Equal 'il y a 1 h' $tiles[3].Value;Assert-True ($tiles[3].Detail.StartsWith('le ')) $tiles[3].Detail
+    $never=@(Get-DomeniaIndexTiles -NowUtc $script:X06Now)
+    Assert-Equal '0' $never[0].Value;Assert-Equal 'Jamais' $never[3].Value;Assert-Equal 'aucune lecture complète de ce périmètre' $never[3].Detail
+    $negative=@(Get-DomeniaIndexTiles -Users -4 -Computers -1 -Links -2 -NowUtc $script:X06Now)
+    Assert-Equal '0' $negative[0].Value;Assert-Equal '0' $negative[1].Value;Assert-Equal '0' $negative[2].Value
+    $unreadable=@(Get-DomeniaIndexTiles -Unreadable)
+    Assert-Equal 4 $unreadable.Count
+    foreach($tile in $unreadable){Assert-Equal '—' $tile.Value;Assert-Equal 'base illisible' $tile.Detail}
+}

@@ -242,6 +242,14 @@ function Update-DomeniaUxProfileVisibility {
                 if (([string]$column.Header) -eq 'Methode' -or ([string]$column.Header) -eq 'Duree ms') { $column.Visibility = if ($expert) { [Windows.Visibility]::Visible } else { [Windows.Visibility]::Collapsed } }
             }
         }
+        # DS-09: Score and Correspondance explain the ranking of the local search; they stay in Expert so that the grid
+        # of Base autonome keeps its width for the columns the operator reads.
+        $gridIndex = Get-DomeniaControl 'DgIndex'
+        if ($null -ne $gridIndex) {
+            foreach ($column in @($gridIndex.Columns)) {
+                if ((([string]$column.Header) -eq 'Score') -or (([string]$column.Header) -eq 'Correspondance')) { $column.Visibility = if ($expert) { [Windows.Visibility]::Visible } else { [Windows.Visibility]::Collapsed } }
+            }
+        }
         # Never leave a hidden detail page selected. No AD read is performed.
         foreach ($name in @('DetailTabs','ComputerTabs','ApplicationToolTabs')) {
             $tabs = Get-DomeniaControl $name

@@ -201,6 +201,8 @@ function Get-DomeniaOperationsHealthText {
     $save=if($null -ne $saved){'Dernière sauvegarde locale à '+([datetime]$saved).ToString('HH:mm:ss')+'.'}else{'Aucune sauvegarde locale dans cette session.'}
     try{$state=Get-DomeniaPersistenceState;if([string]$state.Label){$save+=' '+[string]$state.Label}}catch{}
     $lines.Add($save)
+    # FI-12: SQLite lock waits that ran out in this session, with the configured wait.
+    try{$lines.Add([string](Get-DomeniaSqliteBusyStatusText))}catch{}
     return ($lines.ToArray() -join "`r`n")
 }
 

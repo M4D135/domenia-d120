@@ -135,7 +135,7 @@ function Invoke-DomeniaOuRefreshTick {
         if($r.Mode -eq 'Both' -and -not $r.BaseCommitted){Fail-DomeniaOuRefresh -OperationId $r.Id -Message 'Le reçu de mise à jour de la base est absent.';return}
         try{
             $plan=Get-DomeniaFleetQueryPlan -Now ([datetime]::Now) -ObservationMaxAgeDays (Get-DomeniaObservationMaxAgeDays)
-            $payload=[pscustomobject]@{Action='FleetStats';Path=$r.Path;BusyTimeoutMs=250;Scope=$r.Dn;Subtree=$true;Plan=$plan;Keys=@();ScopeKey='';ComputeBoard=$false;ModuleRoot=$script:DashboardModuleRoot}
+            $payload=[pscustomobject]@{Action='FleetStats';Path=$r.Path;Scope=$r.Dn;Subtree=$true;Plan=$plan;Keys=@();ScopeKey='';ComputeBoard=$false;ModuleRoot=$script:DashboardModuleRoot}
             $state=[pscustomobject]@{OperationId=$r.Id;Epoch=$r.Epoch;Path=$r.Path;Dn=$r.Dn}
             $r.Phase='Resolving';$r.Status='Lecture des postes actifs depuis la base locale : '+$r.Label+'.'
             $r.TargetJob=[string](Start-UiTask -Name 'Préparer lʼactualisation des postes de lʼOU' -OperationId LocalIndexRead -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload $payload -CallbackState $state -SuccessHandler 'Complete-DomeniaOuRefreshTargets' -ErrorHandler 'Fail-DomeniaOuRefreshTargets' -TimeoutSeconds 120 -TaskClass Explicit)

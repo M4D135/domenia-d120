@@ -342,6 +342,10 @@ function Complete-DomeniaStorageWork {
           if($null -ne $saved.Row.PSObject.Properties['RefreshOperationId'] -and [string]$saved.Row.RefreshOperationId){Complete-DomeniaOuRefreshCommit -Item $saved}
         }
         try{[void](Load-DomeniaIndexMetadata);Update-DomeniaIndexStats}catch{}
+        # PF-07: the storage time of the lot measured by the worker (prepared statements) is kept beside the IndexBuild
+        # samples of the AD read, so that Statistiques des opérations shows the cost of the write per object.
+        $writtenRows=[long](Get-DomeniaMember $r 'IndexRows' 0)
+        if($writtenRows -gt 0){try{Register-DomeniaOperationSample -Operation 'IndexStore' -Mode 'SQLite prepare' -ItemCount ([int][Math]::Min([long][int]::MaxValue,$writtenRows)) -DurationMs ([long](Get-DomeniaMember $r 'IndexWriteMs' 0)) -SuccessCount ([int][Math]::Min([long][int]::MaxValue,$writtenRows))}catch{}}
         $walkSaved=@($indexItems|Where-Object{$null -ne $_.Row.PSObject.Properties['WalkStep'] -and [bool]$_.Row.WalkStep})
         if($walkSaved.Count -and $null -ne $script:IndexWalk){
           $script:IndexWalk.Saved += $walkSaved.Count
@@ -407,7 +411,7 @@ function Fail-DomeniaStorageWork {
     Set-Status 'Cache non enregistre sur disque. Les observations sont encore en memoire ; une nouvelle tentative bornee sera faite.' 'WARN'
 }
 function Queue-DomeniaMetadata {
-    param([ValidateSet('Presence','UserScan','Park','ParkSession','SecretMeta','Sample','IndexBulk','LegacyImport','FleetSnapshot')][string]$Kind,$Row,[string]$Key='')
+    param([ValidateSet('Presence','UserScan','Park','ParkSession','ParkReset','SecretMeta','Sample','IndexBulk','LegacyImport','FleetSnapshot')][string]$Kind,$Row,[string]$Key='')
     if($null -eq $script:Persistence){Initialize-DomeniaPersistence}
     if(-not $script:DatabaseScopedPath){return $false}
     if($Kind -eq 'LegacyImport'){
@@ -464,6 +468,38 @@ function Get-DomeniaPersistenceState {
     }
     $label=Get-DomeniaPersistenceLabel -Pending $pending -Failed $failed -Suspended ([bool]$suspended) -Unavailable ([bool]$unavailable) -Conflicts $conflicts
     return [pscustomobject]@{Pending=$pending;Failed=$failed;Suspended=[bool]$suspended;Unavailable=[bool]$unavailable;Conflicts=$conflicts;Label=[string]$label;QueuedBytes=$queuedBytes;QueuedChanges=$queuedChanges;MaximumQueuedBytes=33554432L;MaximumQueuedChanges=4096;MaximumBatchBytes=4194304;MaximumBatchChanges=250}
+}
+
+function Register-DomeniaSqliteBusyOutcome {
+    # FI-12: counts, for the Operations panel, every finished worker whose SQLite lock wait ran out: an error worded as
+    # SQLITE_BUSY/LOCKED by any storage worker, or a local read (LocalIndexRead) answered Busy. Session counters only;
+    # nothing is retried or replayed here. Called once per finished task by Complete-UiTasks.
+    param($Job,$Output=$null,[AllowEmptyString()][string]$ErrorMessage='')
+    if($null -eq $Job){return $false}
+    $busy=$false
+    if(-not [string]::IsNullOrWhiteSpace($ErrorMessage)){$busy=Test-DomeniaSqliteBusyText $ErrorMessage}
+    elseif([string]$Job.OperationId -eq 'LocalIndexRead'){
+        foreach($item in @($Output)){if(($null -ne $item) -and ($null -ne $item.PSObject.Properties['Busy']) -and ($item.Busy -is [bool]) -and [bool]$item.Busy){$busy=$true}}
+    }
+    if(-not $busy){return $false}
+    if($null -eq $script:DomeniaSqliteBusy){$script:DomeniaSqliteBusy=[pscustomobject]@{Count=0;LastUtc=$null;ByOperation=@{}}}
+    $script:DomeniaSqliteBusy.Count++
+    $script:DomeniaSqliteBusy.LastUtc=[datetime]::UtcNow
+    $operation=[string]$Job.OperationId;if(-not $operation){$operation='Inconnue'}
+    if(-not $script:DomeniaSqliteBusy.ByOperation.ContainsKey($operation)){$script:DomeniaSqliteBusy.ByOperation[$operation]=0}
+    $script:DomeniaSqliteBusy.ByOperation[$operation]++
+    return $true
+}
+function Get-DomeniaSqliteBusyStatusText {
+    # FI-12: the Operations line, with the configured lock wait shared by the interface and every worker.
+    $count=0;$last=$null
+    if($null -ne $script:DomeniaSqliteBusy){$count=[int]$script:DomeniaSqliteBusy.Count;$last=$script:DomeniaSqliteBusy.LastUtc}
+    $text=Format-DomeniaSqliteBusySummary -Count $count -LastUtc $last -TimeoutMs (Get-DomeniaSqliteBusyTimeoutMs (Get-CfgValue 'LocalStore' 'DatabaseBusyTimeoutMs' 2500))
+    if($count -gt 0){
+        $parts=@(foreach($name in @($script:DomeniaSqliteBusy.ByOperation.Keys|Sort-Object)){[string]$name+' : '+[string]$script:DomeniaSqliteBusy.ByOperation[$name]})
+        if($parts.Count){$text+=' Opérations concernées : '+($parts -join ', ')+'.'}
+    }
+    return $text
 }
 
 function Get-DomeniaUserLocalRoot {
@@ -750,15 +786,54 @@ function Fail-DomeniaStoragePurge {
 }
 function Update-DomeniaIndexLocation {
     # Decision David 2026-10-07: Outils > Base autonome shows where the base lives, with backup and copy.
-    $path='';try{$path=[string](Get-DomeniaDatabasePath)}catch{}
-    $box=Get-DomeniaControl 'TxtIndexLocation';if($null -ne $box){$box.Text=if($path){$path}else{'Aucune base active.'}}
-    $text=''
-    if($path -and [IO.File]::Exists($path)){
-        $backups=[string](Get-DomeniaStoreBackupDirectory)
-        $last=Get-ChildItem -LiteralPath $backups -Filter 'Domenia-*.db' -File -ErrorAction SilentlyContinue|Sort-Object LastWriteTime -Descending|Select-Object -First 1
-        $text='Sauvegardes : '+$backups+' · '+$(if($null -ne $last){'derniere le '+$last.LastWriteTime.ToString('dd/MM/yyyy HH:mm')}else{'aucune pour l instant'})
+    # UI-19: one readable line (domain, size on disk, last verified backup) instead of the path, which stays in the
+    # tooltip and behind « Copier le chemin » ; a soft alert when no backup is younger than 7 days. Local file metadata
+    # only (the active base is always on a local disk).
+    $path='';try{$path=[string](Get-DomeniaDatabasePath)}catch{$path=''}
+    $exists=($path -and [IO.File]::Exists($path))
+    $bytes=-1L;$last=$null
+    if($exists){
+        $bytes=0L;foreach($suffix in @('','-wal')){$file=[IO.FileInfo]::new($path+$suffix);if($file.Exists){$bytes+=[long]$file.Length}}
+        # Last verified backup: the receipt of the StorageBackup worker, or the newest copy of the Backups folder.
+        try{
+            $key=Get-DomeniaStoreId $path ([string]$script:Conn.BaseDn);$text=[string](Get-DomeniaSetting ('Storage.Backup.Last.'+$key) '')
+            $parsed=[datetime]::MinValue
+            if($text -and [datetime]::TryParse($text,[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::RoundtripKind,[ref]$parsed)){$last=$parsed.ToUniversalTime()}
+        }catch{$last=$null}
+        try{
+            $newest=Get-ChildItem -LiteralPath (Join-Path ([IO.Path]::GetDirectoryName($path)) 'Backups') -Filter 'Domenia-*.db' -File -ErrorAction SilentlyContinue|Sort-Object LastWriteTimeUtc -Descending|Select-Object -First 1
+            if(($null -ne $newest) -and (($null -eq $last) -or ($newest.LastWriteTimeUtc -gt $last))){$last=$newest.LastWriteTimeUtc}
+        }catch{}
     }
-    [void](Set-DomeniaControlText 'LblIndexBackupStatus' $text)
+    $domain=[string]$script:Conn.Domain
+    if(-not $domain){$domain=(@(([string]$script:Conn.BaseDn) -split ','|Where-Object{$_ -match '^\s*DC='}|ForEach-Object{($_ -replace '^\s*DC=','').Trim()}) -join '.')}
+    $summary=Get-DomeniaDatabaseLocationSummary -Domain $domain -Bytes $bytes -LastBackupUtc $last -Demo:([bool]$script:DemoMode) -Missing:(-not $exists)
+    $label=Get-DomeniaControl 'LblIndexLocation'
+    if($null -ne $label){
+        $label.Text=[string]$summary.Text
+        $tip=if($path){'Fichier de la base : '+$path}else{'Aucune base active.'}
+        $label.ToolTip=$tip;[Windows.Automation.AutomationProperties]::SetHelpText($label,$tip)
+    }
+    $copy=Get-DomeniaControl 'BtnIndexCopyPath';if($null -ne $copy){$copy.IsEnabled=[bool]$path}
+    $alert=Get-DomeniaControl 'LblIndexBackupStatus'
+    if($null -ne $alert){$alert.Text=[string]$summary.AlertText;$alert.Visibility=if([bool]$summary.Alert){[Windows.Visibility]::Visible}else{[Windows.Visibility]::Collapsed}}
+}
+function Copy-DomeniaIndexLocationPath {
+    # UI-19: the full path of the base stays one click away. The path of the active context only: no SQLite read on
+    # the interface thread to resolve it.
+    $path=[string]$script:DatabaseScopedPath
+    if(-not $path){Set-Status 'Aucune base active : aucun chemin à copier.' 'WARN';return $false}
+    try{Set-ClipboardSafe $path;Set-Status ('Chemin de la base copié : '+$path);return $true}
+    catch{Set-Status ('Copie du chemin impossible : '+$_.Exception.Message) 'WARN';return $false}
+}
+function Set-DomeniaIndexTiles {
+    # DS-09: writes the four tiles of Base autonome (value and detail of each), as computed by Get-DomeniaIndexTiles.
+    param([object[]]$Tiles)
+    foreach($tile in @($Tiles)){
+        if($null -eq $tile){continue}
+        [void](Set-DomeniaControlText -Name ('LblIndexTile'+[string]$tile.Key) -Text ([string]$tile.Value))
+        [void](Set-DomeniaControlText -Name ('LblIndexTile'+[string]$tile.Key+'Detail') -Text ([string]$tile.Detail))
+    }
 }
 function Open-DomeniaIndexLocation {
     $path=[string](Get-DomeniaDatabasePath)
@@ -812,6 +887,79 @@ function Fail-DomeniaIndexBackupUi {
     Set-Status ('Sauvegarde de la base impossible : '+$Message) 'WARN'
 }
 
+function Get-DomeniaGestureBackupState {
+    # FI-13: decision for the active base from its last verified backup (setting Storage.Backup.Last.<store>); no disk
+    # access on the interface thread.
+    $path=[string]$script:DatabaseScopedPath;$last=''
+    if($path){try{$key=Get-DomeniaStoreId $path ([string]$script:Conn.BaseDn);$last=[string](Get-DomeniaSetting ('Storage.Backup.Last.'+$key) '')}catch{$last=''}}
+    return (Get-DomeniaGestureBackupDecision -LastSuccessUtc $last)
+}
+function Invoke-DomeniaGestureBackup {
+    # FI-13: a verified backup of the local base precedes a gesture that changes it (OU update, CSV import, removal of
+    # orphan associations, park reset). The copy is made by the StorageBackup worker (SQLite online backup, rotation of
+    # the backup policy), never on the Dispatcher, and the gesture runs only from its success callback. A verified copy
+    # younger than 30 min is already the point of return. When the copy fails, the gesture is not started and the page
+    # offers an explicit choice to continue without a backup.
+    param([Parameter(Mandatory=$true)][ValidateSet('IndexUpdate','LinkImport','LinkPrune','ParkReset')][string]$Gesture,[Parameter(Mandatory=$true)][scriptblock]$Then)
+    $label=Get-DomeniaGestureBackupLabel -Gesture $Gesture
+    $path=[string]$script:DatabaseScopedPath
+    # Nothing to protect: demonstration base, or no base file yet (first update of this domain).
+    if([bool]$script:DemoMode -or [string]::IsNullOrWhiteSpace($path) -or -not [IO.File]::Exists($path)){[void](& $Then);return 'NotNeeded'}
+    $decision=Get-DomeniaGestureBackupState
+    if(-not [bool]$decision.Due){
+        Add-DomeniaUiLog -Area 'Stockage' -Text ('Avant '+$label+' : '+(Get-DomeniaGestureBackupNotice $decision))
+        [void](& $Then);return 'Recent'
+    }
+    if($null -ne $script:StorageGestureBackup){Set-Status ('Sauvegarde avant '+[string]$script:StorageGestureBackup.Label+' déjà en cours : attendez sa fin.') 'WARN';return 'Busy'}
+    $keep=7;try{$keep=[int](Get-DomeniaCurrentStoragePolicy).BackupKeep}catch{$keep=7}
+    $payload=[pscustomobject]@{Database=$path;BackupDirectory=(Join-Path ([IO.Path]::GetDirectoryName($path)) 'Backups');BudgetSeconds=120;Keep=$keep;CopyTo=''}
+    $state=[pscustomobject]@{Id=[guid]::NewGuid().ToString('N');Gesture=$Gesture;Label=$label;Then=$Then;CopyTo='';Path=$path;Epoch=[long]$script:SessionEpoch;Automatic=$false}
+    $script:StorageGestureBackup=$state
+    try{
+        $id=Start-UiTask -Name ('Sauvegarde avant '+$label) -OperationId 'StorageBackup' -Code (Get-DomeniaStorageBackupWorkerCode) -Payload $payload -CallbackState $state -SuccessHandler 'Complete-DomeniaGestureBackup' -ErrorHandler 'Fail-DomeniaGestureBackup' -ReplaceKey 'storage:backup:gesture' -TimeoutSeconds 150 -StatusText ('Sauvegarde vérifiée de la base avant '+$label+'…') -TaskClass 'Explicit'
+        if([string]::IsNullOrWhiteSpace([string]$id)){throw 'Sauvegarde non admise dans le moteur.'}
+    }catch{
+        $script:StorageGestureBackup=$null
+        Show-DomeniaGestureBackupFailure -State $state -Message $_.Exception.Message
+        return 'Failed'
+    }
+    Add-DomeniaUiLog -Area 'Stockage' -Text ('Sauvegarde de la base demandée avant '+$label+'.')
+    return 'Started'
+}
+function Complete-DomeniaGestureBackup {
+    param($Result,$State)
+    if(($null -eq $State) -or ($null -eq $script:StorageGestureBackup) -or ([string]$script:StorageGestureBackup.Id -cne [string]$State.Id)){return}
+    $script:StorageGestureBackup=$null
+    if(([long]$State.Epoch -ne [long]$script:SessionEpoch) -or ([string]$State.Path -cne [string]$script:DatabaseScopedPath)){Set-Status ('Sauvegarde terminée, mais la base ou la session a changé : '+[string]$State.Label+' nʼest pas lancée.') 'WARN';return}
+    $packet=Get-DomeniaEffectiveWorkerResult $Result @('Backup','CopiedTo')
+    if(($null -eq $packet) -or (-not [string]$packet.Backup) -or (-not [bool](Get-DomeniaMember $packet 'Verified' $false))){Show-DomeniaGestureBackupFailure -State $State -Message 'résultat de sauvegarde non confirmé';return}
+    try{$key=Get-DomeniaStoreId ([string]$State.Path) ([string]$script:Conn.BaseDn);Set-DomeniaSetting ('Storage.Backup.Last.'+$key) ([string]$packet.VerifiedAtUtc)}catch{Write-AppLog ('Date de sauvegarde non mémorisée : '+$_.Exception.Message) 'WARN'}
+    Add-DomeniaUiLog -Area 'Stockage' -Text ('Sauvegarde vérifiée avant '+[string]$State.Label+' : '+[string]$packet.Backup)
+    try{Update-DomeniaIndexLocation}catch{}
+    try{[void](& $State.Then)}
+    catch{$text='Sauvegarde vérifiée, mais '+[string]$State.Label+' nʼa pas pu démarrer : '+$_.Exception.Message;Set-Status $text 'WARN';Write-AppLog $text 'WARN'}
+}
+function Fail-DomeniaGestureBackup {
+    param($Message,$State)
+    if(($null -eq $State) -or ($null -eq $script:StorageGestureBackup) -or ([string]$script:StorageGestureBackup.Id -cne [string]$State.Id)){return}
+    $script:StorageGestureBackup=$null
+    if(([long]$State.Epoch -ne [long]$script:SessionEpoch) -or ([string]$State.Path -cne [string]$script:DatabaseScopedPath)){return}
+    Show-DomeniaGestureBackupFailure -State $State -Message ([string]$Message)
+}
+function Show-DomeniaGestureBackupFailure {
+    # FI-13: the gesture is not started. The operator may retry later or continue without a backup, in the page.
+    param($State,[string]$Message)
+    $detail=([string]$Message).Trim().TrimEnd('.');if(-not $detail){$detail='erreur inconnue'}
+    $label=[string]$State.Label;$then=$State.Then
+    $text='Sauvegarde de la base impossible avant '+$label+' : '+$detail+'. Rien nʼa été lancé.'
+    Set-Status $text 'WARN';Write-AppLog $text 'WARN'
+    # Closures capture the functions they call: a closure does not see the functions of the module scope.
+    $log=${function:Add-DomeniaUiLog};$status=${function:Set-Status}
+    $onConfirm={& $log -Area 'Stockage' -Level 'WARN' -Text ('Poursuite sans sauvegarde confirmée par lʼopérateur : '+$label+'.');[void](& $then)}.GetNewClosure()
+    $onCancel={& $status ('Rien nʼa été lancé : la base nʼa pas été modifiée. Réessayez quand la sauvegarde est possible.')}.GetNewClosure()
+    [void](Request-DomeniaInlineConfirmation -Title ('Sauvegarde impossible avant '+$label) -Message ($text+' Vous pouvez réessayer plus tard, ou continuer sans sauvegarde : la base sera alors modifiée sans point de retour récent.') -Target ('storage:gesture-backup:'+[string]$State.Gesture) -ConfirmText 'Continuer sans sauvegarde' -CancelText 'Ne pas lancer' -Risk 'Danger' -OnConfirm $onConfirm -OnCancel $onCancel)
+}
+
 function New-DomeniaStoreContext {
     param([Parameter(Mandatory=$true)][string]$RequestId,[long]$Generation=0,[string]$ScopeDn='',[bool]$Subtree=$true)
     $path=[string]$script:DatabaseScopedPath;$domain=([string]$script:Conn.BaseDn).Trim().ToLowerInvariant()
@@ -847,7 +995,7 @@ function Request-DomeniaStoreRead {
     if([string]$Context.StoreId -cne (Get-DomeniaStoreId ([string]$Context.Path) ([string]$Context.DomainDn))){throw 'Contexte de lecture invalide.'}
     Assert-DomeniaStoreSafeData $Query
     $copy=($Query|ConvertTo-Json -Depth 8 -Compress)|ConvertFrom-Json -ErrorAction Stop
-    $payload=[pscustomobject]@{Action='StoreRead';Path=[string]$Context.Path;StoreId=[string]$Context.StoreId;DomainDn=[string]$Context.DomainDn;Query=$copy;BusyTimeoutMs=1000}
+    $payload=[pscustomobject]@{Action='StoreRead';Path=[string]$Context.Path;StoreId=[string]$Context.StoreId;DomainDn=[string]$Context.DomainDn;Query=$copy}
     return Start-UiTask -Name 'Lecture des donnees enregistrees' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload $payload -SuccessHandler $SuccessHandler -ErrorHandler $ErrorHandler -CallbackState $CallbackState -TimeoutSeconds 120
 }
 

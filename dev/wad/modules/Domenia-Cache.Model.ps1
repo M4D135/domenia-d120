@@ -526,3 +526,127 @@ function Test-DomeniaProtectedAssociationSource {
     param([AllowNull()][string]$Source)
     return (([string]$Source).Trim() -in @('Manual','Saisie manuelle','Import CSV'))
 }
+
+# ---------------------------------------------------------------- FI-12, FI-13, UI-19 : base locale (lot X06)
+function Get-DomeniaSqliteBusyTimeoutMs {
+    # FI-12: lock wait of SQLite (LocalStore.DatabaseBusyTimeoutMs), clamped to 100..5000 ms like every connection.
+    # An absent or unreadable value keeps the documented default of 2 500 ms (Get-WorkerContext applies the same rule).
+    param($Value=$null)
+    $number = 0
+    if (($null -eq $Value) -or (-not [int]::TryParse(([string]$Value).Trim(),[ref]$number))) { return 2500 }
+    return [int][Math]::Max(100,[Math]::Min(5000,$number))
+}
+
+function Test-DomeniaSqliteBusyText {
+    # FI-12: a SQLite lock wait that ran out (SQLITE_BUSY 5, SQLITE_LOCKED 6), as worded by the workers
+    # ('SQLite code 5', 'SQLite step code 5', 'SQLite prepare code 6'), the read worker ('SQLITE_BUSY') or SQLite itself.
+    # The cross-process write lease ('StorageBusy') is another wait and is not counted here.
+    param([AllowNull()][AllowEmptyString()][string]$Text)
+    if ([string]::IsNullOrWhiteSpace($Text)) { return $false }
+    return [bool]($Text -match '(?i)\bSQLITE_(?:BUSY|LOCKED)\b|SQLite (?:prepare |step )?code [56](?!\d)|database (?:table )?is locked')
+}
+
+function Format-DomeniaSqliteBusySummary {
+    # FI-12: one line for the Operations panel; session counters only, nothing is replayed from here.
+    param([int]$Count=0,$LastUtc=$null,$TimeoutMs=2500)
+    $timeout = [string](Get-DomeniaSqliteBusyTimeoutMs $TimeoutMs)
+    if ($Count -le 0) { return ('Base locale : aucune attente de verrou SQLite dépassée dans cette session (délai ' + $timeout + ' ms).') }
+    $text = 'Base locale occupée : ' + [string]$Count + ' attente(s) de verrou SQLite dépassée(s) dans cette session'
+    if ($LastUtc -is [datetime]) { $text += ', la dernière à ' + $LastUtc.ToLocalTime().ToString('HH:mm:ss',[Globalization.CultureInfo]::InvariantCulture) }
+    return ($text + ' (délai ' + $timeout + ' ms, réglage LocalStore.DatabaseBusyTimeoutMs).')
+}
+
+function Get-DomeniaGestureBackupLabel {
+    # FI-13: the gestures that change the local base and are preceded by a verified backup.
+    param([Parameter(Mandatory=$true)][ValidateSet('IndexUpdate','LinkImport','LinkPrune','ParkReset')][string]$Gesture)
+    switch ($Gesture) {
+        'IndexUpdate' { return 'la mise à jour de lʼOU choisie' }
+        'LinkImport' { return 'lʼimport CSV des associations' }
+        'LinkPrune' { return 'le retrait des associations orphelines' }
+        default { return 'lʼoubli des relevés du parc' }
+    }
+}
+
+function Get-DomeniaGestureBackupDecision {
+    # FI-13: a verified backup of this base younger than ReuseMinutes is already the point of return of the gesture;
+    # otherwise a new copy is due before it (StorageBackup worker, rotation of the backup policy). Pure rule.
+    param([AllowEmptyString()][string]$LastSuccessUtc='',[datetime]$NowUtc=[datetime]::UtcNow,[int]$ReuseMinutes=30)
+    $minutes = [Math]::Max(0,$ReuseMinutes)
+    $now = $NowUtc.ToUniversalTime();$last = $null
+    if (-not [string]::IsNullOrWhiteSpace($LastSuccessUtc)) {
+        $parsed = [datetime]::MinValue
+        if ([datetime]::TryParse($LastSuccessUtc,[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::RoundtripKind,[ref]$parsed)) { $last = $parsed.ToUniversalTime() }
+    }
+    if ($null -eq $last) { return [pscustomobject]@{Due=$true;Reason='NoBackup';LastUtc=$null;ReuseMinutes=$minutes} }
+    # A date in the future cannot prove a recent copy: a new one is taken.
+    if ($last -gt $now.AddMinutes(2)) { return [pscustomobject]@{Due=$true;Reason='InvalidClock';LastUtc=$last;ReuseMinutes=$minutes} }
+    if ($last -ge $now.AddMinutes(-$minutes)) { return [pscustomobject]@{Due=$false;Reason='Recent';LastUtc=$last;ReuseMinutes=$minutes} }
+    return [pscustomobject]@{Due=$true;Reason='Stale';LastUtc=$last;ReuseMinutes=$minutes}
+}
+
+function Get-DomeniaGestureBackupNotice {
+    # FI-13: the sentence of the confirmation, true to what the gesture will do.
+    param($Decision=$null)
+    $due = $true;$last = $null;$minutes = 30
+    if ($null -ne $Decision) { $due = [bool](Get-DomeniaMember $Decision 'Due' $true);$last = Get-DomeniaMember $Decision 'LastUtc' $null;$minutes = [int](Get-DomeniaMember $Decision 'ReuseMinutes' 30) }
+    if ((-not $due) -and ($last -is [datetime])) { return ('Point de retour : la sauvegarde vérifiée de ' + $last.ToLocalTime().ToString('HH:mm',[Globalization.CultureInfo]::InvariantCulture) + ' a moins de ' + [string]$minutes + ' min ; aucune nouvelle copie.') }
+    return 'Une sauvegarde vérifiée de la base sera faite avant.'
+}
+
+function Get-DomeniaElapsedText {
+    # 'à lʼinstant', 'il y a 5 min', 'il y a 2 h', 'il y a 3 j' between two UTC times; a future date is named as such.
+    param([datetime]$FromUtc,[datetime]$NowUtc=[datetime]::UtcNow)
+    $span = $NowUtc.ToUniversalTime() - $FromUtc.ToUniversalTime()
+    if ($span.TotalMinutes -lt -5) { return 'à une date future (horloge à vérifier)' }
+    if ($span.TotalMinutes -lt 1) { return 'à lʼinstant' }
+    if ($span.TotalHours -lt 1) { return ('il y a ' + [string][int][Math]::Floor($span.TotalMinutes) + ' min') }
+    if ($span.TotalDays -lt 1) { return ('il y a ' + [string][int][Math]::Floor($span.TotalHours) + ' h') }
+    return ('il y a ' + [string][int][Math]::Floor($span.TotalDays) + ' j')
+}
+
+function Get-DomeniaDatabaseLocationSummary {
+    # UI-19: « Base du domaine example.local · 4,2 Mo · sauvegardée il y a 2 h » instead of the file path, which stays
+    # in the tooltip and the copy button. No backup, or one older than StaleDays, gives a soft alert. Pure rule.
+    param([AllowEmptyString()][string]$Domain='',[long]$Bytes=-1,$LastBackupUtc=$null,[datetime]$NowUtc=[datetime]::UtcNow,[int]$StaleDays=7,[switch]$Demo,[switch]$Missing)
+    if ($Missing) { return [pscustomobject]@{Text='Aucune base locale pour ce domaine pour lʼinstant.';Alert=$false;AlertText=''} }
+    $name = ([string]$Domain).Trim()
+    $head = if ($Demo) { 'Base de démonstration' } elseif ($name) { 'Base du domaine ' + $name } else { 'Base locale' }
+    $size = if ($Bytes -ge 0) { Format-DomeniaSize $Bytes } else { 'taille inconnue' }
+    $alert = $false;$alertText = ''
+    if ($LastBackupUtc -is [datetime]) {
+        $saved = 'sauvegardée ' + (Get-DomeniaElapsedText -FromUtc $LastBackupUtc -NowUtc $NowUtc)
+        if (($NowUtc.ToUniversalTime() - $LastBackupUtc.ToUniversalTime()).TotalDays -gt [Math]::Max(1,$StaleDays)) {
+            $alert = $true;$alertText = 'Dernière sauvegarde il y a plus de ' + [string][Math]::Max(1,$StaleDays) + ' jours : pensez à « Sauvegarder maintenant ».'
+        }
+    }
+    else { $saved = 'jamais sauvegardée';$alert = (-not $Demo);if ($alert) { $alertText = 'Aucune sauvegarde de cette base : pensez à « Sauvegarder maintenant ».' } }
+    return [pscustomobject]@{Text=($head + ' · ' + $size + ' · ' + $saved);Alert=$alert;AlertText=$alertText}
+}
+
+function Get-DomeniaIndexTiles {
+    # DS-09: the four figures of the local base as tiles (accounts, workstations, associations, last update of the
+    # chosen perimeter). The USN, the memory use and the durations stay in the journal. Pure rule, fr-FR figures.
+    param([long]$Users=0,[long]$Computers=0,[long]$Active=0,[long]$Disabled=0,[long]$Links=0,$LastUtc=$null,[datetime]$NowUtc=[datetime]::UtcNow,[switch]$Unreadable)
+    $fr = [Globalization.CultureInfo]::GetCultureInfo('fr-FR')
+    if ($Unreadable) {
+        return @(
+            [pscustomobject]@{Key='Accounts';Caption='Comptes';Value='—';Detail='base illisible'}
+            [pscustomobject]@{Key='Computers';Caption='Postes';Value='—';Detail='base illisible'}
+            [pscustomobject]@{Key='Links';Caption='Associations';Value='—';Detail='base illisible'}
+            [pscustomobject]@{Key='Updated';Caption='Dernière mise à jour';Value='—';Detail='base illisible'}
+        )
+    }
+    $users = [Math]::Max(0L,$Users);$computers = [Math]::Max(0L,$Computers);$links = [Math]::Max(0L,$Links)
+    $active = [Math]::Max(0L,$Active);$disabled = [Math]::Max(0L,$Disabled)
+    $updatedValue = 'Jamais';$updatedDetail = 'aucune lecture complète de ce périmètre'
+    if ($LastUtc -is [datetime]) {
+        $updatedValue = Get-DomeniaElapsedText -FromUtc $LastUtc -NowUtc $NowUtc
+        $updatedDetail = 'le ' + $LastUtc.ToLocalTime().ToString('dd/MM/yyyy HH:mm',[Globalization.CultureInfo]::InvariantCulture)
+    }
+    return @(
+        [pscustomobject]@{Key='Accounts';Caption='Comptes';Value=$users.ToString('N0',$fr);Detail='comptes utilisateurs'}
+        [pscustomobject]@{Key='Computers';Caption='Postes';Value=$computers.ToString('N0',$fr);Detail=($active.ToString('N0',$fr) + ' actifs · ' + $disabled.ToString('N0',$fr) + ' désactivés')}
+        [pscustomobject]@{Key='Links';Caption='Associations';Value=$links.ToString('N0',$fr);Detail='liens utilisateur-poste'}
+        [pscustomobject]@{Key='Updated';Caption='Dernière mise à jour';Value=$updatedValue;Detail=$updatedDetail}
+    )
+}
