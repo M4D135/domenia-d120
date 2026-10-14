@@ -2019,25 +2019,6 @@ function Set-DomeniaControlEnabled {
     try { $control.IsEnabled = $Enabled; return $true } catch { return $false }
 }
 
-function Invoke-DomeniaUiPump {
-    try { [System.Windows.Forms.Application]::DoEvents() } catch { }
-    try {
-        $frame = New-Object System.Windows.Threading.DispatcherFrame
-        $callback = [System.Windows.Threading.DispatcherOperationCallback]{
-            param($state)
-            $state.Continue = $false
-            return $null
-        }
-        [void][System.Windows.Threading.Dispatcher]::CurrentDispatcher.BeginInvoke(
-            [System.Windows.Threading.DispatcherPriority]::Background,
-            $callback,
-            $frame
-        )
-        [System.Windows.Threading.Dispatcher]::PushFrame($frame)
-    }
-    catch { }
-}
-
 function Get-DomeniaEffectiveWorkerResult {
     param($Result,[string[]]$RequiredProperties = @())
     $candidate = $null
@@ -7950,7 +7931,9 @@ function New-DomeniaTreeLoadingItem {
 }
 
 function Add-DomeniaTreeRowsToNode {
-    param($Node,$Rows,[switch]$PumpUi)
+    # Synchronous insertion of a small set of rows. Large branches go through Queue-DomeniaTreeRowsToNode (render timer):
+    # no nested message pump here (FI-20).
+    param($Node,$Rows)
     if ($null -eq $Node) { return 0 }
     $count = 0
     foreach ($row in @(Get-DomeniaTreeRenderRows -Node $Node -Rows $Rows)) {
@@ -7960,7 +7943,6 @@ function Add-DomeniaTreeRowsToNode {
         if ($null -eq $item) { continue }
         [void]$Node.Items.Add($item)
         $count++
-        if ($PumpUi -and (($count % 40) -eq 0)) { Invoke-DomeniaUiPump }
     }
     return $count
 }
@@ -9188,37 +9170,26 @@ function Show-DomeniaOuPicker {
 }
 
 function Move-DomeniaSelectedComputerWithOuPicker {
+    # FI-20 (L20): the move is planned from the selected result row, DN and GUID captured before the OU picker. No
+    # wait for its fiche and no nested message pump: the plan is refused if the selection changed while the OU was
+    # chosen, and the worker reads the object again on the controller and refuses another GUID before moving it.
     try {
         Assert-WriteAllowed
-        $row = Get-DomeniaSelectedGridRow
-        if ($null -eq $row -or [string]$row.Type -ne "Machine") { throw "Selectionne un ordinateur dans la liste." }
-        $dn = [string]$row.DN
-        $name = [string]$row.Name
+        $context = Get-DomeniaSelectionContext
+        if (($null -eq $context) -or ([string]$context.Type -ne "Machine")) { throw "Sélectionnez un ordinateur dans la liste." }
+        $rowIdentity = $context.SelectionIdentity
+        if ($null -eq $rowIdentity) { throw "Ligne sans identité exacte (domaine et GUID) : relancez la recherche, puis sélectionnez de nouveau le poste." }
+        $dn = [string]$rowIdentity.DN
         if ([string]::IsNullOrWhiteSpace($dn)) { throw "DN du poste introuvable." }
         $currentParent = Get-DomeniaParentDn -Dn $dn
-
-        # Force le chargement de la fiche correspondant exactement a la ligne
-        # ciblee. Le selecteur modal laisse le dispatcher traiter ce chargement
-        # pendant que l operateur choisit l'OU.
-        Open-AdObject -Dn $dn -Type "Machine" -Force -SelectionBound
-        $picked = Show-DomeniaOuPicker -ObjectName $name -CurrentParentDn $currentParent
+        $picked = Show-DomeniaOuPicker -ObjectName ([string]$rowIdentity.Name) -CurrentParentDn $currentParent
         if ($null -eq $picked) { return }
         $targetDn = [string]$picked.DN
         if ([string]::IsNullOrWhiteSpace($targetDn)) { return }
-        if ($targetDn -ieq $currentParent) { Set-Status "Le poste est deja dans cette OU. Aucune ecriture AD."; return }
-
-        $deadline = (Get-Date).AddSeconds(3)
-        while ((Get-Date) -lt $deadline -and ($null -eq $script:SelectedObject -or [string]$script:SelectedObject.DN -ine $dn)) {
-            Invoke-DomeniaUiPump
-            Start-Sleep -Milliseconds 60
-        }
-        if ($null -eq $script:SelectedObject -or [string]$script:SelectedObject.DN -ine $dn) {
-            throw "La fiche du poste n a pas pu etre validee avant le deplacement. Aucune ecriture n a ete tentee."
-        }
-
-        Move-SelectedObject -TargetDn $targetDn
+        if ($targetDn -ieq $currentParent) { Set-Status "Le poste est déjà dans cette OU. Aucune écriture AD."; return }
+        Move-SelectedObject -TargetDn $targetDn -RowIdentity $rowIdentity
     }
-    catch { Show-ErrorBox "Deplacement impossible : $($_.Exception.Message)" }
+    catch { Show-ErrorBox "Déplacement impossible : $($_.Exception.Message)" }
 }
 
 function Move-DomeniaSelectedUserWithOuPicker {
@@ -22541,7 +22512,6 @@ function New-DefaultConfig {
             ObjectTtlSeconds = 45
             MaxEntries = 400
             StartupGlobalCache = $false
-            RequireReadyBeforeMainWindow = $false
             WarmRootTree = $true
             WarmRootObjects = $true
             WarmRootObjectLimit = 100
@@ -24909,6 +24879,22 @@ function Get-DomeniaSafetyDescriptor {
     }
 }
 
+function Get-DomeniaRowMoveSafety {
+    # FI-20: freshness descriptor of a result row moved without its fiche. Assert-WObjectFresh reads the object again by
+    # DN on the controller and refuses another objectGUID; no attribute value of the row is relied upon.
+    param([Parameter(Mandatory=$true)]$Identity)
+    if (($Identity -isnot [Domenia.SelectionIdentity]) -or ([string]::IsNullOrWhiteSpace([string]$Identity.DN))) { throw 'Ligne sans identité exacte (domaine et GUID) : rien nʼest envoyé.' }
+    return [pscustomobject]@{
+        ExpectedDn = [string]$Identity.DN
+        ExpectedGuid = [string]$Identity.Guid
+        ExpectedUsn = ''
+        ExpectedWhenChanged = ''
+        Type = [string]$Identity.Type
+        Name = [string]$Identity.Name
+        LoadedAt = [datetime]::Now.ToString('o')
+    }
+}
+
 function Confirm-TextAction {
     param([string]$Message,[string]$Expected,[string]$Title="Confirmation renforcee")
     $form = Show-DomeniaFormDialog `
@@ -25553,9 +25539,11 @@ function Invoke-DomeniaWritePostAction {
             Invoke-DomeniaPostWriteRefresh -Message $message -RefreshObject
         }
         "UpdateDnRefreshObjectBranch" {
-            $newDn = ""
+            $newDn = ""; $oldDn = ""
             try { $newDn = [string]$Result.NewDn } catch { }
-            if (-not [string]::IsNullOrWhiteSpace($newDn) -and $null -ne $script:SelectedObject) { $script:SelectedObject.DN = $newDn }
+            try { $oldDn = [string]$Result.Before.DN } catch { }
+            # FI-20: a row moved without its fiche may leave another object in the fiche; only the moved one follows.
+            if ((-not [string]::IsNullOrWhiteSpace($newDn)) -and ($null -ne $script:SelectedObject) -and ((-not $oldDn) -or ([string]$script:SelectedObject.DN -ieq $oldDn))) { $script:SelectedObject.DN = $newDn }
             Invoke-DomeniaPostWriteRefresh -Message $message -RefreshObject -RefreshBranch
         }
         "GroupMemberRefreshObject" {
@@ -27121,11 +27109,22 @@ $ReadUtc=[DateTime]::UtcNow.ToString('o')
 }
 
 function Move-SelectedObject {
-    param([string]$TargetDn)
+    # -RowIdentity (FI-20): a result row moved without its fiche. Its identity was captured before the OU was chosen and
+    # must still be the current selection; the worker checks the GUID on the controller (Assert-WObjectFresh).
+    param([string]$TargetDn,$RowIdentity=$null)
     try {
-        if($null -eq $script:SelectedObject){return}
+        $rowMove = ($null -ne $RowIdentity)
+        if ($rowMove) {
+            if (($RowIdentity -isnot [Domenia.SelectionIdentity]) -or ([string]::IsNullOrWhiteSpace([string]$RowIdentity.DN))) { Show-ErrorBox 'Ligne sans identité exacte (domaine et GUID) : rien nʼest envoyé.'; return }
+            if (-not (Test-DomeniaIdentityCurrent $RowIdentity (Get-DomeniaCurrentSelectionIdentity))) { Show-ErrorBox 'La sélection a changé pendant le choix de lʼOU : rien nʼest envoyé. Sélectionnez de nouveau le poste.'; return }
+            $objectDn = [string]$RowIdentity.DN
+        }
+        else {
+            if($null -eq $script:SelectedObject){return}
+            $objectDn = [string]$script:SelectedObject.DN
+        }
         $target=($TargetDn+"").Trim();if([string]::IsNullOrWhiteSpace($target)){throw "OU cible vide."}
-        if($target -ieq [string]$script:SelectedObject.DN){throw "La cible ne peut pas etre l objet lui-meme."}
+        if($target -ieq $objectDn){throw "La cible ne peut pas etre l objet lui-meme."}
         # SE-12: the destination is a DN of the connected domain, outside the configuration and DNS partitions.
         $targetCheck = Test-DomeniaWriteTargetDn -Dn $target -BaseDn ([string]$script:Conn.BaseDn)
         if (-not [bool]$targetCheck.Valid) { Show-ErrorBox ([string]$targetCheck.Reason) -Details $target; return }
@@ -27138,7 +27137,8 @@ function Move-SelectedObject {
         if ($parts.Count -gt 0) { $newDn = $parts[0] + ',' + $target }
         $changes = @([pscustomobject]@{ Attribute="distinguishedName"; Kind="Move"; Before=$oldDn; After=$newDn })
         try { $plan = New-DomeniaSelectionWritePlan -OperationId "WriteMoveObject" -Changes $changes -Effects @() } catch { Show-ErrorBox $_.Exception.Message; return }
-        try { $safety = Get-DomeniaSafetyDescriptor } catch { Show-ErrorBox $_.Exception.Message; return }
+        # A row moved without its fiche carries no uSNChanged/whenChanged: the worker checks DN and GUID on the controller.
+        try { $safety = if ($rowMove) { Get-DomeniaRowMoveSafety -Identity $identity } else { Get-DomeniaSafetyDescriptor } } catch { Show-ErrorBox $_.Exception.Message; return }
         $payload=[pscustomobject]@{DN=[string]$plan.Target.DN;TargetDn=$target;Safety=$safety}
         $code=@'
 $targetCheck=Test-DomeniaWriteTargetDn -Dn ([string]$Payload.TargetDn) -BaseDn ([string]$Context.BaseDn)
