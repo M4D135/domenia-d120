@@ -994,14 +994,22 @@ Domenia peut utiliser trois identités indépendantes : l'annuaire, les postes e
 - Découverte : avec Conf.AutoDiscover vrai (défaut), domaine et contrôleur sont découverts ; avec faux, Conf.DOMAINE, Conf.NETBIOS, Conf.SearchBase et Conf.Server s'appliquent.
 - Délais : Auth.LoginTimeoutSeconds (30 s, borné de 8 à 45), Auth.PerServerTimeoutSeconds (6 s par contrôleur), Auth.MaxServerCandidates (4 contrôleurs essayés).
 
-| Vous voyez | Ce que cela veut dire | Que faire |
+Chaque refus s'affiche en une phrase suivie de l'action à mener. Le code Active Directory (52e, 775, 0x80070775…) ne s'affiche pas : il figure dans le texte de « Copier le diagnostic » et dans le journal de connexion.
+
+| Vous voyez | Ce que cela veut dire | Code AD dans le diagnostic |
 |---|---|---|
-| « Identifiant ou mot de passe incorrect. » | Refus d'authentification. | Vérifier les identifiants avant tout nouvel essai. |
-| « Ce compte est verrouille. » ou « Ce compte est desactive. » | Restriction AD. | Lever la restriction ; ne pas multiplier les tentatives. |
-| « Le mot de passe de ce compte a expire. » | Mot de passe expiré. | Le changer par Ctrl+Alt+Suppr, puis réessayer. |
-| « Acces refuse par AD. Consulte le diagnostic. » | Droits ou restrictions du compte. | Lire le journal de connexion. |
-| « Delai depasse. La validation a ete arretee sans bloquer l interface. » | Contrôleur injoignable ou lent. | Vérifier réseau, DNS ou VPN. |
-| « Erreur interne pendant la connexion. Consulte le diagnostic. » | Défaut de Domenia, pas un mauvais mot de passe. | « Copier le diagnostic » et le journal de connexion. |
+| « Identifiant ou mot de passe refusé. Vérifiez la saisie avant un nouvel essai. » | Refus d'authentification. | 52e, 0x8007052E |
+| « Compte inconnu de lʼannuaire. … » | Identifiant ou domaine erroné. | 525 |
+| « Compte verrouillé. Demandez son déverrouillage puis réessayez. » | Compte verrouillé dans AD. | 775, 0x80070775 |
+| « Compte désactivé. Demandez sa réactivation puis réessayez. » | Compte désactivé. | 533 |
+| « Mot de passe expiré. Changez-le (Ctrl+Alt+Suppr, Modifier un mot de passe) puis réessayez. » | Mot de passe expiré. | 532 |
+| « Mot de passe à changer avant la connexion. … » | Changement imposé à la prochaine ouverture de session. | 773 |
+| « Connexion refusée par une restriction du compte. … » | Le plus souvent un mot de passe expiré ; sinon postes ou horaires autorisés. | 52f |
+| « Connexion interdite à cette heure pour ce compte. … » ou « Connexion interdite depuis ce poste pour ce compte. … » | Horaires ou postes autorisés du compte. | 530, 531 |
+| « Compte expiré. … » | Date d'expiration du compte dépassée. | 701 |
+| « Accès refusé par lʼannuaire pendant la connexion. … » | Droits ou restrictions du compte pendant la lecture du domaine. | 0x80070005 |
+| « Contrôleur de domaine injoignable. … » ou « Délai dépassé pendant la connexion. … » | Réseau, DNS ou VPN. | — |
+| « Erreur interne pendant la connexion. Elle ne prouve pas un mauvais mot de passe. … » | Défaut de Domenia. | — |
 
 Les boutons « Ouvrir le journal » et « Copier le diagnostic » de la fenêtre donnent la trace de connexion (chapitre 20).
 
