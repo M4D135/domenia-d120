@@ -11,8 +11,8 @@ if($PSVersionTable.PSEdition -eq 'Core'){
  elseif([Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([Runtime.InteropServices.OSPlatform]::Linux)){$native=$native.Replace('winsqlite3.dll','libsqlite3.so.0')}
 }
 . ([scriptblock]::Create($native));[void](Initialize-DomeniaWinSqliteNative)
-foreach($module in @('Store.Model','Cache.Model','Storage.Worker')){. (Join-Path $wad ('modules/Domenia-'+$module+'.ps1'))}
-$maintenance=Get-DomeniaStorageMaintenanceWorkerCode;$retention=Get-DomeniaStorageRetentionWorkerCode
+foreach($module in @('Common.Model','QueryLibrary.Model','Store.Model','Cache.Model','Storage.Worker')){. (Join-Path $wad ('modules/Domenia-'+$module+'.ps1'))}
+$maintenance=Get-DomeniaStorageMaintenanceWorkerCode;$retention=Get-DomeniaStorageRetentionWorkerCode;$integrity=Get-DomeniaStorageIntegrityWorkerCode;$usageCode=Get-DomeniaStorageUsageWorkerCode
 $ast=[Management.Automation.Language.Parser]::ParseInput($maintenance,[ref]$t,[ref]$e);if($e.Count){throw 'Maintenance worker parse failed'}
 foreach($fn in @($ast.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst]},$true))){. ([scriptblock]::Create($fn.Extent.Text))}
 $folder=Join-Path ([Environment]::GetFolderPath('UserProfile')) ('.domenia-maintenance-'+[guid]::NewGuid().ToString('N'));[void][IO.Directory]::CreateDirectory($folder)
@@ -22,10 +22,16 @@ function Case {param([string]$Name,[scriptblock]$Code);try{& $Code;$cases.Add([p
 function Refused {param([scriptblock]$Code,[string]$Contains='');$caught=$false;try{& $Code|Out-Null}catch{$caught=$true;if($Contains){Expect ($_.Exception.Message -like ('*'+$Contains+'*')) ('refusal '+$Contains)}};Expect $caught 'refused'}
 $schema=@($core.FindAll({param($n)$n -is [Management.Automation.Language.StringConstantExpressionAst] -or $n -is [Management.Automation.Language.ExpandableStringExpressionAst]},$true)|Where-Object{$_.Value -match '^PRAGMA journal_mode=WAL;' -and $_.Value -match 'CREATE TABLE IF NOT EXISTS schema_info'})
 if($schema.Count -ne 1){throw 'Schema count'}
-function New-Database {param([string]$Name,[long]$Revision=7)
+# The AST keeps the here-string unexpanded: the query library tables are inserted exactly as the core does at run time.
+$schemaSql=[string]$schema[0].Value;if($schemaSql.Contains('$(Get-DomeniaQueryLibrarySchema)')){$schemaSql=$schemaSql.Replace('$(Get-DomeniaQueryLibrarySchema)',(Get-DomeniaQueryLibrarySchema))}
+function New-Database {param([string]$Name,[long]$Revision=7,[switch]$NoState)
  $p=Join-Path $folder ($Name+'.db');$db=Open-DomeniaDatabase $p
- try{[void](Invoke-DomeniaDbExec $schema[0].Value $db);$id=Get-DomeniaStoreId $p $domain;[void](Invoke-DomeniaDbExec ("INSERT INTO domenia_store_state(id,store_id,domain_dn,revision) VALUES(1,'$id','$domain',$Revision);") $db)}finally{Close-DomeniaDatabase $db};return $p
+ try{[void](Invoke-DomeniaDbExec $schemaSql $db);$id=Get-DomeniaStoreId $p $domain;if(-not $NoState){[void](Invoke-DomeniaDbExec ("INSERT INTO domenia_store_state(id,store_id,domain_dn,revision) VALUES(1,'$id','$domain',$Revision);") $db)}}finally{Close-DomeniaDatabase $db};return $p
 }
+function New-CorruptFile {param([string]$Name);$p=Join-Path $folder ($Name+'.db');[IO.File]::WriteAllBytes($p,[Text.Encoding]::ASCII.GetBytes(('not a sqlite database '*256)));return $p}
+function Get-TestHash {param([string]$Path);return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash}
+function Run-Integrity {param([string]$Path);$Payload=[pscustomobject]@{Path=$Path;DomainDn=$domain};return & ([scriptblock]::Create($integrity))}
+function Run-Usage {param([string]$Path);$Payload=[pscustomobject]@{Path=$Path};return & ([scriptblock]::Create($usageCode))}
 function Query {param([string]$Path,[string]$Sql,[switch]$Write)
  $db=Open-DomeniaDatabase $Path -ReadOnly:(-not $Write)
  try{if($Write){[void](Invoke-DomeniaDbExec $Sql $db)}else{return @(Invoke-DomeniaDbQuery $Sql $db)}}finally{Close-DomeniaDatabase $db}
@@ -107,6 +113,118 @@ try{
   Refused {Run-Retention $ret $false $p.Fingerprint} 'mesures ont change'
   Query $ret "CREATE TRIGGER refuse_retention BEFORE DELETE ON domenia_observations BEGIN SELECT RAISE(ABORT,'guard'); END;" -Write
   Refused {Run-Retention $ret} 'declencheur'
+ }
+ Case 'Point 31: inspection validates the destination with a write test and states sizes' {
+  $p=New-Database 'location';$dest=Join-Path $folder 'location-new.db'
+  $r=Run-Maintenance Inspect $p $dest
+  Expect ($r.Target.Writable -and $r.Target.Path -ceq $dest) 'destination checked'
+  Expect ($r.Target.RequiredBytes -eq (Get-DomeniaStorageCopyReserve ([long]$r.Source.Bytes))) 'same reserve rule as the model'
+  Expect ([long]$r.Target.FreeBytes -ge -1) 'free space measured or unknown'
+  Expect (-not [IO.File]::Exists($dest)) 'inspection creates no base'
+  Expect (@(Get-ChildItem -LiteralPath $folder -Filter '.domenia-probe-*' -Force).Count -eq 0) 'write probe removed'
+  $text=(Get-DomeniaStorageMaintenancePreview -Mode Move -Inspection $r).Text
+  Expect (($text -like '*réserve exigée*') -and ($text -like '*Retour arrière*') -and ($text -like ('*'+$dest+'*'))) 'preview names destination, reserve and rollback'
+  Refused {Run-Maintenance Inspect $p $p} 'nouveau fichier'
+  Refused {Run-Maintenance Inspect $p (Join-Path (Join-Path $folder 'missing') 'x.db')} 'doit exister'
+ }
+ Case 'Point 32: a base without canonical write can be moved, then rolled back to' {
+  $p=New-Database 'fresh' -NoState;$dest=Join-Path $folder 'fresh-moved.db';$id=[guid]::NewGuid().ToString('D')
+  $preview=Run-Maintenance Inspect $p $dest;Expect ($preview.Source.StoreId -ceq '' -and $preview.Source.Revision -eq 0) 'stateless source accepted for the active base'
+  $r=Run-Maintenance Move $p $dest $id $preview.Source.Fingerprint
+  Expect ($r.Committed -and $r.RedirectWritten -and $r.ActiveReadable -and $r.Revision -eq 1) 'copy identified'
+  Expect ((Query $dest 'SELECT store_id FROM domenia_store_state;')[0].store_id -ceq (Get-DomeniaStoreId $dest $domain)) 'target identity row'
+  Expect ((Query $p 'SELECT store_id FROM domenia_store_state;')[0].store_id -ceq (Get-DomeniaStoreId $p $domain)) 'original receives its own identity before the marker'
+  $back=Run-Maintenance Rollback $p $dest $id;Expect ($back.TargetPath -ceq $p -and -not $back.RedirectWritten) 'rollback to the original'
+ }
+ Case 'Point 34: restore preview dates the backup and compares it with the active base' {
+  $p=New-Database 'compare-active' 12;$b=New-Database 'compare-backup' 4;$dest=Join-Path $folder 'compare-restored.db'
+  Query $p "INSERT INTO ad_objects(object_key,object_guid,object_type,name) VALUES('k1','g1','Machine','PC1'),('k2','g2','Machine','PC2');" -Write
+  Query $b "INSERT INTO ad_objects(object_key,object_guid,object_type,name) VALUES('k1','g1','Machine','PC1');INSERT INTO domenia_store_batches(batch_id,payload_hash,request_id,sequence,revision,committed_at,changes_json) VALUES('b1','h','r',1,4,'2026-01-02T03:04:05.0000000Z','[]');" -Write
+  $r=Run-Maintenance Inspect $p $dest -Source $b
+  Expect ($r.Active.Readable -and $r.Active.Info.Counts.ad_objects -eq 2 -and $r.Source.Counts.ad_objects -eq 1) 'both sides counted'
+  Expect ([string]$r.Source.LastCommitUtc -like '2026-01-02T03:04:05*' -and [string]$r.Source.LastWriteUtc) 'backup dated'
+  $text=(Get-DomeniaStorageMaintenancePreview -Mode Restore -Inspection $r).Text
+  Expect (($text -like '*Sauvegarde choisie*') -and ($text -like '*1 objet(s) AD de moins*')) 'restore preview announces the difference'
+ }
+ Case 'Point 34: restore over a corrupt active base leaves it untouched and writes no marker' {
+  $p=New-CorruptFile 'corrupt-active';$b=New-Database 'corrupt-backup' 5;$dest=Join-Path $folder 'corrupt-restored.db';$before=Get-TestHash $p
+  $preview=Run-Maintenance Inspect $p $dest -Source $b
+  Expect ((-not $preview.Active.Readable) -and (Test-DomeniaStorageUnreadableMessage $preview.Active.Problem)) 'unreadable active reported'
+  $r=Run-Maintenance Restore $p $dest ([guid]::NewGuid().ToString('D')) $preview.Source.Fingerprint -Source $b
+  Expect ($r.Committed -and (-not $r.ActiveReadable) -and (-not $r.RedirectWritten) -and $r.Revision -eq 6) 'restored without marker'
+  Expect ((Get-TestHash $p) -ceq $before) 'corrupt file byte for byte unchanged'
+  Expect ((Query $dest 'SELECT store_id FROM domenia_store_state;')[0].store_id -ceq (Get-DomeniaStoreId $dest $domain)) 'restored copy identified'
+  Refused {Run-Maintenance Move $p (Join-Path $folder 'corrupt-move.db') ([guid]::NewGuid().ToString('D')) 'x'}
+ }
+ Case 'Point 36: unreadable patterns are the same in the model and the maintenance worker' {
+  foreach($text in @('SQLite prepare code 26 : file is not a database','SQLite step code 11 : database disk image is malformed','Integrite SQLite non confirmee.','Controle du stockage impossible : SQLite 26','SQLite step code 5 : database is locked','Domaine de base absent ou different.','SQLite code 110','')){
+   Expect ((Test-MaintWUnreadable $text) -eq (Test-DomeniaStorageUnreadableMessage $text)) ('same decision: '+$text)
+  }
+  Expect (Test-DomeniaStorageUnreadableMessage 'SQLite prepare code 26 : file is not a database') 'corruption recognised'
+  Expect (-not (Test-DomeniaStorageUnreadableMessage 'SQLite step code 5 : database is locked')) 'lock is not corruption'
+ }
+ Case 'Point 36: the integrity worker checks exactly the tables and columns of the model' {
+  $expected=Get-DomeniaStorageSchemaExpectation
+  $tablesText=[regex]::Match($integrity,'\$requiredTables=@\(([^)]*)\)').Groups[1].Value
+  $tables=@([regex]::Matches($tablesText,"'([a-z_]+)'")|ForEach-Object{$_.Groups[1].Value})
+  Expect (($tables -join '|') -ceq (@($expected.Tables) -join '|')) 'same table list'
+  foreach($table in @($expected.Columns.Keys)){
+   $line=[regex]::Match($integrity,'(?m)^\s*'+$table+'=@\(([^)]*)\)').Groups[1].Value
+   $columns=@([regex]::Matches($line,"'([a-z_]+)'")|ForEach-Object{$_.Groups[1].Value})
+   Expect (($columns -join '|') -ceq (@($expected.Columns[$table]) -join '|')) ('same columns for '+$table)
+  }
+  $p=New-Database 'schema-gaps';$db=Open-DomeniaDatabase $p -ReadOnly
+  try{$tables=@(Invoke-DomeniaDbQuery "SELECT name FROM sqlite_master WHERE type='table';" $db|ForEach-Object{[string]$_.name});$columns=@{};foreach($table in @($expected.Columns.Keys)){$columns[$table]=@(Invoke-DomeniaDbQuery ('PRAGMA table_info('+$table+');') $db|ForEach-Object{[string]$_.name})}}finally{Close-DomeniaDatabase $db}
+  Expect (@(Get-DomeniaStorageSchemaGaps -Tables $tables -Columns $columns).Count -eq 0) 'the real schema text has no gap'
+ }
+ Case 'Point 36: integrity check of a healthy base is read-only and clean' {
+  $p=New-Database 'integrity-ok';$before=Get-TestHash $p
+  $r=Run-Integrity $p;$verdict=Get-DomeniaStorageIntegrityVerdict $r
+  Expect ($r.ReadOnly -and $r.Readable -and $verdict.Verdict -ceq 'Sain' -and $verdict.Failed -eq 0) ('healthy verdict: '+$verdict.Text)
+  Expect ((Get-TestHash $p) -ceq $before) 'nothing written by the check'
+ }
+ Case 'Point 36: integrity check reports foreign identity, newer receipts and missing columns' {
+  $p=New-Database 'integrity-bad'
+  Query $p "UPDATE domenia_store_state SET store_id='other';INSERT INTO domenia_store_batches(batch_id,payload_hash,request_id,sequence,revision,committed_at,changes_json) VALUES('b9','h','r',1,99,'2026-01-01T00:00:00Z','[]');DROP TABLE domenia_details;CREATE TABLE domenia_details(object_guid TEXT NOT NULL,result_kind TEXT NOT NULL,request_key TEXT NOT NULL,dn TEXT NOT NULL,attempt_at TEXT NOT NULL,status TEXT NOT NULL,success_at TEXT NOT NULL DEFAULT '',payload TEXT,attempt_payload TEXT,revision INTEGER NOT NULL,PRIMARY KEY(object_guid,result_kind,request_key));" -Write
+  $r=Run-Integrity $p;$verdict=Get-DomeniaStorageIntegrityVerdict $r
+  $failed=@($r.Checks|Where-Object{$_.Status -eq 'Failed'}|ForEach-Object{$_.Id})
+  Expect (($failed -contains 'Identity') -and ($failed -contains 'Receipts') -and ($failed -contains 'Tables')) ('failed checks: '+($failed -join ','))
+  Expect ((@($r.Checks|Where-Object Id -eq 'Tables')[0].Detail -like '*domenia_details.summary_payload*') -and $verdict.Verdict -ceq 'Défaut') 'missing column named, verdict defect'
+ }
+ Case 'Point 36: integrity check of an unreadable file reports it without throwing' {
+  $p=New-CorruptFile 'integrity-corrupt';$r=Run-Integrity $p
+  Expect ((-not $r.Readable) -and @($r.Checks).Count -eq 1 -and $r.Checks[0].Id -eq 'Open' -and $r.Checks[0].Status -eq 'Failed') 'open failure only'
+  Expect ((Get-DomeniaStorageIntegrityVerdict $r).Verdict -ceq 'Défaut') 'defect verdict'
+ }
+ Case 'Point 37: link history keeps every change and the bounds of each period' {
+  $p=New-Database 'history';$cut=[datetime]::UtcNow.AddDays(-30).ToString('o')
+  $sql=[Text.StringBuilder]::new()
+  $rows=@(@('PC1','alice','2026-01-01'),@('PC1','alice','2026-01-02'),@('PC1','alice','2026-01-03'),@('PC1','alice','2026-01-04'),@('PC1','bob','2026-01-05'),@('PC1','ALICE','2026-01-06'),@('PC1','alice','2026-01-07'),@('PC2','carol','2026-01-01'),@('PC2','carol','02/01/2026'),@('PC2','carol','2026-01-03'),@('PC2','carol','2026-01-04'),@('PC4','eve','2026-01-01'),@('PC4','eve','2026-01-02'),@('PC4','eve','2026-01-03'))
+  foreach($row in $rows){$when=if($row[2] -match '^\d{4}'){$row[2]+'T00:00:00Z'}else{$row[2]};[void]$sql.AppendLine("INSERT INTO user_machine_history(user_login,computer_key,computer,source,observed_at) VALUES('"+$row[1]+"','"+$row[0]+"','"+$row[0]+"','Console','"+$when+"');")}
+  [void]$sql.AppendLine("INSERT INTO user_machine_links(computer_key,user_login,computer,source) VALUES('PC4','eve','PC4','Manual');")
+  Query $p $sql.ToString() -Write
+  $cutoffs=[pscustomobject]@{Presence='';Console='';Inventory='';Probe='';Detail='';LinkHistory=$cut}
+  $preview=Run-Retention $p $true '' $cutoffs
+  Expect (@($preview.Counts|Where-Object Family -eq LinkHistory)[0].Rows -eq 3) 'two repeated alice and one repeated carol'
+  $r=Run-Retention $p $false $preview.Fingerprint $cutoffs
+  Expect ($r.Committed -and $r.DeletedRows -eq 3 -and $r.Backup.Verified) 'compaction committed after a verified backup'
+  $left=@(Query $p "SELECT user_login||'@'||observed_at AS v FROM user_machine_history WHERE computer_key='PC1' ORDER BY id;"|ForEach-Object{$_.v})
+  Expect (($left -join ',') -ceq 'alice@2026-01-01T00:00:00Z,alice@2026-01-04T00:00:00Z,bob@2026-01-05T00:00:00Z,ALICE@2026-01-06T00:00:00Z,alice@2026-01-07T00:00:00Z') ('changes and bounds kept: '+($left -join ','))
+  Expect ((Query $p "SELECT count(*) n FROM user_machine_history WHERE computer_key='PC2' AND observed_at='02/01/2026';")[0].n -eq 1) 'unreadable date kept'
+  Expect ((Query $p "SELECT count(*) n FROM user_machine_history WHERE computer_key='PC4';")[0].n -eq 3) 'declared association history untouched'
+  $lines=@(Get-DomeniaStorageRetentionLines -Counts @($preview.Counts) -Cutoffs $cutoffs -DryRun $true)
+  Expect (@($lines|Where-Object{$_ -like 'Historique des associations : 3 observation(s) répétée(s)*'}).Count -eq 1) 'loss of detail announced before'
+ }
+ Case 'Point 39: the composite index exists and the measured reads report their plan' {
+  $p=New-Database 'probes'
+  Query $p "INSERT INTO ad_objects(object_key,object_guid,object_type,name,state,search_key) VALUES('k1','g1','Machine','PC1','Actif','pc1'),('k2','g2','Machine','PC2','Actif','pc2'),('k3','g3','Utilisateur','U1','Actif','u1');" -Write
+  Expect ((Query $p "SELECT count(*) n FROM sqlite_master WHERE type='index' AND name='ix_ad_objects_type_name';")[0].n -eq 1) 'index created by the schema text'
+  $u=Run-Usage $p
+  $names=@($u.ReadProbes|ForEach-Object{$_.Name})
+  Expect (($names -join ',') -ceq 'DirectoryPage,ActiveMachines,FamilyPage,TextSearch') 'four measured reads'
+  Expect ((@($u.ReadProbes|Where-Object Name -eq ActiveMachines)[0].Rows -eq 2) -and (@($u.ReadProbes|Where-Object Name -eq DirectoryPage)[0].Plan -like '*ix_ad_objects_type_name*')) 'rows counted and index used for the typed page'
+  $line=Format-DomeniaStorageReadProbes -Probes @($u.ReadProbes)
+  Expect ($line -like 'Lectures mesurées sur cette base : *') 'measure shown'
  }
 }finally{
  $report=[pscustomobject]@{Suite='StorageMaintenance';Platform=[Environment]::OSVersion.VersionString;PowerShell=$PSVersionTable.PSVersion.ToString();Cases=$cases.ToArray();Total=$cases.Count;Passed=@($cases|Where-Object Passed).Count;Failed=@($cases|Where-Object{-not $_.Passed}).Count;Assertions=$script:checks;NoNetwork=$true;Scope='Temporary SQLite databases; no Active Directory or real-user data.'}
