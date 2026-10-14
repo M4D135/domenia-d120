@@ -71,7 +71,7 @@ Les écritures AD du canal contrôlé `IsWrite` enregistrent un reçu local avan
 
 Limites importantes : les opérations distantes GPUpdate/redémarrage/exécution ne sont pas toutes couvertes par ce reçu AD ; le reçu est local au compte Windows qui exécute l’application ; un administrateur local peut modifier un fichier local ; ce n’est ni un audit signé ni un verrou distribué du domaine. Les précontrôles et l’écriture AD restent séparés : aucune assertion LDAP atomique universelle n’a été ajoutée.
 
-Le dossier de reçus est `%LOCALAPPDATA%\Domenia\Receipts`, protégé pour son utilisateur, SYSTEM et les administrateurs. Les reçus non résolus ne sont jamais purgés automatiquement. Après 512 reçus, un archivage manuel des reçus terminés est nécessaire avant une nouvelle écriture. Une sauvegarde du dossier est préférable à leur suppression.
+Le dossier de reçus est `%LOCALAPPDATA%\Domenia\Receipts`, protégé pour son utilisateur, SYSTEM et les administrateurs. Les reçus non résolus ne sont jamais purgés automatiquement. Au-delà de 384 reçus, les reçus terminés les plus anciens passent dans le sous-dossier `archive` sous le verrou d'écriture, jusqu'à n'en garder que 256 ; les reçus non résolus ne bougent jamais. Au-delà de 512 reçus non résolus, l'écriture est refusée jusqu'à leur vérification. Rien n'est supprimé.
 
 ### Fonctions complémentaires
 

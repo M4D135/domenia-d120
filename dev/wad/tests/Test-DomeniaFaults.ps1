@@ -347,6 +347,32 @@ try {
         Assert-True ($again -match 'reste a verifier' -and $script:BusinessRuns -eq 1) ('Rejeu possible : '+$again)
         Assert-True (@(Get-ReceiptRecords $receipts).Count -eq 1) 'Recu supprime ou duplique.'
     }
+    Test-Case 'Recus : compaction des recus termines, recus non resolus conserves' {
+        Reset-FaultFixture
+        $receipts=Join-Path $temp 'receipts-compact'
+        [void][IO.Directory]::CreateDirectory($receipts)
+        $base=[datetime]::new(2026,1,1,0,0,0,[DateTimeKind]::Utc)
+        for($i=0;$i -lt 400;$i++){
+            $id=('{0:x32}' -f $i)
+            $json=([pscustomobject]@{Format=1;Id=$id;Operation='WriteRename';Domain='dc=example,dc=invalid';Stage='Delivered';PlanFingerprint=('P'+$i);CreatedUtc=$base.AddMinutes($i).ToString('o');UpdatedUtc=$base.AddMinutes($i).ToString('o')}|ConvertTo-Json -Compress)
+            [IO.File]::WriteAllText((Join-Path $receipts ($id+'.json')),$json)
+        }
+        # Oldest of all, unresolved, in another domain: must never move.
+        $openId='ffffffffffffffffffffffffffffffff'
+        $open=([pscustomobject]@{Format=1;Id=$openId;Operation='WriteRename';Domain='dc=other,dc=invalid';Stage='Unknown';PlanFingerprint='OPEN';CreatedUtc=$base.AddDays(-1).ToString('o');UpdatedUtc=$base.AddDays(-1).ToString('o')}|ConvertTo-Json -Compress)
+        [IO.File]::WriteAllText((Join-Path $receipts ($openId+'.json')),$open)
+        $script:BusinessRuns=0
+        $business="`$script:BusinessRuns++`r`n`$DomeniaWriteDispatched=`$true`r`n[pscustomobject]@{Delivered=`$true}"
+        $worker=New-WriteEnvelopeScript -Business $business
+        $failure='';try{[void](& $worker (New-WriteContext $receipts) ([pscustomobject]@{DN=$script:SelectedObject.DN;CorrelationId=[guid]::NewGuid().ToString('N')}))}catch{$failure=$_.Exception.Message}
+        Assert-True ($failure -eq '' -and $script:BusinessRuns -eq 1) ('Ecriture bloquee par les recus termines : '+$failure)
+        $archive=Join-Path $receipts 'archive'
+        $left=@([IO.Directory]::GetFiles($receipts,'*.json'))
+        $moved=@([IO.Directory]::GetFiles($archive,'*.json'))
+        Assert-True ($left.Count -eq 257 -and $moved.Count -eq 145) ('Repartition : '+$left.Count+' / '+$moved.Count)
+        Assert-True ([IO.File]::Exists((Join-Path $receipts ($openId+'.json')))) 'Recu non resolu archive.'
+        Assert-True ([IO.File]::Exists((Join-Path $archive (('{0:x32}' -f 0)+'.json'))) -and [IO.File]::Exists((Join-Path $receipts (('{0:x32}' -f 399)+'.json')))) 'Ordre d archivage inattendu.'
+    }
     Test-Case 'Coupure apres envoi : interface verrouillee en ecriture, sans message de reussite' {
         Reset-FaultFixture
         $state=[pscustomobject]@{Name='Renommer';Correlation='c0de';Capability='Edit';TargetDn=$script:SelectedObject.DN}

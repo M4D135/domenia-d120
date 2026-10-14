@@ -45,6 +45,38 @@ function Write-WReceipt {
         if([IO.File]::Exists($path)){[IO.File]::Replace($tmp,$path,[NullString]::Value,$true)}else{[IO.File]::Move($tmp,$path)}
     }finally{if([IO.File]::Exists($tmp)){[IO.File]::Delete($tmp)}}
 }
+function Invoke-WReceiptCompaction {
+    param([string]$Root,[int]$Keep=256,[int]$Trigger=384)
+    # Caller holds writer.lock. Only terminal receipts move; unresolved ones stay in place for resume.
+    $all=@([IO.Directory]::EnumerateFiles($Root,'*.json')|Select-Object -First 4097)
+    if($all.Count -le $Trigger){return 0}
+    if($all.Count -gt 4096){throw 'Trop de recus : verification manuelle requise.'}
+    $archive=Join-Path $Root 'archive'
+    if (([IO.Directory]::Exists($archive)) -and (((Get-Item -LiteralPath $archive -Force).Attributes -band [IO.FileAttributes]::ReparsePoint))) {throw 'Archive des recus redirigee.'}
+    $terminal=[Collections.Generic.List[object]]::new()
+    foreach($path in $all){
+        $info=[IO.FileInfo]::new($path)
+        # Unreadable or redirected files stay where they are: the callers refuse them explicitly.
+        if ((($info.Attributes -band [IO.FileAttributes]::ReparsePoint)) -or (($info.Length -gt 65536))) {continue}
+        $r=$null
+        try{$r=[IO.File]::ReadAllText($path)|ConvertFrom-Json}catch{continue}
+        if ((($null -eq $r)) -or (($r.Format -ne 1)) -or (([string]$r.Id -notmatch '^[a-f0-9]{32}$')) -or (([IO.Path]::GetFileNameWithoutExtension($path) -cne [string]$r.Id))) {continue}
+        if([string]$r.Stage -notin @('Verified','NotSent','Reviewed','Delivered')){continue}
+        $terminal.Add([pscustomobject]@{Path=$path;Name=[IO.Path]::GetFileName($path);Updated=[string]$r.UpdatedUtc})
+    }
+    $excess=$all.Count-$Keep
+    if ((($excess -le 0)) -or (($terminal.Count -eq 0))) {return 0}
+    [void][IO.Directory]::CreateDirectory($archive)
+    $moved=0
+    # Oldest first (UpdatedUtc is round-trip ISO 8601), so the most recent plans keep their duplicate guard.
+    foreach($t in @($terminal|Sort-Object Updated,Name|Select-Object -First $excess)){
+        $dest=Join-Path $archive $t.Name
+        if([IO.File]::Exists($dest)){continue}
+        [IO.File]::Move($t.Path,$dest)
+        $moved++
+    }
+    return $moved
+}
 function Set-WReceiptStage {
     param([string]$Stage)
     if($null -eq $script:ReceiptRecord){throw 'Recu d operation non initialise.'}
@@ -76,9 +108,14 @@ function New-WReceipt {
 function Get-DomeniaReceiptWorkerCode {
 return @'
 $root=Get-WReceiptRoot $Context
-# Never remove unresolved records. Bounded enumeration refuses ambiguity rather than skipping it.
+# Never remove unresolved records. Terminal receipts beyond the working set move to archive\ under the writer lock.
 $files=@([IO.Directory]::EnumerateFiles($root,'*.json')|Select-Object -First 513)
-if($files.Count -gt 512){throw 'Trop de recus : archivage manuel des recus termines requis.'}
+if($files.Count -gt 384){
+    $compactLock=[IO.File]::Open((Join-Path $root 'writer.lock'),[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
+    try{$null=Invoke-WReceiptCompaction $root}finally{$compactLock.Dispose()}
+    $files=@([IO.Directory]::EnumerateFiles($root,'*.json')|Select-Object -First 513)
+}
+if($files.Count -gt 512){throw 'Plus de 512 recus non resolus : verification manuelle requise.'}
 $rows=[Collections.Generic.List[object]]::new()
 foreach($path in $files){
     $item=Get-Item -LiteralPath $path -Force

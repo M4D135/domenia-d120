@@ -574,11 +574,11 @@
     "Load-UserMachineLinks": "D588E9FAB3DB852FD760624C2A463CDEA8A5B97BAF550C273F8C7C1B2CB7776D",
     "ConvertTo-DomeniaCanonicalWorkerCode": "48A6A851309CF03C8AA4802B160FC0C9D3234B795C63D0BAED6923BF42FE2FAF",
     "Get-DomeniaWorkerCodeHash": "6B81660F207AAEB37BA076144EDD12F5A926F9F64858B03755C2567E335C0D16",
-    "Get-DomeniaWorkerOperationHashes": "C7D1BF83CB50D999E24D8CD57A041E9FC80463772F13E8D7DFF6A72E8B6B74D4",
-    "Assert-DomeniaWorkerRegistry": "D24C5FBBD0B1D6933EC648FDAFC5590C5E7ED1C8A6AF598D95036E5213661CB2",
+    "Get-DomeniaWorkerOperationHashes": "CA775DA84184391394A8B9CC03A8C3B7D907F8A23FBBFBE4B237A8406C93519F",
+    "Assert-DomeniaWorkerRegistry": "E4F34E73CC036A93290B7546AC31B08F3B73D2B523AE06A0029294975CDF73C3",
     "Assert-DomeniaWorkerOperationCode": "41D63871EDC11F5765938E6DAF8004A01471CD63E9666E2569D6E43008032526",
     "Get-DomeniaWorkerEngineSelfTestCode": "7FB07491846A78A89C13351DC07ABCA7B150642EE02AA25FF430A19942001AF0",
-    "New-DomeniaWorkerRunspace": "9423A2EBA61D40C25DA91B620C22D2F16EA24680FFCE5C962A098809F82CC4F0",
+    "New-DomeniaWorkerRunspace": "C39E92B423D3B448B91B25EE502B6AD3D8C382E6AB63F231965C20B2AC3D5775",
     "Register-DomeniaAsyncEngineFault": "14709EEBE7562BDB54D51C9363338C487C3CC4D257D0D109B4185664513EBDB1",
     "Initialize-AsyncEngine": "20D2744EE16208A3F78A219F60F0CFF99C5BD288269A584BC4994E9BF320E426",
     "Get-AllWriteControlNames": "9DA88E1B41144E58C2815AF7DE66BF04CE0398971D76A1C816011D142654BB37",
@@ -3505,6 +3505,19 @@
       "AddedCoreFunctions": [
         "Get-DomeniaMembershipLabel"
       ],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": ".",
+      "Source": ".",
+      "Decision": "Point 38 : compaction des recus termines (Invoke-WReceiptCompaction) dans l enveloppe d ecriture et le worker des recus ; contrats re-epingles apres relecture.",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Get-DomeniaWorkerOperationHashes",
+        "New-DomeniaWorkerRunspace"
+      ],
+      "AddedCoreFunctions": [],
       "RemovedCoreFunctions": [],
       "ChangedPayloads": []
     }

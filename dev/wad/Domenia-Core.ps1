@@ -23823,7 +23823,7 @@ function Get-DomeniaWorkerOperationHashes {
         LiveDirectoryCheck    = "3F2FC63D6095DB5F81F03C392279FCABC849676BF71040794FE2FF6CA98ED5BD"
         SessionsList         = "DD09187778C09CF31B0BDA41EAC88FF898D9484756AFDF2F3EE643E6B5318BF6"
         RemoteCredentialCheck = "9070C7A5D9460D0FD129FD67CD5070595DE4DED7CA7EE7573C65AF102B0E515B"
-        ReceiptStore         = "45FE35D694782ECB8B13D14C5B3CD637FD5CA1C4B0E6CD278EEE3AC5804121D1"
+        ReceiptStore         = "B4332EE256364515B6037EDA97CACB93F8D7C58723BC957200C58E25E8CE644C"
         ScopeReconcile       = "5917B0E2AB92BA626EF3621CCCE7B9A4988B318E62834EFD02FD6AFEF5C0B650"
         DocumentStore        = "BFD83587CB1BA62BC141E5F0742C6C6453A561617ED157045F3B4E7AB11A14E7"
         LocalStore           = "367323BD4DB55DB33FF67526485920454A2F3725D99D78C493CFFA1C9BDF0662"
@@ -23842,7 +23842,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "4190A24AED64B0B3AD313836B94F45C9E1E4F74C4BF853553B6003CC186BD922"
+    $expectedFingerprint = "25639C7486F7F13D9A6256430A2551F889532C8A1088ECC5FF6705F7DB7772E5"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -23917,8 +23917,9 @@ $DomeniaWriteDispatched=$false;$receiptLock=$null
 try {
     $root=Get-WReceiptRoot $Context
     $receiptLock=[IO.File]::Open((Join-Path $root 'writer.lock'),[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
+    $null=Invoke-WReceiptCompaction $root
     $pendingFiles=@([IO.Directory]::EnumerateFiles($root,'*.json')|Select-Object -First 513)
-    if($pendingFiles.Count -gt 512){throw 'Archivage des recus termines requis avant une nouvelle operation.'}
+    if($pendingFiles.Count -gt 512){throw 'Plus de 512 recus non resolus : verification requise avant une nouvelle operation.'}
     foreach($pendingFile in $pendingFiles){
         if((Get-Item -LiteralPath $pendingFile -Force).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Recu redirige refuse.'}
         if(([IO.FileInfo]::new($pendingFile)).Length -gt 65536){throw 'Recu invalide a verifier.'}
