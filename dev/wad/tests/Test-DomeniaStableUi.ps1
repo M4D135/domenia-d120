@@ -70,7 +70,7 @@ try {
             $null=Parse-Source $p
         }
         $ast=Parse-Source (Join-Path $wad 'Domenia-Core.ps1')
-        foreach($name in @('Get-MainXaml','Get-DomeniaStandardLoginXaml','Get-DomeniaBootThemePalette','Get-DomeniaBootThemeResources','Convert-DomeniaXamlToBootTheme','Set-DomeniaFastLoginBusy','Add-DomeniaFastLoginDetail')){Import-TestFunction $ast $name}
+        foreach($name in @('Get-MainXaml','Get-DomeniaStandardLoginXaml','Get-DomeniaBootThemePalette','Get-DomeniaBootThemeResources','Convert-DomeniaXamlToBootTheme','Get-DomeniaFastLoginVaultIdentity','Update-DomeniaFastLoginVaultUi','Set-DomeniaFastLoginBusy','Add-DomeniaFastLoginDetail')){Import-TestFunction $ast $name}
         $ast=Parse-Source (Join-Path $wad 'modules\Domenia-UX.UI.ps1')
         Import-TestFunction $ast 'Initialize-DomeniaUxLoginPresentation'
         $ast=Parse-Source (Join-Path $wad 'modules\Domenia-Experience.UI.ps1')

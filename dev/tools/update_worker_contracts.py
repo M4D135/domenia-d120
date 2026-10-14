@@ -19,6 +19,39 @@ def function(source,name):
     a,b=spans[0];return source[a:b]
 def literal_bodies(fn):
     return [m[2] for m in re.finditer(r'@([\'"])\n(.*?)\n^\1@',fn,re.M|re.S)]
+def composed_body(item):
+    """Mirror the closed generators from reviewed source; never run application code or user data."""
+    source=(ROOT/item['File']).read_text('utf-8-sig')
+    fn=function(source,item['Function'])
+    literal=literal_bodies(fn)[item['LiteralIndex']]
+    operation=item['Operation']
+    lease=(ROOT/'wad/modules/Domenia-StorageLease.Model.ps1').read_text('utf-8-sig')
+    if operation=='LocalStore':
+        definitions=[]
+        for name in ['Common.Model','HealthRules.Model','Boards.Model','Probes.Model','Query.Model','QueryLibrary.Model']:
+            text=(ROOT/('wad/modules/Domenia-'+name+'.ps1')).read_text('utf-8-sig')
+            spans=sorted(span for group in functions(text).values() for span in group)
+            definitions.extend(text[a:b] for a,b in spans)
+        model=(ROOT/'wad/modules/Domenia-QueryLibrary.Model.ps1').read_text('utf-8-sig')
+        definitions.append(literal_bodies(function(model,'Get-DomeniaQueryLibraryDefinitionValidationCode'))[0])
+        return lease+'\n'+'\n'.join(definitions)+'\n'+literal
+    if operation in ('StorageUsage','StoragePurge','StorageBackup','LiveCache'):
+        return lease+'\n'+literal
+    if operation=='StorageMaintenance':
+        backup=function((ROOT/'wad/modules/Domenia-Storage.Worker.ps1').read_text('utf-8-sig'),'Get-DomeniaStorageBackupWorkerCode')
+        body=lease+'\n'+literal_bodies(backup)[0]
+        marker="function Get-DomeniaDatabasePath {throw 'Chemin de base explicite requis pour la sauvegarde.'}"
+        return body[:body.index(marker)]+literal
+    if item['Function']=='Get-DomeniaLiveProbeCode':
+        model=(ROOT/'wad/modules/Domenia-ProbeDetails.Model.ps1').read_text('utf-8-sig')
+        definitions=[]
+        for name in ['ConvertTo-DomeniaProbeDetailValue','ConvertTo-DomeniaProbeDetailInstance','New-DomeniaProbeDetailProjection']:
+            body=function(model,name)
+            definition=body[body.index('{')+1:body.rfind('}')]
+            definitions.append('function '+name+' {\n'+definition+'\n}')
+        return '\n'.join(definitions)+'\n'+literal
+    return literal
+
 def locate(name,file=None):
     """Repository-relative file that defines the function exactly once (core or a module)."""
     candidates=[ROOT/file] if file else [ROOT/'wad/Domenia-Core.ps1']+sorted((ROOT/'wad/modules').glob('*.ps1'))
@@ -66,7 +99,7 @@ def main(argv=None):
     if set(registered)!={i['Operation'] for i in items}:raise ValueError('Operation list differs: audit contract metadata manually first (or use --add / --remove).')
     for item in items:
         path=ROOT/item['File'];source=path.read_text('utf-8-sig');fn=function(source,item['Function'])
-        body=literal_bodies(fn)[item['LiteralIndex']]
+        body=composed_body(item)
         h=hashlib.sha256(body.encode('utf-8')).hexdigest().upper()
         if h!=registered[item['Operation']] and item['Operation'] not in (a.add or [])[:1]:changes.append(item['Operation'])
         getter=re.sub(r'(\b'+re.escape(item['Operation'])+r'\s*=\s*")[A-F0-9]{64}(\")',lambda m:m[1]+h+m[2],getter)

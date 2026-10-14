@@ -1,5 +1,6 @@
 ﻿# Tableaux de bord en widgets (decision David 2026-10-07) : catalogue, representations par type de donnee,
 # tailles, disposition enregistree et migration des widgets de la premiere version. Regles pures, aucune interface.
+. (Join-Path $modules 'Domenia-HealthRules.Model.ps1')
 . (Join-Path $modules 'Domenia-Boards.Model.ps1')
 
 Test-Case 'BRD-001' 'Le catalogue de chaque tableau a des cles uniques, un type et une representation permise' {
@@ -40,7 +41,7 @@ Test-Case 'BRD-004' 'Sans reglage, la disposition livree contient le catalogue l
     Assert-Equal 'Vue d ensemble' ([string]$layout[0].Group)
     # Lot L01: the home overview is delivered without the observation widgets nor any WMI query.
     $fleet = @(ConvertTo-DomeniaBoardLayout -Board Fleet -Json '')
-    Assert-Equal 'fleet.health,fleet.attention,fleet.machines,fleet.stale,fleet.disabled,fleet.created,fleet.pwdold,fleet.laps,fleet.bitlocker,fleet.versions,fleet.eos,fleet.win10,fleet.os,fleet.lastlogon,fleet.ou' (@($fleet | ForEach-Object { [string]$_.Key }) -join ',')
+    Assert-Equal 'fleet.health,fleet.attention,fleet.machines,fleet.enabled,fleet.accountstatus,fleet.stale,fleet.disabled,fleet.created,fleet.pwdold,fleet.laps,fleet.bitlocker,fleet.versions,fleet.eos,fleet.win10,fleet.os,fleet.lastlogon,fleet.ou' (@($fleet | ForEach-Object { [string]$_.Key }) -join ',')
     Assert-Equal 'Santé' ([string]$fleet[0].Group)
     Assert-Equal 0 @($fleet | Where-Object { ([string]$_.Source -eq 'Probe') -or ([string]$_.Key -in @('fleet.presence','fleet.users','fleet.lastcheck','fleet.models','fleet.releases','fleet.ram','fleet.diskfree','fleet.lowdisk','fleet.uptime')) }).Count 'aucun widget d observation livre'
     Assert-True (@(Get-DomeniaBoardCatalog -Board Fleet | Where-Object { $_.Key -eq 'fleet.presence' }).Count -eq 1) 'widget d observation toujours au catalogue'
@@ -153,20 +154,20 @@ Test-Case 'BRD-012' 'Score du parc proportionnel : 22 sur 26 et paliers' {
     $warn = @([pscustomobject]@{ Level = 'Warn'; Text = 'x' })
     $h = Get-DomeniaFleetHealth -Total 26 -Healthy 22 -Attention $warn
     Assert-Equal 84 $h.Score; Assert-Equal 'À surveiller' $h.Verdict; Assert-Equal 'Warn' $h.State
-    Assert-Equal '22 postes sur 26 sans problème' $h.Detail
+    Assert-Equal '22 postes sur 26 évalués sans point détecté · 0 non évalué(s)' $h.Detail
     Assert-Equal 'Bon état' (Get-DomeniaFleetHealth -Total 10 -Healthy 9 -Attention $warn).Verdict
     Assert-Equal 'Dégradé' (Get-DomeniaFleetHealth -Total 4 -Healthy 2 -Attention $warn).Verdict
     Assert-Equal 'Alert' (Get-DomeniaFleetHealth -Total 4 -Healthy 2 -Attention $warn).State
     $critical = Get-DomeniaFleetHealth -Total 2000 -Healthy 1999 -Attention @([pscustomobject]@{ Level = 'Alert'; Text = 'x' })
     Assert-Equal 99 $critical.Score 'Un poste sur 2000 ne fait pas tomber le score'
     Assert-Equal 'Critique' $critical.Verdict
-    Assert-Equal 'Bon état' (Get-DomeniaFleetHealth -Total 0 -Healthy 0).Verdict
+    Assert-Equal 'Aucun poste évalué' (Get-DomeniaFleetHealth -Total 0 -Healthy 0).Verdict
     $data = New-DomeniaBoardData -Board Fleet
     Add-Member -InputObject $data -MemberType NoteProperty -Name 'Population' -Value ([pscustomobject]@{ Total = 26; Healthy = 22 })
     Add-DomeniaBoardAttention -Data $data -Level Warn -Text 'Quatre postes inactifs.'
     [void](Complete-DomeniaBoardData -Data $data)
     Assert-Equal 84 $data.Entries['fleet.health'].Number
-    Assert-Equal '22 postes sur 26 sans problème' ([string]$data.Entries['fleet.health'].Detail)
+    Assert-Equal '22 postes sur 26 évalués sans point détecté · 0 non évalué(s)' ([string]$data.Entries['fleet.health'].Detail)
 }
 Test-Case 'BRD-013' 'Ancienne disposition livree du parc migree, disposition personnalisee conservee' {
     $old = @(foreach ($line in ([string]$script:DomeniaFleetLegacyLayoutText -split "`n")) { $text = $line.Trim(); if ($text) { $c = $text -split '\|'; [pscustomobject]@{ Id = ('b-' + $c[0]); Source = 'Builtin'; Key = $c[0]; Visual = $c[2]; Title = ''; Size = $c[3]; Group = $c[1] } } })
@@ -276,7 +277,7 @@ Test-Case 'BRD-017' 'TE-07 : pare-feu, etat effectif par profil, la strategie pr
 Test-Case 'BRD-018' 'UX-23 : score partiel sans lecture de la securite, badge et bouton Inventaire complet' {
     $partial = Get-DomeniaComputerBoardData -Result (New-BrdInventory -Rows @())
     $health = $partial.Entries['computer.health']
-    Assert-Equal ('Partiel : s' + [char]0x00E9 + 'curit' + [char]0x00E9 + ' non v' + [char]0x00E9 + 'rifi' + [char]0x00E9 + 'e') ([string]$health.Badge)
+    Assert-Equal 'Partiel : antivirus, pare-feu ou BitLocker non lu' ([string]$health.Badge)
     Assert-Equal 'InventoryFull' ([string]$health.Action.Id) 'inventaire complet propose, lance seulement au clic'
     $read = Get-DomeniaComputerBoardData -Result (New-BrdInventory -Rows (Get-BrdSecureRows))
     Assert-Equal '' ([string]$read.Entries['computer.health'].Badge)
@@ -327,7 +328,7 @@ Test-Case 'BRD-020' 'CO-09 : horloge comparee au controleur, libelles du compte 
     Assert-True (@(Get-BrdTexts $late | Where-Object { $_ -like 'Alert:Horloge d*cal*e de 400 s par rapport au contr*leur*Kerberos*' }).Count -eq 1) ((Get-BrdTexts $late) -join ' | ')
     $admin = Get-DomeniaComputerBoardData -Result (New-BrdInventory -Rows (Get-BrdSecureRows) -ClockSkew 0) -Object $object
     Assert-Equal ([string][char]0x00C0 + ' l' + [char]0x02BC + 'heure') ([string]$admin.Entries['computer.ad.clock'].Value)
-    Assert-Equal 'Actif' ([string]$admin.Entries['computer.ad.account'].Value)
+    Assert-Equal 'Activé' ([string]$admin.Entries['computer.ad.account'].Value)
     Assert-True ([string]$admin.Entries['computer.ad.clock'].Detail -like '*poste d*administration (contr*leur non lu)') ([string]$admin.Entries['computer.ad.clock'].Detail)
     $localLate = Get-DomeniaComputerBoardData -Result (New-BrdInventory -Rows (Get-BrdSecureRows) -ClockSkew 400 -ClockReference 'Poste') -Object $object
     Assert-Equal 'Warn' ([string]$localLate.Entries['computer.ad.clock'].State) 'local comparison cannot establish domain authentication failure'

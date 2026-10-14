@@ -1,0 +1,19 @@
+{
+    "Name":  "Test-DomeniaSearchTimeout",
+    "PID":  2520,
+    "RunnerPID":  1092,
+    "StartedUTC":  "2026-10-13T16:00:18.9541992Z",
+    "Executable":  "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+    "Arguments":  [
+                      "-NoLogo",
+                      "-NoProfile",
+                      "-NonInteractive",
+                      "-STA",
+                      "-File",
+                      "C:\\DomeniaLab\\search-progress-20261013-r2\\source\\dev\\wad\\tests\\Test-DomeniaSearchTimeout.ps1",
+                      "-ReportPath",
+                      "C:\\DomeniaLab\\search-progress-20261013-r2\\proof\\Test-DomeniaSearchTimeout.json"
+                  ],
+    "ScriptSha256":  "5ee3cf100abc3c9f8da99cef6a34cc1ff0bb9fd1d1988da4fd725ca0b3a9e06e",
+    "TimeoutSeconds":  120
+}

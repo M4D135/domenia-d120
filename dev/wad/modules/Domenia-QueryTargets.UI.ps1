@@ -93,16 +93,30 @@ function Show-DomeniaComputerQueryWorkshop {
     Show-DomeniaWorkshopComputerPreview
 }
 function Add-DomeniaWorkshopWidget {
-    $recipe=Save-DomeniaQueryRecipe (Get-DomeniaQueryDraft);Set-DomeniaQueryDraft $recipe
+    $recipe=Get-DomeniaQueryDraft
+    # Give copies their permanent identity before creating the transactional widget dependency.
+    if([string]$recipe.Id -like 'template.*'){$recipe=New-DomeniaQueryRecipe -Name $recipe.Name -Junction $recipe.Junction -Clauses @($recipe.Clauses) -GroupBy ([string](Get-DomeniaMember $recipe 'GroupBy')) -Refinements @(Get-DomeniaMember $recipe 'Refinements' @()) -ProbeSelection (Get-DomeniaMemberValue $recipe 'ProbeSelection') -ObjectIds (Get-DomeniaMemberValue $recipe 'ObjectIds') -Parameters @(Get-DomeniaMember $recipe 'Parameters' @()) -ParameterValues (Get-DomeniaMemberValue $recipe 'ParameterValues') -Expression (Get-DomeniaMemberValue $recipe 'Expression') -CoherenceHours (Get-DomeniaMemberValue $recipe 'CoherenceHours') -ReadDefinition (Get-DomeniaMemberValue $recipe 'ReadDefinition')}
+    $board=if([string](Get-DomeniaControl 'CmbQueryWidgetDestination').SelectedItem.Tag -eq 'Computer'){'Computer'}else{'Fleet'}
+    $visual=[string](Get-DomeniaControl 'CmbQueryWidgetVisual').SelectedItem.Tag;if($visual -notin @('Kpi','Text','Bar','Pie','Column')){$visual='Kpi'}
+    $existing=@(Get-DomeniaBoardLayout $board|Where-Object{$_.Source -eq 'Query' -and $_.Key -eq $recipe.Id}|Select-Object -First 1)
+    $item=if($existing.Count){$existing[0]}else{New-DomeniaBoardItem -Source Query -Key $recipe.Id -Visual $visual -Size M -Group 'Mes sondes' -Title $recipe.Name}
+    $state=[pscustomobject]@{DraftGeneration=$script:DomeniaQueryState.Generation;Destination=$board;Visual=$visual;Item=$item}
+    [void](Save-DomeniaQueryRecipe -Recipe $recipe -SuccessHandler 'Complete-DomeniaWorkshopWidgetSave' -CallbackState $state -AdditionalDependencies @([pscustomobject]@{ConsumerKind=$board;ConsumerId=[string]$item.Id}))
+    [void](Set-DomeniaControlText 'LblQueryStatus' 'Enregistrement de la requête et de son lien avant création du widget…')
+}
+function Complete-DomeniaWorkshopWidgetSave {
+    param($Recipe,$Record,$State)
+    $sameDraft=($null -ne $script:DomeniaQueryState -and [long]$State.DraftGeneration -eq [long]$script:DomeniaQueryState.Generation)
+    # The confirmed user action installs its captured widget; a later draft is never replaced.
+    if($sameDraft){Set-DomeniaQueryDraft $Recipe}
     $destination=Get-DomeniaControl 'CmbQueryWidgetDestination';$visualControl=Get-DomeniaControl 'CmbQueryWidgetVisual'
-    $board=if($null -ne $destination -and [string]$destination.SelectedItem.Tag -eq 'Computer'){'Computer'}else{'Fleet'}
-    $visual=if($null -ne $visualControl){[string]$visualControl.SelectedItem.Tag}else{'Kpi'}
+    $board=if([string]$State.Destination -eq 'Computer'){'Computer'}else{'Fleet'}
+    $visual=[string]$State.Visual
     if($visual -notin @('Kpi','Text','Bar','Pie','Column')){$visual='Kpi'}
     $layout=@(Get-DomeniaBoardLayout $board);$existing=@($layout|Where-Object{$_.Source -eq 'Query' -and $_.Key -eq $recipe.Id}|Select-Object -First 1)
     if($existing.Count){$layout=@(Update-DomeniaBoardItem -Layout $layout -Id $existing[0].Id -Changes @{Visual=$visual;Title=$recipe.Name});$id=$existing[0].Id}
-    else{$item=New-DomeniaBoardItem -Source Query -Key $recipe.Id -Visual $visual -Size M -Group 'Mes sondes' -Title $recipe.Name;$id=$item.Id;$layout=@(Add-DomeniaBoardItem $layout $item)}
+    else{$item=$State.Item;$id=$item.Id;$layout=@(Add-DomeniaBoardItem $layout $item)}
     Set-DomeniaBoardLayout -Board $board -Layout $layout -Undo 'Ajout ou mise à jour de la requête' -Highlight $id
-    if($board -eq 'Fleet'){Start-DomeniaQueryEvaluation}
-    else{Show-DomeniaWorkshopComputerPreview}
+    if($sameDraft){if($board -eq 'Fleet'){Start-DomeniaQueryEvaluation}else{Show-DomeniaWorkshopComputerPreview}}
     [void](Set-DomeniaControlText 'LblQueryStatus' ('Requête enregistrée et ajoutée au tableau de bord '+$(if($board -eq 'Computer'){'Poste'}else{'général'})+'. Sa disposition est conservée. Aucune collecte lancée.'))
 }

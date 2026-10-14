@@ -186,6 +186,8 @@ function Load-DomeniaFavouriteSearch {
     $v=$v[0]
     if(-not (Test-DomeniaDraftNavigation '')){return}
     if(Test-DomeniaAccessBusyWrite){Set-Status 'Favori non affiché : une écriture est active ou à vérifier.' 'WARN';return}
+    Stop-DomeniaFavouriteTreeReveal
+    if($null -ne $script:Continuity){$script:Continuity.Restoring=$false;$script:Continuity.RestoreSearch=$null}
     # UX-25: the list being left is saved before the favourite changes the type and the local filter shown with it.
     $navEntered=$false
     if($null -ne (Get-Command Enter-DomeniaNavSearch -CommandType Function -ErrorAction SilentlyContinue)){Enter-DomeniaNavSearch;$navEntered=[bool]$script:NavSearchLaunching}
@@ -198,14 +200,11 @@ function Load-DomeniaFavouriteSearch {
             $check=Get-DomeniaControl 'ChkSubtree';if($null -ne $check){$check.IsChecked=[bool]$v.Subtree}
             $combo=Get-DomeniaControl 'CmbGlobalType';if($null -ne $combo){foreach($item in $combo.Items){if([string]$item.Content -eq [string]$v.Type){$combo.SelectedItem=$item;break}}}
             $filter=Get-DomeniaControl 'TxtSuiteResultFilter';if($null -ne $filter){$filter.Text=[string]$v.Term}
-            $tree=Get-DomeniaControl 'TvDirectory'
-            if($null -ne $tree -and $null -ne (Get-Command Get-DomeniaRealizedTreeNodes -CommandType Function -ErrorAction SilentlyContinue)){
-                foreach($n in (Get-DomeniaRealizedTreeNodes)){if([string]$n.Tag.DN -ieq [string]$v.DN){$n.IsSelected=$true;try{$n.BringIntoView()}catch{};break}}
-            }
         } finally {$script:RestoringSettings=$oldRestore;$script:SuppressBranchAutoLoad=$oldSuppress}
         Update-DomeniaSearchScopeUi;Select-DomeniaWorkspace -Workspace 'WsSearch'
         $generation=[int]$script:GlobalSearchGeneration
         Invoke-GlobalSearch -SearchMode OU
+        Start-DomeniaFavouriteTreeReveal -Dn ([string]$v.DN)
         # CO-21: the term of a favourite filters only the rows read (within the result limit), not the directory.
         if([string]$v.Term -and [int]$script:GlobalSearchGeneration -ne $generation){
             $limitBox=Get-DomeniaControl 'TxtGlobalLimit';$limit=if($null -ne $limitBox){[string]$limitBox.Text}else{''}

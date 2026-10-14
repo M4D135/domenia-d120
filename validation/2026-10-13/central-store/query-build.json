@@ -1,0 +1,11 @@
+{
+  "Path": "dev/wad/modules/M4D.Admin.Common.Query.dll",
+  "SHA256": "8150785C4D4EE2877177439C846CEC49AD7945FDF1049A130C5D6D86FE843BD6",
+  "SourceSHA256": "9A309EA3F30F0CB53855F950EAEA0887566D5ABBAE339F975162DDCB62F11D05",
+  "SourceHashFormat": "SHA256 of QueryEngine.cs file bytes",
+  "Version": "0.1.1-domenia.1",
+  "TargetFramework": "net472",
+  "CompilerSHA256": "84DB9210DD34459DB6E7B1D00130D5ADA5BC1BBC4E40D425AFA9CBC70FFD5865",
+  "CompilerVersion": "4.9.0.0",
+  "PowerShell": "7.4.20"
+}

@@ -1026,6 +1026,7 @@ function Complete-DomeniaRelationsComputerProbe {
     # name is never the AD account (Test-DomeniaAccountIdentityMatch). Only a current session (Console or
     # SessionRdp) creates a relation; LogonUI, profiles and logon events are history and stay a clue.
     param($Result,$State)
+    if([string](Get-DomeniaMemberValue $Result 'DataSource') -cne 'SQLite'){return}
     $computer='';$probeId=''
     try{$computer=Normalize-LinkComputer ([string]$State.Computer)}catch{}
     try{$probeId=[string]$State.ProbeId}catch{}
@@ -1055,14 +1056,14 @@ function Complete-DomeniaRelationsComputerProbe {
         $source=[string]$effective.Source;$kind=Get-DomeniaRelationKind $source
         $target=[pscustomobject]@{Login=$user;NetbiosDomain=[string]$script:Conn.Netbios;DnsDomain=[string]$script:Conn.Domain;Sid=[string](Get-DomeniaMember $effective 'UserSid' '');Upn=[string](Get-DomeniaMember $effective 'UserUpn' '')}
         $match=Test-DomeniaAccountIdentityMatch $target $raw ([string](Get-DomeniaMember $effective 'ObservedSid' '')) $computer
-        $badge=Get-DomeniaEvidenceBadge ([pscustomobject]@{Source=$source;Kind=$kind;When=[datetime]::UtcNow.ToString('o')})
+        $badge=Get-DomeniaEvidenceBadge ([pscustomobject]@{Source=$source;Kind=$kind;When=[string]$effective.SourceCompletedUtc})
         if(-not $match.Match){
             [void]$attempts.Add([pscustomobject]@{Method='Identité du compte';Status=$(if($match.Certain){'HORS DOMAINE'}else{'NON QUALIFIE'});User=$raw;Score='';DurationMs=0;Detail=[string]$match.Reason})
             $message="Compte lu sur $computer : $raw ($source). "+[string]$match.Reason+" Aucune association créée : un compte local, dʼun autre domaine ou non qualifié nʼest pas le compte AD $user."
         }elseif($kind -notin @('Console','SessionRdp')){
             $message="Indice pour $computer : $user ($source · "+$badge.Label+'). '+$badge.Rule+' Aucune association créée automatiquement ; associez-le explicitement si besoin.'
         }else{
-            $added=Add-UserMachineLinkIfMissing -UserLogin $user -Computer ([string]$effective.Computer) -Source $source -Details ([string]$effective.Details) -Confidence 0 -VerifiedInAD $true
+            $added=Add-DomeniaRelation -Relation ([pscustomobject]@{UserLogin=$user;Computer=[string]$effective.Computer;Source=$source;Details=[string]$effective.Details;Confidence=0;VerifiedInAD=$true;When=[string]$effective.SourceCompletedUtc;ComputerGuid=[string]$State.StoreGuid;ComputerDn=[string]$State.StoreDn}) -NoSave -Quiet
             $outcome=if($null -ne $script:Relations){$script:Relations.LastOutcome}else{$null}
             $message=if($added){"Session observée sur $computer : $user ($source · "+$badge.Label+').'}elseif($null -ne $outcome -and [bool]$outcome.SaveFailed){"Session observée sur $computer : $user. Relation non enregistrée : "+[string]$outcome.Reason}elseif($null -ne $outcome -and [string]$outcome.Placement -eq 'Session'){"Session observée sur $computer : $user. "+[string]$outcome.Reason}else{"Session observée sur $computer : $user. Relation déjà connue : date mise à jour, aucune autre association modifiée."}
             try{Register-DomeniaOperationSample -Operation 'ComputerLastUser' -Mode $(if([string](Get-DomeniaMember $effective 'FallbackTransport' '') -eq 'PsExec'){'Classic+PsExec'}elseif([string](Get-DomeniaMember $effective 'FallbackTransport' '')){'Classic+TaskScheduler'}else{'Classic'}) -ItemCount 1 -DurationMs 0 -BytesEstimated $(if([long](Get-DomeniaMember $effective 'TaskBytes' 0) -gt 0){[long]$effective.TaskBytes}else{16000}) -RemoteAttempts 1 -FallbackTasks ([int](Get-DomeniaMember $effective 'FallbackTasks' 0)) -SuccessCount 1}catch{}

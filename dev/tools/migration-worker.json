@@ -1,6 +1,16 @@
 {
   "Sources": [
     {
+      "File": "modules/Domenia-StorageLease.Model.ps1",
+      "Functions": [
+        "Get-StoreWLeaseName",
+        "Enter-StoreWDatabaseLease",
+        "Exit-StoreWDatabaseLease",
+        "Read-StoreWLeaseScalar",
+        "Assert-StoreWDatabaseWritable"
+      ]
+    },
+    {
       "File": "modules/Domenia-Storage.Worker.ps1",
       "Functions": [
         "Initialize-DomeniaWinSqliteNative",

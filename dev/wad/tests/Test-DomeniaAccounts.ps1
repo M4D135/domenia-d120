@@ -76,7 +76,7 @@ function Reset-Fixture {
     $script:Mode='Success'; $script:WorkerBindUser=''
     $script:LastRequest=$null; $script:LastCredential=$null; $script:LastSession=$null; $script:LastError=''
     $script:Log=New-Object 'System.Collections.Generic.List[string]'
-    $script:Settings=@{}; $script:UiUpdates=0; $script:SecretUiUpdates=0
+    $script:Settings=@{}; $script:AccountWrites=@{}; $script:UiUpdates=0; $script:SecretUiUpdates=0
     $script:SessionEpoch=1L; $script:AsyncEngineClosing=$false; $script:ActiveWriteTaskId=''; $script:WriteState='Idle'
     $script:ControlBusyRef=@{}; $script:AccessState=$null
     $script:Conn=[pscustomobject]@{
@@ -164,6 +164,7 @@ function Show-DomeniaOperationError {
 function Add-DomeniaUiLog { param($Area,$Level,$Text); $script:Log.Add([string]$Text) }
 function Set-Status { param($Text,$Level); $script:Log.Add([string]$Text) }
 function Set-DomeniaSetting { param($Name,$Value); $script:Settings[$Name]=$Value }
+function Save-DomeniaAccountPreference { param($Scope,$UserName,$Target);$script:AccountWrites[$Scope]=$UserName;return $true }
 function Get-DomeniaControl { param($Name); return $script:Ctrl[$Name] }
 function Update-DomeniaAccountUi { $script:UiUpdates++ }
 function Update-DomeniaSecretActionUi { $script:SecretUiUpdates++ }
@@ -298,7 +299,7 @@ Test-Case 'Activation Remote : nom valide, seul identifiant persiste, AD intact'
     Assert-Test ($script:RemoteAdminCredential.UserName -ceq 'EXAMPLE\old-remote') 'Compte remplace avant la fin de la validation.'
     Complete-Fixture
     Assert-Test ($script:RemoteAdminCredential.UserName -ceq 'EXAMPLE\operator')
-    Assert-Test ($script:Settings.Count -eq 1 -and $script:Settings['RemoteCredentialUser'] -ceq 'EXAMPLE\operator')
+    Assert-Test ($script:Settings.Count -eq 0 -and $script:AccountWrites['Remote'] -ceq 'EXAMPLE\operator')
     Assert-Test ([object]::ReferenceEquals($originalAd,$script:Conn.Credential))
     Assert-Test ($script:Ctrl['PwdAccountRemote'].Password -eq '' -and $script:UiUpdates -eq 1)
     Assert-Test ($script:RemoteAdminCredential.GetNetworkCredential().Password -ceq [Net.NetworkCredential]::new('',$p).Password)
@@ -311,7 +312,7 @@ Test-Case 'Activation Secrets : identite propre, compte distant inchange' {
     Complete-Fixture
     Assert-Test ($script:SecretsCredential.UserName -ceq 'EXAMPLE\secrets-reader')
     Assert-Test ([object]::ReferenceEquals($oldRemote,$script:RemoteAdminCredential))
-    Assert-Test ($script:Settings['SecretsCredentialUser'] -ceq 'EXAMPLE\secrets-reader')
+    Assert-Test ($script:Settings.Count -eq 0 -and $script:AccountWrites['Secrets'] -ceq 'EXAMPLE\secrets-reader')
     Assert-Test ($script:Ctrl['PwdAccountSecrets'].Password -eq '' -and $script:Ctrl['PwdAccountRemote'].Password -eq 'form-not-cleared')
 }
 Test-Case 'Activation refusee : ancien compte et formulaire conserves' {

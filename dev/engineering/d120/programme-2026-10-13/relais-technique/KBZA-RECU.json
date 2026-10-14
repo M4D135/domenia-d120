@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "note_id": "domenia-relais-pause-20261013",
+  "path": "learnings/2026-10-13-mac.md",
+  "commit": "e53290b28fab0bfddfd8c82092401ea7eb5d17e8",
+  "machine": "mac",
+  "kind": "handoff",
+  "topic": "Domenia",
+  "duplicate": false,
+  "state": "pushed",
+  "sync": {
+    "pushed": true,
+    "detail": ""
+  }
+}

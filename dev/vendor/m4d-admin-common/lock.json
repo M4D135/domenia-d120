@@ -1,13 +1,22 @@
 {
   "Format": "Domenia.CommonLibrary/1",
   "Repository": "https://github.com/M4D135/m4d-admin-common",
-  "Commit": "5ad02712e5c0eea6975b6ccb2c3e4343f93cc18b",
-  "Version": "0.1.1",
-  "SourceSHA256": "0dcd33942859ff3d75b514098b90ca6d5393b11bfdb503683b63cef2c41af972",
+  "BaseCommit": "5ad02712e5c0eea6975b6ccb2c3e4343f93cc18b",
+  "Version": "0.1.1-domenia.1",
+  "SourceSHA256": "9a309ea3f30f0cb53855f950eaea0887566d5abbae339f975162ddcb62f11d05",
+  "SourceHashFormat": "SHA256 of QueryEngine.cs file bytes",
+  "SourcePath": "src/Query/QueryEngine.cs",
+  "LocalModification": true,
+  "Upstream": {
+    "Repository": "https://github.com/M4D135/m4d-admin-common",
+    "Commit": "5ad02712e5c0eea6975b6ccb2c3e4343f93cc18b",
+    "Version": "0.1.1",
+    "SourceSHA256": "0dcd33942859ff3d75b514098b90ca6d5393b11bfdb503683b63cef2c41af972"
+  },
   "Files": [
     {
       "Name": "M4D.Admin.Common.Query.dll",
-      "SHA256": "269b7d1cbdd6ab42062a75e0ca4a45876b3ff0eae4cbf730acf91a12828bd7ca"
+      "SHA256": "8150785c4d4ee2877177439c846cec49ad7945fdf1049a130c5d6d86fe843bd6"
     }
   ],
   "RuntimeDownload": false

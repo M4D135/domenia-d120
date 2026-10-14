@@ -1,0 +1,1 @@
+Tests : 42 OK, 0 echec(s). Rapport : C:\DomeniaLab\search-progress-20261013-r2\proof\Test-DomeniaSearchScope.json

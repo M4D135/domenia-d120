@@ -1,20 +1,24 @@
 ﻿#requires -Version 5.1
 # Compile the actual shipped library against the real common DLL; no directory, endpoint or UI access.
 [CmdletBinding()]
-param([string]$ReportPath='')
+param([string]$ReportPath='',[switch]$QuerySource)
 $ErrorActionPreference='Stop'
 $modules=Join-Path (Split-Path -Parent $PSScriptRoot) 'modules'
-Add-Type -Path (Join-Path $modules 'M4D.Admin.Common.Query.dll')
+if($QuerySource){Add-Type -Path (Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'vendor/m4d-admin-common/src/Query/QueryEngine.cs')}else{Add-Type -Path (Join-Path $modules 'M4D.Admin.Common.Query.dll')}
 Add-Type -Path (Join-Path $modules 'Domenia.Native.dll')
 foreach($name in @('Common.Model','Boards.Model','Probes.Model','Query.Model')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
 $checks=[Collections.Generic.List[object]]::new()
 function Expect([bool]$Good,[string]$Name){$checks.Add([pscustomobject]@{Name=$Name;Pass=$Good});if(-not $Good){throw $Name}}
 $templates=@(Get-DomeniaQueryTemplates)
 $fields=@(Get-DomeniaQueryFields);$probes=@(Get-DomeniaProbeCatalog)
-Expect ($templates.Count -ge 150) 'At least 150 operational templates'
+Expect ($templates.Count -ge 400 -and $templates.Count -le 700) 'Large bounded catalog of useful operational templates'
 Expect (@($templates.Id|Sort-Object -Unique).Count -eq $templates.Count) 'Unique template IDs'
 Expect (@($templates.Name|Sort-Object -Unique).Count -eq $templates.Count) 'Distinct user-facing titles'
 Expect (@($templates.Category|Sort-Object -Unique).Count -ge 10) 'Operational categories are represented'
+foreach($entry in @(Get-DomeniaQueryCatalog)){
+    Expect ($entry.Cost -and $entry.Freshness -and $entry.Availability -and $entry.Collection) ('Source, freshness, prerequisites and collection cost '+$entry.Id)
+    if($entry.Kind -eq 'Boolean'){Expect ($entry.Choices.Count -eq 2 -and $entry.Choices[0].Value -is [bool] -and $entry.Choices[1].Value -is [bool]) ('Typed Boolean choices '+$entry.Id)}
+}
 $empty=[Collections.Generic.List[M4D.Admin.Common.Query.QueryRecord]]::new()
 $one=[Collections.Generic.List[M4D.Admin.Common.Query.QueryRecord]]::new()
 $one.Add([M4D.Admin.Common.Query.QueryRecord]::new('11111111-1111-1111-1111-111111111111',[Collections.Generic.Dictionary[string,object]]::new([StringComparer]::Ordinal)))
@@ -104,10 +108,10 @@ $distribution=Measure-DomeniaQueryWidget -Records $large -Recipe $byId['template
 Expect ($distribution.Total -eq 5001 -and @($distribution.Items).Count -eq 12 -and @($distribution.Items|Where-Object{$_.Label -eq 'Valeur inconnue'})[0].Value -eq 1) 'Unknown grouping remains separate without exceeding twelve segments'
 $allJson=ConvertTo-Json -InputObject $templates -Depth 8 -Compress
 Expect ($allJson -notmatch 'Win32_Product|probe:sec\.uac') 'Library never offers unsupported or MSI repair probes'
-# The delivered models do not consume the 100 personal recipe slots or weaken that bound.
-$personal=@(for($i=0;$i -lt 101;$i++){New-DomeniaQueryRecipe -Id ('personal.'+$i) -Name ('Personnel '+$i)})
-$refused=$false;try{ConvertTo-DomeniaQueryLibraryJson $personal|Out-Null}catch{$refused=$_.Exception.Message -like '*100*'}
-Expect $refused 'Personal recipe bound stays at 100'
+# The delivered models do not consume the 5000 personal recipe slots or weaken that bound.
+$personal=@(for($i=0;$i -lt 5001;$i++){New-DomeniaQueryRecipe -Id ('personal.'+$i) -Name ('Personnel '+$i)})
+$refused=$false;try{ConvertTo-DomeniaQueryLibraryJson $personal|Out-Null}catch{$refused=$_.Exception.Message -like '*5 000*'}
+Expect $refused 'Personal recipe bound is explicit at5000'
 $report=[pscustomobject]@{Suite='Domenia.QueryTemplates';PowerShell=[string]$PSVersionTable.PSVersion;Templates=$templates.Count;Categories=@($templates|Group-Object Category|ForEach-Object{[pscustomobject]@{Name=$_.Name;Count=$_.Count}});Pass=$checks.Count;Fail=0;Checks=$checks.ToArray();Scope='Actual shared DLL and adapters; no WPF, AD, WMI or network'}
 if($ReportPath){[IO.File]::WriteAllText([IO.Path]::GetFullPath($ReportPath),($report|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))}
 Write-Output ('Domenia QueryTemplates: '+$templates.Count+' templates; '+$checks.Count+' PASS')

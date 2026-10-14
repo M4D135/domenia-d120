@@ -25,14 +25,14 @@
     "File": "wad/Domenia-Core.ps1",
     "Function": "Load-TreeChildren",
     "LiteralIndex": 0,
-    "Sha256": "64E2C2F8DCE64FBF68A3079937B7671039CA4E71EC00805A7E9195CC9C483141"
+    "Sha256": "4187EB7520008EA02DDFB594B428FD1EBE53809D0C01C94B84BC331248A25CA5"
   },
   {
     "Operation": "GlobalSearch",
     "File": "wad/Domenia-Core.ps1",
     "Function": "Invoke-GlobalSearch",
     "LiteralIndex": 0,
-    "Sha256": "1E84A82E46AAFAB3AE0A96AA3251F42C59CD79F5A7259AEA665F69FF03029F61"
+    "Sha256": "52A6732017C30262D18F046938D133EDD2A0CD1652693259B2E0C02DE4FE8A9E"
   },
   {
     "Operation": "PermissionAnalysis",
@@ -67,7 +67,7 @@
     "File": "wad/Domenia-Core.ps1",
     "Function": "Get-DomeniaInventoryWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "41F162A5B0870C10F1BAE378DC365CCC83582D6003435A86624752362B18E159"
+    "Sha256": "810FA1C5106CC6B8A0B86D24E879FC7627C99ADCA2D4D9F98643142933EC972E"
   },
   {
     "Operation": "DomainOverview",
@@ -88,28 +88,28 @@
     "File": "wad/Domenia-Core.ps1",
     "Function": "Get-DomeniaSoftwareWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "214DA1A24E26D30BB0529B539B80E8B183BB195FE610F3B8C124E94724CCF5CE"
+    "Sha256": "48FCB741DE94B062BC1884463B0FB25DCFE1B446479DA261A8BBD8153F295F6B"
   },
   {
     "Operation": "WmiNamespaces",
     "File": "wad/Domenia-Core.ps1",
     "Function": "Get-DomeniaWmiNamespacesWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "3F54C07FC76AABC9511861F7B13A2A97394B366C7C8702EAF0BB67D30E886E25"
+    "Sha256": "E0ECCFD3FBE87E7139F599ACF0D9DAEA36696F07E117B3535F96010218D5218C"
   },
   {
     "Operation": "WmiClasses",
     "File": "wad/Domenia-Core.ps1",
     "Function": "Get-DomeniaWmiClassesWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "D7BD82BD51A7C7FAA920CC549BDACCD37038C19FA2A5BF43B01C7CDBA0CB9556"
+    "Sha256": "B4B73E60D5E2A472C8320926B9419391E88CFCCA6F67553BFDFCA9EAFEC1B859"
   },
   {
     "Operation": "WmiQuery",
     "File": "wad/Domenia-Core.ps1",
     "Function": "Get-DomeniaWmiQueryWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "6BD3C58E349298A4B4909D51A9841B052E5B911D7563D6239550F0CC3DB146F0"
+    "Sha256": "0FDD20BDEEDD45B5CA820B2D8EC72DC21634FD6600D29ACACEC71C0250DC8940"
   },
   {
     "Operation": "UserComputerProbe",
@@ -144,14 +144,14 @@
     "File": "wad/Domenia-Core.ps1",
     "Function": "Start-ComputerDiagnostics",
     "LiteralIndex": 0,
-    "Sha256": "9A5535EB658FA19AFC0905D57B339CEE0C14CCD4DA81AE2E0A527A86B5046608"
+    "Sha256": "AE264F02A1AD7911106DFBCB657B41D84EE2A8A8737A824D8AC86E869ED0ED5F"
   },
   {
     "Operation": "ComputerLastUser",
     "File": "wad/Domenia-Core.ps1",
     "Function": "Start-ComputerUserLinkProbe",
     "LiteralIndex": 0,
-    "Sha256": "8F79C42CE673CE98DBE30EB30B9DBF246D8819B08149A4FBA1C5F9BA894395F9"
+    "Sha256": "E64F0F0F2B94F49E679E6FEC529C1BF7F9290C1021391C262DA386B05A3BD60A"
   },
   {
     "Operation": "CmdletInventory",
@@ -170,22 +170,22 @@
   {
     "Operation": "ComputerPing",
     "File": "wad/Domenia-Core.ps1",
-    "Function": "Invoke-ComputerTool",
+    "Function": "Get-DomeniaSelectedPresenceWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "BE1A5B70CCA9477571D839A85A1330334210DA891C53DBA257814486369F5887"
+    "Sha256": "4ECADF4F231390182A3BF091EF8636B3536D7B3F8A28EF3984DE1E2D524D5BFA"
   },
   {
     "Operation": "ComputerGpUpdate",
     "File": "wad/Domenia-Core.ps1",
     "Function": "Invoke-ComputerTool",
-    "LiteralIndex": 1,
+    "LiteralIndex": 0,
     "Sha256": "AC0E30C53A5257A12378801A8B6831FFAAB183CBB0548CE9A768637B255AB1C0"
   },
   {
     "Operation": "ComputerRestart",
     "File": "wad/Domenia-Core.ps1",
     "Function": "Invoke-ComputerTool",
-    "LiteralIndex": 2,
+    "LiteralIndex": 1,
     "Sha256": "7895BE660A73963FF297989D640D7F47BCFB6D81D6B8E1F2D7E357A7C1E24B3F"
   },
   {
@@ -214,7 +214,7 @@
     "File": "wad/Domenia-Core.ps1",
     "Function": "Open-AdObject",
     "LiteralIndex": 0,
-    "Sha256": "28BA398A2209576CAA79A637C0BE2CF05AF51013D553F0155F87C99A29CBB284"
+    "Sha256": "8169588B8E775546A06A351515BC0F5C8BC7B0432F4B9B732068A27BE862324E"
   },
   {
     "Operation": "WriteAttributes",
@@ -312,14 +312,14 @@
     "File": "wad/Domenia-Core.ps1",
     "Function": "Invoke-DomeniaStartupCacheWarmup",
     "LiteralIndex": 0,
-    "Sha256": "864735012ED29EBAF1B094DA12C1D44266933DC9D3D2046BD1E5D68AE58CA1A3"
+    "Sha256": "51117269B5EC0F16BC59E0682182264A56E048D0E5958D46DD1A2BA1D6B609DD"
   },
   {
     "Operation": "LiveConsole",
     "File": "wad/modules/Domenia-Live.Model.ps1",
     "Function": "Get-DomeniaLiveProbeCode",
     "LiteralIndex": 0,
-    "Sha256": "2485893678B6816F4E5DEAA5CF53346E37CB824AB6DBF712EF1F91F008FB2BCE"
+    "Sha256": "496B0AB25CB90E07F813DFE5C1633EFEA138A3A8E1444AD73D590F914B3AF691"
   },
   {
     "Operation": "LiveCache",
@@ -333,7 +333,7 @@
     "File": "wad/modules/Domenia-Continuity.Model.ps1",
     "Function": "Get-DomeniaChangeWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "49F6D4249F6465D6E461D3B04DD090F00477ABBD871683ECF3622714A2AB53CD"
+    "Sha256": "3F2FC63D6095DB5F81F03C392279FCABC849676BF71040794FE2FF6CA98ED5BD"
   },
   {
     "Operation": "SessionsList",
@@ -361,7 +361,7 @@
     "File": "wad/modules/Domenia-Storage.Worker.ps1",
     "Function": "Get-DomeniaStorageWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "0C8B501E65BF81914172BB1AA0123E6D7A1128B98EDFD1CA00AFE4641FB917A2"
+    "Sha256": "DF2A887C357B32BB5A194043821BFA8465258A91642EC8569674692660821B64"
   },
   {
     "Operation": "ScopeReconcile",
@@ -382,7 +382,7 @@
     "File": "wad/modules/Domenia-Live.Model.ps1",
     "Function": "Get-DomeniaLiveProbeCode",
     "LiteralIndex": 0,
-    "Sha256": "2485893678B6816F4E5DEAA5CF53346E37CB824AB6DBF712EF1F91F008FB2BCE"
+    "Sha256": "496B0AB25CB90E07F813DFE5C1633EFEA138A3A8E1444AD73D590F914B3AF691"
   },
   {
     "Operation": "EmbeddedDirectoryLookup",
@@ -403,14 +403,14 @@
     "File": "wad/modules/Domenia-Demo.Worker.ps1",
     "Function": "Get-DomeniaDemoDirectoryWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "EA76156ECA8C5DADB7650C90D58C100B3CA2BCC184FC9E309CC1E56DC258A30D"
+    "Sha256": "FBE11A3ADE0630788C56DF30F9E883FEA8FF6033FE71D2E9B1E2BE92007268BF"
   },
   {
     "Operation": "LocalIndexRead",
     "File": "wad/modules/Domenia-Engine.Worker.ps1",
     "Function": "Get-DomeniaLocalIndexReadWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "FC4B1302868C11C767B37F4A7886360BA5E84C14280B56459272AD8F46AE7E96"
+    "Sha256": "1A81876AEAE4F731151A0C62375D01D2A8056AB0091CA8FBA58F51D9A8985053"
   },
   {
     "Operation": "ParkSharedSync",
@@ -459,14 +459,14 @@
     "File": "wad/modules/Domenia-Storage.Worker.ps1",
     "Function": "Get-DomeniaStorageUsageWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "181CE32EF4BC1D322300FB4D4BB7B41D3B4E98E1D5562898109ED1E1F6841E4C"
+    "Sha256": "692D794F477BE8650C801B591C79AE7072D8D09F6AF18EB0AC95508B39F37E3A"
   },
   {
     "Operation": "StoragePurge",
     "File": "wad/modules/Domenia-Storage.Worker.ps1",
     "Function": "Get-DomeniaStoragePurgeWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "E3656CDC7BDC992E584E5A709DB33463F8260F78F04556F917637312FEDAF0A2"
+    "Sha256": "F9DDBF6BB3DB855CAB3FC43D4D21958F2B444D4CF35A729D32EE5EB6192FB2F3"
   },
   {
     "Operation": "ComputerAdminShare",
@@ -494,6 +494,27 @@
     "File": "wad/modules/Domenia-Query.Worker.ps1",
     "Function": "Get-DomeniaQueryWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "0F9F8E8F55356949E7251DD1618E170DDABADE0888D1AAEBFC59AB29FAB08536"
+    "Sha256": "CEB6EB2AC4466CF79FE415F4F695CC1709D768703FAC9A0AFFA0A829EC8C41D6"
+  },
+  {
+    "Operation": "QueryExport",
+    "File": "wad/modules/Domenia-Query.Worker.ps1",
+    "Function": "Get-DomeniaQueryExportWorkerCode",
+    "LiteralIndex": 0,
+    "Sha256": "F857FA133D99AACD5C5A6C03E69B8C5CB3561B8BE70285023638DFD8CBFA2591"
+  },
+  {
+    "Operation": "QueryLibrary",
+    "File": "wad/modules/Domenia-Query.Worker.ps1",
+    "Function": "Get-DomeniaQueryLibraryWorkerCode",
+    "LiteralIndex": 0,
+    "Sha256": "D407CF23C43B3459AFDAA165CD12A13B4A38430C22FE09CE8C6D6DB5E12E5FFA"
+  },
+  {
+    "Operation": "StorageMaintenance",
+    "File": "wad/modules/Domenia-Storage.Worker.ps1",
+    "Function": "Get-DomeniaStorageMaintenanceWorkerCode",
+    "LiteralIndex": 0,
+    "Sha256": "0000000000000000000000000000000000000000000000000000000000000000"
   }
 ]

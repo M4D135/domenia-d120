@@ -98,6 +98,83 @@ function Get-DomeniaContextCredentialIdentity {
     return [string]$script:ProcessIdentity
 }
 
+function Set-DomeniaCredentialGuardContext {
+    # One shared breaker for every use of the same account, independent of target/provider/scheduler.
+    # A new login session gets a new map; a successful unrelated read never clears an existing refusal.
+    param($Context,[string]$OperationId)
+    if($null -eq $script:DomeniaCredentialGuard -or [long]$script:DomeniaCredentialGuard.Epoch -ne [long]$script:SessionEpoch){
+        $script:DomeniaCredentialGuard=[hashtable]::Synchronized(@{Epoch=[long]$script:SessionEpoch;Faults=@{};Revision=0L;NotifiedRevision=0L})
+    }
+    $needs=Get-DomeniaOperationCredentialNeeds $OperationId
+    $local=([string]$needs.Provider -in @('Storage','Local') -or $OperationId -in @('LiveSelectedPing','ComputerPing','SelectedPresence','PresenceScan','WakeOnLanSend','ParkSharedSync','ConnectorRead'))
+    $directory='';$remote='';$remoteAdmin=''
+    if(-not $local){
+        if([bool]$needs.Directory){
+            $user=if($null -ne $Context.Credential){[string]$Context.Credential.UserName}else{[string]$Context.ProcessIdentity}
+            $directory=Get-DomeniaCredentialAccountKey $user ([string]$Context.Domain) ([string]$Context.Netbios)
+        }
+        if([bool]$needs.Remote -or [bool]$needs.Machine -or [bool]$needs.RemoteAdmin){
+            $user=if($null -ne $Context.MachineCredential){[string]$Context.MachineCredential.UserName}elseif($null -ne $Context.RemoteAdminCredential){[string]$Context.RemoteAdminCredential.UserName}else{[string]$Context.ProcessIdentity}
+            $remote=Get-DomeniaCredentialAccountKey $user ([string]$Context.Domain) ([string]$Context.Netbios) ([string]$Context.CredentialTarget)
+            $admin=if($null -ne $Context.RemoteAdminCredential){[string]$Context.RemoteAdminCredential.UserName}else{$user}
+            $remoteAdmin=Get-DomeniaCredentialAccountKey $admin ([string]$Context.Domain) ([string]$Context.Netbios) ([string]$Context.CredentialTarget)
+        }
+    }
+    $Context | Add-Member -NotePropertyName CredentialGuard -NotePropertyValue $script:DomeniaCredentialGuard -Force
+    $Context | Add-Member -NotePropertyName DirectoryAuthKey -NotePropertyValue $directory -Force
+    $Context | Add-Member -NotePropertyName RemoteAuthKey -NotePropertyValue $remote -Force
+    $Context | Add-Member -NotePropertyName RemoteAdminAuthKey -NotePropertyValue $remoteAdmin -Force
+    $Context | Add-Member -NotePropertyName ActiveRemoteAuthKey -NotePropertyValue $remote -Force
+    $Context | Add-Member -NotePropertyName LastAuthChannel -NotePropertyValue '' -Force
+    return $Context
+}
+
+function Sync-DomeniaCredentialGuardUi {
+    # Workers trip the shared map immediately, even if the UI is busy. This pass withdraws pending reads.
+    $guard=$script:DomeniaCredentialGuard
+    if($null -eq $guard){return}
+    $revision=0L;$keys=@();$ambiguous=@()
+    [Threading.Monitor]::Enter($guard.SyncRoot)
+    try{
+        $revision=[long]$guard.Revision
+        if($revision -le [long]$guard.NotifiedRevision){return}
+        $keys=@($guard.Faults.Keys);if($guard.ContainsKey('AmbiguousOperations')){$ambiguous=@($guard.AmbiguousOperations.Keys)};$guard.NotifiedRevision=$revision
+    }finally{[Threading.Monitor]::Exit($guard.SyncRoot)}
+    foreach($job in @($script:AsyncJobs.Values)){
+        if($null -eq $job -or [bool]$job.IsWrite -or [bool]$job.NonCancellable -or [string]$job.State -ne 'Queued'){continue}
+        $context=Get-DomeniaMember $job 'CredentialGuardContext' $null
+        $affected=([string]$job.OperationId -in $ambiguous)
+        foreach($key in @(Get-WCredentialGuardKeys $context)){if($keys -contains $key){$affected=$true;break}}
+        if($affected -and -not [bool]$job.CancelRequested){Request-UiTaskStop -Id ([string]$job.Id) -Silent -Reason 'Protection du compte apres refus d authentification'}
+    }
+    if($ambiguous.Count){Set-Status 'Origine du refus d authentification indeterminee : operation suspendue, sans declarer les autres comptes invalides. Reconnectez-vous pour reprendre.' 'WARN'}
+    else{Set-Status 'Compte protege : collectes suspendues apres un refus d authentification. Reconnectez-vous ; la base locale reste consultable.' 'WARN'}
+    Write-AppLog 'Protection du compte activee : aucun nouvel essai automatique avec les comptes refuses. Les appels deja transmis ne peuvent pas etre rappeles.' 'WARN'
+}
+
+function Save-DomeniaSupersededCollection {
+    # A closed list of ingestion callbacks, never an ordinary renderer or an AD write callback.
+    # The captured store context remains authoritative; each callback must fence its later GUI publication.
+    param($Job,$Output,[string]$ErrorMessage='')
+    if($null -eq $Job -or [bool]$Job.IsWrite -or [bool]$Job.Demo){return $false}
+    $handlers=@{
+        'Complete-DomeniaParkSession'='Fail-DomeniaParkSession'
+        'Complete-DomeniaLiveProbe'='Fail-DomeniaLiveProbe'
+        'Complete-DomeniaCommittedPresence'='Fail-DomeniaCommittedPresence'
+        'Complete-DomeniaLastUserCollected'='Fail-DomeniaLastUserCollected'
+        'Complete-DomeniaClassicCollected'='Fail-DomeniaClassicCollected'
+        'Complete-DomeniaSessionsCollected'='Fail-DomeniaSessionsCollected'
+    }
+    $handler=[string]$Job.SuccessHandler
+    if(-not $handlers.ContainsKey($handler) -or $null -eq $Job.CallbackState){return $false}
+    $state=$Job.CallbackState
+    $state | Add-Member -NotePropertyName SuppressPublish -NotePropertyValue $true -Force
+    if($ErrorMessage){
+        if(-not [bool]$Job.TimeoutErrorDelivered){& ([string]$handlers[$handler]) -Message $ErrorMessage -State $state}
+    }elseif($null -ne $Output){& $handler -Result $Output -State $state}
+    return $true
+}
+
 # ---------------------------------------------------------------- dispatch (D015, C2, D016, D018, D019)
 function Invoke-DomeniaUiTaskDispatch {
     # Starts the worker of one engine entry. Shared by the direct start of Start-UiTask and by the promotion
@@ -108,7 +185,20 @@ function Invoke-DomeniaUiTaskDispatch {
     $isWrite = [bool]$Job.IsWrite
     if ([bool]$script:DemoMode -and $isWrite) { throw 'DOMENIA_DEMO_WRITE : ecritures desactivees en demonstration. Aucune ecriture tentee.' }
     # The production guards (circuit breaker, refused scopes, alternate accounts) run on the requested operation.
-    $context = Set-DomeniaTargetCredentialContext -Context (Get-WorkerContext -OperationId $requested) -Payload $Job.Payload
+    $context = Set-DomeniaTargetCredentialContext -Context (Get-WorkerContext -OperationId $requested -Payload $Job.Payload) -Payload $Job.Payload
+    $context | Add-Member -NotePropertyName CredentialTarget -NotePropertyValue ([string](Get-DomeniaMember $Job.Payload 'Computer' '')) -Force
+    $context = Set-DomeniaCredentialGuardContext -Context $context -OperationId $requested
+    if($requested -eq 'LiveConsole' -and -not [bool](Get-DomeniaMember $Job.Payload 'ValidateConsoleIdentity' $true)){$context.DirectoryAuthKey=''}
+    if($requested -eq 'LiveConsole' -and -not [bool](Get-DomeniaMember $Job.Payload 'ProbeUser' $true) -and -not [bool](Get-DomeniaMember $Job.Payload 'Inventory' $false) -and @((Get-DomeniaMember $Job.Payload 'Probes' @())).Count -eq 0){
+        $context.DirectoryAuthKey='';$context.RemoteAuthKey='';$context.RemoteAdminAuthKey='';$context.ActiveRemoteAuthKey=''
+    }
+    # Ping-only sweeps carry no authenticated work even though the legacy ParkSweep operation accepts accounts.
+    if($requested -eq 'ParkSweep' -and [bool](Get-DomeniaMember $Job.Payload 'PingOnly' $false)){
+        $context.DirectoryAuthKey='';$context.RemoteAuthKey='';$context.RemoteAdminAuthKey='';$context.ActiveRemoteAuthKey=''
+    }
+    if(-not [bool]$script:DemoMode){Assert-WCredentialAllowed -Context $context}
+    # Keep only the map and account keys on the job, never a second reference to its credentials.
+    $Job | Add-Member -NotePropertyName CredentialGuardContext -NotePropertyValue ([pscustomobject]@{CredentialGuard=$context.CredentialGuard;DirectoryAuthKey=$context.DirectoryAuthKey;RemoteAuthKey=$context.RemoteAuthKey;RemoteAdminAuthKey=$context.RemoteAdminAuthKey;ActiveRemoteAuthKey=$context.ActiveRemoteAuthKey;OperationId=$requested}) -Force
     $provider = [string]$Job.Provider
     if (-not $provider) { $provider = Get-DomeniaOperationProvider $requested }
     $Job.CredentialIdentity = Get-DomeniaContextCredentialIdentity -Context $context -Provider $provider

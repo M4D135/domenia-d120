@@ -2,8 +2,8 @@
   "Schema": "DomeniaReleaseContract/1",
   "Product": "Domenia",
   "Version": "1.0",
-  "Release": "RC1.17.6",
-  "Build": "2026.10.13-DOMENIA-1.0-RC1.17.6-D120",
+  "Release": "RC1.17.7",
+  "Build": "2026.10.13-DOMENIA-1.0-RC1.17.7-D120",
   "DisplayName": "Domenia 1.0",
   "Date": "2026-10-13",
   "Channel": "Candidate",
@@ -47,16 +47,16 @@
     {
       "Path": "wad/modules/M4D.Admin.Common.Query.dll",
       "Name": "Moteur de requêtes commun",
-      "Version": "0.1.1",
-      "Sha256": "269b7d1cbdd6ab42062a75e0ca4a45876b3ff0eae4cbf730acf91a12828bd7ca",
-      "Origin": "M4D.Admin.Common ; sources et contrat conservés dans vendor.",
+      "Version": "0.1.1-domenia.1",
+      "Sha256": "8150785c4d4ee2877177439c846cec49ad7945fdf1049a130c5d6d86fe843bd6",
+      "Origin": "M4D.Admin.Common 0.1.1 avec modifications Domenia ; source vendor et build_query.ps1 reproductibles net472, origine amont distincte dans lock.json.",
       "Pinned": true
     },
     {
       "Path": "wad/modules/Domenia.Native.dll",
       "Name": "Lecteur et agrégateur natifs Domenia",
       "Version": "1.0.0.0",
-      "Sha256": "aa610389684a1415e0cefef0fc33fe0ce961b57b921c1a6319cae06f2eca1aad",
+      "Sha256": "e95abd97d258d56460dd300b29a0d378bcc301359b2d0bacd7d510f369007a64",
       "Origin": "Sources dev/native ; compilation reproductible C#5 net472.",
       "Pinned": true
     }

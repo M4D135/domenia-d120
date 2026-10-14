@@ -23,6 +23,7 @@ function Get-DomeniaQueryFields {
 }
 function Get-DomeniaQueryCatalog {
     # The catalog describes precisely the fields accepted by the query engine, never discovers remote classes.
+    if($null -ne $script:DomeniaQueryInformationCatalog){return $script:DomeniaQueryInformationCatalog}
     $metadata=@{}
     foreach($line in @'
 name|Ad|Identité AD|Retrouver un poste par son nom.|Texte|PC-EXEMPLE|name
@@ -45,7 +46,7 @@ bitlocker|Ad|Protection AD|Filtrer la présence dʼune clé visible dans AD ; ce
 presenceBucket|Observation|Présence et console|Regrouper le dernier constat réseau utilisable du tableau de bord.|Texte|En ligne, Sans reponse, Non verifie|Observation ICMP/CIM enregistrée
 inventoryDays|Observation|Inventaire du poste|Évaluer lʼâge de la dernière lecture dʼinventaire réussie.|Jours|5|Inventory.CheckedUtc
 observedRelease|Observation|Inventaire du poste|Filtrer la version Windows relevée sur le poste.|Texte|24H2|Win32_OperatingSystem : Caption, BuildNumber
-checkedDays|Observation|Présence et console|Évaluer lʼâge du dernier relevé du poste.|Jours|7|CheckedUtc
+checkedDays|Observation|Présence et console|Évaluer lʼâge du dernier ping enregistré, indépendamment des relevés WMI.|Jours|7|PresenceCheckedUtc
 presence|Observation|Présence et console|Filtrer le dernier résultat de présence enregistré.|Texte|En ligne|Presence
 user|Observation|Présence et console|Retrouver lʼutilisateur console résolu dans AD ; les sessions RDP ne sont pas recensées.|Texte|jdupont|Win32_ComputerSystem.UserName + identité AD
 model|Observation|Inventaire du poste|Regrouper les postes par modèle matériel relevé.|Texte|Latitude|Win32_ComputerSystem.Model
@@ -95,9 +96,19 @@ uptimeDays|Observation|Inventaire du poste|Rechercher les postes restés allumé
             else{$availability='Calculé à partir de la base AD et du référentiel local, selon leur couverture et leur date. Aucun accès au poste pendant le calcul.'}
         }
         if($field.Kind -eq 'Boolean'){$typeLabel='Oui / Non'}elseif($field.Kind -eq 'Number'){$typeLabel='Nombre'}else{$typeLabel='Texte'}
-        [pscustomobject]@{Id=[string]$field.Id;Name=[string]$field.Name;Kind=[string]$field.Kind;ProbeId=[string]$field.ProbeId;SourceId=$sourceId;Source=$sources[$sourceId];Category=$category;TypeLabel=$typeLabel;Unit=$unit;Description=$description;Example=$example;Collection=$collection;Availability=$availability;Technical=$technical;SearchText=([string]$field.Name+' '+$sources[$sourceId]+' '+$category+' '+$description+' '+$technical)}
+        $choices=@()
+        if($field.Kind -eq 'Boolean'){$choices=@([pscustomobject]@{Name='Oui';Value=$true},[pscustomobject]@{Name='Non';Value=$false})}
+        elseif($field.ProbeId -and [string]$probe.Transform -like 'Map:*'){$choices=@(([string]$probe.Transform).Substring(4).Split(';')|ForEach-Object{($_ -split '=',2)[-1]}|Select-Object -Unique|ForEach-Object{[pscustomobject]@{Name=$_;Value=$_}})}
+        else{
+            $coded=@{laps=@('O=Valide','E=Expiré','N=Aucun attribut lu','X=Schéma indisponible');bitlocker=@('K=Clé visible','N=Aucune clé visible','X=Indisponible');lifeStatus=@('Ended=Support terminé','Soon=Fin de support prochaine','Ok=Support en cours','Unknown=Cycle inconnu');presenceBucket=@('En ligne=En ligne','Sans reponse=Sans réponse','Non verifie=Non vérifié');osFamily=@('Serveurs=Serveurs','Postes de travail=Postes de travail','Système non renseigné=Système non renseigné')}
+            if($coded.ContainsKey([string]$field.Id)){$choices=@($coded[[string]$field.Id]|ForEach-Object{$kv=$_ -split '=',2;[pscustomobject]@{Name=$kv[1];Value=$kv[0]}})}
+        }
+        $cost=if($sourceId -eq 'Probe' -and $probe.Slow){'Élevé : collecte explicite à cibler'}elseif($sourceId -in @('Probe','Observation')){'Lecture distante ciblée, réutilisation des relevés frais'}else{'Lecture locale, aucun accès aux postes'}
+        $freshness=if($sourceId -in @('Probe','Observation')){'Date propre à chaque relevé ; un ping ne rajeunit ni WMI ni les sondes.'}else{'Date de la lecture AD qui a alimenté la base ; recalculer ne rajeunit pas les données.'}
+        [pscustomobject]@{Id=[string]$field.Id;Name=[string]$field.Name;Kind=[string]$field.Kind;ProbeId=[string]$field.ProbeId;SourceId=$sourceId;Source=$sources[$sourceId];Category=$category;TypeLabel=$typeLabel;Unit=$unit;Description=$description;Example=$example;Collection=$collection;Availability=$availability;Technical=$technical;Cost=$cost;Freshness=$freshness;Choices=$choices;SearchText=([string]$field.Name+' '+$sources[$sourceId]+' '+$category+' '+$description+' '+$technical)}
     })
-    return @($entries|Sort-Object -Property Category,Name,Id -Culture 'fr-FR')
+    $script:DomeniaQueryInformationCatalog=@($entries|Sort-Object -Property Category,Name,Id -Culture 'fr-FR')
+    return $script:DomeniaQueryInformationCatalog
 }
 function Find-DomeniaQueryCatalogEntries {
     param([object[]]$Entries=@(),[string]$Text='',[string]$SourceId='',[string]$Category='')
@@ -119,9 +130,9 @@ function Get-DomeniaQueryOperators {
     return @(foreach($entry in $ops.GetEnumerator()){[pscustomobject]@{Id=[string]$entry.Key;Name=[string]$entry.Value}})
 }
 function New-DomeniaQueryRecipe {
-    param([string]$Name='Tous les postes recensés',[string]$Id='',[string]$Junction='All',[object[]]$Clauses=@(),[string]$GroupBy='',[object[]]$Refinements=@(),$ProbeSelection=$null,$ObjectIds=$null)
+    param([string]$Name='Tous les postes recensés',[string]$Id='',[string]$Junction='All',[object[]]$Clauses=@(),[string]$GroupBy='',[object[]]$Refinements=@(),$ProbeSelection=$null,$ObjectIds=$null,[object[]]$Parameters=@(),$ParameterValues=$null,$Expression=$null,$CoherenceHours=$null,$ReadDefinition=$null)
     if(-not $Id){$Id=[guid]::NewGuid().ToString('N')}
-    return [pscustomobject]@{Format='Domenia.Query/1';Id=$Id;Name=$Name;Junction=$Junction;Clauses=@($Clauses);GroupBy=$GroupBy;Refinements=@($Refinements);ProbeSelection=$ProbeSelection;ObjectIds=$ObjectIds}
+    return [pscustomobject]@{Format=$(if($Parameters.Count -or $null -ne $Expression -or $null -ne $CoherenceHours -or $null -ne $ReadDefinition){'Domenia.Query/2'}else{'Domenia.Query/1'});Id=$Id;Name=$Name;Junction=$Junction;Clauses=@($Clauses);GroupBy=$GroupBy;Refinements=@($Refinements);ProbeSelection=$ProbeSelection;ObjectIds=$ObjectIds;Parameters=@($Parameters);ParameterValues=$ParameterValues;Expression=$Expression;CoherenceHours=$CoherenceHours;ReadDefinition=$ReadDefinition}
 }
 function Get-DomeniaQueryIdentitySelection {
     # A frozen alert selection is explicit, GUID-bound and may be saved. Empty never means all.
@@ -139,7 +150,9 @@ function Get-DomeniaQueryIdentitySelection {
 }
 function ConvertTo-DomeniaCompiledQuery {
     param([Parameter(Mandatory=$true)]$Recipe)
-    if([string](Get-DomeniaMember $Recipe 'Format') -cne 'Domenia.Query/1'){throw 'Format de requête non reconnu.'}
+    if([string](Get-DomeniaMember $Recipe 'Format') -cnotin @('Domenia.Query/1','Domenia.Query/2')){throw 'Format de requête non reconnu.'}
+    Assert-DomeniaQueryReadDefinition (Get-DomeniaMemberValue $Recipe 'ReadDefinition')
+    $Recipe=Resolve-DomeniaQueryParameters $Recipe
     [void](ConvertTo-DomeniaQueryProbeSelection $Recipe)
     [void](Get-DomeniaQueryIdentitySelection $Recipe)
     $name=[string](Get-DomeniaMember $Recipe 'Name');$id=[string](Get-DomeniaMember $Recipe 'Id')
@@ -148,20 +161,32 @@ function ConvertTo-DomeniaCompiledQuery {
     if($junction -cnotin @('All','Any')){throw 'Choisir Toutes les conditions ou Au moins une condition.'}
     $definition=[M4D.Admin.Common.Query.QueryDefinition]::new()
     $definition.Junction=[M4D.Admin.Common.Query.QueryJunction]::$junction
-    $definitions=[Collections.Generic.List[M4D.Admin.Common.Query.FieldDefinition]]::new();$byId=@{}
-    foreach($field in @(Get-DomeniaQueryFields)){$byId[$field.Id]=$field;$definitions.Add([M4D.Admin.Common.Query.FieldDefinition]::new($field.Id,[M4D.Admin.Common.Query.FieldKind]::$($field.Kind)))}
+    if($null -eq $script:DomeniaQueryCompileFields){
+        $definitions=[Collections.Generic.List[M4D.Admin.Common.Query.FieldDefinition]]::new();$byId=@{}
+        foreach($field in @(@(Get-DomeniaQueryFields)+@(Get-DomeniaQueryInstanceFields))){$byId[$field.Id]=$field;$definitionField=[M4D.Admin.Common.Query.FieldDefinition]::new($field.Id,[M4D.Admin.Common.Query.FieldKind]::$($field.Kind));$definitionField.ObservationTimestampField=Get-DomeniaQueryTimestampKey $field.Id;$definitions.Add($definitionField)}
+        $script:DomeniaQueryCompileFields=[pscustomobject]@{Definitions=$definitions;ById=$byId}
+    }
+    $definitions=$script:DomeniaQueryCompileFields.Definitions;$byId=$script:DomeniaQueryCompileFields.ById
+    $custom=@(Get-DomeniaQueryReadDefinitionFields $Recipe)
+    if($custom.Count){
+        $definitions=[Collections.Generic.List[M4D.Admin.Common.Query.FieldDefinition]]::new($script:DomeniaQueryCompileFields.Definitions);$byId=$byId.Clone()
+        foreach($field in $custom){$byId[$field.Id]=$field;$definitionField=[M4D.Admin.Common.Query.FieldDefinition]::new($field.Id,[M4D.Admin.Common.Query.FieldKind]::$($field.Kind));$definitionField.ObservationTimestampField=Get-DomeniaQueryTimestampKey $field.Id;$definitions.Add($definitionField)}
+    }
     $clauses=@(Get-DomeniaMember $Recipe 'Clauses' @())
     $refinements=@(Get-DomeniaMember $Recipe 'Refinements' @());$groupBy=[string](Get-DomeniaMember $Recipe 'GroupBy')
     if($groupBy -and $groupBy -cnotin @($byId.Keys)){throw 'Champ de répartition inconnu.'}
-    if($refinements.Count){[void](ConvertTo-DomeniaCompiledQuery (New-DomeniaQueryRecipe -Clauses $refinements))}
-    if(($clauses.Count+$refinements.Count) -gt 64){throw 'Une requête accepte 64 conditions au maximum.'}
+    if($refinements.Count){[void](ConvertTo-DomeniaCompiledQuery (New-DomeniaQueryRecipe -Clauses $refinements -ReadDefinition (Get-DomeniaMemberValue $Recipe 'ReadDefinition')))}
+    if(($clauses.Count+$refinements.Count+@(Get-DomeniaQueryExpressionClauses (Get-DomeniaMemberValue $Recipe 'Expression')).Count) -gt 64){throw 'Une requête accepte 64 conditions au maximum.'}
     foreach($clause in $clauses){
         $key=[string](Get-DomeniaMember $clause 'Field');$op=[string](Get-DomeniaMember $clause 'Operator');$value=Get-DomeniaMemberValue $clause 'Value'
+        if($key -like 'instance:*'){throw 'Une propriété dʼinstance doit être utilisée dans un groupe de collection.'}
         if(-not $byId.ContainsKey($key) -or $key -cnotin @($byId.Keys)){throw ('Champ inconnu : '+$key)}
         if($op -cnotin @(Get-DomeniaQueryOperators -Kind $byId[$key].Kind | ForEach-Object{$_.Id})){throw ('Opérateur invalide pour '+$byId[$key].Name)}
         if($null -ne $value -and $value -is [psobject]){$value=$value.PSObject.BaseObject}
         $definition.Clauses.Add([M4D.Admin.Common.Query.QueryClause]::new($key,[M4D.Admin.Common.Query.QueryOperator]::$op,$value))
     }
+    $tree=Get-DomeniaMemberValue $Recipe 'Expression';if($null -ne $tree){$definition.Expression=ConvertTo-DomeniaQueryExpression -Node $tree -Fields $byId}
+    $coherence=Get-DomeniaMemberValue $Recipe 'CoherenceHours';if($null -ne $coherence){$definition.MaximumObservationSpreadSeconds=[double]$coherence*3600}
     return [M4D.Admin.Common.Query.QueryEngine]::Compile($definitions,$definition)
 }
 function ConvertTo-DomeniaQueryProbeSelection {
@@ -191,11 +216,16 @@ function ConvertTo-DomeniaQueryProbeSelection {
 function Get-DomeniaQueryTemplates {
     # Curated local recipes, shared by Fleet and Computer. No remote query is performed by this library.
     # Metadata belongs only to delivered templates; saving a copy keeps the existing user recipe schema.
+    if($null -ne $script:DomeniaQueryTemplateCatalog){return $script:DomeniaQueryTemplateCatalog}
+    $delivered=[Collections.Generic.List[object]]::new();$signatures=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal);$titles=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
     $make={param([string]$Id,[string]$Name,[string]$Category,[string]$Description,[object[]]$Clauses=@(),[string]$GroupBy='',[string]$Junction='All')
         $recipe=New-DomeniaQueryRecipe -Id ('template.'+$Id) -Name $Name -Clauses $Clauses -GroupBy $GroupBy -Junction $Junction
+        $signature=$recipe|Select-Object Junction,Clauses,GroupBy|ConvertTo-Json -Depth 6 -Compress
+        if($signatures.Contains($signature) -or $titles.Contains($Name)){return}
+        [void]$signatures.Add($signature);[void]$titles.Add($Name)
         $recipe|Add-Member -NotePropertyName Category -NotePropertyValue $Category
         $recipe|Add-Member -NotePropertyName Description -NotePropertyValue ($Description+' Évaluation locale des données disponibles ; les valeurs non lues ou périmées restent inconnues.')
-        return $recipe
+        $delivered.Add($recipe)
     }
     $clause={param([string]$Field,[string]$Operator,$Value);[pscustomobject]@{Field=$Field;Operator=$Operator;Value=$Value}}
     & $make 'all' 'Tous les postes recensés' 'Inventaire général' 'Tous les comptes ordinateur du périmètre, actifs et désactivés ; sur le tableau du poste, le seul objet sélectionné.'
@@ -368,14 +398,64 @@ by.laps|États LAPS visibles|laps|Codes dʼexpiration LAPS visibles dans AD ; au
         (& $clause 'inventoryDays' 'Less' 1),(& $clause 'diskFreePercent' 'GreaterOrEqual' 20))
     & $make 'resource.review' 'Mémoire faible ou disque peu disponible' 'Vérifications croisées' 'Au moins un seuil de revue atteint : RAM inférieure à 8 Go ou espace C: inférieur à 10 %. Ajustez selon lʼusage.' @(
         (& $clause 'ramGB' 'Less' 8),(& $clause 'diskFreePercent' 'Less' 10)) '' 'Any'
+    # Expand only the engine's supported catalog. Each entry answers a distinct coverage,
+    # distribution or coded-state question; equivalent legacy recipes retain their IDs.
+    foreach($field in @(Get-DomeniaQueryCatalog)){
+        $key=([string]$field.Id).ToLowerInvariant().Replace(':','.')
+        $label=[string]$field.Name
+        foreach($pair in @(@('missing','valeur inconnue','IsMissing'),@('present','valeur disponible','IsPresent'))){
+            & $make ('catalog.'+$key+'.'+$pair[0]) ($label+' : '+$pair[1]) 'Couverture des informations' ('Vérifier la couverture de « '+$label+' ». Une valeur inconnue peut être non lue, expirée, refusée ou incomplète ; consultez la fiche locale pour préciser la cause.') @((& $clause $field.Id $pair[2] $null))
+        }
+        if($field.Kind -ne 'Number' -and $field.Id -notin @('name','dn','user','site')){
+            & $make ('catalog.'+$key+'.distribution') ($label+' : répartition') 'Répartitions détaillées' ('Répartir les postes par « '+$label+' », avec une catégorie séparée pour les valeurs inconnues. Source : '+$field.Source+'.') @() $field.Id
+        }
+        $choiceIndex=0
+        foreach($choice in @($field.Choices)){
+            $choiceIndex++
+            & $make ('catalog.'+$key+'.state'+$choiceIndex) ($label+' : '+$choice.Name) ('États · '+$field.Category) ('Repérer la valeur « '+$choice.Name+' » de « '+$label+' ». La condition porte sur le relevé ou attribut enregistré et ne déclenche aucune lecture distante.') @((& $clause $field.Id 'Equal' $choice.Value))
+        }
+    }
+    $thresholds=@'
+ramGB|8,16,32
+diskFreePercent|5,10,20
+uptimeDays|7,30,90
+checkedDays|1,7,14
+inventoryDays|1,7,14
+logonDays|30,90,180
+probe:hw.ram|4,8,16,32
+probe:hw.cores|2,4,8
+probe:hw.threads|4,8,16
+probe:hw.cpuload|80,90
+probe:hw.batterylevel|20,50
+probe:os.uptime|7,30,90
+probe:os.freeram|1,2,4
+probe:disk.cfree|5,10,20
+probe:disk.csize|128,256,512
+probe:sec.signatures|1,3,7
+probe:sec.quickscan|7,14,30
+probe:sec.fullscan|7,30,90
+probe:net.speed|100,1000
+'@
+    $fieldMap=@{};foreach($field in @(Get-DomeniaQueryCatalog)){$fieldMap[$field.Id]=$field}
+    foreach($line in ($thresholds -split "`r?`n")){
+        $parts=$line.Split('|');$field=$fieldMap[$parts[0]];if($null -eq $field -or $field.Kind -ne 'Number'){throw 'Seuil sans information numérique prise en charge.'}
+        foreach($number in $parts[1].Split(',')){
+            foreach($pair in @(@('lt','moins de','Less'),@('ge','au moins','GreaterOrEqual'))){
+                $key=([string]$field.Id).ToLowerInvariant().Replace(':','.')+'.'+$pair[0]+$number
+                & $make ('threshold.'+$key) ($field.Name+' : '+$pair[1]+' '+$number+' '+$field.Unit) ('Seuils · '+$field.Category) ('Seuil de triage pour « '+$field.Name+' », à adapter aux usages ; une information manquante ne vaut jamais zéro. '+$field.Freshness) @((& $clause $field.Id $pair[2] ([decimal]::Parse($number,[Globalization.CultureInfo]::InvariantCulture))))
+            }
+        }
+    }
+    $script:DomeniaQueryTemplateCatalog=$delivered.ToArray()
+    return $script:DomeniaQueryTemplateCatalog
 }
 function ConvertFrom-DomeniaQueryLibrary {
     param([string]$Json='')
     if(-not $Json){return @()}
-    if([Text.Encoding]::UTF8.GetByteCount($Json) -gt 1048576){throw 'Bibliothèque de requêtes trop volumineuse (1 Mio maximum en UTF-8).'}
+    if([Text.Encoding]::UTF8.GetByteCount($Json) -gt 16777216){throw 'Bibliothèque de requêtes trop volumineuse (16 Mio maximum en UTF-8).'}
     $library=ConvertFrom-Json -InputObject $Json -ErrorAction Stop
     if([string](Get-DomeniaMember $library 'Format') -cne 'Domenia.QueryLibrary/1'){throw 'Bibliothèque de requêtes non reconnue.'}
-    $queries=@(Get-DomeniaMember $library 'Queries' @());if($queries.Count -gt 100){throw '100 requêtes enregistrées au maximum.'}
+    $queries=@(Get-DomeniaMember $library 'Queries' @());if($queries.Count -gt 5000){throw '5 000 requêtes personnelles au maximum dans la bibliothèque locale.'}
     $ids=@{}
     foreach($recipe in $queries){
         [void](ConvertTo-DomeniaCompiledQuery $recipe)
@@ -386,14 +466,20 @@ function ConvertFrom-DomeniaQueryLibrary {
 }
 function ConvertTo-DomeniaQueryLibraryJson {
     param([object[]]$Queries=@())
-    $json=ConvertTo-Json -InputObject ([pscustomobject]@{Format='Domenia.QueryLibrary/1';Queries=@($Queries)}) -Depth 8 -Compress
+    $json=ConvertTo-Json -InputObject ([pscustomobject]@{Format='Domenia.QueryLibrary/1';Queries=@($Queries)}) -Depth 32 -Compress
     [void](ConvertFrom-DomeniaQueryLibrary $json)
     return $json
 }
 function Get-DomeniaQueryProbeIds {
     param($Recipe)
-    return @(@(@(Get-DomeniaMember $Recipe 'Clauses' @())+@(Get-DomeniaMember $Recipe 'Refinements' @())+@([pscustomobject]@{Field=[string](Get-DomeniaMember $Recipe 'GroupBy')},[pscustomobject]@{Field=$(if($null -ne (Get-DomeniaMemberValue $Recipe 'ProbeSelection')){'probe:'+([string]$Recipe.ProbeSelection.Key)}else{''})})) | ForEach-Object{[string](Get-DomeniaMember $_ 'Field')} | Where-Object{$_ -like 'probe:*'} | ForEach-Object{$_.Substring(6)} | Select-Object -Unique)
+    $ids=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    foreach($field in @(Get-DomeniaQueryRequestedFields $Recipe)){
+        if($field -like 'probe:*'){[void]$ids.Add($field.Substring(6))}
+        elseif($field -like 'instance:*'){[void]$ids.Add(($field.Split(':'))[1])}
+    }
+    return @($ids|Sort-Object)
 }
+
 function Get-DomeniaQueryCollectionRequirements {
     # Resolve the union once for all recipes on a board. AD-only filters never require an endpoint read.
     param([object[]]$Recipes=@(),[string[]]$ProbeIds=@())
@@ -403,7 +489,7 @@ function Get-DomeniaQueryCollectionRequirements {
     foreach($recipe in $Recipes){
         if($null -eq $recipe){continue}
         foreach($id in @(Get-DomeniaQueryProbeIds $recipe)){[void]$probes.Add($id)}
-        foreach($clause in @(@(Get-DomeniaMember $recipe 'Clauses' @())+@(Get-DomeniaMember $recipe 'Refinements' @()))){[void]$fields.Add([string](Get-DomeniaMember $clause 'Field'))}
+        foreach($field in @(Get-DomeniaQueryRequestedFields $recipe)){[void]$fields.Add($field)}
         [void]$fields.Add([string](Get-DomeniaMember $recipe 'GroupBy'))
     }
     $inventory=$false;$observation=$false
@@ -426,10 +512,23 @@ function ConvertTo-DomeniaQueryRecords {
     $probeFields=@{};foreach($field in @(Get-DomeniaQueryFields | Where-Object{$_.ProbeId})){$probeFields[$field.ProbeId]=$field}
     $probeCatalog=@{};foreach($p in @(Get-DomeniaProbeCatalog)){$probeCatalog[$p.Id]=$p}
     $records=[Collections.Generic.List[M4D.Admin.Common.Query.QueryRecord]]::new()
+    $dateSources=@{name=@('Name');dn=@('DN');active=@('State');os=@('Details.operatingsystem');version=@('Details.operatingsystemversion');osLabel=@('Details.operatingsystem');release=@('Details.operatingsystem','Details.operatingsystemversion');osFamily=@('Details.operatingsystem');lifeStatus=@('Details.operatingsystem','Details.operatingsystemversion');win10=@('Details.operatingsystem');site=@('DN');logonDays=@('LastLogon');logonBucket=@('LastLogon');createdRecent=@('Details.whencreated');passwordOld=@('Details.pwdlastset');laps=@('Details.ms-mcs-admpwdexpirationtime','Details.mslaps-passwordexpirationtime')}
+    $dateCache=@{}
     foreach($machine in @(Get-DomeniaMember $Fleet 'Machines' @())){
         $dn=[string]$machine.distinguished_name;$guid=[string]$machine.object_guid
         $v=[Collections.Generic.Dictionary[string,object]]::new([StringComparer]::Ordinal)
-        $v['presenceBucket']='Non verifie';$v['name']=[string]$machine.name;$v['dn']=$dn;$v['active']=([string]$machine.st -ne 'D')
+        $v['presenceBucket']='Non verifie';$v['name']=[string]$machine.name;$v['dn']=$dn
+        $fieldTimes=Get-DomeniaMemberValue $machine 'FieldTimes'
+        if($null -eq $fieldTimes){
+            $dateJson=[string](Get-DomeniaMember $machine 'FieldTimesJson')
+            if($dateJson -and $dateJson.Length -le 65536){
+                if($dateCache.ContainsKey($dateJson)){$fieldTimes=$dateCache[$dateJson]}
+                else{try{$fieldTimes=ConvertFrom-Json -InputObject $dateJson -ErrorAction Stop}catch{$fieldTimes=$null};if($dateCache.Count -lt 256){$dateCache[$dateJson]=$fieldTimes}}
+            }
+        }
+        foreach($dateField in $dateSources.Keys){$known=$true;$oldest=$null;foreach($source in $dateSources[$dateField]){$at=ConvertFrom-DomeniaUtcText ([string](Get-DomeniaMember $fieldTimes $source));if($null -eq $at){$known=$false;break};if($null -eq $oldest -or $at -lt $oldest){$oldest=$at}};if($known -and $null -ne $oldest){$v['_at:field:'+$dateField]=$oldest.ToUniversalTime().ToString('o')}}
+
+        if([string]$machine.st -in @('A','D')){$v['active']=([string]$machine.st -eq 'A')}
         $group=$groups[[string]$machine.gid]
         if($null -ne $group){
             foreach($entry in $derived[[string]$group.gid].GetEnumerator()){$v[$entry.Key]=$entry.Value}
@@ -445,44 +544,63 @@ function ConvertTo-DomeniaQueryRecords {
         $observedGuid=[string](Get-DomeniaMember $observation 'Guid')
         # A DN alone cannot attach an observation to a recreated account.
         if($guid -and $observedGuid -and $guid.Trim().Trim('{','}').ToLowerInvariant() -eq $observedGuid.Trim().Trim('{','}').ToLowerInvariant()){
-            $checked=ConvertFrom-DomeniaUtcText ([string](Get-DomeniaMember $observation 'CheckedUtc'))
+            # Ping owns this date. A fresh inventory or failed CIM attempt must never renew presence.
+            $checked=ConvertFrom-DomeniaUtcText ([string](Get-DomeniaMember $observation 'PresenceCheckedUtc'))
+            $v['_at:presence']=[string](Get-DomeniaMember $observation 'PresenceCheckedUtc')
+            if($null -ne $checked -and ($NowUtc-$checked).TotalDays -gt $MaxAgeDays){$v['_quality:presence']='Expiré';$v['_quality:checkedDays']='Expiré'}
             $usable=($null -ne $checked -and $checked -le $NowUtc.AddMinutes(5) -and ($NowUtc-$checked).TotalDays -le $MaxAgeDays)
             if($usable){
                 $v['checkedDays']=[double][Math]::Max(0,($NowUtc-$checked).TotalDays)
                 $presence=[string](Get-DomeniaMember $observation 'Presence');if($presence){$v['presence']=$presence}
-                $v['presenceBucket']=if($presence -eq 'En ligne'){'En ligne'}elseif($presence -match 'Sans|Erreur|Hors'){'Sans reponse'}else{'Non verifie'}
+                $v['presenceBucket']=if($presence -eq 'En ligne'){'En ligne'}elseif($presence -match '^(Sans r[eé]ponse(?: au ping)?|Hors ligne)$'){'Sans reponse'}else{'Non verifie'}
+                if($presence -match '^(Erreur|Error)'){$v['_quality:presence']='Erreur de lecture'}
+            }
+            # Console, inventory and ping are independent channels, each with its own source date.
                 $userAt=ConvertFrom-DomeniaUtcText ([string](Get-DomeniaMember $observation 'ObservedUtc'))
+                $v['_at:console']=[string](Get-DomeniaMember $observation 'ObservedUtc')
+                if($null -ne $userAt -and ($NowUtc-$userAt).TotalDays -gt $MaxAgeDays){$v['_quality:user']='Expiré'}
                 $user=[string](Get-DomeniaMember $observation 'LinkUser')
                 if($user -and $null -ne $userAt -and $userAt -le $NowUtc.AddMinutes(5) -and ($NowUtc-$userAt).TotalDays -le $MaxAgeDays){$v['user']=$user}
 
                 $inventory=Get-DomeniaMemberValue $observation 'Inventory'
                 $inventoryAt=ConvertFrom-DomeniaUtcText ([string](Get-DomeniaMember $inventory 'CheckedUtc'))
+                $v['_at:inventory']=[string](Get-DomeniaMember $inventory 'CheckedUtc')
+                $inventoryState=if([string](Get-DomeniaMember $observation 'InventoryError')){'Erreur au dernier relevé'}elseif($null -ne $inventoryAt -and ($NowUtc-$inventoryAt).TotalDays -gt $MaxAgeDays){'Expiré'}else{''}
+                if($inventoryState){foreach($id in @('inventoryDays','model','observedRelease','ramGB','diskFreePercent','uptimeDays')){$v['_quality:'+$id]=$inventoryState}}
                 if($null -ne $inventoryAt -and $inventoryAt -le $NowUtc.AddMinutes(5) -and ($NowUtc-$inventoryAt).TotalDays -le $MaxAgeDays){
                 $v['inventoryDays']=[double][Math]::Max(0,($NowUtc-$inventoryAt).TotalDays)
-                $model=[string](Get-DomeniaMember $inventory 'Model');$v['model']=if($model){$model}else{'Modele inconnu'}
+                $model=[string](Get-DomeniaMember $inventory 'Model');if($model){$v['model']=$model}
                 $build=[string](Get-DomeniaMember $inventory 'Build')
                 $release=(Get-DomeniaWindowsRelease -Build $build -Caption ([string](Get-DomeniaMember $inventory 'OsCaption')) -Lifecycle $Lifecycle -Now $NowUtc).Name
-                $v['observedRelease']=if($release){[string]$release}elseif($build){'Build '+$build}else{'Version inconnue'}
+                if($release){$v['observedRelease']=[string]$release}elseif($build){$v['observedRelease']='Build '+$build}
                 $ram=Get-DomeniaMember $inventory 'RamBytes';if($null -ne $ram -and [double]$ram -gt 0){$v['ramGB']=[double]$ram/1GB}
                 $size=Get-DomeniaMember $inventory 'DiskSize';$free=Get-DomeniaMember $inventory 'DiskFree'
                 if($null -ne $size -and $null -ne $free -and [double]$size -gt 0 -and [double]$free -ge 0 -and [double]$free -le [double]$size){$v['diskFreePercent']=100.0*[double]$free/[double]$size}
                 $boot=ConvertFrom-DomeniaUtcText ([string](Get-DomeniaMember $inventory 'LastBootUtc'))
                 if($null -ne $boot -and $boot -le $NowUtc){$v['uptimeDays']=[double]($NowUtc-$boot).TotalDays}
                 }
-            }
             # A fresh ping must not freshen an older probe. Every probe has its own timestamp.
             $probes=Get-DomeniaMemberValue $observation 'Probes'
             # Visit only measurements actually present. Scanning every catalog field for every machine
             # makes an uncollected 10,000-machine fleet pay for 780,000 missing member lookups.
-            $probeIds=if($observation -is [Domenia.Native.Observation]){@($observation.CopyQueryProbesTo($v,$NowUtc,$MaxAgeDays))}elseif($null -eq $probes){@()}elseif($probes -is [Collections.IDictionary]){$probes.Keys}else{$probes.PSObject.Properties.Name}
+            if($observation -is [Domenia.Native.Observation]){[void]$observation.CopyQueryProbesTo($v,$NowUtc,$MaxAgeDays)}
+            $probeIds=if($null -eq $probes){@()}elseif($probes -is [Collections.IDictionary]){$probes.Keys}else{$probes.PSObject.Properties.Name}
             foreach($probeId in $probeIds){
                 $field=$probeFields[[string]$probeId];if($null -eq $field){continue}
                 $result=Get-DomeniaMemberValue $probes $field.ProbeId
-                if($null -eq $result -or [string](Get-DomeniaMember $result 'Error') -or [string](Get-DomeniaMember $result 'Skipped')){continue}
+                if($null -eq $result){continue}
+                $v['_at:'+$field.Id]=[string](Get-DomeniaMember $result 'CheckedUtc')
+                if([string](Get-DomeniaMember $result 'Error')){$v['_quality:'+$field.Id]='Erreur de lecture';continue}
+                if([string](Get-DomeniaMember $result 'Skipped')){$v['_quality:'+$field.Id]='Non applicable / ignoré';continue}
                 $probeAt=ConvertFrom-DomeniaUtcText ([string](Get-DomeniaMember $result 'CheckedUtc'))
-                if($null -eq $probeAt -or $probeAt -gt $NowUtc.AddMinutes(5) -or ($NowUtc-$probeAt).TotalDays -gt $MaxAgeDays){continue}
+                if($null -eq $probeAt -or $probeAt -gt $NowUtc.AddMinutes(5)){$v['_quality:'+$field.Id]='Date de relevé inconnue';continue}
+                if(($NowUtc-$probeAt).TotalDays -gt $MaxAgeDays){$v['_quality:'+$field.Id]='Expiré';continue}
                 $probe=$probeCatalog[$field.ProbeId]
-                if([bool](Get-DomeniaMember $result 'Truncated' $false) -and $probe.Mode -eq 'All'){continue}
+                $v['_instances:'+$field.Id]=ConvertTo-DomeniaQueryInstances -Probe $probe -Result $result
+                if([bool](Get-DomeniaMember $result 'Truncated' $false) -and $probe.Mode -ne 'Count'){$v['_quality:'+$field.Id]='Lecture incomplète';continue}
+                if($probe.Mode -eq 'Count' -and $null -ne (Get-DomeniaMemberValue $result 'CountComplete') -and -not [bool]$result.CountComplete){[void]$v.Remove($field.Id);[void]$v.Remove('_probe:'+$field.ProbeId);$v['_quality:'+$field.Id]='Lecture incomplète';continue}
+                if($probe.Mode -eq 'Count' -and $null -eq (Get-DomeniaMemberValue $result 'Count')){$v['_quality:'+$field.Id]='Non lu';continue}
+                if($v.ContainsKey($field.Id)){continue} # Already projected by the native observation adapter.
                 $values=@(Get-DomeniaProbeValues -Probe $probe -Result $result)
                 if(-not $values.Count){continue}
                 $v['_probe:'+$field.ProbeId]=[object[]]$values
@@ -494,13 +612,22 @@ function ConvertTo-DomeniaQueryRecords {
     }
     return ,$records
 }
+function Get-DomeniaQueryValuePresentation {
+    param($Record,[string]$Field)
+    $v=$Record.Values;$known=$v.ContainsKey($Field)
+    $state=if($v.ContainsKey('_quality:'+$Field)){[string]$v['_quality:'+$Field]}elseif($known){'Disponible'}else{'Non lu'}
+    if($known -and $state -ne 'Disponible'){$state='Disponible · '+$state}
+    $timestampKey=Get-DomeniaQueryTimestampKey $Field
+    $at=if($v.ContainsKey($timestampKey)){ConvertFrom-DomeniaUtcText ([string]$v[$timestampKey])}else{$null}
+    [pscustomobject]@{Known=$known;Value=$(if($known){[string]$v[$Field]}else{$state});State=$state;ObservedAt=$(if($null -ne $at){$at.ToLocalTime().ToString('dd/MM/yyyy HH:mm:ss')}else{'Date non disponible'})}
+}
 function ConvertTo-DomeniaQueryGridRows {
     param($Rows,[string[]]$Fields=@())
     foreach($record in $Rows){
         $v=$record.Values
-        $row=[ordered]@{Id=$record.Id;PresenceLabel=$v['presenceBucket'];PresenceState=$(switch([string]$v['presenceBucket']){'En ligne'{'●'};'Sans reponse'{'○'};default{'?'}});PresenceBrush=$(switch([string]$v['presenceBucket']){'En ligne'{'#22C55E'};'Sans reponse'{'#F59E0B'};default{'#94A3B8'}});name=$v['name'];StateLabel=$(if($v['active']){'Actif'}else{'Désactivé'});OS=$(if($v.ContainsKey('os')){$v['os']}else{'Non renseigné'});Version=$(if($v.ContainsKey('version')){$v['version']}else{'Non lue'});LogonDays=$(if($v.ContainsKey('logonDays')){[Math]::Floor([double]$v['logonDays'])}else{'Inconnue'});Observation=$(if($v.ContainsKey('checkedDays')){([Math]::Round([double]$v['checkedDays'],1).ToString()+' j')}else{'Non recueillie / expirée'});distinguished_name=$v['dn']}
+        $row=[ordered]@{Id=$record.Id;PresenceLabel=$v['presenceBucket'];PresenceState=$(switch([string]$v['presenceBucket']){'En ligne'{'●'};'Sans reponse'{'○'};default{'?'}});PresenceBrush=$(switch([string]$v['presenceBucket']){'En ligne'{'#22C55E'};'Sans reponse'{'#F59E0B'};default{'#94A3B8'}});name=$v['name'];StateLabel=$(if(-not $v.ContainsKey('active')){'Non lu'}elseif($v['active']){'Actif'}else{'Désactivé'});OS=$(if($v.ContainsKey('os')){$v['os']}else{'Non renseigné'});Version=$(if($v.ContainsKey('version')){$v['version']}else{'Non lue'});LogonDays=$(if($v.ContainsKey('logonDays')){[Math]::Floor([double]$v['logonDays'])}else{'Inconnue'});Observation=$(if($v.ContainsKey('checkedDays')){([Math]::Round([double]$v['checkedDays'],1).ToString()+' j')}else{'Non recueillie / expirée'});distinguished_name=$v['dn']}
         $details=[Collections.Generic.List[string]]::new()
-        foreach($field in $Fields){$value=if($v.ContainsKey($field)){$v[$field]}else{'Inconnu'};$details.Add($field+' = '+[string]$value)}
+        foreach($field in $Fields){$value=Get-DomeniaQueryValuePresentation -Record $record -Field $field;$details.Add($field+' = '+[string]$value.Value)}
         $row['QueryValues']=[string]::Join(' · ',$details.ToArray())
         [pscustomobject]$row
     }
@@ -516,11 +643,12 @@ function Select-DomeniaQueryPopulation {
         foreach ($record in $Records) { $typed.Add($record) }
         $Records=$typed
     }
+    $Recipe=Resolve-DomeniaQueryParameters $Recipe
     $refinements=@(Get-DomeniaMember $Recipe 'Refinements' @())
     $probeSelection=ConvertTo-DomeniaQueryProbeSelection $Recipe
     $identities=Get-DomeniaQueryIdentitySelection $Recipe
     if(-not $refinements.Count -and $null -eq $probeSelection -and $null -eq $identities){return ,$Records}
-    $compiled=ConvertTo-DomeniaCompiledQuery (New-DomeniaQueryRecipe -Clauses $refinements)
+    $compiled=ConvertTo-DomeniaCompiledQuery (New-DomeniaQueryRecipe -Clauses $refinements -ReadDefinition (Get-DomeniaMemberValue $Recipe 'ReadDefinition'))
     $selected=[Collections.Generic.List[M4D.Admin.Common.Query.QueryRecord]]::new()
     foreach($record in $Records){
         if($null -ne $identities -and -not $identities.Contains($record.Id.Trim().Trim('{','}'))){continue}
@@ -530,9 +658,10 @@ function Select-DomeniaQueryPopulation {
 }
 function Get-DomeniaQueryMatchIds {
     param($Records,$Recipe)
+    $Recipe=Resolve-DomeniaQueryParameters $Recipe
     $compiled=ConvertTo-DomeniaCompiledQuery $Recipe
     $refinements=@(Get-DomeniaMember $Recipe 'Refinements' @())
-    $refined=if($refinements.Count){ConvertTo-DomeniaCompiledQuery (New-DomeniaQueryRecipe -Clauses $refinements)}else{$null}
+    $refined=if($refinements.Count){ConvertTo-DomeniaCompiledQuery (New-DomeniaQueryRecipe -Clauses $refinements -ReadDefinition (Get-DomeniaMemberValue $Recipe 'ReadDefinition'))}else{$null}
     $ids=@{}
     $population=Select-DomeniaQueryPopulation $Records $Recipe
     foreach($record in $population){
@@ -549,7 +678,7 @@ function Measure-DomeniaQueryWidget {
     $groupBy=[string](Get-DomeniaMember $Recipe 'GroupBy');$items=@()
     if($groupBy){
         # Bounded distinct categories. Exceeding the bound is explicit, never a silently sampled chart.
-        $buckets=@($query.CountBy($population,$groupBy,10000));$known=@($buckets|Where-Object{-not $_.Missing}|Sort-Object Count -Descending)
+        $buckets=@($query.CountBy($population,$groupBy,100000));$known=@($buckets|Where-Object{-not $_.Missing}|Sort-Object Count -Descending)
         $top=@($known|Select-Object -First 10);$items=@(foreach($bucket in $top){[pscustomobject]@{Label=[string]$bucket.Value;Value=[double]$bucket.Count;Select=[pscustomobject]@{Label=[string]$bucket.Value;Field=$groupBy;Missing=$false;Value=$bucket.Value;Excluded=@()}}})
         $others=0L;foreach($bucket in @($known|Select-Object -Skip 10)){$others+=$bucket.Count}
         if($others){$items+=@([pscustomobject]@{Label='Autres valeurs';Value=[double]$others;Select=[pscustomobject]@{Label='Autres valeurs';Field=$groupBy;Missing=$false;Value=$null;Excluded=@($top|ForEach-Object{$_.Value})}})}
@@ -566,7 +695,362 @@ function New-DomeniaQuerySegmentRecipe {
         foreach($value in @($Selection.Excluded)){$refinements+=@([pscustomobject]@{Field=$field;Operator='NotEqual';Value=$value})}
     }else{$refinements+=@([pscustomobject]@{Field=$field;Operator='Equal';Value=$Selection.Value})}
     $name=[string]$Recipe.Name+' · '+[string]$Selection.Label;if($name.Length -gt 120){$name=$name.Substring(0,120)}
-    $result=New-DomeniaQueryRecipe -Name $name -Junction $Recipe.Junction -Clauses @($Recipe.Clauses) -Refinements $refinements -GroupBy ([string](Get-DomeniaMember $Recipe 'GroupBy')) -ProbeSelection (Get-DomeniaMemberValue $Recipe 'ProbeSelection') -ObjectIds (Get-DomeniaMemberValue $Recipe 'ObjectIds')
+    $result=New-DomeniaQueryRecipe -Name $name -Junction $Recipe.Junction -Clauses @($Recipe.Clauses) -Refinements $refinements -GroupBy ([string](Get-DomeniaMember $Recipe 'GroupBy')) -ProbeSelection (Get-DomeniaMemberValue $Recipe 'ProbeSelection') -ObjectIds (Get-DomeniaMemberValue $Recipe 'ObjectIds') -Parameters @(Get-DomeniaMember $Recipe 'Parameters' @()) -ParameterValues (Get-DomeniaMemberValue $Recipe 'ParameterValues') -Expression (Get-DomeniaMemberValue $Recipe 'Expression') -CoherenceHours (Get-DomeniaMemberValue $Recipe 'CoherenceHours') -ReadDefinition (Get-DomeniaMemberValue $Recipe 'ReadDefinition')
     [void](ConvertTo-DomeniaCompiledQuery $result)
     return $result
+}
+
+function ConvertTo-DomeniaQueryNumber {
+    param([string]$Text,[string]$Field)
+    $entry=@(@(Get-DomeniaQueryCatalog)+@(Get-DomeniaQueryInstanceFields)|Where-Object{$_.Id -ceq $Field})
+    if($entry.Count -ne 1 -or $entry[0].Kind -ne 'Number'){throw 'Cette information ne reçoit pas de valeur numérique.'}
+    $match=[regex]::Match($Text.Trim(),'^(?<n>[+-]?(?:[0-9]+(?:[.,][0-9]*)?|[.,][0-9]+)(?:[eE][+-]?[0-9]+)?)\s*(?<u>[%\p{L}/]+)?$')
+    $number=[decimal]0
+    if(-not $match.Success -or -not [decimal]::TryParse($match.Groups['n'].Value.Replace(',','.'),[Globalization.NumberStyles]::Float,[Globalization.CultureInfo]::InvariantCulture,[ref]$number)){throw 'Saisissez un nombre fini, par exemple 8 Go ou 10,5.'}
+    $suffix=$match.Groups['u'].Value.ToLowerInvariant();$unit=[string]$entry[0].Unit
+    if(-not $suffix){return $number}
+    # Divide the original decimal, not a rounded reciprocal (48 h must equal exactly2 days).
+    if($unit -eq 'Jours' -and $suffix -in @('h','heure','heures')){return [decimal]($number/24)}
+    if($unit -eq 'Jours' -and $suffix -in @('min','minute','minutes')){return [decimal]($number/1440)}
+    $scales=@{}
+    switch($unit){
+        'Go'{$scales=@{go=1;gb=1;gio=1;gib=1;mo=([decimal]1/1024);mb=([decimal]1/1024);mio=([decimal]1/1024);mib=([decimal]1/1024);to=1024;tb=1024;tio=1024;tib=1024}}
+        'Mo'{$scales=@{mo=1;mb=1;mio=1;mib=1;go=1024;gb=1024;gio=1024;gib=1024;ko=([decimal]1/1024);kb=([decimal]1/1024)}}
+        'Jours'{$scales=@{j=1;jour=1;jours=1;d=1;day=1;days=1;h=([decimal]1/24);heure=([decimal]1/24);heures=([decimal]1/24);min=([decimal]1/1440);minute=([decimal]1/1440);minutes=([decimal]1/1440)}}
+        '%'{$scales=@{'%'=1;pourcent=1}}
+        'Mbit/s'{$scales=@{'mbit/s'=1;mbps=1;'gbit/s'=1000;gbps=1000;'kbit/s'=([decimal]1/1000);kbps=([decimal]1/1000)}}
+        'MHz'{$scales=@{mhz=1;ghz=1000}}
+    }
+    if(-not $scales.ContainsKey($suffix)){throw ('Unité incompatible : '+$suffix+'. Unité attendue : '+$unit+'.')}
+    return [decimal]($number*[decimal]$scales[$suffix])
+}
+function Get-DomeniaQueryExplanation {
+    param($Record,$Recipe)
+    $Recipe=Resolve-DomeniaQueryParameters $Recipe
+    $fields=@{};foreach($field in @(@(Get-DomeniaQueryFields)+@(Get-DomeniaQueryInstanceFields)+@(Get-DomeniaQueryReadDefinitionFields $Recipe))){$fields[$field.Id]=$field}
+    foreach($section in @('Clauses','Refinements')){
+        $index=0
+        foreach($clause in @(Get-DomeniaMember $Recipe $section @())){
+            $index++;$single=New-DomeniaQueryRecipe -Clauses @($clause) -ReadDefinition (Get-DomeniaMemberValue $Recipe 'ReadDefinition');$compiled=ConvertTo-DomeniaCompiledQuery $single
+            $verdict=[string]$compiled.Evaluate($Record.Values);$value=Get-DomeniaQueryValuePresentation $Record ([string]$clause.Field)
+            $operator=@(Get-DomeniaQueryOperators $fields[[string]$clause.Field].Kind|Where-Object{$_.Id -ceq [string]$clause.Operator})[0]
+            [pscustomobject]@{Condition=($(if($section -eq 'Refinements'){'Segment ET · '}else{''})+$index+'. '+$fields[[string]$clause.Field].Name+' '+$operator.Name+' '+[string]$clause.Value);Value=$value.Value;Verdict=$(switch($verdict){Match{'Vrai'};NoMatch{'Faux'};default{'Inconnu'}});State=$value.State;ObservedAt=$value.ObservedAt}
+        }
+    }
+    $tree=Get-DomeniaMemberValue $Recipe 'Expression'
+    foreach($node in @(Get-DomeniaQueryExpressionOutline $tree)){
+        if($node.CollectionProbe){continue}
+        $single=New-DomeniaQueryRecipe -Expression $node.Node -ReadDefinition (Get-DomeniaMemberValue $Recipe 'ReadDefinition')
+        $verdict=[string](ConvertTo-DomeniaCompiledQuery $single).Evaluate($Record.Values)
+        $value=if($node.Kind -eq 'Clause'){Get-DomeniaQueryValuePresentation $Record ([string]$node.Node.Clause.Field)}elseif($node.Kind -eq 'Collection'){
+            $key='_instances:'+([string]$node.Node.CollectionField);$collection=if($Record.Values.ContainsKey($key)){$Record.Values[$key]}else{$null}
+            [pscustomobject]@{Value=$(if($null -ne $collection){[string]$collection.Instances.Count+' instance(s) mémorisée(s)'}else{'Non lu'});State=$(if($null -eq $collection){'Non lu'}elseif($collection.Complete){'Collecte complète'}else{'Collecte partielle'});ObservedAt=(Get-DomeniaQueryValuePresentation $Record ([string]$node.Node.CollectionField)).ObservedAt}
+        }else{[pscustomobject]@{Value='Verdicts des sous-conditions';State='Calcul local';ObservedAt=''}}
+        [pscustomobject]@{Condition=$node.Label;Value=$value.Value;Verdict=$(switch($verdict){Match{'Vrai'};NoMatch{'Faux'};default{'Inconnu'}});State=$value.State;ObservedAt=$value.ObservedAt}
+    }
+    if($null -ne (Get-DomeniaMemberValue $Recipe 'CoherenceHours')){
+        $coverage=Measure-DomeniaQueryCoverage -Records @($Record) -Recipe $Recipe -CoherenceHours ([double]$Recipe.CoherenceHours)
+        [pscustomobject]@{Condition=('Écart des dates sources ≤ '+[string]$Recipe.CoherenceHours+' h');Value=$(if($coverage.Undated){'Une date source manque'}elseif($coverage.MixedPeriod){'Mesures prises à des périodes différentes'}else{'Dates compatibles'});Verdict=$(if($coverage.Undated -or $coverage.MixedPeriod){'Inconnu'}else{'Vrai'});State='Cohérence temporelle';ObservedAt=''}
+    }
+
+}
+function Measure-DomeniaQueryCoverage {
+    param($Records,$Recipe,[double]$CoherenceHours=24)
+    if($CoherenceHours -le 0 -or $CoherenceHours -gt 8760){throw 'Fenêtre de cohérence invalide (plus de 0 et au plus 8 760 heures).'}
+    $byId=@{};foreach($entry in @(@(Get-DomeniaQueryCatalog)+@(Get-DomeniaQueryInstanceFields)+@(Get-DomeniaQueryReadDefinitionFields $Recipe))){$byId[$entry.Id]=$entry}
+    $fields=@(foreach($id in @(Get-DomeniaQueryRequestedFields $Recipe)){
+        if(-not $byId.ContainsKey($id)){throw ('Champ de couverture inconnu : '+$id)}
+        [pscustomobject]@{Id=$id;Name=$byId[$id].Name;Available=0L;Expired=0L;Error=0L;Partial=0L;Unread=0L;Source=[string](Get-DomeniaMember $byId[$id] 'Source')}
+    })
+    $identities=Get-DomeniaQueryIdentitySelection $Recipe;$total=0L;$complete=0L;$mixed=0L;$undated=0L
+    foreach($record in $Records){
+        if($null -ne $identities -and -not $identities.Contains($record.Id.Trim().Trim('{','}'))){continue}
+        $total++;$all=$true;$earliest=$null;$latest=$null;$missingDate=$false
+        foreach($field in $fields){
+            $id=[string]$field.Id;$v=$record.Values;$known=$v.ContainsKey($id);$partial=$false;$qualityKey=$id
+            if($id -like 'instance:*'){
+                $probeId=($id.Split(':'))[1];$qualityKey='probe:'+$probeId;$key='_instances:probe:'+$probeId
+                if($v.ContainsKey($key)){
+                    $collection=$v[$key];$known=[bool]$collection.Complete;$partial=(-not $known)
+                    foreach($instance in $collection.Instances){if(-not $instance.Values.ContainsKey($id) -or $instance.Values.ContainsKey('_unknown:'+$id)){$known=$false;$partial=$true;break}}
+                }
+            }
+            if($known){$field.Available++}else{
+                $all=$false;$quality=if($v.ContainsKey('_quality:'+$qualityKey)){[string]$v['_quality:'+$qualityKey]}else{''}
+                if($partial){$field.Partial++}else{switch($quality){'Expiré'{$field.Expired++};'Erreur de lecture'{$field.Error++};'Lecture incomplète'{$field.Partial++};default{$field.Unread++}}}
+            }
+            $dateKey=Get-DomeniaQueryTimestampKey $id
+            $date=if($v.ContainsKey($dateKey)){ConvertFrom-DomeniaUtcText ([string]$v[$dateKey])}else{$null}
+            if($null -ne $date){if($null -eq $earliest -or $date -lt $earliest){$earliest=$date};if($null -eq $latest -or $date -gt $latest){$latest=$date}}else{$missingDate=$true}
+        }
+        if($all){$complete++};if($missingDate){$undated++}
+        if($null -ne $earliest -and $null -ne $latest -and ($latest-$earliest).TotalHours -gt $CoherenceHours){$mixed++}
+    }
+    [pscustomobject]@{Rows=$fields;Total=$total;Complete=$complete;Incomplete=($total-$complete);MixedPeriod=$mixed;Undated=$undated;CoherenceHours=$CoherenceHours;FieldCount=$fields.Count}
+}
+
+function Copy-DomeniaQueryRecipe {
+    param($Recipe,[string]$Id,[string]$Name,$Clauses,$Refinements,$ObjectIds)
+    $copy=New-DomeniaQueryRecipe -Id ([string]$Recipe.Id) -Name ([string]$Recipe.Name) -Junction ([string]$Recipe.Junction) -Clauses @(Get-DomeniaMember $Recipe 'Clauses' @()) -GroupBy ([string](Get-DomeniaMember $Recipe 'GroupBy')) -Refinements @(Get-DomeniaMember $Recipe 'Refinements' @()) -ProbeSelection (Get-DomeniaMemberValue $Recipe 'ProbeSelection') -ObjectIds (Get-DomeniaMemberValue $Recipe 'ObjectIds') -Parameters @(Get-DomeniaMember $Recipe 'Parameters' @()) -ParameterValues (Get-DomeniaMemberValue $Recipe 'ParameterValues') -Expression (Get-DomeniaMemberValue $Recipe 'Expression') -CoherenceHours (Get-DomeniaMemberValue $Recipe 'CoherenceHours') -ReadDefinition (Get-DomeniaMemberValue $Recipe 'ReadDefinition')
+    foreach($key in @('Id','Name','Clauses','Refinements','ObjectIds')){if($PSBoundParameters.ContainsKey($key)){$copy.$key=$PSBoundParameters[$key]}}
+    # Deep copy prevents an editor mutation from altering a saved recipe or an export in flight.
+    return ConvertFrom-Json -InputObject (ConvertTo-Json -InputObject $copy -Depth 32 -Compress) -ErrorAction Stop
+}
+function Resolve-DomeniaQueryParameters {
+    param($Recipe)
+    $definitions=@(Get-DomeniaMember $Recipe 'Parameters' @())
+    if($definitions.Count -gt 32){throw 'Une recette accepte au maximum 32 paramètres.'}
+    if(-not $definitions.Count){return $Recipe}
+    $fields=@{};foreach($field in @(@(Get-DomeniaQueryFields)+@(Get-DomeniaQueryInstanceFields)+@(Get-DomeniaQueryReadDefinitionFields $Recipe))){$fields[$field.Id]=$field}
+    $values=Get-DomeniaMemberValue $Recipe 'ParameterValues';$resolved=@{}
+    foreach($definition in $definitions){
+        $name=[string](Get-DomeniaMember $definition 'Name');$id=[string](Get-DomeniaMember $definition 'Field')
+        if($name -cnotmatch '^[A-Za-z][A-Za-z0-9_]{0,63}$' -or $resolved.ContainsKey($name) -or -not $fields.ContainsKey($id)){throw 'Définition de paramètre invalide ou dupliquée.'}
+        $value=Get-DomeniaMemberValue $values $name (Get-DomeniaMemberValue $definition 'Default')
+        if($null -eq $value){throw ('Renseignez le paramètre '+$name+'.')}
+        switch($fields[$id].Kind){
+            'Number'{$value=ConvertTo-DomeniaQueryNumber -Field $id -Text ([Convert]::ToString($value,[Globalization.CultureInfo]::InvariantCulture))}
+            'Boolean'{if($value -isnot [bool]){if([string]$value -match '^(?i:true|vrai|oui|1)$'){$value=$true}elseif([string]$value -match '^(?i:false|faux|non|0)$'){$value=$false}else{throw ('Le paramètre '+$name+' attend Oui ou Non.')}}}
+            default{if($value -isnot [string] -or $value.Length -gt 4096){throw ('Le paramètre '+$name+' attend un texte de 4 096 caractères maximum.')}}
+        }
+        $resolved[$name]=[pscustomobject]@{Field=$id;Value=$value}
+    }
+    $copy=Copy-DomeniaQueryRecipe $Recipe
+    foreach($section in @('Clauses','Refinements')){
+        $copy.$section=@(foreach($clause in @($copy.$section)){
+            $reference=Get-DomeniaMemberValue $clause.Value 'Parameter'
+            if($null -ne $reference){
+                if(-not $resolved.ContainsKey([string]$reference) -or $resolved[[string]$reference].Field -cne [string]$clause.Field){throw 'Le paramètre doit appartenir au même champ que sa condition.'}
+                $clause.Value=$resolved[[string]$reference].Value
+            }
+            $clause
+        })
+    }
+    if($null -ne $copy.Expression){$copy.Expression=Resolve-DomeniaQueryExpressionParameters -Node $copy.Expression -Values $resolved}
+    $copy.Parameters=@();$copy.ParameterValues=$null
+    return $copy
+}
+function Resolve-DomeniaQueryExpressionParameters {
+    param($Node,[hashtable]$Values,[int]$Depth=0)
+    if($Depth -gt 8){throw 'Arbre de requête limité à 8 niveaux.'}
+    $kind=[string](Get-DomeniaMember $Node 'Kind')
+    if($kind -eq 'Clause'){
+        $clause=Get-DomeniaMemberValue $Node 'Clause';$reference=Get-DomeniaMemberValue $clause.Value 'Parameter'
+        if($null -ne $reference){if(-not $Values.ContainsKey([string]$reference) -or $Values[[string]$reference].Field -cne [string]$clause.Field){throw 'Paramètre de condition imbriquée invalide.'};$clause.Value=$Values[[string]$reference].Value}
+    }else{foreach($child in @(Get-DomeniaMember $Node 'Children' @())){[void](Resolve-DomeniaQueryExpressionParameters -Node $child -Values $Values -Depth ($Depth+1))}}
+    return $Node
+}
+function Get-DomeniaQueryInstanceFields {
+    if($null -ne $script:DomeniaQueryInstanceFieldCatalog){return $script:DomeniaQueryInstanceFieldCatalog}
+    # Raw provider properties remain raw. A numeric view is offered only for explicitly declared scalar properties.
+    $numeric=@('FreeSpace','Size','TotalPhysicalMemory','NumberOfCores','NumberOfLogicalProcessors','LoadPercentage','MaxClockSpeed','EstimatedChargeRemaining','PCSystemTypeEx','ProductType','OSLanguage','AllocatedBaseSize','FreePhysicalMemory','FreeVirtualMemory','TotalVisibleMemorySize','NumberOfUsers','MediaType','HealthStatus','ProtectionStatus','AntivirusSignatureAge','QuickScanAge','FullScanAge','Speed','EventCode')
+    $boolean=@('VirtualizationFirmwareEnabled','SecondLevelAddressTranslationExtensions','AntivirusEnabled','RealTimeProtectionEnabled','BehaviorMonitorEnabled','DHCPEnabled','IsEnabled_InitialValue','IsActivated_InitialValue')
+    $script:DomeniaQueryInstanceFieldCatalog=@(foreach($probe in @(Get-DomeniaProbeCatalog)){foreach($property in @($probe.Properties)){
+        [pscustomobject]@{Id=('instance:'+$probe.Id+':'+$property);Name=($probe.Name+' · '+$property);Kind=$(if($property -in $numeric){'Number'}elseif($property -in $boolean){'Boolean'}else{'Text'});ProbeId=$probe.Id;Property=$property;Category=$probe.Category;Unit='Valeur brute du fournisseur'}
+    }})
+    return $script:DomeniaQueryInstanceFieldCatalog
+}
+function Get-DomeniaQueryTimestampKey {
+    param([string]$Field)
+    if($Field -like 'detail:*'){return '_at:detail:'+($Field.Split(':'))[1]}
+    if($Field -like 'probe:*'){return '_at:'+$Field}
+    if($Field -match '^instance:([^:]+):'){return '_at:probe:'+$Matches[1]}
+    if($Field -in @('model','ramGB','diskFreePercent','uptimeDays','inventoryDays','observedRelease')){return '_at:inventory'}
+    if($Field -eq 'user'){return '_at:console'}
+    if($Field -in @('presence','presenceBucket','checkedDays')){return '_at:presence'}
+    return '_at:field:'+$Field
+}
+function ConvertTo-DomeniaQueryExpression {
+    param($Node,[Collections.IDictionary]$Fields,[int]$Depth=0,[string]$CollectionProbe='')
+    if($null -eq $Node -or $Depth -gt 8){throw 'Arbre de conditions absent ou supérieur à 8 niveaux.'}
+    $kind=[string](Get-DomeniaMember $Node 'Kind')
+    if($kind -cnotin @('Clause','All','Any','Not','Collection')){throw 'Type de groupe de conditions inconnu.'}
+    foreach($property in $Node.PSObject.Properties){if($property.Name -cnotin @('Kind','Clause','Children','CollectionField','Quantifier')){throw ('Propriété de groupe inconnue : '+$property.Name)}}
+    $expression=[M4D.Admin.Common.Query.QueryExpression]::new([M4D.Admin.Common.Query.ExpressionKind]::$kind)
+    if($kind -eq 'Clause'){
+        $clause=Get-DomeniaMemberValue $Node 'Clause';$field=[string](Get-DomeniaMember $clause 'Field');$op=[string](Get-DomeniaMember $clause 'Operator')
+        if(-not $Fields.Contains($field) -or $op -cnotin @(Get-DomeniaQueryOperators $Fields[$field].Kind|ForEach-Object{$_.Id})){throw 'Champ ou opérateur de groupe invalide.'}
+        if($CollectionProbe){if(-not $field.StartsWith(('instance:'+$CollectionProbe+':'),[StringComparison]::Ordinal)){throw 'Les conditions dʼune collection doivent viser les propriétés de la même instance.'}}
+        elseif($field -like 'instance:*'){throw 'Une propriété dʼinstance doit se trouver dans un groupe de collection.'}
+        foreach($property in $clause.PSObject.Properties){if($property.Name -cnotin @('Field','Operator','Value')){throw 'Propriété de condition imbriquée inconnue.'}}
+        $expression.Clause=[M4D.Admin.Common.Query.QueryClause]::new($field,[M4D.Admin.Common.Query.QueryOperator]::$op,(Get-DomeniaMemberValue $clause 'Value'))
+    }elseif($kind -eq 'Collection'){
+        if($CollectionProbe){throw 'Les collections imbriquées ne sont pas prises en charge.'}
+        $key=[string](Get-DomeniaMember $Node 'CollectionField');$quantifier=[string](Get-DomeniaMember $Node 'Quantifier')
+        if($key -notlike 'probe:*' -or $null -eq (Get-DomeniaProbe $key.Substring(6)) -or $quantifier -cnotin @('Any','All','None')){throw 'Source ou quantificateur de collection invalide.'}
+        $expression.CollectionField=$key;$expression.ProjectionKey=Get-DomeniaQueryExpressionKey $Node;$expression.Quantifier=[M4D.Admin.Common.Query.CollectionQuantifier]::$quantifier;$CollectionProbe=$key.Substring(6)
+    }
+    foreach($child in @(Get-DomeniaMember $Node 'Children' @())){$expression.Children.Add((ConvertTo-DomeniaQueryExpression -Node $child -Fields $Fields -Depth ($Depth+1) -CollectionProbe $CollectionProbe))}
+    return $expression
+}
+function ConvertTo-DomeniaQueryInstances {
+    param($Probe,$Result)
+    $typed=Get-DomeniaMemberValue $Result 'Instances'
+    $rows=if($null -ne $typed){@($typed)}else{@(Get-DomeniaMember $Result 'Rows' @())}
+    if($rows.Count -gt 10000){throw 'La collection dépasse le budget de 10 000 instances par poste.'}
+    $instances=[Collections.Generic.List[M4D.Admin.Common.Query.QueryRecord]]::new();$index=0;$ids=@{}
+    $truncated=[bool](Get-DomeniaMember $Result 'Truncated' $false)
+    foreach($raw in $rows){
+        $values=[Collections.Generic.Dictionary[string,object]]::new([StringComparer]::Ordinal)
+        $id=if($null -ne $typed){[string](Get-DomeniaMember $raw 'Id')}else{''}
+        if(-not $id -or $ids.ContainsKey($id)){$id=$Probe.Id+':'+$index};$ids[$id]=$true
+        $properties=if($null -ne $typed){Get-DomeniaMemberValue $raw 'Values'}else{$null};$columns=@($raw)
+        for($i=0;$i -lt @($Probe.Properties).Count;$i++){
+            $property=[string]$Probe.Properties[$i];$key='instance:'+$Probe.Id+':'+$property
+            if($null -ne $typed){
+                $has=if($properties -is [Collections.IDictionary]){Test-DomeniaDictionaryKey $properties $property}else{$null -ne $properties -and $null -ne $properties.PSObject.Properties[$property]}
+                if(-not $has){if($truncated){$values['_unknown:'+$key]=$true};continue}
+                if($property -in @(Get-DomeniaMember $raw 'IncompleteProperties' @())){$values['_unknown:'+$key]=$true;continue}
+                $value=Get-DomeniaMemberValue $properties $property
+                if($null -ne $value){$values[$key]=$value}
+            }else{
+                if($i -ge $columns.Count){$values['_unknown:'+$key]=$true;continue}
+                if($null -eq $columns[$i]){continue}
+                $value=[string]$columns[$i]
+                # Older rows were clipped and flattened: they cannot prove a predicate on the original property.
+                if($value.Length -ge 200 -or $property -in @('DNSServerSearchOrder','DefaultIPGateway')){$values['_unknown:'+$key]=$true;continue}
+                $values[$key]=$value
+            }
+        }
+        $instances.Add([M4D.Admin.Common.Query.QueryRecord]::new($id,$values));$index++
+    }
+    $count=Get-DomeniaMemberValue $Result 'Count'
+    $complete=($null -ne $count -and [long]$count -eq $rows.Count -and -not $truncated -and [string]$Probe.Mode -ne 'First')
+    return [M4D.Admin.Common.Query.QueryCollection]::new($instances,$complete)
+}
+
+function Get-DomeniaQueryExpressionClauses {
+    param($Node,[int]$Depth=0)
+    if($null -eq $Node){return @()};if($Depth -gt 8){throw 'Arbre de conditions trop profond.'}
+    if([string](Get-DomeniaMember $Node 'Kind') -eq 'Clause'){return (Get-DomeniaMemberValue $Node 'Clause')}
+    foreach($child in @(Get-DomeniaMember $Node 'Children' @())){Get-DomeniaQueryExpressionClauses -Node $child -Depth ($Depth+1)}
+}
+
+function Get-DomeniaQueryRequestedFields {
+    param($Recipe)
+    $ids=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    foreach($clause in @(@(Get-DomeniaMember $Recipe 'Clauses' @())+@(Get-DomeniaMember $Recipe 'Refinements' @())+@(Get-DomeniaQueryExpressionClauses (Get-DomeniaMemberValue $Recipe 'Expression')))){
+        $id=[string](Get-DomeniaMember $clause 'Field');if($id){[void]$ids.Add($id)}
+    }
+    $group=[string](Get-DomeniaMember $Recipe 'GroupBy');if($group){[void]$ids.Add($group)}
+    $probe=Get-DomeniaMemberValue $Recipe 'ProbeSelection';if($null -ne $probe){[void]$ids.Add('probe:'+([string]$probe.Key))}
+    # Empty ANY/ALL predicates still depend on the existence and completeness of their collection.
+    $walk=[Collections.Generic.Stack[object]]::new();$tree=Get-DomeniaMemberValue $Recipe 'Expression';if($null -ne $tree){$walk.Push($tree)};$budget=0
+    while($walk.Count){if(++$budget -gt 256){throw 'Arbre de requête limité à 256 éléments.'};$node=$walk.Pop();if([string]$node.Kind -eq 'Collection'){[void]$ids.Add([string]$node.CollectionField)};foreach($child in @(Get-DomeniaMember $node 'Children' @())){if($null -ne $child){$walk.Push($child)}}}
+    return @($ids|Sort-Object)
+}
+function Get-DomeniaQueryExpressionOutline {
+    param($Node,[string]$Path='',[int]$Depth=0,[string]$CollectionProbe='')
+    if($null -eq $Node){return};if($Depth -gt 8){throw 'Arbre de conditions limité à 8 niveaux.'}
+    $kind=[string]$Node.Kind;$label=switch($kind){All{'Toutes (ET)'};Any{'Au moins une (OU)'};Not{'Ne correspond pas (NON)'};Collection{[string]$Node.Quantifier+' · '+[string]$Node.CollectionField};Clause{[string]$Node.Clause.Field+' '+[string]$Node.Clause.Operator+' '+[string]$Node.Clause.Value}}
+    [pscustomobject]@{Path=$Path;Depth=$Depth;Kind=$kind;Node=$Node;CollectionProbe=$CollectionProbe;Label=(('  '*$Depth)+$label)}
+    if($kind -eq 'Collection'){$CollectionProbe=([string]$Node.CollectionField).Substring(6)}
+    $i=0;foreach($child in @(Get-DomeniaMember $Node 'Children' @())){Get-DomeniaQueryExpressionOutline -Node $child -Path ($Path+'/'+$i) -Depth ($Depth+1) -CollectionProbe $CollectionProbe;$i++}
+}
+
+function Edit-DomeniaQueryExpression {
+    # Pure edit operation shared by the visual builder and its tests. The caller compiles before publishing.
+    param($Recipe,[string]$Path='',[ValidateSet('Add','Remove','Up','Down','Clear')][string]$Operation,$Node)
+    $copy=Copy-DomeniaQueryRecipe $Recipe
+    if($Operation -eq 'Clear'){$copy.Expression=$null;return $copy}
+    if($null -eq $copy.Expression){$copy.Expression=[pscustomobject]@{Kind='All';Children=@()}}
+    $current=$copy.Expression;$parent=$null;$index=-1
+    if($Path){foreach($part in $Path.Trim('/').Split('/')){if($part -notmatch '^[0-9]+$'){throw 'Chemin de condition invalide.'};$index=[int]$part;$parent=$current;$children=@(Get-DomeniaMember $current 'Children' @());if($index -ge $children.Count){throw 'La condition sélectionnée a changé.'};$current=$children[$index]}}
+    switch($Operation){
+        'Add'{
+            if($null -eq $Node){throw 'Condition à ajouter absente.'}
+            if([string]$current.Kind -in @('Not','Collection')){$current=@($current.Children)[0]}
+            elseif([string]$current.Kind -eq 'Clause'){if($null -eq $parent){throw 'Sélectionnez un groupe ET ou OU.'};$current=$parent}
+            if([string]$current.Kind -notin @('All','Any')){throw 'Sélectionnez un groupe ET ou OU.'}
+            $current.Children=@(Get-DomeniaMember $current 'Children' @())+@($Node)
+        }
+        'Remove'{if($null -eq $parent){$copy.Expression=$null}else{$parent.Children=@(for($i=0;$i -lt @($parent.Children).Count;$i++){if($i -ne $index){$parent.Children[$i]}})}}
+        default{
+            if($null -eq $parent){return $copy};$children=@($parent.Children);$other=if($Operation -eq 'Up'){$index-1}else{$index+1}
+            if($other -ge 0 -and $other -lt $children.Count){$temporary=$children[$other];$children[$other]=$children[$index];$children[$index]=$temporary;$parent.Children=$children}
+        }
+    }
+    # Removing the mandatory child of NOT/collection is refused by the compiler, with no draft mutation.
+    $copy.Format='Domenia.Query/2';[void](ConvertTo-DomeniaCompiledQuery $copy)
+    return $copy
+}
+
+function New-DomeniaQueryMissingCollectionPlan {
+    # Plan only: no network. The run scheduler revalidates identity, freshness and definitions before collection.
+    param($Records,$Recipe,[int]$CacheMinutes=15,[datetime]$NowUtc=[datetime]::UtcNow)
+    $requirements=Get-DomeniaQueryCollectionRequirements -Recipes @($Recipe)
+    $fields=@(Get-DomeniaQueryRequestedFields $Recipe);$identities=Get-DomeniaQueryIdentitySelection $Recipe
+    $targets=[Collections.Generic.List[object]]::new();$total=0L;$reused=0L;$disabled=0L;$unknownState=0L;$ping=$false;$wmi=$false
+    foreach($field in $fields){if($field -in @('presence','presenceBucket','checkedDays')){$ping=$true}elseif($field -like 'probe:*' -or $field -like 'instance:*' -or $field -in @('user','model','ramGB','diskFreePercent','uptimeDays','inventoryDays','observedRelease')){$wmi=$true}}
+    foreach($record in $Records){
+        if($null -ne $identities -and -not $identities.Contains($record.Id.Trim().Trim('{','}'))){continue}
+        $total++;$v=$record.Values
+        if(-not $v.ContainsKey('active')){$unknownState++;continue};if(-not [bool]$v['active']){$disabled++;continue}
+        $missing=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+        foreach($field in $fields){
+            $key=Get-DomeniaQueryTimestampKey $field;if($key -like '_at:field:*'){continue}
+            $seconds=[Math]::Max(0,[Math]::Min(1440,$CacheMinutes))*60
+            if($key -eq '_at:inventory'){$seconds=[Math]::Min(300,$seconds)}
+            if($key -in @('_at:presence','_at:console') -or $key -match '^_at:probe:(evt\.|svc\.|net\.)|load|battery|free|users|stopped|process'){$seconds=[Math]::Min(60,$seconds)}
+            $qualityId=if($field -like 'instance:*'){'probe:'+($field.Split(':'))[1]}else{$field}
+            $known=$v.ContainsKey($field)
+            if($field -like 'instance:*'){$collectionKey='_instances:probe:'+($field.Split(':'))[1];$known=$v.ContainsKey($collectionKey) -and [bool]$v[$collectionKey].Complete}
+            $at=if($v.ContainsKey($key)){ConvertFrom-DomeniaUtcText ([string]$v[$key])}else{$null}
+            if(-not $known -or $v.ContainsKey('_quality:'+$qualityId) -or $null -eq $at -or $at -gt $NowUtc.AddMinutes(1) -or ($NowUtc-$at).TotalSeconds -ge $seconds){[void]$missing.Add($qualityId)}
+        }
+        if($missing.Count){$targets.Add([pscustomobject]@{name=[string]$v['name'];distinguished_name=[string]$v['dn'];object_guid=$record.Id;MissingFields=@($missing|Sort-Object)})}else{$reused++}
+    }
+    [pscustomobject]@{Targets=$targets.ToArray();Total=$total;Reused=$reused;Disabled=$disabled;UnknownState=$unknownState;Inventory=$requirements.Inventory;ProbeIds=$requirements.ProbeIds;Ping=$ping;Wmi=$wmi;PreparedAtUtc=$NowUtc.ToUniversalTime().ToString('o');CacheMinutes=$CacheMinutes}
+}
+
+function Get-DomeniaQueryExpressionKey {
+    param($Node)
+    $json=ConvertTo-Json -InputObject $Node -Depth 32 -Compress
+    $hash=[Security.Cryptography.SHA256]::Create();try{return [BitConverter]::ToString($hash.ComputeHash([Text.Encoding]::UTF8.GetBytes($json))).Replace('-','').ToLowerInvariant()}finally{$hash.Dispose()}
+}
+function Get-DomeniaQueryCollectionNodes {
+    param($Recipe)
+    $resolved=Resolve-DomeniaQueryParameters $Recipe
+    foreach($entry in @(Get-DomeniaQueryExpressionOutline (Get-DomeniaMemberValue $resolved 'Expression'))){
+        if($entry.Kind -eq 'Collection'){[pscustomobject]@{ProbeId=([string]$entry.Node.CollectionField).Substring(6);ProjectionKey=(Get-DomeniaQueryExpressionKey $entry.Node);Node=$entry.Node}}
+    }
+}
+function ConvertTo-DomeniaQueryCollectionProjections {
+    # At most one SQL page is expanded. Only verdicts and provenance survive the worker callback.
+    param([object[]]$Observations,[object[]]$Nodes,[datetime]$NowUtc=[datetime]::UtcNow,[int]$MaxAgeDays=30)
+    $compiled=@{};foreach($node in $Nodes){$compiled[$node.ProjectionKey]=ConvertTo-DomeniaCompiledQuery (New-DomeniaQueryRecipe -Expression $node.Node)}
+    foreach($observation in $Observations){
+        foreach($node in $Nodes){
+            if([string]$observation.Family -cne ('Probe:'+$node.ProbeId)){continue}
+            $result=Get-DomeniaMemberValue (Get-DomeniaMemberValue $observation.Data 'Probes') $node.ProbeId
+            $values=[Collections.Generic.Dictionary[string,object]]::new([StringComparer]::Ordinal);$coverage='Non lu';$count=0
+            $at=ConvertFrom-DomeniaUtcText ([string](Get-DomeniaMember $result 'CheckedUtc'))
+            if([string]$observation.Status -ne 'Success' -or [string](Get-DomeniaMember $result 'Error')){$coverage='Erreur de lecture'}
+            elseif($null -eq $at -or $at -gt $NowUtc.AddMinutes(5)){$coverage='Date de relevé inconnue'}
+            elseif(($NowUtc-$at).TotalDays -gt $MaxAgeDays){$coverage='Expiré'}
+            elseif(-not [string](Get-DomeniaMember $result 'Skipped')){
+                $probe=Get-DomeniaProbe $node.ProbeId;$collection=ConvertTo-DomeniaQueryInstances -Probe $probe -Result $result
+                $values['_instances:probe:'+$node.ProbeId]=$collection;$coverage=if($collection.Complete){'Disponible'}else{'Lecture incomplète'};$count=$collection.Instances.Count
+            }
+            $verdict=$compiled[$node.ProjectionKey].Evaluate($values)
+            [pscustomobject]@{Guid=[string]$observation.Guid;ProjectionKey=$node.ProjectionKey;ProbeId=$node.ProbeId;Verdict=[int]$verdict;CheckedUtc=$(if($null -ne $at){$at.ToUniversalTime().ToString('o')}else{''});Coverage=$coverage;InstanceCount=$count}
+        }
+    }
+}
+function Add-DomeniaQueryCollectionProjectionRecords {
+    param($Records,[object[]]$Projections=@())
+    $byGuid=@{};foreach($entry in $Projections){$key=([string]$entry.Guid).ToLowerInvariant();if(-not $byGuid.ContainsKey($key)){$byGuid[$key]=[Collections.Generic.List[object]]::new()};$byGuid[$key].Add($entry)}
+    $output=[Collections.Generic.List[M4D.Admin.Common.Query.QueryRecord]]::new()
+    foreach($record in $Records){
+        $values=[Collections.Generic.Dictionary[string,object]]::new([StringComparer]::Ordinal)
+        foreach($pair in $record.Values.GetEnumerator()){if($pair.Key -notmatch '^_expr:|^_exprinfo:'){$values[$pair.Key]=$pair.Value}}
+        foreach($entry in @($byGuid[$record.Id.ToLowerInvariant()])){
+            if($null -eq $entry -or [string]$entry.ProjectionKey -cnotmatch '^[0-9a-f]{64}$' -or -not [Enum]::IsDefined([M4D.Admin.Common.Query.MatchState],[int]$entry.Verdict)){continue}
+            $values['_expr:'+$entry.ProjectionKey]=[M4D.Admin.Common.Query.MatchState][int]$entry.Verdict
+            $values['_exprinfo:'+$entry.ProjectionKey]=$entry
+            if($entry.CheckedUtc){$values['_at:probe:'+$entry.ProbeId]=[string]$entry.CheckedUtc}
+        }
+        $output.Add([M4D.Admin.Common.Query.QueryRecord]::new($record.Id,$values))
+    }
+    return ,$output
 }

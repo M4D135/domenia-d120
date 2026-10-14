@@ -27,10 +27,38 @@ function Start-DomeniaSessionsRead {
         [void](Set-DomeniaControlText 'LblSessionsState' 'Aucun poste choisi : sélectionnez une machine dans lʼarbre, puis « Lire les sessions ».')
         return
     }
-    Start-UiTask -Name ('Sessions '+$name) -OperationId 'SessionsList' -Code (Get-DomeniaSessionsWorkerCode) -Payload ([pscustomobject]@{Computer=$name}) -CallbackState ([pscustomobject]@{Epoch=[long]$script:SessionEpoch;DN=[string]$script:SelectedObject.DN;Generation=[long]$script:SelectedObjectGeneration}) -SuccessHandler 'Complete-DomeniaSessionsRead' -ErrorHandler 'Fail-DomeniaSessionsRead' -TimeoutSeconds 20 -ReplaceKey 'sessions-selected' -DisableControls @('BtnSessionsRead') | Out-Null
+    $state=New-DomeniaClassicCollectionState -Computer $name -ResultKind 'Sessions' -RequestKey 'WTS' -PublishHandler 'Complete-DomeniaSessionsRead' -PublishErrorHandler 'Fail-DomeniaSessionsRead'
+    $state|Add-Member Epoch ([long]$script:SessionEpoch)
+    $state|Add-Member Generation ([long]$script:SelectedObjectGeneration)
+    Start-UiTask -Name ('Sessions '+$name) -OperationId 'SessionsList' -Code (Get-DomeniaSessionsWorkerCode) -Payload ([pscustomobject]@{Computer=$name}) -CallbackState $state -SuccessHandler 'Complete-DomeniaSessionsCollected' -ErrorHandler 'Fail-DomeniaSessionsCollected' -TimeoutSeconds 30 -ReplaceKey 'sessions-selected' -DisableControls @('BtnSessionsRead') | Out-Null
+}
+function Complete-DomeniaSessionsCollected {
+    param($Result,$State)
+    try{
+        $r=Get-DomeniaEffectiveWorkerResult $Result @('Rows','Computer')
+        if($null -eq $r -or $null -eq $r.Rows -or [string]$r.Computer -ine [string]$State.Computer){throw 'Resultat WTS absent ou provenant d une autre cible.'}
+        $at=ConvertTo-DomeniaStoreUtc ([string]$r.ObservedUtc)
+        $rows=[Collections.Generic.List[object]]::new()
+        foreach($row in @($r.Rows)){
+            if($null -eq $row){throw 'Session WTS invalide.'}
+            # Keep the explicit WTS presentation contract, never an arbitrary remote object graph.
+            $safe=[ordered]@{}
+            foreach($field in @('Id','Station','User','Domain','State','Protocol','Detail','LogonTicks','IdleTicks')){$safe[$field]=Get-DomeniaMemberValue $row $field}
+            $rows.Add([pscustomobject]$safe)
+        }
+        $data=[pscustomobject]@{Rows=$rows.ToArray();Computer=[string]$State.Computer;ObservedUtc=$at;Source='WTS, lecture a la demande';Identity=[string]$r.Identity}
+        [void](Submit-DomeniaRemoteDetail -Data $data -State $State -Succeeded $true -SourceCompletedUtc $at)
+    }catch{Fail-DomeniaRemoteDetailStored -Message $_.Exception.Message -State $State}
+}
+function Fail-DomeniaSessionsCollected {
+    param($Message,$State)
+    $data=[pscustomobject]@{Computer=[string]$State.Computer;CollectionError=[string]$Message}
+    try{[void](Submit-DomeniaRemoteDetail -Data $data -State $State -Succeeded $false -SourceCompletedUtc ([string]$State.RemoteStartedUtc) -ErrorText ([string]$Message))}
+    catch{Fail-DomeniaRemoteDetailStored -Message $_.Exception.Message -State $State}
 }
 function Complete-DomeniaSessionsRead {
     param($Result,$State)
+    if(-not (Test-DomeniaClassicResultCurrent -Result $Result -State $State)){return}
     if($State.Epoch -ne $script:SessionEpoch -or $State.Generation -ne $script:SelectedObjectGeneration -or $State.DN -ine [string]$script:SelectedObject.DN){return}
     $r=Get-DomeniaEffectiveWorkerResult $Result @('Rows','Computer')
     if($null -eq $r){throw 'Resultat WTS absent.'}
@@ -48,6 +76,7 @@ function Complete-DomeniaSessionsRead {
 }
 function Fail-DomeniaSessionsRead {
     param($Message,$State)
+    if(-not (Test-DomeniaClassicResultCurrent -Result $null -State $State -ContextOnly)){return}
     if($State.Epoch -ne $script:SessionEpoch -or $State.Generation -ne $script:SelectedObjectGeneration){return}
     [void](Set-DomeniaControlText 'LblSessionsState' 'Lecture non confirmee : absence de resultat ne signifie pas absence de sessions.')
     [void](Request-DomeniaAccessRecovery -Operation 'Lecture des sessions' -OperationId 'SessionsList' -ErrorValue $Message -DN $State.DN -Interactive)
@@ -90,12 +119,21 @@ function Start-DomeniaRemoteCredentialSession {
     param([string]$User,[Security.SecureString]$Password,[string]$Computer)
     if(-not $Computer -or $Computer -notmatch '^[A-Za-z0-9_][A-Za-z0-9_.-]{0,252}$'){throw 'Selectionnez la machine cible avant de valider un compte poste.'}
     if($User.StartsWith('.\')){$User=$Computer.Split('.')[0]+$User.Substring(1)}
-    $credential=[Management.Automation.PSCredential]::new($User,$Password)
-    $w=New-DomeniaWorkerRunspace -OperationId 'RemoteCredentialCheck' -Code (Get-DomeniaRemoteCredentialCheckCode)
-    $ps=[Management.Automation.PowerShell]::Create();$ps.Runspace=$w.Runspace
-    [void]$ps.AddCommand($w.CommandName);[void]$ps.AddParameter('Context',([pscustomobject]@{BaseDn=[string]$script:Conn.BaseDn}));[void]$ps.AddParameter('Payload',([pscustomobject]@{Computer=$Computer;Credential=$credential}))
-    try{$handle=$ps.BeginInvoke()}catch{$ps.Dispose();$w.Runspace.Dispose();throw}
-    return [pscustomobject]@{Id=[guid]::NewGuid().ToString('N');Request=$null;Progress=$null;PowerShell=$ps;Runspace=$w.Runspace;AsyncResult=$handle;StartedAt=Get-Date;EndInvoked=$false;Cleaned=$false;CancelRequested=$false;CleanupRetryAt=[datetime]::MinValue;CleanupGiveUpAt=[datetime]::MinValue}
+    $ownedSecret=$null;$w=$null;$ps=$null
+    try{
+        $ownedSecret=$Password.Copy();$ownedSecret.MakeReadOnly()
+        $credential=[Management.Automation.PSCredential]::new($User,$ownedSecret)
+        $w=New-DomeniaWorkerRunspace -OperationId 'RemoteCredentialCheck' -Code (Get-DomeniaRemoteCredentialCheckCode)
+        $ps=[Management.Automation.PowerShell]::Create();$ps.Runspace=$w.Runspace
+        [void]$ps.AddCommand($w.CommandName);[void]$ps.AddParameter('Context',([pscustomobject]@{BaseDn=[string]$script:Conn.BaseDn}));[void]$ps.AddParameter('Payload',([pscustomobject]@{Computer=$Computer;Credential=$credential}))
+        $handle=$ps.BeginInvoke()
+    }catch{
+        if($null -ne $ps){try{$ps.Dispose()}catch{}}
+        if($null -ne $w -and $null -ne $w.Runspace){try{$w.Runspace.Dispose()}catch{}}
+        if($null -ne $ownedSecret){$ownedSecret.Dispose()}
+        throw
+    }
+    return [pscustomobject]@{Id=[guid]::NewGuid().ToString('N');Request=$null;OwnedSecret=$ownedSecret;Progress=$null;PowerShell=$ps;Runspace=$w.Runspace;AsyncResult=$handle;StartedAt=Get-Date;EndInvoked=$false;Cleaned=$false;CancelRequested=$false;CleanupRetryAt=[datetime]::MinValue;CleanupGiveUpAt=[datetime]::MinValue}
 }
 function Set-DomeniaTargetCredentialContext {
     # Last step before a worker leaves (Start-UiTask). D051: the account is chosen per resource AND target

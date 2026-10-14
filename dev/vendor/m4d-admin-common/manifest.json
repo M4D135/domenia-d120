@@ -1,10 +1,19 @@
 {
   "Schema": 1,
-  "Version": "0.1.1",
+  "Version": "0.1.1-domenia.1",
   "Repository": "https://github.com/M4D135/m4d-admin-common",
-  "SourceSHA256": "0dcd33942859ff3d75b514098b90ca6d5393b11bfdb503683b63cef2c41af972",
+  "Upstream": {
+    "Repository": "https://github.com/M4D135/m4d-admin-common",
+    "Commit": "5ad02712e5c0eea6975b6ccb2c3e4343f93cc18b",
+    "Version": "0.1.1",
+    "SourceSHA256": "0dcd33942859ff3d75b514098b90ca6d5393b11bfdb503683b63cef2c41af972"
+  },
+  "LocalModification": true,
+  "SourceSHA256": "9a309ea3f30f0cb53855f950eaea0887566d5abbae339f975162ddcb62f11d05",
+  "SourceHashFormat": "SHA256 of QueryEngine.cs file bytes",
   "TargetFramework": "net472",
   "LanguageVersion": "CSharp5",
+  "BuildScript": "tools/build_query.ps1",
   "Builder": {
     "PowerShell": "7.4.20",
     "Roslyn": "4.9.0.0",
@@ -13,34 +22,9 @@
   },
   "Files": [
     {
-      "SHA256": "de702e82baa4aa6547669540b0ff0a18c2ac359215dbfaaa547ff0f589584ac3",
-      "Name": "M4D.Admin.Common.Core.dll",
-      "Bytes": 4608
-    },
-    {
-      "SHA256": "269b7d1cbdd6ab42062a75e0ca4a45876b3ff0eae4cbf730acf91a12828bd7ca",
       "Name": "M4D.Admin.Common.Query.dll",
-      "Bytes": 17408
-    },
-    {
-      "SHA256": "b49deda34bbce285c289f5178fe99cd27684d5e79dc191e3a5aa21095f481f62",
-      "Name": "M4D.Admin.Common.IO.dll",
-      "Bytes": 9216
-    },
-    {
-      "SHA256": "708c0fa6ccb7fc234969bb41746353e45df69a0e19b9fc1229c455bab43d07c2",
-      "Name": "M4D.Admin.Common.Tests.Core.dll",
-      "Bytes": 7680
-    },
-    {
-      "SHA256": "6f07d6902c437a20f6b74cbf7b03bd21f0f66ca56d13796cac26501c788dfa2a",
-      "Name": "M4D.Admin.Common.Tests.Query.dll",
-      "Bytes": 12800
-    },
-    {
-      "SHA256": "153b03b93a6afbb66639189618a290b4cdc090163669b184c8b6a6e35f11cedf",
-      "Name": "M4D.Admin.Common.Tests.IO.dll",
-      "Bytes": 9216
+      "SHA256": "8150785c4d4ee2877177439c846cec49ad7945fdf1049a130c5d6d86fe843bd6",
+      "Bytes": 18944
     }
   ]
 }

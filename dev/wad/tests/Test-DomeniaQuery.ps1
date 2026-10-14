@@ -1,8 +1,10 @@
 ﻿#requires -Version 5.1
 # Pure portable tests: actual common DLL and adapters, no AD, WMI, WPF, network or VM.
+[CmdletBinding()]
+param([string]$ReportPath='',[switch]$QuerySource)
 $ErrorActionPreference='Stop'
 $wad=Split-Path -Parent $PSScriptRoot;$modules=Join-Path $wad 'modules'
-Add-Type -Path (Join-Path $modules 'M4D.Admin.Common.Query.dll')
+if($QuerySource){Add-Type -Path (Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'vendor/m4d-admin-common/src/Query/QueryEngine.cs')}else{Add-Type -Path (Join-Path $modules 'M4D.Admin.Common.Query.dll')}
 Add-Type -Path (Join-Path $modules 'Domenia.Native.dll')
 foreach($name in @('Common.Model','Boards.Model','Probes.Model','Query.Model','Query.Worker')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
 $script:checks=0
@@ -25,9 +27,26 @@ Expect ($records.Count -eq 3) 'includes disabled computers'
 Expect ($records[0].Values['diskFreePercent'] -eq 0) 'zero free space is a known value'
 Expect (-not $records[1].Values.ContainsKey('ramGB')) 'GUID prevents observation inheritance'
 Expect (-not $records[0].Values.ContainsKey('probe:hw.ram')) 'fresh ping cannot freshen stale probe'
+Expect ((Get-DomeniaQueryValuePresentation $records[0] 'probe:hw.ram').State -ceq 'Expiré') 'expired probe is distinct from an unread probe'
+Expect ((Get-DomeniaQueryValuePresentation $records[0] 'probe:sec.defender').State -ceq 'Non lu') 'uncollected probe is explicitly unread'
 Expect ($records[0].Values['probe:hw.cpuload'] -eq 90) 'fresh probe value'
 Expect (-not $records[2].Values.ContainsKey('logonDays')) 'missing logon unknown'
 Expect (-not $records[0].Values.ContainsKey('bitlocker')) 'unread BitLocker unknown'
+$unknownState=[pscustomobject]@{Groups=@();Machines=@([pscustomobject]@{name='UNKNOWN';object_guid='unknown';distinguished_name='CN=UNKNOWN,DC=test';gid='';st='';logon=''})}
+$unknownRecords=ConvertTo-DomeniaQueryRecords -Fleet $unknownState -NowUtc $now
+Expect (-not $unknownRecords[0].Values.ContainsKey('active')) 'unread account state is neither active nor disabled'
+Expect ((ConvertTo-DomeniaQueryGridRows $unknownRecords)[0].StateLabel -ceq 'Non lu') 'unread account state has an explicit grid label'
+$withoutPing=@{'cn=pc-1,ou=a,dc=test'=[pscustomobject]@{Guid='g1';CheckedUtc=$now.AddDays(-40).ToString('o');Presence='En ligne';ObservedUtc=$now.ToString('o');LinkUser='fixture-user';Inventory=[pscustomobject]@{CheckedUtc=$now.ToString('o');Model='Fresh WMI';RamBytes=16GB}}}
+$independent=ConvertTo-DomeniaQueryRecords -Fleet $fleet -Observations $withoutPing -NowUtc $now
+Expect ($independent[0].Values['ramGB'] -eq 16 -and $independent[0].Values['user'] -ceq 'fixture-user' -and -not $independent[0].Values.ContainsKey('presence')) 'fresh WMI and console remain usable independently of stale ping'
+$withoutPing['cn=pc-1,ou=a,dc=test'].Inventory=[pscustomobject]@{CheckedUtc=$now.ToString('o')}
+$independent=ConvertTo-DomeniaQueryRecords -Fleet $fleet -Observations $withoutPing -NowUtc $now
+Expect (-not $independent[0].Values.ContainsKey('model') -and -not $independent[0].Values.ContainsKey('observedRelease')) 'missing inventory values are not manufactured display strings in query data'
+$withoutPing['cn=pc-1,ou=a,dc=test']|Add-Member NoteProperty Probes ([pscustomobject]@{'soft.printers'=[pscustomobject]@{Rows=@();CheckedUtc=$now.ToString('o');Error=''};'hw.cpu'=[pscustomobject]@{Rows=@(,@('partial'));CheckedUtc=$now.ToString('o');Error='';Truncated=$true};'sec.defender'=[pscustomobject]@{Rows=@();CheckedUtc=$now.ToString('o');Error='fixture denied'}})
+$incomplete=ConvertTo-DomeniaQueryRecords -Fleet $fleet -Observations $withoutPing -NowUtc $now
+Expect (-not $incomplete[0].Values.ContainsKey('probe:soft.printers')) 'missing Count does not fabricate measured zero'
+Expect ((Get-DomeniaQueryValuePresentation $incomplete[0] 'probe:hw.cpu').State -ceq 'Lecture incomplète') 'truncated first-instance read is not an available value'
+Expect ((Get-DomeniaQueryValuePresentation $incomplete[0] 'probe:sec.defender').State -ceq 'Erreur de lecture') 'actual failed probe keeps its diagnostic state'
 # UI conditionals may turn cached generic lists into Object[]. All cardinalities
 # must cross the common DLL boundary as IEnumerable<QueryRecord>.
 $unfiltered=New-DomeniaQueryRecipe
@@ -64,6 +83,10 @@ Expect ($workerResult.Widgets[$recipe.Id].Matched -eq 1) 'widget uses same query
 $Payload.TextFilter='PC-3';$Payload.Selection='Match';$Payload.Recipe=New-DomeniaQueryRecipe
 $workerResult=& ([scriptblock]::Create((Get-DomeniaQueryWorkerCode)))
 Expect ($workerResult.Total -eq 1 -and $workerResult.ScopeTotal -eq 3) 'quick filter covers snapshot without losing scope total'
+$Payload.Records=$unknownRecords;$Payload.TextFilter='';$Payload.StateFilter='Désactivés'
+$workerResult=& ([scriptblock]::Create((Get-DomeniaQueryWorkerCode)))
+Expect ($workerResult.Total -eq 0 -and $workerResult.ScopeTotal -eq 1) 'actual worker never classifies unread account state as disabled'
+$Payload.Records=$records;$Payload.StateFilter=''
 $observations['cn=pc-1,ou=a,dc=test'].Inventory.CheckedUtc=$now.AddDays(-40).ToString('o')
 $old=ConvertTo-DomeniaQueryRecords -Fleet $fleet -Observations $observations -NowUtc $now
 Expect (-not $old[0].Values.ContainsKey('ramGB')) 'fresh ping cannot rejuvenate old inventory'
@@ -71,8 +94,9 @@ Expect ($old[2].Values['presenceBucket'] -eq 'Non verifie') 'missing presence ha
 $nullObs=ConvertTo-DomeniaQueryRecords -Fleet $fleet -Observations $null -NowUtc $now
 Expect ($nullObs.Count -eq 3) 'null observations preserve complete fleet'
 . (Join-Path $modules 'Domenia-Park.Model.ps1')
-$probe=Get-DomeniaProbe 'hw.cpuload';$at=$now.ToString('o')
-$previous=[pscustomobject]@{Guid='g1';Key='cn=pc-1';Inventory=[pscustomobject]@{CheckedUtc=$at};Probes=[pscustomobject]@{'hw.cpuload'=[pscustomobject]@{CheckedUtc=$at;Error='';Truncated=$false}}}
+. (Join-Path $modules 'Domenia-Store.Model.ps1')
+$probe=@(Add-DomeniaRemoteProbeDefinitionHash @(ConvertTo-DomeniaProbePayload @('hw.cpuload')))[0];$at=$now.ToString('o')
+$previous=[pscustomobject]@{Guid='g1';Key='cn=pc-1';Inventory=[pscustomobject]@{CheckedUtc=$at};Probes=[pscustomobject]@{'hw.cpuload'=[pscustomobject]@{CheckedUtc=$at;Error='';Truncated=$false;DefinitionHash=$probe.DefinitionHash}}}
 $plan=New-DomeniaCollectionPlan -Previous $previous -Guid g1 -Key 'cn=pc-1' -Probes @($probe,$probe) -Inventory $true -NowUtc $now
 Expect ($plan.Reused -eq 2 -and -not $plan.Inventory -and $plan.Probes.Count -eq 0 -and $plan.Requested -eq 2) 'fresh collection deduplicated and reused'
 $plan=New-DomeniaCollectionPlan -Previous $previous -Guid g1 -Key 'cn=pc-1' -Probes @($probe) -Inventory $true -NowUtc $now -CacheMinutes 0
@@ -193,9 +217,9 @@ Expect ($entry.Items[1].Select.Index -eq 1 -and $entry.Items[1].Select.ExactValu
 Expect ($entry.Items[2].Select.Excluded.Count -eq 2) 'widget Other selection preserves excluded categories'
 Set-DomeniaBoardSegmentSelection $entry
 Expect ($entry.Items[2].Select.Index -eq 2) 'widget rerender replaces existing selection metadata'
-$unicodeLibrary='{"Format":"Domenia.QueryLibrary/1","Queries":[],"Padding":"'+([string][char]0x00e9)*530000+'"}'
-$refused=$false;try{ConvertFrom-DomeniaQueryLibrary $unicodeLibrary|Out-Null}catch{$refused=$_.Exception.Message -like '*1 Mio*'}
-Expect ($unicodeLibrary.Length -lt 1048576 -and $refused) 'query library ceiling counts actual UTF8 bytes'
+$unicodeLibrary='{"Format":"Domenia.QueryLibrary/1","Queries":[],"Padding":"'+([string][char]0x00e9)*8400000+'"}'
+$refused=$false;try{ConvertFrom-DomeniaQueryLibrary $unicodeLibrary|Out-Null}catch{$refused=$_.Exception.Message -like '*16 Mio*'}
+Expect ($unicodeLibrary.Length -lt 16777216 -and $refused) 'query library ceiling counts actual UTF8 bytes'
 # Saved widgets must not reuse counts from another definition of the library.
 function Get-DomeniaControl {param($Name);return $null}
 function Show-DomeniaBoard {param($Board,[switch]$Quiet);$script:BoardRefreshed=$true}
@@ -216,6 +240,7 @@ $script:SessionEpoch=7L
 $script:TestControl=[pscustomobject]@{ItemsSource=@();IsEnabled=$false}
 function Get-DomeniaControl {param($Name);return $script:TestControl}
 function Get-DomeniaFleetScope {return [pscustomobject]@{Key='scope'}}
+function Get-DomeniaBoardLayout {param($Board);return @([pscustomobject]@{Source='Query';Key=$original.Id})}
 function Get-DomeniaEffectiveWorkerResult {param($Result,$RequiredProperties);return $Result}
 function Set-DomeniaControlText {param($Name,$Text)}
 function Add-DomeniaUiLog {param($Area,$Text)}
@@ -257,3 +282,7 @@ $script:NumericDraft=New-DomeniaQueryRecipe;$script:NumericError='';$script:Nume
 Invoke-DomeniaQueryAction 'Add'
 Expect ($script:NumericError -like '*Saisissez un nombre*' -and @($script:NumericDraft.Clauses).Count -eq 0) 'numeric Add action rejects invalid input without adding a clause'
 Write-Output ('PASS Domenia Query adapters: '+$script:checks+' assertions; probes='+@(Get-DomeniaProbeCatalog).Count)
+if($ReportPath){
+ $hashes=@(foreach($file in @('Domenia-Query.Model.ps1','Domenia-Query.Worker.ps1','Domenia-Query.UI.ps1')){[pscustomobject]@{File=$file;Sha256=(Get-FileHash (Join-Path $modules $file) -Algorithm SHA256).Hash.ToLowerInvariant()}})
+ [IO.File]::WriteAllText([IO.Path]::GetFullPath($ReportPath),([pscustomobject]@{Status='PASS';Assertions=$script:checks;PowerShell=$PSVersionTable.PSVersion.ToString();Sources=$hashes;Scope='Actual DLL and query adapters/worker with local fixtures; no AD/WMI/network/WPF'}|ConvertTo-Json -Depth 5),[Text.UTF8Encoding]::new($false))
+}

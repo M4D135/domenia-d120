@@ -1,5 +1,5 @@
 {
-  "Archive": "RC1.17.6 search progress source review",
+  "Archive": "2026.10.13-DOMENIA-1.0-RC1.17.7-D120 candidate source",
   "ArchiveSHA256": "655ED21F90345B3C7667D4E777814C6A0595A5D5BE628AD587FB46CCA5241922",
   "CoreFunctions": {
     "Write-DomeniaAtomicText": "1C9A1583F52EB7BE80BE420662653E4AF886FE11DC4FDB3B1C4CDF19FD1C0EDA",
@@ -153,7 +153,7 @@
     "Set-DomeniaResourceColor": "27391F9046A85B14658803F03178045ABEDF0B1F4DD5364D7BA5575C5E4F11BE",
     "Apply-DomeniaTheme": "B0ECA10884F7B8D32279AD437EAB8C806D868256D7071B79511688468E2D02BE",
     "Toggle-DomeniaTheme": "EA7E0F31A78D8B4A0BFAB0C27D8028521C1C3A1A255DDA4BEA3B65B5F7C99F03",
-    "Get-MainXaml": "E578A12B9375AFB83F0BDA61F95B21062FC96D6DA8EC742E84DDB0C7FED828CD",
+    "Get-MainXaml": "B8255AAEEF0A18DF1C8BD24C4C25E25773791B37053DEC23454BD66B84DDEEF7",
     "Assert-DomeniaXamlPreflight": "20BB1DA04FD88D78E1A52C5610376467D5E9408437BC823DDC8EC8F40C0EAEB7",
     "Save-DomeniaXamlDiagnostic": "D648C9D6BD6F5F3A6613957D22A6A42EC1AAC0C1FA6218195A55D10EADF4DC67",
     "ConvertFrom-DomeniaXaml": "855E6CA9E56D62F77F5C22ACAC048293D24281B5B8FCC7FEB6806450BE561228",
@@ -3342,6 +3342,17 @@
       "ChangedPayloads": [
         "wad/modules/Domenia-Live.UI.ps1"
       ]
+    },
+    {
+      "Previous": "RC1.17.6 search progress source review",
+      "Source": "2026.10.13-DOMENIA-1.0-RC1.17.7-D120 candidate source",
+      "Decision": "RC1.17.7 candidate reviewed by parent before Windows campaign: Get-MainXaml names the OU refresh title and action row; Set-DomeniaUxShortLayout compacts the OU footer and restores normal layout so tree navigation retains height on small windows. Release identity stamped from contract. No business operation, worker body, or pinned binary changed. Freshness and LiveSearchView fixtures strengthened; Geometry now checks long scope/status text, OU tree height, commands and restoration. Source review only: native Windows geometry has not yet been executed for this candidate.",
+      "ChangedCoreFunctions": [
+        "Get-MainXaml"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
     }
   ]
 }

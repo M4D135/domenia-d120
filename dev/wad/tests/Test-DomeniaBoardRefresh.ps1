@@ -4,7 +4,7 @@
 param([string]$ReportPath='')
 $ErrorActionPreference='Stop'
 $modules=Join-Path (Split-Path -Parent $PSScriptRoot) 'modules'
-foreach($name in @('Boards.Model','Widgets.UI','Dashboard.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
+foreach($name in @('HealthRules.Model','Boards.Model','Widgets.UI','Dashboard.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
 Set-StrictMode -Version 2.0
 $script:Checks=[Collections.Generic.List[object]]::new()
 function Case([string]$Name,[scriptblock]$Body){

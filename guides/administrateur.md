@@ -120,6 +120,8 @@ Les confirmations s'affichent dans la page, sans nouvelle fenêtre ; Échap choi
 
 Sous l’arbre de Rechercher, « Données de l’OU » reprend l’unité choisie dans cet arbre, même lorsque la liste montre une recherche globale. « Base locale », « Postes (ping/WMI) » et « Les deux » portent toujours sur cette OU et ses sous-OU. Les filtres, la limite de lignes et le réglage de profondeur de la liste ne changent pas leur cible. Le chemin annoncé fait foi ; sans OU explicite, aucune de ces actions ne démarre. Le chapitre 8 décrit leur enchaînement et les trois dates à distinguer.
 
+Dans une petite fenêtre, le panneau sous l’arbre se compacte : le titre « Données de l’OU » se masque et « Postes (ping/WMI) » devient « Ping/WMI ». Les commandes gardent le même périmètre et le même effet.
+
 Pinger, Détecter et Analyser la liste gardent leur cible propre : les postes affichés après filtrage. « Actualiser » dans les résultats relance leur lecture ; cette commande ne remplace pas une mise à jour de la base ou un relevé WMI de toute l’OU.
 
 ## Requêtes Annuaire et données locales

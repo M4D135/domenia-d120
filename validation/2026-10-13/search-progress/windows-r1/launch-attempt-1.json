@@ -1,0 +1,30 @@
+{
+  "Status": "RUNNER_NOT_STARTED",
+  "UTC": "2026-10-13T15:50:50.239926+00:00",
+  "Process": {
+    "VM": "CNAMTS-W11-01",
+    "MachineState": 6,
+    "MachineStateName": "running",
+    "Processes": [
+      {
+        "SessionId": 1,
+        "ProcessId": 1900,
+        "Status": 100,
+        "ManagedCampaign": true,
+        "Arguments": [
+          "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+          "powershell.exe",
+          "-NoLogo",
+          "-NoProfile",
+          "-NonInteractive",
+          "-STA",
+          "-File",
+          "C:\\DomeniaLab\\search-progress-20261013-r1\\guest-runner.ps1"
+        ]
+      }
+    ],
+    "Method": "Host VirtualBox COM and state query only; no guest authentication"
+  },
+  "Evidence": "Existing guest session read-only file reads found guest-runner.ps1 but no proof/runner-start.json, runner-status.json or runner-complete.json. No test execution claimed.",
+  "Correction": "Remove duplicate powershell.exe argument from VBoxManage start; terminate only PID1900 with exact owned runner argument. Reuse staging only because no proof/extraction was created."
+}

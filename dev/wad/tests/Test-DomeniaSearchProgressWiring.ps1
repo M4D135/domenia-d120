@@ -40,7 +40,7 @@ if($commonBodies.Count -ne 1){throw 'Expected one literal WorkerCommon body.'}
 $commonTokens=$null;$commonErrors=$null
 $common=[Management.Automation.Language.Parser]::ParseInput($commonBodies[0].Value,[ref]$commonTokens,[ref]$commonErrors)
 if(@($commonErrors).Count){throw 'WorkerCommon parse error.'}
-foreach($name in @('Get-WPropFirst','Get-WPropAll','Convert-WLargeInteger','Convert-WFileTime','Convert-WDate','Convert-WGuid','Get-WObjectType','Get-WUacState')){
+foreach($name in @('Get-WPropFirst','Get-WPropAll','Convert-WLargeInteger','Convert-WFileTime','Convert-WDate','Convert-WGuid','Get-WObjectType','Get-WUacState','Convert-WDirectoryValue')){
     . ([scriptblock]::Create((Get-FixtureFunction $common $name).Extent.Text))
 }
 $branchText=(Get-FixtureFunction $common 'New-WBranchRow').Extent.Text -replace '^function New-WBranchRow','function Invoke-ProductionBranchRow'
@@ -50,6 +50,9 @@ $guard=Read-FixtureAst (Join-Path $root 'modules/Domenia-Guard.Model.ps1')
 . ([scriptblock]::Create((Get-FixtureFunction $engine 'Invoke-DomeniaUiTaskDispatch').Extent.Text))
 . (Join-Path $root 'modules/Domenia-Common.Model.ps1')
 . (Join-Path $root 'modules/Domenia-Engine.Model.ps1')
+. (Join-Path $root 'modules/Domenia-DirectoryStore.Model.ps1')
+. ([scriptblock]::Create((Get-DomeniaDirectoryStoreWorkerPrelude)))
+function Register-WCredentialFailure {param($Context,$ErrorValue,$Channel)return $false}
 
 # The enumerable throws during MoveNext, just as a streamed LDAP search can fail after
 # some results. It also allows cancellation exactly before a row is handed to the worker.
@@ -57,8 +60,20 @@ if($null -eq ('Domenia.SearchProgressFixture.Rows' -as [type])){
     Add-Type -TypeDefinition @'
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Threading;
 namespace Domenia.SearchProgressFixture {
+    // The fixture consumes raw records concurrently just like the independent store pump.
+    // It archives them for assertions without changing the production 1,000-row bound.
+    public sealed class Consumer : IDisposable {
+        public readonly ConcurrentQueue<object> Input = new ConcurrentQueue<object>();
+        public readonly ConcurrentQueue<object> Captured = new ConcurrentQueue<object>();
+        private readonly Thread thread; private volatile bool stopped;
+        public Consumer() { thread = new Thread(Run); thread.IsBackground = true; thread.Start(); }
+        private void Run() { while(!stopped) { Drain(); Thread.Sleep(1); } Drain(); }
+        private void Drain() { object item; while(Input.TryDequeue(out item)) Captured.Enqueue(item); }
+        public void Dispose() { stopped = true; if(!thread.Join(5000)) throw new Exception("Fixture consumer failed to stop"); }
+    }
     public sealed class Rows : IEnumerable, IDisposable {
         public object[] Values = new object[0];
         public int ThrowBeforeIndex = -1;
@@ -104,8 +119,9 @@ function Reset-Fixture {
     $script:Context=[pscustomobject]@{Server='dc.example.invalid';BaseDn='DC=example,DC=invalid';Domain='example.invalid';Netbios='EXAMPLE';BindUser='';Credential=$null;UseCredential=$false;PageSize=300}
     $script:Payload=[pscustomobject]@{
         BaseDn='OU=Site,DC=example,DC=invalid';Scope='Subtree';PrefixFilter='';FastFilter='';ExactFilter='';AnrFilter='';BroadFilter='(objectClass=computer)'
-        Limit=10000;Properties=@('objectClass','name','distinguishedName');ServerTimeLimitSeconds=60;ClientTimeoutSeconds=90;StreamPageSize=250
+        Limit=10000;Properties=@('objectClass','name','distinguishedName','objectGUID','samaccountname');ServerTimeLimitSeconds=60;ClientTimeoutSeconds=90;StreamPageSize=250
         SearchReadProgress=$script:Tracker;Progress=[Collections.Concurrent.ConcurrentQueue[object]]::new();StopToken=$script:Stop.Token
+        DirectoryReadState=[hashtable]::Synchronized(@{Started=$false;Done=$false;Final=$null;Error=''})
     }
 }
 function Case {
@@ -137,7 +153,10 @@ function New-WBranchRow {
 }
 function Invoke-FixtureWorker {
     $Context=$script:Context;$Payload=$script:Payload
-    return (& $script:WorkerBlock)
+    $consumer=[Domenia.SearchProgressFixture.Consumer]::new()
+    $item=$null;while($Payload.Progress.TryDequeue([ref]$item)){$consumer.Input.Enqueue($item);$item=$null}
+    $Payload.Progress=$consumer.Input
+    try{return (& $script:WorkerBlock)}finally{$consumer.Dispose();$Payload.Progress=$consumer.Captured}
 }
 Case '5000 actual row conversions are streamed and counted as real LDAP progress' {
     $script:Collection.Values=@(for($i=1;$i -le 5000;$i++){New-FixtureResult $i})
@@ -147,7 +166,7 @@ Case '5000 actual row conversions are streamed and counted as real LDAP progress
     Expect ($script:Searchers[0].PageSize -eq 250) 'Production worker still overrides the configured page size with the former 100-row cap.'
     Expect ($script:Collection.Disposed -and $script:Searchers[0].Disposed) 'Directory resources were not disposed.'
     $event=$null;[void]$script:Payload.Progress.TryDequeue([ref]$event)
-    Expect ($event.Kind -ceq 'Row' -and $event.Row.Type -ceq 'Machine' -and $event.Row.Login -ceq 'PC1' -and $event.Row.Guid) 'The real row converter lost a displayed property.'
+    Expect ($event.Kind -ceq 'DirectoryRead' -and $event.Type -ceq 'Machine' -and $event.Properties.samaccountname[0] -ceq 'PC1$' -and $event.Properties.objectguid[0]) 'Typed raw record or explicit attribute mask was lost before storage.'
 }
 Case 'Empty successful LDAP responses do not manufacture row progress' {
     $out=Invoke-FixtureWorker
@@ -177,7 +196,7 @@ Case 'Cancellation before the first received row does not report progress' {
     $script:Collection.Values=@((New-FixtureResult));$script:Stop.Cancel();$failed=$false
     try{Invoke-FixtureWorker}catch{$failed=$true}
     Expect ($failed -and $script:Tracker.RowsRead -eq 0 -and $script:Tracker.LastRowTimestamp -eq 0 -and $script:Converted -eq 0) 'Cancelled response counted or converted a row.'
-    Expect ($script:Calls.Count -eq 1 -and $script:Collection.Disposed) 'Cancellation retried another directory context or leaked resources.'
+    Expect ($script:Calls.Count -eq 0 -and $script:Payload.DirectoryReadState.Done) 'Already cancelled search opened LDAP or failed to close its producer state.'
 }
 Case 'Midstream cancellation keeps prior streamed rows and ignores the cancelled response' {
     $script:Collection.Values=@((New-FixtureResult 1),(New-FixtureResult 2),(New-FixtureResult 3));$script:Collection.CancelBeforeIndex=2;$failed=$false
@@ -297,6 +316,8 @@ Case 'Actual live-search preparation preserves the caller page size instead of o
 # Only the submitted command is inert; there is no LDAP, WPF, subprocess or network call.
 function Initialize-DomeniaEngineState {}
 function Set-DomeniaTargetCredentialContext {param($Context,$Payload)return $Context}
+function Set-DomeniaCredentialGuardContext {param($Context)return $Context}
+function Assert-WCredentialAllowed {param($Context,$Channel)}
 function Get-WorkerContext {param($OperationId)return [pscustomobject]@{OperationId=$OperationId}}
 function Get-DomeniaContextCredentialIdentity {param($Context,$Provider)return 'fixture'}
 function Get-DomeniaDispatchIsolation {param($Job,$Context)return [pscustomobject]@{Isolate=$false}}

@@ -1,0 +1,19 @@
+{
+    "Name":  "Test-DomeniaWiringRecherche",
+    "PID":  3888,
+    "RunnerPID":  1092,
+    "StartedUTC":  "2026-10-13T16:00:48.5608227Z",
+    "Executable":  "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+    "Arguments":  [
+                      "-NoLogo",
+                      "-NoProfile",
+                      "-NonInteractive",
+                      "-STA",
+                      "-File",
+                      "C:\\DomeniaLab\\search-progress-20261013-r2\\source\\dev\\wad\\tests\\Test-DomeniaWiringRecherche.ps1",
+                      "-ReportPath",
+                      "C:\\DomeniaLab\\search-progress-20261013-r2\\proof\\Test-DomeniaWiringRecherche.json"
+                  ],
+    "ScriptSha256":  "a776b0a60923daa766cd938986b51f8775e9f54006ae6f0285dda79a34853bb8",
+    "TimeoutSeconds":  300
+}

@@ -14,7 +14,7 @@ function Import-CoreFunction {param([string]$Name)
  if($nodes.Count -ne 1){throw ('Missing or ambiguous core function: '+$Name)}
  . ([scriptblock]::Create(($nodes[0].Extent.Text -replace ('^function\s+'+[regex]::Escape($Name)+'\b'),('function script:'+$Name))))
 }
-foreach($name in @('Get-DomeniaBootThemePalette','Get-DomeniaBootThemeResources','Convert-DomeniaXamlToBootTheme','Get-DomeniaStandardLoginXaml','Get-DomeniaDebugLoginXaml','Assert-DomeniaXamlPreflight','ConvertFrom-DomeniaXaml','Test-DomeniaMainHostAvailable','Invoke-DomeniaHostWindow','Show-LoginWindow')){Import-CoreFunction $name}
+foreach($name in @('Get-DomeniaBootThemePalette','Get-DomeniaBootThemeResources','Convert-DomeniaXamlToBootTheme','Get-DomeniaStandardLoginXaml','Get-DomeniaDebugLoginXaml','Assert-DomeniaXamlPreflight','ConvertFrom-DomeniaXaml','Test-DomeniaMainHostAvailable','Invoke-DomeniaHostWindow','Get-DomeniaFastLoginVaultIdentity','Update-DomeniaFastLoginVaultUi','Show-LoginWindow')){Import-CoreFunction $name}
 $modules=Join-Path (Split-Path $CorePath -Parent) 'modules'
 . (Join-Path $modules 'Domenia-Common.Model.ps1')
 . (Join-Path $modules 'Domenia-Shell.Model.ps1')

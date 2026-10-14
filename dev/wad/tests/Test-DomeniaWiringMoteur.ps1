@@ -51,7 +51,7 @@ $script:CoreFunctions = @('Start-UiTask','Complete-UiTasks','Request-UiTaskStop'
     'New-DomeniaWorkerRunspace','Assert-DomeniaWorkerOperationCode','Get-DomeniaWorkerCodeHash','ConvertTo-DomeniaCanonicalWorkerCode','Get-DomeniaWorkerOperationHashes',
     'Invoke-DomeniaJobSuccessUi','Invoke-DomeniaJobErrorUi','Invoke-DomeniaUiHandler','Set-ControlsBusy','Get-NewTaskId','Update-TaskUi','Get-WorkerContext',
     'Dispose-AsyncEngine','Request-DomeniaDashboardRefresh','Get-MainXaml','Get-DomeniaControl','Set-DomeniaControlText','New-DefaultConfig','Load-AppConfig','Get-CfgValue',
-    'Get-DomeniaEffectiveWorkerResult','Get-DomeniaIndexScope','Search-DomeniaIndexUi','Set-DomeniaFastLoginBusy','Complete-DomeniaFastLoginSuccess','Start-DomeniaFastLoginAttempt',
+    'Get-DomeniaEffectiveWorkerResult','Get-DomeniaIndexScope','Search-DomeniaIndexUi','Get-DomeniaFastLoginVaultIdentity','Update-DomeniaFastLoginVaultUi','Set-DomeniaFastLoginBusy','Complete-DomeniaFastLoginSuccess','Start-DomeniaFastLoginAttempt',
     'New-DomeniaFastLoginSession','Start-DomeniaFastLoginWorker','Update-DomeniaFastLoginAttempt','Reset-DomeniaFastLoginAttempt','Stop-DomeniaFastLoginWorker',
     'Invoke-DomeniaInProcessAuthProbe','Start-DomeniaLoginAuthRunspace','Read-DomeniaAuthRunspaceResult','Complete-DomeniaLoginAuthRunspaceCleanup',
     'Stop-DomeniaLoginAuthRunspace','Queue-DomeniaLoginAuthRunspaceCleanup','Ensure-DomeniaAuthCleanupTimer','Add-DomeniaFastLoginDetail',

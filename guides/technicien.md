@@ -59,6 +59,8 @@ Quand : vous voulez voir tous les postes ou tous les utilisateurs d'un site ou d
 
 Sous l’arbre, « Données de l’OU » propose « Base locale », « Postes (ping/WMI) » et « Les deux ». Ces commandes portent toujours sur l’OU choisie et ses sous-OU, même si la liste est filtrée, limitée ou réglée au premier niveau. Elles utilisent l’OU de cet arbre, y compris pendant une recherche globale ; relisez le chemin indiqué. Le chapitre 5 explique quelle commande choisir.
 
+Dans une petite fenêtre, le panneau sous l’arbre se compacte : le titre « Données de l’OU » se masque et « Postes (ping/WMI) » devient « Ping/WMI ». Les commandes gardent le même périmètre et le même effet.
+
 ## Exécuter une requête prête à l’emploi
 
 La zone « Requêtes » de Rechercher propose les vues de l’annuaire, les modèles locaux et vos requêtes enregistrées. Le champ de cette zone filtre les noms de requêtes ; il ne recherche pas directement un poste.

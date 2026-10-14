@@ -8,6 +8,14 @@ using System.Runtime.Serialization.Json;
 using System.Text;
 
 namespace Domenia.Native {
+    internal static class ObservationWire {
+        internal const int MaximumUtf8Bytes = 262144;
+        internal static byte[] Encode(string json) {
+            if (String.IsNullOrEmpty(json) || json.Length > MaximumUtf8Bytes || Encoding.UTF8.GetByteCount(json) > MaximumUtf8Bytes)
+                throw new ArgumentException("Observation UTF-8 size outside supported bounds.");
+            return Encoding.UTF8.GetBytes(json);
+        }
+    }
     public sealed class ProbeDefinition {
         public string Id { get; set; }
         public string Mode { get; set; }
@@ -28,21 +36,29 @@ namespace Domenia.Native {
     }
     [DataContract]
     public sealed class ProbeResult {
+        private static readonly object[] EmptyValues = new object[0];
         [DataMember] public string CheckedUtc { get; set; }
+        [DataMember] public string AttemptedUtc { get; set; }
+        [DataMember] public bool? Succeeded { get; set; }
         [DataMember] public string Error { get; set; }
         [DataMember] public string Skipped { get; set; }
         [DataMember] public bool Truncated { get; set; }
         [DataMember] public long? Count { get; set; }
+        [DataMember] public bool? CountComplete { get; set; }
+        [DataMember] public long? StoredCount { get; set; }
+        [DataMember] public string LimitReason { get; set; }
+        [DataMember] public string DefinitionHash { get; set; }
         [DataMember] public string[][] Rows { get; set; }
         public object[] Values { get; private set; }
         public bool Prepared { get; private set; }
         public DateTime? At { get; private set; }
         public ProbeDefinition Definition { get; private set; }
         internal void Prepare(ProbeDefinition definition, DateTime now) {
-            Definition = definition; At = Time.Parse(CheckedUtc); Values = new object[0];
+            Definition = definition; At = Time.Parse(CheckedUtc); Values = EmptyValues;
             Prepared = definition != null && definition.Transform != "Release";
-            if (!Prepared) return;
-            if (!String.IsNullOrEmpty(Error) || !String.IsNullOrEmpty(Skipped) || (Truncated && definition.Mode != "Count")) { Rows = null; return; }
+            if (!Prepared) { if (definition == null) Rows = null; return; }
+            // Failed or incomplete values remain unknown. Full last-success details are retained by the canonical store.
+            if (!String.IsNullOrEmpty(Error) || !String.IsNullOrEmpty(Skipped) || Succeeded == false || (definition.Mode == "Count" && CountComplete == false) || (Truncated && definition.Mode != "Count")) { Rows = null; return; }
             var raw = new List<string>();
             if (definition.Mode == "Count") { if (Count.HasValue) raw.Add(Count.Value.ToString(CultureInfo.InvariantCulture)); }
             else if (Rows != null) {
@@ -100,8 +116,7 @@ namespace Domenia.Native {
     public sealed class ObservationIdentityReader {
         private readonly DataContractJsonSerializer serializer = new DataContractJsonSerializer(typeof(ObservationIdentity));
         public ObservationIdentity Read(string json) {
-            if (String.IsNullOrEmpty(json) || json.Length > 262144) throw new ArgumentException("Observation size outside supported bounds.");
-            using (var stream = new MemoryStream(Encoding.UTF8.GetBytes(json), false)) {
+            using (var stream = new MemoryStream(ObservationWire.Encode(json), false)) {
                 var result = (ObservationIdentity)serializer.ReadObject(stream);
                 if (result == null) throw new SerializationException("Missing observation.");
                 return result;
@@ -114,6 +129,18 @@ namespace Domenia.Native {
         [DataMember] public string Key { get; set; }
         [DataMember] public string Guid { get; set; }
         [DataMember] public string CheckedUtc { get; set; }
+        [DataMember] public long Revision { get; set; }
+        [DataMember] public string PresenceCheckedUtc { get; set; }
+        [DataMember] public string PresenceAttemptUtc { get; set; }
+        [DataMember] public string PresenceError { get; set; }
+        [DataMember] public string ConsoleCheckedUtc { get; set; }
+        [DataMember] public string UserCheckedUtc { get; set; }
+        [DataMember] public string ConsoleAttemptUtc { get; set; }
+        [DataMember] public string ConsoleError { get; set; }
+        [DataMember] public string InventoryCheckedUtc { get; set; }
+        [DataMember] public string InventoryAttemptUtc { get; set; }
+        [DataMember] public string InventoryError { get; set; }
+        [DataMember] public Dictionary<string, ObservationTime> Times { get; set; }
         [DataMember] public string ObservedUtc { get; set; }
         [DataMember] public string Presence { get; set; }
         [DataMember] public string LinkUser { get; set; }
@@ -146,18 +173,36 @@ namespace Domenia.Native {
             return deferred.ToArray();
         }
     }
+    [DataContract]
+    public sealed class ObservationTime {
+        [DataMember] public string ObservedUtc { get; set; }
+        [DataMember] public string LastAttemptUtc { get; set; }
+        [DataMember] public bool Succeeded { get; set; }
+    }
     public sealed class ObservationReader {
         private readonly DataContractJsonSerializer serializer;
+        private readonly DataContractJsonSerializer probeSerializer;
         private readonly Dictionary<string, ProbeDefinition> definitions;
         public ObservationReader(ProbeDefinition[] catalog) {
             definitions = new Dictionary<string, ProbeDefinition>(StringComparer.Ordinal);
             foreach (var d in catalog) { if (d == null || String.IsNullOrEmpty(d.Id) || definitions.ContainsKey(d.Id)) throw new ArgumentException("Invalid probe catalog."); definitions.Add(d.Id, d); }
             serializer = new DataContractJsonSerializer(typeof(Observation), new DataContractJsonSerializerSettings { UseSimpleDictionaryFormat = true, MaxItemsInObjectGraph = 200000 });
+            probeSerializer = new DataContractJsonSerializer(typeof(ProbeResult), new DataContractJsonSerializerSettings { UseSimpleDictionaryFormat = true, MaxItemsInObjectGraph = 200000 });
+        }
+        // A dashboard decodes each persisted family separately; it never concatenates all instance graphs.
+        // Instances are intentionally not part of ProbeResult. The canonical StoreRead retains their full data.
+        public ProbeResult ReadProbe(string id, string json, DateTime now) {
+            if (String.IsNullOrEmpty(id) || id.Length > 128) throw new ArgumentException("Invalid probe identity.");
+            ProbeResult result;
+            using (var stream = new MemoryStream(ObservationWire.Encode(json), false)) result = (ProbeResult)probeSerializer.ReadObject(stream);
+            if (result == null) throw new SerializationException("Missing probe result.");
+            ProbeDefinition definition; definitions.TryGetValue(id, out definition);
+            result.Prepare(definition, now);
+            return result;
         }
         public Observation Read(string json, DateTime now) {
-            if (String.IsNullOrEmpty(json) || json.Length > 262144) throw new ArgumentException("Observation size outside supported bounds.");
             Observation observation;
-            using (var stream = new MemoryStream(Encoding.UTF8.GetBytes(json), false)) observation = (Observation)serializer.ReadObject(stream);
+            using (var stream = new MemoryStream(ObservationWire.Encode(json), false)) observation = (Observation)serializer.ReadObject(stream);
             if (observation == null) throw new SerializationException("Missing observation.");
             if (observation.Probes != null) foreach (var pair in observation.Probes) { ProbeDefinition definition; definitions.TryGetValue(pair.Key, out definition); if (pair.Value != null) pair.Value.Prepare(definition, now); }
             return observation;

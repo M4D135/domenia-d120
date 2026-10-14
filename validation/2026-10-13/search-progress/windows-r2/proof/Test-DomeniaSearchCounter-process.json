@@ -1,0 +1,37 @@
+{
+    "Name":  "Test-DomeniaSearchCounter",
+    "Edition":  "dev",
+    "RelativeScript":  "wad\\tests\\Test-DomeniaSearchCounter.ps1",
+    "ScriptSha256":  "893795e5527c0ead0e2e46a1da499277a556d40cf621855dfe18e6f447fcb065",
+    "Arguments":  [
+                      "-NoLogo",
+                      "-NoProfile",
+                      "-NonInteractive",
+                      "-STA",
+                      "-File",
+                      "C:\\DomeniaLab\\search-progress-20261013-r2\\source\\dev\\wad\\tests\\Test-DomeniaSearchCounter.ps1",
+                      "-ReportPath",
+                      "C:\\DomeniaLab\\search-progress-20261013-r2\\proof\\Test-DomeniaSearchCounter.json"
+                  ],
+    "StartedUTC":  "2026-10-13T16:00:47.0716119Z",
+    "EndedUTC":  "2026-10-13T16:00:47.9067534Z",
+    "Milliseconds":  1259,
+    "TimeoutSeconds":  120,
+    "RunnerPID":  1092,
+    "ChildPID":  4704,
+    "ExitCode":  0,
+    "TimedOut":  false,
+    "KillAttempted":  false,
+    "ChildTerminated":  true,
+    "Error":  "",
+    "Stdout":  "Test-DomeniaSearchCounter.stdout.txt",
+    "Stderr":  "Test-DomeniaSearchCounter.stderr.txt",
+    "JsonReport":  "Test-DomeniaSearchCounter.json",
+    "ReportVerdict":  {
+                          "Valid":  true,
+                          "Reason":  "JSON verdict passed",
+                          "Cases":  12,
+                          "Sha256":  "1d1d6e85deb49b8277c637a9ff664ac125f00d4e561cc7390860c46b5337bda8"
+                      },
+    "Passed":  true
+}

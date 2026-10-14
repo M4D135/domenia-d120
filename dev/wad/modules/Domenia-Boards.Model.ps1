@@ -52,7 +52,10 @@ computer.hotfix|Securite et etat|Dernier correctif|Value|Kpi|S|Date du dernier c
     Fleet = @'
 fleet.health|Santé|État du parc|Health|Health|S|Part des postes sans point critique ni à surveiller
 fleet.attention|Santé|Points dʼattention|List|List|L|Problèmes détectés sur le périmètre : un clic déplie les postes concernés
-fleet.machines|Inventaire du périmètre|Postes|Value|Kpi|S|Tous les comptes ordinateur du périmètre, actifs et désactivés
+fleet.machines|Inventaire du périmètre|Comptes ordinateur|Value|Kpi|S|Tous les comptes AD : activés, désactivés et état inconnu
+fleet.enabled|Inventaire du périmètre|Comptes AD activés|Value|Kpi|S|État AD ; aucune déduction de présence réseau
+fleet.accountunknown|Inventaire du périmètre|État AD inconnu|Value|Kpi|S|userAccountControl non lu|N
+fleet.accountstatus|Inventaire du périmètre|État des comptes AD|Distribution|Pie|M|Activés, désactivés et inconnus
 fleet.stale|Inventaire du périmètre|Sans connexion depuis 90 j|Value|Kpi|S|Attribut lastLogonTimestamp, à 14 jours près
 fleet.disabled|Inventaire du périmètre|Comptes désactivés encore dans lʼOU|Value|Kpi|S|Comptes ordinateur désactivés à déplacer ou supprimer
 fleet.created|Inventaire du périmètre|Créés ces 30 jours|Value|Kpi|S|Attribut whenCreated
@@ -68,7 +71,7 @@ fleet.lastlogon|Répartition|Dernière connexion au domaine|Series|Column|M|Anci
 fleet.ou|Répartition|Postes par unité dʼorganisation|Distribution|Bar|M|Postes par OU ou sous-OU
 fleet.presence|Relevés des postes|Présence réseau|Distribution|Pie|M|Derniers relevés de moins de 30 jours|N
 fleet.users|Relevés des postes|Utilisateurs détectés|Value|Kpi|S|Utilisateurs distincts vus en session sur les postes|N
-fleet.lastcheck|Relevés des postes|Dernière analyse|Value|Kpi|S|Date du dernier relevé des postes|N
+fleet.lastcheck|Relevés des postes|Dernier ping|Value|Kpi|S|Date du dernier relevé des postes|N
 fleet.models|Relevés des postes|Modèles|Distribution|Bar|M|Modèles des postes analysés|N
 fleet.releases|Relevés des postes|Versions relevées|Distribution|Pie|M|Versions commerciales relevées par WMI|N
 fleet.ram|Relevés des postes|Mémoire installée|Series|Column|M|Postes par quantité de mémoire|N
@@ -169,12 +172,14 @@ function Format-DomeniaDashboardSize {
 function Get-DomeniaBoardThresholds {
     # One table for the drawing, the tile and the attention point, on the workstation and on the fleet (decision David
     # 2026-10-08, CO-14): free space of a disk (percent), used memory (percent) and battery left (percent).
-    return [pscustomobject]@{ DiskFreeAlert = 10.0; DiskFreeWarn = 20.0; MemoryUsedWarn = 90.0; BatteryWarn = 20.0 }
+    param($Policy=$null)
+    if($null -ne $Policy -and $Policy.PSObject.TypeNames -contains 'Domenia.HealthPolicy'){return $Policy.Thresholds}
+    return (ConvertTo-DomeniaHealthPolicy $Policy).Thresholds
 }
 function Get-DomeniaThresholdState {
     # State of one measure against the shared thresholds: 'Alert', 'Warn' or 'Ok'.
-    param([ValidateSet('DiskFree','MemoryUsed','Battery')][string]$Measure,[double]$Percent)
-    $limits = Get-DomeniaBoardThresholds
+    param([ValidateSet('DiskFree','MemoryUsed','Battery')][string]$Measure,[double]$Percent,$Policy=$null)
+    $limits = Get-DomeniaBoardThresholds -Policy $Policy
     switch ($Measure) {
         'DiskFree' { if ($Percent -lt $limits.DiskFreeAlert) { return 'Alert' }; if ($Percent -lt $limits.DiskFreeWarn) { return 'Warn' }; return 'Ok' }
         'MemoryUsed' { if ($Percent -gt $limits.MemoryUsedWarn) { return 'Warn' }; return 'Ok' }
@@ -362,7 +367,7 @@ function New-DomeniaBoardData {
     # HintActions: section -> {Id; Text; Tip; Link} offered under its hint, run only on a click (SP-17).
     # Partial: {Text; Action} when the score misses key checks (UX-23), shown as a badge under the score.
     param([Parameter(Mandatory=$true)][ValidateSet('Computer','Fleet','Software')][string]$Board)
-    return [pscustomobject]@{ Board = $Board; Entries = @{}; Attention = New-Object System.Collections.ArrayList; Hints = @{}; HintActions = @{}; Partial = $null; Summary = '' }
+    return [pscustomobject]@{ Board = $Board; Entries = @{}; Attention = New-Object System.Collections.ArrayList; Hints = @{}; HintActions = @{}; Partial = $null; Summary = ''; HealthPolicy=(ConvertTo-DomeniaHealthPolicy) }
 }
 function Add-DomeniaBoardEntry {
     param([Parameter(Mandatory=$true)]$Data,$Entry)
@@ -374,7 +379,7 @@ function Add-DomeniaBoardAttention {
     # worker, or observed workstations), unfolded by a click from the data already in memory. -Route: workspace that
     # holds the useful action (workstation board), opened by Invoke-DomeniaUxRoute without running anything.
     param([Parameter(Mandatory=$true)]$Data,[ValidateSet('Alert','Warn','Info')][string]$Level,[string]$Text,[string]$Point = '',[object[]]$Groups = @(),[object[]]$Machines = @(),[string]$Route = '',[string]$RouteText = '')
-    if (-not $Text) { return }
+    if (-not $Text -or -not (Test-DomeniaHealthRuleEnabled $Data.HealthPolicy $Point)) { return }
     [void]$Data.Attention.Add([pscustomobject]@{ Level = $Level; Text = $Text; Point = $Point; Groups = @($Groups | Where-Object { $null -ne $_ }); Machines = @($Machines | Where-Object { $null -ne $_ }); Route = $Route; RouteText = $RouteText })
 }
 function Get-DomeniaBoardHealth {
@@ -392,15 +397,17 @@ function Get-DomeniaBoardHealth {
 function Get-DomeniaFleetHealth {
     # Fleet score (decision David 2026-10-08, MO-01): share of the workstations without any critical point nor point
     # to watch. Critique as soon as one point is critical, otherwise Bon état from 90 %, À surveiller from 75 %,
-    # Dégradé below. An empty perimeter is in good health.
-    param([int]$Total,[int]$Healthy,[object[]]$Attention = @())
+    # Dégradé below. An empty or unassessed perimeter has no numeric score.
+    param([int]$Total,[int]$Healthy,[object[]]$Attention = @(),[int]$Unassessed=0)
     $alerts = @($Attention | Where-Object { ($null -ne $_) -and ([string]$_.Level -eq 'Alert') }).Count
     $warnings = @($Attention | Where-Object { ($null -ne $_) -and ([string]$_.Level -eq 'Warn') }).Count
-    $healthy = [Math]::Max(0,[Math]::Min($Total,$Healthy))
-    $score = if ($Total -gt 0) { [int][Math]::Floor(100.0 * $healthy / $Total) } else { 100 }
-    $verdict = if ($alerts) { 'Critique' } elseif ($score -ge 90) { 'Bon état' } elseif ($score -ge 75) { 'À surveiller' } else { 'Dégradé' }
-    $state = if ($alerts -or ($verdict -eq 'Dégradé')) { 'Alert' } elseif ($verdict -eq 'À surveiller') { 'Warn' } else { 'Ok' }
-    $detail = if ($Total -gt 0) { [string]$healthy + ' poste' + $(if ($healthy -gt 1) { 's' } else { '' }) + ' sur ' + [string]$Total + ' sans problème' } else { 'Aucun poste dans le périmètre' }
+    $unassessed=[Math]::Max(0,[Math]::Min($Total,$Unassessed));$assessed=[Math]::Max(0,$Total-$unassessed)
+    if($assessed -eq 0){return [pscustomobject]@{Score=$null;Verdict=$(if($Total){'Données insuffisantes'}else{'Aucun poste évalué'});State='Off';Alerts=$alerts;Warnings=$warnings;Detail=([string]$assessed+' évalué(s) sur '+$Total+' · '+$unassessed+' non évalué(s)');Healthy=0;Total=$Total;Unassessed=$unassessed}}
+    $healthy = [Math]::Max(0,[Math]::Min($assessed,$Healthy))
+    $score = if ($assessed -gt 0) { [int][Math]::Floor(100.0 * $healthy / $assessed) } else { 100 }
+    $verdict = if ($alerts) { 'Critique' } elseif ($score -ge 90 -and $unassessed) { 'Évaluation partielle' } elseif ($score -ge 90) { 'Bon état' } elseif ($score -ge 75) { 'À surveiller' } else { 'Dégradé' }
+    $state = if ($alerts -or ($verdict -eq 'Dégradé')) { 'Alert' } elseif ($verdict -eq 'À surveiller') { 'Warn' } elseif($unassessed){'Off'} else { 'Ok' }
+    $detail = if ($Total -gt 0) { [string]$healthy + ' poste' + $(if ($healthy -gt 1) { 's' } else { '' }) + ' sur ' + [string]$assessed + ' évalués sans point détecté · '+[string]$unassessed+' non évalué(s)' } else { 'Aucun poste dans le périmètre' }
     return [pscustomobject]@{ Score = $score; Verdict = $verdict; State = $state; Alerts = $alerts; Warnings = $warnings; Detail = $detail; Healthy = $healthy; Total = $Total }
 }
 function Complete-DomeniaBoardData {
@@ -408,11 +415,13 @@ function Complete-DomeniaBoardData {
     # A provider that counts its workstations ($Data.Population = {Total; Healthy}) gets the proportional score.
     param([Parameter(Mandatory=$true)]$Data)
     $prefix = ([string]$Data.Board).ToLowerInvariant()
-    $attention = @($Data.Attention)
+    $scoped=[bool](Get-DomeniaHealthValue $Data 'ScopedHealthEvaluated' $false)
+    $attention = @($Data.Attention | Where-Object {$scoped -or (Test-DomeniaHealthRuleEnabled $Data.HealthPolicy ([string]$_.Point))})
+    if($Data.Board -eq 'Fleet' -and -not $scoped -and $null -ne $Data.PSObject.Properties['Last']){Update-DomeniaFleetHealthPopulation $Data $attention}
     $population = $null
     $populationProperty = $Data.PSObject.Properties['Population']
     if ($null -ne $populationProperty) { $population = $populationProperty.Value }
-    if ($null -ne $population) { $health = Get-DomeniaFleetHealth -Total ([int]$population.Total) -Healthy ([int]$population.Healthy) -Attention $attention }
+    if ($null -ne $population) { $health = Get-DomeniaFleetHealth -Total ([int]$population.Total) -Healthy ([int]$population.Healthy) -Attention $attention -Unassessed ([int](Get-DomeniaHealthValue $population 'Unassessed' 0)) }
     else { $health = Get-DomeniaBoardHealth -Attention $attention }
     $detail = if ($health.Alerts -or $health.Warnings) { @($(if ($health.Alerts) { [string]$health.Alerts + ' critique(s)' }), $(if ($health.Warnings) { [string]$health.Warnings + ' a surveiller' })) -join ' · ' } else { 'Aucun point a verifier' }
     $healthDetail = $detail
@@ -425,9 +434,23 @@ function Complete-DomeniaBoardData {
         $actionProperty = $partialProperty.Value.PSObject.Properties['Action']
         if ($null -ne $actionProperty) { $badgeAction = $actionProperty.Value }
     }
+    if($Data.Board -eq 'Computer' -and $badge -and -not ($health.Alerts -or $health.Warnings)){
+        $health.Score=$null;$health.Verdict='Données insuffisantes';$health.State='Off';$healthDetail='Aucun problème établi ; contrôles incomplets.'
+    }
+    if($Data.Board -eq 'Fleet' -and $badge){$health.Score=$null;if(-not $health.Alerts){$health.Verdict='Évaluation partielle';$health.State='Off'}}
+    if($Data.Board -eq 'Computer'){
+        $enabledChecks=@(Get-DomeniaHealthRuleCatalog|Where-Object{Test-DomeniaHealthRuleEnabled $Data.HealthPolicy $_.Id}).Count+@($Data.HealthPolicy.CustomRules|Where-Object{Test-DomeniaHealthRuleEnabled $Data.HealthPolicy $_.Id}).Count
+        if(-not $enabledChecks){$health.Score=$null;$health.Verdict='Aucun contrôle activé';$health.State='Off';$healthDetail='Activez un contrôle dans les règles de santé.'}
+    }
+    if($Data.Board -in @('Fleet','Computer')){
+        $Data|Add-Member -NotePropertyName HealthExplanation -NotePropertyValue (Get-DomeniaHealthExplanation $Data) -Force
+        if($Data.HealthExplanation.SuspendedRules){$badge=(@($badge,($Data.HealthExplanation.SuspendedRules.ToString()+' règle(s) suspendue(s) temporairement'))|Where-Object{$_}) -join ' · '}
+    }
+    $coverageText=[string](Get-DomeniaHealthValue $Data 'HealthCoverage' '')
+    if($coverageText){$badge=(@($badge,$coverageText)|Where-Object{$_}) -join ' · '}
     Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key ($prefix + '.health') -Kind Health -Value $health.Verdict -Detail $healthDetail.Trim(' ','·') -State $health.State -Number $health.Score -Maximum 100 -Badge $badge -Action $badgeAction)
     $sorted = @(@($attention | Where-Object { $_.Level -eq 'Alert' }) + @($attention | Where-Object { $_.Level -eq 'Warn' }) + @($attention | Where-Object { $_.Level -notin @('Alert','Warn') }))
-    $title = if ($health.Alerts + $health.Warnings) { [string]($health.Alerts + $health.Warnings) + ' point(s) a verifier' } else { 'Rien a signaler' }
+    $title = if ($health.Alerts + $health.Warnings) { [string]($health.Alerts + $health.Warnings) + ' point(s) a verifier' } elseif($null -eq $health.Score -or $badge){'Aucun problème établi'} else { 'Rien a signaler' }
     Add-DomeniaBoardEntry $Data (New-DomeniaBoardEntry -Key ($prefix + '.attention') -Kind List -Title $title -Value $title -Detail $detail.Trim(' ','·') -State $health.State -Items $sorted)
     return $Data
 }
@@ -743,4 +766,89 @@ function New-DomeniaBoardSample {
         'Timeline' { return New-DomeniaBoardEntry -Key $Key -Kind Timeline -Value '7' -Detail 'Aperçu' -Items @([pscustomobject]@{ Label = '01/07'; Value = 9 }, [pscustomobject]@{ Label = '01/08'; Value = 8 }, [pscustomobject]@{ Label = '01/09'; Value = 7 }) }
         default { return New-DomeniaBoardEntry -Key $Key -Kind Value -Value 'Exemple' -Detail 'Apercu : la valeur reelle apparait apres lecture' }
     }
+}
+
+
+function Get-DomeniaChartCategoryGroups {
+    # Render a bounded number of additive categories while retaining every original selection in the remainder.
+    param([object[]]$Items,[ValidateRange(1,64)][int]$Maximum=8)
+    $valid=@($Items|Where-Object{$null -ne $_ -and $null -ne $_.Value -and [double]$_.Value -gt 0})
+    if($valid.Count -le $Maximum){return ,$valid}
+    $keep=[Math]::Max(0,$Maximum-1);$head=@();if($keep){$head=@($valid[0..($keep-1)])}
+    $tail=@($valid[$keep..($valid.Count-1)]);$sum=0.0;$labels=[Collections.Generic.List[string]]::new();$selections=[Collections.Generic.List[object]]::new()
+    foreach($part in $tail){$sum+=[double]$part.Value;$labels.Add([string]$part.Label);$select=Get-DomeniaHealthValue $part 'Select';if($null -ne $select){$selections.Add($select)}}
+    $remainder=[pscustomobject]@{Label=('Autres ('+$tail.Count+' catégories)');Value=$sum;Color='#94A3B8';Items=$tail;Select=[pscustomobject]@{Label='Autres';Labels=$labels.ToArray();Selections=$selections.ToArray()}}
+    return ,@($head+$remainder)
+}
+
+function Get-DomeniaHealthFingerprint {
+    param([string[]]$Values=@())
+    $sorted=[string[]]@($Values);[Array]::Sort($sorted,[StringComparer]::Ordinal)
+    $sha=[Security.Cryptography.SHA256]::Create()
+    try{return [BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes(($sorted -join "`n")))).Replace('-','').ToLowerInvariant()}finally{$sha.Dispose()}
+}
+function Set-DomeniaHealthSnapshotMetadata {
+    param($Data,[object[]]$History=@(),[datetime]$NowUtc=[datetime]::UtcNow)
+    $figures=$Data.Snapshot.Figures;$targets=@($Data.Last.Targets);$assessed=@($Data.Last.HealthyTargets)+@($Data.Last.ProblemTargets)
+    $policies=@(Get-DomeniaHealthValue $Data 'EffectiveHealthPolicies' @());if(-not $policies.Count){$policies=@([pscustomobject]@{ScopeDn=$Data.Last.Scope;Policy=$Data.HealthPolicy})}
+    $policyTokens=[Collections.Generic.List[string]]::new()
+    foreach($record in $policies){
+        $p=$record.Policy;$stable=[ordered]@{ScopeDn=([string]$record.ScopeDn).ToLowerInvariant();Thresholds=$p.Thresholds;DisabledRules=@($p.DisabledRules|Sort-Object);CustomRules=@($p.CustomRules|Sort-Object Id);Suspensions=@($p.Suspensions|Sort-Object RuleId);ActiveSuspensions=@($p.Suspensions|Where-Object{$null -ne (Get-DomeniaHealthSuspension $p $_.RuleId)}|ForEach-Object{$_.RuleId}|Sort-Object)}
+        $policyTokens.Add(($stable|ConvertTo-Json -Depth 8 -Compress))
+    }
+    $groups=@{};foreach($g in $Data.Last.Groups){$groups[[string]$g.gid]=$g}
+    $coverage=[Collections.Generic.List[string]]::new()
+    foreach($target in $targets){$guid=[string]$target.object_guid;$inventory=$Data.HealthInventoryKnown[$guid];$g=$groups[[string]$target.gid]
+        $date=[datetime]::MinValue;$logonKnown=[datetime]::TryParseExact([string]$target.logon,'yyyy-MM-dd',[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::None,[ref]$date) -and $date -le $NowUtc.Date
+        $coverage.Add($guid+'|'+[int]$logonKnown+'|'+[int][bool]([string]$g.ver)+'|'+[int][bool]([string]$g.pw)+'|'+[int]($g.lk -in @('O','E','N','X'))+'|'+[int]($g.bk -in @('K','N','X'))+'|'+[int]($null -ne $inventory -and $inventory.Disk)+'|'+[int]($null -ne $inventory -and $inventory.Boot))
+    }
+    $values=[ordered]@{FormatVersion=2;PopulationHash=(Get-DomeniaHealthFingerprint @($targets|ForEach-Object{([string]$_.object_guid).ToLowerInvariant()}));AssessedHash=(Get-DomeniaHealthFingerprint @($assessed|ForEach-Object{([string]$_.object_guid).ToLowerInvariant()}));CoverageHash=(Get-DomeniaHealthFingerprint $coverage.ToArray());PolicyHash=(Get-DomeniaHealthFingerprint $policyTokens.ToArray());Unassessed=[int]$Data.Population.Unassessed;Assessed=$assessed.Count;Score=$Data.Entries['fleet.health'].Number;PingRead=($Data.Last.WidgetTargets['fleet.presence|En ligne'].Count+$Data.Last.WidgetTargets['fleet.presence|Sans réponse'].Count);WmiRead=$Data.HealthInventoryKnown.Count;ComputedUtc=$NowUtc.ToString('o')}
+    if($targets.Count -ne [int]$Data.Population.Total){$values.PopulationHash='';$values.AssessedHash='';$values.CoverageHash=''}
+    foreach($key in $values.Keys){$figures|Add-Member -NotePropertyName $key -NotePropertyValue $values[$key] -Force}
+    $records=[Collections.Generic.List[object]]::new()
+    foreach($row in $History){try{$f=([string]$row.figures)|ConvertFrom-Json -ErrorAction Stop}catch{continue};if($null -eq $f -or [string]$row.day -notmatch '^\d{4}-\d{2}-\d{2}$'){continue};$records.Add([pscustomobject]@{Label=([string]$row.day+' · relevé quotidien');Day=[string]$row.day;Figures=$f})}
+    $records.Add([pscustomobject]@{Label=('Vue actuelle · '+$NowUtc.ToLocalTime().ToString('dd/MM/yyyy HH:mm'));Day=$NowUtc.ToString('yyyy-MM-dd');Figures=$figures})
+    $Data|Add-Member -NotePropertyName HealthHistory -NotePropertyValue $records.ToArray() -Force
+}
+function Compare-DomeniaHealthSnapshots {
+    param($Before,$After)
+    if($null -eq $Before -or $null -eq $After){throw 'Choisissez deux relevés.'}
+    $a=$Before.Figures;$b=$After.Figures;$limits=[Collections.Generic.List[string]]::new();$population=$false;$coverage=$false;$policy=$false
+    foreach($field in @('PopulationHash','AssessedHash','CoverageHash','PolicyHash')){
+        $old=[string](Get-DomeniaHealthValue $a $field '');$new=[string](Get-DomeniaHealthValue $b $field '')
+        if(-not $old -or -not $new){$limits.Add('Ce relevé ne décrit pas encore '+$field+' ; comparaison limitée aux compteurs.');continue}
+        $same=($old -ceq $new)
+        switch($field){PopulationHash{$population=$same;if(-not $same){$limits.Add('La population de GUID a changé : entrées, sorties ou déplacement dans le périmètre.')}}AssessedHash{if(-not $same){$limits.Add('Les postes évalués ne sont pas les mêmes.')}}CoverageHash{$coverage=$same;if(-not $same){$limits.Add('La couverture des contrôles a changé : une variation peut venir des données disponibles.')}}PolicyHash{$policy=$same;if(-not $same){$limits.Add('Les règles, seuils ou suspensions ont changé.')}}}
+    }
+    $sameAssessed=([string](Get-DomeniaHealthValue $a 'AssessedHash' '') -ceq [string](Get-DomeniaHealthValue $b 'AssessedHash' ''))
+    $comparable=$population -and $coverage -and $policy -and $sameAssessed
+    $rows=[Collections.Generic.List[object]]::new()
+    foreach($pair in @(@('Comptes activés','Machines'),@('Postes évalués','Assessed'),@('Postes incomplets','Unassessed'),@('Sans problème détecté','Healthy'),@('Avec un problème','Problems'),@('Ping renseigné','PingRead'),@('WMI renseigné','WmiRead'),@('Score','Score'))){
+        $old=Get-DomeniaHealthValue $a $pair[1];$new=Get-DomeniaHealthValue $b $pair[1];$delta=$null;if($null -ne $old -and $null -ne $new){$delta=[double]$new-[double]$old}
+        $rows.Add([pscustomobject]@{Measure=$pair[0];Before=$(if($null -eq $old){'Non renseigné'}else{[string]$old});After=$(if($null -eq $new){'Non renseigné'}else{[string]$new});Delta=$(if($null -eq $delta){'Non comparable'}elseif($delta -gt 0){'+'+$delta}else{[string]$delta})})
+    }
+    [pscustomobject]@{Comparable=$comparable;Summary=$(if($comparable){'Même population, mêmes contrôles et même couverture : variation de lʼétat observé. Ce constat ne prouve pas la cause du changement.'}else{'Périmètre, couverture ou règles différents : ne pas interpréter directement le changement du score comme un gain ou une dégradation du parc.'});Limits=$limits.ToArray();Rows=$rows.ToArray()}
+}
+function Get-DomeniaFleetPivots {
+    # Every non-empty cell owns the complete set of GUIDs; unread dimensions remain explicit categories.
+    param($Data)
+    $dimensions=@{};foreach($name in @('fleet.ou','fleet.versions','fleet.models','fleet.ram','fleet.presence')){$dimensions[$name]=@{}}
+    foreach($key in $Data.Last.WidgetTargets.Keys){foreach($name in $dimensions.Keys){$prefix=$name+'|';if(-not ([string]$key).StartsWith($prefix,[StringComparison]::Ordinal)){continue};$label=([string]$key).Substring($prefix.Length);foreach($target in $Data.Last.WidgetTargets[$key]){$dimensions[$name][[string]$target.object_guid]=$label}}}
+    $tables=@{OuWindows=@{};ModelRam=@{};SiteCoverage=@{}};$seen=@{}
+    foreach($target in $Data.Last.Targets){
+        $guid=[string]$target.object_guid;if(-not $guid -or $seen.ContainsKey($guid)){continue};$seen[$guid]=$true
+        $site=[string]$dimensions['fleet.ou'][$guid];if(-not $site){$site='OU non renseignée'}
+        $windows=[string]$dimensions['fleet.versions'][$guid];if(-not $windows){$windows='Version non lue'}
+        $model=[string]$dimensions['fleet.models'][$guid];if(-not $model){$model='Modèle non lu'}
+        $ram=[string]$dimensions['fleet.ram'][$guid];if(-not $ram){$ram='RAM non lue'}
+        $ping=[string]$dimensions['fleet.presence'][$guid] -in @('En ligne','Sans réponse');$wmi=$Data.HealthInventoryKnown.ContainsKey($guid)
+        $coverage=if($ping -and $wmi){'Ping et WMI'}elseif($ping){'Ping seul'}elseif($wmi){'WMI seul'}else{'Aucun relevé exploitable'}
+        foreach($pair in @(@('OuWindows',$site,$windows),@('ModelRam',$model,$ram),@('SiteCoverage',$site,$coverage))){
+            $row=[string]$pair[1];$col=[string]$pair[2];$key=$row.Length.ToString()+':'+$row+$col.Length.ToString()+':'+$col;$table=$tables[$pair[0]]
+            if(-not $table.ContainsKey($key)){$table[$key]=[pscustomobject]@{Row=$row;Column=$col;Count=0;Targets=[Collections.Generic.List[object]]::new()}}
+            $cell=$table[$key];$cell.Count++;$cell.Targets.Add($target)
+        }
+    }
+    $result=@{};foreach($name in $tables.Keys){$rows=@($tables[$name].Values|Sort-Object Row,Column);foreach($cell in $rows){$cell.Targets=$cell.Targets.ToArray()};$result[$name]=[pscustomobject]@{Rows=$rows;Total=$seen.Count;Cells=$rows.Count;Scope=[string]$Data.Last.Scope}}
+    return $result
 }
