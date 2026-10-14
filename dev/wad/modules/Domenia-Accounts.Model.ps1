@@ -63,3 +63,23 @@ function Get-DomeniaLoginFailureText {
     }
     return [pscustomobject]@{Kind=$kind;Message=[string]$pair[0];Hint=[string]$pair[1];Text=([string]$pair[0]+' '+[string]$pair[1]);Code=$code}
 }
+
+# ---------------------------------------------------------------- UX-28 sign-in: the Windows session first
+function Get-DomeniaLoginChoice {
+    # UX-28: in a domain session the Windows account is the main action, « Continuer en tant que DOMAINE\nom », and
+    # the account and password form comes second (« Utiliser un autre compte »). $WindowsIdentity is the session
+    # account already filtered by Get-DomeniaProcessWindowsIdentity (no computer, local or system account).
+    # $PreferForm: the operator asked to change account, the form opens directly with the Windows button below it.
+    param([AllowNull()][AllowEmptyString()][string]$WindowsIdentity='',[bool]$AllowWindowsSession=$true,[bool]$Demo=$false,[bool]$PreferForm=$false)
+    $identity=([string]$WindowsIdentity).Trim()
+    $offered=($AllowWindowsSession -and (-not $Demo))
+    $available=($offered -and ($identity.Length -gt 0))
+    $label='Utiliser mon compte Windows';$tip=''
+    if($available){
+        $label='Continuer en tant que '+$identity
+        $tip='Ouvre Domenia avec votre session Windows ('+$identity+'), sans mot de passe. Aucun droit nʼest ajouté.'
+    }elseif($offered){
+        $tip='Indisponible : Domenia nʼest pas lancé sous un compte utilisateur du domaine.'
+    }
+    return [pscustomobject]@{Offered=$offered;Available=$available;WindowsFirst=($available -and (-not $PreferForm));WindowsLabel=$label;WindowsToolTip=$tip;OtherAccountLabel='Utiliser un autre compte'}
+}

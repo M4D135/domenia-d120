@@ -36,8 +36,8 @@
   },
   {
     "Name": "ChkRemember",
-    "Title": "Mémoriser uniquement l’identifiant",
-    "Text": "Conserve uniquement le nom de connexion pour la prochaine ouverture, jamais le mot de passe.",
+    "Title": "Se souvenir de mon identifiant",
+    "Text": "Après une connexion réussie, propose cet identifiant à la prochaine connexion. Le mot de passe nʼest jamais mémorisé par cette case.",
     "Kind": "CheckBox",
     "Source": "specific"
   },
@@ -61,6 +61,13 @@
     "Text": "Valide une fois le compte et le mot de passe saisis avec le moteur de connexion Domenia.",
     "Kind": "Button",
     "Source": "specific"
+  },
+  {
+    "Name": "BtnLoginOtherAccount",
+    "Title": "Utiliser un autre compte",
+    "Text": "Affiche le formulaire pour se connecter avec un autre compte et son mot de passe. Rien nʼest validé avant « Se connecter ».",
+    "Kind": "Button",
+    "Source": "X03"
   },
   {
     "Name": "BtnUxNavHome",
@@ -2688,8 +2695,8 @@
   },
   {
     "Name": "BtnWindowsLogin",
-    "Title": "Utiliser mon compte Windows",
-    "Text": "Utilise la session Windows courante si cette option est autorisée. Cela ne demande pas le mot de passe du champ et n’ajoute aucun droit.",
+    "Title": "Continuer avec la session Windows",
+    "Text": "En session de domaine, « Continuer en tant que DOMAINE\\nom » ouvre Domenia avec votre session Windows, sans mot de passe. Aucun droit nʼest ajouté.",
     "Kind": "Button",
     "Source": "specific"
   },

@@ -21,6 +21,7 @@ $modules=Join-Path (Split-Path $CorePath -Parent) 'modules'
 . (Join-Path $modules 'Domenia-Startup.UI.ps1')
 . (Join-Path $modules 'Domenia-Embedded.UI.ps1')
 # CD-10 / SE-16 (lot X03): diagnostic panel of the Debug mode and read-only password reveal of the sign-in window.
+. (Join-Path $modules 'Domenia-Accounts.Model.ps1')
 . (Join-Path $modules 'Domenia-Accounts.UI.ps1')
 # Authentication, preferences, logs and artwork are inert. The real login function, WPF windows,
 # activation policy, ShowDialog, embedded host and cancellation handler are exercised.

@@ -711,7 +711,7 @@ function New-WiringLoginUi {
     $reader = [Xml.XmlNodeReader]::new([xml](Get-DomeniaStandardLoginXaml))
     try { $window = [Windows.Markup.XamlReader]::Load($reader) } finally { $reader.Close() }
     $ui = @{Window=$window}
-    foreach ($pair in @(@('Login','TxtLogin'),@('Password','PwdLogin'),@('PasswordPeek','LoginPasswordPeek'),@('PasswordPeekText','LblLoginPasswordPeek'),@('Reveal','BtnRevealLogin'),@('Remember','ChkRemember'),@('Error','LblLoginError'),@('Stage','LblLoginStage'),@('Progress','PbLogin'),@('Technical','TxtLoginTechnical'),@('Connect','BtnLogin'),@('Windows','BtnWindowsLogin'),@('Cancel','BtnCancel'),@('OpenLog','BtnLoginLog'),@('CopyDiag','BtnCopyLoginDiag'))) {
+    foreach ($pair in @(@('Login','TxtLogin'),@('Password','PwdLogin'),@('PasswordPeek','LoginPasswordPeek'),@('PasswordPeekText','LblLoginPasswordPeek'),@('Reveal','BtnRevealLogin'),@('Remember','ChkRemember'),@('Error','LblLoginError'),@('Stage','LblLoginStage'),@('Progress','PbLogin'),@('Technical','TxtLoginTechnical'),@('Connect','BtnLogin'),@('Windows','BtnWindowsLogin'),@('OtherAccount','BtnLoginOtherAccount'),@('Cancel','BtnCancel'),@('OpenLog','BtnLoginLog'),@('CopyDiag','BtnCopyLoginDiag'))) {
         $ui[$pair[0]] = $window.FindName($pair[1])
         if ($null -eq $ui[$pair[0]]) { throw ('Controle de login absent : ' + $pair[1]) }
     }

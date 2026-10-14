@@ -985,13 +985,15 @@ Domenia peut utiliser trois identités indépendantes : l'annuaire, les postes e
 
 ## Connexion
 
-![Fenêtre de connexion : Compte Windows, Mot de passe, Mémoriser uniquement l'identifiant, Se connecter et Utiliser mon compte Windows](fig:connexion)
+![Fenêtre de connexion : Compte Windows, Mot de passe, Se souvenir de mon identifiant, Se connecter et Continuer en tant que …](fig:connexion)
+
+- En session Windows de domaine, l'action principale est « Continuer en tant que DOMAINE\nom » (bouton par défaut, Entrée) et le formulaire est replié sous « Utiliser un autre compte ». Ailleurs, ou après « Changer de compte » dans la page « Comptes », le formulaire s'affiche d'abord et la session Windows reste proposée dessous.
 
 - Le champ « Compte Windows » accepte DOMAINE\identifiant, identifiant@domaine ou le format habituel. Un identifiant nu est complété par Conf.NETBIOS ou Conf.DOMAINE s'ils sont renseignés.
 - Un compte ordinateur est refusé comme identité interactive.
 - « Afficher », à droite du mot de passe, le montre pendant 5 secondes dans une zone en lecture seule, sans copie possible ; il se masque aussi au second clic ou dès que la saisie change.
-- « Mémoriser uniquement l’identifiant » garde l'identifiant dans HKCU:\Software\DOMENIA (valeurs RememberLogin et LastLogin). Le mot de passe n'est jamais mémorisé.
-- « Utiliser mon compte Windows » s'appuie sur la session Windows courante, sans mot de passe. Il n'apparaît que si Auth.AllowWindowsSession est vrai (défaut), et reste grisé hors d'une session de domaine.
+- « Se souvenir de mon identifiant », décochée par défaut, garde l'identifiant dans HKCU:\Software\DOMENIA (valeurs RememberLogin et LastLogin) après une connexion réussie. Le mot de passe n'est jamais mémorisé par cette case.
+- « Continuer en tant que DOMAINE\nom » s'appuie sur la session Windows courante, sans mot de passe. Il n'apparaît que si Auth.AllowWindowsSession est vrai (défaut) ; hors session de domaine (SYSTEM, compte local ou compte d'ordinateur), il devient « Utiliser mon compte Windows », grisé.
 - Découverte : avec Conf.AutoDiscover vrai (défaut), domaine et contrôleur sont découverts ; avec faux, Conf.DOMAINE, Conf.NETBIOS, Conf.SearchBase et Conf.Server s'appliquent.
 - Délais : Auth.LoginTimeoutSeconds (30 s, borné de 8 à 45), Auth.PerServerTimeoutSeconds (6 s par contrôleur), Auth.MaxServerCandidates (4 contrôleurs essayés).
 
@@ -1318,10 +1320,10 @@ Une clé absente, nulle ou vide prend la valeur par défaut du code. Une section
 | Conf.DOMAINE, Conf.NETBIOS | vide | Nom DNS et NetBIOS du domaine ; complètent aussi un identifiant nu. |
 | Conf.SearchBase, Conf.Server | vide | Base DN et contrôleur imposés. |
 | Conf.ADM | vide | Identifiant proposé si aucun n'est mémorisé. |
-| Auth.RememberLogin | true | État initial de « Mémoriser uniquement l’identifiant ». Valeur du fichier remplacée par RememberLogin de HKCU:\Software\DOMENIA dès que celle-ci existe. |
+| Auth.RememberLogin | false | État initial de « Se souvenir de mon identifiant ». Valeur du fichier remplacée par RememberLogin de HKCU:\Software\DOMENIA dès que celle-ci existe. |
 | Auth.LastLogin | vide | Identifiant proposé à l'ouverture. Valeur du fichier remplacée par LastLogin de HKCU:\Software\DOMENIA dès que celle-ci existe. |
 | Auth.LoginWindowMode | Standard | Mode de la fenêtre de connexion. |
-| Auth.AllowWindowsSession | true | Affiche « Utiliser mon compte Windows ». |
+| Auth.AllowWindowsSession | true | Propose la session Windows : « Continuer en tant que DOMAINE\nom » en action principale dans une session de domaine. |
 | Auth.LoginTimeoutSeconds | 30 | Délai total de connexion (8 à 45 s). |
 | Auth.PerServerTimeoutSeconds | 6 | Délai par contrôleur. |
 | Auth.MaxServerCandidates | 4 | Contrôleurs essayés. |

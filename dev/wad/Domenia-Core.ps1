@@ -600,6 +600,7 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnLoginLog" = "Default"
     "BtnCancel" = "Default"
     "BtnLogin" = "Default"
+    "BtnLoginOtherAccount" = "Default"
     "LblStatus" = "Default"
     "LblPrivilegeTop" = "Default"
     "ChkReadOnlyMode" = "Default"
@@ -21736,7 +21737,8 @@ function Start-DomeniaAccountRelogin {
         if (-not [string]::IsNullOrWhiteSpace($user)) { Set-DomeniaSetting -Name 'LastLogin' -Value $user }
         try { if ($null -ne $script:LiveSearchTimer) { $script:LiveSearchTimer.Stop() } } catch { }
         Stop-DomeniaSelectionOpenTimer
-        if (-not (Show-LoginWindow)) { Set-Status 'Relogin annule. La session courante est conservee.' 'WARN'; return }
+        # UX-28: a change of account opens the form first; the Windows session stays proposed under it.
+        if (-not (Show-LoginWindow -PreferForm)) { Set-Status 'Changement de compte annulé : la session courante est conservée.' 'WARN'; return }
 
         $script:SessionEpoch = [long]$script:SessionEpoch + 1
         # Fleet observations and analysis targets belong to the previous session.
@@ -22439,7 +22441,8 @@ function New-DefaultConfig {
         Auth = [ordered]@{
             VaultDomainDn = ""
             VaultUserName = ""
-            RememberLogin = $true
+            # UX-28: « Se souvenir de mon identifiant » is unchecked until the operator ticks it once (kept in HKCU).
+            RememberLogin = $false
             LastLogin = ""
             LoginWindowMode = "Standard"
             AllowWindowsSession = $true
@@ -28149,7 +28152,7 @@ function Set-DomeniaFastLoginBusy {
     if ($null -eq $ui) { return }
     # SE-16: a validation never starts or runs with the password shown.
     if ($Busy) { try { Hide-DomeniaSecretPeek -Owner 'Timer:LoginPasswordPeek' } catch { } }
-    foreach ($name in @("Login","Password","Reveal","Remember","Connect")) {
+    foreach ($name in @("Login","Password","Reveal","Remember","Connect","OtherAccount")) {
         try { $ui[$name].IsEnabled = -not $Busy } catch { }
     }
     try {
@@ -28753,8 +28756,8 @@ function Get-DomeniaStandardLoginXaml {
               <Button x:Name="BtnRevealLogin" Grid.Column="1" Content="Afficher" MinWidth="88" MinHeight="40" Padding="10,7" Margin="8,0,0,0" ToolTip="Affiche le mot de passe saisi pendant 5 secondes, en lecture seule. Rien nʼest copié ni enregistré." ToolTipService.ShowOnDisabled="True" ToolTipService.InitialShowDelay="400" ToolTipService.ShowDuration="30000" AutomationProperties.Name="Afficher le mot de passe pendant 5 secondes" AutomationProperties.HelpText="Affiche le mot de passe saisi pendant 5 secondes, en lecture seule. Rien nʼest copié ni enregistré."/>
             </Grid>
             <TextBlock x:Name="LblSuiteCapsLock" Text="Verr. Maj activé : le mot de passe distingue les majuscules." Visibility="Collapsed" Foreground="{DynamicResource DomeniaBootWarning}" FontSize="12" Margin="0,0,0,8" ToolTip="Désactivez Verr. Maj si les majuscules ne sont pas souhaitées." ToolTipService.ShowOnDisabled="True" AutomationProperties.LiveSetting="Polite"/>
-            <CheckBox x:Name="ChkRemember" FontSize="12" MinHeight="28" Margin="0" KeyboardNavigation.TabIndex="2" ToolTip="Conserve uniquement l’identifiant pour la prochaine connexion. Cette option ne mémorise aucun mot de passe." ToolTipService.ShowOnDisabled="True" ToolTipService.InitialShowDelay="400" ToolTipService.ShowDuration="30000" AutomationProperties.HelpText="Conserve uniquement l’identifiant pour la prochaine connexion. Cette option ne mémorise aucun mot de passe." AutomationProperties.Name="Mémoriser uniquement l’identifiant">
-              <TextBlock Text="Mémoriser uniquement l’identifiant" TextWrapping="Wrap" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" ToolTipService.ShowOnDisabled="True"/>
+            <CheckBox x:Name="ChkRemember" FontSize="12" MinHeight="28" Margin="0" KeyboardNavigation.TabIndex="2" ToolTip="Après une connexion réussie, propose cet identifiant à la prochaine connexion. Le mot de passe nʼest jamais mémorisé par cette case." ToolTipService.ShowOnDisabled="True" ToolTipService.InitialShowDelay="400" ToolTipService.ShowDuration="30000" AutomationProperties.HelpText="Après une connexion réussie, propose cet identifiant à la prochaine connexion. Le mot de passe nʼest jamais mémorisé par cette case." AutomationProperties.Name="Se souvenir de mon identifiant">
+              <TextBlock Text="Se souvenir de mon identifiant" TextWrapping="Wrap" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" ToolTipService.ShowOnDisabled="True"/>
             </CheckBox>
             <CheckBox x:Name="ChkLoginVaultRemember" Content="Mémoriser sur ce PC" IsChecked="False" FontSize="12" ToolTip="Après une connexion réussie, conserve ce compte dans le Gestionnaire d’identifiants Windows de cet utilisateur. Facultatif."/>
             <WrapPanel Margin="0,5,0,0"><Button x:Name="BtnLoginVaultUse" Content="Utiliser le coffre" MinHeight="32" FontSize="12" ToolTip="Lit et valide une fois le compte exact affiché. Aucun usage automatique."/><Button x:Name="BtnLoginVaultForget" Content="Oublier" MinHeight="32" FontSize="12" ToolTip="Supprime du coffre uniquement cet identifiant pour ce domaine et la connexion Domenia."/></WrapPanel>
@@ -28766,15 +28769,21 @@ function Get-DomeniaStandardLoginXaml {
           <StackPanel x:Name="UxLoginFeedback" Margin="0,0,0,10"><StackPanel.Style><Style TargetType="StackPanel"><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=LblLoginError}" Value=""><Setter Property="Visibility" Value="Collapsed"/></DataTrigger><DataTrigger Binding="{Binding Visibility, ElementName=PbLogin}" Value="Visible"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></StackPanel.Style><Border Background="{DynamicResource DomeniaBootSurface}" BorderBrush="{DynamicResource DomeniaBootError}" BorderThickness="1" CornerRadius="9" Padding="10,8"><ScrollViewer MaxHeight="60" Focusable="False" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><TextBlock x:Name="LblLoginError" Text="" Foreground="{DynamicResource DomeniaBootError}" FontSize="12" TextWrapping="Wrap" Margin="0" LineHeight="17"/>
               </ScrollViewer></Border><Grid x:Name="UxLoginDiagnostics" Margin="0,8,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Button x:Name="BtnLoginLog" Content="Ouvrir le journal" MinHeight="32" FontSize="11.5" ToolTip="Ouvre le journal technique de connexion pour comprendre une erreur. Aucun nouvel essai d’authentification n’est lancé." AutomationProperties.Name="Journal de connexion" AutomationProperties.HelpText="Ouvre le journal technique de connexion pour comprendre une erreur. Aucun nouvel essai d’authentification n’est lancé." ToolTipService.ShowOnDisabled="True" Margin="0"/>
             <Button x:Name="BtnCopyLoginDiag" Grid.Column="2" Content="Copier le diagnostic" MinHeight="32" FontSize="11.5" ToolTip="Copie les informations de diagnostic de connexion. Relisez-les avant de les transmettre hors de votre organisation." AutomationProperties.Name="Copier le diagnostic" AutomationProperties.HelpText="Copie les informations de diagnostic de connexion. Relisez-les avant de les transmettre hors de votre organisation." ToolTipService.ShowOnDisabled="True" Margin="0"/>
-          </Grid></StackPanel><Grid>
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="Auto"/>
-              <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-            <Button x:Name="BtnCancel" Grid.Column="0" Content="Annuler" IsCancel="True" MinWidth="96" MinHeight="40" Padding="14,8" Margin="0,0,8,0" KeyboardNavigation.TabIndex="5" ToolTip="Ferme la connexion, ou demande l’arrêt de la validation en cours." ToolTipService.ShowOnDisabled="True" ToolTipService.InitialShowDelay="400" ToolTipService.ShowDuration="30000" AutomationProperties.HelpText="Ferme la connexion, ou demande l’arrêt de la validation en cours." AutomationProperties.Name="Annuler"/>
-            <Button x:Name="BtnLogin" Grid.Column="1" Content="Se connecter" Style="{StaticResource Run}" MinHeight="40" Padding="14,8" Margin="0" KeyboardNavigation.TabIndex="3" ToolTip="Valide une fois le compte et le mot de passe saisis avec le moteur de connexion Domenia." ToolTipService.ShowOnDisabled="True" ToolTipService.InitialShowDelay="400" ToolTipService.ShowDuration="30000" AutomationProperties.HelpText="Valide une fois le compte et le mot de passe saisis avec le moteur de connexion Domenia." AutomationProperties.Name="Se connecter" IsDefault="True"/>
+          </Grid></StackPanel><Grid x:Name="LoginActionButtons">
+            <!-- UX-28: in a domain session BtnWindowsLogin moves to row 0 as the main action and the form folds under
+                 BtnLoginOtherAccount (Set-DomeniaLoginWindowsFirst); otherwise it stays in row 2 under Se connecter. -->
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+            <Grid Grid.Row="1">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <Button x:Name="BtnCancel" Grid.Column="0" Content="Annuler" IsCancel="True" MinWidth="96" MinHeight="40" Padding="14,8" Margin="0,0,8,0" KeyboardNavigation.TabIndex="5" ToolTip="Ferme la connexion, ou demande l’arrêt de la validation en cours." ToolTipService.ShowOnDisabled="True" ToolTipService.InitialShowDelay="400" ToolTipService.ShowDuration="30000" AutomationProperties.HelpText="Ferme la connexion, ou demande l’arrêt de la validation en cours." AutomationProperties.Name="Annuler"/>
+              <Button x:Name="BtnLogin" Grid.Column="1" Content="Se connecter" Style="{StaticResource Run}" MinHeight="40" Padding="14,8" Margin="0" KeyboardNavigation.TabIndex="3" ToolTip="Valide une fois le compte et le mot de passe saisis avec le moteur de connexion Domenia." ToolTipService.ShowOnDisabled="True" ToolTipService.InitialShowDelay="400" ToolTipService.ShowDuration="30000" AutomationProperties.HelpText="Valide une fois le compte et le mot de passe saisis avec le moteur de connexion Domenia." AutomationProperties.Name="Se connecter" IsDefault="True"/>
+              <Button x:Name="BtnLoginOtherAccount" Grid.Column="1" Content="Utiliser un autre compte" Visibility="Collapsed" MinHeight="40" Padding="14,8" Margin="0" KeyboardNavigation.TabIndex="3" ToolTip="Affiche le formulaire pour se connecter avec un autre compte et son mot de passe. Rien nʼest validé avant « Se connecter »." ToolTipService.ShowOnDisabled="True" ToolTipService.InitialShowDelay="400" ToolTipService.ShowDuration="30000" AutomationProperties.HelpText="Affiche le formulaire pour se connecter avec un autre compte et son mot de passe. Rien nʼest validé avant « Se connecter »." AutomationProperties.Name="Utiliser un autre compte"/>
+            </Grid>
+            <Button x:Name="BtnWindowsLogin" Grid.Row="2" Content="Utiliser mon compte Windows" MinHeight="36" Padding="10,7" Margin="0,8,0,0" KeyboardNavigation.TabIndex="4" ToolTip="Utilise la session Windows courante si cette option est autorisée. Cela ne demande pas le mot de passe du champ et n’ajoute aucun droit." ToolTipService.ShowOnDisabled="True" ToolTipService.InitialShowDelay="400" ToolTipService.ShowDuration="30000" AutomationProperties.HelpText="Utilise la session Windows courante si cette option est autorisée. Cela ne demande pas le mot de passe du champ et n’ajoute aucun droit." AutomationProperties.Name="Utiliser mon compte Windows"/>
           </Grid>
-          <Button x:Name="BtnWindowsLogin" Content="Utiliser mon compte Windows" MinHeight="36" Padding="10,7" Margin="0,8,0,0" KeyboardNavigation.TabIndex="4" ToolTip="Utilise la session Windows courante si cette option est autorisée. Cela ne demande pas le mot de passe du champ et n’ajoute aucun droit." ToolTipService.ShowOnDisabled="True" ToolTipService.InitialShowDelay="400" ToolTipService.ShowDuration="30000" AutomationProperties.HelpText="Utilise la session Windows courante si cette option est autorisée. Cela ne demande pas le mot de passe du champ et n’ajoute aucun droit." AutomationProperties.Name="Utiliser mon compte Windows"/>
           <TextBlock x:Name="LoginPrivacy" Text="Coffre Windows facultatif, lecture uniquement sur votre demande." Style="{StaticResource Muted}" FontSize="12" LineHeight="16" HorizontalAlignment="Center" TextAlignment="Center" Margin="0,10,0,0" ToolTip="Le coffre Windows est facultatif et doit être choisi explicitement. Aucun mot de passe dans les préférences ou la base de Domenia." ToolTipService.ShowOnDisabled="True"/>
         </StackPanel>
       </Grid>
@@ -28796,6 +28805,8 @@ function Get-DomeniaStandardLoginXaml {
 }
 
 function Show-LoginWindow {
+    # -PreferForm: change of account asked by the operator; the form opens first, the Windows session stays below it.
+    param([switch]$PreferForm)
     $mode = Get-DomeniaLoginWindowMode
     $script:FastLoginMode = $mode
     # CD-10: one sign-in template for both modes; the Debug mode only adds the live diagnostic panel below.
@@ -28831,6 +28842,7 @@ function Show-LoginWindow {
         Technical = $window.FindName("TxtLoginTechnical")
         Connect = $window.FindName("BtnLogin")
         Windows = $window.FindName("BtnWindowsLogin")
+        OtherAccount = $window.FindName("BtnLoginOtherAccount")
         Cancel = $window.FindName("BtnCancel")
         OpenLog = $window.FindName("BtnLoginLog")
         CopyDiag = $window.FindName("BtnCopyLoginDiag")
@@ -28870,18 +28882,11 @@ function Show-LoginWindow {
     }
 
     $ui.Login.Text = $lastLogin
-    $ui.Remember.IsChecked = [bool](Get-CfgValue "Auth" "RememberLogin" $true)
+    $ui.Remember.IsChecked = [bool](Get-CfgValue "Auth" "RememberLogin" $false)
 
-    $allowWindowsSession = [bool](Get-CfgValue "Auth" "AllowWindowsSession" $true)
-    $windowsIdentity = Get-DomeniaProcessWindowsIdentity
-    $ui.Windows.Visibility = if ($allowWindowsSession) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed }
-    $ui.Windows.IsEnabled = ($allowWindowsSession -and -not [string]::IsNullOrWhiteSpace($windowsIdentity))
-    if ($ui.Windows.IsEnabled) {
-        $ui.Windows.ToolTip = "Utiliser la session Windows courante : $windowsIdentity"
-    }
-    else {
-        $ui.Windows.ToolTip = "Indisponible : DOMENIA nest pas execute sous un compte utilisateur de domaine."
-    }
+    # UX-28: in a domain session the main action is « Continuer en tant que DOMAINE\nom »; the form comes second.
+    $choice = Get-DomeniaLoginChoice -WindowsIdentity (Get-DomeniaProcessWindowsIdentity) -AllowWindowsSession ([bool](Get-CfgValue "Auth" "AllowWindowsSession" $true)) -PreferForm ([bool]$PreferForm)
+    Set-DomeniaLoginChoicePresentation -Ui $ui -Choice $choice
     }
 
     $ui.VaultRemember.IsChecked=$false
@@ -28894,6 +28899,11 @@ function Show-LoginWindow {
     $ui.Password.Add_PasswordChanged({ Hide-DomeniaSecretPeek -Owner 'Timer:LoginPasswordPeek' })
     $ui.Connect.Add_Click({ Start-DomeniaFastLoginAttempt })
     $ui.Windows.Add_Click({ Start-DomeniaFastLoginAttempt -UseCurrentCredentials })
+    $ui.OtherAccount.Add_Click({
+        # UX-28: unfolds the form only; nothing is validated before « Se connecter ».
+        Set-DomeniaLoginWindowsFirst -Ui $script:FastLoginUi -WindowsFirst $false
+        if ([string]::IsNullOrWhiteSpace([string]$script:FastLoginUi.Login.Text)) { [void]$script:FastLoginUi.Login.Focus() } else { [void]$script:FastLoginUi.Password.Focus() }
+    })
     $ui.Cancel.Add_Click({
         if ($null -ne $script:FastLoginState.Session) {
             Add-DomeniaFastLoginDetail "Annulation demandee."
@@ -28925,7 +28935,11 @@ function Show-LoginWindow {
     })
     Register-DomeniaSurfaceKeys $window ({
         param($sender,$eventArgs)
-        if ($eventArgs.Key -eq "Enter" -and $script:FastLoginUi.Connect.IsEnabled) { $eventArgs.Handled=$true; Start-DomeniaFastLoginAttempt }
+        if ($eventArgs.Key -ne "Enter") { return }
+        # Entrée runs the main action shown: Se connecter with the form, the Windows session when it comes first.
+        $loginUi = $script:FastLoginUi
+        if (($loginUi.Connect.Visibility -eq [System.Windows.Visibility]::Visible) -and $loginUi.Connect.IsEnabled) { $eventArgs.Handled=$true; Start-DomeniaFastLoginAttempt }
+        elseif ($loginUi.Windows.IsDefault -and ($loginUi.Windows.Visibility -eq [System.Windows.Visibility]::Visible) -and $loginUi.Windows.IsEnabled) { $eventArgs.Handled=$true; Start-DomeniaFastLoginAttempt -UseCurrentCredentials }
     })
     Register-DomeniaSurfaceReady $window ({
         Write-DomeniaFastLoginLog -Stage "WINDOW_READY" -Detail "Fenetre affichee. Mode=$($script:FastLoginMode) Source=$($script:LoginWindowModeSource) Script=$($script:LaunchPath)"
@@ -28942,6 +28956,7 @@ function Show-LoginWindow {
             $script:FastLoginUi.Window.Topmost = $true
         }
         if ([bool]$script:DemoMode) { $script:FastLoginUi.Connect.Focus() | Out-Null }
+        elseif ($script:FastLoginUi.Windows.IsDefault -and $script:FastLoginUi.Windows.IsEnabled) { $script:FastLoginUi.Windows.Focus() | Out-Null }
         elseif (-not [string]::IsNullOrWhiteSpace([string]$script:FastLoginUi.Login.Text)) { $script:FastLoginUi.Password.Focus() | Out-Null }
         else { $script:FastLoginUi.Login.Focus() | Out-Null }
     })

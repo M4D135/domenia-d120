@@ -80,3 +80,27 @@ Test-Case 'X03-UI20' 'Aucune phrase tutoyee, sans accent ou avec un code techniq
         Assert-False ($t -match '(?i)HRESULT|0x8007|LDAP=') ('Technique : '+$t)
     }
 }
+
+# ---------------------------------------------------------------- UX-28 la session Windows d abord
+Test-Case 'X03-UX28' 'Session de domaine : Continuer en tant que DOMAINE\nom devient l action principale' {
+    $c=Get-DomeniaLoginChoice -WindowsIdentity ' EXAMPLE\jdupont ' -AllowWindowsSession $true
+    Assert-True ($c.Offered -and $c.Available -and $c.WindowsFirst) 'Session Windows non proposee en premier'
+    Assert-Equal 'Continuer en tant que EXAMPLE\jdupont' $c.WindowsLabel
+    Assert-True ($c.WindowsToolTip.Contains('EXAMPLE\jdupont') -and $c.WindowsToolTip.Contains('sans mot de passe')) $c.WindowsToolTip
+    Assert-Equal 'Utiliser un autre compte' $c.OtherAccountLabel
+}
+Test-Case 'X03-UX28' 'Changement de compte : le formulaire d abord, la session Windows reste proposee dessous' {
+    $c=Get-DomeniaLoginChoice -WindowsIdentity 'EXAMPLE\jdupont' -PreferForm $true
+    Assert-True ($c.Available -and (-not $c.WindowsFirst)) 'Formulaire non prioritaire'
+    Assert-Equal 'Continuer en tant que EXAMPLE\jdupont' $c.WindowsLabel
+}
+Test-Case 'X03-UX28' 'Hors session de domaine, session interdite ou demonstration : formulaire seul' {
+    $none=Get-DomeniaLoginChoice -WindowsIdentity ''
+    Assert-True ($none.Offered -and (-not $none.Available) -and (-not $none.WindowsFirst)) 'Session absente proposee'
+    Assert-Equal 'Utiliser mon compte Windows' $none.WindowsLabel
+    Assert-True ($none.WindowsToolTip.StartsWith('Indisponible')) $none.WindowsToolTip
+    $off=Get-DomeniaLoginChoice -WindowsIdentity 'EXAMPLE\jdupont' -AllowWindowsSession $false
+    Assert-True ((-not $off.Offered) -and (-not $off.Available) -and (-not $off.WindowsFirst)) 'Auth.AllowWindowsSession ignore'
+    $demo=Get-DomeniaLoginChoice -WindowsIdentity 'EXAMPLE\jdupont' -Demo $true
+    Assert-True ((-not $demo.Offered) -and (-not $demo.WindowsFirst)) 'Session Windows proposee en demonstration'
+}
