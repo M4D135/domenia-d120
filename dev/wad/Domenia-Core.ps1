@@ -18563,7 +18563,10 @@ if ([bool]$open[5985] -or [bool]$open[5986]) {
     Add-Diag 'WinRM' {
         $params = @{ ComputerName=$computer; ErrorAction='Stop' }
         if ($null -ne $cred) { $params['Credential'] = $cred; $params['Authentication'] = 'Default' }
-        $r = Test-WSMan @params
+        # Point 41: the WinRM logon holds the account lease; Add-Diag records a refusal for every job.
+        Set-WCredentialAttemptIdentity -Context $Context -Credential $cred -Channel Remote -Target $computer
+        $winrmLease = Enter-WCredentialAttempt -Context $Context -Channel Remote
+        try { $r = Test-WSMan @params } finally { Exit-WCredentialAttempt $winrmLease }
         return ('Protocole ' + [string]$r.ProductVersion)
     }
 }
@@ -19717,7 +19720,7 @@ $computer=[string]$Payload.Computer;$cred=Get-WMachineCredential $Context;$err='
                 Assert-WriteAllowed
                 if(-not (Confirm-Action "Redemarrer immediatement $name ?")){return}
                 $code=@'
-$computer=[string]$Payload.Computer;$cred=Get-WMachineCredential $Context;$err='';try{$p=@{ComputerName=$computer;Force=$true;ErrorAction="Stop"};if($cred){$p.Credential=$cred};$DomeniaWriteDispatched=$true;Restart-Computer @p;[pscustomobject]@{Message="Demande de redemarrage envoyee a $computer.";Transport="Classic";Delivered=$true};return}catch{$err=$_.Exception.Message};if(-not $DomeniaWriteDispatched){$local='Start-Process -FilePath (Join-Path $env:SystemRoot "System32\shutdown.exe") -ArgumentList @("/r","/t","10","/f","/c","DOMENIA") -WindowStyle Hidden; [pscustomobject]@{Message="Redemarrage programme localement dans 10 secondes.";Transport="TaskFallback";Delivered=$true}';$DomeniaWriteDispatched=$true;$r=Invoke-WRemoteTaskScript $Context $computer $local ([pscustomobject]@{}) ([int]$Context.TaskFallbackTimeoutSeconds) $err -Purpose 'Write';[pscustomobject]@{Message="Redemarrage via tache planifiée.";Transport="TaskFallback";Delivered=$true}}else{throw}
+$computer=[string]$Payload.Computer;$cred=Get-WMachineCredential $Context;$err='';try{$p=@{ComputerName=$computer;Force=$true;ErrorAction="Stop"};if($cred){$p.Credential=$cred};Set-WCredentialAttemptIdentity -Context $Context -Credential $cred -Channel Remote -Target $computer;$lease=Enter-WCredentialAttempt -Context $Context -Channel Remote;try{$DomeniaWriteDispatched=$true;Restart-Computer @p}finally{Exit-WCredentialAttempt $lease};[pscustomobject]@{Message="Demande de redemarrage envoyee a $computer.";Transport="Classic";Delivered=$true};return}catch{$err=$_.Exception.Message;if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw}};if(-not $DomeniaWriteDispatched){$local='Start-Process -FilePath (Join-Path $env:SystemRoot "System32\shutdown.exe") -ArgumentList @("/r","/t","10","/f","/c","DOMENIA") -WindowStyle Hidden; [pscustomobject]@{Message="Redemarrage programme localement dans 10 secondes.";Transport="TaskFallback";Delivered=$true}';$DomeniaWriteDispatched=$true;$r=Invoke-WRemoteTaskScript $Context $computer $local ([pscustomobject]@{}) ([int]$Context.TaskFallbackTimeoutSeconds) $err -Purpose 'Write';[pscustomobject]@{Message="Redemarrage via tache planifiée.";Transport="TaskFallback";Delivered=$true}}else{throw}
 '@
                 $correlation = [guid]::NewGuid().ToString("N")
                 $payload = [pscustomobject]@{Computer=$name;Target=$name;DN=$name;CorrelationId=$correlation;SingleRequest=$true}

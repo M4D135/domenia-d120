@@ -253,7 +253,11 @@ Case 'Real credential selectors record only the identity selected for that trans
 Case 'Point 41 audit: every explicit-account logon of worker code holds the account lease' {
     # Static audit of every here-string body (worker operations and their common helpers). A logon that can carry an
     # explicit account must follow Enter-WCredentialAttempt in the same function, at most 15 lines above.
-    $pattern='New-CimSession\s+[@-]|Invoke-Command\s+@|Get-WinEvent\s+@|Get-WinEvent\b.*-Credential|New-PSDrive\s+@|\$service\.Connect\(|\$conn(ection)?\.Bind\(\)|\[Domenia\.NetUse\]::Connect\(|DirectoryEntry -ArgumentList @\(\$path,\$bindUser'
+    $pattern='New-CimSession\s+[@-]|Invoke-Command\s+@|Get-WinEvent\s+@|Get-WinEvent\b.*-Credential|New-PSDrive\s+@|\$service\.Connect\(|\$conn(ection)?\.Bind\(\)|\[Domenia\.NetUse\]::Connect\(|DirectoryEntry -ArgumentList @\(\$path,\$bindUser|Restart-Computer\s+@|Test-WSMan\s+@'
+    # Directory cmdlets carrying the account (AD module, Windows LAPS) run right after a leased LDAP bind of the SAME account
+    # in the same body (fresh read before a write, entry read before LAPS): that bind proves the account first.
+    $directoryCmdlet='Get-LapsADPassword\s+@|\b(?:Set|Add|Remove|New|Clear|Move|Rename|Unlock|Enable|Disable)-AD[A-Za-z]+\s+@'
+    $directoryBind='New-WEntry|New-WSearcher|New-WRootDse|Assert-WObjectFresh|Get-WObjectSnapshot'
     # Validation of a candidate account: one attempt per operator gesture, serialized by the validation panel itself.
     $allowed=@('Domenia-Sessions.UI.ps1|Get-DomeniaRemoteCredentialCheckCode')
     $files=@((Join-Path $wad 'Domenia-Core.ps1'))+@(Get-ChildItem -LiteralPath (Join-Path $wad 'modules') -Filter '*.ps1' -File|ForEach-Object{$_.FullName})
@@ -265,6 +269,12 @@ Case 'Point 41 audit: every explicit-account logon of worker code holds the acco
             $owner='';foreach($f in $functions){if($f.Index -lt $m.Index){$owner=$f.Groups[1].Value}else{break}}
             $lines=@($m.Groups[1].Value -split "\r?\n")
             for($i=0;$i -lt $lines.Count;$i++){
+                if($lines[$i] -match $directoryCmdlet){
+                    $seen++
+                    $before=($lines[0..$i] -join "`n")
+                    if(($before -notmatch $directoryBind) -and ($allowed -notcontains ($name+'|'+$owner))){$missing.Add($name+' / '+$owner+' (sans bind prealable) : '+$lines[$i].Trim())}
+                    continue
+                }
                 if($lines[$i] -notmatch $pattern){continue}
                 if(($lines[$i] -match 'Get-Command\s+New-CimSession') -and ($lines[$i] -notmatch 'New-CimSession\s+@')){continue}
                 $seen++
