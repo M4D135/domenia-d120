@@ -205,3 +205,31 @@ Test-Case 'D060' 'Aucun affaiblissement de Windows dans le code livre' {
         Assert-True $check.Safe ($file.Name+' : '+($check.Findings -join ', '))
     }
 }
+Test-Case 'UI-31' 'Secrets : libelles des boutons poses par une seule regle, Copier tout absent en mode valeur unique' {
+    # One value at a time (default): "copy all" is never offered, whatever was read.
+    foreach($readable in @($true,$false)){
+        $v=Get-DomeniaSecretActionView -Single $true -HasRows $true -HasReadableValue $readable -CanUseSelected $true
+        Assert-False $v.CopyAllVisible 'Copier tout affiche en mode valeur unique';Assert-False $v.CopyAllEnabled 'Copier tout actif en mode valeur unique'
+    }
+    $empty=Get-DomeniaSecretActionView -Single $true
+    Assert-Equal 'Afficher la valeur choisie' $empty.ToggleText;Assert-False $empty.ToggleEnabled;Assert-True ($empty.ToggleToolTip -match 'Lister les clés BitLocker') $empty.ToggleToolTip
+    $noSelection=Get-DomeniaSecretActionView -Single $true -HasRows $true
+    Assert-False $noSelection.ToggleEnabled;Assert-True ($noSelection.ToggleToolTip -match 'une seule valeur') $noSelection.ToggleToolTip
+    $chosen=Get-DomeniaSecretActionView -Single $true -HasRows $true -CanUseSelected $true -RevealSeconds 30
+    Assert-Equal 'Afficher la valeur choisie' $chosen.ToggleText;Assert-True $chosen.ToggleEnabled;Assert-True ($chosen.ToggleToolTip -match '30 s') $chosen.ToggleToolTip
+    $metadata=Get-DomeniaSecretActionView -Single $true -HasRows $true -CanUseSelected $true -SelectedMetadata $true -SelectedKind 'BitLocker'
+    Assert-Equal 'Lire et afficher cette clé' $metadata.ToggleText;Assert-Equal 'Copier la clé BitLocker' $metadata.CopyText;Assert-True ($metadata.CopyToolTip -match '^Lit la seule clé') $metadata.CopyToolTip
+    $shown=Get-DomeniaSecretActionView -Single $true -Visible $true -HasRows $true
+    Assert-Equal 'Masquer la valeur' $shown.ToggleText;Assert-True $shown.ToggleEnabled 'Masquer doit rester possible sans selection'
+    # Previous behaviour, only when Features.SecretSingleCopy is off: "copy all" is shown, active once a value is read.
+    $all=Get-DomeniaSecretActionView -Single $false -HasRows $true -HasReadableValue $true
+    Assert-True ($all.CopyAllVisible -and $all.CopyAllEnabled) 'Copier tout absent hors mode valeur unique';Assert-Equal 'Afficher les secrets' $all.ToggleText
+    Assert-Equal 'Masquer les secrets' (Get-DomeniaSecretActionView -Single $false -Visible $true -HasRows $true).ToggleText
+    Assert-False (Get-DomeniaSecretActionView -Single $false -HasRows $true -HasReadableValue $false).CopyAllEnabled 'Copier tout actif sans valeur lue'
+    $laps=Get-DomeniaSecretActionView -Single $true -HasRows $true -CanUseSelected $true -SelectedKind 'Windows LAPS' -ClipboardLimit 'Limite.'
+    Assert-Equal 'Copier le mot de passe LAPS' $laps.CopyText;Assert-True ($laps.CopyEnabled -and $laps.CopyToolTip -match 'Limite\.$') $laps.CopyToolTip
+    Assert-False (Get-DomeniaSecretActionView -Single $true -HasRows $true).CopyEnabled 'Copie sans ligne choisie'
+    foreach($v in @($empty,$chosen,$metadata,$shown,$all,$laps)){
+        foreach($text in @($v.ToggleText,$v.ToggleToolTip,$v.CopyText,$v.CopyToolTip,$v.CopyAllToolTip)){Assert-False ([string]$text -match "(?<![\w])[dlnDLN] (?=[aeiouyAEIOUY])") ('Elision manquante : '+$text)}
+    }
+}

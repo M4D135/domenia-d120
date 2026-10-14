@@ -228,6 +228,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Test-DomeniaDirectChildDn',
             'Test-DomeniaSecretRevealAllowed',
             'Get-DomeniaSecretExposurePolicy',
+            'Get-DomeniaSecretActionView',
             'Protect-DomeniaSecretText',
             'Test-DomeniaTextHasSecret',
             'Select-DomeniaAllowedFields',

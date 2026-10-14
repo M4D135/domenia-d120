@@ -55,7 +55,7 @@ function Get-CoreFunctionText {param([string]$Name)
 }
 $coreNames=@('Protect-DomeniaLogText','ConvertTo-DomeniaErrorInfo','Show-DomeniaOperationError','Write-AppLog','Get-MainXaml','Get-DomeniaControl','Set-DomeniaControlText','Set-DomeniaItemsSource','Get-DomeniaGridDateSortKey','Get-DomeniaGridDateShortText','Add-DomeniaGridDateKeys','Get-DomeniaEffectiveWorkerResult',
     'Update-SecretsGrid','Get-DomeniaSelectedSecretSource','Test-DomeniaSecretCallbackCurrent','Clear-DomeniaSecretResultValues','Complete-DomeniaSecretLoadUi','Fail-DomeniaSecretLoadUi','Start-LoadComputerSecrets',
-    'Toggle-SecretsVisibility','Copy-SelectedSecret','Copy-AllSecrets','Update-DomeniaSecretActionUi','Test-DomeniaControlIsBusy',
+    'Toggle-SecretsVisibility','Copy-SelectedSecret','Copy-AllSecrets','Update-DomeniaSecretActionUi','Test-DomeniaControlIsBusy','Clear-Secrets',
     'New-DomeniaWorkerRunspace','ConvertTo-DomeniaCanonicalWorkerCode','Get-DomeniaWorkerCodeHash','Get-DomeniaWorkerOperationHashes','Assert-DomeniaWorkerOperationCode',
     'Get-DomeniaBootThemePalette','Get-DomeniaBootThemeResources','Convert-DomeniaXamlToBootTheme',
     # L02: incident code of Show-DomeniaOperationError and queued Domenia.log writer of Write-AppLog.
@@ -105,6 +105,7 @@ function Test-DomeniaActualCapabilityDenied {param($Dn,$Capability) return $fals
 function Get-WriteControlMap {return @{Edit=@('BtnUserSave');Raw=@('BtnRawSet')}}
 function Set-DomeniaProtectedClipboard {param([string]$Value,[int]$MaxLength=8192) $script:Clipboard.Add($Value)}
 function Start-SecretClipboardAutoClear {param([string]$Value) $script:ClipboardTimers++}
+function Clear-DomeniaSecretClipboard {param([switch]$Silent) $script:ClipboardClears++}
 function Start-UiTask {
     param($Name,$OperationId,$Code,$Payload,$OnSuccess,$OnError,$SuccessHandler,$ErrorHandler,$DisableControls,$ReplaceKey,$TimeoutSeconds,$HardTimeoutSeconds,$StatusText,[switch]$IsWrite,[switch]$NonCancellable,$CorrelationId,$CallbackState,$TaskClass)
     $script:Tasks.Add([pscustomobject]@{Name=$Name;OperationId=$OperationId;Code=[string]$Code;Payload=$Payload;State=$CallbackState;SuccessHandler=$SuccessHandler;ErrorHandler=$ErrorHandler;StatusText=[string]$StatusText})
@@ -397,7 +398,7 @@ Test-Case 'D056 Chaque route des explications se resout vers un controle reel du
         foreach($n in @($target.Workspace,$target.Inner,$target.Tab,$target.Focus)){if($n){Assert-True ($null -ne $script:MainWindow.FindName($n)) ('Controle absent : '+$n)}}
     }
     $script:SelectedObject=$null;Update-DomeniaSecretActionUi;$lines=Get-DomeniaUnavailableReasonLines
-    Assert-True (@($lines.Lines|Where-Object{$_ -match 'Lire LAPS' -and $_ -match 'Aller a : Rechercher'}).Count -eq 1) 'Bilan sans motif ni route pour LAPS'
+    Assert-True (@($lines.Lines|Where-Object{($_ -match 'Lire le mot de passe LAPS') -and ($_ -match 'Aller a : Rechercher')}).Count -eq 1) 'Bilan sans motif ni route pour LAPS'
     Assert-True (@($lines.Routes) -contains 'WsSearch')
 }
 Test-Case 'D056 Une estimation ACL ne bloque pas et ne se presente pas comme un droit definitif' {
@@ -526,7 +527,7 @@ Test-Case 'D059 Une seule valeur revelee, 30 s, copie groupee desactivee et limi
     Assert-True ($bound[0].DisplayValue -ceq '********' -and $bound[1].DisplayValue -ceq $b) 'Plusieurs valeurs revelees'
     Assert-True ($script:SecretRevealTimer.Interval.TotalSeconds -eq 30) 'Duree de revelation'
     Update-DomeniaSecretActionUi
-    Assert-True (-not $script:Ctrl.BtnCopyAllSecrets.IsEnabled) 'Copie groupee active'
+    Assert-True ((-not $script:Ctrl.BtnCopyAllSecrets.IsEnabled) -and ($script:Ctrl.BtnCopyAllSecrets.Visibility -eq [Windows.Visibility]::Collapsed)) 'Copie groupee proposee'
     Copy-AllSecrets
     Assert-True ($script:Clipboard.Count -eq 0) 'Copie groupee executee'
     Copy-SelectedSecret
@@ -550,6 +551,53 @@ Test-Case 'D060 Bilan des indisponibilites : transports et absence de reglage Wi
     $lines=@((Get-DomeniaUnavailableReasonLines).Lines)
     Assert-True (@($lines|Where-Object{$_ -match 'WinRM n est jamais active'}).Count -eq 1)
     Assert-True (@($lines|Where-Object{$_ -match 'aucun reglage Windows modifie'}).Count -eq 1)
+}
+
+# ================================================================ UI-31 secrets buttons
+Test-Case 'UI-31 Copier tout absent en mode valeur unique, libelles poses par une seule fonction, boutons renommes' {
+    $a=[guid]::NewGuid().ToString('N')
+    $script:SecretRows=@([pscustomobject]@{Kind='Windows LAPS';Account='Administrateur';Value=$a;Timestamp='';Source='s';Detail=''})
+    Update-SecretsGrid
+    $toggle=$script:Ctrl.BtnToggleSecrets;$copyAll=$script:Ctrl.BtnCopyAllSecrets;$copy=$script:Ctrl.BtnCopySecret
+    Assert-True ($copyAll.Visibility -eq [Windows.Visibility]::Collapsed -and -not $copyAll.IsEnabled) 'Copier tout visible en mode valeur unique'
+    Assert-True ([string]$toggle.Content -eq 'Afficher la valeur choisie' -and -not $toggle.IsEnabled) ('Avant selection : '+[string]$toggle.Content)
+    $script:Ctrl.DgSecrets.SelectedItem=@($script:Ctrl.DgSecrets.Items)[0];Update-DomeniaSecretActionUi
+    Assert-True ($toggle.IsEnabled -and [string]$copy.Content -eq 'Copier le mot de passe LAPS' -and $copy.IsEnabled) 'Boutons apres selection'
+    Toggle-SecretsVisibility
+    Assert-True ([string]$toggle.Content -eq 'Masquer la valeur' -and [string][Windows.Automation.AutomationProperties]::GetName($toggle) -eq 'Masquer la valeur') ('Pendant l affichage : '+[string]$toggle.Content)
+    Toggle-SecretsVisibility
+    Assert-True ([string]$toggle.Content -eq 'Afficher la valeur choisie') ('Apres masquage : '+[string]$toggle.Content)
+    Assert-True ($script:Clipboard.Count -eq 0) 'Copie implicite'
+    Clear-Secrets
+    Assert-True ([string]$toggle.Content -eq 'Afficher la valeur choisie' -and -not $toggle.IsEnabled -and $copyAll.Visibility -eq [Windows.Visibility]::Collapsed) 'Etat apres Vider'
+    Assert-True ([string]$script:Ctrl.LblSecretsStatus.Text -eq 'Aucun secret conservé en mémoire.') ([string]$script:Ctrl.LblSecretsStatus.Text)
+    # Previous behaviour, Features.SecretSingleCopy off: "copy all" is shown and active once a value is read.
+    $script:Config['Features.SecretSingleCopy']=$false;$script:DomeniaFeatureFlagCache=$null
+    $script:SecretRows=@([pscustomobject]@{Kind='Windows LAPS';Account='Administrateur';Value=$a;Timestamp='';Source='s';Detail=''})
+    Update-SecretsGrid
+    Assert-True ($copyAll.Visibility -eq [Windows.Visibility]::Visible -and $copyAll.IsEnabled -and [string]$toggle.Content -eq 'Afficher les secrets') 'Copier tout absent hors mode valeur unique'
+    $script:Config['Features.SecretSingleCopy']=$true;$script:DomeniaFeatureFlagCache=$null;$script:SecretRows=@();Update-SecretsGrid
+    # The label of the reveal button is written in one function only, in the core and in the secrets module.
+    $writers=[Collections.Generic.List[string]]::new()
+    $moduleAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'modules\Domenia-Secrets.UI.ps1'),[ref]$null,[ref]$null)
+    foreach($tree in @($script:CoreAst,$moduleAst)){
+        foreach($assign in @($tree.FindAll({param($n)$n -is [Management.Automation.Language.AssignmentStatementAst] -and $n.Left.Extent.Text -match '(?i)(\$toggle|BtnToggleSecrets.*)\.Content$'},$true))){
+            $owner=$assign.Parent;while($null -ne $owner -and $owner -isnot [Management.Automation.Language.FunctionDefinitionAst]){$owner=$owner.Parent}
+            $writers.Add($(if($null -ne $owner){$owner.Name}else{'<hors fonction>'}))
+        }
+    }
+    Assert-True ((@($writers|Sort-Object -Unique) -join ',') -eq 'Update-DomeniaSecretActionUi') ('Libelle pose par : '+(@($writers|Sort-Object -Unique) -join ','))
+    $xaml=[xml](Get-MainXaml);$x='http://schemas.microsoft.com/winfx/2006/xaml'
+    $bl=@($xaml.SelectNodes('//*')|Where-Object{$_.GetAttribute('Name',$x) -eq 'BtnLoadBitLocker'})[0];$lp=@($xaml.SelectNodes('//*')|Where-Object{$_.GetAttribute('Name',$x) -eq 'BtnLoadLaps'})[0]
+    Assert-True ($bl.GetAttribute('Content') -eq 'Lister les clés BitLocker' -and $lp.GetAttribute('Content') -eq 'Lire le mot de passe LAPS') 'Boutons non renommes'
+    $help=@(Get-Content -LiteralPath (Join-Path $wad 'modules\Domenia-UX.help.json') -Raw -Encoding UTF8|ConvertFrom-Json)
+    foreach($node in @($bl,$lp)){
+        $entry=@($help|ForEach-Object{$_}|Where-Object{$_.Name -eq $node.GetAttribute('Name',$x)})
+        Assert-True ($entry.Count -eq 1 -and [string]$entry[0].Title -ceq $node.GetAttribute('AutomationProperties.Name') -and [string]$entry[0].Text -ceq $node.GetAttribute('ToolTip')) ('Aide divergente : '+$node.GetAttribute('Name',$x))
+    }
+    $script:SelectedObject=$null;Update-DomeniaSecretActionUi
+    Assert-True ([string]$script:Ctrl.BtnLoadLaps.ToolTip -match '^Lire le mot de passe LAPS : ') ([string]$script:Ctrl.BtnLoadLaps.ToolTip)
+    Assert-True ([string]$script:Ctrl.BtnLoadBitLocker.ToolTip -match '^Lister les clés BitLocker : ') ([string]$script:Ctrl.BtnLoadBitLocker.ToolTip)
 }
 
 # ================================================================ UI-18 receipts in plain words, review in the page

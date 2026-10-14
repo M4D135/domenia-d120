@@ -2205,22 +2205,22 @@
   },
   {
     "Name": "BtnLoadBitLocker",
-    "Title": "BitLocker",
-    "Text": "Recupere les cles de recuperation BitLocker enregistrees pour ce poste.",
+    "Title": "Lister les clés BitLocker",
+    "Text": "Liste les clés de récupération BitLocker de ce poste. Aucune clé nʼest affichée sans votre demande.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnLoadLaps",
-    "Title": "LAPS",
-    "Text": "Recupere le mot de passe administrateur local gere par LAPS.",
+    "Title": "Lire le mot de passe LAPS",
+    "Text": "Lit le mot de passe administrateur local géré par LAPS. Il reste masqué jusquʼà votre demande.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnToggleSecrets",
-    "Title": "Afficher",
-    "Text": "Affiche ou masque les valeurs. Elles ne sont jamais conservees apres la fermeture.",
+    "Title": "Afficher la valeur choisie",
+    "Text": "Affiche uniquement la valeur sélectionnée, brièvement. Les autres restent masquées.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -2234,14 +2234,14 @@
   {
     "Name": "BtnCopyAllSecrets",
     "Title": "Copier tout",
-    "Text": "Copie toutes les valeurs affichees.",
+    "Text": "Copie groupée désactivée : une valeur à la fois.",
     "Kind": "Button",
     "Source": "existing-help"
   },
   {
     "Name": "BtnClearSecrets",
     "Title": "Vider",
-    "Text": "Efface les valeurs affichees.",
+    "Text": "Efface les valeurs lues, conservées en mémoire.",
     "Kind": "Button",
     "Source": "existing-help"
   },

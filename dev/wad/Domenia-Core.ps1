@@ -6960,16 +6960,16 @@ function Get-MainXaml {
                       <DockPanel>
                         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
                           <TextBlock Text="Secrets du poste" FontSize="18" FontWeight="SemiBold"/>
-                          <TextBlock Text="Cles de recuperation BitLocker et mot de passe administrateur local. Les valeurs sont masquees tant que tu ne demandes pas a les afficher." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,8" TextWrapping="Wrap"/>
+                          <TextBlock Text="Clés de récupération BitLocker et mot de passe administrateur local. Les valeurs restent masquées tant que vous ne demandez pas à les afficher." Foreground="{DynamicResource MutedColor}" Margin="0,2,0,8" TextWrapping="Wrap"/>
                           <WrapPanel>
-                            <Button x:Name="BtnLoadBitLocker" Content="BitLocker" Style="{StaticResource RunButton}" ToolTip="Recupere les cles de recuperation BitLocker enregistrees pour ce poste." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="BitLocker" AutomationProperties.HelpText="Recupere les cles de recuperation BitLocker enregistrees pour ce poste."/>
-                            <Button x:Name="BtnLoadLaps" Content="LAPS" Style="{StaticResource RunButton}" ToolTip="Recupere le mot de passe administrateur local gere par LAPS." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="LAPS" AutomationProperties.HelpText="Recupere le mot de passe administrateur local gere par LAPS."/>
-                            <Button x:Name="BtnToggleSecrets" Content="Afficher" ToolTip="Affiche ou masque les valeurs. Elles ne sont jamais conservees apres la fermeture." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Afficher" AutomationProperties.HelpText="Affiche ou masque les valeurs. Elles ne sont jamais conservees apres la fermeture."/>
+                            <Button x:Name="BtnLoadBitLocker" Content="Lister les clés BitLocker" Style="{StaticResource RunButton}" ToolTip="Liste les clés de récupération BitLocker de ce poste. Aucune clé nʼest affichée sans votre demande." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lister les clés BitLocker" AutomationProperties.HelpText="Liste les clés de récupération BitLocker de ce poste. Aucune clé nʼest affichée sans votre demande."/>
+                            <Button x:Name="BtnLoadLaps" Content="Lire le mot de passe LAPS" Style="{StaticResource RunButton}" ToolTip="Lit le mot de passe administrateur local géré par LAPS. Il reste masqué jusquʼà votre demande." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lire le mot de passe LAPS" AutomationProperties.HelpText="Lit le mot de passe administrateur local géré par LAPS. Il reste masqué jusquʼà votre demande."/>
+                            <Button x:Name="BtnToggleSecrets" Content="Afficher la valeur choisie" IsEnabled="False" ToolTip="Affiche uniquement la valeur sélectionnée, brièvement. Les autres restent masquées." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Afficher la valeur choisie" AutomationProperties.HelpText="Affiche uniquement la valeur sélectionnée, brièvement. Les autres restent masquées."/>
                             <Button x:Name="BtnCopySecret" Content="Copier" ToolTip="Copie la valeur selectionnee. Le presse-papiers est efface automatiquement apres quelques instants." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Copier" AutomationProperties.HelpText="Copie la valeur selectionnee. Le presse-papiers est efface automatiquement apres quelques instants."/>
-                            <Button x:Name="BtnCopyAllSecrets" ToolTip="Copie toutes les valeurs affichees." Content="Copier tout" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Copier tout" AutomationProperties.HelpText="Copie toutes les valeurs affichees."/>
-                            <Button x:Name="BtnClearSecrets" ToolTip="Efface les valeurs affichees." Content="Vider" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vider" AutomationProperties.HelpText="Efface les valeurs affichees."/>
+                            <Button x:Name="BtnCopyAllSecrets" Visibility="Collapsed" IsEnabled="False" ToolTip="Copie groupée désactivée : une valeur à la fois." Content="Copier tout" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Copier tout" AutomationProperties.HelpText="Copie groupée désactivée : une valeur à la fois."/>
+                            <Button x:Name="BtnClearSecrets" ToolTip="Efface les valeurs lues, conservées en mémoire." Content="Vider" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vider" AutomationProperties.HelpText="Efface les valeurs lues, conservées en mémoire."/>
                           </WrapPanel>
-                          <TextBlock x:Name="LblSecretsStatus" Text="Selectionne un poste, puis charge BitLocker ou LAPS." Foreground="{DynamicResource MutedColor}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                          <TextBlock x:Name="LblSecretsStatus" Text="Sélectionnez un poste, puis listez les clés BitLocker ou lisez le mot de passe LAPS." Foreground="{DynamicResource MutedColor}" Margin="0,8,0,0" TextWrapping="Wrap"/>
                           <Button x:Name="BtnSecretsPrerequisite" Content="Ouvrir le prerequis" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,8,0,0" Visibility="Collapsed" ToolTip="Ouvre la page du prerequis manquant. Navigation seule : aucun droit ni reglage modifie." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ouvrir le prerequis" AutomationProperties.HelpText="Ouvre la page du prerequis manquant. Navigation seule : aucun droit ni reglage modifie."/>
                           <WrapPanel Margin="0,10,0,0">
                             <StackPanel Width="300" Margin="0,0,12,0">
@@ -12421,7 +12421,7 @@ function Clear-Secrets {
     $script:RevealedSecretIndex = -1
     $script:BitLockerKeyList = @()
     $script:BitLockerKeyContext = $null
-    try { $script:Ctrl["DgSecrets"].ItemsSource = $null; $script:Ctrl["BtnToggleSecrets"].Content = "Afficher les secrets"; $script:Ctrl["LblSecretsStatus"].Text = "Aucun secret conserve en memoire." } catch { }
+    try { $script:Ctrl["DgSecrets"].ItemsSource = $null; $script:Ctrl["LblSecretsStatus"].Text = "Aucun secret conservé en mémoire." } catch { }
     try { Update-DomeniaSecretActionUi } catch { }
 }
 
@@ -12440,8 +12440,7 @@ function Update-SecretsGrid {
         $index++
     }
     [void](Set-DomeniaItemsSource -Name 'DgSecrets' -Rows $rows.ToArray())
-    $toggle = Get-DomeniaControl -Name 'BtnToggleSecrets'
-    if ($null -ne $toggle) { $toggle.Content = if ($script:SecretsVisible) { 'Masquer les secrets' } else { 'Afficher les secrets' } }
+    # UI-31: the reveal button gets its label from Update-DomeniaSecretActionUi only.
     try { Update-DomeniaSecretActionUi } catch { }
 }
 
@@ -14678,8 +14677,8 @@ function Build-DomeniaObjectsContextMenu {
         [void]$collect.Items.Add((New-DomeniaMenuItem -Header "Diagnostic distant" -Action { Select-DomeniaWorkspace -Workspace "WsComputer" -Inner "ComputerTabs" -Tab "TabComputerHealth"; Start-ComputerDiagnostics }))
         [void]$collect.Items.Add((New-DomeniaMenuItem -Header "Detecter le dernier utilisateur" -Action { Start-ProbeForSelectedComputer -Force }))
         [void]$collect.Items.Add((New-Object System.Windows.Controls.Separator))
-        [void]$collect.Items.Add((New-DomeniaMenuItem -Header "Charger BitLocker" -Action { Select-DomeniaWorkspace -Workspace "WsComputer" -Inner "ComputerTabs" -Tab "TabSecurity"; Start-LoadComputerSecrets -Mode "BitLocker" }))
-        [void]$collect.Items.Add((New-DomeniaMenuItem -Header "Charger LAPS" -Action { Select-DomeniaWorkspace -Workspace "WsComputer" -Inner "ComputerTabs" -Tab "TabSecurity"; Start-LoadComputerSecrets -Mode "LAPS" }))
+        [void]$collect.Items.Add((New-DomeniaMenuItem -Header "Lister les clés BitLocker" -Action { Select-DomeniaWorkspace -Workspace "WsComputer" -Inner "ComputerTabs" -Tab "TabSecurity"; Start-LoadComputerSecrets -Mode "BitLocker" }))
+        [void]$collect.Items.Add((New-DomeniaMenuItem -Header "Lire le mot de passe LAPS" -Action { Select-DomeniaWorkspace -Workspace "WsComputer" -Inner "ComputerTabs" -Tab "TabSecurity"; Start-LoadComputerSecrets -Mode "LAPS" }))
         [void]$Menu.Items.Add($collect)
     }
 
@@ -25380,7 +25379,7 @@ function Update-DomeniaSecretActionUi {
             $explanation = Get-DomeniaSecretButtonExplanation -Name $name -Busy $busy
             $control.IsEnabled = [bool]$explanation.Enabled
             $tip = [string]$explanation.ToolTip
-            if ($actualDenied -and $tip -notmatch 'autre compte') { $tip += ' Lecture refusee avec ce compte : cliquez pour proposer un autre compte.' }
+            if ($actualDenied -and $tip -notmatch 'autre compte') { $tip += ' Lecture refusée avec ce compte : cliquez pour proposer un autre compte.' }
             $control.ToolTip = $tip
             try { [Windows.Automation.AutomationProperties]::SetHelpText($control,$tip) } catch { }
             if (-not [bool]$explanation.Enabled -and [string]$explanation.Route -and -not $prerequisiteRoute) { $prerequisiteRoute = [string]$explanation.Route; $prerequisiteReason = $tip }
@@ -25397,59 +25396,37 @@ function Update-DomeniaSecretActionUi {
         $canCopySelected = ($null -ne $selectedSecret -and (-not [string]::IsNullOrWhiteSpace([string]$selectedSecret.Value) -or $selectedMetadata))
         $exposure = Get-DomeniaSecretExposurePolicy
 
+        # UI-31: the label of the reveal button and the presence of "copy all" come from one rule only.
+        $selectedKind = ""
+        try { if ($null -ne $selectedSecret) { $selectedKind = [string]$selectedSecret.Kind } } catch { }
+        $view = Get-DomeniaSecretActionView -Single $single -Visible ([bool]$script:SecretsVisible) -HasRows $hasRows -HasReadableValue $hasReadableValue -CanUseSelected $canCopySelected -SelectedMetadata $selectedMetadata -RevealSeconds ([int]$exposure.RevealSeconds) -SelectedKind $selectedKind -ClipboardLimit ([string]$exposure.ClipboardLimit)
         $toggle = Get-DomeniaControl -Name "BtnToggleSecrets"
         if ($null -ne $toggle) {
-            if ($single) {
-                $toggle.IsEnabled = ([bool]$script:SecretsVisible -or $canCopySelected)
-                if ([bool]$script:SecretsVisible) { $toggle.Content = 'Masquer' } elseif ($selectedMetadata) { $toggle.Content = 'Lire et afficher cette cle' } else { $toggle.Content = 'Afficher la valeur choisie' }
-                $toggle.ToolTip = if ($toggle.IsEnabled) { "Affiche uniquement la valeur selectionnee pendant " + [string]$exposure.RevealSeconds + " s. Les autres restent masquees." } elseif ($hasRows) { "Selectionnez d abord une ligne : une seule valeur est revelee a la fois." } else { "Charge d'abord BitLocker ou LAPS." }
-            }
-            else {
-                $toggle.IsEnabled = $hasRows
-                $toggle.ToolTip = if ($hasRows) { "Affiche ou masque temporairement les valeurs gardees uniquement en memoire." } else { "Charge d'abord BitLocker ou LAPS." }
-            }
+            $toggle.Content = [string]$view.ToggleText
+            $toggle.IsEnabled = [bool]$view.ToggleEnabled
+            $toggle.ToolTip = [string]$view.ToggleToolTip
+            try { [Windows.Automation.AutomationProperties]::SetName($toggle,[string]$view.ToggleText); [Windows.Automation.AutomationProperties]::SetHelpText($toggle,[string]$view.ToggleToolTip) } catch { }
         }
 
         $copyAll = Get-DomeniaControl -Name "BtnCopyAllSecrets"
         if ($null -ne $copyAll) {
-            if ($single) {
-                $copyAll.IsEnabled = $false
-                $copyAll.ToolTip = "Copie groupee desactivee (une valeur a la fois). " + [string]$exposure.ClipboardLimit
-            }
-            else {
-                $copyAll.IsEnabled = $hasReadableValue
-                $copyAll.ToolTip = if ($hasReadableValue) { "Copie les valeurs chargees puis programme l'effacement automatique du presse-papiers." } else { "Aucune valeur dechiffree a copier." }
-            }
+            $copyAll.Visibility = if ([bool]$view.CopyAllVisible) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed }
+            $copyAll.IsEnabled = [bool]$view.CopyAllEnabled
+            $copyAll.ToolTip = [string]$view.CopyAllToolTip
+            try { [Windows.Automation.AutomationProperties]::SetHelpText($copyAll,[string]$view.CopyAllToolTip) } catch { }
         }
 
         $clear = Get-DomeniaControl -Name "BtnClearSecrets"
         if ($null -ne $clear) {
             $clear.IsEnabled = $hasRows
-            $clear.ToolTip = if ($hasRows) { "Efface immediatement les secrets conserves en memoire par Domenia." } else { "Aucun secret n'est conserve en memoire." }
+            $clear.ToolTip = if ($hasRows) { "Efface immédiatement les secrets conservés en mémoire par Domenia." } else { "Aucun secret nʼest conservé en mémoire." }
         }
 
         $copySelected = Get-DomeniaControl -Name "BtnCopySecret"
         if ($null -ne $copySelected) {
-            $copySelected.IsEnabled = $canCopySelected
-
-            $kind = ""
-            try { $kind = [string]$selectedSecret.Kind } catch { }
-            if ($kind -match "(?i)BitLocker|Recovery") {
-                $copySelected.Content = "Copier la cle BitLocker"
-            }
-            elseif ($kind -match "(?i)LAPS") {
-                $copySelected.Content = "Copier le mot de passe LAPS"
-            }
-            else {
-                $copySelected.Content = "Copier la valeur"
-            }
-
-            $copySelected.ToolTip = if ($canCopySelected) {
-                "Copie uniquement la valeur selectionnee puis programme l'effacement automatique du presse-papiers. " + [string]$exposure.ClipboardLimit
-            }
-            else {
-                "Selectionne une ligne contenant une cle BitLocker ou un mot de passe LAPS lisible."
-            }
+            $copySelected.IsEnabled = [bool]$view.CopyEnabled
+            $copySelected.Content = [string]$view.CopyText
+            $copySelected.ToolTip = [string]$view.CopyToolTip
         }
 
         $recoveryBox = Get-DomeniaControl -Name "TxtBitLockerRecoveryId"

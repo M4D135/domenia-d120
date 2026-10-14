@@ -380,6 +380,35 @@ function Get-DomeniaSecretExposurePolicy {
     }
 }
 
+function Get-DomeniaSecretActionView {
+    # UI-31: labels, availability and tooltips of the reveal and copy buttons, and whether "copy all" is offered,
+    # decided in this one place. With one value at a time (Features.SecretSingleCopy, the default) "copy all" is not
+    # shown at all: a button greyed for good only says no. Only the kind of the selected row is read, never a value.
+    param([bool]$Single=$true,[bool]$Visible=$false,[bool]$HasRows=$false,[bool]$HasReadableValue=$false,[bool]$CanUseSelected=$false,[bool]$SelectedMetadata=$false,[int]$RevealSeconds=30,[AllowEmptyString()][string]$SelectedKind='',[AllowEmptyString()][string]$ClipboardLimit='')
+    $loadFirst = 'Lancez dʼabord « Lister les clés BitLocker » ou « Lire le mot de passe LAPS ».'
+    $copyText = 'Copier la valeur'
+    if ($SelectedKind -match '(?i)BitLocker|Recovery') { $copyText = 'Copier la clé BitLocker' } elseif ($SelectedKind -match '(?i)LAPS') { $copyText = 'Copier le mot de passe LAPS' }
+    $copyTip = 'Sélectionnez une ligne contenant une clé BitLocker ou un mot de passe LAPS lisible.'
+    if ($CanUseSelected -and $SelectedMetadata) { $copyTip = ('Lit la seule clé sélectionnée, la copie puis programme lʼeffacement automatique du presse-papiers. ' + $ClipboardLimit).Trim() }
+    elseif ($CanUseSelected) { $copyTip = ('Copie uniquement la valeur sélectionnée puis programme lʼeffacement automatique du presse-papiers. ' + $ClipboardLimit).Trim() }
+    if ($Single) {
+        $enabled = ($Visible -or $CanUseSelected)
+        if ($Visible) { $text = 'Masquer la valeur'; $tip = 'Masque tout de suite la valeur affichée.' }
+        elseif ($SelectedMetadata) { $text = 'Lire et afficher cette clé'; $tip = 'Lit la seule clé sélectionnée puis lʼaffiche pendant ' + [string]$RevealSeconds + ' s. Les autres clés ne sont pas lues.' }
+        else { $text = 'Afficher la valeur choisie'; $tip = 'Affiche uniquement la valeur sélectionnée pendant ' + [string]$RevealSeconds + ' s. Les autres restent masquées.' }
+        if (-not $enabled) {
+            if ($HasRows) { $tip = 'Sélectionnez dʼabord une ligne : une seule valeur est révélée à la fois.' } else { $tip = $loadFirst }
+        }
+        return [pscustomobject]@{ToggleText=$text;ToggleEnabled=$enabled;ToggleToolTip=$tip;CopyText=$copyText;CopyEnabled=$CanUseSelected;CopyToolTip=$copyTip;CopyAllVisible=$false;CopyAllEnabled=$false;CopyAllToolTip='Copie groupée désactivée : une valeur à la fois.'}
+    }
+    if ($Visible) { $text = 'Masquer les secrets' } else { $text = 'Afficher les secrets' }
+    $tip = $loadFirst
+    if ($HasRows) { $tip = 'Affiche ou masque temporairement les valeurs gardées uniquement en mémoire.' }
+    $copyAllTip = 'Aucune valeur lue à copier.'
+    if ($HasReadableValue) { $copyAllTip = 'Copie les valeurs lues puis programme lʼeffacement automatique du presse-papiers.' }
+    return [pscustomobject]@{ToggleText=$text;ToggleEnabled=$HasRows;ToggleToolTip=$tip;CopyText=$copyText;CopyEnabled=$CanUseSelected;CopyToolTip=$copyTip;CopyAllVisible=$true;CopyAllEnabled=$HasReadableValue;CopyAllToolTip=$copyAllTip}
+}
+
 function Protect-DomeniaSecretText {
     # Masks what looks like a secret before a text reaches a log, a trace or an export.
     param([AllowEmptyString()][AllowNull()][string]$Text)

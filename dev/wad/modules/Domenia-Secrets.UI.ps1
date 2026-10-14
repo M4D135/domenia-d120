@@ -31,19 +31,20 @@ function Get-DomeniaSecretButtonExplanation {
     # buttons use. An ACL estimate never disables the button: the domain controller decides.
     param([ValidateSet('BtnLoadLaps','BtnLoadBitLocker')][string]$Name,[bool]$Busy=$false)
     $mode=if($Name -eq 'BtnLoadLaps'){'LAPS'}else{'BitLocker'}
-    $action=if($mode -eq 'LAPS'){'Lire LAPS'}else{'Lire BitLocker'}
+    # UI-31: the explanation starts with the name of the button itself.
+    $action=if($mode -eq 'LAPS'){'Lire le mot de passe LAPS'}else{'Lister les clés BitLocker'}
     $isMachine=($null -ne $script:SelectedObject -and [string]$script:SelectedObject.Type -eq 'Machine' -and -not [string]::IsNullOrWhiteSpace([string]$script:SelectedObject.DN))
     $writeActive=((-not [string]::IsNullOrWhiteSpace([string]$script:ActiveWriteTaskId)) -or ($script:WriteState -in @('Unknown','UnknownPending')))
     $estimated=''
     try{if($script:CurrentCapabilities.ContainsKey('Secrets')){$estimated=[string]$script:CurrentCapabilities['Secrets']}}catch{}
     if(-not $isMachine){$x=Get-DomeniaCapabilityExplanation -Action $action -State NoSelection -Detail 'Choisissez un poste dans Rechercher. Cette action lit AD sans rien modifier.';return [pscustomobject]@{Enabled=$false;ToolTip=$x.Text;Route=$x.Route;State='NoSelection'}}
-    if($Busy){return [pscustomobject]@{Enabled=$false;ToolTip=($action+' : lecture en cours dans un runspace separe.');Route='';State='Reading'}}
-    if($writeActive){$x=Get-DomeniaCapabilityExplanation -Action $action -State Busy -Detail 'La lecture reprend apres la verification de l ecriture.';return [pscustomobject]@{Enabled=$false;ToolTip=$x.Text;Route=$x.Route;State='Busy'}}
+    if($Busy){return [pscustomobject]@{Enabled=$false;ToolTip=($action+' : lecture en cours en arrière-plan.');Route='';State='Reading'}}
+    if($writeActive){$x=Get-DomeniaCapabilityExplanation -Action $action -State Busy -Detail 'La lecture reprend après la vérification de lʼécriture.';return [pscustomobject]@{Enabled=$false;ToolTip=$x.Text;Route=$x.Route;State='Busy'}}
     $need=Get-DomeniaSecretIdentityReason -Mode $mode
-    $identity=' Identite utilisee : '+[string]$need.Reason
+    $identity=' Identité utilisée : '+[string]$need.Reason
     if($need.Prompt){$x=Get-DomeniaCapabilityExplanation -Action $action -State Refused -Detail 'Cliquez pour proposer un autre compte pour cette ressource uniquement.';return [pscustomobject]@{Enabled=$true;ToolTip=($x.Text+$identity);Route=$x.Route;State='Refused'}}
-    if($estimated -eq 'Refuse'){$x=Get-DomeniaCapabilityExplanation -Action $action -State Estimated -Detail 'Le bouton reste disponible : le controleur de domaine ou Windows LAPS decide.';return [pscustomobject]@{Enabled=$true;ToolTip=($x.Text+$identity);Route='';State='Estimated'}}
-    return [pscustomobject]@{Enabled=$true;ToolTip=($action+' : lecture AD uniquement, disponible meme en lecture seule ; aucune ecriture.'+$identity);Route='';State='Available'}
+    if($estimated -eq 'Refuse'){$x=Get-DomeniaCapabilityExplanation -Action $action -State Estimated -Detail 'Le bouton reste disponible : le contrôleur de domaine ou Windows LAPS décide.';return [pscustomobject]@{Enabled=$true;ToolTip=($x.Text+$identity);Route='';State='Estimated'}}
+    return [pscustomobject]@{Enabled=$true;ToolTip=($action+' : lecture AD uniquement, disponible même en lecture seule ; aucune écriture.'+$identity);Route='';State='Available'}
 }
 function Update-DomeniaSecretsPrerequisite {
     # In-page route to the missing prerequisite of a greyed secrets button (no window, nothing is read or written).
