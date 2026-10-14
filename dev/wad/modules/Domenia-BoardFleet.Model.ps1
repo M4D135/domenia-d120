@@ -768,38 +768,47 @@ function Get-DomeniaFleetWmiResponse {
     # attempt failed afterwards (a failure within 15 minutes of a success belongs to the same collection and does not
     # erase the answer). Failed: the latest dated CIM attempt within MaxDays failed. NotRead: no usable dated attempt.
     # A failure is never read as "switched off": access may be refused, the service stopped or the network filtered.
+    # Called once per active workstation of the fleet: member reads stay inline, without helper calls.
     param($Observation,[datetime]$NowUtc=[datetime]::UtcNow,[int]$MaxDays=30)
+    if($null -eq $Observation){return [pscustomobject]@{State='NotRead';At=$null;LastSuccessUtc=$null}}
+    $v=@{}
+    $names=@('Times','Inventory','InventoryCheckedUtc','InventoryError','InventoryAttemptUtc','Outcome','ConsoleCheckedUtc','UserCheckedUtc','ConsoleAttemptUtc')
+    if($Observation -is [Collections.IDictionary]){foreach($name in $names){if($Observation.Contains($name)){$v[$name]=$Observation[$name]}}}
+    else{$properties=$Observation.PSObject.Properties;foreach($name in $names){$property=$properties[$name];if($null -ne $property){$v[$name]=$property.Value}}}
     $events=[Collections.Generic.List[object]]::new()
-    $add={param($Text,[bool]$Success)
-        $at=ConvertFrom-DomeniaUtcText ([string]$Text)
-        if(($null -ne $at) -and ($at -le $NowUtc.AddMinutes(5)) -and (($NowUtc-$at).TotalDays -le [Math]::Max(1,$MaxDays))){$events.Add([pscustomobject]@{At=$at;Success=$Success})}
-    }
-    $times=Get-DomeniaHealthValue $Observation 'Times'
-    $families=@();if($times -is [Collections.IDictionary]){$families=@($times.Keys)}elseif($null -ne $times){$families=@($times.PSObject.Properties|ForEach-Object{$_.Name})}
+    $times=$v['Times'];$families=@()
+    if($times -is [Collections.IDictionary]){$families=@($times.Keys)}elseif($null -ne $times){$families=@($times.PSObject.Properties|ForEach-Object{$_.Name})}
     $families=@($families|Where-Object{[string]$_ -cne 'Presence'})
     if($families.Count){
         # Canonical projection: one record per persisted family with its last success and last attempt.
         foreach($family in $families){
-            $time=Get-DomeniaHealthValue $times ([string]$family)
-            $succeeded=[bool](Get-DomeniaHealthValue $time 'Succeeded' $false)
-            & $add (Get-DomeniaHealthValue $time 'ObservedUtc' '') $true
-            if(-not $succeeded){& $add (Get-DomeniaHealthValue $time 'LastAttemptUtc' '') $false}
+            $time=if($times -is [Collections.IDictionary]){$times[$family]}else{$times.PSObject.Properties[[string]$family].Value}
+            if($null -eq $time){continue}
+            $read=@{};foreach($name in @('ObservedUtc','LastAttemptUtc','Succeeded')){if($time -is [Collections.IDictionary]){if($time.Contains($name)){$read[$name]=$time[$name]}}else{$property=$time.PSObject.Properties[$name];if($null -ne $property){$read[$name]=$property.Value}}}
+            $events.Add(@([string]$read['ObservedUtc'],$true))
+            if(-not [bool]$read['Succeeded']){$events.Add(@([string]$read['LastAttemptUtc'],$false))}
         }
     }else{
         # Older local observations: inventory dates and the console outcome carry the same facts.
-        $inventory=Get-DomeniaHealthValue $Observation 'Inventory'
-        $inventoryAt=[string](Get-DomeniaHealthValue $Observation 'InventoryCheckedUtc' '');if((-not $inventoryAt) -and ($null -ne $inventory)){$inventoryAt=[string](Get-DomeniaHealthValue $inventory 'CheckedUtc' '')}
-        if($null -ne $inventory){& $add $inventoryAt $true}
-        if([string](Get-DomeniaHealthValue $Observation 'InventoryError' '')){& $add (Get-DomeniaHealthValue $Observation 'InventoryAttemptUtc' '') $false}
-        $outcome=[string](Get-DomeniaHealthValue $Observation 'Outcome' '')
-        $consoleAt=[string](Get-DomeniaHealthValue $Observation 'ConsoleCheckedUtc' '');if(-not $consoleAt){$consoleAt=[string](Get-DomeniaHealthValue $Observation 'UserCheckedUtc' '')}
-        if($outcome -in @('Observed','NoConsole')){& $add $consoleAt $true}
-        elseif($outcome -in @('Denied','AuthRejected','Timeout','Unavailable')){$attempt=[string](Get-DomeniaHealthValue $Observation 'ConsoleAttemptUtc' '');if(-not $attempt){$attempt=$consoleAt};& $add $attempt $false}
+        $inventory=$v['Inventory'];$inventoryAt=[string]$v['InventoryCheckedUtc']
+        if((-not $inventoryAt) -and ($inventory -is [Collections.IDictionary])){if($inventory.Contains('CheckedUtc')){$inventoryAt=[string]$inventory['CheckedUtc']}}
+        elseif((-not $inventoryAt) -and ($null -ne $inventory)){$property=$inventory.PSObject.Properties['CheckedUtc'];if($null -ne $property){$inventoryAt=[string]$property.Value}}
+        if($null -ne $inventory){$events.Add(@($inventoryAt,$true))}
+        if([string]$v['InventoryError']){$events.Add(@([string]$v['InventoryAttemptUtc'],$false))}
+        $outcome=[string]$v['Outcome'];$consoleAt=[string]$v['ConsoleCheckedUtc'];if(-not $consoleAt){$consoleAt=[string]$v['UserCheckedUtc']}
+        if($outcome -in @('Observed','NoConsole')){$events.Add(@($consoleAt,$true))}
+        elseif($outcome -in @('Denied','AuthRejected','Timeout','Unavailable')){$attempt=[string]$v['ConsoleAttemptUtc'];if(-not $attempt){$attempt=$consoleAt};$events.Add(@($attempt,$false))}
     }
+    # Same parsing as ConvertFrom-DomeniaUtcText; dates in the future or older than MaxDays are not usable.
+    $culture=[Globalization.CultureInfo]::InvariantCulture;$styles=[Globalization.DateTimeStyles]::AdjustToUniversal -bor [Globalization.DateTimeStyles]::AssumeUniversal
+    $newest=$NowUtc.AddMinutes(5);$oldest=$NowUtc.AddDays(0-[Math]::Max(1,$MaxDays))
     $success=$null;$failure=$null
     foreach($item in $events){
-        if($item.Success){if(($null -eq $success) -or ($item.At -gt $success)){$success=$item.At}}
-        elseif(($null -eq $failure) -or ($item.At -gt $failure)){$failure=$item.At}
+        $text=([string]$item[0]).Trim();if(-not $text){continue}
+        $at=[datetime]::MinValue;if(-not [datetime]::TryParse($text,$culture,$styles,[ref]$at)){continue}
+        if(($at -gt $newest) -or ($at -lt $oldest)){continue}
+        if([bool]$item[1]){if(($null -eq $success) -or ($at -gt $success)){$success=$at}}
+        elseif(($null -eq $failure) -or ($at -gt $failure)){$failure=$at}
     }
     if(($null -ne $failure) -and (($null -eq $success) -or ($failure -gt $success.AddMinutes(15)))){return [pscustomobject]@{State='Failed';At=$failure;LastSuccessUtc=$success}}
     if($null -ne $success){return [pscustomobject]@{State='Responded';At=$success;LastSuccessUtc=$success}}
