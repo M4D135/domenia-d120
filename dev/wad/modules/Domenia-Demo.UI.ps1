@@ -60,7 +60,7 @@ function Set-DomeniaDemoShellPresentation {
         $readOnly.IsEnabled = $false
         $readOnly.ToolTip = 'Écritures désactivées en démonstration.'
     }
-    foreach($name in @('BtnParkResults','BtnParkPing','BtnParkAnalyze','BtnParkResultsStop')){$button=Get-DomeniaControl $name;if($button){$button.IsEnabled=$false;$button.ToolTip='Releve des postes indisponible en demonstration.'}}
+    foreach($name in @('BtnParkVerify','BtnParkVerifyMenu','BtnSelectionPing','BtnSelectionConsole')){$button=Get-DomeniaControl $name;if($button){$button.IsEnabled=$false;$button.ToolTip='Relevé des postes indisponible en démonstration.'}}
     foreach($name in @('BtnStorageUsage','BtnStoragePurgePreview','BtnStoragePurge')){$button=Get-DomeniaControl $name;if($button){$button.IsEnabled=$false;$button.ToolTip='Entretien du stockage indisponible en demonstration.'}}
     Set-Status ($banner + ' : données fictives dans une base locale de démonstration séparée ; actions AD et outils poste désactivés.') 'WARN'
 }

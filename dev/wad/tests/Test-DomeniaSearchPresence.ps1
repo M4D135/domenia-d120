@@ -25,6 +25,8 @@ foreach($name in @('Get-MainXaml','Get-DomeniaControl','Set-DomeniaControlText',
 . (Join-Path $wad 'modules\Domenia-Live.UI.ps1')
 # Explicit dependencies; none can issue a network call, launch a process or read the real database.
 function Get-CfgValue {param($Section,$Name,$Default);return $Default}
+# UI-23 / FO-18: the survey buttons of the list belong to Park.UI, not loaded here (inert boundary).
+function Update-DomeniaParkControls {}
 function Test-DomeniaAccessBusyWrite {return $script:WriteBlocked}
 function Test-DomeniaDraftNavigation {param($DN);return (-not $script:DraftBlocked)}
 function Invalidate-DomeniaSearchResults {$script:GlobalSearchGeneration++;$script:Invalidations++}

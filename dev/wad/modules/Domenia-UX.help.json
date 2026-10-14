@@ -3071,6 +3071,150 @@
     "Shortcut": ""
   },
   {
+    "Name": "BtnParkVerify",
+    "Title": "Vérifier la liste",
+    "Text": "Vérifie les seuls postes affichés, après vos filtres. Sans choix dans cette session, ouvre les trois vérifications ; ensuite, relance la dernière choisie. Confirmation avec le nombre de postes avant tout envoi, plafond réglable (500 postes par défaut). Pendant un relevé, ce bouton lʼarrête.",
+    "Kind": "Button",
+    "Source": "X01",
+    "Shortcut": ""
+  },
+  {
+    "Name": "BtnParkVerifyMenu",
+    "Title": "Choisir la vérification de la liste",
+    "Text": "Choisir la vérification de la liste : Qui répond ? (ping), Qui est connecté ? (ping et utilisateur console) ou Matériel et widgets (relevé WMI léger). Le dernier choix devient lʼaction du bouton pour cette session.",
+    "Kind": "Button",
+    "Source": "X01",
+    "Shortcut": ""
+  },
+  {
+    "Name": "PbParkProgress",
+    "Title": "Avancement du relevé de la liste",
+    "Text": "Avancement du relevé de la liste en cours.",
+    "Kind": "ProgressBar",
+    "Source": "X01",
+    "Shortcut": ""
+  },
+  {
+    "Name": "UxSelectionBar",
+    "Title": "Actions sur la sélection",
+    "Text": "Actions sur les lignes sélectionnées : ping ou utilisateur connecté des seuls postes sélectionnés, avec la même confirmation et le même plafond que la liste ; copie et export de la sélection.",
+    "Kind": "StackPanel",
+    "Source": "X01",
+    "Shortcut": ""
+  },
+  {
+    "Name": "LblSelectionBar",
+    "Title": "Lignes sélectionnées",
+    "Text": "Nombre de lignes sélectionnées. Ctrl ou Maj et clic pour composer la sélection.",
+    "Kind": "TextBlock",
+    "Source": "X01",
+    "Shortcut": ""
+  },
+  {
+    "Name": "BtnSelectionPing",
+    "Title": "Pinger les postes sélectionnés",
+    "Text": "Pinge les seuls postes sélectionnés, après confirmation avec leur nombre. Aucune lecture de session.",
+    "Kind": "Button",
+    "Source": "X01",
+    "Shortcut": ""
+  },
+  {
+    "Name": "BtnSelectionConsole",
+    "Title": "Utilisateur connecté des postes sélectionnés",
+    "Text": "Ping puis utilisateur connecté à la console des seuls postes sélectionnés, après confirmation avec leur nombre.",
+    "Kind": "Button",
+    "Source": "X01",
+    "Shortcut": ""
+  },
+  {
+    "Name": "BtnSelectionCopy",
+    "Title": "Copier la sélection pour un ticket",
+    "Text": "Copie une ligne lisible par objet sélectionné pour un ticket : type, nom, compte, présence, utilisateur console et OU. Sans GUID ni champ interne.",
+    "Kind": "Button",
+    "Source": "X01",
+    "Shortcut": ""
+  },
+  {
+    "Name": "BtnSelectionExport",
+    "Title": "Exporter la sélection",
+    "Text": "Exporte les lignes sélectionnées au format CSV, avec les colonnes visibles.",
+    "Kind": "Button",
+    "Source": "X01",
+    "Shortcut": ""
+  },
+  {
+    "Name": "UxParkProgress",
+    "Title": "Relevé de la liste",
+    "Text": "Avancement du relevé de la liste : postes traités, joignables, puis en ligne, sans réponse et en erreur. Le détail complet est écrit dans le journal.",
+    "Kind": "StackPanel",
+    "Source": "X01",
+    "Shortcut": ""
+  },
+  {
+    "Name": "LblParkProgress",
+    "Title": "Avancement du relevé",
+    "Text": "Avancement du relevé de la liste : postes traités, joignables, puis en ligne, sans réponse et en erreur. Le détail complet est écrit dans le journal.",
+    "Kind": "TextBlock",
+    "Source": "X01",
+    "Shortcut": ""
+  },
+  {
+    "Name": "PnlParkOutcome",
+    "Title": "Résultat du ping de la liste",
+    "Text": "Résultat du dernier ping de la liste. Chaque pastille filtre la liste par présence ; un second clic retire le filtre.",
+    "Kind": "StackPanel",
+    "Source": "X01",
+    "Shortcut": ""
+  },
+  {
+    "Name": "BtnParkOutcomeOnline",
+    "Title": "Afficher les postes en ligne",
+    "Text": "Affiche seulement les postes qui ont répondu au ping. Un second clic retire le filtre. Filtre local, sans appel réseau.",
+    "Kind": "Button",
+    "Source": "X01",
+    "Shortcut": ""
+  },
+  {
+    "Name": "BtnParkOutcomeNoReply",
+    "Title": "Afficher les postes sans réponse",
+    "Text": "Affiche seulement les postes sans réponse au ping : éteint, hors réseau ou ICMP filtré, sans preuve dʼarrêt. Un second clic retire le filtre.",
+    "Kind": "Button",
+    "Source": "X01",
+    "Shortcut": ""
+  },
+  {
+    "Name": "BtnParkOutcomeError",
+    "Title": "Afficher les postes en erreur de ping",
+    "Text": "Affiche seulement les postes dont le ping nʼa pas abouti (résolution DNS, erreur réseau ou lecture interrompue). Un second clic retire le filtre.",
+    "Kind": "Button",
+    "Source": "X01",
+    "Shortcut": ""
+  },
+  {
+    "Name": "UxComputerParkRun",
+    "Title": "Relevé de ce poste",
+    "Text": "Relevé en cours des requêtes des widgets de ce poste, indépendant du relevé de la liste de Rechercher.",
+    "Kind": "StackPanel",
+    "Source": "X01",
+    "Shortcut": ""
+  },
+  {
+    "Name": "LblComputerParkStatus",
+    "Title": "Avancement du relevé de ce poste",
+    "Text": "Avancement du relevé de ce poste. Le détail complet est écrit dans le journal.",
+    "Kind": "TextBlock",
+    "Source": "X01",
+    "Shortcut": ""
+  },
+  {
+    "Name": "BtnComputerParkStop",
+    "Title": "Arrêter le relevé de ce poste",
+    "Text": "Arrête le relevé de ce poste. Les mesures déjà reçues sont conservées ; rien nʼest relancé.",
+    "Kind": "Button",
+    "Source": "X01",
+    "Shortcut": ""
+  },
+  {
     "Name": "BtnLiveRecheck",
     "Title": "Revérifier ce poste",
     "Text": "Relance un ping unique et la lecture utilisateur sur le poste sélectionné. Si le compte est refusé ou CIM désactivé, seul le ping reste disponible. Aucun balayage.",
@@ -3571,32 +3715,11 @@
     "Source": "d120-cache"
   },
   {
-    "Name": "BtnParkResults",
-    "Kind": "Button",
-    "Source": "park-detection",
-    "Title": "Détecter les résultats affichés",
-    "Text": "Sur demande : fige les postes visibles apres les filtres de recherche. Aucune extension au reste du parc. Verifie legerement chaque console et reutilise les identites deja connues."
-  },
-  {
-    "Name": "BtnParkAnalyze",
-    "Kind": "Button",
-    "Source": "park-detection",
-    "Title": "Analyser les resultats affiches",
-    "Text": "Sur demande et apres confirmation : ping, utilisateur console et releve WMI leger des seuls postes affiches, plus les requetes WMI des widgets. Lecture seule sur les postes ; associations actualisees si l utilisateur change ; les resultats remplissent les tableaux de bord."
-  },
-  {
     "Name": "BtnParkSweepStop",
     "Kind": "Button",
     "Source": "park-detection",
     "Title": "Arreter le releve",
     "Text": "Arrete les nouvelles lectures. Les lectures deja lancees se terminent et leurs resultats sont conserves."
-  },
-  {
-    "Name": "BtnParkResultsStop",
-    "Kind": "Button",
-    "Source": "park-detection",
-    "Title": "Arreter la detection",
-    "Text": "Arrete les nouvelles lectures des resultats. Les associations et les observations obtenues restent conservees."
   },
   {
     "Name": "BtnFleetOpenSearch",

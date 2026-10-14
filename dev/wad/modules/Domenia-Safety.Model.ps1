@@ -22,7 +22,7 @@ function Get-DomeniaOperationEffect {
         'ReadBitLocker','ReadBitLockerKey','ReadLaps','ComputerInventory','DomainOverview','BatchNetworkDiag','SoftwareInventory',
         'WmiNamespaces','WmiClasses','WmiQuery','UserComputerProbe','LogonHarvest','ParkSweep','ComputerDiagnostics','ComputerLastUser',
         'ComputerPing','ComputerAdminShare','PruneLinks','OpenLinkedObject','EngineSelfTest','OpenAdObject','StartupWarmCache','StartupWarmup','LiveConsole',
-        'LiveDirectoryCheck','SessionsList','RemoteCredentialCheck','ScopeReconcile','ReconcileScope','LiveSelectedPing',
+        'LiveDirectoryCheck','SessionsList','RemoteCredentialCheck','ScopeReconcile','ReconcileScope','LiveSelectedPing','ParkPing',
         'EmbeddedDirectoryLookup','EmbeddedPathBrowse','ObjectChanges','StorageUsage','ComputerQuickDiag','PasswordPolicyRead',
         'LockoutDiagnosis','GroupPathRead','JoinStateRead','UpdateStateRead','GpoLinksRead','GpoAppliedRead','DcCompareRead',
         'ComputerEventsRead','MachineIdentityRead','AdConsistencyScan','ConnectorRead','DemoDirectory'

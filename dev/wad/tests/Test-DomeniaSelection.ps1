@@ -33,6 +33,8 @@ function Get-DomeniaLiveIdentitySignal {return [pscustomobject]@{Signal=$script:
 function Test-DomeniaSearchStateCurrent {param($State);return $State.Generation -eq $script:GlobalSearchGeneration}
 function Test-DomeniaAccessBusyWrite {return ($script:WriteState -in @('Unknown','UnknownPending') -or [bool]$script:ActiveWriteTaskId)}
 function Get-CfgValue {param($Section,$Name,$Default);return $Default}
+# UI-23 / FO-18: the survey buttons of the list belong to Park.UI, not loaded here (inert boundary).
+function Update-DomeniaParkControls {}
 function Set-RowAssociationMetadata {param($Rows)}
 function Get-CurrentSelectedComputerName {return ''}
 function Get-ExistingLinkForComputer {param($Computer);return $null}

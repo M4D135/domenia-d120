@@ -183,8 +183,9 @@ function Update-DomeniaSearchActionStates {
     $selected=@($grid.SelectedItems)
     $recheck=Get-DomeniaControl 'BtnLiveRecheck'
     if($null -ne $recheck){$recheck.IsEnabled=($ready -and $selected.Count -eq 1 -and [string]$selected[0].Type -eq 'Machine')}
-    # UX-33: a work view listed over the whole domain never offers a survey of its workstations.
-    foreach($name in @('BtnParkResults','BtnParkPing','BtnParkAnalyze')){$button=Get-DomeniaControl $name;if($null -ne $button -and -not $script:DemoMode){$button.IsEnabled=($ready -and [bool]$script:SearchListHasMachine -and -not [bool]$script:ListSurveyBlocked)}}
+    # UI-23 / FO-18 / UX-33: « Vérifier la liste ▾ », its stop state and the bar of a multiple selection follow the list
+    # and its surveys; a work view listed over the whole domain never offers a survey of its workstations.
+    Update-DomeniaParkControls
 }
 function Test-DomeniaRowHasAccount {
     # User or group: its own account name. Workstation: the login of its linked account (decision David 2026-10-05).
@@ -875,9 +876,9 @@ function Invoke-DomeniaLiveTick {
         # D028: the save state is the rule label shared with Fiabilite (Get-DomeniaPersistenceState, Storage.UI).
         $save=(Get-DomeniaPersistenceState).Label
         $probe=if($script:DirectoryCredentialFaulted){'validation AD suspendue · revoir la connexion'}elseif($script:Live.RemoteFaulted){'compte distant refusé · détection suspendue'}elseif($script:Live.PendingKeys.Count -or $script:Live.Busy.Count){"poste sélectionné : $($script:Live.PendingKeys.Count) en attente, $($script:Live.Busy.Count) en cours"}elseif(-not $script:Live.VerifyOnClick){'Clic : fiche AD seulement, sans ping · Revérifier ce poste : un ping'}elseif(-not $script:Live.AutoDetect){'Clic : un ping du poste, utilisateur non lu · aucun contrôle collectif'}else{'Clic : un ping et lʼutilisateur connecté · aucun contrôle collectif'}
-        $stateText=$probe+' · '+$save
-        if($null -ne $script:ParkRun -and $script:ParkRun.Scope -eq 'Results' -and $script:ParkRun.StatusText -and $script:ParkRun.Epoch -eq [long]$script:SessionEpoch -and $script:ParkRun.Generation -eq [long]$script:GlobalSearchGeneration){$stateText=$script:ParkRun.StatusText}
-        [void](Set-DomeniaControlText 'LblLiveState' $stateText)
+        # UX-12: a survey of the list shows its own short count and bar (Update-DomeniaParkControls); this line keeps
+        # the state of the click verification and of the local saves.
+        [void](Set-DomeniaControlText 'LblLiveState' ($probe+' · '+$save))
     }finally{$script:Live.InTick=$false}
 }
 function Test-DomeniaLiveBackgroundAllowed {

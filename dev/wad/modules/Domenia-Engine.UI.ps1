@@ -133,7 +133,7 @@ function Set-DomeniaCredentialGuardContext {
         $script:DomeniaCredentialGuard=[hashtable]::Synchronized(@{Epoch=[long]$script:SessionEpoch;Faults=@{};Revision=0L;NotifiedRevision=0L})
     }
     $needs=Get-DomeniaOperationCredentialNeeds $OperationId
-    $local=([string]$needs.Provider -in @('Storage','Local') -or $OperationId -in @('LiveSelectedPing','ComputerPing','SelectedPresence','PresenceScan','WakeOnLanSend','ParkSharedSync','ConnectorRead'))
+    $local=([string]$needs.Provider -in @('Storage','Local') -or $OperationId -in @('LiveSelectedPing','ParkPing','ComputerPing','SelectedPresence','PresenceScan','WakeOnLanSend','ParkSharedSync','ConnectorRead'))
     $directory='';$remote='';$remoteAdmin=''
     if(-not $local){
         if([bool]$needs.Directory){
