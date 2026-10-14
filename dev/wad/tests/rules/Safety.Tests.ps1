@@ -539,3 +539,76 @@ Test-Case 'UX-08' 'Avant et apres en clair : ni DN ni GUID, aucun secret' {
     Assert-False ($all -match 'MARQUEUR') 'Secret visible'
     Assert-False ($all -match '(?i)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}') 'Un GUID apparait hors des details techniques'
 }
+Test-Case 'UI-18' 'Recus : etats en mots francais, puce par etat, attente identique au magasin de recus' {
+    $expected=@{Prepared=@('Interrompue avant lʼenvoi, à vérifier','Pending',$true);Sent=@('Envoyée, à vérifier','Pending',$true);Unknown=@('Envoyée, à vérifier','Pending',$true)
+        Verified=@('Vérifiée','Verified',$false);Delivered=@('Livrée','Delivered',$false);NotSent=@('Non envoyée','NotSent',$false);Reviewed=@('Revue manuelle','Reviewed',$false)}
+    # Every stage the receipt store can write is named (Get-DomeniaReceiptRequirement lists them).
+    foreach($stage in @((Get-DomeniaReceiptRequirement 'WriteUnlock').Stages)){Assert-True $expected.ContainsKey($stage) ('Etape sans libelle : '+$stage)}
+    foreach($stage in $expected.Keys){
+        $v=Get-DomeniaReceiptStageView $stage
+        Assert-Equal $expected[$stage][0] $v.Label $stage;Assert-Equal $expected[$stage][1] $v.Tone $stage;Assert-Equal $expected[$stage][2] $v.Pending $stage
+        # Same pending rule as the receipt store worker: every stage but the four terminal ones.
+        Assert-Equal ($stage -notin @('Verified','NotSent','Reviewed','Delivered')) $v.Pending ('Attente differente du magasin : '+$stage)
+        Assert-True ($v.Explanation.Length -gt 20) ('Explication absente : '+$stage)
+        Assert-False ($v.Label -cmatch '^(Prepared|Sent|Unknown|Verified|Delivered|NotSent|Reviewed)$') ('Etat brut affiche : '+$stage)
+    }
+    foreach($odd in @('','Bizarre',$null)){$v=Get-DomeniaReceiptStageView $odd;Assert-True $v.Pending 'Etape inconnue : jamais resolue';Assert-Equal 'Pending' $v.Tone;Assert-True ($v.Label -match 'inconnu') $v.Label}
+    Assert-True ((Get-DomeniaReceiptStageView 'Sent').Explanation -match 'bloquées') 'Blocage des ecritures non explique'
+    Assert-True ((Get-DomeniaReceiptStageView 'Reviewed').Explanation -match 'ne bloque plus') 'Etape terminale presentee comme bloquante'
+}
+Test-Case 'UI-18' 'Recus : operation et objet par leur nom, DN en infobulle, relecture reservee aux modifications de fiche' {
+    $receipt=[pscustomobject]@{Id=('a'*32);Operation='WriteUnlock';DN=$script:SfDnA;Identity='EX\adm-jd';Server='DC01.example.test';Stage='Sent';UpdatedUtc='2026-03-02T09:00:00.0000000Z';Review='';PlanFingerprint=''}
+    $v=Get-DomeniaReceiptView $receipt
+    Assert-Equal 'Déverrouillage du compte' $v.OperationLabel;Assert-Equal 'WriteUnlock' $v.Operation
+    Assert-Equal 'Jean Dupont' $v.ObjectName;Assert-Equal ('Nom distinctif : '+$script:SfDnA) $v.DnToolTip;Assert-Equal $script:SfDnA $v.DN
+    Assert-Equal 'Envoyée, à vérifier' $v.StageLabel;Assert-True $v.Pending;Assert-False $v.CanTryVerify 'Relecture proposee pour un deverrouillage'
+    Assert-Equal ([datetime]::SpecifyKind([datetime]'2026-03-02T09:00:00',[DateTimeKind]::Utc).ToLocalTime().ToString('dd/MM/yyyy HH:mm')) $v.UpdatedLabel
+    Assert-Equal '2026-03-02T09:00:00.0000000Z' $v.UpdatedUtc 'Cle de tri modifiee'
+    Assert-False ($v.ObjectName -match '(?i)\b(CN|OU|DC)\s*=') 'DN affiche comme objet'
+    $attr=Get-DomeniaReceiptView ([pscustomobject]@{Id=('b'*32);Operation='WriteAttributes';DN='OU=Paie,DC=example,DC=test';Stage='Unknown';UpdatedUtc=''})
+    Assert-True $attr.CanTryVerify 'Modification de fiche en attente : relecture possible';Assert-Equal 'Paie' $attr.ObjectName;Assert-Equal 'Date inconnue' $attr.UpdatedLabel
+    $done=Get-DomeniaReceiptView ([pscustomobject]@{Id=('c'*32);Operation='WriteAttributes';DN=$script:SfDnA;Stage='Verified'})
+    Assert-False $done.CanTryVerify 'Recu resolu : rien a relire';Assert-False $done.Pending
+    $unknown=Get-DomeniaReceiptView ([pscustomobject]@{Id=('d'*32);Operation='WriteSomethingNew';DN='';Stage='Sent'})
+    Assert-Equal 'WriteSomethingNew' $unknown.OperationLabel 'Nom invente pour une operation inconnue'
+    Assert-Equal 'Objet non indiqué' $unknown.ObjectName;Assert-True ($unknown.DnToolTip -match 'absent') $unknown.DnToolTip
+    Assert-Equal 'Opération non indiquée' (Get-DomeniaOperationDisplayName '')
+    foreach($op in @('WriteAttributes','WriteAccountDisabled','WriteUnlock','WriteResetPassword','WriteAccountOptions','WriteExpiration','WriteExpirePassword','WriteMoveObject','WriteObjectGroup','WriteGroupMember','WriteRenameComputer','WriteCreateOu','WriteDeleteObject','ComputerGpUpdate','ComputerRestart','RimotteRun','WakeOnLanSend')){
+        Assert-True ((Get-DomeniaOperationDisplayName $op) -cne $op) ('Operation sans nom lisible : '+$op)
+        Assert-True ((Get-DomeniaReceiptRequirement $op).Required) ('Operation nommee mais sans recu : '+$op)
+    }
+    Assert-True ((Get-DomeniaReceiptSummary -Total 3 -Pending 1) -match '^Une opération reste à vérifier') 'Resume singulier'
+    Assert-True ((Get-DomeniaReceiptSummary -Total 3 -Pending 2) -match '^2 opérations restent à vérifier') 'Resume pluriel'
+    Assert-True ((Get-DomeniaReceiptSummary -Total 0 -Pending 0) -match '^Aucun reçu') 'Liste vide'
+    Assert-True ((Get-DomeniaReceiptSummary -Total 4 -Pending 0) -match '4 reçus conservés') 'Recus resolus'
+}
+Test-Case 'UI-18' 'Revue dans la page : motif de 12 a 240 caracteres sans secret, actions selon le recu choisi' {
+    Assert-False (Test-DomeniaReceiptReviewReason '').Valid 'Motif vide'
+    Assert-False (Test-DomeniaReceiptReviewReason ('  '+('x'*11)+'  ')).Valid 'Onze caracteres apres retrait des blancs'
+    $ok=Test-DomeniaReceiptReviewReason ('  '+('x'*12)+'  ');Assert-True $ok.Valid;Assert-Equal ('x'*12) $ok.Text 'Motif non nettoye';Assert-Equal 12 $ok.Length
+    Assert-True (Test-DomeniaReceiptReviewReason ('y'*240)).Valid '240 caracteres refuses'
+    Assert-False (Test-DomeniaReceiptReviewReason ('y'*241)).Valid '241 caracteres acceptes'
+    $key=(1..8|ForEach-Object{'123456'}) -join '-'
+    foreach($secret in @(('Controle fait, cle '+$key),'Verifie avec password=Azerty123456','Teste ensuite par runas /p MotDePasse99')){
+        $r=Test-DomeniaReceiptReviewReason $secret
+        Assert-False $r.Valid ('Secret accepte : '+$secret);Assert-True ($r.Message -match 'secret') $r.Message
+    }
+    Assert-True (Test-DomeniaReceiptReviewReason 'Compte deverrouille constate dans la console ADUC').Valid 'Motif ordinaire refuse'
+    $none=Get-DomeniaReceiptActionView -View $null -Reason 'Controle fait dans ADUC'
+    Assert-False ($none.CanVerify -or $none.CanReview -or $none.ReasonEnabled) 'Action sans recu choisi'
+    $pending=Get-DomeniaReceiptView ([pscustomobject]@{Id=('a'*32);Operation='WriteUnlock';DN=$script:SfDnA;Stage='Sent'})
+    $a=Get-DomeniaReceiptActionView -View $pending -Reason 'court'
+    Assert-False $a.CanVerify 'Relecture proposee sans regle de relecture';Assert-True ($a.VerifyWhy -match 'autre outil') $a.VerifyWhy
+    Assert-False $a.CanReview 'Revue avec un motif trop court';Assert-True $a.ReasonEnabled 'Champ motif inactif';Assert-True ($a.ReviewWhy -match '12 au minimum') $a.ReviewWhy
+    Assert-True ($a.Selection -match '^Déverrouillage du compte · Jean Dupont · Envoyée, à vérifier\.') $a.Selection
+    $a=Get-DomeniaReceiptActionView -View $pending -Reason '  Compte deverrouille constate dans ADUC  '
+    Assert-True $a.CanReview 'Motif valide refuse';Assert-Equal 'Compte deverrouille constate dans ADUC' $a.Reason
+    $busy=Get-DomeniaReceiptActionView -View $pending -Reason 'Compte deverrouille constate dans ADUC' -Busy $true
+    Assert-False ($busy.CanVerify -or $busy.CanReview) 'Action pendant une lecture des recus';Assert-True ($busy.Selection -match 'en cours') $busy.Selection
+    $attr=Get-DomeniaReceiptView ([pscustomobject]@{Id=('b'*32);Operation='WriteAttributes';DN=$script:SfDnA;Stage='Unknown'})
+    Assert-True (Get-DomeniaReceiptActionView -View $attr).CanVerify 'Relecture refusee pour une modification de fiche'
+    $done=Get-DomeniaReceiptView ([pscustomobject]@{Id=('c'*32);Operation='WriteUnlock';DN=$script:SfDnA;Stage='Reviewed';Review='Constate dans ADUC le 02/03'})
+    $d=Get-DomeniaReceiptActionView -View $done -Reason 'Compte deverrouille constate dans ADUC'
+    Assert-False ($d.CanVerify -or $d.CanReview -or $d.ReasonEnabled) 'Action proposee sur un recu resolu'
+    Assert-True ($d.Selection -match 'ne bloque plus' -and $d.Selection -match 'Constate dans ADUC le 02/03') $d.Selection
+}

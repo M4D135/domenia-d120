@@ -3109,20 +3109,20 @@
   },
   {
     "Name": "BtnGuardReceiptVerify",
-    "Title": "Vérifier la postcondition",
-    "Text": "Relit la valeur attendue sur le contrôleur initial lorsque cette opération permet une vérification sûre.",
+    "Title": "Vérifier par relecture",
+    "Text": "Relit sur le contrôleur initial les valeurs attendues dʼune modification de fiche. Aucune commande nʼest renvoyée.",
     "Sensitive": false
   },
   {
     "Name": "BtnGuardReceiptReview",
-    "Title": "Consigner une revue externe",
-    "Text": "Après contrôle manuel réel, consigne une justification. Ne transforme pas l'action en succès automatique.",
+    "Title": "Consigner la revue",
+    "Text": "Enregistre dans le reçu le motif saisi, après votre contrôle réel. Le reçu devient « Revue manuelle », pas un succès automatique.",
     "Sensitive": false
   },
   {
     "Name": "DgGuardReceipts",
-    "Title": "DgGuardReceipts",
-    "Text": "Intentions et résultats durables. Une absence de confirmation reste à vérifier.",
+    "Title": "Reçus des opérations",
+    "Text": "Reçus des écritures envoyées par Domenia, ceux à vérifier en premier. Survolez lʼobjet pour lire son nom distinctif.",
     "Sensitive": false
   },
   {
@@ -4065,5 +4065,26 @@
     "Source": "specific",
     "Title": "Dates des mesures et du calcul",
     "Text": "Le ping et l’inventaire WMI conservent leurs dates propres. N/M compte les mesures utilisables parmi les postes actifs ; du… au… décrit leur intervalle de dates. Vue recalculée indique seulement la préparation locale de l’affichage, sans nouvelle collecte."
+  },
+  {
+    "Name": "LblGuardReceiptSelection",
+    "Title": "Reçu sélectionné",
+    "Text": "Ce que dit le reçu sélectionné et ce que vous pouvez en faire.",
+    "Kind": "TextBlock",
+    "Source": "X05"
+  },
+  {
+    "Name": "TxtGuardReceiptReason",
+    "Title": "Motif de la revue",
+    "Text": "Décrivez le contrôle réalisé avec un autre outil, en 12 à 240 caractères. Le motif est enregistré dans le reçu : nʼy saisissez ni mot de passe ni clé.",
+    "Kind": "TextBox",
+    "Source": "X05"
+  },
+  {
+    "Name": "LblGuardReceiptReasonCount",
+    "Title": "Longueur du motif",
+    "Text": "Longueur du motif saisi : 12 caractères au minimum, 240 au maximum.",
+    "Kind": "TextBlock",
+    "Source": "X05"
   }
 ]

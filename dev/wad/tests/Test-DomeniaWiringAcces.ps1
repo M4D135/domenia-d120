@@ -1,5 +1,5 @@
 ﻿#requires -Version 5.1
-# D051-D060 (lot acces) : preuves de raccordement. Chaque cas exerce le vrai code livre et echoue si la regle pure
+# D051-D060 (lot acces), UI-18, UI-31 et UX-18 (recus et secrets) : preuves de raccordement. Chaque cas exerce le vrai code livre et echoue si la regle pure
 # n'est plus appelee par l'application. Methode du projet : le vrai chargeur ferme Domenia-Modules.ps1 est
 # dot-source, les fonctions du coeur sont extraites par AST, seules les frontieres reseau (Start-UiTask, validation
 # de compte, recherche LDAP) et modales (Confirm-Action, Show-DomeniaDialog) sont doublees, les controles WPF sont
@@ -106,7 +106,7 @@ function Get-WriteControlMap {return @{Edit=@('BtnUserSave');Raw=@('BtnRawSet')}
 function Set-DomeniaProtectedClipboard {param([string]$Value,[int]$MaxLength=8192) $script:Clipboard.Add($Value)}
 function Start-SecretClipboardAutoClear {param([string]$Value) $script:ClipboardTimers++}
 function Start-UiTask {
-    param($Name,$OperationId,$Code,$Payload,$OnSuccess,$OnError,$SuccessHandler,$ErrorHandler,$DisableControls,$ReplaceKey,$TimeoutSeconds,$HardTimeoutSeconds,$StatusText,[switch]$IsWrite,[switch]$NonCancellable,$CorrelationId,$CallbackState)
+    param($Name,$OperationId,$Code,$Payload,$OnSuccess,$OnError,$SuccessHandler,$ErrorHandler,$DisableControls,$ReplaceKey,$TimeoutSeconds,$HardTimeoutSeconds,$StatusText,[switch]$IsWrite,[switch]$NonCancellable,$CorrelationId,$CallbackState,$TaskClass)
     $script:Tasks.Add([pscustomobject]@{Name=$Name;OperationId=$OperationId;Code=[string]$Code;Payload=$Payload;State=$CallbackState;SuccessHandler=$SuccessHandler;ErrorHandler=$ErrorHandler;StatusText=[string]$StatusText})
     return ('task-'+$script:Tasks.Count)
 }
@@ -552,11 +552,115 @@ Test-Case 'D060 Bilan des indisponibilites : transports et absence de reglage Wi
     Assert-True (@($lines|Where-Object{$_ -match 'aucun reglage Windows modifie'}).Count -eq 1)
 }
 
+# ================================================================ UI-18 receipts in plain words, review in the page
+# These cases run last: they give the real main window to the in-page confirmation (Domenia-Inline.UI.ps1), which
+# then stays laid over its content grid for the rest of the run.
+function Invoke-TestClick {param($Button) $Button.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Primitives.ButtonBase]::ClickEvent))}
+function New-ReceiptRow {param([string]$Id,[string]$Operation,[string]$Stage,[string]$Updated,[string]$Review='')
+    return [pscustomobject]@{Id=$Id;PlanFingerprint='';Operation=$Operation;DN='CN=Jean Dupont,OU=Utilisateurs,DC=example,DC=invalid';Identity='EXAMPLE\adm';Server='dc1.example.invalid';Stage=$Stage;UpdatedUtc=$Updated;Review=$Review}
+}
+function Initialize-ReceiptFixture {
+    # The real Guard initialisation wires the receipts view on the real controls; its heartbeat timer is stopped.
+    $script:Window=$script:MainWindow;$script:AsyncJobs=@{}
+    if($null -eq $script:Guard){Initialize-DomeniaGuard}
+    if($null -ne $script:Guard.Timer){try{$script:Guard.Timer.Stop()}catch{}}
+    $script:Guard.ReceiptJob='';$script:Guard.PendingChoice=$null
+    $script:Ctrl.TxtGuardReceiptReason.Text=''
+}
+function Get-ListState {return [pscustomobject]@{Epoch=[long]$script:SessionEpoch;Action='List';Id=''}}
+Test-Case 'UI-18 Recus en clair dans la vraie grille : etat, operation, objet, DN en infobulle, a verifier en premier' {
+    Initialize-ReceiptFixture
+    Start-DomeniaReceiptRefresh
+    $task=@($script:Tasks|Where-Object{$_.OperationId -eq 'ReceiptStore'})[-1]
+    Assert-True ($null -ne $task -and $task.Payload.Action -eq 'List' -and $task.SuccessHandler -eq 'Complete-DomeniaReceiptRefresh') 'Lecture des recus non lancee'
+    $rows=@((New-ReceiptRow ('a'*32) 'WriteAttributes' 'Verified' '2026-10-01T08:00:00.0000000Z'),(New-ReceiptRow ('b'*32) 'WriteUnlock' 'Sent' '2026-09-30T08:00:00.0000000Z'),(New-ReceiptRow ('c'*32) 'WriteExpiration' 'Delivered' '2026-10-02T08:00:00.0000000Z'))
+    Complete-DomeniaReceiptRefresh ([pscustomobject]@{Rows=$rows;Pending=1}) $task.State
+    $bound=@($script:Ctrl.DgGuardReceipts.ItemsSource)
+    Assert-True ($bound.Count -eq 3 -and $script:ReceiptReady -and $script:ReceiptPending -eq 1) 'Lignes ou etat des recus'
+    Assert-True ($bound[0].Id -eq ('b'*32) -and $bound[0].Tone -eq 'Pending' -and $bound[1].Id -eq ('c'*32) -and $bound[2].Id -eq ('a'*32)) 'Ordre : a verifier, puis du plus recent au plus ancien'
+    Assert-True ($bound[0].StageLabel -eq 'Envoyée, à vérifier' -and $bound[1].StageLabel -eq 'Livrée' -and $bound[2].StageLabel -eq 'Vérifiée') 'Etat brut affiche'
+    Assert-True ($bound[0].OperationLabel -eq 'Déverrouillage du compte' -and $bound[0].ObjectName -eq 'Jean Dupont' -and $bound[0].DnToolTip -match 'CN=Jean Dupont,OU=Utilisateurs') 'Operation, objet ou infobulle'
+    Assert-True ([string]$script:Ctrl.LblGuardReceipts.Text -match '^Une opération reste à vérifier') ([string]$script:Ctrl.LblGuardReceipts.Text)
+    $columns=@($script:Ctrl.DgGuardReceipts.Columns)
+    Assert-True ((@($columns|ForEach-Object{[string]$_.Header}) -join '|') -eq 'État|Opération|Objet|Mis à jour|Compte|Contrôleur') 'Colonnes'
+    $paths=@($columns|Where-Object{$_ -is [Windows.Controls.DataGridBoundColumn]}|ForEach-Object{[string]$_.Binding.Path.Path})
+    Assert-True (($paths -notcontains 'Stage') -and ($paths -notcontains 'DN') -and ($paths -notcontains 'Operation')) ('Colonne brute : '+($paths -join ','))
+    # The chip of the real template: the stage in words on a pastel background chosen by its tone.
+    $chip=$columns[0].CellTemplate.LoadContent();$chip.DataContext=$bound[0]
+    $chip.Measure([Windows.Size]::new(300,40));[Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([Action]{},[Windows.Threading.DispatcherPriority]::DataBind)
+    Assert-True ($chip -is [Windows.Controls.Border] -and [string]$chip.Child.Text -eq 'Envoyée, à vérifier') 'Puce sans libelle'
+    Assert-True ([string]$chip.Background.Color -eq '#FFFEF3C7') ('Couleur de la puce a verifier : '+[string]$chip.Background.Color)
+    Assert-True ([string]$chip.ToolTip -match 'bloquées') 'Infobulle de la puce sans explication'
+}
+Test-Case 'UI-18 Revue dans la page : motif controle, confirmation dans la page, aucune fenetre, motif fige, un seul envoi' {
+    Initialize-ReceiptFixture
+    Complete-DomeniaReceiptRefresh ([pscustomobject]@{Rows=@((New-ReceiptRow ('b'*32) 'WriteUnlock' 'Sent' '2026-09-30T08:00:00.0000000Z'),(New-ReceiptRow ('d'*32) 'WriteAttributes' 'Unknown' '2026-09-29T08:00:00.0000000Z'));Pending=2}) (Get-ListState)
+    $grid=$script:Ctrl.DgGuardReceipts;$box=$script:Ctrl.TxtGuardReceiptReason
+    $grid.SelectedItem=@($grid.Items|Where-Object{$_.Id -eq ('b'*32)})[0]
+    Assert-True ([string]$script:Ctrl.LblGuardReceiptSelection.Text -match 'Vérification automatique indisponible') ([string]$script:Ctrl.LblGuardReceiptSelection.Text)
+    Assert-True ((-not $script:Ctrl.BtnGuardReceiptVerify.IsEnabled) -and (-not $script:Ctrl.BtnGuardReceiptReview.IsEnabled) -and $box.IsEnabled) 'Etat initial de la zone de revue'
+    $box.Text='trop court'
+    Assert-True ((-not $script:Ctrl.BtnGuardReceiptReview.IsEnabled) -and ([string]$script:Ctrl.LblGuardReceiptReasonCount.Text -match '12 au minimum')) 'Motif trop court accepte'
+    $box.Text='Verifie avec password=Azerty123456'
+    Assert-True ((-not $script:Ctrl.BtnGuardReceiptReview.IsEnabled) -and ([string]$script:Ctrl.LblGuardReceiptReasonCount.Text -match 'secret')) 'Secret accepte dans le motif'
+    $box.Text='  Compte deverrouille constate dans la console ADUC  '
+    Assert-True ($script:Ctrl.BtnGuardReceiptReview.IsEnabled) 'Motif valide refuse'
+    $before=$script:Tasks.Count
+    Invoke-TestClick $script:Ctrl.BtnGuardReceiptReview
+    $panel=Get-DomeniaControl 'InlineRequestPanel'
+    Assert-True ($null -ne $panel -and $panel.Visibility -eq [Windows.Visibility]::Visible) 'Confirmation absente de la page'
+    Assert-True ($script:ConfirmCalls.Count -eq 0 -and $script:Dialogs.Count -eq 0 -and $script:Popups.Count -eq 0 -and $script:MainWindow.OwnedWindows.Count -eq 0) 'Une fenetre ou une boite a ete ouverte'
+    Assert-True ($script:Tasks.Count -eq $before) 'Revue envoyee avant la reponse'
+    Assert-True ([string](Get-DomeniaControl 'LblInlineRequestChanges').Text -match 'Compte deverrouille constate dans la console ADUC') 'Motif absent de la confirmation'
+    $box.Text='Autre texte saisi apres la demande, ignore'
+    Invoke-TestClick (Get-DomeniaControl 'BtnInlineRequestConfirm')
+    $task=$script:Tasks[$script:Tasks.Count-1]
+    Assert-True ($script:Tasks.Count -eq ($before+1) -and $task.OperationId -eq 'ReceiptStore' -and $task.Payload.Action -eq 'Review' -and $task.Payload.Id -eq ('b'*32)) 'Revue non lancee'
+    Assert-True ([string]$task.Payload.Reason -ceq 'Compte deverrouille constate dans la console ADUC') ('Motif envoye : '+[string]$task.Payload.Reason)
+    Assert-True (-not $script:Ctrl.BtnGuardReceiptReview.IsEnabled) 'Revue relancable pendant son enregistrement'
+    Invoke-TestClick (Get-DomeniaControl 'BtnInlineRequestConfirm')
+    Assert-True ($script:Tasks.Count -eq ($before+1)) 'Revue envoyee deux fois'
+    $done=@((New-ReceiptRow ('b'*32) 'WriteUnlock' 'Reviewed' '2026-10-02T09:00:00.0000000Z' 'Compte deverrouille constate dans la console ADUC'),(New-ReceiptRow ('d'*32) 'WriteAttributes' 'Unknown' '2026-09-29T08:00:00.0000000Z'))
+    Complete-DomeniaReceiptRefresh ([pscustomobject]@{Rows=$done;Pending=1}) $task.State
+    Assert-True (@($script:StatusLines|Where-Object{$_ -match 'Revue consignée'}).Count -eq 1) 'Issue de la revue non annoncee'
+    Assert-True ([string]$box.Text -eq '') 'Motif conserve apres la revue'
+    Assert-True ([string]$grid.SelectedItem.Id -eq ('b'*32) -and [string]$grid.SelectedItem.StageLabel -eq 'Revue manuelle') 'Selection perdue ou etat brut'
+    Assert-True ([string]$script:Ctrl.LblGuardReceiptSelection.Text -match 'Motif consigné') ([string]$script:Ctrl.LblGuardReceiptSelection.Text)
+    # A receipt left as it was is never reported as reviewed.
+    Complete-DomeniaReceiptRefresh ([pscustomobject]@{Rows=@((New-ReceiptRow ('d'*32) 'WriteAttributes' 'Unknown' '2026-09-29T08:00:00.0000000Z'));Pending=1}) ([pscustomobject]@{Epoch=[long]$script:SessionEpoch;Action='Review';Id=('d'*32)})
+    Assert-True (@($script:StatusLines|Where-Object{$_ -match 'nʼa pas changé'}).Count -eq 1) 'Revue annoncee sans changement du recu'
+}
+Test-Case 'UI-18 Relecture proposee pour une modification de fiche, annulable, retiree au changement de session, refus explique' {
+    Initialize-ReceiptFixture
+    Complete-DomeniaReceiptRefresh ([pscustomobject]@{Rows=@((New-ReceiptRow ('d'*32) 'WriteAttributes' 'Unknown' '2026-09-29T08:00:00.0000000Z'));Pending=1}) (Get-ListState)
+    $grid=$script:Ctrl.DgGuardReceipts
+    $grid.SelectedItem=@($grid.Items)[0]
+    Assert-True ($script:Ctrl.BtnGuardReceiptVerify.IsEnabled -and (-not $script:Ctrl.BtnGuardReceiptReview.IsEnabled)) 'Relecture non proposee'
+    $before=$script:Tasks.Count
+    Invoke-TestClick $script:Ctrl.BtnGuardReceiptVerify
+    Assert-True ((Get-DomeniaControl 'InlineRequestPanel').Visibility -eq [Windows.Visibility]::Visible -and $script:ConfirmCalls.Count -eq 0) 'Confirmation hors de la page'
+    Invoke-TestClick (Get-DomeniaControl 'BtnInlineRequestCancel')
+    Assert-True ($script:Tasks.Count -eq $before -and $null -eq $script:Guard.PendingChoice) 'Annulation avec effet'
+    Assert-True (@($script:StatusLines|Where-Object{$_ -match 'annulée'}).Count -eq 1) 'Annulation non annoncee'
+    Invoke-TestClick $script:Ctrl.BtnGuardReceiptVerify
+    $script:SessionEpoch=8L
+    Invoke-TestClick (Get-DomeniaControl 'BtnInlineRequestConfirm')
+    Assert-True ($script:Tasks.Count -eq $before) 'Relecture lancee apres un changement de session'
+    $script:SessionEpoch=7L
+    Invoke-TestClick $script:Ctrl.BtnGuardReceiptVerify
+    Invoke-TestClick (Get-DomeniaControl 'BtnInlineRequestConfirm')
+    $task=$script:Tasks[$script:Tasks.Count-1]
+    Assert-True ($script:Tasks.Count -eq ($before+1) -and $task.Payload.Action -eq 'Verify' -and $task.Payload.Id -eq ('d'*32) -and [string]$task.Payload.Reason -eq '') 'Relecture non lancee'
+    Fail-DomeniaReceiptRefresh 'Valeur attendue non confirmee. Aucun rejeu.' $task.State
+    Assert-True ([string]$script:Ctrl.LblGuardReceipts.Text -match '^Vérification non aboutie' -and [string]$script:Ctrl.LblGuardReceipts.Text -match 'aucune commande') ([string]$script:Ctrl.LblGuardReceipts.Text)
+    Assert-True ((-not $script:ReceiptReady) -and $script:Guard.ReceiptJob -eq '') 'Recus consideres confirmes apres un refus'
+}
+
 if($null -ne $script:SecretRevealTimer){try{$script:SecretRevealTimer.Stop()}catch{}}
 if($null -ne $script:MainWindow){try{$script:MainWindow.Close()}catch{}}
 $passed=@($script:Checks|Where-Object{$_.Status -eq 'Passed'}).Count;$failed=@($script:Checks|Where-Object{$_.Status -eq 'Failed'}).Count
 if(-not $ReportPath){$ReportPath=Join-Path ([IO.Path]::GetTempPath()) ('Domenia-wiring-acces-'+[guid]::NewGuid().ToString('N')+'.json')}
-$report=[ordered]@{Suite='Test-DomeniaWiringAcces';Lot='acces';Points=@('D051','D052','D053','D054','D055','D056','D057','D058','D059','D060');Host=$PSVersionTable.PSVersion.ToString();NativeWindowsPowerShell=$native;Wpf=$true;MockedNetwork=$true;LiveAD=$false;LiveCIM=$false;Passed=$passed;Failed=$failed;Complete=($failed -eq 0 -and $passed -gt 0);Tests=$script:Checks.ToArray()}
+$report=[ordered]@{Suite='Test-DomeniaWiringAcces';Lot='acces';Points=@('D051','D052','D053','D054','D055','D056','D057','D058','D059','D060','UI-18','UI-31','UX-18');Host=$PSVersionTable.PSVersion.ToString();NativeWindowsPowerShell=$native;Wpf=$true;MockedNetwork=$true;LiveAD=$false;LiveCIM=$false;Passed=$passed;Failed=$failed;Complete=($failed -eq 0 -and $passed -gt 0);Tests=$script:Checks.ToArray()}
 [IO.File]::WriteAllText([IO.Path]::GetFullPath($ReportPath),($report|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
 if(-not $Quiet){Write-Host ("$passed reussis, $failed en echec. Rapport : "+$ReportPath);$script:Checks|Where-Object{$_.Status -eq 'Failed'}|ForEach-Object{Write-Host ('  ECHEC '+$_.Name+' : '+$_.Detail)}}
 if(-not $report.Complete){exit 1}
