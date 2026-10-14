@@ -365,7 +365,7 @@ function Format-DomeniaObservationProvenance {
     $parts=[Collections.Generic.List[string]]::new()
     $parts.Add('Réussite UTC : '+$(if($success){$success}else{'aucune'}))
     $line='Tentative UTC : '+$(if($attempt){$attempt}else{'inconnue'})
-    if(($status -ne 'Success') -and $failure){$line+=' (non confirmée : '+(ConvertTo-DomeniaCollectionText $failure 240)+')'}
+    if(($status -ne 'Success') -and ($failure)){$line+=' (non confirmée : '+(ConvertTo-DomeniaCollectionText $failure 240)+')'}
     $parts.Add($line)
     $parts.Add('Écriture locale UTC : '+$(if($recorded){$recorded}else{'non conservée'}))
     if($definition){$parts.Add('Définition de collecte : '+$definition.Substring(0,[Math]::Min(12,$definition.Length)))}
