@@ -14,16 +14,16 @@
     "Source": "specific-sensitive"
   },
   {
-    "Name": "TxtLoginPasswordVisible",
-    "Title": "Mot de passe",
-    "Text": "Saisie protégée : l’aide contextuelle ne lit jamais la valeur de ce champ.",
-    "Kind": "TextBox",
-    "Source": "specific-sensitive"
+    "Name": "LblLoginPasswordPeek",
+    "Title": "Mot de passe affiché",
+    "Text": "Mot de passe affiché pendant 5 secondes, en lecture seule, sans copie possible.",
+    "Kind": "TextBlock",
+    "Source": "X03"
   },
   {
     "Name": "BtnRevealLogin",
-    "Title": "Afficher ou masquer temporairement le mot de passe",
-    "Text": "Afficher ou masquer temporairement le mot de passe.",
+    "Title": "Afficher le mot de passe pendant 5 secondes",
+    "Text": "Affiche le mot de passe saisi pendant 5 secondes, en lecture seule. Rien nʼest copié ni enregistré.",
     "Kind": "Button",
     "Source": "existing-help"
   },
@@ -1889,16 +1889,16 @@
     "Source": "specific-sensitive"
   },
   {
-    "Name": "TxtMachineAdminVisible",
-    "Title": "Mot de passe",
-    "Text": "Saisie protégée : l’aide contextuelle ne lit jamais la valeur de ce champ.",
-    "Kind": "TextBox",
-    "Source": "specific-sensitive"
+    "Name": "LblMachineAdminPeek",
+    "Title": "Mot de passe affiché",
+    "Text": "Mot de passe affiché pendant 5 secondes, en lecture seule, sans copie possible.",
+    "Kind": "TextBlock",
+    "Source": "X03"
   },
   {
     "Name": "BtnRevealMachineAdmin",
-    "Title": "Afficher ou masquer le mot de passe du compte poste",
-    "Text": "Afficher ou masquer le mot de passe du compte poste.",
+    "Title": "Afficher le mot de passe du compte poste pendant 5 secondes",
+    "Text": "Affiche le mot de passe du compte poste pendant 5 secondes, en lecture seule. Rien nʼest copié ni enregistré.",
     "Kind": "Button",
     "Source": "existing-help"
   },

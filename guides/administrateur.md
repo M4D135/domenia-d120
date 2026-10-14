@@ -989,6 +989,7 @@ Domenia peut utiliser trois identités indépendantes : l'annuaire, les postes e
 
 - Le champ « Compte Windows » accepte DOMAINE\identifiant, identifiant@domaine ou le format habituel. Un identifiant nu est complété par Conf.NETBIOS ou Conf.DOMAINE s'ils sont renseignés.
 - Un compte ordinateur est refusé comme identité interactive.
+- « Afficher », à droite du mot de passe, le montre pendant 5 secondes dans une zone en lecture seule, sans copie possible ; il se masque aussi au second clic ou dès que la saisie change.
 - « Mémoriser uniquement l’identifiant » garde l'identifiant dans HKCU:\Software\DOMENIA (valeurs RememberLogin et LastLogin). Le mot de passe n'est jamais mémorisé.
 - « Utiliser mon compte Windows » s'appuie sur la session Windows courante, sans mot de passe. Il n'apparaît que si Auth.AllowWindowsSession est vrai (défaut), et reste grisé hors d'une session de domaine.
 - Découverte : avec Conf.AutoDiscover vrai (défaut), domaine et contrôleur sont découverts ; avec faux, Conf.DOMAINE, Conf.NETBIOS, Conf.SearchBase et Conf.Server s'appliquent.
@@ -1094,7 +1095,7 @@ La démonstration montre l'interface sans aucune connexion AD, avec des données
 
 ## Fenêtre de connexion Debug
 
-Le mode Debug affiche une trace technique de la connexion en direct (titre « Domenia 1.0  Connexion », bandeau « MODE DEBUG  diagnostic de connexion en direct »). Domenia choisit le mode dans cet ordre :
+Le mode Debug est la fenêtre de connexion standard à laquelle s'ajoute, sous le formulaire, le volet « Diagnostic de connexion » : l'étape en cours et la trace technique, en direct (titre « Domenia · Connexion · diagnostic »). Le reste de la fenêtre est identique ; la trace est celle que copie « Copier le diagnostic ». Domenia choisit le mode dans cet ordre :
 
 1. **Marqueur.** Un fichier wad\Domenia.login.debug présent impose Debug.
 2. **Fichier de mode.** wad\Domenia.login-mode.cfg contient Standard ou Debug.
@@ -1583,7 +1584,7 @@ Domenia lit par défaut, n'envoie rien sur le réseau sans geste explicite et ne
 | Lecture par défaut | Démarrage toujours en lecture seule ; passage en écriture confirmé et signalé en rouge (chapitre 14). |
 | Aucune sonde sans geste | Pas de mise à jour de la base ni de relevé au démarrage. Un relevé exige un périmètre explicite et une confirmation du nombre de cibles ; il lit de 1 à 8 postes en parallèle selon le réglage. Dans l’Atelier, le périmètre est l’OU affichée avec ses sous-OU. |
 | Pas de rejeu | Une écriture n'est jamais rejouée automatiquement ; les reçus servent à vérifier. |
-| Secrets en mémoire | Mots de passe jamais enregistrés, effacés à la fermeture ; seul l'identifiant peut être mémorisé. LAPS et BitLocker : une valeur à la fois, jamais journalisée ni mise en cache, presse-papiers vidé après 30 s. |
+| Secrets en mémoire | Mots de passe jamais enregistrés, effacés à la fermeture ; seul l'identifiant peut être mémorisé. Un mot de passe saisi est lu en SecureString et n'est jamais recopié dans un champ modifiable ; « Afficher » le montre 5 s en lecture seule. LAPS et BitLocker : une valeur à la fois, jamais journalisée ni mise en cache, presse-papiers vidé après 30 s. |
 | Windows intact | Aucun certificat accepté à l'aveugle ; WinRM, pare-feu, antivirus et stratégies jamais modifiés. Le déblocage du paquet ne change aucune stratégie. |
 | Transports intrusifs | ADMIN$, Planificateur et PsExec inactifs sans l'autorisation de 5 minutes pour le poste ; avec elle, ils servent aussi de repli à certaines lectures quand CIM échoue (chapitre 5). |
 | Intégrité | Manifeste vérifié à chaque démarrage, chargeur fermé, registre des workers épinglé. |
@@ -1593,6 +1594,8 @@ Domenia lit par défaut, n'envoie rien sur le réseau sans geste explicite et ne
 > [!ATTENTION] Le manifeste n'est pas une signature. Domenia.exe et le runtime livrés ne sont pas signés. Pour une diffusion qui exige une signature : tools\Signer-Distribution.ps1 signe les scripts de la copie préparée (build_packages.py --stage-dir) avec un certificat de signature de code approuvé, puis, après la construction, le catalogue du manifeste livré (-ManifestCatalog). Domenia.exe et les composants tiers ne sont pas re-signés : tools\Test-DomeniaSignature.ps1 les accepte pour leur empreinte épinglée dans tools\release-contract.json. Ce contrôle est hors ligne et rend séparément l'intégrité et l'éditeur ; -RequireSignature exige les scripts signés et les binaires épinglés, -RequireSignedManifest exige aussi le catalogue signé, seul à couvrir les fichiers non signables (.json, .xaml, .cs, .cmd, .ico, verrou).
 
 > [!NOTE] Données réelles. Les journaux, exports et diagnostics contiennent des noms de comptes, de postes, de domaines et des chemins internes : ils ne sont pas anonymisés. Relisez-les avant tout partage.
+
+> [!NOTE] Limite de Windows PowerShell 5.1. L'API DirectoryEntry n'accepte le mot de passe que sous forme de chaîne. Au moment de chaque liaison à l'annuaire, Domenia en tire une copie depuis la SecureString et la remet aussitôt à Windows, sans la conserver, la journaliser ni l'afficher. Cette copie est immuable : aucune instruction ne peut l'effacer, elle disparaît quand le ramasse-miettes .NET libère la mémoire. Les variables vidées dans le code ne constituent donc pas un effacement.
 
 # 20 Journaux et diagnostic
 

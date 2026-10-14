@@ -1,0 +1,7 @@
+[
+ "Test-DomeniaTheme :: * / Get-LoginXamlLegacy",
+ "Test-DomeniaTheme :: * / Get-DomeniaDebugLoginXaml",
+ "Test-DomeniaLoginVault :: Real XAML contains explicit unchecked consent and manual buttons in both modes",
+ "Test-DomeniaLoginVault :: Windows renders both login forms with native vault controls",
+ "Test-DomeniaLogin :: Credentials reels : message de refus conserve"
+]

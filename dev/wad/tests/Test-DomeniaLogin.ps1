@@ -475,6 +475,68 @@ Test-LoginCase 'Coeur : la fenetre principale repasse par la regle juste avant S
     Assert-Login (-not $source.Contains('{ $script:Window.ShowActivated = $false }')) 'Ancienne desactivation brute encore presente.'
     Assert-Login (-not $source.Contains('{ $win.ShowActivated = $false }')) 'Ancienne desactivation brute encore presente (moniteur).'
 }
+# --- SE-16 et CD-10 (lot X03) : mot de passe de connexion et gabarit unique
+. (Join-Path $root 'wad\modules\Domenia-Accounts.UI.ps1')
+$script:PeekTimers=@{}
+function New-DomeniaTimer {
+    # Double of the timer factory: records the one-shot timer of the reveal; its tick is invoked by the case itself.
+    param([string]$Owner,[int]$IntervalMs,[scriptblock]$Tick,[switch]$Standalone,[switch]$RunWhenHidden,$Tag)
+    $t=[pscustomobject]@{Owner=$Owner;IntervalMs=$IntervalMs;Tick=$Tick;Tag=$Tag;Enabled=$false;Standalone=[bool]$Standalone;RunWhenHidden=[bool]$RunWhenHidden}
+    $t|Add-Member -MemberType ScriptMethod -Name Start -Value {$this.Enabled=$true}
+    $t|Add-Member -MemberType ScriptMethod -Name Stop -Value {$this.Enabled=$false}
+    $script:PeekTimers[$Owner]=$t
+    return $t
+}
+function New-TestPeekControls {
+    Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
+    $box=[Windows.Controls.PasswordBox]::new();$box.Password='TEST-ONLY peek value'
+    $display=[Windows.Controls.TextBlock]::new()
+    $overlay=[Windows.Controls.Border]::new();$overlay.Visibility=[Windows.Visibility]::Collapsed;$overlay.Child=$display
+    $button=[Windows.Controls.Button]::new();$button.Content='Afficher'
+    return [pscustomobject]@{Box=$box;Display=$display;Overlay=$overlay;Button=$button}
+}
+Test-LoginCase 'SE-16 : affichage en lecture seule masque apres 5 s, texte efface' {
+    $c=New-TestPeekControls
+    Assert-Login (Show-DomeniaSecretPeek -PasswordBox $c.Box -Overlay $c.Overlay -Display $c.Display -Button $c.Button -Owner 'Timer:TestPeek' -Standalone) 'Affichage refuse'
+    $t=$script:PeekTimers['Timer:TestPeek']
+    Assert-Login ($c.Overlay.Visibility -eq [Windows.Visibility]::Visible -and $c.Display.Text -ceq 'TEST-ONLY peek value' -and [string]$c.Button.Content -eq 'Masquer') 'Affichage incomplet'
+    Assert-Login ($t.IntervalMs -eq 5000 -and $t.Enabled -and $t.Standalone -and $t.RunWhenHidden) 'Minuterie de 5 s absente'
+    & $t.Tick $t $null
+    Assert-Login ($c.Overlay.Visibility -eq [Windows.Visibility]::Collapsed -and $c.Display.Text -eq '' -and [string]$c.Button.Content -eq 'Afficher' -and -not $t.Enabled) 'Mot de passe encore visible apres le delai'
+    Assert-Login ($c.Box.Password -ceq 'TEST-ONLY peek value') 'La saisie a ete modifiee par l affichage'
+}
+Test-LoginCase 'SE-16 : second clic, masquage explicite, champ desactive ou vide : rien ne reste affiche' {
+    $c=New-TestPeekControls
+    [void](Show-DomeniaSecretPeek -PasswordBox $c.Box -Overlay $c.Overlay -Display $c.Display -Button $c.Button -Owner 'Timer:TestPeek2')
+    Assert-Login (-not (Show-DomeniaSecretPeek -PasswordBox $c.Box -Overlay $c.Overlay -Display $c.Display -Button $c.Button -Owner 'Timer:TestPeek2')) 'Le second clic n a pas masque'
+    Assert-Login ($c.Overlay.Visibility -eq [Windows.Visibility]::Collapsed -and $c.Display.Text -eq '' -and [string]$c.Button.Content -eq 'Afficher') 'Second clic sans effet'
+    [void](Show-DomeniaSecretPeek -PasswordBox $c.Box -Overlay $c.Overlay -Display $c.Display -Owner 'Timer:TestPeek2')
+    Hide-DomeniaSecretPeek -Owner 'Timer:TestPeek2'
+    Assert-Login ($c.Display.Text -eq '' -and -not $script:PeekTimers['Timer:TestPeek2'].Enabled) 'Masquage explicite incomplet'
+    $c.Box.IsEnabled=$false
+    Assert-Login ((-not (Show-DomeniaSecretPeek -PasswordBox $c.Box -Overlay $c.Overlay -Display $c.Display -Owner 'Timer:TestPeek2')) -and $c.Display.Text -eq '') 'Champ desactive affiche'
+    $c.Box.IsEnabled=$true;$c.Box.Password=''
+    Assert-Login ((-not (Show-DomeniaSecretPeek -PasswordBox $c.Box -Overlay $c.Overlay -Display $c.Display -Owner 'Timer:TestPeek2')) -and $c.Overlay.Visibility -eq [Windows.Visibility]::Collapsed) 'Champ vide affiche'
+}
+Test-LoginCase 'SE-16 / CD-10 : un seul gabarit, aucun champ de mot de passe editable en clair' {
+    foreach ($dead in @('Get-LoginXamlLegacy','Get-DomeniaDebugLoginXaml','Toggle-DomeniaFastLoginPassword','Toggle-MachineCredentialPassword','Convert-DomeniaLoginFailureMessage','Get-DomeniaLoginFailureHint')) {
+        Assert-Login (@($nodes | Where-Object { $_.Name -eq $dead }).Count -eq 0) ('Fonction retiree encore presente : '+$dead)
+    }
+    $def=Get-TestDefinition 'Get-DomeniaStandardLoginXaml'
+    [xml]$x=[regex]::Match($def,'(?s)@"\r?\n(.*?)\r?\n"@').Groups[1].Value
+    $ns=New-Object Xml.XmlNamespaceManager $x.NameTable
+    $ns.AddNamespace('w','http://schemas.microsoft.com/winfx/2006/xaml/presentation');$ns.AddNamespace('x','http://schemas.microsoft.com/winfx/2006/xaml')
+    Assert-Login (@($x.SelectNodes('//w:TextBox[contains(@x:Name,"Password")]',$ns)).Count -eq 0) 'TextBox de mot de passe present'
+    $peek=$x.SelectSingleNode('//w:TextBlock[@x:Name="LblLoginPasswordPeek"]',$ns)
+    Assert-Login ($null -ne $peek -and $peek.ParentNode.GetAttribute('Visibility') -eq 'Collapsed' -and $peek.ParentNode.GetAttribute('IsHitTestVisible') -eq 'False') 'Superposition absente ou visible au repos'
+    Assert-Login ($null -ne $x.SelectSingleNode('//w:Button[@x:Name="BtnRevealLogin"]',$ns)) 'Bouton Afficher absent'
+    Assert-Login ($x.SelectSingleNode('//*[@x:Name="LoginDiagnosticBuffer"]',$ns).GetAttribute('Visibility') -eq 'Collapsed') 'Volet de diagnostic visible en mode standard'
+    $start=Get-TestDefinition 'Start-DomeniaFastLoginAttempt'
+    Assert-Login ($start.Contains('$secret=$ui.Password.SecurePassword') -and $start -notmatch '\$ui\.Password\.Password(?!\s*=)' -and $start -notmatch 'PasswordVisible') 'Lecture du mot de passe en clair'
+    Assert-Login ((Get-TestDefinition 'New-DomeniaFastLoginSession') -notmatch '\[string\]\$Password\b') 'Session construite depuis une chaine'
+    $show=Get-TestDefinition 'Show-LoginWindow'
+    Assert-Login ($show.Contains('Show-DomeniaLoginDiagnosticPanel') -and $show.Contains('Add_PasswordChanged')) 'Mode Debug ou masquage a la saisie non raccordes'
+}
 $passed=@($script:LoginTestResults | Where-Object Status -eq PASS).Count
 $failed=@($script:LoginTestResults | Where-Object Status -eq FAIL).Count
 $report=[ordered]@{
