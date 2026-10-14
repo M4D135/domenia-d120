@@ -60,21 +60,28 @@ function Test-DomeniaParkLinkChanged {
 
 function New-DomeniaCollectionPlan {
     # Reuse only measurements of this object identity, each with its own timestamp. Errors are always retried.
-    param($Previous,[string]$Guid,[string]$Key,[object[]]$Probes=@(),[bool]$Inventory=$false,[int]$CacheMinutes=15,[datetime]$NowUtc=[datetime]::UtcNow)
+    # Point 11: $Freshness is the resolved table of the usage profile (Inventory, StaticProbe, VolatileProbe in
+    # seconds). The duration kept is the shortest of the family and of CacheMinutes; 0 forces a new read.
+    param($Previous,[string]$Guid,[string]$Key,[object[]]$Probes=@(),[bool]$Inventory=$false,[int]$CacheMinutes=15,[datetime]$NowUtc=[datetime]::UtcNow,$Freshness=$null)
     $valid=($null -ne $Previous -and $Guid -and [string]$Previous.Guid -ieq $Guid -and [string]$Previous.Key -ieq $Key)
     $minutes=[Math]::Max(0,[Math]::Min(1440,$CacheMinutes));$reuse=0;$readInventory=$Inventory
+    $familySeconds={param([string]$Family,[int]$Default)
+        $value=$Default;$table=Get-DomeniaMember $Freshness 'Seconds' $Freshness
+        if(($table -is [Collections.IDictionary]) -and $table.Contains($Family)){$value=[int]$table[$Family]}
+        return [int][Math]::Max(0,[Math]::Min([double]$value,[double]($minutes*60)))
+    }
     $fresh={param($Value,[int]$Seconds)
         if($null -eq $Value -or $Seconds -le 0 -or [string](Get-DomeniaMember $Value 'Error') -or [string](Get-DomeniaMember $Value 'Skipped') -or [bool](Get-DomeniaMember $Value 'Truncated' $false)){return $false}
         $at=ConvertFrom-DomeniaUtcText ([string](Get-DomeniaMember $Value 'CheckedUtc'))
         return ($null -ne $at -and $at -le $NowUtc.AddMinutes(1) -and ($NowUtc-$at).TotalSeconds -lt $Seconds)
     }
-    if($valid -and $Inventory -and -not [string](Get-DomeniaMemberValue $Previous 'InventoryError') -and (& $fresh (Get-DomeniaMemberValue $Previous 'Inventory') ([Math]::Min(300,$minutes*60)))){$readInventory=$false;$reuse++}
+    if($valid -and $Inventory -and -not [string](Get-DomeniaMemberValue $Previous 'InventoryError') -and (& $fresh (Get-DomeniaMemberValue $Previous 'Inventory') (& $familySeconds 'Inventory' 300))){$readInventory=$false;$reuse++}
     $planned=[Collections.Generic.List[object]]::new();$seen=@{}
     foreach($probe in @($Probes)){
         if($null -eq $probe -or -not [string]$probe.Id -or $seen.ContainsKey([string]$probe.Id)){continue};$seen[[string]$probe.Id]=$true
-        $seconds=$minutes*60
+        $seconds=& $familySeconds 'StaticProbe' ($minutes*60)
         # CPU, battery, memory, services, network and events vary quickly. Static inventory can live longer.
-        if([string]$probe.Id -match '^(evt\.|svc\.|net\.)|load|battery|free|users|stopped|process'){$seconds=[Math]::Min(60,$seconds)}
+        if([string]$probe.Id -match '^(evt\.|svc\.|net\.)|load|battery|free|users|stopped|process'){$seconds=& $familySeconds 'VolatileProbe' 60}
         $previousProbe=if($valid){Get-DomeniaMemberValue (Get-DomeniaMemberValue $Previous 'Probes') ([string]$probe.Id)}else{$null}
         if([string](Get-DomeniaMemberValue $probe 'DefinitionHash') -and [string](Get-DomeniaMemberValue $previousProbe 'DefinitionHash') -ceq [string](Get-DomeniaMemberValue $probe 'DefinitionHash') -and (& $fresh $previousProbe $seconds)){$reuse++;continue}
         $planned.Add($probe)
