@@ -163,7 +163,8 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaNavSelectionKeys',
             'Get-DomeniaNavSortState',
             'Get-DomeniaNavTreePlan',
-            'Get-DomeniaOuChoiceSummary'
+            'Get-DomeniaOuChoiceSummary',
+            'Get-DomeniaOuFavouriteChoices'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1'); File='Domenia-Relations.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaRelationDirection',
@@ -518,6 +519,10 @@ function Get-DomeniaRuntimeModulePlan {
             'Show-DomeniaOuPickerNavigation',
             'Complete-DomeniaOuPickerRead',
             'Fail-DomeniaOuPickerRead',
+            'Get-DomeniaOuPickerFavourites',
+            'Update-DomeniaOuPickerSummary',
+            'Start-DomeniaOuPickerReveal',
+            'Continue-DomeniaOuPickerReveal',
             'Show-DomeniaOuTreePicker',
             'Show-DomeniaInlinePicker',
             'Select-DomeniaRelationsUser',

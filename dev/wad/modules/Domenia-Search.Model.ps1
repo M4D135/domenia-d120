@@ -889,3 +889,29 @@ function Get-DomeniaOuChoiceSummary {
     $parts.Add('Choisir revérifie cette OU dans lʼannuaire avant de lʼappliquer.')
     return ($parts.ToArray() -join ' · ')
 }
+
+function Get-DomeniaOuFavouriteChoices {
+    # Point 54: the OU favourites offered by every OU picker: inside the session domain, never the domain itself,
+    # in their pinned order, labelled so that two OU of the same name stay distinct. One record per favourite.
+    param([AllowEmptyCollection()][object[]]$Favourites,[string]$DomainDn,[ValidateRange(1,200)][int]$Maximum=50)
+    $valid = [Collections.Generic.List[object]]::new()
+    $seen = @{}
+    foreach ($item in @($Favourites)) {
+        $favourite = ConvertTo-DomeniaOuFavourite $item $DomainDn
+        if ($null -eq $favourite) { continue }
+        $key = ([string]$favourite.DN).ToLowerInvariant()
+        if (([string]$favourite.DN -ieq $DomainDn) -or $seen.ContainsKey($key)) { continue }
+        if ($valid.Count -ge $Maximum) { break }
+        $seen[$key] = $true
+        $valid.Add($favourite)
+    }
+    $labels = @{}
+    foreach ($entry in @(Get-DomeniaOuDistinctLabels -Dn @($valid | ForEach-Object { [string]$_.DN }))) { $labels[([string]$entry.DN).ToLowerInvariant()] = $entry }
+    foreach ($favourite in $valid) {
+        $entry = $labels[([string]$favourite.DN).ToLowerInvariant()]
+        $label = [string]$favourite.Name
+        if (($null -ne $entry) -and ([bool]$entry.Ambiguous)) { $label = [string]$entry.Label }
+        $path = if ($null -ne $entry) { [string]$entry.FullPath } else { Get-DomeniaOuDisplayPath ([string]$favourite.DN) }
+        [pscustomobject]@{DN=[string]$favourite.DN;Label=$label;FullPath=$path}
+    }
+}

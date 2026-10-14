@@ -344,3 +344,13 @@ Test-Case 'P55' 'Branches ouvertes : seules les branches lues se rouvrent, les a
     Assert-Equal 2 $plan.UnreadCount 'Une branche non lue ou absente est comptee, jamais lue'
     $none=Get-DomeniaNavTreePlan -Remembered @() -Nodes @();Assert-Equal 0 @($none.Expand).Count;Assert-Equal 0 $none.UnreadCount
 }
+Test-Case 'P54' 'Favoris proposes par le selecteur d OU : domaine de la session, sans la racine, libelles distincts' {
+    $favs=@([pscustomobject]@{DN=('OU=Postes,OU=Lyon,'+$script:DomainDn);Name='Postes'},[pscustomobject]@{DN=$script:DomainDn;Name='Domaine'},
+        [pscustomobject]@{DN='OU=Postes,DC=autre,DC=invalid';Name='Postes'},[pscustomobject]@{DN=('OU=Postes,OU=Paris,'+$script:DomainDn);Name='Postes'},
+        [pscustomobject]@{DN=('ou=postes,ou=lyon,'+$script:DomainDn.ToLowerInvariant());Name='Doublon'},[pscustomobject]@{DN=('OU=Serveurs,'+$script:DomainDn);Name='Serveurs'})
+    $choices=@(Get-DomeniaOuFavouriteChoices -Favourites $favs -DomainDn $script:DomainDn)
+    Assert-Equal 3 $choices.Count 'Racine, autre domaine et doublon ecartes'
+    Assert-Equal 'Postes (Lyon)' $choices[0].Label;Assert-Equal 'Postes (Paris)' $choices[1].Label;Assert-Equal 'Serveurs' $choices[2].Label
+    Assert-Equal 'example.invalid / Lyon / Postes' $choices[0].FullPath
+    Assert-Equal 0 @(Get-DomeniaOuFavouriteChoices -Favourites @() -DomainDn $script:DomainDn).Count
+}

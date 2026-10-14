@@ -9211,9 +9211,10 @@ function Search-DomeniaOuPickerObjects {
 }
 
 function Show-DomeniaOuPicker {
+    # Point 54: the shared OU picker opens on the current OU of the object; the move itself is confirmed later.
     param([string]$ObjectName,[string]$CurrentParentDn,[string]$ObjectLabel='Poste')
     return (Show-DomeniaInlinePicker -Kind OU -Title 'Choisir la nouvelle OU' -Prompt (
-        $ObjectLabel+' : '+$ObjectName+"`r`nOU actuelle : "+$CurrentParentDn+"`r`nRecherchez une OU puis confirmez. Le déplacement n'est pas lancé par cette sélection."))
+        $ObjectLabel+' : '+$ObjectName+"`r`nOU actuelle : "+$CurrentParentDn+"`r`nRecherchez une OU puis confirmez. Le déplacement n'est pas lancé par cette sélection.") -Purpose 'Effet : aucun déplacement ici ; il sera confirmé séparément.' -InitialDn $CurrentParentDn)
 }
 
 function Move-DomeniaSelectedComputerWithOuPicker {
@@ -17535,7 +17536,7 @@ function Start-DomeniaSelectedIndexScopeBuild {
     # The primary action never silently expands a missing OU to the domain.
     $scope=Get-DomeniaIndexScope
     if($null -eq $scope -or [bool]$scope.IsDomain){
-        $picked=Show-DomeniaInlinePicker -Kind OU -Title 'Choisir lʼOU à relire' -Prompt 'Choisissez lʼOU à relire avec ses sous-OU.'
+        $picked=Show-DomeniaInlinePicker -Kind OU -Title 'Choisir lʼOU à relire' -Prompt 'Choisissez lʼOU à relire avec ses sous-OU.' -DepthMode Subtree -Purpose 'Effet : la lecture AD de cette OU et de ses sous-OU démarre après ce choix.'
         if($null -eq $picked){return}
         $candidate=([string]$picked.DN).Trim()
         $previous=$script:IndexScopeDn;$script:IndexScopeDn=$candidate
@@ -22213,7 +22214,7 @@ function Wire-Events {
     $script:Ctrl["BtnRunComputerDiag"].Add_Click({ Start-ComputerDiagnostics })
     if ($script:Ctrl.ContainsKey("BtnUserSaveContact")) { $script:Ctrl["BtnUserSaveContact"].Add_Click({ Save-DomeniaUserContact }) }
     if ($script:Ctrl.ContainsKey("BtnIndexScopePick")) { $script:Ctrl["BtnIndexScopePick"].Add_Click({
-        $picked = Show-DomeniaInlinePicker -Kind OU -Title ('Choisir lʼunité organisationnelle de la base') -Prompt ('Choisissez une OU : la lecture couvrira cette branche et ses sous-OU.')
+        $picked = Show-DomeniaInlinePicker -Kind OU -Title ('Choisir lʼunité organisationnelle de la base') -Prompt ('Choisissez une OU : la lecture couvrira cette branche et ses sous-OU.') -DepthMode Subtree -Purpose 'Effet : cette OU devient la portée de la base locale, relue sur ce poste ; aucune lecture AD avant « Mettre à jour lʼOU choisie ».' -InitialDn ([string]$script:IndexScopeDn)
         if ($null -eq $picked) { return }
         $pickedDn = ([string]$picked.DN).Trim()
         if (-not $pickedDn) { return }

@@ -35,9 +35,9 @@ function Import-AstFunctions {param([string]$Path,[string[]]$Names)
 if($null -eq ('Domenia.Live.ResultRow' -as [type])){Add-Type -Path (Join-Path $modules 'Domenia-Live.Types.cs') -ErrorAction Stop}
 
 # Real application code.
-$coreNames=@('Get-DomeniaControl','Set-DomeniaControlText','Get-DomeniaSearchMode','Set-DomeniaSearchMode','Get-DomeniaSearchText','Export-CurrentResults')
+$coreNames=@('Get-DomeniaControl','Set-DomeniaControlText','Get-DomeniaSearchMode','Set-DomeniaSearchMode','Get-DomeniaSearchText','Export-CurrentResults','Get-DomeniaEffectiveWorkerResult')
 . ([scriptblock]::Create((Import-AstFunctions (Join-Path $wad 'Domenia-Core.ps1') $coreNames)))
-foreach($file in @('Domenia-Common.Model.ps1','Domenia-Search.Model.ps1','Domenia-Experience.Model.ps1','Domenia-Continuity.Model.ps1','Domenia-SearchWorkspace.Model.ps1','Domenia-Continuity.UI.ps1','Domenia-Search.UI.ps1','Domenia-SearchWorkspace.UI.ps1')){
+foreach($file in @('Domenia-Common.Model.ps1','Domenia-Search.Model.ps1','Domenia-Experience.Model.ps1','Domenia-Continuity.Model.ps1','Domenia-SearchWorkspace.Model.ps1','Domenia-Continuity.UI.ps1','Domenia-Search.UI.ps1','Domenia-SearchWorkspace.UI.ps1','Domenia-Embedded.UI.ps1')){
     . (Join-Path $modules $file)
 }
 . ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-UX.UI.ps1') @('Get-DomeniaUxOuDisplay','Update-DomeniaUxOuScope','Copy-DomeniaUxOuPath'))))
@@ -74,7 +74,9 @@ function Test-DomeniaLiveSearchActive {return $false}
 function Reset-DomeniaLiveIdentity { }
 function Apply-DomeniaPresenceFilter { }
 function Update-DomeniaSearchMoreButton {param($Search)}
-function Start-UiTask {$script:Tasks++;return 'task-fixture'}
+function Start-UiTask {param($Name,$OperationId,$Code,$Payload,$CallbackState,$ReplaceKey,$TimeoutSeconds,$SuccessHandler,$ErrorHandler,$TaskClass) $script:Tasks++;$script:UiTasks.Add([pscustomobject]@{OperationId=[string]$OperationId;Payload=$Payload;State=$CallbackState});return ('task-'+$script:Tasks)}
+function Request-UiTaskStop {param($Id,[switch]$Silent,[switch]$Force,[switch]$Superseded,$Reason)}
+function Test-DomeniaEmbeddedHost {return $true}
 function New-DomeniaStoreContext {param([string]$RequestId) return [pscustomobject]@{RequestId=$RequestId;StoreId='store-fixture';Path=[string]$script:DatabaseScopedPath;DomainDn='DC=example,DC=invalid'}}
 function Request-DomeniaStoreRead {param($Context,$Query,$SuccessHandler,$ErrorHandler,$CallbackState) $script:StoreReads.Add([pscustomobject]@{Context=$Context;Query=$Query;SuccessHandler=$SuccessHandler;CallbackState=$CallbackState});return ('read-'+$script:StoreReads.Count)}
 function Show-DomeniaEmbeddedWindow {param($Window) $script:Embedded++;if($null -ne $script:OnEmbedded){return (& $script:OnEmbedded $Window)};return $true}
@@ -143,7 +145,7 @@ function Reset-Fixture {
     $script:OuFavouriteKeys=$null;$script:Continuity=$null;$script:ExperienceRestoring=$false;$script:SearchQueryCatalog=@();$script:ListSurveyBlocked=$false
     $script:SearchWorkspaceBound=$false;$script:SearchWorkspaceUndo=$null;$script:SearchWorkspaceTimer=$null;$script:SearchWorkspacePendingSort=$null;$script:SearchPreviewToken='';$script:SearchPreviewPending=$false
     $script:Exports=[Collections.Generic.List[object]]::new();$script:ParkCalls=[Collections.Generic.List[object]]::new();$script:StoreReads=[Collections.Generic.List[object]]::new()
-    $script:Embedded=0;$script:OnEmbedded=$null;$script:FormName='';$script:DatabaseScopedPath='';$script:Tasks=0;$script:PendingExport=@()
+    $script:Embedded=0;$script:OnEmbedded=$null;$script:FormName='';$script:DatabaseScopedPath='';$script:Tasks=0;$script:PendingExport=@();$script:UiTasks=[Collections.Generic.List[object]]::new();$script:DomeniaSurfaceRecords=@{};$script:DomeniaSurfaceState=$null
     $script:Ctrl=New-TestControls
 }
 
@@ -392,6 +394,81 @@ Case 'P58 Comparer des postes : feuille dans la page, différences surlignées, 
     Expect (@($script:ComparisonFiltered|Where-Object{$_.Difference -eq 'Same'}).Count -eq 0 -and $script:ComparisonFiltered.Count -lt $script:ComparisonRows.Count) 'Différences seulement ne masque pas les lignes identiques.'
     Expect ($null -ne $script:ComparisonStyle -and @($script:ComparisonStyle.Triggers|Where-Object{[string]$_.Value -eq 'Different'}).Count -eq 1) 'Les différences ne sont pas surlignées.'
     Expect ($script:ComparisonState.Closed) 'La feuille fermée accepte encore une réponse.'
+}
+
+# ---------------------------------------------------------------- Point 54: one OU picker for every page
+function Find-FixtureElement {param($Root,[string]$Name)
+    foreach($element in @(Get-DomeniaLogicalControls $Root)){if(($element -is [Windows.FrameworkElement]) -and ([string]$element.Name -eq $Name)){return $element}}
+    return $null
+}
+# Unwired if the picker loses the favourites of Rechercher, the depth, the confirmation line, or opens on the root
+# instead of the current choice of the page; or if a choice is returned without its DN and GUID check.
+Case 'P54 Sélecteur dʼOU commun : favoris distincts, profondeur, confirmation et ouverture sur le choix courant' {
+    $base='DC=example,DC=invalid';$lyon='OU=Lyon,'+$base;$postes='OU=Postes,'+$lyon
+    $script:Settings['OuFavouritesImported']=$true
+    Write-DomeniaOuFavouriteStore -Favourites @([pscustomobject]@{DN=$postes;Name='Postes';Subtree=$true;Type='Tous';Term=''},[pscustomobject]@{DN=('OU=Postes,OU=Paris,'+$base);Name='Postes';Subtree=$true;Type='Tous';Term=''},[pscustomobject]@{DN=$base;Name='Domaine';Subtree=$true;Type='Tous';Term=''})
+    $script:OnEmbedded={param($Window)
+        $record=Get-DomeniaSurfaceRecord $Window;$record.Embedded=$true
+        # The sheet is realized like the in-page host does, so that tree selection events really run.
+        $Window.ShowInTaskbar=$false;$Window.Show();$Window.UpdateLayout()
+        try{
+        & $record.Ready;$Window.UpdateLayout()
+        $root=$Window.Content
+        $strip=Find-FixtureElement $root 'EmbeddedOuFavourites'
+        $script:PickerChips=@($strip.Children|Where-Object{$_ -is [Windows.Controls.Button]}|ForEach-Object{[string]$_.Content})
+        $script:PickerDepth=Find-FixtureElement $root 'EmbeddedOuSubtree'
+        $summary=Find-FixtureElement $root 'EmbeddedOuSummary'
+        $first=$script:UiTasks[$script:UiTasks.Count-1]
+        $owner=$first.State.Owner;$script:PickerOwner=$owner
+        Complete-DomeniaEmbeddedLookup ([pscustomobject]@{Rows=@([pscustomobject]@{Type='OU';Name='Paris';DN=('OU=Paris,'+$base);Guid='00000000-0000-4000-8000-000000000002'},[pscustomobject]@{Type='OU';Name='Lyon';DN=$lyon;Guid='00000000-0000-4000-8000-000000000001'});RequestId=$first.State.RequestId;Verified=$false;Capped=$false}) $first.State
+        $Window.UpdateLayout()
+        $second=$script:UiTasks[$script:UiTasks.Count-1]
+        $script:PickerSecondDn=[string]$second.Payload.DN
+        Complete-DomeniaEmbeddedLookup ([pscustomobject]@{Rows=@([pscustomobject]@{Type='OU';Name='Postes';DN=$postes;Guid='00000000-0000-4000-8000-000000000003'});RequestId=$second.State.RequestId;Verified=$false;Capped=$false}) $second.State
+        $script:PickerSelected=[string]$owner.Tree.SelectedItem.Tag.DN
+        $script:PickerSummary=[string]$summary.Text
+        $script:PickerDepth.IsChecked=$true;$script:PickerSummaryAfter=[string]$summary.Text;$script:PickerDepth.IsChecked=$false
+        $owner.Accept.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
+        $verify=$script:UiTasks[$script:UiTasks.Count-1]
+        $script:PickerVerify=$verify.Payload
+        Complete-DomeniaEmbeddedLookup ([pscustomobject]@{Rows=@([pscustomobject]@{Type='OU';Name='Postes';DN=$postes;Guid='00000000-0000-4000-8000-000000000003'});RequestId=$verify.State.RequestId;Verified=$true;Capped=$false}) $verify.State
+        return $true
+        }finally{if($Window.IsVisible){$Window.Close()}}
+    }
+    $picked=Show-DomeniaInlinePicker -Kind OU -Title 'Fixture' -Prompt 'Données fictives' -DepthMode Choice -Subtree $false -Purpose 'Effet : fixture.' -InitialDn $postes
+    Expect (($script:PickerChips -join '|') -ceq ([string][char]0x2605+' Postes (Lyon)|'+[string][char]0x2605+' Postes (Paris)')) ('Favoris du sélecteur : '+($script:PickerChips -join '|'))
+    Expect ($null -ne $script:PickerDepth -and $script:PickerSecondDn -eq $lyon -and $script:PickerSelected -eq $postes) 'Le sélecteur ne sʼouvre pas sur lʼOU courante en lisant ses parents un à un.'
+    Expect ($script:PickerSummary.Contains('example.invalid / Lyon / Postes') -and $script:PickerSummary.Contains('sans ses sous-OU') -and $script:PickerSummary.Contains('Effet : fixture.') -and $script:PickerSummaryAfter.Contains('et ses sous-OU')) ('Confirmation : '+$script:PickerSummary)
+    Expect ([bool]$script:PickerVerify.Verify -and [string]$script:PickerVerify.DN -eq $postes -and [string]$script:PickerVerify.Guid -eq '00000000-0000-4000-8000-000000000003') 'Le choix nʼest pas revérifié par DN et GUID.'
+    Expect ($null -ne $picked -and [string]$picked.Guid -eq '00000000-0000-4000-8000-000000000003' -and $picked.Subtree -eq $false) 'La profondeur confirmée nʼaccompagne pas lʼOU choisie.'
+    Expect (@($script:UiTasks|Where-Object{([string]$_.Payload.Mode -eq 'Search') -and (-not [bool]$_.Payload.Verify)}).Count -eq 0 -and $script:UiTasks.Count -eq 3) ('Lectures du sélecteur : '+$script:UiTasks.Count)
+    Expect ($null -eq $script:PickerOwner.Reveal) 'Une révélation reste en attente après le choix.'
+}
+# Unwired if a page opens the OU picker without saying what the choice will do, or the dashboard drops the depth.
+Case 'P54 Chaque page passe par le sélecteur commun avec son effet et sa profondeur' {
+    $sources=@{Core=(Join-Path $wad 'Domenia-Core.ps1');Dashboard=(Join-Path $modules 'Domenia-Dashboard.UI.ps1')}
+    $calls=[Collections.Generic.List[string]]::new()
+    foreach($path in $sources.Values){
+        $tokens=$null;$errors=$null;$ast=[Management.Automation.Language.Parser]::ParseFile($path,[ref]$tokens,[ref]$errors)
+        foreach($call in @($ast.FindAll({param($n)($n -is [Management.Automation.Language.CommandAst]) -and ($n.GetCommandName() -eq 'Show-DomeniaInlinePicker') -and ($n.Extent.Text -match '-Kind OU')},$true))){$calls.Add($call.Extent.Text)}
+    }
+    Expect ($calls.Count -ge 4) ('Appels du sélecteur dʼOU : '+$calls.Count)
+    foreach($text in $calls){Expect ($text.Contains('-Purpose')) ('Sélecteur sans effet annoncé : '+$text)}
+    Expect (@($calls|Where-Object{$_.Contains('-DepthMode Choice')}).Count -eq 1 -and @($calls|Where-Object{$_.Contains('-DepthMode Subtree')}).Count -eq 2) 'Profondeur imposée ou choisie absente dʼune page.'
+    [xml]$query=[IO.File]::ReadAllText((Join-Path $modules 'Domenia-Query.xaml'),[Text.Encoding]::UTF8)
+    $button=@($query.SelectNodes('//*')|Where-Object{$_.GetAttribute('Name','http://schemas.microsoft.com/winfx/2006/xaml') -eq 'BtnQueryScope'})
+    Expect ($button.Count -eq 1 -and $button[0].GetAttribute('ToolTip') -ceq $button[0].GetAttribute('AutomationProperties.HelpText')) 'LʼAtelier nʼa pas de bouton vers le sélecteur commun.'
+    . ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Dashboard.UI.ps1') @('Get-DomeniaFleetScope','Show-DomeniaFleetScopeSource','Select-DomeniaFleetScopeOu'))))
+    function Request-DomeniaFleetRefresh {param([switch]$Force) $script:FleetRefreshes++}
+    function Show-DomeniaInlinePicker {param($Kind,$Title,$Prompt,$InitialTerm,$DepthMode,$Subtree,$Purpose,$InitialDn) $script:PickerCall=[pscustomobject]@{DepthMode=$DepthMode;Subtree=$Subtree;InitialDn=$InitialDn};return [pscustomobject]@{DN='OU=B,DC=example,DC=invalid';Guid='00000000-0000-4000-8000-00000000000b';Subtree=$false}}
+    $script:FleetScopeDn='OU=A,DC=example,DC=invalid';$script:FleetScopeSubtree=$true;$script:FleetRefreshes=0
+    Show-DomeniaFleetScopeSource
+    $scope=Get-DomeniaFleetScope
+    Expect ($script:PickerCall.DepthMode -eq 'Choice' -and $script:PickerCall.InitialDn -eq 'OU=A,DC=example,DC=invalid' -and [bool]$script:PickerCall.Subtree) 'Le tableau de bord nʼouvre pas le sélecteur sur son choix courant.'
+    Expect ($scope.Dn -eq 'OU=B,DC=example,DC=invalid' -and -not $scope.Subtree -and $scope.Key.EndsWith('|OneLevel') -and $script:FleetRefreshes -eq 1) 'La profondeur choisie nʼest pas appliquée au tableau de bord.'
+    Select-DomeniaFleetScopeOu -Dn 'OU=C,DC=example,DC=invalid'
+    Expect (-not (Get-DomeniaFleetScope).Subtree) 'Le fil du tableau de bord perd la profondeur choisie.'
+    $script:FleetScopeDn='';Expect ((Get-DomeniaFleetScope).Subtree) 'Le domaine entier est lu sans ses sous-OU.'
 }
 
 $passed=@($script:Checks|Where-Object{$_.Status -eq 'Passed'}).Count
