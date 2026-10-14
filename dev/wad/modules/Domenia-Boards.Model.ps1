@@ -69,7 +69,9 @@ fleet.win10|Versions de Windows|Postes sous Windows 10|Value|Kpi|S|Hors LTSC, LT
 fleet.os|Répartition|Systèmes dʼexploitation|Distribution|Pie|M|Systèmes déclarés dans lʼannuaire
 fleet.lastlogon|Répartition|Dernière connexion au domaine|Series|Column|M|Ancienneté de la dernière connexion
 fleet.ou|Répartition|Postes par unité dʼorganisation|Distribution|Bar|M|Postes par OU ou sous-OU
-fleet.presence|Relevés des postes|Présence réseau|Distribution|Pie|M|Derniers relevés de moins de 30 jours|N
+fleet.presence|Relevés des postes|Présence réseau|Distribution|Pie|M|Dernier ping de moins de 30 jours ; sans réponse ne prouve pas un arrêt|N
+fleet.wmi|Relevés des postes|Réponse WMI|Distribution|Pie|M|Dernière lecture WMI datée, indépendante du ping ; un échec ne prouve pas un arrêt|N
+fleet.reach|Relevés des postes|Ping et WMI|Distribution|Bar|M|Réponse au ping et réponse WMI comparées pour chaque poste actif|N
 fleet.users|Relevés des postes|Utilisateurs détectés|Value|Kpi|S|Utilisateurs distincts vus en session sur les postes|N
 fleet.lastcheck|Relevés des postes|Dernier ping|Value|Kpi|S|Date du dernier relevé des postes|N
 fleet.models|Relevés des postes|Modèles|Distribution|Bar|M|Modèles des postes analysés|N

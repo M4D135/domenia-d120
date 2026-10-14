@@ -239,6 +239,12 @@ function Get-DomeniaFleetBoardData {
     # ----------------------------------------------------------------------------------------------------------------
     $presence = @{ 'En ligne' = 0; 'Sans réponse' = 0; 'Non vérifié' = 0 }
     $presenceTargets=@{'En ligne'=[Collections.Generic.List[object]]::new();'Sans réponse'=[Collections.Generic.List[object]]::new();'Non vérifié'=[Collections.Generic.List[object]]::new()};$presenceSeen=@{}
+    # Point 72: the WMI answer is read from its own CIM families, never inferred from the ping (and conversely).
+    $wmiNames=@('WMI a répondu','WMI non confirmé','WMI non relevé');$wmiByState=@{Responded='WMI a répondu';Failed='WMI non confirmé';NotRead='WMI non relevé'}
+    $reachNames=@('Ping et WMI répondent','WMI répond, pas le ping','Ping répond, WMI non confirmé','Ni ping ni WMI','Un seul canal relevé','Aucun relevé')
+    $wmiTargets=@{};foreach($name in $wmiNames){$wmiTargets[$name]=[Collections.Generic.List[object]]::new()}
+    $reachTargets=@{};foreach($name in $reachNames){$reachTargets[$name]=[Collections.Generic.List[object]]::new()}
+    $unreachableWmi=0
     $users = @{}; $sessions = 0; $inventories = New-Object System.Collections.ArrayList; $lastCheck = $null; $oldest = $null
     $observations = @{}; $observed = 0;$canonicalPresence=[Collections.Generic.List[object]]::new()
     $unreachable = New-Object System.Collections.ArrayList; $lowDiskMachines = New-Object System.Collections.ArrayList; $uptimeMachines = New-Object System.Collections.ArrayList
@@ -275,6 +281,10 @@ function Get-DomeniaFleetBoardData {
         }
         $presence[$presenceKey]++
         $presenceTargets[$presenceKey].Add($target)
+        $wmiState=[string](Get-DomeniaFleetWmiResponse -Observation $observation -NowUtc $nowUtc -MaxDays $ObservationMaxAgeDays).State
+        $wmiTargets[$wmiByState[$wmiState]].Add($target)
+        $reachTargets[(Get-DomeniaFleetReachLabel -Presence $presenceKey -Wmi $wmiState)].Add($target)
+        if(($presenceKey -eq 'Sans réponse') -and ($wmiState -eq 'Responded')){$unreachableWmi++}
         if($presenceKey -ne 'Non vérifié'){
             $observed++
             if(($null -eq $lastCheck) -or ($checked -gt $lastCheck)){$lastCheck=$checked}
@@ -294,7 +304,7 @@ function Get-DomeniaFleetBoardData {
             if($null -eq $inventoryOldest -or $inventoryAt -lt $inventoryOldest){$inventoryOldest=$inventoryAt}
         }
     }
-    foreach($target in $enabledByDn.Values){if(-not $presenceSeen.ContainsKey(([string]$target.distinguished_name).ToLowerInvariant())){$presence['Non vérifié']++;$presenceTargets['Non vérifié'].Add($target)}}
+    foreach($target in $enabledByDn.Values){if(-not $presenceSeen.ContainsKey(([string]$target.distinguished_name).ToLowerInvariant())){$presence['Non vérifié']++;$presenceTargets['Non vérifié'].Add($target);$wmiTargets['WMI non relevé'].Add($target);$reachTargets['Aucun relevé'].Add($target)}}
     $observedOld = (($null -ne $oldest) -and (($nowUtc - $oldest).TotalDays -gt 7))
     $observedText = Get-DomeniaCoverageText -Analysed $observed -Total $total -LastUtc $lastCheck
 
@@ -320,7 +330,10 @@ function Get-DomeniaFleetBoardData {
     if (($bitlockerVisible -gt 0) -and [int]$bitlocker['N']) { Add-DomeniaBoardAttention -Data $data -Level Warn -Text ([string]$bitlocker['N'] + ' poste(s) sans clé BitLocker visible.') -Point 'bitlocker.none' -Groups @($bitlockerGroups) }
     if ($created) { Add-DomeniaBoardAttention -Data $data -Level Info -Text ([string]$created + ' poste(s) créé(s) ces 30 derniers jours.') -Point 'created' -Groups @($createdGroups) }
     if ($disabled) { Add-DomeniaBoardAttention -Data $data -Level Info -Text ([string]$disabled + ' compte(s) ordinateur désactivé(s) encore dans lʼOU : à déplacer ou supprimer.') -Point 'disabled' -Groups $disabledIds }
-    if ($unreachable.Count) { Add-DomeniaBoardAttention -Data $data -Level Info -Text ([string]$unreachable.Count + ' poste(s) sans réponse au dernier relevé.') -Point 'unreachable' -Machines @($unreachable) }
+    # Point 72: no ICMP answer is never a verdict of a switched-off or unqueryable workstation.
+    if ($unreachable.Count) { Add-DomeniaBoardAttention -Data $data -Level Info -Text ([string]$unreachable.Count + ' poste(s) sans réponse au ping au dernier relevé' + $(if ($unreachableWmi) { ', dont ' + [string]$unreachableWmi + ' ayant répondu à WMI (ICMP probablement filtré)' } else { '' }) + ' : absence de réponse, pas une preuve dʼarrêt.') -Point 'unreachable' -Machines @($unreachable) }
+    $wmiFailed = $wmiTargets['WMI non confirmé']
+    if ($wmiFailed.Count) { Add-DomeniaBoardAttention -Data $data -Level Info -Text ([string]$wmiFailed.Count + ' poste(s) sans lecture WMI confirmée au dernier essai (accès refusé, délai ou service indisponible) : à relever de nouveau, pas une preuve dʼarrêt.') -Point 'wmi.failed' -Machines $wmiFailed.ToArray() }
 
     # ----------------------------------------------------------------------------------------------------------------
     # Inventaire du perimetre
@@ -446,6 +459,18 @@ function Get-DomeniaFleetBoardData {
         $presenceTotal = [int]$presence['En ligne'] + [int]$presence['Sans réponse'] + [int]$presence['Non vérifié']
         $lead = & $share $presenceItems $presenceTotal
         Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.presence' -Kind Distribution -Value $lead.Value -Detail $observedText -State $observationState -Items $presenceItems -CenterText ([string]$presenceTotal + ' postes'))
+    }
+    if ($total) {
+        # Point 72: WMI answer and the ping/WMI comparison over the same active accounts, each with its own source dates.
+        $wmiColors = @{ 'WMI a répondu' = 'Ok'; 'WMI non confirmé' = 'Warn'; 'WMI non relevé' = 'Off' }
+        $wmiItems = @(foreach ($name in $wmiNames) { if ($wmiTargets[$name].Count) { [pscustomobject]@{ Label = $name; Value = [double]$wmiTargets[$name].Count; Color = (Get-DomeniaBoardColor -Name $wmiColors[$name]) } } })
+        $wmiRead = $wmiTargets['WMI a répondu'].Count + $wmiTargets['WMI non confirmé'].Count
+        $lead = & $share $wmiItems $total
+        Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.wmi' -Kind Distribution -Value $lead.Value -Detail ([string]$wmiRead + ' poste(s) avec une lecture WMI datée sur ' + [string]$total + ' ; indépendant du ping') -Items $wmiItems -CenterText ([string]$total + ' postes'))
+        $reachColors = @{ 'Ping et WMI répondent' = 'Ok'; 'WMI répond, pas le ping' = 'Info'; 'Ping répond, WMI non confirmé' = 'Warn'; 'Ni ping ni WMI' = 'Warn'; 'Un seul canal relevé' = 'Off'; 'Aucun relevé' = 'Off' }
+        $reachItems = @(foreach ($name in $reachNames) { if ($reachTargets[$name].Count) { [pscustomobject]@{ Label = $name; Value = [double]$reachTargets[$name].Count; Color = (Get-DomeniaBoardColor -Name $reachColors[$name]) } } })
+        $lead = & $share $reachItems $total
+        Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.reach' -Kind Distribution -Value $lead.Value -Detail 'Une absence de réponse au ping ou à WMI ne prouve pas que le poste est éteint.' -Items $reachItems -CenterText ([string]$total + ' postes'))
     }
     Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.users' -Kind Value -Value ([string]$users.Count) -State $observationState -Detail ('sur ' + [string]$sessions + ' poste(s) avec une session · ' + [string]$links + ' associations au total'))
     Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'fleet.lastcheck' -Kind Value -Value $(if ($null -ne $lastCheck) { $lastCheck.ToLocalTime().ToString('dd/MM HH:mm',$invariant) } else { 'Aucune' }) -State $observationState -Detail $observedText)
@@ -621,6 +646,8 @@ function Get-DomeniaFleetBoardData {
     $widgetTargets['fleet.ou']=@($targets);foreach($site in $ouMembers.Keys){$widgetTargets['fleet.ou|'+$site]=$ouMembers[$site].ToArray()}
     $widgetTargets['fleet.presence']=@($targets)
     foreach($label in $presenceTargets.Keys){$widgetTargets['fleet.presence|'+$label]=$presenceTargets[$label].ToArray()}
+    $widgetTargets['fleet.wmi']=@($targets);foreach($label in $wmiTargets.Keys){$widgetTargets['fleet.wmi|'+$label]=$wmiTargets[$label].ToArray()}
+    $widgetTargets['fleet.reach']=@($targets);foreach($label in $reachTargets.Keys){$widgetTargets['fleet.reach|'+$label]=$reachTargets[$label].ToArray()}
     foreach($entry in $data.Entries.Values){if($entry.Kind -in @('Distribution','Series')){foreach($part in @($entry.Items)){$key=[string]$entry.Key+'|'+[string]$part.Label;if(-not $widgetTargets.ContainsKey($key)){$widgetTargets[$key]=@()}}}}
     Add-Member -InputObject $data -MemberType NoteProperty -Name 'Last' -Value ([pscustomobject]@{ Scope = $scope; Subtree = [bool]$Subtree; Targets = $targets; Machines = $machines; Groups = $groups; WidgetTargets=$widgetTargets; HealthyTargets=$healthyTargets.ToArray(); ProblemTargets=$problemTargets.ToArray(); Freshness=$data.Freshness })
     $figures = [pscustomobject]@{ Machines = $total; Healthy = $healthy; Problems = ($total - $healthy); Stale = $stale; EndOfService = $endedCount; Disabled = $disabled; Windows10 = $windows10; LowDisk = $lowDiskFigure }
@@ -733,4 +760,62 @@ function Format-DomeniaOuFreshnessSummary {
     }
     $computed=if($ComputedAtUtc -is [datetime] -and $ComputedAtUtc -le $NowUtc){'Vue recalculée le '+(& $dateText $ComputedAtUtc)+' ; aucune lecture AD ou poste pendant ce calcul.'}else{'Vue locale : date de calcul non disponible.'}
     [pscustomobject]@{BaseText=$base;ObservationsText=('Postes actifs : '+($families -join ' · '));ComputedText=$computed}
+}
+
+function Get-DomeniaFleetWmiResponse {
+    # CIM/WMI answer of one workstation, kept apart from ICMP (point 72): console, light inventory and catalog probes
+    # are CIM reads, each family with its own source dates. Responded: a CIM read succeeded within MaxDays and no CIM
+    # attempt failed afterwards (a failure within 15 minutes of a success belongs to the same collection and does not
+    # erase the answer). Failed: the latest dated CIM attempt within MaxDays failed. NotRead: no usable dated attempt.
+    # A failure is never read as "switched off": access may be refused, the service stopped or the network filtered.
+    param($Observation,[datetime]$NowUtc=[datetime]::UtcNow,[int]$MaxDays=30)
+    $events=[Collections.Generic.List[object]]::new()
+    $add={param($Text,[bool]$Success)
+        $at=ConvertFrom-DomeniaUtcText ([string]$Text)
+        if(($null -ne $at) -and ($at -le $NowUtc.AddMinutes(5)) -and (($NowUtc-$at).TotalDays -le [Math]::Max(1,$MaxDays))){$events.Add([pscustomobject]@{At=$at;Success=$Success})}
+    }
+    $times=Get-DomeniaHealthValue $Observation 'Times'
+    $families=@();if($times -is [Collections.IDictionary]){$families=@($times.Keys)}elseif($null -ne $times){$families=@($times.PSObject.Properties|ForEach-Object{$_.Name})}
+    $families=@($families|Where-Object{[string]$_ -cne 'Presence'})
+    if($families.Count){
+        # Canonical projection: one record per persisted family with its last success and last attempt.
+        foreach($family in $families){
+            $time=Get-DomeniaHealthValue $times ([string]$family)
+            $succeeded=[bool](Get-DomeniaHealthValue $time 'Succeeded' $false)
+            & $add (Get-DomeniaHealthValue $time 'ObservedUtc' '') $true
+            if(-not $succeeded){& $add (Get-DomeniaHealthValue $time 'LastAttemptUtc' '') $false}
+        }
+    }else{
+        # Older local observations: inventory dates and the console outcome carry the same facts.
+        $inventory=Get-DomeniaHealthValue $Observation 'Inventory'
+        $inventoryAt=[string](Get-DomeniaHealthValue $Observation 'InventoryCheckedUtc' '');if((-not $inventoryAt) -and ($null -ne $inventory)){$inventoryAt=[string](Get-DomeniaHealthValue $inventory 'CheckedUtc' '')}
+        if($null -ne $inventory){& $add $inventoryAt $true}
+        if([string](Get-DomeniaHealthValue $Observation 'InventoryError' '')){& $add (Get-DomeniaHealthValue $Observation 'InventoryAttemptUtc' '') $false}
+        $outcome=[string](Get-DomeniaHealthValue $Observation 'Outcome' '')
+        $consoleAt=[string](Get-DomeniaHealthValue $Observation 'ConsoleCheckedUtc' '');if(-not $consoleAt){$consoleAt=[string](Get-DomeniaHealthValue $Observation 'UserCheckedUtc' '')}
+        if($outcome -in @('Observed','NoConsole')){& $add $consoleAt $true}
+        elseif($outcome -in @('Denied','AuthRejected','Timeout','Unavailable')){$attempt=[string](Get-DomeniaHealthValue $Observation 'ConsoleAttemptUtc' '');if(-not $attempt){$attempt=$consoleAt};& $add $attempt $false}
+    }
+    $success=$null;$failure=$null
+    foreach($item in $events){
+        if($item.Success){if(($null -eq $success) -or ($item.At -gt $success)){$success=$item.At}}
+        elseif(($null -eq $failure) -or ($item.At -gt $failure)){$failure=$item.At}
+    }
+    if(($null -ne $failure) -and (($null -eq $success) -or ($failure -gt $success.AddMinutes(15)))){return [pscustomobject]@{State='Failed';At=$failure;LastSuccessUtc=$success}}
+    if($null -ne $success){return [pscustomobject]@{State='Responded';At=$success;LastSuccessUtc=$success}}
+    return [pscustomobject]@{State='NotRead';At=$null;LastSuccessUtc=$null}
+}
+
+function Get-DomeniaFleetReachLabel {
+    # Ping and WMI side by side (point 72): neither channel decides alone whether a workstation is reachable.
+    # $Presence: dashboard ping bucket (En ligne, Sans réponse, Non vérifié); $Wmi: Get-DomeniaFleetWmiResponse state.
+    param([string]$Presence,[string]$Wmi)
+    $ping=if($Presence -ceq 'En ligne'){'Yes'}elseif($Presence -ceq 'Sans réponse'){'No'}else{''}
+    $cim=if($Wmi -ceq 'Responded'){'Yes'}elseif($Wmi -ceq 'Failed'){'No'}else{''}
+    if(($ping -eq 'Yes') -and ($cim -eq 'Yes')){return 'Ping et WMI répondent'}
+    if(($ping -eq 'No') -and ($cim -eq 'Yes')){return 'WMI répond, pas le ping'}
+    if(($ping -eq 'Yes') -and ($cim -eq 'No')){return 'Ping répond, WMI non confirmé'}
+    if(($ping -eq 'No') -and ($cim -eq 'No')){return 'Ni ping ni WMI'}
+    if($ping -or $cim){return 'Un seul canal relevé'}
+    return 'Aucun relevé'
 }
