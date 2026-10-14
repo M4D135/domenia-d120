@@ -495,6 +495,173 @@ function Resolve-DomeniaPostcondition {
     return [pscustomobject]@{Status=$status;Label=$statusLabel;Proof=$proof;Limit=$limit;Kind=$kind;Server=$server;Checked=$checked;Satisfied=$satisfied;Details=$details.ToArray();ProcessResultIsProof=$false}
 }
 
+# ---------------------------------------------------------------- Point 49 re-read of an uncertain write, later
+# These two rules are copied as text into the write and receipt workers (Get-DomeniaWorkerRulesCommon): they only use
+# Get-DomeniaMember and .NET types.
+function Get-DomeniaReceiptExpectation {
+    # Point 49: what a durable receipt keeps to re-read later the effective state of a directory write whose outcome
+    # stayed unknown. Built from the payload of the write itself, never from a secret: a password reset keeps only
+    # whether a change at next logon was imposed. An operation without a rule returns $null (external review only).
+    param([AllowEmptyString()][string]$OperationId='',$Payload=$null)
+    switch ($OperationId) {
+        'WriteAccountDisabled' {
+            return [pscustomobject]@{Kind='UacFlags';Flags=@([pscustomobject]@{Name='ACCOUNTDISABLE';Mask=2;Set=[bool](Get-DomeniaMember $Payload 'Disabled' $false)})}
+        }
+        'WriteAccountOptions' {
+            $masks = Get-DomeniaMember $Payload 'Masks' $null
+            $target = 0L; [void][long]::TryParse([string](Get-DomeniaMember $Payload 'TargetUac' ''),[ref]$target)
+            $flags = New-Object 'System.Collections.Generic.List[object]'
+            if ($null -ne $masks) {
+                foreach ($property in $masks.PSObject.Properties) {
+                    $mask = 0L
+                    if (-not [long]::TryParse([string]$property.Value,[ref]$mask)) { continue }
+                    if ($mask -le 0) { continue }
+                    $flags.Add([pscustomobject]@{Name=[string]$property.Name;Mask=$mask;Set=(($target -band $mask) -ne 0)})
+                }
+            }
+            if ($flags.Count -eq 0) { return $null }
+            return [pscustomobject]@{Kind='UacFlags';Flags=$flags.ToArray()}
+        }
+        'WriteUnlock' { return [pscustomobject]@{Kind='Unlocked'} }
+        'WriteExpirePassword' { return [pscustomobject]@{Kind='PwdLastSetZero'} }
+        'WriteResetPassword' {
+            if ([bool](Get-DomeniaMember $Payload 'MustChange' $false)) { return [pscustomobject]@{Kind='PwdLastSetZero'} }
+            return [pscustomobject]@{Kind='PasswordChangedAfterSend'}
+        }
+        'WriteExpiration' {
+            $never = [bool](Get-DomeniaMember $Payload 'Never' $false)
+            $day = 'Jamais'
+            if (-not $never) {
+                $parsed = [datetime]::MinValue
+                if (-not [datetime]::TryParse([string](Get-DomeniaMember $Payload 'Date' ''),[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::RoundtripKind,[ref]$parsed)) { return $null }
+                $day = $parsed.Date.ToString('yyyy-MM-dd',[Globalization.CultureInfo]::InvariantCulture)
+            }
+            return [pscustomobject]@{Kind='AccountExpires';Day=$day}
+        }
+        'WriteMoveObject' {
+            $parent = [string](Get-DomeniaMember $Payload 'TargetDn' '')
+            if (-not $parent.Trim()) { return $null }
+            return [pscustomobject]@{Kind='Parent';ParentDn=$parent.Trim()}
+        }
+        'WriteRenameComputer' {
+            $name = [string](Get-DomeniaMember $Payload 'NewName' '')
+            if (-not $name.Trim()) { return $null }
+            return [pscustomobject]@{Kind='Name';Name=$name.Trim()}
+        }
+        'WriteGroupMember' {
+            $group = [string](Get-DomeniaMember $Payload 'GroupDn' '');$member = [string](Get-DomeniaMember $Payload 'ObjectValue' '')
+            if ((-not $group.Trim()) -or (-not $member.Trim())) { return $null }
+            return [pscustomobject]@{Kind='Membership';GroupDn=$group.Trim();GroupValue='';MemberDn='';MemberValue=$member.Trim();Member=[bool](Get-DomeniaMember $Payload 'Add' $false)}
+        }
+        'WriteObjectGroup' {
+            $member = [string](Get-DomeniaMember $Payload 'ObjectDn' '');$group = [string](Get-DomeniaMember $Payload 'GroupValue' '')
+            if ((-not $group.Trim()) -or (-not $member.Trim())) { return $null }
+            return [pscustomobject]@{Kind='Membership';GroupDn='';GroupValue=$group.Trim();MemberDn=$member.Trim();MemberValue='';Member=[bool](Get-DomeniaMember $Payload 'Add' $false)}
+        }
+        'WriteCreateOu' {
+            $parent = [string](Get-DomeniaMember $Payload 'ParentDn' '');$name = [string](Get-DomeniaMember $Payload 'Name' '')
+            if ((-not $parent.Trim()) -or (-not $name.Trim())) { return $null }
+            return [pscustomobject]@{Kind='Existence';ParentDn=$parent.Trim();Name=$name.Trim()}
+        }
+        'WriteDeleteObject' { return [pscustomobject]@{Kind='Absence'} }
+    }
+    return $null
+}
+
+function Resolve-DomeniaReceiptCheck {
+    # Point 49: decides from a re-read only whether the effective state is the one the write asked for. A read that is
+    # refused, unavailable or incomplete proves nothing: the receipt stays to verify, and nothing is ever sent again.
+    # $Observed: {ReadStatus='OK'|'Refused'|'Unavailable', Uac, Lockout, PwdLastSet, AccountExpiresDay, ParentDn, Name,
+    # Member, Exists}. $SentUtc: local time the request left (ISO 8601); $ClockSkewSeconds: margin between the
+    # controller clock (pwdLastSet) and the local clock.
+    param($Expectation,$Observed,[AllowEmptyString()][string]$SentUtc='',[ValidateRange(0,3600)][int]$ClockSkewSeconds=120)
+    $kind = [string](Get-DomeniaMember $Expectation 'Kind' '')
+    if (-not $kind) { return [pscustomobject]@{Verified=$false;Reason='Aucune règle de relecture pour cette opération : revue externe requise.'} }
+    $status = [string](Get-DomeniaMember $Observed 'ReadStatus' 'NotRead')
+    if ($status -ne 'OK') {
+        $label = 'non effectuée'
+        if ($status -eq 'Refused') { $label = 'refusée' } elseif ($status -eq 'Unavailable') { $label = 'impossible' }
+        return [pscustomobject]@{Verified=$false;Reason=('Relecture ' + $label + ' : un refus ou une absence de réponse ne prouve pas lʼissue.')}
+    }
+    switch ($kind) {
+        'UacFlags' {
+            $uac = 0L
+            if (-not [long]::TryParse([string](Get-DomeniaMember $Observed 'Uac' ''),[ref]$uac)) { return [pscustomobject]@{Verified=$false;Reason='userAccountControl non relu.'} }
+            $wrong = New-Object 'System.Collections.Generic.List[string]'
+            foreach ($flag in @(Get-DomeniaMember $Expectation 'Flags' @())) {
+                $mask = [long](Get-DomeniaMember $flag 'Mask' 0)
+                if ((($uac -band $mask) -ne 0) -ne [bool](Get-DomeniaMember $flag 'Set' $false)) { $wrong.Add([string](Get-DomeniaMember $flag 'Name' '')) }
+            }
+            if ($wrong.Count) { return [pscustomobject]@{Verified=$false;Reason=('userAccountControl relu, options non conformes : ' + ($wrong.ToArray() -join ', ') + '.')} }
+            return [pscustomobject]@{Verified=$true;Reason='userAccountControl relu conforme.'}
+        }
+        'Unlocked' {
+            $raw = [string](Get-DomeniaMember $Observed 'Lockout' '')
+            $value = 0L
+            if ((-not $raw) -or ([long]::TryParse($raw,[ref]$value) -and ($value -eq 0))) { return [pscustomobject]@{Verified=$true;Reason='lockoutTime relu à 0 : compte déverrouillé.'} }
+            return [pscustomobject]@{Verified=$false;Reason='lockoutTime relu non nul : compte encore verrouillé.'}
+        }
+        'PwdLastSetZero' {
+            $value = -1L
+            if ([long]::TryParse([string](Get-DomeniaMember $Observed 'PwdLastSet' ''),[ref]$value) -and ($value -eq 0)) { return [pscustomobject]@{Verified=$true;Reason='pwdLastSet relu à 0 : changement imposé à la prochaine ouverture.'} }
+            return [pscustomobject]@{Verified=$false;Reason='pwdLastSet relu différent de 0.'}
+        }
+        'PasswordChangedAfterSend' {
+            $value = 0L
+            if ((-not [long]::TryParse([string](Get-DomeniaMember $Observed 'PwdLastSet' ''),[ref]$value)) -or ($value -le 0)) { return [pscustomobject]@{Verified=$false;Reason='pwdLastSet non relu ou nul.'} }
+            $sent = [datetime]::MinValue
+            if (-not [datetime]::TryParse($SentUtc,[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::RoundtripKind,[ref]$sent)) { return [pscustomobject]@{Verified=$false;Reason='Heure dʼenvoi inconnue : date du changement non comparable.'} }
+            $changed = [datetime]::FromFileTimeUtc($value)
+            if ($changed -gt $sent.ToUniversalTime().AddSeconds(-$ClockSkewSeconds)) {
+                return [pscustomobject]@{Verified=$true;Reason=('pwdLastSet relu postérieur à lʼenvoi (marge dʼhorloge ' + $ClockSkewSeconds + ' s ; la valeur du mot de passe nʼest jamais relue).')}
+            }
+            return [pscustomobject]@{Verified=$false;Reason='pwdLastSet relu antérieur à lʼenvoi.'}
+        }
+        'AccountExpires' {
+            $expected = [string](Get-DomeniaMember $Expectation 'Day' '')
+            $observedDay = [string](Get-DomeniaMember $Observed 'AccountExpiresDay' '')
+            if (-not $observedDay) { return [pscustomobject]@{Verified=$false;Reason='accountExpires non relu.'} }
+            if ($observedDay -ceq $expected) { return [pscustomobject]@{Verified=$true;Reason=('accountExpires relu conforme (' + $expected + ').')} }
+            return [pscustomobject]@{Verified=$false;Reason=('accountExpires relu ' + $observedDay + ' au lieu de ' + $expected + '.')}
+        }
+        'Parent' {
+            $parent = ([string](Get-DomeniaMember $Observed 'ParentDn' '')).Trim()
+            if (-not $parent) { return [pscustomobject]@{Verified=$false;Reason='Objet non retrouvé par son GUID.'} }
+            if ($parent -ieq ([string](Get-DomeniaMember $Expectation 'ParentDn' '')).Trim()) { return [pscustomobject]@{Verified=$true;Reason='Objet relu par son GUID sous le conteneur choisi.'} }
+            return [pscustomobject]@{Verified=$false;Reason=('Objet relu par son GUID sous ' + $parent + '.')}
+        }
+        'Name' {
+            $name = ([string](Get-DomeniaMember $Observed 'Name' '')).Trim()
+            if (-not $name) { return [pscustomobject]@{Verified=$false;Reason='Objet non retrouvé par son GUID.'} }
+            if ($name -ieq ([string](Get-DomeniaMember $Expectation 'Name' '')).Trim()) { return [pscustomobject]@{Verified=$true;Reason='Objet relu par son GUID avec le nouveau nom.'} }
+            return [pscustomobject]@{Verified=$false;Reason=('Objet relu par son GUID sous le nom ' + $name + '.')}
+        }
+        'Membership' {
+            $member = Get-DomeniaMember $Observed 'Member' $null
+            if ($member -isnot [bool]) { return [pscustomobject]@{Verified=$false;Reason='Appartenance non relue.'} }
+            $wanted = [bool](Get-DomeniaMember $Expectation 'Member' $false)
+            if ($member -eq $wanted) {
+                $text = 'Appartenance directe relue : absent du groupe.'
+                if ($wanted) { $text = 'Appartenance directe relue : membre du groupe.' }
+                return [pscustomobject]@{Verified=$true;Reason=$text}
+            }
+            return [pscustomobject]@{Verified=$false;Reason='Appartenance directe relue contraire à la demande.'}
+        }
+        'Existence' {
+            $exists = Get-DomeniaMember $Observed 'Exists' $null
+            if (($exists -is [bool]) -and $exists) { return [pscustomobject]@{Verified=$true;Reason='OU relue sous son parent.'} }
+            return [pscustomobject]@{Verified=$false;Reason='OU non constatée sous son parent.'}
+        }
+        'Absence' {
+            $exists = Get-DomeniaMember $Observed 'Exists' $null
+            # Only an explicit "no such object" proves the absence; a refused read never does.
+            if (($exists -is [bool]) -and (-not $exists)) { return [pscustomobject]@{Verified=$true;Reason='Absence relue par GUID.'} }
+            return [pscustomobject]@{Verified=$false;Reason='Objet encore présent ou absence non prouvée.'}
+        }
+    }
+    return [pscustomobject]@{Verified=$false;Reason='Règle de relecture inconnue : revue externe requise.'}
+}
+
 # ---------------------------------------------------------------- D094 receipts for every important mutation
 function Get-DomeniaReceiptRequirement {
     # Which operations need a durable receipt written BEFORE the request leaves Domenia.

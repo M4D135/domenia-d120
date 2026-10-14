@@ -539,3 +539,55 @@ Test-Case 'UX-08' 'Avant et apres en clair : ni DN ni GUID, aucun secret' {
     Assert-False ($all -match 'MARQUEUR') 'Secret visible'
     Assert-False ($all -match '(?i)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}') 'Un GUID apparait hors des details techniques'
 }
+# Point 49 : relecture ulterieure d une ecriture incertaine. Etat attendu sans secret, decision par la seule relecture.
+Test-Case 'P49' 'Etat attendu garde par le recu pour chaque ecriture, jamais un secret' {
+    $marker=[guid]::NewGuid().ToString('N')
+    $secure=New-Object Security.SecureString;foreach($c in $marker.ToCharArray()){$secure.AppendChar($c)}
+    $reset=Get-DomeniaReceiptExpectation 'WriteResetPassword' ([pscustomobject]@{DN=$script:SfDnA;SecurePassword=$secure;MustChange=$false;Unlock=$false})
+    Assert-Equal 'PasswordChangedAfterSend' $reset.Kind
+    Assert-False (($reset|ConvertTo-Json -Depth 4 -Compress).Contains($marker)) 'Le mot de passe entre dans le recu'
+    Assert-Equal 'PwdLastSetZero' (Get-DomeniaReceiptExpectation 'WriteResetPassword' ([pscustomobject]@{SecurePassword=$secure;MustChange=$true})).Kind
+    $disabled=Get-DomeniaReceiptExpectation 'WriteAccountDisabled' ([pscustomobject]@{Disabled=$true})
+    Assert-Equal 'UacFlags' $disabled.Kind;Assert-Equal 2 ([int]$disabled.Flags[0].Mask);Assert-True ([bool]$disabled.Flags[0].Set)
+    $options=Get-DomeniaReceiptExpectation 'WriteAccountOptions' ([pscustomobject]@{TargetUac=66048;Masks=[pscustomobject]@{PasswordNeverExpires=65536;PasswordNotRequired=32}})
+    Assert-Equal 2 @($options.Flags).Count;Assert-True ([bool]($options.Flags|Where-Object{$_.Name -eq 'PasswordNeverExpires'}).Set);Assert-False ([bool]($options.Flags|Where-Object{$_.Name -eq 'PasswordNotRequired'}).Set)
+    Assert-Equal '2026-11-01' (Get-DomeniaReceiptExpectation 'WriteExpiration' ([pscustomobject]@{Never=$false;Date='2026-11-01T00:00:00.0000000'})).Day
+    Assert-Equal 'Jamais' (Get-DomeniaReceiptExpectation 'WriteExpiration' ([pscustomobject]@{Never=$true;Date=''})).Day
+    Assert-Equal 'Parent' (Get-DomeniaReceiptExpectation 'WriteMoveObject' ([pscustomobject]@{TargetDn='OU=Anciens,DC=example,DC=test'})).Kind
+    Assert-Equal 'Name' (Get-DomeniaReceiptExpectation 'WriteRenameComputer' ([pscustomobject]@{NewName='PC-02'})).Kind
+    $member=Get-DomeniaReceiptExpectation 'WriteGroupMember' ([pscustomobject]@{GroupDn='CN=G,DC=example,DC=test';ObjectValue='jdupont';Add=$true})
+    Assert-Equal 'Membership' $member.Kind;Assert-True ([bool]$member.Member);Assert-Equal 'jdupont' $member.MemberValue
+    Assert-Equal 'Existence' (Get-DomeniaReceiptExpectation 'WriteCreateOu' ([pscustomobject]@{ParentDn='DC=example,DC=test';Name='Paie'})).Kind
+    Assert-Equal 'Absence' (Get-DomeniaReceiptExpectation 'WriteDeleteObject' ([pscustomobject]@{DN=$script:SfDnA})).Kind
+    Assert-True ($null -eq (Get-DomeniaReceiptExpectation 'RimotteRun' ([pscustomobject]@{}))) 'Regle inventee pour une action distante'
+    Assert-True ($null -eq (Get-DomeniaReceiptExpectation 'WriteMoveObject' ([pscustomobject]@{TargetDn=''}))) 'Cible absente acceptee'
+}
+Test-Case 'P49' 'Decision par la relecture seule : conforme, contraire, refusee ou incomplete' {
+    $ok=[pscustomobject]@{ReadStatus='OK'}
+    $flag=[pscustomobject]@{Kind='UacFlags';Flags=@([pscustomobject]@{Name='ACCOUNTDISABLE';Mask=2;Set=$true})}
+    Assert-True (Resolve-DomeniaReceiptCheck $flag ([pscustomobject]@{ReadStatus='OK';Uac='514'})).Verified
+    Assert-False (Resolve-DomeniaReceiptCheck $flag ([pscustomobject]@{ReadStatus='OK';Uac='512'})).Verified
+    Assert-False (Resolve-DomeniaReceiptCheck $flag ([pscustomobject]@{ReadStatus='Refused';Uac='514'})).Verified 'Un refus de lecture devient une preuve'
+    Assert-False (Resolve-DomeniaReceiptCheck $flag ([pscustomobject]@{ReadStatus='OK';Uac=''})).Verified 'Valeur non relue acceptee'
+    Assert-True (Resolve-DomeniaReceiptCheck ([pscustomobject]@{Kind='Unlocked'}) ([pscustomobject]@{ReadStatus='OK';Lockout='0'})).Verified
+    Assert-False (Resolve-DomeniaReceiptCheck ([pscustomobject]@{Kind='Unlocked'}) ([pscustomobject]@{ReadStatus='OK';Lockout='133000000000000000'})).Verified
+    Assert-True (Resolve-DomeniaReceiptCheck ([pscustomobject]@{Kind='PwdLastSetZero'}) ([pscustomobject]@{ReadStatus='OK';PwdLastSet='0'})).Verified
+    Assert-False (Resolve-DomeniaReceiptCheck ([pscustomobject]@{Kind='PwdLastSetZero'}) ([pscustomobject]@{ReadStatus='OK';PwdLastSet=''})).Verified 'pwdLastSet non relu pris pour 0'
+    $sent=$script:SfNow.ToString('o')
+    $after=[string]$script:SfNow.AddMinutes(1).ToFileTimeUtc();$before=[string]$script:SfNow.AddHours(-2).ToFileTimeUtc()
+    $change=[pscustomobject]@{Kind='PasswordChangedAfterSend'}
+    Assert-True (Resolve-DomeniaReceiptCheck $change ([pscustomobject]@{ReadStatus='OK';PwdLastSet=$after}) $sent).Verified
+    Assert-False (Resolve-DomeniaReceiptCheck $change ([pscustomobject]@{ReadStatus='OK';PwdLastSet=$before}) $sent).Verified
+    Assert-False (Resolve-DomeniaReceiptCheck $change ([pscustomobject]@{ReadStatus='OK';PwdLastSet=$after}) '').Verified 'Heure d envoi absente acceptee'
+    Assert-True (Resolve-DomeniaReceiptCheck ([pscustomobject]@{Kind='AccountExpires';Day='2026-11-01'}) ([pscustomobject]@{ReadStatus='OK';AccountExpiresDay='2026-11-01'})).Verified
+    Assert-False (Resolve-DomeniaReceiptCheck ([pscustomobject]@{Kind='AccountExpires';Day='Jamais'}) ([pscustomobject]@{ReadStatus='OK';AccountExpiresDay='2026-11-01'})).Verified
+    Assert-True (Resolve-DomeniaReceiptCheck ([pscustomobject]@{Kind='Parent';ParentDn='OU=Anciens,DC=example,DC=test'}) ([pscustomobject]@{ReadStatus='OK';ParentDn='ou=anciens,dc=example,dc=test'})).Verified
+    Assert-False (Resolve-DomeniaReceiptCheck ([pscustomobject]@{Kind='Parent';ParentDn='OU=Anciens,DC=example,DC=test'}) ([pscustomobject]@{ReadStatus='OK';ParentDn=''})).Verified
+    Assert-True (Resolve-DomeniaReceiptCheck ([pscustomobject]@{Kind='Membership';Member=$false}) ([pscustomobject]@{ReadStatus='OK';Member=$false})).Verified
+    Assert-False (Resolve-DomeniaReceiptCheck ([pscustomobject]@{Kind='Membership';Member=$true}) ([pscustomobject]@{ReadStatus='OK';Member=$null})).Verified 'Appartenance non relue acceptee'
+    Assert-True (Resolve-DomeniaReceiptCheck ([pscustomobject]@{Kind='Absence'}) ([pscustomobject]@{ReadStatus='OK';Exists=$false})).Verified
+    Assert-False (Resolve-DomeniaReceiptCheck ([pscustomobject]@{Kind='Absence'}) ([pscustomobject]@{ReadStatus='OK';Exists=$null})).Verified 'Absence supposee sans reponse'
+    Assert-False (Resolve-DomeniaReceiptCheck ([pscustomobject]@{Kind='Absence'}) ([pscustomobject]@{ReadStatus='Refused';Exists=$false})).Verified 'Refus pris pour une absence'
+    Assert-True (Resolve-DomeniaReceiptCheck ([pscustomobject]@{Kind='Existence'}) ([pscustomobject]@{ReadStatus='OK';Exists=$true})).Verified
+    Assert-False (Resolve-DomeniaReceiptCheck $null $ok).Verified 'Operation sans regle verifiee'
+}

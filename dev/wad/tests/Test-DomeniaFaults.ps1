@@ -347,6 +347,56 @@ try {
         Assert-True ($again -match 'reste a verifier' -and $script:BusinessRuns -eq 1) ('Rejeu possible : '+$again)
         Assert-True (@(Get-ReceiptRecords $receipts).Count -eq 1) 'Recu supprime ou duplique.'
     }
+    # ------------------------------------------------------------ Point 49 re-read of an uncertain write
+    Test-Case 'Point 49 : recu incertain, etat attendu garde sans secret, heure d envoi notee' {
+        Reset-FaultFixture
+        $receipts=Join-Path $temp 'receipts-p49-envelope'
+        # Runtime-generated synthetic password: nothing secret is stored in the repository.
+        $marker=[guid]::NewGuid().ToString('N');$secure=New-Object Security.SecureString;foreach($c in $marker.ToCharArray()){$secure.AppendChar($c)}
+        $business="`$DomeniaWriteDispatched=`$true`r`nthrow [IO.IOException]::new('Connexion au controleur interrompue apres envoi (simulation).')"
+        $worker=New-WriteEnvelopeScript -Business $business
+        $context=New-WriteContext $receipts;$context.OperationId='WriteResetPassword'
+        $payload=[pscustomobject]@{DN=$script:SelectedObject.DN;CorrelationId=[guid]::NewGuid().ToString('N');SecurePassword=$secure;Unlock=$false;MustChange=$false;Safety=[pscustomobject]@{ExpectedDn=$script:SelectedObject.DN;ExpectedGuid='0a1b2c3d-4e5f-4a6b-8c7d-8e9fa0b1c2d3'}}
+        $failure='';try{[void](& $worker $context $payload)}catch{$failure=$_.Exception.Message}
+        Assert-True ($failure -match 'ETAT INCONNU') ('Issue incertaine non signalee : '+$failure)
+        $records=@(Get-ReceiptRecords $receipts)
+        Assert-True ($records.Count -eq 1 -and $records[0].Stage -eq 'Unknown') 'Recu incertain absent'
+        Assert-True (([string]$records[0].Expectation.Kind -eq 'PasswordChangedAfterSend') -and [bool]$records[0].CanVerify) 'Etat attendu non garde'
+        Assert-True ([bool]([string]$records[0].SentUtc)) 'Heure d envoi non notee'
+        $raw=(@(Get-ChildItem -LiteralPath $receipts -Filter '*.json' -File|ForEach-Object{[IO.File]::ReadAllText($_.FullName)}) -join '')
+        Assert-True (-not $raw.Contains($marker)) 'Le recu porte le mot de passe'
+    }
+    Test-Case 'Point 49 : verifier relit l etat effectif sur le controleur initial, conforme seulement, aucun rejeu' {
+        Reset-FaultFixture
+        $root=Join-Path $temp 'receipts-p49-verify';[void][IO.Directory]::CreateDirectory($root)
+        $id=[guid]::NewGuid().ToString('N')
+        $record=[pscustomobject]@{Format=1;CanVerify=$true;Expectation=[pscustomobject]@{Kind='UacFlags';Flags=@([pscustomobject]@{Name='ACCOUNTDISABLE';Mask=2;Set=$true})};SentUtc=[datetime]::UtcNow.ToString('o');Id=$id;Operation='WriteAccountDisabled';Domain='dc=example,dc=invalid';Server='dc1.example.invalid';Identity='EXAMPLE\technicien';DN='CN=U,DC=example,DC=invalid';Guid='0a1b2c3d-4e5f-4a6b-8c7d-8e9fa0b1c2d3';PlanFingerprint='';Stage='Unknown';CreatedUtc=[datetime]::UtcNow.ToString('o');UpdatedUtc='';Expected=@();Review=''}
+        [IO.File]::WriteAllText((Join-Path $root ($id+'.json')),($record|ConvertTo-Json -Depth 5 -Compress))
+        $override='function Get-WObjectSnapshot {param($Context,[string]$Dn) $script:P49Reads.Add(([string]$Context.Server)+''|''+$Dn); if($script:P49Mode -eq ''Denied''){throw [UnauthorizedAccessException]::new(''Acces refuse (simulation).'')}; return [pscustomobject]@{Exists=$true;DN=''CN=U,DC=example,DC=invalid'';Uac=$script:P49Uac;Lockout=''0'';Name=''U'';Classes=@(''user'')}}'
+        $verify={
+            $text="param(`$Context,`$Payload)`r`n`$ErrorActionPreference='Stop'`r`n"+(Get-DomeniaReceiptsCommon)+"`r`n"+$override+"`r`n"+(Get-DomeniaReceiptWorkerCode)
+            $ctx=[pscustomobject]@{ReceiptRoot=$root;BaseDn='DC=example,DC=invalid';Server='dc2.example.invalid';OperationId='ReceiptStore'}
+            return @(& ([scriptblock]::Create($text)) $ctx ([pscustomobject]@{Action='Verify';Id=$id;Reason=''}))
+        }
+        $script:P49Reads=[Collections.Generic.List[string]]::new()
+        # Not conforming: the receipt stays to verify and nothing is sent again.
+        $script:P49Mode='';$script:P49Uac=512
+        $failure='';try{[void](& $verify)}catch{$failure=$_.Exception.Message}
+        Assert-True ($failure -match 'non confirme' -and $failure -match 'aucun rejeu') ('Etat non conforme accepte : '+$failure)
+        Assert-True ((@(Get-ReceiptRecords $root))[0].Stage -eq 'Unknown') 'Recu resolu sans preuve'
+        # A refused read proves nothing.
+        $script:P49Mode='Denied'
+        $failure='';try{[void](& $verify)}catch{$failure=$_.Exception.Message}
+        Assert-True ($failure -match 'refus') ('Refus de lecture pris pour une preuve : '+$failure)
+        Assert-True ((@(Get-ReceiptRecords $root))[0].Stage -eq 'Unknown') 'Recu resolu apres un refus de lecture'
+        # Conforming re-read, on the controller that received the write, of the object found by its GUID.
+        $script:P49Mode='';$script:P49Uac=514
+        $out=@(& $verify)
+        $after=(@(Get-ReceiptRecords $root))[0]
+        Assert-True (($after.Stage -eq 'Verified') -and ([string]$after.Review -match 'conforme')) ('Recu : '+[string]$after.Stage+' '+[string]$after.Review)
+        Assert-True (@($script:P49Reads|Where-Object{$_ -ne 'dc1.example.invalid|<GUID=0a1b2c3d-4e5f-4a6b-8c7d-8e9fa0b1c2d3>'}).Count -eq 0) ('Relectures : '+($script:P49Reads -join ' ; '))
+        Assert-True ([int]$out[-1].Pending -eq 0) 'Recu encore compte a verifier'
+    }
     Test-Case 'Recus : compaction des recus termines, recus non resolus conserves' {
         Reset-FaultFixture
         $receipts=Join-Path $temp 'receipts-compact'

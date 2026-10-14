@@ -26481,7 +26481,9 @@ function Get-DomeniaWorkerRulesCommon {
         'Test-DomeniaDictionaryKey','Get-DomeniaMember','ConvertTo-DomeniaFlatText','Split-DomeniaDn','ConvertFrom-DomeniaDnValue',
         'ConvertTo-DomeniaDnKey','ConvertTo-DomeniaDnDisplayName','Test-DomeniaWriteTargetDn','Test-DomeniaSecretAttribute',
         'Test-DomeniaMemberPresent','Test-DomeniaDnValuedAttribute','ConvertTo-DomeniaComparableValue','ConvertTo-DomeniaPlanChanges',
-        'Test-DomeniaPreconditionCurrent','Resolve-DomeniaConditionalWrite'
+        'Test-DomeniaPreconditionCurrent','Resolve-DomeniaConditionalWrite',
+        # Point 49: the receipt keeps the state to re-read (expectation) and the receipt worker judges the re-read.
+        'Get-DomeniaReceiptExpectation','Resolve-DomeniaReceiptCheck'
     )
     $parts=New-Object 'System.Collections.Generic.List[string]'
     foreach($name in $names){
