@@ -221,6 +221,28 @@ if($env:OS -eq 'Windows_NT' -and -not $SkipWpf){
             Expect ($presence.Count -eq 1 -and $presence[0].Header -eq 'Présence réseau' -and $window.FindName('DgObjects').Columns.Count -eq 18)
         }finally{$reader.Close();if($null -ne $window){$window.Close()}}
     }
+    # DS-03: unwired if a filter shows a bare « Tous » or « 100 » again, or if the display changes the value read by the rules.
+    Case 'DS-03 Les filtres disent leur sens : Tous les types, Toute presence, lignes max' {
+        Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
+        $reader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml));$window=$null
+        try{
+            $window=[Windows.Markup.XamlReader]::Load($reader);$window.ShowActivated=$false;$window.ShowInTaskbar=$false;$window.Show()
+            $window.FindName('WorkspaceTabs').SelectedItem=$window.FindName('WsSearch');$window.UpdateLayout()
+            foreach($pair in @(@('CmbGlobalType','Tous les types'),@('CmbPresenceFilter','Toute présence'))){
+                $combo=$window.FindName($pair[0]);$first=$combo.Items[0]
+                Expect ([string]$first.Content -ceq 'Tous') ($pair[0]+' : la valeur lue par les regles a change')
+                Expect ([string][Windows.Automation.AutomationProperties]::GetName($first) -ceq $pair[1]) ($pair[0]+' : nom accessible')
+                $combo.SelectedIndex=0;$window.UpdateLayout()
+                $shown=[Windows.Controls.TextBlock]$combo.SelectionBoxItemTemplate.LoadContent()
+                Expect ($shown.Text -ceq $pair[1]) ($pair[0]+' affiche '+$shown.Text)
+                $field=$combo.Parent;Expect (@($field.Children|Where-Object{$_ -is [Windows.Controls.TextBlock]}).Count -eq 0) ($pair[0]+' : intitule superflu')
+            }
+            $unit=$window.FindName('LblGlobalLimitUnit')
+            Expect (($unit.Text -ceq 'lignes max') -and ($unit.IsVisible) -and ([Windows.Controls.DockPanel]::GetDock($unit) -eq 'Right')) 'Unite de la limite absente'
+            Expect ([string][Windows.Automation.AutomationProperties]::GetName($window.FindName('TxtGlobalLimit')) -ceq 'Lignes max') 'Nom accessible de la limite'
+            Expect (-not ([string](Get-MainXaml)).Contains('Saisissez ou consultez cette information')) 'Aide generique restante dans la page Rechercher'
+        }finally{$reader.Close();if($null -ne $window){$window.Close()}}
+    }
     Case 'CO-03 DgObjects : la grille recoit des cles de tri, pas seulement du texte affiche' {
         Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
         Set-DomeniaSearchMode 'OU';$script:Ctrl.TxtSuiteResultFilter.Text=''

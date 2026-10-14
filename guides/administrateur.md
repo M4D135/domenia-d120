@@ -78,9 +78,9 @@ L'arbre « Parcourir les OU » affiche le contenu d'une OU. Le menu « ⋯ » 
 
 | Filtre | Valeurs | Remarque |
 |---|---|---|
-| Type d'objet | Tous, Utilisateurs, Machines, Groupes, OU et conteneurs | Grisé pendant une recherche globale. |
-| Présence réseau | Tous, En ligne, Sans réponse au ping, Non vérifié, Erreur de ping | Filtre les observations mémorisées ; aucun ping collectif. |
-| Limite | 100 par défaut | 20 000 lignes au plus. |
+| Type d'objet | Tous les types, Utilisateurs, Machines, Groupes, OU et conteneurs | Propre à la liste d’une OU. |
+| Présence réseau | Toute présence, En ligne, Sans réponse au ping, Non vérifié, Erreur de ping | Filtre les observations mémorisées ; aucun ping collectif ; repart sur « Toute présence » à chaque lancement. |
+| lignes max | 100 par défaut | 20 000 lignes au plus. |
 | Requêtes | Vues Annuaire, modèles locaux et recettes personnelles | Choisissez une OU, vérifiez la source, puis cliquez sur « Exécuter » ; voir la section Requêtes Annuaire et données locales. |
 
 « Filtrer la liste » filtre les objets déjà chargés, y compris après une recherche globale, sans appel AD ni changement de limite LDAP ; chaque nouvelle recherche le remet à zéro. Le compteur rapporte les lignes visibles aux objets chargés, pas au total du domaine. « Liste partielle » signale une lecture incomplète ou en erreur : même 746/746 ne certifie pas son exhaustivité.

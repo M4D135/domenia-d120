@@ -615,6 +615,7 @@ $script:GuiElementPolicy = [ordered]@{
     "TxtGlobalSearch" = "Default"
     "CmbGlobalType" = "Default"
     "TxtGlobalLimit" = "Default"
+    "LblGlobalLimitUnit" = "Default"
     "BtnGlobalSearch" = "Default"
     "BtnGlobalClear" = "Default"
     "BtnExportResults" = "Default"
@@ -5369,9 +5370,9 @@ function Get-MainXaml {
                         <Grid x:Name="UxSearchFilterQueryLayout"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="0"/></Grid.ColumnDefinitions>
                         <WrapPanel x:Name="UxSearchFilters">
                           <StackPanel Width="148" Margin="0,0,12,8"><StackPanel.Style><Style TargetType="StackPanel"><Style.Triggers><DataTrigger Binding="{Binding Tag, ElementName=SearchBrowserLayout}" Value="Global"><Setter Property="IsEnabled" Value="False"/></DataTrigger></Style.Triggers></Style></StackPanel.Style>
-                            <TextBlock Text="Type d’objet" Margin="0,0,0,6" FontSize="12" FontWeight="SemiBold"/>
-                            <ComboBox x:Name="CmbGlobalType" Margin="0" SelectedIndex="0" ToolTip="Filtre la requête AD dans l’OU sélectionnée : tous, utilisateurs, machines, groupes, ou OU et conteneurs." MinWidth="0" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Type d’objet" AutomationProperties.HelpText="Filtre la requête AD dans l’OU sélectionnée : tous, utilisateurs, machines, groupes, ou OU et conteneurs." MinHeight="36">
-                              <ComboBoxItem Content="Tous"/>
+                            <ComboBox x:Name="CmbGlobalType" Margin="0" SelectedIndex="0" ToolTip="Type dʼobjet lu dans lʼOU choisie : tous les types, utilisateurs, machines, groupes, ou OU et conteneurs. Le filtre fait partie de la requête AD." MinWidth="0" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Type d’objet" AutomationProperties.HelpText="Type dʼobjet lu dans lʼOU choisie : tous les types, utilisateurs, machines, groupes, ou OU et conteneurs. Le filtre fait partie de la requête AD." MinHeight="36">
+                              <!-- DS-03: the value stays « Tous » (rules, saved views, history); only its display says what it means. -->
+                              <ComboBoxItem Content="Tous" AutomationProperties.Name="Tous les types"><ComboBoxItem.ContentTemplate><DataTemplate><TextBlock Text="Tous les types"/></DataTemplate></ComboBoxItem.ContentTemplate></ComboBoxItem>
                               <ComboBoxItem Content="Utilisateurs"/>
                               <ComboBoxItem Content="Machines"/>
                               <ComboBoxItem Content="Groupes"/>
@@ -5379,18 +5380,20 @@ function Get-MainXaml {
                             </ComboBox>
                           </StackPanel>
                           <StackPanel Width="138" Margin="0,0,12,8"><StackPanel.Style><Style TargetType="StackPanel"><Style.Triggers><DataTrigger Binding="{Binding Tag, ElementName=SearchBrowserLayout}" Value="Global"><Setter Property="IsEnabled" Value="False"/></DataTrigger></Style.Triggers></Style></StackPanel.Style>
-                            <TextBlock Text="Présence réseau" Margin="0,0,0,6" FontSize="12" FontWeight="SemiBold"/>
-                            <ComboBox x:Name="CmbPresenceFilter" Margin="0" SelectedIndex="0" ToolTip="Filtre les observations réseau mémorisées en mode OU. Sans réponse au ping ne prouve pas que Windows est éteint. Aucun ping collectif." MinWidth="0" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Présence réseau" AutomationProperties.HelpText="Filtre les observations réseau mémorisées en mode OU. Sans réponse au ping ne prouve pas que Windows est éteint. Aucun ping collectif." MinHeight="36">
-                              <ComboBoxItem Content="Tous"/>
+                            <ComboBox x:Name="CmbPresenceFilter" Margin="0" SelectedIndex="0" ToolTip="Présence réseau mémorisée des postes de la liste : « Toute présence » les montre tous. « Sans réponse au ping » ne prouve pas quʼun poste est éteint. Aucun ping collectif ; le choix nʼest pas gardé dʼune session à lʼautre." MinWidth="0" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Présence réseau" AutomationProperties.HelpText="Présence réseau mémorisée des postes de la liste : « Toute présence » les montre tous. « Sans réponse au ping » ne prouve pas quʼun poste est éteint. Aucun ping collectif ; le choix nʼest pas gardé dʼune session à lʼautre." MinHeight="36">
+                              <ComboBoxItem Content="Tous" AutomationProperties.Name="Toute présence"><ComboBoxItem.ContentTemplate><DataTemplate><TextBlock Text="Toute présence"/></DataTemplate></ComboBoxItem.ContentTemplate></ComboBoxItem>
                               <ComboBoxItem Content="En ligne"/>
                               <ComboBoxItem Content="Sans réponse au ping"/>
                               <ComboBoxItem Content="Non vérifié"/>
                               <ComboBoxItem Content="Erreur de ping"/>
                             </ComboBox>
                           </StackPanel>
-                          <StackPanel Width="90" Margin="0,0,12,8">
-                            <TextBlock Text="Limite" Margin="0,0,0,6" FontSize="12" FontWeight="SemiBold" TextWrapping="NoWrap"/>
-                            <TextBox x:Name="TxtGlobalLimit" Text="100" ToolTip="Nombre maximum de résultats affichés (20 000 au plus)." Margin="0" MinWidth="0" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Maximum de résultats" AutomationProperties.HelpText="Nombre maximum de resultats affiches." MinHeight="36"/>
+                          <!-- DS-03: « 100 lignes max » reads as a limit without the caption (kept short on a tiny screen, Set-DomeniaSearchQueryOptionsLayout). -->
+                          <StackPanel Width="128" Margin="0,0,12,8">
+                            <DockPanel LastChildFill="True">
+                              <TextBlock x:Name="LblGlobalLimitUnit" DockPanel.Dock="Right" Text="lignes max" Margin="6,0,0,0" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" ToolTip="La limite de la liste est un nombre de lignes lues dans lʼannuaire." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Unité de la limite" AutomationProperties.HelpText="La limite de la liste est un nombre de lignes lues dans lʼannuaire."/>
+                              <TextBox x:Name="TxtGlobalLimit" Text="100" ToolTip="Nombre maximum de lignes lues dans lʼannuaire pour cette liste, 20 000 au plus. « Charger la suite » lit les lignes suivantes sans changer ce nombre." Margin="0" MinWidth="0" VerticalContentAlignment="Center" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Lignes max" AutomationProperties.HelpText="Nombre maximum de lignes lues dans lʼannuaire pour cette liste, 20 000 au plus. « Charger la suite » lit les lignes suivantes sans changer ce nombre." MinHeight="36"/>
+                            </DockPanel>
                           </StackPanel>
                         </WrapPanel>
                         <Grid x:Name="UxSearchQueryBar" Grid.Row="1" Margin="0,6,0,0">
@@ -5403,6 +5406,7 @@ function Get-MainXaml {
                           <Grid x:Name="UxSearchQueryExecute" Grid.Row="1">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <ComboBox x:Name="CmbWorkView" MinWidth="0" MinHeight="34" DisplayMemberPath="DisplayName" MaxDropDownHeight="420" ScrollViewer.VerticalScrollBarVisibility="Auto" ToolTip="Choisir une requête Annuaire ou Données locales, puis Exécuter. Le choix seul ne lance rien." AutomationProperties.Name="Requête à exécuter"/>
+                            <TextBlock Text="Vues prêtes…" Margin="10,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False" FontSize="12" Foreground="{DynamicResource MutedColor}"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding SelectedItem, ElementName=CmbWorkView}" Value="{x:Null}"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
                             <Button x:Name="BtnWorkView" Grid.Column="1" Content="Exécuter" Margin="6,0,0,0" MinHeight="34" Padding="10,3" ToolTip="Exécuter la requête choisie dans lʼOU de Recherche et selon la profondeur affichée." AutomationProperties.Name="Exécuter la requête sélectionnée"/>
                             <Button x:Name="BtnSearchQueryFavorite" Grid.Column="2" Content="☆" Width="34" MinWidth="0" MinHeight="34" Padding="3" Margin="6,0,0,0" FontSize="18" ToolTip="Épingler ou retirer cette requête des favoris." AutomationProperties.Name="Épingler la requête"/>
                             <Button x:Name="BtnSearchQueryWorkshop" Grid.Column="3" Content="&#xE70F;" FontFamily="Segoe MDL2 Assets" Width="34" MinWidth="0" MinHeight="34" Padding="6" Margin="6,0,0,0" ToolTip="Créer ou modifier une requête dans Outils, Atelier de requêtes." AutomationProperties.Name="Modifier dans lʼatelier de requêtes"/>
@@ -5419,16 +5423,16 @@ function Get-MainXaml {
                         <ScrollViewer x:Name="UxSearchQueryOptionsScroll" Grid.Row="2" Grid.ColumnSpan="2" Visibility="Collapsed" MaxHeight="80" Margin="0,3,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" KeyboardNavigation.TabNavigation="Continue"><StackPanel x:Name="UxSearchQueryOptionsContent" Margin="0,0,4,0"/></ScrollViewer>
                         </Grid>
                         <Grid Grid.Row="1" Visibility="Collapsed" Height="0" Width="0">
-                          <TextBox x:Name="TxtBranchSearch" Text="" ToolTip="Saisissez ou consultez cette information. Le champ seul ne lance pas une action de modification." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Saisissez ou consultez cette information" AutomationProperties.HelpText="Saisissez ou consultez cette information. Le champ seul ne lance pas une action de modification."/>
-                          <ComboBox x:Name="CmbObjectFilter" SelectedIndex="0" ToolTip="Choisissez une option dans la liste déroulante." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Choisissez une option dans la liste déroulante" AutomationProperties.HelpText="Choisissez une option dans la liste déroulante.">
+                          <TextBox x:Name="TxtBranchSearch" Text="" ToolTip="Champ masqué conservé pour compatibilité ; il reste vide. Pour réduire la liste affichée, utilisez « Filtrer la liste », sans requête AD." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Terme masqué de lʼOU" AutomationProperties.HelpText="Champ masqué conservé pour compatibilité ; il reste vide. Pour réduire la liste affichée, utilisez « Filtrer la liste », sans requête AD."/>
+                          <ComboBox x:Name="CmbObjectFilter" SelectedIndex="0" ToolTip="Ancien filtre de type, masqué : le type se choisit dans la liste « Tous les types » au-dessus des résultats." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ancien filtre de type" AutomationProperties.HelpText="Ancien filtre de type, masqué : le type se choisit dans la liste « Tous les types » au-dessus des résultats.">
                             <ComboBoxItem Content="Tous"/>
                             <ComboBoxItem Content="Utilisateurs"/>
                             <ComboBoxItem Content="Machines"/>
                             <ComboBoxItem Content="Groupes"/>
                             <ComboBoxItem Content="OU et conteneurs"/>
                           </ComboBox>
-                          <TextBox x:Name="TxtBranchLimit" Text="100" ToolTip="Saisissez ou consultez cette information. Le champ seul ne lance pas une action de modification." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Saisissez ou consultez cette information" AutomationProperties.HelpText="Saisissez ou consultez cette information. Le champ seul ne lance pas une action de modification."/>
-                          <Button x:Name="BtnClearBranch" Content="Vider" ToolTip="Lance l’action indiquée sur le bouton." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vider" AutomationProperties.HelpText="Lance l’action indiquée sur le bouton."/>
+                          <TextBox x:Name="TxtBranchLimit" Text="100" ToolTip="Ancienne limite de branche, masquée : la limite se règle dans « lignes max » au-dessus des résultats." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Ancienne limite de branche" AutomationProperties.HelpText="Ancienne limite de branche, masquée : la limite se règle dans « lignes max » au-dessus des résultats."/>
+                          <Button x:Name="BtnClearBranch" Content="Vider" ToolTip="Commande masquée, remplacée par « Effacer la recherche » : vide le texte et les résultats sans modifier lʼOU choisie." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Vider la recherche (commande masquée)" AutomationProperties.HelpText="Commande masquée, remplacée par « Effacer la recherche » : vide le texte et les résultats sans modifier lʼOU choisie."/>
                         </Grid>
                       </StackPanel>
                     </Border>

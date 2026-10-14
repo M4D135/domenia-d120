@@ -425,24 +425,31 @@
   {
     "Name": "CmbGlobalType",
     "Title": "Type d’objet",
-    "Text": "Filtre la requête AD dans l’OU sélectionnée : tous, utilisateurs, machines, groupes, ou OU et conteneurs.",
+    "Text": "Type dʼobjet lu dans lʼOU choisie : tous les types, utilisateurs, machines, groupes, ou OU et conteneurs. Le filtre fait partie de la requête AD.",
     "Kind": "ComboBox",
     "Source": "existing-help"
   },
   {
     "Name": "CmbPresenceFilter",
     "Title": "Présence réseau",
-    "Text": "Filtre les observations réseau mémorisées en mode OU. Sans réponse au ping ne prouve pas que Windows est éteint. Aucun ping collectif.",
+    "Text": "Présence réseau mémorisée des postes de la liste : « Toute présence » les montre tous. « Sans réponse au ping » ne prouve pas quʼun poste est éteint. Aucun ping collectif ; le choix nʼest pas gardé dʼune session à lʼautre.",
     "Kind": "ComboBox",
     "Source": "existing-help",
     "Shortcut": ""
   },
   {
     "Name": "TxtGlobalLimit",
-    "Title": "Maximum de résultats",
-    "Text": "Nombre maximum de résultats affichés.",
+    "Title": "Lignes max",
+    "Text": "Nombre maximum de lignes lues dans lʼannuaire pour cette liste, 20 000 au plus. « Charger la suite » lit les lignes suivantes sans changer ce nombre.",
     "Kind": "TextBox",
     "Source": "existing-help"
+  },
+  {
+    "Name": "LblGlobalLimitUnit",
+    "Title": "Unité de la limite",
+    "Text": "La limite de la liste est un nombre de lignes lues dans lʼannuaire.",
+    "Kind": "TextBlock",
+    "Source": "X02"
   },
   {
     "Name": "BtnGlobalClear",
@@ -460,22 +467,22 @@
   },
   {
     "Name": "TxtBranchSearch",
-    "Title": "Saisissez ou consultez cette information",
-    "Text": "Saisissez ou consultez cette information. Le champ seul ne lance pas une action de modification.",
+    "Title": "Terme masqué de lʼOU",
+    "Text": "Champ masqué conservé pour compatibilité ; il reste vide. Pour réduire la liste affichée, utilisez « Filtrer la liste », sans requête AD.",
     "Kind": "TextBox",
     "Source": "label-help"
   },
   {
     "Name": "CmbObjectFilter",
-    "Title": "Choisissez une option dans la liste déroulante",
-    "Text": "Choisissez une option dans la liste déroulante.",
+    "Title": "Ancien filtre de type",
+    "Text": "Ancien filtre de type, masqué : le type se choisit dans la liste « Tous les types » au-dessus des résultats.",
     "Kind": "ComboBox",
     "Source": "label-help"
   },
   {
     "Name": "TxtBranchLimit",
-    "Title": "Saisissez ou consultez cette information",
-    "Text": "Saisissez ou consultez cette information. Le champ seul ne lance pas une action de modification.",
+    "Title": "Ancienne limite de branche",
+    "Text": "Ancienne limite de branche, masquée : la limite se règle dans « lignes max » au-dessus des résultats.",
     "Kind": "TextBox",
     "Source": "label-help"
   },
@@ -496,8 +503,8 @@
   },
   {
     "Name": "BtnClearBranch",
-    "Title": "Vider",
-    "Text": "Lance l’action indiquée sur le bouton.",
+    "Title": "Vider la recherche (commande masquée)",
+    "Text": "Commande masquée, remplacée par « Effacer la recherche » : vide le texte et les résultats sans modifier lʼOU choisie.",
     "Kind": "Button",
     "Source": "label-help"
   },
