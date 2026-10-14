@@ -1920,17 +1920,16 @@ function Set-DomeniaItemsSource {
     try {
         if ($Name -eq 'DgObjects') {
             $loaded=@($Rows | Where-Object { $null -ne $_ })
-            # D031: a global search never inherits the local list filter, on any repaint path.
-            $global=((Get-DomeniaSearchMode) -eq 'Global')
+            # CO-05: the filter of the list narrows any loaded list, global search included (no request). D031 still holds:
+            # a new search never inherits it, Invoke-GlobalSearch clears it before reading the directory.
             $filter=Get-DomeniaControl 'TxtSuiteResultFilter'
-            $query=if($global -or $null -eq $filter){''}else{[string]$filter.Text}
+            $query=if($null -eq $filter){''}else{[string]$filter.Text}
             $Rows=if([string]::IsNullOrWhiteSpace($query)){$loaded}else{@($loaded | Where-Object { Test-DomeniaExperienceRow $_ $query })}
             # CO-03 : calculee ici et non a la production de la ligne, parce que c est le seul chemin par
             # ou passent toutes les lignes affichees : recherche, cache, enrichissement de la fiche.
             foreach ($row in @($Rows | Where-Object { $null -ne $_ })) { [void](Add-DomeniaGridDateKeys -Row $row -Fields @('Changed','LastLogon')) }
             $visible=@($Rows | Where-Object { $null -ne $_ }).Count
-            $suffix=if($global){' · recherche globale sans filtre local'}else{' · filtre local, sans requête AD'}
-            [void](Set-DomeniaControlText 'LblSuiteResultCount' ("$visible ligne(s) visible(s)"+$suffix))
+            [void](Set-DomeniaControlText 'LblSuiteResultCount' ("$visible ligne(s) visible(s) · filtre de la liste, sans requête AD"))
             # UX-03: a repainted copy (presence, history) counts against the whole list it was taken from.
             if ($null -ne (Get-Command Update-DomeniaFilteredEmptyState -CommandType Function -ErrorAction SilentlyContinue)) {
                 $whole=[Math]::Max($loaded.Count,@($script:BranchObjects).Count)
@@ -5460,9 +5459,11 @@ function Get-MainXaml {
                             </Border>
                           </StackPanel>
                         </DockPanel>
-                        <Grid><Grid.Style><Style TargetType="Grid"><Style.Triggers><DataTrigger Binding="{Binding Tag, ElementName=SearchBrowserLayout}" Value="Global"><Setter Property="IsEnabled" Value="False"/></DataTrigger></Style.Triggers></Style></Grid.Style><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-<StackPanel Width="112" VerticalAlignment="Center" Margin="0,0,10,0"><TextBlock Text="Dans les résultats" FontSize="11" Foreground="{DynamicResource MutedColor}"/><TextBlock x:Name="LblSuiteResultCount" Text="Filtre local : affine seulement les lignes déjà chargées." FontSize="11" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Height="18" Margin="0" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/></StackPanel>
-<TextBox x:Name="TxtSuiteResultFilter" Grid.Column="1" MaxLength="120" MinHeight="32" ToolTip="Filtre local littéral dans le nom, login, type, présence et association. Plusieurs mots se combinent. Aucun appel AD. La limite LDAP reste inchangée." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Filtrer les lignes chargées" AutomationProperties.HelpText="Filtre local littéral dans le nom, login, type, présence et association. Plusieurs mots se combinent. Aucun appel AD. La limite LDAP reste inchangée." IsEnabled="{Binding IsEnabled, ElementName=DgObjects}"/>
+                        <!-- CO-05 / SP-14: the filter of the list works on any loaded list, global search included; no request. -->
+                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+<StackPanel Width="112" VerticalAlignment="Center" Margin="0,0,10,0"><TextBlock Text="Filtrer la liste" FontSize="11" Foreground="{DynamicResource MutedColor}"/><TextBlock x:Name="LblSuiteResultCount" Text="Filtre local : affine seulement les lignes déjà chargées." FontSize="11" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Height="18" Margin="0" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/></StackPanel>
+<Grid Grid.Column="1"><TextBox x:Name="TxtSuiteResultFilter" MaxLength="120" MinHeight="32" VerticalContentAlignment="Center" ToolTip="Filtre de la liste : garde les lignes déjà chargées dont le nom, le login, le type, la présence ou lʼassociation contient le texte. Plusieurs mots se combinent. Aucune requête AD ; une nouvelle recherche le remet à zéro." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Filtrer la liste" AutomationProperties.HelpText="Filtre de la liste : garde les lignes déjà chargées dont le nom, le login, le type, la présence ou lʼassociation contient le texte. Plusieurs mots se combinent. Aucune requête AD ; une nouvelle recherche le remet à zéro." IsEnabled="{Binding IsEnabled, ElementName=DgObjects}"/>
+<TextBlock Text="nom, login, poste… (sans requête AD)" Margin="10,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False" FontSize="12" Foreground="{DynamicResource MutedColor}"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=TxtSuiteResultFilter}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></Grid>
 <Button x:Name="BtnSuiteResultClear" Grid.Column="2" Content="Effacer le filtre" Margin="8,0,0,0" MinHeight="32" ToolTip="Réaffiche les lignes déjà chargées, en conservant le filtre OU, la présence et le texte de recherche AD." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Effacer le filtre local" AutomationProperties.HelpText="Réaffiche les lignes déjà chargées, en conservant le filtre OU, la présence et le texte de recherche AD." IsEnabled="{Binding IsEnabled, ElementName=DgObjects}"/>
 </Grid><Grid x:Name="UxResultLive" Margin="0,10,0,0"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="0"/></Grid.ColumnDefinitions>
                             <WrapPanel>
@@ -11478,10 +11479,12 @@ function Clear-DomeniaGlobalSearch {
 function Invoke-GlobalSearch {
     # D037 / UX-33: -ViewScope, -ExpectBaseDn and -ExpectScope let 'Charger la suite' read the same perimeter again
     # (view chip choice, base and depth of the list), whatever the chip or the tree show now.
+    # CO-05: -KeepLocalFilter keeps the filter of the list for a gesture that brings its own (favourite, history list).
     param([switch]$SilentError,[switch]$AllowEmpty,[switch]$PreserveSelection,
         [ValidateSet('Global','OU')][string]$SearchMode = 'Global',
         [string]$ViewId = '',[int]$LimitOverride = 0,
-        [ValidateSet('','OU','Domain')][string]$ViewScope = '',[string]$ExpectBaseDn = '',[string]$ExpectScope = '')
+        [ValidateSet('','OU','Domain')][string]$ViewScope = '',[string]$ExpectBaseDn = '',[string]$ExpectScope = '',
+        [switch]$KeepLocalFilter)
 
     if(Test-DomeniaAccessBusyWrite){Set-Status 'Recherche différée : écriture active ou à vérifier.' 'WARN';return}
     if(-not (Test-DomeniaDraftNavigation -DN "")){return}
@@ -11554,6 +11557,16 @@ function Invoke-GlobalSearch {
         # D040: the place being left is saved before this search changes the list (no request involved).
         $navHook = Get-Command Enter-DomeniaNavSearch -CommandType Function -ErrorAction SilentlyContinue
         if ($null -ne $navHook) { Enter-DomeniaNavSearch }
+        # CO-05: a new search starts with an empty filter of the list, after the place being left was saved with it.
+        # A refresh, a continuation, a favourite or a history list keep the filter that goes with their list.
+        if ((-not $PreserveSelection) -and (-not $KeepLocalFilter) -and ($LimitOverride -le 0)) {
+            $localFilter = Get-DomeniaControl -Name 'TxtSuiteResultFilter'
+            if (($null -ne $localFilter) -and (-not [string]::IsNullOrEmpty([string]$localFilter.Text))) {
+                $oldExperience = [bool]$script:ExperienceRestoring
+                $script:ExperienceRestoring = $true
+                try { $localFilter.Text = '' } finally { $script:ExperienceRestoring = $oldExperience }
+            }
+        }
         Set-DomeniaSearchMode -Mode $SearchMode
         Invalidate-DomeniaSearchResults -KeepSelection:([bool]$preserveDn)
         $generation = [int]$script:GlobalSearchGeneration

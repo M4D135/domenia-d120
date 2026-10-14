@@ -20,7 +20,7 @@ Quand : avant toute intervention, vous devez retrouver un poste, un utilisateur 
 1. **Placer le curseur.** Cliquez dans la barre du haut « Personne, poste ou groupe, dans tout le domaine… », ou appuyez sur Ctrl+F. Vos dernières recherches et fiches s'affichent sous la barre ; pendant la frappe, des suggestions viennent de la base locale. La saisie seule n'interroge pas l'annuaire.
 2. **Taper le nom.** Saisissez au moins deux caractères : nom, identifiant, adresse mail ou nom de poste. Appuyez sur Entrée ou cliquez sur « Rechercher ». La page « Rechercher » affiche la liste « Résultats ».
 3. **Lire la liste.** Le compteur indique les lignes visibles parmi les objets chargés, pas le total du domaine. « Liste partielle » signale une lecture incomplète : même 746/746 ne garantit pas que tout a été reçu.
-4. **Affiner sans relancer.** Tapez quelques lettres dans « Dans les résultats » : seules les lignes qui les contiennent restent. « Effacer le filtre » réaffiche tout.
+4. **Affiner sans relancer.** Tapez quelques lettres dans « Filtrer la liste » : seules les lignes chargées qui les contiennent restent, aussi après une recherche globale, sans requête AD. « Effacer le filtre » réaffiche tout. Une nouvelle recherche repart avec un filtre vide.
 5. **Vérifier un poste.** Cliquez une fois sur la ligne d'un poste. Domenia le pingue et lit l'utilisateur ouvert sur son écran : « Présence réseau » et « Utilisateur connecté (console) » se mettent à jour.
 6. **Ouvrir la fiche.** Double-cliquez sur la ligne, ou appuyez sur Entrée. La page « Fiche » s'ouvre sur l'onglet « Resume ».
 
@@ -211,7 +211,7 @@ Quand : vous voulez voir d'un coup d'œil l'état d'un poste et ses points à v�
 
 Quand : vous cherchez sur quel poste travaille un utilisateur, ou quels postes d'un service sont allumés.
 
-1. **Préparer la liste.** Affichez les postes voulus dans « Rechercher » : OU, recherche ou « Dans les résultats » (chapitre 1). Seuls les postes affichés sont interrogés : une liste courte va plus vite.
+1. **Préparer la liste.** Affichez les postes voulus dans « Rechercher » : OU, recherche ou « Filtrer la liste » (chapitre 1). Seuls les postes affichés sont interrogés : une liste courte va plus vite.
 2. **Pinger la liste.** Pour savoir seulement quels postes répondent, cliquez sur « Pinger la liste ». La demande « Pinger les postes affiches » donne le nombre de postes. Cliquez sur « Pinger ».
 3. **Ou détecter les utilisateurs.** Pour savoir aussi qui est connecté, cliquez sur « Détecter la liste ». La demande « Detecter sur les resultats affiches » donne le nombre de postes. Cliquez sur « Verifier les sessions ».
 4. **Ou analyser les postes.** Pour connaître aussi leur matériel, cliquez sur « Analyser la liste ». La demande « Analyser les postes affiches » donne le nombre de postes. Cliquez sur « Analyser ». En plus de l'utilisateur, Domenia lit le modèle, la mémoire, le disque C:, la version de Windows et la date de démarrage de chaque poste.

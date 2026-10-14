@@ -83,7 +83,7 @@ L'arbre « Parcourir les OU » affiche le contenu d'une OU. Le menu « ⋯ » 
 | Limite | 100 par défaut | 20 000 lignes au plus. |
 | Requêtes | Vues Annuaire, modèles locaux et recettes personnelles | Choisissez une OU, vérifiez la source, puis cliquez sur « Exécuter » ; voir la section Requêtes Annuaire et données locales. |
 
-« Dans les résultats » filtre les objets déjà chargés, sans appel AD ni changement de limite LDAP. Le compteur rapporte les lignes visibles aux objets chargés, pas au total du domaine. « Liste partielle » signale une lecture incomplète ou en erreur : même 746/746 ne certifie pas son exhaustivité.
+« Filtrer la liste » filtre les objets déjà chargés, y compris après une recherche globale, sans appel AD ni changement de limite LDAP ; chaque nouvelle recherche le remet à zéro. Le compteur rapporte les lignes visibles aux objets chargés, pas au total du domaine. « Liste partielle » signale une lecture incomplète ou en erreur : même 746/746 ne certifie pas son exhaustivité.
 
 > [!NOTE] « Sans réponse au ping » ne prouve pas qu'un poste est éteint : l'ICMP peut être filtré. Une liste vide ne prouve pas non plus une absence dans AD.
 

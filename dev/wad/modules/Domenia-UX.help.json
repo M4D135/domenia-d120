@@ -2996,8 +2996,8 @@
   },
   {
     "Name": "TxtSuiteResultFilter",
-    "Title": "Filtrer les lignes chargées",
-    "Text": "Filtre local littéral dans le nom, login, type, présence et association. Plusieurs mots se combinent. Aucun appel AD. La limite LDAP reste inchangée.",
+    "Title": "Filtrer la liste",
+    "Text": "Filtre de la liste : garde les lignes déjà chargées dont le nom, le login, le type, la présence ou lʼassociation contient le texte. Plusieurs mots se combinent. Aucune requête AD ; une nouvelle recherche le remet à zéro.",
     "Kind": "Experience"
   },
   {

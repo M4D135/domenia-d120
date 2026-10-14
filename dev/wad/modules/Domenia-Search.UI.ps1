@@ -605,10 +605,11 @@ function Invoke-DomeniaHistoryRefresh {
         # The view is read again over its own perimeter (OU or whole domain), not the one the chip shows now.
         $viewScope = [string](Get-DomeniaMember $script:NavHistoryState 'ViewChoice' '')
         if ($viewScope -notin @('OU','Domain')) { $viewScope = '' }
-        Invoke-GlobalSearch -ViewId $viewId -SilentError -ViewScope $viewScope
+        Invoke-GlobalSearch -ViewId $viewId -SilentError -ViewScope $viewScope -KeepLocalFilter
         return
     }
-    Invoke-GlobalSearch -SearchMode (Get-DomeniaSearchMode) -AllowEmpty -SilentError
+    # CO-05: the history list is read again with the filter of the list that came back with it.
+    Invoke-GlobalSearch -SearchMode (Get-DomeniaSearchMode) -AllowEmpty -SilentError -KeepLocalFilter
 }
 
 function Get-DomeniaTreeSelectionSource {

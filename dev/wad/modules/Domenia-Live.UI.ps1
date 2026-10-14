@@ -281,7 +281,8 @@ function Update-DomeniaLiveFilter {
     $filter=Get-DomeniaControl 'TxtSuiteResultFilter'
     $query=if($null -ne $filter){[string]$filter.Text}else{''}
     $presence=[string]$script:CurrentPresenceFilter
-    if((Get-DomeniaSearchMode) -eq 'Global'){$query='';$presence='Tous'}
+    # CO-05: the filter of the list narrows a global list too (no request); the presence filter belongs to OU lists.
+    if((Get-DomeniaSearchMode) -eq 'Global'){$presence='Tous'}
     # Capture values, not controls; filtering performs no network or database I/O.
     if($query.Length -gt 120){$query=$query.Substring(0,120)}
     $terms=@($query.Trim() -split '\s+'|Where-Object {$_})
@@ -320,7 +321,7 @@ function Update-DomeniaLiveFilter {
     try{$view.Filter=[Predicate[object]]$predicate;$view.Refresh()}finally{$script:SuppressGridSelectionEvents=$old}
     # The fraction counts displayed/loaded rows, never the total AD population. Keep an incomplete
     # read visible beside that fraction even when the branch counter is outside the current viewport.
-    [void](Set-DomeniaControlText 'LblSuiteResultCount' ($(if($s.Error){'Liste partielle · '}elseif(-not $s.Finalized){'Chargement… · '}elseif($null -ne $s.Final -and [bool]$s.Final.LimitReached){'Limite atteinte · '}else{''})+"$($grid.Items.Count) / $($s.Rows.Count) lignes visibles"+$(if((Get-DomeniaSearchMode) -eq 'Global'){' · recherche globale sans filtre local'}else{' · filtre local'})))
+    [void](Set-DomeniaControlText 'LblSuiteResultCount' ($(if($s.Error){'Liste partielle · '}elseif(-not $s.Finalized){'Chargement… · '}elseif($null -ne $s.Final -and [bool]$s.Final.LimitReached){'Limite atteinte · '}else{''})+"$($grid.Items.Count) / $($s.Rows.Count) lignes visibles · filtre de la liste"))
     # UX-03: every loaded row hidden by the filter of the list: the empty list says how many and offers to clear it.
     if([bool]$s.EmptyState){Update-DomeniaFilteredEmptyState -Loaded $s.Rows.Count -Visible $grid.Items.Count}
     $script:Live.LastFilter=[datetime]::UtcNow;$s.RefreshNeeded=$false;$s.FilterPending=$false
@@ -825,9 +826,11 @@ function Invoke-DomeniaLiveTick {
                 }
                 [void](Set-DomeniaControlText 'LblBranchCount' $script:BranchCountLabel)
                 $filterBox=Get-DomeniaControl 'TxtSuiteResultFilter'
-                $hasFilter=((Get-DomeniaSearchMode) -ne 'Global' -and ($script:CurrentPresenceFilter -ne 'Tous' -or ($null -ne $filterBox -and -not [string]::IsNullOrWhiteSpace([string]$filterBox.Text))))
+                # CO-05: the text of the list filters every list; the presence only the OU lists.
+                $hasText=(($null -ne $filterBox) -and (-not [string]::IsNullOrWhiteSpace([string]$filterBox.Text)))
+                $hasFilter=($hasText -or (((Get-DomeniaSearchMode) -ne 'Global') -and ($script:CurrentPresenceFilter -ne 'Tous')))
                 if(($s.FilterPending -or (($hasFilter -or -not $script:Live.Notifying) -and $s.RefreshNeeded)) -and ([datetime]::UtcNow-$script:Live.LastFilter).TotalMilliseconds -ge 400){Update-DomeniaLiveFilter}
-                [void](Set-DomeniaControlText 'LblSuiteResultCount' ($(if($s.Error){'Liste partielle · '}elseif(-not $s.Finalized){'Chargement… · '}elseif($null -ne $s.Final -and [bool]$s.Final.LimitReached){'Limite atteinte · '}else{''})+"$($grid.Items.Count) / $($s.Rows.Count) lignes visibles"+$(if((Get-DomeniaSearchMode) -eq 'Global'){' · recherche globale sans filtre local'}else{' · filtre local'})))
+                [void](Set-DomeniaControlText 'LblSuiteResultCount' ($(if($s.Error){'Liste partielle · '}elseif(-not $s.Finalized){'Chargement… · '}elseif($null -ne $s.Final -and [bool]$s.Final.LimitReached){'Limite atteinte · '}else{''})+"$($grid.Items.Count) / $($s.Rows.Count) lignes visibles · filtre de la liste"))
             }
         }
         Update-DomeniaSearchMoreButton -Search $(if($activeSearch){$script:Live.Search}else{$null})

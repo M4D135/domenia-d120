@@ -232,18 +232,22 @@ function Send-TreeMouse {param($Tree)
 }
 
 # ---------------------------------------------------------------- D031 strict global contract
-# Unwired if Set-DomeniaItemsSource stops reading the search mode: the global user is hidden again.
-Case 'D031 Global repaint ignores the local OU text filter' {
+# CO-05: unwired if Set-DomeniaItemsSource ignores the filter of the list in global mode again, or if a new global
+# search keeps the filter of the list being left (D031: a new search never inherits it).
+Case 'CO-05 / D031 The filter of the list narrows a global list and a new search starts without it' {
     $script:Ctrl.TxtSuiteResultFilter.Text='PC-ONLY'
     $a=New-ResultRow 'Alex' 'alex';$p=New-ResultRow 'PC-ONLY' 'pc' 'Machine'
     foreach($r in @($a,$p)){Add-Member -InputObject $r -NotePropertyName Association -NotePropertyValue '';Add-Member -InputObject $r -NotePropertyName Presence -NotePropertyValue '';Add-Member -InputObject $r -NotePropertyName SessionDisplay -NotePropertyValue '';Add-Member -InputObject $r -NotePropertyName SessionState -NotePropertyValue ''}
     Set-DomeniaSearchMode Global;[void](Set-DomeniaItemsSource -Name DgObjects -Rows @($a,$p))
     $names=@(Get-GridNames)
-    Expect ($names -contains 'Alex' -and $names.Count -eq 2) 'Un utilisateur global est masque par le filtre local.'
-    Expect ($script:Ctrl.LblSuiteResultCount.Text.Contains('recherche globale sans filtre local'))
+    Expect (($names.Count -eq 1) -and ($names[0] -eq 'PC-ONLY')) 'Le filtre de la liste nʼagit pas sur une liste globale.'
+    Expect ($script:Ctrl.LblSuiteResultCount.Text.Contains('filtre de la liste, sans requête AD'))
     Set-DomeniaSearchMode OU;[void](Set-DomeniaItemsSource -Name DgObjects -Rows @($a,$p))
     $names=@(Get-GridNames)
-    Expect ($names.Count -eq 1 -and $names[0] -eq 'PC-ONLY') 'Le filtre local doit rester actif en OU.'
+    Expect (($names.Count -eq 1) -and ($names[0] -eq 'PC-ONLY')) 'Le filtre de la liste doit rester actif en OU.'
+    $t=Search-Global 'alex'
+    Expect (($null -ne $t) -and ($script:Ctrl.TxtSuiteResultFilter.Text -eq '')) 'La nouvelle recherche garde le filtre de la liste precedente.'
+    Expect ((Get-TaskCount 'GlobalSearch') -eq 1) 'Effacer le filtre de la liste a lance une autre lecture.'
 }
 # Unwired if Invoke-DomeniaObjectChanges uses Get-BranchQueryData for a global list: BaseDn becomes the OU.
 Case 'D031 Revalidation of a global list keeps the whole domain and asks the rest policy' {

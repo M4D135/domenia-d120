@@ -238,7 +238,7 @@ if($infrastructure){
                     $grid.ItemsSource=$more;$grid.SelectedIndex=3
                     # Texts produced by the application during a search (Live.UI, Search.Model counter wording).
                     [void](Set-DomeniaControlText 'LblBranchCount' '200 objets · liste limitee a 200 : affinez ou chargez la suite')
-                    [void](Set-DomeniaControlText 'LblSuiteResultCount' '37 / 200 lignes visibles · recherche globale sans filtre local')
+                    [void](Set-DomeniaControlText 'LblSuiteResultCount' '37 / 200 lignes visibles · filtre de la liste')
                     # D028: the longest save state of the rule (Get-DomeniaPersistenceLabel, conflict case) at the end of the Live line.
                     [void](Set-DomeniaControlText 'LblLiveState' 'Vérification du poste sélectionné ; les observations précédentes restent datées en cache. · En memoire : 12 association(s) modifiee(s) ailleurs, non enregistree(s). Rechargez les associations : Comptes > Changer de compte, ou redemarrage.')
                     [void](Set-DomeniaControlText 'LblSelectionReadState' 'Utilisateur : Utilisateur fictif numero 4 | Lecture AD en arriere-plan...')

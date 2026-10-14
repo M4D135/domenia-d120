@@ -220,14 +220,21 @@ try {
    Snapshot-Fixture '2500-of-5000-machine-query'
    Invoke-DomeniaQueryAction 'ClearSearch';Expect ($grid.Items.Count -eq 5002) 'Scale ClearSearch failed';Expect-HealthyTimer
   }
-  Case 'A fresh global search restarts and ignores residual local text and presence' {
-   $script:SearchMode='Global';$script:GlobalSearchGeneration++;$script:Ctrl.TxtSuiteResultFilter.Text='NO LOCAL MATCH';$script:CurrentPresenceFilter='En ligne'
+  # CO-05: in a global list the residual OU presence is ignored, the filter of the list applies (Invoke-GlobalSearch
+  # clears it when the search starts; here the text is typed on the global list itself).
+  Case 'A fresh global search ignores the OU presence and honours the filter of the list' {
+   $script:SearchMode='Global';$script:GlobalSearchGeneration++;$script:Ctrl.TxtSuiteResultFilter.Text='';$script:CurrentPresenceFilter='En ligne'
    $scope=Get-DomeniaSearchScope;$state=[pscustomobject]@{Generation=$script:GlobalSearchGeneration;SearchMode='Global';BaseDn=$scope.BaseDn;Scope=$scope.Scope;TypeFilter=(Get-GlobalSelectedTypeFilter);Search='';Limit=10000;PreserveSelectionDn='';ViewId=''}
    $script:Live.Timer.Stop();$s=Begin-DomeniaLiveSearch $state ([pscustomobject]@{})
    $s.Progress.Enqueue((New-FixtureEvent 'GLOBAL-ALPHA' $script:Ids[0]));$s.Progress.Enqueue((New-FixtureEvent 'GLOBAL-USER' $script:Ids[2] 'Utilisateur'))
    Invoke-DomeniaTimerSoon -Owner 'Timer:Live'
    Wait-FixtureState -Stage 'fresh-global-search' -Condition {$s.Progress.IsEmpty -and $s.Rows.Count -eq 2 -and $grid.Items.Count -eq 2}
-   Expect-HealthyTimer;Expect ($s.Rows.Count -eq 2 -and $grid.Items.Count -eq 2) 'New global search inherited local filters or failed to restart'
+   Expect-HealthyTimer;Expect ($s.Rows.Count -eq 2 -and $grid.Items.Count -eq 2) 'New global search inherited the OU presence or failed to restart'
+   $script:Ctrl.TxtSuiteResultFilter.Text='GLOBAL-USER';Apply-DomeniaPresenceFilter
+   Expect (($grid.Items.Count -eq 1) -and ([string]$grid.Items[0].Name -eq 'GLOBAL-USER')) 'The filter of the list does not narrow a global list'
+   Expect ($script:Ctrl.LblSuiteResultCount.Text.Contains('1 / 2 lignes visibles · filtre de la liste')) ('Counter: '+$script:Ctrl.LblSuiteResultCount.Text)
+   $script:Ctrl.TxtSuiteResultFilter.Text='';$script:CurrentPresenceFilter='Tous';Apply-DomeniaPresenceFilter
+   Expect ($grid.Items.Count -eq 2) 'Clearing the filter of the list did not show the global rows again'
    Snapshot-Fixture 'fresh-global-search'
   }
  }else{$script:Results.Add([pscustomobject]@{Name='Filter apply/refresh/clear scenarios';Passed=$false;Error='Blocked by reproduced Timer:Live failure; no success inferred.'})}
